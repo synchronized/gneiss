@@ -20,7 +20,9 @@
 
 Gneiss 分为逻辑层、ECS 数据层、服务层与后端层。场景树通过实体 ID 映射到 ECS，运行时系统再通过 RID 使用渲染、网络、音频和物理服务。
 
-完整的分层关系、模块边界和技术选型见[总体架构](docs/concepts/architecture.md)。
+项目解决的问题及与 Granit 的职责划分见[项目目标与边界](docs/concepts/project-scope.md)，完整的
+分层关系和技术方向见[总体架构](docs/concepts/architecture.md)。开发阶段与 `0.1.0` 当前重点见
+[开发路线图](docs/roadmap.md)。
 
 ## 开始使用
 

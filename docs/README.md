@@ -10,7 +10,9 @@
 ### 了解项目
 
 1. 阅读项目根目录的 [README](../README.md)，了解定位与当前状态。
-2. 阅读[总体架构](concepts/architecture.md)，了解场景树、ECS、服务与后端的关系。
+2. 阅读[项目目标与边界](concepts/project-scope.md)，了解 Gneiss 解决的问题和与 Granit 的分工。
+3. 阅读[总体架构](concepts/architecture.md)，了解场景树、ECS、服务与后端的关系。
+4. 阅读[开发路线图](roadmap.md)，了解阶段、优先级和当前工作重点。
 
 ### 参与开发
 
@@ -25,10 +27,16 @@
 
 ## 架构与原理
 
+- [项目目标、核心边界与非目标](concepts/project-scope.md)
 - [总体架构、模块边界与核心技术](concepts/architecture.md)
+
+## 路线图与开发计划
+
+- [Gneiss 开发路线图](roadmap.md)
+- [M-01：0.1.0 最小运行时闭环](plans/M-01-0.1.0-runtime-slice.md)
 
 ## 文档维护
 
 - [项目文档规范](../DOCUMENTATION_GUIDE.md)
 
-教程、操作指南、API 参考、路线图、计划、ADR 和实施记录将在对应内容出现后加入本页。尚未实现的设计不是当前公共能力。
+其他教程、API 参考、ADR 和实施记录将在出现真实内容后加入本页。尚未实现的设计不是当前公共能力。
