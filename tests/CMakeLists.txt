@@ -112,6 +112,21 @@ gneiss_target_compile_warnings(gneiss_input_service_test)
 gneiss_target_output_directories(gneiss_input_service_test)
 add_test(NAME gneiss.input_service COMMAND gneiss_input_service_test)
 
+add_executable(
+  gneiss_action_map_test
+  input/action_map_test.cpp
+  "${PROJECT_SOURCE_DIR}/src/input/action_map.cpp"
+  "${PROJECT_SOURCE_DIR}/src/asset/asset_uri.cpp"
+  "${PROJECT_SOURCE_DIR}/src/asset/virtual_file_system.cpp"
+)
+target_include_directories(gneiss_action_map_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_compile_definitions(gneiss_action_map_test PRIVATE GNEISS_BUILDING_LIBRARY)
+target_link_libraries(gneiss_action_map_test PRIVATE gneiss::gneiss gneiss_yyjson)
+target_compile_features(gneiss_action_map_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_action_map_test)
+gneiss_target_output_directories(gneiss_action_map_test)
+add_test(NAME gneiss.action_map COMMAND gneiss_action_map_test)
+
 add_executable(gneiss_c_world_test c_world_test.c)
 target_link_libraries(gneiss_c_world_test PRIVATE gneiss::gneiss)
 set_target_properties(

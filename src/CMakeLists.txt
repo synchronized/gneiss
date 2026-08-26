@@ -38,6 +38,8 @@ target_sources(
     core/version.cpp
     input/input_service.cpp
     input/input_service.h
+    input/action_map.cpp
+    input/action_map.h
     render/render_resource_service.cpp
     render/render_resource_service.h
     render/render_asset_loader.cpp
