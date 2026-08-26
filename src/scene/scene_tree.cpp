@@ -8,6 +8,7 @@
 #include <cmath>
 #include <limits>
 #include <new>
+#include <utility>
 
 namespace gneiss::scene_internal {
 namespace {
