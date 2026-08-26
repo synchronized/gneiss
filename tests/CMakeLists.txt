@@ -184,6 +184,13 @@ gneiss_target_compile_warnings(gneiss_render_snapshot_test)
 gneiss_target_output_directories(gneiss_render_snapshot_test)
 add_test(NAME gneiss.render_snapshot COMMAND gneiss_render_snapshot_test)
 
+add_executable(gneiss_json_format_test serialization/json_format_test.cpp)
+target_link_libraries(gneiss_json_format_test PRIVATE gneiss_yyjson)
+target_compile_features(gneiss_json_format_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_json_format_test)
+gneiss_target_output_directories(gneiss_json_format_test)
+add_test(NAME gneiss.json_format COMMAND gneiss_json_format_test)
+
 if(TARGET gneiss_version_example)
   add_test(NAME gneiss.version_example COMMAND gneiss_version_example)
   set_tests_properties(

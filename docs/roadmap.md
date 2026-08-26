@@ -57,7 +57,7 @@
 
 | 任务 | 优先级 | 状态 |
 | --- | --- | --- |
-| M-13 JSON 格式 Spike 与 ADR | P0 | 待开始 |
+| M-13 JSON 格式 Spike 与 ADR | P0 | 已完成；采用 yyjson 0.12.0 |
 | M-14 资产 URI、缓存与生命周期 | P0 | 待开始 |
 | M-15 版本化场景 Schema | P0 | 待开始 |
 | M-16 Mesh/Material Loader | P0 | 待开始 |

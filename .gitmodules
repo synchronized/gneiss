@@ -1,3 +1,6 @@
 [submodule "3rd/entt"]
 	path = 3rd/entt
 	url = https://github.com/skypjack/entt.git
+[submodule "3rd/yyjson"]
+	path = 3rd/yyjson
+	url = https://github.com/ibireme/yyjson.git

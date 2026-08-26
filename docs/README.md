@@ -52,10 +52,12 @@
 - [ADR-001：Granit 依赖接入边界（已取代）](decisions/ADR-001-granit-dependency.md)
 - [ADR-002：ECS、反射与序列化边界](decisions/ADR-002-ecs-reflection-boundary.md)
 - [ADR-003：Granit 依赖来源策略](decisions/ADR-003-granit-provider-strategy.md)
+- [ADR-004：使用 yyjson 解析内部 JSON 文档](decisions/ADR-004-json-parser.md)
 
 ## 实施与验收记录
 
 - [0.1.0 版本验收记录](records/0.1.0-validation.md)
+- [M-13 JSON 解析器 Spike 记录](records/M-13-json-spike.md)
 
 ## 文档维护
 
