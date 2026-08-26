@@ -10,4 +10,3 @@
 #define GNEISS_VERSION_STRING "@PROJECT_VERSION@"
 
 #endif
-

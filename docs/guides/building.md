@@ -52,4 +52,3 @@ gneiss 0.1.0
 - 找不到编译器：确认 preset 指定的编译器已加入 `PATH`，或选择其他 preset。
 - 找不到 Ninja：安装 Ninja，或在 Windows 上选择 Visual Studio 2022 preset。
 - 切换编译器或链接方式：使用对应的独立 preset，不要复用其他 preset 的构建目录。
-

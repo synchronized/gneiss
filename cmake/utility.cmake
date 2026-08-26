@@ -27,7 +27,6 @@ function(gneiss_target_output_directories target)
       ARCHIVE_OUTPUT_DIRECTORY "${library_directory}"
   )
 endfunction()
-
 function(gneiss_target_compile_warnings target)
   if(NOT TARGET ${target})
     message(FATAL_ERROR "目标不存在: ${target}")
@@ -83,4 +82,3 @@ function(gneiss_target_compile_warnings target)
       $<$<COMPILE_LANG_AND_ID:CXX,GNU,Clang,AppleClang>:-Werror>
   )
 endfunction()
-
