@@ -19,7 +19,7 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 include(gneiss_utility)
 if(GNEISS_ENABLE_GRANIT_PLATFORM)
   include(granit)
-  gneiss_resolve_granit_window()
+  gneiss_resolve_granit_runtime()
 endif()
 include(CTest)
 

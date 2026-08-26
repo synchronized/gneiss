@@ -55,6 +55,27 @@ gneiss_result granit_platform::initialize(const gneiss_application_desc& desc) n
   result = window_.initialize(
       window_system_.native_handle(),
       {.title = title, .width = desc.window_width, .height = desc.window_height, .flags = flags});
+  if (granit::failed(result)) {
+    return map_result(result);
+  }
+
+  native_window_.width = desc.window_width;
+  native_window_.height = desc.window_height;
+  result = window_.native_win32(native_window_.display, native_window_.window);
+  if (granit::succeeded(result)) {
+    native_window_.backend = native_window_backend::win32;
+    return GNEISS_SUCCESS;
+  }
+  result = window_.native_xcb(native_window_.display, native_window_.xcb_window);
+  if (granit::succeeded(result)) {
+    native_window_.backend = native_window_backend::xcb;
+    return GNEISS_SUCCESS;
+  }
+  result = window_.native_wayland(native_window_.display, native_window_.window);
+  if (granit::succeeded(result)) {
+    native_window_.backend = native_window_backend::wayland;
+    return GNEISS_SUCCESS;
+  }
   return map_result(result);
 }
 
@@ -66,6 +87,16 @@ gneiss_result granit_platform::poll(bool& out_should_close) noexcept {
     if (event.type == GRANIT_WINDOW_EVENT_CLOSE_REQUESTED &&
         event.window == window_.native_handle()) {
       out_should_close = true;
+    } else if (event.type == GRANIT_WINDOW_EVENT_RESIZED &&
+               event.window == window_.native_handle()) {
+      native_window_.width = event.data.resized.width;
+      native_window_.height = event.data.resized.height;
+      native_window_.needs_recreate = true;
+    } else if (event.type == GRANIT_WINDOW_EVENT_SCALE_CHANGED &&
+               event.window == window_.native_handle()) {
+      native_window_.width = event.data.scale.width;
+      native_window_.height = event.data.scale.height;
+      native_window_.needs_recreate = true;
     }
     event = GRANIT_WINDOW_EVENT_INIT;
     result = window_system_.poll(event);

@@ -95,13 +95,13 @@ extern "C" {
 GNEISS_API gneiss_result gneiss_application_create(const gneiss_application_desc* desc,
                                                    gneiss_application* out_application);
 
-/** 逆序销毁 World、平台回调状态和 Application。 */
+/** 逆序销毁 World、平台回调状态、Render Service、平台窗口和 Application。 */
 GNEISS_API gneiss_result gneiss_application_destroy(gneiss_application application);
 
 /**
  * 运行主循环。max_frame_count 为零时持续运行至收到退出请求。
  *
- * 每帧依次轮询事件、计算时间并调用 update；任一回调失败时立即返回该错误。
+ * 每帧依次轮询事件、计算时间、调用 update，并在 Granit 模式下呈现；失败时立即返回错误。
  */
 GNEISS_API gneiss_result gneiss_application_run(gneiss_application application,
                                                 uint64_t max_frame_count);

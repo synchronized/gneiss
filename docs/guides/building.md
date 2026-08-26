@@ -12,8 +12,8 @@
 - CMake 3.23 或更高版本。
 - 支持 C++20 的 C/C++ 编译器。
 - 使用 Ninja preset 时需要安装 Ninja。
-- 启用窗口适配时需要已安装的 Granit `0.3.0+` Window 组件，或由父工程提供
-  `granit::window` 目标。
+- 启用 Granit 运行时适配时需要已安装的 Granit `0.3.0+` 核心与 Window 组件，或由父工程提供
+  `granit::granit` 和 `granit::window` 目标。
 
 ## 操作步骤
 
@@ -39,9 +39,11 @@ ctest --preset windows-clang-debug
 
 Linux 可选择 `linux-clang-debug` 或 `linux-gcc-debug`，可执行文件不带 `.exe` 后缀。
 
-### 启用 Granit 窗口适配
+### 启用 Granit 窗口与渲染适配
 
-普通 preset 默认关闭可选的窗口适配，因此无图形环境也能构建和测试核心。启用后默认使用 `AUTO`
+普通 preset 默认关闭可选的运行时适配，因此无图形环境也能构建和测试核心。启用后，Granit 平台
+Application 会创建 Vulkan Renderer、Surface 和 Swapchain，并在每帧更新后执行清屏与呈现。
+依赖解析默认使用 `AUTO`
 provider：优先复用父工程目标，其次查找 package，最后把锁定的 Granit 提交下载到当前构建目录的
 `_deps`。开箱构建命令如下：
 
@@ -65,8 +67,8 @@ ctest --test-dir build/granit-platform --output-on-failure
 
 使用 `GNEISS_GRANIT_PROVIDER=FETCH` 可以强制验证下载路径，跳过 package 查找。仓库镜像和版本可
 通过 `GNEISS_GRANIT_GIT_REPOSITORY`、`GNEISS_GRANIT_GIT_TAG` 覆盖。若父工程已经定义
-`granit::window`，所有 provider 都会优先直接复用。共享库 package 构建运行测试时，Granit Window
-动态库必须位于系统动态库搜索路径中。
+`granit::granit` 与 `granit::window`，所有 provider 都会优先直接复用。共享库 package 构建运行
+测试时，Granit 核心和 Window 动态库必须位于系统动态库搜索路径中。
 
 ## 验证结果
 

@@ -5,6 +5,7 @@
 
 #ifdef GNEISS_HAS_GRANIT_PLATFORM
 #include "platform/granit/granit_platform.h"
+#include "render/granit/granit_render_service.h"
 #endif
 
 #include <chrono>
@@ -31,6 +32,22 @@ gneiss_result application_state::initialize() noexcept {
     if (platform_result != GNEISS_SUCCESS) {
       granit_platform_.reset();
       return platform_result;
+    }
+    try {
+      granit_render_service_ = std::make_unique<granit_render_service>();
+    } catch (const std::bad_alloc&) {
+      granit_platform_.reset();
+      return GNEISS_ERROR_OUT_OF_MEMORY;
+    } catch (...) {
+      granit_platform_.reset();
+      return GNEISS_ERROR_INTERNAL;
+    }
+    const auto render_result =
+        granit_render_service_->initialize(granit_platform_->native_window());
+    if (render_result != GNEISS_SUCCESS) {
+      granit_render_service_.reset();
+      granit_platform_.reset();
+      return render_result;
     }
 #else
     return GNEISS_ERROR_UNSUPPORTED;
@@ -123,6 +140,15 @@ gneiss_result application_state::run(gneiss_application handle,
         return update_result;
       }
     }
+#ifdef GNEISS_HAS_GRANIT_PLATFORM
+    if (granit_render_service_ != nullptr) {
+      const auto render_result = granit_render_service_->render(granit_platform_->native_window());
+      if (render_result != GNEISS_SUCCESS) {
+        is_running_ = false;
+        return render_result;
+      }
+    }
+#endif
     ++frame_index_;
     ++frames_run;
   }
@@ -147,6 +173,7 @@ void application_state::shutdown() noexcept {
     platform_initialized_ = false;
   }
 #ifdef GNEISS_HAS_GRANIT_PLATFORM
+  granit_render_service_.reset();
   granit_platform_.reset();
 #endif
 }

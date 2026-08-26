@@ -16,6 +16,7 @@ namespace gneiss::application_internal {
 
 #ifdef GNEISS_HAS_GRANIT_PLATFORM
 class granit_platform;
+class granit_render_service;
 #endif
 
 class application_state final {
@@ -53,6 +54,7 @@ private:
   bool should_exit_ = false;
 #ifdef GNEISS_HAS_GRANIT_PLATFORM
   std::unique_ptr<granit_platform> granit_platform_;
+  std::unique_ptr<granit_render_service> granit_render_service_;
 #endif
 };
 

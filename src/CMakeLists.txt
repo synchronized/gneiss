@@ -60,10 +60,14 @@ target_sources(
 if(GNEISS_ENABLE_GRANIT_PLATFORM)
   target_sources(
     gneiss
-    PRIVATE platform/granit/granit_platform.cpp platform/granit/granit_platform.h
+    PRIVATE
+      platform/granit/granit_platform.cpp
+      platform/granit/granit_platform.h
+      render/granit/granit_render_service.cpp
+      render/granit/granit_render_service.h
   )
   target_compile_definitions(gneiss PRIVATE GNEISS_HAS_GRANIT_PLATFORM)
-  target_link_libraries(gneiss PRIVATE granit::window)
+  target_link_libraries(gneiss PRIVATE granit::granit granit::window)
 endif()
 
 target_compile_features(gneiss PUBLIC cxx_std_20)
