@@ -164,3 +164,68 @@ extern "C" gneiss_result gneiss_application_get_world(gneiss_application applica
     return GNEISS_ERROR_INTERNAL;
   }
 }
+
+extern "C" gneiss_result gneiss_mesh_create(gneiss_application application,
+                                            const gneiss_mesh_desc* desc, gneiss_mesh* out_mesh) {
+  if (out_mesh == nullptr) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  *out_mesh = GNEISS_NULL_MESH;
+  if (desc == nullptr) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  try {
+    auto state = find_application(application);
+    const auto validation_result = validate_application(state);
+    return validation_result == GNEISS_SUCCESS ? state->resources().create_mesh(*desc, out_mesh)
+                                               : validation_result;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters): C ABI 参数均为不透明句柄，名称区分语义。
+extern "C" gneiss_result gneiss_mesh_destroy(gneiss_application application, gneiss_mesh mesh) {
+  try {
+    auto state = find_application(application);
+    const auto validation_result = validate_application(state);
+    return validation_result == GNEISS_SUCCESS ? state->resources().destroy_mesh(mesh)
+                                               : validation_result;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
+extern "C" gneiss_result gneiss_material_create(gneiss_application application,
+                                                const gneiss_material_desc* desc,
+                                                gneiss_material* out_material) {
+  if (out_material == nullptr) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  *out_material = GNEISS_NULL_MATERIAL;
+  if (desc == nullptr) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  try {
+    auto state = find_application(application);
+    const auto validation_result = validate_application(state);
+    return validation_result == GNEISS_SUCCESS
+               ? state->resources().create_material(*desc, out_material)
+               : validation_result;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters): C ABI 参数均为不透明句柄，名称区分语义。
+extern "C" gneiss_result gneiss_material_destroy(gneiss_application application,
+                                                 gneiss_material material) {
+  try {
+    auto state = find_application(application);
+    const auto validation_result = validate_application(state);
+    return validation_result == GNEISS_SUCCESS ? state->resources().destroy_material(material)
+                                               : validation_result;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}

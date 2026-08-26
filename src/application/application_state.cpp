@@ -19,6 +19,9 @@ application_state::application_state(const gneiss_application_desc& desc) noexce
 application_state::~application_state() noexcept { shutdown(); }
 
 gneiss_result application_state::initialize() noexcept {
+  if (!resources_.is_valid()) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
+  }
   if (desc_.platform == GNEISS_APPLICATION_PLATFORM_GRANIT) {
 #ifdef GNEISS_HAS_GRANIT_PLATFORM
     try {

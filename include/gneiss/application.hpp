@@ -6,6 +6,7 @@
 
 #include <gneiss/application.h>
 #include <gneiss/core/result.hpp>
+#include <gneiss/render.hpp>
 
 #include <cstdint>
 #include <utility>
@@ -54,6 +55,29 @@ public:
   }
   [[nodiscard]] result get_world(gneiss_world& out_world) const noexcept {
     return from_native(gneiss_application_get_world(handle_, &out_world));
+  }
+  [[nodiscard]] result create_mesh(const mesh_desc& desc, mesh_id& out_mesh) noexcept {
+    gneiss_mesh handle = GNEISS_NULL_MESH;
+    const auto native_result = gneiss_mesh_create(handle_, &desc, &handle);
+    if (native_result == GNEISS_SUCCESS) {
+      out_mesh = mesh_id{handle};
+    }
+    return from_native(native_result);
+  }
+  [[nodiscard]] result destroy_mesh(mesh_id mesh) noexcept {
+    return from_native(gneiss_mesh_destroy(handle_, mesh.get()));
+  }
+  [[nodiscard]] result create_material(const material_desc& desc,
+                                       material_id& out_material) noexcept {
+    gneiss_material handle = GNEISS_NULL_MATERIAL;
+    const auto native_result = gneiss_material_create(handle_, &desc, &handle);
+    if (native_result == GNEISS_SUCCESS) {
+      out_material = material_id{handle};
+    }
+    return from_native(native_result);
+  }
+  [[nodiscard]] result destroy_material(material_id material) noexcept {
+    return from_native(gneiss_material_destroy(handle_, material.get()));
   }
 
   void reset() noexcept {

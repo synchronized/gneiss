@@ -12,6 +12,7 @@
 #include <gneiss/core/result.h>
 #include <gneiss/core/rid.h>
 #include <gneiss/core/version.h>
+#include <gneiss/render.h>
 #include <gneiss/scene.h>
 #include <gneiss/world.h>
 

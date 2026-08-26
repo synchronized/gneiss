@@ -27,6 +27,8 @@ target_sources(
     core/rid_table.h
     core/result.cpp
     core/version.cpp
+    render/render_resource_service.cpp
+    render/render_resource_service.h
     scene/scene_tree.cpp
     scene/scene_tree.h
     world/system_scheduler.cpp
@@ -50,6 +52,8 @@ target_sources(
       "${PROJECT_SOURCE_DIR}/include/gneiss/core/rid.hpp"
       "${PROJECT_SOURCE_DIR}/include/gneiss/gneiss.h"
       "${PROJECT_SOURCE_DIR}/include/gneiss/gneiss.hpp"
+      "${PROJECT_SOURCE_DIR}/include/gneiss/render.h"
+      "${PROJECT_SOURCE_DIR}/include/gneiss/render.hpp"
       "${PROJECT_SOURCE_DIR}/include/gneiss/scene.h"
       "${PROJECT_SOURCE_DIR}/include/gneiss/scene.hpp"
       "${PROJECT_SOURCE_DIR}/include/gneiss/world.h"

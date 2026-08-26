@@ -6,6 +6,8 @@
 
 #include <gneiss/application.h>
 
+#include "render/render_resource_service.h"
+
 #include <cstdint>
 #ifdef GNEISS_HAS_GRANIT_PLATFORM
 #include <memory>
@@ -34,6 +36,9 @@ public:
                                   std::uint64_t max_frame_count) noexcept;
   [[nodiscard]] bool is_owner_thread() const noexcept;
   [[nodiscard]] gneiss_world world() const noexcept { return world_; }
+  [[nodiscard]] render_internal::render_resource_service& resources() noexcept {
+    return resources_;
+  }
   void request_exit() noexcept { should_exit_ = true; }
   void set_paused(bool value) noexcept { is_paused_ = value; }
 
@@ -43,6 +48,7 @@ private:
   void shutdown() noexcept;
 
   gneiss_application_desc desc_;
+  render_internal::render_resource_service resources_;
   gneiss_world world_ = GNEISS_NULL_WORLD;
   std::thread::id owner_thread_;
   std::uint64_t frame_index_ = 0;
