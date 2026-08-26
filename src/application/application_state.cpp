@@ -3,6 +3,8 @@
 
 #include "application/application_state.h"
 
+#include "asset/native_file_system.h"
+
 #ifdef GNEISS_HAS_GRANIT_PLATFORM
 #include "platform/granit/granit_platform.h"
 #include "render/granit/granit_render_service.h"
@@ -26,8 +28,19 @@ gneiss_result application_state::initialize() noexcept {
     if (desc_.asset_root == nullptr || desc_.asset_root_length == 0U) {
       return GNEISS_ERROR_INVALID_ARGUMENT;
     }
-    const auto mount_result =
-        asset_provider_.mount(std::string_view(desc_.asset_root, desc_.asset_root_length));
+    std::shared_ptr<asset_internal::native_file_system> native_file_system;
+    try {
+      native_file_system = std::make_shared<asset_internal::native_file_system>();
+    } catch (const std::bad_alloc&) {
+      return GNEISS_ERROR_OUT_OF_MEMORY;
+    } catch (...) {
+      return GNEISS_ERROR_INTERNAL;
+    }
+    auto mount_result =
+        native_file_system->initialize(std::string_view(desc_.asset_root, desc_.asset_root_length));
+    if (mount_result == GNEISS_SUCCESS) {
+      mount_result = asset_file_system_.mount("asset://", std::move(native_file_system));
+    }
     if (mount_result != GNEISS_SUCCESS) {
       return mount_result;
     }

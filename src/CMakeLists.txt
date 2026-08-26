@@ -24,10 +24,13 @@ target_sources(
     application/application_state.h
     asset/asset_uri.cpp
     asset/asset_uri.h
-    asset/directory_asset_provider.cpp
-    asset/directory_asset_provider.h
+    asset/file_system.h
+    asset/native_file_system.cpp
+    asset/native_file_system.h
     asset/resource_cache.cpp
     asset/resource_cache.h
+    asset/virtual_file_system.cpp
+    asset/virtual_file_system.h
     core/service_registry.cpp
     core/service_registry.h
     core/rid_table.h

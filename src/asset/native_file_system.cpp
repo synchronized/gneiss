@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "asset/directory_asset_provider.h"
+#include "asset/native_file_system.h"
 
 #include "asset/asset_uri.h"
 
@@ -25,7 +25,7 @@ namespace {
 
 namespace gneiss::asset_internal {
 
-gneiss_result directory_asset_provider::mount(std::string_view root) noexcept {
+gneiss_result native_file_system::initialize(std::string_view root) noexcept {
   try {
     const auto path = path_from_utf8(root);
     std::error_code error;
@@ -35,26 +35,31 @@ gneiss_result directory_asset_provider::mount(std::string_view root) noexcept {
     }
     root_ = canonical;
     return GNEISS_SUCCESS;
+  } catch (const std::bad_alloc&) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;
   }
 }
 
-gneiss_result directory_asset_provider::read(std::string_view uri,
-                                             std::vector<std::byte>& out_bytes) const noexcept {
+gneiss_result native_file_system::read(std::string_view path,
+                                       std::vector<std::byte>& out_bytes) const noexcept {
   if (root_.empty()) {
     return GNEISS_ERROR_INVALID_STATE;
   }
-  if (validate_uri(uri) != GNEISS_SUCCESS) {
-    return GNEISS_ERROR_INVALID_ARGUMENT;
-  }
   try {
+    std::string uri = "asset://";
+    uri.append(path);
+    if (validate_uri(uri) != GNEISS_SUCCESS) {
+      return GNEISS_ERROR_INVALID_ARGUMENT;
+    }
+
     std::error_code error;
-    const auto candidate = std::filesystem::canonical(root_ / path_from_utf8(uri_path(uri)), error);
+    const auto candidate = std::filesystem::canonical(root_ / path_from_utf8(path), error);
     if (error || !std::filesystem::is_regular_file(candidate, error) || error) {
       return GNEISS_ERROR_NOT_FOUND;
     }
-    auto relative = std::filesystem::relative(candidate, root_, error);
+    const auto relative = std::filesystem::relative(candidate, root_, error);
     if (error || relative.empty() || relative.is_absolute() || *relative.begin() == "..") {
       return GNEISS_ERROR_INVALID_ARGUMENT;
     }
@@ -67,10 +72,11 @@ gneiss_result directory_asset_provider::read(std::string_view uri,
     if (stream.bad()) {
       return GNEISS_ERROR_IO;
     }
-    out_bytes.resize(chars.size());
+    std::vector<std::byte> bytes(chars.size());
     for (std::size_t index = 0; index < chars.size(); ++index) {
-      out_bytes[index] = static_cast<std::byte>(chars[index]);
+      bytes[index] = static_cast<std::byte>(chars[index]);
     }
+    out_bytes = std::move(bytes);
     return GNEISS_SUCCESS;
   } catch (const std::bad_alloc&) {
     return GNEISS_ERROR_OUT_OF_MEMORY;

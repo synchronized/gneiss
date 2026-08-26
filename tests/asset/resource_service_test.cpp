@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "asset/directory_asset_provider.h"
+#include "asset/native_file_system.h"
 #include "asset/resource_cache.h"
+#include "asset/virtual_file_system.h"
 
 #include <gneiss/core/result.h>
 
@@ -42,15 +43,33 @@ int main() try {
     stream << "mesh";
   }
 
-  gneiss::asset_internal::directory_asset_provider provider;
+  auto provider = std::make_shared<gneiss::asset_internal::native_file_system>();
+  gneiss::asset_internal::virtual_file_system file_system;
   std::vector<std::byte> bytes;
-  if (provider.read("asset://models/triangle.mesh", bytes) != GNEISS_ERROR_INVALID_STATE ||
-      provider.mount(directory.path.string()) != GNEISS_SUCCESS || !provider.is_mounted() ||
-      provider.read("asset://models/triangle.mesh", bytes) != GNEISS_SUCCESS ||
+  if (provider->read("models/triangle.mesh", bytes) != GNEISS_ERROR_INVALID_STATE ||
+      provider->initialize(directory.path.string()) != GNEISS_SUCCESS ||
+      !provider->is_initialized() || file_system.mount("asset://", provider) != GNEISS_SUCCESS ||
+      file_system.mount("asset://", provider) != GNEISS_ERROR_INVALID_STATE ||
+      file_system.read("asset://models/triangle.mesh", bytes) != GNEISS_SUCCESS ||
       bytes.size() != 4U ||
-      provider.read("asset://models/missing.mesh", bytes) != GNEISS_ERROR_NOT_FOUND ||
-      provider.read("asset://../outside", bytes) != GNEISS_ERROR_INVALID_ARGUMENT) {
+      file_system.read("asset://models/missing.mesh", bytes) != GNEISS_ERROR_NOT_FOUND ||
+      file_system.read("asset://../outside", bytes) != GNEISS_ERROR_INVALID_ARGUMENT) {
     return 1;
+  }
+
+  const auto override_root = directory.path / "override";
+  std::filesystem::create_directories(override_root);
+  {
+    std::ofstream stream(override_root / "special.mesh", std::ios::binary);
+    stream << "override";
+  }
+  auto override_provider = std::make_shared<gneiss::asset_internal::native_file_system>();
+  if (override_provider->initialize(override_root.string()) != GNEISS_SUCCESS ||
+      file_system.mount("asset://models/", override_provider) != GNEISS_SUCCESS ||
+      file_system.mount("asset://invalid", override_provider) != GNEISS_ERROR_INVALID_ARGUMENT ||
+      file_system.read("asset://models/special.mesh", bytes) != GNEISS_SUCCESS ||
+      bytes.size() != 8U || file_system.mount_count() != 2U) {
+    return 2;
   }
 
   gneiss::asset_internal::resource_cache cache;
@@ -67,13 +86,13 @@ int main() try {
       load_count != 1U || first != second || cache.size() != 1U ||
       cache.acquire("asset://models/triangle.mesh", 2U, loader, second) !=
           GNEISS_ERROR_INVALID_ARGUMENT) {
-    return 2;
+    return 3;
   }
   first.reset();
   second.reset();
   cache.release_unused();
   if (cache.size() != 0U) {
-    return 3;
+    return 4;
   }
 
   std::size_t failure_count = 0;
@@ -84,13 +103,13 @@ int main() try {
   if (cache.acquire("asset://models/broken.mesh", 1U, failing_loader, first) != GNEISS_ERROR_IO ||
       cache.acquire("asset://models/broken.mesh", 1U, failing_loader, first) != GNEISS_ERROR_IO ||
       failure_count != 2U || cache.size() != 0U) {
-    return 4;
+    return 5;
   }
 
   gneiss::asset_internal::resource_cache other_cache;
   if (other_cache.acquire("asset://models/triangle.mesh", 1U, loader, first) != GNEISS_SUCCESS ||
       load_count != 2U) {
-    return 5;
+    return 6;
   }
   return 0;
 } catch (...) {

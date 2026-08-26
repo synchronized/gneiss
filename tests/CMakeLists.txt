@@ -205,8 +205,9 @@ add_executable(
   gneiss_resource_service_test
   asset/resource_service_test.cpp
   "${PROJECT_SOURCE_DIR}/src/asset/asset_uri.cpp"
-  "${PROJECT_SOURCE_DIR}/src/asset/directory_asset_provider.cpp"
+  "${PROJECT_SOURCE_DIR}/src/asset/native_file_system.cpp"
   "${PROJECT_SOURCE_DIR}/src/asset/resource_cache.cpp"
+  "${PROJECT_SOURCE_DIR}/src/asset/virtual_file_system.cpp"
 )
 target_include_directories(gneiss_resource_service_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_definitions(gneiss_resource_service_test PRIVATE GNEISS_BUILDING_LIBRARY)

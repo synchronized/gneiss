@@ -19,15 +19,18 @@ URI 使用 UTF-8 和正斜杠，scheme 区分大小写。空路径、空路径�
 gneiss_result result = gneiss_asset_uri_validate(uri, uri_length);
 ```
 
-## 资产根目录
+## VFS 与资产根目录
 
 `gneiss_application_desc.asset_root` 与 `asset_root_length` 可在创建 Application 时挂载一个 UTF-8
 目录。两者必须同时为空或同时有效；目录不存在时创建返回 `GNEISS_ERROR_NOT_FOUND`。旧版结构大小
 仍可创建不挂载资产根的 Application。
 
-目录 Provider 只读普通文件。读取时解析真实路径并确认其仍位于资产根内，因此路径穿越和指向根外
-的符号链接不会被访问。当前尚未提供直接读取任意资产字节的公共接口；M-16 的类型 Loader 将使用
-该内部 Provider。
+Application 内部将资产根作为 `asset://` 根挂载到虚拟文件系统（VFS）。VFS 按最长挂载点前缀
+路由，文件系统后端只接收相对路径，因此未来可以把子目录挂载到归档或网络后端而不修改 Loader。
+
+当前唯一实现是只读 `native_file_system`。它读取普通文件，并解析真实路径确认目标仍位于资产根内，
+因此路径穿越和指向根外的符号链接不会被访问。VFS 后端接口目前保持内部；尚未实现目录枚举、写入、
+异步 I/O、归档或网络后端。M-16 的类型 Loader 将通过该 VFS 读取文件。
 
 ## 缓存与生命周期
 
