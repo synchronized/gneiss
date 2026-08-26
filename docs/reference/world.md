@@ -37,4 +37,6 @@ World 及其实体只能在创建 World 的线程访问。跨线程调用返回 
 EnTT `3.15.0` 只用于 World 的内部组件存储。Gneiss 公共头、Entity ID 和 C ABI 不依赖 EnTT。
 内部 System Scheduler 按注册顺序串行执行，遇到第一个失败结果立即停止并保留该结果。
 
-组件公共 API、反射 Schema 和可持久化对象 UUID 尚未落地，不属于当前公共能力。
+Camera 与 Mesh Renderer 是当前首批公共组件，其行为由
+[Render 资源、组件与帧提取](render.md)定义。通用组件注册、反射 Schema 和可持久化对象 UUID
+尚未落地，不属于当前公共能力。

@@ -101,6 +101,20 @@ gneiss_result application_state::poll_events(bool& out_should_close) noexcept {
   return result;
 }
 
+#ifdef GNEISS_HAS_GRANIT_PLATFORM
+gneiss_result application_state::render_frame() noexcept {
+  if (granit_render_service_ == nullptr) {
+    return GNEISS_SUCCESS;
+  }
+  world_internal::render_snapshot snapshot;
+  const auto snapshot_result = world_internal::get_render_snapshot(world_, snapshot);
+  return snapshot_result == GNEISS_SUCCESS
+             ? granit_render_service_->render(granit_platform_->native_window(), snapshot,
+                                              resources_)
+             : snapshot_result;
+}
+#endif
+
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters): 句柄与帧数虽同宽但语义明确。
 gneiss_result application_state::run(gneiss_application handle,
                                      std::uint64_t max_frame_count) noexcept {
@@ -144,12 +158,10 @@ gneiss_result application_state::run(gneiss_application handle,
       }
     }
 #ifdef GNEISS_HAS_GRANIT_PLATFORM
-    if (granit_render_service_ != nullptr) {
-      const auto render_result = granit_render_service_->render(granit_platform_->native_window());
-      if (render_result != GNEISS_SUCCESS) {
-        is_running_ = false;
-        return render_result;
-      }
+    const auto render_result = render_frame();
+    if (render_result != GNEISS_SUCCESS) {
+      is_running_ = false;
+      return render_result;
     }
 #endif
     ++frame_index_;

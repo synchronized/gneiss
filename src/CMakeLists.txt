@@ -69,6 +69,7 @@ if(GNEISS_ENABLE_GRANIT_PLATFORM)
     PRIVATE
       platform/granit/granit_platform.cpp
       platform/granit/granit_platform.h
+      render/granit/embedded_triangle_shaders.h
       render/granit/granit_render_service.cpp
       render/granit/granit_render_service.h
   )

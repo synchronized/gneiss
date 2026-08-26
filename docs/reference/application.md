@@ -21,7 +21,7 @@ Application 及其 World 只能在创建线程访问。重复运行、跨线程�
 1. 调用 `poll_events`，处理平台事件与关闭请求。
 2. 通过 `now_ns` 或内部单调时钟计算帧间隔。
 3. 调用 `update`，传入帧序号、帧间隔、累计运行时间和暂停状态。
-4. Granit 平台模式下执行清屏并呈现帧。
+4. Granit 平台模式下提取 World 渲染快照、提交对象并呈现帧。
 5. 响应回调中通过 `gneiss_application_request_exit` 发出的退出请求。
 
 `max_frame_count` 非零时限制本次调用执行的帧数，适合测试和工具；零值表示持续运行至窗口关闭或
@@ -39,8 +39,9 @@ Application 及其 World 只能在创建线程访问。重复运行、跨线程�
 构建时启用 `GNEISS_ENABLE_GRANIT_PLATFORM` 后，可以选择
 `GNEISS_APPLICATION_PLATFORM_GRANIT`。Application 将按描述结构中的标题、尺寸和窗口标志创建
 Granit Window，耗尽每帧事件队列，并把目标窗口的关闭事件转换为正常退出。Application 同时创建
-Granit Renderer、Surface、Swapchain 与 Frame Context；当前每帧以固定颜色清屏并呈现，窗口尺寸
-变化时重建 Swapchain，最小化产生零尺寸时暂停提交。该模式不允许同时提供 `initialize`、
+Granit Renderer、Surface、Swapchain 与 Frame Context；当前每帧清屏，并在存在 primary Camera
+和 Mesh Renderer 时绘制 Triangle List。窗口尺寸变化时重建 Swapchain，最小化产生零尺寸时暂停
+提交。该模式不允许同时提供 `initialize`、
 `poll_events` 或 `shutdown` 回调；`update`、`now_ns` 和 `user_data` 仍可使用。
 
 未启用构建选项时请求 Granit 平台返回 `GNEISS_ERROR_UNSUPPORTED`。Granit 类型和句柄均不会进入

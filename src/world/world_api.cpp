@@ -203,8 +203,8 @@ extern "C" gneiss_result gneiss_world_entity_set_camera(gneiss_world world, gnei
   }
 }
 
-// NOLINTNEXTLINE(bugprone-easily-swappable-parameters): C ABI 参数均为不透明句柄，名称区分语义。
 extern "C" gneiss_result
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters): C ABI 参数均为不透明句柄，名称区分语义。
 gneiss_world_entity_set_mesh_renderer(gneiss_world world, gneiss_entity_id entity,
                                       const gneiss_mesh_renderer* renderer) {
   if (renderer == nullptr || renderer->mesh == GNEISS_NULL_MESH ||

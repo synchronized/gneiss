@@ -45,6 +45,9 @@ public:
 private:
   [[nodiscard]] std::uint64_t now_ns() const noexcept;
   [[nodiscard]] gneiss_result poll_events(bool& out_should_close) noexcept;
+#ifdef GNEISS_HAS_GRANIT_PLATFORM
+  [[nodiscard]] gneiss_result render_frame() noexcept;
+#endif
   void shutdown() noexcept;
 
   gneiss_application_desc desc_;
