@@ -49,6 +49,7 @@
 - [Gneiss 开发路线图](roadmap.md)
 - [VER-001：0.1.0 最小运行时闭环](plans/VER-001-0.1.0-runtime-slice.md)
 - [VER-002：0.2.0 资源与场景闭环](plans/VER-002-0.2.0-resource-scene-slice.md)
+- [VER-003：0.3.0 交互与诊断闭环](plans/VER-003-0.3.0-interaction-diagnostics-slice.md)
 
 ## 架构决策
 
