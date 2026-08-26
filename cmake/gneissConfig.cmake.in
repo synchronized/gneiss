@@ -5,7 +5,7 @@
 
 if(@GNEISS_ENABLE_GRANIT_PLATFORM@)
   include(CMakeFindDependencyMacro)
-  find_dependency(granit 0.3 CONFIG COMPONENTS Window)
+  find_dependency(granit 0.3 CONFIG COMPONENTS Window Input)
 endif()
 
 set_and_check(GNEISS_ASSET_DIR "${PACKAGE_PREFIX_DIR}/@CMAKE_INSTALL_DATADIR@/gneiss/assets")

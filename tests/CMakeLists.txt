@@ -100,6 +100,18 @@ gneiss_target_compile_warnings(gneiss_service_registry_test)
 gneiss_target_output_directories(gneiss_service_registry_test)
 add_test(NAME gneiss.service_registry COMMAND gneiss_service_registry_test)
 
+add_executable(
+  gneiss_input_service_test
+  input/input_service_test.cpp
+  "${PROJECT_SOURCE_DIR}/src/input/input_service.cpp"
+)
+target_include_directories(gneiss_input_service_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_link_libraries(gneiss_input_service_test PRIVATE gneiss::gneiss)
+target_compile_features(gneiss_input_service_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_input_service_test)
+gneiss_target_output_directories(gneiss_input_service_test)
+add_test(NAME gneiss.input_service COMMAND gneiss_input_service_test)
+
 add_executable(gneiss_c_world_test c_world_test.c)
 target_link_libraries(gneiss_c_world_test PRIVATE gneiss::gneiss)
 set_target_properties(

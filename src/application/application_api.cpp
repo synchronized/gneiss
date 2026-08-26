@@ -302,8 +302,7 @@ extern "C" gneiss_result gneiss_application_poll_input(gneiss_application applic
     if (validation_result != GNEISS_SUCCESS) {
       return validation_result;
     }
-    *out_event = GNEISS_INPUT_EVENT_INIT;
-    return GNEISS_ERROR_NOT_READY;
+    return state->poll_input(*out_event);
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;
   }

@@ -127,7 +127,38 @@ gneiss_result application_state::poll_events(bool& out_should_close) noexcept {
   out_should_close = false;
 #ifdef GNEISS_HAS_GRANIT_PLATFORM
   if (granit_platform_ != nullptr) {
-    return granit_platform_->poll(out_should_close);
+    input_.begin_frame();
+    bool focus_lost = false;
+    const auto platform_result = granit_platform_->poll(out_should_close, focus_lost);
+    if (platform_result != GNEISS_SUCCESS) {
+      return platform_result;
+    }
+    gneiss_keyboard_state keyboard = GNEISS_KEYBOARD_STATE_INIT;
+    auto input_result = granit_platform_->keyboard(keyboard);
+    if (input_result != GNEISS_SUCCESS) {
+      return input_result;
+    }
+    gneiss_pointer_state pointer = GNEISS_POINTER_STATE_INIT;
+    input_result = granit_platform_->pointer(pointer);
+    if (input_result != GNEISS_SUCCESS) {
+      return input_result;
+    }
+    input_.set_keyboard(keyboard);
+    input_.set_pointer(pointer);
+    gneiss_input_event event = GNEISS_INPUT_EVENT_INIT;
+    input_result = granit_platform_->poll_input(event);
+    while (input_result == GNEISS_SUCCESS) {
+      if (!input_.push(event)) {
+        input_.clear_focus();
+        return GNEISS_ERROR_INVALID_STATE;
+      }
+      event = GNEISS_INPUT_EVENT_INIT;
+      input_result = granit_platform_->poll_input(event);
+    }
+    if (focus_lost) {
+      input_.clear_focus();
+    }
+    return input_result == GNEISS_ERROR_NOT_READY ? GNEISS_SUCCESS : input_result;
   }
 #endif
   if (desc_.poll_events == nullptr) {
@@ -137,6 +168,10 @@ gneiss_result application_state::poll_events(bool& out_should_close) noexcept {
   const auto result = desc_.poll_events(desc_.user_data, &should_close);
   out_should_close = should_close != 0U;
   return result;
+}
+
+gneiss_result application_state::poll_input(gneiss_input_event& out_event) noexcept {
+  return input_.poll(out_event);
 }
 
 #ifdef GNEISS_HAS_GRANIT_PLATFORM

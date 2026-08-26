@@ -18,7 +18,7 @@ Application 及其 World 只能在创建线程访问。重复运行、跨线程�
 
 `gneiss_application_run` 每帧按以下顺序执行：
 
-1. 调用 `poll_events`，处理平台事件与关闭请求。
+1. 调用 `poll_events`，处理平台事件与关闭请求，并形成当帧输入快照。
 2. 通过 `now_ns` 或内部单调时钟计算帧间隔。
 3. 调用 `update`，传入帧序号、帧间隔、累计运行时间和暂停状态。
 4. Granit 平台模式下提取 World 渲染快照、提交对象并呈现帧。
@@ -45,4 +45,4 @@ Granit Renderer、Surface、Swapchain 与 Frame Context；当前每帧清屏，�
 `poll_events` 或 `shutdown` 回调；`update`、`now_ns` 和 `user_data` 仍可使用。
 
 未启用构建选项时请求 Granit 平台返回 `GNEISS_ERROR_UNSUPPORTED`。Granit 类型和句柄均不会进入
-Gneiss 公共 ABI；运行时适配私有链接 `granit::granit` 与 `granit::window`。
+Gneiss 公共 ABI；运行时适配私有链接 `granit::granit`、`granit::window` 与 `granit::input`。
