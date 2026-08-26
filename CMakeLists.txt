@@ -16,7 +16,7 @@ option(GNEISS_BUILD_EXAMPLES "构建 Gneiss 示例" ${PROJECT_IS_TOP_LEVEL})
 option(GNEISS_ENABLE_GRANIT_PLATFORM "启用 Granit Window 平台适配" OFF)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
-include(utility)
+include(gneiss_utility)
 if(GNEISS_ENABLE_GRANIT_PLATFORM)
   include(granit)
   gneiss_resolve_granit_window()

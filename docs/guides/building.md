@@ -41,19 +41,32 @@ Linux 可选择 `linux-clang-debug` 或 `linux-gcc-debug`，可执行文件不�
 
 ### 启用 Granit 窗口适配
 
-普通 preset 默认关闭可选的窗口适配，因此无图形环境也能构建和测试核心。使用已安装的 Granit
-package 时，在独立构建目录中显式启用：
+普通 preset 默认关闭可选的窗口适配，因此无图形环境也能构建和测试核心。启用后默认使用 `AUTO`
+provider：优先复用父工程目标，其次查找 package，最后把锁定的 Granit 提交下载到当前构建目录的
+`_deps`。开箱构建命令如下：
+
+```sh
+cmake -S . -B build/granit-platform -G Ninja \
+  -DGNEISS_ENABLE_GRANIT_PLATFORM=ON
+cmake --build build/granit-platform
+ctest --test-dir build/granit-platform --output-on-failure
+```
+
+发行、离线或严格 CI 应只允许已安装 package：
 
 ```sh
 cmake -S . -B build/granit-platform -G Ninja \
   -DGNEISS_ENABLE_GRANIT_PLATFORM=ON \
+  -DGNEISS_GRANIT_PROVIDER=PACKAGE \
   -DCMAKE_PREFIX_PATH=/path/to/granit/install
 cmake --build build/granit-platform
 ctest --test-dir build/granit-platform --output-on-failure
 ```
 
-若父工程已经定义 `granit::window`，Gneiss 会直接复用，不再执行 package 查找。共享库构建运行
-测试时，Granit Window 动态库必须位于系统动态库搜索路径中。
+使用 `GNEISS_GRANIT_PROVIDER=FETCH` 可以强制验证下载路径，跳过 package 查找。仓库镜像和版本可
+通过 `GNEISS_GRANIT_GIT_REPOSITORY`、`GNEISS_GRANIT_GIT_TAG` 覆盖。若父工程已经定义
+`granit::window`，所有 provider 都会优先直接复用。共享库 package 构建运行测试时，Granit Window
+动态库必须位于系统动态库搜索路径中。
 
 ## 验证结果
 
@@ -71,4 +84,5 @@ gneiss 0.1.0
 - 找不到 Ninja：安装 Ninja，或在 Windows 上选择 Visual Studio 2022 preset。
 - 切换编译器或链接方式：使用对应的独立 preset，不要复用其他 preset 的构建目录。
 - 找不到 Granit：确认安装前缀包含 `lib/cmake/granit/granitConfig.cmake`，且安装时包含 Window
-  组件；源码联调时由父工程先添加 Granit，再添加 Gneiss。
+  组件；源码联调时由父工程先添加 Granit，再添加 Gneiss；无网络环境使用 `PACKAGE`，避免 AUTO
+  在 package 缺失时尝试下载。

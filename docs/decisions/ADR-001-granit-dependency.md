@@ -3,7 +3,7 @@
 
 # ADR-001：Granit 依赖接入边界
 
-- 状态：已接受
+- 状态：已由 [ADR-003](ADR-003-granit-provider-strategy.md) 取代
 - 日期：2026-08-26
 
 ## 背景
