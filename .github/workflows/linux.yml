@@ -1,0 +1,146 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Gneiss contributors
+
+name: Linux
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "README.md"
+      - "CHANGELOG.md"
+      - "DOCUMENTATION_GUIDE.md"
+  pull_request:
+    paths-ignore:
+      - "docs/**"
+      - "README.md"
+      - "CHANGELOG.md"
+      - "DOCUMENTATION_GUIDE.md"
+
+permissions:
+  contents: read
+  packages: read
+
+env:
+  CCACHE_DIR: ${{ github.workspace }}/.cache/ccache
+  CCACHE_BASEDIR: ${{ github.workspace }}
+  CCACHE_COMPILERCHECK: content
+  CCACHE_MAXSIZE: 500M
+
+jobs:
+  core:
+    runs-on: ubuntu-24.04
+    container:
+      image: >-
+        ghcr.io/synchronized/granit-ci@sha256:6a2d0aba3b2464838958a4259d3a343106205eb35df9f4ad24d060bf98739015
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: [clang, gcc]
+        linkage: [shared, static]
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: recursive
+      - name: 恢复编译缓存
+        uses: actions/cache@v5
+        with:
+          path: .cache/ccache
+          key: >-
+            linux-core-${{ matrix.compiler }}-${{ matrix.linkage }}-${{ github.sha }}
+          restore-keys: |
+            linux-core-${{ matrix.compiler }}-${{ matrix.linkage }}-
+      - name: 选择 preset
+        id: preset
+        shell: bash
+        run: |
+          suffix=""
+          if [[ "${{ matrix.linkage }}" == "static" ]]; then suffix="-static"; fi
+          echo "name=linux-${{ matrix.compiler }}${suffix}-release" >> "$GITHUB_OUTPUT"
+      - name: 配置、构建与测试
+        shell: bash
+        run: |
+          ccache --zero-stats
+          cmake --preset "${{ steps.preset.outputs.name }}" \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+          cmake --build --preset "${{ steps.preset.outputs.name }}"
+          ctest --preset "${{ steps.preset.outputs.name }}"
+      - name: 输出编译缓存统计
+        if: always()
+        shell: bash
+        run: ccache --show-stats
+
+  granit-runtime:
+    runs-on: ubuntu-24.04
+    container:
+      image: >-
+        ghcr.io/synchronized/granit-ci@sha256:6a2d0aba3b2464838958a4259d3a343106205eb35df9f4ad24d060bf98739015
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    strategy:
+      fail-fast: false
+      matrix:
+        linkage: [shared, static]
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: recursive
+      - name: 恢复编译缓存
+        uses: actions/cache@v5
+        with:
+          path: .cache/ccache
+          key: linux-runtime-clang-${{ matrix.linkage }}-${{ github.sha }}
+          restore-keys: |
+            linux-runtime-clang-${{ matrix.linkage }}-
+      - name: 恢复第三方依赖缓存
+        uses: actions/cache@v5
+        with:
+          path: .cache/fetchcontent
+          key: linux-runtime-fetch-${{ hashFiles('cmake/granit.cmake') }}
+      - name: 选择 preset
+        id: preset
+        shell: bash
+        run: |
+          suffix=""
+          if [[ "${{ matrix.linkage }}" == "static" ]]; then suffix="-static"; fi
+          echo "name=linux-clang${suffix}-release" >> "$GITHUB_OUTPUT"
+      - name: 配置并构建 Granit 运行时
+        shell: bash
+        run: |
+          ccache --zero-stats
+          cmake --preset "${{ steps.preset.outputs.name }}" \
+            -DGNEISS_ENABLE_GRANIT_PLATFORM=ON \
+            -DGNEISS_GRANIT_PROVIDER=FETCH \
+            -DFETCHCONTENT_BASE_DIR="$GITHUB_WORKSPACE/.cache/fetchcontent" \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+          cmake --build --preset "${{ steps.preset.outputs.name }}"
+      - name: 运行无头窗口测试
+        shell: bash
+        run: |
+          export XDG_RUNTIME_DIR="$RUNNER_TEMP/gneiss-wayland"
+          install -d -m 700 "$XDG_RUNTIME_DIR"
+          export WAYLAND_DISPLAY=gneiss-wayland
+          weston --backend=headless-backend.so --socket="$WAYLAND_DISPLAY" --idle-time=0 \
+            >"$RUNNER_TEMP/gneiss-weston.log" 2>&1 &
+          weston_pid=$!
+          trap 'kill "$weston_pid" 2>/dev/null || true' EXIT
+          for attempt in {1..50}; do
+            [[ -S "$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY" ]] && break
+            sleep 0.1
+          done
+          [[ -S "$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY" ]] || {
+            cat "$RUNNER_TEMP/gneiss-weston.log"
+            exit 1
+          }
+          xvfb-run -a ctest --preset "${{ steps.preset.outputs.name }}"
+      - name: 输出编译缓存统计
+        if: always()
+        shell: bash
+        run: ccache --show-stats

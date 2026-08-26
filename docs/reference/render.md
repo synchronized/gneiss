@@ -1,0 +1,34 @@
+<!-- SPDX-License-Identifier: MIT -->
+<!-- Copyright (c) 2026 Gneiss contributors -->
+
+# Render 资源、组件与帧提取
+
+## 资源生命周期
+
+Mesh 和 Material 由 Application 的 Resource Service 独占。`gneiss_mesh_create` 在调用期间复制
+顶点数组；调用返回后，调用方可以立即释放源数据。首版 Mesh 只包含三维位置，至少需要三个有限值
+顶点；顶点按 Triangle List 解释。
+
+Material 当前只包含线性空间的固定 RGBA 颜色，各分量必须位于 `0..1`。Mesh 与 Material RID 只能
+交还给创建它们的 Application；RID 校验资源类型、generation 和 Service domain。销毁、跨
+Application 使用、类型混用或重复销毁均返回 `GNEISS_ERROR_INVALID_HANDLE`。
+
+## ECS 组件
+
+`gneiss_world_entity_set_camera` 设置或替换 Camera 组件。透视参数必须满足视场角位于 `0..π`、
+`near_plane > 0` 且 `far_plane > near_plane`。设置新的 primary Camera 时，同一 World 中原 primary
+Camera 会被取消；没有关联 Scene Node 的 Camera 不进入渲染快照。
+
+`gneiss_world_entity_set_mesh_renderer` 设置 Mesh Renderer 组件。组件只借用 Mesh 与 Material RID，
+不延长资源生命周期，也不保存 Granit 类型。实体必须关联 Scene Node 才会获得世界 Transform 并
+进入渲染快照。资源已销毁或来自其他 Application 时，帧提交返回
+`GNEISS_ERROR_INVALID_HANDLE`。
+
+## 当前渲染路径
+
+Granit 平台模式在每次 `update` 后提取 primary Camera、Scene Transform 和 Mesh Renderer。CPU
+生成本帧的位置与固定颜色顶点，Render Service 上传临时 Vertex Buffer，再通过内置 Shader 绘制
+Triangle List。按帧 Buffer 保留三个槽位，避免覆盖仍在飞行中的提交。
+
+当前路径用于验证 Application、World、Resource Service 与 Granit 的端到端边界，不是正式资产或
+渲染管线。暂不支持索引、纹理、光照、深度、剔除、资产文件和异步上传。

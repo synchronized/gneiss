@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Gneiss contributors
+
+set(ENTT_BUILD_TESTING OFF CACHE BOOL "" FORCE)
+set(ENTT_BUILD_TESTBED OFF CACHE BOOL "" FORCE)
+set(ENTT_BUILD_DOCS OFF CACHE BOOL "" FORCE)
+set(ENTT_INSTALL OFF CACHE BOOL "" FORCE)
+
+add_subdirectory(entt EXCLUDE_FROM_ALL)
