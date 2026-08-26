@@ -4,6 +4,7 @@
 #ifndef GNEISS_GNEISS_HPP_
 #define GNEISS_GNEISS_HPP_
 
+#include <gneiss/application.hpp>
 #include <gneiss/core/entity.hpp>
 #include <gneiss/core/result.hpp>
 #include <gneiss/core/rid.hpp>

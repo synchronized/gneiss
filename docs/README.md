@@ -31,6 +31,7 @@
 - [RID 有效性与 Service 生命周期](reference/rid.md)
 - [World、Entity 与内部 ECS 边界](reference/world.md)
 - [Scene Tree、Entity 映射与 Transform](reference/scene-tree.md)
+- [Application 生命周期、时间与主循环](reference/application.md)
 
 ## 架构与原理
 

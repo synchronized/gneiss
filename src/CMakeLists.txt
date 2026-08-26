@@ -19,6 +19,9 @@ configure_file(
 target_sources(
   gneiss
   PRIVATE
+    application/application_api.cpp
+    application/application_state.cpp
+    application/application_state.h
     core/service_registry.cpp
     core/service_registry.h
     core/rid_table.h
@@ -36,6 +39,8 @@ target_sources(
       "${PROJECT_SOURCE_DIR}/include"
       "${GNEISS_GENERATED_INCLUDE_DIR}"
     FILES
+      "${PROJECT_SOURCE_DIR}/include/gneiss/application.h"
+      "${PROJECT_SOURCE_DIR}/include/gneiss/application.hpp"
       "${PROJECT_SOURCE_DIR}/include/gneiss/core/export.h"
       "${PROJECT_SOURCE_DIR}/include/gneiss/core/entity.h"
       "${PROJECT_SOURCE_DIR}/include/gneiss/core/entity.hpp"
