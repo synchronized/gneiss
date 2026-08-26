@@ -59,6 +59,9 @@ public:
                                           gneiss_action& out_action) const noexcept;
   [[nodiscard]] gneiss_result get_action_state(gneiss_action action,
                                                gneiss_action_state& out_state) const noexcept;
+  void report(gneiss_application handle, std::uint32_t severity, std::uint32_t category,
+              gneiss_result result, std::string_view module,
+              std::string_view message) const noexcept;
   void request_exit() noexcept { should_exit_ = true; }
   void set_paused(bool value) noexcept { is_paused_ = value; }
 

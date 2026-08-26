@@ -10,7 +10,21 @@ typedef struct test_context {
   uint64_t shutdown_count;
   uint8_t fail_initialize;
   uint8_t should_close;
+  uint32_t diagnostic_count;
+  gneiss_result diagnostic_result;
 } test_context;
+
+static void diagnostic(gneiss_application application, const gneiss_diagnostic* value,
+                       void* user_data) {
+  test_context* context = (test_context*)user_data;
+  gneiss_world world = GNEISS_NULL_WORLD;
+  if (value != NULL && value->struct_size >= GNEISS_DIAGNOSTIC_VERSION_1_SIZE &&
+      value->message != NULL && value->message_length != 0U &&
+      gneiss_application_get_world(application, &world) == GNEISS_SUCCESS) {
+    ++context->diagnostic_count;
+    context->diagnostic_result = value->result;
+  }
+}
 
 static gneiss_result initialize(void* user_data) {
   test_context* context = (test_context*)user_data;
@@ -59,6 +73,7 @@ int main(void) {
   desc.now_ns = now_ns;
   desc.update = update;
   desc.shutdown = shutdown;
+  desc.diagnostic = diagnostic;
 
   if (gneiss_application_create(&desc, &application) != GNEISS_SUCCESS ||
       gneiss_application_get_world(application, &world) != GNEISS_SUCCESS ||
@@ -121,6 +136,8 @@ int main(void) {
 #endif
 
   desc = (gneiss_application_desc)GNEISS_APPLICATION_DESC_INIT;
+  desc.user_data = &context;
+  desc.diagnostic = diagnostic;
   desc.asset_root = GNEISS_TEST_ASSET_ROOT;
   desc.asset_root_length = (uint32_t)(sizeof(GNEISS_TEST_ASSET_ROOT) - 1U);
   application = GNEISS_NULL_APPLICATION;
@@ -143,6 +160,7 @@ int main(void) {
         state.held != 0U || state.value != 0.0F ||
         gneiss_application_load_action_map(application, missing_uri, sizeof(missing_uri) - 1U) !=
             GNEISS_ERROR_NOT_FOUND ||
+        context.diagnostic_count != 1U || context.diagnostic_result != GNEISS_ERROR_NOT_FOUND ||
         gneiss_application_get_action_state(application, action, &state) != GNEISS_SUCCESS ||
         gneiss_application_load_action_map(application, map_uri, sizeof(map_uri) - 1U) !=
             GNEISS_SUCCESS ||

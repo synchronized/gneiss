@@ -110,8 +110,15 @@ extern "C" gneiss_result gneiss_application_run(gneiss_application application,
   try {
     auto state = find_application(application);
     const auto validation_result = validate_application(state);
-    return validation_result == GNEISS_SUCCESS ? state->run(application, max_frame_count)
-                                               : validation_result;
+    if (validation_result != GNEISS_SUCCESS) {
+      return validation_result;
+    }
+    const auto result = state->run(application, max_frame_count);
+    if (result != GNEISS_SUCCESS) {
+      state->report(application, GNEISS_DIAGNOSTIC_ERROR, GNEISS_DIAGNOSTIC_CATEGORY_BACKEND,
+                    result, "application", "主循环因运行时错误终止");
+    }
+    return result;
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;
   }
@@ -352,9 +359,15 @@ extern "C" gneiss_result gneiss_application_load_action_map(gneiss_application a
   try {
     auto state = find_application(application);
     const auto validation = validate_application(state);
-    return validation == GNEISS_SUCCESS
-               ? state->load_action_map({uri, static_cast<std::size_t>(uri_length)})
-               : validation;
+    if (validation != GNEISS_SUCCESS) {
+      return validation;
+    }
+    const auto result = state->load_action_map({uri, static_cast<std::size_t>(uri_length)});
+    if (result != GNEISS_SUCCESS) {
+      state->report(application, GNEISS_DIAGNOSTIC_ERROR, GNEISS_DIAGNOSTIC_CATEGORY_INPUT, result,
+                    "input", "动作映射加载失败");
+    }
+    return result;
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;
   }

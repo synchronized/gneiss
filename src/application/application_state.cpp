@@ -190,6 +190,26 @@ gneiss_result application_state::get_action_state(gneiss_action action,
   return input_.get_action_state(action, out_state);
 }
 
+void application_state::report(gneiss_application handle, std::uint32_t severity,
+                               std::uint32_t category, gneiss_result result,
+                               std::string_view module, std::string_view message) const noexcept {
+  if (desc_.diagnostic == nullptr) {
+    return;
+  }
+  const gneiss_diagnostic diagnostic = {
+      .struct_size = sizeof(gneiss_diagnostic),
+      .severity = severity,
+      .category = category,
+      .result = result,
+      .module = module.data(),
+      .module_length = module.size(),
+      .message = message.data(),
+      .message_length = message.size(),
+      .reserved = {},
+  };
+  desc_.diagnostic(handle, &diagnostic, desc_.user_data);
+}
+
 #ifdef GNEISS_HAS_GRANIT_PLATFORM
 gneiss_result application_state::render_frame() noexcept {
   if (granit_render_service_ == nullptr) {
