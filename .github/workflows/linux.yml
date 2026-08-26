@@ -44,6 +44,8 @@ jobs:
         linkage: [shared, static]
     steps:
       - uses: actions/checkout@v5
+        with:
+          submodules: recursive
       - name: 恢复编译缓存
         uses: actions/cache@v5
         with:
@@ -87,6 +89,8 @@ jobs:
         linkage: [shared, static]
     steps:
       - uses: actions/checkout@v5
+        with:
+          submodules: recursive
       - name: 恢复编译缓存
         uses: actions/cache@v5
         with:
