@@ -67,8 +67,8 @@ ctest --test-dir build/granit-platform --output-on-failure
 
 使用 `GNEISS_GRANIT_PROVIDER=FETCH` 可以强制验证下载路径，跳过 package 查找。仓库镜像和版本可
 通过 `GNEISS_GRANIT_GIT_REPOSITORY`、`GNEISS_GRANIT_GIT_TAG` 覆盖。若父工程已经定义
-`granit::granit` 与 `granit::window`，所有 provider 都会优先直接复用。共享库 package 构建运行
-测试时，Granit 核心和 Window 动态库必须位于系统动态库搜索路径中。
+`granit::granit` 与 `granit::window`，所有 provider 都会优先直接复用。Windows 使用共享库 package
+时，构建会把 Granit 的运行时 DLL 自动复制到 Gneiss 的运行时输出目录，无需手动修改 `PATH`。
 
 ## 验证结果
 

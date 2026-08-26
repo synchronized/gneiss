@@ -68,6 +68,21 @@ if(GNEISS_ENABLE_GRANIT_PLATFORM)
   )
   target_compile_definitions(gneiss PRIVATE GNEISS_HAS_GRANIT_PLATFORM)
   target_link_libraries(gneiss PRIVATE granit::granit granit::window)
+
+  get_target_property(granit_runtime_is_imported granit::granit IMPORTED)
+  get_target_property(granit_runtime_type granit::granit TYPE)
+  if(WIN32 AND granit_runtime_is_imported AND granit_runtime_type STREQUAL "SHARED_LIBRARY")
+    # Windows 不会沿链接信息查找 DLL；把已安装 package 的运行时依赖放到 Gneiss 同目录。
+    add_custom_command(
+      TARGET gneiss
+      POST_BUILD
+      COMMAND
+        "${CMAKE_COMMAND}" -E copy_if_different $<TARGET_RUNTIME_DLLS:gneiss>
+        $<TARGET_FILE_DIR:gneiss>
+      COMMAND_EXPAND_LISTS
+      VERBATIM
+    )
+  endif()
 endif()
 
 target_compile_features(gneiss PUBLIC cxx_std_20)
