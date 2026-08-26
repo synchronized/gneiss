@@ -202,6 +202,21 @@ gneiss_target_output_directories(gneiss_json_format_test)
 add_test(NAME gneiss.json_format COMMAND gneiss_json_format_test)
 
 add_executable(
+  gneiss_scene_description_test
+  serialization/scene_description_test.cpp
+  "${PROJECT_SOURCE_DIR}/src/asset/asset_uri.cpp"
+  "${PROJECT_SOURCE_DIR}/src/asset/virtual_file_system.cpp"
+  "${PROJECT_SOURCE_DIR}/src/scene/scene_description.cpp"
+)
+target_include_directories(gneiss_scene_description_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_compile_definitions(gneiss_scene_description_test PRIVATE GNEISS_BUILDING_LIBRARY)
+target_link_libraries(gneiss_scene_description_test PRIVATE gneiss::gneiss gneiss_yyjson)
+target_compile_features(gneiss_scene_description_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_scene_description_test)
+gneiss_target_output_directories(gneiss_scene_description_test)
+add_test(NAME gneiss.scene_description COMMAND gneiss_scene_description_test)
+
+add_executable(
   gneiss_resource_service_test
   asset/resource_service_test.cpp
   "${PROJECT_SOURCE_DIR}/src/asset/asset_uri.cpp"

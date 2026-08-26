@@ -40,6 +40,8 @@ target_sources(
     render/render_resource_service.h
     scene/scene_tree.cpp
     scene/scene_tree.h
+    scene/scene_description.cpp
+    scene/scene_description.h
     world/system_scheduler.cpp
     world/system_scheduler.h
     world/render_snapshot.cpp
@@ -105,7 +107,7 @@ endif()
 
 target_compile_features(gneiss PUBLIC cxx_std_20)
 gneiss_target_compile_warnings(gneiss)
-target_link_libraries(gneiss PRIVATE EnTT::EnTT)
+target_link_libraries(gneiss PRIVATE EnTT::EnTT gneiss_yyjson)
 target_include_directories(
   gneiss
   PRIVATE "${PROJECT_SOURCE_DIR}/src"

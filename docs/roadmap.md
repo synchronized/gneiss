@@ -59,7 +59,7 @@
 | --- | --- | --- |
 | M-13 JSON 格式 Spike 与 ADR | P0 | 已完成；采用 yyjson 0.12.0 |
 | M-14 资产 URI、缓存与生命周期 | P0 | 已完成基础实现 |
-| M-15 版本化场景 Schema | P0 | 待开始 |
+| M-15 版本化场景 Schema | P0 | 已完成 |
 | M-16 Mesh/Material Loader | P0 | 待开始 |
 | M-17 场景原子实例化与版本验收 | P0 | 待开始 |
 | M-18 Texture 资产与渲染扩展 | P1 | 待开始 |

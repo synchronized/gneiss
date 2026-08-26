@@ -34,6 +34,7 @@
 - [Application 生命周期、时间与主循环](reference/application.md)
 - [Render 资源、ECS 组件与帧提取](reference/render.md)
 - [资产 URI、目录挂载与缓存](reference/assets.md)
+- [场景文件格式 v1](reference/scene-format.md)
 
 ## 架构与原理
 
@@ -54,13 +55,15 @@
 - [ADR-002：ECS、反射与序列化边界](decisions/ADR-002-ecs-reflection-boundary.md)
 - [ADR-003：Granit 依赖来源策略](decisions/ADR-003-granit-provider-strategy.md)
 - [ADR-004：使用 yyjson 解析内部 JSON 文档](decisions/ADR-004-json-parser.md)
-- [ADR-005：资产 URI 与目录 Provider 边界](decisions/ADR-005-asset-uri.md)
+- [ADR-005：资产 URI 与虚拟文件系统边界](decisions/ADR-005-asset-uri.md)
+- [ADR-006：场景 Schema v1 持久化契约](decisions/ADR-006-scene-schema-v1.md)
 
 ## 实施与验收记录
 
 - [0.1.0 版本验收记录](records/0.1.0-validation.md)
 - [M-13 JSON 解析器 Spike 记录](records/M-13-json-spike.md)
 - [M-14 资产 URI 与资源生命周期实施记录](records/M-14-asset-uri-resource-lifecycle.md)
+- [M-15 版本化场景 Schema 实施记录](records/M-15-scene-schema.md)
 
 ## 文档维护
 
