@@ -43,15 +43,37 @@ gneiss_target_compile_warnings(gneiss_cpp_result_test)
 gneiss_target_output_directories(gneiss_cpp_result_test)
 add_test(NAME gneiss.cpp_result COMMAND gneiss_cpp_result_test)
 
-add_library(gneiss_c_header_test OBJECT headers/gneiss_h.c headers/result_h.c)
+add_library(gneiss_c_header_test OBJECT headers/gneiss_h.c headers/result_h.c headers/rid_h.c)
 target_link_libraries(gneiss_c_header_test PRIVATE gneiss::gneiss)
 target_compile_features(gneiss_c_header_test PRIVATE c_std_11)
 gneiss_target_compile_warnings(gneiss_c_header_test)
 
-add_library(gneiss_cpp_header_test OBJECT headers/gneiss_hpp.cpp headers/result_hpp.cpp)
+add_library(
+  gneiss_cpp_header_test OBJECT headers/gneiss_hpp.cpp headers/result_hpp.cpp headers/rid_hpp.cpp
+)
 target_link_libraries(gneiss_cpp_header_test PRIVATE gneiss::gneiss)
 target_compile_features(gneiss_cpp_header_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_cpp_header_test)
+
+add_executable(gneiss_rid_table_test core/rid_table_test.cpp)
+target_include_directories(gneiss_rid_table_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_link_libraries(gneiss_rid_table_test PRIVATE gneiss::gneiss)
+target_compile_features(gneiss_rid_table_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_rid_table_test)
+gneiss_target_output_directories(gneiss_rid_table_test)
+add_test(NAME gneiss.rid_table COMMAND gneiss_rid_table_test)
+
+add_executable(
+  gneiss_service_registry_test
+  core/service_registry_test.cpp
+  "${PROJECT_SOURCE_DIR}/src/core/service_registry.cpp"
+)
+target_include_directories(gneiss_service_registry_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_link_libraries(gneiss_service_registry_test PRIVATE gneiss::gneiss)
+target_compile_features(gneiss_service_registry_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_service_registry_test)
+gneiss_target_output_directories(gneiss_service_registry_test)
+add_test(NAME gneiss.service_registry COMMAND gneiss_service_registry_test)
 
 if(TARGET gneiss_version_example)
   add_test(NAME gneiss.version_example COMMAND gneiss_version_example)

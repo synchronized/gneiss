@@ -5,6 +5,7 @@
 #define GNEISS_GNEISS_HPP_
 
 #include <gneiss/core/result.hpp>
+#include <gneiss/core/rid.hpp>
 #include <gneiss/gneiss.h>
 
 #include <cstdint>

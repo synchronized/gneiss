@@ -28,6 +28,7 @@
 ## API 参考
 
 - [Core 版本与结果接口](reference/core.md)
+- [RID 有效性与 Service 生命周期](reference/rid.md)
 
 ## 架构与原理
 

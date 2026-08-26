@@ -18,7 +18,7 @@ configure_file(
 
 target_sources(
   gneiss
-  PRIVATE result.cpp version.cpp
+  PRIVATE core/service_registry.cpp core/service_registry.h core/rid_table.h result.cpp version.cpp
   PUBLIC
     FILE_SET HEADERS
     BASE_DIRS
@@ -28,6 +28,8 @@ target_sources(
       "${PROJECT_SOURCE_DIR}/include/gneiss/core/export.h"
       "${PROJECT_SOURCE_DIR}/include/gneiss/core/result.h"
       "${PROJECT_SOURCE_DIR}/include/gneiss/core/result.hpp"
+      "${PROJECT_SOURCE_DIR}/include/gneiss/core/rid.h"
+      "${PROJECT_SOURCE_DIR}/include/gneiss/core/rid.hpp"
       "${PROJECT_SOURCE_DIR}/include/gneiss/gneiss.h"
       "${PROJECT_SOURCE_DIR}/include/gneiss/gneiss.hpp"
       "${GNEISS_GENERATED_VERSION_HEADER}"
@@ -37,6 +39,7 @@ target_compile_features(gneiss PUBLIC cxx_std_20)
 gneiss_target_compile_warnings(gneiss)
 target_include_directories(
   gneiss
+  PRIVATE "${PROJECT_SOURCE_DIR}/src"
   PUBLIC
     $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
     $<BUILD_INTERFACE:${GNEISS_GENERATED_INCLUDE_DIR}>

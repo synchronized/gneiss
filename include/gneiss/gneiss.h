@@ -8,6 +8,7 @@
 
 #include <gneiss/core/export.h>
 #include <gneiss/core/result.h>
+#include <gneiss/core/rid.h>
 #include <gneiss/core/version.h>
 
 #ifdef __cplusplus
