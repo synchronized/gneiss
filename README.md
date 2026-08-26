@@ -14,7 +14,7 @@
 - **模块化架构**：各系统以独立服务的形式提供，并通过轻量级资源句柄（RID）交互。
 - **高性能数据驱动**：以 ECS 作为核心数据层，改善数据局部性并提高 CPU 缓存利用率。
 - **分层数据管理**：采用场景树与 ECS 双栈架构，兼顾开发便利性和运行效率。
-- **异步网络**：基于 `libuv` 实现网络能力，通过无锁队列与主线程解耦。
+- **渐进式扩展**：网络、音频、物理和脚本等能力只在真实用例出现后按独立 Service 引入。
 
 ## 架构概览
 
@@ -26,7 +26,8 @@ Gneiss 分为逻辑层、ECS 数据层、服务层与后端层。场景树通过
 
 ## 开始使用
 
-当前工程提供 C11 版本接口、C++20 包装和首个 version 示例。选择与平台匹配的 preset，例如：
+当前工程提供 C11 公共接口、C++20 包装、Application、World、Scene Tree、最小 Render Service，
+以及 version 和旋转三角形示例。选择与平台匹配的 preset，例如：
 
 ```sh
 cmake --preset windows-clang-debug
@@ -34,13 +35,15 @@ cmake --build --preset windows-clang-debug
 ctest --preset windows-clang-debug
 ```
 
-完整命令和其他平台选项见[构建与测试指南](docs/guides/building.md)。
+Granit 三角形示例需要启用可选的平台适配。完整构建、测试和示例运行命令见
+[构建与测试指南](docs/guides/building.md)。
 
 你可以通过 [Issues](https://github.com/synchronized/gneiss/issues) 提交建议或跟踪开发进展。
 
 ## 文档
 
 使用指南、接口参考、架构说明和开发计划统一收录在 [Gneiss 文档中心](docs/README.md)。
+面向使用者的版本变化记录在[变更记录](CHANGELOG.md)。
 
 文档的职责、目录、模板和维护规则见[项目文档规范](DOCUMENTATION_GUIDE.md)。
 

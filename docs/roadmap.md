@@ -32,18 +32,18 @@
 
 | 任务 | 优先级 | 状态 |
 | --- | --- | --- |
-| M-01 项目边界与最小闭环 | P0 | 实现中；M-01A 已完成 |
+| M-01 项目边界与最小闭环 | P0 | 实现中；M-01A～M-01F 已完成，M-01G 验收中 |
 | M-02 Application 生命周期与主循环 | P0 | 已完成基础实现 |
 | M-03 Service 注册、依赖与销毁顺序 | P0 | 已完成基础实现 |
 | M-04 RID 编码、类型和 generation 校验 | P0 | 已完成基础实现 |
 | M-05 ECS 方案验证与 ADR | P0 | 已完成；采用内部 EnTT 适配 |
 | M-06 最小 World、Entity、Component 与 System | P0 | 已完成基础实现 |
 | M-07 Scene Tree 与 Entity 映射 | P0 | 已完成基础实现 |
-| M-08 Granit Render Service | P0 | 待开始 |
-| M-09 Transform、Camera 与 Mesh Renderer | P0 | 待开始 |
-| M-10 最小资源缓存 | P0 | 待开始 |
-| M-11 可运行示例与生命周期验收 | P0 | 待开始 |
-| M-12 Windows/Linux 构建与测试矩阵 | P1 | 待开始 |
+| M-08 Granit Render Service | P0 | 已完成基础实现 |
+| M-09 Transform、Camera 与 Mesh Renderer | P0 | 已完成基础实现 |
+| M-10 最小资源缓存 | P0 | 已完成基础实现 |
+| M-11 可运行示例与生命周期验收 | P0 | 已完成 |
+| M-12 Windows/Linux 构建与测试矩阵 | P1 | 实现中；Windows 本地矩阵已通过 |
 
 `0.1.0` 的完成标志是示例能够启动窗口、创建场景与实体、持续渲染、处理退出事件并在无资源遗漏的
 情况下关闭。单独存在的接口、组件或测试不能替代该端到端验收。

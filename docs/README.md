@@ -22,7 +22,7 @@
 
 ## 操作指南
 
-- [构建、测试与运行 version 示例](guides/building.md)
+- [构建、测试与运行示例](guides/building.md)
 - [C/C++ 代码风格与语言标准](guides/coding-style.md)
 
 ## API 参考
