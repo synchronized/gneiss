@@ -105,17 +105,18 @@ gneiss 0.2.0
 
 开发 preset 默认启用编译警告并将警告视为错误。
 
-### 自动验证矩阵
+### 手动验证矩阵
 
-Pull Request 和 `main` 分支的代码变更使用以下矩阵：
+仓库不在推送、Pull Request 或合并时自动运行 Actions。需要远端验证时，在 GitHub Actions 页面手动
+触发 Linux 和 Windows 工作流；工作流使用触发时选择的分支或提交，并执行以下矩阵：
 
 - Windows Server 2022：MSVC、共享/静态安装 Consumer 与 Granit 运行时；托管 Runner 缺少 Vulkan
   ICD，因此窗口 smoke test 由 Linux 执行。
 - Ubuntu 24.04：Clang/GCC、共享/静态核心与安装 Consumer；Clang 额外执行共享/静态 Granit 无头
   窗口测试。
 
-工作流配置位于 `.github/workflows/windows.yml` 和 `.github/workflows/linux.yml`。文档单独变更不会
-触发构建；工作流是否通过以对应提交的 Actions 结果为准。
+工作流配置位于 `.github/workflows/windows.yml` 和 `.github/workflows/linux.yml`。是否触发以及验证
+哪个提交属于显式发布或评审步骤；工作流是否通过以对应手动运行的 Actions 结果为准。
 
 ## 常见问题
 
