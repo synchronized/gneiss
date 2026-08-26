@@ -22,6 +22,16 @@ gneiss_result application_state::initialize() noexcept {
   if (!resources_.is_valid()) {
     return GNEISS_ERROR_OUT_OF_MEMORY;
   }
+  if (desc_.asset_root != nullptr || desc_.asset_root_length != 0U) {
+    if (desc_.asset_root == nullptr || desc_.asset_root_length == 0U) {
+      return GNEISS_ERROR_INVALID_ARGUMENT;
+    }
+    const auto mount_result =
+        asset_provider_.mount(std::string_view(desc_.asset_root, desc_.asset_root_length));
+    if (mount_result != GNEISS_SUCCESS) {
+      return mount_result;
+    }
+  }
   if (desc_.platform == GNEISS_APPLICATION_PLATFORM_GRANIT) {
 #ifdef GNEISS_HAS_GRANIT_PLATFORM
     try {

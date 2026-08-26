@@ -22,6 +22,12 @@ target_sources(
     application/application_api.cpp
     application/application_state.cpp
     application/application_state.h
+    asset/asset_uri.cpp
+    asset/asset_uri.h
+    asset/directory_asset_provider.cpp
+    asset/directory_asset_provider.h
+    asset/resource_cache.cpp
+    asset/resource_cache.h
     core/service_registry.cpp
     core/service_registry.h
     core/rid_table.h
@@ -45,6 +51,8 @@ target_sources(
     FILES
       "${PROJECT_SOURCE_DIR}/include/gneiss/application.h"
       "${PROJECT_SOURCE_DIR}/include/gneiss/application.hpp"
+      "${PROJECT_SOURCE_DIR}/include/gneiss/asset.h"
+      "${PROJECT_SOURCE_DIR}/include/gneiss/asset.hpp"
       "${PROJECT_SOURCE_DIR}/include/gneiss/core/export.h"
       "${PROJECT_SOURCE_DIR}/include/gneiss/core/entity.h"
       "${PROJECT_SOURCE_DIR}/include/gneiss/core/entity.hpp"

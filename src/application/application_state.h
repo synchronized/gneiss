@@ -6,6 +6,8 @@
 
 #include <gneiss/application.h>
 
+#include "asset/directory_asset_provider.h"
+#include "asset/resource_cache.h"
 #include "render/render_resource_service.h"
 
 #include <cstdint>
@@ -52,6 +54,8 @@ private:
 
   gneiss_application_desc desc_;
   render_internal::render_resource_service resources_;
+  asset_internal::directory_asset_provider asset_provider_;
+  asset_internal::resource_cache asset_cache_;
   gneiss_world world_ = GNEISS_NULL_WORLD;
   std::thread::id owner_thread_;
   std::uint64_t frame_index_ = 0;

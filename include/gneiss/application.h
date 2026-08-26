@@ -65,10 +65,16 @@ typedef struct gneiss_application_desc {
   uint32_t window_width;
   uint32_t window_height;
   uint32_t window_flags;
+  /** 可选的 UTF-8 资产根目录。为空时不挂载目录资产。 */
+  const char* asset_root;
+  uint32_t asset_root_length;
+  uint32_t asset_reserved;
 } gneiss_application_desc;
 
 #define GNEISS_APPLICATION_DESC_VERSION_1_SIZE                                                     \
   ((uint32_t)(offsetof(gneiss_application_desc, shutdown) + sizeof(gneiss_application_shutdown_fn)))
+#define GNEISS_APPLICATION_DESC_VERSION_2_SIZE                                                     \
+  ((uint32_t)(offsetof(gneiss_application_desc, asset_reserved) + sizeof(uint32_t)))
 
 #define GNEISS_APPLICATION_DESC_INIT                                                               \
   {(uint32_t)sizeof(gneiss_application_desc),                                                      \
@@ -85,7 +91,10 @@ typedef struct gneiss_application_desc {
    UINT32_C(1280),                                                                                 \
    UINT32_C(720),                                                                                  \
    GNEISS_APPLICATION_WINDOW_VISIBLE_BIT | GNEISS_APPLICATION_WINDOW_RESIZABLE_BIT |               \
-       GNEISS_APPLICATION_WINDOW_HIGH_DPI_BIT}
+       GNEISS_APPLICATION_WINDOW_HIGH_DPI_BIT,                                                     \
+   NULL,                                                                                           \
+   UINT32_C(0),                                                                                    \
+   UINT32_C(0)}
 
 #ifdef __cplusplus
 extern "C" {

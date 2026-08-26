@@ -7,6 +7,7 @@
 #include <stdint.h>
 
 #include <gneiss/application.h>
+#include <gneiss/asset.h>
 #include <gneiss/core/entity.h>
 #include <gneiss/core/export.h>
 #include <gneiss/core/result.h>

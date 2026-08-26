@@ -53,8 +53,18 @@ gneiss_target_compile_warnings(gneiss_c_render_test)
 gneiss_target_output_directories(gneiss_c_render_test)
 add_test(NAME gneiss.c_render COMMAND gneiss_c_render_test)
 
+add_executable(gneiss_c_asset_test c_asset_test.c)
+target_link_libraries(gneiss_c_asset_test PRIVATE gneiss::gneiss)
+set_target_properties(
+  gneiss_c_asset_test
+  PROPERTIES C_STANDARD 11 C_STANDARD_REQUIRED YES C_EXTENSIONS NO LINKER_LANGUAGE CXX
+)
+gneiss_target_compile_warnings(gneiss_c_asset_test)
+gneiss_target_output_directories(gneiss_c_asset_test)
+add_test(NAME gneiss.c_asset COMMAND gneiss_c_asset_test)
+
 add_library(
-  gneiss_c_header_test OBJECT headers/application_h.c headers/entity_h.c headers/gneiss_h.c headers/render_h.c
+  gneiss_c_header_test OBJECT headers/application_h.c headers/asset_h.c headers/entity_h.c headers/gneiss_h.c headers/render_h.c
                               headers/result_h.c headers/rid_h.c headers/scene_h.c headers/world_h.c
 )
 target_link_libraries(gneiss_c_header_test PRIVATE gneiss::gneiss)
@@ -62,7 +72,7 @@ target_compile_features(gneiss_c_header_test PRIVATE c_std_11)
 gneiss_target_compile_warnings(gneiss_c_header_test)
 
 add_library(
-  gneiss_cpp_header_test OBJECT headers/application_hpp.cpp headers/entity_hpp.cpp headers/gneiss_hpp.cpp
+  gneiss_cpp_header_test OBJECT headers/application_hpp.cpp headers/asset_hpp.cpp headers/entity_hpp.cpp headers/gneiss_hpp.cpp
                                 headers/render_hpp.cpp headers/result_hpp.cpp headers/rid_hpp.cpp headers/scene_hpp.cpp
                                 headers/world_hpp.cpp
 )
@@ -190,6 +200,21 @@ target_compile_features(gneiss_json_format_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_json_format_test)
 gneiss_target_output_directories(gneiss_json_format_test)
 add_test(NAME gneiss.json_format COMMAND gneiss_json_format_test)
+
+add_executable(
+  gneiss_resource_service_test
+  asset/resource_service_test.cpp
+  "${PROJECT_SOURCE_DIR}/src/asset/asset_uri.cpp"
+  "${PROJECT_SOURCE_DIR}/src/asset/directory_asset_provider.cpp"
+  "${PROJECT_SOURCE_DIR}/src/asset/resource_cache.cpp"
+)
+target_include_directories(gneiss_resource_service_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_compile_definitions(gneiss_resource_service_test PRIVATE GNEISS_BUILDING_LIBRARY)
+target_link_libraries(gneiss_resource_service_test PRIVATE gneiss::gneiss)
+target_compile_features(gneiss_resource_service_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_resource_service_test)
+gneiss_target_output_directories(gneiss_resource_service_test)
+add_test(NAME gneiss.resource_service COMMAND gneiss_resource_service_test)
 
 if(TARGET gneiss_version_example)
   add_test(NAME gneiss.version_example COMMAND gneiss_version_example)

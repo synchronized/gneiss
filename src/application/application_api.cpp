@@ -58,6 +58,7 @@ extern "C" gneiss_result gneiss_application_create(const gneiss_application_desc
   std::memcpy(&normalized_desc, desc,
               std::min<std::size_t>(desc->struct_size, sizeof(gneiss_application_desc)));
   if (normalized_desc.platform > GNEISS_APPLICATION_PLATFORM_GRANIT ||
+      normalized_desc.asset_reserved != 0U ||
       (normalized_desc.window_title == nullptr && normalized_desc.window_title_length != 0U) ||
       (normalized_desc.window_flags &
        ~(GNEISS_APPLICATION_WINDOW_VISIBLE_BIT | GNEISS_APPLICATION_WINDOW_RESIZABLE_BIT |

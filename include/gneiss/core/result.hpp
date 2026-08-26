@@ -24,6 +24,8 @@ enum class result : std::int32_t {
   invalid_state = GNEISS_ERROR_INVALID_STATE,
   not_ready = GNEISS_ERROR_NOT_READY,
   internal = GNEISS_ERROR_INTERNAL,
+  not_found = GNEISS_ERROR_NOT_FOUND,
+  io = GNEISS_ERROR_IO,
 };
 
 [[nodiscard]] constexpr gneiss_result to_native(result value) noexcept {
