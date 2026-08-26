@@ -16,7 +16,8 @@
 namespace gneiss::application_internal {
 
 application_state::application_state(const gneiss_application_desc& desc) noexcept
-    : desc_(desc), owner_thread_(std::this_thread::get_id()) {}
+    : desc_(desc), asset_loader_(asset_file_system_, asset_cache_, resources_),
+      owner_thread_(std::this_thread::get_id()) {}
 
 application_state::~application_state() noexcept { shutdown(); }
 

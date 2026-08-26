@@ -8,6 +8,7 @@
 
 #include "asset/resource_cache.h"
 #include "asset/virtual_file_system.h"
+#include "render/render_asset_loader.h"
 #include "render/render_resource_service.h"
 
 #include <cstdint>
@@ -41,6 +42,9 @@ public:
   [[nodiscard]] render_internal::render_resource_service& resources() noexcept {
     return resources_;
   }
+  [[nodiscard]] render_internal::render_asset_loader& asset_loader() noexcept {
+    return asset_loader_;
+  }
   void request_exit() noexcept { should_exit_ = true; }
   void set_paused(bool value) noexcept { is_paused_ = value; }
 
@@ -56,6 +60,7 @@ private:
   render_internal::render_resource_service resources_;
   asset_internal::virtual_file_system asset_file_system_;
   asset_internal::resource_cache asset_cache_;
+  render_internal::render_asset_loader asset_loader_;
   gneiss_world world_ = GNEISS_NULL_WORLD;
   std::thread::id owner_thread_;
   std::uint64_t frame_index_ = 0;

@@ -12,3 +12,4 @@ Reference 和实现为准。
 - [ADR-004：使用 yyjson 解析内部 JSON 文档](ADR-004-json-parser.md)
 - [ADR-005：资产 URI 与虚拟文件系统边界](ADR-005-asset-uri.md)
 - [ADR-006：场景 Schema v1 持久化契约](ADR-006-scene-schema-v1.md)
+- [ADR-007：首版 Mesh 与 Material 运行时资产格式](ADR-007-render-asset-formats.md)

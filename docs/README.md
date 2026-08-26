@@ -35,6 +35,7 @@
 - [Render 资源、ECS 组件与帧提取](reference/render.md)
 - [资产 URI、目录挂载与缓存](reference/assets.md)
 - [场景文件格式 v1](reference/scene-format.md)
+- [Mesh 与 Material 资产格式 v1](reference/render-asset-formats.md)
 
 ## 架构与原理
 
@@ -57,6 +58,7 @@
 - [ADR-004：使用 yyjson 解析内部 JSON 文档](decisions/ADR-004-json-parser.md)
 - [ADR-005：资产 URI 与虚拟文件系统边界](decisions/ADR-005-asset-uri.md)
 - [ADR-006：场景 Schema v1 持久化契约](decisions/ADR-006-scene-schema-v1.md)
+- [ADR-007：首版 Mesh 与 Material 运行时资产格式](decisions/ADR-007-render-asset-formats.md)
 
 ## 实施与验收记录
 
@@ -64,6 +66,7 @@
 - [M-13 JSON 解析器 Spike 记录](records/M-13-json-spike.md)
 - [M-14 资产 URI 与资源生命周期实施记录](records/M-14-asset-uri-resource-lifecycle.md)
 - [M-15 版本化场景 Schema 实施记录](records/M-15-scene-schema.md)
+- [M-16 Mesh 与 Material Loader 实施记录](records/M-16-render-asset-loaders.md)
 
 ## 文档维护
 

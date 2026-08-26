@@ -232,6 +232,23 @@ gneiss_target_compile_warnings(gneiss_resource_service_test)
 gneiss_target_output_directories(gneiss_resource_service_test)
 add_test(NAME gneiss.resource_service COMMAND gneiss_resource_service_test)
 
+add_executable(
+  gneiss_render_asset_loader_test
+  render/render_asset_loader_test.cpp
+  "${PROJECT_SOURCE_DIR}/src/asset/asset_uri.cpp"
+  "${PROJECT_SOURCE_DIR}/src/asset/resource_cache.cpp"
+  "${PROJECT_SOURCE_DIR}/src/asset/virtual_file_system.cpp"
+  "${PROJECT_SOURCE_DIR}/src/render/render_asset_loader.cpp"
+  "${PROJECT_SOURCE_DIR}/src/render/render_resource_service.cpp"
+)
+target_include_directories(gneiss_render_asset_loader_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_compile_definitions(gneiss_render_asset_loader_test PRIVATE GNEISS_BUILDING_LIBRARY)
+target_link_libraries(gneiss_render_asset_loader_test PRIVATE gneiss::gneiss gneiss_yyjson)
+target_compile_features(gneiss_render_asset_loader_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_render_asset_loader_test)
+gneiss_target_output_directories(gneiss_render_asset_loader_test)
+add_test(NAME gneiss.render_asset_loader COMMAND gneiss_render_asset_loader_test)
+
 if(TARGET gneiss_version_example)
   add_test(NAME gneiss.version_example COMMAND gneiss_version_example)
   set_tests_properties(

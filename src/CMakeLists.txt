@@ -38,6 +38,8 @@ target_sources(
     core/version.cpp
     render/render_resource_service.cpp
     render/render_resource_service.h
+    render/render_asset_loader.cpp
+    render/render_asset_loader.h
     scene/scene_tree.cpp
     scene/scene_tree.h
     scene/scene_description.cpp
