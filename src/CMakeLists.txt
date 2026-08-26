@@ -25,10 +25,10 @@ target_sources(
     core/service_registry.cpp
     core/service_registry.h
     core/rid_table.h
-    result.cpp
+    core/result.cpp
     scene/scene_tree.cpp
     scene/scene_tree.h
-    version.cpp
+    core/version.cpp
     world/system_scheduler.cpp
     world/system_scheduler.h
     world/world_api.cpp
