@@ -77,8 +77,9 @@ ctest --test-dir build/granit-platform --output-on-failure
 ```
 
 Linux 下运行同名且不带 `.exe` 后缀的可执行文件。该示例的 `main` 位于
-`examples/triangle/main.cpp`，只使用 Gneiss 公共接口创建 Application、Mesh、Material、Camera、
-Scene Node 和 Mesh Renderer。
+`examples/triangle/main.cpp`，只使用 Gneiss 公共接口创建 Application、加载场景实例并按对象 UUID
+更新 Scene Node。运行命令需要从仓库根目录执行，使默认资产根 `assets`
+可见；示例的 Mesh、Material、Camera 和对象结构均来自 `assets/scenes/triangle.scene.json`。
 
 ## 验证结果
 

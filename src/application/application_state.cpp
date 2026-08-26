@@ -97,6 +97,20 @@ gneiss_result application_state::initialize() noexcept {
     shutdown();
     return result;
   }
+  try {
+    scenes_ = std::make_unique<scene_internal::scene_instance_service>(world_, asset_file_system_,
+                                                                       asset_loader_);
+  } catch (const std::bad_alloc&) {
+    shutdown();
+    return GNEISS_ERROR_OUT_OF_MEMORY;
+  } catch (...) {
+    shutdown();
+    return GNEISS_ERROR_INTERNAL;
+  }
+  if (!scenes_->is_valid()) {
+    shutdown();
+    return GNEISS_ERROR_OUT_OF_MEMORY;
+  }
   return GNEISS_SUCCESS;
 }
 
@@ -201,6 +215,7 @@ bool application_state::is_owner_thread() const noexcept {
 }
 
 void application_state::shutdown() noexcept {
+  scenes_.reset();
   if (world_ != GNEISS_NULL_WORLD) {
     (void)gneiss_world_destroy(world_);
     world_ = GNEISS_NULL_WORLD;

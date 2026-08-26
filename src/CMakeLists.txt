@@ -44,6 +44,8 @@ target_sources(
     scene/scene_tree.h
     scene/scene_description.cpp
     scene/scene_description.h
+    scene/scene_instance_service.cpp
+    scene/scene_instance_service.h
     world/system_scheduler.cpp
     world/system_scheduler.h
     world/render_snapshot.cpp

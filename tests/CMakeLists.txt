@@ -249,6 +249,19 @@ gneiss_target_compile_warnings(gneiss_render_asset_loader_test)
 gneiss_target_output_directories(gneiss_render_asset_loader_test)
 add_test(NAME gneiss.render_asset_loader COMMAND gneiss_render_asset_loader_test)
 
+add_executable(gneiss_scene_instance_test scene/scene_instance_test.cpp)
+target_link_libraries(gneiss_scene_instance_test PRIVATE gneiss::gneiss)
+target_compile_definitions(
+  gneiss_scene_instance_test
+  PRIVATE
+    GNEISS_TEST_ASSET_ROOT="${PROJECT_SOURCE_DIR}/assets"
+    GNEISS_TEST_FAILURE_ASSET_ROOT="${PROJECT_SOURCE_DIR}/tests/data"
+)
+target_compile_features(gneiss_scene_instance_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_scene_instance_test)
+gneiss_target_output_directories(gneiss_scene_instance_test)
+add_test(NAME gneiss.scene_instance COMMAND gneiss_scene_instance_test)
+
 if(TARGET gneiss_version_example)
   add_test(NAME gneiss.version_example COMMAND gneiss_version_example)
   set_tests_properties(

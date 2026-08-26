@@ -35,6 +35,7 @@
 - [Render 资源、ECS 组件与帧提取](reference/render.md)
 - [资产 URI、目录挂载与缓存](reference/assets.md)
 - [场景文件格式 v1](reference/scene-format.md)
+- [场景加载、实例与卸载](reference/scene-instance.md)
 - [Mesh 与 Material 资产格式 v1](reference/render-asset-formats.md)
 
 ## 架构与原理
@@ -67,6 +68,7 @@
 - [M-14 资产 URI 与资源生命周期实施记录](records/M-14-asset-uri-resource-lifecycle.md)
 - [M-15 版本化场景 Schema 实施记录](records/M-15-scene-schema.md)
 - [M-16 Mesh 与 Material Loader 实施记录](records/M-16-render-asset-loaders.md)
+- [M-17 场景实例化与本地验收记录](records/M-17-scene-instantiation.md)
 
 ## 文档维护
 

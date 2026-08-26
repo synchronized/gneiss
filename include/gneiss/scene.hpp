@@ -8,6 +8,9 @@
 #include <gneiss/core/result.hpp>
 #include <gneiss/scene.h>
 
+#include <string_view>
+#include <utility>
+
 namespace gneiss {
 
 /** 不拥有 Scene Node 的强类型运行时标识。 */
@@ -27,6 +30,63 @@ private:
 
 inline constexpr scene_node_id null_scene_node_id{};
 using transform = gneiss_transform;
+
+/** 独占拥有已加载场景；必须在所属 Application 销毁前释放。 */
+class scene_instance final {
+public:
+  scene_instance() noexcept = default;
+  ~scene_instance() noexcept { reset(); }
+
+  scene_instance(const scene_instance&) = delete;
+  scene_instance& operator=(const scene_instance&) = delete;
+  scene_instance(scene_instance&& other) noexcept
+      : application_(std::exchange(other.application_, GNEISS_NULL_APPLICATION)),
+        handle_(std::exchange(other.handle_, GNEISS_NULL_SCENE_INSTANCE)) {}
+  scene_instance& operator=(scene_instance&& other) noexcept {
+    if (this != &other) {
+      reset();
+      application_ = std::exchange(other.application_, GNEISS_NULL_APPLICATION);
+      handle_ = std::exchange(other.handle_, GNEISS_NULL_SCENE_INSTANCE);
+    }
+    return *this;
+  }
+
+  [[nodiscard]] static result load(gneiss_application application, std::string_view uri,
+                                   scene_instance& out_instance) noexcept {
+    gneiss_scene_instance handle = GNEISS_NULL_SCENE_INSTANCE;
+    const auto native_result =
+        gneiss_scene_instance_load(application, uri.data(), uri.size(), &handle);
+    if (native_result == GNEISS_SUCCESS) {
+      out_instance.reset();
+      out_instance.application_ = application;
+      out_instance.handle_ = handle;
+    }
+    return from_native(native_result);
+  }
+
+  [[nodiscard]] bool is_valid() const noexcept { return handle_ != GNEISS_NULL_SCENE_INSTANCE; }
+  [[nodiscard]] gneiss_scene_instance get() const noexcept { return handle_; }
+  [[nodiscard]] result find_node(std::string_view uuid, scene_node_id& out_node) const noexcept {
+    gneiss_scene_node_id node = GNEISS_NULL_SCENE_NODE_ID;
+    const auto native_result =
+        gneiss_scene_instance_find_node(application_, handle_, uuid.data(), uuid.size(), &node);
+    if (native_result == GNEISS_SUCCESS) {
+      out_node = scene_node_id{node};
+    }
+    return from_native(native_result);
+  }
+  void reset() noexcept {
+    if (handle_ != GNEISS_NULL_SCENE_INSTANCE) {
+      (void)gneiss_scene_instance_unload(application_, handle_);
+      handle_ = GNEISS_NULL_SCENE_INSTANCE;
+      application_ = GNEISS_NULL_APPLICATION;
+    }
+  }
+
+private:
+  gneiss_application application_ = GNEISS_NULL_APPLICATION;
+  gneiss_scene_instance handle_ = GNEISS_NULL_SCENE_INSTANCE;
+};
 
 } // namespace gneiss
 

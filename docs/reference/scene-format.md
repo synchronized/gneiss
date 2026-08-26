@@ -4,7 +4,8 @@
 # 场景文件格式 v1
 
 场景使用严格 UTF-8 JSON，格式标识为 `gneiss.scene`，当前 Schema 版本为 `1`，建议文件扩展名为
-`.scene.json`。当前解析接口仍是内部能力，将由后续场景加载 API 使用。
+`.scene.json`。公共场景实例接口通过 VFS 加载该格式，具体生命周期见
+[场景加载、实例与卸载](scene-instance.md)。
 
 ## 最小结构
 

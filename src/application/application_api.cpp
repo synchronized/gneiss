@@ -5,9 +5,11 @@
 #include "core/rid_table.h"
 
 #include <gneiss/application.h>
+#include <gneiss/scene.h>
 
 #include <algorithm>
 #include <cstring>
+#include <limits>
 #include <memory>
 #include <mutex>
 #include <new>
@@ -226,6 +228,63 @@ extern "C" gneiss_result gneiss_material_destroy(gneiss_application application,
     const auto validation_result = validate_application(state);
     return validation_result == GNEISS_SUCCESS ? state->resources().destroy_material(material)
                                                : validation_result;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
+extern "C" gneiss_result gneiss_scene_instance_load(gneiss_application application, const char* uri,
+                                                    uint64_t uri_length,
+                                                    gneiss_scene_instance* out_instance) {
+  if (out_instance == nullptr || uri == nullptr || uri_length == 0U ||
+      uri_length > std::numeric_limits<std::size_t>::max()) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  *out_instance = GNEISS_NULL_SCENE_INSTANCE;
+  try {
+    auto state = find_application(application);
+    const auto validation_result = validate_application(state);
+    if (validation_result != GNEISS_SUCCESS) {
+      return validation_result;
+    }
+    return state->scenes()->load(std::string_view(uri, static_cast<std::size_t>(uri_length)),
+                                 out_instance);
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters): C ABI 句柄名称区分所属关系。
+extern "C" gneiss_result gneiss_scene_instance_unload(gneiss_application application,
+                                                      gneiss_scene_instance instance) {
+  try {
+    auto state = find_application(application);
+    const auto validation_result = validate_application(state);
+    return validation_result == GNEISS_SUCCESS ? state->scenes()->unload(instance)
+                                               : validation_result;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters): C ABI 句柄名称区分所属关系。
+extern "C" gneiss_result gneiss_scene_instance_find_node(gneiss_application application,
+                                                         gneiss_scene_instance instance,
+                                                         const char* uuid, uint64_t uuid_length,
+                                                         gneiss_scene_node_id* out_node) {
+  if (out_node == nullptr || uuid == nullptr || uuid_length == 0U ||
+      uuid_length > std::numeric_limits<std::size_t>::max()) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  *out_node = GNEISS_NULL_SCENE_NODE_ID;
+  try {
+    auto state = find_application(application);
+    const auto validation_result = validate_application(state);
+    if (validation_result != GNEISS_SUCCESS) {
+      return validation_result;
+    }
+    return state->scenes()->find_node(
+        instance, std::string_view(uuid, static_cast<std::size_t>(uuid_length)), out_node);
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;
   }
