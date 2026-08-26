@@ -6,6 +6,7 @@
 
 #include <stdint.h>
 
+#include <gneiss/application.h>
 #include <gneiss/core/entity.h>
 #include <gneiss/core/export.h>
 #include <gneiss/core/result.h>
@@ -13,8 +14,11 @@
 
 /** Scene Node 的运行时标识；零值表示无效节点。 */
 typedef uint64_t gneiss_scene_node_id;
+/** 已加载场景实例的不透明句柄；由所属 Application 独占。 */
+typedef uint64_t gneiss_scene_instance;
 
 #define GNEISS_NULL_SCENE_NODE_ID UINT64_C(0)
+#define GNEISS_NULL_SCENE_INSTANCE UINT64_C(0)
 
 /** Scene Tree 中的局部或世界变换。旋转使用 (x, y, z, w) 四元数。 */
 typedef struct gneiss_transform {
@@ -59,6 +63,21 @@ GNEISS_API gneiss_result gneiss_scene_node_get_world_transform(gneiss_world worl
 /** 获取节点当前关联的实体；实体被销毁后返回零值。 */
 GNEISS_API gneiss_result gneiss_scene_node_get_entity(gneiss_world world, gneiss_scene_node_id node,
                                                       gneiss_entity_id* out_entity);
+
+/** 通过 VFS 同步加载、校验并原子实例化场景；失败时 World 保持不变。 */
+GNEISS_API gneiss_result gneiss_scene_instance_load(gneiss_application application, const char* uri,
+                                                    uint64_t uri_length,
+                                                    gneiss_scene_instance* out_instance);
+
+/** 卸载场景创建的实体、节点和资产引用；句柄随后失效。 */
+GNEISS_API gneiss_result gneiss_scene_instance_unload(gneiss_application application,
+                                                      gneiss_scene_instance instance);
+
+/** 按规范 UUID 查找场景实例中的借用节点 ID。 */
+GNEISS_API gneiss_result gneiss_scene_instance_find_node(gneiss_application application,
+                                                         gneiss_scene_instance instance,
+                                                         const char* uuid, uint64_t uuid_length,
+                                                         gneiss_scene_node_id* out_node);
 
 #ifdef __cplusplus
 }

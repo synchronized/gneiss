@@ -27,6 +27,10 @@ extern "C" const char* gneiss_result_message(gneiss_result result) {
     return "operation temporarily not ready";
   case GNEISS_ERROR_INTERNAL:
     return "internal error";
+  case GNEISS_ERROR_NOT_FOUND:
+    return "not found";
+  case GNEISS_ERROR_IO:
+    return "I/O error";
   default:
     return "unrecognized result";
   }

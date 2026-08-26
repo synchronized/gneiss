@@ -39,6 +39,19 @@ ctest --preset windows-clang-debug
 
 Linux 可选择 `linux-clang-debug` 或 `linux-gcc-debug`，可执行文件不带 `.exe` 后缀。
 
+### 安装并通过 CMake package 使用
+
+构建后可将库、公共头文件、CMake package 和示例资产安装到同一前缀：
+
+```sh
+cmake --install build/windows-clang-debug --prefix build/gneiss-install
+```
+
+下游项目使用 `find_package(gneiss CONFIG REQUIRED)` 和 `gneiss::gneiss`。配置文件同时提供
+`GNEISS_ASSET_DIR`，指向可重定位的安装资产目录。Windows 共享库 Consumer 运行时需要让
+`GNEISS_RUNTIME_DIR` 位于 `PATH`；静态库无需该运行时路径。启用 Granit 平台适配构建的安装包会
+继续要求同一安装环境提供 Granit `Window` package，但 Granit 类型不会进入 Gneiss 公共头文件。
+
 ### 启用 Granit 窗口与渲染适配
 
 普通 preset 默认关闭可选的运行时适配，因此无图形环境也能构建和测试核心。启用后，Granit 平台
@@ -77,8 +90,9 @@ ctest --test-dir build/granit-platform --output-on-failure
 ```
 
 Linux 下运行同名且不带 `.exe` 后缀的可执行文件。该示例的 `main` 位于
-`examples/triangle/main.cpp`，只使用 Gneiss 公共接口创建 Application、Mesh、Material、Camera、
-Scene Node 和 Mesh Renderer。
+`examples/triangle/main.cpp`，只使用 Gneiss 公共接口创建 Application、加载场景实例并按对象 UUID
+更新 Scene Node。运行命令需要从仓库根目录执行，使默认资产根 `assets`
+可见；示例的 Mesh、Material、Camera 和对象结构均来自 `assets/scenes/triangle.scene.json`。
 
 ## 验证结果
 
@@ -86,21 +100,23 @@ Scene Node 和 Mesh Renderer。
 示例输出当前项目版本：
 
 ```text
-gneiss 0.1.0
+gneiss 0.2.0
 ```
 
 开发 preset 默认启用编译警告并将警告视为错误。
 
-### 自动验证矩阵
+### 手动验证矩阵
 
-Pull Request 和 `main` 分支的代码变更使用以下矩阵：
+仓库不在推送、Pull Request 或合并时自动运行 Actions。需要远端验证时，在 GitHub Actions 页面手动
+触发 Linux 和 Windows 工作流；工作流使用触发时选择的分支或提交，并执行以下矩阵：
 
-- Windows Server 2022：MSVC、共享/静态链接，并构建 Granit 运行时；托管 Runner 缺少 Vulkan ICD，
-  因此窗口 smoke test 由 Linux 执行。
-- Ubuntu 24.04：Clang/GCC、共享/静态核心构建；Clang 额外执行共享/静态 Granit 无头窗口测试。
+- Windows Server 2022：MSVC、共享/静态安装 Consumer 与 Granit 运行时；托管 Runner 缺少 Vulkan
+  ICD，因此窗口 smoke test 由 Linux 执行。
+- Ubuntu 24.04：Clang/GCC、共享/静态核心与安装 Consumer；Clang 额外执行共享/静态 Granit 无头
+  窗口测试。
 
-工作流配置位于 `.github/workflows/windows.yml` 和 `.github/workflows/linux.yml`。文档单独变更不会
-触发构建；工作流是否通过以对应提交的 Actions 结果为准。
+工作流配置位于 `.github/workflows/windows.yml` 和 `.github/workflows/linux.yml`。是否触发以及验证
+哪个提交属于显式发布或评审步骤；工作流是否通过以对应手动运行的 Actions 结果为准。
 
 ## 常见问题
 

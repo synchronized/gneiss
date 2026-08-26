@@ -4,19 +4,7 @@
 name: Linux
 
 on:
-  push:
-    branches: [main]
-    paths-ignore:
-      - "docs/**"
-      - "README.md"
-      - "CHANGELOG.md"
-      - "DOCUMENTATION_GUIDE.md"
-  pull_request:
-    paths-ignore:
-      - "docs/**"
-      - "README.md"
-      - "CHANGELOG.md"
-      - "DOCUMENTATION_GUIDE.md"
+  workflow_dispatch:
 
 permissions:
   contents: read

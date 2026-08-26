@@ -22,6 +22,15 @@ target_sources(
     application/application_api.cpp
     application/application_state.cpp
     application/application_state.h
+    asset/asset_uri.cpp
+    asset/asset_uri.h
+    asset/file_system.h
+    asset/native_file_system.cpp
+    asset/native_file_system.h
+    asset/resource_cache.cpp
+    asset/resource_cache.h
+    asset/virtual_file_system.cpp
+    asset/virtual_file_system.h
     core/service_registry.cpp
     core/service_registry.h
     core/rid_table.h
@@ -29,8 +38,14 @@ target_sources(
     core/version.cpp
     render/render_resource_service.cpp
     render/render_resource_service.h
+    render/render_asset_loader.cpp
+    render/render_asset_loader.h
     scene/scene_tree.cpp
     scene/scene_tree.h
+    scene/scene_description.cpp
+    scene/scene_description.h
+    scene/scene_instance_service.cpp
+    scene/scene_instance_service.h
     world/system_scheduler.cpp
     world/system_scheduler.h
     world/render_snapshot.cpp
@@ -45,6 +60,8 @@ target_sources(
     FILES
       "${PROJECT_SOURCE_DIR}/include/gneiss/application.h"
       "${PROJECT_SOURCE_DIR}/include/gneiss/application.hpp"
+      "${PROJECT_SOURCE_DIR}/include/gneiss/asset.h"
+      "${PROJECT_SOURCE_DIR}/include/gneiss/asset.hpp"
       "${PROJECT_SOURCE_DIR}/include/gneiss/core/export.h"
       "${PROJECT_SOURCE_DIR}/include/gneiss/core/entity.h"
       "${PROJECT_SOURCE_DIR}/include/gneiss/core/entity.hpp"
@@ -94,7 +111,12 @@ endif()
 
 target_compile_features(gneiss PUBLIC cxx_std_20)
 gneiss_target_compile_warnings(gneiss)
-target_link_libraries(gneiss PRIVATE EnTT::EnTT)
+target_link_libraries(
+  gneiss
+  PRIVATE
+    $<BUILD_INTERFACE:EnTT::EnTT>
+    $<BUILD_INTERFACE:gneiss_yyjson>
+)
 target_include_directories(
   gneiss
   PRIVATE "${PROJECT_SOURCE_DIR}/src"

@@ -3,6 +3,8 @@
 
 #include "application/application_state.h"
 
+#include "asset/native_file_system.h"
+
 #ifdef GNEISS_HAS_GRANIT_PLATFORM
 #include "platform/granit/granit_platform.h"
 #include "render/granit/granit_render_service.h"
@@ -14,13 +16,35 @@
 namespace gneiss::application_internal {
 
 application_state::application_state(const gneiss_application_desc& desc) noexcept
-    : desc_(desc), owner_thread_(std::this_thread::get_id()) {}
+    : desc_(desc), asset_loader_(asset_file_system_, asset_cache_, resources_),
+      owner_thread_(std::this_thread::get_id()) {}
 
 application_state::~application_state() noexcept { shutdown(); }
 
 gneiss_result application_state::initialize() noexcept {
   if (!resources_.is_valid()) {
     return GNEISS_ERROR_OUT_OF_MEMORY;
+  }
+  if (desc_.asset_root != nullptr || desc_.asset_root_length != 0U) {
+    if (desc_.asset_root == nullptr || desc_.asset_root_length == 0U) {
+      return GNEISS_ERROR_INVALID_ARGUMENT;
+    }
+    std::shared_ptr<asset_internal::native_file_system> native_file_system;
+    try {
+      native_file_system = std::make_shared<asset_internal::native_file_system>();
+    } catch (const std::bad_alloc&) {
+      return GNEISS_ERROR_OUT_OF_MEMORY;
+    } catch (...) {
+      return GNEISS_ERROR_INTERNAL;
+    }
+    auto mount_result =
+        native_file_system->initialize(std::string_view(desc_.asset_root, desc_.asset_root_length));
+    if (mount_result == GNEISS_SUCCESS) {
+      mount_result = asset_file_system_.mount("asset://", std::move(native_file_system));
+    }
+    if (mount_result != GNEISS_SUCCESS) {
+      return mount_result;
+    }
   }
   if (desc_.platform == GNEISS_APPLICATION_PLATFORM_GRANIT) {
 #ifdef GNEISS_HAS_GRANIT_PLATFORM
@@ -72,6 +96,20 @@ gneiss_result application_state::initialize() noexcept {
   if (result != GNEISS_SUCCESS) {
     shutdown();
     return result;
+  }
+  try {
+    scenes_ = std::make_unique<scene_internal::scene_instance_service>(world_, asset_file_system_,
+                                                                       asset_loader_);
+  } catch (const std::bad_alloc&) {
+    shutdown();
+    return GNEISS_ERROR_OUT_OF_MEMORY;
+  } catch (...) {
+    shutdown();
+    return GNEISS_ERROR_INTERNAL;
+  }
+  if (!scenes_->is_valid()) {
+    shutdown();
+    return GNEISS_ERROR_OUT_OF_MEMORY;
   }
   return GNEISS_SUCCESS;
 }
@@ -177,6 +215,7 @@ bool application_state::is_owner_thread() const noexcept {
 }
 
 void application_state::shutdown() noexcept {
+  scenes_.reset();
   if (world_ != GNEISS_NULL_WORLD) {
     (void)gneiss_world_destroy(world_);
     world_ = GNEISS_NULL_WORLD;

@@ -53,8 +53,18 @@ gneiss_target_compile_warnings(gneiss_c_render_test)
 gneiss_target_output_directories(gneiss_c_render_test)
 add_test(NAME gneiss.c_render COMMAND gneiss_c_render_test)
 
+add_executable(gneiss_c_asset_test c_asset_test.c)
+target_link_libraries(gneiss_c_asset_test PRIVATE gneiss::gneiss)
+set_target_properties(
+  gneiss_c_asset_test
+  PROPERTIES C_STANDARD 11 C_STANDARD_REQUIRED YES C_EXTENSIONS NO LINKER_LANGUAGE CXX
+)
+gneiss_target_compile_warnings(gneiss_c_asset_test)
+gneiss_target_output_directories(gneiss_c_asset_test)
+add_test(NAME gneiss.c_asset COMMAND gneiss_c_asset_test)
+
 add_library(
-  gneiss_c_header_test OBJECT headers/application_h.c headers/entity_h.c headers/gneiss_h.c headers/render_h.c
+  gneiss_c_header_test OBJECT headers/application_h.c headers/asset_h.c headers/entity_h.c headers/gneiss_h.c headers/render_h.c
                               headers/result_h.c headers/rid_h.c headers/scene_h.c headers/world_h.c
 )
 target_link_libraries(gneiss_c_header_test PRIVATE gneiss::gneiss)
@@ -62,7 +72,7 @@ target_compile_features(gneiss_c_header_test PRIVATE c_std_11)
 gneiss_target_compile_warnings(gneiss_c_header_test)
 
 add_library(
-  gneiss_cpp_header_test OBJECT headers/application_hpp.cpp headers/entity_hpp.cpp headers/gneiss_hpp.cpp
+  gneiss_cpp_header_test OBJECT headers/application_hpp.cpp headers/asset_hpp.cpp headers/entity_hpp.cpp headers/gneiss_hpp.cpp
                                 headers/render_hpp.cpp headers/result_hpp.cpp headers/rid_hpp.cpp headers/scene_hpp.cpp
                                 headers/world_hpp.cpp
 )
@@ -184,10 +194,95 @@ gneiss_target_compile_warnings(gneiss_render_snapshot_test)
 gneiss_target_output_directories(gneiss_render_snapshot_test)
 add_test(NAME gneiss.render_snapshot COMMAND gneiss_render_snapshot_test)
 
+add_executable(gneiss_json_format_test serialization/json_format_test.cpp)
+target_link_libraries(gneiss_json_format_test PRIVATE gneiss_yyjson)
+target_compile_features(gneiss_json_format_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_json_format_test)
+gneiss_target_output_directories(gneiss_json_format_test)
+add_test(NAME gneiss.json_format COMMAND gneiss_json_format_test)
+
+add_executable(
+  gneiss_scene_description_test
+  serialization/scene_description_test.cpp
+  "${PROJECT_SOURCE_DIR}/src/asset/asset_uri.cpp"
+  "${PROJECT_SOURCE_DIR}/src/asset/virtual_file_system.cpp"
+  "${PROJECT_SOURCE_DIR}/src/scene/scene_description.cpp"
+)
+target_include_directories(gneiss_scene_description_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_compile_definitions(gneiss_scene_description_test PRIVATE GNEISS_BUILDING_LIBRARY)
+target_link_libraries(gneiss_scene_description_test PRIVATE gneiss::gneiss gneiss_yyjson)
+target_compile_features(gneiss_scene_description_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_scene_description_test)
+gneiss_target_output_directories(gneiss_scene_description_test)
+add_test(NAME gneiss.scene_description COMMAND gneiss_scene_description_test)
+
+add_executable(
+  gneiss_resource_service_test
+  asset/resource_service_test.cpp
+  "${PROJECT_SOURCE_DIR}/src/asset/asset_uri.cpp"
+  "${PROJECT_SOURCE_DIR}/src/asset/native_file_system.cpp"
+  "${PROJECT_SOURCE_DIR}/src/asset/resource_cache.cpp"
+  "${PROJECT_SOURCE_DIR}/src/asset/virtual_file_system.cpp"
+)
+target_include_directories(gneiss_resource_service_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_compile_definitions(gneiss_resource_service_test PRIVATE GNEISS_BUILDING_LIBRARY)
+target_link_libraries(gneiss_resource_service_test PRIVATE gneiss::gneiss)
+target_compile_features(gneiss_resource_service_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_resource_service_test)
+gneiss_target_output_directories(gneiss_resource_service_test)
+add_test(NAME gneiss.resource_service COMMAND gneiss_resource_service_test)
+
+add_executable(
+  gneiss_render_asset_loader_test
+  render/render_asset_loader_test.cpp
+  "${PROJECT_SOURCE_DIR}/src/asset/asset_uri.cpp"
+  "${PROJECT_SOURCE_DIR}/src/asset/resource_cache.cpp"
+  "${PROJECT_SOURCE_DIR}/src/asset/virtual_file_system.cpp"
+  "${PROJECT_SOURCE_DIR}/src/render/render_asset_loader.cpp"
+  "${PROJECT_SOURCE_DIR}/src/render/render_resource_service.cpp"
+)
+target_include_directories(gneiss_render_asset_loader_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_compile_definitions(gneiss_render_asset_loader_test PRIVATE GNEISS_BUILDING_LIBRARY)
+target_link_libraries(gneiss_render_asset_loader_test PRIVATE gneiss::gneiss gneiss_yyjson)
+target_compile_features(gneiss_render_asset_loader_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_render_asset_loader_test)
+gneiss_target_output_directories(gneiss_render_asset_loader_test)
+add_test(NAME gneiss.render_asset_loader COMMAND gneiss_render_asset_loader_test)
+
+add_executable(gneiss_scene_instance_test scene/scene_instance_test.cpp)
+target_link_libraries(gneiss_scene_instance_test PRIVATE gneiss::gneiss)
+target_compile_definitions(
+  gneiss_scene_instance_test
+  PRIVATE
+    GNEISS_TEST_ASSET_ROOT="${PROJECT_SOURCE_DIR}/assets"
+    GNEISS_TEST_FAILURE_ASSET_ROOT="${PROJECT_SOURCE_DIR}/tests/data"
+)
+target_compile_features(gneiss_scene_instance_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_scene_instance_test)
+gneiss_target_output_directories(gneiss_scene_instance_test)
+add_test(NAME gneiss.scene_instance COMMAND gneiss_scene_instance_test)
+
 if(TARGET gneiss_version_example)
   add_test(NAME gneiss.version_example COMMAND gneiss_version_example)
   set_tests_properties(
     gneiss.version_example
     PROPERTIES PASS_REGULAR_EXPRESSION "gneiss ${PROJECT_VERSION_MAJOR}\\.${PROJECT_VERSION_MINOR}\\.${PROJECT_VERSION_PATCH}"
+  )
+endif()
+
+if(PROJECT_IS_TOP_LEVEL AND NOT GNEISS_ENABLE_GRANIT_PLATFORM)
+  add_test(
+    NAME gneiss.installed_consumer
+    COMMAND
+      "${CMAKE_COMMAND}"
+      "-DGNEISS_BUILD_DIR=${PROJECT_BINARY_DIR}"
+      "-DGNEISS_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
+      "-DGNEISS_GENERATOR=${CMAKE_GENERATOR}"
+      "-DGNEISS_GENERATOR_PLATFORM=${CMAKE_GENERATOR_PLATFORM}"
+      "-DGNEISS_CONFIG=$<CONFIG>"
+      "-DGNEISS_BUILD_TYPE=${CMAKE_BUILD_TYPE}"
+      "-DGNEISS_C_COMPILER=${CMAKE_C_COMPILER}"
+      "-DGNEISS_CXX_COMPILER=${CMAKE_CXX_COMPILER}"
+      -P "${PROJECT_SOURCE_DIR}/cmake/check_installed_package.cmake"
   )
 endif()

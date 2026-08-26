@@ -4,19 +4,7 @@
 name: Windows
 
 on:
-  push:
-    branches: [main]
-    paths-ignore:
-      - "docs/**"
-      - "README.md"
-      - "CHANGELOG.md"
-      - "DOCUMENTATION_GUIDE.md"
-  pull_request:
-    paths-ignore:
-      - "docs/**"
-      - "README.md"
-      - "CHANGELOG.md"
-      - "DOCUMENTATION_GUIDE.md"
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -25,6 +13,34 @@ env:
   SCCACHE_GHA_ENABLED: "true"
 
 jobs:
+  installed-consumer:
+    runs-on: windows-2022
+    strategy:
+      fail-fast: false
+      matrix:
+        linkage: [shared, static]
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: recursive
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+      - name: 选择 preset
+        id: preset
+        shell: pwsh
+        run: |
+          $suffix = if ('${{ matrix.linkage }}' -eq 'static') { '-static' } else { '' }
+          "name=windows-vs2022${suffix}-release" >> $env:GITHUB_OUTPUT
+      - name: 验证安装后 C/C++ Consumer
+        shell: pwsh
+        run: |
+          cmake --preset '${{ steps.preset.outputs.name }}' `
+            -DGNEISS_BUILD_EXAMPLES=OFF
+          cmake --build --preset '${{ steps.preset.outputs.name }}'
+          ctest --preset '${{ steps.preset.outputs.name }}' `
+            -R '^gneiss\.installed_consumer$'
+
   msvc-runtime:
     runs-on: windows-2022
     strategy:

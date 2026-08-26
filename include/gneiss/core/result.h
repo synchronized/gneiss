@@ -22,6 +22,8 @@ typedef int32_t gneiss_result;
 #define GNEISS_ERROR_INVALID_STATE INT32_C(-8)
 #define GNEISS_ERROR_NOT_READY INT32_C(-9)
 #define GNEISS_ERROR_INTERNAL INT32_C(-10)
+#define GNEISS_ERROR_NOT_FOUND INT32_C(-11)
+#define GNEISS_ERROR_IO INT32_C(-12)
 
 #ifdef __cplusplus
 extern "C" {
