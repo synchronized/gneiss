@@ -124,6 +124,9 @@ set_target_properties(
   PROPERTIES C_STANDARD 11 C_STANDARD_REQUIRED YES C_EXTENSIONS NO LINKER_LANGUAGE CXX
 )
 gneiss_target_compile_warnings(gneiss_c_application_test)
+if(NOT GNEISS_ENABLE_GRANIT_PLATFORM)
+  target_compile_definitions(gneiss_c_application_test PRIVATE GNEISS_TEST_NO_GRANIT_PLATFORM)
+endif()
 gneiss_target_output_directories(gneiss_c_application_test)
 add_test(NAME gneiss.c_application COMMAND gneiss_c_application_test)
 
@@ -133,6 +136,16 @@ target_compile_features(gneiss_cpp_application_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_cpp_application_test)
 gneiss_target_output_directories(gneiss_cpp_application_test)
 add_test(NAME gneiss.cpp_application COMMAND gneiss_cpp_application_test)
+
+if(GNEISS_ENABLE_GRANIT_PLATFORM)
+  add_executable(gneiss_granit_platform_smoke_test granit_platform_smoke_test.cpp)
+  target_link_libraries(gneiss_granit_platform_smoke_test PRIVATE gneiss::gneiss)
+  target_compile_features(gneiss_granit_platform_smoke_test PRIVATE cxx_std_20)
+  gneiss_target_compile_warnings(gneiss_granit_platform_smoke_test)
+  gneiss_target_output_directories(gneiss_granit_platform_smoke_test)
+  add_test(NAME gneiss.granit_platform_smoke COMMAND gneiss_granit_platform_smoke_test)
+  set_tests_properties(gneiss.granit_platform_smoke PROPERTIES TIMEOUT 30)
+endif()
 
 add_executable(
   gneiss_world_state_test

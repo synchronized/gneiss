@@ -77,12 +77,28 @@ int main(void) {
     return 2;
   }
 
+  desc.struct_size = GNEISS_APPLICATION_DESC_VERSION_1_SIZE;
+  application = GNEISS_NULL_APPLICATION;
+  if (gneiss_application_create(&desc, &application) != GNEISS_SUCCESS ||
+      gneiss_application_destroy(application) != GNEISS_SUCCESS || context.shutdown_count != 3U) {
+    return 3;
+  }
+  desc.struct_size = (uint32_t)sizeof(gneiss_application_desc);
+
   context.fail_initialize = 1U;
   context.should_close = 0U;
   application = GNEISS_NULL_APPLICATION;
   if (gneiss_application_create(&desc, &application) != GNEISS_ERROR_INITIALIZATION_FAILED ||
-      application != GNEISS_NULL_APPLICATION || context.shutdown_count != 3U) {
-    return 3;
+      application != GNEISS_NULL_APPLICATION || context.shutdown_count != 4U) {
+    return 4;
   }
+#ifdef GNEISS_TEST_NO_GRANIT_PLATFORM
+  desc = (gneiss_application_desc)GNEISS_APPLICATION_DESC_INIT;
+  desc.platform = GNEISS_APPLICATION_PLATFORM_GRANIT;
+  if (gneiss_application_create(&desc, &application) != GNEISS_ERROR_UNSUPPORTED ||
+      application != GNEISS_NULL_APPLICATION) {
+    return 5;
+  }
+#endif
   return 0;
 }

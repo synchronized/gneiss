@@ -34,6 +34,17 @@ typedef gneiss_result (*gneiss_application_update_fn)(gneiss_application applica
                                                       void* user_data);
 typedef void (*gneiss_application_shutdown_fn)(void* user_data);
 
+typedef enum gneiss_application_platform {
+  /** 使用生命周期回调；全部为空时为无窗口模式。 */
+  GNEISS_APPLICATION_PLATFORM_CALLBACK = 0,
+  /** 使用 Granit Window 组件创建并管理窗口。 */
+  GNEISS_APPLICATION_PLATFORM_GRANIT = 1
+} gneiss_application_platform;
+
+#define GNEISS_APPLICATION_WINDOW_VISIBLE_BIT (UINT32_C(1) << 0)
+#define GNEISS_APPLICATION_WINDOW_RESIZABLE_BIT (UINT32_C(1) << 1)
+#define GNEISS_APPLICATION_WINDOW_HIGH_DPI_BIT (UINT32_C(1) << 2)
+
 /**
  * Application 创建参数。
  *
@@ -48,10 +59,33 @@ typedef struct gneiss_application_desc {
   gneiss_application_now_ns_fn now_ns;
   gneiss_application_update_fn update;
   gneiss_application_shutdown_fn shutdown;
+  uint32_t platform;
+  const char* window_title;
+  uint32_t window_title_length;
+  uint32_t window_width;
+  uint32_t window_height;
+  uint32_t window_flags;
 } gneiss_application_desc;
 
+#define GNEISS_APPLICATION_DESC_VERSION_1_SIZE                                                     \
+  ((uint32_t)(offsetof(gneiss_application_desc, shutdown) + sizeof(gneiss_application_shutdown_fn)))
+
 #define GNEISS_APPLICATION_DESC_INIT                                                               \
-  {(uint32_t)sizeof(gneiss_application_desc), UINT32_C(0), NULL, NULL, NULL, NULL, NULL, NULL}
+  {(uint32_t)sizeof(gneiss_application_desc),                                                      \
+   UINT32_C(0),                                                                                    \
+   NULL,                                                                                           \
+   NULL,                                                                                           \
+   NULL,                                                                                           \
+   NULL,                                                                                           \
+   NULL,                                                                                           \
+   NULL,                                                                                           \
+   GNEISS_APPLICATION_PLATFORM_CALLBACK,                                                           \
+   NULL,                                                                                           \
+   UINT32_C(0),                                                                                    \
+   UINT32_C(1280),                                                                                 \
+   UINT32_C(720),                                                                                  \
+   GNEISS_APPLICATION_WINDOW_VISIBLE_BIT | GNEISS_APPLICATION_WINDOW_RESIZABLE_BIT |               \
+       GNEISS_APPLICATION_WINDOW_HIGH_DPI_BIT}
 
 #ifdef __cplusplus
 extern "C" {

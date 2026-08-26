@@ -26,9 +26,9 @@ target_sources(
     core/service_registry.h
     core/rid_table.h
     core/result.cpp
+    core/version.cpp
     scene/scene_tree.cpp
     scene/scene_tree.h
-    core/version.cpp
     world/system_scheduler.cpp
     world/system_scheduler.h
     world/world_api.cpp
@@ -56,6 +56,15 @@ target_sources(
       "${PROJECT_SOURCE_DIR}/include/gneiss/world.hpp"
       "${GNEISS_GENERATED_VERSION_HEADER}"
 )
+
+if(GNEISS_ENABLE_GRANIT_PLATFORM)
+  target_sources(
+    gneiss
+    PRIVATE platform/granit/granit_platform.cpp platform/granit/granit_platform.h
+  )
+  target_compile_definitions(gneiss PRIVATE GNEISS_HAS_GRANIT_PLATFORM)
+  target_link_libraries(gneiss PRIVATE granit::window)
+endif()
 
 target_compile_features(gneiss PUBLIC cxx_std_20)
 gneiss_target_compile_warnings(gneiss)

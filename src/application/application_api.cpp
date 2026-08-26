@@ -6,6 +6,8 @@
 
 #include <gneiss/application.h>
 
+#include <algorithm>
+#include <cstring>
 #include <memory>
 #include <mutex>
 #include <new>
@@ -48,13 +50,27 @@ extern "C" gneiss_result gneiss_application_create(const gneiss_application_desc
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
   *out_application = GNEISS_NULL_APPLICATION;
-  if (desc == nullptr || desc->struct_size < sizeof(gneiss_application_desc) ||
+  if (desc == nullptr || desc->struct_size < GNEISS_APPLICATION_DESC_VERSION_1_SIZE ||
       desc->reserved != 0U) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  gneiss_application_desc normalized_desc = GNEISS_APPLICATION_DESC_INIT;
+  std::memcpy(&normalized_desc, desc,
+              std::min<std::size_t>(desc->struct_size, sizeof(gneiss_application_desc)));
+  if (normalized_desc.platform > GNEISS_APPLICATION_PLATFORM_GRANIT ||
+      (normalized_desc.window_title == nullptr && normalized_desc.window_title_length != 0U) ||
+      (normalized_desc.window_flags &
+       ~(GNEISS_APPLICATION_WINDOW_VISIBLE_BIT | GNEISS_APPLICATION_WINDOW_RESIZABLE_BIT |
+         GNEISS_APPLICATION_WINDOW_HIGH_DPI_BIT)) != 0U ||
+      (normalized_desc.platform == GNEISS_APPLICATION_PLATFORM_GRANIT &&
+       (normalized_desc.window_width == 0U || normalized_desc.window_height == 0U ||
+        normalized_desc.initialize != nullptr || normalized_desc.poll_events != nullptr ||
+        normalized_desc.shutdown != nullptr))) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
 
   try {
-    auto state = std::make_shared<gneiss::application_internal::application_state>(*desc);
+    auto state = std::make_shared<gneiss::application_internal::application_state>(normalized_desc);
     const auto initialize_result = state->initialize();
     if (initialize_result != GNEISS_SUCCESS) {
       return initialize_result;

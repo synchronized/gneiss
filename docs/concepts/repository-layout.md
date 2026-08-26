@@ -35,11 +35,14 @@
 | Core | `src/core/` | 结果、RID、Service 注册等无领域倾向的基础设施 | 已存在 |
 | World | `src/world/` | World、Entity、System 与 EnTT 适配 | 已存在 |
 | Scene | `src/scene/` | Scene Tree、节点映射与层级 Transform | 已存在 |
-| Application | `src/application/` | 顶层生命周期、初始化回滚和主循环编排 | 规划 |
-| Platform | `src/platform/` | 窗口、事件和时间等平台能力的隔离 | 规划 |
+| Application | `src/application/` | 顶层生命周期、初始化回滚和主循环编排 | 已存在 |
+| Platform | `src/platform/` | 窗口、事件和时间等平台能力的隔离 | 已存在 |
 | Resource | `src/resource/` | 资源状态、缓存和加载生命周期 | 规划 |
 | Render | `src/render/` | Render Service 与渲染数据提取 | 规划 |
 | Granit 后端 | `src/render/granit/` | Granit 类型、调用和错误转换的隔离 | 规划 |
+
+Platform 的 Granit Window 适配位于 `src/platform/granit/`；规划中的 `src/render/granit/` 只负责
+渲染后端，两者不共享原生对象所有权。
 
 测试优先镜像被验证模块，例如 `tests/core/`、`tests/world/` 和 `tests/scene/`。公共头独立编译测试
 统一位于 `tests/headers/`，跨模块生命周期与端到端测试进入 `tests/integration/`。只有出现对应测试

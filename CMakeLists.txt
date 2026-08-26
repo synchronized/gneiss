@@ -13,9 +13,14 @@ project(
 option(BUILD_SHARED_LIBS "构建共享库" ON)
 option(GNEISS_BUILD_TESTING "构建 Gneiss 测试" ON)
 option(GNEISS_BUILD_EXAMPLES "构建 Gneiss 示例" ${PROJECT_IS_TOP_LEVEL})
+option(GNEISS_ENABLE_GRANIT_PLATFORM "启用 Granit Window 平台适配" OFF)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 include(utility)
+if(GNEISS_ENABLE_GRANIT_PLATFORM)
+  include(granit)
+  gneiss_resolve_granit_window()
+endif()
 include(CTest)
 
 add_subdirectory(3rd)

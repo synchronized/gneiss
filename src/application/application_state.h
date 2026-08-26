@@ -7,9 +7,16 @@
 #include <gneiss/application.h>
 
 #include <cstdint>
+#ifdef GNEISS_HAS_GRANIT_PLATFORM
+#include <memory>
+#endif
 #include <thread>
 
 namespace gneiss::application_internal {
+
+#ifdef GNEISS_HAS_GRANIT_PLATFORM
+class granit_platform;
+#endif
 
 class application_state final {
 public:
@@ -31,6 +38,7 @@ public:
 
 private:
   [[nodiscard]] std::uint64_t now_ns() const noexcept;
+  [[nodiscard]] gneiss_result poll_events(bool& out_should_close) noexcept;
   void shutdown() noexcept;
 
   gneiss_application_desc desc_;
@@ -43,6 +51,9 @@ private:
   bool is_running_ = false;
   bool is_paused_ = false;
   bool should_exit_ = false;
+#ifdef GNEISS_HAS_GRANIT_PLATFORM
+  std::unique_ptr<granit_platform> granit_platform_;
+#endif
 };
 
 } // namespace gneiss::application_internal

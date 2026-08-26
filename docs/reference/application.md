@@ -29,9 +29,15 @@ Application 及其 World 只能在创建线程访问。重复运行、跨线程�
 
 ## 平台适配边界
 
-`gneiss_application_desc` 的回调是 Platform Service 与 Application 核心之间的最小边界。所有回调
-均在创建线程同步执行，不得重入 `run`，C++ 回调实现不得抛出异常。`user_data` 由调用方持有，必须
-至少存活到 `shutdown` 返回。
+`GNEISS_APPLICATION_PLATFORM_CALLBACK` 使用描述结构中的生命周期回调，也允许全部回调为空的
+无窗口模式。所有回调均在创建线程同步执行，不得重入 `run`，C++ 回调实现不得抛出异常。
+`user_data` 由调用方持有，必须至少存活到 `shutdown` 返回。
 
-当前仓库已实现可用于无窗口测试的 Application 核心。Granit 窗口、输入和事件适配尚未接入，仍是
-`M-01E` 的剩余工作；回调接口不代表已有第二套平台后端。
+构建时启用 `GNEISS_ENABLE_GRANIT_PLATFORM` 后，可以选择
+`GNEISS_APPLICATION_PLATFORM_GRANIT`。Application 将按描述结构中的标题、尺寸和窗口标志创建
+Granit Window，耗尽每帧事件队列，并把目标窗口的关闭事件转换为正常退出。该模式由 Application
+持有并清理 Granit Window 与 Window System，且不允许同时提供 `initialize`、`poll_events` 或
+`shutdown` 回调；`update`、`now_ns` 和 `user_data` 仍可使用。
+
+未启用构建选项时请求 Granit 平台返回 `GNEISS_ERROR_UNSUPPORTED`。Granit 类型和句柄均不会进入
+Gneiss 公共 ABI；窗口适配只私有链接 `granit::window`，不依赖 Vulkan 渲染目标。

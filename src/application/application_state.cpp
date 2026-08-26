@@ -3,7 +3,12 @@
 
 #include "application/application_state.h"
 
+#ifdef GNEISS_HAS_GRANIT_PLATFORM
+#include "platform/granit/granit_platform.h"
+#endif
+
 #include <chrono>
+#include <new>
 
 namespace gneiss::application_internal {
 
@@ -13,6 +18,24 @@ application_state::application_state(const gneiss_application_desc& desc) noexce
 application_state::~application_state() noexcept { shutdown(); }
 
 gneiss_result application_state::initialize() noexcept {
+  if (desc_.platform == GNEISS_APPLICATION_PLATFORM_GRANIT) {
+#ifdef GNEISS_HAS_GRANIT_PLATFORM
+    try {
+      granit_platform_ = std::make_unique<granit_platform>();
+    } catch (const std::bad_alloc&) {
+      return GNEISS_ERROR_OUT_OF_MEMORY;
+    } catch (...) {
+      return GNEISS_ERROR_INTERNAL;
+    }
+    const auto platform_result = granit_platform_->initialize(desc_);
+    if (platform_result != GNEISS_SUCCESS) {
+      granit_platform_.reset();
+      return platform_result;
+    }
+#else
+    return GNEISS_ERROR_UNSUPPORTED;
+#endif
+  }
   if (desc_.initialize != nullptr) {
     const auto result = desc_.initialize(desc_.user_data);
     if (result != GNEISS_SUCCESS) {
@@ -42,6 +65,22 @@ std::uint64_t application_state::now_ns() const noexcept {
       std::chrono::duration_cast<std::chrono::nanoseconds>(now).count());
 }
 
+gneiss_result application_state::poll_events(bool& out_should_close) noexcept {
+  out_should_close = false;
+#ifdef GNEISS_HAS_GRANIT_PLATFORM
+  if (granit_platform_ != nullptr) {
+    return granit_platform_->poll(out_should_close);
+  }
+#endif
+  if (desc_.poll_events == nullptr) {
+    return GNEISS_SUCCESS;
+  }
+  uint8_t should_close = 0;
+  const auto result = desc_.poll_events(desc_.user_data, &should_close);
+  out_should_close = should_close != 0U;
+  return result;
+}
+
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters): 句柄与帧数虽同宽但语义明确。
 gneiss_result application_state::run(gneiss_application handle,
                                      std::uint64_t max_frame_count) noexcept {
@@ -54,16 +93,14 @@ gneiss_result application_state::run(gneiss_application handle,
   std::uint64_t frames_run = 0;
 
   while (!should_exit_ && (max_frame_count == 0U || frames_run < max_frame_count)) {
-    if (desc_.poll_events != nullptr) {
-      uint8_t should_close = 0;
-      const auto poll_result = desc_.poll_events(desc_.user_data, &should_close);
-      if (poll_result != GNEISS_SUCCESS) {
-        is_running_ = false;
-        return poll_result;
-      }
-      if (should_close != 0U) {
-        break;
-      }
+    bool should_close = false;
+    const auto poll_result = poll_events(should_close);
+    if (poll_result != GNEISS_SUCCESS) {
+      is_running_ = false;
+      return poll_result;
+    }
+    if (should_close) {
+      break;
     }
 
     const auto current_time_ns = now_ns();
@@ -109,6 +146,9 @@ void application_state::shutdown() noexcept {
     }
     platform_initialized_ = false;
   }
+#ifdef GNEISS_HAS_GRANIT_PLATFORM
+  granit_platform_.reset();
+#endif
 }
 
 } // namespace gneiss::application_internal
