@@ -5,6 +5,7 @@
 #define GNEISS_WORLD_WORLD_STATE_H_
 
 #include <gneiss/core/entity.h>
+#include <gneiss/render.h>
 
 #include "scene/scene_tree.h"
 
@@ -17,6 +18,14 @@
 #include <utility>
 
 namespace gneiss::world_internal {
+
+struct camera_component {
+  gneiss_camera value;
+};
+
+struct mesh_renderer_component {
+  gneiss_mesh_renderer value;
+};
 
 class world_state final {
 public:
@@ -61,6 +70,11 @@ public:
     return registry_.emplace<Component>(decode(entity), std::forward<Args>(args)...);
   }
 
+  template <typename Component, typename... Args>
+  Component& emplace_or_replace(gneiss_entity_id entity, Args&&... args) {
+    return registry_.emplace_or_replace<Component>(decode(entity), std::forward<Args>(args)...);
+  }
+
   template <typename Component> [[nodiscard]] Component* get(gneiss_entity_id entity) noexcept {
     const auto native = decode(entity);
     return native == entt::null ? nullptr : registry_.try_get<Component>(native);
@@ -72,6 +86,9 @@ public:
 
   [[nodiscard]] scene_internal::scene_tree& scene() noexcept { return scene_; }
   [[nodiscard]] const scene_internal::scene_tree& scene() const noexcept { return scene_; }
+  [[nodiscard]] gneiss_entity_id encode_entity(entt::entity entity) const noexcept {
+    return encode(entity);
+  }
 
 private:
   [[nodiscard]] gneiss_entity_id encode(entt::entity entity) const noexcept {

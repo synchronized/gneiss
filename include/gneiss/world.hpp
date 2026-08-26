@@ -6,6 +6,7 @@
 
 #include <gneiss/core/entity.hpp>
 #include <gneiss/core/result.hpp>
+#include <gneiss/render.hpp>
 #include <gneiss/scene.hpp>
 #include <gneiss/world.h>
 
@@ -56,6 +57,14 @@ public:
 
   [[nodiscard]] result destroy_entity(entity_id entity) noexcept {
     return from_native(gneiss_world_entity_destroy(handle_, entity.get()));
+  }
+
+  [[nodiscard]] result set_camera(entity_id entity, const camera& value) noexcept {
+    return from_native(gneiss_world_entity_set_camera(handle_, entity.get(), &value));
+  }
+
+  [[nodiscard]] result set_mesh_renderer(entity_id entity, const mesh_renderer& value) noexcept {
+    return from_native(gneiss_world_entity_set_mesh_renderer(handle_, entity.get(), &value));
   }
 
   [[nodiscard]] result create_scene_node(scene_node_id parent, entity_id entity,

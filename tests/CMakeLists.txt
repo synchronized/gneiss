@@ -171,6 +171,19 @@ gneiss_target_compile_warnings(gneiss_world_state_test)
 gneiss_target_output_directories(gneiss_world_state_test)
 add_test(NAME gneiss.world_state COMMAND gneiss_world_state_test)
 
+add_executable(
+  gneiss_render_snapshot_test
+  world/render_snapshot_test.cpp
+  "${PROJECT_SOURCE_DIR}/src/scene/scene_tree.cpp"
+  "${PROJECT_SOURCE_DIR}/src/world/render_snapshot.cpp"
+)
+target_include_directories(gneiss_render_snapshot_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_link_libraries(gneiss_render_snapshot_test PRIVATE gneiss::gneiss EnTT::EnTT)
+target_compile_features(gneiss_render_snapshot_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_render_snapshot_test)
+gneiss_target_output_directories(gneiss_render_snapshot_test)
+add_test(NAME gneiss.render_snapshot COMMAND gneiss_render_snapshot_test)
+
 if(TARGET gneiss_version_example)
   add_test(NAME gneiss.version_example COMMAND gneiss_version_example)
   set_tests_properties(

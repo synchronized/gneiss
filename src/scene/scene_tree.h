@@ -26,6 +26,8 @@ public:
   [[nodiscard]] const gneiss_transform* get_local(gneiss_scene_node_id node) const noexcept;
   [[nodiscard]] gneiss_result get_world(gneiss_scene_node_id node,
                                         gneiss_transform* out_transform) const noexcept;
+  [[nodiscard]] gneiss_result get_world_for_entity(gneiss_entity_id entity,
+                                                   gneiss_transform* out_transform) const noexcept;
   [[nodiscard]] gneiss_entity_id get_entity(gneiss_scene_node_id node) const noexcept;
   void detach_entity(gneiss_entity_id entity) noexcept;
 

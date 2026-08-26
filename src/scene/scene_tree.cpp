@@ -232,6 +232,21 @@ gneiss_result scene_tree::get_world(gneiss_scene_node_id node_id,
   return GNEISS_SUCCESS;
 }
 
+gneiss_result scene_tree::get_world_for_entity(gneiss_entity_id entity,
+                                               gneiss_transform* out_transform) const noexcept {
+  if (entity == GNEISS_NULL_ENTITY_ID || out_transform == nullptr) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  for (std::size_t index = 0; index < slots_.size(); ++index) {
+    const auto& candidate = slots_[index];
+    if (candidate.value && candidate.value->entity == entity) {
+      return get_world(encode(static_cast<std::uint16_t>(index), candidate.generation),
+                       out_transform);
+    }
+  }
+  return GNEISS_ERROR_NOT_READY;
+}
+
 gneiss_entity_id scene_tree::get_entity(gneiss_scene_node_id node_id) const noexcept {
   const auto* target = find(node_id);
   return target == nullptr ? GNEISS_NULL_ENTITY_ID : target->value->entity;

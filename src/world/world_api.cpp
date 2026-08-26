@@ -2,15 +2,18 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "core/rid_table.h"
+#include "world/render_snapshot.h"
 #include "world/world_state.h"
 
 #include <gneiss/scene.h>
 #include <gneiss/world.h>
 
+#include <cmath>
 #include <limits>
 #include <memory>
 #include <mutex>
 #include <new>
+#include <numbers>
 
 namespace {
 
@@ -159,6 +162,86 @@ extern "C" gneiss_result gneiss_world_entity_count(gneiss_world world, uint64_t*
     }
     *out_count = static_cast<uint64_t>(state->entity_count());
     return GNEISS_SUCCESS;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters): C ABI 参数均为不透明句柄，名称区分语义。
+extern "C" gneiss_result gneiss_world_entity_set_camera(gneiss_world world, gneiss_entity_id entity,
+                                                        const gneiss_camera* camera) {
+  if (camera == nullptr || !std::isfinite(camera->vertical_field_of_view_radians) ||
+      !std::isfinite(camera->near_plane) || !std::isfinite(camera->far_plane) ||
+      camera->vertical_field_of_view_radians <= 0.0F ||
+      camera->vertical_field_of_view_radians >= std::numbers::pi_v<float> ||
+      camera->near_plane <= 0.0F || camera->far_plane <= camera->near_plane ||
+      camera->is_primary > UINT8_C(1) || camera->reserved[0] != 0U || camera->reserved[1] != 0U ||
+      camera->reserved[2] != 0U) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  try {
+    auto& registry = get_world_registry();
+    const std::scoped_lock lock{registry.mutex};
+    auto* state = find_world(registry, world);
+    const auto thread_result = validate_world_thread(state);
+    if (thread_result != GNEISS_SUCCESS) {
+      return thread_result;
+    }
+    if (!state->is_alive(entity)) {
+      return GNEISS_ERROR_INVALID_HANDLE;
+    }
+    if (camera->is_primary != 0U) {
+      state->each<gneiss::world_internal::camera_component>(
+          [](auto& component) { component.value.is_primary = UINT8_C(0); });
+    }
+    state->emplace_or_replace<gneiss::world_internal::camera_component>(entity, *camera);
+    return GNEISS_SUCCESS;
+  } catch (const std::bad_alloc&) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters): C ABI 参数均为不透明句柄，名称区分语义。
+extern "C" gneiss_result
+gneiss_world_entity_set_mesh_renderer(gneiss_world world, gneiss_entity_id entity,
+                                      const gneiss_mesh_renderer* renderer) {
+  if (renderer == nullptr || renderer->mesh == GNEISS_NULL_MESH ||
+      renderer->material == GNEISS_NULL_MATERIAL) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  try {
+    auto& registry = get_world_registry();
+    const std::scoped_lock lock{registry.mutex};
+    auto* state = find_world(registry, world);
+    const auto thread_result = validate_world_thread(state);
+    if (thread_result != GNEISS_SUCCESS) {
+      return thread_result;
+    }
+    if (!state->is_alive(entity)) {
+      return GNEISS_ERROR_INVALID_HANDLE;
+    }
+    state->emplace_or_replace<gneiss::world_internal::mesh_renderer_component>(entity, *renderer);
+    return GNEISS_SUCCESS;
+  } catch (const std::bad_alloc&) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
+gneiss_result gneiss::world_internal::get_render_snapshot(gneiss_world world,
+                                                          render_snapshot& out_snapshot) noexcept {
+  try {
+    auto& registry = get_world_registry();
+    const std::scoped_lock lock{registry.mutex};
+    auto* state = find_world(registry, world);
+    const auto thread_result = validate_world_thread(state);
+    if (thread_result != GNEISS_SUCCESS) {
+      return thread_result;
+    }
+    return build_render_snapshot(*state, out_snapshot);
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;
   }

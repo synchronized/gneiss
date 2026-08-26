@@ -33,6 +33,8 @@ target_sources(
     scene/scene_tree.h
     world/system_scheduler.cpp
     world/system_scheduler.h
+    world/render_snapshot.cpp
+    world/render_snapshot.h
     world/world_api.cpp
     world/world_state.h
   PUBLIC

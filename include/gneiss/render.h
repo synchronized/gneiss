@@ -47,6 +47,25 @@ typedef struct gneiss_material_desc {
 #define GNEISS_MATERIAL_DESC_INIT                                                                  \
   {(uint32_t)sizeof(gneiss_material_desc), UINT32_C(0), 1.0F, 1.0F, 1.0F, 1.0F}
 
+/** 透视 Camera 参数。首版只允许一个 primary Camera 参与渲染。 */
+typedef struct gneiss_camera {
+  float vertical_field_of_view_radians;
+  float near_plane;
+  float far_plane;
+  uint8_t is_primary;
+  uint8_t reserved[3];
+} gneiss_camera;
+
+#define GNEISS_CAMERA_INIT {1.04719755F, 0.1F, 1000.0F, UINT8_C(1), {0, 0, 0}}
+
+/** 实体引用的 Mesh 与 Material；二者只保存 RID，不拥有资源。 */
+typedef struct gneiss_mesh_renderer {
+  gneiss_mesh mesh;
+  gneiss_material material;
+} gneiss_mesh_renderer;
+
+#define GNEISS_MESH_RENDERER_INIT {GNEISS_NULL_MESH, GNEISS_NULL_MATERIAL}
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -66,6 +85,14 @@ GNEISS_API gneiss_result gneiss_material_create(gneiss_application application,
 /** 销毁 Material；成功后旧 RID 立即失效。 */
 GNEISS_API gneiss_result gneiss_material_destroy(gneiss_application application,
                                                  gneiss_material material);
+
+/** 设置或替换实体的 Camera 组件。World 和实体必须属于当前线程。 */
+GNEISS_API gneiss_result gneiss_world_entity_set_camera(gneiss_world world, gneiss_entity_id entity,
+                                                        const gneiss_camera* camera);
+
+/** 设置或替换实体的 Mesh Renderer 组件；RID 在渲染提取阶段校验。 */
+GNEISS_API gneiss_result gneiss_world_entity_set_mesh_renderer(
+    gneiss_world world, gneiss_entity_id entity, const gneiss_mesh_renderer* renderer);
 
 #ifdef __cplusplus
 }
