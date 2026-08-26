@@ -1,0 +1,3 @@
+[submodule "3rd/entt"]
+	path = 3rd/entt
+	url = https://github.com/skypjack/entt.git

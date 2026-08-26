@@ -18,6 +18,7 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 include(utility)
 include(CTest)
 
+add_subdirectory(3rd)
 add_subdirectory(src)
 
 if(GNEISS_BUILD_EXAMPLES)

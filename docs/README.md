@@ -44,6 +44,7 @@
 
 - [架构决策索引](decisions/README.md)
 - [ADR-001：Granit 依赖接入边界](decisions/ADR-001-granit-dependency.md)
+- [ADR-002：ECS、反射与序列化边界](decisions/ADR-002-ecs-reflection-boundary.md)
 
 ## 文档维护
 

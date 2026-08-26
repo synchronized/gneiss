@@ -36,7 +36,7 @@
 | M-02 Application 生命周期与主循环 | P0 | 待开始 |
 | M-03 Service 注册、依赖与销毁顺序 | P0 | 已完成基础实现 |
 | M-04 RID 编码、类型和 generation 校验 | P0 | 已完成基础实现 |
-| M-05 ECS 方案验证与 ADR | P0 | 待开始 |
+| M-05 ECS 方案验证与 ADR | P0 | 已完成；采用内部 EnTT 适配 |
 | M-06 最小 World、Entity、Component 与 System | P0 | 待开始 |
 | M-07 Scene Tree 与 Entity 映射 | P0 | 待开始 |
 | M-08 Granit Render Service | P0 | 待开始 |

@@ -7,3 +7,4 @@
 Reference 和实现为准。
 
 - [ADR-001：Granit 依赖接入边界](ADR-001-granit-dependency.md)
+- [ADR-002：ECS、反射与序列化边界](ADR-002-ecs-reflection-boundary.md)
