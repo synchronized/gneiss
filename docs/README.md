@@ -36,6 +36,7 @@
 
 - [项目目标、核心边界与非目标](concepts/project-scope.md)
 - [总体架构、模块边界与核心技术](concepts/architecture.md)
+- [源码目录、模块所有权与演进规则](concepts/repository-layout.md)
 
 ## 路线图与开发计划
 
