@@ -5,7 +5,7 @@
 
 ## 适用场景
 
-本指南用于配置、构建并验证当前 Gneiss 最小工程和 version 示例。
+本指南用于配置、构建并验证当前 Gneiss 工程、version 示例和 Granit 三角形示例。
 
 ## 前置条件
 
@@ -70,9 +70,20 @@ ctest --test-dir build/granit-platform --output-on-failure
 `granit::granit` 与 `granit::window`，所有 provider 都会优先直接复用。Windows 使用共享库 package
 时，构建会把 Granit 的运行时 DLL 自动复制到 Gneiss 的运行时输出目录，无需手动修改 `PATH`。
 
+启用 Granit 适配并完成构建后，可以运行持续旋转的三角形示例；关闭窗口即可正常退出：
+
+```powershell
+./build/granit-platform/bin/gneiss_triangle_example.exe
+```
+
+Linux 下运行同名且不带 `.exe` 后缀的可执行文件。该示例的 `main` 位于
+`examples/triangle/main.cpp`，只使用 Gneiss 公共接口创建 Application、Mesh、Material、Camera、
+Scene Node 和 Mesh Renderer。
+
 ## 验证结果
 
-测试应报告公共 C/C++ 接口、内部行为和 version 示例通过。示例输出当前项目版本：
+测试应报告公共 C/C++ 接口、内部行为、固定帧数 Granit smoke test 和 version 示例通过。version
+示例输出当前项目版本：
 
 ```text
 gneiss 0.1.0
