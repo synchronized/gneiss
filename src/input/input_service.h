@@ -6,6 +6,8 @@
 
 #include <gneiss/input.h>
 
+#include "input/action_map.h"
+
 #include <array>
 #include <cstddef>
 
@@ -21,17 +23,26 @@ public:
   void set_keyboard(const gneiss_keyboard_state& state) noexcept { keyboard_ = state; }
   void set_pointer(const gneiss_pointer_state& state) noexcept { pointer_ = state; }
   void clear_focus() noexcept;
+  [[nodiscard]] gneiss_result replace_action_map(action_map map) noexcept;
+  [[nodiscard]] gneiss_result find_action(std::string_view name,
+                                          gneiss_action& out_action) const noexcept;
+  [[nodiscard]] gneiss_result get_action_state(gneiss_action action,
+                                               gneiss_action_state& out_state) const noexcept;
   [[nodiscard]] const gneiss_keyboard_state& keyboard() const noexcept { return keyboard_; }
   [[nodiscard]] const gneiss_pointer_state& pointer() const noexcept { return pointer_; }
 
 private:
   void apply(const gneiss_input_event& event) noexcept;
+  void update_actions() noexcept;
 
   std::array<gneiss_input_event, event_capacity> events_{};
   std::size_t read_index_{};
   std::size_t event_count_{};
   gneiss_keyboard_state keyboard_ = GNEISS_KEYBOARD_STATE_INIT;
   gneiss_pointer_state pointer_ = GNEISS_POINTER_STATE_INIT;
+  action_map action_map_;
+  std::vector<gneiss_action_state> action_states_;
+  std::uint32_t action_generation_{};
 };
 
 } // namespace gneiss::input_internal

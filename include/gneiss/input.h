@@ -230,6 +230,23 @@ typedef struct gneiss_pointer_state {
 #define GNEISS_POINTER_STATE_INIT                                                                  \
   {(uint32_t)sizeof(gneiss_pointer_state), UINT32_C(0), 0.0F, 0.0F, UINT32_C(0), {0, 0, 0, 0, 0}}
 
+typedef uint64_t gneiss_action;
+#define GNEISS_NULL_ACTION UINT64_C(0)
+
+typedef struct gneiss_action_state {
+  uint32_t struct_size;
+  uint8_t pressed;
+  uint8_t held;
+  uint8_t released;
+  uint8_t reserved_byte;
+  float value;
+  uint32_t reserved[5];
+} gneiss_action_state;
+
+#define GNEISS_ACTION_STATE_VERSION_1_SIZE ((uint32_t)offsetof(gneiss_action_state, reserved))
+#define GNEISS_ACTION_STATE_INIT                                                                   \
+  {(uint32_t)sizeof(gneiss_action_state), 0, 0, 0, 0, 0.0F, {0, 0, 0, 0, 0}}
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -245,6 +262,14 @@ GNEISS_API gneiss_result gneiss_application_get_keyboard_state(gneiss_applicatio
 /** 返回当前帧指针快照；仅允许在 Application 创建线程调用。 */
 GNEISS_API gneiss_result gneiss_application_get_pointer_state(gneiss_application application,
                                                               gneiss_pointer_state* out_state);
+GNEISS_API gneiss_result gneiss_application_load_action_map(gneiss_application application,
+                                                            const char* uri, uint64_t uri_length);
+GNEISS_API gneiss_result gneiss_application_find_action(gneiss_application application,
+                                                        const char* name, uint64_t name_length,
+                                                        gneiss_action* out_action);
+GNEISS_API gneiss_result gneiss_application_get_action_state(gneiss_application application,
+                                                             gneiss_action action,
+                                                             gneiss_action_state* out_state);
 
 #ifdef __cplusplus
 }

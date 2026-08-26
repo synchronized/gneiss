@@ -175,6 +175,9 @@ gneiss_target_compile_warnings(gneiss_c_application_test)
 if(NOT GNEISS_ENABLE_GRANIT_PLATFORM)
   target_compile_definitions(gneiss_c_application_test PRIVATE GNEISS_TEST_NO_GRANIT_PLATFORM)
 endif()
+target_compile_definitions(
+  gneiss_c_application_test PRIVATE GNEISS_TEST_ASSET_ROOT="${PROJECT_SOURCE_DIR}/assets"
+)
 gneiss_target_output_directories(gneiss_c_application_test)
 add_test(NAME gneiss.c_application COMMAND gneiss_c_application_test)
 

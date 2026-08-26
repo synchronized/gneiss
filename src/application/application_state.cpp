@@ -174,6 +174,22 @@ gneiss_result application_state::poll_input(gneiss_input_event& out_event) noexc
   return input_.poll(out_event);
 }
 
+gneiss_result application_state::load_action_map(std::string_view uri) noexcept {
+  input_internal::action_map map;
+  const auto result = input_internal::load_action_map(asset_file_system_, uri, map);
+  return result == GNEISS_SUCCESS ? input_.replace_action_map(std::move(map)) : result;
+}
+
+gneiss_result application_state::find_action(std::string_view name,
+                                             gneiss_action& out_action) const noexcept {
+  return input_.find_action(name, out_action);
+}
+
+gneiss_result application_state::get_action_state(gneiss_action action,
+                                                  gneiss_action_state& out_state) const noexcept {
+  return input_.get_action_state(action, out_state);
+}
+
 #ifdef GNEISS_HAS_GRANIT_PLATFORM
 gneiss_result application_state::render_frame() noexcept {
   if (granit_render_service_ == nullptr) {

@@ -49,5 +49,29 @@ int main() {
       return 5;
     }
   }
-  return input.push(key) ? 6 : 0;
+  if (input.push(key)) {
+    return 6;
+  }
+
+  gneiss::input_internal::action_map map;
+  map.actions.push_back({.name = "move", .bindings = {{GNEISS_PHYSICAL_KEY_W, 1.0F}}});
+  input.clear_focus();
+  if (input.replace_action_map(std::move(map)) != GNEISS_SUCCESS) {
+    return 7;
+  }
+  gneiss_action action = GNEISS_NULL_ACTION;
+  gneiss_action_state state = GNEISS_ACTION_STATE_INIT;
+  input.begin_frame();
+  key.data.key.action = GNEISS_KEY_PRESSED;
+  if (input.find_action("move", action) != GNEISS_SUCCESS || !input.push(key) ||
+      input.get_action_state(action, state) != GNEISS_SUCCESS || state.pressed == 0U ||
+      state.held == 0U || state.value != 1.0F) {
+    return 7;
+  }
+  key.data.key.action = GNEISS_KEY_RELEASED;
+  if (!input.push(key) || input.get_action_state(action, state) != GNEISS_SUCCESS ||
+      state.pressed == 0U || state.released == 0U || state.held != 0U) {
+    return 8;
+  }
+  return 0;
 }

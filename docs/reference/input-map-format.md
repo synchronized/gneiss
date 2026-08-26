@@ -27,5 +27,9 @@
 非零有限数。
 
 未知字段、未知格式或版本、空动作列表、重复名称、空绑定及非法数值均返回
-`GNEISS_ERROR_INVALID_ARGUMENT`。解析采用事务语义：失败不会修改调用方已有映射。公共加载与查询
-接口仍属于正在实施的 M-21，当前格式解析器只供引擎内部使用。
+`GNEISS_ERROR_INVALID_ARGUMENT`。解析采用事务语义：失败不会修改调用方已有映射。
+
+使用 `gneiss_application_load_action_map` 从逻辑 URI 同步替换映射，再通过
+`gneiss_application_find_action` 缓存动作句柄，并用 `gneiss_application_get_action_state` 查询当帧
+状态。成功替换映射后旧句柄失效；失败时旧映射和句柄保持有效。动作句柄不可跨 Application 使用，
+也不可序列化。

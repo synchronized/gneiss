@@ -54,6 +54,11 @@ public:
     return input_.pointer();
   }
   [[nodiscard]] gneiss_result poll_input(gneiss_input_event& out_event) noexcept;
+  [[nodiscard]] gneiss_result load_action_map(std::string_view uri) noexcept;
+  [[nodiscard]] gneiss_result find_action(std::string_view name,
+                                          gneiss_action& out_action) const noexcept;
+  [[nodiscard]] gneiss_result get_action_state(gneiss_action action,
+                                               gneiss_action_state& out_state) const noexcept;
   void request_exit() noexcept { should_exit_ = true; }
   void set_paused(bool value) noexcept { is_paused_ = value; }
 

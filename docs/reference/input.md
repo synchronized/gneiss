@@ -23,5 +23,6 @@ UTF-8 文本或指针负载。物理键值采用 USB HID Keyboard/Keypad usage�
   `GNEISS_ERROR_INVALID_STATE`，不会静默丢弃释放事件。
 - Application 销毁后，使用旧句柄查询返回 `GNEISS_ERROR_INVALID_HANDLE`。
 
-Granit 的类型、句柄和枚举只存在于 `src/platform/granit/`，不属于 Gneiss 公共 ABI。动作映射和
-`pressed`、`held`、`released` 等业务语义属于 M-21，不由本原始输入接口提前定义。
+Granit 的类型、句柄和枚举只存在于 `src/platform/granit/`，不属于 Gneiss 公共 ABI。版本化动作
+映射在原始快照之上提供 `pressed`、`held`、`released` 和标量值，格式与句柄规则见
+[输入动作映射格式 v1](input-map-format.md)。

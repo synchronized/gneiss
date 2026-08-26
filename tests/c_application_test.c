@@ -119,5 +119,46 @@ int main(void) {
     return 5;
   }
 #endif
+
+  desc = (gneiss_application_desc)GNEISS_APPLICATION_DESC_INIT;
+  desc.asset_root = GNEISS_TEST_ASSET_ROOT;
+  desc.asset_root_length = (uint32_t)(sizeof(GNEISS_TEST_ASSET_ROOT) - 1U);
+  application = GNEISS_NULL_APPLICATION;
+  if (gneiss_application_create(&desc, &application) != GNEISS_SUCCESS) {
+    return 6;
+  }
+  {
+    const char map_uri[] = "asset://input/default.input-map.json";
+    const char missing_uri[] = "asset://input/missing.input-map.json";
+    const char action_name[] = "move_horizontal";
+    gneiss_action action = GNEISS_NULL_ACTION;
+    gneiss_action_state state = GNEISS_ACTION_STATE_INIT;
+    gneiss_application second = GNEISS_NULL_APPLICATION;
+    if (gneiss_application_load_action_map(application, map_uri, sizeof(map_uri) - 1U) !=
+            GNEISS_SUCCESS ||
+        gneiss_application_find_action(application, action_name, sizeof(action_name) - 1U,
+                                       &action) != GNEISS_SUCCESS ||
+        action == GNEISS_NULL_ACTION ||
+        gneiss_application_get_action_state(application, action, &state) != GNEISS_SUCCESS ||
+        state.held != 0U || state.value != 0.0F ||
+        gneiss_application_load_action_map(application, missing_uri, sizeof(missing_uri) - 1U) !=
+            GNEISS_ERROR_NOT_FOUND ||
+        gneiss_application_get_action_state(application, action, &state) != GNEISS_SUCCESS ||
+        gneiss_application_load_action_map(application, map_uri, sizeof(map_uri) - 1U) !=
+            GNEISS_SUCCESS ||
+        gneiss_application_get_action_state(application, action, &state) !=
+            GNEISS_ERROR_INVALID_HANDLE ||
+        gneiss_application_create(&desc, &second) != GNEISS_SUCCESS ||
+        gneiss_application_load_action_map(second, map_uri, sizeof(map_uri) - 1U) !=
+            GNEISS_SUCCESS ||
+        gneiss_application_get_action_state(second, action, &state) !=
+            GNEISS_ERROR_INVALID_HANDLE ||
+        gneiss_application_destroy(second) != GNEISS_SUCCESS) {
+      return 6;
+    }
+  }
+  if (gneiss_application_destroy(application) != GNEISS_SUCCESS) {
+    return 6;
+  }
   return 0;
 }
