@@ -25,6 +25,10 @@
 - [构建、测试与运行 version 示例](guides/building.md)
 - [C/C++ 代码风格与语言标准](guides/coding-style.md)
 
+## API 参考
+
+- [Core 版本与结果接口](reference/core.md)
+
 ## 架构与原理
 
 - [项目目标、核心边界与非目标](concepts/project-scope.md)
@@ -34,6 +38,11 @@
 
 - [Gneiss 开发路线图](roadmap.md)
 - [M-01：0.1.0 最小运行时闭环](plans/M-01-0.1.0-runtime-slice.md)
+
+## 架构决策
+
+- [架构决策索引](decisions/README.md)
+- [ADR-001：Granit 依赖接入边界](decisions/ADR-001-granit-dependency.md)
 
 ## 文档维护
 

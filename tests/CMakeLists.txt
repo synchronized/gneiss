@@ -22,6 +22,37 @@ gneiss_target_compile_warnings(gneiss_cpp_version_test)
 gneiss_target_output_directories(gneiss_cpp_version_test)
 add_test(NAME gneiss.cpp_version COMMAND gneiss_cpp_version_test)
 
+add_executable(gneiss_c_result_test c_result_test.c)
+target_link_libraries(gneiss_c_result_test PRIVATE gneiss::gneiss)
+set_target_properties(
+  gneiss_c_result_test
+  PROPERTIES
+    C_STANDARD 11
+    C_STANDARD_REQUIRED YES
+    C_EXTENSIONS NO
+    LINKER_LANGUAGE CXX
+)
+gneiss_target_compile_warnings(gneiss_c_result_test)
+gneiss_target_output_directories(gneiss_c_result_test)
+add_test(NAME gneiss.c_result COMMAND gneiss_c_result_test)
+
+add_executable(gneiss_cpp_result_test cpp_result_test.cpp)
+target_link_libraries(gneiss_cpp_result_test PRIVATE gneiss::gneiss)
+target_compile_features(gneiss_cpp_result_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_cpp_result_test)
+gneiss_target_output_directories(gneiss_cpp_result_test)
+add_test(NAME gneiss.cpp_result COMMAND gneiss_cpp_result_test)
+
+add_library(gneiss_c_header_test OBJECT headers/gneiss_h.c headers/result_h.c)
+target_link_libraries(gneiss_c_header_test PRIVATE gneiss::gneiss)
+target_compile_features(gneiss_c_header_test PRIVATE c_std_11)
+gneiss_target_compile_warnings(gneiss_c_header_test)
+
+add_library(gneiss_cpp_header_test OBJECT headers/gneiss_hpp.cpp headers/result_hpp.cpp)
+target_link_libraries(gneiss_cpp_header_test PRIVATE gneiss::gneiss)
+target_compile_features(gneiss_cpp_header_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_cpp_header_test)
+
 if(TARGET gneiss_version_example)
   add_test(NAME gneiss.version_example COMMAND gneiss_version_example)
   set_tests_properties(

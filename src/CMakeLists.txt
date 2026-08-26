@@ -18,7 +18,7 @@ configure_file(
 
 target_sources(
   gneiss
-  PRIVATE version.cpp
+  PRIVATE result.cpp version.cpp
   PUBLIC
     FILE_SET HEADERS
     BASE_DIRS
@@ -26,6 +26,8 @@ target_sources(
       "${GNEISS_GENERATED_INCLUDE_DIR}"
     FILES
       "${PROJECT_SOURCE_DIR}/include/gneiss/core/export.h"
+      "${PROJECT_SOURCE_DIR}/include/gneiss/core/result.h"
+      "${PROJECT_SOURCE_DIR}/include/gneiss/core/result.hpp"
       "${PROJECT_SOURCE_DIR}/include/gneiss/gneiss.h"
       "${PROJECT_SOURCE_DIR}/include/gneiss/gneiss.hpp"
       "${GNEISS_GENERATED_VERSION_HEADER}"
