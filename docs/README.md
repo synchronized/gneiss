@@ -20,6 +20,7 @@
 
 ## 操作指南
 
+- [构建、测试与运行 version 示例](guides/building.md)
 - [C/C++ 代码风格与语言标准](guides/coding-style.md)
 
 ## 架构与原理

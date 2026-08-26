@@ -24,7 +24,15 @@ Gneiss 分为逻辑层、ECS 数据层、服务层与后端层。场景树通过
 
 ## 开始使用
 
-项目仍在搭建中，构建依赖、编译步骤和最小示例将在首个可运行版本发布后补充。
+当前工程提供 C11 版本接口、C++20 包装和首个 version 示例。选择与平台匹配的 preset，例如：
+
+```sh
+cmake --preset windows-clang-debug
+cmake --build --preset windows-clang-debug
+ctest --preset windows-clang-debug
+```
+
+完整命令和其他平台选项见[构建与测试指南](docs/guides/building.md)。
 
 你可以通过 [Issues](https://github.com/synchronized/gneiss/issues) 提交建议或跟踪开发进展。
 
