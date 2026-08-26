@@ -12,8 +12,8 @@ static gneiss_result validate(const char* uri) {
 }
 
 int main(void) {
-  static const char invalid_utf8[] = {'a', 's', 's',        'e',        't', ':',
-                                      '/', '/', (char)0xC0, (char)0xAF, 0};
+  static const unsigned char invalid_utf8[] = {'a', 's', 's',  'e',  't', ':',
+                                               '/', '/', 0xC0, 0xAF, 0};
   if (validate("asset://models/triangle.mesh") != GNEISS_SUCCESS ||
       validate("asset://纹理/石头.png") != GNEISS_SUCCESS ||
       validate("file://models/triangle.mesh") != GNEISS_ERROR_INVALID_ARGUMENT ||
@@ -25,7 +25,7 @@ int main(void) {
       validate("asset://C:/secret") != GNEISS_ERROR_INVALID_ARGUMENT ||
       validate("asset://models\\triangle.mesh") != GNEISS_ERROR_INVALID_ARGUMENT ||
       validate("asset://models/a%2Fb") != GNEISS_ERROR_INVALID_ARGUMENT ||
-      validate(invalid_utf8) != GNEISS_ERROR_INVALID_ARGUMENT ||
+      validate((const char*)invalid_utf8) != GNEISS_ERROR_INVALID_ARGUMENT ||
       gneiss_asset_uri_validate(NULL, UINT64_C(0)) != GNEISS_ERROR_INVALID_ARGUMENT) {
     return 1;
   }
