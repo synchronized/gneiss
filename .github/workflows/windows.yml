@@ -1,0 +1,58 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Gneiss contributors
+
+name: Windows
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "README.md"
+      - "CHANGELOG.md"
+      - "DOCUMENTATION_GUIDE.md"
+  pull_request:
+    paths-ignore:
+      - "docs/**"
+      - "README.md"
+      - "CHANGELOG.md"
+      - "DOCUMENTATION_GUIDE.md"
+
+permissions:
+  contents: read
+
+env:
+  SCCACHE_GHA_ENABLED: "true"
+
+jobs:
+  msvc-runtime:
+    runs-on: windows-2022
+    strategy:
+      fail-fast: false
+      matrix:
+        linkage: [shared, static]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+      - name: 启用 MSVC 编译缓存
+        uses: mozilla-actions/sccache-action@v0.0.11
+      - name: 选择 preset
+        id: preset
+        shell: pwsh
+        run: |
+          $suffix = if ('${{ matrix.linkage }}' -eq 'static') { '-static' } else { '' }
+          "name=windows-vs2022${suffix}-release" >> $env:GITHUB_OUTPUT
+      - name: 配置、构建与测试
+        shell: pwsh
+        run: |
+          cmake --preset '${{ steps.preset.outputs.name }}' `
+            -DGNEISS_ENABLE_GRANIT_PLATFORM=ON `
+            -DGNEISS_GRANIT_PROVIDER=FETCH `
+            -DCMAKE_C_COMPILER_LAUNCHER=sccache `
+            -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
+          cmake --build --preset '${{ steps.preset.outputs.name }}'
+          # 托管 Windows Runner 没有 Vulkan ICD；Linux 矩阵负责真实窗口 smoke test。
+          ctest --preset '${{ steps.preset.outputs.name }}' `
+            -E '^gneiss\.granit_platform_smoke$'

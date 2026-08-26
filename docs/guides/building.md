@@ -91,6 +91,17 @@ gneiss 0.1.0
 
 开发 preset 默认启用编译警告并将警告视为错误。
 
+### 自动验证矩阵
+
+Pull Request 和 `main` 分支的代码变更使用以下矩阵：
+
+- Windows Server 2022：MSVC、共享/静态链接，并构建 Granit 运行时；托管 Runner 缺少 Vulkan ICD，
+  因此窗口 smoke test 由 Linux 执行。
+- Ubuntu 24.04：Clang/GCC、共享/静态核心构建；Clang 额外执行共享/静态 Granit 无头窗口测试。
+
+工作流配置位于 `.github/workflows/windows.yml` 和 `.github/workflows/linux.yml`。文档单独变更不会
+触发构建；工作流是否通过以对应提交的 Actions 结果为准。
+
 ## 常见问题
 
 - 找不到编译器：确认 preset 指定的编译器已加入 `PATH`，或选择其他 preset。
