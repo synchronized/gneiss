@@ -12,6 +12,7 @@
 - 增加版本化场景 Schema v1、VFS 读取、纯中间描述和 UUID、层级、组件字段完整校验。
 - 增加 Mesh/Material JSON v1、VFS Loader、RID 缓存租约和失败重试闭环。
 - 增加原子场景实例加载、卸载、UUID 节点查询，并将三角形示例迁移为完全由资产驱动。
+- 增加可重定位的 CMake package、安装资产目录及共享/静态 C11、C++20 Consumer 验收。
 
 ## 0.1.0 - 2026-08-26
 

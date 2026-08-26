@@ -5,7 +5,7 @@ cmake_minimum_required(VERSION 3.23)
 
 project(
   gneiss
-  VERSION 0.1.0
+  VERSION 0.2.0
   DESCRIPTION "基于 Granit 构建的现代 C++20 游戏引擎"
   LANGUAGES C CXX
 )
@@ -25,6 +25,44 @@ include(CTest)
 
 add_subdirectory(3rd)
 add_subdirectory(src)
+
+include(GNUInstallDirs)
+include(CMakePackageConfigHelpers)
+
+set(GNEISS_INSTALL_CMAKEDIR "${CMAKE_INSTALL_LIBDIR}/cmake/gneiss")
+configure_package_config_file(
+  "${PROJECT_SOURCE_DIR}/cmake/gneissConfig.cmake.in"
+  "${PROJECT_BINARY_DIR}/gneissConfig.cmake"
+  INSTALL_DESTINATION "${GNEISS_INSTALL_CMAKEDIR}"
+  PATH_VARS CMAKE_INSTALL_BINDIR CMAKE_INSTALL_DATADIR
+)
+write_basic_package_version_file(
+  "${PROJECT_BINARY_DIR}/gneissConfigVersion.cmake"
+  VERSION "${PROJECT_VERSION}"
+  COMPATIBILITY SameMajorVersion
+)
+install(
+  TARGETS gneiss
+  EXPORT gneissTargets
+  FILE_SET HEADERS DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
+  RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
+  LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+  ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+  INCLUDES DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
+)
+install(
+  EXPORT gneissTargets
+  FILE gneissTargets.cmake
+  NAMESPACE gneiss::
+  DESTINATION "${GNEISS_INSTALL_CMAKEDIR}"
+)
+install(
+  FILES
+    "${PROJECT_BINARY_DIR}/gneissConfig.cmake"
+    "${PROJECT_BINARY_DIR}/gneissConfigVersion.cmake"
+  DESTINATION "${GNEISS_INSTALL_CMAKEDIR}"
+)
+install(DIRECTORY "${PROJECT_SOURCE_DIR}/assets/" DESTINATION "${CMAKE_INSTALL_DATADIR}/gneiss/assets")
 
 if(GNEISS_BUILD_EXAMPLES)
   add_subdirectory(examples)

@@ -111,7 +111,12 @@ endif()
 
 target_compile_features(gneiss PUBLIC cxx_std_20)
 gneiss_target_compile_warnings(gneiss)
-target_link_libraries(gneiss PRIVATE EnTT::EnTT gneiss_yyjson)
+target_link_libraries(
+  gneiss
+  PRIVATE
+    $<BUILD_INTERFACE:EnTT::EnTT>
+    $<BUILD_INTERFACE:gneiss_yyjson>
+)
 target_include_directories(
   gneiss
   PRIVATE "${PROJECT_SOURCE_DIR}/src"
