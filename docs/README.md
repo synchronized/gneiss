@@ -30,6 +30,7 @@
 - [Core 版本与结果接口](reference/core.md)
 - [RID 有效性与 Service 生命周期](reference/rid.md)
 - [World、Entity 与内部 ECS 边界](reference/world.md)
+- [Scene Tree、Entity 映射与 Transform](reference/scene-tree.md)
 
 ## 架构与原理
 

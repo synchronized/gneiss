@@ -6,6 +6,8 @@
 
 #include <gneiss/core/entity.h>
 
+#include "scene/scene_tree.h"
+
 #include <entt/entity/entity.hpp>
 #include <entt/entity/registry.hpp>
 
@@ -19,7 +21,7 @@ namespace gneiss::world_internal {
 class world_state final {
 public:
   explicit world_state(std::uint32_t domain) noexcept
-      : domain_(domain), owner_thread_(std::this_thread::get_id()) {}
+      : scene_(domain), domain_(domain), owner_thread_(std::this_thread::get_id()) {}
 
   world_state(const world_state&) = delete;
   world_state& operator=(const world_state&) = delete;
@@ -41,6 +43,7 @@ public:
     if (native == entt::null || !registry_.valid(native)) {
       return false;
     }
+    scene_.detach_entity(entity);
     registry_.destroy(native);
     --entity_count_;
     return true;
@@ -67,6 +70,9 @@ public:
     registry_.view<Component...>().each(std::forward<Function>(function));
   }
 
+  [[nodiscard]] scene_internal::scene_tree& scene() noexcept { return scene_; }
+  [[nodiscard]] const scene_internal::scene_tree& scene() const noexcept { return scene_; }
+
 private:
   [[nodiscard]] gneiss_entity_id encode(entt::entity entity) const noexcept {
     const auto native = static_cast<std::uint32_t>(entt::to_integral(entity));
@@ -86,6 +92,7 @@ private:
   }
 
   entt::registry registry_;
+  scene_internal::scene_tree scene_;
   std::uint32_t domain_;
   std::thread::id owner_thread_;
   std::size_t entity_count_ = 0;

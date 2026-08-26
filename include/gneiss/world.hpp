@@ -6,6 +6,7 @@
 
 #include <gneiss/core/entity.hpp>
 #include <gneiss/core/result.hpp>
+#include <gneiss/scene.hpp>
 #include <gneiss/world.h>
 
 #include <utility>
@@ -55,6 +56,34 @@ public:
 
   [[nodiscard]] result destroy_entity(entity_id entity) noexcept {
     return from_native(gneiss_world_entity_destroy(handle_, entity.get()));
+  }
+
+  [[nodiscard]] result create_scene_node(scene_node_id parent, entity_id entity,
+                                         scene_node_id& out_node) noexcept {
+    gneiss_scene_node_id native_node = GNEISS_NULL_SCENE_NODE_ID;
+    const auto native_result =
+        gneiss_scene_node_create(handle_, parent.get(), entity.get(), &native_node);
+    if (native_result == GNEISS_SUCCESS) {
+      out_node = scene_node_id{native_node};
+    }
+    return from_native(native_result);
+  }
+
+  [[nodiscard]] result destroy_scene_node(scene_node_id node) noexcept {
+    return from_native(gneiss_scene_node_destroy(handle_, node.get()));
+  }
+
+  [[nodiscard]] result reparent_scene_node(scene_node_id node, scene_node_id parent) noexcept {
+    return from_native(gneiss_scene_node_reparent(handle_, node.get(), parent.get()));
+  }
+
+  [[nodiscard]] result set_local_transform(scene_node_id node, const transform& value) noexcept {
+    return from_native(gneiss_scene_node_set_local_transform(handle_, node.get(), &value));
+  }
+
+  [[nodiscard]] result get_world_transform(scene_node_id node,
+                                           transform& out_transform) const noexcept {
+    return from_native(gneiss_scene_node_get_world_transform(handle_, node.get(), &out_transform));
   }
 
   [[nodiscard]] result is_alive(entity_id entity, bool& out_is_alive) const noexcept {

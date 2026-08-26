@@ -38,7 +38,7 @@
 | M-04 RID 编码、类型和 generation 校验 | P0 | 已完成基础实现 |
 | M-05 ECS 方案验证与 ADR | P0 | 已完成；采用内部 EnTT 适配 |
 | M-06 最小 World、Entity、Component 与 System | P0 | 已完成基础实现 |
-| M-07 Scene Tree 与 Entity 映射 | P0 | 待开始 |
+| M-07 Scene Tree 与 Entity 映射 | P0 | 已完成基础实现 |
 | M-08 Granit Render Service | P0 | 待开始 |
 | M-09 Transform、Camera 与 Mesh Renderer | P0 | 待开始 |
 | M-10 最小资源缓存 | P0 | 待开始 |

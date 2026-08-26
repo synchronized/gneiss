@@ -23,6 +23,8 @@ target_sources(
     core/service_registry.h
     core/rid_table.h
     result.cpp
+    scene/scene_tree.cpp
+    scene/scene_tree.h
     version.cpp
     world/system_scheduler.cpp
     world/system_scheduler.h
@@ -43,6 +45,8 @@ target_sources(
       "${PROJECT_SOURCE_DIR}/include/gneiss/core/rid.hpp"
       "${PROJECT_SOURCE_DIR}/include/gneiss/gneiss.h"
       "${PROJECT_SOURCE_DIR}/include/gneiss/gneiss.hpp"
+      "${PROJECT_SOURCE_DIR}/include/gneiss/scene.h"
+      "${PROJECT_SOURCE_DIR}/include/gneiss/scene.hpp"
       "${PROJECT_SOURCE_DIR}/include/gneiss/world.h"
       "${PROJECT_SOURCE_DIR}/include/gneiss/world.hpp"
       "${GNEISS_GENERATED_VERSION_HEADER}"

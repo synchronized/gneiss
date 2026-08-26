@@ -45,7 +45,7 @@ add_test(NAME gneiss.cpp_result COMMAND gneiss_cpp_result_test)
 
 add_library(
   gneiss_c_header_test OBJECT headers/entity_h.c headers/gneiss_h.c headers/result_h.c
-                              headers/rid_h.c headers/world_h.c
+                              headers/rid_h.c headers/scene_h.c headers/world_h.c
 )
 target_link_libraries(gneiss_c_header_test PRIVATE gneiss::gneiss)
 target_compile_features(gneiss_c_header_test PRIVATE c_std_11)
@@ -53,7 +53,7 @@ gneiss_target_compile_warnings(gneiss_c_header_test)
 
 add_library(
   gneiss_cpp_header_test OBJECT headers/entity_hpp.cpp headers/gneiss_hpp.cpp headers/result_hpp.cpp
-                                headers/rid_hpp.cpp headers/world_hpp.cpp
+                                headers/rid_hpp.cpp headers/scene_hpp.cpp headers/world_hpp.cpp
 )
 target_link_libraries(gneiss_cpp_header_test PRIVATE gneiss::gneiss)
 target_compile_features(gneiss_cpp_header_test PRIVATE cxx_std_20)
@@ -100,9 +100,27 @@ gneiss_target_compile_warnings(gneiss_cpp_world_test)
 gneiss_target_output_directories(gneiss_cpp_world_test)
 add_test(NAME gneiss.cpp_world COMMAND gneiss_cpp_world_test)
 
+add_executable(gneiss_c_scene_test c_scene_test.c)
+target_link_libraries(gneiss_c_scene_test PRIVATE gneiss::gneiss)
+set_target_properties(
+  gneiss_c_scene_test
+  PROPERTIES C_STANDARD 11 C_STANDARD_REQUIRED YES C_EXTENSIONS NO LINKER_LANGUAGE CXX
+)
+gneiss_target_compile_warnings(gneiss_c_scene_test)
+gneiss_target_output_directories(gneiss_c_scene_test)
+add_test(NAME gneiss.c_scene COMMAND gneiss_c_scene_test)
+
+add_executable(gneiss_cpp_scene_test cpp_scene_test.cpp)
+target_link_libraries(gneiss_cpp_scene_test PRIVATE gneiss::gneiss)
+target_compile_features(gneiss_cpp_scene_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_cpp_scene_test)
+gneiss_target_output_directories(gneiss_cpp_scene_test)
+add_test(NAME gneiss.cpp_scene COMMAND gneiss_cpp_scene_test)
+
 add_executable(
   gneiss_world_state_test
   world/world_state_test.cpp
+  "${PROJECT_SOURCE_DIR}/src/scene/scene_tree.cpp"
   "${PROJECT_SOURCE_DIR}/src/world/system_scheduler.cpp"
 )
 target_include_directories(gneiss_world_state_test PRIVATE "${PROJECT_SOURCE_DIR}/src")

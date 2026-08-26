@@ -4,6 +4,7 @@
 #include "core/rid_table.h"
 #include "world/world_state.h"
 
+#include <gneiss/scene.h>
 #include <gneiss/world.h>
 
 #include <limits>
@@ -162,3 +163,141 @@ extern "C" gneiss_result gneiss_world_entity_count(gneiss_world world, uint64_t*
     return GNEISS_ERROR_INTERNAL;
   }
 }
+
+// C ABI 中 World、Node 与 Entity 均为定宽不透明整数，参数语义由名称和文档区分。
+// NOLINTBEGIN(bugprone-easily-swappable-parameters)
+extern "C" gneiss_result gneiss_scene_node_create(gneiss_world world, gneiss_scene_node_id parent,
+                                                  gneiss_entity_id entity,
+                                                  gneiss_scene_node_id* out_node) {
+  if (out_node == nullptr) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  *out_node = GNEISS_NULL_SCENE_NODE_ID;
+  try {
+    auto& registry = get_world_registry();
+    const std::scoped_lock lock{registry.mutex};
+    auto* state = find_world(registry, world);
+    const auto thread_result = validate_world_thread(state);
+    if (thread_result != GNEISS_SUCCESS) {
+      return thread_result;
+    }
+    if (entity != GNEISS_NULL_ENTITY_ID && !state->is_alive(entity)) {
+      return GNEISS_ERROR_INVALID_HANDLE;
+    }
+    return state->scene().create(parent, entity, out_node);
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
+extern "C" gneiss_result gneiss_scene_node_destroy(gneiss_world world, gneiss_scene_node_id node) {
+  try {
+    auto& registry = get_world_registry();
+    const std::scoped_lock lock{registry.mutex};
+    auto* state = find_world(registry, world);
+    const auto thread_result = validate_world_thread(state);
+    return thread_result == GNEISS_SUCCESS ? state->scene().destroy(node) : thread_result;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
+extern "C" gneiss_result gneiss_scene_node_reparent(gneiss_world world, gneiss_scene_node_id node,
+                                                    gneiss_scene_node_id parent) {
+  try {
+    auto& registry = get_world_registry();
+    const std::scoped_lock lock{registry.mutex};
+    auto* state = find_world(registry, world);
+    const auto thread_result = validate_world_thread(state);
+    return thread_result == GNEISS_SUCCESS ? state->scene().reparent(node, parent) : thread_result;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
+extern "C" gneiss_result gneiss_scene_node_set_local_transform(gneiss_world world,
+                                                               gneiss_scene_node_id node,
+                                                               const gneiss_transform* transform) {
+  if (transform == nullptr) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  try {
+    auto& registry = get_world_registry();
+    const std::scoped_lock lock{registry.mutex};
+    auto* state = find_world(registry, world);
+    const auto thread_result = validate_world_thread(state);
+    return thread_result == GNEISS_SUCCESS ? state->scene().set_local(node, *transform)
+                                           : thread_result;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
+extern "C" gneiss_result gneiss_scene_node_get_local_transform(gneiss_world world,
+                                                               gneiss_scene_node_id node,
+                                                               gneiss_transform* out_transform) {
+  if (out_transform == nullptr) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  try {
+    auto& registry = get_world_registry();
+    const std::scoped_lock lock{registry.mutex};
+    auto* state = find_world(registry, world);
+    const auto thread_result = validate_world_thread(state);
+    if (thread_result != GNEISS_SUCCESS) {
+      return thread_result;
+    }
+    const auto* transform = state->scene().get_local(node);
+    if (transform == nullptr) {
+      return GNEISS_ERROR_INVALID_HANDLE;
+    }
+    *out_transform = *transform;
+    return GNEISS_SUCCESS;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
+extern "C" gneiss_result gneiss_scene_node_get_world_transform(gneiss_world world,
+                                                               gneiss_scene_node_id node,
+                                                               gneiss_transform* out_transform) {
+  if (out_transform == nullptr) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  try {
+    auto& registry = get_world_registry();
+    const std::scoped_lock lock{registry.mutex};
+    auto* state = find_world(registry, world);
+    const auto thread_result = validate_world_thread(state);
+    return thread_result == GNEISS_SUCCESS ? state->scene().get_world(node, out_transform)
+                                           : thread_result;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
+extern "C" gneiss_result gneiss_scene_node_get_entity(gneiss_world world, gneiss_scene_node_id node,
+                                                      gneiss_entity_id* out_entity) {
+  if (out_entity == nullptr) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  *out_entity = GNEISS_NULL_ENTITY_ID;
+  try {
+    auto& registry = get_world_registry();
+    const std::scoped_lock lock{registry.mutex};
+    auto* state = find_world(registry, world);
+    const auto thread_result = validate_world_thread(state);
+    if (thread_result != GNEISS_SUCCESS) {
+      return thread_result;
+    }
+    const auto* transform = state->scene().get_local(node);
+    if (transform == nullptr) {
+      return GNEISS_ERROR_INVALID_HANDLE;
+    }
+    *out_entity = state->scene().get_entity(node);
+    return GNEISS_SUCCESS;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+// NOLINTEND(bugprone-easily-swappable-parameters)
