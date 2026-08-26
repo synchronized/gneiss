@@ -4,9 +4,11 @@
 #ifndef GNEISS_GNEISS_HPP_
 #define GNEISS_GNEISS_HPP_
 
+#include <gneiss/core/entity.hpp>
 #include <gneiss/core/result.hpp>
 #include <gneiss/core/rid.hpp>
 #include <gneiss/gneiss.h>
+#include <gneiss/world.hpp>
 
 #include <cstdint>
 

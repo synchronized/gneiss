@@ -22,6 +22,7 @@ enum class resource_type : std::uint8_t {
   test_resource = 1,
   mesh = 2,
   material = 3,
+  world = 4,
 };
 
 namespace detail {

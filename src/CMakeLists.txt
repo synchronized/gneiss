@@ -18,7 +18,16 @@ configure_file(
 
 target_sources(
   gneiss
-  PRIVATE core/service_registry.cpp core/service_registry.h core/rid_table.h result.cpp version.cpp
+  PRIVATE
+    core/service_registry.cpp
+    core/service_registry.h
+    core/rid_table.h
+    result.cpp
+    version.cpp
+    world/system_scheduler.cpp
+    world/system_scheduler.h
+    world/world_api.cpp
+    world/world_state.h
   PUBLIC
     FILE_SET HEADERS
     BASE_DIRS
@@ -26,17 +35,22 @@ target_sources(
       "${GNEISS_GENERATED_INCLUDE_DIR}"
     FILES
       "${PROJECT_SOURCE_DIR}/include/gneiss/core/export.h"
+      "${PROJECT_SOURCE_DIR}/include/gneiss/core/entity.h"
+      "${PROJECT_SOURCE_DIR}/include/gneiss/core/entity.hpp"
       "${PROJECT_SOURCE_DIR}/include/gneiss/core/result.h"
       "${PROJECT_SOURCE_DIR}/include/gneiss/core/result.hpp"
       "${PROJECT_SOURCE_DIR}/include/gneiss/core/rid.h"
       "${PROJECT_SOURCE_DIR}/include/gneiss/core/rid.hpp"
       "${PROJECT_SOURCE_DIR}/include/gneiss/gneiss.h"
       "${PROJECT_SOURCE_DIR}/include/gneiss/gneiss.hpp"
+      "${PROJECT_SOURCE_DIR}/include/gneiss/world.h"
+      "${PROJECT_SOURCE_DIR}/include/gneiss/world.hpp"
       "${GNEISS_GENERATED_VERSION_HEADER}"
 )
 
 target_compile_features(gneiss PUBLIC cxx_std_20)
 gneiss_target_compile_warnings(gneiss)
+target_link_libraries(gneiss PRIVATE EnTT::EnTT)
 target_include_directories(
   gneiss
   PRIVATE "${PROJECT_SOURCE_DIR}/src"

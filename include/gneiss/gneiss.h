@@ -6,10 +6,12 @@
 
 #include <stdint.h>
 
+#include <gneiss/core/entity.h>
 #include <gneiss/core/export.h>
 #include <gneiss/core/result.h>
 #include <gneiss/core/rid.h>
 #include <gneiss/core/version.h>
+#include <gneiss/world.h>
 
 #ifdef __cplusplus
 extern "C" {

@@ -43,13 +43,17 @@ gneiss_target_compile_warnings(gneiss_cpp_result_test)
 gneiss_target_output_directories(gneiss_cpp_result_test)
 add_test(NAME gneiss.cpp_result COMMAND gneiss_cpp_result_test)
 
-add_library(gneiss_c_header_test OBJECT headers/gneiss_h.c headers/result_h.c headers/rid_h.c)
+add_library(
+  gneiss_c_header_test OBJECT headers/entity_h.c headers/gneiss_h.c headers/result_h.c
+                              headers/rid_h.c headers/world_h.c
+)
 target_link_libraries(gneiss_c_header_test PRIVATE gneiss::gneiss)
 target_compile_features(gneiss_c_header_test PRIVATE c_std_11)
 gneiss_target_compile_warnings(gneiss_c_header_test)
 
 add_library(
-  gneiss_cpp_header_test OBJECT headers/gneiss_hpp.cpp headers/result_hpp.cpp headers/rid_hpp.cpp
+  gneiss_cpp_header_test OBJECT headers/entity_hpp.cpp headers/gneiss_hpp.cpp headers/result_hpp.cpp
+                                headers/rid_hpp.cpp headers/world_hpp.cpp
 )
 target_link_libraries(gneiss_cpp_header_test PRIVATE gneiss::gneiss)
 target_compile_features(gneiss_cpp_header_test PRIVATE cxx_std_20)
@@ -74,6 +78,39 @@ target_compile_features(gneiss_service_registry_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_service_registry_test)
 gneiss_target_output_directories(gneiss_service_registry_test)
 add_test(NAME gneiss.service_registry COMMAND gneiss_service_registry_test)
+
+add_executable(gneiss_c_world_test c_world_test.c)
+target_link_libraries(gneiss_c_world_test PRIVATE gneiss::gneiss)
+set_target_properties(
+  gneiss_c_world_test
+  PROPERTIES
+    C_STANDARD 11
+    C_STANDARD_REQUIRED YES
+    C_EXTENSIONS NO
+    LINKER_LANGUAGE CXX
+)
+gneiss_target_compile_warnings(gneiss_c_world_test)
+gneiss_target_output_directories(gneiss_c_world_test)
+add_test(NAME gneiss.c_world COMMAND gneiss_c_world_test)
+
+add_executable(gneiss_cpp_world_test cpp_world_test.cpp)
+target_link_libraries(gneiss_cpp_world_test PRIVATE gneiss::gneiss)
+target_compile_features(gneiss_cpp_world_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_cpp_world_test)
+gneiss_target_output_directories(gneiss_cpp_world_test)
+add_test(NAME gneiss.cpp_world COMMAND gneiss_cpp_world_test)
+
+add_executable(
+  gneiss_world_state_test
+  world/world_state_test.cpp
+  "${PROJECT_SOURCE_DIR}/src/world/system_scheduler.cpp"
+)
+target_include_directories(gneiss_world_state_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_link_libraries(gneiss_world_state_test PRIVATE gneiss::gneiss EnTT::EnTT)
+target_compile_features(gneiss_world_state_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_world_state_test)
+gneiss_target_output_directories(gneiss_world_state_test)
+add_test(NAME gneiss.world_state COMMAND gneiss_world_state_test)
 
 if(TARGET gneiss_version_example)
   add_test(NAME gneiss.version_example COMMAND gneiss_version_example)
