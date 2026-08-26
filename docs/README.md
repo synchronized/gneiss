@@ -52,6 +52,10 @@
 - [ADR-002：ECS、反射与序列化边界](decisions/ADR-002-ecs-reflection-boundary.md)
 - [ADR-003：Granit 依赖来源策略](decisions/ADR-003-granit-provider-strategy.md)
 
+## 实施与验收记录
+
+- [0.1.0 版本验收记录](records/0.1.0-validation.md)
+
 ## 文档维护
 
 - [项目文档规范](../DOCUMENTATION_GUIDE.md)
