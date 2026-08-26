@@ -5,6 +5,7 @@
 #include "core/rid_table.h"
 
 #include <gneiss/application.h>
+#include <gneiss/input.h>
 #include <gneiss/scene.h>
 
 #include <algorithm>
@@ -285,6 +286,60 @@ extern "C" gneiss_result gneiss_scene_instance_find_node(gneiss_application appl
     }
     return state->scenes()->find_node(
         instance, std::string_view(uuid, static_cast<std::size_t>(uuid_length)), out_node);
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
+extern "C" gneiss_result gneiss_application_poll_input(gneiss_application application,
+                                                       gneiss_input_event* out_event) {
+  if (out_event == nullptr || out_event->struct_size < GNEISS_INPUT_EVENT_VERSION_1_SIZE) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  try {
+    auto state = find_application(application);
+    const auto validation_result = validate_application(state);
+    if (validation_result != GNEISS_SUCCESS) {
+      return validation_result;
+    }
+    *out_event = GNEISS_INPUT_EVENT_INIT;
+    return GNEISS_ERROR_NOT_READY;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
+extern "C" gneiss_result gneiss_application_get_keyboard_state(gneiss_application application,
+                                                               gneiss_keyboard_state* out_state) {
+  if (out_state == nullptr || out_state->struct_size < GNEISS_KEYBOARD_STATE_VERSION_1_SIZE) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  try {
+    auto state = find_application(application);
+    const auto validation_result = validate_application(state);
+    if (validation_result != GNEISS_SUCCESS) {
+      return validation_result;
+    }
+    *out_state = state->keyboard_state();
+    return GNEISS_SUCCESS;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
+extern "C" gneiss_result gneiss_application_get_pointer_state(gneiss_application application,
+                                                              gneiss_pointer_state* out_state) {
+  if (out_state == nullptr || out_state->struct_size < GNEISS_POINTER_STATE_VERSION_1_SIZE) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  try {
+    auto state = find_application(application);
+    const auto validation_result = validate_application(state);
+    if (validation_result != GNEISS_SUCCESS) {
+      return validation_result;
+    }
+    *out_state = state->pointer_state();
+    return GNEISS_SUCCESS;
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;
   }

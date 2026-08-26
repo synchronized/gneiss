@@ -5,6 +5,7 @@
 #define GNEISS_APPLICATION_APPLICATION_STATE_H_
 
 #include <gneiss/application.h>
+#include <gneiss/input.h>
 
 #include "asset/resource_cache.h"
 #include "asset/virtual_file_system.h"
@@ -45,6 +46,12 @@ public:
     return asset_loader_;
   }
   [[nodiscard]] scene_internal::scene_instance_service* scenes() noexcept { return scenes_.get(); }
+  [[nodiscard]] const gneiss_keyboard_state& keyboard_state() const noexcept {
+    return keyboard_state_;
+  }
+  [[nodiscard]] const gneiss_pointer_state& pointer_state() const noexcept {
+    return pointer_state_;
+  }
   void request_exit() noexcept { should_exit_ = true; }
   void set_paused(bool value) noexcept { is_paused_ = value; }
 
@@ -71,6 +78,8 @@ private:
   bool is_running_ = false;
   bool is_paused_ = false;
   bool should_exit_ = false;
+  gneiss_keyboard_state keyboard_state_ = GNEISS_KEYBOARD_STATE_INIT;
+  gneiss_pointer_state pointer_state_ = GNEISS_POINTER_STATE_INIT;
 #ifdef GNEISS_HAS_GRANIT_PLATFORM
   std::unique_ptr<granit_platform> granit_platform_;
   std::unique_ptr<granit_render_service> granit_render_service_;

@@ -71,6 +71,8 @@ target_sources(
       "${PROJECT_SOURCE_DIR}/include/gneiss/core/rid.hpp"
       "${PROJECT_SOURCE_DIR}/include/gneiss/gneiss.h"
       "${PROJECT_SOURCE_DIR}/include/gneiss/gneiss.hpp"
+      "${PROJECT_SOURCE_DIR}/include/gneiss/input.h"
+      "${PROJECT_SOURCE_DIR}/include/gneiss/input.hpp"
       "${PROJECT_SOURCE_DIR}/include/gneiss/render.h"
       "${PROJECT_SOURCE_DIR}/include/gneiss/render.hpp"
       "${PROJECT_SOURCE_DIR}/include/gneiss/scene.h"

@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include <gneiss/application.h>
+#include <gneiss/input.h>
 
 typedef struct test_context {
   uint64_t now_ns;
@@ -61,7 +62,25 @@ int main(void) {
 
   if (gneiss_application_create(&desc, &application) != GNEISS_SUCCESS ||
       gneiss_application_get_world(application, &world) != GNEISS_SUCCESS ||
-      world == GNEISS_NULL_WORLD || gneiss_application_run(application, 0) != GNEISS_SUCCESS ||
+      world == GNEISS_NULL_WORLD) {
+    return 1;
+  }
+
+  {
+    gneiss_input_event event = GNEISS_INPUT_EVENT_INIT;
+    gneiss_keyboard_state keyboard = GNEISS_KEYBOARD_STATE_INIT;
+    gneiss_pointer_state pointer = GNEISS_POINTER_STATE_INIT;
+    if (gneiss_application_poll_input(application, &event) != GNEISS_ERROR_NOT_READY ||
+        event.type != 0U ||
+        gneiss_application_get_keyboard_state(application, &keyboard) != GNEISS_SUCCESS ||
+        keyboard.modifiers != 0U || keyboard.pressed_keys[0] != 0U ||
+        gneiss_application_get_pointer_state(application, &pointer) != GNEISS_SUCCESS ||
+        pointer.buttons != 0U || pointer.is_inside != 0U) {
+      return 1;
+    }
+  }
+
+  if (gneiss_application_run(application, 0) != GNEISS_SUCCESS ||
       context.update_count != UINT64_C(3) ||
       gneiss_application_destroy(application) != GNEISS_SUCCESS || context.shutdown_count != 1U ||
       gneiss_world_entity_count(world, &context.update_count) != GNEISS_ERROR_INVALID_HANDLE) {
