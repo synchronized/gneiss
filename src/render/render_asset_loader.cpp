@@ -42,13 +42,15 @@ struct mesh_asset final {
 };
 
 struct material_asset final {
-  material_asset(gneiss::render_internal::render_resource_service& owner,
-                 gneiss_material value) noexcept
-      : resources(&owner), rid(value) {}
+  material_asset(gneiss::render_internal::render_resource_service& owner, gneiss_material value,
+                 std::shared_ptr<const gneiss::asset_internal::resource_cache::entry>
+                     texture_dependency = {}) noexcept
+      : resources(&owner), rid(value), texture(std::move(texture_dependency)) {}
   material_asset(const material_asset&) = delete;
   material_asset& operator=(const material_asset&) = delete;
   gneiss::render_internal::render_resource_service* resources;
   gneiss_material rid;
+  std::shared_ptr<const gneiss::asset_internal::resource_cache::entry> texture;
   ~material_asset() {
     if (resources != nullptr && rid != GNEISS_NULL_MATERIAL) {
       (void)resources->destroy_material(rid);
@@ -74,6 +76,11 @@ struct texture_asset final {
 struct texture_source final {
   std::string uri;
   std::uint32_t color_space{};
+};
+
+struct material_source final {
+  std::array<float, 4> color{};
+  std::string texture_uri;
 };
 
 void fail(asset_diagnostic& diagnostic, gneiss_result result, std::string_view path,
@@ -113,6 +120,7 @@ void fail(asset_diagnostic& diagnostic, gneiss_result result, std::string_view p
 
 [[nodiscard]] bool validate_header(yyjson_val* root, std::string_view expected_format,
                                    std::span<const std::string_view> fields,
+                                   std::uint64_t maximum_version, std::uint64_t& out_version,
                                    asset_diagnostic& diagnostic) {
   if (!yyjson_is_obj(root) || !has_only_fields(root, fields, diagnostic)) {
     if (diagnostic.result == GNEISS_SUCCESS) {
@@ -126,13 +134,15 @@ void fail(asset_diagnostic& diagnostic, gneiss_result result, std::string_view p
     return false;
   }
   yyjson_val* version = yyjson_obj_get(root, "version");
-  if (!yyjson_is_uint(version) || yyjson_get_uint(version) != 1U) {
+  if (!yyjson_is_uint(version) || yyjson_get_uint(version) == 0U ||
+      yyjson_get_uint(version) > maximum_version) {
     fail(diagnostic,
          yyjson_is_uint(version) && yyjson_get_uint(version) > 1U ? GNEISS_ERROR_UNSUPPORTED
                                                                   : GNEISS_ERROR_INVALID_ARGUMENT,
          "/version", "不支持的资产版本");
     return false;
   }
+  out_version = yyjson_get_uint(version);
   return true;
 }
 
@@ -174,9 +184,18 @@ using document_ptr = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;
     return diagnostic.result;
   }
   yyjson_val* root = yyjson_doc_get_root(document.get());
-  constexpr std::array fields{std::string_view{"format"}, std::string_view{"version"},
-                              std::string_view{"topology"}, std::string_view{"vertices"}};
-  if (!validate_header(root, "gneiss.mesh", fields, diagnostic)) {
+  yyjson_val* version_value = yyjson_obj_get(root, "version");
+  const auto requested_version =
+      yyjson_is_uint(version_value) ? yyjson_get_uint(version_value) : 0U;
+  constexpr std::array v1_fields{std::string_view{"format"}, std::string_view{"version"},
+                                 std::string_view{"topology"}, std::string_view{"vertices"}};
+  constexpr std::array v2_fields{std::string_view{"format"}, std::string_view{"version"},
+                                 std::string_view{"topology"}, std::string_view{"vertices"},
+                                 std::string_view{"uvs"}};
+  std::uint64_t version = 0;
+  const auto fields = requested_version == 2U ? std::span<const std::string_view>{v2_fields}
+                                              : std::span<const std::string_view>{v1_fields};
+  if (!validate_header(root, "gneiss.mesh", fields, 2U, version, diagnostic)) {
     return diagnostic.result;
   }
   yyjson_val* topology = yyjson_obj_get(root, "topology");
@@ -189,6 +208,11 @@ using document_ptr = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;
   if (!yyjson_is_arr(vertices) || count < 3U || count % 3U != 0U ||
       count > std::numeric_limits<std::uint32_t>::max()) {
     fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/vertices", "顶点数必须是大于零的三角形列表");
+    return diagnostic.result;
+  }
+  yyjson_val* uvs = yyjson_obj_get(root, "uvs");
+  if (version == 2U && (!yyjson_is_arr(uvs) || yyjson_arr_size(uvs) != count)) {
+    fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/uvs", "UV 数量必须与顶点数量一致");
     return diagnostic.result;
   }
   out_vertices.reserve(count);
@@ -209,36 +233,64 @@ using document_ptr = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;
            "顶点数值必须是有限 float");
       return diagnostic.result;
     }
+    if (version == 2U) {
+      yyjson_val* uv = yyjson_arr_get(uvs, index);
+      if (!yyjson_is_arr(uv) || yyjson_arr_size(uv) != 2U ||
+          !read_float(yyjson_arr_get(uv, 0), parsed.u) ||
+          !read_float(yyjson_arr_get(uv, 1), parsed.v) || parsed.u < 0.0F || parsed.u > 1.0F ||
+          parsed.v < 0.0F || parsed.v > 1.0F) {
+        fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/uvs/" + std::to_string(index),
+             "UV 必须包含两个位于 0..1 的有限数值");
+        return diagnostic.result;
+      }
+    }
     out_vertices.push_back(parsed);
   }
   return GNEISS_SUCCESS;
 }
 
 [[nodiscard]] gneiss_result parse_material(const std::vector<std::byte>& bytes,
-                                           std::array<float, 4>& out_color,
+                                           material_source& out_source,
                                            asset_diagnostic& diagnostic) {
   auto document = parse_document(bytes, diagnostic);
   if (!document) {
     return diagnostic.result;
   }
   yyjson_val* root = yyjson_doc_get_root(document.get());
-  constexpr std::array fields{std::string_view{"format"}, std::string_view{"version"},
-                              std::string_view{"color"}};
-  if (!validate_header(root, "gneiss.material", fields, diagnostic)) {
+  yyjson_val* version_value = yyjson_obj_get(root, "version");
+  const auto requested_version =
+      yyjson_is_uint(version_value) ? yyjson_get_uint(version_value) : 0U;
+  constexpr std::array v1_fields{std::string_view{"format"}, std::string_view{"version"},
+                                 std::string_view{"color"}};
+  constexpr std::array v2_fields{std::string_view{"format"}, std::string_view{"version"},
+                                 std::string_view{"color"}, std::string_view{"base_color_texture"}};
+  std::uint64_t version = 0;
+  const auto fields = requested_version == 2U ? std::span<const std::string_view>{v2_fields}
+                                              : std::span<const std::string_view>{v1_fields};
+  if (!validate_header(root, "gneiss.material", fields, 2U, version, diagnostic)) {
     return diagnostic.result;
   }
   yyjson_val* color = yyjson_obj_get(root, "color");
-  if (!yyjson_is_arr(color) || yyjson_arr_size(color) != out_color.size()) {
+  if (!yyjson_is_arr(color) || yyjson_arr_size(color) != out_source.color.size()) {
     fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/color", "颜色必须包含四个分量");
     return diagnostic.result;
   }
-  for (std::size_t index = 0; index < out_color.size(); ++index) {
-    if (!read_float(yyjson_arr_get(color, index), out_color[index]) || out_color[index] < 0.0F ||
-        out_color[index] > 1.0F) {
+  for (std::size_t index = 0; index < out_source.color.size(); ++index) {
+    if (!read_float(yyjson_arr_get(color, index), out_source.color[index]) ||
+        out_source.color[index] < 0.0F || out_source.color[index] > 1.0F) {
       fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/color/" + std::to_string(index),
            "颜色分量必须位于 0..1");
       return diagnostic.result;
     }
+  }
+  if (version == 2U) {
+    yyjson_val* texture = yyjson_obj_get(root, "base_color_texture");
+    if (!yyjson_is_str(texture) || yyjson_get_len(texture) == 0U) {
+      fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/base_color_texture",
+           "base-color Texture 必须是非空 URI");
+      return diagnostic.result;
+    }
+    out_source.texture_uri.assign(json_string(texture));
   }
   return GNEISS_SUCCESS;
 }
@@ -253,7 +305,8 @@ using document_ptr = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;
   yyjson_val* root = yyjson_doc_get_root(document.get());
   constexpr std::array fields{std::string_view{"format"}, std::string_view{"version"},
                               std::string_view{"source"}, std::string_view{"color_space"}};
-  if (!validate_header(root, "gneiss.texture", fields, diagnostic)) {
+  std::uint64_t version = 0;
+  if (!validate_header(root, "gneiss.texture", fields, 1U, version, diagnostic)) {
     return diagnostic.result;
   }
   yyjson_val* source = yyjson_obj_get(root, "source");
@@ -366,17 +419,29 @@ gneiss_result render_asset_loader::acquire_material(std::string_view uri,
           fail(out_diagnostic, result, "", "无法通过 VFS 读取 Material");
           return result;
         }
-        std::array<float, 4> color{};
-        result = parse_material(bytes, color, out_diagnostic);
+        material_source source;
+        result = parse_material(bytes, source, out_diagnostic);
         if (result != GNEISS_SUCCESS) {
           return result;
         }
+        texture_asset_lease texture;
+        if (!source.texture_uri.empty()) {
+          asset_diagnostic texture_diagnostic;
+          result = acquire_texture(source.texture_uri, texture, texture_diagnostic);
+          if (result != GNEISS_SUCCESS) {
+            fail(out_diagnostic, result, "/base_color_texture",
+                 texture_diagnostic.message.empty() ? "加载 base-color Texture 失败"
+                                                    : texture_diagnostic.message);
+            return result;
+          }
+        }
         const gneiss_material_desc desc{.struct_size = sizeof(gneiss_material_desc),
                                         .reserved = 0,
-                                        .red = color[0],
-                                        .green = color[1],
-                                        .blue = color[2],
-                                        .alpha = color[3]};
+                                        .red = source.color[0],
+                                        .green = source.color[1],
+                                        .blue = source.color[2],
+                                        .alpha = source.color[3],
+                                        .base_color_texture = texture.get()};
         gneiss_material rid = GNEISS_NULL_MATERIAL;
         result = resources_.create_material(desc, &rid);
         if (result != GNEISS_SUCCESS) {
@@ -384,7 +449,7 @@ gneiss_result render_asset_loader::acquire_material(std::string_view uri,
           return result;
         }
         try {
-          output = std::make_shared<material_asset>(resources_, rid);
+          output = std::make_shared<material_asset>(resources_, rid, texture.entry_);
         } catch (...) {
           (void)resources_.destroy_material(rid);
           throw;

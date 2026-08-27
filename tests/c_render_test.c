@@ -4,8 +4,9 @@
 #include <gneiss/render.h>
 
 int main(void) {
-  const gneiss_mesh_vertex vertices[] = {
-      {-0.5F, -0.5F, 0.0F}, {0.5F, -0.5F, 0.0F}, {0.0F, 0.5F, 0.0F}};
+  const gneiss_mesh_vertex vertices[] = {{-0.5F, -0.5F, 0.0F, 0.0F, 0.0F},
+                                         {0.5F, -0.5F, 0.0F, 1.0F, 0.0F},
+                                         {0.0F, 0.5F, 0.0F, 0.5F, 1.0F}};
   gneiss_mesh_desc mesh_desc = GNEISS_MESH_DESC_INIT;
   gneiss_material_desc material_desc = GNEISS_MATERIAL_DESC_INIT;
   gneiss_application_desc application_desc = GNEISS_APPLICATION_DESC_INIT;

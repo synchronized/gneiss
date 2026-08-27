@@ -24,9 +24,9 @@ int main() {
     return 1;
   }
 
-  constexpr std::array vertices{gneiss::mesh_vertex{-0.6F, -0.5F, 0.0F},
-                                gneiss::mesh_vertex{0.6F, -0.5F, 0.0F},
-                                gneiss::mesh_vertex{0.0F, 0.6F, 0.0F}};
+  constexpr std::array vertices{gneiss::mesh_vertex{-0.6F, -0.5F, 0.0F, 0.0F, 0.0F},
+                                gneiss::mesh_vertex{0.6F, -0.5F, 0.0F, 1.0F, 0.0F},
+                                gneiss::mesh_vertex{0.0F, 0.6F, 0.0F, 0.5F, 1.0F}};
   gneiss::mesh_desc mesh_desc = GNEISS_MESH_DESC_INIT;
   mesh_desc.vertices = vertices.data();
   mesh_desc.vertex_count = static_cast<std::uint32_t>(vertices.size());

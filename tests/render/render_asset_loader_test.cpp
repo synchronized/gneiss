@@ -67,6 +67,12 @@ int main() try {
   memory->files.emplace(
       "textures/missing.texture.json",
       R"({"format":"gneiss.texture","version":1,"source":"asset://textures/missing.png","color_space":"linear"})");
+  memory->files.emplace(
+      "models/textured.mesh.json",
+      R"({"format":"gneiss.mesh","version":2,"topology":"triangle_list","vertices":[[-0.5,-0.5,0],[0.5,-0.5,0],[0,0.5,0]],"uvs":[[0,0],[1,0],[0.5,1]]})");
+  memory->files.emplace(
+      "materials/textured.material.json",
+      R"({"format":"gneiss.material","version":2,"color":[1,0.5,0.25,1],"base_color_texture":"asset://textures/white.texture.json"})");
 
   gneiss::asset_internal::virtual_file_system file_system;
   gneiss::asset_internal::resource_cache cache;
@@ -142,6 +148,24 @@ int main() try {
     return 9;
   }
 
+  gneiss::render_internal::mesh_asset_lease textured_mesh;
+  gneiss::render_internal::material_asset_lease textured_material;
+  if (loader.acquire_mesh("asset://models/textured.mesh.json", textured_mesh, diagnostic) !=
+          GNEISS_SUCCESS ||
+      loader.acquire_material("asset://materials/textured.material.json", textured_material,
+                              diagnostic) != GNEISS_SUCCESS) {
+    return 10;
+  }
+  const auto* mesh_resource = resources.get_mesh(textured_mesh.get());
+  const auto* material_resource = resources.get_material(textured_material.get());
+  if (mesh_resource == nullptr || mesh_resource->vertices.size() != 3U ||
+      mesh_resource->vertices[1].u != 1.0F || mesh_resource->vertices[2].v != 1.0F ||
+      material_resource == nullptr ||
+      material_resource->base_color_texture != first_texture.get() ||
+      resources.live_resource_count() != 7U) {
+    return 11;
+  }
+
   first_mesh = {};
   second_mesh = {};
   material = {};
@@ -149,9 +173,16 @@ int main() try {
   first_texture = {};
   second_texture = {};
   missing_texture = {};
+  textured_mesh = {};
+  loader.release_unused();
+  if (cache.size() != 2U || resources.live_resource_count() != 2U ||
+      resources.get_texture(material_resource->base_color_texture) == nullptr) {
+    return 12;
+  }
+  textured_material = {};
   loader.release_unused();
   if (cache.size() != 0U || resources.live_resource_count() != 0U) {
-    return 10;
+    return 13;
   }
   return 0;
 } catch (...) {

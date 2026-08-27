@@ -40,7 +40,9 @@ gneiss_result render_resource_service::create_mesh(const gneiss_mesh_desc& desc,
   }
   const auto vertices = std::span{desc.vertices, desc.vertex_count};
   if (!std::ranges::all_of(vertices, [](const auto& vertex) {
-        return std::isfinite(vertex.x) && std::isfinite(vertex.y) && std::isfinite(vertex.z);
+        return std::isfinite(vertex.x) && std::isfinite(vertex.y) && std::isfinite(vertex.z) &&
+               std::isfinite(vertex.u) && std::isfinite(vertex.v) && vertex.u >= 0.0F &&
+               vertex.u <= 1.0F && vertex.v >= 0.0F && vertex.v <= 1.0F;
       })) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
@@ -62,14 +64,18 @@ gneiss_result render_resource_service::create_material(const gneiss_material_des
                                                        gneiss_material* out_material) noexcept {
   if (out_material == nullptr || !is_valid() || desc.struct_size < sizeof(gneiss_material_desc) ||
       desc.reserved != 0U || !valid_color(desc.red) || !valid_color(desc.green) ||
-      !valid_color(desc.blue) || !valid_color(desc.alpha)) {
+      !valid_color(desc.blue) || !valid_color(desc.alpha) ||
+      (desc.base_color_texture != GNEISS_NULL_TEXTURE &&
+       get_texture(desc.base_color_texture) == nullptr)) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
-  return materials_.create(
-      core::resource_type::material,
-      material_resource{
-          .red = desc.red, .green = desc.green, .blue = desc.blue, .alpha = desc.alpha},
-      out_material);
+  return materials_.create(core::resource_type::material,
+                           material_resource{.red = desc.red,
+                                             .green = desc.green,
+                                             .blue = desc.blue,
+                                             .alpha = desc.alpha,
+                                             .base_color_texture = desc.base_color_texture},
+                           out_material);
 }
 
 gneiss_result render_resource_service::destroy_material(gneiss_material material) noexcept {

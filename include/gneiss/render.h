@@ -48,11 +48,13 @@ typedef struct gneiss_texture_desc {
     }                                                                                              \
   }
 
-/** 首版 Mesh 顶点；位置使用右手坐标，单位由场景约定。 */
+/** Mesh 顶点；位置使用右手坐标，UV 使用归一化二维坐标。 */
 typedef struct gneiss_mesh_vertex {
   float x;
   float y;
   float z;
+  float u;
+  float v;
 } gneiss_mesh_vertex;
 
 /** Mesh 创建参数。调用期间复制 vertices，调用方保留其所有权。 */
@@ -65,7 +67,7 @@ typedef struct gneiss_mesh_desc {
 
 #define GNEISS_MESH_DESC_INIT {(uint32_t)sizeof(gneiss_mesh_desc), UINT32_C(0), NULL, UINT32_C(0)}
 
-/** 首版固定颜色 Material。颜色分量使用线性空间的 0..1 范围。 */
+/** Material 参数。颜色分量使用线性空间的 0..1 范围，Texture RID 不转移所有权。 */
 typedef struct gneiss_material_desc {
   uint32_t struct_size;
   uint32_t reserved;
@@ -73,10 +75,11 @@ typedef struct gneiss_material_desc {
   float green;
   float blue;
   float alpha;
+  gneiss_texture base_color_texture;
 } gneiss_material_desc;
 
 #define GNEISS_MATERIAL_DESC_INIT                                                                  \
-  {(uint32_t)sizeof(gneiss_material_desc), UINT32_C(0), 1.0F, 1.0F, 1.0F, 1.0F}
+  {(uint32_t)sizeof(gneiss_material_desc), UINT32_C(0), 1.0F, 1.0F, 1.0F, 1.0F, GNEISS_NULL_TEXTURE}
 
 /** 透视 Camera 参数。首版只允许一个 primary Camera 参与渲染。 */
 typedef struct gneiss_camera {
@@ -108,7 +111,7 @@ GNEISS_API gneiss_result gneiss_mesh_create(gneiss_application application,
 /** 销毁 Mesh；成功后旧 RID 立即失效。 */
 GNEISS_API gneiss_result gneiss_mesh_destroy(gneiss_application application, gneiss_mesh mesh);
 
-/** 在 Application 的 Resource Service 中创建固定颜色 Material。 */
+/** 在 Application 的 Resource Service 中创建 Material；可选 Texture 必须属于同一 Application。 */
 GNEISS_API gneiss_result gneiss_material_create(gneiss_application application,
                                                 const gneiss_material_desc* desc,
                                                 gneiss_material* out_material);

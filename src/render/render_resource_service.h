@@ -23,6 +23,7 @@ struct material_resource {
   float green;
   float blue;
   float alpha;
+  gneiss_texture base_color_texture;
 };
 
 struct texture_resource {
