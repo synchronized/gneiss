@@ -95,6 +95,23 @@ namespace {
       image.data);
 }
 
+void copy_image_bytes(const fastgltf::Asset& asset, const fastgltf::Image& image,
+                      import_ir_image& target) {
+  std::visit(fastgltf::visitor{
+                 [&](const fastgltf::sources::BufferView& source) {
+                   const auto bytes =
+                       fastgltf::DefaultBufferDataAdapter{}(asset, source.bufferViewIndex);
+                   target.bytes.assign(bytes.begin(), bytes.end());
+                 },
+                 [&](const auto& source) {
+                   if constexpr (requires { source.bytes; }) {
+                     target.bytes.assign(source.bytes.begin(), source.bytes.end());
+                   }
+                 },
+             },
+             image.data);
+}
+
 [[nodiscard]] bool safe_external_uri(const fastgltf::DataSource& source) {
   const auto* uri_source = std::get_if<fastgltf::sources::URI>(&source);
   if (uri_source == nullptr || uri_source->uri.isDataUri()) {
@@ -253,13 +270,7 @@ namespace {
     import_ir_image ir_image;
     ir_image.name.assign(image.name.begin(), image.name.end());
     ir_image.is_png = image_mime_type(image) == fastgltf::MimeType::PNG;
-    std::visit(
-        [&](const auto& source) {
-          if constexpr (requires { source.bytes; }) {
-            ir_image.bytes.assign(source.bytes.begin(), source.bytes.end());
-          }
-        },
-        image.data);
+    copy_image_bytes(asset, image, ir_image);
     result.images.push_back(std::move(ir_image));
   }
   return result;
