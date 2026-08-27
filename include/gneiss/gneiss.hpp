@@ -11,6 +11,7 @@
 #include <gneiss/core/rid.hpp>
 #include <gneiss/gneiss.h>
 #include <gneiss/input.hpp>
+#include <gneiss/reflection.hpp>
 #include <gneiss/render.hpp>
 #include <gneiss/scene.hpp>
 #include <gneiss/world.hpp>

@@ -52,6 +52,7 @@ target_sources(
     render/camera_math.h
     render/normal_math.cpp
     render/normal_math.h
+    reflection/type_registry.cpp
     scene/scene_tree.cpp
     scene/scene_tree.h
     scene/scene_description.cpp
@@ -85,6 +86,8 @@ target_sources(
       "${PROJECT_SOURCE_DIR}/include/gneiss/gneiss.hpp"
       "${PROJECT_SOURCE_DIR}/include/gneiss/input.h"
       "${PROJECT_SOURCE_DIR}/include/gneiss/input.hpp"
+      "${PROJECT_SOURCE_DIR}/include/gneiss/reflection.h"
+      "${PROJECT_SOURCE_DIR}/include/gneiss/reflection.hpp"
       "${PROJECT_SOURCE_DIR}/include/gneiss/render.h"
       "${PROJECT_SOURCE_DIR}/include/gneiss/render.hpp"
       "${PROJECT_SOURCE_DIR}/include/gneiss/scene.h"

@@ -43,6 +43,23 @@ gneiss_target_compile_warnings(gneiss_cpp_result_test)
 gneiss_target_output_directories(gneiss_cpp_result_test)
 add_test(NAME gneiss.cpp_result COMMAND gneiss_cpp_result_test)
 
+add_executable(gneiss_c_reflection_test c_reflection_test.c)
+target_link_libraries(gneiss_c_reflection_test PRIVATE gneiss::gneiss)
+set_target_properties(
+  gneiss_c_reflection_test
+  PROPERTIES C_STANDARD 11 C_STANDARD_REQUIRED YES C_EXTENSIONS NO LINKER_LANGUAGE CXX
+)
+gneiss_target_compile_warnings(gneiss_c_reflection_test)
+gneiss_target_output_directories(gneiss_c_reflection_test)
+add_test(NAME gneiss.c_reflection COMMAND gneiss_c_reflection_test)
+
+add_executable(gneiss_cpp_reflection_test cpp_reflection_test.cpp)
+target_link_libraries(gneiss_cpp_reflection_test PRIVATE gneiss::gneiss)
+target_compile_features(gneiss_cpp_reflection_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_cpp_reflection_test)
+gneiss_target_output_directories(gneiss_cpp_reflection_test)
+add_test(NAME gneiss.cpp_reflection COMMAND gneiss_cpp_reflection_test)
+
 add_executable(gneiss_c_render_test c_render_test.c)
 target_link_libraries(gneiss_c_render_test PRIVATE gneiss::gneiss)
 set_target_properties(
@@ -90,7 +107,8 @@ add_test(NAME gneiss.c_asset COMMAND gneiss_c_asset_test)
 
 add_library(
   gneiss_c_header_test OBJECT headers/application_h.c headers/asset_h.c headers/entity_h.c headers/gneiss_h.c headers/input_h.c
-                              headers/render_h.c headers/result_h.c headers/rid_h.c headers/scene_h.c headers/world_h.c
+                              headers/reflection_h.c headers/render_h.c headers/result_h.c headers/rid_h.c headers/scene_h.c
+                              headers/world_h.c
 )
 target_link_libraries(gneiss_c_header_test PRIVATE gneiss::gneiss)
 target_compile_features(gneiss_c_header_test PRIVATE c_std_11)
@@ -98,8 +116,8 @@ gneiss_target_compile_warnings(gneiss_c_header_test)
 
 add_library(
   gneiss_cpp_header_test OBJECT headers/application_hpp.cpp headers/asset_hpp.cpp headers/entity_hpp.cpp headers/gneiss_hpp.cpp
-                                headers/input_hpp.cpp headers/render_hpp.cpp headers/result_hpp.cpp headers/rid_hpp.cpp
-                                headers/scene_hpp.cpp headers/world_hpp.cpp
+                                headers/input_hpp.cpp headers/reflection_hpp.cpp headers/render_hpp.cpp headers/result_hpp.cpp
+                                headers/rid_hpp.cpp headers/scene_hpp.cpp headers/world_hpp.cpp
 )
 target_link_libraries(gneiss_cpp_header_test PRIVATE gneiss::gneiss)
 target_compile_features(gneiss_cpp_header_test PRIVATE cxx_std_20)
