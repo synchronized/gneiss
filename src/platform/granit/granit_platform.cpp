@@ -139,6 +139,10 @@ gneiss_result granit_platform::poll_input(gneiss_input_event& out_event) noexcep
 gneiss_result granit_platform::keyboard(gneiss_keyboard_state& out_state) const noexcept {
   granit::keyboard_state source = GRANIT_KEYBOARD_STATE_INIT;
   const auto result = input_system_.keyboard(window_.native_handle(), source);
+  if (result == granit::result::invalid_handle) {
+    out_state = GNEISS_KEYBOARD_STATE_INIT;
+    return GNEISS_SUCCESS;
+  }
   if (granit::failed(result)) {
     return map_result(result);
   }
@@ -152,6 +156,10 @@ gneiss_result granit_platform::keyboard(gneiss_keyboard_state& out_state) const 
 gneiss_result granit_platform::pointer(gneiss_pointer_state& out_state) const noexcept {
   granit::pointer_state source = GRANIT_POINTER_STATE_INIT;
   const auto result = input_system_.pointer(window_.native_handle(), source);
+  if (result == granit::result::invalid_handle) {
+    out_state = GNEISS_POINTER_STATE_INIT;
+    return GNEISS_SUCCESS;
+  }
   if (granit::failed(result)) {
     return map_result(result);
   }
