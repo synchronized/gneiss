@@ -13,9 +13,40 @@
 
 typedef gneiss_rid gneiss_mesh;
 typedef gneiss_rid gneiss_material;
+typedef gneiss_rid gneiss_texture;
 
 #define GNEISS_NULL_MESH GNEISS_NULL_RID
 #define GNEISS_NULL_MATERIAL GNEISS_NULL_RID
+#define GNEISS_NULL_TEXTURE GNEISS_NULL_RID
+
+typedef enum gneiss_texture_format { GNEISS_TEXTURE_FORMAT_RGBA8_UNORM = 1 } gneiss_texture_format;
+
+typedef enum gneiss_texture_color_space {
+  GNEISS_TEXTURE_COLOR_SPACE_LINEAR = 1,
+  GNEISS_TEXTURE_COLOR_SPACE_SRGB = 2
+} gneiss_texture_color_space;
+
+/** 二维 Texture 创建参数。调用期间复制像素，调用方保留 pixels 所有权。 */
+typedef struct gneiss_texture_desc {
+  uint32_t struct_size;
+  uint32_t format;
+  uint32_t color_space;
+  uint32_t width;
+  uint32_t height;
+  uint32_t row_stride_bytes;
+  uint64_t pixel_data_size;
+  const uint8_t* pixels;
+  uint32_t reserved[2];
+} gneiss_texture_desc;
+
+#define GNEISS_TEXTURE_DESC_INIT                                                                   \
+  {                                                                                                \
+    (uint32_t)sizeof(gneiss_texture_desc), GNEISS_TEXTURE_FORMAT_RGBA8_UNORM,                      \
+        GNEISS_TEXTURE_COLOR_SPACE_SRGB, UINT32_C(0), UINT32_C(0), UINT32_C(0), UINT64_C(0), NULL, \
+    {                                                                                              \
+      UINT32_C(0), UINT32_C(0)                                                                     \
+    }                                                                                              \
+  }
 
 /** 首版 Mesh 顶点；位置使用右手坐标，单位由场景约定。 */
 typedef struct gneiss_mesh_vertex {
@@ -85,6 +116,15 @@ GNEISS_API gneiss_result gneiss_material_create(gneiss_application application,
 /** 销毁 Material；成功后旧 RID 立即失效。 */
 GNEISS_API gneiss_result gneiss_material_destroy(gneiss_application application,
                                                  gneiss_material material);
+
+/** 在 Application 的 Render Service 中创建二维 Texture；像素当前只支持 RGBA8。 */
+GNEISS_API gneiss_result gneiss_texture_create(gneiss_application application,
+                                               const gneiss_texture_desc* desc,
+                                               gneiss_texture* out_texture);
+
+/** 销毁 Texture；成功后旧 RID 立即失效。 */
+GNEISS_API gneiss_result gneiss_texture_destroy(gneiss_application application,
+                                                gneiss_texture texture);
 
 /** 设置或替换实体的 Camera 组件。World 和实体必须属于当前线程。 */
 GNEISS_API gneiss_result gneiss_world_entity_set_camera(gneiss_world world, gneiss_entity_id entity,

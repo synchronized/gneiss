@@ -79,6 +79,17 @@ public:
   [[nodiscard]] result destroy_material(material_id material) noexcept {
     return from_native(gneiss_material_destroy(handle_, material.get()));
   }
+  [[nodiscard]] result create_texture(const texture_desc& desc, texture_id& out_texture) noexcept {
+    gneiss_texture handle = GNEISS_NULL_TEXTURE;
+    const auto native_result = gneiss_texture_create(handle_, &desc, &handle);
+    if (native_result == GNEISS_SUCCESS) {
+      out_texture = texture_id{handle};
+    }
+    return from_native(native_result);
+  }
+  [[nodiscard]] result destroy_texture(texture_id texture) noexcept {
+    return from_native(gneiss_texture_destroy(handle_, texture.get()));
+  }
 
   void reset() noexcept {
     if (handle_ != GNEISS_NULL_APPLICATION) {

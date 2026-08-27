@@ -5,13 +5,20 @@
 
 ## 资源生命周期
 
-Mesh 和 Material 由 Application 的 Resource Service 独占。`gneiss_mesh_create` 在调用期间复制
-顶点数组；调用返回后，调用方可以立即释放源数据。首版 Mesh 只包含三维位置，至少需要三个有限值
+Mesh、Material 和 Texture 由 Application 的 Resource Service 独占。`gneiss_mesh_create` 会在调用
+期间复制顶点数组；调用返回后，调用方可以立即释放源数据。首版 Mesh 只包含三维位置，至少需要三个有限值
 顶点；顶点按 Triangle List 解释。
 
-Material 当前只包含线性空间的固定 RGBA 颜色，各分量必须位于 `0..1`。Mesh 与 Material RID 只能
-交还给创建它们的 Application；RID 校验资源类型、generation 和 Service domain。销毁、跨
-Application 使用、类型混用或重复销毁均返回 `GNEISS_ERROR_INVALID_HANDLE`。
+Material 当前只包含线性空间的固定 RGBA 颜色，各分量必须位于 `0..1`。
+
+`gneiss_texture_create` 当前只接受二维 RGBA8 像素，并显式区分线性与 sRGB 颜色空间。宽高必须位于
+`1..16384`，解码后的紧凑像素总量不得超过 256 MiB；行跨度至少为 `width * 4`，输入缓冲区必须覆盖
+最后一行。Resource Service 会逐行复制并移除源数据的行尾填充，调用返回后调用方可以释放像素。
+当前 Texture 尚未绑定到 Material 或上传至 Granit，供 `0.4.0` 后续资源路径使用。
+
+所有 Render RID 只能交还给创建它们的 Application；RID 校验资源类型、generation 和 Service
+domain。销毁、跨 Application 使用、类型混用或重复销毁均返回
+`GNEISS_ERROR_INVALID_HANDLE`。
 
 ## ECS 组件
 
@@ -31,4 +38,4 @@ Granit 平台模式在每次 `update` 后提取 primary Camera、Scene Transform
 Triangle List。按帧 Buffer 保留三个槽位，避免覆盖仍在飞行中的提交。
 
 当前路径用于验证 Application、World、Resource Service 与 Granit 的端到端边界，不是正式资产或
-渲染管线。暂不支持索引、纹理、光照、深度、剔除、资产文件和异步上传。
+渲染管线。暂不支持索引、纹理采样、光照、深度、剔除和异步上传。
