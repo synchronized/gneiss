@@ -12,7 +12,7 @@
 - CMake 3.23 或更高版本。
 - 支持 C++20 的 C/C++ 编译器。
 - 使用 Ninja preset 时需要安装 Ninja。
-- 启用 Granit 运行时适配时需要已安装的 Granit `0.3.0+` 核心、Window 与 Input 组件，或由父工程
+- 启用 Granit 运行时适配时需要已安装的 Granit `0.4.0+` 核心、Window 与 Input 组件，或由父工程
   提供 `granit::granit`、`granit::window` 和 `granit::input` 目标。
 
 ## 操作步骤
@@ -39,6 +39,38 @@ ctest --preset windows-clang-debug
 
 Linux 可选择 `linux-clang-debug` 或 `linux-gcc-debug`，可执行文件不带 `.exe` 后缀。
 
+### 构建资产工具
+
+顶层构建默认启用离线工具，也可通过 `GNEISS_BUILD_TOOLS=ON/OFF` 显式控制。启用后会在构建目录
+下载并静态构建锁定的 fastgltf 与 simdjson，不会把二者传播给 Runtime 或安装 package。当前可用
+的首个检查命令为：
+
+```powershell
+./build/windows-clang-debug/bin/gneiss_assetc.exe inspect ./tests/data/gltf/static_triangle.gltf
+```
+
+该命令验证静态 glTF 的基础能力边界并输出场景摘要，不写入资产。
+
+将受支持的静态 glTF 转换为 Runtime 资产目录：
+
+```powershell
+./build/windows-clang-debug/bin/gneiss_assetc.exe import ./model.gltf --output ./generated-assets
+```
+
+当前命令确定性生成 `models`、`materials`、`textures` 和 `scenes` 子目录。入口场景固定为
+`scenes/scene.scene.json`。包含多个 Primitive 的 Mesh 会拆分为独立 Mesh 资产和稳定的合成场景
+子节点；未指定材质的 Primitive 使用生成的默认材质。首版纹理仅支持基础颜色 PNG。导入先写入
+目标目录同级的暂存目录，全部成功后再替换目标目录，因此会清除上次导入遗留的文件；校验或写出
+失败时保留原有完整结果。
+
+导入生成的 Mesh 使用 `.gneiss-mesh` 二进制格式。可按需检查、严格验证或导出 Debug JSON：
+
+```powershell
+./build/windows-clang-debug/bin/gneiss_assetc.exe inspect ./generated-assets/models/mesh-0-primitive-0.gneiss-mesh
+./build/windows-clang-debug/bin/gneiss_assetc.exe validate ./generated-assets/models/mesh-0-primitive-0.gneiss-mesh
+./build/windows-clang-debug/bin/gneiss_assetc.exe dump ./generated-assets/models/mesh-0-primitive-0.gneiss-mesh --format json
+```
+
 ### 安装并通过 CMake package 使用
 
 构建后可将库、公共头文件、CMake package 和示例资产安装到同一前缀：
@@ -56,6 +88,9 @@ cmake --install build/windows-clang-debug --prefix build/gneiss-install
 
 普通 preset 默认关闭可选的运行时适配，因此无图形环境也能构建和测试核心。启用后，Granit 平台
 Application 会创建 Vulkan Renderer、Surface 和 Swapchain，并在每帧更新后执行清屏与呈现。
+Renderer 初始化时会查询设备的 Uniform Buffer 对齐与绑定范围；渲染服务按设备对齐创建逐帧
+Uniform Arena，并通过动态 Offset 为同一帧的不同对象提供变换与材质颜色。静态 Mesh 首次使用时
+会打包到持久 GPU 几何 Arena，多个对象实例不再逐帧重复上传相同 Vertex/Index 数据。
 依赖解析默认使用 `AUTO`
 provider：优先复用父工程目标，其次查找 package，最后把锁定的 Granit 提交下载到当前构建目录的
 `_deps`。开箱构建命令如下：
@@ -83,11 +118,12 @@ ctest --test-dir build/granit-platform --output-on-failure
 `granit::granit` 与 `granit::window`，所有 provider 都会优先直接复用。Windows 使用共享库 package
 时，构建会把 Granit 的运行时 DLL 自动复制到 Gneiss 的运行时输出目录，无需手动修改 `PATH`。
 
-启用 Granit 适配并完成构建后，可以运行交互神殿示例；按 `A`/`D` 绕神殿旋转观察视角，按 `Esc`
-或关闭窗口正常退出：
+启用 Granit 适配并完成构建后，可以运行交互神殿或 Lantern 灯廊示例；按 `A`/`D` 绕场景旋转
+观察视角，按 `Esc` 或关闭窗口正常退出：
 
 ```powershell
 ./build/granit-platform/bin/gneiss_temple_example.exe
+./build/granit-platform/bin/gneiss_lantern_gallery_example.exe
 ```
 
 Linux 下运行同名且不带 `.exe` 后缀的可执行文件。该示例的 `main` 位于
@@ -96,6 +132,12 @@ Linux 下运行同名且不带 `.exe` 后缀的可执行文件。该示例的 `m
 `examples/temple/assets`，因此从任意工作目录启动构建产物都能运行；安装后的可执行文件会从
 `share/gneiss/examples/temple/assets` 定位配套资产。场景入口是
 `examples/temple/assets/scenes/temple.scene.json`。
+
+Lantern 灯廊示例在构建时使用 `gneiss_assetc` 把 CC0 `Lantern.glb` 导入构建目录，再叠加项目原创
+的地面、石柱、相机和场景描述。源码只保留原始 GLB、上游许可和原创资产，避免同时维护生成文件。
+来源与校验值见 `examples/lantern_gallery/assets/ASSET_ORIGINS.md`；该示例因此要求
+`GNEISS_BUILD_TOOLS=ON`。使用 `--smoke --profile` 可以固定运行 3 帧，并输出 Application、Scene
+与资产、输入和运行阶段的耗时；示例使用 512×512 派生基础色纹理控制启动成本。
 
 ## 验证结果
 

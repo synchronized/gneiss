@@ -24,9 +24,10 @@ int main() {
     return 1;
   }
 
-  constexpr std::array vertices{gneiss::mesh_vertex{-0.6F, -0.5F, 0.0F, 0.0F, 0.0F},
-                                gneiss::mesh_vertex{0.6F, -0.5F, 0.0F, 1.0F, 0.0F},
-                                gneiss::mesh_vertex{0.0F, 0.6F, 0.0F, 0.5F, 1.0F}};
+  constexpr std::array vertices{
+      gneiss::mesh_vertex{.x = -0.6F, .y = -0.5F, .z = 0.0F, .u = 0.0F, .v = 0.0F},
+      gneiss::mesh_vertex{.x = 0.6F, .y = -0.5F, .z = 0.0F, .u = 1.0F, .v = 0.0F},
+      gneiss::mesh_vertex{.x = 0.0F, .y = 0.6F, .z = 0.0F, .u = 0.5F, .v = 1.0F}};
   gneiss::mesh_desc mesh_desc = GNEISS_MESH_DESC_INIT;
   mesh_desc.vertices = vertices.data();
   mesh_desc.vertex_count = static_cast<std::uint32_t>(vertices.size());
@@ -69,13 +70,16 @@ int main() {
   gneiss_scene_node_id mesh_node = GNEISS_NULL_SCENE_NODE_ID;
   gneiss_scene_node_id plain_mesh_node = GNEISS_NULL_SCENE_NODE_ID;
   gneiss_camera camera = GNEISS_CAMERA_INIT;
-  const gneiss_mesh_renderer mesh_renderer{.mesh = mesh.get(), .material = material.get()};
-  const gneiss_mesh_renderer plain_mesh_renderer{.mesh = mesh.get(),
-                                                 .material = plain_material.get()};
+  gneiss_mesh_renderer mesh_renderer{.mesh = mesh.get(), .material = material.get()};
+  gneiss_mesh_renderer plain_mesh_renderer{.mesh = mesh.get(), .material = plain_material.get()};
   gneiss_transform camera_transform = GNEISS_TRANSFORM_IDENTITY;
   camera_transform.translation[2] = 2.0F;
   gneiss_transform near_transform = GNEISS_TRANSFORM_IDENTITY;
+  near_transform.translation[0] = -0.55F;
   near_transform.translation[2] = 0.5F;
+  gneiss_transform plain_transform = GNEISS_TRANSFORM_IDENTITY;
+  plain_transform.translation[0] = 0.55F;
+  plain_transform.translation[2] = 0.5F;
   if (application.get_world(world) != gneiss::result::success ||
       gneiss_world_entity_create(world, &camera_entity) != GNEISS_SUCCESS ||
       gneiss_world_entity_create(world, &mesh_entity) != GNEISS_SUCCESS ||
@@ -89,6 +93,8 @@ int main() {
       gneiss_scene_node_set_local_transform(world, camera_node, &camera_transform) !=
           GNEISS_SUCCESS ||
       gneiss_scene_node_set_local_transform(world, mesh_node, &near_transform) != GNEISS_SUCCESS ||
+      gneiss_scene_node_set_local_transform(world, plain_mesh_node, &plain_transform) !=
+          GNEISS_SUCCESS ||
       gneiss_world_entity_set_camera(world, camera_entity, &camera) != GNEISS_SUCCESS ||
       gneiss_world_entity_set_mesh_renderer(world, mesh_entity, &mesh_renderer) != GNEISS_SUCCESS ||
       gneiss_world_entity_set_mesh_renderer(world, plain_mesh_entity, &plain_mesh_renderer) !=
@@ -96,16 +102,33 @@ int main() {
     std::fprintf(stderr, "测试场景构造失败\n");
     return 3;
   }
-  const auto run_result = application.run(3);
+  auto run_result = application.run(2);
   if (run_result != gneiss::result::success) {
     std::fprintf(stderr, "Application 运行失败：%d\n", gneiss::to_native(run_result));
     return 4;
   }
+  gneiss::mesh_id replacement_mesh;
   if (application.destroy_mesh(mesh) != gneiss::result::success ||
+      application.create_mesh(mesh_desc, replacement_mesh) != gneiss::result::success) {
+    return 5;
+  }
+  mesh_renderer.mesh = replacement_mesh.get();
+  plain_mesh_renderer.mesh = replacement_mesh.get();
+  if (gneiss_world_entity_set_mesh_renderer(world, mesh_entity, &mesh_renderer) != GNEISS_SUCCESS ||
+      gneiss_world_entity_set_mesh_renderer(world, plain_mesh_entity, &plain_mesh_renderer) !=
+          GNEISS_SUCCESS) {
+    return 6;
+  }
+  run_result = application.run(1);
+  if (run_result != gneiss::result::success) {
+    std::fprintf(stderr, "Mesh generation 更新后运行失败：%d\n", gneiss::to_native(run_result));
+    return 7;
+  }
+  if (application.destroy_mesh(replacement_mesh) != gneiss::result::success ||
       application.destroy_material(material) != gneiss::result::success ||
       application.destroy_material(plain_material) != gneiss::result::success ||
       application.destroy_texture(texture) != gneiss::result::success) {
-    return 5;
+    return 8;
   }
   return 0;
 }

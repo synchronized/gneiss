@@ -25,6 +25,8 @@ target_sources(
     asset/asset_uri.cpp
     asset/asset_uri.h
     asset/file_system.h
+    asset/mesh_binary.cpp
+    asset/mesh_binary.h
     asset/native_file_system.cpp
     asset/native_file_system.h
     asset/resource_cache.cpp
@@ -101,6 +103,8 @@ if(GNEISS_ENABLE_GRANIT_PLATFORM)
       render/granit/embedded_textured_shaders.h
       render/granit/granit_render_service.cpp
       render/granit/granit_render_service.h
+      render/granit/object_uniform.cpp
+      render/granit/object_uniform.h
       render/granit/textured.frag
       render/granit/textured.vert
   )

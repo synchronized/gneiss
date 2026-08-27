@@ -1,0 +1,6 @@
+{
+  "asset": {"version": "2.0", "generator": "Gneiss 原创测试 fixture"},
+  "images": [{"uri": "data:image/jpeg;base64,AA=="}],
+  "textures": [{"source": 0}],
+  "materials": [{"pbrMetallicRoughness": {"baseColorTexture": {"index": 0}}}]
+}

@@ -71,6 +71,6 @@ jobs:
             -DCMAKE_C_COMPILER_LAUNCHER=sccache `
             -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
           cmake --build --preset '${{ steps.preset.outputs.name }}'
-          # 托管 Windows Runner 没有 Vulkan ICD；Linux 矩阵负责真实窗口与神殿示例 smoke test。
+          # 托管 Windows Runner 没有 Vulkan ICD；Linux 矩阵负责真实窗口与图形示例 smoke test。
           ctest --preset '${{ steps.preset.outputs.name }}' `
-            -E '^gneiss\.(granit_platform_smoke|temple_example)$'
+            -E '^gneiss\.(granit_platform_smoke|temple_example|lantern_gallery_example)$'

@@ -27,7 +27,8 @@ Gneiss 分为逻辑层、ECS 数据层、服务层与后端层。场景树通过
 ## 开始使用
 
 当前工程提供 C11 公共接口、C++20 包装、Application、World、Scene Tree、最小 Render Service、
-输入与动作映射、统一诊断，以及 version 和交互纹理神殿示例。选择与平台匹配的 preset，例如：
+输入与动作映射、统一诊断、离线 glTF 资产编译器，以及 version、交互纹理神殿和 Lantern 灯廊
+示例。选择与平台匹配的 preset，例如：
 
 ```sh
 cmake --preset windows-clang-debug
@@ -35,7 +36,7 @@ cmake --build --preset windows-clang-debug
 ctest --preset windows-clang-debug
 ```
 
-Granit 纹理神殿示例需要启用可选的平台适配。完整构建、测试和示例运行命令见
+Granit 图形示例需要启用可选的平台适配。完整构建、测试和示例运行命令见
 [构建与测试指南](docs/guides/building.md)。
 
 你可以通过 [Issues](https://github.com/synchronized/gneiss/issues) 提交建议或跟踪开发进展。

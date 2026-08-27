@@ -3,6 +3,7 @@
 
 #include "render/render_asset_loader.h"
 
+#include "asset/mesh_binary.h"
 #include "asset/virtual_file_system.h"
 #include "render/png_decoder.h"
 #include "render/render_resource_service.h"
@@ -285,6 +286,36 @@ using document_ptr = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;
   return GNEISS_SUCCESS;
 }
 
+[[nodiscard]] gneiss_result parse_binary_mesh(const std::vector<std::byte>& bytes,
+                                              std::vector<gneiss_mesh_vertex>& out_vertices,
+                                              std::vector<gneiss_mesh_normal>& out_normals,
+                                              std::vector<std::uint32_t>& out_indices,
+                                              asset_diagnostic& diagnostic) {
+  gneiss::asset_internal::mesh_binary_data data;
+  gneiss::asset_internal::mesh_binary_diagnostic binary_diagnostic;
+  const auto result = gneiss::asset_internal::decode_mesh_binary(bytes, data, binary_diagnostic);
+  if (result != gneiss::asset_internal::mesh_binary_result::success) {
+    fail(diagnostic,
+         result == gneiss::asset_internal::mesh_binary_result::unsupported_version
+             ? GNEISS_ERROR_UNSUPPORTED
+             : GNEISS_ERROR_INVALID_ARGUMENT,
+         "", binary_diagnostic.message, binary_diagnostic.byte_offset);
+    return diagnostic.result;
+  }
+  out_vertices.reserve(data.vertices.size());
+  out_normals.reserve(data.vertices.size());
+  for (const auto& source : data.vertices) {
+    out_vertices.push_back({.x = source.position[0],
+                            .y = source.position[1],
+                            .z = source.position[2],
+                            .u = source.texcoord[0],
+                            .v = source.texcoord[1]});
+    out_normals.push_back({.x = source.normal[0], .y = source.normal[1], .z = source.normal[2]});
+  }
+  out_indices = std::move(data.indices);
+  return GNEISS_SUCCESS;
+}
+
 [[nodiscard]] gneiss_result parse_material(const std::vector<std::byte>& bytes,
                                            material_source& out_source,
                                            asset_diagnostic& diagnostic) {
@@ -413,7 +444,10 @@ gneiss_result render_asset_loader::acquire_mesh(std::string_view uri, mesh_asset
         }
         std::vector<gneiss_mesh_vertex> vertices;
         std::vector<gneiss_mesh_normal> normals;
-        result = parse_mesh(bytes, vertices, normals, out_diagnostic);
+        std::vector<std::uint32_t> indices;
+        result = gneiss::asset_internal::is_mesh_binary(bytes)
+                     ? parse_binary_mesh(bytes, vertices, normals, indices, out_diagnostic)
+                     : parse_mesh(bytes, vertices, normals, out_diagnostic);
         if (result != GNEISS_SUCCESS) {
           return result;
         }
@@ -423,7 +457,10 @@ gneiss_result render_asset_loader::acquire_mesh(std::string_view uri, mesh_asset
                                     .reserved = 0,
                                     .reserved_2 = 0,
                                     .normal_count = static_cast<std::uint32_t>(normals.size()),
-                                    .normals = normals.empty() ? nullptr : normals.data()};
+                                    .normals = normals.empty() ? nullptr : normals.data(),
+                                    .index_count = static_cast<std::uint32_t>(indices.size()),
+                                    .reserved_3 = 0,
+                                    .indices = indices.empty() ? nullptr : indices.data()};
         gneiss_mesh rid = GNEISS_NULL_MESH;
         result = resources_.create_mesh(desc, &rid);
         if (result != GNEISS_SUCCESS) {

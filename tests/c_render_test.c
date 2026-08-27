@@ -7,6 +7,7 @@ int main(void) {
   const gneiss_mesh_vertex vertices[] = {{-0.5F, -0.5F, 0.0F, 0.0F, 0.0F},
                                          {0.5F, -0.5F, 0.0F, 1.0F, 0.0F},
                                          {0.0F, 0.5F, 0.0F, 0.5F, 1.0F}};
+  const uint32_t indices[] = {0U, 1U, 2U};
   gneiss_mesh_desc mesh_desc = GNEISS_MESH_DESC_INIT;
   gneiss_material_desc material_desc = GNEISS_MATERIAL_DESC_INIT;
   gneiss_application_desc application_desc = GNEISS_APPLICATION_DESC_INIT;
@@ -19,6 +20,8 @@ int main(void) {
   gneiss_texture_desc texture_desc = GNEISS_TEXTURE_DESC_INIT;
   mesh_desc.vertices = vertices;
   mesh_desc.vertex_count = 3U;
+  mesh_desc.indices = indices;
+  mesh_desc.index_count = 3U;
   material_desc.red = 0.25F;
   material_desc.green = 0.5F;
   material_desc.blue = 0.75F;

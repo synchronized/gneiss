@@ -10,39 +10,55 @@
 
 int main() {
   gneiss::render_internal::render_resource_service resources;
-  constexpr std::array vertices{gneiss_mesh_vertex{0.0F, 0.0F, 0.0F, 0.0F, 0.0F},
-                                gneiss_mesh_vertex{1.0F, 0.0F, 0.0F, 1.0F, 0.0F},
-                                gneiss_mesh_vertex{0.0F, 1.0F, 0.0F, 0.0F, 1.0F}};
-  constexpr std::array normals{gneiss_mesh_normal{0.0F, 0.0F, 1.0F},
-                               gneiss_mesh_normal{0.0F, 0.0F, 1.0F},
-                               gneiss_mesh_normal{0.0F, 0.0F, 1.0F}};
+  constexpr std::array vertices{
+      gneiss_mesh_vertex{.x = 0.0F, .y = 0.0F, .z = 0.0F, .u = 0.0F, .v = 0.0F},
+      gneiss_mesh_vertex{.x = 1.0F, .y = 0.0F, .z = 0.0F, .u = 1.0F, .v = 0.0F},
+      gneiss_mesh_vertex{.x = 0.0F, .y = 1.0F, .z = 0.0F, .u = 0.0F, .v = 1.0F}};
+  constexpr std::array normals{gneiss_mesh_normal{.x = 0.0F, .y = 0.0F, .z = 1.0F},
+                               gneiss_mesh_normal{.x = 0.0F, .y = 0.0F, .z = 1.0F},
+                               gneiss_mesh_normal{.x = 0.0F, .y = 0.0F, .z = 1.0F}};
   gneiss_mesh_desc mesh_desc = GNEISS_MESH_DESC_INIT;
   mesh_desc.vertex_count = static_cast<std::uint32_t>(vertices.size());
   mesh_desc.vertices = vertices.data();
   mesh_desc.normal_count = static_cast<std::uint32_t>(normals.size());
   mesh_desc.normals = normals.data();
+  constexpr std::array<std::uint32_t, 3> indices{0U, 1U, 2U};
+  mesh_desc.index_count = static_cast<std::uint32_t>(indices.size());
+  mesh_desc.indices = indices.data();
   gneiss_mesh mesh = GNEISS_NULL_MESH;
   if (resources.create_mesh(mesh_desc, &mesh) != GNEISS_SUCCESS ||
       resources.get_mesh(mesh)->normals.size() != normals.size() ||
+      !std::ranges::equal(resources.get_mesh(mesh)->indices, indices) ||
       resources.destroy_mesh(mesh) != GNEISS_SUCCESS) {
     return 10;
   }
   auto invalid_normals = normals;
   invalid_normals[0].z = 2.0F;
-  mesh_desc.struct_size = GNEISS_MESH_DESC_VERSION_1_SIZE;
-  mesh_desc.reserved_2 = 99U;
   mesh_desc.normal_count = static_cast<std::uint32_t>(invalid_normals.size());
   mesh_desc.normals = invalid_normals.data();
-  if (resources.create_mesh(mesh_desc, &mesh) != GNEISS_SUCCESS ||
-      !resources.get_mesh(mesh)->normals.empty() ||
-      resources.destroy_mesh(mesh) != GNEISS_SUCCESS) {
+  if (resources.create_mesh(mesh_desc, &mesh) != GNEISS_ERROR_INVALID_ARGUMENT) {
     return 11;
   }
-  mesh_desc.struct_size = sizeof(gneiss_mesh_desc);
-  mesh_desc.reserved_2 = 0U;
-  mesh_desc.normals = invalid_normals.data();
+  mesh_desc.struct_size = sizeof(gneiss_mesh_desc) - 1U;
   if (resources.create_mesh(mesh_desc, &mesh) != GNEISS_ERROR_INVALID_ARGUMENT) {
     return 12;
+  }
+  mesh_desc.struct_size = sizeof(gneiss_mesh_desc);
+  mesh_desc.normals = normals.data();
+  mesh_desc.index_count = 2U;
+  if (resources.create_mesh(mesh_desc, &mesh) != GNEISS_ERROR_INVALID_ARGUMENT) {
+    return 13;
+  }
+  mesh_desc.index_count = static_cast<std::uint32_t>(indices.size());
+  constexpr std::array<std::uint32_t, 3> invalid_indices{0U, 1U, 3U};
+  mesh_desc.indices = invalid_indices.data();
+  if (resources.create_mesh(mesh_desc, &mesh) != GNEISS_ERROR_INVALID_ARGUMENT) {
+    return 14;
+  }
+  mesh_desc.indices = indices.data();
+  mesh_desc.reserved_3 = 1U;
+  if (resources.create_mesh(mesh_desc, &mesh) != GNEISS_ERROR_INVALID_ARGUMENT) {
+    return 15;
   }
   const std::array<std::uint8_t, 20> source{1,  2,  3, 4,  5,  6,  7,  8,  90, 91,
                                             92, 93, 9, 10, 11, 12, 13, 14, 15, 16};
