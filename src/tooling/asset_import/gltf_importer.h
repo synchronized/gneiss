@@ -21,6 +21,7 @@ enum class inspect_result {
 struct inspect_report {
   inspect_result result{inspect_result::invalid_argument};
   import_ir_summary summary{};
+  import_ir data;
   std::string diagnostic;
 };
 

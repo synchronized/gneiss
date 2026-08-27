@@ -36,7 +36,8 @@ Gneiss 运行时可加载的资产，并用现有渲染示例验证结果。
 ## 实施顺序
 
 1. 接入锁定 fastgltf，建立 Import IR、诊断结果和依赖清单。首个 `inspect` 闭环已完成。
-2. 读取 `.gltf` 与 `.glb`，执行边界、有限值、拓扑、索引和资源 URI 校验。
+2. 读取 `.gltf` 与 `.glb`，执行边界、有限值、拓扑、索引和资源 URI 校验。已完成 BufferView/
+   Accessor 边界、静态三角形拓扑及必需属性校验，其余校验继续补齐。
 3. 映射坐标、节点层级、静态 Mesh、基础材质和 PNG，写出 Gneiss 自有资产。
 4. 增加 `gneiss_assetc import <source> --output <directory>`，CLI 只负责参数与结果呈现。
 5. 以最小原创 fixture 验证导入、重复生成、错误输入和运行时加载，并记录性能与产物差异。
