@@ -14,7 +14,7 @@ Material 当前只包含线性空间的固定 RGBA 颜色，各分量必须位�
 `gneiss_texture_create` 当前只接受二维 RGBA8 像素，并显式区分线性与 sRGB 颜色空间。宽高必须位于
 `1..16384`，解码后的紧凑像素总量不得超过 256 MiB；行跨度至少为 `width * 4`，输入缓冲区必须覆盖
 最后一行。Resource Service 会逐行复制并移除源数据的行尾填充，调用返回后调用方可以释放像素。
-当前 Texture 尚未绑定到 Material 或上传至 Granit，供 `0.4.0` 后续资源路径使用。
+Material 可选引用 Texture RID；Granit 后端按 RID 建立 GPU 镜像并通过内置 Shader 采样。
 
 所有 Render RID 只能交还给创建它们的 Application；RID 校验资源类型、generation 和 Service
 domain。销毁、跨 Application 使用、类型混用或重复销毁均返回
