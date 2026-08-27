@@ -10,6 +10,8 @@
 | --- | --- | --- | --- | --- |
 | EnTT | 3.15.0 | <https://github.com/skypjack/entt/tree/v3.15.0> | MIT | 内部 ECS 存储与查询 |
 | yyjson | 0.12.0 | <https://github.com/ibireme/yyjson/tree/0.12.0> | MIT | 内部 JSON 读写与错误定位 |
+| libspng | 0.7.4 | <https://github.com/randy408/libspng/tree/v0.7.4> | BSD-2-Clause | PNG 内存解码 |
+| miniz | 3.1.2 | <https://github.com/richgel999/miniz/tree/3.1.2> | MIT | libspng 的 Deflate 实现 |
 
 第三方源码通过 Git submodule 锁定。首次检出仓库后执行：
 
@@ -21,3 +23,6 @@ EnTT 只作为 Gneiss 内部实现依赖，不进入公共头文件、C ABI、�
 编辑器、反射和序列化由未来的 Gneiss Schema 层提供。
 
 yyjson 固定构建为内部静态库，不安装、不传播其头文件，也不决定 Gneiss 的公共 Schema 类型。
+
+libspng 与 miniz 固定构建为内部对象库，只提供 PNG 到 RGBA8 的解码实现；二者不安装、不导出，
+也不出现在公共头文件或 CMake package 的链接接口中。

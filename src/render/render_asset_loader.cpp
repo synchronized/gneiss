@@ -4,6 +4,7 @@
 #include "render/render_asset_loader.h"
 
 #include "asset/virtual_file_system.h"
+#include "render/png_decoder.h"
 #include "render/render_resource_service.h"
 
 #include <yyjson.h>
@@ -24,6 +25,7 @@ using gneiss::render_internal::asset_diagnostic;
 
 constexpr std::uint32_t mesh_type = 1;
 constexpr std::uint32_t material_type = 2;
+constexpr std::uint32_t texture_type = 3;
 
 struct mesh_asset final {
   mesh_asset(gneiss::render_internal::render_resource_service& owner, gneiss_mesh value) noexcept
@@ -52,6 +54,26 @@ struct material_asset final {
       (void)resources->destroy_material(rid);
     }
   }
+};
+
+struct texture_asset final {
+  texture_asset(gneiss::render_internal::render_resource_service& owner,
+                gneiss_texture value) noexcept
+      : resources(&owner), rid(value) {}
+  texture_asset(const texture_asset&) = delete;
+  texture_asset& operator=(const texture_asset&) = delete;
+  gneiss::render_internal::render_resource_service* resources;
+  gneiss_texture rid;
+  ~texture_asset() {
+    if (resources != nullptr && rid != GNEISS_NULL_TEXTURE) {
+      (void)resources->destroy_texture(rid);
+    }
+  }
+};
+
+struct texture_source final {
+  std::string uri;
+  std::uint32_t color_space{};
 };
 
 void fail(asset_diagnostic& diagnostic, gneiss_result result, std::string_view path,
@@ -221,6 +243,42 @@ using document_ptr = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;
   return GNEISS_SUCCESS;
 }
 
+[[nodiscard]] gneiss_result parse_texture(const std::vector<std::byte>& bytes,
+                                          texture_source& out_source,
+                                          asset_diagnostic& diagnostic) {
+  auto document = parse_document(bytes, diagnostic);
+  if (!document) {
+    return diagnostic.result;
+  }
+  yyjson_val* root = yyjson_doc_get_root(document.get());
+  constexpr std::array fields{std::string_view{"format"}, std::string_view{"version"},
+                              std::string_view{"source"}, std::string_view{"color_space"}};
+  if (!validate_header(root, "gneiss.texture", fields, diagnostic)) {
+    return diagnostic.result;
+  }
+  yyjson_val* source = yyjson_obj_get(root, "source");
+  if (!yyjson_is_str(source) || yyjson_get_len(source) == 0U) {
+    fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/source", "Texture source 必须是非空 URI");
+    return diagnostic.result;
+  }
+  yyjson_val* color_space = yyjson_obj_get(root, "color_space");
+  if (!yyjson_is_str(color_space)) {
+    fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/color_space", "Texture 颜色空间必须是字符串");
+    return diagnostic.result;
+  }
+  const auto color_space_name = json_string(color_space);
+  if (color_space_name == "srgb") {
+    out_source.color_space = GNEISS_TEXTURE_COLOR_SPACE_SRGB;
+  } else if (color_space_name == "linear") {
+    out_source.color_space = GNEISS_TEXTURE_COLOR_SPACE_LINEAR;
+  } else {
+    fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/color_space", "只支持 srgb 或 linear");
+    return diagnostic.result;
+  }
+  out_source.uri.assign(json_string(source));
+  return GNEISS_SUCCESS;
+}
+
 } // namespace
 
 namespace gneiss::render_internal {
@@ -237,6 +295,13 @@ gneiss_material material_asset_lease::get() const noexcept {
     return GNEISS_NULL_MATERIAL;
   }
   return std::static_pointer_cast<material_asset>(entry_->resource)->rid;
+}
+
+gneiss_texture texture_asset_lease::get() const noexcept {
+  if (entry_ == nullptr || entry_->resource == nullptr) {
+    return GNEISS_NULL_TEXTURE;
+  }
+  return std::static_pointer_cast<texture_asset>(entry_->resource)->rid;
 }
 
 render_asset_loader::render_asset_loader(const asset_internal::virtual_file_system& file_system,
@@ -329,6 +394,70 @@ gneiss_result render_asset_loader::acquire_material(std::string_view uri,
       out_lease.entry_);
   if (result != GNEISS_SUCCESS && out_diagnostic.result == GNEISS_SUCCESS) {
     fail(out_diagnostic, result, "", "获取 Material 资产失败");
+  }
+  return result;
+}
+
+gneiss_result render_asset_loader::acquire_texture(std::string_view uri,
+                                                   texture_asset_lease& out_lease,
+                                                   asset_diagnostic& out_diagnostic) noexcept {
+  out_lease = {};
+  out_diagnostic = {};
+  const auto result = cache_.acquire(
+      uri, texture_type,
+      [this, uri, &out_diagnostic](std::shared_ptr<void>& output) -> gneiss_result {
+        std::vector<std::byte> description_bytes;
+        auto result = file_system_.read(uri, description_bytes);
+        if (result != GNEISS_SUCCESS) {
+          fail(out_diagnostic, result, "", "无法通过 VFS 读取 Texture 描述");
+          return result;
+        }
+        texture_source source;
+        result = parse_texture(description_bytes, source, out_diagnostic);
+        if (result != GNEISS_SUCCESS) {
+          return result;
+        }
+        std::vector<std::byte> image_bytes;
+        result = file_system_.read(source.uri, image_bytes);
+        if (result != GNEISS_SUCCESS) {
+          fail(out_diagnostic, result, "/source", "无法通过 VFS 读取 PNG");
+          return result;
+        }
+        decoded_png image;
+        std::string decode_message;
+        result = decode_png(image_bytes, image, decode_message);
+        if (result != GNEISS_SUCCESS) {
+          fail(out_diagnostic, result, "/source",
+               decode_message.empty() ? "PNG 解码失败" : decode_message);
+          return result;
+        }
+        const gneiss_texture_desc desc{
+            .struct_size = sizeof(gneiss_texture_desc),
+            .format = GNEISS_TEXTURE_FORMAT_RGBA8_UNORM,
+            .color_space = source.color_space,
+            .width = image.width,
+            .height = image.height,
+            .row_stride_bytes = image.width * 4U,
+            .pixel_data_size = image.pixels.size(),
+            .pixels = reinterpret_cast<const std::uint8_t*>(image.pixels.data()),
+            .reserved = {0, 0}};
+        gneiss_texture rid = GNEISS_NULL_TEXTURE;
+        result = resources_.create_texture(desc, &rid);
+        if (result != GNEISS_SUCCESS) {
+          fail(out_diagnostic, result, "", "创建 Texture RID 失败");
+          return result;
+        }
+        try {
+          output = std::make_shared<texture_asset>(resources_, rid);
+        } catch (...) {
+          (void)resources_.destroy_texture(rid);
+          throw;
+        }
+        return GNEISS_SUCCESS;
+      },
+      out_lease.entry_);
+  if (result != GNEISS_SUCCESS && out_diagnostic.result == GNEISS_SUCCESS) {
+    fail(out_diagnostic, result, "", "获取 Texture 资产失败");
   }
   return result;
 }

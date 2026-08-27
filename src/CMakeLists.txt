@@ -44,6 +44,8 @@ target_sources(
     render/render_resource_service.h
     render/render_asset_loader.cpp
     render/render_asset_loader.h
+    render/png_decoder.cpp
+    render/png_decoder.h
     scene/scene_tree.cpp
     scene/scene_tree.h
     scene/scene_description.cpp
@@ -122,6 +124,7 @@ target_link_libraries(
   PRIVATE
     $<BUILD_INTERFACE:EnTT::EnTT>
     $<BUILD_INTERFACE:gneiss_yyjson>
+    $<BUILD_INTERFACE:gneiss_png>
 )
 target_include_directories(
   gneiss

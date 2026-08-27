@@ -18,7 +18,7 @@
 
 ## 版本与接入
 
-- libspng `v0.7.4` 对应提交 `5c2183e3e81bf9d989dce3162cd903f986ef9c6e`。
+- libspng `v0.7.4` 的标签所指提交为 `fb768002d4288590083a476af628e51c3f1d47cd`。
 - miniz `3.1.2` 对应提交 `77d0dce8627735138c51770d1799a1ef48f2117d`。
 - miniz 使用 MIT 许可证；只作为 libspng 的内部实现依赖。
 - 不把解码器头文件、target、宏或错误枚举传播到 Gneiss package 的普通接口。
