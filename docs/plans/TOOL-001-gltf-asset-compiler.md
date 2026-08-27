@@ -40,7 +40,8 @@ Gneiss 运行时可加载的资产，并用现有渲染示例验证结果。
    Accessor 边界、顶点格式与有限值、索引范围、静态三角形拓扑及必需属性校验；资源 URI 校验
    继续补齐。
 3. 映射坐标、节点层级、静态 Mesh、基础材质和 PNG，写出 Gneiss 自有资产。已将节点层级、静态
-   Mesh 顶点与索引及材质引用映射到 Import IR，坐标转换、材质数据与 PNG 尚待完成。
+   Mesh 顶点与索引、节点 TRS、基础颜色及 PNG 引用映射到 Import IR。Gneiss 当前保持 glTF 的
+   右手、Y-up 坐标约定，不进行无意义的轴翻转；PNG 数据写出尚待完成。
 4. 增加 `gneiss_assetc import <source> --output <directory>`，CLI 只负责参数与结果呈现。
 5. 以最小原创 fixture 验证导入、重复生成、错误输入和运行时加载，并记录性能与产物差异。
 

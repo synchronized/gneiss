@@ -43,6 +43,6 @@ if(GNEISS_BUILD_TESTING AND BUILD_TESTING)
   )
   set_tests_properties(
     gneiss.tooling.assetc_inspect
-    PROPERTIES PASS_REGULAR_EXPRESSION "场景=1 节点=1 网格=1 图元=1 材质=0 图像=0"
+    PROPERTIES PASS_REGULAR_EXPRESSION "场景=1 节点=1 网格=1 图元=1 材质=1 图像=1"
   )
 endif()

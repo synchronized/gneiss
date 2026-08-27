@@ -3,6 +3,7 @@
 
 #include "tooling/asset_import/gltf_importer.h"
 
+#include <array>
 #include <filesystem>
 
 int main() { // NOLINT(bugprone-exception-escape)
@@ -17,7 +18,13 @@ int main() { // NOLINT(bugprone-exception-escape)
       valid.data.meshes.size() != 1U || valid.data.meshes[0].primitives.size() != 1U ||
       valid.data.meshes[0].primitives[0].index_accessor != 3U ||
       valid.data.meshes[0].primitives[0].vertices.size() != 3U ||
-      valid.data.meshes[0].primitives[0].indices != std::vector<std::uint32_t>{0U, 1U, 2U}) {
+      valid.data.meshes[0].primitives[0].indices != std::vector<std::uint32_t>{0U, 1U, 2U} ||
+      valid.data.nodes[0].translation != std::array<float, 3>{1.0F, 2.0F, 3.0F} ||
+      valid.data.nodes[0].scale != std::array<float, 3>{2.0F, 2.0F, 2.0F} ||
+      valid.data.materials.size() != 1U ||
+      valid.data.materials[0].base_color != std::array<float, 4>{0.5F, 0.6F, 0.7F, 1.0F} ||
+      valid.data.materials[0].base_color_image_index != 0U || valid.data.images.size() != 1U ||
+      !valid.data.images[0].is_png) {
     return 1;
   }
 
@@ -57,9 +64,21 @@ int main() { // NOLINT(bugprone-exception-escape)
     return 7;
   }
 
+  const auto invalid_transform = asset_import::inspect_gltf(root / "invalid_transform.gltf");
+  if (invalid_transform.result != asset_import::inspect_result::unsupported_feature ||
+      invalid_transform.diagnostic.empty()) {
+    return 8;
+  }
+
+  const auto non_png = asset_import::inspect_gltf(root / "non_png_texture.gltf");
+  if (non_png.result != asset_import::inspect_result::unsupported_feature ||
+      non_png.diagnostic.empty()) {
+    return 9;
+  }
+
   const auto empty = asset_import::inspect_gltf({});
   if (empty.result != asset_import::inspect_result::invalid_argument) {
-    return 8;
+    return 10;
   }
 
   return 0;

@@ -2,11 +2,14 @@
   "asset": {"version": "2.0", "generator": "Gneiss 原创测试 fixture"},
   "scene": 0,
   "scenes": [{"nodes": [0]}],
-  "nodes": [{"name": "Triangle", "mesh": 0}],
+  "nodes": [{"name": "Triangle", "mesh": 0, "translation": [1, 2, 3], "rotation": [0, 0, 0, 1], "scale": [2, 2, 2]}],
   "meshes": [{
     "name": "Triangle",
-    "primitives": [{"attributes": {"POSITION": 0, "NORMAL": 1, "TEXCOORD_0": 2}, "indices": 3}]
+    "primitives": [{"attributes": {"POSITION": 0, "NORMAL": 1, "TEXCOORD_0": 2}, "indices": 3, "material": 0}]
   }],
+  "images": [{"name": "White", "uri": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="}],
+  "textures": [{"source": 0}],
+  "materials": [{"name": "Stone", "pbrMetallicRoughness": {"baseColorFactor": [0.5, 0.6, 0.7, 1.0], "baseColorTexture": {"index": 0}}}],
   "buffers": [{
     "byteLength": 102,
     "uri": "data:application/octet-stream;base64,AAAAAAAAAAAAAAAAAACAPwAAAAAAAAAAAAAAAAAAgD8AAAAAAAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AAABAAIA"

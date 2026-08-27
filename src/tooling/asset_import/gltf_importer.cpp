@@ -81,6 +81,20 @@ namespace {
   return true;
 }
 
+[[nodiscard]] bool is_finite(const fastgltf::math::fvec3& value);
+
+[[nodiscard]] fastgltf::MimeType image_mime_type(const fastgltf::Image& image) {
+  return std::visit(
+      [](const auto& source) {
+        if constexpr (requires { source.mimeType; }) {
+          return source.mimeType;
+        }
+        return fastgltf::MimeType::None;
+      },
+      image.data);
+}
+
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 [[nodiscard]] std::optional<std::string> validate_supported_scope(const fastgltf::Asset& asset,
                                                                   std::size_t& primitive_count) {
   if (!asset.extensionsRequired.empty()) {
@@ -88,6 +102,42 @@ namespace {
   }
   if (!asset.animations.empty() || !asset.skins.empty()) {
     return "首版只支持静态场景";
+  }
+  for (const auto& node : asset.nodes) {
+    if (!std::holds_alternative<fastgltf::TRS>(node.transform)) {
+      return "节点矩阵包含无法分解的倾斜或透视变换";
+    }
+    const auto& transform = std::get<fastgltf::TRS>(node.transform);
+    float rotation_length_squared = 0.0F;
+    for (std::size_t index = 0; index < 4U; ++index) {
+      rotation_length_squared += transform.rotation[index] * transform.rotation[index];
+    }
+    if (!is_finite(transform.translation) || !is_finite(transform.scale) ||
+        !std::isfinite(rotation_length_squared) || rotation_length_squared <= 0.0F ||
+        std::abs(transform.scale[0]) < 1.0e-6F || std::abs(transform.scale[1]) < 1.0e-6F ||
+        std::abs(transform.scale[2]) < 1.0e-6F) {
+      return "节点 Transform 包含无效数值、零缩放或无效旋转";
+    }
+  }
+  for (const auto& material : asset.materials) {
+    for (std::size_t index = 0; index < 4U; ++index) {
+      if (!std::isfinite(material.pbrData.baseColorFactor[index])) {
+        return "材质基础颜色包含非有限数值";
+      }
+    }
+    if (!material.pbrData.baseColorTexture) {
+      continue;
+    }
+    // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
+    const auto texture_index = material.pbrData.baseColorTexture.value().textureIndex;
+    if (texture_index >= asset.textures.size() || !asset.textures[texture_index].imageIndex ||
+        *asset.textures[texture_index].imageIndex >= asset.images.size()) {
+      return "材质基础颜色纹理引用无效";
+    }
+    if (image_mime_type(asset.images[*asset.textures[texture_index].imageIndex]) !=
+        fastgltf::MimeType::PNG) {
+      return "首版基础颜色纹理只支持 PNG";
+    }
   }
   for (const auto& mesh : asset.meshes) {
     for (const auto& primitive : mesh.primitives) {
@@ -106,6 +156,7 @@ namespace {
   return std::nullopt;
 }
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 [[nodiscard]] import_ir build_import_ir(const fastgltf::Asset& asset) {
   import_ir result;
   result.nodes.reserve(asset.nodes.size());
@@ -116,6 +167,19 @@ namespace {
       ir_node.mesh_index = *node.meshIndex;
     }
     ir_node.children.assign(node.children.begin(), node.children.end());
+    const auto& transform = std::get<fastgltf::TRS>(node.transform);
+    for (std::size_t index = 0; index < 3U; ++index) {
+      ir_node.translation[index] = transform.translation[index];
+      ir_node.scale[index] = transform.scale[index];
+    }
+    const auto inverse_rotation_length =
+        1.0F / std::sqrt((transform.rotation[0] * transform.rotation[0]) +
+                         (transform.rotation[1] * transform.rotation[1]) +
+                         (transform.rotation[2] * transform.rotation[2]) +
+                         (transform.rotation[3] * transform.rotation[3]));
+    for (std::size_t index = 0; index < 4U; ++index) {
+      ir_node.rotation[index] = transform.rotation[index] * inverse_rotation_length;
+    }
     result.nodes.push_back(std::move(ir_node));
   }
 
@@ -147,7 +211,25 @@ namespace {
   for (const auto& material : asset.materials) {
     import_ir_material ir_material;
     ir_material.name.assign(material.name.begin(), material.name.end());
+    for (std::size_t index = 0; index < 4U; ++index) {
+      ir_material.base_color[index] = material.pbrData.baseColorFactor[index];
+    }
+    if (material.pbrData.baseColorTexture) {
+      // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
+      const auto texture_index = material.pbrData.baseColorTexture.value().textureIndex;
+      if (texture_index < asset.textures.size() && asset.textures[texture_index].imageIndex) {
+        ir_material.base_color_image_index = *asset.textures[texture_index].imageIndex;
+      }
+    }
     result.materials.push_back(std::move(ir_material));
+  }
+
+  result.images.reserve(asset.images.size());
+  for (const auto& image : asset.images) {
+    import_ir_image ir_image;
+    ir_image.name.assign(image.name.begin(), image.name.end());
+    ir_image.is_png = image_mime_type(image) == fastgltf::MimeType::PNG;
+    result.images.push_back(std::move(ir_image));
   }
   return result;
 }
@@ -267,8 +349,9 @@ inspect_report inspect_gltf(const std::filesystem::path& source_path) {
     }
 
     fastgltf::Parser parser;
-    constexpr auto options =
-        fastgltf::Options::LoadExternalBuffers | fastgltf::Options::LoadExternalImages;
+    constexpr auto options = fastgltf::Options::LoadExternalBuffers |
+                             fastgltf::Options::LoadExternalImages |
+                             fastgltf::Options::DecomposeNodeMatrices;
     auto loaded = parser.loadGltf(source.get(), source_path.parent_path(), options);
     if (loaded.error() != fastgltf::Error::None) {
       return failure(inspect_result::invalid_source,

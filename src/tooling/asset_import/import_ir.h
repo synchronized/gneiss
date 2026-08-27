@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <optional>
@@ -24,6 +25,9 @@ struct import_ir_node {
   std::string name;
   std::optional<std::size_t> mesh_index;
   std::vector<std::size_t> children;
+  std::array<float, 3> translation{};
+  std::array<float, 4> rotation{0.0F, 0.0F, 0.0F, 1.0F};
+  std::array<float, 3> scale{1.0F, 1.0F, 1.0F};
 };
 
 struct import_ir_primitive {
@@ -48,12 +52,20 @@ struct import_ir_mesh {
 
 struct import_ir_material {
   std::string name;
+  std::array<float, 4> base_color{1.0F, 1.0F, 1.0F, 1.0F};
+  std::optional<std::size_t> base_color_image_index;
+};
+
+struct import_ir_image {
+  std::string name;
+  bool is_png{};
 };
 
 struct import_ir {
   std::vector<import_ir_node> nodes;
   std::vector<import_ir_mesh> meshes;
   std::vector<import_ir_material> materials;
+  std::vector<import_ir_image> images;
 };
 
 } // namespace gneiss::tooling::asset_import
