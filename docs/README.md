@@ -68,6 +68,7 @@
 ## 实施与验收记录
 
 - [0.1.0 版本验收记录](records/0.1.0-validation.md)
+- [0.3.0 版本验收记录](records/0.3.0-validation.md)
 - [M-13 JSON 解析器 Spike 记录](records/M-13-json-spike.md)
 - [M-14 资产 URI 与资源生命周期实施记录](records/M-14-asset-uri-resource-lifecycle.md)
 - [M-15 版本化场景 Schema 实施记录](records/M-15-scene-schema.md)
