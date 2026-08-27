@@ -5,9 +5,11 @@
 #define GNEISS_APPLICATION_APPLICATION_STATE_H_
 
 #include <gneiss/application.h>
+#include <gneiss/input.h>
 
 #include "asset/resource_cache.h"
 #include "asset/virtual_file_system.h"
+#include "input/input_service.h"
 #include "render/render_asset_loader.h"
 #include "render/render_resource_service.h"
 #include "scene/scene_instance_service.h"
@@ -45,6 +47,21 @@ public:
     return asset_loader_;
   }
   [[nodiscard]] scene_internal::scene_instance_service* scenes() noexcept { return scenes_.get(); }
+  [[nodiscard]] const gneiss_keyboard_state& keyboard_state() const noexcept {
+    return input_.keyboard();
+  }
+  [[nodiscard]] const gneiss_pointer_state& pointer_state() const noexcept {
+    return input_.pointer();
+  }
+  [[nodiscard]] gneiss_result poll_input(gneiss_input_event& out_event) noexcept;
+  [[nodiscard]] gneiss_result load_action_map(std::string_view uri) noexcept;
+  [[nodiscard]] gneiss_result find_action(std::string_view name,
+                                          gneiss_action& out_action) const noexcept;
+  [[nodiscard]] gneiss_result get_action_state(gneiss_action action,
+                                               gneiss_action_state& out_state) const noexcept;
+  void report(gneiss_application handle, std::uint32_t severity, std::uint32_t category,
+              gneiss_result result, std::string_view module,
+              std::string_view message) const noexcept;
   void request_exit() noexcept { should_exit_ = true; }
   void set_paused(bool value) noexcept { is_paused_ = value; }
 
@@ -71,6 +88,7 @@ private:
   bool is_running_ = false;
   bool is_paused_ = false;
   bool should_exit_ = false;
+  input_internal::input_service input_;
 #ifdef GNEISS_HAS_GRANIT_PLATFORM
   std::unique_ptr<granit_platform> granit_platform_;
   std::unique_ptr<granit_render_service> granit_render_service_;

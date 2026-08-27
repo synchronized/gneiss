@@ -34,6 +34,35 @@ typedef gneiss_result (*gneiss_application_update_fn)(gneiss_application applica
                                                       void* user_data);
 typedef void (*gneiss_application_shutdown_fn)(void* user_data);
 
+typedef uint32_t gneiss_diagnostic_severity;
+#define GNEISS_DIAGNOSTIC_INFO UINT32_C(1)
+#define GNEISS_DIAGNOSTIC_WARNING UINT32_C(2)
+#define GNEISS_DIAGNOSTIC_ERROR UINT32_C(3)
+
+typedef uint32_t gneiss_diagnostic_category;
+#define GNEISS_DIAGNOSTIC_CATEGORY_APPLICATION UINT32_C(1)
+#define GNEISS_DIAGNOSTIC_CATEGORY_ASSET UINT32_C(2)
+#define GNEISS_DIAGNOSTIC_CATEGORY_INPUT UINT32_C(3)
+#define GNEISS_DIAGNOSTIC_CATEGORY_BACKEND UINT32_C(4)
+
+typedef struct gneiss_diagnostic {
+  uint32_t struct_size;
+  uint32_t severity;
+  uint32_t category;
+  gneiss_result result;
+  const char* module;
+  uint64_t module_length;
+  const char* message;
+  uint64_t message_length;
+  uint64_t reserved[2];
+} gneiss_diagnostic;
+
+#define GNEISS_DIAGNOSTIC_VERSION_1_SIZE ((uint32_t)offsetof(gneiss_diagnostic, reserved))
+
+typedef void (*gneiss_application_diagnostic_fn)(gneiss_application application,
+                                                 const gneiss_diagnostic* diagnostic,
+                                                 void* user_data);
+
 typedef enum gneiss_application_platform {
   /** 使用生命周期回调；全部为空时为无窗口模式。 */
   GNEISS_APPLICATION_PLATFORM_CALLBACK = 0,
@@ -69,12 +98,16 @@ typedef struct gneiss_application_desc {
   const char* asset_root;
   uint32_t asset_root_length;
   uint32_t asset_reserved;
+  gneiss_application_diagnostic_fn diagnostic;
 } gneiss_application_desc;
 
 #define GNEISS_APPLICATION_DESC_VERSION_1_SIZE                                                     \
   ((uint32_t)(offsetof(gneiss_application_desc, shutdown) + sizeof(gneiss_application_shutdown_fn)))
 #define GNEISS_APPLICATION_DESC_VERSION_2_SIZE                                                     \
   ((uint32_t)(offsetof(gneiss_application_desc, asset_reserved) + sizeof(uint32_t)))
+#define GNEISS_APPLICATION_DESC_VERSION_3_SIZE                                                     \
+  ((uint32_t)(offsetof(gneiss_application_desc, diagnostic) +                                      \
+              sizeof(gneiss_application_diagnostic_fn)))
 
 #define GNEISS_APPLICATION_DESC_INIT                                                               \
   {(uint32_t)sizeof(gneiss_application_desc),                                                      \
@@ -94,7 +127,8 @@ typedef struct gneiss_application_desc {
        GNEISS_APPLICATION_WINDOW_HIGH_DPI_BIT,                                                     \
    NULL,                                                                                           \
    UINT32_C(0),                                                                                    \
-   UINT32_C(0)}
+   UINT32_C(0),                                                                                    \
+   NULL}
 
 #ifdef __cplusplus
 extern "C" {

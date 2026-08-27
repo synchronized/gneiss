@@ -10,6 +10,7 @@
 #include <gneiss/core/result.hpp>
 #include <gneiss/core/rid.hpp>
 #include <gneiss/gneiss.h>
+#include <gneiss/input.hpp>
 #include <gneiss/render.hpp>
 #include <gneiss/scene.hpp>
 #include <gneiss/world.hpp>

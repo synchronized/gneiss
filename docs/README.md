@@ -32,6 +32,9 @@
 - [World、Entity 与内部 ECS 边界](reference/world.md)
 - [Scene Tree、Entity 映射与 Transform](reference/scene-tree.md)
 - [Application 生命周期、时间与主循环](reference/application.md)
+- [输入事件与状态快照](reference/input.md)
+- [输入动作映射格式 v1](reference/input-map-format.md)
+- [诊断回调](reference/diagnostics.md)
 - [Render 资源、ECS 组件与帧提取](reference/render.md)
 - [资产 URI、目录挂载与缓存](reference/assets.md)
 - [场景文件格式 v1](reference/scene-format.md)
@@ -49,6 +52,7 @@
 - [Gneiss 开发路线图](roadmap.md)
 - [VER-001：0.1.0 最小运行时闭环](plans/VER-001-0.1.0-runtime-slice.md)
 - [VER-002：0.2.0 资源与场景闭环](plans/VER-002-0.2.0-resource-scene-slice.md)
+- [VER-003：0.3.0 交互与诊断闭环](plans/VER-003-0.3.0-interaction-diagnostics-slice.md)
 
 ## 架构决策
 

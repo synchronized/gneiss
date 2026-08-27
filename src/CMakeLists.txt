@@ -36,6 +36,10 @@ target_sources(
     core/rid_table.h
     core/result.cpp
     core/version.cpp
+    input/input_service.cpp
+    input/input_service.h
+    input/action_map.cpp
+    input/action_map.h
     render/render_resource_service.cpp
     render/render_resource_service.h
     render/render_asset_loader.cpp
@@ -71,6 +75,8 @@ target_sources(
       "${PROJECT_SOURCE_DIR}/include/gneiss/core/rid.hpp"
       "${PROJECT_SOURCE_DIR}/include/gneiss/gneiss.h"
       "${PROJECT_SOURCE_DIR}/include/gneiss/gneiss.hpp"
+      "${PROJECT_SOURCE_DIR}/include/gneiss/input.h"
+      "${PROJECT_SOURCE_DIR}/include/gneiss/input.hpp"
       "${PROJECT_SOURCE_DIR}/include/gneiss/render.h"
       "${PROJECT_SOURCE_DIR}/include/gneiss/render.hpp"
       "${PROJECT_SOURCE_DIR}/include/gneiss/scene.h"
@@ -91,7 +97,7 @@ if(GNEISS_ENABLE_GRANIT_PLATFORM)
       render/granit/granit_render_service.h
   )
   target_compile_definitions(gneiss PRIVATE GNEISS_HAS_GRANIT_PLATFORM)
-  target_link_libraries(gneiss PRIVATE granit::granit granit::window)
+  target_link_libraries(gneiss PRIVATE granit::granit granit::window granit::input)
 
   get_target_property(granit_runtime_is_imported granit::granit IMPORTED)
   get_target_property(granit_runtime_type granit::granit TYPE)

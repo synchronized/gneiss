@@ -64,8 +64,8 @@ gneiss_target_output_directories(gneiss_c_asset_test)
 add_test(NAME gneiss.c_asset COMMAND gneiss_c_asset_test)
 
 add_library(
-  gneiss_c_header_test OBJECT headers/application_h.c headers/asset_h.c headers/entity_h.c headers/gneiss_h.c headers/render_h.c
-                              headers/result_h.c headers/rid_h.c headers/scene_h.c headers/world_h.c
+  gneiss_c_header_test OBJECT headers/application_h.c headers/asset_h.c headers/entity_h.c headers/gneiss_h.c headers/input_h.c
+                              headers/render_h.c headers/result_h.c headers/rid_h.c headers/scene_h.c headers/world_h.c
 )
 target_link_libraries(gneiss_c_header_test PRIVATE gneiss::gneiss)
 target_compile_features(gneiss_c_header_test PRIVATE c_std_11)
@@ -73,8 +73,8 @@ gneiss_target_compile_warnings(gneiss_c_header_test)
 
 add_library(
   gneiss_cpp_header_test OBJECT headers/application_hpp.cpp headers/asset_hpp.cpp headers/entity_hpp.cpp headers/gneiss_hpp.cpp
-                                headers/render_hpp.cpp headers/result_hpp.cpp headers/rid_hpp.cpp headers/scene_hpp.cpp
-                                headers/world_hpp.cpp
+                                headers/input_hpp.cpp headers/render_hpp.cpp headers/result_hpp.cpp headers/rid_hpp.cpp
+                                headers/scene_hpp.cpp headers/world_hpp.cpp
 )
 target_link_libraries(gneiss_cpp_header_test PRIVATE gneiss::gneiss)
 target_compile_features(gneiss_cpp_header_test PRIVATE cxx_std_20)
@@ -99,6 +99,33 @@ target_compile_features(gneiss_service_registry_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_service_registry_test)
 gneiss_target_output_directories(gneiss_service_registry_test)
 add_test(NAME gneiss.service_registry COMMAND gneiss_service_registry_test)
+
+add_executable(
+  gneiss_input_service_test
+  input/input_service_test.cpp
+  "${PROJECT_SOURCE_DIR}/src/input/input_service.cpp"
+)
+target_include_directories(gneiss_input_service_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_link_libraries(gneiss_input_service_test PRIVATE gneiss::gneiss)
+target_compile_features(gneiss_input_service_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_input_service_test)
+gneiss_target_output_directories(gneiss_input_service_test)
+add_test(NAME gneiss.input_service COMMAND gneiss_input_service_test)
+
+add_executable(
+  gneiss_action_map_test
+  input/action_map_test.cpp
+  "${PROJECT_SOURCE_DIR}/src/input/action_map.cpp"
+  "${PROJECT_SOURCE_DIR}/src/asset/asset_uri.cpp"
+  "${PROJECT_SOURCE_DIR}/src/asset/virtual_file_system.cpp"
+)
+target_include_directories(gneiss_action_map_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_compile_definitions(gneiss_action_map_test PRIVATE GNEISS_BUILDING_LIBRARY)
+target_link_libraries(gneiss_action_map_test PRIVATE gneiss::gneiss gneiss_yyjson)
+target_compile_features(gneiss_action_map_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_action_map_test)
+gneiss_target_output_directories(gneiss_action_map_test)
+add_test(NAME gneiss.action_map COMMAND gneiss_action_map_test)
 
 add_executable(gneiss_c_world_test c_world_test.c)
 target_link_libraries(gneiss_c_world_test PRIVATE gneiss::gneiss)
@@ -148,6 +175,9 @@ gneiss_target_compile_warnings(gneiss_c_application_test)
 if(NOT GNEISS_ENABLE_GRANIT_PLATFORM)
   target_compile_definitions(gneiss_c_application_test PRIVATE GNEISS_TEST_NO_GRANIT_PLATFORM)
 endif()
+target_compile_definitions(
+  gneiss_c_application_test PRIVATE GNEISS_TEST_ASSET_ROOT="${PROJECT_SOURCE_DIR}/assets"
+)
 gneiss_target_output_directories(gneiss_c_application_test)
 add_test(NAME gneiss.c_application COMMAND gneiss_c_application_test)
 
