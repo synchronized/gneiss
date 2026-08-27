@@ -334,10 +334,19 @@ granit_render_service::render(native_window_info& window,
   if (snapshot.has_camera) {
     try {
       std::vector<gpu_vertex> vertices;
-      const auto aspect = static_cast<float>(window.width) / static_cast<float>(window.height);
+      std::vector<const world_internal::render_instance_snapshot*> ordered_instances;
+      ordered_instances.reserve(snapshot.instances.size());
       for (const auto& instance : snapshot.instances) {
-        const auto* mesh = resources.get_mesh(instance.mesh);
-        const auto* material = resources.get_material(instance.material);
+        ordered_instances.push_back(&instance);
+      }
+      std::stable_sort(ordered_instances.begin(), ordered_instances.end(),
+                       [](const auto* left, const auto* right) {
+                         return left->transform.translation[2] < right->transform.translation[2];
+                       });
+      const auto aspect = static_cast<float>(window.width) / static_cast<float>(window.height);
+      for (const auto* instance : ordered_instances) {
+        const auto* mesh = resources.get_mesh(instance->mesh);
+        const auto* material = resources.get_material(instance->material);
         if (mesh == nullptr || material == nullptr) {
           return GNEISS_ERROR_INVALID_HANDLE;
         }
@@ -367,7 +376,7 @@ granit_render_service::render(native_window_info& window,
         const auto first_vertex = static_cast<std::uint32_t>(vertices.size());
         vertices.reserve(vertices.size() + mesh->vertices.size());
         for (const auto& source : mesh->vertices) {
-          const auto position = project(source, instance.transform, snapshot.camera, aspect);
+          const auto position = project(source, instance->transform, snapshot.camera, aspect);
           vertices.push_back({.x = position[0],
                               .y = position[1],
                               .z = position[2],

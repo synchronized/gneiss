@@ -38,6 +38,7 @@ gneiss_result update_temple(gneiss_application application, const gneiss_frame_t
   state->angle += static_cast<double>(time->delta_ns) / nanoseconds_per_second * rotate.value;
   const auto half_angle = state->angle * 0.5;
   gneiss_transform transform = GNEISS_TRANSFORM_IDENTITY;
+  transform.translation[2] = 0.1F;
   transform.rotation[2] = static_cast<float>(std::sin(half_angle));
   transform.rotation[3] = static_cast<float>(std::cos(half_angle));
   transform.scale[0] = 0.9F;
