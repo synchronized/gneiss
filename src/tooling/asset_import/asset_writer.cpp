@@ -8,6 +8,7 @@
 #include <limits>
 #include <locale>
 #include <sstream>
+#include <system_error>
 
 namespace gneiss::tooling::asset_import {
 namespace {
@@ -161,13 +162,58 @@ void write_renderer(std::ostream& stream, std::size_t mesh_index, std::size_t pr
   return stream.good();
 }
 
-} // namespace
-
-write_report write_assets(const import_ir& data, const std::filesystem::path& output_directory) {
-  try {
-    if (output_directory.empty()) {
-      return {.success = false, .diagnostic = "输出目录不能为空"};
+[[nodiscard]] std::optional<std::string> validate_nodes(const import_ir& data) {
+  for (const auto& node : data.nodes) {
+    if (node.mesh_index && *node.mesh_index >= data.meshes.size()) {
+      return "节点引用了不存在的 Mesh";
     }
+    for (const auto child : node.children) {
+      if (child >= data.nodes.size()) {
+        return "节点引用了不存在的子节点";
+      }
+    }
+  }
+  return std::nullopt;
+}
+
+[[nodiscard]] std::optional<std::string> validate_meshes(const import_ir& data) {
+  for (const auto& mesh : data.meshes) {
+    for (const auto& primitive : mesh.primitives) {
+      if (primitive.material_index && *primitive.material_index >= data.materials.size()) {
+        return "Primitive 引用了不存在的 Material";
+      }
+      for (const auto index : primitive.indices) {
+        if (index >= primitive.vertices.size()) {
+          return "Primitive 索引超出顶点范围";
+        }
+      }
+    }
+  }
+  return std::nullopt;
+}
+
+[[nodiscard]] std::optional<std::string> validate_materials(const import_ir& data) {
+  for (const auto& material : data.materials) {
+    if (material.base_color_image_index && *material.base_color_image_index >= data.images.size()) {
+      return "Material 引用了不存在的图像";
+    }
+  }
+  return std::nullopt;
+}
+
+[[nodiscard]] std::optional<std::string> validate(const import_ir& data) {
+  if (auto diagnostic = validate_nodes(data)) {
+    return diagnostic;
+  }
+  if (auto diagnostic = validate_meshes(data)) {
+    return diagnostic;
+  }
+  return validate_materials(data);
+}
+
+write_report write_assets_in_place(const import_ir& data,
+                                   const std::filesystem::path& output_directory) {
+  try {
     std::filesystem::create_directories(output_directory / "models");
     std::filesystem::create_directories(output_directory / "materials");
     std::filesystem::create_directories(output_directory / "textures");
@@ -219,6 +265,72 @@ write_report write_assets(const import_ir& data, const std::filesystem::path& ou
     return {.success = true, .diagnostic = {}};
   } catch (const std::exception& error) {
     return {.success = false, .diagnostic = std::string{"资产写出失败："} + error.what()};
+  }
+}
+
+bool remove_quietly(const std::filesystem::path& path) noexcept {
+  try {
+    std::error_code error;
+    std::filesystem::remove_all(path, error);
+    return !error;
+  } catch (...) {
+    // 清理是尽力而为；调用方的主错误和恢复流程优先。
+    return false;
+  }
+}
+
+} // namespace
+
+write_report write_assets(const import_ir& data, const std::filesystem::path& output_directory) {
+  if (output_directory.empty()) {
+    return {.success = false, .diagnostic = "输出目录不能为空"};
+  }
+  if (const auto diagnostic = validate(data)) {
+    return {.success = false, .diagnostic = *diagnostic};
+  }
+
+  std::filesystem::path destination;
+  std::filesystem::path staging;
+  std::filesystem::path backup;
+  bool old_output_moved = false;
+  try {
+    destination = std::filesystem::absolute(output_directory).lexically_normal();
+    if (destination == destination.root_path() || destination.filename().empty()) {
+      return {.success = false, .diagnostic = "输出目录不能是文件系统根目录"};
+    }
+    staging = destination.parent_path() / (destination.filename().string() + ".gneiss-staging");
+    backup = destination.parent_path() / (destination.filename().string() + ".gneiss-backup");
+
+    remove_quietly(staging);
+    if (std::filesystem::exists(backup)) {
+      if (std::filesystem::exists(destination)) {
+        remove_quietly(backup);
+      } else {
+        std::filesystem::rename(backup, destination);
+      }
+    }
+
+    auto report = write_assets_in_place(data, staging);
+    if (!report.success) {
+      remove_quietly(staging);
+      return report;
+    }
+    if (std::filesystem::exists(destination)) {
+      std::filesystem::rename(destination, backup);
+      old_output_moved = true;
+    }
+    std::filesystem::rename(staging, destination);
+    old_output_moved = false;
+    remove_quietly(backup);
+    return {.success = true, .diagnostic = {}};
+  } catch (const std::exception& error) {
+    remove_quietly(staging);
+    if (old_output_moved && !destination.empty() && !backup.empty() &&
+        !std::filesystem::exists(destination)) {
+      std::error_code restore_error;
+      std::filesystem::rename(backup, destination, restore_error);
+    }
+    return {.success = false, .diagnostic = std::string{"事务式资产写出失败："} + error.what()};
   }
 }
 

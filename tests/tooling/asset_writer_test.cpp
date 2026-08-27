@@ -49,6 +49,23 @@ int main() { // NOLINT(bugprone-exception-escape)
       return 3;
     }
   }
+  {
+    std::ofstream stale(first / "stale.asset", std::ios::binary);
+    stale << "旧导入残留";
+  }
+  if (!asset_import::write_assets(imported.data, first).success ||
+      std::filesystem::exists(first / "stale.asset")) {
+    return 4;
+  }
+  const auto preserved_scene = read_file(first / "scenes/scene.scene.json");
+  auto invalid_data = imported.data;
+  invalid_data.nodes[0].mesh_index = invalid_data.meshes.size();
+  if (asset_import::write_assets(invalid_data, first).success ||
+      read_file(first / "scenes/scene.scene.json") != preserved_scene ||
+      std::filesystem::exists(root / "first.gneiss-staging") ||
+      std::filesystem::exists(root / "first.gneiss-backup")) {
+    return 5;
+  }
   const auto asset_root = first.generic_string();
   gneiss_application_desc description = GNEISS_APPLICATION_DESC_INIT;
   description.asset_root = asset_root.data();
@@ -65,7 +82,7 @@ int main() { // NOLINT(bugprone-exception-escape)
       gneiss_world_entity_count(world, &entity_count) != GNEISS_SUCCESS || entity_count != 1U ||
       gneiss_scene_instance_unload(application, scene) != GNEISS_SUCCESS ||
       gneiss_application_destroy(application) != GNEISS_SUCCESS) {
-    return 4;
+    return 6;
   }
 
   auto multi_data = imported.data;
@@ -75,7 +92,7 @@ int main() { // NOLINT(bugprone-exception-escape)
   if (!asset_import::write_assets(multi_data, multi).success ||
       !std::filesystem::exists(multi / "models/mesh-0-primitive-1.mesh.json") ||
       !std::filesystem::exists(multi / "materials/default.material.json")) {
-    return 5;
+    return 7;
   }
   const auto multi_asset_root = multi.generic_string();
   description.asset_root = multi_asset_root.data();
@@ -91,7 +108,7 @@ int main() { // NOLINT(bugprone-exception-escape)
       gneiss_world_entity_count(world, &entity_count) != GNEISS_SUCCESS || entity_count != 3U ||
       gneiss_scene_instance_unload(application, scene) != GNEISS_SUCCESS ||
       gneiss_application_destroy(application) != GNEISS_SUCCESS) {
-    return 6;
+    return 8;
   }
   std::filesystem::remove_all(root);
   return 0;

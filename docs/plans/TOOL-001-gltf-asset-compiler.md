@@ -46,11 +46,12 @@ Gneiss 运行时可加载的资产，并用现有渲染示例验证结果。
 5. 以最小原创 fixture 验证导入、重复生成、错误输入和运行时加载，并记录性能与产物差异。
    已覆盖 `.gltf`、`.glb`、外部及嵌入 Buffer、重复生成、目录逃逸，并通过现有 Runtime Scene、
    Mesh、Material 和 Texture Loader 完成端到端加载；多 Primitive 会稳定拆分，缺省材质会显式
-   生成。
+   生成。资产目录采用同级暂存、整体替换和失败恢复，重复导入会清除旧产物且不会留下半成品。
 
 ## 测试与验收
 
 - 相同输入重复导入生成逐字节一致的 JSON 和稳定资源名称。
+- 重复导入清除旧产物；校验或写出失败时保留上一次完整结果。
 - `.gltf`、`.glb`、外部 buffer、嵌入 buffer、索引与非索引三角形覆盖成功路径。
 - 缺失法线、越界 accessor、目录逃逸、非有限 Transform 和不支持扩展覆盖失败路径。
 - 导入结果由现有 Scene、Mesh、Material 和 Texture Loader 加载，并完成渲染 Smoke Test。
