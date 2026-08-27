@@ -1,0 +1,6 @@
+{
+  "format": "gneiss.material",
+  "version": 2,
+  "color": [0.48, 0.7, 0.42, 1.0],
+  "base_color_texture": "asset://textures/gneiss-stone.texture.json"
+}

@@ -1,0 +1,49 @@
+{
+  "format": "gneiss.scene",
+  "version": 1,
+  "scene_uuid": "10000000-0000-4000-8000-000000000001",
+  "objects": [
+    {
+      "uuid": "10000000-0000-4000-8000-000000000002",
+      "parent": null,
+      "transform": {"translation": [0, 0, 3.5], "rotation": [0, 0, 0, 1], "scale": [1, 1, 1]},
+      "components": {"camera": {"vertical_field_of_view_radians": 1.04719755, "near_plane": 0.1, "far_plane": 1000, "primary": true}}
+    },
+    {
+      "uuid": "10000000-0000-4000-8000-000000000003",
+      "parent": null,
+      "transform": {"translation": [0, 0, 0], "rotation": [0, 0, 0, 1], "scale": [3.8, 2.5, 1]},
+      "components": {"mesh_renderer": {"mesh": "asset://models/temple-quad.mesh.json", "material": "asset://materials/temple-stone.material.json"}}
+    },
+    {
+      "uuid": "10000000-0000-4000-8000-000000000004",
+      "parent": null,
+      "transform": {"translation": [-1.25, 0, 0], "rotation": [0, 0, 0, 1], "scale": [0.42, 2.05, 1]},
+      "components": {"mesh_renderer": {"mesh": "asset://models/temple-quad.mesh.json", "material": "asset://materials/temple-moss.material.json"}}
+    },
+    {
+      "uuid": "10000000-0000-4000-8000-000000000005",
+      "parent": null,
+      "transform": {"translation": [1.25, 0, 0], "rotation": [0, 0, 0, 1], "scale": [0.42, 2.05, 1]},
+      "components": {"mesh_renderer": {"mesh": "asset://models/temple-quad.mesh.json", "material": "asset://materials/temple-moss.material.json"}}
+    },
+    {
+      "uuid": "10000000-0000-4000-8000-000000000006",
+      "parent": null,
+      "transform": {"translation": [0, 0.9, 0], "rotation": [0, 0, 0, 1], "scale": [2.9, 0.35, 1]},
+      "components": {"mesh_renderer": {"mesh": "asset://models/temple-quad.mesh.json", "material": "asset://materials/temple-moss.material.json"}}
+    },
+    {
+      "uuid": "10000000-0000-4000-8000-000000000007",
+      "parent": null,
+      "transform": {"translation": [0, -0.85, 0], "rotation": [0, 0, 0, 1], "scale": [3.1, 0.3, 1]},
+      "components": {"mesh_renderer": {"mesh": "asset://models/temple-quad.mesh.json", "material": "asset://materials/temple-stone.material.json"}}
+    },
+    {
+      "uuid": "10000000-0000-4000-8000-000000000008",
+      "parent": null,
+      "transform": {"translation": [0, 0, 0], "rotation": [0, 0, 0, 1], "scale": [0.9, 0.9, 1]},
+      "components": {"mesh_renderer": {"mesh": "asset://models/temple-rune.mesh.json", "material": "asset://materials/temple-moss.material.json"}}
+    }
+  ]
+}
