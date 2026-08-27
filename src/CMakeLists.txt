@@ -44,6 +44,8 @@ target_sources(
     render/render_resource_service.h
     render/render_asset_loader.cpp
     render/render_asset_loader.h
+    render/png_decoder.cpp
+    render/png_decoder.h
     scene/scene_tree.cpp
     scene/scene_tree.h
     scene/scene_description.cpp
@@ -92,9 +94,11 @@ if(GNEISS_ENABLE_GRANIT_PLATFORM)
     PRIVATE
       platform/granit/granit_platform.cpp
       platform/granit/granit_platform.h
-      render/granit/embedded_triangle_shaders.h
+      render/granit/embedded_textured_shaders.h
       render/granit/granit_render_service.cpp
       render/granit/granit_render_service.h
+      render/granit/textured.frag
+      render/granit/textured.vert
   )
   target_compile_definitions(gneiss PRIVATE GNEISS_HAS_GRANIT_PLATFORM)
   target_link_libraries(gneiss PRIVATE granit::granit granit::window granit::input)
@@ -122,6 +126,7 @@ target_link_libraries(
   PRIVATE
     $<BUILD_INTERFACE:EnTT::EnTT>
     $<BUILD_INTERFACE:gneiss_yyjson>
+    $<BUILD_INTERFACE:gneiss_png>
 )
 target_include_directories(
   gneiss

@@ -1,0 +1,6 @@
+{
+  "format": "gneiss.material",
+  "version": 2,
+  "color": [1.0, 1.0, 1.0, 1.0],
+  "base_color_texture": "asset://textures/gneiss-rune.texture.json"
+}

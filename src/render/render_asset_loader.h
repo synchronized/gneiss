@@ -48,6 +48,16 @@ private:
   std::shared_ptr<const asset_internal::resource_cache::entry> entry_;
 };
 
+class texture_asset_lease final {
+public:
+  [[nodiscard]] gneiss_texture get() const noexcept;
+  [[nodiscard]] explicit operator bool() const noexcept { return entry_ != nullptr; }
+
+private:
+  friend class render_asset_loader;
+  std::shared_ptr<const asset_internal::resource_cache::entry> entry_;
+};
+
 class render_asset_loader final {
 public:
   render_asset_loader(const asset_internal::virtual_file_system& file_system,
@@ -59,6 +69,8 @@ public:
   [[nodiscard]] gneiss_result acquire_material(std::string_view uri,
                                                material_asset_lease& out_lease,
                                                asset_diagnostic& out_diagnostic) noexcept;
+  [[nodiscard]] gneiss_result acquire_texture(std::string_view uri, texture_asset_lease& out_lease,
+                                              asset_diagnostic& out_diagnostic) noexcept;
   void release_unused() noexcept { cache_.release_unused(); }
 
 private:

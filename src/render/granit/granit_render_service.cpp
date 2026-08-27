@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "render/granit/granit_render_service.h"
-#include "render/granit/embedded_triangle_shaders.h"
+#include "render/granit/embedded_textured_shaders.h"
 
 #include <algorithm>
 #include <array>
@@ -59,6 +59,14 @@ struct gpu_vertex {
   float green;
   float blue;
   float alpha;
+  float u;
+  float v;
+};
+
+struct draw_batch final {
+  granit_bind_group group{GRANIT_NULL_HANDLE};
+  std::uint32_t first_vertex{};
+  std::uint32_t vertex_count{};
 };
 
 std::array<float, 3> rotate(const std::array<float, 4>& quaternion,
@@ -118,15 +126,42 @@ granit::result granit_render_service::initialize_pipeline(granit::texture_format
                                          {.stage = granit::shader_stage::fragment,
                                           .code = std::as_bytes(std::span{shaders::fragment})});
   }
+  if (granit::succeeded(result) && !texture_layout_.valid()) {
+    constexpr auto fragment = granit::shader_stage_flags::fragment;
+    const std::array entries{
+        granit::bind_group_layout_entry{.binding = 0,
+                                        .type = granit::binding_type::sampled_texture,
+                                        .array_count = 1,
+                                        .visibility = fragment},
+        granit::bind_group_layout_entry{.binding = 1,
+                                        .type = granit::binding_type::sampler,
+                                        .array_count = 1,
+                                        .visibility = fragment}};
+    result = texture_layout_.initialize(renderer_.native_handle(), entries);
+  }
   if (granit::succeeded(result) && !pipeline_layout_.valid()) {
-    result = pipeline_layout_.initialize(renderer_.native_handle());
+    const std::array layouts{texture_layout_.native_handle()};
+    result = pipeline_layout_.initialize(renderer_.native_handle(), layouts);
+  }
+  if (granit::succeeded(result) && !sampler_.valid()) {
+    result = sampler_.initialize(renderer_.native_handle(),
+                                 {.mag_filter = granit::filter::linear,
+                                  .min_filter = granit::filter::linear,
+                                  .mip_filter = granit::mipmap_filter::nearest,
+                                  .address_u = granit::address_mode::repeat,
+                                  .address_v = granit::address_mode::repeat,
+                                  .address_w = granit::address_mode::repeat,
+                                  .max_lod = 0.0F});
   }
   const std::array attributes{granit::vertex_attribute{.location = 0,
                                                        .format = granit::vertex_format::float32x3,
                                                        .offset = offsetof(gpu_vertex, x)},
                               granit::vertex_attribute{.location = 1,
                                                        .format = granit::vertex_format::float32x4,
-                                                       .offset = offsetof(gpu_vertex, red)}};
+                                                       .offset = offsetof(gpu_vertex, red)},
+                              granit::vertex_attribute{.location = 2,
+                                                       .format = granit::vertex_format::float32x2,
+                                                       .offset = offsetof(gpu_vertex, u)}};
   const granit::vertex_buffer_layout vertex_layout{.stride = sizeof(gpu_vertex),
                                                    .step_mode = granit::vertex_step_mode::vertex,
                                                    .attributes = attributes};
@@ -146,6 +181,75 @@ granit::result granit_render_service::initialize_pipeline(granit::texture_format
     swapchain_format_ = format;
   }
   return result;
+}
+
+granit::result
+granit_render_service::create_texture_mirror(const render_internal::texture_resource& source,
+                                             texture_mirror& output) noexcept {
+  const auto format = source.color_space == GNEISS_TEXTURE_COLOR_SPACE_SRGB
+                          ? granit::texture_format::rgba8_srgb
+                          : granit::texture_format::rgba8_unorm;
+  auto result = output.texture.initialize(
+      renderer_.native_handle(),
+      {.dimension = granit::texture_dimension::two_dimensional,
+       .format = format,
+       .usage = granit::texture_usage::sampled | granit::texture_usage::transfer_destination,
+       .location = granit::memory_location::device,
+       .width = source.width,
+       .height = source.height});
+  if (granit::succeeded(result)) {
+    result = output.texture.write(
+        source.pixels,
+        {.offset = 0, .bytes_per_row = source.width * 4U, .rows_per_image = source.height},
+        {.width = source.width, .height = source.height});
+  }
+  if (granit::succeeded(result)) {
+    result = output.view.initialize(renderer_.native_handle(), output.texture.native_handle(),
+                                    {.format = format});
+  }
+  if (granit::succeeded(result)) {
+    const std::array entries{
+        granit::bind_group_entry{.binding = 0, .resource = output.view.native_handle()},
+        granit::bind_group_entry{.binding = 1, .resource = sampler_.native_handle()}};
+    result = output.group.initialize(renderer_.native_handle(), texture_layout_.native_handle(),
+                                     entries);
+  }
+  if (granit::failed(result)) {
+    static_cast<void>(output.group.reset());
+    static_cast<void>(output.view.reset());
+    static_cast<void>(output.texture.reset());
+  }
+  return result;
+}
+
+granit::result granit_render_service::ensure_default_texture() noexcept {
+  if (default_texture_.group.valid()) {
+    return granit::result::success;
+  }
+  try {
+    render_internal::texture_resource white{
+        .width = 1,
+        .height = 1,
+        .format = GNEISS_TEXTURE_FORMAT_RGBA8_UNORM,
+        .color_space = GNEISS_TEXTURE_COLOR_SPACE_SRGB,
+        .pixels = {std::byte{0xff}, std::byte{0xff}, std::byte{0xff}, std::byte{0xff}}};
+    return create_texture_mirror(white, default_texture_);
+  } catch (const std::bad_alloc&) {
+    return granit::result::out_of_memory;
+  } catch (...) {
+    return granit::result::unknown;
+  }
+}
+
+void granit_render_service::release_invalid_textures(
+    const render_internal::render_resource_service& resources) noexcept {
+  for (auto iterator = texture_mirrors_.begin(); iterator != texture_mirrors_.end();) {
+    if (resources.get_texture(iterator->first) == nullptr) {
+      iterator = texture_mirrors_.erase(iterator);
+    } else {
+      ++iterator;
+    }
+  }
 }
 
 gneiss_result granit_render_service::initialize(const native_window_info& window) noexcept {
@@ -225,27 +329,67 @@ granit_render_service::render(native_window_info& window,
   auto& vertex_buffers = frame_vertex_buffers_[frame_index_ % frame_vertex_buffers_.size()];
   vertex_buffers.clear();
   std::uint32_t draw_count = 0;
+  std::vector<draw_batch> batches;
+  release_invalid_textures(resources);
   if (snapshot.has_camera) {
     try {
       std::vector<gpu_vertex> vertices;
-      const auto aspect = static_cast<float>(window.width) / static_cast<float>(window.height);
+      std::vector<const world_internal::render_instance_snapshot*> ordered_instances;
+      ordered_instances.reserve(snapshot.instances.size());
       for (const auto& instance : snapshot.instances) {
-        const auto* mesh = resources.get_mesh(instance.mesh);
-        const auto* material = resources.get_material(instance.material);
+        ordered_instances.push_back(&instance);
+      }
+      std::stable_sort(ordered_instances.begin(), ordered_instances.end(),
+                       [](const auto* left, const auto* right) {
+                         return left->transform.translation[2] < right->transform.translation[2];
+                       });
+      const auto aspect = static_cast<float>(window.width) / static_cast<float>(window.height);
+      for (const auto* instance : ordered_instances) {
+        const auto* mesh = resources.get_mesh(instance->mesh);
+        const auto* material = resources.get_material(instance->material);
         if (mesh == nullptr || material == nullptr) {
           return GNEISS_ERROR_INVALID_HANDLE;
         }
+        granit_bind_group group = GRANIT_NULL_HANDLE;
+        if (material->base_color_texture == GNEISS_NULL_TEXTURE) {
+          const auto texture_result = ensure_default_texture();
+          if (granit::failed(texture_result)) {
+            return map_result(texture_result);
+          }
+          group = default_texture_.group.native_handle();
+        } else {
+          const auto* texture = resources.get_texture(material->base_color_texture);
+          if (texture == nullptr) {
+            return GNEISS_ERROR_INVALID_HANDLE;
+          }
+          auto found = texture_mirrors_.find(material->base_color_texture);
+          if (found == texture_mirrors_.end()) {
+            texture_mirror mirror;
+            const auto texture_result = create_texture_mirror(*texture, mirror);
+            if (granit::failed(texture_result)) {
+              return map_result(texture_result);
+            }
+            found = texture_mirrors_.emplace(material->base_color_texture, std::move(mirror)).first;
+          }
+          group = found->second.group.native_handle();
+        }
+        const auto first_vertex = static_cast<std::uint32_t>(vertices.size());
         vertices.reserve(vertices.size() + mesh->vertices.size());
         for (const auto& source : mesh->vertices) {
-          const auto position = project(source, instance.transform, snapshot.camera, aspect);
+          const auto position = project(source, instance->transform, snapshot.camera, aspect);
           vertices.push_back({.x = position[0],
                               .y = position[1],
                               .z = position[2],
                               .red = material->red,
                               .green = material->green,
                               .blue = material->blue,
-                              .alpha = material->alpha});
+                              .alpha = material->alpha,
+                              .u = source.u,
+                              .v = source.v});
         }
+        batches.push_back({.group = group,
+                           .first_vertex = first_vertex,
+                           .vertex_count = static_cast<std::uint32_t>(mesh->vertices.size())});
       }
       if (!vertices.empty()) {
         granit::buffer buffer;
@@ -313,7 +457,18 @@ granit_render_service::render(native_window_info& window,
       result = recording.recorder().begin_rendering(rendering);
     }
     if (granit::succeeded(result) && draw_count > 0U) {
-      result = recording.recorder().draw(draw_count);
+      for (const auto& batch : batches) {
+        const std::array groups{batch.group};
+        result =
+            recording.recorder().bind_graphics_groups(pipeline_layout_.native_handle(), 0, groups);
+        if (granit::failed(result)) {
+          break;
+        }
+        result = recording.recorder().draw(batch.vertex_count, 1, batch.first_vertex);
+        if (granit::failed(result)) {
+          break;
+        }
+      }
     }
     if (granit::succeeded(result)) {
       result = recording.recorder().end_rendering();

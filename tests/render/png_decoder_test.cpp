@@ -1,0 +1,35 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Gneiss contributors
+
+#include "render/png_decoder.h"
+
+#include <array>
+#include <cstddef>
+#include <string>
+#include <vector>
+
+int main() {
+  constexpr std::array<std::uint8_t, 68> png{
+      0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x48,
+      0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x04, 0x00, 0x00,
+      0x00, 0xB5, 0x1C, 0x0C, 0x02, 0x00, 0x00, 0x00, 0x0B, 0x49, 0x44, 0x41, 0x54, 0x78,
+      0xDA, 0x63, 0x64, 0xF8, 0x0F, 0x00, 0x01, 0x05, 0x01, 0x01, 0x27, 0x18, 0xE3, 0x66,
+      0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82};
+  std::vector<std::byte> bytes;
+  bytes.reserve(png.size());
+  for (const auto value : png) {
+    bytes.push_back(static_cast<std::byte>(value));
+  }
+  gneiss::render_internal::decoded_png image;
+  std::string message;
+  if (gneiss::render_internal::decode_png(bytes, image, message) != GNEISS_SUCCESS ||
+      image.width != 1U || image.height != 1U || image.pixels.size() != 4U || !message.empty()) {
+    return 1;
+  }
+  bytes.resize(16);
+  if (gneiss::render_internal::decode_png(bytes, image, message) != GNEISS_ERROR_INVALID_ARGUMENT ||
+      image.width != 0U || image.height != 0U || !image.pixels.empty() || message.empty()) {
+    return 2;
+  }
+  return 0;
+}

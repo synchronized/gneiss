@@ -1,0 +1,6 @@
+{
+  "format": "gneiss.material",
+  "version": 2,
+  "color": [0.72, 0.82, 0.68, 1.0],
+  "base_color_texture": "asset://textures/moss-ground.texture.json"
+}

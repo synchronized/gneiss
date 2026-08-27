@@ -57,14 +57,20 @@ gneiss_result resource_cache::acquire(std::string_view uri, std::uint32_t type, 
 }
 
 void resource_cache::release_unused() noexcept {
-  for (auto iterator = entries_.begin(); iterator != entries_.end();) {
-    // map 与调用方租约之外没有持有者时即可释放。
-    if (iterator->second.use_count() == 1) {
-      iterator = entries_.erase(iterator);
-    } else {
-      ++iterator;
+  // 重复扫描以清理依赖链：释放 Material 后，其 Texture 可能在下一轮才变为未使用。
+  bool removed = false;
+  do {
+    removed = false;
+    for (auto iterator = entries_.begin(); iterator != entries_.end();) {
+      // map 与调用方或依赖租约之外没有持有者时即可释放。
+      if (iterator->second.use_count() == 1) {
+        iterator = entries_.erase(iterator);
+        removed = true;
+      } else {
+        ++iterator;
+      }
     }
-  }
+  } while (removed);
 }
 
 } // namespace gneiss::asset_internal

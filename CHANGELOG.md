@@ -7,6 +7,15 @@
 
 ## 未发布
 
+## 0.4.0 - 2026-08-27
+
+- 增加 Texture C11/C++20 契约、RGBA8 像素格式、线性/sRGB 颜色空间和 RID 生命周期。
+- 使用内部 libspng/miniz 从 VFS 解码 PNG，并通过版本化 Texture 描述创建缓存租约。
+- 增加 Mesh/Material v2 的 UV、base-color Texture URI 和依赖租约，保持 v1 资产兼容。
+- Granit 后端增加 Texture/View 镜像、Sampler、材质 Bind Group 批次和默认白纹理。
+- 增加三张原创纹理及可交互的 2.5D 片麻岩神殿示例，支持显式 Z 绘制层级。
+- 本地 Windows Clang 静态核心、共享 Granit、安装 Consumer 和真实纹理场景验收通过。
+
 ## 0.3.0 - 2026-08-27
 
 - 增加后端无关的 C11 输入 ABI、C++20 包装、帧状态快照和固定容量原始事件队列。

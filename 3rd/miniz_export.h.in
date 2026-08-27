@@ -1,0 +1,9 @@
+/* SPDX-License-Identifier: MIT */
+/* Gneiss 私有对象库不导出 miniz 符号。 */
+
+#ifndef MINIZ_EXPORT_H
+#define MINIZ_EXPORT_H
+
+#define MINIZ_EXPORT
+
+#endif

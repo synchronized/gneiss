@@ -241,6 +241,40 @@ extern "C" gneiss_result gneiss_material_destroy(gneiss_application application,
   }
 }
 
+extern "C" gneiss_result gneiss_texture_create(gneiss_application application,
+                                               const gneiss_texture_desc* desc,
+                                               gneiss_texture* out_texture) {
+  if (out_texture == nullptr) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  *out_texture = GNEISS_NULL_TEXTURE;
+  if (desc == nullptr) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  try {
+    auto state = find_application(application);
+    const auto validation_result = validate_application(state);
+    return validation_result == GNEISS_SUCCESS
+               ? state->resources().create_texture(*desc, out_texture)
+               : validation_result;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters): C ABI 参数均为不透明句柄，名称区分语义。
+extern "C" gneiss_result gneiss_texture_destroy(gneiss_application application,
+                                                gneiss_texture texture) {
+  try {
+    auto state = find_application(application);
+    const auto validation_result = validate_application(state);
+    return validation_result == GNEISS_SUCCESS ? state->resources().destroy_texture(texture)
+                                               : validation_result;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
 extern "C" gneiss_result gneiss_scene_instance_load(gneiss_application application, const char* uri,
                                                     uint64_t uri_length,
                                                     gneiss_scene_instance* out_instance) {

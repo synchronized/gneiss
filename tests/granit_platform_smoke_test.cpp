@@ -24,9 +24,9 @@ int main() {
     return 1;
   }
 
-  constexpr std::array vertices{gneiss::mesh_vertex{-0.6F, -0.5F, 0.0F},
-                                gneiss::mesh_vertex{0.6F, -0.5F, 0.0F},
-                                gneiss::mesh_vertex{0.0F, 0.6F, 0.0F}};
+  constexpr std::array vertices{gneiss::mesh_vertex{-0.6F, -0.5F, 0.0F, 0.0F, 0.0F},
+                                gneiss::mesh_vertex{0.6F, -0.5F, 0.0F, 1.0F, 0.0F},
+                                gneiss::mesh_vertex{0.0F, 0.6F, 0.0F, 0.5F, 1.0F}};
   gneiss::mesh_desc mesh_desc = GNEISS_MESH_DESC_INIT;
   mesh_desc.vertices = vertices.data();
   mesh_desc.vertex_count = static_cast<std::uint32_t>(vertices.size());
@@ -34,10 +34,29 @@ int main() {
   material_desc.red = 0.95F;
   material_desc.green = 0.35F;
   material_desc.blue = 0.12F;
+  constexpr std::array<std::uint8_t, 16> pixels{255, 255, 255, 255, 32,  64,  255, 255,
+                                                32,  64,  255, 255, 255, 255, 255, 255};
+  gneiss::texture_desc texture_desc = GNEISS_TEXTURE_DESC_INIT;
+  texture_desc.width = 2;
+  texture_desc.height = 2;
+  texture_desc.row_stride_bytes = 8;
+  texture_desc.pixel_data_size = pixels.size();
+  texture_desc.pixels = pixels.data();
   gneiss::mesh_id mesh;
   gneiss::material_id material;
+  gneiss::material_id plain_material;
+  gneiss::texture_id texture;
+  if (application.create_texture(texture_desc, texture) != gneiss::result::success) {
+    std::fprintf(stderr, "测试 Texture 创建失败\n");
+    return 2;
+  }
   if (application.create_mesh(mesh_desc, mesh) != gneiss::result::success ||
-      application.create_material(material_desc, material) != gneiss::result::success) {
+      application.create_material(material_desc, plain_material) != gneiss::result::success) {
+    std::fprintf(stderr, "测试基础资源创建失败\n");
+    return 2;
+  }
+  material_desc.base_color_texture = texture.get();
+  if (application.create_material(material_desc, material) != gneiss::result::success) {
     std::fprintf(stderr, "测试资源创建失败\n");
     return 2;
   }
@@ -45,23 +64,32 @@ int main() {
   gneiss_world world = GNEISS_NULL_WORLD;
   gneiss_entity_id camera_entity = GNEISS_NULL_ENTITY_ID;
   gneiss_entity_id mesh_entity = GNEISS_NULL_ENTITY_ID;
+  gneiss_entity_id plain_mesh_entity = GNEISS_NULL_ENTITY_ID;
   gneiss_scene_node_id camera_node = GNEISS_NULL_SCENE_NODE_ID;
   gneiss_scene_node_id mesh_node = GNEISS_NULL_SCENE_NODE_ID;
+  gneiss_scene_node_id plain_mesh_node = GNEISS_NULL_SCENE_NODE_ID;
   gneiss_camera camera = GNEISS_CAMERA_INIT;
   const gneiss_mesh_renderer mesh_renderer{.mesh = mesh.get(), .material = material.get()};
+  const gneiss_mesh_renderer plain_mesh_renderer{.mesh = mesh.get(),
+                                                 .material = plain_material.get()};
   gneiss_transform camera_transform = GNEISS_TRANSFORM_IDENTITY;
   camera_transform.translation[2] = 2.0F;
   if (application.get_world(world) != gneiss::result::success ||
       gneiss_world_entity_create(world, &camera_entity) != GNEISS_SUCCESS ||
       gneiss_world_entity_create(world, &mesh_entity) != GNEISS_SUCCESS ||
+      gneiss_world_entity_create(world, &plain_mesh_entity) != GNEISS_SUCCESS ||
       gneiss_scene_node_create(world, GNEISS_NULL_SCENE_NODE_ID, camera_entity, &camera_node) !=
           GNEISS_SUCCESS ||
       gneiss_scene_node_create(world, GNEISS_NULL_SCENE_NODE_ID, mesh_entity, &mesh_node) !=
           GNEISS_SUCCESS ||
+      gneiss_scene_node_create(world, GNEISS_NULL_SCENE_NODE_ID, plain_mesh_entity,
+                               &plain_mesh_node) != GNEISS_SUCCESS ||
       gneiss_scene_node_set_local_transform(world, camera_node, &camera_transform) !=
           GNEISS_SUCCESS ||
       gneiss_world_entity_set_camera(world, camera_entity, &camera) != GNEISS_SUCCESS ||
-      gneiss_world_entity_set_mesh_renderer(world, mesh_entity, &mesh_renderer) != GNEISS_SUCCESS) {
+      gneiss_world_entity_set_mesh_renderer(world, mesh_entity, &mesh_renderer) != GNEISS_SUCCESS ||
+      gneiss_world_entity_set_mesh_renderer(world, plain_mesh_entity, &plain_mesh_renderer) !=
+          GNEISS_SUCCESS) {
     std::fprintf(stderr, "测试场景构造失败\n");
     return 3;
   }
@@ -71,7 +99,9 @@ int main() {
     return 4;
   }
   if (application.destroy_mesh(mesh) != gneiss::result::success ||
-      application.destroy_material(material) != gneiss::result::success) {
+      application.destroy_material(material) != gneiss::result::success ||
+      application.destroy_material(plain_material) != gneiss::result::success ||
+      application.destroy_texture(texture) != gneiss::result::success) {
     return 5;
   }
   return 0;

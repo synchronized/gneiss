@@ -30,9 +30,21 @@ private:
   gneiss_material value_ = GNEISS_NULL_MATERIAL;
 };
 
+class texture_id final {
+public:
+  constexpr texture_id() noexcept = default;
+  explicit constexpr texture_id(gneiss_texture value) noexcept : value_(value) {}
+  [[nodiscard]] constexpr gneiss_texture get() const noexcept { return value_; }
+  [[nodiscard]] constexpr bool is_valid() const noexcept { return value_ != GNEISS_NULL_TEXTURE; }
+
+private:
+  gneiss_texture value_ = GNEISS_NULL_TEXTURE;
+};
+
 using mesh_vertex = gneiss_mesh_vertex;
 using mesh_desc = gneiss_mesh_desc;
 using material_desc = gneiss_material_desc;
+using texture_desc = gneiss_texture_desc;
 using camera = gneiss_camera;
 using mesh_renderer = gneiss_mesh_renderer;
 

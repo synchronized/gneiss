@@ -4,3 +4,9 @@
 [submodule "3rd/yyjson"]
 	path = 3rd/yyjson
 	url = https://github.com/ibireme/yyjson.git
+[submodule "3rd/libspng"]
+	path = 3rd/libspng
+	url = https://github.com/randy408/libspng.git
+[submodule "3rd/miniz"]
+	path = 3rd/miniz
+	url = https://github.com/richgel999/miniz.git

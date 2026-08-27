@@ -53,6 +53,31 @@ gneiss_target_compile_warnings(gneiss_c_render_test)
 gneiss_target_output_directories(gneiss_c_render_test)
 add_test(NAME gneiss.c_render COMMAND gneiss_c_render_test)
 
+add_executable(
+  gneiss_render_resource_service_test
+  render/render_resource_service_test.cpp
+  "${PROJECT_SOURCE_DIR}/src/render/render_resource_service.cpp"
+)
+target_include_directories(gneiss_render_resource_service_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_compile_definitions(gneiss_render_resource_service_test PRIVATE GNEISS_BUILDING_LIBRARY)
+target_link_libraries(gneiss_render_resource_service_test PRIVATE gneiss::gneiss)
+target_compile_features(gneiss_render_resource_service_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_render_resource_service_test)
+gneiss_target_output_directories(gneiss_render_resource_service_test)
+add_test(NAME gneiss.render_resource_service COMMAND gneiss_render_resource_service_test)
+
+add_executable(
+  gneiss_png_decoder_test
+  render/png_decoder_test.cpp
+  "${PROJECT_SOURCE_DIR}/src/render/png_decoder.cpp"
+)
+target_include_directories(gneiss_png_decoder_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_link_libraries(gneiss_png_decoder_test PRIVATE gneiss::gneiss gneiss_png)
+target_compile_features(gneiss_png_decoder_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_png_decoder_test)
+gneiss_target_output_directories(gneiss_png_decoder_test)
+add_test(NAME gneiss.png_decoder COMMAND gneiss_png_decoder_test)
+
 add_executable(gneiss_c_asset_test c_asset_test.c)
 target_link_libraries(gneiss_c_asset_test PRIVATE gneiss::gneiss)
 set_target_properties(
@@ -270,10 +295,13 @@ add_executable(
   "${PROJECT_SOURCE_DIR}/src/asset/virtual_file_system.cpp"
   "${PROJECT_SOURCE_DIR}/src/render/render_asset_loader.cpp"
   "${PROJECT_SOURCE_DIR}/src/render/render_resource_service.cpp"
+  "${PROJECT_SOURCE_DIR}/src/render/png_decoder.cpp"
 )
 target_include_directories(gneiss_render_asset_loader_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_definitions(gneiss_render_asset_loader_test PRIVATE GNEISS_BUILDING_LIBRARY)
-target_link_libraries(gneiss_render_asset_loader_test PRIVATE gneiss::gneiss gneiss_yyjson)
+target_link_libraries(
+  gneiss_render_asset_loader_test PRIVATE gneiss::gneiss gneiss_yyjson gneiss_png
+)
 target_compile_features(gneiss_render_asset_loader_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_render_asset_loader_test)
 gneiss_target_output_directories(gneiss_render_asset_loader_test)
