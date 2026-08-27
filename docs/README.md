@@ -55,6 +55,7 @@
 - [VER-003：0.3.0 交互与诊断闭环](plans/VER-003-0.3.0-interaction-diagnostics-slice.md)
 - [VER-004：0.4.0 纹理与材质闭环](plans/VER-004-0.4.0-texture-material-slice.md)
 - [VER-005：0.5.0 基础 3D 场景闭环](plans/VER-005-0.5.0-basic-3d-slice.md)
+- [TOOL-001：glTF 资产编译器最小闭环](plans/TOOL-001-gltf-asset-compiler.md)
 
 ## 架构决策
 
@@ -71,6 +72,7 @@
 - [ADR-010：纹理资源与后端镜像边界](decisions/ADR-010-texture-resource-boundary.md)
 - [ADR-011：使用 libspng 解码首版 PNG 纹理](decisions/ADR-011-png-decoder.md)
 - [ADR-012：3D 坐标、Camera 与后端变换边界](decisions/ADR-012-3d-camera-coordinate-boundary.md)
+- [ADR-013：glTF 离线导入与工具边界](decisions/ADR-013-gltf-import-boundary.md)
 
 ## 实施与验收记录
 
