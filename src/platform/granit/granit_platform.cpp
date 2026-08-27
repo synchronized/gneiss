@@ -59,8 +59,13 @@ gneiss_result granit_platform::initialize(const gneiss_application_desc& desc) n
     return map_result(result);
   }
   result = input_system_.initialize(window_system_.native_handle());
-  if (granit::failed(result)) {
+  if (result == granit::result::unsupported || result == granit::result::backend_unavailable) {
+    // 无头合成器等环境可能不提供输入座席；窗口与渲染仍可正常工作。
+    input_available_ = false;
+  } else if (granit::failed(result)) {
     return map_result(result);
+  } else {
+    input_available_ = true;
   }
 
   native_window_.width = desc.window_width;
@@ -84,6 +89,10 @@ gneiss_result granit_platform::initialize(const gneiss_application_desc& desc) n
 }
 
 gneiss_result granit_platform::poll_input(gneiss_input_event& out_event) noexcept {
+  if (!input_available_) {
+    out_event = GNEISS_INPUT_EVENT_INIT;
+    return GNEISS_ERROR_NOT_READY;
+  }
   granit::input_event source = GRANIT_INPUT_EVENT_INIT;
   const auto result = input_system_.poll(source);
   if (granit::failed(result)) {
@@ -136,6 +145,10 @@ gneiss_result granit_platform::poll_input(gneiss_input_event& out_event) noexcep
 }
 
 gneiss_result granit_platform::keyboard(gneiss_keyboard_state& out_state) const noexcept {
+  if (!input_available_) {
+    out_state = GNEISS_KEYBOARD_STATE_INIT;
+    return GNEISS_SUCCESS;
+  }
   granit::keyboard_state source = GRANIT_KEYBOARD_STATE_INIT;
   const auto result = input_system_.keyboard(window_.native_handle(), source);
   if (result == granit::result::invalid_handle) {
@@ -153,6 +166,10 @@ gneiss_result granit_platform::keyboard(gneiss_keyboard_state& out_state) const 
 }
 
 gneiss_result granit_platform::pointer(gneiss_pointer_state& out_state) const noexcept {
+  if (!input_available_) {
+    out_state = GNEISS_POINTER_STATE_INIT;
+    return GNEISS_SUCCESS;
+  }
   granit::pointer_state source = GRANIT_POINTER_STATE_INIT;
   const auto result = input_system_.pointer(window_.native_handle(), source);
   if (result == granit::result::invalid_handle) {

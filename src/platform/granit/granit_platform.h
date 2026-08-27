@@ -39,6 +39,7 @@ private:
   granit::window window_;
   granit::input_system input_system_;
   native_window_info native_window_;
+  bool input_available_{};
 };
 
 } // namespace gneiss::application_internal
