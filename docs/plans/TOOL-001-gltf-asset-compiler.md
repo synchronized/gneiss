@@ -45,7 +45,8 @@ Gneiss 运行时可加载的资产，并用现有渲染示例验证结果。
 4. 增加 `gneiss_assetc import <source> --output <directory>`，CLI 只负责参数与结果呈现。已完成。
 5. 以最小原创 fixture 验证导入、重复生成、错误输入和运行时加载，并记录性能与产物差异。
    已覆盖 `.gltf`、`.glb`、外部及嵌入 Buffer、重复生成、目录逃逸，并通过现有 Runtime Scene、
-   Mesh、Material 和 Texture Loader 完成端到端加载。
+   Mesh、Material 和 Texture Loader 完成端到端加载；多 Primitive 会稳定拆分，缺省材质会显式
+   生成。
 
 ## 测试与验收
 

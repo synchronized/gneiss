@@ -35,14 +35,15 @@ int main() { // NOLINT(bugprone-exception-escape)
   const auto root = std::filesystem::temp_directory_path() / "gneiss-asset-writer-test";
   const auto first = root / "first";
   const auto second = root / "second";
+  const auto multi = root / "multi";
   std::filesystem::remove_all(root);
   if (!asset_import::write_assets(imported.data, first).success ||
       !asset_import::write_assets(imported.data, second).success) {
     return 2;
   }
-  constexpr std::array files = {"models/mesh-0.mesh.json", "materials/material-0.material.json",
-                                "textures/image-0.texture.json", "textures/image-0.png",
-                                "scenes/scene.scene.json"};
+  constexpr std::array files = {
+      "models/mesh-0-primitive-0.mesh.json", "materials/material-0.material.json",
+      "textures/image-0.texture.json", "textures/image-0.png", "scenes/scene.scene.json"};
   for (const auto* file : files) {
     if (read_file(first / file) != read_file(second / file) || read_file(first / file).empty()) {
       return 3;
@@ -65,6 +66,32 @@ int main() { // NOLINT(bugprone-exception-escape)
       gneiss_scene_instance_unload(application, scene) != GNEISS_SUCCESS ||
       gneiss_application_destroy(application) != GNEISS_SUCCESS) {
     return 4;
+  }
+
+  auto multi_data = imported.data;
+  auto second_primitive = multi_data.meshes[0].primitives[0];
+  second_primitive.material_index.reset();
+  multi_data.meshes[0].primitives.push_back(std::move(second_primitive));
+  if (!asset_import::write_assets(multi_data, multi).success ||
+      !std::filesystem::exists(multi / "models/mesh-0-primitive-1.mesh.json") ||
+      !std::filesystem::exists(multi / "materials/default.material.json")) {
+    return 5;
+  }
+  const auto multi_asset_root = multi.generic_string();
+  description.asset_root = multi_asset_root.data();
+  description.asset_root_length = static_cast<std::uint32_t>(multi_asset_root.size());
+  application = GNEISS_NULL_APPLICATION;
+  scene = GNEISS_NULL_SCENE_INSTANCE;
+  world = GNEISS_NULL_WORLD;
+  entity_count = 0;
+  if (gneiss_application_create(&description, &application) != GNEISS_SUCCESS ||
+      gneiss_application_get_world(application, &world) != GNEISS_SUCCESS ||
+      gneiss_scene_instance_load(application, scene_uri.data(), scene_uri.size(), &scene) !=
+          GNEISS_SUCCESS ||
+      gneiss_world_entity_count(world, &entity_count) != GNEISS_SUCCESS || entity_count != 3U ||
+      gneiss_scene_instance_unload(application, scene) != GNEISS_SUCCESS ||
+      gneiss_application_destroy(application) != GNEISS_SUCCESS) {
+    return 6;
   }
   std::filesystem::remove_all(root);
   return 0;

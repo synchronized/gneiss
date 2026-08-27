@@ -24,6 +24,16 @@ void configure(std::ostream& stream) {
   return stream.str();
 }
 
+[[nodiscard]] std::string mesh_name(std::size_t mesh, std::size_t primitive) {
+  return "mesh-" + std::to_string(mesh) + "-primitive-" + std::to_string(primitive) + ".mesh.json";
+}
+
+[[nodiscard]] std::string material_name(const import_ir_primitive& primitive) {
+  return primitive.material_index
+             ? "material-" + std::to_string(*primitive.material_index) + ".material.json"
+             : "default.material.json";
+}
+
 [[nodiscard]] bool write_mesh(const import_ir_primitive& primitive,
                               const std::filesystem::path& path) {
   std::ofstream stream(path, std::ios::binary | std::ios::trunc);
@@ -54,7 +64,7 @@ void configure(std::ostream& stream) {
   return stream.good();
 }
 
-[[nodiscard]] bool write_material(const import_ir_material& material, std::size_t index,
+[[nodiscard]] bool write_material(const import_ir_material& material,
                                   const std::filesystem::path& path) {
   std::ofstream stream(path, std::ios::binary | std::ios::trunc);
   if (!stream) {
@@ -70,10 +80,25 @@ void configure(std::ostream& stream) {
            << *material.base_color_image_index << ".texture.json\"";
   }
   stream << "\n}\n";
-  (void)index;
   return stream.good();
 }
 
+void write_transform(std::ostream& stream, const std::array<float, 3>& translation,
+                     const std::array<float, 4>& rotation, const std::array<float, 3>& scale) {
+  stream << R"("transform": {"translation": [)" << translation[0] << ',' << translation[1] << ','
+         << translation[2] << R"(], "rotation": [)" << rotation[0] << ',' << rotation[1] << ','
+         << rotation[2] << ',' << rotation[3] << R"(], "scale": [)" << scale[0] << ',' << scale[1]
+         << ',' << scale[2] << "]}";
+}
+
+void write_renderer(std::ostream& stream, std::size_t mesh_index, std::size_t primitive_index,
+                    const import_ir_primitive& primitive) {
+  stream << R"("mesh_renderer": {"mesh": "asset://models/)"
+         << mesh_name(mesh_index, primitive_index) << R"(", "material": "asset://materials/)"
+         << material_name(primitive) << R"("})";
+}
+
+// NOLINTNEXTLINE(readability-function-cognitive-complexity): 输出顺序直接对应稳定 Scene Schema。
 [[nodiscard]] bool write_scene(const import_ir& data, const std::filesystem::path& path) {
   std::vector<std::optional<std::size_t>> parents(data.nodes.size());
   for (std::size_t parent = 0; parent < data.nodes.size(); ++parent) {
@@ -89,6 +114,14 @@ void configure(std::ostream& stream) {
   stream << "{\n  \"format\": \"gneiss.scene\",\n  \"version\": 1,\n"
             "  \"scene_uuid\": \"00000000-0000-4000-8000-000000000000\",\n"
             "  \"objects\": [\n";
+  std::size_t synthetic_count = 0;
+  for (const auto& node : data.nodes) {
+    if (node.mesh_index && data.meshes[*node.mesh_index].primitives.size() > 1U) {
+      synthetic_count += data.meshes[*node.mesh_index].primitives.size();
+    }
+  }
+  const auto total_count = data.nodes.size() + synthetic_count;
+  std::size_t emitted = 0;
   for (std::size_t index = 0; index < data.nodes.size(); ++index) {
     const auto& node = data.nodes[index];
     stream << R"(    {"uuid": ")" << uuid_for(index) << R"(", "parent": )";
@@ -97,18 +130,32 @@ void configure(std::ostream& stream) {
     } else {
       stream << "null";
     }
-    stream << R"(, "transform": {"translation": [)" << node.translation[0] << ','
-           << node.translation[1] << ',' << node.translation[2] << "], \"rotation\": ["
-           << node.rotation[0] << ',' << node.rotation[1] << ',' << node.rotation[2] << ','
-           << node.rotation[3] << "], \"scale\": [" << node.scale[0] << ',' << node.scale[1] << ','
-           << node.scale[2] << "]}, \"components\": {";
-    if (node.mesh_index) {
-      const auto& primitive = data.meshes[*node.mesh_index].primitives[0];
-      stream << R"("mesh_renderer": {"mesh": "asset://models/mesh-)" << *node.mesh_index
-             << R"(.mesh.json", "material": "asset://materials/material-)"
-             << primitive.material_index.value_or(0U) << ".material.json\"}";
+    stream << ", ";
+    write_transform(stream, node.translation, node.rotation, node.scale);
+    stream << R"(, "components": {)";
+    if (node.mesh_index && data.meshes[*node.mesh_index].primitives.size() == 1U) {
+      write_renderer(stream, *node.mesh_index, 0U, data.meshes[*node.mesh_index].primitives[0]);
     }
-    stream << "}}" << (index + 1U == data.nodes.size() ? "\n" : ",\n");
+    stream << "}}" << (++emitted == total_count ? "\n" : ",\n");
+  }
+  std::size_t synthetic_index = 0;
+  constexpr std::array<float, 3> identity_translation{};
+  constexpr std::array<float, 4> identity_rotation{0.0F, 0.0F, 0.0F, 1.0F};
+  constexpr std::array<float, 3> identity_scale{1.0F, 1.0F, 1.0F};
+  for (std::size_t node_index = 0; node_index < data.nodes.size(); ++node_index) {
+    const auto& node = data.nodes[node_index];
+    if (!node.mesh_index || data.meshes[*node.mesh_index].primitives.size() <= 1U) {
+      continue;
+    }
+    const auto& primitives = data.meshes[*node.mesh_index].primitives;
+    for (std::size_t primitive_index = 0; primitive_index < primitives.size(); ++primitive_index) {
+      stream << R"(    {"uuid": ")" << uuid_for(data.nodes.size() + synthetic_index++)
+             << R"(", "parent": ")" << uuid_for(node_index) << R"(", )";
+      write_transform(stream, identity_translation, identity_rotation, identity_scale);
+      stream << R"(, "components": {)";
+      write_renderer(stream, *node.mesh_index, primitive_index, primitives[primitive_index]);
+      stream << "}}" << (++emitted == total_count ? "\n" : ",\n");
+    }
   }
   stream << "  ]\n}\n";
   return stream.good();
@@ -125,20 +172,31 @@ write_report write_assets(const import_ir& data, const std::filesystem::path& ou
     std::filesystem::create_directories(output_directory / "materials");
     std::filesystem::create_directories(output_directory / "textures");
     std::filesystem::create_directories(output_directory / "scenes");
-    for (std::size_t index = 0; index < data.meshes.size(); ++index) {
-      if (data.meshes[index].primitives.size() != 1U ||
-          !write_mesh(data.meshes[index].primitives[0],
-                      output_directory / "models" /
-                          ("mesh-" + std::to_string(index) + ".mesh.json"))) {
-        return {.success = false, .diagnostic = "首版写出要求每个 Mesh 恰好包含一个 Primitive"};
+    for (std::size_t mesh_index = 0; mesh_index < data.meshes.size(); ++mesh_index) {
+      for (std::size_t primitive_index = 0;
+           primitive_index < data.meshes[mesh_index].primitives.size(); ++primitive_index) {
+        if (!write_mesh(data.meshes[mesh_index].primitives[primitive_index],
+                        output_directory / "models" / mesh_name(mesh_index, primitive_index))) {
+          return {.success = false, .diagnostic = "写出 Mesh 失败"};
+        }
       }
     }
     for (std::size_t index = 0; index < data.materials.size(); ++index) {
-      if (!write_material(data.materials[index], index,
+      if (!write_material(data.materials[index],
                           output_directory / "materials" /
                               ("material-" + std::to_string(index) + ".material.json"))) {
         return {.success = false, .diagnostic = "写出 Material 失败"};
       }
+    }
+    bool needs_default = false;
+    for (const auto& mesh : data.meshes) {
+      for (const auto& primitive : mesh.primitives) {
+        needs_default = needs_default || !primitive.material_index;
+      }
+    }
+    if (needs_default && !write_material(import_ir_material{}, output_directory / "materials" /
+                                                                   "default.material.json")) {
+      return {.success = false, .diagnostic = "写出默认 Material 失败"};
     }
     for (std::size_t index = 0; index < data.images.size(); ++index) {
       const auto base = "image-" + std::to_string(index);

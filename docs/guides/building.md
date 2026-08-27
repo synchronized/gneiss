@@ -58,7 +58,8 @@ Linux 可选择 `linux-clang-debug` 或 `linux-gcc-debug`，可执行文件不�
 ```
 
 当前命令确定性生成 `models`、`materials`、`textures` 和 `scenes` 子目录。入口场景固定为
-`scenes/scene.scene.json`；首版要求每个 glTF Mesh 只有一个 Primitive，并仅支持基础颜色 PNG。
+`scenes/scene.scene.json`。包含多个 Primitive 的 Mesh 会拆分为独立 Mesh 资产和稳定的合成场景
+子节点；未指定材质的 Primitive 使用生成的默认材质。首版纹理仅支持基础颜色 PNG。
 
 ### 安装并通过 CMake package 使用
 
