@@ -53,6 +53,7 @@
 - [VER-001：0.1.0 最小运行时闭环](plans/VER-001-0.1.0-runtime-slice.md)
 - [VER-002：0.2.0 资源与场景闭环](plans/VER-002-0.2.0-resource-scene-slice.md)
 - [VER-003：0.3.0 交互与诊断闭环](plans/VER-003-0.3.0-interaction-diagnostics-slice.md)
+- [VER-004：0.4.0 纹理与材质闭环](plans/VER-004-0.4.0-texture-material-slice.md)
 
 ## 架构决策
 
@@ -64,6 +65,9 @@
 - [ADR-005：资产 URI 与虚拟文件系统边界](decisions/ADR-005-asset-uri.md)
 - [ADR-006：场景 Schema v1 持久化契约](decisions/ADR-006-scene-schema-v1.md)
 - [ADR-007：首版 Mesh 与 Material 运行时资产格式](decisions/ADR-007-render-asset-formats.md)
+- [ADR-008：动作标识与帧状态折叠](decisions/ADR-008-action-identity-and-folding.md)
+- [ADR-009：同步诊断回调](decisions/ADR-009-synchronous-diagnostics.md)
+- [ADR-010：纹理资源与后端镜像边界](decisions/ADR-010-texture-resource-boundary.md)
 
 ## 实施与验收记录
 
