@@ -80,8 +80,9 @@
 
 ## 实施与验收记录
 
+- [TOOL-001：glTF 资产编译器验收记录](records/TOOL-001-gltf-asset-compiler.md)
+- [TOOL-002：Mesh Binary v1 实施记录](records/TOOL-002-mesh-binary-v1.md)
 - [TOOL-003：索引渲染实施记录](records/TOOL-003-indexed-rendering.md)
-
 - [0.1.0 版本验收记录](records/0.1.0-validation.md)
 - [0.3.0 版本验收记录](records/0.3.0-validation.md)
 - [0.4.0 版本验收记录](records/0.4.0-validation.md)
@@ -93,7 +94,6 @@
 - [M-17 场景实例化与本地验收记录](records/M-17-scene-instantiation.md)
 - [M-27 图片解码器 Spike 记录](records/M-27-image-decoder-spike.md)
 - [M-31 工具能力重新评估记录](records/M-31-tooling-reevaluation.md)
-- [TOOL-002 Mesh Binary v1 实施记录](records/TOOL-002-mesh-binary-v1.md)
 
 ## 文档维护
 

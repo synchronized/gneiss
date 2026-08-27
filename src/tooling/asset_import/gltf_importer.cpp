@@ -112,7 +112,8 @@ void copy_image_bytes(const fastgltf::Asset& asset, const fastgltf::Image& image
              image.data);
 }
 
-[[nodiscard]] bool safe_external_uri(const fastgltf::DataSource& source) {
+[[nodiscard]] bool safe_external_uri(const fastgltf::DataSource& source,
+                                     const std::filesystem::path& source_directory) {
   const auto* uri_source = std::get_if<fastgltf::sources::URI>(&source);
   if (uri_source == nullptr || uri_source->uri.isDataUri()) {
     return true;
@@ -125,14 +126,33 @@ void copy_image_bytes(const fastgltf::Asset& asset, const fastgltf::Image& image
     return false;
   }
   const auto normalized = path.lexically_normal();
-  return std::ranges::none_of(normalized, [](const auto& component) { return component == ".."; });
+  if (std::ranges::any_of(normalized, [](const auto& component) { return component == ".."; })) {
+    return false;
+  }
+  std::error_code error;
+  const auto canonical_source = std::filesystem::weakly_canonical(source_directory, error);
+  if (error) {
+    return false;
+  }
+  const auto canonical_resource =
+      std::filesystem::weakly_canonical(source_directory / normalized, error);
+  if (error) {
+    return false;
+  }
+  const auto relative = canonical_resource.lexically_relative(canonical_source);
+  return !relative.empty() &&
+         std::ranges::none_of(relative, [](const auto& component) { return component == ".."; });
 }
 
-[[nodiscard]] bool asset_uris_are_safe(const fastgltf::Asset& asset) {
+[[nodiscard]] bool asset_uris_are_safe(const fastgltf::Asset& asset,
+                                       const std::filesystem::path& source_directory) {
   return std::ranges::all_of(asset.buffers,
-                             [](const auto& buffer) { return safe_external_uri(buffer.data); }) &&
-         std::ranges::all_of(asset.images,
-                             [](const auto& image) { return safe_external_uri(image.data); });
+                             [&](const auto& buffer) {
+                               return safe_external_uri(buffer.data, source_directory);
+                             }) &&
+         std::ranges::all_of(asset.images, [&](const auto& image) {
+           return safe_external_uri(image.data, source_directory);
+         });
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
@@ -396,7 +416,7 @@ inspect_report inspect_gltf(const std::filesystem::path& source_path) {
       return failure(inspect_result::invalid_source,
                      parse_failure_detail(fastgltf::getErrorMessage(preflight.error())));
     }
-    if (!asset_uris_are_safe(preflight.get())) {
+    if (!asset_uris_are_safe(preflight.get(), source_path.parent_path())) {
       return failure(inspect_result::invalid_source, "外部资源 URI 不能逃逸源文件目录");
     }
     source.get().reset();
