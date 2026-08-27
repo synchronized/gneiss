@@ -91,6 +91,16 @@ GNEISS_API gneiss_result gneiss_scene_instance_find_node(gneiss_application appl
                                                          const char* uuid, uint64_t uuid_length,
                                                          gneiss_scene_node_id* out_node);
 
+/**
+ * 将实例当前 Transform 与 Camera 写入当前版本的 UTF-8 场景 JSON。
+ *
+ * buffer 为空且 capacity 为零时只查询所需字节数；长度不包含字符串终止符。未知作者字段会被保留。
+ */
+GNEISS_API gneiss_result gneiss_scene_instance_serialize(gneiss_application application,
+                                                         gneiss_scene_instance instance,
+                                                         char* buffer, uint64_t capacity,
+                                                         uint64_t* out_length);
+
 #ifdef __cplusplus
 }
 #endif

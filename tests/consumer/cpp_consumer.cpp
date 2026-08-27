@@ -5,6 +5,7 @@
 #include <gneiss/scene.hpp>
 
 #include <cstdint>
+#include <string>
 #include <string_view>
 
 int main() {
@@ -24,6 +25,10 @@ int main() {
   if (gneiss::scene_instance::load(application.get(), scene_uri, scene) !=
       gneiss::result::success) {
     return 2;
+  }
+  std::string json;
+  if (scene.serialize(json) != gneiss::result::success || json.empty()) {
+    return 3;
   }
   scene.reset();
   return 0;

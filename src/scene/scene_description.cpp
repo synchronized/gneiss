@@ -297,6 +297,27 @@ template <std::size_t Size>
   return true;
 }
 
+template <std::size_t Size>
+[[nodiscard]] yyjson_mut_val* make_float_array(yyjson_mut_doc* document,
+                                               const std::array<float, Size>& values) {
+  yyjson_mut_val* array = yyjson_mut_arr(document);
+  if (array == nullptr) {
+    return nullptr;
+  }
+  for (const float value : values) {
+    if (!yyjson_mut_arr_add_real(document, array, value)) {
+      return nullptr;
+    }
+  }
+  return array;
+}
+
+[[nodiscard]] bool put_value(yyjson_mut_doc* document, yyjson_mut_val* object, const char* name,
+                             yyjson_mut_val* value) {
+  return object != nullptr && value != nullptr &&
+         yyjson_mut_obj_put(object, yyjson_mut_strcpy(document, name), value);
+}
+
 } // namespace
 
 namespace gneiss::scene_internal {
@@ -556,7 +577,59 @@ gneiss_result serialize_scene_description(const scene_description& scene,
     return GNEISS_ERROR_INVALID_STATE;
   }
   try {
-    out_json = scene.author_json;
+    yyjson_read_err error{};
+    using document_ptr = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;
+    document_ptr document(yyjson_read_opts(const_cast<char*>(scene.author_json.data()),
+                                           scene.author_json.size(), YYJSON_READ_NOFLAG, nullptr,
+                                           &error),
+                          &yyjson_doc_free);
+    using mutable_document_ptr = std::unique_ptr<yyjson_mut_doc, decltype(&yyjson_mut_doc_free)>;
+    mutable_document_ptr mutable_document(
+        document ? yyjson_doc_mut_copy(document.get(), nullptr) : nullptr, &yyjson_mut_doc_free);
+    if (!mutable_document) {
+      return document ? GNEISS_ERROR_OUT_OF_MEMORY : GNEISS_ERROR_INVALID_STATE;
+    }
+    yyjson_mut_val* root = yyjson_mut_doc_get_root(mutable_document.get());
+    yyjson_mut_val* objects = yyjson_mut_obj_get(root, "objects");
+    if (!yyjson_mut_is_arr(objects) || yyjson_mut_arr_size(objects) != scene.objects.size()) {
+      return GNEISS_ERROR_INVALID_STATE;
+    }
+    for (std::size_t index = 0; index < scene.objects.size(); ++index) {
+      const auto& source = scene.objects[index];
+      yyjson_mut_val* object = yyjson_mut_arr_get(objects, index);
+      yyjson_mut_val* transform = yyjson_mut_obj_get(object, "transform");
+      if (!put_value(mutable_document.get(), transform, "translation",
+                     make_float_array(mutable_document.get(), source.translation)) ||
+          !put_value(mutable_document.get(), transform, "rotation",
+                     make_float_array(mutable_document.get(), source.rotation)) ||
+          !put_value(mutable_document.get(), transform, "scale",
+                     make_float_array(mutable_document.get(), source.scale))) {
+        return GNEISS_ERROR_OUT_OF_MEMORY;
+      }
+      if (source.camera) {
+        yyjson_mut_val* camera =
+            yyjson_mut_obj_get(yyjson_mut_obj_get(object, "components"), "camera");
+        if (!put_value(mutable_document.get(), camera, "vertical_field_of_view_radians",
+                       yyjson_mut_real(mutable_document.get(),
+                                       source.camera->vertical_field_of_view_radians)) ||
+            !put_value(mutable_document.get(), camera, "near_plane",
+                       yyjson_mut_real(mutable_document.get(), source.camera->near_plane)) ||
+            !put_value(mutable_document.get(), camera, "far_plane",
+                       yyjson_mut_real(mutable_document.get(), source.camera->far_plane)) ||
+            !put_value(mutable_document.get(), camera, "is_primary",
+                       yyjson_mut_bool(mutable_document.get(), source.camera->is_primary))) {
+          return GNEISS_ERROR_OUT_OF_MEMORY;
+        }
+      }
+    }
+    std::size_t output_length = 0;
+    using text_ptr = std::unique_ptr<char, decltype(&std::free)>;
+    text_ptr output(yyjson_mut_write(mutable_document.get(), YYJSON_WRITE_NOFLAG, &output_length),
+                    &std::free);
+    if (!output) {
+      return GNEISS_ERROR_OUT_OF_MEMORY;
+    }
+    out_json.assign(output.get(), output_length);
     return GNEISS_SUCCESS;
   } catch (const std::bad_alloc&) {
     return GNEISS_ERROR_OUT_OF_MEMORY;

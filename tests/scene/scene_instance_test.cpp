@@ -2,10 +2,12 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include <gneiss/application.h>
+#include <gneiss/render.h>
 #include <gneiss/scene.h>
 #include <gneiss/world.h>
 
 #include <cstdint>
+#include <string>
 #include <string_view>
 
 namespace {
@@ -21,17 +23,19 @@ gneiss_application create_application(std::string_view asset_root) {
 
 } // namespace
 
-int main() {
+int main() try {
   constexpr std::string_view asset_root = GNEISS_TEST_ASSET_ROOT;
   constexpr std::string_view failure_root = GNEISS_TEST_FAILURE_ASSET_ROOT;
   constexpr std::string_view scene_uri = "asset://scenes/triangle.scene.json";
   constexpr std::string_view missing_uri = "asset://scenes/missing-asset.scene.json";
   constexpr std::string_view triangle_uuid = "00000000-0000-4000-8000-000000000003";
+  constexpr std::string_view camera_uuid = "00000000-0000-4000-8000-000000000002";
   const auto application = create_application(asset_root);
   const auto second_application = create_application(asset_root);
   gneiss_world world = GNEISS_NULL_WORLD;
   gneiss_scene_instance scene = GNEISS_NULL_SCENE_INSTANCE;
   gneiss_scene_node_id triangle = GNEISS_NULL_SCENE_NODE_ID;
+  gneiss_scene_node_id camera_node = GNEISS_NULL_SCENE_NODE_ID;
   std::uint64_t entity_count = 0;
   if (application == GNEISS_NULL_APPLICATION || second_application == GNEISS_NULL_APPLICATION ||
       gneiss_application_get_world(application, &world) != GNEISS_SUCCESS ||
@@ -41,18 +45,47 @@ int main() {
       gneiss_world_entity_count(world, &entity_count) != GNEISS_SUCCESS || entity_count != 2U ||
       gneiss_scene_instance_find_node(application, scene, triangle_uuid.data(),
                                       triangle_uuid.size(), &triangle) != GNEISS_SUCCESS ||
-      triangle == GNEISS_NULL_SCENE_NODE_ID) {
+      triangle == GNEISS_NULL_SCENE_NODE_ID ||
+      gneiss_scene_instance_find_node(application, scene, camera_uuid.data(), camera_uuid.size(),
+                                      &camera_node) != GNEISS_SUCCESS) {
     return 1;
+  }
+  gneiss_entity_id camera_entity = GNEISS_NULL_ENTITY_ID;
+  gneiss_transform transform = GNEISS_TRANSFORM_IDENTITY;
+  transform.translation[0] = 5.0F;
+  gneiss_camera_desc camera = GNEISS_CAMERA_DESC_INIT;
+  camera.near_plane = 0.25F;
+  std::uint64_t json_length = 0;
+  if (gneiss_scene_node_get_entity(world, camera_node, &camera_entity) != GNEISS_SUCCESS ||
+      gneiss_world_entity_set_local_transform(world, camera_entity, &transform) != GNEISS_SUCCESS ||
+      gneiss_world_entity_configure_camera(world, camera_entity, &camera) != GNEISS_SUCCESS ||
+      gneiss_scene_instance_serialize(application, scene, nullptr, 0U, &json_length) !=
+          GNEISS_SUCCESS ||
+      json_length == 0U) {
+    return 2;
+  }
+  std::string json(json_length, '\0');
+  std::uint64_t required_length = 0;
+  if (gneiss_scene_instance_serialize(application, scene, json.data(), json.size() - 1U,
+                                      &required_length) != GNEISS_ERROR_INVALID_ARGUMENT ||
+      required_length != json_length ||
+      gneiss_scene_instance_serialize(application, scene, json.data(), json.size(), &json_length) !=
+          GNEISS_SUCCESS ||
+      json.find(R"("translation":[5.0,0.0,0.0])") == std::string::npos ||
+      json.find(R"("near_plane":0.25)") == std::string::npos ||
+      gneiss_scene_instance_serialize(second_application, scene, nullptr, 0U, &json_length) !=
+          GNEISS_ERROR_INVALID_HANDLE) {
+    return 3;
   }
   if (gneiss_scene_instance_unload(second_application, scene) != GNEISS_ERROR_INVALID_HANDLE ||
       gneiss_scene_instance_unload(application, scene) != GNEISS_SUCCESS ||
       gneiss_scene_instance_unload(application, scene) != GNEISS_ERROR_INVALID_HANDLE ||
       gneiss_world_entity_count(world, &entity_count) != GNEISS_SUCCESS || entity_count != 0U) {
-    return 2;
+    return 4;
   }
   if (gneiss_application_destroy(second_application) != GNEISS_SUCCESS ||
       gneiss_application_destroy(application) != GNEISS_SUCCESS) {
-    return 3;
+    return 5;
   }
 
   const auto failing_application = create_application(failure_root);
@@ -65,7 +98,9 @@ int main() {
       scene != GNEISS_NULL_SCENE_INSTANCE ||
       gneiss_world_entity_count(world, &entity_count) != GNEISS_SUCCESS || entity_count != 0U ||
       gneiss_application_destroy(failing_application) != GNEISS_SUCCESS) {
-    return 4;
+    return 6;
   }
   return 0;
+} catch (...) {
+  return 99;
 }

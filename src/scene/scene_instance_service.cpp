@@ -151,6 +151,39 @@ gneiss_scene_node_id scene_instance::find_node(std::string_view uuid) const noex
   return found == objects.end() ? GNEISS_NULL_SCENE_NODE_ID : found->node;
 }
 
+gneiss_result scene_instance::serialize(std::string& out_json) const {
+  auto current = description;
+  gneiss_entity_id active_camera = GNEISS_NULL_ENTITY_ID;
+  const auto active_result = gneiss_world_get_active_camera(world_, &active_camera);
+  if (active_result != GNEISS_SUCCESS && active_result != GNEISS_ERROR_NOT_READY) {
+    return active_result;
+  }
+  for (std::size_t index = 0; index < objects.size(); ++index) {
+    const auto& runtime = objects[index];
+    auto& author = current.objects[index];
+    gneiss_transform transform = GNEISS_TRANSFORM_IDENTITY;
+    auto result = gneiss_world_entity_get_local_transform(world_, runtime.entity, &transform);
+    if (result != GNEISS_SUCCESS) {
+      return result;
+    }
+    std::ranges::copy(transform.translation, author.translation.begin());
+    std::ranges::copy(transform.rotation, author.rotation.begin());
+    std::ranges::copy(transform.scale, author.scale.begin());
+    if (author.camera) {
+      gneiss_camera_desc camera = GNEISS_CAMERA_DESC_INIT;
+      result = gneiss_world_entity_get_camera(world_, runtime.entity, &camera);
+      if (result != GNEISS_SUCCESS) {
+        return result;
+      }
+      author.camera->vertical_field_of_view_radians = camera.vertical_field_of_view_radians;
+      author.camera->near_plane = camera.near_plane;
+      author.camera->far_plane = camera.far_plane;
+      author.camera->is_primary = runtime.entity == active_camera;
+    }
+  }
+  return serialize_scene_description(current, out_json);
+}
+
 scene_instance_service::scene_instance_service(
     gneiss_world world, const asset_internal::virtual_file_system& file_system,
     render_internal::render_asset_loader& loader) noexcept
@@ -178,8 +211,24 @@ gneiss_result scene_instance_service::load(std::string_view uri,
     if (result != GNEISS_SUCCESS) {
       return result;
     }
+    instance->description = std::move(description);
     return instances_.create(core::resource_type::scene_instance, std::move(instance),
                              out_instance);
+  } catch (const std::bad_alloc&) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
+gneiss_result scene_instance_service::serialize(gneiss_scene_instance instance,
+                                                std::string& out_json) const noexcept {
+  try {
+    const auto* value = instances_.get(instance, core::resource_type::scene_instance);
+    if (value == nullptr || *value == nullptr) {
+      return GNEISS_ERROR_INVALID_HANDLE;
+    }
+    return (*value)->serialize(out_json);
   } catch (const std::bad_alloc&) {
     return GNEISS_ERROR_OUT_OF_MEMORY;
   } catch (...) {

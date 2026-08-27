@@ -8,6 +8,9 @@
 #include <gneiss/core/result.hpp>
 #include <gneiss/scene.h>
 
+#include <limits>
+#include <new>
+#include <string>
 #include <string_view>
 #include <utility>
 
@@ -74,6 +77,30 @@ public:
       out_node = scene_node_id{node};
     }
     return from_native(native_result);
+  }
+  [[nodiscard]] result serialize(std::string& out_json) const noexcept {
+    std::uint64_t length = 0;
+    auto native_result =
+        gneiss_scene_instance_serialize(application_, handle_, nullptr, 0U, &length);
+    if (native_result != GNEISS_SUCCESS) {
+      return from_native(native_result);
+    }
+    if (length > std::numeric_limits<std::size_t>::max()) {
+      return result::out_of_memory;
+    }
+    try {
+      std::string value(static_cast<std::size_t>(length), '\0');
+      native_result = gneiss_scene_instance_serialize(application_, handle_, value.data(),
+                                                      value.size(), &length);
+      if (native_result == GNEISS_SUCCESS) {
+        out_json = std::move(value);
+      }
+      return from_native(native_result);
+    } catch (const std::bad_alloc&) {
+      return result::out_of_memory;
+    } catch (...) {
+      return result::internal;
+    }
   }
   void reset() noexcept {
     if (handle_ != GNEISS_NULL_SCENE_INSTANCE) {
