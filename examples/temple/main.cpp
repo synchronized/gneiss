@@ -7,7 +7,10 @@
 
 #include <cmath>
 #include <cstdint>
+#include <filesystem>
+#include <string>
 #include <string_view>
+#include <system_error>
 
 namespace {
 
@@ -53,21 +56,29 @@ gneiss_result update_temple(gneiss_application application, const gneiss_frame_t
 
 } // namespace
 
-int main(int argc, char** argv) {
+int run_example(int argc, char** argv) {
   const bool smoke = argc == 2 && std::string_view{argv[1]} == "--smoke";
   example_state state;
   constexpr std::string_view title = "Gneiss Stone Temple";
-  constexpr std::string_view asset_root = "assets";
   constexpr std::string_view scene_uri = "asset://scenes/temple.scene.json";
   constexpr std::string_view input_map_uri = "asset://input/default.input-map.json";
   constexpr std::string_view camera_uuid = "10000000-0000-4000-8000-000000000002";
+  std::error_code path_error;
+  const auto executable = std::filesystem::absolute(argv[0], path_error);
+  const auto installed_asset_root =
+      executable.parent_path().parent_path() / "share/gneiss/examples/temple/assets";
+  const auto has_installed_assets =
+      !path_error && std::filesystem::is_directory(installed_asset_root, path_error);
+  const auto asset_root = has_installed_assets && !path_error
+                              ? installed_asset_root.string()
+                              : std::string{GNEISS_TEMPLE_SOURCE_ASSET_ROOT};
   gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
   desc.user_data = &state;
   desc.update = update_temple;
   desc.platform = GNEISS_APPLICATION_PLATFORM_GRANIT;
   desc.window_title = title.data();
   desc.window_title_length = static_cast<std::uint32_t>(title.size());
-  desc.asset_root = asset_root.data();
+  desc.asset_root = asset_root.c_str();
   desc.asset_root_length = static_cast<std::uint32_t>(asset_root.size());
 
   gneiss::application application;
@@ -90,4 +101,12 @@ int main(int argc, char** argv) {
     return 3;
   }
   return gneiss_scene_instance_unload(application.get(), scene) == GNEISS_SUCCESS ? 0 : 4;
+}
+
+int main(int argc, char** argv) {
+  try {
+    return run_example(argc, argv);
+  } catch (...) {
+    return 99;
+  }
 }
