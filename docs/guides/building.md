@@ -47,11 +47,10 @@ Linux 可选择 `linux-clang-debug` 或 `linux-gcc-debug`，可执行文件不�
 cmake --install build/windows-clang-debug --prefix build/gneiss-install
 ```
 
-下游项目使用 `find_package(gneiss CONFIG REQUIRED)` 和 `gneiss::gneiss`。配置文件同时提供
-`GNEISS_ASSET_DIR`，指向可重定位的安装资产目录。Windows 共享库 Consumer 运行时需要让
-`GNEISS_RUNTIME_DIR` 位于 `PATH`；静态库无需该运行时路径。启用 Granit 平台适配构建的安装包会
-继续要求同一安装环境提供 Granit `Window` 与 `Input` package，但 Granit 类型不会进入 Gneiss
-公共头文件。
+下游项目使用 `find_package(gneiss CONFIG REQUIRED)` 和 `gneiss::gneiss`。Windows 共享库 Consumer
+运行时需要让 `GNEISS_RUNTIME_DIR` 位于 `PATH`；静态库无需该运行时路径。引擎库本身不安装内置
+资产；示例各自管理配套资产。启用 Granit 平台适配构建的安装包会继续要求同一安装环境提供 Granit
+`Window` 与 `Input` package，但 Granit 类型不会进入 Gneiss 公共头文件。
 
 ### 启用 Granit 窗口与渲染适配
 

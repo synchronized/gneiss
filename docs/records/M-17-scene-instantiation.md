@@ -19,3 +19,6 @@
 - Pull Request #3 的 Linux Clang/GCC、Windows MSVC、共享/静态与 Granit 运行时矩阵通过。
 
 Texture、异步加载与热重载不属于本次 P0 验收，分别保留在 M-18 和后续需求验证中。
+
+> 后续版本已将这些测试 fixture 迁出正式安装包；当前安装行为以
+> [构建指南](../guides/building.md)为准。

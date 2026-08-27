@@ -213,7 +213,7 @@ if(NOT GNEISS_ENABLE_GRANIT_PLATFORM)
   target_compile_definitions(gneiss_c_application_test PRIVATE GNEISS_TEST_NO_GRANIT_PLATFORM)
 endif()
 target_compile_definitions(
-  gneiss_c_application_test PRIVATE GNEISS_TEST_ASSET_ROOT="${PROJECT_SOURCE_DIR}/assets"
+  gneiss_c_application_test PRIVATE GNEISS_TEST_ASSET_ROOT="${PROJECT_SOURCE_DIR}/tests/data/assets"
 )
 gneiss_target_output_directories(gneiss_c_application_test)
 add_test(NAME gneiss.c_application COMMAND gneiss_c_application_test)
@@ -349,7 +349,7 @@ target_link_libraries(gneiss_scene_instance_test PRIVATE gneiss::gneiss)
 target_compile_definitions(
   gneiss_scene_instance_test
   PRIVATE
-    GNEISS_TEST_ASSET_ROOT="${PROJECT_SOURCE_DIR}/assets"
+    GNEISS_TEST_ASSET_ROOT="${PROJECT_SOURCE_DIR}/tests/data/assets"
     GNEISS_TEST_FAILURE_ASSET_ROOT="${PROJECT_SOURCE_DIR}/tests/data"
 )
 target_compile_features(gneiss_scene_instance_test PRIVATE cxx_std_20)
