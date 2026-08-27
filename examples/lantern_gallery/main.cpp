@@ -5,9 +5,13 @@
 #include <gneiss/input.hpp>
 #include <gneiss/scene.h>
 
+#include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <filesystem>
+#include <iostream>
+#include <span>
 #include <string>
 #include <string_view>
 #include <system_error>
@@ -57,7 +61,15 @@ gneiss_result update_gallery(gneiss_application application, const gneiss_frame_
 } // namespace
 
 int run_example(int argc, char** argv) {
-  const bool smoke = argc == 2 && std::string_view{argv[1]} == "--smoke";
+  const auto arguments = std::span{argv + 1, static_cast<std::size_t>(argc - 1)};
+  const auto has_argument = [&](std::string_view expected) {
+    return std::ranges::any_of(arguments,
+                               [expected](const char* value) { return expected == value; });
+  };
+  const bool smoke = has_argument("--smoke");
+  const bool profile = has_argument("--profile");
+  using clock = std::chrono::steady_clock;
+  const auto started = clock::now();
   example_state state;
   constexpr std::string_view title = "Gneiss Lantern Gallery";
   constexpr std::string_view scene_uri = "asset://scenes/gallery.scene.json";
@@ -86,10 +98,14 @@ int run_example(int argc, char** argv) {
       application.get_world(state.world) != gneiss::result::success) {
     return 1;
   }
+  const auto application_ready = clock::now();
   gneiss_scene_instance scene = GNEISS_NULL_SCENE_INSTANCE;
   if (gneiss_scene_instance_load(application.get(), scene_uri.data(), scene_uri.size(), &scene) !=
-          GNEISS_SUCCESS ||
-      gneiss::load_action_map(application.get(), input_map_uri) != gneiss::result::success ||
+      GNEISS_SUCCESS) {
+    return 2;
+  }
+  const auto scene_ready = clock::now();
+  if (gneiss::load_action_map(application.get(), input_map_uri) != gneiss::result::success ||
       gneiss::find_action(application.get(), "move_horizontal", state.orbit) !=
           gneiss::result::success ||
       gneiss::find_action(application.get(), "quit", state.quit) != gneiss::result::success ||
@@ -97,8 +113,19 @@ int run_example(int argc, char** argv) {
                                       camera_uuid.size(), &state.camera_node) != GNEISS_SUCCESS) {
     return 2;
   }
+  const auto input_ready = clock::now();
   if (application.run(smoke ? 3U : 0U) != gneiss::result::success) {
     return 3;
+  }
+  const auto run_finished = clock::now();
+  if (profile) {
+    const auto milliseconds = [](auto begin, auto end) {
+      return std::chrono::duration<double, std::milli>(end - begin).count();
+    };
+    std::cout << "Application 初始化：" << milliseconds(started, application_ready) << " ms\n"
+              << "Scene 与资产加载：" << milliseconds(application_ready, scene_ready) << " ms\n"
+              << "输入初始化：" << milliseconds(scene_ready, input_ready) << " ms\n"
+              << "运行阶段：" << milliseconds(input_ready, run_finished) << " ms\n";
   }
   return gneiss_scene_instance_unload(application.get(), scene) == GNEISS_SUCCESS ? 0 : 4;
 }

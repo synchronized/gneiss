@@ -125,7 +125,8 @@ Linux 下运行同名且不带 `.exe` 后缀的可执行文件。该示例的 `m
 Lantern 灯廊示例在构建时使用 `gneiss_assetc` 把 CC0 `Lantern.glb` 导入构建目录，再叠加项目原创
 的地面、石柱、相机和场景描述。源码只保留原始 GLB、上游许可和原创资产，避免同时维护生成文件。
 来源与校验值见 `examples/lantern_gallery/assets/ASSET_ORIGINS.md`；该示例因此要求
-`GNEISS_BUILD_TOOLS=ON`。
+`GNEISS_BUILD_TOOLS=ON`。使用 `--smoke --profile` 可以固定运行 3 帧，并输出 Application、Scene
+与资产、输入和运行阶段的耗时；示例使用 512×512 派生基础色纹理控制启动成本。
 
 ## 验证结果
 
