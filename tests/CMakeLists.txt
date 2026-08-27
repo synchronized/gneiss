@@ -60,6 +60,23 @@ gneiss_target_compile_warnings(gneiss_cpp_reflection_test)
 gneiss_target_output_directories(gneiss_cpp_reflection_test)
 add_test(NAME gneiss.cpp_reflection COMMAND gneiss_cpp_reflection_test)
 
+add_executable(gneiss_property_access_test reflection/property_access_test.cpp)
+target_link_libraries(gneiss_property_access_test PRIVATE gneiss::gneiss)
+target_compile_features(gneiss_property_access_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_property_access_test)
+gneiss_target_output_directories(gneiss_property_access_test)
+add_test(NAME gneiss.property_access COMMAND gneiss_property_access_test)
+
+add_executable(gneiss_c_property_access_test c_property_access_test.c)
+target_link_libraries(gneiss_c_property_access_test PRIVATE gneiss::gneiss)
+set_target_properties(
+  gneiss_c_property_access_test
+  PROPERTIES C_STANDARD 11 C_STANDARD_REQUIRED YES C_EXTENSIONS NO LINKER_LANGUAGE CXX
+)
+gneiss_target_compile_warnings(gneiss_c_property_access_test)
+gneiss_target_output_directories(gneiss_c_property_access_test)
+add_test(NAME gneiss.c_property_access COMMAND gneiss_c_property_access_test)
+
 add_executable(gneiss_c_render_test c_render_test.c)
 target_link_libraries(gneiss_c_render_test PRIVATE gneiss::gneiss)
 set_target_properties(

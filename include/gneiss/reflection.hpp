@@ -42,6 +42,10 @@ public:
   [[nodiscard]] result register_type(const gneiss_type_desc& desc) noexcept {
     return from_native(gneiss_type_registry_register(handle_, &desc));
   }
+  [[nodiscard]] result bind_property(gneiss_type_id type_id, gneiss_field_id field_id,
+                                     const gneiss_property_accessor_desc& desc) noexcept {
+    return from_native(gneiss_type_registry_bind_property(handle_, type_id, field_id, &desc));
+  }
   [[nodiscard]] result freeze() noexcept {
     return from_native(gneiss_type_registry_freeze(handle_));
   }
@@ -54,6 +58,18 @@ public:
   [[nodiscard]] result find_field(gneiss_type_id type_id, gneiss_field_id field_id,
                                   gneiss_field_info& output) const noexcept {
     return from_native(gneiss_type_registry_find_field(handle_, type_id, field_id, &output));
+  }
+  [[nodiscard]] result get_property(gneiss_type_id type_id, gneiss_field_id field_id,
+                                    gneiss_property_target target,
+                                    gneiss_property_value& output) const noexcept {
+    return from_native(
+        gneiss_type_registry_get_property(handle_, type_id, field_id, target, &output));
+  }
+  [[nodiscard]] result set_property(gneiss_type_id type_id, gneiss_field_id field_id,
+                                    gneiss_property_target target,
+                                    const gneiss_property_value& value) const noexcept {
+    return from_native(
+        gneiss_type_registry_set_property(handle_, type_id, field_id, target, &value));
   }
 
   [[nodiscard]] gneiss_type_registry get() const noexcept { return handle_; }

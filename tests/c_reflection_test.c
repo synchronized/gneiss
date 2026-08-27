@@ -16,7 +16,7 @@ static const gneiss_type_id vector_type = {
      UINT8_C(0x00), UINT8_C(0x00), UINT8_C(0x00), UINT8_C(0x01)}};
 
 int main(void) {
-  static const char invalid_utf8_name[] = {(char)0xC0, (char)0xAF};
+  static const char invalid_utf8_name[] = "\xC0\xAF";
   gneiss_type_registry registry = GNEISS_NULL_TYPE_REGISTRY;
   gneiss_field_desc field = GNEISS_FIELD_DESC_INIT;
   gneiss_field_desc duplicate_fields[2];
