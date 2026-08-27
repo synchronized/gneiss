@@ -112,11 +112,10 @@ Gneiss 是基于 Granit 构建的现代 C++20 游戏引擎。项目采用 Scene 
 
 ## Granit 跨仓库协作
 
-- 当 Gneiss 的已确认需求缺少 Granit 的通用底层能力时，可以直接在 Granit 仓库建立聚焦分支、
-  实现并验证改动、推送分支和创建 Pull Request，不需要再次请求授权。
-- 提交 Granit 改动前必须确认能力具有后端或上层项目可复用性；Gneiss 的资产格式、RID、场景语义、
+- 当 Gneiss 的已确认需求缺少 Granit 的通用底层能力时，应及时告知用户，并给出建议的 Pull
+  Request 目标、最小范围、接口行为、测试验收和 Gneiss 侧接入方式，由用户负责向 Granit 提交。
+- 未经用户针对具体任务另行明确授权，不得直接修改 Granit 仓库、创建分支或提交，不得推送 Granit
+  分支、创建或更新 Pull Request，也不得触发 Actions、合并或发布。
+- 提议 Granit 改动前必须确认能力具有后端或上层项目可复用性；Gneiss 的资产格式、RID、场景语义、
   编辑器协议和项目专用 Shader 不得下沉到 Granit。
-- Granit 改动遵守其仓库内的 `AGENTS.md`、测试矩阵和 Pull Request 工作流；Gneiss 侧在依赖更新后
-  继续完成端到端验证。
-- 此持续授权只覆盖推送和创建 Granit Pull Request，不覆盖合并 Pull Request、发布版本以及手动
-  触发或重跑 Actions；这些操作仍需用户明确授权。
+- 用户完成 Granit 改动并更新依赖后，Gneiss 侧继续完成接入与端到端验证。
