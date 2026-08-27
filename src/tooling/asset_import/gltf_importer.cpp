@@ -89,8 +89,9 @@ namespace {
       [](const auto& source) {
         if constexpr (requires { source.mimeType; }) {
           return source.mimeType;
+        } else {
+          return fastgltf::MimeType::None;
         }
-        return fastgltf::MimeType::None;
       },
       image.data);
 }
