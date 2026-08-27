@@ -66,6 +66,16 @@ GNEISS_API gneiss_result gneiss_scene_node_get_world_transform(gneiss_world worl
 GNEISS_API gneiss_result gneiss_scene_node_get_entity(gneiss_world world, gneiss_scene_node_id node,
                                                       gneiss_entity_id* out_entity);
 
+/** 通过实体关联读取 Scene Tree 节点的局部 Transform。 */
+GNEISS_API gneiss_result gneiss_world_entity_get_local_transform(gneiss_world world,
+                                                                 gneiss_entity_id entity,
+                                                                 gneiss_transform* out_transform);
+
+/** 通过实体关联写入 Scene Tree 节点的局部 Transform。 */
+GNEISS_API gneiss_result gneiss_world_entity_set_local_transform(gneiss_world world,
+                                                                 gneiss_entity_id entity,
+                                                                 const gneiss_transform* transform);
+
 /** 通过 VFS 同步加载、校验并原子实例化场景；失败时 World 保持不变。 */
 GNEISS_API gneiss_result gneiss_scene_instance_load(gneiss_application application, const char* uri,
                                                     uint64_t uri_length,

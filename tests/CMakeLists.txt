@@ -283,6 +283,13 @@ gneiss_target_compile_warnings(gneiss_world_state_test)
 gneiss_target_output_directories(gneiss_world_state_test)
 add_test(NAME gneiss.world_state COMMAND gneiss_world_state_test)
 
+add_executable(gneiss_component_reflection_test world/component_reflection_test.cpp)
+target_link_libraries(gneiss_component_reflection_test PRIVATE gneiss::gneiss)
+target_compile_features(gneiss_component_reflection_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_component_reflection_test)
+gneiss_target_output_directories(gneiss_component_reflection_test)
+add_test(NAME gneiss.component_reflection COMMAND gneiss_component_reflection_test)
+
 add_executable(
   gneiss_render_snapshot_test
   world/render_snapshot_test.cpp

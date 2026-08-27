@@ -64,6 +64,7 @@ target_sources(
     world/render_snapshot.cpp
     world/render_snapshot.h
     world/world_api.cpp
+    world/component_reflection.cpp
     world/world_state.h
   PUBLIC
     FILE_SET HEADERS

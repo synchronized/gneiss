@@ -9,6 +9,7 @@
 
 - 增加稳定 Type ID、Field ID、Type Registry 元数据注册/冻结/查询接口及 C++20 RAII 包装。
 - 增加类型安全属性值、字段 getter/setter 绑定、统一校验和 C11/C++20 属性读写接口。
+- 将 Scene Tree Transform 与 ECS Camera 接入内建反射注册和 World/Entity 属性访问路径。
 - 增加基于 fastgltf 的离线 glTF/GLB 资产编译器，支持确定性、事务式输出和多 Primitive 拆分。
 - 增加版本化 Mesh Binary v1、资产检查命令及运行时二进制加载路径，运行时不依赖 fastgltf。
 - 增加 CC0 Lantern Gallery 导入场景，并将索引数据从导入、存储一直保留到 Granit Indexed Draw。

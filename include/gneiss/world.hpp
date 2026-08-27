@@ -6,6 +6,7 @@
 
 #include <gneiss/core/entity.hpp>
 #include <gneiss/core/result.hpp>
+#include <gneiss/reflection.hpp>
 #include <gneiss/render.hpp>
 #include <gneiss/scene.hpp>
 #include <gneiss/world.h>
@@ -45,6 +46,10 @@ public:
 
   [[nodiscard]] bool is_valid() const noexcept { return handle_ != GNEISS_NULL_WORLD; }
   [[nodiscard]] gneiss_world get() const noexcept { return handle_; }
+
+  [[nodiscard]] static result register_reflection(type_registry& registry) noexcept {
+    return from_native(gneiss_world_register_reflection(registry.get()));
+  }
 
   [[nodiscard]] result create_entity(entity_id& out_entity) noexcept {
     gneiss_entity_id native_entity = GNEISS_NULL_ENTITY_ID;
@@ -111,6 +116,14 @@ public:
 
   [[nodiscard]] result set_local_transform(scene_node_id node, const transform& value) noexcept {
     return from_native(gneiss_scene_node_set_local_transform(handle_, node.get(), &value));
+  }
+
+  [[nodiscard]] result set_local_transform(entity_id entity, const transform& value) noexcept {
+    return from_native(gneiss_world_entity_set_local_transform(handle_, entity.get(), &value));
+  }
+
+  [[nodiscard]] result get_local_transform(entity_id entity, transform& output) const noexcept {
+    return from_native(gneiss_world_entity_get_local_transform(handle_, entity.get(), &output));
   }
 
   [[nodiscard]] result get_world_transform(scene_node_id node,

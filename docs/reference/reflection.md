@@ -6,8 +6,8 @@
 ## 当前范围
 
 `<gneiss/reflection.h>` 提供 C11 Type Registry 和稳定元数据查询；`<gneiss/reflection.hpp>` 提供
-独占 RAII 包装。当前接口描述类型和字段，并通过显式绑定的适配器提供类型安全属性读写；尚不提供
-对象构造、ECS 组件访问、继承或序列化迁移。
+独占 RAII 包装。当前接口描述类型和字段，并通过显式绑定的适配器提供类型安全属性读写；内建注册
+已接入 Transform 和 Camera，但尚不提供对象构造、继承或序列化迁移。
 
 ## 稳定标识
 
@@ -30,13 +30,28 @@ Type ID 字节顺序与规范 UUID 文本去掉连字符后的十六进制字节
 类别及可读、可写能力。没有绑定或缺少对应方向的访问器返回 `GNEISS_ERROR_UNSUPPORTED`。
 
 `gneiss_property_target` 包含两个不透明 `uint64_t`，其含义由适配器定义。Registry 不解释也不持有
-目标；后续 ECS 适配将分别承载 World 和 Entity 身份。`user_data`、回调代码及回调返回的字符串均为
+目标。内建组件适配将其分别解释为 World 和 Entity 身份。`user_data`、回调代码及回调返回的字符串均为
 借用对象：前两者至少保持到 Registry 销毁，字符串有效期由具体适配器约定，调用方需要长期保存时
 必须复制。setter 收到的字符串只保证在调用期间有效。
 
 getter 必须填写与绑定类别一致且合法的值；违反契约返回 `GNEISS_ERROR_INTERNAL` 并清空输出。setter
 必须先完成全部校验再修改目标，失败时保持目标原值。回调不得让异常穿过 ABI；实现也会将意外异常
 转换为 `GNEISS_ERROR_INTERNAL`。
+
+## 内建组件
+
+`gneiss_world_register_reflection` 在冻结前幂等注册 Transform 和 Camera。稳定 Type ID 通过
+`gneiss_transform_type_id`、`gneiss_camera_type_id` 获取，字段使用 `GNEISS_TRANSFORM_FIELD_*` 和
+`GNEISS_CAMERA_FIELD_*` 常量。工具无需包含 EnTT 或访问组件地址。
+
+Transform 的 translation、rotation、scale 分别使用 Vec3、Quaternion、Vec3；它们映射到实体所
+关联 Scene Tree 节点的局部 Transform。Camera 的垂直视场角、近裁剪面和远裁剪面可读写，活动状态
+`is_primary` 只读。所有写入复用 Scene Tree 和 Camera 的完整校验，因此非法缩放、未归一化旋转或
+无效裁剪范围不会留下部分修改。
+
+目标 World 和实体只能在 World 创建线程使用。失效或跨 World 的实体返回
+`GNEISS_ERROR_INVALID_HANDLE`；实体没有关联节点或 Camera 组件时返回 `GNEISS_ERROR_NOT_FOUND`。
+Registry 不由 World 持有，Scene Tree 节点也仍然只关联实体 ID。
 
 ## 生命周期
 

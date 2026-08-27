@@ -38,5 +38,6 @@ EnTT `3.15.0` 只用于 World 的内部组件存储。Gneiss 公共头、Entity 
 内部 System Scheduler 按注册顺序串行执行，遇到第一个失败结果立即停止并保留该结果。
 
 Camera 与 Mesh Renderer 是当前首批公共组件，其行为由
-[Render 资源、组件与帧提取](render.md)定义。通用组件注册、反射 Schema 和可持久化对象 UUID
-尚未落地，不属于当前公共能力。
+[Render 资源、组件与帧提取](render.md)定义。Transform 和 Camera 可通过
+[Type Registry 与反射元数据](reflection.md)注册并按 World、Entity、Type ID 和 Field ID 访问；
+公共接口不暴露 EnTT 或组件地址。可持久化对象 UUID 仍由场景格式负责，不使用运行时实体 ID。

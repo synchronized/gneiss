@@ -257,6 +257,30 @@ gneiss_result scene_tree::get_world_for_entity(gneiss_entity_id entity,
   return GNEISS_ERROR_NOT_READY;
 }
 
+const gneiss_transform* scene_tree::get_local_for_entity(gneiss_entity_id entity) const noexcept {
+  if (entity == GNEISS_NULL_ENTITY_ID) {
+    return nullptr;
+  }
+  const auto found = std::ranges::find_if(slots_, [entity](const slot& candidate) {
+    return candidate.value && candidate.value->entity == entity;
+  });
+  return found == slots_.end() ? nullptr : &found->value->local;
+}
+
+gneiss_result scene_tree::set_local_for_entity(gneiss_entity_id entity,
+                                               const gneiss_transform& transform) noexcept {
+  if (entity == GNEISS_NULL_ENTITY_ID) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  for (std::size_t index = 0; index < slots_.size(); ++index) {
+    const auto& candidate = slots_[index];
+    if (candidate.value && candidate.value->entity == entity) {
+      return set_local(encode(static_cast<std::uint16_t>(index), candidate.generation), transform);
+    }
+  }
+  return GNEISS_ERROR_NOT_FOUND;
+}
+
 gneiss_entity_id scene_tree::get_entity(gneiss_scene_node_id node_id) const noexcept {
   const auto* target = find(node_id);
   return target == nullptr ? GNEISS_NULL_ENTITY_ID : target->value->entity;
