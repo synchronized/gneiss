@@ -216,10 +216,14 @@ gneiss_result application_state::render_frame() noexcept {
     return GNEISS_SUCCESS;
   }
   world_internal::render_snapshot snapshot;
-  const auto snapshot_result = world_internal::get_render_snapshot(world_, snapshot);
+  auto& window = granit_platform_->native_window();
+  if (window.width == 0U || window.height == 0U) {
+    return GNEISS_SUCCESS;
+  }
+  const auto snapshot_result =
+      world_internal::get_render_snapshot(world_, window.width, window.height, snapshot);
   return snapshot_result == GNEISS_SUCCESS
-             ? granit_render_service_->render(granit_platform_->native_window(), snapshot,
-                                              resources_)
+             ? granit_render_service_->render(window, snapshot, resources_)
              : snapshot_result;
 }
 #endif

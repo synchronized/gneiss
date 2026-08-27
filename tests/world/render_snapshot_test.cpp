@@ -4,7 +4,7 @@
 #include "world/render_snapshot.h"
 #include "world/world_state.h"
 
-int main() {
+int run_tests() {
   gneiss::world_internal::world_state world{1};
   const auto camera_entity = world.create_entity();
   const auto mesh_entity = world.create_entity();
@@ -22,15 +22,35 @@ int main() {
     return 1;
   }
   world.emplace<gneiss::world_internal::camera_component>(camera_entity, camera);
+  if (world.set_active_camera(camera_entity) != GNEISS_SUCCESS) {
+    return 2;
+  }
   world.emplace<gneiss::world_internal::mesh_renderer_component>(mesh_entity, renderer);
 
   gneiss::world_internal::render_snapshot snapshot;
-  if (gneiss::world_internal::build_render_snapshot(world, snapshot) != GNEISS_SUCCESS ||
+  if (gneiss::world_internal::build_render_snapshot(world, 1280U, 720U, snapshot) !=
+          GNEISS_SUCCESS ||
       !snapshot.has_camera || snapshot.instances.size() != 1U ||
+      snapshot.camera.viewport_width != 1280U || snapshot.camera.viewport_height != 720U ||
+      snapshot.camera.view.values[15] != 1.0F || snapshot.camera.projection.values[0] == 0.0F ||
       snapshot.instances.front().mesh != renderer.mesh ||
       snapshot.instances.front().material != renderer.material ||
       snapshot.instances.front().transform.translation[0] != 2.0F) {
-    return 2;
+    return 3;
+  }
+  if (!world.destroy_entity(camera_entity) ||
+      gneiss::world_internal::build_render_snapshot(world, 1280U, 720U, snapshot) !=
+          GNEISS_SUCCESS ||
+      snapshot.has_camera || world.active_camera() != GNEISS_NULL_ENTITY_ID) {
+    return 4;
   }
   return 0;
+}
+
+int main() {
+  try {
+    return run_tests();
+  } catch (...) {
+    return 99;
+  }
 }

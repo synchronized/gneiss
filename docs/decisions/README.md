@@ -17,3 +17,5 @@ Reference 和实现为准。
 - [ADR-009：同步诊断回调](ADR-009-synchronous-diagnostics.md)
 - [ADR-010：纹理资源与后端镜像边界](ADR-010-texture-resource-boundary.md)
 - [ADR-011：使用 libspng 解码首版 PNG 纹理](ADR-011-png-decoder.md)
+- [ADR-012：3D 坐标、Camera 与后端变换边界](ADR-012-3d-camera-coordinate-boundary.md)
+- [ADR-013：glTF 离线导入与工具边界](ADR-013-gltf-import-boundary.md)

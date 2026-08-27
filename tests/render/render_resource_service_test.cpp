@@ -6,9 +6,44 @@
 #include <algorithm>
 #include <array>
 #include <cstddef>
+#include <cstdint>
 
 int main() {
   gneiss::render_internal::render_resource_service resources;
+  constexpr std::array vertices{gneiss_mesh_vertex{0.0F, 0.0F, 0.0F, 0.0F, 0.0F},
+                                gneiss_mesh_vertex{1.0F, 0.0F, 0.0F, 1.0F, 0.0F},
+                                gneiss_mesh_vertex{0.0F, 1.0F, 0.0F, 0.0F, 1.0F}};
+  constexpr std::array normals{gneiss_mesh_normal{0.0F, 0.0F, 1.0F},
+                               gneiss_mesh_normal{0.0F, 0.0F, 1.0F},
+                               gneiss_mesh_normal{0.0F, 0.0F, 1.0F}};
+  gneiss_mesh_desc mesh_desc = GNEISS_MESH_DESC_INIT;
+  mesh_desc.vertex_count = static_cast<std::uint32_t>(vertices.size());
+  mesh_desc.vertices = vertices.data();
+  mesh_desc.normal_count = static_cast<std::uint32_t>(normals.size());
+  mesh_desc.normals = normals.data();
+  gneiss_mesh mesh = GNEISS_NULL_MESH;
+  if (resources.create_mesh(mesh_desc, &mesh) != GNEISS_SUCCESS ||
+      resources.get_mesh(mesh)->normals.size() != normals.size() ||
+      resources.destroy_mesh(mesh) != GNEISS_SUCCESS) {
+    return 10;
+  }
+  auto invalid_normals = normals;
+  invalid_normals[0].z = 2.0F;
+  mesh_desc.struct_size = GNEISS_MESH_DESC_VERSION_1_SIZE;
+  mesh_desc.reserved_2 = 99U;
+  mesh_desc.normal_count = static_cast<std::uint32_t>(invalid_normals.size());
+  mesh_desc.normals = invalid_normals.data();
+  if (resources.create_mesh(mesh_desc, &mesh) != GNEISS_SUCCESS ||
+      !resources.get_mesh(mesh)->normals.empty() ||
+      resources.destroy_mesh(mesh) != GNEISS_SUCCESS) {
+    return 11;
+  }
+  mesh_desc.struct_size = sizeof(gneiss_mesh_desc);
+  mesh_desc.reserved_2 = 0U;
+  mesh_desc.normals = invalid_normals.data();
+  if (resources.create_mesh(mesh_desc, &mesh) != GNEISS_ERROR_INVALID_ARGUMENT) {
+    return 12;
+  }
   const std::array<std::uint8_t, 20> source{1,  2,  3, 4,  5,  6,  7,  8,  90, 91,
                                             92, 93, 9, 10, 11, 12, 13, 14, 15, 16};
   gneiss_texture_desc desc = GNEISS_TEXTURE_DESC_INIT;

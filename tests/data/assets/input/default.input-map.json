@@ -1,0 +1,19 @@
+{
+  "format": "gneiss.input-map",
+  "version": 1,
+  "actions": [
+    {
+      "name": "move_horizontal",
+      "bindings": [
+        { "key": 4, "scale": -1.0 },
+        { "key": 7, "scale": 1.0 }
+      ]
+    },
+    {
+      "name": "quit",
+      "bindings": [
+        { "key": 41, "scale": 1.0 }
+      ]
+    }
+  ]
+}

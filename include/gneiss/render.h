@@ -4,6 +4,7 @@
 #ifndef GNEISS_RENDER_H_
 #define GNEISS_RENDER_H_
 
+#include <stddef.h>
 #include <stdint.h>
 
 #include <gneiss/application.h>
@@ -57,15 +58,41 @@ typedef struct gneiss_mesh_vertex {
   float v;
 } gneiss_mesh_vertex;
 
-/** Mesh 创建参数。调用期间复制 vertices，调用方保留其所有权。 */
+/** Mesh 单位法线；使用与位置相同的右手坐标。 */
+typedef struct gneiss_mesh_normal {
+  float x;
+  float y;
+  float z;
+} gneiss_mesh_normal;
+
+/** Mesh v1 创建参数布局，用于兼容已发布的无光照 Mesh 描述。 */
+typedef struct gneiss_mesh_desc_version_1 {
+  uint32_t struct_size;
+  uint32_t vertex_count;
+  const gneiss_mesh_vertex* vertices;
+  uint32_t reserved;
+} gneiss_mesh_desc_version_1;
+
+/** Mesh 创建参数。调用期间复制 vertices 与可选 normals，调用方保留其所有权。 */
 typedef struct gneiss_mesh_desc {
   uint32_t struct_size;
   uint32_t vertex_count;
   const gneiss_mesh_vertex* vertices;
   uint32_t reserved;
+  uint32_t reserved_2;
+  uint32_t normal_count;
+  const gneiss_mesh_normal* normals;
 } gneiss_mesh_desc;
 
-#define GNEISS_MESH_DESC_INIT {(uint32_t)sizeof(gneiss_mesh_desc), UINT32_C(0), NULL, UINT32_C(0)}
+#define GNEISS_MESH_DESC_VERSION_1_SIZE ((uint32_t)sizeof(gneiss_mesh_desc_version_1))
+#define GNEISS_MESH_DESC_INIT                                                                      \
+  {(uint32_t)sizeof(gneiss_mesh_desc),                                                             \
+   UINT32_C(0),                                                                                    \
+   NULL,                                                                                           \
+   UINT32_C(0),                                                                                    \
+   UINT32_C(0),                                                                                    \
+   UINT32_C(0),                                                                                    \
+   NULL}
 
 /** Material 参数。颜色分量使用线性空间的 0..1 范围，Texture RID 不转移所有权。 */
 typedef struct gneiss_material_desc {
@@ -91,6 +118,18 @@ typedef struct gneiss_camera {
 } gneiss_camera;
 
 #define GNEISS_CAMERA_INIT {1.04719755F, 0.1F, 1000.0F, UINT8_C(1), {0, 0, 0}}
+
+/** 版本化透视 Camera 描述；活动 Camera 由 World 独立选择。 */
+typedef struct gneiss_camera_desc {
+  uint32_t struct_size;
+  uint32_t reserved;
+  float vertical_field_of_view_radians;
+  float near_plane;
+  float far_plane;
+} gneiss_camera_desc;
+
+#define GNEISS_CAMERA_DESC_INIT                                                                    \
+  {(uint32_t)sizeof(gneiss_camera_desc), UINT32_C(0), 1.04719755F, 0.1F, 1000.0F}
 
 /** 实体引用的 Mesh 与 Material；二者只保存 RID，不拥有资源。 */
 typedef struct gneiss_mesh_renderer {
@@ -132,6 +171,27 @@ GNEISS_API gneiss_result gneiss_texture_destroy(gneiss_application application,
 /** 设置或替换实体的 Camera 组件。World 和实体必须属于当前线程。 */
 GNEISS_API gneiss_result gneiss_world_entity_set_camera(gneiss_world world, gneiss_entity_id entity,
                                                         const gneiss_camera* camera);
+
+/** 使用版本化描述设置或替换 Camera；不改变 World 当前的活动 Camera。 */
+GNEISS_API gneiss_result gneiss_world_entity_configure_camera(gneiss_world world,
+                                                              gneiss_entity_id entity,
+                                                              const gneiss_camera_desc* desc);
+
+/** 获取 Camera 描述；out_camera 必须以 GNEISS_CAMERA_DESC_INIT 初始化。 */
+GNEISS_API gneiss_result gneiss_world_entity_get_camera(gneiss_world world, gneiss_entity_id entity,
+                                                        gneiss_camera_desc* out_camera);
+
+/** 移除实体的 Camera；若其为活动 Camera，World 随即变为无活动 Camera。 */
+GNEISS_API gneiss_result gneiss_world_entity_remove_camera(gneiss_world world,
+                                                           gneiss_entity_id entity);
+
+/** 选择 World 的活动 Camera；实体必须属于 World 且已经配置 Camera。 */
+GNEISS_API gneiss_result gneiss_world_set_active_camera(gneiss_world world,
+                                                        gneiss_entity_id entity);
+
+/** 获取借用的活动 Camera 实体 ID；未选择时返回零值和 GNEISS_ERROR_NOT_READY。 */
+GNEISS_API gneiss_result gneiss_world_get_active_camera(gneiss_world world,
+                                                        gneiss_entity_id* out_entity);
 
 /** 设置或替换实体的 Mesh Renderer 组件；RID 在渲染提取阶段校验。 */
 GNEISS_API gneiss_result gneiss_world_entity_set_mesh_renderer(

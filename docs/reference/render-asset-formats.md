@@ -38,6 +38,21 @@ Mesh v2 保留 `vertices`，并增加数量必须与顶点一致的 `uvs`；每�
 }
 ```
 
+Mesh v3 继续要求 `uvs`，并增加数量与顶点一致的单位 `normals`；每项是右手坐标中的 `(x, y, z)`：
+
+```json
+{
+  "format": "gneiss.mesh",
+  "version": 3,
+  "topology": "triangle_list",
+  "vertices": [[-0.5, -0.5, 0], [0.5, -0.5, 0], [0, 0.5, 0]],
+  "uvs": [[0, 0], [1, 0], [0.5, 1]],
+  "normals": [[0, 0, 1], [0, 0, 1], [0, 0, 1]]
+}
+```
+
+法线长度允许 `1e-4` 误差。v1/v2 不隐式生成法线，进入明确的无光照兼容路径。
+
 ## Material
 
 建议扩展名为 `.material.json`：

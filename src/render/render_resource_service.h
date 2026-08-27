@@ -16,6 +16,7 @@ namespace gneiss::render_internal {
 
 struct mesh_resource {
   std::vector<gneiss_mesh_vertex> vertices;
+  std::vector<gneiss_mesh_normal> normals;
 };
 
 struct material_resource {

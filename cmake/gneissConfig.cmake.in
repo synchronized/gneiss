@@ -8,7 +8,6 @@ if(@GNEISS_ENABLE_GRANIT_PLATFORM@)
   find_dependency(granit 0.3 CONFIG COMPONENTS Window Input)
 endif()
 
-set_and_check(GNEISS_ASSET_DIR "${PACKAGE_PREFIX_DIR}/@CMAKE_INSTALL_DATADIR@/gneiss/assets")
 set(GNEISS_RUNTIME_DIR "${PACKAGE_PREFIX_DIR}/@CMAKE_INSTALL_BINDIR@")
 
 include("${CMAKE_CURRENT_LIST_DIR}/gneissTargets.cmake")

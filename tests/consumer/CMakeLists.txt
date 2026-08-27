@@ -19,7 +19,8 @@ add_executable(gneiss_cpp_consumer cpp_consumer.cpp)
 target_link_libraries(gneiss_cpp_consumer PRIVATE gneiss::gneiss)
 target_compile_features(gneiss_cpp_consumer PRIVATE cxx_std_20)
 target_compile_definitions(
-  gneiss_cpp_consumer PRIVATE GNEISS_CONSUMER_ASSET_ROOT="${GNEISS_ASSET_DIR}"
+  gneiss_cpp_consumer
+  PRIVATE GNEISS_CONSUMER_ASSET_ROOT="${CMAKE_CURRENT_LIST_DIR}/../data/assets"
 )
 
 add_test(NAME gneiss.consumer.c COMMAND gneiss_c_consumer)

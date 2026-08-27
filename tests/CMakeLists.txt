@@ -190,6 +190,18 @@ gneiss_target_compile_warnings(gneiss_cpp_scene_test)
 gneiss_target_output_directories(gneiss_cpp_scene_test)
 add_test(NAME gneiss.cpp_scene COMMAND gneiss_cpp_scene_test)
 
+add_executable(
+  gneiss_scene_tree_transform_test
+  scene/scene_tree_transform_test.cpp
+  "${PROJECT_SOURCE_DIR}/src/scene/scene_tree.cpp"
+)
+target_include_directories(gneiss_scene_tree_transform_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_link_libraries(gneiss_scene_tree_transform_test PRIVATE gneiss::gneiss)
+target_compile_features(gneiss_scene_tree_transform_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_scene_tree_transform_test)
+gneiss_target_output_directories(gneiss_scene_tree_transform_test)
+add_test(NAME gneiss.scene_tree_transform COMMAND gneiss_scene_tree_transform_test)
+
 add_executable(gneiss_c_application_test c_application_test.c)
 target_link_libraries(gneiss_c_application_test PRIVATE gneiss::gneiss)
 set_target_properties(
@@ -201,7 +213,7 @@ if(NOT GNEISS_ENABLE_GRANIT_PLATFORM)
   target_compile_definitions(gneiss_c_application_test PRIVATE GNEISS_TEST_NO_GRANIT_PLATFORM)
 endif()
 target_compile_definitions(
-  gneiss_c_application_test PRIVATE GNEISS_TEST_ASSET_ROOT="${PROJECT_SOURCE_DIR}/assets"
+  gneiss_c_application_test PRIVATE GNEISS_TEST_ASSET_ROOT="${PROJECT_SOURCE_DIR}/tests/data/assets"
 )
 gneiss_target_output_directories(gneiss_c_application_test)
 add_test(NAME gneiss.c_application COMMAND gneiss_c_application_test)
@@ -239,6 +251,7 @@ add_test(NAME gneiss.world_state COMMAND gneiss_world_state_test)
 add_executable(
   gneiss_render_snapshot_test
   world/render_snapshot_test.cpp
+  "${PROJECT_SOURCE_DIR}/src/render/camera_math.cpp"
   "${PROJECT_SOURCE_DIR}/src/scene/scene_tree.cpp"
   "${PROJECT_SOURCE_DIR}/src/world/render_snapshot.cpp"
 )
@@ -248,6 +261,30 @@ target_compile_features(gneiss_render_snapshot_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_render_snapshot_test)
 gneiss_target_output_directories(gneiss_render_snapshot_test)
 add_test(NAME gneiss.render_snapshot COMMAND gneiss_render_snapshot_test)
+
+add_executable(
+  gneiss_camera_math_test
+  render/camera_math_test.cpp
+  "${PROJECT_SOURCE_DIR}/src/render/camera_math.cpp"
+)
+target_include_directories(gneiss_camera_math_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_link_libraries(gneiss_camera_math_test PRIVATE gneiss::gneiss)
+target_compile_features(gneiss_camera_math_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_camera_math_test)
+gneiss_target_output_directories(gneiss_camera_math_test)
+add_test(NAME gneiss.camera_math COMMAND gneiss_camera_math_test)
+
+add_executable(
+  gneiss_normal_math_test
+  render/normal_math_test.cpp
+  "${PROJECT_SOURCE_DIR}/src/render/normal_math.cpp"
+)
+target_include_directories(gneiss_normal_math_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_link_libraries(gneiss_normal_math_test PRIVATE gneiss::gneiss)
+target_compile_features(gneiss_normal_math_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_normal_math_test)
+gneiss_target_output_directories(gneiss_normal_math_test)
+add_test(NAME gneiss.normal_math COMMAND gneiss_normal_math_test)
 
 add_executable(gneiss_json_format_test serialization/json_format_test.cpp)
 target_link_libraries(gneiss_json_format_test PRIVATE gneiss_yyjson)
@@ -312,7 +349,7 @@ target_link_libraries(gneiss_scene_instance_test PRIVATE gneiss::gneiss)
 target_compile_definitions(
   gneiss_scene_instance_test
   PRIVATE
-    GNEISS_TEST_ASSET_ROOT="${PROJECT_SOURCE_DIR}/assets"
+    GNEISS_TEST_ASSET_ROOT="${PROJECT_SOURCE_DIR}/tests/data/assets"
     GNEISS_TEST_FAILURE_ASSET_ROOT="${PROJECT_SOURCE_DIR}/tests/data"
 )
 target_compile_features(gneiss_scene_instance_test PRIVATE cxx_std_20)

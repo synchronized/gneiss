@@ -54,6 +54,9 @@ public:
     }
     scene_.detach_entity(entity);
     registry_.destroy(native);
+    if (active_camera_ == entity) {
+      active_camera_ = GNEISS_NULL_ENTITY_ID;
+    }
     --entity_count_;
     return true;
   }
@@ -79,6 +82,46 @@ public:
     const auto native = decode(entity);
     return native == entt::null ? nullptr : registry_.try_get<Component>(native);
   }
+
+  [[nodiscard]] gneiss_result set_active_camera(gneiss_entity_id entity) noexcept {
+    if (!is_alive(entity)) {
+      return GNEISS_ERROR_INVALID_HANDLE;
+    }
+    if (get<camera_component>(entity) == nullptr) {
+      return GNEISS_ERROR_NOT_READY;
+    }
+    each<camera_component>(
+        [](camera_component& component) { component.value.is_primary = UINT8_C(0); });
+    get<camera_component>(entity)->value.is_primary = UINT8_C(1);
+    active_camera_ = entity;
+    return GNEISS_SUCCESS;
+  }
+
+  [[nodiscard]] gneiss_result clear_camera(gneiss_entity_id entity) noexcept {
+    const auto native = decode(entity);
+    if (native == entt::null || !registry_.valid(native)) {
+      return GNEISS_ERROR_INVALID_HANDLE;
+    }
+    if (registry_.remove<camera_component>(native) == 0U) {
+      return GNEISS_ERROR_NOT_FOUND;
+    }
+    if (active_camera_ == entity) {
+      active_camera_ = GNEISS_NULL_ENTITY_ID;
+    }
+    return GNEISS_SUCCESS;
+  }
+
+  void clear_active_camera(gneiss_entity_id entity) noexcept {
+    if (active_camera_ != entity) {
+      return;
+    }
+    if (auto* component = get<camera_component>(entity); component != nullptr) {
+      component->value.is_primary = UINT8_C(0);
+    }
+    active_camera_ = GNEISS_NULL_ENTITY_ID;
+  }
+
+  [[nodiscard]] gneiss_entity_id active_camera() const noexcept { return active_camera_; }
 
   template <typename... Component, typename Function> void each(Function&& function) {
     registry_.view<Component...>().each(std::forward<Function>(function));
@@ -113,6 +156,7 @@ private:
   std::uint32_t domain_;
   std::thread::id owner_thread_;
   std::size_t entity_count_ = 0;
+  gneiss_entity_id active_camera_ = GNEISS_NULL_ENTITY_ID;
 };
 
 } // namespace gneiss::world_internal
