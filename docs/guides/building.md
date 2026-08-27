@@ -49,7 +49,16 @@ Linux 可选择 `linux-clang-debug` 或 `linux-gcc-debug`，可执行文件不�
 ./build/windows-clang-debug/bin/gneiss_assetc.exe inspect ./tests/data/gltf/static_triangle.gltf
 ```
 
-该命令验证静态 glTF 的基础能力边界并输出场景摘要；资产转换与写出将在 TOOL-001 后续阶段实现。
+该命令验证静态 glTF 的基础能力边界并输出场景摘要，不写入资产。
+
+将受支持的静态 glTF 转换为 Runtime 资产目录：
+
+```powershell
+./build/windows-clang-debug/bin/gneiss_assetc.exe import ./model.gltf --output ./generated-assets
+```
+
+当前命令确定性生成 `models`、`materials`、`textures` 和 `scenes` 子目录。入口场景固定为
+`scenes/scene.scene.json`；首版要求每个 glTF Mesh 只有一个 Primitive，并仅支持基础颜色 PNG。
 
 ### 安装并通过 CMake package 使用
 

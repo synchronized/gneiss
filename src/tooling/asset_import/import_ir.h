@@ -59,6 +59,7 @@ struct import_ir_material {
 struct import_ir_image {
   std::string name;
   bool is_png{};
+  std::vector<std::byte> bytes;
 };
 
 struct import_ir {

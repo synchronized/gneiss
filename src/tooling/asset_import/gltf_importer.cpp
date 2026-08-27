@@ -229,6 +229,13 @@ namespace {
     import_ir_image ir_image;
     ir_image.name.assign(image.name.begin(), image.name.end());
     ir_image.is_png = image_mime_type(image) == fastgltf::MimeType::PNG;
+    std::visit(
+        [&](const auto& source) {
+          if constexpr (requires { source.bytes; }) {
+            ir_image.bytes.assign(source.bytes.begin(), source.bytes.end());
+          }
+        },
+        image.data);
     result.images.push_back(std::move(ir_image));
   }
   return result;
