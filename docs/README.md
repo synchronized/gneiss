@@ -68,6 +68,7 @@
 - [ADR-008：动作标识与帧状态折叠](decisions/ADR-008-action-identity-and-folding.md)
 - [ADR-009：同步诊断回调](decisions/ADR-009-synchronous-diagnostics.md)
 - [ADR-010：纹理资源与后端镜像边界](decisions/ADR-010-texture-resource-boundary.md)
+- [ADR-011：使用 libspng 解码首版 PNG 纹理](decisions/ADR-011-png-decoder.md)
 
 ## 实施与验收记录
 
@@ -78,6 +79,7 @@
 - [M-15 版本化场景 Schema 实施记录](records/M-15-scene-schema.md)
 - [M-16 Mesh 与 Material Loader 实施记录](records/M-16-render-asset-loaders.md)
 - [M-17 场景实例化与本地验收记录](records/M-17-scene-instantiation.md)
+- [M-27 图片解码器 Spike 记录](records/M-27-image-decoder-spike.md)
 
 ## 文档维护
 

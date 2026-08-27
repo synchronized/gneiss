@@ -16,3 +16,4 @@ Reference 和实现为准。
 - [ADR-008：动作标识与帧状态折叠](ADR-008-action-identity-and-folding.md)
 - [ADR-009：同步诊断回调](ADR-009-synchronous-diagnostics.md)
 - [ADR-010：纹理资源与后端镜像边界](ADR-010-texture-resource-boundary.md)
+- [ADR-011：使用 libspng 解码首版 PNG 纹理](ADR-011-png-decoder.md)
