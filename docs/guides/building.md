@@ -107,11 +107,12 @@ ctest --test-dir build/granit-platform --output-on-failure
 `granit::granit` 与 `granit::window`，所有 provider 都会优先直接复用。Windows 使用共享库 package
 时，构建会把 Granit 的运行时 DLL 自动复制到 Gneiss 的运行时输出目录，无需手动修改 `PATH`。
 
-启用 Granit 适配并完成构建后，可以运行交互神殿示例；按 `A`/`D` 绕神殿旋转观察视角，按 `Esc`
-或关闭窗口正常退出：
+启用 Granit 适配并完成构建后，可以运行交互神殿或 Lantern 灯廊示例；按 `A`/`D` 绕场景旋转
+观察视角，按 `Esc` 或关闭窗口正常退出：
 
 ```powershell
 ./build/granit-platform/bin/gneiss_temple_example.exe
+./build/granit-platform/bin/gneiss_lantern_gallery_example.exe
 ```
 
 Linux 下运行同名且不带 `.exe` 后缀的可执行文件。该示例的 `main` 位于
@@ -120,6 +121,11 @@ Linux 下运行同名且不带 `.exe` 后缀的可执行文件。该示例的 `m
 `examples/temple/assets`，因此从任意工作目录启动构建产物都能运行；安装后的可执行文件会从
 `share/gneiss/examples/temple/assets` 定位配套资产。场景入口是
 `examples/temple/assets/scenes/temple.scene.json`。
+
+Lantern 灯廊示例在构建时使用 `gneiss_assetc` 把 CC0 `Lantern.glb` 导入构建目录，再叠加项目原创
+的地面、石柱、相机和场景描述。源码只保留原始 GLB、上游许可和原创资产，避免同时维护生成文件。
+来源与校验值见 `examples/lantern_gallery/assets/ASSET_ORIGINS.md`；该示例因此要求
+`GNEISS_BUILD_TOOLS=ON`。
 
 ## 验证结果
 

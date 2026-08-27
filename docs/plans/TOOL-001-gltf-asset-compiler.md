@@ -47,6 +47,7 @@ Gneiss 运行时可加载的资产，并用现有渲染示例验证结果。
    已覆盖 `.gltf`、`.glb`、外部及嵌入 Buffer、重复生成、目录逃逸，并通过现有 Runtime Scene、
    Mesh、Material 和 Texture Loader 完成端到端加载；多 Primitive 会稳定拆分，缺省材质会显式
    生成。资产目录采用同级暂存、整体替换和失败恢复，重复导入会清除旧产物且不会留下半成品。
+   已用 Khronos CC0 Lantern GLB 验证嵌入 BufferView 图像，并组装为可交互灯廊示例。
 
 ## 测试与验收
 

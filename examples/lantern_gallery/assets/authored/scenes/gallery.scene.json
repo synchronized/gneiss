@@ -1,0 +1,28 @@
+{
+  "format": "gneiss.scene",
+  "version": 1,
+  "scene_uuid": "20000000-0000-4000-8000-000000000000",
+  "objects": [
+    {"uuid":"20000000-0000-4000-8000-000000000001","parent":null,"transform":{"translation":[0,3.2,8],"rotation":[-0.189108,0,0,0.981956],"scale":[1,1,1]},"components":{"camera":{"vertical_field_of_view_radians":1.04719755,"near_plane":0.1,"far_plane":100,"primary":true}}},
+    {"uuid":"20000000-0000-4000-8000-000000000002","parent":null,"transform":{"translation":[0,-0.2,0],"rotation":[0,0,0,1],"scale":[10,0.35,7]},"components":{"mesh_renderer":{"mesh":"asset://models/gallery-box.mesh.json","material":"asset://materials/gallery-stone.material.json"}}},
+    {"uuid":"20000000-0000-4000-8000-000000000003","parent":null,"transform":{"translation":[-4,1.1,-2.4],"rotation":[0,0,0,1],"scale":[0.55,2.5,0.55]},"components":{"mesh_renderer":{"mesh":"asset://models/gallery-box.mesh.json","material":"asset://materials/gallery-stone.material.json"}}},
+    {"uuid":"20000000-0000-4000-8000-000000000004","parent":null,"transform":{"translation":[4,1.1,-2.4],"rotation":[0,0,0,1],"scale":[0.55,2.5,0.55]},"components":{"mesh_renderer":{"mesh":"asset://models/gallery-box.mesh.json","material":"asset://materials/gallery-stone.material.json"}}},
+    {"uuid":"20000000-0000-4000-8000-000000000005","parent":null,"transform":{"translation":[-4,1.1,2.4],"rotation":[0,0,0,1],"scale":[0.55,2.5,0.55]},"components":{"mesh_renderer":{"mesh":"asset://models/gallery-box.mesh.json","material":"asset://materials/gallery-stone.material.json"}}},
+    {"uuid":"20000000-0000-4000-8000-000000000006","parent":null,"transform":{"translation":[4,1.1,2.4],"rotation":[0,0,0,1],"scale":[0.55,2.5,0.55]},"components":{"mesh_renderer":{"mesh":"asset://models/gallery-box.mesh.json","material":"asset://materials/gallery-stone.material.json"}}},
+
+    {"uuid":"20000000-0000-4000-8000-000000000010","parent":null,"transform":{"translation":[-3,0,0],"rotation":[0,1,0,0],"scale":[0.08,0.08,0.08]},"components":{}},
+    {"uuid":"20000000-0000-4000-8000-000000000011","parent":"20000000-0000-4000-8000-000000000010","transform":{"translation":[-3.82315421,13.0160303,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":{"mesh_renderer":{"mesh":"asset://models/mesh-0-primitive-0.mesh.json","material":"asset://materials/material-0.material.json"}}},
+    {"uuid":"20000000-0000-4000-8000-000000000012","parent":"20000000-0000-4000-8000-000000000010","transform":{"translation":[-9.58200073,21.0378723,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":{"mesh_renderer":{"mesh":"asset://models/mesh-1-primitive-0.mesh.json","material":"asset://materials/material-0.material.json"}}},
+    {"uuid":"20000000-0000-4000-8000-000000000013","parent":"20000000-0000-4000-8000-000000000010","transform":{"translation":[-9.58200741,18.0091515,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":{"mesh_renderer":{"mesh":"asset://models/mesh-2-primitive-0.mesh.json","material":"asset://materials/material-0.material.json"}}},
+
+    {"uuid":"20000000-0000-4000-8000-000000000020","parent":null,"transform":{"translation":[0,0,-0.8],"rotation":[0,1,0,0],"scale":[0.09,0.09,0.09]},"components":{}},
+    {"uuid":"20000000-0000-4000-8000-000000000021","parent":"20000000-0000-4000-8000-000000000020","transform":{"translation":[-3.82315421,13.0160303,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":{"mesh_renderer":{"mesh":"asset://models/mesh-0-primitive-0.mesh.json","material":"asset://materials/material-0.material.json"}}},
+    {"uuid":"20000000-0000-4000-8000-000000000022","parent":"20000000-0000-4000-8000-000000000020","transform":{"translation":[-9.58200073,21.0378723,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":{"mesh_renderer":{"mesh":"asset://models/mesh-1-primitive-0.mesh.json","material":"asset://materials/material-0.material.json"}}},
+    {"uuid":"20000000-0000-4000-8000-000000000023","parent":"20000000-0000-4000-8000-000000000020","transform":{"translation":[-9.58200741,18.0091515,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":{"mesh_renderer":{"mesh":"asset://models/mesh-2-primitive-0.mesh.json","material":"asset://materials/material-0.material.json"}}},
+
+    {"uuid":"20000000-0000-4000-8000-000000000030","parent":null,"transform":{"translation":[3,0,0],"rotation":[0,1,0,0],"scale":[0.08,0.08,0.08]},"components":{}},
+    {"uuid":"20000000-0000-4000-8000-000000000031","parent":"20000000-0000-4000-8000-000000000030","transform":{"translation":[-3.82315421,13.0160303,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":{"mesh_renderer":{"mesh":"asset://models/mesh-0-primitive-0.mesh.json","material":"asset://materials/material-0.material.json"}}},
+    {"uuid":"20000000-0000-4000-8000-000000000032","parent":"20000000-0000-4000-8000-000000000030","transform":{"translation":[-9.58200073,21.0378723,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":{"mesh_renderer":{"mesh":"asset://models/mesh-1-primitive-0.mesh.json","material":"asset://materials/material-0.material.json"}}},
+    {"uuid":"20000000-0000-4000-8000-000000000033","parent":"20000000-0000-4000-8000-000000000030","transform":{"translation":[-9.58200741,18.0091515,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":{"mesh_renderer":{"mesh":"asset://models/mesh-2-primitive-0.mesh.json","material":"asset://materials/material-0.material.json"}}}
+  ]
+}
