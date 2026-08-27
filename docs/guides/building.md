@@ -84,8 +84,8 @@ ctest --test-dir build/granit-platform --output-on-failure
 `granit::granit` 与 `granit::window`，所有 provider 都会优先直接复用。Windows 使用共享库 package
 时，构建会把 Granit 的运行时 DLL 自动复制到 Gneiss 的运行时输出目录，无需手动修改 `PATH`。
 
-启用 Granit 适配并完成构建后，可以运行交互神殿示例；按 `A`/`D` 旋转中央石质符文，按 `Esc` 或关闭
-窗口正常退出：
+启用 Granit 适配并完成构建后，可以运行交互神殿示例；按 `A`/`D` 绕神殿旋转观察视角，按 `Esc`
+或关闭窗口正常退出：
 
 ```powershell
 ./build/granit-platform/bin/gneiss_temple_example.exe
@@ -93,8 +93,8 @@ ctest --test-dir build/granit-platform --output-on-failure
 
 Linux 下运行同名且不带 `.exe` 后缀的可执行文件。该示例的 `main` 位于
 `examples/temple/main.cpp`，只使用 Gneiss 公共接口创建 Application、加载场景实例并按对象 UUID
-更新 Scene Node，并通过动作映射消费输入。运行命令需要从仓库根目录执行，使默认资产根 `assets`
-可见；示例的 Mesh v2、Material v2、Texture、Camera 和对象结构均来自
+更新 Camera Scene Node，并通过动作映射消费输入。运行命令需要从仓库根目录执行，使默认资产根
+`assets` 可见；示例的 Mesh v3、Material v2、Texture、Camera 和对象结构均来自
 `assets/scenes/temple.scene.json`。
 
 ## 验证结果

@@ -13,8 +13,8 @@ namespace {
 
 struct example_state {
   gneiss_world world = GNEISS_NULL_WORLD;
-  gneiss_scene_node_id rune_node = GNEISS_NULL_SCENE_NODE_ID;
-  gneiss_action rotate = GNEISS_NULL_ACTION;
+  gneiss_scene_node_id camera_node = GNEISS_NULL_SCENE_NODE_ID;
+  gneiss_action orbit = GNEISS_NULL_ACTION;
   gneiss_action quit = GNEISS_NULL_ACTION;
   double angle = 0.0;
 };
@@ -25,9 +25,9 @@ gneiss_result update_temple(gneiss_application application, const gneiss_frame_t
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
   auto* state = static_cast<example_state*>(user_data);
-  gneiss_action_state rotate = GNEISS_ACTION_STATE_INIT;
+  gneiss_action_state orbit = GNEISS_ACTION_STATE_INIT;
   gneiss_action_state quit = GNEISS_ACTION_STATE_INIT;
-  if (gneiss_application_get_action_state(application, state->rotate, &rotate) != GNEISS_SUCCESS ||
+  if (gneiss_application_get_action_state(application, state->orbit, &orbit) != GNEISS_SUCCESS ||
       gneiss_application_get_action_state(application, state->quit, &quit) != GNEISS_SUCCESS) {
     return GNEISS_ERROR_INVALID_STATE;
   }
@@ -35,15 +35,20 @@ gneiss_result update_temple(gneiss_application application, const gneiss_frame_t
     return gneiss_application_request_exit(application);
   }
   constexpr double nanoseconds_per_second = 1'000'000'000.0;
-  state->angle += static_cast<double>(time->delta_ns) / nanoseconds_per_second * rotate.value;
-  const auto half_angle = state->angle * 0.5;
+  state->angle += static_cast<double>(time->delta_ns) / nanoseconds_per_second * orbit.value;
+  constexpr double radius = 6.0;
+  constexpr double height = 2.3;
+  const auto yaw_half = state->angle * 0.5;
+  const auto pitch_half = std::atan2(-height, radius) * 0.5;
   gneiss_transform transform = GNEISS_TRANSFORM_IDENTITY;
-  transform.translation[2] = 0.1F;
-  transform.rotation[2] = static_cast<float>(std::sin(half_angle));
-  transform.rotation[3] = static_cast<float>(std::cos(half_angle));
-  transform.scale[0] = 0.9F;
-  transform.scale[1] = 0.9F;
-  return gneiss_scene_node_set_local_transform(state->world, state->rune_node, &transform);
+  transform.translation[0] = static_cast<float>(std::sin(state->angle) * radius);
+  transform.translation[1] = static_cast<float>(height);
+  transform.translation[2] = static_cast<float>(std::cos(state->angle) * radius);
+  transform.rotation[0] = static_cast<float>(std::cos(yaw_half) * std::sin(pitch_half));
+  transform.rotation[1] = static_cast<float>(std::sin(yaw_half) * std::cos(pitch_half));
+  transform.rotation[2] = static_cast<float>(-std::sin(yaw_half) * std::sin(pitch_half));
+  transform.rotation[3] = static_cast<float>(std::cos(yaw_half) * std::cos(pitch_half));
+  return gneiss_scene_node_set_local_transform(state->world, state->camera_node, &transform);
 }
 
 } // namespace
@@ -55,7 +60,7 @@ int main(int argc, char** argv) {
   constexpr std::string_view asset_root = "assets";
   constexpr std::string_view scene_uri = "asset://scenes/temple.scene.json";
   constexpr std::string_view input_map_uri = "asset://input/default.input-map.json";
-  constexpr std::string_view rune_uuid = "10000000-0000-4000-8000-000000000008";
+  constexpr std::string_view camera_uuid = "10000000-0000-4000-8000-000000000002";
   gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
   desc.user_data = &state;
   desc.update = update_temple;
@@ -74,11 +79,11 @@ int main(int argc, char** argv) {
   if (gneiss_scene_instance_load(application.get(), scene_uri.data(), scene_uri.size(), &scene) !=
           GNEISS_SUCCESS ||
       gneiss::load_action_map(application.get(), input_map_uri) != gneiss::result::success ||
-      gneiss::find_action(application.get(), "move_horizontal", state.rotate) !=
+      gneiss::find_action(application.get(), "move_horizontal", state.orbit) !=
           gneiss::result::success ||
       gneiss::find_action(application.get(), "quit", state.quit) != gneiss::result::success ||
-      gneiss_scene_instance_find_node(application.get(), scene, rune_uuid.data(), rune_uuid.size(),
-                                      &state.rune_node) != GNEISS_SUCCESS) {
+      gneiss_scene_instance_find_node(application.get(), scene, camera_uuid.data(),
+                                      camera_uuid.size(), &state.camera_node) != GNEISS_SUCCESS) {
     return 2;
   }
   if (application.run(smoke ? 3U : 0U) != gneiss::result::success) {

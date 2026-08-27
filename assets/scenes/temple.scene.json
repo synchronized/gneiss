@@ -6,74 +6,56 @@
     {
       "uuid": "10000000-0000-4000-8000-000000000002",
       "parent": null,
-      "transform": {"translation": [0, 0, 3.5], "rotation": [0, 0, 0, 1], "scale": [1, 1, 1]},
-      "components": {"camera": {"vertical_field_of_view_radians": 1.04719755, "near_plane": 0.1, "far_plane": 1000, "primary": true}}
+      "transform": {"translation": [0, 2.3, 6], "rotation": [-0.18131, 0, 0, 0.983426], "scale": [1, 1, 1]},
+      "components": {"camera": {"vertical_field_of_view_radians": 1.04719755, "near_plane": 0.1, "far_plane": 100, "primary": true}}
     },
     {
       "uuid": "10000000-0000-4000-8000-000000000003",
       "parent": null,
-      "transform": {"translation": [0, 0, -0.3], "rotation": [0, 0, 0, 1], "scale": [3.8, 2.5, 1]},
-      "components": {"mesh_renderer": {"mesh": "asset://models/temple-quad.mesh.json", "material": "asset://materials/temple-ground.material.json"}}
+      "transform": {"translation": [0, -1.15, 0], "rotation": [0, 0, 0, 1], "scale": [8, 0.3, 8]},
+      "components": {"mesh_renderer": {"mesh": "asset://models/temple-box.mesh.json", "material": "asset://materials/temple-ground.material.json"}}
     },
     {
       "uuid": "10000000-0000-4000-8000-000000000004",
       "parent": null,
-      "transform": {"translation": [-1.25, 0, -0.2], "rotation": [0, 0, 0, 1], "scale": [0.42, 2.05, 1]},
-      "components": {"mesh_renderer": {"mesh": "asset://models/temple-quad.mesh.json", "material": "asset://materials/temple-stone.material.json"}}
+      "transform": {"translation": [-2, 0.2, 0], "rotation": [0, 0, 0, 1], "scale": [0.7, 2.5, 0.7]},
+      "components": {"mesh_renderer": {"mesh": "asset://models/temple-box.mesh.json", "material": "asset://materials/temple-stone.material.json"}}
     },
     {
       "uuid": "10000000-0000-4000-8000-000000000005",
       "parent": null,
-      "transform": {"translation": [1.25, 0, -0.2], "rotation": [0, 0, 0, 1], "scale": [0.42, 2.05, 1]},
-      "components": {"mesh_renderer": {"mesh": "asset://models/temple-quad.mesh.json", "material": "asset://materials/temple-stone.material.json"}}
+      "transform": {"translation": [2, 0.2, 0], "rotation": [0, 0, 0, 1], "scale": [0.7, 2.5, 0.7]},
+      "components": {"mesh_renderer": {"mesh": "asset://models/temple-box.mesh.json", "material": "asset://materials/temple-stone.material.json"}}
     },
     {
       "uuid": "10000000-0000-4000-8000-000000000006",
       "parent": null,
-      "transform": {"translation": [0, 0.9, -0.18], "rotation": [0, 0, 0, 1], "scale": [2.9, 0.35, 1]},
-      "components": {"mesh_renderer": {"mesh": "asset://models/temple-quad.mesh.json", "material": "asset://materials/temple-stone.material.json"}}
+      "transform": {"translation": [0, 1.75, 0], "rotation": [0, 0, 0, 1], "scale": [5, 0.6, 0.9]},
+      "components": {"mesh_renderer": {"mesh": "asset://models/temple-box.mesh.json", "material": "asset://materials/temple-stone.material.json"}}
     },
     {
       "uuid": "10000000-0000-4000-8000-000000000007",
       "parent": null,
-      "transform": {"translation": [0, -0.85, -0.18], "rotation": [0, 0, 0, 1], "scale": [3.1, 0.3, 1]},
-      "components": {"mesh_renderer": {"mesh": "asset://models/temple-quad.mesh.json", "material": "asset://materials/temple-stone.material.json"}}
+      "transform": {"translation": [0, -0.45, 0], "rotation": [0, 0, 0, 1], "scale": [2.2, 1.2, 1.6]},
+      "components": {"mesh_renderer": {"mesh": "asset://models/temple-box.mesh.json", "material": "asset://materials/temple-moss.material.json"}}
     },
     {
       "uuid": "10000000-0000-4000-8000-000000000008",
       "parent": null,
-      "transform": {"translation": [0, 0, 0.1], "rotation": [0, 0, 0, 1], "scale": [0.9, 0.9, 1]},
-      "components": {"mesh_renderer": {"mesh": "asset://models/temple-rune.mesh.json", "material": "asset://materials/temple-rune.material.json"}}
+      "transform": {"translation": [0, -0.25, 0.86], "rotation": [0, 0, 0, 1], "scale": [1.25, 1.25, 0.12]},
+      "components": {"mesh_renderer": {"mesh": "asset://models/temple-box.mesh.json", "material": "asset://materials/temple-rune.material.json"}}
     },
     {
       "uuid": "10000000-0000-4000-8000-000000000009",
       "parent": null,
-      "transform": {"translation": [-0.82, 0.18, -0.08], "rotation": [0, 0, 0, 1], "scale": [0.38, 0.68, 1]},
-      "components": {"mesh_renderer": {"mesh": "asset://models/temple-quad.mesh.json", "material": "asset://materials/temple-rune.material.json"}}
+      "transform": {"translation": [-1.25, -0.7, 1.3], "rotation": [0, 0.258819, 0, 0.965926], "scale": [0.8, 0.8, 0.8]},
+      "components": {"mesh_renderer": {"mesh": "asset://models/temple-box.mesh.json", "material": "asset://materials/temple-stone.material.json"}}
     },
     {
       "uuid": "10000000-0000-4000-8000-00000000000a",
       "parent": null,
-      "transform": {"translation": [0.82, 0.18, -0.08], "rotation": [0, 0, 0, 1], "scale": [0.38, 0.68, 1]},
-      "components": {"mesh_renderer": {"mesh": "asset://models/temple-quad.mesh.json", "material": "asset://materials/temple-rune.material.json"}}
-    },
-    {
-      "uuid": "10000000-0000-4000-8000-00000000000b",
-      "parent": null,
-      "transform": {"translation": [-1.55, -0.8, 0.02], "rotation": [0, 0, 0.12, 0.99277389], "scale": [0.62, 0.5, 1]},
-      "components": {"mesh_renderer": {"mesh": "asset://models/temple-rock.mesh.json", "material": "asset://materials/temple-stone.material.json"}}
-    },
-    {
-      "uuid": "10000000-0000-4000-8000-00000000000c",
-      "parent": null,
-      "transform": {"translation": [1.58, -0.76, 0.02], "rotation": [0, 0, -0.18, 0.983666], "scale": [0.72, 0.58, 1]},
-      "components": {"mesh_renderer": {"mesh": "asset://models/temple-rock.mesh.json", "material": "asset://materials/temple-stone.material.json"}}
-    },
-    {
-      "uuid": "10000000-0000-4000-8000-00000000000d",
-      "parent": null,
-      "transform": {"translation": [0, -1.05, 0.04], "rotation": [0, 0, 0, 1], "scale": [0.2, 0.16, 1]},
-      "components": {"mesh_renderer": {"mesh": "asset://models/temple-rock.mesh.json", "material": "asset://materials/temple-untextured.material.json"}}
+      "transform": {"translation": [1.35, -0.6, -1.1], "rotation": [0, -0.382683, 0, 0.92388], "scale": [1, 1.1, 0.9]},
+      "components": {"mesh_renderer": {"mesh": "asset://models/temple-box.mesh.json", "material": "asset://materials/temple-untextured.material.json"}}
     }
   ]
 }
