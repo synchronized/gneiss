@@ -13,6 +13,14 @@
 | libspng | 0.7.4 | <https://github.com/randy408/libspng/tree/v0.7.4> | BSD-2-Clause | PNG 内存解码 |
 | miniz | 3.1.2 | <https://github.com/richgel999/miniz/tree/3.1.2> | MIT | libspng 的 Deflate 实现 |
 
+工具构建还会通过 CMake FetchContent 下载以下锁定依赖，不写入本目录，也不进入 Runtime 或安装
+package：
+
+| 依赖 | 版本/提交 | 许可证 | 用途 |
+| --- | --- | --- | --- |
+| fastgltf | v0.9.0 / `0d1b67a28c4950ea2deb796702006dcbe31e02b3` | MIT | glTF 2.0/GLB 离线解析 |
+| simdjson | 3.12.3（fastgltf 随附） | Apache-2.0 | fastgltf 的 JSON 解析实现 |
+
 第三方源码通过 Git submodule 锁定。首次检出仓库后执行：
 
 ```sh

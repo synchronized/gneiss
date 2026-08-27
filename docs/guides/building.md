@@ -39,6 +39,18 @@ ctest --preset windows-clang-debug
 
 Linux 可选择 `linux-clang-debug` 或 `linux-gcc-debug`，可执行文件不带 `.exe` 后缀。
 
+### 构建资产工具
+
+顶层构建默认启用离线工具，也可通过 `GNEISS_BUILD_TOOLS=ON/OFF` 显式控制。启用后会在构建目录
+下载并静态构建锁定的 fastgltf 与 simdjson，不会把二者传播给 Runtime 或安装 package。当前可用
+的首个检查命令为：
+
+```powershell
+./build/windows-clang-debug/bin/gneiss_assetc.exe inspect ./tests/data/gltf/static_triangle.gltf
+```
+
+该命令验证静态 glTF 的基础能力边界并输出场景摘要；资产转换与写出将在 TOOL-001 后续阶段实现。
+
 ### 安装并通过 CMake package 使用
 
 构建后可将库、公共头文件、CMake package 和示例资产安装到同一前缀：

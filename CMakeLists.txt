@@ -13,6 +13,7 @@ project(
 option(BUILD_SHARED_LIBS "构建共享库" ON)
 option(GNEISS_BUILD_TESTING "构建 Gneiss 测试" ON)
 option(GNEISS_BUILD_EXAMPLES "构建 Gneiss 示例" ${PROJECT_IS_TOP_LEVEL})
+option(GNEISS_BUILD_TOOLS "构建 Gneiss 离线工具" ${PROJECT_IS_TOP_LEVEL})
 option(GNEISS_ENABLE_GRANIT_PLATFORM "启用 Granit Window 平台适配" OFF)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
@@ -25,6 +26,11 @@ include(CTest)
 
 add_subdirectory(3rd)
 add_subdirectory(src)
+if(GNEISS_BUILD_TOOLS)
+  include(fastgltf)
+  gneiss_resolve_fastgltf()
+  add_subdirectory(tools)
+endif()
 
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
