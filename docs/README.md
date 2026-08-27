@@ -80,6 +80,7 @@
 
 ## 实施与验收记录
 
+- [glTF 资产链与渲染优化最终验收记录](records/2026-08-27-gltf-pipeline-final-validation.md)
 - [TOOL-001：glTF 资产编译器验收记录](records/TOOL-001-gltf-asset-compiler.md)
 - [TOOL-002：Mesh Binary v1 实施记录](records/TOOL-002-mesh-binary-v1.md)
 - [TOOL-003：索引渲染实施记录](records/TOOL-003-indexed-rendering.md)

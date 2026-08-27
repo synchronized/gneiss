@@ -7,6 +7,12 @@
 
 ## 未发布
 
+- 增加基于 fastgltf 的离线 glTF/GLB 资产编译器，支持确定性、事务式输出和多 Primitive 拆分。
+- 增加版本化 Mesh Binary v1、资产检查命令及运行时二进制加载路径，运行时不依赖 fastgltf。
+- 增加 CC0 Lantern Gallery 导入场景，并将索引数据从导入、存储一直保留到 Granit Indexed Draw。
+- Granit 接入升级至 `0.4.0`，使用动态 Uniform Offset 和设备限制查询管理逐对象数据。
+- 将静态 Mesh 打包到持久 GPU 几何 Arena，同一 Mesh 的多个实例复用几何数据。
+
 ## 0.5.0 - 2026-08-27
 
 - 增加版本化 Camera、活动 Camera 管理、右手视图与 Vulkan 透视投影约定。
