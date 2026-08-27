@@ -29,7 +29,8 @@ Runtime Mesh 优先使用二进制；旧 Mesh、Material 与 Texture 描述使�
 
 顶点按 Position Float3、UV Float2、Normal Float3 交错排列，共 32 字节。随后填充到 16 字节边界，
 再保存 UInt32 索引。v1 只支持三角形列表、有限 Float32 和单位法线；Decoder 必须在分配或读取前验证
-版本、数量乘法、Offset、区域重叠、文件边界、AABB 和索引范围。
+版本、数量乘法、Offset、区域重叠、文件边界、AABB 和索引范围。Runtime Loader 将唯一顶点与索引
+直接交给 Render Service；Granit 后端通过 Index Buffer 绘制，不再展开为重复顶点。
 
 `gneiss_assetc inspect` 输出摘要，`validate` 只校验，`dump <file> --format json` 按需生成完整 Debug
 JSON。Debug JSON 的格式标识为 `gneiss.mesh.debug`，不是 Runtime 输入。

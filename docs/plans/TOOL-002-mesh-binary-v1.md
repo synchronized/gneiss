@@ -46,5 +46,5 @@
 
 ## 风险与未决问题
 
-- Loader 当前仍按索引展开顶点；真正减少 CPU/GPU 内存需后续扩展 Render Service。
+- Loader 与 Render Service 已由 [TOOL-003](TOOL-003-indexed-rendering.md) 贯通索引绘制。
 - v2 是否增加切线、子网格或 UInt16 索引，由后续 PBR 与实际资产统计决定。

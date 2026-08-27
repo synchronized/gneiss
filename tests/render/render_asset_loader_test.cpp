@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "asset/file_system.h"
+#include "asset/mesh_binary.h"
 #include "asset/resource_cache.h"
 #include "asset/virtual_file_system.h"
 #include "render/render_asset_loader.h"
@@ -9,9 +10,11 @@
 
 #include <gneiss/core/result.h>
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -43,10 +46,48 @@ public:
   }
 };
 
+void add_indexed_mesh(memory_file_system& memory) {
+  gneiss::asset_internal::mesh_binary_data data{.vertices = {{.position = {-0.5F, -0.5F, 0.0F},
+                                                              .texcoord = {0.0F, 0.0F},
+                                                              .normal = {0.0F, 0.0F, 1.0F}},
+                                                             {.position = {0.5F, -0.5F, 0.0F},
+                                                              .texcoord = {1.0F, 0.0F},
+                                                              .normal = {0.0F, 0.0F, 1.0F}},
+                                                             {.position = {0.5F, 0.5F, 0.0F},
+                                                              .texcoord = {1.0F, 1.0F},
+                                                              .normal = {0.0F, 0.0F, 1.0F}},
+                                                             {.position = {-0.5F, 0.5F, 0.0F},
+                                                              .texcoord = {0.0F, 1.0F},
+                                                              .normal = {0.0F, 0.0F, 1.0F}}},
+                                                .indices = {0U, 1U, 2U, 0U, 2U, 3U}};
+  std::vector<std::byte> bytes;
+  gneiss::asset_internal::mesh_binary_diagnostic diagnostic;
+  if (gneiss::asset_internal::encode_mesh_binary(data, bytes, diagnostic) !=
+      gneiss::asset_internal::mesh_binary_result::success) {
+    throw std::runtime_error{"无法创建索引 Mesh 测试数据"};
+  }
+  memory.files.emplace("models/indexed.gneiss-mesh",
+                       std::string(reinterpret_cast<const char*>(bytes.data()), bytes.size()));
+}
+
+[[nodiscard]] bool
+indexed_mesh_is_preserved(gneiss::render_internal::render_asset_loader& loader,
+                          const gneiss::render_internal::render_resource_service& resources) {
+  gneiss::render_internal::mesh_asset_lease mesh;
+  gneiss::render_internal::asset_diagnostic diagnostic;
+  if (loader.acquire_mesh("asset://models/indexed.gneiss-mesh", mesh, diagnostic) !=
+      GNEISS_SUCCESS) {
+    return false;
+  }
+  const auto* resource = resources.get_mesh(mesh.get());
+  return resource != nullptr && resource->vertices.size() == 4U && resource->normals.size() == 4U &&
+         resource->indices.size() == 6U && resource->indices[5] == 3U;
+}
+
 } // namespace
 
-int main() try {
-  static constexpr std::uint8_t png_bytes[] = {
+int main() try { // NOLINT(readability-function-cognitive-complexity)：集成测试按返回码定位阶段。
+  static constexpr std::array<std::uint8_t, 68> png_bytes = {
       0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x48,
       0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x04, 0x00, 0x00,
       0x00, 0xb5, 0x1c, 0x0c, 0x02, 0x00, 0x00, 0x00, 0x0b, 0x49, 0x44, 0x41, 0x54, 0x78,
@@ -59,7 +100,7 @@ int main() try {
   memory->files.emplace("materials/default.material.json",
                         R"({"format":"gneiss.material","version":1,"color":[0.25,0.5,0.75,1]})");
   memory->files.emplace("models/broken.mesh.json", "{");
-  const std::string png_data(reinterpret_cast<const char*>(png_bytes), sizeof(png_bytes));
+  const std::string png_data(reinterpret_cast<const char*>(png_bytes.data()), png_bytes.size());
   memory->files.emplace("textures/white.png", png_data);
   memory->files.emplace(
       "textures/white.texture.json",
@@ -79,6 +120,7 @@ int main() try {
   memory->files.emplace(
       "materials/textured.material.json",
       R"({"format":"gneiss.material","version":2,"color":[1,0.5,0.25,1],"base_color_texture":"asset://textures/white.texture.json"})");
+  add_indexed_mesh(*memory);
 
   gneiss::asset_internal::virtual_file_system file_system;
   gneiss::asset_internal::resource_cache cache;
@@ -184,6 +226,9 @@ int main() try {
                           diagnostic) != GNEISS_ERROR_INVALID_ARGUMENT ||
       diagnostic.path != "/normals/0") {
     return 14;
+  }
+  if (!indexed_mesh_is_preserved(loader, resources)) {
+    return 15;
   }
 
   first_mesh = {};

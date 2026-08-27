@@ -25,9 +25,9 @@
 
 ## 影响
 
-Mesh 文件可保留索引并避免 Runtime JSON 解析。当前 Render API 尚无索引 Buffer，Loader 会在创建
-RID 前展开索引；后续增加索引绘制不需要改变 Mesh Binary v1。旧 `.mesh.json` 继续兼容，用于已有
-示例、测试和人工创作，但离线导入默认生成 `.gneiss-mesh`。
+Mesh 文件可保留索引并避免 Runtime JSON 解析。索引渲染边界后续由
+[ADR-015](ADR-015-indexed-rendering-boundary.md) 确立，不需要改变 Mesh Binary v1。旧
+`.mesh.json` 继续兼容，用于已有示例、测试和人工创作，但离线导入默认生成 `.gneiss-mesh`。
 
 ## 替代方案
 

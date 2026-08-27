@@ -59,6 +59,7 @@ private:
   std::uint32_t depth_width_{};
   std::uint32_t depth_height_{};
   std::array<std::vector<granit::buffer>, 3> frame_vertex_buffers_;
+  std::array<std::vector<granit::buffer>, 3> frame_index_buffers_;
   std::uint64_t frame_index_{};
 };
 

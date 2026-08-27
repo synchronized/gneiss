@@ -73,7 +73,18 @@ typedef struct gneiss_mesh_desc_version_1 {
   uint32_t reserved;
 } gneiss_mesh_desc_version_1;
 
-/** Mesh 创建参数。调用期间复制 vertices 与可选 normals，调用方保留其所有权。 */
+/** Mesh v2 创建参数布局，用于兼容已发布的可选法线描述。 */
+typedef struct gneiss_mesh_desc_version_2 {
+  uint32_t struct_size;
+  uint32_t vertex_count;
+  const gneiss_mesh_vertex* vertices;
+  uint32_t reserved;
+  uint32_t reserved_2;
+  uint32_t normal_count;
+  const gneiss_mesh_normal* normals;
+} gneiss_mesh_desc_version_2;
+
+/** Mesh 创建参数。调用期间复制顶点、可选法线与可选索引，调用方保留其所有权。 */
 typedef struct gneiss_mesh_desc {
   uint32_t struct_size;
   uint32_t vertex_count;
@@ -82,14 +93,21 @@ typedef struct gneiss_mesh_desc {
   uint32_t reserved_2;
   uint32_t normal_count;
   const gneiss_mesh_normal* normals;
+  uint32_t index_count;
+  uint32_t reserved_3;
+  const uint32_t* indices;
 } gneiss_mesh_desc;
 
 #define GNEISS_MESH_DESC_VERSION_1_SIZE ((uint32_t)sizeof(gneiss_mesh_desc_version_1))
+#define GNEISS_MESH_DESC_VERSION_2_SIZE ((uint32_t)sizeof(gneiss_mesh_desc_version_2))
 #define GNEISS_MESH_DESC_INIT                                                                      \
   {(uint32_t)sizeof(gneiss_mesh_desc),                                                             \
    UINT32_C(0),                                                                                    \
    NULL,                                                                                           \
    UINT32_C(0),                                                                                    \
+   UINT32_C(0),                                                                                    \
+   UINT32_C(0),                                                                                    \
+   NULL,                                                                                           \
    UINT32_C(0),                                                                                    \
    UINT32_C(0),                                                                                    \
    NULL}

@@ -60,7 +60,7 @@ Gneiss 运行时可加载的资产，并用现有渲染示例验证结果。
 
 ## 风险与未决问题
 
-- 导入产物已通过 Mesh Binary v1 保留索引；当前 Render Service 尚无索引 Buffer，Loader 创建 RID
-  前仍会临时展开，后续由渲染接口演进解决。
+- 导入产物已通过 Mesh Binary v1 保留索引，并由 [TOOL-003](TOOL-003-indexed-rendering.md) 贯通
+  Render Service 与 Granit Indexed Draw。
 - 纹理复制、命名冲突和增量缓存策略先通过 fixture 验证，不在首版建立全局资产数据库。
 - 编辑器进程协议和公共 SDK 留待编辑器宿主计划出现真实调用需求后决定。

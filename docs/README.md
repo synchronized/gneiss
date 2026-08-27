@@ -57,6 +57,7 @@
 - [VER-005：0.5.0 基础 3D 场景闭环](plans/VER-005-0.5.0-basic-3d-slice.md)
 - [TOOL-001：glTF 资产编译器最小闭环](plans/TOOL-001-gltf-asset-compiler.md)
 - [TOOL-002：Mesh Binary v1 最小闭环](plans/TOOL-002-mesh-binary-v1.md)
+- [TOOL-003：索引渲染最小闭环](plans/TOOL-003-indexed-rendering.md)
 
 ## 架构决策
 
@@ -75,8 +76,11 @@
 - [ADR-012：3D 坐标、Camera 与后端变换边界](decisions/ADR-012-3d-camera-coordinate-boundary.md)
 - [ADR-013：glTF 离线导入与工具边界](decisions/ADR-013-gltf-import-boundary.md)
 - [ADR-014：源资产、作者格式与 Runtime 二进制资产分层](decisions/ADR-014-runtime-asset-representation.md)
+- [ADR-015：索引 Mesh 与渲染后端边界](decisions/ADR-015-indexed-rendering-boundary.md)
 
 ## 实施与验收记录
+
+- [TOOL-003：索引渲染实施记录](records/TOOL-003-indexed-rendering.md)
 
 - [0.1.0 版本验收记录](records/0.1.0-validation.md)
 - [0.3.0 版本验收记录](records/0.3.0-validation.md)

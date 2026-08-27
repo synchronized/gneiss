@@ -20,3 +20,4 @@ Reference 和实现为准。
 - [ADR-012：3D 坐标、Camera 与后端变换边界](ADR-012-3d-camera-coordinate-boundary.md)
 - [ADR-013：glTF 离线导入与工具边界](ADR-013-gltf-import-boundary.md)
 - [ADR-014：源资产、作者格式与 Runtime 二进制资产分层](ADR-014-runtime-asset-representation.md)
+- [ADR-015：索引 Mesh 与渲染后端边界](ADR-015-indexed-rendering-boundary.md)
