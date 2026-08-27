@@ -39,11 +39,6 @@ gneiss_result granit_platform::initialize(const gneiss_application_desc& desc) n
   if (granit::failed(result)) {
     return map_result(result);
   }
-  result = input_system_.initialize(window_system_.native_handle());
-  if (granit::failed(result)) {
-    return map_result(result);
-  }
-
   std::uint32_t flags = 0;
   flags |= (desc.window_flags & GNEISS_APPLICATION_WINDOW_VISIBLE_BIT) != 0U
                ? GRANIT_WINDOW_VISIBLE_BIT
@@ -60,6 +55,10 @@ gneiss_result granit_platform::initialize(const gneiss_application_desc& desc) n
   result = window_.initialize(
       window_system_.native_handle(),
       {.title = title, .width = desc.window_width, .height = desc.window_height, .flags = flags});
+  if (granit::failed(result)) {
+    return map_result(result);
+  }
+  result = input_system_.initialize(window_system_.native_handle());
   if (granit::failed(result)) {
     return map_result(result);
   }
