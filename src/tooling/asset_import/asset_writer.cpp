@@ -86,7 +86,9 @@ void configure(std::ostream& stream) {
     return false;
   }
   configure(stream);
-  stream << "{\n  \"format\": \"gneiss.scene\",\n  \"version\": 1,\n  \"objects\": [\n";
+  stream << "{\n  \"format\": \"gneiss.scene\",\n  \"version\": 1,\n"
+            "  \"scene_uuid\": \"00000000-0000-4000-8000-000000000000\",\n"
+            "  \"objects\": [\n";
   for (std::size_t index = 0; index < data.nodes.size(); ++index) {
     const auto& node = data.nodes[index];
     stream << R"(    {"uuid": ")" << uuid_for(index) << R"(", "parent": )";

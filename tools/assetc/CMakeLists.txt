@@ -44,7 +44,9 @@ if(GNEISS_BUILD_TESTING AND BUILD_TESTING)
     "${PROJECT_SOURCE_DIR}/tests/tooling/asset_writer_test.cpp"
   )
   target_include_directories(gneiss_asset_writer_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
-  target_link_libraries(gneiss_asset_writer_test PRIVATE gneiss_asset_pipeline_internal)
+  target_link_libraries(
+    gneiss_asset_writer_test PRIVATE gneiss_asset_pipeline_internal gneiss::gneiss
+  )
   target_compile_definitions(
     gneiss_asset_writer_test
     PRIVATE GNEISS_TEST_GLTF_ROOT="${PROJECT_SOURCE_DIR}/tests/data/gltf"
@@ -53,6 +55,21 @@ if(GNEISS_BUILD_TESTING AND BUILD_TESTING)
   gneiss_target_compile_warnings(gneiss_asset_writer_test)
   gneiss_target_output_directories(gneiss_asset_writer_test)
   add_test(NAME gneiss.tooling.asset_writer COMMAND gneiss_asset_writer_test)
+
+  add_executable(
+    gneiss_gltf_container_test
+    "${PROJECT_SOURCE_DIR}/tests/tooling/gltf_container_test.cpp"
+  )
+  target_include_directories(gneiss_gltf_container_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+  target_link_libraries(gneiss_gltf_container_test PRIVATE gneiss_asset_pipeline_internal)
+  target_compile_definitions(
+    gneiss_gltf_container_test
+    PRIVATE GNEISS_TEST_GLTF_ROOT="${PROJECT_SOURCE_DIR}/tests/data/gltf"
+  )
+  target_compile_features(gneiss_gltf_container_test PRIVATE cxx_std_20)
+  gneiss_target_compile_warnings(gneiss_gltf_container_test)
+  gneiss_target_output_directories(gneiss_gltf_container_test)
+  add_test(NAME gneiss.tooling.gltf_container COMMAND gneiss_gltf_container_test)
 
   add_test(
     NAME gneiss.tooling.assetc_inspect

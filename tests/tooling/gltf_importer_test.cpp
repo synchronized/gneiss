@@ -76,9 +76,15 @@ int main() { // NOLINT(bugprone-exception-escape)
     return 9;
   }
 
+  const auto path_escape = asset_import::inspect_gltf(root / "path_escape.gltf");
+  if (path_escape.result != asset_import::inspect_result::invalid_source ||
+      path_escape.diagnostic.empty()) {
+    return 10;
+  }
+
   const auto empty = asset_import::inspect_gltf({});
   if (empty.result != asset_import::inspect_result::invalid_argument) {
-    return 10;
+    return 11;
   }
 
   return 0;

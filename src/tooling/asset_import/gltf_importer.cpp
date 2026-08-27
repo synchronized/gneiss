@@ -7,6 +7,7 @@
 #include <fastgltf/tools.hpp>
 #include <fastgltf/types.hpp>
 
+#include <algorithm>
 #include <cmath>
 #include <exception>
 #include <limits>
@@ -92,6 +93,29 @@ namespace {
         return fastgltf::MimeType::None;
       },
       image.data);
+}
+
+[[nodiscard]] bool safe_external_uri(const fastgltf::DataSource& source) {
+  const auto* uri_source = std::get_if<fastgltf::sources::URI>(&source);
+  if (uri_source == nullptr || uri_source->uri.isDataUri()) {
+    return true;
+  }
+  if (!uri_source->uri.isLocalPath()) {
+    return false;
+  }
+  const auto path = uri_source->uri.fspath();
+  if (path.empty() || path.is_absolute() || path.has_root_name() || path.has_root_directory()) {
+    return false;
+  }
+  const auto normalized = path.lexically_normal();
+  return std::ranges::none_of(normalized, [](const auto& component) { return component == ".."; });
+}
+
+[[nodiscard]] bool asset_uris_are_safe(const fastgltf::Asset& asset) {
+  return std::ranges::all_of(asset.buffers,
+                             [](const auto& buffer) { return safe_external_uri(buffer.data); }) &&
+         std::ranges::all_of(asset.images,
+                             [](const auto& image) { return safe_external_uri(image.data); });
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
@@ -354,6 +378,17 @@ inspect_report inspect_gltf(const std::filesystem::path& source_path) {
       return failure(inspect_result::source_unavailable,
                      read_failure_detail(fastgltf::getErrorMessage(source.error())));
     }
+
+    fastgltf::Parser preflight_parser;
+    auto preflight = preflight_parser.loadGltf(source.get(), source_path.parent_path());
+    if (preflight.error() != fastgltf::Error::None) {
+      return failure(inspect_result::invalid_source,
+                     parse_failure_detail(fastgltf::getErrorMessage(preflight.error())));
+    }
+    if (!asset_uris_are_safe(preflight.get())) {
+      return failure(inspect_result::invalid_source, "外部资源 URI 不能逃逸源文件目录");
+    }
+    source.get().reset();
 
     fastgltf::Parser parser;
     constexpr auto options = fastgltf::Options::LoadExternalBuffers |

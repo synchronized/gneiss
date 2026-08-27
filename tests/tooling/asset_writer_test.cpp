@@ -4,11 +4,17 @@
 #include "tooling/asset_import/asset_writer.h"
 #include "tooling/asset_import/gltf_importer.h"
 
+#include <gneiss/application.h>
+#include <gneiss/scene.h>
+#include <gneiss/world.h>
+
 #include <array>
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
 #include <string>
+#include <string_view>
 
 namespace {
 
@@ -41,6 +47,24 @@ int main() { // NOLINT(bugprone-exception-escape)
     if (read_file(first / file) != read_file(second / file) || read_file(first / file).empty()) {
       return 3;
     }
+  }
+  const auto asset_root = first.generic_string();
+  gneiss_application_desc description = GNEISS_APPLICATION_DESC_INIT;
+  description.asset_root = asset_root.data();
+  description.asset_root_length = static_cast<std::uint32_t>(asset_root.size());
+  gneiss_application application = GNEISS_NULL_APPLICATION;
+  gneiss_scene_instance scene = GNEISS_NULL_SCENE_INSTANCE;
+  gneiss_world world = GNEISS_NULL_WORLD;
+  std::uint64_t entity_count = 0;
+  constexpr std::string_view scene_uri = "asset://scenes/scene.scene.json";
+  if (gneiss_application_create(&description, &application) != GNEISS_SUCCESS ||
+      gneiss_application_get_world(application, &world) != GNEISS_SUCCESS ||
+      gneiss_scene_instance_load(application, scene_uri.data(), scene_uri.size(), &scene) !=
+          GNEISS_SUCCESS ||
+      gneiss_world_entity_count(world, &entity_count) != GNEISS_SUCCESS || entity_count != 1U ||
+      gneiss_scene_instance_unload(application, scene) != GNEISS_SUCCESS ||
+      gneiss_application_destroy(application) != GNEISS_SUCCESS) {
+    return 4;
   }
   std::filesystem::remove_all(root);
   return 0;
