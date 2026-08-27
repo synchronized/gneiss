@@ -22,9 +22,14 @@ domain。销毁、跨 Application 使用、类型混用或重复销毁均返回
 
 ## ECS 组件
 
-`gneiss_world_entity_set_camera` 设置或替换 Camera 组件。透视参数必须满足视场角位于 `0..π`、
-`near_plane > 0` 且 `far_plane > near_plane`。设置新的 primary Camera 时，同一 World 中原 primary
-Camera 会被取消；没有关联 Scene Node 的 Camera 不进入渲染快照。
+`gneiss_world_entity_configure_camera` 使用带 `struct_size` 的描述设置或替换 Camera 组件。透视参数
+必须满足视场角位于 `0..π`、`near_plane > 0` 且 `far_plane > near_plane`。活动 Camera 通过
+`gneiss_world_set_active_camera` 独立选择，每个 World 至多一个；移除或销毁活动 Camera 后，World
+进入无活动 Camera 状态。`gneiss_world_entity_set_camera` 保留用于兼容旧调用方。
+
+帧提取按值复制活动 Camera、世界 Transform、视图矩阵、投影矩阵和视口尺寸。没有关联 Scene Node
+的活动 Camera 不进入渲染快照；窗口尺寸为零时跳过渲染。内部矩阵遵循
+[ADR-012](../decisions/ADR-012-3d-camera-coordinate-boundary.md)，不进入公共 ABI。
 
 `gneiss_world_entity_set_mesh_renderer` 设置 Mesh Renderer 组件。组件只借用 Mesh 与 Material RID，
 不延长资源生命周期，也不保存 Granit 类型。实体必须关联 Scene Node 才会获得世界 Transform 并

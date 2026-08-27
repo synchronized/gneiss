@@ -64,13 +64,16 @@ gneiss_result commit_object(gneiss_world world, const object_description& source
     result = gneiss_scene_node_set_local_transform(world, target.node, &transform);
   }
   if (result == GNEISS_SUCCESS && source.camera) {
-    const gneiss_camera camera{
-        .vertical_field_of_view_radians = source.camera->vertical_field_of_view_radians,
-        .near_plane = source.camera->near_plane,
-        .far_plane = source.camera->far_plane,
-        .is_primary = static_cast<std::uint8_t>(source.camera->is_primary ? 1U : 0U),
-        .reserved = {0, 0, 0}};
-    result = gneiss_world_entity_set_camera(world, target.entity, &camera);
+    const gneiss_camera_desc camera{.struct_size = sizeof(gneiss_camera_desc),
+                                    .reserved = 0U,
+                                    .vertical_field_of_view_radians =
+                                        source.camera->vertical_field_of_view_radians,
+                                    .near_plane = source.camera->near_plane,
+                                    .far_plane = source.camera->far_plane};
+    result = gneiss_world_entity_configure_camera(world, target.entity, &camera);
+    if (result == GNEISS_SUCCESS && source.camera->is_primary) {
+      result = gneiss_world_set_active_camera(world, target.entity);
+    }
   }
   if (result == GNEISS_SUCCESS && source.mesh_renderer) {
     const gneiss_mesh_renderer renderer{.mesh = target.mesh.get(),

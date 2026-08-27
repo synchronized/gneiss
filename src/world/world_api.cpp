@@ -44,6 +44,14 @@ gneiss_result validate_world_thread(gneiss::world_internal::world_state* world) 
   return world->is_owner_thread() ? GNEISS_SUCCESS : GNEISS_ERROR_INVALID_STATE;
 }
 
+bool is_valid_camera(float vertical_field_of_view_radians, float near_plane,
+                     float far_plane) noexcept {
+  return std::isfinite(vertical_field_of_view_radians) && std::isfinite(near_plane) &&
+         std::isfinite(far_plane) && vertical_field_of_view_radians > 0.0F &&
+         vertical_field_of_view_radians < std::numbers::pi_v<float> && near_plane > 0.0F &&
+         far_plane > near_plane;
+}
+
 } // namespace
 
 extern "C" gneiss_result gneiss_world_create(const gneiss_world_desc* desc,
@@ -170,11 +178,9 @@ extern "C" gneiss_result gneiss_world_entity_count(gneiss_world world, uint64_t*
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters): C ABI 参数均为不透明句柄，名称区分语义。
 extern "C" gneiss_result gneiss_world_entity_set_camera(gneiss_world world, gneiss_entity_id entity,
                                                         const gneiss_camera* camera) {
-  if (camera == nullptr || !std::isfinite(camera->vertical_field_of_view_radians) ||
-      !std::isfinite(camera->near_plane) || !std::isfinite(camera->far_plane) ||
-      camera->vertical_field_of_view_radians <= 0.0F ||
-      camera->vertical_field_of_view_radians >= std::numbers::pi_v<float> ||
-      camera->near_plane <= 0.0F || camera->far_plane <= camera->near_plane ||
+  if (camera == nullptr ||
+      !is_valid_camera(camera->vertical_field_of_view_radians, camera->near_plane,
+                       camera->far_plane) ||
       camera->is_primary > UINT8_C(1) || camera->reserved[0] != 0U || camera->reserved[1] != 0U ||
       camera->reserved[2] != 0U) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
@@ -190,14 +196,130 @@ extern "C" gneiss_result gneiss_world_entity_set_camera(gneiss_world world, gnei
     if (!state->is_alive(entity)) {
       return GNEISS_ERROR_INVALID_HANDLE;
     }
-    if (camera->is_primary != 0U) {
-      state->each<gneiss::world_internal::camera_component>(
-          [](auto& component) { component.value.is_primary = UINT8_C(0); });
-    }
     state->emplace_or_replace<gneiss::world_internal::camera_component>(entity, *camera);
+    if (camera->is_primary != 0U) {
+      return state->set_active_camera(entity);
+    }
+    state->clear_active_camera(entity);
     return GNEISS_SUCCESS;
   } catch (const std::bad_alloc&) {
     return GNEISS_ERROR_OUT_OF_MEMORY;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters): C ABI 参数均为不透明句柄，名称区分语义。
+extern "C" gneiss_result gneiss_world_entity_configure_camera(gneiss_world world,
+                                                              gneiss_entity_id entity,
+                                                              const gneiss_camera_desc* desc) {
+  if (desc == nullptr || desc->struct_size < sizeof(gneiss_camera_desc) || desc->reserved != 0U ||
+      !is_valid_camera(desc->vertical_field_of_view_radians, desc->near_plane, desc->far_plane)) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  try {
+    auto& registry = get_world_registry();
+    const std::scoped_lock lock{registry.mutex};
+    auto* state = find_world(registry, world);
+    const auto thread_result = validate_world_thread(state);
+    if (thread_result != GNEISS_SUCCESS) {
+      return thread_result;
+    }
+    if (!state->is_alive(entity)) {
+      return GNEISS_ERROR_INVALID_HANDLE;
+    }
+    const gneiss_camera camera{
+        .vertical_field_of_view_radians = desc->vertical_field_of_view_radians,
+        .near_plane = desc->near_plane,
+        .far_plane = desc->far_plane,
+        .is_primary = static_cast<std::uint8_t>(state->active_camera() == entity ? 1U : 0U),
+        .reserved = {0, 0, 0}};
+    state->emplace_or_replace<gneiss::world_internal::camera_component>(entity, camera);
+    return GNEISS_SUCCESS;
+  } catch (const std::bad_alloc&) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters): C ABI 参数均为不透明句柄，名称区分语义。
+extern "C" gneiss_result gneiss_world_entity_get_camera(gneiss_world world, gneiss_entity_id entity,
+                                                        gneiss_camera_desc* out_camera) {
+  if (out_camera == nullptr || out_camera->struct_size < sizeof(gneiss_camera_desc)) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  try {
+    auto& registry = get_world_registry();
+    const std::scoped_lock lock{registry.mutex};
+    auto* state = find_world(registry, world);
+    const auto thread_result = validate_world_thread(state);
+    if (thread_result != GNEISS_SUCCESS) {
+      return thread_result;
+    }
+    if (!state->is_alive(entity)) {
+      return GNEISS_ERROR_INVALID_HANDLE;
+    }
+    const auto* component = state->get<gneiss::world_internal::camera_component>(entity);
+    if (component == nullptr) {
+      return GNEISS_ERROR_NOT_FOUND;
+    }
+    *out_camera = {.struct_size = sizeof(gneiss_camera_desc),
+                   .reserved = 0U,
+                   .vertical_field_of_view_radians =
+                       component->value.vertical_field_of_view_radians,
+                   .near_plane = component->value.near_plane,
+                   .far_plane = component->value.far_plane};
+    return GNEISS_SUCCESS;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters): C ABI 参数均为不透明句柄，名称区分语义。
+extern "C" gneiss_result gneiss_world_entity_remove_camera(gneiss_world world,
+                                                           gneiss_entity_id entity) {
+  try {
+    auto& registry = get_world_registry();
+    const std::scoped_lock lock{registry.mutex};
+    auto* state = find_world(registry, world);
+    const auto thread_result = validate_world_thread(state);
+    return thread_result == GNEISS_SUCCESS ? state->clear_camera(entity) : thread_result;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters): C ABI 参数均为不透明句柄，名称区分语义。
+extern "C" gneiss_result gneiss_world_set_active_camera(gneiss_world world,
+                                                        gneiss_entity_id entity) {
+  try {
+    auto& registry = get_world_registry();
+    const std::scoped_lock lock{registry.mutex};
+    auto* state = find_world(registry, world);
+    const auto thread_result = validate_world_thread(state);
+    return thread_result == GNEISS_SUCCESS ? state->set_active_camera(entity) : thread_result;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
+extern "C" gneiss_result gneiss_world_get_active_camera(gneiss_world world,
+                                                        gneiss_entity_id* out_entity) {
+  if (out_entity == nullptr) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  *out_entity = GNEISS_NULL_ENTITY_ID;
+  try {
+    auto& registry = get_world_registry();
+    const std::scoped_lock lock{registry.mutex};
+    auto* state = find_world(registry, world);
+    const auto thread_result = validate_world_thread(state);
+    if (thread_result != GNEISS_SUCCESS) {
+      return thread_result;
+    }
+    *out_entity = state->active_camera();
+    return *out_entity == GNEISS_NULL_ENTITY_ID ? GNEISS_ERROR_NOT_READY : GNEISS_SUCCESS;
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;
   }
@@ -231,7 +353,11 @@ gneiss_world_entity_set_mesh_renderer(gneiss_world world, gneiss_entity_id entit
   }
 }
 
+// World 句柄与视口尺寸均为定宽整数，参数名称明确表达不同语义。
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
 gneiss_result gneiss::world_internal::get_render_snapshot(gneiss_world world,
+                                                          std::uint32_t viewport_width,
+                                                          std::uint32_t viewport_height,
                                                           render_snapshot& out_snapshot) noexcept {
   try {
     auto& registry = get_world_registry();
@@ -241,7 +367,7 @@ gneiss_result gneiss::world_internal::get_render_snapshot(gneiss_world world,
     if (thread_result != GNEISS_SUCCESS) {
       return thread_result;
     }
-    return build_render_snapshot(*state, out_snapshot);
+    return build_render_snapshot(*state, viewport_width, viewport_height, out_snapshot);
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;
   }

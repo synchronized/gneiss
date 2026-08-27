@@ -63,6 +63,29 @@ public:
     return from_native(gneiss_world_entity_set_camera(handle_, entity.get(), &value));
   }
 
+  [[nodiscard]] result configure_camera(entity_id entity, const camera_desc& value) noexcept {
+    return from_native(gneiss_world_entity_configure_camera(handle_, entity.get(), &value));
+  }
+
+  [[nodiscard]] result get_camera(entity_id entity, camera_desc& out_camera) const noexcept {
+    return from_native(gneiss_world_entity_get_camera(handle_, entity.get(), &out_camera));
+  }
+
+  [[nodiscard]] result remove_camera(entity_id entity) noexcept {
+    return from_native(gneiss_world_entity_remove_camera(handle_, entity.get()));
+  }
+
+  [[nodiscard]] result set_active_camera(entity_id entity) noexcept {
+    return from_native(gneiss_world_set_active_camera(handle_, entity.get()));
+  }
+
+  [[nodiscard]] result get_active_camera(entity_id& out_entity) const noexcept {
+    gneiss_entity_id native_entity = GNEISS_NULL_ENTITY_ID;
+    const auto native_result = gneiss_world_get_active_camera(handle_, &native_entity);
+    out_entity = entity_id{native_entity};
+    return from_native(native_result);
+  }
+
   [[nodiscard]] result set_mesh_renderer(entity_id entity, const mesh_renderer& value) noexcept {
     return from_native(gneiss_world_entity_set_mesh_renderer(handle_, entity.get(), &value));
   }

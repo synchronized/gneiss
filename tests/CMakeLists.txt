@@ -239,6 +239,7 @@ add_test(NAME gneiss.world_state COMMAND gneiss_world_state_test)
 add_executable(
   gneiss_render_snapshot_test
   world/render_snapshot_test.cpp
+  "${PROJECT_SOURCE_DIR}/src/render/camera_math.cpp"
   "${PROJECT_SOURCE_DIR}/src/scene/scene_tree.cpp"
   "${PROJECT_SOURCE_DIR}/src/world/render_snapshot.cpp"
 )
