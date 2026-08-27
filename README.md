@@ -21,13 +21,13 @@
 Gneiss 分为逻辑层、ECS 数据层、服务层与后端层。场景树通过实体 ID 映射到 ECS，运行时系统再通过 RID 使用渲染、网络、音频和物理服务。
 
 项目解决的问题及与 Granit 的职责划分见[项目目标与边界](docs/concepts/project-scope.md)，完整的
-分层关系和技术方向见[总体架构](docs/concepts/architecture.md)。开发阶段与 `0.3.0` 当前重点见
+分层关系和技术方向见[总体架构](docs/concepts/architecture.md)。已完成阶段与后续方向见
 [开发路线图](docs/roadmap.md)。
 
 ## 开始使用
 
-当前工程提供 C11 公共接口、C++20 包装、Application、World、Scene Tree、最小 Render Service，
-以及 version 和旋转三角形示例。选择与平台匹配的 preset，例如：
+当前工程提供 C11 公共接口、C++20 包装、Application、World、Scene Tree、最小 Render Service、
+输入与动作映射、统一诊断，以及 version 和交互三角形示例。选择与平台匹配的 preset，例如：
 
 ```sh
 cmake --preset windows-clang-debug
