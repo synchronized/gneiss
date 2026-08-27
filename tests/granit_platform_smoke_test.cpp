@@ -5,6 +5,7 @@
 #include <gneiss/scene.h>
 
 #include <array>
+#include <cstdio>
 #include <string_view>
 
 int main() {
@@ -19,6 +20,7 @@ int main() {
   gneiss::application application;
   const auto create_result = gneiss::application::create(desc, application);
   if (create_result != gneiss::result::success) {
+    std::fprintf(stderr, "Application 创建失败：%d\n", gneiss::to_native(create_result));
     return 1;
   }
 
@@ -36,6 +38,7 @@ int main() {
   gneiss::material_id material;
   if (application.create_mesh(mesh_desc, mesh) != gneiss::result::success ||
       application.create_material(material_desc, material) != gneiss::result::success) {
+    std::fprintf(stderr, "测试资源创建失败\n");
     return 2;
   }
 
@@ -59,10 +62,12 @@ int main() {
           GNEISS_SUCCESS ||
       gneiss_world_entity_set_camera(world, camera_entity, &camera) != GNEISS_SUCCESS ||
       gneiss_world_entity_set_mesh_renderer(world, mesh_entity, &mesh_renderer) != GNEISS_SUCCESS) {
+    std::fprintf(stderr, "测试场景构造失败\n");
     return 3;
   }
   const auto run_result = application.run(3);
   if (run_result != gneiss::result::success) {
+    std::fprintf(stderr, "Application 运行失败：%d\n", gneiss::to_native(run_result));
     return 4;
   }
   if (application.destroy_mesh(mesh) != gneiss::result::success ||
