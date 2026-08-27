@@ -109,3 +109,14 @@ Gneiss 是基于 Granit 构建的现代 C++20 游戏引擎。项目采用 Scene 
    和剩余风险。
 9. 本地提交已获得持续授权；推送、创建或合并 Pull Request、手动触发或重跑 Actions 仍须按本
    工作流执行，并获得用户明确授权。已有外部操作授权只在其明确覆盖的任务范围内生效。
+
+## Granit 跨仓库协作
+
+- 当 Gneiss 的已确认需求缺少 Granit 的通用底层能力时，可以直接在 Granit 仓库建立聚焦分支、
+  实现并验证改动、推送分支和创建 Pull Request，不需要再次请求授权。
+- 提交 Granit 改动前必须确认能力具有后端或上层项目可复用性；Gneiss 的资产格式、RID、场景语义、
+  编辑器协议和项目专用 Shader 不得下沉到 Granit。
+- Granit 改动遵守其仓库内的 `AGENTS.md`、测试矩阵和 Pull Request 工作流；Gneiss 侧在依赖更新后
+  继续完成端到端验证。
+- 此持续授权只覆盖推送和创建 Granit Pull Request，不覆盖合并 Pull Request、发布版本以及手动
+  触发或重跑 Actions；这些操作仍需用户明确授权。
