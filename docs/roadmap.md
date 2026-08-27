@@ -90,7 +90,7 @@
 | M-26 Texture 契约与资源生命周期 | P0 | 已完成 |
 | M-27 图片解码 Spike 与 Texture Loader | P0 | 已完成 |
 | M-28 Mesh/Material v2 与依赖租约 | P0 | 已完成 |
-| M-29 Granit 纹理管线与 GPU 镜像 | P0 | 待开始 |
+| M-29 Granit 纹理管线与 GPU 镜像 | P0 | 已完成 |
 | M-30 纹理场景与版本验收 | P0 | 待开始 |
 | M-31 工具能力重新评估 | P1 | 待开始 |
 

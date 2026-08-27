@@ -34,8 +34,9 @@ Camera 会被取消；没有关联 Scene Node 的 Camera 不进入渲染快照�
 ## 当前渲染路径
 
 Granit 平台模式在每次 `update` 后提取 primary Camera、Scene Transform 和 Mesh Renderer。CPU
-生成本帧的位置与固定颜色顶点，Render Service 上传临时 Vertex Buffer，再通过内置 Shader 绘制
-Triangle List。按帧 Buffer 保留三个槽位，避免覆盖仍在飞行中的提交。
+生成本帧的位置、颜色与 UV 顶点，Render Service 上传临时 Vertex Buffer，并按 Material 绑定
+base-color Texture 后通过内置 Shader 绘制 Triangle List。无纹理 Material 使用默认白纹理；后端按
+Texture RID 缓存 GPU 镜像。按帧 Buffer 保留三个槽位，避免覆盖仍在飞行中的提交。
 
 当前路径用于验证 Application、World、Resource Service 与 Granit 的端到端边界，不是正式资产或
-渲染管线。暂不支持索引、纹理采样、光照、深度、剔除和异步上传。
+渲染管线。暂不支持索引、Mip、光照、深度、剔除和异步上传。

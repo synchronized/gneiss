@@ -13,6 +13,7 @@
 #include <granit/granit.hpp>
 
 #include <array>
+#include <unordered_map>
 #include <vector>
 
 namespace gneiss::application_internal {
@@ -25,7 +26,18 @@ public:
          const render_internal::render_resource_service& resources) noexcept;
 
 private:
+  struct texture_mirror final {
+    granit::texture texture;
+    granit::texture_view view;
+    granit::bind_group group;
+  };
+
   [[nodiscard]] granit::result initialize_pipeline(granit::texture_format format) noexcept;
+  [[nodiscard]] granit::result
+  create_texture_mirror(const render_internal::texture_resource& source,
+                        texture_mirror& output) noexcept;
+  [[nodiscard]] granit::result ensure_default_texture() noexcept;
+  void release_invalid_textures(const render_internal::render_resource_service& resources) noexcept;
 
   granit::renderer renderer_;
   granit::surface surface_;
@@ -33,8 +45,12 @@ private:
   granit::frame_context frame_context_;
   granit::shader vertex_shader_;
   granit::shader fragment_shader_;
+  granit::bind_group_layout texture_layout_;
   granit::pipeline_layout pipeline_layout_;
   granit::graphics_pipeline pipeline_;
+  granit::sampler sampler_;
+  texture_mirror default_texture_;
+  std::unordered_map<gneiss_texture, texture_mirror> texture_mirrors_;
   granit::texture_format swapchain_format_{granit::texture_format::undefined};
   std::array<std::vector<granit::buffer>, 3> frame_vertex_buffers_;
   std::uint64_t frame_index_{};
