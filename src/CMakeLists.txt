@@ -25,6 +25,8 @@ target_sources(
     asset/asset_uri.cpp
     asset/asset_uri.h
     asset/file_system.h
+    asset/mesh_binary.cpp
+    asset/mesh_binary.h
     asset/native_file_system.cpp
     asset/native_file_system.h
     asset/resource_cache.cpp

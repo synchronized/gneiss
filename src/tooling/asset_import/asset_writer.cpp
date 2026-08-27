@@ -3,6 +3,8 @@
 
 #include "tooling/asset_import/asset_writer.h"
 
+#include "asset/mesh_binary.h"
+
 #include <fstream>
 #include <iomanip>
 #include <limits>
@@ -26,7 +28,8 @@ void configure(std::ostream& stream) {
 }
 
 [[nodiscard]] std::string mesh_name(std::size_t mesh, std::size_t primitive) {
-  return "mesh-" + std::to_string(mesh) + "-primitive-" + std::to_string(primitive) + ".mesh.json";
+  return "mesh-" + std::to_string(mesh) + "-primitive-" + std::to_string(primitive) +
+         ".gneiss-mesh";
 }
 
 [[nodiscard]] std::string material_name(const import_ir_primitive& primitive) {
@@ -37,31 +40,27 @@ void configure(std::ostream& stream) {
 
 [[nodiscard]] bool write_mesh(const import_ir_primitive& primitive,
                               const std::filesystem::path& path) {
+  asset_internal::mesh_binary_data data;
+  data.vertices.reserve(primitive.vertices.size());
+  data.indices = primitive.indices;
+  for (const auto& source : primitive.vertices) {
+    data.vertices.push_back(
+        {.position = {source.position[0], source.position[1], source.position[2]},
+         .texcoord = {source.texcoord[0], source.texcoord[1]},
+         .normal = {source.normal[0], source.normal[1], source.normal[2]}});
+  }
+  std::vector<std::byte> bytes;
+  asset_internal::mesh_binary_diagnostic diagnostic;
+  if (asset_internal::encode_mesh_binary(data, bytes, diagnostic) !=
+      asset_internal::mesh_binary_result::success) {
+    return false;
+  }
   std::ofstream stream(path, std::ios::binary | std::ios::trunc);
   if (!stream) {
     return false;
   }
-  configure(stream);
-  stream << "{\n  \"format\": \"gneiss.mesh\",\n  \"version\": 3,\n"
-            "  \"topology\": \"triangle_list\",\n  \"vertices\": [\n";
-  for (std::size_t index = 0; index < primitive.indices.size(); ++index) {
-    const auto& vertex = primitive.vertices[primitive.indices[index]];
-    stream << "    [" << vertex.position[0] << ',' << vertex.position[1] << ','
-           << vertex.position[2] << ']' << (index + 1U == primitive.indices.size() ? "\n" : ",\n");
-  }
-  stream << "  ],\n  \"uvs\": [\n";
-  for (std::size_t index = 0; index < primitive.indices.size(); ++index) {
-    const auto& vertex = primitive.vertices[primitive.indices[index]];
-    stream << "    [" << vertex.texcoord[0] << ',' << vertex.texcoord[1] << ']'
-           << (index + 1U == primitive.indices.size() ? "\n" : ",\n");
-  }
-  stream << "  ],\n  \"normals\": [\n";
-  for (std::size_t index = 0; index < primitive.indices.size(); ++index) {
-    const auto& vertex = primitive.vertices[primitive.indices[index]];
-    stream << "    [" << vertex.normal[0] << ',' << vertex.normal[1] << ',' << vertex.normal[2]
-           << ']' << (index + 1U == primitive.indices.size() ? "\n" : ",\n");
-  }
-  stream << "  ]\n}\n";
+  stream.write(reinterpret_cast<const char*>(bytes.data()),
+               static_cast<std::streamsize>(bytes.size()));
   return stream.good();
 }
 

@@ -39,7 +39,7 @@
 - [资产 URI、目录挂载与缓存](reference/assets.md)
 - [场景文件格式 v1](reference/scene-format.md)
 - [场景加载、实例与卸载](reference/scene-instance.md)
-- [Mesh 与 Material 资产格式 v1](reference/render-asset-formats.md)
+- [Mesh Binary、JSON Mesh 与 Material 资产格式](reference/render-asset-formats.md)
 
 ## 架构与原理
 
@@ -56,6 +56,7 @@
 - [VER-004：0.4.0 纹理与材质闭环](plans/VER-004-0.4.0-texture-material-slice.md)
 - [VER-005：0.5.0 基础 3D 场景闭环](plans/VER-005-0.5.0-basic-3d-slice.md)
 - [TOOL-001：glTF 资产编译器最小闭环](plans/TOOL-001-gltf-asset-compiler.md)
+- [TOOL-002：Mesh Binary v1 最小闭环](plans/TOOL-002-mesh-binary-v1.md)
 
 ## 架构决策
 
@@ -73,6 +74,7 @@
 - [ADR-011：使用 libspng 解码首版 PNG 纹理](decisions/ADR-011-png-decoder.md)
 - [ADR-012：3D 坐标、Camera 与后端变换边界](decisions/ADR-012-3d-camera-coordinate-boundary.md)
 - [ADR-013：glTF 离线导入与工具边界](decisions/ADR-013-gltf-import-boundary.md)
+- [ADR-014：源资产、作者格式与 Runtime 二进制资产分层](decisions/ADR-014-runtime-asset-representation.md)
 
 ## 实施与验收记录
 
@@ -87,6 +89,7 @@
 - [M-17 场景实例化与本地验收记录](records/M-17-scene-instantiation.md)
 - [M-27 图片解码器 Spike 记录](records/M-27-image-decoder-spike.md)
 - [M-31 工具能力重新评估记录](records/M-31-tooling-reevaluation.md)
+- [TOOL-002 Mesh Binary v1 实施记录](records/TOOL-002-mesh-binary-v1.md)
 
 ## 文档维护
 

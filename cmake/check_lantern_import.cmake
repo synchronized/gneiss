@@ -27,4 +27,25 @@ file(SIZE "${base_color}" base_color_size)
 if(base_color_size LESS 1)
   message(FATAL_ERROR "Lantern 嵌入基础颜色纹理为空")
 endif()
+set(mesh "${GNEISS_LANTERN_OUTPUT}/models/mesh-0-primitive-0.gneiss-mesh")
+foreach(command IN ITEMS inspect validate)
+  execute_process(
+    COMMAND "${GNEISS_ASSETC}" "${command}" "${mesh}"
+    RESULT_VARIABLE command_result
+    OUTPUT_VARIABLE command_output
+    ERROR_VARIABLE command_error
+  )
+  if(NOT command_result EQUAL 0)
+    message(FATAL_ERROR "Mesh Binary ${command} 失败：${command_output}${command_error}")
+  endif()
+endforeach()
+execute_process(
+  COMMAND "${GNEISS_ASSETC}" dump "${mesh}" --format json
+  RESULT_VARIABLE dump_result
+  OUTPUT_VARIABLE dump_output
+  ERROR_VARIABLE dump_error
+)
+if(NOT dump_result EQUAL 0 OR NOT dump_output MATCHES "gneiss.mesh.debug")
+  message(FATAL_ERROR "Mesh Binary Debug JSON 导出失败：${dump_output}${dump_error}")
+endif()
 file(REMOVE_RECURSE "${GNEISS_LANTERN_OUTPUT}")

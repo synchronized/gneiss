@@ -1,12 +1,40 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- Copyright (c) 2026 Gneiss contributors -->
 
-# Render 源资产格式 v1
+# Render 资产格式
 
-描述文件均为严格 UTF-8 JSON，仅由内部 Loader 使用。资源 URI 规则见
-[资产 URI、目录挂载与缓存](assets.md)。
+Runtime Mesh 优先使用二进制；旧 Mesh、Material 与 Texture 描述使用严格 UTF-8 JSON。所有格式仅由
+内部 Loader 使用，资源 URI 规则见[资产 URI、目录挂载与缓存](assets.md)。
 
-## Mesh
+## Mesh Binary v1
+
+建议扩展名为 `.gneiss-mesh`。多字节整数与 IEEE 754 Float32 固定使用小端序，所有 Offset 相对
+文件起点。Header 固定为 80 字节：
+
+| Offset | 大小 | 字段 | v1 值或含义 |
+| ---: | ---: | --- | --- |
+| 0 | 4 | magic | ASCII `GNMS` |
+| 4 | 2 | version | `1` |
+| 6 | 2 | header_size | `80` |
+| 8 | 4 | flags | `0` |
+| 12 | 4 | vertex_count | 唯一顶点数 |
+| 16 | 4 | index_count | UInt32 索引数，必须是 3 的倍数 |
+| 20 | 2 | vertex_stride | `32` |
+| 22 | 2 | index_size | `4` |
+| 24 | 8 | vertex_offset | `80` |
+| 32 | 8 | index_offset | 16 字节对齐 |
+| 40 | 8 | file_size | 必须等于实际文件大小 |
+| 48 | 24 | bounds | AABB min Float3、max Float3 |
+| 72 | 8 | reserved | `0` |
+
+顶点按 Position Float3、UV Float2、Normal Float3 交错排列，共 32 字节。随后填充到 16 字节边界，
+再保存 UInt32 索引。v1 只支持三角形列表、有限 Float32 和单位法线；Decoder 必须在分配或读取前验证
+版本、数量乘法、Offset、区域重叠、文件边界、AABB 和索引范围。
+
+`gneiss_assetc inspect` 输出摘要，`validate` 只校验，`dump <file> --format json` 按需生成完整 Debug
+JSON。Debug JSON 的格式标识为 `gneiss.mesh.debug`，不是 Runtime 输入。
+
+## 兼容 JSON Mesh
 
 建议扩展名为 `.mesh.json`：
 

@@ -325,9 +325,21 @@ gneiss_target_output_directories(gneiss_resource_service_test)
 add_test(NAME gneiss.resource_service COMMAND gneiss_resource_service_test)
 
 add_executable(
+  gneiss_mesh_binary_test
+  asset/mesh_binary_test.cpp
+  "${PROJECT_SOURCE_DIR}/src/asset/mesh_binary.cpp"
+)
+target_include_directories(gneiss_mesh_binary_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_compile_features(gneiss_mesh_binary_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_mesh_binary_test)
+gneiss_target_output_directories(gneiss_mesh_binary_test)
+add_test(NAME gneiss.mesh_binary COMMAND gneiss_mesh_binary_test)
+
+add_executable(
   gneiss_render_asset_loader_test
   render/render_asset_loader_test.cpp
   "${PROJECT_SOURCE_DIR}/src/asset/asset_uri.cpp"
+  "${PROJECT_SOURCE_DIR}/src/asset/mesh_binary.cpp"
   "${PROJECT_SOURCE_DIR}/src/asset/resource_cache.cpp"
   "${PROJECT_SOURCE_DIR}/src/asset/virtual_file_system.cpp"
   "${PROJECT_SOURCE_DIR}/src/render/render_asset_loader.cpp"

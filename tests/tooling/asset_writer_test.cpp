@@ -42,7 +42,7 @@ int main() { // NOLINT(bugprone-exception-escape)
     return 2;
   }
   constexpr std::array files = {
-      "models/mesh-0-primitive-0.mesh.json", "materials/material-0.material.json",
+      "models/mesh-0-primitive-0.gneiss-mesh", "materials/material-0.material.json",
       "textures/image-0.texture.json", "textures/image-0.png", "scenes/scene.scene.json"};
   for (const auto* file : files) {
     if (read_file(first / file) != read_file(second / file) || read_file(first / file).empty()) {
@@ -90,7 +90,7 @@ int main() { // NOLINT(bugprone-exception-escape)
   second_primitive.material_index.reset();
   multi_data.meshes[0].primitives.push_back(std::move(second_primitive));
   if (!asset_import::write_assets(multi_data, multi).success ||
-      !std::filesystem::exists(multi / "models/mesh-0-primitive-1.mesh.json") ||
+      !std::filesystem::exists(multi / "models/mesh-0-primitive-1.gneiss-mesh") ||
       !std::filesystem::exists(multi / "materials/default.material.json")) {
     return 7;
   }

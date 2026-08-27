@@ -3,6 +3,8 @@
 
 add_library(
   gneiss_asset_pipeline_internal STATIC
+  "${PROJECT_SOURCE_DIR}/src/asset/mesh_binary.cpp"
+  "${PROJECT_SOURCE_DIR}/src/asset/mesh_binary.h"
   "${PROJECT_SOURCE_DIR}/src/tooling/asset_import/asset_writer.cpp"
   "${PROJECT_SOURCE_DIR}/src/tooling/asset_import/asset_writer.h"
   "${PROJECT_SOURCE_DIR}/src/tooling/asset_import/gltf_importer.cpp"

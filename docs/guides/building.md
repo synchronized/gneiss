@@ -63,6 +63,14 @@ Linux 可选择 `linux-clang-debug` 或 `linux-gcc-debug`，可执行文件不�
 目标目录同级的暂存目录，全部成功后再替换目标目录，因此会清除上次导入遗留的文件；校验或写出
 失败时保留原有完整结果。
 
+导入生成的 Mesh 使用 `.gneiss-mesh` 二进制格式。可按需检查、严格验证或导出 Debug JSON：
+
+```powershell
+./build/windows-clang-debug/bin/gneiss_assetc.exe inspect ./generated-assets/models/mesh-0-primitive-0.gneiss-mesh
+./build/windows-clang-debug/bin/gneiss_assetc.exe validate ./generated-assets/models/mesh-0-primitive-0.gneiss-mesh
+./build/windows-clang-debug/bin/gneiss_assetc.exe dump ./generated-assets/models/mesh-0-primitive-0.gneiss-mesh --format json
+```
+
 ### 安装并通过 CMake package 使用
 
 构建后可将库、公共头文件、CMake package 和示例资产安装到同一前缀：
