@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <array>
 #include <cstddef>
+#include <cstdint>
 
 int main() {
   gneiss::render_internal::render_resource_service resources;
@@ -16,9 +17,9 @@ int main() {
                                gneiss_mesh_normal{0.0F, 0.0F, 1.0F},
                                gneiss_mesh_normal{0.0F, 0.0F, 1.0F}};
   gneiss_mesh_desc mesh_desc = GNEISS_MESH_DESC_INIT;
-  mesh_desc.vertex_count = vertices.size();
+  mesh_desc.vertex_count = static_cast<std::uint32_t>(vertices.size());
   mesh_desc.vertices = vertices.data();
-  mesh_desc.normal_count = normals.size();
+  mesh_desc.normal_count = static_cast<std::uint32_t>(normals.size());
   mesh_desc.normals = normals.data();
   gneiss_mesh mesh = GNEISS_NULL_MESH;
   if (resources.create_mesh(mesh_desc, &mesh) != GNEISS_SUCCESS ||
@@ -30,7 +31,7 @@ int main() {
   invalid_normals[0].z = 2.0F;
   mesh_desc.struct_size = GNEISS_MESH_DESC_VERSION_1_SIZE;
   mesh_desc.reserved_2 = 99U;
-  mesh_desc.normal_count = invalid_normals.size();
+  mesh_desc.normal_count = static_cast<std::uint32_t>(invalid_normals.size());
   mesh_desc.normals = invalid_normals.data();
   if (resources.create_mesh(mesh_desc, &mesh) != GNEISS_SUCCESS ||
       !resources.get_mesh(mesh)->normals.empty() ||
