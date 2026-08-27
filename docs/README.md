@@ -55,6 +55,7 @@
 - [VER-003：0.3.0 交互与诊断闭环](plans/VER-003-0.3.0-interaction-diagnostics-slice.md)
 - [VER-004：0.4.0 纹理与材质闭环](plans/VER-004-0.4.0-texture-material-slice.md)
 - [VER-005：0.5.0 基础 3D 场景闭环](plans/VER-005-0.5.0-basic-3d-slice.md)
+- [VER-006：0.6.0 数据与属性基础](plans/VER-006-0.6.0-data-property-slice.md)
 - [TOOL-001：glTF 资产编译器最小闭环](plans/TOOL-001-gltf-asset-compiler.md)
 - [TOOL-002：Mesh Binary v1 最小闭环](plans/TOOL-002-mesh-binary-v1.md)
 - [TOOL-003：索引渲染最小闭环](plans/TOOL-003-indexed-rendering.md)
