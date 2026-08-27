@@ -12,7 +12,7 @@
 - CMake 3.23 或更高版本。
 - 支持 C++20 的 C/C++ 编译器。
 - 使用 Ninja preset 时需要安装 Ninja。
-- 启用 Granit 运行时适配时需要已安装的 Granit `0.3.0+` 核心、Window 与 Input 组件，或由父工程
+- 启用 Granit 运行时适配时需要已安装的 Granit `0.4.0+` 核心、Window 与 Input 组件，或由父工程
   提供 `granit::granit`、`granit::window` 和 `granit::input` 目标。
 
 ## 操作步骤
@@ -88,6 +88,8 @@ cmake --install build/windows-clang-debug --prefix build/gneiss-install
 
 普通 preset 默认关闭可选的运行时适配，因此无图形环境也能构建和测试核心。启用后，Granit 平台
 Application 会创建 Vulkan Renderer、Surface 和 Swapchain，并在每帧更新后执行清屏与呈现。
+Renderer 初始化时会查询设备的 Uniform Buffer 对齐与绑定范围；渲染服务按设备对齐创建逐帧
+Uniform Arena，并通过动态 Offset 为同一帧的不同对象提供变换与材质颜色。
 依赖解析默认使用 `AUTO`
 provider：优先复用父工程目标，其次查找 package，最后把锁定的 Granit 提交下载到当前构建目录的
 `_deps`。开箱构建命令如下：

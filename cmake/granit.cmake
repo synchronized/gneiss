@@ -18,7 +18,7 @@ set(
 )
 set(
   GNEISS_GRANIT_GIT_TAG
-  "425b2b66e65e5659fcd822d04792abc467bea9b5"
+  "d5aa1cceef0741c17ff58eac5f14f731a3991bcb"
   CACHE STRING
   "FETCH 模式锁定的 Granit Git tag 或完整提交"
 )
@@ -78,13 +78,13 @@ function(gneiss_resolve_granit_runtime)
   endif()
 
   if(granit_provider STREQUAL "AUTO" OR granit_provider STREQUAL "PACKAGE")
-    find_package(granit 0.3 CONFIG QUIET COMPONENTS Window Input)
+    find_package(granit 0.4 CONFIG QUIET COMPONENTS Window Input)
     if(TARGET granit::granit AND TARGET granit::window AND TARGET granit::input)
       message(STATUS "Gneiss uses the installed Granit runtime package")
       return()
     endif()
     if(granit_provider STREQUAL "PACKAGE")
-      message(FATAL_ERROR "未找到 Granit 0.3 runtime package（granit::granit、granit::window、granit::input）")
+      message(FATAL_ERROR "未找到 Granit 0.4 runtime package（granit::granit、granit::window、granit::input）")
     endif()
     if(TARGET granit::granit)
       message(FATAL_ERROR "找到的 Granit package 缺少 Window 组件，无法回退到 FETCH")

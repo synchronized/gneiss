@@ -103,6 +103,8 @@ if(GNEISS_ENABLE_GRANIT_PLATFORM)
       render/granit/embedded_textured_shaders.h
       render/granit/granit_render_service.cpp
       render/granit/granit_render_service.h
+      render/granit/object_uniform.cpp
+      render/granit/object_uniform.h
       render/granit/textured.frag
       render/granit/textured.vert
   )

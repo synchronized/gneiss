@@ -5,6 +5,7 @@
 #define GNEISS_RENDER_GRANIT_GRANIT_RENDER_SERVICE_H_
 
 #include "platform/granit/granit_platform.h"
+#include "render/granit/object_uniform.h"
 #include "render/render_resource_service.h"
 #include "world/render_snapshot.h"
 
@@ -32,6 +33,12 @@ private:
     granit::bind_group group;
   };
 
+  struct uniform_frame final {
+    granit::buffer buffer;
+    granit::bind_group group;
+    std::uint64_t capacity{};
+  };
+
   [[nodiscard]] granit::result initialize_pipeline(granit::texture_format format) noexcept;
   [[nodiscard]] granit::result ensure_depth_target(std::uint32_t width,
                                                    std::uint32_t height) noexcept;
@@ -39,6 +46,8 @@ private:
   create_texture_mirror(const render_internal::texture_resource& source,
                         texture_mirror& output) noexcept;
   [[nodiscard]] granit::result ensure_default_texture() noexcept;
+  [[nodiscard]] granit::result ensure_uniform_arena(uniform_frame& frame,
+                                                    std::span<const std::byte> data) noexcept;
   void release_invalid_textures(const render_internal::render_resource_service& resources) noexcept;
 
   granit::renderer renderer_;
@@ -48,6 +57,7 @@ private:
   granit::shader vertex_shader_;
   granit::shader fragment_shader_;
   granit::bind_group_layout texture_layout_;
+  granit::bind_group_layout object_layout_;
   granit::pipeline_layout pipeline_layout_;
   granit::graphics_pipeline pipeline_;
   granit::texture depth_texture_;
@@ -60,6 +70,8 @@ private:
   std::uint32_t depth_height_{};
   std::array<std::vector<granit::buffer>, 3> frame_vertex_buffers_;
   std::array<std::vector<granit::buffer>, 3> frame_index_buffers_;
+  std::array<uniform_frame, 3> uniform_frames_;
+  std::uint64_t uniform_stride_{};
   std::uint64_t frame_index_{};
 };
 

@@ -7,6 +7,7 @@
 
 #include <array>
 #include <cstddef>
+#include <cstring>
 #include <limits>
 #include <span>
 #include <vector>
@@ -56,10 +57,6 @@ struct gpu_vertex {
   float y;
   float z;
   float w;
-  float red;
-  float green;
-  float blue;
-  float alpha;
   float u;
   float v;
   float normal_x;
@@ -70,45 +67,10 @@ struct gpu_vertex {
 
 struct draw_batch final {
   granit_bind_group group{GRANIT_NULL_HANDLE};
+  std::uint32_t dynamic_offset{};
   std::uint32_t first_index{};
   std::uint32_t index_count{};
 };
-
-std::array<float, 3> rotate(const std::array<float, 4>& quaternion,
-                            std::array<float, 3> point) noexcept {
-  const std::array vector{quaternion[0], quaternion[1], quaternion[2]};
-  const std::array uv{(vector[1] * point[2]) - (vector[2] * point[1]),
-                      (vector[2] * point[0]) - (vector[0] * point[2]),
-                      (vector[0] * point[1]) - (vector[1] * point[0])};
-  const std::array uuv{(vector[1] * uv[2]) - (vector[2] * uv[1]),
-                       (vector[2] * uv[0]) - (vector[0] * uv[2]),
-                       (vector[0] * uv[1]) - (vector[1] * uv[0])};
-  for (std::size_t index = 0; index < point.size(); ++index) {
-    point[index] += 2.0F * ((quaternion[3] * uv[index]) + uuv[index]);
-  }
-  return point;
-}
-
-std::array<float, 3> to_world(const gneiss_mesh_vertex& vertex,
-                              const gneiss_transform& transform) noexcept {
-  std::array point{vertex.x * transform.scale[0], vertex.y * transform.scale[1],
-                   vertex.z * transform.scale[2]};
-  const std::array rotation{transform.rotation[0], transform.rotation[1], transform.rotation[2],
-                            transform.rotation[3]};
-  point = rotate(rotation, point);
-  for (std::size_t index = 0; index < point.size(); ++index) {
-    point[index] += transform.translation[index];
-  }
-  return point;
-}
-
-std::array<float, 4> project(const gneiss_mesh_vertex& vertex, const gneiss_transform& transform,
-                             const world_internal::render_camera_snapshot& camera) noexcept {
-  const auto world = to_world(vertex, transform);
-  const auto view =
-      render_internal::transform_vector(camera.view, {world[0], world[1], world[2], 1.0F});
-  return render_internal::transform_vector(camera.projection, view);
-}
 
 } // namespace
 
@@ -137,8 +99,16 @@ granit::result granit_render_service::initialize_pipeline(granit::texture_format
                                         .visibility = fragment}};
     result = texture_layout_.initialize(renderer_.native_handle(), entries);
   }
+  if (granit::succeeded(result) && !object_layout_.valid()) {
+    const std::array entries{
+        granit::bind_group_layout_entry{.binding = 0,
+                                        .type = granit::binding_type::dynamic_uniform_buffer,
+                                        .array_count = 1,
+                                        .visibility = granit::shader_stage_flags::vertex}};
+    result = object_layout_.initialize(renderer_.native_handle(), entries);
+  }
   if (granit::succeeded(result) && !pipeline_layout_.valid()) {
-    const std::array layouts{texture_layout_.native_handle()};
+    const std::array layouts{texture_layout_.native_handle(), object_layout_.native_handle()};
     result = pipeline_layout_.initialize(renderer_.native_handle(), layouts);
   }
   if (granit::succeeded(result) && !sampler_.valid()) {
@@ -155,12 +125,9 @@ granit::result granit_render_service::initialize_pipeline(granit::texture_format
                                                        .format = granit::vertex_format::float32x4,
                                                        .offset = offsetof(gpu_vertex, x)},
                               granit::vertex_attribute{.location = 1,
-                                                       .format = granit::vertex_format::float32x4,
-                                                       .offset = offsetof(gpu_vertex, red)},
-                              granit::vertex_attribute{.location = 2,
                                                        .format = granit::vertex_format::float32x2,
                                                        .offset = offsetof(gpu_vertex, u)},
-                              granit::vertex_attribute{.location = 3,
+                              granit::vertex_attribute{.location = 2,
                                                        .format = granit::vertex_format::float32x4,
                                                        .offset = offsetof(gpu_vertex, normal_x)}};
   const granit::vertex_buffer_layout vertex_layout{.stride = sizeof(gpu_vertex),
@@ -273,6 +240,38 @@ granit::result granit_render_service::ensure_default_texture() noexcept {
   }
 }
 
+granit::result
+granit_render_service::ensure_uniform_arena(uniform_frame& frame,
+                                            std::span<const std::byte> data) noexcept {
+  if (data.empty()) {
+    return granit::result::success;
+  }
+  if (!frame.buffer.valid() || frame.capacity < data.size()) {
+    static_cast<void>(frame.group.reset());
+    static_cast<void>(frame.buffer.reset());
+    frame.capacity = 0;
+    auto result = frame.buffer.initialize(renderer_.native_handle(),
+                                          {.size = data.size(),
+                                           .usage = granit::buffer_usage::uniform,
+                                           .location = granit::memory_location::upload});
+    if (granit::failed(result)) {
+      return result;
+    }
+    const std::array entries{granit::bind_group_entry{.binding = 0,
+                                                      .resource = frame.buffer.native_handle(),
+                                                      .offset = 0,
+                                                      .size = sizeof(object_uniform)}};
+    result =
+        frame.group.initialize(renderer_.native_handle(), object_layout_.native_handle(), entries);
+    if (granit::failed(result)) {
+      static_cast<void>(frame.buffer.reset());
+      return result;
+    }
+    frame.capacity = data.size();
+  }
+  return frame.buffer.write(0, data);
+}
+
 void granit_render_service::release_invalid_textures(
     const render_internal::render_resource_service& resources) noexcept {
   for (auto iterator = texture_mirrors_.begin(); iterator != texture_mirrors_.end();) {
@@ -290,6 +289,12 @@ gneiss_result granit_render_service::initialize(const native_window_info& window
                                       .surface_types = to_surface_type(window.backend)});
   if (granit::failed(result)) {
     return map_result(result);
+  }
+  granit::renderer_limits limits;
+  result = renderer_.get_limits(limits);
+  if (granit::failed(result) || limits.max_uniform_buffer_binding_size < sizeof(object_uniform) ||
+      !calculate_uniform_stride(limits.uniform_buffer_offset_alignment, uniform_stride_)) {
+    return granit::failed(result) ? map_result(result) : GNEISS_ERROR_UNSUPPORTED;
   }
 
   switch (window.backend) {
@@ -367,15 +372,21 @@ granit_render_service::render(native_window_info& window,
 
   auto& vertex_buffers = frame_vertex_buffers_[frame_index_ % frame_vertex_buffers_.size()];
   auto& index_buffers = frame_index_buffers_[frame_index_ % frame_index_buffers_.size()];
+  auto& uniform_frame = uniform_frames_[frame_index_ % uniform_frames_.size()];
   vertex_buffers.clear();
   index_buffers.clear();
   std::uint32_t draw_index_count = 0;
   std::vector<draw_batch> batches;
+  std::vector<std::byte> uniform_data;
   release_invalid_textures(resources);
   if (snapshot.has_camera) {
     try {
       std::vector<gpu_vertex> vertices;
       std::vector<std::uint32_t> indices;
+      if (snapshot.instances.size() > std::numeric_limits<std::uint32_t>::max() / uniform_stride_) {
+        return GNEISS_ERROR_OUT_OF_MEMORY;
+      }
+      uniform_data.resize(snapshot.instances.size() * uniform_stride_);
       for (const auto& instance : snapshot.instances) {
         const auto* mesh = resources.get_mesh(instance.mesh);
         const auto* material = resources.get_material(instance.material);
@@ -409,27 +420,28 @@ granit_render_service::render(native_window_info& window,
           return GNEISS_ERROR_OUT_OF_MEMORY;
         }
         const auto first_vertex = static_cast<std::uint32_t>(vertices.size());
+        object_uniform object;
+        if (!build_object_uniform(
+                snapshot.camera.view, snapshot.camera.projection, instance.transform,
+                {material->red, material->green, material->blue, material->alpha}, object)) {
+          return GNEISS_ERROR_INVALID_ARGUMENT;
+        }
+        const auto object_offset = batches.size() * uniform_stride_;
+        std::memcpy(uniform_data.data() + object_offset, &object, sizeof(object));
         vertices.reserve(vertices.size() + mesh->vertices.size());
         for (std::size_t vertex_index = 0; vertex_index < mesh->vertices.size(); ++vertex_index) {
           const auto& source = mesh->vertices[vertex_index];
-          const auto position = project(source, instance.transform, snapshot.camera);
-          const auto normal = mesh->normals.empty()
-                                  ? std::array{0.0F, 0.0F, 0.0F}
-                                  : render_internal::transform_normal(mesh->normals[vertex_index],
-                                                                      instance.transform);
-          vertices.push_back({.x = position[0],
-                              .y = position[1],
-                              .z = position[2],
-                              .w = position[3],
-                              .red = material->red,
-                              .green = material->green,
-                              .blue = material->blue,
-                              .alpha = material->alpha,
+          const auto normal =
+              mesh->normals.empty() ? gneiss_mesh_normal{} : mesh->normals[vertex_index];
+          vertices.push_back({.x = source.x,
+                              .y = source.y,
+                              .z = source.z,
+                              .w = 1.0F,
                               .u = source.u,
                               .v = source.v,
-                              .normal_x = normal[0],
-                              .normal_y = normal[1],
-                              .normal_z = normal[2],
+                              .normal_x = normal.x,
+                              .normal_y = normal.y,
+                              .normal_z = normal.z,
                               .is_lit = mesh->normals.empty() ? 0.0F : 1.0F});
         }
         const auto source_index_count =
@@ -449,6 +461,7 @@ granit_render_service::render(native_window_info& window,
           }
         }
         batches.push_back({.group = group,
+                           .dynamic_offset = static_cast<std::uint32_t>(object_offset),
                            .first_index = first_index,
                            .index_count = static_cast<std::uint32_t>(source_index_count)});
       }
@@ -474,6 +487,10 @@ granit_render_service::render(native_window_info& window,
         }
         index_buffers.push_back(std::move(buffer));
         draw_index_count = static_cast<std::uint32_t>(indices.size());
+      }
+      const auto uniform_result = ensure_uniform_arena(uniform_frame, uniform_data);
+      if (granit::failed(uniform_result)) {
+        return map_result(uniform_result);
       }
     } catch (const std::bad_alloc&) {
       return GNEISS_ERROR_OUT_OF_MEMORY;
@@ -537,9 +554,10 @@ granit_render_service::render(native_window_info& window,
     }
     if (granit::succeeded(result) && draw_index_count > 0U) {
       for (const auto& batch : batches) {
-        const std::array groups{batch.group};
-        result =
-            recording.recorder().bind_graphics_groups(pipeline_layout_.native_handle(), 0, groups);
+        const std::array groups{batch.group, uniform_frame.group.native_handle()};
+        const std::array offsets{batch.dynamic_offset};
+        result = recording.recorder().bind_graphics_groups(pipeline_layout_.native_handle(), 0,
+                                                           groups, offsets);
         if (granit::failed(result)) {
           break;
         }

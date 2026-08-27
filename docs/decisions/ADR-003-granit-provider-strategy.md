@@ -5,6 +5,7 @@
 
 - 状态：已接受
 - 日期：2026-08-26
+- 更新：2026-08-27
 - 取代：[ADR-001](ADR-001-granit-dependency.md)
 
 ## 背景
@@ -15,7 +16,8 @@ CI 环境的可控性。
 
 ## 决策
 
-- Granit 最低版本保持为 `0.3.0`，普通接口仍不得泄漏 Granit 类型。
+- Granit 最低版本为 `0.4.0`，用于公开查询设备限制并支持动态 Uniform Buffer Offset；普通接口
+  仍不得泄漏 Granit 类型。
 - `GNEISS_GRANIT_PROVIDER` 支持 `AUTO`、`PACKAGE` 和 `FETCH`，默认使用 `AUTO`。
 - 所有模式首先复用父工程已经存在的 `granit::window` 等所需目标。
 - `AUTO` 依次尝试父工程目标、已安装 package，找不到时通过 FetchContent 下载锁定提交。
@@ -30,7 +32,7 @@ CI 环境的可控性。
 
 - 普通开发者启用 Granit 能力后无需手动安装依赖。
 - 首次 Fetch 配置需要网络且耗时更长，后续复用构建目录缓存。
-- 依赖更新必须先验证 Granit，再显式更新完整提交哈希和本 ADR 的后继记录。
+- 依赖更新必须先验证 Granit，再显式更新完整提交哈希、最低 package 版本和本 ADR。
 - 企业镜像或源码联调可以覆盖仓库 URL、提交，或直接由父工程提供目标。
 - `3rd/` 继续只保存随 Gneiss 仓库锁定的内部依赖，不复制 Granit 仓库。
 

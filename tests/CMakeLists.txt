@@ -335,6 +335,22 @@ gneiss_target_compile_warnings(gneiss_mesh_binary_test)
 gneiss_target_output_directories(gneiss_mesh_binary_test)
 add_test(NAME gneiss.mesh_binary COMMAND gneiss_mesh_binary_test)
 
+if(GNEISS_ENABLE_GRANIT_PLATFORM)
+  add_executable(
+    gneiss_object_uniform_test
+    render/object_uniform_test.cpp
+    "${PROJECT_SOURCE_DIR}/src/render/granit/object_uniform.cpp"
+  )
+  target_include_directories(
+    gneiss_object_uniform_test PRIVATE "${PROJECT_SOURCE_DIR}/include" "${PROJECT_SOURCE_DIR}/src"
+  )
+  target_link_libraries(gneiss_object_uniform_test PRIVATE granit::granit)
+  target_compile_features(gneiss_object_uniform_test PRIVATE cxx_std_20)
+  gneiss_target_compile_warnings(gneiss_object_uniform_test)
+  gneiss_target_output_directories(gneiss_object_uniform_test)
+  add_test(NAME gneiss.object_uniform COMMAND gneiss_object_uniform_test)
+endif()
+
 add_executable(
   gneiss_render_asset_loader_test
   render/render_asset_loader_test.cpp

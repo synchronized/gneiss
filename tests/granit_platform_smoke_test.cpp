@@ -75,7 +75,11 @@ int main() {
   gneiss_transform camera_transform = GNEISS_TRANSFORM_IDENTITY;
   camera_transform.translation[2] = 2.0F;
   gneiss_transform near_transform = GNEISS_TRANSFORM_IDENTITY;
+  near_transform.translation[0] = -0.55F;
   near_transform.translation[2] = 0.5F;
+  gneiss_transform plain_transform = GNEISS_TRANSFORM_IDENTITY;
+  plain_transform.translation[0] = 0.55F;
+  plain_transform.translation[2] = 0.5F;
   if (application.get_world(world) != gneiss::result::success ||
       gneiss_world_entity_create(world, &camera_entity) != GNEISS_SUCCESS ||
       gneiss_world_entity_create(world, &mesh_entity) != GNEISS_SUCCESS ||
@@ -89,6 +93,8 @@ int main() {
       gneiss_scene_node_set_local_transform(world, camera_node, &camera_transform) !=
           GNEISS_SUCCESS ||
       gneiss_scene_node_set_local_transform(world, mesh_node, &near_transform) != GNEISS_SUCCESS ||
+      gneiss_scene_node_set_local_transform(world, plain_mesh_node, &plain_transform) !=
+          GNEISS_SUCCESS ||
       gneiss_world_entity_set_camera(world, camera_entity, &camera) != GNEISS_SUCCESS ||
       gneiss_world_entity_set_mesh_renderer(world, mesh_entity, &mesh_renderer) != GNEISS_SUCCESS ||
       gneiss_world_entity_set_mesh_renderer(world, plain_mesh_entity, &plain_mesh_renderer) !=
