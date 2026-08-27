@@ -111,7 +111,7 @@ void write_renderer(std::ostream& stream, std::size_t mesh_index, std::size_t pr
     return false;
   }
   configure(stream);
-  stream << "{\n  \"format\": \"gneiss.scene\",\n  \"version\": 1,\n"
+  stream << "{\n  \"format\": \"gneiss.scene\",\n  \"version\": 2,\n"
             "  \"scene_uuid\": \"00000000-0000-4000-8000-000000000000\",\n"
             "  \"objects\": [\n";
   std::size_t synthetic_count = 0;

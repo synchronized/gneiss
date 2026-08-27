@@ -1,6 +1,6 @@
 {
   "format": "gneiss.scene",
-  "version": 1,
+  "version": 2,
   "scene_uuid": "00000000-0000-4000-8000-000000000001",
   "objects": [
     {
@@ -16,7 +16,7 @@
           "vertical_field_of_view_radians": 1.04719755,
           "near_plane": 0.1,
           "far_plane": 1000.0,
-          "primary": true
+          "is_primary": true
         }
       }
     },

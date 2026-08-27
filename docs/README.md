@@ -38,7 +38,7 @@
 - [Type Registry 与反射元数据](reference/reflection.md)
 - [Render 资源、ECS 组件与帧提取](reference/render.md)
 - [资产 URI、目录挂载与缓存](reference/assets.md)
-- [场景文件格式 v1](reference/scene-format.md)
+- [场景文件格式 v2](reference/scene-format.md)
 - [场景加载、实例与卸载](reference/scene-instance.md)
 - [Mesh Binary、JSON Mesh 与 Material 资产格式](reference/render-asset-formats.md)
 

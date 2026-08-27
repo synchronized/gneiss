@@ -1,13 +1,13 @@
 {
   "format": "gneiss.scene",
-  "version": 1,
+  "version": 2,
   "scene_uuid": "10000000-0000-4000-8000-000000000001",
   "objects": [
     {
       "uuid": "10000000-0000-4000-8000-000000000002",
       "parent": null,
       "transform": {"translation": [0, 2.3, 6], "rotation": [-0.18131, 0, 0, 0.983426], "scale": [1, 1, 1]},
-      "components": {"camera": {"vertical_field_of_view_radians": 1.04719755, "near_plane": 0.1, "far_plane": 100, "primary": true}}
+      "components": {"camera": {"vertical_field_of_view_radians": 1.04719755, "near_plane": 0.1, "far_plane": 100, "is_primary": true}}
     },
     {
       "uuid": "10000000-0000-4000-8000-000000000003",

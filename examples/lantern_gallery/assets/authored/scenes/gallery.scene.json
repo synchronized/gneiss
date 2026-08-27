@@ -1,9 +1,9 @@
 {
   "format": "gneiss.scene",
-  "version": 1,
+  "version": 2,
   "scene_uuid": "20000000-0000-4000-8000-000000000000",
   "objects": [
-    {"uuid":"20000000-0000-4000-8000-000000000001","parent":null,"transform":{"translation":[0,3.2,8],"rotation":[-0.189108,0,0,0.981956],"scale":[1,1,1]},"components":{"camera":{"vertical_field_of_view_radians":1.04719755,"near_plane":0.1,"far_plane":100,"primary":true}}},
+    {"uuid":"20000000-0000-4000-8000-000000000001","parent":null,"transform":{"translation":[0,3.2,8],"rotation":[-0.189108,0,0,0.981956],"scale":[1,1,1]},"components":{"camera":{"vertical_field_of_view_radians":1.04719755,"near_plane":0.1,"far_plane":100,"is_primary":true}}},
     {"uuid":"20000000-0000-4000-8000-000000000002","parent":null,"transform":{"translation":[0,-0.2,0],"rotation":[0,0,0,1],"scale":[10,0.35,7]},"components":{"mesh_renderer":{"mesh":"asset://models/gallery-box.mesh.json","material":"asset://materials/gallery-stone.material.json"}}},
     {"uuid":"20000000-0000-4000-8000-000000000003","parent":null,"transform":{"translation":[-4,1.1,-2.4],"rotation":[0,0,0,1],"scale":[0.55,2.5,0.55]},"components":{"mesh_renderer":{"mesh":"asset://models/gallery-box.mesh.json","material":"asset://materials/gallery-stone.material.json"}}},
     {"uuid":"20000000-0000-4000-8000-000000000004","parent":null,"transform":{"translation":[4,1.1,-2.4],"rotation":[0,0,0,1],"scale":[0.55,2.5,0.55]},"components":{"mesh_renderer":{"mesh":"asset://models/gallery-box.mesh.json","material":"asset://materials/gallery-stone.material.json"}}},

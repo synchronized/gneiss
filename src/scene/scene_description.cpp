@@ -11,19 +11,20 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <cstdlib>
 #include <limits>
 #include <memory>
 #include <new>
 #include <numbers>
 #include <numeric>
-#include <span>
 #include <unordered_map>
 
 namespace {
 
 using gneiss::scene_internal::scene_diagnostic;
 
-constexpr std::uint64_t schema_version = 1;
+constexpr std::uint64_t schema_version = 2;
+constexpr std::uint64_t oldest_schema_version = 1;
 constexpr std::string_view scene_format = "gneiss.scene";
 
 void fail(scene_diagnostic& diagnostic, gneiss_result result, std::string_view path,
@@ -42,24 +43,6 @@ void fail(scene_diagnostic& diagnostic, gneiss_result result, std::string_view p
 
 [[nodiscard]] std::string_view json_string(yyjson_val* value) {
   return {yyjson_get_str(value), yyjson_get_len(value)};
-}
-
-[[nodiscard]] bool has_only_fields(yyjson_val* object, std::span<const std::string_view> fields,
-                                   std::string_view path, scene_diagnostic& diagnostic) {
-  yyjson_val* key = nullptr;
-  yyjson_val* value = nullptr;
-  std::size_t index = 0;
-  std::size_t maximum = 0;
-  yyjson_obj_foreach(object, index, maximum, key, value) {
-    (void)value;
-    const auto name = json_string(key);
-    if (std::ranges::find(fields, name) == fields.end()) {
-      fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, std::string(path) + "/" + std::string(name),
-           "未知字段");
-      return false;
-    }
-  }
-  return true;
 }
 
 [[nodiscard]] bool read_required_string(yyjson_val* object, const char* name, std::string_view path,
@@ -131,9 +114,7 @@ template <std::size_t Size>
 [[nodiscard]] bool parse_transform(yyjson_val* value, std::string_view path,
                                    gneiss::scene_internal::object_description& output,
                                    scene_diagnostic& diagnostic) {
-  constexpr std::array fields{std::string_view{"translation"}, std::string_view{"rotation"},
-                              std::string_view{"scale"}};
-  if (!yyjson_is_obj(value) || !has_only_fields(value, fields, path, diagnostic) ||
+  if (!yyjson_is_obj(value) ||
       !read_float_array(value, "translation", path, output.translation, diagnostic) ||
       !read_float_array(value, "rotation", path, output.rotation, diagnostic) ||
       !read_float_array(value, "scale", path, output.scale, diagnostic)) {
@@ -155,10 +136,7 @@ template <std::size_t Size>
 [[nodiscard]] bool parse_camera(yyjson_val* value, std::string_view path,
                                 gneiss::scene_internal::camera_description& output,
                                 scene_diagnostic& diagnostic) {
-  constexpr std::array fields{std::string_view{"vertical_field_of_view_radians"},
-                              std::string_view{"near_plane"}, std::string_view{"far_plane"},
-                              std::string_view{"primary"}};
-  if (!yyjson_is_obj(value) || !has_only_fields(value, fields, path, diagnostic) ||
+  if (!yyjson_is_obj(value) ||
       !read_float(value, "vertical_field_of_view_radians", path,
                   output.vertical_field_of_view_radians, diagnostic) ||
       !read_float(value, "near_plane", path, output.near_plane, diagnostic) ||
@@ -168,10 +146,10 @@ template <std::size_t Size>
     }
     return false;
   }
-  yyjson_val* primary = yyjson_obj_get(value, "primary");
+  yyjson_val* primary = yyjson_obj_get(value, "is_primary");
   if (!yyjson_is_bool(primary)) {
-    fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, std::string(path) + "/primary",
-         "primary 必须是布尔值");
+    fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, std::string(path) + "/is_primary",
+         "is_primary 必须是布尔值");
     return false;
   }
   output.is_primary = yyjson_get_bool(primary);
@@ -187,8 +165,7 @@ template <std::size_t Size>
 [[nodiscard]] bool parse_mesh_renderer(yyjson_val* value, std::string_view path,
                                        gneiss::scene_internal::mesh_renderer_description& output,
                                        scene_diagnostic& diagnostic) {
-  constexpr std::array fields{std::string_view{"mesh"}, std::string_view{"material"}};
-  if (!yyjson_is_obj(value) || !has_only_fields(value, fields, path, diagnostic) ||
+  if (!yyjson_is_obj(value) ||
       !read_required_string(value, "mesh", path, output.mesh_uri, diagnostic) ||
       !read_required_string(value, "material", path, output.material_uri, diagnostic)) {
     if (diagnostic.result == GNEISS_SUCCESS) {
@@ -207,8 +184,7 @@ template <std::size_t Size>
 [[nodiscard]] bool parse_components(yyjson_val* value, std::string_view path,
                                     gneiss::scene_internal::object_description& output,
                                     scene_diagnostic& diagnostic) {
-  constexpr std::array fields{std::string_view{"camera"}, std::string_view{"mesh_renderer"}};
-  if (!yyjson_is_obj(value) || !has_only_fields(value, fields, path, diagnostic)) {
+  if (!yyjson_is_obj(value)) {
     if (diagnostic.result == GNEISS_SUCCESS) {
       fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, path, "components 必须是对象");
     }
@@ -234,9 +210,7 @@ template <std::size_t Size>
                                 gneiss::scene_internal::object_description& output,
                                 scene_diagnostic& diagnostic) {
   const std::string path = "/objects/" + std::to_string(index);
-  constexpr std::array fields{std::string_view{"uuid"}, std::string_view{"parent"},
-                              std::string_view{"transform"}, std::string_view{"components"}};
-  if (!yyjson_is_obj(value) || !has_only_fields(value, fields, path, diagnostic) ||
+  if (!yyjson_is_obj(value) ||
       !read_required_string(value, "uuid", path, output.uuid, diagnostic)) {
     if (diagnostic.result == GNEISS_SUCCESS) {
       fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, path, "对象描述类型错误");
@@ -328,8 +302,8 @@ template <std::size_t Size>
 namespace gneiss::scene_internal {
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): 顺序校验保持 Schema 错误优先级明确。
-gneiss_result parse_scene_description(std::string_view json, scene_description& out_scene,
-                                      scene_diagnostic& out_diagnostic) noexcept {
+gneiss_result parse_current_scene_description(std::string_view json, scene_description& out_scene,
+                                              scene_diagnostic& out_diagnostic) noexcept {
   out_scene = {};
   out_diagnostic = {};
   try {
@@ -348,9 +322,7 @@ gneiss_result parse_scene_description(std::string_view json, scene_description& 
       return out_diagnostic.result;
     }
     yyjson_val* root = yyjson_doc_get_root(document.get());
-    constexpr std::array fields{std::string_view{"format"}, std::string_view{"version"},
-                                std::string_view{"scene_uuid"}, std::string_view{"objects"}};
-    if (!yyjson_is_obj(root) || !has_only_fields(root, fields, "", out_diagnostic)) {
+    if (!yyjson_is_obj(root)) {
       if (out_diagnostic.result == GNEISS_SUCCESS) {
         fail(out_diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "", "场景根必须是对象");
       }
@@ -407,6 +379,161 @@ gneiss_result parse_scene_description(std::string_view json, scene_description& 
   }
 }
 
+[[nodiscard]] gneiss_result migrate_camera_v1(yyjson_mut_doc* document, yyjson_mut_val* camera,
+                                              std::size_t object_index,
+                                              scene_diagnostic& diagnostic) {
+  if (!yyjson_mut_is_obj(camera)) {
+    return GNEISS_SUCCESS;
+  }
+  yyjson_mut_val* primary = yyjson_mut_obj_get(camera, "primary");
+  if (primary == nullptr) {
+    return GNEISS_SUCCESS;
+  }
+  if (yyjson_mut_obj_get(camera, "is_primary") != nullptr) {
+    fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT,
+         "/objects/" + std::to_string(object_index) + "/components/camera/is_primary",
+         "迁移目标字段已存在");
+    return diagnostic.result;
+  }
+  primary = yyjson_mut_obj_remove_key(camera, "primary");
+  if (primary == nullptr || !yyjson_mut_obj_add_val(document, camera, "is_primary", primary)) {
+    fail(diagnostic, GNEISS_ERROR_INTERNAL, "", "Camera 字段迁移失败");
+    return diagnostic.result;
+  }
+  return GNEISS_SUCCESS;
+}
+
+[[nodiscard]] gneiss_result migrate_v1_to_v2(yyjson_mut_doc* document, yyjson_mut_val* root,
+                                             scene_diagnostic& diagnostic) {
+  yyjson_mut_val* objects = yyjson_mut_obj_get(root, "objects");
+  if (yyjson_mut_is_arr(objects)) {
+    std::size_t index = 0;
+    std::size_t maximum = 0;
+    yyjson_mut_val* object = nullptr;
+    yyjson_mut_arr_foreach(objects, index, maximum, object) {
+      yyjson_mut_val* components = yyjson_mut_obj_get(object, "components");
+      const auto result =
+          migrate_camera_v1(document, yyjson_mut_obj_get(components, "camera"), index, diagnostic);
+      if (result != GNEISS_SUCCESS) {
+        return result;
+      }
+    }
+  }
+  (void)yyjson_mut_obj_remove_key(root, "version");
+  if (!yyjson_mut_obj_add_uint(document, root, "version", schema_version)) {
+    fail(diagnostic, GNEISS_ERROR_OUT_OF_MEMORY, "", "无法更新场景 Schema 版本");
+    return diagnostic.result;
+  }
+  return GNEISS_SUCCESS;
+}
+
+[[nodiscard]] gneiss_result migrate_scene_json(std::string_view json, std::string& out_json,
+                                               std::uint32_t& out_source_version,
+                                               scene_diagnostic& diagnostic) noexcept {
+  out_json.clear();
+  out_source_version = 0U;
+  try {
+    yyjson_read_err error{};
+    using document_ptr = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;
+    document_ptr document(yyjson_read_opts(const_cast<char*>(json.data()), json.size(),
+                                           YYJSON_READ_NOFLAG, nullptr, &error),
+                          &yyjson_doc_free);
+    if (!document) {
+      fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "",
+           error.msg != nullptr ? error.msg : "JSON 语法错误", error.pos);
+      return diagnostic.result;
+    }
+    yyjson_val* root = yyjson_doc_get_root(document.get());
+    if (!yyjson_is_obj(root)) {
+      fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "", "场景根必须是对象");
+      return diagnostic.result;
+    }
+    yyjson_val* format = yyjson_obj_get(root, "format");
+    if (!yyjson_is_str(format) || json_string(format) != scene_format) {
+      fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/format", "场景格式标识错误");
+      return diagnostic.result;
+    }
+    yyjson_val* version = yyjson_obj_get(root, "version");
+    if (!yyjson_is_uint(version)) {
+      fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/version", "场景 Schema 版本必须是整数");
+      return diagnostic.result;
+    }
+    const auto source_version = yyjson_get_uint(version);
+    if (source_version > schema_version) {
+      fail(diagnostic, GNEISS_ERROR_UNSUPPORTED, "/version", "场景 Schema 来自未来版本");
+      return diagnostic.result;
+    }
+    if (source_version < oldest_schema_version) {
+      fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/version", "场景 Schema 缺少迁移链");
+      return diagnostic.result;
+    }
+
+    using mutable_document_ptr = std::unique_ptr<yyjson_mut_doc, decltype(&yyjson_mut_doc_free)>;
+    mutable_document_ptr mutable_document(yyjson_doc_mut_copy(document.get(), nullptr),
+                                          &yyjson_mut_doc_free);
+    if (!mutable_document) {
+      fail(diagnostic, GNEISS_ERROR_OUT_OF_MEMORY, "", "无法复制场景作者文档");
+      return diagnostic.result;
+    }
+    yyjson_mut_val* mutable_root = yyjson_mut_doc_get_root(mutable_document.get());
+    if (source_version == 1U) {
+      const auto result = migrate_v1_to_v2(mutable_document.get(), mutable_root, diagnostic);
+      if (result != GNEISS_SUCCESS) {
+        return result;
+      }
+    }
+
+    std::size_t output_length = 0;
+    using text_ptr = std::unique_ptr<char, decltype(&std::free)>;
+    text_ptr output(yyjson_mut_write(mutable_document.get(), YYJSON_WRITE_NOFLAG, &output_length),
+                    &std::free);
+    if (!output) {
+      fail(diagnostic, GNEISS_ERROR_OUT_OF_MEMORY, "", "无法序列化迁移后的场景");
+      return diagnostic.result;
+    }
+    out_json.assign(output.get(), output_length);
+    out_source_version = static_cast<std::uint32_t>(source_version);
+    return GNEISS_SUCCESS;
+  } catch (const std::bad_alloc&) {
+    fail(diagnostic, GNEISS_ERROR_OUT_OF_MEMORY, "", "内存不足");
+    return diagnostic.result;
+  } catch (...) {
+    fail(diagnostic, GNEISS_ERROR_INTERNAL, "", "场景迁移内部错误");
+    return diagnostic.result;
+  }
+}
+
+gneiss_result parse_scene_description(std::string_view json, scene_description& out_scene,
+                                      scene_diagnostic& out_diagnostic) noexcept {
+  out_scene = {};
+  out_diagnostic = {};
+  std::string current_json;
+  std::uint32_t source_version = 0U;
+  auto result = migrate_scene_json(json, current_json, source_version, out_diagnostic);
+  if (result != GNEISS_SUCCESS) {
+    return result;
+  }
+  scene_description parsed;
+  result = parse_current_scene_description(current_json, parsed, out_diagnostic);
+  if (result != GNEISS_SUCCESS) {
+    return result;
+  }
+  try {
+    parsed.source_schema_version = source_version;
+    parsed.author_json = std::move(current_json);
+    out_scene = std::move(parsed);
+    return GNEISS_SUCCESS;
+  } catch (const std::bad_alloc&) {
+    out_scene = {};
+    fail(out_diagnostic, GNEISS_ERROR_OUT_OF_MEMORY, "", "内存不足");
+    return out_diagnostic.result;
+  } catch (...) {
+    out_scene = {};
+    fail(out_diagnostic, GNEISS_ERROR_INTERNAL, "", "场景迁移内部错误");
+    return out_diagnostic.result;
+  }
+}
+
 gneiss_result load_scene_description(const asset_internal::virtual_file_system& file_system,
                                      std::string_view uri, scene_description& out_scene,
                                      scene_diagnostic& out_diagnostic) noexcept {
@@ -421,6 +548,21 @@ gneiss_result load_scene_description(const asset_internal::virtual_file_system& 
   return parse_scene_description(
       std::string_view(reinterpret_cast<const char*>(bytes.data()), bytes.size()), out_scene,
       out_diagnostic);
+}
+
+gneiss_result serialize_scene_description(const scene_description& scene,
+                                          std::string& out_json) noexcept {
+  if (scene.author_json.empty()) {
+    return GNEISS_ERROR_INVALID_STATE;
+  }
+  try {
+    out_json = scene.author_json;
+    return GNEISS_SUCCESS;
+  } catch (const std::bad_alloc&) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
 }
 
 } // namespace gneiss::scene_internal
