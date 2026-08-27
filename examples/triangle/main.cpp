@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include <gneiss/application.hpp>
+#include <gneiss/input.hpp>
 #include <gneiss/scene.h>
 
 #include <cmath>
@@ -13,16 +14,29 @@ namespace {
 struct example_state {
   gneiss_world world = GNEISS_NULL_WORLD;
   gneiss_scene_node_id triangle_node = GNEISS_NULL_SCENE_NODE_ID;
+  gneiss_action rotate = GNEISS_NULL_ACTION;
+  gneiss_action quit = GNEISS_NULL_ACTION;
+  double angle = 0.0;
 };
 
-gneiss_result update_triangle(gneiss_application /*application*/, const gneiss_frame_time* time,
+gneiss_result update_triangle(gneiss_application application, const gneiss_frame_time* time,
                               void* user_data) {
   if (time == nullptr || user_data == nullptr) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
-  const auto* state = static_cast<const example_state*>(user_data);
+  auto* state = static_cast<example_state*>(user_data);
+  gneiss_action_state rotate = GNEISS_ACTION_STATE_INIT;
+  gneiss_action_state quit = GNEISS_ACTION_STATE_INIT;
+  if (gneiss_application_get_action_state(application, state->rotate, &rotate) != GNEISS_SUCCESS ||
+      gneiss_application_get_action_state(application, state->quit, &quit) != GNEISS_SUCCESS) {
+    return GNEISS_ERROR_INVALID_STATE;
+  }
+  if (quit.pressed != 0U) {
+    return gneiss_application_request_exit(application);
+  }
   constexpr double nanoseconds_per_second = 1'000'000'000.0;
-  const auto half_angle = static_cast<double>(time->elapsed_ns) / nanoseconds_per_second * 0.5;
+  state->angle += static_cast<double>(time->delta_ns) / nanoseconds_per_second * rotate.value;
+  const auto half_angle = state->angle * 0.5;
   gneiss_transform transform = GNEISS_TRANSFORM_IDENTITY;
   transform.rotation[2] = static_cast<float>(std::sin(half_angle));
   transform.rotation[3] = static_cast<float>(std::cos(half_angle));
@@ -36,6 +50,7 @@ int main() {
   constexpr std::string_view title = "Gneiss Triangle";
   constexpr std::string_view asset_root = "assets";
   constexpr std::string_view scene_uri = "asset://scenes/triangle.scene.json";
+  constexpr std::string_view input_map_uri = "asset://input/default.input-map.json";
   constexpr std::string_view triangle_uuid = "00000000-0000-4000-8000-000000000003";
   gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
   desc.user_data = &state;
@@ -54,6 +69,10 @@ int main() {
   gneiss_scene_instance scene = GNEISS_NULL_SCENE_INSTANCE;
   if (gneiss_scene_instance_load(application.get(), scene_uri.data(), scene_uri.size(), &scene) !=
           GNEISS_SUCCESS ||
+      gneiss::load_action_map(application.get(), input_map_uri) != gneiss::result::success ||
+      gneiss::find_action(application.get(), "move_horizontal", state.rotate) !=
+          gneiss::result::success ||
+      gneiss::find_action(application.get(), "quit", state.quit) != gneiss::result::success ||
       gneiss_scene_instance_find_node(application.get(), scene, triangle_uuid.data(),
                                       triangle_uuid.size(),
                                       &state.triangle_node) != GNEISS_SUCCESS) {
