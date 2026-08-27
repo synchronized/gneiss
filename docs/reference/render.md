@@ -42,7 +42,10 @@ Granit 平台模式在每次 `update` 后提取 primary Camera、Scene Transform
 生成本帧的位置、颜色与 UV 顶点，Render Service 上传临时 Vertex Buffer，并按 Material 绑定
 base-color Texture 后通过内置 Shader 绘制 Triangle List。无纹理 Material 使用默认白纹理；后端按
 Texture RID 缓存 GPU 镜像。按帧 Buffer 保留三个槽位，避免覆盖仍在飞行中的提交。
-当前尚无深度缓冲；实例按世界 Transform 的 Z 值从远到近稳定绘制，为 2.5D 示例提供显式层级。
+CPU 使用 Render Snapshot 中的视图和投影矩阵生成完整裁剪空间位置，Shader 保留裁剪空间 `w`，使
+深度和 UV 插值遵循透视规则。交换链路径使用与窗口尺寸一致的 D32 深度附件，每帧清除为 `1.0`，
+并以 `less` 比较写入深度；实例保持快照顺序，遮挡不再依赖世界 Z 排序。窗口重建时会同步重建深度
+资源。旧 2.5D 资产仍可作为位于 XY 平面的普通 3D 几何渲染，但其层级也由 Camera 深度决定。
 
 当前路径用于验证 Application、World、Resource Service 与 Granit 的端到端边界，不是正式资产或
-渲染管线。暂不支持索引、Mip、光照、深度、剔除和异步上传。
+渲染管线。暂不支持索引、Mip、光照、剔除和异步上传。

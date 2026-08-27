@@ -4,9 +4,7 @@
 #include "render/granit/granit_render_service.h"
 #include "render/granit/embedded_textured_shaders.h"
 
-#include <algorithm>
 #include <array>
-#include <cmath>
 #include <cstddef>
 #include <span>
 #include <vector>
@@ -55,6 +53,7 @@ struct gpu_vertex {
   float x;
   float y;
   float z;
+  float w;
   float red;
   float green;
   float blue;
@@ -97,19 +96,12 @@ std::array<float, 3> to_world(const gneiss_mesh_vertex& vertex,
   return point;
 }
 
-std::array<float, 3> project(const gneiss_mesh_vertex& vertex, const gneiss_transform& transform,
-                             const world_internal::render_camera_snapshot& camera,
-                             float aspect) noexcept {
-  auto point = to_world(vertex, transform);
-  for (std::size_t index = 0; index < point.size(); ++index) {
-    point[index] -= camera.transform.translation[index];
-  }
-  const std::array inverse_rotation{-camera.transform.rotation[0], -camera.transform.rotation[1],
-                                    -camera.transform.rotation[2], camera.transform.rotation[3]};
-  point = rotate(inverse_rotation, point);
-  const auto depth = std::max(-point[2], camera.camera.near_plane);
-  const auto focal = 1.0F / std::tan(camera.camera.vertical_field_of_view_radians * 0.5F);
-  return {point[0] * focal / (aspect * depth), point[1] * focal / depth, 0.5F};
+std::array<float, 4> project(const gneiss_mesh_vertex& vertex, const gneiss_transform& transform,
+                             const world_internal::render_camera_snapshot& camera) noexcept {
+  const auto world = to_world(vertex, transform);
+  const auto view =
+      render_internal::transform_vector(camera.view, {world[0], world[1], world[2], 1.0F});
+  return render_internal::transform_vector(camera.projection, view);
 }
 
 } // namespace
@@ -154,7 +146,7 @@ granit::result granit_render_service::initialize_pipeline(granit::texture_format
                                   .max_lod = 0.0F});
   }
   const std::array attributes{granit::vertex_attribute{.location = 0,
-                                                       .format = granit::vertex_format::float32x3,
+                                                       .format = granit::vertex_format::float32x4,
                                                        .offset = offsetof(gpu_vertex, x)},
                               granit::vertex_attribute{.location = 1,
                                                        .format = granit::vertex_format::float32x4,
@@ -166,19 +158,50 @@ granit::result granit_render_service::initialize_pipeline(granit::texture_format
                                                    .step_mode = granit::vertex_step_mode::vertex,
                                                    .attributes = attributes};
   if (granit::succeeded(result)) {
-    result = pipeline_.initialize(renderer_.native_handle(),
-                                  {.layout = pipeline_layout_.native_handle(),
-                                   .vertex_shader = vertex_shader_.native_handle(),
-                                   .fragment_shader = fragment_shader_.native_handle(),
-                                   .color_formats = std::span{&format, 1},
-                                   .vertex_buffers = std::span{&vertex_layout, 1},
-                                   .primitive = {},
-                                   .depth = std::nullopt,
-                                   .color_blends = {},
-                                   .depth_bias = std::nullopt});
+    result = pipeline_.initialize(
+        renderer_.native_handle(),
+        {.layout = pipeline_layout_.native_handle(),
+         .vertex_shader = vertex_shader_.native_handle(),
+         .fragment_shader = fragment_shader_.native_handle(),
+         .color_formats = std::span{&format, 1},
+         .depth_stencil_format = granit::texture_format::d32_float,
+         .vertex_buffers = std::span{&vertex_layout, 1},
+         .primitive = {},
+         .depth = granit::depth_state{.test_enabled = true,
+                                      .write_enabled = true,
+                                      .compare = granit::compare_operation::less},
+         .color_blends = {},
+         .depth_bias = std::nullopt});
   }
   if (granit::succeeded(result)) {
     swapchain_format_ = format;
+  }
+  return result;
+}
+
+granit::result granit_render_service::ensure_depth_target(std::uint32_t width,
+                                                          std::uint32_t height) noexcept {
+  if (depth_view_.valid() && depth_width_ == width && depth_height_ == height) {
+    return granit::result::success;
+  }
+  static_cast<void>(depth_view_.reset());
+  static_cast<void>(depth_texture_.reset());
+  depth_width_ = 0;
+  depth_height_ = 0;
+  auto result = depth_texture_.initialize(renderer_.native_handle(),
+                                          {.format = granit::texture_format::d32_float,
+                                           .usage = granit::texture_usage::depth_stencil_attachment,
+                                           .width = width,
+                                           .height = height});
+  if (granit::succeeded(result)) {
+    result = depth_view_.initialize(renderer_.native_handle(), depth_texture_.native_handle());
+  }
+  if (granit::succeeded(result)) {
+    depth_width_ = width;
+    depth_height_ = height;
+  } else {
+    static_cast<void>(depth_view_.reset());
+    static_cast<void>(depth_texture_.reset());
   }
   return result;
 }
@@ -290,6 +313,9 @@ gneiss_result granit_render_service::initialize(const native_window_info& window
   if (granit::succeeded(result)) {
     result = initialize_pipeline(swapchain_info.format);
   }
+  if (granit::succeeded(result)) {
+    result = ensure_depth_target(window.width, window.height);
+  }
   return map_result(result);
 }
 
@@ -323,6 +349,10 @@ granit_render_service::render(native_window_info& window,
         return map_result(pipeline_result);
       }
     }
+    const auto depth_result = ensure_depth_target(window.width, window.height);
+    if (granit::failed(depth_result)) {
+      return map_result(depth_result);
+    }
     window.needs_recreate = false;
   }
 
@@ -334,19 +364,9 @@ granit_render_service::render(native_window_info& window,
   if (snapshot.has_camera) {
     try {
       std::vector<gpu_vertex> vertices;
-      std::vector<const world_internal::render_instance_snapshot*> ordered_instances;
-      ordered_instances.reserve(snapshot.instances.size());
       for (const auto& instance : snapshot.instances) {
-        ordered_instances.push_back(&instance);
-      }
-      std::stable_sort(ordered_instances.begin(), ordered_instances.end(),
-                       [](const auto* left, const auto* right) {
-                         return left->transform.translation[2] < right->transform.translation[2];
-                       });
-      const auto aspect = static_cast<float>(window.width) / static_cast<float>(window.height);
-      for (const auto* instance : ordered_instances) {
-        const auto* mesh = resources.get_mesh(instance->mesh);
-        const auto* material = resources.get_material(instance->material);
+        const auto* mesh = resources.get_mesh(instance.mesh);
+        const auto* material = resources.get_material(instance.material);
         if (mesh == nullptr || material == nullptr) {
           return GNEISS_ERROR_INVALID_HANDLE;
         }
@@ -376,10 +396,11 @@ granit_render_service::render(native_window_info& window,
         const auto first_vertex = static_cast<std::uint32_t>(vertices.size());
         vertices.reserve(vertices.size() + mesh->vertices.size());
         for (const auto& source : mesh->vertices) {
-          const auto position = project(source, instance->transform, snapshot.camera, aspect);
+          const auto position = project(source, instance.transform, snapshot.camera);
           vertices.push_back({.x = position[0],
                               .y = position[1],
                               .z = position[2],
+                              .w = position[3],
                               .red = material->red,
                               .green = material->green,
                               .blue = material->blue,
@@ -450,8 +471,11 @@ granit_render_service::render(native_window_info& window,
     }
     const granit::color_attachment_desc color{
         .view = view, .clear_value = {.red = 0.04F, .green = 0.12F, .blue = 0.22F, .alpha = 1.0F}};
+    const granit::depth_stencil_attachment_desc depth{.view = depth_view_.native_handle(),
+                                                      .clear_value = {.depth = 1.0F}};
     const granit::rendering_desc rendering{
         .color_attachments = std::span{&color, 1},
+        .depth_stencil_attachment = &depth,
         .area = {.x = 0, .y = 0, .width = window.width, .height = window.height}};
     if (granit::succeeded(result)) {
       result = recording.recorder().begin_rendering(rendering);

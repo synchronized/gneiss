@@ -33,6 +33,8 @@ private:
   };
 
   [[nodiscard]] granit::result initialize_pipeline(granit::texture_format format) noexcept;
+  [[nodiscard]] granit::result ensure_depth_target(std::uint32_t width,
+                                                   std::uint32_t height) noexcept;
   [[nodiscard]] granit::result
   create_texture_mirror(const render_internal::texture_resource& source,
                         texture_mirror& output) noexcept;
@@ -48,10 +50,14 @@ private:
   granit::bind_group_layout texture_layout_;
   granit::pipeline_layout pipeline_layout_;
   granit::graphics_pipeline pipeline_;
+  granit::texture depth_texture_;
+  granit::texture_view depth_view_;
   granit::sampler sampler_;
   texture_mirror default_texture_;
   std::unordered_map<gneiss_texture, texture_mirror> texture_mirrors_;
   granit::texture_format swapchain_format_{granit::texture_format::undefined};
+  std::uint32_t depth_width_{};
+  std::uint32_t depth_height_{};
   std::array<std::vector<granit::buffer>, 3> frame_vertex_buffers_;
   std::uint64_t frame_index_{};
 };
