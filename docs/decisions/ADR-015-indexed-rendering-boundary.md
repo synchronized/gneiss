@@ -13,7 +13,7 @@ Loader 必须展开索引。这会增加 CPU 常驻数据、逐帧变换、GPU �
 
 ## 决策
 
-- 在 `gneiss_mesh_desc` 末尾追加可选 UInt32 索引，旧 v1/v2 描述继续按 `struct_size` 兼容。
+- 在当前未发布的 `gneiss_mesh_desc` 中加入可选 UInt32 索引，不保留内部开发阶段的旧布局。
 - Resource Service 复制并拥有顶点、法线和索引；索引必须组成 Triangle List 且不得越界。
 - 无索引 Mesh 继续受支持，后端可在提交时生成顺序索引，不改变旧调用方行为。
 - Render Service 与 Mesh Binary 使用后端无关索引；Granit 只负责创建 Index Buffer 和提交
@@ -22,8 +22,8 @@ Loader 必须展开索引。这会增加 CPU 常驻数据、逐帧变换、GPU �
 
 ## 影响
 
-二进制 Mesh 可从 Loader 到 Granit 保留唯一顶点。公共描述结构增大，但已有字段布局不变；调用方
-必须使用 `GNEISS_MESH_DESC_INIT` 或正确设置 `struct_size`。后端当前仍逐帧生成动态顶点与索引缓冲，
+二进制 Mesh 可从 Loader 到 Granit 保留唯一顶点。调用方必须使用 `GNEISS_MESH_DESC_INIT` 或正确
+设置当前 `struct_size`；首次正式发布后才开始承担旧布局兼容。后端当前仍逐帧生成动态顶点与索引缓冲，
 静态 GPU Mesh 镜像属于后续独立优化。
 
 ## 替代方案

@@ -22,7 +22,7 @@ Debug 诊断，只用于发现量级变化，不代表跨平台基准。
 
 ## 验证范围
 
-- C ABI v1/v2 `struct_size` 兼容，以及索引所有权复制。
+- 当前 C ABI `struct_size` 校验，以及索引所有权复制。
 - 索引数量、越界和保留字段失败路径。
 - Mesh Binary Loader 保留唯一顶点和索引。
 - Granit Index Buffer、Indexed Draw、Temple 与 Lantern Smoke Test。
