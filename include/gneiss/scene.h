@@ -20,7 +20,9 @@ typedef uint64_t gneiss_scene_instance;
 #define GNEISS_NULL_SCENE_NODE_ID UINT64_C(0)
 #define GNEISS_NULL_SCENE_INSTANCE UINT64_C(0)
 
-/** Scene Tree 中的局部或世界变换。旋转使用 (x, y, z, w) 四元数。 */
+/**
+ * Scene Tree 中的局部或世界变换。旋转使用归一化的 (x, y, z, w) 四元数，缩放各轴不得为零。
+ */
 typedef struct gneiss_transform {
   float translation[3];
   float rotation[4];
@@ -45,7 +47,7 @@ GNEISS_API gneiss_result gneiss_scene_node_destroy(gneiss_world world, gneiss_sc
 GNEISS_API gneiss_result gneiss_scene_node_reparent(gneiss_world world, gneiss_scene_node_id node,
                                                     gneiss_scene_node_id parent);
 
-/** 设置节点局部变换。 */
+/** 设置节点局部变换；拒绝非有限值、非归一化旋转和任一轴为零的缩放。 */
 GNEISS_API gneiss_result gneiss_scene_node_set_local_transform(gneiss_world world,
                                                                gneiss_scene_node_id node,
                                                                const gneiss_transform* transform);

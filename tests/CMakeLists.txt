@@ -190,6 +190,18 @@ gneiss_target_compile_warnings(gneiss_cpp_scene_test)
 gneiss_target_output_directories(gneiss_cpp_scene_test)
 add_test(NAME gneiss.cpp_scene COMMAND gneiss_cpp_scene_test)
 
+add_executable(
+  gneiss_scene_tree_transform_test
+  scene/scene_tree_transform_test.cpp
+  "${PROJECT_SOURCE_DIR}/src/scene/scene_tree.cpp"
+)
+target_include_directories(gneiss_scene_tree_transform_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_link_libraries(gneiss_scene_tree_transform_test PRIVATE gneiss::gneiss)
+target_compile_features(gneiss_scene_tree_transform_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_scene_tree_transform_test)
+gneiss_target_output_directories(gneiss_scene_tree_transform_test)
+add_test(NAME gneiss.scene_tree_transform COMMAND gneiss_scene_tree_transform_test)
+
 add_executable(gneiss_c_application_test c_application_test.c)
 target_link_libraries(gneiss_c_application_test PRIVATE gneiss::gneiss)
 set_target_properties(

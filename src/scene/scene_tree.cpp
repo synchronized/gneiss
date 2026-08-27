@@ -8,6 +8,7 @@
 #include <cmath>
 #include <limits>
 #include <new>
+#include <numeric>
 #include <utility>
 
 namespace gneiss::scene_internal {
@@ -43,10 +44,18 @@ gneiss_transform combine(const gneiss_transform& parent, const gneiss_transform&
   return result;
 }
 
-bool is_finite(const gneiss_transform& value) noexcept {
+bool is_valid(const gneiss_transform& value) noexcept {
   const auto finite = [](float component) { return std::isfinite(component); };
-  return std::ranges::all_of(value.translation, finite) &&
-         std::ranges::all_of(value.rotation, finite) && std::ranges::all_of(value.scale, finite);
+  if (!std::ranges::all_of(value.translation, finite) ||
+      !std::ranges::all_of(value.rotation, finite) || !std::ranges::all_of(value.scale, finite)) {
+    return false;
+  }
+  const auto rotation_length = std::sqrt(std::inner_product(
+      std::begin(value.rotation), std::end(value.rotation), std::begin(value.rotation), 0.0F));
+  constexpr auto tolerance = 1.0e-4F;
+  return std::abs(rotation_length - 1.0F) <= tolerance &&
+         std::ranges::all_of(value.scale,
+                             [](float component) { return std::abs(component) >= 1.0e-6F; });
 }
 
 } // namespace
@@ -204,7 +213,7 @@ gneiss_result scene_tree::set_local(gneiss_scene_node_id node_id,
   if (target == nullptr) {
     return GNEISS_ERROR_INVALID_HANDLE;
   }
-  if (!is_finite(transform)) {
+  if (!is_valid(transform)) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
   target->value->local = transform;
