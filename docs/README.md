@@ -70,7 +70,7 @@
 - [ADR-009：同步诊断回调](decisions/ADR-009-synchronous-diagnostics.md)
 - [ADR-010：纹理资源与后端镜像边界](decisions/ADR-010-texture-resource-boundary.md)
 - [ADR-011：使用 libspng 解码首版 PNG 纹理](decisions/ADR-011-png-decoder.md)
-- [ADR-012：3D 坐标、Camera 与后端变换边界（提议）](decisions/ADR-012-3d-camera-coordinate-boundary.md)
+- [ADR-012：3D 坐标、Camera 与后端变换边界](decisions/ADR-012-3d-camera-coordinate-boundary.md)
 
 ## 实施与验收记录
 

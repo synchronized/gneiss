@@ -46,6 +46,8 @@ target_sources(
     render/render_asset_loader.h
     render/png_decoder.cpp
     render/png_decoder.h
+    render/camera_math.cpp
+    render/camera_math.h
     scene/scene_tree.cpp
     scene/scene_tree.h
     scene/scene_description.cpp
