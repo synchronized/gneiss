@@ -80,6 +80,7 @@
 - [M-16 Mesh 与 Material Loader 实施记录](records/M-16-render-asset-loaders.md)
 - [M-17 场景实例化与本地验收记录](records/M-17-scene-instantiation.md)
 - [M-27 图片解码器 Spike 记录](records/M-27-image-decoder-spike.md)
+- [M-31 工具能力重新评估记录](records/M-31-tooling-reevaluation.md)
 
 ## 文档维护
 
