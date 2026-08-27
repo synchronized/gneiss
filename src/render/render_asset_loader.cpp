@@ -176,8 +176,10 @@ using document_ptr = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;
   return true;
 }
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity): 保持 Mesh Schema 诊断顺序。
 [[nodiscard]] gneiss_result parse_mesh(const std::vector<std::byte>& bytes,
                                        std::vector<gneiss_mesh_vertex>& out_vertices,
+                                       std::vector<gneiss_mesh_normal>& out_normals,
                                        asset_diagnostic& diagnostic) {
   auto document = parse_document(bytes, diagnostic);
   if (!document) {
@@ -192,10 +194,17 @@ using document_ptr = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;
   constexpr std::array v2_fields{std::string_view{"format"}, std::string_view{"version"},
                                  std::string_view{"topology"}, std::string_view{"vertices"},
                                  std::string_view{"uvs"}};
+  constexpr std::array v3_fields{std::string_view{"format"},   std::string_view{"version"},
+                                 std::string_view{"topology"}, std::string_view{"vertices"},
+                                 std::string_view{"uvs"},      std::string_view{"normals"}};
   std::uint64_t version = 0;
-  const auto fields = requested_version == 2U ? std::span<const std::string_view>{v2_fields}
-                                              : std::span<const std::string_view>{v1_fields};
-  if (!validate_header(root, "gneiss.mesh", fields, 2U, version, diagnostic)) {
+  auto fields = std::span<const std::string_view>{v1_fields};
+  if (requested_version == 2U) {
+    fields = v2_fields;
+  } else if (requested_version == 3U) {
+    fields = v3_fields;
+  }
+  if (!validate_header(root, "gneiss.mesh", fields, 3U, version, diagnostic)) {
     return diagnostic.result;
   }
   yyjson_val* topology = yyjson_obj_get(root, "topology");
@@ -211,11 +220,17 @@ using document_ptr = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;
     return diagnostic.result;
   }
   yyjson_val* uvs = yyjson_obj_get(root, "uvs");
-  if (version == 2U && (!yyjson_is_arr(uvs) || yyjson_arr_size(uvs) != count)) {
+  if (version >= 2U && (!yyjson_is_arr(uvs) || yyjson_arr_size(uvs) != count)) {
     fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/uvs", "UV 数量必须与顶点数量一致");
     return diagnostic.result;
   }
+  yyjson_val* normals = yyjson_obj_get(root, "normals");
+  if (version == 3U && (!yyjson_is_arr(normals) || yyjson_arr_size(normals) != count)) {
+    fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/normals", "法线数量必须与顶点数量一致");
+    return diagnostic.result;
+  }
   out_vertices.reserve(count);
+  out_normals.reserve(version == 3U ? count : 0U);
   std::size_t index = 0;
   std::size_t maximum = 0;
   yyjson_val* vertex = nullptr;
@@ -233,7 +248,7 @@ using document_ptr = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;
            "顶点数值必须是有限 float");
       return diagnostic.result;
     }
-    if (version == 2U) {
+    if (version >= 2U) {
       yyjson_val* uv = yyjson_arr_get(uvs, index);
       if (!yyjson_is_arr(uv) || yyjson_arr_size(uv) != 2U ||
           !read_float(yyjson_arr_get(uv, 0), parsed.u) ||
@@ -245,6 +260,27 @@ using document_ptr = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;
       }
     }
     out_vertices.push_back(parsed);
+    if (version == 3U) {
+      yyjson_val* normal = yyjson_arr_get(normals, index);
+      gneiss_mesh_normal parsed_normal{};
+      if (!yyjson_is_arr(normal) || yyjson_arr_size(normal) != 3U ||
+          !read_float(yyjson_arr_get(normal, 0), parsed_normal.x) ||
+          !read_float(yyjson_arr_get(normal, 1), parsed_normal.y) ||
+          !read_float(yyjson_arr_get(normal, 2), parsed_normal.z)) {
+        fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/normals/" + std::to_string(index),
+             "法线必须包含三个有限数值");
+        return diagnostic.result;
+      }
+      const auto length =
+          std::sqrt((parsed_normal.x * parsed_normal.x) + (parsed_normal.y * parsed_normal.y) +
+                    (parsed_normal.z * parsed_normal.z));
+      if (std::abs(length - 1.0F) > 1.0e-4F) {
+        fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/normals/" + std::to_string(index),
+             "法线必须归一化");
+        return diagnostic.result;
+      }
+      out_normals.push_back(parsed_normal);
+    }
   }
   return GNEISS_SUCCESS;
 }
@@ -376,14 +412,18 @@ gneiss_result render_asset_loader::acquire_mesh(std::string_view uri, mesh_asset
           return result;
         }
         std::vector<gneiss_mesh_vertex> vertices;
-        result = parse_mesh(bytes, vertices, out_diagnostic);
+        std::vector<gneiss_mesh_normal> normals;
+        result = parse_mesh(bytes, vertices, normals, out_diagnostic);
         if (result != GNEISS_SUCCESS) {
           return result;
         }
         const gneiss_mesh_desc desc{.struct_size = sizeof(gneiss_mesh_desc),
                                     .vertex_count = static_cast<std::uint32_t>(vertices.size()),
                                     .vertices = vertices.data(),
-                                    .reserved = 0};
+                                    .reserved = 0,
+                                    .reserved_2 = 0,
+                                    .normal_count = static_cast<std::uint32_t>(normals.size()),
+                                    .normals = normals.empty() ? nullptr : normals.data()};
         gneiss_mesh rid = GNEISS_NULL_MESH;
         result = resources_.create_mesh(desc, &rid);
         if (result != GNEISS_SUCCESS) {

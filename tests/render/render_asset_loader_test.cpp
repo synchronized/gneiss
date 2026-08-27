@@ -71,6 +71,12 @@ int main() try {
       "models/textured.mesh.json",
       R"({"format":"gneiss.mesh","version":2,"topology":"triangle_list","vertices":[[-0.5,-0.5,0],[0.5,-0.5,0],[0,0.5,0]],"uvs":[[0,0],[1,0],[0.5,1]]})");
   memory->files.emplace(
+      "models/lit.mesh.json",
+      R"({"format":"gneiss.mesh","version":3,"topology":"triangle_list","vertices":[[-0.5,-0.5,0],[0.5,-0.5,0],[0,0.5,0]],"uvs":[[0,0],[1,0],[0.5,1]],"normals":[[0,0,1],[0,0,1],[0,0,1]]})");
+  memory->files.emplace(
+      "models/invalid-normal.mesh.json",
+      R"({"format":"gneiss.mesh","version":3,"topology":"triangle_list","vertices":[[-0.5,-0.5,0],[0.5,-0.5,0],[0,0.5,0]],"uvs":[[0,0],[1,0],[0.5,1]],"normals":[[0,0,2],[0,0,1],[0,0,1]]})");
+  memory->files.emplace(
       "materials/textured.material.json",
       R"({"format":"gneiss.material","version":2,"color":[1,0.5,0.25,1],"base_color_texture":"asset://textures/white.texture.json"})");
 
@@ -159,11 +165,25 @@ int main() try {
   const auto* mesh_resource = resources.get_mesh(textured_mesh.get());
   const auto* material_resource = resources.get_material(textured_material.get());
   if (mesh_resource == nullptr || mesh_resource->vertices.size() != 3U ||
-      mesh_resource->vertices[1].u != 1.0F || mesh_resource->vertices[2].v != 1.0F ||
-      material_resource == nullptr ||
+      !mesh_resource->normals.empty() || mesh_resource->vertices[1].u != 1.0F ||
+      mesh_resource->vertices[2].v != 1.0F || material_resource == nullptr ||
       material_resource->base_color_texture != first_texture.get() ||
       resources.live_resource_count() != 7U) {
     return 11;
+  }
+
+  gneiss::render_internal::mesh_asset_lease lit_mesh;
+  gneiss::render_internal::mesh_asset_lease invalid_normal_mesh;
+  if (loader.acquire_mesh("asset://models/lit.mesh.json", lit_mesh, diagnostic) != GNEISS_SUCCESS) {
+    return 13;
+  }
+  const auto* lit_resource = resources.get_mesh(lit_mesh.get());
+  if (lit_resource == nullptr || lit_resource->normals.size() != 3U ||
+      lit_resource->normals[0].z != 1.0F ||
+      loader.acquire_mesh("asset://models/invalid-normal.mesh.json", invalid_normal_mesh,
+                          diagnostic) != GNEISS_ERROR_INVALID_ARGUMENT ||
+      diagnostic.path != "/normals/0") {
+    return 14;
   }
 
   first_mesh = {};
@@ -174,6 +194,7 @@ int main() try {
   second_texture = {};
   missing_texture = {};
   textured_mesh = {};
+  lit_mesh = {};
   loader.release_unused();
   if (cache.size() != 2U || resources.live_resource_count() != 2U ||
       resources.get_texture(material_resource->base_color_texture) == nullptr) {

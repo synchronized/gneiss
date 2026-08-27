@@ -42,6 +42,7 @@ private:
 };
 
 using mesh_vertex = gneiss_mesh_vertex;
+using mesh_normal = gneiss_mesh_normal;
 using mesh_desc = gneiss_mesh_desc;
 using material_desc = gneiss_material_desc;
 using texture_desc = gneiss_texture_desc;

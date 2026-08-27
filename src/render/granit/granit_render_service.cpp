@@ -3,6 +3,7 @@
 
 #include "render/granit/granit_render_service.h"
 #include "render/granit/embedded_textured_shaders.h"
+#include "render/normal_math.h"
 
 #include <array>
 #include <cstddef>
@@ -60,6 +61,10 @@ struct gpu_vertex {
   float alpha;
   float u;
   float v;
+  float normal_x;
+  float normal_y;
+  float normal_z;
+  float is_lit;
 };
 
 struct draw_batch final {
@@ -153,7 +158,10 @@ granit::result granit_render_service::initialize_pipeline(granit::texture_format
                                                        .offset = offsetof(gpu_vertex, red)},
                               granit::vertex_attribute{.location = 2,
                                                        .format = granit::vertex_format::float32x2,
-                                                       .offset = offsetof(gpu_vertex, u)}};
+                                                       .offset = offsetof(gpu_vertex, u)},
+                              granit::vertex_attribute{.location = 3,
+                                                       .format = granit::vertex_format::float32x4,
+                                                       .offset = offsetof(gpu_vertex, normal_x)}};
   const granit::vertex_buffer_layout vertex_layout{.stride = sizeof(gpu_vertex),
                                                    .step_mode = granit::vertex_step_mode::vertex,
                                                    .attributes = attributes};
@@ -395,8 +403,13 @@ granit_render_service::render(native_window_info& window,
         }
         const auto first_vertex = static_cast<std::uint32_t>(vertices.size());
         vertices.reserve(vertices.size() + mesh->vertices.size());
-        for (const auto& source : mesh->vertices) {
+        for (std::size_t vertex_index = 0; vertex_index < mesh->vertices.size(); ++vertex_index) {
+          const auto& source = mesh->vertices[vertex_index];
           const auto position = project(source, instance.transform, snapshot.camera);
+          const auto normal = mesh->normals.empty()
+                                  ? std::array{0.0F, 0.0F, 0.0F}
+                                  : render_internal::transform_normal(mesh->normals[vertex_index],
+                                                                      instance.transform);
           vertices.push_back({.x = position[0],
                               .y = position[1],
                               .z = position[2],
@@ -406,7 +419,11 @@ granit_render_service::render(native_window_info& window,
                               .blue = material->blue,
                               .alpha = material->alpha,
                               .u = source.u,
-                              .v = source.v});
+                              .v = source.v,
+                              .normal_x = normal[0],
+                              .normal_y = normal[1],
+                              .normal_z = normal[2],
+                              .is_lit = mesh->normals.empty() ? 0.0F : 1.0F});
         }
         batches.push_back({.group = group,
                            .first_vertex = first_vertex,

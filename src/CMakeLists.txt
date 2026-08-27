@@ -48,6 +48,8 @@ target_sources(
     render/png_decoder.h
     render/camera_math.cpp
     render/camera_math.h
+    render/normal_math.cpp
+    render/normal_math.h
     scene/scene_tree.cpp
     scene/scene_tree.h
     scene/scene_description.cpp

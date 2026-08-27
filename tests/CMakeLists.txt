@@ -274,6 +274,18 @@ gneiss_target_compile_warnings(gneiss_camera_math_test)
 gneiss_target_output_directories(gneiss_camera_math_test)
 add_test(NAME gneiss.camera_math COMMAND gneiss_camera_math_test)
 
+add_executable(
+  gneiss_normal_math_test
+  render/normal_math_test.cpp
+  "${PROJECT_SOURCE_DIR}/src/render/normal_math.cpp"
+)
+target_include_directories(gneiss_normal_math_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_link_libraries(gneiss_normal_math_test PRIVATE gneiss::gneiss)
+target_compile_features(gneiss_normal_math_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_normal_math_test)
+gneiss_target_output_directories(gneiss_normal_math_test)
+add_test(NAME gneiss.normal_math COMMAND gneiss_normal_math_test)
+
 add_executable(gneiss_json_format_test serialization/json_format_test.cpp)
 target_link_libraries(gneiss_json_format_test PRIVATE gneiss_yyjson)
 target_compile_features(gneiss_json_format_test PRIVATE cxx_std_20)

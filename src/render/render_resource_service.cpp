@@ -34,7 +34,7 @@ render_resource_service::render_resource_service() noexcept
 
 gneiss_result render_resource_service::create_mesh(const gneiss_mesh_desc& desc,
                                                    gneiss_mesh* out_mesh) noexcept {
-  if (out_mesh == nullptr || !is_valid() || desc.struct_size < sizeof(gneiss_mesh_desc) ||
+  if (out_mesh == nullptr || !is_valid() || desc.struct_size < GNEISS_MESH_DESC_VERSION_1_SIZE ||
       desc.reserved != 0U || desc.vertex_count < 3U || desc.vertices == nullptr) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
@@ -46,8 +46,25 @@ gneiss_result render_resource_service::create_mesh(const gneiss_mesh_desc& desc,
       })) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
+  const auto has_extended_desc = desc.struct_size >= sizeof(gneiss_mesh_desc);
+  if (has_extended_desc &&
+      (desc.reserved_2 != 0U || ((desc.normal_count == 0U) != (desc.normals == nullptr)) ||
+       (desc.normal_count != 0U && desc.normal_count != desc.vertex_count))) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  const auto normals = has_extended_desc && desc.normal_count != 0U
+                           ? std::span{desc.normals, desc.normal_count}
+                           : std::span<const gneiss_mesh_normal>{};
+  if (!std::ranges::all_of(normals, [](const auto& normal) {
+        const auto length =
+            std::sqrt((normal.x * normal.x) + (normal.y * normal.y) + (normal.z * normal.z));
+        return std::isfinite(length) && std::abs(length - 1.0F) <= 1.0e-4F;
+      })) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
   try {
-    mesh_resource resource{.vertices = {vertices.begin(), vertices.end()}};
+    mesh_resource resource{.vertices = {vertices.begin(), vertices.end()},
+                           .normals = {normals.begin(), normals.end()}};
     return meshes_.create(core::resource_type::mesh, std::move(resource), out_mesh);
   } catch (const std::bad_alloc&) {
     return GNEISS_ERROR_OUT_OF_MEMORY;

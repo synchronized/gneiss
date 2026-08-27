@@ -4,6 +4,7 @@
 #ifndef GNEISS_RENDER_H_
 #define GNEISS_RENDER_H_
 
+#include <stddef.h>
 #include <stdint.h>
 
 #include <gneiss/application.h>
@@ -57,15 +58,41 @@ typedef struct gneiss_mesh_vertex {
   float v;
 } gneiss_mesh_vertex;
 
-/** Mesh 创建参数。调用期间复制 vertices，调用方保留其所有权。 */
+/** Mesh 单位法线；使用与位置相同的右手坐标。 */
+typedef struct gneiss_mesh_normal {
+  float x;
+  float y;
+  float z;
+} gneiss_mesh_normal;
+
+/** Mesh v1 创建参数布局，用于兼容已发布的无光照 Mesh 描述。 */
+typedef struct gneiss_mesh_desc_version_1 {
+  uint32_t struct_size;
+  uint32_t vertex_count;
+  const gneiss_mesh_vertex* vertices;
+  uint32_t reserved;
+} gneiss_mesh_desc_version_1;
+
+/** Mesh 创建参数。调用期间复制 vertices 与可选 normals，调用方保留其所有权。 */
 typedef struct gneiss_mesh_desc {
   uint32_t struct_size;
   uint32_t vertex_count;
   const gneiss_mesh_vertex* vertices;
   uint32_t reserved;
+  uint32_t reserved_2;
+  uint32_t normal_count;
+  const gneiss_mesh_normal* normals;
 } gneiss_mesh_desc;
 
-#define GNEISS_MESH_DESC_INIT {(uint32_t)sizeof(gneiss_mesh_desc), UINT32_C(0), NULL, UINT32_C(0)}
+#define GNEISS_MESH_DESC_VERSION_1_SIZE ((uint32_t)sizeof(gneiss_mesh_desc_version_1))
+#define GNEISS_MESH_DESC_INIT                                                                      \
+  {(uint32_t)sizeof(gneiss_mesh_desc),                                                             \
+   UINT32_C(0),                                                                                    \
+   NULL,                                                                                           \
+   UINT32_C(0),                                                                                    \
+   UINT32_C(0),                                                                                    \
+   UINT32_C(0),                                                                                    \
+   NULL}
 
 /** Material 参数。颜色分量使用线性空间的 0..1 范围，Texture RID 不转移所有权。 */
 typedef struct gneiss_material_desc {
