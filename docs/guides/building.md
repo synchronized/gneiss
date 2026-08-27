@@ -89,7 +89,8 @@ cmake --install build/windows-clang-debug --prefix build/gneiss-install
 普通 preset 默认关闭可选的运行时适配，因此无图形环境也能构建和测试核心。启用后，Granit 平台
 Application 会创建 Vulkan Renderer、Surface 和 Swapchain，并在每帧更新后执行清屏与呈现。
 Renderer 初始化时会查询设备的 Uniform Buffer 对齐与绑定范围；渲染服务按设备对齐创建逐帧
-Uniform Arena，并通过动态 Offset 为同一帧的不同对象提供变换与材质颜色。
+Uniform Arena，并通过动态 Offset 为同一帧的不同对象提供变换与材质颜色。静态 Mesh 首次使用时
+会打包到持久 GPU 几何 Arena，多个对象实例不再逐帧重复上传相同 Vertex/Index 数据。
 依赖解析默认使用 `AUTO`
 provider：优先复用父工程目标，其次查找 package，最后把锁定的 Granit 提交下载到当前构建目录的
 `_deps`。开箱构建命令如下：

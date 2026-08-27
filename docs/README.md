@@ -83,6 +83,7 @@
 - [TOOL-001：glTF 资产编译器验收记录](records/TOOL-001-gltf-asset-compiler.md)
 - [TOOL-002：Mesh Binary v1 实施记录](records/TOOL-002-mesh-binary-v1.md)
 - [TOOL-003：索引渲染实施记录](records/TOOL-003-indexed-rendering.md)
+- [静态几何 Arena 验收记录](records/2026-08-27-static-geometry-arena.md)
 - [0.1.0 版本验收记录](records/0.1.0-validation.md)
 - [0.3.0 版本验收记录](records/0.3.0-validation.md)
 - [0.4.0 版本验收记录](records/0.4.0-validation.md)
