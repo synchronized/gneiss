@@ -4,6 +4,7 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 #include <optional>
 #include <string>
 #include <vector>
@@ -31,6 +32,13 @@ struct import_ir_primitive {
   std::size_t texcoord_accessor{};
   std::optional<std::size_t> index_accessor;
   std::optional<std::size_t> material_index;
+  struct vertex {
+    float position[3]{};
+    float normal[3]{};
+    float texcoord[2]{};
+  };
+  std::vector<vertex> vertices;
+  std::vector<std::uint32_t> indices;
 };
 
 struct import_ir_mesh {

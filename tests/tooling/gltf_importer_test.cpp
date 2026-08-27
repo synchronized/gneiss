@@ -15,7 +15,9 @@ int main() { // NOLINT(bugprone-exception-escape)
       valid.summary.primitive_count != 1U || valid.data.nodes.size() != 1U ||
       valid.data.nodes[0].name != "Triangle" || valid.data.nodes[0].mesh_index != 0U ||
       valid.data.meshes.size() != 1U || valid.data.meshes[0].primitives.size() != 1U ||
-      valid.data.meshes[0].primitives[0].index_accessor != 3U) {
+      valid.data.meshes[0].primitives[0].index_accessor != 3U ||
+      valid.data.meshes[0].primitives[0].vertices.size() != 3U ||
+      valid.data.meshes[0].primitives[0].indices != std::vector<std::uint32_t>{0U, 1U, 2U}) {
     return 1;
   }
 
@@ -43,9 +45,21 @@ int main() { // NOLINT(bugprone-exception-escape)
     return 5;
   }
 
+  const auto invalid_index = asset_import::inspect_gltf(root / "invalid_index.gltf");
+  if (invalid_index.result != asset_import::inspect_result::invalid_source ||
+      invalid_index.diagnostic.empty()) {
+    return 6;
+  }
+
+  const auto non_finite = asset_import::inspect_gltf(root / "non_finite_vertex.gltf");
+  if (non_finite.result != asset_import::inspect_result::invalid_source ||
+      non_finite.diagnostic.empty()) {
+    return 7;
+  }
+
   const auto empty = asset_import::inspect_gltf({});
   if (empty.result != asset_import::inspect_result::invalid_argument) {
-    return 6;
+    return 8;
   }
 
   return 0;

@@ -4,8 +4,10 @@
 #include "tooling/asset_import/gltf_importer.h"
 
 #include <fastgltf/core.hpp>
+#include <fastgltf/tools.hpp>
 #include <fastgltf/types.hpp>
 
+#include <cmath>
 #include <exception>
 #include <limits>
 #include <optional>
@@ -150,6 +152,106 @@ namespace {
   return result;
 }
 
+[[nodiscard]] bool is_float_vector(const fastgltf::Accessor& accessor,
+                                   fastgltf::AccessorType type) {
+  return accessor.type == type && accessor.componentType == fastgltf::ComponentType::Float &&
+         !accessor.normalized;
+}
+
+[[nodiscard]] bool is_finite(const fastgltf::math::fvec3& value) {
+  return std::isfinite(value[0]) && std::isfinite(value[1]) && std::isfinite(value[2]);
+}
+
+[[nodiscard]] bool is_finite(const fastgltf::math::fvec2& value) {
+  return std::isfinite(value[0]) && std::isfinite(value[1]);
+}
+
+[[nodiscard]] std::optional<std::string> populate_primitive_data(const fastgltf::Asset& asset,
+                                                                 const fastgltf::Primitive& source,
+                                                                 import_ir_primitive& target) {
+  const auto& positions = asset.accessors[target.position_accessor];
+  const auto& normals = asset.accessors[target.normal_accessor];
+  const auto& texcoords = asset.accessors[target.texcoord_accessor];
+  if (!is_float_vector(positions, fastgltf::AccessorType::Vec3) ||
+      !is_float_vector(normals, fastgltf::AccessorType::Vec3) ||
+      !is_float_vector(texcoords, fastgltf::AccessorType::Vec2)) {
+    return "POSITION/NORMAL/TEXCOORD_0 必须是未归一化的 Float Vec3/Vec3/Vec2";
+  }
+  if (positions.count != normals.count || positions.count != texcoords.count) {
+    return "Primitive 顶点属性数量不一致";
+  }
+
+  target.vertices.resize(positions.count);
+  fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec3>(
+      asset, positions, [&](const auto& value, std::size_t index) {
+        target.vertices[index].position[0] = value[0];
+        target.vertices[index].position[1] = value[1];
+        target.vertices[index].position[2] = value[2];
+      });
+  fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec3>(
+      asset, normals, [&](const auto& value, std::size_t index) {
+        target.vertices[index].normal[0] = value[0];
+        target.vertices[index].normal[1] = value[1];
+        target.vertices[index].normal[2] = value[2];
+      });
+  fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec2>(
+      asset, texcoords, [&](const auto& value, std::size_t index) {
+        target.vertices[index].texcoord[0] = value[0];
+        target.vertices[index].texcoord[1] = value[1];
+      });
+  for (const auto& vertex : target.vertices) {
+    if (!is_finite(
+            fastgltf::math::fvec3{vertex.position[0], vertex.position[1], vertex.position[2]}) ||
+        !is_finite(fastgltf::math::fvec3{vertex.normal[0], vertex.normal[1], vertex.normal[2]}) ||
+        !is_finite(fastgltf::math::fvec2{vertex.texcoord[0], vertex.texcoord[1]})) {
+      return "Primitive 顶点属性包含非有限数值";
+    }
+  }
+
+  if (source.indicesAccessor) {
+    const auto& indices = asset.accessors[*source.indicesAccessor];
+    if (indices.type != fastgltf::AccessorType::Scalar ||
+        (indices.componentType != fastgltf::ComponentType::UnsignedByte &&
+         indices.componentType != fastgltf::ComponentType::UnsignedShort &&
+         indices.componentType != fastgltf::ComponentType::UnsignedInt)) {
+      return "索引必须是 UnsignedByte、UnsignedShort 或 UnsignedInt Scalar";
+    }
+    target.indices.reserve(indices.count);
+    fastgltf::iterateAccessor<std::uint32_t>(
+        asset, indices, [&](std::uint32_t value) { target.indices.push_back(value); });
+  } else {
+    target.indices.reserve(target.vertices.size());
+    for (std::size_t index = 0; index < target.vertices.size(); ++index) {
+      target.indices.push_back(static_cast<std::uint32_t>(index));
+    }
+  }
+  for (const auto index : target.indices) {
+    if (index >= target.vertices.size()) {
+      return "Primitive 索引超出顶点范围";
+    }
+  }
+  if (target.indices.size() % 3U != 0U) {
+    return "三角形 Primitive 的索引数量必须是 3 的倍数";
+  }
+  return std::nullopt;
+}
+
+[[nodiscard]] std::optional<std::string> populate_vertex_data(const fastgltf::Asset& asset,
+                                                              import_ir& data) {
+  for (std::size_t mesh_index = 0; mesh_index < asset.meshes.size(); ++mesh_index) {
+    const auto& source_mesh = asset.meshes[mesh_index];
+    auto& target_mesh = data.meshes[mesh_index];
+    for (std::size_t primitive_index = 0; primitive_index < source_mesh.primitives.size();
+         ++primitive_index) {
+      if (auto error = populate_primitive_data(asset, source_mesh.primitives[primitive_index],
+                                               target_mesh.primitives[primitive_index])) {
+        return error;
+      }
+    }
+  }
+  return std::nullopt;
+}
+
 } // namespace
 
 inspect_report inspect_gltf(const std::filesystem::path& source_path) {
@@ -196,6 +298,9 @@ inspect_report inspect_gltf(const std::filesystem::path& source_path) {
     report.summary.image_count = asset.images.size();
 
     report.data = build_import_ir(asset);
+    if (auto invalid_data = populate_vertex_data(asset, report.data)) {
+      return failure(inspect_result::invalid_source, std::move(*invalid_data));
+    }
     return report;
   } catch (const std::exception& error) {
     return failure(inspect_result::invalid_source,
