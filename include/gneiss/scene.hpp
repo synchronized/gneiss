@@ -8,6 +8,7 @@
 #include <gneiss/core/result.hpp>
 #include <gneiss/scene.h>
 
+#include <cstdint>
 #include <limits>
 #include <new>
 #include <string>
@@ -33,6 +34,7 @@ private:
 
 inline constexpr scene_node_id null_scene_node_id{};
 using transform = gneiss_transform;
+using scene_instance_node_info = gneiss_scene_instance_node_info;
 
 /** 独占拥有已加载场景；必须在所属 Application 销毁前释放。 */
 class scene_instance final {
@@ -77,6 +79,14 @@ public:
       out_node = scene_node_id{node};
     }
     return from_native(native_result);
+  }
+  [[nodiscard]] result get_node_count(std::uint64_t& out_count) const noexcept {
+    return from_native(gneiss_scene_instance_get_node_count(application_, handle_, &out_count));
+  }
+  [[nodiscard]] result get_node_info(std::uint64_t index,
+                                     scene_instance_node_info& out_info) const noexcept {
+    return from_native(
+        gneiss_scene_instance_get_node_info(application_, handle_, index, &out_info));
   }
   [[nodiscard]] result serialize(std::string& out_json) const noexcept {
     std::uint64_t length = 0;

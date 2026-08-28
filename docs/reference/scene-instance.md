@@ -30,6 +30,18 @@ C++ `gneiss::scene_instance` 提供移动专属的 RAII 包装，必须在所属
 `GNEISS_ERROR_NOT_FOUND`。节点 ID 只在场景实例未卸载且 World 存活期间有效，可用于运行时更新
 Transform；持久化文件仍不得保存节点 ID。
 
+## 节点枚举
+
+`gneiss_scene_instance_get_node_count` 与 `gneiss_scene_instance_get_node_info` 按作者场景 `objects`
+数组的稳定顺序枚举实例节点。节点描述包含当前 Node ID、父 Node ID、Entity ID、规范 UUID 和可选
+显示名称。作者 JSON 可为对象增加可选字符串 `name`；旧场景无需迁移，名称为空时由调用方选择
+UUID 等回退显示文本。
+
+节点描述中的 UTF-8 UUID 和名称是实例借出的“指针 + 长度”视图，不以零结尾为契约，不能由调用方
+释放；实例卸载或 Application 销毁后立即失效。`out_info` 必须以
+`GNEISS_SCENE_INSTANCE_NODE_INFO_INIT` 初始化。索引越界返回 `GNEISS_ERROR_NOT_FOUND`；节点或实体
+已被外部销毁时返回句柄错误。C++ 包装提供对应的 `get_node_count` 和 `get_node_info`。
+
 ## 运行时属性序列化
 
 `gneiss_scene_instance_serialize` 将实例当前的局部 Transform 和 Camera 属性合并回加载时的作者

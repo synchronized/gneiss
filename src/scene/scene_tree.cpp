@@ -286,6 +286,11 @@ gneiss_entity_id scene_tree::get_entity(gneiss_scene_node_id node_id) const noex
   return target == nullptr ? GNEISS_NULL_ENTITY_ID : target->value->entity;
 }
 
+gneiss_scene_node_id scene_tree::get_parent(gneiss_scene_node_id node_id) const noexcept {
+  const auto* target = find(node_id);
+  return target == nullptr ? GNEISS_NULL_SCENE_NODE_ID : target->value->parent;
+}
+
 void scene_tree::detach_entity(gneiss_entity_id entity) noexcept {
   for (auto& target : slots_) {
     if (target.value && target.value->entity == entity) {

@@ -10,6 +10,7 @@ int main(void) {
   gneiss_scene_node_id root = GNEISS_NULL_SCENE_NODE_ID;
   gneiss_scene_node_id child = GNEISS_NULL_SCENE_NODE_ID;
   gneiss_scene_node_id duplicate = GNEISS_NULL_SCENE_NODE_ID;
+  gneiss_scene_node_id parent = GNEISS_NULL_SCENE_NODE_ID;
   gneiss_transform root_transform = GNEISS_TRANSFORM_IDENTITY;
   gneiss_transform child_transform = GNEISS_TRANSFORM_IDENTITY;
   gneiss_transform world_transform = GNEISS_TRANSFORM_IDENTITY;
@@ -31,6 +32,9 @@ int main(void) {
   child_transform.translation[1] = 3.0F;
   if (gneiss_scene_node_set_local_transform(world, root, &root_transform) != GNEISS_SUCCESS ||
       gneiss_scene_node_set_local_transform(world, child, &child_transform) != GNEISS_SUCCESS ||
+      gneiss_scene_node_get_parent(world, child, &parent) != GNEISS_SUCCESS || parent != root ||
+      gneiss_scene_node_get_parent(world, root, &parent) != GNEISS_SUCCESS ||
+      parent != GNEISS_NULL_SCENE_NODE_ID ||
       gneiss_scene_node_get_world_transform(world, child, &world_transform) != GNEISS_SUCCESS ||
       world_transform.translation[0] != 2.0F || world_transform.translation[1] != 3.0F) {
     return 3;

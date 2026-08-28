@@ -170,9 +170,17 @@ cmake --build --preset windows-clang-debug --target gneiss_editor
 ./build/windows-clang-debug/bin/gneiss_editor.exe
 ```
 
-当前宿主提供层级、场景视图和属性三个占位面板，并已打通输入、字体 Texture RID、UI Draw List 与
-Granit Canvas 的同帧渲染。窗口暂时固定为 1280×720；场景会话和实际面板数据属于后续里程碑。
-可用 `--smoke` 固定运行 3 帧，验证初始化、提交与逆序清理。
+直接打开资产根目录中的场景：
+
+```powershell
+./build/windows-clang-debug/bin/gneiss_editor.exe `
+  --asset-root ./tests/data/assets `
+  --scene asset://scenes/triangle.scene.json
+```
+
+当前宿主已提供场景会话和可选择的层级树，场景视图与属性面板仍只展示最小信息；输入、字体
+Texture RID、UI Draw List 与 Granit Canvas 已完成同帧渲染。窗口暂时固定为 1280×720。可用
+`--smoke` 固定运行 3 帧，验证场景加载、UI 提交与逆序清理。
 
 ## 验证结果
 

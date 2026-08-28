@@ -17,6 +17,7 @@
   "objects": [
     {
       "uuid": "00000000-0000-4000-8000-000000000002",
+      "name": "Triangle",
       "parent": null,
       "transform": {
         "translation": [0, 0, 0],
@@ -37,6 +38,7 @@
 ## 字段规则
 
 - UUID 必须使用 36 字符的小写规范形式；对象 UUID 在场景内唯一。
+- `name` 是可选 UTF-8 显示名称；缺失或为空时，工具可回退显示 UUID。
 - `parent` 必须是现有对象 UUID 或 `null`；层级不能形成循环。
 - 向量与四元数只接受有限、可表示为 float 的 JSON 数字。
 - rotation 顺序为 `(x, y, z, w)` 且必须归一化；scale 的每个分量不能为零。
@@ -44,8 +46,8 @@
 - Camera 要求 `vertical_field_of_view_radians` 位于 `(0, π)`、`near_plane > 0`、
   `far_plane > near_plane` 和布尔 `is_primary`；一个场景最多有一个主相机。
 - Mesh Renderer 的 `mesh` 与 `material` 必须是规范 `asset://` URI。
-- v2 的所有已列字段均为必需字段。当前受支持版本中的未知字段不会参与运行时实例化，但会保留在
-  作者 JSON 中，并在 `serialize_scene_description` 重新输出时保持其值和层级。
+- 除 `name` 外，v2 的所有已列字段均为必需字段。当前受支持版本中的未知字段不会参与运行时
+  实例化，但会保留在作者 JSON 中，并在 `serialize_scene_description` 重新输出时保持其值和层级。
 
 解析成功只产生中间描述，不修改 World。语法错误诊断使用 UTF-8 文档的零起始字节偏移，字段错误
 使用类似 `/objects/0/transform` 的 JSON 路径。未来版本返回 `GNEISS_ERROR_UNSUPPORTED`。

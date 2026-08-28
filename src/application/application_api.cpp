@@ -349,6 +349,42 @@ extern "C" gneiss_result gneiss_scene_instance_find_node(gneiss_application appl
   }
 }
 
+extern "C" gneiss_result gneiss_scene_instance_get_node_count(gneiss_application application,
+                                                              gneiss_scene_instance instance,
+                                                              uint64_t* out_count) {
+  if (out_count == nullptr) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  *out_count = 0U;
+  try {
+    auto state = find_application(application);
+    const auto validation_result = validate_application(state);
+    return validation_result == GNEISS_SUCCESS
+               ? state->scenes()->get_node_count(instance, out_count)
+               : validation_result;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
+extern "C" gneiss_result
+gneiss_scene_instance_get_node_info(gneiss_application application, gneiss_scene_instance instance,
+                                    uint64_t index, gneiss_scene_instance_node_info* out_info) {
+  if (out_info == nullptr ||
+      out_info->struct_size < GNEISS_SCENE_INSTANCE_NODE_INFO_VERSION_1_SIZE) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  try {
+    auto state = find_application(application);
+    const auto validation_result = validate_application(state);
+    return validation_result == GNEISS_SUCCESS
+               ? state->scenes()->get_node_info(instance, index, out_info)
+               : validation_result;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters): C ABI 句柄名称区分所属关系。
 extern "C" gneiss_result gneiss_scene_instance_serialize(gneiss_application application,
                                                          gneiss_scene_instance instance,

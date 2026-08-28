@@ -31,6 +31,30 @@ typedef struct gneiss_transform {
 
 #define GNEISS_TRANSFORM_IDENTITY {{0.0F, 0.0F, 0.0F}, {0.0F, 0.0F, 0.0F, 1.0F}, {1.0F, 1.0F, 1.0F}}
 
+/** 场景实例中的只读节点描述；字符串由实例借出，实例卸载后立即失效。 */
+typedef struct gneiss_scene_instance_node_info {
+  uint32_t struct_size;
+  uint32_t reserved;
+  gneiss_scene_node_id node;
+  gneiss_scene_node_id parent;
+  gneiss_entity_id entity;
+  const char* uuid;
+  uint64_t uuid_length;
+  const char* name;
+  uint64_t name_length;
+  uint64_t reserved_2[2];
+} gneiss_scene_instance_node_info;
+
+#define GNEISS_SCENE_INSTANCE_NODE_INFO_VERSION_1_SIZE                                             \
+  ((uint32_t)sizeof(gneiss_scene_instance_node_info))
+#define GNEISS_SCENE_INSTANCE_NODE_INFO_INIT                                                       \
+  {                                                                                                \
+    (uint32_t)sizeof(gneiss_scene_instance_node_info), UINT32_C(0), GNEISS_NULL_SCENE_NODE_ID,     \
+        GNEISS_NULL_SCENE_NODE_ID, GNEISS_NULL_ENTITY_ID, NULL, UINT64_C(0), NULL, UINT64_C(0), {  \
+      UINT64_C(0), UINT64_C(0)                                                                     \
+    }                                                                                              \
+  }
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -66,6 +90,10 @@ GNEISS_API gneiss_result gneiss_scene_node_get_world_transform(gneiss_world worl
 GNEISS_API gneiss_result gneiss_scene_node_get_entity(gneiss_world world, gneiss_scene_node_id node,
                                                       gneiss_entity_id* out_entity);
 
+/** 获取节点当前父节点；根节点成功返回零值。 */
+GNEISS_API gneiss_result gneiss_scene_node_get_parent(gneiss_world world, gneiss_scene_node_id node,
+                                                      gneiss_scene_node_id* out_parent);
+
 /** 通过实体关联读取 Scene Tree 节点的局部 Transform。 */
 GNEISS_API gneiss_result gneiss_world_entity_get_local_transform(gneiss_world world,
                                                                  gneiss_entity_id entity,
@@ -90,6 +118,21 @@ GNEISS_API gneiss_result gneiss_scene_instance_find_node(gneiss_application appl
                                                          gneiss_scene_instance instance,
                                                          const char* uuid, uint64_t uuid_length,
                                                          gneiss_scene_node_id* out_node);
+
+/** 返回实例包含的节点数量；顺序与作者场景 objects 数组一致。 */
+GNEISS_API gneiss_result gneiss_scene_instance_get_node_count(gneiss_application application,
+                                                              gneiss_scene_instance instance,
+                                                              uint64_t* out_count);
+
+/**
+ * 按作者顺序读取节点描述。
+ *
+ * out_info 必须使用 GNEISS_SCENE_INSTANCE_NODE_INFO_INIT
+ * 初始化。节点或实体被外部销毁时返回句柄错误。
+ */
+GNEISS_API gneiss_result
+gneiss_scene_instance_get_node_info(gneiss_application application, gneiss_scene_instance instance,
+                                    uint64_t index, gneiss_scene_instance_node_info* out_info);
 
 /**
  * 将实例当前 Transform 与 Camera 写入当前版本的 UTF-8 场景 JSON。
