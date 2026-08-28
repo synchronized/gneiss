@@ -39,6 +39,17 @@
 
 资产放置通过 Scene Instance 作者编辑 API 完成，不直接保存 RID，也不建立 Editor 私有场景状态。
 
+## 撤销与重做
+
+- 使用 `Ctrl+Z` 撤销最近一次属性修改、Mesh Renderer 节点创建、资源替换或节点删除。
+- 使用 `Ctrl+Shift+Z` 重做；也可以通过 `Edit` 菜单执行并查看当前是否可用。
+- 执行新的编辑后会清空 redo。失败的编辑和资产导入不会进入命令历史。
+- `Delete Selected` 当前删除选中的无子 Mesh Renderer 节点；有子节点或非 Mesh Renderer 节点不会
+  被隐式删除。
+
+命令只保存节点 UUID、父 UUID、属性值和资产 URI，不保存 Entity ID、Scene Node ID、组件地址、
+ImGui 状态或资源 RID。节点被恢复后，后续命令会通过 UUID 重新解析新的运行时句柄。
+
 ## 当前限制
 
 - 只支持现有 glTF 导入器覆盖的静态 Mesh、Material、PNG Texture 和 Scene 范围。

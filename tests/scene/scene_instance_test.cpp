@@ -151,15 +151,25 @@ int main() try {
           GNEISS_ERROR_INVALID_HANDLE) {
     return 8;
   }
+  if (gneiss_scene_instance_destroy_node(application, scene, camera_node) !=
+          GNEISS_ERROR_INVALID_STATE ||
+      gneiss_scene_instance_destroy_node(application, scene, created_node) != GNEISS_SUCCESS ||
+      gneiss_scene_instance_destroy_node(application, scene, created_node) !=
+          GNEISS_ERROR_INVALID_HANDLE ||
+      gneiss_scene_instance_get_node_count(application, scene, &node_count) != GNEISS_SUCCESS ||
+      node_count != 2U || gneiss_world_entity_count(world, &entity_count) != GNEISS_SUCCESS ||
+      entity_count != 2U) {
+    return 9;
+  }
   if (gneiss_scene_instance_unload(second_application, scene) != GNEISS_ERROR_INVALID_HANDLE ||
       gneiss_scene_instance_unload(application, scene) != GNEISS_SUCCESS ||
       gneiss_scene_instance_unload(application, scene) != GNEISS_ERROR_INVALID_HANDLE ||
       gneiss_world_entity_count(world, &entity_count) != GNEISS_SUCCESS || entity_count != 0U) {
-    return 9;
+    return 10;
   }
   if (gneiss_application_destroy(second_application) != GNEISS_SUCCESS ||
       gneiss_application_destroy(application) != GNEISS_SUCCESS) {
-    return 10;
+    return 11;
   }
 
   const auto failing_application = create_application(failure_root);
@@ -172,7 +182,7 @@ int main() try {
       scene != GNEISS_NULL_SCENE_INSTANCE ||
       gneiss_world_entity_count(world, &entity_count) != GNEISS_SUCCESS || entity_count != 0U ||
       gneiss_application_destroy(failing_application) != GNEISS_SUCCESS) {
-    return 11;
+    return 12;
   }
   return 0;
 } catch (...) {

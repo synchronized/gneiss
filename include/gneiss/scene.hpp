@@ -105,6 +105,9 @@ public:
     return from_native(
         gneiss_scene_instance_set_mesh_renderer(application_, handle_, node.get(), &desc));
   }
+  [[nodiscard]] result destroy_node(scene_node_id node) noexcept {
+    return from_native(gneiss_scene_instance_destroy_node(application_, handle_, node.get()));
+  }
   [[nodiscard]] result serialize(std::string& out_json) const noexcept {
     std::uint64_t length = 0;
     auto native_result =

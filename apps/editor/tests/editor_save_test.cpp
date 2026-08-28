@@ -84,25 +84,32 @@ int main() try {
     return 5;
   }
   const auto created_uuid = session.selected_node()->uuid;
-  if (session.save(root) != gneiss::result::success || session.is_dirty()) {
+  gneiss::editor::scene_node_snapshot snapshot;
+  if (session.destroy_node(created_node, snapshot) != gneiss::result::success ||
+      session.find_node(created_uuid) != nullptr || session.nodes().size() != 2U ||
+      session.restore_mesh_renderer_node(snapshot, created_node) != gneiss::result::success ||
+      session.find_node(created_uuid) == nullptr || session.nodes().size() != 3U) {
     return 6;
+  }
+  if (session.save(root) != gneiss::result::success || session.is_dirty()) {
+    return 7;
   }
   const auto saved = read_text(scene_path);
   if (saved.find("\"editor_test_unknown\":42") == std::string::npos ||
       saved.find(created_uuid) == std::string::npos || saved.find(mesh_uri) == std::string::npos) {
-    return 7;
+    return 8;
   }
 
   transform.translation[0] = 9.0F;
   if (gneiss_world_entity_set_local_transform(world, session.selected_node()->entity.get(),
                                               &transform) != GNEISS_SUCCESS) {
-    return 8;
+    return 9;
   }
   session.mark_dirty();
   const auto blocker = root / "not-a-directory";
   if (!write_text(blocker, "blocker") || session.save(blocker) != gneiss::result::io ||
       !session.is_dirty() || read_text(scene_path) != saved) {
-    return 9;
+    return 10;
   }
   session.close();
   application.reset();
@@ -112,7 +119,7 @@ int main() try {
   if (create_application(root, reloaded_application) != gneiss::result::success ||
       gneiss::scene_instance::load(reloaded_application.get(), scene_uri, reloaded_scene) !=
           gneiss::result::success) {
-    return 10;
+    return 11;
   }
   gneiss_world reloaded_world = GNEISS_NULL_WORLD;
   gneiss::scene_node_id camera_node;
@@ -127,7 +134,7 @@ int main() try {
       gneiss_world_entity_get_local_transform(reloaded_world, camera_entity, &reloaded_transform) !=
           GNEISS_SUCCESS ||
       std::abs(reloaded_transform.translation[0] - 7.0F) > 0.0001F) {
-    return 11;
+    return 12;
   }
   reloaded_scene.reset();
   reloaded_application.reset();

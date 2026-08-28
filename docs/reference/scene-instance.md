@@ -52,8 +52,12 @@ Scene Node 和 ECS 组件。任何阶段失败都不增加作者对象或泄漏�
 ECS 组件更新成功后，才替换作者 URI 和旧租约；失败保留原引用。父节点必须属于同一场景实例，节点
 ID 和实例不能跨 Application 使用。这两项操作仅限 Application 创建线程。
 
-C++ `gneiss::scene_instance` 提供对应强类型包装。创建与替换会进入后续序列化结果，但不会自行写入
-来源文件；Editor 仍负责脏状态和原子保存。
+`gneiss_scene_instance_destroy_node` 删除没有子节点的作者节点，并使对应 Entity、Scene Node ID 与
+资产租约失效。有子节点时返回 `GNEISS_ERROR_INVALID_STATE`，未知节点返回句柄错误。调用方如需删除
+子树，必须先按子节点到父节点的顺序显式删除；接口不会隐式改变其他作者对象。
+
+C++ `gneiss::scene_instance` 提供对应强类型包装。创建、替换与删除会进入后续序列化结果，但不会
+自行写入来源文件；Editor 仍负责脏状态和原子保存。
 
 ## 运行时属性序列化
 

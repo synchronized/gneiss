@@ -5,6 +5,8 @@ add_library(
   gneiss_editor_session STATIC
   editor_camera.cpp
   editor_camera.h
+  editor_command_history.cpp
+  editor_command_history.h
   editor_project.cpp
   editor_project.h
   editor_session.cpp
@@ -105,6 +107,11 @@ if(BUILD_TESTING)
   gneiss_target_compile_warnings(gneiss_editor_property_inspector_test)
   gneiss_target_output_directories(gneiss_editor_property_inspector_test)
   add_test(NAME gneiss.editor.property-inspector COMMAND gneiss_editor_property_inspector_test)
+  add_executable(gneiss_editor_command_history_test tests/editor_command_history_test.cpp)
+  target_link_libraries(gneiss_editor_command_history_test PRIVATE gneiss_editor_session)
+  gneiss_target_compile_warnings(gneiss_editor_command_history_test)
+  gneiss_target_output_directories(gneiss_editor_command_history_test)
+  add_test(NAME gneiss.editor.command-history COMMAND gneiss_editor_command_history_test)
   if(TARGET gneiss_editor_assets)
     add_executable(gneiss_editor_asset_browser_test tests/asset_browser_model_test.cpp)
     target_link_libraries(gneiss_editor_asset_browser_test PRIVATE gneiss_editor_assets)

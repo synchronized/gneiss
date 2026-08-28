@@ -140,6 +140,11 @@ const scene_node_record* editor_session::selected_node() const noexcept {
   return found == nodes_.end() ? nullptr : &*found;
 }
 
+const scene_node_record* editor_session::find_node(std::string_view uuid) const noexcept {
+  const auto found = std::ranges::find(nodes_, uuid, &scene_node_record::uuid);
+  return found == nodes_.end() ? nullptr : &*found;
+}
+
 result editor_session::select(scene_node_id node) noexcept {
   if (!node.is_valid()) {
     selection_ = {};
@@ -171,19 +176,45 @@ result editor_session::create_mesh_renderer_node(std::string_view name, std::str
   }
   try {
     const auto uuid = make_uuid();
-    const auto display_name = name.empty() ? uuid : std::string{name};
-    const std::string mesh(mesh_uri);
-    const std::string material(material_uri);
+    return create_mesh_renderer_node({.uuid = uuid,
+                                      .parent_uuid = {},
+                                      .display_name = name.empty() ? uuid : std::string{name},
+                                      .mesh_uri = std::string{mesh_uri},
+                                      .material_uri = std::string{material_uri}},
+                                     out_node);
+  } catch (const std::bad_alloc&) {
+    return result::out_of_memory;
+  } catch (...) {
+    return result::internal;
+  }
+}
+
+result editor_session::create_mesh_renderer_node(const scene_node_snapshot& snapshot,
+                                                 scene_node_id& out_node) noexcept {
+  if (!is_open() || snapshot.uuid.empty() || snapshot.mesh_uri.empty() ||
+      snapshot.material_uri.empty()) {
+    return result::invalid_argument;
+  }
+  try {
+    scene_node_id parent;
+    if (!snapshot.parent_uuid.empty()) {
+      const auto* parent_record = find_node(snapshot.parent_uuid);
+      if (parent_record == nullptr) {
+        return result::not_found;
+      }
+      parent = parent_record->node;
+    }
     nodes_.reserve(nodes_.size() + 1U);
     scene_mesh_renderer_node_desc desc = GNEISS_SCENE_MESH_RENDERER_NODE_DESC_INIT;
-    desc.uuid = uuid.data();
-    desc.uuid_length = uuid.size();
-    desc.name = name.empty() ? nullptr : name.data();
-    desc.name_length = name.size();
-    desc.renderer.mesh_uri = mesh_uri.data();
-    desc.renderer.mesh_uri_length = mesh_uri.size();
-    desc.renderer.material_uri = material_uri.data();
-    desc.renderer.material_uri_length = material_uri.size();
+    desc.uuid = snapshot.uuid.data();
+    desc.uuid_length = snapshot.uuid.size();
+    desc.name = snapshot.display_name.empty() ? nullptr : snapshot.display_name.data();
+    desc.name_length = snapshot.display_name.size();
+    desc.parent = parent.get();
+    desc.renderer.mesh_uri = snapshot.mesh_uri.data();
+    desc.renderer.mesh_uri_length = snapshot.mesh_uri.size();
+    desc.renderer.material_uri = snapshot.material_uri.data();
+    desc.renderer.material_uri_length = snapshot.material_uri.size();
     auto operation = scene_.create_mesh_renderer_node(desc, out_node);
     if (operation != result::success) {
       return operation;
@@ -197,14 +228,67 @@ result editor_session::create_mesh_renderer_node(std::string_view name, std::str
     if (operation != result::success) {
       return operation;
     }
-    nodes_.push_back({.node = scene_node_id{info.node},
-                      .parent = scene_node_id{info.parent},
-                      .entity = entity_id{info.entity},
-                      .uuid = uuid,
-                      .display_name = display_name,
-                      .mesh_uri = mesh,
-                      .material_uri = material});
+    nodes_.push_back(
+        {.node = scene_node_id{info.node},
+         .parent = scene_node_id{info.parent},
+         .entity = entity_id{info.entity},
+         .uuid = snapshot.uuid,
+         .display_name = snapshot.display_name.empty() ? snapshot.uuid : snapshot.display_name,
+         .mesh_uri = snapshot.mesh_uri,
+         .material_uri = snapshot.material_uri});
     selection_ = out_node;
+    is_dirty_ = true;
+    return result::success;
+  } catch (const std::bad_alloc&) {
+    return result::out_of_memory;
+  } catch (...) {
+    return result::internal;
+  }
+}
+
+result editor_session::restore_mesh_renderer_node(const scene_node_snapshot& snapshot,
+                                                  scene_node_id& out_node) noexcept {
+  return create_mesh_renderer_node(snapshot, out_node);
+}
+
+result editor_session::destroy_node(scene_node_id node,
+                                    scene_node_snapshot& out_snapshot) noexcept {
+  if (!is_open() || !node.is_valid()) {
+    return result::invalid_argument;
+  }
+  const auto found = std::ranges::find(nodes_, node, &scene_node_record::node);
+  if (found == nodes_.end()) {
+    return result::not_found;
+  }
+  if (found->mesh_uri.empty() || found->material_uri.empty()) {
+    return result::unsupported;
+  }
+  if (std::ranges::any_of(nodes_,
+                          [node](const auto& candidate) { return candidate.parent == node; })) {
+    return result::invalid_state;
+  }
+  try {
+    scene_node_snapshot snapshot{.uuid = found->uuid,
+                                 .parent_uuid = {},
+                                 .display_name = found->display_name,
+                                 .mesh_uri = found->mesh_uri,
+                                 .material_uri = found->material_uri};
+    if (found->parent.is_valid()) {
+      const auto parent = std::ranges::find(nodes_, found->parent, &scene_node_record::node);
+      if (parent == nodes_.end()) {
+        return result::invalid_state;
+      }
+      snapshot.parent_uuid = parent->uuid;
+    }
+    const auto operation = scene_.destroy_node(node);
+    if (operation != result::success) {
+      return operation;
+    }
+    nodes_.erase(found);
+    if (selection_ == node) {
+      selection_ = {};
+    }
+    out_snapshot = std::move(snapshot);
     is_dirty_ = true;
     return result::success;
   } catch (const std::bad_alloc&) {

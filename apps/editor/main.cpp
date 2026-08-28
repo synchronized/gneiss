@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "editor_camera.h"
+#include "editor_command_history.h"
 #include "editor_project.h"
 #include "editor_session.h"
 #include "editor_theme.h"
@@ -33,10 +34,12 @@ struct editor_state {
   gneiss::editor::imgui_adapter ui;
   gneiss::editor::editor_camera camera;
   gneiss::editor::editor_session session;
+  gneiss::editor::editor_command_history history;
   gneiss::editor::property_inspector_model inspector;
   gneiss_world world = GNEISS_NULL_WORLD;
   gneiss::entity_id inspected_entity;
   gneiss::result inspector_error = gneiss::result::success;
+  gneiss::result history_error = gneiss::result::success;
   std::filesystem::path asset_root;
   std::filesystem::path project_root;
   gneiss::result save_result = gneiss::result::success;
@@ -111,8 +114,7 @@ void draw_scene_node(gneiss::editor::editor_session& session,
   ImGui::PopID();
 }
 
-bool draw_property(gneiss::editor::property_inspector_model& inspector,
-                   const gneiss::editor::inspector_component& component,
+bool draw_property(editor_state& state, const gneiss::editor::inspector_component& component,
                    const gneiss::editor::inspector_property& property, gneiss::result& error) {
   auto value = property.value;
   const auto writable = (property.capabilities & GNEISS_PROPERTY_CAPABILITY_WRITABLE) != 0U;
@@ -144,8 +146,53 @@ bool draw_property(gneiss::editor::property_inspector_model& inspector,
   if (!changed) {
     return false;
   }
-  error = inspector.set_value(component.type_id, property.id, value);
-  return error == gneiss::result::success;
+  const auto previous = property.value;
+  const auto* selected = state.session.selected_node();
+  if (selected == nullptr) {
+    error = gneiss::result::invalid_state;
+    return false;
+  }
+  const auto uuid = selected->uuid;
+  error = state.inspector.set_value(component.type_id, property.id, value);
+  if (error != gneiss::result::success) {
+    return false;
+  }
+  const auto type_id = component.type_id;
+  const auto field_id = property.id;
+  const auto record_result = state.history.record(
+      {.label = std::string{"修改 "} + property.name,
+       .undo =
+           [&state, uuid, type_id, field_id, previous] {
+             const auto* current = state.session.find_node(uuid);
+             if (current == nullptr) {
+               return gneiss::result::not_found;
+             }
+             const auto operation = state.inspector.set_value(state.world, current->entity, type_id,
+                                                              field_id, previous);
+             if (operation == gneiss::result::success) {
+               state.session.mark_dirty();
+             }
+             return operation;
+           },
+       .redo =
+           [&state, uuid, type_id, field_id, value] {
+             const auto* current = state.session.find_node(uuid);
+             if (current == nullptr) {
+               return gneiss::result::not_found;
+             }
+             const auto operation =
+                 state.inspector.set_value(state.world, current->entity, type_id, field_id, value);
+             if (operation == gneiss::result::success) {
+               state.session.mark_dirty();
+             }
+             return operation;
+           }});
+  if (record_result != gneiss::result::success) {
+    (void)state.inspector.set_value(type_id, field_id, previous);
+    error = record_result;
+    return false;
+  }
+  return true;
 }
 
 void draw_reflected_properties(editor_state& state) {
@@ -155,7 +202,7 @@ void draw_reflected_properties(editor_state& state) {
       continue;
     }
     for (const auto& property : component.properties) {
-      edited = draw_property(state.inspector, component, property, state.inspector_error) || edited;
+      edited = draw_property(state, component, property, state.inspector_error) || edited;
     }
   }
   if (edited) {
@@ -273,7 +320,7 @@ void draw_asset_browser(editor_state& state) {
                          state.last_import.diagnostic.c_str());
     }
   }
-  const auto* scene_node = state.session.selected_node();
+  const gneiss::editor::scene_node_record* scene_node = state.session.selected_node();
   const auto* paired_material =
       selected_entry != state.assets.entries().end() && is_mesh_asset(*selected_entry)
           ? find_material_for_mesh(state.assets.entries(), *selected_entry)
@@ -284,10 +331,43 @@ void draw_asset_browser(editor_state& state) {
   const auto add_requested = ImGui::Button("Add Mesh");
   ImGui::EndDisabled();
   if (add_requested) {
+    const auto was_dirty = state.session.is_dirty();
     gneiss::scene_node_id node;
     state.asset_scene_result = state.session.create_mesh_renderer_node(
         selected_entry->display_name, selected_entry->asset_uri, paired_material->asset_uri, node);
+    if (state.asset_scene_result == gneiss::result::success) {
+      const auto* created = state.session.selected_node();
+      const gneiss::editor::scene_node_snapshot snapshot{.uuid = created->uuid,
+                                                         .parent_uuid = {},
+                                                         .display_name = created->display_name,
+                                                         .mesh_uri = created->mesh_uri,
+                                                         .material_uri = created->material_uri};
+      state.asset_scene_result = state.history.record(
+          {.label = "创建 Mesh Renderer 节点",
+           .undo =
+               [&state, uuid = snapshot.uuid] {
+                 const auto* current = state.session.find_node(uuid);
+                 if (current == nullptr) {
+                   return gneiss::result::not_found;
+                 }
+                 gneiss::editor::scene_node_snapshot discarded;
+                 return state.session.destroy_node(current->node, discarded);
+               },
+           .redo =
+               [&state, snapshot] {
+                 gneiss::scene_node_id restored;
+                 return state.session.restore_mesh_renderer_node(snapshot, restored);
+               }});
+      if (state.asset_scene_result != gneiss::result::success) {
+        gneiss::editor::scene_node_snapshot discarded;
+        (void)state.session.destroy_node(node, discarded);
+        if (!was_dirty) {
+          state.session.clear_dirty();
+        }
+      }
+    }
     state.asset_scene_attempted = true;
+    scene_node = state.session.selected_node();
   }
   const auto can_apply_mesh = scene_node != nullptr && !scene_node->material_uri.empty() &&
                               selected_entry != state.assets.entries().end() &&
@@ -300,11 +380,39 @@ void draw_asset_browser(editor_state& state) {
   const auto apply_requested = ImGui::Button("Apply to Node");
   ImGui::EndDisabled();
   if (apply_requested) {
+    const auto was_dirty = state.session.is_dirty();
+    const auto uuid = scene_node->uuid;
+    const auto previous_mesh = scene_node->mesh_uri;
+    const auto previous_material = scene_node->material_uri;
     const auto mesh_uri = can_apply_mesh ? selected_entry->asset_uri : scene_node->mesh_uri;
     const auto material_uri =
         can_apply_material ? selected_entry->asset_uri : scene_node->material_uri;
     state.asset_scene_result =
         state.session.set_mesh_renderer(scene_node->node, mesh_uri, material_uri);
+    if (state.asset_scene_result == gneiss::result::success) {
+      state.asset_scene_result = state.history.record(
+          {.label = "替换 Mesh Renderer 资源",
+           .undo =
+               [&state, uuid, previous_mesh, previous_material] {
+                 const auto* current = state.session.find_node(uuid);
+                 return current == nullptr ? gneiss::result::not_found
+                                           : state.session.set_mesh_renderer(
+                                                 current->node, previous_mesh, previous_material);
+               },
+           .redo =
+               [&state, uuid, mesh = std::string{mesh_uri}, material = std::string{material_uri}] {
+                 const auto* current = state.session.find_node(uuid);
+                 return current == nullptr
+                            ? gneiss::result::not_found
+                            : state.session.set_mesh_renderer(current->node, mesh, material);
+               }});
+      if (state.asset_scene_result != gneiss::result::success) {
+        (void)state.session.set_mesh_renderer(scene_node->node, previous_mesh, previous_material);
+        if (!was_dirty) {
+          state.session.clear_dirty();
+        }
+      }
+    }
     state.asset_scene_attempted = true;
   }
   if (state.asset_scene_attempted && state.asset_scene_result != gneiss::result::success) {
@@ -381,11 +489,30 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
     }
 
     if (ImGui::BeginMainMenuBar()) {
+      if (ImGui::BeginMenu("Edit")) {
+        ImGui::BeginDisabled(!state.history.can_undo());
+        const auto undo_requested = ImGui::MenuItem("Undo", "Ctrl+Z");
+        ImGui::EndDisabled();
+        ImGui::BeginDisabled(!state.history.can_redo());
+        const auto redo_requested = ImGui::MenuItem("Redo", "Ctrl+Shift+Z");
+        ImGui::EndDisabled();
+        if (undo_requested) {
+          state.history_error = state.history.undo();
+        }
+        if (redo_requested) {
+          state.history_error = state.history.redo();
+        }
+        ImGui::EndMenu();
+      }
       if (ImGui::BeginMenu("Development")) {
         ImGui::MenuItem("ImGui Demo", nullptr, &state.show_imgui_demo);
         ImGui::EndMenu();
       }
       ImGui::EndMainMenuBar();
+    }
+    const auto& io = ImGui::GetIO();
+    if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_Z, false)) {
+      state.history_error = io.KeyShift ? state.history.redo() : state.history.undo();
     }
 
     ImGui::SetNextWindowPos(ImVec2(0.0F, 20.0F));
@@ -394,6 +521,41 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
     if (!state.session.is_open()) {
       ImGui::TextUnformatted("No scene is open");
     } else {
+      const auto* selected = state.session.selected_node();
+      ImGui::BeginDisabled(selected == nullptr || selected->mesh_uri.empty());
+      const auto delete_requested = ImGui::Button("Delete Selected");
+      ImGui::EndDisabled();
+      if (delete_requested) {
+        const auto was_dirty = state.session.is_dirty();
+        const auto node = selected->node;
+        gneiss::editor::scene_node_snapshot snapshot;
+        state.history_error = state.session.destroy_node(node, snapshot);
+        if (state.history_error == gneiss::result::success) {
+          state.history_error = state.history.record(
+              {.label = "删除节点",
+               .undo =
+                   [&state, snapshot] {
+                     gneiss::scene_node_id restored;
+                     return state.session.restore_mesh_renderer_node(snapshot, restored);
+                   },
+               .redo =
+                   [&state, uuid = snapshot.uuid] {
+                     const auto* current = state.session.find_node(uuid);
+                     if (current == nullptr) {
+                       return gneiss::result::not_found;
+                     }
+                     gneiss::editor::scene_node_snapshot discarded;
+                     return state.session.destroy_node(current->node, discarded);
+                   }});
+          if (state.history_error != gneiss::result::success) {
+            gneiss::scene_node_id restored;
+            (void)state.session.restore_mesh_renderer_node(snapshot, restored);
+            if (!was_dirty) {
+              state.session.clear_dirty();
+            }
+          }
+        }
+      }
       for (const auto& node : state.session.nodes()) {
         if (!node.parent.is_valid()) {
           draw_scene_node(state.session, node);
@@ -401,6 +563,17 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
       }
     }
     ImGui::End();
+
+    if (state.history_error != gneiss::result::success &&
+        state.history_error != gneiss::result::not_ready) {
+      const auto message = gneiss::result_message(state.history_error);
+      ImGui::SetNextWindowPos(ImVec2(500.0F, 24.0F));
+      ImGui::Begin("Command Error", nullptr,
+                   ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoDecoration);
+      ImGui::TextColored(gneiss::editor::theme_error_color(), "%.*s",
+                         static_cast<int>(message.size()), message.data());
+      ImGui::End();
+    }
 
     ImGui::SetNextWindowPos(ImVec2(250.0F, 20.0F));
     ImGui::SetNextWindowSize(ImVec2(730.0F, 700.0F));

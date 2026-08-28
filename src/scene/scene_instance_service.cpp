@@ -310,6 +310,32 @@ gneiss_result scene_instance::set_mesh_renderer(gneiss_scene_node_id node,
   }
 }
 
+gneiss_result scene_instance::destroy_node(gneiss_scene_node_id node) {
+  const auto found = std::ranges::find(objects, node, &object::node);
+  if (found == objects.end()) {
+    return GNEISS_ERROR_INVALID_HANDLE;
+  }
+  const auto index = static_cast<std::size_t>(std::distance(objects.begin(), found));
+  const auto& uuid = description.objects[index].uuid;
+  if (std::ranges::any_of(description.objects, [&uuid](const auto& candidate) {
+        return candidate.parent_uuid && *candidate.parent_uuid == uuid;
+      })) {
+    return GNEISS_ERROR_INVALID_STATE;
+  }
+  auto result = gneiss_world_entity_destroy(world_, found->entity);
+  if (result != GNEISS_SUCCESS) {
+    return result;
+  }
+  result = gneiss_scene_node_destroy(world_, found->node);
+  if (result != GNEISS_SUCCESS && result != GNEISS_ERROR_INVALID_HANDLE) {
+    return result;
+  }
+  objects.erase(found);
+  description.objects.erase(description.objects.begin() + static_cast<std::ptrdiff_t>(index));
+  loader_.release_unused();
+  return GNEISS_SUCCESS;
+}
+
 gneiss_result scene_instance::serialize(std::string& out_json) const {
   auto current = description;
   gneiss_entity_id active_camera = GNEISS_NULL_ENTITY_ID;
@@ -487,6 +513,17 @@ gneiss_result scene_instance_service::set_mesh_renderer(gneiss_scene_instance in
     return value == nullptr || *value == nullptr
                ? GNEISS_ERROR_INVALID_HANDLE
                : (*value)->set_mesh_renderer(node, mesh_uri, material_uri);
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
+gneiss_result scene_instance_service::destroy_node(gneiss_scene_instance instance,
+                                                   gneiss_scene_node_id node) noexcept {
+  try {
+    auto* value = instances_.get(instance, core::resource_type::scene_instance);
+    return value == nullptr || *value == nullptr ? GNEISS_ERROR_INVALID_HANDLE
+                                                 : (*value)->destroy_node(node);
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;
   }

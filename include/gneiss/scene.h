@@ -199,6 +199,11 @@ GNEISS_API gneiss_result gneiss_scene_instance_set_mesh_renderer(
     gneiss_application application, gneiss_scene_instance instance, gneiss_scene_node_id node,
     const gneiss_scene_mesh_renderer_desc* desc);
 
+/** 删除没有子节点的作者节点；成功后对应节点、实体和资产引用立即失效。 */
+GNEISS_API gneiss_result gneiss_scene_instance_destroy_node(gneiss_application application,
+                                                            gneiss_scene_instance instance,
+                                                            gneiss_scene_node_id node);
+
 /**
  * 将实例当前 Transform 与 Camera 写入当前版本的 UTF-8 场景 JSON。
  *

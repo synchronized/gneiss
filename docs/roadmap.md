@@ -158,7 +158,7 @@ UI。既有 [ADR-002](decisions/ADR-002-ecs-reflection-boundary.md) 继续约束
 | M-53 Asset Browser 模型与面板 | P0 | 已完成 |
 | M-54 导入与重新导入闭环 | P0 | 已完成 |
 | M-55 资产到场景的最小创作路径 | P0 | 已完成 |
-| M-56 最小 Undo/Redo | P1 | 待开始 |
+| M-56 最小 Undo/Redo | P1 | 已完成 |
 | M-57 示例工程与版本验收 | P0 | 待开始 |
 
 详细范围、非目标和验收条件见

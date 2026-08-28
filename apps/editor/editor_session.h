@@ -23,6 +23,14 @@ struct scene_node_record final {
   std::string material_uri;
 };
 
+struct scene_node_snapshot final {
+  std::string uuid;
+  std::string parent_uuid;
+  std::string display_name;
+  std::string mesh_uri;
+  std::string material_uri;
+};
+
 class editor_session final {
 public:
   [[nodiscard]] result open(gneiss_application application, gneiss_world world,
@@ -35,6 +43,7 @@ public:
   [[nodiscard]] const std::vector<scene_node_record>& nodes() const noexcept { return nodes_; }
   [[nodiscard]] scene_node_id selection() const noexcept { return selection_; }
   [[nodiscard]] const scene_node_record* selected_node() const noexcept;
+  [[nodiscard]] const scene_node_record* find_node(std::string_view uuid) const noexcept;
 
   [[nodiscard]] result select(scene_node_id node) noexcept;
   [[nodiscard]] result validate_selection() noexcept;
@@ -43,12 +52,17 @@ public:
                                                  scene_node_id& out_node) noexcept;
   [[nodiscard]] result set_mesh_renderer(scene_node_id node, std::string_view mesh_uri,
                                          std::string_view material_uri) noexcept;
+  [[nodiscard]] result restore_mesh_renderer_node(const scene_node_snapshot& snapshot,
+                                                  scene_node_id& out_node) noexcept;
+  [[nodiscard]] result destroy_node(scene_node_id node, scene_node_snapshot& out_snapshot) noexcept;
   /** 将当前场景原子替换到原 asset URI；成功后清除脏状态。 */
   [[nodiscard]] result save(const std::filesystem::path& asset_root) noexcept;
   void mark_dirty() noexcept { is_dirty_ = true; }
   void clear_dirty() noexcept { is_dirty_ = false; }
 
 private:
+  [[nodiscard]] result create_mesh_renderer_node(const scene_node_snapshot& snapshot,
+                                                 scene_node_id& out_node) noexcept;
   gneiss_world world_ = GNEISS_NULL_WORLD;
   scene_instance scene_;
   std::vector<scene_node_record> nodes_;

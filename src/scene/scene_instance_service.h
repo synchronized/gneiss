@@ -49,6 +49,7 @@ public:
   [[nodiscard]] gneiss_result set_mesh_renderer(gneiss_scene_node_id node,
                                                 std::string_view mesh_uri,
                                                 std::string_view material_uri);
+  [[nodiscard]] gneiss_result destroy_node(gneiss_scene_node_id node);
 
   std::vector<object> objects;
   scene_description description;
@@ -84,6 +85,8 @@ public:
                                                 gneiss_scene_node_id node,
                                                 std::string_view mesh_uri,
                                                 std::string_view material_uri) noexcept;
+  [[nodiscard]] gneiss_result destroy_node(gneiss_scene_instance instance,
+                                           gneiss_scene_node_id node) noexcept;
 
 private:
   using instance_ptr = std::unique_ptr<scene_instance>;
