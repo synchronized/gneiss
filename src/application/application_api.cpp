@@ -15,6 +15,7 @@
 #include <memory>
 #include <mutex>
 #include <new>
+#include <string>
 #include <string_view>
 
 namespace {
@@ -323,8 +324,15 @@ extern "C" gneiss_result gneiss_scene_instance_load(gneiss_application applicati
     if (validation_result != GNEISS_SUCCESS) {
       return validation_result;
     }
-    return state->scenes()->load(std::string_view(uri, static_cast<std::size_t>(uri_length)),
-                                 out_instance);
+    const auto uri_view = std::string_view(uri, static_cast<std::size_t>(uri_length));
+    const auto result = state->scenes()->load(uri_view, out_instance);
+    if (result != GNEISS_SUCCESS) {
+      auto message = std::string{"场景加载失败："};
+      message.append(uri_view);
+      state->report(application, GNEISS_DIAGNOSTIC_ERROR, GNEISS_DIAGNOSTIC_CATEGORY_ASSET, result,
+                    "scene.load", message);
+    }
+    return result;
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;
   }

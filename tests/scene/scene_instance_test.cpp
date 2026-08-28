@@ -12,10 +12,34 @@
 
 namespace {
 
-gneiss_application create_application(std::string_view asset_root) {
+struct diagnostic_state final {
+  std::uint32_t count = 0U;
+  gneiss_result result = GNEISS_SUCCESS;
+  std::uint32_t category = 0U;
+  std::string module;
+  std::string message;
+};
+
+void capture_diagnostic(gneiss_application, const gneiss_diagnostic* diagnostic, void* user_data) {
+  if (diagnostic == nullptr || user_data == nullptr || diagnostic->module == nullptr ||
+      diagnostic->message == nullptr) {
+    return;
+  }
+  auto& state = *static_cast<diagnostic_state*>(user_data);
+  ++state.count;
+  state.result = diagnostic->result;
+  state.category = diagnostic->category;
+  state.module.assign(diagnostic->module, diagnostic->module_length);
+  state.message.assign(diagnostic->message, diagnostic->message_length);
+}
+
+gneiss_application create_application(std::string_view asset_root,
+                                      diagnostic_state* diagnostics = nullptr) {
   gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
   desc.asset_root = asset_root.data();
   desc.asset_root_length = static_cast<std::uint32_t>(asset_root.size());
+  desc.user_data = diagnostics;
+  desc.diagnostic = diagnostics == nullptr ? nullptr : capture_diagnostic;
   gneiss_application application = GNEISS_NULL_APPLICATION;
   return gneiss_application_create(&desc, &application) == GNEISS_SUCCESS ? application
                                                                           : GNEISS_NULL_APPLICATION;
@@ -28,6 +52,7 @@ int main() try {
   constexpr std::string_view failure_root = GNEISS_TEST_FAILURE_ASSET_ROOT;
   constexpr std::string_view scene_uri = "asset://scenes/triangle.scene.json";
   constexpr std::string_view missing_uri = "asset://scenes/missing-asset.scene.json";
+  constexpr std::string_view corrupt_uri = "asset://scenes/corrupt.scene.json";
   constexpr std::string_view triangle_uuid = "00000000-0000-4000-8000-000000000003";
   constexpr std::string_view camera_uuid = "00000000-0000-4000-8000-000000000002";
   constexpr std::string_view created_uuid = "00000000-0000-4000-8000-000000000004";
@@ -322,14 +347,27 @@ int main() try {
     return 11;
   }
 
-  const auto failing_application = create_application(failure_root);
+  diagnostic_state diagnostics;
+  const auto failing_application = create_application(failure_root, &diagnostics);
   world = GNEISS_NULL_WORLD;
   scene = GNEISS_NULL_SCENE_INSTANCE;
   if (failing_application == GNEISS_NULL_APPLICATION ||
       gneiss_application_get_world(failing_application, &world) != GNEISS_SUCCESS ||
       gneiss_scene_instance_load(failing_application, missing_uri.data(), missing_uri.size(),
                                  &scene) != GNEISS_ERROR_NOT_FOUND ||
-      scene != GNEISS_NULL_SCENE_INSTANCE ||
+      scene != GNEISS_NULL_SCENE_INSTANCE || diagnostics.count != 1U ||
+      diagnostics.result != GNEISS_ERROR_NOT_FOUND ||
+      diagnostics.category != GNEISS_DIAGNOSTIC_CATEGORY_ASSET ||
+      diagnostics.module != "scene.load" ||
+      diagnostics.message.find(missing_uri) == std::string::npos ||
+      gneiss_scene_instance_load(failing_application, corrupt_uri.data(), corrupt_uri.size(),
+                                 &scene) != GNEISS_ERROR_INVALID_ARGUMENT ||
+      scene != GNEISS_NULL_SCENE_INSTANCE || diagnostics.count != 2U ||
+      diagnostics.result != GNEISS_ERROR_INVALID_ARGUMENT ||
+      diagnostics.message.find(corrupt_uri) == std::string::npos ||
+      gneiss_scene_instance_create_empty(failing_application, empty_uuid.data(), empty_uuid.size(),
+                                         &scene) != GNEISS_SUCCESS ||
+      gneiss_scene_instance_unload(failing_application, scene) != GNEISS_SUCCESS ||
       gneiss_world_entity_count(world, &entity_count) != GNEISS_SUCCESS || entity_count != 0U ||
       gneiss_application_destroy(failing_application) != GNEISS_SUCCESS) {
     return 12;
