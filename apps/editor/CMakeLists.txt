@@ -31,6 +31,15 @@ if(BUILD_TESTING)
   gneiss_target_compile_warnings(gneiss_editor_session_test)
   gneiss_target_output_directories(gneiss_editor_session_test)
   add_test(NAME gneiss.editor.session COMMAND gneiss_editor_session_test)
+  add_executable(gneiss_editor_save_test tests/editor_save_test.cpp)
+  target_link_libraries(gneiss_editor_save_test PRIVATE gneiss_editor_session)
+  target_compile_definitions(
+    gneiss_editor_save_test
+    PRIVATE GNEISS_EDITOR_TEST_ASSET_ROOT="${PROJECT_SOURCE_DIR}/tests/data/assets"
+  )
+  gneiss_target_compile_warnings(gneiss_editor_save_test)
+  gneiss_target_output_directories(gneiss_editor_save_test)
+  add_test(NAME gneiss.editor.save COMMAND gneiss_editor_save_test)
   add_executable(gneiss_editor_camera_test tests/editor_camera_test.cpp)
   target_link_libraries(gneiss_editor_camera_test PRIVATE gneiss_editor_session)
   gneiss_target_compile_warnings(gneiss_editor_camera_test)

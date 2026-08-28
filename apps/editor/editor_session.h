@@ -6,6 +6,7 @@
 
 #include <gneiss/scene.hpp>
 
+#include <filesystem>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -35,6 +36,8 @@ public:
 
   [[nodiscard]] result select(scene_node_id node) noexcept;
   [[nodiscard]] result validate_selection() noexcept;
+  /** 将当前场景原子替换到原 asset URI；成功后清除脏状态。 */
+  [[nodiscard]] result save(const std::filesystem::path& asset_root) noexcept;
   void mark_dirty() noexcept { is_dirty_ = true; }
   void clear_dirty() noexcept { is_dirty_ = false; }
 

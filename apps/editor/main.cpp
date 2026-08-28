@@ -12,6 +12,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <filesystem>
 #include <limits>
 #include <new>
 #include <string>
@@ -27,6 +28,9 @@ struct editor_state {
   gneiss_world world = GNEISS_NULL_WORLD;
   gneiss::entity_id inspected_entity;
   gneiss::result inspector_error = gneiss::result::success;
+  std::filesystem::path asset_root;
+  gneiss::result save_result = gneiss::result::success;
+  bool save_attempted = false;
 };
 
 struct launch_options {
@@ -227,6 +231,24 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
     ImGui::SetNextWindowPos(ImVec2(980.0F, 0.0F));
     ImGui::SetNextWindowSize(ImVec2(300.0F, 720.0F));
     ImGui::Begin("Inspector", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+    ImGui::BeginDisabled(!state.session.is_open());
+    const auto save_button_pressed = ImGui::Button("Save");
+    ImGui::EndDisabled();
+    const auto save_requested =
+        state.session.is_open() &&
+        (save_button_pressed || (ImGui::GetIO().KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_S, false)));
+    ImGui::SameLine();
+    ImGui::TextDisabled(state.session.is_dirty() ? "Modified" : "Saved");
+    if (save_requested) {
+      state.save_result = state.session.save(state.asset_root);
+      state.save_attempted = true;
+    }
+    if (state.save_attempted && state.save_result != gneiss::result::success) {
+      const auto message = gneiss::result_message(state.save_result);
+      ImGui::TextColored(ImVec4(1.0F, 0.35F, 0.25F, 1.0F), "Save failed: %.*s",
+                         static_cast<int>(message.size()), message.data());
+    }
+    ImGui::Separator();
     if (const auto* selected = state.session.selected_node(); selected != nullptr) {
       if (state.inspected_entity != selected->entity) {
         state.inspector_error = state.inspector.refresh(state.world, selected->entity);
@@ -263,6 +285,8 @@ int run_editor(int argc, char** argv) {
   }
   gneiss::application application;
   editor_state state;
+  state.asset_root = std::filesystem::path(std::u8string(
+      reinterpret_cast<const char8_t*>(options.asset_root.data()), options.asset_root.size()));
   constexpr std::string_view title = "Gneiss Editor";
   gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
   desc.user_data = &state;

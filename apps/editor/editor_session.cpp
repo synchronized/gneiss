@@ -3,12 +3,52 @@
 
 #include "editor_session.h"
 
+#include <gneiss/asset.h>
+
 #include <algorithm>
+#include <chrono>
 #include <cstdint>
+#include <fstream>
 #include <new>
+#include <system_error>
 #include <utility>
 
+#if defined(_WIN32)
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <windows.h>
+#endif
+
 namespace gneiss::editor {
+namespace {
+
+[[nodiscard]] bool is_within(const std::filesystem::path& root,
+                             const std::filesystem::path& path) noexcept {
+  auto root_part = root.begin();
+  auto path_part = path.begin();
+  for (; root_part != root.end(); ++root_part, ++path_part) {
+    if (path_part == path.end() || *root_part != *path_part) {
+      return false;
+    }
+  }
+  return true;
+}
+
+[[nodiscard]] result replace_file(const std::filesystem::path& temporary,
+                                  const std::filesystem::path& destination) noexcept {
+#if defined(_WIN32)
+  return MoveFileExW(temporary.c_str(), destination.c_str(),
+                     MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH) != FALSE
+             ? result::success
+             : result::io;
+#else
+  std::error_code error;
+  std::filesystem::rename(temporary, destination, error);
+  return error ? result::io : result::success;
+#endif
+}
+
+} // namespace
 
 result editor_session::open(gneiss_application application, gneiss_world world,
                             std::string_view uri) noexcept {
@@ -90,6 +130,59 @@ result editor_session::select(scene_node_id node) noexcept {
 
 result editor_session::validate_selection() noexcept {
   return selection_.is_valid() ? select(selection_) : result::success;
+}
+
+result editor_session::save(const std::filesystem::path& asset_root) noexcept {
+  if (!is_open() || asset_root.empty() ||
+      gneiss_asset_uri_validate(uri_.data(), uri_.size()) != GNEISS_SUCCESS) {
+    return result::invalid_argument;
+  }
+  try {
+    constexpr std::string_view scheme = "asset://";
+    const auto relative_text = uri_.substr(scheme.size());
+    const auto relative = std::filesystem::path(std::u8string(
+        reinterpret_cast<const char8_t*>(relative_text.data()), relative_text.size()));
+    std::error_code error;
+    const auto canonical_root = std::filesystem::canonical(asset_root, error);
+    if (error || !std::filesystem::is_directory(canonical_root, error) || error) {
+      return result::io;
+    }
+    const auto destination = std::filesystem::weakly_canonical(canonical_root / relative, error);
+    if (error || !is_within(canonical_root, destination) ||
+        !std::filesystem::is_regular_file(destination, error) || error) {
+      return result::io;
+    }
+
+    std::string json;
+    auto operation = scene_.serialize(json);
+    if (operation != result::success) {
+      return operation;
+    }
+    const auto suffix = std::chrono::steady_clock::now().time_since_epoch().count();
+    auto temporary = destination;
+    temporary += ".gneiss-" + std::to_string(suffix) + ".tmp";
+    {
+      std::ofstream stream(temporary, std::ios::binary | std::ios::trunc);
+      stream.write(json.data(), static_cast<std::streamsize>(json.size()));
+      stream.flush();
+      if (!stream) {
+        stream.close();
+        std::filesystem::remove(temporary, error);
+        return result::io;
+      }
+    }
+    operation = replace_file(temporary, destination);
+    if (operation != result::success) {
+      std::filesystem::remove(temporary, error);
+      return operation;
+    }
+    is_dirty_ = false;
+    return result::success;
+  } catch (const std::bad_alloc&) {
+    return result::out_of_memory;
+  } catch (...) {
+    return result::io;
+  }
 }
 
 } // namespace gneiss::editor
