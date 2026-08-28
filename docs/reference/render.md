@@ -22,6 +22,18 @@ Material 可选引用 Texture RID；Granit 后端按 RID 建立 GPU 镜像并通
 domain。销毁、跨 Application 使用、类型混用或重复销毁均返回
 `GNEISS_ERROR_INVALID_HANDLE`。
 
+## 当前帧即时 UI 数据
+
+`gneiss_application_submit_ui_draw_list` 在 Application 的 `update` 回调内提交后端无关的即时 UI
+数据。描述包含显示尺寸、Framebuffer 缩放、RGBA8 顶点、UInt32 索引以及引用 Texture RID 的绘制
+命令；每条命令同时给出裁剪矩形、索引范围和顶点偏移。Runtime 在返回前深拷贝全部数组，调用方可
+立即复用或释放源内存。
+
+提交只能发生在 Application 创建线程的 `update` 回调内；同一帧最后一次成功提交原子替换前一份
+数据，失败提交保留已有数据。Runtime 会校验有限浮点值、数组范围、索引引用、保留字段和 Texture
+所属关系。数据在该帧渲染或跳过渲染后清空，不跨帧缓存。接口不包含 Dear ImGui 或 Granit 类型，
+长期边界见 [ADR-017](../decisions/ADR-017-editor-ui-render-composition.md)。
+
 ## ECS 组件
 
 `gneiss_world_entity_configure_camera` 使用带 `struct_size` 的描述设置或替换 Camera 组件。透视参数

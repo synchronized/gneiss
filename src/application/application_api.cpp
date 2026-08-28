@@ -6,6 +6,7 @@
 
 #include <gneiss/application.h>
 #include <gneiss/input.h>
+#include <gneiss/render.h>
 #include <gneiss/scene.h>
 
 #include <algorithm>
@@ -269,6 +270,22 @@ extern "C" gneiss_result gneiss_texture_destroy(gneiss_application application,
     auto state = find_application(application);
     const auto validation_result = validate_application(state);
     return validation_result == GNEISS_SUCCESS ? state->resources().destroy_texture(texture)
+                                               : validation_result;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
+extern "C" gneiss_result
+gneiss_application_submit_ui_draw_list(gneiss_application application,
+                                       const gneiss_ui_draw_list_desc* desc) {
+  if (desc == nullptr) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  try {
+    auto state = find_application(application);
+    const auto validation_result = validate_application(state);
+    return validation_result == GNEISS_SUCCESS ? state->submit_ui_draw_list(*desc)
                                                : validation_result;
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;

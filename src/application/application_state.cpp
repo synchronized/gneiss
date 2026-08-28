@@ -190,6 +190,11 @@ gneiss_result application_state::get_action_state(gneiss_action action,
   return input_.get_action_state(action, out_state);
 }
 
+gneiss_result
+application_state::submit_ui_draw_list(const gneiss_ui_draw_list_desc& desc) noexcept {
+  return is_updating_ ? ui_draw_list_.replace(desc, resources_) : GNEISS_ERROR_INVALID_STATE;
+}
+
 void application_state::report(gneiss_application handle, std::uint32_t severity,
                                std::uint32_t category, gneiss_result result,
                                std::string_view module, std::string_view message) const noexcept {
@@ -263,9 +268,13 @@ gneiss_result application_state::run(gneiss_application handle,
         .is_paused = static_cast<std::uint8_t>(is_paused_ ? 1U : 0U),
         .reserved = {},
     };
+    ui_draw_list_.clear();
     if (desc_.update != nullptr) {
+      is_updating_ = true;
       const auto update_result = desc_.update(handle, &time, desc_.user_data);
+      is_updating_ = false;
       if (update_result != GNEISS_SUCCESS) {
+        ui_draw_list_.clear();
         is_running_ = false;
         return update_result;
       }
@@ -273,10 +282,12 @@ gneiss_result application_state::run(gneiss_application handle,
 #ifdef GNEISS_HAS_GRANIT_PLATFORM
     const auto render_result = render_frame();
     if (render_result != GNEISS_SUCCESS) {
+      ui_draw_list_.clear();
       is_running_ = false;
       return render_result;
     }
 #endif
+    ui_draw_list_.clear();
     ++frame_index_;
     ++frames_run;
   }
@@ -290,6 +301,8 @@ bool application_state::is_owner_thread() const noexcept {
 }
 
 void application_state::shutdown() noexcept {
+  is_updating_ = false;
+  ui_draw_list_.clear();
   scenes_.reset();
   if (world_ != GNEISS_NULL_WORLD) {
     (void)gneiss_world_destroy(world_);

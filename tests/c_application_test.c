@@ -3,6 +3,7 @@
 
 #include <gneiss/application.h>
 #include <gneiss/input.h>
+#include <gneiss/render.h>
 
 typedef struct test_context {
   uint64_t now_ns;
@@ -12,6 +13,7 @@ typedef struct test_context {
   uint8_t should_close;
   uint32_t diagnostic_count;
   gneiss_result diagnostic_result;
+  gneiss_result ui_submit_result;
 } test_context;
 
 static void diagnostic(gneiss_application application, const gneiss_diagnostic* value,
@@ -51,6 +53,12 @@ static gneiss_result update(gneiss_application application, const gneiss_frame_t
     return GNEISS_ERROR_INTERNAL;
   }
   ++context->update_count;
+  {
+    gneiss_ui_draw_list_desc ui = GNEISS_UI_DRAW_LIST_DESC_INIT;
+    ui.display_width = 640.0F;
+    ui.display_height = 480.0F;
+    context->ui_submit_result = gneiss_application_submit_ui_draw_list(application, &ui);
+  }
   if (context->update_count == UINT64_C(3)) {
     return gneiss_application_request_exit(application);
   }
@@ -80,6 +88,14 @@ int main(void) {
       world == GNEISS_NULL_WORLD) {
     return 1;
   }
+  {
+    gneiss_ui_draw_list_desc ui = GNEISS_UI_DRAW_LIST_DESC_INIT;
+    ui.display_width = 640.0F;
+    ui.display_height = 480.0F;
+    if (gneiss_application_submit_ui_draw_list(application, &ui) != GNEISS_ERROR_INVALID_STATE) {
+      return 1;
+    }
+  }
 
   {
     gneiss_input_event event = GNEISS_INPUT_EVENT_INIT;
@@ -96,7 +112,7 @@ int main(void) {
   }
 
   if (gneiss_application_run(application, 0) != GNEISS_SUCCESS ||
-      context.update_count != UINT64_C(3) ||
+      context.update_count != UINT64_C(3) || context.ui_submit_result != GNEISS_SUCCESS ||
       gneiss_application_destroy(application) != GNEISS_SUCCESS || context.shutdown_count != 1U ||
       gneiss_world_entity_count(world, &context.update_count) != GNEISS_ERROR_INVALID_HANDLE) {
     return 1;
