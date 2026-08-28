@@ -35,6 +35,7 @@ private:
 inline constexpr scene_node_id null_scene_node_id{};
 using transform = gneiss_transform;
 using scene_instance_node_info = gneiss_scene_instance_node_info;
+using scene_node_desc = gneiss_scene_node_desc;
 using scene_mesh_renderer_desc = gneiss_scene_mesh_renderer_desc;
 using scene_mesh_renderer_node_desc = gneiss_scene_mesh_renderer_node_desc;
 
@@ -99,6 +100,23 @@ public:
       out_node = scene_node_id{node};
     }
     return from_native(native_result);
+  }
+  [[nodiscard]] result create_node(const scene_node_desc& desc, scene_node_id& out_node) noexcept {
+    gneiss_scene_node_id node = GNEISS_NULL_SCENE_NODE_ID;
+    const auto native_result =
+        gneiss_scene_instance_create_node(application_, handle_, &desc, &node);
+    if (native_result == GNEISS_SUCCESS) {
+      out_node = scene_node_id{node};
+    }
+    return from_native(native_result);
+  }
+  [[nodiscard]] result set_node_name(scene_node_id node, std::string_view name) noexcept {
+    return from_native(gneiss_scene_instance_set_node_name(application_, handle_, node.get(),
+                                                           name.data(), name.size()));
+  }
+  [[nodiscard]] result reparent_node(scene_node_id node, scene_node_id parent) noexcept {
+    return from_native(
+        gneiss_scene_instance_reparent_node(application_, handle_, node.get(), parent.get()));
   }
   [[nodiscard]] result set_mesh_renderer(scene_node_id node,
                                          const scene_mesh_renderer_desc& desc) noexcept {

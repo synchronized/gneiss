@@ -43,6 +43,10 @@ public:
   [[nodiscard]] gneiss_result serialize(std::string& out_json) const;
   [[nodiscard]] gneiss_result get_node_info(std::uint64_t index,
                                             gneiss_scene_instance_node_info& out_info) const;
+  [[nodiscard]] gneiss_result create_node(const gneiss_scene_node_desc& desc,
+                                          gneiss_scene_node_id* out_node);
+  [[nodiscard]] gneiss_result set_node_name(gneiss_scene_node_id node, std::string_view name);
+  [[nodiscard]] gneiss_result reparent_node(gneiss_scene_node_id node, gneiss_scene_node_id parent);
   [[nodiscard]] gneiss_result
   create_mesh_renderer_node(const gneiss_scene_mesh_renderer_node_desc& desc,
                             gneiss_scene_node_id* out_node);
@@ -77,6 +81,15 @@ public:
   [[nodiscard]] gneiss_result
   get_node_info(gneiss_scene_instance instance, std::uint64_t index,
                 gneiss_scene_instance_node_info* out_info) const noexcept;
+  [[nodiscard]] gneiss_result create_node(gneiss_scene_instance instance,
+                                          const gneiss_scene_node_desc& desc,
+                                          gneiss_scene_node_id* out_node) noexcept;
+  [[nodiscard]] gneiss_result set_node_name(gneiss_scene_instance instance,
+                                            gneiss_scene_node_id node,
+                                            std::string_view name) noexcept;
+  [[nodiscard]] gneiss_result reparent_node(gneiss_scene_instance instance,
+                                            gneiss_scene_node_id node,
+                                            gneiss_scene_node_id parent) noexcept;
   [[nodiscard]] gneiss_result
   create_mesh_renderer_node(gneiss_scene_instance instance,
                             const gneiss_scene_mesh_renderer_node_desc& desc,
