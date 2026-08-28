@@ -34,6 +34,7 @@
 namespace {
 
 enum class hierarchy_action { none, rename, duplicate, remove };
+enum class document_action { none, new_scene, open_scene, exit_editor };
 
 struct editor_state {
   gneiss::editor::imgui_adapter ui;
@@ -56,6 +57,7 @@ struct editor_state {
   std::string rename_previous;
   hierarchy_action pending_hierarchy_action = hierarchy_action::none;
   std::string pending_hierarchy_uuid;
+  document_action pending_document_action = document_action::none;
 #if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
   gneiss::editor::asset_browser_model assets;
   gneiss::editor::asset_browser_result asset_result = gneiss::editor::asset_browser_result::success;
@@ -118,6 +120,77 @@ gneiss::result redo_editor_command(editor_state& state) noexcept {
 [[nodiscard]] std::string path_utf8(const std::filesystem::path& value) {
   const auto text = value.generic_u8string();
   return {reinterpret_cast<const char*>(text.data()), text.size()};
+}
+
+gneiss::result save_document_as(editor_state& state) {
+  std::filesystem::path path;
+  auto operation = gneiss::editor::select_scene_save_path(path);
+  if (operation != gneiss::result::success) {
+    return operation;
+  }
+  std::string uri;
+  operation = gneiss::editor::make_asset_uri(state.asset_root, path, uri);
+  if (operation == gneiss::result::success) {
+    operation = state.session.save_as(state.asset_root, uri);
+  }
+  if (operation == gneiss::result::success) {
+    state.history.mark_saved();
+  }
+  return operation;
+}
+
+gneiss::result save_document(editor_state& state) {
+  if (state.session.uri().empty()) {
+    return save_document_as(state);
+  }
+  const auto operation = state.session.save(state.asset_root);
+  if (operation == gneiss::result::success) {
+    state.history.mark_saved();
+  }
+  return operation;
+}
+
+gneiss::result perform_document_action(editor_state& state, gneiss_application application,
+                                       document_action action) {
+  gneiss::result operation = gneiss::result::success;
+  switch (action) {
+  case document_action::new_scene:
+    operation = state.session.create_empty(application, state.world);
+    break;
+  case document_action::open_scene: {
+    std::filesystem::path path;
+    operation = gneiss::editor::select_scene_file(path);
+    std::string uri;
+    if (operation == gneiss::result::success) {
+      operation = gneiss::editor::make_asset_uri(state.asset_root, path, uri);
+    }
+    if (operation == gneiss::result::success) {
+      operation = state.session.open(application, state.world, uri);
+    }
+    break;
+  }
+  case document_action::exit_editor:
+    operation = gneiss::from_native(gneiss_application_request_exit(application));
+    break;
+  case document_action::none:
+    return gneiss::result::success;
+  }
+  if (operation == gneiss::result::success && action != document_action::exit_editor) {
+    state.history.clear();
+    state.inspector.clear();
+    state.inspected_entity = {};
+  }
+  return operation;
+}
+
+void request_document_action(editor_state& state, gneiss_application application,
+                             document_action action) {
+  if (state.session.is_dirty()) {
+    state.pending_document_action = action;
+    ImGui::OpenPopup("Unsaved Changes");
+  } else {
+    state.history_error = perform_document_action(state, application, action);
+  }
 }
 
 bool reparent_with_history(editor_state& state, std::string_view source_uuid,
@@ -634,6 +707,35 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
     }
 
     if (ImGui::BeginMainMenuBar()) {
+      if (ImGui::BeginMenu("File")) {
+        const auto new_requested = ImGui::MenuItem("New Scene", "Ctrl+N");
+        const auto open_requested = ImGui::MenuItem("Open Scene...", "Ctrl+O");
+        ImGui::Separator();
+        const auto save_requested = ImGui::MenuItem("Save", "Ctrl+S");
+        const auto save_as_requested = ImGui::MenuItem("Save As...", "Ctrl+Shift+S");
+        ImGui::Separator();
+        const auto exit_requested = ImGui::MenuItem("Exit");
+        if (save_requested) {
+          state.save_result = save_document(state);
+          state.save_attempted = state.save_result != gneiss::result::not_ready;
+        }
+        if (save_as_requested) {
+          state.save_result = save_document_as(state);
+          state.save_attempted = state.save_result != gneiss::result::not_ready;
+        }
+        document_action requested = document_action::none;
+        if (new_requested) {
+          requested = document_action::new_scene;
+        } else if (open_requested) {
+          requested = document_action::open_scene;
+        } else if (exit_requested) {
+          requested = document_action::exit_editor;
+        }
+        if (requested != document_action::none) {
+          request_document_action(state, application, requested);
+        }
+        ImGui::EndMenu();
+      }
       if (ImGui::BeginMenu("Edit")) {
         ImGui::BeginDisabled(!state.history.can_undo());
         const auto undo_requested = ImGui::MenuItem("Undo", "Ctrl+Z");
@@ -656,6 +758,43 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
       ImGui::EndMainMenuBar();
     }
     const auto& io = ImGui::GetIO();
+    if (io.KeyCtrl && !io.KeyShift && ImGui::IsKeyPressed(ImGuiKey_N, false)) {
+      request_document_action(state, application, document_action::new_scene);
+    }
+    if (io.KeyCtrl && !io.KeyShift && ImGui::IsKeyPressed(ImGuiKey_O, false)) {
+      request_document_action(state, application, document_action::open_scene);
+    }
+    if (io.KeyCtrl && io.KeyShift && ImGui::IsKeyPressed(ImGuiKey_S, false)) {
+      state.save_result = save_document_as(state);
+      state.save_attempted = state.save_result != gneiss::result::not_ready;
+    }
+    if (state.pending_document_action != document_action::none &&
+        ImGui::BeginPopupModal("Unsaved Changes", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+      ImGui::TextUnformatted("The current scene has unsaved changes.");
+      if (ImGui::Button("Save")) {
+        state.save_result = save_document(state);
+        state.save_attempted = state.save_result != gneiss::result::not_ready;
+        if (state.save_result == gneiss::result::success) {
+          state.history_error =
+              perform_document_action(state, application, state.pending_document_action);
+          state.pending_document_action = document_action::none;
+          ImGui::CloseCurrentPopup();
+        }
+      }
+      ImGui::SameLine();
+      if (ImGui::Button("Discard")) {
+        state.history_error =
+            perform_document_action(state, application, state.pending_document_action);
+        state.pending_document_action = document_action::none;
+        ImGui::CloseCurrentPopup();
+      }
+      ImGui::SameLine();
+      if (ImGui::Button("Cancel")) {
+        state.pending_document_action = document_action::none;
+        ImGui::CloseCurrentPopup();
+      }
+      ImGui::EndPopup();
+    }
     if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_Z, false)) {
       state.history_error = io.KeyShift ? redo_editor_command(state) : undo_editor_command(state);
     }
@@ -890,7 +1029,8 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
     ImGui::EndDisabled();
     const auto save_requested =
         state.session.is_open() &&
-        (save_button_pressed || (ImGui::GetIO().KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_S, false)));
+        (save_button_pressed || (ImGui::GetIO().KeyCtrl && !ImGui::GetIO().KeyShift &&
+                                 ImGui::IsKeyPressed(ImGuiKey_S, false)));
     ImGui::SameLine();
     if (!state.session.is_open()) {
       ImGui::TextDisabled("No scene");
@@ -900,11 +1040,8 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
       ImGui::TextColored(gneiss::editor::theme_success_color(), "Saved");
     }
     if (save_requested) {
-      state.save_result = state.session.save(state.asset_root);
-      if (state.save_result == gneiss::result::success) {
-        state.history.mark_saved();
-      }
-      state.save_attempted = true;
+      state.save_result = save_document(state);
+      state.save_attempted = state.save_result != gneiss::result::not_ready;
     }
     if (state.save_attempted && state.save_result != gneiss::result::success) {
       const auto message = gneiss::result_message(state.save_result);

@@ -73,6 +73,39 @@ namespace {
 
 } // namespace
 
+result make_asset_uri(const std::filesystem::path& asset_root, const std::filesystem::path& path,
+                      std::string& output) noexcept {
+  if (asset_root.empty() || path.empty()) {
+    return result::invalid_argument;
+  }
+  try {
+    std::error_code error;
+    const auto root = std::filesystem::canonical(asset_root, error);
+    if (error) {
+      return result::io;
+    }
+    const auto target = std::filesystem::weakly_canonical(path, error);
+    if (error || !is_within(root, target)) {
+      return result::invalid_argument;
+    }
+    const auto relative = std::filesystem::relative(target, root, error).generic_u8string();
+    if (error || relative.empty()) {
+      return result::invalid_argument;
+    }
+    std::string uri = "asset://";
+    uri.append(reinterpret_cast<const char*>(relative.data()), relative.size());
+    if (gneiss_asset_uri_validate(uri.data(), uri.size()) != GNEISS_SUCCESS) {
+      return result::invalid_argument;
+    }
+    output = std::move(uri);
+    return result::success;
+  } catch (const std::bad_alloc&) {
+    return result::out_of_memory;
+  } catch (...) {
+    return result::io;
+  }
+}
+
 result editor_session::open(gneiss_application application, gneiss_world world,
                             std::string_view uri) noexcept {
   if (application == GNEISS_NULL_APPLICATION || world == GNEISS_NULL_WORLD || uri.empty()) {
@@ -114,6 +147,16 @@ result editor_session::create_empty(gneiss_application application, gneiss_world
   uri_.clear();
   is_dirty_ = true;
   return result::success;
+}
+
+result editor_session::create_empty(gneiss_application application, gneiss_world world) noexcept {
+  try {
+    return create_empty(application, world, make_uuid());
+  } catch (const std::bad_alloc&) {
+    return result::out_of_memory;
+  } catch (...) {
+    return result::internal;
+  }
 }
 
 result editor_session::refresh_nodes() noexcept {

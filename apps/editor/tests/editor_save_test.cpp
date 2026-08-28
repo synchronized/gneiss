@@ -150,6 +150,14 @@ int main() try {
   }
   constexpr std::string_view new_scene_uuid = "00000000-0000-4000-8000-000000000099";
   constexpr std::string_view new_scene_uri = "asset://scenes/new.scene.json";
+  std::string converted_uri;
+  if (gneiss::editor::make_asset_uri(root, root / "scenes" / "new.scene.json", converted_uri) !=
+          gneiss::result::success ||
+      converted_uri != new_scene_uri ||
+      gneiss::editor::make_asset_uri(root, root.parent_path() / "escaped.scene.json",
+                                     converted_uri) != gneiss::result::invalid_argument) {
+    return 18;
+  }
   gneiss::scene_node_id new_node;
   if (session.create_empty(application.get(), world, new_scene_uuid) != gneiss::result::success ||
       !session.is_open() || !session.is_dirty() || !session.uri().empty() ||

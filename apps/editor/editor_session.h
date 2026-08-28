@@ -14,6 +14,11 @@
 
 namespace gneiss::editor {
 
+/** 将资产根内的本地路径转换为规范 asset URI；路径越界时拒绝。 */
+[[nodiscard]] result make_asset_uri(const std::filesystem::path& asset_root,
+                                    const std::filesystem::path& path,
+                                    std::string& output) noexcept;
+
 struct scene_node_record final {
   scene_node_id node;
   scene_node_id parent;
@@ -47,6 +52,7 @@ public:
                             std::string_view uri) noexcept;
   [[nodiscard]] result create_empty(gneiss_application application, gneiss_world world,
                                     std::string_view scene_uuid) noexcept;
+  [[nodiscard]] result create_empty(gneiss_application application, gneiss_world world) noexcept;
   void close() noexcept;
 
   [[nodiscard]] bool is_open() const noexcept { return scene_.is_valid(); }
