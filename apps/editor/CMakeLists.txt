@@ -9,6 +9,8 @@ add_library(
   editor_project.h
   editor_session.cpp
   editor_session.h
+  project_workspace.cpp
+  project_workspace.h
   property_inspector_model.cpp
   property_inspector_model.h
 )
@@ -60,6 +62,11 @@ if(BUILD_TESTING)
   gneiss_target_compile_warnings(gneiss_editor_project_test)
   gneiss_target_output_directories(gneiss_editor_project_test)
   add_test(NAME gneiss.editor.project COMMAND gneiss_editor_project_test)
+  add_executable(gneiss_editor_project_workspace_test tests/project_workspace_test.cpp)
+  target_link_libraries(gneiss_editor_project_workspace_test PRIVATE gneiss_editor_session)
+  gneiss_target_compile_warnings(gneiss_editor_project_workspace_test)
+  gneiss_target_output_directories(gneiss_editor_project_workspace_test)
+  add_test(NAME gneiss.editor.project-workspace COMMAND gneiss_editor_project_workspace_test)
   add_executable(gneiss_editor_save_test tests/editor_save_test.cpp)
   target_link_libraries(gneiss_editor_save_test PRIVATE gneiss_editor_session)
   target_compile_definitions(

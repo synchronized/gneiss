@@ -6,6 +6,7 @@
 #include "editor_theme.h"
 #include "imgui_adapter.h"
 #include "native_dialog.h"
+#include "project_workspace.h"
 
 #include <gneiss/application.hpp>
 
@@ -28,6 +29,10 @@ struct project_manager_state final {
   imgui_adapter ui;
   editor_project* output = nullptr;
   std::array<char, 2048> project_path{};
+  std::array<char, 2048> create_path{};
+  std::array<char, 256> create_name{};
+  std::filesystem::path state_file;
+  std::vector<editor_project> recent_projects;
   result operation = result::success;
   bool selected = false;
 };
@@ -43,6 +48,21 @@ void set_path(project_manager_state& state, const std::filesystem::path& path) {
   const auto length = std::min(text.size(), state.project_path.size() - 1U);
   std::memcpy(state.project_path.data(), text.data(), length);
   state.project_path[length] = '\0';
+}
+
+void set_create_path(project_manager_state& state, const std::filesystem::path& path) {
+  const auto text = path.generic_u8string();
+  const auto length = std::min(text.size(), state.create_path.size() - 1U);
+  std::memcpy(state.create_path.data(), text.data(), length);
+  state.create_path[length] = '\0';
+}
+
+gneiss_result select_project(project_manager_state& state, gneiss_application application,
+                             editor_project project) {
+  (void)remember_recent_project(state.state_file, project);
+  *state.output = std::move(project);
+  state.selected = true;
+  return gneiss_application_request_exit(application);
 }
 
 gneiss_result update_project_manager(gneiss_application application, const gneiss_frame_time* time,
@@ -61,44 +81,94 @@ gneiss_result update_project_manager(gneiss_application application, const gneis
     ImGui::SetNextWindowSize(ImVec2(720.0F, 420.0F));
     ImGui::Begin("Gneiss Project Manager", nullptr,
                  ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse);
-    constexpr ImVec2 card_size{620.0F, 245.0F};
-    ImGui::SetCursorPos(ImVec2(50.0F, 78.0F));
+    constexpr ImVec2 card_size{620.0F, 315.0F};
+    ImGui::SetCursorPos(ImVec2(50.0F, 48.0F));
     ImGui::BeginChild("ProjectCard", card_size, ImGuiChildFlags_Borders);
     ImGui::TextColored(theme_accent_color(), "GNEISS");
     ImGui::SameLine();
     ImGui::TextUnformatted("Project Manager");
     ImGui::Spacing();
-    ImGui::TextUnformatted("Open a project");
-    ImGui::TextDisabled("Choose a directory containing gneiss.project.json");
-    ImGui::Spacing();
-    ImGui::SetNextItemWidth(454.0F);
-    ImGui::InputTextWithHint("##ProjectPath", "Project root", state.project_path.data(),
-                             state.project_path.size());
-    ImGui::SameLine();
-    if (ImGui::Button("Browse...", ImVec2(118.0F, 0.0F))) {
-      std::filesystem::path selected;
-      state.operation = select_project_directory(selected);
-      if (state.operation == result::success) {
-        set_path(state, selected);
-      }
-    }
-    const auto has_path = state.project_path[0] != '\0';
-    ImGui::BeginDisabled(!has_path);
-    const auto open_requested = ImGui::Button("Open Project", ImVec2(140.0F, 0.0F));
-    ImGui::EndDisabled();
-    if (open_requested) {
-      editor_project pending;
-      state.operation = load_editor_project(utf8_path(state.project_path.data()), pending);
-      if (state.operation == result::success) {
-        *state.output = std::move(pending);
-        state.selected = true;
-        operation = gneiss_application_request_exit(application);
-        if (operation != GNEISS_SUCCESS) {
-          ImGui::EndChild();
-          ImGui::End();
-          return operation;
+    if (ImGui::BeginTabBar("ProjectActions")) {
+      if (ImGui::BeginTabItem("Recent")) {
+        if (state.recent_projects.empty()) {
+          ImGui::TextDisabled("No recent projects");
         }
+        for (std::size_t index = 0; index < state.recent_projects.size(); ++index) {
+          const auto& project = state.recent_projects[index];
+          ImGui::PushID(static_cast<int>(index));
+          if (ImGui::Selectable(project.name.c_str())) {
+            editor_project pending;
+            state.operation = load_editor_project(project.project_root, pending);
+            if (state.operation == result::success) {
+              operation = select_project(state, application, std::move(pending));
+            }
+          }
+          ImGui::SameLine(190.0F);
+          ImGui::TextDisabled("%s", project.project_root.string().c_str());
+          ImGui::PopID();
+        }
+        ImGui::EndTabItem();
       }
+      if (ImGui::BeginTabItem("Open")) {
+        ImGui::TextDisabled("Choose a directory containing gneiss.project.json");
+        ImGui::SetNextItemWidth(454.0F);
+        ImGui::InputTextWithHint("##ProjectPath", "Project root", state.project_path.data(),
+                                 state.project_path.size());
+        ImGui::SameLine();
+        if (ImGui::Button("Browse...", ImVec2(118.0F, 0.0F))) {
+          std::filesystem::path selected;
+          state.operation = select_project_directory(selected);
+          if (state.operation == result::success) {
+            set_path(state, selected);
+          }
+        }
+        ImGui::BeginDisabled(state.project_path[0] == '\0');
+        const auto open_requested = ImGui::Button("Open Project", ImVec2(140.0F, 0.0F));
+        ImGui::EndDisabled();
+        if (open_requested) {
+          editor_project pending;
+          state.operation = load_editor_project(utf8_path(state.project_path.data()), pending);
+          if (state.operation == result::success) {
+            operation = select_project(state, application, std::move(pending));
+          }
+        }
+        ImGui::EndTabItem();
+      }
+      if (ImGui::BeginTabItem("Create")) {
+        ImGui::SetNextItemWidth(572.0F);
+        ImGui::InputTextWithHint("##ProjectName", "Project name", state.create_name.data(),
+                                 state.create_name.size());
+        ImGui::SetNextItemWidth(454.0F);
+        ImGui::InputTextWithHint("##CreatePath", "New project directory", state.create_path.data(),
+                                 state.create_path.size());
+        ImGui::SameLine();
+        if (ImGui::Button("Parent...", ImVec2(118.0F, 0.0F))) {
+          std::filesystem::path selected;
+          state.operation = select_project_directory(selected);
+          if (state.operation == result::success) {
+            set_create_path(state, selected / "NewProject");
+          }
+        }
+        const auto can_create = state.create_name[0] != '\0' && state.create_path[0] != '\0';
+        ImGui::BeginDisabled(!can_create);
+        const auto create_requested = ImGui::Button("Create Project", ImVec2(140.0F, 0.0F));
+        ImGui::EndDisabled();
+        if (create_requested) {
+          editor_project pending;
+          state.operation = create_editor_project(utf8_path(state.create_path.data()),
+                                                  state.create_name.data(), pending);
+          if (state.operation == result::success) {
+            operation = select_project(state, application, std::move(pending));
+          }
+        }
+        ImGui::EndTabItem();
+      }
+      ImGui::EndTabBar();
+    }
+    if (operation != GNEISS_SUCCESS) {
+      ImGui::EndChild();
+      ImGui::End();
+      return operation;
     }
     if (state.operation != result::success && state.operation != result::not_ready) {
       const auto message = result_message(state.operation);
@@ -121,6 +191,11 @@ result run_project_manager(bool smoke, editor_project& output) noexcept {
   try {
     project_manager_state state;
     state.output = &output;
+    state.state_file = default_editor_state_path();
+    const auto recent_result = load_recent_projects(state.state_file, state.recent_projects);
+    if (recent_result != result::success && recent_result != result::invalid_argument) {
+      state.operation = recent_result;
+    }
     gneiss::application application;
     constexpr std::string_view title = "Gneiss Project Manager";
     gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;

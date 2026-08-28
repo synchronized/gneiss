@@ -174,6 +174,7 @@ cmake --build --preset windows-clang-debug --target gneiss_editor
 
 不传参数时会先打开 Project Manager；可以直接输入工程目录，也可以在 Windows 使用系统目录选择器。
 选择包含 `gneiss.project.json` 的目录并通过校验后，Project Manager 会完整关闭，再启动正式 Editor。
+Project Manager 还会列出最近十个有效工程，并可创建包含初始 Camera 场景的最小工程。
 也可以跳过选择界面，直接打开工程：
 
 ```powershell
