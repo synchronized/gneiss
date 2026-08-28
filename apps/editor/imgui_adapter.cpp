@@ -145,7 +145,11 @@ gneiss_result imgui_adapter::initialize(gneiss_application application) {
   ImFontConfig font_config{};
   font_config.SizePixels = 15.0F;
   font_config.PixelSnapH = true;
-  io.FontDefault = io.Fonts->AddFontDefault(&font_config);
+  io.FontDefault =
+      io.Fonts->AddFontFromFileTTF(GNEISS_EDITOR_FONT_PATH, font_config.SizePixels, &font_config);
+  if (io.FontDefault == nullptr) {
+    io.FontDefault = io.Fonts->AddFontDefault(&font_config);
+  }
   if (io.FontDefault == nullptr) {
     return GNEISS_ERROR_OUT_OF_MEMORY;
   }

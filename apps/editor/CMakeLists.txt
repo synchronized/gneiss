@@ -31,6 +31,10 @@ add_executable(
   project_manager.h
 )
 target_link_libraries(gneiss_editor PRIVATE gneiss_editor_session gneiss_imgui)
+target_compile_definitions(
+  gneiss_editor
+  PRIVATE GNEISS_EDITOR_FONT_PATH="${CMAKE_CURRENT_SOURCE_DIR}/fonts/Inter-Regular.ttf"
+)
 if(WIN32)
   target_link_libraries(gneiss_editor PRIVATE ole32 shell32 uuid)
 endif()
