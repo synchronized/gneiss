@@ -128,7 +128,11 @@ result editor_session::refresh_nodes() noexcept {
            .material_uri = info.material_uri == nullptr
                                ? std::string{}
                                : std::string{info.material_uri,
-                                             static_cast<std::size_t>(info.material_uri_length)}});
+                                             static_cast<std::size_t>(info.material_uri_length)},
+           .component_flags = info.component_flags,
+           .camera = info.camera,
+           .is_primary_camera =
+               (info.component_flags & GNEISS_SCENE_NODE_COMPONENT_PRIMARY_CAMERA) != 0U});
     }
     nodes_.swap(records);
     return validate_selection();
@@ -252,6 +256,91 @@ result editor_session::restore_subtree(const scene_subtree_snapshot& snapshot,
     return operation;
   }
   selection_ = out_node;
+  const auto refreshed = refresh_nodes();
+  if (refreshed == result::success) {
+    is_dirty_ = true;
+  }
+  return refreshed;
+}
+
+result editor_session::duplicate_subtree(scene_node_id node, scene_node_id parent,
+                                         scene_node_id& out_node) noexcept {
+  if (!is_open() || !node.is_valid()) {
+    return result::invalid_argument;
+  }
+  try {
+    std::string snapshot;
+    auto operation = scene_.capture_subtree(node, snapshot);
+    if (operation != result::success) {
+      return operation;
+    }
+    std::vector<std::string> sources;
+    std::vector<std::string> targets;
+    for (const auto& candidate : nodes_) {
+      auto current = candidate.node;
+      while (current.is_valid()) {
+        if (current == node) {
+          sources.push_back(candidate.uuid);
+          targets.push_back(make_uuid());
+          break;
+        }
+        const auto ancestor = std::ranges::find(nodes_, current, &scene_node_record::node);
+        current = ancestor == nodes_.end() ? scene_node_id{} : ancestor->parent;
+      }
+    }
+    std::vector<scene_uuid_mapping> mappings;
+    mappings.reserve(sources.size());
+    for (std::size_t index = 0; index < sources.size(); ++index) {
+      mappings.push_back({.source_uuid = sources[index].data(),
+                          .source_uuid_length = sources[index].size(),
+                          .target_uuid = targets[index].data(),
+                          .target_uuid_length = targets[index].size()});
+    }
+    operation = scene_.restore_subtree(snapshot, parent, mappings, out_node);
+    if (operation == result::success) {
+      selection_ = out_node;
+      operation = refresh_nodes();
+    }
+    if (operation == result::success) {
+      is_dirty_ = true;
+    }
+    return operation;
+  } catch (const std::bad_alloc&) {
+    return result::out_of_memory;
+  } catch (...) {
+    return result::internal;
+  }
+}
+
+result editor_session::set_camera(scene_node_id node, const scene_camera_desc& desc) noexcept {
+  const auto operation = scene_.set_camera(node, desc);
+  if (operation != result::success) {
+    return operation;
+  }
+  const auto refreshed = refresh_nodes();
+  if (refreshed == result::success) {
+    is_dirty_ = true;
+  }
+  return refreshed;
+}
+
+result editor_session::remove_camera(scene_node_id node) noexcept {
+  const auto operation = scene_.remove_camera(node);
+  if (operation != result::success) {
+    return operation;
+  }
+  const auto refreshed = refresh_nodes();
+  if (refreshed == result::success) {
+    is_dirty_ = true;
+  }
+  return refreshed;
+}
+
+result editor_session::remove_mesh_renderer(scene_node_id node) noexcept {
+  const auto operation = scene_.remove_mesh_renderer(node);
+  if (operation != result::success) {
+    return operation;
+  }
   const auto refreshed = refresh_nodes();
   if (refreshed == result::success) {
     is_dirty_ = true;

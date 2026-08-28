@@ -20,6 +20,7 @@
 #include <imgui.h>
 
 #include <algorithm>
+#include <array>
 #include <cstdint>
 #include <filesystem>
 #include <limits>
@@ -48,6 +49,9 @@ struct editor_state {
   bool save_attempted = false;
   bool show_imgui_demo = false;
   std::uint64_t property_edit_serial = 0U;
+  std::array<char, 128> rename_buffer{};
+  std::string rename_uuid;
+  std::string rename_previous;
 #if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
   gneiss::editor::asset_browser_model assets;
   gneiss::editor::asset_browser_result asset_result = gneiss::editor::asset_browser_result::success;
@@ -112,6 +116,69 @@ gneiss::result redo_editor_command(editor_state& state) noexcept {
   return {reinterpret_cast<const char*>(text.data()), text.size()};
 }
 
+bool reparent_with_history(editor_state& state, std::string_view source_uuid,
+                           std::string_view target_uuid) {
+  const auto* source = state.session.find_node(source_uuid);
+  const auto* target = target_uuid.empty() ? nullptr : state.session.find_node(target_uuid);
+  if (source == nullptr || (!target_uuid.empty() && target == nullptr) ||
+      (target != nullptr && source->node == target->node)) {
+    return false;
+  }
+  std::string previous_parent_uuid;
+  if (source->parent.is_valid()) {
+    const auto parent = std::ranges::find(state.session.nodes(), source->parent,
+                                          &gneiss::editor::scene_node_record::node);
+    if (parent != state.session.nodes().end()) {
+      previous_parent_uuid = parent->uuid;
+    }
+  }
+  if (previous_parent_uuid == target_uuid) {
+    return false;
+  }
+  const std::string source_key{source_uuid};
+  const std::string target_key{target_uuid};
+  state.history_error = state.session.reparent_node(
+      source->node, target == nullptr ? gneiss::scene_node_id{} : target->node);
+  if (state.history_error != gneiss::result::success) {
+    return false;
+  }
+  state.history_error = state.history.record(
+      {.label = "移动节点",
+       .undo =
+           [&state, source_key, previous_parent_uuid] {
+             const auto* current = state.session.find_node(source_key);
+             const auto* parent = previous_parent_uuid.empty()
+                                      ? nullptr
+                                      : state.session.find_node(previous_parent_uuid);
+             return current == nullptr
+                        ? gneiss::result::not_found
+                        : state.session.reparent_node(current->node, parent == nullptr
+                                                                         ? gneiss::scene_node_id{}
+                                                                         : parent->node);
+           },
+       .redo =
+           [&state, source_key, target_key] {
+             const auto* current = state.session.find_node(source_key);
+             const auto* parent =
+                 target_key.empty() ? nullptr : state.session.find_node(target_key);
+             return current == nullptr || (!target_key.empty() && parent == nullptr)
+                        ? gneiss::result::not_found
+                        : state.session.reparent_node(current->node, parent == nullptr
+                                                                         ? gneiss::scene_node_id{}
+                                                                         : parent->node);
+           }});
+  if (state.history_error != gneiss::result::success) {
+    const auto* current = state.session.find_node(source_key);
+    const auto* parent =
+        previous_parent_uuid.empty() ? nullptr : state.session.find_node(previous_parent_uuid);
+    if (current != nullptr) {
+      (void)state.session.reparent_node(current->node,
+                                        parent == nullptr ? gneiss::scene_node_id{} : parent->node);
+    }
+  }
+  return true;
+}
+
 void draw_scene_node(editor_state& state, const gneiss::editor::scene_node_record& node) {
   const auto& nodes = state.session.nodes();
   const auto target_uuid = node.uuid;
@@ -141,53 +208,7 @@ void draw_scene_node(editor_state& state, const gneiss::editor::scene_node_recor
         payload != nullptr) {
       const std::string source_uuid{static_cast<const char*>(payload->Data),
                                     static_cast<std::size_t>(payload->DataSize)};
-      const auto* source = state.session.find_node(source_uuid);
-      if (source != nullptr && source->node != node.node) {
-        std::string previous_parent_uuid;
-        if (source->parent.is_valid()) {
-          const auto parent = std::ranges::find(state.session.nodes(), source->parent,
-                                                &gneiss::editor::scene_node_record::node);
-          if (parent != state.session.nodes().end()) {
-            previous_parent_uuid = parent->uuid;
-          }
-        }
-        state.history_error = state.session.reparent_node(source->node, node.node);
-        if (state.history_error == gneiss::result::success) {
-          hierarchy_changed = true;
-          state.history_error = state.history.record(
-              {.label = "移动节点",
-               .undo =
-                   [&state, source_uuid, previous_parent_uuid] {
-                     const auto* current = state.session.find_node(source_uuid);
-                     const auto* parent = previous_parent_uuid.empty()
-                                              ? nullptr
-                                              : state.session.find_node(previous_parent_uuid);
-                     return current == nullptr
-                                ? gneiss::result::not_found
-                                : state.session.reparent_node(
-                                      current->node,
-                                      parent == nullptr ? gneiss::scene_node_id{} : parent->node);
-                   },
-               .redo =
-                   [&state, source_uuid, target_uuid] {
-                     const auto* current = state.session.find_node(source_uuid);
-                     const auto* parent = state.session.find_node(target_uuid);
-                     return current == nullptr || parent == nullptr
-                                ? gneiss::result::not_found
-                                : state.session.reparent_node(current->node, parent->node);
-                   }});
-          if (state.history_error != gneiss::result::success) {
-            const auto* current = state.session.find_node(source_uuid);
-            const auto* parent = previous_parent_uuid.empty()
-                                     ? nullptr
-                                     : state.session.find_node(previous_parent_uuid);
-            if (current != nullptr) {
-              (void)state.session.reparent_node(
-                  current->node, parent == nullptr ? gneiss::scene_node_id{} : parent->node);
-            }
-          }
-        }
-      }
+      hierarchy_changed = reparent_with_history(state, source_uuid, target_uuid);
     }
     ImGui::EndDragDropTarget();
     if (hierarchy_changed) {
@@ -630,8 +651,53 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
       const auto create_requested = ImGui::Button("Create Empty");
       ImGui::SameLine();
       ImGui::BeginDisabled(selected == nullptr);
-      const auto delete_requested = ImGui::Button("Delete Selected");
+      const auto duplicate_requested = ImGui::Button("Duplicate");
+      const auto rename_requested = ImGui::Button("Rename");
+      ImGui::SameLine();
+      const auto delete_requested = ImGui::Button("Delete");
       ImGui::EndDisabled();
+      if (rename_requested) {
+        state.rename_uuid = selected->uuid;
+        state.rename_previous = selected->display_name;
+        state.rename_buffer.fill('\0');
+        const auto length = std::min(state.rename_previous.size(), state.rename_buffer.size() - 1U);
+        std::ranges::copy_n(state.rename_previous.begin(), length, state.rename_buffer.begin());
+        ImGui::OpenPopup("Rename Node");
+      }
+      if (ImGui::BeginPopup("Rename Node")) {
+        ImGui::InputText("Name", state.rename_buffer.data(), state.rename_buffer.size());
+        if (ImGui::Button("Apply")) {
+          const auto next = std::string{state.rename_buffer.data()};
+          const auto* current = state.session.find_node(state.rename_uuid);
+          state.history_error = current == nullptr ? gneiss::result::not_found
+                                                   : state.session.rename_node(current->node, next);
+          if (state.history_error == gneiss::result::success) {
+            const auto uuid = state.rename_uuid;
+            const auto previous = state.rename_previous;
+            state.history_error = state.history.record(
+                {.label = "重命名节点",
+                 .undo =
+                     [&state, uuid, previous] {
+                       const auto* node = state.session.find_node(uuid);
+                       return node == nullptr ? gneiss::result::not_found
+                                              : state.session.rename_node(node->node, previous);
+                     },
+                 .redo =
+                     [&state, uuid, next] {
+                       const auto* node = state.session.find_node(uuid);
+                       return node == nullptr ? gneiss::result::not_found
+                                              : state.session.rename_node(node->node, next);
+                     }});
+            if (state.history_error != gneiss::result::success) {
+              if (const auto* node = state.session.find_node(uuid); node != nullptr) {
+                (void)state.session.rename_node(node->node, previous);
+              }
+            }
+          }
+          ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
+      }
       if (create_requested) {
         const auto parent = selected == nullptr ? gneiss::scene_node_id{} : selected->node;
         gneiss::scene_node_id created;
@@ -641,6 +707,34 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
           auto snapshot = std::make_shared<gneiss::editor::scene_subtree_snapshot>();
           state.history_error = state.history.record(
               {.label = "创建节点",
+               .undo =
+                   [&state, uuid, snapshot] {
+                     const auto* current = state.session.find_node(uuid);
+                     return current == nullptr
+                                ? gneiss::result::not_found
+                                : state.session.destroy_subtree(current->node, *snapshot);
+                   },
+               .redo =
+                   [&state, snapshot] {
+                     gneiss::scene_node_id restored;
+                     return state.session.restore_subtree(*snapshot, restored);
+                   }});
+          if (state.history_error != gneiss::result::success) {
+            if (const auto* current = state.session.find_node(uuid); current != nullptr) {
+              (void)state.session.destroy_subtree(current->node, *snapshot);
+            }
+          }
+        }
+      }
+      if (duplicate_requested) {
+        const auto parent = selected->parent;
+        gneiss::scene_node_id duplicate;
+        state.history_error = state.session.duplicate_subtree(selected->node, parent, duplicate);
+        if (state.history_error == gneiss::result::success) {
+          const auto uuid = state.session.selected_node()->uuid;
+          auto snapshot = std::make_shared<gneiss::editor::scene_subtree_snapshot>();
+          state.history_error = state.history.record(
+              {.label = "复制子树",
                .undo =
                    [&state, uuid, snapshot] {
                      const auto* current = state.session.find_node(uuid);
@@ -695,6 +789,17 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
         if (!node.parent.is_valid()) {
           draw_scene_node(state, node);
         }
+      }
+      ImGui::Separator();
+      ImGui::Selectable("Drop here to move to root", false);
+      if (ImGui::BeginDragDropTarget()) {
+        if (const auto* payload = ImGui::AcceptDragDropPayload("GNEISS_SCENE_NODE_UUID");
+            payload != nullptr) {
+          const std::string source_uuid{static_cast<const char*>(payload->Data),
+                                        static_cast<std::size_t>(payload->DataSize)};
+          (void)reparent_with_history(state, source_uuid, {});
+        }
+        ImGui::EndDragDropTarget();
       }
     }
     ImGui::End();
@@ -776,7 +881,109 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
       ImGui::Text("UUID: %s", selected->uuid.c_str());
       ImGui::Text("Entity: %llu", static_cast<unsigned long long>(selected->entity.get()));
       ImGui::Separator();
-      draw_reflected_properties(state);
+      const auto uuid = selected->uuid;
+      const auto has_camera =
+          (selected->component_flags & GNEISS_SCENE_NODE_COMPONENT_CAMERA) != 0U;
+      const auto has_mesh =
+          (selected->component_flags & GNEISS_SCENE_NODE_COMPONENT_MESH_RENDERER) != 0U;
+      const auto selected_mesh_uri = selected->mesh_uri;
+      const auto selected_material_uri = selected->material_uri;
+      bool components_changed = false;
+      if (ImGui::Button(has_camera ? "Remove Camera" : "Add Camera")) {
+        if (has_camera) {
+          gneiss::scene_camera_desc previous = GNEISS_SCENE_CAMERA_DESC_INIT;
+          previous.camera = selected->camera;
+          previous.is_primary = selected->is_primary_camera ? 1U : 0U;
+          state.history_error = state.session.remove_camera(selected->node);
+          if (state.history_error == gneiss::result::success) {
+            state.history_error = state.history.record(
+                {.label = "移除 Camera",
+                 .undo =
+                     [&state, uuid, previous] {
+                       const auto* node = state.session.find_node(uuid);
+                       return node == nullptr ? gneiss::result::not_found
+                                              : state.session.set_camera(node->node, previous);
+                     },
+                 .redo =
+                     [&state, uuid] {
+                       const auto* node = state.session.find_node(uuid);
+                       return node == nullptr ? gneiss::result::not_found
+                                              : state.session.remove_camera(node->node);
+                     }});
+            if (state.history_error != gneiss::result::success) {
+              if (const auto* node = state.session.find_node(uuid); node != nullptr) {
+                (void)state.session.set_camera(node->node, previous);
+              }
+            }
+          }
+        } else {
+          gneiss::scene_camera_desc camera = GNEISS_SCENE_CAMERA_DESC_INIT;
+          state.history_error = state.session.set_camera(selected->node, camera);
+          if (state.history_error == gneiss::result::success) {
+            state.history_error = state.history.record(
+                {.label = "添加 Camera",
+                 .undo =
+                     [&state, uuid] {
+                       const auto* node = state.session.find_node(uuid);
+                       return node == nullptr ? gneiss::result::not_found
+                                              : state.session.remove_camera(node->node);
+                     },
+                 .redo =
+                     [&state, uuid, camera] {
+                       const auto* node = state.session.find_node(uuid);
+                       return node == nullptr ? gneiss::result::not_found
+                                              : state.session.set_camera(node->node, camera);
+                     }});
+            if (state.history_error != gneiss::result::success) {
+              if (const auto* node = state.session.find_node(uuid); node != nullptr) {
+                (void)state.session.remove_camera(node->node);
+              }
+            }
+          }
+        }
+        state.inspected_entity = {};
+        components_changed = state.history_error == gneiss::result::success;
+      }
+      ImGui::SameLine();
+      ImGui::BeginDisabled(!has_mesh);
+      const auto remove_mesh_requested = ImGui::Button("Remove Mesh Renderer");
+      ImGui::EndDisabled();
+      if (remove_mesh_requested) {
+        state.history_error = state.session.remove_mesh_renderer(selected->node);
+        if (state.history_error == gneiss::result::success) {
+          state.history_error = state.history.record(
+              {.label = "移除 Mesh Renderer",
+               .undo =
+                   [&state, uuid, selected_mesh_uri, selected_material_uri] {
+                     const auto* node = state.session.find_node(uuid);
+                     return node == nullptr
+                                ? gneiss::result::not_found
+                                : state.session.set_mesh_renderer(node->node, selected_mesh_uri,
+                                                                  selected_material_uri);
+                   },
+               .redo =
+                   [&state, uuid] {
+                     const auto* node = state.session.find_node(uuid);
+                     return node == nullptr ? gneiss::result::not_found
+                                            : state.session.remove_mesh_renderer(node->node);
+                   }});
+          if (state.history_error != gneiss::result::success) {
+            if (const auto* node = state.session.find_node(uuid); node != nullptr) {
+              (void)state.session.set_mesh_renderer(node->node, selected_mesh_uri,
+                                                    selected_material_uri);
+            }
+          }
+        }
+        state.inspected_entity = {};
+        components_changed = state.history_error == gneiss::result::success;
+      }
+      if (!has_mesh) {
+        ImGui::TextDisabled("Select a mesh in Asset Browser to add Mesh Renderer");
+      }
+      ImGui::Separator();
+      if (!components_changed) {
+        draw_reflected_properties(state);
+      }
     } else {
       state.inspector.clear();
       state.inspected_entity = {};

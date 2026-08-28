@@ -100,6 +100,14 @@ int main() try {
       session.find_node(parent_uuid) == nullptr) {
     return 14;
   }
+  gneiss::scene_node_id duplicate;
+  gneiss::editor::scene_subtree_snapshot duplicate_snapshot;
+  if (session.duplicate_subtree(empty_parent, {}, duplicate) != gneiss::result::success ||
+      duplicate == empty_parent || session.nodes().size() != 8U ||
+      session.destroy_subtree(duplicate, duplicate_snapshot) != gneiss::result::success ||
+      session.nodes().size() != 5U) {
+    return 15;
+  }
   created_node = session.find_node(created_uuid)->node;
   gneiss::editor::scene_node_snapshot snapshot;
   if (session.destroy_node(created_node, snapshot) != gneiss::result::success ||

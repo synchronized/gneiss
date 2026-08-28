@@ -6,6 +6,7 @@
 
 #include <gneiss/scene.hpp>
 
+#include <cstdint>
 #include <filesystem>
 #include <string>
 #include <string_view>
@@ -21,6 +22,9 @@ struct scene_node_record final {
   std::string display_name;
   std::string mesh_uri;
   std::string material_uri;
+  std::uint32_t component_flags = 0U;
+  gneiss_camera_desc camera = GNEISS_CAMERA_DESC_INIT;
+  bool is_primary_camera = false;
 };
 
 struct scene_node_snapshot final {
@@ -61,6 +65,11 @@ public:
                                        scene_subtree_snapshot& out_snapshot) noexcept;
   [[nodiscard]] result restore_subtree(const scene_subtree_snapshot& snapshot,
                                        scene_node_id& out_node) noexcept;
+  [[nodiscard]] result duplicate_subtree(scene_node_id node, scene_node_id parent,
+                                         scene_node_id& out_node) noexcept;
+  [[nodiscard]] result set_camera(scene_node_id node, const scene_camera_desc& desc) noexcept;
+  [[nodiscard]] result remove_camera(scene_node_id node) noexcept;
+  [[nodiscard]] result remove_mesh_renderer(scene_node_id node) noexcept;
   [[nodiscard]] result create_mesh_renderer_node(std::string_view name, std::string_view mesh_uri,
                                                  std::string_view material_uri,
                                                  scene_node_id& out_node) noexcept;

@@ -22,8 +22,10 @@ typedef uint64_t gneiss_scene_instance;
 #define GNEISS_NULL_SCENE_NODE_ID UINT64_C(0)
 #define GNEISS_NULL_SCENE_INSTANCE UINT64_C(0)
 
+/** gneiss_scene_instance_node_info::component_flags 的组件与作者状态位。 */
 #define GNEISS_SCENE_NODE_COMPONENT_CAMERA UINT32_C(1)
 #define GNEISS_SCENE_NODE_COMPONENT_MESH_RENDERER UINT32_C(2)
+#define GNEISS_SCENE_NODE_COMPONENT_PRIMARY_CAMERA UINT32_C(4)
 #define GNEISS_SCENE_SUBTREE_MAX_NODES UINT64_C(4096)
 
 /**

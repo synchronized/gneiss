@@ -218,6 +218,9 @@ gneiss_result scene_instance::get_node_info(std::uint64_t index,
         return result;
       }
       out_info.component_flags |= GNEISS_SCENE_NODE_COMPONENT_CAMERA;
+      if (author.camera->is_primary) {
+        out_info.component_flags |= GNEISS_SCENE_NODE_COMPONENT_PRIMARY_CAMERA;
+      }
     }
   }
   return GNEISS_SUCCESS;

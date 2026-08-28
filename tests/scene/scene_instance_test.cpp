@@ -66,7 +66,8 @@ int main() try {
       camera_info.node != camera_node || camera_info.parent != GNEISS_NULL_SCENE_NODE_ID ||
       std::string_view{camera_info.uuid, camera_info.uuid_length} != camera_uuid ||
       std::string_view{camera_info.name, camera_info.name_length} != "Camera" ||
-      camera_info.component_flags != GNEISS_SCENE_NODE_COMPONENT_CAMERA ||
+      camera_info.component_flags !=
+          (GNEISS_SCENE_NODE_COMPONENT_CAMERA | GNEISS_SCENE_NODE_COMPONENT_PRIMARY_CAMERA) ||
       gneiss_scene_instance_get_node_info(application, scene, 1U, &triangle_info) !=
           GNEISS_SUCCESS ||
       triangle_info.node != triangle || triangle_info.parent != camera_node ||
