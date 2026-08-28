@@ -207,7 +207,9 @@ Lantern Gallery 的导入资产由构建过程生成，因此其可运行工程�
 根据 Type Registry 元数据生成布尔、
 标量、向量和四元数控件；只读字段会禁用，非法值会保留运行时原值并显示错误。输入、字体 Texture
 RID、UI Draw List 与 Granit Canvas 已完成同帧渲染。成功修改后状态显示为 `Modified`；点击
-`Save` 或按 `Ctrl+S` 会原子写回启动参数指定资产根中的源场景，成功后恢复为 `Saved`，失败时保留
+`Save` 或按 `Ctrl+S` 会原子写回当前场景。File 菜单还提供 New Scene、Open Scene 和 Save As，
+对应快捷键为 `Ctrl+N`、`Ctrl+O` 和 `Ctrl+Shift+S`；路径必须位于工程资产根。切换场景、菜单退出
+或关闭窗口时，未保存修改统一显示 Save/Discard/Cancel。保存成功后恢复为 `Saved`，失败时保留
 源文件与脏状态并显示错误。窗口暂时固定为 1280×720。可用 `--smoke` 固定运行 3 帧，验证场景
 加载、UI 提交与逆序清理。
 

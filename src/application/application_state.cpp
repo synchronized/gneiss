@@ -252,7 +252,10 @@ gneiss_result application_state::run(gneiss_application handle,
       return poll_result;
     }
     if (should_close) {
-      break;
+      if (desc_.close_requested == nullptr ||
+          desc_.close_requested(handle, desc_.user_data) != 0U) {
+        break;
+      }
     }
 
     const auto current_time_ns = now_ns();

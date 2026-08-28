@@ -769,6 +769,10 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
       state.save_attempted = state.save_result != gneiss::result::not_ready;
     }
     if (state.pending_document_action != document_action::none &&
+        !ImGui::IsPopupOpen("Unsaved Changes")) {
+      ImGui::OpenPopup("Unsaved Changes");
+    }
+    if (state.pending_document_action != document_action::none &&
         ImGui::BeginPopupModal("Unsaved Changes", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
       ImGui::TextUnformatted("The current scene has unsaved changes.");
       if (ImGui::Button("Save")) {
@@ -1183,6 +1187,19 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
   }
 }
 
+uint8_t handle_close_requested(gneiss_application application, void* user_data) noexcept {
+  (void)application;
+  if (user_data == nullptr) {
+    return 1U;
+  }
+  auto& state = *static_cast<editor_state*>(user_data);
+  if (!state.session.is_dirty()) {
+    return 1U;
+  }
+  state.pending_document_action = document_action::exit_editor;
+  return 0U;
+}
+
 int run_editor(int argc, char** argv) {
   launch_options options;
   if (!parse_options(argc, argv, options)) {
@@ -1216,6 +1233,7 @@ int run_editor(int argc, char** argv) {
   gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
   desc.user_data = &state;
   desc.update = update_editor;
+  desc.close_requested = handle_close_requested;
   desc.platform = GNEISS_APPLICATION_PLATFORM_GRANIT;
   desc.window_title = title.data();
   desc.window_title_length = static_cast<std::uint32_t>(title.size());

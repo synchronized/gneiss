@@ -30,6 +30,10 @@ Application 及其 World 只能在创建线程访问。重复运行、跨线程�
 暂停期间仍轮询事件并调用 `update`，但 `delta_ns` 为零且累计时间不增长。窗口关闭和主动退出属于
 正常结果；事件或更新回调失败会立即终止本次运行并返回对应错误。
 
+描述结构可通过 `close_requested` 拦截平台关闭请求。回调返回非零时主循环正常退出；返回零时继续
+本帧，宿主可显示未保存确认，并在用户确认后调用 `gneiss_application_request_exit`。未设置回调时
+保持直接关闭的默认行为。回调在 Application 创建线程同步执行，不得抛出异常或重入主循环。
+
 ## 平台适配边界
 
 `GNEISS_APPLICATION_PLATFORM_CALLBACK` 使用描述结构中的生命周期回调，也允许全部回调为空的

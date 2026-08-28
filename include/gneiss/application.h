@@ -33,6 +33,9 @@ typedef gneiss_result (*gneiss_application_update_fn)(gneiss_application applica
                                                       const gneiss_frame_time* time,
                                                       void* user_data);
 typedef void (*gneiss_application_shutdown_fn)(void* user_data);
+/** 平台请求关闭时返回非零允许退出；返回零时继续运行，由宿主稍后主动请求退出。 */
+typedef uint8_t (*gneiss_application_close_requested_fn)(gneiss_application application,
+                                                         void* user_data);
 
 typedef uint32_t gneiss_diagnostic_severity;
 #define GNEISS_DIAGNOSTIC_INFO UINT32_C(1)
@@ -99,6 +102,7 @@ typedef struct gneiss_application_desc {
   uint32_t asset_root_length;
   uint32_t asset_reserved;
   gneiss_application_diagnostic_fn diagnostic;
+  gneiss_application_close_requested_fn close_requested;
 } gneiss_application_desc;
 
 #define GNEISS_APPLICATION_DESC_VERSION_1_SIZE                                                     \
@@ -108,6 +112,9 @@ typedef struct gneiss_application_desc {
 #define GNEISS_APPLICATION_DESC_VERSION_3_SIZE                                                     \
   ((uint32_t)(offsetof(gneiss_application_desc, diagnostic) +                                      \
               sizeof(gneiss_application_diagnostic_fn)))
+#define GNEISS_APPLICATION_DESC_VERSION_4_SIZE                                                     \
+  ((uint32_t)(offsetof(gneiss_application_desc, close_requested) +                                 \
+              sizeof(gneiss_application_close_requested_fn)))
 
 #define GNEISS_APPLICATION_DESC_INIT                                                               \
   {(uint32_t)sizeof(gneiss_application_desc),                                                      \
@@ -128,6 +135,7 @@ typedef struct gneiss_application_desc {
    NULL,                                                                                           \
    UINT32_C(0),                                                                                    \
    UINT32_C(0),                                                                                    \
+   NULL,                                                                                           \
    NULL}
 
 #ifdef __cplusplus

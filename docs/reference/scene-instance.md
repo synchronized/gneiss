@@ -15,6 +15,10 @@
 解析或资产阶段不会修改 World。提交阶段任一步失败都会逆序销毁本次创建的实体、节点和资产引用，
 因此失败前后 World 实体数量与资源存活状态一致。当前加载只允许 Application 创建线程调用。
 
+`gneiss_scene_instance_create_empty` 使用调用方提供的小写规范场景 UUID 创建不含节点的作者实例，
+不读取 VFS，也不关联来源 URI。它用于 Editor 的未命名新场景；后续节点编辑和序列化行为与加载
+实例一致，实际写入路径仍由 Editor 的 Save As 生命周期负责。
+
 ## 所有权与卸载
 
 场景实例由所属 Application 独占，不能跨 Application 使用。`gneiss_scene_instance_unload` 依次释放
