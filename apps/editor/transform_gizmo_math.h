@@ -6,7 +6,19 @@
 
 #include <gneiss/scene.hpp>
 
+#include <array>
+
 namespace gneiss::editor {
+
+using gizmo_matrix = std::array<float, 16>;
+
+/** 按 column-major 布局把正缩放 TRS 转换为 Gizmo 模型矩阵。 */
+[[nodiscard]] result transform_to_gizmo_matrix(const transform& value,
+                                               gizmo_matrix& output) noexcept;
+
+/** 从无剪切、正缩放的 Gizmo 模型矩阵恢复 TRS。 */
+[[nodiscard]] result gizmo_matrix_to_transform(const gizmo_matrix& value,
+                                               transform& output) noexcept;
 
 /**
  * 将目标世界 TRS 转换为节点局部 TRS。

@@ -88,5 +88,23 @@ int main() {
           gneiss::result::success) {
     return 4;
   }
+  gneiss::editor::gizmo_matrix matrix{};
+  gneiss::transform matrix_roundtrip = GNEISS_TRANSFORM_IDENTITY;
+  if (gneiss::editor::transform_to_gizmo_matrix(world, matrix) != gneiss::result::success ||
+      gneiss::editor::gizmo_matrix_to_transform(matrix, matrix_roundtrip) !=
+          gneiss::result::success) {
+    return 5;
+  }
+  for (std::size_t index = 0; index < 3U; ++index) {
+    if (!near(matrix_roundtrip.translation[index], world.translation[index]) ||
+        !near(matrix_roundtrip.scale[index], world.scale[index])) {
+      return 6;
+    }
+  }
+  for (std::size_t index = 0; index < 4U; ++index) {
+    if (!near(std::abs(matrix_roundtrip.rotation[index]), std::abs(world.rotation[index]))) {
+      return 7;
+    }
+  }
   return 0;
 }
