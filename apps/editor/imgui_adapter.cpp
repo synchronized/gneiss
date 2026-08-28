@@ -126,6 +126,7 @@ gneiss_result imgui_adapter::initialize(gneiss_application application) {
   auto& io = ImGui::GetIO();
   io.BackendPlatformName = "gneiss_editor";
   io.BackendRendererName = "gneiss_ui_draw_list";
+  io.IniFilename = nullptr;
 
   unsigned char* atlas_pixels = nullptr;
   int atlas_width = 0;

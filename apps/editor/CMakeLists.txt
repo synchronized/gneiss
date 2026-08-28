@@ -1,7 +1,13 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Gneiss contributors
 
-add_library(gneiss_editor_session STATIC editor_session.cpp editor_session.h)
+add_library(
+  gneiss_editor_session STATIC
+  editor_camera.cpp
+  editor_camera.h
+  editor_session.cpp
+  editor_session.h
+)
 target_link_libraries(gneiss_editor_session PUBLIC gneiss::gneiss)
 target_include_directories(gneiss_editor_session PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_compile_features(gneiss_editor_session PUBLIC cxx_std_20)
@@ -23,6 +29,11 @@ if(BUILD_TESTING)
   gneiss_target_compile_warnings(gneiss_editor_session_test)
   gneiss_target_output_directories(gneiss_editor_session_test)
   add_test(NAME gneiss.editor.session COMMAND gneiss_editor_session_test)
+  add_executable(gneiss_editor_camera_test tests/editor_camera_test.cpp)
+  target_link_libraries(gneiss_editor_camera_test PRIVATE gneiss_editor_session)
+  gneiss_target_compile_warnings(gneiss_editor_camera_test)
+  gneiss_target_output_directories(gneiss_editor_camera_test)
+  add_test(NAME gneiss.editor.camera COMMAND gneiss_editor_camera_test)
   add_test(
     NAME gneiss.editor.smoke
     COMMAND

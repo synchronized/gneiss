@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "editor_camera.h"
 #include "editor_session.h"
 #include "imgui_adapter.h"
 
@@ -19,7 +20,9 @@ namespace {
 
 struct editor_state {
   gneiss::editor::imgui_adapter ui;
+  gneiss::editor::editor_camera camera;
   gneiss::editor::editor_session session;
+  gneiss_world world = GNEISS_NULL_WORLD;
 };
 
 struct launch_options {
@@ -71,6 +74,38 @@ void draw_scene_node(gneiss::editor::editor_session& session,
   ImGui::PopID();
 }
 
+gneiss_result update_editor_camera(editor_state& state, const gneiss_frame_time& time) {
+  auto& io = ImGui::GetIO();
+  gneiss::editor::editor_camera_input input;
+  constexpr double nanoseconds_per_second = 1'000'000'000.0;
+  input.delta_seconds =
+      static_cast<float>(static_cast<double>(time.delta_ns) / nanoseconds_per_second);
+  input.move_forward =
+      (ImGui::IsKeyDown(ImGuiKey_W) ? 1.0F : 0.0F) - (ImGui::IsKeyDown(ImGuiKey_S) ? 1.0F : 0.0F);
+  input.move_right =
+      (ImGui::IsKeyDown(ImGuiKey_D) ? 1.0F : 0.0F) - (ImGui::IsKeyDown(ImGuiKey_A) ? 1.0F : 0.0F);
+  input.move_up =
+      (ImGui::IsKeyDown(ImGuiKey_E) ? 1.0F : 0.0F) - (ImGui::IsKeyDown(ImGuiKey_Q) ? 1.0F : 0.0F);
+  input.dolly = io.MouseWheel;
+  if (ImGui::IsMouseDown(ImGuiMouseButton_Right)) {
+    constexpr float look_sensitivity = 0.004F;
+    input.yaw_delta = -io.MouseDelta.x * look_sensitivity;
+    input.pitch_delta = -io.MouseDelta.y * look_sensitivity;
+  }
+  if (ImGui::IsKeyPressed(ImGuiKey_F, false)) {
+    if (const auto* selected = state.session.selected_node(); selected != nullptr) {
+      gneiss_transform target = GNEISS_TRANSFORM_IDENTITY;
+      const auto result =
+          gneiss_scene_node_get_world_transform(state.world, selected->node.get(), &target);
+      if (result != GNEISS_SUCCESS) {
+        return result;
+      }
+      return gneiss::to_native(state.camera.focus(target));
+    }
+  }
+  return gneiss::to_native(state.camera.update(input));
+}
+
 gneiss_result update_editor(gneiss_application application, const gneiss_frame_time* time,
                             void* user_data) {
   try {
@@ -104,8 +139,28 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
 
     ImGui::SetNextWindowPos(ImVec2(250.0F, 0.0F));
     ImGui::SetNextWindowSize(ImVec2(730.0F, 720.0F));
-    ImGui::Begin("Scene View", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
-    ImGui::TextUnformatted("Gneiss Editor 0.7.0 development preview");
+    ImGui::Begin("Scene View", nullptr,
+                 ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize |
+                     ImGuiWindowFlags_NoBackground);
+    const auto scene_view_hovered = ImGui::IsWindowHovered();
+    ImGui::TextUnformatted("Scene View");
+    ImGui::TextDisabled("WASD/QE move | RMB look | Wheel dolly | F focus selection");
+    if (const auto* selected = state.session.selected_node(); selected != nullptr) {
+      ImGui::TextColored(ImVec4(1.0F, 0.75F, 0.2F, 1.0F), "Selected: %s",
+                         selected->display_name.c_str());
+      const auto minimum = ImGui::GetWindowPos();
+      const auto size = ImGui::GetWindowSize();
+      ImGui::GetWindowDrawList()->AddRect(minimum, ImVec2(minimum.x + size.x, minimum.y + size.y),
+                                          IM_COL32(255, 191, 51, 255), 0.0F, ImDrawFlags_None,
+                                          2.0F);
+    }
+    if (scene_view_hovered) {
+      const auto camera_result = update_editor_camera(state, *time);
+      if (camera_result != GNEISS_SUCCESS) {
+        ImGui::End();
+        return camera_result;
+      }
+    }
     ImGui::End();
 
     ImGui::SetNextWindowPos(ImVec2(980.0F, 0.0F));
@@ -159,16 +214,18 @@ int run_editor(int argc, char** argv) {
   if (state.ui.initialize(application.get()) != GNEISS_SUCCESS) {
     return 2;
   }
-  gneiss_world world = GNEISS_NULL_WORLD;
-  if (application.get_world(world) != gneiss::result::success ||
+  if (application.get_world(state.world) != gneiss::result::success ||
       (!options.scene_uri.empty() &&
-       state.session.open(application.get(), world, options.scene_uri) !=
-           gneiss::result::success)) {
+       state.session.open(application.get(), state.world, options.scene_uri) !=
+           gneiss::result::success) ||
+      state.camera.initialize(state.world) != gneiss::result::success) {
     state.ui.shutdown(application.get());
+    state.session.close();
     return 3;
   }
   const auto run_result = application.run(options.smoke ? 3U : 0U);
   state.ui.shutdown(application.get());
+  state.camera.shutdown();
   state.session.close();
   return run_result == gneiss::result::success ? 0 : 4;
 }
