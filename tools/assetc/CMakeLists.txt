@@ -2,9 +2,11 @@
 # Copyright (c) 2026 Gneiss contributors
 
 add_library(
-  gneiss_asset_pipeline_internal STATIC
+  gneiss_asset_import_sdk STATIC
   "${PROJECT_SOURCE_DIR}/src/asset/mesh_binary.cpp"
   "${PROJECT_SOURCE_DIR}/src/asset/mesh_binary.h"
+  "${PROJECT_SOURCE_DIR}/src/tooling/asset_import/asset_import_sdk.cpp"
+  "${PROJECT_SOURCE_DIR}/src/tooling/asset_import/asset_import_sdk.h"
   "${PROJECT_SOURCE_DIR}/src/tooling/asset_import/asset_writer.cpp"
   "${PROJECT_SOURCE_DIR}/src/tooling/asset_import/asset_writer.h"
   "${PROJECT_SOURCE_DIR}/src/tooling/asset_import/gltf_importer.cpp"
@@ -12,15 +14,15 @@ add_library(
   "${PROJECT_SOURCE_DIR}/src/tooling/asset_import/import_ir.h"
 )
 target_include_directories(
-  gneiss_asset_pipeline_internal PRIVATE "${PROJECT_SOURCE_DIR}/src"
+  gneiss_asset_import_sdk PRIVATE "${PROJECT_SOURCE_DIR}/src"
 )
-target_link_libraries(gneiss_asset_pipeline_internal PRIVATE fastgltf::fastgltf)
-target_compile_features(gneiss_asset_pipeline_internal PRIVATE cxx_std_20)
-gneiss_target_compile_warnings(gneiss_asset_pipeline_internal)
+target_link_libraries(gneiss_asset_import_sdk PRIVATE fastgltf::fastgltf)
+target_compile_features(gneiss_asset_import_sdk PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_asset_import_sdk)
 
 add_executable(gneiss_assetc main.cpp)
 target_include_directories(gneiss_assetc PRIVATE "${PROJECT_SOURCE_DIR}/src")
-target_link_libraries(gneiss_assetc PRIVATE gneiss_asset_pipeline_internal)
+target_link_libraries(gneiss_assetc PRIVATE gneiss_asset_import_sdk)
 target_compile_features(gneiss_assetc PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_assetc)
 gneiss_target_output_directories(gneiss_assetc)
@@ -31,7 +33,7 @@ if(GNEISS_BUILD_TESTING AND BUILD_TESTING)
     "${PROJECT_SOURCE_DIR}/tests/tooling/gltf_importer_test.cpp"
   )
   target_include_directories(gneiss_gltf_importer_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
-  target_link_libraries(gneiss_gltf_importer_test PRIVATE gneiss_asset_pipeline_internal)
+  target_link_libraries(gneiss_gltf_importer_test PRIVATE gneiss_asset_import_sdk)
   target_compile_definitions(
     gneiss_gltf_importer_test
     PRIVATE GNEISS_TEST_GLTF_ROOT="${PROJECT_SOURCE_DIR}/tests/data/gltf"
@@ -47,7 +49,7 @@ if(GNEISS_BUILD_TESTING AND BUILD_TESTING)
   )
   target_include_directories(gneiss_asset_writer_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
   target_link_libraries(
-    gneiss_asset_writer_test PRIVATE gneiss_asset_pipeline_internal gneiss::gneiss
+    gneiss_asset_writer_test PRIVATE gneiss_asset_import_sdk gneiss::gneiss
   )
   target_compile_definitions(
     gneiss_asset_writer_test
@@ -59,11 +61,26 @@ if(GNEISS_BUILD_TESTING AND BUILD_TESTING)
   add_test(NAME gneiss.tooling.asset_writer COMMAND gneiss_asset_writer_test)
 
   add_executable(
+    gneiss_asset_import_sdk_test
+    "${PROJECT_SOURCE_DIR}/tests/tooling/asset_import_sdk_test.cpp"
+  )
+  target_include_directories(gneiss_asset_import_sdk_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+  target_link_libraries(gneiss_asset_import_sdk_test PRIVATE gneiss_asset_import_sdk)
+  target_compile_definitions(
+    gneiss_asset_import_sdk_test
+    PRIVATE GNEISS_TEST_GLTF_ROOT="${PROJECT_SOURCE_DIR}/tests/data/gltf"
+  )
+  target_compile_features(gneiss_asset_import_sdk_test PRIVATE cxx_std_20)
+  gneiss_target_compile_warnings(gneiss_asset_import_sdk_test)
+  gneiss_target_output_directories(gneiss_asset_import_sdk_test)
+  add_test(NAME gneiss.tooling.asset_import_sdk COMMAND gneiss_asset_import_sdk_test)
+
+  add_executable(
     gneiss_gltf_container_test
     "${PROJECT_SOURCE_DIR}/tests/tooling/gltf_container_test.cpp"
   )
   target_include_directories(gneiss_gltf_container_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
-  target_link_libraries(gneiss_gltf_container_test PRIVATE gneiss_asset_pipeline_internal)
+  target_link_libraries(gneiss_gltf_container_test PRIVATE gneiss_asset_import_sdk)
   target_compile_definitions(
     gneiss_gltf_container_test
     PRIVATE GNEISS_TEST_GLTF_ROOT="${PROJECT_SOURCE_DIR}/tests/data/gltf"

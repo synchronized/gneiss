@@ -65,7 +65,8 @@ void configure(std::ostream& stream) {
 }
 
 [[nodiscard]] bool write_material(const import_ir_material& material,
-                                  const std::filesystem::path& path) {
+                                  const std::filesystem::path& path,
+                                  std::string_view asset_uri_prefix) {
   std::ofstream stream(path, std::ios::binary | std::ios::trunc);
   if (!stream) {
     return false;
@@ -76,7 +77,7 @@ void configure(std::ostream& stream) {
          << material.base_color[0] << ',' << material.base_color[1] << ',' << material.base_color[2]
          << ',' << material.base_color[3] << ']';
   if (material.base_color_image_index) {
-    stream << ",\n  \"base_color_texture\": \"asset://textures/image-"
+    stream << ",\n  \"base_color_texture\": \"" << asset_uri_prefix << "textures/image-"
            << *material.base_color_image_index << ".texture.json\"";
   }
   stream << "\n}\n";
@@ -92,14 +93,15 @@ void write_transform(std::ostream& stream, const std::array<float, 3>& translati
 }
 
 void write_renderer(std::ostream& stream, std::size_t mesh_index, std::size_t primitive_index,
-                    const import_ir_primitive& primitive) {
-  stream << R"("mesh_renderer": {"mesh": "asset://models/)"
-         << mesh_name(mesh_index, primitive_index) << R"(", "material": "asset://materials/)"
-         << material_name(primitive) << R"("})";
+                    const import_ir_primitive& primitive, std::string_view asset_uri_prefix) {
+  stream << R"("mesh_renderer": {"mesh": ")" << asset_uri_prefix << "models/"
+         << mesh_name(mesh_index, primitive_index) << R"(", "material": ")" << asset_uri_prefix
+         << "materials/" << material_name(primitive) << R"("})";
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): 输出顺序直接对应稳定 Scene Schema。
-[[nodiscard]] bool write_scene(const import_ir& data, const std::filesystem::path& path) {
+[[nodiscard]] bool write_scene(const import_ir& data, const std::filesystem::path& path,
+                               std::string_view asset_uri_prefix) {
   std::vector<std::optional<std::size_t>> parents(data.nodes.size());
   for (std::size_t parent = 0; parent < data.nodes.size(); ++parent) {
     for (const auto child : data.nodes[parent].children) {
@@ -134,7 +136,8 @@ void write_renderer(std::ostream& stream, std::size_t mesh_index, std::size_t pr
     write_transform(stream, node.translation, node.rotation, node.scale);
     stream << R"(, "components": {)";
     if (node.mesh_index && data.meshes[*node.mesh_index].primitives.size() == 1U) {
-      write_renderer(stream, *node.mesh_index, 0U, data.meshes[*node.mesh_index].primitives[0]);
+      write_renderer(stream, *node.mesh_index, 0U, data.meshes[*node.mesh_index].primitives[0],
+                     asset_uri_prefix);
     }
     stream << "}}" << (++emitted == total_count ? "\n" : ",\n");
   }
@@ -153,7 +156,8 @@ void write_renderer(std::ostream& stream, std::size_t mesh_index, std::size_t pr
              << R"(", "parent": ")" << uuid_for(node_index) << R"(", )";
       write_transform(stream, identity_translation, identity_rotation, identity_scale);
       stream << R"(, "components": {)";
-      write_renderer(stream, *node.mesh_index, primitive_index, primitives[primitive_index]);
+      write_renderer(stream, *node.mesh_index, primitive_index, primitives[primitive_index],
+                     asset_uri_prefix);
       stream << "}}" << (++emitted == total_count ? "\n" : ",\n");
     }
   }
@@ -211,7 +215,8 @@ void write_renderer(std::ostream& stream, std::size_t mesh_index, std::size_t pr
 }
 
 write_report write_assets_in_place(const import_ir& data,
-                                   const std::filesystem::path& output_directory) {
+                                   const std::filesystem::path& output_directory,
+                                   std::string_view asset_uri_prefix) {
   try {
     std::filesystem::create_directories(output_directory / "models");
     std::filesystem::create_directories(output_directory / "materials");
@@ -229,7 +234,8 @@ write_report write_assets_in_place(const import_ir& data,
     for (std::size_t index = 0; index < data.materials.size(); ++index) {
       if (!write_material(data.materials[index],
                           output_directory / "materials" /
-                              ("material-" + std::to_string(index) + ".material.json"))) {
+                              ("material-" + std::to_string(index) + ".material.json"),
+                          asset_uri_prefix)) {
         return {.success = false, .diagnostic = "写出 Material 失败"};
       }
     }
@@ -239,8 +245,9 @@ write_report write_assets_in_place(const import_ir& data,
         needs_default = needs_default || !primitive.material_index;
       }
     }
-    if (needs_default && !write_material(import_ir_material{}, output_directory / "materials" /
-                                                                   "default.material.json")) {
+    if (needs_default && !write_material(import_ir_material{},
+                                         output_directory / "materials" / "default.material.json",
+                                         asset_uri_prefix)) {
       return {.success = false, .diagnostic = "写出默认 Material 失败"};
     }
     for (std::size_t index = 0; index < data.images.size(); ++index) {
@@ -252,13 +259,14 @@ write_report write_assets_in_place(const import_ir& data,
       std::ofstream texture(output_directory / "textures" / (base + ".texture.json"),
                             std::ios::binary | std::ios::trunc);
       texture << "{\n  \"format\": \"gneiss.texture\",\n  \"version\": 1,\n"
-                 "  \"source\": \"asset://textures/"
-              << base << ".png\",\n  \"color_space\": \"srgb\"\n}\n";
+                 "  \"source\": \""
+              << asset_uri_prefix << "textures/" << base
+              << ".png\",\n  \"color_space\": \"srgb\"\n}\n";
       if (!image.good() || !texture.good()) {
         return {.success = false, .diagnostic = "写出 Texture 失败"};
       }
     }
-    if (!write_scene(data, output_directory / "scenes" / "scene.scene.json")) {
+    if (!write_scene(data, output_directory / "scenes" / "scene.scene.json", asset_uri_prefix)) {
       return {.success = false, .diagnostic = "写出 Scene 失败"};
     }
     return {.success = true, .diagnostic = {}};
@@ -280,7 +288,8 @@ bool remove_quietly(const std::filesystem::path& path) noexcept {
 
 } // namespace
 
-write_report write_assets(const import_ir& data, const std::filesystem::path& output_directory) {
+write_report write_assets(const import_ir& data, const std::filesystem::path& output_directory,
+                          std::string_view asset_uri_prefix) {
   if (output_directory.empty()) {
     return {.success = false, .diagnostic = "输出目录不能为空"};
   }
@@ -309,7 +318,7 @@ write_report write_assets(const import_ir& data, const std::filesystem::path& ou
       }
     }
 
-    auto report = write_assets_in_place(data, staging);
+    auto report = write_assets_in_place(data, staging, asset_uri_prefix);
     if (!report.success) {
       remove_quietly(staging);
       return report;
