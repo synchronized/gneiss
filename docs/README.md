@@ -24,6 +24,7 @@
 
 - [构建、测试与运行示例](guides/building.md)
 - [C/C++ 代码风格与语言标准](guides/coding-style.md)
+- [在 Editor 中导入资产](guides/editor-assets.md)
 
 ## API 参考
 

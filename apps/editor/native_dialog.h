@@ -13,6 +13,9 @@ namespace gneiss::editor {
 /** 打开系统目录选择器；用户取消时返回 not_ready。 */
 [[nodiscard]] result select_project_directory(std::filesystem::path& output) noexcept;
 
+/** 打开系统文件选择器并限定 glTF/GLB；用户取消时返回 not_ready。 */
+[[nodiscard]] result select_source_asset(std::filesystem::path& output) noexcept;
+
 } // namespace gneiss::editor
 
 #endif

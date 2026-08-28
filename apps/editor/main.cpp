@@ -10,6 +10,8 @@
 #include "property_inspector_model.h"
 #if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
 #include "asset_browser_model.h"
+#include "asset_import_controller.h"
+#include "native_dialog.h"
 #endif
 
 #include <gneiss/application.hpp>
@@ -43,6 +45,8 @@ struct editor_state {
   gneiss::editor::asset_browser_model assets;
   gneiss::editor::asset_browser_result asset_result = gneiss::editor::asset_browser_result::success;
   ImGuiTextFilter asset_filter;
+  gneiss::editor::editor_import_report last_import;
+  bool import_attempted = false;
 #endif
 };
 
@@ -196,10 +200,48 @@ void draw_asset_browser(editor_state& state) {
     state.asset_result = state.assets.refresh(state.project_root, state.asset_root);
   }
   ImGui::SameLine();
-  state.asset_filter.Draw("##asset-filter", -1.0F);
+  if (ImGui::Button("Import...")) {
+    std::filesystem::path selected;
+    const auto selected_result = gneiss::editor::select_source_asset(selected);
+    if (selected_result == gneiss::result::success) {
+      state.last_import =
+          gneiss::editor::import_external_asset(state.project_root, state.asset_root, selected);
+      state.import_attempted = true;
+      state.asset_result = state.assets.refresh(state.project_root, state.asset_root);
+    } else if (selected_result != gneiss::result::not_ready) {
+      state.last_import = {};
+      state.last_import.result = gneiss::editor::editor_import_result::io_error;
+      state.last_import.diagnostic = std::string{gneiss::result_message(selected_result)};
+      state.import_attempted = true;
+    }
+  }
+  const auto selected_entry = std::ranges::find(state.assets.entries(), state.assets.selection(),
+                                                &gneiss::editor::asset_browser_entry::id);
+  const auto can_reimport = selected_entry != state.assets.entries().end() &&
+                            selected_entry->kind == gneiss::editor::asset_browser_kind::source;
+  ImGui::SameLine();
+  ImGui::BeginDisabled(!can_reimport);
+  const auto reimport_requested = ImGui::Button("Reimport");
+  ImGui::EndDisabled();
+  if (reimport_requested) {
+    state.last_import = gneiss::editor::reimport_source_asset(
+        state.project_root, state.asset_root,
+        state.project_root / "sources" / utf8_path(selected_entry->relative_path));
+    state.import_attempted = true;
+    state.asset_result = state.assets.refresh(state.project_root, state.asset_root);
+  }
+  state.asset_filter.Draw("Filter", -1.0F);
   if (state.asset_result != gneiss::editor::asset_browser_result::success) {
     ImGui::TextColored(gneiss::editor::theme_error_color(), "Refresh failed: %s",
                        state.assets.diagnostic().c_str());
+  }
+  if (state.import_attempted) {
+    if (state.last_import.result == gneiss::editor::editor_import_result::success) {
+      ImGui::TextColored(gneiss::editor::theme_success_color(), "Import succeeded");
+    } else {
+      ImGui::TextColored(gneiss::editor::theme_error_color(), "Import failed: %s",
+                         state.last_import.diagnostic.c_str());
+    }
   }
   ImGui::Separator();
   for (const auto& entry : state.assets.entries()) {

@@ -21,6 +21,7 @@ int main() try {
           gneiss::result::success ||
       project.name != "Sample Project" ||
       project.startup_scene != "asset://scenes/main.scene.json" ||
+      !std::filesystem::is_directory(project_root / "sources") ||
       gneiss::editor::create_editor_project(project_root, "Duplicate", project) !=
           gneiss::result::invalid_state) {
     return 1;

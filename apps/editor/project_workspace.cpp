@@ -210,6 +210,9 @@ result create_editor_project(const std::filesystem::path& project_root, std::str
       return result::invalid_state;
     }
     std::filesystem::create_directories(temporary / "assets" / "scenes", error);
+    if (!error) {
+      std::filesystem::create_directories(temporary / "sources", error);
+    }
     if (error) {
       return result::io;
     }

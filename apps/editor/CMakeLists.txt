@@ -23,6 +23,8 @@ gneiss_target_output_directories(gneiss_editor_session)
 if(TARGET gneiss_asset_import_sdk)
   add_library(
     gneiss_editor_assets STATIC
+    asset_import_controller.cpp
+    asset_import_controller.h
     asset_browser_model.cpp
     asset_browser_model.h
   )
@@ -109,6 +111,15 @@ if(BUILD_TESTING)
     gneiss_target_compile_warnings(gneiss_editor_asset_browser_test)
     gneiss_target_output_directories(gneiss_editor_asset_browser_test)
     add_test(NAME gneiss.editor.asset-browser COMMAND gneiss_editor_asset_browser_test)
+    add_executable(gneiss_editor_asset_import_test tests/asset_import_controller_test.cpp)
+    target_link_libraries(gneiss_editor_asset_import_test PRIVATE gneiss_editor_assets)
+    target_compile_definitions(
+      gneiss_editor_asset_import_test
+      PRIVATE GNEISS_EDITOR_TEST_GLTF_ROOT="${PROJECT_SOURCE_DIR}/tests/data/gltf"
+    )
+    gneiss_target_compile_warnings(gneiss_editor_asset_import_test)
+    gneiss_target_output_directories(gneiss_editor_asset_import_test)
+    add_test(NAME gneiss.editor.asset-import COMMAND gneiss_editor_asset_import_test)
   endif()
   add_test(
     NAME gneiss.editor.smoke
