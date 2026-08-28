@@ -104,14 +104,15 @@ gneiss::editor::gizmo_matrix build_view_matrix(const gneiss::transform& camera) 
   return result;
 }
 
-gneiss::editor::gizmo_matrix build_projection_matrix(float aspect) noexcept {
+gneiss::editor::gizmo_matrix build_gizmo_projection_matrix(float aspect) noexcept {
   constexpr float field_of_view = 1.04719755F;
   constexpr float near_plane = 0.1F;
   constexpr float far_plane = 1000.0F;
   const auto focal = 1.0F / std::tan(field_of_view * 0.5F);
   gneiss::editor::gizmo_matrix result{};
   result[matrix_index(0U, 0U)] = focal / aspect;
-  result[matrix_index(1U, 1U)] = -focal;
+  // ImGuizmo 会把 NDC Y 转换为向下增长的屏幕坐标，不能重复使用 Vulkan 的 Y 翻转。
+  result[matrix_index(1U, 1U)] = focal;
   result[matrix_index(2U, 2U)] = far_plane / (near_plane - far_plane);
   result[matrix_index(2U, 3U)] = (far_plane * near_plane) / (near_plane - far_plane);
   result[matrix_index(3U, 2U)] = -1.0F;
@@ -748,7 +749,7 @@ bool draw_transform_gizmo(editor_state& state, const ImVec2& minimum,
     return false;
   }
   auto view = build_view_matrix(state.camera.current_transform());
-  auto projection = build_projection_matrix(viewport->Size.x / viewport->Size.y);
+  auto projection = build_gizmo_projection_matrix(viewport->Size.x / viewport->Size.y);
   gneiss::editor::gizmo_matrix grid = {
       1.0F, 0.0F, 0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F,
       0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 0.0F, 0.0F, 1.0F};
@@ -1186,6 +1187,12 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
       state.gizmo_mode = gizmo_operation::scale;
     }
     ImGui::TextDisabled("RMB look | Wheel dolly | F focus selection");
+    ImGui::SameLine();
+    ImGui::TextColored(ImVec4(0.95F, 0.35F, 0.35F, 1.0F), "X");
+    ImGui::SameLine(0.0F, 3.0F);
+    ImGui::TextColored(ImVec4(0.35F, 0.90F, 0.45F, 1.0F), "Y");
+    ImGui::SameLine(0.0F, 3.0F);
+    ImGui::TextColored(ImVec4(0.35F, 0.55F, 1.0F, 1.0F), "Z");
     if (const auto* selected = state.session.selected_node(); selected != nullptr) {
       ImGui::TextColored(gneiss::editor::theme_warning_color(), "Selected: %s",
                          selected->display_name.c_str());
