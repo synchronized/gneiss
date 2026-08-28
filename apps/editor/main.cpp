@@ -4,6 +4,7 @@
 #include "editor_camera.h"
 #include "editor_session.h"
 #include "imgui_adapter.h"
+#include "property_inspector_model.h"
 
 #include <gneiss/application.hpp>
 
@@ -22,7 +23,10 @@ struct editor_state {
   gneiss::editor::imgui_adapter ui;
   gneiss::editor::editor_camera camera;
   gneiss::editor::editor_session session;
+  gneiss::editor::property_inspector_model inspector;
   gneiss_world world = GNEISS_NULL_WORLD;
+  gneiss::entity_id inspected_entity;
+  gneiss::result inspector_error = gneiss::result::success;
 };
 
 struct launch_options {
@@ -72,6 +76,63 @@ void draw_scene_node(gneiss::editor::editor_session& session,
     ImGui::TreePop();
   }
   ImGui::PopID();
+}
+
+bool draw_property(gneiss::editor::property_inspector_model& inspector,
+                   const gneiss::editor::inspector_component& component,
+                   const gneiss::editor::inspector_property& property, gneiss::result& error) {
+  auto value = property.value;
+  const auto writable = (property.capabilities & GNEISS_PROPERTY_CAPABILITY_WRITABLE) != 0U;
+  bool changed = false;
+  ImGui::PushID(static_cast<int>(property.id));
+  ImGui::BeginDisabled(!writable);
+  switch (property.kind) {
+  case GNEISS_PROPERTY_KIND_BOOL: {
+    auto checked = value.payload.bool_value != 0U;
+    changed = ImGui::Checkbox(property.name.c_str(), &checked);
+    value.payload.bool_value = checked ? 1U : 0U;
+    break;
+  }
+  case GNEISS_PROPERTY_KIND_FLOAT32:
+    changed = ImGui::DragFloat(property.name.c_str(), &value.payload.float32_value, 0.01F);
+    break;
+  case GNEISS_PROPERTY_KIND_VEC3:
+    changed = ImGui::DragFloat3(property.name.c_str(), &value.payload.vec3_value.x, 0.05F);
+    break;
+  case GNEISS_PROPERTY_KIND_QUATERNION:
+    changed = ImGui::DragFloat4(property.name.c_str(), &value.payload.quaternion_value.x, 0.01F);
+    break;
+  default:
+    ImGui::TextDisabled("%s: unsupported property kind", property.name.c_str());
+    break;
+  }
+  ImGui::EndDisabled();
+  ImGui::PopID();
+  if (!changed) {
+    return false;
+  }
+  error = inspector.set_value(component.type_id, property.id, value);
+  return error == gneiss::result::success;
+}
+
+void draw_reflected_properties(editor_state& state) {
+  bool edited = false;
+  for (const auto& component : state.inspector.components()) {
+    if (!ImGui::CollapsingHeader(component.name.c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
+      continue;
+    }
+    for (const auto& property : component.properties) {
+      edited = draw_property(state.inspector, component, property, state.inspector_error) || edited;
+    }
+  }
+  if (edited) {
+    state.session.mark_dirty();
+  }
+  if (state.inspector_error != gneiss::result::success) {
+    const auto message = gneiss::result_message(state.inspector_error);
+    ImGui::TextColored(ImVec4(1.0F, 0.35F, 0.25F, 1.0F), "%.*s", static_cast<int>(message.size()),
+                       message.data());
+  }
 }
 
 gneiss_result update_editor_camera(editor_state& state, const gneiss_frame_time& time) {
@@ -167,10 +228,19 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
     ImGui::SetNextWindowSize(ImVec2(300.0F, 720.0F));
     ImGui::Begin("Inspector", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
     if (const auto* selected = state.session.selected_node(); selected != nullptr) {
+      if (state.inspected_entity != selected->entity) {
+        state.inspector_error = state.inspector.refresh(state.world, selected->entity);
+        state.inspected_entity = selected->entity;
+      }
       ImGui::Text("Name: %s", selected->display_name.c_str());
       ImGui::Text("UUID: %s", selected->uuid.c_str());
       ImGui::Text("Entity: %llu", static_cast<unsigned long long>(selected->entity.get()));
+      ImGui::Separator();
+      draw_reflected_properties(state);
     } else {
+      state.inspector.clear();
+      state.inspected_entity = {};
+      state.inspector_error = gneiss::result::success;
       ImGui::TextUnformatted("No node is selected");
     }
     ImGui::End();
@@ -214,7 +284,8 @@ int run_editor(int argc, char** argv) {
   if (state.ui.initialize(application.get()) != GNEISS_SUCCESS) {
     return 2;
   }
-  if (application.get_world(state.world) != gneiss::result::success ||
+  if (state.inspector.initialize() != gneiss::result::success ||
+      application.get_world(state.world) != gneiss::result::success ||
       (!options.scene_uri.empty() &&
        state.session.open(application.get(), state.world, options.scene_uri) !=
            gneiss::result::success) ||

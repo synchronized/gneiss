@@ -180,9 +180,11 @@ cmake --build --preset windows-clang-debug --target gneiss_editor
 
 当前宿主已提供场景会话、可选择的层级树和独立 Editor Camera。鼠标位于 Scene View 时，可以使用
 `W/A/S/D` 前后左右移动、`Q/E` 降低或升高、按住鼠标右键环视、滚轮沿视线移动；选择层级节点后
-按 `F` 可聚焦其世界位置。Scene View 会以黄色边框和名称反馈当前选择，Inspector 暂时只展示节点
-标识信息。输入、字体 Texture RID、UI Draw List 与 Granit Canvas 已完成同帧渲染。窗口暂时固定
-为 1280×720。可用 `--smoke` 固定运行 3 帧，验证场景加载、UI 提交与逆序清理。
+按 `F` 可聚焦其世界位置。Scene View 会以黄色边框和名称反馈当前选择，Inspector 展示节点
+标识以及实体上已注册的 Transform、Camera 属性。Inspector 根据 Type Registry 元数据生成布尔、
+标量、向量和四元数控件；只读字段会禁用，非法值会保留运行时原值并显示错误。输入、字体 Texture
+RID、UI Draw List 与 Granit Canvas 已完成同帧渲染。窗口暂时固定为 1280×720。可用 `--smoke`
+固定运行 3 帧，验证场景加载、UI 提交与逆序清理。
 
 ## 验证结果
 

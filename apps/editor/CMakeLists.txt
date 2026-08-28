@@ -7,6 +7,8 @@ add_library(
   editor_camera.h
   editor_session.cpp
   editor_session.h
+  property_inspector_model.cpp
+  property_inspector_model.h
 )
 target_link_libraries(gneiss_editor_session PUBLIC gneiss::gneiss)
 target_include_directories(gneiss_editor_session PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
@@ -34,6 +36,11 @@ if(BUILD_TESTING)
   gneiss_target_compile_warnings(gneiss_editor_camera_test)
   gneiss_target_output_directories(gneiss_editor_camera_test)
   add_test(NAME gneiss.editor.camera COMMAND gneiss_editor_camera_test)
+  add_executable(gneiss_editor_property_inspector_test tests/property_inspector_model_test.cpp)
+  target_link_libraries(gneiss_editor_property_inspector_test PRIVATE gneiss_editor_session)
+  gneiss_target_compile_warnings(gneiss_editor_property_inspector_test)
+  gneiss_target_output_directories(gneiss_editor_property_inspector_test)
+  add_test(NAME gneiss.editor.property-inspector COMMAND gneiss_editor_property_inspector_test)
   add_test(
     NAME gneiss.editor.smoke
     COMMAND
