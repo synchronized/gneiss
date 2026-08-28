@@ -104,6 +104,7 @@ jobs:
           ccache --zero-stats
           cmake --preset "${{ steps.preset.outputs.name }}" \
             -DGNEISS_ENABLE_GRANIT_PLATFORM=ON \
+            -DGNEISS_BUILD_EDITOR=ON \
             -DGNEISS_GRANIT_PROVIDER=FETCH \
             -DFETCHCONTENT_BASE_DIR="$GITHUB_WORKSPACE/.cache/fetchcontent" \
             -DCMAKE_C_COMPILER_LAUNCHER=ccache \
