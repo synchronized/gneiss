@@ -28,6 +28,7 @@
 
 ## API 参考
 
+- [API 稳定级别与兼容策略](reference/compatibility.md)
 - [Core 版本与结果接口](reference/core.md)
 - [RID 有效性与 Service 生命周期](reference/rid.md)
 - [World、Entity 与内部 ECS 边界](reference/world.md)
@@ -91,6 +92,7 @@
 - [ADR-018：Editor 工程启动入口](decisions/ADR-018-editor-project-entry.md)
 - [ADR-019：Editor 源资产、派生产物与导入索引边界](decisions/ADR-019-editor-asset-workflow.md)
 - [ADR-020：Editor 场景创作与 Runtime 投影边界](decisions/ADR-020-scene-authoring-boundary.md)
+- [ADR-023：公共 API 稳定级别与 1.x 兼容边界](decisions/ADR-023-public-api-stability.md)
 
 ## 实施与验收记录
 
@@ -107,6 +109,7 @@
 - [0.7.0 编辑器基础验收记录](records/0.7.0-validation.md)
 - [0.8.0 编辑器资产工作流验收记录](records/0.8.0-validation.md)
 - [0.9.0 场景创作工作流验收记录](records/0.9.0-validation.md)
+- [M-65 公共 API 与稳定性审计记录](records/M-65-public-api-audit.md)
 - [M-13 JSON 解析器 Spike 记录](records/M-13-json-spike.md)
 - [M-14 资产 URI 与资源生命周期实施记录](records/M-14-asset-uri-resource-lifecycle.md)
 - [M-15 版本化场景 Schema 实施记录](records/M-15-scene-schema.md)
