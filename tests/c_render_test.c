@@ -3,6 +3,10 @@
 
 #include <gneiss/render.h>
 
+_Static_assert(sizeof(gneiss_texture_format) == sizeof(uint32_t), "Texture 格式类型必须保持 32 位");
+_Static_assert(sizeof(gneiss_texture_color_space) == sizeof(uint32_t),
+               "Texture 颜色空间类型必须保持 32 位");
+
 int main(void) {
   const gneiss_mesh_vertex vertices[] = {{-0.5F, -0.5F, 0.0F, 0.0F, 0.0F},
                                          {0.5F, -0.5F, 0.0F, 1.0F, 0.0F},

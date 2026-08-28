@@ -57,17 +57,18 @@ GNEISS_API gneiss_result gneiss_world_entity_is_alive(gneiss_world world, gneiss
 GNEISS_API gneiss_result gneiss_world_entity_count(gneiss_world world, uint64_t* out_count);
 
 /** 返回内建 Transform 的稳定 Type ID。 */
-GNEISS_API gneiss_type_id gneiss_transform_type_id(void);
+GNEISS_EXPERIMENTAL GNEISS_API gneiss_type_id gneiss_transform_type_id(void);
 
 /** 返回内建 Camera 的稳定 Type ID。 */
-GNEISS_API gneiss_type_id gneiss_camera_type_id(void);
+GNEISS_EXPERIMENTAL GNEISS_API gneiss_type_id gneiss_camera_type_id(void);
 
 /**
  * 向冻结前的 Registry 注册 Transform、Camera 及其属性访问器。
  *
  * 属性目标的 context 必须是 World，object 必须是该 World 的实体 ID。重复注册幂等成功。
  */
-GNEISS_API gneiss_result gneiss_world_register_reflection(gneiss_type_registry registry);
+GNEISS_EXPERIMENTAL GNEISS_API gneiss_result
+gneiss_world_register_reflection(gneiss_type_registry registry);
 
 #ifdef __cplusplus
 }

@@ -66,12 +66,12 @@ typedef void (*gneiss_application_diagnostic_fn)(gneiss_application application,
                                                  const gneiss_diagnostic* diagnostic,
                                                  void* user_data);
 
-typedef enum gneiss_application_platform {
-  /** 使用生命周期回调；全部为空时为无窗口模式。 */
-  GNEISS_APPLICATION_PLATFORM_CALLBACK = 0,
-  /** 使用 Granit Window 组件创建并管理窗口。 */
-  GNEISS_APPLICATION_PLATFORM_GRANIT = 1
-} gneiss_application_platform;
+/** Application 平台类型使用定宽整数，避免 C enum 的实现相关 ABI。 */
+typedef uint32_t gneiss_application_platform;
+/** 使用生命周期回调；全部为空时为无窗口模式。 */
+#define GNEISS_APPLICATION_PLATFORM_CALLBACK UINT32_C(0)
+/** 使用 Granit Window 组件创建并管理窗口。 */
+#define GNEISS_APPLICATION_PLATFORM_GRANIT UINT32_C(1)
 
 #define GNEISS_APPLICATION_WINDOW_VISIBLE_BIT (UINT32_C(1) << 0)
 #define GNEISS_APPLICATION_WINDOW_RESIZABLE_BIT (UINT32_C(1) << 1)

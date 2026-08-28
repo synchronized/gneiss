@@ -5,6 +5,9 @@
 #include <gneiss/input.h>
 #include <gneiss/render.h>
 
+_Static_assert(sizeof(gneiss_application_platform) == sizeof(uint32_t),
+               "Application 平台类型必须保持 32 位");
+
 typedef struct test_context {
   uint64_t now_ns;
   uint64_t update_count;

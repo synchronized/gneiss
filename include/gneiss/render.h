@@ -20,12 +20,14 @@ typedef gneiss_rid gneiss_texture;
 #define GNEISS_NULL_MATERIAL GNEISS_NULL_RID
 #define GNEISS_NULL_TEXTURE GNEISS_NULL_RID
 
-typedef enum gneiss_texture_format { GNEISS_TEXTURE_FORMAT_RGBA8_UNORM = 1 } gneiss_texture_format;
+/** Texture 像素格式使用定宽整数，避免 C enum 的实现相关 ABI。 */
+typedef uint32_t gneiss_texture_format;
+#define GNEISS_TEXTURE_FORMAT_RGBA8_UNORM UINT32_C(1)
 
-typedef enum gneiss_texture_color_space {
-  GNEISS_TEXTURE_COLOR_SPACE_LINEAR = 1,
-  GNEISS_TEXTURE_COLOR_SPACE_SRGB = 2
-} gneiss_texture_color_space;
+/** Texture 颜色空间使用定宽整数，避免 C enum 的实现相关 ABI。 */
+typedef uint32_t gneiss_texture_color_space;
+#define GNEISS_TEXTURE_COLOR_SPACE_LINEAR UINT32_C(1)
+#define GNEISS_TEXTURE_COLOR_SPACE_SRGB UINT32_C(2)
 
 /** 二维 Texture 创建参数。调用期间复制像素，调用方保留 pixels 所有权。 */
 typedef struct gneiss_texture_desc {
@@ -207,7 +209,7 @@ typedef struct gneiss_debug_draw_list_desc {
 } gneiss_debug_draw_list_desc;
 
 #define GNEISS_DEBUG_DRAW_LIST_DESC_VERSION_1_SIZE ((uint32_t)sizeof(gneiss_debug_draw_list_desc))
-#define GNEISS_DEBUG_DRAW_LIST_DESC_INIT                                                         \
+#define GNEISS_DEBUG_DRAW_LIST_DESC_INIT                                                           \
   {(uint32_t)sizeof(gneiss_debug_draw_list_desc), UINT32_C(0), UINT32_C(0), UINT32_C(0), NULL}
 
 #ifdef __cplusplus
@@ -215,29 +217,31 @@ extern "C" {
 #endif
 
 /** 在 Application 的 Resource Service 中创建 Mesh；只能在 Application 创建线程调用。 */
-GNEISS_API gneiss_result gneiss_mesh_create(gneiss_application application,
-                                            const gneiss_mesh_desc* desc, gneiss_mesh* out_mesh);
+GNEISS_EXPERIMENTAL GNEISS_API gneiss_result gneiss_mesh_create(gneiss_application application,
+                                                                const gneiss_mesh_desc* desc,
+                                                                gneiss_mesh* out_mesh);
 
 /** 销毁 Mesh；成功后旧 RID 立即失效。 */
-GNEISS_API gneiss_result gneiss_mesh_destroy(gneiss_application application, gneiss_mesh mesh);
+GNEISS_EXPERIMENTAL GNEISS_API gneiss_result gneiss_mesh_destroy(gneiss_application application,
+                                                                 gneiss_mesh mesh);
 
 /** 在 Application 的 Resource Service 中创建 Material；可选 Texture 必须属于同一 Application。 */
-GNEISS_API gneiss_result gneiss_material_create(gneiss_application application,
-                                                const gneiss_material_desc* desc,
-                                                gneiss_material* out_material);
+GNEISS_EXPERIMENTAL GNEISS_API gneiss_result
+gneiss_material_create(gneiss_application application, const gneiss_material_desc* desc,
+                       gneiss_material* out_material);
 
 /** 销毁 Material；成功后旧 RID 立即失效。 */
-GNEISS_API gneiss_result gneiss_material_destroy(gneiss_application application,
-                                                 gneiss_material material);
+GNEISS_EXPERIMENTAL GNEISS_API gneiss_result gneiss_material_destroy(gneiss_application application,
+                                                                     gneiss_material material);
 
 /** 在 Application 的 Render Service 中创建二维 Texture；像素当前只支持 RGBA8。 */
-GNEISS_API gneiss_result gneiss_texture_create(gneiss_application application,
-                                               const gneiss_texture_desc* desc,
-                                               gneiss_texture* out_texture);
+GNEISS_EXPERIMENTAL GNEISS_API gneiss_result gneiss_texture_create(gneiss_application application,
+                                                                   const gneiss_texture_desc* desc,
+                                                                   gneiss_texture* out_texture);
 
 /** 销毁 Texture；成功后旧 RID 立即失效。 */
-GNEISS_API gneiss_result gneiss_texture_destroy(gneiss_application application,
-                                                gneiss_texture texture);
+GNEISS_EXPERIMENTAL GNEISS_API gneiss_result gneiss_texture_destroy(gneiss_application application,
+                                                                    gneiss_texture texture);
 
 /**
  * 提交当前帧即时 UI 数据。
@@ -245,11 +249,11 @@ GNEISS_API gneiss_result gneiss_texture_destroy(gneiss_application application,
  * 只能在 Application 创建线程的 update 回调内调用。成功后数据在本帧渲染结束时失效；同一帧再次
  * 成功提交会原子替换前一份数据。所有 Texture RID 必须属于该 Application。
  */
-GNEISS_API gneiss_result gneiss_application_submit_ui_draw_list(
+GNEISS_EXPERIMENTAL GNEISS_API gneiss_result gneiss_application_submit_ui_draw_list(
     gneiss_application application, const gneiss_ui_draw_list_desc* desc);
 
 /** 在 update 回调中提交当前帧世界调试线段；同一帧再次提交会原子替换。 */
-GNEISS_API gneiss_result gneiss_application_submit_debug_draw_list(
+GNEISS_EXPERIMENTAL GNEISS_API gneiss_result gneiss_application_submit_debug_draw_list(
     gneiss_application application, const gneiss_debug_draw_list_desc* desc);
 
 /** 设置或替换实体的 Camera 组件。World 和实体必须属于当前线程。 */

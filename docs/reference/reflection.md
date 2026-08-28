@@ -5,7 +5,7 @@
 
 ## 当前范围
 
-`<gneiss/reflection.h>` 提供 C11 Type Registry 和稳定元数据查询；`<gneiss/reflection.hpp>` 提供
+`<gneiss/reflection.h>` 提供 C11 Type Registry 和实验性元数据查询；`<gneiss/reflection.hpp>` 提供
 独占 RAII 包装。当前接口描述类型和字段，并通过显式绑定的适配器提供类型安全属性读写；内建注册
 已接入 Transform 和 Camera，但尚不提供对象构造、继承或序列化迁移。
 
@@ -68,6 +68,10 @@ Registry 不由 World 持有，Scene Tree 节点也仍然只关联实体 ID。
 查询只允许在冻结后进行，冻结前返回 `GNEISS_ERROR_NOT_READY`。未知类型、字段或越界索引返回
 `GNEISS_ERROR_NOT_FOUND`。空输出指针、全零 Type ID、零 Field ID 和无效描述返回
 `GNEISS_ERROR_INVALID_ARGUMENT`；失效或重复销毁的 Registry 返回 `GNEISS_ERROR_INVALID_HANDLE`。
+
+调用 `type_at`、`find_type` 或 `find_field` 前，输出结构必须分别使用 `GNEISS_TYPE_INFO_INIT` 或
+`GNEISS_FIELD_INFO_INIT` 初始化。实现通过首字段 `struct_size` 判断调用方可见版本；小于 v1 大小的
+结构返回 `GNEISS_ERROR_INVALID_ARGUMENT`。C++20 包装会自动完成初始化。
 
 ## 所有权与线程安全
 

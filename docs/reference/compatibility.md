@@ -16,7 +16,9 @@ Gneiss 仍处于 1.0.0 开发阶段。0.x 版本的公共 API、ABI 和构建契
 | Experimental | 可公开试用但仍可能演进 | 提供迁移说明，不承诺 ABI 或源码兼容 |
 | Internal | 仅供仓库内部实现使用 | 无兼容承诺，不安装也不导出 |
 
-仅安装头文件或导出符号不等于 Stable。具体能力以本页和 1.0.0 发布清单为准。
+仅安装头文件或导出符号不等于 Stable。逐符号的机器可读分类以
+[`abi/api-stability.txt`](../../abi/api-stability.txt) 为准；声明上的 `GNEISS_EXPERIMENTAL` 便于
+调用方识别仍可能演进的接口，该标记不表示弃用，也不改变调用约定。
 
 ## 1.x Stable 规则
 
@@ -43,7 +45,7 @@ M-65 审计将以下能力作为 Stable 候选，而不是已冻结承诺：
 - 场景格式驱动的 Camera、Mesh Renderer 与渲染资产加载路径。
 - 资产 URI 校验和安装后的 `gneiss::gneiss` CMake target。
 
-以下能力默认保持 Experimental：Type Registry 与属性访问、场景作者修改与序列化、直接创建
+以下能力保持 Experimental：Type Registry 与属性访问、场景作者修改与序列化、直接创建
 Mesh/Texture/Material 的低层资源接口、UI/Debug Draw、Editor、`gneiss_assetc` 及其工具 SDK。
 代表性样例或审计可以缩小候选范围；扩大 Stable 范围必须补齐同等级跨版本测试。
 
