@@ -25,3 +25,4 @@ Reference 和实现为准。
 - [ADR-017：编辑器 UI 与场景渲染组合边界](ADR-017-editor-ui-render-composition.md)
 - [ADR-018：Editor 以版本化工程描述作为启动入口](ADR-018-editor-project-entry.md)
 - [ADR-019：Editor 源资产、派生产物与导入索引边界](ADR-019-editor-asset-workflow.md)
+- [ADR-020：Editor 场景创作与 Runtime 投影边界](ADR-020-scene-authoring-boundary.md)
