@@ -35,6 +35,17 @@ gneiss_target_compile_warnings(gneiss_1_0_abi_consumer)
 gneiss_target_output_directories(gneiss_1_0_abi_consumer)
 add_test(NAME gneiss.1_0_abi_consumer COMMAND gneiss_1_0_abi_consumer)
 
+add_executable(gneiss_0_9_abi_consumer compat/0_9/consumer.c)
+target_include_directories(gneiss_0_9_abi_consumer PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/compat/0_9")
+target_link_libraries(gneiss_0_9_abi_consumer PRIVATE gneiss::gneiss)
+set_target_properties(
+  gneiss_0_9_abi_consumer
+  PROPERTIES C_STANDARD 11 C_STANDARD_REQUIRED YES C_EXTENSIONS NO LINKER_LANGUAGE CXX
+)
+gneiss_target_compile_warnings(gneiss_0_9_abi_consumer)
+gneiss_target_output_directories(gneiss_0_9_abi_consumer)
+add_test(NAME gneiss.0_9_abi_consumer COMMAND gneiss_0_9_abi_consumer)
+
 add_executable(gneiss_cpp_version_test cpp_version_test.cpp)
 target_link_libraries(gneiss_cpp_version_test PRIVATE gneiss::gneiss)
 target_compile_features(gneiss_cpp_version_test PRIVATE cxx_std_20)

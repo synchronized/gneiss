@@ -23,6 +23,7 @@
 ## 操作指南
 
 - [构建、测试与运行示例](guides/building.md)
+- [从 0.9.0 迁移到 1.0.0](guides/migrating-0.9-to-1.0.md)
 - [C/C++ 代码风格与语言标准](guides/coding-style.md)
 - [在 Editor 中导入资产](guides/editor-assets.md)
 

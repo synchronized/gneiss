@@ -7,7 +7,10 @@
 
 ## 未发布
 
-暂无。
+- 公共 C ABI 增加 Stable/Experimental 逐符号分类及实验性声明标记。
+- 公开平台、纹理和属性类别改为定宽常量，反射查询输出增加版本化 `struct_size`。
+- 增加稳定运行时代表性样例、冻结头兼容测试和隔离源码树的 Shared/Static 安装 Consumer。
+- 0.9.0 调用方升级方式见[迁移指南](docs/guides/migrating-0.9-to-1.0.md)。
 
 ## 0.9.0 - 2026-08-28
 
