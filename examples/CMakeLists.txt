@@ -45,8 +45,14 @@ endif()
 
 if(GNEISS_ENABLE_GRANIT_PLATFORM AND TARGET gneiss_assetc)
   set(lantern_gallery_source_root "${CMAKE_CURRENT_SOURCE_DIR}/lantern_gallery/assets")
-  set(lantern_gallery_asset_root "${CMAKE_CURRENT_BINARY_DIR}/lantern_gallery/assets")
+  set(lantern_gallery_project_root "${CMAKE_CURRENT_BINARY_DIR}/lantern_gallery")
+  set(lantern_gallery_asset_root "${lantern_gallery_project_root}/assets")
   set(lantern_gallery_stamp "${CMAKE_CURRENT_BINARY_DIR}/lantern_gallery-assets.stamp")
+  configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/lantern_gallery/gneiss.project.json"
+    "${lantern_gallery_project_root}/gneiss.project.json"
+    COPYONLY
+  )
   file(
     GLOB_RECURSE lantern_gallery_authored_assets
     CONFIGURE_DEPENDS
@@ -86,12 +92,20 @@ if(GNEISS_ENABLE_GRANIT_PLATFORM AND TARGET gneiss_assetc)
   )
   install(
     FILES
+      "${CMAKE_CURRENT_SOURCE_DIR}/lantern_gallery/gneiss.project.json"
       "${lantern_gallery_source_root}/ASSET_ORIGINS.md"
       "${lantern_gallery_source_root}/source/LICENSE.md"
     DESTINATION "${CMAKE_INSTALL_DATADIR}/gneiss/examples/lantern-gallery"
   )
   if(BUILD_TESTING)
     add_test(NAME gneiss.lantern_gallery_example COMMAND gneiss_lantern_gallery_example --smoke)
+    if(TARGET gneiss_editor)
+      add_test(
+        NAME gneiss.editor.lantern-gallery-project
+        COMMAND gneiss_editor --smoke --project "${lantern_gallery_project_root}"
+      )
+      set_tests_properties(gneiss.editor.lantern-gallery-project PROPERTIES TIMEOUT 30)
+    endif()
   endif()
 elseif(GNEISS_ENABLE_GRANIT_PLATFORM)
   message(STATUS "GNEISS_BUILD_TOOLS=OFF，跳过需要离线导入的 Lantern 示例")

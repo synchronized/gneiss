@@ -186,6 +186,18 @@ cmake --build --preset windows-clang-debug --target gneiss_editor
 [工程文件格式 v1](../reference/project-format.md)。Editor 不再提供独立的
 `--asset-root` 与 `--scene` 正式入口。
 
+Lantern Gallery 的导入资产由构建过程生成，因此其可运行工程位于构建树，而不是源码树。完成
+`windows-clang-debug` 构建后可以直接打开：
+
+```powershell
+./build/windows-clang-debug/bin/gneiss_editor.exe `
+  --project ./build/windows-clang-debug/examples/lantern_gallery
+```
+
+安装时，完整工程位于 `${CMAKE_INSTALL_DATADIR}/gneiss/examples/lantern-gallery`。源码目录中的
+`examples/lantern_gallery/gneiss.project.json` 是工程描述的权威来源，构建不会把 glTF 派生资产
+写回源码树。
+
 当前宿主已提供场景会话、可选择的层级树和独立 Editor Camera。鼠标位于 Scene View 时，可以使用
 `W/A/S/D` 前后左右移动、`Q/E` 降低或升高、按住鼠标右键环视、滚轮沿视线移动；选择层级节点后
 按 `F` 可聚焦其世界位置。Scene View 会以黄色边框和名称反馈当前选择，Inspector 展示节点
