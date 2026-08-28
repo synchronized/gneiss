@@ -34,11 +34,11 @@ int main() {
   gneiss_ui_draw_list_desc desc = GNEISS_UI_DRAW_LIST_DESC_INIT;
   desc.display_width = 640.0F;
   desc.display_height = 480.0F;
-  desc.vertex_count = vertices.size();
+  desc.vertex_count = static_cast<std::uint32_t>(vertices.size());
   desc.vertices = vertices.data();
-  desc.index_count = indices.size();
+  desc.index_count = static_cast<std::uint32_t>(indices.size());
   desc.indices = indices.data();
-  desc.command_count = commands.size();
+  desc.command_count = static_cast<std::uint32_t>(commands.size());
   desc.commands = commands.data();
 
   gneiss::render_internal::ui_draw_list draw_list;
