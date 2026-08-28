@@ -102,6 +102,7 @@
 - [0.5.0 版本验收记录](records/0.5.0-validation.md)
 - [0.6.0 版本验收记录](records/0.6.0-validation.md)
 - [0.7.0 编辑器基础验收记录](records/0.7.0-validation.md)
+- [0.8.0 编辑器资产工作流候选验收记录](records/0.8.0-validation.md)
 - [M-13 JSON 解析器 Spike 记录](records/M-13-json-spike.md)
 - [M-14 资产 URI 与资源生命周期实施记录](records/M-14-asset-uri-resource-lifecycle.md)
 - [M-15 版本化场景 Schema 实施记录](records/M-15-scene-schema.md)

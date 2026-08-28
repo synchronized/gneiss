@@ -105,6 +105,24 @@ if(GNEISS_ENABLE_GRANIT_PLATFORM AND TARGET gneiss_assetc)
         COMMAND gneiss_editor --smoke --project "${lantern_gallery_project_root}"
       )
       set_tests_properties(gneiss.editor.lantern-gallery-project PROPERTIES TIMEOUT 30)
+      add_executable(
+        gneiss_editor_lantern_workflow_test
+        "${PROJECT_SOURCE_DIR}/apps/editor/tests/lantern_workflow_test.cpp"
+      )
+      target_link_libraries(
+        gneiss_editor_lantern_workflow_test
+        PRIVATE gneiss_editor_assets gneiss_editor_session
+      )
+      target_compile_definitions(
+        gneiss_editor_lantern_workflow_test
+        PRIVATE
+          GNEISS_EDITOR_LANTERN_PROJECT="${lantern_gallery_project_root}"
+          GNEISS_EDITOR_LANTERN_SOURCE="${lantern_gallery_source_root}/source/Lantern.glb"
+      )
+      add_dependencies(gneiss_editor_lantern_workflow_test gneiss_lantern_gallery_assets)
+      gneiss_target_compile_warnings(gneiss_editor_lantern_workflow_test)
+      gneiss_target_output_directories(gneiss_editor_lantern_workflow_test)
+      add_test(NAME gneiss.editor.lantern-workflow COMMAND gneiss_editor_lantern_workflow_test)
     endif()
   endif()
 elseif(GNEISS_ENABLE_GRANIT_PLATFORM)
