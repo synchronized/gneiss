@@ -695,7 +695,9 @@ granit_render_service::render(native_window_info& window,
                                                  : GRANIT_DEBUG_DRAW_DEPTH_MODE_DISABLED,
                                .reserved = 0U});
       }
-      result = debug_draw_.append_lines(debug_lines);
+      if (!debug_lines.empty()) {
+        result = debug_draw_.append_lines(debug_lines);
+      }
     } catch (const std::bad_alloc&) {
       return GNEISS_ERROR_OUT_OF_MEMORY;
     }

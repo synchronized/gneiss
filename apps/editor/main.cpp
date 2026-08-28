@@ -25,6 +25,7 @@
 #include <array>
 #include <cstdint>
 #include <cmath>
+#include <cstdio>
 #include <filesystem>
 #include <limits>
 #include <memory>
@@ -225,6 +226,18 @@ bool parse_options(int argc, char** argv, launch_options& options) {
     }
   }
   return true;
+}
+
+void report_startup_failure(std::string_view stage, gneiss::result operation,
+                            std::string_view path = {}) noexcept {
+  const auto message = gneiss::result_message(operation);
+  std::fprintf(stderr, "Gneiss Editor 启动失败：阶段=%.*s，结果=%d，消息=%.*s",
+               static_cast<int>(stage.size()), stage.data(), gneiss::to_native(operation),
+               static_cast<int>(message.size()), message.data());
+  if (!path.empty()) {
+    std::fprintf(stderr, "，路径=%.*s", static_cast<int>(path.size()), path.data());
+  }
+  std::fputc('\n', stderr);
 }
 
 void synchronize_history_dirty(editor_state& state) noexcept {
@@ -1463,6 +1476,8 @@ uint8_t handle_close_requested(gneiss_application application, void* user_data) 
 int run_editor(int argc, char** argv) {
   launch_options options;
   if (!parse_options(argc, argv, options)) {
+    std::fprintf(stderr, "Gneiss Editor 启动失败：阶段=命令行解析，结果=%d，消息=参数无效\n",
+                 GNEISS_ERROR_INVALID_ARGUMENT);
     return 64;
   }
   gneiss::editor::editor_project project;
@@ -1472,14 +1487,25 @@ int run_editor(int argc, char** argv) {
       return 0;
     }
     if (operation != gneiss::result::success) {
+      const auto message = gneiss::result_message(operation);
+      std::fprintf(stderr, "Gneiss Editor 启动失败：阶段=Project Manager，结果=%d，消息=%.*s\n",
+                   gneiss::to_native(operation), static_cast<int>(message.size()), message.data());
       return 65;
     }
-  } else if (gneiss::editor::load_editor_project(utf8_path(options.project), project) !=
-             gneiss::result::success) {
-    return 65;
+  } else {
+    const auto operation = gneiss::editor::load_editor_project(utf8_path(options.project), project);
+    if (operation != gneiss::result::success) {
+      const auto message = gneiss::result_message(operation);
+      std::fprintf(stderr,
+                   "Gneiss Editor 启动失败：阶段=工程加载，结果=%d，消息=%.*s，路径=%s\n",
+                   gneiss::to_native(operation), static_cast<int>(message.size()), message.data(),
+                   options.project.c_str());
+      return 65;
+    }
   }
   const auto asset_root_text = path_utf8(project.asset_root);
   if (asset_root_text.size() > std::numeric_limits<std::uint32_t>::max()) {
+    report_startup_failure("资产根校验", gneiss::result::invalid_argument, asset_root_text);
     return 64;
   }
   gneiss::application application;
@@ -1503,17 +1529,35 @@ int run_editor(int argc, char** argv) {
   desc.asset_root = asset_root_text.c_str();
   desc.asset_root_length = static_cast<std::uint32_t>(asset_root_text.size());
 
-  if (gneiss::application::create(desc, application) != gneiss::result::success) {
+  auto operation = gneiss::application::create(desc, application);
+  if (operation != gneiss::result::success) {
+    report_startup_failure("Editor Application 创建", operation, path_utf8(project.project_root));
     return 1;
   }
-  if (state.ui.initialize(application.get()) != GNEISS_SUCCESS) {
+  operation = gneiss::from_native(state.ui.initialize(application.get()));
+  if (operation != gneiss::result::success) {
+    report_startup_failure("Editor UI 初始化", operation);
     return 2;
   }
-  if (state.inspector.initialize() != gneiss::result::success ||
-      application.get_world(state.world) != gneiss::result::success ||
-      state.session.open(application.get(), state.world, project.startup_scene) !=
-          gneiss::result::success ||
-      state.camera.initialize(state.world) != gneiss::result::success) {
+  operation = state.inspector.initialize();
+  if (operation == gneiss::result::success) {
+    operation = application.get_world(state.world);
+  }
+  if (operation != gneiss::result::success) {
+    report_startup_failure("Editor World/Inspector 初始化", operation);
+  } else {
+    operation = state.session.open(application.get(), state.world, project.startup_scene);
+    if (operation != gneiss::result::success) {
+      report_startup_failure("启动场景打开", operation, project.startup_scene);
+    }
+  }
+  if (operation == gneiss::result::success) {
+    operation = state.camera.initialize(state.world);
+    if (operation != gneiss::result::success) {
+      report_startup_failure("Editor Camera 初始化", operation);
+    }
+  }
+  if (operation != gneiss::result::success) {
     state.ui.shutdown(application.get());
     state.session.close();
     return 3;
@@ -1523,6 +1567,9 @@ int run_editor(int argc, char** argv) {
   state.ui.shutdown(application.get());
   state.camera.shutdown();
   state.session.close();
+  if (run_result != gneiss::result::success) {
+    report_startup_failure("Editor 事件循环", run_result, path_utf8(project.project_root));
+  }
   return run_result == gneiss::result::success ? 0 : 4;
 }
 
