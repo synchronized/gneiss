@@ -164,7 +164,8 @@ ctest --test-dir build/stable-runtime-consumer --output-on-failure
 采样时必须显式填写 CPU、实际使用的 GPU 和驱动版本，不能仅凭系统枚举猜测 Vulkan 设备。
 
 Linux Clang/GCC 可使用 `GNEISS_ENABLE_SANITIZERS=ON` 为 Gneiss 自有目标启用 AddressSanitizer、
-LeakSanitizer 和 UndefinedBehaviorSanitizer。手动 Linux Actions 会在无头图形环境中运行
+LeakSanitizer 和 UndefinedBehaviorSanitizer。手动 Linux Actions 使用镜像已完整提供运行库的 GCC，
+并在无头图形环境中运行
 Application、场景故障矩阵和稳定运行时样例；Sanitizer 报告任何内存错误、未定义行为或退出泄漏时
 任务失败。该选项不传播给安装后的下游项目，也不支持 Windows/MSVC。
 

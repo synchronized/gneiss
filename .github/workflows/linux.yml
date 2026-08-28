@@ -149,13 +149,13 @@ jobs:
       - name: 配置并构建 Sanitizer 运行时
         shell: bash
         run: |
-          cmake --preset linux-clang-debug \
+          cmake --preset linux-gcc-debug \
             -DGNEISS_ENABLE_GRANIT_PLATFORM=ON \
             -DGNEISS_BUILD_EDITOR=OFF \
             -DGNEISS_BUILD_TOOLS=OFF \
             -DGNEISS_ENABLE_SANITIZERS=ON \
             -DGNEISS_GRANIT_PROVIDER=FETCH
-          cmake --build --preset linux-clang-debug \
+          cmake --build --preset linux-gcc-debug \
             --target gneiss_stable_runtime_example gneiss_scene_instance_test gneiss_c_application_test
       - name: 检查内存错误与退出泄漏
         shell: bash
@@ -178,5 +178,5 @@ jobs:
             cat "$RUNNER_TEMP/gneiss-weston.log"
             exit 1
           }
-          xvfb-run -a ctest --preset linux-clang-debug \
+          xvfb-run -a ctest --preset linux-gcc-debug \
             -R '^gneiss\.(c_application|scene_instance|stable_runtime_example)$'
