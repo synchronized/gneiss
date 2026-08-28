@@ -63,3 +63,7 @@
 240 字节进程级缓存，其中两个间接分配在 ICD 卸载后只能显示为未知模块。项目不使用宽泛抑制：
 Application 与场景故障测试继续启用严格 LSan，图形样例运行 ASan/UBSan 并暂时关闭 LSan。GPU
 逻辑资源退出检查仍等待 Granit 的后端无关统计能力，因此 M-69 尚未完成。
+
+最终 [Linux 手动矩阵](https://github.com/synchronized/gneiss/actions/runs/33221772866) 已通过：Clang/GCC
+Shared/Static、Granit Shared/Static 共 6 项通过，GCC Sanitizer 任务中的 Application、场景故障和
+稳定运行时图形检查也全部通过。
