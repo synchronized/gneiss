@@ -23,9 +23,22 @@ target_compile_definitions(
   PRIVATE GNEISS_CONSUMER_ASSET_ROOT="${CMAKE_CURRENT_LIST_DIR}/../data/assets"
 )
 
+add_executable(
+  gneiss_property_inspector_consumer
+  "${CMAKE_CURRENT_LIST_DIR}/../../examples/property_inspector/main.cpp"
+)
+target_link_libraries(gneiss_property_inspector_consumer PRIVATE gneiss::gneiss)
+target_compile_features(gneiss_property_inspector_consumer PRIVATE cxx_std_20)
+target_compile_definitions(
+  gneiss_property_inspector_consumer
+  PRIVATE
+    GNEISS_PROPERTY_INSPECTOR_ASSET_ROOT="${CMAKE_CURRENT_LIST_DIR}/../../examples/property_inspector/assets"
+)
+
 add_test(NAME gneiss.consumer.c COMMAND gneiss_c_consumer)
 add_test(NAME gneiss.consumer.cpp COMMAND gneiss_cpp_consumer)
+add_test(NAME gneiss.consumer.property_inspector COMMAND gneiss_property_inspector_consumer)
 set_tests_properties(
-  gneiss.consumer.c gneiss.consumer.cpp
+  gneiss.consumer.c gneiss.consumer.cpp gneiss.consumer.property_inspector
   PROPERTIES ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:${GNEISS_RUNTIME_DIR}"
 )

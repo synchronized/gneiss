@@ -332,6 +332,43 @@ extern "C" gneiss_result gneiss_scene_instance_find_node(gneiss_application appl
   }
 }
 
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters): C ABI 句柄名称区分所属关系。
+extern "C" gneiss_result gneiss_scene_instance_serialize(gneiss_application application,
+                                                         gneiss_scene_instance instance,
+                                                         char* buffer, uint64_t capacity,
+                                                         uint64_t* out_length) {
+  if (out_length == nullptr || (buffer == nullptr && capacity != 0U) ||
+      (buffer != nullptr && capacity > std::numeric_limits<std::size_t>::max())) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  *out_length = 0U;
+  try {
+    auto state = find_application(application);
+    const auto validation_result = validate_application(state);
+    if (validation_result != GNEISS_SUCCESS) {
+      return validation_result;
+    }
+    std::string json;
+    const auto result = state->scenes()->serialize(instance, json);
+    if (result != GNEISS_SUCCESS) {
+      return result;
+    }
+    *out_length = json.size();
+    if (buffer == nullptr) {
+      return capacity == 0U ? GNEISS_SUCCESS : GNEISS_ERROR_INVALID_ARGUMENT;
+    }
+    if (capacity < json.size()) {
+      return GNEISS_ERROR_INVALID_ARGUMENT;
+    }
+    std::ranges::copy(json, buffer);
+    return GNEISS_SUCCESS;
+  } catch (const std::bad_alloc&) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
 extern "C" gneiss_result gneiss_application_poll_input(gneiss_application application,
                                                        gneiss_input_event* out_event) {
   if (out_event == nullptr || out_event->struct_size < GNEISS_INPUT_EVENT_VERSION_1_SIZE) {

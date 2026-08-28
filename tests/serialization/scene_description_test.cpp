@@ -84,11 +84,16 @@ int main() try {
   if (gneiss::scene_internal::parse_scene_description(valid_scene, scene, diagnostic) !=
           GNEISS_SUCCESS ||
       scene.objects.size() != 2U || !scene.objects[0].camera || !scene.objects[1].mesh_renderer ||
-      scene.objects[1].parent_uuid != scene.objects[0].uuid) {
+      scene.objects[1].parent_uuid != scene.objects[0].uuid || scene.source_schema_version != 1U ||
+      scene.author_json.find(R"("version":2)") == std::string::npos ||
+      scene.author_json.find(R"("is_primary":true)") == std::string::npos ||
+      scene.author_json.find(R"("primary":true)") != std::string::npos) {
     return 1;
   }
 
-  const auto future = replace_once(std::string(valid_scene), "\"version\":1", "\"version\":2");
+  const auto future = replace_once(std::string(valid_scene), "\"version\":1", "\"version\":3");
+  const auto missing_chain =
+      replace_once(std::string(valid_scene), "\"version\":1", "\"version\":0");
   const auto duplicate =
       replace_once(std::string(valid_scene), "00000000-0000-4000-8000-000000000003",
                    "00000000-0000-4000-8000-000000000002");
@@ -101,6 +106,8 @@ int main() try {
                                         "asset://models/../triangle.mesh");
   const auto unknown =
       replace_once(std::string(valid_scene), "\"objects\":[", R"("unknown":true,"objects":[)");
+  const auto migration_conflict = replace_once(std::string(valid_scene), R"("primary":true)",
+                                               R"("primary":true,"is_primary":false)");
   const auto invalid_number =
       replace_once(std::string(valid_scene), "\"scale\":[1,1,1]", "\"scale\":[1,0,1]");
   const auto invalid_rotation =
@@ -112,16 +119,32 @@ int main() try {
                    "\"camera\":{\"vertical_field_of_view_radians\":1.0,\"near_plane\":0.1,\"far_"
                    "plane\":100,\"primary\":true}");
   if (!fails_with(future, GNEISS_ERROR_UNSUPPORTED, "/version") ||
+      !fails_with(missing_chain, GNEISS_ERROR_INVALID_ARGUMENT, "/version") ||
+      !fails_with(migration_conflict, GNEISS_ERROR_INVALID_ARGUMENT,
+                  "/objects/0/components/camera/is_primary") ||
       !fails_with(duplicate, GNEISS_ERROR_INVALID_ARGUMENT, "/objects/1/uuid") ||
       !fails_with(missing_parent, GNEISS_ERROR_INVALID_ARGUMENT, "/objects/1/parent") ||
       !fails_with(cycle, GNEISS_ERROR_INVALID_ARGUMENT, "/objects/0/parent") ||
       !fails_with(invalid_uri, GNEISS_ERROR_INVALID_ARGUMENT,
                   "/objects/1/components/mesh_renderer") ||
-      !fails_with(unknown, GNEISS_ERROR_INVALID_ARGUMENT, "/unknown") ||
       !fails_with(invalid_number, GNEISS_ERROR_INVALID_ARGUMENT, "/objects/0/transform") ||
       !fails_with(invalid_rotation, GNEISS_ERROR_INVALID_ARGUMENT, "/objects/0/transform") ||
       !fails_with(multiple_primary, GNEISS_ERROR_INVALID_ARGUMENT, "/objects")) {
     return 2;
+  }
+
+  gneiss::scene_internal::scene_description unknown_scene;
+  std::string serialized;
+  gneiss::scene_internal::scene_description reloaded;
+  if (gneiss::scene_internal::parse_scene_description(unknown, unknown_scene, diagnostic) !=
+          GNEISS_SUCCESS ||
+      gneiss::scene_internal::serialize_scene_description(unknown_scene, serialized) !=
+          GNEISS_SUCCESS ||
+      serialized.find(R"("unknown":true)") == std::string::npos ||
+      gneiss::scene_internal::parse_scene_description(serialized, reloaded, diagnostic) !=
+          GNEISS_SUCCESS ||
+      reloaded.source_schema_version != 2U || reloaded.objects.size() != 2U) {
+    return 3;
   }
 
   gneiss::asset_internal::virtual_file_system file_system;
@@ -130,10 +153,10 @@ int main() try {
       gneiss::scene_internal::load_scene_description(file_system, "asset://scenes/main.scene.json",
                                                      scene, diagnostic) != GNEISS_SUCCESS ||
       scene.objects.size() != 2U) {
-    return 3;
+    return 4;
   }
   if (!fails_with("{\"format\":", GNEISS_ERROR_INVALID_ARGUMENT, "")) {
-    return 4;
+    return 5;
   }
   return 0;
 } catch (...) {

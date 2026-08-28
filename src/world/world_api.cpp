@@ -509,4 +509,58 @@ extern "C" gneiss_result gneiss_scene_node_get_entity(gneiss_world world, gneiss
     return GNEISS_ERROR_INTERNAL;
   }
 }
+
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters): C ABI 参数均为不同语义的稳定句柄。
+extern "C" gneiss_result gneiss_world_entity_get_local_transform(gneiss_world world,
+                                                                 gneiss_entity_id entity,
+                                                                 gneiss_transform* out_transform) {
+  if (out_transform == nullptr) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  *out_transform = GNEISS_TRANSFORM_IDENTITY;
+  try {
+    auto& registry = get_world_registry();
+    const std::scoped_lock lock{registry.mutex};
+    auto* state = find_world(registry, world);
+    const auto thread_result = validate_world_thread(state);
+    if (thread_result != GNEISS_SUCCESS) {
+      return thread_result;
+    }
+    if (!state->is_alive(entity)) {
+      return GNEISS_ERROR_INVALID_HANDLE;
+    }
+    const auto* transform = state->scene().get_local_for_entity(entity);
+    if (transform == nullptr) {
+      return GNEISS_ERROR_NOT_FOUND;
+    }
+    *out_transform = *transform;
+    return GNEISS_SUCCESS;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
+// NOLINTNEXTLINE(bugprone-easily-swappable-parameters): C ABI 参数均为不同语义的稳定句柄。
+extern "C" gneiss_result
+gneiss_world_entity_set_local_transform(gneiss_world world, gneiss_entity_id entity,
+                                        const gneiss_transform* transform) {
+  if (transform == nullptr) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  try {
+    auto& registry = get_world_registry();
+    const std::scoped_lock lock{registry.mutex};
+    auto* state = find_world(registry, world);
+    const auto thread_result = validate_world_thread(state);
+    if (thread_result != GNEISS_SUCCESS) {
+      return thread_result;
+    }
+    if (!state->is_alive(entity)) {
+      return GNEISS_ERROR_INVALID_HANDLE;
+    }
+    return state->scene().set_local_for_entity(entity, *transform);
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
 // NOLINTEND(bugprone-easily-swappable-parameters)

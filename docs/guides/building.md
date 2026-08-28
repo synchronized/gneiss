@@ -5,7 +5,7 @@
 
 ## 适用场景
 
-本指南用于配置、构建并验证当前 Gneiss 工程、version 示例和 Granit 片麻岩神殿示例。
+本指南用于配置、构建并验证当前 Gneiss 工程、version、属性检查和 Granit 图形示例。
 
 ## 前置条件
 
@@ -36,6 +36,16 @@ ctest --preset windows-clang-debug
 ```powershell
 ./build/windows-clang-debug/bin/gneiss_version_example.exe
 ```
+
+运行无 UI 的属性检查示例：
+
+```powershell
+./build/windows-clang-debug/bin/gneiss_property_inspector_example.exe
+```
+
+该示例只使用公共 C11/C++20 SDK：枚举 Transform 与 Camera 元数据，通过稳定 Type ID 和 Field ID
+修改场景实体属性，将当前场景序列化到临时目录，再创建新的 Application 重新加载并校验。它不依赖
+EnTT、Granit 类型或私有组件头，运行完成后会清理自己创建的临时目录。
 
 Linux 可选择 `linux-clang-debug` 或 `linux-gcc-debug`，可执行文件不带 `.exe` 后缀。
 

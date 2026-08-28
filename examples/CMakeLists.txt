@@ -6,6 +6,24 @@ target_link_libraries(gneiss_version_example PRIVATE gneiss::gneiss)
 gneiss_target_compile_warnings(gneiss_version_example)
 gneiss_target_output_directories(gneiss_version_example)
 
+add_executable(gneiss_property_inspector_example property_inspector/main.cpp)
+target_link_libraries(gneiss_property_inspector_example PRIVATE gneiss::gneiss)
+target_compile_definitions(
+  gneiss_property_inspector_example
+  PRIVATE
+    GNEISS_PROPERTY_INSPECTOR_ASSET_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/property_inspector/assets"
+)
+gneiss_target_compile_warnings(gneiss_property_inspector_example)
+gneiss_target_output_directories(gneiss_property_inspector_example)
+install(TARGETS gneiss_property_inspector_example RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
+install(
+  DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/property_inspector/assets/"
+  DESTINATION "${CMAKE_INSTALL_DATADIR}/gneiss/examples/property-inspector/assets"
+)
+if(BUILD_TESTING)
+  add_test(NAME gneiss.property_inspector_example COMMAND gneiss_property_inspector_example)
+endif()
+
 if(GNEISS_ENABLE_GRANIT_PLATFORM)
   add_executable(gneiss_temple_example temple/main.cpp)
   target_link_libraries(gneiss_temple_example PRIVATE gneiss::gneiss)

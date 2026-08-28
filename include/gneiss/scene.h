@@ -66,6 +66,16 @@ GNEISS_API gneiss_result gneiss_scene_node_get_world_transform(gneiss_world worl
 GNEISS_API gneiss_result gneiss_scene_node_get_entity(gneiss_world world, gneiss_scene_node_id node,
                                                       gneiss_entity_id* out_entity);
 
+/** 通过实体关联读取 Scene Tree 节点的局部 Transform。 */
+GNEISS_API gneiss_result gneiss_world_entity_get_local_transform(gneiss_world world,
+                                                                 gneiss_entity_id entity,
+                                                                 gneiss_transform* out_transform);
+
+/** 通过实体关联写入 Scene Tree 节点的局部 Transform。 */
+GNEISS_API gneiss_result gneiss_world_entity_set_local_transform(gneiss_world world,
+                                                                 gneiss_entity_id entity,
+                                                                 const gneiss_transform* transform);
+
 /** 通过 VFS 同步加载、校验并原子实例化场景；失败时 World 保持不变。 */
 GNEISS_API gneiss_result gneiss_scene_instance_load(gneiss_application application, const char* uri,
                                                     uint64_t uri_length,
@@ -80,6 +90,16 @@ GNEISS_API gneiss_result gneiss_scene_instance_find_node(gneiss_application appl
                                                          gneiss_scene_instance instance,
                                                          const char* uuid, uint64_t uuid_length,
                                                          gneiss_scene_node_id* out_node);
+
+/**
+ * 将实例当前 Transform 与 Camera 写入当前版本的 UTF-8 场景 JSON。
+ *
+ * buffer 为空且 capacity 为零时只查询所需字节数；长度不包含字符串终止符。未知作者字段会被保留。
+ */
+GNEISS_API gneiss_result gneiss_scene_instance_serialize(gneiss_application application,
+                                                         gneiss_scene_instance instance,
+                                                         char* buffer, uint64_t capacity,
+                                                         uint64_t* out_length);
 
 #ifdef __cplusplus
 }

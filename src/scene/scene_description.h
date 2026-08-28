@@ -8,6 +8,7 @@
 
 #include <array>
 #include <cstddef>
+#include <cstdint>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -49,8 +50,10 @@ struct object_description final {
 };
 
 struct scene_description final {
+  std::uint32_t source_schema_version = 0;
   std::string uuid;
   std::vector<object_description> objects;
+  std::string author_json;
 };
 
 [[nodiscard]] gneiss_result parse_scene_description(std::string_view json,
@@ -60,6 +63,10 @@ struct scene_description final {
 [[nodiscard]] gneiss_result
 load_scene_description(const asset_internal::virtual_file_system& file_system, std::string_view uri,
                        scene_description& out_scene, scene_diagnostic& out_diagnostic) noexcept;
+
+/** 输出迁移后的当前 Schema 作者 JSON；保留受支持文档中的未知字段。 */
+[[nodiscard]] gneiss_result serialize_scene_description(const scene_description& scene,
+                                                        std::string& out_json) noexcept;
 
 } // namespace gneiss::scene_internal
 

@@ -16,4 +16,4 @@
 - 失败时保持输出场景为空，并返回稳定结果码、字段路径及语法字节位置；解析不修改 World。
 
 长期格式决策见 [ADR-006](../decisions/ADR-006-scene-schema-v1.md)，当前字段定义见
-[场景文件格式 v1](../reference/scene-format.md)。
+[当前场景文件格式与迁移规则](../reference/scene-format.md)。

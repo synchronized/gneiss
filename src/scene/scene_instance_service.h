@@ -6,6 +6,7 @@
 
 #include "core/rid_table.h"
 #include "render/render_asset_loader.h"
+#include "scene/scene_description.h"
 
 #include <gneiss/scene.h>
 
@@ -38,8 +39,10 @@ public:
 
   void rollback() noexcept;
   [[nodiscard]] gneiss_scene_node_id find_node(std::string_view uuid) const noexcept;
+  [[nodiscard]] gneiss_result serialize(std::string& out_json) const;
 
   std::vector<object> objects;
+  scene_description description;
 
 private:
   gneiss_world world_;
@@ -57,6 +60,8 @@ public:
   [[nodiscard]] gneiss_result unload(gneiss_scene_instance instance) noexcept;
   [[nodiscard]] gneiss_result find_node(gneiss_scene_instance instance, std::string_view uuid,
                                         gneiss_scene_node_id* out_node) const noexcept;
+  [[nodiscard]] gneiss_result serialize(gneiss_scene_instance instance,
+                                        std::string& out_json) const noexcept;
 
 private:
   using instance_ptr = std::unique_ptr<scene_instance>;

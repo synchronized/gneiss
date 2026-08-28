@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- Copyright (c) 2026 Gneiss contributors -->
 
-# 场景加载、实例与卸载
+# 场景加载、实例、序列化与卸载
 
 ## 加载阶段
 
@@ -29,3 +29,17 @@ C++ `gneiss::scene_instance` 提供移动专属的 RAII 包装，必须在所属
 `gneiss_scene_instance_find_node` 使用场景文件中的规范对象 UUID 查找借用 Scene Node ID。找不到返回
 `GNEISS_ERROR_NOT_FOUND`。节点 ID 只在场景实例未卸载且 World 存活期间有效，可用于运行时更新
 Transform；持久化文件仍不得保存节点 ID。
+
+## 运行时属性序列化
+
+`gneiss_scene_instance_serialize` 将实例当前的局部 Transform 和 Camera 属性合并回加载时的作者
+文档，并输出当前版本的 UTF-8 场景 JSON。保存会保留未被 Runtime 解释的未知字段，不会覆盖来源
+文件，也不会持久化 Entity ID、Scene Node ID 或资源 RID。
+
+C 接口使用两次调用：先以空 `buffer` 和零 `capacity` 查询不含字符串终止符的字节数，再提供足够
+容量的缓冲区。容量不足返回 `GNEISS_ERROR_INVALID_ARGUMENT`，同时通过 `out_length` 返回所需长度。
+C++ `gneiss::scene_instance::serialize` 直接输出到调用方提供的 `std::string`。
+
+序列化只允许在所属 Application 创建线程执行。实例中的实体、节点或原有 Camera 已被调用方删除
+时返回对应错误且不产生部分输出。输出文本如何落盘由工具或宿主负责；只读 VFS 不会被保存操作
+隐式修改。

@@ -33,6 +33,10 @@ Scene Tree 是层级 Transform 的唯一权威存储：
 四元数长度必须在 `1±1e-4` 范围内，每个缩放轴的绝对值必须至少为 `1e-6`；不满足时返回
 `GNEISS_ERROR_INVALID_ARGUMENT`，原值保持不变。负缩放有效，零缩放因不可逆而被拒绝。
 
+`gneiss_world_entity_get_local_transform` 和 `gneiss_world_entity_set_local_transform` 通过节点的唯一
+实体关联访问同一份局部 Transform，不创建第二份状态。实体有效但没有关联节点时返回
+`GNEISS_ERROR_NOT_FOUND`；跨 World 或失效实体返回 `GNEISS_ERROR_INVALID_HANDLE`。
+
 层级采用显式 TRS 分量组合：子平移先乘父缩放、再由父旋转变换，旋转按父乘子组合，缩放逐轴
 相乘。这一纯 TRS 表达不保存“非均匀缩放后再旋转”可能产生的剪切分量；需要剪切的内容应在 Mesh
 顶点中烘焙。重挂接不会尝试反求局部 Transform，也不承诺保持世界 Transform。

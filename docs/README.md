@@ -35,9 +35,10 @@
 - [输入事件与状态快照](reference/input.md)
 - [输入动作映射格式 v1](reference/input-map-format.md)
 - [诊断回调](reference/diagnostics.md)
+- [Type Registry 与反射元数据](reference/reflection.md)
 - [Render 资源、ECS 组件与帧提取](reference/render.md)
 - [资产 URI、目录挂载与缓存](reference/assets.md)
-- [场景文件格式 v1](reference/scene-format.md)
+- [场景文件格式 v2](reference/scene-format.md)
 - [场景加载、实例与卸载](reference/scene-instance.md)
 - [Mesh Binary、JSON Mesh 与 Material 资产格式](reference/render-asset-formats.md)
 
@@ -55,6 +56,7 @@
 - [VER-003：0.3.0 交互与诊断闭环](plans/VER-003-0.3.0-interaction-diagnostics-slice.md)
 - [VER-004：0.4.0 纹理与材质闭环](plans/VER-004-0.4.0-texture-material-slice.md)
 - [VER-005：0.5.0 基础 3D 场景闭环](plans/VER-005-0.5.0-basic-3d-slice.md)
+- [VER-006：0.6.0 数据与属性基础](plans/VER-006-0.6.0-data-property-slice.md)
 - [TOOL-001：glTF 资产编译器最小闭环](plans/TOOL-001-gltf-asset-compiler.md)
 - [TOOL-002：Mesh Binary v1 最小闭环](plans/TOOL-002-mesh-binary-v1.md)
 - [TOOL-003：索引渲染最小闭环](plans/TOOL-003-indexed-rendering.md)
@@ -77,6 +79,7 @@
 - [ADR-013：glTF 离线导入与工具边界](decisions/ADR-013-gltf-import-boundary.md)
 - [ADR-014：源资产、作者格式与 Runtime 二进制资产分层](decisions/ADR-014-runtime-asset-representation.md)
 - [ADR-015：索引 Mesh 与渲染后端边界](decisions/ADR-015-indexed-rendering-boundary.md)
+- [ADR-016：稳定类型标识与属性访问边界](decisions/ADR-016-stable-type-property-boundary.md)
 
 ## 实施与验收记录
 
@@ -89,6 +92,7 @@
 - [0.3.0 版本验收记录](records/0.3.0-validation.md)
 - [0.4.0 版本验收记录](records/0.4.0-validation.md)
 - [0.5.0 版本验收记录](records/0.5.0-validation.md)
+- [0.6.0 版本验收记录](records/0.6.0-validation.md)
 - [M-13 JSON 解析器 Spike 记录](records/M-13-json-spike.md)
 - [M-14 资产 URI 与资源生命周期实施记录](records/M-14-asset-uri-resource-lifecycle.md)
 - [M-15 版本化场景 Schema 实施记录](records/M-15-scene-schema.md)
