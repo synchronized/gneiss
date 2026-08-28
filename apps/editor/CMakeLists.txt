@@ -15,6 +15,8 @@ add_library(
   project_workspace.h
   property_inspector_model.cpp
   property_inspector_model.h
+  transform_gizmo_math.cpp
+  transform_gizmo_math.h
 )
 target_link_libraries(gneiss_editor_session PRIVATE gneiss_yyjson PUBLIC gneiss::gneiss)
 target_include_directories(gneiss_editor_session PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
@@ -112,6 +114,11 @@ if(BUILD_TESTING)
   gneiss_target_compile_warnings(gneiss_editor_command_history_test)
   gneiss_target_output_directories(gneiss_editor_command_history_test)
   add_test(NAME gneiss.editor.command-history COMMAND gneiss_editor_command_history_test)
+  add_executable(gneiss_editor_transform_gizmo_math_test tests/transform_gizmo_math_test.cpp)
+  target_link_libraries(gneiss_editor_transform_gizmo_math_test PRIVATE gneiss_editor_session)
+  gneiss_target_compile_warnings(gneiss_editor_transform_gizmo_math_test)
+  gneiss_target_output_directories(gneiss_editor_transform_gizmo_math_test)
+  add_test(NAME gneiss.editor.transform-gizmo-math COMMAND gneiss_editor_transform_gizmo_math_test)
   if(TARGET gneiss_editor_assets)
     add_executable(gneiss_editor_asset_browser_test tests/asset_browser_model_test.cpp)
     target_link_libraries(gneiss_editor_asset_browser_test PRIVATE gneiss_editor_assets)
