@@ -20,6 +20,19 @@ target_compile_features(gneiss_editor_session PUBLIC cxx_std_20)
 gneiss_target_compile_warnings(gneiss_editor_session)
 gneiss_target_output_directories(gneiss_editor_session)
 
+if(TARGET gneiss_asset_import_sdk)
+  add_library(
+    gneiss_editor_assets STATIC
+    asset_browser_model.cpp
+    asset_browser_model.h
+  )
+  target_link_libraries(gneiss_editor_assets PUBLIC gneiss_asset_import_sdk)
+  target_include_directories(gneiss_editor_assets PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
+  target_compile_features(gneiss_editor_assets PUBLIC cxx_std_20)
+  gneiss_target_compile_warnings(gneiss_editor_assets)
+  gneiss_target_output_directories(gneiss_editor_assets)
+endif()
+
 add_executable(
   gneiss_editor
   main.cpp
@@ -33,6 +46,10 @@ add_executable(
   project_manager.h
 )
 target_link_libraries(gneiss_editor PRIVATE gneiss_editor_session gneiss_imgui)
+if(TARGET gneiss_editor_assets)
+  target_link_libraries(gneiss_editor PRIVATE gneiss_editor_assets)
+  target_compile_definitions(gneiss_editor PRIVATE GNEISS_EDITOR_HAS_ASSET_BROWSER=1)
+endif()
 target_compile_definitions(
   gneiss_editor
   PRIVATE GNEISS_EDITOR_FONT_PATH="${CMAKE_CURRENT_SOURCE_DIR}/fonts/Inter-Regular.ttf"
@@ -86,6 +103,13 @@ if(BUILD_TESTING)
   gneiss_target_compile_warnings(gneiss_editor_property_inspector_test)
   gneiss_target_output_directories(gneiss_editor_property_inspector_test)
   add_test(NAME gneiss.editor.property-inspector COMMAND gneiss_editor_property_inspector_test)
+  if(TARGET gneiss_editor_assets)
+    add_executable(gneiss_editor_asset_browser_test tests/asset_browser_model_test.cpp)
+    target_link_libraries(gneiss_editor_asset_browser_test PRIVATE gneiss_editor_assets)
+    gneiss_target_compile_warnings(gneiss_editor_asset_browser_test)
+    gneiss_target_output_directories(gneiss_editor_asset_browser_test)
+    add_test(NAME gneiss.editor.asset-browser COMMAND gneiss_editor_asset_browser_test)
+  endif()
   add_test(
     NAME gneiss.editor.smoke
     COMMAND

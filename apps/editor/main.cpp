@@ -8,6 +8,9 @@
 #include "imgui_adapter.h"
 #include "project_manager.h"
 #include "property_inspector_model.h"
+#if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
+#include "asset_browser_model.h"
+#endif
 
 #include <gneiss/application.hpp>
 
@@ -32,9 +35,15 @@ struct editor_state {
   gneiss::entity_id inspected_entity;
   gneiss::result inspector_error = gneiss::result::success;
   std::filesystem::path asset_root;
+  std::filesystem::path project_root;
   gneiss::result save_result = gneiss::result::success;
   bool save_attempted = false;
-  bool show_imgui_demo = true;
+  bool show_imgui_demo = false;
+#if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
+  gneiss::editor::asset_browser_model assets;
+  gneiss::editor::asset_browser_result asset_result = gneiss::editor::asset_browser_result::success;
+  ImGuiTextFilter asset_filter;
+#endif
 };
 
 struct launch_options {
@@ -152,6 +161,65 @@ void draw_reflected_properties(editor_state& state) {
   }
 }
 
+#if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
+[[nodiscard]] const char* asset_kind_name(gneiss::editor::asset_browser_kind kind) {
+  switch (kind) {
+  case gneiss::editor::asset_browser_kind::source:
+    return "SRC";
+  case gneiss::editor::asset_browser_kind::authored_asset:
+    return "ASSET";
+  case gneiss::editor::asset_browser_kind::imported_output:
+    return "GEN";
+  }
+  return "?";
+}
+
+[[nodiscard]] const char* asset_status_name(gneiss::editor::asset_browser_status status) {
+  switch (status) {
+  case gneiss::editor::asset_browser_status::untracked:
+    return "Untracked";
+  case gneiss::editor::asset_browser_status::ready:
+    return "Ready";
+  case gneiss::editor::asset_browser_status::stale:
+    return "Stale";
+  case gneiss::editor::asset_browser_status::missing:
+    return "Missing";
+  }
+  return "Unknown";
+}
+
+void draw_asset_browser(editor_state& state) {
+  ImGui::SetNextWindowPos(ImVec2(0.0F, 440.0F));
+  ImGui::SetNextWindowSize(ImVec2(250.0F, 280.0F));
+  ImGui::Begin("Asset Browser", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+  if (ImGui::Button("Refresh")) {
+    state.asset_result = state.assets.refresh(state.project_root, state.asset_root);
+  }
+  ImGui::SameLine();
+  state.asset_filter.Draw("##asset-filter", -1.0F);
+  if (state.asset_result != gneiss::editor::asset_browser_result::success) {
+    ImGui::TextColored(gneiss::editor::theme_error_color(), "Refresh failed: %s",
+                       state.assets.diagnostic().c_str());
+  }
+  ImGui::Separator();
+  for (const auto& entry : state.assets.entries()) {
+    if (!state.asset_filter.PassFilter(entry.relative_path.c_str())) {
+      continue;
+    }
+    ImGui::PushID(entry.id.c_str());
+    const auto label = std::string{"["} + asset_kind_name(entry.kind) + "] " + entry.display_name;
+    if (ImGui::Selectable(label.c_str(), state.assets.selection() == entry.id)) {
+      (void)state.assets.select(entry.id);
+    }
+    if (ImGui::IsItemHovered()) {
+      ImGui::SetTooltip("%s\n%s", entry.relative_path.c_str(), asset_status_name(entry.status));
+    }
+    ImGui::PopID();
+  }
+  ImGui::End();
+}
+#endif
+
 gneiss_result update_editor_camera(editor_state& state, const gneiss_frame_time& time) {
   auto& io = ImGui::GetIO();
   gneiss::editor::editor_camera_input input;
@@ -201,8 +269,16 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
       return gneiss::to_native(selection_result);
     }
 
-    ImGui::SetNextWindowPos(ImVec2(0.0F, 0.0F));
-    ImGui::SetNextWindowSize(ImVec2(250.0F, 720.0F));
+    if (ImGui::BeginMainMenuBar()) {
+      if (ImGui::BeginMenu("Development")) {
+        ImGui::MenuItem("ImGui Demo", nullptr, &state.show_imgui_demo);
+        ImGui::EndMenu();
+      }
+      ImGui::EndMainMenuBar();
+    }
+
+    ImGui::SetNextWindowPos(ImVec2(0.0F, 20.0F));
+    ImGui::SetNextWindowSize(ImVec2(250.0F, 420.0F));
     ImGui::Begin("Scene Hierarchy", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
     if (!state.session.is_open()) {
       ImGui::TextUnformatted("No scene is open");
@@ -215,8 +291,8 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
     }
     ImGui::End();
 
-    ImGui::SetNextWindowPos(ImVec2(250.0F, 0.0F));
-    ImGui::SetNextWindowSize(ImVec2(730.0F, 720.0F));
+    ImGui::SetNextWindowPos(ImVec2(250.0F, 20.0F));
+    ImGui::SetNextWindowSize(ImVec2(730.0F, 700.0F));
     ImGui::Begin("Scene View", nullptr,
                  ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize |
                      ImGuiWindowFlags_NoBackground);
@@ -242,8 +318,8 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
     }
     ImGui::End();
 
-    ImGui::SetNextWindowPos(ImVec2(980.0F, 0.0F));
-    ImGui::SetNextWindowSize(ImVec2(300.0F, 720.0F));
+    ImGui::SetNextWindowPos(ImVec2(980.0F, 20.0F));
+    ImGui::SetNextWindowSize(ImVec2(300.0F, 700.0F));
     ImGui::Begin("Inspector", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
     ImGui::BeginDisabled(!state.session.is_open());
     const auto save_button_pressed = ImGui::Button("Save");
@@ -286,6 +362,9 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
       ImGui::TextUnformatted("No node is selected");
     }
     ImGui::End();
+#if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
+    draw_asset_browser(state);
+#endif
     if (state.show_imgui_demo) {
       ImGui::ShowDemoWindow(&state.show_imgui_demo);
     }
@@ -323,6 +402,10 @@ int run_editor(int argc, char** argv) {
   gneiss::application application;
   editor_state state;
   state.asset_root = project.asset_root;
+  state.project_root = project.project_root;
+#if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
+  state.asset_result = state.assets.refresh(state.project_root, state.asset_root);
+#endif
   const auto title = project.name + " - Gneiss Editor";
   gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
   desc.user_data = &state;
