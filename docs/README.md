@@ -42,6 +42,7 @@
 - [场景加载、实例与卸载](reference/scene-instance.md)
 - [工程文件格式 v1](reference/project-format.md)
 - [Mesh Binary、JSON Mesh 与 Material 资产格式](reference/render-asset-formats.md)
+- [Editor 资产索引格式 v1](reference/asset-index-format.md)
 
 ## 架构与原理
 

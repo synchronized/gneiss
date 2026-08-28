@@ -3,6 +3,7 @@
 
 #include "tooling/asset_import/asset_import_sdk.h"
 
+#include "tooling/asset_import/asset_index.h"
 #include "tooling/asset_import/asset_writer.h"
 #include "tooling/asset_import/gltf_importer.h"
 
@@ -90,6 +91,11 @@ namespace {
   return outputs;
 }
 
+[[nodiscard]] std::string path_utf8(const std::filesystem::path& path) {
+  const auto text = path.generic_u8string();
+  return {reinterpret_cast<const char*>(text.data()), text.size()};
+}
+
 } // namespace
 
 import_asset_report import_project_asset(const import_asset_request& request) {
@@ -141,6 +147,115 @@ import_asset_report import_project_asset(const import_asset_request& request) {
   } catch (const std::exception& error) {
     return failure(import_asset_result::source_unavailable,
                    std::string{"解析导入路径失败："} + error.what());
+  }
+}
+
+import_asset_report import_project_asset_and_update_index(const import_asset_request& request,
+                                                          const std::filesystem::path& index_path) {
+  asset_index index;
+  const auto loaded = load_asset_index(index_path, index);
+  if (loaded.result != asset_index_result::success &&
+      loaded.result != asset_index_result::not_found) {
+    return failure(import_asset_result::index_update_failed,
+                   "读取资产索引失败：" + loaded.diagnostic);
+  }
+
+  auto imported = import_project_asset(request);
+  if (imported.result != import_asset_result::success) {
+    return imported;
+  }
+
+  std::string content_hash;
+  const auto hashed = hash_source_file(request.source_path, content_hash);
+  if (hashed.result != asset_index_result::success) {
+    imported.result = import_asset_result::index_update_failed;
+    imported.diagnostic = "计算源资产哈希失败：" + hashed.diagnostic;
+    return imported;
+  }
+  try {
+    const auto source_root = std::filesystem::weakly_canonical(request.source_root);
+    const auto source_path = std::filesystem::weakly_canonical(request.source_path);
+    asset_index_entry entry{.source_path = path_utf8(source_path.lexically_relative(source_root)),
+                            .source_key = imported.source_key,
+                            .importer_id = "gneiss.gltf",
+                            .importer_version = gltf_importer_version,
+                            .content_hash = std::move(content_hash),
+                            .state = asset_import_state::ready,
+                            .output_uris = imported.output_uris};
+    const auto updated = upsert_asset_index_entry(index, std::move(entry));
+    if (updated.result != asset_index_result::success) {
+      imported.result = import_asset_result::index_update_failed;
+      imported.diagnostic = "更新资产索引记录失败：" + updated.diagnostic;
+      return imported;
+    }
+    const auto saved = save_asset_index(index_path, index);
+    if (saved.result != asset_index_result::success) {
+      imported.result = import_asset_result::index_update_failed;
+      imported.diagnostic = "保存资产索引失败：" + saved.diagnostic;
+    }
+    return imported;
+  } catch (const std::exception& error) {
+    imported.result = import_asset_result::index_update_failed;
+    imported.diagnostic = std::string{"更新资产索引路径失败："} + error.what();
+    return imported;
+  }
+}
+
+asset_index_report rebuild_asset_index(const std::filesystem::path& source_root,
+                                       const std::filesystem::path& imported_root,
+                                       const std::filesystem::path& index_path) {
+  if (source_root.empty() || imported_root.empty() || index_path.empty()) {
+    return {.result = asset_index_result::invalid_format,
+            .diagnostic = "重建资产索引所需路径不能为空"};
+  }
+  asset_index rebuilt;
+  try {
+    if (!std::filesystem::is_directory(source_root)) {
+      return {.result = asset_index_result::not_found, .diagnostic = "sources 目录不存在"};
+    }
+    std::vector<std::filesystem::path> sources;
+    for (const auto& item : std::filesystem::recursive_directory_iterator(source_root)) {
+      if (!item.is_regular_file()) {
+        continue;
+      }
+      const auto extension = item.path().extension().string();
+      if (extension == ".gltf" || extension == ".glb") {
+        sources.push_back(item.path());
+      }
+    }
+    std::ranges::sort(sources, {}, [](const auto& path) { return path.generic_u8string(); });
+    const auto canonical_root = std::filesystem::weakly_canonical(source_root);
+    for (const auto& source : sources) {
+      const import_asset_request request{
+          .source_root = canonical_root, .imported_root = imported_root, .source_path = source};
+      auto imported = import_project_asset(request);
+      if (imported.result != import_asset_result::success) {
+        return {.result = asset_index_result::invalid_format,
+                .diagnostic = "重建时导入失败：" + path_utf8(source) + "：" + imported.diagnostic};
+      }
+      std::string content_hash;
+      auto hashed = hash_source_file(source, content_hash);
+      if (hashed.result != asset_index_result::success) {
+        return hashed;
+      }
+      asset_index_entry entry{
+          .source_path = path_utf8(
+              std::filesystem::weakly_canonical(source).lexically_relative(canonical_root)),
+          .source_key = imported.source_key,
+          .importer_id = "gneiss.gltf",
+          .importer_version = gltf_importer_version,
+          .content_hash = std::move(content_hash),
+          .state = asset_import_state::ready,
+          .output_uris = std::move(imported.output_uris)};
+      auto updated = upsert_asset_index_entry(rebuilt, std::move(entry));
+      if (updated.result != asset_index_result::success) {
+        return updated;
+      }
+    }
+    return save_asset_index(index_path, rebuilt);
+  } catch (const std::exception& error) {
+    return {.result = asset_index_result::io_error,
+            .diagnostic = std::string{"重建资产索引失败："} + error.what()};
   }
 }
 

@@ -5,6 +5,8 @@ add_library(
   gneiss_asset_import_sdk STATIC
   "${PROJECT_SOURCE_DIR}/src/asset/mesh_binary.cpp"
   "${PROJECT_SOURCE_DIR}/src/asset/mesh_binary.h"
+  "${PROJECT_SOURCE_DIR}/src/tooling/asset_import/asset_index.cpp"
+  "${PROJECT_SOURCE_DIR}/src/tooling/asset_import/asset_index.h"
   "${PROJECT_SOURCE_DIR}/src/tooling/asset_import/asset_import_sdk.cpp"
   "${PROJECT_SOURCE_DIR}/src/tooling/asset_import/asset_import_sdk.h"
   "${PROJECT_SOURCE_DIR}/src/tooling/asset_import/asset_writer.cpp"
@@ -16,7 +18,7 @@ add_library(
 target_include_directories(
   gneiss_asset_import_sdk PRIVATE "${PROJECT_SOURCE_DIR}/src"
 )
-target_link_libraries(gneiss_asset_import_sdk PRIVATE fastgltf::fastgltf)
+target_link_libraries(gneiss_asset_import_sdk PRIVATE fastgltf::fastgltf gneiss_yyjson)
 target_compile_features(gneiss_asset_import_sdk PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_asset_import_sdk)
 
@@ -74,6 +76,17 @@ if(GNEISS_BUILD_TESTING AND BUILD_TESTING)
   gneiss_target_compile_warnings(gneiss_asset_import_sdk_test)
   gneiss_target_output_directories(gneiss_asset_import_sdk_test)
   add_test(NAME gneiss.tooling.asset_import_sdk COMMAND gneiss_asset_import_sdk_test)
+
+  add_executable(
+    gneiss_asset_index_test
+    "${PROJECT_SOURCE_DIR}/tests/tooling/asset_index_test.cpp"
+  )
+  target_include_directories(gneiss_asset_index_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+  target_link_libraries(gneiss_asset_index_test PRIVATE gneiss_asset_import_sdk)
+  target_compile_features(gneiss_asset_index_test PRIVATE cxx_std_20)
+  gneiss_target_compile_warnings(gneiss_asset_index_test)
+  gneiss_target_output_directories(gneiss_asset_index_test)
+  add_test(NAME gneiss.tooling.asset_index COMMAND gneiss_asset_index_test)
 
   add_executable(
     gneiss_gltf_container_test
