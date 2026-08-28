@@ -60,5 +60,6 @@
 4. 证据稳定后单独评审回归阈值，避免把当前机器的呈现节奏固化为跨平台承诺。
 
 首次 Linux LSan 图形运行定位到 Mesa 软件 Vulkan ICD 在 `vkEnumeratePhysicalDevices` 中保留的
-240 字节进程级缓存，其中两个间接分配来自 `libvulkan_lvp.so` 后台线程。该调用栈不属于
-Gneiss/Granit 所有权，已使用精确符号和模块抑制并保留统计；其余调用栈继续启用严格泄漏检测。
+240 字节进程级缓存，其中两个间接分配在 ICD 卸载后只能显示为未知模块。项目不使用宽泛抑制：
+Application 与场景故障测试继续启用严格 LSan，图形样例运行 ASan/UBSan 并暂时关闭 LSan。GPU
+逻辑资源退出检查仍等待 Granit 的后端无关统计能力，因此 M-69 尚未完成。

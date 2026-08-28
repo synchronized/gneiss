@@ -163,7 +163,6 @@ jobs:
           ASAN_OPTIONS: detect_leaks=1:halt_on_error=1:strict_string_checks=1
           UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
         run: |
-          export LSAN_OPTIONS="suppressions=$PWD/tools/sanitizers/lsan.supp:print_suppressions=1"
           export XDG_RUNTIME_DIR="$RUNNER_TEMP/gneiss-wayland"
           install -d -m 700 "$XDG_RUNTIME_DIR"
           export WAYLAND_DISPLAY=gneiss-wayland
@@ -179,5 +178,8 @@ jobs:
             cat "$RUNNER_TEMP/gneiss-weston.log"
             exit 1
           }
-          xvfb-run -a ctest --preset linux-gcc-debug \
-            -R '^gneiss\.(c_application|scene_instance|stable_runtime_example)$'
+          ctest --preset linux-gcc-debug \
+            -R '^gneiss\.(c_application|scene_instance)$'
+          ASAN_OPTIONS=detect_leaks=0:halt_on_error=1:strict_string_checks=1 \
+            xvfb-run -a ctest --preset linux-gcc-debug \
+            -R '^gneiss\.stable_runtime_example$'

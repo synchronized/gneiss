@@ -1,7 +1,0 @@
-# SPDX-License-Identifier: MIT
-# Copyright (c) 2026 Gneiss contributors
-
-# Mesa 软件 Vulkan ICD 在物理设备枚举时保留进程级缓存；该内存不由 Gneiss 或 Granit 持有。
-leak:vkEnumeratePhysicalDevices
-# 上述枚举创建的 Lavapipe 后台线程还会保留两个不含导出符号的间接分配。
-leak:libvulkan_lvp.so
