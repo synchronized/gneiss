@@ -4,6 +4,7 @@
 #include "editor_camera.h"
 #include "editor_project.h"
 #include "editor_session.h"
+#include "editor_theme.h"
 #include "imgui_adapter.h"
 #include "project_manager.h"
 #include "property_inspector_model.h"
@@ -144,8 +145,8 @@ void draw_reflected_properties(editor_state& state) {
   }
   if (state.inspector_error != gneiss::result::success) {
     const auto message = gneiss::result_message(state.inspector_error);
-    ImGui::TextColored(ImVec4(1.0F, 0.35F, 0.25F, 1.0F), "%.*s", static_cast<int>(message.size()),
-                       message.data());
+    ImGui::TextColored(gneiss::editor::theme_error_color(), "%.*s",
+                       static_cast<int>(message.size()), message.data());
   }
 }
 
@@ -221,13 +222,14 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
     ImGui::TextUnformatted("Scene View");
     ImGui::TextDisabled("WASD/QE move | RMB look | Wheel dolly | F focus selection");
     if (const auto* selected = state.session.selected_node(); selected != nullptr) {
-      ImGui::TextColored(ImVec4(1.0F, 0.75F, 0.2F, 1.0F), "Selected: %s",
+      ImGui::TextColored(gneiss::editor::theme_warning_color(), "Selected: %s",
                          selected->display_name.c_str());
       const auto minimum = ImGui::GetWindowPos();
       const auto size = ImGui::GetWindowSize();
-      ImGui::GetWindowDrawList()->AddRect(minimum, ImVec2(minimum.x + size.x, minimum.y + size.y),
-                                          IM_COL32(255, 191, 51, 255), 0.0F, ImDrawFlags_None,
-                                          2.0F);
+      ImGui::GetWindowDrawList()->AddRect(
+          minimum, ImVec2(minimum.x + size.x, minimum.y + size.y),
+          ImGui::ColorConvertFloat4ToU32(gneiss::editor::theme_warning_color()), 0.0F,
+          ImDrawFlags_None, 2.0F);
     }
     if (scene_view_hovered) {
       const auto camera_result = update_editor_camera(state, *time);
@@ -248,14 +250,20 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
         state.session.is_open() &&
         (save_button_pressed || (ImGui::GetIO().KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_S, false)));
     ImGui::SameLine();
-    ImGui::TextDisabled(state.session.is_dirty() ? "Modified" : "Saved");
+    if (!state.session.is_open()) {
+      ImGui::TextDisabled("No scene");
+    } else if (state.session.is_dirty()) {
+      ImGui::TextColored(gneiss::editor::theme_warning_color(), "Modified");
+    } else {
+      ImGui::TextColored(gneiss::editor::theme_success_color(), "Saved");
+    }
     if (save_requested) {
       state.save_result = state.session.save(state.asset_root);
       state.save_attempted = true;
     }
     if (state.save_attempted && state.save_result != gneiss::result::success) {
       const auto message = gneiss::result_message(state.save_result);
-      ImGui::TextColored(ImVec4(1.0F, 0.35F, 0.25F, 1.0F), "Save failed: %.*s",
+      ImGui::TextColored(gneiss::editor::theme_error_color(), "Save failed: %.*s",
                          static_cast<int>(message.size()), message.data());
     }
     ImGui::Separator();

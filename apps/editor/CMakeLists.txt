@@ -21,6 +21,8 @@ gneiss_target_output_directories(gneiss_editor_session)
 add_executable(
   gneiss_editor
   main.cpp
+  editor_theme.cpp
+  editor_theme.h
   imgui_adapter.cpp
   imgui_adapter.h
   native_dialog.cpp

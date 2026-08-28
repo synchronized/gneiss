@@ -3,6 +3,7 @@
 
 #include "project_manager.h"
 
+#include "editor_theme.h"
 #include "imgui_adapter.h"
 #include "native_dialog.h"
 
@@ -60,13 +61,21 @@ gneiss_result update_project_manager(gneiss_application application, const gneis
     ImGui::SetNextWindowSize(ImVec2(720.0F, 420.0F));
     ImGui::Begin("Gneiss Project Manager", nullptr,
                  ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse);
-    ImGui::TextUnformatted("Open a Gneiss project");
-    ImGui::TextDisabled("Select a directory containing gneiss.project.json");
-    ImGui::Spacing();
-    ImGui::SetNextItemWidth(520.0F);
-    ImGui::InputText("##ProjectPath", state.project_path.data(), state.project_path.size());
+    constexpr ImVec2 card_size{620.0F, 245.0F};
+    ImGui::SetCursorPos(ImVec2(50.0F, 78.0F));
+    ImGui::BeginChild("ProjectCard", card_size, ImGuiChildFlags_Borders);
+    ImGui::TextColored(theme_accent_color(), "GNEISS");
     ImGui::SameLine();
-    if (ImGui::Button("Browse...")) {
+    ImGui::TextUnformatted("Project Manager");
+    ImGui::Spacing();
+    ImGui::TextUnformatted("Open a project");
+    ImGui::TextDisabled("Choose a directory containing gneiss.project.json");
+    ImGui::Spacing();
+    ImGui::SetNextItemWidth(454.0F);
+    ImGui::InputTextWithHint("##ProjectPath", "Project root", state.project_path.data(),
+                             state.project_path.size());
+    ImGui::SameLine();
+    if (ImGui::Button("Browse...", ImVec2(118.0F, 0.0F))) {
       std::filesystem::path selected;
       state.operation = select_project_directory(selected);
       if (state.operation == result::success) {
@@ -75,7 +84,7 @@ gneiss_result update_project_manager(gneiss_application application, const gneis
     }
     const auto has_path = state.project_path[0] != '\0';
     ImGui::BeginDisabled(!has_path);
-    const auto open_requested = ImGui::Button("Open Project");
+    const auto open_requested = ImGui::Button("Open Project", ImVec2(140.0F, 0.0F));
     ImGui::EndDisabled();
     if (open_requested) {
       editor_project pending;
@@ -85,6 +94,7 @@ gneiss_result update_project_manager(gneiss_application application, const gneis
         state.selected = true;
         operation = gneiss_application_request_exit(application);
         if (operation != GNEISS_SUCCESS) {
+          ImGui::EndChild();
           ImGui::End();
           return operation;
         }
@@ -92,9 +102,10 @@ gneiss_result update_project_manager(gneiss_application application, const gneis
     }
     if (state.operation != result::success && state.operation != result::not_ready) {
       const auto message = result_message(state.operation);
-      ImGui::TextColored(ImVec4(1.0F, 0.35F, 0.25F, 1.0F), "%.*s", static_cast<int>(message.size()),
+      ImGui::TextColored(theme_error_color(), "%.*s", static_cast<int>(message.size()),
                          message.data());
     }
+    ImGui::EndChild();
     ImGui::End();
     return state.ui.submit(application);
   } catch (const std::bad_alloc&) {

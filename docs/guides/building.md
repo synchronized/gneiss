@@ -155,7 +155,8 @@ Lantern 灯廊示例在构建时使用 `gneiss_assetc` 把 CC0 `Lantern.glb` 导
 
 Editor 默认不参与普通构建。启用时会下载并静态构建固定提交的 Dear ImGui v1.92.9b（MIT），该
 依赖只属于 `gneiss_editor`，不会传播到 Runtime 公共 ABI 或安装 package。Editor 当前需要 Granit
-平台适配：
+平台适配。Project Manager 与正式 Editor 统一使用以 Catppuccin Mocha 为基础、Peach 为主强调色
+的 `Gneiss Mocha` 主题；上游配色许可见 `apps/editor/CATPPUCCIN_NOTICE.md`：
 
 ```sh
 cmake --preset windows-clang-debug \

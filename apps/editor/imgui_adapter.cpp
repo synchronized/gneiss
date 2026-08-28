@@ -3,6 +3,8 @@
 
 #include "imgui_adapter.h"
 
+#include "editor_theme.h"
+
 #include <algorithm>
 #include <cfloat>
 #include <cstring>
@@ -123,6 +125,7 @@ gneiss_result imgui_adapter::initialize(gneiss_application application) {
     return GNEISS_ERROR_OUT_OF_MEMORY;
   }
   ImGui::SetCurrentContext(context_);
+  apply_gneiss_mocha_theme();
   auto& io = ImGui::GetIO();
   io.BackendPlatformName = "gneiss_editor";
   io.BackendRendererName = "gneiss_ui_draw_list";
