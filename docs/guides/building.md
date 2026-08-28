@@ -170,7 +170,8 @@ Application、场景故障矩阵和稳定运行时样例；Sanitizer 报告任�
 任务失败。该选项不传播给安装后的下游项目，也不支持 Windows/MSVC。
 
 Linux 图形测试使用 `tools/sanitizers/lsan.supp` 精确忽略 Mesa 软件 Vulkan ICD 在
-`vkEnumeratePhysicalDevices` 中保留的进程级缓存；Actions 保留抑制统计。不得增加宽泛模块、调用方
+`vkEnumeratePhysicalDevices` 中保留的进程级缓存及 `libvulkan_lvp.so` 后台线程间接分配；Actions
+保留抑制统计。不得增加宽泛系统模块、调用方
 或 `detect_leaks=0` 抑制，Gneiss 与 Granit 可控调用栈仍须通过完整泄漏检查。
 
 Linux 下运行同名且不带 `.exe` 后缀的可执行文件。该示例的 `main` 位于
