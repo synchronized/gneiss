@@ -135,6 +135,79 @@ bool same_transform(const gneiss::transform& left, const gneiss::transform& righ
   return true;
 }
 
+gneiss::result submit_editor_grid(gneiss_application application) {
+  std::vector<gneiss::debug_line> lines;
+  lines.reserve(326U);
+  constexpr int extent = 80;
+  constexpr float spacing = 0.25F;
+  for (int index = -extent; index <= extent; ++index) {
+    const auto value = static_cast<float>(index) * spacing;
+    const auto major = index % 4 == 0;
+    const auto color = index == 0 ? IM_COL32(137, 180, 250, 190)
+                                  : major ? IM_COL32(166, 173, 200, 105)
+                                          : IM_COL32(108, 112, 134, 55);
+    lines.push_back({.start = {value, 0.0F, -20.0F},
+                     .end = {value, 0.0F, 20.0F},
+                     .color_rgba8 = color,
+                     .width = major ? 1.25F : 1.0F,
+                     .depth_test = 1U,
+                     .reserved = {}});
+    lines.push_back({.start = {-20.0F, 0.0F, value},
+                     .end = {20.0F, 0.0F, value},
+                     .color_rgba8 = color,
+                     .width = major ? 1.25F : 1.0F,
+                     .depth_test = 1U,
+                     .reserved = {}});
+  }
+  lines.push_back({.start = {0.0F, 0.0F, 0.0F},
+                   .end = {2.0F, 0.0F, 0.0F},
+                   .color_rgba8 = IM_COL32(243, 139, 168, 255),
+                   .width = 2.0F,
+                   .depth_test = 1U,
+                   .reserved = {}});
+  lines.push_back({.start = {0.0F, 0.0F, 0.0F},
+                   .end = {0.0F, 2.0F, 0.0F},
+                   .color_rgba8 = IM_COL32(166, 227, 161, 255),
+                   .width = 2.0F,
+                   .depth_test = 1U,
+                   .reserved = {}});
+  lines.push_back({.start = {0.0F, 0.0F, 0.0F},
+                   .end = {0.0F, 0.0F, 2.0F},
+                   .color_rgba8 = IM_COL32(137, 180, 250, 255),
+                   .width = 2.0F,
+                   .depth_test = 1U,
+                   .reserved = {}});
+  gneiss::debug_draw_list_desc desc = GNEISS_DEBUG_DRAW_LIST_DESC_INIT;
+  desc.line_count = static_cast<std::uint32_t>(lines.size());
+  desc.lines = lines.data();
+  return gneiss::from_native(gneiss_application_submit_debug_draw_list(application, &desc));
+}
+
+void draw_view_axis(const editor_state& state, const ImVec2& minimum, const ImVec2& size) noexcept {
+  const auto view = build_view_matrix(state.camera.current_transform());
+  const ImVec2 center{minimum.x + size.x - 54.0F, minimum.y + 48.0F};
+  constexpr float length = 28.0F;
+  constexpr std::array colors{IM_COL32(243, 139, 168, 255), IM_COL32(166, 227, 161, 255),
+                              IM_COL32(137, 180, 250, 255)};
+  constexpr std::array labels{'X', 'Y', 'Z'};
+  auto* draw_list = ImGui::GetWindowDrawList();
+  draw_list->AddCircleFilled(center, 3.0F, IM_COL32(205, 214, 244, 210));
+  for (std::size_t axis = 0; axis < 3U; ++axis) {
+    ImVec2 end{center.x + (view[matrix_index(0U, axis)] * length),
+               center.y - (view[matrix_index(1U, axis)] * length)};
+    const auto projected = std::hypot(end.x - center.x, end.y - center.y);
+    if (projected < 5.0F) {
+      end = ImVec2{center.x + static_cast<float>(axis * 10U) - 10.0F, center.y + 12.0F};
+      draw_list->AddCircle(center, 5.0F, colors[axis], 12, 2.0F);
+    } else {
+      draw_list->AddLine(center, end, colors[axis], 2.5F);
+      draw_list->AddCircleFilled(end, 3.5F, colors[axis]);
+    }
+    const char label[2] = {labels[axis], '\0'};
+    draw_list->AddText(ImVec2(end.x + 4.0F, end.y - 7.0F), colors[axis], label);
+  }
+}
+
 struct launch_options {
   bool smoke = false;
   std::string project;
@@ -750,17 +823,9 @@ bool draw_transform_gizmo(editor_state& state, const ImVec2& minimum,
   }
   auto view = build_view_matrix(state.camera.current_transform());
   auto projection = build_gizmo_projection_matrix(viewport->Size.x / viewport->Size.y);
-  gneiss::editor::gizmo_matrix grid = {
-      1.0F, 0.0F, 0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F,
-      0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 0.0F, 0.0F, 1.0F};
   ImGuizmo::SetOrthographic(false);
   ImGuizmo::SetDrawlist(ImGui::GetWindowDrawList());
   ImGuizmo::SetRect(viewport->Pos.x, viewport->Pos.y, viewport->Size.x, viewport->Size.y);
-  ImGuizmo::DrawGridCustomColor(
-      view.data(), projection.data(), grid.data(), 20.0F, 1.0F, 4U,
-      IM_COL32(166, 173, 200, 90), IM_COL32(108, 112, 134, 45),
-      IM_COL32(137, 180, 250, 150));
-  ImGuizmo::DrawAxes(view.data(), projection.data(), grid.data(), 1);
   ImGui::GetWindowDrawList()->AddText(
       ImVec2(minimum.x + 8.0F, minimum.y + size.y - ImGui::GetTextLineHeight() - 8.0F),
       IM_COL32(205, 214, 244, 210), "Grid: 1 unit = 1 m | minor: 0.25 m");
@@ -869,6 +934,10 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
     auto result = state.ui.begin_frame(application, *time);
     if (result != GNEISS_SUCCESS) {
       return result;
+    }
+    const auto grid_result = submit_editor_grid(application);
+    if (grid_result != gneiss::result::success) {
+      return gneiss::to_native(grid_result);
     }
     const auto selection_result = state.session.validate_selection();
     if (selection_result != gneiss::result::success &&
@@ -1206,6 +1275,7 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
     const auto gizmo_minimum = ImGui::GetCursorScreenPos();
     const auto gizmo_size = ImGui::GetContentRegionAvail();
     const auto gizmo_owns_pointer = draw_transform_gizmo(state, gizmo_minimum, gizmo_size);
+    draw_view_axis(state, gizmo_minimum, gizmo_size);
     if (scene_view_hovered && !gizmo_owns_pointer) {
       const auto camera_result = update_editor_camera(state, *time);
       if (camera_result != GNEISS_SUCCESS) {

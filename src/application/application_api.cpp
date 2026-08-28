@@ -293,6 +293,22 @@ gneiss_application_submit_ui_draw_list(gneiss_application application,
   }
 }
 
+extern "C" gneiss_result
+gneiss_application_submit_debug_draw_list(gneiss_application application,
+                                          const gneiss_debug_draw_list_desc* desc) {
+  if (desc == nullptr) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  try {
+    auto state = find_application(application);
+    const auto validation_result = validate_application(state);
+    return validation_result == GNEISS_SUCCESS ? state->submit_debug_draw_list(*desc)
+                                               : validation_result;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
 extern "C" gneiss_result gneiss_scene_instance_load(gneiss_application application, const char* uri,
                                                     uint64_t uri_length,
                                                     gneiss_scene_instance* out_instance) {

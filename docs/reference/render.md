@@ -34,6 +34,16 @@ domain。销毁、跨 Application 使用、类型混用或重复销毁均返回
 所属关系。数据在该帧渲染或跳过渲染后清空，不跨帧缓存。接口不包含 Dear ImGui 或 Granit 类型，
 长期边界见 [ADR-017](../decisions/ADR-017-editor-ui-render-composition.md)。
 
+## 当前帧世界 Debug Draw
+
+`gneiss_application_submit_debug_draw_list` 在 `update` 回调内提交后端无关的世界线段。每条线包含
+两个三维端点、RGBA8 颜色、像素宽度和深度测试开关；Runtime 深拷贝数组，同帧最后一次成功提交
+替换前一份数据，失败提交不改变已有内容，帧结束后自动清空。
+
+启用深度测试的线段读取当前 Camera 的深度附件但不写入深度，在场景之后、即时 UI 之前绘制；关闭
+深度测试的线段始终可见。接口不包含 Granit 类型，当前只承诺线段，不包含持久图元或世界文字。
+设计边界见 [ADR-022](../decisions/ADR-022-debug-draw-boundary.md)。
+
 ## ECS 组件
 
 `gneiss_world_entity_configure_camera` 使用带 `struct_size` 的描述设置或替换 Camera 组件。透视参数

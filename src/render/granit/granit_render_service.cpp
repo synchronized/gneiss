@@ -86,6 +86,20 @@ bool needs_srgb_encoding(granit::texture_format format) noexcept {
          format == granit::texture_format::bgra8_unorm;
 }
 
+render_internal::matrix4 multiply(const render_internal::matrix4& left,
+                                  const render_internal::matrix4& right) noexcept {
+  render_internal::matrix4 result;
+  for (std::size_t row = 0; row < 4U; ++row) {
+    for (std::size_t column = 0; column < 4U; ++column) {
+      for (std::size_t inner = 0; inner < 4U; ++inner) {
+        result.values[(column * 4U) + row] += left.values[(inner * 4U) + row] *
+                                              right.values[(column * 4U) + inner];
+      }
+    }
+  }
+  return result;
+}
+
 granit::result append_mesh_geometry(const render_internal::mesh_resource& source,
                                     std::vector<gpu_vertex>& vertices,
                                     std::vector<std::uint32_t>& indices, geometry_range& range) {
@@ -528,6 +542,10 @@ gneiss_result granit_render_service::initialize(const native_window_info& window
     const granit_canvas_draw_list_desc desc = GRANIT_CANVAS_DRAW_LIST_DESC_INIT;
     result = ui_canvas_.initialize(renderer_.native_handle(), desc);
   }
+  if (granit::succeeded(result)) {
+    const granit_debug_draw_list_desc desc = GRANIT_DEBUG_DRAW_LIST_DESC_INIT;
+    result = debug_draw_.initialize(renderer_.native_handle(), desc);
+  }
   return map_result(result);
 }
 
@@ -537,7 +555,8 @@ gneiss_result
 granit_render_service::render(native_window_info& window,
                               const world_internal::render_snapshot& snapshot,
                               const render_internal::render_resource_service& resources,
-                              const render_internal::ui_draw_list& ui) noexcept {
+                              const render_internal::ui_draw_list& ui,
+                              const render_internal::debug_draw_list& debug) noexcept {
   if (window.width == 0U || window.height == 0U) {
     return GNEISS_SUCCESS;
   }
@@ -655,9 +674,38 @@ granit_render_service::render(native_window_info& window,
   if (granit::failed(ui_result)) {
     return map_result(ui_result);
   }
+  auto result = debug_draw_.clear();
+  std::vector<granit_debug_draw_line> debug_lines;
+  if (granit::succeeded(result)) {
+    try {
+      debug_lines.reserve(debug.lines().size());
+      for (const auto& line : debug.lines()) {
+        debug_lines.push_back({.start = {.x = line.start[0],
+                                         .y = line.start[1],
+                                         .z = line.start[2],
+                                         .color = line.color_rgba8},
+                               .end = {.x = line.end[0],
+                                       .y = line.end[1],
+                                       .z = line.end[2],
+                                       .color = line.color_rgba8},
+                               .width = line.width,
+                               .space = GRANIT_DEBUG_DRAW_SPACE_WORLD,
+                               .depth_mode = line.depth_test != 0U
+                                                 ? GRANIT_DEBUG_DRAW_DEPTH_MODE_TEST
+                                                 : GRANIT_DEBUG_DRAW_DEPTH_MODE_DISABLED,
+                               .reserved = 0U});
+      }
+      result = debug_draw_.append_lines(debug_lines);
+    } catch (const std::bad_alloc&) {
+      return GNEISS_ERROR_OUT_OF_MEMORY;
+    }
+  }
+  if (granit::failed(result)) {
+    return map_result(result);
+  }
 
   granit::acquired_frame frame;
-  auto result = swapchain_.acquire(frame);
+  result = swapchain_.acquire(frame);
   if (result == granit::result::out_of_date) {
     window.needs_recreate = true;
     return GNEISS_SUCCESS;
@@ -727,6 +775,22 @@ granit_render_service::render(native_window_info& window,
     }
     if (granit::succeeded(result)) {
       result = recording.recorder().end_rendering();
+    }
+    if (granit::succeeded(result) && snapshot.has_camera && !debug_lines.empty()) {
+      const auto view_projection = multiply(snapshot.camera.projection, snapshot.camera.view);
+      granit_debug_draw_record_desc debug_record = GRANIT_DEBUG_DRAW_RECORD_DESC_INIT;
+      debug_record.color = view;
+      debug_record.color_format = static_cast<granit_texture_format>(swapchain_format_);
+      debug_record.depth = depth_view_.native_handle();
+      debug_record.depth_format = GRANIT_TEXTURE_FORMAT_D32_FLOAT;
+      debug_record.width = window.width;
+      debug_record.height = window.height;
+      std::copy(view_projection.values.begin(), view_projection.values.end(),
+                debug_record.view_projection.elements);
+      debug_record.color_load_operation = GRANIT_ATTACHMENT_LOAD_OPERATION_LOAD;
+      debug_record.depth_load_operation = GRANIT_ATTACHMENT_LOAD_OPERATION_LOAD;
+      debug_record.encode_srgb = needs_srgb_encoding(swapchain_format_) ? 1U : 0U;
+      result = debug_draw_.record_world(recording.recorder().native_handle(), debug_record);
     }
     granit_canvas_draw_list_stats ui_stats = GRANIT_CANVAS_DRAW_LIST_STATS_INIT;
     if (granit::succeeded(result)) {

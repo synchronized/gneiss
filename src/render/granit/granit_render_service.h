@@ -6,6 +6,7 @@
 
 #include "platform/granit/granit_platform.h"
 #include "render/granit/object_uniform.h"
+#include "render/debug_draw_list.h"
 #include "render/render_resource_service.h"
 #include "render/ui_draw_list.h"
 #include "world/render_snapshot.h"
@@ -14,6 +15,7 @@
 
 #include <granit/granit.hpp>
 #include <granit/pipeline/canvas_draw_list.hpp>
+#include <granit/pipeline/debug_draw_list.hpp>
 
 #include <array>
 #include <span>
@@ -28,7 +30,8 @@ public:
   [[nodiscard]] gneiss_result render(native_window_info& window,
                                      const world_internal::render_snapshot& snapshot,
                                      const render_internal::render_resource_service& resources,
-                                     const render_internal::ui_draw_list& ui) noexcept;
+                                     const render_internal::ui_draw_list& ui,
+                                     const render_internal::debug_draw_list& debug) noexcept;
 
 private:
   struct texture_mirror final {
@@ -82,6 +85,7 @@ private:
   granit::sampler sampler_;
   granit::sampler ui_sampler_;
   granit::canvas_draw_list ui_canvas_;
+  granit::debug_draw_list debug_draw_;
   texture_mirror default_texture_;
   std::unordered_map<gneiss_texture, texture_mirror> texture_mirrors_;
   std::unordered_map<gneiss_mesh, mesh_mirror> mesh_mirrors_;

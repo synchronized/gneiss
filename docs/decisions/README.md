@@ -27,3 +27,4 @@ Reference 和实现为准。
 - [ADR-019：Editor 源资产、派生产物与导入索引边界](ADR-019-editor-asset-workflow.md)
 - [ADR-020：Editor 场景创作与 Runtime 投影边界](ADR-020-scene-authoring-boundary.md)
 - [ADR-021：Transform Gizmo 与显式 TRS 边界](ADR-021-transform-gizmo-boundary.md)
+- [ADR-022：逐帧 Debug Draw 边界](ADR-022-debug-draw-boundary.md)
