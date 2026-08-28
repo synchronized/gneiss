@@ -5,7 +5,7 @@
 
 ## 适用场景
 
-本指南用于配置、构建并验证当前 Gneiss 工程、version、属性检查和 Granit 图形示例。
+本指南用于配置、构建并验证当前 Gneiss 工程、version、属性检查、Granit 图形示例和 Editor。
 
 ## 前置条件
 
@@ -150,6 +150,29 @@ Lantern 灯廊示例在构建时使用 `gneiss_assetc` 把 CC0 `Lantern.glb` 导
 来源与校验值见 `examples/lantern_gallery/assets/ASSET_ORIGINS.md`；该示例因此要求
 `GNEISS_BUILD_TOOLS=ON`。使用 `--smoke --profile` 可以固定运行 3 帧，并输出 Application、Scene
 与资产、输入和运行阶段的耗时；示例使用 512×512 派生基础色纹理控制启动成本。
+
+### 构建 Editor
+
+Editor 默认不参与普通构建。启用时会下载并静态构建固定提交的 Dear ImGui v1.92.9b（MIT），该
+依赖只属于 `gneiss_editor`，不会传播到 Runtime 公共 ABI 或安装 package。Editor 当前需要 Granit
+平台适配：
+
+```sh
+cmake --preset windows-clang-debug \
+  -DGNEISS_ENABLE_GRANIT_PLATFORM=ON \
+  -DGNEISS_BUILD_EDITOR=ON
+cmake --build --preset windows-clang-debug --target gneiss_editor
+```
+
+运行 Editor：
+
+```powershell
+./build/windows-clang-debug/bin/gneiss_editor.exe
+```
+
+当前宿主提供层级、场景视图和属性三个占位面板，并已打通输入、字体 Texture RID、UI Draw List 与
+Granit Canvas 的同帧渲染。窗口暂时固定为 1280×720；场景会话和实际面板数据属于后续里程碑。
+可用 `--smoke` 固定运行 3 帧，验证初始化、提交与逆序清理。
 
 ## 验证结果
 

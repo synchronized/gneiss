@@ -135,7 +135,7 @@ UI。既有 [ADR-002](decisions/ADR-002-ecs-reflection-boundary.md) 继续约束
 
 | 里程碑 | 优先级 | 状态 |
 | --- | --- | --- |
-| M-45 Editor 宿主与 UI 接入 Spike | P0 | 待开始 |
+| M-45 Editor 宿主与 UI 接入 Spike | P0 | 已完成 |
 | M-46 编辑器查询边界与场景会话 | P0 | 待开始 |
 | M-47 场景视图与选择 | P0 | 待开始 |
 | M-48 层级面板与属性面板 | P0 | 待开始 |
