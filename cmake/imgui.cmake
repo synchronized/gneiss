@@ -20,6 +20,7 @@ function(gneiss_resolve_imgui)
   add_library(
     gneiss_imgui STATIC
     "${gneiss_imgui_source_SOURCE_DIR}/imgui.cpp"
+    "${gneiss_imgui_source_SOURCE_DIR}/imgui_demo.cpp"
     "${gneiss_imgui_source_SOURCE_DIR}/imgui_draw.cpp"
     "${gneiss_imgui_source_SOURCE_DIR}/imgui_tables.cpp"
     "${gneiss_imgui_source_SOURCE_DIR}/imgui_widgets.cpp"

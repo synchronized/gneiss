@@ -34,6 +34,7 @@ struct editor_state {
   std::filesystem::path asset_root;
   gneiss::result save_result = gneiss::result::success;
   bool save_attempted = false;
+  bool show_imgui_demo = true;
 };
 
 struct launch_options {
@@ -285,6 +286,9 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
       ImGui::TextUnformatted("No node is selected");
     }
     ImGui::End();
+    if (state.show_imgui_demo) {
+      ImGui::ShowDemoWindow(&state.show_imgui_demo);
+    }
     return state.ui.submit(application);
   } catch (const std::bad_alloc&) {
     // C++ 异常不得越过 C ABI 回调边界。
