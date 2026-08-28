@@ -18,13 +18,13 @@
 
 #include <gneiss/application.hpp>
 
-#include <imgui.h>
 #include <ImGuizmo.h>
+#include <imgui.h>
 
 #include <algorithm>
 #include <array>
-#include <cstdint>
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
 #include <filesystem>
 #include <limits>
@@ -97,10 +97,9 @@ gneiss::editor::gizmo_matrix build_view_matrix(const gneiss::transform& camera) 
   gneiss::editor::gizmo_matrix result{};
   (void)gneiss::editor::transform_to_gizmo_matrix(inverse, result);
   for (std::size_t row = 0; row < 3U; ++row) {
-    result[matrix_index(row, 3U)] =
-        -((result[matrix_index(row, 0U)] * camera.translation[0]) +
-          (result[matrix_index(row, 1U)] * camera.translation[1]) +
-          (result[matrix_index(row, 2U)] * camera.translation[2]));
+    result[matrix_index(row, 3U)] = -((result[matrix_index(row, 0U)] * camera.translation[0]) +
+                                      (result[matrix_index(row, 1U)] * camera.translation[1]) +
+                                      (result[matrix_index(row, 2U)] * camera.translation[2]));
   }
   return result;
 }
@@ -145,8 +144,8 @@ gneiss::result submit_editor_grid(gneiss_application application) {
     const auto value = static_cast<float>(index) * spacing;
     const auto major = index % 4 == 0;
     const auto color = index == 0 ? IM_COL32(137, 180, 250, 190)
-                                  : major ? IM_COL32(166, 173, 200, 105)
-                                          : IM_COL32(108, 112, 134, 55);
+                       : major    ? IM_COL32(166, 173, 200, 105)
+                                  : IM_COL32(108, 112, 134, 55);
     lines.push_back({.start = {value, 0.0F, -20.0F},
                      .end = {value, 0.0F, 20.0F},
                      .color_rgba8 = color,
@@ -809,8 +808,7 @@ void draw_asset_browser(editor_state& state) {
 }
 #endif
 
-bool draw_transform_gizmo(editor_state& state, const ImVec2& minimum,
-                          const ImVec2& size) noexcept {
+bool draw_transform_gizmo(editor_state& state, const ImVec2& minimum, const ImVec2& size) noexcept {
   const auto* selected = state.session.selected_node();
   if (selected == nullptr || size.x <= 1.0F || size.y <= 1.0F) {
     state.gizmo_using = false;
@@ -842,13 +840,11 @@ bool draw_transform_gizmo(editor_state& state, const ImVec2& minimum,
   ImGui::GetWindowDrawList()->AddText(
       ImVec2(minimum.x + 8.0F, minimum.y + size.y - ImGui::GetTextLineHeight() - 8.0F),
       IM_COL32(205, 214, 244, 210), "Grid: 1 unit = 1 m | minor: 0.25 m");
-  const auto native_operation = state.gizmo_mode == gizmo_operation::translate
-                                    ? ImGuizmo::TRANSLATE
-                                    : state.gizmo_mode == gizmo_operation::rotate
-                                          ? ImGuizmo::ROTATE
-                                          : ImGuizmo::SCALE;
+  const auto native_operation = state.gizmo_mode == gizmo_operation::translate ? ImGuizmo::TRANSLATE
+                                : state.gizmo_mode == gizmo_operation::rotate  ? ImGuizmo::ROTATE
+                                                                               : ImGuizmo::SCALE;
   const auto manipulated = ImGuizmo::Manipulate(view.data(), projection.data(), native_operation,
-                                                 ImGuizmo::WORLD, model.data());
+                                                ImGuizmo::WORLD, model.data());
   const auto using_now = ImGuizmo::IsUsing();
   if (using_now && !state.gizmo_using) {
     state.gizmo_initial_local = selected->local_transform;
@@ -876,22 +872,25 @@ bool draw_transform_gizmo(editor_state& state, const ImVec2& minimum,
   }
   if (state.gizmo_using && !using_now && !state.gizmo_uuid.empty()) {
     const auto* current = state.session.find_node(state.gizmo_uuid);
-    if (current != nullptr && !same_transform(state.gizmo_initial_local, current->local_transform)) {
+    if (current != nullptr &&
+        !same_transform(state.gizmo_initial_local, current->local_transform)) {
       const auto uuid = state.gizmo_uuid;
       const auto before = state.gizmo_initial_local;
       const auto after = current->local_transform;
       state.history_error = state.history.record(
           {.label = "变换节点",
-           .undo = [&state, uuid, before] {
-             const auto* node = state.session.find_node(uuid);
-             return node == nullptr ? gneiss::result::not_found
-                                    : state.session.set_local_transform(node->node, before);
-           },
-           .redo = [&state, uuid, after] {
-             const auto* node = state.session.find_node(uuid);
-             return node == nullptr ? gneiss::result::not_found
-                                    : state.session.set_local_transform(node->node, after);
-           }});
+           .undo =
+               [&state, uuid, before] {
+                 const auto* node = state.session.find_node(uuid);
+                 return node == nullptr ? gneiss::result::not_found
+                                        : state.session.set_local_transform(node->node, before);
+               },
+           .redo =
+               [&state, uuid, after] {
+                 const auto* node = state.session.find_node(uuid);
+                 return node == nullptr ? gneiss::result::not_found
+                                        : state.session.set_local_transform(node->node, after);
+               }});
       if (state.history_error != gneiss::result::success && current != nullptr) {
         (void)state.session.set_local_transform(current->node, before);
         if (!state.gizmo_was_dirty) {
@@ -1252,48 +1251,50 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
 
     ImGui::SetNextWindowPos(ImVec2(250.0F, 20.0F));
     ImGui::SetNextWindowSize(ImVec2(730.0F, 700.0F));
-    ImGui::Begin("Scene View", nullptr,
-                 ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize |
-                     ImGuiWindowFlags_NoBackground);
-    const auto scene_view_hovered = ImGui::IsWindowHovered();
-    ImGui::TextUnformatted("Scene View");
-    if (ImGui::RadioButton("Move", state.gizmo_mode == gizmo_operation::translate)) {
-      state.gizmo_mode = gizmo_operation::translate;
-    }
-    ImGui::SameLine();
-    if (ImGui::RadioButton("Rotate", state.gizmo_mode == gizmo_operation::rotate)) {
-      state.gizmo_mode = gizmo_operation::rotate;
-    }
-    ImGui::SameLine();
-    if (ImGui::RadioButton("Scale", state.gizmo_mode == gizmo_operation::scale)) {
-      state.gizmo_mode = gizmo_operation::scale;
-    }
-    ImGui::TextDisabled("RMB look | Wheel dolly | F focus selection");
-    ImGui::SameLine();
-    ImGui::TextColored(ImVec4(0.95F, 0.35F, 0.35F, 1.0F), "X");
-    ImGui::SameLine(0.0F, 3.0F);
-    ImGui::TextColored(ImVec4(0.35F, 0.90F, 0.45F, 1.0F), "Y");
-    ImGui::SameLine(0.0F, 3.0F);
-    ImGui::TextColored(ImVec4(0.35F, 0.55F, 1.0F, 1.0F), "Z");
-    if (const auto* selected = state.session.selected_node(); selected != nullptr) {
-      ImGui::TextColored(gneiss::editor::theme_warning_color(), "Selected: %s",
-                         selected->display_name.c_str());
-      const auto minimum = ImGui::GetWindowPos();
-      const auto size = ImGui::GetWindowSize();
-      ImGui::GetWindowDrawList()->AddRect(
-          minimum, ImVec2(minimum.x + size.x, minimum.y + size.y),
-          ImGui::ColorConvertFloat4ToU32(gneiss::editor::theme_warning_color()), 0.0F,
-          ImDrawFlags_None, 2.0F);
-    }
-    const auto gizmo_minimum = ImGui::GetCursorScreenPos();
-    const auto gizmo_size = ImGui::GetContentRegionAvail();
-    const auto gizmo_owns_pointer = draw_transform_gizmo(state, gizmo_minimum, gizmo_size);
-    draw_view_axis(state, gizmo_minimum, gizmo_size);
-    if (scene_view_hovered && !gizmo_owns_pointer) {
-      const auto camera_result = update_editor_camera(state, *time);
-      if (camera_result != GNEISS_SUCCESS) {
-        ImGui::End();
-        return camera_result;
+    const auto scene_view_visible = ImGui::Begin(
+        "Scene View", nullptr,
+        ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoBackground);
+    if (scene_view_visible) {
+      const auto scene_view_hovered = ImGui::IsWindowHovered();
+      ImGui::TextUnformatted("Scene View");
+      if (ImGui::RadioButton("Move", state.gizmo_mode == gizmo_operation::translate)) {
+        state.gizmo_mode = gizmo_operation::translate;
+      }
+      ImGui::SameLine();
+      if (ImGui::RadioButton("Rotate", state.gizmo_mode == gizmo_operation::rotate)) {
+        state.gizmo_mode = gizmo_operation::rotate;
+      }
+      ImGui::SameLine();
+      if (ImGui::RadioButton("Scale", state.gizmo_mode == gizmo_operation::scale)) {
+        state.gizmo_mode = gizmo_operation::scale;
+      }
+      ImGui::TextDisabled("RMB look | Wheel dolly | F focus selection");
+      ImGui::SameLine();
+      ImGui::TextColored(ImVec4(0.95F, 0.35F, 0.35F, 1.0F), "X");
+      ImGui::SameLine(0.0F, 3.0F);
+      ImGui::TextColored(ImVec4(0.35F, 0.90F, 0.45F, 1.0F), "Y");
+      ImGui::SameLine(0.0F, 3.0F);
+      ImGui::TextColored(ImVec4(0.35F, 0.55F, 1.0F, 1.0F), "Z");
+      if (const auto* selected = state.session.selected_node(); selected != nullptr) {
+        ImGui::TextColored(gneiss::editor::theme_warning_color(), "Selected: %s",
+                           selected->display_name.c_str());
+        const auto minimum = ImGui::GetWindowPos();
+        const auto size = ImGui::GetWindowSize();
+        ImGui::GetWindowDrawList()->AddRect(
+            minimum, ImVec2(minimum.x + size.x, minimum.y + size.y),
+            ImGui::ColorConvertFloat4ToU32(gneiss::editor::theme_warning_color()), 0.0F,
+            ImDrawFlags_None, 2.0F);
+      }
+      const auto gizmo_minimum = ImGui::GetCursorScreenPos();
+      const auto gizmo_size = ImGui::GetContentRegionAvail();
+      const auto gizmo_owns_pointer = draw_transform_gizmo(state, gizmo_minimum, gizmo_size);
+      draw_view_axis(state, gizmo_minimum, gizmo_size);
+      if (scene_view_hovered && !gizmo_owns_pointer) {
+        const auto camera_result = update_editor_camera(state, *time);
+        if (camera_result != GNEISS_SUCCESS) {
+          ImGui::End();
+          return camera_result;
+        }
       }
     }
     ImGui::End();
@@ -1496,8 +1497,7 @@ int run_editor(int argc, char** argv) {
     const auto operation = gneiss::editor::load_editor_project(utf8_path(options.project), project);
     if (operation != gneiss::result::success) {
       const auto message = gneiss::result_message(operation);
-      std::fprintf(stderr,
-                   "Gneiss Editor 启动失败：阶段=工程加载，结果=%d，消息=%.*s，路径=%s\n",
+      std::fprintf(stderr, "Gneiss Editor 启动失败：阶段=工程加载，结果=%d，消息=%.*s，路径=%s\n",
                    gneiss::to_native(operation), static_cast<int>(message.size()), message.data(),
                    options.project.c_str());
       return 65;
@@ -1568,7 +1568,7 @@ int run_editor(int argc, char** argv) {
   state.camera.shutdown();
   state.session.close();
   if (run_result != gneiss::result::success) {
-    report_startup_failure("Editor 事件循环", run_result, path_utf8(project.project_root));
+    report_startup_failure("Editor 运行时事件循环", run_result, path_utf8(project.project_root));
   }
   return run_result == gneiss::result::success ? 0 : 4;
 }

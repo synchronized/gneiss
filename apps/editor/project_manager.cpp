@@ -13,9 +13,9 @@
 #include <imgui.h>
 
 #include <algorithm>
-#include <cstdio>
 #include <array>
 #include <cstdint>
+#include <cstdio>
 #include <cstring>
 #include <filesystem>
 #include <new>
@@ -211,21 +211,25 @@ result run_project_manager(bool smoke, editor_project& output) noexcept {
     auto operation = gneiss::application::create(desc, application);
     if (operation != result::success) {
       const auto message = result_message(operation);
-      std::fprintf(stderr, "Gneiss Editor 启动失败：阶段=Project Manager Application 创建，结果=%d，消息=%.*s\n",
-                   to_native(operation), static_cast<int>(message.size()), message.data());
+      std::fprintf(
+          stderr,
+          "Gneiss Editor 启动失败：阶段=Project Manager Application 创建，结果=%d，消息=%.*s\n",
+          to_native(operation), static_cast<int>(message.size()), message.data());
       return operation;
     }
     operation = from_native(state.ui.initialize(application.get()));
     if (operation != result::success) {
       const auto message = result_message(operation);
-      std::fprintf(stderr, "Gneiss Editor 启动失败：阶段=Project Manager UI 初始化，结果=%d，消息=%.*s\n",
+      std::fprintf(stderr,
+                   "Gneiss Editor 启动失败：阶段=Project Manager UI 初始化，结果=%d，消息=%.*s\n",
                    to_native(operation), static_cast<int>(message.size()), message.data());
     }
     if (operation == result::success) {
       operation = application.run(smoke ? 3U : 0U);
       if (operation != result::success) {
         const auto message = result_message(operation);
-        std::fprintf(stderr, "Gneiss Editor 运行失败：阶段=Project Manager 事件循环，结果=%d，消息=%.*s\n",
+        std::fprintf(stderr,
+                     "Gneiss Editor 运行失败：阶段=Project Manager 事件循环，结果=%d，消息=%.*s\n",
                      to_native(operation), static_cast<int>(message.size()), message.data());
       }
     }

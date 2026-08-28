@@ -92,8 +92,8 @@ render_internal::matrix4 multiply(const render_internal::matrix4& left,
   for (std::size_t row = 0; row < 4U; ++row) {
     for (std::size_t column = 0; column < 4U; ++column) {
       for (std::size_t inner = 0; inner < 4U; ++inner) {
-        result.values[(column * 4U) + row] += left.values[(inner * 4U) + row] *
-                                              right.values[(column * 4U) + inner];
+        result.values[(column * 4U) + row] +=
+            left.values[(inner * 4U) + row] * right.values[(column * 4U) + inner];
       }
     }
   }
@@ -680,20 +680,18 @@ granit_render_service::render(native_window_info& window,
     try {
       debug_lines.reserve(debug.lines().size());
       for (const auto& line : debug.lines()) {
-        debug_lines.push_back({.start = {.x = line.start[0],
-                                         .y = line.start[1],
-                                         .z = line.start[2],
-                                         .color = line.color_rgba8},
-                               .end = {.x = line.end[0],
-                                       .y = line.end[1],
-                                       .z = line.end[2],
-                                       .color = line.color_rgba8},
-                               .width = line.width,
-                               .space = GRANIT_DEBUG_DRAW_SPACE_WORLD,
-                               .depth_mode = line.depth_test != 0U
-                                                 ? GRANIT_DEBUG_DRAW_DEPTH_MODE_TEST
+        debug_lines.push_back(
+            {.start = {.x = line.start[0],
+                       .y = line.start[1],
+                       .z = line.start[2],
+                       .color = line.color_rgba8},
+             .end =
+                 {.x = line.end[0], .y = line.end[1], .z = line.end[2], .color = line.color_rgba8},
+             .width = line.width,
+             .space = GRANIT_DEBUG_DRAW_SPACE_WORLD,
+             .depth_mode = line.depth_test != 0U ? GRANIT_DEBUG_DRAW_DEPTH_MODE_TEST
                                                  : GRANIT_DEBUG_DRAW_DEPTH_MODE_DISABLED,
-                               .reserved = 0U});
+             .reserved = 0U});
       }
       if (!debug_lines.empty()) {
         result = debug_draw_.append_lines(debug_lines);
