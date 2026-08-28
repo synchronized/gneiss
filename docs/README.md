@@ -113,6 +113,7 @@
 - [M-65 公共 API 与稳定性审计记录](records/M-65-public-api-audit.md)
 - [M-66 稳定运行时代表性样例验收记录](records/M-66-stable-runtime-sample.md)
 - [M-67 公共 API 与 ABI 加固记录](records/M-67-api-abi-hardening.md)
+- [M-68 安装、升级与依赖消费验收记录](records/M-68-install-upgrade-validation.md)
 - [M-13 JSON 解析器 Spike 记录](records/M-13-json-spike.md)
 - [M-14 资产 URI 与资源生命周期实施记录](records/M-14-asset-uri-resource-lifecycle.md)
 - [M-15 版本化场景 Schema 实施记录](records/M-15-scene-schema.md)
