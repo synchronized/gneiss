@@ -31,6 +31,12 @@ struct scene_node_snapshot final {
   std::string material_uri;
 };
 
+struct scene_subtree_snapshot final {
+  std::string json;
+  std::string parent_uuid;
+  std::string root_uuid;
+};
+
 class editor_session final {
 public:
   [[nodiscard]] result open(gneiss_application application, gneiss_world world,
@@ -47,6 +53,14 @@ public:
 
   [[nodiscard]] result select(scene_node_id node) noexcept;
   [[nodiscard]] result validate_selection() noexcept;
+  [[nodiscard]] result create_node(std::string_view name, scene_node_id parent,
+                                   scene_node_id& out_node) noexcept;
+  [[nodiscard]] result rename_node(scene_node_id node, std::string_view name) noexcept;
+  [[nodiscard]] result reparent_node(scene_node_id node, scene_node_id parent) noexcept;
+  [[nodiscard]] result destroy_subtree(scene_node_id node,
+                                       scene_subtree_snapshot& out_snapshot) noexcept;
+  [[nodiscard]] result restore_subtree(const scene_subtree_snapshot& snapshot,
+                                       scene_node_id& out_node) noexcept;
   [[nodiscard]] result create_mesh_renderer_node(std::string_view name, std::string_view mesh_uri,
                                                  std::string_view material_uri,
                                                  scene_node_id& out_node) noexcept;
@@ -61,6 +75,7 @@ public:
   void clear_dirty() noexcept { is_dirty_ = false; }
 
 private:
+  [[nodiscard]] result refresh_nodes() noexcept;
   [[nodiscard]] result create_mesh_renderer_node(const scene_node_snapshot& snapshot,
                                                  scene_node_id& out_node) noexcept;
   gneiss_world world_ = GNEISS_NULL_WORLD;

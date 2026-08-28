@@ -23,6 +23,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <limits>
+#include <memory>
 #include <new>
 #include <string>
 #include <string_view>
@@ -111,9 +112,9 @@ gneiss::result redo_editor_command(editor_state& state) noexcept {
   return {reinterpret_cast<const char*>(text.data()), text.size()};
 }
 
-void draw_scene_node(gneiss::editor::editor_session& session,
-                     const gneiss::editor::scene_node_record& node) {
-  const auto& nodes = session.nodes();
+void draw_scene_node(editor_state& state, const gneiss::editor::scene_node_record& node) {
+  const auto& nodes = state.session.nodes();
+  const auto target_uuid = node.uuid;
   const auto has_children = std::ranges::any_of(
       nodes, [node_id = node.node](const auto& candidate) { return candidate.parent == node_id; });
   auto flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_SpanAvailWidth |
@@ -121,18 +122,86 @@ void draw_scene_node(gneiss::editor::editor_session& session,
   if (!has_children) {
     flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen;
   }
-  if (session.selection() == node.node) {
+  if (state.session.selection() == node.node) {
     flags |= ImGuiTreeNodeFlags_Selected;
   }
   ImGui::PushID(node.uuid.c_str());
   const auto is_open = ImGui::TreeNodeEx(node.display_name.c_str(), flags);
   if (ImGui::IsItemClicked()) {
-    (void)session.select(node.node);
+    (void)state.session.select(node.node);
+  }
+  if (ImGui::BeginDragDropSource()) {
+    ImGui::SetDragDropPayload("GNEISS_SCENE_NODE_UUID", node.uuid.data(), node.uuid.size());
+    ImGui::TextUnformatted(node.display_name.c_str());
+    ImGui::EndDragDropSource();
+  }
+  if (ImGui::BeginDragDropTarget()) {
+    bool hierarchy_changed = false;
+    if (const auto* payload = ImGui::AcceptDragDropPayload("GNEISS_SCENE_NODE_UUID");
+        payload != nullptr) {
+      const std::string source_uuid{static_cast<const char*>(payload->Data),
+                                    static_cast<std::size_t>(payload->DataSize)};
+      const auto* source = state.session.find_node(source_uuid);
+      if (source != nullptr && source->node != node.node) {
+        std::string previous_parent_uuid;
+        if (source->parent.is_valid()) {
+          const auto parent = std::ranges::find(state.session.nodes(), source->parent,
+                                                &gneiss::editor::scene_node_record::node);
+          if (parent != state.session.nodes().end()) {
+            previous_parent_uuid = parent->uuid;
+          }
+        }
+        state.history_error = state.session.reparent_node(source->node, node.node);
+        if (state.history_error == gneiss::result::success) {
+          hierarchy_changed = true;
+          state.history_error = state.history.record(
+              {.label = "移动节点",
+               .undo =
+                   [&state, source_uuid, previous_parent_uuid] {
+                     const auto* current = state.session.find_node(source_uuid);
+                     const auto* parent = previous_parent_uuid.empty()
+                                              ? nullptr
+                                              : state.session.find_node(previous_parent_uuid);
+                     return current == nullptr
+                                ? gneiss::result::not_found
+                                : state.session.reparent_node(
+                                      current->node,
+                                      parent == nullptr ? gneiss::scene_node_id{} : parent->node);
+                   },
+               .redo =
+                   [&state, source_uuid, target_uuid] {
+                     const auto* current = state.session.find_node(source_uuid);
+                     const auto* parent = state.session.find_node(target_uuid);
+                     return current == nullptr || parent == nullptr
+                                ? gneiss::result::not_found
+                                : state.session.reparent_node(current->node, parent->node);
+                   }});
+          if (state.history_error != gneiss::result::success) {
+            const auto* current = state.session.find_node(source_uuid);
+            const auto* parent = previous_parent_uuid.empty()
+                                     ? nullptr
+                                     : state.session.find_node(previous_parent_uuid);
+            if (current != nullptr) {
+              (void)state.session.reparent_node(
+                  current->node, parent == nullptr ? gneiss::scene_node_id{} : parent->node);
+            }
+          }
+        }
+      }
+    }
+    ImGui::EndDragDropTarget();
+    if (hierarchy_changed) {
+      if (has_children && is_open) {
+        ImGui::TreePop();
+      }
+      ImGui::PopID();
+      return;
+    }
   }
   if (has_children && is_open) {
     for (const auto& child : nodes) {
       if (child.parent == node.node) {
-        draw_scene_node(session, child);
+        draw_scene_node(state, child);
       }
     }
     ImGui::TreePop();
@@ -558,34 +627,64 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
       ImGui::TextUnformatted("No scene is open");
     } else {
       const auto* selected = state.session.selected_node();
-      ImGui::BeginDisabled(selected == nullptr || selected->mesh_uri.empty());
+      const auto create_requested = ImGui::Button("Create Empty");
+      ImGui::SameLine();
+      ImGui::BeginDisabled(selected == nullptr);
       const auto delete_requested = ImGui::Button("Delete Selected");
       ImGui::EndDisabled();
+      if (create_requested) {
+        const auto parent = selected == nullptr ? gneiss::scene_node_id{} : selected->node;
+        gneiss::scene_node_id created;
+        state.history_error = state.session.create_node("Node", parent, created);
+        if (state.history_error == gneiss::result::success) {
+          const auto uuid = state.session.selected_node()->uuid;
+          auto snapshot = std::make_shared<gneiss::editor::scene_subtree_snapshot>();
+          state.history_error = state.history.record(
+              {.label = "创建节点",
+               .undo =
+                   [&state, uuid, snapshot] {
+                     const auto* current = state.session.find_node(uuid);
+                     return current == nullptr
+                                ? gneiss::result::not_found
+                                : state.session.destroy_subtree(current->node, *snapshot);
+                   },
+               .redo =
+                   [&state, snapshot] {
+                     gneiss::scene_node_id restored;
+                     return state.session.restore_subtree(*snapshot, restored);
+                   }});
+          if (state.history_error != gneiss::result::success) {
+            if (const auto* current = state.session.find_node(uuid); current != nullptr) {
+              (void)state.session.destroy_subtree(current->node, *snapshot);
+            }
+          }
+        }
+      }
       if (delete_requested) {
         const auto was_dirty = state.session.is_dirty();
         const auto node = selected->node;
-        gneiss::editor::scene_node_snapshot snapshot;
-        state.history_error = state.session.destroy_node(node, snapshot);
+        gneiss::editor::scene_subtree_snapshot snapshot;
+        state.history_error = state.session.destroy_subtree(node, snapshot);
         if (state.history_error == gneiss::result::success) {
           state.history_error = state.history.record(
               {.label = "删除节点",
                .undo =
                    [&state, snapshot] {
                      gneiss::scene_node_id restored;
-                     return state.session.restore_mesh_renderer_node(snapshot, restored);
+                     return state.session.restore_subtree(snapshot, restored);
                    },
                .redo =
-                   [&state, uuid = snapshot.uuid] {
+                   [&state, uuid = snapshot.root_uuid] {
                      const auto* current = state.session.find_node(uuid);
                      if (current == nullptr) {
                        return gneiss::result::not_found;
                      }
-                     gneiss::editor::scene_node_snapshot discarded;
-                     return state.session.destroy_node(current->node, discarded);
+                     gneiss::editor::scene_subtree_snapshot discarded;
+                     return state.session.destroy_subtree(current->node, discarded);
                    }});
           if (state.history_error != gneiss::result::success) {
             gneiss::scene_node_id restored;
-            (void)state.session.restore_mesh_renderer_node(snapshot, restored);
+            (void)state.session.restore_subtree(snapshot, restored);
             if (!was_dirty) {
               state.session.clear_dirty();
             }
@@ -594,7 +693,7 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
       }
       for (const auto& node : state.session.nodes()) {
         if (!node.parent.is_valid()) {
-          draw_scene_node(state.session, node);
+          draw_scene_node(state, node);
         }
       }
     }

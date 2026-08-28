@@ -84,8 +84,23 @@ result editor_session::open(gneiss_application application, gneiss_world world,
     if (operation != result::success) {
       return operation;
     }
+    scene_ = std::move(pending);
+    world_ = world;
+    selection_ = {};
+    uri_ = uri;
+    is_dirty_ = false;
+    return refresh_nodes();
+  } catch (const std::bad_alloc&) {
+    return result::out_of_memory;
+  } catch (...) {
+    return result::internal;
+  }
+}
+
+result editor_session::refresh_nodes() noexcept {
+  try {
     std::uint64_t count = 0;
-    operation = pending.get_node_count(count);
+    auto operation = scene_.get_node_count(count);
     if (operation != result::success) {
       return operation;
     }
@@ -93,37 +108,155 @@ result editor_session::open(gneiss_application application, gneiss_world world,
     records.reserve(static_cast<std::size_t>(count));
     for (std::uint64_t index = 0; index < count; ++index) {
       scene_instance_node_info info = GNEISS_SCENE_INSTANCE_NODE_INFO_INIT;
-      operation = pending.get_node_info(index, info);
+      operation = scene_.get_node_info(index, info);
       if (operation != result::success) {
         return operation;
       }
       std::string uuid{info.uuid, static_cast<std::size_t>(info.uuid_length)};
-      const auto display_name =
-          info.name == nullptr ? uuid
-                               : std::string{info.name, static_cast<std::size_t>(info.name_length)};
       records.push_back(
-          {scene_node_id{info.node}, scene_node_id{info.parent}, entity_id{info.entity},
-           std::move(uuid), display_name,
-           info.mesh_uri == nullptr
-               ? std::string{}
-               : std::string{info.mesh_uri, static_cast<std::size_t>(info.mesh_uri_length)},
-           info.material_uri == nullptr
-               ? std::string{}
-               : std::string{info.material_uri,
-                             static_cast<std::size_t>(info.material_uri_length)}});
+          {.node = scene_node_id{info.node},
+           .parent = scene_node_id{info.parent},
+           .entity = entity_id{info.entity},
+           .uuid = uuid,
+           .display_name = info.name == nullptr
+                               ? std::move(uuid)
+                               : std::string{info.name, static_cast<std::size_t>(info.name_length)},
+           .mesh_uri =
+               info.mesh_uri == nullptr
+                   ? std::string{}
+                   : std::string{info.mesh_uri, static_cast<std::size_t>(info.mesh_uri_length)},
+           .material_uri = info.material_uri == nullptr
+                               ? std::string{}
+                               : std::string{info.material_uri,
+                                             static_cast<std::size_t>(info.material_uri_length)}});
     }
-    scene_ = std::move(pending);
-    nodes_ = std::move(records);
-    world_ = world;
-    selection_ = {};
-    uri_ = uri;
-    is_dirty_ = false;
-    return result::success;
+    nodes_.swap(records);
+    return validate_selection();
   } catch (const std::bad_alloc&) {
     return result::out_of_memory;
   } catch (...) {
     return result::internal;
   }
+}
+
+result editor_session::create_node(std::string_view name, scene_node_id parent,
+                                   scene_node_id& out_node) noexcept {
+  if (!is_open()) {
+    return result::invalid_state;
+  }
+  try {
+    const auto uuid = make_uuid();
+    scene_node_desc desc = GNEISS_SCENE_NODE_DESC_INIT;
+    desc.uuid = uuid.data();
+    desc.uuid_length = uuid.size();
+    desc.name = name.data();
+    desc.name_length = name.size();
+    desc.parent = parent.get();
+    auto operation = scene_.create_node(desc, out_node);
+    if (operation == result::success) {
+      selection_ = out_node;
+      operation = refresh_nodes();
+    }
+    if (operation == result::success) {
+      is_dirty_ = true;
+    }
+    return operation;
+  } catch (const std::bad_alloc&) {
+    return result::out_of_memory;
+  } catch (...) {
+    return result::internal;
+  }
+}
+
+result editor_session::rename_node(scene_node_id node, std::string_view name) noexcept {
+  if (!is_open() || !node.is_valid()) {
+    return result::invalid_argument;
+  }
+  const auto operation = scene_.set_node_name(node, name);
+  if (operation != result::success) {
+    return operation;
+  }
+  const auto refreshed = refresh_nodes();
+  if (refreshed == result::success) {
+    is_dirty_ = true;
+  }
+  return refreshed;
+}
+
+result editor_session::reparent_node(scene_node_id node, scene_node_id parent) noexcept {
+  if (!is_open() || !node.is_valid() || node == parent) {
+    return result::invalid_argument;
+  }
+  const auto operation = scene_.reparent_node(node, parent);
+  if (operation != result::success) {
+    return operation;
+  }
+  const auto refreshed = refresh_nodes();
+  if (refreshed == result::success) {
+    is_dirty_ = true;
+  }
+  return refreshed;
+}
+
+result editor_session::destroy_subtree(scene_node_id node,
+                                       scene_subtree_snapshot& out_snapshot) noexcept {
+  if (!is_open() || !node.is_valid()) {
+    return result::invalid_argument;
+  }
+  const auto found = std::ranges::find(nodes_, node, &scene_node_record::node);
+  if (found == nodes_.end()) {
+    return result::not_found;
+  }
+  try {
+    scene_subtree_snapshot snapshot{.root_uuid = found->uuid};
+    if (found->parent.is_valid()) {
+      const auto parent = std::ranges::find(nodes_, found->parent, &scene_node_record::node);
+      if (parent == nodes_.end()) {
+        return result::invalid_state;
+      }
+      snapshot.parent_uuid = parent->uuid;
+    }
+    auto operation = scene_.capture_subtree(node, snapshot.json);
+    if (operation != result::success) {
+      return operation;
+    }
+    operation = scene_.destroy_subtree(node);
+    if (operation == result::success) {
+      selection_ = {};
+      operation = refresh_nodes();
+    }
+    if (operation == result::success) {
+      out_snapshot = std::move(snapshot);
+      is_dirty_ = true;
+    }
+    return operation;
+  } catch (const std::bad_alloc&) {
+    return result::out_of_memory;
+  } catch (...) {
+    return result::internal;
+  }
+}
+
+result editor_session::restore_subtree(const scene_subtree_snapshot& snapshot,
+                                       scene_node_id& out_node) noexcept {
+  scene_node_id parent;
+  if (!snapshot.parent_uuid.empty()) {
+    const auto* record = find_node(snapshot.parent_uuid);
+    if (record == nullptr) {
+      return result::not_found;
+    }
+    parent = record->node;
+  }
+  const auto operation = scene_.restore_subtree(snapshot.json, parent, {}, out_node);
+  if (operation != result::success) {
+    return operation;
+  }
+  selection_ = out_node;
+  const auto refreshed = refresh_nodes();
+  if (refreshed == result::success) {
+    is_dirty_ = true;
+  }
+  return refreshed;
 }
 
 void editor_session::close() noexcept {

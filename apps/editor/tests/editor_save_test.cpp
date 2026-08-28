@@ -84,11 +84,28 @@ int main() try {
     return 5;
   }
   const auto created_uuid = session.selected_node()->uuid;
+  gneiss::scene_node_id empty_parent;
+  gneiss::scene_node_id empty_child;
+  if (session.create_node("Empty Parent", {}, empty_parent) != gneiss::result::success ||
+      session.create_node("Empty Child", empty_parent, empty_child) != gneiss::result::success ||
+      session.rename_node(empty_child, "Renamed Child") != gneiss::result::success ||
+      session.reparent_node(created_node, empty_parent) != gneiss::result::success) {
+    return 13;
+  }
+  const auto parent_uuid = session.find_node(session.selected_node()->uuid)->uuid;
+  gneiss::editor::scene_subtree_snapshot subtree;
+  if (session.destroy_subtree(empty_parent, subtree) != gneiss::result::success ||
+      session.find_node(parent_uuid) != nullptr ||
+      session.restore_subtree(subtree, empty_parent) != gneiss::result::success ||
+      session.find_node(parent_uuid) == nullptr) {
+    return 14;
+  }
+  created_node = session.find_node(created_uuid)->node;
   gneiss::editor::scene_node_snapshot snapshot;
   if (session.destroy_node(created_node, snapshot) != gneiss::result::success ||
-      session.find_node(created_uuid) != nullptr || session.nodes().size() != 2U ||
+      session.find_node(created_uuid) != nullptr || session.nodes().size() != 4U ||
       session.restore_mesh_renderer_node(snapshot, created_node) != gneiss::result::success ||
-      session.find_node(created_uuid) == nullptr || session.nodes().size() != 3U) {
+      session.find_node(created_uuid) == nullptr || session.nodes().size() != 5U) {
     return 6;
   }
   if (session.save(root) != gneiss::result::success || session.is_dirty()) {
