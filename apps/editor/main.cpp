@@ -70,7 +70,8 @@ void draw_scene_node(gneiss::editor::editor_session& session,
   const auto& nodes = session.nodes();
   const auto has_children = std::ranges::any_of(
       nodes, [node_id = node.node](const auto& candidate) { return candidate.parent == node_id; });
-  auto flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_SpanAvailWidth;
+  auto flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_SpanAvailWidth |
+               ImGuiTreeNodeFlags_FramePadding;
   if (!has_children) {
     flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen;
   }

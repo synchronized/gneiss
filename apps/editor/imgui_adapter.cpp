@@ -16,6 +16,17 @@ namespace {
 constexpr float editor_width = 1280.0F;
 constexpr float editor_height = 720.0F;
 
+constexpr std::uint32_t premultiply_color(std::uint32_t color) noexcept {
+  const auto alpha = (color >> 24U) & 0xffU;
+  const auto premultiply = [alpha](std::uint32_t channel) {
+    return (channel * alpha + 127U) / 255U;
+  };
+  return (alpha << 24U) | (premultiply((color >> 16U) & 0xffU) << 16U) |
+         (premultiply((color >> 8U) & 0xffU) << 8U) | premultiply(color & 0xffU);
+}
+
+static_assert(premultiply_color(0x80ffffffU) == 0x80808080U);
+
 ImGuiKey map_key(std::uint32_t key) noexcept {
   if (key >= GNEISS_PHYSICAL_KEY_A && key <= GNEISS_PHYSICAL_KEY_Z) {
     return static_cast<ImGuiKey>(ImGuiKey_A + key - GNEISS_PHYSICAL_KEY_A);
@@ -133,6 +144,7 @@ gneiss_result imgui_adapter::initialize(gneiss_application application) {
   io.Fonts->Clear();
   ImFontConfig font_config{};
   font_config.SizePixels = 15.0F;
+  font_config.PixelSnapH = true;
   io.FontDefault = io.Fonts->AddFontDefault(&font_config);
   if (io.FontDefault == nullptr) {
     return GNEISS_ERROR_OUT_OF_MEMORY;
@@ -276,7 +288,8 @@ gneiss_result imgui_adapter::submit(gneiss_application application) {
       vertices_.push_back(
           {{vertex.pos.x - draw_data->DisplayPos.x, vertex.pos.y - draw_data->DisplayPos.y},
            {vertex.uv.x, vertex.uv.y},
-           vertex.col});
+           // Granit Canvas 使用预乘 Alpha，顶点色必须与字体图集采用相同约定。
+           premultiply_color(vertex.col)});
     }
     for (const auto index : source->IdxBuffer) {
       indices_.push_back(static_cast<std::uint32_t>(index));
