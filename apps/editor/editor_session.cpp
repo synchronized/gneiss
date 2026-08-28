@@ -6,10 +6,14 @@
 #include <gneiss/asset.h>
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cstdint>
 #include <fstream>
+#include <iomanip>
 #include <new>
+#include <random>
+#include <sstream>
 #include <system_error>
 #include <utility>
 
@@ -48,6 +52,25 @@ namespace {
 #endif
 }
 
+[[nodiscard]] std::string make_uuid() {
+  std::array<std::uint8_t, 16> bytes{};
+  std::random_device random;
+  for (auto& byte : bytes) {
+    byte = static_cast<std::uint8_t>(random());
+  }
+  bytes[6] = static_cast<std::uint8_t>((bytes[6] & 0x0fU) | 0x40U);
+  bytes[8] = static_cast<std::uint8_t>((bytes[8] & 0x3fU) | 0x80U);
+  std::ostringstream output;
+  output << std::hex << std::setfill('0');
+  for (std::size_t index = 0; index < bytes.size(); ++index) {
+    if (index == 4U || index == 6U || index == 8U || index == 10U) {
+      output << '-';
+    }
+    output << std::setw(2) << static_cast<unsigned int>(bytes[index]);
+  }
+  return output.str();
+}
+
 } // namespace
 
 result editor_session::open(gneiss_application application, gneiss_world world,
@@ -78,8 +101,16 @@ result editor_session::open(gneiss_application application, gneiss_world world,
       const auto display_name =
           info.name == nullptr ? uuid
                                : std::string{info.name, static_cast<std::size_t>(info.name_length)};
-      records.push_back({scene_node_id{info.node}, scene_node_id{info.parent},
-                         entity_id{info.entity}, std::move(uuid), display_name});
+      records.push_back(
+          {scene_node_id{info.node}, scene_node_id{info.parent}, entity_id{info.entity},
+           std::move(uuid), display_name,
+           info.mesh_uri == nullptr
+               ? std::string{}
+               : std::string{info.mesh_uri, static_cast<std::size_t>(info.mesh_uri_length)},
+           info.material_uri == nullptr
+               ? std::string{}
+               : std::string{info.material_uri,
+                             static_cast<std::size_t>(info.material_uri_length)}});
     }
     scene_ = std::move(pending);
     nodes_ = std::move(records);
@@ -130,6 +161,89 @@ result editor_session::select(scene_node_id node) noexcept {
 
 result editor_session::validate_selection() noexcept {
   return selection_.is_valid() ? select(selection_) : result::success;
+}
+
+result editor_session::create_mesh_renderer_node(std::string_view name, std::string_view mesh_uri,
+                                                 std::string_view material_uri,
+                                                 scene_node_id& out_node) noexcept {
+  if (!is_open() || mesh_uri.empty() || material_uri.empty()) {
+    return result::invalid_argument;
+  }
+  try {
+    const auto uuid = make_uuid();
+    const auto display_name = name.empty() ? uuid : std::string{name};
+    const std::string mesh(mesh_uri);
+    const std::string material(material_uri);
+    nodes_.reserve(nodes_.size() + 1U);
+    scene_mesh_renderer_node_desc desc = GNEISS_SCENE_MESH_RENDERER_NODE_DESC_INIT;
+    desc.uuid = uuid.data();
+    desc.uuid_length = uuid.size();
+    desc.name = name.empty() ? nullptr : name.data();
+    desc.name_length = name.size();
+    desc.renderer.mesh_uri = mesh_uri.data();
+    desc.renderer.mesh_uri_length = mesh_uri.size();
+    desc.renderer.material_uri = material_uri.data();
+    desc.renderer.material_uri_length = material_uri.size();
+    auto operation = scene_.create_mesh_renderer_node(desc, out_node);
+    if (operation != result::success) {
+      return operation;
+    }
+    std::uint64_t count = 0;
+    scene_instance_node_info info = GNEISS_SCENE_INSTANCE_NODE_INFO_INIT;
+    operation = scene_.get_node_count(count);
+    if (operation == result::success && count > 0U) {
+      operation = scene_.get_node_info(count - 1U, info);
+    }
+    if (operation != result::success) {
+      return operation;
+    }
+    nodes_.push_back({.node = scene_node_id{info.node},
+                      .parent = scene_node_id{info.parent},
+                      .entity = entity_id{info.entity},
+                      .uuid = uuid,
+                      .display_name = display_name,
+                      .mesh_uri = mesh,
+                      .material_uri = material});
+    selection_ = out_node;
+    is_dirty_ = true;
+    return result::success;
+  } catch (const std::bad_alloc&) {
+    return result::out_of_memory;
+  } catch (...) {
+    return result::internal;
+  }
+}
+
+result editor_session::set_mesh_renderer(scene_node_id node, std::string_view mesh_uri,
+                                         std::string_view material_uri) noexcept {
+  if (!is_open() || !node.is_valid() || mesh_uri.empty() || material_uri.empty()) {
+    return result::invalid_argument;
+  }
+  const auto found = std::ranges::find(nodes_, node, &scene_node_record::node);
+  if (found == nodes_.end()) {
+    return result::not_found;
+  }
+  try {
+    std::string mesh(mesh_uri);
+    std::string material(material_uri);
+    scene_mesh_renderer_desc desc = GNEISS_SCENE_MESH_RENDERER_DESC_INIT;
+    desc.mesh_uri = mesh.data();
+    desc.mesh_uri_length = mesh.size();
+    desc.material_uri = material.data();
+    desc.material_uri_length = material.size();
+    const auto operation = scene_.set_mesh_renderer(node, desc);
+    if (operation != result::success) {
+      return operation;
+    }
+    found->mesh_uri.swap(mesh);
+    found->material_uri.swap(material);
+    is_dirty_ = true;
+    return result::success;
+  } catch (const std::bad_alloc&) {
+    return result::out_of_memory;
+  } catch (...) {
+    return result::internal;
+  }
 }
 
 result editor_session::save(const std::filesystem::path& asset_root) noexcept {

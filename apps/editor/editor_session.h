@@ -19,6 +19,8 @@ struct scene_node_record final {
   entity_id entity;
   std::string uuid;
   std::string display_name;
+  std::string mesh_uri;
+  std::string material_uri;
 };
 
 class editor_session final {
@@ -36,6 +38,11 @@ public:
 
   [[nodiscard]] result select(scene_node_id node) noexcept;
   [[nodiscard]] result validate_selection() noexcept;
+  [[nodiscard]] result create_mesh_renderer_node(std::string_view name, std::string_view mesh_uri,
+                                                 std::string_view material_uri,
+                                                 scene_node_id& out_node) noexcept;
+  [[nodiscard]] result set_mesh_renderer(scene_node_id node, std::string_view mesh_uri,
+                                         std::string_view material_uri) noexcept;
   /** 将当前场景原子替换到原 asset URI；成功后清除脏状态。 */
   [[nodiscard]] result save(const std::filesystem::path& asset_root) noexcept;
   void mark_dirty() noexcept { is_dirty_ = true; }

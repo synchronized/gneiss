@@ -33,20 +33,33 @@ Transform；持久化文件仍不得保存节点 ID。
 ## 节点枚举
 
 `gneiss_scene_instance_get_node_count` 与 `gneiss_scene_instance_get_node_info` 按作者场景 `objects`
-数组的稳定顺序枚举实例节点。节点描述包含当前 Node ID、父 Node ID、Entity ID、规范 UUID 和可选
-显示名称。作者 JSON 可为对象增加可选字符串 `name`；旧场景无需迁移，名称为空时由调用方选择
-UUID 等回退显示文本。
+数组的稳定顺序枚举实例节点。节点描述包含当前 Node ID、父 Node ID、Entity ID、规范 UUID、可选
+显示名称以及可选 Mesh/Material 作者 URI。作者 JSON 可为对象增加可选字符串 `name`；旧场景无需
+迁移，名称为空时由调用方选择 UUID 等回退显示文本。
 
 节点描述中的 UTF-8 UUID 和名称是实例借出的“指针 + 长度”视图，不以零结尾为契约，不能由调用方
 释放；实例卸载或 Application 销毁后立即失效。`out_info` 必须以
 `GNEISS_SCENE_INSTANCE_NODE_INFO_INIT` 初始化。索引越界返回 `GNEISS_ERROR_NOT_FOUND`；节点或实体
 已被外部销毁时返回句柄错误。C++ 包装提供对应的 `get_node_count` 和 `get_node_info`。
 
+## 作者节点编辑
+
+`gneiss_scene_instance_create_mesh_renderer_node` 原子创建带 Mesh Renderer 的作者节点。调用方提供
+稳定 UUID、可选名称、实例内父节点及 Mesh/Material URI；实现会先获取两个资产租约，再创建 Entity、
+Scene Node 和 ECS 组件。任何阶段失败都不增加作者对象或泄漏资源。
+
+`gneiss_scene_instance_set_mesh_renderer` 原子替换实例节点的 Mesh 与 Material。新资产全部获取成功且
+ECS 组件更新成功后，才替换作者 URI 和旧租约；失败保留原引用。父节点必须属于同一场景实例，节点
+ID 和实例不能跨 Application 使用。这两项操作仅限 Application 创建线程。
+
+C++ `gneiss::scene_instance` 提供对应强类型包装。创建与替换会进入后续序列化结果，但不会自行写入
+来源文件；Editor 仍负责脏状态和原子保存。
+
 ## 运行时属性序列化
 
-`gneiss_scene_instance_serialize` 将实例当前的局部 Transform 和 Camera 属性合并回加载时的作者
-文档，并输出当前版本的 UTF-8 场景 JSON。保存会保留未被 Runtime 解释的未知字段，不会覆盖来源
-文件，也不会持久化 Entity ID、Scene Node ID 或资源 RID。
+`gneiss_scene_instance_serialize` 将实例当前的局部 Transform、Camera、已创建作者节点和 Mesh
+Renderer 引用合并回加载时的作者文档，并输出当前版本的 UTF-8 场景 JSON。保存会保留未被 Runtime
+解释的未知字段，不会覆盖来源文件，也不会持久化 Entity ID、Scene Node ID 或资源 RID。
 
 C 接口使用两次调用：先以空 `buffer` 和零 `capacity` 查询不含字符串终止符的字节数，再提供足够
 容量的缓冲区。容量不足返回 `GNEISS_ERROR_INVALID_ARGUMENT`，同时通过 `out_length` 返回所需长度。

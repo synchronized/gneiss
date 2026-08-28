@@ -31,6 +31,23 @@ gneiss_transform to_transform(const object_description& object) noexcept {
   return value;
 }
 
+[[nodiscard]] bool is_canonical_uuid(std::string_view value) noexcept {
+  if (value.size() != 36U) {
+    return false;
+  }
+  for (std::size_t index = 0; index < value.size(); ++index) {
+    if (index == 8U || index == 13U || index == 18U || index == 23U) {
+      if (value[index] != '-') {
+        return false;
+      }
+    } else if ((value[index] < '0' || value[index] > '9') &&
+               (value[index] < 'a' || value[index] > 'f')) {
+      return false;
+    }
+  }
+  return true;
+}
+
 gneiss_result stage_assets(const scene_description& description,
                            render_internal::render_asset_loader& loader, scene_instance& instance) {
   instance.objects.reserve(description.objects.size());
@@ -175,7 +192,122 @@ gneiss_result scene_instance::get_node_info(std::uint64_t index,
   out_info.uuid_length = object.uuid.size();
   out_info.name = object.name.empty() ? nullptr : object.name.data();
   out_info.name_length = object.name.size();
+  if (out_info.struct_size >= GNEISS_SCENE_INSTANCE_NODE_INFO_VERSION_2_SIZE) {
+    const auto& author = description.objects[static_cast<std::size_t>(index)];
+    out_info.mesh_uri = author.mesh_renderer ? author.mesh_renderer->mesh_uri.data() : nullptr;
+    out_info.mesh_uri_length =
+        author.mesh_renderer ? author.mesh_renderer->mesh_uri.size() : UINT64_C(0);
+    out_info.material_uri =
+        author.mesh_renderer ? author.mesh_renderer->material_uri.data() : nullptr;
+    out_info.material_uri_length =
+        author.mesh_renderer ? author.mesh_renderer->material_uri.size() : UINT64_C(0);
+  }
   return GNEISS_SUCCESS;
+}
+
+gneiss_result
+scene_instance::create_mesh_renderer_node(const gneiss_scene_mesh_renderer_node_desc& desc,
+                                          gneiss_scene_node_id* out_node) {
+  const std::string_view uuid(desc.uuid, static_cast<std::size_t>(desc.uuid_length));
+  const std::string_view name(desc.name == nullptr ? "" : desc.name,
+                              static_cast<std::size_t>(desc.name_length));
+  const std::string_view mesh_uri(desc.renderer.mesh_uri,
+                                  static_cast<std::size_t>(desc.renderer.mesh_uri_length));
+  const std::string_view material_uri(desc.renderer.material_uri,
+                                      static_cast<std::size_t>(desc.renderer.material_uri_length));
+  if (!is_canonical_uuid(uuid) || find_node(uuid) != GNEISS_NULL_SCENE_NODE_ID) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  std::optional<std::string> parent_uuid;
+  if (desc.parent != GNEISS_NULL_SCENE_NODE_ID) {
+    const auto parent = std::ranges::find(objects, desc.parent, &object::node);
+    if (parent == objects.end()) {
+      return GNEISS_ERROR_INVALID_HANDLE;
+    }
+    parent_uuid = parent->uuid;
+  }
+
+  try {
+    object_description author{
+        .uuid = std::string(uuid),
+        .name = std::string(name),
+        .parent_uuid = std::move(parent_uuid),
+        .translation = {},
+        .rotation = {0.0F, 0.0F, 0.0F, 1.0F},
+        .scale = {1.0F, 1.0F, 1.0F},
+        .camera = std::nullopt,
+        .mesh_renderer = mesh_renderer_description{.mesh_uri = std::string(mesh_uri),
+                                                   .material_uri = std::string(material_uri)}};
+    objects.reserve(objects.size() + 1U);
+    description.objects.reserve(description.objects.size() + 1U);
+    object target{};
+    target.uuid = author.uuid;
+    target.name = author.name;
+    render_internal::asset_diagnostic diagnostic;
+    auto result = loader_.acquire_mesh(mesh_uri, target.mesh, diagnostic);
+    if (result == GNEISS_SUCCESS) {
+      result = loader_.acquire_material(material_uri, target.material, diagnostic);
+    }
+    if (result != GNEISS_SUCCESS) {
+      return result;
+    }
+    result = commit_object(world_, author, target, desc.parent);
+    if (result != GNEISS_SUCCESS) {
+      if (target.entity != GNEISS_NULL_ENTITY_ID) {
+        (void)gneiss_world_entity_destroy(world_, target.entity);
+      }
+      if (target.node != GNEISS_NULL_SCENE_NODE_ID) {
+        (void)gneiss_scene_node_destroy(world_, target.node);
+      }
+      return result;
+    }
+    *out_node = target.node;
+    objects.push_back(std::move(target));
+    description.objects.push_back(std::move(author));
+    return GNEISS_SUCCESS;
+  } catch (const std::bad_alloc&) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
+gneiss_result scene_instance::set_mesh_renderer(gneiss_scene_node_id node,
+                                                std::string_view mesh_uri,
+                                                std::string_view material_uri) {
+  const auto found = std::ranges::find(objects, node, &object::node);
+  if (found == objects.end()) {
+    return GNEISS_ERROR_INVALID_HANDLE;
+  }
+  try {
+    mesh_renderer_description author{.mesh_uri = std::string(mesh_uri),
+                                     .material_uri = std::string(material_uri)};
+    render_internal::mesh_asset_lease mesh;
+    render_internal::material_asset_lease material;
+    render_internal::asset_diagnostic diagnostic;
+    auto result = loader_.acquire_mesh(mesh_uri, mesh, diagnostic);
+    if (result == GNEISS_SUCCESS) {
+      result = loader_.acquire_material(material_uri, material, diagnostic);
+    }
+    if (result != GNEISS_SUCCESS) {
+      return result;
+    }
+    const gneiss_mesh_renderer renderer{.mesh = mesh.get(), .material = material.get()};
+    result = gneiss_world_entity_set_mesh_renderer(world_, found->entity, &renderer);
+    if (result != GNEISS_SUCCESS) {
+      return result;
+    }
+    const auto index = static_cast<std::size_t>(std::distance(objects.begin(), found));
+    description.objects[index].mesh_renderer = std::move(author);
+    found->mesh = std::move(mesh);
+    found->material = std::move(material);
+    loader_.release_unused();
+    return GNEISS_SUCCESS;
+  } catch (const std::bad_alloc&) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
 }
 
 gneiss_result scene_instance::serialize(std::string& out_json) const {
@@ -304,13 +436,60 @@ scene_instance_service::get_node_info(gneiss_scene_instance instance, std::uint6
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
   const auto struct_size = out_info->struct_size;
-  *out_info = GNEISS_SCENE_INSTANCE_NODE_INFO_INIT;
+  out_info->reserved = 0U;
+  out_info->node = GNEISS_NULL_SCENE_NODE_ID;
+  out_info->parent = GNEISS_NULL_SCENE_NODE_ID;
+  out_info->entity = GNEISS_NULL_ENTITY_ID;
+  out_info->uuid = nullptr;
+  out_info->uuid_length = 0U;
+  out_info->name = nullptr;
+  out_info->name_length = 0U;
+  out_info->reserved_2[0] = 0U;
+  out_info->reserved_2[1] = 0U;
+  if (struct_size >= GNEISS_SCENE_INSTANCE_NODE_INFO_VERSION_2_SIZE) {
+    out_info->mesh_uri = nullptr;
+    out_info->mesh_uri_length = 0U;
+    out_info->material_uri = nullptr;
+    out_info->material_uri_length = 0U;
+  }
   out_info->struct_size = struct_size;
   const auto* value = instances_.get(instance, core::resource_type::scene_instance);
   if (value == nullptr || *value == nullptr) {
     return GNEISS_ERROR_INVALID_HANDLE;
   }
   return (*value)->get_node_info(index, *out_info);
+}
+
+gneiss_result
+scene_instance_service::create_mesh_renderer_node(gneiss_scene_instance instance,
+                                                  const gneiss_scene_mesh_renderer_node_desc& desc,
+                                                  gneiss_scene_node_id* out_node) noexcept {
+  if (out_node == nullptr) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  *out_node = GNEISS_NULL_SCENE_NODE_ID;
+  try {
+    auto* value = instances_.get(instance, core::resource_type::scene_instance);
+    return value == nullptr || *value == nullptr
+               ? GNEISS_ERROR_INVALID_HANDLE
+               : (*value)->create_mesh_renderer_node(desc, out_node);
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
+gneiss_result scene_instance_service::set_mesh_renderer(gneiss_scene_instance instance,
+                                                        gneiss_scene_node_id node,
+                                                        std::string_view mesh_uri,
+                                                        std::string_view material_uri) noexcept {
+  try {
+    auto* value = instances_.get(instance, core::resource_type::scene_instance);
+    return value == nullptr || *value == nullptr
+               ? GNEISS_ERROR_INVALID_HANDLE
+               : (*value)->set_mesh_renderer(node, mesh_uri, material_uri);
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
 }
 
 } // namespace gneiss::scene_internal

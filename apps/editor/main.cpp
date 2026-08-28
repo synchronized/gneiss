@@ -25,6 +25,7 @@
 #include <new>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace {
 
@@ -47,6 +48,8 @@ struct editor_state {
   ImGuiTextFilter asset_filter;
   gneiss::editor::editor_import_report last_import;
   bool import_attempted = false;
+  gneiss::result asset_scene_result = gneiss::result::success;
+  bool asset_scene_attempted = false;
 #endif
 };
 
@@ -192,6 +195,33 @@ void draw_reflected_properties(editor_state& state) {
   return "Unknown";
 }
 
+[[nodiscard]] bool is_mesh_asset(const gneiss::editor::asset_browser_entry& entry) {
+  return entry.asset_uri.ends_with(".gneiss-mesh") || entry.asset_uri.ends_with(".mesh.json");
+}
+
+[[nodiscard]] bool is_material_asset(const gneiss::editor::asset_browser_entry& entry) {
+  return entry.asset_uri.ends_with(".material.json");
+}
+
+[[nodiscard]] const gneiss::editor::asset_browser_entry*
+find_material_for_mesh(const std::vector<gneiss::editor::asset_browser_entry>& entries,
+                       const gneiss::editor::asset_browser_entry& mesh) {
+  const auto models = mesh.asset_uri.find("/models/");
+  const auto prefix =
+      models == std::string::npos ? std::string{} : mesh.asset_uri.substr(0U, models);
+  const auto preferred = prefix + "/materials/material-0.material.json";
+  const auto exact =
+      std::ranges::find(entries, preferred, &gneiss::editor::asset_browser_entry::asset_uri);
+  if (exact != entries.end()) {
+    return &*exact;
+  }
+  const auto found = std::ranges::find_if(entries, [&prefix](const auto& entry) {
+    return is_material_asset(entry) &&
+           (prefix.empty() || entry.asset_uri.starts_with(prefix + "/materials/"));
+  });
+  return found == entries.end() ? nullptr : &*found;
+}
+
 void draw_asset_browser(editor_state& state) {
   ImGui::SetNextWindowPos(ImVec2(0.0F, 440.0F));
   ImGui::SetNextWindowSize(ImVec2(250.0F, 280.0F));
@@ -242,6 +272,45 @@ void draw_asset_browser(editor_state& state) {
       ImGui::TextColored(gneiss::editor::theme_error_color(), "Import failed: %s",
                          state.last_import.diagnostic.c_str());
     }
+  }
+  const auto* scene_node = state.session.selected_node();
+  const auto* paired_material =
+      selected_entry != state.assets.entries().end() && is_mesh_asset(*selected_entry)
+          ? find_material_for_mesh(state.assets.entries(), *selected_entry)
+          : nullptr;
+  const auto can_add = selected_entry != state.assets.entries().end() &&
+                       is_mesh_asset(*selected_entry) && paired_material != nullptr;
+  ImGui::BeginDisabled(!can_add);
+  const auto add_requested = ImGui::Button("Add Mesh");
+  ImGui::EndDisabled();
+  if (add_requested) {
+    gneiss::scene_node_id node;
+    state.asset_scene_result = state.session.create_mesh_renderer_node(
+        selected_entry->display_name, selected_entry->asset_uri, paired_material->asset_uri, node);
+    state.asset_scene_attempted = true;
+  }
+  const auto can_apply_mesh = scene_node != nullptr && !scene_node->material_uri.empty() &&
+                              selected_entry != state.assets.entries().end() &&
+                              is_mesh_asset(*selected_entry);
+  const auto can_apply_material = scene_node != nullptr && !scene_node->mesh_uri.empty() &&
+                                  selected_entry != state.assets.entries().end() &&
+                                  is_material_asset(*selected_entry);
+  ImGui::SameLine();
+  ImGui::BeginDisabled(!can_apply_mesh && !can_apply_material);
+  const auto apply_requested = ImGui::Button("Apply to Node");
+  ImGui::EndDisabled();
+  if (apply_requested) {
+    const auto mesh_uri = can_apply_mesh ? selected_entry->asset_uri : scene_node->mesh_uri;
+    const auto material_uri =
+        can_apply_material ? selected_entry->asset_uri : scene_node->material_uri;
+    state.asset_scene_result =
+        state.session.set_mesh_renderer(scene_node->node, mesh_uri, material_uri);
+    state.asset_scene_attempted = true;
+  }
+  if (state.asset_scene_attempted && state.asset_scene_result != gneiss::result::success) {
+    const auto message = gneiss::result_message(state.asset_scene_result);
+    ImGui::TextColored(gneiss::editor::theme_error_color(), "Scene edit failed: %.*s",
+                       static_cast<int>(message.size()), message.data());
   }
   ImGui::Separator();
   for (const auto& entry : state.assets.entries()) {

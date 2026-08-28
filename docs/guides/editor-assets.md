@@ -29,6 +29,16 @@
 导入失败不会覆盖该源文件上一份完整索引和派生产物。修改源内容、删除派生产物或删除源文件后，
 选择 `Refresh` 会分别显示 `Stale` 或 `Missing`；未建立索引的源文件显示 `Untracked`。
 
+## 放入场景
+
+- 选择导入产生的 `.gneiss-mesh` 后使用 `Add Mesh`，Editor 会自动配对同一导入目录中的首个
+  Material，并创建新的根场景节点。
+- 选中已有 Mesh Renderer 节点后，在 Asset Browser 选择 Mesh 或 Material，再使用
+  `Apply to Node` 替换对应引用。
+- 成功操作会把场景标记为已修改；使用 `Save` 或 `Ctrl+S` 后，重新加载工程仍保留节点和引用。
+
+资产放置通过 Scene Instance 作者编辑 API 完成，不直接保存 RID，也不建立 Editor 私有场景状态。
+
 ## 当前限制
 
 - 只支持现有 glTF 导入器覆盖的静态 Mesh、Material、PNG Texture 和 Scene 范围。

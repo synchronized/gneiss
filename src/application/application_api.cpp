@@ -15,6 +15,7 @@
 #include <memory>
 #include <mutex>
 #include <new>
+#include <string_view>
 
 namespace {
 
@@ -379,6 +380,62 @@ gneiss_scene_instance_get_node_info(gneiss_application application, gneiss_scene
     const auto validation_result = validate_application(state);
     return validation_result == GNEISS_SUCCESS
                ? state->scenes()->get_node_info(instance, index, out_info)
+               : validation_result;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
+extern "C" gneiss_result gneiss_scene_instance_create_mesh_renderer_node(
+    gneiss_application application, gneiss_scene_instance instance,
+    const gneiss_scene_mesh_renderer_node_desc* desc, gneiss_scene_node_id* out_node) {
+  if (desc == nullptr || out_node == nullptr ||
+      desc->struct_size < sizeof(gneiss_scene_mesh_renderer_node_desc) ||
+      desc->renderer.struct_size < sizeof(gneiss_scene_mesh_renderer_desc) ||
+      desc->uuid == nullptr || desc->uuid_length == 0U ||
+      (desc->name == nullptr && desc->name_length != 0U) || desc->renderer.mesh_uri == nullptr ||
+      desc->renderer.mesh_uri_length == 0U || desc->renderer.material_uri == nullptr ||
+      desc->renderer.material_uri_length == 0U ||
+      desc->uuid_length > std::numeric_limits<std::size_t>::max() ||
+      desc->name_length > std::numeric_limits<std::size_t>::max() ||
+      desc->renderer.mesh_uri_length > std::numeric_limits<std::size_t>::max() ||
+      desc->renderer.material_uri_length > std::numeric_limits<std::size_t>::max()) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  *out_node = GNEISS_NULL_SCENE_NODE_ID;
+  try {
+    auto state = find_application(application);
+    const auto validation_result = validate_application(state);
+    return validation_result == GNEISS_SUCCESS
+               ? state->scenes()->create_mesh_renderer_node(instance, *desc, out_node)
+               : validation_result;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
+extern "C" gneiss_result
+gneiss_scene_instance_set_mesh_renderer(gneiss_application application,
+                                        gneiss_scene_instance instance, gneiss_scene_node_id node,
+                                        const gneiss_scene_mesh_renderer_desc* desc) {
+  if (desc == nullptr || desc->struct_size < sizeof(gneiss_scene_mesh_renderer_desc) ||
+      node == GNEISS_NULL_SCENE_NODE_ID || desc->mesh_uri == nullptr ||
+      desc->mesh_uri_length == 0U || desc->material_uri == nullptr ||
+      desc->material_uri_length == 0U ||
+      desc->mesh_uri_length > std::numeric_limits<std::size_t>::max() ||
+      desc->material_uri_length > std::numeric_limits<std::size_t>::max()) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  try {
+    auto state = find_application(application);
+    const auto validation_result = validate_application(state);
+    return validation_result == GNEISS_SUCCESS
+               ? state->scenes()->set_mesh_renderer(
+                     instance, node,
+                     std::string_view(desc->mesh_uri,
+                                      static_cast<std::size_t>(desc->mesh_uri_length)),
+                     std::string_view(desc->material_uri,
+                                      static_cast<std::size_t>(desc->material_uri_length)))
                : validation_result;
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;

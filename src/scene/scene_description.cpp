@@ -325,6 +325,45 @@ template <std::size_t Size>
          yyjson_mut_obj_put(object, yyjson_mut_strcpy(document, name), value);
 }
 
+[[nodiscard]] yyjson_mut_val*
+make_author_object(yyjson_mut_doc* document,
+                   const gneiss::scene_internal::object_description& source) {
+  auto* object = yyjson_mut_obj(document);
+  auto* transform = yyjson_mut_obj(document);
+  auto* components = yyjson_mut_obj(document);
+  if (object == nullptr || transform == nullptr || components == nullptr ||
+      !yyjson_mut_obj_add_strncpy(document, object, "uuid", source.uuid.data(),
+                                  source.uuid.size()) ||
+      (!source.name.empty() &&
+       !yyjson_mut_obj_add_strncpy(document, object, "name", source.name.data(),
+                                   source.name.size())) ||
+      !put_value(document, object, "parent",
+                 source.parent_uuid ? yyjson_mut_strncpy(document, source.parent_uuid->data(),
+                                                         source.parent_uuid->size())
+                                    : yyjson_mut_null(document)) ||
+      !put_value(document, transform, "translation",
+                 make_float_array(document, source.translation)) ||
+      !put_value(document, transform, "rotation", make_float_array(document, source.rotation)) ||
+      !put_value(document, transform, "scale", make_float_array(document, source.scale)) ||
+      !put_value(document, object, "transform", transform)) {
+    return nullptr;
+  }
+  if (source.mesh_renderer) {
+    auto* renderer = yyjson_mut_obj(document);
+    if (renderer == nullptr ||
+        !yyjson_mut_obj_add_strncpy(document, renderer, "mesh",
+                                    source.mesh_renderer->mesh_uri.data(),
+                                    source.mesh_renderer->mesh_uri.size()) ||
+        !yyjson_mut_obj_add_strncpy(document, renderer, "material",
+                                    source.mesh_renderer->material_uri.data(),
+                                    source.mesh_renderer->material_uri.size()) ||
+        !put_value(document, components, "mesh_renderer", renderer)) {
+      return nullptr;
+    }
+  }
+  return put_value(document, object, "components", components) ? object : nullptr;
+}
+
 } // namespace
 
 namespace gneiss::scene_internal {
@@ -598,8 +637,14 @@ gneiss_result serialize_scene_description(const scene_description& scene,
     }
     yyjson_mut_val* root = yyjson_mut_doc_get_root(mutable_document.get());
     yyjson_mut_val* objects = yyjson_mut_obj_get(root, "objects");
-    if (!yyjson_mut_is_arr(objects) || yyjson_mut_arr_size(objects) != scene.objects.size()) {
+    if (!yyjson_mut_is_arr(objects) || yyjson_mut_arr_size(objects) > scene.objects.size()) {
       return GNEISS_ERROR_INVALID_STATE;
+    }
+    for (std::size_t index = yyjson_mut_arr_size(objects); index < scene.objects.size(); ++index) {
+      auto* object = make_author_object(mutable_document.get(), scene.objects[index]);
+      if (object == nullptr || !yyjson_mut_arr_add_val(objects, object)) {
+        return GNEISS_ERROR_OUT_OF_MEMORY;
+      }
     }
     for (std::size_t index = 0; index < scene.objects.size(); ++index) {
       const auto& source = scene.objects[index];
@@ -625,6 +670,26 @@ gneiss_result serialize_scene_description(const scene_description& scene,
                        yyjson_mut_real(mutable_document.get(), source.camera->far_plane)) ||
             !put_value(mutable_document.get(), camera, "is_primary",
                        yyjson_mut_bool(mutable_document.get(), source.camera->is_primary))) {
+          return GNEISS_ERROR_OUT_OF_MEMORY;
+        }
+      }
+      if (source.mesh_renderer) {
+        yyjson_mut_val* components = yyjson_mut_obj_get(object, "components");
+        yyjson_mut_val* renderer = yyjson_mut_obj_get(components, "mesh_renderer");
+        if (renderer == nullptr) {
+          renderer = yyjson_mut_obj(mutable_document.get());
+          if (!put_value(mutable_document.get(), components, "mesh_renderer", renderer)) {
+            return GNEISS_ERROR_OUT_OF_MEMORY;
+          }
+        }
+        if (!put_value(mutable_document.get(), renderer, "mesh",
+                       yyjson_mut_strncpy(mutable_document.get(),
+                                          source.mesh_renderer->mesh_uri.data(),
+                                          source.mesh_renderer->mesh_uri.size())) ||
+            !put_value(mutable_document.get(), renderer, "material",
+                       yyjson_mut_strncpy(mutable_document.get(),
+                                          source.mesh_renderer->material_uri.data(),
+                                          source.mesh_renderer->material_uri.size()))) {
           return GNEISS_ERROR_OUT_OF_MEMORY;
         }
       }
