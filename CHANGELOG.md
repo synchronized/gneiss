@@ -7,6 +7,10 @@
 
 ## 未发布
 
+暂无。
+
+## 0.8.0 - 2026-08-28
+
 - 增加 Editor 共用资产导入 SDK、版本化资产索引和 Asset Browser，支持 glTF/GLB 导入、状态检测与
   重新导入。
 - 增加 Scene Instance 作者编辑接口，支持创建 Mesh Renderer 节点、替换资源、删除叶节点并保留
