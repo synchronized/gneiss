@@ -743,11 +743,26 @@ bool draw_transform_gizmo(editor_state& state, const ImVec2& minimum,
     return false;
   }
 
+  const auto* viewport = ImGui::GetMainViewport();
+  if (viewport == nullptr || viewport->Size.x <= 1.0F || viewport->Size.y <= 1.0F) {
+    return false;
+  }
   auto view = build_view_matrix(state.camera.current_transform());
-  auto projection = build_projection_matrix(size.x / size.y);
+  auto projection = build_projection_matrix(viewport->Size.x / viewport->Size.y);
+  gneiss::editor::gizmo_matrix grid = {
+      1.0F, 0.0F, 0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F,
+      0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 0.0F, 0.0F, 1.0F};
   ImGuizmo::SetOrthographic(false);
   ImGuizmo::SetDrawlist(ImGui::GetWindowDrawList());
-  ImGuizmo::SetRect(minimum.x, minimum.y, size.x, size.y);
+  ImGuizmo::SetRect(viewport->Pos.x, viewport->Pos.y, viewport->Size.x, viewport->Size.y);
+  ImGuizmo::DrawGridCustomColor(
+      view.data(), projection.data(), grid.data(), 20.0F, 1.0F, 4U,
+      IM_COL32(166, 173, 200, 90), IM_COL32(108, 112, 134, 45),
+      IM_COL32(137, 180, 250, 150));
+  ImGuizmo::DrawAxes(view.data(), projection.data(), grid.data(), 1);
+  ImGui::GetWindowDrawList()->AddText(
+      ImVec2(minimum.x + 8.0F, minimum.y + size.y - ImGui::GetTextLineHeight() - 8.0F),
+      IM_COL32(205, 214, 244, 210), "Grid: 1 unit = 1 m | minor: 0.25 m");
   const auto native_operation = state.gizmo_mode == gizmo_operation::translate
                                     ? ImGuizmo::TRANSLATE
                                     : state.gizmo_mode == gizmo_operation::rotate
