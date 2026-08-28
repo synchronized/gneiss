@@ -11,7 +11,7 @@
 - 增加版本化工程文件、Project Manager、最近工程及原子创建最小工程，并以工程根作为统一入口。
 - 接入固定版本 Dear ImGui、后端无关 UI Draw List、`Gneiss Mocha` 主题和 Inter 界面字体。
 - 将 Editor Demo 与 Lantern Gallery 组装为可直接打开的工程，并增加 Editor 端到端冒烟测试。
-- Windows Clang 共享/静态及 Visual Studio 共享矩阵通过；Linux 发布候选验证仍待完成。
+- Windows Clang/MSVC 与 Linux Clang/GCC 共享/静态矩阵、安装 Consumer 及无头 Editor 图形验证通过。
 
 ## 0.6.0 - 2026-08-28
 
