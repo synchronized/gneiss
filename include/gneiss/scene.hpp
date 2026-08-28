@@ -75,6 +75,20 @@ public:
     return from_native(native_result);
   }
 
+  [[nodiscard]] static result create_empty(gneiss_application application,
+                                           std::string_view scene_uuid,
+                                           scene_instance& out_instance) noexcept {
+    gneiss_scene_instance handle = GNEISS_NULL_SCENE_INSTANCE;
+    const auto native_result = gneiss_scene_instance_create_empty(application, scene_uuid.data(),
+                                                                  scene_uuid.size(), &handle);
+    if (native_result == GNEISS_SUCCESS) {
+      out_instance.reset();
+      out_instance.application_ = application;
+      out_instance.handle_ = handle;
+    }
+    return from_native(native_result);
+  }
+
   [[nodiscard]] bool is_valid() const noexcept { return handle_ != GNEISS_NULL_SCENE_INSTANCE; }
   [[nodiscard]] gneiss_scene_instance get() const noexcept { return handle_; }
   [[nodiscard]] result find_node(std::string_view uuid, scene_node_id& out_node) const noexcept {

@@ -83,6 +83,8 @@ public:
   [[nodiscard]] bool is_valid() const noexcept { return domain_ != 0U; }
   [[nodiscard]] gneiss_result load(std::string_view uri,
                                    gneiss_scene_instance* out_instance) noexcept;
+  [[nodiscard]] gneiss_result create_empty(std::string_view scene_uuid,
+                                           gneiss_scene_instance* out_instance) noexcept;
   [[nodiscard]] gneiss_result unload(gneiss_scene_instance instance) noexcept;
   [[nodiscard]] gneiss_result find_node(gneiss_scene_instance instance, std::string_view uuid,
                                         gneiss_scene_node_id* out_node) const noexcept;

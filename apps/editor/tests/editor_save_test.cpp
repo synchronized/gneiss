@@ -148,6 +148,19 @@ int main() try {
       !session.is_dirty() || read_text(scene_path) != saved) {
     return 10;
   }
+  constexpr std::string_view new_scene_uuid = "00000000-0000-4000-8000-000000000099";
+  constexpr std::string_view new_scene_uri = "asset://scenes/new.scene.json";
+  gneiss::scene_node_id new_node;
+  if (session.create_empty(application.get(), world, new_scene_uuid) != gneiss::result::success ||
+      !session.is_open() || !session.is_dirty() || !session.uri().empty() ||
+      session.create_node("Root", {}, new_node) != gneiss::result::success ||
+      session.save(root) != gneiss::result::invalid_argument ||
+      session.save_as(root, new_scene_uri) != gneiss::result::success || session.is_dirty() ||
+      session.uri() != new_scene_uri ||
+      session.save_as(root, new_scene_uri) != gneiss::result::invalid_state ||
+      read_text(root / "scenes" / "new.scene.json").find(new_scene_uuid) == std::string::npos) {
+    return 17;
+  }
   session.close();
   application.reset();
 

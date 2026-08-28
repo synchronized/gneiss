@@ -294,6 +294,23 @@ int main() try {
       entity_count != 2U) {
     return 9;
   }
+  constexpr std::string_view empty_uuid = "00000000-0000-4000-8000-000000000099";
+  gneiss_scene_instance empty_scene = GNEISS_NULL_SCENE_INSTANCE;
+  std::uint64_t empty_count = 1U;
+  if (gneiss_scene_instance_create_empty(application, "invalid", 7U, &empty_scene) !=
+          GNEISS_ERROR_INVALID_ARGUMENT ||
+      empty_scene != GNEISS_NULL_SCENE_INSTANCE ||
+      gneiss_scene_instance_create_empty(application, empty_uuid.data(), empty_uuid.size(),
+                                         &empty_scene) != GNEISS_SUCCESS ||
+      gneiss_scene_instance_get_node_count(application, empty_scene, &empty_count) !=
+          GNEISS_SUCCESS ||
+      empty_count != 0U ||
+      gneiss_scene_instance_serialize(application, empty_scene, nullptr, 0U, &json_length) !=
+          GNEISS_SUCCESS ||
+      json_length == 0U ||
+      gneiss_scene_instance_unload(application, empty_scene) != GNEISS_SUCCESS) {
+    return 13;
+  }
   if (gneiss_scene_instance_unload(second_application, scene) != GNEISS_ERROR_INVALID_HANDLE ||
       gneiss_scene_instance_unload(application, scene) != GNEISS_SUCCESS ||
       gneiss_scene_instance_unload(application, scene) != GNEISS_ERROR_INVALID_HANDLE ||

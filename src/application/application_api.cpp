@@ -314,6 +314,28 @@ extern "C" gneiss_result gneiss_scene_instance_load(gneiss_application applicati
   }
 }
 
+extern "C" gneiss_result gneiss_scene_instance_create_empty(gneiss_application application,
+                                                            const char* scene_uuid,
+                                                            uint64_t scene_uuid_length,
+                                                            gneiss_scene_instance* out_instance) {
+  if (out_instance == nullptr || scene_uuid == nullptr || scene_uuid_length == 0U ||
+      scene_uuid_length > std::numeric_limits<std::size_t>::max()) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  *out_instance = GNEISS_NULL_SCENE_INSTANCE;
+  try {
+    auto state = find_application(application);
+    const auto validation_result = validate_application(state);
+    return validation_result == GNEISS_SUCCESS
+               ? state->scenes()->create_empty(
+                     std::string_view(scene_uuid, static_cast<std::size_t>(scene_uuid_length)),
+                     out_instance)
+               : validation_result;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters): C ABI 句柄名称区分所属关系。
 extern "C" gneiss_result gneiss_scene_instance_unload(gneiss_application application,
                                                       gneiss_scene_instance instance) {

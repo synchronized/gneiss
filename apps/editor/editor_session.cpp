@@ -97,6 +97,25 @@ result editor_session::open(gneiss_application application, gneiss_world world,
   }
 }
 
+result editor_session::create_empty(gneiss_application application, gneiss_world world,
+                                    std::string_view scene_uuid) noexcept {
+  if (application == GNEISS_NULL_APPLICATION || world == GNEISS_NULL_WORLD || scene_uuid.empty()) {
+    return result::invalid_argument;
+  }
+  scene_instance pending;
+  const auto operation = scene_instance::create_empty(application, scene_uuid, pending);
+  if (operation != result::success) {
+    return operation;
+  }
+  scene_ = std::move(pending);
+  world_ = world;
+  nodes_.clear();
+  selection_ = {};
+  uri_.clear();
+  is_dirty_ = true;
+  return result::success;
+}
+
 result editor_session::refresh_nodes() noexcept {
   try {
     std::uint64_t count = 0;
@@ -553,13 +572,24 @@ result editor_session::set_mesh_renderer(scene_node_id node, std::string_view me
 }
 
 result editor_session::save(const std::filesystem::path& asset_root) noexcept {
+  return save_to(asset_root, uri_, true);
+}
+
+result editor_session::save_as(const std::filesystem::path& asset_root,
+                               std::string_view uri) noexcept {
+  return save_to(asset_root, uri, false);
+}
+
+result editor_session::save_to(const std::filesystem::path& asset_root, std::string_view uri,
+                               bool require_existing) noexcept {
   if (!is_open() || asset_root.empty() ||
-      gneiss_asset_uri_validate(uri_.data(), uri_.size()) != GNEISS_SUCCESS) {
+      gneiss_asset_uri_validate(uri.data(), uri.size()) != GNEISS_SUCCESS) {
     return result::invalid_argument;
   }
   try {
+    const std::string target_uri{uri};
     constexpr std::string_view scheme = "asset://";
-    const auto relative_text = uri_.substr(scheme.size());
+    const auto relative_text = target_uri.substr(scheme.size());
     const auto relative = std::filesystem::path(std::u8string(
         reinterpret_cast<const char8_t*>(relative_text.data()), relative_text.size()));
     std::error_code error;
@@ -568,9 +598,15 @@ result editor_session::save(const std::filesystem::path& asset_root) noexcept {
       return result::io;
     }
     const auto destination = std::filesystem::weakly_canonical(canonical_root / relative, error);
-    if (error || !is_within(canonical_root, destination) ||
-        !std::filesystem::is_regular_file(destination, error) || error) {
+    if (error || !is_within(canonical_root, destination)) {
       return result::io;
+    }
+    const auto exists = std::filesystem::exists(destination, error);
+    if (error ||
+        (require_existing && (!exists || !std::filesystem::is_regular_file(destination, error))) ||
+        (!require_existing && exists) || error ||
+        !std::filesystem::is_directory(destination.parent_path(), error) || error) {
+      return exists && !require_existing ? result::invalid_state : result::io;
     }
 
     std::string json;
@@ -596,6 +632,7 @@ result editor_session::save(const std::filesystem::path& asset_root) noexcept {
       std::filesystem::remove(temporary, error);
       return operation;
     }
+    uri_ = target_uri;
     is_dirty_ = false;
     return result::success;
   } catch (const std::bad_alloc&) {

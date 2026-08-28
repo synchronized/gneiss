@@ -227,6 +227,12 @@ GNEISS_API gneiss_result gneiss_scene_instance_load(gneiss_application applicati
                                                     uint64_t uri_length,
                                                     gneiss_scene_instance* out_instance);
 
+/** 创建具有指定规范 UUID 的空作者场景；场景尚未关联资产 URI。 */
+GNEISS_API gneiss_result gneiss_scene_instance_create_empty(gneiss_application application,
+                                                            const char* scene_uuid,
+                                                            uint64_t scene_uuid_length,
+                                                            gneiss_scene_instance* out_instance);
+
 /** 卸载场景创建的实体、节点和资产引用；句柄随后失效。 */
 GNEISS_API gneiss_result gneiss_scene_instance_unload(gneiss_application application,
                                                       gneiss_scene_instance instance);

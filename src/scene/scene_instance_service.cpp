@@ -865,6 +865,32 @@ gneiss_result scene_instance_service::load(std::string_view uri,
   }
 }
 
+gneiss_result scene_instance_service::create_empty(std::string_view scene_uuid,
+                                                   gneiss_scene_instance* out_instance) noexcept {
+  if (out_instance == nullptr || !is_valid()) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  *out_instance = GNEISS_NULL_SCENE_INSTANCE;
+  try {
+    const std::string json = std::string{"{\"format\":\"gneiss.scene\",\"version\":2,"} +
+                             "\"scene_uuid\":\"" + std::string{scene_uuid} + "\",\"objects\":[]}";
+    scene_description description;
+    scene_diagnostic diagnostic;
+    const auto result = parse_scene_description(json, description, diagnostic);
+    if (result != GNEISS_SUCCESS) {
+      return result;
+    }
+    auto instance = std::make_unique<scene_instance>(world_, loader_);
+    instance->description = std::move(description);
+    return instances_.create(core::resource_type::scene_instance, std::move(instance),
+                             out_instance);
+  } catch (const std::bad_alloc&) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
 gneiss_result scene_instance_service::serialize(gneiss_scene_instance instance,
                                                 std::string& out_json) const noexcept {
   try {
