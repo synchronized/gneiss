@@ -16,6 +16,7 @@ typedef struct test_context {
   uint8_t should_close;
   uint32_t diagnostic_count;
   gneiss_result diagnostic_result;
+  uint32_t diagnostic_category;
   gneiss_result ui_submit_result;
   uint64_t close_request_count;
   uint8_t allow_close;
@@ -27,9 +28,11 @@ static void diagnostic(gneiss_application application, const gneiss_diagnostic* 
   gneiss_world world = GNEISS_NULL_WORLD;
   if (value != NULL && value->struct_size >= GNEISS_DIAGNOSTIC_VERSION_1_SIZE &&
       value->message != NULL && value->message_length != 0U &&
-      gneiss_application_get_world(application, &world) == GNEISS_SUCCESS) {
+      (application == GNEISS_NULL_APPLICATION ||
+       gneiss_application_get_world(application, &world) == GNEISS_SUCCESS)) {
     ++context->diagnostic_count;
     context->diagnostic_result = value->result;
+    context->diagnostic_category = value->category;
   }
 }
 
@@ -165,16 +168,29 @@ int main(void) {
   context.should_close = 0U;
   application = GNEISS_NULL_APPLICATION;
   if (gneiss_application_create(&desc, &application) != GNEISS_ERROR_INITIALIZATION_FAILED ||
-      application != GNEISS_NULL_APPLICATION || context.shutdown_count != 5U) {
+      application != GNEISS_NULL_APPLICATION || context.shutdown_count != 5U ||
+      context.diagnostic_count != 1U ||
+      context.diagnostic_result != GNEISS_ERROR_INITIALIZATION_FAILED ||
+      context.diagnostic_category != GNEISS_DIAGNOSTIC_CATEGORY_APPLICATION) {
     return 4;
   }
+  context.diagnostic_count = 0U;
+  context.diagnostic_result = GNEISS_SUCCESS;
+  context.diagnostic_category = 0U;
 #ifdef GNEISS_TEST_NO_GRANIT_PLATFORM
   desc = (gneiss_application_desc)GNEISS_APPLICATION_DESC_INIT;
+  desc.user_data = &context;
+  desc.diagnostic = diagnostic;
   desc.platform = GNEISS_APPLICATION_PLATFORM_GRANIT;
   if (gneiss_application_create(&desc, &application) != GNEISS_ERROR_UNSUPPORTED ||
-      application != GNEISS_NULL_APPLICATION) {
+      application != GNEISS_NULL_APPLICATION || context.diagnostic_count != 1U ||
+      context.diagnostic_result != GNEISS_ERROR_UNSUPPORTED ||
+      context.diagnostic_category != GNEISS_DIAGNOSTIC_CATEGORY_BACKEND) {
     return 5;
   }
+  context.diagnostic_count = 0U;
+  context.diagnostic_result = GNEISS_SUCCESS;
+  context.diagnostic_category = 0U;
 #endif
 
   desc = (gneiss_application_desc)GNEISS_APPLICATION_DESC_INIT;

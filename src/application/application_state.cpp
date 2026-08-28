@@ -43,6 +43,8 @@ gneiss_result application_state::initialize() noexcept {
       mount_result = asset_file_system_.mount("asset://", std::move(native_file_system));
     }
     if (mount_result != GNEISS_SUCCESS) {
+      report(GNEISS_NULL_APPLICATION, GNEISS_DIAGNOSTIC_ERROR, GNEISS_DIAGNOSTIC_CATEGORY_ASSET,
+             mount_result, "asset", "资产根目录挂载失败");
       return mount_result;
     }
   }
@@ -57,6 +59,8 @@ gneiss_result application_state::initialize() noexcept {
     }
     const auto platform_result = granit_platform_->initialize(desc_);
     if (platform_result != GNEISS_SUCCESS) {
+      report(GNEISS_NULL_APPLICATION, GNEISS_DIAGNOSTIC_ERROR, GNEISS_DIAGNOSTIC_CATEGORY_BACKEND,
+             platform_result, "granit.platform", "Granit 平台初始化失败");
       granit_platform_.reset();
       return platform_result;
     }
@@ -72,17 +76,24 @@ gneiss_result application_state::initialize() noexcept {
     const auto render_result =
         granit_render_service_->initialize(granit_platform_->native_window());
     if (render_result != GNEISS_SUCCESS) {
+      report(GNEISS_NULL_APPLICATION, GNEISS_DIAGNOSTIC_ERROR, GNEISS_DIAGNOSTIC_CATEGORY_BACKEND,
+             render_result, "granit.render", "Granit 渲染服务初始化失败");
       granit_render_service_.reset();
       granit_platform_.reset();
       return render_result;
     }
 #else
+    report(GNEISS_NULL_APPLICATION, GNEISS_DIAGNOSTIC_ERROR, GNEISS_DIAGNOSTIC_CATEGORY_BACKEND,
+           GNEISS_ERROR_UNSUPPORTED, "granit.platform", "当前构建未启用 Granit 平台适配");
     return GNEISS_ERROR_UNSUPPORTED;
 #endif
   }
   if (desc_.initialize != nullptr) {
     const auto result = desc_.initialize(desc_.user_data);
     if (result != GNEISS_SUCCESS) {
+      report(GNEISS_NULL_APPLICATION, GNEISS_DIAGNOSTIC_ERROR,
+             GNEISS_DIAGNOSTIC_CATEGORY_APPLICATION, result, "application.initialize",
+             "Application 初始化回调失败");
       // 初始化回调可能已获得部分资源，因此失败时也执行配对清理。
       platform_initialized_ = true;
       shutdown();
@@ -94,6 +105,8 @@ gneiss_result application_state::initialize() noexcept {
   const gneiss_world_desc world_desc = GNEISS_WORLD_DESC_INIT;
   const auto result = gneiss_world_create(&world_desc, &world_);
   if (result != GNEISS_SUCCESS) {
+    report(GNEISS_NULL_APPLICATION, GNEISS_DIAGNOSTIC_ERROR, GNEISS_DIAGNOSTIC_CATEGORY_APPLICATION,
+           result, "world", "World 创建失败");
     shutdown();
     return result;
   }
@@ -108,6 +121,8 @@ gneiss_result application_state::initialize() noexcept {
     return GNEISS_ERROR_INTERNAL;
   }
   if (!scenes_->is_valid()) {
+    report(GNEISS_NULL_APPLICATION, GNEISS_DIAGNOSTIC_ERROR, GNEISS_DIAGNOSTIC_CATEGORY_APPLICATION,
+           GNEISS_ERROR_OUT_OF_MEMORY, "scene", "Scene Instance Service 创建失败");
     shutdown();
     return GNEISS_ERROR_OUT_OF_MEMORY;
   }
@@ -234,7 +249,7 @@ gneiss_result application_state::render_frame() noexcept {
       world_internal::get_render_snapshot(world_, window.width, window.height, snapshot);
   return snapshot_result == GNEISS_SUCCESS
              ? granit_render_service_->render(window, snapshot, resources_, ui_draw_list_,
-                                               debug_draw_list_)
+                                              debug_draw_list_)
              : snapshot_result;
 }
 #endif
