@@ -177,8 +177,8 @@ UI。既有 [ADR-002](decisions/ADR-002-ecs-reflection-boundary.md) 继续约束
 | M-60 可扩展 Editor 命令模型 | P0 | 已完成 |
 | M-61 层级创作与组件操作 | P0 | 已完成 |
 | M-62 场景文档生命周期 | P0 | 已完成 |
-| M-63 Transform 操纵器最小闭环 | P1 | 待开始 |
-| M-64 示例工程与版本验收 | P0 | 待开始 |
+| M-63 Transform 操纵器最小闭环 | P1 | 已完成 |
+| M-64 启动诊断、示例工程与版本验收 | P0 | 待开始 |
 
 详细范围、非目标和验收条件见
 [VER-009：0.9.0 场景创作工作流](plans/VER-009-0.9.0-scene-authoring-workflow.md)。
