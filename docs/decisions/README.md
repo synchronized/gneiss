@@ -22,3 +22,4 @@ Reference 和实现为准。
 - [ADR-014：源资产、作者格式与 Runtime 二进制资产分层](ADR-014-runtime-asset-representation.md)
 - [ADR-015：索引 Mesh 与渲染后端边界](ADR-015-indexed-rendering-boundary.md)
 - [ADR-016：稳定类型标识与属性访问边界](ADR-016-stable-type-property-boundary.md)
+- [ADR-017：编辑器 UI 与场景渲染组合边界](ADR-017-editor-ui-render-composition.md)
