@@ -47,7 +47,8 @@ int main() {
   if (history.undo() != gneiss::result::success ||
       history.record({.label = "失败命令",
                       .undo = [] { return gneiss::result::io; },
-                      .redo = [] { return gneiss::result::success; }}) != gneiss::result::success ||
+                      .redo = [] { return gneiss::result::success; },
+                      .merge_key = {}}) != gneiss::result::success ||
       history.can_redo() || history.undo() != gneiss::result::io || !history.can_undo()) {
     return 3;
   }
@@ -93,7 +94,8 @@ int main() {
       executed.size() != 1U ||
       executed.execute({.label = "执行失败",
                         .undo = [] { return gneiss::result::success; },
-                        .redo = [] { return gneiss::result::io; }}) != gneiss::result::io ||
+                        .redo = [] { return gneiss::result::io; },
+                        .merge_key = {}}) != gneiss::result::io ||
       executed.size() != 1U) {
     return 8;
   }
@@ -108,7 +110,8 @@ int main() {
   gneiss::editor::editor_command_history failed_redo;
   if (failed_redo.record({.label = "重做失败",
                           .undo = [] { return gneiss::result::success; },
-                          .redo = [] { return gneiss::result::io; }}) != gneiss::result::success ||
+                          .redo = [] { return gneiss::result::io; },
+                          .merge_key = {}}) != gneiss::result::success ||
       failed_redo.undo() != gneiss::result::success || failed_redo.redo() != gneiss::result::io ||
       !failed_redo.can_redo() || failed_redo.can_undo()) {
     return 12;

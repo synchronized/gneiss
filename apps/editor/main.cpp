@@ -8,13 +8,13 @@
 #include "editor_session.h"
 #include "editor_theme.h"
 #include "imgui_adapter.h"
+#include "native_dialog.h"
 #include "project_manager.h"
 #include "property_inspector_model.h"
 #include "transform_gizmo_math.h"
 #if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
 #include "asset_browser_model.h"
 #include "asset_import_controller.h"
-#include "native_dialog.h"
 #endif
 
 #include <gneiss/application.hpp>
@@ -395,7 +395,8 @@ bool reparent_with_history(editor_state& state, std::string_view source_uuid,
                         : state.session.reparent_node(current->node, parent == nullptr
                                                                          ? gneiss::scene_node_id{}
                                                                          : parent->node);
-           }});
+           },
+       .merge_key = {}});
   if (state.history_error != gneiss::result::success) {
     const auto* current = state.session.find_node(source_key);
     const auto* parent =
@@ -739,7 +740,8 @@ void draw_asset_browser(editor_state& state) {
                [&state, snapshot] {
                  gneiss::scene_node_id restored;
                  return state.session.restore_mesh_renderer_node(snapshot, restored);
-               }});
+               },
+           .merge_key = {}});
       if (state.asset_scene_result != gneiss::result::success) {
         gneiss::editor::scene_node_snapshot discarded;
         (void)state.session.destroy_node(node, discarded);
@@ -787,7 +789,8 @@ void draw_asset_browser(editor_state& state) {
                  return current == nullptr
                             ? gneiss::result::not_found
                             : state.session.set_mesh_renderer(current->node, mesh, material);
-               }});
+               },
+           .merge_key = {}});
       if (state.asset_scene_result != gneiss::result::success) {
         (void)state.session.set_mesh_renderer(scene_node->node, previous_mesh, previous_material);
         if (!was_dirty) {
@@ -903,7 +906,8 @@ bool draw_transform_gizmo(editor_state& state, const ImVec2& minimum, const ImVe
                  const auto* node = state.session.find_node(uuid);
                  return node == nullptr ? gneiss::result::not_found
                                         : state.session.set_local_transform(node->node, after);
-               }});
+               },
+           .merge_key = {}});
       if (state.history_error != gneiss::result::success && current != nullptr) {
         (void)state.session.set_local_transform(current->node, before);
         if (!state.gizmo_was_dirty) {
@@ -1135,7 +1139,8 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
                        const auto* node = state.session.find_node(uuid);
                        return node == nullptr ? gneiss::result::not_found
                                               : state.session.rename_node(node->node, next);
-                     }});
+                     },
+                 .merge_key = {}});
             if (state.history_error != gneiss::result::success) {
               if (const auto* node = state.session.find_node(uuid); node != nullptr) {
                 (void)state.session.rename_node(node->node, previous);
@@ -1166,7 +1171,8 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
                    [&state, snapshot] {
                      gneiss::scene_node_id restored;
                      return state.session.restore_subtree(*snapshot, restored);
-                   }});
+                   },
+               .merge_key = {}});
           if (state.history_error != gneiss::result::success) {
             if (const auto* current = state.session.find_node(uuid); current != nullptr) {
               (void)state.session.destroy_subtree(current->node, *snapshot);
@@ -1194,7 +1200,8 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
                    [&state, snapshot] {
                      gneiss::scene_node_id restored;
                      return state.session.restore_subtree(*snapshot, restored);
-                   }});
+                   },
+               .merge_key = {}});
           if (state.history_error != gneiss::result::success) {
             if (const auto* current = state.session.find_node(uuid); current != nullptr) {
               (void)state.session.destroy_subtree(current->node, *snapshot);
@@ -1223,7 +1230,8 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
                      }
                      gneiss::editor::scene_subtree_snapshot discarded;
                      return state.session.destroy_subtree(current->node, discarded);
-                   }});
+                   },
+               .merge_key = {}});
           if (state.history_error != gneiss::result::success) {
             gneiss::scene_node_id restored;
             (void)state.session.restore_subtree(snapshot, restored);
@@ -1378,7 +1386,8 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
                        const auto* node = state.session.find_node(uuid);
                        return node == nullptr ? gneiss::result::not_found
                                               : state.session.remove_camera(node->node);
-                     }});
+                     },
+                 .merge_key = {}});
             if (state.history_error != gneiss::result::success) {
               if (const auto* node = state.session.find_node(uuid); node != nullptr) {
                 (void)state.session.set_camera(node->node, previous);
@@ -1402,7 +1411,8 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
                        const auto* node = state.session.find_node(uuid);
                        return node == nullptr ? gneiss::result::not_found
                                               : state.session.set_camera(node->node, camera);
-                     }});
+                     },
+                 .merge_key = {}});
             if (state.history_error != gneiss::result::success) {
               if (const auto* node = state.session.find_node(uuid); node != nullptr) {
                 (void)state.session.remove_camera(node->node);
@@ -1435,7 +1445,8 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
                      const auto* node = state.session.find_node(uuid);
                      return node == nullptr ? gneiss::result::not_found
                                             : state.session.remove_mesh_renderer(node->node);
-                   }});
+                   },
+               .merge_key = {}});
           if (state.history_error != gneiss::result::success) {
             if (const auto* node = state.session.find_node(uuid); node != nullptr) {
               (void)state.session.set_mesh_renderer(node->node, selected_mesh_uri,

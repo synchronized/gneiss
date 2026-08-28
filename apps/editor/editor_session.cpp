@@ -293,7 +293,7 @@ result editor_session::destroy_subtree(scene_node_id node,
     return result::not_found;
   }
   try {
-    scene_subtree_snapshot snapshot{.root_uuid = found->uuid};
+    scene_subtree_snapshot snapshot{.json = {}, .parent_uuid = {}, .root_uuid = found->uuid};
     if (found->parent.is_valid()) {
       const auto parent = std::ranges::find(nodes_, found->parent, &scene_node_record::node);
       if (parent == nodes_.end()) {

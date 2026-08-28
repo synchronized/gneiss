@@ -141,7 +141,8 @@ int main() try { // NOLINT(bugprone-exception-escape): 测试入口统一返回�
                           [&session, snapshot] {
                             gneiss::scene_node_id restored;
                             return session.restore_mesh_renderer_node(snapshot, restored);
-                          }}) != gneiss::result::success ||
+                          },
+                      .merge_key = {}}) != gneiss::result::success ||
       history.undo() != gneiss::result::success || session.find_node(snapshot.uuid) != nullptr ||
       history.redo() != gneiss::result::success || session.find_node(snapshot.uuid) == nullptr ||
       session.save(project.asset_root) != gneiss::result::success) {

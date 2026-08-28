@@ -256,7 +256,12 @@ gneiss_result scene_instance::create_node(const gneiss_scene_node_desc& desc,
     std::ranges::copy(desc.local_transform.scale, author.scale.begin());
     objects.reserve(objects.size() + 1U);
     description.objects.reserve(description.objects.size() + 1U);
-    object target{.uuid = author.uuid, .name = author.name};
+    object target{.uuid = author.uuid,
+                  .name = author.name,
+                  .entity = GNEISS_NULL_ENTITY_ID,
+                  .node = GNEISS_NULL_SCENE_NODE_ID,
+                  .mesh = {},
+                  .material = {}};
     const auto result = commit_object(world_, author, target, desc.parent);
     if (result != GNEISS_SUCCESS) {
       if (target.entity != GNEISS_NULL_ENTITY_ID) {
@@ -454,7 +459,12 @@ gneiss_result scene_instance::restore_subtree(std::string_view snapshot,
     std::vector<object> staged;
     staged.reserve(subtree.objects.size());
     for (const auto& author : subtree.objects) {
-      object target{.uuid = author.uuid, .name = author.name};
+      object target{.uuid = author.uuid,
+                    .name = author.name,
+                    .entity = GNEISS_NULL_ENTITY_ID,
+                    .node = GNEISS_NULL_SCENE_NODE_ID,
+                    .mesh = {},
+                    .material = {}};
       if (author.mesh_renderer) {
         render_internal::asset_diagnostic asset_diagnostic;
         result =
