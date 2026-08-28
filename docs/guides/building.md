@@ -167,12 +167,21 @@ cmake --build --preset windows-clang-debug --target gneiss_editor
 运行 Editor：
 
 ```powershell
+./build/windows-clang-debug/bin/gneiss_editor.exe
+```
+
+不传参数时会先打开 Project Manager；可以直接输入工程目录，也可以在 Windows 使用系统目录选择器。
+选择包含 `gneiss.project.json` 的目录并通过校验后，Project Manager 会完整关闭，再启动正式 Editor。
+也可以跳过选择界面，直接打开工程：
+
+```powershell
 ./build/windows-clang-debug/bin/gneiss_editor.exe `
   --project ./examples/editor_demo
 ```
 
-`--project` 可接收工程目录或目录中的 `gneiss.project.json`。工程文件提供工程名称、资产根和初始
-场景，格式见[工程文件格式 v1](../reference/project-format.md)。Editor 不再提供独立的
+`--project` 可接收工程目录或目录中的 `gneiss.project.json`，并保留为自动化与 smoke test 入口。
+工程文件提供工程名称、资产根和初始场景，格式见[工程文件格式 v1](../reference/project-format.md)。
+Editor 不再提供独立的
 `--asset-root` 与 `--scene` 正式入口。
 
 当前宿主已提供场景会话、可选择的层级树和独立 Editor Camera。鼠标位于 Scene View 时，可以使用

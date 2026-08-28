@@ -3,8 +3,8 @@
 
 # 工程文件格式 v1
 
-Editor 以工程为启动单位。工程根目录必须包含 `gneiss.project.json`，也可以直接把该文件路径传给
-Editor。首版工程描述如下：
+Editor 以工程为启动单位。无参数启动时先显示 Project Manager；工程根目录必须包含
+`gneiss.project.json`。`--project` 也可以直接接收工程目录或该文件路径。首版工程描述如下：
 
 ```json
 {
@@ -32,3 +32,7 @@ Editor。首版工程描述如下：
 
 Editor 的本机布局、最近打开场景等用户状态未来应写入 `.gneiss/editor.json`，不得混入工程文件。
 该用户状态文件当前尚未实现。
+
+Project Manager 与正式 Editor 使用两个连续且互不共享运行时状态的 Application。选择工程成功后，
+选择窗口及其 UI、渲染和平台资源会先完整销毁，再按工程资产根创建正式 Application。Windows 使用
+系统目录选择器；其他平台在原生选择器接入前可直接输入工程路径。

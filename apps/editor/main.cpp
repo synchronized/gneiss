@@ -5,6 +5,7 @@
 #include "editor_project.h"
 #include "editor_session.h"
 #include "imgui_adapter.h"
+#include "project_manager.h"
 #include "property_inspector_model.h"
 
 #include <gneiss/application.hpp>
@@ -50,7 +51,7 @@ bool parse_options(int argc, char** argv, launch_options& options) {
       return false;
     }
   }
-  return !options.project.empty();
+  return true;
 }
 
 [[nodiscard]] std::filesystem::path utf8_path(std::string_view value) {
@@ -290,8 +291,16 @@ int run_editor(int argc, char** argv) {
     return 64;
   }
   gneiss::editor::editor_project project;
-  if (gneiss::editor::load_editor_project(utf8_path(options.project), project) !=
-      gneiss::result::success) {
+  if (options.project.empty()) {
+    const auto operation = gneiss::editor::run_project_manager(options.smoke, project);
+    if (operation == gneiss::result::not_ready) {
+      return 0;
+    }
+    if (operation != gneiss::result::success) {
+      return 65;
+    }
+  } else if (gneiss::editor::load_editor_project(utf8_path(options.project), project) !=
+             gneiss::result::success) {
     return 65;
   }
   const auto asset_root_text = path_utf8(project.asset_root);
