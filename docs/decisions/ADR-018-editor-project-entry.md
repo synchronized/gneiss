@@ -14,7 +14,8 @@
 
 ## 决策
 
-- Editor 的命令行工程参数只接受 `--project <目录或 gneiss.project.json>`。
+- Editor 的命令行工程参数只接受 `--project <工程根目录>`；工程描述固定为该目录中的
+  `gneiss.project.json`。
 - 未传 `--project` 时先运行独立 Project Manager Application；选择成功并销毁其全部资源后，再
   创建正式 Editor Application。
 - 工程文件由 Gneiss Editor 解析，描述工程名称、工程内资产根和初始场景。

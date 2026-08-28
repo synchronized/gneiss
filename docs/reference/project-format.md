@@ -4,7 +4,8 @@
 # 工程文件格式 v1
 
 Editor 以工程为启动单位。无参数启动时先显示 Project Manager；工程根目录必须包含
-`gneiss.project.json`。`--project` 也可以直接接收工程目录或该文件路径。首版工程描述如下：
+固定名称的 `gneiss.project.json`。`--project` 和 Project Manager 都只接收工程根目录，不接受
+工程文件路径。首版工程描述如下：
 
 ```json
 {

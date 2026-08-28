@@ -79,22 +79,26 @@ using document_ptr = std::unique_ptr<yyjson_doc, document_deleter>;
 
 } // namespace
 
-result load_editor_project(const std::filesystem::path& input, editor_project& output) noexcept {
-  if (input.empty()) {
+result load_editor_project(const std::filesystem::path& project_root,
+                           editor_project& output) noexcept {
+  if (project_root.empty()) {
     return result::invalid_argument;
   }
   try {
     std::error_code error;
-    auto project_file = input;
-    if (std::filesystem::is_directory(project_file, error) && !error) {
-      project_file /= project_filename;
-    }
-    if (error || !std::filesystem::is_regular_file(project_file, error) || error) {
+    if (!std::filesystem::exists(project_root, error) || error) {
       return result::not_found;
     }
-    project_file = std::filesystem::canonical(project_file, error);
-    if (error || project_file.filename() != project_filename) {
+    if (!std::filesystem::is_directory(project_root, error) || error) {
       return result::invalid_argument;
+    }
+    const auto canonical_root = std::filesystem::canonical(project_root, error);
+    if (error) {
+      return result::not_found;
+    }
+    const auto project_file = canonical_root / project_filename;
+    if (!std::filesystem::is_regular_file(project_file, error) || error) {
+      return result::not_found;
     }
 
     std::ifstream stream(project_file, std::ios::binary);
@@ -133,7 +137,7 @@ result load_editor_project(const std::filesystem::path& input, editor_project& o
     }
 
     pending.project_file = project_file;
-    pending.project_root = project_file.parent_path();
+    pending.project_root = canonical_root;
     pending.asset_root =
         std::filesystem::weakly_canonical(pending.project_root / utf8_path(asset_root_text), error);
     if (error || !is_within(pending.project_root, pending.asset_root) ||

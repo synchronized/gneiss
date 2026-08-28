@@ -19,8 +19,8 @@ struct editor_project final {
   std::string startup_scene;
 };
 
-/** 从工程目录或 gneiss.project.json 文件加载并校验工程描述。 */
-[[nodiscard]] result load_editor_project(const std::filesystem::path& input,
+/** 从工程根目录中加载并校验固定名称的 gneiss.project.json。 */
+[[nodiscard]] result load_editor_project(const std::filesystem::path& project_root,
                                          editor_project& output) noexcept;
 
 } // namespace gneiss::editor

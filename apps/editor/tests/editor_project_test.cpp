@@ -34,7 +34,7 @@ int main() try {
       project.name != "Gneiss Editor Demo" ||
       project.startup_scene != "asset://scenes/main.scene.json" ||
       gneiss::editor::load_editor_project(demo / "gneiss.project.json", project) !=
-          gneiss::result::success) {
+          gneiss::result::invalid_argument) {
     return 1;
   }
 

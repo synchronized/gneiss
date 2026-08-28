@@ -179,9 +179,9 @@ cmake --build --preset windows-clang-debug --target gneiss_editor
   --project ./examples/editor_demo
 ```
 
-`--project` 可接收工程目录或目录中的 `gneiss.project.json`，并保留为自动化与 smoke test 入口。
-工程文件提供工程名称、资产根和初始场景，格式见[工程文件格式 v1](../reference/project-format.md)。
-Editor 不再提供独立的
+`--project` 只接收工程根目录，并保留为自动化与 smoke test 入口。Editor 固定读取该目录中的
+`gneiss.project.json`；工程文件提供工程名称、资产根和初始场景，格式见
+[工程文件格式 v1](../reference/project-format.md)。Editor 不再提供独立的
 `--asset-root` 与 `--scene` 正式入口。
 
 当前宿主已提供场景会话、可选择的层级树和独立 Editor Camera。鼠标位于 Scene View 时，可以使用
