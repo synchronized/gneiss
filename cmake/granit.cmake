@@ -98,6 +98,14 @@ function(gneiss_resolve_granit_runtime)
       "Gneiss fetches Granit from ${GNEISS_GRANIT_GIT_REPOSITORY} at ${GNEISS_GRANIT_GIT_TAG}"
   )
   gneiss_fetch_granit()
+  FetchContent_GetProperties(gneiss_granit)
+  set(
+    GNEISS_GRANIT_FETCHED_BUILD_DIR
+    "${gneiss_granit_BINARY_DIR}"
+    CACHE INTERNAL
+    "Gneiss FETCH 模式使用的 Granit 构建目录"
+    FORCE
+  )
   if(NOT TARGET granit::granit OR NOT TARGET granit::window OR NOT TARGET granit::input OR
      NOT TARGET granit::render_pipeline)
     message(FATAL_ERROR "下载的 Granit 未提供 runtime、Window、Input 和 RenderPipeline 目标")
