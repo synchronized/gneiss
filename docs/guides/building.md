@@ -146,6 +146,7 @@ ctest --test-dir build/granit-platform --output-on-failure
 
 ```powershell
 ./build/windows-clang-debug/bin/gneiss_stable_runtime_example.exe --smoke
+./build/windows-clang-release/bin/gneiss_stable_runtime_example.exe --measure
 
 cmake -S examples/stable_runtime -B build/stable-runtime-consumer `
   -DCMAKE_PREFIX_PATH=build/gneiss-install
@@ -156,6 +157,9 @@ ctest --test-dir build/stable-runtime-consumer --output-on-failure
 独立 Consumer 需要同一前缀或 `CMAKE_PREFIX_PATH` 中同时提供启用 Window、Input 与 RenderPipeline
 组件的 Granit package。配置时资产会复制到 Consumer 构建目录，运行不读取 Gneiss 源码树。
 仓库的安装验收也会先把 Consumer 源码和资产复制到隔离目录，防止测试因源码树仍存在而误通过。
+`--measure` 固定执行 60 帧预热和 300 帧采样，以单行 JSON 报告各启动阶段、退出阶段及稳定帧
+的最小值、中位数、P95 和最大值。性能基线必须使用 Release 构建并重复采样；单次输出不能作为
+回归阈值。
 
 Linux 下运行同名且不带 `.exe` 后缀的可执行文件。该示例的 `main` 位于
 `examples/temple/main.cpp`，只使用 Gneiss 公共接口创建 Application、加载场景实例并按对象 UUID
