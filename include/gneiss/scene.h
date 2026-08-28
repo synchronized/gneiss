@@ -24,6 +24,7 @@ typedef uint64_t gneiss_scene_instance;
 
 #define GNEISS_SCENE_NODE_COMPONENT_CAMERA UINT32_C(1)
 #define GNEISS_SCENE_NODE_COMPONENT_MESH_RENDERER UINT32_C(2)
+#define GNEISS_SCENE_SUBTREE_MAX_NODES UINT64_C(4096)
 
 /**
  * Scene Tree 中的局部或世界变换。旋转使用归一化的 (x, y, z, w) 四元数，缩放各轴不得为零。
@@ -105,6 +106,14 @@ typedef struct gneiss_scene_node_desc {
    NULL,                                                                                           \
    UINT64_C(0),                                                                                    \
    GNEISS_TRANSFORM_IDENTITY}
+
+/** 子树恢复时的稳定 UUID 替换项；字符串仅在调用期间借用。 */
+typedef struct gneiss_scene_uuid_mapping {
+  const char* source_uuid;
+  uint64_t source_uuid_length;
+  const char* target_uuid;
+  uint64_t target_uuid_length;
+} gneiss_scene_uuid_mapping;
 
 /** 场景实例中 Mesh Renderer 作者引用；字符串仅在调用期间借用。 */
 typedef struct gneiss_scene_mesh_renderer_desc {
@@ -243,6 +252,33 @@ GNEISS_API gneiss_result gneiss_scene_instance_reparent_node(gneiss_application 
                                                              gneiss_scene_instance instance,
                                                              gneiss_scene_node_id node,
                                                              gneiss_scene_node_id parent);
+
+/**
+ * 将以 root 为根的当前作者子树写入 UTF-8 JSON 快照。
+ *
+ * buffer 为空且 capacity 为零时只查询所需字节数；快照不包含 Runtime ID 或 RID。
+ */
+GNEISS_API gneiss_result gneiss_scene_instance_capture_subtree(gneiss_application application,
+                                                               gneiss_scene_instance instance,
+                                                               gneiss_scene_node_id root,
+                                                               char* buffer, uint64_t capacity,
+                                                               uint64_t* out_length);
+
+/**
+ * 原子恢复或复制作者子树。parent 为零时恢复为根；映射为空时保留快照 UUID。
+ *
+ * 非空映射必须完整覆盖快照中的每个 UUID，source 与 target 均不得重复。
+ */
+GNEISS_API gneiss_result gneiss_scene_instance_restore_subtree(
+    gneiss_application application, gneiss_scene_instance instance, const char* snapshot,
+    uint64_t snapshot_length, gneiss_scene_node_id parent,
+    const gneiss_scene_uuid_mapping* mappings, uint64_t mapping_count,
+    gneiss_scene_node_id* out_root);
+
+/** 原子删除完整作者子树；成功后其中全部 Runtime ID 失效。 */
+GNEISS_API gneiss_result gneiss_scene_instance_destroy_subtree(gneiss_application application,
+                                                               gneiss_scene_instance instance,
+                                                               gneiss_scene_node_id root);
 
 /** 原子创建带 Mesh Renderer 的作者节点；失败时实例、World 和资产引用保持不变。 */
 GNEISS_API gneiss_result gneiss_scene_instance_create_mesh_renderer_node(

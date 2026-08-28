@@ -12,6 +12,7 @@
 #include <limits>
 #include <new>
 #include <unordered_map>
+#include <unordered_set>
 
 namespace gneiss::scene_internal {
 namespace {
@@ -312,6 +313,280 @@ gneiss_result scene_instance::reparent_node(gneiss_scene_node_id node,
     }
     const auto index = static_cast<std::size_t>(std::distance(objects.begin(), found));
     description.objects[index].parent_uuid.swap(parent_uuid);
+    return GNEISS_SUCCESS;
+  } catch (const std::bad_alloc&) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
+  }
+}
+
+gneiss_result scene_instance::capture_subtree(gneiss_scene_node_id root,
+                                              std::string& out_snapshot) const {
+  const auto found = std::ranges::find(objects, root, &object::node);
+  if (found == objects.end()) {
+    return GNEISS_ERROR_INVALID_HANDLE;
+  }
+  try {
+    std::string current_json;
+    auto result = serialize(current_json);
+    if (result != GNEISS_SUCCESS) {
+      return result;
+    }
+    scene_description current;
+    scene_diagnostic diagnostic;
+    result = parse_scene_description(current_json, current, diagnostic);
+    if (result != GNEISS_SUCCESS) {
+      return result;
+    }
+    std::unordered_set<std::string> included{found->uuid};
+    bool changed = true;
+    while (changed) {
+      changed = false;
+      for (const auto& candidate : current.objects) {
+        if (candidate.parent_uuid && included.contains(*candidate.parent_uuid) &&
+            included.emplace(candidate.uuid).second) {
+          changed = true;
+        }
+      }
+    }
+    if (included.size() > GNEISS_SCENE_SUBTREE_MAX_NODES) {
+      return GNEISS_ERROR_UNSUPPORTED;
+    }
+    std::erase_if(current.objects, [&included](const auto& candidate) {
+      return !included.contains(candidate.uuid);
+    });
+    current.author_json =
+        std::string{"{\"format\":\"gneiss.scene\",\"version\":2,\"scene_uuid\":\""} + current.uuid +
+        "\",\"objects\":[]}";
+    return serialize_scene_description(current, out_snapshot);
+  } catch (const std::bad_alloc&) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
+gneiss_result scene_instance::restore_subtree(std::string_view snapshot,
+                                              gneiss_scene_node_id parent,
+                                              const gneiss_scene_uuid_mapping* mappings,
+                                              std::uint64_t mapping_count,
+                                              gneiss_scene_node_id* out_root) {
+  scene_description subtree;
+  scene_diagnostic diagnostic;
+  auto result = parse_scene_description(snapshot, subtree, diagnostic);
+  if (result != GNEISS_SUCCESS || subtree.objects.empty()) {
+    return result == GNEISS_SUCCESS ? GNEISS_ERROR_INVALID_ARGUMENT : result;
+  }
+  if (subtree.objects.size() > GNEISS_SCENE_SUBTREE_MAX_NODES) {
+    return GNEISS_ERROR_UNSUPPORTED;
+  }
+  std::optional<std::string> external_parent_uuid;
+  if (parent != GNEISS_NULL_SCENE_NODE_ID) {
+    const auto found = std::ranges::find(objects, parent, &object::node);
+    if (found == objects.end()) {
+      return GNEISS_ERROR_INVALID_HANDLE;
+    }
+    external_parent_uuid = found->uuid;
+  }
+  try {
+    std::unordered_set<std::string> source_uuids;
+    source_uuids.reserve(subtree.objects.size());
+    for (const auto& author : subtree.objects) {
+      source_uuids.emplace(author.uuid);
+    }
+    auto root = subtree.objects.end();
+    for (auto iterator = subtree.objects.begin(); iterator != subtree.objects.end(); ++iterator) {
+      if (!iterator->parent_uuid || !source_uuids.contains(*iterator->parent_uuid)) {
+        if (root != subtree.objects.end()) {
+          return GNEISS_ERROR_INVALID_ARGUMENT;
+        }
+        root = iterator;
+      }
+    }
+    if (root == subtree.objects.end()) {
+      return GNEISS_ERROR_INVALID_ARGUMENT;
+    }
+    const auto source_root_uuid = root->uuid;
+    std::unordered_map<std::string, std::string> uuid_map;
+    if (mapping_count != 0U) {
+      if (mapping_count != subtree.objects.size()) {
+        return GNEISS_ERROR_INVALID_ARGUMENT;
+      }
+      uuid_map.reserve(static_cast<std::size_t>(mapping_count));
+      std::unordered_set<std::string> targets;
+      targets.reserve(static_cast<std::size_t>(mapping_count));
+      for (std::uint64_t index = 0; index < mapping_count; ++index) {
+        const auto& mapping = mappings[index];
+        const std::string source(mapping.source_uuid,
+                                 static_cast<std::size_t>(mapping.source_uuid_length));
+        const std::string target(mapping.target_uuid,
+                                 static_cast<std::size_t>(mapping.target_uuid_length));
+        if (!source_uuids.contains(source) || !is_canonical_uuid(target) ||
+            find_node(target) != GNEISS_NULL_SCENE_NODE_ID ||
+            !uuid_map.emplace(source, target).second || !targets.emplace(target).second) {
+          return GNEISS_ERROR_INVALID_ARGUMENT;
+        }
+      }
+    } else {
+      for (const auto& author : subtree.objects) {
+        if (find_node(author.uuid) != GNEISS_NULL_SCENE_NODE_ID) {
+          return GNEISS_ERROR_INVALID_ARGUMENT;
+        }
+      }
+    }
+    for (auto& author : subtree.objects) {
+      const auto old_uuid = author.uuid;
+      if (!uuid_map.empty()) {
+        author.uuid = uuid_map.at(old_uuid);
+        if (author.camera) {
+          author.camera->is_primary = false;
+        }
+      }
+      if (old_uuid == source_root_uuid) {
+        author.parent_uuid = external_parent_uuid;
+      } else if (author.parent_uuid && !uuid_map.empty()) {
+        author.parent_uuid = uuid_map.at(*author.parent_uuid);
+      }
+    }
+
+    std::vector<object> staged;
+    staged.reserve(subtree.objects.size());
+    for (const auto& author : subtree.objects) {
+      object target{.uuid = author.uuid, .name = author.name};
+      if (author.mesh_renderer) {
+        render_internal::asset_diagnostic asset_diagnostic;
+        result =
+            loader_.acquire_mesh(author.mesh_renderer->mesh_uri, target.mesh, asset_diagnostic);
+        if (result == GNEISS_SUCCESS) {
+          result = loader_.acquire_material(author.mesh_renderer->material_uri, target.material,
+                                            asset_diagnostic);
+        }
+        if (result != GNEISS_SUCCESS) {
+          return result;
+        }
+      }
+      staged.push_back(std::move(target));
+    }
+    objects.reserve(objects.size() + staged.size());
+    description.objects.reserve(description.objects.size() + subtree.objects.size());
+    std::unordered_map<std::string_view, gneiss_scene_node_id> committed_nodes;
+    committed_nodes.reserve(staged.size());
+    std::vector<bool> committed(staged.size());
+    std::size_t committed_count = 0;
+    while (committed_count < staged.size()) {
+      bool made_progress = false;
+      for (std::size_t index = 0; index < staged.size(); ++index) {
+        if (committed[index]) {
+          continue;
+        }
+        const auto& author = subtree.objects[index];
+        gneiss_scene_node_id runtime_parent = GNEISS_NULL_SCENE_NODE_ID;
+        if (author.parent_uuid) {
+          if (external_parent_uuid && *author.parent_uuid == *external_parent_uuid) {
+            runtime_parent = parent;
+          } else {
+            const auto found_parent = committed_nodes.find(*author.parent_uuid);
+            if (found_parent == committed_nodes.end()) {
+              continue;
+            }
+            runtime_parent = found_parent->second;
+          }
+        }
+        result = commit_object(world_, author, staged[index], runtime_parent);
+        if (result != GNEISS_SUCCESS) {
+          for (auto& value : staged) {
+            if (value.entity != GNEISS_NULL_ENTITY_ID) {
+              (void)gneiss_world_entity_destroy(world_, value.entity);
+            }
+            if (value.node != GNEISS_NULL_SCENE_NODE_ID) {
+              (void)gneiss_scene_node_destroy(world_, value.node);
+            }
+          }
+          loader_.release_unused();
+          return result;
+        }
+        committed_nodes.emplace(staged[index].uuid, staged[index].node);
+        committed[index] = true;
+        ++committed_count;
+        made_progress = true;
+      }
+      if (!made_progress) {
+        return GNEISS_ERROR_INVALID_ARGUMENT;
+      }
+    }
+    const auto restored_root_uuid =
+        uuid_map.empty() ? source_root_uuid : uuid_map.at(source_root_uuid);
+    *out_root = committed_nodes.at(restored_root_uuid);
+    for (auto& value : staged) {
+      objects.push_back(std::move(value));
+    }
+    for (auto& author : subtree.objects) {
+      description.objects.push_back(std::move(author));
+    }
+    return GNEISS_SUCCESS;
+  } catch (const std::bad_alloc&) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
+gneiss_result scene_instance::destroy_subtree(gneiss_scene_node_id root) {
+  const auto found = std::ranges::find(objects, root, &object::node);
+  if (found == objects.end()) {
+    return GNEISS_ERROR_INVALID_HANDLE;
+  }
+  try {
+    std::unordered_set<std::string> removed{found->uuid};
+    bool changed = true;
+    while (changed) {
+      changed = false;
+      for (const auto& author : description.objects) {
+        if (author.parent_uuid && removed.contains(*author.parent_uuid) &&
+            removed.emplace(author.uuid).second) {
+          changed = true;
+        }
+      }
+    }
+    std::vector<std::pair<object*, std::size_t>> ordered;
+    ordered.reserve(removed.size());
+    for (auto& value : objects) {
+      if (!removed.contains(value.uuid)) {
+        continue;
+      }
+      if (gneiss_scene_node_get_entity(world_, value.node, &value.entity) != GNEISS_SUCCESS) {
+        return GNEISS_ERROR_INVALID_HANDLE;
+      }
+      std::size_t depth = 0U;
+      auto current_uuid = std::string_view{value.uuid};
+      while (true) {
+        const auto author =
+            std::ranges::find(description.objects, current_uuid, &object_description::uuid);
+        if (author == description.objects.end() || !author->parent_uuid ||
+            !removed.contains(*author->parent_uuid)) {
+          break;
+        }
+        ++depth;
+        current_uuid = *author->parent_uuid;
+      }
+      ordered.emplace_back(&value, depth);
+    }
+    std::ranges::sort(
+        ordered, [](const auto& left, const auto& right) { return left.second > right.second; });
+    for (const auto& [value, depth] : ordered) {
+      (void)depth;
+      auto destroy_result = gneiss_world_entity_destroy(world_, value->entity);
+      if (destroy_result != GNEISS_SUCCESS) {
+        return destroy_result;
+      }
+      destroy_result = gneiss_scene_node_destroy(world_, value->node);
+      if (destroy_result != GNEISS_SUCCESS) {
+        return destroy_result;
+      }
+    }
+    std::erase_if(objects, [&removed](const auto& value) { return removed.contains(value.uuid); });
+    std::erase_if(description.objects,
+                  [&removed](const auto& value) { return removed.contains(value.uuid); });
+    loader_.release_unused();
     return GNEISS_SUCCESS;
   } catch (const std::bad_alloc&) {
     return GNEISS_ERROR_OUT_OF_MEMORY;
@@ -640,6 +915,49 @@ gneiss_result scene_instance_service::reparent_node(gneiss_scene_instance instan
     auto* value = instances_.get(instance, core::resource_type::scene_instance);
     return value == nullptr || *value == nullptr ? GNEISS_ERROR_INVALID_HANDLE
                                                  : (*value)->reparent_node(node, parent);
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
+gneiss_result scene_instance_service::capture_subtree(gneiss_scene_instance instance,
+                                                      gneiss_scene_node_id root,
+                                                      std::string& out_snapshot) const noexcept {
+  try {
+    const auto* value = instances_.get(instance, core::resource_type::scene_instance);
+    return value == nullptr || *value == nullptr ? GNEISS_ERROR_INVALID_HANDLE
+                                                 : (*value)->capture_subtree(root, out_snapshot);
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
+gneiss_result scene_instance_service::restore_subtree(gneiss_scene_instance instance,
+                                                      std::string_view snapshot,
+                                                      gneiss_scene_node_id parent,
+                                                      const gneiss_scene_uuid_mapping* mappings,
+                                                      std::uint64_t mapping_count,
+                                                      gneiss_scene_node_id* out_root) noexcept {
+  if (out_root == nullptr) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  *out_root = GNEISS_NULL_SCENE_NODE_ID;
+  try {
+    auto* value = instances_.get(instance, core::resource_type::scene_instance);
+    return value == nullptr || *value == nullptr
+               ? GNEISS_ERROR_INVALID_HANDLE
+               : (*value)->restore_subtree(snapshot, parent, mappings, mapping_count, out_root);
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
+gneiss_result scene_instance_service::destroy_subtree(gneiss_scene_instance instance,
+                                                      gneiss_scene_node_id root) noexcept {
+  try {
+    auto* value = instances_.get(instance, core::resource_type::scene_instance);
+    return value == nullptr || *value == nullptr ? GNEISS_ERROR_INVALID_HANDLE
+                                                 : (*value)->destroy_subtree(root);
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;
   }

@@ -11,6 +11,7 @@
 #include <cstdint>
 #include <limits>
 #include <new>
+#include <span>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -36,6 +37,7 @@ inline constexpr scene_node_id null_scene_node_id{};
 using transform = gneiss_transform;
 using scene_instance_node_info = gneiss_scene_instance_node_info;
 using scene_node_desc = gneiss_scene_node_desc;
+using scene_uuid_mapping = gneiss_scene_uuid_mapping;
 using scene_mesh_renderer_desc = gneiss_scene_mesh_renderer_desc;
 using scene_mesh_renderer_node_desc = gneiss_scene_mesh_renderer_node_desc;
 
@@ -117,6 +119,46 @@ public:
   [[nodiscard]] result reparent_node(scene_node_id node, scene_node_id parent) noexcept {
     return from_native(
         gneiss_scene_instance_reparent_node(application_, handle_, node.get(), parent.get()));
+  }
+  [[nodiscard]] result capture_subtree(scene_node_id root,
+                                       std::string& out_snapshot) const noexcept {
+    std::uint64_t length = 0;
+    auto native_result = gneiss_scene_instance_capture_subtree(application_, handle_, root.get(),
+                                                               nullptr, 0U, &length);
+    if (native_result != GNEISS_SUCCESS) {
+      return from_native(native_result);
+    }
+    if (length > std::numeric_limits<std::size_t>::max()) {
+      return result::out_of_memory;
+    }
+    try {
+      std::string value(static_cast<std::size_t>(length), '\0');
+      native_result = gneiss_scene_instance_capture_subtree(application_, handle_, root.get(),
+                                                            value.data(), value.size(), &length);
+      if (native_result == GNEISS_SUCCESS) {
+        out_snapshot = std::move(value);
+      }
+      return from_native(native_result);
+    } catch (const std::bad_alloc&) {
+      return result::out_of_memory;
+    } catch (...) {
+      return result::internal;
+    }
+  }
+  [[nodiscard]] result restore_subtree(std::string_view snapshot, scene_node_id parent,
+                                       std::span<const scene_uuid_mapping> mappings,
+                                       scene_node_id& out_root) noexcept {
+    gneiss_scene_node_id root = GNEISS_NULL_SCENE_NODE_ID;
+    const auto native_result = gneiss_scene_instance_restore_subtree(
+        application_, handle_, snapshot.data(), snapshot.size(), parent.get(), mappings.data(),
+        mappings.size(), &root);
+    if (native_result == GNEISS_SUCCESS) {
+      out_root = scene_node_id{root};
+    }
+    return from_native(native_result);
+  }
+  [[nodiscard]] result destroy_subtree(scene_node_id root) noexcept {
+    return from_native(gneiss_scene_instance_destroy_subtree(application_, handle_, root.get()));
   }
   [[nodiscard]] result set_mesh_renderer(scene_node_id node,
                                          const scene_mesh_renderer_desc& desc) noexcept {

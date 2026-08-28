@@ -47,6 +47,14 @@ public:
                                           gneiss_scene_node_id* out_node);
   [[nodiscard]] gneiss_result set_node_name(gneiss_scene_node_id node, std::string_view name);
   [[nodiscard]] gneiss_result reparent_node(gneiss_scene_node_id node, gneiss_scene_node_id parent);
+  [[nodiscard]] gneiss_result capture_subtree(gneiss_scene_node_id root,
+                                              std::string& out_snapshot) const;
+  [[nodiscard]] gneiss_result restore_subtree(std::string_view snapshot,
+                                              gneiss_scene_node_id parent,
+                                              const gneiss_scene_uuid_mapping* mappings,
+                                              std::uint64_t mapping_count,
+                                              gneiss_scene_node_id* out_root);
+  [[nodiscard]] gneiss_result destroy_subtree(gneiss_scene_node_id root);
   [[nodiscard]] gneiss_result
   create_mesh_renderer_node(const gneiss_scene_mesh_renderer_node_desc& desc,
                             gneiss_scene_node_id* out_node);
@@ -90,6 +98,15 @@ public:
   [[nodiscard]] gneiss_result reparent_node(gneiss_scene_instance instance,
                                             gneiss_scene_node_id node,
                                             gneiss_scene_node_id parent) noexcept;
+  [[nodiscard]] gneiss_result capture_subtree(gneiss_scene_instance instance,
+                                              gneiss_scene_node_id root,
+                                              std::string& out_snapshot) const noexcept;
+  [[nodiscard]] gneiss_result
+  restore_subtree(gneiss_scene_instance instance, std::string_view snapshot,
+                  gneiss_scene_node_id parent, const gneiss_scene_uuid_mapping* mappings,
+                  std::uint64_t mapping_count, gneiss_scene_node_id* out_root) noexcept;
+  [[nodiscard]] gneiss_result destroy_subtree(gneiss_scene_instance instance,
+                                              gneiss_scene_node_id root) noexcept;
   [[nodiscard]] gneiss_result
   create_mesh_renderer_node(gneiss_scene_instance instance,
                             const gneiss_scene_mesh_renderer_node_desc& desc,

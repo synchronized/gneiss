@@ -32,6 +32,8 @@ int main() try {
   constexpr std::string_view camera_uuid = "00000000-0000-4000-8000-000000000002";
   constexpr std::string_view created_uuid = "00000000-0000-4000-8000-000000000004";
   constexpr std::string_view generic_uuid = "00000000-0000-4000-8000-000000000005";
+  constexpr std::string_view copied_generic_uuid = "00000000-0000-4000-8000-000000000006";
+  constexpr std::string_view copied_triangle_uuid = "00000000-0000-4000-8000-000000000007";
   constexpr std::string_view mesh_uri = "asset://models/triangle.mesh.json";
   constexpr std::string_view material_uri = "asset://materials/triangle.material.json";
   constexpr std::string_view missing_mesh_uri = "asset://models/missing.mesh.json";
@@ -130,10 +132,88 @@ int main() try {
           GNEISS_SUCCESS ||
       triangle_info.node != generic_node ||
       std::string_view{triangle_info.name, triangle_info.name_length} != "Group" ||
-      triangle_info.local_transform.translation[1] != 2.0F || triangle_info.component_flags != 0U ||
-      gneiss_scene_instance_reparent_node(application, scene, triangle, camera_node) !=
-          GNEISS_SUCCESS) {
+      triangle_info.local_transform.translation[1] != 2.0F || triangle_info.component_flags != 0U) {
     return 13;
+  }
+  std::uint64_t subtree_length = 0U;
+  if (gneiss_scene_instance_capture_subtree(application, scene, generic_node, nullptr, 0U,
+                                            &subtree_length) != GNEISS_SUCCESS ||
+      subtree_length == 0U) {
+    return 14;
+  }
+  std::string subtree_snapshot(subtree_length, '\0');
+  const auto old_generic_node = generic_node;
+  const auto old_triangle_node = triangle;
+  if (gneiss_scene_instance_capture_subtree(application, scene, generic_node,
+                                            subtree_snapshot.data(), subtree_snapshot.size(),
+                                            &subtree_length) != GNEISS_SUCCESS ||
+      gneiss_scene_instance_destroy_subtree(application, scene, generic_node) != GNEISS_SUCCESS) {
+    return 15;
+  }
+  if (gneiss_scene_node_get_parent(world, old_generic_node, &generic_node) !=
+          GNEISS_ERROR_INVALID_HANDLE ||
+      gneiss_scene_node_get_parent(world, old_triangle_node, &triangle) !=
+          GNEISS_ERROR_INVALID_HANDLE) {
+    return 17;
+  }
+  if (gneiss_scene_instance_restore_subtree(application, scene, subtree_snapshot.data(),
+                                            subtree_snapshot.size(), camera_node, nullptr, 0U,
+                                            &generic_node) != GNEISS_SUCCESS) {
+    return 18;
+  }
+  if (generic_node == old_generic_node) {
+    return 19;
+  }
+  if (gneiss_scene_instance_find_node(application, scene, triangle_uuid.data(),
+                                      triangle_uuid.size(), &triangle) != GNEISS_SUCCESS) {
+    return 20;
+  }
+  if (triangle == old_triangle_node) {
+    return 21;
+  }
+  const gneiss_scene_uuid_mapping mappings[] = {
+      {.source_uuid = generic_uuid.data(),
+       .source_uuid_length = generic_uuid.size(),
+       .target_uuid = copied_generic_uuid.data(),
+       .target_uuid_length = copied_generic_uuid.size()},
+      {.source_uuid = triangle_uuid.data(),
+       .source_uuid_length = triangle_uuid.size(),
+       .target_uuid = copied_triangle_uuid.data(),
+       .target_uuid_length = copied_triangle_uuid.size()}};
+  gneiss_scene_node_id copied_root = GNEISS_NULL_SCENE_NODE_ID;
+  if (gneiss_scene_instance_restore_subtree(application, scene, subtree_snapshot.data(),
+                                            subtree_snapshot.size(), camera_node, mappings, 1U,
+                                            &copied_root) != GNEISS_ERROR_INVALID_ARGUMENT) {
+    return 16;
+  }
+  auto missing_asset_snapshot = subtree_snapshot;
+  const auto mesh_position = missing_asset_snapshot.find(mesh_uri);
+  if (mesh_position == std::string::npos) {
+    return 25;
+  }
+  missing_asset_snapshot.replace(mesh_position, mesh_uri.size(), missing_mesh_uri);
+  if (gneiss_scene_instance_restore_subtree(application, scene, missing_asset_snapshot.data(),
+                                            missing_asset_snapshot.size(), camera_node, mappings,
+                                            2U, &copied_root) != GNEISS_ERROR_NOT_FOUND ||
+      gneiss_scene_instance_get_node_count(application, scene, &node_count) != GNEISS_SUCCESS ||
+      node_count != 4U) {
+    return 26;
+  }
+  const auto copy_result = gneiss_scene_instance_restore_subtree(
+      application, scene, subtree_snapshot.data(), subtree_snapshot.size(), camera_node, mappings,
+      2U, &copied_root);
+  if (copy_result != GNEISS_SUCCESS) {
+    return 22;
+  }
+  if (copied_root == GNEISS_NULL_SCENE_NODE_ID) {
+    return 22;
+  }
+  if (gneiss_scene_instance_destroy_subtree(application, scene, copied_root) != GNEISS_SUCCESS) {
+    return 23;
+  }
+  if (gneiss_scene_instance_reparent_node(application, scene, triangle, camera_node) !=
+      GNEISS_SUCCESS) {
+    return 24;
   }
   if (gneiss_scene_instance_create_mesh_renderer_node(application, scene, &create_desc,
                                                       &triangle) != GNEISS_ERROR_INVALID_ARGUMENT) {
