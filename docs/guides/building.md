@@ -201,8 +201,10 @@ Lantern Gallery 的导入资产由构建过程生成，因此其可运行工程�
 
 当前宿主已提供场景会话、可选择的层级树和独立 Editor Camera。鼠标位于 Scene View 时，可以使用
 `W/A/S/D` 前后左右移动、`Q/E` 降低或升高、按住鼠标右键环视、滚轮沿视线移动；选择层级节点后
-按 `F` 可聚焦其世界位置。Scene View 会以黄色边框和名称反馈当前选择，Inspector 展示节点
-标识以及实体上已注册的 Transform、Camera 属性。Inspector 根据 Type Registry 元数据生成布尔、
+按 `F` 可聚焦其世界位置。Scene Hierarchy 可以创建、重命名、拖放重挂接、复制和删除节点；右键
+菜单提供常用操作，也可使用 `F2`、`Ctrl+D` 和 `Delete`。Scene View 会以黄色边框和名称反馈当前
+选择，Inspector 可以添加或移除 Camera 和 Mesh Renderer，并展示实体上已注册的属性。Inspector
+根据 Type Registry 元数据生成布尔、
 标量、向量和四元数控件；只读字段会禁用，非法值会保留运行时原值并显示错误。输入、字体 Texture
 RID、UI Draw List 与 Granit Canvas 已完成同帧渲染。成功修改后状态显示为 `Modified`；点击
 `Save` 或按 `Ctrl+S` 会原子写回启动参数指定资产根中的源场景，成功后恢复为 `Saved`，失败时保留

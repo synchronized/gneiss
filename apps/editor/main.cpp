@@ -33,6 +33,8 @@
 
 namespace {
 
+enum class hierarchy_action { none, rename, duplicate, remove };
+
 struct editor_state {
   gneiss::editor::imgui_adapter ui;
   gneiss::editor::editor_camera camera;
@@ -52,6 +54,8 @@ struct editor_state {
   std::array<char, 128> rename_buffer{};
   std::string rename_uuid;
   std::string rename_previous;
+  hierarchy_action pending_hierarchy_action = hierarchy_action::none;
+  std::string pending_hierarchy_uuid;
 #if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
   gneiss::editor::asset_browser_model assets;
   gneiss::editor::asset_browser_result asset_result = gneiss::editor::asset_browser_result::success;
@@ -196,6 +200,21 @@ void draw_scene_node(editor_state& state, const gneiss::editor::scene_node_recor
   const auto is_open = ImGui::TreeNodeEx(node.display_name.c_str(), flags);
   if (ImGui::IsItemClicked()) {
     (void)state.session.select(node.node);
+  }
+  if (ImGui::BeginPopupContextItem("Node Actions")) {
+    if (ImGui::MenuItem("Rename", "F2")) {
+      state.pending_hierarchy_action = hierarchy_action::rename;
+      state.pending_hierarchy_uuid = node.uuid;
+    }
+    if (ImGui::MenuItem("Duplicate", "Ctrl+D")) {
+      state.pending_hierarchy_action = hierarchy_action::duplicate;
+      state.pending_hierarchy_uuid = node.uuid;
+    }
+    if (ImGui::MenuItem("Delete", "Delete")) {
+      state.pending_hierarchy_action = hierarchy_action::remove;
+      state.pending_hierarchy_uuid = node.uuid;
+    }
+    ImGui::EndPopup();
   }
   if (ImGui::BeginDragDropSource()) {
     ImGui::SetDragDropPayload("GNEISS_SCENE_NODE_UUID", node.uuid.data(), node.uuid.size());
@@ -647,14 +666,35 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
     if (!state.session.is_open()) {
       ImGui::TextUnformatted("No scene is open");
     } else {
+      auto pending_action = state.pending_hierarchy_action;
+      if (pending_action != hierarchy_action::none) {
+        if (const auto* pending = state.session.find_node(state.pending_hierarchy_uuid);
+            pending != nullptr) {
+          (void)state.session.select(pending->node);
+        } else {
+          pending_action = hierarchy_action::none;
+        }
+        state.pending_hierarchy_action = hierarchy_action::none;
+        state.pending_hierarchy_uuid.clear();
+      }
       const auto* selected = state.session.selected_node();
+      const auto can_edit_selection = selected != nullptr;
+      const auto hierarchy_focused = ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
+      const auto keyboard_enabled = hierarchy_focused && !ImGui::GetIO().WantTextInput;
       const auto create_requested = ImGui::Button("Create Empty");
       ImGui::SameLine();
       ImGui::BeginDisabled(selected == nullptr);
-      const auto duplicate_requested = ImGui::Button("Duplicate");
-      const auto rename_requested = ImGui::Button("Rename");
+      const auto duplicate_requested =
+          ImGui::Button("Duplicate") || pending_action == hierarchy_action::duplicate ||
+          (can_edit_selection && keyboard_enabled && ImGui::GetIO().KeyCtrl &&
+           ImGui::IsKeyPressed(ImGuiKey_D, false));
+      const auto rename_requested =
+          ImGui::Button("Rename") || pending_action == hierarchy_action::rename ||
+          (can_edit_selection && keyboard_enabled && ImGui::IsKeyPressed(ImGuiKey_F2, false));
       ImGui::SameLine();
-      const auto delete_requested = ImGui::Button("Delete");
+      const auto delete_requested =
+          ImGui::Button("Delete") || pending_action == hierarchy_action::remove ||
+          (can_edit_selection && keyboard_enabled && ImGui::IsKeyPressed(ImGuiKey_Delete, false));
       ImGui::EndDisabled();
       if (rename_requested) {
         state.rename_uuid = selected->uuid;

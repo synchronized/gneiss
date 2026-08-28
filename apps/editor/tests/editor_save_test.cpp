@@ -92,6 +92,18 @@ int main() try {
       session.reparent_node(created_node, empty_parent) != gneiss::result::success) {
     return 13;
   }
+  const auto child_uuid = session.find_node(session.selected_node()->uuid)->uuid;
+  gneiss::scene_camera_desc author_camera = GNEISS_SCENE_CAMERA_DESC_INIT;
+  if (session.set_camera(empty_child, author_camera) != gneiss::result::success ||
+      (session.find_node(child_uuid)->component_flags & GNEISS_SCENE_NODE_COMPONENT_CAMERA) == 0U ||
+      session.remove_camera(session.find_node(child_uuid)->node) != gneiss::result::success ||
+      (session.find_node(child_uuid)->component_flags & GNEISS_SCENE_NODE_COMPONENT_CAMERA) != 0U ||
+      session.remove_mesh_renderer(session.find_node(created_uuid)->node) !=
+          gneiss::result::success ||
+      session.set_mesh_renderer(session.find_node(created_uuid)->node, mesh_uri, material_uri) !=
+          gneiss::result::success) {
+    return 16;
+  }
   const auto parent_uuid = session.find_node(session.selected_node()->uuid)->uuid;
   gneiss::editor::scene_subtree_snapshot subtree;
   if (session.destroy_subtree(empty_parent, subtree) != gneiss::result::success ||
