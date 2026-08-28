@@ -4,6 +4,7 @@
 #include "editor_camera.h"
 #include "editor_command_history.h"
 #include "editor_project.h"
+#include "editor_rotation_math.h"
 #include "editor_session.h"
 #include "editor_theme.h"
 #include "imgui_adapter.h"
@@ -493,9 +494,18 @@ bool draw_property(editor_state& state, const gneiss::editor::inspector_componen
   case GNEISS_PROPERTY_KIND_VEC3:
     changed = ImGui::DragFloat3(property.name.c_str(), &value.payload.vec3_value.x, 0.05F);
     break;
-  case GNEISS_PROPERTY_KIND_QUATERNION:
-    changed = ImGui::DragFloat4(property.name.c_str(), &value.payload.quaternion_value.x, 0.01F);
+  case GNEISS_PROPERTY_KIND_QUATERNION: {
+    std::array<float, 3> euler{};
+    error = gneiss::editor::quaternion_to_euler_degrees(value.payload.quaternion_value, euler);
+    if (error != gneiss::result::success) {
+      break;
+    }
+    changed = ImGui::DragFloat3(property.name.c_str(), euler.data(), 0.25F, 0.0F, 0.0F, "%.1f°");
+    if (changed) {
+      error = gneiss::editor::euler_degrees_to_quaternion(euler, value.payload.quaternion_value);
+    }
     break;
+  }
   default:
     ImGui::TextDisabled("%s: unsupported property kind", property.name.c_str());
     break;
@@ -507,6 +517,9 @@ bool draw_property(editor_state& state, const gneiss::editor::inspector_componen
     ++state.property_edit_serial;
   }
   if (!changed) {
+    return false;
+  }
+  if (error != gneiss::result::success) {
     return false;
   }
   const auto previous = property.value;

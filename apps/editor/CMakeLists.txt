@@ -9,6 +9,8 @@ add_library(
   editor_command_history.h
   editor_project.cpp
   editor_project.h
+  editor_rotation_math.cpp
+  editor_rotation_math.h
   editor_session.cpp
   editor_session.h
   project_workspace.cpp
@@ -119,6 +121,11 @@ if(BUILD_TESTING)
   gneiss_target_compile_warnings(gneiss_editor_transform_gizmo_math_test)
   gneiss_target_output_directories(gneiss_editor_transform_gizmo_math_test)
   add_test(NAME gneiss.editor.transform-gizmo-math COMMAND gneiss_editor_transform_gizmo_math_test)
+  add_executable(gneiss_editor_rotation_math_test tests/editor_rotation_math_test.cpp)
+  target_link_libraries(gneiss_editor_rotation_math_test PRIVATE gneiss_editor_session)
+  gneiss_target_compile_warnings(gneiss_editor_rotation_math_test)
+  gneiss_target_output_directories(gneiss_editor_rotation_math_test)
+  add_test(NAME gneiss.editor.rotation-math COMMAND gneiss_editor_rotation_math_test)
   if(TARGET gneiss_editor_assets)
     add_executable(gneiss_editor_asset_browser_test tests/asset_browser_model_test.cpp)
     target_link_libraries(gneiss_editor_asset_browser_test PRIVATE gneiss_editor_assets)
