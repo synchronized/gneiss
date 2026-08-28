@@ -84,11 +84,48 @@ int main() try {
     return 5;
   }
   const auto created_uuid = session.selected_node()->uuid;
+  gneiss::scene_node_id empty_parent;
+  gneiss::scene_node_id empty_child;
+  if (session.create_node("Empty Parent", {}, empty_parent) != gneiss::result::success ||
+      session.create_node("Empty Child", empty_parent, empty_child) != gneiss::result::success ||
+      session.rename_node(empty_child, "Renamed Child") != gneiss::result::success ||
+      session.reparent_node(created_node, empty_parent) != gneiss::result::success) {
+    return 13;
+  }
+  const auto child_uuid = session.find_node(session.selected_node()->uuid)->uuid;
+  gneiss::scene_camera_desc author_camera = GNEISS_SCENE_CAMERA_DESC_INIT;
+  if (session.set_camera(empty_child, author_camera) != gneiss::result::success ||
+      (session.find_node(child_uuid)->component_flags & GNEISS_SCENE_NODE_COMPONENT_CAMERA) == 0U ||
+      session.remove_camera(session.find_node(child_uuid)->node) != gneiss::result::success ||
+      (session.find_node(child_uuid)->component_flags & GNEISS_SCENE_NODE_COMPONENT_CAMERA) != 0U ||
+      session.remove_mesh_renderer(session.find_node(created_uuid)->node) !=
+          gneiss::result::success ||
+      session.set_mesh_renderer(session.find_node(created_uuid)->node, mesh_uri, material_uri) !=
+          gneiss::result::success) {
+    return 16;
+  }
+  const auto parent_uuid = session.find_node(session.selected_node()->uuid)->uuid;
+  gneiss::editor::scene_subtree_snapshot subtree;
+  if (session.destroy_subtree(empty_parent, subtree) != gneiss::result::success ||
+      session.find_node(parent_uuid) != nullptr ||
+      session.restore_subtree(subtree, empty_parent) != gneiss::result::success ||
+      session.find_node(parent_uuid) == nullptr) {
+    return 14;
+  }
+  gneiss::scene_node_id duplicate;
+  gneiss::editor::scene_subtree_snapshot duplicate_snapshot;
+  if (session.duplicate_subtree(empty_parent, {}, duplicate) != gneiss::result::success ||
+      duplicate == empty_parent || session.nodes().size() != 8U ||
+      session.destroy_subtree(duplicate, duplicate_snapshot) != gneiss::result::success ||
+      session.nodes().size() != 5U) {
+    return 15;
+  }
+  created_node = session.find_node(created_uuid)->node;
   gneiss::editor::scene_node_snapshot snapshot;
   if (session.destroy_node(created_node, snapshot) != gneiss::result::success ||
-      session.find_node(created_uuid) != nullptr || session.nodes().size() != 2U ||
+      session.find_node(created_uuid) != nullptr || session.nodes().size() != 4U ||
       session.restore_mesh_renderer_node(snapshot, created_node) != gneiss::result::success ||
-      session.find_node(created_uuid) == nullptr || session.nodes().size() != 3U) {
+      session.find_node(created_uuid) == nullptr || session.nodes().size() != 5U) {
     return 6;
   }
   if (session.save(root) != gneiss::result::success || session.is_dirty()) {
@@ -110,6 +147,27 @@ int main() try {
   if (!write_text(blocker, "blocker") || session.save(blocker) != gneiss::result::io ||
       !session.is_dirty() || read_text(scene_path) != saved) {
     return 10;
+  }
+  constexpr std::string_view new_scene_uuid = "00000000-0000-4000-8000-000000000099";
+  constexpr std::string_view new_scene_uri = "asset://scenes/new.scene.json";
+  std::string converted_uri;
+  if (gneiss::editor::make_asset_uri(root, root / "scenes" / "new.scene.json", converted_uri) !=
+          gneiss::result::success ||
+      converted_uri != new_scene_uri ||
+      gneiss::editor::make_asset_uri(root, root.parent_path() / "escaped.scene.json",
+                                     converted_uri) != gneiss::result::invalid_argument) {
+    return 18;
+  }
+  gneiss::scene_node_id new_node;
+  if (session.create_empty(application.get(), world, new_scene_uuid) != gneiss::result::success ||
+      !session.is_open() || !session.is_dirty() || !session.uri().empty() ||
+      session.create_node("Root", {}, new_node) != gneiss::result::success ||
+      session.save(root) != gneiss::result::invalid_argument ||
+      session.save_as(root, new_scene_uri) != gneiss::result::success || session.is_dirty() ||
+      session.uri() != new_scene_uri ||
+      session.save_as(root, new_scene_uri) != gneiss::result::invalid_state ||
+      read_text(root / "scenes" / "new.scene.json").find(new_scene_uuid) == std::string::npos) {
+    return 17;
   }
   session.close();
   application.reset();

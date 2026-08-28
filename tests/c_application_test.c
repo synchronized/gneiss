@@ -14,6 +14,8 @@ typedef struct test_context {
   uint32_t diagnostic_count;
   gneiss_result diagnostic_result;
   gneiss_result ui_submit_result;
+  uint64_t close_request_count;
+  uint8_t allow_close;
 } test_context;
 
 static void diagnostic(gneiss_application application, const gneiss_diagnostic* value,
@@ -70,6 +72,14 @@ static void shutdown(void* user_data) {
   ++context->shutdown_count;
 }
 
+static uint8_t close_requested(gneiss_application application, void* user_data) {
+  test_context* context = (test_context*)user_data;
+  gneiss_world world = GNEISS_NULL_WORLD;
+  ++context->close_request_count;
+  return gneiss_application_get_world(application, &world) == GNEISS_SUCCESS ? context->allow_close
+                                                                             : UINT8_C(1);
+}
+
 int main(void) {
   test_context context = {0};
   gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
@@ -82,6 +92,7 @@ int main(void) {
   desc.update = update;
   desc.shutdown = shutdown;
   desc.diagnostic = diagnostic;
+  desc.close_requested = close_requested;
 
   if (gneiss_application_create(&desc, &application) != GNEISS_SUCCESS ||
       gneiss_application_get_world(application, &world) != GNEISS_SUCCESS ||
@@ -120,6 +131,7 @@ int main(void) {
 
   context.update_count = 0U;
   context.should_close = 1U;
+  context.allow_close = 1U;
   application = GNEISS_NULL_APPLICATION;
   if (gneiss_application_create(&desc, &application) != GNEISS_SUCCESS ||
       gneiss_application_run(application, 0) != GNEISS_SUCCESS || context.update_count != 0U ||
@@ -127,10 +139,21 @@ int main(void) {
     return 2;
   }
 
+  context.update_count = 0U;
+  context.close_request_count = 0U;
+  context.allow_close = 0U;
+  application = GNEISS_NULL_APPLICATION;
+  if (gneiss_application_create(&desc, &application) != GNEISS_SUCCESS ||
+      gneiss_application_run(application, 0) != GNEISS_SUCCESS ||
+      context.update_count != UINT64_C(3) || context.close_request_count != UINT64_C(3) ||
+      gneiss_application_destroy(application) != GNEISS_SUCCESS || context.shutdown_count != 3U) {
+    return 7;
+  }
+
   desc.struct_size = GNEISS_APPLICATION_DESC_VERSION_1_SIZE;
   application = GNEISS_NULL_APPLICATION;
   if (gneiss_application_create(&desc, &application) != GNEISS_SUCCESS ||
-      gneiss_application_destroy(application) != GNEISS_SUCCESS || context.shutdown_count != 3U) {
+      gneiss_application_destroy(application) != GNEISS_SUCCESS || context.shutdown_count != 4U) {
     return 3;
   }
   desc.struct_size = (uint32_t)sizeof(gneiss_application_desc);
@@ -139,7 +162,7 @@ int main(void) {
   context.should_close = 0U;
   application = GNEISS_NULL_APPLICATION;
   if (gneiss_application_create(&desc, &application) != GNEISS_ERROR_INITIALIZATION_FAILED ||
-      application != GNEISS_NULL_APPLICATION || context.shutdown_count != 4U) {
+      application != GNEISS_NULL_APPLICATION || context.shutdown_count != 5U) {
     return 4;
   }
 #ifdef GNEISS_TEST_NO_GRANIT_PLATFORM

@@ -12,6 +12,7 @@
 #include "input/input_service.h"
 #include "render/render_asset_loader.h"
 #include "render/render_resource_service.h"
+#include "render/debug_draw_list.h"
 #include "render/ui_draw_list.h"
 #include "scene/scene_instance_service.h"
 
@@ -61,6 +62,8 @@ public:
   [[nodiscard]] gneiss_result get_action_state(gneiss_action action,
                                                gneiss_action_state& out_state) const noexcept;
   [[nodiscard]] gneiss_result submit_ui_draw_list(const gneiss_ui_draw_list_desc& desc) noexcept;
+  [[nodiscard]] gneiss_result
+  submit_debug_draw_list(const gneiss_debug_draw_list_desc& desc) noexcept;
   void report(gneiss_application handle, std::uint32_t severity, std::uint32_t category,
               gneiss_result result, std::string_view module,
               std::string_view message) const noexcept;
@@ -78,6 +81,7 @@ private:
   gneiss_application_desc desc_;
   render_internal::render_resource_service resources_;
   render_internal::ui_draw_list ui_draw_list_;
+  render_internal::debug_draw_list debug_draw_list_;
   asset_internal::virtual_file_system asset_file_system_;
   asset_internal::resource_cache asset_cache_;
   render_internal::render_asset_loader asset_loader_;

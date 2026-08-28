@@ -62,6 +62,7 @@
 - [VER-006：0.6.0 数据与属性基础](plans/VER-006-0.6.0-data-property-slice.md)
 - [VER-007：0.7.0 编辑器基础闭环](plans/VER-007-0.7.0-editor-foundation-slice.md)
 - [VER-008：0.8.0 编辑器资产工作流](plans/VER-008-0.8.0-editor-asset-workflow.md)
+- [VER-009：0.9.0 场景创作工作流](plans/VER-009-0.9.0-scene-authoring-workflow.md)
 - [TOOL-001：glTF 资产编译器最小闭环](plans/TOOL-001-gltf-asset-compiler.md)
 - [TOOL-002：Mesh Binary v1 最小闭环](plans/TOOL-002-mesh-binary-v1.md)
 - [TOOL-003：索引渲染最小闭环](plans/TOOL-003-indexed-rendering.md)
@@ -88,6 +89,7 @@
 - [ADR-017：编辑器 UI 与场景渲染组合边界](decisions/ADR-017-editor-ui-render-composition.md)
 - [ADR-018：Editor 工程启动入口](decisions/ADR-018-editor-project-entry.md)
 - [ADR-019：Editor 源资产、派生产物与导入索引边界](decisions/ADR-019-editor-asset-workflow.md)
+- [ADR-020：Editor 场景创作与 Runtime 投影边界](decisions/ADR-020-scene-authoring-boundary.md)
 
 ## 实施与验收记录
 
@@ -103,6 +105,7 @@
 - [0.6.0 版本验收记录](records/0.6.0-validation.md)
 - [0.7.0 编辑器基础验收记录](records/0.7.0-validation.md)
 - [0.8.0 编辑器资产工作流验收记录](records/0.8.0-validation.md)
+- [0.9.0 场景创作工作流验收记录](records/0.9.0-validation.md)
 - [M-13 JSON 解析器 Spike 记录](records/M-13-json-spike.md)
 - [M-14 资产 URI 与资源生命周期实施记录](records/M-14-asset-uri-resource-lifecycle.md)
 - [M-15 版本化场景 Schema 实施记录](records/M-15-scene-schema.md)

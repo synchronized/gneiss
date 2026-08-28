@@ -361,6 +361,18 @@ make_author_object(yyjson_mut_doc* document,
       return nullptr;
     }
   }
+  if (source.camera) {
+    auto* camera = yyjson_mut_obj(document);
+    if (camera == nullptr ||
+        !yyjson_mut_obj_add_real(document, camera, "vertical_field_of_view_radians",
+                                 source.camera->vertical_field_of_view_radians) ||
+        !yyjson_mut_obj_add_real(document, camera, "near_plane", source.camera->near_plane) ||
+        !yyjson_mut_obj_add_real(document, camera, "far_plane", source.camera->far_plane) ||
+        !yyjson_mut_obj_add_bool(document, camera, "is_primary", source.camera->is_primary) ||
+        !put_value(document, components, "camera", camera)) {
+      return nullptr;
+    }
+  }
   return put_value(document, object, "components", components) ? object : nullptr;
 }
 
@@ -650,12 +662,27 @@ gneiss_result serialize_scene_description(const scene_description& scene,
       const auto& source = scene.objects[index];
       yyjson_mut_val* object = yyjson_mut_arr_get(objects, index);
       yyjson_mut_val* transform = yyjson_mut_obj_get(object, "transform");
-      if (!put_value(mutable_document.get(), transform, "translation",
+      if (!put_value(
+              mutable_document.get(), object, "uuid",
+              yyjson_mut_strncpy(mutable_document.get(), source.uuid.data(), source.uuid.size())) ||
+          !put_value(mutable_document.get(), object, "parent",
+                     source.parent_uuid
+                         ? yyjson_mut_strncpy(mutable_document.get(), source.parent_uuid->data(),
+                                              source.parent_uuid->size())
+                         : yyjson_mut_null(mutable_document.get())) ||
+          !put_value(mutable_document.get(), transform, "translation",
                      make_float_array(mutable_document.get(), source.translation)) ||
           !put_value(mutable_document.get(), transform, "rotation",
                      make_float_array(mutable_document.get(), source.rotation)) ||
           !put_value(mutable_document.get(), transform, "scale",
                      make_float_array(mutable_document.get(), source.scale))) {
+        return GNEISS_ERROR_OUT_OF_MEMORY;
+      }
+      if (source.name.empty()) {
+        (void)yyjson_mut_obj_remove_key(object, "name");
+      } else if (!put_value(mutable_document.get(), object, "name",
+                            yyjson_mut_strncpy(mutable_document.get(), source.name.data(),
+                                               source.name.size()))) {
         return GNEISS_ERROR_OUT_OF_MEMORY;
       }
       if (source.camera) {
@@ -672,6 +699,9 @@ gneiss_result serialize_scene_description(const scene_description& scene,
                        yyjson_mut_bool(mutable_document.get(), source.camera->is_primary))) {
           return GNEISS_ERROR_OUT_OF_MEMORY;
         }
+      } else {
+        yyjson_mut_val* components = yyjson_mut_obj_get(object, "components");
+        (void)yyjson_mut_obj_remove_key(components, "camera");
       }
       if (source.mesh_renderer) {
         yyjson_mut_val* components = yyjson_mut_obj_get(object, "components");
@@ -692,6 +722,9 @@ gneiss_result serialize_scene_description(const scene_description& scene,
                                           source.mesh_renderer->material_uri.size()))) {
           return GNEISS_ERROR_OUT_OF_MEMORY;
         }
+      } else {
+        yyjson_mut_val* components = yyjson_mut_obj_get(object, "components");
+        (void)yyjson_mut_obj_remove_key(components, "mesh_renderer");
       }
     }
     std::size_t output_length = 0;

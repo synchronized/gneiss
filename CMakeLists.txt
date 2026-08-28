@@ -5,7 +5,7 @@ cmake_minimum_required(VERSION 3.23)
 
 project(
   gneiss
-  VERSION 0.8.0
+  VERSION 0.9.0
   DESCRIPTION "基于 Granit 构建的现代 C++20 游戏引擎"
   LANGUAGES C CXX
 )
@@ -39,6 +39,8 @@ endif()
 if(GNEISS_BUILD_EDITOR)
   include(imgui)
   gneiss_resolve_imgui()
+  include(imguizmo)
+  gneiss_resolve_imguizmo()
   add_subdirectory(apps/editor)
 endif()
 

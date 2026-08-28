@@ -73,6 +73,39 @@ namespace {
 
 } // namespace
 
+result make_asset_uri(const std::filesystem::path& asset_root, const std::filesystem::path& path,
+                      std::string& output) noexcept {
+  if (asset_root.empty() || path.empty()) {
+    return result::invalid_argument;
+  }
+  try {
+    std::error_code error;
+    const auto root = std::filesystem::canonical(asset_root, error);
+    if (error) {
+      return result::io;
+    }
+    const auto target = std::filesystem::weakly_canonical(path, error);
+    if (error || !is_within(root, target)) {
+      return result::invalid_argument;
+    }
+    const auto relative = std::filesystem::relative(target, root, error).generic_u8string();
+    if (error || relative.empty()) {
+      return result::invalid_argument;
+    }
+    std::string uri = "asset://";
+    uri.append(reinterpret_cast<const char*>(relative.data()), relative.size());
+    if (gneiss_asset_uri_validate(uri.data(), uri.size()) != GNEISS_SUCCESS) {
+      return result::invalid_argument;
+    }
+    output = std::move(uri);
+    return result::success;
+  } catch (const std::bad_alloc&) {
+    return result::out_of_memory;
+  } catch (...) {
+    return result::io;
+  }
+}
+
 result editor_session::open(gneiss_application application, gneiss_world world,
                             std::string_view uri) noexcept {
   if (application == GNEISS_NULL_APPLICATION || world == GNEISS_NULL_WORLD || uri.empty()) {
@@ -84,8 +117,52 @@ result editor_session::open(gneiss_application application, gneiss_world world,
     if (operation != result::success) {
       return operation;
     }
+    scene_ = std::move(pending);
+    world_ = world;
+    selection_ = {};
+    uri_ = uri;
+    is_dirty_ = false;
+    return refresh_nodes();
+  } catch (const std::bad_alloc&) {
+    return result::out_of_memory;
+  } catch (...) {
+    return result::internal;
+  }
+}
+
+result editor_session::create_empty(gneiss_application application, gneiss_world world,
+                                    std::string_view scene_uuid) noexcept {
+  if (application == GNEISS_NULL_APPLICATION || world == GNEISS_NULL_WORLD || scene_uuid.empty()) {
+    return result::invalid_argument;
+  }
+  scene_instance pending;
+  const auto operation = scene_instance::create_empty(application, scene_uuid, pending);
+  if (operation != result::success) {
+    return operation;
+  }
+  scene_ = std::move(pending);
+  world_ = world;
+  nodes_.clear();
+  selection_ = {};
+  uri_.clear();
+  is_dirty_ = true;
+  return result::success;
+}
+
+result editor_session::create_empty(gneiss_application application, gneiss_world world) noexcept {
+  try {
+    return create_empty(application, world, make_uuid());
+  } catch (const std::bad_alloc&) {
+    return result::out_of_memory;
+  } catch (...) {
+    return result::internal;
+  }
+}
+
+result editor_session::refresh_nodes() noexcept {
+  try {
     std::uint64_t count = 0;
-    operation = pending.get_node_count(count);
+    auto operation = scene_.get_node_count(count);
     if (operation != result::success) {
       return operation;
     }
@@ -93,37 +170,263 @@ result editor_session::open(gneiss_application application, gneiss_world world,
     records.reserve(static_cast<std::size_t>(count));
     for (std::uint64_t index = 0; index < count; ++index) {
       scene_instance_node_info info = GNEISS_SCENE_INSTANCE_NODE_INFO_INIT;
-      operation = pending.get_node_info(index, info);
+      operation = scene_.get_node_info(index, info);
       if (operation != result::success) {
         return operation;
       }
       std::string uuid{info.uuid, static_cast<std::size_t>(info.uuid_length)};
-      const auto display_name =
-          info.name == nullptr ? uuid
-                               : std::string{info.name, static_cast<std::size_t>(info.name_length)};
       records.push_back(
-          {scene_node_id{info.node}, scene_node_id{info.parent}, entity_id{info.entity},
-           std::move(uuid), display_name,
-           info.mesh_uri == nullptr
-               ? std::string{}
-               : std::string{info.mesh_uri, static_cast<std::size_t>(info.mesh_uri_length)},
-           info.material_uri == nullptr
-               ? std::string{}
-               : std::string{info.material_uri,
-                             static_cast<std::size_t>(info.material_uri_length)}});
+          {.node = scene_node_id{info.node},
+           .parent = scene_node_id{info.parent},
+           .entity = entity_id{info.entity},
+           .uuid = uuid,
+           .display_name = info.name == nullptr
+                               ? std::move(uuid)
+                               : std::string{info.name, static_cast<std::size_t>(info.name_length)},
+           .mesh_uri =
+               info.mesh_uri == nullptr
+                   ? std::string{}
+                   : std::string{info.mesh_uri, static_cast<std::size_t>(info.mesh_uri_length)},
+           .material_uri = info.material_uri == nullptr
+                               ? std::string{}
+                               : std::string{info.material_uri,
+                                             static_cast<std::size_t>(info.material_uri_length)},
+           .local_transform = transform{info.local_transform},
+           .component_flags = info.component_flags,
+           .camera = info.camera,
+           .is_primary_camera =
+               (info.component_flags & GNEISS_SCENE_NODE_COMPONENT_PRIMARY_CAMERA) != 0U});
     }
-    scene_ = std::move(pending);
-    nodes_ = std::move(records);
-    world_ = world;
-    selection_ = {};
-    uri_ = uri;
-    is_dirty_ = false;
-    return result::success;
+    nodes_.swap(records);
+    return validate_selection();
   } catch (const std::bad_alloc&) {
     return result::out_of_memory;
   } catch (...) {
     return result::internal;
   }
+}
+
+result editor_session::set_local_transform(scene_node_id node, const transform& value) noexcept {
+  if (!is_open() || !node.is_valid()) {
+    return result::invalid_argument;
+  }
+  const auto operation =
+      from_native(gneiss_scene_node_set_local_transform(world_, node.get(), &value));
+  if (operation != result::success) {
+    return operation;
+  }
+  auto found = std::ranges::find(nodes_, node, &scene_node_record::node);
+  if (found == nodes_.end()) {
+    return result::internal;
+  }
+  found->local_transform = value;
+  is_dirty_ = true;
+  return result::success;
+}
+
+result editor_session::create_node(std::string_view name, scene_node_id parent,
+                                   scene_node_id& out_node) noexcept {
+  if (!is_open()) {
+    return result::invalid_state;
+  }
+  try {
+    const auto uuid = make_uuid();
+    scene_node_desc desc = GNEISS_SCENE_NODE_DESC_INIT;
+    desc.uuid = uuid.data();
+    desc.uuid_length = uuid.size();
+    desc.name = name.data();
+    desc.name_length = name.size();
+    desc.parent = parent.get();
+    auto operation = scene_.create_node(desc, out_node);
+    if (operation == result::success) {
+      selection_ = out_node;
+      operation = refresh_nodes();
+    }
+    if (operation == result::success) {
+      is_dirty_ = true;
+    }
+    return operation;
+  } catch (const std::bad_alloc&) {
+    return result::out_of_memory;
+  } catch (...) {
+    return result::internal;
+  }
+}
+
+result editor_session::rename_node(scene_node_id node, std::string_view name) noexcept {
+  if (!is_open() || !node.is_valid()) {
+    return result::invalid_argument;
+  }
+  const auto operation = scene_.set_node_name(node, name);
+  if (operation != result::success) {
+    return operation;
+  }
+  const auto refreshed = refresh_nodes();
+  if (refreshed == result::success) {
+    is_dirty_ = true;
+  }
+  return refreshed;
+}
+
+result editor_session::reparent_node(scene_node_id node, scene_node_id parent) noexcept {
+  if (!is_open() || !node.is_valid() || node == parent) {
+    return result::invalid_argument;
+  }
+  const auto operation = scene_.reparent_node(node, parent);
+  if (operation != result::success) {
+    return operation;
+  }
+  const auto refreshed = refresh_nodes();
+  if (refreshed == result::success) {
+    is_dirty_ = true;
+  }
+  return refreshed;
+}
+
+result editor_session::destroy_subtree(scene_node_id node,
+                                       scene_subtree_snapshot& out_snapshot) noexcept {
+  if (!is_open() || !node.is_valid()) {
+    return result::invalid_argument;
+  }
+  const auto found = std::ranges::find(nodes_, node, &scene_node_record::node);
+  if (found == nodes_.end()) {
+    return result::not_found;
+  }
+  try {
+    scene_subtree_snapshot snapshot{.json = {}, .parent_uuid = {}, .root_uuid = found->uuid};
+    if (found->parent.is_valid()) {
+      const auto parent = std::ranges::find(nodes_, found->parent, &scene_node_record::node);
+      if (parent == nodes_.end()) {
+        return result::invalid_state;
+      }
+      snapshot.parent_uuid = parent->uuid;
+    }
+    auto operation = scene_.capture_subtree(node, snapshot.json);
+    if (operation != result::success) {
+      return operation;
+    }
+    operation = scene_.destroy_subtree(node);
+    if (operation == result::success) {
+      selection_ = {};
+      operation = refresh_nodes();
+    }
+    if (operation == result::success) {
+      out_snapshot = std::move(snapshot);
+      is_dirty_ = true;
+    }
+    return operation;
+  } catch (const std::bad_alloc&) {
+    return result::out_of_memory;
+  } catch (...) {
+    return result::internal;
+  }
+}
+
+result editor_session::restore_subtree(const scene_subtree_snapshot& snapshot,
+                                       scene_node_id& out_node) noexcept {
+  scene_node_id parent;
+  if (!snapshot.parent_uuid.empty()) {
+    const auto* record = find_node(snapshot.parent_uuid);
+    if (record == nullptr) {
+      return result::not_found;
+    }
+    parent = record->node;
+  }
+  const auto operation = scene_.restore_subtree(snapshot.json, parent, {}, out_node);
+  if (operation != result::success) {
+    return operation;
+  }
+  selection_ = out_node;
+  const auto refreshed = refresh_nodes();
+  if (refreshed == result::success) {
+    is_dirty_ = true;
+  }
+  return refreshed;
+}
+
+result editor_session::duplicate_subtree(scene_node_id node, scene_node_id parent,
+                                         scene_node_id& out_node) noexcept {
+  if (!is_open() || !node.is_valid()) {
+    return result::invalid_argument;
+  }
+  try {
+    std::string snapshot;
+    auto operation = scene_.capture_subtree(node, snapshot);
+    if (operation != result::success) {
+      return operation;
+    }
+    std::vector<std::string> sources;
+    std::vector<std::string> targets;
+    for (const auto& candidate : nodes_) {
+      auto current = candidate.node;
+      while (current.is_valid()) {
+        if (current == node) {
+          sources.push_back(candidate.uuid);
+          targets.push_back(make_uuid());
+          break;
+        }
+        const auto ancestor = std::ranges::find(nodes_, current, &scene_node_record::node);
+        current = ancestor == nodes_.end() ? scene_node_id{} : ancestor->parent;
+      }
+    }
+    std::vector<scene_uuid_mapping> mappings;
+    mappings.reserve(sources.size());
+    for (std::size_t index = 0; index < sources.size(); ++index) {
+      mappings.push_back({.source_uuid = sources[index].data(),
+                          .source_uuid_length = sources[index].size(),
+                          .target_uuid = targets[index].data(),
+                          .target_uuid_length = targets[index].size()});
+    }
+    operation = scene_.restore_subtree(snapshot, parent, mappings, out_node);
+    if (operation == result::success) {
+      selection_ = out_node;
+      operation = refresh_nodes();
+    }
+    if (operation == result::success) {
+      is_dirty_ = true;
+    }
+    return operation;
+  } catch (const std::bad_alloc&) {
+    return result::out_of_memory;
+  } catch (...) {
+    return result::internal;
+  }
+}
+
+result editor_session::set_camera(scene_node_id node, const scene_camera_desc& desc) noexcept {
+  const auto operation = scene_.set_camera(node, desc);
+  if (operation != result::success) {
+    return operation;
+  }
+  const auto refreshed = refresh_nodes();
+  if (refreshed == result::success) {
+    is_dirty_ = true;
+  }
+  return refreshed;
+}
+
+result editor_session::remove_camera(scene_node_id node) noexcept {
+  const auto operation = scene_.remove_camera(node);
+  if (operation != result::success) {
+    return operation;
+  }
+  const auto refreshed = refresh_nodes();
+  if (refreshed == result::success) {
+    is_dirty_ = true;
+  }
+  return refreshed;
+}
+
+result editor_session::remove_mesh_renderer(scene_node_id node) noexcept {
+  const auto operation = scene_.remove_mesh_renderer(node);
+  if (operation != result::success) {
+    return operation;
+  }
+  const auto refreshed = refresh_nodes();
+  if (refreshed == result::success) {
+    is_dirty_ = true;
+  }
+  return refreshed;
 }
 
 void editor_session::close() noexcept {
@@ -331,13 +634,24 @@ result editor_session::set_mesh_renderer(scene_node_id node, std::string_view me
 }
 
 result editor_session::save(const std::filesystem::path& asset_root) noexcept {
+  return save_to(asset_root, uri_, true);
+}
+
+result editor_session::save_as(const std::filesystem::path& asset_root,
+                               std::string_view uri) noexcept {
+  return save_to(asset_root, uri, false);
+}
+
+result editor_session::save_to(const std::filesystem::path& asset_root, std::string_view uri,
+                               bool require_existing) noexcept {
   if (!is_open() || asset_root.empty() ||
-      gneiss_asset_uri_validate(uri_.data(), uri_.size()) != GNEISS_SUCCESS) {
+      gneiss_asset_uri_validate(uri.data(), uri.size()) != GNEISS_SUCCESS) {
     return result::invalid_argument;
   }
   try {
+    const std::string target_uri{uri};
     constexpr std::string_view scheme = "asset://";
-    const auto relative_text = uri_.substr(scheme.size());
+    const auto relative_text = target_uri.substr(scheme.size());
     const auto relative = std::filesystem::path(std::u8string(
         reinterpret_cast<const char8_t*>(relative_text.data()), relative_text.size()));
     std::error_code error;
@@ -346,9 +660,15 @@ result editor_session::save(const std::filesystem::path& asset_root) noexcept {
       return result::io;
     }
     const auto destination = std::filesystem::weakly_canonical(canonical_root / relative, error);
-    if (error || !is_within(canonical_root, destination) ||
-        !std::filesystem::is_regular_file(destination, error) || error) {
+    if (error || !is_within(canonical_root, destination)) {
       return result::io;
+    }
+    const auto exists = std::filesystem::exists(destination, error);
+    if (error ||
+        (require_existing && (!exists || !std::filesystem::is_regular_file(destination, error))) ||
+        (!require_existing && exists) || error ||
+        !std::filesystem::is_directory(destination.parent_path(), error) || error) {
+      return exists && !require_existing ? result::invalid_state : result::io;
     }
 
     std::string json;
@@ -374,6 +694,7 @@ result editor_session::save(const std::filesystem::path& asset_root) noexcept {
       std::filesystem::remove(temporary, error);
       return operation;
     }
+    uri_ = target_uri;
     is_dirty_ = false;
     return result::success;
   } catch (const std::bad_alloc&) {

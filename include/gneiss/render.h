@@ -187,6 +187,29 @@ typedef struct gneiss_ui_draw_list_desc {
    UINT32_C(0),                                                                                    \
    NULL}
 
+/** 世界空间调试线段；颜色为每字节 RGBA，width 为像素宽度。 */
+typedef struct gneiss_debug_line {
+  float start[3];
+  float end[3];
+  uint32_t color_rgba8;
+  float width;
+  uint8_t depth_test;
+  uint8_t reserved[3];
+} gneiss_debug_line;
+
+/** 当前帧世界调试线段；提交期间深拷贝，调用方保留所有权。 */
+typedef struct gneiss_debug_draw_list_desc {
+  uint32_t struct_size;
+  uint32_t reserved;
+  uint32_t line_count;
+  uint32_t reserved_2;
+  const gneiss_debug_line* lines;
+} gneiss_debug_draw_list_desc;
+
+#define GNEISS_DEBUG_DRAW_LIST_DESC_VERSION_1_SIZE ((uint32_t)sizeof(gneiss_debug_draw_list_desc))
+#define GNEISS_DEBUG_DRAW_LIST_DESC_INIT                                                         \
+  {(uint32_t)sizeof(gneiss_debug_draw_list_desc), UINT32_C(0), UINT32_C(0), UINT32_C(0), NULL}
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -225,6 +248,10 @@ GNEISS_API gneiss_result gneiss_texture_destroy(gneiss_application application,
 GNEISS_API gneiss_result gneiss_application_submit_ui_draw_list(
     gneiss_application application, const gneiss_ui_draw_list_desc* desc);
 
+/** 在 update 回调中提交当前帧世界调试线段；同一帧再次提交会原子替换。 */
+GNEISS_API gneiss_result gneiss_application_submit_debug_draw_list(
+    gneiss_application application, const gneiss_debug_draw_list_desc* desc);
+
 /** 设置或替换实体的 Camera 组件。World 和实体必须属于当前线程。 */
 GNEISS_API gneiss_result gneiss_world_entity_set_camera(gneiss_world world, gneiss_entity_id entity,
                                                         const gneiss_camera* camera);
@@ -253,6 +280,10 @@ GNEISS_API gneiss_result gneiss_world_get_active_camera(gneiss_world world,
 /** 设置或替换实体的 Mesh Renderer 组件；RID 在渲染提取阶段校验。 */
 GNEISS_API gneiss_result gneiss_world_entity_set_mesh_renderer(
     gneiss_world world, gneiss_entity_id entity, const gneiss_mesh_renderer* renderer);
+
+/** 移除实体的 Mesh Renderer；组件不存在时返回 GNEISS_ERROR_NOT_FOUND。 */
+GNEISS_API gneiss_result gneiss_world_entity_remove_mesh_renderer(gneiss_world world,
+                                                                  gneiss_entity_id entity);
 
 #ifdef __cplusplus
 }

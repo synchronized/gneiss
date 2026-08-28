@@ -44,6 +44,8 @@ target_sources(
     input/action_map.h
     render/render_resource_service.cpp
     render/render_resource_service.h
+    render/debug_draw_list.cpp
+    render/debug_draw_list.h
     render/ui_draw_list.cpp
     render/ui_draw_list.h
     render/render_asset_loader.cpp

@@ -43,12 +43,28 @@ public:
   [[nodiscard]] gneiss_result serialize(std::string& out_json) const;
   [[nodiscard]] gneiss_result get_node_info(std::uint64_t index,
                                             gneiss_scene_instance_node_info& out_info) const;
+  [[nodiscard]] gneiss_result create_node(const gneiss_scene_node_desc& desc,
+                                          gneiss_scene_node_id* out_node);
+  [[nodiscard]] gneiss_result set_node_name(gneiss_scene_node_id node, std::string_view name);
+  [[nodiscard]] gneiss_result reparent_node(gneiss_scene_node_id node, gneiss_scene_node_id parent);
+  [[nodiscard]] gneiss_result capture_subtree(gneiss_scene_node_id root,
+                                              std::string& out_snapshot) const;
+  [[nodiscard]] gneiss_result restore_subtree(std::string_view snapshot,
+                                              gneiss_scene_node_id parent,
+                                              const gneiss_scene_uuid_mapping* mappings,
+                                              std::uint64_t mapping_count,
+                                              gneiss_scene_node_id* out_root);
+  [[nodiscard]] gneiss_result destroy_subtree(gneiss_scene_node_id root);
   [[nodiscard]] gneiss_result
   create_mesh_renderer_node(const gneiss_scene_mesh_renderer_node_desc& desc,
                             gneiss_scene_node_id* out_node);
   [[nodiscard]] gneiss_result set_mesh_renderer(gneiss_scene_node_id node,
                                                 std::string_view mesh_uri,
                                                 std::string_view material_uri);
+  [[nodiscard]] gneiss_result set_camera(gneiss_scene_node_id node,
+                                         const gneiss_scene_camera_desc& desc);
+  [[nodiscard]] gneiss_result remove_camera(gneiss_scene_node_id node);
+  [[nodiscard]] gneiss_result remove_mesh_renderer(gneiss_scene_node_id node);
   [[nodiscard]] gneiss_result destroy_node(gneiss_scene_node_id node);
 
   std::vector<object> objects;
@@ -67,6 +83,8 @@ public:
   [[nodiscard]] bool is_valid() const noexcept { return domain_ != 0U; }
   [[nodiscard]] gneiss_result load(std::string_view uri,
                                    gneiss_scene_instance* out_instance) noexcept;
+  [[nodiscard]] gneiss_result create_empty(std::string_view scene_uuid,
+                                           gneiss_scene_instance* out_instance) noexcept;
   [[nodiscard]] gneiss_result unload(gneiss_scene_instance instance) noexcept;
   [[nodiscard]] gneiss_result find_node(gneiss_scene_instance instance, std::string_view uuid,
                                         gneiss_scene_node_id* out_node) const noexcept;
@@ -77,6 +95,24 @@ public:
   [[nodiscard]] gneiss_result
   get_node_info(gneiss_scene_instance instance, std::uint64_t index,
                 gneiss_scene_instance_node_info* out_info) const noexcept;
+  [[nodiscard]] gneiss_result create_node(gneiss_scene_instance instance,
+                                          const gneiss_scene_node_desc& desc,
+                                          gneiss_scene_node_id* out_node) noexcept;
+  [[nodiscard]] gneiss_result set_node_name(gneiss_scene_instance instance,
+                                            gneiss_scene_node_id node,
+                                            std::string_view name) noexcept;
+  [[nodiscard]] gneiss_result reparent_node(gneiss_scene_instance instance,
+                                            gneiss_scene_node_id node,
+                                            gneiss_scene_node_id parent) noexcept;
+  [[nodiscard]] gneiss_result capture_subtree(gneiss_scene_instance instance,
+                                              gneiss_scene_node_id root,
+                                              std::string& out_snapshot) const noexcept;
+  [[nodiscard]] gneiss_result
+  restore_subtree(gneiss_scene_instance instance, std::string_view snapshot,
+                  gneiss_scene_node_id parent, const gneiss_scene_uuid_mapping* mappings,
+                  std::uint64_t mapping_count, gneiss_scene_node_id* out_root) noexcept;
+  [[nodiscard]] gneiss_result destroy_subtree(gneiss_scene_instance instance,
+                                              gneiss_scene_node_id root) noexcept;
   [[nodiscard]] gneiss_result
   create_mesh_renderer_node(gneiss_scene_instance instance,
                             const gneiss_scene_mesh_renderer_node_desc& desc,
@@ -85,6 +121,12 @@ public:
                                                 gneiss_scene_node_id node,
                                                 std::string_view mesh_uri,
                                                 std::string_view material_uri) noexcept;
+  [[nodiscard]] gneiss_result set_camera(gneiss_scene_instance instance, gneiss_scene_node_id node,
+                                         const gneiss_scene_camera_desc& desc) noexcept;
+  [[nodiscard]] gneiss_result remove_camera(gneiss_scene_instance instance,
+                                            gneiss_scene_node_id node) noexcept;
+  [[nodiscard]] gneiss_result remove_mesh_renderer(gneiss_scene_instance instance,
+                                                   gneiss_scene_node_id node) noexcept;
   [[nodiscard]] gneiss_result destroy_node(gneiss_scene_instance instance,
                                            gneiss_scene_node_id node) noexcept;
 

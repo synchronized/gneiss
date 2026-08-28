@@ -111,6 +111,15 @@ public:
     return GNEISS_SUCCESS;
   }
 
+  [[nodiscard]] gneiss_result clear_mesh_renderer(gneiss_entity_id entity) noexcept {
+    const auto native = decode(entity);
+    if (native == entt::null || !registry_.valid(native)) {
+      return GNEISS_ERROR_INVALID_HANDLE;
+    }
+    return registry_.remove<mesh_renderer_component>(native) == 0U ? GNEISS_ERROR_NOT_FOUND
+                                                                   : GNEISS_SUCCESS;
+  }
+
   void clear_active_camera(gneiss_entity_id entity) noexcept {
     if (active_camera_ != entity) {
       return;

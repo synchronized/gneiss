@@ -4,31 +4,43 @@
 #include "editor_camera.h"
 #include "editor_command_history.h"
 #include "editor_project.h"
+#include "editor_rotation_math.h"
 #include "editor_session.h"
 #include "editor_theme.h"
 #include "imgui_adapter.h"
+#include "native_dialog.h"
 #include "project_manager.h"
 #include "property_inspector_model.h"
+#include "transform_gizmo_math.h"
 #if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
 #include "asset_browser_model.h"
 #include "asset_import_controller.h"
-#include "native_dialog.h"
 #endif
 
 #include <gneiss/application.hpp>
 
+#include <ImGuizmo.h>
 #include <imgui.h>
 
 #include <algorithm>
+#include <array>
+#include <cmath>
 #include <cstdint>
+#include <cstdio>
 #include <filesystem>
 #include <limits>
+#include <memory>
 #include <new>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace {
+
+enum class hierarchy_action { none, rename, duplicate, remove };
+enum class document_action { none, new_scene, open_scene, exit_editor };
+enum class gizmo_operation { translate, rotate, scale };
 
 struct editor_state {
   gneiss::editor::imgui_adapter ui;
@@ -45,6 +57,18 @@ struct editor_state {
   gneiss::result save_result = gneiss::result::success;
   bool save_attempted = false;
   bool show_imgui_demo = false;
+  gizmo_operation gizmo_mode = gizmo_operation::translate;
+  bool gizmo_using = false;
+  bool gizmo_was_dirty = false;
+  std::string gizmo_uuid;
+  gneiss::transform gizmo_initial_local = GNEISS_TRANSFORM_IDENTITY;
+  std::uint64_t property_edit_serial = 0U;
+  std::array<char, 128> rename_buffer{};
+  std::string rename_uuid;
+  std::string rename_previous;
+  hierarchy_action pending_hierarchy_action = hierarchy_action::none;
+  std::string pending_hierarchy_uuid;
+  document_action pending_document_action = document_action::none;
 #if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
   gneiss::editor::asset_browser_model assets;
   gneiss::editor::asset_browser_result asset_result = gneiss::editor::asset_browser_result::success;
@@ -55,6 +79,135 @@ struct editor_state {
   bool asset_scene_attempted = false;
 #endif
 };
+
+constexpr std::size_t matrix_index(std::size_t row, std::size_t column) noexcept {
+  return (column * 4U) + row;
+}
+
+gneiss::editor::gizmo_matrix build_view_matrix(const gneiss::transform& camera) noexcept {
+  auto inverse = camera;
+  inverse.rotation[0] = -inverse.rotation[0];
+  inverse.rotation[1] = -inverse.rotation[1];
+  inverse.rotation[2] = -inverse.rotation[2];
+  inverse.translation[0] = 0.0F;
+  inverse.translation[1] = 0.0F;
+  inverse.translation[2] = 0.0F;
+  inverse.scale[0] = 1.0F;
+  inverse.scale[1] = 1.0F;
+  inverse.scale[2] = 1.0F;
+  gneiss::editor::gizmo_matrix result{};
+  (void)gneiss::editor::transform_to_gizmo_matrix(inverse, result);
+  for (std::size_t row = 0; row < 3U; ++row) {
+    result[matrix_index(row, 3U)] = -((result[matrix_index(row, 0U)] * camera.translation[0]) +
+                                      (result[matrix_index(row, 1U)] * camera.translation[1]) +
+                                      (result[matrix_index(row, 2U)] * camera.translation[2]));
+  }
+  return result;
+}
+
+gneiss::editor::gizmo_matrix build_gizmo_projection_matrix(float aspect) noexcept {
+  constexpr float field_of_view = 1.04719755F;
+  constexpr float near_plane = 0.1F;
+  constexpr float far_plane = 1000.0F;
+  const auto focal = 1.0F / std::tan(field_of_view * 0.5F);
+  gneiss::editor::gizmo_matrix result{};
+  result[matrix_index(0U, 0U)] = focal / aspect;
+  // ImGuizmo 会把 NDC Y 转换为向下增长的屏幕坐标，不能重复使用 Vulkan 的 Y 翻转。
+  result[matrix_index(1U, 1U)] = focal;
+  result[matrix_index(2U, 2U)] = far_plane / (near_plane - far_plane);
+  result[matrix_index(2U, 3U)] = (far_plane * near_plane) / (near_plane - far_plane);
+  result[matrix_index(3U, 2U)] = -1.0F;
+  return result;
+}
+
+bool same_transform(const gneiss::transform& left, const gneiss::transform& right) noexcept {
+  constexpr float tolerance = 1.0e-5F;
+  for (std::size_t index = 0; index < 3U; ++index) {
+    if (std::abs(left.translation[index] - right.translation[index]) > tolerance ||
+        std::abs(left.scale[index] - right.scale[index]) > tolerance) {
+      return false;
+    }
+  }
+  for (std::size_t index = 0; index < 4U; ++index) {
+    if (std::abs(left.rotation[index] - right.rotation[index]) > tolerance) {
+      return false;
+    }
+  }
+  return true;
+}
+
+gneiss::result submit_editor_grid(gneiss_application application) {
+  std::vector<gneiss::debug_line> lines;
+  lines.reserve(326U);
+  constexpr int extent = 80;
+  constexpr float spacing = 0.25F;
+  for (int index = -extent; index <= extent; ++index) {
+    const auto value = static_cast<float>(index) * spacing;
+    const auto major = index % 4 == 0;
+    const auto color = index == 0 ? IM_COL32(137, 180, 250, 190)
+                       : major    ? IM_COL32(166, 173, 200, 105)
+                                  : IM_COL32(108, 112, 134, 55);
+    lines.push_back({.start = {value, 0.0F, -20.0F},
+                     .end = {value, 0.0F, 20.0F},
+                     .color_rgba8 = color,
+                     .width = major ? 1.25F : 1.0F,
+                     .depth_test = 1U,
+                     .reserved = {}});
+    lines.push_back({.start = {-20.0F, 0.0F, value},
+                     .end = {20.0F, 0.0F, value},
+                     .color_rgba8 = color,
+                     .width = major ? 1.25F : 1.0F,
+                     .depth_test = 1U,
+                     .reserved = {}});
+  }
+  lines.push_back({.start = {0.0F, 0.0F, 0.0F},
+                   .end = {2.0F, 0.0F, 0.0F},
+                   .color_rgba8 = IM_COL32(243, 139, 168, 255),
+                   .width = 2.0F,
+                   .depth_test = 1U,
+                   .reserved = {}});
+  lines.push_back({.start = {0.0F, 0.0F, 0.0F},
+                   .end = {0.0F, 2.0F, 0.0F},
+                   .color_rgba8 = IM_COL32(166, 227, 161, 255),
+                   .width = 2.0F,
+                   .depth_test = 1U,
+                   .reserved = {}});
+  lines.push_back({.start = {0.0F, 0.0F, 0.0F},
+                   .end = {0.0F, 0.0F, 2.0F},
+                   .color_rgba8 = IM_COL32(137, 180, 250, 255),
+                   .width = 2.0F,
+                   .depth_test = 1U,
+                   .reserved = {}});
+  gneiss::debug_draw_list_desc desc = GNEISS_DEBUG_DRAW_LIST_DESC_INIT;
+  desc.line_count = static_cast<std::uint32_t>(lines.size());
+  desc.lines = lines.data();
+  return gneiss::from_native(gneiss_application_submit_debug_draw_list(application, &desc));
+}
+
+void draw_view_axis(const editor_state& state, const ImVec2& minimum, const ImVec2& size) noexcept {
+  const auto view = build_view_matrix(state.camera.current_transform());
+  const ImVec2 center{minimum.x + size.x - 54.0F, minimum.y + 48.0F};
+  constexpr float length = 28.0F;
+  constexpr std::array colors{IM_COL32(243, 139, 168, 255), IM_COL32(166, 227, 161, 255),
+                              IM_COL32(137, 180, 250, 255)};
+  constexpr std::array labels{'X', 'Y', 'Z'};
+  auto* draw_list = ImGui::GetWindowDrawList();
+  draw_list->AddCircleFilled(center, 3.0F, IM_COL32(205, 214, 244, 210));
+  for (std::size_t axis = 0; axis < 3U; ++axis) {
+    ImVec2 end{center.x + (view[matrix_index(0U, axis)] * length),
+               center.y - (view[matrix_index(1U, axis)] * length)};
+    const auto projected = std::hypot(end.x - center.x, end.y - center.y);
+    if (projected < 5.0F) {
+      end = ImVec2{center.x + static_cast<float>(axis * 10U) - 10.0F, center.y + 12.0F};
+      draw_list->AddCircle(center, 5.0F, colors[axis], 12, 2.0F);
+    } else {
+      draw_list->AddLine(center, end, colors[axis], 2.5F);
+      draw_list->AddCircleFilled(end, 3.5F, colors[axis]);
+    }
+    const char label[2] = {labels[axis], '\0'};
+    draw_list->AddText(ImVec2(end.x + 4.0F, end.y - 7.0F), colors[axis], label);
+  }
+}
 
 struct launch_options {
   bool smoke = false;
@@ -75,6 +228,42 @@ bool parse_options(int argc, char** argv, launch_options& options) {
   return true;
 }
 
+void report_startup_failure(std::string_view stage, gneiss::result operation,
+                            std::string_view path = {}) noexcept {
+  const auto message = gneiss::result_message(operation);
+  std::fprintf(stderr, "Gneiss Editor 启动失败：阶段=%.*s，结果=%d，消息=%.*s",
+               static_cast<int>(stage.size()), stage.data(), gneiss::to_native(operation),
+               static_cast<int>(message.size()), message.data());
+  if (!path.empty()) {
+    std::fprintf(stderr, "，路径=%.*s", static_cast<int>(path.size()), path.data());
+  }
+  std::fputc('\n', stderr);
+}
+
+void synchronize_history_dirty(editor_state& state) noexcept {
+  if (state.history.is_dirty()) {
+    state.session.mark_dirty();
+  } else {
+    state.session.clear_dirty();
+  }
+}
+
+gneiss::result undo_editor_command(editor_state& state) noexcept {
+  const auto result = state.history.undo();
+  if (result == gneiss::result::success) {
+    synchronize_history_dirty(state);
+  }
+  return result;
+}
+
+gneiss::result redo_editor_command(editor_state& state) noexcept {
+  const auto result = state.history.redo();
+  if (result == gneiss::result::success) {
+    synchronize_history_dirty(state);
+  }
+  return result;
+}
+
 [[nodiscard]] std::filesystem::path utf8_path(std::string_view value) {
   return std::filesystem::path(
       std::u8string(reinterpret_cast<const char8_t*>(value.data()), value.size()));
@@ -85,9 +274,144 @@ bool parse_options(int argc, char** argv, launch_options& options) {
   return {reinterpret_cast<const char*>(text.data()), text.size()};
 }
 
-void draw_scene_node(gneiss::editor::editor_session& session,
-                     const gneiss::editor::scene_node_record& node) {
-  const auto& nodes = session.nodes();
+gneiss::result save_document_as(editor_state& state) {
+  std::filesystem::path path;
+  auto operation = gneiss::editor::select_scene_save_path(path);
+  if (operation != gneiss::result::success) {
+    return operation;
+  }
+  std::string uri;
+  operation = gneiss::editor::make_asset_uri(state.asset_root, path, uri);
+  if (operation == gneiss::result::success) {
+    operation = state.session.save_as(state.asset_root, uri);
+  }
+  if (operation == gneiss::result::success) {
+    state.history.mark_saved();
+  }
+  return operation;
+}
+
+gneiss::result save_document(editor_state& state) {
+  if (state.session.uri().empty()) {
+    return save_document_as(state);
+  }
+  const auto operation = state.session.save(state.asset_root);
+  if (operation == gneiss::result::success) {
+    state.history.mark_saved();
+  }
+  return operation;
+}
+
+gneiss::result perform_document_action(editor_state& state, gneiss_application application,
+                                       document_action action) {
+  gneiss::result operation = gneiss::result::success;
+  switch (action) {
+  case document_action::new_scene:
+    operation = state.session.create_empty(application, state.world);
+    break;
+  case document_action::open_scene: {
+    std::filesystem::path path;
+    operation = gneiss::editor::select_scene_file(path);
+    std::string uri;
+    if (operation == gneiss::result::success) {
+      operation = gneiss::editor::make_asset_uri(state.asset_root, path, uri);
+    }
+    if (operation == gneiss::result::success) {
+      operation = state.session.open(application, state.world, uri);
+    }
+    break;
+  }
+  case document_action::exit_editor:
+    operation = gneiss::from_native(gneiss_application_request_exit(application));
+    break;
+  case document_action::none:
+    return gneiss::result::success;
+  }
+  if (operation == gneiss::result::success && action != document_action::exit_editor) {
+    state.history.clear();
+    state.inspector.clear();
+    state.inspected_entity = {};
+  }
+  return operation;
+}
+
+void request_document_action(editor_state& state, gneiss_application application,
+                             document_action action) {
+  if (state.session.is_dirty()) {
+    state.pending_document_action = action;
+    ImGui::OpenPopup("Unsaved Changes");
+  } else {
+    state.history_error = perform_document_action(state, application, action);
+  }
+}
+
+bool reparent_with_history(editor_state& state, std::string_view source_uuid,
+                           std::string_view target_uuid) {
+  const auto* source = state.session.find_node(source_uuid);
+  const auto* target = target_uuid.empty() ? nullptr : state.session.find_node(target_uuid);
+  if (source == nullptr || (!target_uuid.empty() && target == nullptr) ||
+      (target != nullptr && source->node == target->node)) {
+    return false;
+  }
+  std::string previous_parent_uuid;
+  if (source->parent.is_valid()) {
+    const auto parent = std::ranges::find(state.session.nodes(), source->parent,
+                                          &gneiss::editor::scene_node_record::node);
+    if (parent != state.session.nodes().end()) {
+      previous_parent_uuid = parent->uuid;
+    }
+  }
+  if (previous_parent_uuid == target_uuid) {
+    return false;
+  }
+  const std::string source_key{source_uuid};
+  const std::string target_key{target_uuid};
+  state.history_error = state.session.reparent_node(
+      source->node, target == nullptr ? gneiss::scene_node_id{} : target->node);
+  if (state.history_error != gneiss::result::success) {
+    return false;
+  }
+  state.history_error = state.history.record(
+      {.label = "移动节点",
+       .undo =
+           [&state, source_key, previous_parent_uuid] {
+             const auto* current = state.session.find_node(source_key);
+             const auto* parent = previous_parent_uuid.empty()
+                                      ? nullptr
+                                      : state.session.find_node(previous_parent_uuid);
+             return current == nullptr
+                        ? gneiss::result::not_found
+                        : state.session.reparent_node(current->node, parent == nullptr
+                                                                         ? gneiss::scene_node_id{}
+                                                                         : parent->node);
+           },
+       .redo =
+           [&state, source_key, target_key] {
+             const auto* current = state.session.find_node(source_key);
+             const auto* parent =
+                 target_key.empty() ? nullptr : state.session.find_node(target_key);
+             return current == nullptr || (!target_key.empty() && parent == nullptr)
+                        ? gneiss::result::not_found
+                        : state.session.reparent_node(current->node, parent == nullptr
+                                                                         ? gneiss::scene_node_id{}
+                                                                         : parent->node);
+           },
+       .merge_key = {}});
+  if (state.history_error != gneiss::result::success) {
+    const auto* current = state.session.find_node(source_key);
+    const auto* parent =
+        previous_parent_uuid.empty() ? nullptr : state.session.find_node(previous_parent_uuid);
+    if (current != nullptr) {
+      (void)state.session.reparent_node(current->node,
+                                        parent == nullptr ? gneiss::scene_node_id{} : parent->node);
+    }
+  }
+  return true;
+}
+
+void draw_scene_node(editor_state& state, const gneiss::editor::scene_node_record& node) {
+  const auto& nodes = state.session.nodes();
+  const auto target_uuid = node.uuid;
   const auto has_children = std::ranges::any_of(
       nodes, [node_id = node.node](const auto& candidate) { return candidate.parent == node_id; });
   auto flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_SpanAvailWidth |
@@ -95,18 +419,55 @@ void draw_scene_node(gneiss::editor::editor_session& session,
   if (!has_children) {
     flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen;
   }
-  if (session.selection() == node.node) {
+  if (state.session.selection() == node.node) {
     flags |= ImGuiTreeNodeFlags_Selected;
   }
   ImGui::PushID(node.uuid.c_str());
   const auto is_open = ImGui::TreeNodeEx(node.display_name.c_str(), flags);
   if (ImGui::IsItemClicked()) {
-    (void)session.select(node.node);
+    (void)state.session.select(node.node);
+  }
+  if (ImGui::BeginPopupContextItem("Node Actions")) {
+    if (ImGui::MenuItem("Rename", "F2")) {
+      state.pending_hierarchy_action = hierarchy_action::rename;
+      state.pending_hierarchy_uuid = node.uuid;
+    }
+    if (ImGui::MenuItem("Duplicate", "Ctrl+D")) {
+      state.pending_hierarchy_action = hierarchy_action::duplicate;
+      state.pending_hierarchy_uuid = node.uuid;
+    }
+    if (ImGui::MenuItem("Delete", "Delete")) {
+      state.pending_hierarchy_action = hierarchy_action::remove;
+      state.pending_hierarchy_uuid = node.uuid;
+    }
+    ImGui::EndPopup();
+  }
+  if (ImGui::BeginDragDropSource()) {
+    ImGui::SetDragDropPayload("GNEISS_SCENE_NODE_UUID", node.uuid.data(), node.uuid.size());
+    ImGui::TextUnformatted(node.display_name.c_str());
+    ImGui::EndDragDropSource();
+  }
+  if (ImGui::BeginDragDropTarget()) {
+    bool hierarchy_changed = false;
+    if (const auto* payload = ImGui::AcceptDragDropPayload("GNEISS_SCENE_NODE_UUID");
+        payload != nullptr) {
+      const std::string source_uuid{static_cast<const char*>(payload->Data),
+                                    static_cast<std::size_t>(payload->DataSize)};
+      hierarchy_changed = reparent_with_history(state, source_uuid, target_uuid);
+    }
+    ImGui::EndDragDropTarget();
+    if (hierarchy_changed) {
+      if (has_children && is_open) {
+        ImGui::TreePop();
+      }
+      ImGui::PopID();
+      return;
+    }
   }
   if (has_children && is_open) {
     for (const auto& child : nodes) {
       if (child.parent == node.node) {
-        draw_scene_node(session, child);
+        draw_scene_node(state, child);
       }
     }
     ImGui::TreePop();
@@ -134,16 +495,32 @@ bool draw_property(editor_state& state, const gneiss::editor::inspector_componen
   case GNEISS_PROPERTY_KIND_VEC3:
     changed = ImGui::DragFloat3(property.name.c_str(), &value.payload.vec3_value.x, 0.05F);
     break;
-  case GNEISS_PROPERTY_KIND_QUATERNION:
-    changed = ImGui::DragFloat4(property.name.c_str(), &value.payload.quaternion_value.x, 0.01F);
+  case GNEISS_PROPERTY_KIND_QUATERNION: {
+    std::array<float, 3> euler{};
+    error = gneiss::editor::quaternion_to_euler_degrees(value.payload.quaternion_value, euler);
+    if (error != gneiss::result::success) {
+      break;
+    }
+    changed = ImGui::DragFloat3(property.name.c_str(), euler.data(), 0.25F, 0.0F, 0.0F, "%.1f°");
+    if (changed) {
+      error = gneiss::editor::euler_degrees_to_quaternion(euler, value.payload.quaternion_value);
+    }
     break;
+  }
   default:
     ImGui::TextDisabled("%s: unsupported property kind", property.name.c_str());
     break;
   }
   ImGui::EndDisabled();
+  const auto item_activated = ImGui::IsItemActivated();
   ImGui::PopID();
+  if (item_activated) {
+    ++state.property_edit_serial;
+  }
   if (!changed) {
+    return false;
+  }
+  if (error != gneiss::result::success) {
     return false;
   }
   const auto previous = property.value;
@@ -159,6 +536,11 @@ bool draw_property(editor_state& state, const gneiss::editor::inspector_componen
   }
   const auto type_id = component.type_id;
   const auto field_id = property.id;
+  std::string merge_key = "property:" + uuid;
+  merge_key.append(reinterpret_cast<const char*>(type_id.bytes), sizeof(type_id.bytes));
+  merge_key.append(reinterpret_cast<const char*>(&field_id), sizeof(field_id));
+  merge_key.append(reinterpret_cast<const char*>(&state.property_edit_serial),
+                   sizeof(state.property_edit_serial));
   const auto record_result = state.history.record(
       {.label = std::string{"修改 "} + property.name,
        .undo =
@@ -186,7 +568,8 @@ bool draw_property(editor_state& state, const gneiss::editor::inspector_componen
                state.session.mark_dirty();
              }
              return operation;
-           }});
+           },
+       .merge_key = std::move(merge_key)});
   if (record_result != gneiss::result::success) {
     (void)state.inspector.set_value(type_id, field_id, previous);
     error = record_result;
@@ -357,7 +740,8 @@ void draw_asset_browser(editor_state& state) {
                [&state, snapshot] {
                  gneiss::scene_node_id restored;
                  return state.session.restore_mesh_renderer_node(snapshot, restored);
-               }});
+               },
+           .merge_key = {}});
       if (state.asset_scene_result != gneiss::result::success) {
         gneiss::editor::scene_node_snapshot discarded;
         (void)state.session.destroy_node(node, discarded);
@@ -405,7 +789,8 @@ void draw_asset_browser(editor_state& state) {
                  return current == nullptr
                             ? gneiss::result::not_found
                             : state.session.set_mesh_renderer(current->node, mesh, material);
-               }});
+               },
+           .merge_key = {}});
       if (state.asset_scene_result != gneiss::result::success) {
         (void)state.session.set_mesh_renderer(scene_node->node, previous_mesh, previous_material);
         if (!was_dirty) {
@@ -438,6 +823,103 @@ void draw_asset_browser(editor_state& state) {
   ImGui::End();
 }
 #endif
+
+bool draw_transform_gizmo(editor_state& state, const ImVec2& minimum, const ImVec2& size) noexcept {
+  const auto* selected = state.session.selected_node();
+  if (selected == nullptr || size.x <= 1.0F || size.y <= 1.0F) {
+    state.gizmo_using = false;
+    state.gizmo_uuid.clear();
+    return false;
+  }
+
+  gneiss::transform world = GNEISS_TRANSFORM_IDENTITY;
+  auto operation = gneiss::from_native(
+      gneiss_scene_node_get_world_transform(state.world, selected->node.get(), &world));
+  gneiss::editor::gizmo_matrix model{};
+  if (operation == gneiss::result::success) {
+    operation = gneiss::editor::transform_to_gizmo_matrix(world, model);
+  }
+  if (operation != gneiss::result::success) {
+    state.history_error = operation;
+    return false;
+  }
+
+  const auto* viewport = ImGui::GetMainViewport();
+  if (viewport == nullptr || viewport->Size.x <= 1.0F || viewport->Size.y <= 1.0F) {
+    return false;
+  }
+  auto view = build_view_matrix(state.camera.current_transform());
+  auto projection = build_gizmo_projection_matrix(viewport->Size.x / viewport->Size.y);
+  ImGuizmo::SetOrthographic(false);
+  ImGuizmo::SetDrawlist(ImGui::GetWindowDrawList());
+  ImGuizmo::SetRect(viewport->Pos.x, viewport->Pos.y, viewport->Size.x, viewport->Size.y);
+  ImGui::GetWindowDrawList()->AddText(
+      ImVec2(minimum.x + 8.0F, minimum.y + size.y - ImGui::GetTextLineHeight() - 8.0F),
+      IM_COL32(205, 214, 244, 210), "Grid: 1 unit = 1 m | minor: 0.25 m");
+  const auto native_operation = state.gizmo_mode == gizmo_operation::translate ? ImGuizmo::TRANSLATE
+                                : state.gizmo_mode == gizmo_operation::rotate  ? ImGuizmo::ROTATE
+                                                                               : ImGuizmo::SCALE;
+  const auto manipulated = ImGuizmo::Manipulate(view.data(), projection.data(), native_operation,
+                                                ImGuizmo::WORLD, model.data());
+  const auto using_now = ImGuizmo::IsUsing();
+  if (using_now && !state.gizmo_using) {
+    state.gizmo_initial_local = selected->local_transform;
+    state.gizmo_uuid = selected->uuid;
+    state.gizmo_was_dirty = state.session.is_dirty();
+  }
+  if (manipulated && state.gizmo_uuid == selected->uuid) {
+    gneiss::transform target_world = GNEISS_TRANSFORM_IDENTITY;
+    operation = gneiss::editor::gizmo_matrix_to_transform(model, target_world);
+    gneiss::transform parent_world = GNEISS_TRANSFORM_IDENTITY;
+    const gneiss::transform* parent = nullptr;
+    if (operation == gneiss::result::success && selected->parent.is_valid()) {
+      operation = gneiss::from_native(gneiss_scene_node_get_world_transform(
+          state.world, selected->parent.get(), &parent_world));
+      parent = &parent_world;
+    }
+    gneiss::transform local = GNEISS_TRANSFORM_IDENTITY;
+    if (operation == gneiss::result::success) {
+      operation = gneiss::editor::world_to_local_transform(parent, target_world, local);
+    }
+    if (operation == gneiss::result::success) {
+      operation = state.session.set_local_transform(selected->node, local);
+    }
+    state.history_error = operation;
+  }
+  if (state.gizmo_using && !using_now && !state.gizmo_uuid.empty()) {
+    const auto* current = state.session.find_node(state.gizmo_uuid);
+    if (current != nullptr &&
+        !same_transform(state.gizmo_initial_local, current->local_transform)) {
+      const auto uuid = state.gizmo_uuid;
+      const auto before = state.gizmo_initial_local;
+      const auto after = current->local_transform;
+      state.history_error = state.history.record(
+          {.label = "变换节点",
+           .undo =
+               [&state, uuid, before] {
+                 const auto* node = state.session.find_node(uuid);
+                 return node == nullptr ? gneiss::result::not_found
+                                        : state.session.set_local_transform(node->node, before);
+               },
+           .redo =
+               [&state, uuid, after] {
+                 const auto* node = state.session.find_node(uuid);
+                 return node == nullptr ? gneiss::result::not_found
+                                        : state.session.set_local_transform(node->node, after);
+               },
+           .merge_key = {}});
+      if (state.history_error != gneiss::result::success && current != nullptr) {
+        (void)state.session.set_local_transform(current->node, before);
+        if (!state.gizmo_was_dirty) {
+          state.session.clear_dirty();
+        }
+      }
+    }
+    state.gizmo_uuid.clear();
+  }
+  state.gizmo_using = using_now;
+  return using_now || ImGuizmo::IsOver();
+}
 
 gneiss_result update_editor_camera(editor_state& state, const gneiss_frame_time& time) {
   auto& io = ImGui::GetIO();
@@ -482,6 +964,11 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
     if (result != GNEISS_SUCCESS) {
       return result;
     }
+    ImGuizmo::BeginFrame();
+    const auto grid_result = submit_editor_grid(application);
+    if (grid_result != gneiss::result::success) {
+      return gneiss::to_native(grid_result);
+    }
     const auto selection_result = state.session.validate_selection();
     if (selection_result != gneiss::result::success &&
         selection_result != gneiss::result::invalid_handle) {
@@ -489,6 +976,35 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
     }
 
     if (ImGui::BeginMainMenuBar()) {
+      if (ImGui::BeginMenu("File")) {
+        const auto new_requested = ImGui::MenuItem("New Scene", "Ctrl+N");
+        const auto open_requested = ImGui::MenuItem("Open Scene...", "Ctrl+O");
+        ImGui::Separator();
+        const auto save_requested = ImGui::MenuItem("Save", "Ctrl+S");
+        const auto save_as_requested = ImGui::MenuItem("Save As...", "Ctrl+Shift+S");
+        ImGui::Separator();
+        const auto exit_requested = ImGui::MenuItem("Exit");
+        if (save_requested) {
+          state.save_result = save_document(state);
+          state.save_attempted = state.save_result != gneiss::result::not_ready;
+        }
+        if (save_as_requested) {
+          state.save_result = save_document_as(state);
+          state.save_attempted = state.save_result != gneiss::result::not_ready;
+        }
+        document_action requested = document_action::none;
+        if (new_requested) {
+          requested = document_action::new_scene;
+        } else if (open_requested) {
+          requested = document_action::open_scene;
+        } else if (exit_requested) {
+          requested = document_action::exit_editor;
+        }
+        if (requested != document_action::none) {
+          request_document_action(state, application, requested);
+        }
+        ImGui::EndMenu();
+      }
       if (ImGui::BeginMenu("Edit")) {
         ImGui::BeginDisabled(!state.history.can_undo());
         const auto undo_requested = ImGui::MenuItem("Undo", "Ctrl+Z");
@@ -497,10 +1013,10 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
         const auto redo_requested = ImGui::MenuItem("Redo", "Ctrl+Shift+Z");
         ImGui::EndDisabled();
         if (undo_requested) {
-          state.history_error = state.history.undo();
+          state.history_error = undo_editor_command(state);
         }
         if (redo_requested) {
-          state.history_error = state.history.redo();
+          state.history_error = redo_editor_command(state);
         }
         ImGui::EndMenu();
       }
@@ -511,8 +1027,49 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
       ImGui::EndMainMenuBar();
     }
     const auto& io = ImGui::GetIO();
+    if (io.KeyCtrl && !io.KeyShift && ImGui::IsKeyPressed(ImGuiKey_N, false)) {
+      request_document_action(state, application, document_action::new_scene);
+    }
+    if (io.KeyCtrl && !io.KeyShift && ImGui::IsKeyPressed(ImGuiKey_O, false)) {
+      request_document_action(state, application, document_action::open_scene);
+    }
+    if (io.KeyCtrl && io.KeyShift && ImGui::IsKeyPressed(ImGuiKey_S, false)) {
+      state.save_result = save_document_as(state);
+      state.save_attempted = state.save_result != gneiss::result::not_ready;
+    }
+    if (state.pending_document_action != document_action::none &&
+        !ImGui::IsPopupOpen("Unsaved Changes")) {
+      ImGui::OpenPopup("Unsaved Changes");
+    }
+    if (state.pending_document_action != document_action::none &&
+        ImGui::BeginPopupModal("Unsaved Changes", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+      ImGui::TextUnformatted("The current scene has unsaved changes.");
+      if (ImGui::Button("Save")) {
+        state.save_result = save_document(state);
+        state.save_attempted = state.save_result != gneiss::result::not_ready;
+        if (state.save_result == gneiss::result::success) {
+          state.history_error =
+              perform_document_action(state, application, state.pending_document_action);
+          state.pending_document_action = document_action::none;
+          ImGui::CloseCurrentPopup();
+        }
+      }
+      ImGui::SameLine();
+      if (ImGui::Button("Discard")) {
+        state.history_error =
+            perform_document_action(state, application, state.pending_document_action);
+        state.pending_document_action = document_action::none;
+        ImGui::CloseCurrentPopup();
+      }
+      ImGui::SameLine();
+      if (ImGui::Button("Cancel")) {
+        state.pending_document_action = document_action::none;
+        ImGui::CloseCurrentPopup();
+      }
+      ImGui::EndPopup();
+    }
     if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_Z, false)) {
-      state.history_error = io.KeyShift ? state.history.redo() : state.history.undo();
+      state.history_error = io.KeyShift ? redo_editor_command(state) : undo_editor_command(state);
     }
 
     ImGui::SetNextWindowPos(ImVec2(0.0F, 20.0F));
@@ -521,35 +1078,163 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
     if (!state.session.is_open()) {
       ImGui::TextUnformatted("No scene is open");
     } else {
+      auto pending_action = state.pending_hierarchy_action;
+      if (pending_action != hierarchy_action::none) {
+        if (const auto* pending = state.session.find_node(state.pending_hierarchy_uuid);
+            pending != nullptr) {
+          (void)state.session.select(pending->node);
+        } else {
+          pending_action = hierarchy_action::none;
+        }
+        state.pending_hierarchy_action = hierarchy_action::none;
+        state.pending_hierarchy_uuid.clear();
+      }
       const auto* selected = state.session.selected_node();
-      ImGui::BeginDisabled(selected == nullptr || selected->mesh_uri.empty());
-      const auto delete_requested = ImGui::Button("Delete Selected");
+      const auto can_edit_selection = selected != nullptr;
+      const auto hierarchy_focused = ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
+      const auto keyboard_enabled = hierarchy_focused && !ImGui::GetIO().WantTextInput;
+      const auto create_requested = ImGui::Button("Create Empty");
+      ImGui::SameLine();
+      ImGui::BeginDisabled(selected == nullptr);
+      const auto duplicate_requested =
+          ImGui::Button("Duplicate") || pending_action == hierarchy_action::duplicate ||
+          (can_edit_selection && keyboard_enabled && ImGui::GetIO().KeyCtrl &&
+           ImGui::IsKeyPressed(ImGuiKey_D, false));
+      const auto rename_requested =
+          ImGui::Button("Rename") || pending_action == hierarchy_action::rename ||
+          (can_edit_selection && keyboard_enabled && ImGui::IsKeyPressed(ImGuiKey_F2, false));
+      ImGui::SameLine();
+      const auto delete_requested =
+          ImGui::Button("Delete") || pending_action == hierarchy_action::remove ||
+          (can_edit_selection && keyboard_enabled && ImGui::IsKeyPressed(ImGuiKey_Delete, false));
       ImGui::EndDisabled();
+      if (rename_requested) {
+        state.rename_uuid = selected->uuid;
+        state.rename_previous = selected->display_name;
+        state.rename_buffer.fill('\0');
+        const auto length = std::min(state.rename_previous.size(), state.rename_buffer.size() - 1U);
+        std::ranges::copy_n(state.rename_previous.begin(), length, state.rename_buffer.begin());
+        ImGui::OpenPopup("Rename Node");
+      }
+      if (ImGui::BeginPopup("Rename Node")) {
+        ImGui::InputText("Name", state.rename_buffer.data(), state.rename_buffer.size());
+        if (ImGui::Button("Apply")) {
+          const auto next = std::string{state.rename_buffer.data()};
+          const auto* current = state.session.find_node(state.rename_uuid);
+          state.history_error = current == nullptr ? gneiss::result::not_found
+                                                   : state.session.rename_node(current->node, next);
+          if (state.history_error == gneiss::result::success) {
+            const auto uuid = state.rename_uuid;
+            const auto previous = state.rename_previous;
+            state.history_error = state.history.record(
+                {.label = "重命名节点",
+                 .undo =
+                     [&state, uuid, previous] {
+                       const auto* node = state.session.find_node(uuid);
+                       return node == nullptr ? gneiss::result::not_found
+                                              : state.session.rename_node(node->node, previous);
+                     },
+                 .redo =
+                     [&state, uuid, next] {
+                       const auto* node = state.session.find_node(uuid);
+                       return node == nullptr ? gneiss::result::not_found
+                                              : state.session.rename_node(node->node, next);
+                     },
+                 .merge_key = {}});
+            if (state.history_error != gneiss::result::success) {
+              if (const auto* node = state.session.find_node(uuid); node != nullptr) {
+                (void)state.session.rename_node(node->node, previous);
+              }
+            }
+          }
+          ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
+      }
+      if (create_requested) {
+        const auto parent = selected == nullptr ? gneiss::scene_node_id{} : selected->node;
+        gneiss::scene_node_id created;
+        state.history_error = state.session.create_node("Node", parent, created);
+        if (state.history_error == gneiss::result::success) {
+          const auto uuid = state.session.selected_node()->uuid;
+          auto snapshot = std::make_shared<gneiss::editor::scene_subtree_snapshot>();
+          state.history_error = state.history.record(
+              {.label = "创建节点",
+               .undo =
+                   [&state, uuid, snapshot] {
+                     const auto* current = state.session.find_node(uuid);
+                     return current == nullptr
+                                ? gneiss::result::not_found
+                                : state.session.destroy_subtree(current->node, *snapshot);
+                   },
+               .redo =
+                   [&state, snapshot] {
+                     gneiss::scene_node_id restored;
+                     return state.session.restore_subtree(*snapshot, restored);
+                   },
+               .merge_key = {}});
+          if (state.history_error != gneiss::result::success) {
+            if (const auto* current = state.session.find_node(uuid); current != nullptr) {
+              (void)state.session.destroy_subtree(current->node, *snapshot);
+            }
+          }
+        }
+      }
+      if (duplicate_requested) {
+        const auto parent = selected->parent;
+        gneiss::scene_node_id duplicate;
+        state.history_error = state.session.duplicate_subtree(selected->node, parent, duplicate);
+        if (state.history_error == gneiss::result::success) {
+          const auto uuid = state.session.selected_node()->uuid;
+          auto snapshot = std::make_shared<gneiss::editor::scene_subtree_snapshot>();
+          state.history_error = state.history.record(
+              {.label = "复制子树",
+               .undo =
+                   [&state, uuid, snapshot] {
+                     const auto* current = state.session.find_node(uuid);
+                     return current == nullptr
+                                ? gneiss::result::not_found
+                                : state.session.destroy_subtree(current->node, *snapshot);
+                   },
+               .redo =
+                   [&state, snapshot] {
+                     gneiss::scene_node_id restored;
+                     return state.session.restore_subtree(*snapshot, restored);
+                   },
+               .merge_key = {}});
+          if (state.history_error != gneiss::result::success) {
+            if (const auto* current = state.session.find_node(uuid); current != nullptr) {
+              (void)state.session.destroy_subtree(current->node, *snapshot);
+            }
+          }
+        }
+      }
       if (delete_requested) {
         const auto was_dirty = state.session.is_dirty();
         const auto node = selected->node;
-        gneiss::editor::scene_node_snapshot snapshot;
-        state.history_error = state.session.destroy_node(node, snapshot);
+        gneiss::editor::scene_subtree_snapshot snapshot;
+        state.history_error = state.session.destroy_subtree(node, snapshot);
         if (state.history_error == gneiss::result::success) {
           state.history_error = state.history.record(
               {.label = "删除节点",
                .undo =
                    [&state, snapshot] {
                      gneiss::scene_node_id restored;
-                     return state.session.restore_mesh_renderer_node(snapshot, restored);
+                     return state.session.restore_subtree(snapshot, restored);
                    },
                .redo =
-                   [&state, uuid = snapshot.uuid] {
+                   [&state, uuid = snapshot.root_uuid] {
                      const auto* current = state.session.find_node(uuid);
                      if (current == nullptr) {
                        return gneiss::result::not_found;
                      }
-                     gneiss::editor::scene_node_snapshot discarded;
-                     return state.session.destroy_node(current->node, discarded);
-                   }});
+                     gneiss::editor::scene_subtree_snapshot discarded;
+                     return state.session.destroy_subtree(current->node, discarded);
+                   },
+               .merge_key = {}});
           if (state.history_error != gneiss::result::success) {
             gneiss::scene_node_id restored;
-            (void)state.session.restore_mesh_renderer_node(snapshot, restored);
+            (void)state.session.restore_subtree(snapshot, restored);
             if (!was_dirty) {
               state.session.clear_dirty();
             }
@@ -558,8 +1243,19 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
       }
       for (const auto& node : state.session.nodes()) {
         if (!node.parent.is_valid()) {
-          draw_scene_node(state.session, node);
+          draw_scene_node(state, node);
         }
+      }
+      ImGui::Separator();
+      ImGui::Selectable("Drop here to move to root", false);
+      if (ImGui::BeginDragDropTarget()) {
+        if (const auto* payload = ImGui::AcceptDragDropPayload("GNEISS_SCENE_NODE_UUID");
+            payload != nullptr) {
+          const std::string source_uuid{static_cast<const char*>(payload->Data),
+                                        static_cast<std::size_t>(payload->DataSize)};
+          (void)reparent_with_history(state, source_uuid, {});
+        }
+        ImGui::EndDragDropTarget();
       }
     }
     ImGui::End();
@@ -577,27 +1273,50 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
 
     ImGui::SetNextWindowPos(ImVec2(250.0F, 20.0F));
     ImGui::SetNextWindowSize(ImVec2(730.0F, 700.0F));
-    ImGui::Begin("Scene View", nullptr,
-                 ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize |
-                     ImGuiWindowFlags_NoBackground);
-    const auto scene_view_hovered = ImGui::IsWindowHovered();
-    ImGui::TextUnformatted("Scene View");
-    ImGui::TextDisabled("WASD/QE move | RMB look | Wheel dolly | F focus selection");
-    if (const auto* selected = state.session.selected_node(); selected != nullptr) {
-      ImGui::TextColored(gneiss::editor::theme_warning_color(), "Selected: %s",
-                         selected->display_name.c_str());
-      const auto minimum = ImGui::GetWindowPos();
-      const auto size = ImGui::GetWindowSize();
-      ImGui::GetWindowDrawList()->AddRect(
-          minimum, ImVec2(minimum.x + size.x, minimum.y + size.y),
-          ImGui::ColorConvertFloat4ToU32(gneiss::editor::theme_warning_color()), 0.0F,
-          ImDrawFlags_None, 2.0F);
-    }
-    if (scene_view_hovered) {
-      const auto camera_result = update_editor_camera(state, *time);
-      if (camera_result != GNEISS_SUCCESS) {
-        ImGui::End();
-        return camera_result;
+    const auto scene_view_visible = ImGui::Begin(
+        "Scene View", nullptr,
+        ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoBackground);
+    if (scene_view_visible) {
+      const auto scene_view_hovered = ImGui::IsWindowHovered();
+      ImGui::TextUnformatted("Scene View");
+      if (ImGui::RadioButton("Move", state.gizmo_mode == gizmo_operation::translate)) {
+        state.gizmo_mode = gizmo_operation::translate;
+      }
+      ImGui::SameLine();
+      if (ImGui::RadioButton("Rotate", state.gizmo_mode == gizmo_operation::rotate)) {
+        state.gizmo_mode = gizmo_operation::rotate;
+      }
+      ImGui::SameLine();
+      if (ImGui::RadioButton("Scale", state.gizmo_mode == gizmo_operation::scale)) {
+        state.gizmo_mode = gizmo_operation::scale;
+      }
+      ImGui::TextDisabled("RMB look | Wheel dolly | F focus selection");
+      ImGui::SameLine();
+      ImGui::TextColored(ImVec4(0.95F, 0.35F, 0.35F, 1.0F), "X");
+      ImGui::SameLine(0.0F, 3.0F);
+      ImGui::TextColored(ImVec4(0.35F, 0.90F, 0.45F, 1.0F), "Y");
+      ImGui::SameLine(0.0F, 3.0F);
+      ImGui::TextColored(ImVec4(0.35F, 0.55F, 1.0F, 1.0F), "Z");
+      if (const auto* selected = state.session.selected_node(); selected != nullptr) {
+        ImGui::TextColored(gneiss::editor::theme_warning_color(), "Selected: %s",
+                           selected->display_name.c_str());
+        const auto minimum = ImGui::GetWindowPos();
+        const auto size = ImGui::GetWindowSize();
+        ImGui::GetWindowDrawList()->AddRect(
+            minimum, ImVec2(minimum.x + size.x, minimum.y + size.y),
+            ImGui::ColorConvertFloat4ToU32(gneiss::editor::theme_warning_color()), 0.0F,
+            ImDrawFlags_None, 2.0F);
+      }
+      const auto gizmo_minimum = ImGui::GetCursorScreenPos();
+      const auto gizmo_size = ImGui::GetContentRegionAvail();
+      const auto gizmo_owns_pointer = draw_transform_gizmo(state, gizmo_minimum, gizmo_size);
+      draw_view_axis(state, gizmo_minimum, gizmo_size);
+      if (scene_view_hovered && !gizmo_owns_pointer) {
+        const auto camera_result = update_editor_camera(state, *time);
+        if (camera_result != GNEISS_SUCCESS) {
+          ImGui::End();
+          return camera_result;
+        }
       }
     }
     ImGui::End();
@@ -610,7 +1329,8 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
     ImGui::EndDisabled();
     const auto save_requested =
         state.session.is_open() &&
-        (save_button_pressed || (ImGui::GetIO().KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_S, false)));
+        (save_button_pressed || (ImGui::GetIO().KeyCtrl && !ImGui::GetIO().KeyShift &&
+                                 ImGui::IsKeyPressed(ImGuiKey_S, false)));
     ImGui::SameLine();
     if (!state.session.is_open()) {
       ImGui::TextDisabled("No scene");
@@ -620,8 +1340,8 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
       ImGui::TextColored(gneiss::editor::theme_success_color(), "Saved");
     }
     if (save_requested) {
-      state.save_result = state.session.save(state.asset_root);
-      state.save_attempted = true;
+      state.save_result = save_document(state);
+      state.save_attempted = state.save_result != gneiss::result::not_ready;
     }
     if (state.save_attempted && state.save_result != gneiss::result::success) {
       const auto message = gneiss::result_message(state.save_result);
@@ -638,7 +1358,112 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
       ImGui::Text("UUID: %s", selected->uuid.c_str());
       ImGui::Text("Entity: %llu", static_cast<unsigned long long>(selected->entity.get()));
       ImGui::Separator();
-      draw_reflected_properties(state);
+      const auto uuid = selected->uuid;
+      const auto has_camera =
+          (selected->component_flags & GNEISS_SCENE_NODE_COMPONENT_CAMERA) != 0U;
+      const auto has_mesh =
+          (selected->component_flags & GNEISS_SCENE_NODE_COMPONENT_MESH_RENDERER) != 0U;
+      const auto selected_mesh_uri = selected->mesh_uri;
+      const auto selected_material_uri = selected->material_uri;
+      bool components_changed = false;
+      if (ImGui::Button(has_camera ? "Remove Camera" : "Add Camera")) {
+        if (has_camera) {
+          gneiss::scene_camera_desc previous = GNEISS_SCENE_CAMERA_DESC_INIT;
+          previous.camera = selected->camera;
+          previous.is_primary = selected->is_primary_camera ? 1U : 0U;
+          state.history_error = state.session.remove_camera(selected->node);
+          if (state.history_error == gneiss::result::success) {
+            state.history_error = state.history.record(
+                {.label = "移除 Camera",
+                 .undo =
+                     [&state, uuid, previous] {
+                       const auto* node = state.session.find_node(uuid);
+                       return node == nullptr ? gneiss::result::not_found
+                                              : state.session.set_camera(node->node, previous);
+                     },
+                 .redo =
+                     [&state, uuid] {
+                       const auto* node = state.session.find_node(uuid);
+                       return node == nullptr ? gneiss::result::not_found
+                                              : state.session.remove_camera(node->node);
+                     },
+                 .merge_key = {}});
+            if (state.history_error != gneiss::result::success) {
+              if (const auto* node = state.session.find_node(uuid); node != nullptr) {
+                (void)state.session.set_camera(node->node, previous);
+              }
+            }
+          }
+        } else {
+          gneiss::scene_camera_desc camera = GNEISS_SCENE_CAMERA_DESC_INIT;
+          state.history_error = state.session.set_camera(selected->node, camera);
+          if (state.history_error == gneiss::result::success) {
+            state.history_error = state.history.record(
+                {.label = "添加 Camera",
+                 .undo =
+                     [&state, uuid] {
+                       const auto* node = state.session.find_node(uuid);
+                       return node == nullptr ? gneiss::result::not_found
+                                              : state.session.remove_camera(node->node);
+                     },
+                 .redo =
+                     [&state, uuid, camera] {
+                       const auto* node = state.session.find_node(uuid);
+                       return node == nullptr ? gneiss::result::not_found
+                                              : state.session.set_camera(node->node, camera);
+                     },
+                 .merge_key = {}});
+            if (state.history_error != gneiss::result::success) {
+              if (const auto* node = state.session.find_node(uuid); node != nullptr) {
+                (void)state.session.remove_camera(node->node);
+              }
+            }
+          }
+        }
+        state.inspected_entity = {};
+        components_changed = state.history_error == gneiss::result::success;
+      }
+      ImGui::SameLine();
+      ImGui::BeginDisabled(!has_mesh);
+      const auto remove_mesh_requested = ImGui::Button("Remove Mesh Renderer");
+      ImGui::EndDisabled();
+      if (remove_mesh_requested) {
+        state.history_error = state.session.remove_mesh_renderer(selected->node);
+        if (state.history_error == gneiss::result::success) {
+          state.history_error = state.history.record(
+              {.label = "移除 Mesh Renderer",
+               .undo =
+                   [&state, uuid, selected_mesh_uri, selected_material_uri] {
+                     const auto* node = state.session.find_node(uuid);
+                     return node == nullptr
+                                ? gneiss::result::not_found
+                                : state.session.set_mesh_renderer(node->node, selected_mesh_uri,
+                                                                  selected_material_uri);
+                   },
+               .redo =
+                   [&state, uuid] {
+                     const auto* node = state.session.find_node(uuid);
+                     return node == nullptr ? gneiss::result::not_found
+                                            : state.session.remove_mesh_renderer(node->node);
+                   },
+               .merge_key = {}});
+          if (state.history_error != gneiss::result::success) {
+            if (const auto* node = state.session.find_node(uuid); node != nullptr) {
+              (void)state.session.set_mesh_renderer(node->node, selected_mesh_uri,
+                                                    selected_material_uri);
+            }
+          }
+        }
+        state.inspected_entity = {};
+        components_changed = state.history_error == gneiss::result::success;
+      }
+      if (!has_mesh) {
+        ImGui::TextDisabled("Select a mesh in Asset Browser to add Mesh Renderer");
+      }
+      ImGui::Separator();
+      if (!components_changed) {
+        draw_reflected_properties(state);
+      }
     } else {
       state.inspector.clear();
       state.inspected_entity = {};
@@ -661,9 +1486,24 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
   }
 }
 
+uint8_t handle_close_requested(gneiss_application application, void* user_data) noexcept {
+  (void)application;
+  if (user_data == nullptr) {
+    return 1U;
+  }
+  auto& state = *static_cast<editor_state*>(user_data);
+  if (!state.session.is_dirty()) {
+    return 1U;
+  }
+  state.pending_document_action = document_action::exit_editor;
+  return 0U;
+}
+
 int run_editor(int argc, char** argv) {
   launch_options options;
   if (!parse_options(argc, argv, options)) {
+    std::fprintf(stderr, "Gneiss Editor 启动失败：阶段=命令行解析，结果=%d，消息=参数无效\n",
+                 GNEISS_ERROR_INVALID_ARGUMENT);
     return 64;
   }
   gneiss::editor::editor_project project;
@@ -673,14 +1513,24 @@ int run_editor(int argc, char** argv) {
       return 0;
     }
     if (operation != gneiss::result::success) {
+      const auto message = gneiss::result_message(operation);
+      std::fprintf(stderr, "Gneiss Editor 启动失败：阶段=Project Manager，结果=%d，消息=%.*s\n",
+                   gneiss::to_native(operation), static_cast<int>(message.size()), message.data());
       return 65;
     }
-  } else if (gneiss::editor::load_editor_project(utf8_path(options.project), project) !=
-             gneiss::result::success) {
-    return 65;
+  } else {
+    const auto operation = gneiss::editor::load_editor_project(utf8_path(options.project), project);
+    if (operation != gneiss::result::success) {
+      const auto message = gneiss::result_message(operation);
+      std::fprintf(stderr, "Gneiss Editor 启动失败：阶段=工程加载，结果=%d，消息=%.*s，路径=%s\n",
+                   gneiss::to_native(operation), static_cast<int>(message.size()), message.data(),
+                   options.project.c_str());
+      return 65;
+    }
   }
   const auto asset_root_text = path_utf8(project.asset_root);
   if (asset_root_text.size() > std::numeric_limits<std::uint32_t>::max()) {
+    report_startup_failure("资产根校验", gneiss::result::invalid_argument, asset_root_text);
     return 64;
   }
   gneiss::application application;
@@ -694,6 +1544,7 @@ int run_editor(int argc, char** argv) {
   gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
   desc.user_data = &state;
   desc.update = update_editor;
+  desc.close_requested = handle_close_requested;
   desc.platform = GNEISS_APPLICATION_PLATFORM_GRANIT;
   desc.window_title = title.data();
   desc.window_title_length = static_cast<std::uint32_t>(title.size());
@@ -703,25 +1554,47 @@ int run_editor(int argc, char** argv) {
   desc.asset_root = asset_root_text.c_str();
   desc.asset_root_length = static_cast<std::uint32_t>(asset_root_text.size());
 
-  if (gneiss::application::create(desc, application) != gneiss::result::success) {
+  auto operation = gneiss::application::create(desc, application);
+  if (operation != gneiss::result::success) {
+    report_startup_failure("Editor Application 创建", operation, path_utf8(project.project_root));
     return 1;
   }
-  if (state.ui.initialize(application.get()) != GNEISS_SUCCESS) {
+  operation = gneiss::from_native(state.ui.initialize(application.get()));
+  if (operation != gneiss::result::success) {
+    report_startup_failure("Editor UI 初始化", operation);
     return 2;
   }
-  if (state.inspector.initialize() != gneiss::result::success ||
-      application.get_world(state.world) != gneiss::result::success ||
-      state.session.open(application.get(), state.world, project.startup_scene) !=
-          gneiss::result::success ||
-      state.camera.initialize(state.world) != gneiss::result::success) {
+  operation = state.inspector.initialize();
+  if (operation == gneiss::result::success) {
+    operation = application.get_world(state.world);
+  }
+  if (operation != gneiss::result::success) {
+    report_startup_failure("Editor World/Inspector 初始化", operation);
+  } else {
+    operation = state.session.open(application.get(), state.world, project.startup_scene);
+    if (operation != gneiss::result::success) {
+      report_startup_failure("启动场景打开", operation, project.startup_scene);
+    }
+  }
+  if (operation == gneiss::result::success) {
+    operation = state.camera.initialize(state.world);
+    if (operation != gneiss::result::success) {
+      report_startup_failure("Editor Camera 初始化", operation);
+    }
+  }
+  if (operation != gneiss::result::success) {
     state.ui.shutdown(application.get());
     state.session.close();
     return 3;
   }
+  state.history.clear();
   const auto run_result = application.run(options.smoke ? 3U : 0U);
   state.ui.shutdown(application.get());
   state.camera.shutdown();
   state.session.close();
+  if (run_result != gneiss::result::success) {
+    report_startup_failure("Editor 运行时事件循环", run_result, path_utf8(project.project_root));
+  }
   return run_result == gneiss::result::success ? 0 : 4;
 }
 

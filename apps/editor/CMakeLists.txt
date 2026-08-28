@@ -9,12 +9,16 @@ add_library(
   editor_command_history.h
   editor_project.cpp
   editor_project.h
+  editor_rotation_math.cpp
+  editor_rotation_math.h
   editor_session.cpp
   editor_session.h
   project_workspace.cpp
   project_workspace.h
   property_inspector_model.cpp
   property_inspector_model.h
+  transform_gizmo_math.cpp
+  transform_gizmo_math.h
 )
 target_link_libraries(gneiss_editor_session PRIVATE gneiss_yyjson PUBLIC gneiss::gneiss)
 target_include_directories(gneiss_editor_session PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
@@ -49,7 +53,7 @@ add_executable(
   project_manager.cpp
   project_manager.h
 )
-target_link_libraries(gneiss_editor PRIVATE gneiss_editor_session gneiss_imgui)
+target_link_libraries(gneiss_editor PRIVATE gneiss_editor_session gneiss_imgui gneiss_imguizmo)
 if(TARGET gneiss_editor_assets)
   target_link_libraries(gneiss_editor PRIVATE gneiss_editor_assets)
   target_compile_definitions(gneiss_editor PRIVATE GNEISS_EDITOR_HAS_ASSET_BROWSER=1)
@@ -112,6 +116,16 @@ if(BUILD_TESTING)
   gneiss_target_compile_warnings(gneiss_editor_command_history_test)
   gneiss_target_output_directories(gneiss_editor_command_history_test)
   add_test(NAME gneiss.editor.command-history COMMAND gneiss_editor_command_history_test)
+  add_executable(gneiss_editor_transform_gizmo_math_test tests/transform_gizmo_math_test.cpp)
+  target_link_libraries(gneiss_editor_transform_gizmo_math_test PRIVATE gneiss_editor_session)
+  gneiss_target_compile_warnings(gneiss_editor_transform_gizmo_math_test)
+  gneiss_target_output_directories(gneiss_editor_transform_gizmo_math_test)
+  add_test(NAME gneiss.editor.transform-gizmo-math COMMAND gneiss_editor_transform_gizmo_math_test)
+  add_executable(gneiss_editor_rotation_math_test tests/editor_rotation_math_test.cpp)
+  target_link_libraries(gneiss_editor_rotation_math_test PRIVATE gneiss_editor_session)
+  gneiss_target_compile_warnings(gneiss_editor_rotation_math_test)
+  gneiss_target_output_directories(gneiss_editor_rotation_math_test)
+  add_test(NAME gneiss.editor.rotation-math COMMAND gneiss_editor_rotation_math_test)
   if(TARGET gneiss_editor_assets)
     add_executable(gneiss_editor_asset_browser_test tests/asset_browser_model_test.cpp)
     target_link_libraries(gneiss_editor_asset_browser_test PRIVATE gneiss_editor_assets)
@@ -134,6 +148,14 @@ if(BUILD_TESTING)
       gneiss_editor --smoke --project "${PROJECT_SOURCE_DIR}/examples/editor_demo"
   )
   add_test(NAME gneiss.editor.project-manager-smoke COMMAND gneiss_editor --smoke)
+  add_test(
+    NAME gneiss.editor.startup-diagnostic
+    COMMAND
+      "${CMAKE_COMMAND}" -DGNEISS_EDITOR=$<TARGET_FILE:gneiss_editor>
+      -DMISSING_PROJECT=${PROJECT_BINARY_DIR}/missing-editor-project -P
+      "${CMAKE_CURRENT_SOURCE_DIR}/tests/startup_diagnostic_test.cmake"
+  )
   set_tests_properties(gneiss.editor.smoke PROPERTIES TIMEOUT 30)
   set_tests_properties(gneiss.editor.project-manager-smoke PROPERTIES TIMEOUT 30)
+  set_tests_properties(gneiss.editor.startup-diagnostic PROPERTIES TIMEOUT 30)
 endif()

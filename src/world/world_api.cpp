@@ -353,6 +353,19 @@ gneiss_world_entity_set_mesh_renderer(gneiss_world world, gneiss_entity_id entit
   }
 }
 
+extern "C" gneiss_result gneiss_world_entity_remove_mesh_renderer(gneiss_world world,
+                                                                  gneiss_entity_id entity) {
+  try {
+    auto& registry = get_world_registry();
+    const std::scoped_lock lock{registry.mutex};
+    auto* state = find_world(registry, world);
+    const auto thread_result = validate_world_thread(state);
+    return thread_result == GNEISS_SUCCESS ? state->clear_mesh_renderer(entity) : thread_result;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
 // World 句柄与视口尺寸均为定宽整数，参数名称明确表达不同语义。
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
 gneiss_result gneiss::world_internal::get_render_snapshot(gneiss_world world,

@@ -195,6 +195,11 @@ application_state::submit_ui_draw_list(const gneiss_ui_draw_list_desc& desc) noe
   return is_updating_ ? ui_draw_list_.replace(desc, resources_) : GNEISS_ERROR_INVALID_STATE;
 }
 
+gneiss_result
+application_state::submit_debug_draw_list(const gneiss_debug_draw_list_desc& desc) noexcept {
+  return is_updating_ ? debug_draw_list_.replace(desc) : GNEISS_ERROR_INVALID_STATE;
+}
+
 void application_state::report(gneiss_application handle, std::uint32_t severity,
                                std::uint32_t category, gneiss_result result,
                                std::string_view module, std::string_view message) const noexcept {
@@ -228,7 +233,8 @@ gneiss_result application_state::render_frame() noexcept {
   const auto snapshot_result =
       world_internal::get_render_snapshot(world_, window.width, window.height, snapshot);
   return snapshot_result == GNEISS_SUCCESS
-             ? granit_render_service_->render(window, snapshot, resources_, ui_draw_list_)
+             ? granit_render_service_->render(window, snapshot, resources_, ui_draw_list_,
+                                               debug_draw_list_)
              : snapshot_result;
 }
 #endif
@@ -252,7 +258,10 @@ gneiss_result application_state::run(gneiss_application handle,
       return poll_result;
     }
     if (should_close) {
-      break;
+      if (desc_.close_requested == nullptr ||
+          desc_.close_requested(handle, desc_.user_data) != 0U) {
+        break;
+      }
     }
 
     const auto current_time_ns = now_ns();
@@ -269,12 +278,14 @@ gneiss_result application_state::run(gneiss_application handle,
         .reserved = {},
     };
     ui_draw_list_.clear();
+    debug_draw_list_.clear();
     if (desc_.update != nullptr) {
       is_updating_ = true;
       const auto update_result = desc_.update(handle, &time, desc_.user_data);
       is_updating_ = false;
       if (update_result != GNEISS_SUCCESS) {
         ui_draw_list_.clear();
+        debug_draw_list_.clear();
         is_running_ = false;
         return update_result;
       }
@@ -283,11 +294,13 @@ gneiss_result application_state::run(gneiss_application handle,
     const auto render_result = render_frame();
     if (render_result != GNEISS_SUCCESS) {
       ui_draw_list_.clear();
+      debug_draw_list_.clear();
       is_running_ = false;
       return render_result;
     }
 #endif
     ui_draw_list_.clear();
+    debug_draw_list_.clear();
     ++frame_index_;
     ++frames_run;
   }
@@ -303,6 +316,7 @@ bool application_state::is_owner_thread() const noexcept {
 void application_state::shutdown() noexcept {
   is_updating_ = false;
   ui_draw_list_.clear();
+  debug_draw_list_.clear();
   scenes_.reset();
   if (world_ != GNEISS_NULL_WORLD) {
     (void)gneiss_world_destroy(world_);

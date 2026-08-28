@@ -299,7 +299,8 @@ gneiss_result imgui_adapter::submit(gneiss_application application) {
       indices_.push_back(static_cast<std::uint32_t>(index));
     }
     for (const auto& command : source->CmdBuffer) {
-      if (command.UserCallback != nullptr) {
+      if (command.UserCallback != nullptr || command.ElemCount == 0U ||
+          command.ClipRect.x >= command.ClipRect.z || command.ClipRect.y >= command.ClipRect.w) {
         continue;
       }
       const auto texture = static_cast<gneiss_texture>(command.GetTexID());

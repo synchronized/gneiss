@@ -9,6 +9,14 @@
 
 暂无。
 
+## 0.9.0 - 2026-08-28
+
+- 扩展 Scene Instance 作者修改接口，支持空节点创建、重命名、重挂接、子树复制、删除与恢复。
+- 完善 Editor 命令历史、层级创作和 Camera、Mesh Renderer 组件操作，连续属性编辑可合并撤销。
+- 增加 New、Open、Save、Save As 与未保存修改确认，场景文档可在工程资产根内完整流转。
+- 接入 ImGuizmo Transform 操纵器、深度测试世界网格和坐标轴，Inspector 使用 XYZ 欧拉角编辑旋转。
+- 完善无参数 Project Manager 启动、分阶段错误诊断及 Lantern Gallery 场景创作验收工作流。
+
 ## 0.8.0 - 2026-08-28
 
 - 增加 Editor 共用资产导入 SDK、版本化资产索引和 Asset Browser，支持 glTF/GLB 导入、状态检测与

@@ -94,6 +94,9 @@ public:
   [[nodiscard]] result set_mesh_renderer(entity_id entity, const mesh_renderer& value) noexcept {
     return from_native(gneiss_world_entity_set_mesh_renderer(handle_, entity.get(), &value));
   }
+  [[nodiscard]] result remove_mesh_renderer(entity_id entity) noexcept {
+    return from_native(gneiss_world_entity_remove_mesh_renderer(handle_, entity.get()));
+  }
 
   [[nodiscard]] result create_scene_node(scene_node_id parent, entity_id entity,
                                          scene_node_id& out_node) noexcept {

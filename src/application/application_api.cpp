@@ -293,6 +293,22 @@ gneiss_application_submit_ui_draw_list(gneiss_application application,
   }
 }
 
+extern "C" gneiss_result
+gneiss_application_submit_debug_draw_list(gneiss_application application,
+                                          const gneiss_debug_draw_list_desc* desc) {
+  if (desc == nullptr) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  try {
+    auto state = find_application(application);
+    const auto validation_result = validate_application(state);
+    return validation_result == GNEISS_SUCCESS ? state->submit_debug_draw_list(*desc)
+                                               : validation_result;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
 extern "C" gneiss_result gneiss_scene_instance_load(gneiss_application application, const char* uri,
                                                     uint64_t uri_length,
                                                     gneiss_scene_instance* out_instance) {
@@ -309,6 +325,28 @@ extern "C" gneiss_result gneiss_scene_instance_load(gneiss_application applicati
     }
     return state->scenes()->load(std::string_view(uri, static_cast<std::size_t>(uri_length)),
                                  out_instance);
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
+extern "C" gneiss_result gneiss_scene_instance_create_empty(gneiss_application application,
+                                                            const char* scene_uuid,
+                                                            uint64_t scene_uuid_length,
+                                                            gneiss_scene_instance* out_instance) {
+  if (out_instance == nullptr || scene_uuid == nullptr || scene_uuid_length == 0U ||
+      scene_uuid_length > std::numeric_limits<std::size_t>::max()) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  *out_instance = GNEISS_NULL_SCENE_INSTANCE;
+  try {
+    auto state = find_application(application);
+    const auto validation_result = validate_application(state);
+    return validation_result == GNEISS_SUCCESS
+               ? state->scenes()->create_empty(
+                     std::string_view(scene_uuid, static_cast<std::size_t>(scene_uuid_length)),
+                     out_instance)
+               : validation_result;
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;
   }
@@ -386,6 +424,157 @@ gneiss_scene_instance_get_node_info(gneiss_application application, gneiss_scene
   }
 }
 
+extern "C" gneiss_result gneiss_scene_instance_create_node(gneiss_application application,
+                                                           gneiss_scene_instance instance,
+                                                           const gneiss_scene_node_desc* desc,
+                                                           gneiss_scene_node_id* out_node) {
+  if (desc == nullptr || out_node == nullptr ||
+      desc->struct_size < sizeof(gneiss_scene_node_desc) || desc->uuid == nullptr ||
+      desc->uuid_length == 0U || (desc->name == nullptr && desc->name_length != 0U) ||
+      desc->uuid_length > std::numeric_limits<std::size_t>::max() ||
+      desc->name_length > std::numeric_limits<std::size_t>::max()) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  *out_node = GNEISS_NULL_SCENE_NODE_ID;
+  try {
+    auto state = find_application(application);
+    const auto validation_result = validate_application(state);
+    return validation_result == GNEISS_SUCCESS
+               ? state->scenes()->create_node(instance, *desc, out_node)
+               : validation_result;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
+extern "C" gneiss_result gneiss_scene_instance_set_node_name(gneiss_application application,
+                                                             gneiss_scene_instance instance,
+                                                             gneiss_scene_node_id node,
+                                                             const char* name,
+                                                             uint64_t name_length) {
+  if (node == GNEISS_NULL_SCENE_NODE_ID || (name == nullptr && name_length != 0U) ||
+      name_length > std::numeric_limits<std::size_t>::max()) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  try {
+    auto state = find_application(application);
+    const auto validation_result = validate_application(state);
+    return validation_result == GNEISS_SUCCESS
+               ? state->scenes()->set_node_name(
+                     instance, node,
+                     std::string_view(name == nullptr ? "" : name,
+                                      static_cast<std::size_t>(name_length)))
+               : validation_result;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
+extern "C" gneiss_result gneiss_scene_instance_reparent_node(gneiss_application application,
+                                                             gneiss_scene_instance instance,
+                                                             gneiss_scene_node_id node,
+                                                             gneiss_scene_node_id parent) {
+  if (node == GNEISS_NULL_SCENE_NODE_ID) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  try {
+    auto state = find_application(application);
+    const auto validation_result = validate_application(state);
+    return validation_result == GNEISS_SUCCESS
+               ? state->scenes()->reparent_node(instance, node, parent)
+               : validation_result;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
+extern "C" gneiss_result gneiss_scene_instance_capture_subtree(gneiss_application application,
+                                                               gneiss_scene_instance instance,
+                                                               gneiss_scene_node_id root,
+                                                               char* buffer, uint64_t capacity,
+                                                               uint64_t* out_length) {
+  if (root == GNEISS_NULL_SCENE_NODE_ID || out_length == nullptr ||
+      (buffer == nullptr && capacity != 0U) || capacity > std::numeric_limits<std::size_t>::max()) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  *out_length = 0U;
+  try {
+    auto state = find_application(application);
+    const auto validation_result = validate_application(state);
+    if (validation_result != GNEISS_SUCCESS) {
+      return validation_result;
+    }
+    std::string snapshot;
+    const auto result = state->scenes()->capture_subtree(instance, root, snapshot);
+    if (result != GNEISS_SUCCESS) {
+      return result;
+    }
+    *out_length = snapshot.size();
+    if (buffer == nullptr) {
+      return capacity == 0U ? GNEISS_SUCCESS : GNEISS_ERROR_INVALID_ARGUMENT;
+    }
+    if (capacity < snapshot.size()) {
+      return GNEISS_ERROR_INVALID_ARGUMENT;
+    }
+    std::ranges::copy(snapshot, buffer);
+    return GNEISS_SUCCESS;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
+extern "C" gneiss_result
+gneiss_scene_instance_restore_subtree(gneiss_application application,
+                                      gneiss_scene_instance instance, const char* snapshot,
+                                      uint64_t snapshot_length, gneiss_scene_node_id parent,
+                                      const gneiss_scene_uuid_mapping* mappings,
+                                      uint64_t mapping_count, gneiss_scene_node_id* out_root) {
+  if (snapshot == nullptr || snapshot_length == 0U || out_root == nullptr ||
+      snapshot_length > std::numeric_limits<std::size_t>::max() ||
+      mapping_count > std::numeric_limits<std::size_t>::max() ||
+      (mappings == nullptr && mapping_count != 0U)) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  for (std::uint64_t index = 0; index < mapping_count; ++index) {
+    const auto& mapping = mappings[index];
+    if (mapping.source_uuid == nullptr || mapping.target_uuid == nullptr ||
+        mapping.source_uuid_length == 0U || mapping.target_uuid_length == 0U ||
+        mapping.source_uuid_length > std::numeric_limits<std::size_t>::max() ||
+        mapping.target_uuid_length > std::numeric_limits<std::size_t>::max()) {
+      return GNEISS_ERROR_INVALID_ARGUMENT;
+    }
+  }
+  *out_root = GNEISS_NULL_SCENE_NODE_ID;
+  try {
+    auto state = find_application(application);
+    const auto validation_result = validate_application(state);
+    return validation_result == GNEISS_SUCCESS
+               ? state->scenes()->restore_subtree(
+                     instance,
+                     std::string_view(snapshot, static_cast<std::size_t>(snapshot_length)), parent,
+                     mappings, mapping_count, out_root)
+               : validation_result;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
+extern "C" gneiss_result gneiss_scene_instance_destroy_subtree(gneiss_application application,
+                                                               gneiss_scene_instance instance,
+                                                               gneiss_scene_node_id root) {
+  if (root == GNEISS_NULL_SCENE_NODE_ID) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  try {
+    auto state = find_application(application);
+    const auto validation_result = validate_application(state);
+    return validation_result == GNEISS_SUCCESS ? state->scenes()->destroy_subtree(instance, root)
+                                               : validation_result;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
 extern "C" gneiss_result gneiss_scene_instance_create_mesh_renderer_node(
     gneiss_application application, gneiss_scene_instance instance,
     const gneiss_scene_mesh_renderer_node_desc* desc, gneiss_scene_node_id* out_node) {
@@ -436,6 +625,58 @@ gneiss_scene_instance_set_mesh_renderer(gneiss_application application,
                                       static_cast<std::size_t>(desc->mesh_uri_length)),
                      std::string_view(desc->material_uri,
                                       static_cast<std::size_t>(desc->material_uri_length)))
+               : validation_result;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
+extern "C" gneiss_result gneiss_scene_instance_set_camera(gneiss_application application,
+                                                          gneiss_scene_instance instance,
+                                                          gneiss_scene_node_id node,
+                                                          const gneiss_scene_camera_desc* desc) {
+  if (node == GNEISS_NULL_SCENE_NODE_ID || desc == nullptr ||
+      desc->struct_size < sizeof(gneiss_scene_camera_desc) ||
+      desc->camera.struct_size < sizeof(gneiss_camera_desc)) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  try {
+    auto state = find_application(application);
+    const auto validation_result = validate_application(state);
+    return validation_result == GNEISS_SUCCESS ? state->scenes()->set_camera(instance, node, *desc)
+                                               : validation_result;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
+extern "C" gneiss_result gneiss_scene_instance_remove_camera(gneiss_application application,
+                                                             gneiss_scene_instance instance,
+                                                             gneiss_scene_node_id node) {
+  if (node == GNEISS_NULL_SCENE_NODE_ID) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  try {
+    auto state = find_application(application);
+    const auto validation_result = validate_application(state);
+    return validation_result == GNEISS_SUCCESS ? state->scenes()->remove_camera(instance, node)
+                                               : validation_result;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
+extern "C" gneiss_result gneiss_scene_instance_remove_mesh_renderer(gneiss_application application,
+                                                                    gneiss_scene_instance instance,
+                                                                    gneiss_scene_node_id node) {
+  if (node == GNEISS_NULL_SCENE_NODE_ID) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  try {
+    auto state = find_application(application);
+    const auto validation_result = validate_application(state);
+    return validation_result == GNEISS_SUCCESS
+               ? state->scenes()->remove_mesh_renderer(instance, node)
                : validation_result;
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;

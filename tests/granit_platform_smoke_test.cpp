@@ -40,7 +40,20 @@ gneiss_result submit_ui(gneiss_application application, const gneiss_frame_time*
   draw_list.indices = indices.data();
   draw_list.command_count = static_cast<std::uint32_t>(commands.size());
   draw_list.commands = commands.data();
-  return gneiss_application_submit_ui_draw_list(application, &draw_list);
+  auto result = gneiss_application_submit_ui_draw_list(application, &draw_list);
+  constexpr gneiss_debug_line debug_line{.start = {-0.8F, 0.0F, 0.0F},
+                                         .end = {0.8F, 0.0F, 0.0F},
+                                         .color_rgba8 = UINT32_C(0xff60a5fa),
+                                         .width = 2.0F,
+                                         .depth_test = 1U,
+                                         .reserved = {}};
+  gneiss_debug_draw_list_desc debug = GNEISS_DEBUG_DRAW_LIST_DESC_INIT;
+  debug.line_count = 1U;
+  debug.lines = &debug_line;
+  if (result == GNEISS_SUCCESS) {
+    result = gneiss_application_submit_debug_draw_list(application, &debug);
+  }
+  return result;
 }
 
 } // namespace

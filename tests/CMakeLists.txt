@@ -115,6 +115,19 @@ gneiss_target_output_directories(gneiss_ui_draw_list_test)
 add_test(NAME gneiss.ui_draw_list COMMAND gneiss_ui_draw_list_test)
 
 add_executable(
+  gneiss_debug_draw_list_test
+  render/debug_draw_list_test.cpp
+  "${PROJECT_SOURCE_DIR}/src/render/debug_draw_list.cpp"
+)
+target_include_directories(gneiss_debug_draw_list_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_compile_definitions(gneiss_debug_draw_list_test PRIVATE GNEISS_BUILDING_LIBRARY)
+target_link_libraries(gneiss_debug_draw_list_test PRIVATE gneiss::gneiss)
+target_compile_features(gneiss_debug_draw_list_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_debug_draw_list_test)
+gneiss_target_output_directories(gneiss_debug_draw_list_test)
+add_test(NAME gneiss.debug_draw_list COMMAND gneiss_debug_draw_list_test)
+
+add_executable(
   gneiss_png_decoder_test
   render/png_decoder_test.cpp
   "${PROJECT_SOURCE_DIR}/src/render/png_decoder.cpp"
