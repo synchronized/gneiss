@@ -40,6 +40,7 @@
 - [资产 URI、目录挂载与缓存](reference/assets.md)
 - [场景文件格式 v2](reference/scene-format.md)
 - [场景加载、实例与卸载](reference/scene-instance.md)
+- [工程文件格式 v1](reference/project-format.md)
 - [Mesh Binary、JSON Mesh 与 Material 资产格式](reference/render-asset-formats.md)
 
 ## 架构与原理
@@ -82,6 +83,7 @@
 - [ADR-015：索引 Mesh 与渲染后端边界](decisions/ADR-015-indexed-rendering-boundary.md)
 - [ADR-016：稳定类型标识与属性访问边界](decisions/ADR-016-stable-type-property-boundary.md)
 - [ADR-017：编辑器 UI 与场景渲染组合边界](decisions/ADR-017-editor-ui-render-composition.md)
+- [ADR-018：Editor 工程启动入口](decisions/ADR-018-editor-project-entry.md)
 
 ## 实施与验收记录
 

@@ -5,12 +5,14 @@ add_library(
   gneiss_editor_session STATIC
   editor_camera.cpp
   editor_camera.h
+  editor_project.cpp
+  editor_project.h
   editor_session.cpp
   editor_session.h
   property_inspector_model.cpp
   property_inspector_model.h
 )
-target_link_libraries(gneiss_editor_session PUBLIC gneiss::gneiss)
+target_link_libraries(gneiss_editor_session PRIVATE gneiss_yyjson PUBLIC gneiss::gneiss)
 target_include_directories(gneiss_editor_session PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_compile_features(gneiss_editor_session PUBLIC cxx_std_20)
 gneiss_target_compile_warnings(gneiss_editor_session)
@@ -31,6 +33,15 @@ if(BUILD_TESTING)
   gneiss_target_compile_warnings(gneiss_editor_session_test)
   gneiss_target_output_directories(gneiss_editor_session_test)
   add_test(NAME gneiss.editor.session COMMAND gneiss_editor_session_test)
+  add_executable(gneiss_editor_project_test tests/editor_project_test.cpp)
+  target_link_libraries(gneiss_editor_project_test PRIVATE gneiss_editor_session)
+  target_compile_definitions(
+    gneiss_editor_project_test
+    PRIVATE GNEISS_EDITOR_DEMO_PROJECT="${PROJECT_SOURCE_DIR}/examples/editor_demo"
+  )
+  gneiss_target_compile_warnings(gneiss_editor_project_test)
+  gneiss_target_output_directories(gneiss_editor_project_test)
+  add_test(NAME gneiss.editor.project COMMAND gneiss_editor_project_test)
   add_executable(gneiss_editor_save_test tests/editor_save_test.cpp)
   target_link_libraries(gneiss_editor_save_test PRIVATE gneiss_editor_session)
   target_compile_definitions(
@@ -53,8 +64,7 @@ if(BUILD_TESTING)
   add_test(
     NAME gneiss.editor.smoke
     COMMAND
-      gneiss_editor --smoke --asset-root "${PROJECT_SOURCE_DIR}/tests/data/assets" --scene
-      "asset://scenes/triangle.scene.json"
+      gneiss_editor --smoke --project "${PROJECT_SOURCE_DIR}/examples/editor_demo"
   )
   set_tests_properties(gneiss.editor.smoke PROPERTIES TIMEOUT 30)
 endif()

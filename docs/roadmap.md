@@ -140,7 +140,7 @@ UI。既有 [ADR-002](decisions/ADR-002-ecs-reflection-boundary.md) 继续约束
 | M-47 场景视图与选择 | P0 | 已完成 |
 | M-48 层级面板与属性面板 | P0 | 已完成 |
 | M-49 编辑回写、脏状态与保存闭环 | P0 | 已完成 |
-| M-50 Editor 示例场景与版本验收 | P0 | 待开始 |
+| M-50 Editor 示例场景与版本验收 | P0 | 实施中 |
 
 详细范围、非目标和验收条件见
 [VER-007：0.7.0 编辑器基础闭环](plans/VER-007-0.7.0-editor-foundation-slice.md)。

@@ -23,3 +23,4 @@ Reference 和实现为准。
 - [ADR-015：索引 Mesh 与渲染后端边界](ADR-015-indexed-rendering-boundary.md)
 - [ADR-016：稳定类型标识与属性访问边界](ADR-016-stable-type-property-boundary.md)
 - [ADR-017：编辑器 UI 与场景渲染组合边界](ADR-017-editor-ui-render-composition.md)
+- [ADR-018：Editor 以版本化工程描述作为启动入口](ADR-018-editor-project-entry.md)

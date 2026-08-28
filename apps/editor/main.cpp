@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "editor_camera.h"
+#include "editor_project.h"
 #include "editor_session.h"
 #include "imgui_adapter.h"
 #include "property_inspector_model.h"
@@ -35,8 +36,7 @@ struct editor_state {
 
 struct launch_options {
   bool smoke = false;
-  std::string asset_root;
-  std::string scene_uri;
+  std::string project;
 };
 
 bool parse_options(int argc, char** argv, launch_options& options) {
@@ -44,14 +44,23 @@ bool parse_options(int argc, char** argv, launch_options& options) {
     const std::string_view argument = argv[index];
     if (argument == "--smoke") {
       options.smoke = true;
-    } else if ((argument == "--asset-root" || argument == "--scene") && index + 1 < argc) {
-      auto& destination = argument == "--asset-root" ? options.asset_root : options.scene_uri;
-      destination = argv[++index];
+    } else if (argument == "--project" && index + 1 < argc) {
+      options.project = argv[++index];
     } else {
       return false;
     }
   }
-  return options.scene_uri.empty() || !options.asset_root.empty();
+  return !options.project.empty();
+}
+
+[[nodiscard]] std::filesystem::path utf8_path(std::string_view value) {
+  return std::filesystem::path(
+      std::u8string(reinterpret_cast<const char8_t*>(value.data()), value.size()));
+}
+
+[[nodiscard]] std::string path_utf8(const std::filesystem::path& value) {
+  const auto text = value.generic_u8string();
+  return {reinterpret_cast<const char*>(text.data()), text.size()};
 }
 
 void draw_scene_node(gneiss::editor::editor_session& session,
@@ -280,14 +289,19 @@ int run_editor(int argc, char** argv) {
   if (!parse_options(argc, argv, options)) {
     return 64;
   }
-  if (options.asset_root.size() > std::numeric_limits<std::uint32_t>::max()) {
+  gneiss::editor::editor_project project;
+  if (gneiss::editor::load_editor_project(utf8_path(options.project), project) !=
+      gneiss::result::success) {
+    return 65;
+  }
+  const auto asset_root_text = path_utf8(project.asset_root);
+  if (asset_root_text.size() > std::numeric_limits<std::uint32_t>::max()) {
     return 64;
   }
   gneiss::application application;
   editor_state state;
-  state.asset_root = std::filesystem::path(std::u8string(
-      reinterpret_cast<const char8_t*>(options.asset_root.data()), options.asset_root.size()));
-  constexpr std::string_view title = "Gneiss Editor";
+  state.asset_root = project.asset_root;
+  const auto title = project.name + " - Gneiss Editor";
   gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
   desc.user_data = &state;
   desc.update = update_editor;
@@ -297,10 +311,8 @@ int run_editor(int argc, char** argv) {
   desc.window_width = 1280;
   desc.window_height = 720;
   desc.window_flags = GNEISS_APPLICATION_WINDOW_VISIBLE_BIT;
-  if (!options.asset_root.empty()) {
-    desc.asset_root = options.asset_root.c_str();
-    desc.asset_root_length = static_cast<std::uint32_t>(options.asset_root.size());
-  }
+  desc.asset_root = asset_root_text.c_str();
+  desc.asset_root_length = static_cast<std::uint32_t>(asset_root_text.size());
 
   if (gneiss::application::create(desc, application) != gneiss::result::success) {
     return 1;
@@ -310,9 +322,8 @@ int run_editor(int argc, char** argv) {
   }
   if (state.inspector.initialize() != gneiss::result::success ||
       application.get_world(state.world) != gneiss::result::success ||
-      (!options.scene_uri.empty() &&
-       state.session.open(application.get(), state.world, options.scene_uri) !=
-           gneiss::result::success) ||
+      state.session.open(application.get(), state.world, project.startup_scene) !=
+          gneiss::result::success ||
       state.camera.initialize(state.world) != gneiss::result::success) {
     state.ui.shutdown(application.get());
     state.session.close();
