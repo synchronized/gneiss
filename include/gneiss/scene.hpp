@@ -39,6 +39,7 @@ using scene_instance_node_info = gneiss_scene_instance_node_info;
 using scene_node_desc = gneiss_scene_node_desc;
 using scene_uuid_mapping = gneiss_scene_uuid_mapping;
 using scene_mesh_renderer_desc = gneiss_scene_mesh_renderer_desc;
+using scene_camera_desc = gneiss_scene_camera_desc;
 using scene_mesh_renderer_node_desc = gneiss_scene_mesh_renderer_node_desc;
 
 /** 独占拥有已加载场景；必须在所属 Application 销毁前释放。 */
@@ -164,6 +165,16 @@ public:
                                          const scene_mesh_renderer_desc& desc) noexcept {
     return from_native(
         gneiss_scene_instance_set_mesh_renderer(application_, handle_, node.get(), &desc));
+  }
+  [[nodiscard]] result set_camera(scene_node_id node, const scene_camera_desc& desc) noexcept {
+    return from_native(gneiss_scene_instance_set_camera(application_, handle_, node.get(), &desc));
+  }
+  [[nodiscard]] result remove_camera(scene_node_id node) noexcept {
+    return from_native(gneiss_scene_instance_remove_camera(application_, handle_, node.get()));
+  }
+  [[nodiscard]] result remove_mesh_renderer(scene_node_id node) noexcept {
+    return from_native(
+        gneiss_scene_instance_remove_mesh_renderer(application_, handle_, node.get()));
   }
   [[nodiscard]] result destroy_node(scene_node_id node) noexcept {
     return from_native(gneiss_scene_instance_destroy_node(application_, handle_, node.get()));

@@ -113,6 +113,28 @@ int main() try {
       std::string_view{triangle_info.name, triangle_info.name_length} != "Created Mesh") {
     return 4;
   }
+  gneiss_scene_camera_desc author_camera = GNEISS_SCENE_CAMERA_DESC_INIT;
+  author_camera.camera.near_plane = 0.2F;
+  if (gneiss_scene_instance_set_camera(application, scene, created_node, &author_camera) !=
+          GNEISS_SUCCESS ||
+      gneiss_scene_instance_remove_camera(application, scene, created_node) != GNEISS_SUCCESS ||
+      gneiss_scene_instance_remove_camera(application, scene, created_node) !=
+          GNEISS_ERROR_NOT_FOUND ||
+      gneiss_scene_instance_remove_mesh_renderer(application, scene, created_node) !=
+          GNEISS_SUCCESS ||
+      gneiss_scene_instance_remove_mesh_renderer(application, scene, created_node) !=
+          GNEISS_ERROR_NOT_FOUND) {
+    return 27;
+  }
+  gneiss_scene_mesh_renderer_desc restored_renderer = GNEISS_SCENE_MESH_RENDERER_DESC_INIT;
+  restored_renderer.mesh_uri = mesh_uri.data();
+  restored_renderer.mesh_uri_length = mesh_uri.size();
+  restored_renderer.material_uri = material_uri.data();
+  restored_renderer.material_uri_length = material_uri.size();
+  if (gneiss_scene_instance_set_mesh_renderer(application, scene, created_node,
+                                              &restored_renderer) != GNEISS_SUCCESS) {
+    return 28;
+  }
   gneiss_scene_node_desc generic_desc = GNEISS_SCENE_NODE_DESC_INIT;
   generic_desc.uuid = generic_uuid.data();
   generic_desc.uuid_length = generic_uuid.size();

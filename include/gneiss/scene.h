@@ -125,6 +125,22 @@ typedef struct gneiss_scene_mesh_renderer_desc {
   uint64_t material_uri_length;
 } gneiss_scene_mesh_renderer_desc;
 
+/** 场景作者 Camera 值；is_primary 非零时同时选择为活动 Camera。 */
+typedef struct gneiss_scene_camera_desc {
+  uint32_t struct_size;
+  uint32_t reserved;
+  gneiss_camera_desc camera;
+  uint8_t is_primary;
+  uint8_t reserved_2[7];
+} gneiss_scene_camera_desc;
+
+#define GNEISS_SCENE_CAMERA_DESC_INIT                                                              \
+  {(uint32_t)sizeof(gneiss_scene_camera_desc),                                                     \
+   UINT32_C(0),                                                                                    \
+   GNEISS_CAMERA_DESC_INIT,                                                                        \
+   UINT8_C(0),                                                                                     \
+   {0, 0, 0, 0, 0, 0, 0}}
+
 #define GNEISS_SCENE_MESH_RENDERER_DESC_INIT                                                       \
   {(uint32_t)sizeof(gneiss_scene_mesh_renderer_desc),                                              \
    UINT32_C(0),                                                                                    \
@@ -289,6 +305,22 @@ GNEISS_API gneiss_result gneiss_scene_instance_create_mesh_renderer_node(
 GNEISS_API gneiss_result gneiss_scene_instance_set_mesh_renderer(
     gneiss_application application, gneiss_scene_instance instance, gneiss_scene_node_id node,
     const gneiss_scene_mesh_renderer_desc* desc);
+
+/** 添加或替换节点 Camera 作者值；主 Camera 身份在实例内唯一。 */
+GNEISS_API gneiss_result gneiss_scene_instance_set_camera(gneiss_application application,
+                                                          gneiss_scene_instance instance,
+                                                          gneiss_scene_node_id node,
+                                                          const gneiss_scene_camera_desc* desc);
+
+/** 移除节点 Camera 作者值和 Runtime 组件。 */
+GNEISS_API gneiss_result gneiss_scene_instance_remove_camera(gneiss_application application,
+                                                             gneiss_scene_instance instance,
+                                                             gneiss_scene_node_id node);
+
+/** 移除节点 Mesh Renderer 作者引用、Runtime 组件和资产租约。 */
+GNEISS_API gneiss_result gneiss_scene_instance_remove_mesh_renderer(gneiss_application application,
+                                                                    gneiss_scene_instance instance,
+                                                                    gneiss_scene_node_id node);
 
 /** 删除没有子节点的作者节点；成功后对应节点、实体和资产引用立即失效。 */
 GNEISS_API gneiss_result gneiss_scene_instance_destroy_node(gneiss_application application,

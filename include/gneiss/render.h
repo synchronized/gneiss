@@ -254,6 +254,10 @@ GNEISS_API gneiss_result gneiss_world_get_active_camera(gneiss_world world,
 GNEISS_API gneiss_result gneiss_world_entity_set_mesh_renderer(
     gneiss_world world, gneiss_entity_id entity, const gneiss_mesh_renderer* renderer);
 
+/** 移除实体的 Mesh Renderer；组件不存在时返回 GNEISS_ERROR_NOT_FOUND。 */
+GNEISS_API gneiss_result gneiss_world_entity_remove_mesh_renderer(gneiss_world world,
+                                                                  gneiss_entity_id entity);
+
 #ifdef __cplusplus
 }
 #endif

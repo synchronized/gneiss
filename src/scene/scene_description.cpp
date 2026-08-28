@@ -699,6 +699,9 @@ gneiss_result serialize_scene_description(const scene_description& scene,
                        yyjson_mut_bool(mutable_document.get(), source.camera->is_primary))) {
           return GNEISS_ERROR_OUT_OF_MEMORY;
         }
+      } else {
+        yyjson_mut_val* components = yyjson_mut_obj_get(object, "components");
+        (void)yyjson_mut_obj_remove_key(components, "camera");
       }
       if (source.mesh_renderer) {
         yyjson_mut_val* components = yyjson_mut_obj_get(object, "components");
@@ -719,6 +722,9 @@ gneiss_result serialize_scene_description(const scene_description& scene,
                                           source.mesh_renderer->material_uri.size()))) {
           return GNEISS_ERROR_OUT_OF_MEMORY;
         }
+      } else {
+        yyjson_mut_val* components = yyjson_mut_obj_get(object, "components");
+        (void)yyjson_mut_obj_remove_key(components, "mesh_renderer");
       }
     }
     std::size_t output_length = 0;

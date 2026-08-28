@@ -593,6 +593,58 @@ gneiss_scene_instance_set_mesh_renderer(gneiss_application application,
   }
 }
 
+extern "C" gneiss_result gneiss_scene_instance_set_camera(gneiss_application application,
+                                                          gneiss_scene_instance instance,
+                                                          gneiss_scene_node_id node,
+                                                          const gneiss_scene_camera_desc* desc) {
+  if (node == GNEISS_NULL_SCENE_NODE_ID || desc == nullptr ||
+      desc->struct_size < sizeof(gneiss_scene_camera_desc) ||
+      desc->camera.struct_size < sizeof(gneiss_camera_desc)) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  try {
+    auto state = find_application(application);
+    const auto validation_result = validate_application(state);
+    return validation_result == GNEISS_SUCCESS ? state->scenes()->set_camera(instance, node, *desc)
+                                               : validation_result;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
+extern "C" gneiss_result gneiss_scene_instance_remove_camera(gneiss_application application,
+                                                             gneiss_scene_instance instance,
+                                                             gneiss_scene_node_id node) {
+  if (node == GNEISS_NULL_SCENE_NODE_ID) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  try {
+    auto state = find_application(application);
+    const auto validation_result = validate_application(state);
+    return validation_result == GNEISS_SUCCESS ? state->scenes()->remove_camera(instance, node)
+                                               : validation_result;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
+extern "C" gneiss_result gneiss_scene_instance_remove_mesh_renderer(gneiss_application application,
+                                                                    gneiss_scene_instance instance,
+                                                                    gneiss_scene_node_id node) {
+  if (node == GNEISS_NULL_SCENE_NODE_ID) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  try {
+    auto state = find_application(application);
+    const auto validation_result = validate_application(state);
+    return validation_result == GNEISS_SUCCESS
+               ? state->scenes()->remove_mesh_renderer(instance, node)
+               : validation_result;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
 extern "C" gneiss_result gneiss_scene_instance_destroy_node(gneiss_application application,
                                                             gneiss_scene_instance instance,
                                                             gneiss_scene_node_id node) {

@@ -698,6 +698,74 @@ gneiss_result scene_instance::set_mesh_renderer(gneiss_scene_node_id node,
   }
 }
 
+gneiss_result scene_instance::set_camera(gneiss_scene_node_id node,
+                                         const gneiss_scene_camera_desc& desc) {
+  const auto found = std::ranges::find(objects, node, &object::node);
+  if (found == objects.end()) {
+    return GNEISS_ERROR_INVALID_HANDLE;
+  }
+  const auto result = gneiss_world_entity_configure_camera(world_, found->entity, &desc.camera);
+  if (result != GNEISS_SUCCESS) {
+    return result;
+  }
+  if (desc.is_primary != 0U) {
+    const auto active_result = gneiss_world_set_active_camera(world_, found->entity);
+    if (active_result != GNEISS_SUCCESS) {
+      return active_result;
+    }
+  }
+  const auto index = static_cast<std::size_t>(std::distance(objects.begin(), found));
+  if (desc.is_primary != 0U) {
+    for (auto& author : description.objects) {
+      if (author.camera) {
+        author.camera->is_primary = false;
+      }
+    }
+  }
+  description.objects[index].camera = camera_description{
+      .vertical_field_of_view_radians = desc.camera.vertical_field_of_view_radians,
+      .near_plane = desc.camera.near_plane,
+      .far_plane = desc.camera.far_plane,
+      .is_primary = desc.is_primary != 0U};
+  return GNEISS_SUCCESS;
+}
+
+gneiss_result scene_instance::remove_camera(gneiss_scene_node_id node) {
+  const auto found = std::ranges::find(objects, node, &object::node);
+  if (found == objects.end()) {
+    return GNEISS_ERROR_INVALID_HANDLE;
+  }
+  const auto index = static_cast<std::size_t>(std::distance(objects.begin(), found));
+  if (!description.objects[index].camera) {
+    return GNEISS_ERROR_NOT_FOUND;
+  }
+  const auto result = gneiss_world_entity_remove_camera(world_, found->entity);
+  if (result == GNEISS_SUCCESS) {
+    description.objects[index].camera.reset();
+  }
+  return result;
+}
+
+gneiss_result scene_instance::remove_mesh_renderer(gneiss_scene_node_id node) {
+  const auto found = std::ranges::find(objects, node, &object::node);
+  if (found == objects.end()) {
+    return GNEISS_ERROR_INVALID_HANDLE;
+  }
+  const auto index = static_cast<std::size_t>(std::distance(objects.begin(), found));
+  if (!description.objects[index].mesh_renderer) {
+    return GNEISS_ERROR_NOT_FOUND;
+  }
+  const auto result = gneiss_world_entity_remove_mesh_renderer(world_, found->entity);
+  if (result != GNEISS_SUCCESS) {
+    return result;
+  }
+  description.objects[index].mesh_renderer.reset();
+  found->mesh = {};
+  found->material = {};
+  loader_.release_unused();
+  return GNEISS_SUCCESS;
+}
+
 gneiss_result scene_instance::destroy_node(gneiss_scene_node_id node) {
   const auto found = std::ranges::find(objects, node, &object::node);
   if (found == objects.end()) {
@@ -993,6 +1061,28 @@ gneiss_result scene_instance_service::set_mesh_renderer(gneiss_scene_instance in
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;
   }
+}
+
+gneiss_result scene_instance_service::set_camera(gneiss_scene_instance instance,
+                                                 gneiss_scene_node_id node,
+                                                 const gneiss_scene_camera_desc& desc) noexcept {
+  auto* value = instances_.get(instance, core::resource_type::scene_instance);
+  return value == nullptr || *value == nullptr ? GNEISS_ERROR_INVALID_HANDLE
+                                               : (*value)->set_camera(node, desc);
+}
+
+gneiss_result scene_instance_service::remove_camera(gneiss_scene_instance instance,
+                                                    gneiss_scene_node_id node) noexcept {
+  auto* value = instances_.get(instance, core::resource_type::scene_instance);
+  return value == nullptr || *value == nullptr ? GNEISS_ERROR_INVALID_HANDLE
+                                               : (*value)->remove_camera(node);
+}
+
+gneiss_result scene_instance_service::remove_mesh_renderer(gneiss_scene_instance instance,
+                                                           gneiss_scene_node_id node) noexcept {
+  auto* value = instances_.get(instance, core::resource_type::scene_instance);
+  return value == nullptr || *value == nullptr ? GNEISS_ERROR_INVALID_HANDLE
+                                               : (*value)->remove_mesh_renderer(node);
 }
 
 gneiss_result scene_instance_service::destroy_node(gneiss_scene_instance instance,
