@@ -169,6 +169,10 @@ LeakSanitizer 和 UndefinedBehaviorSanitizer。手动 Linux Actions 使用镜像
 Application、场景故障矩阵和稳定运行时样例；Sanitizer 报告任何内存错误、未定义行为或退出泄漏时
 任务失败。该选项不传播给安装后的下游项目，也不支持 Windows/MSVC。
 
+Linux 图形测试使用 `tools/sanitizers/lsan.supp` 精确忽略 Mesa 软件 Vulkan ICD 在
+`vkEnumeratePhysicalDevices` 中保留的进程级缓存；Actions 保留抑制统计。不得增加宽泛模块、调用方
+或 `detect_leaks=0` 抑制，Gneiss 与 Granit 可控调用栈仍须通过完整泄漏检查。
+
 Linux 下运行同名且不带 `.exe` 后缀的可执行文件。该示例的 `main` 位于
 `examples/temple/main.cpp`，只使用 Gneiss 公共接口创建 Application、加载场景实例并按对象 UUID
 更新 Camera Scene Node，并通过动作映射消费输入。示例资产完整位于

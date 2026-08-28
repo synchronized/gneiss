@@ -58,3 +58,7 @@
 2. 在至少一个独立 GPU/驱动环境重复 Release 采样，复核销毁阶段离群值。
 3. Granit 提供后端无关的资源统计能力后，补充 GPU 逻辑资源退出前快照；Gneiss 不暴露后端句柄。
 4. 证据稳定后单独评审回归阈值，避免把当前机器的呈现节奏固化为跨平台承诺。
+
+首次 Linux LSan 图形运行定位到 Mesa 软件 Vulkan ICD 在 `vkEnumeratePhysicalDevices` 中保留的
+240 字节进程级缓存。该调用栈不属于 Gneiss/Granit 所有权，已使用精确符号抑制并保留统计；其余
+调用栈继续启用严格泄漏检测。
