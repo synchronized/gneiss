@@ -191,6 +191,7 @@ result editor_session::refresh_nodes() noexcept {
                                ? std::string{}
                                : std::string{info.material_uri,
                                              static_cast<std::size_t>(info.material_uri_length)},
+           .local_transform = transform{info.local_transform},
            .component_flags = info.component_flags,
            .camera = info.camera,
            .is_primary_camera =
@@ -203,6 +204,24 @@ result editor_session::refresh_nodes() noexcept {
   } catch (...) {
     return result::internal;
   }
+}
+
+result editor_session::set_local_transform(scene_node_id node, const transform& value) noexcept {
+  if (!is_open() || !node.is_valid()) {
+    return result::invalid_argument;
+  }
+  const auto operation =
+      from_native(gneiss_scene_node_set_local_transform(world_, node.get(), &value));
+  if (operation != result::success) {
+    return operation;
+  }
+  auto found = std::ranges::find(nodes_, node, &scene_node_record::node);
+  if (found == nodes_.end()) {
+    return result::internal;
+  }
+  found->local_transform = value;
+  is_dirty_ = true;
+  return result::success;
 }
 
 result editor_session::create_node(std::string_view name, scene_node_id parent,

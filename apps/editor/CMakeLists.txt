@@ -51,7 +51,7 @@ add_executable(
   project_manager.cpp
   project_manager.h
 )
-target_link_libraries(gneiss_editor PRIVATE gneiss_editor_session gneiss_imgui)
+target_link_libraries(gneiss_editor PRIVATE gneiss_editor_session gneiss_imgui gneiss_imguizmo)
 if(TARGET gneiss_editor_assets)
   target_link_libraries(gneiss_editor PRIVATE gneiss_editor_assets)
   target_compile_definitions(gneiss_editor PRIVATE GNEISS_EDITOR_HAS_ASSET_BROWSER=1)

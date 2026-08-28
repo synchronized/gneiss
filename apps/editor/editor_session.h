@@ -27,6 +27,7 @@ struct scene_node_record final {
   std::string display_name;
   std::string mesh_uri;
   std::string material_uri;
+  transform local_transform = GNEISS_TRANSFORM_IDENTITY;
   std::uint32_t component_flags = 0U;
   gneiss_camera_desc camera = GNEISS_CAMERA_DESC_INIT;
   bool is_primary_camera = false;
@@ -69,6 +70,8 @@ public:
                                    scene_node_id& out_node) noexcept;
   [[nodiscard]] result rename_node(scene_node_id node, std::string_view name) noexcept;
   [[nodiscard]] result reparent_node(scene_node_id node, scene_node_id parent) noexcept;
+  /** 设置节点局部 TRS；成功后刷新缓存并标记场景已修改。 */
+  [[nodiscard]] result set_local_transform(scene_node_id node, const transform& value) noexcept;
   [[nodiscard]] result destroy_subtree(scene_node_id node,
                                        scene_subtree_snapshot& out_snapshot) noexcept;
   [[nodiscard]] result restore_subtree(const scene_subtree_snapshot& snapshot,

@@ -24,8 +24,8 @@ Gneiss Scene Tree 持久化局部平移、四元数旋转和逐轴缩放，不�
   `ImGuizmo.h/.cpp` 控件，固定提交
   `18cef5e031d8c6973d80284c67f60549fafd78c1`，仅链接可选 Editor 目标。该库为 MIT 许可，依赖 Dear
   ImGui 且不进入 Runtime、安装接口或公共 ABI。
-- Gneiss 内部矩阵按行、列索引存储，ImGuizmo 接收 column-major 数组；适配层显式转置模型、视图和
-  投影矩阵，不允许直接 `reinterpret_cast`。Vulkan 投影的 Y 方向仍由现有 Camera 数学负责。
+- Gneiss 渲染数学与 ImGuizmo 均使用 column-major 数组和列向量；Editor 适配层显式构造模型、视图
+  和投影矩阵，不依赖渲染内部私有类型。Vulkan 投影的 Y 方向与深度范围保持现有 Camera 约定。
 - Gizmo 激活时消费指针输入，Editor Camera 不响应同一拖动。激活时保存初值，拖动期间只更新预览，
   释放时记录一条可合并的 Transform 命令；失败则恢复激活前值。
 
