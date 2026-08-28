@@ -133,3 +133,50 @@ jobs:
         if: always()
         shell: bash
         run: ccache --show-stats
+
+  sanitizer-runtime:
+    runs-on: ubuntu-24.04
+    container:
+      image: >-
+        ghcr.io/synchronized/granit-ci@sha256:6a2d0aba3b2464838958a4259d3a343106205eb35df9f4ad24d060bf98739015
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: recursive
+      - name: 配置并构建 Sanitizer 运行时
+        shell: bash
+        run: |
+          cmake --preset linux-clang-debug \
+            -DGNEISS_ENABLE_GRANIT_PLATFORM=ON \
+            -DGNEISS_BUILD_EDITOR=OFF \
+            -DGNEISS_BUILD_TOOLS=OFF \
+            -DGNEISS_ENABLE_SANITIZERS=ON \
+            -DGNEISS_GRANIT_PROVIDER=FETCH
+          cmake --build --preset linux-clang-debug \
+            --target gneiss_stable_runtime_example gneiss_scene_instance_test gneiss_c_application_test
+      - name: 检查内存错误与退出泄漏
+        shell: bash
+        env:
+          ASAN_OPTIONS: detect_leaks=1:halt_on_error=1:strict_string_checks=1
+          UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
+        run: |
+          export XDG_RUNTIME_DIR="$RUNNER_TEMP/gneiss-wayland"
+          install -d -m 700 "$XDG_RUNTIME_DIR"
+          export WAYLAND_DISPLAY=gneiss-wayland
+          weston --backend=headless-backend.so --socket="$WAYLAND_DISPLAY" --idle-time=0 \
+            >"$RUNNER_TEMP/gneiss-weston.log" 2>&1 &
+          weston_pid=$!
+          trap 'kill "$weston_pid" 2>/dev/null || true' EXIT
+          for attempt in {1..50}; do
+            [[ -S "$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY" ]] && break
+            sleep 0.1
+          done
+          [[ -S "$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY" ]] || {
+            cat "$RUNNER_TEMP/gneiss-weston.log"
+            exit 1
+          }
+          xvfb-run -a ctest --preset linux-clang-debug \
+            -R '^gneiss\.(c_application|scene_instance|stable_runtime_example)$'

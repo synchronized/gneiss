@@ -5,6 +5,7 @@
 option(GNEISS_ENABLE_WARNINGS "启用 Gneiss 目标编译警告" ON)
 option(GNEISS_ENABLE_PEDANTIC_WARNINGS "启用 Gneiss 目标严格标准扩展警告" OFF)
 option(GNEISS_WARNINGS_AS_ERRORS "将 Gneiss 目标编译警告视为错误" OFF)
+option(GNEISS_ENABLE_SANITIZERS "为 Gneiss 自有目标启用 Address/Undefined Sanitizer" OFF)
 
 function(gneiss_target_output_directories target)
   if(NOT TARGET ${target})
@@ -39,6 +40,20 @@ function(gneiss_target_compile_warnings target)
       $<$<COMPILE_LANG_AND_ID:C,MSVC>:/utf-8>
       $<$<COMPILE_LANG_AND_ID:CXX,MSVC>:/utf-8>
   )
+
+  if(GNEISS_ENABLE_SANITIZERS)
+    if(NOT UNIX OR NOT CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+      message(FATAL_ERROR "GNEISS_ENABLE_SANITIZERS 当前只支持 Unix 上的 GCC 或 Clang")
+    endif()
+    target_compile_options(
+      ${target}
+      PRIVATE -fsanitize=address,undefined -fno-omit-frame-pointer
+    )
+    get_target_property(target_type ${target} TYPE)
+    if(target_type MATCHES "EXECUTABLE|SHARED_LIBRARY|MODULE_LIBRARY")
+      target_link_options(${target} PRIVATE -fsanitize=address,undefined)
+    endif()
+  endif()
 
   if(NOT GNEISS_ENABLE_WARNINGS)
     return()

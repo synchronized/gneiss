@@ -162,6 +162,11 @@ ctest --test-dir build/stable-runtime-consumer --output-on-failure
 回归阈值。`tools/performance/measure_stable_runtime.py` 默认执行 1 次进程预热和 10 次有效采样，
 保存原始数据、汇总、进程峰值常驻内存及环境元数据；使用 `--help` 查看必填的版本标识参数。
 
+Linux Clang/GCC 可使用 `GNEISS_ENABLE_SANITIZERS=ON` 为 Gneiss 自有目标启用 AddressSanitizer、
+LeakSanitizer 和 UndefinedBehaviorSanitizer。手动 Linux Actions 会在无头图形环境中运行
+Application、场景故障矩阵和稳定运行时样例；Sanitizer 报告任何内存错误、未定义行为或退出泄漏时
+任务失败。该选项不传播给安装后的下游项目，也不支持 Windows/MSVC。
+
 Linux 下运行同名且不带 `.exe` 后缀的可执行文件。该示例的 `main` 位于
 `examples/temple/main.cpp`，只使用 Gneiss 公共接口创建 Application、加载场景实例并按对象 UUID
 更新 Camera Scene Node，并通过动作映射消费输入。示例资产完整位于
