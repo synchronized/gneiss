@@ -9,6 +9,7 @@
 #include "imgui_adapter.h"
 #include "project_manager.h"
 #include "property_inspector_model.h"
+#include "transform_gizmo_math.h"
 #if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
 #include "asset_browser_model.h"
 #include "asset_import_controller.h"
@@ -18,10 +19,12 @@
 #include <gneiss/application.hpp>
 
 #include <imgui.h>
+#include <ImGuizmo.h>
 
 #include <algorithm>
 #include <array>
 #include <cstdint>
+#include <cmath>
 #include <filesystem>
 #include <limits>
 #include <memory>
@@ -35,6 +38,7 @@ namespace {
 
 enum class hierarchy_action { none, rename, duplicate, remove };
 enum class document_action { none, new_scene, open_scene, exit_editor };
+enum class gizmo_operation { translate, rotate, scale };
 
 struct editor_state {
   gneiss::editor::imgui_adapter ui;
@@ -51,6 +55,11 @@ struct editor_state {
   gneiss::result save_result = gneiss::result::success;
   bool save_attempted = false;
   bool show_imgui_demo = false;
+  gizmo_operation gizmo_mode = gizmo_operation::translate;
+  bool gizmo_using = false;
+  bool gizmo_was_dirty = false;
+  std::string gizmo_uuid;
+  gneiss::transform gizmo_initial_local = GNEISS_TRANSFORM_IDENTITY;
   std::uint64_t property_edit_serial = 0U;
   std::array<char, 128> rename_buffer{};
   std::string rename_uuid;
@@ -68,6 +77,62 @@ struct editor_state {
   bool asset_scene_attempted = false;
 #endif
 };
+
+constexpr std::size_t matrix_index(std::size_t row, std::size_t column) noexcept {
+  return (column * 4U) + row;
+}
+
+gneiss::editor::gizmo_matrix build_view_matrix(const gneiss::transform& camera) noexcept {
+  auto inverse = camera;
+  inverse.rotation[0] = -inverse.rotation[0];
+  inverse.rotation[1] = -inverse.rotation[1];
+  inverse.rotation[2] = -inverse.rotation[2];
+  inverse.translation[0] = 0.0F;
+  inverse.translation[1] = 0.0F;
+  inverse.translation[2] = 0.0F;
+  inverse.scale[0] = 1.0F;
+  inverse.scale[1] = 1.0F;
+  inverse.scale[2] = 1.0F;
+  gneiss::editor::gizmo_matrix result{};
+  (void)gneiss::editor::transform_to_gizmo_matrix(inverse, result);
+  for (std::size_t row = 0; row < 3U; ++row) {
+    result[matrix_index(row, 3U)] =
+        -((result[matrix_index(row, 0U)] * camera.translation[0]) +
+          (result[matrix_index(row, 1U)] * camera.translation[1]) +
+          (result[matrix_index(row, 2U)] * camera.translation[2]));
+  }
+  return result;
+}
+
+gneiss::editor::gizmo_matrix build_projection_matrix(float aspect) noexcept {
+  constexpr float field_of_view = 1.04719755F;
+  constexpr float near_plane = 0.1F;
+  constexpr float far_plane = 1000.0F;
+  const auto focal = 1.0F / std::tan(field_of_view * 0.5F);
+  gneiss::editor::gizmo_matrix result{};
+  result[matrix_index(0U, 0U)] = focal / aspect;
+  result[matrix_index(1U, 1U)] = -focal;
+  result[matrix_index(2U, 2U)] = far_plane / (near_plane - far_plane);
+  result[matrix_index(2U, 3U)] = (far_plane * near_plane) / (near_plane - far_plane);
+  result[matrix_index(3U, 2U)] = -1.0F;
+  return result;
+}
+
+bool same_transform(const gneiss::transform& left, const gneiss::transform& right) noexcept {
+  constexpr float tolerance = 1.0e-5F;
+  for (std::size_t index = 0; index < 3U; ++index) {
+    if (std::abs(left.translation[index] - right.translation[index]) > tolerance ||
+        std::abs(left.scale[index] - right.scale[index]) > tolerance) {
+      return false;
+    }
+  }
+  for (std::size_t index = 0; index < 4U; ++index) {
+    if (std::abs(left.rotation[index] - right.rotation[index]) > tolerance) {
+      return false;
+    }
+  }
+  return true;
+}
 
 struct launch_options {
   bool smoke = false;
@@ -657,6 +722,95 @@ void draw_asset_browser(editor_state& state) {
 }
 #endif
 
+bool draw_transform_gizmo(editor_state& state, const ImVec2& minimum,
+                          const ImVec2& size) noexcept {
+  const auto* selected = state.session.selected_node();
+  if (selected == nullptr || size.x <= 1.0F || size.y <= 1.0F) {
+    state.gizmo_using = false;
+    state.gizmo_uuid.clear();
+    return false;
+  }
+
+  gneiss::transform world = GNEISS_TRANSFORM_IDENTITY;
+  auto operation = gneiss::from_native(
+      gneiss_scene_node_get_world_transform(state.world, selected->node.get(), &world));
+  gneiss::editor::gizmo_matrix model{};
+  if (operation == gneiss::result::success) {
+    operation = gneiss::editor::transform_to_gizmo_matrix(world, model);
+  }
+  if (operation != gneiss::result::success) {
+    state.history_error = operation;
+    return false;
+  }
+
+  auto view = build_view_matrix(state.camera.current_transform());
+  auto projection = build_projection_matrix(size.x / size.y);
+  ImGuizmo::SetOrthographic(false);
+  ImGuizmo::SetDrawlist(ImGui::GetWindowDrawList());
+  ImGuizmo::SetRect(minimum.x, minimum.y, size.x, size.y);
+  const auto native_operation = state.gizmo_mode == gizmo_operation::translate
+                                    ? ImGuizmo::TRANSLATE
+                                    : state.gizmo_mode == gizmo_operation::rotate
+                                          ? ImGuizmo::ROTATE
+                                          : ImGuizmo::SCALE;
+  const auto manipulated = ImGuizmo::Manipulate(view.data(), projection.data(), native_operation,
+                                                 ImGuizmo::WORLD, model.data());
+  const auto using_now = ImGuizmo::IsUsing();
+  if (using_now && !state.gizmo_using) {
+    state.gizmo_initial_local = selected->local_transform;
+    state.gizmo_uuid = selected->uuid;
+    state.gizmo_was_dirty = state.session.is_dirty();
+  }
+  if (manipulated && state.gizmo_uuid == selected->uuid) {
+    gneiss::transform target_world = GNEISS_TRANSFORM_IDENTITY;
+    operation = gneiss::editor::gizmo_matrix_to_transform(model, target_world);
+    gneiss::transform parent_world = GNEISS_TRANSFORM_IDENTITY;
+    const gneiss::transform* parent = nullptr;
+    if (operation == gneiss::result::success && selected->parent.is_valid()) {
+      operation = gneiss::from_native(gneiss_scene_node_get_world_transform(
+          state.world, selected->parent.get(), &parent_world));
+      parent = &parent_world;
+    }
+    gneiss::transform local = GNEISS_TRANSFORM_IDENTITY;
+    if (operation == gneiss::result::success) {
+      operation = gneiss::editor::world_to_local_transform(parent, target_world, local);
+    }
+    if (operation == gneiss::result::success) {
+      operation = state.session.set_local_transform(selected->node, local);
+    }
+    state.history_error = operation;
+  }
+  if (state.gizmo_using && !using_now && !state.gizmo_uuid.empty()) {
+    const auto* current = state.session.find_node(state.gizmo_uuid);
+    if (current != nullptr && !same_transform(state.gizmo_initial_local, current->local_transform)) {
+      const auto uuid = state.gizmo_uuid;
+      const auto before = state.gizmo_initial_local;
+      const auto after = current->local_transform;
+      state.history_error = state.history.record(
+          {.label = "变换节点",
+           .undo = [&state, uuid, before] {
+             const auto* node = state.session.find_node(uuid);
+             return node == nullptr ? gneiss::result::not_found
+                                    : state.session.set_local_transform(node->node, before);
+           },
+           .redo = [&state, uuid, after] {
+             const auto* node = state.session.find_node(uuid);
+             return node == nullptr ? gneiss::result::not_found
+                                    : state.session.set_local_transform(node->node, after);
+           }});
+      if (state.history_error != gneiss::result::success && current != nullptr) {
+        (void)state.session.set_local_transform(current->node, before);
+        if (!state.gizmo_was_dirty) {
+          state.session.clear_dirty();
+        }
+      }
+    }
+    state.gizmo_uuid.clear();
+  }
+  state.gizmo_using = using_now;
+  return using_now || ImGuizmo::IsOver();
+}
+
 gneiss_result update_editor_camera(editor_state& state, const gneiss_frame_time& time) {
   auto& io = ImGui::GetIO();
   gneiss::editor::editor_camera_input input;
@@ -1005,7 +1159,18 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
                      ImGuiWindowFlags_NoBackground);
     const auto scene_view_hovered = ImGui::IsWindowHovered();
     ImGui::TextUnformatted("Scene View");
-    ImGui::TextDisabled("WASD/QE move | RMB look | Wheel dolly | F focus selection");
+    if (ImGui::RadioButton("Move", state.gizmo_mode == gizmo_operation::translate)) {
+      state.gizmo_mode = gizmo_operation::translate;
+    }
+    ImGui::SameLine();
+    if (ImGui::RadioButton("Rotate", state.gizmo_mode == gizmo_operation::rotate)) {
+      state.gizmo_mode = gizmo_operation::rotate;
+    }
+    ImGui::SameLine();
+    if (ImGui::RadioButton("Scale", state.gizmo_mode == gizmo_operation::scale)) {
+      state.gizmo_mode = gizmo_operation::scale;
+    }
+    ImGui::TextDisabled("RMB look | Wheel dolly | F focus selection");
     if (const auto* selected = state.session.selected_node(); selected != nullptr) {
       ImGui::TextColored(gneiss::editor::theme_warning_color(), "Selected: %s",
                          selected->display_name.c_str());
@@ -1016,7 +1181,10 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
           ImGui::ColorConvertFloat4ToU32(gneiss::editor::theme_warning_color()), 0.0F,
           ImDrawFlags_None, 2.0F);
     }
-    if (scene_view_hovered) {
+    const auto gizmo_minimum = ImGui::GetCursorScreenPos();
+    const auto gizmo_size = ImGui::GetContentRegionAvail();
+    const auto gizmo_owns_pointer = draw_transform_gizmo(state, gizmo_minimum, gizmo_size);
+    if (scene_view_hovered && !gizmo_owns_pointer) {
       const auto camera_result = update_editor_camera(state, *time);
       if (camera_result != GNEISS_SUCCESS) {
         ImGui::End();

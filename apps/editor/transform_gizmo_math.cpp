@@ -93,6 +93,13 @@ result gizmo_matrix_to_transform(const gizmo_matrix& value, transform& output) n
           value[matrix_index(row, column)] / result.scale[column];
     }
   }
+  const auto determinant =
+      (rotation[0] * ((rotation[4] * rotation[8]) - (rotation[7] * rotation[5]))) -
+      (rotation[3] * ((rotation[1] * rotation[8]) - (rotation[7] * rotation[2]))) +
+      (rotation[6] * ((rotation[1] * rotation[5]) - (rotation[4] * rotation[2])));
+  if (determinant <= 0.0F) {
+    return result::unsupported;
+  }
   const auto dot01 = (rotation[0] * rotation[3]) + (rotation[1] * rotation[4]) +
                      (rotation[2] * rotation[5]);
   const auto dot02 = (rotation[0] * rotation[6]) + (rotation[1] * rotation[7]) +

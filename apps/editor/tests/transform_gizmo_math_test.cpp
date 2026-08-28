@@ -106,5 +106,12 @@ int main() {
       return 7;
     }
   }
+  matrix[0] = -matrix[0];
+  matrix[1] = -matrix[1];
+  matrix[2] = -matrix[2];
+  if (gneiss::editor::gizmo_matrix_to_transform(matrix, matrix_roundtrip) !=
+      gneiss::result::unsupported) {
+    return 8;
+  }
   return 0;
 }
