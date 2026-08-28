@@ -24,8 +24,12 @@ if(BUILD_TESTING)
     NAME gneiss.stable_runtime_consumer
     COMMAND gneiss_stable_runtime_consumer --smoke
   )
+  set(runtime_environment "PATH=path_list_prepend:${GNEISS_RUNTIME_DIR}")
+  foreach(runtime_dir IN LISTS GNEISS_CONSUMER_RUNTIME_DIRS)
+    list(APPEND runtime_environment "PATH=path_list_prepend:${runtime_dir}")
+  endforeach()
   set_tests_properties(
     gneiss.stable_runtime_consumer
-    PROPERTIES ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:${GNEISS_RUNTIME_DIR}" TIMEOUT 30
+    PROPERTIES ENVIRONMENT_MODIFICATION "${runtime_environment}" TIMEOUT 30
   )
 endif()

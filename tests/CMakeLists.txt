@@ -498,3 +498,21 @@ if(PROJECT_IS_TOP_LEVEL AND NOT GNEISS_ENABLE_GRANIT_PLATFORM)
       -P "${PROJECT_SOURCE_DIR}/cmake/check_installed_package.cmake"
   )
 endif()
+
+if(PROJECT_IS_TOP_LEVEL AND GNEISS_ENABLE_GRANIT_PLATFORM)
+  add_test(
+    NAME gneiss.installed_stable_runtime_consumer
+    COMMAND
+      "${CMAKE_COMMAND}"
+      "-DGNEISS_BUILD_DIR=${PROJECT_BINARY_DIR}"
+      "-DGNEISS_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
+      "-DGNEISS_GENERATOR=${CMAKE_GENERATOR}"
+      "-DGNEISS_GENERATOR_PLATFORM=${CMAKE_GENERATOR_PLATFORM}"
+      "-DGNEISS_CONFIG=$<CONFIG>"
+      "-DGNEISS_BUILD_TYPE=${CMAKE_BUILD_TYPE}"
+      "-DGNEISS_CXX_COMPILER=${CMAKE_CXX_COMPILER}"
+      "-DGNEISS_DEPENDENCY_PREFIX_PATH=${CMAKE_PREFIX_PATH}"
+      -P "${PROJECT_SOURCE_DIR}/cmake/check_installed_stable_runtime.cmake"
+  )
+  set_tests_properties(gneiss.installed_stable_runtime_consumer PROPERTIES TIMEOUT 120)
+endif()

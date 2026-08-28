@@ -94,6 +94,8 @@ cmake --install build/windows-clang-debug --prefix build/gneiss-install
 运行时需要让 `GNEISS_RUNTIME_DIR` 位于 `PATH`；静态库无需该运行时路径。引擎库本身不安装内置
 资产；示例各自管理配套资产。启用 Granit 平台适配构建的安装包会继续要求同一安装环境提供 Granit
 `Window`、`Input` 与 `RenderPipeline` package，但 Granit 类型不会进入 Gneiss 公共头文件。
+如果 Granit 安装在另一个前缀，Windows 运行时还需把该前缀的 `bin` 加入 `PATH`；Gneiss 不会把
+外部 Granit package 复制进自身安装前缀。
 
 ### 启用 Granit 窗口与渲染适配
 
@@ -151,6 +153,7 @@ ctest --test-dir build/stable-runtime-consumer --output-on-failure
 
 独立 Consumer 需要同一前缀或 `CMAKE_PREFIX_PATH` 中同时提供启用 Window、Input 与 RenderPipeline
 组件的 Granit package。配置时资产会复制到 Consumer 构建目录，运行不读取 Gneiss 源码树。
+仓库的安装验收也会先把 Consumer 源码和资产复制到隔离目录，防止测试因源码树仍存在而误通过。
 
 Linux 下运行同名且不带 `.exe` 后缀的可执行文件。该示例的 `main` 位于
 `examples/temple/main.cpp`，只使用 Gneiss 公共接口创建 Application、加载场景实例并按对象 UUID

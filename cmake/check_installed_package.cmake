@@ -9,7 +9,19 @@ endforeach()
 
 set(install_dir "${GNEISS_BUILD_DIR}/consumer-prefix")
 set(consumer_build_dir "${GNEISS_BUILD_DIR}/consumer-build")
-file(REMOVE_RECURSE "${install_dir}" "${consumer_build_dir}")
+set(consumer_source_dir "${GNEISS_BUILD_DIR}/consumer-source")
+file(REMOVE_RECURSE "${install_dir}" "${consumer_build_dir}" "${consumer_source_dir}")
+
+# 先把 Consumer 及其输入复制出源码树，确保后续配置、构建和运行不隐式依赖仓库路径。
+file(MAKE_DIRECTORY "${consumer_source_dir}/tests" "${consumer_source_dir}/examples/property_inspector")
+file(COPY "${GNEISS_SOURCE_DIR}/tests/consumer" DESTINATION "${consumer_source_dir}/tests")
+file(COPY "${GNEISS_SOURCE_DIR}/tests/data" DESTINATION "${consumer_source_dir}/tests")
+file(COPY "${GNEISS_SOURCE_DIR}/examples/property_inspector/main.cpp"
+     DESTINATION "${consumer_source_dir}/examples/property_inspector"
+)
+file(COPY "${GNEISS_SOURCE_DIR}/examples/property_inspector/assets"
+     DESTINATION "${consumer_source_dir}/examples/property_inspector"
+)
 
 set(install_command "${CMAKE_COMMAND}" --install "${GNEISS_BUILD_DIR}" --prefix "${install_dir}")
 set(build_command "${CMAKE_COMMAND}" --build "${consumer_build_dir}")
@@ -27,7 +39,7 @@ endif()
 
 set(configure_command
     "${CMAKE_COMMAND}"
-    -S "${GNEISS_SOURCE_DIR}/tests/consumer"
+    -S "${consumer_source_dir}/tests/consumer"
     -B "${consumer_build_dir}"
     -G "${GNEISS_GENERATOR}"
     "-DCMAKE_PREFIX_PATH=${install_dir}"
