@@ -26,6 +26,7 @@
 #include <new>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -45,6 +46,7 @@ struct editor_state {
   gneiss::result save_result = gneiss::result::success;
   bool save_attempted = false;
   bool show_imgui_demo = false;
+  std::uint64_t property_edit_serial = 0U;
 #if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
   gneiss::editor::asset_browser_model assets;
   gneiss::editor::asset_browser_result asset_result = gneiss::editor::asset_browser_result::success;
@@ -73,6 +75,30 @@ bool parse_options(int argc, char** argv, launch_options& options) {
     }
   }
   return true;
+}
+
+void synchronize_history_dirty(editor_state& state) noexcept {
+  if (state.history.is_dirty()) {
+    state.session.mark_dirty();
+  } else {
+    state.session.clear_dirty();
+  }
+}
+
+gneiss::result undo_editor_command(editor_state& state) noexcept {
+  const auto result = state.history.undo();
+  if (result == gneiss::result::success) {
+    synchronize_history_dirty(state);
+  }
+  return result;
+}
+
+gneiss::result redo_editor_command(editor_state& state) noexcept {
+  const auto result = state.history.redo();
+  if (result == gneiss::result::success) {
+    synchronize_history_dirty(state);
+  }
+  return result;
 }
 
 [[nodiscard]] std::filesystem::path utf8_path(std::string_view value) {
@@ -142,7 +168,11 @@ bool draw_property(editor_state& state, const gneiss::editor::inspector_componen
     break;
   }
   ImGui::EndDisabled();
+  const auto item_activated = ImGui::IsItemActivated();
   ImGui::PopID();
+  if (item_activated) {
+    ++state.property_edit_serial;
+  }
   if (!changed) {
     return false;
   }
@@ -159,6 +189,11 @@ bool draw_property(editor_state& state, const gneiss::editor::inspector_componen
   }
   const auto type_id = component.type_id;
   const auto field_id = property.id;
+  std::string merge_key = "property:" + uuid;
+  merge_key.append(reinterpret_cast<const char*>(type_id.bytes), sizeof(type_id.bytes));
+  merge_key.append(reinterpret_cast<const char*>(&field_id), sizeof(field_id));
+  merge_key.append(reinterpret_cast<const char*>(&state.property_edit_serial),
+                   sizeof(state.property_edit_serial));
   const auto record_result = state.history.record(
       {.label = std::string{"修改 "} + property.name,
        .undo =
@@ -186,7 +221,8 @@ bool draw_property(editor_state& state, const gneiss::editor::inspector_componen
                state.session.mark_dirty();
              }
              return operation;
-           }});
+           },
+       .merge_key = std::move(merge_key)});
   if (record_result != gneiss::result::success) {
     (void)state.inspector.set_value(type_id, field_id, previous);
     error = record_result;
@@ -497,10 +533,10 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
         const auto redo_requested = ImGui::MenuItem("Redo", "Ctrl+Shift+Z");
         ImGui::EndDisabled();
         if (undo_requested) {
-          state.history_error = state.history.undo();
+          state.history_error = undo_editor_command(state);
         }
         if (redo_requested) {
-          state.history_error = state.history.redo();
+          state.history_error = redo_editor_command(state);
         }
         ImGui::EndMenu();
       }
@@ -512,7 +548,7 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
     }
     const auto& io = ImGui::GetIO();
     if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_Z, false)) {
-      state.history_error = io.KeyShift ? state.history.redo() : state.history.undo();
+      state.history_error = io.KeyShift ? redo_editor_command(state) : undo_editor_command(state);
     }
 
     ImGui::SetNextWindowPos(ImVec2(0.0F, 20.0F));
@@ -621,6 +657,9 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
     }
     if (save_requested) {
       state.save_result = state.session.save(state.asset_root);
+      if (state.save_result == gneiss::result::success) {
+        state.history.mark_saved();
+      }
       state.save_attempted = true;
     }
     if (state.save_attempted && state.save_result != gneiss::result::success) {
@@ -718,6 +757,7 @@ int run_editor(int argc, char** argv) {
     state.session.close();
     return 3;
   }
+  state.history.clear();
   const auto run_result = application.run(options.smoke ? 3U : 0U);
   state.ui.shutdown(application.get());
   state.camera.shutdown();
