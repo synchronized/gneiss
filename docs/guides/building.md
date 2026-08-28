@@ -138,6 +138,20 @@ ctest --test-dir build/granit-platform --output-on-failure
 ./build/granit-platform/bin/gneiss_lantern_gallery_example.exe
 ```
 
+1.0.0 的稳定运行时代表性样例覆盖同一图形路径，并提供独立的安装 SDK Consumer：
+
+```powershell
+./build/windows-clang-debug/bin/gneiss_stable_runtime_example.exe --smoke
+
+cmake -S examples/stable_runtime -B build/stable-runtime-consumer `
+  -DCMAKE_PREFIX_PATH=build/gneiss-install
+cmake --build build/stable-runtime-consumer
+ctest --test-dir build/stable-runtime-consumer --output-on-failure
+```
+
+独立 Consumer 需要同一前缀或 `CMAKE_PREFIX_PATH` 中同时提供启用 Window、Input 与 RenderPipeline
+组件的 Granit package。配置时资产会复制到 Consumer 构建目录，运行不读取 Gneiss 源码树。
+
 Linux 下运行同名且不带 `.exe` 后缀的可执行文件。该示例的 `main` 位于
 `examples/temple/main.cpp`，只使用 Gneiss 公共接口创建 Application、加载场景实例并按对象 UUID
 更新 Camera Scene Node，并通过动作映射消费输入。示例资产完整位于
