@@ -35,6 +35,8 @@ private:
 inline constexpr scene_node_id null_scene_node_id{};
 using transform = gneiss_transform;
 using scene_instance_node_info = gneiss_scene_instance_node_info;
+using scene_mesh_renderer_desc = gneiss_scene_mesh_renderer_desc;
+using scene_mesh_renderer_node_desc = gneiss_scene_mesh_renderer_node_desc;
 
 /** 独占拥有已加载场景；必须在所属 Application 销毁前释放。 */
 class scene_instance final {
@@ -87,6 +89,24 @@ public:
                                      scene_instance_node_info& out_info) const noexcept {
     return from_native(
         gneiss_scene_instance_get_node_info(application_, handle_, index, &out_info));
+  }
+  [[nodiscard]] result create_mesh_renderer_node(const scene_mesh_renderer_node_desc& desc,
+                                                 scene_node_id& out_node) noexcept {
+    gneiss_scene_node_id node = GNEISS_NULL_SCENE_NODE_ID;
+    const auto native_result =
+        gneiss_scene_instance_create_mesh_renderer_node(application_, handle_, &desc, &node);
+    if (native_result == GNEISS_SUCCESS) {
+      out_node = scene_node_id{node};
+    }
+    return from_native(native_result);
+  }
+  [[nodiscard]] result set_mesh_renderer(scene_node_id node,
+                                         const scene_mesh_renderer_desc& desc) noexcept {
+    return from_native(
+        gneiss_scene_instance_set_mesh_renderer(application_, handle_, node.get(), &desc));
+  }
+  [[nodiscard]] result destroy_node(scene_node_id node) noexcept {
+    return from_native(gneiss_scene_instance_destroy_node(application_, handle_, node.get()));
   }
   [[nodiscard]] result serialize(std::string& out_json) const noexcept {
     std::uint64_t length = 0;

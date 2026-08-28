@@ -4,6 +4,7 @@
 #ifndef GNEISS_SCENE_H_
 #define GNEISS_SCENE_H_
 
+#include <stddef.h>
 #include <stdint.h>
 
 #include <gneiss/application.h>
@@ -43,17 +44,71 @@ typedef struct gneiss_scene_instance_node_info {
   const char* name;
   uint64_t name_length;
   uint64_t reserved_2[2];
+  const char* mesh_uri;
+  uint64_t mesh_uri_length;
+  const char* material_uri;
+  uint64_t material_uri_length;
 } gneiss_scene_instance_node_info;
 
 #define GNEISS_SCENE_INSTANCE_NODE_INFO_VERSION_1_SIZE                                             \
+  ((uint32_t)offsetof(gneiss_scene_instance_node_info, mesh_uri))
+#define GNEISS_SCENE_INSTANCE_NODE_INFO_VERSION_2_SIZE                                             \
   ((uint32_t)sizeof(gneiss_scene_instance_node_info))
 #define GNEISS_SCENE_INSTANCE_NODE_INFO_INIT                                                       \
-  {                                                                                                \
-    (uint32_t)sizeof(gneiss_scene_instance_node_info), UINT32_C(0), GNEISS_NULL_SCENE_NODE_ID,     \
-        GNEISS_NULL_SCENE_NODE_ID, GNEISS_NULL_ENTITY_ID, NULL, UINT64_C(0), NULL, UINT64_C(0), {  \
-      UINT64_C(0), UINT64_C(0)                                                                     \
-    }                                                                                              \
-  }
+  {(uint32_t)sizeof(gneiss_scene_instance_node_info),                                              \
+   UINT32_C(0),                                                                                    \
+   GNEISS_NULL_SCENE_NODE_ID,                                                                      \
+   GNEISS_NULL_SCENE_NODE_ID,                                                                      \
+   GNEISS_NULL_ENTITY_ID,                                                                          \
+   NULL,                                                                                           \
+   UINT64_C(0),                                                                                    \
+   NULL,                                                                                           \
+   UINT64_C(0),                                                                                    \
+   {UINT64_C(0), UINT64_C(0)},                                                                     \
+   NULL,                                                                                           \
+   UINT64_C(0),                                                                                    \
+   NULL,                                                                                           \
+   UINT64_C(0)}
+
+/** 场景实例中 Mesh Renderer 作者引用；字符串仅在调用期间借用。 */
+typedef struct gneiss_scene_mesh_renderer_desc {
+  uint32_t struct_size;
+  uint32_t reserved;
+  const char* mesh_uri;
+  uint64_t mesh_uri_length;
+  const char* material_uri;
+  uint64_t material_uri_length;
+} gneiss_scene_mesh_renderer_desc;
+
+#define GNEISS_SCENE_MESH_RENDERER_DESC_INIT                                                       \
+  {(uint32_t)sizeof(gneiss_scene_mesh_renderer_desc),                                              \
+   UINT32_C(0),                                                                                    \
+   NULL,                                                                                           \
+   UINT64_C(0),                                                                                    \
+   NULL,                                                                                           \
+   UINT64_C(0)}
+
+/** 创建场景作者节点所需信息；UUID 必须为小写规范形式。 */
+typedef struct gneiss_scene_mesh_renderer_node_desc {
+  uint32_t struct_size;
+  uint32_t reserved;
+  gneiss_scene_node_id parent;
+  const char* uuid;
+  uint64_t uuid_length;
+  const char* name;
+  uint64_t name_length;
+  gneiss_scene_mesh_renderer_desc renderer;
+} gneiss_scene_mesh_renderer_node_desc;
+
+#define GNEISS_SCENE_MESH_RENDERER_NODE_DESC_INIT                                                  \
+  {(uint32_t)sizeof(gneiss_scene_mesh_renderer_node_desc),                                         \
+   UINT32_C(0),                                                                                    \
+   GNEISS_NULL_SCENE_NODE_ID,                                                                      \
+   NULL,                                                                                           \
+   UINT64_C(0),                                                                                    \
+   NULL,                                                                                           \
+   UINT64_C(0),                                                                                    \
+   GNEISS_SCENE_MESH_RENDERER_DESC_INIT}
 
 #ifdef __cplusplus
 extern "C" {
@@ -133,6 +188,21 @@ GNEISS_API gneiss_result gneiss_scene_instance_get_node_count(gneiss_application
 GNEISS_API gneiss_result
 gneiss_scene_instance_get_node_info(gneiss_application application, gneiss_scene_instance instance,
                                     uint64_t index, gneiss_scene_instance_node_info* out_info);
+
+/** 原子创建带 Mesh Renderer 的作者节点；失败时实例、World 和资产引用保持不变。 */
+GNEISS_API gneiss_result gneiss_scene_instance_create_mesh_renderer_node(
+    gneiss_application application, gneiss_scene_instance instance,
+    const gneiss_scene_mesh_renderer_node_desc* desc, gneiss_scene_node_id* out_node);
+
+/** 原子替换节点的 Mesh 与 Material 作者引用及运行时资源。 */
+GNEISS_API gneiss_result gneiss_scene_instance_set_mesh_renderer(
+    gneiss_application application, gneiss_scene_instance instance, gneiss_scene_node_id node,
+    const gneiss_scene_mesh_renderer_desc* desc);
+
+/** 删除没有子节点的作者节点；成功后对应节点、实体和资产引用立即失效。 */
+GNEISS_API gneiss_result gneiss_scene_instance_destroy_node(gneiss_application application,
+                                                            gneiss_scene_instance instance,
+                                                            gneiss_scene_node_id node);
 
 /**
  * 将实例当前 Transform 与 Camera 写入当前版本的 UTF-8 场景 JSON。

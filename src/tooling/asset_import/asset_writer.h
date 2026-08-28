@@ -7,6 +7,7 @@
 
 #include <filesystem>
 #include <string>
+#include <string_view>
 
 namespace gneiss::tooling::asset_import {
 
@@ -16,6 +17,7 @@ struct write_report {
 };
 
 [[nodiscard]] write_report write_assets(const import_ir& data,
-                                        const std::filesystem::path& output_directory);
+                                        const std::filesystem::path& output_directory,
+                                        std::string_view asset_uri_prefix = "asset://");
 
 } // namespace gneiss::tooling::asset_import

@@ -39,6 +39,11 @@ public:
   [[nodiscard]] result set_value(gneiss_type_id type_id, gneiss_field_id field_id,
                                  const gneiss_property_value& value) noexcept;
 
+  /** 按稳定实体 ID 写入属性，供撤销/重做在选择变化后复用。 */
+  [[nodiscard]] result set_value(gneiss_world world, entity_id entity, gneiss_type_id type_id,
+                                 gneiss_field_id field_id,
+                                 const gneiss_property_value& value) noexcept;
+
   [[nodiscard]] const std::vector<inspector_component>& components() const noexcept {
     return components_;
   }

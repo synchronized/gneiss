@@ -121,4 +121,19 @@ result property_inspector_model::set_value(gneiss_type_id type_id, gneiss_field_
   return operation;
 }
 
+result property_inspector_model::set_value(gneiss_world world_handle, entity_id entity,
+                                           gneiss_type_id type_id, gneiss_field_id field_id,
+                                           const gneiss_property_value& value) noexcept {
+  if (!registry_ || world_handle == GNEISS_NULL_WORLD || !entity.is_valid()) {
+    return result::invalid_argument;
+  }
+  const gneiss_property_target target{.context = world_handle, .object = entity.get()};
+  const auto operation = registry_.set_property(type_id, field_id, target, value);
+  if (operation != result::success || target.context != target_.context ||
+      target.object != target_.object) {
+    return operation;
+  }
+  return refresh(world_handle, entity);
+}
+
 } // namespace gneiss::editor
