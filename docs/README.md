@@ -40,6 +40,7 @@
 - [资产 URI、目录挂载与缓存](reference/assets.md)
 - [场景文件格式 v2](reference/scene-format.md)
 - [场景加载、实例与卸载](reference/scene-instance.md)
+- [工程文件格式 v1](reference/project-format.md)
 - [Mesh Binary、JSON Mesh 与 Material 资产格式](reference/render-asset-formats.md)
 
 ## 架构与原理
@@ -57,6 +58,7 @@
 - [VER-004：0.4.0 纹理与材质闭环](plans/VER-004-0.4.0-texture-material-slice.md)
 - [VER-005：0.5.0 基础 3D 场景闭环](plans/VER-005-0.5.0-basic-3d-slice.md)
 - [VER-006：0.6.0 数据与属性基础](plans/VER-006-0.6.0-data-property-slice.md)
+- [VER-007：0.7.0 编辑器基础闭环](plans/VER-007-0.7.0-editor-foundation-slice.md)
 - [TOOL-001：glTF 资产编译器最小闭环](plans/TOOL-001-gltf-asset-compiler.md)
 - [TOOL-002：Mesh Binary v1 最小闭环](plans/TOOL-002-mesh-binary-v1.md)
 - [TOOL-003：索引渲染最小闭环](plans/TOOL-003-indexed-rendering.md)
@@ -80,6 +82,8 @@
 - [ADR-014：源资产、作者格式与 Runtime 二进制资产分层](decisions/ADR-014-runtime-asset-representation.md)
 - [ADR-015：索引 Mesh 与渲染后端边界](decisions/ADR-015-indexed-rendering-boundary.md)
 - [ADR-016：稳定类型标识与属性访问边界](decisions/ADR-016-stable-type-property-boundary.md)
+- [ADR-017：编辑器 UI 与场景渲染组合边界](decisions/ADR-017-editor-ui-render-composition.md)
+- [ADR-018：Editor 工程启动入口](decisions/ADR-018-editor-project-entry.md)
 
 ## 实施与验收记录
 
@@ -93,6 +97,7 @@
 - [0.4.0 版本验收记录](records/0.4.0-validation.md)
 - [0.5.0 版本验收记录](records/0.5.0-validation.md)
 - [0.6.0 版本验收记录](records/0.6.0-validation.md)
+- [0.7.0 编辑器基础验收记录](records/0.7.0-validation.md)
 - [M-13 JSON 解析器 Spike 记录](records/M-13-json-spike.md)
 - [M-14 资产 URI 与资源生命周期实施记录](records/M-14-asset-uri-resource-lifecycle.md)
 - [M-15 版本化场景 Schema 实施记录](records/M-15-scene-schema.md)

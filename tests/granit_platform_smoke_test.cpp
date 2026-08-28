@@ -8,9 +8,49 @@
 #include <cstdio>
 #include <string_view>
 
+namespace {
+
+struct smoke_context final {
+  gneiss_texture texture = GNEISS_NULL_TEXTURE;
+};
+
+gneiss_result submit_ui(gneiss_application application, const gneiss_frame_time* /*time*/,
+                        void* user_data) {
+  const auto& context = *static_cast<const smoke_context*>(user_data);
+  constexpr std::array vertices{
+      gneiss_ui_vertex{{16.0F, 16.0F}, {0.0F, 0.0F}, UINT32_C(0xccffffff)},
+      gneiss_ui_vertex{{144.0F, 16.0F}, {1.0F, 0.0F}, UINT32_C(0xccffffff)},
+      gneiss_ui_vertex{{144.0F, 64.0F}, {1.0F, 1.0F}, UINT32_C(0xccffffff)},
+      gneiss_ui_vertex{{16.0F, 64.0F}, {0.0F, 1.0F}, UINT32_C(0xccffffff)}};
+  constexpr std::array<std::uint32_t, 6> indices{0U, 1U, 2U, 2U, 3U, 0U};
+  const std::array commands{
+      gneiss_ui_draw_command{.texture = context.texture,
+                             .clip_min = {16.0F, 16.0F},
+                             .clip_max = {144.0F, 64.0F},
+                             .first_index = 0U,
+                             .index_count = static_cast<std::uint32_t>(indices.size()),
+                             .vertex_offset = 0U,
+                             .reserved = 0U}};
+  gneiss_ui_draw_list_desc draw_list = GNEISS_UI_DRAW_LIST_DESC_INIT;
+  draw_list.display_width = 320.0F;
+  draw_list.display_height = 240.0F;
+  draw_list.vertex_count = static_cast<std::uint32_t>(vertices.size());
+  draw_list.vertices = vertices.data();
+  draw_list.index_count = static_cast<std::uint32_t>(indices.size());
+  draw_list.indices = indices.data();
+  draw_list.command_count = static_cast<std::uint32_t>(commands.size());
+  draw_list.commands = commands.data();
+  return gneiss_application_submit_ui_draw_list(application, &draw_list);
+}
+
+} // namespace
+
 int main() {
   constexpr std::string_view title = "Gneiss Granit Platform Smoke Test";
+  smoke_context context;
   gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
+  desc.user_data = &context;
+  desc.update = submit_ui;
   desc.platform = GNEISS_APPLICATION_PLATFORM_GRANIT;
   desc.window_title = title.data();
   desc.window_title_length = static_cast<std::uint32_t>(title.size());
@@ -51,6 +91,7 @@ int main() {
     std::fprintf(stderr, "测试 Texture 创建失败\n");
     return 2;
   }
+  context.texture = texture.get();
   if (application.create_mesh(mesh_desc, mesh) != gneiss::result::success ||
       application.create_material(material_desc, plain_material) != gneiss::result::success) {
     std::fprintf(stderr, "测试基础资源创建失败\n");

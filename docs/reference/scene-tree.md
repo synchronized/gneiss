@@ -17,6 +17,9 @@ ECS 之间形成循环所有权。
 创建节点时，父节点为零表示根节点。`gneiss_scene_node_reparent` 保留局部 Transform，并拒绝把节点
 挂到自身或后代下面。销毁节点会递归销毁整棵子树，所有相关节点 ID 随即失效。
 
+`gneiss_scene_node_get_parent` 返回节点当前父节点；根节点成功返回零值。节点无效、属于其他 World
+或已被递归销毁时返回 `GNEISS_ERROR_INVALID_HANDLE`。
+
 Scene Tree 和所属 World 一样只能在 World 的创建线程访问。跨 World 节点、失效节点和重复销毁
 均返回句柄错误。
 

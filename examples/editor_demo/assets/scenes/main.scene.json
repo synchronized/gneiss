@@ -1,0 +1,41 @@
+{
+  "format": "gneiss.scene",
+  "version": 2,
+  "scene_uuid": "26b86429-3f73-4957-b82b-96d8f262a204",
+  "objects": [
+    {
+      "uuid": "28f46bb7-a59b-4dce-94b7-214522e7a6ea",
+      "name": "Camera",
+      "parent": null,
+      "transform": {
+        "translation": [0.0, 0.0, 2.0],
+        "rotation": [0.0, 0.0, 0.0, 1.0],
+        "scale": [1.0, 1.0, 1.0]
+      },
+      "components": {
+        "camera": {
+          "vertical_field_of_view_radians": 1.04719755,
+          "near_plane": 0.1,
+          "far_plane": 1000.0,
+          "is_primary": true
+        }
+      }
+    },
+    {
+      "uuid": "3f39dab3-249c-4499-b338-6d25a0627b62",
+      "name": "Editable Triangle",
+      "parent": null,
+      "transform": {
+        "translation": [0.0, 0.0, 0.0],
+        "rotation": [0.0, 0.0, 0.0, 1.0],
+        "scale": [1.0, 1.0, 1.0]
+      },
+      "components": {
+        "mesh_renderer": {
+          "mesh": "asset://models/triangle.mesh.json",
+          "material": "asset://materials/triangle.material.json"
+        }
+      }
+    }
+  ]
+}

@@ -22,6 +22,18 @@ Material 可选引用 Texture RID；Granit 后端按 RID 建立 GPU 镜像并通
 domain。销毁、跨 Application 使用、类型混用或重复销毁均返回
 `GNEISS_ERROR_INVALID_HANDLE`。
 
+## 当前帧即时 UI 数据
+
+`gneiss_application_submit_ui_draw_list` 在 Application 的 `update` 回调内提交后端无关的即时 UI
+数据。描述包含显示尺寸、Framebuffer 缩放、RGBA8 顶点、UInt32 索引以及引用 Texture RID 的绘制
+命令；每条命令同时给出裁剪矩形、索引范围和顶点偏移。Runtime 在返回前深拷贝全部数组，调用方可
+立即复用或释放源内存。
+
+提交只能发生在 Application 创建线程的 `update` 回调内；同一帧最后一次成功提交原子替换前一份
+数据，失败提交保留已有数据。Runtime 会校验有限浮点值、数组范围、索引引用、保留字段和 Texture
+所属关系。数据在该帧渲染或跳过渲染后清空，不跨帧缓存。接口不包含 Dear ImGui 或 Granit 类型，
+长期边界见 [ADR-017](../decisions/ADR-017-editor-ui-render-composition.md)。
+
 ## ECS 组件
 
 `gneiss_world_entity_configure_camera` 使用带 `struct_size` 的描述设置或替换 Camera 组件。透视参数
@@ -52,6 +64,12 @@ CPU 使用 Render Snapshot 中的视图和投影矩阵生成完整裁剪空间�
 带法线 Mesh 使用一个固定方向光和 `0.2` 环境项；漫反射贡献为 `0.8 * max(N·L, 0)`。法线按世界
 Transform 的逆转置缩放与旋转变换并重新归一化，因此非均匀缩放不会扭曲光照方向。base-color
 Texture 在 sRGB 采样时由后端转换到线性空间，再与线性颜色因子和光照项相乘。
+
+存在当前帧 UI Draw List 时，Granit 后端在场景 Rendering 结束后通过 Granit Canvas 将 UI 录制到
+同一颜色附件，附件使用 `LOAD` 保留场景结果，整帧仍只提交和 Present 一次。Gneiss 在后端内部将
+Texture RID 解析为 Texture View，按 Framebuffer Scale 转换顶点和裁剪矩形，并使用 Clamp Sampler；
+Canvas 负责动态几何上传、Alpha Pipeline、Scissor 和 UInt32 索引绘制。完全位于视口外的命令会被
+跳过，UI 不使用场景深度附件。
 
 当前路径用于验证 Application、World、Resource Service 与 Granit 的端到端边界，不是正式资产或
 渲染管线。暂不支持 Mip、剔除和异步上传。

@@ -5,15 +5,16 @@
 
 ## 适用场景
 
-本指南用于配置、构建并验证当前 Gneiss 工程、version、属性检查和 Granit 图形示例。
+本指南用于配置、构建并验证当前 Gneiss 工程、version、属性检查、Granit 图形示例和 Editor。
 
 ## 前置条件
 
 - CMake 3.23 或更高版本。
 - 支持 C++20 的 C/C++ 编译器。
 - 使用 Ninja preset 时需要安装 Ninja。
-- 启用 Granit 运行时适配时需要已安装的 Granit `0.4.0+` 核心、Window 与 Input 组件，或由父工程
-  提供 `granit::granit`、`granit::window` 和 `granit::input` 目标。
+- 启用 Granit 运行时适配时需要已安装的 Granit `0.4.0+` 核心、Window、Input 与 RenderPipeline
+  组件，或由父工程提供 `granit::granit`、`granit::window`、`granit::input` 和
+  `granit::render_pipeline` 目标。
 
 ## 操作步骤
 
@@ -92,7 +93,7 @@ cmake --install build/windows-clang-debug --prefix build/gneiss-install
 下游项目使用 `find_package(gneiss CONFIG REQUIRED)` 和 `gneiss::gneiss`。Windows 共享库 Consumer
 运行时需要让 `GNEISS_RUNTIME_DIR` 位于 `PATH`；静态库无需该运行时路径。引擎库本身不安装内置
 资产；示例各自管理配套资产。启用 Granit 平台适配构建的安装包会继续要求同一安装环境提供 Granit
-`Window` 与 `Input` package，但 Granit 类型不会进入 Gneiss 公共头文件。
+`Window`、`Input` 与 `RenderPipeline` package，但 Granit 类型不会进入 Gneiss 公共头文件。
 
 ### 启用 Granit 窗口与渲染适配
 
@@ -125,7 +126,8 @@ ctest --test-dir build/granit-platform --output-on-failure
 
 使用 `GNEISS_GRANIT_PROVIDER=FETCH` 可以强制验证下载路径，跳过 package 查找。仓库镜像和版本可
 通过 `GNEISS_GRANIT_GIT_REPOSITORY`、`GNEISS_GRANIT_GIT_TAG` 覆盖。若父工程已经定义
-`granit::granit` 与 `granit::window`，所有 provider 都会优先直接复用。Windows 使用共享库 package
+`granit::granit`、`granit::window`、`granit::input` 与 `granit::render_pipeline`，所有 provider
+都会优先直接复用。Windows 使用共享库 package
 时，构建会把 Granit 的运行时 DLL 自动复制到 Gneiss 的运行时输出目录，无需手动修改 `PATH`。
 
 启用 Granit 适配并完成构建后，可以运行交互神殿或 Lantern 灯廊示例；按 `A`/`D` 绕场景旋转
@@ -148,6 +150,64 @@ Lantern 灯廊示例在构建时使用 `gneiss_assetc` 把 CC0 `Lantern.glb` 导
 来源与校验值见 `examples/lantern_gallery/assets/ASSET_ORIGINS.md`；该示例因此要求
 `GNEISS_BUILD_TOOLS=ON`。使用 `--smoke --profile` 可以固定运行 3 帧，并输出 Application、Scene
 与资产、输入和运行阶段的耗时；示例使用 512×512 派生基础色纹理控制启动成本。
+
+### 构建 Editor
+
+Editor 默认不参与普通构建。启用时会下载并静态构建固定提交的 Dear ImGui v1.92.9b（MIT），该
+依赖只属于 `gneiss_editor`，不会传播到 Runtime 公共 ABI 或安装 package。Editor 当前需要 Granit
+平台适配。Project Manager 与正式 Editor 统一使用以 Catppuccin Mocha 为基础、Peach 为主强调色
+的 `Gneiss Mocha` 主题，并使用 Inter Regular 作为界面字体；上游配色许可见
+`apps/editor/CATPPUCCIN_NOTICE.md`，字体来源与许可见 `apps/editor/fonts/README.md`：
+
+```sh
+cmake --preset windows-clang-debug \
+  -DGNEISS_ENABLE_GRANIT_PLATFORM=ON \
+  -DGNEISS_BUILD_EDITOR=ON
+cmake --build --preset windows-clang-debug --target gneiss_editor
+```
+
+运行 Editor：
+
+```powershell
+./build/windows-clang-debug/bin/gneiss_editor.exe
+```
+
+不传参数时会先打开 Project Manager；可以直接输入工程目录，也可以在 Windows 使用系统目录选择器。
+选择包含 `gneiss.project.json` 的目录并通过校验后，Project Manager 会完整关闭，再启动正式 Editor。
+Project Manager 还会列出最近十个有效工程，并可创建包含初始 Camera 场景的最小工程。
+也可以跳过选择界面，直接打开工程：
+
+```powershell
+./build/windows-clang-debug/bin/gneiss_editor.exe `
+  --project ./examples/editor_demo
+```
+
+`--project` 只接收工程根目录，并保留为自动化与 smoke test 入口。Editor 固定读取该目录中的
+`gneiss.project.json`；工程文件提供工程名称、资产根和初始场景，格式见
+[工程文件格式 v1](../reference/project-format.md)。Editor 不再提供独立的
+`--asset-root` 与 `--scene` 正式入口。
+
+Lantern Gallery 的导入资产由构建过程生成，因此其可运行工程位于构建树，而不是源码树。完成
+`windows-clang-debug` 构建后可以直接打开：
+
+```powershell
+./build/windows-clang-debug/bin/gneiss_editor.exe `
+  --project ./build/windows-clang-debug/examples/lantern_gallery
+```
+
+安装时，完整工程位于 `${CMAKE_INSTALL_DATADIR}/gneiss/examples/lantern-gallery`。源码目录中的
+`examples/lantern_gallery/gneiss.project.json` 是工程描述的权威来源，构建不会把 glTF 派生资产
+写回源码树。
+
+当前宿主已提供场景会话、可选择的层级树和独立 Editor Camera。鼠标位于 Scene View 时，可以使用
+`W/A/S/D` 前后左右移动、`Q/E` 降低或升高、按住鼠标右键环视、滚轮沿视线移动；选择层级节点后
+按 `F` 可聚焦其世界位置。Scene View 会以黄色边框和名称反馈当前选择，Inspector 展示节点
+标识以及实体上已注册的 Transform、Camera 属性。Inspector 根据 Type Registry 元数据生成布尔、
+标量、向量和四元数控件；只读字段会禁用，非法值会保留运行时原值并显示错误。输入、字体 Texture
+RID、UI Draw List 与 Granit Canvas 已完成同帧渲染。成功修改后状态显示为 `Modified`；点击
+`Save` 或按 `Ctrl+S` 会原子写回启动参数指定资产根中的源场景，成功后恢复为 `Saved`，失败时保留
+源文件与脏状态并显示错误。窗口暂时固定为 1280×720。可用 `--smoke` 固定运行 3 帧，验证场景
+加载、UI 提交与逆序清理。
 
 ## 验证结果
 

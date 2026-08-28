@@ -41,6 +41,7 @@ struct mesh_renderer_description final {
 
 struct object_description final {
   std::string uuid;
+  std::string name;
   std::optional<std::string> parent_uuid;
   std::array<float, 3> translation{};
   std::array<float, 4> rotation{};

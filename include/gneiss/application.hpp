@@ -90,6 +90,9 @@ public:
   [[nodiscard]] result destroy_texture(texture_id texture) noexcept {
     return from_native(gneiss_texture_destroy(handle_, texture.get()));
   }
+  [[nodiscard]] result submit_ui_draw_list(const ui_draw_list_desc& desc) noexcept {
+    return from_native(gneiss_application_submit_ui_draw_list(handle_, &desc));
+  }
 
   void reset() noexcept {
     if (handle_ != GNEISS_NULL_APPLICATION) {

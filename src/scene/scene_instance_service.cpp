@@ -37,6 +37,7 @@ gneiss_result stage_assets(const scene_description& description,
   for (const auto& source : description.objects) {
     scene_instance::object target{};
     target.uuid = source.uuid;
+    target.name = source.name;
     if (source.mesh_renderer) {
       render_internal::asset_diagnostic diagnostic;
       auto result = loader.acquire_mesh(source.mesh_renderer->mesh_uri, target.mesh, diagnostic);
@@ -151,6 +152,32 @@ gneiss_scene_node_id scene_instance::find_node(std::string_view uuid) const noex
   return found == objects.end() ? GNEISS_NULL_SCENE_NODE_ID : found->node;
 }
 
+gneiss_result scene_instance::get_node_info(std::uint64_t index,
+                                            gneiss_scene_instance_node_info& out_info) const {
+  if (index >= objects.size()) {
+    return GNEISS_ERROR_NOT_FOUND;
+  }
+  const auto& object = objects[static_cast<std::size_t>(index)];
+  gneiss_entity_id entity = GNEISS_NULL_ENTITY_ID;
+  auto result = gneiss_scene_node_get_entity(world_, object.node, &entity);
+  if (result != GNEISS_SUCCESS || entity == GNEISS_NULL_ENTITY_ID) {
+    return result == GNEISS_SUCCESS ? GNEISS_ERROR_INVALID_HANDLE : result;
+  }
+  gneiss_scene_node_id parent = GNEISS_NULL_SCENE_NODE_ID;
+  result = gneiss_scene_node_get_parent(world_, object.node, &parent);
+  if (result != GNEISS_SUCCESS) {
+    return result;
+  }
+  out_info.node = object.node;
+  out_info.parent = parent;
+  out_info.entity = entity;
+  out_info.uuid = object.uuid.data();
+  out_info.uuid_length = object.uuid.size();
+  out_info.name = object.name.empty() ? nullptr : object.name.data();
+  out_info.name_length = object.name.size();
+  return GNEISS_SUCCESS;
+}
+
 gneiss_result scene_instance::serialize(std::string& out_json) const {
   auto current = description;
   gneiss_entity_id active_camera = GNEISS_NULL_ENTITY_ID;
@@ -253,6 +280,37 @@ gneiss_result scene_instance_service::find_node(gneiss_scene_instance instance,
   }
   *out_node = (*value)->find_node(uuid);
   return *out_node == GNEISS_NULL_SCENE_NODE_ID ? GNEISS_ERROR_NOT_FOUND : GNEISS_SUCCESS;
+}
+
+gneiss_result scene_instance_service::get_node_count(gneiss_scene_instance instance,
+                                                     std::uint64_t* out_count) const noexcept {
+  if (out_count == nullptr) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  *out_count = 0U;
+  const auto* value = instances_.get(instance, core::resource_type::scene_instance);
+  if (value == nullptr || *value == nullptr) {
+    return GNEISS_ERROR_INVALID_HANDLE;
+  }
+  *out_count = (*value)->objects.size();
+  return GNEISS_SUCCESS;
+}
+
+gneiss_result
+scene_instance_service::get_node_info(gneiss_scene_instance instance, std::uint64_t index,
+                                      gneiss_scene_instance_node_info* out_info) const noexcept {
+  if (out_info == nullptr ||
+      out_info->struct_size < GNEISS_SCENE_INSTANCE_NODE_INFO_VERSION_1_SIZE) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  const auto struct_size = out_info->struct_size;
+  *out_info = GNEISS_SCENE_INSTANCE_NODE_INFO_INIT;
+  out_info->struct_size = struct_size;
+  const auto* value = instances_.get(instance, core::resource_type::scene_instance);
+  if (value == nullptr || *value == nullptr) {
+    return GNEISS_ERROR_INVALID_HANDLE;
+  }
+  return (*value)->get_node_info(index, *out_info);
 }
 
 } // namespace gneiss::scene_internal

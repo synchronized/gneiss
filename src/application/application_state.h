@@ -12,6 +12,7 @@
 #include "input/input_service.h"
 #include "render/render_asset_loader.h"
 #include "render/render_resource_service.h"
+#include "render/ui_draw_list.h"
 #include "scene/scene_instance_service.h"
 
 #include <cstdint>
@@ -59,6 +60,7 @@ public:
                                           gneiss_action& out_action) const noexcept;
   [[nodiscard]] gneiss_result get_action_state(gneiss_action action,
                                                gneiss_action_state& out_state) const noexcept;
+  [[nodiscard]] gneiss_result submit_ui_draw_list(const gneiss_ui_draw_list_desc& desc) noexcept;
   void report(gneiss_application handle, std::uint32_t severity, std::uint32_t category,
               gneiss_result result, std::string_view module,
               std::string_view message) const noexcept;
@@ -75,6 +77,7 @@ private:
 
   gneiss_application_desc desc_;
   render_internal::render_resource_service resources_;
+  render_internal::ui_draw_list ui_draw_list_;
   asset_internal::virtual_file_system asset_file_system_;
   asset_internal::resource_cache asset_cache_;
   render_internal::render_asset_loader asset_loader_;
@@ -88,6 +91,7 @@ private:
   bool is_running_ = false;
   bool is_paused_ = false;
   bool should_exit_ = false;
+  bool is_updating_ = false;
   input_internal::input_service input_;
 #ifdef GNEISS_HAS_GRANIT_PLATFORM
   std::unique_ptr<granit_platform> granit_platform_;

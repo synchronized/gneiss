@@ -510,6 +510,30 @@ extern "C" gneiss_result gneiss_scene_node_get_entity(gneiss_world world, gneiss
   }
 }
 
+extern "C" gneiss_result gneiss_scene_node_get_parent(gneiss_world world, gneiss_scene_node_id node,
+                                                      gneiss_scene_node_id* out_parent) {
+  if (out_parent == nullptr) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  *out_parent = GNEISS_NULL_SCENE_NODE_ID;
+  try {
+    auto& registry = get_world_registry();
+    const std::scoped_lock lock{registry.mutex};
+    auto* state = find_world(registry, world);
+    const auto thread_result = validate_world_thread(state);
+    if (thread_result != GNEISS_SUCCESS) {
+      return thread_result;
+    }
+    if (state->scene().get_local(node) == nullptr) {
+      return GNEISS_ERROR_INVALID_HANDLE;
+    }
+    *out_parent = state->scene().get_parent(node);
+    return GNEISS_SUCCESS;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters): C ABI 参数均为不同语义的稳定句柄。
 extern "C" gneiss_result gneiss_world_entity_get_local_transform(gneiss_world world,
                                                                  gneiss_entity_id entity,

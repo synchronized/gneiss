@@ -7,11 +7,13 @@
 #include "platform/granit/granit_platform.h"
 #include "render/granit/object_uniform.h"
 #include "render/render_resource_service.h"
+#include "render/ui_draw_list.h"
 #include "world/render_snapshot.h"
 
 #include <gneiss/core/result.h>
 
 #include <granit/granit.hpp>
+#include <granit/pipeline/canvas_draw_list.hpp>
 
 #include <array>
 #include <span>
@@ -23,9 +25,10 @@ namespace gneiss::application_internal {
 class granit_render_service final {
 public:
   [[nodiscard]] gneiss_result initialize(const native_window_info& window) noexcept;
-  [[nodiscard]] gneiss_result
-  render(native_window_info& window, const world_internal::render_snapshot& snapshot,
-         const render_internal::render_resource_service& resources) noexcept;
+  [[nodiscard]] gneiss_result render(native_window_info& window,
+                                     const world_internal::render_snapshot& snapshot,
+                                     const render_internal::render_resource_service& resources,
+                                     const render_internal::ui_draw_list& ui) noexcept;
 
 private:
   struct texture_mirror final {
@@ -57,6 +60,10 @@ private:
   [[nodiscard]] granit::result ensure_default_texture() noexcept;
   [[nodiscard]] granit::result ensure_uniform_arena(uniform_frame& frame,
                                                     std::span<const std::byte> data) noexcept;
+  [[nodiscard]] granit::result
+  prepare_ui_draw_list(const render_internal::ui_draw_list& ui,
+                       const render_internal::render_resource_service& resources,
+                       std::uint32_t width, std::uint32_t height) noexcept;
   void release_invalid_textures(const render_internal::render_resource_service& resources) noexcept;
   void release_invalid_meshes(const render_internal::render_resource_service& resources) noexcept;
 
@@ -73,6 +80,8 @@ private:
   granit::texture depth_texture_;
   granit::texture_view depth_view_;
   granit::sampler sampler_;
+  granit::sampler ui_sampler_;
+  granit::canvas_draw_list ui_canvas_;
   texture_mirror default_texture_;
   std::unordered_map<gneiss_texture, texture_mirror> texture_mirrors_;
   std::unordered_map<gneiss_mesh, mesh_mirror> mesh_mirrors_;

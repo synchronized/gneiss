@@ -37,6 +37,7 @@ int main() try {
   gneiss_scene_node_id triangle = GNEISS_NULL_SCENE_NODE_ID;
   gneiss_scene_node_id camera_node = GNEISS_NULL_SCENE_NODE_ID;
   std::uint64_t entity_count = 0;
+  std::uint64_t node_count = 0;
   if (application == GNEISS_NULL_APPLICATION || second_application == GNEISS_NULL_APPLICATION ||
       gneiss_application_get_world(application, &world) != GNEISS_SUCCESS ||
       gneiss_scene_instance_load(application, scene_uri.data(), scene_uri.size(), &scene) !=
@@ -50,6 +51,25 @@ int main() try {
                                       &camera_node) != GNEISS_SUCCESS) {
     return 1;
   }
+  gneiss_scene_instance_node_info camera_info = GNEISS_SCENE_INSTANCE_NODE_INFO_INIT;
+  gneiss_scene_instance_node_info triangle_info = GNEISS_SCENE_INSTANCE_NODE_INFO_INIT;
+  if (gneiss_scene_instance_get_node_count(application, scene, &node_count) != GNEISS_SUCCESS ||
+      node_count != 2U ||
+      gneiss_scene_instance_get_node_info(application, scene, 0U, &camera_info) != GNEISS_SUCCESS ||
+      camera_info.node != camera_node || camera_info.parent != GNEISS_NULL_SCENE_NODE_ID ||
+      std::string_view{camera_info.uuid, camera_info.uuid_length} != camera_uuid ||
+      std::string_view{camera_info.name, camera_info.name_length} != "Camera" ||
+      gneiss_scene_instance_get_node_info(application, scene, 1U, &triangle_info) !=
+          GNEISS_SUCCESS ||
+      triangle_info.node != triangle || triangle_info.parent != camera_node ||
+      std::string_view{triangle_info.uuid, triangle_info.uuid_length} != triangle_uuid ||
+      triangle_info.name != nullptr || triangle_info.name_length != 0U ||
+      gneiss_scene_instance_get_node_info(application, scene, 2U, &triangle_info) !=
+          GNEISS_ERROR_NOT_FOUND ||
+      gneiss_scene_instance_get_node_count(second_application, scene, &node_count) !=
+          GNEISS_ERROR_INVALID_HANDLE) {
+    return 2;
+  }
   gneiss_entity_id camera_entity = GNEISS_NULL_ENTITY_ID;
   gneiss_transform transform = GNEISS_TRANSFORM_IDENTITY;
   transform.translation[0] = 5.0F;
@@ -62,7 +82,7 @@ int main() try {
       gneiss_scene_instance_serialize(application, scene, nullptr, 0U, &json_length) !=
           GNEISS_SUCCESS ||
       json_length == 0U) {
-    return 2;
+    return 3;
   }
   std::string json(json_length, '\0');
   std::uint64_t required_length = 0;
@@ -71,21 +91,22 @@ int main() try {
       required_length != json_length ||
       gneiss_scene_instance_serialize(application, scene, json.data(), json.size(), &json_length) !=
           GNEISS_SUCCESS ||
+      json.find(R"("name":"Camera")") == std::string::npos ||
       json.find(R"("translation":[5.0,0.0,0.0])") == std::string::npos ||
       json.find(R"("near_plane":0.25)") == std::string::npos ||
       gneiss_scene_instance_serialize(second_application, scene, nullptr, 0U, &json_length) !=
           GNEISS_ERROR_INVALID_HANDLE) {
-    return 3;
+    return 4;
   }
   if (gneiss_scene_instance_unload(second_application, scene) != GNEISS_ERROR_INVALID_HANDLE ||
       gneiss_scene_instance_unload(application, scene) != GNEISS_SUCCESS ||
       gneiss_scene_instance_unload(application, scene) != GNEISS_ERROR_INVALID_HANDLE ||
       gneiss_world_entity_count(world, &entity_count) != GNEISS_SUCCESS || entity_count != 0U) {
-    return 4;
+    return 5;
   }
   if (gneiss_application_destroy(second_application) != GNEISS_SUCCESS ||
       gneiss_application_destroy(application) != GNEISS_SUCCESS) {
-    return 5;
+    return 6;
   }
 
   const auto failing_application = create_application(failure_root);
@@ -98,7 +119,7 @@ int main() try {
       scene != GNEISS_NULL_SCENE_INSTANCE ||
       gneiss_world_entity_count(world, &entity_count) != GNEISS_SUCCESS || entity_count != 0U ||
       gneiss_application_destroy(failing_application) != GNEISS_SUCCESS) {
-    return 6;
+    return 7;
   }
   return 0;
 } catch (...) {

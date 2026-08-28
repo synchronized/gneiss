@@ -221,6 +221,13 @@ template <std::size_t Size>
     fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, path + "/uuid", "UUID 必须是小写规范形式");
     return false;
   }
+  if (yyjson_val* name = yyjson_obj_get(value, "name"); name != nullptr) {
+    if (!yyjson_is_str(name)) {
+      fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, path + "/name", "name 必须是字符串");
+      return false;
+    }
+    output.name = std::string(json_string(name));
+  }
   yyjson_val* parent = yyjson_obj_get(value, "parent");
   if (parent == nullptr) {
     fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, path + "/parent", "缺少 parent 字段");

@@ -1,0 +1,7 @@
+{
+  "format": "gneiss.project",
+  "version": 1,
+  "name": "Gneiss Lantern Gallery",
+  "asset_root": "assets",
+  "startup_scene": "asset://scenes/gallery.scene.json"
+}

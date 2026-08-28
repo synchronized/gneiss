@@ -31,6 +31,7 @@ public:
 
   struct object final {
     std::string uuid;
+    std::string name;
     gneiss_entity_id entity = GNEISS_NULL_ENTITY_ID;
     gneiss_scene_node_id node = GNEISS_NULL_SCENE_NODE_ID;
     render_internal::mesh_asset_lease mesh;
@@ -40,6 +41,8 @@ public:
   void rollback() noexcept;
   [[nodiscard]] gneiss_scene_node_id find_node(std::string_view uuid) const noexcept;
   [[nodiscard]] gneiss_result serialize(std::string& out_json) const;
+  [[nodiscard]] gneiss_result get_node_info(std::uint64_t index,
+                                            gneiss_scene_instance_node_info& out_info) const;
 
   std::vector<object> objects;
   scene_description description;
@@ -62,6 +65,11 @@ public:
                                         gneiss_scene_node_id* out_node) const noexcept;
   [[nodiscard]] gneiss_result serialize(gneiss_scene_instance instance,
                                         std::string& out_json) const noexcept;
+  [[nodiscard]] gneiss_result get_node_count(gneiss_scene_instance instance,
+                                             std::uint64_t* out_count) const noexcept;
+  [[nodiscard]] gneiss_result
+  get_node_info(gneiss_scene_instance instance, std::uint64_t index,
+                gneiss_scene_instance_node_info* out_info) const noexcept;
 
 private:
   using instance_ptr = std::unique_ptr<scene_instance>;

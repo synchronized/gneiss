@@ -44,6 +44,8 @@ target_sources(
     input/action_map.h
     render/render_resource_service.cpp
     render/render_resource_service.h
+    render/ui_draw_list.cpp
+    render/ui_draw_list.h
     render/render_asset_loader.cpp
     render/render_asset_loader.h
     render/png_decoder.cpp
@@ -113,7 +115,9 @@ if(GNEISS_ENABLE_GRANIT_PLATFORM)
       render/granit/textured.vert
   )
   target_compile_definitions(gneiss PRIVATE GNEISS_HAS_GRANIT_PLATFORM)
-  target_link_libraries(gneiss PRIVATE granit::granit granit::window granit::input)
+  target_link_libraries(
+    gneiss PRIVATE granit::granit granit::window granit::input granit::render_pipeline
+  )
 
   get_target_property(granit_runtime_is_imported granit::granit IMPORTED)
   get_target_property(granit_runtime_type granit::granit TYPE)

@@ -33,6 +33,7 @@ public:
   [[nodiscard]] gneiss_result set_local_for_entity(gneiss_entity_id entity,
                                                    const gneiss_transform& transform) noexcept;
   [[nodiscard]] gneiss_entity_id get_entity(gneiss_scene_node_id node) const noexcept;
+  [[nodiscard]] gneiss_scene_node_id get_parent(gneiss_scene_node_id node) const noexcept;
   void detach_entity(gneiss_entity_id entity) noexcept;
 
 private:

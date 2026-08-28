@@ -45,4 +45,5 @@ Granit Renderer、Surface、Swapchain 与 Frame Context；当前每帧清屏，�
 `poll_events` 或 `shutdown` 回调；`update`、`now_ns` 和 `user_data` 仍可使用。
 
 未启用构建选项时请求 Granit 平台返回 `GNEISS_ERROR_UNSUPPORTED`。Granit 类型和句柄均不会进入
-Gneiss 公共 ABI；运行时适配私有链接 `granit::granit`、`granit::window` 与 `granit::input`。
+Gneiss 公共 ABI；运行时适配私有链接 `granit::granit`、`granit::window`、`granit::input` 与
+`granit::render_pipeline`。
