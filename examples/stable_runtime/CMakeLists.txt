@@ -24,9 +24,16 @@ if(BUILD_TESTING)
     NAME gneiss.stable_runtime_consumer
     COMMAND gneiss_stable_runtime_consumer --smoke
   )
-  set(runtime_environment "PATH=path_list_prepend:${GNEISS_RUNTIME_DIR}")
+  set(
+    runtime_environment
+    "PATH=path_list_prepend:${GNEISS_RUNTIME_DIR}"
+    "LD_LIBRARY_PATH=path_list_prepend:${GNEISS_LIBRARY_DIR}"
+  )
   foreach(runtime_dir IN LISTS GNEISS_CONSUMER_RUNTIME_DIRS)
     list(APPEND runtime_environment "PATH=path_list_prepend:${runtime_dir}")
+  endforeach()
+  foreach(library_dir IN LISTS GNEISS_CONSUMER_LIBRARY_DIRS)
+    list(APPEND runtime_environment "LD_LIBRARY_PATH=path_list_prepend:${library_dir}")
   endforeach()
   set_tests_properties(
     gneiss.stable_runtime_consumer

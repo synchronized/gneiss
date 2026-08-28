@@ -96,6 +96,8 @@ cmake --install build/windows-clang-debug --prefix build/gneiss-install
 `Window`、`Input` 与 `RenderPipeline` package，但 Granit 类型不会进入 Gneiss 公共头文件。
 如果 Granit 安装在另一个前缀，Windows 运行时还需把该前缀的 `bin` 加入 `PATH`；Gneiss 不会把
 外部 Granit package 复制进自身安装前缀。
+Linux Shared 构建应将 package 导出的 `GNEISS_LIBRARY_DIR` 及外部 Granit 前缀的 `lib` 加入动态库
+搜索路径；仓库安装 Consumer 会自动配置该测试环境。
 
 ### 启用 Granit 窗口与渲染适配
 

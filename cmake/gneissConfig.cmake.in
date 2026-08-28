@@ -9,6 +9,7 @@ if(@GNEISS_ENABLE_GRANIT_PLATFORM@)
 endif()
 
 set(GNEISS_RUNTIME_DIR "${PACKAGE_PREFIX_DIR}/@CMAKE_INSTALL_BINDIR@")
+set(GNEISS_LIBRARY_DIR "${PACKAGE_PREFIX_DIR}/@CMAKE_INSTALL_LIBDIR@")
 
 include("${CMAKE_CURRENT_LIST_DIR}/gneissTargets.cmake")
 check_required_components(gneiss)

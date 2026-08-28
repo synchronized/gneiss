@@ -52,7 +52,7 @@ configure_package_config_file(
   "${PROJECT_SOURCE_DIR}/cmake/gneissConfig.cmake.in"
   "${PROJECT_BINARY_DIR}/gneissConfig.cmake"
   INSTALL_DESTINATION "${GNEISS_INSTALL_CMAKEDIR}"
-  PATH_VARS CMAKE_INSTALL_BINDIR
+  PATH_VARS CMAKE_INSTALL_BINDIR CMAKE_INSTALL_LIBDIR
 )
 write_basic_package_version_file(
   "${PROJECT_BINARY_DIR}/gneissConfigVersion.cmake"

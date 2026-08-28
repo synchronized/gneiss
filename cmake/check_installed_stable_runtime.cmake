@@ -52,12 +52,19 @@ endif()
 
 string(REPLACE ";" "\\;" dependency_prefix_path "${GNEISS_DEPENDENCY_PREFIX_PATH}")
 set(dependency_runtime_dirs "")
+set(dependency_library_dirs "")
 foreach(dependency_prefix IN LISTS GNEISS_DEPENDENCY_PREFIX_PATH)
   if(IS_DIRECTORY "${dependency_prefix}/bin")
     list(APPEND dependency_runtime_dirs "${dependency_prefix}/bin")
   endif()
+  foreach(library_name IN ITEMS lib lib64)
+    if(IS_DIRECTORY "${dependency_prefix}/${library_name}")
+      list(APPEND dependency_library_dirs "${dependency_prefix}/${library_name}")
+    endif()
+  endforeach()
 endforeach()
 string(REPLACE ";" "\\;" dependency_runtime_dirs "${dependency_runtime_dirs}")
+string(REPLACE ";" "\\;" dependency_library_dirs "${dependency_library_dirs}")
 set(configure_command
     "${CMAKE_COMMAND}"
     -S "${consumer_source_dir}/examples/stable_runtime"
@@ -65,6 +72,7 @@ set(configure_command
     -G "${GNEISS_GENERATOR}"
     "-DCMAKE_PREFIX_PATH=${install_dir}\;${dependency_prefix_path}"
     "-DGNEISS_CONSUMER_RUNTIME_DIRS=${dependency_runtime_dirs}"
+    "-DGNEISS_CONSUMER_LIBRARY_DIRS=${dependency_library_dirs}"
 )
 if(GNEISS_GENERATOR_PLATFORM)
   list(APPEND configure_command -A "${GNEISS_GENERATOR_PLATFORM}")
