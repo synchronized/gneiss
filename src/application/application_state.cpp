@@ -228,7 +228,7 @@ gneiss_result application_state::render_frame() noexcept {
   const auto snapshot_result =
       world_internal::get_render_snapshot(world_, window.width, window.height, snapshot);
   return snapshot_result == GNEISS_SUCCESS
-             ? granit_render_service_->render(window, snapshot, resources_)
+             ? granit_render_service_->render(window, snapshot, resources_, ui_draw_list_)
              : snapshot_result;
 }
 #endif

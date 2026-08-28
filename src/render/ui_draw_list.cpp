@@ -51,7 +51,8 @@ gneiss_result ui_draw_list::replace(const gneiss_ui_draw_list_desc& desc,
         !is_finite(command.clip_min[1]) || !is_finite(command.clip_max[0]) ||
         !is_finite(command.clip_max[1]) || command.clip_min[0] >= command.clip_max[0] ||
         command.clip_min[1] >= command.clip_max[1] || command.first_index > desc.index_count ||
-        command.index_count > desc.index_count - command.first_index) {
+        command.index_count > desc.index_count - command.first_index ||
+        command.index_count % 3U != 0U) {
       return command.texture != GNEISS_NULL_TEXTURE &&
                      resources.get_texture(command.texture) == nullptr
                  ? GNEISS_ERROR_INVALID_HANDLE

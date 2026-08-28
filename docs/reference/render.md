@@ -65,5 +65,11 @@ CPU 使用 Render Snapshot 中的视图和投影矩阵生成完整裁剪空间�
 Transform 的逆转置缩放与旋转变换并重新归一化，因此非均匀缩放不会扭曲光照方向。base-color
 Texture 在 sRGB 采样时由后端转换到线性空间，再与线性颜色因子和光照项相乘。
 
+存在当前帧 UI Draw List 时，Granit 后端在场景 Rendering 结束后通过 Granit Canvas 将 UI 录制到
+同一颜色附件，附件使用 `LOAD` 保留场景结果，整帧仍只提交和 Present 一次。Gneiss 在后端内部将
+Texture RID 解析为 Texture View，按 Framebuffer Scale 转换顶点和裁剪矩形，并使用 Clamp Sampler；
+Canvas 负责动态几何上传、Alpha Pipeline、Scissor 和 UInt32 索引绘制。完全位于视口外的命令会被
+跳过，UI 不使用场景深度附件。
+
 当前路径用于验证 Application、World、Resource Service 与 Granit 的端到端边界，不是正式资产或
 渲染管线。暂不支持 Mip、剔除和异步上传。

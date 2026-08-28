@@ -4,10 +4,13 @@
 #include "render/granit/granit_render_service.h"
 #include "render/granit/embedded_textured_shaders.h"
 
+#include <algorithm>
 #include <array>
+#include <cmath>
 #include <cstddef>
 #include <cstring>
 #include <limits>
+#include <new>
 #include <span>
 #include <vector>
 
@@ -77,6 +80,11 @@ struct geometry_range final {
   std::int32_t vertex_offset{};
   std::uint32_t index_count{};
 };
+
+bool needs_srgb_encoding(granit::texture_format format) noexcept {
+  return format == granit::texture_format::rgba8_unorm ||
+         format == granit::texture_format::bgra8_unorm;
+}
 
 granit::result append_mesh_geometry(const render_internal::mesh_resource& source,
                                     std::vector<gpu_vertex>& vertices,
@@ -367,6 +375,75 @@ granit_render_service::ensure_uniform_arena(uniform_frame& frame,
   return frame.buffer.write(0, data);
 }
 
+granit::result granit_render_service::prepare_ui_draw_list(
+    const render_internal::ui_draw_list& ui,
+    const render_internal::render_resource_service& resources, std::uint32_t width,
+    std::uint32_t height) noexcept {
+  auto result = ui_canvas_.clear();
+  if (granit::failed(result) || ui.commands().empty()) {
+    return result;
+  }
+  try {
+    std::vector<granit_canvas_vertex> vertices;
+    vertices.reserve(ui.vertices().size());
+    for (const auto& vertex : ui.vertices()) {
+      vertices.push_back({vertex.position[0] * ui.framebuffer_scale_x(),
+                          vertex.position[1] * ui.framebuffer_scale_y(), vertex.uv[0], vertex.uv[1],
+                          vertex.color_rgba8});
+    }
+
+    std::vector<std::uint32_t> indices;
+    std::vector<granit_canvas_draw_range> ranges;
+    indices.reserve(ui.indices().size());
+    ranges.reserve(ui.commands().size());
+    for (const auto& command : ui.commands()) {
+      const auto left = std::clamp(std::floor(command.clip_min[0] * ui.framebuffer_scale_x()), 0.0F,
+                                   static_cast<float>(width));
+      const auto top = std::clamp(std::floor(command.clip_min[1] * ui.framebuffer_scale_y()), 0.0F,
+                                  static_cast<float>(height));
+      const auto right = std::clamp(std::ceil(command.clip_max[0] * ui.framebuffer_scale_x()), 0.0F,
+                                    static_cast<float>(width));
+      const auto bottom = std::clamp(std::ceil(command.clip_max[1] * ui.framebuffer_scale_y()),
+                                     0.0F, static_cast<float>(height));
+      if (left >= right || top >= bottom || command.index_count == 0U) {
+        continue;
+      }
+      auto found = texture_mirrors_.find(command.texture);
+      if (found == texture_mirrors_.end()) {
+        const auto* texture = resources.get_texture(command.texture);
+        if (texture == nullptr) {
+          return granit::result::invalid_handle;
+        }
+        texture_mirror mirror;
+        result = create_texture_mirror(*texture, mirror);
+        if (granit::failed(result)) {
+          return result;
+        }
+        found = texture_mirrors_.emplace(command.texture, std::move(mirror)).first;
+      }
+      const auto first_index = static_cast<std::uint32_t>(indices.size());
+      for (std::uint32_t item = 0; item < command.index_count; ++item) {
+        indices.push_back(ui.indices()[command.first_index + item] + command.vertex_offset);
+      }
+      ranges.push_back(
+          {.first_index = first_index,
+           .index_count = command.index_count,
+           .state = {.texture = found->second.view.native_handle(),
+                     .sampler = ui_sampler_.native_handle(),
+                     .scissor = {.x = static_cast<std::int32_t>(left),
+                                 .y = static_cast<std::int32_t>(top),
+                                 .width = static_cast<std::uint32_t>(right - left),
+                                 .height = static_cast<std::uint32_t>(bottom - top)}}});
+    }
+    return ranges.empty() ? granit::result::success
+                          : ui_canvas_.append_batch(vertices, indices, ranges);
+  } catch (const std::bad_alloc&) {
+    return granit::result::out_of_memory;
+  } catch (...) {
+    return granit::result::unknown;
+  }
+}
+
 void granit_render_service::release_invalid_textures(
     const render_internal::render_resource_service& resources) noexcept {
   for (auto iterator = texture_mirrors_.begin(); iterator != texture_mirrors_.end();) {
@@ -437,6 +514,20 @@ gneiss_result granit_render_service::initialize(const native_window_info& window
   if (granit::succeeded(result)) {
     result = ensure_depth_target(window.width, window.height);
   }
+  if (granit::succeeded(result)) {
+    result = ui_sampler_.initialize(renderer_.native_handle(),
+                                    {.mag_filter = granit::filter::linear,
+                                     .min_filter = granit::filter::linear,
+                                     .mip_filter = granit::mipmap_filter::nearest,
+                                     .address_u = granit::address_mode::clamp_to_edge,
+                                     .address_v = granit::address_mode::clamp_to_edge,
+                                     .address_w = granit::address_mode::clamp_to_edge,
+                                     .max_lod = 0.0F});
+  }
+  if (granit::succeeded(result)) {
+    const granit_canvas_draw_list_desc desc = GRANIT_CANVAS_DRAW_LIST_DESC_INIT;
+    result = ui_canvas_.initialize(renderer_.native_handle(), desc);
+  }
   return map_result(result);
 }
 
@@ -445,7 +536,8 @@ gneiss_result
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
 granit_render_service::render(native_window_info& window,
                               const world_internal::render_snapshot& snapshot,
-                              const render_internal::render_resource_service& resources) noexcept {
+                              const render_internal::render_resource_service& resources,
+                              const render_internal::ui_draw_list& ui) noexcept {
   if (window.width == 0U || window.height == 0U) {
     return GNEISS_SUCCESS;
   }
@@ -559,6 +651,11 @@ granit_render_service::render(native_window_info& window,
     }
   }
 
+  const auto ui_result = prepare_ui_draw_list(ui, resources, window.width, window.height);
+  if (granit::failed(ui_result)) {
+    return map_result(ui_result);
+  }
+
   granit::acquired_frame frame;
   auto result = swapchain_.acquire(frame);
   if (result == granit::result::out_of_date) {
@@ -630,6 +727,21 @@ granit_render_service::render(native_window_info& window,
     }
     if (granit::succeeded(result)) {
       result = recording.recorder().end_rendering();
+    }
+    granit_canvas_draw_list_stats ui_stats = GRANIT_CANVAS_DRAW_LIST_STATS_INIT;
+    if (granit::succeeded(result)) {
+      result = ui_canvas_.get_stats(ui_stats);
+    }
+    if (granit::succeeded(result) && ui_stats.item_count != 0U) {
+      granit_canvas_record_desc ui_record = GRANIT_CANVAS_RECORD_DESC_INIT;
+      ui_record.color = view;
+      ui_record.color_format = static_cast<granit_texture_format>(swapchain_format_);
+      ui_record.width = window.width;
+      ui_record.height = window.height;
+      ui_record.load_operation = GRANIT_ATTACHMENT_LOAD_OPERATION_LOAD;
+      ui_record.encode_srgb = needs_srgb_encoding(swapchain_format_) ? 1U : 0U;
+      ui_record.frame_slot = recording.frame_slot();
+      result = ui_canvas_.record(recording.recorder().native_handle(), ui_record);
     }
   }
   if (granit::succeeded(result)) {

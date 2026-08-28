@@ -62,16 +62,23 @@ int main() {
   }
   indices[0] = 0U;
 
+  commands[0].index_count = 2U;
+  if (draw_list.replace(desc, resources) != GNEISS_ERROR_INVALID_ARGUMENT ||
+      draw_list.commands()[0].index_count != 3U) {
+    return 5;
+  }
+  commands[0].index_count = 3U;
+
   gneiss::render_internal::render_resource_service other_resources;
   if (draw_list.replace(desc, other_resources) != GNEISS_ERROR_INVALID_HANDLE ||
       draw_list.commands().size() != 1U) {
-    return 5;
+    return 6;
   }
 
   draw_list.clear();
   if (!draw_list.vertices().empty() || !draw_list.indices().empty() ||
       !draw_list.commands().empty() || draw_list.display_width() != 0.0F) {
-    return 6;
+    return 7;
   }
   return 0;
 }

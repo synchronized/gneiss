@@ -22,8 +22,9 @@ Swapchain、帧获取、命令提交和 Present；若 Editor 再创建一套渲�
   List；Runtime 和公共接口不包含 ImGui 类型、头文件、标识或回调。
 - UI 纹理由所属 Application 的 Texture RID 表示。Font Atlas 也通过公开 Texture API 创建，不允许
   将后端 Texture View、Descriptor 或裸指针编码进公共接口。
-- Granit 后端使用专用 UI Pipeline：Alpha 混合开启、深度测试与写入关闭，并逐绘制命令设置
-  Scissor。动态顶点和索引数据使用逐帧可复用缓冲，不与场景几何 Arena 混合。
+- Granit 后端复用 `granit::canvas_draw_list`：其 Canvas Pipeline 开启 Alpha 混合、不使用场景深度
+  附件并逐绘制命令设置 Scissor。动态顶点和索引数据使用 Canvas 的逐帧缓冲，不与场景几何 Arena
+  混合；Gneiss 只负责 Texture RID 映射和数据适配。
 - UI Draw List 只能在 Application 创建线程、当前 update 回调内提交；每帧最多保留最后一次成功
   提交，渲染完成或跳过渲染后立即清空，不跨帧缓存。
 - `0.7.0` 只支持单窗口和单 Viewport，不启用 Dear ImGui Multi-Viewport 或 Docking。输入由 Editor
@@ -35,8 +36,8 @@ Swapchain、帧获取、命令提交和 Present；若 Editor 再创建一套渲�
 - Runtime 增加一项可复用的即时 UI 数据能力，但仍不知道具体 UI 库；未来调试 HUD 可复用该契约。
 - Draw List 深拷贝带来 CPU 复制开销，首版优先保证 ABI、生命周期和失败原子性；性能数据出现后再
   评估映射缓冲或构建器接口。
-- 当前 Granit 已具备缓冲、纹理、Pipeline、Scissor 和索引绘制能力，不需要修改 Granit。若后续
-  缺少可复用底层能力，仍按跨仓库协作规则向用户提出最小 PR 建议。
+- 当前 Granit Canvas 已具备动态几何上传、纹理、Alpha Pipeline、Scissor 和索引绘制能力，不需要
+  修改 Granit。若后续缺少可复用底层能力，仍按跨仓库协作规则向用户提出最小 PR 建议。
 
 ## 替代方案
 

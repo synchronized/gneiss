@@ -12,8 +12,9 @@
 - CMake 3.23 或更高版本。
 - 支持 C++20 的 C/C++ 编译器。
 - 使用 Ninja preset 时需要安装 Ninja。
-- 启用 Granit 运行时适配时需要已安装的 Granit `0.4.0+` 核心、Window 与 Input 组件，或由父工程
-  提供 `granit::granit`、`granit::window` 和 `granit::input` 目标。
+- 启用 Granit 运行时适配时需要已安装的 Granit `0.4.0+` 核心、Window、Input 与 RenderPipeline
+  组件，或由父工程提供 `granit::granit`、`granit::window`、`granit::input` 和
+  `granit::render_pipeline` 目标。
 
 ## 操作步骤
 
@@ -92,7 +93,7 @@ cmake --install build/windows-clang-debug --prefix build/gneiss-install
 下游项目使用 `find_package(gneiss CONFIG REQUIRED)` 和 `gneiss::gneiss`。Windows 共享库 Consumer
 运行时需要让 `GNEISS_RUNTIME_DIR` 位于 `PATH`；静态库无需该运行时路径。引擎库本身不安装内置
 资产；示例各自管理配套资产。启用 Granit 平台适配构建的安装包会继续要求同一安装环境提供 Granit
-`Window` 与 `Input` package，但 Granit 类型不会进入 Gneiss 公共头文件。
+`Window`、`Input` 与 `RenderPipeline` package，但 Granit 类型不会进入 Gneiss 公共头文件。
 
 ### 启用 Granit 窗口与渲染适配
 
@@ -125,7 +126,8 @@ ctest --test-dir build/granit-platform --output-on-failure
 
 使用 `GNEISS_GRANIT_PROVIDER=FETCH` 可以强制验证下载路径，跳过 package 查找。仓库镜像和版本可
 通过 `GNEISS_GRANIT_GIT_REPOSITORY`、`GNEISS_GRANIT_GIT_TAG` 覆盖。若父工程已经定义
-`granit::granit` 与 `granit::window`，所有 provider 都会优先直接复用。Windows 使用共享库 package
+`granit::granit`、`granit::window`、`granit::input` 与 `granit::render_pipeline`，所有 provider
+都会优先直接复用。Windows 使用共享库 package
 时，构建会把 Granit 的运行时 DLL 自动复制到 Gneiss 的运行时输出目录，无需手动修改 `PATH`。
 
 启用 Granit 适配并完成构建后，可以运行交互神殿或 Lantern 灯廊示例；按 `A`/`D` 绕场景旋转
