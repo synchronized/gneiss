@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Gneiss contributors
 
+cmake_minimum_required(VERSION 3.23)
+
 foreach(required_var IN ITEMS GNEISS_ABI_BASELINE GNEISS_API_STABILITY_MANIFEST)
   if(NOT DEFINED ${required_var})
     message(FATAL_ERROR "缺少 API 稳定性检查参数：${required_var}")
