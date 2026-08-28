@@ -130,6 +130,13 @@ gneiss_result imgui_adapter::initialize(gneiss_application application) {
   io.BackendPlatformName = "gneiss_editor";
   io.BackendRendererName = "gneiss_ui_draw_list";
   io.IniFilename = nullptr;
+  io.Fonts->Clear();
+  ImFontConfig font_config{};
+  font_config.SizePixels = 15.0F;
+  io.FontDefault = io.Fonts->AddFontDefault(&font_config);
+  if (io.FontDefault == nullptr) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
+  }
 
   unsigned char* atlas_pixels = nullptr;
   int atlas_width = 0;

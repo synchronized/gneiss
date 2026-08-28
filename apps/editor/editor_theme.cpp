@@ -3,33 +3,39 @@
 
 #include "editor_theme.h"
 
+#include <cmath>
+
 namespace gneiss::editor {
 namespace {
 
 // 配色取自 Catppuccin Mocha，并按 Editor 语义重新映射。
 // 来源：https://github.com/catppuccin/palette（MIT，Copyright (c) 2021 Catppuccin）。
-[[nodiscard]] constexpr ImVec4 rgb(int red, int green, int blue, float alpha = 1.0F) noexcept {
+[[nodiscard]] float linear_channel(int channel) noexcept {
   constexpr float channel_maximum = 255.0F;
-  return {static_cast<float>(red) / channel_maximum, static_cast<float>(green) / channel_maximum,
-          static_cast<float>(blue) / channel_maximum, alpha};
+  const auto srgb = static_cast<float>(channel) / channel_maximum;
+  return srgb <= 0.04045F ? srgb / 12.92F : std::pow((srgb + 0.055F) / 1.055F, 2.4F);
 }
 
-constexpr auto rosewater = rgb(245, 224, 220);
-constexpr auto mauve = rgb(203, 166, 247);
-constexpr auto red = rgb(243, 139, 168);
-constexpr auto peach = rgb(250, 179, 135);
-constexpr auto yellow = rgb(249, 226, 175);
-constexpr auto green = rgb(166, 227, 161);
-constexpr auto blue = rgb(137, 180, 250);
-constexpr auto text = rgb(205, 214, 244);
-constexpr auto subtext = rgb(166, 173, 200);
-constexpr auto overlay = rgb(108, 112, 134);
-constexpr auto surface2 = rgb(88, 91, 112);
-constexpr auto surface1 = rgb(69, 71, 90);
-constexpr auto surface0 = rgb(49, 50, 68);
-constexpr auto base = rgb(30, 30, 46);
-constexpr auto mantle = rgb(24, 24, 37);
-constexpr auto crust = rgb(17, 17, 27);
+[[nodiscard]] ImVec4 rgb(int red, int green, int blue, float alpha = 1.0F) noexcept {
+  return {linear_channel(red), linear_channel(green), linear_channel(blue), alpha};
+}
+
+const auto rosewater = rgb(245, 224, 220);
+const auto mauve = rgb(203, 166, 247);
+const auto red = rgb(243, 139, 168);
+const auto peach = rgb(250, 179, 135);
+const auto yellow = rgb(249, 226, 175);
+const auto green = rgb(166, 227, 161);
+const auto blue = rgb(137, 180, 250);
+const auto text = rgb(205, 214, 244);
+const auto subtext = rgb(166, 173, 200);
+const auto overlay = rgb(108, 112, 134);
+const auto surface2 = rgb(88, 91, 112);
+const auto surface1 = rgb(69, 71, 90);
+const auto surface0 = rgb(49, 50, 68);
+const auto base = rgb(30, 30, 46);
+const auto mantle = rgb(24, 24, 37);
+const auto crust = rgb(17, 17, 27);
 
 } // namespace
 
@@ -46,7 +52,7 @@ void apply_gneiss_mocha_theme() noexcept {
   style.ChildBorderSize = 1.0F;
   style.PopupBorderSize = 1.0F;
   style.FrameBorderSize = 0.0F;
-  style.WindowRounding = 7.0F;
+  style.WindowRounding = 0.0F;
   style.ChildRounding = 7.0F;
   style.FrameRounding = 5.0F;
   style.PopupRounding = 6.0F;
