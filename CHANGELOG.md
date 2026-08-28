@@ -7,6 +7,10 @@
 
 ## 未发布
 
+暂无。
+
+## 0.6.0 - 2026-08-28
+
 - 增加稳定 Type ID、Field ID、Type Registry 元数据注册/冻结/查询接口及 C++20 RAII 包装。
 - 增加类型安全属性值、字段 getter/setter 绑定、统一校验和 C11/C++20 属性读写接口。
 - 将 Scene Tree Transform 与 ECS Camera 接入内建反射注册和 World/Entity 属性访问路径。
