@@ -161,6 +161,7 @@ ctest --test-dir build/stable-runtime-consumer --output-on-failure
 的最小值、中位数、P95 和最大值。性能基线必须使用 Release 构建并重复采样；单次输出不能作为
 回归阈值。`tools/performance/measure_stable_runtime.py` 默认执行 1 次进程预热和 10 次有效采样，
 保存原始数据、汇总、进程峰值常驻内存及环境元数据；使用 `--help` 查看必填的版本标识参数。
+采样时必须显式填写 CPU、实际使用的 GPU 和驱动版本，不能仅凭系统枚举猜测 Vulkan 设备。
 
 Linux Clang/GCC 可使用 `GNEISS_ENABLE_SANITIZERS=ON` 为 Gneiss 自有目标启用 AddressSanitizer、
 LeakSanitizer 和 UndefinedBehaviorSanitizer。手动 Linux Actions 会在无头图形环境中运行

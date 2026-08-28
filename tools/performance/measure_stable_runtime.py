@@ -28,6 +28,9 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument("--warmup-runs", type=int, default=1, help="不计入结果的预热进程数")
     parser.add_argument("--compiler", required=True, help="编译器及版本")
     parser.add_argument("--build-type", required=True, help="构建类型，例如 Release")
+    parser.add_argument("--cpu", required=True, help="CPU 型号")
+    parser.add_argument("--gpu", required=True, help="实际使用的 GPU 型号")
+    parser.add_argument("--gpu-driver", required=True, help="GPU 驱动版本")
     parser.add_argument("--gneiss-revision", required=True, help="Gneiss 提交")
     parser.add_argument("--granit-revision", required=True, help="Granit 提交")
     return parser.parse_args()
@@ -182,6 +185,9 @@ def main() -> int:
             "python": platform.python_version(),
             "compiler": arguments.compiler,
             "build_type": arguments.build_type,
+            "cpu": arguments.cpu,
+            "gpu": arguments.gpu,
+            "gpu_driver": arguments.gpu_driver,
             "gneiss_revision": arguments.gneiss_revision,
             "granit_revision": arguments.granit_revision,
             "executable": str(executable),

@@ -27,5 +27,6 @@ Gneiss/Granit 提交。默认先运行 1 个预热进程，再保存 10 个有�
 python tools/performance/measure_stable_runtime.py `
   build/windows-clang-release/bin/gneiss_stable_runtime_example.exe `
   --output build/performance/stable-runtime.json --compiler "Clang 20" `
-  --build-type Release --gneiss-revision <提交> --granit-revision <提交>
+  --build-type Release --cpu "<CPU 型号>" --gpu "<GPU 型号>" --gpu-driver "<驱动版本>" `
+  --gneiss-revision <提交> --granit-revision <提交>
 ```
