@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- Copyright (c) 2026 Gneiss contributors -->
 
-# 从 0.9.0 迁移到 1.0.0
+# 从 0.9.0 迁移到 0.10.0
 
 ## 适用范围
 
@@ -46,7 +46,7 @@ gneiss_field_info field = GNEISS_FIELD_INFO_INIT;
 
 ## 建议升级步骤
 
-1. 使用 1.0 SDK 重新配置并构建应用。
+1. 使用 0.10 SDK 重新配置并构建应用。
 2. 修正直接使用 C 枚举标签的代码。
 3. 为直接调用反射 C API 的输出结构补初始化宏。
 4. 运行应用自身的场景加载、输入、资源和确定性退出测试。

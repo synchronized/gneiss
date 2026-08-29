@@ -13,7 +13,7 @@
 - 增加可重复的 Release 性能/内存采样、故障注入矩阵、Sanitizer 检查和 GPU 逻辑资源退出检查。
 - Granit 更新至资源统计合并提交，Application 销毁时会报告未释放 GPU 逻辑资源的分类计数。
 - 安装树补充项目许可证、变更记录、第三方声明及随 Runtime 分发的第三方许可证原文。
-- 0.9.0 调用方升级方式见[迁移指南](docs/guides/migrating-0.9-to-1.0.md)。
+- 0.9.0 调用方升级方式见[迁移指南](docs/guides/migrating-0.9-to-0.10.md)。
 
 ## 0.9.0 - 2026-08-28
 
