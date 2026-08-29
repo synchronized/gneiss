@@ -171,7 +171,9 @@ Application、场景故障矩阵和稳定运行时样例；Sanitizer 报告任�
 
 Application 与场景故障测试启用严格 LSan。Mesa 软件 Vulkan ICD 会在进程退出时留下设备枚举缓存，
 且卸载后间接分配只能显示为未知模块；为避免使用会掩盖自有问题的宽泛抑制，图形样例只运行
-ASan/UBSan，并关闭 LSan。GPU 逻辑资源退出检查仍需 Granit 提供后端无关的资源统计能力后闭环。
+ASan/UBSan，并关闭 LSan。图形 Application 销毁时会先释放 Gneiss 持有的 Granit 子资源，再执行
+后端无关的逻辑资源退出检查；仍有存活资源时，销毁返回 `invalid state`，诊断输出各资源类型数量。
+Granit 的后端待回收数量只用于诊断，不视为调用方泄漏。
 
 Linux 下运行同名且不带 `.exe` 后缀的可执行文件。该示例的 `main` 位于
 `examples/temple/main.cpp`，只使用 Gneiss 公共接口创建 Application、加载场景实例并按对象 UUID

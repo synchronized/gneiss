@@ -146,7 +146,12 @@ extern "C" {
 GNEISS_API gneiss_result gneiss_application_create(const gneiss_application_desc* desc,
                                                    gneiss_application* out_application);
 
-/** 逆序销毁 World、平台回调状态、Render Service、平台窗口和 Application。 */
+/**
+ * 逆序销毁 World、平台回调状态、Render Service、平台窗口和 Application。
+ *
+ * Granit 模式下会在销毁 Renderer 前检查 GPU 逻辑资源；仍有存活资源时仍完成清理，但返回
+ * GNEISS_ERROR_INVALID_STATE，并通过诊断回调报告分类计数。仅限创建线程调用。
+ */
 GNEISS_API gneiss_result gneiss_application_destroy(gneiss_application application);
 
 /**

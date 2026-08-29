@@ -121,9 +121,12 @@ extern "C" gneiss_result gneiss_application_destroy(gneiss_application applicati
     if (validation_result != GNEISS_SUCCESS) {
       return validation_result;
     }
+    const auto shutdown_result = state->shutdown(application);
     auto& registry = get_application_registry();
     const std::scoped_lock lock{registry.mutex};
-    return registry.applications.destroy(application, gneiss::core::resource_type::application);
+    const auto destroy_result =
+        registry.applications.destroy(application, gneiss::core::resource_type::application);
+    return shutdown_result == GNEISS_SUCCESS ? destroy_result : shutdown_result;
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;
   }

@@ -10,9 +10,9 @@
 #include "asset/resource_cache.h"
 #include "asset/virtual_file_system.h"
 #include "input/input_service.h"
+#include "render/debug_draw_list.h"
 #include "render/render_asset_loader.h"
 #include "render/render_resource_service.h"
-#include "render/debug_draw_list.h"
 #include "render/ui_draw_list.h"
 #include "scene/scene_instance_service.h"
 
@@ -38,6 +38,7 @@ public:
   application_state& operator=(application_state&&) = delete;
 
   [[nodiscard]] gneiss_result initialize() noexcept;
+  [[nodiscard]] gneiss_result shutdown(gneiss_application handle) noexcept;
   [[nodiscard]] gneiss_result run(gneiss_application handle,
                                   std::uint64_t max_frame_count) noexcept;
   [[nodiscard]] bool is_owner_thread() const noexcept;
@@ -76,8 +77,6 @@ private:
 #ifdef GNEISS_HAS_GRANIT_PLATFORM
   [[nodiscard]] gneiss_result render_frame() noexcept;
 #endif
-  void shutdown() noexcept;
-
   gneiss_application_desc desc_;
   render_internal::render_resource_service resources_;
   render_internal::ui_draw_list ui_draw_list_;
