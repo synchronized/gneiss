@@ -75,8 +75,8 @@ Granit 资源统计接入后，在同一硬件、驱动、编译器和采样参�
 ## 后续
 
 1. 手动运行 Linux Sanitizer 图形任务，验证 CPU 内存错误、未定义行为和退出泄漏。
-2. 在至少一个独立 GPU/驱动环境重复 Release 采样，复核销毁阶段离群值。
-3. 在独立 GPU/驱动环境验证 GPU 逻辑资源退出检查，确认各后端均能在正常退出时归零。
+2. 如发布前可获得另一套真实 GPU/驱动环境，重复 Release 采样并复核销毁阶段离群值。
+3. 在该独立环境验证 GPU 逻辑资源退出检查，确认另一后端或驱动也能在正常退出时归零。
 4. 证据稳定后单独评审回归阈值，避免把当前机器的呈现节奏固化为跨平台承诺。
 
 首次 Linux LSan 图形运行定位到 Mesa 软件 Vulkan ICD 在 `vkEnumeratePhysicalDevices` 中保留的
@@ -89,8 +89,8 @@ Application 销毁返回 `invalid state`，并由 `granit.render.resources` 诊�
 `pending_retirement_count` 表示等待 GPU 安全点的后端对象，只记录诊断，不作为调用方泄漏。
 
 Windows Clang Debug 图形构建的 70 项测试全部通过，包含 Granit Platform Smoke、稳定运行时、Temple、
-Lantern Gallery 和隔离安装 Consumer，证明当前正常退出路径的逻辑资源计数均已归零。M-69 仍等待
-独立 GPU/驱动环境复测。
+Lantern Gallery 和隔离安装 Consumer，证明当前正常退出路径的逻辑资源计数均已归零。独立 GPU/驱动
+环境复测保留为发布前建议项；当前没有第二台真实设备，因此不将它作为 M-69 完成阻塞条件。
 
 最终 [Linux 手动矩阵](https://github.com/synchronized/gneiss/actions/runs/33224882920) 已通过：Clang/GCC
 Shared/Static、Granit Shared/Static 共 6 项通过，GCC Sanitizer 任务中的 Application、场景故障和
