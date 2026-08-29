@@ -37,6 +37,22 @@ if(NOT install_result EQUAL 0)
   message(FATAL_ERROR "Gneiss 安装失败：${install_result}")
 endif()
 
+foreach(
+  required_document
+  IN ITEMS
+    LICENSE
+    CHANGELOG.md
+    THIRD_PARTY_NOTICES.md
+    licenses/EnTT-LICENSE
+    licenses/yyjson-LICENSE
+    licenses/libspng-LICENSE
+    licenses/miniz-LICENSE
+)
+  if(NOT EXISTS "${install_dir}/share/doc/gneiss/${required_document}")
+    message(FATAL_ERROR "Gneiss 安装树缺少发布声明：${required_document}")
+  endif()
+endforeach()
+
 set(configure_command
     "${CMAKE_COMMAND}"
     -S "${consumer_source_dir}/tests/consumer"
