@@ -393,6 +393,8 @@ gneiss_result application_state::shutdown(gneiss_application handle) noexcept {
   }
   granit_render_service_.reset();
   granit_platform_.reset();
+#else
+  (void)handle;
 #endif
   return shutdown_result;
 }
