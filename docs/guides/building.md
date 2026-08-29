@@ -94,6 +94,10 @@ cmake --install build/windows-clang-debug --prefix build/gneiss-install
 运行时需要让 `GNEISS_RUNTIME_DIR` 位于 `PATH`；静态库无需该运行时路径。引擎库本身不安装内置
 资产；示例各自管理配套资产。启用 Granit 平台适配构建的安装包会继续要求同一安装环境提供 Granit
 `Window`、`Input` 与 `RenderPipeline` package，但 Granit 类型不会进入 Gneiss 公共头文件。
+如果 Granit 安装在另一个前缀，Windows 运行时还需把该前缀的 `bin` 加入 `PATH`；Gneiss 不会把
+外部 Granit package 复制进自身安装前缀。
+Linux Shared 构建应将 package 导出的 `GNEISS_LIBRARY_DIR` 及外部 Granit 前缀的 `lib` 加入动态库
+搜索路径；仓库安装 Consumer 会自动配置该测试环境。
 
 ### 启用 Granit 窗口与渲染适配
 
@@ -137,6 +141,39 @@ ctest --test-dir build/granit-platform --output-on-failure
 ./build/granit-platform/bin/gneiss_temple_example.exe
 ./build/granit-platform/bin/gneiss_lantern_gallery_example.exe
 ```
+
+1.0.0 的稳定运行时代表性样例覆盖同一图形路径，并提供独立的安装 SDK Consumer：
+
+```powershell
+./build/windows-clang-debug/bin/gneiss_stable_runtime_example.exe --smoke
+./build/windows-clang-release/bin/gneiss_stable_runtime_example.exe --measure
+
+cmake -S examples/stable_runtime -B build/stable-runtime-consumer `
+  -DCMAKE_PREFIX_PATH=build/gneiss-install
+cmake --build build/stable-runtime-consumer
+ctest --test-dir build/stable-runtime-consumer --output-on-failure
+```
+
+独立 Consumer 需要同一前缀或 `CMAKE_PREFIX_PATH` 中同时提供启用 Window、Input 与 RenderPipeline
+组件的 Granit package。配置时资产会复制到 Consumer 构建目录，运行不读取 Gneiss 源码树。
+仓库的安装验收也会先把 Consumer 源码和资产复制到隔离目录，防止测试因源码树仍存在而误通过。
+`--measure` 固定执行 60 帧预热和 300 帧采样，以单行 JSON 报告各启动阶段、退出阶段及稳定帧
+的最小值、中位数、P95 和最大值。性能基线必须使用 Release 构建并重复采样；单次输出不能作为
+回归阈值。`tools/performance/measure_stable_runtime.py` 默认执行 1 次进程预热和 10 次有效采样，
+保存原始数据、汇总、进程峰值常驻内存及环境元数据；使用 `--help` 查看必填的版本标识参数。
+采样时必须显式填写 CPU、实际使用的 GPU 和驱动版本，不能仅凭系统枚举猜测 Vulkan 设备。
+
+Linux Clang/GCC 可使用 `GNEISS_ENABLE_SANITIZERS=ON` 为 Gneiss 自有目标启用 AddressSanitizer、
+LeakSanitizer 和 UndefinedBehaviorSanitizer。手动 Linux Actions 使用镜像已完整提供运行库的 GCC，
+并在无头图形环境中运行
+Application、场景故障矩阵和稳定运行时样例；Sanitizer 报告任何内存错误、未定义行为或退出泄漏时
+任务失败。该选项不传播给安装后的下游项目，也不支持 Windows/MSVC。
+
+Application 与场景故障测试启用严格 LSan。Mesa 软件 Vulkan ICD 会在进程退出时留下设备枚举缓存，
+且卸载后间接分配只能显示为未知模块；为避免使用会掩盖自有问题的宽泛抑制，图形样例只运行
+ASan/UBSan，并关闭 LSan。图形 Application 销毁时会先释放 Gneiss 持有的 Granit 子资源，再执行
+后端无关的逻辑资源退出检查；仍有存活资源时，销毁返回 `invalid state`，诊断输出各资源类型数量。
+Granit 的后端待回收数量只用于诊断，不视为调用方泄漏。
 
 Linux 下运行同名且不带 `.exe` 后缀的可执行文件。该示例的 `main` 位于
 `examples/temple/main.cpp`，只使用 Gneiss 公共接口创建 Application、加载场景实例并按对象 UUID

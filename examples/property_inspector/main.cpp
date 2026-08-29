@@ -30,7 +30,7 @@ constexpr std::string_view camera_uuid = "37cff772-2e8d-4bc7-9ed2-f94435926d4e";
     return false;
   }
   for (std::uint32_t type_index = 0; type_index < type_count; ++type_index) {
-    gneiss_type_info type{};
+    gneiss_type_info type = GNEISS_TYPE_INFO_INIT;
     if (gneiss_type_registry_type_at(registry.get(), type_index, &type) != GNEISS_SUCCESS) {
       return false;
     }

@@ -5,7 +5,7 @@ cmake_minimum_required(VERSION 3.23)
 
 project(
   gneiss
-  VERSION 0.9.0
+  VERSION 0.10.0
   DESCRIPTION "基于 Granit 构建的现代 C++20 游戏引擎"
   LANGUAGES C CXX
 )
@@ -52,7 +52,7 @@ configure_package_config_file(
   "${PROJECT_SOURCE_DIR}/cmake/gneissConfig.cmake.in"
   "${PROJECT_BINARY_DIR}/gneissConfig.cmake"
   INSTALL_DESTINATION "${GNEISS_INSTALL_CMAKEDIR}"
-  PATH_VARS CMAKE_INSTALL_BINDIR
+  PATH_VARS CMAKE_INSTALL_BINDIR CMAKE_INSTALL_LIBDIR
 )
 write_basic_package_version_file(
   "${PROJECT_BINARY_DIR}/gneissConfigVersion.cmake"
@@ -80,6 +80,18 @@ install(
     "${PROJECT_BINARY_DIR}/gneissConfigVersion.cmake"
   DESTINATION "${GNEISS_INSTALL_CMAKEDIR}"
 )
+install(
+  FILES LICENSE CHANGELOG.md THIRD_PARTY_NOTICES.md
+  DESTINATION "${CMAKE_INSTALL_DATADIR}/doc/gneiss"
+)
+install(FILES 3rd/entt/LICENSE DESTINATION "${CMAKE_INSTALL_DATADIR}/doc/gneiss/licenses"
+        RENAME EnTT-LICENSE)
+install(FILES 3rd/yyjson/LICENSE DESTINATION "${CMAKE_INSTALL_DATADIR}/doc/gneiss/licenses"
+        RENAME yyjson-LICENSE)
+install(FILES 3rd/libspng/LICENSE DESTINATION "${CMAKE_INSTALL_DATADIR}/doc/gneiss/licenses"
+        RENAME libspng-LICENSE)
+install(FILES 3rd/miniz/LICENSE DESTINATION "${CMAKE_INSTALL_DATADIR}/doc/gneiss/licenses"
+        RENAME miniz-LICENSE)
 if(GNEISS_BUILD_EXAMPLES)
   add_subdirectory(examples)
 endif()

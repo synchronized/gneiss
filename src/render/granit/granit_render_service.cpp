@@ -549,6 +549,44 @@ gneiss_result granit_render_service::initialize(const native_window_info& window
   return map_result(result);
 }
 
+gneiss_result granit_render_service::shutdown(granit::renderer_resource_stats& stats) noexcept {
+  texture_mirrors_.clear();
+  mesh_mirrors_.clear();
+  static_cast<void>(default_texture_.group.reset());
+  static_cast<void>(default_texture_.view.reset());
+  static_cast<void>(default_texture_.texture.reset());
+  for (auto& frame : uniform_frames_) {
+    static_cast<void>(frame.group.reset());
+    static_cast<void>(frame.buffer.reset());
+    frame.capacity = 0;
+  }
+  static_cast<void>(ui_canvas_.destroy());
+  static_cast<void>(debug_draw_.destroy());
+  static_cast<void>(geometry_indices_.reset());
+  static_cast<void>(geometry_vertices_.reset());
+  static_cast<void>(ui_sampler_.reset());
+  static_cast<void>(sampler_.reset());
+  static_cast<void>(depth_view_.reset());
+  static_cast<void>(depth_texture_.reset());
+  static_cast<void>(pipeline_.reset());
+  static_cast<void>(pipeline_layout_.reset());
+  static_cast<void>(object_layout_.reset());
+  static_cast<void>(texture_layout_.reset());
+  static_cast<void>(fragment_shader_.reset());
+  static_cast<void>(vertex_shader_.reset());
+  static_cast<void>(frame_context_.reset());
+  static_cast<void>(swapchain_.reset());
+  static_cast<void>(surface_.reset());
+
+  const auto query_result = renderer_.get_resource_stats(stats);
+  const auto result =
+      granit::failed(query_result)
+          ? map_result(query_result)
+          : (stats.total_live_count == 0U ? GNEISS_SUCCESS : GNEISS_ERROR_INVALID_STATE);
+  static_cast<void>(renderer_.reset());
+  return result;
+}
+
 // 单帧资源准备与提交必须保持 Granit 调用和失败回滚的线性顺序。
 gneiss_result
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)

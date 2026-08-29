@@ -66,12 +66,12 @@ typedef void (*gneiss_application_diagnostic_fn)(gneiss_application application,
                                                  const gneiss_diagnostic* diagnostic,
                                                  void* user_data);
 
-typedef enum gneiss_application_platform {
-  /** 使用生命周期回调；全部为空时为无窗口模式。 */
-  GNEISS_APPLICATION_PLATFORM_CALLBACK = 0,
-  /** 使用 Granit Window 组件创建并管理窗口。 */
-  GNEISS_APPLICATION_PLATFORM_GRANIT = 1
-} gneiss_application_platform;
+/** Application 平台类型使用定宽整数，避免 C enum 的实现相关 ABI。 */
+typedef uint32_t gneiss_application_platform;
+/** 使用生命周期回调；全部为空时为无窗口模式。 */
+#define GNEISS_APPLICATION_PLATFORM_CALLBACK UINT32_C(0)
+/** 使用 Granit Window 组件创建并管理窗口。 */
+#define GNEISS_APPLICATION_PLATFORM_GRANIT UINT32_C(1)
 
 #define GNEISS_APPLICATION_WINDOW_VISIBLE_BIT (UINT32_C(1) << 0)
 #define GNEISS_APPLICATION_WINDOW_RESIZABLE_BIT (UINT32_C(1) << 1)
@@ -146,7 +146,12 @@ extern "C" {
 GNEISS_API gneiss_result gneiss_application_create(const gneiss_application_desc* desc,
                                                    gneiss_application* out_application);
 
-/** 逆序销毁 World、平台回调状态、Render Service、平台窗口和 Application。 */
+/**
+ * 逆序销毁 World、平台回调状态、Render Service、平台窗口和 Application。
+ *
+ * Granit 模式下会在销毁 Renderer 前检查 GPU 逻辑资源；仍有存活资源时仍完成清理，但返回
+ * GNEISS_ERROR_INVALID_STATE，并通过诊断回调报告分类计数。仅限创建线程调用。
+ */
 GNEISS_API gneiss_result gneiss_application_destroy(gneiss_application application);
 
 /**

@@ -4,6 +4,11 @@
 #ifndef GNEISS_CORE_EXPORT_H_
 #define GNEISS_CORE_EXPORT_H_
 
+/** 标记仍可能演进的公共接口；不表示弃用，且默认不改变调用约定。 */
+#ifndef GNEISS_EXPERIMENTAL
+#define GNEISS_EXPERIMENTAL
+#endif
+
 #if defined(_WIN32) || defined(__CYGWIN__)
 #if defined(GNEISS_STATIC_DEFINE)
 #define GNEISS_API

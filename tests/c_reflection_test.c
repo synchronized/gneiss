@@ -6,6 +6,8 @@
 #include <stdint.h>
 #include <string.h>
 
+_Static_assert(sizeof(gneiss_property_kind) == sizeof(uint32_t), "属性类别类型必须保持 32 位");
+
 static const gneiss_type_id transform_type = {
     {UINT8_C(0x20), UINT8_C(0x00), UINT8_C(0x00), UINT8_C(0x00), UINT8_C(0x00), UINT8_C(0x00),
      UINT8_C(0x00), UINT8_C(0x00), UINT8_C(0x00), UINT8_C(0x00), UINT8_C(0x00), UINT8_C(0x00),
@@ -23,8 +25,9 @@ int main(void) {
   gneiss_type_desc type = GNEISS_TYPE_DESC_INIT;
   gneiss_type_desc invalid_type;
   gneiss_type_desc value_type = GNEISS_TYPE_DESC_INIT;
-  gneiss_type_info type_info = {0};
-  gneiss_field_info field_info = {0};
+  gneiss_type_info type_info = GNEISS_TYPE_INFO_INIT;
+  gneiss_field_info field_info = GNEISS_FIELD_INFO_INIT;
+  gneiss_type_info invalid_type_info = {0};
   uint32_t type_count = UINT32_C(99);
   uint8_t is_frozen = UINT8_C(1);
 
@@ -74,15 +77,19 @@ int main(void) {
   if (gneiss_type_registry_freeze(registry) != GNEISS_SUCCESS ||
       gneiss_type_registry_freeze(registry) != GNEISS_SUCCESS ||
       gneiss_type_registry_register(registry, &type) != GNEISS_ERROR_INVALID_STATE ||
+      gneiss_type_registry_type_at(registry, UINT32_C(0), &invalid_type_info) !=
+          GNEISS_ERROR_INVALID_ARGUMENT ||
       gneiss_type_registry_type_count(registry, &type_count) != GNEISS_SUCCESS ||
       type_count != UINT32_C(2) ||
       gneiss_type_registry_type_at(registry, UINT32_C(0), &type_info) != GNEISS_SUCCESS ||
       memcmp(type_info.id.bytes, vector_type.bytes, sizeof(vector_type.bytes)) != 0 ||
       gneiss_type_registry_find_type(registry, transform_type, &type_info) != GNEISS_SUCCESS ||
+      type_info.struct_size != GNEISS_TYPE_INFO_VERSION_1_SIZE ||
       type_info.schema_version != UINT32_C(1) || type_info.field_count != UINT32_C(1) ||
       type_info.name_length != UINT32_C(9) || memcmp(type_info.name, "Transform", 9U) != 0 ||
       gneiss_type_registry_find_field(registry, transform_type, UINT32_C(1), &field_info) !=
           GNEISS_SUCCESS ||
+      field_info.struct_size != GNEISS_FIELD_INFO_VERSION_1_SIZE ||
       field_info.name_length != UINT32_C(8) || memcmp(field_info.name, "position", 8U) != 0 ||
       gneiss_type_registry_find_field(registry, transform_type, UINT32_C(2), &field_info) !=
           GNEISS_ERROR_NOT_FOUND) {

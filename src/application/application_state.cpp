@@ -11,6 +11,7 @@
 #endif
 
 #include <chrono>
+#include <cstdio>
 #include <new>
 
 namespace gneiss::application_internal {
@@ -19,7 +20,9 @@ application_state::application_state(const gneiss_application_desc& desc) noexce
     : desc_(desc), asset_loader_(asset_file_system_, asset_cache_, resources_),
       owner_thread_(std::this_thread::get_id()) {}
 
-application_state::~application_state() noexcept { shutdown(); }
+application_state::~application_state() noexcept {
+  static_cast<void>(shutdown(GNEISS_NULL_APPLICATION));
+}
 
 gneiss_result application_state::initialize() noexcept {
   if (!resources_.is_valid()) {
@@ -43,6 +46,8 @@ gneiss_result application_state::initialize() noexcept {
       mount_result = asset_file_system_.mount("asset://", std::move(native_file_system));
     }
     if (mount_result != GNEISS_SUCCESS) {
+      report(GNEISS_NULL_APPLICATION, GNEISS_DIAGNOSTIC_ERROR, GNEISS_DIAGNOSTIC_CATEGORY_ASSET,
+             mount_result, "asset", "资产根目录挂载失败");
       return mount_result;
     }
   }
@@ -57,6 +62,8 @@ gneiss_result application_state::initialize() noexcept {
     }
     const auto platform_result = granit_platform_->initialize(desc_);
     if (platform_result != GNEISS_SUCCESS) {
+      report(GNEISS_NULL_APPLICATION, GNEISS_DIAGNOSTIC_ERROR, GNEISS_DIAGNOSTIC_CATEGORY_BACKEND,
+             platform_result, "granit.platform", "Granit 平台初始化失败");
       granit_platform_.reset();
       return platform_result;
     }
@@ -72,20 +79,27 @@ gneiss_result application_state::initialize() noexcept {
     const auto render_result =
         granit_render_service_->initialize(granit_platform_->native_window());
     if (render_result != GNEISS_SUCCESS) {
+      report(GNEISS_NULL_APPLICATION, GNEISS_DIAGNOSTIC_ERROR, GNEISS_DIAGNOSTIC_CATEGORY_BACKEND,
+             render_result, "granit.render", "Granit 渲染服务初始化失败");
       granit_render_service_.reset();
       granit_platform_.reset();
       return render_result;
     }
 #else
+    report(GNEISS_NULL_APPLICATION, GNEISS_DIAGNOSTIC_ERROR, GNEISS_DIAGNOSTIC_CATEGORY_BACKEND,
+           GNEISS_ERROR_UNSUPPORTED, "granit.platform", "当前构建未启用 Granit 平台适配");
     return GNEISS_ERROR_UNSUPPORTED;
 #endif
   }
   if (desc_.initialize != nullptr) {
     const auto result = desc_.initialize(desc_.user_data);
     if (result != GNEISS_SUCCESS) {
+      report(GNEISS_NULL_APPLICATION, GNEISS_DIAGNOSTIC_ERROR,
+             GNEISS_DIAGNOSTIC_CATEGORY_APPLICATION, result, "application.initialize",
+             "Application 初始化回调失败");
       // 初始化回调可能已获得部分资源，因此失败时也执行配对清理。
       platform_initialized_ = true;
-      shutdown();
+      static_cast<void>(shutdown(GNEISS_NULL_APPLICATION));
       return result;
     }
   }
@@ -94,21 +108,25 @@ gneiss_result application_state::initialize() noexcept {
   const gneiss_world_desc world_desc = GNEISS_WORLD_DESC_INIT;
   const auto result = gneiss_world_create(&world_desc, &world_);
   if (result != GNEISS_SUCCESS) {
-    shutdown();
+    report(GNEISS_NULL_APPLICATION, GNEISS_DIAGNOSTIC_ERROR, GNEISS_DIAGNOSTIC_CATEGORY_APPLICATION,
+           result, "world", "World 创建失败");
+    static_cast<void>(shutdown(GNEISS_NULL_APPLICATION));
     return result;
   }
   try {
     scenes_ = std::make_unique<scene_internal::scene_instance_service>(world_, asset_file_system_,
                                                                        asset_loader_);
   } catch (const std::bad_alloc&) {
-    shutdown();
+    static_cast<void>(shutdown(GNEISS_NULL_APPLICATION));
     return GNEISS_ERROR_OUT_OF_MEMORY;
   } catch (...) {
-    shutdown();
+    static_cast<void>(shutdown(GNEISS_NULL_APPLICATION));
     return GNEISS_ERROR_INTERNAL;
   }
   if (!scenes_->is_valid()) {
-    shutdown();
+    report(GNEISS_NULL_APPLICATION, GNEISS_DIAGNOSTIC_ERROR, GNEISS_DIAGNOSTIC_CATEGORY_APPLICATION,
+           GNEISS_ERROR_OUT_OF_MEMORY, "scene", "Scene Instance Service 创建失败");
+    static_cast<void>(shutdown(GNEISS_NULL_APPLICATION));
     return GNEISS_ERROR_OUT_OF_MEMORY;
   }
   return GNEISS_SUCCESS;
@@ -234,7 +252,7 @@ gneiss_result application_state::render_frame() noexcept {
       world_internal::get_render_snapshot(world_, window.width, window.height, snapshot);
   return snapshot_result == GNEISS_SUCCESS
              ? granit_render_service_->render(window, snapshot, resources_, ui_draw_list_,
-                                               debug_draw_list_)
+                                              debug_draw_list_)
              : snapshot_result;
 }
 #endif
@@ -313,7 +331,8 @@ bool application_state::is_owner_thread() const noexcept {
   return owner_thread_ == std::this_thread::get_id();
 }
 
-void application_state::shutdown() noexcept {
+gneiss_result application_state::shutdown(gneiss_application handle) noexcept {
+  auto shutdown_result = GNEISS_SUCCESS;
   is_updating_ = false;
   ui_draw_list_.clear();
   debug_draw_list_.clear();
@@ -329,9 +348,55 @@ void application_state::shutdown() noexcept {
     platform_initialized_ = false;
   }
 #ifdef GNEISS_HAS_GRANIT_PLATFORM
+  if (granit_render_service_ != nullptr) {
+    granit::renderer_resource_stats stats;
+    shutdown_result = granit_render_service_->shutdown(stats);
+    if (shutdown_result != GNEISS_SUCCESS) {
+      std::array<char, 768> message{};
+      const auto written =
+          stats.total_live_count == 0U
+              ? std::snprintf(message.data(), message.size(),
+                              "Granit GPU 逻辑资源退出检查失败，无法取得资源统计")
+              : std::snprintf(
+                    message.data(), message.size(),
+                    "Granit 关闭前仍有 GPU 逻辑资源：总数=%llu，Buffer=%llu，Texture=%llu，"
+                    "TextureView=%llu，Sampler=%llu，Shader=%llu，BindGroupLayout=%llu，"
+                    "BindGroup=%llu，PipelineLayout=%llu，GraphicsPipeline=%llu，"
+                    "ComputePipeline=%llu，Surface=%llu，Swapchain=%llu，CommandRecorder=%llu，"
+                    "FrameContext=%llu，Frame=%llu，TimestampQueryPool=%llu，UploadBatch=%llu；"
+                    "后端待回收=%llu",
+                    static_cast<unsigned long long>(stats.total_live_count),
+                    static_cast<unsigned long long>(stats.buffer_count),
+                    static_cast<unsigned long long>(stats.texture_count),
+                    static_cast<unsigned long long>(stats.texture_view_count),
+                    static_cast<unsigned long long>(stats.sampler_count),
+                    static_cast<unsigned long long>(stats.shader_count),
+                    static_cast<unsigned long long>(stats.bind_group_layout_count),
+                    static_cast<unsigned long long>(stats.bind_group_count),
+                    static_cast<unsigned long long>(stats.pipeline_layout_count),
+                    static_cast<unsigned long long>(stats.graphics_pipeline_count),
+                    static_cast<unsigned long long>(stats.compute_pipeline_count),
+                    static_cast<unsigned long long>(stats.surface_count),
+                    static_cast<unsigned long long>(stats.swapchain_count),
+                    static_cast<unsigned long long>(stats.command_recorder_count),
+                    static_cast<unsigned long long>(stats.frame_context_count),
+                    static_cast<unsigned long long>(stats.frame_count),
+                    static_cast<unsigned long long>(stats.timestamp_query_pool_count),
+                    static_cast<unsigned long long>(stats.upload_batch_count),
+                    static_cast<unsigned long long>(stats.pending_retirement_count));
+      const auto length = written > 0 ? std::min<std::size_t>(static_cast<std::size_t>(written),
+                                                              message.size() - 1U)
+                                      : 0U;
+      report(handle, GNEISS_DIAGNOSTIC_ERROR, GNEISS_DIAGNOSTIC_CATEGORY_BACKEND, shutdown_result,
+             "granit.render.resources", std::string_view(message.data(), length));
+    }
+  }
   granit_render_service_.reset();
   granit_platform_.reset();
+#else
+  (void)handle;
 #endif
+  return shutdown_result;
 }
 
 } // namespace gneiss::application_internal

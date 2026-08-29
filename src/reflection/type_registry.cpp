@@ -301,6 +301,7 @@ public:
         type->field_infos.reserve(type->fields.size());
         for (auto& field : type->fields) {
           field.info = {
+              .struct_size = sizeof(gneiss_field_info),
               .id = field.id,
               .value_type_id = field.value_type_id,
               .flags = field.flags,
@@ -312,7 +313,8 @@ public:
                   (field.accessor.setter != nullptr ? GNEISS_PROPERTY_CAPABILITY_WRITABLE : 0U)};
           type->field_infos.push_back(field.info);
         }
-        type->info = {.id = type->id,
+        type->info = {.struct_size = sizeof(gneiss_type_info),
+                      .id = type->id,
                       .schema_version = type->schema_version,
                       .name = type->name.data(),
                       .name_length = static_cast<std::uint32_t>(type->name.size()),
@@ -590,10 +592,10 @@ extern "C" gneiss_result gneiss_type_registry_type_count(gneiss_type_registry re
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters)
 extern "C" gneiss_result gneiss_type_registry_type_at(gneiss_type_registry registry, uint32_t index,
                                                       gneiss_type_info* out_type) {
-  if (out_type == nullptr) {
+  if (out_type == nullptr || out_type->struct_size < GNEISS_TYPE_INFO_VERSION_1_SIZE) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
-  *out_type = {};
+  *out_type = GNEISS_TYPE_INFO_INIT;
   const auto state = get_registry(registry);
   return state == nullptr ? GNEISS_ERROR_INVALID_HANDLE : state->type_at(index, *out_type);
 }
@@ -601,10 +603,11 @@ extern "C" gneiss_result gneiss_type_registry_type_at(gneiss_type_registry regis
 extern "C" gneiss_result gneiss_type_registry_find_type(gneiss_type_registry registry,
                                                         gneiss_type_id id,
                                                         gneiss_type_info* out_type) {
-  if (out_type == nullptr || !is_valid_id(id)) {
+  if (out_type == nullptr || out_type->struct_size < GNEISS_TYPE_INFO_VERSION_1_SIZE ||
+      !is_valid_id(id)) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
-  *out_type = {};
+  *out_type = GNEISS_TYPE_INFO_INIT;
   const auto state = get_registry(registry);
   return state == nullptr ? GNEISS_ERROR_INVALID_HANDLE : state->find_type(id, *out_type);
 }
@@ -613,10 +616,11 @@ extern "C" gneiss_result gneiss_type_registry_find_field(gneiss_type_registry re
                                                          gneiss_type_id type_id,
                                                          gneiss_field_id field_id,
                                                          gneiss_field_info* out_field) {
-  if (out_field == nullptr || !is_valid_id(type_id) || field_id == GNEISS_NULL_FIELD_ID) {
+  if (out_field == nullptr || out_field->struct_size < GNEISS_FIELD_INFO_VERSION_1_SIZE ||
+      !is_valid_id(type_id) || field_id == GNEISS_NULL_FIELD_ID) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
-  *out_field = {};
+  *out_field = GNEISS_FIELD_INFO_INIT;
   const auto state = get_registry(registry);
   return state == nullptr ? GNEISS_ERROR_INVALID_HANDLE
                           : state->find_field(type_id, field_id, *out_field);

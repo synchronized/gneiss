@@ -15,6 +15,7 @@
 #include <memory>
 #include <mutex>
 #include <new>
+#include <string>
 #include <string_view>
 
 namespace {
@@ -47,6 +48,25 @@ gneiss_result validate_application(const application_resource& application) noex
   return application->is_owner_thread() ? GNEISS_SUCCESS : GNEISS_ERROR_INVALID_STATE;
 }
 
+void report_create_failure(const gneiss_application_desc& desc, gneiss_result result,
+                           std::string_view module, std::string_view message) noexcept {
+  if (desc.diagnostic == nullptr) {
+    return;
+  }
+  const gneiss_diagnostic diagnostic = {
+      .struct_size = sizeof(gneiss_diagnostic),
+      .severity = GNEISS_DIAGNOSTIC_ERROR,
+      .category = GNEISS_DIAGNOSTIC_CATEGORY_APPLICATION,
+      .result = result,
+      .module = module.data(),
+      .module_length = module.size(),
+      .message = message.data(),
+      .message_length = message.size(),
+      .reserved = {},
+  };
+  desc.diagnostic(GNEISS_NULL_APPLICATION, &diagnostic, desc.user_data);
+}
+
 } // namespace
 
 extern "C" gneiss_result gneiss_application_create(const gneiss_application_desc* desc,
@@ -72,6 +92,8 @@ extern "C" gneiss_result gneiss_application_create(const gneiss_application_desc
        (normalized_desc.window_width == 0U || normalized_desc.window_height == 0U ||
         normalized_desc.initialize != nullptr || normalized_desc.poll_events != nullptr ||
         normalized_desc.shutdown != nullptr))) {
+    report_create_failure(normalized_desc, GNEISS_ERROR_INVALID_ARGUMENT,
+                          "application.configuration", "Application 创建参数无效");
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
 
@@ -99,9 +121,12 @@ extern "C" gneiss_result gneiss_application_destroy(gneiss_application applicati
     if (validation_result != GNEISS_SUCCESS) {
       return validation_result;
     }
+    const auto shutdown_result = state->shutdown(application);
     auto& registry = get_application_registry();
     const std::scoped_lock lock{registry.mutex};
-    return registry.applications.destroy(application, gneiss::core::resource_type::application);
+    const auto destroy_result =
+        registry.applications.destroy(application, gneiss::core::resource_type::application);
+    return shutdown_result == GNEISS_SUCCESS ? destroy_result : shutdown_result;
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;
   }
@@ -323,8 +348,15 @@ extern "C" gneiss_result gneiss_scene_instance_load(gneiss_application applicati
     if (validation_result != GNEISS_SUCCESS) {
       return validation_result;
     }
-    return state->scenes()->load(std::string_view(uri, static_cast<std::size_t>(uri_length)),
-                                 out_instance);
+    const auto uri_view = std::string_view(uri, static_cast<std::size_t>(uri_length));
+    const auto result = state->scenes()->load(uri_view, out_instance);
+    if (result != GNEISS_SUCCESS) {
+      auto message = std::string{"场景加载失败："};
+      message.append(uri_view);
+      state->report(application, GNEISS_DIAGNOSTIC_ERROR, GNEISS_DIAGNOSTIC_CATEGORY_ASSET, result,
+                    "scene.load", message);
+    }
+    return result;
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;
   }

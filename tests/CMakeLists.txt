@@ -15,6 +15,37 @@ gneiss_target_compile_warnings(gneiss_c_version_test)
 gneiss_target_output_directories(gneiss_c_version_test)
 add_test(NAME gneiss.c_version COMMAND gneiss_c_version_test)
 
+add_test(
+  NAME gneiss.api_stability_manifest
+  COMMAND
+    "${CMAKE_COMMAND}"
+    "-DGNEISS_ABI_BASELINE=${PROJECT_SOURCE_DIR}/abi/baseline/gneiss-1.0.0-c.txt"
+    "-DGNEISS_API_STABILITY_MANIFEST=${PROJECT_SOURCE_DIR}/abi/api-stability.txt"
+    -P "${PROJECT_SOURCE_DIR}/cmake/check_api_stability.cmake"
+)
+
+add_executable(gneiss_1_0_abi_consumer compat/1_0/consumer.c)
+target_include_directories(gneiss_1_0_abi_consumer PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/compat/1_0")
+target_link_libraries(gneiss_1_0_abi_consumer PRIVATE gneiss::gneiss)
+set_target_properties(
+  gneiss_1_0_abi_consumer
+  PROPERTIES C_STANDARD 11 C_STANDARD_REQUIRED YES C_EXTENSIONS NO LINKER_LANGUAGE CXX
+)
+gneiss_target_compile_warnings(gneiss_1_0_abi_consumer)
+gneiss_target_output_directories(gneiss_1_0_abi_consumer)
+add_test(NAME gneiss.1_0_abi_consumer COMMAND gneiss_1_0_abi_consumer)
+
+add_executable(gneiss_0_9_abi_consumer compat/0_9/consumer.c)
+target_include_directories(gneiss_0_9_abi_consumer PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/compat/0_9")
+target_link_libraries(gneiss_0_9_abi_consumer PRIVATE gneiss::gneiss)
+set_target_properties(
+  gneiss_0_9_abi_consumer
+  PROPERTIES C_STANDARD 11 C_STANDARD_REQUIRED YES C_EXTENSIONS NO LINKER_LANGUAGE CXX
+)
+gneiss_target_compile_warnings(gneiss_0_9_abi_consumer)
+gneiss_target_output_directories(gneiss_0_9_abi_consumer)
+add_test(NAME gneiss.0_9_abi_consumer COMMAND gneiss_0_9_abi_consumer)
+
 add_executable(gneiss_cpp_version_test cpp_version_test.cpp)
 target_link_libraries(gneiss_cpp_version_test PRIVATE gneiss::gneiss)
 target_compile_features(gneiss_cpp_version_test PRIVATE cxx_std_20)
@@ -477,4 +508,23 @@ if(PROJECT_IS_TOP_LEVEL AND NOT GNEISS_ENABLE_GRANIT_PLATFORM)
       "-DGNEISS_CXX_COMPILER=${CMAKE_CXX_COMPILER}"
       -P "${PROJECT_SOURCE_DIR}/cmake/check_installed_package.cmake"
   )
+endif()
+
+if(PROJECT_IS_TOP_LEVEL AND GNEISS_ENABLE_GRANIT_PLATFORM)
+  add_test(
+    NAME gneiss.installed_stable_runtime_consumer
+    COMMAND
+      "${CMAKE_COMMAND}"
+      "-DGNEISS_BUILD_DIR=${PROJECT_BINARY_DIR}"
+      "-DGNEISS_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
+      "-DGNEISS_GENERATOR=${CMAKE_GENERATOR}"
+      "-DGNEISS_GENERATOR_PLATFORM=${CMAKE_GENERATOR_PLATFORM}"
+      "-DGNEISS_CONFIG=$<CONFIG>"
+      "-DGNEISS_BUILD_TYPE=${CMAKE_BUILD_TYPE}"
+      "-DGNEISS_CXX_COMPILER=${CMAKE_CXX_COMPILER}"
+      "-DGNEISS_DEPENDENCY_PREFIX_PATH=${CMAKE_PREFIX_PATH}"
+      "-DGNEISS_GRANIT_BUILD_DIR=${GNEISS_GRANIT_FETCHED_BUILD_DIR}"
+      -P "${PROJECT_SOURCE_DIR}/cmake/check_installed_stable_runtime.cmake"
+  )
+  set_tests_properties(gneiss.installed_stable_runtime_consumer PROPERTIES TIMEOUT 120)
 endif()

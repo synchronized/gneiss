@@ -18,7 +18,7 @@ set(
 )
 set(
   GNEISS_GRANIT_GIT_TAG
-  "d5aa1cceef0741c17ff58eac5f14f731a3991bcb"
+  "a126b5f719ef48215e02a190bb1b4c5b3e5708e8"
   CACHE STRING
   "FETCH 模式锁定的 Granit Git tag 或完整提交"
 )
@@ -98,6 +98,14 @@ function(gneiss_resolve_granit_runtime)
       "Gneiss fetches Granit from ${GNEISS_GRANIT_GIT_REPOSITORY} at ${GNEISS_GRANIT_GIT_TAG}"
   )
   gneiss_fetch_granit()
+  FetchContent_GetProperties(gneiss_granit)
+  set(
+    GNEISS_GRANIT_FETCHED_BUILD_DIR
+    "${gneiss_granit_BINARY_DIR}"
+    CACHE INTERNAL
+    "Gneiss FETCH 模式使用的 Granit 构建目录"
+    FORCE
+  )
   if(NOT TARGET granit::granit OR NOT TARGET granit::window OR NOT TARGET granit::input OR
      NOT TARGET granit::render_pipeline)
     message(FATAL_ERROR "下载的 Granit 未提供 runtime、Window、Input 和 RenderPipeline 目标")

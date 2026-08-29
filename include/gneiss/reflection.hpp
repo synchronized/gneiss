@@ -53,10 +53,12 @@ public:
     return from_native(gneiss_type_registry_type_count(handle_, &output));
   }
   [[nodiscard]] result find_type(gneiss_type_id id, gneiss_type_info& output) const noexcept {
+    output = GNEISS_TYPE_INFO_INIT;
     return from_native(gneiss_type_registry_find_type(handle_, id, &output));
   }
   [[nodiscard]] result find_field(gneiss_type_id type_id, gneiss_field_id field_id,
                                   gneiss_field_info& output) const noexcept {
+    output = GNEISS_FIELD_INFO_INIT;
     return from_native(gneiss_type_registry_find_field(handle_, type_id, field_id, &output));
   }
   [[nodiscard]] result get_property(gneiss_type_id type_id, gneiss_field_id field_id,

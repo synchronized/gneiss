@@ -5,8 +5,8 @@
 #define GNEISS_RENDER_GRANIT_GRANIT_RENDER_SERVICE_H_
 
 #include "platform/granit/granit_platform.h"
-#include "render/granit/object_uniform.h"
 #include "render/debug_draw_list.h"
+#include "render/granit/object_uniform.h"
 #include "render/render_resource_service.h"
 #include "render/ui_draw_list.h"
 #include "world/render_snapshot.h"
@@ -27,6 +27,7 @@ namespace gneiss::application_internal {
 class granit_render_service final {
 public:
   [[nodiscard]] gneiss_result initialize(const native_window_info& window) noexcept;
+  [[nodiscard]] gneiss_result shutdown(granit::renderer_resource_stats& stats) noexcept;
   [[nodiscard]] gneiss_result render(native_window_info& window,
                                      const world_internal::render_snapshot& snapshot,
                                      const render_internal::render_resource_service& resources,

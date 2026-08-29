@@ -28,3 +28,4 @@ Reference 和实现为准。
 - [ADR-020：Editor 场景创作与 Runtime 投影边界](ADR-020-scene-authoring-boundary.md)
 - [ADR-021：Transform Gizmo 与显式 TRS 边界](ADR-021-transform-gizmo-boundary.md)
 - [ADR-022：逐帧 Debug Draw 边界](ADR-022-debug-draw-boundary.md)
+- [ADR-023：公共 API 稳定级别与 1.x 兼容边界](ADR-023-public-api-stability.md)
