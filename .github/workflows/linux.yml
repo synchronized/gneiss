@@ -178,6 +178,16 @@ jobs:
             cat "$RUNNER_TEMP/gneiss-weston.log"
             exit 1
           }
+          set +e
+          device_failure_output=$(
+            VK_ICD_FILENAMES="$RUNNER_TEMP/missing-vulkan-icd.json" \
+              "$PWD/build/linux-gcc-debug/bin/gneiss_stable_runtime_example" --smoke 2>&1
+          )
+          device_failure_status=$?
+          set -e
+          printf '%s\n' "$device_failure_output"
+          [[ "$device_failure_status" -ne 0 ]]
+          grep -F '阶段=创建 Application，结果=-5' <<<"$device_failure_output"
           ctest --preset linux-gcc-debug \
             -R '^gneiss\.(c_application|scene_instance)$'
           ASAN_OPTIONS=detect_leaks=0:halt_on_error=1:strict_string_checks=1 \

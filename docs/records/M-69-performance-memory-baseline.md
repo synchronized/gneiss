@@ -67,3 +67,17 @@ Application 与场景故障测试继续启用严格 LSan，图形样例运行 AS
 最终 [Linux 手动矩阵](https://github.com/synchronized/gneiss/actions/runs/33221772866) 已通过：Clang/GCC
 Shared/Static、Granit Shared/Static 共 6 项通过，GCC Sanitizer 任务中的 Application、场景故障和
 稳定运行时图形检查也全部通过。
+
+## 故障诊断矩阵
+
+| 故障 | 结果与诊断 | 恢复检查 |
+| --- | --- | --- |
+| Application 参数无效 | `invalid argument`；`application/application.configuration` | 随后可正常创建 Application |
+| 资产根不存在 | `not found`；`asset/asset` | 输出句柄为空，随后可挂载有效资产根 |
+| 场景文件缺失 | `not found`；`asset/scene.load`，消息包含 URI | 实体数保持为零 |
+| 场景 JSON 损坏 | `invalid argument`；`asset/scene.load`，消息包含 URI | 随后可创建并卸载空场景 |
+| 构建未启用 Granit | `unsupported`；`backend/granit.platform` | 输出句柄为空 |
+| Vulkan ICD 不存在 | 稳定样例报告“创建 Application”，结果 `unsupported` | 仅影响注入环境变量的进程 |
+
+前三类创建故障在 Application 句柄尚未产生时使用空句柄回调；场景失败保持输出 Scene Instance 为空。
+Linux Sanitizer 任务通过不存在的 `VK_ICD_FILENAMES` 自动验证设备初始化失败日志。
