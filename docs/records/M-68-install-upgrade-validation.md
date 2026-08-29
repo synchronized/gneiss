@@ -32,4 +32,4 @@ Granit 的 `PACKAGE` 与 `FETCH` 来源路径、0.9.0 Application v1 冻结布�
 
 Windows 托管 Runner 没有 Vulkan ICD，因此不在该环境启动真实图形窗口；这不降低构建、链接和安装
 消费检查，图形 smoke 由 Linux Granit Shared/Static 任务负责。M-69 将继续建立性能、内存与故障
-诊断基线，M-70 再对冻结的 1.0.0 发布候选执行发布包验收。
+诊断基线；路线图随后将 M-70 调整为 0.10.0 稳定性预览发布包验收，正式 1.0.0 承诺留待后续版本。
