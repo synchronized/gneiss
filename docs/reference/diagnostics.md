@@ -10,6 +10,9 @@
 Application 创建阶段失败时也会调用回调，此时 `application` 参数为
 `GNEISS_NULL_APPLICATION`，调用方不得用它执行查询。诊断会区分资产根挂载、初始化回调、Granit
 平台、渲染服务、World 和 Scene Instance Service；返回结果码仍是程序控制的唯一依据。
+描述结构能够安全读取回调时，无效创建参数使用 `application` 类别和
+`application.configuration` 模块；结构本身过短、为空或输出指针为空时不能安全取得回调，只返回
+`GNEISS_ERROR_INVALID_ARGUMENT`。
 
 回调可以执行只读查询，但不得重入运行、加载、销毁等修改操作，也不得让异常越过 C ABI。没有
 回调或直接丢弃消息不会改变原操作的结果码。当前不保存历史记录。

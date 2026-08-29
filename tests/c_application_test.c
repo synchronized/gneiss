@@ -177,6 +177,37 @@ int main(void) {
   context.diagnostic_count = 0U;
   context.diagnostic_result = GNEISS_SUCCESS;
   context.diagnostic_category = 0U;
+  context.fail_initialize = 0U;
+
+  desc = (gneiss_application_desc)GNEISS_APPLICATION_DESC_INIT;
+  desc.user_data = &context;
+  desc.diagnostic = diagnostic;
+  desc.platform = GNEISS_APPLICATION_PLATFORM_GRANIT;
+  desc.window_width = 0U;
+  if (gneiss_application_create(&desc, &application) != GNEISS_ERROR_INVALID_ARGUMENT ||
+      application != GNEISS_NULL_APPLICATION || context.diagnostic_count != 1U ||
+      context.diagnostic_result != GNEISS_ERROR_INVALID_ARGUMENT ||
+      context.diagnostic_category != GNEISS_DIAGNOSTIC_CATEGORY_APPLICATION) {
+    return 8;
+  }
+  context.diagnostic_count = 0U;
+  context.diagnostic_result = GNEISS_SUCCESS;
+  context.diagnostic_category = 0U;
+
+  desc = (gneiss_application_desc)GNEISS_APPLICATION_DESC_INIT;
+  desc.user_data = &context;
+  desc.diagnostic = diagnostic;
+  desc.asset_root = "gneiss-test-directory-does-not-exist";
+  desc.asset_root_length = UINT32_C(36);
+  if (gneiss_application_create(&desc, &application) != GNEISS_ERROR_NOT_FOUND ||
+      application != GNEISS_NULL_APPLICATION || context.diagnostic_count != 1U ||
+      context.diagnostic_result != GNEISS_ERROR_NOT_FOUND ||
+      context.diagnostic_category != GNEISS_DIAGNOSTIC_CATEGORY_ASSET) {
+    return 9;
+  }
+  context.diagnostic_count = 0U;
+  context.diagnostic_result = GNEISS_SUCCESS;
+  context.diagnostic_category = 0U;
 #ifdef GNEISS_TEST_NO_GRANIT_PLATFORM
   desc = (gneiss_application_desc)GNEISS_APPLICATION_DESC_INIT;
   desc.user_data = &context;
