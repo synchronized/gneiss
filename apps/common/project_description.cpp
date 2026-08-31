@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "editor_project.h"
+#include <gneiss/app/project_description.h>
 
 #include <gneiss/asset.h>
 
@@ -14,7 +14,7 @@
 #include <string_view>
 #include <system_error>
 
-namespace gneiss::editor {
+namespace gneiss::app {
 namespace {
 
 constexpr std::string_view project_filename = "gneiss.project.json";
@@ -77,55 +77,90 @@ using document_ptr = std::unique_ptr<yyjson_doc, document_deleter>;
   return true;
 }
 
+[[nodiscard]] result fail(project_load_report& report, project_load_stage stage, result operation,
+                          const std::filesystem::path& context) noexcept {
+  report.operation = operation;
+  report.stage = stage;
+  try {
+    report.context = context;
+  } catch (...) {
+    report.context.clear();
+  }
+  return operation;
+}
+
 } // namespace
 
-result load_editor_project(const std::filesystem::path& project_root,
-                           editor_project& output) noexcept {
+std::string_view project_load_stage_name(project_load_stage stage) noexcept {
+  switch (stage) {
+  case project_load_stage::none:
+    return "none";
+  case project_load_stage::argument:
+    return "argument";
+  case project_load_stage::project_root:
+    return "project_root";
+  case project_load_stage::project_file:
+    return "project_file";
+  case project_load_stage::document:
+    return "document";
+  case project_load_stage::schema:
+    return "schema";
+  case project_load_stage::asset_root:
+    return "asset_root";
+  case project_load_stage::startup_scene:
+    return "startup_scene";
+  }
+  return "unknown";
+}
+
+result load_project_description(const std::filesystem::path& project_root,
+                                project_description& output, project_load_report& report) noexcept {
+  report = {};
   if (project_root.empty()) {
-    return result::invalid_argument;
+    return fail(report, project_load_stage::argument, result::invalid_argument, project_root);
   }
   try {
     std::error_code error;
     if (!std::filesystem::exists(project_root, error) || error) {
-      return result::not_found;
+      return fail(report, project_load_stage::project_root, result::not_found, project_root);
     }
     if (!std::filesystem::is_directory(project_root, error) || error) {
-      return result::invalid_argument;
+      return fail(report, project_load_stage::project_root, result::invalid_argument, project_root);
     }
     const auto canonical_root = std::filesystem::canonical(project_root, error);
     if (error) {
-      return result::not_found;
+      return fail(report, project_load_stage::project_root, result::not_found, project_root);
     }
     const auto project_file = canonical_root / project_filename;
     if (!std::filesystem::is_regular_file(project_file, error) || error) {
-      return result::not_found;
+      return fail(report, project_load_stage::project_file, result::not_found, project_file);
     }
 
     std::ifstream stream(project_file, std::ios::binary);
     if (!stream) {
-      return result::io;
+      return fail(report, project_load_stage::project_file, result::io, project_file);
     }
     const std::string json{std::istreambuf_iterator<char>(stream),
                            std::istreambuf_iterator<char>()};
     if (stream.bad() || json.empty()) {
-      return result::io;
+      return fail(report, project_load_stage::document, result::io, project_file);
     }
     document_ptr document{yyjson_read(json.data(), json.size(), YYJSON_READ_NOFLAG)};
     auto* root = document ? yyjson_doc_get_root(document.get()) : nullptr;
     if (!yyjson_is_obj(root)) {
-      return result::invalid_argument;
+      return fail(report, project_load_stage::document, result::invalid_argument, project_file);
     }
     auto* format = yyjson_obj_get(root, "format");
     auto* version = yyjson_obj_get(root, "version");
     if (!yyjson_is_str(format) ||
         std::string_view(yyjson_get_str(format), yyjson_get_len(format)) != "gneiss.project" ||
         !yyjson_is_uint(version)) {
-      return result::invalid_argument;
+      return fail(report, project_load_stage::schema, result::invalid_argument, project_file);
     }
     if (yyjson_get_uint(version) != 1U) {
-      return result::unsupported;
+      return fail(report, project_load_stage::schema, result::unsupported, project_file);
     }
-    editor_project pending;
+    project_description pending;
     std::string asset_root_text;
     if (!read_string(root, "name", pending.name) ||
         !read_string(root, "asset_root", asset_root_text) ||
@@ -133,7 +168,7 @@ result load_editor_project(const std::filesystem::path& project_root,
         !valid_relative_directory(asset_root_text) ||
         gneiss_asset_uri_validate(pending.startup_scene.data(), pending.startup_scene.size()) !=
             GNEISS_SUCCESS) {
-      return result::invalid_argument;
+      return fail(report, project_load_stage::schema, result::invalid_argument, project_file);
     }
 
     pending.project_file = project_file;
@@ -142,7 +177,8 @@ result load_editor_project(const std::filesystem::path& project_root,
         std::filesystem::weakly_canonical(pending.project_root / utf8_path(asset_root_text), error);
     if (error || !is_within(pending.project_root, pending.asset_root) ||
         !std::filesystem::is_directory(pending.asset_root, error) || error) {
-      return result::not_found;
+      return fail(report, project_load_stage::asset_root, result::not_found,
+                  pending.project_root / utf8_path(asset_root_text));
     }
     constexpr std::string_view scheme = "asset://";
     const auto scene_path = std::filesystem::weakly_canonical(
@@ -151,15 +187,16 @@ result load_editor_project(const std::filesystem::path& project_root,
         error);
     if (error || !is_within(pending.asset_root, scene_path) ||
         !std::filesystem::is_regular_file(scene_path, error) || error) {
-      return result::not_found;
+      return fail(report, project_load_stage::startup_scene, result::not_found, scene_path);
     }
     output = std::move(pending);
+    report = {};
     return result::success;
   } catch (const std::bad_alloc&) {
-    return result::out_of_memory;
+    return fail(report, project_load_stage::none, result::out_of_memory, project_root);
   } catch (...) {
-    return result::io;
+    return fail(report, project_load_stage::none, result::io, project_root);
   }
 }
 
-} // namespace gneiss::editor
+} // namespace gneiss::app

@@ -4,24 +4,17 @@
 #ifndef GNEISS_APPS_EDITOR_EDITOR_PROJECT_H_
 #define GNEISS_APPS_EDITOR_EDITOR_PROJECT_H_
 
-#include <gneiss/core/result.hpp>
-
-#include <filesystem>
-#include <string>
+#include <gneiss/app/project_description.h>
 
 namespace gneiss::editor {
 
-struct editor_project final {
-  std::filesystem::path project_file;
-  std::filesystem::path project_root;
-  std::filesystem::path asset_root;
-  std::string name;
-  std::string startup_scene;
-};
+using editor_project = app::project_description;
 
 /** 从工程根目录中加载并校验固定名称的 gneiss.project.json。 */
-[[nodiscard]] result load_editor_project(const std::filesystem::path& project_root,
-                                         editor_project& output) noexcept;
+[[nodiscard]] inline result load_editor_project(const std::filesystem::path& project_root,
+                                                editor_project& output) noexcept {
+  return app::load_project_description(project_root, output);
+}
 
 } // namespace gneiss::editor
 

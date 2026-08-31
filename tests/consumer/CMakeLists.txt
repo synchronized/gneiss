@@ -9,14 +9,14 @@ include(CTest)
 find_package(gneiss CONFIG REQUIRED)
 
 add_executable(gneiss_c_consumer c_consumer.c)
-target_link_libraries(gneiss_c_consumer PRIVATE gneiss::gneiss)
+target_link_libraries(gneiss_c_consumer PRIVATE gneiss::engine)
 set_target_properties(
   gneiss_c_consumer
   PROPERTIES C_STANDARD 11 C_STANDARD_REQUIRED YES C_EXTENSIONS NO LINKER_LANGUAGE CXX
 )
 
 add_executable(gneiss_cpp_consumer cpp_consumer.cpp)
-target_link_libraries(gneiss_cpp_consumer PRIVATE gneiss::gneiss)
+target_link_libraries(gneiss_cpp_consumer PRIVATE gneiss::engine)
 target_compile_features(gneiss_cpp_consumer PRIVATE cxx_std_20)
 target_compile_definitions(
   gneiss_cpp_consumer
@@ -27,7 +27,7 @@ add_executable(
   gneiss_property_inspector_consumer
   "${CMAKE_CURRENT_LIST_DIR}/../../examples/property_inspector/main.cpp"
 )
-target_link_libraries(gneiss_property_inspector_consumer PRIVATE gneiss::gneiss)
+target_link_libraries(gneiss_property_inspector_consumer PRIVATE gneiss::engine)
 target_compile_features(gneiss_property_inspector_consumer PRIVATE cxx_std_20)
 target_compile_definitions(
   gneiss_property_inspector_consumer

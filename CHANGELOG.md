@@ -7,7 +7,23 @@
 
 ## 未发布
 
-当前没有已记录的未发布变更。
+- 将工程描述解析从 Editor 提取为无 UI 的内部应用宿主模块，并增加失败阶段、结果码与路径报告，
+  为独立 Runtime 宿主复用工程运行契约。
+- 增加实验性 `gneiss_runtime` 工程运行入口、三帧 smoke 模式、结构化控制台日志、可覆盖路径的
+  1 MiB 单备份轮转文件日志，以及包含 Engine 与 Granit 动态库的安装规则。
+- Editor 增加 Runtime 运行准备策略；脏场景必须显式保存，启动请求只携带工程根，不共享作者
+  World、Scene Instance、撤销栈或资源句柄。
+- Runtime 增加实验性的停止信号文件协议，收到 Editor 请求后通过 Application 正常退出。
+- Windows Editor 增加 Run/Stop、保存并运行确认、重复启动保护及捕获 Runtime 标准输出/错误的
+  Runtime Output 窗口。
+- 抽取内部 `child_process` 跨平台子进程层，由 Windows 与 POSIX 后端统一提供参数传递、输出捕获、
+  退出状态和强制终止；Editor 的 Runtime 层仅保留工程启动与正常停止协议。
+- 补齐 Runtime 启动失败、非零退出、重复运行、停止超时和再次运行验收；Editor 显示并保留每次
+  Runtime 会话日志路径。
+- Editor Demo 作为完整工程安装，并增加构建树 Lantern Gallery 与隔离安装树 Editor Demo 的
+  `gneiss_runtime` Smoke 验收。
+- 将完整运行库及 CMake target 更名为 `gneiss_engine`、`gneiss::engine`，工程运行宿主统一命名为
+  `gneiss_runtime`。
 
 ## 0.10.0 - 2026-08-29
 

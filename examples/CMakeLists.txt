@@ -2,12 +2,17 @@
 # Copyright (c) 2026 Gneiss contributors
 
 add_executable(gneiss_version_example version.cpp)
-target_link_libraries(gneiss_version_example PRIVATE gneiss::gneiss)
+target_link_libraries(gneiss_version_example PRIVATE gneiss::engine)
 gneiss_target_compile_warnings(gneiss_version_example)
 gneiss_target_output_directories(gneiss_version_example)
 
+install(
+  DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/editor_demo/"
+  DESTINATION "${CMAKE_INSTALL_DATADIR}/gneiss/projects/editor-demo"
+)
+
 add_executable(gneiss_property_inspector_example property_inspector/main.cpp)
-target_link_libraries(gneiss_property_inspector_example PRIVATE gneiss::gneiss)
+target_link_libraries(gneiss_property_inspector_example PRIVATE gneiss::engine)
 target_compile_definitions(
   gneiss_property_inspector_example
   PRIVATE
@@ -26,7 +31,7 @@ endif()
 
 if(GNEISS_ENABLE_GRANIT_PLATFORM)
   add_executable(gneiss_stable_runtime_example stable_runtime/main.cpp)
-  target_link_libraries(gneiss_stable_runtime_example PRIVATE gneiss::gneiss)
+  target_link_libraries(gneiss_stable_runtime_example PRIVATE gneiss::engine)
   target_compile_definitions(
     gneiss_stable_runtime_example
     PRIVATE GNEISS_STABLE_RUNTIME_ASSET_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/temple/assets"
@@ -43,7 +48,7 @@ if(GNEISS_ENABLE_GRANIT_PLATFORM)
   endif()
 
   add_executable(gneiss_temple_example temple/main.cpp)
-  target_link_libraries(gneiss_temple_example PRIVATE gneiss::gneiss)
+  target_link_libraries(gneiss_temple_example PRIVATE gneiss::engine)
   target_compile_definitions(
     gneiss_temple_example
     PRIVATE GNEISS_TEMPLE_SOURCE_ASSET_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/temple/assets"
@@ -95,7 +100,7 @@ if(GNEISS_ENABLE_GRANIT_PLATFORM AND TARGET gneiss_assetc)
   add_custom_target(gneiss_lantern_gallery_assets ALL DEPENDS "${lantern_gallery_stamp}")
   add_executable(gneiss_lantern_gallery_example lantern_gallery/main.cpp)
   add_dependencies(gneiss_lantern_gallery_example gneiss_lantern_gallery_assets)
-  target_link_libraries(gneiss_lantern_gallery_example PRIVATE gneiss::gneiss)
+  target_link_libraries(gneiss_lantern_gallery_example PRIVATE gneiss::engine)
   target_compile_definitions(
     gneiss_lantern_gallery_example
     PRIVATE GNEISS_LANTERN_GALLERY_ASSET_ROOT="${lantern_gallery_asset_root}"
@@ -116,6 +121,13 @@ if(GNEISS_ENABLE_GRANIT_PLATFORM AND TARGET gneiss_assetc)
   )
   if(BUILD_TESTING)
     add_test(NAME gneiss.lantern_gallery_example COMMAND gneiss_lantern_gallery_example --smoke)
+    if(TARGET gneiss_runtime)
+      add_test(
+        NAME gneiss.runtime.lantern-gallery
+        COMMAND gneiss_runtime --smoke --project "${lantern_gallery_project_root}"
+      )
+      set_tests_properties(gneiss.runtime.lantern-gallery PROPERTIES TIMEOUT 30)
+    endif()
     if(TARGET gneiss_editor)
       add_test(
         NAME gneiss.editor.lantern-gallery-project

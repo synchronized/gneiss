@@ -12,8 +12,11 @@ set(stable_runtime_asset_root "${CMAKE_CURRENT_BINARY_DIR}/assets")
 file(COPY "${CMAKE_CURRENT_LIST_DIR}/../temple/assets/" DESTINATION "${stable_runtime_asset_root}")
 
 add_executable(gneiss_stable_runtime_consumer main.cpp)
-target_link_libraries(gneiss_stable_runtime_consumer PRIVATE gneiss::gneiss)
+target_link_libraries(gneiss_stable_runtime_consumer PRIVATE gneiss::engine)
 target_compile_features(gneiss_stable_runtime_consumer PRIVATE cxx_std_20)
+if(MSVC)
+  target_compile_options(gneiss_stable_runtime_consumer PRIVATE /utf-8)
+endif()
 target_compile_definitions(
   gneiss_stable_runtime_consumer
   PRIVATE GNEISS_STABLE_RUNTIME_ASSET_ROOT="${stable_runtime_asset_root}"

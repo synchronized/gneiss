@@ -5,7 +5,7 @@ cmake_minimum_required(VERSION 3.23)
 
 project(
   gneiss
-  VERSION 0.10.0
+  VERSION 0.11.0
   DESCRIPTION "基于 Granit 构建的现代 C++20 游戏引擎"
   LANGUAGES C CXX
 )
@@ -15,10 +15,14 @@ option(GNEISS_BUILD_TESTING "构建 Gneiss 测试" ON)
 option(GNEISS_BUILD_EXAMPLES "构建 Gneiss 示例" ${PROJECT_IS_TOP_LEVEL})
 option(GNEISS_BUILD_TOOLS "构建 Gneiss 离线工具" ${PROJECT_IS_TOP_LEVEL})
 option(GNEISS_BUILD_EDITOR "构建 Gneiss Editor" OFF)
+option(GNEISS_BUILD_RUNTIME "构建 Gneiss Runtime 宿主" OFF)
 option(GNEISS_ENABLE_GRANIT_PLATFORM "启用 Granit Window 平台适配" OFF)
 
 if(GNEISS_BUILD_EDITOR AND NOT GNEISS_ENABLE_GRANIT_PLATFORM)
   message(FATAL_ERROR "GNEISS_BUILD_EDITOR=ON 需要 GNEISS_ENABLE_GRANIT_PLATFORM=ON")
+endif()
+if(GNEISS_BUILD_RUNTIME AND NOT GNEISS_ENABLE_GRANIT_PLATFORM)
+  message(FATAL_ERROR "GNEISS_BUILD_RUNTIME=ON 需要 GNEISS_ENABLE_GRANIT_PLATFORM=ON")
 endif()
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
@@ -35,6 +39,12 @@ if(GNEISS_BUILD_TOOLS)
   include(fastgltf)
   gneiss_resolve_fastgltf()
   add_subdirectory(tools)
+endif()
+if(GNEISS_BUILD_EDITOR OR GNEISS_BUILD_RUNTIME)
+  add_subdirectory(apps/common)
+endif()
+if(GNEISS_BUILD_RUNTIME)
+  add_subdirectory(apps/runtime)
 endif()
 if(GNEISS_BUILD_EDITOR)
   include(imgui)
@@ -60,7 +70,7 @@ write_basic_package_version_file(
   COMPATIBILITY SameMajorVersion
 )
 install(
-  TARGETS gneiss
+  TARGETS gneiss_engine
   EXPORT gneissTargets
   FILE_SET HEADERS DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
   RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
@@ -68,6 +78,32 @@ install(
   ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
   INCLUDES DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
 )
+if(TARGET gneiss_runtime)
+  install(
+    TARGETS gneiss_runtime
+    RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
+  )
+  foreach(
+    granit_runtime_target
+    IN ITEMS granit::granit granit::window granit::input granit::render_pipeline
+  )
+    if(TARGET ${granit_runtime_target})
+      get_target_property(granit_runtime_type ${granit_runtime_target} TYPE)
+      if(granit_runtime_type STREQUAL "SHARED_LIBRARY" OR
+         granit_runtime_type STREQUAL "MODULE_LIBRARY")
+        if(WIN32)
+          set(granit_runtime_destination "${CMAKE_INSTALL_BINDIR}")
+        else()
+          set(granit_runtime_destination "${CMAKE_INSTALL_LIBDIR}")
+        endif()
+        install(
+          FILES "$<TARGET_FILE:${granit_runtime_target}>"
+          DESTINATION "${granit_runtime_destination}"
+        )
+      endif()
+    endif()
+  endforeach()
+endif()
 install(
   EXPORT gneissTargets
   FILE gneissTargets.cmake

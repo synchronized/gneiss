@@ -24,6 +24,7 @@
 
 - [构建、测试与运行示例](guides/building.md)
 - [从 0.9.0 迁移到 0.10.0](guides/migrating-0.9-to-0.10.md)
+- [从 0.10.0 迁移到 0.11.0](guides/migrating-0.10-to-0.11.md)
 - [C/C++ 代码风格与语言标准](guides/coding-style.md)
 - [在 Editor 中导入资产](guides/editor-assets.md)
 
@@ -66,6 +67,7 @@
 - [VER-008：0.8.0 编辑器资产工作流](plans/VER-008-0.8.0-editor-asset-workflow.md)
 - [VER-009：0.9.0 场景创作工作流](plans/VER-009-0.9.0-scene-authoring-workflow.md)
 - [VER-010：0.10.0 稳定性预览](plans/VER-010-0.10.0-stability-preview.md)
+- [VER-011：0.11.0 Runtime 宿主工作流](plans/VER-011-0.11.0-runtime-workflow.md)
 - [TOOL-001：glTF 资产编译器最小闭环](plans/TOOL-001-gltf-asset-compiler.md)
 - [TOOL-002：Mesh Binary v1 最小闭环](plans/TOOL-002-mesh-binary-v1.md)
 - [TOOL-003：索引渲染最小闭环](plans/TOOL-003-indexed-rendering.md)
@@ -116,6 +118,8 @@
 - [M-67 公共 API 与 ABI 加固记录](records/M-67-api-abi-hardening.md)
 - [M-68 安装、升级与依赖消费验收记录](records/M-68-install-upgrade-validation.md)
 - [M-69 性能与内存基线记录](records/M-69-performance-memory-baseline.md)
+- [M-75 Runtime 进程失败与恢复验收记录](records/M-75-runtime-process-validation.md)
+- [M-76 Runtime 示例与安装树阶段验收记录](records/M-76-runtime-install-validation.md)
 - [M-13 JSON 解析器 Spike 记录](records/M-13-json-spike.md)
 - [M-14 资产 URI 与资源生命周期实施记录](records/M-14-asset-uri-resource-lifecycle.md)
 - [M-15 版本化场景 Schema 实施记录](records/M-15-scene-schema.md)

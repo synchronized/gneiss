@@ -7,7 +7,6 @@ add_library(
   editor_camera.h
   editor_command_history.cpp
   editor_command_history.h
-  editor_project.cpp
   editor_project.h
   editor_rotation_math.cpp
   editor_rotation_math.h
@@ -17,10 +16,18 @@ add_library(
   project_workspace.h
   property_inspector_model.cpp
   property_inspector_model.h
+  runtime_launch.cpp
+  runtime_launch.h
+  runtime_process.cpp
+  runtime_process.h
   transform_gizmo_math.cpp
   transform_gizmo_math.h
 )
-target_link_libraries(gneiss_editor_session PRIVATE gneiss_yyjson PUBLIC gneiss::gneiss)
+target_link_libraries(
+  gneiss_editor_session
+  PRIVATE gneiss_yyjson gneiss_child_process
+  PUBLIC gneiss::engine gneiss_app_project
+)
 target_include_directories(gneiss_editor_session PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_compile_features(gneiss_editor_session PUBLIC cxx_std_20)
 gneiss_target_compile_warnings(gneiss_editor_session)
@@ -54,6 +61,13 @@ add_executable(
   project_manager.h
 )
 target_link_libraries(gneiss_editor PRIVATE gneiss_editor_session gneiss_imgui gneiss_imguizmo)
+if((WIN32 OR UNIX) AND TARGET gneiss_runtime)
+  target_compile_definitions(
+    gneiss_editor PRIVATE GNEISS_EDITOR_HAS_RUNTIME=1
+                          GNEISS_EDITOR_RUNTIME_PATH="$<TARGET_FILE:gneiss_runtime>"
+  )
+  add_dependencies(gneiss_editor gneiss_runtime)
+endif()
 if(TARGET gneiss_editor_assets)
   target_link_libraries(gneiss_editor PRIVATE gneiss_editor_assets)
   target_compile_definitions(gneiss_editor PRIVATE GNEISS_EDITOR_HAS_ASSET_BROWSER=1)
@@ -78,15 +92,6 @@ if(BUILD_TESTING)
   gneiss_target_compile_warnings(gneiss_editor_session_test)
   gneiss_target_output_directories(gneiss_editor_session_test)
   add_test(NAME gneiss.editor.session COMMAND gneiss_editor_session_test)
-  add_executable(gneiss_editor_project_test tests/editor_project_test.cpp)
-  target_link_libraries(gneiss_editor_project_test PRIVATE gneiss_editor_session)
-  target_compile_definitions(
-    gneiss_editor_project_test
-    PRIVATE GNEISS_EDITOR_DEMO_PROJECT="${PROJECT_SOURCE_DIR}/examples/editor_demo"
-  )
-  gneiss_target_compile_warnings(gneiss_editor_project_test)
-  gneiss_target_output_directories(gneiss_editor_project_test)
-  add_test(NAME gneiss.editor.project COMMAND gneiss_editor_project_test)
   add_executable(gneiss_editor_project_workspace_test tests/project_workspace_test.cpp)
   target_link_libraries(gneiss_editor_project_workspace_test PRIVATE gneiss_editor_session)
   gneiss_target_compile_warnings(gneiss_editor_project_workspace_test)
@@ -126,6 +131,45 @@ if(BUILD_TESTING)
   gneiss_target_compile_warnings(gneiss_editor_rotation_math_test)
   gneiss_target_output_directories(gneiss_editor_rotation_math_test)
   add_test(NAME gneiss.editor.rotation-math COMMAND gneiss_editor_rotation_math_test)
+  add_executable(gneiss_editor_runtime_launch_test tests/runtime_launch_test.cpp)
+  target_link_libraries(gneiss_editor_runtime_launch_test PRIVATE gneiss_editor_session)
+  gneiss_target_compile_warnings(gneiss_editor_runtime_launch_test)
+  gneiss_target_output_directories(gneiss_editor_runtime_launch_test)
+  add_test(NAME gneiss.editor.runtime-launch COMMAND gneiss_editor_runtime_launch_test)
+  if((WIN32 OR UNIX) AND TARGET gneiss_runtime)
+    add_executable(gneiss_child_process_fixture tests/child_process_fixture.cpp)
+    target_compile_features(gneiss_child_process_fixture PRIVATE cxx_std_20)
+    gneiss_target_compile_warnings(gneiss_child_process_fixture)
+    gneiss_target_output_directories(gneiss_child_process_fixture)
+    add_executable(gneiss_child_process_test tests/child_process_test.cpp)
+    target_link_libraries(gneiss_child_process_test PRIVATE gneiss_child_process)
+    target_compile_definitions(
+      gneiss_child_process_test
+      PRIVATE
+        GNEISS_TEST_CHILD_PROCESS="$<TARGET_FILE:gneiss_child_process_fixture>"
+    )
+    gneiss_target_compile_warnings(gneiss_child_process_test)
+    gneiss_target_output_directories(gneiss_child_process_test)
+    add_dependencies(gneiss_child_process_test gneiss_child_process_fixture)
+    add_test(NAME gneiss.process.child-process COMMAND gneiss_child_process_test)
+    set_tests_properties(gneiss.process.child-process PROPERTIES TIMEOUT 15)
+    add_executable(gneiss_editor_runtime_process_test tests/runtime_process_test.cpp)
+    target_link_libraries(gneiss_editor_runtime_process_test PRIVATE gneiss_editor_session)
+    target_compile_definitions(
+      gneiss_editor_runtime_process_test
+      PRIVATE
+        GNEISS_TEST_RUNTIME="$<TARGET_FILE:gneiss_runtime>"
+        GNEISS_TEST_CHILD_PROCESS="$<TARGET_FILE:gneiss_child_process_fixture>"
+        GNEISS_TEST_PROJECT_ROOT="${PROJECT_SOURCE_DIR}/examples/editor_demo"
+    )
+    gneiss_target_compile_warnings(gneiss_editor_runtime_process_test)
+    gneiss_target_output_directories(gneiss_editor_runtime_process_test)
+    add_dependencies(
+      gneiss_editor_runtime_process_test gneiss_runtime gneiss_child_process_fixture
+    )
+    add_test(NAME gneiss.editor.runtime-process COMMAND gneiss_editor_runtime_process_test)
+    set_tests_properties(gneiss.editor.runtime-process PROPERTIES TIMEOUT 15)
+  endif()
   if(TARGET gneiss_editor_assets)
     add_executable(gneiss_editor_asset_browser_test tests/asset_browser_model_test.cpp)
     target_link_libraries(gneiss_editor_asset_browser_test PRIVATE gneiss_editor_assets)

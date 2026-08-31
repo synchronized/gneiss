@@ -11,6 +11,8 @@
 #include "native_dialog.h"
 #include "project_manager.h"
 #include "property_inspector_model.h"
+#include "runtime_launch.h"
+#include "runtime_process.h"
 #include "transform_gizmo_math.h"
 #if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
 #include "asset_browser_model.h"
@@ -56,6 +58,10 @@ struct editor_state {
   std::filesystem::path project_root;
   gneiss::result save_result = gneiss::result::success;
   bool save_attempted = false;
+  gneiss::editor::runtime_process runtime;
+  gneiss::result runtime_result = gneiss::result::success;
+  bool runtime_attempted = false;
+  bool pending_save_and_run = false;
   bool show_imgui_demo = false;
   gizmo_operation gizmo_mode = gizmo_operation::translate;
   bool gizmo_using = false;
@@ -300,6 +306,42 @@ gneiss::result save_document(editor_state& state) {
     state.history.mark_saved();
   }
   return operation;
+}
+
+gneiss::result launch_runtime(editor_state& state, bool save_changes) noexcept {
+#if defined(GNEISS_EDITOR_HAS_RUNTIME)
+  gneiss::editor::runtime_launch_request request;
+  auto operation = save_changes ? save_document(state) : gneiss::result::success;
+  if (operation == gneiss::result::success &&
+      gneiss::editor::inspect_runtime_launch(state.session, state.project_root, request) !=
+          gneiss::editor::runtime_launch_state::ready) {
+    operation = gneiss::result::invalid_state;
+  }
+  if (operation == gneiss::result::success && save_changes) {
+    state.history.mark_saved();
+  }
+  if (operation == gneiss::result::success) {
+    operation = state.runtime.start(std::filesystem::path{GNEISS_EDITOR_RUNTIME_PATH}, request);
+  }
+  return operation;
+#else
+  (void)state;
+  (void)save_changes;
+  return gneiss::result::unsupported;
+#endif
+}
+
+void request_runtime_launch(editor_state& state) noexcept {
+  gneiss::editor::runtime_launch_request request;
+  const auto launch_state =
+      gneiss::editor::inspect_runtime_launch(state.session, state.project_root, request);
+  if (launch_state == gneiss::editor::runtime_launch_state::requires_save) {
+    state.pending_save_and_run = true;
+    ImGui::OpenPopup("Save and Run");
+    return;
+  }
+  state.runtime_result = launch_runtime(state, false);
+  state.runtime_attempted = true;
 }
 
 gneiss::result perform_document_action(editor_state& state, gneiss_application application,
@@ -960,6 +1002,7 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
       return GNEISS_ERROR_INVALID_ARGUMENT;
     }
     auto& state = *static_cast<editor_state*>(user_data);
+    state.runtime.update();
     auto result = state.ui.begin_frame(application, *time);
     if (result != GNEISS_SUCCESS) {
       return result;
@@ -1020,6 +1063,22 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
         }
         ImGui::EndMenu();
       }
+      if (ImGui::BeginMenu("Run")) {
+        ImGui::BeginDisabled(state.runtime.is_running());
+        const auto run_requested = ImGui::MenuItem("Run Project", "F6");
+        ImGui::EndDisabled();
+        ImGui::BeginDisabled(!state.runtime.is_running());
+        const auto stop_requested = ImGui::MenuItem("Stop", "F8");
+        ImGui::EndDisabled();
+        if (run_requested) {
+          request_runtime_launch(state);
+        }
+        if (stop_requested) {
+          state.runtime_result = state.runtime.request_stop();
+          state.runtime_attempted = true;
+        }
+        ImGui::EndMenu();
+      }
       if (ImGui::BeginMenu("Development")) {
         ImGui::MenuItem("ImGui Demo", nullptr, &state.show_imgui_demo);
         ImGui::EndMenu();
@@ -1036,6 +1095,34 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
     if (io.KeyCtrl && io.KeyShift && ImGui::IsKeyPressed(ImGuiKey_S, false)) {
       state.save_result = save_document_as(state);
       state.save_attempted = state.save_result != gneiss::result::not_ready;
+    }
+    if (ImGui::IsKeyPressed(ImGuiKey_F6, false) && !state.runtime.is_running()) {
+      request_runtime_launch(state);
+    }
+    if (ImGui::IsKeyPressed(ImGuiKey_F8, false) && state.runtime.is_running()) {
+      state.runtime_result = state.runtime.request_stop();
+      state.runtime_attempted = true;
+    }
+    if (state.pending_save_and_run && !ImGui::IsPopupOpen("Save and Run")) {
+      ImGui::OpenPopup("Save and Run");
+    }
+    if (state.pending_save_and_run &&
+        ImGui::BeginPopupModal("Save and Run", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+      ImGui::TextUnformatted("Save the current scene before running the project?");
+      if (ImGui::Button("Save and Run")) {
+        state.runtime_result = launch_runtime(state, true);
+        state.runtime_attempted = true;
+        if (state.runtime_result == gneiss::result::success) {
+          state.pending_save_and_run = false;
+          ImGui::CloseCurrentPopup();
+        }
+      }
+      ImGui::SameLine();
+      if (ImGui::Button("Cancel")) {
+        state.pending_save_and_run = false;
+        ImGui::CloseCurrentPopup();
+      }
+      ImGui::EndPopup();
     }
     if (state.pending_document_action != document_action::none &&
         !ImGui::IsPopupOpen("Unsaved Changes")) {
@@ -1070,6 +1157,35 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
     }
     if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_Z, false)) {
       state.history_error = io.KeyShift ? redo_editor_command(state) : undo_editor_command(state);
+    }
+
+    if (state.runtime.has_started() || state.runtime_attempted) {
+      if (ImGui::Begin("Runtime Output")) {
+        if (state.runtime.is_running()) {
+          ImGui::TextColored(gneiss::editor::theme_success_color(), "Running");
+        } else if (state.runtime.has_started()) {
+          ImGui::Text("Exited with code %d", state.runtime.exit_code());
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Clear")) {
+          state.runtime.clear_output();
+        }
+        if (state.runtime_attempted && state.runtime_result != gneiss::result::success) {
+          const auto message = gneiss::result_message(state.runtime_result);
+          ImGui::TextColored(gneiss::editor::theme_error_color(), "Runtime error: %.*s",
+                             static_cast<int>(message.size()), message.data());
+        }
+        if (!state.runtime.log_file().empty()) {
+          const auto log_file = state.runtime.log_file().generic_string();
+          ImGui::TextDisabled("Log: %s", log_file.c_str());
+        }
+        ImGui::Separator();
+        ImGui::BeginChild("RuntimeLog", ImVec2(0.0F, 180.0F), true);
+        const auto& output = state.runtime.output();
+        ImGui::TextUnformatted(output.data(), output.data() + output.size());
+        ImGui::EndChild();
+      }
+      ImGui::End();
     }
 
     ImGui::SetNextWindowPos(ImVec2(0.0F, 20.0F));

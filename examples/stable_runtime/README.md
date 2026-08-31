@@ -4,7 +4,7 @@
 # 稳定运行时代表性 Consumer
 
 本目录是独立的 CMake Consumer，只通过 `find_package(gneiss CONFIG REQUIRED)` 和
-`gneiss::gneiss` 使用安装后的 Gneiss SDK。源码只包含公开头文件；运行资产复用 Temple 的公开
+`gneiss::engine` 使用安装后的 Gneiss SDK。源码只包含公开头文件；运行资产复用 Temple 的公开
 场景、输入、Mesh、Material 与 Texture 格式，并在配置时复制到独立构建目录。
 
 先安装启用 Granit 平台适配的 Gneiss 及其依赖，再执行：

@@ -5,7 +5,8 @@
 
 ## 适用场景
 
-本指南用于配置、构建并验证当前 Gneiss 工程、version、属性检查、Granit 图形示例和 Editor。
+本指南用于配置、构建并验证当前 Gneiss 工程、version、属性检查、Granit 图形示例、Runtime 宿主和
+Editor。
 
 ## 前置条件
 
@@ -90,7 +91,7 @@ Linux 可选择 `linux-clang-debug` 或 `linux-gcc-debug`，可执行文件不�
 cmake --install build/windows-clang-debug --prefix build/gneiss-install
 ```
 
-下游项目使用 `find_package(gneiss CONFIG REQUIRED)` 和 `gneiss::gneiss`。Windows 共享库 Consumer
+下游项目使用 `find_package(gneiss CONFIG REQUIRED)` 和 `gneiss::engine`。Windows 共享库 Consumer
 运行时需要让 `GNEISS_RUNTIME_DIR` 位于 `PATH`；静态库无需该运行时路径。引擎库本身不安装内置
 资产；示例各自管理配套资产。启用 Granit 平台适配构建的安装包会继续要求同一安装环境提供 Granit
 `Window`、`Input` 与 `RenderPipeline` package，但 Granit 类型不会进入 Gneiss 公共头文件。
@@ -188,6 +189,33 @@ Lantern 灯廊示例在构建时使用 `gneiss_assetc` 把 CC0 `Lantern.glb` 导
 `GNEISS_BUILD_TOOLS=ON`。使用 `--smoke --profile` 可以固定运行 3 帧，并输出 Application、Scene
 与资产、输入和运行阶段的耗时；示例使用 512×512 派生基础色纹理控制启动成本。
 
+### 构建 Runtime 宿主
+
+Runtime 宿主默认不参与普通构建，并需要 Granit 平台适配：
+
+```sh
+cmake --preset windows-clang-debug \
+  -DGNEISS_ENABLE_GRANIT_PLATFORM=ON \
+  -DGNEISS_BUILD_RUNTIME=ON
+cmake --build --preset windows-clang-debug --target gneiss_runtime
+```
+
+从工程描述的 `startup_scene` 运行 Editor Demo，或固定运行三帧进行 smoke 验证：
+
+```powershell
+./build/windows-clang-debug/bin/gneiss_runtime.exe --project ./examples/editor_demo
+./build/windows-clang-debug/bin/gneiss_runtime.exe --smoke --project ./examples/editor_demo
+./build/windows-clang-debug/bin/gneiss_runtime.exe --project ./examples/editor_demo --log-file ./build/runtime.log
+```
+
+Runtime 宿主将结构化启动与运行日志同步写入标准输出/错误和文件。Windows 默认文件为
+`%LOCALAPPDATA%/Gneiss/logs/runtime.log`；Linux 默认遵循 `$XDG_STATE_HOME`，未设置时使用
+`$HOME/.local/state/gneiss/logs/runtime.log`。`--log-file <路径>` 可覆盖位置。日志达到 1 MiB 时旧文件
+轮转为 `.1`；文件不可写只产生警告，不覆盖工程加载或运行的原始结果。
+
+启用 Runtime 宿主后执行 `cmake --install` 会安装 `gneiss_runtime`、`gneiss_engine` 及所需 Granit
+动态库。安装后的宿主仍以工程根为入口，不依赖源码树中的专用 `main` 函数。
+
 ### 构建 Editor
 
 Editor 默认不参与普通构建。启用时会下载并静态构建固定提交的 Dear ImGui v1.92.9b 与 ImGuizmo
@@ -200,9 +228,15 @@ Editor 当前需要 Granit
 ```sh
 cmake --preset windows-clang-debug \
   -DGNEISS_ENABLE_GRANIT_PLATFORM=ON \
-  -DGNEISS_BUILD_EDITOR=ON
+  -DGNEISS_BUILD_EDITOR=ON \
+  -DGNEISS_BUILD_RUNTIME=ON
 cmake --build --preset windows-clang-debug --target gneiss_editor
 ```
+
+同时构建 Runtime 后，Editor 的 `Run > Run Project`（F6）会在独立进程运行当前工程；F8 发出正常
+停止请求。脏场景只提供“保存并运行”或“取消”，不会静默丢弃修改。`Runtime Output` 窗口显示合并的
+标准输出与错误、运行状态和退出码。正常停止超过 2 秒后会强制终止并在输出中说明。该进程控制闭环
+当前已在 Windows 验证；Linux/POSIX 后端已实现，仍需在 Linux 图形环境完成平台验收。
 
 运行 Editor：
 
@@ -236,6 +270,10 @@ Lantern Gallery 的导入资产由构建过程生成，因此其可运行工程�
 安装时，完整工程位于 `${CMAKE_INSTALL_DATADIR}/gneiss/examples/lantern-gallery`。源码目录中的
 `examples/lantern_gallery/gneiss.project.json` 是工程描述的权威来源，构建不会把 glTF 派生资产
 写回源码树。
+
+Editor Demo 会安装到 `${CMAKE_INSTALL_DATADIR}/gneiss/projects/editor-demo`，可用同一安装前缀中的
+`bin/gneiss_runtime --project <工程目录>` 启动。`gneiss.runtime.installed-smoke` 会重建隔离安装前缀，
+确认 Runtime、Engine、Granit 动态库和工程资产不依赖源码树路径。
 
 当前宿主已提供场景会话、可选择的层级树和独立 Editor Camera。鼠标位于 Scene View 时，可以使用
 `W/A/S/D` 前后左右移动、`Q/E` 降低或升高、按住鼠标右键环视、滚轮沿视线移动；选择层级节点后

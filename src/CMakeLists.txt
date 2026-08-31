@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Gneiss contributors
 
-add_library(gneiss)
-add_library(gneiss::gneiss ALIAS gneiss)
-gneiss_target_output_directories(gneiss)
+add_library(gneiss_engine)
+add_library(gneiss::engine ALIAS gneiss_engine)
+gneiss_target_output_directories(gneiss_engine)
 
 set(GNEISS_GENERATED_INCLUDE_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated/include")
 set(GNEISS_GENERATED_VERSION_HEADER
@@ -17,7 +17,7 @@ configure_file(
 )
 
 target_sources(
-  gneiss
+  gneiss_engine
   PRIVATE
     application/application_api.cpp
     application/application_state.cpp
@@ -104,7 +104,7 @@ target_sources(
 
 if(GNEISS_ENABLE_GRANIT_PLATFORM)
   target_sources(
-    gneiss
+    gneiss_engine
     PRIVATE
       platform/granit/granit_platform.cpp
       platform/granit/granit_platform.h
@@ -116,9 +116,9 @@ if(GNEISS_ENABLE_GRANIT_PLATFORM)
       render/granit/textured.frag
       render/granit/textured.vert
   )
-  target_compile_definitions(gneiss PRIVATE GNEISS_HAS_GRANIT_PLATFORM)
+  target_compile_definitions(gneiss_engine PRIVATE GNEISS_HAS_GRANIT_PLATFORM)
   target_link_libraries(
-    gneiss PRIVATE granit::granit granit::window granit::input granit::render_pipeline
+    gneiss_engine PRIVATE granit::granit granit::window granit::input granit::render_pipeline
   )
 
   get_target_property(granit_runtime_is_imported granit::granit IMPORTED)
@@ -126,41 +126,46 @@ if(GNEISS_ENABLE_GRANIT_PLATFORM)
   if(WIN32 AND granit_runtime_is_imported AND granit_runtime_type STREQUAL "SHARED_LIBRARY")
     # Windows 不会沿链接信息查找 DLL；把已安装 package 的运行时依赖放到 Gneiss 同目录。
     add_custom_command(
-      TARGET gneiss
+      TARGET gneiss_engine
       POST_BUILD
       COMMAND
-        "${CMAKE_COMMAND}" -E copy_if_different $<TARGET_RUNTIME_DLLS:gneiss>
-        $<TARGET_FILE_DIR:gneiss>
+        "${CMAKE_COMMAND}" -E copy_if_different $<TARGET_RUNTIME_DLLS:gneiss_engine>
+        $<TARGET_FILE_DIR:gneiss_engine>
       COMMAND_EXPAND_LISTS
       VERBATIM
     )
   endif()
 endif()
 
-target_compile_features(gneiss PUBLIC cxx_std_20)
-gneiss_target_compile_warnings(gneiss)
+target_compile_features(gneiss_engine PUBLIC cxx_std_20)
+gneiss_target_compile_warnings(gneiss_engine)
 target_link_libraries(
-  gneiss
+  gneiss_engine
   PRIVATE
     $<BUILD_INTERFACE:EnTT::EnTT>
     $<BUILD_INTERFACE:gneiss_yyjson>
     $<BUILD_INTERFACE:gneiss_png>
 )
 target_include_directories(
-  gneiss
+  gneiss_engine
   PRIVATE "${PROJECT_SOURCE_DIR}/src"
   PUBLIC
     $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
     $<BUILD_INTERFACE:${GNEISS_GENERATED_INCLUDE_DIR}>
 )
 target_compile_definitions(
-  gneiss
+  gneiss_engine
   PRIVATE GNEISS_BUILDING_LIBRARY
   PUBLIC $<$<NOT:$<BOOL:${BUILD_SHARED_LIBS}>>:GNEISS_STATIC_DEFINE>
 )
 set_target_properties(
-  gneiss
+  gneiss_engine
   PROPERTIES
+    EXPORT_NAME engine
     CXX_VISIBILITY_PRESET hidden
     VISIBILITY_INLINES_HIDDEN YES
 )
+
+if(GNEISS_BUILD_EDITOR)
+  add_subdirectory(process)
+endif()
