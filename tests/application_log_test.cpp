@@ -5,6 +5,8 @@
 #include <gneiss/log.hpp>
 
 #include <atomic>
+#include <chrono>
+#include <condition_variable>
 #include <cstdint>
 #include <mutex>
 #include <string>
@@ -15,6 +17,7 @@ namespace {
 
 struct capture_state final {
   std::mutex mutex;
+  std::condition_variable changed;
   std::uint64_t count = 0U;
   std::uint64_t previous_sequence = 0U;
   std::string source;
@@ -47,6 +50,7 @@ void capture(gneiss_application application, const gneiss_log_event* event, void
     }
   }
   state.callback_active = false;
+  state.changed.notify_all();
 }
 
 } // namespace
@@ -70,10 +74,14 @@ int main() {
   category.assign("changed");
   text.assign("changed");
   {
-    const std::scoped_lock lock(state.mutex);
+    std::unique_lock lock(state.mutex);
+    if (!state.changed.wait_for(lock, std::chrono::seconds(2),
+                                [&state] { return state.count >= 1U; })) {
+      return 3;
+    }
     if (state.source != "application" || state.category != "game" || state.message != "ready" ||
         state.reentrant_result != GNEISS_ERROR_INVALID_STATE) {
-      return 3;
+      return 4;
     }
   }
 
@@ -95,21 +103,25 @@ int main() {
   }
   const auto expected = UINT64_C(1) + thread_count * messages_per_thread;
   {
-    const std::scoped_lock lock(state.mutex);
+    std::unique_lock lock(state.mutex);
+    if (!state.changed.wait_for(lock, std::chrono::seconds(2),
+                                [&state, expected] { return state.count >= expected; })) {
+      return 5;
+    }
     if (state.count != expected || state.previous_sequence != expected || state.was_concurrent) {
-      return 4;
+      return 6;
     }
   }
   if (gneiss_application_destroy(application) != GNEISS_SUCCESS ||
       gneiss_application_log(application, &first) != GNEISS_ERROR_INVALID_HANDLE) {
-    return 5;
+    return 7;
   }
 
   desc = GNEISS_APPLICATION_DESC_INIT;
   if (gneiss_application_create(&desc, &application) != GNEISS_SUCCESS ||
       gneiss_application_log(application, &first) != GNEISS_SUCCESS ||
       gneiss_application_destroy(application) != GNEISS_SUCCESS) {
-    return 6;
+    return 8;
   }
   return 0;
 }

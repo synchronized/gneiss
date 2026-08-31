@@ -3,7 +3,10 @@
 
 #include <gneiss/application.h>
 
+#include <chrono>
+#include <condition_variable>
 #include <cstdint>
+#include <mutex>
 #include <string>
 
 namespace {
@@ -11,6 +14,8 @@ namespace {
 struct capture_state final {
   std::uint32_t diagnostic_count = 0U;
   std::uint32_t log_count = 0U;
+  std::mutex mutex;
+  std::condition_variable changed;
   std::string source;
   std::string category;
   gneiss_result result = GNEISS_SUCCESS;
@@ -32,10 +37,14 @@ void capture_log(gneiss_application, const gneiss_log_event* event, void* user_d
   if (event == nullptr) {
     return;
   }
-  ++state.log_count;
-  state.source.assign(event->source, event->source_length);
-  state.category.assign(event->category, event->category_length);
-  state.result = event->result;
+  {
+    const std::scoped_lock lock(state.mutex);
+    ++state.log_count;
+    state.source.assign(event->source, event->source_length);
+    state.category.assign(event->category, event->category_length);
+    state.result = event->result;
+  }
+  state.changed.notify_all();
 }
 
 } // namespace
@@ -50,10 +59,20 @@ int main() {
   gneiss_application application = GNEISS_NULL_APPLICATION;
   if (gneiss_application_create(&desc, &application) != GNEISS_SUCCESS ||
       gneiss_application_run(application, 1U) != GNEISS_ERROR_INTERNAL ||
-      state.diagnostic_count != 1U || state.log_count != 1U || state.source != "application" ||
-      state.category != "backend" || state.result != GNEISS_ERROR_INTERNAL ||
-      gneiss_application_destroy(application) != GNEISS_SUCCESS) {
+      state.diagnostic_count != 1U) {
     return 1;
+  }
+  {
+    std::unique_lock lock(state.mutex);
+    if (!state.changed.wait_for(lock, std::chrono::seconds(2),
+                                [&state] { return state.log_count == 1U; }) ||
+        state.source != "application" || state.category != "backend" ||
+        state.result != GNEISS_ERROR_INTERNAL) {
+      return 2;
+    }
+  }
+  if (gneiss_application_destroy(application) != GNEISS_SUCCESS) {
+    return 3;
   }
   return 0;
 }

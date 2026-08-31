@@ -10,16 +10,15 @@
 #include "asset/resource_cache.h"
 #include "asset/virtual_file_system.h"
 #include "input/input_service.h"
+#include "log/log_dispatcher.h"
 #include "render/debug_draw_list.h"
 #include "render/render_asset_loader.h"
 #include "render/render_resource_service.h"
 #include "render/ui_draw_list.h"
 #include "scene/scene_instance_service.h"
 
-#include <atomic>
 #include <cstdint>
 #include <memory>
-#include <mutex>
 #include <thread>
 
 namespace gneiss::application_internal {
@@ -100,8 +99,7 @@ private:
   bool should_exit_ = false;
   bool is_updating_ = false;
   input_internal::input_service input_;
-  std::atomic<std::uint64_t> next_log_sequence_{1U};
-  std::mutex log_callback_mutex_;
+  std::unique_ptr<log_internal::log_dispatcher> log_dispatcher_;
 #ifdef GNEISS_HAS_GRANIT_PLATFORM
   std::unique_ptr<granit_platform> granit_platform_;
   std::unique_ptr<granit_render_service> granit_render_service_;

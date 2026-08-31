@@ -17,7 +17,7 @@ typedef uint64_t gneiss_application;
 
 #define GNEISS_NULL_APPLICATION UINT64_C(0)
 
-/** 同步接收 Engine 补全的不可变日志事件；不得保存事件或字符串指针，也不得重入日志提交。 */
+/** 在 Engine 日志消费线程接收不可变事件；不得保存事件或字符串指针，也不得重入日志提交。 */
 typedef void (*gneiss_application_log_fn)(gneiss_application application,
                                           const gneiss_log_event* event, void* user_data);
 
@@ -85,7 +85,8 @@ typedef uint32_t gneiss_application_platform;
 /**
  * Application 创建参数。
  *
- * 回调均在创建线程同步调用。user_data 由调用方持有，必须至少存活至 Application 销毁完成。
+ * 除日志回调外，其余回调均在创建线程同步调用。日志回调在专用消费线程串行调用。user_data 由调用方
+ * 持有，必须至少存活至 Application 销毁完成。
  */
 typedef struct gneiss_application_desc {
   uint32_t struct_size;
@@ -179,10 +180,10 @@ GNEISS_API gneiss_result gneiss_application_set_paused(gneiss_application applic
                                                        uint8_t is_paused);
 
 /**
- * 提交日志消息并在返回前完成字符串复制和接收回调。
+ * 提交日志消息并在返回前完成字符串复制。
  *
- * 可从任意线程调用；同一 Application 的接收回调会串行执行。未设置接收回调时仍校验消息并返回成功。
- * 接收回调重入本函数会返回 GNEISS_ERROR_INVALID_STATE。
+ * 可从任意线程调用；接收回调由专用消费线程串行执行。队列已满时丢弃新事件并通过后续告警报告数量。
+ * 未设置接收回调时仍校验消息并返回成功；接收回调重入本函数返回 GNEISS_ERROR_INVALID_STATE。
  */
 GNEISS_EXPERIMENTAL GNEISS_API gneiss_result
 gneiss_application_log(gneiss_application application, const gneiss_log_message* message);

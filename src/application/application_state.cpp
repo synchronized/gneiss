@@ -12,9 +12,7 @@
 
 #include <chrono>
 #include <cstdio>
-#include <functional>
 #include <new>
-#include <string>
 
 namespace gneiss::application_internal {
 
@@ -27,6 +25,15 @@ application_state::~application_state() noexcept {
 }
 
 gneiss_result application_state::initialize() noexcept {
+  if (desc_.log != nullptr) {
+    try {
+      log_dispatcher_ = std::make_unique<log_internal::log_dispatcher>(desc_.log, desc_.user_data);
+    } catch (const std::bad_alloc&) {
+      return GNEISS_ERROR_OUT_OF_MEMORY;
+    } catch (...) {
+      return GNEISS_ERROR_INTERNAL;
+    }
+  }
   if (!resources_.is_valid()) {
     return GNEISS_ERROR_OUT_OF_MEMORY;
   }
@@ -262,51 +269,8 @@ void application_state::report(gneiss_application handle, std::uint32_t severity
 gneiss_result application_state::submit_log(gneiss_application handle,
                                             const gneiss_log_message& message,
                                             std::string_view source) noexcept {
-  if (desc_.log == nullptr) {
-    return GNEISS_SUCCESS;
-  }
-  thread_local bool is_in_log_callback = false;
-  if (is_in_log_callback) {
-    return GNEISS_ERROR_INVALID_STATE;
-  }
-  try {
-    const std::string category(message.category, message.category_length);
-    const std::string text = message.message_length == 0U
-                                 ? std::string{}
-                                 : std::string(message.message, message.message_length);
-    const std::string event_source(source);
-    const auto timestamp = std::chrono::steady_clock::now().time_since_epoch();
-    const auto thread_id =
-        static_cast<std::uint64_t>(std::hash<std::thread::id>{}(std::this_thread::get_id()));
-    const std::scoped_lock lock(log_callback_mutex_);
-    const gneiss_log_event event = {
-        .struct_size = sizeof(gneiss_log_event),
-        .severity = message.severity,
-        .sequence = next_log_sequence_.fetch_add(1U, std::memory_order_relaxed),
-        .timestamp_ns = static_cast<std::uint64_t>(
-            std::chrono::duration_cast<std::chrono::nanoseconds>(timestamp).count()),
-        .thread_id = thread_id == 0U ? 1U : thread_id,
-        .source = event_source.data(),
-        .source_length = event_source.size(),
-        .category = category.data(),
-        .category_length = category.size(),
-        .message = text.data(),
-        .message_length = text.size(),
-        .result = message.result,
-        .flags = 0U,
-        .reserved = {},
-    };
-    is_in_log_callback = true;
-    desc_.log(handle, &event, desc_.user_data);
-    is_in_log_callback = false;
-    return GNEISS_SUCCESS;
-  } catch (const std::bad_alloc&) {
-    is_in_log_callback = false;
-    return GNEISS_ERROR_OUT_OF_MEMORY;
-  } catch (...) {
-    is_in_log_callback = false;
-    return GNEISS_ERROR_INTERNAL;
-  }
+  return log_dispatcher_ == nullptr ? GNEISS_SUCCESS
+                                    : log_dispatcher_->submit(handle, message, source);
 }
 
 #ifdef GNEISS_HAS_GRANIT_PLATFORM

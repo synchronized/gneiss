@@ -46,6 +46,8 @@ target_sources(
     input/action_map.cpp
     input/action_map.h
     log/log.cpp
+    log/log_dispatcher.cpp
+    log/log_dispatcher.h
     render/render_resource_service.cpp
     render/render_resource_service.h
     render/debug_draw_list.cpp

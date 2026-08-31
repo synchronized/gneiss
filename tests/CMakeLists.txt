@@ -122,6 +122,18 @@ gneiss_target_compile_warnings(gneiss_diagnostic_log_test)
 gneiss_target_output_directories(gneiss_diagnostic_log_test)
 add_test(NAME gneiss.diagnostic_log COMMAND gneiss_diagnostic_log_test)
 
+add_executable(
+  gneiss_log_dispatcher_test
+  log/log_dispatcher_test.cpp
+  "${PROJECT_SOURCE_DIR}/src/log/log_dispatcher.cpp"
+)
+target_include_directories(gneiss_log_dispatcher_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_link_libraries(gneiss_log_dispatcher_test PRIVATE gneiss::engine)
+target_compile_features(gneiss_log_dispatcher_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_log_dispatcher_test)
+gneiss_target_output_directories(gneiss_log_dispatcher_test)
+add_test(NAME gneiss.log_dispatcher COMMAND gneiss_log_dispatcher_test)
+
 add_executable(gneiss_game_context_test game_context_test.cpp)
 target_include_directories(gneiss_game_context_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_link_libraries(gneiss_game_context_test PRIVATE gneiss::engine)
