@@ -119,6 +119,7 @@
 - [M-68 安装、升级与依赖消费验收记录](records/M-68-install-upgrade-validation.md)
 - [M-69 性能与内存基线记录](records/M-69-performance-memory-baseline.md)
 - [M-75 Runtime 进程失败与恢复验收记录](records/M-75-runtime-process-validation.md)
+- [M-76 Runtime 示例与安装树阶段验收记录](records/M-76-runtime-install-validation.md)
 - [M-13 JSON 解析器 Spike 记录](records/M-13-json-spike.md)
 - [M-14 资产 URI 与资源生命周期实施记录](records/M-14-asset-uri-resource-lifecycle.md)
 - [M-15 版本化场景 Schema 实施记录](records/M-15-scene-schema.md)

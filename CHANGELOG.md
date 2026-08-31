@@ -20,6 +20,8 @@
   退出状态和强制终止；Editor 的 Runtime 层仅保留工程启动与正常停止协议。
 - 补齐 Runtime 启动失败、非零退出、重复运行、停止超时和再次运行验收；Editor 显示并保留每次
   Runtime 会话日志路径。
+- Editor Demo 作为完整工程安装，并增加构建树 Lantern Gallery 与隔离安装树 Editor Demo 的
+  `gneiss_runtime` Smoke 验收。
 - 将完整运行库及 CMake target 更名为 `gneiss_engine`、`gneiss::engine`，工程运行宿主统一命名为
   `gneiss_runtime`。
 

@@ -6,6 +6,11 @@ target_link_libraries(gneiss_version_example PRIVATE gneiss::engine)
 gneiss_target_compile_warnings(gneiss_version_example)
 gneiss_target_output_directories(gneiss_version_example)
 
+install(
+  DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/editor_demo/"
+  DESTINATION "${CMAKE_INSTALL_DATADIR}/gneiss/projects/editor-demo"
+)
+
 add_executable(gneiss_property_inspector_example property_inspector/main.cpp)
 target_link_libraries(gneiss_property_inspector_example PRIVATE gneiss::engine)
 target_compile_definitions(
@@ -116,6 +121,13 @@ if(GNEISS_ENABLE_GRANIT_PLATFORM AND TARGET gneiss_assetc)
   )
   if(BUILD_TESTING)
     add_test(NAME gneiss.lantern_gallery_example COMMAND gneiss_lantern_gallery_example --smoke)
+    if(TARGET gneiss_runtime)
+      add_test(
+        NAME gneiss.runtime.lantern-gallery
+        COMMAND gneiss_runtime --smoke --project "${lantern_gallery_project_root}"
+      )
+      set_tests_properties(gneiss.runtime.lantern-gallery PROPERTIES TIMEOUT 30)
+    endif()
     if(TARGET gneiss_editor)
       add_test(
         NAME gneiss.editor.lantern-gallery-project

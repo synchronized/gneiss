@@ -271,6 +271,10 @@ Lantern Gallery 的导入资产由构建过程生成，因此其可运行工程�
 `examples/lantern_gallery/gneiss.project.json` 是工程描述的权威来源，构建不会把 glTF 派生资产
 写回源码树。
 
+Editor Demo 会安装到 `${CMAKE_INSTALL_DATADIR}/gneiss/projects/editor-demo`，可用同一安装前缀中的
+`bin/gneiss_runtime --project <工程目录>` 启动。`gneiss.runtime.installed-smoke` 会重建隔离安装前缀，
+确认 Runtime、Engine、Granit 动态库和工程资产不依赖源码树路径。
+
 当前宿主已提供场景会话、可选择的层级树和独立 Editor Camera。鼠标位于 Scene View 时，可以使用
 `W/A/S/D` 前后左右移动、`Q/E` 降低或升高、按住鼠标右键环视、滚轮沿视线移动；选择层级节点后
 按 `F` 可聚焦其世界位置。Scene Hierarchy 可以创建、重命名、拖放重挂接、复制和删除节点；右键

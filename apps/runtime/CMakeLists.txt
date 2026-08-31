@@ -20,6 +20,15 @@ if(BUILD_TESTING)
       -DRUNTIME_TEST_DIR=${PROJECT_BINARY_DIR}/runtime-log-test -P
       "${CMAKE_CURRENT_SOURCE_DIR}/tests/startup_diagnostic_test.cmake"
   )
+  if(GNEISS_BUILD_EXAMPLES)
+    add_test(
+      NAME gneiss.runtime.installed-smoke
+      COMMAND
+        "${CMAKE_COMMAND}" -DGNEISS_BUILD_DIR=${PROJECT_BINARY_DIR}
+        -DGNEISS_CONFIG=$<CONFIG> -P "${PROJECT_SOURCE_DIR}/cmake/check_installed_runtime.cmake"
+    )
+    set_tests_properties(gneiss.runtime.installed-smoke PROPERTIES TIMEOUT 120)
+  endif()
   if(WIN32)
     add_test(
       NAME gneiss.runtime.stop-protocol
