@@ -118,6 +118,7 @@
 - [0.9.0 场景创作工作流验收记录](records/0.9.0-validation.md)
 - [0.10.0 稳定性预览验收记录](records/0.10.0-validation.md)
 - [0.11.0 Runtime 宿主工作流验收记录](records/0.11.0-validation.md)
+- [0.12.0 游戏模块与生命周期验收记录](records/0.12.0-validation.md)
 - [M-65 公共 API 与稳定性审计记录](records/M-65-public-api-audit.md)
 - [M-66 稳定运行时代表性样例验收记录](records/M-66-stable-runtime-sample.md)
 - [M-67 公共 API 与 ABI 加固记录](records/M-67-api-abi-hardening.md)
