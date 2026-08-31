@@ -169,6 +169,10 @@ set_target_properties(
     VISIBILITY_INLINES_HIDDEN YES
 )
 
+if(GNEISS_BUILD_EDITOR OR GNEISS_BUILD_RUNTIME)
+  add_subdirectory(platform)
+endif()
+
 if(GNEISS_BUILD_EDITOR)
   add_subdirectory(process)
 endif()
