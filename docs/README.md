@@ -70,6 +70,7 @@
 - [VER-010：0.10.0 稳定性预览](plans/VER-010-0.10.0-stability-preview.md)
 - [VER-011：0.11.0 Runtime 宿主工作流](plans/VER-011-0.11.0-runtime-workflow.md)
 - [VER-012：0.12.0 游戏模块与生命周期](plans/VER-012-0.12.0-game-module-lifecycle.md)
+- [VER-013：0.13.0 结构化日志与 Editor Console](plans/VER-013-0.13.0-structured-logging-console.md)
 - [TOOL-001：glTF 资产编译器最小闭环](plans/TOOL-001-gltf-asset-compiler.md)
 - [TOOL-002：Mesh Binary v1 最小闭环](plans/TOOL-002-mesh-binary-v1.md)
 - [TOOL-003：索引渲染最小闭环](plans/TOOL-003-indexed-rendering.md)
@@ -100,6 +101,7 @@
 - [ADR-023：公共 API 稳定级别与 1.x 兼容边界](decisions/ADR-023-public-api-stability.md)
 - [ADR-024：Editor 与 Runtime 宿主进程隔离](decisions/ADR-024-editor-runtime-process-isolation.md)
 - [ADR-025：原生游戏模块与 Engine 生命周期边界](decisions/ADR-025-native-game-module-boundary.md)
+- [ADR-026：结构化日志事件与进程传输边界（提议中）](decisions/ADR-026-structured-logging-transport.md)
 
 ## 实施与验收记录
 
