@@ -5,6 +5,7 @@
 #include <gneiss/application.hpp>
 #include <gneiss/scene.h>
 
+#include "game/game_context_internal.h"
 #include "runtime_log.h"
 
 #include <cstdint>
@@ -161,16 +162,48 @@ void report_application_diagnostic(gneiss_application, const gneiss_diagnostic* 
   }
   log.write("INFO", "startup_scene", GNEISS_SUCCESS, "启动场景加载完成", project.startup_scene);
 
+  gneiss_entity_id startup_root_entity = GNEISS_NULL_ENTITY_ID;
+  uint64_t node_count = 0;
+  native_result = gneiss_scene_instance_get_node_count(application.get(), scene, &node_count);
+  for (uint64_t index = 0; native_result == GNEISS_SUCCESS && index < node_count; ++index) {
+    gneiss_scene_instance_node_info info = GNEISS_SCENE_INSTANCE_NODE_INFO_INIT;
+    native_result = gneiss_scene_instance_get_node_info(application.get(), scene, index, &info);
+    if (native_result == GNEISS_SUCCESS && info.parent == GNEISS_NULL_SCENE_NODE_ID) {
+      startup_root_entity = info.entity;
+      break;
+    }
+  }
+  if (native_result != GNEISS_SUCCESS) {
+    log.write("ERROR", "game_context", native_result, "启动场景根实体查询失败");
+    (void)gneiss_scene_instance_unload(application.get(), scene);
+    return 5;
+  }
+  gneiss_game_context game_context = GNEISS_NULL_GAME_CONTEXT;
+  native_result = gneiss::game_internal::create_game_context(application.get(), startup_root_entity,
+                                                             &game_context);
+  if (native_result != GNEISS_SUCCESS) {
+    log.write("ERROR", "game_context", native_result, "Game Context 创建失败");
+    (void)gneiss_scene_instance_unload(application.get(), scene);
+    return 5;
+  }
+
   operation = application.run(options.smoke ? UINT64_C(3) : UINT64_C(0));
   if (operation != gneiss::result::success) {
     log.write("ERROR", "run", static_cast<gneiss_result>(operation), "Runtime 主循环失败");
+    (void)gneiss::game_internal::destroy_game_context(game_context);
     (void)gneiss_scene_instance_unload(application.get(), scene);
-    return 5;
+    return 6;
+  }
+  native_result = gneiss::game_internal::destroy_game_context(game_context);
+  if (native_result != GNEISS_SUCCESS) {
+    log.write("ERROR", "game_context", native_result, "Game Context 销毁失败");
+    (void)gneiss_scene_instance_unload(application.get(), scene);
+    return 7;
   }
   native_result = gneiss_scene_instance_unload(application.get(), scene);
   if (native_result != GNEISS_SUCCESS) {
     log.write("ERROR", "scene_unload", native_result, "启动场景卸载失败");
-    return 6;
+    return 8;
   }
   log.write("INFO", "shutdown", GNEISS_SUCCESS, "Runtime 已正常退出");
   return 0;

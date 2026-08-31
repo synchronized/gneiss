@@ -39,6 +39,8 @@ target_sources(
     core/result.cpp
     core/version.cpp
     game/game_module.cpp
+    game/game_context.cpp
+    game/game_context_internal.h
     input/input_service.cpp
     input/input_service.h
     input/action_map.cpp

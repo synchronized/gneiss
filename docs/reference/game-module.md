@@ -8,8 +8,8 @@
 `<gneiss/game_module.h>` 提供 0.12.0 开始使用的 Experimental 原生 Game Module C ABI。该接口尚未
 进入 Stable 兼容承诺；升级 Gneiss 后应重新编译模块，并在加载时校验 ABI 版本。
 
-当前版本只定义模块契约和描述校验。动态库加载、Runtime 生命周期调度和 Game Context 访问能力将在
-0.12.0 后续里程碑接入，不能把声明的回调误认为 Runtime 已经开始调用。
+当前版本已实现动态库加载会话和 Game Context 访问能力。工程字段、Runtime 帧调度及 Editor 构建
+工作流仍在后续里程碑接入，因此普通工程尚不会自动加载并调用模块。
 
 ## 查询入口
 
@@ -46,11 +46,25 @@ Runtime 计划按以下顺序调用模块：
 回调通过 `gneiss_result` 报告失败，异常不得穿过 C ABI。Game Context 和
 `gneiss_game_update_time` 只在当前同步调用期间借用，模块不得持久化 Engine 内部对象或后端句柄。
 
+## Game Context
+
+Game Context 是 Engine 持有的 generation 句柄，销毁后旧值立即失效。首版访问能力包括：
+
+- `gneiss_game_context_get_world`：借用所属 World 句柄。
+- `gneiss_game_context_get_startup_root_entity`：取得启动场景首个作者根节点关联实体；根节点可以没有
+  实体，此时成功返回零值。
+- `gneiss_game_context_find_action` 与 `gneiss_game_context_get_action_state`：复用所属 Application 的
+  动作映射和当前帧输入快照。
+- `gneiss_game_context_request_exit`：请求 Application 正常结束主循环。
+
+这些函数只允许在创建 Context 的 Runtime 主线程调用；跨线程访问、销毁后访问或伪造句柄均返回
+`GNEISS_ERROR_INVALID_HANDLE`。World、实体和动作均为借用值，不得在 Context 销毁后继续使用。
+
 ## C++ 包装
 
 `<gneiss/game_module.hpp>` 提供：
 
-- `gneiss::game_context`：不拥有底层句柄的强类型包装。
+- `gneiss::game_context`：不拥有底层句柄的强类型包装，并转发上述受控访问能力。
 - `gneiss::game_module_abi_version` 与 `gneiss::game_module_query_symbol`：编译期常量。
 - `gneiss::validate_game_module`：返回 `gneiss::result` 的轻量描述校验。
 

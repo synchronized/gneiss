@@ -91,6 +91,14 @@ gneiss_target_compile_warnings(gneiss_cpp_game_module_test)
 gneiss_target_output_directories(gneiss_cpp_game_module_test)
 add_test(NAME gneiss.cpp_game_module COMMAND gneiss_cpp_game_module_test)
 
+add_executable(gneiss_game_context_test game_context_test.cpp)
+target_include_directories(gneiss_game_context_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_link_libraries(gneiss_game_context_test PRIVATE gneiss::engine)
+target_compile_features(gneiss_game_context_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_game_context_test)
+gneiss_target_output_directories(gneiss_game_context_test)
+add_test(NAME gneiss.game_context COMMAND gneiss_game_context_test)
+
 add_executable(gneiss_c_reflection_test c_reflection_test.c)
 target_link_libraries(gneiss_c_reflection_test PRIVATE gneiss::engine)
 set_target_properties(

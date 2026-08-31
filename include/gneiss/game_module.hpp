@@ -26,6 +26,29 @@ public:
   }
   [[nodiscard]] constexpr gneiss_game_context get() const noexcept { return value_; }
 
+  [[nodiscard]] result get_world(gneiss_world& out_world) const noexcept {
+    return from_native(gneiss_game_context_get_world(value_, &out_world));
+  }
+
+  [[nodiscard]] result get_startup_root_entity(gneiss_entity_id& out_entity) const noexcept {
+    return from_native(gneiss_game_context_get_startup_root_entity(value_, &out_entity));
+  }
+
+  [[nodiscard]] result find_action(std::string_view name,
+                                   gneiss_action& out_action) const noexcept {
+    return from_native(
+        gneiss_game_context_find_action(value_, name.data(), name.size(), &out_action));
+  }
+
+  [[nodiscard]] result get_action_state(gneiss_action action,
+                                        gneiss_action_state& out_state) const noexcept {
+    return from_native(gneiss_game_context_get_action_state(value_, action, &out_state));
+  }
+
+  [[nodiscard]] result request_exit() const noexcept {
+    return from_native(gneiss_game_context_request_exit(value_));
+  }
+
   friend constexpr bool operator==(game_context, game_context) noexcept = default;
 
 private:

@@ -3,7 +3,11 @@
 
 add_library(gneiss_game_module_session STATIC game_module_session.cpp game_module_session.h)
 target_link_libraries(gneiss_game_module_session PUBLIC gneiss::engine gneiss_dynamic_library)
-target_include_directories(gneiss_game_module_session PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
+target_include_directories(
+  gneiss_game_module_session
+  PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}"
+  PRIVATE "${PROJECT_SOURCE_DIR}/src"
+)
 target_compile_features(gneiss_game_module_session PUBLIC cxx_std_20)
 gneiss_target_compile_warnings(gneiss_game_module_session)
 gneiss_target_output_directories(gneiss_game_module_session)
@@ -12,6 +16,7 @@ add_executable(gneiss_runtime main.cpp runtime_log.cpp runtime_log.h)
 target_link_libraries(
   gneiss_runtime PRIVATE gneiss_app_project gneiss::engine gneiss_game_module_session
 )
+target_include_directories(gneiss_runtime PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_features(gneiss_runtime PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_runtime)
 gneiss_target_output_directories(gneiss_runtime)

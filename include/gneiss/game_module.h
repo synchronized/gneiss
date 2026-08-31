@@ -7,8 +7,11 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include <gneiss/core/entity.h>
 #include <gneiss/core/export.h>
 #include <gneiss/core/result.h>
+#include <gneiss/input.h>
+#include <gneiss/world.h>
 
 /** Game Module ABI 的首个 Experimental 版本。 */
 #define GNEISS_GAME_MODULE_ABI_VERSION_1 UINT32_C(1)
@@ -100,6 +103,26 @@ GNEISS_GAME_MODULE_EXPORT gneiss_result gneiss_game_module_query(uint32_t engine
  */
 GNEISS_EXPERIMENTAL GNEISS_API gneiss_result
 gneiss_game_module_validate(const gneiss_game_module_desc* desc);
+
+/** 借用 Game Context 所属 World；仅允许在模块生命周期回调线程调用。 */
+GNEISS_EXPERIMENTAL GNEISS_API gneiss_result
+gneiss_game_context_get_world(gneiss_game_context context, gneiss_world* out_world);
+
+/** 返回启动场景首个作者根节点关联的实体；根节点无实体时返回零值。 */
+GNEISS_EXPERIMENTAL GNEISS_API gneiss_result gneiss_game_context_get_startup_root_entity(
+    gneiss_game_context context, gneiss_entity_id* out_entity);
+
+/** 按 UTF-8 名称查找所属 Application 已加载动作；返回的动作仅在 Context 有效期内可用。 */
+GNEISS_EXPERIMENTAL GNEISS_API gneiss_result gneiss_game_context_find_action(
+    gneiss_game_context context, const char* name, uint64_t name_length, gneiss_action* out_action);
+
+/** 读取当前帧动作快照；仅允许在模块生命周期回调线程调用。 */
+GNEISS_EXPERIMENTAL GNEISS_API gneiss_result gneiss_game_context_get_action_state(
+    gneiss_game_context context, gneiss_action action, gneiss_action_state* out_state);
+
+/** 请求所属 Application 在当前帧完成后正常退出。 */
+GNEISS_EXPERIMENTAL GNEISS_API gneiss_result
+gneiss_game_context_request_exit(gneiss_game_context context);
 
 #ifdef __cplusplus
 }
