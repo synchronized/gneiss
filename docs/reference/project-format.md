@@ -48,7 +48,9 @@ v2 可增加原生游戏模块：
 `game_module.name` 是平台无关基名，Runtime 在 Windows 映射为 `<name>.dll`，在 Linux 映射为
 `lib<name>.so`，在 macOS 映射为 `lib<name>.dylib`。`directory` 是工程根内的相对产物目录；路径
 解析后仍必须位于工程根内。`build_preset` 与 `build_target` 仅允许字母、数字、下划线和连字符，供
-Editor 后续通过受约束的 CMake 构建流程使用，不作为任意命令执行。
+Editor 通过受约束的 `cmake --build --preset <preset> --target <target>` 流程使用，不作为任意命令
+执行。构建期间 Run 被锁定，可用 Stop 中止；只有构建返回成功且模块产物仍能在工程根内解析时才会
+启动 Runtime，构建输出与 Runtime 输出显示在同一诊断窗口。
 
 `asset_root` 不接受绝对路径、空段、`.`、`..`、反斜杠、冒号或百分号编码。解析器会解析真实路径，
 拒绝指向工程根目录之外的目录；`startup_scene` 也必须存在于该资产根内。工程文件决定 Application

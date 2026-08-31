@@ -321,7 +321,15 @@ gneiss::result launch_runtime(editor_state& state, bool save_changes) noexcept {
     state.history.mark_saved();
   }
   if (operation == gneiss::result::success) {
-    operation = state.runtime.start(std::filesystem::path{GNEISS_EDITOR_RUNTIME_PATH}, request);
+    gneiss::app::project_description project;
+    operation = gneiss::app::load_project_description(state.project_root, project);
+    if (operation == gneiss::result::success && project.game_module.name.empty()) {
+      operation = state.runtime.start(std::filesystem::path{GNEISS_EDITOR_RUNTIME_PATH}, request);
+    } else if (operation == gneiss::result::success) {
+      operation = state.runtime.build_and_start(std::filesystem::path{GNEISS_EDITOR_CMAKE_PATH},
+                                                std::filesystem::path{GNEISS_EDITOR_RUNTIME_PATH},
+                                                request, project);
+    }
   }
   return operation;
 #else
@@ -1003,6 +1011,9 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
     }
     auto& state = *static_cast<editor_state*>(user_data);
     state.runtime.update();
+    if (state.runtime_attempted) {
+      state.runtime_result = state.runtime.last_result();
+    }
     auto result = state.ui.begin_frame(application, *time);
     if (result != GNEISS_SUCCESS) {
       return result;
@@ -1064,10 +1075,10 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
         ImGui::EndMenu();
       }
       if (ImGui::BeginMenu("Run")) {
-        ImGui::BeginDisabled(state.runtime.is_running());
+        ImGui::BeginDisabled(state.runtime.is_busy());
         const auto run_requested = ImGui::MenuItem("Run Project", "F6");
         ImGui::EndDisabled();
-        ImGui::BeginDisabled(!state.runtime.is_running());
+        ImGui::BeginDisabled(!state.runtime.is_busy());
         const auto stop_requested = ImGui::MenuItem("Stop", "F8");
         ImGui::EndDisabled();
         if (run_requested) {
@@ -1096,10 +1107,10 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
       state.save_result = save_document_as(state);
       state.save_attempted = state.save_result != gneiss::result::not_ready;
     }
-    if (ImGui::IsKeyPressed(ImGuiKey_F6, false) && !state.runtime.is_running()) {
+    if (ImGui::IsKeyPressed(ImGuiKey_F6, false) && !state.runtime.is_busy()) {
       request_runtime_launch(state);
     }
-    if (ImGui::IsKeyPressed(ImGuiKey_F8, false) && state.runtime.is_running()) {
+    if (ImGui::IsKeyPressed(ImGuiKey_F8, false) && state.runtime.is_busy()) {
       state.runtime_result = state.runtime.request_stop();
       state.runtime_attempted = true;
     }
@@ -1161,7 +1172,9 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
 
     if (state.runtime.has_started() || state.runtime_attempted) {
       if (ImGui::Begin("Runtime Output")) {
-        if (state.runtime.is_running()) {
+        if (state.runtime.is_building()) {
+          ImGui::TextColored(gneiss::editor::theme_warning_color(), "Building game module");
+        } else if (state.runtime.is_running()) {
           ImGui::TextColored(gneiss::editor::theme_success_color(), "Running");
         } else if (state.runtime.has_started()) {
           ImGui::Text("Exited with code %d", state.runtime.exit_code());
