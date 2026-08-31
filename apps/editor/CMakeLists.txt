@@ -7,7 +7,6 @@ add_library(
   editor_camera.h
   editor_command_history.cpp
   editor_command_history.h
-  editor_project.cpp
   editor_project.h
   editor_rotation_math.cpp
   editor_rotation_math.h
@@ -20,7 +19,11 @@ add_library(
   transform_gizmo_math.cpp
   transform_gizmo_math.h
 )
-target_link_libraries(gneiss_editor_session PRIVATE gneiss_yyjson PUBLIC gneiss::gneiss)
+target_link_libraries(
+  gneiss_editor_session
+  PRIVATE gneiss_yyjson
+  PUBLIC gneiss::gneiss gneiss_app_project
+)
 target_include_directories(gneiss_editor_session PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_compile_features(gneiss_editor_session PUBLIC cxx_std_20)
 gneiss_target_compile_warnings(gneiss_editor_session)
@@ -78,15 +81,6 @@ if(BUILD_TESTING)
   gneiss_target_compile_warnings(gneiss_editor_session_test)
   gneiss_target_output_directories(gneiss_editor_session_test)
   add_test(NAME gneiss.editor.session COMMAND gneiss_editor_session_test)
-  add_executable(gneiss_editor_project_test tests/editor_project_test.cpp)
-  target_link_libraries(gneiss_editor_project_test PRIVATE gneiss_editor_session)
-  target_compile_definitions(
-    gneiss_editor_project_test
-    PRIVATE GNEISS_EDITOR_DEMO_PROJECT="${PROJECT_SOURCE_DIR}/examples/editor_demo"
-  )
-  gneiss_target_compile_warnings(gneiss_editor_project_test)
-  gneiss_target_output_directories(gneiss_editor_project_test)
-  add_test(NAME gneiss.editor.project COMMAND gneiss_editor_project_test)
   add_executable(gneiss_editor_project_workspace_test tests/project_workspace_test.cpp)
   target_link_libraries(gneiss_editor_project_workspace_test PRIVATE gneiss_editor_session)
   gneiss_target_compile_warnings(gneiss_editor_project_workspace_test)

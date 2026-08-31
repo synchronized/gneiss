@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "editor_project.h"
+#include <gneiss/app/project_description.h>
 
 #include <gneiss/asset.h>
 
@@ -14,7 +14,7 @@
 #include <string_view>
 #include <system_error>
 
-namespace gneiss::editor {
+namespace gneiss::app {
 namespace {
 
 constexpr std::string_view project_filename = "gneiss.project.json";
@@ -79,8 +79,8 @@ using document_ptr = std::unique_ptr<yyjson_doc, document_deleter>;
 
 } // namespace
 
-result load_editor_project(const std::filesystem::path& project_root,
-                           editor_project& output) noexcept {
+result load_project_description(const std::filesystem::path& project_root,
+                                project_description& output) noexcept {
   if (project_root.empty()) {
     return result::invalid_argument;
   }
@@ -125,7 +125,7 @@ result load_editor_project(const std::filesystem::path& project_root,
     if (yyjson_get_uint(version) != 1U) {
       return result::unsupported;
     }
-    editor_project pending;
+    project_description pending;
     std::string asset_root_text;
     if (!read_string(root, "name", pending.name) ||
         !read_string(root, "asset_root", asset_root_text) ||
@@ -162,4 +162,4 @@ result load_editor_project(const std::filesystem::path& project_root,
   }
 }
 
-} // namespace gneiss::editor
+} // namespace gneiss::app
