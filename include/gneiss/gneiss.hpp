@@ -12,6 +12,7 @@
 #include <gneiss/game_module.hpp>
 #include <gneiss/gneiss.h>
 #include <gneiss/input.hpp>
+#include <gneiss/log.hpp>
 #include <gneiss/reflection.hpp>
 #include <gneiss/render.hpp>
 #include <gneiss/scene.hpp>

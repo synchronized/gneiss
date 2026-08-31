@@ -20,6 +20,7 @@ gneiss_game_context_get_startup_root_entity
 gneiss_game_context_get_world
 gneiss_game_context_request_exit
 gneiss_game_module_validate
+gneiss_log_message_validate
 gneiss_material_create
 gneiss_material_destroy
 gneiss_mesh_create

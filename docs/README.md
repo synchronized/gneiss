@@ -39,6 +39,7 @@
 - [输入事件与状态快照](reference/input.md)
 - [输入动作映射格式 v1](reference/input-map-format.md)
 - [诊断回调](reference/diagnostics.md)
+- [日志消息契约](reference/logging.md)
 - [Type Registry 与反射元数据](reference/reflection.md)
 - [Render 资源、ECS 组件与帧提取](reference/render.md)
 - [资产 URI、目录挂载与缓存](reference/assets.md)

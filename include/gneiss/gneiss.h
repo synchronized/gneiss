@@ -15,6 +15,7 @@
 #include <gneiss/core/version.h>
 #include <gneiss/game_module.h>
 #include <gneiss/input.h>
+#include <gneiss/log.h>
 #include <gneiss/reflection.h>
 #include <gneiss/render.h>
 #include <gneiss/scene.h>
