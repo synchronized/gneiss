@@ -24,6 +24,8 @@ add_library(
 )
 if(WIN32)
   target_sources(gneiss_editor_session PRIVATE runtime_process_win32.cpp)
+elseif(UNIX)
+  target_sources(gneiss_editor_session PRIVATE runtime_process_posix.cpp)
 else()
   target_sources(gneiss_editor_session PRIVATE runtime_process_stub.cpp)
 endif()
@@ -65,7 +67,7 @@ add_executable(
   project_manager.h
 )
 target_link_libraries(gneiss_editor PRIVATE gneiss_editor_session gneiss_imgui gneiss_imguizmo)
-if(WIN32 AND TARGET gneiss_runtime)
+if((WIN32 OR UNIX) AND TARGET gneiss_runtime)
   target_compile_definitions(
     gneiss_editor PRIVATE GNEISS_EDITOR_HAS_RUNTIME=1
                           GNEISS_EDITOR_RUNTIME_PATH="$<TARGET_FILE:gneiss_runtime>"
@@ -140,7 +142,7 @@ if(BUILD_TESTING)
   gneiss_target_compile_warnings(gneiss_editor_runtime_launch_test)
   gneiss_target_output_directories(gneiss_editor_runtime_launch_test)
   add_test(NAME gneiss.editor.runtime-launch COMMAND gneiss_editor_runtime_launch_test)
-  if(WIN32 AND TARGET gneiss_runtime)
+  if((WIN32 OR UNIX) AND TARGET gneiss_runtime)
     add_executable(gneiss_editor_runtime_process_test tests/runtime_process_test.cpp)
     target_link_libraries(gneiss_editor_runtime_process_test PRIVATE gneiss_editor_session)
     target_compile_definitions(

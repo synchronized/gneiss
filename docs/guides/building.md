@@ -236,7 +236,7 @@ cmake --build --preset windows-clang-debug --target gneiss_editor
 同时构建 Runtime 后，Editor 的 `Run > Run Project`（F6）会在独立进程运行当前工程；F8 发出正常
 停止请求。脏场景只提供“保存并运行”或“取消”，不会静默丢弃修改。`Runtime Output` 窗口显示合并的
 标准输出与错误、运行状态和退出码。正常停止超过 2 秒后会强制终止并在输出中说明。该进程控制闭环
-当前已在 Windows 验证，其他平台暂返回 `unsupported`。
+当前已在 Windows 验证；Linux/POSIX 后端已实现，仍需在 Linux 图形环境完成平台验收。
 
 运行 Editor：
 

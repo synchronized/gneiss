@@ -16,6 +16,7 @@
 - Runtime 增加实验性的停止信号文件协议，收到 Editor 请求后通过 Application 正常退出。
 - Windows Editor 增加 Run/Stop、保存并运行确认、重复启动保护及捕获 Runtime 标准输出/错误的
   Runtime Output 窗口。
+- 增加与 Windows 控制器同契约的 POSIX Runtime 子进程后端，使用非阻塞管道、`waitpid` 和信号兜底。
 - 将完整运行库及 CMake target 更名为 `gneiss_engine`、`gneiss::engine`，工程运行宿主统一命名为
   `gneiss_runtime`。
 
