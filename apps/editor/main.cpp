@@ -1175,6 +1175,10 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
           ImGui::TextColored(gneiss::editor::theme_error_color(), "Runtime error: %.*s",
                              static_cast<int>(message.size()), message.data());
         }
+        if (!state.runtime.log_file().empty()) {
+          const auto log_file = state.runtime.log_file().generic_string();
+          ImGui::TextDisabled("Log: %s", log_file.c_str());
+        }
         ImGui::Separator();
         ImGui::BeginChild("RuntimeLog", ImVec2(0.0F, 180.0F), true);
         const auto& output = state.runtime.output();

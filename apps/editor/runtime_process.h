@@ -28,6 +28,7 @@ public:
   [[nodiscard]] bool has_started() const noexcept;
   [[nodiscard]] int exit_code() const noexcept;
   [[nodiscard]] const std::string& output() const noexcept;
+  [[nodiscard]] const std::filesystem::path& log_file() const noexcept;
   void clear_output() noexcept;
 
 private:

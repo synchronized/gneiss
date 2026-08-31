@@ -27,6 +27,7 @@ struct runtime_context final {
   gneiss::runtime_internal::runtime_log* log = nullptr;
   std::filesystem::path stop_file;
   std::uint64_t next_stop_check_ns = 0U;
+  bool has_logged_first_frame = false;
 };
 
 [[nodiscard]] std::string path_text(const std::filesystem::path& path) {
@@ -70,6 +71,12 @@ gneiss_result update_runtime(gneiss_application application, const gneiss_frame_
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
   auto& context = *static_cast<runtime_context*>(user_data);
+  if (!context.has_logged_first_frame) {
+    context.has_logged_first_frame = true;
+    if (context.log != nullptr) {
+      context.log->write("INFO", "first_frame", GNEISS_SUCCESS, "Runtime 已进入首帧");
+    }
+  }
   if (context.stop_file.empty() || time->elapsed_ns < context.next_stop_check_ns) {
     return GNEISS_SUCCESS;
   }

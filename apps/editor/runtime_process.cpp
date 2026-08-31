@@ -17,12 +17,17 @@ struct runtime_process::implementation final {
   child_process process;
   std::filesystem::path session_root;
   std::filesystem::path stop_file;
+  std::filesystem::path log_file;
   std::chrono::steady_clock::time_point stop_deadline;
   bool forced_termination_reported = false;
 
-  void clean_session() noexcept {
+  void clean_stop_file() noexcept {
     std::error_code error;
     std::filesystem::remove(stop_file, error);
+  }
+
+  void discard_session() noexcept {
+    std::error_code error;
     std::filesystem::remove_all(session_root, error);
   }
 };
@@ -45,7 +50,7 @@ runtime_process::~runtime_process() {
       (void)implementation_->process.terminate();
     }
   }
-  implementation_->clean_session();
+  implementation_->clean_stop_file();
 }
 
 result runtime_process::start(const std::filesystem::path& executable,
@@ -58,7 +63,7 @@ result runtime_process::start(const std::filesystem::path& executable,
     if (!std::filesystem::is_directory(request.project_root, error) || error) {
       return result::not_found;
     }
-    implementation_->clean_session();
+    implementation_->clean_stop_file();
     implementation_->process.clear_output();
     implementation_->stop_deadline = {};
     implementation_->forced_termination_reported = false;
@@ -70,15 +75,15 @@ result runtime_process::start(const std::filesystem::path& executable,
       return result::io;
     }
     implementation_->stop_file = implementation_->session_root / "stop.signal";
-    const auto log_file = implementation_->session_root / "runtime.log";
+    implementation_->log_file = implementation_->session_root / "runtime.log";
     child_process_start_info info;
     info.executable = executable;
-    info.arguments = {"--project",   request.project_root.string(),
-                      "--stop-file", implementation_->stop_file.string(),
-                      "--log-file",  log_file.string()};
+    info.arguments = {"--project",   request.project_root,
+                      "--stop-file", implementation_->stop_file,
+                      "--log-file",  implementation_->log_file};
     const auto started = implementation_->process.start(info);
     if (started != result::success) {
-      implementation_->clean_session();
+      implementation_->discard_session();
     }
     return started;
   } catch (const std::bad_alloc&) {
@@ -137,6 +142,9 @@ int runtime_process::exit_code() const noexcept {
 }
 const std::string& runtime_process::output() const noexcept {
   return implementation_->process.output();
+}
+const std::filesystem::path& runtime_process::log_file() const noexcept {
+  return implementation_->log_file;
 }
 void runtime_process::clear_output() noexcept {
   if (implementation_) {
