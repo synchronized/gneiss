@@ -184,6 +184,21 @@ extern "C" gneiss_result gneiss_application_set_paused(gneiss_application applic
   }
 }
 
+extern "C" gneiss_result gneiss_application_log(gneiss_application application,
+                                                const gneiss_log_message* message) {
+  const auto message_result = gneiss_log_message_validate(message);
+  if (message_result != GNEISS_SUCCESS) {
+    return message_result;
+  }
+  try {
+    auto state = find_application(application);
+    return state == nullptr ? GNEISS_ERROR_INVALID_HANDLE
+                            : state->submit_log(application, *message);
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
 extern "C" gneiss_result gneiss_application_get_world(gneiss_application application,
                                                       gneiss_world* out_world) {
   if (out_world == nullptr) {

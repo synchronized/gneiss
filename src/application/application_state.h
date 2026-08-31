@@ -16,8 +16,10 @@
 #include "render/ui_draw_list.h"
 #include "scene/scene_instance_service.h"
 
+#include <atomic>
 #include <cstdint>
 #include <memory>
+#include <mutex>
 #include <thread>
 
 namespace gneiss::application_internal {
@@ -66,8 +68,10 @@ public:
   [[nodiscard]] gneiss_result
   submit_debug_draw_list(const gneiss_debug_draw_list_desc& desc) noexcept;
   void report(gneiss_application handle, std::uint32_t severity, std::uint32_t category,
-              gneiss_result result, std::string_view module,
-              std::string_view message) const noexcept;
+              gneiss_result result, std::string_view module, std::string_view message) noexcept;
+  [[nodiscard]] gneiss_result submit_log(gneiss_application handle,
+                                         const gneiss_log_message& message,
+                                         std::string_view source = "application") noexcept;
   void request_exit() noexcept { should_exit_ = true; }
   void set_paused(bool value) noexcept { is_paused_ = value; }
 
@@ -96,6 +100,8 @@ private:
   bool should_exit_ = false;
   bool is_updating_ = false;
   input_internal::input_service input_;
+  std::atomic<std::uint64_t> next_log_sequence_{1U};
+  std::mutex log_callback_mutex_;
 #ifdef GNEISS_HAS_GRANIT_PLATFORM
   std::unique_ptr<granit_platform> granit_platform_;
   std::unique_ptr<granit_render_service> granit_render_service_;

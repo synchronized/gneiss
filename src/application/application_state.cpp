@@ -12,7 +12,9 @@
 
 #include <chrono>
 #include <cstdio>
+#include <functional>
 #include <new>
+#include <string>
 
 namespace gneiss::application_internal {
 
@@ -220,22 +222,91 @@ application_state::submit_debug_draw_list(const gneiss_debug_draw_list_desc& des
 
 void application_state::report(gneiss_application handle, std::uint32_t severity,
                                std::uint32_t category, gneiss_result result,
-                               std::string_view module, std::string_view message) const noexcept {
-  if (desc_.diagnostic == nullptr) {
-    return;
+                               std::string_view module, std::string_view message) noexcept {
+  if (desc_.diagnostic != nullptr) {
+    const gneiss_diagnostic diagnostic = {
+        .struct_size = sizeof(gneiss_diagnostic),
+        .severity = severity,
+        .category = category,
+        .result = result,
+        .module = module.data(),
+        .module_length = module.size(),
+        .message = message.data(),
+        .message_length = message.size(),
+        .reserved = {},
+    };
+    desc_.diagnostic(handle, &diagnostic, desc_.user_data);
   }
-  const gneiss_diagnostic diagnostic = {
-      .struct_size = sizeof(gneiss_diagnostic),
-      .severity = severity,
-      .category = category,
-      .result = result,
-      .module = module.data(),
-      .module_length = module.size(),
+  const auto log_severity = severity == GNEISS_DIAGNOSTIC_INFO      ? GNEISS_LOG_INFO
+                            : severity == GNEISS_DIAGNOSTIC_WARNING ? GNEISS_LOG_WARNING
+                                                                    : GNEISS_LOG_ERROR;
+  const std::string_view log_category = category == GNEISS_DIAGNOSTIC_CATEGORY_ASSET   ? "asset"
+                                        : category == GNEISS_DIAGNOSTIC_CATEGORY_INPUT ? "input"
+                                        : category == GNEISS_DIAGNOSTIC_CATEGORY_BACKEND
+                                            ? "backend"
+                                            : "application";
+  const gneiss_log_message log_message = {
+      .struct_size = sizeof(gneiss_log_message),
+      .severity = log_severity,
+      .category = log_category.data(),
+      .category_length = log_category.size(),
       .message = message.data(),
       .message_length = message.size(),
+      .result = result,
+      .flags = 0U,
       .reserved = {},
   };
-  desc_.diagnostic(handle, &diagnostic, desc_.user_data);
+  static_cast<void>(submit_log(handle, log_message, module));
+}
+
+gneiss_result application_state::submit_log(gneiss_application handle,
+                                            const gneiss_log_message& message,
+                                            std::string_view source) noexcept {
+  if (desc_.log == nullptr) {
+    return GNEISS_SUCCESS;
+  }
+  thread_local bool is_in_log_callback = false;
+  if (is_in_log_callback) {
+    return GNEISS_ERROR_INVALID_STATE;
+  }
+  try {
+    const std::string category(message.category, message.category_length);
+    const std::string text = message.message_length == 0U
+                                 ? std::string{}
+                                 : std::string(message.message, message.message_length);
+    const std::string event_source(source);
+    const auto timestamp = std::chrono::steady_clock::now().time_since_epoch();
+    const auto thread_id =
+        static_cast<std::uint64_t>(std::hash<std::thread::id>{}(std::this_thread::get_id()));
+    const std::scoped_lock lock(log_callback_mutex_);
+    const gneiss_log_event event = {
+        .struct_size = sizeof(gneiss_log_event),
+        .severity = message.severity,
+        .sequence = next_log_sequence_.fetch_add(1U, std::memory_order_relaxed),
+        .timestamp_ns = static_cast<std::uint64_t>(
+            std::chrono::duration_cast<std::chrono::nanoseconds>(timestamp).count()),
+        .thread_id = thread_id == 0U ? 1U : thread_id,
+        .source = event_source.data(),
+        .source_length = event_source.size(),
+        .category = category.data(),
+        .category_length = category.size(),
+        .message = text.data(),
+        .message_length = text.size(),
+        .result = message.result,
+        .flags = 0U,
+        .reserved = {},
+    };
+    is_in_log_callback = true;
+    desc_.log(handle, &event, desc_.user_data);
+    is_in_log_callback = false;
+    return GNEISS_SUCCESS;
+  } catch (const std::bad_alloc&) {
+    is_in_log_callback = false;
+    return GNEISS_ERROR_OUT_OF_MEMORY;
+  } catch (...) {
+    is_in_log_callback = false;
+    return GNEISS_ERROR_INTERNAL;
+  }
 }
 
 #ifdef GNEISS_HAS_GRANIT_PLATFORM

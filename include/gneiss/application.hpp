@@ -96,6 +96,9 @@ public:
   [[nodiscard]] result submit_debug_draw_list(const debug_draw_list_desc& desc) noexcept {
     return from_native(gneiss_application_submit_debug_draw_list(handle_, &desc));
   }
+  [[nodiscard]] result log(const gneiss_log_message& message) noexcept {
+    return from_native(gneiss_application_log(handle_, &message));
+  }
 
   void reset() noexcept {
     if (handle_ != GNEISS_NULL_APPLICATION) {

@@ -9,12 +9,17 @@
 
 #include <gneiss/core/export.h>
 #include <gneiss/core/result.h>
+#include <gneiss/log.h>
 #include <gneiss/world.h>
 
 /** Application 的不透明句柄。零值表示无效 Application。 */
 typedef uint64_t gneiss_application;
 
 #define GNEISS_NULL_APPLICATION UINT64_C(0)
+
+/** 同步接收 Engine 补全的不可变日志事件；不得保存事件或字符串指针，也不得重入日志提交。 */
+typedef void (*gneiss_application_log_fn)(gneiss_application application,
+                                          const gneiss_log_event* event, void* user_data);
 
 /** 单帧时间信息。纳秒值使用单调时钟，不表示系统时间。 */
 typedef struct gneiss_frame_time {
@@ -103,6 +108,7 @@ typedef struct gneiss_application_desc {
   uint32_t asset_reserved;
   gneiss_application_diagnostic_fn diagnostic;
   gneiss_application_close_requested_fn close_requested;
+  gneiss_application_log_fn log;
 } gneiss_application_desc;
 
 #define GNEISS_APPLICATION_DESC_VERSION_1_SIZE                                                     \
@@ -115,6 +121,8 @@ typedef struct gneiss_application_desc {
 #define GNEISS_APPLICATION_DESC_VERSION_4_SIZE                                                     \
   ((uint32_t)(offsetof(gneiss_application_desc, close_requested) +                                 \
               sizeof(gneiss_application_close_requested_fn)))
+#define GNEISS_APPLICATION_DESC_VERSION_5_SIZE                                                     \
+  ((uint32_t)(offsetof(gneiss_application_desc, log) + sizeof(gneiss_application_log_fn)))
 
 #define GNEISS_APPLICATION_DESC_INIT                                                               \
   {(uint32_t)sizeof(gneiss_application_desc),                                                      \
@@ -135,6 +143,7 @@ typedef struct gneiss_application_desc {
    NULL,                                                                                           \
    UINT32_C(0),                                                                                    \
    UINT32_C(0),                                                                                    \
+   NULL,                                                                                           \
    NULL,                                                                                           \
    NULL}
 
@@ -168,6 +177,15 @@ GNEISS_API gneiss_result gneiss_application_request_exit(gneiss_application appl
 /** 设置暂停状态；暂停期间仍轮询事件并调用 update，但 delta_ns 为零。 */
 GNEISS_API gneiss_result gneiss_application_set_paused(gneiss_application application,
                                                        uint8_t is_paused);
+
+/**
+ * 提交日志消息并在返回前完成字符串复制和接收回调。
+ *
+ * 可从任意线程调用；同一 Application 的接收回调会串行执行。未设置接收回调时仍校验消息并返回成功。
+ * 接收回调重入本函数会返回 GNEISS_ERROR_INVALID_STATE。
+ */
+GNEISS_EXPERIMENTAL GNEISS_API gneiss_result
+gneiss_application_log(gneiss_application application, const gneiss_log_message* message);
 
 /** 获取由 Application 独占拥有的借用 World 句柄。 */
 GNEISS_API gneiss_result gneiss_application_get_world(gneiss_application application,

@@ -102,7 +102,7 @@
 - [ADR-023：公共 API 稳定级别与 1.x 兼容边界](decisions/ADR-023-public-api-stability.md)
 - [ADR-024：Editor 与 Runtime 宿主进程隔离](decisions/ADR-024-editor-runtime-process-isolation.md)
 - [ADR-025：原生游戏模块与 Engine 生命周期边界](decisions/ADR-025-native-game-module-boundary.md)
-- [ADR-026：结构化日志事件与进程传输边界（提议中）](decisions/ADR-026-structured-logging-transport.md)
+- [ADR-026：结构化日志事件与进程传输边界](decisions/ADR-026-structured-logging-transport.md)
 
 ## 实施与验收记录
 
