@@ -17,12 +17,14 @@ namespace {
   return static_cast<bool>(stream);
 }
 
-[[nodiscard]] std::string project_json(std::string_view asset_root,
-                                       std::string_view startup_scene) {
-  return "{\n  \"format\": \"gneiss.project\",\n  \"version\": 1,\n  "
+[[nodiscard]] std::string project_json(std::string_view asset_root, std::string_view startup_scene,
+                                       std::string_view game_module = {}) {
+  return "{\n  \"format\": \"gneiss.project\",\n  \"version\": " +
+         std::string(game_module.empty() ? "1" : "2") +
+         ",\n  "
          "\"name\": \"Test Project\",\n  \"asset_root\": \"" +
          std::string(asset_root) + "\",\n  \"startup_scene\": \"" + std::string(startup_scene) +
-         "\"\n}\n";
+         "\"" + std::string(game_module) + "\n}\n";
 }
 
 } // namespace
@@ -50,33 +52,57 @@ int main() try {
     return 2;
   }
 
+#if defined(_WIN32)
+  constexpr std::string_view module_filename = "test_game.dll";
+#elif defined(__APPLE__)
+  constexpr std::string_view module_filename = "libtest_game.dylib";
+#else
+  constexpr std::string_view module_filename = "libtest_game.so";
+#endif
+  std::filesystem::create_directories(root / "modules");
+  if (!write_text(root / "modules" / module_filename, "fixture") ||
+      !write_text(root / "gneiss.project.json",
+                  project_json("assets", "asset://scenes/main.scene.json",
+                               ",\n  \"game_module\": {\"name\": \"test_game\", "
+                               "\"directory\": \"modules\", \"build_preset\": \"game-debug\", "
+                               "\"build_target\": \"test_game\"}")) ||
+      gneiss::app::load_project_description(root, project, report) != gneiss::result::success ||
+      project.game_module.name != "test_game" || project.game_module.build_preset != "game-debug") {
+    return 3;
+  }
+  std::filesystem::path module_path;
+  if (gneiss::app::resolve_game_module_path(project, module_path) != gneiss::result::success ||
+      module_path.filename() != module_filename) {
+    return 3;
+  }
+
   const auto previous_name = project.name;
   if (gneiss::app::load_project_description(root / "missing", project, report) !=
           gneiss::result::not_found ||
       report.stage != gneiss::app::project_load_stage::project_root ||
       gneiss::app::project_load_stage_name(report.stage) != "project_root" ||
       project.name != previous_name) {
-    return 3;
+    return 4;
   }
   if (!write_text(root / "gneiss.project.json",
                   project_json("../outside", "asset://scenes/main.scene.json")) ||
       gneiss::app::load_project_description(root, project) != gneiss::result::invalid_argument) {
-    return 4;
+    return 5;
   }
   if (!write_text(root / "gneiss.project.json",
                   project_json("missing-assets", "asset://scenes/main.scene.json")) ||
       gneiss::app::load_project_description(root, project) != gneiss::result::not_found) {
-    return 5;
+    return 6;
   }
   if (!write_text(root / "gneiss.project.json",
                   project_json("assets", "asset://scenes/missing.scene.json")) ||
       gneiss::app::load_project_description(root, project) != gneiss::result::not_found) {
-    return 6;
+    return 7;
   }
   if (!write_text(root / "gneiss.project.json",
                   project_json("assets", "asset://../outside.scene.json")) ||
       gneiss::app::load_project_description(root, project) != gneiss::result::invalid_argument) {
-    return 7;
+    return 8;
   }
   if (!write_text(root / "gneiss.project.json", "{invalid") ||
       gneiss::app::load_project_description(root, project, report) !=
@@ -84,7 +110,7 @@ int main() try {
       report.operation != gneiss::result::invalid_argument ||
       report.stage != gneiss::app::project_load_stage::document ||
       report.context.filename() != "gneiss.project.json") {
-    return 8;
+    return 9;
   }
   std::filesystem::remove_all(root);
   return 0;

@@ -66,6 +66,15 @@ if(BUILD_TESTING)
   gneiss_target_compile_warnings(gneiss_game_update_scheduler_test)
   gneiss_target_output_directories(gneiss_game_update_scheduler_test)
   add_test(NAME gneiss.runtime.game-update-scheduler COMMAND gneiss_game_update_scheduler_test)
+  add_test(
+    NAME gneiss.runtime.project-game-module
+    COMMAND
+      "${CMAKE_COMMAND}" -DGNEISS_RUNTIME=$<TARGET_FILE:gneiss_runtime>
+      -DGAME_MODULE=$<TARGET_FILE:gneiss_game_module_valid_fixture>
+      -DSOURCE_PROJECT=${PROJECT_SOURCE_DIR}/examples/editor_demo
+      -DTEST_ROOT=${PROJECT_BINARY_DIR}/runtime-game-module-test -P
+      "${CMAKE_CURRENT_SOURCE_DIR}/tests/project_game_module_test.cmake"
+  )
 
   add_test(
     NAME gneiss.runtime.smoke
