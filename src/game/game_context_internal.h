@@ -9,10 +9,10 @@
 
 namespace gneiss::game_internal {
 
-GNEISS_API [[nodiscard]] gneiss_result
+[[nodiscard]] GNEISS_API gneiss_result
 create_game_context(gneiss_application application, gneiss_entity_id startup_root_entity,
                     gneiss_game_context* out_context) noexcept;
-GNEISS_API [[nodiscard]] gneiss_result destroy_game_context(gneiss_game_context context) noexcept;
+[[nodiscard]] GNEISS_API gneiss_result destroy_game_context(gneiss_game_context context) noexcept;
 
 } // namespace gneiss::game_internal
 
