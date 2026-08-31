@@ -5,7 +5,8 @@
 
 ## 适用场景
 
-本指南用于配置、构建并验证当前 Gneiss 工程、version、属性检查、Granit 图形示例和 Editor。
+本指南用于配置、构建并验证当前 Gneiss 工程、version、属性检查、Granit 图形示例、Player 和
+Editor。
 
 ## 前置条件
 
@@ -187,6 +188,27 @@ Lantern 灯廊示例在构建时使用 `gneiss_assetc` 把 CC0 `Lantern.glb` 导
 来源与校验值见 `examples/lantern_gallery/assets/ASSET_ORIGINS.md`；该示例因此要求
 `GNEISS_BUILD_TOOLS=ON`。使用 `--smoke --profile` 可以固定运行 3 帧，并输出 Application、Scene
 与资产、输入和运行阶段的耗时；示例使用 512×512 派生基础色纹理控制启动成本。
+
+### 构建 Player
+
+Player 默认不参与普通构建，并需要 Granit 平台适配：
+
+```sh
+cmake --preset windows-clang-debug \
+  -DGNEISS_ENABLE_GRANIT_PLATFORM=ON \
+  -DGNEISS_BUILD_PLAYER=ON
+cmake --build --preset windows-clang-debug --target gneiss_player
+```
+
+从工程描述的 `startup_scene` 运行 Editor Demo，或固定运行三帧进行 smoke 验证：
+
+```powershell
+./build/windows-clang-debug/bin/gneiss_player.exe --project ./examples/editor_demo
+./build/windows-clang-debug/bin/gneiss_player.exe --smoke --project ./examples/editor_demo
+```
+
+Player 当前将结构化启动与运行日志写入标准输出/错误；文件日志和 Editor 运行输出仍在 0.11.0
+计划内。
 
 ### 构建 Editor
 
