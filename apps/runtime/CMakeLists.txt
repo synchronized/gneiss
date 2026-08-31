@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Gneiss contributors
 
-add_executable(gneiss_runtime main.cpp)
+add_executable(gneiss_runtime main.cpp runtime_log.cpp runtime_log.h)
 target_link_libraries(gneiss_runtime PRIVATE gneiss_app_project gneiss::engine)
 target_compile_features(gneiss_runtime PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_runtime)
@@ -16,7 +16,8 @@ if(BUILD_TESTING)
     NAME gneiss.runtime.startup-diagnostic
     COMMAND
       "${CMAKE_COMMAND}" -DGNEISS_RUNTIME=$<TARGET_FILE:gneiss_runtime>
-      -DMISSING_PROJECT=${PROJECT_BINARY_DIR}/missing-runtime-project -P
+      -DMISSING_PROJECT=${PROJECT_BINARY_DIR}/missing-runtime-project
+      -DRUNTIME_TEST_DIR=${PROJECT_BINARY_DIR}/runtime-log-test -P
       "${CMAKE_CURRENT_SOURCE_DIR}/tests/startup_diagnostic_test.cmake"
   )
   set_tests_properties(gneiss.runtime.smoke PROPERTIES TIMEOUT 30)

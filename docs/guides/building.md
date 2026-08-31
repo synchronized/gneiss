@@ -205,10 +205,16 @@ cmake --build --preset windows-clang-debug --target gneiss_runtime
 ```powershell
 ./build/windows-clang-debug/bin/gneiss_runtime.exe --project ./examples/editor_demo
 ./build/windows-clang-debug/bin/gneiss_runtime.exe --smoke --project ./examples/editor_demo
+./build/windows-clang-debug/bin/gneiss_runtime.exe --project ./examples/editor_demo --log-file ./build/runtime.log
 ```
 
-Runtime 宿主当前将结构化启动与运行日志写入标准输出/错误；文件日志和 Editor 运行输出仍在 0.11.0
-计划内。
+Runtime 宿主将结构化启动与运行日志同步写入标准输出/错误和文件。Windows 默认文件为
+`%LOCALAPPDATA%/Gneiss/logs/runtime.log`；Linux 默认遵循 `$XDG_STATE_HOME`，未设置时使用
+`$HOME/.local/state/gneiss/logs/runtime.log`。`--log-file <路径>` 可覆盖位置。日志达到 1 MiB 时旧文件
+轮转为 `.1`；文件不可写只产生警告，不覆盖工程加载或运行的原始结果。
+
+启用 Runtime 宿主后执行 `cmake --install` 会安装 `gneiss_runtime`、`gneiss_engine` 及所需 Granit
+动态库。安装后的宿主仍以工程根为入口，不依赖源码树中的专用 `main` 函数。
 
 ### 构建 Editor
 

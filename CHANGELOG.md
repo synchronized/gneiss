@@ -9,7 +9,8 @@
 
 - 将工程描述解析从 Editor 提取为无 UI 的内部应用宿主模块，并增加失败阶段、结果码与路径报告，
   为独立 Runtime 宿主复用工程运行契约。
-- 增加实验性 `gneiss_runtime` 工程运行入口、三帧 smoke 模式及结构化控制台启动日志。
+- 增加实验性 `gneiss_runtime` 工程运行入口、三帧 smoke 模式、结构化控制台日志、可覆盖路径的
+  1 MiB 单备份轮转文件日志，以及包含 Engine 与 Granit 动态库的安装规则。
 - 将完整运行库及 CMake target 更名为 `gneiss_engine`、`gneiss::engine`，工程运行宿主统一命名为
   `gneiss_runtime`。
 

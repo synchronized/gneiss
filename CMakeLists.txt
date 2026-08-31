@@ -78,6 +78,32 @@ install(
   ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
   INCLUDES DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
 )
+if(TARGET gneiss_runtime)
+  install(
+    TARGETS gneiss_runtime
+    RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
+  )
+  foreach(
+    granit_runtime_target
+    IN ITEMS granit::granit granit::window granit::input granit::render_pipeline
+  )
+    if(TARGET ${granit_runtime_target})
+      get_target_property(granit_runtime_type ${granit_runtime_target} TYPE)
+      if(granit_runtime_type STREQUAL "SHARED_LIBRARY" OR
+         granit_runtime_type STREQUAL "MODULE_LIBRARY")
+        if(WIN32)
+          set(granit_runtime_destination "${CMAKE_INSTALL_BINDIR}")
+        else()
+          set(granit_runtime_destination "${CMAKE_INSTALL_LIBDIR}")
+        endif()
+        install(
+          FILES "$<TARGET_FILE:${granit_runtime_target}>"
+          DESTINATION "${granit_runtime_destination}"
+        )
+      endif()
+    endif()
+  endforeach()
+endif()
 install(
   EXPORT gneissTargets
   FILE gneissTargets.cmake
