@@ -14,6 +14,8 @@
 - Editor 增加 Runtime 运行准备策略；脏场景必须显式保存，启动请求只携带工程根，不共享作者
   World、Scene Instance、撤销栈或资源句柄。
 - Runtime 增加实验性的停止信号文件协议，收到 Editor 请求后通过 Application 正常退出。
+- Windows Editor 增加 Run/Stop、保存并运行确认、重复启动保护及捕获 Runtime 标准输出/错误的
+  Runtime Output 窗口。
 - 将完整运行库及 CMake target 更名为 `gneiss_engine`、`gneiss::engine`，工程运行宿主统一命名为
   `gneiss_runtime`。
 

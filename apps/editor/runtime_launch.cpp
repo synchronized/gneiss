@@ -11,10 +11,10 @@ runtime_launch_state inspect_runtime_launch(const editor_session& session,
                                             const std::filesystem::path& project_root,
                                             runtime_launch_request& output) noexcept {
   output = {};
-  if (!session.is_open() || session.uri().empty() || project_root.empty()) {
+  if (!session.is_open() || project_root.empty()) {
     return runtime_launch_state::blocked;
   }
-  if (session.is_dirty()) {
+  if (session.is_dirty() || session.uri().empty()) {
     return runtime_launch_state::requires_save;
   }
   try {

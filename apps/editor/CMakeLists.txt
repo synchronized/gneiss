@@ -18,9 +18,15 @@ add_library(
   property_inspector_model.h
   runtime_launch.cpp
   runtime_launch.h
+  runtime_process.h
   transform_gizmo_math.cpp
   transform_gizmo_math.h
 )
+if(WIN32)
+  target_sources(gneiss_editor_session PRIVATE runtime_process_win32.cpp)
+else()
+  target_sources(gneiss_editor_session PRIVATE runtime_process_stub.cpp)
+endif()
 target_link_libraries(
   gneiss_editor_session
   PRIVATE gneiss_yyjson
@@ -59,6 +65,13 @@ add_executable(
   project_manager.h
 )
 target_link_libraries(gneiss_editor PRIVATE gneiss_editor_session gneiss_imgui gneiss_imguizmo)
+if(WIN32 AND TARGET gneiss_runtime)
+  target_compile_definitions(
+    gneiss_editor PRIVATE GNEISS_EDITOR_HAS_RUNTIME=1
+                          GNEISS_EDITOR_RUNTIME_PATH="$<TARGET_FILE:gneiss_runtime>"
+  )
+  add_dependencies(gneiss_editor gneiss_runtime)
+endif()
 if(TARGET gneiss_editor_assets)
   target_link_libraries(gneiss_editor PRIVATE gneiss_editor_assets)
   target_compile_definitions(gneiss_editor PRIVATE GNEISS_EDITOR_HAS_ASSET_BROWSER=1)
@@ -127,6 +140,21 @@ if(BUILD_TESTING)
   gneiss_target_compile_warnings(gneiss_editor_runtime_launch_test)
   gneiss_target_output_directories(gneiss_editor_runtime_launch_test)
   add_test(NAME gneiss.editor.runtime-launch COMMAND gneiss_editor_runtime_launch_test)
+  if(WIN32 AND TARGET gneiss_runtime)
+    add_executable(gneiss_editor_runtime_process_test tests/runtime_process_test.cpp)
+    target_link_libraries(gneiss_editor_runtime_process_test PRIVATE gneiss_editor_session)
+    target_compile_definitions(
+      gneiss_editor_runtime_process_test
+      PRIVATE
+        GNEISS_TEST_RUNTIME="$<TARGET_FILE:gneiss_runtime>"
+        GNEISS_TEST_PROJECT_ROOT="${PROJECT_SOURCE_DIR}/examples/editor_demo"
+    )
+    gneiss_target_compile_warnings(gneiss_editor_runtime_process_test)
+    gneiss_target_output_directories(gneiss_editor_runtime_process_test)
+    add_dependencies(gneiss_editor_runtime_process_test gneiss_runtime)
+    add_test(NAME gneiss.editor.runtime-process COMMAND gneiss_editor_runtime_process_test)
+    set_tests_properties(gneiss.editor.runtime-process PROPERTIES TIMEOUT 15)
+  endif()
   if(TARGET gneiss_editor_assets)
     add_executable(gneiss_editor_asset_browser_test tests/asset_browser_model_test.cpp)
     target_link_libraries(gneiss_editor_asset_browser_test PRIVATE gneiss_editor_assets)
