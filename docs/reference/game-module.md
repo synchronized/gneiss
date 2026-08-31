@@ -8,8 +8,11 @@
 `<gneiss/game_module.h>` 提供 0.12.0 开始使用的 Experimental 原生 Game Module C ABI。该接口尚未
 进入 Stable 兼容承诺；升级 Gneiss 后应重新编译模块，并在加载时校验 ABI 版本。
 
-当前版本已实现动态库加载会话和 Game Context 访问能力。工程字段、Runtime 帧调度及 Editor 构建
-工作流仍在后续里程碑接入，因此普通工程尚不会自动加载并调用模块。
+当前版本已实现动态库加载会话、Game Context、Runtime 帧调度及 Editor 构建工作流。v2 工程声明
+模块后，Runtime 会自动加载并调用其生命周期。
+
+原生 Game Module 必须链接 Shared `gneiss_engine`。若链接 Static Engine，Runtime 与模块会各自持有
+一份 Engine 注册状态，Game Context 等句柄不能跨越该边界；静态链接游戏需另立宿主与链接模型。
 
 ## 查询入口
 

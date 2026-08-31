@@ -54,6 +54,11 @@ Editor 通过受约束的 `cmake --build --preset <preset> --target <target>` �
 执行。构建期间 Run 被锁定，可用 Stop 中止；只有构建返回成功且模块产物仍能在工程根内解析时才会
 启动 Runtime，构建输出与 Runtime 输出显示在同一诊断窗口。
 
+安装版 Lantern Gallery 展示了 SDK 工程入口。首次打开前设置 `GNEISS_SDK_ROOT` 为包含 Gneiss 与
+Granit CMake package 的 SDK 前缀，并执行一次 `cmake --preset game-debug-configure`；之后 Editor 的
+Run 使用 `game-debug` build preset 增量构建模块。安装包同时携带预构建模块，可直接由 Runtime smoke
+验证。
+
 `input_map` 在启动场景与 Game Module 之前加载。模块可在初始化阶段按名称取得动作；未声明时保留
 空动作映射，以兼容既有工程。
 

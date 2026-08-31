@@ -1,0 +1,21 @@
+{
+  "version": 6,
+  "configurePresets": [
+    {
+      "name": "game-debug-configure",
+      "displayName": "Lantern Gallery Game Module (Debug)",
+      "generator": "Ninja Multi-Config",
+      "binaryDir": "${sourceDir}/build/game-debug",
+      "cacheVariables": {
+        "CMAKE_PREFIX_PATH": "$env{GNEISS_SDK_ROOT}"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "game-debug",
+      "configurePreset": "game-debug-configure",
+      "configuration": "Debug"
+    }
+  ]
+}
