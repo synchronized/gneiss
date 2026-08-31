@@ -16,6 +16,8 @@ add_library(
   project_workspace.h
   property_inspector_model.cpp
   property_inspector_model.h
+  runtime_launch.cpp
+  runtime_launch.h
   transform_gizmo_math.cpp
   transform_gizmo_math.h
 )
@@ -120,6 +122,11 @@ if(BUILD_TESTING)
   gneiss_target_compile_warnings(gneiss_editor_rotation_math_test)
   gneiss_target_output_directories(gneiss_editor_rotation_math_test)
   add_test(NAME gneiss.editor.rotation-math COMMAND gneiss_editor_rotation_math_test)
+  add_executable(gneiss_editor_runtime_launch_test tests/runtime_launch_test.cpp)
+  target_link_libraries(gneiss_editor_runtime_launch_test PRIVATE gneiss_editor_session)
+  gneiss_target_compile_warnings(gneiss_editor_runtime_launch_test)
+  gneiss_target_output_directories(gneiss_editor_runtime_launch_test)
+  add_test(NAME gneiss.editor.runtime-launch COMMAND gneiss_editor_runtime_launch_test)
   if(TARGET gneiss_editor_assets)
     add_executable(gneiss_editor_asset_browser_test tests/asset_browser_model_test.cpp)
     target_link_libraries(gneiss_editor_asset_browser_test PRIVATE gneiss_editor_assets)
