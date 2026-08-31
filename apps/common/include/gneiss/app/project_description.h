@@ -8,6 +8,7 @@
 
 #include <filesystem>
 #include <string>
+#include <string_view>
 
 namespace gneiss::app {
 
@@ -20,9 +21,39 @@ struct project_description final {
   std::string startup_scene;
 };
 
+/** 工程加载失败阶段；用于宿主日志，不属于公共 Runtime ABI。 */
+enum class project_load_stage {
+  none,
+  argument,
+  project_root,
+  project_file,
+  document,
+  schema,
+  asset_root,
+  startup_scene,
+};
+
+/** 工程加载报告；失败时保留结果、阶段和相关路径。 */
+struct project_load_report final {
+  result operation = result::success;
+  project_load_stage stage = project_load_stage::none;
+  std::filesystem::path context;
+};
+
+/** 返回适合结构化日志的稳定阶段名称。 */
+[[nodiscard]] std::string_view project_load_stage_name(project_load_stage stage) noexcept;
+
 /** 从工程根目录加载并校验固定名称的 gneiss.project.json。 */
 [[nodiscard]] result load_project_description(const std::filesystem::path& project_root,
-                                              project_description& output) noexcept;
+                                              project_description& output,
+                                              project_load_report& report) noexcept;
+
+/** 忽略分阶段报告并加载工程描述。 */
+[[nodiscard]] inline result load_project_description(const std::filesystem::path& project_root,
+                                                     project_description& output) noexcept {
+  project_load_report report;
+  return load_project_description(project_root, output, report);
+}
 
 } // namespace gneiss::app
 

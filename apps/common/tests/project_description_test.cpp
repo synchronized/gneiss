@@ -29,6 +29,7 @@ namespace {
 
 int main() try {
   gneiss::app::project_description project;
+  gneiss::app::project_load_report report;
   const std::filesystem::path demo = GNEISS_APP_TEST_PROJECT;
   if (gneiss::app::load_project_description(demo, project) != gneiss::result::success ||
       project.name != "Gneiss Editor Demo" ||
@@ -50,8 +51,10 @@ int main() try {
   }
 
   const auto previous_name = project.name;
-  if (gneiss::app::load_project_description(root / "missing", project) !=
+  if (gneiss::app::load_project_description(root / "missing", project, report) !=
           gneiss::result::not_found ||
+      report.stage != gneiss::app::project_load_stage::project_root ||
+      gneiss::app::project_load_stage_name(report.stage) != "project_root" ||
       project.name != previous_name) {
     return 3;
   }
@@ -76,7 +79,11 @@ int main() try {
     return 7;
   }
   if (!write_text(root / "gneiss.project.json", "{invalid") ||
-      gneiss::app::load_project_description(root, project) != gneiss::result::invalid_argument) {
+      gneiss::app::load_project_description(root, project, report) !=
+          gneiss::result::invalid_argument ||
+      report.operation != gneiss::result::invalid_argument ||
+      report.stage != gneiss::app::project_load_stage::document ||
+      report.context.filename() != "gneiss.project.json") {
     return 8;
   }
   std::filesystem::remove_all(root);
