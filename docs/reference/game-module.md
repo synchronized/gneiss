@@ -46,6 +46,10 @@ Runtime 计划按以下顺序调用模块：
 回调通过 `gneiss_result` 报告失败，异常不得穿过 C ABI。Game Context 和
 `gneiss_game_update_time` 只在当前同步调用期间借用，模块不得持久化 Engine 内部对象或后端句柄。
 
+Runtime 更新调度默认使用约 60 Hz 固定步长，单帧最多接受 250 ms 并最多执行 8 次固定更新。超过
+追赶上限的完整固定步长积压会被丢弃并形成诊断数据，避免长帧造成无限追赶。固定更新失败时当帧
+不再执行逐帧更新；逐帧更新每个 Application 帧最多调用一次，暂停帧仍以零 `delta_ns` 调用。
+
 ## Game Context
 
 Game Context 是 Engine 持有的 generation 句柄，销毁后旧值立即失效。首版访问能力包括：

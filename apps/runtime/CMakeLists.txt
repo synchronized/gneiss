@@ -1,7 +1,13 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Gneiss contributors
 
-add_library(gneiss_game_module_session STATIC game_module_session.cpp game_module_session.h)
+add_library(
+  gneiss_game_module_session STATIC
+  game_module_session.cpp
+  game_module_session.h
+  game_update_scheduler.cpp
+  game_update_scheduler.h
+)
 target_link_libraries(gneiss_game_module_session PUBLIC gneiss::engine gneiss_dynamic_library)
 target_include_directories(
   gneiss_game_module_session
@@ -53,6 +59,13 @@ if(BUILD_TESTING)
       $<TARGET_FILE:gneiss_game_module_invalid_abi_fixture>
       $<TARGET_FILE:gneiss_game_module_initialize_failure_fixture>
   )
+
+  add_executable(gneiss_game_update_scheduler_test tests/game_update_scheduler_test.cpp)
+  target_link_libraries(gneiss_game_update_scheduler_test PRIVATE gneiss_game_module_session)
+  target_compile_features(gneiss_game_update_scheduler_test PRIVATE cxx_std_20)
+  gneiss_target_compile_warnings(gneiss_game_update_scheduler_test)
+  gneiss_target_output_directories(gneiss_game_update_scheduler_test)
+  add_test(NAME gneiss.runtime.game-update-scheduler COMMAND gneiss_game_update_scheduler_test)
 
   add_test(
     NAME gneiss.runtime.smoke
