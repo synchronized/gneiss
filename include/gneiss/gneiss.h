@@ -13,6 +13,7 @@
 #include <gneiss/core/result.h>
 #include <gneiss/core/rid.h>
 #include <gneiss/core/version.h>
+#include <gneiss/game_module.h>
 #include <gneiss/input.h>
 #include <gneiss/reflection.h>
 #include <gneiss/render.h>

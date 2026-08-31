@@ -16,6 +16,7 @@ gneiss_application_submit_debug_draw_list experimental
 gneiss_application_submit_ui_draw_list experimental
 gneiss_asset_uri_validate stable
 gneiss_camera_type_id experimental
+gneiss_game_module_validate experimental
 gneiss_material_create experimental
 gneiss_material_destroy experimental
 gneiss_mesh_create experimental

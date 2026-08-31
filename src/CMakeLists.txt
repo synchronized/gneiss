@@ -38,6 +38,7 @@ target_sources(
     core/rid_table.h
     core/result.cpp
     core/version.cpp
+    game/game_module.cpp
     input/input_service.cpp
     input/input_service.h
     input/action_map.cpp
@@ -89,6 +90,8 @@ target_sources(
       "${PROJECT_SOURCE_DIR}/include/gneiss/core/rid.hpp"
       "${PROJECT_SOURCE_DIR}/include/gneiss/gneiss.h"
       "${PROJECT_SOURCE_DIR}/include/gneiss/gneiss.hpp"
+      "${PROJECT_SOURCE_DIR}/include/gneiss/game_module.h"
+      "${PROJECT_SOURCE_DIR}/include/gneiss/game_module.hpp"
       "${PROJECT_SOURCE_DIR}/include/gneiss/input.h"
       "${PROJECT_SOURCE_DIR}/include/gneiss/input.hpp"
       "${PROJECT_SOURCE_DIR}/include/gneiss/reflection.h"

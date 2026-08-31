@@ -234,7 +234,7 @@ Experimental C ABI 加载动态模块，建立初始化、固定更新、逐帧�
 
 | 里程碑 | 优先级 | 状态 |
 | --- | --- | --- |
-| M-77 Game Module ABI 契约 | P0 | 待开始 |
+| M-77 Game Module ABI 契约 | P0 | 已完成 |
 | M-78 Runtime 模块加载与生命周期 | P0 | 待开始 |
 | M-79 Game Context 与受控 Engine 访问 | P0 | 待开始 |
 | M-80 固定步长与逐帧更新调度 | P0 | 待开始 |
