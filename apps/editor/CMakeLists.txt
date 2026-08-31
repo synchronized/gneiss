@@ -18,20 +18,14 @@ add_library(
   property_inspector_model.h
   runtime_launch.cpp
   runtime_launch.h
+  runtime_process.cpp
   runtime_process.h
   transform_gizmo_math.cpp
   transform_gizmo_math.h
 )
-if(WIN32)
-  target_sources(gneiss_editor_session PRIVATE runtime_process_win32.cpp)
-elseif(UNIX)
-  target_sources(gneiss_editor_session PRIVATE runtime_process_posix.cpp)
-else()
-  target_sources(gneiss_editor_session PRIVATE runtime_process_stub.cpp)
-endif()
 target_link_libraries(
   gneiss_editor_session
-  PRIVATE gneiss_yyjson
+  PRIVATE gneiss_yyjson gneiss_child_process
   PUBLIC gneiss::engine gneiss_app_project
 )
 target_include_directories(gneiss_editor_session PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
@@ -143,6 +137,19 @@ if(BUILD_TESTING)
   gneiss_target_output_directories(gneiss_editor_runtime_launch_test)
   add_test(NAME gneiss.editor.runtime-launch COMMAND gneiss_editor_runtime_launch_test)
   if((WIN32 OR UNIX) AND TARGET gneiss_runtime)
+    add_executable(gneiss_child_process_test tests/child_process_test.cpp)
+    target_link_libraries(gneiss_child_process_test PRIVATE gneiss_child_process)
+    target_compile_definitions(
+      gneiss_child_process_test
+      PRIVATE
+        GNEISS_TEST_RUNTIME="$<TARGET_FILE:gneiss_runtime>"
+        GNEISS_TEST_PROJECT_ROOT="${PROJECT_SOURCE_DIR}/examples/editor_demo"
+    )
+    gneiss_target_compile_warnings(gneiss_child_process_test)
+    gneiss_target_output_directories(gneiss_child_process_test)
+    add_dependencies(gneiss_child_process_test gneiss_runtime)
+    add_test(NAME gneiss.process.child-process COMMAND gneiss_child_process_test)
+    set_tests_properties(gneiss.process.child-process PROPERTIES TIMEOUT 15)
     add_executable(gneiss_editor_runtime_process_test tests/runtime_process_test.cpp)
     target_link_libraries(gneiss_editor_runtime_process_test PRIVATE gneiss_editor_session)
     target_compile_definitions(

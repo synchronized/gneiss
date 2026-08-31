@@ -165,3 +165,7 @@ set_target_properties(
     CXX_VISIBILITY_PRESET hidden
     VISIBILITY_INLINES_HIDDEN YES
 )
+
+if(GNEISS_BUILD_EDITOR)
+  add_subdirectory(process)
+endif()

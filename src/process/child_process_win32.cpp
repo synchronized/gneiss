@@ -1,20 +1,19 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "runtime_process.h"
+#include "child_process.h"
 
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <windows.h>
 
-#include <chrono>
-#include <fstream>
+#include <algorithm>
 #include <limits>
+#include <new>
 #include <string_view>
-#include <system_error>
 #include <vector>
 
-namespace gneiss::editor {
+namespace gneiss {
 namespace {
 
 constexpr std::size_t maximum_output_size = 256U * 1024U;
@@ -51,14 +50,11 @@ void close_handle(HANDLE& handle) noexcept {
 
 } // namespace
 
-struct runtime_process::implementation final {
+struct child_process::implementation final {
   HANDLE process = nullptr;
   HANDLE thread = nullptr;
   HANDLE output_read = nullptr;
-  std::filesystem::path session_root;
-  std::filesystem::path stop_file;
   std::string output;
-  std::chrono::steady_clock::time_point stop_deadline;
   int exit_code = 0;
   bool has_started = false;
 
@@ -86,7 +82,7 @@ struct runtime_process::implementation final {
         }
       }
     } catch (...) {
-      output.append("\n[Editor] Runtime 输出缓冲区更新失败。\n");
+      output.append("\n[Gneiss] 子进程输出缓冲区更新失败。\n");
     }
   }
 
@@ -94,55 +90,38 @@ struct runtime_process::implementation final {
     close_handle(thread);
     close_handle(process);
     close_handle(output_read);
-    std::error_code error;
-    std::filesystem::remove(stop_file, error);
-    std::filesystem::remove_all(session_root, error);
   }
 };
 
-runtime_process::runtime_process() : implementation_(std::make_unique<implementation>()) {}
+child_process::child_process() : implementation_(std::make_unique<implementation>()) {}
 
-runtime_process::~runtime_process() {
+child_process::~child_process() {
   if (!implementation_) {
     return;
   }
   update();
   if (is_running()) {
-    (void)request_stop();
-    if (WaitForSingleObject(implementation_->process, 2000U) == WAIT_TIMEOUT) {
-      TerminateProcess(implementation_->process, 70U);
-      WaitForSingleObject(implementation_->process, 1000U);
-    }
+    (void)terminate();
+    (void)WaitForSingleObject(implementation_->process, 1000U);
   }
   implementation_->read_output();
   implementation_->close_process();
 }
 
-result runtime_process::start(const std::filesystem::path& executable,
-                              const runtime_launch_request& request) noexcept {
-  if (!implementation_ || is_running() || executable.empty() || request.project_root.empty()) {
+result child_process::start(const child_process_start_info& info) noexcept {
+  if (!implementation_ || is_running() || info.executable.empty()) {
     return result::invalid_state;
   }
   try {
     std::error_code error;
-    if (!std::filesystem::is_regular_file(executable, error) || error ||
-        !std::filesystem::is_directory(request.project_root, error) || error) {
+    if (!std::filesystem::is_regular_file(info.executable, error) || error ||
+        (!info.working_directory.empty() &&
+         (!std::filesystem::is_directory(info.working_directory, error) || error))) {
       return result::not_found;
     }
     implementation_->close_process();
     implementation_->output.clear();
     implementation_->exit_code = 0;
-    implementation_->stop_deadline = {};
-    const auto serial = std::chrono::steady_clock::now().time_since_epoch().count();
-    implementation_->session_root =
-        std::filesystem::temp_directory_path() / "Gneiss" /
-        ("editor-runtime-" + std::to_string(GetCurrentProcessId()) + "-" + std::to_string(serial));
-    std::filesystem::create_directories(implementation_->session_root, error);
-    if (error) {
-      return result::io;
-    }
-    implementation_->stop_file = implementation_->session_root / "stop.signal";
-    const auto log_file = implementation_->session_root / "runtime.log";
 
     SECURITY_ATTRIBUTES security{sizeof(SECURITY_ATTRIBUTES), nullptr, TRUE};
     HANDLE output_write = nullptr;
@@ -160,15 +139,18 @@ result runtime_process::start(const std::filesystem::path& executable,
     startup.hStdError = output_write;
     startup.hStdInput = GetStdHandle(STD_INPUT_HANDLE);
     PROCESS_INFORMATION process{};
-    std::wstring command = quote_argument(executable.wstring()) + L" --project " +
-                           quote_argument(request.project_root.wstring()) + L" --stop-file " +
-                           quote_argument(implementation_->stop_file.wstring()) + L" --log-file " +
-                           quote_argument(log_file.wstring());
+    std::wstring command = quote_argument(info.executable.wstring());
+    for (const auto& argument : info.arguments) {
+      command += L' ';
+      command += quote_argument(argument.wstring());
+    }
     std::vector<wchar_t> mutable_command(command.begin(), command.end());
     mutable_command.push_back(L'\0');
-    const auto created =
-        CreateProcessW(executable.c_str(), mutable_command.data(), nullptr, nullptr, TRUE,
-                       CREATE_NO_WINDOW, nullptr, nullptr, &startup, &process);
+    const auto working_directory = info.working_directory.wstring();
+    const auto created = CreateProcessW(
+        info.executable.c_str(), mutable_command.data(), nullptr, nullptr, TRUE, CREATE_NO_WINDOW,
+        nullptr, working_directory.empty() ? nullptr : working_directory.c_str(), &startup,
+        &process);
     close_handle(output_write);
     if (created == 0) {
       implementation_->close_process();
@@ -185,26 +167,14 @@ result runtime_process::start(const std::filesystem::path& executable,
   }
 }
 
-result runtime_process::request_stop() noexcept {
+result child_process::terminate() noexcept {
   if (!implementation_ || !is_running()) {
     return result::not_ready;
   }
-  try {
-    std::ofstream signal(implementation_->stop_file, std::ios::binary | std::ios::trunc);
-    signal.flush();
-    if (!signal) {
-      return result::io;
-    }
-    if (implementation_->stop_deadline == std::chrono::steady_clock::time_point{}) {
-      implementation_->stop_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
-    }
-    return result::success;
-  } catch (...) {
-    return result::io;
-  }
+  return TerminateProcess(implementation_->process, 70U) != 0 ? result::success : result::io;
 }
 
-void runtime_process::update() noexcept {
+void child_process::update() noexcept {
   if (!implementation_) {
     return;
   }
@@ -212,41 +182,41 @@ void runtime_process::update() noexcept {
   if (implementation_->process == nullptr) {
     return;
   }
-  if (implementation_->stop_deadline != std::chrono::steady_clock::time_point{} &&
-      std::chrono::steady_clock::now() >= implementation_->stop_deadline) {
-    implementation_->output.append("\n[Editor] Runtime 未在 2 秒内退出，已强制终止。\n");
-    TerminateProcess(implementation_->process, 70U);
-  }
   DWORD code = STILL_ACTIVE;
   if (GetExitCodeProcess(implementation_->process, &code) != 0 && code != STILL_ACTIVE) {
     implementation_->exit_code =
         code > static_cast<DWORD>(std::numeric_limits<int>::max()) ? -1 : static_cast<int>(code);
-    implementation_->stop_deadline = {};
     implementation_->read_output();
-    close_handle(implementation_->thread);
-    close_handle(implementation_->process);
-    close_handle(implementation_->output_read);
+    implementation_->close_process();
   }
 }
 
-bool runtime_process::is_running() const noexcept {
+bool child_process::is_running() const noexcept {
   return implementation_ && implementation_->process != nullptr;
 }
-
-bool runtime_process::has_started() const noexcept {
+bool child_process::has_started() const noexcept {
   return implementation_ && implementation_->has_started;
 }
-
-int runtime_process::exit_code() const noexcept {
+int child_process::exit_code() const noexcept {
   return implementation_ ? implementation_->exit_code : -1;
 }
-
-const std::string& runtime_process::output() const noexcept { return implementation_->output; }
-
-void runtime_process::clear_output() noexcept {
+const std::string& child_process::output() const noexcept { return implementation_->output; }
+void child_process::clear_output() noexcept {
   if (implementation_) {
     implementation_->output.clear();
   }
 }
+void child_process::append_output(std::string_view text) noexcept {
+  if (!implementation_) {
+    return;
+  }
+  try {
+    implementation_->output.append(text);
+    if (implementation_->output.size() > maximum_output_size) {
+      implementation_->output.erase(0U, implementation_->output.size() - maximum_output_size);
+    }
+  } catch (...) {
+  }
+}
 
-} // namespace gneiss::editor
+} // namespace gneiss
