@@ -93,7 +93,8 @@ if(BUILD_TESTING)
       NAME gneiss.runtime.installed-smoke
       COMMAND
         "${CMAKE_COMMAND}" -DGNEISS_BUILD_DIR=${PROJECT_BINARY_DIR}
-        -DGNEISS_CONFIG=$<CONFIG> -P "${PROJECT_SOURCE_DIR}/cmake/check_installed_runtime.cmake"
+        -DGNEISS_CONFIG=$<CONFIG> -DGNEISS_SHARED=${BUILD_SHARED_LIBS} -P
+        "${PROJECT_SOURCE_DIR}/cmake/check_installed_runtime.cmake"
     )
     set_tests_properties(gneiss.runtime.installed-smoke PROPERTIES TIMEOUT 120)
   endif()

@@ -38,15 +38,16 @@ else()
 endif()
 set(editor_demo "${install_dir}/share/gneiss/projects/editor-demo")
 set(lantern_gallery "${install_dir}/share/gneiss/examples/lantern-gallery")
-if(WIN32)
+if(GNEISS_SHARED AND WIN32)
   set(lantern_module "${lantern_gallery}/modules/gneiss_lantern_gallery_game.dll")
-elseif(APPLE)
+elseif(GNEISS_SHARED AND APPLE)
   set(lantern_module "${lantern_gallery}/modules/libgneiss_lantern_gallery_game.dylib")
-else()
+elseif(GNEISS_SHARED)
   set(lantern_module "${lantern_gallery}/modules/libgneiss_lantern_gallery_game.so")
 endif()
 if(NOT EXISTS "${runtime}" OR NOT EXISTS "${editor_demo}/gneiss.project.json" OR
-   NOT EXISTS "${lantern_gallery}/gneiss.project.json" OR NOT EXISTS "${lantern_module}")
+   (GNEISS_SHARED AND
+    (NOT EXISTS "${lantern_gallery}/gneiss.project.json" OR NOT EXISTS "${lantern_module}")))
   message(FATAL_ERROR "安装树缺少 Runtime、示例工程或游戏模块")
 endif()
 
@@ -66,32 +67,34 @@ if(NOT runtime_result EQUAL 0 OR NOT runtime_output MATCHES "stage=first_frame" 
           "安装树 Runtime 启动失败：${runtime_result}\n${runtime_output}${runtime_error}")
 endif()
 
-execute_process(
-  COMMAND "${CMAKE_COMMAND}" -E env "GNEISS_SDK_ROOT=${install_dir}" "${CMAKE_COMMAND}"
-          --preset game-debug-configure --fresh
-  WORKING_DIRECTORY "${lantern_gallery}"
-  RESULT_VARIABLE module_configure_result
-)
-if(NOT module_configure_result EQUAL 0)
-  message(FATAL_ERROR "安装树 Lantern Gallery 模块配置失败：${module_configure_result}")
-endif()
-execute_process(
-  COMMAND "${CMAKE_COMMAND}" --build --preset game-debug --target gneiss_lantern_gallery_game
-  WORKING_DIRECTORY "${lantern_gallery}"
-  RESULT_VARIABLE module_build_result
-)
-if(NOT module_build_result EQUAL 0)
-  message(FATAL_ERROR "安装树 Lantern Gallery 模块构建失败：${module_build_result}")
-endif()
+if(GNEISS_SHARED)
+  execute_process(
+    COMMAND "${CMAKE_COMMAND}" -E env "GNEISS_SDK_ROOT=${install_dir}" "${CMAKE_COMMAND}"
+            --preset game-debug-configure --fresh
+    WORKING_DIRECTORY "${lantern_gallery}"
+    RESULT_VARIABLE module_configure_result
+  )
+  if(NOT module_configure_result EQUAL 0)
+    message(FATAL_ERROR "安装树 Lantern Gallery 模块配置失败：${module_configure_result}")
+  endif()
+  execute_process(
+    COMMAND "${CMAKE_COMMAND}" --build --preset game-debug --target gneiss_lantern_gallery_game
+    WORKING_DIRECTORY "${lantern_gallery}"
+    RESULT_VARIABLE module_build_result
+  )
+  if(NOT module_build_result EQUAL 0)
+    message(FATAL_ERROR "安装树 Lantern Gallery 模块构建失败：${module_build_result}")
+  endif()
 
-execute_process(
-  COMMAND ${runtime_environment} "${runtime}" --smoke --project "${lantern_gallery}"
-  RESULT_VARIABLE lantern_result
-  OUTPUT_VARIABLE lantern_output
-  ERROR_VARIABLE lantern_error
-)
-if(NOT lantern_result EQUAL 0 OR NOT lantern_output MATCHES "stage=game_module" OR
-   NOT lantern_output MATCHES "stage=shutdown")
-  message(FATAL_ERROR
-          "安装树 Lantern Gallery 启动失败：${lantern_result}\n${lantern_output}${lantern_error}")
+  execute_process(
+    COMMAND ${runtime_environment} "${runtime}" --smoke --project "${lantern_gallery}"
+    RESULT_VARIABLE lantern_result
+    OUTPUT_VARIABLE lantern_output
+    ERROR_VARIABLE lantern_error
+  )
+  if(NOT lantern_result EQUAL 0 OR NOT lantern_output MATCHES "stage=game_module" OR
+     NOT lantern_output MATCHES "stage=shutdown")
+    message(FATAL_ERROR
+            "安装树 Lantern Gallery 启动失败：${lantern_result}\n${lantern_output}${lantern_error}")
+  endif()
 endif()
