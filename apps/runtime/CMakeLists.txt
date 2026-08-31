@@ -20,6 +20,20 @@ if(BUILD_TESTING)
       -DRUNTIME_TEST_DIR=${PROJECT_BINARY_DIR}/runtime-log-test -P
       "${CMAKE_CURRENT_SOURCE_DIR}/tests/startup_diagnostic_test.cmake"
   )
+  if(WIN32)
+    add_test(
+      NAME gneiss.runtime.stop-protocol
+      COMMAND
+        powershell -NoProfile -ExecutionPolicy Bypass -File
+        "${CMAKE_CURRENT_SOURCE_DIR}/tests/stop_protocol_test.ps1"
+        -Runtime $<TARGET_FILE:gneiss_runtime>
+        -Project "${PROJECT_SOURCE_DIR}/examples/editor_demo"
+        -TestRoot "${PROJECT_BINARY_DIR}/runtime-stop-protocol-test"
+    )
+  endif()
   set_tests_properties(gneiss.runtime.smoke PROPERTIES TIMEOUT 30)
   set_tests_properties(gneiss.runtime.startup-diagnostic PROPERTIES TIMEOUT 30)
+  if(WIN32)
+    set_tests_properties(gneiss.runtime.stop-protocol PROPERTIES TIMEOUT 15)
+  endif()
 endif()

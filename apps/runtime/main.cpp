@@ -19,7 +19,14 @@ namespace {
 struct runtime_options final {
   std::filesystem::path project_root;
   std::filesystem::path log_file;
+  std::filesystem::path stop_file;
   bool smoke = false;
+};
+
+struct runtime_context final {
+  gneiss::runtime_internal::runtime_log* log = nullptr;
+  std::filesystem::path stop_file;
+  std::uint64_t next_stop_check_ns = 0U;
 };
 
 [[nodiscard]] std::string path_text(const std::filesystem::path& path) {
@@ -42,6 +49,10 @@ struct runtime_options final {
       pending.log_file = argv[++index];
       continue;
     }
+    if (argument == "--stop-file" && index + 1 < argc && pending.stop_file.empty()) {
+      pending.stop_file = argv[++index];
+      continue;
+    }
     output = std::move(pending);
     return false;
   }
@@ -53,8 +64,25 @@ struct runtime_options final {
   return true;
 }
 
-gneiss_result update_runtime(gneiss_application, const gneiss_frame_time* time, void*) {
-  return time == nullptr ? GNEISS_ERROR_INVALID_ARGUMENT : GNEISS_SUCCESS;
+gneiss_result update_runtime(gneiss_application application, const gneiss_frame_time* time,
+                             void* user_data) {
+  if (time == nullptr || user_data == nullptr) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  auto& context = *static_cast<runtime_context*>(user_data);
+  if (context.stop_file.empty() || time->elapsed_ns < context.next_stop_check_ns) {
+    return GNEISS_SUCCESS;
+  }
+  context.next_stop_check_ns = time->elapsed_ns + UINT64_C(100000000);
+  std::error_code error;
+  if (!std::filesystem::exists(context.stop_file, error) || error) {
+    return GNEISS_SUCCESS;
+  }
+  std::filesystem::remove(context.stop_file, error);
+  if (context.log != nullptr) {
+    context.log->write("INFO", "stop_request", GNEISS_SUCCESS, "收到 Editor 正常停止请求");
+  }
+  return gneiss_application_request_exit(application);
 }
 
 void report_application_diagnostic(gneiss_application, const gneiss_diagnostic* diagnostic,
@@ -67,8 +95,10 @@ void report_application_diagnostic(gneiss_application, const gneiss_diagnostic* 
                                                                          : "ERROR";
   const std::string_view module{diagnostic->module, diagnostic->module_length};
   const std::string_view message{diagnostic->message, diagnostic->message_length};
-  static_cast<gneiss::runtime_internal::runtime_log*>(user_data)->write(
-      level, module, diagnostic->result, message);
+  auto& context = *static_cast<runtime_context*>(user_data);
+  if (context.log != nullptr) {
+    context.log->write(level, module, diagnostic->result, message);
+  }
 }
 
 [[nodiscard]] int run_runtime(const runtime_options& options,
@@ -91,8 +121,13 @@ void report_application_diagnostic(gneiss_application, const gneiss_diagnostic* 
   }
   log.write("INFO", "project", GNEISS_SUCCESS, "工程加载完成", path_text(project.project_root));
 
+  runtime_context context{&log, options.stop_file};
+  if (!context.stop_file.empty()) {
+    std::error_code error;
+    std::filesystem::remove(context.stop_file, error);
+  }
   gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
-  desc.user_data = &log;
+  desc.user_data = &context;
   desc.update = update_runtime;
   desc.platform = GNEISS_APPLICATION_PLATFORM_GRANIT;
   desc.window_title = project.name.data();
@@ -150,7 +185,8 @@ int main(int argc, char** argv) {
     }
     if (!has_valid_options) {
       log.write("ERROR", "arguments", GNEISS_ERROR_INVALID_ARGUMENT,
-                "用法：gneiss_runtime --project <工程根> [--smoke] [--log-file <路径>]");
+                "用法：gneiss_runtime --project <工程根> [--smoke] [--log-file <路径>] "
+                "[--stop-file <路径>]");
       return 64;
     }
     return run_runtime(options, log);

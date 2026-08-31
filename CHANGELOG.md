@@ -13,6 +13,7 @@
   1 MiB 单备份轮转文件日志，以及包含 Engine 与 Granit 动态库的安装规则。
 - Editor 增加 Runtime 运行准备策略；脏场景必须显式保存，启动请求只携带工程根，不共享作者
   World、Scene Instance、撤销栈或资源句柄。
+- Runtime 增加实验性的停止信号文件协议，收到 Editor 请求后通过 Application 正常退出。
 - 将完整运行库及 CMake target 更名为 `gneiss_engine`、`gneiss::engine`，工程运行宿主统一命名为
   `gneiss_runtime`。
 
