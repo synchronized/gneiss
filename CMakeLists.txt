@@ -15,14 +15,14 @@ option(GNEISS_BUILD_TESTING "构建 Gneiss 测试" ON)
 option(GNEISS_BUILD_EXAMPLES "构建 Gneiss 示例" ${PROJECT_IS_TOP_LEVEL})
 option(GNEISS_BUILD_TOOLS "构建 Gneiss 离线工具" ${PROJECT_IS_TOP_LEVEL})
 option(GNEISS_BUILD_EDITOR "构建 Gneiss Editor" OFF)
-option(GNEISS_BUILD_PLAYER "构建 Gneiss Player" OFF)
+option(GNEISS_BUILD_RUNTIME "构建 Gneiss Runtime 宿主" OFF)
 option(GNEISS_ENABLE_GRANIT_PLATFORM "启用 Granit Window 平台适配" OFF)
 
 if(GNEISS_BUILD_EDITOR AND NOT GNEISS_ENABLE_GRANIT_PLATFORM)
   message(FATAL_ERROR "GNEISS_BUILD_EDITOR=ON 需要 GNEISS_ENABLE_GRANIT_PLATFORM=ON")
 endif()
-if(GNEISS_BUILD_PLAYER AND NOT GNEISS_ENABLE_GRANIT_PLATFORM)
-  message(FATAL_ERROR "GNEISS_BUILD_PLAYER=ON 需要 GNEISS_ENABLE_GRANIT_PLATFORM=ON")
+if(GNEISS_BUILD_RUNTIME AND NOT GNEISS_ENABLE_GRANIT_PLATFORM)
+  message(FATAL_ERROR "GNEISS_BUILD_RUNTIME=ON 需要 GNEISS_ENABLE_GRANIT_PLATFORM=ON")
 endif()
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
@@ -40,7 +40,7 @@ if(GNEISS_BUILD_TOOLS)
   gneiss_resolve_fastgltf()
   add_subdirectory(tools)
 endif()
-if(GNEISS_BUILD_EDITOR OR GNEISS_BUILD_PLAYER)
+if(GNEISS_BUILD_EDITOR OR GNEISS_BUILD_RUNTIME)
   add_subdirectory(apps/common)
 endif()
 if(GNEISS_BUILD_EDITOR)
@@ -50,8 +50,8 @@ if(GNEISS_BUILD_EDITOR)
   gneiss_resolve_imguizmo()
   add_subdirectory(apps/editor)
 endif()
-if(GNEISS_BUILD_PLAYER)
-  add_subdirectory(apps/player)
+if(GNEISS_BUILD_RUNTIME)
+  add_subdirectory(apps/runtime)
 endif()
 
 include(GNUInstallDirs)
@@ -70,7 +70,7 @@ write_basic_package_version_file(
   COMPATIBILITY SameMajorVersion
 )
 install(
-  TARGETS gneiss
+  TARGETS gneiss_engine
   EXPORT gneissTargets
   FILE_SET HEADERS DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
   RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"

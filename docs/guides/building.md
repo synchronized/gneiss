@@ -5,7 +5,7 @@
 
 ## 适用场景
 
-本指南用于配置、构建并验证当前 Gneiss 工程、version、属性检查、Granit 图形示例、Player 和
+本指南用于配置、构建并验证当前 Gneiss 工程、version、属性检查、Granit 图形示例、Runtime 宿主和
 Editor。
 
 ## 前置条件
@@ -91,7 +91,7 @@ Linux 可选择 `linux-clang-debug` 或 `linux-gcc-debug`，可执行文件不�
 cmake --install build/windows-clang-debug --prefix build/gneiss-install
 ```
 
-下游项目使用 `find_package(gneiss CONFIG REQUIRED)` 和 `gneiss::gneiss`。Windows 共享库 Consumer
+下游项目使用 `find_package(gneiss CONFIG REQUIRED)` 和 `gneiss::engine`。Windows 共享库 Consumer
 运行时需要让 `GNEISS_RUNTIME_DIR` 位于 `PATH`；静态库无需该运行时路径。引擎库本身不安装内置
 资产；示例各自管理配套资产。启用 Granit 平台适配构建的安装包会继续要求同一安装环境提供 Granit
 `Window`、`Input` 与 `RenderPipeline` package，但 Granit 类型不会进入 Gneiss 公共头文件。
@@ -189,25 +189,25 @@ Lantern 灯廊示例在构建时使用 `gneiss_assetc` 把 CC0 `Lantern.glb` 导
 `GNEISS_BUILD_TOOLS=ON`。使用 `--smoke --profile` 可以固定运行 3 帧，并输出 Application、Scene
 与资产、输入和运行阶段的耗时；示例使用 512×512 派生基础色纹理控制启动成本。
 
-### 构建 Player
+### 构建 Runtime 宿主
 
-Player 默认不参与普通构建，并需要 Granit 平台适配：
+Runtime 宿主默认不参与普通构建，并需要 Granit 平台适配：
 
 ```sh
 cmake --preset windows-clang-debug \
   -DGNEISS_ENABLE_GRANIT_PLATFORM=ON \
-  -DGNEISS_BUILD_PLAYER=ON
-cmake --build --preset windows-clang-debug --target gneiss_player
+  -DGNEISS_BUILD_RUNTIME=ON
+cmake --build --preset windows-clang-debug --target gneiss_runtime
 ```
 
 从工程描述的 `startup_scene` 运行 Editor Demo，或固定运行三帧进行 smoke 验证：
 
 ```powershell
-./build/windows-clang-debug/bin/gneiss_player.exe --project ./examples/editor_demo
-./build/windows-clang-debug/bin/gneiss_player.exe --smoke --project ./examples/editor_demo
+./build/windows-clang-debug/bin/gneiss_runtime.exe --project ./examples/editor_demo
+./build/windows-clang-debug/bin/gneiss_runtime.exe --smoke --project ./examples/editor_demo
 ```
 
-Player 当前将结构化启动与运行日志写入标准输出/错误；文件日志和 Editor 运行输出仍在 0.11.0
+Runtime 宿主当前将结构化启动与运行日志写入标准输出/错误；文件日志和 Editor 运行输出仍在 0.11.0
 计划内。
 
 ### 构建 Editor

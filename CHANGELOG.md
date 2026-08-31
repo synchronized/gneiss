@@ -8,8 +8,10 @@
 ## 未发布
 
 - 将工程描述解析从 Editor 提取为无 UI 的内部应用宿主模块，并增加失败阶段、结果码与路径报告，
-  为独立 Player 复用工程运行契约。
-- 增加实验性 `gneiss_player` 工程运行入口、三帧 smoke 模式及结构化控制台启动日志。
+  为独立 Runtime 宿主复用工程运行契约。
+- 增加实验性 `gneiss_runtime` 工程运行入口、三帧 smoke 模式及结构化控制台启动日志。
+- 将完整运行库及 CMake target 更名为 `gneiss_engine`、`gneiss::engine`，工程运行宿主统一命名为
+  `gneiss_runtime`。
 
 ## 0.10.0 - 2026-08-29
 

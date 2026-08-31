@@ -24,6 +24,7 @@
 
 - [构建、测试与运行示例](guides/building.md)
 - [从 0.9.0 迁移到 0.10.0](guides/migrating-0.9-to-0.10.md)
+- [从 0.10.0 迁移到 0.11.0](guides/migrating-0.10-to-0.11.md)
 - [C/C++ 代码风格与语言标准](guides/coding-style.md)
 - [在 Editor 中导入资产](guides/editor-assets.md)
 
@@ -66,7 +67,7 @@
 - [VER-008：0.8.0 编辑器资产工作流](plans/VER-008-0.8.0-editor-asset-workflow.md)
 - [VER-009：0.9.0 场景创作工作流](plans/VER-009-0.9.0-scene-authoring-workflow.md)
 - [VER-010：0.10.0 稳定性预览](plans/VER-010-0.10.0-stability-preview.md)
-- [VER-011：0.11.0 Player 运行工作流](plans/VER-011-0.11.0-player-workflow.md)
+- [VER-011：0.11.0 Runtime 宿主工作流](plans/VER-011-0.11.0-runtime-workflow.md)
 - [TOOL-001：glTF 资产编译器最小闭环](plans/TOOL-001-gltf-asset-compiler.md)
 - [TOOL-002：Mesh Binary v1 最小闭环](plans/TOOL-002-mesh-binary-v1.md)
 - [TOOL-003：索引渲染最小闭环](plans/TOOL-003-indexed-rendering.md)

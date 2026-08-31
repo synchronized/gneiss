@@ -5,7 +5,7 @@
 
 ## 当前状态
 
-Gneiss 当前目标版本为 0.10.0。0.x 版本的公共 API、ABI 和构建契约尚未冻结；当前导出符号基线只
+Gneiss 当前目标版本为 0.11.0。0.x 版本的公共 API、ABI 和构建契约尚未冻结；当前导出符号基线只
 用于发现意外变化，不代表所有符号已经稳定。未来 1.0.0 发布候选才会冻结首份 Stable 清单。
 
 ## 稳定级别
@@ -43,7 +43,8 @@ M-65 审计将以下能力作为 Stable 候选，而不是已冻结承诺：
 - 输入快照和动作映射运行时查询。
 - Scene Tree、Transform、场景运行时加载与查询。
 - 场景格式驱动的 Camera、Mesh Renderer 与渲染资产加载路径。
-- 资产 URI 校验和安装后的 `gneiss::gneiss` CMake target。
+- 资产 URI 校验和安装后的 `gneiss::engine` CMake target。0.10.0 使用的 `gneiss::gneiss` 已在
+  0.11.0 更名，迁移方式见[升级指南](../guides/migrating-0.10-to-0.11.md)。
 
 以下能力保持 Experimental：Type Registry 与属性访问、场景作者修改与序列化、直接创建
 Mesh/Texture/Material 的低层资源接口、UI/Debug Draw、Editor、`gneiss_assetc` 及其工具 SDK。

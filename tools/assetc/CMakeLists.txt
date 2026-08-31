@@ -51,7 +51,7 @@ if(GNEISS_BUILD_TESTING AND BUILD_TESTING)
   )
   target_include_directories(gneiss_asset_writer_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
   target_link_libraries(
-    gneiss_asset_writer_test PRIVATE gneiss_asset_import_sdk gneiss::gneiss
+    gneiss_asset_writer_test PRIVATE gneiss_asset_import_sdk gneiss::engine
   )
   target_compile_definitions(
     gneiss_asset_writer_test

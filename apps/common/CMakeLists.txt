@@ -6,7 +6,7 @@ add_library(
   project_description.cpp
   include/gneiss/app/project_description.h
 )
-target_link_libraries(gneiss_app_project PRIVATE gneiss_yyjson PUBLIC gneiss::gneiss)
+target_link_libraries(gneiss_app_project PRIVATE gneiss_yyjson PUBLIC gneiss::engine)
 target_include_directories(
   gneiss_app_project
   PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include"

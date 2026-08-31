@@ -26,7 +26,7 @@ Gneiss 运行时可加载的资产，并用现有渲染示例验证结果。
 
 - 源码位于 `src/tooling/asset_import`，CLI 位于 `tools/assetc`。
 - 内部 target 暂命名为 `gneiss_asset_pipeline_internal`，可执行文件命名为 `gneiss_assetc`。
-- fastgltf 锁定版本和提交，只链接工具 target，不由 `gneiss::gneiss` 或安装 package 传播。
+- fastgltf 锁定版本和提交，只链接工具 target，不由 `gneiss::engine` 或安装 package 传播。
 - 首版支持节点 TRS、三角形静态 Mesh、索引、POSITION、NORMAL、TEXCOORD_0、基础颜色和 PNG。
 - 不支持的必需属性或扩展必须明确失败，不静默丢弃；诊断包含源文件和对象位置。
 - fastgltf 锁定为 `v0.9.0`（提交 `0d1b67a28c4950ea2deb796702006dcbe31e02b3`，MIT）；

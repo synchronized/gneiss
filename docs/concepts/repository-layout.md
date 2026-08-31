@@ -23,9 +23,9 @@
 | `3rd/` | 锁定版本并与自有代码隔离的第三方依赖 |
 | `cmake/` | 项目构建策略和可复用的 CMake 模块 |
 
-`gneiss` 库及其 `src/` 实现就是 Engine Runtime，不额外建立职责宽泛的 `src/engine/`。未来需要完整
-应用宿主时，Player 与 Editor 分别进入 `apps/player/` 和 `apps/editor/`；两者可以依赖运行时，运行时
-不得反向依赖它们。
+`gneiss_engine` 库及其 `src/` 实现就是完整 Engine Library，不额外建立职责宽泛的 `src/engine/`。
+Runtime 宿主与 Editor 分别位于 `apps/runtime/` 和 `apps/editor/`；两者可以依赖 Engine Library，
+Engine Library 不得反向依赖它们。
 
 公共头目录按能力组织，但 `.h` 与 `.hpp` 始终成对维护。内部源码目录按拥有运行时状态的模块组织，
 不机械复制公共头目录。
@@ -59,7 +59,7 @@ Platform 的 Granit Window 适配位于 `src/platform/granit/`；`src/render/gra
 - `src/reflection/`：维护类型 Schema、字段元数据和运行时属性访问。
 - `src/serialization/`：消费稳定 Schema，负责版本化数据格式、迁移和读写。
 - `apps/editor/`：独立编辑器宿主、Inspector、撤销重做及工具工作流。
-- `apps/player/`：独立游戏运行宿主和发布入口。
+- `apps/runtime/`：独立游戏运行宿主和发布入口。
 - `src/ui/`：正式 UI 运行时；临时诊断 UI 不自动成为该模块。
 - `src/audio/`、`src/physics/`、`src/network/`、`src/script/`：按真实需求引入的独立 Service。
 - `tools/`：资产构建、代码生成或其他可独立运行的开发工具。

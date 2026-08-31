@@ -3,7 +3,7 @@
 
 # 工程文件格式 v1
 
-Editor 与 Player 均以工程为启动单位。Editor 无参数启动时先显示 Project Manager；工程根目录必须
+Editor 与 Runtime 宿主均以工程为启动单位。Editor 无参数启动时先显示 Project Manager；工程根目录必须
 包含固定名称的 `gneiss.project.json`。两者的 `--project` 和 Project Manager 都只接收工程根目录，
 不接受工程文件路径。首版工程描述如下：
 
@@ -25,7 +25,7 @@ Editor 与 Player 均以工程为启动单位。Editor 无参数启动时先显�
 | `version` | unsigned integer | 当前固定为 `1` |
 | `name` | string | 非空工程显示名称 |
 | `asset_root` | string | 相对工程根目录的资产目录，使用正斜杠 |
-| `startup_scene` | string | Editor 首次打开且 Player 默认运行的规范 `asset://` 场景 URI |
+| `startup_scene` | string | Editor 首次打开且 Runtime 宿主默认运行的规范 `asset://` 场景 URI |
 
 `asset_root` 不接受绝对路径、空段、`.`、`..`、反斜杠、冒号或百分号编码。解析器会解析真实路径，
 拒绝指向工程根目录之外的目录；`startup_scene` 也必须存在于该资产根内。工程文件决定 Application
@@ -43,11 +43,11 @@ Project Manager 与正式 Editor 使用两个连续且互不共享运行时状�
 选择窗口及其 UI、渲染和平台资源会先完整销毁，再按工程资产根创建正式 Application。Windows 使用
 系统目录选择器；其他平台在原生选择器接入前可直接输入工程路径。
 
-启用 `GNEISS_BUILD_PLAYER` 后，独立 Player 使用以下命令运行工程；`--smoke` 固定运行三帧，供自动
+启用 `GNEISS_BUILD_RUNTIME` 后，独立 Runtime 宿主使用以下命令运行工程；`--smoke` 固定运行三帧，供自动
 验证使用：
 
 ```powershell
-gneiss_player --project <工程根> [--smoke]
+gneiss_runtime --project <工程根> [--smoke]
 ```
 
-Player 不读取 Editor 的最近工程状态，也不会把运行时场景修改写回工程文件或作者场景。
+Runtime 宿主不读取 Editor 的最近工程状态，也不会把运行时场景修改写回工程文件或作者场景。

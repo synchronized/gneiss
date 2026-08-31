@@ -22,7 +22,7 @@ add_library(
 target_link_libraries(
   gneiss_editor_session
   PRIVATE gneiss_yyjson
-  PUBLIC gneiss::gneiss gneiss_app_project
+  PUBLIC gneiss::engine gneiss_app_project
 )
 target_include_directories(gneiss_editor_session PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_compile_features(gneiss_editor_session PUBLIC cxx_std_20)
