@@ -1,13 +1,81 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Gneiss contributors
 
+add_library(
+  gneiss_game_module_session STATIC
+  game_module_session.cpp
+  game_module_session.h
+  game_update_scheduler.cpp
+  game_update_scheduler.h
+)
+target_link_libraries(gneiss_game_module_session PUBLIC gneiss::engine gneiss_dynamic_library)
+target_include_directories(
+  gneiss_game_module_session
+  PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}"
+  PRIVATE "${PROJECT_SOURCE_DIR}/src"
+)
+target_compile_features(gneiss_game_module_session PUBLIC cxx_std_20)
+gneiss_target_compile_warnings(gneiss_game_module_session)
+gneiss_target_output_directories(gneiss_game_module_session)
+
 add_executable(gneiss_runtime main.cpp runtime_log.cpp runtime_log.h)
-target_link_libraries(gneiss_runtime PRIVATE gneiss_app_project gneiss::engine)
+target_link_libraries(
+  gneiss_runtime PRIVATE gneiss_app_project gneiss::engine gneiss_game_module_session
+)
+target_include_directories(gneiss_runtime PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_features(gneiss_runtime PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_runtime)
 gneiss_target_output_directories(gneiss_runtime)
 
 if(BUILD_TESTING)
+  foreach(module_fixture IN ITEMS valid missing_symbol invalid_abi initialize_failure)
+    add_library(gneiss_game_module_${module_fixture}_fixture MODULE tests/game_module_fixture.cpp)
+    target_link_libraries(gneiss_game_module_${module_fixture}_fixture PRIVATE gneiss::engine)
+    target_compile_features(gneiss_game_module_${module_fixture}_fixture PRIVATE cxx_std_20)
+    target_compile_definitions(
+      gneiss_game_module_${module_fixture}_fixture PRIVATE GNEISS_BUILDING_GAME_MODULE
+    )
+    gneiss_target_compile_warnings(gneiss_game_module_${module_fixture}_fixture)
+    gneiss_target_output_directories(gneiss_game_module_${module_fixture}_fixture)
+  endforeach()
+  target_compile_definitions(
+    gneiss_game_module_missing_symbol_fixture PRIVATE GNEISS_TEST_MISSING_QUERY
+  )
+  target_compile_definitions(gneiss_game_module_invalid_abi_fixture PRIVATE GNEISS_TEST_INVALID_ABI)
+  target_compile_definitions(
+    gneiss_game_module_initialize_failure_fixture PRIVATE GNEISS_TEST_INITIALIZE_FAILURE
+  )
+
+  add_executable(gneiss_game_module_session_test tests/game_module_session_test.cpp)
+  target_link_libraries(gneiss_game_module_session_test PRIVATE gneiss_game_module_session)
+  target_compile_features(gneiss_game_module_session_test PRIVATE cxx_std_20)
+  gneiss_target_compile_warnings(gneiss_game_module_session_test)
+  gneiss_target_output_directories(gneiss_game_module_session_test)
+  add_test(
+    NAME gneiss.runtime.game-module-session
+    COMMAND
+      gneiss_game_module_session_test $<TARGET_FILE:gneiss_game_module_valid_fixture>
+      $<TARGET_FILE:gneiss_game_module_missing_symbol_fixture>
+      $<TARGET_FILE:gneiss_game_module_invalid_abi_fixture>
+      $<TARGET_FILE:gneiss_game_module_initialize_failure_fixture>
+  )
+
+  add_executable(gneiss_game_update_scheduler_test tests/game_update_scheduler_test.cpp)
+  target_link_libraries(gneiss_game_update_scheduler_test PRIVATE gneiss_game_module_session)
+  target_compile_features(gneiss_game_update_scheduler_test PRIVATE cxx_std_20)
+  gneiss_target_compile_warnings(gneiss_game_update_scheduler_test)
+  gneiss_target_output_directories(gneiss_game_update_scheduler_test)
+  add_test(NAME gneiss.runtime.game-update-scheduler COMMAND gneiss_game_update_scheduler_test)
+  add_test(
+    NAME gneiss.runtime.project-game-module
+    COMMAND
+      "${CMAKE_COMMAND}" -DGNEISS_RUNTIME=$<TARGET_FILE:gneiss_runtime>
+      -DGAME_MODULE=$<TARGET_FILE:gneiss_game_module_valid_fixture>
+      -DSOURCE_PROJECT=${PROJECT_SOURCE_DIR}/examples/editor_demo
+      -DTEST_ROOT=${PROJECT_BINARY_DIR}/runtime-game-module-test -P
+      "${CMAKE_CURRENT_SOURCE_DIR}/tests/project_game_module_test.cmake"
+  )
+
   add_test(
     NAME gneiss.runtime.smoke
     COMMAND gneiss_runtime --smoke --project "${PROJECT_SOURCE_DIR}/examples/editor_demo"
@@ -25,7 +93,8 @@ if(BUILD_TESTING)
       NAME gneiss.runtime.installed-smoke
       COMMAND
         "${CMAKE_COMMAND}" -DGNEISS_BUILD_DIR=${PROJECT_BINARY_DIR}
-        -DGNEISS_CONFIG=$<CONFIG> -P "${PROJECT_SOURCE_DIR}/cmake/check_installed_runtime.cmake"
+        -DGNEISS_CONFIG=$<CONFIG> -DGNEISS_SHARED=${BUILD_SHARED_LIBS} -P
+        "${PROJECT_SOURCE_DIR}/cmake/check_installed_runtime.cmake"
     )
     set_tests_properties(gneiss.runtime.installed-smoke PROPERTIES TIMEOUT 120)
   endif()

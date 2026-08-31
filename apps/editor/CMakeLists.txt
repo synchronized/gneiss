@@ -65,6 +65,7 @@ if((WIN32 OR UNIX) AND TARGET gneiss_runtime)
   target_compile_definitions(
     gneiss_editor PRIVATE GNEISS_EDITOR_HAS_RUNTIME=1
                           GNEISS_EDITOR_RUNTIME_PATH="$<TARGET_FILE:gneiss_runtime>"
+                          GNEISS_EDITOR_CMAKE_PATH="${CMAKE_COMMAND}"
   )
   add_dependencies(gneiss_editor gneiss_runtime)
 endif()

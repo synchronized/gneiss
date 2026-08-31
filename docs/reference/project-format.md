@@ -1,11 +1,11 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- Copyright (c) 2026 Gneiss contributors -->
 
-# 工程文件格式 v1
+# 工程文件格式
 
 Editor 与 Runtime 宿主均以工程为启动单位。Editor 无参数启动时先显示 Project Manager；工程根目录必须
 包含固定名称的 `gneiss.project.json`。两者的 `--project` 和 Project Manager 都只接收工程根目录，
-不接受工程文件路径。首版工程描述如下：
+不接受工程文件路径。无游戏模块的 v1 工程描述如下：
 
 ```json
 {
@@ -22,10 +22,45 @@ Editor 与 Runtime 宿主均以工程为启动单位。Editor 无参数启动时
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
 | `format` | string | 固定为 `gneiss.project` |
-| `version` | unsigned integer | 当前固定为 `1` |
+| `version` | unsigned integer | `1` 为基础工程，`2` 支持可选输入映射与游戏模块 |
 | `name` | string | 非空工程显示名称 |
 | `asset_root` | string | 相对工程根目录的资产目录，使用正斜杠 |
 | `startup_scene` | string | Editor 首次打开且 Runtime 宿主默认运行的规范 `asset://` 场景 URI |
+| `input_map` | string | v2 可选；Runtime 启动时加载的规范 `asset://` 动作映射 URI |
+
+v2 可增加原生游戏模块：
+
+```json
+{
+  "format": "gneiss.project",
+  "version": 2,
+  "name": "My Game",
+  "asset_root": "assets",
+  "startup_scene": "asset://scenes/main.scene.json",
+  "input_map": "asset://input/default.input-map.json",
+  "game_module": {
+    "name": "my_game",
+    "directory": "modules",
+    "build_preset": "game-debug",
+    "build_target": "my_game"
+  }
+}
+```
+
+`game_module.name` 是平台无关基名，Runtime 在 Windows 映射为 `<name>.dll`，在 Linux 映射为
+`lib<name>.so`，在 macOS 映射为 `lib<name>.dylib`。`directory` 是工程根内的相对产物目录；路径
+解析后仍必须位于工程根内。`build_preset` 与 `build_target` 仅允许字母、数字、下划线和连字符，供
+Editor 通过受约束的 `cmake --build --preset <preset> --target <target>` 流程使用，不作为任意命令
+执行。构建期间 Run 被锁定，可用 Stop 中止；只有构建返回成功且模块产物仍能在工程根内解析时才会
+启动 Runtime，构建输出与 Runtime 输出显示在同一诊断窗口。
+
+安装版 Lantern Gallery 展示了 SDK 工程入口。首次打开前设置 `GNEISS_SDK_ROOT` 为包含 Gneiss 与
+Granit CMake package 的 SDK 前缀，并执行一次 `cmake --preset game-debug-configure`；之后 Editor 的
+Run 使用 `game-debug` build preset 增量构建模块。安装包同时携带预构建模块，可直接由 Runtime smoke
+验证。
+
+`input_map` 在启动场景与 Game Module 之前加载。模块可在初始化阶段按名称取得动作；未声明时保留
+空动作映射，以兼容既有工程。
 
 `asset_root` 不接受绝对路径、空段、`.`、`..`、反斜杠、冒号或百分号编码。解析器会解析真实路径，
 拒绝指向工程根目录之外的目录；`startup_scene` 也必须存在于该资产根内。工程文件决定 Application
@@ -50,4 +85,5 @@ Project Manager 与正式 Editor 使用两个连续且互不共享运行时状�
 gneiss_runtime --project <工程根> [--smoke]
 ```
 
-Runtime 宿主不读取 Editor 的最近工程状态，也不会把运行时场景修改写回工程文件或作者场景。
+Runtime 宿主不读取 Editor 的最近工程状态，也不会把运行时场景修改写回工程文件或作者场景。v2
+工程声明模块后，缺失产物、查询入口、ABI 或生命周期失败都会阻止主循环启动并写入阶段化日志。

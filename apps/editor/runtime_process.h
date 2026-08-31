@@ -6,6 +6,8 @@
 
 #include "runtime_launch.h"
 
+#include <gneiss/app/project_description.h>
+
 #include <memory>
 #include <string>
 
@@ -21,14 +23,21 @@ public:
 
   [[nodiscard]] result start(const std::filesystem::path& executable,
                              const runtime_launch_request& request) noexcept;
+  [[nodiscard]] result build_and_start(const std::filesystem::path& cmake_executable,
+                                       const std::filesystem::path& runtime_executable,
+                                       const runtime_launch_request& request,
+                                       const app::project_description& project) noexcept;
   [[nodiscard]] result request_stop() noexcept;
   void update() noexcept;
 
   [[nodiscard]] bool is_running() const noexcept;
+  [[nodiscard]] bool is_building() const noexcept;
+  [[nodiscard]] bool is_busy() const noexcept;
   [[nodiscard]] bool has_started() const noexcept;
   [[nodiscard]] int exit_code() const noexcept;
   [[nodiscard]] const std::string& output() const noexcept;
   [[nodiscard]] const std::filesystem::path& log_file() const noexcept;
+  [[nodiscard]] result last_result() const noexcept;
   void clear_output() noexcept;
 
 private:

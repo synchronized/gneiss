@@ -38,6 +38,9 @@ target_sources(
     core/rid_table.h
     core/result.cpp
     core/version.cpp
+    game/game_module.cpp
+    game/game_context.cpp
+    game/game_context_internal.h
     input/input_service.cpp
     input/input_service.h
     input/action_map.cpp
@@ -89,6 +92,8 @@ target_sources(
       "${PROJECT_SOURCE_DIR}/include/gneiss/core/rid.hpp"
       "${PROJECT_SOURCE_DIR}/include/gneiss/gneiss.h"
       "${PROJECT_SOURCE_DIR}/include/gneiss/gneiss.hpp"
+      "${PROJECT_SOURCE_DIR}/include/gneiss/game_module.h"
+      "${PROJECT_SOURCE_DIR}/include/gneiss/game_module.hpp"
       "${PROJECT_SOURCE_DIR}/include/gneiss/input.h"
       "${PROJECT_SOURCE_DIR}/include/gneiss/input.hpp"
       "${PROJECT_SOURCE_DIR}/include/gneiss/reflection.h"
@@ -165,6 +170,10 @@ set_target_properties(
     CXX_VISIBILITY_PRESET hidden
     VISIBILITY_INLINES_HIDDEN YES
 )
+
+if(GNEISS_BUILD_EDITOR OR GNEISS_BUILD_RUNTIME)
+  add_subdirectory(platform)
+endif()
 
 if(GNEISS_BUILD_EDITOR)
   add_subdirectory(process)

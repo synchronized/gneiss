@@ -45,6 +45,7 @@
 - [场景文件格式 v2](reference/scene-format.md)
 - [场景加载、实例与卸载](reference/scene-instance.md)
 - [工程文件格式 v1](reference/project-format.md)
+- [Game Module ABI 与生命周期](reference/game-module.md)
 - [Mesh Binary、JSON Mesh 与 Material 资产格式](reference/render-asset-formats.md)
 - [Editor 资产索引格式 v1](reference/asset-index-format.md)
 
@@ -68,6 +69,7 @@
 - [VER-009：0.9.0 场景创作工作流](plans/VER-009-0.9.0-scene-authoring-workflow.md)
 - [VER-010：0.10.0 稳定性预览](plans/VER-010-0.10.0-stability-preview.md)
 - [VER-011：0.11.0 Runtime 宿主工作流](plans/VER-011-0.11.0-runtime-workflow.md)
+- [VER-012：0.12.0 游戏模块与生命周期](plans/VER-012-0.12.0-game-module-lifecycle.md)
 - [TOOL-001：glTF 资产编译器最小闭环](plans/TOOL-001-gltf-asset-compiler.md)
 - [TOOL-002：Mesh Binary v1 最小闭环](plans/TOOL-002-mesh-binary-v1.md)
 - [TOOL-003：索引渲染最小闭环](plans/TOOL-003-indexed-rendering.md)
@@ -96,6 +98,8 @@
 - [ADR-019：Editor 源资产、派生产物与导入索引边界](decisions/ADR-019-editor-asset-workflow.md)
 - [ADR-020：Editor 场景创作与 Runtime 投影边界](decisions/ADR-020-scene-authoring-boundary.md)
 - [ADR-023：公共 API 稳定级别与 1.x 兼容边界](decisions/ADR-023-public-api-stability.md)
+- [ADR-024：Editor 与 Runtime 宿主进程隔离](decisions/ADR-024-editor-runtime-process-isolation.md)
+- [ADR-025：原生游戏模块与 Engine 生命周期边界](decisions/ADR-025-native-game-module-boundary.md)
 
 ## 实施与验收记录
 
@@ -114,6 +118,7 @@
 - [0.9.0 场景创作工作流验收记录](records/0.9.0-validation.md)
 - [0.10.0 稳定性预览验收记录](records/0.10.0-validation.md)
 - [0.11.0 Runtime 宿主工作流验收记录](records/0.11.0-validation.md)
+- [0.12.0 游戏模块与生命周期验收记录](records/0.12.0-validation.md)
 - [M-65 公共 API 与稳定性审计记录](records/M-65-public-api-audit.md)
 - [M-66 稳定运行时代表性样例验收记录](records/M-66-stable-runtime-sample.md)
 - [M-67 公共 API 与 ABI 加固记录](records/M-67-api-abi-hardening.md)

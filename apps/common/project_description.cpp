@@ -46,6 +46,19 @@ using document_ptr = std::unique_ptr<yyjson_doc, document_deleter>;
   return !output.empty();
 }
 
+[[nodiscard]] bool read_optional_string(yyjson_val* object, const char* key, std::string& output) {
+  auto* value = yyjson_obj_get(object, key);
+  if (value == nullptr) {
+    output.clear();
+    return true;
+  }
+  if (!yyjson_is_str(value) || yyjson_get_len(value) == 0U) {
+    return false;
+  }
+  output.assign(yyjson_get_str(value), yyjson_get_len(value));
+  return true;
+}
+
 [[nodiscard]] std::filesystem::path utf8_path(std::string_view value) {
   return std::filesystem::path(
       std::u8string(reinterpret_cast<const char8_t*>(value.data()), value.size()));
@@ -73,6 +86,19 @@ using document_ptr = std::unique_ptr<yyjson_doc, document_deleter>;
       break;
     }
     segment_start = separator + 1U;
+  }
+  return true;
+}
+
+[[nodiscard]] bool valid_identifier(std::string_view value) noexcept {
+  if (value.empty()) {
+    return false;
+  }
+  for (const auto character : value) {
+    if (!((character >= 'a' && character <= 'z') || (character >= 'A' && character <= 'Z') ||
+          (character >= '0' && character <= '9') || character == '_' || character == '-')) {
+      return false;
+    }
   }
   return true;
 }
@@ -109,8 +135,47 @@ std::string_view project_load_stage_name(project_load_stage stage) noexcept {
     return "asset_root";
   case project_load_stage::startup_scene:
     return "startup_scene";
+  case project_load_stage::input_map:
+    return "input_map";
+  case project_load_stage::game_module:
+    return "game_module";
   }
   return "unknown";
+}
+
+result resolve_game_module_path(const project_description& project,
+                                std::filesystem::path& output) noexcept {
+  output.clear();
+  if (project.project_root.empty() || project.game_module.name.empty() ||
+      project.game_module.directory.empty()) {
+    return result::invalid_argument;
+  }
+  try {
+#if defined(_WIN32)
+    const auto filename = project.game_module.name + ".dll";
+#elif defined(__APPLE__)
+    const auto filename = "lib" + project.game_module.name + ".dylib";
+#elif defined(__linux__) || defined(__unix__)
+    const auto filename = "lib" + project.game_module.name + ".so";
+#else
+    return result::unsupported;
+#endif
+    std::error_code error;
+    const auto candidate = std::filesystem::weakly_canonical(
+        project.project_root / project.game_module.directory / filename, error);
+    if (error || !is_within(project.project_root, candidate)) {
+      return result::invalid_argument;
+    }
+    if (!std::filesystem::is_regular_file(candidate, error) || error) {
+      return result::not_found;
+    }
+    output = candidate;
+    return result::success;
+  } catch (const std::bad_alloc&) {
+    return result::out_of_memory;
+  } catch (...) {
+    return result::io;
+  }
 }
 
 result load_project_description(const std::filesystem::path& project_root,
@@ -157,7 +222,8 @@ result load_project_description(const std::filesystem::path& project_root,
         !yyjson_is_uint(version)) {
       return fail(report, project_load_stage::schema, result::invalid_argument, project_file);
     }
-    if (yyjson_get_uint(version) != 1U) {
+    const auto format_version = yyjson_get_uint(version);
+    if (format_version != 1U && format_version != 2U) {
       return fail(report, project_load_stage::schema, result::unsupported, project_file);
     }
     project_description pending;
@@ -169,6 +235,30 @@ result load_project_description(const std::filesystem::path& project_root,
         gneiss_asset_uri_validate(pending.startup_scene.data(), pending.startup_scene.size()) !=
             GNEISS_SUCCESS) {
       return fail(report, project_load_stage::schema, result::invalid_argument, project_file);
+    }
+
+    auto* game_module = yyjson_obj_get(root, "game_module");
+    if (game_module != nullptr) {
+      std::string directory;
+      if (format_version < 2U || !yyjson_is_obj(game_module) ||
+          !read_string(game_module, "name", pending.game_module.name) ||
+          !read_string(game_module, "directory", directory) ||
+          !read_string(game_module, "build_preset", pending.game_module.build_preset) ||
+          !read_string(game_module, "build_target", pending.game_module.build_target) ||
+          !valid_identifier(pending.game_module.name) || !valid_relative_directory(directory) ||
+          !valid_identifier(pending.game_module.build_preset) ||
+          !valid_identifier(pending.game_module.build_target)) {
+        return fail(report, project_load_stage::game_module, result::invalid_argument,
+                    project_file);
+      }
+      pending.game_module.directory = utf8_path(directory);
+    }
+
+    if (!read_optional_string(root, "input_map", pending.input_map) ||
+        (!pending.input_map.empty() &&
+         gneiss_asset_uri_validate(pending.input_map.data(), pending.input_map.size()) !=
+             GNEISS_SUCCESS)) {
+      return fail(report, project_load_stage::input_map, result::invalid_argument, project_file);
     }
 
     pending.project_file = project_file;
@@ -188,6 +278,15 @@ result load_project_description(const std::filesystem::path& project_root,
     if (error || !is_within(pending.asset_root, scene_path) ||
         !std::filesystem::is_regular_file(scene_path, error) || error) {
       return fail(report, project_load_stage::startup_scene, result::not_found, scene_path);
+    }
+    if (!pending.input_map.empty()) {
+      const auto input_map_path = std::filesystem::weakly_canonical(
+          pending.asset_root / utf8_path(std::string_view(pending.input_map).substr(scheme.size())),
+          error);
+      if (error || !is_within(pending.asset_root, input_map_path) ||
+          !std::filesystem::is_regular_file(input_map_path, error) || error) {
+        return fail(report, project_load_stage::input_map, result::not_found, input_map_path);
+      }
     }
     output = std::move(pending);
     report = {};

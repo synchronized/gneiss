@@ -9,6 +9,7 @@
 #include <gneiss/core/entity.hpp>
 #include <gneiss/core/result.hpp>
 #include <gneiss/core/rid.hpp>
+#include <gneiss/game_module.hpp>
 #include <gneiss/gneiss.h>
 #include <gneiss/input.hpp>
 #include <gneiss/reflection.hpp>

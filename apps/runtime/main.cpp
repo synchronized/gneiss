@@ -5,6 +5,9 @@
 #include <gneiss/application.hpp>
 #include <gneiss/scene.h>
 
+#include "game/game_context_internal.h"
+#include "game_module_session.h"
+#include "game_update_scheduler.h"
 #include "runtime_log.h"
 
 #include <cstdint>
@@ -28,10 +31,20 @@ struct runtime_context final {
   std::filesystem::path stop_file;
   std::uint64_t next_stop_check_ns = 0U;
   bool has_logged_first_frame = false;
+  gneiss::game_module_session* game_module = nullptr;
+  gneiss::runtime_internal::game_update_scheduler* game_scheduler = nullptr;
 };
 
 [[nodiscard]] std::string path_text(const std::filesystem::path& path) {
   return path.generic_string();
+}
+
+gneiss::result fixed_update_game(void* user_data, const gneiss_game_update_time& time) noexcept {
+  return static_cast<gneiss::game_module_session*>(user_data)->fixed_update(time);
+}
+
+gneiss::result update_game(void* user_data, const gneiss_game_update_time& time) noexcept {
+  return static_cast<gneiss::game_module_session*>(user_data)->update(time);
 }
 
 [[nodiscard]] bool parse_options(int argc, char** argv, runtime_options& output) {
@@ -77,19 +90,30 @@ gneiss_result update_runtime(gneiss_application application, const gneiss_frame_
       context.log->write("INFO", "first_frame", GNEISS_SUCCESS, "Runtime 已进入首帧");
     }
   }
-  if (context.stop_file.empty() || time->elapsed_ns < context.next_stop_check_ns) {
+  if (!context.stop_file.empty() && time->elapsed_ns >= context.next_stop_check_ns) {
+    context.next_stop_check_ns = time->elapsed_ns + UINT64_C(100000000);
+    std::error_code error;
+    if (std::filesystem::exists(context.stop_file, error) && !error) {
+      std::filesystem::remove(context.stop_file, error);
+      if (context.log != nullptr) {
+        context.log->write("INFO", "stop_request", GNEISS_SUCCESS, "收到 Editor 正常停止请求");
+      }
+      return gneiss_application_request_exit(application);
+    }
+  }
+  if (context.game_module == nullptr || context.game_scheduler == nullptr) {
     return GNEISS_SUCCESS;
   }
-  context.next_stop_check_ns = time->elapsed_ns + UINT64_C(100000000);
-  std::error_code error;
-  if (!std::filesystem::exists(context.stop_file, error) || error) {
-    return GNEISS_SUCCESS;
+  const gneiss::runtime_internal::game_update_callbacks callbacks{context.game_module,
+                                                                  fixed_update_game, update_game};
+  gneiss::runtime_internal::game_update_report report;
+  const auto update_result = context.game_scheduler->advance(*time, callbacks, report);
+  if ((report.was_frame_clamped || report.dropped_ns != 0U) && context.log != nullptr) {
+    context.log->write("WARNING", "game_update", GNEISS_SUCCESS, "游戏模块更新积压已受限",
+                       "accepted_ns=" + std::to_string(report.accepted_delta_ns) +
+                           " dropped_ns=" + std::to_string(report.dropped_ns));
   }
-  std::filesystem::remove(context.stop_file, error);
-  if (context.log != nullptr) {
-    context.log->write("INFO", "stop_request", GNEISS_SUCCESS, "收到 Editor 正常停止请求");
-  }
-  return gneiss_application_request_exit(application);
+  return static_cast<gneiss_result>(update_result);
 }
 
 void report_application_diagnostic(gneiss_application, const gneiss_diagnostic* diagnostic,
@@ -152,6 +176,16 @@ void report_application_diagnostic(gneiss_application, const gneiss_diagnostic* 
   }
   log.write("INFO", "application_create", GNEISS_SUCCESS, "Application 创建完成");
 
+  if (!project.input_map.empty()) {
+    const auto input_result = gneiss_application_load_action_map(
+        application.get(), project.input_map.data(), project.input_map.size());
+    if (input_result != GNEISS_SUCCESS) {
+      log.write("ERROR", "input_map", input_result, "输入映射加载失败", project.input_map);
+      return 4;
+    }
+    log.write("INFO", "input_map", GNEISS_SUCCESS, "输入映射加载完成", project.input_map);
+  }
+
   gneiss_scene_instance scene = GNEISS_NULL_SCENE_INSTANCE;
   auto native_result = gneiss_scene_instance_load(application.get(), project.startup_scene.data(),
                                                   project.startup_scene.size(), &scene);
@@ -161,16 +195,86 @@ void report_application_diagnostic(gneiss_application, const gneiss_diagnostic* 
   }
   log.write("INFO", "startup_scene", GNEISS_SUCCESS, "启动场景加载完成", project.startup_scene);
 
-  operation = application.run(options.smoke ? UINT64_C(3) : UINT64_C(0));
-  if (operation != gneiss::result::success) {
-    log.write("ERROR", "run", static_cast<gneiss_result>(operation), "Runtime 主循环失败");
+  gneiss_entity_id startup_root_entity = GNEISS_NULL_ENTITY_ID;
+  uint64_t node_count = 0;
+  native_result = gneiss_scene_instance_get_node_count(application.get(), scene, &node_count);
+  for (uint64_t index = 0; native_result == GNEISS_SUCCESS && index < node_count; ++index) {
+    gneiss_scene_instance_node_info info = GNEISS_SCENE_INSTANCE_NODE_INFO_INIT;
+    native_result = gneiss_scene_instance_get_node_info(application.get(), scene, index, &info);
+    if (native_result == GNEISS_SUCCESS && info.parent == GNEISS_NULL_SCENE_NODE_ID) {
+      startup_root_entity = info.entity;
+      break;
+    }
+  }
+  if (native_result != GNEISS_SUCCESS) {
+    log.write("ERROR", "game_context", native_result, "启动场景根实体查询失败");
     (void)gneiss_scene_instance_unload(application.get(), scene);
     return 5;
+  }
+  gneiss_game_context game_context = GNEISS_NULL_GAME_CONTEXT;
+  native_result = gneiss::game_internal::create_game_context(application.get(), startup_root_entity,
+                                                             &game_context);
+  if (native_result != GNEISS_SUCCESS) {
+    log.write("ERROR", "game_context", native_result, "Game Context 创建失败");
+    (void)gneiss_scene_instance_unload(application.get(), scene);
+    return 5;
+  }
+
+  gneiss::game_module_session game_module;
+  gneiss::runtime_internal::game_update_scheduler game_scheduler;
+  if (!project.game_module.name.empty()) {
+    std::filesystem::path module_path;
+    operation = gneiss::app::resolve_game_module_path(project, module_path);
+    if (operation == gneiss::result::success) {
+      operation = game_module.load(module_path);
+    }
+    if (operation == gneiss::result::success) {
+      operation = game_module.initialize(game_context);
+    }
+    if (operation != gneiss::result::success) {
+      log.write("ERROR", "game_module", static_cast<gneiss_result>(operation),
+                "游戏模块加载或初始化失败", path_text(module_path));
+      (void)gneiss::game_internal::destroy_game_context(game_context);
+      (void)gneiss_scene_instance_unload(application.get(), scene);
+      return 6;
+    }
+    context.game_module = &game_module;
+    context.game_scheduler = &game_scheduler;
+    log.write("INFO", "game_module", GNEISS_SUCCESS, "游戏模块初始化完成",
+              std::string(game_module.module_id()));
+  }
+
+  operation = application.run(options.smoke ? UINT64_C(3) : UINT64_C(0));
+  context.game_module = nullptr;
+  context.game_scheduler = nullptr;
+  if (operation != gneiss::result::success) {
+    log.write("ERROR", "run", static_cast<gneiss_result>(operation), "Runtime 主循环失败");
+    if (game_module.is_initialized()) {
+      (void)game_module.shutdown();
+    }
+    (void)gneiss::game_internal::destroy_game_context(game_context);
+    (void)gneiss_scene_instance_unload(application.get(), scene);
+    return 7;
+  }
+  if (game_module.is_initialized()) {
+    operation = game_module.shutdown();
+    if (operation != gneiss::result::success) {
+      log.write("ERROR", "game_module", static_cast<gneiss_result>(operation), "游戏模块关闭失败");
+      (void)gneiss::game_internal::destroy_game_context(game_context);
+      (void)gneiss_scene_instance_unload(application.get(), scene);
+      return 8;
+    }
+  }
+  native_result = gneiss::game_internal::destroy_game_context(game_context);
+  if (native_result != GNEISS_SUCCESS) {
+    log.write("ERROR", "game_context", native_result, "Game Context 销毁失败");
+    (void)gneiss_scene_instance_unload(application.get(), scene);
+    return 9;
   }
   native_result = gneiss_scene_instance_unload(application.get(), scene);
   if (native_result != GNEISS_SUCCESS) {
     log.write("ERROR", "scene_unload", native_result, "启动场景卸载失败");
-    return 6;
+    return 10;
   }
   log.write("INFO", "shutdown", GNEISS_SUCCESS, "Runtime 已正常退出");
   return 0;
