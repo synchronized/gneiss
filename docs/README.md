@@ -66,6 +66,7 @@
 - [VER-008：0.8.0 编辑器资产工作流](plans/VER-008-0.8.0-editor-asset-workflow.md)
 - [VER-009：0.9.0 场景创作工作流](plans/VER-009-0.9.0-scene-authoring-workflow.md)
 - [VER-010：0.10.0 稳定性预览](plans/VER-010-0.10.0-stability-preview.md)
+- [VER-011：0.11.0 Player 运行工作流](plans/VER-011-0.11.0-player-workflow.md)
 - [TOOL-001：glTF 资产编译器最小闭环](plans/TOOL-001-gltf-asset-compiler.md)
 - [TOOL-002：Mesh Binary v1 最小闭环](plans/TOOL-002-mesh-binary-v1.md)
 - [TOOL-003：索引渲染最小闭环](plans/TOOL-003-indexed-rendering.md)
