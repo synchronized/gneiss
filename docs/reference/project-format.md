@@ -22,10 +22,11 @@ Editor 与 Runtime 宿主均以工程为启动单位。Editor 无参数启动时
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
 | `format` | string | 固定为 `gneiss.project` |
-| `version` | unsigned integer | 当前固定为 `1` |
+| `version` | unsigned integer | `1` 为基础工程，`2` 支持可选输入映射与游戏模块 |
 | `name` | string | 非空工程显示名称 |
 | `asset_root` | string | 相对工程根目录的资产目录，使用正斜杠 |
 | `startup_scene` | string | Editor 首次打开且 Runtime 宿主默认运行的规范 `asset://` 场景 URI |
+| `input_map` | string | v2 可选；Runtime 启动时加载的规范 `asset://` 动作映射 URI |
 
 v2 可增加原生游戏模块：
 
@@ -36,6 +37,7 @@ v2 可增加原生游戏模块：
   "name": "My Game",
   "asset_root": "assets",
   "startup_scene": "asset://scenes/main.scene.json",
+  "input_map": "asset://input/default.input-map.json",
   "game_module": {
     "name": "my_game",
     "directory": "modules",
@@ -51,6 +53,9 @@ v2 可增加原生游戏模块：
 Editor 通过受约束的 `cmake --build --preset <preset> --target <target>` 流程使用，不作为任意命令
 执行。构建期间 Run 被锁定，可用 Stop 中止；只有构建返回成功且模块产物仍能在工程根内解析时才会
 启动 Runtime，构建输出与 Runtime 输出显示在同一诊断窗口。
+
+`input_map` 在启动场景与 Game Module 之前加载。模块可在初始化阶段按名称取得动作；未声明时保留
+空动作映射，以兼容既有工程。
 
 `asset_root` 不接受绝对路径、空段、`.`、`..`、反斜杠、冒号或百分号编码。解析器会解析真实路径，
 拒绝指向工程根目录之外的目录；`startup_scene` 也必须存在于该资产根内。工程文件决定 Application

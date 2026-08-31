@@ -1,0 +1,16 @@
+{
+  "version": 6,
+  "configurePresets": [
+    {
+      "name": "gneiss-build-tree",
+      "binaryDir": "@GNEISS_LANTERN_BUILD_TREE@"
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "game-debug",
+      "configurePreset": "gneiss-build-tree",
+      "configuration": "Debug"
+    }
+  ]
+}

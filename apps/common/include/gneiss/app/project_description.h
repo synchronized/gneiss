@@ -26,6 +26,7 @@ struct project_description final {
   std::filesystem::path asset_root;
   std::string name;
   std::string startup_scene;
+  std::string input_map;
   game_module_description game_module;
 };
 
@@ -39,6 +40,7 @@ enum class project_load_stage {
   schema,
   asset_root,
   startup_scene,
+  input_map,
   game_module,
 };
 

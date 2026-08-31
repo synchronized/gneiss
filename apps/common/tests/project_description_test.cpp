@@ -45,6 +45,7 @@ int main() try {
   const auto root = std::filesystem::temp_directory_path() /
                     ("gneiss-app-project-test-" + std::to_string(suffix));
   std::filesystem::create_directories(root / "assets" / "scenes");
+  std::filesystem::create_directories(root / "assets" / "input");
   if (!write_text(root / "assets" / "scenes" / "main.scene.json", "{}") ||
       !write_text(root / "gneiss.project.json",
                   project_json("assets", "asset://scenes/main.scene.json")) ||
@@ -61,12 +62,15 @@ int main() try {
 #endif
   std::filesystem::create_directories(root / "modules");
   if (!write_text(root / "modules" / module_filename, "fixture") ||
+      !write_text(root / "assets" / "input" / "default.input-map.json", "{}") ||
       !write_text(root / "gneiss.project.json",
                   project_json("assets", "asset://scenes/main.scene.json",
-                               ",\n  \"game_module\": {\"name\": \"test_game\", "
+                               ",\n  \"input_map\": \"asset://input/default.input-map.json\","
+                               "\n  \"game_module\": {\"name\": \"test_game\", "
                                "\"directory\": \"modules\", \"build_preset\": \"game-debug\", "
                                "\"build_target\": \"test_game\"}")) ||
       gneiss::app::load_project_description(root, project, report) != gneiss::result::success ||
+      project.input_map != "asset://input/default.input-map.json" ||
       project.game_module.name != "test_game" || project.game_module.build_preset != "game-debug") {
     return 3;
   }

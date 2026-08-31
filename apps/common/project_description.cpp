@@ -46,6 +46,19 @@ using document_ptr = std::unique_ptr<yyjson_doc, document_deleter>;
   return !output.empty();
 }
 
+[[nodiscard]] bool read_optional_string(yyjson_val* object, const char* key, std::string& output) {
+  auto* value = yyjson_obj_get(object, key);
+  if (value == nullptr) {
+    output.clear();
+    return true;
+  }
+  if (!yyjson_is_str(value) || yyjson_get_len(value) == 0U) {
+    return false;
+  }
+  output.assign(yyjson_get_str(value), yyjson_get_len(value));
+  return true;
+}
+
 [[nodiscard]] std::filesystem::path utf8_path(std::string_view value) {
   return std::filesystem::path(
       std::u8string(reinterpret_cast<const char8_t*>(value.data()), value.size()));
@@ -122,6 +135,8 @@ std::string_view project_load_stage_name(project_load_stage stage) noexcept {
     return "asset_root";
   case project_load_stage::startup_scene:
     return "startup_scene";
+  case project_load_stage::input_map:
+    return "input_map";
   case project_load_stage::game_module:
     return "game_module";
   }
@@ -239,6 +254,13 @@ result load_project_description(const std::filesystem::path& project_root,
       pending.game_module.directory = utf8_path(directory);
     }
 
+    if (!read_optional_string(root, "input_map", pending.input_map) ||
+        (!pending.input_map.empty() &&
+         gneiss_asset_uri_validate(pending.input_map.data(), pending.input_map.size()) !=
+             GNEISS_SUCCESS)) {
+      return fail(report, project_load_stage::input_map, result::invalid_argument, project_file);
+    }
+
     pending.project_file = project_file;
     pending.project_root = canonical_root;
     pending.asset_root =
@@ -256,6 +278,15 @@ result load_project_description(const std::filesystem::path& project_root,
     if (error || !is_within(pending.asset_root, scene_path) ||
         !std::filesystem::is_regular_file(scene_path, error) || error) {
       return fail(report, project_load_stage::startup_scene, result::not_found, scene_path);
+    }
+    if (!pending.input_map.empty()) {
+      const auto input_map_path = std::filesystem::weakly_canonical(
+          pending.asset_root / utf8_path(std::string_view(pending.input_map).substr(scheme.size())),
+          error);
+      if (error || !is_within(pending.asset_root, input_map_path) ||
+          !std::filesystem::is_regular_file(input_map_path, error) || error) {
+        return fail(report, project_load_stage::input_map, result::not_found, input_map_path);
+      }
     }
     output = std::move(pending);
     report = {};

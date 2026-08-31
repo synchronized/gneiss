@@ -1,7 +1,14 @@
 {
   "format": "gneiss.project",
-  "version": 1,
+  "version": 2,
   "name": "Gneiss Lantern Gallery",
   "asset_root": "assets",
-  "startup_scene": "asset://scenes/gallery.scene.json"
+  "startup_scene": "asset://scenes/gallery.scene.json",
+  "input_map": "asset://input/default.input-map.json",
+  "game_module": {
+    "name": "gneiss_lantern_gallery_game",
+    "directory": "modules",
+    "build_preset": "game-debug",
+    "build_target": "gneiss_lantern_gallery_game"
+  }
 }

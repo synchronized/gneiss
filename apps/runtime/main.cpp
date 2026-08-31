@@ -176,6 +176,16 @@ void report_application_diagnostic(gneiss_application, const gneiss_diagnostic* 
   }
   log.write("INFO", "application_create", GNEISS_SUCCESS, "Application 创建完成");
 
+  if (!project.input_map.empty()) {
+    const auto input_result = gneiss_application_load_action_map(
+        application.get(), project.input_map.data(), project.input_map.size());
+    if (input_result != GNEISS_SUCCESS) {
+      log.write("ERROR", "input_map", input_result, "输入映射加载失败", project.input_map);
+      return 4;
+    }
+    log.write("INFO", "input_map", GNEISS_SUCCESS, "输入映射加载完成", project.input_map);
+  }
+
   gneiss_scene_instance scene = GNEISS_NULL_SCENE_INSTANCE;
   auto native_result = gneiss_scene_instance_load(application.get(), project.startup_scene.data(),
                                                   project.startup_scene.size(), &scene);
