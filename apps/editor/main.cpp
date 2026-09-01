@@ -11,6 +11,7 @@
 #include "imgui_adapter.h"
 #include "native_dialog.h"
 #include "project_manager.h"
+#include "project_workspace.h"
 #include "property_inspector_model.h"
 #include "runtime_launch.h"
 #include "runtime_process.h"
@@ -1136,6 +1137,12 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
         }
         ImGui::EndMenu();
       }
+      if (ImGui::BeginMenu("Window")) {
+        if (ImGui::MenuItem("Reset Layout")) {
+          gneiss::editor::reset_editor_layout();
+        }
+        ImGui::EndMenu();
+      }
       if (ImGui::BeginMenu("Development")) {
         ImGui::MenuItem("ImGui Demo", nullptr, &state.show_imgui_demo);
         ImGui::EndMenu();
@@ -1851,6 +1858,17 @@ int run_editor(int argc, char** argv) {
     report_startup_failure("Editor UI 初始化", operation);
     return 2;
   }
+  if (!options.smoke) {
+    const auto layout_result = gneiss::editor::initialize_editor_layout(
+        gneiss::editor::default_editor_state_path(), project.project_root);
+    if (layout_result != gneiss::result::success &&
+        layout_result != gneiss::result::invalid_argument) {
+      const auto message = gneiss::result_message(layout_result);
+      std::fprintf(stderr, "Gneiss Editor 布局加载失败：结果=%d，消息=%.*s\n",
+                   gneiss::to_native(layout_result), static_cast<int>(message.size()),
+                   message.data());
+    }
+  }
   operation = state.inspector.initialize();
   if (operation == gneiss::result::success) {
     operation = application.get_world(state.world);
@@ -1876,6 +1894,15 @@ int run_editor(int argc, char** argv) {
   }
   state.history.clear();
   const auto run_result = application.run(options.smoke ? 3U : 0U);
+  if (!options.smoke) {
+    const auto save_layout_result = gneiss::editor::save_editor_layout();
+    if (save_layout_result != gneiss::result::success) {
+      const auto message = gneiss::result_message(save_layout_result);
+      std::fprintf(stderr, "Gneiss Editor 布局保存失败：结果=%d，消息=%.*s\n",
+                   gneiss::to_native(save_layout_result), static_cast<int>(message.size()),
+                   message.data());
+    }
+  }
   state.ui.shutdown(application.get());
   state.camera.shutdown();
   state.session.close();

@@ -99,6 +99,11 @@ gneiss_target_compile_warnings(gneiss_editor)
 gneiss_target_output_directories(gneiss_editor)
 
 if(BUILD_TESTING)
+  add_executable(gneiss_editor_ui_layout_test tests/editor_ui_layout_test.cpp)
+  target_link_libraries(gneiss_editor_ui_layout_test PRIVATE gneiss_editor_ui)
+  gneiss_target_compile_warnings(gneiss_editor_ui_layout_test)
+  gneiss_target_output_directories(gneiss_editor_ui_layout_test)
+  add_test(NAME gneiss.editor.ui-layout COMMAND gneiss_editor_ui_layout_test)
   add_executable(gneiss_editor_session_test tests/editor_session_test.cpp)
   target_link_libraries(gneiss_editor_session_test PRIVATE gneiss_editor_session)
   target_compile_definitions(

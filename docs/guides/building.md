@@ -292,8 +292,9 @@ RID、UI Draw List 与 Granit Canvas 已完成同帧渲染。成功修改后状�
 源文件与脏状态并显示错误。Editor 主窗口支持系统缩放，ImGui 使用当前客户区尺寸；Scene View、
 Hierarchy、Inspector、Asset Browser 和 Console 可以拖动标题栏与边界调整位置和大小。Editor 已
 启用单窗口 Docking，可手动吸附、分栏和组成标签页。首次启动会建立左侧 Hierarchy/Assets、中央
-Scene View、右侧 Inspector 和底部 Console 的确定性默认工作区；当前尚未启用布局持久化，重启后
-仍会恢复默认布局。可用 `--smoke` 固定运行 3 帧，验证场景加载、UI 提交与逆序清理。
+Scene View、右侧 Inspector 和底部 Console 的确定性默认工作区。普通启动会在用户配置根下按工程
+隔离保存布局，`Window > Reset Layout` 可恢复默认工作区；损坏或不兼容的布局不会阻止启动。可用
+`--smoke` 固定运行 3 帧，验证场景加载、UI 提交与逆序清理，且不会读写开发机布局状态。
 
 ## 验证结果
 
