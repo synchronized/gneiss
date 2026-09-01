@@ -72,6 +72,11 @@ struct editor_state {
   std::uint64_t console_pause_entry_id = 0U;
   bool pending_save_and_run = false;
   bool show_imgui_demo = false;
+  bool show_scene_hierarchy = true;
+  bool show_asset_browser = true;
+  bool show_scene_view = true;
+  bool show_inspector = true;
+  bool show_console = true;
   gizmo_operation gizmo_mode = gizmo_operation::translate;
   bool gizmo_using = false;
   bool gizmo_was_dirty = false;
@@ -752,7 +757,8 @@ find_material_for_mesh(const std::vector<gneiss::editor::asset_browser_entry>& e
 }
 
 void draw_asset_browser(editor_state& state) {
-  ImGui::Begin("Asset Browser");
+  ImGui::SetNextWindowSizeConstraints(ImVec2(220.0F, 160.0F), ImVec2(FLT_MAX, FLT_MAX));
+  ImGui::Begin("Asset Browser", &state.show_asset_browser);
   if (ImGui::Button("Refresh")) {
     state.asset_result = state.assets.refresh(state.project_root, state.asset_root);
   }
@@ -1138,7 +1144,18 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
         ImGui::EndMenu();
       }
       if (ImGui::BeginMenu("Window")) {
+        ImGui::MenuItem("Scene Hierarchy", nullptr, &state.show_scene_hierarchy);
+        ImGui::MenuItem("Asset Browser", nullptr, &state.show_asset_browser);
+        ImGui::MenuItem("Scene View", nullptr, &state.show_scene_view);
+        ImGui::MenuItem("Inspector", nullptr, &state.show_inspector);
+        ImGui::MenuItem("Console", nullptr, &state.show_console);
+        ImGui::Separator();
         if (ImGui::MenuItem("Reset Layout")) {
+          state.show_scene_hierarchy = true;
+          state.show_asset_browser = true;
+          state.show_scene_view = true;
+          state.show_inspector = true;
+          state.show_console = true;
           gneiss::editor::reset_editor_layout();
         }
         ImGui::EndMenu();
@@ -1246,7 +1263,8 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
       state.history_error = io.KeyShift ? redo_editor_command(state) : undo_editor_command(state);
     }
 
-    if (ImGui::Begin("Console")) {
+    ImGui::SetNextWindowSizeConstraints(ImVec2(320.0F, 160.0F), ImVec2(FLT_MAX, FLT_MAX));
+    if (ImGui::Begin("Console", &state.show_console)) {
       if (state.runtime.is_building()) {
         ImGui::TextColored(gneiss::editor::theme_warning_color(), "Building game module");
       } else if (state.runtime.is_running()) {
@@ -1371,7 +1389,8 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
     }
     ImGui::End();
 
-    ImGui::Begin("Scene Hierarchy");
+    ImGui::SetNextWindowSizeConstraints(ImVec2(220.0F, 180.0F), ImVec2(FLT_MAX, FLT_MAX));
+    ImGui::Begin("Scene Hierarchy", &state.show_scene_hierarchy);
     if (!state.session.is_open()) {
       ImGui::TextUnformatted("No scene is open");
     } else {
@@ -1568,8 +1587,9 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
       ImGui::End();
     }
 
+    ImGui::SetNextWindowSizeConstraints(ImVec2(400.0F, 280.0F), ImVec2(FLT_MAX, FLT_MAX));
     const auto scene_view_visible =
-        ImGui::Begin("Scene View", nullptr, ImGuiWindowFlags_NoBackground);
+        ImGui::Begin("Scene View", &state.show_scene_view, ImGuiWindowFlags_NoBackground);
     if (scene_view_visible) {
       const auto scene_view_hovered = ImGui::IsWindowHovered();
       ImGui::TextUnformatted("Scene View");
@@ -1615,7 +1635,8 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
     }
     ImGui::End();
 
-    ImGui::Begin("Inspector");
+    ImGui::SetNextWindowSizeConstraints(ImVec2(260.0F, 220.0F), ImVec2(FLT_MAX, FLT_MAX));
+    ImGui::Begin("Inspector", &state.show_inspector);
     ImGui::BeginDisabled(!state.session.is_open());
     const auto save_button_pressed = ImGui::Button("Save");
     ImGui::EndDisabled();

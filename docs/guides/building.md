@@ -294,7 +294,8 @@ Hierarchy、Inspector、Asset Browser 和 Console 可以拖动标题栏与边界
 启用单窗口 Docking，可手动吸附、分栏和组成标签页。首次启动会建立左侧 Hierarchy/Assets、中央
 Scene View、右侧 Inspector 和底部 Console 的确定性默认工作区。普通启动会在用户配置根下按工程
 隔离保存布局，`Window > Reset Layout` 可恢复默认工作区；损坏或不兼容的布局不会阻止启动。可用
-`--smoke` 固定运行 3 帧，验证场景加载、UI 提交与逆序清理，且不会读写开发机布局状态。
+`Window` 菜单关闭或重新打开 Hierarchy、Assets、Scene View、Inspector 和 Console。可用 `--smoke`
+固定运行 3 帧，验证场景加载、UI 提交与逆序清理，且不会读写开发机布局状态。
 
 ## 验证结果
 
