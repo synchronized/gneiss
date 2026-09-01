@@ -3,6 +3,7 @@
 
 #include "runtime_process.h"
 
+#include <algorithm>
 #include <chrono>
 #include <cstdio>
 #include <filesystem>
@@ -83,8 +84,14 @@ int main() try {
     process.update();
     std::this_thread::sleep_for(std::chrono::milliseconds(20));
   }
+  const auto current_session = process.console().current_session_id();
+  const auto has_structured_event =
+      std::ranges::any_of(process.console().entries(), [current_session](const auto& entry) {
+        return entry.session_id == current_session &&
+               entry.kind == gneiss::editor::console_entry_kind::structured;
+      });
   if (!process.is_running() || process.output().find("Runtime 已进入首帧") == std::string::npos ||
-      process.request_stop() != gneiss::result::success) {
+      !has_structured_event || process.request_stop() != gneiss::result::success) {
     return 7;
   }
   const auto startup_ms = std::chrono::duration_cast<std::chrono::milliseconds>(

@@ -6,6 +6,8 @@
 
 #include "runtime_launch.h"
 
+#include "console_model.h"
+
 #include <gneiss/app/project_description.h>
 
 #include <memory>
@@ -36,6 +38,7 @@ public:
   [[nodiscard]] bool has_started() const noexcept;
   [[nodiscard]] int exit_code() const noexcept;
   [[nodiscard]] const std::string& output() const noexcept;
+  [[nodiscard]] const console_model& console() const noexcept;
   [[nodiscard]] const std::filesystem::path& log_file() const noexcept;
   [[nodiscard]] result last_result() const noexcept;
   void clear_output() noexcept;

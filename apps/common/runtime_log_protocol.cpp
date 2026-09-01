@@ -209,7 +209,7 @@ runtime_log_parse_result parse_runtime_log_line(std::string_view line,
         !read_unsigned(root, "severity", severity) || severity > UINT32_MAX ||
         !read_string(root, "source", parsed.source) ||
         !read_string(root, "category", parsed.category) ||
-        !read_unsigned(root, "thread_id", parsed.thread_id) || !yyjson_is_sint(operation_value) ||
+        !read_unsigned(root, "thread_id", parsed.thread_id) || !yyjson_is_int(operation_value) ||
         !read_string(root, "message", parsed.message)) {
       return runtime_log_parse_result::invalid;
     }

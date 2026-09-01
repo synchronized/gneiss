@@ -65,6 +65,17 @@ int main() {
       parsed.operation != event.result) {
     return 2;
   }
+  auto success = encoded;
+  const auto result_position = success.find("\"result\":-9");
+  if (result_position == std::string::npos) {
+    return 6;
+  }
+  success.replace(result_position, 11U, "\"result\":0");
+  if (gneiss::app::parse_runtime_log_line(success, parsed) !=
+          gneiss::app::runtime_log_parse_result::success ||
+      parsed.operation != GNEISS_SUCCESS) {
+    return 6;
+  }
   if (gneiss::app::parse_runtime_log_line("第三方普通输出", parsed) !=
       gneiss::app::runtime_log_parse_result::not_protocol) {
     return 3;

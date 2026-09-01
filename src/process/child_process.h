@@ -37,6 +37,8 @@ public:
   [[nodiscard]] bool has_started() const noexcept;
   [[nodiscard]] int exit_code() const noexcept;
   [[nodiscard]] const std::string& output() const noexcept;
+  /** 取走自上次调用以来新增的输出，不影响 output() 的滚动历史。 */
+  void consume_output(std::string& output) noexcept;
   void clear_output() noexcept;
   void append_output(std::string_view text) noexcept;
 

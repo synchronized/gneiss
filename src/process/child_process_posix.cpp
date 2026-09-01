@@ -31,6 +31,7 @@ struct child_process::implementation final {
   pid_t process = -1;
   int output_read = -1;
   std::string output;
+  std::string pending_output;
   int exit_code = 0;
   bool has_started = false;
 
@@ -44,6 +45,7 @@ struct child_process::implementation final {
         const auto count = ::read(output_read, buffer, sizeof(buffer));
         if (count > 0) {
           output.append(buffer, static_cast<std::size_t>(count));
+          pending_output.append(buffer, static_cast<std::size_t>(count));
           if (output.size() > maximum_output_size) {
             output.erase(0U, output.size() - maximum_output_size);
           }
@@ -55,7 +57,9 @@ struct child_process::implementation final {
         break;
       }
     } catch (...) {
-      output.append("\n[Gneiss] 子进程输出缓冲区更新失败。\n");
+      constexpr std::string_view warning = "\n[Gneiss] 子进程输出缓冲区更新失败。\n";
+      output.append(warning);
+      pending_output.append(warning);
     }
   }
 
@@ -95,6 +99,7 @@ result child_process::start(const child_process_start_info& info) noexcept {
     }
     implementation_->close_process();
     implementation_->output.clear();
+    implementation_->pending_output.clear();
     implementation_->exit_code = 0;
 
     int output_pipe[2]{-1, -1};
@@ -193,9 +198,16 @@ int child_process::exit_code() const noexcept {
   return implementation_ ? implementation_->exit_code : -1;
 }
 const std::string& child_process::output() const noexcept { return implementation_->output; }
+void child_process::consume_output(std::string& output) noexcept {
+  output.clear();
+  if (implementation_) {
+    output.swap(implementation_->pending_output);
+  }
+}
 void child_process::clear_output() noexcept {
   if (implementation_) {
     implementation_->output.clear();
+    implementation_->pending_output.clear();
   }
 }
 void child_process::append_output(std::string_view text) noexcept {
@@ -204,6 +216,7 @@ void child_process::append_output(std::string_view text) noexcept {
   }
   try {
     implementation_->output.append(text);
+    implementation_->pending_output.append(text);
     if (implementation_->output.size() > maximum_output_size) {
       implementation_->output.erase(0U, implementation_->output.size() - maximum_output_size);
     }
