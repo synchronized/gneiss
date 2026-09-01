@@ -49,14 +49,19 @@ int main() {
     return 1;
   }
   const auto state_file = root / "config" / "editor.json";
+  gneiss::editor::editor_panel_visibility visibility;
+  visibility.asset_browser = false;
+  visibility.console = false;
 
   create_test_context();
-  if (gneiss::editor::initialize_editor_layout(state_file, root / "project-a") !=
+  if (gneiss::editor::initialize_editor_layout(state_file, root / "project-a", visibility) !=
       gneiss::result::success) {
     return 2;
   }
   draw_workspace_frame();
-  if (gneiss::editor::save_editor_layout() != gneiss::result::success) {
+  visibility.asset_browser = false;
+  visibility.console = false;
+  if (gneiss::editor::save_editor_layout(visibility) != gneiss::result::success) {
     return 3;
   }
   ImGui::DestroyContext();
@@ -73,23 +78,44 @@ int main() {
   }
   std::ifstream stream(first_layout, std::ios::binary);
   const std::string saved{std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>()};
-  if (!saved.starts_with("GNEISS_EDITOR_LAYOUT 1\n") ||
+  if (!saved.starts_with("GNEISS_EDITOR_LAYOUT 2\nPANELS 10110\n") ||
       saved.find("Scene Hierarchy") == std::string::npos) {
     return 6;
   }
 
   create_test_context();
-  if (gneiss::editor::initialize_editor_layout(state_file, root / "project-a") !=
-      gneiss::result::success) {
+  visibility = {};
+  if (gneiss::editor::initialize_editor_layout(state_file, root / "project-a", visibility) !=
+          gneiss::result::success ||
+      visibility.asset_browser || visibility.console) {
     return 7;
   }
-  if (gneiss::editor::initialize_editor_layout(state_file, root / "project-b") !=
-      gneiss::result::success) {
+  const auto ini_offset = saved.find('\n', std::string("GNEISS_EDITOR_LAYOUT 2\n").size());
+  if (ini_offset == std::string::npos) {
     return 8;
   }
-  draw_workspace_frame();
-  if (gneiss::editor::save_editor_layout() != gneiss::result::success) {
+  std::ofstream legacy(first_layout, std::ios::binary | std::ios::trunc);
+  legacy << "GNEISS_EDITOR_LAYOUT 1\n" << saved.substr(ini_offset + 1U);
+  legacy.close();
+  visibility = {.scene_hierarchy = false,
+                .asset_browser = false,
+                .scene_view = false,
+                .inspector = false,
+                .console = false};
+  if (gneiss::editor::initialize_editor_layout(state_file, root / "project-a", visibility) !=
+          gneiss::result::success ||
+      !visibility.scene_hierarchy || !visibility.asset_browser || !visibility.scene_view ||
+      !visibility.inspector || !visibility.console) {
     return 9;
+  }
+  if (gneiss::editor::initialize_editor_layout(state_file, root / "project-b", visibility) !=
+          gneiss::result::success ||
+      !visibility.asset_browser || !visibility.console) {
+    return 10;
+  }
+  draw_workspace_frame();
+  if (gneiss::editor::save_editor_layout(visibility) != gneiss::result::success) {
+    return 11;
   }
   ImGui::DestroyContext();
 
@@ -98,7 +124,7 @@ int main() {
     ++layout_count;
   }
   if (layout_count != 2U) {
-    return 10;
+    return 12;
   }
 
   std::ofstream incompatible(first_layout, std::ios::binary | std::ios::trunc);
@@ -106,10 +132,10 @@ int main() {
   incompatible.close();
   create_test_context();
   const auto incompatible_result =
-      gneiss::editor::initialize_editor_layout(state_file, root / "project-a");
+      gneiss::editor::initialize_editor_layout(state_file, root / "project-a", visibility);
   ImGui::DestroyContext();
   if (incompatible_result != gneiss::result::invalid_argument) {
-    return 11;
+    return 13;
   }
 
   const auto blocked_root = root / "blocked";
@@ -117,13 +143,13 @@ int main() {
   blocked << "file blocks directory creation";
   blocked.close();
   create_test_context();
-  if (gneiss::editor::initialize_editor_layout(blocked_root / "editor.json", root / "project-a") !=
-      gneiss::result::success) {
-    return 12;
+  if (gneiss::editor::initialize_editor_layout(blocked_root / "editor.json", root / "project-a",
+                                               visibility) != gneiss::result::success) {
+    return 14;
   }
   draw_workspace_frame();
-  const auto blocked_result = gneiss::editor::save_editor_layout();
+  const auto blocked_result = gneiss::editor::save_editor_layout(visibility);
   ImGui::DestroyContext();
   std::filesystem::remove_all(root, error);
-  return blocked_result == gneiss::result::io ? 0 : 13;
+  return blocked_result == gneiss::result::io ? 0 : 15;
 }

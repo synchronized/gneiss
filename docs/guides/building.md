@@ -295,7 +295,8 @@ Hierarchy、Inspector、Asset Browser 和 Console 可以拖动标题栏与边界
 Scene View、右侧 Inspector 和底部 Console 的确定性默认工作区。普通启动会在用户配置根下按工程
 隔离保存布局，`Window > Reset Layout` 可恢复默认工作区；损坏或不兼容的布局不会阻止启动。可用
 `Window` 菜单关闭或重新打开 Hierarchy、Assets、Scene View、Inspector 和 Console。可用 `--smoke`
-固定运行 3 帧，验证场景加载、UI 提交与逆序清理，且不会读写开发机布局状态。
+固定运行 3 帧，验证场景加载、UI 提交与逆序清理，且不会读写开发机布局状态。关闭的主面板会随
+工程布局一并恢复；旧版 v1 布局会迁移并默认显示全部面板。
 
 ## 验证结果
 

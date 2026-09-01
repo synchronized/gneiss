@@ -32,7 +32,9 @@ constexpr float hierarchy_width_ratio = 0.20F;
 constexpr float inspector_width_ratio = 0.23F;
 constexpr float console_height_ratio = 0.28F;
 constexpr float assets_height_ratio = 0.40F;
-constexpr std::string_view layout_header = "GNEISS_EDITOR_LAYOUT 1\n";
+constexpr std::string_view layout_header_v1 = "GNEISS_EDITOR_LAYOUT 1\n";
+constexpr std::string_view layout_header_v2 = "GNEISS_EDITOR_LAYOUT 2\n";
+constexpr std::string_view panel_prefix = "PANELS ";
 constexpr std::size_t maximum_layout_size = 1024U * 1024U;
 
 std::filesystem::path active_layout_path;
@@ -107,8 +109,10 @@ void build_default_workspace(ImGuiID dockspace_id, const ImGuiViewport& viewport
 } // namespace
 
 result initialize_editor_layout(const std::filesystem::path& user_state_file,
-                                const std::filesystem::path& project_root) noexcept {
+                                const std::filesystem::path& project_root,
+                                editor_panel_visibility& visibility) noexcept {
   try {
+    visibility = {};
     active_layout_path = user_state_file.parent_path() / "layouts" /
                          (stable_project_hash(normalized_project_key(project_root)) + ".layout");
     reset_layout_requested = false;
@@ -118,11 +122,39 @@ result initialize_editor_layout(const std::filesystem::path& user_state_file,
     }
     const std::string contents{std::istreambuf_iterator<char>(stream),
                                std::istreambuf_iterator<char>()};
-    if (contents.size() <= layout_header.size() || contents.size() > maximum_layout_size ||
-        !contents.starts_with(layout_header)) {
+    if (contents.size() > maximum_layout_size) {
       return result::invalid_argument;
     }
-    const auto ini = std::string_view(contents).substr(layout_header.size());
+    std::string_view ini;
+    if (contents.starts_with(layout_header_v1)) {
+      visibility = {};
+      ini = std::string_view(contents).substr(layout_header_v1.size());
+    } else if (contents.starts_with(layout_header_v2)) {
+      auto remaining = std::string_view(contents).substr(layout_header_v2.size());
+      const auto newline = remaining.find('\n');
+      if (newline == std::string_view::npos) {
+        return result::invalid_argument;
+      }
+      const auto panels = remaining.substr(0U, newline);
+      if (!panels.starts_with(panel_prefix) || panels.size() != panel_prefix.size() + 5U) {
+        return result::invalid_argument;
+      }
+      const auto flags = panels.substr(panel_prefix.size());
+      if (!std::ranges::all_of(flags, [](char value) { return value == '0' || value == '1'; })) {
+        return result::invalid_argument;
+      }
+      visibility = {.scene_hierarchy = flags[0] == '1',
+                    .asset_browser = flags[1] == '1',
+                    .scene_view = flags[2] == '1',
+                    .inspector = flags[3] == '1',
+                    .console = flags[4] == '1'};
+      ini = remaining.substr(newline + 1U);
+    } else {
+      return result::invalid_argument;
+    }
+    if (ini.empty()) {
+      return result::invalid_argument;
+    }
     ImGui::LoadIniSettingsFromMemory(ini.data(), ini.size());
     return result::success;
   } catch (const std::bad_alloc&) {
@@ -132,14 +164,15 @@ result initialize_editor_layout(const std::filesystem::path& user_state_file,
   }
 }
 
-result save_editor_layout() noexcept {
+result save_editor_layout(const editor_panel_visibility& visibility) noexcept {
   if (active_layout_path.empty()) {
     return result::invalid_state;
   }
   try {
     std::size_t size = 0U;
     const auto* data = ImGui::SaveIniSettingsToMemory(&size);
-    if (data == nullptr || size == 0U || size + layout_header.size() > maximum_layout_size) {
+    if (data == nullptr || size == 0U ||
+        size + layout_header_v2.size() + panel_prefix.size() + 6U > maximum_layout_size) {
       return result::invalid_state;
     }
     std::error_code error;
@@ -149,7 +182,14 @@ result save_editor_layout() noexcept {
     }
     auto temporary = active_layout_path;
     temporary += ".tmp";
-    std::string contents(layout_header);
+    std::string contents(layout_header_v2);
+    contents.append(panel_prefix);
+    contents.push_back(visibility.scene_hierarchy ? '1' : '0');
+    contents.push_back(visibility.asset_browser ? '1' : '0');
+    contents.push_back(visibility.scene_view ? '1' : '0');
+    contents.push_back(visibility.inspector ? '1' : '0');
+    contents.push_back(visibility.console ? '1' : '0');
+    contents.push_back('\n');
     contents.append(data, size);
     if (!write_text(temporary, contents)) {
       return result::io;
