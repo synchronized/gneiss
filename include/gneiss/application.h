@@ -9,12 +9,17 @@
 
 #include <gneiss/core/export.h>
 #include <gneiss/core/result.h>
+#include <gneiss/log.h>
 #include <gneiss/world.h>
 
 /** Application 的不透明句柄。零值表示无效 Application。 */
 typedef uint64_t gneiss_application;
 
 #define GNEISS_NULL_APPLICATION UINT64_C(0)
+
+/** 在 Engine 日志消费线程接收不可变事件；不得保存事件或字符串指针，也不得重入日志提交。 */
+typedef void (*gneiss_application_log_fn)(gneiss_application application,
+                                          const gneiss_log_event* event, void* user_data);
 
 /** 单帧时间信息。纳秒值使用单调时钟，不表示系统时间。 */
 typedef struct gneiss_frame_time {
@@ -80,7 +85,8 @@ typedef uint32_t gneiss_application_platform;
 /**
  * Application 创建参数。
  *
- * 回调均在创建线程同步调用。user_data 由调用方持有，必须至少存活至 Application 销毁完成。
+ * 除日志回调外，其余回调均在创建线程同步调用。日志回调在专用消费线程串行调用。user_data 由调用方
+ * 持有，必须至少存活至 Application 销毁完成。
  */
 typedef struct gneiss_application_desc {
   uint32_t struct_size;
@@ -103,6 +109,7 @@ typedef struct gneiss_application_desc {
   uint32_t asset_reserved;
   gneiss_application_diagnostic_fn diagnostic;
   gneiss_application_close_requested_fn close_requested;
+  gneiss_application_log_fn log;
 } gneiss_application_desc;
 
 #define GNEISS_APPLICATION_DESC_VERSION_1_SIZE                                                     \
@@ -115,6 +122,8 @@ typedef struct gneiss_application_desc {
 #define GNEISS_APPLICATION_DESC_VERSION_4_SIZE                                                     \
   ((uint32_t)(offsetof(gneiss_application_desc, close_requested) +                                 \
               sizeof(gneiss_application_close_requested_fn)))
+#define GNEISS_APPLICATION_DESC_VERSION_5_SIZE                                                     \
+  ((uint32_t)(offsetof(gneiss_application_desc, log) + sizeof(gneiss_application_log_fn)))
 
 #define GNEISS_APPLICATION_DESC_INIT                                                               \
   {(uint32_t)sizeof(gneiss_application_desc),                                                      \
@@ -135,6 +144,7 @@ typedef struct gneiss_application_desc {
    NULL,                                                                                           \
    UINT32_C(0),                                                                                    \
    UINT32_C(0),                                                                                    \
+   NULL,                                                                                           \
    NULL,                                                                                           \
    NULL}
 
@@ -162,12 +172,25 @@ GNEISS_API gneiss_result gneiss_application_destroy(gneiss_application applicati
 GNEISS_API gneiss_result gneiss_application_run(gneiss_application application,
                                                 uint64_t max_frame_count);
 
+/** 查询当前窗口客户区逻辑尺寸；仅允许在 Application 创建线程调用。 */
+GNEISS_EXPERIMENTAL GNEISS_API gneiss_result gneiss_application_get_window_size(
+    gneiss_application application, uint32_t* out_width, uint32_t* out_height);
+
 /** 请求主循环在当前回调返回后退出；可从 Application 回调中调用。 */
 GNEISS_API gneiss_result gneiss_application_request_exit(gneiss_application application);
 
 /** 设置暂停状态；暂停期间仍轮询事件并调用 update，但 delta_ns 为零。 */
 GNEISS_API gneiss_result gneiss_application_set_paused(gneiss_application application,
                                                        uint8_t is_paused);
+
+/**
+ * 提交日志消息并在返回前完成字符串复制。
+ *
+ * 可从任意线程调用；接收回调由专用消费线程串行执行。队列已满时丢弃新事件并通过后续告警报告数量。
+ * 未设置接收回调时仍校验消息并返回成功；接收回调重入本函数返回 GNEISS_ERROR_INVALID_STATE。
+ */
+GNEISS_EXPERIMENTAL GNEISS_API gneiss_result
+gneiss_application_log(gneiss_application application, const gneiss_log_message* message);
 
 /** 获取由 Application 独占拥有的借用 World 句柄。 */
 GNEISS_API gneiss_result gneiss_application_get_world(gneiss_application application,

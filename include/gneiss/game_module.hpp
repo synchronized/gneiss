@@ -6,6 +6,7 @@
 
 #include <gneiss/core/result.hpp>
 #include <gneiss/game_module.h>
+#include <gneiss/log.hpp>
 
 #include <cstdint>
 #include <string_view>
@@ -47,6 +48,10 @@ public:
 
   [[nodiscard]] result request_exit() const noexcept {
     return from_native(gneiss_game_context_request_exit(value_));
+  }
+
+  [[nodiscard]] result log(const gneiss_log_message& message) const noexcept {
+    return from_native(gneiss_game_context_log(value_, &message));
   }
 
   friend constexpr bool operator==(game_context, game_context) noexcept = default;

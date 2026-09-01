@@ -4,9 +4,11 @@
 #pragma once
 
 #include <gneiss/core/result.h>
+#include <gneiss/log.h>
 
 #include <filesystem>
 #include <fstream>
+#include <mutex>
 #include <string_view>
 
 namespace gneiss::runtime_internal {
@@ -20,6 +22,7 @@ public:
 
   void write(std::string_view level, std::string_view stage, gneiss_result operation,
              std::string_view message, std::string_view context = {}) noexcept;
+  void write(const gneiss_log_event& event) noexcept;
 
   [[nodiscard]] bool is_file_available() const noexcept;
   [[nodiscard]] const std::filesystem::path& path() const noexcept;
@@ -27,6 +30,7 @@ public:
 private:
   std::filesystem::path path_;
   std::ofstream file_;
+  std::mutex mutex_;
   bool has_reported_write_failure_ = false;
 };
 

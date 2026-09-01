@@ -3,6 +3,8 @@
 
 add_library(
   gneiss_editor_session STATIC
+  console_model.cpp
+  console_model.h
   editor_camera.cpp
   editor_camera.h
   editor_command_history.cpp
@@ -137,6 +139,11 @@ if(BUILD_TESTING)
   gneiss_target_compile_warnings(gneiss_editor_runtime_launch_test)
   gneiss_target_output_directories(gneiss_editor_runtime_launch_test)
   add_test(NAME gneiss.editor.runtime-launch COMMAND gneiss_editor_runtime_launch_test)
+  add_executable(gneiss_editor_console_model_test tests/console_model_test.cpp)
+  target_link_libraries(gneiss_editor_console_model_test PRIVATE gneiss_editor_session)
+  gneiss_target_compile_warnings(gneiss_editor_console_model_test)
+  gneiss_target_output_directories(gneiss_editor_console_model_test)
+  add_test(NAME gneiss.editor.console-model COMMAND gneiss_editor_console_model_test)
   if((WIN32 OR UNIX) AND TARGET gneiss_runtime)
     add_executable(gneiss_child_process_fixture tests/child_process_fixture.cpp)
     target_compile_features(gneiss_child_process_fixture PRIVATE cxx_std_20)

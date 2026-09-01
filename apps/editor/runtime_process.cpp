@@ -10,12 +10,18 @@
 #include <new>
 #include <system_error>
 #include <thread>
+#include <utility>
+#include <vector>
 
 namespace gneiss::editor {
 
 struct runtime_process::implementation final {
   child_process process;
   child_process build_process;
+  console_model console;
+  app::runtime_log_line_decoder line_decoder;
+  std::uint64_t runtime_session_id = 0U;
+  bool output_finished = true;
   std::string combined_output;
   std::filesystem::path pending_runtime;
   runtime_launch_request pending_request;
@@ -27,6 +33,39 @@ struct runtime_process::implementation final {
   bool forced_termination_reported = false;
   bool is_building = false;
   result last_result = result::success;
+
+  void append_console_lines(std::vector<app::runtime_log_line>& lines) noexcept {
+    for (auto& line : lines) {
+      app::runtime_log_record event;
+      if (!line.was_truncated &&
+          app::parse_runtime_log_line(line.text, event) == app::runtime_log_parse_result::success) {
+        (void)console.append_event(runtime_session_id, std::move(event));
+      } else {
+        (void)console.append_raw(runtime_session_id, line.text, line.was_truncated);
+      }
+    }
+  }
+
+  void consume_runtime_output() noexcept {
+    std::string bytes;
+    process.consume_output(bytes);
+    std::vector<app::runtime_log_line> lines;
+    if (!bytes.empty() && line_decoder.append(bytes, lines) == result::success) {
+      append_console_lines(lines);
+    }
+  }
+
+  void finish_runtime_output() noexcept {
+    if (output_finished) {
+      return;
+    }
+    consume_runtime_output();
+    std::vector<app::runtime_log_line> lines;
+    if (line_decoder.finish(lines) == result::success) {
+      append_console_lines(lines);
+    }
+    output_finished = true;
+  }
 
   void clean_stop_file() noexcept {
     std::error_code error;
@@ -76,6 +115,7 @@ result runtime_process::start(const std::filesystem::path& executable,
     }
     implementation_->clean_stop_file();
     implementation_->process.clear_output();
+    implementation_->line_decoder.reset();
     implementation_->combined_output.clear();
     implementation_->stop_deadline = {};
     implementation_->forced_termination_reported = false;
@@ -97,6 +137,9 @@ result runtime_process::start(const std::filesystem::path& executable,
     implementation_->last_result = started;
     if (started != result::success) {
       implementation_->discard_session();
+    } else {
+      implementation_->runtime_session_id = implementation_->console.begin_session();
+      implementation_->output_finished = false;
     }
     return started;
   } catch (const std::bad_alloc&) {
@@ -204,6 +247,7 @@ void runtime_process::update() noexcept {
     }
   }
   implementation_->process.update();
+  implementation_->consume_runtime_output();
   if (!implementation_->process.output().empty()) {
     const auto marker = implementation_->combined_output.find("[Runtime]\n");
     if (marker == std::string::npos) {
@@ -214,6 +258,7 @@ void runtime_process::update() noexcept {
     implementation_->combined_output += implementation_->process.output();
   }
   if (!implementation_->process.is_running()) {
+    implementation_->finish_runtime_output();
     implementation_->stop_deadline = {};
     return;
   }
@@ -244,6 +289,7 @@ int runtime_process::exit_code() const noexcept {
 const std::string& runtime_process::output() const noexcept {
   return implementation_->combined_output;
 }
+const console_model& runtime_process::console() const noexcept { return implementation_->console; }
 const std::filesystem::path& runtime_process::log_file() const noexcept {
   return implementation_->log_file;
 }
@@ -255,6 +301,7 @@ void runtime_process::clear_output() noexcept {
     implementation_->process.clear_output();
     implementation_->build_process.clear_output();
     implementation_->combined_output.clear();
+    implementation_->console.clear();
   }
 }
 

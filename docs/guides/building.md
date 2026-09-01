@@ -208,7 +208,9 @@ cmake --build --preset windows-clang-debug --target gneiss_runtime
 ./build/windows-clang-debug/bin/gneiss_runtime.exe --project ./examples/editor_demo --log-file ./build/runtime.log
 ```
 
-Runtime 宿主将结构化启动与运行日志同步写入标准输出/错误和文件。Windows 默认文件为
+Runtime 宿主把 Application、诊断和 Game Module 事件以 `@gneiss-log-v1 ` 加单行 JSON 写入标准
+输出，并把人类可读格式写入文件；创建 Application 前的启动日志和协议降级信息保持原始文本。
+Windows 默认文件为
 `%LOCALAPPDATA%/Gneiss/logs/runtime.log`；Linux 默认遵循 `$XDG_STATE_HOME`，未设置时使用
 `$HOME/.local/state/gneiss/logs/runtime.log`。`--log-file <路径>` 可覆盖位置。日志达到 1 MiB 时旧文件
 轮转为 `.1`；文件不可写只产生警告，不覆盖工程加载或运行的原始结果。
@@ -234,9 +236,10 @@ cmake --build --preset windows-clang-debug --target gneiss_editor
 ```
 
 同时构建 Runtime 后，Editor 的 `Run > Run Project`（F6）会在独立进程运行当前工程；F8 发出正常
-停止请求。脏场景只提供“保存并运行”或“取消”，不会静默丢弃修改。`Runtime Output` 窗口显示合并的
-标准输出与错误、运行状态和退出码。正常停止超过 2 秒后会强制终止并在输出中说明。该进程控制闭环
-当前已在 Windows 验证；Linux/POSIX 后端已实现，仍需在 Linux 图形环境完成平台验收。
+停止请求。脏场景只提供“保存并运行”或“取消”，不会静默丢弃修改。`Console` 窗口逐条显示结构化
+事件和 Raw 输出，可组合使用级别、当前会话、来源、分类与文本筛选，并支持暂停显示、清空、复制和
+自动滚动。正常停止超过 2 秒后会强制终止并在 Console 中说明。该进程控制闭环当前已在 Windows
+验证；Linux/POSIX 后端已实现，仍需在 Linux 图形环境完成平台验收。
 
 运行 Editor：
 
@@ -286,8 +289,10 @@ RID、UI Draw List 与 Granit Canvas 已完成同帧渲染。成功修改后状�
 `Save` 或按 `Ctrl+S` 会原子写回当前场景。File 菜单还提供 New Scene、Open Scene 和 Save As，
 对应快捷键为 `Ctrl+N`、`Ctrl+O` 和 `Ctrl+Shift+S`；路径必须位于工程资产根。切换场景、菜单退出
 或关闭窗口时，未保存修改统一显示 Save/Discard/Cancel。保存成功后恢复为 `Saved`，失败时保留
-源文件与脏状态并显示错误。窗口暂时固定为 1280×720。可用 `--smoke` 固定运行 3 帧，验证场景
-加载、UI 提交与逆序清理。
+源文件与脏状态并显示错误。Editor 主窗口支持系统缩放，ImGui 使用当前客户区尺寸；Scene View、
+Hierarchy、Inspector、Asset Browser 和 Console 可以拖动标题栏与边界调整位置和大小。当前 ImGui
+版本未提供 Docking API，因此尚不支持 Unity/Godot 式吸附、分栏停靠和布局持久化。可用 `--smoke`
+固定运行 3 帧，验证场景加载、UI 提交与逆序清理。
 
 ## 验证结果
 

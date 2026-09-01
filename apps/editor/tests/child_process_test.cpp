@@ -31,9 +31,13 @@ int main() try {
     std::this_thread::sleep_for(std::chrono::milliseconds(20));
   }
   process.update();
+  std::string incremental_output;
+  process.consume_output(incremental_output);
   if (process.is_running() || process.exit_code() != 23 ||
       process.output().find("fixture stdout") == std::string::npos ||
       process.output().find("fixture stderr") == std::string::npos ||
+      incremental_output.find("fixture stdout") == std::string::npos ||
+      incremental_output.find("fixture stderr") == std::string::npos ||
       process.terminate() != gneiss::result::not_ready) {
     return 3;
   }

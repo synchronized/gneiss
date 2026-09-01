@@ -32,7 +32,11 @@ int main() {
   desc.user_data = &state;
   desc.update = update;
   gneiss::application application;
+  std::uint32_t window_width = 0U;
+  std::uint32_t window_height = 0U;
   if (gneiss::application::create(desc, application) != gneiss::result::success ||
+      application.get_window_size(window_width, window_height) != gneiss::result::success ||
+      window_width != 1280U || window_height != 720U ||
       application.run(2) != gneiss::result::success ||
       application.run(1) != gneiss::result::success || state.frame_count != 3U) {
     return 1;

@@ -10,6 +10,7 @@
 #include "asset/resource_cache.h"
 #include "asset/virtual_file_system.h"
 #include "input/input_service.h"
+#include "log/log_dispatcher.h"
 #include "render/debug_draw_list.h"
 #include "render/render_asset_loader.h"
 #include "render/render_resource_service.h"
@@ -57,6 +58,8 @@ public:
     return input_.pointer();
   }
   [[nodiscard]] gneiss_result poll_input(gneiss_input_event& out_event) noexcept;
+  [[nodiscard]] gneiss_result get_window_size(std::uint32_t& out_width,
+                                              std::uint32_t& out_height) const noexcept;
   [[nodiscard]] gneiss_result load_action_map(std::string_view uri) noexcept;
   [[nodiscard]] gneiss_result find_action(std::string_view name,
                                           gneiss_action& out_action) const noexcept;
@@ -66,8 +69,10 @@ public:
   [[nodiscard]] gneiss_result
   submit_debug_draw_list(const gneiss_debug_draw_list_desc& desc) noexcept;
   void report(gneiss_application handle, std::uint32_t severity, std::uint32_t category,
-              gneiss_result result, std::string_view module,
-              std::string_view message) const noexcept;
+              gneiss_result result, std::string_view module, std::string_view message) noexcept;
+  [[nodiscard]] gneiss_result submit_log(gneiss_application handle,
+                                         const gneiss_log_message& message,
+                                         std::string_view source = "application") noexcept;
   void request_exit() noexcept { should_exit_ = true; }
   void set_paused(bool value) noexcept { is_paused_ = value; }
 
@@ -96,6 +101,7 @@ private:
   bool should_exit_ = false;
   bool is_updating_ = false;
   input_internal::input_service input_;
+  std::unique_ptr<log_internal::log_dispatcher> log_dispatcher_;
 #ifdef GNEISS_HAS_GRANIT_PLATFORM
   std::unique_ptr<granit_platform> granit_platform_;
   std::unique_ptr<granit_render_service> granit_render_service_;

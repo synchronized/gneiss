@@ -25,6 +25,15 @@ application_state::~application_state() noexcept {
 }
 
 gneiss_result application_state::initialize() noexcept {
+  if (desc_.log != nullptr) {
+    try {
+      log_dispatcher_ = std::make_unique<log_internal::log_dispatcher>(desc_.log, desc_.user_data);
+    } catch (const std::bad_alloc&) {
+      return GNEISS_ERROR_OUT_OF_MEMORY;
+    } catch (...) {
+      return GNEISS_ERROR_INTERNAL;
+    }
+  }
   if (!resources_.is_valid()) {
     return GNEISS_ERROR_OUT_OF_MEMORY;
   }
@@ -220,22 +229,48 @@ application_state::submit_debug_draw_list(const gneiss_debug_draw_list_desc& des
 
 void application_state::report(gneiss_application handle, std::uint32_t severity,
                                std::uint32_t category, gneiss_result result,
-                               std::string_view module, std::string_view message) const noexcept {
-  if (desc_.diagnostic == nullptr) {
-    return;
+                               std::string_view module, std::string_view message) noexcept {
+  if (desc_.diagnostic != nullptr) {
+    const gneiss_diagnostic diagnostic = {
+        .struct_size = sizeof(gneiss_diagnostic),
+        .severity = severity,
+        .category = category,
+        .result = result,
+        .module = module.data(),
+        .module_length = module.size(),
+        .message = message.data(),
+        .message_length = message.size(),
+        .reserved = {},
+    };
+    desc_.diagnostic(handle, &diagnostic, desc_.user_data);
   }
-  const gneiss_diagnostic diagnostic = {
-      .struct_size = sizeof(gneiss_diagnostic),
-      .severity = severity,
-      .category = category,
-      .result = result,
-      .module = module.data(),
-      .module_length = module.size(),
+  const auto log_severity = severity == GNEISS_DIAGNOSTIC_INFO      ? GNEISS_LOG_INFO
+                            : severity == GNEISS_DIAGNOSTIC_WARNING ? GNEISS_LOG_WARNING
+                                                                    : GNEISS_LOG_ERROR;
+  const std::string_view log_category = category == GNEISS_DIAGNOSTIC_CATEGORY_ASSET   ? "asset"
+                                        : category == GNEISS_DIAGNOSTIC_CATEGORY_INPUT ? "input"
+                                        : category == GNEISS_DIAGNOSTIC_CATEGORY_BACKEND
+                                            ? "backend"
+                                            : "application";
+  const gneiss_log_message log_message = {
+      .struct_size = sizeof(gneiss_log_message),
+      .severity = log_severity,
+      .category = log_category.data(),
+      .category_length = log_category.size(),
       .message = message.data(),
       .message_length = message.size(),
+      .result = result,
+      .flags = 0U,
       .reserved = {},
   };
-  desc_.diagnostic(handle, &diagnostic, desc_.user_data);
+  static_cast<void>(submit_log(handle, log_message, module));
+}
+
+gneiss_result application_state::submit_log(gneiss_application handle,
+                                            const gneiss_log_message& message,
+                                            std::string_view source) noexcept {
+  return log_dispatcher_ == nullptr ? GNEISS_SUCCESS
+                                    : log_dispatcher_->submit(handle, message, source);
 }
 
 #ifdef GNEISS_HAS_GRANIT_PLATFORM
@@ -256,6 +291,21 @@ gneiss_result application_state::render_frame() noexcept {
              : snapshot_result;
 }
 #endif
+
+gneiss_result application_state::get_window_size(std::uint32_t& out_width,
+                                                 std::uint32_t& out_height) const noexcept {
+#ifdef GNEISS_HAS_GRANIT_PLATFORM
+  if (granit_platform_ != nullptr) {
+    const auto& window = granit_platform_->native_window();
+    out_width = window.width;
+    out_height = window.height;
+    return GNEISS_SUCCESS;
+  }
+#endif
+  out_width = desc_.window_width;
+  out_height = desc_.window_height;
+  return GNEISS_SUCCESS;
+}
 
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters): 句柄与帧数虽同宽但语义明确。
 gneiss_result application_state::run(gneiss_application handle,

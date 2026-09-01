@@ -14,10 +14,14 @@ int main() {
   if (!context.is_valid() || context.get() != 42U || gneiss::null_game_context.is_valid()) {
     return 1;
   }
+  const auto message = gneiss::make_log_message(gneiss::log_severity::info, "test", "message");
+  if (context.log(message) != gneiss::result::invalid_handle) {
+    return 2;
+  }
 
   gneiss_game_module_desc desc{};
   if (gneiss::validate_game_module(desc) != gneiss::result::invalid_argument) {
-    return 2;
+    return 3;
   }
   return 0;
 }

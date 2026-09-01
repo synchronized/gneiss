@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "application/application_log_internal.h"
 #include "application/application_state.h"
 #include "core/rid_table.h"
 
@@ -165,6 +166,24 @@ extern "C" gneiss_result gneiss_application_request_exit(gneiss_application appl
   }
 }
 
+extern "C" gneiss_result gneiss_application_get_window_size(gneiss_application application,
+                                                            uint32_t* out_width,
+                                                            uint32_t* out_height) {
+  if (out_width == nullptr || out_height == nullptr) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  *out_width = 0U;
+  *out_height = 0U;
+  try {
+    auto state = find_application(application);
+    const auto validation_result = validate_application(state);
+    return validation_result == GNEISS_SUCCESS ? state->get_window_size(*out_width, *out_height)
+                                               : validation_result;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters): C ABI 参数具有不同语义和取值范围。
 extern "C" gneiss_result gneiss_application_set_paused(gneiss_application application,
                                                        uint8_t is_paused) {
@@ -182,6 +201,28 @@ extern "C" gneiss_result gneiss_application_set_paused(gneiss_application applic
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;
   }
+}
+
+gneiss_result
+gneiss::application_internal::submit_application_log(gneiss_application application,
+                                                     const gneiss_log_message& message,
+                                                     std::string_view source) noexcept {
+  try {
+    auto state = find_application(application);
+    return state == nullptr ? GNEISS_ERROR_INVALID_HANDLE
+                            : state->submit_log(application, message, source);
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
+extern "C" gneiss_result gneiss_application_log(gneiss_application application,
+                                                const gneiss_log_message* message) {
+  const auto message_result = gneiss_log_message_validate(message);
+  if (message_result != GNEISS_SUCCESS) {
+    return message_result;
+  }
+  return gneiss::application_internal::submit_application_log(application, *message, "application");
 }
 
 extern "C" gneiss_result gneiss_application_get_world(gneiss_application application,

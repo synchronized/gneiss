@@ -11,6 +11,7 @@
 #include <gneiss/core/export.h>
 #include <gneiss/core/result.h>
 #include <gneiss/input.h>
+#include <gneiss/log.h>
 #include <gneiss/world.h>
 
 /** Game Module ABI 的首个 Experimental 版本。 */
@@ -123,6 +124,14 @@ GNEISS_EXPERIMENTAL GNEISS_API gneiss_result gneiss_game_context_get_action_stat
 /** 请求所属 Application 在当前帧完成后正常退出。 */
 GNEISS_EXPERIMENTAL GNEISS_API gneiss_result
 gneiss_game_context_request_exit(gneiss_game_context context);
+
+/**
+ * 通过 Game Context 提交日志；Engine 自动使用已加载模块 ID 作为来源。
+ *
+ * 可从模块工作线程调用，但 Context 必须仍然有效。消息在返回前完成复制，不取得调用方所有权。
+ */
+GNEISS_EXPERIMENTAL GNEISS_API gneiss_result
+gneiss_game_context_log(gneiss_game_context context, const gneiss_log_message* message);
 
 #ifdef __cplusplus
 }

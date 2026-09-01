@@ -7,6 +7,7 @@
 #include <cmath>
 #include <cstring>
 #include <new>
+#include <string_view>
 
 namespace {
 
@@ -38,6 +39,24 @@ gneiss_result initialize(gneiss_game_context context, void** out_state) {
   if (result == GNEISS_SUCCESS) {
     result = gneiss_world_entity_get_local_transform(state->world, state->pivot, &state->transform);
   }
+  if (result != GNEISS_SUCCESS) {
+    delete state;
+    return result;
+  }
+  constexpr std::string_view category = "lifecycle";
+  constexpr std::string_view message = "Lantern Gallery 游戏模块初始化完成";
+  const gneiss_log_message log_message = {
+      .struct_size = sizeof(gneiss_log_message),
+      .severity = GNEISS_LOG_INFO,
+      .category = category.data(),
+      .category_length = category.size(),
+      .message = message.data(),
+      .message_length = message.size(),
+      .result = GNEISS_SUCCESS,
+      .flags = 0U,
+      .reserved = {},
+  };
+  result = gneiss_game_context_log(context, &log_message);
   if (result != GNEISS_SUCCESS) {
     delete state;
     return result;
@@ -74,9 +93,23 @@ gneiss_result update(gneiss_game_context context, void* module_state,
   return gneiss_world_entity_set_local_transform(state.world, state.pivot, &state.transform);
 }
 
-gneiss_result shutdown(gneiss_game_context, void* module_state) {
+gneiss_result shutdown(gneiss_game_context context, void* module_state) {
+  constexpr std::string_view category = "lifecycle";
+  constexpr std::string_view message = "Lantern Gallery 游戏模块关闭";
+  const gneiss_log_message log_message = {
+      .struct_size = sizeof(gneiss_log_message),
+      .severity = GNEISS_LOG_INFO,
+      .category = category.data(),
+      .category_length = category.size(),
+      .message = message.data(),
+      .message_length = message.size(),
+      .result = GNEISS_SUCCESS,
+      .flags = 0U,
+      .reserved = {},
+  };
+  const auto result = gneiss_game_context_log(context, &log_message);
   delete static_cast<lantern_game_state*>(module_state);
-  return GNEISS_SUCCESS;
+  return result;
 }
 
 } // namespace

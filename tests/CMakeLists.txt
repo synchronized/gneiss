@@ -91,6 +91,49 @@ gneiss_target_compile_warnings(gneiss_cpp_game_module_test)
 gneiss_target_output_directories(gneiss_cpp_game_module_test)
 add_test(NAME gneiss.cpp_game_module COMMAND gneiss_cpp_game_module_test)
 
+add_executable(gneiss_c_log_test c_log_test.c)
+target_link_libraries(gneiss_c_log_test PRIVATE gneiss::engine)
+set_target_properties(
+  gneiss_c_log_test
+  PROPERTIES C_STANDARD 11 C_STANDARD_REQUIRED YES C_EXTENSIONS NO LINKER_LANGUAGE CXX
+)
+gneiss_target_compile_warnings(gneiss_c_log_test)
+gneiss_target_output_directories(gneiss_c_log_test)
+add_test(NAME gneiss.c_log COMMAND gneiss_c_log_test)
+
+add_executable(gneiss_cpp_log_test cpp_log_test.cpp)
+target_link_libraries(gneiss_cpp_log_test PRIVATE gneiss::engine)
+target_compile_features(gneiss_cpp_log_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_cpp_log_test)
+gneiss_target_output_directories(gneiss_cpp_log_test)
+add_test(NAME gneiss.cpp_log COMMAND gneiss_cpp_log_test)
+
+add_executable(gneiss_application_log_test application_log_test.cpp)
+target_link_libraries(gneiss_application_log_test PRIVATE gneiss::engine)
+target_compile_features(gneiss_application_log_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_application_log_test)
+gneiss_target_output_directories(gneiss_application_log_test)
+add_test(NAME gneiss.application_log COMMAND gneiss_application_log_test)
+
+add_executable(gneiss_diagnostic_log_test diagnostic_log_test.cpp)
+target_link_libraries(gneiss_diagnostic_log_test PRIVATE gneiss::engine)
+target_compile_features(gneiss_diagnostic_log_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_diagnostic_log_test)
+gneiss_target_output_directories(gneiss_diagnostic_log_test)
+add_test(NAME gneiss.diagnostic_log COMMAND gneiss_diagnostic_log_test)
+
+add_executable(
+  gneiss_log_dispatcher_test
+  log/log_dispatcher_test.cpp
+  "${PROJECT_SOURCE_DIR}/src/log/log_dispatcher.cpp"
+)
+target_include_directories(gneiss_log_dispatcher_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_link_libraries(gneiss_log_dispatcher_test PRIVATE gneiss::engine)
+target_compile_features(gneiss_log_dispatcher_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_log_dispatcher_test)
+gneiss_target_output_directories(gneiss_log_dispatcher_test)
+add_test(NAME gneiss.log_dispatcher COMMAND gneiss_log_dispatcher_test)
+
 add_executable(gneiss_game_context_test game_context_test.cpp)
 target_include_directories(gneiss_game_context_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_link_libraries(gneiss_game_context_test PRIVATE gneiss::engine)
@@ -207,8 +250,8 @@ add_test(NAME gneiss.c_asset COMMAND gneiss_c_asset_test)
 
 add_library(
   gneiss_c_header_test OBJECT headers/application_h.c headers/asset_h.c headers/entity_h.c headers/game_module_h.c
-                              headers/gneiss_h.c headers/input_h.c headers/reflection_h.c headers/render_h.c headers/result_h.c
-                              headers/rid_h.c headers/scene_h.c headers/world_h.c
+                              headers/gneiss_h.c headers/input_h.c headers/log_h.c headers/reflection_h.c
+                              headers/render_h.c headers/result_h.c headers/rid_h.c headers/scene_h.c headers/world_h.c
 )
 target_link_libraries(gneiss_c_header_test PRIVATE gneiss::engine)
 target_compile_features(gneiss_c_header_test PRIVATE c_std_11)
@@ -216,7 +259,7 @@ gneiss_target_compile_warnings(gneiss_c_header_test)
 
 add_library(
   gneiss_cpp_header_test OBJECT headers/application_hpp.cpp headers/asset_hpp.cpp headers/entity_hpp.cpp
-                                headers/game_module_hpp.cpp headers/gneiss_hpp.cpp headers/input_hpp.cpp
+                                headers/game_module_hpp.cpp headers/gneiss_hpp.cpp headers/input_hpp.cpp headers/log_hpp.cpp
                                 headers/reflection_hpp.cpp headers/render_hpp.cpp headers/result_hpp.cpp headers/rid_hpp.cpp
                                 headers/scene_hpp.cpp headers/world_hpp.cpp
 )

@@ -9,6 +9,25 @@
 
 当前没有已记录的未发布变更。
 
+## 0.13.0 - 2026-09-01
+
+- 增加 Experimental 结构化日志消息、不可变事件及 C11/C++20 提交接口，明确复制所有权、可信来源、
+  事件顺序、线程安全和诊断转换语义。
+- 增加每个 Application 独立的有界异步日志队列、串行 Sink 投递、背压丢弃报告和关闭排空，并将
+  Runtime 标准流与轮转文件接入统一事件链路。
+- 向 Experimental Game Context 增加模块日志入口，由 Runtime 绑定可信模块来源；Lantern Gallery
+  游戏模块会记录初始化与关闭事件。
+- 定义带 `@gneiss-log-v1` 前缀的版本化 JSON Lines 跨进程协议，支持特殊字符、分块读取、超长行
+  恢复、未知版本和原始输出降级。
+- Editor 增加有界 Console 数据模型与 Runtime 会话隔离，支持级别、来源、分类、Raw、当前会话和
+  文本组合筛选，以及暂停显示、清空、复制、丢弃计数和自动滚动。
+- `child_process` 增加不影响历史输出的增量读取通道，Editor 可持续解析 Runtime 结构化事件并在
+  进程退出时冲刷尾部输出。
+- Editor 主窗口支持缩放，浮动面板可移动和调整大小，顶部增加运行、暂停占位和停止控制栏；完整
+  Docking、布局持久化与工作区体验延期到后续 Editor UI 改造。
+- Windows 本地 92/92 测试、隔离安装树、Linux Clang/GCC 共享/静态、Granit 无头运行、Sanitizer、
+  Windows MSVC Runtime 和安装后 Consumer 矩阵均通过。
+
 ## 0.12.0 - 2026-08-31
 
 - 增加 Experimental Game Module C ABI、强类型 C++ Game Context 包装和模块描述校验，定义原生模块

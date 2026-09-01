@@ -66,6 +66,14 @@ if(BUILD_TESTING)
   gneiss_target_compile_warnings(gneiss_game_update_scheduler_test)
   gneiss_target_output_directories(gneiss_game_update_scheduler_test)
   add_test(NAME gneiss.runtime.game-update-scheduler COMMAND gneiss_game_update_scheduler_test)
+
+  add_executable(gneiss_runtime_log_test tests/runtime_log_test.cpp runtime_log.cpp runtime_log.h)
+  target_include_directories(gneiss_runtime_log_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+  target_link_libraries(gneiss_runtime_log_test PRIVATE gneiss_app_project gneiss::engine)
+  target_compile_features(gneiss_runtime_log_test PRIVATE cxx_std_20)
+  gneiss_target_compile_warnings(gneiss_runtime_log_test)
+  gneiss_target_output_directories(gneiss_runtime_log_test)
+  add_test(NAME gneiss.runtime.log-sink COMMAND gneiss_runtime_log_test)
   add_test(
     NAME gneiss.runtime.project-game-module
     COMMAND

@@ -20,6 +20,7 @@ target_sources(
   gneiss_engine
   PRIVATE
     application/application_api.cpp
+    application/application_log_internal.h
     application/application_state.cpp
     application/application_state.h
     asset/asset_uri.cpp
@@ -45,6 +46,9 @@ target_sources(
     input/input_service.h
     input/action_map.cpp
     input/action_map.h
+    log/log.cpp
+    log/log_dispatcher.cpp
+    log/log_dispatcher.h
     render/render_resource_service.cpp
     render/render_resource_service.h
     render/debug_draw_list.cpp
@@ -96,6 +100,8 @@ target_sources(
       "${PROJECT_SOURCE_DIR}/include/gneiss/game_module.hpp"
       "${PROJECT_SOURCE_DIR}/include/gneiss/input.h"
       "${PROJECT_SOURCE_DIR}/include/gneiss/input.hpp"
+      "${PROJECT_SOURCE_DIR}/include/gneiss/log.h"
+      "${PROJECT_SOURCE_DIR}/include/gneiss/log.hpp"
       "${PROJECT_SOURCE_DIR}/include/gneiss/reflection.h"
       "${PROJECT_SOURCE_DIR}/include/gneiss/reflection.hpp"
       "${PROJECT_SOURCE_DIR}/include/gneiss/render.h"
