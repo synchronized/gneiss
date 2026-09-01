@@ -116,6 +116,44 @@ int map_mouse_button(std::uint32_t button) noexcept {
   }
 }
 
+gneiss_result synchronize_input_state(gneiss_application application) noexcept {
+  auto& io = ImGui::GetIO();
+  gneiss_keyboard_state keyboard = GNEISS_KEYBOARD_STATE_INIT;
+  auto result = gneiss_application_get_keyboard_state(application, &keyboard);
+  if (result != GNEISS_SUCCESS) {
+    return result;
+  }
+  update_modifiers(io, keyboard.modifiers);
+  for (std::uint32_t physical_key = 0U; physical_key < 256U; ++physical_key) {
+    const auto key = map_key(physical_key);
+    if (key == ImGuiKey_None) {
+      continue;
+    }
+    const auto mask = UINT64_C(1) << (physical_key % 64U);
+    const auto is_down = (keyboard.pressed_keys[physical_key / 64U] & mask) != 0U;
+    io.AddKeyEvent(key, is_down);
+  }
+
+  gneiss_pointer_state pointer = GNEISS_POINTER_STATE_INIT;
+  result = gneiss_application_get_pointer_state(application, &pointer);
+  if (result != GNEISS_SUCCESS) {
+    return result;
+  }
+  if (pointer.is_inside != 0U) {
+    io.AddMousePosEvent(pointer.x, pointer.y);
+  } else {
+    io.AddMousePosEvent(-FLT_MAX, -FLT_MAX);
+  }
+  constexpr std::uint32_t pointer_buttons[] = {
+      GNEISS_POINTER_PRIMARY_BIT, GNEISS_POINTER_SECONDARY_BIT, GNEISS_POINTER_MIDDLE_BIT,
+      GNEISS_POINTER_X1_BIT,      GNEISS_POINTER_X2_BIT,
+  };
+  for (const auto button : pointer_buttons) {
+    io.AddMouseButtonEvent(map_mouse_button(button), (pointer.buttons & button) != 0U);
+  }
+  return GNEISS_SUCCESS;
+}
+
 } // namespace
 
 imgui_adapter::~imgui_adapter() noexcept {
@@ -231,6 +269,10 @@ gneiss_result imgui_adapter::begin_frame(gneiss_application application,
   }
   if (poll_result != GNEISS_ERROR_NOT_READY) {
     return poll_result;
+  }
+  const auto synchronize_result = synchronize_input_state(application);
+  if (synchronize_result != GNEISS_SUCCESS) {
+    return synchronize_result;
   }
   auto& io = ImGui::GetIO();
   std::uint32_t window_width = 0U;
