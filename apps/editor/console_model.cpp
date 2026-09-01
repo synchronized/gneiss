@@ -28,6 +28,7 @@ result console_model::append_event(std::uint64_t session_id,
   try {
     make_room();
     console_entry entry;
+    entry.id = next_entry_id_++;
     entry.kind = console_entry_kind::structured;
     entry.session_id = session_id;
     entry.event = std::move(event);
@@ -46,6 +47,7 @@ result console_model::append_raw(std::uint64_t session_id, std::string_view text
   try {
     make_room();
     console_entry entry;
+    entry.id = next_entry_id_++;
     entry.kind = console_entry_kind::raw;
     entry.session_id = session_id;
     entry.raw_text = text;

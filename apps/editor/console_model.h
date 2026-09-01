@@ -22,6 +22,7 @@ enum class console_entry_kind : std::uint8_t {
 };
 
 struct console_entry final {
+  std::uint64_t id = 0U;
   console_entry_kind kind = console_entry_kind::raw;
   std::uint64_t session_id = 0U;
   app::runtime_log_record event;
@@ -64,6 +65,7 @@ private:
 
   std::size_t capacity_;
   std::uint64_t current_session_id_ = 0U;
+  std::uint64_t next_entry_id_ = 1U;
   std::uint64_t dropped_count_ = 0U;
   std::deque<console_entry> entries_;
 };
