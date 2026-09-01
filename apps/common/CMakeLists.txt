@@ -4,7 +4,9 @@
 add_library(
   gneiss_app_project STATIC
   project_description.cpp
+  runtime_log_protocol.cpp
   include/gneiss/app/project_description.h
+  include/gneiss/app/runtime_log_protocol.h
 )
 target_link_libraries(gneiss_app_project PRIVATE gneiss_yyjson PUBLIC gneiss::engine)
 target_include_directories(
@@ -28,4 +30,13 @@ if(BUILD_TESTING)
   gneiss_target_compile_warnings(gneiss_app_project_description_test)
   gneiss_target_output_directories(gneiss_app_project_description_test)
   add_test(NAME gneiss.app.project-description COMMAND gneiss_app_project_description_test)
+
+  add_executable(
+    gneiss_app_runtime_log_protocol_test
+    tests/runtime_log_protocol_test.cpp
+  )
+  target_link_libraries(gneiss_app_runtime_log_protocol_test PRIVATE gneiss_app_project)
+  gneiss_target_compile_warnings(gneiss_app_runtime_log_protocol_test)
+  gneiss_target_output_directories(gneiss_app_runtime_log_protocol_test)
+  add_test(NAME gneiss.app.runtime-log-protocol COMMAND gneiss_app_runtime_log_protocol_test)
 endif()

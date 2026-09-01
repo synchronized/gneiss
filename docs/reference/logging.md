@@ -7,7 +7,7 @@
 
 `gneiss_log_message` 是日志生产者提交给 Engine 的 Experimental 消息描述。Application 可通过
 `gneiss_application_log` 提交，并由创建描述中的可选 `log` 回调同步接收 Engine 补全后的
-`gneiss_log_event`。Game Context、队列、基础 Sink 与 Editor Console 仍按
+`gneiss_log_event`。Game Context、队列、基础 Sink 和 Runtime 传输协议已经接入；Editor Console 仍按
 [0.13.0 计划](../plans/VER-013-0.13.0-structured-logging-console.md) 实施。
 
 ## 字段与所有权
@@ -37,9 +37,11 @@ Application 入口的可信来源固定为 `application`。Game Module 使用
 不能直接指定该字段。日志入口可以从模块工作线程调用，但 Context 必须仍有效；其他 Game Context
 访问仍限定生命周期回调线程。
 
-独立 Runtime 已将 Application 日志回调接入标准流和单文件轮转 Sink。结构化事件行包含单调时间、
-序号、级别、进程、来源、分类、线程、结果码和转义后的消息；Application 创建前的参数与工程加载
-失败继续使用启动阶段文本格式。跨进程机器可读协议将在 M-86 定义，当前人类可读行不是稳定协议。
+独立 Runtime 已将 Application 日志回调接入标准流和单文件轮转 Sink。日志文件保持人类可读文本，
+标准输出则使用 `@gneiss-log-v1 ` 前缀加单行 JSON。协议字段包含版本、单调时间、序号、级别、来源、
+分类、线程、结果码和消息；字符串按 JSON 规则转义。Application 创建前的参数与工程加载失败，以及
+协议编码失败，仍使用原始文本降级通道。普通输出、未知协议版本和格式错误的协议行应由消费方保留为
+Raw 输出，不能静默丢弃。
 
 Application 已识别的运行时诊断会在调用原有诊断回调后转换为一个日志事件。诊断模块成为事件来源，
 诊断分类映射为日志分类，结果码保持不变。Application 状态创建前的配置或初始化失败没有有效会话，

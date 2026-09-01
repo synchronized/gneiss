@@ -3,6 +3,8 @@
 
 #include "runtime_log.h"
 
+#include <gneiss/app/runtime_log_protocol.h>
+
 #include <chrono>
 #include <cstdint>
 #include <cstdio>
@@ -182,9 +184,14 @@ void runtime_log::write(const gneiss_log_event& source) noexcept {
   try {
     const std::scoped_lock lock(mutex_);
     const auto event = format_structured_event(source);
-    auto* stream = source.severity < GNEISS_LOG_WARNING ? stdout : stderr;
-    std::fwrite(event.data(), sizeof(char), event.size(), stream);
-    std::fflush(stream);
+    std::string protocol;
+    if (app::encode_runtime_log_event(source, protocol) == result::success) {
+      std::fwrite(protocol.data(), sizeof(char), protocol.size(), stdout);
+      std::fflush(stdout);
+    } else {
+      std::fwrite(event.data(), sizeof(char), event.size(), stderr);
+      std::fflush(stderr);
+    }
 
     if (!file_.is_open() || has_reported_write_failure_) {
       return;
