@@ -215,7 +215,11 @@ void begin_editor_workspace() noexcept {
     build_default_workspace(dockspace_id, *viewport);
     reset_layout_requested = false;
   }
-  ImGui::DockSpaceOverViewport(dockspace_id, viewport);
+  // 3D 场景先于 ImGui 绘制，中央 Scene View 必须透过 DockSpace 宿主窗口显示场景。
+  // 其他已停靠面板会在稍后使用正常的 WindowBg 独立绘制背景。
+  ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.0F, 0.0F, 0.0F, 0.0F));
+  ImGui::DockSpaceOverViewport(dockspace_id, viewport, ImGuiDockNodeFlags_PassthruCentralNode);
+  ImGui::PopStyleColor();
 }
 
 bool toolbar_icon_button(const char* id, toolbar_icon icon, const char* tooltip, bool enabled,
