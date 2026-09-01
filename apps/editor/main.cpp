@@ -1217,131 +1217,132 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
       state.history_error = io.KeyShift ? redo_editor_command(state) : undo_editor_command(state);
     }
 
-    if (state.runtime.has_started() || state.runtime_attempted) {
-      if (ImGui::Begin("Console")) {
-        if (state.runtime.is_building()) {
-          ImGui::TextColored(gneiss::editor::theme_warning_color(), "Building game module");
-        } else if (state.runtime.is_running()) {
-          ImGui::TextColored(gneiss::editor::theme_success_color(), "Running");
-        } else if (state.runtime.has_started()) {
-          ImGui::Text("Exited with code %d", state.runtime.exit_code());
-        }
-        ImGui::SameLine();
-        if (ImGui::Button("Clear")) {
-          state.runtime.clear_output();
-        }
-        ImGui::SameLine();
-        if (ImGui::Button(state.console_paused ? "Resume" : "Pause")) {
-          state.console_paused = !state.console_paused;
-          const auto& entries = state.runtime.console().entries();
-          state.console_pause_entry_id =
-              state.console_paused && !entries.empty() ? entries.back().id : 0U;
-        }
-        ImGui::SameLine();
-        ImGui::Checkbox("Auto-scroll", &state.console_auto_scroll);
-        if (state.runtime_attempted && state.runtime_result != gneiss::result::success) {
-          const auto message = gneiss::result_message(state.runtime_result);
-          ImGui::TextColored(gneiss::editor::theme_error_color(), "Runtime error: %.*s",
-                             static_cast<int>(message.size()), message.data());
-        }
-        if (!state.runtime.log_file().empty()) {
-          const auto log_file = state.runtime.log_file().generic_string();
-          ImGui::TextDisabled("Log: %s", log_file.c_str());
-        }
-
-        auto severity_toggle = [&state](const char* label, std::uint32_t severity) {
-          auto enabled = (state.console_filter.severity_mask & (UINT32_C(1) << severity)) != 0U;
-          if (ImGui::Checkbox(label, &enabled)) {
-            if (enabled) {
-              state.console_filter.severity_mask |= UINT32_C(1) << severity;
-            } else {
-              state.console_filter.severity_mask &= ~(UINT32_C(1) << severity);
-            }
-          }
-        };
-        severity_toggle("Trace", GNEISS_LOG_TRACE);
-        ImGui::SameLine();
-        severity_toggle("Debug", GNEISS_LOG_DEBUG);
-        ImGui::SameLine();
-        severity_toggle("Info", GNEISS_LOG_INFO);
-        ImGui::SameLine();
-        severity_toggle("Warn", GNEISS_LOG_WARNING);
-        ImGui::SameLine();
-        severity_toggle("Error", GNEISS_LOG_ERROR);
-        ImGui::SameLine();
-        severity_toggle("Fatal", GNEISS_LOG_FATAL);
-        ImGui::SameLine();
-        ImGui::Checkbox("Raw", &state.console_filter.include_raw);
-        ImGui::SameLine();
-        ImGui::Checkbox("Current session", &state.console_filter.current_session_only);
-
-        ImGui::SetNextItemWidth(220.0F);
-        ImGui::InputTextWithHint("##ConsoleSearch", "Search", state.console_search.data(),
-                                 state.console_search.size());
-        ImGui::SameLine();
-        ImGui::SetNextItemWidth(150.0F);
-        ImGui::InputTextWithHint("##ConsoleSource", "Source (exact)", state.console_source.data(),
-                                 state.console_source.size());
-        ImGui::SameLine();
-        ImGui::SetNextItemWidth(150.0F);
-        ImGui::InputTextWithHint("##ConsoleCategory", "Category (exact)",
-                                 state.console_category.data(), state.console_category.size());
-        state.console_filter.search = state.console_search.data();
-        state.console_filter.source = state.console_source.data();
-        state.console_filter.category = state.console_category.data();
-
-        std::vector<std::size_t> visible;
-        const auto filter_result =
-            state.runtime.console().visible_indices(state.console_filter, visible);
-        if (state.console_paused) {
-          std::erase_if(visible, [&state](std::size_t index) {
-            return state.runtime.console().entries()[index].id > state.console_pause_entry_id;
-          });
-        }
-        if (filter_result != gneiss::result::success) {
-          ImGui::TextColored(gneiss::editor::theme_error_color(), "Console filter failed");
-        }
-        ImGui::TextDisabled(
-            "Visible: %zu / %zu | Dropped: %llu", visible.size(),
-            state.runtime.console().entries().size(),
-            static_cast<unsigned long long>(state.runtime.console().dropped_count()));
-        ImGui::SameLine();
-        if (ImGui::Button("Copy visible")) {
-          std::string clipboard;
-          for (const auto index : visible) {
-            clipboard.append(format_console_entry(state.runtime.console().entries()[index]));
-            clipboard.push_back('\n');
-          }
-          ImGui::SetClipboardText(clipboard.c_str());
-        }
-        ImGui::Separator();
-        ImGui::BeginChild("ConsoleLog", ImVec2(0.0F, 220.0F), true,
-                          ImGuiWindowFlags_HorizontalScrollbar);
-        ImGuiListClipper clipper;
-        clipper.Begin(static_cast<int>(visible.size()));
-        while (clipper.Step()) {
-          for (int row = clipper.DisplayStart; row < clipper.DisplayEnd; ++row) {
-            const auto& entry =
-                state.runtime.console().entries()[visible[static_cast<std::size_t>(row)]];
-            const auto line = format_console_entry(entry);
-            if (entry.kind == gneiss::editor::console_entry_kind::structured &&
-                entry.event.severity >= GNEISS_LOG_ERROR) {
-              ImGui::TextColored(gneiss::editor::theme_error_color(), "%s", line.c_str());
-            } else if (entry.kind == gneiss::editor::console_entry_kind::structured &&
-                       entry.event.severity == GNEISS_LOG_WARNING) {
-              ImGui::TextColored(gneiss::editor::theme_warning_color(), "%s", line.c_str());
-            } else {
-              ImGui::TextUnformatted(line.c_str());
-            }
-          }
-        }
-        if (state.console_auto_scroll && !state.console_paused) {
-          ImGui::SetScrollHereY(1.0F);
-        }
-        ImGui::EndChild();
+    ImGui::SetNextWindowPos(ImVec2(250.0F, 460.0F));
+    ImGui::SetNextWindowSize(ImVec2(730.0F, 260.0F));
+    if (ImGui::Begin("Console", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize)) {
+      if (state.runtime.is_building()) {
+        ImGui::TextColored(gneiss::editor::theme_warning_color(), "Building game module");
+      } else if (state.runtime.is_running()) {
+        ImGui::TextColored(gneiss::editor::theme_success_color(), "Running");
+      } else if (state.runtime.has_started()) {
+        ImGui::Text("Exited with code %d", state.runtime.exit_code());
+      } else {
+        ImGui::TextDisabled("Runtime has not started");
       }
-      ImGui::End();
+      ImGui::SameLine();
+      if (ImGui::Button("Clear")) {
+        state.runtime.clear_output();
+      }
+      ImGui::SameLine();
+      if (ImGui::Button(state.console_paused ? "Resume" : "Pause")) {
+        state.console_paused = !state.console_paused;
+        const auto& entries = state.runtime.console().entries();
+        state.console_pause_entry_id =
+            state.console_paused && !entries.empty() ? entries.back().id : 0U;
+      }
+      ImGui::SameLine();
+      ImGui::Checkbox("Auto-scroll", &state.console_auto_scroll);
+      if (state.runtime_attempted && state.runtime_result != gneiss::result::success) {
+        const auto message = gneiss::result_message(state.runtime_result);
+        ImGui::TextColored(gneiss::editor::theme_error_color(), "Runtime error: %.*s",
+                           static_cast<int>(message.size()), message.data());
+      }
+      if (!state.runtime.log_file().empty()) {
+        const auto log_file = state.runtime.log_file().generic_string();
+        ImGui::TextDisabled("Log: %s", log_file.c_str());
+      }
+
+      auto severity_toggle = [&state](const char* label, std::uint32_t severity) {
+        auto enabled = (state.console_filter.severity_mask & (UINT32_C(1) << severity)) != 0U;
+        if (ImGui::Checkbox(label, &enabled)) {
+          if (enabled) {
+            state.console_filter.severity_mask |= UINT32_C(1) << severity;
+          } else {
+            state.console_filter.severity_mask &= ~(UINT32_C(1) << severity);
+          }
+        }
+      };
+      severity_toggle("Trace", GNEISS_LOG_TRACE);
+      ImGui::SameLine();
+      severity_toggle("Debug", GNEISS_LOG_DEBUG);
+      ImGui::SameLine();
+      severity_toggle("Info", GNEISS_LOG_INFO);
+      ImGui::SameLine();
+      severity_toggle("Warn", GNEISS_LOG_WARNING);
+      ImGui::SameLine();
+      severity_toggle("Error", GNEISS_LOG_ERROR);
+      ImGui::SameLine();
+      severity_toggle("Fatal", GNEISS_LOG_FATAL);
+      ImGui::SameLine();
+      ImGui::Checkbox("Raw", &state.console_filter.include_raw);
+      ImGui::SameLine();
+      ImGui::Checkbox("Current session", &state.console_filter.current_session_only);
+
+      ImGui::SetNextItemWidth(220.0F);
+      ImGui::InputTextWithHint("##ConsoleSearch", "Search", state.console_search.data(),
+                               state.console_search.size());
+      ImGui::SameLine();
+      ImGui::SetNextItemWidth(150.0F);
+      ImGui::InputTextWithHint("##ConsoleSource", "Source (exact)", state.console_source.data(),
+                               state.console_source.size());
+      ImGui::SameLine();
+      ImGui::SetNextItemWidth(150.0F);
+      ImGui::InputTextWithHint("##ConsoleCategory", "Category (exact)",
+                               state.console_category.data(), state.console_category.size());
+      state.console_filter.search = state.console_search.data();
+      state.console_filter.source = state.console_source.data();
+      state.console_filter.category = state.console_category.data();
+
+      std::vector<std::size_t> visible;
+      const auto filter_result =
+          state.runtime.console().visible_indices(state.console_filter, visible);
+      if (state.console_paused) {
+        std::erase_if(visible, [&state](std::size_t index) {
+          return state.runtime.console().entries()[index].id > state.console_pause_entry_id;
+        });
+      }
+      if (filter_result != gneiss::result::success) {
+        ImGui::TextColored(gneiss::editor::theme_error_color(), "Console filter failed");
+      }
+      ImGui::TextDisabled("Visible: %zu / %zu | Dropped: %llu", visible.size(),
+                          state.runtime.console().entries().size(),
+                          static_cast<unsigned long long>(state.runtime.console().dropped_count()));
+      ImGui::SameLine();
+      if (ImGui::Button("Copy visible")) {
+        std::string clipboard;
+        for (const auto index : visible) {
+          clipboard.append(format_console_entry(state.runtime.console().entries()[index]));
+          clipboard.push_back('\n');
+        }
+        ImGui::SetClipboardText(clipboard.c_str());
+      }
+      ImGui::Separator();
+      ImGui::BeginChild("ConsoleLog", ImVec2(0.0F, 0.0F), true,
+                        ImGuiWindowFlags_HorizontalScrollbar);
+      ImGuiListClipper clipper;
+      clipper.Begin(static_cast<int>(visible.size()));
+      while (clipper.Step()) {
+        for (int row = clipper.DisplayStart; row < clipper.DisplayEnd; ++row) {
+          const auto& entry =
+              state.runtime.console().entries()[visible[static_cast<std::size_t>(row)]];
+          const auto line = format_console_entry(entry);
+          if (entry.kind == gneiss::editor::console_entry_kind::structured &&
+              entry.event.severity >= GNEISS_LOG_ERROR) {
+            ImGui::TextColored(gneiss::editor::theme_error_color(), "%s", line.c_str());
+          } else if (entry.kind == gneiss::editor::console_entry_kind::structured &&
+                     entry.event.severity == GNEISS_LOG_WARNING) {
+            ImGui::TextColored(gneiss::editor::theme_warning_color(), "%s", line.c_str());
+          } else {
+            ImGui::TextUnformatted(line.c_str());
+          }
+        }
+      }
+      if (state.console_auto_scroll && !state.console_paused) {
+        ImGui::SetScrollHereY(1.0F);
+      }
+      ImGui::EndChild();
     }
+    ImGui::End();
 
     ImGui::SetNextWindowPos(ImVec2(0.0F, 20.0F));
     ImGui::SetNextWindowSize(ImVec2(250.0F, 420.0F));
@@ -1543,7 +1544,7 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
     }
 
     ImGui::SetNextWindowPos(ImVec2(250.0F, 20.0F));
-    ImGui::SetNextWindowSize(ImVec2(730.0F, 700.0F));
+    ImGui::SetNextWindowSize(ImVec2(730.0F, 440.0F));
     const auto scene_view_visible = ImGui::Begin(
         "Scene View", nullptr,
         ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoBackground);
