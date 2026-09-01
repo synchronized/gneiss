@@ -218,10 +218,12 @@ gneiss_result imgui_adapter::begin_frame(gneiss_application application,
   std::uint32_t window_height = 0U;
   const auto window_result =
       gneiss_application_get_window_size(application, &window_width, &window_height);
-  if (window_result != GNEISS_SUCCESS || window_width == 0U || window_height == 0U) {
-    return window_result == GNEISS_SUCCESS ? GNEISS_ERROR_NOT_READY : window_result;
+  if (window_result != GNEISS_SUCCESS) {
+    return window_result;
   }
-  io.DisplaySize = ImVec2(static_cast<float>(window_width), static_cast<float>(window_height));
+  // 窗口创建、最小化或交换链调整期间，尺寸可能短暂为零；这不是致命错误。
+  io.DisplaySize = ImVec2(static_cast<float>(std::max(window_width, UINT32_C(1))),
+                          static_cast<float>(std::max(window_height, UINT32_C(1))));
   io.DisplayFramebufferScale = ImVec2(1.0F, 1.0F);
   constexpr float default_delta_seconds = 1.0F / 60.0F;
   constexpr double nanoseconds_per_second = 1'000'000'000.0;
