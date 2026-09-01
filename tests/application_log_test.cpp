@@ -105,7 +105,7 @@ int main() {
   {
     std::unique_lock lock(state.mutex);
     if (!state.changed.wait_for(lock, std::chrono::seconds(2),
-                                [&state, expected] { return state.count >= expected; })) {
+                                [&state] { return state.count >= expected; })) {
       return 5;
     }
     if (state.count != expected || state.previous_sequence != expected || state.was_concurrent) {
