@@ -141,8 +141,10 @@ gneiss_result imgui_adapter::initialize(gneiss_application application) {
   io.IniFilename = nullptr;
   io.Fonts->Clear();
   ImFontConfig font_config{};
-  font_config.SizePixels = 15.0F;
-  font_config.PixelSnapH = true;
+  font_config.SizePixels = 16.0F;
+  font_config.PixelSnapH = false;
+  font_config.OversampleH = 2;
+  font_config.OversampleV = 2;
   io.FontDefault =
       io.Fonts->AddFontFromFileTTF(GNEISS_EDITOR_FONT_PATH, font_config.SizePixels, &font_config);
   if (io.FontDefault == nullptr) {

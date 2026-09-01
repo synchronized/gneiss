@@ -60,6 +60,10 @@ void apply_gneiss_mocha_theme() noexcept {
   style.GrabRounding = 5.0F;
   style.TabRounding = 5.0F;
   style.DisabledAlpha = 0.55F;
+  style.AntiAliasedLines = true;
+  style.AntiAliasedLinesUseTex = true;
+  style.AntiAliasedFill = true;
+  style.CircleTessellationMaxError = 0.20F;
 
   auto* colors = style.Colors;
   colors[ImGuiCol_Text] = text;
@@ -86,9 +90,9 @@ void apply_gneiss_mocha_theme() noexcept {
   colors[ImGuiCol_Button] = surface0;
   colors[ImGuiCol_ButtonHovered] = surface1;
   colors[ImGuiCol_ButtonActive] = surface2;
-  colors[ImGuiCol_Header] = rgb(250, 179, 135, 0.22F);
-  colors[ImGuiCol_HeaderHovered] = rgb(250, 179, 135, 0.32F);
-  colors[ImGuiCol_HeaderActive] = rgb(250, 179, 135, 0.42F);
+  colors[ImGuiCol_Header] = rgb(250, 179, 135, 0.26F);
+  colors[ImGuiCol_HeaderHovered] = rgb(250, 179, 135, 0.38F);
+  colors[ImGuiCol_HeaderActive] = rgb(250, 179, 135, 0.48F);
   colors[ImGuiCol_Separator] = surface1;
   colors[ImGuiCol_SeparatorHovered] = peach;
   colors[ImGuiCol_SeparatorActive] = mauve;

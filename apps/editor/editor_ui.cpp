@@ -10,6 +10,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cmath>
 #include <cstdint>
 #include <cstdio>
 #include <fstream>
@@ -199,7 +200,8 @@ bool toolbar_icon_button(const char* id, toolbar_icon icon, const char* tooltip,
   if (active && enabled) {
     icon_color = ImGui::ColorConvertFloat4ToU32(theme_success_color());
   }
-  const ImVec2 center{position.x + (button_size.x * 0.5F), position.y + (button_size.y * 0.5F)};
+  const ImVec2 center{std::floor(position.x + (button_size.x * 0.5F)) + 0.5F,
+                      std::floor(position.y + (button_size.y * 0.5F)) + 0.5F};
   switch (icon) {
   case toolbar_icon::run:
     draw_list->AddTriangleFilled(ImVec2(center.x - 3.5F, center.y - 6.0F),
