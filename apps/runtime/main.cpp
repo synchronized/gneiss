@@ -237,6 +237,10 @@ void write_application_log(gneiss_application, const gneiss_log_event* event, vo
       operation = game_module.load(module_path);
     }
     if (operation == gneiss::result::success) {
+      operation = gneiss::from_native(gneiss::game_internal::set_game_context_log_source(
+          game_context, game_module.module_id()));
+    }
+    if (operation == gneiss::result::success) {
       operation = game_module.initialize(game_context);
     }
     if (operation != gneiss::result::success) {

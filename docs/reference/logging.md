@@ -32,8 +32,10 @@
 - 没有设置回调时，有效消息返回成功但不会写入文件或标准流。
 - Application 销毁不能与日志提交并发；宿主应先停止生产者，再销毁 Application。
 
-当前 Application 入口的可信来源固定为 `application`。Game Module 后续通过 Game Context 入口获得
-独立来源，不能直接指定该字段。
+Application 入口的可信来源固定为 `application`。Game Module 使用
+`gneiss_game_context_log` 提交，Runtime 在模块查询成功后把经过校验的模块 ID 绑定为可信来源；模块
+不能直接指定该字段。日志入口可以从模块工作线程调用，但 Context 必须仍有效；其他 Game Context
+访问仍限定生命周期回调线程。
 
 独立 Runtime 已将 Application 日志回调接入标准流和单文件轮转 Sink。结构化事件行包含单调时间、
 序号、级别、进程、来源、分类、线程、结果码和转义后的消息；Application 创建前的参数与工程加载

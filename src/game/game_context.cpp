@@ -3,9 +3,11 @@
 
 #include "game_context_internal.h"
 
+#include "application/application_log_internal.h"
 #include "core/rid_table.h"
 
 #include <mutex>
+#include <string>
 #include <thread>
 
 namespace {
@@ -15,6 +17,7 @@ struct context_state final {
   gneiss_world world;
   gneiss_entity_id startup_root_entity;
   std::thread::id owner_thread;
+  std::string log_source;
 };
 
 constexpr std::uint16_t context_domain = UINT16_C(0x4743);
@@ -46,10 +49,10 @@ gneiss_result create_game_context(gneiss_application application,
     return world_result;
   }
   std::scoped_lock lock(context_mutex);
-  return contexts.create(
-      core::resource_type::game_context,
-      context_state{application, world, startup_root_entity, std::this_thread::get_id()},
-      out_context);
+  return contexts.create(core::resource_type::game_context,
+                         context_state{application, world, startup_root_entity,
+                                       std::this_thread::get_id(), "game_module"},
+                         out_context);
 }
 
 gneiss_result destroy_game_context(gneiss_game_context context) noexcept {
@@ -59,6 +62,26 @@ gneiss_result destroy_game_context(gneiss_game_context context) noexcept {
     return GNEISS_ERROR_INVALID_HANDLE;
   }
   return contexts.destroy(context, core::resource_type::game_context);
+}
+
+gneiss_result set_game_context_log_source(gneiss_game_context context,
+                                          std::string_view source) noexcept {
+  if (source.empty()) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  try {
+    const std::scoped_lock lock(context_mutex);
+    auto* state = get_context(context);
+    if (state == nullptr) {
+      return GNEISS_ERROR_INVALID_HANDLE;
+    }
+    state->log_source.assign(source);
+    return GNEISS_SUCCESS;
+  } catch (const std::bad_alloc&) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
 }
 
 } // namespace gneiss::game_internal
@@ -118,4 +141,17 @@ extern "C" gneiss_result gneiss_game_context_request_exit(gneiss_game_context co
   const auto* state = get_context(context);
   return state == nullptr ? GNEISS_ERROR_INVALID_HANDLE
                           : gneiss_application_request_exit(state->application);
+}
+
+extern "C" gneiss_result gneiss_game_context_log(gneiss_game_context context,
+                                                 const gneiss_log_message* message) {
+  const auto validation_result = gneiss_log_message_validate(message);
+  if (validation_result != GNEISS_SUCCESS) {
+    return validation_result;
+  }
+  std::scoped_lock lock(context_mutex);
+  const auto* state = contexts.get(context, gneiss::core::resource_type::game_context);
+  return state == nullptr ? GNEISS_ERROR_INVALID_HANDLE
+                          : gneiss::application_internal::submit_application_log(
+                                state->application, *message, state->log_source);
 }

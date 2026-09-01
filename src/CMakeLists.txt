@@ -20,6 +20,7 @@ target_sources(
   gneiss_engine
   PRIVATE
     application/application_api.cpp
+    application/application_log_internal.h
     application/application_state.cpp
     application/application_state.h
     asset/asset_uri.cpp

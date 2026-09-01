@@ -5,12 +5,30 @@
 
 #include <gneiss/application.h>
 #include <gneiss/game_module.h>
+#include <gneiss/log.hpp>
 
+#include <mutex>
+#include <string>
 #include <thread>
 
 namespace {
 
 std::uint64_t clock_value{};
+
+struct log_capture final {
+  std::mutex mutex;
+  std::uint64_t count = 0U;
+  std::string source;
+  std::string message;
+};
+
+void capture_log(gneiss_application, const gneiss_log_event* event, void* user_data) {
+  auto& capture = *static_cast<log_capture*>(user_data);
+  const std::scoped_lock lock(capture.mutex);
+  ++capture.count;
+  capture.source.assign(event->source, event->source_length);
+  capture.message.assign(event->message, event->message_length);
+}
 
 std::uint64_t now_ns(void*) {
   clock_value += 16'000'000;
@@ -27,7 +45,10 @@ gneiss_result update(gneiss_application, const gneiss_frame_time*, void*) { retu
 } // namespace
 
 int main() {
+  log_capture capture;
   gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
+  desc.user_data = &capture;
+  desc.log = capture_log;
   desc.now_ns = now_ns;
   desc.poll_events = poll_events;
   desc.update = update;
@@ -42,6 +63,8 @@ int main() {
   if (gneiss_application_get_world(application, &expected_world) != GNEISS_SUCCESS ||
       gneiss_world_entity_create(expected_world, &expected_root) != GNEISS_SUCCESS ||
       gneiss::game_internal::create_game_context(application, expected_root, &context) !=
+          GNEISS_SUCCESS ||
+      gneiss::game_internal::set_game_context_log_source(context, "gneiss.test.module") !=
           GNEISS_SUCCESS ||
       context == GNEISS_NULL_GAME_CONTEXT) {
     return 2;
@@ -61,15 +84,28 @@ int main() {
   }
 
   gneiss_result cross_thread_result = GNEISS_SUCCESS;
-  std::thread other(
-      [&] { cross_thread_result = gneiss_game_context_get_world(context, &actual_world); });
+  gneiss_result cross_thread_log_result = GNEISS_ERROR_INTERNAL;
+  const auto message = gneiss::make_log_message(gneiss::log_severity::info, "test", "worker ready");
+  std::thread other([&] {
+    cross_thread_result = gneiss_game_context_get_world(context, &actual_world);
+    cross_thread_log_result = gneiss_game_context_log(context, &message);
+  });
   other.join();
   if (cross_thread_result != GNEISS_ERROR_INVALID_HANDLE ||
+      cross_thread_log_result != GNEISS_SUCCESS ||
       gneiss::game_internal::destroy_game_context(context) != GNEISS_SUCCESS ||
       gneiss_game_context_get_world(context, &actual_world) != GNEISS_ERROR_INVALID_HANDLE ||
+      gneiss_game_context_log(context, &message) != GNEISS_ERROR_INVALID_HANDLE ||
       gneiss::game_internal::destroy_game_context(context) != GNEISS_ERROR_INVALID_HANDLE ||
       gneiss_application_destroy(application) != GNEISS_SUCCESS) {
     return 4;
+  }
+  {
+    const std::scoped_lock lock(capture.mutex);
+    if (capture.count != 1U || capture.source != "gneiss.test.module" ||
+        capture.message != "worker ready") {
+      return 5;
+    }
   }
   return 0;
 }

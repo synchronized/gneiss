@@ -63,9 +63,12 @@ Game Context 是 Engine 持有的 generation 句柄，销毁后旧值立即失�
 - `gneiss_game_context_find_action` 与 `gneiss_game_context_get_action_state`：复用所属 Application 的
   动作映射和当前帧输入快照。
 - `gneiss_game_context_request_exit`：请求 Application 正常结束主循环。
+- `gneiss_game_context_log`：复制结构化日志消息并进入所属 Application 的有界队列。
 
-这些函数只允许在创建 Context 的 Runtime 主线程调用；跨线程访问、销毁后访问或伪造句柄均返回
-`GNEISS_ERROR_INVALID_HANDLE`。World、实体和动作均为借用值，不得在 Context 销毁后继续使用。
+除日志外，这些函数只允许在创建 Context 的 Runtime 主线程调用；跨线程访问、销毁后访问或伪造
+句柄均返回 `GNEISS_ERROR_INVALID_HANDLE`。日志可以从模块工作线程提交，但 Context 必须仍有效。
+Runtime 在模块查询成功后把经过校验的 `module_id` 绑定为日志可信来源，模块不能自行指定来源。
+World、实体和动作均为借用值，不得在 Context 销毁后继续使用。
 
 ## C++ 包装
 
