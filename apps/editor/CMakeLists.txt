@@ -65,6 +65,7 @@ target_compile_features(gneiss_editor_ui PUBLIC cxx_std_20)
 target_compile_definitions(
   gneiss_editor_ui
   PRIVATE GNEISS_EDITOR_FONT_PATH="${CMAKE_CURRENT_SOURCE_DIR}/fonts/Inter-Regular.ttf"
+          GNEISS_EDITOR_CJK_FONT_PATH="${GNEISS_EDITOR_CJK_FONT_PATH}"
 )
 gneiss_target_compile_warnings(gneiss_editor_ui)
 gneiss_target_output_directories(gneiss_editor_ui)

@@ -154,12 +154,28 @@ gneiss_result imgui_adapter::initialize(gneiss_application application) {
     return GNEISS_ERROR_OUT_OF_MEMORY;
   }
 
+  ImFontConfig cjk_font_config{};
+  cjk_font_config.MergeMode = true;
+  cjk_font_config.PixelSnapH = false;
+  cjk_font_config.OversampleH = 1;
+  cjk_font_config.OversampleV = 1;
+  if (io.Fonts->AddFontFromFileTTF(GNEISS_EDITOR_CJK_FONT_PATH, font_config.SizePixels,
+                                   &cjk_font_config,
+                                   io.Fonts->GetGlyphRangesChineseSimplifiedCommon()) == nullptr) {
+    return GNEISS_ERROR_INITIALIZATION_FAILED;
+  }
+
   unsigned char* atlas_pixels = nullptr;
   int atlas_width = 0;
   int atlas_height = 0;
   io.Fonts->GetTexDataAsRGBA32(&atlas_pixels, &atlas_width, &atlas_height);
   if (atlas_pixels == nullptr || atlas_width <= 0 || atlas_height <= 0) {
     return GNEISS_ERROR_INVALID_STATE;
+  }
+  auto* baked_font = io.FontDefault->GetFontBaked(font_config.SizePixels);
+  if (baked_font == nullptr ||
+      baked_font->FindGlyphNoFallback(static_cast<ImWchar>(u'中')) == nullptr) {
+    return GNEISS_ERROR_INITIALIZATION_FAILED;
   }
   const auto pixel_count =
       static_cast<std::size_t>(atlas_width) * static_cast<std::size_t>(atlas_height);
