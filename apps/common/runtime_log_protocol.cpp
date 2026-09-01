@@ -5,6 +5,7 @@
 
 #include <yyjson.h>
 
+#include <algorithm>
 #include <charconv>
 #include <iterator>
 #include <limits>
@@ -87,6 +88,63 @@ void append_json_string(std::string& output, std::string_view value) {
 }
 
 } // namespace
+
+runtime_log_line_decoder::runtime_log_line_decoder(std::size_t maximum_line_size) noexcept
+    : maximum_line_size_(maximum_line_size) {}
+
+result runtime_log_line_decoder::append(std::string_view bytes,
+                                        std::vector<runtime_log_line>& output) noexcept {
+  if (maximum_line_size_ == 0U) {
+    return result::invalid_state;
+  }
+  try {
+    while (!bytes.empty()) {
+      const auto newline = bytes.find('\n');
+      if (newline == std::string_view::npos) {
+        append_segment(bytes);
+        break;
+      }
+      append_segment(bytes.substr(0U, newline));
+      const auto operation = emit(output);
+      if (operation != result::success) {
+        return operation;
+      }
+      bytes.remove_prefix(newline + 1U);
+    }
+    return result::success;
+  } catch (...) {
+    return result::out_of_memory;
+  }
+}
+
+result runtime_log_line_decoder::finish(std::vector<runtime_log_line>& output) noexcept {
+  if (pending_.empty() && !pending_was_truncated_) {
+    return result::success;
+  }
+  return emit(output);
+}
+
+void runtime_log_line_decoder::reset() noexcept {
+  pending_.clear();
+  pending_was_truncated_ = false;
+}
+
+result runtime_log_line_decoder::emit(std::vector<runtime_log_line>& output) noexcept {
+  try {
+    output.push_back({pending_, pending_was_truncated_});
+    reset();
+    return result::success;
+  } catch (...) {
+    return result::out_of_memory;
+  }
+}
+
+void runtime_log_line_decoder::append_segment(std::string_view segment) {
+  const auto available = maximum_line_size_ - pending_.size();
+  const auto accepted = std::min(available, segment.size());
+  pending_.append(segment.data(), accepted);
+  pending_was_truncated_ = pending_was_truncated_ || accepted != segment.size();
+}
 
 result encode_runtime_log_event(const gneiss_log_event& event, std::string& output) noexcept {
   output.clear();

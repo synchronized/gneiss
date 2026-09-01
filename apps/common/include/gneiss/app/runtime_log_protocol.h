@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace gneiss::app {
 
@@ -31,6 +32,38 @@ struct runtime_log_record final {
   std::string category;
   std::string message;
   gneiss_result operation = GNEISS_SUCCESS;
+};
+
+inline constexpr std::size_t maximum_runtime_log_line_size = 64U * 1024U;
+
+struct runtime_log_line final {
+  std::string text;
+  bool was_truncated = false;
+};
+
+/**
+ * 将任意分块的子进程字节流组装为日志行。
+ *
+ * 单行超过上限时保留前缀并丢弃该行剩余字节，下一行仍可继续解析。finish 用于进程退出时交付没有
+ * 换行符的尾部。对象只应由单个消费线程使用。
+ */
+class runtime_log_line_decoder final {
+public:
+  explicit runtime_log_line_decoder(
+      std::size_t maximum_line_size = maximum_runtime_log_line_size) noexcept;
+
+  [[nodiscard]] result append(std::string_view bytes,
+                              std::vector<runtime_log_line>& output) noexcept;
+  [[nodiscard]] result finish(std::vector<runtime_log_line>& output) noexcept;
+  void reset() noexcept;
+
+private:
+  [[nodiscard]] result emit(std::vector<runtime_log_line>& output) noexcept;
+  void append_segment(std::string_view segment);
+
+  std::size_t maximum_line_size_;
+  std::string pending_;
+  bool pending_was_truncated_ = false;
 };
 
 /** 将日志事件编码为带版本前缀的单行 UTF-8 JSON，结果包含末尾换行。 */

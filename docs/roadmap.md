@@ -256,7 +256,7 @@ Experimental C ABI 加载动态模块，建立初始化、固定更新、逐帧�
 | M-83 日志事件与提交契约 | P0 | 已完成 |
 | M-84 Engine 日志服务与基础 Sink | P0 | 已完成 |
 | M-85 Game Context 日志入口 | P0 | 已完成 |
-| M-86 Runtime 结构化输出协议 | P0 | 进行中 |
+| M-86 Runtime 结构化输出协议 | P0 | 已完成 |
 | M-87 Editor Console | P0 | 待开始 |
 | M-88 示例、安装与跨平台验收 | P0 | 待开始 |
 

@@ -4,6 +4,29 @@
 #include <gneiss/app/runtime_log_protocol.h>
 
 #include <string>
+#include <vector>
+
+namespace {
+
+bool validates_line_decoder() {
+  gneiss::app::runtime_log_line_decoder decoder(8U);
+  std::vector<gneiss::app::runtime_log_line> lines;
+  if (decoder.append("first\nsec", lines) != gneiss::result::success || lines.size() != 1U ||
+      lines[0].text != "first" || lines[0].was_truncated ||
+      decoder.append("ond\ntoolong-value\ntail", lines) != gneiss::result::success ||
+      lines.size() != 3U || lines[1].text != "second" || lines[1].was_truncated ||
+      lines[2].text != "toolong-" || !lines[2].was_truncated ||
+      decoder.finish(lines) != gneiss::result::success || lines.size() != 4U ||
+      lines[3].text != "tail" || lines[3].was_truncated) {
+    return false;
+  }
+  decoder.reset();
+  lines.clear();
+  return decoder.append("\n", lines) == gneiss::result::success && lines.size() == 1U &&
+         lines.front().text.empty() && !lines.front().was_truncated;
+}
+
+} // namespace
 
 int main() {
   constexpr std::string_view source = "game_module";
@@ -53,7 +76,8 @@ int main() {
     return 4;
   }
   return gneiss::app::parse_runtime_log_line("@gneiss-log-v1 {broken", parsed) ==
-                 gneiss::app::runtime_log_parse_result::invalid
+                     gneiss::app::runtime_log_parse_result::invalid &&
+                 validates_line_decoder()
              ? 0
              : 5;
 }
