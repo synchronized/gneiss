@@ -272,7 +272,7 @@ Experimental C ABI 加载动态模块，建立初始化、固定更新、逐帧�
 | 里程碑 | 优先级 | 状态 |
 | --- | --- | --- |
 | M-89 Editor UI 边界与依赖 Spike | P0 | 已完成 |
-| M-90 `gneiss_editor_ui` 内部模块 | P0 | 待开始 |
+| M-90 `gneiss_editor_ui` 内部模块 | P0 | 已完成 |
 | M-91 单窗口 DockSpace 与默认工作区 | P0 | 待开始 |
 | M-92 布局持久化与恢复 | P0 | 待开始 |
 | M-93 面板迁移与视觉基础 | P1 | 待开始 |
