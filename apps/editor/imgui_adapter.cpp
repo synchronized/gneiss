@@ -137,6 +137,7 @@ gneiss_result imgui_adapter::initialize(gneiss_application application) {
   auto& io = ImGui::GetIO();
   io.BackendPlatformName = "gneiss_editor";
   io.BackendRendererName = "gneiss_ui_draw_list";
+  io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
   io.IniFilename = nullptr;
   io.Fonts->Clear();
   ImFontConfig font_config{};

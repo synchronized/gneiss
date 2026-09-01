@@ -1110,6 +1110,7 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
       return result;
     }
     ImGuizmo::BeginFrame();
+    ImGui::DockSpaceOverViewport();
     const auto grid_result = submit_editor_grid(application);
     if (grid_result != gneiss::result::success) {
       return gneiss::to_native(grid_result);
