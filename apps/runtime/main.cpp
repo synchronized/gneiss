@@ -86,8 +86,22 @@ gneiss_result update_runtime(gneiss_application application, const gneiss_frame_
   auto& context = *static_cast<runtime_context*>(user_data);
   if (!context.has_logged_first_frame) {
     context.has_logged_first_frame = true;
-    if (context.log != nullptr) {
-      context.log->write("INFO", "first_frame", GNEISS_SUCCESS, "Runtime 已进入首帧");
+    constexpr std::string_view category = "lifecycle";
+    constexpr std::string_view message = "Runtime 已进入首帧";
+    const gneiss_log_message entry = {
+        .struct_size = sizeof(gneiss_log_message),
+        .severity = GNEISS_LOG_INFO,
+        .category = category.data(),
+        .category_length = category.size(),
+        .message = message.data(),
+        .message_length = message.size(),
+        .result = GNEISS_SUCCESS,
+        .flags = 0U,
+        .reserved = {},
+    };
+    const auto log_result = gneiss_application_log(application, &entry);
+    if (log_result != GNEISS_SUCCESS) {
+      return log_result;
     }
   }
   if (!context.stop_file.empty() && time->elapsed_ns >= context.next_stop_check_ns) {
@@ -116,19 +130,13 @@ gneiss_result update_runtime(gneiss_application application, const gneiss_frame_
   return static_cast<gneiss_result>(update_result);
 }
 
-void report_application_diagnostic(gneiss_application, const gneiss_diagnostic* diagnostic,
-                                   void* user_data) {
-  if (diagnostic == nullptr || user_data == nullptr) {
+void write_application_log(gneiss_application, const gneiss_log_event* event, void* user_data) {
+  if (event == nullptr || user_data == nullptr) {
     return;
   }
-  const auto level = diagnostic->severity == GNEISS_DIAGNOSTIC_INFO      ? "INFO"
-                     : diagnostic->severity == GNEISS_DIAGNOSTIC_WARNING ? "WARNING"
-                                                                         : "ERROR";
-  const std::string_view module{diagnostic->module, diagnostic->module_length};
-  const std::string_view message{diagnostic->message, diagnostic->message_length};
   auto& context = *static_cast<runtime_context*>(user_data);
   if (context.log != nullptr) {
-    context.log->write(level, module, diagnostic->result, message);
+    context.log->write(*event);
   }
 }
 
@@ -165,7 +173,7 @@ void report_application_diagnostic(gneiss_application, const gneiss_diagnostic* 
   desc.window_title_length = static_cast<std::uint32_t>(project.name.size());
   desc.asset_root = asset_root.data();
   desc.asset_root_length = static_cast<std::uint32_t>(asset_root.size());
-  desc.diagnostic = report_application_diagnostic;
+  desc.log = write_application_log;
 
   gneiss::application application;
   auto operation = gneiss::application::create(desc, application);

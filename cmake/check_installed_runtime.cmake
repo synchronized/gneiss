@@ -61,7 +61,7 @@ execute_process(
   OUTPUT_VARIABLE runtime_output
   ERROR_VARIABLE runtime_error
 )
-if(NOT runtime_result EQUAL 0 OR NOT runtime_output MATCHES "stage=first_frame" OR
+if(NOT runtime_result EQUAL 0 OR NOT runtime_output MATCHES "Runtime 已进入首帧" OR
    NOT runtime_output MATCHES "stage=shutdown")
   message(FATAL_ERROR
           "安装树 Runtime 启动失败：${runtime_result}\n${runtime_output}${runtime_error}")

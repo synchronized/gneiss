@@ -79,11 +79,11 @@ int main() try {
   const auto startup_started = std::chrono::steady_clock::now();
   const auto startup_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
   while (std::chrono::steady_clock::now() < startup_deadline &&
-         process.output().find("stage=first_frame") == std::string::npos) {
+         process.output().find("Runtime 已进入首帧") == std::string::npos) {
     process.update();
     std::this_thread::sleep_for(std::chrono::milliseconds(20));
   }
-  if (!process.is_running() || process.output().find("stage=first_frame") == std::string::npos ||
+  if (!process.is_running() || process.output().find("Runtime 已进入首帧") == std::string::npos ||
       process.request_stop() != gneiss::result::success) {
     return 7;
   }
@@ -167,12 +167,12 @@ int main() try {
   }
   const auto build_success_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
   while (std::chrono::steady_clock::now() < build_success_deadline &&
-         process.output().find("stage=first_frame") == std::string::npos && process.is_busy()) {
+         process.output().find("Runtime 已进入首帧") == std::string::npos && process.is_busy()) {
     process.update();
     std::this_thread::sleep_for(std::chrono::milliseconds(20));
   }
   if (!process.is_running() || process.output().find("游戏模块构建完成") == std::string::npos ||
-      process.output().find("stage=first_frame") == std::string::npos ||
+      process.output().find("Runtime 已进入首帧") == std::string::npos ||
       process.request_stop() != gneiss::result::success) {
     return 14;
   }
