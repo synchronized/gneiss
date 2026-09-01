@@ -68,6 +68,43 @@ std::uint64_t console_model::dropped_count() const noexcept { return dropped_cou
 
 const std::deque<console_entry>& console_model::entries() const noexcept { return entries_; }
 
+bool console_model::matches(const console_entry& entry,
+                            const console_filter& filter) const noexcept {
+  if (filter.current_session_only && entry.session_id != current_session_id_) {
+    return false;
+  }
+  if (entry.kind == console_entry_kind::raw) {
+    return filter.include_raw && filter.source.empty() && filter.category.empty() &&
+           (filter.search.empty() || entry.raw_text.find(filter.search) != std::string::npos);
+  }
+  if (!filter.include_structured || entry.event.severity > 31U ||
+      (filter.severity_mask & (UINT32_C(1) << entry.event.severity)) == 0U ||
+      (!filter.source.empty() && entry.event.source != filter.source) ||
+      (!filter.category.empty() && entry.event.category != filter.category)) {
+    return false;
+  }
+  return filter.search.empty() || entry.event.message.find(filter.search) != std::string::npos ||
+         entry.event.source.find(filter.search) != std::string::npos ||
+         entry.event.category.find(filter.search) != std::string::npos;
+}
+
+result console_model::visible_indices(const console_filter& filter,
+                                      std::vector<std::size_t>& output) const noexcept {
+  output.clear();
+  try {
+    output.reserve(entries_.size());
+    for (std::size_t index = 0U; index < entries_.size(); ++index) {
+      if (matches(entries_[index], filter)) {
+        output.push_back(index);
+      }
+    }
+    return result::success;
+  } catch (...) {
+    output.clear();
+    return result::out_of_memory;
+  }
+}
+
 void console_model::make_room() noexcept {
   if (entries_.size() < capacity_) {
     return;

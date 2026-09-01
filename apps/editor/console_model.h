@@ -12,6 +12,7 @@
 #include <deque>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace gneiss::editor {
 
@@ -26,6 +27,16 @@ struct console_entry final {
   app::runtime_log_record event;
   std::string raw_text;
   bool was_truncated = false;
+};
+
+struct console_filter final {
+  std::uint32_t severity_mask = UINT32_C(0x7E);
+  bool include_structured = true;
+  bool include_raw = true;
+  bool current_session_only = false;
+  std::string source;
+  std::string category;
+  std::string search;
 };
 
 class console_model final {
@@ -43,6 +54,10 @@ public:
   [[nodiscard]] std::uint64_t current_session_id() const noexcept;
   [[nodiscard]] std::uint64_t dropped_count() const noexcept;
   [[nodiscard]] const std::deque<console_entry>& entries() const noexcept;
+  [[nodiscard]] bool matches(const console_entry& entry,
+                             const console_filter& filter) const noexcept;
+  [[nodiscard]] result visible_indices(const console_filter& filter,
+                                       std::vector<std::size_t>& output) const noexcept;
 
 private:
   void make_room() noexcept;
