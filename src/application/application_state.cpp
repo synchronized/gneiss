@@ -292,6 +292,21 @@ gneiss_result application_state::render_frame() noexcept {
 }
 #endif
 
+gneiss_result application_state::get_window_size(std::uint32_t& out_width,
+                                                 std::uint32_t& out_height) const noexcept {
+#ifdef GNEISS_HAS_GRANIT_PLATFORM
+  if (granit_platform_ != nullptr) {
+    const auto& window = granit_platform_->native_window();
+    out_width = window.width;
+    out_height = window.height;
+    return GNEISS_SUCCESS;
+  }
+#endif
+  out_width = desc_.window_width;
+  out_height = desc_.window_height;
+  return GNEISS_SUCCESS;
+}
+
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters): 句柄与帧数虽同宽但语义明确。
 gneiss_result application_state::run(gneiss_application handle,
                                      std::uint64_t max_frame_count) noexcept {

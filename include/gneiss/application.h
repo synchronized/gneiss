@@ -172,6 +172,10 @@ GNEISS_API gneiss_result gneiss_application_destroy(gneiss_application applicati
 GNEISS_API gneiss_result gneiss_application_run(gneiss_application application,
                                                 uint64_t max_frame_count);
 
+/** 查询当前窗口客户区逻辑尺寸；仅允许在 Application 创建线程调用。 */
+GNEISS_EXPERIMENTAL GNEISS_API gneiss_result gneiss_application_get_window_size(
+    gneiss_application application, uint32_t* out_width, uint32_t* out_height);
+
 /** 请求主循环在当前回调返回后退出；可从 Application 回调中调用。 */
 GNEISS_API gneiss_result gneiss_application_request_exit(gneiss_application application);
 

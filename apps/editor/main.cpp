@@ -750,9 +750,9 @@ find_material_for_mesh(const std::vector<gneiss::editor::asset_browser_entry>& e
 }
 
 void draw_asset_browser(editor_state& state) {
-  ImGui::SetNextWindowPos(ImVec2(0.0F, 440.0F));
-  ImGui::SetNextWindowSize(ImVec2(250.0F, 280.0F));
-  ImGui::Begin("Asset Browser", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+  ImGui::SetNextWindowPos(ImVec2(0.0F, 440.0F), ImGuiCond_FirstUseEver);
+  ImGui::SetNextWindowSize(ImVec2(250.0F, 280.0F), ImGuiCond_FirstUseEver);
+  ImGui::Begin("Asset Browser");
   if (ImGui::Button("Refresh")) {
     state.asset_result = state.assets.refresh(state.project_root, state.asset_root);
   }
@@ -1217,9 +1217,9 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
       state.history_error = io.KeyShift ? redo_editor_command(state) : undo_editor_command(state);
     }
 
-    ImGui::SetNextWindowPos(ImVec2(250.0F, 460.0F));
-    ImGui::SetNextWindowSize(ImVec2(730.0F, 260.0F));
-    if (ImGui::Begin("Console", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize)) {
+    ImGui::SetNextWindowPos(ImVec2(250.0F, 460.0F), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(730.0F, 260.0F), ImGuiCond_FirstUseEver);
+    if (ImGui::Begin("Console")) {
       if (state.runtime.is_building()) {
         ImGui::TextColored(gneiss::editor::theme_warning_color(), "Building game module");
       } else if (state.runtime.is_running()) {
@@ -1344,9 +1344,9 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
     }
     ImGui::End();
 
-    ImGui::SetNextWindowPos(ImVec2(0.0F, 20.0F));
-    ImGui::SetNextWindowSize(ImVec2(250.0F, 420.0F));
-    ImGui::Begin("Scene Hierarchy", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+    ImGui::SetNextWindowPos(ImVec2(0.0F, 20.0F), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(250.0F, 420.0F), ImGuiCond_FirstUseEver);
+    ImGui::Begin("Scene Hierarchy");
     if (!state.session.is_open()) {
       ImGui::TextUnformatted("No scene is open");
     } else {
@@ -1543,11 +1543,10 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
       ImGui::End();
     }
 
-    ImGui::SetNextWindowPos(ImVec2(250.0F, 20.0F));
-    ImGui::SetNextWindowSize(ImVec2(730.0F, 440.0F));
-    const auto scene_view_visible = ImGui::Begin(
-        "Scene View", nullptr,
-        ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoBackground);
+    ImGui::SetNextWindowPos(ImVec2(250.0F, 20.0F), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(730.0F, 440.0F), ImGuiCond_FirstUseEver);
+    const auto scene_view_visible =
+        ImGui::Begin("Scene View", nullptr, ImGuiWindowFlags_NoBackground);
     if (scene_view_visible) {
       const auto scene_view_hovered = ImGui::IsWindowHovered();
       ImGui::TextUnformatted("Scene View");
@@ -1593,9 +1592,9 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
     }
     ImGui::End();
 
-    ImGui::SetNextWindowPos(ImVec2(980.0F, 20.0F));
-    ImGui::SetNextWindowSize(ImVec2(300.0F, 700.0F));
-    ImGui::Begin("Inspector", nullptr, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+    ImGui::SetNextWindowPos(ImVec2(980.0F, 20.0F), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(300.0F, 700.0F), ImGuiCond_FirstUseEver);
+    ImGui::Begin("Inspector");
     ImGui::BeginDisabled(!state.session.is_open());
     const auto save_button_pressed = ImGui::Button("Save");
     ImGui::EndDisabled();
@@ -1822,7 +1821,9 @@ int run_editor(int argc, char** argv) {
   desc.window_title_length = static_cast<std::uint32_t>(title.size());
   desc.window_width = 1280;
   desc.window_height = 720;
-  desc.window_flags = GNEISS_APPLICATION_WINDOW_VISIBLE_BIT;
+  desc.window_flags = GNEISS_APPLICATION_WINDOW_VISIBLE_BIT |
+                      GNEISS_APPLICATION_WINDOW_RESIZABLE_BIT |
+                      GNEISS_APPLICATION_WINDOW_HIGH_DPI_BIT;
   desc.asset_root = asset_root_text.c_str();
   desc.asset_root_length = static_cast<std::uint32_t>(asset_root_text.size());
 

@@ -50,6 +50,10 @@ public:
   [[nodiscard]] result request_exit() noexcept {
     return from_native(gneiss_application_request_exit(handle_));
   }
+  [[nodiscard]] result get_window_size(std::uint32_t& out_width,
+                                       std::uint32_t& out_height) const noexcept {
+    return from_native(gneiss_application_get_window_size(handle_, &out_width, &out_height));
+  }
   [[nodiscard]] result set_paused(bool is_paused) noexcept {
     return from_native(gneiss_application_set_paused(handle_, is_paused ? UINT8_C(1) : UINT8_C(0)));
   }

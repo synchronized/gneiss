@@ -91,6 +91,8 @@ int main(void) {
   gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
   gneiss_application application = GNEISS_NULL_APPLICATION;
   gneiss_world world = GNEISS_NULL_WORLD;
+  uint32_t window_width = 0U;
+  uint32_t window_height = 0U;
   desc.user_data = &context;
   desc.initialize = initialize;
   desc.poll_events = poll_events;
@@ -102,7 +104,12 @@ int main(void) {
 
   if (gneiss_application_create(&desc, &application) != GNEISS_SUCCESS ||
       gneiss_application_get_world(application, &world) != GNEISS_SUCCESS ||
-      world == GNEISS_NULL_WORLD) {
+      world == GNEISS_NULL_WORLD ||
+      gneiss_application_get_window_size(application, &window_width, &window_height) !=
+          GNEISS_SUCCESS ||
+      window_width != 1280U || window_height != 720U ||
+      gneiss_application_get_window_size(application, NULL, &window_height) !=
+          GNEISS_ERROR_INVALID_ARGUMENT) {
     return 1;
   }
   {

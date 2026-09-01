@@ -166,6 +166,24 @@ extern "C" gneiss_result gneiss_application_request_exit(gneiss_application appl
   }
 }
 
+extern "C" gneiss_result gneiss_application_get_window_size(gneiss_application application,
+                                                            uint32_t* out_width,
+                                                            uint32_t* out_height) {
+  if (out_width == nullptr || out_height == nullptr) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  *out_width = 0U;
+  *out_height = 0U;
+  try {
+    auto state = find_application(application);
+    const auto validation_result = validate_application(state);
+    return validation_result == GNEISS_SUCCESS ? state->get_window_size(*out_width, *out_height)
+                                               : validation_result;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters): C ABI 参数具有不同语义和取值范围。
 extern "C" gneiss_result gneiss_application_set_paused(gneiss_application application,
                                                        uint8_t is_paused) {

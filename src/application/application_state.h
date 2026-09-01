@@ -58,6 +58,8 @@ public:
     return input_.pointer();
   }
   [[nodiscard]] gneiss_result poll_input(gneiss_input_event& out_event) noexcept;
+  [[nodiscard]] gneiss_result get_window_size(std::uint32_t& out_width,
+                                              std::uint32_t& out_height) const noexcept;
   [[nodiscard]] gneiss_result load_action_map(std::string_view uri) noexcept;
   [[nodiscard]] gneiss_result find_action(std::string_view name,
                                           gneiss_action& out_action) const noexcept;

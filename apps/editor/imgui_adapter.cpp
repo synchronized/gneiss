@@ -13,9 +13,6 @@
 namespace gneiss::editor {
 namespace {
 
-constexpr float editor_width = 1280.0F;
-constexpr float editor_height = 720.0F;
-
 constexpr std::uint32_t premultiply_color(std::uint32_t color) noexcept {
   const auto alpha = (color >> 24U) & 0xffU;
   const auto premultiply = [alpha](std::uint32_t channel) {
@@ -217,7 +214,14 @@ gneiss_result imgui_adapter::begin_frame(gneiss_application application,
     return poll_result;
   }
   auto& io = ImGui::GetIO();
-  io.DisplaySize = ImVec2(editor_width, editor_height);
+  std::uint32_t window_width = 0U;
+  std::uint32_t window_height = 0U;
+  const auto window_result =
+      gneiss_application_get_window_size(application, &window_width, &window_height);
+  if (window_result != GNEISS_SUCCESS || window_width == 0U || window_height == 0U) {
+    return window_result == GNEISS_SUCCESS ? GNEISS_ERROR_NOT_READY : window_result;
+  }
+  io.DisplaySize = ImVec2(static_cast<float>(window_width), static_cast<float>(window_height));
   io.DisplayFramebufferScale = ImVec2(1.0F, 1.0F);
   constexpr float default_delta_seconds = 1.0F / 60.0F;
   constexpr double nanoseconds_per_second = 1'000'000'000.0;
