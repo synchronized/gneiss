@@ -751,8 +751,6 @@ find_material_for_mesh(const std::vector<gneiss::editor::asset_browser_entry>& e
 }
 
 void draw_asset_browser(editor_state& state) {
-  ImGui::SetNextWindowPos(ImVec2(0.0F, 440.0F), ImGuiCond_FirstUseEver);
-  ImGui::SetNextWindowSize(ImVec2(250.0F, 280.0F), ImGuiCond_FirstUseEver);
   ImGui::Begin("Asset Browser");
   if (ImGui::Button("Refresh")) {
     state.asset_result = state.assets.refresh(state.project_root, state.asset_root);
@@ -1067,7 +1065,6 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
       return result;
     }
     ImGuizmo::BeginFrame();
-    gneiss::editor::begin_editor_workspace();
     const auto grid_result = submit_editor_grid(application);
     if (grid_result != gneiss::result::success) {
       return gneiss::to_native(grid_result);
@@ -1167,6 +1164,7 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
       }
       ImGui::EndMainMenuBar();
     }
+    gneiss::editor::begin_editor_workspace();
     const auto& io = ImGui::GetIO();
     if (io.KeyCtrl && !io.KeyShift && ImGui::IsKeyPressed(ImGuiKey_N, false)) {
       request_document_action(state, application, document_action::new_scene);
@@ -1241,8 +1239,6 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
       state.history_error = io.KeyShift ? redo_editor_command(state) : undo_editor_command(state);
     }
 
-    ImGui::SetNextWindowPos(ImVec2(250.0F, 460.0F), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowSize(ImVec2(730.0F, 260.0F), ImGuiCond_FirstUseEver);
     if (ImGui::Begin("Console")) {
       if (state.runtime.is_building()) {
         ImGui::TextColored(gneiss::editor::theme_warning_color(), "Building game module");
@@ -1368,8 +1364,6 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
     }
     ImGui::End();
 
-    ImGui::SetNextWindowPos(ImVec2(0.0F, 20.0F), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowSize(ImVec2(250.0F, 420.0F), ImGuiCond_FirstUseEver);
     ImGui::Begin("Scene Hierarchy");
     if (!state.session.is_open()) {
       ImGui::TextUnformatted("No scene is open");
@@ -1567,8 +1561,6 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
       ImGui::End();
     }
 
-    ImGui::SetNextWindowPos(ImVec2(250.0F, 20.0F), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowSize(ImVec2(730.0F, 440.0F), ImGuiCond_FirstUseEver);
     const auto scene_view_visible =
         ImGui::Begin("Scene View", nullptr, ImGuiWindowFlags_NoBackground);
     if (scene_view_visible) {
@@ -1616,8 +1608,6 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
     }
     ImGui::End();
 
-    ImGui::SetNextWindowPos(ImVec2(980.0F, 20.0F), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowSize(ImVec2(300.0F, 700.0F), ImGuiCond_FirstUseEver);
     ImGui::Begin("Inspector");
     ImGui::BeginDisabled(!state.session.is_open());
     const auto save_button_pressed = ImGui::Button("Save");

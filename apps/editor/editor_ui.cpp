@@ -6,10 +6,50 @@
 #include "editor_theme.h"
 
 #include <imgui.h>
+#include <imgui_internal.h>
 
 namespace gneiss::editor {
+namespace {
 
-void begin_editor_workspace() noexcept { ImGui::DockSpaceOverViewport(); }
+constexpr float hierarchy_width_ratio = 0.20F;
+constexpr float inspector_width_ratio = 0.23F;
+constexpr float console_height_ratio = 0.28F;
+constexpr float assets_height_ratio = 0.40F;
+
+void build_default_workspace(ImGuiID dockspace_id, const ImGuiViewport& viewport) noexcept {
+  ImGui::DockBuilderRemoveNode(dockspace_id);
+  ImGui::DockBuilderAddNode(dockspace_id, ImGuiDockNodeFlags_DockSpace);
+  ImGui::DockBuilderSetNodeSize(dockspace_id, viewport.WorkSize);
+
+  auto center = dockspace_id;
+  const auto left =
+      ImGui::DockBuilderSplitNode(center, ImGuiDir_Left, hierarchy_width_ratio, nullptr, &center);
+  const auto right =
+      ImGui::DockBuilderSplitNode(center, ImGuiDir_Right, inspector_width_ratio, nullptr, &center);
+  const auto bottom =
+      ImGui::DockBuilderSplitNode(center, ImGuiDir_Down, console_height_ratio, nullptr, &center);
+  ImGuiID hierarchy = 0U;
+  const auto assets =
+      ImGui::DockBuilderSplitNode(left, ImGuiDir_Down, assets_height_ratio, nullptr, &hierarchy);
+
+  ImGui::DockBuilderDockWindow("Scene Hierarchy", hierarchy);
+  ImGui::DockBuilderDockWindow("Asset Browser", assets);
+  ImGui::DockBuilderDockWindow("Scene View", center);
+  ImGui::DockBuilderDockWindow("Inspector", right);
+  ImGui::DockBuilderDockWindow("Console", bottom);
+  ImGui::DockBuilderFinish(dockspace_id);
+}
+
+} // namespace
+
+void begin_editor_workspace() noexcept {
+  const auto* viewport = ImGui::GetMainViewport();
+  const auto dockspace_id = ImHashStr("GneissEditorDockSpace");
+  if (ImGui::DockBuilderGetNode(dockspace_id) == nullptr) {
+    build_default_workspace(dockspace_id, *viewport);
+  }
+  ImGui::DockSpaceOverViewport(dockspace_id, viewport);
+}
 
 bool toolbar_icon_button(const char* id, toolbar_icon icon, const char* tooltip, bool enabled,
                          bool active) noexcept {
