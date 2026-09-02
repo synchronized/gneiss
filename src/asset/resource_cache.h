@@ -31,6 +31,9 @@ public:
 
   [[nodiscard]] gneiss_result acquire(std::string_view uri, std::uint32_t type, const loader& load,
                                       std::shared_ptr<const entry>& out_entry) noexcept;
+  /** 强制重新加载并在成功后替换缓存项；失败时保留原缓存。 */
+  [[nodiscard]] gneiss_result reload(std::string_view uri, std::uint32_t type, const loader& load,
+                                     std::shared_ptr<const entry>& out_entry) noexcept;
   void release_unused() noexcept;
   [[nodiscard]] std::size_t size() const noexcept { return entries_.size(); }
 

@@ -129,6 +129,25 @@ public:
     }
     return from_native(native_result);
   }
+  [[nodiscard]] result set_prefab_instance_name(scene_node_id root,
+                                                std::string_view name) noexcept {
+    return from_native(gneiss_scene_instance_set_prefab_instance_name(
+        application_, handle_, root.get(), name.data(), name.size()));
+  }
+  [[nodiscard]] result destroy_prefab_instance(scene_node_id root) noexcept {
+    return from_native(
+        gneiss_scene_instance_destroy_prefab_instance(application_, handle_, root.get()));
+  }
+  [[nodiscard]] result refresh_prefab_instance(scene_node_id root,
+                                               scene_node_id& out_new_root) noexcept {
+    gneiss_scene_node_id new_root = GNEISS_NULL_SCENE_NODE_ID;
+    const auto native_result =
+        gneiss_scene_instance_refresh_prefab_instance(application_, handle_, root.get(), &new_root);
+    if (native_result == GNEISS_SUCCESS) {
+      out_new_root = scene_node_id{new_root};
+    }
+    return from_native(native_result);
+  }
   [[nodiscard]] result create_mesh_renderer_node(const scene_mesh_renderer_node_desc& desc,
                                                  scene_node_id& out_node) noexcept {
     gneiss_scene_node_id node = GNEISS_NULL_SCENE_NODE_ID;

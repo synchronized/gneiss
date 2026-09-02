@@ -1134,6 +1134,25 @@ void draw_asset_browser(editor_state& state) {
     state.asset_scene_result = state.session.create_prefab_instance(
         selected_entry->display_name, selected_entry->asset_uri,
         scene_node == nullptr ? gneiss::scene_node_id{} : scene_node->node, root);
+    if (state.asset_scene_result == gneiss::result::success) {
+      const auto uuid = state.session.selected_prefab_node()->instance_uuid;
+      auto snapshot = std::make_shared<gneiss::editor::prefab_instance_snapshot>();
+      state.asset_scene_result = state.history.record(
+          {.label = "放置 Prefab 实例",
+           .undo =
+               [&state, uuid, snapshot] {
+                 const auto* current = state.session.find_prefab_root(uuid);
+                 return current == nullptr
+                            ? gneiss::result::not_found
+                            : state.session.destroy_prefab_instance(current->node, *snapshot);
+               },
+           .redo =
+               [&state, snapshot] {
+                 gneiss::scene_node_id restored;
+                 return state.session.restore_prefab_instance(*snapshot, restored);
+               },
+           .merge_key = {}});
+    }
     state.asset_scene_attempted = true;
     scene_node = state.session.selected_node();
   }
@@ -1909,6 +1928,75 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
           }
         }
       }
+      const auto* prefab_selected = state.session.selected_prefab_node();
+      if (prefab_selected != nullptr && prefab_selected->is_instance_root) {
+        const auto source_uuid = prefab_selected->instance_uuid;
+        if (ImGui::Button("Duplicate Prefab")) {
+          auto parent = gneiss::scene_node_id{};
+          if (prefab_selected->parent.is_valid()) {
+            const auto found = std::ranges::find(state.session.nodes(), prefab_selected->parent,
+                                                 &gneiss::editor::scene_node_record::node);
+            if (found != state.session.nodes().end()) {
+              parent = found->node;
+            }
+          }
+          gneiss::scene_node_id duplicate;
+          state.history_error = state.session.create_prefab_instance(
+              prefab_selected->display_name, prefab_selected->prefab_uri, parent, duplicate);
+          if (state.history_error == gneiss::result::success) {
+            const auto duplicate_uuid = state.session.selected_prefab_node()->instance_uuid;
+            auto snapshot = std::make_shared<gneiss::editor::prefab_instance_snapshot>();
+            state.history_error = state.history.record(
+                {.label = "复制 Prefab 实例",
+                 .undo =
+                     [&state, duplicate_uuid, snapshot] {
+                       const auto* current = state.session.find_prefab_root(duplicate_uuid);
+                       return current == nullptr
+                                  ? gneiss::result::not_found
+                                  : state.session.destroy_prefab_instance(current->node, *snapshot);
+                     },
+                 .redo =
+                     [&state, snapshot] {
+                       gneiss::scene_node_id restored;
+                       return state.session.restore_prefab_instance(*snapshot, restored);
+                     },
+                 .merge_key = {}});
+          }
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Delete Prefab")) {
+          gneiss::editor::prefab_instance_snapshot snapshot;
+          state.history_error =
+              state.session.destroy_prefab_instance(prefab_selected->node, snapshot);
+          if (state.history_error == gneiss::result::success) {
+            state.history_error = state.history.record(
+                {.label = "删除 Prefab 实例",
+                 .undo =
+                     [&state, snapshot] {
+                       gneiss::scene_node_id restored;
+                       return state.session.restore_prefab_instance(snapshot, restored);
+                     },
+                 .redo =
+                     [&state, uuid = snapshot.instance_uuid] {
+                       const auto* current = state.session.find_prefab_root(uuid);
+                       if (current == nullptr) {
+                         return gneiss::result::not_found;
+                       }
+                       gneiss::editor::prefab_instance_snapshot discarded;
+                       return state.session.destroy_prefab_instance(current->node, discarded);
+                     },
+                 .merge_key = {}});
+          }
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Refresh Prefab")) {
+          const auto* current = state.session.find_prefab_root(source_uuid);
+          gneiss::scene_node_id refreshed;
+          state.history_error =
+              current == nullptr ? gneiss::result::not_found
+                                 : state.session.refresh_prefab_instance(current->node, refreshed);
+        }
+      }
       for (const auto& node : state.session.nodes()) {
         if (!node.parent.is_valid()) {
           draw_scene_node(state, node);
@@ -2038,9 +2126,97 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
       ImGui::Text("Prefab: %s", prefab->prefab_uri.c_str());
       ImGui::Text("Entity: %llu", static_cast<unsigned long long>(prefab->entity.get()));
       ImGui::Separator();
-      ImGui::TextDisabled(prefab->is_read_only
-                              ? "Source nodes are inherited from the Prefab and cannot be edited."
-                              : "Instance editing will be added in the next milestone.");
+      if (prefab->is_read_only) {
+        ImGui::TextDisabled("Source nodes are inherited from the Prefab and cannot be edited.");
+      } else {
+        const auto instance_uuid = prefab->instance_uuid;
+        if (ImGui::Button("Rename Instance")) {
+          state.rename_uuid = instance_uuid;
+          state.rename_previous = prefab->display_name;
+          state.rename_buffer.fill('\0');
+          const auto length =
+              std::min(state.rename_previous.size(), state.rename_buffer.size() - 1U);
+          std::ranges::copy_n(state.rename_previous.begin(), length, state.rename_buffer.begin());
+          ImGui::OpenPopup("Rename Prefab Instance");
+        }
+        if (ImGui::BeginPopup("Rename Prefab Instance")) {
+          ImGui::InputText("Name", state.rename_buffer.data(), state.rename_buffer.size());
+          if (ImGui::Button("Apply")) {
+            const auto next = std::string{state.rename_buffer.data()};
+            const auto* current = state.session.find_prefab_root(state.rename_uuid);
+            state.history_error = current == nullptr
+                                      ? gneiss::result::not_found
+                                      : state.session.rename_prefab_instance(current->node, next);
+            if (state.history_error == gneiss::result::success) {
+              const auto uuid = state.rename_uuid;
+              const auto previous = state.rename_previous;
+              state.history_error = state.history.record(
+                  {.label = "重命名 Prefab 实例",
+                   .undo =
+                       [&state, uuid, previous] {
+                         const auto* node = state.session.find_prefab_root(uuid);
+                         return node == nullptr
+                                    ? gneiss::result::not_found
+                                    : state.session.rename_prefab_instance(node->node, previous);
+                       },
+                   .redo =
+                       [&state, uuid, next] {
+                         const auto* node = state.session.find_prefab_root(uuid);
+                         return node == nullptr
+                                    ? gneiss::result::not_found
+                                    : state.session.rename_prefab_instance(node->node, next);
+                       },
+                   .merge_key = {}});
+            }
+            ImGui::CloseCurrentPopup();
+          }
+          ImGui::EndPopup();
+        }
+        auto edited = prefab->local_transform;
+        std::array<float, 3> rotation{};
+        const gneiss_property_quaternion quaternion{edited.rotation[0], edited.rotation[1],
+                                                    edited.rotation[2], edited.rotation[3]};
+        (void)gneiss::editor::quaternion_to_euler_degrees(quaternion, rotation);
+        const auto previous = prefab->local_transform;
+        bool changed = ImGui::DragFloat3("Translation", edited.translation, 0.05F);
+        if (ImGui::DragFloat3("Rotation (degrees)", rotation.data(), 0.25F, 0.0F, 0.0F, "%.1f°")) {
+          gneiss_property_quaternion converted{};
+          if (gneiss::editor::euler_degrees_to_quaternion(rotation, converted) ==
+              gneiss::result::success) {
+            edited.rotation[0] = converted.x;
+            edited.rotation[1] = converted.y;
+            edited.rotation[2] = converted.z;
+            edited.rotation[3] = converted.w;
+            changed = true;
+          }
+        }
+        changed = ImGui::DragFloat3("Scale", edited.scale, 0.05F) || changed;
+        if (changed) {
+          const auto* current = state.session.find_prefab_root(instance_uuid);
+          state.history_error = current == nullptr
+                                    ? gneiss::result::not_found
+                                    : state.session.set_local_transform(current->node, edited);
+          if (state.history_error == gneiss::result::success) {
+            state.history_error = state.history.record(
+                {.label = "变换 Prefab 实例",
+                 .undo =
+                     [&state, instance_uuid, previous] {
+                       const auto* node = state.session.find_prefab_root(instance_uuid);
+                       return node == nullptr
+                                  ? gneiss::result::not_found
+                                  : state.session.set_local_transform(node->node, previous);
+                     },
+                 .redo =
+                     [&state, instance_uuid, edited] {
+                       const auto* node = state.session.find_prefab_root(instance_uuid);
+                       return node == nullptr
+                                  ? gneiss::result::not_found
+                                  : state.session.set_local_transform(node->node, edited);
+                     },
+                 .merge_key = "prefab-transform:" + instance_uuid});
+          }
+        }
+      }
     } else if (const auto* selected = state.session.selected_node(); selected != nullptr) {
       if (state.inspected_entity != selected->entity) {
         state.inspector_error = state.inspector.refresh(state.world, selected->entity);

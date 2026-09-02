@@ -34,6 +34,8 @@ public:
 
   [[nodiscard]] gneiss_result acquire(std::string_view uri, prefab_asset_lease& out_lease,
                                       scene_diagnostic& out_diagnostic) noexcept;
+  [[nodiscard]] gneiss_result reload(std::string_view uri, prefab_asset_lease& out_lease,
+                                     scene_diagnostic& out_diagnostic) noexcept;
 
 private:
   const asset_internal::virtual_file_system& file_system_;

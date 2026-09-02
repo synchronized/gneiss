@@ -71,6 +71,24 @@ int main() try {
       session.selected_prefab_node()->node != prefab_root) {
     return 8;
   }
+  gneiss::editor::prefab_instance_snapshot snapshot;
+  if (session.destroy_prefab_instance(prefab_root, snapshot) != gneiss::result::success ||
+      session.prefab_nodes().size() != 2U || session.selection().is_valid() ||
+      session.restore_prefab_instance(snapshot, prefab_root) != gneiss::result::success ||
+      session.prefab_nodes().size() != 4U ||
+      session.rename_prefab_instance(prefab_root, "Restored Lamp") != gneiss::result::success) {
+    return 9;
+  }
+  auto moved = session.selected_prefab_node()->local_transform;
+  moved.translation[1] = 3.0F;
+  const auto stale_root = prefab_root;
+  if (session.set_local_transform(prefab_root, moved) != gneiss::result::success ||
+      session.refresh_prefab_instance(prefab_root, prefab_root) != gneiss::result::success ||
+      prefab_root == stale_root || session.selected_prefab_node() == nullptr ||
+      session.selected_prefab_node()->display_name != "Restored Lamp" ||
+      session.selected_prefab_node()->local_transform.translation[1] != 3.0F) {
+    return 10;
+  }
   return 0;
 } catch (...) {
   return 99;

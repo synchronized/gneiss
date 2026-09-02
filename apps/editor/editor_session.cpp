@@ -248,16 +248,21 @@ result editor_session::set_local_transform(scene_node_id node, const transform& 
   if (!is_open() || !node.is_valid()) {
     return result::invalid_argument;
   }
+  auto found = std::ranges::find(nodes_, node, &scene_node_record::node);
+  auto prefab = std::ranges::find(prefab_nodes_, node, &prefab_node_record::node);
+  if (found == nodes_.end() && (prefab == prefab_nodes_.end() || !prefab->is_instance_root)) {
+    return result::invalid_argument;
+  }
   const auto operation =
       from_native(gneiss_scene_node_set_local_transform(world_, node.get(), &value));
   if (operation != result::success) {
     return operation;
   }
-  auto found = std::ranges::find(nodes_, node, &scene_node_record::node);
-  if (found == nodes_.end()) {
-    return result::internal;
+  if (found != nodes_.end()) {
+    found->local_transform = value;
+  } else {
+    prefab->local_transform = value;
   }
-  found->local_transform = value;
   is_dirty_ = true;
   return result::success;
 }
@@ -321,6 +326,94 @@ result editor_session::create_prefab_instance(std::string_view name, std::string
   } catch (...) {
     return result::internal;
   }
+}
+
+result editor_session::rename_prefab_instance(scene_node_id root, std::string_view name) noexcept {
+  const auto operation = scene_.set_prefab_instance_name(root, name);
+  if (operation != result::success) {
+    return operation;
+  }
+  const auto refreshed = refresh_nodes();
+  if (refreshed == result::success) {
+    is_dirty_ = true;
+  }
+  return refreshed;
+}
+
+result editor_session::destroy_prefab_instance(scene_node_id root,
+                                               prefab_instance_snapshot& out_snapshot) noexcept {
+  const auto found = std::ranges::find(prefab_nodes_, root, &prefab_node_record::node);
+  if (found == prefab_nodes_.end() || !found->is_instance_root) {
+    return result::invalid_argument;
+  }
+  try {
+    prefab_instance_snapshot snapshot{.instance_uuid = found->instance_uuid,
+                                      .parent_uuid = {},
+                                      .display_name = found->display_name,
+                                      .prefab_uri = found->prefab_uri,
+                                      .local_transform = found->local_transform};
+    if (found->parent.is_valid()) {
+      const auto parent = std::ranges::find(nodes_, found->parent, &scene_node_record::node);
+      if (parent == nodes_.end()) {
+        return result::invalid_handle;
+      }
+      snapshot.parent_uuid = parent->uuid;
+    }
+    auto operation = scene_.destroy_prefab_instance(root);
+    if (operation == result::success) {
+      selection_ = {};
+      operation = refresh_nodes();
+    }
+    if (operation == result::success) {
+      out_snapshot = std::move(snapshot);
+      is_dirty_ = true;
+    }
+    return operation;
+  } catch (const std::bad_alloc&) {
+    return result::out_of_memory;
+  } catch (...) {
+    return result::internal;
+  }
+}
+
+result editor_session::restore_prefab_instance(const prefab_instance_snapshot& snapshot,
+                                               scene_node_id& out_root) noexcept {
+  const auto* parent = snapshot.parent_uuid.empty() ? nullptr : find_node(snapshot.parent_uuid);
+  if (!snapshot.parent_uuid.empty() && parent == nullptr) {
+    return result::not_found;
+  }
+  scene_prefab_instance_desc desc = GNEISS_SCENE_PREFAB_INSTANCE_DESC_INIT;
+  desc.parent = parent == nullptr ? GNEISS_NULL_SCENE_NODE_ID : parent->node.get();
+  desc.instance_uuid = snapshot.instance_uuid.data();
+  desc.instance_uuid_length = snapshot.instance_uuid.size();
+  desc.name = snapshot.display_name.data();
+  desc.name_length = snapshot.display_name.size();
+  desc.prefab_uri = snapshot.prefab_uri.data();
+  desc.prefab_uri_length = snapshot.prefab_uri.size();
+  desc.local_transform = snapshot.local_transform;
+  auto operation = scene_.create_prefab_instance(desc, out_root);
+  if (operation == result::success) {
+    selection_ = out_root;
+    operation = refresh_nodes();
+  }
+  if (operation == result::success) {
+    is_dirty_ = true;
+  }
+  return operation;
+}
+
+result editor_session::refresh_prefab_instance(scene_node_id root,
+                                               scene_node_id& out_new_root) noexcept {
+  const auto operation = scene_.refresh_prefab_instance(root, out_new_root);
+  if (operation != result::success) {
+    return operation;
+  }
+  selection_ = out_new_root;
+  const auto refreshed = refresh_nodes();
+  if (refreshed == result::success) {
+    is_dirty_ = true;
+  }
+  return refreshed;
 }
 
 result editor_session::rename_node(scene_node_id node, std::string_view name) noexcept {
@@ -516,6 +609,14 @@ const scene_node_record* editor_session::selected_node() const noexcept {
 
 const prefab_node_record* editor_session::selected_prefab_node() const noexcept {
   const auto found = std::ranges::find(prefab_nodes_, selection_, &prefab_node_record::node);
+  return found == prefab_nodes_.end() ? nullptr : &*found;
+}
+
+const prefab_node_record*
+editor_session::find_prefab_root(std::string_view instance_uuid) const noexcept {
+  const auto found = std::ranges::find_if(prefab_nodes_, [instance_uuid](const auto& node) {
+    return node.is_instance_root && node.instance_uuid == instance_uuid;
+  });
   return found == prefab_nodes_.end() ? nullptr : &*found;
 }
 

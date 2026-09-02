@@ -93,34 +93,56 @@ int main() try {
       gneiss_world_entity_count(world, &entity_count) != GNEISS_SUCCESS || entity_count != 5U) {
     return 3;
   }
+  constexpr std::string_view renamed = "Renamed Lamp";
+  gneiss_transform moved = GNEISS_TRANSFORM_IDENTITY;
+  moved.translation[0] = 4.0F;
+  if (gneiss_scene_instance_set_prefab_instance_name(
+          application, scene, created_root, renamed.data(), renamed.size()) != GNEISS_SUCCESS ||
+      gneiss_scene_node_set_local_transform(world, created_root, &moved) != GNEISS_SUCCESS) {
+    return 4;
+  }
+  const auto stale_root = created_root;
+  gneiss_entity_id stale_entity = GNEISS_NULL_ENTITY_ID;
+  if (gneiss_scene_instance_refresh_prefab_instance(application, scene, stale_root,
+                                                    &created_root) != GNEISS_SUCCESS ||
+      created_root == GNEISS_NULL_SCENE_NODE_ID || created_root == stale_root ||
+      gneiss_scene_node_get_entity(world, stale_root, &stale_entity) !=
+          GNEISS_ERROR_INVALID_HANDLE ||
+      gneiss_scene_instance_destroy_prefab_instance(application, scene, prefab_root.node) !=
+          GNEISS_SUCCESS ||
+      gneiss_scene_instance_get_prefab_node_count(application, scene, &prefab_node_count) !=
+          GNEISS_SUCCESS ||
+      prefab_node_count != 2U) {
+    return 4;
+  }
 
   std::uint64_t json_length = 0;
   if (gneiss_scene_instance_serialize(application, scene, nullptr, 0U, &json_length) !=
           GNEISS_SUCCESS ||
       json_length == 0U) {
-    return 4;
+    return 5;
   }
   std::string json(json_length, '\0');
   if (gneiss_scene_instance_serialize(application, scene, json.data(), json.size(), &json_length) !=
           GNEISS_SUCCESS ||
       json.find("asset://prefabs/test.prefab.json") == std::string::npos ||
-      json.find(created_uuid) == std::string::npos ||
+      json.find(created_uuid) == std::string::npos || json.find(renamed) == std::string::npos ||
       json.find("30000000-0000-4000-8000-000000000002") != std::string::npos) {
-    return 5;
+    return 6;
   }
 
   if (gneiss_scene_instance_unload(application, scene) != GNEISS_SUCCESS ||
       gneiss_world_entity_count(world, &entity_count) != GNEISS_SUCCESS || entity_count != 0U) {
-    return 6;
+    return 7;
   }
   scene = GNEISS_NULL_SCENE_INSTANCE;
   if (gneiss_scene_instance_load(application, missing_scene_uri.data(), missing_scene_uri.size(),
                                  &scene) != GNEISS_ERROR_NOT_FOUND ||
       scene != GNEISS_NULL_SCENE_INSTANCE ||
       gneiss_world_entity_count(world, &entity_count) != GNEISS_SUCCESS || entity_count != 0U) {
-    return 7;
+    return 8;
   }
-  return gneiss_application_destroy(application) == GNEISS_SUCCESS ? 0 : 8;
+  return gneiss_application_destroy(application) == GNEISS_SUCCESS ? 0 : 9;
 } catch (...) {
   return 99;
 }

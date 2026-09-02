@@ -151,6 +151,12 @@ int main() {
       cache.size() != 1U) {
     return 7;
   }
+  gneiss::scene_internal::prefab_asset_lease reloaded;
+  if (loader.reload("asset://prefabs/lamp.prefab.json", reloaded, diagnostic) != GNEISS_SUCCESS ||
+      !reloaded || reloaded.get() == first.get() || mounted->read_count != 2U ||
+      cache.size() != 1U) {
+    return 7;
+  }
   gneiss::scene_internal::prefab_asset_lease invalid;
   if (loader.acquire("asset://prefabs/../lamp.prefab.json", invalid, diagnostic) !=
           GNEISS_ERROR_INVALID_ARGUMENT ||

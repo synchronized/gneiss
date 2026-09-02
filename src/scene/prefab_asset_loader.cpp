@@ -74,4 +74,43 @@ gneiss_result prefab_asset_loader::acquire(std::string_view uri, prefab_asset_le
   return GNEISS_SUCCESS;
 }
 
+gneiss_result prefab_asset_loader::reload(std::string_view uri, prefab_asset_lease& out_lease,
+                                          scene_diagnostic& out_diagnostic) noexcept {
+  out_lease.entry_.reset();
+  out_diagnostic = {};
+  if (asset_internal::validate_uri(uri) != GNEISS_SUCCESS) {
+    fail(out_diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "", "Prefab URI 无效");
+    return out_diagnostic.result;
+  }
+  std::shared_ptr<const asset_internal::resource_cache::entry> entry;
+  const auto result = cache_.reload(
+      uri, prefab_resource_type,
+      [this, uri, &out_diagnostic](std::shared_ptr<void>& out_resource) noexcept {
+        try {
+          auto description = std::make_shared<prefab_description>();
+          const auto load_result =
+              load_prefab_description(file_system_, uri, *description, out_diagnostic);
+          if (load_result == GNEISS_SUCCESS) {
+            out_resource = std::move(description);
+          }
+          return load_result;
+        } catch (const std::bad_alloc&) {
+          fail(out_diagnostic, GNEISS_ERROR_OUT_OF_MEMORY, "", "内存不足");
+          return GNEISS_ERROR_OUT_OF_MEMORY;
+        } catch (...) {
+          fail(out_diagnostic, GNEISS_ERROR_INTERNAL, "", "Prefab Loader 内部错误");
+          return GNEISS_ERROR_INTERNAL;
+        }
+      },
+      entry);
+  if (result != GNEISS_SUCCESS) {
+    if (out_diagnostic.result == GNEISS_SUCCESS) {
+      fail(out_diagnostic, result, "", "无法重新加载 Prefab 资产");
+    }
+    return result;
+  }
+  out_lease.entry_ = std::move(entry);
+  return GNEISS_SUCCESS;
+}
+
 } // namespace gneiss::scene_internal

@@ -560,6 +560,58 @@ extern "C" gneiss_result gneiss_scene_instance_create_prefab_instance(
   }
 }
 
+extern "C" gneiss_result gneiss_scene_instance_set_prefab_instance_name(
+    gneiss_application application, gneiss_scene_instance instance, gneiss_scene_node_id root,
+    const char* name, uint64_t name_length) {
+  if ((name == nullptr && name_length != 0U) ||
+      name_length > std::numeric_limits<std::size_t>::max()) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  try {
+    auto state = find_application(application);
+    const auto validation_result = validate_application(state);
+    return validation_result == GNEISS_SUCCESS
+               ? state->scenes()->set_prefab_instance_name(
+                     instance, root,
+                     std::string_view{name == nullptr ? "" : name,
+                                      static_cast<std::size_t>(name_length)})
+               : validation_result;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
+extern "C" gneiss_result gneiss_scene_instance_destroy_prefab_instance(
+    gneiss_application application, gneiss_scene_instance instance, gneiss_scene_node_id root) {
+  try {
+    auto state = find_application(application);
+    const auto validation_result = validate_application(state);
+    return validation_result == GNEISS_SUCCESS
+               ? state->scenes()->destroy_prefab_instance(instance, root)
+               : validation_result;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
+extern "C" gneiss_result gneiss_scene_instance_refresh_prefab_instance(
+    gneiss_application application, gneiss_scene_instance instance, gneiss_scene_node_id root,
+    gneiss_scene_node_id* out_new_root) {
+  if (out_new_root == nullptr) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  *out_new_root = GNEISS_NULL_SCENE_NODE_ID;
+  try {
+    auto state = find_application(application);
+    const auto validation_result = validate_application(state);
+    return validation_result == GNEISS_SUCCESS
+               ? state->scenes()->refresh_prefab_instance(instance, root, out_new_root)
+               : validation_result;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
 extern "C" gneiss_result gneiss_scene_instance_create_node(gneiss_application application,
                                                            gneiss_scene_instance instance,
                                                            const gneiss_scene_node_desc* desc,

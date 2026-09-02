@@ -56,6 +56,38 @@ gneiss_result resource_cache::acquire(std::string_view uri, std::uint32_t type, 
   }
 }
 
+gneiss_result resource_cache::reload(std::string_view uri, std::uint32_t type, const loader& load,
+                                     std::shared_ptr<const entry>& out_entry) noexcept {
+  out_entry.reset();
+  if (type == 0U || !load || validate_uri(uri) != GNEISS_SUCCESS) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  try {
+    const auto found = entries_.find(std::string(uri));
+    if (found != entries_.end() && found->second->type != type) {
+      return GNEISS_ERROR_INVALID_ARGUMENT;
+    }
+    auto value = std::make_shared<entry>();
+    value->uri = uri;
+    value->type = type;
+    value->state = resource_state::loading;
+    std::shared_ptr<void> resource;
+    const auto result = load(resource);
+    if (result != GNEISS_SUCCESS || resource == nullptr) {
+      return result == GNEISS_SUCCESS ? GNEISS_ERROR_INTERNAL : result;
+    }
+    value->resource = std::move(resource);
+    value->state = resource_state::ready;
+    entries_.insert_or_assign(value->uri, value);
+    out_entry = std::move(value);
+    return GNEISS_SUCCESS;
+  } catch (const std::bad_alloc&) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
 void resource_cache::release_unused() noexcept {
   // 重复扫描以清理依赖链：释放 Material 后，其 Texture 可能在下一轮才变为未使用。
   bool removed = false;

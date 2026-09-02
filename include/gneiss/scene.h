@@ -333,6 +333,20 @@ GNEISS_EXPERIMENTAL GNEISS_API gneiss_result gneiss_scene_instance_create_prefab
     gneiss_application application, gneiss_scene_instance instance,
     const gneiss_scene_prefab_instance_desc* desc, gneiss_scene_node_id* out_root);
 
+/** 修改 Prefab 实例根显示名称。 */
+GNEISS_EXPERIMENTAL GNEISS_API gneiss_result gneiss_scene_instance_set_prefab_instance_name(
+    gneiss_application application, gneiss_scene_instance instance, gneiss_scene_node_id root,
+    const char* name, uint64_t name_length);
+
+/** 销毁 Prefab 实例根及其全部来源节点。 */
+GNEISS_EXPERIMENTAL GNEISS_API gneiss_result gneiss_scene_instance_destroy_prefab_instance(
+    gneiss_application application, gneiss_scene_instance instance, gneiss_scene_node_id root);
+
+/** 从来源资产原子重建 Prefab 投影；成功返回新的实例根节点 ID。 */
+GNEISS_EXPERIMENTAL GNEISS_API gneiss_result gneiss_scene_instance_refresh_prefab_instance(
+    gneiss_application application, gneiss_scene_instance instance, gneiss_scene_node_id root,
+    gneiss_scene_node_id* out_new_root);
+
 /** 原子创建不含可选组件的作者节点。 */
 GNEISS_EXPERIMENTAL GNEISS_API gneiss_result gneiss_scene_instance_create_node(
     gneiss_application application, gneiss_scene_instance instance,

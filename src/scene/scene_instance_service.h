@@ -51,6 +51,11 @@ public:
                                                    gneiss_scene_prefab_node_info& out_info) const;
   [[nodiscard]] gneiss_result create_prefab_instance(const gneiss_scene_prefab_instance_desc& desc,
                                                      gneiss_scene_node_id* out_root);
+  [[nodiscard]] gneiss_result set_prefab_instance_name(gneiss_scene_node_id root,
+                                                       std::string_view name);
+  [[nodiscard]] gneiss_result destroy_prefab_instance(gneiss_scene_node_id root) noexcept;
+  [[nodiscard]] gneiss_result refresh_prefab_instance(gneiss_scene_node_id root,
+                                                      gneiss_scene_node_id* out_new_root);
   [[nodiscard]] gneiss_result create_node(const gneiss_scene_node_desc& desc,
                                           gneiss_scene_node_id* out_node);
   [[nodiscard]] gneiss_result set_node_name(gneiss_scene_node_id node, std::string_view name);
@@ -114,6 +119,14 @@ public:
   [[nodiscard]] gneiss_result create_prefab_instance(gneiss_scene_instance instance,
                                                      const gneiss_scene_prefab_instance_desc& desc,
                                                      gneiss_scene_node_id* out_root) noexcept;
+  [[nodiscard]] gneiss_result set_prefab_instance_name(gneiss_scene_instance instance,
+                                                       gneiss_scene_node_id root,
+                                                       std::string_view name) noexcept;
+  [[nodiscard]] gneiss_result destroy_prefab_instance(gneiss_scene_instance instance,
+                                                      gneiss_scene_node_id root) noexcept;
+  [[nodiscard]] gneiss_result refresh_prefab_instance(gneiss_scene_instance instance,
+                                                      gneiss_scene_node_id root,
+                                                      gneiss_scene_node_id* out_new_root) noexcept;
   [[nodiscard]] gneiss_result create_node(gneiss_scene_instance instance,
                                           const gneiss_scene_node_desc& desc,
                                           gneiss_scene_node_id* out_node) noexcept;
