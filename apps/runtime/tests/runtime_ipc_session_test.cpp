@@ -141,6 +141,53 @@ bool test_property_write_round_trip() {
   return false;
 }
 
+bool test_property_flood_does_not_block_stop() {
+  gneiss::ipc_transport server;
+  if (server.start_server() != gneiss::result::success) {
+    return false;
+  }
+  gneiss::runtime_internal::runtime_ipc_session session(
+      {{"127.0.0.1", server.endpoint().port}, "secret", 3s, 3s});
+  const std::vector<std::string> supported{
+      "control", "heartbeat", std::string(gneiss::ipc_capability_runtime_property_edit_v1)};
+  if (session.start(std::chrono::steady_clock::now()) != gneiss::result::success ||
+      session.notify_running() != gneiss::result::success ||
+      !complete_handshake(server, session, supported)) {
+    return false;
+  }
+  for (std::uint64_t index = 1U; index <= 40U; ++index) {
+    const gneiss::ipc_property_write command{.session_id = 7U,
+                                             .command_id = index,
+                                             .object = {index, 1U},
+                                             .type_id = {{1U}},
+                                             .field_id = 4U,
+                                             .expected_revision = 1U,
+                                             .value = {true}};
+    gneiss::ipc_frame frame;
+    if (gneiss::encode_ipc_property_write(command, frame) != gneiss::result::success ||
+        server.send(frame) != gneiss::result::success) {
+      return false;
+    }
+  }
+  gneiss::ipc_message stop;
+  stop.type = gneiss::ipc_message_type::stop;
+  if (!send_message(server, stop)) {
+    return false;
+  }
+  std::this_thread::sleep_for(50ms);
+  gneiss::runtime_internal::runtime_ipc_actions actions;
+  const auto deadline = std::chrono::steady_clock::now() + 3s;
+  while (std::chrono::steady_clock::now() < deadline && !actions.request_exit) {
+    if (session.pump(std::chrono::steady_clock::now(), actions) != gneiss::result::success) {
+      return false;
+    }
+    std::this_thread::sleep_for(1ms);
+  }
+  return actions.request_exit && actions.property_writes.size() <= 32U &&
+         session.state() == gneiss::runtime_internal::runtime_ipc_state::stopping &&
+         session.stop() == gneiss::result::success && server.stop() == gneiss::result::success;
+}
+
 bool test_control_lifecycle() {
   gneiss::ipc_transport server;
   if (server.start_server() != gneiss::result::success) {
@@ -318,11 +365,14 @@ int main() {
   if (!test_control_lifecycle()) {
     return 2;
   }
-  if (!test_handshake_timeout()) {
+  if (!test_property_flood_does_not_block_stop()) {
     return 3;
   }
-  if (!test_heartbeat_timeout()) {
+  if (!test_handshake_timeout()) {
     return 4;
   }
-  return test_disconnect() ? 0 : 5;
+  if (!test_heartbeat_timeout()) {
+    return 5;
+  }
+  return test_disconnect() ? 0 : 6;
 }

@@ -8,8 +8,42 @@
 
 namespace {
 
-gneiss::editor::runtime_property_key make_key() {
-  return {.object = {2U, 3U}, .type_id = {1U}, .field_id = 4U};
+gneiss::editor::runtime_property_key make_key(gneiss_field_id field_id = 4U) {
+  return {.object = {2U, 3U}, .type_id = {1U}, .field_id = field_id};
+}
+
+bool test_out_of_order_and_stale_results() {
+  gneiss::editor::runtime_property_edits edits;
+  edits.begin_session(10U);
+  const auto now = gneiss::editor::runtime_property_edits::clock::now();
+  const auto first_key = make_key(4U);
+  const auto second_key = make_key(5U);
+  gneiss::ipc_property_write first;
+  gneiss::ipc_property_write second;
+  if (edits.prepare(first_key, 1U, {true}, now, first) != gneiss::result::success ||
+      edits.prepare(second_key, 1U, {false}, now, second) != gneiss::result::success) {
+    return false;
+  }
+  const gneiss::ipc_property_write_result second_response{.session_id = 10U,
+                                                          .command_id = second.command_id,
+                                                          .code = GNEISS_SUCCESS,
+                                                          .revision = 2U,
+                                                          .message = "second",
+                                                          .canonical_value = {false}};
+  const gneiss::ipc_property_write_result first_response{.session_id = 10U,
+                                                         .command_id = first.command_id,
+                                                         .code = GNEISS_SUCCESS,
+                                                         .revision = 2U,
+                                                         .message = "first",
+                                                         .canonical_value = {true}};
+  if (edits.accept(second_response) != gneiss::result::success ||
+      edits.accept(first_response) != gneiss::result::success ||
+      edits.accept(first_response) != gneiss::result::not_found) {
+    return false;
+  }
+  edits.begin_session(11U);
+  return edits.accept(second_response) == gneiss::result::invalid_state &&
+         edits.find(first_key) == nullptr && edits.find(second_key) == nullptr;
 }
 
 bool test_result_and_single_pending() {
@@ -89,5 +123,8 @@ bool test_timeout_disconnect_and_session() {
 } // namespace
 
 int main() {
-  return test_result_and_single_pending() && test_timeout_disconnect_and_session() ? 0 : 1;
+  return test_result_and_single_pending() && test_out_of_order_and_stale_results() &&
+                 test_timeout_disconnect_and_session()
+             ? 0
+             : 1;
 }

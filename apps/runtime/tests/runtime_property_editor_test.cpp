@@ -73,6 +73,9 @@ bool test_write_and_revision() {
   response = {};
   GNEISS_TEST_CHECK(editor.execute(stale, response) == gneiss::result::success);
   GNEISS_TEST_CHECK(response.code == GNEISS_ERROR_INVALID_STATE && response.revision == 2U);
+  GNEISS_TEST_CHECK(world.get_local_transform(entity, transform) == gneiss::result::success);
+  GNEISS_TEST_CHECK(transform.translation[0] == 2.0F && transform.translation[1] == 3.0F &&
+                    transform.translation[2] == 4.0F);
   return true;
 }
 
