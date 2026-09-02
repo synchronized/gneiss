@@ -24,7 +24,7 @@ using mutable_document_ptr = std::unique_ptr<yyjson_mut_doc, decltype(&yyjson_mu
 
 bool valid_type(gneiss::ipc_message_type type) noexcept {
   return type >= gneiss::ipc_message_type::hello &&
-         type <= gneiss::ipc_message_type::shutdown_complete;
+         type <= gneiss::ipc_message_type::inspection_resync;
 }
 
 bool valid_capabilities(std::span<const std::string> capabilities) noexcept {
@@ -172,7 +172,11 @@ result encode_ipc_message(const ipc_message& message, ipc_frame& output) noexcep
     case ipc_message_type::shutdown_complete:
       valid = yyjson_mut_obj_add_sint(document.get(), root, "exit_code", message.code);
       break;
+    case ipc_message_type::inspection_snapshot:
+    case ipc_message_type::statistics_snapshot:
+      return result::unsupported;
     case ipc_message_type::ready:
+    case ipc_message_type::inspection_resync:
     case ipc_message_type::pause:
     case ipc_message_type::resume:
     case ipc_message_type::stop:
@@ -284,7 +288,11 @@ result decode_ipc_message(const ipc_frame& frame, ipc_message& output) noexcept 
       }
       break;
     }
+    case ipc_message_type::inspection_snapshot:
+    case ipc_message_type::statistics_snapshot:
+      return result::unsupported;
     case ipc_message_type::ready:
+    case ipc_message_type::inspection_resync:
     case ipc_message_type::pause:
     case ipc_message_type::resume:
     case ipc_message_type::stop:
@@ -397,6 +405,43 @@ void ipc_timeout_tracker::reset(clock::time_point now) noexcept { last_observed_
 
 bool ipc_timeout_tracker::expired(clock::time_point now) const noexcept {
   return timeout_ == clock::duration::zero() || now - last_observed_ >= timeout_;
+}
+
+result ipc_inspection_sequence_tracker::begin(std::uint64_t session_id,
+                                              std::uint64_t first_sequence) noexcept {
+  if (session_id == 0U || first_sequence == 0U) {
+    return result::invalid_argument;
+  }
+  session_id_ = session_id;
+  next_sequence_ = first_sequence;
+  return result::success;
+}
+
+void ipc_inspection_sequence_tracker::reset() noexcept {
+  session_id_ = 0U;
+  next_sequence_ = 0U;
+}
+
+ipc_inspection_sequence_result
+ipc_inspection_sequence_tracker::observe(ipc_inspection_stamp stamp) noexcept {
+  if (session_id_ == 0U || stamp.session_id == 0U || stamp.sequence == 0U || next_sequence_ == 0U) {
+    return ipc_inspection_sequence_result::invalid;
+  }
+  if (stamp.session_id != session_id_) {
+    return ipc_inspection_sequence_result::stale_session;
+  }
+  if (stamp.sequence < next_sequence_) {
+    return ipc_inspection_sequence_result::duplicate;
+  }
+  if (stamp.sequence > next_sequence_) {
+    return ipc_inspection_sequence_result::gap;
+  }
+  if (next_sequence_ == std::numeric_limits<std::uint64_t>::max()) {
+    reset();
+  } else {
+    ++next_sequence_;
+  }
+  return ipc_inspection_sequence_result::accepted;
 }
 
 } // namespace gneiss

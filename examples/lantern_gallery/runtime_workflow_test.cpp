@@ -4,9 +4,12 @@
 #include "runtime_process.h"
 
 #include <algorithm>
+#include <array>
 #include <chrono>
+#include <cmath>
 #include <cstdint>
 #include <filesystem>
+#include <optional>
 #include <string_view>
 #include <thread>
 
@@ -48,6 +51,27 @@ bool stop_session(gneiss::editor::runtime_process& process) {
          process.exit_code() == 0 && process.received_shutdown_complete();
 }
 
+std::optional<std::array<float, 4>> root_rotation(const gneiss::editor::runtime_process& process) {
+  const auto& nodes = process.scene_mirror().nodes();
+  const auto root =
+      std::ranges::find_if(nodes, [](const auto& node) { return !node.parent.is_valid(); });
+  if (root == nodes.end()) {
+    return std::nullopt;
+  }
+  return std::to_array(root->local_transform.rotation);
+}
+
+bool rotation_changed(const std::array<float, 4>& left,
+                      const std::array<float, 4>& right) noexcept {
+  constexpr float tolerance = 0.0001F;
+  for (std::size_t index = 0U; index < left.size(); ++index) {
+    if (std::abs(left[index] - right[index]) > tolerance) {
+      return true;
+    }
+  }
+  return false;
+}
+
 } // namespace
 
 int main() try {
@@ -62,7 +86,18 @@ int main() try {
     return 1;
   }
   const auto first_session = process.console().current_session_id();
-  if (!pump_until(process, 3s, [&] { return progress_count(process, first_session) >= 2U; }) ||
+  if (!pump_until(process, 3s, [&] {
+        return progress_count(process, first_session) >= 1U && root_rotation(process).has_value() &&
+               process.statistics().fixed_update_count != 0U;
+      })) {
+    return 2;
+  }
+  const auto initial_rotation = *root_rotation(process);
+  if (!pump_until(process, 3s,
+                  [&] {
+                    const auto current = root_rotation(process);
+                    return current.has_value() && rotation_changed(initial_rotation, *current);
+                  }) ||
       process.request_pause() != gneiss::result::success || !pump_until(process, 3s, [&] {
         return process.control_state() == gneiss::editor::runtime_control_state::paused;
       })) {
@@ -70,24 +105,34 @@ int main() try {
   }
 
   // 暂停确认后先排空已在传输途中的事件，再观察游戏更新是否保持静止。
-  const auto drain_deadline = std::chrono::steady_clock::now() + 100ms;
+  // 检查消息使用独立的有界队列；在全量测试负载下，暂停确认可能早于此前快照完成应用。
+  const auto drain_deadline = std::chrono::steady_clock::now() + 500ms;
   while (std::chrono::steady_clock::now() < drain_deadline) {
     process.update();
     std::this_thread::sleep_for(10ms);
   }
   const auto paused_count = progress_count(process, first_session);
+  const auto paused_rotation = root_rotation(process);
   const auto observation_deadline = std::chrono::steady_clock::now() + 700ms;
   while (std::chrono::steady_clock::now() < observation_deadline) {
     process.update();
     std::this_thread::sleep_for(10ms);
   }
-  if (progress_count(process, first_session) != paused_count ||
+  const auto after_pause_rotation = root_rotation(process);
+  if (!paused_rotation.has_value() || !after_pause_rotation.has_value() ||
+      rotation_changed(*paused_rotation, *after_pause_rotation) ||
+      progress_count(process, first_session) != paused_count ||
       process.request_resume() != gneiss::result::success ||
       !pump_until(process, 3s,
                   [&] {
                     return process.control_state() ==
                                gneiss::editor::runtime_control_state::running &&
                            progress_count(process, first_session) > paused_count;
+                  }) ||
+      !pump_until(process, 3s,
+                  [&] {
+                    const auto current = root_rotation(process);
+                    return current.has_value() && rotation_changed(*paused_rotation, *current);
                   }) ||
       !stop_session(process)) {
     return 3;

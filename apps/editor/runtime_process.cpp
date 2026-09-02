@@ -4,12 +4,15 @@
 #include "runtime_process.h"
 
 #include "child_process.h"
+#include "ipc_inspection_protocol.h"
 #include "ipc_protocol.h"
+#include "ipc_statistics_protocol.h"
 #include "ipc_transport.h"
 
 #include <algorithm>
 #include <array>
 #include <chrono>
+#include <deque>
 #include <fstream>
 #include <new>
 #include <random>
@@ -24,6 +27,8 @@ struct runtime_process::implementation final {
   child_process process;
   child_process build_process;
   console_model console;
+  runtime_scene_mirror scene_mirror;
+  ipc_runtime_statistics statistics;
   app::runtime_log_line_decoder line_decoder;
   std::uint64_t runtime_session_id = 0U;
   bool output_finished = true;
@@ -39,6 +44,8 @@ struct runtime_process::implementation final {
   bool is_building = false;
   bool ipc_authenticated = false;
   bool ipc_shutdown_complete = false;
+  bool inspection_resync_pending = false;
+  std::deque<ipc_frame> pending_inspection_input;
   std::string ipc_token;
   ipc_transport ipc_server;
   runtime_control_state control_state = runtime_control_state::stopped;
@@ -79,6 +86,35 @@ struct runtime_process::implementation final {
     return encoded == result::success ? ipc_server.send(frame) : encoded;
   }
 
+  void request_inspection_resync() noexcept {
+    if (inspection_resync_pending || !ipc_authenticated) {
+      return;
+    }
+    ipc_message request;
+    request.type = ipc_message_type::inspection_resync;
+    if (send_ipc(std::move(request)) == result::success) {
+      inspection_resync_pending = true;
+    }
+  }
+
+  void apply_inspection_frame(const ipc_frame& frame) noexcept {
+    ipc_inspection_batch batch;
+    const auto decoded = decode_ipc_inspection_batch(frame, batch);
+    if (decoded != result::success) {
+      last_result = decoded;
+      return;
+    }
+    const auto applied = scene_mirror.apply(batch);
+    if (applied != result::success) {
+      last_result = applied;
+      if (scene_mirror.needs_full_snapshot()) {
+        request_inspection_resync();
+      }
+    } else if (batch.is_full && !scene_mirror.needs_full_snapshot()) {
+      inspection_resync_pending = false;
+    }
+  }
+
   void stop_ipc() noexcept {
     if (ipc_server.state() != ipc_transport_state::stopped) {
       (void)ipc_server.stop();
@@ -114,7 +150,8 @@ struct runtime_process::implementation final {
       if (!ipc_authenticated) {
         ipc_frame acknowledgment;
         std::vector<std::string> negotiated;
-        const std::vector<std::string> supported{"control", "heartbeat", "logs"};
+        const std::vector<std::string> supported{"control", "heartbeat", "logs",
+                                                 std::string(ipc_capability_runtime_inspection_v1)};
         auto accepted =
             accept_ipc_hello(event.frame, ipc_token, supported, acknowledgment, negotiated);
         if (accepted == result::success) {
@@ -127,6 +164,34 @@ struct runtime_process::implementation final {
         ipc_authenticated = true;
         ipc_heartbeat.reset(now);
         next_ping = now;
+        continue;
+      }
+
+      if (event.frame.message_type ==
+          static_cast<std::uint16_t>(ipc_message_type::inspection_snapshot)) {
+        constexpr std::size_t maximum_pending_inspection_frames = 256U;
+        if (pending_inspection_input.size() >= maximum_pending_inspection_frames) {
+          pending_inspection_input.clear();
+          scene_mirror.invalidate();
+          last_result = result::not_ready;
+          request_inspection_resync();
+        } else {
+          pending_inspection_input.push_back(std::move(event.frame));
+        }
+        ipc_heartbeat.reset(now);
+        continue;
+      }
+      if (event.frame.message_type ==
+          static_cast<std::uint16_t>(ipc_message_type::statistics_snapshot)) {
+        ipc_runtime_statistics decoded_statistics;
+        const auto decoded = decode_ipc_runtime_statistics(event.frame, decoded_statistics);
+        if (decoded != result::success) {
+          last_result = decoded;
+        } else if (decoded_statistics.session_id == scene_mirror.session_id() &&
+                   decoded_statistics.sequence > statistics.sequence) {
+          statistics = decoded_statistics;
+        }
+        ipc_heartbeat.reset(now);
         continue;
       }
 
@@ -172,6 +237,12 @@ struct runtime_process::implementation final {
         ipc_shutdown_complete = true;
         control_state = runtime_control_state::stopping;
       }
+    }
+    constexpr std::size_t inspection_apply_budget = 8U;
+    for (std::size_t count = 0U;
+         count < inspection_apply_budget && !pending_inspection_input.empty(); ++count) {
+      apply_inspection_frame(pending_inspection_input.front());
+      pending_inspection_input.pop_front();
     }
     if (!ipc_authenticated) {
       if (process.is_running() && ipc_handshake.expired(now)) {
@@ -284,6 +355,10 @@ result runtime_process::start(const std::filesystem::path& executable,
     implementation_->stop_deadline = {};
     implementation_->forced_termination_reported = false;
     implementation_->ipc_shutdown_complete = false;
+    implementation_->inspection_resync_pending = false;
+    implementation_->pending_inspection_input.clear();
+    implementation_->scene_mirror.reset();
+    implementation_->statistics = {};
     implementation_->control_state = runtime_control_state::connecting;
     const auto serial = std::chrono::steady_clock::now().time_since_epoch().count();
     implementation_->session_root = std::filesystem::temp_directory_path() / "Gneiss" /
@@ -518,6 +593,14 @@ const std::string& runtime_process::output() const noexcept {
   return implementation_->combined_output;
 }
 const console_model& runtime_process::console() const noexcept { return implementation_->console; }
+const runtime_scene_mirror& runtime_process::scene_mirror() const noexcept {
+  static const runtime_scene_mirror empty;
+  return implementation_ ? implementation_->scene_mirror : empty;
+}
+const ipc_runtime_statistics& runtime_process::statistics() const noexcept {
+  static const ipc_runtime_statistics empty;
+  return implementation_ ? implementation_->statistics : empty;
+}
 const std::filesystem::path& runtime_process::log_file() const noexcept {
   return implementation_->log_file;
 }

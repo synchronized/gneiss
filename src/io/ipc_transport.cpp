@@ -439,6 +439,10 @@ result ipc_transport::send(const ipc_frame& frame) noexcept {
   return operation;
 }
 
+std::size_t ipc_transport::pending_write_count() const noexcept {
+  return implementation_ ? implementation_->pending_writes.load(std::memory_order_acquire) : 0U;
+}
+
 result ipc_transport::stop() noexcept {
   if (!implementation_ || !implementation_->runtime.is_running()) {
     return result::not_ready;

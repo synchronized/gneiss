@@ -74,8 +74,16 @@
 - [VER-013：0.13.0 结构化日志与 Editor Console](plans/VER-013-0.13.0-structured-logging-console.md)
 - [VER-014：0.14.0 Editor UI 工作区](plans/VER-014-0.14.0-editor-ui-workspace.md)
 - [VER-015：0.15.0 Editor–Runtime 双向控制通道](plans/VER-015-0.15.0-editor-runtime-ipc.md)
+- [VER-016：0.16.0 Runtime 调试与状态检查](plans/VER-016-0.16.0-runtime-inspection.md)
 - [M-100：Editor Play 工作流实施记录](records/M-100-editor-play-workflow.md)
 - [M-101：示例与跨平台验收记录](records/M-101-example-cross-platform-validation.md)
+- [M-102：Runtime 检查会话与对象标识实施记录](records/M-102-runtime-inspection-identity.md)
+- [M-103：Runtime 场景快照与增量生成实施记录](records/M-103-runtime-scene-snapshot.md)
+- [M-104：Editor Runtime 镜像与层级视图实施记录](records/M-104-editor-runtime-scene-mirror.md)
+- [M-105：Runtime 只读属性检查实施记录](records/M-105-runtime-property-inspection.md)
+- [M-106：Runtime 基础运行统计实施记录](records/M-106-runtime-statistics.md)
+- [M-107：Runtime 检查流控与恢复实施记录](records/M-107-runtime-inspection-recovery.md)
+- [M-108：Runtime 检查示例与跨平台验收记录](records/M-108-runtime-inspection-validation.md)
 - [TOOL-001：glTF 资产编译器最小闭环](plans/TOOL-001-gltf-asset-compiler.md)
 - [TOOL-002：Mesh Binary v1 最小闭环](plans/TOOL-002-mesh-binary-v1.md)
 - [TOOL-003：索引渲染最小闭环](plans/TOOL-003-indexed-rendering.md)
@@ -109,6 +117,7 @@
 - [ADR-026：结构化日志事件与进程传输边界](decisions/ADR-026-structured-logging-transport.md)
 - [ADR-027：Editor 使用单窗口 Docking 工作区](decisions/ADR-027-editor-ui-workspace.md)
 - [ADR-028：Editor 与 Runtime 使用版本化本机 IPC](decisions/ADR-028-editor-runtime-ipc.md)
+- [ADR-029：Runtime 检查使用只读镜像模型](decisions/ADR-029-runtime-inspection-model.md)
 
 ## 实施与验收记录
 

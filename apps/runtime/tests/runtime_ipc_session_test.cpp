@@ -115,8 +115,15 @@ bool test_control_lifecycle() {
   }
 
   gneiss::ipc_message control;
-  control.type = gneiss::ipc_message_type::pause;
+  control.type = gneiss::ipc_message_type::inspection_resync;
   gneiss::runtime_internal::runtime_ipc_actions actions;
+  if (!send_message(server, control) ||
+      !wait_for_action(session, actions,
+                       &gneiss::runtime_internal::runtime_ipc_actions::request_inspection_resync)) {
+    return false;
+  }
+
+  control.type = gneiss::ipc_message_type::pause;
   if (!send_message(server, control) ||
       !wait_for_action(session, actions,
                        &gneiss::runtime_internal::runtime_ipc_actions::pause_game) ||

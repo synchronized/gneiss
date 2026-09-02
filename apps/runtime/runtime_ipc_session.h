@@ -4,7 +4,9 @@
 #ifndef GNEISS_APPS_RUNTIME_RUNTIME_IPC_SESSION_H_
 #define GNEISS_APPS_RUNTIME_RUNTIME_IPC_SESSION_H_
 
+#include "ipc_inspection_protocol.h"
 #include "ipc_protocol.h"
+#include "ipc_statistics_protocol.h"
 #include "ipc_transport.h"
 
 #include <chrono>
@@ -36,6 +38,7 @@ struct runtime_ipc_actions final {
   bool pause_game = false;
   bool resume_game = false;
   bool request_exit = false;
+  bool request_inspection_resync = false;
   result failure = result::success;
 };
 
@@ -55,6 +58,10 @@ public:
   [[nodiscard]] result notify_running() noexcept;
   [[nodiscard]] result notify_shutdown(std::int32_t exit_code) noexcept;
   [[nodiscard]] result notify_log_event(const gneiss_log_event& event) noexcept;
+  [[nodiscard]] result notify_scene_snapshot(const ipc_inspection_batch& batch) noexcept;
+  [[nodiscard]] result notify_statistics(const ipc_runtime_statistics& statistics) noexcept;
+  [[nodiscard]] std::size_t pending_write_count() const noexcept;
+  [[nodiscard]] std::size_t dropped_event_count() const noexcept;
   [[nodiscard]] result stop() noexcept;
 
   [[nodiscard]] runtime_ipc_state state() const noexcept;
