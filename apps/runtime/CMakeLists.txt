@@ -23,7 +23,7 @@ add_library(
   runtime_ipc_session.cpp
   runtime_ipc_session.h
 )
-target_link_libraries(gneiss_runtime_ipc PUBLIC gneiss_uv_runtime)
+target_link_libraries(gneiss_runtime_ipc PUBLIC gneiss_uv_runtime PRIVATE gneiss_app_project)
 target_include_directories(gneiss_runtime_ipc PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_compile_features(gneiss_runtime_ipc PUBLIC cxx_std_20)
 gneiss_target_compile_warnings(gneiss_runtime_ipc)

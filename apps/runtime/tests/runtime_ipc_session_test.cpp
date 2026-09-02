@@ -91,6 +91,29 @@ bool test_control_lifecycle() {
     return false;
   }
 
+  constexpr std::string_view source = "test";
+  constexpr std::string_view category = "ipc";
+  constexpr std::string_view text = "结构化日志";
+  const gneiss_log_event log_event = {
+      .struct_size = sizeof(gneiss_log_event),
+      .severity = GNEISS_LOG_INFO,
+      .sequence = 1U,
+      .timestamp_ns = 2U,
+      .thread_id = 3U,
+      .source = source.data(),
+      .source_length = source.size(),
+      .category = category.data(),
+      .category_length = category.size(),
+      .message = text.data(),
+      .message_length = text.size(),
+      .result = GNEISS_SUCCESS,
+      .flags = 0U,
+      .reserved = {},
+  };
+  if (session.notify_log_event(log_event) != gneiss::result::success) {
+    return false;
+  }
+
   gneiss::ipc_message control;
   control.type = gneiss::ipc_message_type::pause;
   gneiss::runtime_internal::runtime_ipc_actions actions;
@@ -109,6 +132,7 @@ bool test_control_lifecycle() {
   }
   const auto pong_deadline = std::chrono::steady_clock::now() + 3s;
   bool received_pong = false;
+  bool received_log = false;
   while (std::chrono::steady_clock::now() < pong_deadline && !received_pong) {
     if (session.pump(std::chrono::steady_clock::now(), actions) != gneiss::result::success) {
       return false;
@@ -122,10 +146,14 @@ bool test_control_lifecycle() {
             decoded.type == gneiss::ipc_message_type::pong && decoded.nonce == 42U) {
           received_pong = true;
         }
+        if (decoded.type == gneiss::ipc_message_type::log_event &&
+            decoded.text.find("结构化日志") != std::string::npos) {
+          received_log = true;
+        }
       }
     }
   }
-  if (!received_pong) {
+  if (!received_pong || !received_log) {
     return false;
   }
 

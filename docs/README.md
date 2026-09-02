@@ -74,6 +74,7 @@
 - [VER-013：0.13.0 结构化日志与 Editor Console](plans/VER-013-0.13.0-structured-logging-console.md)
 - [VER-014：0.14.0 Editor UI 工作区](plans/VER-014-0.14.0-editor-ui-workspace.md)
 - [VER-015：0.15.0 Editor–Runtime 双向控制通道](plans/VER-015-0.15.0-editor-runtime-ipc.md)
+- [M-100：Editor Play 工作流实施记录](records/M-100-editor-play-workflow.md)
 - [TOOL-001：glTF 资产编译器最小闭环](plans/TOOL-001-gltf-asset-compiler.md)
 - [TOOL-002：Mesh Binary v1 最小闭环](plans/TOOL-002-mesh-binary-v1.md)
 - [TOOL-003：索引渲染最小闭环](plans/TOOL-003-indexed-rendering.md)

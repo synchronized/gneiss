@@ -3,6 +3,8 @@
 
 #include "runtime_ipc_session.h"
 
+#include <gneiss/app/runtime_log_protocol.h>
+
 #include <algorithm>
 #include <utility>
 #include <vector>
@@ -237,6 +239,23 @@ result runtime_ipc_session::notify_shutdown(std::int32_t exit_code) noexcept {
     operation = implementation_->send(std::move(message));
   }
   return operation;
+}
+
+result runtime_ipc_session::notify_log_event(const gneiss_log_event& event) noexcept {
+  if (!implementation_ || (implementation_->current_state != runtime_ipc_state::running &&
+                           implementation_->current_state != runtime_ipc_state::paused)) {
+    return result::not_ready;
+  }
+  try {
+    ipc_message message;
+    message.type = ipc_message_type::log_event;
+    const auto operation = app::encode_runtime_log_event(event, message.text);
+    return operation == result::success ? implementation_->send(std::move(message)) : operation;
+  } catch (const std::bad_alloc&) {
+    return result::out_of_memory;
+  } catch (...) {
+    return result::internal;
+  }
 }
 
 result runtime_ipc_session::stop() noexcept {

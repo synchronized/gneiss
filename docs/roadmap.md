@@ -295,7 +295,7 @@ libuv I/O 基础为未来 Network Service 提供复用点，但本版本不建�
 | M-97 IPC Transport | P0 | 已完成 |
 | M-98 Editor–Runtime 协议 | P0 | 已完成 |
 | M-99 Runtime 控制状态机 | P0 | 已完成 |
-| M-100 Editor Play 工作流 | P0 | 计划中 |
+| M-100 Editor Play 工作流 | P0 | 已完成 |
 | M-101 示例与跨平台验收 | P0 | 计划中 |
 
 详细范围、线程模型和验收条件见

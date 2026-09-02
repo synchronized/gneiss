@@ -1127,11 +1127,26 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
         ImGui::BeginDisabled(state.runtime.is_busy());
         const auto run_requested = ImGui::MenuItem("Run Project", "F6");
         ImGui::EndDisabled();
+        const auto control_state = state.runtime.control_state();
+        const auto can_toggle_pause =
+            control_state == gneiss::editor::runtime_control_state::running ||
+            control_state == gneiss::editor::runtime_control_state::paused;
+        ImGui::BeginDisabled(!can_toggle_pause);
+        const auto pause_requested = ImGui::MenuItem(
+            control_state == gneiss::editor::runtime_control_state::paused ? "Resume" : "Pause",
+            "F7");
+        ImGui::EndDisabled();
         ImGui::BeginDisabled(!state.runtime.is_busy());
         const auto stop_requested = ImGui::MenuItem("Stop", "F8");
         ImGui::EndDisabled();
         if (run_requested) {
           request_runtime_launch(state);
+        }
+        if (pause_requested) {
+          state.runtime_result = control_state == gneiss::editor::runtime_control_state::paused
+                                     ? state.runtime.request_resume()
+                                     : state.runtime.request_pause();
+          state.runtime_attempted = true;
         }
         if (stop_requested) {
           state.runtime_result = state.runtime.request_stop();
@@ -1163,15 +1178,26 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
         ImGui::SetCursorPosX(toolbar_x);
       }
       const auto runtime_busy = state.runtime.is_busy();
+      const auto runtime_control = state.runtime.control_state();
       if (gneiss::editor::toolbar_icon_button("##RunProject", gneiss::editor::toolbar_icon::run,
                                               "运行工程 (F6)", !runtime_busy,
                                               state.runtime.is_running())) {
         request_runtime_launch(state);
       }
       ImGui::SameLine(0.0F, 4.0F);
-      (void)gneiss::editor::toolbar_icon_button("##PauseRuntime",
-                                                gneiss::editor::toolbar_icon::pause,
-                                                "暂停功能将在控制协议完成后启用", false);
+      const auto can_toggle_pause =
+          runtime_control == gneiss::editor::runtime_control_state::running ||
+          runtime_control == gneiss::editor::runtime_control_state::paused;
+      if (gneiss::editor::toolbar_icon_button(
+              "##PauseRuntime", gneiss::editor::toolbar_icon::pause,
+              runtime_control == gneiss::editor::runtime_control_state::paused ? "恢复 (F7)"
+                                                                               : "暂停 (F7)",
+              can_toggle_pause, runtime_control == gneiss::editor::runtime_control_state::paused)) {
+        state.runtime_result = runtime_control == gneiss::editor::runtime_control_state::paused
+                                   ? state.runtime.request_resume()
+                                   : state.runtime.request_pause();
+        state.runtime_attempted = true;
+      }
       ImGui::SameLine(0.0F, 4.0F);
       if (gneiss::editor::toolbar_icon_button("##StopRuntime", gneiss::editor::toolbar_icon::stop,
                                               "停止 (F8)", runtime_busy)) {
@@ -1198,6 +1224,16 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
     if (ImGui::IsKeyPressed(ImGuiKey_F8, false) && state.runtime.is_busy()) {
       state.runtime_result = state.runtime.request_stop();
       state.runtime_attempted = true;
+    }
+    if (ImGui::IsKeyPressed(ImGuiKey_F7, false)) {
+      const auto control = state.runtime.control_state();
+      if (control == gneiss::editor::runtime_control_state::running ||
+          control == gneiss::editor::runtime_control_state::paused) {
+        state.runtime_result = control == gneiss::editor::runtime_control_state::paused
+                                   ? state.runtime.request_resume()
+                                   : state.runtime.request_pause();
+        state.runtime_attempted = true;
+      }
     }
     if (state.pending_save_and_run && !ImGui::IsPopupOpen("Save and Run")) {
       ImGui::OpenPopup("Save and Run");

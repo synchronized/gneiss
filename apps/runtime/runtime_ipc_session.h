@@ -8,6 +8,7 @@
 #include "ipc_transport.h"
 
 #include <chrono>
+#include <gneiss/log.h>
 #include <memory>
 #include <string>
 #include <vector>
@@ -53,6 +54,7 @@ public:
   [[nodiscard]] result pump(clock::time_point now, runtime_ipc_actions& actions) noexcept;
   [[nodiscard]] result notify_running() noexcept;
   [[nodiscard]] result notify_shutdown(std::int32_t exit_code) noexcept;
+  [[nodiscard]] result notify_log_event(const gneiss_log_event& event) noexcept;
   [[nodiscard]] result stop() noexcept;
 
   [[nodiscard]] runtime_ipc_state state() const noexcept;

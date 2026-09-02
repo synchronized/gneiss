@@ -191,6 +191,9 @@ void write_application_log(gneiss_application, const gneiss_log_event* event, vo
   if (context.log != nullptr) {
     context.log->write(*event);
   }
+  if (context.ipc_session != nullptr) {
+    (void)context.ipc_session->notify_log_event(*event);
+  }
 }
 
 [[nodiscard]] int run_runtime(const runtime_options& options,
