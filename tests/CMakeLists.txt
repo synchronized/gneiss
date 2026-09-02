@@ -573,6 +573,31 @@ gneiss_target_compile_warnings(gneiss_scene_instance_test)
 gneiss_target_output_directories(gneiss_scene_instance_test)
 add_test(NAME gneiss.scene_instance COMMAND gneiss_scene_instance_test)
 
+add_executable(
+  gneiss_prefab_runtime_instance_test
+  scene/prefab_runtime_instance_test.cpp
+  "${PROJECT_SOURCE_DIR}/src/asset/asset_uri.cpp"
+  "${PROJECT_SOURCE_DIR}/src/asset/mesh_binary.cpp"
+  "${PROJECT_SOURCE_DIR}/src/asset/resource_cache.cpp"
+  "${PROJECT_SOURCE_DIR}/src/asset/virtual_file_system.cpp"
+  "${PROJECT_SOURCE_DIR}/src/render/png_decoder.cpp"
+  "${PROJECT_SOURCE_DIR}/src/render/render_asset_loader.cpp"
+  "${PROJECT_SOURCE_DIR}/src/render/render_resource_service.cpp"
+  "${PROJECT_SOURCE_DIR}/src/scene/prefab_asset_loader.cpp"
+  "${PROJECT_SOURCE_DIR}/src/scene/prefab_description.cpp"
+  "${PROJECT_SOURCE_DIR}/src/scene/prefab_runtime_instance.cpp"
+  "${PROJECT_SOURCE_DIR}/src/scene/scene_description.cpp"
+)
+target_include_directories(gneiss_prefab_runtime_instance_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_compile_definitions(gneiss_prefab_runtime_instance_test PRIVATE GNEISS_BUILDING_LIBRARY)
+target_link_libraries(
+  gneiss_prefab_runtime_instance_test PRIVATE gneiss::engine gneiss_yyjson gneiss_png
+)
+target_compile_features(gneiss_prefab_runtime_instance_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_prefab_runtime_instance_test)
+gneiss_target_output_directories(gneiss_prefab_runtime_instance_test)
+add_test(NAME gneiss.prefab_runtime_instance COMMAND gneiss_prefab_runtime_instance_test)
+
 if(TARGET gneiss_version_example)
   add_test(NAME gneiss.version_example COMMAND gneiss_version_example)
   set_tests_properties(
