@@ -73,6 +73,7 @@
 - [VER-012：0.12.0 游戏模块与生命周期](plans/VER-012-0.12.0-game-module-lifecycle.md)
 - [VER-013：0.13.0 结构化日志与 Editor Console](plans/VER-013-0.13.0-structured-logging-console.md)
 - [VER-014：0.14.0 Editor UI 工作区](plans/VER-014-0.14.0-editor-ui-workspace.md)
+- [VER-015：0.15.0 Editor–Runtime 双向控制通道](plans/VER-015-0.15.0-editor-runtime-ipc.md)
 - [TOOL-001：glTF 资产编译器最小闭环](plans/TOOL-001-gltf-asset-compiler.md)
 - [TOOL-002：Mesh Binary v1 最小闭环](plans/TOOL-002-mesh-binary-v1.md)
 - [TOOL-003：索引渲染最小闭环](plans/TOOL-003-indexed-rendering.md)
@@ -105,6 +106,7 @@
 - [ADR-025：原生游戏模块与 Engine 生命周期边界](decisions/ADR-025-native-game-module-boundary.md)
 - [ADR-026：结构化日志事件与进程传输边界](decisions/ADR-026-structured-logging-transport.md)
 - [ADR-027：Editor 使用单窗口 Docking 工作区](decisions/ADR-027-editor-ui-workspace.md)
+- [ADR-028：Editor 与 Runtime 使用版本化本机 IPC](decisions/ADR-028-editor-runtime-ipc.md)
 
 ## 实施与验收记录
 
