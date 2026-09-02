@@ -9,6 +9,21 @@
 
 当前没有已记录的未发布变更。
 
+## 0.14.0 - 2026-09-02
+
+- Dear ImGui 更新到锁定的 Docking 分支提交，并建立覆盖主客户区的单窗口 DockSpace；Hierarchy、
+  Assets、Scene View、Inspector 和 Console 支持拖动、拆分、吸附、关闭及菜单恢复。
+- 抽取 Editor 私有 `gneiss_editor_ui` 模块，统一管理 ImGui Context、字体、主题、帧适配、主工作区
+  和运行控制图标，不向 Engine、Runtime 或公共接口传播 ImGui 类型。
+- 增加确定性五区默认布局、按工程隔离的版本化布局文件、面板可见性持久化、v1 到 v2 迁移、原子
+  保存、损坏回退及 `Reset Layout`。
+- 修复 DockSpace 背景遮挡 3D 场景，并在窗口失焦时使用 Gneiss 输入快照复位 ImGui 键盘和鼠标状态，
+  避免 Runtime 切换后出现卡键。
+- 调整 Editor 字体采样、图标几何、最小面板尺寸和主题对比度，并增加 Noto Sans SC 中文回退；完整
+  字体、多语言及未来自研 GUI 体系不属于本版本。
+- Windows VS2022 Debug/Release Shared/Static、Windows Clang Debug、Linux GCC/Clang
+  Shared/Static、Sanitizer 和 Granit 运行时无头矩阵均通过。
+
 ## 0.13.0 - 2026-09-01
 
 - 增加 Experimental 结构化日志消息、不可变事件及 C11/C++20 提交接口，明确复制所有权、可信来源、
