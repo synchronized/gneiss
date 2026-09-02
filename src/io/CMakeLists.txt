@@ -5,6 +5,8 @@ add_library(
   gneiss_uv_runtime STATIC
   ipc_frame.cpp
   ipc_frame.h
+  ipc_protocol.cpp
+  ipc_protocol.h
   ipc_transport.cpp
   ipc_transport.h
   uv_error.cpp
@@ -13,7 +15,11 @@ add_library(
   uv_runtime.h
   uv_runtime_access.h
 )
-target_link_libraries(gneiss_uv_runtime PUBLIC gneiss::engine PRIVATE gneiss::libuv)
+target_link_libraries(
+  gneiss_uv_runtime
+  PUBLIC gneiss::engine
+  PRIVATE gneiss::libuv gneiss_yyjson
+)
 target_include_directories(gneiss_uv_runtime PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_compile_features(gneiss_uv_runtime PUBLIC cxx_std_20)
 gneiss_target_compile_warnings(gneiss_uv_runtime)
@@ -54,4 +60,11 @@ if(GNEISS_BUILD_TESTING)
   gneiss_target_compile_warnings(gneiss_ipc_transport_test)
   gneiss_target_output_directories(gneiss_ipc_transport_test)
   add_test(NAME gneiss.io.ipc-transport COMMAND gneiss_ipc_transport_test)
+
+  add_executable(gneiss_ipc_protocol_test tests/ipc_protocol_test.cpp)
+  target_link_libraries(gneiss_ipc_protocol_test PRIVATE gneiss_uv_runtime)
+  target_compile_features(gneiss_ipc_protocol_test PRIVATE cxx_std_20)
+  gneiss_target_compile_warnings(gneiss_ipc_protocol_test)
+  gneiss_target_output_directories(gneiss_ipc_protocol_test)
+  add_test(NAME gneiss.io.ipc-protocol COMMAND gneiss_ipc_protocol_test)
 endif()
