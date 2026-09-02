@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <array>
 #include <chrono>
+#include <deque>
 #include <fstream>
 #include <new>
 #include <random>
@@ -44,6 +45,7 @@ struct runtime_process::implementation final {
   bool ipc_authenticated = false;
   bool ipc_shutdown_complete = false;
   bool inspection_resync_pending = false;
+  std::deque<ipc_frame> pending_inspection_input;
   std::string ipc_token;
   ipc_transport ipc_server;
   runtime_control_state control_state = runtime_control_state::stopped;
@@ -82,6 +84,35 @@ struct runtime_process::implementation final {
     ipc_frame frame;
     const auto encoded = encode_ipc_message(message, frame);
     return encoded == result::success ? ipc_server.send(frame) : encoded;
+  }
+
+  void request_inspection_resync() noexcept {
+    if (inspection_resync_pending || !ipc_authenticated) {
+      return;
+    }
+    ipc_message request;
+    request.type = ipc_message_type::inspection_resync;
+    if (send_ipc(std::move(request)) == result::success) {
+      inspection_resync_pending = true;
+    }
+  }
+
+  void apply_inspection_frame(const ipc_frame& frame) noexcept {
+    ipc_inspection_batch batch;
+    const auto decoded = decode_ipc_inspection_batch(frame, batch);
+    if (decoded != result::success) {
+      last_result = decoded;
+      return;
+    }
+    const auto applied = scene_mirror.apply(batch);
+    if (applied != result::success) {
+      last_result = applied;
+      if (scene_mirror.needs_full_snapshot()) {
+        request_inspection_resync();
+      }
+    } else if (batch.is_full && !scene_mirror.needs_full_snapshot()) {
+      inspection_resync_pending = false;
+    }
   }
 
   void stop_ipc() noexcept {
@@ -138,24 +169,14 @@ struct runtime_process::implementation final {
 
       if (event.frame.message_type ==
           static_cast<std::uint16_t>(ipc_message_type::inspection_snapshot)) {
-        ipc_inspection_batch batch;
-        const auto decoded = decode_ipc_inspection_batch(event.frame, batch);
-        if (decoded != result::success) {
-          last_result = decoded;
-          continue;
-        }
-        const auto applied = scene_mirror.apply(batch);
-        if (applied != result::success) {
-          last_result = applied;
-          if (scene_mirror.needs_full_snapshot() && !inspection_resync_pending) {
-            ipc_message request;
-            request.type = ipc_message_type::inspection_resync;
-            if (send_ipc(std::move(request)) == result::success) {
-              inspection_resync_pending = true;
-            }
-          }
-        } else if (batch.is_full) {
-          inspection_resync_pending = false;
+        constexpr std::size_t maximum_pending_inspection_frames = 256U;
+        if (pending_inspection_input.size() >= maximum_pending_inspection_frames) {
+          pending_inspection_input.clear();
+          scene_mirror.invalidate();
+          last_result = result::not_ready;
+          request_inspection_resync();
+        } else {
+          pending_inspection_input.push_back(std::move(event.frame));
         }
         ipc_heartbeat.reset(now);
         continue;
@@ -216,6 +237,12 @@ struct runtime_process::implementation final {
         ipc_shutdown_complete = true;
         control_state = runtime_control_state::stopping;
       }
+    }
+    constexpr std::size_t inspection_apply_budget = 8U;
+    for (std::size_t count = 0U;
+         count < inspection_apply_budget && !pending_inspection_input.empty(); ++count) {
+      apply_inspection_frame(pending_inspection_input.front());
+      pending_inspection_input.pop_front();
     }
     if (!ipc_authenticated) {
       if (process.is_running() && ipc_handshake.expired(now)) {
@@ -329,6 +356,7 @@ result runtime_process::start(const std::filesystem::path& executable,
     implementation_->forced_termination_reported = false;
     implementation_->ipc_shutdown_complete = false;
     implementation_->inspection_resync_pending = false;
+    implementation_->pending_inspection_input.clear();
     implementation_->scene_mirror.reset();
     implementation_->statistics = {};
     implementation_->control_state = runtime_control_state::connecting;

@@ -155,6 +155,10 @@ void runtime_scene_mirror::reset() noexcept {
   sequence_.reset();
   by_id_.clear();
   nodes_.clear();
+  invalidate();
+}
+
+void runtime_scene_mirror::invalidate() noexcept {
   needs_full_snapshot_ = true;
   pending_stamp_ = {};
   pending_is_full_ = false;

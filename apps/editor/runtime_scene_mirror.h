@@ -17,6 +17,7 @@ namespace gneiss::editor {
 class runtime_scene_mirror final {
 public:
   [[nodiscard]] result apply(const ipc_inspection_batch& batch) noexcept;
+  void invalidate() noexcept;
   void reset() noexcept;
 
   [[nodiscard]] bool needs_full_snapshot() const noexcept { return needs_full_snapshot_; }

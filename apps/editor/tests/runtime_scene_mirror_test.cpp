@@ -57,6 +57,18 @@ bool test_invalid_graph_is_atomic() {
          mirror.nodes().size() == 1U && mirror.nodes()[0].uuid == "root";
 }
 
+bool test_invalidate_preserves_visible_snapshot() {
+  gneiss::editor::runtime_scene_mirror mirror;
+  const gneiss::ipc_inspection_batch full{
+      .stamp = {3U, 1U}, .is_full = true, .changes = {upsert(1U, 1U, 0U, "root")}};
+  if (mirror.apply(full) != gneiss::result::success) {
+    return false;
+  }
+  mirror.invalidate();
+  return mirror.needs_full_snapshot() && mirror.nodes().size() == 1U &&
+         mirror.nodes().front().uuid == "root";
+}
+
 bool test_chunked_snapshot_is_atomic() {
   gneiss::editor::runtime_scene_mirror mirror;
   gneiss::ipc_inspection_batch second{.stamp = {5U, 1U},
@@ -84,7 +96,7 @@ bool test_chunked_snapshot_is_atomic() {
 
 int main() {
   return test_apply_and_resync() && test_invalid_graph_is_atomic() &&
-                 test_chunked_snapshot_is_atomic()
+                 test_invalidate_preserves_visible_snapshot() && test_chunked_snapshot_is_atomic()
              ? 0
              : 1;
 }

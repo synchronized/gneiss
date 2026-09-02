@@ -155,6 +155,7 @@ int main() try {
     std::this_thread::sleep_for(std::chrono::milliseconds(20));
   }
   process.update();
+  const auto first_inspection_session = process.scene_mirror().session_id();
   if (process.is_running() || process.exit_code() != 0 || !process.received_shutdown_complete() ||
       process.output().find("收到 Editor IPC 停止请求") == std::string::npos ||
       process.output().find("stage=shutdown") == std::string::npos ||
@@ -162,9 +163,34 @@ int main() try {
     return 8;
   }
 
-  if (process.start(GNEISS_TEST_CHILD_PROCESS, request) != gneiss::result::success ||
+  if (process.start(executable, request) != gneiss::result::success) {
+    return 9;
+  }
+  const auto replay_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+  while (std::chrono::steady_clock::now() < replay_deadline &&
+         (process.control_state() != gneiss::editor::runtime_control_state::running ||
+          process.scene_mirror().nodes().empty() ||
+          process.scene_mirror().session_id() == first_inspection_session)) {
+    process.update();
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  }
+  if (!process.is_running() || process.scene_mirror().nodes().empty() ||
+      process.scene_mirror().session_id() == first_inspection_session ||
       process.request_stop() != gneiss::result::success) {
     return 9;
+  }
+  while (process.is_running() && std::chrono::steady_clock::now() < replay_deadline) {
+    process.update();
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  }
+  process.update();
+  if (process.is_running() || process.exit_code() != 0 || !process.received_shutdown_complete()) {
+    return 9;
+  }
+
+  if (process.start(GNEISS_TEST_CHILD_PROCESS, request) != gneiss::result::success ||
+      process.request_stop() != gneiss::result::success) {
+    return 10;
   }
   const auto forced_stop_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(4);
   while (process.is_running() && std::chrono::steady_clock::now() < forced_stop_deadline) {
@@ -174,7 +200,7 @@ int main() try {
   process.update();
   if (process.is_running() || process.exit_code() == 0 ||
       process.output().find("已强制终止") == std::string::npos) {
-    return 10;
+    return 11;
   }
 
   gneiss::app::project_description module_project;
@@ -186,7 +212,7 @@ int main() try {
   if (process.build_and_start(GNEISS_TEST_CHILD_PROCESS, executable, request, module_project) !=
           gneiss::result::success ||
       !process.is_building()) {
-    return 11;
+    return 12;
   }
   const auto build_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
   while (process.is_building() && std::chrono::steady_clock::now() < build_deadline) {
@@ -197,7 +223,7 @@ int main() try {
   if (process.is_busy() || process.last_result() != gneiss::result::dependency_failed ||
       process.output().find("fixture build failed") == std::string::npos ||
       process.output().find("未启动 Runtime") == std::string::npos) {
-    return 12;
+    return 13;
   }
 
   std::filesystem::remove_all(invalid_project.root / "assets", error);
@@ -220,7 +246,7 @@ int main() try {
   if (error || !project_file ||
       process.build_and_start(GNEISS_TEST_CHILD_PROCESS, executable, invalid_request,
                               module_project) != gneiss::result::success) {
-    return 13;
+    return 14;
   }
   const auto build_success_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
   while (std::chrono::steady_clock::now() < build_success_deadline &&
@@ -231,7 +257,7 @@ int main() try {
   if (!process.is_running() || process.output().find("游戏模块构建完成") == std::string::npos ||
       process.output().find("Runtime 已进入首帧") == std::string::npos ||
       process.request_stop() != gneiss::result::success) {
-    return 14;
+    return 15;
   }
   return 0;
 } catch (...) {
