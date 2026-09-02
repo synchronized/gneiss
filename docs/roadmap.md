@@ -37,7 +37,7 @@
 | 0.12.0 游戏模块与生命周期 | 让工程模块在独立 Runtime 中运行游戏逻辑 | 已完成 |
 | 0.13.0 结构化日志与 Editor Console | 统一 Engine、Runtime 与游戏模块的可观察日志链路 | 已完成 |
 | 0.14.0 Editor UI 工作区 | 建立可停靠、可恢复且按工程隔离的编辑器工作区 | 已完成 |
-| 0.15.0 Editor–Runtime 双向控制通道 | 建立独立 Runtime 的版本化本机控制与状态通道 | 实现中 |
+| 0.15.0 Editor–Runtime 双向控制通道 | 建立独立 Runtime 的版本化本机控制与状态通道 | 已完成 |
 | 1.0.0 稳定运行时 | 冻结首批稳定公共能力和兼容承诺 | 待开始 |
 
 ## 0.1.0：最小运行时
@@ -296,7 +296,7 @@ libuv I/O 基础为未来 Network Service 提供复用点，但本版本不建�
 | M-98 Editor–Runtime 协议 | P0 | 已完成 |
 | M-99 Runtime 控制状态机 | P0 | 已完成 |
 | M-100 Editor Play 工作流 | P0 | 已完成 |
-| M-101 示例与跨平台验收 | P0 | 实现中 |
+| M-101 示例与跨平台验收 | P0 | 已完成 |
 
 详细范围、线程模型和验收条件见
 [VER-015：0.15.0 Editor–Runtime 双向控制通道](plans/VER-015-0.15.0-editor-runtime-ipc.md)。
