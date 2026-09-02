@@ -80,18 +80,55 @@ int main() try {
   const auto startup_started = std::chrono::steady_clock::now();
   const auto startup_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
   while (std::chrono::steady_clock::now() < startup_deadline &&
-         process.output().find("Runtime 已进入首帧") == std::string::npos) {
+         (process.output().find("Runtime 已进入首帧") == std::string::npos ||
+          process.control_state() != gneiss::editor::runtime_control_state::running)) {
     process.update();
     std::this_thread::sleep_for(std::chrono::milliseconds(20));
   }
   const auto current_session = process.console().current_session_id();
-  const auto has_structured_event =
-      std::ranges::any_of(process.console().entries(), [current_session](const auto& entry) {
-        return entry.session_id == current_session &&
-               entry.kind == gneiss::editor::console_entry_kind::structured;
-      });
+  const auto has_structured_event = [&] {
+    return std::ranges::any_of(process.console().entries(), [current_session](const auto& entry) {
+      return entry.session_id == current_session &&
+             entry.kind == gneiss::editor::console_entry_kind::structured;
+    });
+  };
+  while (std::chrono::steady_clock::now() < startup_deadline && !has_structured_event()) {
+    process.update();
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  }
   if (!process.is_running() || process.output().find("Runtime 已进入首帧") == std::string::npos ||
-      !has_structured_event || process.request_stop() != gneiss::result::success) {
+      !has_structured_event() ||
+      process.control_state() != gneiss::editor::runtime_control_state::running ||
+      process.request_pause() != gneiss::result::success) {
+    return 7;
+  }
+  const auto lifecycle_event_count =
+      std::ranges::count_if(process.console().entries(), [current_session](const auto& entry) {
+        return entry.session_id == current_session &&
+               entry.kind == gneiss::editor::console_entry_kind::structured &&
+               entry.event.category == "lifecycle" && entry.event.message == "Runtime 已进入首帧";
+      });
+  if (lifecycle_event_count != 1) {
+    return 7;
+  }
+  const auto pause_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(3);
+  while (process.control_state() != gneiss::editor::runtime_control_state::paused &&
+         std::chrono::steady_clock::now() < pause_deadline) {
+    process.update();
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  }
+  if (process.control_state() != gneiss::editor::runtime_control_state::paused ||
+      process.request_resume() != gneiss::result::success) {
+    return 7;
+  }
+  const auto resume_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(3);
+  while (process.control_state() != gneiss::editor::runtime_control_state::running &&
+         std::chrono::steady_clock::now() < resume_deadline) {
+    process.update();
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  }
+  if (process.control_state() != gneiss::editor::runtime_control_state::running ||
+      process.request_stop() != gneiss::result::success) {
     return 7;
   }
   const auto startup_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -105,8 +142,8 @@ int main() try {
     std::this_thread::sleep_for(std::chrono::milliseconds(20));
   }
   process.update();
-  if (process.is_running() || process.exit_code() != 0 ||
-      process.output().find("stage=stop_request") == std::string::npos ||
+  if (process.is_running() || process.exit_code() != 0 || !process.received_shutdown_complete() ||
+      process.output().find("收到 Editor IPC 停止请求") == std::string::npos ||
       process.output().find("stage=shutdown") == std::string::npos ||
       process.request_stop() != gneiss::result::not_ready) {
     return 8;

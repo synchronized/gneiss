@@ -5,7 +5,7 @@ cmake_minimum_required(VERSION 3.23)
 
 project(
   gneiss
-  VERSION 0.13.0
+  VERSION 0.15.0
   DESCRIPTION "基于 Granit 构建的现代 C++20 游戏引擎"
   LANGUAGES C CXX
 )
@@ -34,6 +34,10 @@ endif()
 include(CTest)
 
 add_subdirectory(3rd)
+if(GNEISS_BUILD_EDITOR OR GNEISS_BUILD_RUNTIME)
+  include(libuv)
+  gneiss_resolve_libuv()
+endif()
 add_subdirectory(src)
 if(GNEISS_BUILD_TOOLS)
   include(fastgltf)
@@ -58,6 +62,14 @@ endif()
 
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
+
+if(DEFINED GNEISS_LIBUV_SOURCE_DIR)
+  install(
+    FILES "${GNEISS_LIBUV_SOURCE_DIR}/LICENSE"
+    DESTINATION "${CMAKE_INSTALL_DATADIR}/doc/gneiss/licenses"
+    RENAME libuv-LICENSE
+  )
+endif()
 
 set(GNEISS_INSTALL_CMAKEDIR "${CMAKE_INSTALL_LIBDIR}/cmake/gneiss")
 configure_package_config_file(

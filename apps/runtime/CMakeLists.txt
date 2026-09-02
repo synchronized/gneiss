@@ -18,9 +18,21 @@ target_compile_features(gneiss_game_module_session PUBLIC cxx_std_20)
 gneiss_target_compile_warnings(gneiss_game_module_session)
 gneiss_target_output_directories(gneiss_game_module_session)
 
+add_library(
+  gneiss_runtime_ipc STATIC
+  runtime_ipc_session.cpp
+  runtime_ipc_session.h
+)
+target_link_libraries(gneiss_runtime_ipc PUBLIC gneiss_uv_runtime PRIVATE gneiss_app_project)
+target_include_directories(gneiss_runtime_ipc PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
+target_compile_features(gneiss_runtime_ipc PUBLIC cxx_std_20)
+gneiss_target_compile_warnings(gneiss_runtime_ipc)
+gneiss_target_output_directories(gneiss_runtime_ipc)
+
 add_executable(gneiss_runtime main.cpp runtime_log.cpp runtime_log.h)
 target_link_libraries(
-  gneiss_runtime PRIVATE gneiss_app_project gneiss::engine gneiss_game_module_session
+  gneiss_runtime
+  PRIVATE gneiss_app_project gneiss::engine gneiss_game_module_session gneiss_runtime_ipc
 )
 target_include_directories(gneiss_runtime PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_features(gneiss_runtime PRIVATE cxx_std_20)
@@ -66,6 +78,13 @@ if(BUILD_TESTING)
   gneiss_target_compile_warnings(gneiss_game_update_scheduler_test)
   gneiss_target_output_directories(gneiss_game_update_scheduler_test)
   add_test(NAME gneiss.runtime.game-update-scheduler COMMAND gneiss_game_update_scheduler_test)
+
+  add_executable(gneiss_runtime_ipc_session_test tests/runtime_ipc_session_test.cpp)
+  target_link_libraries(gneiss_runtime_ipc_session_test PRIVATE gneiss_runtime_ipc)
+  target_compile_features(gneiss_runtime_ipc_session_test PRIVATE cxx_std_20)
+  gneiss_target_compile_warnings(gneiss_runtime_ipc_session_test)
+  gneiss_target_output_directories(gneiss_runtime_ipc_session_test)
+  add_test(NAME gneiss.runtime.ipc-session COMMAND gneiss_runtime_ipc_session_test)
 
   add_executable(gneiss_runtime_log_test tests/runtime_log_test.cpp runtime_log.cpp runtime_log.h)
   target_include_directories(gneiss_runtime_log_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")

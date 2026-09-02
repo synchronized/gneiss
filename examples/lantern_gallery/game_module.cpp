@@ -5,8 +5,10 @@
 #include <gneiss/scene.h>
 
 #include <cmath>
+#include <cstdint>
 #include <cstring>
 #include <new>
+#include <string>
 #include <string_view>
 
 namespace {
@@ -17,7 +19,25 @@ struct lantern_game_state final {
   gneiss_action rotate = GNEISS_NULL_ACTION;
   gneiss_transform transform = GNEISS_TRANSFORM_IDENTITY;
   float angle{};
+  std::uint64_t update_count{};
 };
+
+gneiss_result log_runtime_progress(gneiss_game_context context, std::uint64_t update_count) {
+  constexpr std::string_view category = "runtime_progress";
+  const auto message = "Lantern Gallery 运行帧=" + std::to_string(update_count);
+  const gneiss_log_message log_message = {
+      .struct_size = sizeof(gneiss_log_message),
+      .severity = GNEISS_LOG_DEBUG,
+      .category = category.data(),
+      .category_length = category.size(),
+      .message = message.data(),
+      .message_length = message.size(),
+      .result = GNEISS_SUCCESS,
+      .flags = 0U,
+      .reserved = {},
+  };
+  return gneiss_game_context_log(context, &log_message);
+}
 
 gneiss_result initialize(gneiss_game_context context, void** out_state) {
   if (out_state == nullptr) {
@@ -76,6 +96,14 @@ gneiss_result update(gneiss_game_context context, void* module_state,
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
   auto& state = *static_cast<lantern_game_state*>(module_state);
+  ++state.update_count;
+  constexpr std::uint64_t progress_interval = 30U;
+  if (state.update_count % progress_interval == 0U) {
+    const auto progress_result = log_runtime_progress(context, state.update_count);
+    if (progress_result != GNEISS_SUCCESS) {
+      return progress_result;
+    }
+  }
   gneiss_action_state action = GNEISS_ACTION_STATE_INIT;
   auto result = gneiss_game_context_get_action_state(context, state.rotate, &action);
   if (result != GNEISS_SUCCESS) {

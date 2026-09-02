@@ -10,10 +10,21 @@
 
 #include <gneiss/app/project_description.h>
 
+#include <cstdint>
 #include <memory>
 #include <string>
 
 namespace gneiss::editor {
+
+enum class runtime_control_state : std::uint8_t {
+  stopped,
+  building,
+  connecting,
+  running,
+  paused,
+  stopping,
+  failed,
+};
 
 class runtime_process final {
 public:
@@ -30,11 +41,15 @@ public:
                                        const runtime_launch_request& request,
                                        const app::project_description& project) noexcept;
   [[nodiscard]] result request_stop() noexcept;
+  [[nodiscard]] result request_pause() noexcept;
+  [[nodiscard]] result request_resume() noexcept;
   void update() noexcept;
 
   [[nodiscard]] bool is_running() const noexcept;
   [[nodiscard]] bool is_building() const noexcept;
   [[nodiscard]] bool is_busy() const noexcept;
+  [[nodiscard]] runtime_control_state control_state() const noexcept;
+  [[nodiscard]] bool received_shutdown_complete() const noexcept;
   [[nodiscard]] bool has_started() const noexcept;
   [[nodiscard]] int exit_code() const noexcept;
   [[nodiscard]] const std::string& output() const noexcept;

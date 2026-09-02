@@ -27,7 +27,7 @@ add_library(
 )
 target_link_libraries(
   gneiss_editor_session
-  PRIVATE gneiss_yyjson gneiss_child_process
+  PRIVATE gneiss_yyjson gneiss_child_process gneiss_uv_runtime
   PUBLIC gneiss::engine gneiss_app_project
 )
 target_include_directories(gneiss_editor_session PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")

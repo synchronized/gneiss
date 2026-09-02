@@ -4,10 +4,15 @@
 #include "runtime_process.h"
 
 #include "child_process.h"
+#include "ipc_protocol.h"
+#include "ipc_transport.h"
 
+#include <algorithm>
+#include <array>
 #include <chrono>
 #include <fstream>
 #include <new>
+#include <random>
 #include <system_error>
 #include <thread>
 #include <utility>
@@ -32,14 +37,172 @@ struct runtime_process::implementation final {
   std::chrono::steady_clock::time_point stop_deadline;
   bool forced_termination_reported = false;
   bool is_building = false;
+  bool ipc_authenticated = false;
+  bool ipc_shutdown_complete = false;
+  std::string ipc_token;
+  ipc_transport ipc_server;
+  runtime_control_state control_state = runtime_control_state::stopped;
+  ipc_timeout_tracker ipc_heartbeat{std::chrono::seconds(10)};
+  ipc_timeout_tracker ipc_handshake{std::chrono::seconds(5)};
+  std::chrono::steady_clock::time_point next_ping;
+  std::uint64_t next_ping_nonce = 1U;
   result last_result = result::success;
+
+  void append_event_unique(app::runtime_log_record event) noexcept {
+    const auto duplicate = std::ranges::any_of(console.entries(), [&](const auto& entry) {
+      return entry.kind == console_entry_kind::structured &&
+             entry.session_id == runtime_session_id && entry.event.sequence == event.sequence &&
+             entry.event.source == event.source;
+    });
+    if (!duplicate) {
+      (void)console.append_event(runtime_session_id, std::move(event));
+    }
+  }
+
+  static std::string make_session_token() {
+    constexpr char digits[] = "0123456789abcdef";
+    std::array<unsigned char, 32U> bytes{};
+    std::random_device random;
+    std::string token;
+    token.resize(bytes.size() * 2U);
+    for (std::size_t index = 0U; index < bytes.size(); ++index) {
+      bytes[index] = static_cast<unsigned char>(random());
+      token[index * 2U] = digits[bytes[index] >> 4U];
+      token[index * 2U + 1U] = digits[bytes[index] & 0x0FU];
+    }
+    return token;
+  }
+
+  result send_ipc(ipc_message message) noexcept {
+    ipc_frame frame;
+    const auto encoded = encode_ipc_message(message, frame);
+    return encoded == result::success ? ipc_server.send(frame) : encoded;
+  }
+
+  void stop_ipc() noexcept {
+    if (ipc_server.state() != ipc_transport_state::stopped) {
+      (void)ipc_server.stop();
+    }
+    ipc_authenticated = false;
+    ipc_token.clear();
+    next_ping = {};
+  }
+
+  void fail_ipc(result operation) noexcept {
+    last_result = operation;
+    control_state = runtime_control_state::failed;
+    if (stop_deadline == std::chrono::steady_clock::time_point{}) {
+      stop_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+    }
+  }
+
+  void update_ipc() noexcept {
+    const auto now = std::chrono::steady_clock::now();
+    std::vector<ipc_transport_event> events;
+    (void)ipc_server.poll_events(events);
+    for (auto& event : events) {
+      if (event.type == ipc_transport_event_type::error ||
+          event.type == ipc_transport_event_type::disconnected) {
+        if (process.is_running()) {
+          fail_ipc(event.operation == result::success ? result::io : event.operation);
+        }
+        continue;
+      }
+      if (event.type != ipc_transport_event_type::frame_received) {
+        continue;
+      }
+      if (!ipc_authenticated) {
+        ipc_frame acknowledgment;
+        std::vector<std::string> negotiated;
+        const std::vector<std::string> supported{"control", "heartbeat", "logs"};
+        auto accepted =
+            accept_ipc_hello(event.frame, ipc_token, supported, acknowledgment, negotiated);
+        if (accepted == result::success) {
+          accepted = ipc_server.send(acknowledgment);
+        }
+        if (accepted != result::success) {
+          fail_ipc(accepted);
+          continue;
+        }
+        ipc_authenticated = true;
+        ipc_heartbeat.reset(now);
+        next_ping = now;
+        continue;
+      }
+
+      ipc_message message;
+      const auto decoded = decode_ipc_message(event.frame, message);
+      if (decoded == result::unsupported) {
+        continue;
+      }
+      if (decoded != result::success) {
+        fail_ipc(decoded);
+        continue;
+      }
+      ipc_heartbeat.reset(now);
+      if (message.type == ipc_message_type::state_changed) {
+        switch (message.runtime_state) {
+        case ipc_runtime_state::running:
+          control_state = runtime_control_state::running;
+          break;
+        case ipc_runtime_state::paused:
+          control_state = runtime_control_state::paused;
+          break;
+        case ipc_runtime_state::stopping:
+          control_state = runtime_control_state::stopping;
+          break;
+        case ipc_runtime_state::loading:
+        case ipc_runtime_state::ready:
+          control_state = runtime_control_state::connecting;
+          break;
+        }
+      } else if (message.type == ipc_message_type::error) {
+        last_result = from_native(message.code);
+      } else if (message.type == ipc_message_type::log_event) {
+        while (!message.text.empty() &&
+               (message.text.back() == '\n' || message.text.back() == '\r')) {
+          message.text.pop_back();
+        }
+        app::runtime_log_record record;
+        if (app::parse_runtime_log_line(message.text, record) ==
+            app::runtime_log_parse_result::success) {
+          append_event_unique(std::move(record));
+        }
+      } else if (message.type == ipc_message_type::shutdown_complete) {
+        ipc_shutdown_complete = true;
+        control_state = runtime_control_state::stopping;
+      }
+    }
+    if (!ipc_authenticated) {
+      if (process.is_running() && ipc_handshake.expired(now)) {
+        fail_ipc(result::not_ready);
+      }
+      return;
+    }
+    if (control_state == runtime_control_state::failed) {
+      return;
+    }
+    if (now >= next_ping) {
+      ipc_message ping;
+      ping.type = ipc_message_type::ping;
+      ping.nonce = next_ping_nonce++;
+      if (send_ipc(std::move(ping)) != result::success) {
+        fail_ipc(result::not_ready);
+        return;
+      }
+      next_ping = now + std::chrono::seconds(1);
+    }
+    if (ipc_heartbeat.expired(now)) {
+      fail_ipc(result::not_ready);
+    }
+  }
 
   void append_console_lines(std::vector<app::runtime_log_line>& lines) noexcept {
     for (auto& line : lines) {
       app::runtime_log_record event;
       if (!line.was_truncated &&
           app::parse_runtime_log_line(line.text, event) == app::runtime_log_parse_result::success) {
-        (void)console.append_event(runtime_session_id, std::move(event));
+        append_event_unique(std::move(event));
       } else {
         (void)console.append_raw(runtime_session_id, line.text, line.was_truncated);
       }
@@ -101,6 +264,7 @@ runtime_process::~runtime_process() {
     }
   }
   implementation_->clean_stop_file();
+  implementation_->stop_ipc();
 }
 
 result runtime_process::start(const std::filesystem::path& executable,
@@ -119,6 +283,8 @@ result runtime_process::start(const std::filesystem::path& executable,
     implementation_->combined_output.clear();
     implementation_->stop_deadline = {};
     implementation_->forced_termination_reported = false;
+    implementation_->ipc_shutdown_complete = false;
+    implementation_->control_state = runtime_control_state::connecting;
     const auto serial = std::chrono::steady_clock::now().time_since_epoch().count();
     implementation_->session_root = std::filesystem::temp_directory_path() / "Gneiss" /
                                     ("editor-runtime-" + std::to_string(serial));
@@ -128,14 +294,26 @@ result runtime_process::start(const std::filesystem::path& executable,
     }
     implementation_->stop_file = implementation_->session_root / "stop.signal";
     implementation_->log_file = implementation_->session_root / "runtime.log";
+    implementation_->ipc_token = implementation::make_session_token();
+    auto started = implementation_->ipc_server.start_server();
+    if (started != result::success) {
+      implementation_->control_state = runtime_control_state::failed;
+      implementation_->discard_session();
+      return started;
+    }
+    const auto endpoint = implementation_->ipc_server.endpoint();
+    implementation_->ipc_handshake.reset(std::chrono::steady_clock::now());
     child_process_start_info info;
     info.executable = executable;
-    info.arguments = {"--project",   request.project_root,
-                      "--stop-file", implementation_->stop_file,
-                      "--log-file",  implementation_->log_file};
-    const auto started = implementation_->process.start(info);
+    info.arguments = {
+        "--project",  request.project_root,          "--stop-file",   implementation_->stop_file,
+        "--log-file", implementation_->log_file,     "--ipc-address", endpoint.address,
+        "--ipc-port", std::to_string(endpoint.port), "--ipc-token",   implementation_->ipc_token};
+    started = implementation_->process.start(info);
     implementation_->last_result = started;
     if (started != result::success) {
+      implementation_->stop_ipc();
+      implementation_->control_state = runtime_control_state::failed;
       implementation_->discard_session();
     } else {
       implementation_->runtime_session_id = implementation_->console.begin_session();
@@ -171,6 +349,8 @@ result runtime_process::build_and_start(const std::filesystem::path& cmake_execu
     const auto operation = implementation_->build_process.start(info);
     implementation_->last_result = operation;
     implementation_->is_building = operation == result::success;
+    implementation_->control_state = operation == result::success ? runtime_control_state::building
+                                                                  : runtime_control_state::failed;
     if (operation == result::success) {
       implementation_->combined_output = "[Editor] 正在构建游戏模块。\n";
     }
@@ -190,11 +370,25 @@ result runtime_process::request_stop() noexcept {
     const auto operation = implementation_->build_process.terminate();
     implementation_->is_building = false;
     implementation_->last_result = operation;
+    implementation_->control_state = operation == result::success ? runtime_control_state::stopped
+                                                                  : runtime_control_state::failed;
     implementation_->combined_output += "\n[Editor] 游戏模块构建已停止。\n";
     return operation;
   }
   if (!is_running()) {
     return result::not_ready;
+  }
+  if (implementation_->ipc_authenticated) {
+    ipc_message stop;
+    stop.type = ipc_message_type::stop;
+    const auto operation = implementation_->send_ipc(std::move(stop));
+    if (operation == result::success) {
+      implementation_->control_state = runtime_control_state::stopping;
+      if (implementation_->stop_deadline == std::chrono::steady_clock::time_point{}) {
+        implementation_->stop_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+      }
+      return result::success;
+    }
   }
   try {
     std::ofstream signal(implementation_->stop_file, std::ios::binary | std::ios::trunc);
@@ -211,6 +405,26 @@ result runtime_process::request_stop() noexcept {
   }
 }
 
+result runtime_process::request_pause() noexcept {
+  if (!implementation_ || !implementation_->ipc_authenticated ||
+      implementation_->control_state != runtime_control_state::running) {
+    return result::not_ready;
+  }
+  ipc_message pause;
+  pause.type = ipc_message_type::pause;
+  return implementation_->send_ipc(std::move(pause));
+}
+
+result runtime_process::request_resume() noexcept {
+  if (!implementation_ || !implementation_->ipc_authenticated ||
+      implementation_->control_state != runtime_control_state::paused) {
+    return result::not_ready;
+  }
+  ipc_message resume;
+  resume.type = ipc_message_type::resume;
+  return implementation_->send_ipc(std::move(resume));
+}
+
 void runtime_process::update() noexcept {
   if (!implementation_) {
     return;
@@ -225,6 +439,7 @@ void runtime_process::update() noexcept {
     implementation_->is_building = false;
     if (implementation_->build_process.exit_code() != 0) {
       implementation_->last_result = result::dependency_failed;
+      implementation_->control_state = runtime_control_state::failed;
       implementation_->combined_output += "\n[Editor] 游戏模块构建失败，未启动 Runtime。\n";
       return;
     }
@@ -247,6 +462,7 @@ void runtime_process::update() noexcept {
     }
   }
   implementation_->process.update();
+  implementation_->update_ipc();
   implementation_->consume_runtime_output();
   if (!implementation_->process.output().empty()) {
     const auto marker = implementation_->combined_output.find("[Runtime]\n");
@@ -260,6 +476,12 @@ void runtime_process::update() noexcept {
   if (!implementation_->process.is_running()) {
     implementation_->finish_runtime_output();
     implementation_->stop_deadline = {};
+    implementation_->stop_ipc();
+    if (implementation_->control_state != runtime_control_state::failed) {
+      implementation_->control_state = implementation_->process.exit_code() == 0
+                                           ? runtime_control_state::stopped
+                                           : runtime_control_state::failed;
+    }
     return;
   }
   if (implementation_->stop_deadline != std::chrono::steady_clock::time_point{} &&
@@ -279,6 +501,12 @@ bool runtime_process::is_building() const noexcept {
   return implementation_ && implementation_->is_building;
 }
 bool runtime_process::is_busy() const noexcept { return is_building() || is_running(); }
+runtime_control_state runtime_process::control_state() const noexcept {
+  return implementation_ ? implementation_->control_state : runtime_control_state::failed;
+}
+bool runtime_process::received_shutdown_complete() const noexcept {
+  return implementation_ && implementation_->ipc_shutdown_complete;
+}
 bool runtime_process::has_started() const noexcept {
   return implementation_ &&
          (implementation_->build_process.has_started() || implementation_->process.has_started());
