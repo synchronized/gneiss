@@ -85,6 +85,7 @@
 - [M-106：Runtime 基础运行统计实施记录](records/M-106-runtime-statistics.md)
 - [M-107：Runtime 检查流控与恢复实施记录](records/M-107-runtime-inspection-recovery.md)
 - [M-108：Runtime 检查示例与跨平台验收记录](records/M-108-runtime-inspection-validation.md)
+- [M-109：Runtime 属性写入协议实施记录](records/M-109-runtime-property-edit-protocol.md)
 - [TOOL-001：glTF 资产编译器最小闭环](plans/TOOL-001-gltf-asset-compiler.md)
 - [TOOL-002：Mesh Binary v1 最小闭环](plans/TOOL-002-mesh-binary-v1.md)
 - [TOOL-003：索引渲染最小闭环](plans/TOOL-003-indexed-rendering.md)

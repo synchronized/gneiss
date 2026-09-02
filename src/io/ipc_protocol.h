@@ -16,9 +16,11 @@
 namespace gneiss {
 
 inline constexpr std::uint16_t ipc_protocol_major = 1U;
-inline constexpr std::uint16_t ipc_protocol_minor = 1U;
+inline constexpr std::uint16_t ipc_protocol_minor = 2U;
 inline constexpr std::size_t ipc_protocol_max_json_size = 64U * 1024U;
 inline constexpr std::string_view ipc_capability_runtime_inspection_v1 = "runtime_inspection_v1";
+inline constexpr std::string_view ipc_capability_runtime_property_edit_v1 =
+    "runtime_property_edit_v1";
 
 enum class ipc_message_type : std::uint16_t {
   hello = 1U,
@@ -36,6 +38,8 @@ enum class ipc_message_type : std::uint16_t {
   inspection_snapshot = 13U,
   statistics_snapshot = 14U,
   inspection_resync = 15U,
+  property_write = 16U,
+  property_write_result = 17U,
 };
 
 enum class ipc_runtime_state : std::uint8_t {
