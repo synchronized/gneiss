@@ -478,6 +478,23 @@ gneiss_target_output_directories(gneiss_scene_description_test)
 add_test(NAME gneiss.scene_description COMMAND gneiss_scene_description_test)
 
 add_executable(
+  gneiss_prefab_description_test
+  serialization/prefab_description_test.cpp
+  "${PROJECT_SOURCE_DIR}/src/asset/asset_uri.cpp"
+  "${PROJECT_SOURCE_DIR}/src/asset/virtual_file_system.cpp"
+  "${PROJECT_SOURCE_DIR}/src/scene/prefab_description.cpp"
+  "${PROJECT_SOURCE_DIR}/src/scene/scene_description.cpp"
+  "${PROJECT_SOURCE_DIR}/src/scene/scene_tree.cpp"
+)
+target_include_directories(gneiss_prefab_description_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_compile_definitions(gneiss_prefab_description_test PRIVATE GNEISS_BUILDING_LIBRARY)
+target_link_libraries(gneiss_prefab_description_test PRIVATE gneiss::engine gneiss_yyjson)
+target_compile_features(gneiss_prefab_description_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_prefab_description_test)
+gneiss_target_output_directories(gneiss_prefab_description_test)
+add_test(NAME gneiss.prefab_description COMMAND gneiss_prefab_description_test)
+
+add_executable(
   gneiss_resource_service_test
   asset/resource_service_test.cpp
   "${PROJECT_SOURCE_DIR}/src/asset/asset_uri.cpp"
