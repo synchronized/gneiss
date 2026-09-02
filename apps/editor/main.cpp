@@ -54,6 +54,8 @@ struct editor_state {
   gneiss::editor::property_inspector_model inspector;
   gneiss_world world = GNEISS_NULL_WORLD;
   gneiss::entity_id inspected_entity;
+  gneiss::ipc_runtime_object_id inspected_runtime_node;
+  std::uint64_t inspected_runtime_session = 0U;
   gneiss::result inspector_error = gneiss::result::success;
   gneiss::result history_error = gneiss::result::success;
   std::filesystem::path asset_root;
@@ -526,6 +528,8 @@ void draw_scene_node(editor_state& state, const gneiss::editor::scene_node_recor
   const auto is_open = ImGui::TreeNodeEx(node.display_name.c_str(), flags);
   if (ImGui::IsItemClicked()) {
     (void)state.session.select(node.node);
+    state.inspected_runtime_node = {};
+    state.inspected_runtime_session = 0U;
   }
   if (ImGui::BeginPopupContextItem("Node Actions")) {
     if (ImGui::MenuItem("Rename", "F2")) {
@@ -575,7 +579,8 @@ void draw_scene_node(editor_state& state, const gneiss::editor::scene_node_recor
   ImGui::PopID();
 }
 
-void draw_runtime_scene_node(const std::vector<gneiss::ipc_inspection_node>& nodes,
+void draw_runtime_scene_node(editor_state& state,
+                             const std::vector<gneiss::ipc_inspection_node>& nodes,
                              const gneiss::ipc_inspection_node& node) {
   const auto has_children = std::ranges::any_of(
       nodes, [&](const auto& candidate) { return candidate.parent == node.id; });
@@ -584,20 +589,86 @@ void draw_runtime_scene_node(const std::vector<gneiss::ipc_inspection_node>& nod
   if (!has_children) {
     flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen;
   }
-  ImGui::PushID(static_cast<int>(node.id.value));
-  ImGui::PushID(static_cast<int>(node.id.generation));
+  if (state.inspected_runtime_session == state.runtime.scene_mirror().session_id() &&
+      state.inspected_runtime_node == node.id) {
+    flags |= ImGuiTreeNodeFlags_Selected;
+  }
+  ImGui::PushID(node.uuid.c_str());
   const auto& label = node.name.empty() ? node.uuid : node.name;
   const auto is_open = ImGui::TreeNodeEx(label.c_str(), flags);
+  if (ImGui::IsItemClicked()) {
+    state.inspected_runtime_node = node.id;
+    state.inspected_runtime_session = state.runtime.scene_mirror().session_id();
+  }
   if (has_children && is_open) {
     for (const auto& child : nodes) {
       if (child.parent == node.id) {
-        draw_runtime_scene_node(nodes, child);
+        draw_runtime_scene_node(state, nodes, child);
       }
     }
     ImGui::TreePop();
   }
   ImGui::PopID();
-  ImGui::PopID();
+}
+
+const gneiss::ipc_inspection_node* selected_runtime_node(const editor_state& state) noexcept {
+  const auto& mirror = state.runtime.scene_mirror();
+  if (state.inspected_runtime_session == 0U ||
+      state.inspected_runtime_session != mirror.session_id()) {
+    return nullptr;
+  }
+  const auto& nodes = mirror.nodes();
+  const auto found =
+      std::ranges::find(nodes, state.inspected_runtime_node, &gneiss::ipc_inspection_node::id);
+  return found == nodes.end() ? nullptr : &*found;
+}
+
+void draw_runtime_inspector(const gneiss::ipc_inspection_node& node) {
+  ImGui::Text("Name: %s", node.name.empty() ? node.uuid.c_str() : node.name.c_str());
+  ImGui::Text("UUID: %s", node.uuid.c_str());
+  ImGui::TextDisabled("Runtime read-only");
+  ImGui::Separator();
+  ImGui::BeginDisabled();
+  if (ImGui::CollapsingHeader("Transform", ImGuiTreeNodeFlags_DefaultOpen)) {
+    auto translation = std::to_array(node.local_transform.translation);
+    auto scale = std::to_array(node.local_transform.scale);
+    gneiss_property_quaternion quaternion{
+        node.local_transform.rotation[0], node.local_transform.rotation[1],
+        node.local_transform.rotation[2], node.local_transform.rotation[3]};
+    std::array<float, 3> rotation{};
+    (void)gneiss::editor::quaternion_to_euler_degrees(quaternion, rotation);
+    ImGui::PushID(static_cast<int>(GNEISS_TRANSFORM_FIELD_TRANSLATION));
+    ImGui::DragFloat3("Translation", translation.data());
+    ImGui::PopID();
+    ImGui::PushID(static_cast<int>(GNEISS_TRANSFORM_FIELD_ROTATION));
+    ImGui::DragFloat3("Rotation (degrees)", rotation.data());
+    ImGui::PopID();
+    ImGui::PushID(static_cast<int>(GNEISS_TRANSFORM_FIELD_SCALE));
+    ImGui::DragFloat3("Scale", scale.data());
+    ImGui::PopID();
+  }
+  if ((node.component_flags & GNEISS_SCENE_NODE_COMPONENT_CAMERA) != 0U &&
+      ImGui::CollapsingHeader("Camera", ImGuiTreeNodeFlags_DefaultOpen)) {
+    auto field_of_view = node.camera.vertical_field_of_view_radians;
+    auto near_plane = node.camera.near_plane;
+    auto far_plane = node.camera.far_plane;
+    ImGui::PushID(static_cast<int>(GNEISS_CAMERA_FIELD_VERTICAL_FIELD_OF_VIEW_RADIANS));
+    ImGui::DragFloat("Vertical FOV (radians)", &field_of_view);
+    ImGui::PopID();
+    ImGui::PushID(static_cast<int>(GNEISS_CAMERA_FIELD_NEAR_PLANE));
+    ImGui::DragFloat("Near plane", &near_plane);
+    ImGui::PopID();
+    ImGui::PushID(static_cast<int>(GNEISS_CAMERA_FIELD_FAR_PLANE));
+    ImGui::DragFloat("Far plane", &far_plane);
+    ImGui::PopID();
+  }
+  ImGui::EndDisabled();
+  if ((node.component_flags & GNEISS_SCENE_NODE_COMPONENT_MESH_RENDERER) != 0U &&
+      ImGui::CollapsingHeader("Mesh Renderer", ImGuiTreeNodeFlags_DefaultOpen)) {
+    ImGui::TextWrapped("Mesh: %s", node.mesh_uri.empty() ? "(none)" : node.mesh_uri.c_str());
+    ImGui::TextWrapped("Material: %s",
+                       node.material_uri.empty() ? "(none)" : node.material_uri.c_str());
+  }
 }
 
 bool draw_property(editor_state& state, const gneiss::editor::inspector_component& component,
@@ -1452,7 +1523,7 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
         } else {
           for (const auto& node : runtime_nodes) {
             if (!node.parent.is_valid()) {
-              draw_runtime_scene_node(runtime_nodes, node);
+              draw_runtime_scene_node(state, runtime_nodes, node);
             }
           }
         }
@@ -1730,7 +1801,12 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
                          static_cast<int>(message.size()), message.data());
     }
     ImGui::Separator();
-    if (const auto* selected = state.session.selected_node(); selected != nullptr) {
+    if (const auto* runtime_selected = selected_runtime_node(state); runtime_selected != nullptr) {
+      state.inspector.clear();
+      state.inspected_entity = {};
+      state.inspector_error = gneiss::result::success;
+      draw_runtime_inspector(*runtime_selected);
+    } else if (const auto* selected = state.session.selected_node(); selected != nullptr) {
       if (state.inspected_entity != selected->entity) {
         state.inspector_error = state.inspector.refresh(state.world, selected->entity);
         state.inspected_entity = selected->entity;

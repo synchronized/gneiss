@@ -23,7 +23,12 @@ bool equal_node(const gneiss::runtime_internal::runtime_scene_snapshot_node& lef
                 const gneiss::runtime_internal::runtime_scene_snapshot_node& right) noexcept {
   return left.id == right.id && left.parent == right.parent && left.uuid == right.uuid &&
          left.name == right.name && equal_transform(left.local_transform, right.local_transform) &&
-         left.component_flags == right.component_flags;
+         left.component_flags == right.component_flags &&
+         left.camera.vertical_field_of_view_radians ==
+             right.camera.vertical_field_of_view_radians &&
+         left.camera.near_plane == right.camera.near_plane &&
+         left.camera.far_plane == right.camera.far_plane && left.mesh_uri == right.mesh_uri &&
+         left.material_uri == right.material_uri;
 }
 
 std::string borrowed_string(const char* value, std::uint64_t length) {
@@ -60,6 +65,8 @@ result runtime_scene_inspection::capture(std::span<const runtime_scene_source_no
       if (node.native_node == 0U || node.uuid.empty() ||
           node.uuid.size() > runtime_inspection_max_string_size ||
           node.name.size() > runtime_inspection_max_string_size ||
+          node.mesh_uri.size() > runtime_inspection_max_string_size ||
+          node.material_uri.size() > runtime_inspection_max_string_size ||
           !uuids.insert(node.uuid).second || !native_nodes.insert(node.native_node).second) {
         return result::invalid_argument;
       }
@@ -123,7 +130,10 @@ result runtime_scene_inspection::capture(std::span<const runtime_scene_source_no
                                        .uuid = source.uuid,
                                        .name = source.name,
                                        .local_transform = source.local_transform,
-                                       .component_flags = source.component_flags};
+                                       .component_flags = source.component_flags,
+                                       .camera = source.camera,
+                                       .mesh_uri = source.mesh_uri,
+                                       .material_uri = source.material_uri};
       current.emplace(node.id.value, node);
       ordered.push_back(std::move(node));
     }
@@ -196,16 +206,24 @@ result runtime_scene_inspection::capture_scene(gneiss_application application,
       }
       if ((info.uuid_length != 0U && info.uuid == nullptr) ||
           (info.name_length != 0U && info.name == nullptr) ||
+          (info.mesh_uri_length != 0U && info.mesh_uri == nullptr) ||
+          (info.material_uri_length != 0U && info.material_uri == nullptr) ||
           info.uuid_length > runtime_inspection_max_string_size ||
-          info.name_length > runtime_inspection_max_string_size) {
+          info.name_length > runtime_inspection_max_string_size ||
+          info.mesh_uri_length > runtime_inspection_max_string_size ||
+          info.material_uri_length > runtime_inspection_max_string_size) {
         return result::invalid_argument;
       }
-      nodes.push_back({.native_node = info.node,
-                       .native_parent = info.parent,
-                       .uuid = borrowed_string(info.uuid, info.uuid_length),
-                       .name = borrowed_string(info.name, info.name_length),
-                       .local_transform = info.local_transform,
-                       .component_flags = info.component_flags});
+      nodes.push_back(
+          {.native_node = info.node,
+           .native_parent = info.parent,
+           .uuid = borrowed_string(info.uuid, info.uuid_length),
+           .name = borrowed_string(info.name, info.name_length),
+           .local_transform = info.local_transform,
+           .component_flags = info.component_flags,
+           .camera = info.camera,
+           .mesh_uri = borrowed_string(info.mesh_uri, info.mesh_uri_length),
+           .material_uri = borrowed_string(info.material_uri, info.material_uri_length)});
     }
     return capture(nodes, force_full, output);
   } catch (const std::bad_alloc&) {

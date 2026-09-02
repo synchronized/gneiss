@@ -12,7 +12,12 @@ make_node(std::uint64_t node, std::uint64_t parent, std::string uuid, std::strin
   return {.native_node = node,
           .native_parent = parent,
           .uuid = std::move(uuid),
-          .name = std::move(name)};
+          .name = std::move(name),
+          .local_transform = GNEISS_TRANSFORM_IDENTITY,
+          .component_flags = 0U,
+          .camera = GNEISS_CAMERA_DESC_INIT,
+          .mesh_uri = {},
+          .material_uri = {}};
 }
 
 bool test_full_and_incremental_snapshot() {
@@ -36,10 +41,18 @@ bool test_full_and_incremental_snapshot() {
 
   nodes[1].name = "Renamed";
   nodes[1].local_transform.translation[0] = 2.0F;
+  nodes[1].component_flags =
+      GNEISS_SCENE_NODE_COMPONENT_CAMERA | GNEISS_SCENE_NODE_COMPONENT_MESH_RENDERER;
+  nodes[1].camera.near_plane = 0.25F;
+  nodes[1].mesh_uri = "asset:///meshes/child.gneiss-mesh";
+  nodes[1].material_uri = "asset:///materials/child.material.json";
   if (inspection.capture(nodes, false, snapshot) != gneiss::result::success || snapshot.is_full ||
       snapshot.stamp.sequence != 2U || snapshot.changes.size() != 1U ||
       snapshot.changes[0].type != runtime_scene_change_type::upsert ||
-      snapshot.changes[0].id != old_child_id || snapshot.changes[0].node.name != "Renamed") {
+      snapshot.changes[0].id != old_child_id || snapshot.changes[0].node.name != "Renamed" ||
+      snapshot.changes[0].node.camera.near_plane != 0.25F ||
+      snapshot.changes[0].node.mesh_uri != nodes[1].mesh_uri ||
+      snapshot.changes[0].node.material_uri != nodes[1].material_uri) {
     return false;
   }
 

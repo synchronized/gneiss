@@ -215,6 +215,9 @@ bool test_runtime_inspection_batch_round_trip() {
   root.node.name = "根节点";
   root.node.local_transform.translation[0] = 2.0F;
   root.node.component_flags = GNEISS_SCENE_NODE_COMPONENT_CAMERA;
+  root.node.camera.near_plane = 0.25F;
+  root.node.mesh_uri = "asset:///meshes/root.gneiss-mesh";
+  root.node.material_uri = "asset:///materials/root.material.json";
   gneiss::ipc_inspection_change removed;
   removed.type = gneiss::ipc_inspection_change_type::remove;
   removed.id = {2U, 3U};
@@ -230,6 +233,9 @@ bool test_runtime_inspection_batch_round_trip() {
          decoded.changes.size() == 2U && decoded.changes[0].node.name == "根节点" &&
          decoded.changes[0].node.local_transform.translation[0] == 2.0F &&
          decoded.changes[0].node.component_flags == GNEISS_SCENE_NODE_COMPONENT_CAMERA &&
+         decoded.changes[0].node.camera.near_plane == 0.25F &&
+         decoded.changes[0].node.mesh_uri == root.node.mesh_uri &&
+         decoded.changes[0].node.material_uri == root.node.material_uri &&
          decoded.changes[1].type == gneiss::ipc_inspection_change_type::remove &&
          decoded.changes[1].id == removed.id;
 }

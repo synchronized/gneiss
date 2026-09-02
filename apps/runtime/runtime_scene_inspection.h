@@ -28,6 +28,9 @@ struct runtime_scene_source_node final {
   std::string name;
   gneiss_transform local_transform = GNEISS_TRANSFORM_IDENTITY;
   std::uint32_t component_flags = 0U;
+  gneiss_camera_desc camera = GNEISS_CAMERA_DESC_INIT;
+  std::string mesh_uri;
+  std::string material_uri;
 };
 
 using runtime_scene_snapshot_node = ipc_inspection_node;

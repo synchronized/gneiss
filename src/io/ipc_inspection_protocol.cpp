@@ -78,9 +78,15 @@ bool parse_float_array(yyjson_val* object, const char* key, float* output,
   return true;
 }
 
+bool valid_camera(const gneiss_camera_desc& camera) noexcept {
+  return std::isfinite(camera.vertical_field_of_view_radians) && std::isfinite(camera.near_plane) &&
+         std::isfinite(camera.far_plane);
+}
+
 bool add_node(yyjson_mut_doc* document, yyjson_mut_val* change,
               const gneiss::ipc_inspection_node& node) noexcept {
   auto* value = yyjson_mut_obj(document);
+  auto* camera = yyjson_mut_obj(document);
   return value != nullptr && add_id(document, value, "id", node.id) &&
          add_id(document, value, "parent", node.parent) &&
          yyjson_mut_obj_add_strncpy(document, value, "uuid", node.uuid.data(), node.uuid.size()) &&
@@ -89,6 +95,16 @@ bool add_node(yyjson_mut_doc* document, yyjson_mut_val* change,
          add_float_array(document, value, "rotation", node.local_transform.rotation, 4U) &&
          add_float_array(document, value, "scale", node.local_transform.scale, 3U) &&
          yyjson_mut_obj_add_uint(document, value, "component_flags", node.component_flags) &&
+         camera != nullptr &&
+         yyjson_mut_obj_add_real(document, camera, "vertical_field_of_view_radians",
+                                 node.camera.vertical_field_of_view_radians) &&
+         yyjson_mut_obj_add_real(document, camera, "near_plane", node.camera.near_plane) &&
+         yyjson_mut_obj_add_real(document, camera, "far_plane", node.camera.far_plane) &&
+         yyjson_mut_obj_add_val(document, value, "camera", camera) &&
+         yyjson_mut_obj_add_strncpy(document, value, "mesh_uri", node.mesh_uri.data(),
+                                    node.mesh_uri.size()) &&
+         yyjson_mut_obj_add_strncpy(document, value, "material_uri", node.material_uri.data(),
+                                    node.material_uri.size()) &&
          yyjson_mut_obj_add_val(document, change, "node", value);
 }
 
@@ -97,10 +113,20 @@ bool parse_node(yyjson_val* change, gneiss::ipc_inspection_node& output) {
   auto* uuid = yyjson_is_obj(node) ? yyjson_obj_get(node, "uuid") : nullptr;
   auto* name = yyjson_is_obj(node) ? yyjson_obj_get(node, "name") : nullptr;
   auto* flags = yyjson_is_obj(node) ? yyjson_obj_get(node, "component_flags") : nullptr;
+  auto* camera = yyjson_is_obj(node) ? yyjson_obj_get(node, "camera") : nullptr;
+  auto* field_of_view =
+      yyjson_is_obj(camera) ? yyjson_obj_get(camera, "vertical_field_of_view_radians") : nullptr;
+  auto* near_plane = yyjson_is_obj(camera) ? yyjson_obj_get(camera, "near_plane") : nullptr;
+  auto* far_plane = yyjson_is_obj(camera) ? yyjson_obj_get(camera, "far_plane") : nullptr;
+  auto* mesh_uri = yyjson_is_obj(node) ? yyjson_obj_get(node, "mesh_uri") : nullptr;
+  auto* material_uri = yyjson_is_obj(node) ? yyjson_obj_get(node, "material_uri") : nullptr;
   if (!yyjson_is_str(uuid) || yyjson_get_len(uuid) == 0U ||
       yyjson_get_len(uuid) > max_string_size || !yyjson_is_str(name) ||
       yyjson_get_len(name) > max_string_size || !yyjson_is_uint(flags) ||
       yyjson_get_uint(flags) > std::numeric_limits<std::uint32_t>::max() ||
+      !yyjson_is_num(field_of_view) || !yyjson_is_num(near_plane) || !yyjson_is_num(far_plane) ||
+      !yyjson_is_str(mesh_uri) || yyjson_get_len(mesh_uri) > max_string_size ||
+      !yyjson_is_str(material_uri) || yyjson_get_len(material_uri) > max_string_size ||
       !parse_id(node, "id", false, output.id) || !parse_id(node, "parent", true, output.parent) ||
       !parse_float_array(node, "translation", output.local_transform.translation, 3U) ||
       !parse_float_array(node, "rotation", output.local_transform.rotation, 4U) ||
@@ -110,6 +136,22 @@ bool parse_node(yyjson_val* change, gneiss::ipc_inspection_node& output) {
   output.uuid.assign(yyjson_get_str(uuid), yyjson_get_len(uuid));
   output.name.assign(yyjson_get_str(name), yyjson_get_len(name));
   output.component_flags = static_cast<std::uint32_t>(yyjson_get_uint(flags));
+  const auto fov = yyjson_get_real(field_of_view);
+  const auto near_value = yyjson_get_real(near_plane);
+  const auto far_value = yyjson_get_real(far_plane);
+  if (!std::isfinite(fov) || !std::isfinite(near_value) || !std::isfinite(far_value) ||
+      fov < -std::numeric_limits<float>::max() || fov > std::numeric_limits<float>::max() ||
+      near_value < -std::numeric_limits<float>::max() ||
+      near_value > std::numeric_limits<float>::max() ||
+      far_value < -std::numeric_limits<float>::max() ||
+      far_value > std::numeric_limits<float>::max()) {
+    return false;
+  }
+  output.camera.vertical_field_of_view_radians = static_cast<float>(fov);
+  output.camera.near_plane = static_cast<float>(near_value);
+  output.camera.far_plane = static_cast<float>(far_value);
+  output.mesh_uri.assign(yyjson_get_str(mesh_uri), yyjson_get_len(mesh_uri));
+  output.material_uri.assign(yyjson_get_str(material_uri), yyjson_get_len(material_uri));
   return true;
 }
 
@@ -143,7 +185,9 @@ result encode_ipc_inspection_batch(const ipc_inspection_batch& batch, ipc_frame&
            (change.node.id != change.id || change.node.uuid.empty() ||
             change.node.uuid.size() > max_string_size ||
             change.node.name.size() > max_string_size ||
-            !add_node(document.get(), object, change.node))) ||
+            change.node.mesh_uri.size() > max_string_size ||
+            change.node.material_uri.size() > max_string_size ||
+            !valid_camera(change.node.camera) || !add_node(document.get(), object, change.node))) ||
           !yyjson_mut_arr_add_val(changes, object)) {
         return result::invalid_argument;
       }
