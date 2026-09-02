@@ -75,6 +75,7 @@
 - [VER-014：0.14.0 Editor UI 工作区](plans/VER-014-0.14.0-editor-ui-workspace.md)
 - [VER-015：0.15.0 Editor–Runtime 双向控制通道](plans/VER-015-0.15.0-editor-runtime-ipc.md)
 - [VER-016：0.16.0 Runtime 调试与状态检查](plans/VER-016-0.16.0-runtime-inspection.md)
+- [VER-017：0.17.0 Runtime 实时属性编辑](plans/VER-017-0.17.0-runtime-property-editing.md)
 - [M-100：Editor Play 工作流实施记录](records/M-100-editor-play-workflow.md)
 - [M-101：示例与跨平台验收记录](records/M-101-example-cross-platform-validation.md)
 - [M-102：Runtime 检查会话与对象标识实施记录](records/M-102-runtime-inspection-identity.md)
