@@ -20,6 +20,8 @@ add_library(
   property_inspector_model.h
   runtime_launch.cpp
   runtime_launch.h
+  runtime_author_apply.cpp
+  runtime_author_apply.h
   runtime_process.cpp
   runtime_process.h
   runtime_property_edits.cpp

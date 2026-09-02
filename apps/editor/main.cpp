@@ -13,6 +13,7 @@
 #include "project_manager.h"
 #include "project_workspace.h"
 #include "property_inspector_model.h"
+#include "runtime_author_apply.h"
 #include "runtime_launch.h"
 #include "runtime_process.h"
 #include "transform_gizmo_math.h"
@@ -664,6 +665,19 @@ void draw_runtime_inspector(editor_state& state, const gneiss::ipc_inspection_no
   ImGui::Text("UUID: %s", node.uuid.c_str());
   const auto editable = state.runtime.supports_property_editing();
   ImGui::TextDisabled(editable ? "Runtime 实时属性" : "Runtime 只读（未协商属性编辑能力）");
+  const auto can_apply = !node.uuid.empty() && state.session.find_node(node.uuid) != nullptr;
+  ImGui::BeginDisabled(!can_apply);
+  if (ImGui::Button("应用 Transform 到作者场景")) {
+    state.history_error =
+        gneiss::editor::apply_runtime_transform_to_author(state.session, state.history, node);
+    if (state.history_error == gneiss::result::success) {
+      synchronize_history_dirty(state);
+    }
+  }
+  ImGui::EndDisabled();
+  if (!can_apply && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+    ImGui::SetTooltip("该 Runtime 节点没有可用的作者场景 UUID 映射");
+  }
   ImGui::Separator();
   if (ImGui::CollapsingHeader("Transform", ImGuiTreeNodeFlags_DefaultOpen)) {
     auto translation = std::to_array(node.local_transform.translation);
