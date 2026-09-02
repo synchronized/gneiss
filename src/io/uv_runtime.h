@@ -32,6 +32,7 @@ public:
   [[nodiscard]] result stop() noexcept;
 
   [[nodiscard]] bool is_running() const noexcept;
+  [[nodiscard]] std::size_t failed_task_count() const noexcept;
 
 private:
   struct implementation;

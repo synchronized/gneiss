@@ -59,8 +59,21 @@ int main() {
 
   if (runtime.start() != gneiss::result::success ||
       runtime.post([] { throw 1; }) != gneiss::result::success ||
-      runtime.stop() != gneiss::result::success) {
+      runtime.stop() != gneiss::result::success || runtime.failed_task_count() != 1U) {
     return 6;
+  }
+
+  if (runtime.start() != gneiss::result::success || runtime.failed_task_count() != 0U) {
+    return 7;
+  }
+  std::promise<gneiss::result> self_stop;
+  auto self_stop_future = self_stop.get_future();
+  if (runtime.post([&runtime, &self_stop] { self_stop.set_value(runtime.stop()); }) !=
+          gneiss::result::success ||
+      self_stop_future.wait_for(std::chrono::seconds(2)) != std::future_status::ready ||
+      self_stop_future.get() != gneiss::result::invalid_state ||
+      runtime.stop() != gneiss::result::success) {
+    return 8;
   }
   return 0;
 }

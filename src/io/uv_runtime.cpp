@@ -3,6 +3,8 @@
 
 #include "uv_runtime.h"
 
+#include "uv_error.h"
+
 #include <uv.h>
 
 #include <atomic>
@@ -26,6 +28,7 @@ struct uv_runtime::implementation final {
   std::deque<task> tasks;
   std::size_t queue_capacity;
   std::atomic_bool running = false;
+  std::atomic_size_t failed_tasks = 0U;
   bool initialization_finished = false;
   result initialization_result = result::not_ready;
   bool is_accepting = false;
@@ -45,6 +48,7 @@ struct uv_runtime::implementation final {
         operation();
       } catch (...) {
         // 内部任务不得让异常越过 libuv 的 C 回调边界。
+        self->failed_tasks.fetch_add(1U, std::memory_order_relaxed);
       }
     }
     if (should_stop && uv_is_closing(reinterpret_cast<uv_handle_t*>(handle)) == 0) {
@@ -53,12 +57,11 @@ struct uv_runtime::implementation final {
   }
 
   void run() noexcept {
-    const auto loop_result = uv_loop_init(&loop);
-    auto operation = loop_result == 0 ? result::success : result::initialization_failed;
+    auto operation = from_uv_error(uv_loop_init(&loop));
     if (operation == result::success) {
       wakeup.data = this;
-      if (uv_async_init(&loop, &wakeup, on_wakeup) != 0) {
-        operation = result::initialization_failed;
+      operation = from_uv_error(uv_async_init(&loop, &wakeup, on_wakeup));
+      if (operation != result::success) {
         (void)uv_loop_close(&loop);
       }
     }
@@ -104,6 +107,7 @@ result uv_runtime::start() noexcept {
       implementation_->is_accepting = false;
       implementation_->is_stopping = false;
       implementation_->tasks.clear();
+      implementation_->failed_tasks.store(0U, std::memory_order_relaxed);
     }
     implementation_->worker = std::thread([state = implementation_.get()] { state->run(); });
     std::unique_lock lock(implementation_->mutex);
@@ -127,17 +131,19 @@ result uv_runtime::post(task operation) noexcept {
     return result::invalid_argument;
   }
   try {
-    {
-      const std::scoped_lock lock(implementation_->mutex);
-      if (!implementation_->is_accepting || implementation_->is_stopping) {
-        return result::not_ready;
-      }
-      if (implementation_->tasks.size() >= implementation_->queue_capacity) {
-        return result::not_ready;
-      }
-      implementation_->tasks.push_back(std::move(operation));
+    const std::scoped_lock lock(implementation_->mutex);
+    if (!implementation_->is_accepting || implementation_->is_stopping) {
+      return result::not_ready;
     }
-    return uv_async_send(&implementation_->wakeup) == 0 ? result::success : result::io;
+    if (implementation_->tasks.size() >= implementation_->queue_capacity) {
+      return result::not_ready;
+    }
+    implementation_->tasks.push_back(std::move(operation));
+    const auto wakeup_result = from_uv_error(uv_async_send(&implementation_->wakeup));
+    if (wakeup_result != result::success) {
+      implementation_->tasks.pop_back();
+    }
+    return wakeup_result;
   } catch (const std::bad_alloc&) {
     return result::out_of_memory;
   } catch (...) {
@@ -152,18 +158,23 @@ result uv_runtime::stop() noexcept {
   if (std::this_thread::get_id() == implementation_->worker.get_id()) {
     return result::invalid_state;
   }
+  int wakeup_result = 0;
   {
     const std::scoped_lock lock(implementation_->mutex);
     implementation_->is_accepting = false;
     implementation_->is_stopping = true;
+    wakeup_result = uv_async_send(&implementation_->wakeup);
   }
-  const auto wakeup_result = uv_async_send(&implementation_->wakeup);
   implementation_->worker.join();
-  return wakeup_result == 0 ? result::success : result::io;
+  return from_uv_error(wakeup_result);
 }
 
 bool uv_runtime::is_running() const noexcept {
   return implementation_ && implementation_->running.load(std::memory_order_acquire);
+}
+
+std::size_t uv_runtime::failed_task_count() const noexcept {
+  return implementation_ ? implementation_->failed_tasks.load(std::memory_order_relaxed) : 0U;
 }
 
 } // namespace gneiss
