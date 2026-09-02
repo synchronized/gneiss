@@ -623,12 +623,48 @@ const gneiss::ipc_inspection_node* selected_runtime_node(const editor_state& sta
   return found == nodes.end() ? nullptr : &*found;
 }
 
-void draw_runtime_inspector(const gneiss::ipc_inspection_node& node) {
+gneiss::editor::runtime_property_key runtime_transform_key(const gneiss::ipc_inspection_node& node,
+                                                           gneiss_field_id field_id) {
+  gneiss::editor::runtime_property_key key{.object = node.id, .type_id = {}, .field_id = field_id};
+  const auto type_id = gneiss_transform_type_id();
+  std::ranges::copy(type_id.bytes, key.type_id.begin());
+  return key;
+}
+
+void draw_runtime_property_status(const gneiss::editor::runtime_property_edit* edit,
+                                  const gneiss::ipc_property_value& observed) {
+  if (edit == nullptr) {
+    return;
+  }
+  switch (edit->state) {
+  case gneiss::editor::runtime_property_edit_state::pending:
+    ImGui::TextDisabled("等待 Runtime 确认…");
+    break;
+  case gneiss::editor::runtime_property_edit_state::applied:
+    if (edit->canonical_value.payload != observed.payload) {
+      ImGui::TextColored({0.95F, 0.75F, 0.35F, 1.0F}, "已应用，但运行逻辑随后覆盖了该值");
+    } else {
+      ImGui::TextColored({0.65F, 0.9F, 0.55F, 1.0F}, "已由 Runtime 应用");
+    }
+    break;
+  case gneiss::editor::runtime_property_edit_state::rejected:
+    ImGui::TextColored({0.95F, 0.45F, 0.45F, 1.0F}, "Runtime 拒绝：%s", edit->message.c_str());
+    break;
+  case gneiss::editor::runtime_property_edit_state::timed_out:
+    ImGui::TextColored({0.95F, 0.75F, 0.35F, 1.0F}, "等待 Runtime 响应超时");
+    break;
+  case gneiss::editor::runtime_property_edit_state::disconnected:
+    ImGui::TextDisabled("Runtime 连接已断开");
+    break;
+  }
+}
+
+void draw_runtime_inspector(editor_state& state, const gneiss::ipc_inspection_node& node) {
   ImGui::Text("Name: %s", node.name.empty() ? node.uuid.c_str() : node.name.c_str());
   ImGui::Text("UUID: %s", node.uuid.c_str());
-  ImGui::TextDisabled("Runtime read-only");
+  const auto editable = state.runtime.supports_property_editing();
+  ImGui::TextDisabled(editable ? "Runtime 实时属性" : "Runtime 只读（未协商属性编辑能力）");
   ImGui::Separator();
-  ImGui::BeginDisabled();
   if (ImGui::CollapsingHeader("Transform", ImGuiTreeNodeFlags_DefaultOpen)) {
     auto translation = std::to_array(node.local_transform.translation);
     auto scale = std::to_array(node.local_transform.scale);
@@ -637,16 +673,79 @@ void draw_runtime_inspector(const gneiss::ipc_inspection_node& node) {
         node.local_transform.rotation[2], node.local_transform.rotation[3]};
     std::array<float, 3> rotation{};
     (void)gneiss::editor::quaternion_to_euler_degrees(quaternion, rotation);
+
+    const auto draw_vec3 = [&](const char* label, gneiss_field_id field_id,
+                               std::array<float, 3>& value, float speed) {
+      const auto observed = value;
+      const auto key = runtime_transform_key(node, field_id);
+      const auto* edit = state.runtime.property_edit(key);
+      const auto pending =
+          edit != nullptr && edit->state == gneiss::editor::runtime_property_edit_state::pending;
+      ImGui::BeginDisabled(!editable || pending);
+      ImGui::PushID(static_cast<int>(field_id));
+      (void)ImGui::DragFloat3(label, value.data(), speed);
+      const auto committed = ImGui::IsItemDeactivatedAfterEdit();
+      ImGui::PopID();
+      ImGui::EndDisabled();
+      if (committed) {
+        const auto revision = edit != nullptr && edit->revision != 0U ? edit->revision : 1U;
+        state.runtime_result = state.runtime.request_property_write(key, revision, {value});
+        state.runtime_attempted = true;
+      }
+      draw_runtime_property_status(edit, {observed});
+    };
+
+    const auto translation_key = runtime_transform_key(node, GNEISS_TRANSFORM_FIELD_TRANSLATION);
+    const auto* translation_edit = state.runtime.property_edit(translation_key);
+    ImGui::BeginDisabled(!editable || (translation_edit != nullptr &&
+                                       translation_edit->state ==
+                                           gneiss::editor::runtime_property_edit_state::pending));
     ImGui::PushID(static_cast<int>(GNEISS_TRANSFORM_FIELD_TRANSLATION));
-    ImGui::DragFloat3("Translation", translation.data());
+    (void)ImGui::DragFloat3("Translation", translation.data(), 0.05F);
+    const auto translation_committed = ImGui::IsItemDeactivatedAfterEdit();
     ImGui::PopID();
+    ImGui::EndDisabled();
+    if (translation_committed) {
+      const auto revision = translation_edit != nullptr && translation_edit->revision != 0U
+                                ? translation_edit->revision
+                                : 1U;
+      state.runtime_result =
+          state.runtime.request_property_write(translation_key, revision, {translation});
+      state.runtime_attempted = true;
+    }
+    draw_runtime_property_status(translation_edit,
+                                 {std::to_array(node.local_transform.translation)});
+
+    const auto rotation_key = runtime_transform_key(node, GNEISS_TRANSFORM_FIELD_ROTATION);
+    const auto* rotation_edit = state.runtime.property_edit(rotation_key);
+    ImGui::BeginDisabled(!editable || (rotation_edit != nullptr &&
+                                       rotation_edit->state ==
+                                           gneiss::editor::runtime_property_edit_state::pending));
     ImGui::PushID(static_cast<int>(GNEISS_TRANSFORM_FIELD_ROTATION));
-    ImGui::DragFloat3("Rotation (degrees)", rotation.data());
+    (void)ImGui::DragFloat3("Rotation (degrees)", rotation.data(), 0.25F, 0.0F, 0.0F, "%.1f°");
+    const auto rotation_committed = ImGui::IsItemDeactivatedAfterEdit();
     ImGui::PopID();
-    ImGui::PushID(static_cast<int>(GNEISS_TRANSFORM_FIELD_SCALE));
-    ImGui::DragFloat3("Scale", scale.data());
-    ImGui::PopID();
+    ImGui::EndDisabled();
+    if (rotation_committed) {
+      gneiss_property_quaternion edited{};
+      const auto converted = gneiss::editor::euler_degrees_to_quaternion(rotation, edited);
+      if (converted == gneiss::result::success) {
+        const auto revision = rotation_edit != nullptr && rotation_edit->revision != 0U
+                                  ? rotation_edit->revision
+                                  : 1U;
+        state.runtime_result = state.runtime.request_property_write(
+            rotation_key, revision, {std::array<float, 4>{edited.x, edited.y, edited.z, edited.w}});
+      } else {
+        state.runtime_result = converted;
+      }
+      state.runtime_attempted = true;
+    }
+    draw_runtime_property_status(rotation_edit, {std::array<float, 4>{quaternion.x, quaternion.y,
+                                                                      quaternion.z, quaternion.w}});
+
+    draw_vec3("Scale", GNEISS_TRANSFORM_FIELD_SCALE, scale, 0.05F);
   }
+  ImGui::BeginDisabled();
   if ((node.component_flags & GNEISS_SCENE_NODE_COMPONENT_CAMERA) != 0U &&
       ImGui::CollapsingHeader("Camera", ImGuiTreeNodeFlags_DefaultOpen)) {
     auto field_of_view = node.camera.vertical_field_of_view_radians;
@@ -1823,7 +1922,7 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
       state.inspector.clear();
       state.inspected_entity = {};
       state.inspector_error = gneiss::result::success;
-      draw_runtime_inspector(*runtime_selected);
+      draw_runtime_inspector(state, *runtime_selected);
     } else if (const auto* selected = state.session.selected_node(); selected != nullptr) {
       if (state.inspected_entity != selected->entity) {
         state.inspector_error = state.inspector.refresh(state.world, selected->entity);

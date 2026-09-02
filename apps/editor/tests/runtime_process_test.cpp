@@ -163,6 +163,28 @@ int main() try {
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
   }
   if (process.control_state() != gneiss::editor::runtime_control_state::paused ||
+      !process.supports_property_editing()) {
+    return 7;
+  }
+  auto paused_key = property_key;
+  paused_key.field_id = GNEISS_TRANSFORM_FIELD_SCALE;
+  if (process.request_property_write(paused_key, 1U, {std::array<float, 3>{1.1F, 1.2F, 1.3F}}) !=
+      gneiss::result::success) {
+    return 7;
+  }
+  const auto paused_edit_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(3);
+  const gneiss::editor::runtime_property_edit* paused_edit = nullptr;
+  while (std::chrono::steady_clock::now() < paused_edit_deadline) {
+    process.update();
+    paused_edit = process.property_edit(paused_key);
+    if (paused_edit != nullptr &&
+        paused_edit->state != gneiss::editor::runtime_property_edit_state::pending) {
+      break;
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  }
+  if (paused_edit == nullptr ||
+      paused_edit->state != gneiss::editor::runtime_property_edit_state::applied ||
       process.request_resume() != gneiss::result::success) {
     return 7;
   }
