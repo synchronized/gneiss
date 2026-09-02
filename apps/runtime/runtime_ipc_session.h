@@ -38,6 +38,7 @@ struct runtime_ipc_actions final {
   bool pause_game = false;
   bool resume_game = false;
   bool request_exit = false;
+  bool request_inspection_resync = false;
   result failure = result::success;
 };
 

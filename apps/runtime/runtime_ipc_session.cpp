@@ -85,6 +85,9 @@ struct runtime_ipc_session::implementation final {
       current_state = runtime_ipc_state::running;
       actions.resume_game = true;
       return send_state(ipc_runtime_state::running);
+    case ipc_message_type::inspection_resync:
+      actions.request_inspection_resync = true;
+      return result::success;
     case ipc_message_type::stop:
       if (current_state == runtime_ipc_state::stopping) {
         return result::success;
@@ -266,6 +269,10 @@ result runtime_ipc_session::notify_scene_snapshot(const ipc_inspection_batch& ba
           implementation_->negotiated_capabilities.end() ||
       (implementation_->current_state != runtime_ipc_state::running &&
        implementation_->current_state != runtime_ipc_state::paused)) {
+    return result::not_ready;
+  }
+  // 为心跳和控制消息保留至少四分之一的待写队列。
+  if (implementation_->transport.pending_write_count() >= 48U) {
     return result::not_ready;
   }
   ipc_frame frame;

@@ -44,7 +44,8 @@ bool test_all_message_types() {
   }
 
   for (const auto type : {gneiss::ipc_message_type::ready, gneiss::ipc_message_type::pause,
-                          gneiss::ipc_message_type::resume, gneiss::ipc_message_type::stop}) {
+                          gneiss::ipc_message_type::resume, gneiss::ipc_message_type::stop,
+                          gneiss::ipc_message_type::inspection_resync}) {
     source = {};
     source.type = type;
     if (!round_trip(source, decoded)) {

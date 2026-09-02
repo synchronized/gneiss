@@ -50,6 +50,7 @@ struct runtime_context final {
   std::uint64_t next_statistics_ns = 0U;
   std::uint64_t next_statistics_sequence = 1U;
   std::uint64_t fixed_update_count = 0U;
+  bool force_full_inspection = false;
   gneiss::result ipc_failure = gneiss::result::success;
 };
 
@@ -142,6 +143,9 @@ gneiss_result update_runtime(gneiss_application application, const gneiss_frame_
       }
       return gneiss_application_request_exit(application);
     }
+    if (actions.request_inspection_resync) {
+      context.force_full_inspection = true;
+    }
   }
   if (!context.has_logged_first_frame) {
     context.has_logged_first_frame = true;
@@ -171,11 +175,15 @@ gneiss_result update_runtime(gneiss_application application, const gneiss_frame_
           context.ipc_session->negotiated_capabilities().end()) {
     context.next_inspection_ns = time->elapsed_ns + UINT64_C(100000000);
     gneiss::runtime_internal::runtime_scene_snapshot snapshot;
-    const auto captured =
-        context.scene_inspection->capture_scene(application, context.scene, false, snapshot);
+    const auto captured = context.scene_inspection->capture_scene(
+        application, context.scene, context.force_full_inspection, snapshot);
     if (captured == gneiss::result::success) {
       const auto sent = context.ipc_session->notify_scene_snapshot(snapshot);
-      if (sent != gneiss::result::success) {
+      if (sent == gneiss::result::success) {
+        context.force_full_inspection = false;
+      } else if (sent == gneiss::result::not_ready) {
+        context.force_full_inspection = true;
+      } else {
         context.ipc_failure = sent;
         return gneiss_application_request_exit(application);
       }

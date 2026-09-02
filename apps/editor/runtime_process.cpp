@@ -43,6 +43,7 @@ struct runtime_process::implementation final {
   bool is_building = false;
   bool ipc_authenticated = false;
   bool ipc_shutdown_complete = false;
+  bool inspection_resync_pending = false;
   std::string ipc_token;
   ipc_transport ipc_server;
   runtime_control_state control_state = runtime_control_state::stopped;
@@ -146,6 +147,15 @@ struct runtime_process::implementation final {
         const auto applied = scene_mirror.apply(batch);
         if (applied != result::success) {
           last_result = applied;
+          if (scene_mirror.needs_full_snapshot() && !inspection_resync_pending) {
+            ipc_message request;
+            request.type = ipc_message_type::inspection_resync;
+            if (send_ipc(std::move(request)) == result::success) {
+              inspection_resync_pending = true;
+            }
+          }
+        } else if (batch.is_full) {
+          inspection_resync_pending = false;
         }
         ipc_heartbeat.reset(now);
         continue;
@@ -318,6 +328,7 @@ result runtime_process::start(const std::filesystem::path& executable,
     implementation_->stop_deadline = {};
     implementation_->forced_termination_reported = false;
     implementation_->ipc_shutdown_complete = false;
+    implementation_->inspection_resync_pending = false;
     implementation_->scene_mirror.reset();
     implementation_->statistics = {};
     implementation_->control_state = runtime_control_state::connecting;
