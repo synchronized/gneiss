@@ -35,6 +35,26 @@ constexpr std::string_view valid_scene = R"({
   ]
 })";
 
+constexpr std::string_view prefab_scene = R"({
+  "format":"gneiss.scene",
+  "version":3,
+  "scene_uuid":"00000000-0000-4000-8000-000000000001",
+  "objects":[{
+    "uuid":"00000000-0000-4000-8000-000000000002",
+    "parent":null,
+    "transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},
+    "components":{}
+  }],
+  "prefab_instances":[{
+    "instance_uuid":"00000000-0000-4000-8000-000000000010",
+    "name":"Lamp",
+    "parent":"00000000-0000-4000-8000-000000000002",
+    "prefab":"asset://prefabs/lamp.prefab.json",
+    "transform":{"translation":[1,2,3],"rotation":[0,0,0,1],"scale":[2,2,2]},
+    "unknown":true
+  }]
+})";
+
 [[nodiscard]] std::string replace_once(std::string text, std::string_view source,
                                        std::string_view replacement) {
   const auto position = text.find(source);
@@ -85,13 +105,17 @@ int main() try {
           GNEISS_SUCCESS ||
       scene.objects.size() != 2U || !scene.objects[0].camera || !scene.objects[1].mesh_renderer ||
       scene.objects[1].parent_uuid != scene.objects[0].uuid || scene.source_schema_version != 1U ||
-      scene.author_json.find(R"("version":2)") == std::string::npos ||
+      scene.author_json.find(R"("version":3)") == std::string::npos ||
+      scene.author_json.find(R"("prefab_instances":[])") == std::string::npos ||
       scene.author_json.find(R"("is_primary":true)") == std::string::npos ||
       scene.author_json.find(R"("primary":true)") != std::string::npos) {
     return 1;
   }
 
-  const auto future = replace_once(std::string(valid_scene), "\"version\":1", "\"version\":3");
+  const auto future = replace_once(std::string(valid_scene), "\"version\":1", "\"version\":4");
+  const auto version_two =
+      replace_once(replace_once(std::string(valid_scene), "\"version\":1", "\"version\":2"),
+                   "\"primary\":true", "\"is_primary\":true");
   const auto missing_chain =
       replace_once(std::string(valid_scene), "\"version\":1", "\"version\":0");
   const auto duplicate =
@@ -132,6 +156,13 @@ int main() try {
       !fails_with(multiple_primary, GNEISS_ERROR_INVALID_ARGUMENT, "/objects")) {
     return 2;
   }
+  gneiss::scene_internal::scene_description migrated_v2;
+  if (gneiss::scene_internal::parse_scene_description(version_two, migrated_v2, diagnostic) !=
+          GNEISS_SUCCESS ||
+      migrated_v2.source_schema_version != 2U || !migrated_v2.prefab_instances.empty() ||
+      migrated_v2.author_json.find(R"("version":3)") == std::string::npos) {
+    return 3;
+  }
 
   gneiss::scene_internal::scene_description unknown_scene;
   std::string serialized;
@@ -143,8 +174,43 @@ int main() try {
       serialized.find(R"("unknown":true)") == std::string::npos ||
       gneiss::scene_internal::parse_scene_description(serialized, reloaded, diagnostic) !=
           GNEISS_SUCCESS ||
-      reloaded.source_schema_version != 2U || reloaded.objects.size() != 2U) {
-    return 3;
+      reloaded.source_schema_version != 3U || reloaded.objects.size() != 2U) {
+    return 4;
+  }
+
+  gneiss::scene_internal::scene_description with_prefab;
+  if (gneiss::scene_internal::parse_scene_description(prefab_scene, with_prefab, diagnostic) !=
+          GNEISS_SUCCESS ||
+      with_prefab.prefab_instances.size() != 1U ||
+      with_prefab.prefab_instances[0].instance_uuid != "00000000-0000-4000-8000-000000000010" ||
+      with_prefab.prefab_instances[0].parent_uuid != with_prefab.objects[0].uuid ||
+      with_prefab.prefab_instances[0].prefab_uri != "asset://prefabs/lamp.prefab.json" ||
+      gneiss::scene_internal::serialize_scene_description(with_prefab, serialized) !=
+          GNEISS_SUCCESS ||
+      serialized.find(R"("unknown":true)") == std::string::npos ||
+      serialized.find("source_node_uuid") != std::string::npos ||
+      serialized.find("runtime_id") != std::string::npos) {
+    return 5;
+  }
+  const auto duplicate_instance =
+      replace_once(std::string(prefab_scene), "00000000-0000-4000-8000-000000000010",
+                   "00000000-0000-4000-8000-000000000002");
+  const auto nested_parent =
+      replace_once(std::string(prefab_scene), R"("parent":"00000000-0000-4000-8000-000000000002")",
+                   R"("parent":"00000000-0000-4000-8000-000000000010")");
+  const auto invalid_prefab_uri =
+      replace_once(std::string(prefab_scene), "asset://prefabs/lamp.prefab.json",
+                   "asset://prefabs/../lamp.prefab.json");
+  const auto object_under_instance =
+      replace_once(std::string(prefab_scene), R"("parent":null)",
+                   R"("parent":"00000000-0000-4000-8000-000000000010")");
+  if (!fails_with(duplicate_instance, GNEISS_ERROR_INVALID_ARGUMENT,
+                  "/prefab_instances/0/instance_uuid") ||
+      !fails_with(nested_parent, GNEISS_ERROR_INVALID_ARGUMENT, "/prefab_instances/0/parent") ||
+      !fails_with(invalid_prefab_uri, GNEISS_ERROR_INVALID_ARGUMENT,
+                  "/prefab_instances/0/prefab") ||
+      !fails_with(object_under_instance, GNEISS_ERROR_INVALID_ARGUMENT, "/objects/0/parent")) {
+    return 6;
   }
 
   gneiss::asset_internal::virtual_file_system file_system;
@@ -153,10 +219,10 @@ int main() try {
       gneiss::scene_internal::load_scene_description(file_system, "asset://scenes/main.scene.json",
                                                      scene, diagnostic) != GNEISS_SUCCESS ||
       scene.objects.size() != 2U) {
-    return 4;
+    return 7;
   }
   if (!fails_with("{\"format\":", GNEISS_ERROR_INVALID_ARGUMENT, "")) {
-    return 5;
+    return 8;
   }
   return 0;
 } catch (...) {

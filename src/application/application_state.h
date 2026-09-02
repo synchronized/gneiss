@@ -15,6 +15,7 @@
 #include "render/render_asset_loader.h"
 #include "render/render_resource_service.h"
 #include "render/ui_draw_list.h"
+#include "scene/prefab_asset_loader.h"
 #include "scene/scene_instance_service.h"
 
 #include <cstdint>
@@ -89,6 +90,7 @@ private:
   asset_internal::virtual_file_system asset_file_system_;
   asset_internal::resource_cache asset_cache_;
   render_internal::render_asset_loader asset_loader_;
+  scene_internal::prefab_asset_loader prefab_asset_loader_;
   gneiss_world world_ = GNEISS_NULL_WORLD;
   std::unique_ptr<scene_internal::scene_instance_service> scenes_;
   std::thread::id owner_thread_;

@@ -6,6 +6,8 @@
 
 #include "core/rid_table.h"
 #include "render/render_asset_loader.h"
+#include "scene/prefab_asset_loader.h"
+#include "scene/prefab_runtime_instance.h"
 #include "scene/scene_description.h"
 
 #include <gneiss/scene.h>
@@ -68,6 +70,7 @@ public:
   [[nodiscard]] gneiss_result destroy_node(gneiss_scene_node_id node);
 
   std::vector<object> objects;
+  std::vector<std::unique_ptr<prefab_runtime_instance>> prefab_instances;
   scene_description description;
 
 private:
@@ -78,7 +81,8 @@ private:
 class scene_instance_service final {
 public:
   scene_instance_service(gneiss_world world, const asset_internal::virtual_file_system& file_system,
-                         render_internal::render_asset_loader& loader) noexcept;
+                         render_internal::render_asset_loader& loader,
+                         prefab_asset_loader& prefab_loader) noexcept;
 
   [[nodiscard]] bool is_valid() const noexcept { return domain_ != 0U; }
   [[nodiscard]] gneiss_result load(std::string_view uri,
@@ -135,6 +139,7 @@ private:
   gneiss_world world_;
   const asset_internal::virtual_file_system& file_system_;
   render_internal::render_asset_loader& loader_;
+  prefab_asset_loader& prefab_loader_;
   std::uint16_t domain_;
   core::rid_table<instance_ptr> instances_;
 };

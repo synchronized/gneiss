@@ -598,6 +598,17 @@ gneiss_target_compile_warnings(gneiss_prefab_runtime_instance_test)
 gneiss_target_output_directories(gneiss_prefab_runtime_instance_test)
 add_test(NAME gneiss.prefab_runtime_instance COMMAND gneiss_prefab_runtime_instance_test)
 
+add_executable(gneiss_scene_prefab_instance_test scene/scene_prefab_instance_test.cpp)
+target_link_libraries(gneiss_scene_prefab_instance_test PRIVATE gneiss::engine)
+target_compile_definitions(
+  gneiss_scene_prefab_instance_test
+  PRIVATE GNEISS_TEST_ASSET_ROOT="${PROJECT_SOURCE_DIR}/tests/data/assets"
+)
+target_compile_features(gneiss_scene_prefab_instance_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_scene_prefab_instance_test)
+gneiss_target_output_directories(gneiss_scene_prefab_instance_test)
+add_test(NAME gneiss.scene_prefab_instance COMMAND gneiss_scene_prefab_instance_test)
+
 if(TARGET gneiss_version_example)
   add_test(NAME gneiss.version_example COMMAND gneiss_version_example)
   set_tests_properties(

@@ -10,7 +10,8 @@
 1. 通过 VFS 读取并完整校验场景描述。
 2. 获取场景引用的全部 Mesh 与 Material 缓存租约。
 3. 父节点优先创建 Entity 和 Scene Node，再设置 Transform 与组件。
-4. 全部成功后才发布非零场景实例句柄。
+4. 获取场景声明的 Prefab，并在实例根下创建各自独立的源节点 Runtime 投影。
+5. 全部成功后才发布非零场景实例句柄。
 
 解析或资产阶段不会修改 World。提交阶段任一步失败都会逆序销毁本次创建的实体、节点和资产引用，
 因此失败前后 World 实体数量与资源存活状态一致。当前加载只允许 Application 创建线程调用。
@@ -46,6 +47,9 @@ JSON 可为对象增加可选字符串 `name`；旧场景无需迁移，名称�
 释放；实例卸载或 Application 销毁后立即失效。`out_info` 必须以
 `GNEISS_SCENE_INSTANCE_NODE_INFO_INIT` 初始化。索引越界返回 `GNEISS_ERROR_NOT_FOUND`；节点或实体
 已被外部销毁时返回句柄错误。C++ 包装提供对应的 `get_node_count` 和 `get_node_info`。
+
+当前枚举接口只返回普通作者对象，不返回 Prefab 实例根或展开后的源节点。Editor 的复合身份呈现与
+只读来源节点枚举由后续 Editor 接入补充；这不影响 Scene Instance 对这些 Runtime 对象的所有权。
 
 ## 作者节点编辑
 
@@ -92,8 +96,10 @@ C++ `gneiss::scene_instance` 提供对应强类型包装。创建、重命名、
 ## 运行时属性序列化
 
 `gneiss_scene_instance_serialize` 将实例当前的名称、父级、局部 Transform、Camera、已创建作者节点和
-Mesh Renderer 引用合并回加载时的作者文档，并输出当前版本的 UTF-8 场景 JSON。保存会保留未被
-Runtime 解释的未知字段，不会覆盖来源文件，也不会持久化 Entity ID、Scene Node ID 或资源 RID。
+Mesh Renderer 引用以及 Prefab 实例根 Transform 合并回加载时的作者文档，并输出当前版本的 UTF-8
+场景 JSON。Prefab 仍以 URI、实例 UUID、父级、名称和根 Transform 表示，不写入展开节点。保存会
+保留未被 Runtime 解释的未知字段，不会覆盖来源文件，也不会持久化 Entity ID、Scene Node ID 或
+资源 RID。
 
 C 接口使用两次调用：先以空 `buffer` 和零 `capacity` 查询不含字符串终止符的字节数，再提供足够
 容量的缓冲区。容量不足返回 `GNEISS_ERROR_INVALID_ARGUMENT`，同时通过 `out_length` 返回所需长度。

@@ -158,6 +158,7 @@
 - [M-116 Prefab 格式、身份与组合 Spike 记录](records/M-116-prefab-format-identity-spike.md)
 - [M-117 Prefab Loader 与依赖缓存实施记录](records/M-117-prefab-loader-cache.md)
 - [M-118 Prefab 原子实例化与生命周期实施记录](records/M-118-prefab-runtime-instance.md)
+- [M-119 场景格式 v3 与 Prefab 实例声明实施记录](records/M-119-scene-v3-prefab-instances.md)
 - [M-65 公共 API 与稳定性审计记录](records/M-65-public-api-audit.md)
 - [M-66 稳定运行时代表性样例验收记录](records/M-66-stable-runtime-sample.md)
 - [M-67 公共 API 与 ABI 加固记录](records/M-67-api-abi-hardening.md)
