@@ -27,6 +27,8 @@ typedef uint64_t gneiss_scene_instance;
 #define GNEISS_SCENE_NODE_COMPONENT_MESH_RENDERER UINT32_C(2)
 #define GNEISS_SCENE_NODE_COMPONENT_PRIMARY_CAMERA UINT32_C(4)
 #define GNEISS_SCENE_SUBTREE_MAX_NODES UINT64_C(4096)
+#define GNEISS_SCENE_PREFAB_NODE_INSTANCE_ROOT UINT32_C(1)
+#define GNEISS_SCENE_PREFAB_NODE_SOURCE_READ_ONLY UINT32_C(2)
 
 /**
  * Scene Tree 中的局部或世界变换。旋转使用归一化的 (x, y, z, w) 四元数，缩放各轴不得为零。
@@ -103,6 +105,66 @@ typedef struct gneiss_scene_node_desc {
   {(uint32_t)sizeof(gneiss_scene_node_desc),                                                       \
    UINT32_C(0),                                                                                    \
    GNEISS_NULL_SCENE_NODE_ID,                                                                      \
+   NULL,                                                                                           \
+   UINT64_C(0),                                                                                    \
+   NULL,                                                                                           \
+   UINT64_C(0),                                                                                    \
+   GNEISS_TRANSFORM_IDENTITY}
+
+/** Prefab 实例根或来源节点的只读 Runtime 视图；字符串由场景实例借出。 */
+typedef struct gneiss_scene_prefab_node_info {
+  uint32_t struct_size;
+  uint32_t flags;
+  gneiss_scene_node_id node;
+  gneiss_scene_node_id parent;
+  gneiss_entity_id entity;
+  const char* instance_uuid;
+  uint64_t instance_uuid_length;
+  const char* source_node_uuid;
+  uint64_t source_node_uuid_length;
+  const char* name;
+  uint64_t name_length;
+  const char* prefab_uri;
+  uint64_t prefab_uri_length;
+  gneiss_transform local_transform;
+} gneiss_scene_prefab_node_info;
+
+#define GNEISS_SCENE_PREFAB_NODE_INFO_INIT                                                         \
+  {(uint32_t)sizeof(gneiss_scene_prefab_node_info),                                                \
+   UINT32_C(0),                                                                                    \
+   GNEISS_NULL_SCENE_NODE_ID,                                                                      \
+   GNEISS_NULL_SCENE_NODE_ID,                                                                      \
+   GNEISS_NULL_ENTITY_ID,                                                                          \
+   NULL,                                                                                           \
+   UINT64_C(0),                                                                                    \
+   NULL,                                                                                           \
+   UINT64_C(0),                                                                                    \
+   NULL,                                                                                           \
+   UINT64_C(0),                                                                                    \
+   NULL,                                                                                           \
+   UINT64_C(0),                                                                                    \
+   GNEISS_TRANSFORM_IDENTITY}
+
+/** 向场景放置一份 Prefab 引用实例；字符串仅在调用期间借用。 */
+typedef struct gneiss_scene_prefab_instance_desc {
+  uint32_t struct_size;
+  uint32_t reserved;
+  gneiss_scene_node_id parent;
+  const char* instance_uuid;
+  uint64_t instance_uuid_length;
+  const char* name;
+  uint64_t name_length;
+  const char* prefab_uri;
+  uint64_t prefab_uri_length;
+  gneiss_transform local_transform;
+} gneiss_scene_prefab_instance_desc;
+
+#define GNEISS_SCENE_PREFAB_INSTANCE_DESC_INIT                                                     \
+  {(uint32_t)sizeof(gneiss_scene_prefab_instance_desc),                                            \
+   UINT32_C(0),                                                                                    \
+   GNEISS_NULL_SCENE_NODE_ID,                                                                      \
+   NULL,                                                                                           \
+   UINT64_C(0),                                                                                    \
    NULL,                                                                                           \
    UINT64_C(0),                                                                                    \
    NULL,                                                                                           \
@@ -256,6 +318,20 @@ GNEISS_API gneiss_result gneiss_scene_instance_get_node_count(gneiss_application
 GNEISS_API gneiss_result
 gneiss_scene_instance_get_node_info(gneiss_application application, gneiss_scene_instance instance,
                                     uint64_t index, gneiss_scene_instance_node_info* out_info);
+
+/** 返回 Prefab 实例根与展开来源节点的总数。 */
+GNEISS_EXPERIMENTAL GNEISS_API gneiss_result gneiss_scene_instance_get_prefab_node_count(
+    gneiss_application application, gneiss_scene_instance instance, uint64_t* out_count);
+
+/** 按声明顺序读取 Prefab 实例根及其来源节点；来源节点带只读标记。 */
+GNEISS_EXPERIMENTAL GNEISS_API gneiss_result gneiss_scene_instance_get_prefab_node_info(
+    gneiss_application application, gneiss_scene_instance instance, uint64_t index,
+    gneiss_scene_prefab_node_info* out_info);
+
+/** 原子放置 Prefab 实例；成功返回借用的实例根节点 ID。 */
+GNEISS_EXPERIMENTAL GNEISS_API gneiss_result gneiss_scene_instance_create_prefab_instance(
+    gneiss_application application, gneiss_scene_instance instance,
+    const gneiss_scene_prefab_instance_desc* desc, gneiss_scene_node_id* out_root);
 
 /** 原子创建不含可选组件的作者节点。 */
 GNEISS_EXPERIMENTAL GNEISS_API gneiss_result gneiss_scene_instance_create_node(

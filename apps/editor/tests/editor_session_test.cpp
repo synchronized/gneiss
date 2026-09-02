@@ -46,8 +46,30 @@ int main() try {
   }
   session.close();
   if (session.is_open() || session.is_dirty() || !session.nodes().empty() ||
-      session.selection().is_valid()) {
+      !session.prefab_nodes().empty() || session.selection().is_valid()) {
     return 5;
+  }
+  constexpr std::string_view prefab_scene_uri = "asset://scenes/prefab.scene.json";
+  constexpr std::string_view prefab_uri = "asset://prefabs/test.prefab.json";
+  if (session.open(application.get(), world, prefab_scene_uri) != gneiss::result::success ||
+      session.nodes().size() != 1U || session.prefab_nodes().size() != 2U ||
+      !session.prefab_nodes()[0].is_instance_root || session.prefab_nodes()[0].is_read_only ||
+      session.prefab_nodes()[1].is_instance_root || !session.prefab_nodes()[1].is_read_only ||
+      session.prefab_nodes()[1].parent != session.prefab_nodes()[0].node) {
+    return 6;
+  }
+  if (session.select(session.prefab_nodes()[1].node) != gneiss::result::success ||
+      session.selected_node() != nullptr || session.selected_prefab_node() == nullptr) {
+    return 7;
+  }
+  gneiss::scene_node_id prefab_root;
+  if (session.create_prefab_instance("Second Lamp", prefab_uri, session.nodes()[0].node,
+                                     prefab_root) != gneiss::result::success ||
+      !session.is_dirty() || session.prefab_nodes().size() != 4U ||
+      session.selected_prefab_node() == nullptr ||
+      !session.selected_prefab_node()->is_instance_root ||
+      session.selected_prefab_node()->node != prefab_root) {
+    return 8;
   }
   return 0;
 } catch (...) {

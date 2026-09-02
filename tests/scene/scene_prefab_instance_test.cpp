@@ -28,32 +28,99 @@ int main() try {
     return 1;
   }
 
+  std::uint64_t prefab_node_count = 0;
+  gneiss_scene_prefab_node_info prefab_root = GNEISS_SCENE_PREFAB_NODE_INFO_INIT;
+  gneiss_scene_prefab_node_info prefab_source = GNEISS_SCENE_PREFAB_NODE_INFO_INIT;
+  if (gneiss_scene_instance_get_prefab_node_count(application, scene, &prefab_node_count) !=
+          GNEISS_SUCCESS ||
+      prefab_node_count != 2U ||
+      gneiss_scene_instance_get_prefab_node_info(application, scene, 0U, &prefab_root) !=
+          GNEISS_SUCCESS ||
+      gneiss_scene_instance_get_prefab_node_info(application, scene, 1U, &prefab_source) !=
+          GNEISS_SUCCESS ||
+      prefab_root.flags != GNEISS_SCENE_PREFAB_NODE_INSTANCE_ROOT ||
+      prefab_source.flags != GNEISS_SCENE_PREFAB_NODE_SOURCE_READ_ONLY ||
+      prefab_source.parent != prefab_root.node ||
+      std::string_view(prefab_root.instance_uuid, prefab_root.instance_uuid_length) !=
+          "30000000-0000-4000-8000-000000000012" ||
+      std::string_view(prefab_source.source_node_uuid, prefab_source.source_node_uuid_length) !=
+          "30000000-0000-4000-8000-000000000002") {
+    return 2;
+  }
+
+  gneiss_scene_node_id anchor = GNEISS_NULL_SCENE_NODE_ID;
+  constexpr std::string_view anchor_uuid = "30000000-0000-4000-8000-000000000011";
+  constexpr std::string_view created_uuid = "30000000-0000-4000-8000-000000000013";
+  constexpr std::string_view prefab_uri = "asset://prefabs/test.prefab.json";
+  constexpr std::string_view created_name = "Second Lamp";
+  gneiss_scene_prefab_instance_desc create_desc = GNEISS_SCENE_PREFAB_INSTANCE_DESC_INIT;
+  create_desc.instance_uuid = created_uuid.data();
+  create_desc.instance_uuid_length = created_uuid.size();
+  create_desc.name = created_name.data();
+  create_desc.name_length = created_name.size();
+  create_desc.prefab_uri = prefab_uri.data();
+  create_desc.prefab_uri_length = prefab_uri.size();
+  gneiss_scene_node_id created_root = GNEISS_NULL_SCENE_NODE_ID;
+  if (gneiss_scene_instance_find_node(application, scene, anchor_uuid.data(), anchor_uuid.size(),
+                                      &anchor) != GNEISS_SUCCESS) {
+    return 3;
+  }
+  create_desc.parent = prefab_root.node;
+  if (gneiss_scene_instance_create_prefab_instance(application, scene, &create_desc,
+                                                   &created_root) != GNEISS_ERROR_INVALID_HANDLE ||
+      created_root != GNEISS_NULL_SCENE_NODE_ID) {
+    return 3;
+  }
+  constexpr std::string_view missing_prefab_uri = "asset://prefabs/not-found.prefab.json";
+  create_desc.parent = anchor;
+  create_desc.prefab_uri = missing_prefab_uri.data();
+  create_desc.prefab_uri_length = missing_prefab_uri.size();
+  if (gneiss_scene_instance_create_prefab_instance(application, scene, &create_desc,
+                                                   &created_root) != GNEISS_ERROR_NOT_FOUND ||
+      created_root != GNEISS_NULL_SCENE_NODE_ID ||
+      gneiss_world_entity_count(world, &entity_count) != GNEISS_SUCCESS || entity_count != 3U) {
+    return 3;
+  }
+  create_desc.prefab_uri = prefab_uri.data();
+  create_desc.prefab_uri_length = prefab_uri.size();
+  create_desc.parent = anchor;
+  if (gneiss_scene_instance_create_prefab_instance(application, scene, &create_desc,
+                                                   &created_root) != GNEISS_SUCCESS ||
+      created_root == GNEISS_NULL_SCENE_NODE_ID ||
+      gneiss_scene_instance_get_prefab_node_count(application, scene, &prefab_node_count) !=
+          GNEISS_SUCCESS ||
+      prefab_node_count != 4U ||
+      gneiss_world_entity_count(world, &entity_count) != GNEISS_SUCCESS || entity_count != 5U) {
+    return 3;
+  }
+
   std::uint64_t json_length = 0;
   if (gneiss_scene_instance_serialize(application, scene, nullptr, 0U, &json_length) !=
           GNEISS_SUCCESS ||
       json_length == 0U) {
-    return 2;
+    return 4;
   }
   std::string json(json_length, '\0');
   if (gneiss_scene_instance_serialize(application, scene, json.data(), json.size(), &json_length) !=
           GNEISS_SUCCESS ||
       json.find("asset://prefabs/test.prefab.json") == std::string::npos ||
+      json.find(created_uuid) == std::string::npos ||
       json.find("30000000-0000-4000-8000-000000000002") != std::string::npos) {
-    return 3;
+    return 5;
   }
 
   if (gneiss_scene_instance_unload(application, scene) != GNEISS_SUCCESS ||
       gneiss_world_entity_count(world, &entity_count) != GNEISS_SUCCESS || entity_count != 0U) {
-    return 4;
+    return 6;
   }
   scene = GNEISS_NULL_SCENE_INSTANCE;
   if (gneiss_scene_instance_load(application, missing_scene_uri.data(), missing_scene_uri.size(),
                                  &scene) != GNEISS_ERROR_NOT_FOUND ||
       scene != GNEISS_NULL_SCENE_INSTANCE ||
       gneiss_world_entity_count(world, &entity_count) != GNEISS_SUCCESS || entity_count != 0U) {
-    return 5;
+    return 7;
   }
-  return gneiss_application_destroy(application) == GNEISS_SUCCESS ? 0 : 6;
+  return gneiss_application_destroy(application) == GNEISS_SUCCESS ? 0 : 8;
 } catch (...) {
   return 99;
 }

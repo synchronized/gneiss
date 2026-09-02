@@ -37,6 +37,8 @@ inline constexpr scene_node_id null_scene_node_id{};
 using transform = gneiss_transform;
 using scene_instance_node_info = gneiss_scene_instance_node_info;
 using scene_node_desc = gneiss_scene_node_desc;
+using scene_prefab_node_info = gneiss_scene_prefab_node_info;
+using scene_prefab_instance_desc = gneiss_scene_prefab_instance_desc;
 using scene_uuid_mapping = gneiss_scene_uuid_mapping;
 using scene_mesh_renderer_desc = gneiss_scene_mesh_renderer_desc;
 using scene_camera_desc = gneiss_scene_camera_desc;
@@ -107,6 +109,25 @@ public:
                                      scene_instance_node_info& out_info) const noexcept {
     return from_native(
         gneiss_scene_instance_get_node_info(application_, handle_, index, &out_info));
+  }
+  [[nodiscard]] result get_prefab_node_count(std::uint64_t& out_count) const noexcept {
+    return from_native(
+        gneiss_scene_instance_get_prefab_node_count(application_, handle_, &out_count));
+  }
+  [[nodiscard]] result get_prefab_node_info(std::uint64_t index,
+                                            scene_prefab_node_info& out_info) const noexcept {
+    return from_native(
+        gneiss_scene_instance_get_prefab_node_info(application_, handle_, index, &out_info));
+  }
+  [[nodiscard]] result create_prefab_instance(const scene_prefab_instance_desc& desc,
+                                              scene_node_id& out_root) noexcept {
+    gneiss_scene_node_id root = GNEISS_NULL_SCENE_NODE_ID;
+    const auto native_result =
+        gneiss_scene_instance_create_prefab_instance(application_, handle_, &desc, &root);
+    if (native_result == GNEISS_SUCCESS) {
+      out_root = scene_node_id{root};
+    }
+    return from_native(native_result);
   }
   [[nodiscard]] result create_mesh_renderer_node(const scene_mesh_renderer_node_desc& desc,
                                                  scene_node_id& out_node) noexcept {

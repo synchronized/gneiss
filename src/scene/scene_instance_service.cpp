@@ -179,9 +179,9 @@ gneiss_result commit_prefab_instances(gneiss_world world, const scene_descriptio
 
 } // namespace
 
-scene_instance::scene_instance(gneiss_world world,
-                               render_internal::render_asset_loader& loader) noexcept
-    : world_(world), loader_(loader) {}
+scene_instance::scene_instance(gneiss_world world, render_internal::render_asset_loader& loader,
+                               prefab_asset_loader& prefab_loader) noexcept
+    : world_(world), loader_(loader), prefab_loader_(prefab_loader) {}
 
 scene_instance::~scene_instance() noexcept { rollback(); }
 
@@ -262,6 +262,130 @@ gneiss_result scene_instance::get_node_info(std::uint64_t index,
     }
   }
   return GNEISS_SUCCESS;
+}
+
+std::uint64_t scene_instance::get_prefab_node_count() const noexcept {
+  std::uint64_t count = prefab_instances.size();
+  for (const auto& instance : prefab_instances) {
+    count += instance->node_count();
+  }
+  return count;
+}
+
+gneiss_result scene_instance::get_prefab_node_info(std::uint64_t index,
+                                                   gneiss_scene_prefab_node_info& out_info) const {
+  std::uint64_t offset = 0;
+  for (std::size_t instance_index = 0; instance_index < prefab_instances.size(); ++instance_index) {
+    const auto& runtime = *prefab_instances[instance_index];
+    const auto& author = description.prefab_instances[instance_index];
+    if (index == offset) {
+      gneiss_scene_node_id parent = GNEISS_NULL_SCENE_NODE_ID;
+      auto result = gneiss_scene_node_get_parent(world_, runtime.root(), &parent);
+      if (result != GNEISS_SUCCESS) {
+        return result;
+      }
+      gneiss_transform transform = GNEISS_TRANSFORM_IDENTITY;
+      result = gneiss_scene_node_get_local_transform(world_, runtime.root(), &transform);
+      if (result != GNEISS_SUCCESS) {
+        return result;
+      }
+      out_info.flags = GNEISS_SCENE_PREFAB_NODE_INSTANCE_ROOT;
+      out_info.node = runtime.root();
+      out_info.parent = parent;
+      out_info.entity = runtime.root_entity();
+      out_info.instance_uuid = author.instance_uuid.data();
+      out_info.instance_uuid_length = author.instance_uuid.size();
+      out_info.name = author.name.empty() ? nullptr : author.name.data();
+      out_info.name_length = author.name.size();
+      out_info.prefab_uri = author.prefab_uri.data();
+      out_info.prefab_uri_length = author.prefab_uri.size();
+      out_info.local_transform = transform;
+      return GNEISS_SUCCESS;
+    }
+    ++offset;
+    if (index < offset + runtime.node_count()) {
+      prefab_runtime_instance::node_info source;
+      const auto result = runtime.get_node_info(static_cast<std::size_t>(index - offset), source);
+      if (result != GNEISS_SUCCESS) {
+        return result;
+      }
+      out_info.flags = GNEISS_SCENE_PREFAB_NODE_SOURCE_READ_ONLY;
+      out_info.node = source.node;
+      out_info.parent = source.parent;
+      out_info.entity = source.entity;
+      out_info.instance_uuid = source.address->instance_uuid.data();
+      out_info.instance_uuid_length = source.address->instance_uuid.size();
+      out_info.source_node_uuid = source.address->source_node_uuid.data();
+      out_info.source_node_uuid_length = source.address->source_node_uuid.size();
+      out_info.name = source.name.empty() ? nullptr : source.name.data();
+      out_info.name_length = source.name.size();
+      out_info.prefab_uri = author.prefab_uri.data();
+      out_info.prefab_uri_length = author.prefab_uri.size();
+      const auto transform_result =
+          gneiss_scene_node_get_local_transform(world_, source.node, &out_info.local_transform);
+      return transform_result;
+    }
+    offset += runtime.node_count();
+  }
+  return GNEISS_ERROR_NOT_FOUND;
+}
+
+gneiss_result scene_instance::create_prefab_instance(const gneiss_scene_prefab_instance_desc& desc,
+                                                     gneiss_scene_node_id* out_root) {
+  *out_root = GNEISS_NULL_SCENE_NODE_ID;
+  const std::string_view instance_uuid{desc.instance_uuid,
+                                       static_cast<std::size_t>(desc.instance_uuid_length)};
+  const std::string_view name{desc.name == nullptr ? "" : desc.name,
+                              static_cast<std::size_t>(desc.name_length)};
+  const std::string_view prefab_uri{desc.prefab_uri,
+                                    static_cast<std::size_t>(desc.prefab_uri_length)};
+  if (!is_canonical_uuid(instance_uuid) ||
+      std::ranges::any_of(
+          objects, [instance_uuid](const auto& object) { return object.uuid == instance_uuid; }) ||
+      std::ranges::any_of(description.prefab_instances, [instance_uuid](const auto& instance) {
+        return instance.instance_uuid == instance_uuid;
+      })) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  try {
+    std::optional<std::string> parent_uuid;
+    if (desc.parent != GNEISS_NULL_SCENE_NODE_ID) {
+      const auto found = std::ranges::find(objects, desc.parent, &object::node);
+      if (found == objects.end()) {
+        return GNEISS_ERROR_INVALID_HANDLE;
+      }
+      parent_uuid = found->uuid;
+    }
+    prefab_asset_lease lease;
+    scene_diagnostic diagnostic;
+    auto result = prefab_loader_.acquire(prefab_uri, lease, diagnostic);
+    if (result != GNEISS_SUCCESS) {
+      return result;
+    }
+    prefab_instance_description author{.instance_uuid = std::string(instance_uuid),
+                                       .name = std::string(name),
+                                       .parent_uuid = std::move(parent_uuid),
+                                       .prefab_uri = std::string(prefab_uri)};
+    std::ranges::copy(desc.local_transform.translation, author.translation.begin());
+    std::ranges::copy(desc.local_transform.rotation, author.rotation.begin());
+    std::ranges::copy(desc.local_transform.scale, author.scale.begin());
+    description.prefab_instances.reserve(description.prefab_instances.size() + 1U);
+    prefab_instances.reserve(prefab_instances.size() + 1U);
+    std::unique_ptr<prefab_runtime_instance> runtime;
+    result = prefab_runtime_instance::create(world_, loader_, std::move(lease), instance_uuid,
+                                             desc.parent, desc.local_transform, runtime);
+    if (result != GNEISS_SUCCESS) {
+      return result;
+    }
+    *out_root = runtime->root();
+    description.prefab_instances.push_back(std::move(author));
+    prefab_instances.push_back(std::move(runtime));
+    return GNEISS_SUCCESS;
+  } catch (const std::bad_alloc&) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
 }
 
 gneiss_result scene_instance::create_node(const gneiss_scene_node_desc& desc,
@@ -910,7 +1034,7 @@ gneiss_result scene_instance_service::load(std::string_view uri,
     if (result != GNEISS_SUCCESS) {
       return result;
     }
-    auto instance = std::make_unique<scene_instance>(world_, loader_);
+    auto instance = std::make_unique<scene_instance>(world_, loader_, prefab_loader_);
     result = stage_assets(description, loader_, *instance);
     if (result == GNEISS_SUCCESS) {
       result = commit_scene(world_, description, *instance);
@@ -947,7 +1071,7 @@ gneiss_result scene_instance_service::create_empty(std::string_view scene_uuid,
     if (result != GNEISS_SUCCESS) {
       return result;
     }
-    auto instance = std::make_unique<scene_instance>(world_, loader_);
+    auto instance = std::make_unique<scene_instance>(world_, loader_, prefab_loader_);
     instance->description = std::move(description);
     return instances_.create(core::resource_type::scene_instance, std::move(instance),
                              out_instance);
@@ -1004,6 +1128,54 @@ gneiss_result scene_instance_service::get_node_count(gneiss_scene_instance insta
   }
   *out_count = (*value)->objects.size();
   return GNEISS_SUCCESS;
+}
+
+gneiss_result
+scene_instance_service::get_prefab_node_count(gneiss_scene_instance instance,
+                                              std::uint64_t* out_count) const noexcept {
+  if (out_count == nullptr) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  *out_count = 0U;
+  const auto* value = instances_.get(instance, core::resource_type::scene_instance);
+  if (value == nullptr || *value == nullptr) {
+    return GNEISS_ERROR_INVALID_HANDLE;
+  }
+  *out_count = (*value)->get_prefab_node_count();
+  return GNEISS_SUCCESS;
+}
+
+gneiss_result scene_instance_service::get_prefab_node_info(
+    gneiss_scene_instance instance, std::uint64_t index,
+    gneiss_scene_prefab_node_info* out_info) const noexcept {
+  if (out_info == nullptr || out_info->struct_size < sizeof(gneiss_scene_prefab_node_info)) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  const auto struct_size = out_info->struct_size;
+  *out_info = GNEISS_SCENE_PREFAB_NODE_INFO_INIT;
+  out_info->struct_size = struct_size;
+  const auto* value = instances_.get(instance, core::resource_type::scene_instance);
+  return value == nullptr || *value == nullptr ? GNEISS_ERROR_INVALID_HANDLE
+                                               : (*value)->get_prefab_node_info(index, *out_info);
+}
+
+gneiss_result
+scene_instance_service::create_prefab_instance(gneiss_scene_instance instance,
+                                               const gneiss_scene_prefab_instance_desc& desc,
+                                               gneiss_scene_node_id* out_root) noexcept {
+  if (out_root == nullptr) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  *out_root = GNEISS_NULL_SCENE_NODE_ID;
+  try {
+    auto* value = instances_.get(instance, core::resource_type::scene_instance);
+    return value == nullptr || *value == nullptr ? GNEISS_ERROR_INVALID_HANDLE
+                                                 : (*value)->create_prefab_instance(desc, out_root);
+  } catch (const std::bad_alloc&) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
 }
 
 gneiss_result

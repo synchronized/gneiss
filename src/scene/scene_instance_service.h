@@ -25,7 +25,8 @@ namespace gneiss::scene_internal {
 
 class scene_instance final {
 public:
-  scene_instance(gneiss_world world, render_internal::render_asset_loader& loader) noexcept;
+  scene_instance(gneiss_world world, render_internal::render_asset_loader& loader,
+                 prefab_asset_loader& prefab_loader) noexcept;
   ~scene_instance() noexcept;
 
   scene_instance(const scene_instance&) = delete;
@@ -45,6 +46,11 @@ public:
   [[nodiscard]] gneiss_result serialize(std::string& out_json) const;
   [[nodiscard]] gneiss_result get_node_info(std::uint64_t index,
                                             gneiss_scene_instance_node_info& out_info) const;
+  [[nodiscard]] std::uint64_t get_prefab_node_count() const noexcept;
+  [[nodiscard]] gneiss_result get_prefab_node_info(std::uint64_t index,
+                                                   gneiss_scene_prefab_node_info& out_info) const;
+  [[nodiscard]] gneiss_result create_prefab_instance(const gneiss_scene_prefab_instance_desc& desc,
+                                                     gneiss_scene_node_id* out_root);
   [[nodiscard]] gneiss_result create_node(const gneiss_scene_node_desc& desc,
                                           gneiss_scene_node_id* out_node);
   [[nodiscard]] gneiss_result set_node_name(gneiss_scene_node_id node, std::string_view name);
@@ -76,6 +82,7 @@ public:
 private:
   gneiss_world world_;
   render_internal::render_asset_loader& loader_;
+  prefab_asset_loader& prefab_loader_;
 };
 
 class scene_instance_service final {
@@ -99,6 +106,14 @@ public:
   [[nodiscard]] gneiss_result
   get_node_info(gneiss_scene_instance instance, std::uint64_t index,
                 gneiss_scene_instance_node_info* out_info) const noexcept;
+  [[nodiscard]] gneiss_result get_prefab_node_count(gneiss_scene_instance instance,
+                                                    std::uint64_t* out_count) const noexcept;
+  [[nodiscard]] gneiss_result
+  get_prefab_node_info(gneiss_scene_instance instance, std::uint64_t index,
+                       gneiss_scene_prefab_node_info* out_info) const noexcept;
+  [[nodiscard]] gneiss_result create_prefab_instance(gneiss_scene_instance instance,
+                                                     const gneiss_scene_prefab_instance_desc& desc,
+                                                     gneiss_scene_node_id* out_root) noexcept;
   [[nodiscard]] gneiss_result create_node(gneiss_scene_instance instance,
                                           const gneiss_scene_node_desc& desc,
                                           gneiss_scene_node_id* out_node) noexcept;

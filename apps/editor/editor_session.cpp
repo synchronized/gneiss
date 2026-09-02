@@ -143,6 +143,7 @@ result editor_session::create_empty(gneiss_application application, gneiss_world
   scene_ = std::move(pending);
   world_ = world;
   nodes_.clear();
+  prefab_nodes_.clear();
   selection_ = {};
   uri_.clear();
   is_dirty_ = true;
@@ -197,7 +198,44 @@ result editor_session::refresh_nodes() noexcept {
            .is_primary_camera =
                (info.component_flags & GNEISS_SCENE_NODE_COMPONENT_PRIMARY_CAMERA) != 0U});
     }
+    std::uint64_t prefab_count = 0;
+    operation = scene_.get_prefab_node_count(prefab_count);
+    if (operation != result::success) {
+      return operation;
+    }
+    std::vector<prefab_node_record> prefab_records;
+    prefab_records.reserve(static_cast<std::size_t>(prefab_count));
+    for (std::uint64_t index = 0; index < prefab_count; ++index) {
+      scene_prefab_node_info info = GNEISS_SCENE_PREFAB_NODE_INFO_INIT;
+      operation = scene_.get_prefab_node_info(index, info);
+      if (operation != result::success) {
+        return operation;
+      }
+      const std::string instance_uuid{info.instance_uuid,
+                                      static_cast<std::size_t>(info.instance_uuid_length)};
+      const std::string source_uuid =
+          info.source_node_uuid == nullptr
+              ? std::string{}
+              : std::string{info.source_node_uuid,
+                            static_cast<std::size_t>(info.source_node_uuid_length)};
+      const bool is_root = (info.flags & GNEISS_SCENE_PREFAB_NODE_INSTANCE_ROOT) != 0U;
+      prefab_records.push_back(
+          {.node = scene_node_id{info.node},
+           .parent = scene_node_id{info.parent},
+           .entity = entity_id{info.entity},
+           .instance_uuid = instance_uuid,
+           .source_node_uuid = source_uuid,
+           .display_name = info.name == nullptr
+                               ? (is_root ? instance_uuid : source_uuid)
+                               : std::string{info.name, static_cast<std::size_t>(info.name_length)},
+           .prefab_uri =
+               std::string{info.prefab_uri, static_cast<std::size_t>(info.prefab_uri_length)},
+           .local_transform = transform{info.local_transform},
+           .is_instance_root = is_root,
+           .is_read_only = (info.flags & GNEISS_SCENE_PREFAB_NODE_SOURCE_READ_ONLY) != 0U});
+    }
     nodes_.swap(records);
+    prefab_nodes_.swap(prefab_records);
     return validate_selection();
   } catch (const std::bad_alloc&) {
     return result::out_of_memory;
@@ -240,6 +278,38 @@ result editor_session::create_node(std::string_view name, scene_node_id parent,
     auto operation = scene_.create_node(desc, out_node);
     if (operation == result::success) {
       selection_ = out_node;
+      operation = refresh_nodes();
+    }
+    if (operation == result::success) {
+      is_dirty_ = true;
+    }
+    return operation;
+  } catch (const std::bad_alloc&) {
+    return result::out_of_memory;
+  } catch (...) {
+    return result::internal;
+  }
+}
+
+result editor_session::create_prefab_instance(std::string_view name, std::string_view prefab_uri,
+                                              scene_node_id parent,
+                                              scene_node_id& out_root) noexcept {
+  if (!is_open() || prefab_uri.empty()) {
+    return result::invalid_argument;
+  }
+  try {
+    const auto uuid = make_uuid();
+    scene_prefab_instance_desc desc = GNEISS_SCENE_PREFAB_INSTANCE_DESC_INIT;
+    desc.parent = parent.get();
+    desc.instance_uuid = uuid.data();
+    desc.instance_uuid_length = uuid.size();
+    desc.name = name.data();
+    desc.name_length = name.size();
+    desc.prefab_uri = prefab_uri.data();
+    desc.prefab_uri_length = prefab_uri.size();
+    auto operation = scene_.create_prefab_instance(desc, out_root);
+    if (operation == result::success) {
+      selection_ = out_root;
       operation = refresh_nodes();
     }
     if (operation == result::success) {
@@ -432,6 +502,7 @@ result editor_session::remove_mesh_renderer(scene_node_id node) noexcept {
 void editor_session::close() noexcept {
   selection_ = {};
   nodes_.clear();
+  prefab_nodes_.clear();
   uri_.clear();
   is_dirty_ = false;
   scene_.reset();
@@ -441,6 +512,11 @@ void editor_session::close() noexcept {
 const scene_node_record* editor_session::selected_node() const noexcept {
   const auto found = std::ranges::find(nodes_, selection_, &scene_node_record::node);
   return found == nodes_.end() ? nullptr : &*found;
+}
+
+const prefab_node_record* editor_session::selected_prefab_node() const noexcept {
+  const auto found = std::ranges::find(prefab_nodes_, selection_, &prefab_node_record::node);
+  return found == prefab_nodes_.end() ? nullptr : &*found;
 }
 
 const scene_node_record* editor_session::find_node(std::string_view uuid) const noexcept {
@@ -454,12 +530,15 @@ result editor_session::select(scene_node_id node) noexcept {
     return result::success;
   }
   const auto found = std::ranges::find(nodes_, node, &scene_node_record::node);
-  if (found == nodes_.end()) {
+  const auto prefab = std::ranges::find(prefab_nodes_, node, &prefab_node_record::node);
+  if (found == nodes_.end() && prefab == prefab_nodes_.end()) {
     return result::not_found;
   }
   gneiss_entity_id entity = GNEISS_NULL_ENTITY_ID;
   const auto operation = from_native(gneiss_scene_node_get_entity(world_, node.get(), &entity));
-  if (operation != result::success || entity != found->entity.get()) {
+  const auto expected = found != nodes_.end() ? found->entity.get()
+                                              : static_cast<gneiss_entity_id>(prefab->entity.get());
+  if (operation != result::success || entity != expected) {
     selection_ = {};
     return operation == result::success ? result::invalid_handle : operation;
   }

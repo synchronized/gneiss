@@ -512,11 +512,62 @@ bool reparent_with_history(editor_state& state, std::string_view source_uuid,
   return true;
 }
 
-void draw_scene_node(editor_state& state, const gneiss::editor::scene_node_record& node) {
-  const auto& nodes = state.session.nodes();
-  const auto target_uuid = node.uuid;
+void draw_prefab_node(editor_state& state, const gneiss::editor::prefab_node_record& node) {
+  const auto& nodes = state.session.prefab_nodes();
   const auto has_children = std::ranges::any_of(
       nodes, [node_id = node.node](const auto& candidate) { return candidate.parent == node_id; });
+  auto flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_SpanAvailWidth |
+               ImGuiTreeNodeFlags_FramePadding;
+  if (!has_children) {
+    flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen;
+  }
+  if (state.session.selection() == node.node) {
+    flags |= ImGuiTreeNodeFlags_Selected;
+  }
+  ImGui::PushID(node.instance_uuid.c_str());
+  ImGui::PushID(node.source_node_uuid.c_str());
+  const auto label = node.is_instance_root ? std::string{"[Prefab] "} + node.display_name
+                                           : node.display_name + " (read-only)";
+  if (node.is_read_only) {
+    ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
+  }
+  const auto is_open = ImGui::TreeNodeEx(label.c_str(), flags);
+  if (node.is_read_only) {
+    ImGui::PopStyleColor();
+  }
+  if (ImGui::IsItemClicked()) {
+    (void)state.session.select(node.node);
+    state.inspected_runtime_node = {};
+    state.inspected_runtime_session = 0U;
+  }
+  if (ImGui::IsItemHovered()) {
+    ImGui::SetTooltip("%s\n%s", node.prefab_uri.c_str(),
+                      node.is_read_only ? "Prefab source node (read-only)"
+                                        : "Prefab instance root");
+  }
+  if (has_children && is_open) {
+    for (const auto& child : nodes) {
+      if (child.parent == node.node) {
+        draw_prefab_node(state, child);
+      }
+    }
+    ImGui::TreePop();
+  }
+  ImGui::PopID();
+  ImGui::PopID();
+}
+
+void draw_scene_node(editor_state& state, const gneiss::editor::scene_node_record& node) {
+  const auto& nodes = state.session.nodes();
+  const auto& prefab_nodes = state.session.prefab_nodes();
+  const auto target_uuid = node.uuid;
+  const auto has_children =
+      std::ranges::any_of(
+          nodes,
+          [node_id = node.node](const auto& candidate) { return candidate.parent == node_id; }) ||
+      std::ranges::any_of(prefab_nodes, [node_id = node.node](const auto& candidate) {
+        return candidate.parent == node_id;
+      });
   auto flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_SpanAvailWidth |
                ImGuiTreeNodeFlags_FramePadding;
   if (!has_children) {
@@ -573,6 +624,11 @@ void draw_scene_node(editor_state& state, const gneiss::editor::scene_node_recor
     for (const auto& child : nodes) {
       if (child.parent == node.node) {
         draw_scene_node(state, child);
+      }
+    }
+    for (const auto& child : prefab_nodes) {
+      if (child.parent == node.node) {
+        draw_prefab_node(state, child);
       }
     }
     ImGui::TreePop();
@@ -942,6 +998,10 @@ void draw_reflected_properties(editor_state& state) {
   return entry.asset_uri.ends_with(".material.json");
 }
 
+[[nodiscard]] bool is_prefab_asset(const gneiss::editor::asset_browser_entry& entry) {
+  return entry.asset_uri.ends_with(".prefab.json");
+}
+
 [[nodiscard]] const gneiss::editor::asset_browser_entry*
 find_material_for_mesh(const std::vector<gneiss::editor::asset_browser_entry>& entries,
                        const gneiss::editor::asset_browser_entry& mesh) {
@@ -1058,6 +1118,22 @@ void draw_asset_browser(editor_state& state) {
         }
       }
     }
+    state.asset_scene_attempted = true;
+    scene_node = state.session.selected_node();
+  }
+  const auto can_add_prefab =
+      selected_entry != state.assets.entries().end() &&
+      selected_entry->kind == gneiss::editor::asset_browser_kind::authored_asset &&
+      is_prefab_asset(*selected_entry);
+  ImGui::SameLine();
+  ImGui::BeginDisabled(!can_add_prefab);
+  const auto add_prefab_requested = ImGui::Button("Add Prefab");
+  ImGui::EndDisabled();
+  if (add_prefab_requested) {
+    gneiss::scene_node_id root;
+    state.asset_scene_result = state.session.create_prefab_instance(
+        selected_entry->display_name, selected_entry->asset_uri,
+        scene_node == nullptr ? gneiss::scene_node_id{} : scene_node->node, root);
     state.asset_scene_attempted = true;
     scene_node = state.session.selected_node();
   }
@@ -1248,10 +1324,16 @@ gneiss_result update_editor_camera(editor_state& state, const gneiss_frame_time&
     input.pitch_delta = -io.MouseDelta.y * look_sensitivity;
   }
   if (ImGui::IsKeyPressed(ImGuiKey_F, false)) {
+    auto selected_node = gneiss::scene_node_id{};
     if (const auto* selected = state.session.selected_node(); selected != nullptr) {
+      selected_node = selected->node;
+    } else if (const auto* prefab = state.session.selected_prefab_node(); prefab != nullptr) {
+      selected_node = prefab->node;
+    }
+    if (selected_node.is_valid()) {
       gneiss_transform target = GNEISS_TRANSFORM_IDENTITY;
       const auto result =
-          gneiss_scene_node_get_world_transform(state.world, selected->node.get(), &target);
+          gneiss_scene_node_get_world_transform(state.world, selected_node.get(), &target);
       if (result != GNEISS_SUCCESS) {
         return result;
       }
@@ -1832,6 +1914,11 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
           draw_scene_node(state, node);
         }
       }
+      for (const auto& node : state.session.prefab_nodes()) {
+        if (!node.parent.is_valid()) {
+          draw_prefab_node(state, node);
+        }
+      }
       ImGui::Separator();
       ImGui::Selectable("Drop here to move to root", false);
       if (ImGui::BeginDragDropTarget()) {
@@ -1937,6 +2024,23 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
       state.inspected_entity = {};
       state.inspector_error = gneiss::result::success;
       draw_runtime_inspector(state, *runtime_selected);
+    } else if (const auto* prefab = state.session.selected_prefab_node(); prefab != nullptr) {
+      state.inspector.clear();
+      state.inspected_entity = {};
+      state.inspector_error = gneiss::result::success;
+      ImGui::TextUnformatted(prefab->is_instance_root ? "Prefab Instance"
+                                                      : "Prefab Source Node (read-only)");
+      ImGui::Text("Name: %s", prefab->display_name.c_str());
+      ImGui::Text("Instance UUID: %s", prefab->instance_uuid.c_str());
+      if (!prefab->source_node_uuid.empty()) {
+        ImGui::Text("Source UUID: %s", prefab->source_node_uuid.c_str());
+      }
+      ImGui::Text("Prefab: %s", prefab->prefab_uri.c_str());
+      ImGui::Text("Entity: %llu", static_cast<unsigned long long>(prefab->entity.get()));
+      ImGui::Separator();
+      ImGui::TextDisabled(prefab->is_read_only
+                              ? "Source nodes are inherited from the Prefab and cannot be edited."
+                              : "Instance editing will be added in the next milestone.");
     } else if (const auto* selected = state.session.selected_node(); selected != nullptr) {
       if (state.inspected_entity != selected->entity) {
         state.inspector_error = state.inspector.refresh(state.world, selected->entity);

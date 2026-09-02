@@ -497,6 +497,69 @@ gneiss_scene_instance_get_node_info(gneiss_application application, gneiss_scene
   }
 }
 
+extern "C" gneiss_result gneiss_scene_instance_get_prefab_node_count(gneiss_application application,
+                                                                     gneiss_scene_instance instance,
+                                                                     uint64_t* out_count) {
+  if (out_count == nullptr) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  *out_count = 0U;
+  try {
+    auto state = find_application(application);
+    const auto validation_result = validate_application(state);
+    return validation_result == GNEISS_SUCCESS
+               ? state->scenes()->get_prefab_node_count(instance, out_count)
+               : validation_result;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
+extern "C" gneiss_result
+gneiss_scene_instance_get_prefab_node_info(gneiss_application application,
+                                           gneiss_scene_instance instance, uint64_t index,
+                                           gneiss_scene_prefab_node_info* out_info) {
+  if (out_info == nullptr || out_info->struct_size < sizeof(gneiss_scene_prefab_node_info)) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  try {
+    auto state = find_application(application);
+    const auto validation_result = validate_application(state);
+    return validation_result == GNEISS_SUCCESS
+               ? state->scenes()->get_prefab_node_info(instance, index, out_info)
+               : validation_result;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
+extern "C" gneiss_result gneiss_scene_instance_create_prefab_instance(
+    gneiss_application application, gneiss_scene_instance instance,
+    const gneiss_scene_prefab_instance_desc* desc, gneiss_scene_node_id* out_root) {
+  if (out_root == nullptr) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  *out_root = GNEISS_NULL_SCENE_NODE_ID;
+  if (desc == nullptr || desc->struct_size < sizeof(gneiss_scene_prefab_instance_desc) ||
+      desc->instance_uuid == nullptr || desc->instance_uuid_length == 0U ||
+      (desc->name == nullptr && desc->name_length != 0U) || desc->prefab_uri == nullptr ||
+      desc->prefab_uri_length == 0U ||
+      desc->instance_uuid_length > std::numeric_limits<std::size_t>::max() ||
+      desc->name_length > std::numeric_limits<std::size_t>::max() ||
+      desc->prefab_uri_length > std::numeric_limits<std::size_t>::max()) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  try {
+    auto state = find_application(application);
+    const auto validation_result = validate_application(state);
+    return validation_result == GNEISS_SUCCESS
+               ? state->scenes()->create_prefab_instance(instance, *desc, out_root)
+               : validation_result;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
 extern "C" gneiss_result gneiss_scene_instance_create_node(gneiss_application application,
                                                            gneiss_scene_instance instance,
                                                            const gneiss_scene_node_desc* desc,

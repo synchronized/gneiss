@@ -20,6 +20,14 @@ namespace gneiss::scene_internal {
 /** 一份已提交到 World 的 Prefab Runtime 投影；析构时释放全部节点、实体和资产租约。 */
 class prefab_runtime_instance final {
 public:
+  struct node_info final {
+    const prefab_author_address* address = nullptr;
+    std::string_view name;
+    gneiss_entity_id entity = GNEISS_NULL_ENTITY_ID;
+    gneiss_scene_node_id node = GNEISS_NULL_SCENE_NODE_ID;
+    gneiss_scene_node_id parent = GNEISS_NULL_SCENE_NODE_ID;
+  };
+
   prefab_runtime_instance(gneiss_world world, render_internal::render_asset_loader& loader,
                           prefab_asset_lease prefab, std::string instance_uuid) noexcept;
   ~prefab_runtime_instance() noexcept;
@@ -34,12 +42,15 @@ public:
          std::unique_ptr<prefab_runtime_instance>& out_instance) noexcept;
 
   [[nodiscard]] gneiss_scene_node_id root() const noexcept { return root_node_; }
+  [[nodiscard]] gneiss_entity_id root_entity() const noexcept { return root_entity_; }
   [[nodiscard]] gneiss_scene_node_id find_node(std::string_view source_node_uuid) const noexcept;
   [[nodiscard]] std::size_t node_count() const noexcept { return nodes_.size(); }
+  [[nodiscard]] gneiss_result get_node_info(std::size_t index, node_info& out_info) const noexcept;
 
 private:
   struct runtime_node final {
     prefab_author_address address;
+    std::string name;
     gneiss_entity_id entity = GNEISS_NULL_ENTITY_ID;
     gneiss_scene_node_id node = GNEISS_NULL_SCENE_NODE_ID;
     render_internal::mesh_asset_lease mesh;

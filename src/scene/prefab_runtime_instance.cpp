@@ -67,6 +67,7 @@ gneiss_result prefab_runtime_instance::stage_assets(const prefab_description& de
   for (const auto& source : description.objects) {
     runtime_node target{};
     target.address = {instance_uuid_, source.uuid};
+    target.name = source.name;
     if (source.mesh_renderer) {
       render_internal::asset_diagnostic diagnostic;
       auto result = loader_.acquire_mesh(source.mesh_renderer->mesh_uri, target.mesh, diagnostic);
@@ -187,6 +188,26 @@ prefab_runtime_instance::find_node(std::string_view source_node_uuid) const noex
     return std::string_view(node.address.source_node_uuid);
   });
   return found == nodes_.end() ? GNEISS_NULL_SCENE_NODE_ID : found->node;
+}
+
+gneiss_result prefab_runtime_instance::get_node_info(std::size_t index,
+                                                     node_info& out_info) const noexcept {
+  out_info = {};
+  if (index >= nodes_.size()) {
+    return GNEISS_ERROR_NOT_FOUND;
+  }
+  const auto& source = nodes_[index];
+  gneiss_scene_node_id parent = GNEISS_NULL_SCENE_NODE_ID;
+  const auto result = gneiss_scene_node_get_parent(world_, source.node, &parent);
+  if (result != GNEISS_SUCCESS) {
+    return result;
+  }
+  out_info = {.address = &source.address,
+              .name = source.name,
+              .entity = source.entity,
+              .node = source.node,
+              .parent = parent};
+  return GNEISS_SUCCESS;
 }
 
 } // namespace gneiss::scene_internal

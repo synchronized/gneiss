@@ -48,8 +48,14 @@ JSON 可为对象增加可选字符串 `name`；旧场景无需迁移，名称�
 `GNEISS_SCENE_INSTANCE_NODE_INFO_INIT` 初始化。索引越界返回 `GNEISS_ERROR_NOT_FOUND`；节点或实体
 已被外部销毁时返回句柄错误。C++ 包装提供对应的 `get_node_count` 和 `get_node_info`。
 
-当前枚举接口只返回普通作者对象，不返回 Prefab 实例根或展开后的源节点。Editor 的复合身份呈现与
-只读来源节点枚举由后续 Editor 接入补充；这不影响 Scene Instance 对这些 Runtime 对象的所有权。
+Prefab 使用独立的实验性枚举接口 `gneiss_scene_instance_get_prefab_node_count` 与
+`gneiss_scene_instance_get_prefab_node_info`，不改变普通 `objects` 的数量和顺序。枚举顺序为每个实例
+的实例根，其后为 Prefab 来源节点；描述包含实例 UUID、来源节点 UUID、Prefab URI、Runtime ID、
+局部 Transform 以及实例根或来源只读标志。所有字符串视图的生命周期与场景实例一致。
+
+`gneiss_scene_instance_create_prefab_instance` 在普通作者节点或场景根下原子放置 Prefab。调用方提供
+唯一实例 UUID、显示名称、规范 Prefab URI 和实例根 Transform；资源获取或 Runtime 创建失败时不会
+增加作者声明或留下部分节点。当前接口不允许以 Prefab 节点作为父级，也不提供来源节点修改能力。
 
 ## 作者节点编辑
 
