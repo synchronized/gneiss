@@ -49,7 +49,9 @@ gneiss::result to_native_value(const gneiss::ipc_property_value& source,
           output.kind = GNEISS_PROPERTY_KIND_QUATERNION;
           output.payload.quaternion_value = {payload[0], payload[1], payload[2], payload[3]};
         }
-        return gneiss::result::success;
+        if constexpr (!std::is_same_v<Payload, std::monostate>) {
+          return gneiss::result::success;
+        }
       },
       source.payload);
 }
