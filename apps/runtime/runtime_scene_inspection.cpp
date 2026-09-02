@@ -195,6 +195,11 @@ result runtime_scene_inspection::capture_scene(gneiss_application application,
   if (count > runtime_inspection_max_nodes) {
     return result::out_of_memory;
   }
+  gneiss_world world = GNEISS_NULL_WORLD;
+  operation = gneiss_application_get_world(application, &world);
+  if (operation != GNEISS_SUCCESS) {
+    return from_native(operation);
+  }
   try {
     std::vector<runtime_scene_source_node> nodes;
     nodes.reserve(static_cast<std::size_t>(count));
@@ -214,12 +219,17 @@ result runtime_scene_inspection::capture_scene(gneiss_application application,
           info.material_uri_length > runtime_inspection_max_string_size) {
         return result::invalid_argument;
       }
+      auto runtime_transform = info.local_transform;
+      operation = gneiss_world_entity_get_local_transform(world, info.entity, &runtime_transform);
+      if (operation != GNEISS_SUCCESS) {
+        return from_native(operation);
+      }
       nodes.push_back(
           {.native_node = info.node,
            .native_parent = info.parent,
            .uuid = borrowed_string(info.uuid, info.uuid_length),
            .name = borrowed_string(info.name, info.name_length),
-           .local_transform = info.local_transform,
+           .local_transform = runtime_transform,
            .component_flags = info.component_flags,
            .camera = info.camera,
            .mesh_uri = borrowed_string(info.mesh_uri, info.mesh_uri_length),

@@ -109,9 +109,10 @@ gneiss_result update(gneiss_game_context context, void* module_state,
   if (result != GNEISS_SUCCESS) {
     return result;
   }
-  constexpr float radians_per_second = 1.25F;
+  constexpr float idle_radians_per_second = 0.25F;
+  constexpr float input_radians_per_second = 1.25F;
   constexpr double nanoseconds_per_second = 1'000'000'000.0;
-  state.angle += action.value * radians_per_second *
+  state.angle += (idle_radians_per_second + (action.value * input_radians_per_second)) *
                  static_cast<float>(static_cast<double>(time->delta_ns) / nanoseconds_per_second);
   const auto half_angle = state.angle * 0.5F;
   state.transform.rotation[0] = 0.0F;
