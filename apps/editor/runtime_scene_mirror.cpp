@@ -3,6 +3,7 @@
 
 #include "runtime_scene_mirror.h"
 
+#include <algorithm>
 #include <new>
 #include <set>
 #include <utility>
@@ -44,9 +45,55 @@ bool valid_graph(const std::map<std::uint64_t, gneiss::ipc_inspection_node>& nod
 namespace gneiss::editor {
 
 result runtime_scene_mirror::apply(const ipc_inspection_batch& batch) noexcept {
-  if (batch.stamp.session_id == 0U || batch.stamp.sequence == 0U) {
+  if (batch.stamp.session_id == 0U || batch.stamp.sequence == 0U || batch.chunk_count == 0U ||
+      batch.chunk_index >= batch.chunk_count) {
     return result::invalid_argument;
   }
+  try {
+    if (batch.chunk_count == 1U) {
+      pending_chunks_.clear();
+      pending_stamp_ = {};
+      return apply_complete(batch);
+    }
+    if (pending_stamp_.session_id != batch.stamp.session_id ||
+        pending_stamp_.sequence != batch.stamp.sequence ||
+        pending_chunks_.size() != batch.chunk_count || pending_is_full_ != batch.is_full) {
+      pending_stamp_ = batch.stamp;
+      pending_is_full_ = batch.is_full;
+      pending_chunks_.assign(batch.chunk_count, std::nullopt);
+    }
+    auto& slot = pending_chunks_[batch.chunk_index];
+    if (slot.has_value()) {
+      return result::success;
+    }
+    slot = batch;
+    if (!std::ranges::all_of(pending_chunks_,
+                             [](const auto& chunk) { return chunk.has_value(); })) {
+      return result::success;
+    }
+    ipc_inspection_batch complete;
+    complete.stamp = pending_stamp_;
+    complete.is_full = pending_is_full_;
+    for (auto& chunk : pending_chunks_) {
+      complete.changes.insert(complete.changes.end(),
+                              std::make_move_iterator(chunk->changes.begin()),
+                              std::make_move_iterator(chunk->changes.end()));
+    }
+    pending_chunks_.clear();
+    pending_stamp_ = {};
+    return apply_complete(complete);
+  } catch (const std::bad_alloc&) {
+    pending_chunks_.clear();
+    needs_full_snapshot_ = true;
+    return result::out_of_memory;
+  } catch (...) {
+    pending_chunks_.clear();
+    needs_full_snapshot_ = true;
+    return result::internal;
+  }
+}
+
+result runtime_scene_mirror::apply_complete(const ipc_inspection_batch& batch) noexcept {
   try {
     if (batch.is_full) {
       if (sequence_.begin(batch.stamp.session_id, batch.stamp.sequence) != result::success) {
@@ -109,6 +156,9 @@ void runtime_scene_mirror::reset() noexcept {
   by_id_.clear();
   nodes_.clear();
   needs_full_snapshot_ = true;
+  pending_stamp_ = {};
+  pending_is_full_ = false;
+  pending_chunks_.clear();
 }
 
 void runtime_scene_mirror::rebuild_nodes() {

@@ -17,6 +17,8 @@ namespace {
 
 constexpr std::size_t max_changes = 8192U;
 constexpr std::size_t max_string_size = 16U * 1024U;
+constexpr std::uint32_t max_chunks = 4096U;
+constexpr std::uint32_t max_outgoing_chunks = 128U;
 
 using document_ptr = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;
 using mutable_document_ptr = std::unique_ptr<yyjson_mut_doc, decltype(&yyjson_mut_doc_free)>;
@@ -161,7 +163,8 @@ namespace gneiss {
 
 result encode_ipc_inspection_batch(const ipc_inspection_batch& batch, ipc_frame& output) noexcept {
   if (batch.stamp.session_id == 0U || batch.stamp.sequence == 0U ||
-      batch.changes.size() > max_changes) {
+      batch.changes.size() > max_changes || batch.chunk_count == 0U ||
+      batch.chunk_count > max_chunks || batch.chunk_index >= batch.chunk_count) {
     return result::invalid_argument;
   }
   try {
@@ -172,6 +175,10 @@ result encode_ipc_inspection_batch(const ipc_inspection_batch& batch, ipc_frame&
         !yyjson_mut_obj_add_uint(document.get(), root, "session_id", batch.stamp.session_id) ||
         !yyjson_mut_obj_add_uint(document.get(), root, "sequence", batch.stamp.sequence) ||
         !yyjson_mut_obj_add_bool(document.get(), root, "full", batch.is_full)) {
+      return result::out_of_memory;
+    }
+    if (!yyjson_mut_obj_add_uint(document.get(), root, "chunk_index", batch.chunk_index) ||
+        !yyjson_mut_obj_add_uint(document.get(), root, "chunk_count", batch.chunk_count)) {
       return result::out_of_memory;
     }
     for (const auto& change : batch.changes) {
@@ -220,6 +227,55 @@ result encode_ipc_inspection_batch(const ipc_inspection_batch& batch, ipc_frame&
   }
 }
 
+result encode_ipc_inspection_batch_chunks(const ipc_inspection_batch& batch,
+                                          std::vector<ipc_frame>& output) noexcept {
+  if (batch.stamp.session_id == 0U || batch.stamp.sequence == 0U ||
+      batch.changes.size() > max_changes) {
+    return result::invalid_argument;
+  }
+  try {
+    std::vector<ipc_inspection_batch> chunks(1U);
+    chunks.front().stamp = batch.stamp;
+    chunks.front().is_full = batch.is_full;
+    for (const auto& change : batch.changes) {
+      auto& current = chunks.back();
+      current.changes.push_back(change);
+      current.chunk_count = max_outgoing_chunks;
+      ipc_frame probe;
+      if (encode_ipc_inspection_batch(current, probe) == result::success) {
+        continue;
+      }
+      current.changes.pop_back();
+      if (current.changes.empty() || chunks.size() >= max_outgoing_chunks) {
+        return result::out_of_memory;
+      }
+      chunks.push_back({.stamp = batch.stamp, .is_full = batch.is_full, .changes = {change}});
+      chunks.back().chunk_count = max_outgoing_chunks;
+      if (encode_ipc_inspection_batch(chunks.back(), probe) != result::success) {
+        return result::out_of_memory;
+      }
+    }
+    std::vector<ipc_frame> frames;
+    frames.reserve(chunks.size());
+    for (std::size_t index = 0U; index < chunks.size(); ++index) {
+      chunks[index].chunk_index = static_cast<std::uint32_t>(index);
+      chunks[index].chunk_count = static_cast<std::uint32_t>(chunks.size());
+      ipc_frame frame;
+      const auto encoded = encode_ipc_inspection_batch(chunks[index], frame);
+      if (encoded != result::success) {
+        return encoded;
+      }
+      frames.push_back(std::move(frame));
+    }
+    output = std::move(frames);
+    return result::success;
+  } catch (const std::bad_alloc&) {
+    return result::out_of_memory;
+  } catch (...) {
+    return result::internal;
+  }
+}
+
 result decode_ipc_inspection_batch(const ipc_frame& frame, ipc_inspection_batch& output) noexcept {
   if (frame.protocol_major != ipc_protocol_major ||
       frame.message_type != static_cast<std::uint16_t>(ipc_message_type::inspection_snapshot) ||
@@ -234,15 +290,22 @@ result decode_ipc_inspection_batch(const ipc_frame& frame, ipc_inspection_batch&
     auto* session = yyjson_is_obj(root) ? yyjson_obj_get(root, "session_id") : nullptr;
     auto* sequence = yyjson_is_obj(root) ? yyjson_obj_get(root, "sequence") : nullptr;
     auto* full = yyjson_is_obj(root) ? yyjson_obj_get(root, "full") : nullptr;
+    auto* chunk_index = yyjson_is_obj(root) ? yyjson_obj_get(root, "chunk_index") : nullptr;
+    auto* chunk_count = yyjson_is_obj(root) ? yyjson_obj_get(root, "chunk_count") : nullptr;
     auto* changes = yyjson_is_obj(root) ? yyjson_obj_get(root, "changes") : nullptr;
     if (!yyjson_is_uint(session) || yyjson_get_uint(session) == 0U || !yyjson_is_uint(sequence) ||
-        yyjson_get_uint(sequence) == 0U || !yyjson_is_bool(full) || !yyjson_is_arr(changes) ||
+        yyjson_get_uint(sequence) == 0U || !yyjson_is_bool(full) || !yyjson_is_uint(chunk_index) ||
+        !yyjson_is_uint(chunk_count) || yyjson_get_uint(chunk_count) == 0U ||
+        yyjson_get_uint(chunk_count) > max_chunks ||
+        yyjson_get_uint(chunk_index) >= yyjson_get_uint(chunk_count) || !yyjson_is_arr(changes) ||
         yyjson_arr_size(changes) > max_changes) {
       return result::invalid_argument;
     }
     ipc_inspection_batch pending;
     pending.stamp = {yyjson_get_uint(session), yyjson_get_uint(sequence)};
     pending.is_full = yyjson_get_bool(full);
+    pending.chunk_index = static_cast<std::uint32_t>(yyjson_get_uint(chunk_index));
+    pending.chunk_count = static_cast<std::uint32_t>(yyjson_get_uint(chunk_count));
     std::set<std::pair<std::uint64_t, std::uint32_t>> seen;
     std::size_t index = 0U;
     std::size_t count = 0U;

@@ -223,8 +223,11 @@ bool test_runtime_inspection_batch_round_trip() {
   gneiss::ipc_inspection_change removed;
   removed.type = gneiss::ipc_inspection_change_type::remove;
   removed.id = {2U, 3U};
-  gneiss::ipc_inspection_batch source{
-      .stamp = {8U, 4U}, .is_full = false, .changes = {root, removed}};
+  gneiss::ipc_inspection_batch source{.stamp = {8U, 4U},
+                                      .is_full = false,
+                                      .chunk_index = 1U,
+                                      .chunk_count = 3U,
+                                      .changes = {root, removed}};
   gneiss::ipc_frame frame;
   gneiss::ipc_inspection_batch decoded;
   return gneiss::encode_ipc_inspection_batch(source, frame) == gneiss::result::success &&
@@ -232,7 +235,8 @@ bool test_runtime_inspection_batch_round_trip() {
              static_cast<std::uint16_t>(gneiss::ipc_message_type::inspection_snapshot) &&
          gneiss::decode_ipc_inspection_batch(frame, decoded) == gneiss::result::success &&
          decoded.stamp.session_id == 8U && decoded.stamp.sequence == 4U && !decoded.is_full &&
-         decoded.changes.size() == 2U && decoded.changes[0].node.name == "根节点" &&
+         decoded.chunk_index == 1U && decoded.chunk_count == 3U && decoded.changes.size() == 2U &&
+         decoded.changes[0].node.name == "根节点" &&
          decoded.changes[0].node.local_transform.translation[0] == 2.0F &&
          decoded.changes[0].node.component_flags == GNEISS_SCENE_NODE_COMPONENT_CAMERA &&
          decoded.changes[0].node.camera.near_plane == 0.25F &&
@@ -258,6 +262,36 @@ bool test_runtime_statistics_round_trip() {
          decoded.entity_count == source.entity_count &&
          decoded.ipc_pending_writes == source.ipc_pending_writes &&
          decoded.ipc_dropped_events == source.ipc_dropped_events;
+}
+
+bool test_runtime_inspection_chunking() {
+  gneiss::ipc_inspection_batch source;
+  source.stamp = {11U, 9U};
+  source.is_full = true;
+  for (std::uint64_t index = 1U; index <= 12U; ++index) {
+    gneiss::ipc_inspection_change change;
+    change.id = {index, 1U};
+    change.node.id = change.id;
+    change.node.uuid = "node-" + std::to_string(index);
+    change.node.name.assign(8000U, 'n');
+    source.changes.push_back(std::move(change));
+  }
+  std::vector<gneiss::ipc_frame> frames;
+  if (gneiss::encode_ipc_inspection_batch_chunks(source, frames) != gneiss::result::success ||
+      frames.size() < 2U) {
+    return false;
+  }
+  std::size_t change_count = 0U;
+  for (std::size_t index = 0U; index < frames.size(); ++index) {
+    gneiss::ipc_inspection_batch decoded;
+    if (gneiss::decode_ipc_inspection_batch(frames[index], decoded) != gneiss::result::success ||
+        decoded.stamp.session_id != 11U || decoded.stamp.sequence != 9U || !decoded.is_full ||
+        decoded.chunk_index != index || decoded.chunk_count != frames.size()) {
+      return false;
+    }
+    change_count += decoded.changes.size();
+  }
+  return change_count == source.changes.size();
 }
 
 bool wait_for_frame(gneiss::ipc_transport& transport, gneiss::ipc_frame& output) {
@@ -323,7 +357,8 @@ int main() {
                  test_invalid_and_unknown_messages() && test_handshake_and_heartbeat_timeouts() &&
                  test_runtime_inspection_identity_and_sequence() &&
                  test_runtime_inspection_batch_round_trip() &&
-                 test_runtime_statistics_round_trip() && test_handshake_over_transport()
+                 test_runtime_statistics_round_trip() && test_runtime_inspection_chunking() &&
+                 test_handshake_over_transport()
              ? 0
              : 1;
 }

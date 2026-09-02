@@ -37,12 +37,18 @@ struct ipc_inspection_change final {
 struct ipc_inspection_batch final {
   ipc_inspection_stamp stamp;
   bool is_full = false;
+  std::uint32_t chunk_index = 0U;
+  std::uint32_t chunk_count = 1U;
   std::vector<ipc_inspection_change> changes;
 };
 
 /** 将有界检查批次编码为 inspection_snapshot 帧。 */
 [[nodiscard]] result encode_ipc_inspection_batch(const ipc_inspection_batch& batch,
                                                  ipc_frame& output) noexcept;
+
+/** 按协议负载上限把一个逻辑批次编码为有界分片。 */
+[[nodiscard]] result encode_ipc_inspection_batch_chunks(const ipc_inspection_batch& batch,
+                                                        std::vector<ipc_frame>& output) noexcept;
 
 /** 解码并验证 inspection_snapshot 帧，不验证镜像中的父子引用。 */
 [[nodiscard]] result decode_ipc_inspection_batch(const ipc_frame& frame,

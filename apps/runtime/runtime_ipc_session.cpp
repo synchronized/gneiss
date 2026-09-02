@@ -6,6 +6,7 @@
 #include <gneiss/app/runtime_log_protocol.h>
 
 #include <algorithm>
+#include <deque>
 #include <utility>
 #include <vector>
 
@@ -25,6 +26,21 @@ struct runtime_ipc_session::implementation final {
       "control", "heartbeat", "logs", std::string(ipc_capability_runtime_inspection_v1)};
   std::vector<std::string> negotiated_capabilities;
   bool wants_running = false;
+  std::deque<ipc_frame> pending_inspection_frames;
+
+  result flush_inspection() noexcept {
+    while (!pending_inspection_frames.empty() && transport.pending_write_count() < 48U) {
+      const auto operation = transport.send(pending_inspection_frames.front());
+      if (operation == result::not_ready) {
+        return result::success;
+      }
+      if (operation != result::success) {
+        return operation;
+      }
+      pending_inspection_frames.pop_front();
+    }
+    return result::success;
+  }
 
   result send(ipc_message message) noexcept {
     ipc_frame frame;
@@ -213,6 +229,13 @@ result runtime_ipc_session::pump(clock::time_point now, runtime_ipc_actions& act
       implementation_->heartbeat_deadline.expired(now)) {
     return implementation_->fail(result::not_ready, actions);
   }
+  if (implementation_->current_state == runtime_ipc_state::running ||
+      implementation_->current_state == runtime_ipc_state::paused) {
+    const auto flushed = implementation_->flush_inspection();
+    if (flushed != result::success) {
+      return implementation_->fail(flushed, actions);
+    }
+  }
   return result::success;
 }
 
@@ -271,13 +294,18 @@ result runtime_ipc_session::notify_scene_snapshot(const ipc_inspection_batch& ba
        implementation_->current_state != runtime_ipc_state::paused)) {
     return result::not_ready;
   }
-  // 为心跳和控制消息保留至少四分之一的待写队列。
-  if (implementation_->transport.pending_write_count() >= 48U) {
+  if (!implementation_->pending_inspection_frames.empty()) {
     return result::not_ready;
   }
-  ipc_frame frame;
-  const auto operation = encode_ipc_inspection_batch(batch, frame);
-  return operation == result::success ? implementation_->transport.send(frame) : operation;
+  std::vector<ipc_frame> frames;
+  const auto operation = encode_ipc_inspection_batch_chunks(batch, frames);
+  if (operation != result::success) {
+    return operation;
+  }
+  implementation_->pending_inspection_frames.insert(
+      implementation_->pending_inspection_frames.end(), std::make_move_iterator(frames.begin()),
+      std::make_move_iterator(frames.end()));
+  return implementation_->flush_inspection();
 }
 
 result runtime_ipc_session::notify_statistics(const ipc_runtime_statistics& statistics) noexcept {
@@ -306,6 +334,7 @@ result runtime_ipc_session::stop() noexcept {
     return result::success;
   }
   const auto operation = implementation_->transport.stop();
+  implementation_->pending_inspection_frames.clear();
   implementation_->current_state = runtime_ipc_state::stopped;
   return operation == result::not_ready ? result::success : operation;
 }

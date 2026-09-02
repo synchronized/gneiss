@@ -8,6 +8,7 @@
 
 #include <cstdint>
 #include <map>
+#include <optional>
 #include <vector>
 
 namespace gneiss::editor {
@@ -23,12 +24,16 @@ public:
   [[nodiscard]] const std::vector<ipc_inspection_node>& nodes() const noexcept { return nodes_; }
 
 private:
+  [[nodiscard]] result apply_complete(const ipc_inspection_batch& batch) noexcept;
   void rebuild_nodes();
 
   ipc_inspection_sequence_tracker sequence_;
   std::map<std::uint64_t, ipc_inspection_node> by_id_;
   std::vector<ipc_inspection_node> nodes_;
   bool needs_full_snapshot_ = true;
+  ipc_inspection_stamp pending_stamp_;
+  bool pending_is_full_ = false;
+  std::vector<std::optional<ipc_inspection_batch>> pending_chunks_;
 };
 
 } // namespace gneiss::editor
