@@ -36,3 +36,4 @@ Reference 和实现为准。
 - [ADR-028：Editor 与 Runtime 使用版本化本机 IPC](ADR-028-editor-runtime-ipc.md)
 - [ADR-029：Runtime 检查使用只读镜像模型](ADR-029-runtime-inspection-model.md)
 - [ADR-030：Runtime 属性写入使用命令与显式回写](ADR-030-runtime-property-editing.md)
+- [ADR-031：Prefab 使用引用实例与复合作者身份](ADR-031-prefab-instance-boundary.md)
