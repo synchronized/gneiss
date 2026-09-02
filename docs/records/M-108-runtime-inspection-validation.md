@@ -5,9 +5,9 @@
 
 ## 结论
 
-截至 2026-09-02，Lantern Gallery 已能产生并验证真实 Runtime 属性变化；Windows Clang Shared
-与 Static 的 Debug、Release 应用层矩阵均已通过。Linux 及 Sanitizer 尚未完成，因此 M-108 保持
-进行中。
+M-108 已完成。Lantern Gallery 已能产生并验证真实 Runtime 属性变化；Windows Clang
+Shared/Static Debug/Release 应用层矩阵，以及 Linux GCC/Clang、Shared/Static、Granit Runtime
+和 Sanitizer 均已通过。
 
 ## 示例闭环
 
@@ -25,7 +25,12 @@
 | Clang Shared Release | 启用 Tools、Editor、Runtime 的全量构建与测试 | 103/103 通过 |
 | Clang Static Release | 启用 Tools、Editor、Runtime 的全量构建与测试 | 101/101 通过 |
 
-## 待完成
+## Linux 远端矩阵
 
-- 推送特性分支后手动运行 Linux Shared/Static 与 Sanitizer Actions。
-- 汇总最终矩阵后将 M-108 和 0.16.0 标记为完成。
+[Linux Actions 运行 33614582514](https://github.com/synchronized/gneiss/actions/runs/33614582514)
+基于候选提交 `ab1af14`，以下 7 项 Job 全部通过：
+
+- GCC Core Shared 与 Static。
+- Clang Core Shared 与 Static。
+- Granit Runtime Shared 与 Static，包括无头窗口测试。
+- Sanitizer Runtime，包括内存错误与退出泄漏检查。
