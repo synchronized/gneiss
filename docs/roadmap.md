@@ -291,7 +291,7 @@ libuv I/O 基础为未来 Network Service 提供复用点，但本版本不建�
 | --- | --- | --- |
 | M-95 IPC 架构与协议 Spike | P0 | 已完成 |
 | M-96 libuv I/O Core | P0 | 已完成 |
-| M-97 IPC Transport | P0 | 计划中 |
+| M-97 IPC Transport | P0 | 进行中 |
 | M-98 Editor–Runtime 协议 | P0 | 计划中 |
 | M-99 Runtime 控制状态机 | P0 | 计划中 |
 | M-100 Editor Play 工作流 | P0 | 计划中 |

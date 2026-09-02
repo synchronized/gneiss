@@ -1,7 +1,15 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Gneiss contributors
 
-add_library(gneiss_uv_runtime STATIC uv_error.cpp uv_error.h uv_runtime.cpp uv_runtime.h)
+add_library(
+  gneiss_uv_runtime STATIC
+  ipc_frame.cpp
+  ipc_frame.h
+  uv_error.cpp
+  uv_error.h
+  uv_runtime.cpp
+  uv_runtime.h
+)
 target_link_libraries(gneiss_uv_runtime PUBLIC gneiss::engine PRIVATE gneiss::libuv)
 target_include_directories(gneiss_uv_runtime PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_compile_features(gneiss_uv_runtime PUBLIC cxx_std_20)
@@ -29,4 +37,11 @@ if(GNEISS_BUILD_TESTING)
   gneiss_target_compile_warnings(gneiss_uv_error_test)
   gneiss_target_output_directories(gneiss_uv_error_test)
   add_test(NAME gneiss.io.uv-error COMMAND gneiss_uv_error_test)
+
+  add_executable(gneiss_ipc_frame_test tests/ipc_frame_test.cpp)
+  target_link_libraries(gneiss_ipc_frame_test PRIVATE gneiss_uv_runtime)
+  target_compile_features(gneiss_ipc_frame_test PRIVATE cxx_std_20)
+  gneiss_target_compile_warnings(gneiss_ipc_frame_test)
+  gneiss_target_output_directories(gneiss_ipc_frame_test)
+  add_test(NAME gneiss.io.ipc-frame COMMAND gneiss_ipc_frame_test)
 endif()
