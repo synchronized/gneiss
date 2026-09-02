@@ -5,6 +5,7 @@
 #define GNEISS_APPS_RUNTIME_RUNTIME_IPC_SESSION_H_
 
 #include "ipc_inspection_protocol.h"
+#include "ipc_property_edit_protocol.h"
 #include "ipc_protocol.h"
 #include "ipc_statistics_protocol.h"
 #include "ipc_transport.h"
@@ -39,6 +40,7 @@ struct runtime_ipc_actions final {
   bool resume_game = false;
   bool request_exit = false;
   bool request_inspection_resync = false;
+  std::vector<ipc_property_write> property_writes;
   result failure = result::success;
 };
 
@@ -59,6 +61,8 @@ public:
   [[nodiscard]] result notify_shutdown(std::int32_t exit_code) noexcept;
   [[nodiscard]] result notify_log_event(const gneiss_log_event& event) noexcept;
   [[nodiscard]] result notify_scene_snapshot(const ipc_inspection_batch& batch) noexcept;
+  [[nodiscard]] result
+  notify_property_write_result(const ipc_property_write_result& response) noexcept;
   [[nodiscard]] result notify_statistics(const ipc_runtime_statistics& statistics) noexcept;
   [[nodiscard]] std::size_t pending_write_count() const noexcept;
   [[nodiscard]] std::size_t dropped_event_count() const noexcept;

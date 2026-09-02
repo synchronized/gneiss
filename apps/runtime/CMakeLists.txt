@@ -22,6 +22,8 @@ add_library(
   gneiss_runtime_ipc STATIC
   runtime_ipc_session.cpp
   runtime_ipc_session.h
+  runtime_property_editor.cpp
+  runtime_property_editor.h
   runtime_scene_inspection.cpp
   runtime_scene_inspection.h
 )
@@ -100,6 +102,13 @@ if(BUILD_TESTING)
   add_test(
     NAME gneiss.runtime.scene-inspection COMMAND gneiss_runtime_scene_inspection_test
   )
+
+  add_executable(gneiss_runtime_property_editor_test tests/runtime_property_editor_test.cpp)
+  target_link_libraries(gneiss_runtime_property_editor_test PRIVATE gneiss_runtime_ipc)
+  target_compile_features(gneiss_runtime_property_editor_test PRIVATE cxx_std_20)
+  gneiss_target_compile_warnings(gneiss_runtime_property_editor_test)
+  gneiss_target_output_directories(gneiss_runtime_property_editor_test)
+  add_test(NAME gneiss.runtime.property-editor COMMAND gneiss_runtime_property_editor_test)
 
   add_executable(gneiss_runtime_log_test tests/runtime_log_test.cpp runtime_log.cpp runtime_log.h)
   target_include_directories(gneiss_runtime_log_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")

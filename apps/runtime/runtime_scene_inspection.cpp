@@ -50,6 +50,7 @@ void runtime_scene_inspection::reset(std::uint64_t session_id) noexcept {
   generations_.clear();
   free_values_.clear();
   previous_.clear();
+  entities_.clear();
   is_initialized_ = false;
 }
 
@@ -114,6 +115,7 @@ result runtime_scene_inspection::capture(std::span<const runtime_scene_source_no
     }
 
     std::map<std::uint64_t, runtime_scene_snapshot_node> current;
+    std::map<std::uint64_t, std::pair<ipc_runtime_object_id, gneiss_entity_id>> entities;
     std::vector<runtime_scene_snapshot_node> ordered;
     ordered.reserve(nodes.size());
     for (const auto& source : nodes) {
@@ -135,6 +137,9 @@ result runtime_scene_inspection::capture(std::span<const runtime_scene_source_no
                                        .mesh_uri = source.mesh_uri,
                                        .material_uri = source.material_uri};
       current.emplace(node.id.value, node);
+      if (source.native_entity != GNEISS_NULL_ENTITY_ID) {
+        entities.emplace(node.id.value, std::pair{node.id, source.native_entity});
+      }
       ordered.push_back(std::move(node));
     }
 
@@ -171,6 +176,7 @@ result runtime_scene_inspection::capture(std::span<const runtime_scene_source_no
     free_values_ = std::move(free_values);
     next_object_value_ = next_object_value;
     previous_ = std::move(current);
+    entities_ = std::move(entities);
     is_initialized_ = true;
     output = std::move(pending);
     return result::success;
@@ -227,6 +233,7 @@ result runtime_scene_inspection::capture_scene(gneiss_application application,
       nodes.push_back(
           {.native_node = info.node,
            .native_parent = info.parent,
+           .native_entity = info.entity,
            .uuid = borrowed_string(info.uuid, info.uuid_length),
            .name = borrowed_string(info.name, info.name_length),
            .local_transform = runtime_transform,
@@ -241,6 +248,19 @@ result runtime_scene_inspection::capture_scene(gneiss_application application,
   } catch (...) {
     return result::internal;
   }
+}
+
+result runtime_scene_inspection::resolve_entity(ipc_runtime_object_id object,
+                                                gneiss_entity_id& output) const noexcept {
+  if (!object.is_valid()) {
+    return result::invalid_argument;
+  }
+  const auto found = entities_.find(object.value);
+  if (found == entities_.end() || found->second.first != object) {
+    return result::not_found;
+  }
+  output = found->second.second;
+  return result::success;
 }
 
 } // namespace gneiss::runtime_internal

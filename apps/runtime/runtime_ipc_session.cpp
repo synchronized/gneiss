@@ -12,6 +12,10 @@
 
 namespace gneiss::runtime_internal {
 
+namespace {
+constexpr std::size_t runtime_property_write_budget = 32U;
+}
+
 struct runtime_ipc_session::implementation final {
   explicit implementation(runtime_ipc_config value)
       : config(std::move(value)), handshake_deadline(config.handshake_timeout),
@@ -23,7 +27,8 @@ struct runtime_ipc_session::implementation final {
   ipc_timeout_tracker heartbeat_deadline;
   runtime_ipc_state current_state = runtime_ipc_state::stopped;
   std::vector<std::string> requested_capabilities{
-      "control", "heartbeat", "logs", std::string(ipc_capability_runtime_inspection_v1)};
+      "control", "heartbeat", "logs", std::string(ipc_capability_runtime_inspection_v1),
+      std::string(ipc_capability_runtime_property_edit_v1)};
   std::vector<std::string> negotiated_capabilities;
   bool wants_running = false;
   std::deque<ipc_frame> pending_inspection_frames;
@@ -204,6 +209,40 @@ result runtime_ipc_session::pump(clock::time_point now, runtime_ipc_actions& act
       continue;
     }
 
+    if (event.frame.message_type == static_cast<std::uint16_t>(ipc_message_type::property_write)) {
+      if (std::ranges::find(implementation_->negotiated_capabilities,
+                            ipc_capability_runtime_property_edit_v1) ==
+          implementation_->negotiated_capabilities.end()) {
+        (void)implementation_->send_protocol_error(result::unsupported, "属性写入能力未协商");
+        continue;
+      }
+      ipc_property_write command;
+      const auto decoded = decode_ipc_property_write(event.frame, command);
+      if (decoded != result::success) {
+        return implementation_->fail(decoded, actions);
+      }
+      implementation_->heartbeat_deadline.reset(now);
+      if (actions.property_writes.size() >= runtime_property_write_budget) {
+        const ipc_property_write_result response{.session_id = command.session_id,
+                                                 .command_id = command.command_id,
+                                                 .code = GNEISS_ERROR_NOT_READY,
+                                                 .revision = 0U,
+                                                 .message = "本帧属性写入队列已满",
+                                                 .canonical_value = {}};
+        ipc_frame frame;
+        auto operation = encode_ipc_property_write_result(response, frame);
+        if (operation == result::success) {
+          operation = implementation_->transport.send(frame);
+        }
+        if (operation != result::success) {
+          return implementation_->fail(operation, actions);
+        }
+      } else {
+        actions.property_writes.push_back(std::move(command));
+      }
+      continue;
+    }
+
     ipc_message message;
     const auto decoded = decode_ipc_message(event.frame, message);
     if (decoded == result::unsupported) {
@@ -306,6 +345,21 @@ result runtime_ipc_session::notify_scene_snapshot(const ipc_inspection_batch& ba
       implementation_->pending_inspection_frames.end(), std::make_move_iterator(frames.begin()),
       std::make_move_iterator(frames.end()));
   return implementation_->flush_inspection();
+}
+
+result runtime_ipc_session::notify_property_write_result(
+    const ipc_property_write_result& response) noexcept {
+  if (!implementation_ ||
+      std::ranges::find(implementation_->negotiated_capabilities,
+                        ipc_capability_runtime_property_edit_v1) ==
+          implementation_->negotiated_capabilities.end() ||
+      (implementation_->current_state != runtime_ipc_state::running &&
+       implementation_->current_state != runtime_ipc_state::paused)) {
+    return result::not_ready;
+  }
+  ipc_frame frame;
+  const auto operation = encode_ipc_property_write_result(response, frame);
+  return operation == result::success ? implementation_->transport.send(frame) : operation;
 }
 
 result runtime_ipc_session::notify_statistics(const ipc_runtime_statistics& statistics) noexcept {

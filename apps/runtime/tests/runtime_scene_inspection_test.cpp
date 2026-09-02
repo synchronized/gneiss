@@ -11,6 +11,7 @@ gneiss::runtime_internal::runtime_scene_source_node
 make_node(std::uint64_t node, std::uint64_t parent, std::string uuid, std::string name) {
   return {.native_node = node,
           .native_parent = parent,
+          .native_entity = node,
           .uuid = std::move(uuid),
           .name = std::move(name),
           .local_transform = GNEISS_TRANSFORM_IDENTITY,

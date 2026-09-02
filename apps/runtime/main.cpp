@@ -10,6 +10,7 @@
 #include "game_update_scheduler.h"
 #include "runtime_ipc_session.h"
 #include "runtime_log.h"
+#include "runtime_property_editor.h"
 #include "runtime_scene_inspection.h"
 
 #include <algorithm>
@@ -44,6 +45,7 @@ struct runtime_context final {
   gneiss::runtime_internal::game_update_scheduler* game_scheduler = nullptr;
   gneiss::runtime_internal::runtime_ipc_session* ipc_session = nullptr;
   gneiss::runtime_internal::runtime_scene_inspection* scene_inspection = nullptr;
+  gneiss::runtime_internal::runtime_property_editor* property_editor = nullptr;
   gneiss_scene_instance scene = GNEISS_NULL_SCENE_INSTANCE;
   std::uint64_t next_inspection_ns = 0U;
   std::uint64_t inspection_session_id = 0U;
@@ -145,6 +147,25 @@ gneiss_result update_runtime(gneiss_application application, const gneiss_frame_
     }
     if (actions.request_inspection_resync) {
       context.force_full_inspection = true;
+    }
+    if (!actions.property_writes.empty() && context.property_editor == nullptr) {
+      context.ipc_failure = gneiss::result::invalid_state;
+      return gneiss_application_request_exit(application);
+    }
+    for (const auto& command : actions.property_writes) {
+      gneiss::ipc_property_write_result response;
+      auto property_result = context.property_editor->execute(command, response);
+      if (property_result == gneiss::result::success) {
+        property_result = context.ipc_session->notify_property_write_result(response);
+      }
+      if (property_result != gneiss::result::success) {
+        context.ipc_failure = property_result;
+        if (context.log != nullptr) {
+          context.log->write("ERROR", "property_edit", gneiss::to_native(property_result),
+                             "Runtime 属性写入命令执行失败");
+        }
+        return gneiss_application_request_exit(application);
+      }
     }
   }
   if (!context.has_logged_first_frame) {
@@ -339,6 +360,22 @@ void write_application_log(gneiss_application, const gneiss_log_event* event, vo
   context.inspection_session_id = inspection_serial == 0U ? 1U : inspection_serial;
   context.scene = scene;
 
+  gneiss_world world = GNEISS_NULL_WORLD;
+  native_result = gneiss_application_get_world(application.get(), &world);
+  gneiss::runtime_internal::runtime_property_editor property_editor;
+  if (native_result == GNEISS_SUCCESS) {
+    operation = property_editor.initialize(world, scene_inspection, context.inspection_session_id);
+  } else {
+    operation = gneiss::from_native(native_result);
+  }
+  if (operation != gneiss::result::success) {
+    log.write("ERROR", "property_edit", gneiss::to_native(operation),
+              "Runtime 属性写入执行器初始化失败");
+    (void)gneiss_scene_instance_unload(application.get(), scene);
+    return 5;
+  }
+  context.property_editor = &property_editor;
+
   gneiss_entity_id startup_root_entity = GNEISS_NULL_ENTITY_ID;
   uint64_t node_count = 0;
   native_result = gneiss_scene_instance_get_node_count(application.get(), scene, &node_count);
@@ -422,6 +459,7 @@ void write_application_log(gneiss_application, const gneiss_log_event* event, vo
         operation == gneiss::result::success ? 0 : static_cast<std::int32_t>(operation));
   }
   context.ipc_session = nullptr;
+  context.property_editor = nullptr;
   context.scene_inspection = nullptr;
   context.scene = GNEISS_NULL_SCENE_INSTANCE;
   if (ipc_session) {
