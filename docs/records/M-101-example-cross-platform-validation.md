@@ -33,8 +33,8 @@ IPC 与进程边界。游戏模块动态加载闭环由 Shared 配置负责。
 
 ## Linux 远端矩阵
 
-[Linux Actions 运行 33591427595](https://github.com/synchronized/gneiss/actions/runs/33591427595)
-基于提交 `2f7421a`，以下 7 项 Job 全部通过：
+[Linux Actions 最终运行 33591831837](https://github.com/synchronized/gneiss/actions/runs/33591831837)
+基于分支最终候选提交 `f947bb2`，以下 7 项 Job 全部通过：
 
 - GCC Core Shared 与 Static。
 - Clang Core Shared 与 Static。
@@ -43,7 +43,8 @@ IPC 与进程边界。游戏模块动态加载闭环由 Shared 配置负责。
 
 首次远端运行 `33590968502` 的 Granit Runtime Static 暴露 IPC Transport 测试竞态：测试收到断线事件
 后立即断言异步关闭回调尚未收敛的状态。修复后本地连续 200 次通过，完整 101 项回归通过，第二轮
-Linux 矩阵全部通过；测试失败现在同时输出具体行号和表达式。
+Linux 矩阵全部通过。版本资料收敛后又在最终分支提交上运行一次相同矩阵并全部通过；测试失败现在
+同时输出具体行号和表达式。
 
 ## 人工验收边界
 
