@@ -5,6 +5,7 @@
 
 #include "child_process.h"
 #include "ipc_inspection_protocol.h"
+#include "ipc_property_edit_protocol.h"
 #include "ipc_protocol.h"
 #include "ipc_statistics_protocol.h"
 #include "ipc_transport.h"
@@ -28,6 +29,7 @@ struct runtime_process::implementation final {
   child_process build_process;
   console_model console;
   runtime_scene_mirror scene_mirror;
+  runtime_property_edits property_edits;
   ipc_runtime_statistics statistics;
   app::runtime_log_line_decoder line_decoder;
   std::uint64_t runtime_session_id = 0U;
@@ -45,6 +47,7 @@ struct runtime_process::implementation final {
   bool ipc_authenticated = false;
   bool ipc_shutdown_complete = false;
   bool inspection_resync_pending = false;
+  bool property_editing_negotiated = false;
   std::deque<ipc_frame> pending_inspection_input;
   std::string ipc_token;
   ipc_transport ipc_server;
@@ -113,6 +116,9 @@ struct runtime_process::implementation final {
     } else if (batch.is_full && !scene_mirror.needs_full_snapshot()) {
       inspection_resync_pending = false;
     }
+    if (applied == result::success && scene_mirror.session_id() != 0U) {
+      property_edits.begin_session(scene_mirror.session_id());
+    }
   }
 
   void stop_ipc() noexcept {
@@ -120,6 +126,8 @@ struct runtime_process::implementation final {
       (void)ipc_server.stop();
     }
     ipc_authenticated = false;
+    property_editing_negotiated = false;
+    property_edits.disconnect();
     ipc_token.clear();
     next_ping = {};
   }
@@ -127,6 +135,8 @@ struct runtime_process::implementation final {
   void fail_ipc(result operation) noexcept {
     last_result = operation;
     control_state = runtime_control_state::failed;
+    property_editing_negotiated = false;
+    property_edits.disconnect();
     if (stop_deadline == std::chrono::steady_clock::time_point{}) {
       stop_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
     }
@@ -150,8 +160,9 @@ struct runtime_process::implementation final {
       if (!ipc_authenticated) {
         ipc_frame acknowledgment;
         std::vector<std::string> negotiated;
-        const std::vector<std::string> supported{"control", "heartbeat", "logs",
-                                                 std::string(ipc_capability_runtime_inspection_v1)};
+        const std::vector<std::string> supported{
+            "control", "heartbeat", "logs", std::string(ipc_capability_runtime_inspection_v1),
+            std::string(ipc_capability_runtime_property_edit_v1)};
         auto accepted =
             accept_ipc_hello(event.frame, ipc_token, supported, acknowledgment, negotiated);
         if (accepted == result::success) {
@@ -162,6 +173,9 @@ struct runtime_process::implementation final {
           continue;
         }
         ipc_authenticated = true;
+        property_editing_negotiated =
+            std::ranges::find(negotiated, ipc_capability_runtime_property_edit_v1) !=
+            negotiated.end();
         ipc_heartbeat.reset(now);
         next_ping = now;
         continue;
@@ -190,6 +204,22 @@ struct runtime_process::implementation final {
         } else if (decoded_statistics.session_id == scene_mirror.session_id() &&
                    decoded_statistics.sequence > statistics.sequence) {
           statistics = decoded_statistics;
+        }
+        ipc_heartbeat.reset(now);
+        continue;
+      }
+      if (event.frame.message_type ==
+          static_cast<std::uint16_t>(ipc_message_type::property_write_result)) {
+        ipc_property_write_result response;
+        const auto decoded = decode_ipc_property_write_result(event.frame, response);
+        if (decoded != result::success) {
+          last_result = decoded;
+        } else {
+          const auto accepted = property_edits.accept(std::move(response));
+          if (accepted != result::success && accepted != result::not_found &&
+              accepted != result::invalid_state) {
+            last_result = accepted;
+          }
         }
         ipc_heartbeat.reset(now);
         continue;
@@ -266,6 +296,7 @@ struct runtime_process::implementation final {
     if (ipc_heartbeat.expired(now)) {
       fail_ipc(result::not_ready);
     }
+    property_edits.expire(now, std::chrono::seconds(2));
   }
 
   void append_console_lines(std::vector<app::runtime_log_line>& lines) noexcept {
@@ -358,6 +389,7 @@ result runtime_process::start(const std::filesystem::path& executable,
     implementation_->inspection_resync_pending = false;
     implementation_->pending_inspection_input.clear();
     implementation_->scene_mirror.reset();
+    implementation_->property_edits.begin_session(0U);
     implementation_->statistics = {};
     implementation_->control_state = runtime_control_state::connecting;
     const auto serial = std::chrono::steady_clock::now().time_since_epoch().count();
@@ -500,6 +532,33 @@ result runtime_process::request_resume() noexcept {
   return implementation_->send_ipc(std::move(resume));
 }
 
+result runtime_process::request_property_write(runtime_property_key key,
+                                               std::uint64_t expected_revision,
+                                               ipc_property_value value) noexcept {
+  if (!implementation_ || !implementation_->ipc_authenticated ||
+      !implementation_->property_editing_negotiated ||
+      (implementation_->control_state != runtime_control_state::running &&
+       implementation_->control_state != runtime_control_state::paused)) {
+    return result::not_ready;
+  }
+  ipc_property_write command;
+  auto operation =
+      implementation_->property_edits.prepare(std::move(key), expected_revision, std::move(value),
+                                              std::chrono::steady_clock::now(), command);
+  if (operation != result::success) {
+    return operation;
+  }
+  ipc_frame frame;
+  operation = encode_ipc_property_write(command, frame);
+  if (operation == result::success) {
+    operation = implementation_->ipc_server.send(frame);
+  }
+  if (operation != result::success) {
+    implementation_->fail_ipc(operation);
+  }
+  return operation;
+}
+
 void runtime_process::update() noexcept {
   if (!implementation_) {
     return;
@@ -600,6 +659,13 @@ const runtime_scene_mirror& runtime_process::scene_mirror() const noexcept {
 const ipc_runtime_statistics& runtime_process::statistics() const noexcept {
   static const ipc_runtime_statistics empty;
   return implementation_ ? implementation_->statistics : empty;
+}
+const runtime_property_edit*
+runtime_process::property_edit(const runtime_property_key& key) const noexcept {
+  return implementation_ ? implementation_->property_edits.find(key) : nullptr;
+}
+bool runtime_process::supports_property_editing() const noexcept {
+  return implementation_ && implementation_->property_editing_negotiated;
 }
 const std::filesystem::path& runtime_process::log_file() const noexcept {
   return implementation_->log_file;

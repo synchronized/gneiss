@@ -3,6 +3,8 @@
 
 #include "runtime_process.h"
 
+#include <gneiss/world.h>
+
 #include <algorithm>
 #include <array>
 #include <chrono>
@@ -61,6 +63,29 @@ std::optional<std::array<float, 4>> root_rotation(const gneiss::editor::runtime_
   return std::to_array(root->local_transform.rotation);
 }
 
+const gneiss::ipc_inspection_node* root_node(const gneiss::editor::runtime_process& process) {
+  const auto& nodes = process.scene_mirror().nodes();
+  const auto root =
+      std::ranges::find_if(nodes, [](const auto& node) { return !node.parent.is_valid(); });
+  return root == nodes.end() ? nullptr : &*root;
+}
+
+gneiss::editor::runtime_property_key transform_key(const gneiss::ipc_inspection_node& node,
+                                                   gneiss_field_id field_id) {
+  gneiss::editor::runtime_property_key key{.object = node.id, .type_id = {}, .field_id = field_id};
+  const auto type_id = gneiss_transform_type_id();
+  std::ranges::copy(type_id.bytes, key.type_id.begin());
+  return key;
+}
+
+bool wait_for_applied(gneiss::editor::runtime_process& process,
+                      const gneiss::editor::runtime_property_key& key) {
+  return pump_until(process, 3s, [&] {
+    const auto* edit = process.property_edit(key);
+    return edit != nullptr && edit->state == gneiss::editor::runtime_property_edit_state::applied;
+  });
+}
+
 bool rotation_changed(const std::array<float, 4>& left,
                       const std::array<float, 4>& right) noexcept {
   constexpr float tolerance = 0.0001F;
@@ -93,10 +118,31 @@ int main() try {
     return 2;
   }
   const auto initial_rotation = *root_rotation(process);
-  if (!pump_until(process, 3s,
+  if (!process.supports_property_editing() || !pump_until(process, 3s, [&] {
+        const auto current = root_rotation(process);
+        return current.has_value() && rotation_changed(initial_rotation, *current);
+      })) {
+    return 2;
+  }
+  const auto* running_root = root_node(process);
+  if (running_root == nullptr) {
+    return 2;
+  }
+  const auto running_edit_key = transform_key(*running_root, GNEISS_TRANSFORM_FIELD_TRANSLATION);
+  const auto rotation_edit_key = transform_key(*running_root, GNEISS_TRANSFORM_FIELD_ROTATION);
+  if (process.request_property_write(running_edit_key, 1U,
+                                     {std::array<float, 3>{0.5F, 0.25F, -0.5F}}) !=
+          gneiss::result::success ||
+      !wait_for_applied(process, running_edit_key) ||
+      process.request_property_write(rotation_edit_key, 1U,
+                                     {std::array<float, 4>{0.0F, 0.0F, 0.0F, 1.0F}}) !=
+          gneiss::result::success ||
+      !wait_for_applied(process, rotation_edit_key) ||
+      !pump_until(process, 3s,
                   [&] {
                     const auto current = root_rotation(process);
-                    return current.has_value() && rotation_changed(initial_rotation, *current);
+                    return current.has_value() &&
+                           rotation_changed(std::array<float, 4>{0.0F, 0.0F, 0.0F, 1.0F}, *current);
                   }) ||
       process.request_pause() != gneiss::result::success || !pump_until(process, 3s, [&] {
         return process.control_state() == gneiss::editor::runtime_control_state::paused;
@@ -113,6 +159,17 @@ int main() try {
   }
   const auto paused_count = progress_count(process, first_session);
   const auto paused_rotation = root_rotation(process);
+  const auto* paused_root = root_node(process);
+  if (paused_root == nullptr) {
+    return 3;
+  }
+  const auto paused_edit_key = transform_key(*paused_root, GNEISS_TRANSFORM_FIELD_SCALE);
+  if (process.request_property_write(paused_edit_key, 1U,
+                                     {std::array<float, 3>{1.1F, 1.1F, 1.1F}}) !=
+          gneiss::result::success ||
+      !wait_for_applied(process, paused_edit_key)) {
+    return 3;
+  }
   const auto observation_deadline = std::chrono::steady_clock::now() + 700ms;
   while (std::chrono::steady_clock::now() < observation_deadline) {
     process.update();
@@ -146,7 +203,9 @@ int main() try {
   const auto second_session = process.console().current_session_id();
   if (second_session == first_session ||
       !pump_until(process, 3s, [&] { return progress_count(process, second_session) >= 1U; }) ||
-      !stop_session(process)) {
+      process.property_edit(running_edit_key) != nullptr ||
+      process.property_edit(rotation_edit_key) != nullptr ||
+      process.property_edit(paused_edit_key) != nullptr || !stop_session(process)) {
     return 5;
   }
   return 0;
