@@ -92,8 +92,11 @@ bool test_all_message_types() {
 }
 
 bool test_handshake_and_negotiation() {
-  const std::vector<std::string> requested{"control", "logs", "unknown", "control"};
-  const std::vector<std::string> supported{"logs", "control", "diagnostics"};
+  const std::vector<std::string> requested{
+      "control", "logs", std::string(gneiss::ipc_capability_runtime_inspection_v1), "unknown",
+      "control"};
+  const std::vector<std::string> supported{
+      "logs", "control", "diagnostics", std::string(gneiss::ipc_capability_runtime_inspection_v1)};
   gneiss::ipc_frame hello;
   if (gneiss::make_ipc_hello("secret", requested, hello) != gneiss::result::success) {
     return false;
@@ -103,7 +106,9 @@ bool test_handshake_and_negotiation() {
   std::vector<std::string> server_negotiated;
   if (gneiss::accept_ipc_hello(hello, "secret", supported, acknowledgment, server_negotiated) !=
           gneiss::result::success ||
-      server_negotiated != std::vector<std::string>({"control", "logs"}) ||
+      server_negotiated !=
+          std::vector<std::string>(
+              {"control", "logs", std::string(gneiss::ipc_capability_runtime_inspection_v1)}) ||
       acknowledgment.protocol_minor != gneiss::ipc_protocol_minor) {
     return false;
   }
@@ -172,6 +177,35 @@ bool test_handshake_and_heartbeat_timeouts() {
   return invalid.expired(start);
 }
 
+bool test_runtime_inspection_identity_and_sequence() {
+  const gneiss::ipc_runtime_object_id invalid_object{};
+  const gneiss::ipc_runtime_object_id object{42U, 1U};
+  const gneiss::ipc_runtime_object_id recreated{42U, 2U};
+  if (invalid_object.is_valid() || !object.is_valid() || object == recreated) {
+    return false;
+  }
+
+  gneiss::ipc_inspection_sequence_tracker tracker;
+  if (tracker.begin(0U) != gneiss::result::invalid_argument ||
+      tracker.observe({1U, 1U}) != gneiss::ipc_inspection_sequence_result::invalid ||
+      tracker.begin(100U) != gneiss::result::success || tracker.session_id() != 100U ||
+      tracker.next_sequence() != 1U) {
+    return false;
+  }
+  if (tracker.observe({100U, 1U}) != gneiss::ipc_inspection_sequence_result::accepted ||
+      tracker.next_sequence() != 2U ||
+      tracker.observe({100U, 1U}) != gneiss::ipc_inspection_sequence_result::duplicate ||
+      tracker.observe({100U, 3U}) != gneiss::ipc_inspection_sequence_result::gap ||
+      tracker.next_sequence() != 2U ||
+      tracker.observe({99U, 2U}) != gneiss::ipc_inspection_sequence_result::stale_session ||
+      tracker.observe({100U, 2U}) != gneiss::ipc_inspection_sequence_result::accepted) {
+    return false;
+  }
+  tracker.reset();
+  return tracker.session_id() == 0U && tracker.next_sequence() == 0U &&
+         tracker.observe({100U, 3U}) == gneiss::ipc_inspection_sequence_result::invalid;
+}
+
 bool wait_for_frame(gneiss::ipc_transport& transport, gneiss::ipc_frame& output) {
   using namespace std::chrono_literals;
   const auto deadline = std::chrono::steady_clock::now() + 3s;
@@ -233,7 +267,7 @@ bool test_handshake_over_transport() {
 int main() {
   return test_all_message_types() && test_handshake_and_negotiation() &&
                  test_invalid_and_unknown_messages() && test_handshake_and_heartbeat_timeouts() &&
-                 test_handshake_over_transport()
+                 test_runtime_inspection_identity_and_sequence() && test_handshake_over_transport()
              ? 0
              : 1;
 }

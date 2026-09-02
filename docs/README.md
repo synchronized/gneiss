@@ -77,6 +77,7 @@
 - [VER-016：0.16.0 Runtime 调试与状态检查](plans/VER-016-0.16.0-runtime-inspection.md)
 - [M-100：Editor Play 工作流实施记录](records/M-100-editor-play-workflow.md)
 - [M-101：示例与跨平台验收记录](records/M-101-example-cross-platform-validation.md)
+- [M-102：Runtime 检查会话与对象标识实施记录](records/M-102-runtime-inspection-identity.md)
 - [TOOL-001：glTF 资产编译器最小闭环](plans/TOOL-001-gltf-asset-compiler.md)
 - [TOOL-002：Mesh Binary v1 最小闭环](plans/TOOL-002-mesh-binary-v1.md)
 - [TOOL-003：索引渲染最小闭环](plans/TOOL-003-indexed-rendering.md)

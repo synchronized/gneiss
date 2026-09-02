@@ -16,8 +16,9 @@
 namespace gneiss {
 
 inline constexpr std::uint16_t ipc_protocol_major = 1U;
-inline constexpr std::uint16_t ipc_protocol_minor = 0U;
+inline constexpr std::uint16_t ipc_protocol_minor = 1U;
 inline constexpr std::size_t ipc_protocol_max_json_size = 64U * 1024U;
+inline constexpr std::string_view ipc_capability_runtime_inspection_v1 = "runtime_inspection_v1";
 
 enum class ipc_message_type : std::uint16_t {
   hello = 1U,
@@ -51,6 +52,43 @@ struct ipc_message final {
   std::uint64_t nonce = 0U;
   std::int32_t code = 0;
   std::string text;
+};
+
+/** 单次 Runtime 会话内的对象标识；跨会话或 generation 不同时不得复用。 */
+struct ipc_runtime_object_id final {
+  std::uint64_t value = 0U;
+  std::uint32_t generation = 0U;
+
+  [[nodiscard]] bool is_valid() const noexcept { return value != 0U && generation != 0U; }
+  [[nodiscard]] bool operator==(const ipc_runtime_object_id&) const noexcept = default;
+};
+
+/** 检查增量的会话与顺序标记。序号从 1 开始并在会话内严格递增。 */
+struct ipc_inspection_stamp final {
+  std::uint64_t session_id = 0U;
+  std::uint64_t sequence = 0U;
+};
+
+enum class ipc_inspection_sequence_result : std::uint8_t {
+  accepted,
+  duplicate,
+  gap,
+  stale_session,
+  invalid,
+};
+
+/** Editor 侧检查消息顺序跟踪器；发现缺口后由上层请求完整快照。 */
+class ipc_inspection_sequence_tracker final {
+public:
+  [[nodiscard]] result begin(std::uint64_t session_id) noexcept;
+  void reset() noexcept;
+  [[nodiscard]] ipc_inspection_sequence_result observe(ipc_inspection_stamp stamp) noexcept;
+  [[nodiscard]] std::uint64_t session_id() const noexcept { return session_id_; }
+  [[nodiscard]] std::uint64_t next_sequence() const noexcept { return next_sequence_; }
+
+private:
+  std::uint64_t session_id_ = 0U;
+  std::uint64_t next_sequence_ = 0U;
 };
 
 /** 编码有界 JSON 负载，并写入当前协议版本和消息类型。 */

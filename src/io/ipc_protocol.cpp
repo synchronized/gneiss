@@ -399,4 +399,40 @@ bool ipc_timeout_tracker::expired(clock::time_point now) const noexcept {
   return timeout_ == clock::duration::zero() || now - last_observed_ >= timeout_;
 }
 
+result ipc_inspection_sequence_tracker::begin(std::uint64_t session_id) noexcept {
+  if (session_id == 0U) {
+    return result::invalid_argument;
+  }
+  session_id_ = session_id;
+  next_sequence_ = 1U;
+  return result::success;
+}
+
+void ipc_inspection_sequence_tracker::reset() noexcept {
+  session_id_ = 0U;
+  next_sequence_ = 0U;
+}
+
+ipc_inspection_sequence_result
+ipc_inspection_sequence_tracker::observe(ipc_inspection_stamp stamp) noexcept {
+  if (session_id_ == 0U || stamp.session_id == 0U || stamp.sequence == 0U || next_sequence_ == 0U) {
+    return ipc_inspection_sequence_result::invalid;
+  }
+  if (stamp.session_id != session_id_) {
+    return ipc_inspection_sequence_result::stale_session;
+  }
+  if (stamp.sequence < next_sequence_) {
+    return ipc_inspection_sequence_result::duplicate;
+  }
+  if (stamp.sequence > next_sequence_) {
+    return ipc_inspection_sequence_result::gap;
+  }
+  if (next_sequence_ == std::numeric_limits<std::uint64_t>::max()) {
+    reset();
+  } else {
+    ++next_sequence_;
+  }
+  return ipc_inspection_sequence_result::accepted;
+}
+
 } // namespace gneiss
