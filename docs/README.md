@@ -133,6 +133,7 @@
 - [M-96 libuv I/O Core 实施记录](records/M-96-libuv-io-core.md)
 - [M-97 IPC Transport 实施记录](records/M-97-ipc-transport.md)
 - [M-98 Editor–Runtime 协议实施记录](records/M-98-editor-runtime-protocol.md)
+- [M-99 Runtime 控制状态机实施记录](records/M-99-runtime-control-state-machine.md)
 - [M-65 公共 API 与稳定性审计记录](records/M-65-public-api-audit.md)
 - [M-66 稳定运行时代表性样例验收记录](records/M-66-stable-runtime-sample.md)
 - [M-67 公共 API 与 ABI 加固记录](records/M-67-api-abi-hardening.md)

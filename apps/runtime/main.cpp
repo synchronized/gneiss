@@ -8,12 +8,16 @@
 #include "game/game_context_internal.h"
 #include "game_module_session.h"
 #include "game_update_scheduler.h"
+#include "runtime_ipc_session.h"
 #include "runtime_log.h"
 
+#include <charconv>
+#include <chrono>
 #include <cstdint>
 #include <cstdio>
 #include <filesystem>
 #include <limits>
+#include <memory>
 #include <string>
 #include <string_view>
 
@@ -23,6 +27,9 @@ struct runtime_options final {
   std::filesystem::path project_root;
   std::filesystem::path log_file;
   std::filesystem::path stop_file;
+  std::string ipc_address;
+  std::string ipc_token;
+  std::uint16_t ipc_port = 0U;
   bool smoke = false;
 };
 
@@ -33,6 +40,8 @@ struct runtime_context final {
   bool has_logged_first_frame = false;
   gneiss::game_module_session* game_module = nullptr;
   gneiss::runtime_internal::game_update_scheduler* game_scheduler = nullptr;
+  gneiss::runtime_internal::runtime_ipc_session* ipc_session = nullptr;
+  gneiss::result ipc_failure = gneiss::result::success;
 };
 
 [[nodiscard]] std::string path_text(const std::filesystem::path& path) {
@@ -67,10 +76,33 @@ gneiss::result update_game(void* user_data, const gneiss_game_update_time& time)
       pending.stop_file = argv[++index];
       continue;
     }
+    if (argument == "--ipc-address" && index + 1 < argc && pending.ipc_address.empty()) {
+      pending.ipc_address = argv[++index];
+      continue;
+    }
+    if (argument == "--ipc-token" && index + 1 < argc && pending.ipc_token.empty()) {
+      pending.ipc_token = argv[++index];
+      continue;
+    }
+    if (argument == "--ipc-port" && index + 1 < argc && pending.ipc_port == 0U) {
+      const std::string_view port = argv[++index];
+      std::uint32_t parsed = 0U;
+      const auto converted = std::from_chars(port.data(), port.data() + port.size(), parsed);
+      if (converted.ec != std::errc{} || converted.ptr != port.data() + port.size() ||
+          parsed == 0U || parsed > std::numeric_limits<std::uint16_t>::max()) {
+        output = std::move(pending);
+        return false;
+      }
+      pending.ipc_port = static_cast<std::uint16_t>(parsed);
+      continue;
+    }
     output = std::move(pending);
     return false;
   }
-  if (pending.project_root.empty()) {
+  const auto ipc_field_count = static_cast<unsigned int>(!pending.ipc_address.empty()) +
+                               static_cast<unsigned int>(pending.ipc_port != 0U) +
+                               static_cast<unsigned int>(!pending.ipc_token.empty());
+  if (pending.project_root.empty() || (ipc_field_count != 0U && ipc_field_count != 3U)) {
     output = std::move(pending);
     return false;
   }
@@ -84,6 +116,24 @@ gneiss_result update_runtime(gneiss_application application, const gneiss_frame_
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
   auto& context = *static_cast<runtime_context*>(user_data);
+  if (context.ipc_session != nullptr) {
+    gneiss::runtime_internal::runtime_ipc_actions actions;
+    const auto ipc_result = context.ipc_session->pump(
+        gneiss::runtime_internal::runtime_ipc_session::clock::now(), actions);
+    if (ipc_result != gneiss::result::success) {
+      context.ipc_failure = ipc_result;
+      if (context.log != nullptr) {
+        context.log->write("ERROR", "ipc", gneiss::to_native(ipc_result), "Editor IPC 会话失败");
+      }
+      return gneiss_application_request_exit(application);
+    }
+    if (actions.request_exit) {
+      if (context.log != nullptr) {
+        context.log->write("INFO", "ipc", GNEISS_SUCCESS, "收到 Editor IPC 停止请求");
+      }
+      return gneiss_application_request_exit(application);
+    }
+  }
   if (!context.has_logged_first_frame) {
     context.has_logged_first_frame = true;
     constexpr std::string_view category = "lifecycle";
@@ -116,6 +166,9 @@ gneiss_result update_runtime(gneiss_application application, const gneiss_frame_
     }
   }
   if (context.game_module == nullptr || context.game_scheduler == nullptr) {
+    return GNEISS_SUCCESS;
+  }
+  if (context.ipc_session != nullptr && !context.ipc_session->game_updates_enabled()) {
     return GNEISS_SUCCESS;
   }
   const gneiss::runtime_internal::game_update_callbacks callbacks{context.game_module,
@@ -256,7 +309,39 @@ void write_application_log(gneiss_application, const gneiss_log_event* event, vo
               std::string(game_module.module_id()));
   }
 
+  std::unique_ptr<gneiss::runtime_internal::runtime_ipc_session> ipc_session;
+  if (options.ipc_port != 0U) {
+    gneiss::runtime_internal::runtime_ipc_config ipc_config;
+    ipc_config.endpoint = {options.ipc_address, options.ipc_port};
+    ipc_config.session_token = options.ipc_token;
+    ipc_session =
+        std::make_unique<gneiss::runtime_internal::runtime_ipc_session>(std::move(ipc_config));
+    operation = ipc_session->start(gneiss::runtime_internal::runtime_ipc_session::clock::now());
+    if (operation == gneiss::result::success) {
+      operation = ipc_session->notify_running();
+    }
+    if (operation != gneiss::result::success) {
+      log.write("ERROR", "ipc", gneiss::to_native(operation), "Editor IPC 会话启动失败");
+      if (game_module.is_initialized()) {
+        (void)game_module.shutdown();
+      }
+      (void)gneiss::game_internal::destroy_game_context(game_context);
+      (void)gneiss_scene_instance_unload(application.get(), scene);
+      return 11;
+    }
+    context.ipc_session = ipc_session.get();
+    log.write("INFO", "ipc", GNEISS_SUCCESS, "Editor IPC 会话正在连接");
+  }
+
   operation = application.run(options.smoke ? UINT64_C(3) : UINT64_C(0));
+  if (context.ipc_session != nullptr && context.ipc_failure == gneiss::result::success) {
+    (void)context.ipc_session->notify_shutdown(
+        operation == gneiss::result::success ? 0 : static_cast<std::int32_t>(operation));
+  }
+  context.ipc_session = nullptr;
+  if (ipc_session) {
+    (void)ipc_session->stop();
+  }
   context.game_module = nullptr;
   context.game_scheduler = nullptr;
   if (operation != gneiss::result::success) {
@@ -267,6 +352,16 @@ void write_application_log(gneiss_application, const gneiss_log_event* event, vo
     (void)gneiss::game_internal::destroy_game_context(game_context);
     (void)gneiss_scene_instance_unload(application.get(), scene);
     return 7;
+  }
+  if (context.ipc_failure != gneiss::result::success) {
+    log.write("ERROR", "ipc", gneiss::to_native(context.ipc_failure),
+              "Runtime 因 Editor IPC 会话失败而退出");
+    if (game_module.is_initialized()) {
+      (void)game_module.shutdown();
+    }
+    (void)gneiss::game_internal::destroy_game_context(game_context);
+    (void)gneiss_scene_instance_unload(application.get(), scene);
+    return 11;
   }
   if (game_module.is_initialized()) {
     operation = game_module.shutdown();
@@ -309,7 +404,8 @@ int main(int argc, char** argv) {
     if (!has_valid_options) {
       log.write("ERROR", "arguments", GNEISS_ERROR_INVALID_ARGUMENT,
                 "用法：gneiss_runtime --project <工程根> [--smoke] [--log-file <路径>] "
-                "[--stop-file <路径>]");
+                "[--stop-file <路径>] [--ipc-address <地址> --ipc-port <端口> "
+                "--ipc-token <令牌>]");
       return 64;
     }
     return run_runtime(options, log);
