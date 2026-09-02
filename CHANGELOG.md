@@ -9,6 +9,38 @@
 
 当前没有已记录的未发布变更。
 
+## 0.17.0 - 2026-09-02
+
+- 增加版本化 Runtime 属性写入协议与能力协商，通过 Type ID、Field ID、对象 generation 和期望
+  修订号提供类型安全的寻址、冲突检测与稳定错误反馈。
+- Runtime 在主线程安全点执行有界属性命令；属性流量不会阻塞停止控制，断线或新会话也不会自动
+  重放旧写入。
+- Editor Runtime Inspector 支持编辑 Transform 平移、欧拉角展示对应的四元数和缩放，并展示
+  等待、成功、拒绝、超时、断线及被运行逻辑覆盖状态。
+- 增加将 Runtime Transform 显式应用到作者场景的操作，复用既有撤销、重做、脏状态和保存流程。
+- Lantern Gallery 覆盖运行中写入、暂停稳定、游戏逻辑覆盖和连续会话隔离；Windows、Linux、
+  Granit Runtime 与 Sanitizer 验收矩阵均通过。
+
+## 0.16.0 - 2026-09-02
+
+- 建立 Runtime 权威场景采样与 Editor 只读镜像，支持按稳定对象标识同步层级、Transform 与组件
+  属性，不共享 World、Scene Tree 或资源句柄。
+- Editor 在运行期间切换到 Runtime Hierarchy 与 Inspector，停止后恢复作者场景；镜像更新保持
+  有界并处理断线、慢消费者、连续 Play 和对象生命周期变化。
+- 增加基础运行统计、协议流控和恢复语义，并通过 Lantern Gallery 验证真实游戏模块更新、暂停、
+  恢复与新会话隔离。
+- Windows、Linux、Granit Runtime 与 Sanitizer 验收矩阵均通过。
+
+## 0.15.0 - 2026-09-02
+
+- 基于 libuv 增加跨平台 I/O Runtime、版本化 IPC 帧与本机传输，Editor 作为服务端、Runtime 作为
+  客户端建立带鉴权和能力协商的独立控制通道。
+- 增加 Runtime 启动、暂停、恢复、停止、心跳、状态与故障协议，并保持 UI、I/O 和 Runtime 主线程
+  的所有权边界。
+- Editor 运行控制栏和 Console 接入双向会话状态，覆盖握手超时、异常退出、强制停止、重连及连续
+  Play；旧的停止信号文件协议被移除。
+- Windows、Linux、Granit Runtime 与 Sanitizer 验收矩阵均通过。
+
 ## 0.14.0 - 2026-09-02
 
 - Dear ImGui 更新到锁定的 Docking 分支提交，并建立覆盖主客户区的单窗口 DockSpace；Hierarchy、
