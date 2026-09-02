@@ -3,8 +3,12 @@
 
 #include "scene/prefab_description.h"
 
+#include "asset/virtual_file_system.h"
+
 #include <yyjson.h>
 
+#include <algorithm>
+#include <cstddef>
 #include <cstdlib>
 #include <memory>
 #include <new>
@@ -132,6 +136,15 @@ gneiss_result parse_prefab_description(std::string_view json, prefab_description
     out_prefab.source_schema_version = 1U;
     out_prefab.uuid = prefab_uuid;
     out_prefab.objects = std::move(scene.objects);
+    for (const auto& object : out_prefab.objects) {
+      if (object.mesh_renderer) {
+        out_prefab.dependencies.push_back(object.mesh_renderer->mesh_uri);
+        out_prefab.dependencies.push_back(object.mesh_renderer->material_uri);
+      }
+    }
+    std::ranges::sort(out_prefab.dependencies);
+    const auto unique_end = std::ranges::unique(out_prefab.dependencies).begin();
+    out_prefab.dependencies.erase(unique_end, out_prefab.dependencies.end());
     out_prefab.author_json = json;
     return GNEISS_SUCCESS;
   } catch (const std::bad_alloc&) {
@@ -143,6 +156,22 @@ gneiss_result parse_prefab_description(std::string_view json, prefab_description
     fail(out_diagnostic, GNEISS_ERROR_INTERNAL, "", "Prefab 解析内部错误");
     return out_diagnostic.result;
   }
+}
+
+gneiss_result load_prefab_description(const asset_internal::virtual_file_system& file_system,
+                                      std::string_view uri, prefab_description& out_prefab,
+                                      scene_diagnostic& out_diagnostic) noexcept {
+  std::vector<std::byte> bytes;
+  const auto result = file_system.read(uri, bytes);
+  if (result != GNEISS_SUCCESS) {
+    out_prefab = {};
+    out_diagnostic = {};
+    fail(out_diagnostic, result, "", "无法通过 VFS 读取 Prefab");
+    return result;
+  }
+  return parse_prefab_description(
+      std::string_view(reinterpret_cast<const char*>(bytes.data()), bytes.size()), out_prefab,
+      out_diagnostic);
 }
 
 } // namespace gneiss::scene_internal

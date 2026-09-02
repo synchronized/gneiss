@@ -481,7 +481,9 @@ add_executable(
   gneiss_prefab_description_test
   serialization/prefab_description_test.cpp
   "${PROJECT_SOURCE_DIR}/src/asset/asset_uri.cpp"
+  "${PROJECT_SOURCE_DIR}/src/asset/resource_cache.cpp"
   "${PROJECT_SOURCE_DIR}/src/asset/virtual_file_system.cpp"
+  "${PROJECT_SOURCE_DIR}/src/scene/prefab_asset_loader.cpp"
   "${PROJECT_SOURCE_DIR}/src/scene/prefab_description.cpp"
   "${PROJECT_SOURCE_DIR}/src/scene/scene_description.cpp"
   "${PROJECT_SOURCE_DIR}/src/scene/scene_tree.cpp"

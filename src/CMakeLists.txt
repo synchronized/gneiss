@@ -66,6 +66,8 @@ target_sources(
     reflection/type_registry.cpp
     scene/scene_tree.cpp
     scene/scene_tree.h
+    scene/prefab_asset_loader.cpp
+    scene/prefab_asset_loader.h
     scene/scene_description.cpp
     scene/scene_description.h
     scene/prefab_description.cpp
