@@ -3,11 +3,11 @@
 
 # M-115：Runtime 属性编辑验收记录
 
-## 当前结论
+## 结论
 
-M-115 的本地验收已完成。Lantern Gallery 已覆盖真实 Runtime 属性写入、暂停稳定性、恢复后的游戏
-逻辑更新和新会话隔离；Windows Clang 与 VS2022 全矩阵均通过。Linux、Granit Runtime 与 Sanitizer
-手动 Actions 尚未执行，因此 M-115 和 0.17.0 仍保持实现中。
+M-115 已完成。Lantern Gallery 已覆盖真实 Runtime 属性写入、暂停稳定性、恢复后的游戏逻辑更新和
+新会话隔离；Windows Clang 与 VS2022 全矩阵，以及 Linux、Granit Runtime 与 Sanitizer 手动
+Actions 均已通过。
 
 ## 示例闭环
 
@@ -32,7 +32,12 @@ M-115 的本地验收已完成。Lantern Gallery 已覆盖真实 Runtime 属性�
 | VS2022 Static Debug | 全量构建通过，CTest 104/104 通过 |
 | VS2022 Static Release | 全量构建通过，CTest 104/104 通过 |
 
-## 待完成验证
+## Linux 远端矩阵
 
-获得用户授权后，在同一候选提交上手动执行 Linux Shared/Static、Granit Runtime 与 Sanitizer
-Actions。全部通过后再将 M-115 和 0.17.0 标记为完成，并进入版本收尾。
+[Linux Actions 运行 33624248768](https://github.com/synchronized/gneiss/actions/runs/33624248768)
+基于候选提交 `f6dfaa6`，以下 7 项 Job 全部通过：
+
+- GCC Core Shared 与 Static。
+- Clang Core Shared 与 Static。
+- Granit Runtime Shared 与 Static，包括无头窗口测试。
+- Sanitizer Runtime，包括内存错误与退出泄漏检查。
