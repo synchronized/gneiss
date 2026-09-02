@@ -178,6 +178,7 @@ set_target_properties(
 )
 
 if(GNEISS_BUILD_EDITOR OR GNEISS_BUILD_RUNTIME)
+  add_subdirectory(io)
   add_subdirectory(platform)
 endif()
 
