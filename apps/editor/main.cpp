@@ -575,6 +575,31 @@ void draw_scene_node(editor_state& state, const gneiss::editor::scene_node_recor
   ImGui::PopID();
 }
 
+void draw_runtime_scene_node(const std::vector<gneiss::ipc_inspection_node>& nodes,
+                             const gneiss::ipc_inspection_node& node) {
+  const auto has_children = std::ranges::any_of(
+      nodes, [&](const auto& candidate) { return candidate.parent == node.id; });
+  auto flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_SpanAvailWidth |
+               ImGuiTreeNodeFlags_FramePadding;
+  if (!has_children) {
+    flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen;
+  }
+  ImGui::PushID(static_cast<int>(node.id.value));
+  ImGui::PushID(static_cast<int>(node.id.generation));
+  const auto& label = node.name.empty() ? node.uuid : node.name;
+  const auto is_open = ImGui::TreeNodeEx(label.c_str(), flags);
+  if (has_children && is_open) {
+    for (const auto& child : nodes) {
+      if (child.parent == node.id) {
+        draw_runtime_scene_node(nodes, child);
+      }
+    }
+    ImGui::TreePop();
+  }
+  ImGui::PopID();
+  ImGui::PopID();
+}
+
 bool draw_property(editor_state& state, const gneiss::editor::inspector_component& component,
                    const gneiss::editor::inspector_property& property, gneiss::result& error) {
   auto value = property.value;
@@ -1419,6 +1444,21 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
 
     ImGui::SetNextWindowSizeConstraints(ImVec2(220.0F, 180.0F), ImVec2(FLT_MAX, FLT_MAX));
     ImGui::Begin("Scene Hierarchy", &state.panel_visibility.scene_hierarchy);
+    const auto& runtime_nodes = state.runtime.scene_mirror().nodes();
+    if (state.runtime.is_busy() || !runtime_nodes.empty()) {
+      if (ImGui::CollapsingHeader("Runtime (Read-only)", ImGuiTreeNodeFlags_DefaultOpen)) {
+        if (runtime_nodes.empty()) {
+          ImGui::TextDisabled("Waiting for Runtime scene snapshot");
+        } else {
+          for (const auto& node : runtime_nodes) {
+            if (!node.parent.is_valid()) {
+              draw_runtime_scene_node(runtime_nodes, node);
+            }
+          }
+        }
+      }
+      ImGui::SeparatorText("Author Scene");
+    }
     if (!state.session.is_open()) {
       ImGui::TextUnformatted("No scene is open");
     } else {

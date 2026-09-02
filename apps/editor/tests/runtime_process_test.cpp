@@ -96,8 +96,14 @@ int main() try {
     process.update();
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
   }
+  while (std::chrono::steady_clock::now() < startup_deadline &&
+         process.scene_mirror().nodes().empty()) {
+    process.update();
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  }
   if (!process.is_running() || process.output().find("Runtime 已进入首帧") == std::string::npos ||
-      !has_structured_event() ||
+      !has_structured_event() || process.scene_mirror().needs_full_snapshot() ||
+      process.scene_mirror().nodes().empty() ||
       process.control_state() != gneiss::editor::runtime_control_state::running ||
       process.request_pause() != gneiss::result::success) {
     return 7;

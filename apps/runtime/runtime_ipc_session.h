@@ -4,6 +4,7 @@
 #ifndef GNEISS_APPS_RUNTIME_RUNTIME_IPC_SESSION_H_
 #define GNEISS_APPS_RUNTIME_RUNTIME_IPC_SESSION_H_
 
+#include "ipc_inspection_protocol.h"
 #include "ipc_protocol.h"
 #include "ipc_transport.h"
 
@@ -55,6 +56,7 @@ public:
   [[nodiscard]] result notify_running() noexcept;
   [[nodiscard]] result notify_shutdown(std::int32_t exit_code) noexcept;
   [[nodiscard]] result notify_log_event(const gneiss_log_event& event) noexcept;
+  [[nodiscard]] result notify_scene_snapshot(const ipc_inspection_batch& batch) noexcept;
   [[nodiscard]] result stop() noexcept;
 
   [[nodiscard]] runtime_ipc_state state() const noexcept;

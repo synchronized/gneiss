@@ -5,6 +5,8 @@ add_library(
   gneiss_uv_runtime STATIC
   ipc_frame.cpp
   ipc_frame.h
+  ipc_inspection_protocol.cpp
+  ipc_inspection_protocol.h
   ipc_protocol.cpp
   ipc_protocol.h
   ipc_transport.cpp

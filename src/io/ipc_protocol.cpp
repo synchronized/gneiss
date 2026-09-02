@@ -24,7 +24,7 @@ using mutable_document_ptr = std::unique_ptr<yyjson_mut_doc, decltype(&yyjson_mu
 
 bool valid_type(gneiss::ipc_message_type type) noexcept {
   return type >= gneiss::ipc_message_type::hello &&
-         type <= gneiss::ipc_message_type::shutdown_complete;
+         type <= gneiss::ipc_message_type::inspection_snapshot;
 }
 
 bool valid_capabilities(std::span<const std::string> capabilities) noexcept {
@@ -172,6 +172,8 @@ result encode_ipc_message(const ipc_message& message, ipc_frame& output) noexcep
     case ipc_message_type::shutdown_complete:
       valid = yyjson_mut_obj_add_sint(document.get(), root, "exit_code", message.code);
       break;
+    case ipc_message_type::inspection_snapshot:
+      return result::unsupported;
     case ipc_message_type::ready:
     case ipc_message_type::pause:
     case ipc_message_type::resume:
@@ -284,6 +286,8 @@ result decode_ipc_message(const ipc_frame& frame, ipc_message& output) noexcept 
       }
       break;
     }
+    case ipc_message_type::inspection_snapshot:
+      return result::unsupported;
     case ipc_message_type::ready:
     case ipc_message_type::pause:
     case ipc_message_type::resume:
@@ -399,12 +403,13 @@ bool ipc_timeout_tracker::expired(clock::time_point now) const noexcept {
   return timeout_ == clock::duration::zero() || now - last_observed_ >= timeout_;
 }
 
-result ipc_inspection_sequence_tracker::begin(std::uint64_t session_id) noexcept {
-  if (session_id == 0U) {
+result ipc_inspection_sequence_tracker::begin(std::uint64_t session_id,
+                                              std::uint64_t first_sequence) noexcept {
+  if (session_id == 0U || first_sequence == 0U) {
     return result::invalid_argument;
   }
   session_id_ = session_id;
-  next_sequence_ = 1U;
+  next_sequence_ = first_sequence;
   return result::success;
 }
 

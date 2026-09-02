@@ -7,6 +7,7 @@
 #include "runtime_launch.h"
 
 #include "console_model.h"
+#include "runtime_scene_mirror.h"
 
 #include <gneiss/app/project_description.h>
 
@@ -54,6 +55,7 @@ public:
   [[nodiscard]] int exit_code() const noexcept;
   [[nodiscard]] const std::string& output() const noexcept;
   [[nodiscard]] const console_model& console() const noexcept;
+  [[nodiscard]] const runtime_scene_mirror& scene_mirror() const noexcept;
   [[nodiscard]] const std::filesystem::path& log_file() const noexcept;
   [[nodiscard]] result last_result() const noexcept;
   void clear_output() noexcept;

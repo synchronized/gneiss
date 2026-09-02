@@ -21,7 +21,8 @@ struct runtime_ipc_session::implementation final {
   ipc_timeout_tracker handshake_deadline;
   ipc_timeout_tracker heartbeat_deadline;
   runtime_ipc_state current_state = runtime_ipc_state::stopped;
-  std::vector<std::string> requested_capabilities{"control", "heartbeat", "logs"};
+  std::vector<std::string> requested_capabilities{
+      "control", "heartbeat", "logs", std::string(ipc_capability_runtime_inspection_v1)};
   std::vector<std::string> negotiated_capabilities;
   bool wants_running = false;
 
@@ -256,6 +257,20 @@ result runtime_ipc_session::notify_log_event(const gneiss_log_event& event) noex
   } catch (...) {
     return result::internal;
   }
+}
+
+result runtime_ipc_session::notify_scene_snapshot(const ipc_inspection_batch& batch) noexcept {
+  if (!implementation_ ||
+      std::ranges::find(implementation_->negotiated_capabilities,
+                        ipc_capability_runtime_inspection_v1) ==
+          implementation_->negotiated_capabilities.end() ||
+      (implementation_->current_state != runtime_ipc_state::running &&
+       implementation_->current_state != runtime_ipc_state::paused)) {
+    return result::not_ready;
+  }
+  ipc_frame frame;
+  const auto operation = encode_ipc_inspection_batch(batch, frame);
+  return operation == result::success ? implementation_->transport.send(frame) : operation;
 }
 
 result runtime_ipc_session::stop() noexcept {

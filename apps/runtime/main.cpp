@@ -10,7 +10,9 @@
 #include "game_update_scheduler.h"
 #include "runtime_ipc_session.h"
 #include "runtime_log.h"
+#include "runtime_scene_inspection.h"
 
+#include <algorithm>
 #include <charconv>
 #include <chrono>
 #include <cstdint>
@@ -41,6 +43,9 @@ struct runtime_context final {
   gneiss::game_module_session* game_module = nullptr;
   gneiss::runtime_internal::game_update_scheduler* game_scheduler = nullptr;
   gneiss::runtime_internal::runtime_ipc_session* ipc_session = nullptr;
+  gneiss::runtime_internal::runtime_scene_inspection* scene_inspection = nullptr;
+  gneiss_scene_instance scene = GNEISS_NULL_SCENE_INSTANCE;
+  std::uint64_t next_inspection_ns = 0U;
   gneiss::result ipc_failure = gneiss::result::success;
 };
 
@@ -154,6 +159,27 @@ gneiss_result update_runtime(gneiss_application application, const gneiss_frame_
       return log_result;
     }
   }
+  if (context.ipc_session != nullptr && context.scene_inspection != nullptr &&
+      context.scene != GNEISS_NULL_SCENE_INSTANCE &&
+      time->elapsed_ns >= context.next_inspection_ns &&
+      std::ranges::find(context.ipc_session->negotiated_capabilities(),
+                        gneiss::ipc_capability_runtime_inspection_v1) !=
+          context.ipc_session->negotiated_capabilities().end()) {
+    context.next_inspection_ns = time->elapsed_ns + UINT64_C(100000000);
+    gneiss::runtime_internal::runtime_scene_snapshot snapshot;
+    const auto captured =
+        context.scene_inspection->capture_scene(application, context.scene, false, snapshot);
+    if (captured == gneiss::result::success) {
+      const auto sent = context.ipc_session->notify_scene_snapshot(snapshot);
+      if (sent != gneiss::result::success) {
+        context.ipc_failure = sent;
+        return gneiss_application_request_exit(application);
+      }
+    } else if (captured != gneiss::result::not_ready) {
+      context.ipc_failure = captured;
+      return gneiss_application_request_exit(application);
+    }
+  }
   if (!context.stop_file.empty() && time->elapsed_ns >= context.next_stop_check_ns) {
     context.next_stop_check_ns = time->elapsed_ns + UINT64_C(100000000);
     std::error_code error;
@@ -258,6 +284,12 @@ void write_application_log(gneiss_application, const gneiss_log_event* event, vo
     return 4;
   }
   log.write("INFO", "startup_scene", GNEISS_SUCCESS, "启动场景加载完成", project.startup_scene);
+  const auto inspection_serial =
+      static_cast<std::uint64_t>(std::chrono::steady_clock::now().time_since_epoch().count());
+  gneiss::runtime_internal::runtime_scene_inspection scene_inspection(
+      inspection_serial == 0U ? 1U : inspection_serial);
+  context.scene_inspection = &scene_inspection;
+  context.scene = scene;
 
   gneiss_entity_id startup_root_entity = GNEISS_NULL_ENTITY_ID;
   uint64_t node_count = 0;
@@ -342,6 +374,8 @@ void write_application_log(gneiss_application, const gneiss_log_event* event, vo
         operation == gneiss::result::success ? 0 : static_cast<std::int32_t>(operation));
   }
   context.ipc_session = nullptr;
+  context.scene_inspection = nullptr;
+  context.scene = GNEISS_NULL_SCENE_INSTANCE;
   if (ipc_session) {
     (void)ipc_session->stop();
   }

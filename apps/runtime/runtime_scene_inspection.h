@@ -4,7 +4,7 @@
 #ifndef GNEISS_APPS_RUNTIME_RUNTIME_SCENE_INSPECTION_H_
 #define GNEISS_APPS_RUNTIME_RUNTIME_SCENE_INSPECTION_H_
 
-#include "ipc_protocol.h"
+#include "ipc_inspection_protocol.h"
 
 #include <gneiss/application.h>
 #include <gneiss/scene.h>
@@ -30,28 +30,10 @@ struct runtime_scene_source_node final {
   std::uint32_t component_flags = 0U;
 };
 
-struct runtime_scene_snapshot_node final {
-  ipc_runtime_object_id id;
-  ipc_runtime_object_id parent;
-  std::string uuid;
-  std::string name;
-  gneiss_transform local_transform = GNEISS_TRANSFORM_IDENTITY;
-  std::uint32_t component_flags = 0U;
-};
-
-enum class runtime_scene_change_type : std::uint8_t { upsert, remove };
-
-struct runtime_scene_change final {
-  runtime_scene_change_type type = runtime_scene_change_type::upsert;
-  ipc_runtime_object_id id;
-  runtime_scene_snapshot_node node;
-};
-
-struct runtime_scene_snapshot final {
-  ipc_inspection_stamp stamp;
-  bool is_full = false;
-  std::vector<runtime_scene_change> changes;
-};
+using runtime_scene_snapshot_node = ipc_inspection_node;
+using runtime_scene_change_type = ipc_inspection_change_type;
+using runtime_scene_change = ipc_inspection_change;
+using runtime_scene_snapshot = ipc_inspection_batch;
 
 /** 仅由 Runtime 主线程调用，将场景状态折叠为确定性的完整快照或增量。 */
 class runtime_scene_inspection final {

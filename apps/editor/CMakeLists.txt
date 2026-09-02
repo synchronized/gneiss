@@ -22,13 +22,15 @@ add_library(
   runtime_launch.h
   runtime_process.cpp
   runtime_process.h
+  runtime_scene_mirror.cpp
+  runtime_scene_mirror.h
   transform_gizmo_math.cpp
   transform_gizmo_math.h
 )
 target_link_libraries(
   gneiss_editor_session
-  PRIVATE gneiss_yyjson gneiss_child_process gneiss_uv_runtime
-  PUBLIC gneiss::engine gneiss_app_project
+  PRIVATE gneiss_yyjson gneiss_child_process
+  PUBLIC gneiss::engine gneiss_app_project gneiss_uv_runtime
 )
 target_include_directories(gneiss_editor_session PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_compile_features(gneiss_editor_session PUBLIC cxx_std_20)
@@ -158,6 +160,13 @@ if(BUILD_TESTING)
   gneiss_target_compile_warnings(gneiss_editor_runtime_launch_test)
   gneiss_target_output_directories(gneiss_editor_runtime_launch_test)
   add_test(NAME gneiss.editor.runtime-launch COMMAND gneiss_editor_runtime_launch_test)
+  add_executable(gneiss_editor_runtime_scene_mirror_test tests/runtime_scene_mirror_test.cpp)
+  target_link_libraries(gneiss_editor_runtime_scene_mirror_test PRIVATE gneiss_editor_session)
+  gneiss_target_compile_warnings(gneiss_editor_runtime_scene_mirror_test)
+  gneiss_target_output_directories(gneiss_editor_runtime_scene_mirror_test)
+  add_test(
+    NAME gneiss.editor.runtime-scene-mirror COMMAND gneiss_editor_runtime_scene_mirror_test
+  )
   add_executable(gneiss_editor_console_model_test tests/console_model_test.cpp)
   target_link_libraries(gneiss_editor_console_model_test PRIVATE gneiss_editor_session)
   gneiss_target_compile_warnings(gneiss_editor_console_model_test)

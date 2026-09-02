@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "ipc_inspection_protocol.h"
 #include "ipc_protocol.h"
 #include "ipc_transport.h"
 
@@ -206,6 +207,33 @@ bool test_runtime_inspection_identity_and_sequence() {
          tracker.observe({100U, 3U}) == gneiss::ipc_inspection_sequence_result::invalid;
 }
 
+bool test_runtime_inspection_batch_round_trip() {
+  gneiss::ipc_inspection_change root;
+  root.id = {1U, 1U};
+  root.node.id = root.id;
+  root.node.uuid = "root";
+  root.node.name = "根节点";
+  root.node.local_transform.translation[0] = 2.0F;
+  root.node.component_flags = GNEISS_SCENE_NODE_COMPONENT_CAMERA;
+  gneiss::ipc_inspection_change removed;
+  removed.type = gneiss::ipc_inspection_change_type::remove;
+  removed.id = {2U, 3U};
+  gneiss::ipc_inspection_batch source{
+      .stamp = {8U, 4U}, .is_full = false, .changes = {root, removed}};
+  gneiss::ipc_frame frame;
+  gneiss::ipc_inspection_batch decoded;
+  return gneiss::encode_ipc_inspection_batch(source, frame) == gneiss::result::success &&
+         frame.message_type ==
+             static_cast<std::uint16_t>(gneiss::ipc_message_type::inspection_snapshot) &&
+         gneiss::decode_ipc_inspection_batch(frame, decoded) == gneiss::result::success &&
+         decoded.stamp.session_id == 8U && decoded.stamp.sequence == 4U && !decoded.is_full &&
+         decoded.changes.size() == 2U && decoded.changes[0].node.name == "根节点" &&
+         decoded.changes[0].node.local_transform.translation[0] == 2.0F &&
+         decoded.changes[0].node.component_flags == GNEISS_SCENE_NODE_COMPONENT_CAMERA &&
+         decoded.changes[1].type == gneiss::ipc_inspection_change_type::remove &&
+         decoded.changes[1].id == removed.id;
+}
+
 bool wait_for_frame(gneiss::ipc_transport& transport, gneiss::ipc_frame& output) {
   using namespace std::chrono_literals;
   const auto deadline = std::chrono::steady_clock::now() + 3s;
@@ -267,7 +295,8 @@ bool test_handshake_over_transport() {
 int main() {
   return test_all_message_types() && test_handshake_and_negotiation() &&
                  test_invalid_and_unknown_messages() && test_handshake_and_heartbeat_timeouts() &&
-                 test_runtime_inspection_identity_and_sequence() && test_handshake_over_transport()
+                 test_runtime_inspection_identity_and_sequence() &&
+                 test_runtime_inspection_batch_round_trip() && test_handshake_over_transport()
              ? 0
              : 1;
 }

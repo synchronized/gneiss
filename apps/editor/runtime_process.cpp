@@ -4,6 +4,7 @@
 #include "runtime_process.h"
 
 #include "child_process.h"
+#include "ipc_inspection_protocol.h"
 #include "ipc_protocol.h"
 #include "ipc_transport.h"
 
@@ -24,6 +25,7 @@ struct runtime_process::implementation final {
   child_process process;
   child_process build_process;
   console_model console;
+  runtime_scene_mirror scene_mirror;
   app::runtime_log_line_decoder line_decoder;
   std::uint64_t runtime_session_id = 0U;
   bool output_finished = true;
@@ -114,7 +116,8 @@ struct runtime_process::implementation final {
       if (!ipc_authenticated) {
         ipc_frame acknowledgment;
         std::vector<std::string> negotiated;
-        const std::vector<std::string> supported{"control", "heartbeat", "logs"};
+        const std::vector<std::string> supported{"control", "heartbeat", "logs",
+                                                 std::string(ipc_capability_runtime_inspection_v1)};
         auto accepted =
             accept_ipc_hello(event.frame, ipc_token, supported, acknowledgment, negotiated);
         if (accepted == result::success) {
@@ -127,6 +130,22 @@ struct runtime_process::implementation final {
         ipc_authenticated = true;
         ipc_heartbeat.reset(now);
         next_ping = now;
+        continue;
+      }
+
+      if (event.frame.message_type ==
+          static_cast<std::uint16_t>(ipc_message_type::inspection_snapshot)) {
+        ipc_inspection_batch batch;
+        const auto decoded = decode_ipc_inspection_batch(event.frame, batch);
+        if (decoded != result::success) {
+          last_result = decoded;
+          continue;
+        }
+        const auto applied = scene_mirror.apply(batch);
+        if (applied != result::success) {
+          last_result = applied;
+        }
+        ipc_heartbeat.reset(now);
         continue;
       }
 
@@ -284,6 +303,7 @@ result runtime_process::start(const std::filesystem::path& executable,
     implementation_->stop_deadline = {};
     implementation_->forced_termination_reported = false;
     implementation_->ipc_shutdown_complete = false;
+    implementation_->scene_mirror.reset();
     implementation_->control_state = runtime_control_state::connecting;
     const auto serial = std::chrono::steady_clock::now().time_since_epoch().count();
     implementation_->session_root = std::filesystem::temp_directory_path() / "Gneiss" /
@@ -518,6 +538,10 @@ const std::string& runtime_process::output() const noexcept {
   return implementation_->combined_output;
 }
 const console_model& runtime_process::console() const noexcept { return implementation_->console; }
+const runtime_scene_mirror& runtime_process::scene_mirror() const noexcept {
+  static const runtime_scene_mirror empty;
+  return implementation_ ? implementation_->scene_mirror : empty;
+}
 const std::filesystem::path& runtime_process::log_file() const noexcept {
   return implementation_->log_file;
 }

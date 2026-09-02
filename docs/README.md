@@ -79,6 +79,7 @@
 - [M-101：示例与跨平台验收记录](records/M-101-example-cross-platform-validation.md)
 - [M-102：Runtime 检查会话与对象标识实施记录](records/M-102-runtime-inspection-identity.md)
 - [M-103：Runtime 场景快照与增量生成实施记录](records/M-103-runtime-scene-snapshot.md)
+- [M-104：Editor Runtime 镜像与层级视图实施记录](records/M-104-editor-runtime-scene-mirror.md)
 - [TOOL-001：glTF 资产编译器最小闭环](plans/TOOL-001-gltf-asset-compiler.md)
 - [TOOL-002：Mesh Binary v1 最小闭环](plans/TOOL-002-mesh-binary-v1.md)
 - [TOOL-003：索引渲染最小闭环](plans/TOOL-003-indexed-rendering.md)
