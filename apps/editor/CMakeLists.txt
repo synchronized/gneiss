@@ -50,19 +50,37 @@ if(TARGET gneiss_asset_import_sdk)
   gneiss_target_output_directories(gneiss_editor_assets)
 endif()
 
-add_executable(
-  gneiss_editor
-  main.cpp
+add_library(
+  gneiss_editor_ui STATIC
+  editor_ui.cpp
+  editor_ui.h
   editor_theme.cpp
   editor_theme.h
   imgui_adapter.cpp
   imgui_adapter.h
+)
+target_link_libraries(gneiss_editor_ui PUBLIC gneiss::engine gneiss_imgui)
+target_include_directories(gneiss_editor_ui PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
+target_compile_features(gneiss_editor_ui PUBLIC cxx_std_20)
+target_compile_definitions(
+  gneiss_editor_ui
+  PRIVATE GNEISS_EDITOR_FONT_PATH="${CMAKE_CURRENT_SOURCE_DIR}/fonts/Inter-Regular.ttf"
+          GNEISS_EDITOR_CJK_FONT_PATH="${GNEISS_EDITOR_CJK_FONT_PATH}"
+)
+gneiss_target_compile_warnings(gneiss_editor_ui)
+gneiss_target_output_directories(gneiss_editor_ui)
+
+add_executable(
+  gneiss_editor
+  main.cpp
   native_dialog.cpp
   native_dialog.h
   project_manager.cpp
   project_manager.h
 )
-target_link_libraries(gneiss_editor PRIVATE gneiss_editor_session gneiss_imgui gneiss_imguizmo)
+target_link_libraries(
+  gneiss_editor PRIVATE gneiss_editor_session gneiss_editor_ui gneiss_imguizmo
+)
 if((WIN32 OR UNIX) AND TARGET gneiss_runtime)
   target_compile_definitions(
     gneiss_editor PRIVATE GNEISS_EDITOR_HAS_RUNTIME=1
@@ -75,10 +93,6 @@ if(TARGET gneiss_editor_assets)
   target_link_libraries(gneiss_editor PRIVATE gneiss_editor_assets)
   target_compile_definitions(gneiss_editor PRIVATE GNEISS_EDITOR_HAS_ASSET_BROWSER=1)
 endif()
-target_compile_definitions(
-  gneiss_editor
-  PRIVATE GNEISS_EDITOR_FONT_PATH="${CMAKE_CURRENT_SOURCE_DIR}/fonts/Inter-Regular.ttf"
-)
 if(WIN32)
   target_link_libraries(gneiss_editor PRIVATE ole32 shell32 uuid)
 endif()
@@ -86,6 +100,11 @@ gneiss_target_compile_warnings(gneiss_editor)
 gneiss_target_output_directories(gneiss_editor)
 
 if(BUILD_TESTING)
+  add_executable(gneiss_editor_ui_layout_test tests/editor_ui_layout_test.cpp)
+  target_link_libraries(gneiss_editor_ui_layout_test PRIVATE gneiss_editor_ui)
+  gneiss_target_compile_warnings(gneiss_editor_ui_layout_test)
+  gneiss_target_output_directories(gneiss_editor_ui_layout_test)
+  add_test(NAME gneiss.editor.ui-layout COMMAND gneiss_editor_ui_layout_test)
   add_executable(gneiss_editor_session_test tests/editor_session_test.cpp)
   target_link_libraries(gneiss_editor_session_test PRIVATE gneiss_editor_session)
   target_compile_definitions(

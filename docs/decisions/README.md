@@ -32,3 +32,4 @@ Reference 和实现为准。
 - [ADR-024：Editor 与 Runtime 宿主进程隔离](ADR-024-editor-runtime-process-isolation.md)
 - [ADR-025：原生游戏模块与 Engine 生命周期边界](ADR-025-native-game-module-boundary.md)
 - [ADR-026：结构化日志事件与进程传输边界](ADR-026-structured-logging-transport.md)
+- [ADR-027：Editor 使用单窗口 Docking 工作区](ADR-027-editor-ui-workspace.md)

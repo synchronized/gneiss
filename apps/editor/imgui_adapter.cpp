@@ -116,6 +116,44 @@ int map_mouse_button(std::uint32_t button) noexcept {
   }
 }
 
+gneiss_result synchronize_input_state(gneiss_application application) noexcept {
+  auto& io = ImGui::GetIO();
+  gneiss_keyboard_state keyboard = GNEISS_KEYBOARD_STATE_INIT;
+  auto result = gneiss_application_get_keyboard_state(application, &keyboard);
+  if (result != GNEISS_SUCCESS) {
+    return result;
+  }
+  update_modifiers(io, keyboard.modifiers);
+  for (std::uint32_t physical_key = 0U; physical_key < 256U; ++physical_key) {
+    const auto key = map_key(physical_key);
+    if (key == ImGuiKey_None) {
+      continue;
+    }
+    const auto mask = UINT64_C(1) << (physical_key % 64U);
+    const auto is_down = (keyboard.pressed_keys[physical_key / 64U] & mask) != 0U;
+    io.AddKeyEvent(key, is_down);
+  }
+
+  gneiss_pointer_state pointer = GNEISS_POINTER_STATE_INIT;
+  result = gneiss_application_get_pointer_state(application, &pointer);
+  if (result != GNEISS_SUCCESS) {
+    return result;
+  }
+  if (pointer.is_inside != 0U) {
+    io.AddMousePosEvent(pointer.x, pointer.y);
+  } else {
+    io.AddMousePosEvent(-FLT_MAX, -FLT_MAX);
+  }
+  constexpr std::uint32_t pointer_buttons[] = {
+      GNEISS_POINTER_PRIMARY_BIT, GNEISS_POINTER_SECONDARY_BIT, GNEISS_POINTER_MIDDLE_BIT,
+      GNEISS_POINTER_X1_BIT,      GNEISS_POINTER_X2_BIT,
+  };
+  for (const auto button : pointer_buttons) {
+    io.AddMouseButtonEvent(map_mouse_button(button), (pointer.buttons & button) != 0U);
+  }
+  return GNEISS_SUCCESS;
+}
+
 } // namespace
 
 imgui_adapter::~imgui_adapter() noexcept {
@@ -137,11 +175,15 @@ gneiss_result imgui_adapter::initialize(gneiss_application application) {
   auto& io = ImGui::GetIO();
   io.BackendPlatformName = "gneiss_editor";
   io.BackendRendererName = "gneiss_ui_draw_list";
+  io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
   io.IniFilename = nullptr;
   io.Fonts->Clear();
   ImFontConfig font_config{};
-  font_config.SizePixels = 15.0F;
-  font_config.PixelSnapH = true;
+  font_config.SizePixels = 16.0F;
+  font_config.PixelSnapH = false;
+  font_config.OversampleH = 2;
+  font_config.OversampleV = 2;
+  font_config.RasterizerMultiply = 0.88F;
   io.FontDefault =
       io.Fonts->AddFontFromFileTTF(GNEISS_EDITOR_FONT_PATH, font_config.SizePixels, &font_config);
   if (io.FontDefault == nullptr) {
@@ -151,12 +193,30 @@ gneiss_result imgui_adapter::initialize(gneiss_application application) {
     return GNEISS_ERROR_OUT_OF_MEMORY;
   }
 
+  ImFontConfig cjk_font_config{};
+  cjk_font_config.MergeMode = true;
+  cjk_font_config.PixelSnapH = false;
+  cjk_font_config.OversampleH = 1;
+  cjk_font_config.OversampleV = 1;
+  cjk_font_config.GlyphOffset = ImVec2(0.0F, -1.0F);
+  cjk_font_config.RasterizerMultiply = 1.25F;
+  constexpr float cjk_font_size = 18.0F;
+  if (io.Fonts->AddFontFromFileTTF(GNEISS_EDITOR_CJK_FONT_PATH, cjk_font_size, &cjk_font_config,
+                                   io.Fonts->GetGlyphRangesChineseSimplifiedCommon()) == nullptr) {
+    return GNEISS_ERROR_INITIALIZATION_FAILED;
+  }
+
   unsigned char* atlas_pixels = nullptr;
   int atlas_width = 0;
   int atlas_height = 0;
   io.Fonts->GetTexDataAsRGBA32(&atlas_pixels, &atlas_width, &atlas_height);
   if (atlas_pixels == nullptr || atlas_width <= 0 || atlas_height <= 0) {
     return GNEISS_ERROR_INVALID_STATE;
+  }
+  auto* baked_font = io.FontDefault->GetFontBaked(font_config.SizePixels);
+  if (baked_font == nullptr ||
+      baked_font->FindGlyphNoFallback(static_cast<ImWchar>(u'中')) == nullptr) {
+    return GNEISS_ERROR_INITIALIZATION_FAILED;
   }
   const auto pixel_count =
       static_cast<std::size_t>(atlas_width) * static_cast<std::size_t>(atlas_height);
@@ -212,6 +272,10 @@ gneiss_result imgui_adapter::begin_frame(gneiss_application application,
   }
   if (poll_result != GNEISS_ERROR_NOT_READY) {
     return poll_result;
+  }
+  const auto synchronize_result = synchronize_input_state(application);
+  if (synchronize_result != GNEISS_SUCCESS) {
+    return synchronize_result;
   }
   auto& io = ImGui::GetIO();
   std::uint32_t window_width = 0U;

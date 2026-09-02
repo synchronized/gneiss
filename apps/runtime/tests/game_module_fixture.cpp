@@ -10,7 +10,10 @@
 
 namespace {
 
+#if !defined(GNEISS_TEST_MISSING_QUERY)
+#if !defined(GNEISS_TEST_INITIALIZE_FAILURE)
 int module_state{};
+#endif
 
 void trace(const char event) {
 #if defined(_WIN32)
@@ -61,6 +64,7 @@ gneiss_result shutdown(gneiss_game_context, void*) {
   trace('S');
   return GNEISS_SUCCESS;
 }
+#endif
 
 } // namespace
 

@@ -7,9 +7,11 @@
 #include "editor_rotation_math.h"
 #include "editor_session.h"
 #include "editor_theme.h"
+#include "editor_ui.h"
 #include "imgui_adapter.h"
 #include "native_dialog.h"
 #include "project_manager.h"
+#include "project_workspace.h"
 #include "property_inspector_model.h"
 #include "runtime_launch.h"
 #include "runtime_process.h"
@@ -43,7 +45,6 @@ namespace {
 enum class hierarchy_action { none, rename, duplicate, remove };
 enum class document_action { none, new_scene, open_scene, exit_editor };
 enum class gizmo_operation { translate, rotate, scale };
-enum class runtime_toolbar_icon { run, pause, stop };
 
 struct editor_state {
   gneiss::editor::imgui_adapter ui;
@@ -71,6 +72,7 @@ struct editor_state {
   std::uint64_t console_pause_entry_id = 0U;
   bool pending_save_and_run = false;
   bool show_imgui_demo = false;
+  gneiss::editor::editor_panel_visibility panel_visibility;
   gizmo_operation gizmo_mode = gizmo_operation::translate;
   bool gizmo_using = false;
   bool gizmo_was_dirty = false;
@@ -93,49 +95,6 @@ struct editor_state {
   bool asset_scene_attempted = false;
 #endif
 };
-
-bool runtime_toolbar_button(const char* id, runtime_toolbar_icon icon, const char* tooltip,
-                            bool enabled, bool active = false) {
-  constexpr ImVec2 button_size{28.0F, 22.0F};
-  const auto position = ImGui::GetCursorScreenPos();
-  ImGui::InvisibleButton(id, button_size);
-  const auto hovered = enabled && ImGui::IsItemHovered();
-  const auto held = enabled && ImGui::IsItemActive();
-  const auto clicked = enabled && ImGui::IsItemClicked();
-  const auto background = held      ? ImGuiCol_ButtonActive
-                          : hovered ? ImGuiCol_ButtonHovered
-                                    : ImGuiCol_Button;
-  auto* draw_list = ImGui::GetWindowDrawList();
-  draw_list->AddRectFilled(position, ImVec2(position.x + button_size.x, position.y + button_size.y),
-                           ImGui::GetColorU32(background), 4.0F);
-
-  auto icon_color = ImGui::GetColorU32(enabled ? ImGuiCol_Text : ImGuiCol_TextDisabled);
-  if (active && enabled) {
-    icon_color = ImGui::ColorConvertFloat4ToU32(gneiss::editor::theme_success_color());
-  }
-  const ImVec2 center{position.x + (button_size.x * 0.5F), position.y + (button_size.y * 0.5F)};
-  switch (icon) {
-  case runtime_toolbar_icon::run:
-    draw_list->AddTriangleFilled(ImVec2(center.x - 3.5F, center.y - 6.0F),
-                                 ImVec2(center.x - 3.5F, center.y + 6.0F),
-                                 ImVec2(center.x + 6.0F, center.y), icon_color);
-    break;
-  case runtime_toolbar_icon::pause:
-    draw_list->AddRectFilled(ImVec2(center.x - 5.0F, center.y - 6.0F),
-                             ImVec2(center.x - 1.5F, center.y + 6.0F), icon_color, 1.0F);
-    draw_list->AddRectFilled(ImVec2(center.x + 1.5F, center.y - 6.0F),
-                             ImVec2(center.x + 5.0F, center.y + 6.0F), icon_color, 1.0F);
-    break;
-  case runtime_toolbar_icon::stop:
-    draw_list->AddRectFilled(ImVec2(center.x - 5.5F, center.y - 5.5F),
-                             ImVec2(center.x + 5.5F, center.y + 5.5F), icon_color, 1.5F);
-    break;
-  }
-  if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
-    ImGui::SetTooltip("%s", tooltip);
-  }
-  return clicked;
-}
 
 constexpr std::size_t matrix_index(std::size_t row, std::size_t column) noexcept {
   return (column * 4U) + row;
@@ -794,9 +753,8 @@ find_material_for_mesh(const std::vector<gneiss::editor::asset_browser_entry>& e
 }
 
 void draw_asset_browser(editor_state& state) {
-  ImGui::SetNextWindowPos(ImVec2(0.0F, 440.0F), ImGuiCond_FirstUseEver);
-  ImGui::SetNextWindowSize(ImVec2(250.0F, 280.0F), ImGuiCond_FirstUseEver);
-  ImGui::Begin("Asset Browser");
+  ImGui::SetNextWindowSizeConstraints(ImVec2(220.0F, 160.0F), ImVec2(FLT_MAX, FLT_MAX));
+  ImGui::Begin("Asset Browser", &state.panel_visibility.asset_browser);
   if (ImGui::Button("Refresh")) {
     state.asset_result = state.assets.refresh(state.project_root, state.asset_root);
   }
@@ -1181,6 +1139,19 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
         }
         ImGui::EndMenu();
       }
+      if (ImGui::BeginMenu("Window")) {
+        ImGui::MenuItem("Scene Hierarchy", nullptr, &state.panel_visibility.scene_hierarchy);
+        ImGui::MenuItem("Asset Browser", nullptr, &state.panel_visibility.asset_browser);
+        ImGui::MenuItem("Scene View", nullptr, &state.panel_visibility.scene_view);
+        ImGui::MenuItem("Inspector", nullptr, &state.panel_visibility.inspector);
+        ImGui::MenuItem("Console", nullptr, &state.panel_visibility.console);
+        ImGui::Separator();
+        if (ImGui::MenuItem("Reset Layout")) {
+          state.panel_visibility = {};
+          gneiss::editor::reset_editor_layout();
+        }
+        ImGui::EndMenu();
+      }
       if (ImGui::BeginMenu("Development")) {
         ImGui::MenuItem("ImGui Demo", nullptr, &state.show_imgui_demo);
         ImGui::EndMenu();
@@ -1192,21 +1163,24 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
         ImGui::SetCursorPosX(toolbar_x);
       }
       const auto runtime_busy = state.runtime.is_busy();
-      if (runtime_toolbar_button("##RunProject", runtime_toolbar_icon::run, "运行工程 (F6)",
-                                 !runtime_busy, state.runtime.is_running())) {
+      if (gneiss::editor::toolbar_icon_button("##RunProject", gneiss::editor::toolbar_icon::run,
+                                              "运行工程 (F6)", !runtime_busy,
+                                              state.runtime.is_running())) {
         request_runtime_launch(state);
       }
       ImGui::SameLine(0.0F, 4.0F);
-      (void)runtime_toolbar_button("##PauseRuntime", runtime_toolbar_icon::pause,
-                                   "暂停功能将在控制协议完成后启用", false);
+      (void)gneiss::editor::toolbar_icon_button("##PauseRuntime",
+                                                gneiss::editor::toolbar_icon::pause,
+                                                "暂停功能将在控制协议完成后启用", false);
       ImGui::SameLine(0.0F, 4.0F);
-      if (runtime_toolbar_button("##StopRuntime", runtime_toolbar_icon::stop, "停止 (F8)",
-                                 runtime_busy)) {
+      if (gneiss::editor::toolbar_icon_button("##StopRuntime", gneiss::editor::toolbar_icon::stop,
+                                              "停止 (F8)", runtime_busy)) {
         state.runtime_result = state.runtime.request_stop();
         state.runtime_attempted = true;
       }
       ImGui::EndMainMenuBar();
     }
+    gneiss::editor::begin_editor_workspace();
     const auto& io = ImGui::GetIO();
     if (io.KeyCtrl && !io.KeyShift && ImGui::IsKeyPressed(ImGuiKey_N, false)) {
       request_document_action(state, application, document_action::new_scene);
@@ -1281,9 +1255,8 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
       state.history_error = io.KeyShift ? redo_editor_command(state) : undo_editor_command(state);
     }
 
-    ImGui::SetNextWindowPos(ImVec2(250.0F, 460.0F), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowSize(ImVec2(730.0F, 260.0F), ImGuiCond_FirstUseEver);
-    if (ImGui::Begin("Console")) {
+    ImGui::SetNextWindowSizeConstraints(ImVec2(320.0F, 160.0F), ImVec2(FLT_MAX, FLT_MAX));
+    if (ImGui::Begin("Console", &state.panel_visibility.console)) {
       if (state.runtime.is_building()) {
         ImGui::TextColored(gneiss::editor::theme_warning_color(), "Building game module");
       } else if (state.runtime.is_running()) {
@@ -1408,9 +1381,8 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
     }
     ImGui::End();
 
-    ImGui::SetNextWindowPos(ImVec2(0.0F, 20.0F), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowSize(ImVec2(250.0F, 420.0F), ImGuiCond_FirstUseEver);
-    ImGui::Begin("Scene Hierarchy");
+    ImGui::SetNextWindowSizeConstraints(ImVec2(220.0F, 180.0F), ImVec2(FLT_MAX, FLT_MAX));
+    ImGui::Begin("Scene Hierarchy", &state.panel_visibility.scene_hierarchy);
     if (!state.session.is_open()) {
       ImGui::TextUnformatted("No scene is open");
     } else {
@@ -1607,10 +1579,9 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
       ImGui::End();
     }
 
-    ImGui::SetNextWindowPos(ImVec2(250.0F, 20.0F), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowSize(ImVec2(730.0F, 440.0F), ImGuiCond_FirstUseEver);
-    const auto scene_view_visible =
-        ImGui::Begin("Scene View", nullptr, ImGuiWindowFlags_NoBackground);
+    ImGui::SetNextWindowSizeConstraints(ImVec2(400.0F, 280.0F), ImVec2(FLT_MAX, FLT_MAX));
+    const auto scene_view_visible = ImGui::Begin("Scene View", &state.panel_visibility.scene_view,
+                                                 ImGuiWindowFlags_NoBackground);
     if (scene_view_visible) {
       const auto scene_view_hovered = ImGui::IsWindowHovered();
       ImGui::TextUnformatted("Scene View");
@@ -1656,9 +1627,8 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
     }
     ImGui::End();
 
-    ImGui::SetNextWindowPos(ImVec2(980.0F, 20.0F), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowSize(ImVec2(300.0F, 700.0F), ImGuiCond_FirstUseEver);
-    ImGui::Begin("Inspector");
+    ImGui::SetNextWindowSizeConstraints(ImVec2(260.0F, 220.0F), ImVec2(FLT_MAX, FLT_MAX));
+    ImGui::Begin("Inspector", &state.panel_visibility.inspector);
     ImGui::BeginDisabled(!state.session.is_open());
     const auto save_button_pressed = ImGui::Button("Save");
     ImGui::EndDisabled();
@@ -1901,6 +1871,17 @@ int run_editor(int argc, char** argv) {
     report_startup_failure("Editor UI 初始化", operation);
     return 2;
   }
+  if (!options.smoke) {
+    const auto layout_result = gneiss::editor::initialize_editor_layout(
+        gneiss::editor::default_editor_state_path(), project.project_root, state.panel_visibility);
+    if (layout_result != gneiss::result::success &&
+        layout_result != gneiss::result::invalid_argument) {
+      const auto message = gneiss::result_message(layout_result);
+      std::fprintf(stderr, "Gneiss Editor 布局加载失败：结果=%d，消息=%.*s\n",
+                   gneiss::to_native(layout_result), static_cast<int>(message.size()),
+                   message.data());
+    }
+  }
   operation = state.inspector.initialize();
   if (operation == gneiss::result::success) {
     operation = application.get_world(state.world);
@@ -1926,6 +1907,15 @@ int run_editor(int argc, char** argv) {
   }
   state.history.clear();
   const auto run_result = application.run(options.smoke ? 3U : 0U);
+  if (!options.smoke) {
+    const auto save_layout_result = gneiss::editor::save_editor_layout(state.panel_visibility);
+    if (save_layout_result != gneiss::result::success) {
+      const auto message = gneiss::result_message(save_layout_result);
+      std::fprintf(stderr, "Gneiss Editor 布局保存失败：结果=%d，消息=%.*s\n",
+                   gneiss::to_native(save_layout_result), static_cast<int>(message.size()),
+                   message.data());
+    }
+  }
   state.ui.shutdown(application.get());
   state.camera.shutdown();
   state.session.close();

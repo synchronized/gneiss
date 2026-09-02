@@ -11,8 +11,8 @@ function(gneiss_resolve_imgui)
   FetchContent_Declare(
     gneiss_imgui_source
     GIT_REPOSITORY https://github.com/ocornut/imgui.git
-    # Dear ImGui v1.92.9b；MIT 许可。固定提交避免标签移动影响构建复现。
-    GIT_TAG f1cc2ae15e53a861a874c3034aae6798fde194ab
+    # Dear ImGui Docking 1.93.0 WIP；MIT 许可。固定提交避免浮动分支影响构建复现。
+    GIT_TAG fd13a1e8923a0a7077b404fc36fd063b25a0c0b5
     GIT_SHALLOW TRUE
   )
   FetchContent_MakeAvailable(gneiss_imgui_source)
