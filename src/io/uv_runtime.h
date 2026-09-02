@@ -12,6 +12,8 @@
 
 namespace gneiss {
 
+class uv_runtime_access;
+
 /**
  * 在专用线程运行单个 libuv loop 的内部执行器。
  *
@@ -35,6 +37,7 @@ public:
   [[nodiscard]] std::size_t failed_task_count() const noexcept;
 
 private:
+  friend class uv_runtime_access;
   struct implementation;
   std::unique_ptr<implementation> implementation_;
 };

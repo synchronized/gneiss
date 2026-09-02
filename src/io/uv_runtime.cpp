@@ -4,6 +4,7 @@
 #include "uv_runtime.h"
 
 #include "uv_error.h"
+#include "uv_runtime_access.h"
 
 #include <uv.h>
 
@@ -175,6 +176,21 @@ bool uv_runtime::is_running() const noexcept {
 
 std::size_t uv_runtime::failed_task_count() const noexcept {
   return implementation_ ? implementation_->failed_tasks.load(std::memory_order_relaxed) : 0U;
+}
+
+result uv_runtime_access::post(uv_runtime& runtime, task operation) noexcept {
+  if (!operation || !runtime.implementation_) {
+    return result::invalid_argument;
+  }
+  try {
+    return runtime.post([state = runtime.implementation_.get(), operation = std::move(operation)] {
+      operation(&state->loop);
+    });
+  } catch (const std::bad_alloc&) {
+    return result::out_of_memory;
+  } catch (...) {
+    return result::internal;
+  }
 }
 
 } // namespace gneiss
