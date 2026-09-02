@@ -74,6 +74,7 @@
 - [VER-013：0.13.0 结构化日志与 Editor Console](plans/VER-013-0.13.0-structured-logging-console.md)
 - [VER-014：0.14.0 Editor UI 工作区](plans/VER-014-0.14.0-editor-ui-workspace.md)
 - [VER-015：0.15.0 Editor–Runtime 双向控制通道](plans/VER-015-0.15.0-editor-runtime-ipc.md)
+- [VER-016：0.16.0 Runtime 调试与状态检查](plans/VER-016-0.16.0-runtime-inspection.md)
 - [M-100：Editor Play 工作流实施记录](records/M-100-editor-play-workflow.md)
 - [M-101：示例与跨平台验收记录](records/M-101-example-cross-platform-validation.md)
 - [TOOL-001：glTF 资产编译器最小闭环](plans/TOOL-001-gltf-asset-compiler.md)
@@ -109,6 +110,7 @@
 - [ADR-026：结构化日志事件与进程传输边界](decisions/ADR-026-structured-logging-transport.md)
 - [ADR-027：Editor 使用单窗口 Docking 工作区](decisions/ADR-027-editor-ui-workspace.md)
 - [ADR-028：Editor 与 Runtime 使用版本化本机 IPC](decisions/ADR-028-editor-runtime-ipc.md)
+- [ADR-029：Runtime 检查使用只读镜像模型](decisions/ADR-029-runtime-inspection-model.md)
 
 ## 实施与验收记录
 
