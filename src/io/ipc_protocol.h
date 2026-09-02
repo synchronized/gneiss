@@ -34,6 +34,7 @@ enum class ipc_message_type : std::uint16_t {
   pong = 11U,
   shutdown_complete = 12U,
   inspection_snapshot = 13U,
+  statistics_snapshot = 14U,
 };
 
 enum class ipc_runtime_state : std::uint8_t {

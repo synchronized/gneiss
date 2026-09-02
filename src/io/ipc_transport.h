@@ -63,6 +63,7 @@ public:
   [[nodiscard]] ipc_endpoint endpoint() const noexcept;
   [[nodiscard]] ipc_transport_state state() const noexcept;
   [[nodiscard]] std::size_t dropped_event_count() const noexcept;
+  [[nodiscard]] std::size_t pending_write_count() const noexcept;
 
 private:
   struct implementation;

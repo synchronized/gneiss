@@ -46,6 +46,10 @@ struct runtime_context final {
   gneiss::runtime_internal::runtime_scene_inspection* scene_inspection = nullptr;
   gneiss_scene_instance scene = GNEISS_NULL_SCENE_INSTANCE;
   std::uint64_t next_inspection_ns = 0U;
+  std::uint64_t inspection_session_id = 0U;
+  std::uint64_t next_statistics_ns = 0U;
+  std::uint64_t next_statistics_sequence = 1U;
+  std::uint64_t fixed_update_count = 0U;
   gneiss::result ipc_failure = gneiss::result::success;
 };
 
@@ -180,6 +184,40 @@ gneiss_result update_runtime(gneiss_application application, const gneiss_frame_
       return gneiss_application_request_exit(application);
     }
   }
+  if (context.ipc_session != nullptr && context.inspection_session_id != 0U &&
+      time->elapsed_ns >= context.next_statistics_ns) {
+    context.next_statistics_ns = time->elapsed_ns + UINT64_C(250000000);
+    std::uint64_t scene_node_count = 0U;
+    std::uint64_t entity_count = 0U;
+    gneiss_world world = GNEISS_NULL_WORLD;
+    auto operation =
+        gneiss_scene_instance_get_node_count(application, context.scene, &scene_node_count);
+    if (operation == GNEISS_SUCCESS) {
+      operation = gneiss_application_get_world(application, &world);
+    }
+    if (operation == GNEISS_SUCCESS) {
+      operation = gneiss_world_entity_count(world, &entity_count);
+    }
+    if (operation != GNEISS_SUCCESS) {
+      context.ipc_failure = gneiss::from_native(operation);
+      return gneiss_application_request_exit(application);
+    }
+    const gneiss::ipc_runtime_statistics statistics{
+        .session_id = context.inspection_session_id,
+        .sequence = context.next_statistics_sequence++,
+        .frame_index = time->frame_index,
+        .frame_delta_ns = time->delta_ns,
+        .fixed_update_count = context.fixed_update_count,
+        .scene_node_count = scene_node_count,
+        .entity_count = entity_count,
+        .ipc_pending_writes = context.ipc_session->pending_write_count(),
+        .ipc_dropped_events = context.ipc_session->dropped_event_count()};
+    const auto sent = context.ipc_session->notify_statistics(statistics);
+    if (sent != gneiss::result::success && sent != gneiss::result::not_ready) {
+      context.ipc_failure = sent;
+      return gneiss_application_request_exit(application);
+    }
+  }
   if (!context.stop_file.empty() && time->elapsed_ns >= context.next_stop_check_ns) {
     context.next_stop_check_ns = time->elapsed_ns + UINT64_C(100000000);
     std::error_code error;
@@ -201,6 +239,7 @@ gneiss_result update_runtime(gneiss_application application, const gneiss_frame_
                                                                   fixed_update_game, update_game};
   gneiss::runtime_internal::game_update_report report;
   const auto update_result = context.game_scheduler->advance(*time, callbacks, report);
+  context.fixed_update_count += report.fixed_step_count;
   if ((report.was_frame_clamped || report.dropped_ns != 0U) && context.log != nullptr) {
     context.log->write("WARNING", "game_update", GNEISS_SUCCESS, "游戏模块更新积压已受限",
                        "accepted_ns=" + std::to_string(report.accepted_delta_ns) +
@@ -289,6 +328,7 @@ void write_application_log(gneiss_application, const gneiss_log_event* event, vo
   gneiss::runtime_internal::runtime_scene_inspection scene_inspection(
       inspection_serial == 0U ? 1U : inspection_serial);
   context.scene_inspection = &scene_inspection;
+  context.inspection_session_id = inspection_serial == 0U ? 1U : inspection_serial;
   context.scene = scene;
 
   gneiss_entity_id startup_root_entity = GNEISS_NULL_ENTITY_ID;

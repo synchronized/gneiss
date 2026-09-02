@@ -6,6 +6,7 @@
 #include "child_process.h"
 #include "ipc_inspection_protocol.h"
 #include "ipc_protocol.h"
+#include "ipc_statistics_protocol.h"
 #include "ipc_transport.h"
 
 #include <algorithm>
@@ -26,6 +27,7 @@ struct runtime_process::implementation final {
   child_process build_process;
   console_model console;
   runtime_scene_mirror scene_mirror;
+  ipc_runtime_statistics statistics;
   app::runtime_log_line_decoder line_decoder;
   std::uint64_t runtime_session_id = 0U;
   bool output_finished = true;
@@ -144,6 +146,19 @@ struct runtime_process::implementation final {
         const auto applied = scene_mirror.apply(batch);
         if (applied != result::success) {
           last_result = applied;
+        }
+        ipc_heartbeat.reset(now);
+        continue;
+      }
+      if (event.frame.message_type ==
+          static_cast<std::uint16_t>(ipc_message_type::statistics_snapshot)) {
+        ipc_runtime_statistics decoded_statistics;
+        const auto decoded = decode_ipc_runtime_statistics(event.frame, decoded_statistics);
+        if (decoded != result::success) {
+          last_result = decoded;
+        } else if (decoded_statistics.session_id == scene_mirror.session_id() &&
+                   decoded_statistics.sequence > statistics.sequence) {
+          statistics = decoded_statistics;
         }
         ipc_heartbeat.reset(now);
         continue;
@@ -304,6 +319,7 @@ result runtime_process::start(const std::filesystem::path& executable,
     implementation_->forced_termination_reported = false;
     implementation_->ipc_shutdown_complete = false;
     implementation_->scene_mirror.reset();
+    implementation_->statistics = {};
     implementation_->control_state = runtime_control_state::connecting;
     const auto serial = std::chrono::steady_clock::now().time_since_epoch().count();
     implementation_->session_root = std::filesystem::temp_directory_path() / "Gneiss" /
@@ -541,6 +557,10 @@ const console_model& runtime_process::console() const noexcept { return implemen
 const runtime_scene_mirror& runtime_process::scene_mirror() const noexcept {
   static const runtime_scene_mirror empty;
   return implementation_ ? implementation_->scene_mirror : empty;
+}
+const ipc_runtime_statistics& runtime_process::statistics() const noexcept {
+  static const ipc_runtime_statistics empty;
+  return implementation_ ? implementation_->statistics : empty;
 }
 const std::filesystem::path& runtime_process::log_file() const noexcept {
   return implementation_->log_file;

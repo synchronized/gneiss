@@ -273,6 +273,24 @@ result runtime_ipc_session::notify_scene_snapshot(const ipc_inspection_batch& ba
   return operation == result::success ? implementation_->transport.send(frame) : operation;
 }
 
+result runtime_ipc_session::notify_statistics(const ipc_runtime_statistics& statistics) noexcept {
+  if (!implementation_ || (implementation_->current_state != runtime_ipc_state::running &&
+                           implementation_->current_state != runtime_ipc_state::paused)) {
+    return result::not_ready;
+  }
+  ipc_frame frame;
+  const auto operation = encode_ipc_runtime_statistics(statistics, frame);
+  return operation == result::success ? implementation_->transport.send(frame) : operation;
+}
+
+std::size_t runtime_ipc_session::pending_write_count() const noexcept {
+  return implementation_ ? implementation_->transport.pending_write_count() : 0U;
+}
+
+std::size_t runtime_ipc_session::dropped_event_count() const noexcept {
+  return implementation_ ? implementation_->transport.dropped_event_count() : 0U;
+}
+
 result runtime_ipc_session::stop() noexcept {
   if (!implementation_) {
     return result::invalid_state;

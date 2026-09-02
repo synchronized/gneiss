@@ -6,6 +6,7 @@
 
 #include "ipc_inspection_protocol.h"
 #include "ipc_protocol.h"
+#include "ipc_statistics_protocol.h"
 #include "ipc_transport.h"
 
 #include <chrono>
@@ -57,6 +58,9 @@ public:
   [[nodiscard]] result notify_shutdown(std::int32_t exit_code) noexcept;
   [[nodiscard]] result notify_log_event(const gneiss_log_event& event) noexcept;
   [[nodiscard]] result notify_scene_snapshot(const ipc_inspection_batch& batch) noexcept;
+  [[nodiscard]] result notify_statistics(const ipc_runtime_statistics& statistics) noexcept;
+  [[nodiscard]] std::size_t pending_write_count() const noexcept;
+  [[nodiscard]] std::size_t dropped_event_count() const noexcept;
   [[nodiscard]] result stop() noexcept;
 
   [[nodiscard]] runtime_ipc_state state() const noexcept;

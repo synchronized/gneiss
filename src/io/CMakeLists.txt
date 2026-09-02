@@ -9,6 +9,8 @@ add_library(
   ipc_inspection_protocol.h
   ipc_protocol.cpp
   ipc_protocol.h
+  ipc_statistics_protocol.cpp
+  ipc_statistics_protocol.h
   ipc_transport.cpp
   ipc_transport.h
   uv_error.cpp

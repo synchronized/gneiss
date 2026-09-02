@@ -81,6 +81,7 @@
 - [M-103：Runtime 场景快照与增量生成实施记录](records/M-103-runtime-scene-snapshot.md)
 - [M-104：Editor Runtime 镜像与层级视图实施记录](records/M-104-editor-runtime-scene-mirror.md)
 - [M-105：Runtime 只读属性检查实施记录](records/M-105-runtime-property-inspection.md)
+- [M-106：Runtime 基础运行统计实施记录](records/M-106-runtime-statistics.md)
 - [TOOL-001：glTF 资产编译器最小闭环](plans/TOOL-001-gltf-asset-compiler.md)
 - [TOOL-002：Mesh Binary v1 最小闭环](plans/TOOL-002-mesh-binary-v1.md)
 - [TOOL-003：索引渲染最小闭环](plans/TOOL-003-indexed-rendering.md)

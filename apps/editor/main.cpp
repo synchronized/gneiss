@@ -1518,6 +1518,24 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
     const auto& runtime_nodes = state.runtime.scene_mirror().nodes();
     if (state.runtime.is_busy() || !runtime_nodes.empty()) {
       if (ImGui::CollapsingHeader("Runtime (Read-only)", ImGuiTreeNodeFlags_DefaultOpen)) {
+        const auto& statistics = state.runtime.statistics();
+        if (statistics.session_id == state.runtime.scene_mirror().session_id() &&
+            statistics.sequence != 0U) {
+          const auto frame_ms = static_cast<double>(statistics.frame_delta_ns) / 1'000'000.0;
+          const auto frames_per_second =
+              statistics.frame_delta_ns == 0U
+                  ? 0.0
+                  : 1'000'000'000.0 / static_cast<double>(statistics.frame_delta_ns);
+          ImGui::Text("Frame: %.2f ms (%.1f FPS)", frame_ms, frames_per_second);
+          ImGui::Text("Fixed updates: %llu | Nodes: %llu | Entities: %llu",
+                      static_cast<unsigned long long>(statistics.fixed_update_count),
+                      static_cast<unsigned long long>(statistics.scene_node_count),
+                      static_cast<unsigned long long>(statistics.entity_count));
+          ImGui::Text("IPC pending: %llu | dropped events: %llu",
+                      static_cast<unsigned long long>(statistics.ipc_pending_writes),
+                      static_cast<unsigned long long>(statistics.ipc_dropped_events));
+          ImGui::Separator();
+        }
         if (runtime_nodes.empty()) {
           ImGui::TextDisabled("Waiting for Runtime scene snapshot");
         } else {

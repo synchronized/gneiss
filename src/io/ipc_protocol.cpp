@@ -24,7 +24,7 @@ using mutable_document_ptr = std::unique_ptr<yyjson_mut_doc, decltype(&yyjson_mu
 
 bool valid_type(gneiss::ipc_message_type type) noexcept {
   return type >= gneiss::ipc_message_type::hello &&
-         type <= gneiss::ipc_message_type::inspection_snapshot;
+         type <= gneiss::ipc_message_type::statistics_snapshot;
 }
 
 bool valid_capabilities(std::span<const std::string> capabilities) noexcept {
@@ -173,6 +173,7 @@ result encode_ipc_message(const ipc_message& message, ipc_frame& output) noexcep
       valid = yyjson_mut_obj_add_sint(document.get(), root, "exit_code", message.code);
       break;
     case ipc_message_type::inspection_snapshot:
+    case ipc_message_type::statistics_snapshot:
       return result::unsupported;
     case ipc_message_type::ready:
     case ipc_message_type::pause:
@@ -287,6 +288,7 @@ result decode_ipc_message(const ipc_frame& frame, ipc_message& output) noexcept 
       break;
     }
     case ipc_message_type::inspection_snapshot:
+    case ipc_message_type::statistics_snapshot:
       return result::unsupported;
     case ipc_message_type::ready:
     case ipc_message_type::pause:

@@ -3,6 +3,7 @@
 
 #include "ipc_inspection_protocol.h"
 #include "ipc_protocol.h"
+#include "ipc_statistics_protocol.h"
 #include "ipc_transport.h"
 
 #include <chrono>
@@ -240,6 +241,24 @@ bool test_runtime_inspection_batch_round_trip() {
          decoded.changes[1].id == removed.id;
 }
 
+bool test_runtime_statistics_round_trip() {
+  const gneiss::ipc_runtime_statistics source{7U, 3U, 120U, 16666667U, 240U, 12U, 15U, 2U, 1U};
+  gneiss::ipc_frame frame;
+  gneiss::ipc_runtime_statistics decoded;
+  return gneiss::encode_ipc_runtime_statistics(source, frame) == gneiss::result::success &&
+         frame.message_type ==
+             static_cast<std::uint16_t>(gneiss::ipc_message_type::statistics_snapshot) &&
+         gneiss::decode_ipc_runtime_statistics(frame, decoded) == gneiss::result::success &&
+         decoded.session_id == source.session_id && decoded.sequence == source.sequence &&
+         decoded.frame_index == source.frame_index &&
+         decoded.frame_delta_ns == source.frame_delta_ns &&
+         decoded.fixed_update_count == source.fixed_update_count &&
+         decoded.scene_node_count == source.scene_node_count &&
+         decoded.entity_count == source.entity_count &&
+         decoded.ipc_pending_writes == source.ipc_pending_writes &&
+         decoded.ipc_dropped_events == source.ipc_dropped_events;
+}
+
 bool wait_for_frame(gneiss::ipc_transport& transport, gneiss::ipc_frame& output) {
   using namespace std::chrono_literals;
   const auto deadline = std::chrono::steady_clock::now() + 3s;
@@ -302,7 +321,8 @@ int main() {
   return test_all_message_types() && test_handshake_and_negotiation() &&
                  test_invalid_and_unknown_messages() && test_handshake_and_heartbeat_timeouts() &&
                  test_runtime_inspection_identity_and_sequence() &&
-                 test_runtime_inspection_batch_round_trip() && test_handshake_over_transport()
+                 test_runtime_inspection_batch_round_trip() &&
+                 test_runtime_statistics_round_trip() && test_handshake_over_transport()
              ? 0
              : 1;
 }
