@@ -183,6 +183,7 @@ gneiss_result imgui_adapter::initialize(gneiss_application application) {
   font_config.PixelSnapH = false;
   font_config.OversampleH = 2;
   font_config.OversampleV = 2;
+  font_config.RasterizerMultiply = 0.88F;
   io.FontDefault =
       io.Fonts->AddFontFromFileTTF(GNEISS_EDITOR_FONT_PATH, font_config.SizePixels, &font_config);
   if (io.FontDefault == nullptr) {
@@ -197,8 +198,10 @@ gneiss_result imgui_adapter::initialize(gneiss_application application) {
   cjk_font_config.PixelSnapH = false;
   cjk_font_config.OversampleH = 1;
   cjk_font_config.OversampleV = 1;
-  if (io.Fonts->AddFontFromFileTTF(GNEISS_EDITOR_CJK_FONT_PATH, font_config.SizePixels,
-                                   &cjk_font_config,
+  cjk_font_config.GlyphOffset = ImVec2(0.0F, -1.0F);
+  cjk_font_config.RasterizerMultiply = 1.25F;
+  constexpr float cjk_font_size = 18.0F;
+  if (io.Fonts->AddFontFromFileTTF(GNEISS_EDITOR_CJK_FONT_PATH, cjk_font_size, &cjk_font_config,
                                    io.Fonts->GetGlyphRangesChineseSimplifiedCommon()) == nullptr) {
     return GNEISS_ERROR_INITIALIZATION_FAILED;
   }
