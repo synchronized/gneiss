@@ -8,6 +8,7 @@
 
 #include "console_model.h"
 #include "ipc_statistics_protocol.h"
+#include "runtime_property_edits.h"
 #include "runtime_scene_mirror.h"
 
 #include <gneiss/app/project_description.h>
@@ -45,6 +46,9 @@ public:
   [[nodiscard]] result request_stop() noexcept;
   [[nodiscard]] result request_pause() noexcept;
   [[nodiscard]] result request_resume() noexcept;
+  [[nodiscard]] result request_property_write(runtime_property_key key,
+                                              std::uint64_t expected_revision,
+                                              ipc_property_value value) noexcept;
   void update() noexcept;
 
   [[nodiscard]] bool is_running() const noexcept;
@@ -58,6 +62,9 @@ public:
   [[nodiscard]] const console_model& console() const noexcept;
   [[nodiscard]] const runtime_scene_mirror& scene_mirror() const noexcept;
   [[nodiscard]] const ipc_runtime_statistics& statistics() const noexcept;
+  [[nodiscard]] const runtime_property_edit*
+  property_edit(const runtime_property_key& key) const noexcept;
+  [[nodiscard]] bool supports_property_editing() const noexcept;
   [[nodiscard]] const std::filesystem::path& log_file() const noexcept;
   [[nodiscard]] result last_result() const noexcept;
   void clear_output() noexcept;

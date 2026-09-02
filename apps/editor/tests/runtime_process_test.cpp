@@ -3,7 +3,10 @@
 
 #include "runtime_process.h"
 
+#include <gneiss/world.h>
+
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cstdio>
 #include <filesystem>
@@ -113,6 +116,35 @@ int main() try {
       process.statistics().scene_node_count == 0U || process.statistics().entity_count == 0U ||
       process.control_state() != gneiss::editor::runtime_control_state::running ||
       process.request_pause() != gneiss::result::success) {
+    return 7;
+  }
+  gneiss::editor::runtime_property_key property_key{.object =
+                                                        process.scene_mirror().nodes().front().id,
+                                                    .type_id = {},
+                                                    .field_id = GNEISS_TRANSFORM_FIELD_TRANSLATION};
+  const auto transform_type = gneiss_transform_type_id();
+  std::ranges::copy(transform_type.bytes, property_key.type_id.begin());
+  if (!process.supports_property_editing() ||
+      process.request_property_write(property_key, 1U,
+                                     {std::array<float, 3>{0.25F, 0.5F, 0.75F}}) !=
+          gneiss::result::success ||
+      process.request_property_write(property_key, 1U, {true}) != gneiss::result::not_ready) {
+    return 7;
+  }
+  const auto property_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(3);
+  const gneiss::editor::runtime_property_edit* property_edit = nullptr;
+  while (std::chrono::steady_clock::now() < property_deadline) {
+    process.update();
+    property_edit = process.property_edit(property_key);
+    if (property_edit != nullptr &&
+        property_edit->state != gneiss::editor::runtime_property_edit_state::pending) {
+      break;
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  }
+  if (property_edit == nullptr ||
+      property_edit->state != gneiss::editor::runtime_property_edit_state::applied ||
+      property_edit->revision != 2U) {
     return 7;
   }
   const auto lifecycle_event_count =

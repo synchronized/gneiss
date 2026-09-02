@@ -22,6 +22,8 @@ add_library(
   runtime_launch.h
   runtime_process.cpp
   runtime_process.h
+  runtime_property_edits.cpp
+  runtime_property_edits.h
   runtime_scene_mirror.cpp
   runtime_scene_mirror.h
   transform_gizmo_math.cpp
@@ -167,6 +169,13 @@ if(BUILD_TESTING)
   add_test(
     NAME gneiss.editor.runtime-scene-mirror COMMAND gneiss_editor_runtime_scene_mirror_test
   )
+  add_executable(gneiss_editor_runtime_property_edits_test tests/runtime_property_edits_test.cpp)
+  target_link_libraries(gneiss_editor_runtime_property_edits_test PRIVATE gneiss_editor_session)
+  gneiss_target_compile_warnings(gneiss_editor_runtime_property_edits_test)
+  gneiss_target_output_directories(gneiss_editor_runtime_property_edits_test)
+  add_test(
+    NAME gneiss.editor.runtime-property-edits COMMAND gneiss_editor_runtime_property_edits_test
+  )
   add_executable(gneiss_editor_console_model_test tests/console_model_test.cpp)
   target_link_libraries(gneiss_editor_console_model_test PRIVATE gneiss_editor_session)
   gneiss_target_compile_warnings(gneiss_editor_console_model_test)
@@ -189,7 +198,7 @@ if(BUILD_TESTING)
     add_dependencies(gneiss_child_process_test gneiss_child_process_fixture)
     add_test(NAME gneiss.process.child-process COMMAND gneiss_child_process_test)
     set_tests_properties(gneiss.process.child-process PROPERTIES TIMEOUT 15)
-    add_executable(gneiss_editor_runtime_process_test tests/runtime_process_test.cpp)
+  add_executable(gneiss_editor_runtime_process_test tests/runtime_process_test.cpp)
     target_link_libraries(gneiss_editor_runtime_process_test PRIVATE gneiss_editor_session)
     target_compile_definitions(
       gneiss_editor_runtime_process_test
