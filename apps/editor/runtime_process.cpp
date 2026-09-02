@@ -38,6 +38,7 @@ struct runtime_process::implementation final {
   bool forced_termination_reported = false;
   bool is_building = false;
   bool ipc_authenticated = false;
+  bool ipc_shutdown_complete = false;
   std::string ipc_token;
   ipc_transport ipc_server;
   runtime_control_state control_state = runtime_control_state::stopped;
@@ -168,6 +169,7 @@ struct runtime_process::implementation final {
           append_event_unique(std::move(record));
         }
       } else if (message.type == ipc_message_type::shutdown_complete) {
+        ipc_shutdown_complete = true;
         control_state = runtime_control_state::stopping;
       }
     }
@@ -281,6 +283,7 @@ result runtime_process::start(const std::filesystem::path& executable,
     implementation_->combined_output.clear();
     implementation_->stop_deadline = {};
     implementation_->forced_termination_reported = false;
+    implementation_->ipc_shutdown_complete = false;
     implementation_->control_state = runtime_control_state::connecting;
     const auto serial = std::chrono::steady_clock::now().time_since_epoch().count();
     implementation_->session_root = std::filesystem::temp_directory_path() / "Gneiss" /
@@ -500,6 +503,9 @@ bool runtime_process::is_building() const noexcept {
 bool runtime_process::is_busy() const noexcept { return is_building() || is_running(); }
 runtime_control_state runtime_process::control_state() const noexcept {
   return implementation_ ? implementation_->control_state : runtime_control_state::failed;
+}
+bool runtime_process::received_shutdown_complete() const noexcept {
+  return implementation_ && implementation_->ipc_shutdown_complete;
 }
 bool runtime_process::has_started() const noexcept {
   return implementation_ &&

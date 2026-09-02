@@ -44,7 +44,8 @@ bool stop_session(gneiss::editor::runtime_process& process) {
   if (process.request_stop() != gneiss::result::success) {
     return false;
   }
-  return pump_until(process, 5s, [&] { return !process.is_running(); }) && process.exit_code() == 0;
+  return pump_until(process, 5s, [&] { return !process.is_running(); }) &&
+         process.exit_code() == 0 && process.received_shutdown_complete();
 }
 
 } // namespace

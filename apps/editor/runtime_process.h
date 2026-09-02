@@ -49,6 +49,7 @@ public:
   [[nodiscard]] bool is_building() const noexcept;
   [[nodiscard]] bool is_busy() const noexcept;
   [[nodiscard]] runtime_control_state control_state() const noexcept;
+  [[nodiscard]] bool received_shutdown_complete() const noexcept;
   [[nodiscard]] bool has_started() const noexcept;
   [[nodiscard]] int exit_code() const noexcept;
   [[nodiscard]] const std::string& output() const noexcept;

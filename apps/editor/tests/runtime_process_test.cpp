@@ -142,7 +142,7 @@ int main() try {
     std::this_thread::sleep_for(std::chrono::milliseconds(20));
   }
   process.update();
-  if (process.is_running() || process.exit_code() != 0 ||
+  if (process.is_running() || process.exit_code() != 0 || !process.received_shutdown_complete() ||
       process.output().find("收到 Editor IPC 停止请求") == std::string::npos ||
       process.output().find("stage=shutdown") == std::string::npos ||
       process.request_stop() != gneiss::result::not_ready) {

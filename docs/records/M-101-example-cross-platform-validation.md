@@ -15,14 +15,16 @@ Lantern Gallery 的游戏模块会周期性发送 `runtime_progress` 结构化�
 - Editor 请求 Pause 并收到 Paused 后，排空传输中事件，观察窗口内进度保持不变。
 - Editor 请求 Resume 后，进度继续增加，证明游戏更新真正恢复。
 - IPC Stop 能正常关闭 Runtime 并得到零退出码。
+- Editor 能在进程退出前收到 `shutdown_complete`，该断言随完整会话连续 10 次通过。
 - 同一个 `runtime_process` 能再次启动 Runtime，并建立不同的 Console 会话。
 - 既有进程测试继续覆盖无效工程启动诊断、构建失败、无响应子进程和强制终止。
+- 安装树测试覆盖隔离安装前缀、已安装 Runtime、Lantern 模块重新配置与构建以及安装后启动。
 
 ## 本地矩阵
 
 | 配置 | 验证内容 | 结果 |
 | --- | --- | --- |
-| Windows Clang Shared Debug | Lantern 端到端工作流连续 5 次 | 通过 |
+| Windows Clang Shared Debug | Lantern 端到端工作流连续 10 次 | 通过 |
 | Windows MSVC Shared Debug | Lantern 端到端工作流 | 通过 |
 | Windows Clang Static Debug | Runtime IPC 会话、Editor Runtime 进程与降级路径 | 通过 |
 | Windows Clang Shared Debug | 完整 101 项测试 | 通过 |
@@ -36,7 +38,6 @@ IPC 与进程边界。游戏模块动态加载闭环由 Shared 配置负责。
 ## 待验收项
 
 - Linux Clang/GCC 的 Shared 与 Static 矩阵。
-- 安装树中的 Runtime、示例工程及依赖定位。
 - 远端环境下的 libuv handle、I/O 线程退出和重复会话稳定性。
 - 必要的人工 Play、Pause、Resume、Stop 体验检查。
 
