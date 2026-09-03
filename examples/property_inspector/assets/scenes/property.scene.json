@@ -1,6 +1,6 @@
 {
   "format": "gneiss.scene",
-  "version": 2,
+  "version": 4,
   "scene_uuid": "d9c807f1-26cc-4c50-aef5-a82ca3f2f4ac",
   "objects": [
     {
@@ -20,5 +20,6 @@
         }
       }
     }
-  ]
+  ],
+  "prefab_instances": []
 }

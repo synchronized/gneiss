@@ -218,17 +218,17 @@ result create_editor_project(const std::filesystem::path& project_root, std::str
     }
     const auto scene_uuid = make_uuid();
     const auto node_uuid = make_uuid();
-    const std::string scene = "{\n  \"format\": \"gneiss.scene\",\n  \"version\": 2,\n  "
-                              "\"scene_uuid\": \"" +
-                              scene_uuid + "\",\n  \"objects\": [\n    {\n      \"uuid\": \"" +
-                              node_uuid +
-                              "\",\n      \"name\": \"Camera\",\n      \"parent\": null,\n      "
-                              "\"transform\": {\"translation\": [0, 0, 3], "
-                              "\"rotation\": [0, 0, 0, 1], \"scale\": [1, 1, 1]},\n      "
-                              "\"components\": {\"camera\": {"
-                              "\"vertical_field_of_view_radians\": 1.04719755, "
-                              "\"near_plane\": 0.1, \"far_plane\": 1000, "
-                              "\"is_primary\": true}}\n    }\n  ]\n}\n";
+    const std::string scene =
+        "{\n  \"format\": \"gneiss.scene\",\n  \"version\": 4,\n  "
+        "\"scene_uuid\": \"" +
+        scene_uuid + "\",\n  \"objects\": [\n    {\n      \"uuid\": \"" + node_uuid +
+        "\",\n      \"name\": \"Camera\",\n      \"parent\": null,\n      "
+        "\"transform\": {\"translation\": [0, 0, 3], "
+        "\"rotation\": [0, 0, 0, 1], \"scale\": [1, 1, 1]},\n      "
+        "\"components\": {\"camera\": {"
+        "\"vertical_field_of_view_radians\": 1.04719755, "
+        "\"near_plane\": 0.1, \"far_plane\": 1000, "
+        "\"is_primary\": true}}\n    }\n  ],\n  \"prefab_instances\": []\n}\n";
     yyjson_mut_doc* raw_document = yyjson_mut_doc_new(nullptr);
     if (raw_document == nullptr) {
       std::filesystem::remove_all(temporary, error);

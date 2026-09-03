@@ -365,7 +365,8 @@ gneiss_result scene_instance::create_prefab_instance(const gneiss_scene_prefab_i
     prefab_instance_description author{.instance_uuid = std::string(instance_uuid),
                                        .name = std::string(name),
                                        .parent_uuid = std::move(parent_uuid),
-                                       .prefab_uri = std::string(prefab_uri)};
+                                       .prefab_uri = std::string(prefab_uri),
+                                       .overrides = {}};
     std::ranges::copy(desc.local_transform.translation, author.translation.begin());
     std::ranges::copy(desc.local_transform.rotation, author.rotation.begin());
     std::ranges::copy(desc.local_transform.scale, author.scale.begin());
@@ -656,7 +657,7 @@ gneiss_result scene_instance::capture_subtree(gneiss_scene_node_id root,
       return !included.contains(candidate.uuid);
     });
     current.author_json =
-        std::string{"{\"format\":\"gneiss.scene\",\"version\":3,\"scene_uuid\":\""} + current.uuid +
+        std::string{"{\"format\":\"gneiss.scene\",\"version\":4,\"scene_uuid\":\""} + current.uuid +
         "\",\"objects\":[],\"prefab_instances\":[]}";
     return serialize_scene_description(current, out_snapshot);
   } catch (const std::bad_alloc&) {
@@ -1193,7 +1194,7 @@ gneiss_result scene_instance_service::create_empty(std::string_view scene_uuid,
   }
   *out_instance = GNEISS_NULL_SCENE_INSTANCE;
   try {
-    const std::string json = std::string{"{\"format\":\"gneiss.scene\",\"version\":3,"} +
+    const std::string json = std::string{"{\"format\":\"gneiss.scene\",\"version\":4,"} +
                              "\"scene_uuid\":\"" + std::string{scene_uuid} +
                              "\",\"objects\":[],\"prefab_instances\":[]}";
     scene_description description;

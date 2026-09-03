@@ -17,6 +17,23 @@ using namespace gneiss::scene_internal;
   return std::ranges::all_of(value.bytes, [](std::uint8_t byte) { return byte == 0U; });
 }
 
+[[nodiscard]] bool is_canonical_uuid_impl(std::string_view value) noexcept {
+  if (value.size() != 36U) {
+    return false;
+  }
+  for (std::size_t index = 0U; index < value.size(); ++index) {
+    if (index == 8U || index == 13U || index == 18U || index == 23U) {
+      if (value[index] != '-') {
+        return false;
+      }
+    } else if ((value[index] < '0' || value[index] > '9') &&
+               (value[index] < 'a' || value[index] > 'f')) {
+      return false;
+    }
+  }
+  return true;
+}
+
 [[nodiscard]] bool valid_utf8(std::string_view text) noexcept {
   std::size_t index = 0U;
   while (index < text.size()) {
@@ -105,8 +122,21 @@ void normalize_zero(prefab_property_value& value) noexcept {
       value.payload);
 }
 
-[[nodiscard]] bool key_less(const prefab_property_override_key& left,
-                            const prefab_property_override_key& right) noexcept {
+} // namespace
+
+namespace gneiss::scene_internal {
+
+bool is_canonical_prefab_uuid(std::string_view value) noexcept {
+  return is_canonical_uuid_impl(value);
+}
+
+bool is_valid_prefab_author_address(const prefab_author_address& address) noexcept {
+  return is_canonical_prefab_uuid(address.instance_uuid) &&
+         is_canonical_prefab_uuid(address.source_node_uuid);
+}
+
+bool prefab_property_override_key_less(const prefab_property_override_key& left,
+                                       const prefab_property_override_key& right) noexcept {
   if (left.node.instance_uuid != right.node.instance_uuid) {
     return left.node.instance_uuid < right.node.instance_uuid;
   }
@@ -120,10 +150,6 @@ void normalize_zero(prefab_property_value& value) noexcept {
   }
   return left.field_id < right.field_id;
 }
-
-} // namespace
-
-namespace gneiss::scene_internal {
 
 bool prefab_property_override_key::operator==(
     const prefab_property_override_key& other) const noexcept {
@@ -206,7 +232,7 @@ gneiss_result set_prefab_property_override(gneiss_type_registry registry,
     } else {
       overrides.push_back(std::move(candidate));
       std::ranges::sort(overrides, [](const auto& left, const auto& right) {
-        return key_less(left.key, right.key);
+        return prefab_property_override_key_less(left.key, right.key);
       });
     }
     return GNEISS_SUCCESS;

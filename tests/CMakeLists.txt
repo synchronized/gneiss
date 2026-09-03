@@ -467,6 +467,7 @@ add_executable(
   serialization/scene_description_test.cpp
   "${PROJECT_SOURCE_DIR}/src/asset/asset_uri.cpp"
   "${PROJECT_SOURCE_DIR}/src/asset/virtual_file_system.cpp"
+  "${PROJECT_SOURCE_DIR}/src/scene/prefab_property_override.cpp"
   "${PROJECT_SOURCE_DIR}/src/scene/scene_description.cpp"
 )
 target_include_directories(gneiss_scene_description_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
@@ -485,6 +486,7 @@ add_executable(
   "${PROJECT_SOURCE_DIR}/src/asset/virtual_file_system.cpp"
   "${PROJECT_SOURCE_DIR}/src/scene/prefab_asset_loader.cpp"
   "${PROJECT_SOURCE_DIR}/src/scene/prefab_description.cpp"
+  "${PROJECT_SOURCE_DIR}/src/scene/prefab_property_override.cpp"
   "${PROJECT_SOURCE_DIR}/src/scene/scene_description.cpp"
   "${PROJECT_SOURCE_DIR}/src/scene/scene_tree.cpp"
 )

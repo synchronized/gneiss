@@ -4,8 +4,6 @@
 #ifndef GNEISS_SCENE_PREFAB_PROPERTY_OVERRIDE_H_
 #define GNEISS_SCENE_PREFAB_PROPERTY_OVERRIDE_H_
 
-#include "scene/prefab_description.h"
-
 #include <gneiss/reflection.h>
 
 #include <array>
@@ -15,6 +13,20 @@
 #include <vector>
 
 namespace gneiss::scene_internal {
+
+/** Prefab 实例中节点的稳定作者身份。 */
+struct prefab_author_address final {
+  std::string instance_uuid;
+  std::string source_node_uuid;
+
+  [[nodiscard]] bool operator==(const prefab_author_address&) const noexcept = default;
+};
+
+/** 判断 UUID 是否为规范的小写形式。 */
+[[nodiscard]] bool is_canonical_prefab_uuid(std::string_view value) noexcept;
+
+/** 判断复合作者身份的两个 UUID 是否均为规范的小写形式。 */
+[[nodiscard]] bool is_valid_prefab_author_address(const prefab_author_address& address) noexcept;
 
 using prefab_property_payload =
     std::variant<std::monostate, bool, std::int64_t, std::uint64_t, float, double, std::string,
@@ -58,6 +70,11 @@ validate_prefab_property_override(gneiss_type_registry registry,
 [[nodiscard]] gneiss_result set_prefab_property_override(
     gneiss_type_registry registry, std::vector<prefab_property_override>& overrides,
     prefab_property_override candidate, prefab_property_value source_value) noexcept;
+
+/** 按稳定作者键比较，用于确定性排序。 */
+[[nodiscard]] bool
+prefab_property_override_key_less(const prefab_property_override_key& left,
+                                  const prefab_property_override_key& right) noexcept;
 
 } // namespace gneiss::scene_internal
 

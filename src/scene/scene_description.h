@@ -6,6 +6,8 @@
 
 #include <gneiss/core/result.h>
 
+#include "scene/prefab_property_override.h"
+
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -58,6 +60,7 @@ struct prefab_instance_description final {
   std::array<float, 3> translation{};
   std::array<float, 4> rotation{};
   std::array<float, 3> scale{};
+  std::vector<prefab_property_override> overrides;
 };
 
 struct scene_description final {
@@ -76,7 +79,7 @@ struct scene_description final {
 load_scene_description(const asset_internal::virtual_file_system& file_system, std::string_view uri,
                        scene_description& out_scene, scene_diagnostic& out_diagnostic) noexcept;
 
-/** 输出迁移后的当前 Schema 作者 JSON；保留受支持文档中的未知字段。 */
+/** 输出当前 Schema 作者 JSON；保留受支持文档中的未知字段。 */
 [[nodiscard]] gneiss_result serialize_scene_description(const scene_description& scene,
                                                         std::string& out_json) noexcept;
 
