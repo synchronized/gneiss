@@ -17,6 +17,8 @@ add_library(
   ipc_inspection_protocol.h
   ipc_protocol.cpp
   ipc_protocol.h
+  ipc_protocol_domains.cpp
+  ipc_protocol_domains.h
   ipc_property_edit_protocol.cpp
   ipc_property_edit_protocol.h
   ipc_session_protocol.cpp
@@ -76,6 +78,13 @@ if(GNEISS_BUILD_TESTING)
   gneiss_target_compile_warnings(gneiss_ipc_data_protocol_test)
   gneiss_target_output_directories(gneiss_ipc_data_protocol_test)
   add_test(NAME gneiss.io.ipc-data-protocol COMMAND gneiss_ipc_data_protocol_test)
+
+  add_executable(gneiss_ipc_protocol_domains_test tests/ipc_protocol_domains_test.cpp)
+  target_link_libraries(gneiss_ipc_protocol_domains_test PRIVATE gneiss_uv_runtime)
+  target_compile_features(gneiss_ipc_protocol_domains_test PRIVATE cxx_std_20)
+  gneiss_target_compile_warnings(gneiss_ipc_protocol_domains_test)
+  gneiss_target_output_directories(gneiss_ipc_protocol_domains_test)
+  add_test(NAME gneiss.io.ipc-protocol-domains COMMAND gneiss_ipc_protocol_domains_test)
 
   add_executable(gneiss_uv_runtime_test tests/uv_runtime_test.cpp)
   target_link_libraries(gneiss_uv_runtime_test PRIVATE gneiss_uv_runtime)
