@@ -96,6 +96,10 @@ if(BUILD_TESTING)
     gneiss_runtime_scene_inspection_test tests/runtime_scene_inspection_test.cpp
   )
   target_link_libraries(gneiss_runtime_scene_inspection_test PRIVATE gneiss_runtime_ipc)
+  target_compile_definitions(
+    gneiss_runtime_scene_inspection_test
+    PRIVATE GNEISS_RUNTIME_TEST_ASSET_ROOT="${PROJECT_SOURCE_DIR}/tests/data/assets"
+  )
   target_compile_features(gneiss_runtime_scene_inspection_test PRIVATE cxx_std_20)
   gneiss_target_compile_warnings(gneiss_runtime_scene_inspection_test)
   gneiss_target_output_directories(gneiss_runtime_scene_inspection_test)

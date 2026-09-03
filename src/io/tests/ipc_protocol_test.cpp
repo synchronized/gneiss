@@ -96,10 +96,10 @@ bool test_all_message_types() {
 
 bool test_handshake_and_negotiation() {
   const std::vector<std::string> requested{
-      "control", "logs", std::string(gneiss::ipc_capability_runtime_inspection_v1), "unknown",
+      "control", "logs", std::string(gneiss::ipc_capability_runtime_inspection_v2), "unknown",
       "control"};
   const std::vector<std::string> supported{
-      "logs", "control", "diagnostics", std::string(gneiss::ipc_capability_runtime_inspection_v1)};
+      "logs", "control", "diagnostics", std::string(gneiss::ipc_capability_runtime_inspection_v2)};
   gneiss::ipc_frame hello;
   if (gneiss::make_ipc_hello("secret", requested, hello) != gneiss::result::success) {
     return false;
@@ -111,7 +111,7 @@ bool test_handshake_and_negotiation() {
           gneiss::result::success ||
       server_negotiated !=
           std::vector<std::string>(
-              {"control", "logs", std::string(gneiss::ipc_capability_runtime_inspection_v1)}) ||
+              {"control", "logs", std::string(gneiss::ipc_capability_runtime_inspection_v2)}) ||
       acknowledgment.protocol_minor != gneiss::ipc_protocol_minor) {
     return false;
   }
@@ -214,6 +214,8 @@ bool test_runtime_inspection_batch_round_trip() {
   root.id = {1U, 1U};
   root.node.id = root.id;
   root.node.uuid = "root";
+  root.node.prefab_instance_uuid = "instance";
+  root.node.prefab_source_node_uuid = "source";
   root.node.name = "根节点";
   root.node.local_transform.translation[0] = 2.0F;
   root.node.component_flags = GNEISS_SCENE_NODE_COMPONENT_CAMERA;
@@ -237,6 +239,8 @@ bool test_runtime_inspection_batch_round_trip() {
          decoded.stamp.session_id == 8U && decoded.stamp.sequence == 4U && !decoded.is_full &&
          decoded.chunk_index == 1U && decoded.chunk_count == 3U && decoded.changes.size() == 2U &&
          decoded.changes[0].node.name == "根节点" &&
+         decoded.changes[0].node.prefab_instance_uuid == "instance" &&
+         decoded.changes[0].node.prefab_source_node_uuid == "source" &&
          decoded.changes[0].node.local_transform.translation[0] == 2.0F &&
          decoded.changes[0].node.component_flags == GNEISS_SCENE_NODE_COMPONENT_CAMERA &&
          decoded.changes[0].node.camera.near_plane == 0.25F &&

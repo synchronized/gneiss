@@ -3,6 +3,7 @@
 
 #include "runtime_scene_inspection.h"
 
+#include <string_view>
 #include <vector>
 
 namespace {
@@ -13,6 +14,8 @@ make_node(std::uint64_t node, std::uint64_t parent, std::string uuid, std::strin
           .native_parent = parent,
           .native_entity = node,
           .uuid = std::move(uuid),
+          .prefab_instance_uuid = {},
+          .prefab_source_node_uuid = {},
           .name = std::move(name),
           .local_transform = GNEISS_TRANSFORM_IDENTITY,
           .component_flags = 0U,
@@ -107,11 +110,56 @@ bool test_empty_scene_is_stable() {
          inspection.capture(nodes, false, snapshot) == gneiss::result::not_ready;
 }
 
+bool test_prefab_composite_identity() {
+  using namespace gneiss::runtime_internal;
+  runtime_scene_inspection inspection(4U);
+  auto first = make_node(1U, 0U, "source", "First");
+  first.prefab_instance_uuid = "instance-a";
+  first.prefab_source_node_uuid = "source";
+  auto second = make_node(2U, 0U, "source", "Second");
+  second.prefab_instance_uuid = "instance-b";
+  second.prefab_source_node_uuid = "source";
+  const std::vector<runtime_scene_source_node> nodes{first, second};
+  runtime_scene_snapshot snapshot;
+  return inspection.capture(nodes, false, snapshot) == gneiss::result::success &&
+         snapshot.changes.size() == 2U && snapshot.changes[0].id != snapshot.changes[1].id &&
+         snapshot.changes[0].node.prefab_instance_uuid == "instance-a" &&
+         snapshot.changes[1].node.prefab_instance_uuid == "instance-b";
+}
+
+bool test_capture_prefab_scene() {
+  constexpr std::string_view asset_root = GNEISS_RUNTIME_TEST_ASSET_ROOT;
+  constexpr std::string_view scene_uri = "asset://scenes/prefab.scene.json";
+  gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
+  desc.asset_root = asset_root.data();
+  desc.asset_root_length = static_cast<std::uint32_t>(asset_root.size());
+  gneiss_application application = GNEISS_NULL_APPLICATION;
+  gneiss_scene_instance scene = GNEISS_NULL_SCENE_INSTANCE;
+  if (gneiss_application_create(&desc, &application) != GNEISS_SUCCESS ||
+      gneiss_scene_instance_load(application, scene_uri.data(), scene_uri.size(), &scene) !=
+          GNEISS_SUCCESS) {
+    return false;
+  }
+  gneiss::runtime_internal::runtime_scene_inspection inspection(5U);
+  gneiss::runtime_internal::runtime_scene_snapshot snapshot;
+  const auto capture = inspection.capture_scene(application, scene, false, snapshot);
+  const bool valid =
+      capture == gneiss::result::success && snapshot.changes.size() == 3U &&
+      snapshot.changes[1].node.prefab_instance_uuid == "30000000-0000-4000-8000-000000000012" &&
+      snapshot.changes[1].node.prefab_source_node_uuid.empty() &&
+      snapshot.changes[2].node.prefab_source_node_uuid == "30000000-0000-4000-8000-000000000002" &&
+      snapshot.changes[2].node.parent == snapshot.changes[1].node.id;
+  const bool unloaded = gneiss_scene_instance_unload(application, scene) == GNEISS_SUCCESS;
+  const bool destroyed = gneiss_application_destroy(application) == GNEISS_SUCCESS;
+  return valid && unloaded && destroyed;
+}
+
 } // namespace
 
 int main() {
   return test_full_and_incremental_snapshot() && test_validation_and_reset() &&
-                 test_empty_scene_is_stable()
+                 test_empty_scene_is_stable() && test_prefab_composite_identity() &&
+                 test_capture_prefab_scene()
              ? 0
              : 1;
 }

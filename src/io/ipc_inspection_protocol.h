@@ -20,6 +20,8 @@ struct ipc_inspection_node final {
   ipc_runtime_object_id id;
   ipc_runtime_object_id parent;
   std::string uuid;
+  std::string prefab_instance_uuid;
+  std::string prefab_source_node_uuid;
   std::string name;
   gneiss_transform local_transform = GNEISS_TRANSFORM_IDENTITY;
   std::uint32_t component_flags = 0U;
