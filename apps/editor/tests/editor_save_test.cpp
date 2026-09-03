@@ -50,11 +50,11 @@ int main() try {
                         std::filesystem::copy_options::recursive);
   const auto scene_path = root / "scenes" / "triangle.scene.json";
   auto source = read_text(scene_path);
-  const auto version_end = source.find("\"version\": 2,");
+  const auto version_end = source.find("\"version\": 4,");
   if (version_end == std::string::npos) {
     return 1;
   }
-  source.insert(version_end + std::string_view{"\"version\": 2,"}.size(),
+  source.insert(version_end + std::string_view{"\"version\": 4,"}.size(),
                 "\n  \"editor_test_unknown\": 42,");
   if (!write_text(scene_path, source)) {
     return 2;

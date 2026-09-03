@@ -10,6 +10,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstdint>
+#include <cstdio>
 #include <filesystem>
 #include <optional>
 #include <string_view>
@@ -70,6 +71,17 @@ const gneiss::ipc_inspection_node* root_node(const gneiss::editor::runtime_proce
   return root == nodes.end() ? nullptr : &*root;
 }
 
+const gneiss::ipc_inspection_node* prefab_source(const gneiss::editor::runtime_process& process,
+                                                 std::string_view instance_uuid,
+                                                 std::string_view source_uuid) {
+  const auto& nodes = process.scene_mirror().nodes();
+  const auto found = std::ranges::find_if(nodes, [&](const auto& node) {
+    return node.prefab_instance_uuid == instance_uuid &&
+           node.prefab_source_node_uuid == source_uuid;
+  });
+  return found == nodes.end() ? nullptr : &*found;
+}
+
 gneiss::editor::runtime_property_key transform_key(const gneiss::ipc_inspection_node& node,
                                                    gneiss_field_id field_id) {
   gneiss::editor::runtime_property_key key{.object = node.id, .type_id = {}, .field_id = field_id};
@@ -115,9 +127,41 @@ int main() try {
         return progress_count(process, first_session) >= 1U && root_rotation(process).has_value() &&
                process.statistics().fixed_update_count != 0U;
       })) {
+    std::fprintf(stderr, "未在时限内收到首个 Runtime 场景与进度快照\n");
+    for (const auto& node : process.scene_mirror().nodes()) {
+      std::fprintf(stderr, "node=%s instance=%s source=%s\n", node.uuid.c_str(),
+                   node.prefab_instance_uuid.c_str(), node.prefab_source_node_uuid.c_str());
+    }
     return 2;
   }
   const auto initial_rotation = *root_rotation(process);
+  if (!pump_until(process, 3s, [&] {
+        return prefab_source(process, "20000000-0000-4000-8000-000000000010",
+                             "21000000-0000-4000-8000-000000000002") != nullptr &&
+               prefab_source(process, "20000000-0000-4000-8000-000000000020",
+                             "21000000-0000-4000-8000-000000000003") != nullptr &&
+               prefab_source(process, "20000000-0000-4000-8000-000000000030",
+                             "21000000-0000-4000-8000-000000000004") != nullptr;
+      })) {
+    std::fprintf(stderr, "未在时限内收到三个 Prefab 来源节点\n");
+    return 2;
+  }
+  const auto* left_body = prefab_source(process, "20000000-0000-4000-8000-000000000010",
+                                        "21000000-0000-4000-8000-000000000002");
+  const auto* center_frame = prefab_source(process, "20000000-0000-4000-8000-000000000020",
+                                           "21000000-0000-4000-8000-000000000003");
+  const auto* right_glass = prefab_source(process, "20000000-0000-4000-8000-000000000030",
+                                          "21000000-0000-4000-8000-000000000004");
+  if (left_body == nullptr || center_frame == nullptr || right_glass == nullptr ||
+      left_body->local_transform.translation[0] != -5.0F ||
+      center_frame->local_transform.scale[0] != 1.15F ||
+      right_glass->local_transform.translation[1] != 20.0F) {
+    std::fprintf(stderr, "Prefab 覆盖值与作者场景不一致：left=%g center=%g right=%g\n",
+                 left_body == nullptr ? 0.0 : left_body->local_transform.translation[0],
+                 center_frame == nullptr ? 0.0 : center_frame->local_transform.scale[0],
+                 right_glass == nullptr ? 0.0 : right_glass->local_transform.translation[1]);
+    return 2;
+  }
   if (!process.supports_property_editing() || !pump_until(process, 3s, [&] {
         const auto current = root_rotation(process);
         return current.has_value() && rotation_changed(initial_rotation, *current);

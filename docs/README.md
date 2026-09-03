@@ -169,6 +169,7 @@
 - [M-126 Editor Prefab 覆盖编辑实施记录](records/M-126-editor-prefab-override-editing.md)
 - [M-127 Prefab 覆盖恢复与命令历史实施记录](records/M-127-prefab-override-revert-history.md)
 - [M-128 Runtime 属性回写到 Prefab 覆盖实施记录](records/M-128-runtime-prefab-author-apply.md)
+- [M-129 Lantern Gallery 差异化实例与本地验收记录](records/M-129-lantern-prefab-overrides-validation.md)
 - [M-65 公共 API 与稳定性审计记录](records/M-65-public-api-audit.md)
 - [M-66 稳定运行时代表性样例验收记录](records/M-66-stable-runtime-sample.md)
 - [M-67 公共 API 与 ABI 加固记录](records/M-67-api-abi-hardening.md)
