@@ -183,6 +183,7 @@
 - [M-138 IPC v2 信封与请求关联实施记录](records/M-138-ipc-v2-envelope.md)
 - [M-139 IPC 协议注册表与统一分发实施记录](records/M-139-ipc-dispatcher.md)
 - [M-140 Session 与 Control 域协议实施记录](records/M-140-ipc-session-control.md)
+- [M-141 IPC 数据域协议实施记录](records/M-141-ipc-data-domains.md)
 - [M-65 公共 API 与稳定性审计记录](records/M-65-public-api-audit.md)
 - [M-66 稳定运行时代表性样例验收记录](records/M-66-stable-runtime-sample.md)
 - [M-67 公共 API 与 ABI 加固记录](records/M-67-api-abi-hardening.md)

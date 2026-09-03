@@ -9,6 +9,8 @@ add_library(
   ipc_dispatcher.h
   ipc_control_protocol.cpp
   ipc_control_protocol.h
+  ipc_data_protocol.cpp
+  ipc_data_protocol.h
   ipc_frame.cpp
   ipc_frame.h
   ipc_inspection_protocol.cpp
@@ -67,6 +69,13 @@ if(GNEISS_BUILD_TESTING)
   gneiss_target_compile_warnings(gneiss_ipc_control_protocol_test)
   gneiss_target_output_directories(gneiss_ipc_control_protocol_test)
   add_test(NAME gneiss.io.ipc-control-protocol COMMAND gneiss_ipc_control_protocol_test)
+
+  add_executable(gneiss_ipc_data_protocol_test tests/ipc_data_protocol_test.cpp)
+  target_link_libraries(gneiss_ipc_data_protocol_test PRIVATE gneiss_uv_runtime)
+  target_compile_features(gneiss_ipc_data_protocol_test PRIVATE cxx_std_20)
+  gneiss_target_compile_warnings(gneiss_ipc_data_protocol_test)
+  gneiss_target_output_directories(gneiss_ipc_data_protocol_test)
+  add_test(NAME gneiss.io.ipc-data-protocol COMMAND gneiss_ipc_data_protocol_test)
 
   add_executable(gneiss_uv_runtime_test tests/uv_runtime_test.cpp)
   target_link_libraries(gneiss_uv_runtime_test PRIVATE gneiss_uv_runtime)
