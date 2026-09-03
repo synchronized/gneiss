@@ -55,7 +55,12 @@ Prefab 使用独立的实验性枚举接口 `gneiss_scene_instance_get_prefab_no
 
 `gneiss_scene_instance_create_prefab_instance` 在普通作者节点或场景根下原子放置 Prefab。调用方提供
 唯一实例 UUID、显示名称、规范 Prefab URI 和实例根 Transform；资源获取或 Runtime 创建失败时不会
-增加作者声明或留下部分节点。当前接口不允许以 Prefab 节点作为父级，也不提供来源节点修改能力。
+增加作者声明或留下部分节点。当前接口不允许以 Prefab 节点作为父级。
+
+`gneiss_scene_instance_set_prefab_source_transform` 修改来源节点的实例局部 Transform，并把与来源值
+不同的字段保存为稀疏覆盖；恢复为来源值时自动删除对应字段覆盖。三个 TRS 字段先在临时作者集合中
+完成校验，Runtime 写入成功后才提交作者覆盖，因此失败不会发布部分作者状态。该接口不修改 Prefab
+来源资产，也不会影响同源的其他实例。
 
 实例根可通过 `gneiss_scene_instance_set_prefab_instance_name` 修改作者名称，通过普通 Scene Node
 Transform 接口修改根变换，并通过 `gneiss_scene_instance_destroy_prefab_instance` 整体销毁。

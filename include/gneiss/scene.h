@@ -341,6 +341,11 @@ GNEISS_EXPERIMENTAL GNEISS_API gneiss_result gneiss_scene_instance_set_prefab_in
     gneiss_application application, gneiss_scene_instance instance, gneiss_scene_node_id root,
     const char* name, uint64_t name_length);
 
+/** 将 Prefab 来源节点的局部 Transform 写为实例覆盖；等于来源的字段不会持久化。 */
+GNEISS_EXPERIMENTAL GNEISS_API gneiss_result gneiss_scene_instance_set_prefab_source_transform(
+    gneiss_application application, gneiss_scene_instance instance, gneiss_scene_node_id node,
+    const gneiss_transform* transform);
+
 /** 销毁 Prefab 实例根及其全部来源节点。 */
 GNEISS_EXPERIMENTAL GNEISS_API gneiss_result gneiss_scene_instance_destroy_prefab_instance(
     gneiss_application application, gneiss_scene_instance instance, gneiss_scene_node_id root);

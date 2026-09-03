@@ -269,6 +269,21 @@ prefab_runtime_instance::find_node(std::string_view source_node_uuid) const noex
   return found == nodes_.end() ? GNEISS_NULL_SCENE_NODE_ID : found->node;
 }
 
+gneiss_entity_id
+prefab_runtime_instance::find_entity(std::string_view source_node_uuid) const noexcept {
+  const auto found = std::ranges::find(nodes_, source_node_uuid, [](const runtime_node& node) {
+    return std::string_view(node.address.source_node_uuid);
+  });
+  return found == nodes_.end() ? GNEISS_NULL_ENTITY_ID : found->entity;
+}
+
+const object_description*
+prefab_runtime_instance::find_source_object(std::string_view source_node_uuid) const noexcept {
+  const auto& objects = prefab_.get()->objects;
+  const auto found = std::ranges::find(objects, source_node_uuid, &object_description::uuid);
+  return found == objects.end() ? nullptr : &*found;
+}
+
 gneiss_result prefab_runtime_instance::get_node_info(std::size_t index,
                                                      node_info& out_info) const noexcept {
   out_info = {};

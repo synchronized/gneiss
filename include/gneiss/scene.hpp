@@ -134,6 +134,11 @@ public:
     return from_native(gneiss_scene_instance_set_prefab_instance_name(
         application_, handle_, root.get(), name.data(), name.size()));
   }
+  [[nodiscard]] result set_prefab_source_transform(scene_node_id node,
+                                                   const transform& value) noexcept {
+    return from_native(gneiss_scene_instance_set_prefab_source_transform(application_, handle_,
+                                                                         node.get(), &value));
+  }
   [[nodiscard]] result destroy_prefab_instance(scene_node_id root) noexcept {
     return from_native(
         gneiss_scene_instance_destroy_prefab_instance(application_, handle_, root.get()));

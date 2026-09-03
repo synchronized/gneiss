@@ -410,6 +410,55 @@ gneiss_result scene_instance::set_prefab_instance_name(gneiss_scene_node_id root
   }
 }
 
+gneiss_result scene_instance::set_prefab_source_transform(gneiss_scene_node_id node,
+                                                          const gneiss_transform& transform) {
+  for (std::size_t index = 0U; index < prefab_instances.size(); ++index) {
+    auto& runtime = *prefab_instances[index];
+    prefab_runtime_instance::node_info info;
+    for (std::size_t node_index = 0U; node_index < runtime.node_count(); ++node_index) {
+      if (runtime.get_node_info(node_index, info) != GNEISS_SUCCESS || info.node != node) {
+        continue;
+      }
+      const auto* source = runtime.find_source_object(info.address->source_node_uuid);
+      if (source == nullptr) {
+        return GNEISS_ERROR_INVALID_STATE;
+      }
+      auto pending = description.prefab_instances[index].overrides;
+      const auto type_id = gneiss_transform_type_id();
+      const std::array candidates{
+          prefab_property_override{.key = {.node = *info.address,
+                                           .type_id = type_id,
+                                           .field_id = GNEISS_TRANSFORM_FIELD_TRANSLATION},
+                                   .value = {.payload = std::to_array(transform.translation)}},
+          prefab_property_override{.key = {.node = *info.address,
+                                           .type_id = type_id,
+                                           .field_id = GNEISS_TRANSFORM_FIELD_ROTATION},
+                                   .value = {.payload = std::to_array(transform.rotation)}},
+          prefab_property_override{.key = {.node = *info.address,
+                                           .type_id = type_id,
+                                           .field_id = GNEISS_TRANSFORM_FIELD_SCALE},
+                                   .value = {.payload = std::to_array(transform.scale)}}};
+      const std::array source_values{prefab_property_value{.payload = source->translation},
+                                     prefab_property_value{.payload = source->rotation},
+                                     prefab_property_value{.payload = source->scale}};
+      for (std::size_t field_index = 0U; field_index < candidates.size(); ++field_index) {
+        const auto result = set_prefab_property_override(
+            registry_, pending, candidates[field_index], source_values[field_index]);
+        if (result != GNEISS_SUCCESS) {
+          return result;
+        }
+      }
+      const auto result = gneiss_scene_node_set_local_transform(world_, node, &transform);
+      if (result != GNEISS_SUCCESS) {
+        return result;
+      }
+      description.prefab_instances[index].overrides.swap(pending);
+      return GNEISS_SUCCESS;
+    }
+  }
+  return GNEISS_ERROR_INVALID_HANDLE;
+}
+
 gneiss_result scene_instance::destroy_prefab_instance(gneiss_scene_node_id root) noexcept {
   const auto found = std::ranges::find_if(
       prefab_instances, [root](const auto& instance) { return instance->root() == root; });
@@ -1340,6 +1389,22 @@ gneiss_result scene_instance_service::set_prefab_instance_name(gneiss_scene_inst
     auto* value = instances_.get(instance, core::resource_type::scene_instance);
     return value == nullptr || *value == nullptr ? GNEISS_ERROR_INVALID_HANDLE
                                                  : (*value)->set_prefab_instance_name(root, name);
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
+gneiss_result
+scene_instance_service::set_prefab_source_transform(gneiss_scene_instance instance,
+                                                    gneiss_scene_node_id node,
+                                                    const gneiss_transform& transform) noexcept {
+  try {
+    auto* value = instances_.get(instance, core::resource_type::scene_instance);
+    return value == nullptr || *value == nullptr
+               ? GNEISS_ERROR_INVALID_HANDLE
+               : (*value)->set_prefab_source_transform(node, transform);
+  } catch (const std::bad_alloc&) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;
   }
