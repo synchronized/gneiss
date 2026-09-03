@@ -8,24 +8,11 @@
 
 namespace {
 
-[[nodiscard]] bool valid_direction(gneiss::ipc_message_direction direction) noexcept {
-  switch (direction) {
-  case gneiss::ipc_message_direction::editor_to_runtime:
-  case gneiss::ipc_message_direction::runtime_to_editor:
-  case gneiss::ipc_message_direction::bidirectional:
-    return true;
-  }
-  return false;
-}
-
-[[nodiscard]] bool direction_allows(gneiss::ipc_message_direction direction,
-                                    gneiss::ipc_peer_role sender) noexcept {
-  return direction == gneiss::ipc_message_direction::bidirectional ||
-         (direction == gneiss::ipc_message_direction::editor_to_runtime &&
-          sender == gneiss::ipc_peer_role::editor) ||
-         (direction == gneiss::ipc_message_direction::runtime_to_editor &&
-          sender == gneiss::ipc_peer_role::runtime);
-}
+constexpr gneiss::ipc_message_kind_mask known_kind_mask =
+    gneiss::ipc_kind_mask(gneiss::ipc_message_kind::event) |
+    gneiss::ipc_kind_mask(gneiss::ipc_message_kind::request) |
+    gneiss::ipc_kind_mask(gneiss::ipc_message_kind::response) |
+    gneiss::ipc_kind_mask(gneiss::ipc_message_kind::error);
 
 } // namespace
 
@@ -38,8 +25,8 @@ result ipc_domain_registry::register_domain(const ipc_domain_descriptor& descrip
       descriptor.handler == nullptr || descriptor.operations.empty() ||
       (descriptor.domain != ipc_domain::session && descriptor.capability.empty()) ||
       std::ranges::any_of(descriptor.operations, [](const auto& operation) {
-        return operation.operation == 0U || operation.allowed_kinds == 0U ||
-               !valid_direction(operation.direction);
+        const auto kinds = operation.editor_to_runtime_kinds | operation.runtime_to_editor_kinds;
+        return operation.operation == 0U || kinds == 0U || (kinds & ~known_kind_mask) != 0U;
       })) {
     return result::invalid_argument;
   }
@@ -115,10 +102,13 @@ ipc_dispatch_outcome ipc_dispatcher::dispatch(const ipc_envelope& envelope,
   if (operation == domain->operations.end()) {
     return {.rejection = ipc_dispatch_rejection::unknown_operation};
   }
-  if (!direction_allows(operation->direction, context.remote_role)) {
+  const auto allowed_kinds = context.remote_role == ipc_peer_role::editor
+                                 ? operation->editor_to_runtime_kinds
+                                 : operation->runtime_to_editor_kinds;
+  if (allowed_kinds == 0U) {
     return {.rejection = ipc_dispatch_rejection::wrong_direction};
   }
-  if ((operation->allowed_kinds & ipc_kind_mask(envelope.kind)) == 0U) {
+  if ((allowed_kinds & ipc_kind_mask(envelope.kind)) == 0U) {
     return {.rejection = ipc_dispatch_rejection::wrong_kind};
   }
   const auto handled = domain->handler(domain->handler_context, envelope);

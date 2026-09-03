@@ -20,12 +20,6 @@ enum class ipc_peer_role : std::uint8_t {
   runtime,
 };
 
-enum class ipc_message_direction : std::uint8_t {
-  editor_to_runtime = 1U,
-  runtime_to_editor = 2U,
-  bidirectional = 3U,
-};
-
 using ipc_message_kind_mask = std::uint16_t;
 
 [[nodiscard]] constexpr ipc_message_kind_mask ipc_kind_mask(ipc_message_kind kind) noexcept {
@@ -35,8 +29,8 @@ using ipc_message_kind_mask = std::uint16_t;
 
 struct ipc_operation_descriptor final {
   std::uint16_t operation = 0U;
-  ipc_message_kind_mask allowed_kinds = 0U;
-  ipc_message_direction direction = ipc_message_direction::bidirectional;
+  ipc_message_kind_mask editor_to_runtime_kinds = 0U;
+  ipc_message_kind_mask runtime_to_editor_kinds = 0U;
 };
 
 using ipc_domain_handler = result (*)(void* context, const ipc_envelope& envelope) noexcept;
@@ -54,6 +48,8 @@ struct ipc_domain_descriptor final {
 struct ipc_domain_capability final {
   ipc_domain domain = ipc_domain::session;
   std::uint16_t version = 0U;
+
+  [[nodiscard]] bool operator==(const ipc_domain_capability&) const noexcept = default;
 };
 
 struct ipc_dispatch_context final {

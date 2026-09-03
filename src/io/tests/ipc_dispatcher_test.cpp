@@ -31,7 +31,9 @@ gneiss::result handle(void* context, const gneiss::ipc_envelope& envelope) noexc
 [[nodiscard]] bool test_registration() {
   handler_state state;
   constexpr std::array operations{gneiss::ipc_operation_descriptor{
-      .operation = 1U, .allowed_kinds = gneiss::ipc_kind_mask(gneiss::ipc_message_kind::request)}};
+      .operation = 1U,
+      .editor_to_runtime_kinds = gneiss::ipc_kind_mask(gneiss::ipc_message_kind::request),
+      .runtime_to_editor_kinds = 0U}};
   const gneiss::ipc_domain_descriptor descriptor{
       .domain = gneiss::ipc_domain::control,
       .version = 1U,
@@ -55,8 +57,8 @@ gneiss::result handle(void* context, const gneiss::ipc_envelope& envelope) noexc
     return false;
   }
   constexpr std::array duplicate_operations{
-      gneiss::ipc_operation_descriptor{.operation = 1U, .allowed_kinds = 1U},
-      gneiss::ipc_operation_descriptor{.operation = 1U, .allowed_kinds = 1U}};
+      gneiss::ipc_operation_descriptor{.operation = 1U, .editor_to_runtime_kinds = 1U},
+      gneiss::ipc_operation_descriptor{.operation = 1U, .editor_to_runtime_kinds = 1U}};
   invalid.operations = duplicate_operations;
   if (registry.register_domain(invalid) != gneiss::result::invalid_argument) {
     return false;
@@ -69,8 +71,8 @@ gneiss::result handle(void* context, const gneiss::ipc_envelope& envelope) noexc
   handler_state state;
   constexpr std::array operations{gneiss::ipc_operation_descriptor{
       .operation = 1U,
-      .allowed_kinds = gneiss::ipc_kind_mask(gneiss::ipc_message_kind::request),
-      .direction = gneiss::ipc_message_direction::editor_to_runtime}};
+      .editor_to_runtime_kinds = gneiss::ipc_kind_mask(gneiss::ipc_message_kind::request),
+      .runtime_to_editor_kinds = 0U}};
   gneiss::ipc_domain_registry registry;
   if (registry.register_domain({.domain = gneiss::ipc_domain::control,
                                 .version = 2U,
@@ -147,7 +149,9 @@ gneiss::result handle(void* context, const gneiss::ipc_envelope& envelope) noexc
 [[nodiscard]] bool test_session_and_unknown_domain() {
   handler_state state;
   constexpr std::array operations{gneiss::ipc_operation_descriptor{
-      .operation = 1U, .allowed_kinds = gneiss::ipc_kind_mask(gneiss::ipc_message_kind::request)}};
+      .operation = 1U,
+      .editor_to_runtime_kinds = gneiss::ipc_kind_mask(gneiss::ipc_message_kind::response),
+      .runtime_to_editor_kinds = gneiss::ipc_kind_mask(gneiss::ipc_message_kind::request)}};
   gneiss::ipc_domain_registry registry;
   if (registry.register_domain({.domain = gneiss::ipc_domain::session,
                                 .version = 1U,

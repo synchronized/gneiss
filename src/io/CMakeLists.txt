@@ -7,6 +7,8 @@ add_library(
   ipc_envelope.h
   ipc_dispatcher.cpp
   ipc_dispatcher.h
+  ipc_control_protocol.cpp
+  ipc_control_protocol.h
   ipc_frame.cpp
   ipc_frame.h
   ipc_inspection_protocol.cpp
@@ -15,6 +17,8 @@ add_library(
   ipc_protocol.h
   ipc_property_edit_protocol.cpp
   ipc_property_edit_protocol.h
+  ipc_session_protocol.cpp
+  ipc_session_protocol.h
   ipc_statistics_protocol.cpp
   ipc_statistics_protocol.h
   ipc_transport.cpp
@@ -49,6 +53,20 @@ if(GNEISS_BUILD_TESTING)
   gneiss_target_compile_warnings(gneiss_ipc_dispatcher_test)
   gneiss_target_output_directories(gneiss_ipc_dispatcher_test)
   add_test(NAME gneiss.io.ipc-dispatcher COMMAND gneiss_ipc_dispatcher_test)
+
+  add_executable(gneiss_ipc_session_protocol_test tests/ipc_session_protocol_test.cpp)
+  target_link_libraries(gneiss_ipc_session_protocol_test PRIVATE gneiss_uv_runtime)
+  target_compile_features(gneiss_ipc_session_protocol_test PRIVATE cxx_std_20)
+  gneiss_target_compile_warnings(gneiss_ipc_session_protocol_test)
+  gneiss_target_output_directories(gneiss_ipc_session_protocol_test)
+  add_test(NAME gneiss.io.ipc-session-protocol COMMAND gneiss_ipc_session_protocol_test)
+
+  add_executable(gneiss_ipc_control_protocol_test tests/ipc_control_protocol_test.cpp)
+  target_link_libraries(gneiss_ipc_control_protocol_test PRIVATE gneiss_uv_runtime)
+  target_compile_features(gneiss_ipc_control_protocol_test PRIVATE cxx_std_20)
+  gneiss_target_compile_warnings(gneiss_ipc_control_protocol_test)
+  gneiss_target_output_directories(gneiss_ipc_control_protocol_test)
+  add_test(NAME gneiss.io.ipc-control-protocol COMMAND gneiss_ipc_control_protocol_test)
 
   add_executable(gneiss_uv_runtime_test tests/uv_runtime_test.cpp)
   target_link_libraries(gneiss_uv_runtime_test PRIVATE gneiss_uv_runtime)
