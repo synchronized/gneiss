@@ -72,6 +72,8 @@ target_sources(
     scene/scene_description.h
     scene/prefab_description.cpp
     scene/prefab_description.h
+    scene/prefab_property_override.cpp
+    scene/prefab_property_override.h
     scene/prefab_runtime_instance.cpp
     scene/prefab_runtime_instance.h
     scene/scene_instance_service.cpp
