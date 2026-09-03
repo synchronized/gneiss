@@ -26,7 +26,9 @@ Editor 的刷新操作会按 Prefab URI 更新当前场景内全部同源实例�
 | Windows Clang Debug Lantern Gallery 相关测试 | 5/5 通过 |
 | Windows Clang Debug 完整串行回归 | 109/109 通过 |
 | Windows Clang Static Debug 完整串行回归 | 106/107 首轮通过；退出协议超时用例单独复测通过 |
-| Linux Core Shared/Static 与 Sanitizer Actions | 通过 |
-| Linux Granit Runtime Shared/Static | 首轮发现 ImGui 浅克隆无法检出 docking 提交，修复后待复测 |
+| Linux Core Clang/GCC Shared/Static | 4/4 通过 |
+| Linux Granit Runtime Shared/Static | 2/2 通过 |
+| Linux Sanitizer Runtime | 通过 |
 
-M-122 的本地实现已经完成；0.18.0 是否结束取决于跨平台 Actions 验收结果。
+首轮远端验证发现 ImGui 浅克隆无法检出仅位于 docking 分支历史中的锁定提交；改用完整克隆并让
+FetchContent 缓存键覆盖全部依赖配置后，第二轮 Linux 工作流 7/7 任务通过。M-122 与 0.18.0 已完成。
