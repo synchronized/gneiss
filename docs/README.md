@@ -172,6 +172,7 @@
 - [M-128 Runtime 属性回写到 Prefab 覆盖实施记录](records/M-128-runtime-prefab-author-apply.md)
 - [M-129 Lantern Gallery 差异化实例与跨平台验收记录](records/M-129-lantern-prefab-overrides-validation.md)
 - [M-130 作者事务与来源修订 Spike 记录](records/M-130-author-transaction-spike.md)
+- [M-131 Prefab 作者文档与原子保存实施记录](records/M-131-prefab-author-document-save.md)
 - [M-65 公共 API 与稳定性审计记录](records/M-65-public-api-audit.md)
 - [M-66 稳定运行时代表性样例验收记录](records/M-66-stable-runtime-sample.md)
 - [M-67 公共 API 与 ABI 加固记录](records/M-67-api-abi-hardening.md)

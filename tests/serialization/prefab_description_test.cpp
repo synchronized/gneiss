@@ -78,7 +78,7 @@ private:
 
 } // namespace
 
-int main() {
+int main() try {
   gneiss::scene_internal::prefab_description prefab;
   gneiss::scene_internal::scene_diagnostic diagnostic;
   if (gneiss::scene_internal::parse_prefab_description(valid_prefab, prefab, diagnostic) !=
@@ -90,11 +90,31 @@ int main() {
       prefab.author_json != valid_prefab) {
     return 1;
   }
+  std::string serialized;
+  gneiss::scene_internal::prefab_description round_trip;
+  const auto author_with_unknown = replace_once(std::string(valid_prefab), R"("version":1,)",
+                                                R"("version":1,"editor_unknown":{"kept":true},)");
+  if (gneiss::scene_internal::parse_prefab_description(author_with_unknown, prefab, diagnostic) !=
+      GNEISS_SUCCESS) {
+    return 7;
+  }
+  prefab.objects[1].name = "Serialized Child";
+  if (gneiss::scene_internal::serialize_prefab_description(prefab, serialized) != GNEISS_SUCCESS ||
+      serialized.find("Serialized Child") == std::string::npos ||
+      serialized.find("editor_unknown") == std::string::npos ||
+      serialized.find("prefab_instances") != std::string::npos ||
+      gneiss::scene_internal::parse_prefab_description(serialized, round_trip, diagnostic) !=
+          GNEISS_SUCCESS ||
+      round_trip.objects[1].name != "Serialized Child") {
+    return 8;
+  }
 
   const gneiss::scene_internal::prefab_author_address address{
-      "20000000-0000-4000-8000-000000000001", prefab.objects[1].uuid};
+      .instance_uuid = "20000000-0000-4000-8000-000000000001",
+      .source_node_uuid = prefab.objects[1].uuid};
   const gneiss::scene_internal::prefab_author_address different_instance{
-      "20000000-0000-4000-8000-000000000002", prefab.objects[1].uuid};
+      .instance_uuid = "20000000-0000-4000-8000-000000000002",
+      .source_node_uuid = prefab.objects[1].uuid};
   if (!gneiss::scene_internal::is_valid_prefab_author_address(address) ||
       address == different_instance) {
     return 2;
@@ -164,4 +184,6 @@ int main() {
     return 8;
   }
   return 0;
+} catch (...) {
+  return 99;
 }

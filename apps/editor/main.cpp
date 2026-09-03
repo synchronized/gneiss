@@ -9,6 +9,7 @@
 #include "editor_theme.h"
 #include "editor_ui.h"
 #include "imgui_adapter.h"
+#include "native_author_transaction.h"
 #include "native_dialog.h"
 #include "project_manager.h"
 #include "project_workspace.h"
@@ -2679,6 +2680,11 @@ int run_editor(int argc, char** argv) {
                    options.project.c_str());
       return 65;
     }
+  }
+  const auto recovery = gneiss::editor::recover_native_author_transactions(project.asset_root);
+  if (recovery != gneiss::result::success) {
+    report_startup_failure("作者事务恢复", recovery, path_utf8(project.asset_root));
+    return 66;
   }
   const auto asset_root_text = path_utf8(project.asset_root);
   if (asset_root_text.size() > std::numeric_limits<std::uint32_t>::max()) {

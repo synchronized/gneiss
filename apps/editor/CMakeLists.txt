@@ -16,6 +16,8 @@ add_library(
   editor_rotation_math.h
   editor_session.cpp
   editor_session.h
+  native_author_transaction.cpp
+  native_author_transaction.h
   project_workspace.cpp
   project_workspace.h
   property_inspector_model.cpp
