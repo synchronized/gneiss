@@ -33,6 +33,27 @@ struct scene_node_record final {
   bool is_primary_camera = false;
 };
 
+struct prefab_node_record final {
+  scene_node_id node;
+  scene_node_id parent;
+  entity_id entity;
+  std::string instance_uuid;
+  std::string source_node_uuid;
+  std::string display_name;
+  std::string prefab_uri;
+  transform local_transform = GNEISS_TRANSFORM_IDENTITY;
+  bool is_instance_root = false;
+  bool is_read_only = true;
+};
+
+struct prefab_instance_snapshot final {
+  std::string instance_uuid;
+  std::string parent_uuid;
+  std::string display_name;
+  std::string prefab_uri;
+  transform local_transform = GNEISS_TRANSFORM_IDENTITY;
+};
+
 struct scene_node_snapshot final {
   std::string uuid;
   std::string parent_uuid;
@@ -60,14 +81,34 @@ public:
   [[nodiscard]] bool is_dirty() const noexcept { return is_dirty_; }
   [[nodiscard]] std::string_view uri() const noexcept { return uri_; }
   [[nodiscard]] const std::vector<scene_node_record>& nodes() const noexcept { return nodes_; }
+  [[nodiscard]] const std::vector<prefab_node_record>& prefab_nodes() const noexcept {
+    return prefab_nodes_;
+  }
   [[nodiscard]] scene_node_id selection() const noexcept { return selection_; }
   [[nodiscard]] const scene_node_record* selected_node() const noexcept;
+  [[nodiscard]] const prefab_node_record* selected_prefab_node() const noexcept;
+  [[nodiscard]] const prefab_node_record*
+  find_prefab_root(std::string_view instance_uuid) const noexcept;
   [[nodiscard]] const scene_node_record* find_node(std::string_view uuid) const noexcept;
 
   [[nodiscard]] result select(scene_node_id node) noexcept;
   [[nodiscard]] result validate_selection() noexcept;
   [[nodiscard]] result create_node(std::string_view name, scene_node_id parent,
                                    scene_node_id& out_node) noexcept;
+  [[nodiscard]] result create_prefab_instance(std::string_view name, std::string_view prefab_uri,
+                                              scene_node_id parent,
+                                              scene_node_id& out_root) noexcept;
+  [[nodiscard]] result rename_prefab_instance(scene_node_id root, std::string_view name) noexcept;
+  [[nodiscard]] result destroy_prefab_instance(scene_node_id root,
+                                               prefab_instance_snapshot& out_snapshot) noexcept;
+  [[nodiscard]] result restore_prefab_instance(const prefab_instance_snapshot& snapshot,
+                                               scene_node_id& out_root) noexcept;
+  [[nodiscard]] result
+  refresh_prefab_instance(scene_node_id root, scene_node_id& out_new_root,
+                          gneiss_scene_prefab_refresh_token& out_token) noexcept;
+  [[nodiscard]] result toggle_prefab_refresh(gneiss_scene_prefab_refresh_token token,
+                                             scene_node_id& out_new_root) noexcept;
+  void release_prefab_refresh(gneiss_scene_prefab_refresh_token token) noexcept;
   [[nodiscard]] result rename_node(scene_node_id node, std::string_view name) noexcept;
   [[nodiscard]] result reparent_node(scene_node_id node, scene_node_id parent) noexcept;
   /** 设置节点局部 TRS；成功后刷新缓存并标记场景已修改。 */
@@ -106,6 +147,7 @@ private:
   gneiss_world world_ = GNEISS_NULL_WORLD;
   scene_instance scene_;
   std::vector<scene_node_record> nodes_;
+  std::vector<prefab_node_record> prefab_nodes_;
   scene_node_id selection_;
   std::string uri_;
   bool is_dirty_ = false;

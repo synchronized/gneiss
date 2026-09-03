@@ -66,8 +66,14 @@ target_sources(
     reflection/type_registry.cpp
     scene/scene_tree.cpp
     scene/scene_tree.h
+    scene/prefab_asset_loader.cpp
+    scene/prefab_asset_loader.h
     scene/scene_description.cpp
     scene/scene_description.h
+    scene/prefab_description.cpp
+    scene/prefab_description.h
+    scene/prefab_runtime_instance.cpp
+    scene/prefab_runtime_instance.h
     scene/scene_instance_service.cpp
     scene/scene_instance_service.h
     world/system_scheduler.cpp

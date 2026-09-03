@@ -88,8 +88,29 @@ int main() try {
           GNEISS_ERROR_INVALID_ARGUMENT) {
     return 3;
   }
+  auto reloader = [&load_count](std::shared_ptr<void>& resource) {
+    ++load_count;
+    resource = std::make_shared<int>(84);
+    return GNEISS_SUCCESS;
+  };
+  if (cache.reload("asset://models/triangle.mesh", 1U, reloader, second) != GNEISS_SUCCESS ||
+      load_count != 2U || first == second ||
+      *static_cast<const int*>(first->resource.get()) != 42 ||
+      *static_cast<const int*>(second->resource.get()) != 84 || cache.size() != 1U) {
+    return 3;
+  }
+  std::shared_ptr<const gneiss::asset_internal::resource_cache::entry> failed_reload;
+  const auto failed_reloader = [](std::shared_ptr<void>&) { return GNEISS_ERROR_IO; };
+  if (cache.reload("asset://models/triangle.mesh", 1U, failed_reloader, failed_reload) !=
+          GNEISS_ERROR_IO ||
+      failed_reload ||
+      cache.acquire("asset://models/triangle.mesh", 1U, loader, failed_reload) != GNEISS_SUCCESS ||
+      failed_reload != second || load_count != 2U) {
+    return 3;
+  }
   first.reset();
   second.reset();
+  failed_reload.reset();
   cache.release_unused();
   if (cache.size() != 0U) {
     return 4;
@@ -108,7 +129,7 @@ int main() try {
 
   gneiss::asset_internal::resource_cache other_cache;
   if (other_cache.acquire("asset://models/triangle.mesh", 1U, loader, first) != GNEISS_SUCCESS ||
-      load_count != 2U) {
+      load_count != 3U) {
     return 6;
   }
   return 0;

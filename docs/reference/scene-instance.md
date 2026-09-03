@@ -10,7 +10,8 @@
 1. 通过 VFS 读取并完整校验场景描述。
 2. 获取场景引用的全部 Mesh 与 Material 缓存租约。
 3. 父节点优先创建 Entity 和 Scene Node，再设置 Transform 与组件。
-4. 全部成功后才发布非零场景实例句柄。
+4. 获取场景声明的 Prefab，并在实例根下创建各自独立的源节点 Runtime 投影。
+5. 全部成功后才发布非零场景实例句柄。
 
 解析或资产阶段不会修改 World。提交阶段任一步失败都会逆序销毁本次创建的实体、节点和资产引用，
 因此失败前后 World 实体数量与资源存活状态一致。当前加载只允许 Application 创建线程调用。
@@ -46,6 +47,24 @@ JSON 可为对象增加可选字符串 `name`；旧场景无需迁移，名称�
 释放；实例卸载或 Application 销毁后立即失效。`out_info` 必须以
 `GNEISS_SCENE_INSTANCE_NODE_INFO_INIT` 初始化。索引越界返回 `GNEISS_ERROR_NOT_FOUND`；节点或实体
 已被外部销毁时返回句柄错误。C++ 包装提供对应的 `get_node_count` 和 `get_node_info`。
+
+Prefab 使用独立的实验性枚举接口 `gneiss_scene_instance_get_prefab_node_count` 与
+`gneiss_scene_instance_get_prefab_node_info`，不改变普通 `objects` 的数量和顺序。枚举顺序为每个实例
+的实例根，其后为 Prefab 来源节点；描述包含实例 UUID、来源节点 UUID、Prefab URI、Runtime ID、
+局部 Transform 以及实例根或来源只读标志。所有字符串视图的生命周期与场景实例一致。
+
+`gneiss_scene_instance_create_prefab_instance` 在普通作者节点或场景根下原子放置 Prefab。调用方提供
+唯一实例 UUID、显示名称、规范 Prefab URI 和实例根 Transform；资源获取或 Runtime 创建失败时不会
+增加作者声明或留下部分节点。当前接口不允许以 Prefab 节点作为父级，也不提供来源节点修改能力。
+
+实例根可通过 `gneiss_scene_instance_set_prefab_instance_name` 修改作者名称，通过普通 Scene Node
+Transform 接口修改根变换，并通过 `gneiss_scene_instance_destroy_prefab_instance` 整体销毁。
+`gneiss_scene_instance_refresh_prefab_instance` 会绕过旧 Prefab 缓存重新读取来源，先创建完整替代投影，
+成功后才销毁旧投影并返回新的根 ID；失败时旧投影和选择目标仍有效。刷新成功后旧根及全部旧来源
+节点 ID 失效，调用方必须改用返回的新根并重新枚举层级。成功刷新同时返回场景实例独占的事务
+令牌；`gneiss_scene_instance_toggle_prefab_refresh` 使用令牌在新旧来源版本间切换并返回新的根 ID，
+供 Undo/Redo 使用。命令离开历史后必须调用 `gneiss_scene_instance_release_prefab_refresh`；场景卸载
+也会释放尚未显式释放的令牌及其资产租约。
 
 ## 作者节点编辑
 
@@ -92,8 +111,10 @@ C++ `gneiss::scene_instance` 提供对应强类型包装。创建、重命名、
 ## 运行时属性序列化
 
 `gneiss_scene_instance_serialize` 将实例当前的名称、父级、局部 Transform、Camera、已创建作者节点和
-Mesh Renderer 引用合并回加载时的作者文档，并输出当前版本的 UTF-8 场景 JSON。保存会保留未被
-Runtime 解释的未知字段，不会覆盖来源文件，也不会持久化 Entity ID、Scene Node ID 或资源 RID。
+Mesh Renderer 引用以及 Prefab 实例根 Transform 合并回加载时的作者文档，并输出当前版本的 UTF-8
+场景 JSON。Prefab 仍以 URI、实例 UUID、父级、名称和根 Transform 表示，不写入展开节点。保存会
+保留未被 Runtime 解释的未知字段，不会覆盖来源文件，也不会持久化 Entity ID、Scene Node ID 或
+资源 RID。
 
 C 接口使用两次调用：先以空 `buffer` 和零 `capacity` 查询不含字符串终止符的字节数，再提供足够
 容量的缓冲区。容量不足返回 `GNEISS_ERROR_INVALID_ARGUMENT`，同时通过 `out_length` 返回所需长度。

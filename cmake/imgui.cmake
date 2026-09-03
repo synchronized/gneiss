@@ -13,7 +13,8 @@ function(gneiss_resolve_imgui)
     GIT_REPOSITORY https://github.com/ocornut/imgui.git
     # Dear ImGui Docking 1.93.0 WIP；MIT 许可。固定提交避免浮动分支影响构建复现。
     GIT_TAG fd13a1e8923a0a7077b404fc36fd063b25a0c0b5
-    GIT_SHALLOW TRUE
+    # 锁定提交位于 docking 分支历史中；浅克隆默认分支无法保证包含该对象。
+    GIT_SHALLOW FALSE
   )
   FetchContent_MakeAvailable(gneiss_imgui_source)
 

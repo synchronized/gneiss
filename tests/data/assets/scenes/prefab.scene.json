@@ -1,0 +1,31 @@
+{
+  "format": "gneiss.scene",
+  "version": 3,
+  "scene_uuid": "30000000-0000-4000-8000-000000000010",
+  "objects": [
+    {
+      "uuid": "30000000-0000-4000-8000-000000000011",
+      "name": "Anchor",
+      "parent": null,
+      "transform": {
+        "translation": [0, 0, 0],
+        "rotation": [0, 0, 0, 1],
+        "scale": [1, 1, 1]
+      },
+      "components": {}
+    }
+  ],
+  "prefab_instances": [
+    {
+      "instance_uuid": "30000000-0000-4000-8000-000000000012",
+      "name": "Lamp Instance",
+      "parent": "30000000-0000-4000-8000-000000000011",
+      "prefab": "asset://prefabs/test.prefab.json",
+      "transform": {
+        "translation": [10, 0, 0],
+        "rotation": [0, 0, 0, 1],
+        "scale": [1, 1, 1]
+      }
+    }
+  ]
+}

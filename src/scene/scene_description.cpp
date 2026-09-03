@@ -23,7 +23,7 @@ namespace {
 
 using gneiss::scene_internal::scene_diagnostic;
 
-constexpr std::uint64_t schema_version = 2;
+constexpr std::uint64_t schema_version = 3;
 constexpr std::uint64_t oldest_schema_version = 1;
 constexpr std::string_view scene_format = "gneiss.scene";
 
@@ -250,6 +250,58 @@ template <std::size_t Size>
                           diagnostic);
 }
 
+[[nodiscard]] bool
+parse_prefab_instance(yyjson_val* value, std::size_t index,
+                      gneiss::scene_internal::prefab_instance_description& output,
+                      scene_diagnostic& diagnostic) {
+  const std::string path = "/prefab_instances/" + std::to_string(index);
+  if (!yyjson_is_obj(value) ||
+      !read_required_string(value, "instance_uuid", path, output.instance_uuid, diagnostic) ||
+      !is_canonical_uuid(output.instance_uuid)) {
+    if (diagnostic.result == GNEISS_SUCCESS) {
+      fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, path + "/instance_uuid",
+           "实例 UUID 必须是小写规范形式");
+    }
+    return false;
+  }
+  if (!read_required_string(value, "prefab", path, output.prefab_uri, diagnostic) ||
+      gneiss::asset_internal::validate_uri(output.prefab_uri) != GNEISS_SUCCESS) {
+    if (diagnostic.result == GNEISS_SUCCESS) {
+      fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, path + "/prefab", "Prefab URI 无效");
+    }
+    return false;
+  }
+  if (yyjson_val* name = yyjson_obj_get(value, "name"); name != nullptr) {
+    if (!yyjson_is_str(name)) {
+      fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, path + "/name", "name 必须是字符串");
+      return false;
+    }
+    output.name = std::string(json_string(name));
+  }
+  yyjson_val* parent = yyjson_obj_get(value, "parent");
+  if (yyjson_is_str(parent)) {
+    const auto parent_uuid = json_string(parent);
+    if (!is_canonical_uuid(parent_uuid)) {
+      fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, path + "/parent", "父 UUID 格式错误");
+      return false;
+    }
+    output.parent_uuid = std::string(parent_uuid);
+  } else if (!yyjson_is_null(parent)) {
+    fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, path + "/parent",
+         "parent 必须是普通对象 UUID 或 null");
+    return false;
+  }
+  gneiss::scene_internal::object_description transform;
+  if (!parse_transform(yyjson_obj_get(value, "transform"), path + "/transform", transform,
+                       diagnostic)) {
+    return false;
+  }
+  output.translation = transform.translation;
+  output.rotation = transform.rotation;
+  output.scale = transform.scale;
+  return true;
+}
+
 [[nodiscard]] bool validate_hierarchy(const gneiss::scene_internal::scene_description& scene,
                                       scene_diagnostic& diagnostic) {
   std::unordered_map<std::string_view, std::size_t> indexes;
@@ -261,12 +313,36 @@ template <std::size_t Size>
       return false;
     }
   }
+  for (std::size_t index = 0; index < scene.prefab_instances.size(); ++index) {
+    const auto& instance = scene.prefab_instances[index];
+    if (!indexes.emplace(instance.instance_uuid, scene.objects.size() + index).second) {
+      fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT,
+           "/prefab_instances/" + std::to_string(index) + "/instance_uuid",
+           "Prefab 实例 UUID 与场景作者身份重复");
+      return false;
+    }
+  }
   for (std::size_t index = 0; index < scene.objects.size(); ++index) {
     const auto& parent = scene.objects[index].parent_uuid;
-    if (parent && !indexes.contains(*parent)) {
-      fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT,
-           "/objects/" + std::to_string(index) + "/parent", "父对象不存在");
-      return false;
+    if (parent) {
+      const auto found = indexes.find(*parent);
+      if (found == indexes.end() || found->second >= scene.objects.size()) {
+        fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT,
+             "/objects/" + std::to_string(index) + "/parent", "父级必须是普通场景对象");
+        return false;
+      }
+    }
+  }
+  for (std::size_t index = 0; index < scene.prefab_instances.size(); ++index) {
+    const auto& parent = scene.prefab_instances[index].parent_uuid;
+    if (parent) {
+      const auto found = indexes.find(*parent);
+      if (found == indexes.end() || found->second >= scene.objects.size()) {
+        fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT,
+             "/prefab_instances/" + std::to_string(index) + "/parent",
+             "Prefab 实例父级必须是普通场景对象");
+        return false;
+      }
     }
   }
   const auto primary_camera_count = std::ranges::count_if(
@@ -376,6 +452,33 @@ make_author_object(yyjson_mut_doc* document,
   return put_value(document, object, "components", components) ? object : nullptr;
 }
 
+[[nodiscard]] yyjson_mut_val*
+make_author_prefab_instance(yyjson_mut_doc* document,
+                            const gneiss::scene_internal::prefab_instance_description& source) {
+  auto* instance = yyjson_mut_obj(document);
+  auto* transform = yyjson_mut_obj(document);
+  if (instance == nullptr || transform == nullptr ||
+      !yyjson_mut_obj_add_strncpy(document, instance, "instance_uuid", source.instance_uuid.data(),
+                                  source.instance_uuid.size()) ||
+      !yyjson_mut_obj_add_strncpy(document, instance, "prefab", source.prefab_uri.data(),
+                                  source.prefab_uri.size()) ||
+      (!source.name.empty() &&
+       !yyjson_mut_obj_add_strncpy(document, instance, "name", source.name.data(),
+                                   source.name.size())) ||
+      !put_value(document, instance, "parent",
+                 source.parent_uuid ? yyjson_mut_strncpy(document, source.parent_uuid->data(),
+                                                         source.parent_uuid->size())
+                                    : yyjson_mut_null(document)) ||
+      !put_value(document, transform, "translation",
+                 make_float_array(document, source.translation)) ||
+      !put_value(document, transform, "rotation", make_float_array(document, source.rotation)) ||
+      !put_value(document, transform, "scale", make_float_array(document, source.scale)) ||
+      !put_value(document, instance, "transform", transform)) {
+    return nullptr;
+  }
+  return instance;
+}
+
 } // namespace
 
 namespace gneiss::scene_internal {
@@ -444,6 +547,23 @@ gneiss_result parse_current_scene_description(std::string_view json, scene_descr
         return out_diagnostic.result;
       }
     }
+    yyjson_val* prefab_instances = yyjson_obj_get(root, "prefab_instances");
+    if (!yyjson_is_arr(prefab_instances)) {
+      fail(out_diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/prefab_instances",
+           "prefab_instances 必须是数组");
+      return out_diagnostic.result;
+    }
+    parsed.prefab_instances.reserve(yyjson_arr_size(prefab_instances));
+    index = 0;
+    maximum = 0;
+    yyjson_val* prefab_instance = nullptr;
+    yyjson_arr_foreach(prefab_instances, index, maximum, prefab_instance) {
+      parsed.prefab_instances.emplace_back();
+      if (!parse_prefab_instance(prefab_instance, index, parsed.prefab_instances.back(),
+                                 out_diagnostic)) {
+        return out_diagnostic.result;
+      }
+    }
     if (!validate_hierarchy(parsed, out_diagnostic)) {
       return out_diagnostic.result;
     }
@@ -499,8 +619,25 @@ gneiss_result parse_current_scene_description(std::string_view json, scene_descr
     }
   }
   (void)yyjson_mut_obj_remove_key(root, "version");
-  if (!yyjson_mut_obj_add_uint(document, root, "version", schema_version)) {
+  if (!yyjson_mut_obj_add_uint(document, root, "version", 2U)) {
     fail(diagnostic, GNEISS_ERROR_OUT_OF_MEMORY, "", "无法更新场景 Schema 版本");
+    return diagnostic.result;
+  }
+  return GNEISS_SUCCESS;
+}
+
+[[nodiscard]] gneiss_result migrate_v2_to_v3(yyjson_mut_doc* document, yyjson_mut_val* root,
+                                             scene_diagnostic& diagnostic) {
+  if (yyjson_mut_obj_get(root, "prefab_instances") != nullptr) {
+    fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/prefab_instances", "迁移目标字段已存在");
+    return diagnostic.result;
+  }
+  auto* prefab_instances = yyjson_mut_arr(document);
+  (void)yyjson_mut_obj_remove_key(root, "version");
+  if (prefab_instances == nullptr ||
+      !yyjson_mut_obj_add_val(document, root, "prefab_instances", prefab_instances) ||
+      !yyjson_mut_obj_add_uint(document, root, "version", schema_version)) {
+    fail(diagnostic, GNEISS_ERROR_OUT_OF_MEMORY, "", "无法迁移场景 Prefab 实例字段");
     return diagnostic.result;
   }
   return GNEISS_SUCCESS;
@@ -557,6 +694,12 @@ gneiss_result parse_current_scene_description(std::string_view json, scene_descr
     yyjson_mut_val* mutable_root = yyjson_mut_doc_get_root(mutable_document.get());
     if (source_version == 1U) {
       const auto result = migrate_v1_to_v2(mutable_document.get(), mutable_root, diagnostic);
+      if (result != GNEISS_SUCCESS) {
+        return result;
+      }
+    }
+    if (source_version <= 2U) {
+      const auto result = migrate_v2_to_v3(mutable_document.get(), mutable_root, diagnostic);
       if (result != GNEISS_SUCCESS) {
         return result;
       }
@@ -725,6 +868,50 @@ gneiss_result serialize_scene_description(const scene_description& scene,
       } else {
         yyjson_mut_val* components = yyjson_mut_obj_get(object, "components");
         (void)yyjson_mut_obj_remove_key(components, "mesh_renderer");
+      }
+    }
+    yyjson_mut_val* prefab_instances = yyjson_mut_obj_get(root, "prefab_instances");
+    if (!yyjson_mut_is_arr(prefab_instances) ||
+        yyjson_mut_arr_size(prefab_instances) > scene.prefab_instances.size()) {
+      return GNEISS_ERROR_INVALID_STATE;
+    }
+    for (std::size_t index = yyjson_mut_arr_size(prefab_instances);
+         index < scene.prefab_instances.size(); ++index) {
+      auto* instance =
+          make_author_prefab_instance(mutable_document.get(), scene.prefab_instances[index]);
+      if (instance == nullptr || !yyjson_mut_arr_add_val(prefab_instances, instance)) {
+        return GNEISS_ERROR_OUT_OF_MEMORY;
+      }
+    }
+    for (std::size_t index = 0; index < scene.prefab_instances.size(); ++index) {
+      const auto& source = scene.prefab_instances[index];
+      yyjson_mut_val* instance = yyjson_mut_arr_get(prefab_instances, index);
+      yyjson_mut_val* transform = yyjson_mut_obj_get(instance, "transform");
+      if (!put_value(mutable_document.get(), instance, "instance_uuid",
+                     yyjson_mut_strncpy(mutable_document.get(), source.instance_uuid.data(),
+                                        source.instance_uuid.size())) ||
+          !put_value(mutable_document.get(), instance, "prefab",
+                     yyjson_mut_strncpy(mutable_document.get(), source.prefab_uri.data(),
+                                        source.prefab_uri.size())) ||
+          !put_value(mutable_document.get(), instance, "parent",
+                     source.parent_uuid
+                         ? yyjson_mut_strncpy(mutable_document.get(), source.parent_uuid->data(),
+                                              source.parent_uuid->size())
+                         : yyjson_mut_null(mutable_document.get())) ||
+          !put_value(mutable_document.get(), transform, "translation",
+                     make_float_array(mutable_document.get(), source.translation)) ||
+          !put_value(mutable_document.get(), transform, "rotation",
+                     make_float_array(mutable_document.get(), source.rotation)) ||
+          !put_value(mutable_document.get(), transform, "scale",
+                     make_float_array(mutable_document.get(), source.scale))) {
+        return GNEISS_ERROR_OUT_OF_MEMORY;
+      }
+      if (source.name.empty()) {
+        (void)yyjson_mut_obj_remove_key(instance, "name");
+      } else if (!put_value(mutable_document.get(), instance, "name",
+                            yyjson_mut_strncpy(mutable_document.get(), source.name.data(),
+                                               source.name.size()))) {
+        return GNEISS_ERROR_OUT_OF_MEMORY;
       }
     }
     std::size_t output_length = 0;

@@ -18,6 +18,7 @@ namespace gneiss::application_internal {
 
 application_state::application_state(const gneiss_application_desc& desc) noexcept
     : desc_(desc), asset_loader_(asset_file_system_, asset_cache_, resources_),
+      prefab_asset_loader_(asset_file_system_, asset_cache_),
       owner_thread_(std::this_thread::get_id()) {}
 
 application_state::~application_state() noexcept {
@@ -123,8 +124,8 @@ gneiss_result application_state::initialize() noexcept {
     return result;
   }
   try {
-    scenes_ = std::make_unique<scene_internal::scene_instance_service>(world_, asset_file_system_,
-                                                                       asset_loader_);
+    scenes_ = std::make_unique<scene_internal::scene_instance_service>(
+        world_, asset_file_system_, asset_loader_, prefab_asset_loader_);
   } catch (const std::bad_alloc&) {
     static_cast<void>(shutdown(GNEISS_NULL_APPLICATION));
     return GNEISS_ERROR_OUT_OF_MEMORY;

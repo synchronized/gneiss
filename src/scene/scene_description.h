@@ -50,10 +50,21 @@ struct object_description final {
   std::optional<mesh_renderer_description> mesh_renderer;
 };
 
+struct prefab_instance_description final {
+  std::string instance_uuid;
+  std::string name;
+  std::optional<std::string> parent_uuid;
+  std::string prefab_uri;
+  std::array<float, 3> translation{};
+  std::array<float, 4> rotation{};
+  std::array<float, 3> scale{};
+};
+
 struct scene_description final {
   std::uint32_t source_schema_version = 0;
   std::string uuid;
   std::vector<object_description> objects;
+  std::vector<prefab_instance_description> prefab_instances;
   std::string author_json;
 };
 
