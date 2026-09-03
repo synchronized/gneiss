@@ -30,6 +30,8 @@ add_library(
   runtime_author_apply.h
   runtime_process.cpp
   runtime_process.h
+  runtime_ipc_event.cpp
+  runtime_ipc_event.h
   runtime_property_edits.cpp
   runtime_property_edits.h
   runtime_scene_mirror.cpp
@@ -196,6 +198,11 @@ if(BUILD_TESTING)
   add_test(
     NAME gneiss.editor.runtime-property-edits COMMAND gneiss_editor_runtime_property_edits_test
   )
+  add_executable(gneiss_editor_runtime_ipc_event_test tests/runtime_ipc_event_test.cpp)
+  target_link_libraries(gneiss_editor_runtime_ipc_event_test PRIVATE gneiss_editor_session)
+  gneiss_target_compile_warnings(gneiss_editor_runtime_ipc_event_test)
+  gneiss_target_output_directories(gneiss_editor_runtime_ipc_event_test)
+  add_test(NAME gneiss.editor.runtime-ipc-event COMMAND gneiss_editor_runtime_ipc_event_test)
   add_executable(gneiss_editor_console_model_test tests/console_model_test.cpp)
   target_link_libraries(gneiss_editor_console_model_test PRIVATE gneiss_editor_session)
   gneiss_target_compile_warnings(gneiss_editor_console_model_test)
