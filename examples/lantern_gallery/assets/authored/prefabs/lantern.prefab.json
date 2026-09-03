@@ -1,0 +1,11 @@
+{
+  "format": "gneiss.prefab",
+  "version": 1,
+  "prefab_uuid": "21000000-0000-4000-8000-000000000000",
+  "objects": [
+    {"uuid":"21000000-0000-4000-8000-000000000001","parent":null,"name":"Lantern Assembly","transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":{}},
+    {"uuid":"21000000-0000-4000-8000-000000000002","parent":"21000000-0000-4000-8000-000000000001","name":"Lantern Body","transform":{"translation":[-3.82315421,13.0160303,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":{"mesh_renderer":{"mesh":"asset://models/mesh-0-primitive-0.gneiss-mesh","material":"asset://materials/material-0.material.json"}}},
+    {"uuid":"21000000-0000-4000-8000-000000000003","parent":"21000000-0000-4000-8000-000000000001","name":"Lantern Frame","transform":{"translation":[-9.58200073,21.0378723,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":{"mesh_renderer":{"mesh":"asset://models/mesh-1-primitive-0.gneiss-mesh","material":"asset://materials/material-0.material.json"}}},
+    {"uuid":"21000000-0000-4000-8000-000000000004","parent":"21000000-0000-4000-8000-000000000001","name":"Lantern Glass","transform":{"translation":[-9.58200741,18.0091515,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":{"mesh_renderer":{"mesh":"asset://models/mesh-2-primitive-0.gneiss-mesh","material":"asset://materials/material-0.material.json"}}}
+  ]
+}

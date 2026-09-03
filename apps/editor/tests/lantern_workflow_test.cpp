@@ -10,12 +10,15 @@
 #include <gneiss/application.hpp>
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <filesystem>
 #include <fstream>
+#include <iterator>
 #include <string>
 #include <string_view>
 #include <system_error>
+#include <vector>
 
 namespace {
 
@@ -44,6 +47,22 @@ struct temporary_project final {
   desc.asset_root = root.data();
   desc.asset_root_length = static_cast<std::uint32_t>(root.size());
   return gneiss::application::create(desc, output);
+}
+
+[[nodiscard]] std::string read_text(const std::filesystem::path& path) {
+  std::ifstream input(path, std::ios::binary);
+  return {std::istreambuf_iterator<char>{input}, std::istreambuf_iterator<char>{}};
+}
+
+void write_text(const std::filesystem::path& path, std::string_view text) {
+  std::ofstream output(path, std::ios::binary | std::ios::trunc);
+  output.write(text.data(), static_cast<std::streamsize>(text.size()));
+}
+
+[[nodiscard]] std::size_t count_prefab_name(const gneiss::editor::editor_session& session,
+                                            std::string_view name) {
+  return static_cast<std::size_t>(std::ranges::count_if(
+      session.prefab_nodes(), [name](const auto& node) { return node.display_name == name; }));
 }
 
 } // namespace
@@ -115,10 +134,75 @@ int main() try { // NOLINT(bugprone-exception-escape): 测试入口统一返回�
       session.open(application.get(), world, project.startup_scene) != gneiss::result::success) {
     return 8;
   }
+  constexpr std::string_view prefab_uri = "asset://prefabs/lantern.prefab.json";
+  constexpr std::array instance_uuids{std::string_view{"20000000-0000-4000-8000-000000000010"},
+                                      std::string_view{"20000000-0000-4000-8000-000000000020"},
+                                      std::string_view{"20000000-0000-4000-8000-000000000030"}};
+  if (session.nodes().size() != 7U || session.prefab_nodes().size() != 15U ||
+      count_prefab_name(session, "Lantern Glass") != 3U ||
+      std::ranges::any_of(session.nodes(), [](const auto& current) {
+        return current.display_name.empty() || current.display_name == current.uuid;
+      })) {
+    return 9;
+  }
+  for (const auto instance_uuid : instance_uuids) {
+    const auto* root_node = session.find_prefab_root(instance_uuid);
+    if (root_node == nullptr || !root_node->is_instance_root || root_node->is_read_only ||
+        root_node->prefab_uri != prefab_uri) {
+      return 9;
+    }
+  }
+  const auto* left = session.find_prefab_root(instance_uuids[0]);
+  const auto* center = session.find_prefab_root(instance_uuids[1]);
+  const auto* right = session.find_prefab_root(instance_uuids[2]);
+  if (left->local_transform.translation[0] != -3.0F ||
+      center->local_transform.translation[2] != -0.8F ||
+      right->local_transform.translation[0] != 3.0F) {
+    return 9;
+  }
+
+  const auto prefab_path = project.asset_root / "prefabs" / "lantern.prefab.json";
+  auto prefab_text = read_text(prefab_path);
+  const auto old_name = prefab_text.find("Lantern Glass");
+  if (old_name == std::string::npos) {
+    return 9;
+  }
+  prefab_text.replace(old_name, std::string_view{"Lantern Glass"}.size(), "Lantern Glass Updated");
+  write_text(prefab_path, prefab_text);
+  std::vector<gneiss_scene_prefab_refresh_token> refresh_tokens;
+  for (const auto instance_uuid : instance_uuids) {
+    const auto* root_node = session.find_prefab_root(instance_uuid);
+    gneiss::scene_node_id refreshed_root;
+    gneiss_scene_prefab_refresh_token token = GNEISS_NULL_SCENE_PREFAB_REFRESH_TOKEN;
+    if (root_node == nullptr || session.refresh_prefab_instance(root_node->node, refreshed_root,
+                                                                token) != gneiss::result::success) {
+      return 9;
+    }
+    refresh_tokens.push_back(token);
+  }
+  if (count_prefab_name(session, "Lantern Glass Updated") != 3U) {
+    return 9;
+  }
+  for (const auto token : refresh_tokens) {
+    gneiss::scene_node_id restored_root;
+    if (session.toggle_prefab_refresh(token, restored_root) != gneiss::result::success) {
+      return 9;
+    }
+  }
+  if (count_prefab_name(session, "Lantern Glass") != 3U) {
+    return 9;
+  }
+  for (const auto token : refresh_tokens) {
+    gneiss::scene_node_id refreshed_root;
+    if (session.toggle_prefab_refresh(token, refreshed_root) != gneiss::result::success) {
+      return 9;
+    }
+    session.release_prefab_refresh(token);
+  }
   gneiss::scene_node_id node;
   if (session.create_mesh_renderer_node("Imported Lantern", mesh->asset_uri, material->asset_uri,
                                         node) != gneiss::result::success) {
-    return 9;
+    return 10;
   }
   const auto* created = session.selected_node();
   const gneiss::editor::scene_node_snapshot snapshot{.uuid = created->uuid,
@@ -146,14 +230,15 @@ int main() try { // NOLINT(bugprone-exception-escape): 测试入口统一返回�
       history.undo() != gneiss::result::success || session.find_node(snapshot.uuid) != nullptr ||
       history.redo() != gneiss::result::success || session.find_node(snapshot.uuid) == nullptr ||
       session.save(project.asset_root) != gneiss::result::success) {
-    return 10;
+    return 11;
   }
   session.close();
 
   gneiss::editor::editor_session reloaded;
   if (reloaded.open(application.get(), world, project.startup_scene) != gneiss::result::success ||
-      reloaded.find_node(snapshot.uuid) == nullptr) {
-    return 11;
+      reloaded.find_node(snapshot.uuid) == nullptr || reloaded.prefab_nodes().size() != 15U ||
+      count_prefab_name(reloaded, "Lantern Glass Updated") != 3U) {
+    return 12;
   }
   reloaded.close();
   application.reset();
