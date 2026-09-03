@@ -3,10 +3,13 @@
 
 #include "runtime_ipc_session.h"
 
+#include "runtime_ipc_command.h"
+
 #include <gneiss/app/runtime_log_protocol.h>
 
 #include <algorithm>
 #include <deque>
+#include <optional>
 #include <utility>
 #include <vector>
 
@@ -19,19 +22,62 @@ constexpr std::size_t runtime_property_write_budget = 32U;
 struct runtime_ipc_session::implementation final {
   explicit implementation(runtime_ipc_config value)
       : config(std::move(value)), handshake_deadline(config.handshake_timeout),
-        heartbeat_deadline(config.heartbeat_timeout) {}
+        heartbeat_deadline(config.heartbeat_timeout) {
+    const ipc_protocol_domain_handlers handlers{.session = accept_envelope,
+                                                .control = accept_envelope,
+                                                .log = accept_envelope,
+                                                .inspection = accept_envelope,
+                                                .statistics = accept_envelope,
+                                                .property = accept_envelope,
+                                                .context = this};
+    if (register_ipc_v2_domains(handlers, registry) == result::success) {
+      dispatcher = std::make_unique<ipc_dispatcher>(registry);
+    }
+  }
 
   runtime_ipc_config config;
   ipc_transport transport;
   ipc_timeout_tracker handshake_deadline;
   ipc_timeout_tracker heartbeat_deadline;
   runtime_ipc_state current_state = runtime_ipc_state::stopped;
-  std::vector<std::string> requested_capabilities{
-      "control", "heartbeat", "logs", std::string(ipc_capability_runtime_inspection_v2),
-      std::string(ipc_capability_runtime_property_edit_v1)};
+  std::vector<ipc_domain_capability> requested_domains{ipc_v2_domain_capabilities().begin(),
+                                                       ipc_v2_domain_capabilities().end()};
+  std::vector<ipc_domain_capability> negotiated_domains;
   std::vector<std::string> negotiated_capabilities;
+  ipc_domain_registry registry;
+  std::unique_ptr<ipc_dispatcher> dispatcher;
+  std::optional<runtime_ipc_command> dispatched_command;
   bool wants_running = false;
-  std::deque<ipc_frame> pending_inspection_frames;
+  std::deque<ipc_envelope> pending_inspection_frames;
+
+  static result accept_envelope(void* context, const ipc_envelope& envelope) noexcept {
+    auto& self = *static_cast<implementation*>(context);
+    runtime_ipc_command command;
+    const auto operation = decode_runtime_ipc_command(envelope, command);
+    if (operation == result::success) {
+      self.dispatched_command = std::move(command);
+    }
+    return operation;
+  }
+
+  result dispatch(const ipc_envelope& envelope, bool authenticated,
+                  runtime_ipc_command& output) noexcept {
+    if (!dispatcher) {
+      return result::invalid_state;
+    }
+    dispatched_command.reset();
+    const ipc_dispatch_context context{.remote_role = ipc_peer_role::editor,
+                                       .handshake_complete = authenticated,
+                                       .negotiated_domains = negotiated_domains};
+    const auto outcome = dispatcher->dispatch(envelope, context);
+    if (!outcome.accepted() || !dispatched_command) {
+      return outcome.rejection == ipc_dispatch_rejection::handler_failed ? outcome.handler_result
+                                                                         : result::invalid_argument;
+    }
+    output = std::move(*dispatched_command);
+    dispatched_command.reset();
+    return result::success;
+  }
 
   result flush_inspection() noexcept {
     while (!pending_inspection_frames.empty() && transport.pending_write_count() < 48U) {
@@ -47,31 +93,34 @@ struct runtime_ipc_session::implementation final {
     return result::success;
   }
 
-  result send(ipc_message message) noexcept {
-    ipc_frame frame;
-    const auto operation = encode_ipc_message(message, frame);
-    return operation == result::success ? transport.send(frame) : operation;
+  result send(ipc_envelope envelope) noexcept { return transport.send(envelope); }
+
+  [[nodiscard]] bool negotiated(ipc_domain domain) const noexcept {
+    return std::ranges::find(negotiated_domains, domain, &ipc_domain_capability::domain) !=
+           negotiated_domains.end();
   }
 
   result send_state(ipc_runtime_state state) noexcept {
-    ipc_message message;
-    message.type = ipc_message_type::state_changed;
-    message.runtime_state = state;
-    return send(std::move(message));
+    ipc_envelope envelope;
+    const auto operation =
+        encode_ipc_control_state(static_cast<ipc_control_state>(state), envelope);
+    return operation == result::success ? send(std::move(envelope)) : operation;
   }
 
-  result send_protocol_error(result operation, std::string text) noexcept {
-    ipc_message message;
-    message.type = ipc_message_type::error;
-    message.code = to_native(operation);
-    message.text = std::move(text);
-    return send(std::move(message));
+  result send_protocol_error(result operation, std::string text,
+                             std::uint32_t request_id) noexcept {
+    ipc_envelope envelope;
+    const auto encoded = encode_ipc_session_error(
+        {.code = to_native(operation), .message = std::move(text)}, request_id, envelope);
+    return encoded == result::success ? send(std::move(envelope)) : encoded;
   }
 
   result enter_running() noexcept {
-    ipc_message ready;
-    ready.type = ipc_message_type::ready;
-    auto operation = send(std::move(ready));
+    ipc_envelope ready;
+    auto operation = encode_ipc_control_ready(ready);
+    if (operation == result::success) {
+      operation = send(std::move(ready));
+    }
     if (operation == result::success) {
       operation = send_state(ipc_runtime_state::running);
     }
@@ -88,45 +137,61 @@ struct runtime_ipc_session::implementation final {
     return operation;
   }
 
-  result handle_control(const ipc_message& message, runtime_ipc_actions& actions) noexcept {
-    switch (message.type) {
-    case ipc_message_type::pause:
+  result handle_command(const runtime_ipc_command& command, runtime_ipc_actions& actions) noexcept {
+    switch (command.kind) {
+    case runtime_ipc_command_kind::pause:
       if (current_state != runtime_ipc_state::running) {
-        (void)send_protocol_error(result::invalid_state, "当前状态不能暂停");
+        (void)send_protocol_error(result::invalid_state, "当前状态不能暂停", command.request_id);
         return result::success;
       }
       current_state = runtime_ipc_state::paused;
       actions.pause_game = true;
       return send_state(ipc_runtime_state::paused);
-    case ipc_message_type::resume:
+    case runtime_ipc_command_kind::resume:
       if (current_state != runtime_ipc_state::paused) {
-        (void)send_protocol_error(result::invalid_state, "当前状态不能恢复");
+        (void)send_protocol_error(result::invalid_state, "当前状态不能恢复", command.request_id);
         return result::success;
       }
       current_state = runtime_ipc_state::running;
       actions.resume_game = true;
       return send_state(ipc_runtime_state::running);
-    case ipc_message_type::inspection_resync:
+    case runtime_ipc_command_kind::inspection_resync:
       actions.request_inspection_resync = true;
       return result::success;
-    case ipc_message_type::stop:
+    case runtime_ipc_command_kind::stop:
       if (current_state == runtime_ipc_state::stopping) {
         return result::success;
       }
       current_state = runtime_ipc_state::stopping;
       actions.request_exit = true;
       return send_state(ipc_runtime_state::stopping);
-    case ipc_message_type::ping: {
-      ipc_message pong;
-      pong.type = ipc_message_type::pong;
-      pong.nonce = message.nonce;
-      return send(std::move(pong));
+    case runtime_ipc_command_kind::heartbeat: {
+      ipc_envelope response;
+      const auto operation =
+          encode_ipc_session_heartbeat(command.heartbeat, true, command.request_id, response);
+      return operation == result::success ? send(std::move(response)) : operation;
     }
-    case ipc_message_type::pong:
+    case runtime_ipc_command_kind::property_write:
+      if (actions.property_writes.size() >= runtime_property_write_budget) {
+        const ipc_property_write_result response{.session_id = command.property.session_id,
+                                                 .command_id = command.property.command_id,
+                                                 .code = GNEISS_ERROR_NOT_READY,
+                                                 .revision = 0U,
+                                                 .message = "本帧属性写入队列已满",
+                                                 .canonical_value = {}};
+        ipc_envelope envelope;
+        const auto operation =
+            encode_ipc_property_result_v2(response, command.request_id, envelope);
+        return operation == result::success ? send(std::move(envelope)) : operation;
+      }
+      actions.property_writes.push_back(command.property);
       return result::success;
+    case runtime_ipc_command_kind::protocol_error:
+      return from_native(command.error.code);
+    case runtime_ipc_command_kind::hello_acknowledgment:
+      return result::invalid_state;
     default:
-      (void)send_protocol_error(result::invalid_state, "Runtime 收到方向不合法的 IPC 消息");
-      return result::success;
+      return result::unsupported;
     }
   }
 };
@@ -145,7 +210,8 @@ result runtime_ipc_session::start(clock::time_point now) noexcept {
       implementation_->config.session_token.empty()) {
     return result::invalid_state;
   }
-  const auto operation = implementation_->transport.start_client(implementation_->config.endpoint);
+  const auto operation = implementation_->transport.start_client(
+      implementation_->config.endpoint, ipc_transport_protocol::envelope_v2);
   if (operation != result::success) {
     implementation_->current_state = runtime_ipc_state::failed;
     return operation;
@@ -165,9 +231,10 @@ result runtime_ipc_session::pump(clock::time_point now, runtime_ipc_actions& act
   (void)implementation_->transport.poll_events(events);
   for (auto& event : events) {
     if (event.type == ipc_transport_event_type::connected) {
-      ipc_frame hello;
-      auto operation = make_ipc_hello(implementation_->config.session_token,
-                                      implementation_->requested_capabilities, hello);
+      ipc_envelope hello;
+      auto operation = encode_ipc_session_hello({.token = implementation_->config.session_token,
+                                                 .domains = implementation_->requested_domains},
+                                                false, 1U, hello);
       if (operation == result::success) {
         operation = implementation_->transport.send(hello);
       }
@@ -182,22 +249,37 @@ result runtime_ipc_session::pump(clock::time_point now, runtime_ipc_actions& act
       const auto operation = event.operation == result::success ? result::io : event.operation;
       return implementation_->fail(operation, actions);
     }
-    if (event.type != ipc_transport_event_type::frame_received) {
+    if (event.type != ipc_transport_event_type::envelope_received) {
       continue;
     }
 
     if (implementation_->current_state == runtime_ipc_state::authenticating) {
-      const auto operation =
-          accept_ipc_hello_ack(event.frame, implementation_->requested_capabilities,
-                               implementation_->negotiated_capabilities);
-      if (operation != result::success) {
-        return implementation_->fail(operation, actions);
+      runtime_ipc_command command;
+      const auto operation = implementation_->dispatch(event.envelope, false, command);
+      if (operation != result::success ||
+          command.kind != runtime_ipc_command_kind::hello_acknowledgment ||
+          event.envelope.request_id != 1U) {
+        return implementation_->fail(
+            operation == result::success ? result::invalid_argument : operation, actions);
       }
-      if (std::ranges::find(implementation_->negotiated_capabilities, "control") ==
-              implementation_->negotiated_capabilities.end() ||
-          std::ranges::find(implementation_->negotiated_capabilities, "heartbeat") ==
-              implementation_->negotiated_capabilities.end()) {
+      implementation_->negotiated_domains = std::move(command.hello.domains);
+      if (std::ranges::any_of(implementation_->negotiated_domains, [&](const auto negotiated) {
+            const auto requested =
+                std::ranges::find(implementation_->requested_domains, negotiated.domain,
+                                  &ipc_domain_capability::domain);
+            return requested == implementation_->requested_domains.end() ||
+                   negotiated.version == 0U || negotiated.version > requested->version;
+          })) {
+        return implementation_->fail(result::invalid_argument, actions);
+      }
+      if (!implementation_->negotiated(ipc_domain::control)) {
         return implementation_->fail(result::unsupported, actions);
+      }
+      implementation_->negotiated_capabilities.clear();
+      for (const auto domain : implementation_->negotiated_domains) {
+        implementation_->negotiated_capabilities.push_back(
+            std::to_string(static_cast<std::uint16_t>(domain.domain)) + ":" +
+            std::to_string(domain.version));
       }
       implementation_->heartbeat_deadline.reset(now);
       if (implementation_->wants_running) {
@@ -209,50 +291,13 @@ result runtime_ipc_session::pump(clock::time_point now, runtime_ipc_actions& act
       continue;
     }
 
-    if (event.frame.message_type == static_cast<std::uint16_t>(ipc_message_type::property_write)) {
-      if (std::ranges::find(implementation_->negotiated_capabilities,
-                            ipc_capability_runtime_property_edit_v1) ==
-          implementation_->negotiated_capabilities.end()) {
-        (void)implementation_->send_protocol_error(result::unsupported, "属性写入能力未协商");
-        continue;
-      }
-      ipc_property_write command;
-      const auto decoded = decode_ipc_property_write(event.frame, command);
-      if (decoded != result::success) {
-        return implementation_->fail(decoded, actions);
-      }
-      implementation_->heartbeat_deadline.reset(now);
-      if (actions.property_writes.size() >= runtime_property_write_budget) {
-        const ipc_property_write_result response{.session_id = command.session_id,
-                                                 .command_id = command.command_id,
-                                                 .code = GNEISS_ERROR_NOT_READY,
-                                                 .revision = 0U,
-                                                 .message = "本帧属性写入队列已满",
-                                                 .canonical_value = {}};
-        ipc_frame frame;
-        auto operation = encode_ipc_property_write_result(response, frame);
-        if (operation == result::success) {
-          operation = implementation_->transport.send(frame);
-        }
-        if (operation != result::success) {
-          return implementation_->fail(operation, actions);
-        }
-      } else {
-        actions.property_writes.push_back(std::move(command));
-      }
-      continue;
-    }
-
-    ipc_message message;
-    const auto decoded = decode_ipc_message(event.frame, message);
-    if (decoded == result::unsupported) {
-      continue;
-    }
+    runtime_ipc_command command;
+    const auto decoded = implementation_->dispatch(event.envelope, true, command);
     if (decoded != result::success) {
       return implementation_->fail(decoded, actions);
     }
     implementation_->heartbeat_deadline.reset(now);
-    const auto handled = implementation_->handle_control(message, actions);
+    const auto handled = implementation_->handle_command(command, actions);
     if (handled != result::success) {
       return implementation_->fail(handled, actions);
     }
@@ -299,10 +344,11 @@ result runtime_ipc_session::notify_shutdown(std::int32_t exit_code) noexcept {
   implementation_->current_state = runtime_ipc_state::stopping;
   auto operation = implementation_->send_state(ipc_runtime_state::stopping);
   if (operation == result::success) {
-    ipc_message message;
-    message.type = ipc_message_type::shutdown_complete;
-    message.code = exit_code;
-    operation = implementation_->send(std::move(message));
+    ipc_envelope envelope;
+    operation = encode_ipc_session_shutdown({.exit_code = exit_code}, envelope);
+    if (operation == result::success) {
+      operation = implementation_->send(std::move(envelope));
+    }
   }
   return operation;
 }
@@ -313,10 +359,13 @@ result runtime_ipc_session::notify_log_event(const gneiss_log_event& event) noex
     return result::not_ready;
   }
   try {
-    ipc_message message;
-    message.type = ipc_message_type::log_event;
-    const auto operation = app::encode_runtime_log_event(event, message.text);
-    return operation == result::success ? implementation_->send(std::move(message)) : operation;
+    std::string encoded_event;
+    auto operation = app::encode_runtime_log_event(event, encoded_event);
+    ipc_envelope envelope;
+    if (operation == result::success) {
+      operation = encode_ipc_log_event(encoded_event, envelope);
+    }
+    return operation == result::success ? implementation_->send(std::move(envelope)) : operation;
   } catch (const std::bad_alloc&) {
     return result::out_of_memory;
   } catch (...) {
@@ -325,10 +374,7 @@ result runtime_ipc_session::notify_log_event(const gneiss_log_event& event) noex
 }
 
 result runtime_ipc_session::notify_scene_snapshot(const ipc_inspection_batch& batch) noexcept {
-  if (!implementation_ ||
-      std::ranges::find(implementation_->negotiated_capabilities,
-                        ipc_capability_runtime_inspection_v2) ==
-          implementation_->negotiated_capabilities.end() ||
+  if (!implementation_ || !implementation_->negotiated(ipc_domain::inspection) ||
       (implementation_->current_state != runtime_ipc_state::running &&
        implementation_->current_state != runtime_ipc_state::paused)) {
     return result::not_ready;
@@ -336,8 +382,8 @@ result runtime_ipc_session::notify_scene_snapshot(const ipc_inspection_batch& ba
   if (!implementation_->pending_inspection_frames.empty()) {
     return result::not_ready;
   }
-  std::vector<ipc_frame> frames;
-  const auto operation = encode_ipc_inspection_batch_chunks(batch, frames);
+  std::vector<ipc_envelope> frames;
+  const auto operation = encode_ipc_inspection_batch_v2(batch, frames);
   if (operation != result::success) {
     return operation;
   }
@@ -349,17 +395,15 @@ result runtime_ipc_session::notify_scene_snapshot(const ipc_inspection_batch& ba
 
 result runtime_ipc_session::notify_property_write_result(
     const ipc_property_write_result& response) noexcept {
-  if (!implementation_ ||
-      std::ranges::find(implementation_->negotiated_capabilities,
-                        ipc_capability_runtime_property_edit_v1) ==
-          implementation_->negotiated_capabilities.end() ||
+  if (!implementation_ || !implementation_->negotiated(ipc_domain::property) ||
       (implementation_->current_state != runtime_ipc_state::running &&
        implementation_->current_state != runtime_ipc_state::paused)) {
     return result::not_ready;
   }
-  ipc_frame frame;
-  const auto operation = encode_ipc_property_write_result(response, frame);
-  return operation == result::success ? implementation_->transport.send(frame) : operation;
+  ipc_envelope envelope;
+  const auto operation = encode_ipc_property_result_v2(
+      response, static_cast<std::uint32_t>(response.command_id), envelope);
+  return operation == result::success ? implementation_->transport.send(envelope) : operation;
 }
 
 result runtime_ipc_session::notify_statistics(const ipc_runtime_statistics& statistics) noexcept {
@@ -367,9 +411,9 @@ result runtime_ipc_session::notify_statistics(const ipc_runtime_statistics& stat
                            implementation_->current_state != runtime_ipc_state::paused)) {
     return result::not_ready;
   }
-  ipc_frame frame;
-  const auto operation = encode_ipc_runtime_statistics(statistics, frame);
-  return operation == result::success ? implementation_->transport.send(frame) : operation;
+  ipc_envelope envelope;
+  const auto operation = encode_ipc_statistics_v2(statistics, envelope);
+  return operation == result::success ? implementation_->transport.send(envelope) : operation;
 }
 
 std::size_t runtime_ipc_session::pending_write_count() const noexcept {

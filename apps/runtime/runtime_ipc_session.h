@@ -7,6 +7,7 @@
 #include "ipc_inspection_protocol.h"
 #include "ipc_property_edit_protocol.h"
 #include "ipc_protocol.h"
+#include "ipc_protocol_domains.h"
 #include "ipc_statistics_protocol.h"
 #include "ipc_transport.h"
 
