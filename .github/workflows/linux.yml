@@ -90,7 +90,7 @@ jobs:
         uses: actions/cache@v5
         with:
           path: .cache/fetchcontent
-          key: linux-runtime-fetch-${{ hashFiles('cmake/granit.cmake') }}
+          key: linux-runtime-fetch-${{ hashFiles('cmake/*.cmake') }}
       - name: 选择 preset
         id: preset
         shell: bash
