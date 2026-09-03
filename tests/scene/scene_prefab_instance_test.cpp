@@ -39,7 +39,8 @@ int main() try {
       gneiss_scene_instance_get_prefab_node_info(application, scene, 1U, &prefab_source) !=
           GNEISS_SUCCESS ||
       prefab_root.flags != GNEISS_SCENE_PREFAB_NODE_INSTANCE_ROOT ||
-      prefab_source.flags != GNEISS_SCENE_PREFAB_NODE_SOURCE_READ_ONLY ||
+      (prefab_source.flags & GNEISS_SCENE_PREFAB_NODE_SOURCE_READ_ONLY) == 0U ||
+      (prefab_source.flags & GNEISS_SCENE_PREFAB_NODE_TRANSLATION_OVERRIDDEN) == 0U ||
       prefab_source.parent != prefab_root.node ||
       std::string_view(prefab_root.instance_uuid, prefab_root.instance_uuid_length) !=
           "30000000-0000-4000-8000-000000000012" ||

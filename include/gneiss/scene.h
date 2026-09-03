@@ -32,6 +32,9 @@ typedef uint64_t gneiss_scene_prefab_refresh_token;
 #define GNEISS_SCENE_SUBTREE_MAX_NODES UINT64_C(4096)
 #define GNEISS_SCENE_PREFAB_NODE_INSTANCE_ROOT UINT32_C(1)
 #define GNEISS_SCENE_PREFAB_NODE_SOURCE_READ_ONLY UINT32_C(2)
+#define GNEISS_SCENE_PREFAB_NODE_TRANSLATION_OVERRIDDEN UINT32_C(4)
+#define GNEISS_SCENE_PREFAB_NODE_ROTATION_OVERRIDDEN UINT32_C(8)
+#define GNEISS_SCENE_PREFAB_NODE_SCALE_OVERRIDDEN UINT32_C(16)
 
 /**
  * Scene Tree 中的局部或世界变换。旋转使用归一化的 (x, y, z, w) 四元数，缩放各轴不得为零。
@@ -130,6 +133,7 @@ typedef struct gneiss_scene_prefab_node_info {
   const char* prefab_uri;
   uint64_t prefab_uri_length;
   gneiss_transform local_transform;
+  gneiss_transform source_local_transform;
 } gneiss_scene_prefab_node_info;
 
 #define GNEISS_SCENE_PREFAB_NODE_INFO_INIT                                                         \
@@ -146,6 +150,7 @@ typedef struct gneiss_scene_prefab_node_info {
    UINT64_C(0),                                                                                    \
    NULL,                                                                                           \
    UINT64_C(0),                                                                                    \
+   GNEISS_TRANSFORM_IDENTITY,                                                                      \
    GNEISS_TRANSFORM_IDENTITY}
 
 /** 向场景放置一份 Prefab 引用实例；字符串仅在调用期间借用。 */

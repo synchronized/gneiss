@@ -62,6 +62,10 @@ Prefab 使用独立的实验性枚举接口 `gneiss_scene_instance_get_prefab_no
 完成校验，Runtime 写入成功后才提交作者覆盖，因此失败不会发布部分作者状态。该接口不修改 Prefab
 来源资产，也不会影响同源的其他实例。
 
+Prefab 来源节点枚举结果通过 translation、rotation 与 scale 三个覆盖标志报告字段状态，并同时提供
+`source_local_transform` 与当前 `local_transform`。调用方可据此呈现来源值和实例有效值；标志只描述
+作者覆盖，不表示 Runtime 是否正被临时调试命令修改。
+
 实例根可通过 `gneiss_scene_instance_set_prefab_instance_name` 修改作者名称，通过普通 Scene Node
 Transform 接口修改根变换，并通过 `gneiss_scene_instance_destroy_prefab_instance` 整体销毁。
 `gneiss_scene_instance_refresh_prefab_instance` 会绕过旧 Prefab 缓存重新读取来源，先创建完整替代投影，

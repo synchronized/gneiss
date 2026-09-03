@@ -42,6 +42,8 @@ struct prefab_node_record final {
   std::string display_name;
   std::string prefab_uri;
   transform local_transform = GNEISS_TRANSFORM_IDENTITY;
+  transform source_local_transform = GNEISS_TRANSFORM_IDENTITY;
+  std::uint32_t override_flags = 0U;
   bool is_instance_root = false;
   bool is_read_only = true;
 };
@@ -89,6 +91,8 @@ public:
   [[nodiscard]] const prefab_node_record* selected_prefab_node() const noexcept;
   [[nodiscard]] const prefab_node_record*
   find_prefab_root(std::string_view instance_uuid) const noexcept;
+  [[nodiscard]] const prefab_node_record*
+  find_prefab_source(std::string_view instance_uuid, std::string_view source_uuid) const noexcept;
   [[nodiscard]] const scene_node_record* find_node(std::string_view uuid) const noexcept;
 
   [[nodiscard]] result select(scene_node_id node) noexcept;

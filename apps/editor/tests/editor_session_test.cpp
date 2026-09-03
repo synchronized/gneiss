@@ -62,6 +62,15 @@ int main() try {
       session.selected_node() != nullptr || session.selected_prefab_node() == nullptr) {
     return 7;
   }
+  auto source_moved = session.selected_prefab_node()->local_transform;
+  source_moved.translation[1] = 5.0F;
+  if (session.set_local_transform(session.selection(), source_moved) != gneiss::result::success ||
+      session.selected_prefab_node() == nullptr ||
+      session.selected_prefab_node()->local_transform.translation[1] != 5.0F ||
+      (session.selected_prefab_node()->override_flags &
+       GNEISS_SCENE_PREFAB_NODE_TRANSLATION_OVERRIDDEN) == 0U) {
+    return 7;
+  }
   gneiss::scene_node_id prefab_root;
   if (session.create_prefab_instance("Second Lamp", prefab_uri, session.nodes()[0].node,
                                      prefab_root) != gneiss::result::success ||

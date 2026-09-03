@@ -112,6 +112,8 @@ struct editor_state {
   bool gizmo_using = false;
   bool gizmo_was_dirty = false;
   std::string gizmo_uuid;
+  std::string gizmo_instance_uuid;
+  std::string gizmo_source_uuid;
   gneiss::transform gizmo_initial_local = GNEISS_TRANSFORM_IDENTITY;
   std::uint64_t property_edit_serial = 0U;
   std::array<char, 128> rename_buffer{};
@@ -1268,15 +1270,24 @@ void draw_asset_browser(editor_state& state) {
 
 bool draw_transform_gizmo(editor_state& state, const ImVec2& minimum, const ImVec2& size) noexcept {
   const auto* selected = state.session.selected_node();
-  if (selected == nullptr || size.x <= 1.0F || size.y <= 1.0F) {
+  const auto* prefab = state.session.selected_prefab_node();
+  const auto editable_prefab = prefab != nullptr && !prefab->is_instance_root;
+  if ((selected == nullptr && !editable_prefab) || size.x <= 1.0F || size.y <= 1.0F) {
     state.gizmo_using = false;
     state.gizmo_uuid.clear();
+    state.gizmo_instance_uuid.clear();
+    state.gizmo_source_uuid.clear();
     return false;
   }
 
+  const auto node = selected != nullptr ? selected->node : prefab->node;
+  const auto parent_node = selected != nullptr ? selected->parent : prefab->parent;
+  const auto local_transform =
+      selected != nullptr ? selected->local_transform : prefab->local_transform;
+
   gneiss::transform world = GNEISS_TRANSFORM_IDENTITY;
-  auto operation = gneiss::from_native(
-      gneiss_scene_node_get_world_transform(state.world, selected->node.get(), &world));
+  auto operation =
+      gneiss::from_native(gneiss_scene_node_get_world_transform(state.world, node.get(), &world));
   gneiss::editor::gizmo_matrix model{};
   if (operation == gneiss::result::success) {
     operation = gneiss::editor::transform_to_gizmo_matrix(world, model);
@@ -1305,18 +1316,24 @@ bool draw_transform_gizmo(editor_state& state, const ImVec2& minimum, const ImVe
                                                 ImGuizmo::WORLD, model.data());
   const auto using_now = ImGuizmo::IsUsing();
   if (using_now && !state.gizmo_using) {
-    state.gizmo_initial_local = selected->local_transform;
-    state.gizmo_uuid = selected->uuid;
+    state.gizmo_initial_local = local_transform;
+    state.gizmo_uuid = selected != nullptr ? selected->uuid : std::string{};
+    state.gizmo_instance_uuid = editable_prefab ? prefab->instance_uuid : std::string{};
+    state.gizmo_source_uuid = editable_prefab ? prefab->source_node_uuid : std::string{};
     state.gizmo_was_dirty = state.session.is_dirty();
   }
-  if (manipulated && state.gizmo_uuid == selected->uuid) {
+  const auto same_target = selected != nullptr
+                               ? state.gizmo_uuid == selected->uuid
+                               : state.gizmo_instance_uuid == prefab->instance_uuid &&
+                                     state.gizmo_source_uuid == prefab->source_node_uuid;
+  if (manipulated && same_target) {
     gneiss::transform target_world = GNEISS_TRANSFORM_IDENTITY;
     operation = gneiss::editor::gizmo_matrix_to_transform(model, target_world);
     gneiss::transform parent_world = GNEISS_TRANSFORM_IDENTITY;
     const gneiss::transform* parent = nullptr;
-    if (operation == gneiss::result::success && selected->parent.is_valid()) {
-      operation = gneiss::from_native(gneiss_scene_node_get_world_transform(
-          state.world, selected->parent.get(), &parent_world));
+    if (operation == gneiss::result::success && parent_node.is_valid()) {
+      operation = gneiss::from_native(
+          gneiss_scene_node_get_world_transform(state.world, parent_node.get(), &parent_world));
       parent = &parent_world;
     }
     gneiss::transform local = GNEISS_TRANSFORM_IDENTITY;
@@ -1324,40 +1341,70 @@ bool draw_transform_gizmo(editor_state& state, const ImVec2& minimum, const ImVe
       operation = gneiss::editor::world_to_local_transform(parent, target_world, local);
     }
     if (operation == gneiss::result::success) {
-      operation = state.session.set_local_transform(selected->node, local);
+      operation = state.session.set_local_transform(node, local);
     }
     state.history_error = operation;
   }
-  if (state.gizmo_using && !using_now && !state.gizmo_uuid.empty()) {
-    const auto* current = state.session.find_node(state.gizmo_uuid);
-    if (current != nullptr &&
-        !same_transform(state.gizmo_initial_local, current->local_transform)) {
+  if (state.gizmo_using && !using_now &&
+      (!state.gizmo_uuid.empty() || !state.gizmo_source_uuid.empty())) {
+    const auto* current =
+        !state.gizmo_uuid.empty() ? state.session.find_node(state.gizmo_uuid) : nullptr;
+    const auto* current_prefab =
+        !state.gizmo_source_uuid.empty()
+            ? state.session.find_prefab_source(state.gizmo_instance_uuid, state.gizmo_source_uuid)
+            : nullptr;
+    const auto current_transform =
+        current != nullptr
+            ? &current->local_transform
+            : (current_prefab != nullptr ? &current_prefab->local_transform : nullptr);
+    if (current_transform != nullptr &&
+        !same_transform(state.gizmo_initial_local, *current_transform)) {
       const auto uuid = state.gizmo_uuid;
+      const auto instance_uuid = state.gizmo_instance_uuid;
+      const auto source_uuid = state.gizmo_source_uuid;
       const auto before = state.gizmo_initial_local;
-      const auto after = current->local_transform;
+      const auto after = *current_transform;
       state.history_error = state.history.record(
           {.label = "变换节点",
            .undo =
-               [&state, uuid, before] {
-                 const auto* node = state.session.find_node(uuid);
-                 return node == nullptr ? gneiss::result::not_found
-                                        : state.session.set_local_transform(node->node, before);
+               [&state, uuid, instance_uuid, source_uuid, before] {
+                 const auto* node = !uuid.empty() ? state.session.find_node(uuid) : nullptr;
+                 const auto* prefab_node =
+                     !source_uuid.empty()
+                         ? state.session.find_prefab_source(instance_uuid, source_uuid)
+                         : nullptr;
+                 const auto target =
+                     node != nullptr
+                         ? node->node
+                         : (prefab_node != nullptr ? prefab_node->node : gneiss::scene_node_id{});
+                 return !target.is_valid() ? gneiss::result::not_found
+                                           : state.session.set_local_transform(target, before);
                },
            .redo =
-               [&state, uuid, after] {
-                 const auto* node = state.session.find_node(uuid);
-                 return node == nullptr ? gneiss::result::not_found
-                                        : state.session.set_local_transform(node->node, after);
+               [&state, uuid, instance_uuid, source_uuid, after] {
+                 const auto* node = !uuid.empty() ? state.session.find_node(uuid) : nullptr;
+                 const auto* prefab_node =
+                     !source_uuid.empty()
+                         ? state.session.find_prefab_source(instance_uuid, source_uuid)
+                         : nullptr;
+                 const auto target =
+                     node != nullptr
+                         ? node->node
+                         : (prefab_node != nullptr ? prefab_node->node : gneiss::scene_node_id{});
+                 return !target.is_valid() ? gneiss::result::not_found
+                                           : state.session.set_local_transform(target, after);
                },
            .merge_key = {}});
-      if (state.history_error != gneiss::result::success && current != nullptr) {
-        (void)state.session.set_local_transform(current->node, before);
+      if (state.history_error != gneiss::result::success && current_transform != nullptr) {
+        (void)state.session.set_local_transform(node, before);
         if (!state.gizmo_was_dirty) {
           state.session.clear_dirty();
         }
       }
     }
     state.gizmo_uuid.clear();
+    state.gizmo_instance_uuid.clear();
+    state.gizmo_source_uuid.clear();
   }
   state.gizmo_using = using_now;
   return using_now || ImGuizmo::IsOver();
@@ -2208,7 +2255,73 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
       ImGui::Text("Entity: %llu", static_cast<unsigned long long>(prefab->entity.get()));
       ImGui::Separator();
       if (prefab->is_read_only) {
-        ImGui::TextDisabled("Source nodes are inherited from the Prefab and cannot be edited.");
+        const auto instance_uuid = prefab->instance_uuid;
+        const auto source_uuid = prefab->source_node_uuid;
+        const auto status = [&](const char* label, std::uint32_t flag) {
+          ImGui::Text("%s: %s", label,
+                      (prefab->override_flags & flag) != 0U ? "Overridden" : "Inherited");
+        };
+        status("Translation", GNEISS_SCENE_PREFAB_NODE_TRANSLATION_OVERRIDDEN);
+        status("Rotation", GNEISS_SCENE_PREFAB_NODE_ROTATION_OVERRIDDEN);
+        status("Scale", GNEISS_SCENE_PREFAB_NODE_SCALE_OVERRIDDEN);
+        ImGui::TextDisabled("Source T: %.3f, %.3f, %.3f",
+                            prefab->source_local_transform.translation[0],
+                            prefab->source_local_transform.translation[1],
+                            prefab->source_local_transform.translation[2]);
+        ImGui::TextDisabled(
+            "Source R: %.3f, %.3f, %.3f, %.3f", prefab->source_local_transform.rotation[0],
+            prefab->source_local_transform.rotation[1], prefab->source_local_transform.rotation[2],
+            prefab->source_local_transform.rotation[3]);
+        ImGui::TextDisabled("Source S: %.3f, %.3f, %.3f", prefab->source_local_transform.scale[0],
+                            prefab->source_local_transform.scale[1],
+                            prefab->source_local_transform.scale[2]);
+        ImGui::Separator();
+        auto edited = prefab->local_transform;
+        const auto previous = prefab->local_transform;
+        std::array<float, 3> rotation{};
+        const gneiss_property_quaternion quaternion{edited.rotation[0], edited.rotation[1],
+                                                    edited.rotation[2], edited.rotation[3]};
+        (void)gneiss::editor::quaternion_to_euler_degrees(quaternion, rotation);
+        bool changed = ImGui::DragFloat3("Translation", edited.translation, 0.05F);
+        if (ImGui::DragFloat3("Rotation (degrees)", rotation.data(), 0.25F, 0.0F, 0.0F, "%.1f°")) {
+          gneiss_property_quaternion converted{};
+          if (gneiss::editor::euler_degrees_to_quaternion(rotation, converted) ==
+              gneiss::result::success) {
+            edited.rotation[0] = converted.x;
+            edited.rotation[1] = converted.y;
+            edited.rotation[2] = converted.z;
+            edited.rotation[3] = converted.w;
+            changed = true;
+          }
+        }
+        changed = ImGui::DragFloat3("Scale", edited.scale, 0.05F) || changed;
+        if (changed) {
+          const auto* current = state.session.find_prefab_source(instance_uuid, source_uuid);
+          state.history_error = current == nullptr
+                                    ? gneiss::result::not_found
+                                    : state.session.set_local_transform(current->node, edited);
+          if (state.history_error == gneiss::result::success) {
+            state.history_error = state.history.record(
+                {.label = "变换 Prefab 来源节点",
+                 .undo =
+                     [&state, instance_uuid, source_uuid, previous] {
+                       const auto* node =
+                           state.session.find_prefab_source(instance_uuid, source_uuid);
+                       return node == nullptr
+                                  ? gneiss::result::not_found
+                                  : state.session.set_local_transform(node->node, previous);
+                     },
+                 .redo =
+                     [&state, instance_uuid, source_uuid, edited] {
+                       const auto* node =
+                           state.session.find_prefab_source(instance_uuid, source_uuid);
+                       return node == nullptr
+                                  ? gneiss::result::not_found
+                                  : state.session.set_local_transform(node->node, edited);
+                     },
+                 .merge_key = "prefab-source-transform:" + instance_uuid + ":" + source_uuid});
+          }
+        }
       } else {
         const auto instance_uuid = prefab->instance_uuid;
         if (ImGui::Button("Rename Instance")) {

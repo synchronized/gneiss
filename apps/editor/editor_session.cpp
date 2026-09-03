@@ -231,6 +231,10 @@ result editor_session::refresh_nodes() noexcept {
            .prefab_uri =
                std::string{info.prefab_uri, static_cast<std::size_t>(info.prefab_uri_length)},
            .local_transform = transform{info.local_transform},
+           .source_local_transform = transform{info.source_local_transform},
+           .override_flags = info.flags & (GNEISS_SCENE_PREFAB_NODE_TRANSLATION_OVERRIDDEN |
+                                           GNEISS_SCENE_PREFAB_NODE_ROTATION_OVERRIDDEN |
+                                           GNEISS_SCENE_PREFAB_NODE_SCALE_OVERRIDDEN),
            .is_instance_root = is_root,
            .is_read_only = (info.flags & GNEISS_SCENE_PREFAB_NODE_SOURCE_READ_ONLY) != 0U});
     }
@@ -250,13 +254,30 @@ result editor_session::set_local_transform(scene_node_id node, const transform& 
   }
   auto found = std::ranges::find(nodes_, node, &scene_node_record::node);
   auto prefab = std::ranges::find(prefab_nodes_, node, &prefab_node_record::node);
-  if (found == nodes_.end() && (prefab == prefab_nodes_.end() || !prefab->is_instance_root)) {
+  if (found == nodes_.end() && prefab == prefab_nodes_.end()) {
     return result::invalid_argument;
   }
   const auto operation =
-      from_native(gneiss_scene_node_set_local_transform(world_, node.get(), &value));
+      prefab != prefab_nodes_.end() && !prefab->is_instance_root
+          ? scene_.set_prefab_source_transform(node, value)
+          : from_native(gneiss_scene_node_set_local_transform(world_, node.get(), &value));
   if (operation != result::success) {
     return operation;
+  }
+  if (prefab != prefab_nodes_.end() && !prefab->is_instance_root) {
+    prefab->local_transform = value;
+    prefab->override_flags = 0U;
+    if (!std::ranges::equal(value.translation, prefab->source_local_transform.translation)) {
+      prefab->override_flags |= GNEISS_SCENE_PREFAB_NODE_TRANSLATION_OVERRIDDEN;
+    }
+    if (!std::ranges::equal(value.rotation, prefab->source_local_transform.rotation)) {
+      prefab->override_flags |= GNEISS_SCENE_PREFAB_NODE_ROTATION_OVERRIDDEN;
+    }
+    if (!std::ranges::equal(value.scale, prefab->source_local_transform.scale)) {
+      prefab->override_flags |= GNEISS_SCENE_PREFAB_NODE_SCALE_OVERRIDDEN;
+    }
+    is_dirty_ = true;
+    return result::success;
   }
   if (found != nodes_.end()) {
     found->local_transform = value;
@@ -637,6 +658,16 @@ const prefab_node_record*
 editor_session::find_prefab_root(std::string_view instance_uuid) const noexcept {
   const auto found = std::ranges::find_if(prefab_nodes_, [instance_uuid](const auto& node) {
     return node.is_instance_root && node.instance_uuid == instance_uuid;
+  });
+  return found == prefab_nodes_.end() ? nullptr : &*found;
+}
+
+const prefab_node_record*
+editor_session::find_prefab_source(std::string_view instance_uuid,
+                                   std::string_view source_uuid) const noexcept {
+  const auto found = std::ranges::find_if(prefab_nodes_, [&](const auto& node) {
+    return !node.is_instance_root && node.instance_uuid == instance_uuid &&
+           node.source_node_uuid == source_uuid;
   });
   return found == prefab_nodes_.end() ? nullptr : &*found;
 }

@@ -322,6 +322,31 @@ gneiss_result scene_instance::get_prefab_node_info(std::uint64_t index,
       out_info.name_length = source.name.size();
       out_info.prefab_uri = author.prefab_uri.data();
       out_info.prefab_uri_length = author.prefab_uri.size();
+      const auto* source_object = runtime.find_source_object(source.address->source_node_uuid);
+      if (source_object == nullptr) {
+        return GNEISS_ERROR_INVALID_STATE;
+      }
+      out_info.source_local_transform = to_transform(*source_object);
+      const auto transform_type = gneiss_transform_type_id();
+      for (const auto& override_value : author.overrides) {
+        if (override_value.key.node.source_node_uuid != source.address->source_node_uuid ||
+            !std::ranges::equal(override_value.key.type_id.bytes, transform_type.bytes)) {
+          continue;
+        }
+        switch (override_value.key.field_id) {
+        case GNEISS_TRANSFORM_FIELD_TRANSLATION:
+          out_info.flags |= GNEISS_SCENE_PREFAB_NODE_TRANSLATION_OVERRIDDEN;
+          break;
+        case GNEISS_TRANSFORM_FIELD_ROTATION:
+          out_info.flags |= GNEISS_SCENE_PREFAB_NODE_ROTATION_OVERRIDDEN;
+          break;
+        case GNEISS_TRANSFORM_FIELD_SCALE:
+          out_info.flags |= GNEISS_SCENE_PREFAB_NODE_SCALE_OVERRIDDEN;
+          break;
+        default:
+          break;
+        }
+      }
       const auto transform_result =
           gneiss_scene_node_get_local_transform(world_, source.node, &out_info.local_transform);
       return transform_result;
