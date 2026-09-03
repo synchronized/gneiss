@@ -19,6 +19,9 @@ namespace gneiss::editor {
                                     const std::filesystem::path& path,
                                     std::string& output) noexcept;
 
+/** 生成符合场景 Schema 的随机 UUID。 */
+[[nodiscard]] result make_editor_uuid(std::string& output) noexcept;
+
 struct scene_node_record final {
   scene_node_id node;
   scene_node_id parent;

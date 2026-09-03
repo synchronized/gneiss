@@ -12,6 +12,7 @@
 #include <cstdlib>
 #include <memory>
 #include <new>
+#include <string>
 
 namespace {
 
@@ -30,6 +31,44 @@ void fail(gneiss::scene_internal::scene_diagnostic& diagnostic, gneiss_result re
     diagnostic.path.clear();
     diagnostic.message.clear();
   }
+}
+
+[[nodiscard]] gneiss_result convert_author_envelope(std::string_view json,
+                                                    std::string_view identifier, bool to_scene,
+                                                    std::string& output) {
+  using document_ptr = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;
+  document_ptr document(yyjson_read(json.data(), json.size(), YYJSON_READ_NOFLAG),
+                        &yyjson_doc_free);
+  using mutable_document_ptr = std::unique_ptr<yyjson_mut_doc, decltype(&yyjson_mut_doc_free)>;
+  mutable_document_ptr mutable_document(
+      document ? yyjson_doc_mut_copy(document.get(), nullptr) : nullptr, &yyjson_mut_doc_free);
+  if (!mutable_document) {
+    return document ? GNEISS_ERROR_OUT_OF_MEMORY : GNEISS_ERROR_INVALID_STATE;
+  }
+  auto* root = yyjson_mut_doc_get_root(mutable_document.get());
+  if (!yyjson_mut_is_obj(root)) {
+    return GNEISS_ERROR_INVALID_STATE;
+  }
+  (void)yyjson_mut_obj_remove_key(root, "format");
+  (void)yyjson_mut_obj_remove_key(root, to_scene ? "prefab_uuid" : "scene_uuid");
+  (void)yyjson_mut_obj_remove_key(root, "prefab_instances");
+  const auto* format = to_scene ? "gneiss.scene" : "gneiss.prefab";
+  const auto* identifier_key = to_scene ? "scene_uuid" : "prefab_uuid";
+  if (!yyjson_mut_obj_add_str(mutable_document.get(), root, "format", format) ||
+      !yyjson_mut_obj_add_strncpy(mutable_document.get(), root, identifier_key, identifier.data(),
+                                  identifier.size()) ||
+      (to_scene &&
+       yyjson_mut_obj_add_arr(mutable_document.get(), root, "prefab_instances") == nullptr)) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
+  }
+  std::size_t length = 0U;
+  using text_ptr = std::unique_ptr<char, decltype(&std::free)>;
+  text_ptr text(yyjson_mut_write(mutable_document.get(), YYJSON_WRITE_NOFLAG, &length), &std::free);
+  if (!text) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
+  }
+  output.assign(text.get(), length);
+  return GNEISS_SUCCESS;
 }
 
 } // namespace
@@ -92,9 +131,9 @@ gneiss_result parse_prefab_description(std::string_view json, prefab_description
       return out_diagnostic.result;
     }
     const std::string_view prefab_uuid{yyjson_get_str(uuid), yyjson_get_len(uuid)};
-    std::string scene_json = "{\"format\":\"gneiss.scene\",\"version\":4,\"scene_uuid\":\"";
+    std::string scene_json = R"({"format":"gneiss.scene","version":4,"scene_uuid":")";
     scene_json.append(prefab_uuid);
-    scene_json += "\",\"objects\":";
+    scene_json += R"(","objects":)";
     scene_json.append(objects_json.get(), objects_length);
     scene_json += ",\"prefab_instances\":[]}";
 
@@ -152,6 +191,33 @@ gneiss_result load_prefab_description(const asset_internal::virtual_file_system&
   return parse_prefab_description(
       std::string_view(reinterpret_cast<const char*>(bytes.data()), bytes.size()), out_prefab,
       out_diagnostic);
+}
+
+gneiss_result serialize_prefab_description(const prefab_description& prefab,
+                                           std::string& out_json) noexcept {
+  if (prefab.author_json.empty() || prefab.uuid.empty()) {
+    return GNEISS_ERROR_INVALID_STATE;
+  }
+  try {
+    scene_description scene;
+    scene.source_schema_version = 4U;
+    scene.uuid = prefab.uuid;
+    scene.objects = prefab.objects;
+    auto result = convert_author_envelope(prefab.author_json, prefab.uuid, true, scene.author_json);
+    if (result != GNEISS_SUCCESS) {
+      return result;
+    }
+    std::string scene_json;
+    result = serialize_scene_description(scene, scene_json);
+    if (result != GNEISS_SUCCESS) {
+      return result;
+    }
+    return convert_author_envelope(scene_json, prefab.uuid, false, out_json);
+  } catch (const std::bad_alloc&) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
 }
 
 } // namespace gneiss::scene_internal

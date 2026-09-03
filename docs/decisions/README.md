@@ -38,3 +38,4 @@ Reference 和实现为准。
 - [ADR-030：Runtime 属性写入使用命令与显式回写](ADR-030-runtime-property-editing.md)
 - [ADR-031：Prefab 使用引用实例与复合作者身份](ADR-031-prefab-instance-boundary.md)
 - [ADR-032：Prefab 实例使用稀疏字段覆盖](ADR-032-prefab-property-overrides.md)
+- [ADR-033：Prefab 作者写入使用可恢复的多文档事务](ADR-033-prefab-author-transaction.md)

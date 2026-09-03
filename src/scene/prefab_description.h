@@ -32,6 +32,10 @@ load_prefab_description(const asset_internal::virtual_file_system& file_system,
                         std::string_view uri, prefab_description& out_prefab,
                         scene_diagnostic& out_diagnostic) noexcept;
 
+/** 输出 Prefab v1 作者 JSON；保留受支持文档中的未知字段。 */
+[[nodiscard]] gneiss_result serialize_prefab_description(const prefab_description& prefab,
+                                                         std::string& out_json) noexcept;
+
 } // namespace gneiss::scene_internal
 
 #endif
