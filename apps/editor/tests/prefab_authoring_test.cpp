@@ -43,6 +43,39 @@ constexpr std::string_view scene_json = R"({
   ],"prefab_instances":[]
 })";
 
+constexpr std::string_view apply_prefab_json = R"({
+  "format":"gneiss.prefab","version":1,
+  "prefab_uuid":"20000000-0000-4000-8000-000000000001",
+  "objects":[
+    {"uuid":"10000000-0000-4000-8000-000000000001","name":"Lamp","parent":null,
+     "transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},
+     "components":{}},
+    {"uuid":"10000000-0000-4000-8000-000000000002","name":"Shade",
+     "parent":"10000000-0000-4000-8000-000000000001",
+     "transform":{"translation":[0,1,0],"rotation":[0,0,0,1],"scale":[1,1,1]},
+     "components":{},"unknown_source":true}
+  ]
+})";
+
+constexpr std::string_view apply_scene_json = R"({
+  "format":"gneiss.scene","version":4,
+  "scene_uuid":"00000000-0000-4000-8000-000000000001","objects":[],
+  "prefab_instances":[
+    {"instance_uuid":"30000000-0000-4000-8000-000000000001","name":"First","parent":null,
+     "prefab":"asset://prefabs/lamp.prefab.json",
+     "transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},
+     "overrides":[{"source_node_uuid":"10000000-0000-4000-8000-000000000002",
+       "type_id":"69644f20b2d24e488c7491f4f952ec2d","field_id":1,
+       "value":{"kind":"vec3","value":[7,8,9]}}]},
+    {"instance_uuid":"30000000-0000-4000-8000-000000000002","name":"Second","parent":null,
+     "prefab":"asset://prefabs/lamp.prefab.json",
+     "transform":{"translation":[4,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},
+     "overrides":[{"source_node_uuid":"10000000-0000-4000-8000-000000000002",
+       "type_id":"69644f20b2d24e488c7491f4f952ec2d","field_id":3,
+       "value":{"kind":"vec3","value":[3,3,3]}}]}
+  ],"unknown_scene":9
+})";
+
 struct document_deleter final {
   void operator()(yyjson_doc* document) const noexcept { yyjson_doc_free(document); }
 };
@@ -99,7 +132,8 @@ verify_documents(const std::vector<gneiss::editor::author_document_change>& chan
          yyjson_obj_get(prefab_root, "unknown_scene") == nullptr;
 }
 
-[[nodiscard]] bool load_created_scene(const std::filesystem::path& root) {
+[[nodiscard]] bool load_scene(const std::filesystem::path& root, std::uint64_t expected_objects,
+                              std::uint64_t expected_prefab_nodes) {
   const auto root_text = root.generic_string();
   gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
   desc.asset_root = root_text.data();
@@ -111,9 +145,37 @@ verify_documents(const std::vector<gneiss::editor::author_document_change>& chan
   return gneiss::application::create(desc, application) == gneiss::result::success &&
          gneiss::scene_instance::load(application.get(), "asset://scenes/main.scene.json", scene) ==
              gneiss::result::success &&
-         scene.get_node_count(object_count) == gneiss::result::success && object_count == 1U &&
+         scene.get_node_count(object_count) == gneiss::result::success &&
+         object_count == expected_objects &&
          scene.get_prefab_node_count(prefab_node_count) == gneiss::result::success &&
-         prefab_node_count == 3U;
+         prefab_node_count == expected_prefab_nodes;
+}
+
+[[nodiscard]] bool verify_apply_plan(const gneiss::editor::apply_prefab_author_plan& plan) {
+  if (plan.changes.size() != 2U || plan.affected_instance_uuids.size() != 2U ||
+      plan.affected_instance_uuids[0] != instance_uuid) {
+    return false;
+  }
+  const auto* prefab = find_change(plan.changes, "prefabs/lamp.prefab.json");
+  const auto* scene = find_change(plan.changes, "scenes/main.scene.json");
+  if (prefab == nullptr || scene == nullptr || !prefab->replacement || !scene->replacement) {
+    return false;
+  }
+  document_ptr prefab_document{
+      yyjson_read(prefab->replacement->data(), prefab->replacement->size(), YYJSON_READ_NOFLAG)};
+  document_ptr scene_document{
+      yyjson_read(scene->replacement->data(), scene->replacement->size(), YYJSON_READ_NOFLAG)};
+  auto* prefab_root = prefab_document ? yyjson_doc_get_root(prefab_document.get()) : nullptr;
+  auto* source = yyjson_arr_get(yyjson_obj_get(prefab_root, "objects"), 1U);
+  auto* translation = yyjson_obj_get(yyjson_obj_get(source, "transform"), "translation");
+  auto* scene_root = scene_document ? yyjson_doc_get_root(scene_document.get()) : nullptr;
+  auto* instances = yyjson_obj_get(scene_root, "prefab_instances");
+  auto* first_overrides = yyjson_obj_get(yyjson_arr_get(instances, 0U), "overrides");
+  auto* second_overrides = yyjson_obj_get(yyjson_arr_get(instances, 1U), "overrides");
+  return yyjson_get_num(yyjson_arr_get(translation, 0U)) == 7.0 &&
+         yyjson_arr_size(first_overrides) == 0U && yyjson_arr_size(second_overrides) == 1U &&
+         yyjson_obj_get(source, "unknown_source") != nullptr &&
+         yyjson_obj_get(scene_root, "unknown_scene") != nullptr;
 }
 
 } // namespace
@@ -142,7 +204,7 @@ int main() try {
       gneiss::editor::commit_native_author_transaction(root, changes) != gneiss::result::success ||
       read_text(root / "scenes" / "main.scene.json") != *changes[1].replacement ||
       read_text(root / "prefabs" / "lamp.prefab.json") != *changes[0].replacement ||
-      !load_created_scene(root)) {
+      !load_scene(root, 1U, 3U)) {
     return 2;
   }
 
@@ -184,6 +246,35 @@ int main() try {
           gneiss::result::invalid_argument ||
       !changes.empty()) {
     return 7;
+  }
+
+  const gneiss::editor::apply_prefab_author_request apply_request{
+      .scene_path = "scenes/main.scene.json",
+      .prefab_path = "prefabs/lamp.prefab.json",
+      .prefab_uri = "asset://prefabs/lamp.prefab.json",
+      .instance_uuid = instance_uuid};
+  gneiss::editor::apply_prefab_author_plan apply_plan;
+  if (gneiss::editor::prepare_apply_prefab(apply_scene_json, apply_prefab_json, apply_request,
+                                           apply_plan) != gneiss::result::success ||
+      !verify_apply_plan(apply_plan) ||
+      !write_text(root / "scenes" / "main.scene.json", apply_scene_json) ||
+      !write_text(root / "prefabs" / "lamp.prefab.json", apply_prefab_json) ||
+      gneiss::editor::commit_native_author_transaction(root, apply_plan.changes) !=
+          gneiss::result::success ||
+      !load_scene(root, 0U, 6U)) {
+    return 8;
+  }
+  auto empty_overrides = std::string(apply_scene_json);
+  const auto override_start = empty_overrides.find(R"("overrides":[{)");
+  const auto override_end = empty_overrides.find("}]", override_start);
+  if (override_start == std::string::npos || override_end == std::string::npos) {
+    return 9;
+  }
+  empty_overrides.replace(override_start, override_end + 2U - override_start, R"("overrides":[])");
+  if (gneiss::editor::prepare_apply_prefab(empty_overrides, apply_prefab_json, apply_request,
+                                           apply_plan) != gneiss::result::not_ready ||
+      !apply_plan.changes.empty()) {
+    return 10;
   }
   std::filesystem::remove_all(root);
   return 0;
