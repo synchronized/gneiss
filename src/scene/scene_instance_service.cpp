@@ -420,9 +420,12 @@ gneiss_result scene_instance::destroy_prefab_instance(gneiss_scene_node_id root)
   return GNEISS_SUCCESS;
 }
 
-gneiss_result scene_instance::refresh_prefab_instance(gneiss_scene_node_id root,
-                                                      gneiss_scene_node_id* out_new_root) {
+gneiss_result
+scene_instance::refresh_prefab_instance(gneiss_scene_node_id root,
+                                        gneiss_scene_node_id* out_new_root,
+                                        gneiss_scene_prefab_refresh_token* out_token) {
   *out_new_root = GNEISS_NULL_SCENE_NODE_ID;
+  *out_token = GNEISS_NULL_SCENE_PREFAB_REFRESH_TOKEN;
   const auto found = std::ranges::find_if(
       prefab_instances, [root](const auto& instance) { return instance->root() == root; });
   if (found == prefab_instances.end()) {
@@ -439,6 +442,11 @@ gneiss_result scene_instance::refresh_prefab_instance(gneiss_scene_node_id root,
   if (result != GNEISS_SUCCESS) {
     return result;
   }
+  if (next_prefab_refresh_token_ == GNEISS_NULL_SCENE_PREFAB_REFRESH_TOKEN) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
+  }
+  prefab_refresh_transactions_.reserve(prefab_refresh_transactions_.size() + 1U);
+  auto old_lease = (*found)->prefab_lease();
   prefab_asset_lease lease;
   scene_diagnostic diagnostic;
   result = prefab_loader_.reload(author.prefab_uri, lease, diagnostic);
@@ -451,8 +459,63 @@ gneiss_result scene_instance::refresh_prefab_instance(gneiss_scene_node_id root,
   if (result != GNEISS_SUCCESS) {
     return result;
   }
+  const auto token = next_prefab_refresh_token_++;
+  prefab_refresh_transactions_.push_back(
+      {.token = token, .instance_uuid = author.instance_uuid, .alternate = std::move(old_lease)});
   *out_new_root = replacement->root();
+  *out_token = token;
   *found = std::move(replacement);
+  return GNEISS_SUCCESS;
+}
+
+gneiss_result scene_instance::toggle_prefab_refresh(gneiss_scene_prefab_refresh_token token,
+                                                    gneiss_scene_node_id* out_new_root) {
+  *out_new_root = GNEISS_NULL_SCENE_NODE_ID;
+  const auto transaction =
+      std::ranges::find(prefab_refresh_transactions_, token, &prefab_refresh_transaction::token);
+  if (transaction == prefab_refresh_transactions_.end()) {
+    return GNEISS_ERROR_INVALID_HANDLE;
+  }
+  const auto author = std::ranges::find(description.prefab_instances, transaction->instance_uuid,
+                                        &prefab_instance_description::instance_uuid);
+  if (author == description.prefab_instances.end()) {
+    return GNEISS_ERROR_INVALID_STATE;
+  }
+  const auto index = static_cast<std::size_t>(author - description.prefab_instances.begin());
+  if (index >= prefab_instances.size()) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+  auto& current = prefab_instances[index];
+  gneiss_scene_node_id parent = GNEISS_NULL_SCENE_NODE_ID;
+  auto result = gneiss_scene_node_get_parent(world_, current->root(), &parent);
+  gneiss_transform transform = GNEISS_TRANSFORM_IDENTITY;
+  if (result == GNEISS_SUCCESS) {
+    result = gneiss_scene_node_get_local_transform(world_, current->root(), &transform);
+  }
+  if (result != GNEISS_SUCCESS) {
+    return result;
+  }
+  auto current_lease = current->prefab_lease();
+  std::unique_ptr<prefab_runtime_instance> replacement;
+  result = prefab_runtime_instance::create(world_, loader_, transaction->alternate,
+                                           author->instance_uuid, parent, transform, replacement);
+  if (result != GNEISS_SUCCESS) {
+    return result;
+  }
+  transaction->alternate = std::move(current_lease);
+  *out_new_root = replacement->root();
+  current = std::move(replacement);
+  return GNEISS_SUCCESS;
+}
+
+gneiss_result
+scene_instance::release_prefab_refresh(gneiss_scene_prefab_refresh_token token) noexcept {
+  const auto found =
+      std::ranges::find(prefab_refresh_transactions_, token, &prefab_refresh_transaction::token);
+  if (found == prefab_refresh_transactions_.end()) {
+    return GNEISS_ERROR_INVALID_HANDLE;
+  }
+  prefab_refresh_transactions_.erase(found);
   return GNEISS_SUCCESS;
 }
 
@@ -1265,11 +1328,31 @@ gneiss_result scene_instance_service::destroy_prefab_instance(gneiss_scene_insta
                                                : (*value)->destroy_prefab_instance(root);
 }
 
+gneiss_result scene_instance_service::refresh_prefab_instance(
+    gneiss_scene_instance instance, gneiss_scene_node_id root, gneiss_scene_node_id* out_new_root,
+    gneiss_scene_prefab_refresh_token* out_token) noexcept {
+  if (out_new_root == nullptr || out_token == nullptr) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  *out_new_root = GNEISS_NULL_SCENE_NODE_ID;
+  *out_token = GNEISS_NULL_SCENE_PREFAB_REFRESH_TOKEN;
+  try {
+    auto* value = instances_.get(instance, core::resource_type::scene_instance);
+    return value == nullptr || *value == nullptr
+               ? GNEISS_ERROR_INVALID_HANDLE
+               : (*value)->refresh_prefab_instance(root, out_new_root, out_token);
+  } catch (const std::bad_alloc&) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
 gneiss_result
-scene_instance_service::refresh_prefab_instance(gneiss_scene_instance instance,
-                                                gneiss_scene_node_id root,
-                                                gneiss_scene_node_id* out_new_root) noexcept {
-  if (out_new_root == nullptr) {
+scene_instance_service::toggle_prefab_refresh(gneiss_scene_instance instance,
+                                              gneiss_scene_prefab_refresh_token token,
+                                              gneiss_scene_node_id* out_new_root) noexcept {
+  if (out_new_root == nullptr || token == GNEISS_NULL_SCENE_PREFAB_REFRESH_TOKEN) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
   *out_new_root = GNEISS_NULL_SCENE_NODE_ID;
@@ -1277,12 +1360,23 @@ scene_instance_service::refresh_prefab_instance(gneiss_scene_instance instance,
     auto* value = instances_.get(instance, core::resource_type::scene_instance);
     return value == nullptr || *value == nullptr
                ? GNEISS_ERROR_INVALID_HANDLE
-               : (*value)->refresh_prefab_instance(root, out_new_root);
+               : (*value)->toggle_prefab_refresh(token, out_new_root);
   } catch (const std::bad_alloc&) {
     return GNEISS_ERROR_OUT_OF_MEMORY;
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;
   }
+}
+
+gneiss_result
+scene_instance_service::release_prefab_refresh(gneiss_scene_instance instance,
+                                               gneiss_scene_prefab_refresh_token token) noexcept {
+  if (token == GNEISS_NULL_SCENE_PREFAB_REFRESH_TOKEN) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  auto* value = instances_.get(instance, core::resource_type::scene_instance);
+  return value == nullptr || *value == nullptr ? GNEISS_ERROR_INVALID_HANDLE
+                                               : (*value)->release_prefab_refresh(token);
 }
 
 gneiss_result

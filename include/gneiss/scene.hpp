@@ -138,15 +138,31 @@ public:
     return from_native(
         gneiss_scene_instance_destroy_prefab_instance(application_, handle_, root.get()));
   }
-  [[nodiscard]] result refresh_prefab_instance(scene_node_id root,
-                                               scene_node_id& out_new_root) noexcept {
+  [[nodiscard]] result
+  refresh_prefab_instance(scene_node_id root, scene_node_id& out_new_root,
+                          gneiss_scene_prefab_refresh_token& out_token) noexcept {
+    gneiss_scene_node_id new_root = GNEISS_NULL_SCENE_NODE_ID;
+    gneiss_scene_prefab_refresh_token token = GNEISS_NULL_SCENE_PREFAB_REFRESH_TOKEN;
+    const auto native_result = gneiss_scene_instance_refresh_prefab_instance(
+        application_, handle_, root.get(), &new_root, &token);
+    if (native_result == GNEISS_SUCCESS) {
+      out_new_root = scene_node_id{new_root};
+      out_token = token;
+    }
+    return from_native(native_result);
+  }
+  [[nodiscard]] result toggle_prefab_refresh(gneiss_scene_prefab_refresh_token token,
+                                             scene_node_id& out_new_root) noexcept {
     gneiss_scene_node_id new_root = GNEISS_NULL_SCENE_NODE_ID;
     const auto native_result =
-        gneiss_scene_instance_refresh_prefab_instance(application_, handle_, root.get(), &new_root);
+        gneiss_scene_instance_toggle_prefab_refresh(application_, handle_, token, &new_root);
     if (native_result == GNEISS_SUCCESS) {
       out_new_root = scene_node_id{new_root};
     }
     return from_native(native_result);
+  }
+  [[nodiscard]] result release_prefab_refresh(gneiss_scene_prefab_refresh_token token) noexcept {
+    return from_native(gneiss_scene_instance_release_prefab_refresh(application_, handle_, token));
   }
   [[nodiscard]] result create_mesh_renderer_node(const scene_mesh_renderer_node_desc& desc,
                                                  scene_node_id& out_node) noexcept {

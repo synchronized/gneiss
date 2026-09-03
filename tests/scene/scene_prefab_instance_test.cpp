@@ -103,11 +103,24 @@ int main() try {
   }
   const auto stale_root = created_root;
   gneiss_entity_id stale_entity = GNEISS_NULL_ENTITY_ID;
-  if (gneiss_scene_instance_refresh_prefab_instance(application, scene, stale_root,
-                                                    &created_root) != GNEISS_SUCCESS ||
+  gneiss_scene_prefab_refresh_token refresh_token = GNEISS_NULL_SCENE_PREFAB_REFRESH_TOKEN;
+  if (gneiss_scene_instance_refresh_prefab_instance(application, scene, stale_root, &created_root,
+                                                    &refresh_token) != GNEISS_SUCCESS ||
       created_root == GNEISS_NULL_SCENE_NODE_ID || created_root == stale_root ||
+      refresh_token == GNEISS_NULL_SCENE_PREFAB_REFRESH_TOKEN ||
       gneiss_scene_node_get_entity(world, stale_root, &stale_entity) !=
-          GNEISS_ERROR_INVALID_HANDLE ||
+          GNEISS_ERROR_INVALID_HANDLE) {
+    return 4;
+  }
+  const auto refreshed_root = created_root;
+  if (gneiss_scene_instance_toggle_prefab_refresh(application, scene, refresh_token,
+                                                  &created_root) != GNEISS_SUCCESS ||
+      created_root == refreshed_root ||
+      gneiss_scene_instance_toggle_prefab_refresh(application, scene, refresh_token,
+                                                  &created_root) != GNEISS_SUCCESS ||
+      created_root == GNEISS_NULL_SCENE_NODE_ID ||
+      gneiss_scene_instance_release_prefab_refresh(application, scene, refresh_token) !=
+          GNEISS_SUCCESS ||
       gneiss_scene_instance_destroy_prefab_instance(application, scene, prefab_root.node) !=
           GNEISS_SUCCESS ||
       gneiss_scene_instance_get_prefab_node_count(application, scene, &prefab_node_count) !=

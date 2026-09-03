@@ -402,9 +402,10 @@ result editor_session::restore_prefab_instance(const prefab_instance_snapshot& s
   return operation;
 }
 
-result editor_session::refresh_prefab_instance(scene_node_id root,
-                                               scene_node_id& out_new_root) noexcept {
-  const auto operation = scene_.refresh_prefab_instance(root, out_new_root);
+result
+editor_session::refresh_prefab_instance(scene_node_id root, scene_node_id& out_new_root,
+                                        gneiss_scene_prefab_refresh_token& out_token) noexcept {
+  const auto operation = scene_.refresh_prefab_instance(root, out_new_root, out_token);
   if (operation != result::success) {
     return operation;
   }
@@ -414,6 +415,26 @@ result editor_session::refresh_prefab_instance(scene_node_id root,
     is_dirty_ = true;
   }
   return refreshed;
+}
+
+result editor_session::toggle_prefab_refresh(gneiss_scene_prefab_refresh_token token,
+                                             scene_node_id& out_new_root) noexcept {
+  const auto operation = scene_.toggle_prefab_refresh(token, out_new_root);
+  if (operation != result::success) {
+    return operation;
+  }
+  selection_ = out_new_root;
+  const auto refreshed = refresh_nodes();
+  if (refreshed == result::success) {
+    is_dirty_ = true;
+  }
+  return refreshed;
+}
+
+void editor_session::release_prefab_refresh(gneiss_scene_prefab_refresh_token token) noexcept {
+  if (scene_.is_valid() && token != GNEISS_NULL_SCENE_PREFAB_REFRESH_TOKEN) {
+    (void)scene_.release_prefab_refresh(token);
+  }
 }
 
 result editor_session::rename_node(scene_node_id node, std::string_view name) noexcept {

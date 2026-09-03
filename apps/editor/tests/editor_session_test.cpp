@@ -82,13 +82,18 @@ int main() try {
   auto moved = session.selected_prefab_node()->local_transform;
   moved.translation[1] = 3.0F;
   const auto stale_root = prefab_root;
+  gneiss_scene_prefab_refresh_token refresh_token = GNEISS_NULL_SCENE_PREFAB_REFRESH_TOKEN;
   if (session.set_local_transform(prefab_root, moved) != gneiss::result::success ||
-      session.refresh_prefab_instance(prefab_root, prefab_root) != gneiss::result::success ||
+      session.refresh_prefab_instance(prefab_root, prefab_root, refresh_token) !=
+          gneiss::result::success ||
       prefab_root == stale_root || session.selected_prefab_node() == nullptr ||
       session.selected_prefab_node()->display_name != "Restored Lamp" ||
-      session.selected_prefab_node()->local_transform.translation[1] != 3.0F) {
+      session.selected_prefab_node()->local_transform.translation[1] != 3.0F ||
+      session.toggle_prefab_refresh(refresh_token, prefab_root) != gneiss::result::success ||
+      session.toggle_prefab_refresh(refresh_token, prefab_root) != gneiss::result::success) {
     return 10;
   }
+  session.release_prefab_refresh(refresh_token);
   return 0;
 } catch (...) {
   return 99;

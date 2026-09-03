@@ -55,7 +55,12 @@ public:
                                                        std::string_view name);
   [[nodiscard]] gneiss_result destroy_prefab_instance(gneiss_scene_node_id root) noexcept;
   [[nodiscard]] gneiss_result refresh_prefab_instance(gneiss_scene_node_id root,
-                                                      gneiss_scene_node_id* out_new_root);
+                                                      gneiss_scene_node_id* out_new_root,
+                                                      gneiss_scene_prefab_refresh_token* out_token);
+  [[nodiscard]] gneiss_result toggle_prefab_refresh(gneiss_scene_prefab_refresh_token token,
+                                                    gneiss_scene_node_id* out_new_root);
+  [[nodiscard]] gneiss_result
+  release_prefab_refresh(gneiss_scene_prefab_refresh_token token) noexcept;
   [[nodiscard]] gneiss_result create_node(const gneiss_scene_node_desc& desc,
                                           gneiss_scene_node_id* out_node);
   [[nodiscard]] gneiss_result set_node_name(gneiss_scene_node_id node, std::string_view name);
@@ -85,9 +90,17 @@ public:
   scene_description description;
 
 private:
+  struct prefab_refresh_transaction final {
+    gneiss_scene_prefab_refresh_token token = GNEISS_NULL_SCENE_PREFAB_REFRESH_TOKEN;
+    std::string instance_uuid;
+    prefab_asset_lease alternate;
+  };
+
   gneiss_world world_;
   render_internal::render_asset_loader& loader_;
   prefab_asset_loader& prefab_loader_;
+  std::vector<prefab_refresh_transaction> prefab_refresh_transactions_;
+  gneiss_scene_prefab_refresh_token next_prefab_refresh_token_ = 1U;
 };
 
 class scene_instance_service final {
@@ -124,9 +137,16 @@ public:
                                                        std::string_view name) noexcept;
   [[nodiscard]] gneiss_result destroy_prefab_instance(gneiss_scene_instance instance,
                                                       gneiss_scene_node_id root) noexcept;
-  [[nodiscard]] gneiss_result refresh_prefab_instance(gneiss_scene_instance instance,
-                                                      gneiss_scene_node_id root,
-                                                      gneiss_scene_node_id* out_new_root) noexcept;
+  [[nodiscard]] gneiss_result
+  refresh_prefab_instance(gneiss_scene_instance instance, gneiss_scene_node_id root,
+                          gneiss_scene_node_id* out_new_root,
+                          gneiss_scene_prefab_refresh_token* out_token) noexcept;
+  [[nodiscard]] gneiss_result toggle_prefab_refresh(gneiss_scene_instance instance,
+                                                    gneiss_scene_prefab_refresh_token token,
+                                                    gneiss_scene_node_id* out_new_root) noexcept;
+  [[nodiscard]] gneiss_result
+  release_prefab_refresh(gneiss_scene_instance instance,
+                         gneiss_scene_prefab_refresh_token token) noexcept;
   [[nodiscard]] gneiss_result create_node(gneiss_scene_instance instance,
                                           const gneiss_scene_node_desc& desc,
                                           gneiss_scene_node_id* out_node) noexcept;

@@ -43,6 +43,7 @@ public:
 
   [[nodiscard]] gneiss_scene_node_id root() const noexcept { return root_node_; }
   [[nodiscard]] gneiss_entity_id root_entity() const noexcept { return root_entity_; }
+  [[nodiscard]] prefab_asset_lease prefab_lease() const noexcept { return prefab_; }
   [[nodiscard]] gneiss_scene_node_id find_node(std::string_view source_node_uuid) const noexcept;
   [[nodiscard]] std::size_t node_count() const noexcept { return nodes_.size(); }
   [[nodiscard]] gneiss_result get_node_info(std::size_t index, node_info& out_info) const noexcept;

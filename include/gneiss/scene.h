@@ -18,9 +18,12 @@
 typedef uint64_t gneiss_scene_node_id;
 /** 已加载场景实例的不透明句柄；由所属 Application 独占。 */
 typedef uint64_t gneiss_scene_instance;
+/** Prefab 刷新事务令牌；由所属场景实例独占。 */
+typedef uint64_t gneiss_scene_prefab_refresh_token;
 
 #define GNEISS_NULL_SCENE_NODE_ID UINT64_C(0)
 #define GNEISS_NULL_SCENE_INSTANCE UINT64_C(0)
+#define GNEISS_NULL_SCENE_PREFAB_REFRESH_TOKEN UINT64_C(0)
 
 /** gneiss_scene_instance_node_info::component_flags 的组件与作者状态位。 */
 #define GNEISS_SCENE_NODE_COMPONENT_CAMERA UINT32_C(1)
@@ -345,7 +348,17 @@ GNEISS_EXPERIMENTAL GNEISS_API gneiss_result gneiss_scene_instance_destroy_prefa
 /** 从来源资产原子重建 Prefab 投影；成功返回新的实例根节点 ID。 */
 GNEISS_EXPERIMENTAL GNEISS_API gneiss_result gneiss_scene_instance_refresh_prefab_instance(
     gneiss_application application, gneiss_scene_instance instance, gneiss_scene_node_id root,
-    gneiss_scene_node_id* out_new_root);
+    gneiss_scene_node_id* out_new_root, gneiss_scene_prefab_refresh_token* out_token);
+
+/** 在刷新事务的新旧来源版本间切换；用于 Undo/Redo。 */
+GNEISS_EXPERIMENTAL GNEISS_API gneiss_result gneiss_scene_instance_toggle_prefab_refresh(
+    gneiss_application application, gneiss_scene_instance instance,
+    gneiss_scene_prefab_refresh_token token, gneiss_scene_node_id* out_new_root);
+
+/** 释放刷新事务令牌；释放后不能再撤销或重做该次刷新。 */
+GNEISS_EXPERIMENTAL GNEISS_API gneiss_result gneiss_scene_instance_release_prefab_refresh(
+    gneiss_application application, gneiss_scene_instance instance,
+    gneiss_scene_prefab_refresh_token token);
 
 /** 原子创建不含可选组件的作者节点。 */
 GNEISS_EXPERIMENTAL GNEISS_API gneiss_result gneiss_scene_instance_create_node(

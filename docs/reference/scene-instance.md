@@ -61,7 +61,10 @@ Prefab 使用独立的实验性枚举接口 `gneiss_scene_instance_get_prefab_no
 Transform 接口修改根变换，并通过 `gneiss_scene_instance_destroy_prefab_instance` 整体销毁。
 `gneiss_scene_instance_refresh_prefab_instance` 会绕过旧 Prefab 缓存重新读取来源，先创建完整替代投影，
 成功后才销毁旧投影并返回新的根 ID；失败时旧投影和选择目标仍有效。刷新成功后旧根及全部旧来源
-节点 ID 失效，调用方必须改用返回的新根并重新枚举层级。
+节点 ID 失效，调用方必须改用返回的新根并重新枚举层级。成功刷新同时返回场景实例独占的事务
+令牌；`gneiss_scene_instance_toggle_prefab_refresh` 使用令牌在新旧来源版本间切换并返回新的根 ID，
+供 Undo/Redo 使用。命令离开历史后必须调用 `gneiss_scene_instance_release_prefab_refresh`；场景卸载
+也会释放尚未显式释放的令牌及其资产租约。
 
 ## 作者节点编辑
 

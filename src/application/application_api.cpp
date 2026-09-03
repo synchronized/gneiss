@@ -596,8 +596,27 @@ extern "C" gneiss_result gneiss_scene_instance_destroy_prefab_instance(
 
 extern "C" gneiss_result gneiss_scene_instance_refresh_prefab_instance(
     gneiss_application application, gneiss_scene_instance instance, gneiss_scene_node_id root,
-    gneiss_scene_node_id* out_new_root) {
-  if (out_new_root == nullptr) {
+    gneiss_scene_node_id* out_new_root, gneiss_scene_prefab_refresh_token* out_token) {
+  if (out_new_root == nullptr || out_token == nullptr) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  *out_new_root = GNEISS_NULL_SCENE_NODE_ID;
+  *out_token = GNEISS_NULL_SCENE_PREFAB_REFRESH_TOKEN;
+  try {
+    auto state = find_application(application);
+    const auto validation_result = validate_application(state);
+    return validation_result == GNEISS_SUCCESS
+               ? state->scenes()->refresh_prefab_instance(instance, root, out_new_root, out_token)
+               : validation_result;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
+extern "C" gneiss_result gneiss_scene_instance_toggle_prefab_refresh(
+    gneiss_application application, gneiss_scene_instance instance,
+    gneiss_scene_prefab_refresh_token token, gneiss_scene_node_id* out_new_root) {
+  if (out_new_root == nullptr || token == GNEISS_NULL_SCENE_PREFAB_REFRESH_TOKEN) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
   *out_new_root = GNEISS_NULL_SCENE_NODE_ID;
@@ -605,7 +624,22 @@ extern "C" gneiss_result gneiss_scene_instance_refresh_prefab_instance(
     auto state = find_application(application);
     const auto validation_result = validate_application(state);
     return validation_result == GNEISS_SUCCESS
-               ? state->scenes()->refresh_prefab_instance(instance, root, out_new_root)
+               ? state->scenes()->toggle_prefab_refresh(instance, token, out_new_root)
+               : validation_result;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
+extern "C" gneiss_result
+gneiss_scene_instance_release_prefab_refresh(gneiss_application application,
+                                             gneiss_scene_instance instance,
+                                             gneiss_scene_prefab_refresh_token token) {
+  try {
+    auto state = find_application(application);
+    const auto validation_result = validate_application(state);
+    return validation_result == GNEISS_SUCCESS
+               ? state->scenes()->release_prefab_refresh(instance, token)
                : validation_result;
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;

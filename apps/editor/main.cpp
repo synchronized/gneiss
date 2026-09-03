@@ -47,6 +47,17 @@ enum class hierarchy_action { none, rename, duplicate, remove };
 enum class document_action { none, new_scene, open_scene, exit_editor };
 enum class gizmo_operation { translate, rotate, scale };
 
+struct prefab_refresh_guard final {
+  gneiss::editor::editor_session* session = nullptr;
+  gneiss_scene_prefab_refresh_token token = GNEISS_NULL_SCENE_PREFAB_REFRESH_TOKEN;
+
+  ~prefab_refresh_guard() noexcept {
+    if (session != nullptr) {
+      session->release_prefab_refresh(token);
+    }
+  }
+};
+
 struct editor_state {
   gneiss::editor::imgui_adapter ui;
   gneiss::editor::editor_camera camera;
@@ -1152,6 +1163,13 @@ void draw_asset_browser(editor_state& state) {
                  return state.session.restore_prefab_instance(*snapshot, restored);
                },
            .merge_key = {}});
+      if (state.asset_scene_result != gneiss::result::success) {
+        const auto* current = state.session.find_prefab_root(uuid);
+        if (current != nullptr) {
+          gneiss::editor::prefab_instance_snapshot discarded;
+          (void)state.session.destroy_prefab_instance(current->node, discarded);
+        }
+      }
     }
     state.asset_scene_attempted = true;
     scene_node = state.session.selected_node();
@@ -1961,6 +1979,13 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
                        return state.session.restore_prefab_instance(*snapshot, restored);
                      },
                  .merge_key = {}});
+            if (state.history_error != gneiss::result::success) {
+              const auto* current = state.session.find_prefab_root(duplicate_uuid);
+              if (current != nullptr) {
+                gneiss::editor::prefab_instance_snapshot discarded;
+                (void)state.session.destroy_prefab_instance(current->node, discarded);
+              }
+            }
           }
         }
         ImGui::SameLine();
@@ -1986,15 +2011,43 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
                        return state.session.destroy_prefab_instance(current->node, discarded);
                      },
                  .merge_key = {}});
+            if (state.history_error != gneiss::result::success) {
+              gneiss::scene_node_id restored;
+              (void)state.session.restore_prefab_instance(snapshot, restored);
+            }
           }
         }
         ImGui::SameLine();
         if (ImGui::Button("Refresh Prefab")) {
           const auto* current = state.session.find_prefab_root(source_uuid);
           gneiss::scene_node_id refreshed;
+          gneiss_scene_prefab_refresh_token token = GNEISS_NULL_SCENE_PREFAB_REFRESH_TOKEN;
           state.history_error =
-              current == nullptr ? gneiss::result::not_found
-                                 : state.session.refresh_prefab_instance(current->node, refreshed);
+              current == nullptr
+                  ? gneiss::result::not_found
+                  : state.session.refresh_prefab_instance(current->node, refreshed, token);
+          if (state.history_error == gneiss::result::success) {
+            auto guard = std::make_shared<prefab_refresh_guard>();
+            guard->session = &state.session;
+            guard->token = token;
+            state.history_error = state.history.record(
+                {.label = "刷新 Prefab 实例",
+                 .undo =
+                     [&state, guard] {
+                       gneiss::scene_node_id root;
+                       return state.session.toggle_prefab_refresh(guard->token, root);
+                     },
+                 .redo =
+                     [&state, guard] {
+                       gneiss::scene_node_id root;
+                       return state.session.toggle_prefab_refresh(guard->token, root);
+                     },
+                 .merge_key = {}});
+            if (state.history_error != gneiss::result::success) {
+              gneiss::scene_node_id restored;
+              (void)state.session.toggle_prefab_refresh(token, restored);
+            }
+          }
         }
       }
       for (const auto& node : state.session.nodes()) {

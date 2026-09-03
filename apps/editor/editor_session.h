@@ -103,8 +103,12 @@ public:
                                                prefab_instance_snapshot& out_snapshot) noexcept;
   [[nodiscard]] result restore_prefab_instance(const prefab_instance_snapshot& snapshot,
                                                scene_node_id& out_root) noexcept;
-  [[nodiscard]] result refresh_prefab_instance(scene_node_id root,
-                                               scene_node_id& out_new_root) noexcept;
+  [[nodiscard]] result
+  refresh_prefab_instance(scene_node_id root, scene_node_id& out_new_root,
+                          gneiss_scene_prefab_refresh_token& out_token) noexcept;
+  [[nodiscard]] result toggle_prefab_refresh(gneiss_scene_prefab_refresh_token token,
+                                             scene_node_id& out_new_root) noexcept;
+  void release_prefab_refresh(gneiss_scene_prefab_refresh_token token) noexcept;
   [[nodiscard]] result rename_node(scene_node_id node, std::string_view name) noexcept;
   [[nodiscard]] result reparent_node(scene_node_id node, scene_node_id parent) noexcept;
   /** 设置节点局部 TRS；成功后刷新缓存并标记场景已修改。 */
