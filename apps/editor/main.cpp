@@ -11,6 +11,7 @@
 #include "imgui_adapter.h"
 #include "native_author_transaction.h"
 #include "native_dialog.h"
+#include "prefab_authoring.h"
 #include "project_manager.h"
 #include "project_workspace.h"
 #include "property_inspector_model.h"
@@ -34,6 +35,8 @@
 #include <cstdint>
 #include <cstdio>
 #include <filesystem>
+#include <fstream>
+#include <iterator>
 #include <limits>
 #include <memory>
 #include <new>
@@ -47,6 +50,29 @@ namespace {
 enum class hierarchy_action { none, rename, duplicate, remove };
 enum class document_action { none, new_scene, open_scene, exit_editor };
 enum class gizmo_operation { translate, rotate, scale };
+enum class author_selection_kind : std::uint8_t { none, scene_node, prefab_root, prefab_source };
+enum class prefab_author_action : std::uint8_t { none, create, apply, unpack };
+
+struct author_selection final {
+  author_selection_kind kind = author_selection_kind::none;
+  std::string primary_uuid;
+  std::string source_uuid;
+};
+
+struct author_asset_document final {
+  std::string relative_path;
+  std::string content;
+};
+
+struct author_scene_document final {
+  std::string relative_path;
+  std::string content;
+};
+
+struct author_document_operation final {
+  const std::vector<gneiss::editor::author_document_change>* changes = nullptr;
+  const std::vector<gneiss::editor::author_document_change>* rollback = nullptr;
+};
 
 struct prefab_refresh_guard final {
   gneiss::editor::editor_session* session = nullptr;
@@ -92,6 +118,14 @@ struct editor_state {
   std::uint64_t inspected_runtime_session = 0U;
   gneiss::result inspector_error = gneiss::result::success;
   gneiss::result history_error = gneiss::result::success;
+  gneiss::result prefab_author_result = gneiss::result::success;
+  bool prefab_author_attempted = false;
+  bool prefab_author_busy = false;
+  std::array<char, 192> prefab_path_buffer{};
+  prefab_author_action pending_prefab_author_action = prefab_author_action::none;
+  std::string pending_prefab_instance_uuid;
+  std::string pending_prefab_source_uuid;
+  std::string pending_prefab_root_uuid;
   std::filesystem::path asset_root;
   std::filesystem::path project_root;
   gneiss::result save_result = gneiss::result::success;
@@ -345,6 +379,9 @@ void synchronize_history_dirty(editor_state& state) noexcept {
 gneiss::result undo_editor_command(editor_state& state) noexcept {
   const auto result = state.history.undo();
   if (result == gneiss::result::success) {
+    if (!state.session.is_dirty()) {
+      state.history.mark_saved();
+    }
     synchronize_history_dirty(state);
   }
   return result;
@@ -353,6 +390,9 @@ gneiss::result undo_editor_command(editor_state& state) noexcept {
 gneiss::result redo_editor_command(editor_state& state) noexcept {
   const auto result = state.history.redo();
   if (result == gneiss::result::success) {
+    if (!state.session.is_dirty()) {
+      state.history.mark_saved();
+    }
     synchronize_history_dirty(state);
   }
   return result;
@@ -366,6 +406,297 @@ gneiss::result redo_editor_command(editor_state& state) noexcept {
 [[nodiscard]] std::string path_utf8(const std::filesystem::path& value) {
   const auto text = value.generic_u8string();
   return {reinterpret_cast<const char*>(text.data()), text.size()};
+}
+
+[[nodiscard]] gneiss::result author_uri_path(const editor_state& state, std::string_view uri,
+                                             std::filesystem::path& path,
+                                             std::string& relative_path) noexcept {
+  constexpr std::string_view prefix = "asset://";
+  if (!uri.starts_with(prefix) || uri.size() == prefix.size()) {
+    return gneiss::result::invalid_argument;
+  }
+  try {
+    relative_path.assign(uri.substr(prefix.size()));
+    path = state.asset_root / utf8_path(relative_path);
+    return gneiss::result::success;
+  } catch (const std::bad_alloc&) {
+    return gneiss::result::out_of_memory;
+  } catch (...) {
+    return gneiss::result::io;
+  }
+}
+
+[[nodiscard]] gneiss::result read_author_asset(const editor_state& state, std::string_view uri,
+                                               author_asset_document& output) noexcept {
+  std::filesystem::path path;
+  auto operation = author_uri_path(state, uri, path, output.relative_path);
+  if (operation != gneiss::result::success) {
+    return operation;
+  }
+  try {
+    std::ifstream stream(path, std::ios::binary);
+    if (!stream) {
+      return gneiss::result::not_found;
+    }
+    output.content.assign(std::istreambuf_iterator<char>{stream}, std::istreambuf_iterator<char>{});
+    return stream.bad() ? gneiss::result::io : gneiss::result::success;
+  } catch (const std::bad_alloc&) {
+    return gneiss::result::out_of_memory;
+  } catch (...) {
+    return gneiss::result::io;
+  }
+}
+
+void restore_author_selection(editor_state& state, const author_selection& selection) noexcept {
+  const gneiss::editor::scene_node_record* scene_node = nullptr;
+  const gneiss::editor::prefab_node_record* prefab_node = nullptr;
+  switch (selection.kind) {
+  case author_selection_kind::scene_node:
+    scene_node = state.session.find_node(selection.primary_uuid);
+    break;
+  case author_selection_kind::prefab_root:
+    prefab_node = state.session.find_prefab_root(selection.primary_uuid);
+    break;
+  case author_selection_kind::prefab_source:
+    prefab_node = state.session.find_prefab_source(selection.primary_uuid, selection.source_uuid);
+    break;
+  case author_selection_kind::none:
+    break;
+  }
+  if (scene_node != nullptr) {
+    (void)state.session.select(scene_node->node);
+  } else if (prefab_node != nullptr) {
+    (void)state.session.select(prefab_node->node);
+  }
+}
+
+[[nodiscard]] gneiss::result apply_author_documents(editor_state& state,
+                                                    gneiss_application application,
+                                                    author_document_operation documents,
+                                                    const author_selection& selection) noexcept {
+  if (documents.changes == nullptr || documents.rollback == nullptr) {
+    return gneiss::result::invalid_argument;
+  }
+  try {
+    auto operation =
+        gneiss::editor::commit_native_author_transaction(state.asset_root, *documents.changes);
+    if (operation == gneiss::result::success) {
+      const auto uri = std::string{state.session.uri()};
+      operation = state.session.open(application, state.world, uri);
+      if (operation != gneiss::result::success) {
+        (void)gneiss::editor::commit_native_author_transaction(state.asset_root,
+                                                               *documents.rollback);
+        (void)state.session.open(application, state.world, uri);
+      }
+    }
+    if (operation == gneiss::result::success) {
+      restore_author_selection(state, selection);
+    }
+    return operation;
+  } catch (const std::bad_alloc&) {
+    return gneiss::result::out_of_memory;
+  } catch (...) {
+    return gneiss::result::internal;
+  }
+}
+
+[[nodiscard]] gneiss::result
+record_author_documents(editor_state& state, gneiss_application application, std::string label,
+                        std::vector<gneiss::editor::author_document_change> changes,
+                        const author_selection& undo_selection,
+                        const author_selection& redo_selection) {
+  std::vector<gneiss::editor::author_document_change> inverse;
+  auto operation = gneiss::editor::invert_author_document_changes(changes, inverse);
+  if (operation != gneiss::result::success) {
+    return operation;
+  }
+  try {
+    auto forward =
+        std::make_shared<std::vector<gneiss::editor::author_document_change>>(std::move(changes));
+    auto backward =
+        std::make_shared<std::vector<gneiss::editor::author_document_change>>(std::move(inverse));
+    auto undo_target = std::make_shared<author_selection>(undo_selection);
+    auto redo_target = std::make_shared<author_selection>(redo_selection);
+    operation = apply_author_documents(
+        state, application, {.changes = forward.get(), .rollback = backward.get()}, redo_selection);
+    if (operation != gneiss::result::success) {
+      return operation;
+    }
+    operation = state.history.record(
+        {.label = std::move(label),
+         .undo =
+             [&state, application, forward, backward, undo_target] {
+               return apply_author_documents(state, application,
+                                             {.changes = backward.get(), .rollback = forward.get()},
+                                             *undo_target);
+             },
+         .redo =
+             [&state, application, forward, backward, redo_target] {
+               return apply_author_documents(state, application,
+                                             {.changes = forward.get(), .rollback = backward.get()},
+                                             *redo_target);
+             },
+         .merge_key = {}});
+    if (operation != gneiss::result::success) {
+      (void)apply_author_documents(state, application,
+                                   {.changes = backward.get(), .rollback = forward.get()},
+                                   undo_selection);
+      return operation;
+    }
+    state.history.mark_saved();
+    return gneiss::result::success;
+  } catch (const std::bad_alloc&) {
+    return gneiss::result::out_of_memory;
+  } catch (...) {
+    return gneiss::result::internal;
+  }
+}
+
+[[nodiscard]] gneiss::result current_author_scene(editor_state& state,
+                                                  author_scene_document& output) noexcept {
+  author_asset_document document;
+  const auto operation = read_author_asset(state, state.session.uri(), document);
+  output.relative_path = std::move(document.relative_path);
+  output.content = std::move(document.content);
+  return operation;
+}
+
+[[nodiscard]] gneiss::result apply_selected_prefab(editor_state& state,
+                                                   gneiss_application application,
+                                                   std::string_view instance_uuid,
+                                                   std::string_view source_uuid) {
+  const auto* selected = state.session.find_prefab_source(instance_uuid, source_uuid);
+  if (selected == nullptr || selected->override_flags == 0U || state.session.is_dirty() ||
+      state.runtime.is_busy()) {
+    return gneiss::result::invalid_state;
+  }
+  author_scene_document scene;
+  auto operation = current_author_scene(state, scene);
+  author_asset_document prefab;
+  if (operation == gneiss::result::success) {
+    operation = read_author_asset(state, selected->prefab_uri, prefab);
+  }
+  gneiss::editor::apply_prefab_author_plan plan;
+  if (operation == gneiss::result::success) {
+    operation = gneiss::editor::prepare_apply_prefab(scene.content, prefab.content,
+                                                     {.scene_path = scene.relative_path,
+                                                      .prefab_path = prefab.relative_path,
+                                                      .prefab_uri = selected->prefab_uri,
+                                                      .instance_uuid = instance_uuid},
+                                                     plan);
+  }
+  if (operation == gneiss::result::success) {
+    const author_selection selection{.kind = author_selection_kind::prefab_source,
+                                     .primary_uuid = std::string{instance_uuid},
+                                     .source_uuid = std::string{source_uuid}};
+    operation = record_author_documents(state, application, "应用 Prefab 实例覆盖",
+                                        std::move(plan.changes), selection, selection);
+  }
+  return operation;
+}
+
+[[nodiscard]] gneiss::result unpack_selected_prefab(editor_state& state,
+                                                    gneiss_application application,
+                                                    std::string_view instance_uuid) {
+  const auto* root = state.session.find_prefab_root(instance_uuid);
+  if (root == nullptr || state.session.is_dirty() || state.runtime.is_busy()) {
+    return gneiss::result::invalid_state;
+  }
+  const auto prefab_uri = root->prefab_uri;
+  author_scene_document scene;
+  auto operation = current_author_scene(state, scene);
+  author_asset_document prefab;
+  if (operation == gneiss::result::success) {
+    operation = read_author_asset(state, prefab_uri, prefab);
+  }
+  std::string unpacked_root_uuid;
+  if (operation == gneiss::result::success) {
+    operation = gneiss::editor::make_editor_uuid(unpacked_root_uuid);
+  }
+  std::vector<std::string> target_uuids;
+  std::vector<gneiss::editor::unpack_prefab_uuid_mapping> mappings;
+  if (operation == gneiss::result::success) {
+    const auto count = std::ranges::count_if(state.session.prefab_nodes(), [&](const auto& node) {
+      return !node.is_instance_root && node.instance_uuid == instance_uuid;
+    });
+    target_uuids.reserve(static_cast<std::size_t>(count));
+    mappings.reserve(static_cast<std::size_t>(count));
+    for (const auto& node : state.session.prefab_nodes()) {
+      if (!node.is_instance_root && node.instance_uuid == instance_uuid) {
+        target_uuids.emplace_back();
+        operation = gneiss::editor::make_editor_uuid(target_uuids.back());
+        if (operation != gneiss::result::success) {
+          break;
+        }
+        mappings.push_back(
+            {.source_node_uuid = node.source_node_uuid, .target_node_uuid = target_uuids.back()});
+      }
+    }
+  }
+  std::vector<gneiss::editor::author_document_change> changes;
+  if (operation == gneiss::result::success) {
+    operation = gneiss::editor::prepare_unpack_prefab(scene.content, prefab.content,
+                                                      {.scene_path = scene.relative_path,
+                                                       .prefab_uri = prefab_uri,
+                                                       .instance_uuid = instance_uuid,
+                                                       .instance_root_uuid = unpacked_root_uuid,
+                                                       .node_mappings = mappings},
+                                                      changes);
+  }
+  if (operation == gneiss::result::success) {
+    operation = record_author_documents(state, application, "解包 Prefab 实例", std::move(changes),
+                                        {.kind = author_selection_kind::prefab_root,
+                                         .primary_uuid = std::string{instance_uuid},
+                                         .source_uuid = {}},
+                                        {.kind = author_selection_kind::scene_node,
+                                         .primary_uuid = unpacked_root_uuid,
+                                         .source_uuid = {}});
+  }
+  return operation;
+}
+
+[[nodiscard]] gneiss::result create_prefab_from_selected(editor_state& state,
+                                                         gneiss_application application,
+                                                         std::string_view root_uuid,
+                                                         std::string_view prefab_path) {
+  if (state.session.find_node(root_uuid) == nullptr || state.session.is_dirty() ||
+      state.runtime.is_busy() || prefab_path.empty()) {
+    return gneiss::result::invalid_state;
+  }
+  author_scene_document scene;
+  auto operation = current_author_scene(state, scene);
+  std::string prefab_uri = "asset://";
+  prefab_uri.append(prefab_path);
+  std::string prefab_uuid;
+  std::string instance_uuid;
+  if (operation == gneiss::result::success) {
+    operation = gneiss::editor::make_editor_uuid(prefab_uuid);
+  }
+  if (operation == gneiss::result::success) {
+    operation = gneiss::editor::make_editor_uuid(instance_uuid);
+  }
+  std::vector<gneiss::editor::author_document_change> changes;
+  if (operation == gneiss::result::success) {
+    operation = gneiss::editor::prepare_create_prefab(scene.content,
+                                                      {.scene_path = scene.relative_path,
+                                                       .prefab_path = prefab_path,
+                                                       .prefab_uri = prefab_uri,
+                                                       .root_uuid = root_uuid,
+                                                       .prefab_uuid = prefab_uuid,
+                                                       .instance_uuid = instance_uuid},
+                                                      changes);
+  }
+  if (operation == gneiss::result::success) {
+    operation =
+        record_author_documents(state, application, "从场景子树创建 Prefab", std::move(changes),
+                                {.kind = author_selection_kind::scene_node,
+                                 .primary_uuid = std::string{root_uuid},
+                                 .source_uuid = {}},
+                                {.kind = author_selection_kind::prefab_root,
+                                 .primary_uuid = instance_uuid,
+                                 .source_uuid = {}});
+  }
+  return operation;
 }
 
 gneiss::result save_document_as(editor_state& state) {
@@ -631,6 +962,17 @@ void draw_scene_node(editor_state& state, const gneiss::editor::scene_node_recor
       state.pending_hierarchy_action = hierarchy_action::remove;
       state.pending_hierarchy_uuid = node.uuid;
     }
+    ImGui::Separator();
+    ImGui::BeginDisabled(state.session.is_dirty() || state.runtime.is_busy());
+    if (ImGui::MenuItem("Create Prefab...")) {
+      state.pending_prefab_author_action = prefab_author_action::create;
+      state.pending_prefab_root_uuid = node.uuid;
+      state.prefab_path_buffer.fill('\0');
+      const auto path = std::string{"prefabs/"} + node.uuid + ".prefab.json";
+      const auto length = std::min(path.size(), state.prefab_path_buffer.size() - 1U);
+      std::ranges::copy_n(path.begin(), length, state.prefab_path_buffer.begin());
+    }
+    ImGui::EndDisabled();
     ImGui::EndPopup();
   }
   if (ImGui::BeginDragDropSource()) {
@@ -2125,6 +2467,13 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
             }
           }
         }
+        ImGui::SameLine();
+        ImGui::BeginDisabled(state.session.is_dirty() || state.runtime.is_busy());
+        if (ImGui::Button("Unpack Prefab...")) {
+          state.pending_prefab_author_action = prefab_author_action::unpack;
+          state.pending_prefab_instance_uuid = prefab_selected->instance_uuid;
+        }
+        ImGui::EndDisabled();
       }
       for (const auto& node : state.session.nodes()) {
         if (!node.parent.is_valid()) {
@@ -2147,6 +2496,64 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
         }
         ImGui::EndDragDropTarget();
       }
+      if (state.pending_prefab_author_action != prefab_author_action::none &&
+          !ImGui::IsPopupOpen("Prefab Author Action")) {
+        ImGui::OpenPopup("Prefab Author Action");
+      }
+      if (ImGui::BeginPopupModal("Prefab Author Action", nullptr,
+                                 ImGuiWindowFlags_AlwaysAutoResize)) {
+        switch (state.pending_prefab_author_action) {
+        case prefab_author_action::create:
+          ImGui::TextUnformatted("Create the selected subtree as a Prefab source.");
+          ImGui::InputText("Asset path", state.prefab_path_buffer.data(),
+                           state.prefab_path_buffer.size());
+          break;
+        case prefab_author_action::apply:
+          ImGui::TextUnformatted("Apply this instance's Transform overrides to the shared source?");
+          ImGui::TextDisabled("All instances using the source will be reloaded.");
+          break;
+        case prefab_author_action::unpack:
+          ImGui::TextUnformatted("Unpack this instance into ordinary scene nodes?");
+          ImGui::TextDisabled("The Prefab source and other instances will not be changed.");
+          break;
+        case prefab_author_action::none:
+          break;
+        }
+        ImGui::BeginDisabled(state.prefab_author_busy);
+        if (ImGui::Button("Confirm")) {
+          state.prefab_author_busy = true;
+          switch (state.pending_prefab_author_action) {
+          case prefab_author_action::create:
+            state.prefab_author_result =
+                create_prefab_from_selected(state, application, state.pending_prefab_root_uuid,
+                                            std::string_view{state.prefab_path_buffer.data()});
+            break;
+          case prefab_author_action::apply:
+            state.prefab_author_result =
+                apply_selected_prefab(state, application, state.pending_prefab_instance_uuid,
+                                      state.pending_prefab_source_uuid);
+            break;
+          case prefab_author_action::unpack:
+            state.prefab_author_result =
+                unpack_selected_prefab(state, application, state.pending_prefab_instance_uuid);
+            break;
+          case prefab_author_action::none:
+            state.prefab_author_result = gneiss::result::invalid_state;
+            break;
+          }
+          state.prefab_author_busy = false;
+          state.prefab_author_attempted = true;
+          state.pending_prefab_author_action = prefab_author_action::none;
+          ImGui::CloseCurrentPopup();
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Cancel")) {
+          state.pending_prefab_author_action = prefab_author_action::none;
+          ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndDisabled();
+        ImGui::EndPopup();
+      }
     }
     ImGui::End();
 
@@ -2157,6 +2564,15 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
       ImGui::Begin("Command Error", nullptr,
                    ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoDecoration);
       ImGui::TextColored(gneiss::editor::theme_error_color(), "%.*s",
+                         static_cast<int>(message.size()), message.data());
+      ImGui::End();
+    }
+    if (state.prefab_author_attempted && state.prefab_author_result != gneiss::result::success) {
+      const auto message = gneiss::result_message(state.prefab_author_result);
+      ImGui::SetNextWindowPos(ImVec2(500.0F, 52.0F));
+      ImGui::Begin("Prefab Author Error", nullptr,
+                   ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoDecoration);
+      ImGui::TextColored(gneiss::editor::theme_error_color(), "Prefab operation failed: %.*s",
                          static_cast<int>(message.size()), message.data());
       ImGui::End();
     }
@@ -2253,6 +2669,16 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
       }
       ImGui::Text("Prefab: %s", prefab->prefab_uri.c_str());
       ImGui::Text("Entity: %llu", static_cast<unsigned long long>(prefab->entity.get()));
+      if (!prefab->is_instance_root) {
+        ImGui::BeginDisabled(prefab->override_flags == 0U || state.session.is_dirty() ||
+                             state.runtime.is_busy());
+        if (ImGui::Button("Apply Overrides to Prefab...")) {
+          state.pending_prefab_author_action = prefab_author_action::apply;
+          state.pending_prefab_instance_uuid = prefab->instance_uuid;
+          state.pending_prefab_source_uuid = prefab->source_node_uuid;
+        }
+        ImGui::EndDisabled();
+      }
       ImGui::Separator();
       if (prefab->is_read_only) {
         const auto instance_uuid = prefab->instance_uuid;

@@ -52,7 +52,7 @@ namespace {
 #endif
 }
 
-[[nodiscard]] std::string make_uuid() {
+[[nodiscard]] std::string make_uuid_value() {
   std::array<std::uint8_t, 16> bytes{};
   std::random_device random;
   for (auto& byte : bytes) {
@@ -72,6 +72,17 @@ namespace {
 }
 
 } // namespace
+
+result make_editor_uuid(std::string& output) noexcept {
+  try {
+    output = make_uuid_value();
+    return result::success;
+  } catch (const std::bad_alloc&) {
+    return result::out_of_memory;
+  } catch (...) {
+    return result::internal;
+  }
+}
 
 result make_asset_uri(const std::filesystem::path& asset_root, const std::filesystem::path& path,
                       std::string& output) noexcept {
@@ -152,7 +163,7 @@ result editor_session::create_empty(gneiss_application application, gneiss_world
 
 result editor_session::create_empty(gneiss_application application, gneiss_world world) noexcept {
   try {
-    return create_empty(application, world, make_uuid());
+    return create_empty(application, world, make_uuid_value());
   } catch (const std::bad_alloc&) {
     return result::out_of_memory;
   } catch (...) {
@@ -336,7 +347,7 @@ result editor_session::create_node(std::string_view name, scene_node_id parent,
     return result::invalid_state;
   }
   try {
-    const auto uuid = make_uuid();
+    const auto uuid = make_uuid_value();
     scene_node_desc desc = GNEISS_SCENE_NODE_DESC_INIT;
     desc.uuid = uuid.data();
     desc.uuid_length = uuid.size();
@@ -366,7 +377,7 @@ result editor_session::create_prefab_instance(std::string_view name, std::string
     return result::invalid_argument;
   }
   try {
-    const auto uuid = make_uuid();
+    const auto uuid = make_uuid_value();
     scene_prefab_instance_desc desc = GNEISS_SCENE_PREFAB_INSTANCE_DESC_INIT;
     desc.parent = parent.get();
     desc.instance_uuid = uuid.data();
@@ -609,7 +620,7 @@ result editor_session::duplicate_subtree(scene_node_id node, scene_node_id paren
       while (current.is_valid()) {
         if (current == node) {
           sources.push_back(candidate.uuid);
-          targets.push_back(make_uuid());
+          targets.push_back(make_uuid_value());
           break;
         }
         const auto ancestor = std::ranges::find(nodes_, current, &scene_node_record::node);
@@ -752,7 +763,7 @@ result editor_session::create_mesh_renderer_node(std::string_view name, std::str
     return result::invalid_argument;
   }
   try {
-    const auto uuid = make_uuid();
+    const auto uuid = make_uuid_value();
     return create_mesh_renderer_node({.uuid = uuid,
                                       .parent_uuid = {},
                                       .display_name = name.empty() ? uuid : std::string{name},
