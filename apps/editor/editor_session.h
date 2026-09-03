@@ -117,6 +117,12 @@ public:
   [[nodiscard]] result reparent_node(scene_node_id node, scene_node_id parent) noexcept;
   /** 设置节点局部 TRS；成功后刷新缓存并标记场景已修改。 */
   [[nodiscard]] result set_local_transform(scene_node_id node, const transform& value) noexcept;
+  /** 恢复 Prefab 来源节点的单个 Transform 字段；返回操作前的有效值。 */
+  [[nodiscard]] result restore_prefab_transform_field(scene_node_id node, gneiss_field_id field_id,
+                                                      transform& out_previous) noexcept;
+  /** 恢复 Prefab 来源节点的全部 Transform 字段；返回操作前的有效值。 */
+  [[nodiscard]] result restore_prefab_transform(scene_node_id node,
+                                                transform& out_previous) noexcept;
   [[nodiscard]] result destroy_subtree(scene_node_id node,
                                        scene_subtree_snapshot& out_snapshot) noexcept;
   [[nodiscard]] result restore_subtree(const scene_subtree_snapshot& snapshot,

@@ -71,6 +71,24 @@ int main() try {
        GNEISS_SCENE_PREFAB_NODE_TRANSLATION_OVERRIDDEN) == 0U) {
     return 7;
   }
+  gneiss::transform previous_source{};
+  if (session.restore_prefab_transform_field(session.selection(),
+                                             GNEISS_TRANSFORM_FIELD_TRANSLATION,
+                                             previous_source) != gneiss::result::success ||
+      previous_source.translation[1] != 5.0F || session.selected_prefab_node() == nullptr ||
+      session.selected_prefab_node()->local_transform.translation[0] != 1.0F ||
+      session.selected_prefab_node()->local_transform.translation[1] != 0.0F ||
+      (session.selected_prefab_node()->override_flags &
+       GNEISS_SCENE_PREFAB_NODE_TRANSLATION_OVERRIDDEN) != 0U ||
+      session.set_local_transform(session.selection(), previous_source) !=
+          gneiss::result::success ||
+      (session.selected_prefab_node()->override_flags &
+       GNEISS_SCENE_PREFAB_NODE_TRANSLATION_OVERRIDDEN) == 0U ||
+      session.restore_prefab_transform(session.selection(), previous_source) !=
+          gneiss::result::success ||
+      session.selected_prefab_node()->override_flags != 0U) {
+    return 8;
+  }
   gneiss::scene_node_id prefab_root;
   if (session.create_prefab_instance("Second Lamp", prefab_uri, session.nodes()[0].node,
                                      prefab_root) != gneiss::result::success ||
@@ -78,7 +96,7 @@ int main() try {
       session.selected_prefab_node() == nullptr ||
       !session.selected_prefab_node()->is_instance_root ||
       session.selected_prefab_node()->node != prefab_root) {
-    return 8;
+    return 9;
   }
   gneiss::editor::prefab_instance_snapshot snapshot;
   if (session.destroy_prefab_instance(prefab_root, snapshot) != gneiss::result::success ||
@@ -86,7 +104,7 @@ int main() try {
       session.restore_prefab_instance(snapshot, prefab_root) != gneiss::result::success ||
       session.prefab_nodes().size() != 4U ||
       session.rename_prefab_instance(prefab_root, "Restored Lamp") != gneiss::result::success) {
-    return 9;
+    return 10;
   }
   auto moved = session.selected_prefab_node()->local_transform;
   moved.translation[1] = 3.0F;
@@ -100,7 +118,7 @@ int main() try {
       session.selected_prefab_node()->local_transform.translation[1] != 3.0F ||
       session.toggle_prefab_refresh(refresh_token, prefab_root) != gneiss::result::success ||
       session.toggle_prefab_refresh(refresh_token, prefab_root) != gneiss::result::success) {
-    return 10;
+    return 11;
   }
   session.release_prefab_refresh(refresh_token);
   return 0;

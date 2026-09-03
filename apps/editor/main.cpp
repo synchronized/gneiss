@@ -2244,8 +2244,7 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
       state.inspector.clear();
       state.inspected_entity = {};
       state.inspector_error = gneiss::result::success;
-      ImGui::TextUnformatted(prefab->is_instance_root ? "Prefab Instance"
-                                                      : "Prefab Source Node (read-only)");
+      ImGui::TextUnformatted(prefab->is_instance_root ? "Prefab Instance" : "Prefab Source Node");
       ImGui::Text("Name: %s", prefab->display_name.c_str());
       ImGui::Text("Instance UUID: %s", prefab->instance_uuid.c_str());
       if (!prefab->source_node_uuid.empty()) {
@@ -2320,6 +2319,97 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
                                   : state.session.set_local_transform(node->node, edited);
                      },
                  .merge_key = "prefab-source-transform:" + instance_uuid + ":" + source_uuid});
+          }
+        }
+        const auto restore_field = [&](const char* label, std::uint32_t flag,
+                                       gneiss_field_id field_id) {
+          ImGui::BeginDisabled((prefab->override_flags & flag) == 0U);
+          const bool requested = ImGui::Button(label);
+          ImGui::EndDisabled();
+          if (!requested) {
+            return;
+          }
+          const auto* current = state.session.find_prefab_source(instance_uuid, source_uuid);
+          gneiss::transform previous{};
+          state.history_error =
+              current == nullptr
+                  ? gneiss::result::not_found
+                  : state.session.restore_prefab_transform_field(current->node, field_id, previous);
+          current = state.session.find_prefab_source(instance_uuid, source_uuid);
+          if (state.history_error != gneiss::result::success || current == nullptr) {
+            return;
+          }
+          const auto restored = current->local_transform;
+          state.history_error = state.history.record(
+              {.label = "恢复 Prefab 来源字段",
+               .undo =
+                   [&state, instance_uuid, source_uuid, previous] {
+                     const auto* node =
+                         state.session.find_prefab_source(instance_uuid, source_uuid);
+                     return node == nullptr
+                                ? gneiss::result::not_found
+                                : state.session.set_local_transform(node->node, previous);
+                   },
+               .redo =
+                   [&state, instance_uuid, source_uuid, restored] {
+                     const auto* node =
+                         state.session.find_prefab_source(instance_uuid, source_uuid);
+                     return node == nullptr
+                                ? gneiss::result::not_found
+                                : state.session.set_local_transform(node->node, restored);
+                   },
+               .merge_key = {}});
+          if (state.history_error != gneiss::result::success) {
+            if (const auto* node = state.session.find_prefab_source(instance_uuid, source_uuid);
+                node != nullptr) {
+              (void)state.session.set_local_transform(node->node, previous);
+            }
+          }
+        };
+        restore_field("Restore Translation", GNEISS_SCENE_PREFAB_NODE_TRANSLATION_OVERRIDDEN,
+                      GNEISS_TRANSFORM_FIELD_TRANSLATION);
+        ImGui::SameLine();
+        restore_field("Restore Rotation", GNEISS_SCENE_PREFAB_NODE_ROTATION_OVERRIDDEN,
+                      GNEISS_TRANSFORM_FIELD_ROTATION);
+        ImGui::SameLine();
+        restore_field("Restore Scale", GNEISS_SCENE_PREFAB_NODE_SCALE_OVERRIDDEN,
+                      GNEISS_TRANSFORM_FIELD_SCALE);
+        const auto* current = state.session.find_prefab_source(instance_uuid, source_uuid);
+        const bool has_override = current != nullptr && current->override_flags != 0U;
+        ImGui::BeginDisabled(!has_override);
+        const bool restore_all = ImGui::Button("Restore All Transform");
+        ImGui::EndDisabled();
+        if (restore_all) {
+          gneiss::transform previous{};
+          state.history_error = state.session.restore_prefab_transform(current->node, previous);
+          current = state.session.find_prefab_source(instance_uuid, source_uuid);
+          if (state.history_error == gneiss::result::success && current != nullptr) {
+            const auto restored = current->local_transform;
+            state.history_error = state.history.record(
+                {.label = "恢复 Prefab 来源变换",
+                 .undo =
+                     [&state, instance_uuid, source_uuid, previous] {
+                       const auto* node =
+                           state.session.find_prefab_source(instance_uuid, source_uuid);
+                       return node == nullptr
+                                  ? gneiss::result::not_found
+                                  : state.session.set_local_transform(node->node, previous);
+                     },
+                 .redo =
+                     [&state, instance_uuid, source_uuid, restored] {
+                       const auto* node =
+                           state.session.find_prefab_source(instance_uuid, source_uuid);
+                       return node == nullptr
+                                  ? gneiss::result::not_found
+                                  : state.session.set_local_transform(node->node, restored);
+                     },
+                 .merge_key = {}});
+            if (state.history_error != gneiss::result::success) {
+              if (const auto* node = state.session.find_prefab_source(instance_uuid, source_uuid);
+                  node != nullptr) {
+                (void)state.session.set_local_transform(node->node, previous);
+              }
+            }
           }
         }
       } else {

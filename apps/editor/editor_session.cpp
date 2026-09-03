@@ -288,6 +288,48 @@ result editor_session::set_local_transform(scene_node_id node, const transform& 
   return result::success;
 }
 
+result editor_session::restore_prefab_transform_field(scene_node_id node, gneiss_field_id field_id,
+                                                      transform& out_previous) noexcept {
+  const auto found = std::ranges::find(prefab_nodes_, node, &prefab_node_record::node);
+  if (found == prefab_nodes_.end() || found->is_instance_root) {
+    return result::invalid_argument;
+  }
+  auto restored = found->local_transform;
+  switch (field_id) {
+  case GNEISS_TRANSFORM_FIELD_TRANSLATION:
+    std::ranges::copy(found->source_local_transform.translation, restored.translation);
+    break;
+  case GNEISS_TRANSFORM_FIELD_ROTATION:
+    std::ranges::copy(found->source_local_transform.rotation, restored.rotation);
+    break;
+  case GNEISS_TRANSFORM_FIELD_SCALE:
+    std::ranges::copy(found->source_local_transform.scale, restored.scale);
+    break;
+  default:
+    return result::invalid_argument;
+  }
+  const auto previous = found->local_transform;
+  const auto operation = set_local_transform(node, restored);
+  if (operation == result::success) {
+    out_previous = previous;
+  }
+  return operation;
+}
+
+result editor_session::restore_prefab_transform(scene_node_id node,
+                                                transform& out_previous) noexcept {
+  const auto found = std::ranges::find(prefab_nodes_, node, &prefab_node_record::node);
+  if (found == prefab_nodes_.end() || found->is_instance_root) {
+    return result::invalid_argument;
+  }
+  const auto previous = found->local_transform;
+  const auto operation = set_local_transform(node, found->source_local_transform);
+  if (operation == result::success) {
+    out_previous = previous;
+  }
+  return operation;
+}
+
 result editor_session::create_node(std::string_view name, scene_node_id parent,
                                    scene_node_id& out_node) noexcept {
   if (!is_open()) {
