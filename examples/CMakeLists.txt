@@ -186,6 +186,26 @@ if(GNEISS_ENABLE_GRANIT_PLATFORM AND TARGET gneiss_assetc)
       gneiss_target_compile_warnings(gneiss_editor_lantern_workflow_test)
       gneiss_target_output_directories(gneiss_editor_lantern_workflow_test)
       add_test(NAME gneiss.editor.lantern-workflow COMMAND gneiss_editor_lantern_workflow_test)
+      add_executable(
+        gneiss_editor_lantern_prefab_authoring_workflow_test
+        "${PROJECT_SOURCE_DIR}/apps/editor/tests/lantern_prefab_authoring_workflow_test.cpp"
+      )
+      target_link_libraries(
+        gneiss_editor_lantern_prefab_authoring_workflow_test PRIVATE gneiss_editor_session
+      )
+      target_compile_definitions(
+        gneiss_editor_lantern_prefab_authoring_workflow_test
+        PRIVATE GNEISS_EDITOR_LANTERN_PROJECT="${lantern_gallery_project_root}"
+      )
+      add_dependencies(
+        gneiss_editor_lantern_prefab_authoring_workflow_test gneiss_lantern_gallery_assets
+      )
+      gneiss_target_compile_warnings(gneiss_editor_lantern_prefab_authoring_workflow_test)
+      gneiss_target_output_directories(gneiss_editor_lantern_prefab_authoring_workflow_test)
+      add_test(
+        NAME gneiss.editor.lantern-prefab-authoring-workflow
+        COMMAND gneiss_editor_lantern_prefab_authoring_workflow_test
+      )
       if(TARGET gneiss_runtime AND TARGET gneiss_lantern_gallery_game)
         add_executable(
           gneiss_editor_lantern_runtime_workflow_test

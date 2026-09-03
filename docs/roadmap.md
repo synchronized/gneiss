@@ -403,7 +403,7 @@ libuv I/O 基础为未来 Network Service 提供复用点，但本版本不建�
 | M-133 将实例覆盖应用到来源 | P0 | 已完成 |
 | M-134 Unpack 为普通场景节点 | P1 | 已完成 |
 | M-135 Editor 操作与故障反馈 | P0 | 已完成 |
-| M-136 Lantern Gallery 作者闭环与跨平台验收 | P0 | 待开始 |
+| M-136 Lantern Gallery 作者闭环与跨平台验收 | P0 | 本地完成，待跨平台验证 |
 
 详细范围、事务边界和验收条件见
 [VER-020：0.20.0 Prefab 作者工作流](plans/VER-020-0.20.0-prefab-authoring.md)。
