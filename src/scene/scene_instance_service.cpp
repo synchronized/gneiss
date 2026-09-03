@@ -151,7 +151,7 @@ gneiss_result commit_scene(gneiss_world world, const scene_description& descript
 gneiss_result commit_prefab_instances(gneiss_world world, const scene_description& description,
                                       prefab_asset_loader& prefab_loader,
                                       render_internal::render_asset_loader& render_loader,
-                                      scene_instance& instance) {
+                                      gneiss_type_registry registry, scene_instance& instance) {
   instance.prefab_instances.reserve(description.prefab_instances.size());
   for (const auto& source : description.prefab_instances) {
     prefab_asset_lease lease;
@@ -166,9 +166,9 @@ gneiss_result commit_prefab_instances(gneiss_world world, const scene_descriptio
       return GNEISS_ERROR_INTERNAL;
     }
     std::unique_ptr<prefab_runtime_instance> runtime;
-    result = prefab_runtime_instance::create(world, render_loader, std::move(lease),
+    result = prefab_runtime_instance::create(world, render_loader, std::move(lease), registry,
                                              source.instance_uuid, parent, to_transform(source),
-                                             runtime);
+                                             source.overrides, runtime);
     if (result != GNEISS_SUCCESS) {
       return result;
     }
@@ -180,8 +180,9 @@ gneiss_result commit_prefab_instances(gneiss_world world, const scene_descriptio
 } // namespace
 
 scene_instance::scene_instance(gneiss_world world, render_internal::render_asset_loader& loader,
-                               prefab_asset_loader& prefab_loader) noexcept
-    : world_(world), loader_(loader), prefab_loader_(prefab_loader) {}
+                               prefab_asset_loader& prefab_loader,
+                               gneiss_type_registry registry) noexcept
+    : world_(world), loader_(loader), prefab_loader_(prefab_loader), registry_(registry) {}
 
 scene_instance::~scene_instance() noexcept { rollback(); }
 
@@ -373,8 +374,9 @@ gneiss_result scene_instance::create_prefab_instance(const gneiss_scene_prefab_i
     description.prefab_instances.reserve(description.prefab_instances.size() + 1U);
     prefab_instances.reserve(prefab_instances.size() + 1U);
     std::unique_ptr<prefab_runtime_instance> runtime;
-    result = prefab_runtime_instance::create(world_, loader_, std::move(lease), instance_uuid,
-                                             desc.parent, desc.local_transform, runtime);
+    result = prefab_runtime_instance::create(world_, loader_, std::move(lease), registry_,
+                                             instance_uuid, desc.parent, desc.local_transform,
+                                             author.overrides, runtime);
     if (result != GNEISS_SUCCESS) {
       return result;
     }
@@ -455,8 +457,9 @@ scene_instance::refresh_prefab_instance(gneiss_scene_node_id root,
     return result;
   }
   std::unique_ptr<prefab_runtime_instance> replacement;
-  result = prefab_runtime_instance::create(world_, loader_, std::move(lease), author.instance_uuid,
-                                           parent, transform, replacement);
+  result = prefab_runtime_instance::create(world_, loader_, std::move(lease), registry_,
+                                           author.instance_uuid, parent, transform,
+                                           author.overrides, replacement);
   if (result != GNEISS_SUCCESS) {
     return result;
   }
@@ -498,8 +501,9 @@ gneiss_result scene_instance::toggle_prefab_refresh(gneiss_scene_prefab_refresh_
   }
   auto current_lease = current->prefab_lease();
   std::unique_ptr<prefab_runtime_instance> replacement;
-  result = prefab_runtime_instance::create(world_, loader_, transaction->alternate,
-                                           author->instance_uuid, parent, transform, replacement);
+  result = prefab_runtime_instance::create(world_, loader_, transaction->alternate, registry_,
+                                           author->instance_uuid, parent, transform,
+                                           author->overrides, replacement);
   if (result != GNEISS_SUCCESS) {
     return result;
   }
@@ -1151,7 +1155,25 @@ scene_instance_service::scene_instance_service(
     gneiss_world world, const asset_internal::virtual_file_system& file_system,
     render_internal::render_asset_loader& loader, prefab_asset_loader& prefab_loader) noexcept
     : world_(world), file_system_(file_system), loader_(loader), prefab_loader_(prefab_loader),
-      domain_(allocate_domain()), instances_(domain_) {}
+      domain_(allocate_domain()), instances_(domain_) {
+  auto result = gneiss_type_registry_create(&registry_);
+  if (result == GNEISS_SUCCESS) {
+    result = gneiss_world_register_reflection(registry_);
+  }
+  if (result == GNEISS_SUCCESS) {
+    result = gneiss_type_registry_freeze(registry_);
+  }
+  if (result != GNEISS_SUCCESS && registry_ != GNEISS_NULL_TYPE_REGISTRY) {
+    (void)gneiss_type_registry_destroy(registry_);
+    registry_ = GNEISS_NULL_TYPE_REGISTRY;
+  }
+}
+
+scene_instance_service::~scene_instance_service() noexcept {
+  if (registry_ != GNEISS_NULL_TYPE_REGISTRY) {
+    (void)gneiss_type_registry_destroy(registry_);
+  }
+}
 
 gneiss_result scene_instance_service::load(std::string_view uri,
                                            gneiss_scene_instance* out_instance) noexcept {
@@ -1166,13 +1188,14 @@ gneiss_result scene_instance_service::load(std::string_view uri,
     if (result != GNEISS_SUCCESS) {
       return result;
     }
-    auto instance = std::make_unique<scene_instance>(world_, loader_, prefab_loader_);
+    auto instance = std::make_unique<scene_instance>(world_, loader_, prefab_loader_, registry_);
     result = stage_assets(description, loader_, *instance);
     if (result == GNEISS_SUCCESS) {
       result = commit_scene(world_, description, *instance);
     }
     if (result == GNEISS_SUCCESS) {
-      result = commit_prefab_instances(world_, description, prefab_loader_, loader_, *instance);
+      result = commit_prefab_instances(world_, description, prefab_loader_, loader_, registry_,
+                                       *instance);
     }
     if (result != GNEISS_SUCCESS) {
       return result;
@@ -1203,7 +1226,7 @@ gneiss_result scene_instance_service::create_empty(std::string_view scene_uuid,
     if (result != GNEISS_SUCCESS) {
       return result;
     }
-    auto instance = std::make_unique<scene_instance>(world_, loader_, prefab_loader_);
+    auto instance = std::make_unique<scene_instance>(world_, loader_, prefab_loader_, registry_);
     instance->description = std::move(description);
     return instances_.create(core::resource_type::scene_instance, std::move(instance),
                              out_instance);

@@ -37,8 +37,9 @@ public:
 
   [[nodiscard]] static gneiss_result
   create(gneiss_world world, render_internal::render_asset_loader& loader,
-         prefab_asset_lease prefab, std::string_view instance_uuid, gneiss_scene_node_id parent,
-         const gneiss_transform& root_transform,
+         prefab_asset_lease prefab, gneiss_type_registry registry, std::string_view instance_uuid,
+         gneiss_scene_node_id parent, const gneiss_transform& root_transform,
+         const std::vector<prefab_property_override>& overrides,
          std::unique_ptr<prefab_runtime_instance>& out_instance) noexcept;
 
   [[nodiscard]] gneiss_scene_node_id root() const noexcept { return root_node_; }
@@ -63,6 +64,9 @@ private:
   [[nodiscard]] gneiss_result commit(const prefab_description& description,
                                      gneiss_scene_node_id parent,
                                      const gneiss_transform& root_transform);
+  [[nodiscard]] gneiss_result
+  apply_overrides(gneiss_type_registry registry,
+                  const std::vector<prefab_property_override>& overrides) noexcept;
 
   gneiss_world world_;
   render_internal::render_asset_loader& loader_;

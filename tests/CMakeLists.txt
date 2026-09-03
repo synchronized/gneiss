@@ -604,6 +604,7 @@ add_executable(
   "${PROJECT_SOURCE_DIR}/src/render/render_resource_service.cpp"
   "${PROJECT_SOURCE_DIR}/src/scene/prefab_asset_loader.cpp"
   "${PROJECT_SOURCE_DIR}/src/scene/prefab_description.cpp"
+  "${PROJECT_SOURCE_DIR}/src/scene/prefab_property_override.cpp"
   "${PROJECT_SOURCE_DIR}/src/scene/prefab_runtime_instance.cpp"
   "${PROJECT_SOURCE_DIR}/src/scene/scene_description.cpp"
 )

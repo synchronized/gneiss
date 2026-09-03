@@ -44,7 +44,22 @@ int main() try {
       std::string_view(prefab_root.instance_uuid, prefab_root.instance_uuid_length) !=
           "30000000-0000-4000-8000-000000000012" ||
       std::string_view(prefab_source.source_node_uuid, prefab_source.source_node_uuid_length) !=
-          "30000000-0000-4000-8000-000000000002") {
+          "30000000-0000-4000-8000-000000000002" ||
+      prefab_source.local_transform.translation[0] != 3.0F) {
+    return 2;
+  }
+
+  const auto stale_loaded_root = prefab_root.node;
+  gneiss_scene_prefab_refresh_token loaded_refresh = GNEISS_NULL_SCENE_PREFAB_REFRESH_TOKEN;
+  if (gneiss_scene_instance_refresh_prefab_instance(application, scene, stale_loaded_root,
+                                                    &prefab_root.node,
+                                                    &loaded_refresh) != GNEISS_SUCCESS ||
+      prefab_root.node == GNEISS_NULL_SCENE_NODE_ID || prefab_root.node == stale_loaded_root ||
+      gneiss_scene_instance_get_prefab_node_info(application, scene, 1U, &prefab_source) !=
+          GNEISS_SUCCESS ||
+      prefab_source.local_transform.translation[0] != 3.0F ||
+      gneiss_scene_instance_release_prefab_refresh(application, scene, loaded_refresh) !=
+          GNEISS_SUCCESS) {
     return 2;
   }
 
