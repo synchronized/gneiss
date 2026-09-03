@@ -20,6 +20,8 @@ gneiss_target_output_directories(gneiss_game_module_session)
 
 add_library(
   gneiss_runtime_ipc STATIC
+  runtime_ipc_command.cpp
+  runtime_ipc_command.h
   runtime_ipc_session.cpp
   runtime_ipc_session.h
   runtime_property_editor.cpp
@@ -91,6 +93,13 @@ if(BUILD_TESTING)
   gneiss_target_compile_warnings(gneiss_runtime_ipc_session_test)
   gneiss_target_output_directories(gneiss_runtime_ipc_session_test)
   add_test(NAME gneiss.runtime.ipc-session COMMAND gneiss_runtime_ipc_session_test)
+
+  add_executable(gneiss_runtime_ipc_command_test tests/runtime_ipc_command_test.cpp)
+  target_link_libraries(gneiss_runtime_ipc_command_test PRIVATE gneiss_runtime_ipc)
+  target_compile_features(gneiss_runtime_ipc_command_test PRIVATE cxx_std_20)
+  gneiss_target_compile_warnings(gneiss_runtime_ipc_command_test)
+  gneiss_target_output_directories(gneiss_runtime_ipc_command_test)
+  add_test(NAME gneiss.runtime.ipc-command COMMAND gneiss_runtime_ipc_command_test)
 
   add_executable(
     gneiss_runtime_scene_inspection_test tests/runtime_scene_inspection_test.cpp
