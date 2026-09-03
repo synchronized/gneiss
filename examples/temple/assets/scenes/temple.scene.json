@@ -1,6 +1,6 @@
 {
   "format": "gneiss.scene",
-  "version": 2,
+  "version": 4,
   "scene_uuid": "10000000-0000-4000-8000-000000000001",
   "objects": [
     {
@@ -57,5 +57,6 @@
       "transform": {"translation": [1.35, -0.6, -1.1], "rotation": [0, -0.382683, 0, 0.92388], "scale": [1, 1.1, 0.9]},
       "components": {"mesh_renderer": {"mesh": "asset://models/temple-box.mesh.json", "material": "asset://materials/temple-untextured.material.json"}}
     }
-  ]
+  ],
+  "prefab_instances": []
 }

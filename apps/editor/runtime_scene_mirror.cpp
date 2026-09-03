@@ -10,11 +10,19 @@
 
 namespace {
 
+std::string author_key(const gneiss::ipc_inspection_node& node) {
+  if (node.prefab_instance_uuid.empty()) {
+    return "node:" + node.uuid;
+  }
+  return "prefab:" + node.prefab_instance_uuid + ":" + node.prefab_source_node_uuid;
+}
+
 bool valid_graph(const std::map<std::uint64_t, gneiss::ipc_inspection_node>& nodes) {
-  std::set<std::string, std::less<>> uuids;
+  std::set<std::string, std::less<>> author_keys;
   for (const auto& [value, node] : nodes) {
     if (!node.id.is_valid() || node.id.value != value || node.uuid.empty() ||
-        !uuids.insert(node.uuid).second) {
+        (!node.prefab_source_node_uuid.empty() && node.prefab_instance_uuid.empty()) ||
+        !author_keys.insert(author_key(node)).second) {
       return false;
     }
     if (node.parent.is_valid()) {

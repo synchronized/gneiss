@@ -36,6 +36,8 @@ bool test_write_and_revision() {
        .native_parent = 0U,
        .native_entity = entity.get(),
        .uuid = "root",
+       .prefab_instance_uuid = {},
+       .prefab_source_node_uuid = {},
        .name = "Root",
        .local_transform = GNEISS_TRANSFORM_IDENTITY,
        .component_flags = 0U,

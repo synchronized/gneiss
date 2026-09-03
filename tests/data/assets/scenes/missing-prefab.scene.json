@@ -1,6 +1,6 @@
 {
   "format": "gneiss.scene",
-  "version": 3,
+  "version": 4,
   "scene_uuid": "30000000-0000-4000-8000-000000000020",
   "objects": [],
   "prefab_instances": [
@@ -12,7 +12,8 @@
         "translation": [0, 0, 0],
         "rotation": [0, 0, 0, 1],
         "scale": [1, 1, 1]
-      }
+      },
+      "overrides": []
     }
   ]
 }

@@ -27,7 +27,7 @@ struct runtime_ipc_session::implementation final {
   ipc_timeout_tracker heartbeat_deadline;
   runtime_ipc_state current_state = runtime_ipc_state::stopped;
   std::vector<std::string> requested_capabilities{
-      "control", "heartbeat", "logs", std::string(ipc_capability_runtime_inspection_v1),
+      "control", "heartbeat", "logs", std::string(ipc_capability_runtime_inspection_v2),
       std::string(ipc_capability_runtime_property_edit_v1)};
   std::vector<std::string> negotiated_capabilities;
   bool wants_running = false;
@@ -327,7 +327,7 @@ result runtime_ipc_session::notify_log_event(const gneiss_log_event& event) noex
 result runtime_ipc_session::notify_scene_snapshot(const ipc_inspection_batch& batch) noexcept {
   if (!implementation_ ||
       std::ranges::find(implementation_->negotiated_capabilities,
-                        ipc_capability_runtime_inspection_v1) ==
+                        ipc_capability_runtime_inspection_v2) ==
           implementation_->negotiated_capabilities.end() ||
       (implementation_->current_state != runtime_ipc_state::running &&
        implementation_->current_state != runtime_ipc_state::paused)) {

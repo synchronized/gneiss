@@ -581,6 +581,23 @@ extern "C" gneiss_result gneiss_scene_instance_set_prefab_instance_name(
   }
 }
 
+extern "C" gneiss_result gneiss_scene_instance_set_prefab_source_transform(
+    gneiss_application application, gneiss_scene_instance instance, gneiss_scene_node_id node,
+    const gneiss_transform* transform) {
+  if (transform == nullptr || node == GNEISS_NULL_SCENE_NODE_ID) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  try {
+    auto state = find_application(application);
+    const auto validation_result = validate_application(state);
+    return validation_result == GNEISS_SUCCESS
+               ? state->scenes()->set_prefab_source_transform(instance, node, *transform)
+               : validation_result;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
 extern "C" gneiss_result gneiss_scene_instance_destroy_prefab_instance(
     gneiss_application application, gneiss_scene_instance instance, gneiss_scene_node_id root) {
   try {

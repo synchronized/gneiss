@@ -17,15 +17,16 @@
 #include <new>
 #include <numbers>
 #include <numeric>
+#include <type_traits>
 #include <unordered_map>
 
 namespace {
 
 using gneiss::scene_internal::scene_diagnostic;
 
-constexpr std::uint64_t schema_version = 3;
-constexpr std::uint64_t oldest_schema_version = 1;
+constexpr std::uint64_t schema_version = 4;
 constexpr std::string_view scene_format = "gneiss.scene";
+constexpr char hex_digits[] = "0123456789abcdef";
 
 void fail(scene_diagnostic& diagnostic, gneiss_result result, std::string_view path,
           std::string_view message, std::size_t byte_offset = 0) noexcept {
@@ -250,6 +251,152 @@ template <std::size_t Size>
                           diagnostic);
 }
 
+[[nodiscard]] int hex_value(char value) noexcept {
+  if (value >= '0' && value <= '9') {
+    return value - '0';
+  }
+  if (value >= 'a' && value <= 'f') {
+    return value - 'a' + 10;
+  }
+  return -1;
+}
+
+[[nodiscard]] bool parse_type_id(yyjson_val* value, gneiss_type_id& output) noexcept {
+  if (!yyjson_is_str(value) || yyjson_get_len(value) != 32U) {
+    return false;
+  }
+  gneiss_type_id parsed{};
+  const auto* text = yyjson_get_str(value);
+  for (std::size_t index = 0U; index < 16U; ++index) {
+    const auto high = hex_value(text[index * 2U]);
+    const auto low = hex_value(text[index * 2U + 1U]);
+    if (high < 0 || low < 0) {
+      return false;
+    }
+    parsed.bytes[index] = static_cast<std::uint8_t>((high << 4) | low);
+  }
+  if (std::ranges::all_of(parsed.bytes, [](std::uint8_t byte) { return byte == 0U; })) {
+    return false;
+  }
+  output = parsed;
+  return true;
+}
+
+template <std::size_t Size>
+[[nodiscard]] bool parse_override_float_array(yyjson_val* value,
+                                              std::array<float, Size>& output) noexcept {
+  if (!yyjson_is_arr(value) || yyjson_arr_size(value) != Size) {
+    return false;
+  }
+  for (std::size_t index = 0U; index < Size; ++index) {
+    auto* item = yyjson_arr_get(value, index);
+    const auto number = yyjson_get_num(item);
+    if (!yyjson_is_num(item) || !std::isfinite(number) ||
+        std::abs(number) > std::numeric_limits<float>::max()) {
+      return false;
+    }
+    output[index] = static_cast<float>(number);
+  }
+  return true;
+}
+
+[[nodiscard]] bool parse_override_value(yyjson_val* object,
+                                        gneiss::scene_internal::prefab_property_value& output) {
+  if (!yyjson_is_obj(object)) {
+    return false;
+  }
+  auto* kind_value = yyjson_obj_get(object, "kind");
+  auto* value = yyjson_obj_get(object, "value");
+  if (!yyjson_is_str(kind_value)) {
+    return false;
+  }
+  const auto kind = json_string(kind_value);
+  gneiss::scene_internal::prefab_property_value parsed;
+  if (kind == "bool" && yyjson_is_bool(value)) {
+    parsed.payload = yyjson_get_bool(value);
+  } else if (kind == "int64" && yyjson_is_sint(value)) {
+    parsed.payload = yyjson_get_sint(value);
+  } else if (kind == "uint64" && yyjson_is_uint(value)) {
+    parsed.payload = yyjson_get_uint(value);
+  } else if (kind == "float32" && yyjson_is_num(value) && std::isfinite(yyjson_get_num(value)) &&
+             std::abs(yyjson_get_num(value)) <= std::numeric_limits<float>::max()) {
+    parsed.payload = static_cast<float>(yyjson_get_num(value));
+  } else if (kind == "float64" && yyjson_is_num(value) && std::isfinite(yyjson_get_num(value))) {
+    parsed.payload = yyjson_get_num(value);
+  } else if (kind == "string" && yyjson_is_str(value)) {
+    parsed.payload = std::string(json_string(value));
+  } else if (kind == "type_id") {
+    gneiss_type_id id{};
+    if (!parse_type_id(value, id)) {
+      return false;
+    }
+    std::array<std::uint8_t, 16> bytes{};
+    std::ranges::copy(id.bytes, bytes.begin());
+    parsed.payload = bytes;
+  } else if (kind == "vec3") {
+    std::array<float, 3> numbers{};
+    if (!parse_override_float_array(value, numbers)) {
+      return false;
+    }
+    parsed.payload = numbers;
+  } else if (kind == "quaternion") {
+    std::array<float, 4> numbers{};
+    if (!parse_override_float_array(value, numbers)) {
+      return false;
+    }
+    parsed.payload = numbers;
+  } else {
+    return false;
+  }
+  output = std::move(parsed);
+  return true;
+}
+
+[[nodiscard]] bool parse_prefab_override(yyjson_val* value, std::size_t instance_index,
+                                         std::size_t override_index, std::string_view instance_uuid,
+                                         gneiss::scene_internal::prefab_property_override& output,
+                                         scene_diagnostic& diagnostic) {
+  const auto path = "/prefab_instances/" + std::to_string(instance_index) + "/overrides/" +
+                    std::to_string(override_index);
+  if (!yyjson_is_obj(value)) {
+    fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, path, "覆盖必须是对象");
+    return false;
+  }
+  std::string source_node_uuid;
+  if (!read_required_string(value, "source_node_uuid", path, source_node_uuid, diagnostic) ||
+      !is_canonical_uuid(source_node_uuid)) {
+    if (diagnostic.result == GNEISS_SUCCESS) {
+      fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, path + "/source_node_uuid",
+           "源节点 UUID 必须是小写规范形式");
+    }
+    return false;
+  }
+  gneiss_type_id type_id{};
+  if (!parse_type_id(yyjson_obj_get(value, "type_id"), type_id)) {
+    fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, path + "/type_id",
+         "Type ID 必须是非零的 32 位小写十六进制");
+    return false;
+  }
+  auto* field = yyjson_obj_get(value, "field_id");
+  if (!yyjson_is_uint(field) || yyjson_get_uint(field) == 0U ||
+      yyjson_get_uint(field) > std::numeric_limits<gneiss_field_id>::max()) {
+    fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, path + "/field_id",
+         "Field ID 必须是非零 uint32");
+    return false;
+  }
+  gneiss::scene_internal::prefab_property_value property_value;
+  if (!parse_override_value(yyjson_obj_get(value, "value"), property_value)) {
+    fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, path + "/value", "覆盖属性值无效");
+    return false;
+  }
+  output = {.key = {.node = {.instance_uuid = std::string(instance_uuid),
+                             .source_node_uuid = std::move(source_node_uuid)},
+                    .type_id = type_id,
+                    .field_id = static_cast<gneiss_field_id>(yyjson_get_uint(field))},
+            .value = std::move(property_value)};
+  return true;
+}
+
 [[nodiscard]] bool
 parse_prefab_instance(yyjson_val* value, std::size_t index,
                       gneiss::scene_internal::prefab_instance_description& output,
@@ -299,6 +446,31 @@ parse_prefab_instance(yyjson_val* value, std::size_t index,
   output.translation = transform.translation;
   output.rotation = transform.rotation;
   output.scale = transform.scale;
+  auto* overrides = yyjson_obj_get(value, "overrides");
+  if (!yyjson_is_arr(overrides)) {
+    fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, path + "/overrides", "overrides 必须是数组");
+    return false;
+  }
+  output.overrides.reserve(yyjson_arr_size(overrides));
+  std::size_t override_index = 0U;
+  std::size_t override_maximum = 0U;
+  yyjson_val* override_value = nullptr;
+  yyjson_arr_foreach(overrides, override_index, override_maximum, override_value) {
+    output.overrides.emplace_back();
+    if (!parse_prefab_override(override_value, index, override_index, output.instance_uuid,
+                               output.overrides.back(), diagnostic)) {
+      return false;
+    }
+  }
+  std::ranges::sort(output.overrides, [](const auto& left, const auto& right) {
+    return gneiss::scene_internal::prefab_property_override_key_less(left.key, right.key);
+  });
+  if (std::ranges::adjacent_find(output.overrides, [](const auto& left, const auto& right) {
+        return left.key == right.key;
+      }) != output.overrides.end()) {
+    fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, path + "/overrides", "覆盖作者键重复");
+    return false;
+  }
   return true;
 }
 
@@ -452,6 +624,90 @@ make_author_object(yyjson_mut_doc* document,
   return put_value(document, object, "components", components) ? object : nullptr;
 }
 
+[[nodiscard]] std::string type_id_text(gneiss_type_id id) {
+  std::string text(32U, '0');
+  for (std::size_t index = 0U; index < 16U; ++index) {
+    text[index * 2U] = hex_digits[id.bytes[index] >> 4U];
+    text[index * 2U + 1U] = hex_digits[id.bytes[index] & 0x0FU];
+  }
+  return text;
+}
+
+[[nodiscard]] yyjson_mut_val*
+make_override_value(yyjson_mut_doc* document,
+                    const gneiss::scene_internal::prefab_property_value& source) {
+  auto* object = yyjson_mut_obj(document);
+  if (object == nullptr) {
+    return nullptr;
+  }
+  const auto added = std::visit(
+      [&](const auto& payload) {
+        using value_type = std::decay_t<decltype(payload)>;
+        if constexpr (std::is_same_v<value_type, std::monostate>) {
+          return false;
+        } else if constexpr (std::is_same_v<value_type, bool>) {
+          return yyjson_mut_obj_add_str(document, object, "kind", "bool") &&
+                 yyjson_mut_obj_add_bool(document, object, "value", payload);
+        } else if constexpr (std::is_same_v<value_type, std::int64_t>) {
+          return yyjson_mut_obj_add_str(document, object, "kind", "int64") &&
+                 yyjson_mut_obj_add_sint(document, object, "value", payload);
+        } else if constexpr (std::is_same_v<value_type, std::uint64_t>) {
+          return yyjson_mut_obj_add_str(document, object, "kind", "uint64") &&
+                 yyjson_mut_obj_add_uint(document, object, "value", payload);
+        } else if constexpr (std::is_same_v<value_type, float>) {
+          return yyjson_mut_obj_add_str(document, object, "kind", "float32") &&
+                 yyjson_mut_obj_add_real(document, object, "value", payload);
+        } else if constexpr (std::is_same_v<value_type, double>) {
+          return yyjson_mut_obj_add_str(document, object, "kind", "float64") &&
+                 yyjson_mut_obj_add_real(document, object, "value", payload);
+        } else if constexpr (std::is_same_v<value_type, std::string>) {
+          return yyjson_mut_obj_add_str(document, object, "kind", "string") &&
+                 yyjson_mut_obj_add_strncpy(document, object, "value", payload.data(),
+                                            payload.size());
+        } else if constexpr (std::is_same_v<value_type, std::array<std::uint8_t, 16>>) {
+          gneiss_type_id id{};
+          std::ranges::copy(payload, id.bytes);
+          const auto text = type_id_text(id);
+          return yyjson_mut_obj_add_str(document, object, "kind", "type_id") &&
+                 yyjson_mut_obj_add_strncpy(document, object, "value", text.data(), text.size());
+        } else if constexpr (std::is_same_v<value_type, std::array<float, 3>>) {
+          return yyjson_mut_obj_add_str(document, object, "kind", "vec3") &&
+                 put_value(document, object, "value", make_float_array(document, payload));
+        } else {
+          return yyjson_mut_obj_add_str(document, object, "kind", "quaternion") &&
+                 put_value(document, object, "value", make_float_array(document, payload));
+        }
+      },
+      source.payload);
+  return added ? object : nullptr;
+}
+
+[[nodiscard]] yyjson_mut_val* make_prefab_overrides(
+    yyjson_mut_doc* document,
+    const std::vector<gneiss::scene_internal::prefab_property_override>& overrides) {
+  auto* array = yyjson_mut_arr(document);
+  if (array == nullptr) {
+    return nullptr;
+  }
+  for (const auto& source : overrides) {
+    auto* object = yyjson_mut_obj(document);
+    const auto type_text = type_id_text(source.key.type_id);
+    auto* value = make_override_value(document, source.value);
+    if (object == nullptr || value == nullptr ||
+        !yyjson_mut_obj_add_strncpy(document, object, "source_node_uuid",
+                                    source.key.node.source_node_uuid.data(),
+                                    source.key.node.source_node_uuid.size()) ||
+        !yyjson_mut_obj_add_strncpy(document, object, "type_id", type_text.data(),
+                                    type_text.size()) ||
+        !yyjson_mut_obj_add_uint(document, object, "field_id", source.key.field_id) ||
+        !yyjson_mut_obj_add_val(document, object, "value", value) ||
+        !yyjson_mut_arr_add_val(array, object)) {
+      return nullptr;
+    }
+  }
+  return array;
+}
+
 [[nodiscard]] yyjson_mut_val*
 make_author_prefab_instance(yyjson_mut_doc* document,
                             const gneiss::scene_internal::prefab_instance_description& source) {
@@ -473,7 +729,9 @@ make_author_prefab_instance(yyjson_mut_doc* document,
                  make_float_array(document, source.translation)) ||
       !put_value(document, transform, "rotation", make_float_array(document, source.rotation)) ||
       !put_value(document, transform, "scale", make_float_array(document, source.scale)) ||
-      !put_value(document, instance, "transform", transform)) {
+      !put_value(document, instance, "transform", transform) ||
+      !put_value(document, instance, "overrides",
+                 make_prefab_overrides(document, source.overrides))) {
     return nullptr;
   }
   return instance;
@@ -578,76 +836,9 @@ gneiss_result parse_current_scene_description(std::string_view json, scene_descr
   }
 }
 
-[[nodiscard]] gneiss_result migrate_camera_v1(yyjson_mut_doc* document, yyjson_mut_val* camera,
-                                              std::size_t object_index,
-                                              scene_diagnostic& diagnostic) {
-  if (!yyjson_mut_is_obj(camera)) {
-    return GNEISS_SUCCESS;
-  }
-  yyjson_mut_val* primary = yyjson_mut_obj_get(camera, "primary");
-  if (primary == nullptr) {
-    return GNEISS_SUCCESS;
-  }
-  if (yyjson_mut_obj_get(camera, "is_primary") != nullptr) {
-    fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT,
-         "/objects/" + std::to_string(object_index) + "/components/camera/is_primary",
-         "迁移目标字段已存在");
-    return diagnostic.result;
-  }
-  primary = yyjson_mut_obj_remove_key(camera, "primary");
-  if (primary == nullptr || !yyjson_mut_obj_add_val(document, camera, "is_primary", primary)) {
-    fail(diagnostic, GNEISS_ERROR_INTERNAL, "", "Camera 字段迁移失败");
-    return diagnostic.result;
-  }
-  return GNEISS_SUCCESS;
-}
-
-[[nodiscard]] gneiss_result migrate_v1_to_v2(yyjson_mut_doc* document, yyjson_mut_val* root,
-                                             scene_diagnostic& diagnostic) {
-  yyjson_mut_val* objects = yyjson_mut_obj_get(root, "objects");
-  if (yyjson_mut_is_arr(objects)) {
-    std::size_t index = 0;
-    std::size_t maximum = 0;
-    yyjson_mut_val* object = nullptr;
-    yyjson_mut_arr_foreach(objects, index, maximum, object) {
-      yyjson_mut_val* components = yyjson_mut_obj_get(object, "components");
-      const auto result =
-          migrate_camera_v1(document, yyjson_mut_obj_get(components, "camera"), index, diagnostic);
-      if (result != GNEISS_SUCCESS) {
-        return result;
-      }
-    }
-  }
-  (void)yyjson_mut_obj_remove_key(root, "version");
-  if (!yyjson_mut_obj_add_uint(document, root, "version", 2U)) {
-    fail(diagnostic, GNEISS_ERROR_OUT_OF_MEMORY, "", "无法更新场景 Schema 版本");
-    return diagnostic.result;
-  }
-  return GNEISS_SUCCESS;
-}
-
-[[nodiscard]] gneiss_result migrate_v2_to_v3(yyjson_mut_doc* document, yyjson_mut_val* root,
-                                             scene_diagnostic& diagnostic) {
-  if (yyjson_mut_obj_get(root, "prefab_instances") != nullptr) {
-    fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/prefab_instances", "迁移目标字段已存在");
-    return diagnostic.result;
-  }
-  auto* prefab_instances = yyjson_mut_arr(document);
-  (void)yyjson_mut_obj_remove_key(root, "version");
-  if (prefab_instances == nullptr ||
-      !yyjson_mut_obj_add_val(document, root, "prefab_instances", prefab_instances) ||
-      !yyjson_mut_obj_add_uint(document, root, "version", schema_version)) {
-    fail(diagnostic, GNEISS_ERROR_OUT_OF_MEMORY, "", "无法迁移场景 Prefab 实例字段");
-    return diagnostic.result;
-  }
-  return GNEISS_SUCCESS;
-}
-
-[[nodiscard]] gneiss_result migrate_scene_json(std::string_view json, std::string& out_json,
-                                               std::uint32_t& out_source_version,
+[[nodiscard]] gneiss_result prepare_scene_json(std::string_view json, std::string& out_json,
                                                scene_diagnostic& diagnostic) noexcept {
   out_json.clear();
-  out_source_version = 0U;
   try {
     yyjson_read_err error{};
     using document_ptr = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;
@@ -679,8 +870,8 @@ gneiss_result parse_current_scene_description(std::string_view json, scene_descr
       fail(diagnostic, GNEISS_ERROR_UNSUPPORTED, "/version", "场景 Schema 来自未来版本");
       return diagnostic.result;
     }
-    if (source_version < oldest_schema_version) {
-      fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/version", "场景 Schema 缺少迁移链");
+    if (source_version != schema_version) {
+      fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/version", "不支持旧版场景 Schema");
       return diagnostic.result;
     }
 
@@ -691,36 +882,21 @@ gneiss_result parse_current_scene_description(std::string_view json, scene_descr
       fail(diagnostic, GNEISS_ERROR_OUT_OF_MEMORY, "", "无法复制场景作者文档");
       return diagnostic.result;
     }
-    yyjson_mut_val* mutable_root = yyjson_mut_doc_get_root(mutable_document.get());
-    if (source_version == 1U) {
-      const auto result = migrate_v1_to_v2(mutable_document.get(), mutable_root, diagnostic);
-      if (result != GNEISS_SUCCESS) {
-        return result;
-      }
-    }
-    if (source_version <= 2U) {
-      const auto result = migrate_v2_to_v3(mutable_document.get(), mutable_root, diagnostic);
-      if (result != GNEISS_SUCCESS) {
-        return result;
-      }
-    }
-
     std::size_t output_length = 0;
     using text_ptr = std::unique_ptr<char, decltype(&std::free)>;
     text_ptr output(yyjson_mut_write(mutable_document.get(), YYJSON_WRITE_NOFLAG, &output_length),
                     &std::free);
     if (!output) {
-      fail(diagnostic, GNEISS_ERROR_OUT_OF_MEMORY, "", "无法序列化迁移后的场景");
+      fail(diagnostic, GNEISS_ERROR_OUT_OF_MEMORY, "", "无法复制场景作者文档");
       return diagnostic.result;
     }
     out_json.assign(output.get(), output_length);
-    out_source_version = static_cast<std::uint32_t>(source_version);
     return GNEISS_SUCCESS;
   } catch (const std::bad_alloc&) {
     fail(diagnostic, GNEISS_ERROR_OUT_OF_MEMORY, "", "内存不足");
     return diagnostic.result;
   } catch (...) {
-    fail(diagnostic, GNEISS_ERROR_INTERNAL, "", "场景迁移内部错误");
+    fail(diagnostic, GNEISS_ERROR_INTERNAL, "", "场景作者文档复制失败");
     return diagnostic.result;
   }
 }
@@ -730,8 +906,7 @@ gneiss_result parse_scene_description(std::string_view json, scene_description& 
   out_scene = {};
   out_diagnostic = {};
   std::string current_json;
-  std::uint32_t source_version = 0U;
-  auto result = migrate_scene_json(json, current_json, source_version, out_diagnostic);
+  auto result = prepare_scene_json(json, current_json, out_diagnostic);
   if (result != GNEISS_SUCCESS) {
     return result;
   }
@@ -741,7 +916,7 @@ gneiss_result parse_scene_description(std::string_view json, scene_description& 
     return result;
   }
   try {
-    parsed.source_schema_version = source_version;
+    parsed.source_schema_version = static_cast<std::uint32_t>(schema_version);
     parsed.author_json = std::move(current_json);
     out_scene = std::move(parsed);
     return GNEISS_SUCCESS;
@@ -751,7 +926,7 @@ gneiss_result parse_scene_description(std::string_view json, scene_description& 
     return out_diagnostic.result;
   } catch (...) {
     out_scene = {};
-    fail(out_diagnostic, GNEISS_ERROR_INTERNAL, "", "场景迁移内部错误");
+    fail(out_diagnostic, GNEISS_ERROR_INTERNAL, "", "场景作者文档复制失败");
     return out_diagnostic.result;
   }
 }
@@ -911,6 +1086,10 @@ gneiss_result serialize_scene_description(const scene_description& scene,
       } else if (!put_value(mutable_document.get(), instance, "name",
                             yyjson_mut_strncpy(mutable_document.get(), source.name.data(),
                                                source.name.size()))) {
+        return GNEISS_ERROR_OUT_OF_MEMORY;
+      }
+      if (!put_value(mutable_document.get(), instance, "overrides",
+                     make_prefab_overrides(mutable_document.get(), source.overrides))) {
         return GNEISS_ERROR_OUT_OF_MEMORY;
       }
     }

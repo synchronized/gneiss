@@ -1,9 +1,9 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- Copyright (c) 2026 Gneiss contributors -->
 
-# 场景文件格式 v3
+# 场景文件格式 v4
 
-场景使用严格 UTF-8 JSON，格式标识为 `gneiss.scene`，当前 Schema 版本为 `3`，建议文件扩展名为
+场景使用严格 UTF-8 JSON，格式标识为 `gneiss.scene`，当前 Schema 版本为 `4`，建议文件扩展名为
 `.scene.json`。公共场景实例接口通过 VFS 加载该格式，具体生命周期见
 [场景加载、实例与卸载](scene-instance.md)。
 
@@ -12,7 +12,7 @@
 ```json
 {
   "format": "gneiss.scene",
-  "version": 3,
+  "version": 4,
   "scene_uuid": "00000000-0000-4000-8000-000000000001",
   "objects": [
     {
@@ -42,7 +42,15 @@
         "translation": [2, 0, 0],
         "rotation": [0, 0, 0, 1],
         "scale": [1, 1, 1]
-      }
+      },
+      "overrides": [
+        {
+          "source_node_uuid": "10000000-0000-4000-8000-000000000002",
+          "type_id": "69644f20b2d24e488c7491f4f952ec2d",
+          "field_id": 1,
+          "value": {"kind": "vec3", "value": [0, 1, 0]}
+        }
+      ]
     }
   ]
 }
@@ -61,22 +69,21 @@
 - Mesh Renderer 的 `mesh` 与 `material` 必须是规范 `asset://` URI。
 - `prefab_instances` 必须是数组。每项使用唯一 `instance_uuid`、规范 `prefab` URI、实例根
   `transform`，以及普通场景对象 UUID 或 `null` 作为 `parent`；首版拒绝以另一个 Prefab 实例为
-  父级。实例名称 `name` 可选。
+  父级。实例名称 `name` 可选；`overrides` 是必需数组，可以为空。
+- 每项覆盖以来源节点 UUID、32 位小写十六进制 Type ID 和非零 uint32 Field ID 定位字段。`value`
+  使用显式 `kind` 与值；当前类别为 `bool`、`int64`、`uint64`、`float32`、`float64`、`string`、
+  `type_id`、`vec3` 和 `quaternion`。同一实例内的完整覆盖键不能重复。
 - 对象 UUID 与 Prefab 实例 UUID 共用场景作者身份空间，不能重复。Prefab 展开后的源节点、Entity
   ID、Scene Node ID 和 RID 均不写入场景文件。
-- 除 `name` 外，v3 的所有已列字段均为必需字段。当前受支持版本中的未知字段不会参与运行时
+- 除 `name` 外，v4 的所有已列字段均为必需字段。当前受支持版本中的未知字段不会参与运行时
   实例化，但会保留在作者 JSON 中，并在 `serialize_scene_description` 重新输出时保持其值和层级。
 
 解析成功只产生中间描述，不修改 World。语法错误诊断使用 UTF-8 文档的零起始字节偏移，字段错误
 使用类似 `/objects/0/transform` 的 JSON 路径。未来版本返回 `GNEISS_ERROR_UNSUPPORTED`。
 
-## 版本迁移
+## 版本兼容
 
-加载 v1/v2 时会按显式迁移链升级到 v3：v1→v2 将 Camera 的 `primary` 字段重命名为
-`is_primary`，v2→v3 增加空 `prefab_instances` 数组，其他已知字段及未知扩展字段保持不变。迁移后
-才执行当前 Schema 的完整校验，因此损坏旧数据不会进入运行时。迁移目标字段已经存在时拒绝文档，
-避免静默覆盖扩展数据。
-
-版本低于最早支持版本或迁移链有缺口时返回 `GNEISS_ERROR_INVALID_ARGUMENT`，高于当前版本时返回
-`GNEISS_ERROR_UNSUPPORTED`。迁移只处理内存中的作者文档，不覆盖来源文件；解析、迁移或校验失败
-时，场景实例化尚未开始，现有 World 保持不变。
+项目尚未对场景 Schema 作出外部兼容承诺。当前只接受 v4：旧版本返回
+`GNEISS_ERROR_INVALID_ARGUMENT`，未来版本返回 `GNEISS_ERROR_UNSUPPORTED`。仓库内作者场景、示例
+和测试随格式直接升级，不维护尚无真实消费者的迁移链。解析或校验失败时场景实例化尚未开始，现有
+World 保持不变。

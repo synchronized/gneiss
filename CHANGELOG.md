@@ -9,6 +9,19 @@
 
 当前没有已记录的未发布变更。
 
+## 0.19.0 - 2026-09-03
+
+- 场景格式升级到 v4，以实例 UUID、来源节点 UUID、Type ID 和 Field ID 保存类型安全、确定排序的
+  稀疏 Prefab 字段覆盖；项目尚未发布，因此旧场景版本直接拒绝而不积累迁移代码。
+- Prefab 实例化与刷新通过冻结的类型注册表验证并应用覆盖；刷新失败保留旧投影，同源多个实例的
+  作者值、资源租约和 Runtime 状态互相隔离。
+- Editor Inspector 与 Transform Gizmo 可编辑 Prefab 来源节点的实例局部 Transform，并显示来源值、
+  覆盖状态以及字段级和整 Transform 恢复操作，完整接入 Undo/Redo、脏状态与保存流程。
+- Runtime 检查协议升级到 1.3 和 `runtime_inspection_v2` 能力，使用实例 UUID 与来源 UUID 传递复合
+  作者身份；显式回写会更新当前实例覆盖，不修改共享 Prefab 资产。
+- Lantern Gallery 的三个同源灯笼实例分别覆盖灯体平移、框架缩放和玻璃平移，并由端到端 Runtime
+  工作流验证差异化投影及复合身份。
+
 ## 0.18.0 - 2026-09-03
 
 - 增加独立 `gneiss.prefab` v1 作者格式、严格结构校验、VFS Loader 与统一资源缓存；Prefab 节点

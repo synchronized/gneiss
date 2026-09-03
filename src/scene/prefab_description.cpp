@@ -32,30 +32,9 @@ void fail(gneiss::scene_internal::scene_diagnostic& diagnostic, gneiss_result re
   }
 }
 
-[[nodiscard]] bool is_canonical_uuid(std::string_view value) noexcept {
-  if (value.size() != 36U) {
-    return false;
-  }
-  for (std::size_t index = 0; index < value.size(); ++index) {
-    if (index == 8U || index == 13U || index == 18U || index == 23U) {
-      if (value[index] != '-') {
-        return false;
-      }
-    } else if ((value[index] < '0' || value[index] > '9') &&
-               (value[index] < 'a' || value[index] > 'f')) {
-      return false;
-    }
-  }
-  return true;
-}
-
 } // namespace
 
 namespace gneiss::scene_internal {
-
-bool is_valid_prefab_author_address(const prefab_author_address& address) noexcept {
-  return is_canonical_uuid(address.instance_uuid) && is_canonical_uuid(address.source_node_uuid);
-}
 
 gneiss_result parse_prefab_description(std::string_view json, prefab_description& out_prefab,
                                        scene_diagnostic& out_diagnostic) noexcept {
@@ -93,7 +72,8 @@ gneiss_result parse_prefab_description(std::string_view json, prefab_description
       fail(out_diagnostic, result, "/version", "不支持的 Prefab Schema 版本");
       return out_diagnostic.result;
     }
-    if (!yyjson_is_str(uuid) || !is_canonical_uuid({yyjson_get_str(uuid), yyjson_get_len(uuid)})) {
+    if (!yyjson_is_str(uuid) ||
+        !is_canonical_prefab_uuid({yyjson_get_str(uuid), yyjson_get_len(uuid)})) {
       fail(out_diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/prefab_uuid",
            "prefab_uuid 必须是规范的小写 UUID");
       return out_diagnostic.result;
@@ -112,11 +92,11 @@ gneiss_result parse_prefab_description(std::string_view json, prefab_description
       return out_diagnostic.result;
     }
     const std::string_view prefab_uuid{yyjson_get_str(uuid), yyjson_get_len(uuid)};
-    std::string scene_json = "{\"format\":\"gneiss.scene\",\"version\":2,\"scene_uuid\":\"";
+    std::string scene_json = "{\"format\":\"gneiss.scene\",\"version\":4,\"scene_uuid\":\"";
     scene_json.append(prefab_uuid);
     scene_json += "\",\"objects\":";
     scene_json.append(objects_json.get(), objects_length);
-    scene_json += '}';
+    scene_json += ",\"prefab_instances\":[]}";
 
     scene_description scene;
     auto result = parse_scene_description(scene_json, scene, out_diagnostic);

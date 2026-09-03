@@ -26,7 +26,7 @@ namespace gneiss::scene_internal {
 class scene_instance final {
 public:
   scene_instance(gneiss_world world, render_internal::render_asset_loader& loader,
-                 prefab_asset_loader& prefab_loader) noexcept;
+                 prefab_asset_loader& prefab_loader, gneiss_type_registry registry) noexcept;
   ~scene_instance() noexcept;
 
   scene_instance(const scene_instance&) = delete;
@@ -53,6 +53,8 @@ public:
                                                      gneiss_scene_node_id* out_root);
   [[nodiscard]] gneiss_result set_prefab_instance_name(gneiss_scene_node_id root,
                                                        std::string_view name);
+  [[nodiscard]] gneiss_result set_prefab_source_transform(gneiss_scene_node_id node,
+                                                          const gneiss_transform& transform);
   [[nodiscard]] gneiss_result destroy_prefab_instance(gneiss_scene_node_id root) noexcept;
   [[nodiscard]] gneiss_result refresh_prefab_instance(gneiss_scene_node_id root,
                                                       gneiss_scene_node_id* out_new_root,
@@ -99,6 +101,7 @@ private:
   gneiss_world world_;
   render_internal::render_asset_loader& loader_;
   prefab_asset_loader& prefab_loader_;
+  gneiss_type_registry registry_;
   std::vector<prefab_refresh_transaction> prefab_refresh_transactions_;
   gneiss_scene_prefab_refresh_token next_prefab_refresh_token_ = 1U;
 };
@@ -108,8 +111,11 @@ public:
   scene_instance_service(gneiss_world world, const asset_internal::virtual_file_system& file_system,
                          render_internal::render_asset_loader& loader,
                          prefab_asset_loader& prefab_loader) noexcept;
+  ~scene_instance_service() noexcept;
 
-  [[nodiscard]] bool is_valid() const noexcept { return domain_ != 0U; }
+  [[nodiscard]] bool is_valid() const noexcept {
+    return domain_ != 0U && registry_ != GNEISS_NULL_TYPE_REGISTRY;
+  }
   [[nodiscard]] gneiss_result load(std::string_view uri,
                                    gneiss_scene_instance* out_instance) noexcept;
   [[nodiscard]] gneiss_result create_empty(std::string_view scene_uuid,
@@ -135,6 +141,9 @@ public:
   [[nodiscard]] gneiss_result set_prefab_instance_name(gneiss_scene_instance instance,
                                                        gneiss_scene_node_id root,
                                                        std::string_view name) noexcept;
+  [[nodiscard]] gneiss_result
+  set_prefab_source_transform(gneiss_scene_instance instance, gneiss_scene_node_id node,
+                              const gneiss_transform& transform) noexcept;
   [[nodiscard]] gneiss_result destroy_prefab_instance(gneiss_scene_instance instance,
                                                       gneiss_scene_node_id root) noexcept;
   [[nodiscard]] gneiss_result
@@ -188,6 +197,7 @@ private:
   const asset_internal::virtual_file_system& file_system_;
   render_internal::render_asset_loader& loader_;
   prefab_asset_loader& prefab_loader_;
+  gneiss_type_registry registry_ = GNEISS_NULL_TYPE_REGISTRY;
   std::uint16_t domain_;
   core::rid_table<instance_ptr> instances_;
 };

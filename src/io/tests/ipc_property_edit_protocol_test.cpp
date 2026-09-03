@@ -129,7 +129,7 @@ bool test_invalid_messages() {
 
 bool test_capability_negotiation() {
   const std::vector<std::string> requested{
-      std::string(gneiss::ipc_capability_runtime_inspection_v1),
+      std::string(gneiss::ipc_capability_runtime_inspection_v2),
       std::string(gneiss::ipc_capability_runtime_property_edit_v1)};
   const std::vector<std::string> supported{
       std::string(gneiss::ipc_capability_runtime_property_edit_v1)};

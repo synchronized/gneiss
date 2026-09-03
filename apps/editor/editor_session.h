@@ -42,6 +42,8 @@ struct prefab_node_record final {
   std::string display_name;
   std::string prefab_uri;
   transform local_transform = GNEISS_TRANSFORM_IDENTITY;
+  transform source_local_transform = GNEISS_TRANSFORM_IDENTITY;
+  std::uint32_t override_flags = 0U;
   bool is_instance_root = false;
   bool is_read_only = true;
 };
@@ -89,6 +91,8 @@ public:
   [[nodiscard]] const prefab_node_record* selected_prefab_node() const noexcept;
   [[nodiscard]] const prefab_node_record*
   find_prefab_root(std::string_view instance_uuid) const noexcept;
+  [[nodiscard]] const prefab_node_record*
+  find_prefab_source(std::string_view instance_uuid, std::string_view source_uuid) const noexcept;
   [[nodiscard]] const scene_node_record* find_node(std::string_view uuid) const noexcept;
 
   [[nodiscard]] result select(scene_node_id node) noexcept;
@@ -113,6 +117,12 @@ public:
   [[nodiscard]] result reparent_node(scene_node_id node, scene_node_id parent) noexcept;
   /** 设置节点局部 TRS；成功后刷新缓存并标记场景已修改。 */
   [[nodiscard]] result set_local_transform(scene_node_id node, const transform& value) noexcept;
+  /** 恢复 Prefab 来源节点的单个 Transform 字段；返回操作前的有效值。 */
+  [[nodiscard]] result restore_prefab_transform_field(scene_node_id node, gneiss_field_id field_id,
+                                                      transform& out_previous) noexcept;
+  /** 恢复 Prefab 来源节点的全部 Transform 字段；返回操作前的有效值。 */
+  [[nodiscard]] result restore_prefab_transform(scene_node_id node,
+                                                transform& out_previous) noexcept;
   [[nodiscard]] result destroy_subtree(scene_node_id node,
                                        scene_subtree_snapshot& out_snapshot) noexcept;
   [[nodiscard]] result restore_subtree(const scene_subtree_snapshot& snapshot,

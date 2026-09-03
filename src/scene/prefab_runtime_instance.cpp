@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <new>
+#include <type_traits>
 #include <unordered_map>
 
 namespace {
@@ -15,6 +16,49 @@ gneiss_transform to_transform(const gneiss::scene_internal::object_description& 
   std::ranges::copy(object.rotation, value.rotation);
   std::ranges::copy(object.scale, value.scale);
   return value;
+}
+
+[[nodiscard]] gneiss_result
+to_native_value(const gneiss::scene_internal::prefab_property_value& source,
+                gneiss_property_value& output) noexcept {
+  output = GNEISS_PROPERTY_VALUE_INIT;
+  return std::visit(
+      [&](const auto& payload) noexcept -> gneiss_result {
+        using value_type = std::decay_t<decltype(payload)>;
+        if constexpr (std::is_same_v<value_type, std::monostate>) {
+          return GNEISS_ERROR_INVALID_ARGUMENT;
+        } else if constexpr (std::is_same_v<value_type, bool>) {
+          output.kind = GNEISS_PROPERTY_KIND_BOOL;
+          output.payload.bool_value = payload ? UINT8_C(1) : UINT8_C(0);
+        } else if constexpr (std::is_same_v<value_type, std::int64_t>) {
+          output.kind = GNEISS_PROPERTY_KIND_INT64;
+          output.payload.int64_value = payload;
+        } else if constexpr (std::is_same_v<value_type, std::uint64_t>) {
+          output.kind = GNEISS_PROPERTY_KIND_UINT64;
+          output.payload.uint64_value = payload;
+        } else if constexpr (std::is_same_v<value_type, float>) {
+          output.kind = GNEISS_PROPERTY_KIND_FLOAT32;
+          output.payload.float32_value = payload;
+        } else if constexpr (std::is_same_v<value_type, double>) {
+          output.kind = GNEISS_PROPERTY_KIND_FLOAT64;
+          output.payload.float64_value = payload;
+        } else if constexpr (std::is_same_v<value_type, std::string>) {
+          output.kind = GNEISS_PROPERTY_KIND_STRING;
+          output.payload.string_value = {payload.data(),
+                                         static_cast<std::uint32_t>(payload.size())};
+        } else if constexpr (std::is_same_v<value_type, std::array<std::uint8_t, 16>>) {
+          output.kind = GNEISS_PROPERTY_KIND_TYPE_ID;
+          std::ranges::copy(payload, output.payload.type_id_value.bytes);
+        } else if constexpr (std::is_same_v<value_type, std::array<float, 3>>) {
+          output.kind = GNEISS_PROPERTY_KIND_VEC3;
+          output.payload.vec3_value = {payload[0], payload[1], payload[2]};
+        } else {
+          output.kind = GNEISS_PROPERTY_KIND_QUATERNION;
+          output.payload.quaternion_value = {payload[0], payload[1], payload[2], payload[3]};
+        }
+        return GNEISS_SUCCESS;
+      },
+      source.payload);
 }
 
 } // namespace
@@ -30,13 +74,14 @@ prefab_runtime_instance::prefab_runtime_instance(gneiss_world world,
 
 prefab_runtime_instance::~prefab_runtime_instance() noexcept { rollback(); }
 
-gneiss_result
-prefab_runtime_instance::create(gneiss_world world, render_internal::render_asset_loader& loader,
-                                prefab_asset_lease prefab, std::string_view instance_uuid,
-                                gneiss_scene_node_id parent, const gneiss_transform& root_transform,
-                                std::unique_ptr<prefab_runtime_instance>& out_instance) noexcept {
+gneiss_result prefab_runtime_instance::create(
+    gneiss_world world, render_internal::render_asset_loader& loader, prefab_asset_lease prefab,
+    gneiss_type_registry registry, std::string_view instance_uuid, gneiss_scene_node_id parent,
+    const gneiss_transform& root_transform, const std::vector<prefab_property_override>& overrides,
+    std::unique_ptr<prefab_runtime_instance>& out_instance) noexcept {
   out_instance.reset();
-  if (world == GNEISS_NULL_WORLD || !prefab || prefab.get()->objects.empty()) {
+  if (world == GNEISS_NULL_WORLD || registry == GNEISS_NULL_TYPE_REGISTRY || !prefab ||
+      prefab.get()->objects.empty()) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
   try {
@@ -50,6 +95,9 @@ prefab_runtime_instance::create(gneiss_world world, render_internal::render_asse
     if (result == GNEISS_SUCCESS) {
       result = instance->commit(*instance->prefab_.get(), parent, root_transform);
     }
+    if (result == GNEISS_SUCCESS) {
+      result = instance->apply_overrides(registry, overrides);
+    }
     if (result != GNEISS_SUCCESS) {
       return result;
     }
@@ -60,6 +108,37 @@ prefab_runtime_instance::create(gneiss_world world, render_internal::render_asse
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;
   }
+}
+
+gneiss_result prefab_runtime_instance::apply_overrides(
+    gneiss_type_registry registry,
+    const std::vector<prefab_property_override>& overrides) noexcept {
+  for (const auto& override_value : overrides) {
+    if (override_value.key.node.instance_uuid != instance_uuid_) {
+      return GNEISS_ERROR_INVALID_ARGUMENT;
+    }
+    const auto validation = validate_prefab_property_override(registry, override_value);
+    if (validation != GNEISS_SUCCESS) {
+      return validation;
+    }
+    const auto found = std::ranges::find(
+        nodes_, override_value.key.node.source_node_uuid,
+        [](const runtime_node& node) { return std::string_view(node.address.source_node_uuid); });
+    if (found == nodes_.end()) {
+      return GNEISS_ERROR_NOT_FOUND;
+    }
+    gneiss_property_value native_value = GNEISS_PROPERTY_VALUE_INIT;
+    auto result = to_native_value(override_value.value, native_value);
+    if (result == GNEISS_SUCCESS) {
+      const gneiss_property_target target{.context = world_, .object = found->entity};
+      result = gneiss_type_registry_set_property(
+          registry, override_value.key.type_id, override_value.key.field_id, target, &native_value);
+    }
+    if (result != GNEISS_SUCCESS) {
+      return result;
+    }
+  }
+  return GNEISS_SUCCESS;
 }
 
 gneiss_result prefab_runtime_instance::stage_assets(const prefab_description& description) {
@@ -188,6 +267,21 @@ prefab_runtime_instance::find_node(std::string_view source_node_uuid) const noex
     return std::string_view(node.address.source_node_uuid);
   });
   return found == nodes_.end() ? GNEISS_NULL_SCENE_NODE_ID : found->node;
+}
+
+gneiss_entity_id
+prefab_runtime_instance::find_entity(std::string_view source_node_uuid) const noexcept {
+  const auto found = std::ranges::find(nodes_, source_node_uuid, [](const runtime_node& node) {
+    return std::string_view(node.address.source_node_uuid);
+  });
+  return found == nodes_.end() ? GNEISS_NULL_ENTITY_ID : found->entity;
+}
+
+const object_description*
+prefab_runtime_instance::find_source_object(std::string_view source_node_uuid) const noexcept {
+  const auto& objects = prefab_.get()->objects;
+  const auto found = std::ranges::find(objects, source_node_uuid, &object_description::uuid);
+  return found == objects.end() ? nullptr : &*found;
 }
 
 gneiss_result prefab_runtime_instance::get_node_info(std::size_t index,

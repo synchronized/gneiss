@@ -161,7 +161,7 @@ struct runtime_process::implementation final {
         ipc_frame acknowledgment;
         std::vector<std::string> negotiated;
         const std::vector<std::string> supported{
-            "control", "heartbeat", "logs", std::string(ipc_capability_runtime_inspection_v1),
+            "control", "heartbeat", "logs", std::string(ipc_capability_runtime_inspection_v2),
             std::string(ipc_capability_runtime_property_edit_v1)};
         auto accepted =
             accept_ipc_hello(event.frame, ipc_token, supported, acknowledgment, negotiated);

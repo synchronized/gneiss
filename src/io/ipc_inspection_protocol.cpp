@@ -92,6 +92,12 @@ bool add_node(yyjson_mut_doc* document, yyjson_mut_val* change,
   return value != nullptr && add_id(document, value, "id", node.id) &&
          add_id(document, value, "parent", node.parent) &&
          yyjson_mut_obj_add_strncpy(document, value, "uuid", node.uuid.data(), node.uuid.size()) &&
+         yyjson_mut_obj_add_strncpy(document, value, "prefab_instance_uuid",
+                                    node.prefab_instance_uuid.data(),
+                                    node.prefab_instance_uuid.size()) &&
+         yyjson_mut_obj_add_strncpy(document, value, "prefab_source_node_uuid",
+                                    node.prefab_source_node_uuid.data(),
+                                    node.prefab_source_node_uuid.size()) &&
          yyjson_mut_obj_add_strncpy(document, value, "name", node.name.data(), node.name.size()) &&
          add_float_array(document, value, "translation", node.local_transform.translation, 3U) &&
          add_float_array(document, value, "rotation", node.local_transform.rotation, 4U) &&
@@ -113,6 +119,10 @@ bool add_node(yyjson_mut_doc* document, yyjson_mut_val* change,
 bool parse_node(yyjson_val* change, gneiss::ipc_inspection_node& output) {
   auto* node = yyjson_obj_get(change, "node");
   auto* uuid = yyjson_is_obj(node) ? yyjson_obj_get(node, "uuid") : nullptr;
+  auto* prefab_instance_uuid =
+      yyjson_is_obj(node) ? yyjson_obj_get(node, "prefab_instance_uuid") : nullptr;
+  auto* prefab_source_node_uuid =
+      yyjson_is_obj(node) ? yyjson_obj_get(node, "prefab_source_node_uuid") : nullptr;
   auto* name = yyjson_is_obj(node) ? yyjson_obj_get(node, "name") : nullptr;
   auto* flags = yyjson_is_obj(node) ? yyjson_obj_get(node, "component_flags") : nullptr;
   auto* camera = yyjson_is_obj(node) ? yyjson_obj_get(node, "camera") : nullptr;
@@ -124,6 +134,10 @@ bool parse_node(yyjson_val* change, gneiss::ipc_inspection_node& output) {
   auto* material_uri = yyjson_is_obj(node) ? yyjson_obj_get(node, "material_uri") : nullptr;
   if (!yyjson_is_str(uuid) || yyjson_get_len(uuid) == 0U ||
       yyjson_get_len(uuid) > max_string_size || !yyjson_is_str(name) ||
+      !yyjson_is_str(prefab_instance_uuid) ||
+      yyjson_get_len(prefab_instance_uuid) > max_string_size ||
+      !yyjson_is_str(prefab_source_node_uuid) ||
+      yyjson_get_len(prefab_source_node_uuid) > max_string_size ||
       yyjson_get_len(name) > max_string_size || !yyjson_is_uint(flags) ||
       yyjson_get_uint(flags) > std::numeric_limits<std::uint32_t>::max() ||
       !yyjson_is_num(field_of_view) || !yyjson_is_num(near_plane) || !yyjson_is_num(far_plane) ||
@@ -136,6 +150,10 @@ bool parse_node(yyjson_val* change, gneiss::ipc_inspection_node& output) {
     return false;
   }
   output.uuid.assign(yyjson_get_str(uuid), yyjson_get_len(uuid));
+  output.prefab_instance_uuid.assign(yyjson_get_str(prefab_instance_uuid),
+                                     yyjson_get_len(prefab_instance_uuid));
+  output.prefab_source_node_uuid.assign(yyjson_get_str(prefab_source_node_uuid),
+                                        yyjson_get_len(prefab_source_node_uuid));
   output.name.assign(yyjson_get_str(name), yyjson_get_len(name));
   output.component_flags = static_cast<std::uint32_t>(yyjson_get_uint(flags));
   const auto fov = yyjson_get_real(field_of_view);
@@ -191,6 +209,8 @@ result encode_ipc_inspection_batch(const ipc_inspection_batch& batch, ipc_frame&
           (change.type == ipc_inspection_change_type::upsert &&
            (change.node.id != change.id || change.node.uuid.empty() ||
             change.node.uuid.size() > max_string_size ||
+            change.node.prefab_instance_uuid.size() > max_string_size ||
+            change.node.prefab_source_node_uuid.size() > max_string_size ||
             change.node.name.size() > max_string_size ||
             change.node.mesh_uri.size() > max_string_size ||
             change.node.material_uri.size() > max_string_size ||

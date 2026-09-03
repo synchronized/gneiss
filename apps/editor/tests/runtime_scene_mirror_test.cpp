@@ -92,11 +92,25 @@ bool test_chunked_snapshot_is_atomic() {
   return mirror.apply(first) == gneiss::result::success && mirror.nodes().size() == 2U;
 }
 
+bool test_prefab_sources_use_composite_identity() {
+  auto first = upsert(1U, 1U, 0U, "source");
+  first.node.prefab_instance_uuid = "instance-a";
+  first.node.prefab_source_node_uuid = "source";
+  auto second = upsert(2U, 1U, 0U, "source");
+  second.node.prefab_instance_uuid = "instance-b";
+  second.node.prefab_source_node_uuid = "source";
+  gneiss::editor::runtime_scene_mirror mirror;
+  const gneiss::ipc_inspection_batch full{
+      .stamp = {6U, 1U}, .is_full = true, .changes = {first, second}};
+  return mirror.apply(full) == gneiss::result::success && mirror.nodes().size() == 2U;
+}
+
 } // namespace
 
 int main() {
   return test_apply_and_resync() && test_invalid_graph_is_atomic() &&
-                 test_invalidate_preserves_visible_snapshot() && test_chunked_snapshot_is_atomic()
+                 test_invalidate_preserves_visible_snapshot() &&
+                 test_chunked_snapshot_is_atomic() && test_prefab_sources_use_composite_identity()
              ? 0
              : 1;
 }

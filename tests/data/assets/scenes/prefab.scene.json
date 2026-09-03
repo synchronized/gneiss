@@ -1,6 +1,6 @@
 {
   "format": "gneiss.scene",
-  "version": 3,
+  "version": 4,
   "scene_uuid": "30000000-0000-4000-8000-000000000010",
   "objects": [
     {
@@ -25,7 +25,15 @@
         "translation": [10, 0, 0],
         "rotation": [0, 0, 0, 1],
         "scale": [1, 1, 1]
-      }
+      },
+      "overrides": [
+        {
+          "source_node_uuid": "30000000-0000-4000-8000-000000000002",
+          "type_id": "69644f20b2d24e488c7491f4f952ec2d",
+          "field_id": 1,
+          "value": {"kind": "vec3", "value": [3, 0, 0]}
+        }
+      ]
     }
   ]
 }

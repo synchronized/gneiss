@@ -26,6 +26,8 @@ struct runtime_scene_source_node final {
   std::uint64_t native_parent = 0U;
   gneiss_entity_id native_entity = GNEISS_NULL_ENTITY_ID;
   std::string uuid;
+  std::string prefab_instance_uuid;
+  std::string prefab_source_node_uuid;
   std::string name;
   gneiss_transform local_transform = GNEISS_TRANSFORM_IDENTITY;
   std::uint32_t component_flags = 0U;
