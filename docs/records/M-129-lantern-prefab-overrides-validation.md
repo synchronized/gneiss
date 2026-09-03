@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- Copyright (c) 2026 Gneiss contributors -->
 
-# M-129 Lantern Gallery 差异化实例与本地验收记录
+# M-129 Lantern Gallery 差异化实例与跨平台验收记录
 
 ## 结果
 
@@ -21,7 +21,13 @@ Lantern Gallery 的三个灯笼继续共享同一份 Prefab，并分别为灯体
   连续会话隔离。
 - 工程版本已更新为 0.19.0，变更记录已补充本版本能力。
 
-## 待验证
+## 跨平台验证
 
-尚未推送分支，也未触发 Linux Shared/Static、Granit Runtime 和 Sanitizer Actions；这些远端操作需
-获得用户明确授权后执行。远端矩阵通过前，0.19.0 保持“本地完成，待跨平台验收”。
+- Linux Actions [运行 33714396292](https://github.com/synchronized/gneiss/actions/runs/33714396292)
+  在提交 `abfa04bc8c7384d3018762a2f16a15fa1f35c61f` 上通过。
+- GCC 与 Clang 的 Shared/Static 四种 Core 组合全部通过配置、构建与测试。
+- Granit Runtime Shared/Static 均通过构建及无头窗口测试。
+- Sanitizer Runtime 通过构建、内存错误和退出泄漏检查。
+
+0.19.0 的本地与跨平台自动化验收均已完成。Windows Static 首次出现、单独重跑通过的
+`gneiss.runtime.stop-protocol` 时序波动仍作为非阻塞风险保留。
