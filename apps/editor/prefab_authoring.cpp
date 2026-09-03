@@ -7,6 +7,7 @@
 
 #include <yyjson.h>
 
+#include <algorithm>
 #include <array>
 #include <cstdlib>
 #include <memory>
@@ -362,6 +363,112 @@ read_transform_override(yyjson_val* override_value) noexcept {
   return write_document(document.get(), output);
 }
 
+[[nodiscard]] std::optional<std::string_view>
+mapped_uuid(std::span<const unpack_prefab_uuid_mapping> mappings,
+            std::string_view source_uuid) noexcept {
+  const auto found =
+      std::ranges::find(mappings, source_uuid, &unpack_prefab_uuid_mapping::source_node_uuid);
+  return found == mappings.end() ? std::nullopt
+                                 : std::optional<std::string_view>{found->target_node_uuid};
+}
+
+[[nodiscard]] bool unpack_ids_are_valid(yyjson_val* scene_objects, yyjson_val* scene_instances,
+                                        yyjson_val* prefab_objects,
+                                        const unpack_prefab_author_request& request) {
+  if (!is_canonical_uuid(request.instance_root_uuid) ||
+      request.node_mappings.size() != yyjson_arr_size(prefab_objects)) {
+    return false;
+  }
+  std::unordered_set<std::string> sources;
+  std::unordered_set<std::string> targets{std::string{request.instance_root_uuid}};
+  for (const auto& mapping : request.node_mappings) {
+    if (!is_canonical_uuid(mapping.source_node_uuid) ||
+        !is_canonical_uuid(mapping.target_node_uuid) ||
+        !sources.emplace(mapping.source_node_uuid).second ||
+        !targets.emplace(mapping.target_node_uuid).second ||
+        !contains_uuid(prefab_objects, "uuid", mapping.source_node_uuid) ||
+        contains_uuid(scene_objects, "uuid", mapping.target_node_uuid) ||
+        contains_uuid(scene_instances, "instance_uuid", mapping.target_node_uuid)) {
+      return false;
+    }
+  }
+  return !contains_uuid(scene_objects, "uuid", request.instance_root_uuid) &&
+         !contains_uuid(scene_instances, "instance_uuid", request.instance_root_uuid);
+}
+
+[[nodiscard]] yyjson_mut_val* make_unpacked_root(yyjson_mut_doc* document, yyjson_val* instance,
+                                                 std::string_view uuid) noexcept {
+  auto* object = yyjson_mut_obj(document);
+  auto* parent = yyjson_val_mut_copy(document, yyjson_obj_get(instance, "parent"));
+  auto* transform = yyjson_val_mut_copy(document, yyjson_obj_get(instance, "transform"));
+  auto* components = yyjson_mut_obj(document);
+  const auto name = string_member(instance, "name").value_or(uuid);
+  if (object == nullptr || parent == nullptr || transform == nullptr || components == nullptr ||
+      !put_string(document, object, "uuid", uuid) || !put_string(document, object, "name", name) ||
+      !yyjson_mut_obj_add_val(document, object, "parent", parent) ||
+      !yyjson_mut_obj_add_val(document, object, "transform", transform) ||
+      !yyjson_mut_obj_add_val(document, object, "components", components)) {
+    return nullptr;
+  }
+  return object;
+}
+
+[[nodiscard]] result make_unpacked_scene(yyjson_doc* scene_source,
+                                         const unpack_prefab_author_request& request,
+                                         yyjson_doc* prefab_source, yyjson_val* instance,
+                                         std::size_t instance_index,
+                                         std::string& output) {
+  auto* overrides = yyjson_obj_get(instance, "overrides");
+  std::string projected_prefab_json;
+  auto operation = apply_overrides_to_prefab(prefab_source, overrides, projected_prefab_json);
+  if (operation != result::success) {
+    return operation;
+  }
+  document_ptr projected_prefab{
+      yyjson_read(projected_prefab_json.data(), projected_prefab_json.size(), YYJSON_READ_NOFLAG)};
+  auto* projected_root = projected_prefab ? yyjson_doc_get_root(projected_prefab.get()) : nullptr;
+  auto* source_objects =
+      yyjson_is_obj(projected_root) ? yyjson_obj_get(projected_root, "objects") : nullptr;
+  if (!yyjson_is_arr(source_objects)) {
+    return result::invalid_argument;
+  }
+
+  mutable_document_ptr document(yyjson_doc_mut_copy(scene_source, nullptr), &yyjson_mut_doc_free);
+  auto* scene_root = document ? yyjson_mut_doc_get_root(document.get()) : nullptr;
+  auto* objects =
+      yyjson_mut_is_obj(scene_root) ? yyjson_mut_obj_get(scene_root, "objects") : nullptr;
+  auto* instances =
+      yyjson_mut_is_obj(scene_root) ? yyjson_mut_obj_get(scene_root, "prefab_instances") : nullptr;
+  auto* unpacked_root = make_unpacked_root(document.get(), instance, request.instance_root_uuid);
+  if (!yyjson_mut_is_arr(objects) || !yyjson_mut_is_arr(instances) || unpacked_root == nullptr ||
+      !yyjson_mut_arr_add_val(objects, unpacked_root)) {
+    return result::out_of_memory;
+  }
+  for (std::size_t index = 0U; index < yyjson_arr_size(source_objects); ++index) {
+    auto* source_object = yyjson_arr_get(source_objects, index);
+    const auto source_uuid = string_member(source_object, "uuid");
+    const auto target_uuid =
+        source_uuid ? mapped_uuid(request.node_mappings, *source_uuid) : std::nullopt;
+    auto* object = yyjson_val_mut_copy(document.get(), source_object);
+    if (!target_uuid || object == nullptr ||
+        !put_string(document.get(), object, "uuid", *target_uuid)) {
+      return result::invalid_argument;
+    }
+    auto* source_parent = yyjson_obj_get(source_object, "parent");
+    const auto parent_uuid =
+        yyjson_is_str(source_parent)
+            ? mapped_uuid(request.node_mappings,
+                          {yyjson_get_str(source_parent), yyjson_get_len(source_parent)})
+            : std::optional<std::string_view>{request.instance_root_uuid};
+    if (!parent_uuid || !put_string(document.get(), object, "parent", *parent_uuid) ||
+        !yyjson_mut_arr_add_val(objects, object)) {
+      return result::invalid_argument;
+    }
+  }
+  (void)yyjson_mut_arr_remove(instances, instance_index);
+  return write_document(document.get(), output);
+}
+
 } // namespace
 
 result prepare_create_prefab(std::string_view scene_json,
@@ -501,6 +608,65 @@ result prepare_apply_prefab(std::string_view scene_json, std::string_view prefab
     return result::out_of_memory;
   } catch (...) {
     out_plan = {};
+    return result::internal;
+  }
+}
+
+result prepare_unpack_prefab(std::string_view scene_json, std::string_view prefab_json,
+                             const unpack_prefab_author_request& request,
+                             std::vector<author_document_change>& out_changes) noexcept {
+  out_changes.clear();
+  if (scene_json.empty() || prefab_json.empty() || request.scene_path.empty() ||
+      !is_canonical_uuid(request.instance_uuid) || request.node_mappings.empty() ||
+      gneiss_asset_uri_validate(request.prefab_uri.data(), request.prefab_uri.size()) !=
+          GNEISS_SUCCESS) {
+    return result::invalid_argument;
+  }
+  try {
+    document_ptr scene{yyjson_read(scene_json.data(), scene_json.size(), YYJSON_READ_NOFLAG)};
+    document_ptr prefab{yyjson_read(prefab_json.data(), prefab_json.size(), YYJSON_READ_NOFLAG)};
+    auto* scene_root = scene ? yyjson_doc_get_root(scene.get()) : nullptr;
+    auto* prefab_root = prefab ? yyjson_doc_get_root(prefab.get()) : nullptr;
+    auto* objects = yyjson_is_obj(scene_root) ? yyjson_obj_get(scene_root, "objects") : nullptr;
+    auto* instances =
+        yyjson_is_obj(scene_root) ? yyjson_obj_get(scene_root, "prefab_instances") : nullptr;
+    auto* prefab_objects =
+        yyjson_is_obj(prefab_root) ? yyjson_obj_get(prefab_root, "objects") : nullptr;
+    if (!yyjson_is_arr(objects) || !yyjson_is_arr(instances) || !yyjson_is_arr(prefab_objects) ||
+        !unpack_ids_are_valid(objects, instances, prefab_objects, request)) {
+      return result::invalid_argument;
+    }
+    yyjson_val* target = nullptr;
+    std::size_t target_index = 0U;
+    for (std::size_t index = 0U; index < yyjson_arr_size(instances); ++index) {
+      auto* candidate = yyjson_arr_get(instances, index);
+      const auto uuid = string_member(candidate, "instance_uuid");
+      const auto uri = string_member(candidate, "prefab");
+      if (uuid && uri && *uuid == request.instance_uuid && *uri == request.prefab_uri) {
+        target = candidate;
+        target_index = index;
+        break;
+      }
+    }
+    if (target == nullptr) {
+      return result::not_found;
+    }
+    std::string replacement;
+    const auto operation =
+        make_unpacked_scene(scene.get(), request, prefab.get(), target, target_index, replacement);
+    if (operation != result::success) {
+      return operation;
+    }
+    std::vector<author_document_change> changes;
+    changes.push_back({.path = std::string{request.scene_path},
+                       .baseline = std::string{scene_json},
+                       .replacement = std::move(replacement)});
+    out_changes.swap(changes);
+    return result::success;
+  } catch (const std::bad_alloc&) {
+    return result::out_of_memory;
+  } catch (...) {
+    out_changes.clear();
     return result::internal;
   }
 }

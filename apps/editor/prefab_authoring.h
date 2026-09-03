@@ -34,6 +34,19 @@ struct apply_prefab_author_plan final {
   std::vector<std::string> affected_instance_uuids;
 };
 
+struct unpack_prefab_uuid_mapping final {
+  std::string_view source_node_uuid;
+  std::string_view target_node_uuid;
+};
+
+struct unpack_prefab_author_request final {
+  std::string_view scene_path;
+  std::string_view prefab_uri;
+  std::string_view instance_uuid;
+  std::string_view instance_root_uuid;
+  std::span<const unpack_prefab_uuid_mapping> node_mappings;
+};
+
 /**
  * 将普通场景子树转换为 Prefab 来源和场景实例两项作者文档变更。
  *
@@ -47,6 +60,12 @@ prepare_create_prefab(std::string_view scene_json, const create_prefab_author_re
 [[nodiscard]] result prepare_apply_prefab(std::string_view scene_json, std::string_view prefab_json,
                                           const apply_prefab_author_request& request,
                                           apply_prefab_author_plan& out_plan) noexcept;
+
+/** 将指定 Prefab 实例的当前可见投影物化为拥有新 UUID 的普通场景子树。 */
+[[nodiscard]] result
+prepare_unpack_prefab(std::string_view scene_json, std::string_view prefab_json,
+                      const unpack_prefab_author_request& request,
+                      std::vector<author_document_change>& out_changes) noexcept;
 
 /** 为已提交的作者文档变更生成严格反向事务，用于 Undo。 */
 [[nodiscard]] result

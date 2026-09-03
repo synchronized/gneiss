@@ -9,6 +9,7 @@
 
 #include <yyjson.h>
 
+#include <array>
 #include <chrono>
 #include <filesystem>
 #include <fstream>
@@ -178,6 +179,69 @@ verify_documents(const std::vector<gneiss::editor::author_document_change>& chan
          yyjson_obj_get(scene_root, "unknown_scene") != nullptr;
 }
 
+[[nodiscard]] bool
+verify_unpack_change(const std::vector<gneiss::editor::author_document_change>& changes) {
+  const auto* scene = find_change(changes, "scenes/main.scene.json");
+  if (changes.size() != 1U || scene == nullptr || !scene->replacement) {
+    return false;
+  }
+  document_ptr document{
+      yyjson_read(scene->replacement->data(), scene->replacement->size(), YYJSON_READ_NOFLAG)};
+  auto* root = document ? yyjson_doc_get_root(document.get()) : nullptr;
+  auto* objects = yyjson_obj_get(root, "objects");
+  auto* instances = yyjson_obj_get(root, "prefab_instances");
+  auto* unpacked_root = yyjson_arr_get(objects, 0U);
+  auto* source_root = yyjson_arr_get(objects, 1U);
+  auto* source_child = yyjson_arr_get(objects, 2U);
+  auto* const source_root_parent = yyjson_obj_get(source_root, "parent");
+  auto* const source_child_parent = yyjson_obj_get(source_child, "parent");
+  auto* translation = yyjson_obj_get(yyjson_obj_get(source_child, "transform"), "translation");
+  return yyjson_arr_size(objects) == 3U && yyjson_arr_size(instances) == 1U &&
+         std::string_view{yyjson_get_str(yyjson_obj_get(unpacked_root, "uuid"))} ==
+             "50000000-0000-4000-8000-000000000001" &&
+         std::string_view{yyjson_get_str(source_root_parent)} ==
+             "50000000-0000-4000-8000-000000000001" &&
+         std::string_view{yyjson_get_str(source_child_parent)} ==
+             "50000000-0000-4000-8000-000000000002" &&
+         yyjson_get_num(yyjson_arr_get(translation, 0U)) == 7.0 &&
+         yyjson_obj_get(source_child, "unknown_source") != nullptr &&
+         yyjson_obj_get(root, "unknown_scene") != nullptr;
+}
+
+[[nodiscard]] bool create_rejections_are_valid(
+    const gneiss::editor::create_prefab_author_request& request,
+    std::vector<gneiss::editor::author_document_change>& changes) {
+  auto nested_scene = std::string(scene_json);
+  nested_scene.replace(
+      nested_scene.rfind("[]"), 2U,
+      R"([{"instance_uuid":"40000000-0000-4000-8000-000000000001","name":"Nested","parent":"10000000-0000-4000-8000-000000000002","prefab":"asset://prefabs/other.prefab.json","transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"overrides":[]}])");
+  if (gneiss::editor::prepare_create_prefab(nested_scene, request, changes) !=
+          gneiss::result::unsupported ||
+      !changes.empty()) {
+    return false;
+  }
+
+  auto missing = request;
+  missing.root_uuid = "50000000-0000-4000-8000-000000000001";
+  if (gneiss::editor::prepare_create_prefab(scene_json, missing, changes) !=
+          gneiss::result::not_found ||
+      !changes.empty()) {
+    return false;
+  }
+  auto mismatched = request;
+  mismatched.prefab_uri = "asset://prefabs/other.prefab.json";
+  if (gneiss::editor::prepare_create_prefab(scene_json, mismatched, changes) !=
+          gneiss::result::invalid_argument ||
+      !changes.empty()) {
+    return false;
+  }
+  auto duplicate = request;
+  duplicate.instance_uuid = sibling_uuid;
+  return gneiss::editor::prepare_create_prefab(scene_json, duplicate, changes) ==
+             gneiss::result::invalid_argument &&
+         changes.empty();
+}
+
 } // namespace
 
 int main() try {
@@ -216,36 +280,8 @@ int main() try {
     return 3;
   }
 
-  auto nested_scene = std::string(scene_json);
-  nested_scene.replace(
-      nested_scene.rfind("[]"), 2U,
-      R"([{"instance_uuid":"40000000-0000-4000-8000-000000000001","name":"Nested","parent":"10000000-0000-4000-8000-000000000002","prefab":"asset://prefabs/other.prefab.json","transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"overrides":[]}])");
-  if (gneiss::editor::prepare_create_prefab(nested_scene, request, changes) !=
-          gneiss::result::unsupported ||
-      !changes.empty()) {
+  if (!create_rejections_are_valid(request, changes)) {
     return 4;
-  }
-
-  auto missing = request;
-  missing.root_uuid = "50000000-0000-4000-8000-000000000001";
-  if (gneiss::editor::prepare_create_prefab(scene_json, missing, changes) !=
-          gneiss::result::not_found ||
-      !changes.empty()) {
-    return 5;
-  }
-  auto mismatched = request;
-  mismatched.prefab_uri = "asset://prefabs/other.prefab.json";
-  if (gneiss::editor::prepare_create_prefab(scene_json, mismatched, changes) !=
-          gneiss::result::invalid_argument ||
-      !changes.empty()) {
-    return 6;
-  }
-  auto duplicate = request;
-  duplicate.instance_uuid = sibling_uuid;
-  if (gneiss::editor::prepare_create_prefab(scene_json, duplicate, changes) !=
-          gneiss::result::invalid_argument ||
-      !changes.empty()) {
-    return 7;
   }
 
   const gneiss::editor::apply_prefab_author_request apply_request{
@@ -275,6 +311,46 @@ int main() try {
                                            apply_plan) != gneiss::result::not_ready ||
       !apply_plan.changes.empty()) {
     return 10;
+  }
+
+  const std::array mappings{gneiss::editor::unpack_prefab_uuid_mapping{
+                                .source_node_uuid = root_uuid,
+                                .target_node_uuid = "50000000-0000-4000-8000-000000000002"},
+                            gneiss::editor::unpack_prefab_uuid_mapping{
+                                .source_node_uuid = "10000000-0000-4000-8000-000000000002",
+                                .target_node_uuid = "50000000-0000-4000-8000-000000000003"}};
+  const gneiss::editor::unpack_prefab_author_request unpack_request{
+      .scene_path = "scenes/main.scene.json",
+      .prefab_uri = "asset://prefabs/lamp.prefab.json",
+      .instance_uuid = instance_uuid,
+      .instance_root_uuid = "50000000-0000-4000-8000-000000000001",
+      .node_mappings = mappings};
+  std::vector<gneiss::editor::author_document_change> unpack_changes;
+  if (gneiss::editor::prepare_unpack_prefab(apply_scene_json, apply_prefab_json, unpack_request,
+                                            unpack_changes) != gneiss::result::success ||
+      !verify_unpack_change(unpack_changes) ||
+      !write_text(root / "scenes" / "main.scene.json", apply_scene_json) ||
+      !write_text(root / "prefabs" / "lamp.prefab.json", apply_prefab_json) ||
+      gneiss::editor::commit_native_author_transaction(root, unpack_changes) !=
+          gneiss::result::success ||
+      !load_scene(root, 3U, 3U)) {
+    return 11;
+  }
+  std::vector<gneiss::editor::author_document_change> unpack_undo;
+  if (gneiss::editor::invert_author_document_changes(unpack_changes, unpack_undo) !=
+          gneiss::result::success ||
+      gneiss::editor::commit_native_author_transaction(root, unpack_undo) !=
+          gneiss::result::success ||
+      read_text(root / "scenes" / "main.scene.json") != apply_scene_json ||
+      !load_scene(root, 0U, 6U)) {
+    return 12;
+  }
+  auto invalid_unpack = unpack_request;
+  invalid_unpack.instance_root_uuid = mappings[0].target_node_uuid;
+  if (gneiss::editor::prepare_unpack_prefab(apply_scene_json, apply_prefab_json, invalid_unpack,
+                                            unpack_changes) != gneiss::result::invalid_argument ||
+      !unpack_changes.empty()) {
+    return 13;
   }
   std::filesystem::remove_all(root);
   return 0;
