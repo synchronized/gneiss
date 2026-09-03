@@ -78,6 +78,7 @@
 - [VER-017：0.17.0 Runtime 实时属性编辑](plans/VER-017-0.17.0-runtime-property-editing.md)
 - [VER-018：0.18.0 Prefab 与可复用场景基础](plans/VER-018-0.18.0-prefab-foundation.md)
 - [VER-019：0.19.0 Prefab 实例属性覆盖](plans/VER-019-0.19.0-prefab-overrides.md)
+- [VER-020：0.20.0 Prefab 作者工作流](plans/VER-020-0.20.0-prefab-authoring.md)
 - [M-100：Editor Play 工作流实施记录](records/M-100-editor-play-workflow.md)
 - [M-101：示例与跨平台验收记录](records/M-101-example-cross-platform-validation.md)
 - [M-102：Runtime 检查会话与对象标识实施记录](records/M-102-runtime-inspection-identity.md)
