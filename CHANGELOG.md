@@ -9,6 +9,23 @@
 
 当前没有已记录的未发布变更。
 
+## 0.18.0 - 2026-09-03
+
+- 增加独立 `gneiss.prefab` v1 作者格式、严格结构校验、VFS Loader 与统一资源缓存；Prefab 节点
+  复用现有场景组件 Schema，并使用稳定源节点 UUID。
+- 场景格式升级到 v3，以 Prefab URI、实例 UUID、父级、名称和实例根 Transform 保存紧凑引用；
+  加载时原子创建独立 Runtime 投影，保存时不写入展开副本。
+- 建立实例 UUID 与源节点 UUID 组成的复合作者身份，支持同源多实例、独立资源租约、失败回滚、
+  销毁后旧句柄失效和 v2 场景兼容迁移。
+- Editor 支持从 Asset Browser 放置 Prefab，在 Hierarchy 中展示实例边界与只读来源节点，并允许
+  对实例根执行重命名、Transform、复制、删除、Undo/Redo 和显式刷新。
+- 同源 Prefab 实例可作为一条原子命令统一刷新；失败保留旧投影，成功刷新可在新旧来源版本间
+  撤销和重做，同时恢复有效选择。
+- Lantern Gallery 使用一个项目自有 Prefab 复用三组灯笼，补齐可读节点名称，并覆盖源更新传播、
+  独立根 Transform、保存重开和 Runtime Play 工作流。
+- 修复 Linux CI 获取 Dear ImGui docking 锁定提交时的浅克隆问题；Windows、Linux Core、Granit
+  Runtime 和 Sanitizer 验收矩阵均通过。
+
 ## 0.17.0 - 2026-09-02
 
 - 增加版本化 Runtime 属性写入协议与能力协商，通过 Type ID、Field ID、对象 generation 和期望
