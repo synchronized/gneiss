@@ -3,6 +3,8 @@
 
 add_library(
   gneiss_uv_runtime STATIC
+  ipc_envelope.cpp
+  ipc_envelope.h
   ipc_frame.cpp
   ipc_frame.h
   ipc_inspection_protocol.cpp
@@ -32,6 +34,13 @@ gneiss_target_compile_warnings(gneiss_uv_runtime)
 gneiss_target_output_directories(gneiss_uv_runtime)
 
 if(GNEISS_BUILD_TESTING)
+  add_executable(gneiss_ipc_envelope_test tests/ipc_envelope_test.cpp)
+  target_link_libraries(gneiss_ipc_envelope_test PRIVATE gneiss_uv_runtime)
+  target_compile_features(gneiss_ipc_envelope_test PRIVATE cxx_std_20)
+  gneiss_target_compile_warnings(gneiss_ipc_envelope_test)
+  gneiss_target_output_directories(gneiss_ipc_envelope_test)
+  add_test(NAME gneiss.io.ipc-envelope COMMAND gneiss_ipc_envelope_test)
+
   add_executable(gneiss_uv_runtime_test tests/uv_runtime_test.cpp)
   target_link_libraries(gneiss_uv_runtime_test PRIVATE gneiss_uv_runtime)
   target_compile_features(gneiss_uv_runtime_test PRIVATE cxx_std_20)
