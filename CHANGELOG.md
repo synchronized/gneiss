@@ -9,6 +9,19 @@
 
 当前没有已记录的未发布变更。
 
+## 0.20.0 - 2026-09-03
+
+- Editor 可将普通场景子树创建为 Prefab，以原子作者事务同时写入来源资产并用引用实例替换原子树；
+  含嵌套 Prefab 的子树会被明确拒绝。
+- Editor 可将实例已有的 Transform 字段覆盖应用回共享 Prefab 来源，提交前检查来源修订，成功后
+  清除已应用覆盖并刷新全部同源实例。
+- Editor 可将 Prefab 实例 Unpack 为拥有新稳定 UUID 的普通作者节点，同时保留当前可见层级、组件、
+  Transform 和实例覆盖结果。
+- Create、Apply 与 Unpack 已接入层级和 Inspector 的确认操作、Undo/Redo、选择恢复、脏状态、冲突
+  反馈与失败回滚。
+- Lantern Gallery 自动化在临时工程副本中覆盖 Create、Apply、Unpack、Undo/Redo 和保存重开；
+  Windows、Linux Core、Granit Runtime 与 Sanitizer 验收矩阵均通过。
+
 ## 0.19.0 - 2026-09-03
 
 - 场景格式升级到 v4，以实例 UUID、来源节点 UUID、Type ID 和 Field ID 保存类型安全、确定排序的
