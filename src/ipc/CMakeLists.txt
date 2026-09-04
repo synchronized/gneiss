@@ -12,8 +12,8 @@ add_library(
 )
 target_link_libraries(
   gneiss_ipc
-  PUBLIC gneiss_uv_runtime gneiss::engine
-  PRIVATE gneiss::libuv
+  PUBLIC gneiss::engine
+  PRIVATE gneiss_io_uv gneiss::libuv
 )
 target_include_directories(gneiss_ipc PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_compile_features(gneiss_ipc PUBLIC cxx_std_20)

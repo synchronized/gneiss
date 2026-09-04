@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "uv_error.h"
+#include "uv_result.h"
 
 #include <uv.h>
 
-namespace gneiss {
+namespace gneiss::io_internal {
 
-result from_uv_error(int value) noexcept {
+result from_uv_status(int value) noexcept {
   switch (value) {
   case 0:
     return result::success;
@@ -30,4 +30,4 @@ result from_uv_error(int value) noexcept {
   }
 }
 
-} // namespace gneiss
+} // namespace gneiss::io_internal

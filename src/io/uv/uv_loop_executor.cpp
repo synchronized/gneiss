@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "uv_runtime.h"
+#include "uv_loop_executor.h"
 
-#include "uv_error.h"
-#include "uv_runtime_access.h"
+#include "uv_loop_access.h"
+#include "uv_result.h"
 
 #include <uv.h>
 
@@ -16,9 +16,9 @@
 #include <thread>
 #include <utility>
 
-namespace gneiss {
+namespace gneiss::io_internal {
 
-struct uv_runtime::implementation final {
+struct uv_loop_executor::implementation final {
   explicit implementation(std::size_t capacity) : queue_capacity(capacity) {}
 
   uv_loop_t loop{};
@@ -58,10 +58,10 @@ struct uv_runtime::implementation final {
   }
 
   void run() noexcept {
-    auto operation = from_uv_error(uv_loop_init(&loop));
+    auto operation = from_uv_status(uv_loop_init(&loop));
     if (operation == result::success) {
       wakeup.data = this;
-      operation = from_uv_error(uv_async_init(&loop, &wakeup, on_wakeup));
+      operation = from_uv_status(uv_async_init(&loop, &wakeup, on_wakeup));
       if (operation != result::success) {
         (void)uv_loop_close(&loop);
       }
@@ -84,16 +84,16 @@ struct uv_runtime::implementation final {
   }
 };
 
-uv_runtime::uv_runtime(std::size_t queue_capacity)
+uv_loop_executor::uv_loop_executor(std::size_t queue_capacity)
     : implementation_(std::make_unique<implementation>(queue_capacity)) {}
 
-uv_runtime::~uv_runtime() {
+uv_loop_executor::~uv_loop_executor() {
   if (implementation_) {
     (void)stop();
   }
 }
 
-result uv_runtime::start() noexcept {
+result uv_loop_executor::start() noexcept {
   if (!implementation_ || implementation_->queue_capacity == 0U) {
     return result::invalid_argument;
   }
@@ -127,7 +127,7 @@ result uv_runtime::start() noexcept {
   }
 }
 
-result uv_runtime::post(task operation) noexcept {
+result uv_loop_executor::post(task operation) noexcept {
   if (!implementation_ || !operation) {
     return result::invalid_argument;
   }
@@ -140,7 +140,7 @@ result uv_runtime::post(task operation) noexcept {
       return result::not_ready;
     }
     implementation_->tasks.push_back(std::move(operation));
-    const auto wakeup_result = from_uv_error(uv_async_send(&implementation_->wakeup));
+    const auto wakeup_result = from_uv_status(uv_async_send(&implementation_->wakeup));
     if (wakeup_result != result::success) {
       implementation_->tasks.pop_back();
     }
@@ -152,7 +152,7 @@ result uv_runtime::post(task operation) noexcept {
   }
 }
 
-result uv_runtime::stop() noexcept {
+result uv_loop_executor::stop() noexcept {
   if (!implementation_ || !implementation_->worker.joinable()) {
     return result::not_ready;
   }
@@ -167,25 +167,24 @@ result uv_runtime::stop() noexcept {
     wakeup_result = uv_async_send(&implementation_->wakeup);
   }
   implementation_->worker.join();
-  return from_uv_error(wakeup_result);
+  return from_uv_status(wakeup_result);
 }
 
-bool uv_runtime::is_running() const noexcept {
+bool uv_loop_executor::is_running() const noexcept {
   return implementation_ && implementation_->running.load(std::memory_order_acquire);
 }
 
-std::size_t uv_runtime::failed_task_count() const noexcept {
+std::size_t uv_loop_executor::failed_task_count() const noexcept {
   return implementation_ ? implementation_->failed_tasks.load(std::memory_order_relaxed) : 0U;
 }
 
-result uv_runtime_access::post(uv_runtime& runtime, task operation) noexcept {
-  if (!operation || !runtime.implementation_) {
+result uv_loop_access::post(uv_loop_executor& executor, task operation) noexcept {
+  if (!operation || !executor.implementation_) {
     return result::invalid_argument;
   }
   try {
-    return runtime.post([state = runtime.implementation_.get(), operation = std::move(operation)] {
-      operation(&state->loop);
-    });
+    return executor.post([state = executor.implementation_.get(),
+                          operation = std::move(operation)] { operation(&state->loop); });
   } catch (const std::bad_alloc&) {
     return result::out_of_memory;
   } catch (...) {
@@ -193,4 +192,4 @@ result uv_runtime_access::post(uv_runtime& runtime, task operation) noexcept {
   }
 }
 
-} // namespace gneiss
+} // namespace gneiss::io_internal

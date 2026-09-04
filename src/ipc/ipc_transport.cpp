@@ -3,9 +3,9 @@
 
 #include "ipc_transport.h"
 
-#include "uv_error.h"
-#include "uv_runtime.h"
-#include "uv_runtime_access.h"
+#include "uv_loop_access.h"
+#include "uv_loop_executor.h"
+#include "uv_result.h"
 
 #include <uv.h>
 
@@ -40,7 +40,7 @@ struct ipc_transport::implementation final {
   implementation(std::size_t events, std::size_t writes)
       : event_capacity(events), write_capacity(writes) {}
 
-  uv_runtime runtime;
+  io_internal::uv_loop_executor executor;
   uv_tcp_t listener{};
   uv_tcp_t stream{};
   uv_connect_t connect_request{};
@@ -141,7 +141,7 @@ struct ipc_transport::implementation final {
     }
     if (count < 0) {
       const auto operation =
-          count == UV_EOF ? result::success : from_uv_error(static_cast<int>(count));
+          count == UV_EOF ? result::success : io_internal::from_uv_status(static_cast<int>(count));
       if (!self->is_stopping) {
         self->emit_status(ipc_transport_event_type::disconnected, operation);
       }
@@ -150,7 +150,7 @@ struct ipc_transport::implementation final {
   }
 
   result begin_read() noexcept {
-    const auto operation = from_uv_error(
+    const auto operation = io_internal::from_uv_status(
         uv_read_start(reinterpret_cast<uv_stream_t*>(&stream), allocate_read_buffer, on_read));
     if (operation == result::success) {
       current_state.store(ipc_transport_state::connected, std::memory_order_release);
@@ -167,7 +167,7 @@ struct ipc_transport::implementation final {
     auto* self = static_cast<implementation*>(server->data);
     if (status < 0 || self->is_stopping) {
       if (status < 0 && !self->is_stopping) {
-        self->emit_status(ipc_transport_event_type::error, from_uv_error(status));
+        self->emit_status(ipc_transport_event_type::error, io_internal::from_uv_status(status));
       }
       return;
     }
@@ -186,15 +186,15 @@ struct ipc_transport::implementation final {
       return;
     }
 
-    const auto initialized = from_uv_error(uv_tcp_init(server->loop, &self->stream));
+    const auto initialized = io_internal::from_uv_status(uv_tcp_init(server->loop, &self->stream));
     if (initialized != result::success) {
       self->emit_status(ipc_transport_event_type::error, initialized);
       return;
     }
     self->stream_initialized = true;
     self->stream.data = self;
-    const auto accepted =
-        from_uv_error(uv_accept(server, reinterpret_cast<uv_stream_t*>(&self->stream)));
+    const auto accepted = io_internal::from_uv_status(
+        uv_accept(server, reinterpret_cast<uv_stream_t*>(&self->stream)));
     if (accepted != result::success) {
       self->emit_status(ipc_transport_event_type::error, accepted);
       self->close_stream();
@@ -214,7 +214,7 @@ struct ipc_transport::implementation final {
     }
     if (status < 0) {
       self->current_state.store(ipc_transport_state::failed, std::memory_order_release);
-      self->emit_status(ipc_transport_event_type::error, from_uv_error(status));
+      self->emit_status(ipc_transport_event_type::error, io_internal::from_uv_status(status));
       self->close_stream();
       return;
     }
@@ -230,7 +230,8 @@ struct ipc_transport::implementation final {
     auto* write = static_cast<write_request*>(request->data);
     write->owner->pending_writes.fetch_sub(1U, std::memory_order_release);
     if (status < 0 && !write->owner->is_stopping) {
-      write->owner->emit_status(ipc_transport_event_type::error, from_uv_error(status));
+      write->owner->emit_status(ipc_transport_event_type::error,
+                                io_internal::from_uv_status(status));
     }
     delete write;
   }
@@ -256,7 +257,7 @@ struct ipc_transport::implementation final {
         uv_write(&write->request, reinterpret_cast<uv_stream_t*>(&stream), &buffer, 1U, on_write);
     if (operation != 0) {
       pending_writes.fetch_sub(1U, std::memory_order_release);
-      emit_status(ipc_transport_event_type::error, from_uv_error(operation));
+      emit_status(ipc_transport_event_type::error, io_internal::from_uv_status(operation));
       delete write;
     }
   }
@@ -270,8 +271,8 @@ struct ipc_transport::implementation final {
     } while (!pending_writes.compare_exchange_weak(pending, pending + 1U, std::memory_order_acq_rel,
                                                    std::memory_order_relaxed));
 
-    const auto operation = uv_runtime_access::post(
-        runtime, [state = this, data = std::move(bytes)](uv_loop_t*) mutable {
+    const auto operation = io_internal::uv_loop_access::post(
+        executor, [state = this, data = std::move(bytes)](uv_loop_t*) mutable {
           state->write(std::move(data));
         });
     if (operation != result::success) {
@@ -313,7 +314,7 @@ result ipc_transport::start_server() noexcept {
     return result::invalid_state;
   }
   implementation_->reset_for_start(implementation::mode::server);
-  auto operation = implementation_->runtime.start();
+  auto operation = implementation_->executor.start();
   if (operation != result::success) {
     return operation;
   }
@@ -321,43 +322,45 @@ result ipc_transport::start_server() noexcept {
   try {
     auto completion = std::make_shared<std::promise<result>>();
     auto completed = completion->get_future();
-    operation = uv_runtime_access::post(implementation_->runtime, [state = implementation_.get(),
-                                                                   completion](uv_loop_t* loop) {
-      auto current = from_uv_error(uv_tcp_init(loop, &state->listener));
-      if (current == result::success) {
-        state->listener_initialized = true;
-        state->listener.data = state;
-        sockaddr_in address{};
-        current = from_uv_error(uv_ip4_addr("127.0.0.1", 0, &address));
-        if (current == result::success) {
-          current = from_uv_error(
-              uv_tcp_bind(&state->listener, reinterpret_cast<const sockaddr*>(&address), 0U));
-        }
-        if (current == result::success) {
-          current = from_uv_error(uv_listen(reinterpret_cast<uv_stream_t*>(&state->listener), 1,
-                                            implementation::on_connection));
-        }
-        if (current == result::success) {
-          sockaddr_in local{};
-          int length = sizeof(local);
-          current = from_uv_error(
-              uv_tcp_getsockname(&state->listener, reinterpret_cast<sockaddr*>(&local), &length));
+    operation = io_internal::uv_loop_access::post(
+        implementation_->executor, [state = implementation_.get(), completion](uv_loop_t* loop) {
+          auto current = io_internal::from_uv_status(uv_tcp_init(loop, &state->listener));
           if (current == result::success) {
-            state->local_endpoint = {"127.0.0.1", ntohs(local.sin_port)};
-            state->current_state.store(ipc_transport_state::listening, std::memory_order_release);
-            state->emit_status(ipc_transport_event_type::listening);
+            state->listener_initialized = true;
+            state->listener.data = state;
+            sockaddr_in address{};
+            current = io_internal::from_uv_status(uv_ip4_addr("127.0.0.1", 0, &address));
+            if (current == result::success) {
+              current = io_internal::from_uv_status(
+                  uv_tcp_bind(&state->listener, reinterpret_cast<const sockaddr*>(&address), 0U));
+            }
+            if (current == result::success) {
+              current = io_internal::from_uv_status(
+                  uv_listen(reinterpret_cast<uv_stream_t*>(&state->listener), 1,
+                            implementation::on_connection));
+            }
+            if (current == result::success) {
+              sockaddr_in local{};
+              int length = sizeof(local);
+              current = io_internal::from_uv_status(uv_tcp_getsockname(
+                  &state->listener, reinterpret_cast<sockaddr*>(&local), &length));
+              if (current == result::success) {
+                state->local_endpoint = {"127.0.0.1", ntohs(local.sin_port)};
+                state->current_state.store(ipc_transport_state::listening,
+                                           std::memory_order_release);
+                state->emit_status(ipc_transport_event_type::listening);
+              }
+            }
           }
-        }
-      }
-      if (current != result::success) {
-        state->current_state.store(ipc_transport_state::failed, std::memory_order_release);
-        state->emit_status(ipc_transport_event_type::error, current);
-        if (state->listener_initialized) {
-          uv_close(reinterpret_cast<uv_handle_t*>(&state->listener), nullptr);
-        }
-      }
-      completion->set_value(current);
-    });
+          if (current != result::success) {
+            state->current_state.store(ipc_transport_state::failed, std::memory_order_release);
+            state->emit_status(ipc_transport_event_type::error, current);
+            if (state->listener_initialized) {
+              uv_close(reinterpret_cast<uv_handle_t*>(&state->listener), nullptr);
+            }
+          }
+          completion->set_value(current);
+        });
     if (operation == result::success) {
       operation = completed.get();
     }
@@ -367,7 +370,7 @@ result ipc_transport::start_server() noexcept {
     operation = result::internal;
   }
   if (operation != result::success) {
-    (void)implementation_->runtime.stop();
+    (void)implementation_->executor.stop();
     implementation_->current_state.store(ipc_transport_state::stopped, std::memory_order_release);
   }
   return operation;
@@ -384,7 +387,7 @@ result ipc_transport::start_client(const ipc_endpoint& endpoint) noexcept {
     return result::invalid_state;
   }
   implementation_->reset_for_start(implementation::mode::client);
-  auto operation = implementation_->runtime.start();
+  auto operation = implementation_->executor.start();
   if (operation != result::success) {
     return operation;
   }
@@ -392,20 +395,21 @@ result ipc_transport::start_client(const ipc_endpoint& endpoint) noexcept {
   try {
     auto completion = std::make_shared<std::promise<result>>();
     auto completed = completion->get_future();
-    operation =
-        uv_runtime_access::post(implementation_->runtime, [state = implementation_.get(), endpoint,
-                                                           completion](uv_loop_t* loop) {
-          auto current = from_uv_error(uv_tcp_init(loop, &state->stream));
+    operation = io_internal::uv_loop_access::post(
+        implementation_->executor,
+        [state = implementation_.get(), endpoint, completion](uv_loop_t* loop) {
+          auto current = io_internal::from_uv_status(uv_tcp_init(loop, &state->stream));
           if (current == result::success) {
             state->stream_initialized = true;
             state->stream.data = state;
             state->connect_request.data = state;
             sockaddr_in address{};
-            current = from_uv_error(uv_ip4_addr(endpoint.address.c_str(), endpoint.port, &address));
+            current = io_internal::from_uv_status(
+                uv_ip4_addr(endpoint.address.c_str(), endpoint.port, &address));
             if (current == result::success) {
-              current = from_uv_error(uv_tcp_connect(&state->connect_request, &state->stream,
-                                                     reinterpret_cast<const sockaddr*>(&address),
-                                                     implementation::on_connect));
+              current = io_internal::from_uv_status(uv_tcp_connect(
+                  &state->connect_request, &state->stream,
+                  reinterpret_cast<const sockaddr*>(&address), implementation::on_connect));
             }
           }
           if (current == result::success) {
@@ -426,7 +430,7 @@ result ipc_transport::start_client(const ipc_endpoint& endpoint) noexcept {
     operation = result::internal;
   }
   if (operation != result::success) {
-    (void)implementation_->runtime.stop();
+    (void)implementation_->executor.stop();
     implementation_->current_state.store(ipc_transport_state::stopped, std::memory_order_release);
   }
   return operation;
@@ -447,12 +451,12 @@ std::size_t ipc_transport::pending_write_count() const noexcept {
 }
 
 result ipc_transport::stop() noexcept {
-  if (!implementation_ || !implementation_->runtime.is_running()) {
+  if (!implementation_ || !implementation_->executor.is_running()) {
     return result::not_ready;
   }
   implementation_->current_state.store(ipc_transport_state::stopping, std::memory_order_release);
-  auto operation = uv_runtime_access::post(
-      implementation_->runtime, [state = implementation_.get()](uv_loop_t*) {
+  auto operation = io_internal::uv_loop_access::post(
+      implementation_->executor, [state = implementation_.get()](uv_loop_t*) {
         state->is_stopping = true;
         state->close_stream();
         if (state->listener_initialized &&
@@ -463,7 +467,7 @@ result ipc_transport::stop() noexcept {
   if (operation != result::success) {
     return operation;
   }
-  operation = implementation_->runtime.stop();
+  operation = implementation_->executor.stop();
   implementation_->current_state.store(ipc_transport_state::stopped, std::memory_order_release);
   implementation_->current_mode = implementation::mode::none;
   implementation_->listener_initialized = false;

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "uv_runtime.h"
+#include "uv_loop_executor.h"
 
 #include <atomic>
 #include <chrono>
@@ -9,12 +9,12 @@
 #include <thread>
 
 int main() {
-  gneiss::uv_runtime invalid(0U);
+  gneiss::io_internal::uv_loop_executor invalid(0U);
   if (invalid.start() != gneiss::result::invalid_argument) {
     return 1;
   }
 
-  gneiss::uv_runtime runtime(2U);
+  gneiss::io_internal::uv_loop_executor runtime(2U);
   if (runtime.post([] {}) != gneiss::result::not_ready ||
       runtime.start() != gneiss::result::success || !runtime.is_running() ||
       runtime.start() != gneiss::result::invalid_state) {
