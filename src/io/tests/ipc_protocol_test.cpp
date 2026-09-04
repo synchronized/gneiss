@@ -252,12 +252,10 @@ bool test_runtime_inspection_batch_round_trip() {
 
 bool test_runtime_statistics_round_trip() {
   const gneiss::ipc_runtime_statistics source{7U, 3U, 120U, 16666667U, 240U, 12U, 15U, 2U, 1U};
-  gneiss::ipc_frame frame;
+  std::vector<std::uint8_t> payload;
   gneiss::ipc_runtime_statistics decoded;
-  return gneiss::encode_ipc_runtime_statistics(source, frame) == gneiss::result::success &&
-         frame.message_type ==
-             static_cast<std::uint16_t>(gneiss::ipc_message_type::statistics_snapshot) &&
-         gneiss::decode_ipc_runtime_statistics(frame, decoded) == gneiss::result::success &&
+  return gneiss::encode_ipc_runtime_statistics(source, payload) == gneiss::result::success &&
+         gneiss::decode_ipc_runtime_statistics(payload, decoded) == gneiss::result::success &&
          decoded.session_id == source.session_id && decoded.sequence == source.sequence &&
          decoded.frame_index == source.frame_index &&
          decoded.frame_delta_ns == source.frame_delta_ns &&

@@ -4,9 +4,11 @@
 #ifndef GNEISS_SRC_IO_IPC_STATISTICS_PROTOCOL_H_
 #define GNEISS_SRC_IO_IPC_STATISTICS_PROTOCOL_H_
 
-#include "ipc_protocol.h"
+#include <gneiss/core/result.hpp>
 
 #include <cstdint>
+#include <span>
+#include <vector>
 
 namespace gneiss {
 
@@ -23,8 +25,8 @@ struct ipc_runtime_statistics final {
 };
 
 [[nodiscard]] result encode_ipc_runtime_statistics(const ipc_runtime_statistics& statistics,
-                                                   ipc_frame& output) noexcept;
-[[nodiscard]] result decode_ipc_runtime_statistics(const ipc_frame& frame,
+                                                   std::vector<std::uint8_t>& output) noexcept;
+[[nodiscard]] result decode_ipc_runtime_statistics(std::span<const std::uint8_t> payload,
                                                    ipc_runtime_statistics& output) noexcept;
 
 } // namespace gneiss

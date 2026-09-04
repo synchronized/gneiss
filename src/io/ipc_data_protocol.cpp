@@ -163,8 +163,8 @@ result decode_ipc_inspection_resync(const ipc_envelope& envelope) noexcept {
 
 result encode_ipc_statistics_v2(const ipc_runtime_statistics& statistics,
                                 ipc_envelope& output) noexcept {
-  ipc_frame frame;
-  const auto operation = encode_ipc_runtime_statistics(statistics, frame);
+  std::vector<std::uint8_t> payload;
+  const auto operation = encode_ipc_runtime_statistics(statistics, payload);
   if (operation != result::success) {
     return operation;
   }
@@ -172,7 +172,7 @@ result encode_ipc_statistics_v2(const ipc_runtime_statistics& statistics,
             .operation = static_cast<std::uint16_t>(ipc_statistics_operation::snapshot),
             .kind = ipc_message_kind::event,
             .request_id = 0U,
-            .payload = std::move(frame.payload)};
+            .payload = std::move(payload)};
   return result::success;
 }
 
@@ -184,14 +184,7 @@ result decode_ipc_statistics_v2(const ipc_envelope& envelope,
       envelope.request_id != 0U) {
     return result::invalid_argument;
   }
-  try {
-    return decode_ipc_runtime_statistics(
-        legacy_frame(envelope, ipc_message_type::statistics_snapshot), output);
-  } catch (const std::bad_alloc&) {
-    return result::out_of_memory;
-  } catch (...) {
-    return result::internal;
-  }
+  return decode_ipc_runtime_statistics(envelope.payload, output);
 }
 
 result encode_ipc_property_write_v2(const ipc_property_write& command, std::uint32_t request_id,

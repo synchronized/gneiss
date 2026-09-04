@@ -12,8 +12,14 @@
 
 namespace gneiss {
 
+namespace {
+
+constexpr std::size_t max_json_size = 64U * 1024U;
+
+} // namespace
+
 result encode_ipc_runtime_statistics(const ipc_runtime_statistics& value,
-                                     ipc_frame& output) noexcept {
+                                     std::vector<std::uint8_t>& output) noexcept {
   if (value.session_id == 0U || value.sequence == 0U) {
     return result::invalid_argument;
   }
@@ -41,16 +47,12 @@ result encode_ipc_runtime_statistics(const ipc_runtime_statistics& value,
     std::size_t length = 0U;
     std::unique_ptr<char, decltype(&std::free)> json(
         yyjson_mut_write(document.get(), YYJSON_WRITE_NOFLAG, &length), &std::free);
-    if (!json || length > ipc_protocol_max_json_size) {
+    if (!json || length > max_json_size) {
       return json ? result::invalid_argument : result::out_of_memory;
     }
-    ipc_frame frame;
-    frame.protocol_major = ipc_protocol_major;
-    frame.protocol_minor = ipc_protocol_minor;
-    frame.message_type = static_cast<std::uint16_t>(ipc_message_type::statistics_snapshot);
-    frame.payload.assign(reinterpret_cast<const std::uint8_t*>(json.get()),
-                         reinterpret_cast<const std::uint8_t*>(json.get()) + length);
-    output = std::move(frame);
+    std::vector<std::uint8_t> encoded(reinterpret_cast<const std::uint8_t*>(json.get()),
+                                      reinterpret_cast<const std::uint8_t*>(json.get()) + length);
+    output = std::move(encoded);
     return result::success;
   } catch (const std::bad_alloc&) {
     return result::out_of_memory;
@@ -59,17 +61,14 @@ result encode_ipc_runtime_statistics(const ipc_runtime_statistics& value,
   }
 }
 
-result decode_ipc_runtime_statistics(const ipc_frame& frame,
+result decode_ipc_runtime_statistics(std::span<const std::uint8_t> payload,
                                      ipc_runtime_statistics& output) noexcept {
-  if (frame.protocol_major != ipc_protocol_major ||
-      frame.message_type != static_cast<std::uint16_t>(ipc_message_type::statistics_snapshot) ||
-      frame.payload.size() > ipc_protocol_max_json_size) {
-    return result::unsupported;
+  if (payload.size() > max_json_size) {
+    return result::invalid_argument;
   }
   try {
     std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)> document(
-        yyjson_read(reinterpret_cast<const char*>(frame.payload.data()), frame.payload.size(),
-                    YYJSON_READ_NOFLAG),
+        yyjson_read(reinterpret_cast<const char*>(payload.data()), payload.size(), YYJSON_READ_NOFLAG),
         &yyjson_doc_free);
     auto* root = document ? yyjson_doc_get_root(document.get()) : nullptr;
     constexpr const char* names[] = {"session_id",     "sequence",           "frame_index",
