@@ -3,6 +3,8 @@
 
 #include "ipc/runtime_commands.h"
 
+#include "ipc/outbound/runtime_ipc_outbound.h"
+
 #include "ipc_data_protocol.h"
 
 namespace gneiss::runtime_internal {
@@ -26,7 +28,7 @@ result handle_property_write(const ipc_envelope& envelope,
                                              .canonical_value = {}};
     ipc_envelope response_envelope;
     const auto encoded =
-        encode_ipc_property_result_v2(response, envelope.request_id, response_envelope);
+        make_property_write_result_event(response, envelope.request_id, response_envelope);
     return encoded == result::success ? context.send(std::move(response_envelope)) : encoded;
   }
   context.actions().property_writes.push_back(std::move(command));

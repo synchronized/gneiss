@@ -24,6 +24,17 @@ gneiss_target_output_directories(gneiss_game_module_session)
     ipc/inbound/inspection_commands.cpp
     ipc/inbound/property_commands.cpp
     ipc/inbound/session_commands.cpp
+    ipc/outbound/heartbeat_response.cpp
+    ipc/outbound/inspection_events.cpp
+    ipc/outbound/log_events.cpp
+    ipc/outbound/property_events.cpp
+    ipc/outbound/protocol_error_response.cpp
+    ipc/outbound/ready_event.cpp
+    ipc/outbound/runtime_ipc_outbound.h
+    ipc/outbound/session_hello_event.cpp
+    ipc/outbound/shutdown_event.cpp
+    ipc/outbound/state_event.cpp
+    ipc/outbound/statistics_events.cpp
     ipc/runtime_command_context.cpp
     ipc/runtime_command_context.h
     ipc/runtime_commands.cpp

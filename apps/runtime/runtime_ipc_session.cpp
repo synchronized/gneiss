@@ -3,11 +3,8 @@
 
 #include "runtime_ipc_session.h"
 
+#include "ipc/outbound/runtime_ipc_outbound.h"
 #include "ipc/runtime_commands.h"
-
-#include "ipc_data_protocol.h"
-
-#include <gneiss/app/runtime_log_protocol.h>
 
 #include <algorithm>
 #include <deque>
@@ -80,13 +77,13 @@ struct runtime_ipc_session::implementation final {
 
   result send_state(ipc_control_state state) noexcept {
     ipc_envelope envelope;
-    const auto operation = encode_ipc_control_state(state, envelope);
+    const auto operation = make_state_event(state, envelope);
     return operation == result::success ? send(std::move(envelope)) : operation;
   }
 
   result enter_running() noexcept {
     ipc_envelope ready;
-    auto operation = encode_ipc_control_ready(ready);
+    auto operation = make_ready_event(ready);
     if (operation == result::success) {
       operation = send(std::move(ready));
     }
@@ -142,9 +139,8 @@ result runtime_ipc_session::pump(clock::time_point now, runtime_ipc_actions& act
   for (auto& event : events) {
     if (event.type == ipc_transport_event_type::connected) {
       ipc_envelope hello;
-      auto operation = encode_ipc_session_hello({.token = implementation_->config.session_token,
-                                                 .domains = implementation_->requested_domains},
-                                                false, 1U, hello);
+      auto operation = make_session_hello_event(implementation_->config.session_token,
+                                                implementation_->requested_domains, 1U, hello);
       if (operation == result::success) {
         operation = implementation_->transport.send(hello);
       }
@@ -244,7 +240,7 @@ result runtime_ipc_session::notify_shutdown(std::int32_t exit_code) noexcept {
   auto operation = implementation_->send_state(ipc_control_state::stopping);
   if (operation == result::success) {
     ipc_envelope envelope;
-    operation = encode_ipc_session_shutdown({.exit_code = exit_code}, envelope);
+    operation = make_shutdown_event(exit_code, envelope);
     if (operation == result::success) {
       operation = implementation_->send(std::move(envelope));
     }
@@ -257,19 +253,9 @@ result runtime_ipc_session::notify_log_event(const gneiss_log_event& event) noex
                            implementation_->current_state != runtime_ipc_state::paused)) {
     return result::not_ready;
   }
-  try {
-    std::string encoded_event;
-    auto operation = app::encode_runtime_log_event(event, encoded_event);
-    ipc_envelope envelope;
-    if (operation == result::success) {
-      operation = encode_ipc_log_event(encoded_event, envelope);
-    }
-    return operation == result::success ? implementation_->send(std::move(envelope)) : operation;
-  } catch (const std::bad_alloc&) {
-    return result::out_of_memory;
-  } catch (...) {
-    return result::internal;
-  }
+  ipc_envelope envelope;
+  const auto operation = make_log_event(event, envelope);
+  return operation == result::success ? implementation_->send(std::move(envelope)) : operation;
 }
 
 result runtime_ipc_session::notify_scene_snapshot(const ipc_inspection_batch& batch) noexcept {
@@ -282,7 +268,7 @@ result runtime_ipc_session::notify_scene_snapshot(const ipc_inspection_batch& ba
     return result::not_ready;
   }
   std::vector<ipc_envelope> frames;
-  const auto operation = encode_ipc_inspection_batch_v2(batch, frames);
+  const auto operation = make_scene_snapshot_events(batch, frames);
   if (operation != result::success) {
     return operation;
   }
@@ -300,7 +286,7 @@ result runtime_ipc_session::notify_property_write_result(
     return result::not_ready;
   }
   ipc_envelope envelope;
-  const auto operation = encode_ipc_property_result_v2(
+  const auto operation = make_property_write_result_event(
       response, static_cast<std::uint32_t>(response.command_id), envelope);
   return operation == result::success ? implementation_->transport.send(envelope) : operation;
 }
@@ -311,7 +297,7 @@ result runtime_ipc_session::notify_statistics(const ipc_runtime_statistics& stat
     return result::not_ready;
   }
   ipc_envelope envelope;
-  const auto operation = encode_ipc_statistics_v2(statistics, envelope);
+  const auto operation = make_statistics_event(statistics, envelope);
   return operation == result::success ? implementation_->transport.send(envelope) : operation;
 }
 

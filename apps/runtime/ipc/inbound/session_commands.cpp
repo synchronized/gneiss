@@ -3,6 +3,8 @@
 
 #include "ipc/runtime_commands.h"
 
+#include "ipc/outbound/runtime_ipc_outbound.h"
+
 #include "ipc_session_protocol.h"
 
 namespace gneiss::runtime_internal {
@@ -15,7 +17,7 @@ result handle_heartbeat(const ipc_envelope& envelope, runtime_command_context& c
     return operation;
   }
   ipc_envelope response;
-  const auto encoded = encode_ipc_session_heartbeat(heartbeat, true, envelope.request_id, response);
+  const auto encoded = make_heartbeat_response(heartbeat, envelope.request_id, response);
   return encoded == result::success ? context.send(std::move(response)) : encoded;
 }
 
