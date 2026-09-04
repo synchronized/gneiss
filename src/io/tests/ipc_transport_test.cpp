@@ -21,14 +21,12 @@ using namespace std::chrono_literals;
     }                                                                                              \
   } while (false)
 
-gneiss::ipc_frame make_frame(std::uint16_t type, std::vector<std::uint8_t> payload) {
-  gneiss::ipc_frame frame;
-  frame.protocol_major = 1U;
-  frame.protocol_minor = 0U;
-  frame.message_type = type;
-  frame.flags = 2U;
-  frame.payload = std::move(payload);
-  return frame;
+gneiss::ipc_envelope make_envelope(std::uint16_t operation, std::vector<std::uint8_t> payload) {
+  return {.domain = gneiss::ipc_domain::control,
+          .operation = operation,
+          .kind = gneiss::ipc_message_kind::request,
+          .request_id = static_cast<std::uint32_t>(operation),
+          .payload = std::move(payload)};
 }
 
 bool wait_for_event(gneiss::ipc_transport& transport, gneiss::ipc_transport_event_type type,
@@ -50,12 +48,6 @@ bool wait_for_event(gneiss::ipc_transport& transport, gneiss::ipc_transport_even
   return false;
 }
 
-bool same_frame(const gneiss::ipc_frame& left, const gneiss::ipc_frame& right) {
-  return left.protocol_major == right.protocol_major &&
-         left.protocol_minor == right.protocol_minor && left.message_type == right.message_type &&
-         left.flags == right.flags && left.payload == right.payload;
-}
-
 bool same_envelope(const gneiss::ipc_envelope& left, const gneiss::ipc_envelope& right) {
   return left.protocol_major == right.protocol_major &&
          left.protocol_minor == right.protocol_minor && left.domain == right.domain &&
@@ -74,10 +66,10 @@ bool connect(gneiss::ipc_transport& server, gneiss::ipc_transport& client) {
   return true;
 }
 
-bool test_lifecycle_and_bidirectional_frames() {
+bool test_lifecycle_and_bidirectional_envelopes() {
   gneiss::ipc_transport server;
   gneiss::ipc_transport client;
-  GNEISS_TEST_CHECK(server.send(make_frame(1U, {})) == gneiss::result::not_ready);
+  GNEISS_TEST_CHECK(server.send(make_envelope(1U, {})) == gneiss::result::not_ready);
   GNEISS_TEST_CHECK(server.start_server() == gneiss::result::success);
   GNEISS_TEST_CHECK(server.start_server() == gneiss::result::invalid_state);
   GNEISS_TEST_CHECK(server.endpoint().address == "127.0.0.1");
@@ -85,18 +77,18 @@ bool test_lifecycle_and_bidirectional_frames() {
   GNEISS_TEST_CHECK(wait_for_event(server, gneiss::ipc_transport_event_type::listening));
   GNEISS_TEST_CHECK(connect(server, client));
 
-  const auto first = make_frame(7U, {1U, 2U, 3U});
+  const auto first = make_envelope(7U, {1U, 2U, 3U});
   gneiss::ipc_transport_event received;
   GNEISS_TEST_CHECK(client.send(first) == gneiss::result::success);
   GNEISS_TEST_CHECK(
-      wait_for_event(server, gneiss::ipc_transport_event_type::frame_received, &received));
-  GNEISS_TEST_CHECK(same_frame(received.frame, first));
+      wait_for_event(server, gneiss::ipc_transport_event_type::envelope_received, &received));
+  GNEISS_TEST_CHECK(same_envelope(received.envelope, first));
 
-  const auto second = make_frame(8U, {4U, 5U});
+  const auto second = make_envelope(8U, {4U, 5U});
   GNEISS_TEST_CHECK(server.send(second) == gneiss::result::success);
   GNEISS_TEST_CHECK(
-      wait_for_event(client, gneiss::ipc_transport_event_type::frame_received, &received));
-  GNEISS_TEST_CHECK(same_frame(received.frame, second));
+      wait_for_event(client, gneiss::ipc_transport_event_type::envelope_received, &received));
+  GNEISS_TEST_CHECK(same_envelope(received.envelope, second));
 
   GNEISS_TEST_CHECK(client.stop() == gneiss::result::success);
   GNEISS_TEST_CHECK(wait_for_event(server, gneiss::ipc_transport_event_type::disconnected));
@@ -123,11 +115,6 @@ bool test_invalid_arguments_and_failed_connection() {
   gneiss::ipc_transport client;
   GNEISS_TEST_CHECK(client.start_client({"localhost", 1U}) == gneiss::result::invalid_argument);
   GNEISS_TEST_CHECK(client.start_client({"127.0.0.1", 0U}) == gneiss::result::invalid_argument);
-  const auto invalid_protocol = static_cast<gneiss::ipc_transport_protocol>(0xFFU);
-  GNEISS_TEST_CHECK(client.start_client({"127.0.0.1", 1U}, invalid_protocol) ==
-                    gneiss::result::invalid_argument);
-  GNEISS_TEST_CHECK(client.start_server(invalid_protocol) == gneiss::result::invalid_argument);
-
   gneiss::ipc_transport temporary_server;
   GNEISS_TEST_CHECK(temporary_server.start_server() == gneiss::result::success);
   const auto unused_endpoint = temporary_server.endpoint();
@@ -136,32 +123,6 @@ bool test_invalid_arguments_and_failed_connection() {
   GNEISS_TEST_CHECK(wait_for_event(client, gneiss::ipc_transport_event_type::error));
   GNEISS_TEST_CHECK(client.state() == gneiss::ipc_transport_state::failed);
   GNEISS_TEST_CHECK(client.stop() == gneiss::result::success);
-  return true;
-}
-
-bool test_v2_envelopes() {
-  gneiss::ipc_transport server;
-  gneiss::ipc_transport client;
-  GNEISS_TEST_CHECK(server.start_server(gneiss::ipc_transport_protocol::envelope_v2) ==
-                    gneiss::result::success);
-  GNEISS_TEST_CHECK(
-      client.start_client(server.endpoint(), gneiss::ipc_transport_protocol::envelope_v2) ==
-      gneiss::result::success);
-  GNEISS_TEST_CHECK(wait_for_event(server, gneiss::ipc_transport_event_type::connected));
-  GNEISS_TEST_CHECK(wait_for_event(client, gneiss::ipc_transport_event_type::connected));
-  const gneiss::ipc_envelope sent{.domain = gneiss::ipc_domain::control,
-                                  .operation = 3U,
-                                  .kind = gneiss::ipc_message_kind::request,
-                                  .request_id = 7U,
-                                  .payload = {1U, 2U}};
-  GNEISS_TEST_CHECK(client.send(sent) == gneiss::result::success);
-  GNEISS_TEST_CHECK(client.send(make_frame(1U, {})) == gneiss::result::not_ready);
-  gneiss::ipc_transport_event received;
-  GNEISS_TEST_CHECK(
-      wait_for_event(server, gneiss::ipc_transport_event_type::envelope_received, &received));
-  GNEISS_TEST_CHECK(same_envelope(received.envelope, sent));
-  GNEISS_TEST_CHECK(client.stop() == gneiss::result::success);
-  GNEISS_TEST_CHECK(server.stop() == gneiss::result::success);
   return true;
 }
 
@@ -193,14 +154,11 @@ bool test_bounded_event_queue() {
 } // namespace
 
 int main() {
-  if (!test_lifecycle_and_bidirectional_frames()) {
+  if (!test_lifecycle_and_bidirectional_envelopes()) {
     return 1;
   }
   if (!test_invalid_arguments_and_failed_connection()) {
     return 2;
   }
-  if (!test_v2_envelopes()) {
-    return 3;
-  }
-  return test_bounded_event_queue() ? 0 : 4;
+  return test_bounded_event_queue() ? 0 : 3;
 }

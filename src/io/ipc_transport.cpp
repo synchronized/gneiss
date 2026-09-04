@@ -24,15 +24,6 @@
 
 namespace gneiss {
 
-namespace {
-
-[[nodiscard]] constexpr bool is_valid_protocol(ipc_transport_protocol protocol) noexcept {
-  return protocol == ipc_transport_protocol::legacy_v1 ||
-         protocol == ipc_transport_protocol::envelope_v2;
-}
-
-} // namespace
-
 struct ipc_transport::implementation final {
   enum class mode : std::uint8_t { none, server, client };
 
@@ -54,7 +45,6 @@ struct ipc_transport::implementation final {
   uv_tcp_t stream{};
   uv_connect_t connect_request{};
   std::array<char, 64U * 1024U> read_buffer{};
-  ipc_frame_decoder frame_decoder;
   ipc_envelope_decoder envelope_decoder;
   mutable std::mutex event_mutex;
   std::deque<ipc_transport_event> events;
@@ -65,7 +55,6 @@ struct ipc_transport::implementation final {
   std::atomic<ipc_transport_state> current_state = ipc_transport_state::stopped;
   ipc_endpoint local_endpoint;
   mode current_mode = mode::none;
-  ipc_transport_protocol protocol = ipc_transport_protocol::legacy_v1;
   bool listener_initialized = false;
   bool stream_initialized = false;
   bool is_stopping = false;
@@ -78,14 +67,12 @@ struct ipc_transport::implementation final {
         return;
       }
       if (events.size() >= event_capacity) {
-        if (event.type == ipc_transport_event_type::frame_received ||
-            event.type == ipc_transport_event_type::envelope_received) {
+        if (event.type == ipc_transport_event_type::envelope_received) {
           dropped_events.fetch_add(1U, std::memory_order_relaxed);
           return;
         }
         const auto frame = std::ranges::find_if(events, [](const auto& pending) {
-          return pending.type == ipc_transport_event_type::frame_received ||
-                 pending.type == ipc_transport_event_type::envelope_received;
+          return pending.type == ipc_transport_event_type::envelope_received;
         });
         if (frame != events.end()) {
           events.erase(frame);
@@ -116,7 +103,6 @@ struct ipc_transport::implementation final {
   static void on_stream_closed(uv_handle_t* handle) noexcept {
     auto* self = static_cast<implementation*>(handle->data);
     self->stream_initialized = false;
-    self->frame_decoder.reset();
     self->envelope_decoder.reset();
     if (!self->is_stopping && self->current_mode == mode::server && self->listener_initialized) {
       self->current_state.store(ipc_transport_state::listening, std::memory_order_release);
@@ -135,28 +121,14 @@ struct ipc_transport::implementation final {
     if (count > 0) {
       const auto bytes = std::span(reinterpret_cast<const std::uint8_t*>(buffer->base),
                                    static_cast<std::size_t>(count));
-      auto operation = result::success;
-      if (self->protocol == ipc_transport_protocol::legacy_v1) {
-        std::vector<ipc_frame> frames;
-        operation = self->frame_decoder.append(bytes, frames);
-        if (operation == result::success) {
-          for (auto& frame : frames) {
-            ipc_transport_event event;
-            event.type = ipc_transport_event_type::frame_received;
-            event.frame = std::move(frame);
-            self->emit(std::move(event));
-          }
-        }
-      } else {
-        std::vector<ipc_envelope> envelopes;
-        operation = self->envelope_decoder.append(bytes, envelopes);
-        if (operation == result::success) {
-          for (auto& envelope : envelopes) {
-            ipc_transport_event event;
-            event.type = ipc_transport_event_type::envelope_received;
-            event.envelope = std::move(envelope);
-            self->emit(std::move(event));
-          }
+      std::vector<ipc_envelope> envelopes;
+      const auto operation = self->envelope_decoder.append(bytes, envelopes);
+      if (operation == result::success) {
+        for (auto& envelope : envelopes) {
+          ipc_transport_event event;
+          event.type = ipc_transport_event_type::envelope_received;
+          event.envelope = std::move(envelope);
+          self->emit(std::move(event));
         }
       }
       if (operation != result::success) {
@@ -308,15 +280,13 @@ struct ipc_transport::implementation final {
     return operation;
   }
 
-  void reset_for_start(mode selected_mode, ipc_transport_protocol selected_protocol) noexcept {
+  void reset_for_start(mode selected_mode) noexcept {
     const std::scoped_lock lock(event_mutex);
     events.clear();
     dropped_events.store(0U, std::memory_order_relaxed);
     pending_writes.store(0U, std::memory_order_relaxed);
-    frame_decoder.reset();
     envelope_decoder.reset();
     current_mode = selected_mode;
-    protocol = selected_protocol;
     is_stopping = false;
     listener_initialized = false;
     stream_initialized = false;
@@ -333,16 +303,16 @@ ipc_transport::~ipc_transport() {
   }
 }
 
-result ipc_transport::start_server(ipc_transport_protocol protocol) noexcept {
+result ipc_transport::start_server() noexcept {
   if (!implementation_ || implementation_->event_capacity == 0U ||
-      implementation_->write_capacity == 0U || !is_valid_protocol(protocol)) {
+      implementation_->write_capacity == 0U) {
     return result::invalid_argument;
   }
   if (implementation_->current_state.load(std::memory_order_acquire) !=
       ipc_transport_state::stopped) {
     return result::invalid_state;
   }
-  implementation_->reset_for_start(implementation::mode::server, protocol);
+  implementation_->reset_for_start(implementation::mode::server);
   auto operation = implementation_->runtime.start();
   if (operation != result::success) {
     return operation;
@@ -403,18 +373,17 @@ result ipc_transport::start_server(ipc_transport_protocol protocol) noexcept {
   return operation;
 }
 
-result ipc_transport::start_client(const ipc_endpoint& endpoint,
-                                   ipc_transport_protocol protocol) noexcept {
+result ipc_transport::start_client(const ipc_endpoint& endpoint) noexcept {
   if (!implementation_ || implementation_->event_capacity == 0U ||
       implementation_->write_capacity == 0U || endpoint.address != "127.0.0.1" ||
-      endpoint.port == 0U || !is_valid_protocol(protocol)) {
+      endpoint.port == 0U) {
     return result::invalid_argument;
   }
   if (implementation_->current_state.load(std::memory_order_acquire) !=
       ipc_transport_state::stopped) {
     return result::invalid_state;
   }
-  implementation_->reset_for_start(implementation::mode::client, protocol);
+  implementation_->reset_for_start(implementation::mode::client);
   auto operation = implementation_->runtime.start();
   if (operation != result::success) {
     return operation;
@@ -463,27 +432,9 @@ result ipc_transport::start_client(const ipc_endpoint& endpoint,
   return operation;
 }
 
-result ipc_transport::send(const ipc_frame& frame) noexcept {
-  if (!implementation_ ||
-      implementation_->current_state.load(std::memory_order_acquire) !=
-          ipc_transport_state::connected ||
-      implementation_->protocol != ipc_transport_protocol::legacy_v1) {
-    return result::not_ready;
-  }
-  std::vector<std::uint8_t> encoded;
-  auto operation = encode_ipc_frame(frame, encoded);
-  if (operation != result::success) {
-    return operation;
-  }
-
-  return implementation_->enqueue(std::move(encoded));
-}
-
 result ipc_transport::send(const ipc_envelope& envelope) noexcept {
-  if (!implementation_ ||
-      implementation_->current_state.load(std::memory_order_acquire) !=
-          ipc_transport_state::connected ||
-      implementation_->protocol != ipc_transport_protocol::envelope_v2) {
+  if (!implementation_ || implementation_->current_state.load(std::memory_order_acquire) !=
+                              ipc_transport_state::connected) {
     return result::not_ready;
   }
   std::vector<std::uint8_t> encoded;

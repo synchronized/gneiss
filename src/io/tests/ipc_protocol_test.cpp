@@ -298,62 +298,6 @@ bool test_runtime_inspection_chunking() {
   return change_count == source.changes.size();
 }
 
-bool wait_for_frame(gneiss::ipc_transport& transport, gneiss::ipc_frame& output) {
-  using namespace std::chrono_literals;
-  const auto deadline = std::chrono::steady_clock::now() + 3s;
-  while (std::chrono::steady_clock::now() < deadline) {
-    std::vector<gneiss::ipc_transport_event> events;
-    (void)transport.poll_events(events);
-    for (auto& event : events) {
-      if (event.type == gneiss::ipc_transport_event_type::frame_received) {
-        output = std::move(event.frame);
-        return true;
-      }
-    }
-    std::this_thread::sleep_for(1ms);
-  }
-  return false;
-}
-
-bool wait_until_connected(gneiss::ipc_transport& transport) {
-  using namespace std::chrono_literals;
-  const auto deadline = std::chrono::steady_clock::now() + 3s;
-  while (std::chrono::steady_clock::now() < deadline) {
-    if (transport.state() == gneiss::ipc_transport_state::connected) {
-      return true;
-    }
-    std::this_thread::sleep_for(1ms);
-  }
-  return false;
-}
-
-bool test_handshake_over_transport() {
-  gneiss::ipc_transport server;
-  gneiss::ipc_transport client;
-  const std::vector<std::string> requested{"control", "logs"};
-  const std::vector<std::string> supported{"control"};
-  if (server.start_server() != gneiss::result::success ||
-      client.start_client(server.endpoint()) != gneiss::result::success ||
-      !wait_until_connected(server) || !wait_until_connected(client)) {
-    return false;
-  }
-
-  gneiss::ipc_frame hello;
-  gneiss::ipc_frame received;
-  gneiss::ipc_frame acknowledgment;
-  std::vector<std::string> negotiated;
-  const auto completed =
-      gneiss::make_ipc_hello("transport-secret", requested, hello) == gneiss::result::success &&
-      client.send(hello) == gneiss::result::success && wait_for_frame(server, received) &&
-      gneiss::accept_ipc_hello(received, "transport-secret", supported, acknowledgment,
-                               negotiated) == gneiss::result::success &&
-      server.send(acknowledgment) == gneiss::result::success && wait_for_frame(client, received) &&
-      gneiss::accept_ipc_hello_ack(received, requested, negotiated) == gneiss::result::success &&
-      negotiated == std::vector<std::string>{"control"};
-  return client.stop() == gneiss::result::success && server.stop() == gneiss::result::success &&
-         completed;
-}
-
 } // namespace
 
 int main() {
@@ -361,8 +305,7 @@ int main() {
                  test_invalid_and_unknown_messages() && test_handshake_and_heartbeat_timeouts() &&
                  test_runtime_inspection_identity_and_sequence() &&
                  test_runtime_inspection_batch_round_trip() &&
-                 test_runtime_statistics_round_trip() && test_runtime_inspection_chunking() &&
-                 test_handshake_over_transport()
+                 test_runtime_statistics_round_trip() && test_runtime_inspection_chunking()
              ? 0
              : 1;
 }

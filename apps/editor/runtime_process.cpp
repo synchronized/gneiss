@@ -445,7 +445,7 @@ result runtime_process::start(const std::filesystem::path& executable,
     implementation_->stop_file = implementation_->session_root / "stop.signal";
     implementation_->log_file = implementation_->session_root / "runtime.log";
     implementation_->ipc_token = implementation::make_session_token();
-    auto started = implementation_->ipc_server.start_server(ipc_transport_protocol::envelope_v2);
+    auto started = implementation_->ipc_server.start_server();
     if (started != result::success) {
       implementation_->control_state = runtime_control_state::failed;
       implementation_->discard_session();

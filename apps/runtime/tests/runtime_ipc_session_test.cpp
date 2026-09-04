@@ -90,7 +90,7 @@ bool complete_handshake(gneiss::ipc_transport& server,
 
 bool test_property_write_round_trip() {
   gneiss::ipc_transport server;
-  if (server.start_server(gneiss::ipc_transport_protocol::envelope_v2) != gneiss::result::success) {
+  if (server.start_server() != gneiss::result::success) {
     return false;
   }
   gneiss::runtime_internal::runtime_ipc_session session(
@@ -153,7 +153,7 @@ bool test_property_write_round_trip() {
 
 bool test_property_flood_does_not_block_stop() {
   gneiss::ipc_transport server;
-  if (server.start_server(gneiss::ipc_transport_protocol::envelope_v2) != gneiss::result::success) {
+  if (server.start_server() != gneiss::result::success) {
     return false;
   }
   gneiss::runtime_internal::runtime_ipc_session session(
@@ -198,7 +198,7 @@ bool test_property_flood_does_not_block_stop() {
 
 bool test_control_lifecycle() {
   gneiss::ipc_transport server;
-  if (server.start_server(gneiss::ipc_transport_protocol::envelope_v2) != gneiss::result::success) {
+  if (server.start_server() != gneiss::result::success) {
     return false;
   }
   gneiss::runtime_internal::runtime_ipc_session session(
@@ -303,7 +303,7 @@ bool test_control_lifecycle() {
 
 bool test_handshake_timeout() {
   gneiss::ipc_transport server;
-  if (server.start_server(gneiss::ipc_transport_protocol::envelope_v2) != gneiss::result::success) {
+  if (server.start_server() != gneiss::result::success) {
     return false;
   }
   gneiss::runtime_internal::runtime_ipc_session session(
@@ -321,7 +321,7 @@ bool test_handshake_timeout() {
 
 bool test_heartbeat_timeout() {
   gneiss::ipc_transport server;
-  if (server.start_server(gneiss::ipc_transport_protocol::envelope_v2) != gneiss::result::success) {
+  if (server.start_server() != gneiss::result::success) {
     return false;
   }
   gneiss::runtime_internal::runtime_ipc_session session(
@@ -340,7 +340,7 @@ bool test_heartbeat_timeout() {
 
 bool test_disconnect() {
   gneiss::ipc_transport server;
-  if (server.start_server(gneiss::ipc_transport_protocol::envelope_v2) != gneiss::result::success) {
+  if (server.start_server() != gneiss::result::success) {
     return false;
   }
   gneiss::runtime_internal::runtime_ipc_session disconnected(

@@ -226,8 +226,7 @@ result runtime_ipc_session::start(clock::time_point now) noexcept {
       implementation_->config.session_token.empty()) {
     return result::invalid_state;
   }
-  const auto operation = implementation_->transport.start_client(
-      implementation_->config.endpoint, ipc_transport_protocol::envelope_v2);
+  const auto operation = implementation_->transport.start_client(implementation_->config.endpoint);
   if (operation != result::success) {
     implementation_->current_state = runtime_ipc_state::failed;
     return operation;

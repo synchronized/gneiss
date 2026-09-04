@@ -5,7 +5,6 @@
 #define GNEISS_SRC_IO_IPC_TRANSPORT_H_
 
 #include "ipc_envelope.h"
-#include "ipc_frame.h"
 
 #include <gneiss/core/result.hpp>
 
@@ -31,16 +30,9 @@ enum class ipc_transport_state : std::uint8_t {
   failed,
 };
 
-/** 迁移期传输编码；M-142 完成后只保留 v2。 */
-enum class ipc_transport_protocol : std::uint8_t {
-  legacy_v1,
-  envelope_v2,
-};
-
 enum class ipc_transport_event_type : std::uint8_t {
   listening,
   connected,
-  frame_received,
   envelope_received,
   disconnected,
   error,
@@ -49,7 +41,6 @@ enum class ipc_transport_event_type : std::uint8_t {
 struct ipc_transport_event final {
   ipc_transport_event_type type = ipc_transport_event_type::error;
   result operation = result::success;
-  ipc_frame frame;
   ipc_envelope envelope;
 };
 
@@ -62,12 +53,8 @@ public:
   ipc_transport(const ipc_transport&) = delete;
   ipc_transport& operator=(const ipc_transport&) = delete;
 
-  [[nodiscard]] result
-  start_server(ipc_transport_protocol protocol = ipc_transport_protocol::legacy_v1) noexcept;
-  [[nodiscard]] result
-  start_client(const ipc_endpoint& endpoint,
-               ipc_transport_protocol protocol = ipc_transport_protocol::legacy_v1) noexcept;
-  [[nodiscard]] result send(const ipc_frame& frame) noexcept;
+  [[nodiscard]] result start_server() noexcept;
+  [[nodiscard]] result start_client(const ipc_endpoint& endpoint) noexcept;
   [[nodiscard]] result send(const ipc_envelope& envelope) noexcept;
   [[nodiscard]] result stop() noexcept;
 
