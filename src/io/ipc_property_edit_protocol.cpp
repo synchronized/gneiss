@@ -226,8 +226,8 @@ bool parse_uint(yyjson_val* root, const char* name, std::uint64_t& output) noexc
   return true;
 }
 
-gneiss::result write_frame(yyjson_mut_doc* document, yyjson_mut_val* root,
-                           gneiss::ipc_message_type type, gneiss::ipc_frame& output) {
+gneiss::result write_payload(yyjson_mut_doc* document, yyjson_mut_val* root,
+                             std::vector<std::uint8_t>& output) {
   yyjson_mut_doc_set_root(document, root);
   std::size_t length = 0U;
   std::unique_ptr<char, decltype(&std::free)> json(
@@ -235,27 +235,18 @@ gneiss::result write_frame(yyjson_mut_doc* document, yyjson_mut_val* root,
   if (!json || length > gneiss::ipc_protocol_max_json_size) {
     return json ? gneiss::result::invalid_argument : gneiss::result::out_of_memory;
   }
-  gneiss::ipc_frame frame;
-  frame.protocol_major = gneiss::ipc_protocol_major;
-  frame.protocol_minor = gneiss::ipc_protocol_minor;
-  frame.message_type = static_cast<std::uint16_t>(type);
-  frame.payload.assign(reinterpret_cast<const std::uint8_t*>(json.get()),
-                       reinterpret_cast<const std::uint8_t*>(json.get()) + length);
-  output = std::move(frame);
+  std::vector<std::uint8_t> encoded(reinterpret_cast<const std::uint8_t*>(json.get()),
+                                    reinterpret_cast<const std::uint8_t*>(json.get()) + length);
+  output = std::move(encoded);
   return gneiss::result::success;
-}
-
-bool supports_frame(const gneiss::ipc_frame& frame, gneiss::ipc_message_type type) noexcept {
-  return frame.protocol_major == gneiss::ipc_protocol_major &&
-         frame.message_type == static_cast<std::uint16_t>(type) &&
-         frame.payload.size() <= gneiss::ipc_protocol_max_json_size;
 }
 
 } // namespace
 
 namespace gneiss {
 
-result encode_ipc_property_write(const ipc_property_write& command, ipc_frame& output) noexcept {
+result encode_ipc_property_write(const ipc_property_write& command,
+                                 std::vector<std::uint8_t>& output) noexcept {
   if (!command.object.is_valid() || !valid_type_id(command.type_id) ||
       command.field_id == GNEISS_NULL_FIELD_ID || command.expected_revision == 0U) {
     return result::invalid_argument;
@@ -278,7 +269,7 @@ result encode_ipc_property_write(const ipc_property_write& command, ipc_frame& o
         !yyjson_mut_obj_add_val(document.get(), root, "value", value)) {
       return result::invalid_argument;
     }
-    return write_frame(document.get(), root, ipc_message_type::property_write, output);
+    return write_payload(document.get(), root, output);
   } catch (const std::bad_alloc&) {
     return result::out_of_memory;
   } catch (...) {
@@ -286,13 +277,14 @@ result encode_ipc_property_write(const ipc_property_write& command, ipc_frame& o
   }
 }
 
-result decode_ipc_property_write(const ipc_frame& frame, ipc_property_write& output) noexcept {
-  if (!supports_frame(frame, ipc_message_type::property_write)) {
-    return result::unsupported;
+result decode_ipc_property_write(std::span<const std::uint8_t> payload,
+                                 ipc_property_write& output) noexcept {
+  if (payload.size() > ipc_protocol_max_json_size) {
+    return result::invalid_argument;
   }
   try {
-    document_ptr document(yyjson_read(reinterpret_cast<const char*>(frame.payload.data()),
-                                      frame.payload.size(), YYJSON_READ_NOFLAG),
+    document_ptr document(yyjson_read(reinterpret_cast<const char*>(payload.data()), payload.size(),
+                                      YYJSON_READ_NOFLAG),
                           &yyjson_doc_free);
     if (!document) {
       return result::invalid_argument;
@@ -329,7 +321,7 @@ result decode_ipc_property_write(const ipc_frame& frame, ipc_property_write& out
 }
 
 result encode_ipc_property_write_result(const ipc_property_write_result& response,
-                                        ipc_frame& output) noexcept {
+                                        std::vector<std::uint8_t>& output) noexcept {
   if (response.message.size() > max_message_size ||
       (response.code == 0 && (response.revision == 0U || std::holds_alternative<std::monostate>(
                                                              response.canonical_value.payload)))) {
@@ -354,7 +346,7 @@ result encode_ipc_property_write_result(const ipc_property_write_result& respons
         return result::invalid_argument;
       }
     }
-    return write_frame(document.get(), root, ipc_message_type::property_write_result, output);
+    return write_payload(document.get(), root, output);
   } catch (const std::bad_alloc&) {
     return result::out_of_memory;
   } catch (...) {
@@ -362,14 +354,14 @@ result encode_ipc_property_write_result(const ipc_property_write_result& respons
   }
 }
 
-result decode_ipc_property_write_result(const ipc_frame& frame,
+result decode_ipc_property_write_result(std::span<const std::uint8_t> payload,
                                         ipc_property_write_result& output) noexcept {
-  if (!supports_frame(frame, ipc_message_type::property_write_result)) {
-    return result::unsupported;
+  if (payload.size() > ipc_protocol_max_json_size) {
+    return result::invalid_argument;
   }
   try {
-    document_ptr document(yyjson_read(reinterpret_cast<const char*>(frame.payload.data()),
-                                      frame.payload.size(), YYJSON_READ_NOFLAG),
+    document_ptr document(yyjson_read(reinterpret_cast<const char*>(payload.data()), payload.size(),
+                                      YYJSON_READ_NOFLAG),
                           &yyjson_doc_free);
     if (!document) {
       return result::invalid_argument;

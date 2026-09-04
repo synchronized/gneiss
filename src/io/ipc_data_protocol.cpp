@@ -38,15 +38,6 @@ constexpr std::array property_operations{gneiss::ipc_operation_descriptor{
     .editor_to_runtime_kinds = request_kind,
     .runtime_to_editor_kinds = response_kind}};
 
-[[nodiscard]] gneiss::ipc_frame legacy_frame(const gneiss::ipc_envelope& envelope,
-                                             gneiss::ipc_message_type type) {
-  return {.protocol_major = gneiss::ipc_protocol_major,
-          .protocol_minor = gneiss::ipc_protocol_minor,
-          .message_type = static_cast<std::uint16_t>(type),
-          .flags = 0U,
-          .payload = envelope.payload};
-}
-
 [[nodiscard]] bool matches(const gneiss::ipc_envelope& envelope, gneiss::ipc_domain domain,
                            std::uint16_t operation, gneiss::ipc_message_kind kind) noexcept {
   return envelope.domain == domain && envelope.operation == operation && envelope.kind == kind;
@@ -185,8 +176,8 @@ result encode_ipc_property_write_v2(const ipc_property_write& command, std::uint
   if (request_id == 0U || command.command_id != request_id) {
     return result::invalid_argument;
   }
-  ipc_frame frame;
-  const auto operation = encode_ipc_property_write(command, frame);
+  std::vector<std::uint8_t> payload;
+  const auto operation = encode_ipc_property_write(command, payload);
   if (operation != result::success) {
     return operation;
   }
@@ -194,7 +185,7 @@ result encode_ipc_property_write_v2(const ipc_property_write& command, std::uint
             .operation = static_cast<std::uint16_t>(ipc_property_operation::write),
             .kind = ipc_message_kind::request,
             .request_id = request_id,
-            .payload = std::move(frame.payload)};
+            .payload = std::move(payload)};
   return result::success;
 }
 
@@ -206,23 +197,16 @@ result decode_ipc_property_write_v2(const ipc_envelope& envelope,
       envelope.request_id == 0U) {
     return result::invalid_argument;
   }
-  try {
-    ipc_property_write decoded;
-    const auto operation = decode_ipc_property_write(
-        legacy_frame(envelope, ipc_message_type::property_write), decoded);
-    if (operation != result::success) {
-      return operation;
-    }
-    if (decoded.command_id != envelope.request_id) {
-      return result::invalid_argument;
-    }
-    output = std::move(decoded);
-    return result::success;
-  } catch (const std::bad_alloc&) {
-    return result::out_of_memory;
-  } catch (...) {
-    return result::internal;
+  ipc_property_write decoded;
+  const auto operation = decode_ipc_property_write(envelope.payload, decoded);
+  if (operation != result::success) {
+    return operation;
   }
+  if (decoded.command_id != envelope.request_id) {
+    return result::invalid_argument;
+  }
+  output = std::move(decoded);
+  return result::success;
 }
 
 result encode_ipc_property_result_v2(const ipc_property_write_result& response,
@@ -230,8 +214,8 @@ result encode_ipc_property_result_v2(const ipc_property_write_result& response,
   if (request_id == 0U || response.command_id != request_id) {
     return result::invalid_argument;
   }
-  ipc_frame frame;
-  const auto operation = encode_ipc_property_write_result(response, frame);
+  std::vector<std::uint8_t> payload;
+  const auto operation = encode_ipc_property_write_result(response, payload);
   if (operation != result::success) {
     return operation;
   }
@@ -239,7 +223,7 @@ result encode_ipc_property_result_v2(const ipc_property_write_result& response,
             .operation = static_cast<std::uint16_t>(ipc_property_operation::write),
             .kind = ipc_message_kind::response,
             .request_id = request_id,
-            .payload = std::move(frame.payload)};
+            .payload = std::move(payload)};
   return result::success;
 }
 
@@ -251,23 +235,16 @@ result decode_ipc_property_result_v2(const ipc_envelope& envelope,
       envelope.request_id == 0U) {
     return result::invalid_argument;
   }
-  try {
-    ipc_property_write_result decoded;
-    const auto operation = decode_ipc_property_write_result(
-        legacy_frame(envelope, ipc_message_type::property_write_result), decoded);
-    if (operation != result::success) {
-      return operation;
-    }
-    if (decoded.command_id != envelope.request_id) {
-      return result::invalid_argument;
-    }
-    output = std::move(decoded);
-    return result::success;
-  } catch (const std::bad_alloc&) {
-    return result::out_of_memory;
-  } catch (...) {
-    return result::internal;
+  ipc_property_write_result decoded;
+  const auto operation = decode_ipc_property_write_result(envelope.payload, decoded);
+  if (operation != result::success) {
+    return operation;
   }
+  if (decoded.command_id != envelope.request_id) {
+    return result::invalid_argument;
+  }
+  output = std::move(decoded);
+  return result::success;
 }
 
 std::span<const ipc_operation_descriptor> ipc_log_operations() noexcept { return log_operations; }

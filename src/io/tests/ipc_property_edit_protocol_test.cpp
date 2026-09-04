@@ -27,13 +27,10 @@ bool round_trip_value(const gneiss::ipc_property_value& value) {
                                           .field_id = 7U,
                                           .expected_revision = 11U,
                                           .value = value};
-  gneiss::ipc_frame frame;
+  std::vector<std::uint8_t> payload;
   gneiss::ipc_property_write decoded;
-  return gneiss::encode_ipc_property_write(source, frame) == gneiss::result::success &&
-         frame.protocol_minor == gneiss::ipc_protocol_minor &&
-         frame.message_type ==
-             static_cast<std::uint16_t>(gneiss::ipc_message_type::property_write) &&
-         gneiss::decode_ipc_property_write(frame, decoded) == gneiss::result::success &&
+  return gneiss::encode_ipc_property_write(source, payload) == gneiss::result::success &&
+         gneiss::decode_ipc_property_write(payload, decoded) == gneiss::result::success &&
          decoded.session_id == source.session_id && decoded.command_id == source.command_id &&
          decoded.object == source.object && decoded.field_id == source.field_id &&
          decoded.expected_revision == source.expected_revision &&
@@ -69,10 +66,10 @@ bool test_results() {
       .revision = 12U,
       .message = "已应用",
       .canonical_value = {std::array<float, 3>{1.0F, 2.0F, 3.0F}}};
-  gneiss::ipc_frame frame;
+  std::vector<std::uint8_t> payload;
   gneiss::ipc_property_write_result decoded;
-  if (gneiss::encode_ipc_property_write_result(success, frame) != gneiss::result::success ||
-      gneiss::decode_ipc_property_write_result(frame, decoded) != gneiss::result::success ||
+  if (gneiss::encode_ipc_property_write_result(success, payload) != gneiss::result::success ||
+      gneiss::decode_ipc_property_write_result(payload, decoded) != gneiss::result::success ||
       decoded.session_id != success.session_id || decoded.command_id != success.command_id ||
       decoded.code != 0 || decoded.revision != success.revision ||
       decoded.message != success.message ||
@@ -87,16 +84,16 @@ bool test_results() {
                                                    .message = "修订冲突",
                                                    .canonical_value = {}};
   decoded = {};
-  return gneiss::encode_ipc_property_write_result(rejected, frame) == gneiss::result::success &&
-         gneiss::decode_ipc_property_write_result(frame, decoded) == gneiss::result::success &&
+  return gneiss::encode_ipc_property_write_result(rejected, payload) == gneiss::result::success &&
+         gneiss::decode_ipc_property_write_result(payload, decoded) == gneiss::result::success &&
          decoded.code == rejected.code && decoded.revision == rejected.revision &&
          std::holds_alternative<std::monostate>(decoded.canonical_value.payload);
 }
 
 bool test_invalid_messages() {
   gneiss::ipc_property_write invalid;
-  gneiss::ipc_frame frame;
-  if (gneiss::encode_ipc_property_write(invalid, frame) != gneiss::result::invalid_argument) {
+  std::vector<std::uint8_t> payload;
+  if (gneiss::encode_ipc_property_write(invalid, payload) != gneiss::result::invalid_argument) {
     return false;
   }
 
@@ -107,46 +104,22 @@ bool test_invalid_messages() {
              .field_id = 1U,
              .expected_revision = 1U,
              .value = {std::numeric_limits<float>::infinity()}};
-  if (gneiss::encode_ipc_property_write(invalid, frame) != gneiss::result::invalid_argument) {
+  if (gneiss::encode_ipc_property_write(invalid, payload) != gneiss::result::invalid_argument) {
     return false;
   }
 
-  frame = {.protocol_major = gneiss::ipc_protocol_major,
-           .protocol_minor = gneiss::ipc_protocol_minor,
-           .message_type = static_cast<std::uint16_t>(gneiss::ipc_message_type::property_write),
-           .payload = {'{', '}'}};
+  payload = {'{', '}'};
   gneiss::ipc_property_write decoded;
-  if (gneiss::decode_ipc_property_write(frame, decoded) != gneiss::result::invalid_argument) {
+  if (gneiss::decode_ipc_property_write(payload, decoded) != gneiss::result::invalid_argument) {
     return false;
   }
-  frame.payload = {'{'};
-  if (gneiss::decode_ipc_property_write(frame, decoded) != gneiss::result::invalid_argument) {
+  payload = {'{'};
+  if (gneiss::decode_ipc_property_write(payload, decoded) != gneiss::result::invalid_argument) {
     return false;
   }
-  ++frame.protocol_major;
-  return gneiss::decode_ipc_property_write(frame, decoded) == gneiss::result::unsupported;
-}
-
-bool test_capability_negotiation() {
-  const std::vector<std::string> requested{
-      std::string(gneiss::ipc_capability_runtime_inspection_v2),
-      std::string(gneiss::ipc_capability_runtime_property_edit_v1)};
-  const std::vector<std::string> supported{
-      std::string(gneiss::ipc_capability_runtime_property_edit_v1)};
-  gneiss::ipc_frame hello;
-  gneiss::ipc_frame acknowledgment;
-  std::vector<std::string> negotiated;
-  return gneiss::make_ipc_hello("token", requested, hello) == gneiss::result::success &&
-         gneiss::accept_ipc_hello(hello, "token", supported, acknowledgment, negotiated) ==
-             gneiss::result::success &&
-         negotiated == supported;
+  return true;
 }
 
 } // namespace
 
-int main() {
-  return test_all_value_types() && test_results() && test_invalid_messages() &&
-                 test_capability_negotiation()
-             ? 0
-             : 1;
-}
+int main() { return test_all_value_types() && test_results() && test_invalid_messages() ? 0 : 1; }

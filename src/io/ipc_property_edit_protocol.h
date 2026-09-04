@@ -10,8 +10,10 @@
 
 #include <array>
 #include <cstdint>
+#include <span>
 #include <string>
 #include <variant>
+#include <vector>
 
 namespace gneiss {
 
@@ -46,12 +48,12 @@ struct ipc_property_write_result final {
 };
 
 [[nodiscard]] result encode_ipc_property_write(const ipc_property_write& command,
-                                               ipc_frame& output) noexcept;
-[[nodiscard]] result decode_ipc_property_write(const ipc_frame& frame,
+                                               std::vector<std::uint8_t>& output) noexcept;
+[[nodiscard]] result decode_ipc_property_write(std::span<const std::uint8_t> payload,
                                                ipc_property_write& output) noexcept;
 [[nodiscard]] result encode_ipc_property_write_result(const ipc_property_write_result& response,
-                                                      ipc_frame& output) noexcept;
-[[nodiscard]] result decode_ipc_property_write_result(const ipc_frame& frame,
+                                                      std::vector<std::uint8_t>& output) noexcept;
+[[nodiscard]] result decode_ipc_property_write_result(std::span<const std::uint8_t> payload,
                                                       ipc_property_write_result& output) noexcept;
 
 } // namespace gneiss
