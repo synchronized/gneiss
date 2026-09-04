@@ -4,6 +4,8 @@
 #ifndef GNEISS_APPS_RUNTIME_RUNTIME_IPC_SESSION_H_
 #define GNEISS_APPS_RUNTIME_RUNTIME_IPC_SESSION_H_
 
+#include "ipc/runtime_command_context.h"
+
 #include "ipc_inspection_protocol.h"
 #include "ipc_property_edit_protocol.h"
 #include "ipc_protocol_domains.h"
@@ -25,25 +27,6 @@ struct runtime_ipc_config final {
   std::string session_token;
   std::chrono::milliseconds handshake_timeout{5000};
   std::chrono::milliseconds heartbeat_timeout{10000};
-};
-
-enum class runtime_ipc_state : std::uint8_t {
-  stopped,
-  connecting,
-  authenticating,
-  running,
-  paused,
-  stopping,
-  failed,
-};
-
-struct runtime_ipc_actions final {
-  bool pause_game = false;
-  bool resume_game = false;
-  bool request_exit = false;
-  bool request_inspection_resync = false;
-  std::vector<ipc_property_write> property_writes;
-  result failure = result::success;
 };
 
 /** Runtime 主线程拥有的可选 IPC 会话；内部 Transport 的 socket 仅由 I/O 线程操作。 */

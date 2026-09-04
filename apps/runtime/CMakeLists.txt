@@ -18,11 +18,17 @@ target_compile_features(gneiss_game_module_session PUBLIC cxx_std_20)
 gneiss_target_compile_warnings(gneiss_game_module_session)
 gneiss_target_output_directories(gneiss_game_module_session)
 
-add_library(
-  gneiss_runtime_ipc STATIC
-  runtime_ipc_command.cpp
-  runtime_ipc_command.h
-  runtime_ipc_session.cpp
+  add_library(
+    gneiss_runtime_ipc STATIC
+    ipc/commands/control_commands.cpp
+    ipc/commands/inspection_commands.cpp
+    ipc/commands/property_commands.cpp
+    ipc/commands/session_commands.cpp
+    ipc/runtime_command_context.cpp
+    ipc/runtime_command_context.h
+    ipc/runtime_commands.cpp
+    ipc/runtime_commands.h
+    runtime_ipc_session.cpp
   runtime_ipc_session.h
   runtime_property_editor.cpp
   runtime_property_editor.h
