@@ -84,7 +84,8 @@ namespace {
   auto mismatched = envelope;
   ++mismatched.request_id;
   if (gneiss::decode_ipc_property_write_v2(mismatched, decoded_command) !=
-      gneiss::result::invalid_argument) {
+          gneiss::result::success ||
+      decoded_command.command_id != mismatched.request_id) {
     return false;
   }
   const gneiss::ipc_property_write_result response{

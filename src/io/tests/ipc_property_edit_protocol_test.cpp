@@ -30,8 +30,9 @@ bool round_trip_value(const gneiss::ipc_property_value& value) {
   std::vector<std::uint8_t> payload;
   gneiss::ipc_property_write decoded;
   return gneiss::encode_ipc_property_write(source, payload) == gneiss::result::success &&
+         std::string(payload.begin(), payload.end()).find("command_id") == std::string::npos &&
          gneiss::decode_ipc_property_write(payload, decoded) == gneiss::result::success &&
-         decoded.session_id == source.session_id && decoded.command_id == source.command_id &&
+         decoded.session_id == source.session_id && decoded.command_id == 0U &&
          decoded.object == source.object && decoded.field_id == source.field_id &&
          decoded.expected_revision == source.expected_revision &&
          decoded.value.payload == value.payload;
@@ -69,10 +70,10 @@ bool test_results() {
   std::vector<std::uint8_t> payload;
   gneiss::ipc_property_write_result decoded;
   if (gneiss::encode_ipc_property_write_result(success, payload) != gneiss::result::success ||
+      std::string(payload.begin(), payload.end()).find("command_id") != std::string::npos ||
       gneiss::decode_ipc_property_write_result(payload, decoded) != gneiss::result::success ||
-      decoded.session_id != success.session_id || decoded.command_id != success.command_id ||
-      decoded.code != 0 || decoded.revision != success.revision ||
-      decoded.message != success.message ||
+      decoded.session_id != success.session_id || decoded.command_id != 0U || decoded.code != 0 ||
+      decoded.revision != success.revision || decoded.message != success.message ||
       decoded.canonical_value.payload != success.canonical_value.payload) {
     return false;
   }

@@ -202,9 +202,7 @@ result decode_ipc_property_write_v2(const ipc_envelope& envelope,
   if (operation != result::success) {
     return operation;
   }
-  if (decoded.command_id != envelope.request_id) {
-    return result::invalid_argument;
-  }
+  decoded.command_id = envelope.request_id;
   output = std::move(decoded);
   return result::success;
 }
@@ -240,9 +238,7 @@ result decode_ipc_property_result_v2(const ipc_envelope& envelope,
   if (operation != result::success) {
     return operation;
   }
-  if (decoded.command_id != envelope.request_id) {
-    return result::invalid_argument;
-  }
+  decoded.command_id = envelope.request_id;
   output = std::move(decoded);
   return result::success;
 }

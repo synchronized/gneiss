@@ -212,11 +212,9 @@ bool parse_property_value(yyjson_val* root, gneiss::ipc_property_value& output) 
   return true;
 }
 
-bool add_common(yyjson_mut_doc* document, yyjson_mut_val* root, std::uint64_t session_id,
-                std::uint64_t command_id) noexcept {
-  return session_id != 0U && command_id != 0U &&
-         yyjson_mut_obj_add_uint(document, root, "session_id", session_id) &&
-         yyjson_mut_obj_add_uint(document, root, "command_id", command_id);
+bool add_session(yyjson_mut_doc* document, yyjson_mut_val* root,
+                 std::uint64_t session_id) noexcept {
+  return session_id != 0U && yyjson_mut_obj_add_uint(document, root, "session_id", session_id);
 }
 
 bool parse_uint(yyjson_val* root, const char* name, std::uint64_t& output) noexcept {
@@ -259,7 +257,7 @@ result encode_ipc_property_write(const ipc_property_write& command,
     auto* value = document ? yyjson_mut_obj(document.get()) : nullptr;
     const auto type_text = type_id_text(command.type_id);
     if (root == nullptr || value == nullptr ||
-        !add_common(document.get(), root, command.session_id, command.command_id) ||
+        !add_session(document.get(), root, command.session_id) ||
         !yyjson_mut_obj_add_uint(document.get(), root, "object_id", command.object.value) ||
         !yyjson_mut_obj_add_uint(document.get(), root, "generation", command.object.generation) ||
         !yyjson_mut_obj_add_strncpy(document.get(), root, "type_id", type_text.data(),
@@ -296,7 +294,6 @@ result decode_ipc_property_write(std::span<const std::uint8_t> payload,
     std::uint64_t generation = 0U;
     std::uint64_t field_id = 0U;
     if (!parse_uint(root, "session_id", parsed.session_id) ||
-        !parse_uint(root, "command_id", parsed.command_id) ||
         !parse_uint(root, "object_id", parsed.object.value) ||
         !parse_uint(root, "generation", generation) ||
         generation > std::numeric_limits<std::uint32_t>::max() ||
@@ -309,7 +306,7 @@ result decode_ipc_property_write(std::span<const std::uint8_t> payload,
     }
     parsed.object.generation = static_cast<std::uint32_t>(generation);
     parsed.field_id = static_cast<gneiss_field_id>(field_id);
-    if (parsed.session_id == 0U || parsed.command_id == 0U || !parsed.object.is_valid() ||
+    if (parsed.session_id == 0U || !parsed.object.is_valid() ||
         parsed.field_id == GNEISS_NULL_FIELD_ID || parsed.expected_revision == 0U) {
       return result::invalid_argument;
     }
@@ -332,8 +329,7 @@ result encode_ipc_property_write_result(const ipc_property_write_result& respons
   try {
     mutable_document_ptr document(yyjson_mut_doc_new(nullptr), &yyjson_mut_doc_free);
     auto* root = document ? yyjson_mut_obj(document.get()) : nullptr;
-    if (root == nullptr ||
-        !add_common(document.get(), root, response.session_id, response.command_id) ||
+    if (root == nullptr || !add_session(document.get(), root, response.session_id) ||
         !yyjson_mut_obj_add_sint(document.get(), root, "code", response.code) ||
         !yyjson_mut_obj_add_uint(document.get(), root, "revision", response.revision) ||
         !yyjson_mut_obj_add_strncpy(document.get(), root, "message", response.message.data(),
@@ -372,8 +368,7 @@ result decode_ipc_property_write_result(std::span<const std::uint8_t> payload,
     ipc_property_write_result parsed;
     auto* code = yyjson_is_obj(root) ? yyjson_obj_get(root, "code") : nullptr;
     auto* message = yyjson_is_obj(root) ? yyjson_obj_get(root, "message") : nullptr;
-    if (!parse_uint(root, "session_id", parsed.session_id) ||
-        !parse_uint(root, "command_id", parsed.command_id) || !yyjson_is_int(code) ||
+    if (!parse_uint(root, "session_id", parsed.session_id) || !yyjson_is_int(code) ||
         yyjson_get_sint(code) < std::numeric_limits<std::int32_t>::min() ||
         yyjson_get_sint(code) > std::numeric_limits<std::int32_t>::max() ||
         !parse_uint(root, "revision", parsed.revision) || !yyjson_is_str(message) ||
@@ -382,7 +377,7 @@ result decode_ipc_property_write_result(std::span<const std::uint8_t> payload,
     }
     parsed.code = static_cast<std::int32_t>(yyjson_get_sint(code));
     parsed.message.assign(yyjson_get_str(message), yyjson_get_len(message));
-    if (parsed.session_id == 0U || parsed.command_id == 0U ||
+    if (parsed.session_id == 0U ||
         (parsed.code == 0 &&
          (parsed.revision == 0U ||
           !parse_property_value(yyjson_obj_get(root, "value"), parsed.canonical_value)))) {
