@@ -17,6 +17,10 @@ namespace gneiss::runtime_internal {
 
 namespace {
 constexpr std::size_t runtime_property_write_budget = 32U;
+
+template <class... Callables> struct overloaded final : Callables... {
+  using Callables::operator()...;
+};
 }
 
 struct runtime_ipc_session::implementation final {
@@ -119,61 +123,67 @@ struct runtime_ipc_session::implementation final {
   }
 
   result handle_command(const runtime_ipc_command& command, runtime_ipc_actions& actions) noexcept {
-    switch (command.kind) {
-    case runtime_ipc_command_kind::pause:
-      if (current_state != runtime_ipc_state::running) {
-        (void)send_protocol_error(result::invalid_state, "当前状态不能暂停", command.request_id);
-        return result::success;
-      }
-      current_state = runtime_ipc_state::paused;
-      actions.pause_game = true;
-      return send_state(ipc_control_state::paused);
-    case runtime_ipc_command_kind::resume:
-      if (current_state != runtime_ipc_state::paused) {
-        (void)send_protocol_error(result::invalid_state, "当前状态不能恢复", command.request_id);
-        return result::success;
-      }
-      current_state = runtime_ipc_state::running;
-      actions.resume_game = true;
-      return send_state(ipc_control_state::running);
-    case runtime_ipc_command_kind::inspection_resync:
-      actions.request_inspection_resync = true;
-      return result::success;
-    case runtime_ipc_command_kind::stop:
-      if (current_state == runtime_ipc_state::stopping) {
-        return result::success;
-      }
-      current_state = runtime_ipc_state::stopping;
-      actions.request_exit = true;
-      return send_state(ipc_control_state::stopping);
-    case runtime_ipc_command_kind::heartbeat: {
-      ipc_envelope response;
-      const auto operation =
-          encode_ipc_session_heartbeat(command.heartbeat, true, command.request_id, response);
-      return operation == result::success ? send(std::move(response)) : operation;
-    }
-    case runtime_ipc_command_kind::property_write:
-      if (actions.property_writes.size() >= runtime_property_write_budget) {
-        const ipc_property_write_result response{.session_id = command.property.session_id,
-                                                 .command_id = command.property.command_id,
-                                                 .code = GNEISS_ERROR_NOT_READY,
-                                                 .revision = 0U,
-                                                 .message = "本帧属性写入队列已满",
-                                                 .canonical_value = {}};
-        ipc_envelope envelope;
-        const auto operation =
-            encode_ipc_property_result_v2(response, command.request_id, envelope);
-        return operation == result::success ? send(std::move(envelope)) : operation;
-      }
-      actions.property_writes.push_back(command.property);
-      return result::success;
-    case runtime_ipc_command_kind::protocol_error:
-      return from_native(command.error.code);
-    case runtime_ipc_command_kind::hello_acknowledgment:
-      return result::invalid_state;
-    default:
-      return result::unsupported;
-    }
+    return std::visit(
+        overloaded{
+            [&](const runtime_pause_command& value) {
+              if (current_state != runtime_ipc_state::running) {
+                (void)send_protocol_error(result::invalid_state, "当前状态不能暂停",
+                                          value.request_id);
+                return result::success;
+              }
+              current_state = runtime_ipc_state::paused;
+              actions.pause_game = true;
+              return send_state(ipc_control_state::paused);
+            },
+            [&](const runtime_resume_command& value) {
+              if (current_state != runtime_ipc_state::paused) {
+                (void)send_protocol_error(result::invalid_state, "当前状态不能恢复",
+                                          value.request_id);
+                return result::success;
+              }
+              current_state = runtime_ipc_state::running;
+              actions.resume_game = true;
+              return send_state(ipc_control_state::running);
+            },
+            [&](const runtime_stop_command&) {
+              if (current_state == runtime_ipc_state::stopping) {
+                return result::success;
+              }
+              current_state = runtime_ipc_state::stopping;
+              actions.request_exit = true;
+              return send_state(ipc_control_state::stopping);
+            },
+            [&](const runtime_inspection_resync_command&) {
+              actions.request_inspection_resync = true;
+              return result::success;
+            },
+            [&](const runtime_heartbeat_command& value) {
+              ipc_envelope response;
+              const auto operation =
+                  encode_ipc_session_heartbeat(value.value, true, value.request_id, response);
+              return operation == result::success ? send(std::move(response)) : operation;
+            },
+            [&](const runtime_property_write_command& value) {
+              if (actions.property_writes.size() >= runtime_property_write_budget) {
+                const ipc_property_write_result response{.session_id = value.value.session_id,
+                                                         .command_id = value.value.command_id,
+                                                         .code = GNEISS_ERROR_NOT_READY,
+                                                         .revision = 0U,
+                                                         .message = "本帧属性写入队列已满",
+                                                         .canonical_value = {}};
+                ipc_envelope envelope;
+                const auto operation =
+                    encode_ipc_property_result_v2(response, value.request_id, envelope);
+                return operation == result::success ? send(std::move(envelope)) : operation;
+              }
+              actions.property_writes.push_back(value.value);
+              return result::success;
+            },
+            [&](const runtime_protocol_error_command& value) {
+              return from_native(value.value.code);
+            },
+            [&](const runtime_session_hello_ack&) { return result::invalid_state; }},
+        command);
   }
 };
 
@@ -236,13 +246,12 @@ result runtime_ipc_session::pump(clock::time_point now, runtime_ipc_actions& act
     if (implementation_->current_state == runtime_ipc_state::authenticating) {
       runtime_ipc_command command;
       const auto operation = implementation_->dispatch(event.envelope, false, command);
-      if (operation != result::success ||
-          command.kind != runtime_ipc_command_kind::hello_acknowledgment ||
-          event.envelope.request_id != 1U) {
+      auto* hello = std::get_if<runtime_session_hello_ack>(&command);
+      if (operation != result::success || hello == nullptr || event.envelope.request_id != 1U) {
         return implementation_->fail(
             operation == result::success ? result::invalid_argument : operation, actions);
       }
-      implementation_->negotiated_domains = std::move(command.hello.domains);
+      implementation_->negotiated_domains = std::move(hello->value.domains);
       if (std::ranges::any_of(implementation_->negotiated_domains, [&](const auto negotiated) {
             const auto requested =
                 std::ranges::find(implementation_->requested_domains, negotiated.domain,

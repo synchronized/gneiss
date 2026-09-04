@@ -11,13 +11,15 @@ int main() {
   }
   gneiss::editor::runtime_ipc_event event;
   if (gneiss::editor::decode_runtime_control_event(envelope, event) != gneiss::result::success ||
-      event.kind != gneiss::editor::runtime_ipc_event_kind::state_changed ||
-      event.state != gneiss::ipc_control_state::paused) {
+      !std::holds_alternative<gneiss::editor::runtime_state_event>(event) ||
+      std::get<gneiss::editor::runtime_state_event>(event).value !=
+          gneiss::ipc_control_state::paused) {
     return 2;
   }
   if (gneiss::encode_ipc_log_event("测试日志", envelope) != gneiss::result::success ||
       gneiss::editor::decode_runtime_log_event(envelope, event) != gneiss::result::success ||
-      event.kind != gneiss::editor::runtime_ipc_event_kind::log || event.log != "测试日志") {
+      !std::holds_alternative<gneiss::editor::runtime_log_event>(event) ||
+      std::get<gneiss::editor::runtime_log_event>(event).value != "测试日志") {
     return 3;
   }
   envelope.domain = gneiss::ipc_domain::property;

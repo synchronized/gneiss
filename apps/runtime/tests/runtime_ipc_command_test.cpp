@@ -12,8 +12,8 @@ int main() {
   gneiss::runtime_internal::runtime_ipc_command command;
   if (gneiss::runtime_internal::decode_runtime_control_command(envelope, command) !=
           gneiss::result::success ||
-      command.kind != gneiss::runtime_internal::runtime_ipc_command_kind::pause ||
-      command.request_id != 7U) {
+      !std::holds_alternative<gneiss::runtime_internal::runtime_pause_command>(command) ||
+      std::get<gneiss::runtime_internal::runtime_pause_command>(command).request_id != 7U) {
     return 2;
   }
   const gneiss::ipc_property_write property{.session_id = 3U,
@@ -26,8 +26,9 @@ int main() {
   if (gneiss::encode_ipc_property_write_v2(property, 9U, envelope) != gneiss::result::success ||
       gneiss::runtime_internal::decode_runtime_property_command(envelope, command) !=
           gneiss::result::success ||
-      command.kind != gneiss::runtime_internal::runtime_ipc_command_kind::property_write ||
-      command.property.command_id != 9U) {
+      !std::holds_alternative<gneiss::runtime_internal::runtime_property_write_command>(command) ||
+      std::get<gneiss::runtime_internal::runtime_property_write_command>(command)
+              .value.command_id != 9U) {
     return 3;
   }
   return gneiss::runtime_internal::decode_runtime_control_command(envelope, command) !=

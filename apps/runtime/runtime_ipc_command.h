@@ -8,27 +8,44 @@
 #include "ipc_data_protocol.h"
 #include "ipc_session_protocol.h"
 
+#include <variant>
+
 namespace gneiss::runtime_internal {
 
-enum class runtime_ipc_command_kind : std::uint8_t {
-  hello_acknowledgment,
-  heartbeat,
-  protocol_error,
-  pause,
-  resume,
-  stop,
-  inspection_resync,
-  property_write,
+struct runtime_session_hello_ack final {
+  std::uint32_t request_id = 0U;
+  ipc_session_hello value;
+};
+struct runtime_heartbeat_command final {
+  std::uint32_t request_id = 0U;
+  ipc_session_heartbeat value;
+};
+struct runtime_protocol_error_command final {
+  std::uint32_t request_id = 0U;
+  ipc_session_error value;
+};
+struct runtime_pause_command final {
+  std::uint32_t request_id = 0U;
+};
+struct runtime_resume_command final {
+  std::uint32_t request_id = 0U;
+};
+struct runtime_stop_command final {
+  std::uint32_t request_id = 0U;
+};
+struct runtime_inspection_resync_command final {
+  std::uint32_t request_id = 0U;
+};
+struct runtime_property_write_command final {
+  std::uint32_t request_id = 0U;
+  ipc_property_write value;
 };
 
-struct runtime_ipc_command final {
-  runtime_ipc_command_kind kind = runtime_ipc_command_kind::protocol_error;
-  std::uint32_t request_id = 0U;
-  ipc_session_hello hello;
-  ipc_session_heartbeat heartbeat;
-  ipc_session_error error;
-  ipc_property_write property;
-};
+using runtime_ipc_command =
+    std::variant<runtime_session_hello_ack, runtime_heartbeat_command,
+                 runtime_protocol_error_command, runtime_pause_command, runtime_resume_command,
+                 runtime_stop_command, runtime_inspection_resync_command,
+                 runtime_property_write_command>;
 
 /** 将已通过 Dispatcher 的 Session 域信封解码为 Runtime 主线程命令。 */
 [[nodiscard]] result decode_runtime_session_command(const ipc_envelope& envelope,

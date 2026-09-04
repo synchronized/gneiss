@@ -200,9 +200,10 @@ struct runtime_process::implementation final {
         runtime_ipc_event decoded;
         auto accepted = dispatch(event.envelope, decoded);
         ipc_session_hello acknowledgment_message;
-        if (accepted == result::success && decoded.kind == runtime_ipc_event_kind::hello) {
+        const auto* hello = std::get_if<runtime_hello_event>(&decoded);
+        if (accepted == result::success && hello != nullptr) {
           accepted = negotiate_ipc_session_hello(
-              decoded.hello, ipc_token, ipc_v2_domain_capabilities(), acknowledgment_message);
+              hello->value, ipc_token, ipc_v2_domain_capabilities(), acknowledgment_message);
         } else if (accepted == result::success) {
           accepted = result::invalid_argument;
         }
@@ -235,7 +236,7 @@ struct runtime_process::implementation final {
         continue;
       }
       ipc_heartbeat.reset(now);
-      if (decoded_event.kind == runtime_ipc_event_kind::inspection_snapshot) {
+      if (std::holds_alternative<runtime_inspection_event>(decoded_event)) {
         constexpr std::size_t maximum_pending_inspection_frames = 256U;
         if (pending_inspection_input.size() >= maximum_pending_inspection_frames) {
           pending_inspection_input.clear();
@@ -248,23 +249,23 @@ struct runtime_process::implementation final {
         ipc_heartbeat.reset(now);
         continue;
       }
-      if (decoded_event.kind == runtime_ipc_event_kind::statistics_snapshot) {
-        if (decoded_event.statistics.session_id == scene_mirror.session_id() &&
-            decoded_event.statistics.sequence > statistics.sequence) {
-          statistics = decoded_event.statistics;
+      if (const auto* value = std::get_if<runtime_statistics_event>(&decoded_event)) {
+        if (value->value.session_id == scene_mirror.session_id() &&
+            value->value.sequence > statistics.sequence) {
+          statistics = value->value;
         }
         continue;
       }
-      if (decoded_event.kind == runtime_ipc_event_kind::property_result) {
-        const auto accepted = property_edits.accept(std::move(decoded_event.property_result));
+      if (auto* value = std::get_if<runtime_property_result_event>(&decoded_event)) {
+        const auto accepted = property_edits.accept(std::move(value->value));
         if (accepted != result::success && accepted != result::not_found &&
             accepted != result::invalid_state) {
           last_result = accepted;
         }
         continue;
       }
-      if (decoded_event.kind == runtime_ipc_event_kind::state_changed) {
-        switch (decoded_event.state) {
+      if (const auto* value = std::get_if<runtime_state_event>(&decoded_event)) {
+        switch (value->value) {
         case ipc_control_state::running:
           control_state = runtime_control_state::running;
           break;
@@ -282,19 +283,19 @@ struct runtime_process::implementation final {
           fail_ipc(result::invalid_argument);
           break;
         }
-      } else if (decoded_event.kind == runtime_ipc_event_kind::protocol_error) {
-        last_result = from_native(decoded_event.error.code);
-      } else if (decoded_event.kind == runtime_ipc_event_kind::log) {
-        while (!decoded_event.log.empty() &&
-               (decoded_event.log.back() == '\n' || decoded_event.log.back() == '\r')) {
-          decoded_event.log.pop_back();
+      } else if (const auto* value = std::get_if<runtime_protocol_error_event>(&decoded_event)) {
+        last_result = from_native(value->value.code);
+      } else if (auto* value = std::get_if<runtime_log_event>(&decoded_event)) {
+        while (!value->value.empty() &&
+               (value->value.back() == '\n' || value->value.back() == '\r')) {
+          value->value.pop_back();
         }
         app::runtime_log_record record;
-        if (app::parse_runtime_log_line(decoded_event.log, record) ==
+        if (app::parse_runtime_log_line(value->value, record) ==
             app::runtime_log_parse_result::success) {
           append_event_unique(std::move(record));
         }
-      } else if (decoded_event.kind == runtime_ipc_event_kind::shutdown_complete) {
+      } else if (std::holds_alternative<runtime_shutdown_event>(decoded_event)) {
         ipc_shutdown_complete = true;
         control_state = runtime_control_state::stopping;
       }

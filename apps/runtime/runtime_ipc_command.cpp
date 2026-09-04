@@ -9,24 +9,34 @@ namespace gneiss::runtime_internal {
 
 result decode_runtime_session_command(const ipc_envelope& envelope,
                                       runtime_ipc_command& output) noexcept {
-  runtime_ipc_command decoded;
-  decoded.request_id = envelope.request_id;
-  result operation = result::unsupported;
   if (envelope.operation == static_cast<std::uint16_t>(ipc_session_operation::hello)) {
-    decoded.kind = runtime_ipc_command_kind::hello_acknowledgment;
-    operation = decode_ipc_session_hello(envelope, decoded.hello);
-  } else if (envelope.operation == static_cast<std::uint16_t>(ipc_session_operation::heartbeat)) {
-    decoded.kind = runtime_ipc_command_kind::heartbeat;
-    operation = decode_ipc_session_heartbeat(envelope, decoded.heartbeat);
-  } else if (envelope.operation ==
-             static_cast<std::uint16_t>(ipc_session_operation::protocol_error)) {
-    decoded.kind = runtime_ipc_command_kind::protocol_error;
-    operation = decode_ipc_session_error(envelope, decoded.error);
+    runtime_session_hello_ack command;
+    command.request_id = envelope.request_id;
+    const auto operation = decode_ipc_session_hello(envelope, command.value);
+    if (operation == result::success) {
+      output = std::move(command);
+    }
+    return operation;
   }
-  if (operation == result::success) {
-    output = std::move(decoded);
+  if (envelope.operation == static_cast<std::uint16_t>(ipc_session_operation::heartbeat)) {
+    runtime_heartbeat_command command;
+    command.request_id = envelope.request_id;
+    const auto operation = decode_ipc_session_heartbeat(envelope, command.value);
+    if (operation == result::success) {
+      output = std::move(command);
+    }
+    return operation;
   }
-  return operation;
+  if (envelope.operation == static_cast<std::uint16_t>(ipc_session_operation::protocol_error)) {
+    runtime_protocol_error_command command;
+    command.request_id = envelope.request_id;
+    const auto operation = decode_ipc_session_error(envelope, command.value);
+    if (operation == result::success) {
+      output = std::move(command);
+    }
+    return operation;
+  }
+  return result::unsupported;
 }
 
 result decode_runtime_control_command(const ipc_envelope& envelope,
@@ -36,36 +46,32 @@ result decode_runtime_control_command(const ipc_envelope& envelope,
   if (operation != result::success) {
     return operation;
   }
-  runtime_ipc_command decoded;
-  decoded.request_id = envelope.request_id;
-  decoded.kind = request == ipc_control_operation::pause    ? runtime_ipc_command_kind::pause
-                 : request == ipc_control_operation::resume ? runtime_ipc_command_kind::resume
-                                                            : runtime_ipc_command_kind::stop;
-  output = std::move(decoded);
+  if (request == ipc_control_operation::pause) {
+    output = runtime_pause_command{envelope.request_id};
+  } else if (request == ipc_control_operation::resume) {
+    output = runtime_resume_command{envelope.request_id};
+  } else {
+    output = runtime_stop_command{envelope.request_id};
+  }
   return result::success;
 }
 
 result decode_runtime_inspection_command(const ipc_envelope& envelope,
                                          runtime_ipc_command& output) noexcept {
   const auto operation = decode_ipc_inspection_resync(envelope);
-  if (operation != result::success) {
-    return operation;
+  if (operation == result::success) {
+    output = runtime_inspection_resync_command{envelope.request_id};
   }
-  runtime_ipc_command decoded;
-  decoded.kind = runtime_ipc_command_kind::inspection_resync;
-  decoded.request_id = envelope.request_id;
-  output = std::move(decoded);
-  return result::success;
+  return operation;
 }
 
 result decode_runtime_property_command(const ipc_envelope& envelope,
                                        runtime_ipc_command& output) noexcept {
-  runtime_ipc_command decoded;
-  decoded.kind = runtime_ipc_command_kind::property_write;
-  decoded.request_id = envelope.request_id;
-  const auto operation = decode_ipc_property_write_v2(envelope, decoded.property);
+  runtime_property_write_command command;
+  command.request_id = envelope.request_id;
+  const auto operation = decode_ipc_property_write_v2(envelope, command.value);
   if (operation == result::success) {
-    output = std::move(decoded);
+    output = std::move(command);
   }
   return operation;
 }

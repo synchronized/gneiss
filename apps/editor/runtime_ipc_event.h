@@ -8,34 +8,33 @@
 #include "ipc_data_protocol.h"
 #include "ipc_session_protocol.h"
 
+#include <variant>
+
 namespace gneiss::editor {
 
-enum class runtime_ipc_event_kind : std::uint8_t {
-  hello,
-  heartbeat,
-  protocol_error,
-  shutdown_complete,
-  ready,
-  state_changed,
-  log,
-  inspection_snapshot,
-  statistics_snapshot,
-  property_result,
+template <typename Value> struct runtime_value_event final {
+  std::uint32_t request_id = 0U;
+  Value value;
 };
 
-struct runtime_ipc_event final {
-  runtime_ipc_event_kind kind = runtime_ipc_event_kind::protocol_error;
+using runtime_hello_event = runtime_value_event<ipc_session_hello>;
+using runtime_heartbeat_event = runtime_value_event<ipc_session_heartbeat>;
+using runtime_protocol_error_event = runtime_value_event<ipc_session_error>;
+using runtime_shutdown_event = runtime_value_event<ipc_session_shutdown>;
+using runtime_state_event = runtime_value_event<ipc_control_state>;
+using runtime_log_event = runtime_value_event<std::string>;
+using runtime_inspection_event = runtime_value_event<ipc_inspection_batch>;
+using runtime_statistics_event = runtime_value_event<ipc_runtime_statistics>;
+using runtime_property_result_event = runtime_value_event<ipc_property_write_result>;
+struct runtime_ready_event final {
   std::uint32_t request_id = 0U;
-  ipc_session_hello hello;
-  ipc_session_heartbeat heartbeat;
-  ipc_session_error error;
-  ipc_session_shutdown shutdown;
-  ipc_control_state state = ipc_control_state::invalid;
-  std::string log;
-  ipc_inspection_batch inspection;
-  ipc_runtime_statistics statistics;
-  ipc_property_write_result property_result;
 };
+
+using runtime_ipc_event =
+    std::variant<runtime_hello_event, runtime_heartbeat_event, runtime_protocol_error_event,
+                 runtime_shutdown_event, runtime_ready_event, runtime_state_event,
+                 runtime_log_event, runtime_inspection_event, runtime_statistics_event,
+                 runtime_property_result_event>;
 
 [[nodiscard]] result decode_runtime_session_event(const ipc_envelope& envelope,
                                                   runtime_ipc_event& output) noexcept;
