@@ -14,12 +14,13 @@
 
 ## 决策
 
-- `src/io` 只保留 libuv 运行支持、IPC 信封、Dispatcher 和 Transport 等通用基础设施。
+- `src/io` 只保留 libuv 运行支持；`src/ipc` 通过独立目标 `gneiss_ipc` 提供信封、Dispatcher 和
+  Transport 等通用 IPC 基础设施。
 - Editor 与 Runtime 共用的协议实现放入 `apps/common/ipc`，由独立目标
   `gneiss_app_ipc_protocol` 提供。
 - Operation Router 与标准域组合属于应用协议层；它依赖已知协议域，不作为通用 I/O 能力。
-- Runtime 和 Editor 依赖应用协议目标；应用协议目标单向依赖 `gneiss_uv_runtime` 和 Engine 数据
-  类型，不允许通用 I/O 目标反向依赖应用协议。
+- Runtime 和 Editor 依赖应用协议目标；应用协议目标单向依赖 `gneiss_ipc` 和 Engine 数据类型，
+  `gneiss_ipc` 再依赖 `gneiss_uv_runtime`，不允许底层目标反向依赖应用协议。
 - 两层均为内部 C++20 目标，不进入公共 C11 SDK，也不承诺独立 ABI 稳定性。
 
 ## 影响

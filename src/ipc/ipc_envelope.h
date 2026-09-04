@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#ifndef GNEISS_SRC_IO_IPC_ENVELOPE_H_
-#define GNEISS_SRC_IO_IPC_ENVELOPE_H_
+#ifndef GNEISS_SRC_IPC_IPC_ENVELOPE_H_
+#define GNEISS_SRC_IPC_IPC_ENVELOPE_H_
 
 #include <gneiss/core/result.hpp>
 
