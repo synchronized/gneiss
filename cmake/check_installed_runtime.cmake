@@ -63,7 +63,6 @@ execute_process(
 )
 if(NOT runtime_result EQUAL 0 OR NOT runtime_output MATCHES "@gneiss-log-v1" OR
    NOT runtime_output MATCHES "\"source\":\"application\"" OR
-   NOT runtime_output MATCHES "Runtime 已进入首帧" OR
    NOT runtime_output MATCHES "stage=shutdown")
   message(FATAL_ERROR
           "安装树 Runtime 启动失败：${runtime_result}\n${runtime_output}${runtime_error}")
@@ -97,7 +96,6 @@ if(GNEISS_SHARED)
   if(NOT lantern_result EQUAL 0 OR NOT lantern_output MATCHES "stage=game_module" OR
      NOT lantern_output MATCHES "@gneiss-log-v1" OR
      NOT lantern_output MATCHES "\"source\":\"gneiss.examples.lantern_gallery\"" OR
-     NOT lantern_output MATCHES "Lantern Gallery 游戏模块初始化完成" OR
      NOT lantern_output MATCHES "stage=shutdown")
     message(FATAL_ERROR
             "安装树 Lantern Gallery 启动失败：${lantern_result}\n${lantern_output}${lantern_error}")

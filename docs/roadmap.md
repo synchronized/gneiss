@@ -423,7 +423,7 @@ Log、Inspection、Statistics 与 Property 域，并以统一请求关联和注�
 | M-140 Session 与 Control 域迁移 | P0 | 已完成 |
 | M-141 数据与属性域迁移 | P0 | 已完成 |
 | M-142 Editor 与 Runtime 会话组合 | P0 | 已完成 |
-| M-143 兼容、故障与跨平台验收 | P0 | 待开始 |
+| M-143 兼容、故障与跨平台验收 | P0 | Windows 已完成，待 Linux |
 
 详细范围、兼容策略和验收条件见
 [VER-021：0.21.0 IPC 模块化重构](plans/VER-021-0.21.0-ipc-modularization.md)。
