@@ -362,7 +362,7 @@ bool parse_options(int argc, char** argv, launch_options& options) {
 
 void report_startup_failure(std::string_view stage, gneiss::result operation,
                             std::string_view path = {}) noexcept {
-  const auto message = gneiss::result_message(operation);
+  const auto message = operation.message();
   std::fprintf(stderr, "Gneiss Editor 启动失败：阶段=%.*s，结果=%d，消息=%.*s",
                static_cast<int>(stage.size()), stage.data(), gneiss::to_native(operation),
                static_cast<int>(message.size()), message.data());
@@ -1338,7 +1338,7 @@ void draw_reflected_properties(editor_state& state) {
     state.session.mark_dirty();
   }
   if (state.inspector_error != gneiss::result::success) {
-    const auto message = gneiss::result_message(state.inspector_error);
+    const auto message = state.inspector_error.message();
     ImGui::TextColored(gneiss::editor::theme_error_color(), "%.*s",
                        static_cast<int>(message.size()), message.data());
   }
@@ -1423,7 +1423,7 @@ void draw_asset_browser(editor_state& state) {
     } else if (selected_result != gneiss::result::not_ready) {
       state.last_import = {};
       state.last_import.result = gneiss::editor::editor_import_result::io_error;
-      state.last_import.diagnostic = std::string{gneiss::result_message(selected_result)};
+      state.last_import.diagnostic = std::string{selected_result.message()};
       state.import_attempted = true;
     }
   }
@@ -1610,7 +1610,7 @@ void draw_asset_browser(editor_state& state) {
     state.asset_scene_attempted = true;
   }
   if (state.asset_scene_attempted && state.asset_scene_result != gneiss::result::success) {
-    const auto message = gneiss::result_message(state.asset_scene_result);
+    const auto message = state.asset_scene_result.message();
     ImGui::TextColored(gneiss::editor::theme_error_color(), "Scene edit failed: %.*s",
                        static_cast<int>(message.size()), message.data());
   }
@@ -2103,7 +2103,7 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
       ImGui::SameLine();
       ImGui::Checkbox("Auto-scroll", &state.console_auto_scroll);
       if (state.runtime_attempted && state.runtime_result != gneiss::result::success) {
-        const auto message = gneiss::result_message(state.runtime_result);
+        const auto message = state.runtime_result.message();
         ImGui::TextColored(gneiss::editor::theme_error_color(), "Runtime error: %.*s",
                            static_cast<int>(message.size()), message.data());
       }
@@ -2607,7 +2607,7 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
 
     if (state.history_error != gneiss::result::success &&
         state.history_error != gneiss::result::not_ready) {
-      const auto message = gneiss::result_message(state.history_error);
+      const auto message = state.history_error.message();
       ImGui::SetNextWindowPos(ImVec2(500.0F, 24.0F));
       ImGui::Begin("Command Error", nullptr,
                    ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoDecoration);
@@ -2616,7 +2616,7 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
       ImGui::End();
     }
     if (state.prefab_author_attempted && state.prefab_author_result != gneiss::result::success) {
-      const auto message = gneiss::result_message(state.prefab_author_result);
+      const auto message = state.prefab_author_result.message();
       ImGui::SetNextWindowPos(ImVec2(500.0F, 52.0F));
       ImGui::Begin("Prefab Author Error", nullptr,
                    ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoDecoration);
@@ -2695,7 +2695,7 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
       state.save_attempted = state.save_result != gneiss::result::not_ready;
     }
     if (state.save_attempted && state.save_result != gneiss::result::success) {
-      const auto message = gneiss::result_message(state.save_result);
+      const auto message = state.save_result.message();
       ImGui::TextColored(gneiss::editor::theme_error_color(), "Save failed: %.*s",
                          static_cast<int>(message.size()), message.data());
     }
@@ -3140,7 +3140,7 @@ int run_editor(int argc, char** argv) {
       return 0;
     }
     if (operation != gneiss::result::success) {
-      const auto message = gneiss::result_message(operation);
+      const auto message = operation.message();
       std::fprintf(stderr, "Gneiss Editor 启动失败：阶段=Project Manager，结果=%d，消息=%.*s\n",
                    gneiss::to_native(operation), static_cast<int>(message.size()), message.data());
       return 65;
@@ -3148,7 +3148,7 @@ int run_editor(int argc, char** argv) {
   } else {
     const auto operation = gneiss::editor::load_editor_project(utf8_path(options.project), project);
     if (operation != gneiss::result::success) {
-      const auto message = gneiss::result_message(operation);
+      const auto message = operation.message();
       std::fprintf(stderr, "Gneiss Editor 启动失败：阶段=工程加载，结果=%d，消息=%.*s，路径=%s\n",
                    gneiss::to_native(operation), static_cast<int>(message.size()), message.data(),
                    options.project.c_str());
@@ -3173,7 +3173,7 @@ int run_editor(int argc, char** argv) {
   state.asset_result = state.assets.refresh(state.project_root, state.asset_root);
   const auto watcher_result = state.asset_watcher.start(state.project_root / "sources");
   if (watcher_result != gneiss::result::success) {
-    const auto message = gneiss::result_message(watcher_result);
+    const auto message = watcher_result.message();
     std::fprintf(stderr, "Gneiss Editor 资产监听启动失败：结果=%d，消息=%.*s\n",
                  gneiss::to_native(watcher_result), static_cast<int>(message.size()),
                  message.data());
@@ -3210,7 +3210,7 @@ int run_editor(int argc, char** argv) {
         gneiss::editor::default_editor_state_path(), project.project_root, state.panel_visibility);
     if (layout_result != gneiss::result::success &&
         layout_result != gneiss::result::invalid_argument) {
-      const auto message = gneiss::result_message(layout_result);
+      const auto message = layout_result.message();
       std::fprintf(stderr, "Gneiss Editor 布局加载失败：结果=%d，消息=%.*s\n",
                    gneiss::to_native(layout_result), static_cast<int>(message.size()),
                    message.data());
@@ -3244,7 +3244,7 @@ int run_editor(int argc, char** argv) {
   if (!options.smoke) {
     const auto save_layout_result = gneiss::editor::save_editor_layout(state.panel_visibility);
     if (save_layout_result != gneiss::result::success) {
-      const auto message = gneiss::result_message(save_layout_result);
+      const auto message = save_layout_result.message();
       std::fprintf(stderr, "Gneiss Editor 布局保存失败：结果=%d，消息=%.*s\n",
                    gneiss::to_native(save_layout_result), static_cast<int>(message.size()),
                    message.data());

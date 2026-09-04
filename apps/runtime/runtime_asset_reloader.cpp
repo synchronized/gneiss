@@ -49,7 +49,7 @@ result runtime_asset_reloader::execute(const ipc_asset_reload_request& request,
     response.message = "该资产修订需要重启 Runtime";
     return result::success;
   }
-  response.message = std::string{"资产修订应用失败："} + std::string{result_message(applied)};
+  response.message = std::string{"资产修订应用失败："} + std::string{applied.message()};
   return result::success;
 }
 
