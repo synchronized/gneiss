@@ -21,20 +21,20 @@ add_library(
   ipc/editor_ipc_router.h
   ipc/editor_ipc_session.cpp
   ipc/editor_ipc_session.h
-  ipc/commands/editor_ipc_commands.h
-  ipc/commands/heartbeat_command.cpp
-  ipc/commands/inspection_resync_command.cpp
-  ipc/commands/pause_command.cpp
-  ipc/commands/property_write_command.cpp
-  ipc/commands/resume_command.cpp
-  ipc/commands/stop_command.cpp
-  ipc/handlers/control_events.cpp
-  ipc/handlers/event_decode.h
-  ipc/handlers/inspection_events.cpp
-  ipc/handlers/log_events.cpp
-  ipc/handlers/property_events.cpp
-  ipc/handlers/session_events.cpp
-  ipc/handlers/statistics_events.cpp
+  ipc/inbound/control_events.cpp
+  ipc/inbound/event_decode.h
+  ipc/inbound/inspection_events.cpp
+  ipc/inbound/log_events.cpp
+  ipc/inbound/property_events.cpp
+  ipc/inbound/session_events.cpp
+  ipc/inbound/statistics_events.cpp
+  ipc/outbound/editor_ipc_outbound.h
+  ipc/outbound/heartbeat_command.cpp
+  ipc/outbound/inspection_resync_command.cpp
+  ipc/outbound/pause_command.cpp
+  ipc/outbound/property_write_command.cpp
+  ipc/outbound/resume_command.cpp
+  ipc/outbound/stop_command.cpp
   native_author_transaction.cpp
   native_author_transaction.h
   prefab_authoring.cpp
@@ -64,8 +64,8 @@ target_link_libraries(
 target_include_directories(
   gneiss_editor_session
   PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/ipc"
-  PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/ipc/commands"
-          "${CMAKE_CURRENT_SOURCE_DIR}/ipc/handlers"
+  PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/ipc/inbound"
+          "${CMAKE_CURRENT_SOURCE_DIR}/ipc/outbound"
 )
 target_compile_features(gneiss_editor_session PUBLIC cxx_std_20)
 gneiss_target_compile_warnings(gneiss_editor_session)

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#ifndef GNEISS_APPS_EDITOR_IPC_COMMANDS_EDITOR_IPC_COMMANDS_H_
-#define GNEISS_APPS_EDITOR_IPC_COMMANDS_EDITOR_IPC_COMMANDS_H_
+#ifndef GNEISS_APPS_EDITOR_IPC_OUTBOUND_EDITOR_IPC_OUTBOUND_H_
+#define GNEISS_APPS_EDITOR_IPC_OUTBOUND_EDITOR_IPC_OUTBOUND_H_
 
 #include "ipc_envelope.h"
 #include "ipc_property_edit_protocol.h"

@@ -20,10 +20,10 @@ gneiss_target_output_directories(gneiss_game_module_session)
 
   add_library(
     gneiss_runtime_ipc STATIC
-    ipc/commands/control_commands.cpp
-    ipc/commands/inspection_commands.cpp
-    ipc/commands/property_commands.cpp
-    ipc/commands/session_commands.cpp
+    ipc/inbound/control_commands.cpp
+    ipc/inbound/inspection_commands.cpp
+    ipc/inbound/property_commands.cpp
+    ipc/inbound/session_commands.cpp
     ipc/runtime_command_context.cpp
     ipc/runtime_command_context.h
     ipc/runtime_commands.cpp

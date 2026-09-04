@@ -3,7 +3,7 @@
 
 #include "editor_ipc_session.h"
 
-#include "editor_ipc_commands.h"
+#include "editor_ipc_outbound.h"
 #include "editor_ipc_router.h"
 #include "ipc_protocol_domains.h"
 #include "ipc_session_protocol.h"

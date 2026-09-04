@@ -25,8 +25,9 @@ Editor 事件仍使用 `std::variant` 表达互斥载荷，并通过 `std::get_i
 命令共用同一种扩展模型，后续按 Editor 状态投影与队列边界独立拆分。
 
 Editor IPC 实现现已集中到 `apps/editor/ipc`：`editor_ipc_session` 独占 Transport、鉴权、能力协商、
-心跳和请求编号，`editor_ipc_router` 组合协议域；`handlers/` 按协议域解码 Runtime 事件，
-`commands/` 中每个出站命令拥有独立实现文件。`runtime_process` 只组合子进程生命周期、IPC 会话和
+心跳和请求编号，`editor_ipc_router` 组合协议域；`inbound/` 按协议域解码 Runtime 事件，
+`outbound/` 中每个出站命令拥有独立实现文件。Runtime 端接收的 Editor 命令同样归入
+`apps/runtime/ipc/inbound/`。`runtime_process` 只组合子进程生命周期、IPC 会话和
 Editor 状态投影，不再直接持有 libuv、Transport、Dispatcher 或协议握手状态。
 
 Session 超时跟踪器归入 Session 域；Runtime 对象标识与检查顺序跟踪器归入 Inspection 域。数据域
