@@ -10,7 +10,7 @@ int main() {
     return 1;
   }
   gneiss::runtime_internal::runtime_ipc_command command;
-  if (gneiss::runtime_internal::decode_runtime_ipc_command(envelope, command) !=
+  if (gneiss::runtime_internal::decode_runtime_control_command(envelope, command) !=
           gneiss::result::success ||
       command.kind != gneiss::runtime_internal::runtime_ipc_command_kind::pause ||
       command.request_id != 7U) {
@@ -24,15 +24,14 @@ int main() {
                                             .expected_revision = 6U,
                                             .value = {true}};
   if (gneiss::encode_ipc_property_write_v2(property, 9U, envelope) != gneiss::result::success ||
-      gneiss::runtime_internal::decode_runtime_ipc_command(envelope, command) !=
+      gneiss::runtime_internal::decode_runtime_property_command(envelope, command) !=
           gneiss::result::success ||
       command.kind != gneiss::runtime_internal::runtime_ipc_command_kind::property_write ||
       command.property.command_id != 9U) {
     return 3;
   }
-  envelope.domain = gneiss::ipc_domain::log;
-  return gneiss::runtime_internal::decode_runtime_ipc_command(envelope, command) ==
-                 gneiss::result::unsupported
+  return gneiss::runtime_internal::decode_runtime_control_command(envelope, command) !=
+                 gneiss::result::success
              ? 0
              : 4;
 }

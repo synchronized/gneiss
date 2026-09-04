@@ -30,9 +30,18 @@ struct runtime_ipc_command final {
   ipc_property_write property;
 };
 
-/** 将已通过 Dispatcher 的 Editor 信封解码为 Runtime 主线程命令。 */
-[[nodiscard]] result decode_runtime_ipc_command(const ipc_envelope& envelope,
-                                                runtime_ipc_command& output) noexcept;
+/** 将已通过 Dispatcher 的 Session 域信封解码为 Runtime 主线程命令。 */
+[[nodiscard]] result decode_runtime_session_command(const ipc_envelope& envelope,
+                                                    runtime_ipc_command& output) noexcept;
+/** 将已通过 Dispatcher 的 Control 域信封解码为 Runtime 主线程命令。 */
+[[nodiscard]] result decode_runtime_control_command(const ipc_envelope& envelope,
+                                                    runtime_ipc_command& output) noexcept;
+/** 将已通过 Dispatcher 的 Inspection 域信封解码为 Runtime 主线程命令。 */
+[[nodiscard]] result decode_runtime_inspection_command(const ipc_envelope& envelope,
+                                                       runtime_ipc_command& output) noexcept;
+/** 将已通过 Dispatcher 的 Property 域信封解码为 Runtime 主线程命令。 */
+[[nodiscard]] result decode_runtime_property_command(const ipc_envelope& envelope,
+                                                     runtime_ipc_command& output) noexcept;
 
 } // namespace gneiss::runtime_internal
 

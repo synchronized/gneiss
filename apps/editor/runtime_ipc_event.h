@@ -37,9 +37,18 @@ struct runtime_ipc_event final {
   ipc_property_write_result property_result;
 };
 
-/** 将已通过 Dispatcher 的 Runtime 信封解码为 Editor 主线程事件。 */
-[[nodiscard]] result decode_runtime_ipc_event(const ipc_envelope& envelope,
+[[nodiscard]] result decode_runtime_session_event(const ipc_envelope& envelope,
+                                                  runtime_ipc_event& output) noexcept;
+[[nodiscard]] result decode_runtime_control_event(const ipc_envelope& envelope,
+                                                  runtime_ipc_event& output) noexcept;
+[[nodiscard]] result decode_runtime_log_event(const ipc_envelope& envelope,
                                               runtime_ipc_event& output) noexcept;
+[[nodiscard]] result decode_runtime_inspection_event(const ipc_envelope& envelope,
+                                                     runtime_ipc_event& output) noexcept;
+[[nodiscard]] result decode_runtime_statistics_event(const ipc_envelope& envelope,
+                                                     runtime_ipc_event& output) noexcept;
+[[nodiscard]] result decode_runtime_property_event(const ipc_envelope& envelope,
+                                                   runtime_ipc_event& output) noexcept;
 
 } // namespace gneiss::editor
 

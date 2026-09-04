@@ -69,26 +69,52 @@ struct runtime_process::implementation final {
   result last_result = result::success;
 
   implementation() {
-    const ipc_protocol_domain_handlers handlers{.session = accept_envelope,
-                                                .control = accept_envelope,
-                                                .log = accept_envelope,
-                                                .inspection = accept_envelope,
-                                                .statistics = accept_envelope,
-                                                .property = accept_envelope,
+    const ipc_protocol_domain_handlers handlers{.session = accept_session,
+                                                .control = accept_control,
+                                                .log = accept_log,
+                                                .inspection = accept_inspection,
+                                                .statistics = accept_statistics,
+                                                .property = accept_property,
                                                 .context = this};
     if (register_ipc_v2_domains(handlers, ipc_registry) == result::success) {
       ipc_dispatcher_instance = std::make_unique<ipc_dispatcher>(ipc_registry);
     }
   }
 
-  static result accept_envelope(void* context, const ipc_envelope& envelope) noexcept {
+  using decoder = result (*)(const ipc_envelope&, runtime_ipc_event&) noexcept;
+
+  static result accept_event(void* context, const ipc_envelope& envelope, decoder decode) noexcept {
     auto& self = *static_cast<implementation*>(context);
     runtime_ipc_event event;
-    const auto operation = decode_runtime_ipc_event(envelope, event);
+    const auto operation = decode(envelope, event);
     if (operation == result::success) {
       self.dispatched_event = std::move(event);
     }
     return operation;
+  }
+
+  static result accept_session(void* context, const ipc_envelope& envelope) noexcept {
+    return accept_event(context, envelope, decode_runtime_session_event);
+  }
+
+  static result accept_control(void* context, const ipc_envelope& envelope) noexcept {
+    return accept_event(context, envelope, decode_runtime_control_event);
+  }
+
+  static result accept_log(void* context, const ipc_envelope& envelope) noexcept {
+    return accept_event(context, envelope, decode_runtime_log_event);
+  }
+
+  static result accept_inspection(void* context, const ipc_envelope& envelope) noexcept {
+    return accept_event(context, envelope, decode_runtime_inspection_event);
+  }
+
+  static result accept_statistics(void* context, const ipc_envelope& envelope) noexcept {
+    return accept_event(context, envelope, decode_runtime_statistics_event);
+  }
+
+  static result accept_property(void* context, const ipc_envelope& envelope) noexcept {
+    return accept_event(context, envelope, decode_runtime_property_event);
   }
 
   result dispatch(const ipc_envelope& envelope, runtime_ipc_event& output) noexcept {

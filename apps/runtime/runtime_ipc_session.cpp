@@ -23,12 +23,12 @@ struct runtime_ipc_session::implementation final {
   explicit implementation(runtime_ipc_config value)
       : config(std::move(value)), handshake_deadline(config.handshake_timeout),
         heartbeat_deadline(config.heartbeat_timeout) {
-    const ipc_protocol_domain_handlers handlers{.session = accept_envelope,
-                                                .control = accept_envelope,
-                                                .log = accept_envelope,
-                                                .inspection = accept_envelope,
-                                                .statistics = accept_envelope,
-                                                .property = accept_envelope,
+    const ipc_protocol_domain_handlers handlers{.session = accept_session,
+                                                .control = accept_control,
+                                                .log = reject_incoming,
+                                                .inspection = accept_inspection,
+                                                .statistics = reject_incoming,
+                                                .property = accept_property,
                                                 .context = this};
     if (register_ipc_v2_domains(handlers, registry) == result::success) {
       dispatcher = std::make_unique<ipc_dispatcher>(registry);
@@ -49,15 +49,36 @@ struct runtime_ipc_session::implementation final {
   bool wants_running = false;
   std::deque<ipc_envelope> pending_inspection_frames;
 
-  static result accept_envelope(void* context, const ipc_envelope& envelope) noexcept {
+  using decoder = result (*)(const ipc_envelope&, runtime_ipc_command&) noexcept;
+
+  static result accept_command(void* context, const ipc_envelope& envelope,
+                               decoder decode) noexcept {
     auto& self = *static_cast<implementation*>(context);
     runtime_ipc_command command;
-    const auto operation = decode_runtime_ipc_command(envelope, command);
+    const auto operation = decode(envelope, command);
     if (operation == result::success) {
       self.dispatched_command = std::move(command);
     }
     return operation;
   }
+
+  static result accept_session(void* context, const ipc_envelope& envelope) noexcept {
+    return accept_command(context, envelope, decode_runtime_session_command);
+  }
+
+  static result accept_control(void* context, const ipc_envelope& envelope) noexcept {
+    return accept_command(context, envelope, decode_runtime_control_command);
+  }
+
+  static result accept_inspection(void* context, const ipc_envelope& envelope) noexcept {
+    return accept_command(context, envelope, decode_runtime_inspection_command);
+  }
+
+  static result accept_property(void* context, const ipc_envelope& envelope) noexcept {
+    return accept_command(context, envelope, decode_runtime_property_command);
+  }
+
+  static result reject_incoming(void*, const ipc_envelope&) noexcept { return result::unsupported; }
 
   result dispatch(const ipc_envelope& envelope, bool authenticated,
                   runtime_ipc_command& output) noexcept {

@@ -8,6 +8,10 @@
 Editor 与 Runtime 已统一使用 v2 信封、标准域集合和 Dispatcher 通讯。Transport 不再支持协议模式
 切换；未发布的 v1 帧、全局消息类型、字符串能力常量、编解码实现及重复测试均已删除。
 
+双方分别为 Session、Control、Log、Inspection、Statistics 和 Property 注册独立 Handler；Dispatcher
+完成域路由后直接进入对应域解码器，不再通过集中式 `domain` 分支二次分发。解码后的强类型命令仍
+由 Runtime 状态机按命令种类执行，该业务分支不承担协议路由。
+
 Session 超时跟踪器归入 Session 域；Runtime 对象标识与检查顺序跟踪器归入 Inspection 域。数据域
 JSON 编解码直接读写字节载荷，不再构造旧帧。Property 的 `command_id` 已从 JSON 中移除，请求与
 响应只使用信封 `request_id` 关联，解码后由域适配器回填到内部命令对象。
