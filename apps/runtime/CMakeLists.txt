@@ -36,7 +36,7 @@ gneiss_target_output_directories(gneiss_game_module_session)
   runtime_scene_inspection.h
 )
 target_link_libraries(
-  gneiss_runtime_ipc PUBLIC gneiss_uv_runtime PRIVATE gneiss_app_project gneiss::engine
+  gneiss_runtime_ipc PUBLIC gneiss_app_ipc_protocol PRIVATE gneiss_app_project gneiss::engine
 )
 target_include_directories(gneiss_runtime_ipc PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_compile_features(gneiss_runtime_ipc PUBLIC cxx_std_20)

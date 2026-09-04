@@ -130,6 +130,7 @@
 - [ADR-027：Editor 使用单窗口 Docking 工作区](decisions/ADR-027-editor-ui-workspace.md)
 - [ADR-028：Editor 与 Runtime 使用版本化本机 IPC](decisions/ADR-028-editor-runtime-ipc.md)
 - [ADR-029：Runtime 检查使用只读镜像模型](decisions/ADR-029-runtime-inspection-model.md)
+- [ADR-035：分离 IPC 传输与应用协议](decisions/ADR-035-ipc-transport-protocol-boundary.md)
 
 ## 实施与验收记录
 

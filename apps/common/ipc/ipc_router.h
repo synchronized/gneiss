@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#ifndef GNEISS_SRC_IO_IPC_ROUTER_H_
-#define GNEISS_SRC_IO_IPC_ROUTER_H_
+#ifndef GNEISS_APPS_COMMON_IPC_ROUTER_H_
+#define GNEISS_APPS_COMMON_IPC_ROUTER_H_
 
 #include "ipc_protocol_domains.h"
 

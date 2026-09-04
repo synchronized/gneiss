@@ -68,7 +68,8 @@ result decode_ipc_runtime_statistics(std::span<const std::uint8_t> payload,
   }
   try {
     std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)> document(
-        yyjson_read(reinterpret_cast<const char*>(payload.data()), payload.size(), YYJSON_READ_NOFLAG),
+        yyjson_read(reinterpret_cast<const char*>(payload.data()), payload.size(),
+                    YYJSON_READ_NOFLAG),
         &yyjson_doc_free);
     auto* root = document ? yyjson_doc_get_root(document.get()) : nullptr;
     constexpr const char* names[] = {"session_id",     "sequence",           "frame_index",

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#ifndef GNEISS_SRC_IO_IPC_PROTOCOL_DOMAINS_H_
-#define GNEISS_SRC_IO_IPC_PROTOCOL_DOMAINS_H_
+#ifndef GNEISS_APPS_COMMON_IPC_PROTOCOL_DOMAINS_H_
+#define GNEISS_APPS_COMMON_IPC_PROTOCOL_DOMAINS_H_
 
 #include "ipc_dispatcher.h"
 

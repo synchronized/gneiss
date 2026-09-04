@@ -8,6 +8,10 @@
 Editor 与 Runtime 已统一使用 v2 信封、标准域集合和 Dispatcher 通讯。Transport 不再支持协议模式
 切换；未发布的 v1 帧、全局消息类型、字符串能力常量、编解码实现及重复测试均已删除。
 
+通用信封、Dispatcher 与 Transport 保留在 `src/io` 的 `gneiss_uv_runtime`；标准域、域协议和
+Operation Router 已迁移到 `apps/common/ipc` 的 `gneiss_app_ipc_protocol`。传输层不再依赖
+Editor–Runtime 应用协议。
+
 双方分别为 Session、Control、Log、Inspection、Statistics 和 Property 注册独立 Handler；类型化
 Router 负责组合域注册、Dispatcher 和回调桥接，调用方只接收路由结果与解码后的强类型消息，不再
 直接维护无类型上下文。Dispatcher 完成域路由后直接进入对应域解码器，不再通过集中式 `domain`
