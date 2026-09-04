@@ -440,7 +440,7 @@ Asset IPC 域通知 Runtime 更新资源。首版只覆盖 Texture、Material �
 | M-144 资产依赖与热重载边界 ADR | P0 | 已完成 |
 | M-145 工程文件变更监听 | P0 | 已完成 |
 | M-146 自动重新导入队列 | P0 | 已完成 |
-| M-147 Asset IPC 协议域 | P0 | 待开始 |
+| M-147 Asset IPC 协议域 | P0 | 已完成 |
 | M-148 Runtime 资源事务重载 | P0 | 待开始 |
 | M-149 Texture、Material 与静态 Mesh 热重载 | P0 | 待开始 |
 | M-150 Editor 状态与跨平台验收 | P0 | 待开始 |

@@ -192,6 +192,7 @@
 - [M-144 资产热重载边界记录](records/M-144-asset-hot-reload-boundary.md)
 - [M-145 工程源资产文件监听实施记录](records/M-145-asset-file-watcher.md)
 - [M-146 自动重新导入队列实施记录](records/M-146-automatic-asset-reimport.md)
+- [M-147 Asset IPC 协议域实施记录](records/M-147-asset-ipc-domain.md)
 - [M-65 公共 API 与稳定性审计记录](records/M-65-public-api-audit.md)
 - [M-66 稳定运行时代表性样例验收记录](records/M-66-stable-runtime-sample.md)
 - [M-67 公共 API 与 ABI 加固记录](records/M-67-api-abi-hardening.md)

@@ -17,7 +17,7 @@ int main() {
   unsigned calls = 0U;
   gneiss::ipc_domain_registry registry;
   if (gneiss::register_ipc_v2_domains(accept, &calls, registry) != gneiss::result::success ||
-      registry.size() != 6U || gneiss::ipc_v2_domain_capabilities().size() != 5U) {
+      registry.size() != 7U || gneiss::ipc_v2_domain_capabilities().size() != 6U) {
     return 1;
   }
   gneiss::ipc_envelope request;
