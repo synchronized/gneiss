@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: MIT -->
 <!-- Copyright (c) 2026 Gneiss contributors -->
 
-# M-150：Editor 资产热重载接线与本地验收记录
+# M-150：Editor 资产热重载接线与验收记录
 
 ## 结果
 
@@ -19,8 +19,9 @@ Material、静态 Mesh 产物不会误发到首批热重载事务。
 - Windows Clang Static Debug：相同 10 项测试通过。
 - 端到端进程测试覆盖运行中应用 Material 与 Mesh 修订，以及 Runtime 重启后的全量重同步。
 - 资源专项测试覆盖 Texture、Material、Mesh 的依赖排序、失败回滚和旧租约生命周期。
+- [Linux Actions 33849194936](https://github.com/synchronized/gneiss/actions/runs/33849194936)
+  的 Clang/GCC Shared/Static、Granit 运行时 Shared/Static 无头测试和 Sanitizer 共 7 个任务通过。
 
-## 待完成验收
+## 人工观察项
 
-- Linux Shared/Static 和 Sanitizer 需要在远端手动 Actions 上验证。
-- Lantern Gallery 的实际画面变化可在远端验证通过后作为可选人工观察项，不阻塞自动化结果。
+- Lantern Gallery 的实际画面变化仍可按需人工观察，不阻塞自动化验收结果。
