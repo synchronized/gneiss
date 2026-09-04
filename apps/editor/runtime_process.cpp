@@ -4,11 +4,16 @@
 #include "runtime_process.h"
 
 #include "child_process.h"
+#include "ipc_control_protocol.h"
+#include "ipc_data_protocol.h"
 #include "ipc_inspection_protocol.h"
 #include "ipc_property_edit_protocol.h"
 #include "ipc_protocol.h"
+#include "ipc_protocol_domains.h"
+#include "ipc_session_protocol.h"
 #include "ipc_statistics_protocol.h"
 #include "ipc_transport.h"
+#include "runtime_ipc_event.h"
 
 #include <algorithm>
 #include <array>
@@ -16,6 +21,7 @@
 #include <deque>
 #include <fstream>
 #include <new>
+#include <optional>
 #include <random>
 #include <system_error>
 #include <thread>
@@ -48,15 +54,61 @@ struct runtime_process::implementation final {
   bool ipc_shutdown_complete = false;
   bool inspection_resync_pending = false;
   bool property_editing_negotiated = false;
-  std::deque<ipc_frame> pending_inspection_input;
+  std::deque<ipc_envelope> pending_inspection_input;
   std::string ipc_token;
   ipc_transport ipc_server;
+  ipc_domain_registry ipc_registry;
+  std::unique_ptr<ipc_dispatcher> ipc_dispatcher_instance;
+  std::vector<ipc_domain_capability> negotiated_domains;
+  std::optional<runtime_ipc_event> dispatched_event;
   runtime_control_state control_state = runtime_control_state::stopped;
   ipc_timeout_tracker ipc_heartbeat{std::chrono::seconds(10)};
   ipc_timeout_tracker ipc_handshake{std::chrono::seconds(5)};
   std::chrono::steady_clock::time_point next_ping;
   std::uint64_t next_ping_nonce = 1U;
+  std::uint32_t next_request_id = 2U;
   result last_result = result::success;
+
+  implementation() {
+    const ipc_protocol_domain_handlers handlers{.session = accept_envelope,
+                                                .control = accept_envelope,
+                                                .log = accept_envelope,
+                                                .inspection = accept_envelope,
+                                                .statistics = accept_envelope,
+                                                .property = accept_envelope,
+                                                .context = this};
+    if (register_ipc_v2_domains(handlers, ipc_registry) == result::success) {
+      ipc_dispatcher_instance = std::make_unique<ipc_dispatcher>(ipc_registry);
+    }
+  }
+
+  static result accept_envelope(void* context, const ipc_envelope& envelope) noexcept {
+    auto& self = *static_cast<implementation*>(context);
+    runtime_ipc_event event;
+    const auto operation = decode_runtime_ipc_event(envelope, event);
+    if (operation == result::success) {
+      self.dispatched_event = std::move(event);
+    }
+    return operation;
+  }
+
+  result dispatch(const ipc_envelope& envelope, runtime_ipc_event& output) noexcept {
+    if (!ipc_dispatcher_instance) {
+      return result::invalid_state;
+    }
+    dispatched_event.reset();
+    const ipc_dispatch_context context{.remote_role = ipc_peer_role::runtime,
+                                       .handshake_complete = ipc_authenticated,
+                                       .negotiated_domains = negotiated_domains};
+    const auto outcome = ipc_dispatcher_instance->dispatch(envelope, context);
+    if (!outcome.accepted() || !dispatched_event) {
+      return outcome.rejection == ipc_dispatch_rejection::handler_failed ? outcome.handler_result
+                                                                         : result::invalid_argument;
+    }
+    output = std::move(*dispatched_event);
+    dispatched_event.reset();
+    return result::success;
+  }
 
   void append_event_unique(app::runtime_log_record event) noexcept {
     const auto duplicate = std::ranges::any_of(console.entries(), [&](const auto& entry) {
@@ -83,26 +135,22 @@ struct runtime_process::implementation final {
     return token;
   }
 
-  result send_ipc(ipc_message message) noexcept {
-    ipc_frame frame;
-    const auto encoded = encode_ipc_message(message, frame);
-    return encoded == result::success ? ipc_server.send(frame) : encoded;
-  }
+  result send_ipc(ipc_envelope envelope) noexcept { return ipc_server.send(envelope); }
 
   void request_inspection_resync() noexcept {
     if (inspection_resync_pending || !ipc_authenticated) {
       return;
     }
-    ipc_message request;
-    request.type = ipc_message_type::inspection_resync;
-    if (send_ipc(std::move(request)) == result::success) {
+    ipc_envelope request;
+    const auto operation = encode_ipc_inspection_resync(next_request_id++, request);
+    if (operation == result::success && send_ipc(std::move(request)) == result::success) {
       inspection_resync_pending = true;
     }
   }
 
-  void apply_inspection_frame(const ipc_frame& frame) noexcept {
+  void apply_inspection_frame(const ipc_envelope& frame) noexcept {
     ipc_inspection_batch batch;
-    const auto decoded = decode_ipc_inspection_batch(frame, batch);
+    const auto decoded = decode_ipc_inspection_batch_v2(frame, batch);
     if (decoded != result::success) {
       last_result = decoded;
       return;
@@ -126,6 +174,7 @@ struct runtime_process::implementation final {
       (void)ipc_server.stop();
     }
     ipc_authenticated = false;
+    negotiated_domains.clear();
     property_editing_negotiated = false;
     property_edits.disconnect();
     ipc_token.clear();
@@ -154,17 +203,24 @@ struct runtime_process::implementation final {
         }
         continue;
       }
-      if (event.type != ipc_transport_event_type::frame_received) {
+      if (event.type != ipc_transport_event_type::envelope_received) {
         continue;
       }
       if (!ipc_authenticated) {
-        ipc_frame acknowledgment;
-        std::vector<std::string> negotiated;
-        const std::vector<std::string> supported{
-            "control", "heartbeat", "logs", std::string(ipc_capability_runtime_inspection_v2),
-            std::string(ipc_capability_runtime_property_edit_v1)};
-        auto accepted =
-            accept_ipc_hello(event.frame, ipc_token, supported, acknowledgment, negotiated);
+        runtime_ipc_event decoded;
+        auto accepted = dispatch(event.envelope, decoded);
+        ipc_session_hello acknowledgment_message;
+        if (accepted == result::success && decoded.kind == runtime_ipc_event_kind::hello) {
+          accepted = negotiate_ipc_session_hello(
+              decoded.hello, ipc_token, ipc_v2_domain_capabilities(), acknowledgment_message);
+        } else if (accepted == result::success) {
+          accepted = result::invalid_argument;
+        }
+        ipc_envelope acknowledgment;
+        if (accepted == result::success) {
+          accepted = encode_ipc_session_hello(acknowledgment_message, true,
+                                              event.envelope.request_id, acknowledgment);
+        }
         if (accepted == result::success) {
           accepted = ipc_server.send(acknowledgment);
         }
@@ -173,16 +229,23 @@ struct runtime_process::implementation final {
           continue;
         }
         ipc_authenticated = true;
+        negotiated_domains = std::move(acknowledgment_message.domains);
         property_editing_negotiated =
-            std::ranges::find(negotiated, ipc_capability_runtime_property_edit_v1) !=
-            negotiated.end();
+            std::ranges::find(negotiated_domains, ipc_domain::property,
+                              &ipc_domain_capability::domain) != negotiated_domains.end();
         ipc_heartbeat.reset(now);
         next_ping = now;
         continue;
       }
 
-      if (event.frame.message_type ==
-          static_cast<std::uint16_t>(ipc_message_type::inspection_snapshot)) {
+      runtime_ipc_event decoded_event;
+      const auto decoded = dispatch(event.envelope, decoded_event);
+      if (decoded != result::success) {
+        fail_ipc(decoded);
+        continue;
+      }
+      ipc_heartbeat.reset(now);
+      if (decoded_event.kind == runtime_ipc_event_kind::inspection_snapshot) {
         constexpr std::size_t maximum_pending_inspection_frames = 256U;
         if (pending_inspection_input.size() >= maximum_pending_inspection_frames) {
           pending_inspection_input.clear();
@@ -190,80 +253,58 @@ struct runtime_process::implementation final {
           last_result = result::not_ready;
           request_inspection_resync();
         } else {
-          pending_inspection_input.push_back(std::move(event.frame));
+          pending_inspection_input.push_back(std::move(event.envelope));
         }
         ipc_heartbeat.reset(now);
         continue;
       }
-      if (event.frame.message_type ==
-          static_cast<std::uint16_t>(ipc_message_type::statistics_snapshot)) {
-        ipc_runtime_statistics decoded_statistics;
-        const auto decoded = decode_ipc_runtime_statistics(event.frame, decoded_statistics);
-        if (decoded != result::success) {
-          last_result = decoded;
-        } else if (decoded_statistics.session_id == scene_mirror.session_id() &&
-                   decoded_statistics.sequence > statistics.sequence) {
-          statistics = decoded_statistics;
+      if (decoded_event.kind == runtime_ipc_event_kind::statistics_snapshot) {
+        if (decoded_event.statistics.session_id == scene_mirror.session_id() &&
+            decoded_event.statistics.sequence > statistics.sequence) {
+          statistics = decoded_event.statistics;
         }
-        ipc_heartbeat.reset(now);
         continue;
       }
-      if (event.frame.message_type ==
-          static_cast<std::uint16_t>(ipc_message_type::property_write_result)) {
-        ipc_property_write_result response;
-        const auto decoded = decode_ipc_property_write_result(event.frame, response);
-        if (decoded != result::success) {
-          last_result = decoded;
-        } else {
-          const auto accepted = property_edits.accept(std::move(response));
-          if (accepted != result::success && accepted != result::not_found &&
-              accepted != result::invalid_state) {
-            last_result = accepted;
-          }
+      if (decoded_event.kind == runtime_ipc_event_kind::property_result) {
+        const auto accepted = property_edits.accept(std::move(decoded_event.property_result));
+        if (accepted != result::success && accepted != result::not_found &&
+            accepted != result::invalid_state) {
+          last_result = accepted;
         }
-        ipc_heartbeat.reset(now);
         continue;
       }
-
-      ipc_message message;
-      const auto decoded = decode_ipc_message(event.frame, message);
-      if (decoded == result::unsupported) {
-        continue;
-      }
-      if (decoded != result::success) {
-        fail_ipc(decoded);
-        continue;
-      }
-      ipc_heartbeat.reset(now);
-      if (message.type == ipc_message_type::state_changed) {
-        switch (message.runtime_state) {
-        case ipc_runtime_state::running:
+      if (decoded_event.kind == runtime_ipc_event_kind::state_changed) {
+        switch (decoded_event.state) {
+        case ipc_control_state::running:
           control_state = runtime_control_state::running;
           break;
-        case ipc_runtime_state::paused:
+        case ipc_control_state::paused:
           control_state = runtime_control_state::paused;
           break;
-        case ipc_runtime_state::stopping:
+        case ipc_control_state::stopping:
           control_state = runtime_control_state::stopping;
           break;
-        case ipc_runtime_state::loading:
-        case ipc_runtime_state::ready:
+        case ipc_control_state::loading:
+        case ipc_control_state::ready:
           control_state = runtime_control_state::connecting;
           break;
+        case ipc_control_state::invalid:
+          fail_ipc(result::invalid_argument);
+          break;
         }
-      } else if (message.type == ipc_message_type::error) {
-        last_result = from_native(message.code);
-      } else if (message.type == ipc_message_type::log_event) {
-        while (!message.text.empty() &&
-               (message.text.back() == '\n' || message.text.back() == '\r')) {
-          message.text.pop_back();
+      } else if (decoded_event.kind == runtime_ipc_event_kind::protocol_error) {
+        last_result = from_native(decoded_event.error.code);
+      } else if (decoded_event.kind == runtime_ipc_event_kind::log) {
+        while (!decoded_event.log.empty() &&
+               (decoded_event.log.back() == '\n' || decoded_event.log.back() == '\r')) {
+          decoded_event.log.pop_back();
         }
         app::runtime_log_record record;
-        if (app::parse_runtime_log_line(message.text, record) ==
+        if (app::parse_runtime_log_line(decoded_event.log, record) ==
             app::runtime_log_parse_result::success) {
           append_event_unique(std::move(record));
         }
-      } else if (message.type == ipc_message_type::shutdown_complete) {
+      } else if (decoded_event.kind == runtime_ipc_event_kind::shutdown_complete) {
         ipc_shutdown_complete = true;
         control_state = runtime_control_state::stopping;
       }
@@ -284,10 +325,10 @@ struct runtime_process::implementation final {
       return;
     }
     if (now >= next_ping) {
-      ipc_message ping;
-      ping.type = ipc_message_type::ping;
-      ping.nonce = next_ping_nonce++;
-      if (send_ipc(std::move(ping)) != result::success) {
+      ipc_envelope ping;
+      const auto encoded = encode_ipc_session_heartbeat({.nonce = next_ping_nonce++}, false,
+                                                        next_request_id++, ping);
+      if (encoded != result::success || send_ipc(std::move(ping)) != result::success) {
         fail_ipc(result::not_ready);
         return;
       }
@@ -386,6 +427,8 @@ result runtime_process::start(const std::filesystem::path& executable,
     implementation_->stop_deadline = {};
     implementation_->forced_termination_reported = false;
     implementation_->ipc_shutdown_complete = false;
+    implementation_->negotiated_domains.clear();
+    implementation_->next_request_id = 2U;
     implementation_->inspection_resync_pending = false;
     implementation_->pending_inspection_input.clear();
     implementation_->scene_mirror.reset();
@@ -402,7 +445,7 @@ result runtime_process::start(const std::filesystem::path& executable,
     implementation_->stop_file = implementation_->session_root / "stop.signal";
     implementation_->log_file = implementation_->session_root / "runtime.log";
     implementation_->ipc_token = implementation::make_session_token();
-    auto started = implementation_->ipc_server.start_server();
+    auto started = implementation_->ipc_server.start_server(ipc_transport_protocol::envelope_v2);
     if (started != result::success) {
       implementation_->control_state = runtime_control_state::failed;
       implementation_->discard_session();
@@ -486,9 +529,12 @@ result runtime_process::request_stop() noexcept {
     return result::not_ready;
   }
   if (implementation_->ipc_authenticated) {
-    ipc_message stop;
-    stop.type = ipc_message_type::stop;
-    const auto operation = implementation_->send_ipc(std::move(stop));
+    ipc_envelope stop;
+    auto operation = encode_ipc_control_request(ipc_control_operation::stop,
+                                                implementation_->next_request_id++, stop);
+    if (operation == result::success) {
+      operation = implementation_->send_ipc(std::move(stop));
+    }
     if (operation == result::success) {
       implementation_->control_state = runtime_control_state::stopping;
       if (implementation_->stop_deadline == std::chrono::steady_clock::time_point{}) {
@@ -517,9 +563,10 @@ result runtime_process::request_pause() noexcept {
       implementation_->control_state != runtime_control_state::running) {
     return result::not_ready;
   }
-  ipc_message pause;
-  pause.type = ipc_message_type::pause;
-  return implementation_->send_ipc(std::move(pause));
+  ipc_envelope pause;
+  const auto operation = encode_ipc_control_request(ipc_control_operation::pause,
+                                                    implementation_->next_request_id++, pause);
+  return operation == result::success ? implementation_->send_ipc(std::move(pause)) : operation;
 }
 
 result runtime_process::request_resume() noexcept {
@@ -527,9 +574,10 @@ result runtime_process::request_resume() noexcept {
       implementation_->control_state != runtime_control_state::paused) {
     return result::not_ready;
   }
-  ipc_message resume;
-  resume.type = ipc_message_type::resume;
-  return implementation_->send_ipc(std::move(resume));
+  ipc_envelope resume;
+  const auto operation = encode_ipc_control_request(ipc_control_operation::resume,
+                                                    implementation_->next_request_id++, resume);
+  return operation == result::success ? implementation_->send_ipc(std::move(resume)) : operation;
 }
 
 result runtime_process::request_property_write(runtime_property_key key,
@@ -548,8 +596,9 @@ result runtime_process::request_property_write(runtime_property_key key,
   if (operation != result::success) {
     return operation;
   }
-  ipc_frame frame;
-  operation = encode_ipc_property_write(command, frame);
+  ipc_envelope frame;
+  operation =
+      encode_ipc_property_write_v2(command, static_cast<std::uint32_t>(command.command_id), frame);
   if (operation == result::success) {
     operation = implementation_->ipc_server.send(frame);
   }

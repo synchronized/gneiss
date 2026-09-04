@@ -43,7 +43,6 @@ struct runtime_ipc_session::implementation final {
   std::vector<ipc_domain_capability> requested_domains{ipc_v2_domain_capabilities().begin(),
                                                        ipc_v2_domain_capabilities().end()};
   std::vector<ipc_domain_capability> negotiated_domains;
-  std::vector<std::string> negotiated_capabilities;
   ipc_domain_registry registry;
   std::unique_ptr<ipc_dispatcher> dispatcher;
   std::optional<runtime_ipc_command> dispatched_command;
@@ -101,9 +100,26 @@ struct runtime_ipc_session::implementation final {
   }
 
   result send_state(ipc_runtime_state state) noexcept {
+    auto control_state = ipc_control_state::invalid;
+    switch (state) {
+    case ipc_runtime_state::loading:
+      control_state = ipc_control_state::loading;
+      break;
+    case ipc_runtime_state::ready:
+      control_state = ipc_control_state::ready;
+      break;
+    case ipc_runtime_state::running:
+      control_state = ipc_control_state::running;
+      break;
+    case ipc_runtime_state::paused:
+      control_state = ipc_control_state::paused;
+      break;
+    case ipc_runtime_state::stopping:
+      control_state = ipc_control_state::stopping;
+      break;
+    }
     ipc_envelope envelope;
-    const auto operation =
-        encode_ipc_control_state(static_cast<ipc_control_state>(state), envelope);
+    const auto operation = encode_ipc_control_state(control_state, envelope);
     return operation == result::success ? send(std::move(envelope)) : operation;
   }
 
@@ -275,12 +291,6 @@ result runtime_ipc_session::pump(clock::time_point now, runtime_ipc_actions& act
       if (!implementation_->negotiated(ipc_domain::control)) {
         return implementation_->fail(result::unsupported, actions);
       }
-      implementation_->negotiated_capabilities.clear();
-      for (const auto domain : implementation_->negotiated_domains) {
-        implementation_->negotiated_capabilities.push_back(
-            std::to_string(static_cast<std::uint16_t>(domain.domain)) + ":" +
-            std::to_string(domain.version));
-      }
       implementation_->heartbeat_deadline.reset(now);
       if (implementation_->wants_running) {
         const auto running = implementation_->enter_running();
@@ -445,9 +455,8 @@ bool runtime_ipc_session::game_updates_enabled() const noexcept {
   return implementation_ && implementation_->current_state == runtime_ipc_state::running;
 }
 
-const std::vector<std::string>& runtime_ipc_session::negotiated_capabilities() const noexcept {
-  static const std::vector<std::string> empty;
-  return implementation_ ? implementation_->negotiated_capabilities : empty;
+bool runtime_ipc_session::supports_domain(ipc_domain domain) const noexcept {
+  return implementation_ && implementation_->negotiated(domain);
 }
 
 } // namespace gneiss::runtime_internal

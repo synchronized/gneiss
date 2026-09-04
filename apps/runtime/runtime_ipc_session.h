@@ -71,7 +71,7 @@ public:
 
   [[nodiscard]] runtime_ipc_state state() const noexcept;
   [[nodiscard]] bool game_updates_enabled() const noexcept;
-  [[nodiscard]] const std::vector<std::string>& negotiated_capabilities() const noexcept;
+  [[nodiscard]] bool supports_domain(ipc_domain domain) const noexcept;
 
 private:
   struct implementation;

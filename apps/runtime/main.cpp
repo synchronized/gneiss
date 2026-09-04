@@ -191,9 +191,7 @@ gneiss_result update_runtime(gneiss_application application, const gneiss_frame_
   if (context.ipc_session != nullptr && context.scene_inspection != nullptr &&
       context.scene != GNEISS_NULL_SCENE_INSTANCE &&
       time->elapsed_ns >= context.next_inspection_ns &&
-      std::ranges::find(context.ipc_session->negotiated_capabilities(),
-                        gneiss::ipc_capability_runtime_inspection_v2) !=
-          context.ipc_session->negotiated_capabilities().end()) {
+      context.ipc_session->supports_domain(gneiss::ipc_domain::inspection)) {
     context.next_inspection_ns = time->elapsed_ns + UINT64_C(100000000);
     gneiss::runtime_internal::runtime_scene_snapshot snapshot;
     const auto captured = context.scene_inspection->capture_scene(
