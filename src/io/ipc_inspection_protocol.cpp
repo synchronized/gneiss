@@ -179,7 +179,8 @@ bool parse_node(yyjson_val* change, gneiss::ipc_inspection_node& output) {
 
 namespace gneiss {
 
-result encode_ipc_inspection_batch(const ipc_inspection_batch& batch, ipc_frame& output) noexcept {
+result encode_ipc_inspection_batch(const ipc_inspection_batch& batch,
+                                   std::vector<std::uint8_t>& output) noexcept {
   if (batch.stamp.session_id == 0U || batch.stamp.sequence == 0U ||
       batch.changes.size() > max_changes || batch.chunk_count == 0U ||
       batch.chunk_count > max_chunks || batch.chunk_index >= batch.chunk_count) {
@@ -232,13 +233,9 @@ result encode_ipc_inspection_batch(const ipc_inspection_batch& batch, ipc_frame&
     if (length > ipc_protocol_max_json_size) {
       return result::invalid_argument;
     }
-    ipc_frame frame;
-    frame.protocol_major = ipc_protocol_major;
-    frame.protocol_minor = ipc_protocol_minor;
-    frame.message_type = static_cast<std::uint16_t>(ipc_message_type::inspection_snapshot);
-    frame.payload.assign(reinterpret_cast<const std::uint8_t*>(json.get()),
-                         reinterpret_cast<const std::uint8_t*>(json.get()) + length);
-    output = std::move(frame);
+    std::vector<std::uint8_t> encoded(reinterpret_cast<const std::uint8_t*>(json.get()),
+                                      reinterpret_cast<const std::uint8_t*>(json.get()) + length);
+    output = std::move(encoded);
     return result::success;
   } catch (const std::bad_alloc&) {
     return result::out_of_memory;
@@ -248,7 +245,7 @@ result encode_ipc_inspection_batch(const ipc_inspection_batch& batch, ipc_frame&
 }
 
 result encode_ipc_inspection_batch_chunks(const ipc_inspection_batch& batch,
-                                          std::vector<ipc_frame>& output) noexcept {
+                                          std::vector<std::vector<std::uint8_t>>& output) noexcept {
   if (batch.stamp.session_id == 0U || batch.stamp.sequence == 0U ||
       batch.changes.size() > max_changes) {
     return result::invalid_argument;
@@ -261,7 +258,7 @@ result encode_ipc_inspection_batch_chunks(const ipc_inspection_batch& batch,
       auto& current = chunks.back();
       current.changes.push_back(change);
       current.chunk_count = max_outgoing_chunks;
-      ipc_frame probe;
+      std::vector<std::uint8_t> probe;
       if (encode_ipc_inspection_batch(current, probe) == result::success) {
         continue;
       }
@@ -275,19 +272,19 @@ result encode_ipc_inspection_batch_chunks(const ipc_inspection_batch& batch,
         return result::out_of_memory;
       }
     }
-    std::vector<ipc_frame> frames;
-    frames.reserve(chunks.size());
+    std::vector<std::vector<std::uint8_t>> payloads;
+    payloads.reserve(chunks.size());
     for (std::size_t index = 0U; index < chunks.size(); ++index) {
       chunks[index].chunk_index = static_cast<std::uint32_t>(index);
       chunks[index].chunk_count = static_cast<std::uint32_t>(chunks.size());
-      ipc_frame frame;
-      const auto encoded = encode_ipc_inspection_batch(chunks[index], frame);
+      std::vector<std::uint8_t> payload;
+      const auto encoded = encode_ipc_inspection_batch(chunks[index], payload);
       if (encoded != result::success) {
         return encoded;
       }
-      frames.push_back(std::move(frame));
+      payloads.push_back(std::move(payload));
     }
-    output = std::move(frames);
+    output = std::move(payloads);
     return result::success;
   } catch (const std::bad_alloc&) {
     return result::out_of_memory;
@@ -296,15 +293,14 @@ result encode_ipc_inspection_batch_chunks(const ipc_inspection_batch& batch,
   }
 }
 
-result decode_ipc_inspection_batch(const ipc_frame& frame, ipc_inspection_batch& output) noexcept {
-  if (frame.protocol_major != ipc_protocol_major ||
-      frame.message_type != static_cast<std::uint16_t>(ipc_message_type::inspection_snapshot) ||
-      frame.payload.size() > ipc_protocol_max_json_size) {
-    return result::unsupported;
+result decode_ipc_inspection_batch(std::span<const std::uint8_t> payload,
+                                   ipc_inspection_batch& output) noexcept {
+  if (payload.size() > ipc_protocol_max_json_size) {
+    return result::invalid_argument;
   }
   try {
-    document_ptr document(yyjson_read(reinterpret_cast<const char*>(frame.payload.data()),
-                                      frame.payload.size(), YYJSON_READ_NOFLAG),
+    document_ptr document(yyjson_read(reinterpret_cast<const char*>(payload.data()), payload.size(),
+                                      YYJSON_READ_NOFLAG),
                           &yyjson_doc_free);
     auto* root = document ? yyjson_doc_get_root(document.get()) : nullptr;
     auto* session = yyjson_is_obj(root) ? yyjson_obj_get(root, "session_id") : nullptr;

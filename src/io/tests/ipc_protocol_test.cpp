@@ -230,12 +230,10 @@ bool test_runtime_inspection_batch_round_trip() {
                                       .chunk_index = 1U,
                                       .chunk_count = 3U,
                                       .changes = {root, removed}};
-  gneiss::ipc_frame frame;
+  std::vector<std::uint8_t> payload;
   gneiss::ipc_inspection_batch decoded;
-  return gneiss::encode_ipc_inspection_batch(source, frame) == gneiss::result::success &&
-         frame.message_type ==
-             static_cast<std::uint16_t>(gneiss::ipc_message_type::inspection_snapshot) &&
-         gneiss::decode_ipc_inspection_batch(frame, decoded) == gneiss::result::success &&
+  return gneiss::encode_ipc_inspection_batch(source, payload) == gneiss::result::success &&
+         gneiss::decode_ipc_inspection_batch(payload, decoded) == gneiss::result::success &&
          decoded.stamp.session_id == 8U && decoded.stamp.sequence == 4U && !decoded.is_full &&
          decoded.chunk_index == 1U && decoded.chunk_count == 3U && decoded.changes.size() == 2U &&
          decoded.changes[0].node.name == "根节点" &&
@@ -278,17 +276,17 @@ bool test_runtime_inspection_chunking() {
     change.node.name.assign(8000U, 'n');
     source.changes.push_back(std::move(change));
   }
-  std::vector<gneiss::ipc_frame> frames;
-  if (gneiss::encode_ipc_inspection_batch_chunks(source, frames) != gneiss::result::success ||
-      frames.size() < 2U) {
+  std::vector<std::vector<std::uint8_t>> payloads;
+  if (gneiss::encode_ipc_inspection_batch_chunks(source, payloads) != gneiss::result::success ||
+      payloads.size() < 2U) {
     return false;
   }
   std::size_t change_count = 0U;
-  for (std::size_t index = 0U; index < frames.size(); ++index) {
+  for (std::size_t index = 0U; index < payloads.size(); ++index) {
     gneiss::ipc_inspection_batch decoded;
-    if (gneiss::decode_ipc_inspection_batch(frames[index], decoded) != gneiss::result::success ||
+    if (gneiss::decode_ipc_inspection_batch(payloads[index], decoded) != gneiss::result::success ||
         decoded.stamp.session_id != 11U || decoded.stamp.sequence != 9U || !decoded.is_full ||
-        decoded.chunk_index != index || decoded.chunk_count != frames.size()) {
+        decoded.chunk_index != index || decoded.chunk_count != payloads.size()) {
       return false;
     }
     change_count += decoded.changes.size();

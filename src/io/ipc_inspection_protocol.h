@@ -9,6 +9,7 @@
 #include <gneiss/scene.h>
 
 #include <cstdint>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -44,16 +45,17 @@ struct ipc_inspection_batch final {
   std::vector<ipc_inspection_change> changes;
 };
 
-/** 将有界检查批次编码为 inspection_snapshot 帧。 */
+/** 将有界检查批次编码为 JSON 载荷。 */
 [[nodiscard]] result encode_ipc_inspection_batch(const ipc_inspection_batch& batch,
-                                                 ipc_frame& output) noexcept;
+                                                 std::vector<std::uint8_t>& output) noexcept;
 
 /** 按协议负载上限把一个逻辑批次编码为有界分片。 */
-[[nodiscard]] result encode_ipc_inspection_batch_chunks(const ipc_inspection_batch& batch,
-                                                        std::vector<ipc_frame>& output) noexcept;
+[[nodiscard]] result
+encode_ipc_inspection_batch_chunks(const ipc_inspection_batch& batch,
+                                   std::vector<std::vector<std::uint8_t>>& output) noexcept;
 
-/** 解码并验证 inspection_snapshot 帧，不验证镜像中的父子引用。 */
-[[nodiscard]] result decode_ipc_inspection_batch(const ipc_frame& frame,
+/** 解码并验证 JSON 载荷，不验证镜像中的父子引用。 */
+[[nodiscard]] result decode_ipc_inspection_batch(std::span<const std::uint8_t> payload,
                                                  ipc_inspection_batch& output) noexcept;
 
 } // namespace gneiss

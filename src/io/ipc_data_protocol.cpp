@@ -97,21 +97,21 @@ result decode_ipc_log_event(const ipc_envelope& envelope, std::string& output) n
 
 result encode_ipc_inspection_batch_v2(const ipc_inspection_batch& batch,
                                       std::vector<ipc_envelope>& output) noexcept {
-  std::vector<ipc_frame> frames;
-  auto operation = encode_ipc_inspection_batch_chunks(batch, frames);
+  std::vector<std::vector<std::uint8_t>> payloads;
+  auto operation = encode_ipc_inspection_batch_chunks(batch, payloads);
   if (operation != result::success) {
     return operation;
   }
   try {
     std::vector<ipc_envelope> encoded;
-    encoded.reserve(frames.size());
-    for (auto& frame : frames) {
+    encoded.reserve(payloads.size());
+    for (auto& payload : payloads) {
       encoded.push_back(
           {.domain = ipc_domain::inspection,
            .operation = static_cast<std::uint16_t>(ipc_inspection_operation::snapshot),
            .kind = ipc_message_kind::event,
            .request_id = 0U,
-           .payload = std::move(frame.payload)});
+           .payload = std::move(payload)});
     }
     output = std::move(encoded);
     return result::success;
@@ -130,14 +130,7 @@ result decode_ipc_inspection_batch_v2(const ipc_envelope& envelope,
       envelope.request_id != 0U) {
     return result::invalid_argument;
   }
-  try {
-    return decode_ipc_inspection_batch(
-        legacy_frame(envelope, ipc_message_type::inspection_snapshot), output);
-  } catch (const std::bad_alloc&) {
-    return result::out_of_memory;
-  } catch (...) {
-    return result::internal;
-  }
+  return decode_ipc_inspection_batch(envelope.payload, output);
 }
 
 result encode_ipc_inspection_resync(std::uint32_t request_id, ipc_envelope& output) noexcept {
