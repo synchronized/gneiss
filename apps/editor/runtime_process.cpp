@@ -4,25 +4,16 @@
 #include "runtime_process.h"
 
 #include "child_process.h"
-#include "ipc_control_protocol.h"
-#include "ipc_data_protocol.h"
-#include "ipc_inspection_protocol.h"
-#include "ipc_property_edit_protocol.h"
-#include "ipc_protocol_domains.h"
-#include "ipc_router.h"
-#include "ipc_session_protocol.h"
+#include "editor_ipc_event.h"
+#include "editor_ipc_session.h"
 #include "ipc_statistics_protocol.h"
-#include "ipc_transport.h"
-#include "runtime_ipc_event.h"
 
 #include <algorithm>
-#include <array>
 #include <chrono>
 #include <deque>
 #include <fstream>
 #include <new>
 #include <optional>
-#include <random>
 #include <system_error>
 #include <thread>
 #include <utility>
@@ -50,55 +41,12 @@ struct runtime_process::implementation final {
   std::chrono::steady_clock::time_point stop_deadline;
   bool forced_termination_reported = false;
   bool is_building = false;
-  bool ipc_authenticated = false;
   bool ipc_shutdown_complete = false;
   bool inspection_resync_pending = false;
-  bool property_editing_negotiated = false;
-  std::deque<ipc_envelope> pending_inspection_input;
-  std::string ipc_token;
-  ipc_transport ipc_server;
-  ipc_router<runtime_ipc_event> ipc_router_instance;
-  std::vector<ipc_domain_capability> negotiated_domains;
-  bool ipc_router_ready = false;
+  std::deque<ipc_inspection_batch> pending_inspection_input;
+  editor_ipc_session ipc_session;
   runtime_control_state control_state = runtime_control_state::stopped;
-  ipc_timeout_tracker ipc_heartbeat{std::chrono::seconds(10)};
-  ipc_timeout_tracker ipc_handshake{std::chrono::seconds(5)};
-  std::chrono::steady_clock::time_point next_ping;
-  std::uint64_t next_ping_nonce = 1U;
-  std::uint32_t next_request_id = 2U;
   result last_result = result::success;
-
-  implementation() {
-    ipc_router_ready =
-        ipc_router_instance.bind(ipc_domain::session, decode_runtime_session_event) ==
-            result::success &&
-        ipc_router_instance.bind(ipc_domain::control, decode_runtime_control_event) ==
-            result::success &&
-        ipc_router_instance.bind(ipc_domain::log, decode_runtime_log_event) == result::success &&
-        ipc_router_instance.bind(ipc_domain::inspection, decode_runtime_inspection_event) ==
-            result::success &&
-        ipc_router_instance.bind(ipc_domain::statistics, decode_runtime_statistics_event) ==
-            result::success &&
-        ipc_router_instance.bind(ipc_domain::property, decode_runtime_property_event) ==
-            result::success;
-  }
-
-  result dispatch(const ipc_envelope& envelope, runtime_ipc_event& output) noexcept {
-    if (!ipc_router_ready) {
-      return result::invalid_state;
-    }
-    const ipc_dispatch_context context{.remote_role = ipc_peer_role::runtime,
-                                       .handshake_complete = ipc_authenticated,
-                                       .negotiated_domains = negotiated_domains};
-    auto routed = ipc_router_instance.dispatch(envelope, context);
-    if (!routed.accepted()) {
-      return routed.outcome.rejection == ipc_dispatch_rejection::handler_failed
-                 ? routed.outcome.handler_result
-                 : result::invalid_argument;
-    }
-    output = std::move(*routed.message);
-    return result::success;
-  }
 
   void append_event_unique(app::runtime_log_record event) noexcept {
     const auto duplicate = std::ranges::any_of(console.entries(), [&](const auto& entry) {
@@ -111,40 +59,16 @@ struct runtime_process::implementation final {
     }
   }
 
-  static std::string make_session_token() {
-    constexpr char digits[] = "0123456789abcdef";
-    std::array<unsigned char, 32U> bytes{};
-    std::random_device random;
-    std::string token;
-    token.resize(bytes.size() * 2U);
-    for (std::size_t index = 0U; index < bytes.size(); ++index) {
-      bytes[index] = static_cast<unsigned char>(random());
-      token[index * 2U] = digits[bytes[index] >> 4U];
-      token[index * 2U + 1U] = digits[bytes[index] & 0x0FU];
-    }
-    return token;
-  }
-
-  result send_ipc(ipc_envelope envelope) noexcept { return ipc_server.send(envelope); }
-
   void request_inspection_resync() noexcept {
-    if (inspection_resync_pending || !ipc_authenticated) {
+    if (inspection_resync_pending || !ipc_session.is_authenticated()) {
       return;
     }
-    ipc_envelope request;
-    const auto operation = encode_ipc_inspection_resync(next_request_id++, request);
-    if (operation == result::success && send_ipc(std::move(request)) == result::success) {
+    if (ipc_session.request_inspection_resync() == result::success) {
       inspection_resync_pending = true;
     }
   }
 
-  void apply_inspection_frame(const ipc_envelope& frame) noexcept {
-    ipc_inspection_batch batch;
-    const auto decoded = decode_ipc_inspection_batch_v2(frame, batch);
-    if (decoded != result::success) {
-      last_result = decoded;
-      return;
-    }
+  void apply_inspection_batch(const ipc_inspection_batch& batch) noexcept {
     const auto applied = scene_mirror.apply(batch);
     if (applied != result::success) {
       last_result = applied;
@@ -160,21 +84,13 @@ struct runtime_process::implementation final {
   }
 
   void stop_ipc() noexcept {
-    if (ipc_server.state() != ipc_transport_state::stopped) {
-      (void)ipc_server.stop();
-    }
-    ipc_authenticated = false;
-    negotiated_domains.clear();
-    property_editing_negotiated = false;
+    (void)ipc_session.stop();
     property_edits.disconnect();
-    ipc_token.clear();
-    next_ping = {};
   }
 
   void fail_ipc(result operation) noexcept {
     last_result = operation;
     control_state = runtime_control_state::failed;
-    property_editing_negotiated = false;
     property_edits.disconnect();
     if (stop_deadline == std::chrono::steady_clock::time_point{}) {
       stop_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
@@ -183,59 +99,13 @@ struct runtime_process::implementation final {
 
   void update_ipc() noexcept {
     const auto now = std::chrono::steady_clock::now();
-    std::vector<ipc_transport_event> events;
-    (void)ipc_server.poll_events(events);
-    for (auto& event : events) {
-      if (event.type == ipc_transport_event_type::error ||
-          event.type == ipc_transport_event_type::disconnected) {
-        if (process.is_running()) {
-          fail_ipc(event.operation == result::success ? result::io : event.operation);
-        }
-        continue;
-      }
-      if (event.type != ipc_transport_event_type::envelope_received) {
-        continue;
-      }
-      if (!ipc_authenticated) {
-        runtime_ipc_event decoded;
-        auto accepted = dispatch(event.envelope, decoded);
-        ipc_session_hello acknowledgment_message;
-        const auto* hello = std::get_if<runtime_hello_event>(&decoded);
-        if (accepted == result::success && hello != nullptr) {
-          accepted = negotiate_ipc_session_hello(
-              hello->value, ipc_token, ipc_v2_domain_capabilities(), acknowledgment_message);
-        } else if (accepted == result::success) {
-          accepted = result::invalid_argument;
-        }
-        ipc_envelope acknowledgment;
-        if (accepted == result::success) {
-          accepted = encode_ipc_session_hello(acknowledgment_message, true,
-                                              event.envelope.request_id, acknowledgment);
-        }
-        if (accepted == result::success) {
-          accepted = ipc_server.send(acknowledgment);
-        }
-        if (accepted != result::success) {
-          fail_ipc(accepted);
-          continue;
-        }
-        ipc_authenticated = true;
-        negotiated_domains = std::move(acknowledgment_message.domains);
-        property_editing_negotiated =
-            std::ranges::find(negotiated_domains, ipc_domain::property,
-                              &ipc_domain_capability::domain) != negotiated_domains.end();
-        ipc_heartbeat.reset(now);
-        next_ping = now;
-        continue;
-      }
-
-      runtime_ipc_event decoded_event;
-      const auto decoded = dispatch(event.envelope, decoded_event);
-      if (decoded != result::success) {
-        fail_ipc(decoded);
-        continue;
-      }
-      ipc_heartbeat.reset(now);
+    std::vector<runtime_ipc_event> events;
+    const auto updated = ipc_session.update(process.is_running(), events);
+    if (updated != result::success) {
+      fail_ipc(updated);
+      return;
+    }
+    for (auto& decoded_event : events) {
       if (std::holds_alternative<runtime_inspection_event>(decoded_event)) {
         constexpr std::size_t maximum_pending_inspection_frames = 256U;
         if (pending_inspection_input.size() >= maximum_pending_inspection_frames) {
@@ -244,9 +114,9 @@ struct runtime_process::implementation final {
           last_result = result::not_ready;
           request_inspection_resync();
         } else {
-          pending_inspection_input.push_back(std::move(event.envelope));
+          pending_inspection_input.push_back(
+              std::move(std::get<runtime_inspection_event>(decoded_event).value));
         }
-        ipc_heartbeat.reset(now);
         continue;
       }
       if (const auto* value = std::get_if<runtime_statistics_event>(&decoded_event)) {
@@ -303,30 +173,8 @@ struct runtime_process::implementation final {
     constexpr std::size_t inspection_apply_budget = 8U;
     for (std::size_t count = 0U;
          count < inspection_apply_budget && !pending_inspection_input.empty(); ++count) {
-      apply_inspection_frame(pending_inspection_input.front());
+      apply_inspection_batch(pending_inspection_input.front());
       pending_inspection_input.pop_front();
-    }
-    if (!ipc_authenticated) {
-      if (process.is_running() && ipc_handshake.expired(now)) {
-        fail_ipc(result::not_ready);
-      }
-      return;
-    }
-    if (control_state == runtime_control_state::failed) {
-      return;
-    }
-    if (now >= next_ping) {
-      ipc_envelope ping;
-      const auto encoded = encode_ipc_session_heartbeat({.nonce = next_ping_nonce++}, false,
-                                                        next_request_id++, ping);
-      if (encoded != result::success || send_ipc(std::move(ping)) != result::success) {
-        fail_ipc(result::not_ready);
-        return;
-      }
-      next_ping = now + std::chrono::seconds(1);
-    }
-    if (ipc_heartbeat.expired(now)) {
-      fail_ipc(result::not_ready);
     }
     property_edits.expire(now, std::chrono::seconds(2));
   }
@@ -418,8 +266,6 @@ result runtime_process::start(const std::filesystem::path& executable,
     implementation_->stop_deadline = {};
     implementation_->forced_termination_reported = false;
     implementation_->ipc_shutdown_complete = false;
-    implementation_->negotiated_domains.clear();
-    implementation_->next_request_id = 2U;
     implementation_->inspection_resync_pending = false;
     implementation_->pending_inspection_input.clear();
     implementation_->scene_mirror.reset();
@@ -435,21 +281,21 @@ result runtime_process::start(const std::filesystem::path& executable,
     }
     implementation_->stop_file = implementation_->session_root / "stop.signal";
     implementation_->log_file = implementation_->session_root / "runtime.log";
-    implementation_->ipc_token = implementation::make_session_token();
-    auto started = implementation_->ipc_server.start_server();
+    auto started = implementation_->ipc_session.start();
     if (started != result::success) {
       implementation_->control_state = runtime_control_state::failed;
       implementation_->discard_session();
       return started;
     }
-    const auto endpoint = implementation_->ipc_server.endpoint();
-    implementation_->ipc_handshake.reset(std::chrono::steady_clock::now());
+    const auto endpoint = implementation_->ipc_session.endpoint();
     child_process_start_info info;
     info.executable = executable;
-    info.arguments = {
-        "--project",  request.project_root,          "--stop-file",   implementation_->stop_file,
-        "--log-file", implementation_->log_file,     "--ipc-address", endpoint.address,
-        "--ipc-port", std::to_string(endpoint.port), "--ipc-token",   implementation_->ipc_token};
+    info.arguments = {"--project",     request.project_root,
+                      "--stop-file",   implementation_->stop_file,
+                      "--log-file",    implementation_->log_file,
+                      "--ipc-address", endpoint.address,
+                      "--ipc-port",    std::to_string(endpoint.port),
+                      "--ipc-token",   implementation_->ipc_session.token()};
     started = implementation_->process.start(info);
     implementation_->last_result = started;
     if (started != result::success) {
@@ -519,13 +365,8 @@ result runtime_process::request_stop() noexcept {
   if (!is_running()) {
     return result::not_ready;
   }
-  if (implementation_->ipc_authenticated) {
-    ipc_envelope stop;
-    auto operation = encode_ipc_control_request(ipc_control_operation::stop,
-                                                implementation_->next_request_id++, stop);
-    if (operation == result::success) {
-      operation = implementation_->send_ipc(std::move(stop));
-    }
+  if (implementation_->ipc_session.is_authenticated()) {
+    const auto operation = implementation_->ipc_session.request_stop();
     if (operation == result::success) {
       implementation_->control_state = runtime_control_state::stopping;
       if (implementation_->stop_deadline == std::chrono::steady_clock::time_point{}) {
@@ -550,32 +391,26 @@ result runtime_process::request_stop() noexcept {
 }
 
 result runtime_process::request_pause() noexcept {
-  if (!implementation_ || !implementation_->ipc_authenticated ||
+  if (!implementation_ || !implementation_->ipc_session.is_authenticated() ||
       implementation_->control_state != runtime_control_state::running) {
     return result::not_ready;
   }
-  ipc_envelope pause;
-  const auto operation = encode_ipc_control_request(ipc_control_operation::pause,
-                                                    implementation_->next_request_id++, pause);
-  return operation == result::success ? implementation_->send_ipc(std::move(pause)) : operation;
+  return implementation_->ipc_session.request_pause();
 }
 
 result runtime_process::request_resume() noexcept {
-  if (!implementation_ || !implementation_->ipc_authenticated ||
+  if (!implementation_ || !implementation_->ipc_session.is_authenticated() ||
       implementation_->control_state != runtime_control_state::paused) {
     return result::not_ready;
   }
-  ipc_envelope resume;
-  const auto operation = encode_ipc_control_request(ipc_control_operation::resume,
-                                                    implementation_->next_request_id++, resume);
-  return operation == result::success ? implementation_->send_ipc(std::move(resume)) : operation;
+  return implementation_->ipc_session.request_resume();
 }
 
 result runtime_process::request_property_write(runtime_property_key key,
                                                std::uint64_t expected_revision,
                                                ipc_property_value value) noexcept {
-  if (!implementation_ || !implementation_->ipc_authenticated ||
-      !implementation_->property_editing_negotiated ||
+  if (!implementation_ || !implementation_->ipc_session.is_authenticated() ||
+      !implementation_->ipc_session.supports_property_editing() ||
       (implementation_->control_state != runtime_control_state::running &&
        implementation_->control_state != runtime_control_state::paused)) {
     return result::not_ready;
@@ -587,12 +422,7 @@ result runtime_process::request_property_write(runtime_property_key key,
   if (operation != result::success) {
     return operation;
   }
-  ipc_envelope frame;
-  operation =
-      encode_ipc_property_write_v2(command, static_cast<std::uint32_t>(command.command_id), frame);
-  if (operation == result::success) {
-    operation = implementation_->ipc_server.send(frame);
-  }
+  operation = implementation_->ipc_session.send_property_write(command);
   if (operation != result::success) {
     implementation_->fail_ipc(operation);
   }
@@ -705,7 +535,7 @@ runtime_process::property_edit(const runtime_property_key& key) const noexcept {
   return implementation_ ? implementation_->property_edits.find(key) : nullptr;
 }
 bool runtime_process::supports_property_editing() const noexcept {
-  return implementation_ && implementation_->property_editing_negotiated;
+  return implementation_ && implementation_->ipc_session.supports_property_editing();
 }
 const std::filesystem::path& runtime_process::log_file() const noexcept {
   return implementation_->log_file;

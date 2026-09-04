@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#ifndef GNEISS_APPS_EDITOR_RUNTIME_IPC_EVENT_H_
-#define GNEISS_APPS_EDITOR_RUNTIME_IPC_EVENT_H_
+#ifndef GNEISS_APPS_EDITOR_IPC_EDITOR_IPC_EVENT_H_
+#define GNEISS_APPS_EDITOR_IPC_EDITOR_IPC_EVENT_H_
 
 #include "ipc_control_protocol.h"
 #include "ipc_data_protocol.h"

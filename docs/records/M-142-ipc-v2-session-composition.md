@@ -24,6 +24,11 @@ Runtime 使用 Operation Router 按“协议域 + 操作”注册命令处理器
 Editor 事件仍使用 `std::variant` 表达互斥载荷，并通过 `std::get_if` 消费事件；它不会再与 Runtime
 命令共用同一种扩展模型，后续按 Editor 状态投影与队列边界独立拆分。
 
+Editor IPC 实现现已集中到 `apps/editor/ipc`：`editor_ipc_session` 独占 Transport、鉴权、能力协商、
+心跳和请求编号，`editor_ipc_router` 组合协议域；`handlers/` 按协议域解码 Runtime 事件，
+`commands/` 中每个出站命令拥有独立实现文件。`runtime_process` 只组合子进程生命周期、IPC 会话和
+Editor 状态投影，不再直接持有 libuv、Transport、Dispatcher 或协议握手状态。
+
 Session 超时跟踪器归入 Session 域；Runtime 对象标识与检查顺序跟踪器归入 Inspection 域。数据域
 JSON 编解码直接读写字节载荷，不再构造旧帧。Property 的 `command_id` 已从 JSON 中移除，请求与
 响应只使用信封 `request_id` 关联，解码后由域适配器回填到内部命令对象。
@@ -38,6 +43,8 @@ JSON 编解码直接读写字节载荷，不再构造旧帧。Property 的 `comm
   Runtime IPC Session、Editor Runtime IPC Event 和 Editor Runtime Process 共 4 项测试均通过。
 - Runtime Operation Router 重构后，Windows Clang Shared/Static Debug 下 IPC Router、Runtime IPC
   Command 和 Runtime IPC Session 共 3 项测试均通过。
+- Editor IPC 拆分后，Windows Clang Shared/Static Debug 下 Editor IPC Event 与 Runtime Process
+  端到端测试均通过。
 - 删除旧源文件并重新运行 CMake 配置，确认构建图不存在旧协议隐式依赖。
 - 源码扫描确认生产代码和测试中不再引用 v1 帧、全局消息类型或字符串能力常量。
 

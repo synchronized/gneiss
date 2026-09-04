@@ -16,6 +16,25 @@ add_library(
   editor_rotation_math.h
   editor_session.cpp
   editor_session.h
+  ipc/editor_ipc_event.h
+  ipc/editor_ipc_router.cpp
+  ipc/editor_ipc_router.h
+  ipc/editor_ipc_session.cpp
+  ipc/editor_ipc_session.h
+  ipc/commands/editor_ipc_commands.h
+  ipc/commands/heartbeat_command.cpp
+  ipc/commands/inspection_resync_command.cpp
+  ipc/commands/pause_command.cpp
+  ipc/commands/property_write_command.cpp
+  ipc/commands/resume_command.cpp
+  ipc/commands/stop_command.cpp
+  ipc/handlers/control_events.cpp
+  ipc/handlers/event_decode.h
+  ipc/handlers/inspection_events.cpp
+  ipc/handlers/log_events.cpp
+  ipc/handlers/property_events.cpp
+  ipc/handlers/session_events.cpp
+  ipc/handlers/statistics_events.cpp
   native_author_transaction.cpp
   native_author_transaction.h
   prefab_authoring.cpp
@@ -30,8 +49,6 @@ add_library(
   runtime_author_apply.h
   runtime_process.cpp
   runtime_process.h
-  runtime_ipc_event.cpp
-  runtime_ipc_event.h
   runtime_property_edits.cpp
   runtime_property_edits.h
   runtime_scene_mirror.cpp
@@ -44,7 +61,12 @@ target_link_libraries(
   PRIVATE gneiss_yyjson gneiss_child_process
   PUBLIC gneiss::engine gneiss_app_project gneiss_app_ipc_protocol
 )
-target_include_directories(gneiss_editor_session PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
+target_include_directories(
+  gneiss_editor_session
+  PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/ipc"
+  PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/ipc/commands"
+          "${CMAKE_CURRENT_SOURCE_DIR}/ipc/handlers"
+)
 target_compile_features(gneiss_editor_session PUBLIC cxx_std_20)
 gneiss_target_compile_warnings(gneiss_editor_session)
 gneiss_target_output_directories(gneiss_editor_session)
@@ -198,11 +220,11 @@ if(BUILD_TESTING)
   add_test(
     NAME gneiss.editor.runtime-property-edits COMMAND gneiss_editor_runtime_property_edits_test
   )
-  add_executable(gneiss_editor_runtime_ipc_event_test tests/runtime_ipc_event_test.cpp)
-  target_link_libraries(gneiss_editor_runtime_ipc_event_test PRIVATE gneiss_editor_session)
-  gneiss_target_compile_warnings(gneiss_editor_runtime_ipc_event_test)
-  gneiss_target_output_directories(gneiss_editor_runtime_ipc_event_test)
-  add_test(NAME gneiss.editor.runtime-ipc-event COMMAND gneiss_editor_runtime_ipc_event_test)
+  add_executable(gneiss_editor_ipc_event_test tests/editor_ipc_event_test.cpp)
+  target_link_libraries(gneiss_editor_ipc_event_test PRIVATE gneiss_editor_session)
+  gneiss_target_compile_warnings(gneiss_editor_ipc_event_test)
+  gneiss_target_output_directories(gneiss_editor_ipc_event_test)
+  add_test(NAME gneiss.editor.ipc-event COMMAND gneiss_editor_ipc_event_test)
   add_executable(gneiss_editor_console_model_test tests/console_model_test.cpp)
   target_link_libraries(gneiss_editor_console_model_test PRIVATE gneiss_editor_session)
   gneiss_target_compile_warnings(gneiss_editor_console_model_test)
