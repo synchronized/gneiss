@@ -114,7 +114,24 @@ int main() try {
       process.scene_mirror().nodes().empty() ||
       process.statistics().session_id != process.scene_mirror().session_id() ||
       process.statistics().scene_node_count == 0U || process.statistics().entity_count == 0U ||
-      process.control_state() != gneiss::editor::runtime_control_state::running ||
+      process.control_state() != gneiss::editor::runtime_control_state::running) {
+    return 7;
+  }
+  const std::array<std::string, 1> material_reload{"asset://materials/triangle.material.json"};
+  const std::array<std::string, 1> mesh_reload{"asset://models/triangle.mesh.json"};
+  if (process.publish_asset_revision(material_reload) != gneiss::result::success ||
+      process.publish_asset_revision(mesh_reload) != gneiss::result::success) {
+    return 7;
+  }
+  const auto reload_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(3);
+  while (process.asset_reload_status().state !=
+             gneiss::editor::runtime_asset_reload_state::applied &&
+         std::chrono::steady_clock::now() < reload_deadline) {
+    process.update();
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  }
+  if (process.asset_reload_status().state != gneiss::editor::runtime_asset_reload_state::applied ||
+      process.asset_reload_status().revision != 2U ||
       process.request_pause() != gneiss::result::success) {
     return 7;
   }
@@ -224,12 +241,15 @@ int main() try {
   while (std::chrono::steady_clock::now() < replay_deadline &&
          (process.control_state() != gneiss::editor::runtime_control_state::running ||
           process.scene_mirror().nodes().empty() ||
-          process.scene_mirror().session_id() == first_inspection_session)) {
+          process.scene_mirror().session_id() == first_inspection_session ||
+          process.asset_reload_status().state !=
+              gneiss::editor::runtime_asset_reload_state::applied)) {
     process.update();
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
   }
   if (!process.is_running() || process.scene_mirror().nodes().empty() ||
       process.scene_mirror().session_id() == first_inspection_session ||
+      process.asset_reload_status().state != gneiss::editor::runtime_asset_reload_state::applied ||
       process.request_stop() != gneiss::result::success) {
     return 9;
   }

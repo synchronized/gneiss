@@ -15,6 +15,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <span>
 #include <string>
 
 namespace gneiss::editor {
@@ -27,6 +28,21 @@ enum class runtime_control_state : std::uint8_t {
   paused,
   stopping,
   failed,
+};
+
+enum class runtime_asset_reload_state : std::uint8_t {
+  idle,
+  waiting,
+  applying,
+  applied,
+  failed,
+  restart_required,
+};
+
+struct runtime_asset_reload_status final {
+  runtime_asset_reload_state state{runtime_asset_reload_state::idle};
+  std::uint64_t revision = 0U;
+  std::string message;
 };
 
 class runtime_process final {
@@ -49,6 +65,8 @@ public:
   [[nodiscard]] result request_property_write(runtime_property_key key,
                                               std::uint64_t expected_revision,
                                               ipc_property_value value) noexcept;
+  /** 发布已提交的派生资产；Runtime 未连接时保留到下次全量重同步。 */
+  [[nodiscard]] result publish_asset_revision(std::span<const std::string> output_uris) noexcept;
   void update() noexcept;
 
   [[nodiscard]] bool is_running() const noexcept;
@@ -65,6 +83,7 @@ public:
   [[nodiscard]] const runtime_property_edit*
   property_edit(const runtime_property_key& key) const noexcept;
   [[nodiscard]] bool supports_property_editing() const noexcept;
+  [[nodiscard]] const runtime_asset_reload_status& asset_reload_status() const noexcept;
   [[nodiscard]] const std::filesystem::path& log_file() const noexcept;
   [[nodiscard]] result last_result() const noexcept;
   void clear_output() noexcept;

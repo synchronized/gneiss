@@ -20,6 +20,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <span>
 #include <thread>
 
 namespace gneiss::application_internal {
@@ -51,6 +52,8 @@ public:
   [[nodiscard]] render_internal::render_asset_loader& asset_loader() noexcept {
     return asset_loader_;
   }
+  [[nodiscard]] gneiss_result
+  reload_render_assets(std::span<const render_internal::render_asset_reload> assets) noexcept;
   [[nodiscard]] scene_internal::scene_instance_service* scenes() noexcept { return scenes_.get(); }
   [[nodiscard]] const gneiss_keyboard_state& keyboard_state() const noexcept {
     return input_.keyboard();

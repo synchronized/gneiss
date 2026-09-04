@@ -25,6 +25,7 @@ enum class ipc_domain : std::uint16_t {
   inspection = 4U,
   statistics = 5U,
   property = 6U,
+  asset = 7U,
 };
 
 enum class ipc_message_kind : std::uint16_t {

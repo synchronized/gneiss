@@ -3,6 +3,7 @@
 
 #include "ipc_protocol_domains.h"
 
+#include "ipc_asset_protocol.h"
 #include "ipc_control_protocol.h"
 #include "ipc_inspection_protocol.h"
 #include "ipc_log_protocol.h"
@@ -25,7 +26,9 @@ constexpr std::array capabilities{
     gneiss::ipc_domain_capability{.domain = gneiss::ipc_domain::statistics,
                                   .version = gneiss::ipc_statistics_domain_version},
     gneiss::ipc_domain_capability{.domain = gneiss::ipc_domain::property,
-                                  .version = gneiss::ipc_property_domain_version}};
+                                  .version = gneiss::ipc_property_domain_version},
+    gneiss::ipc_domain_capability{.domain = gneiss::ipc_domain::asset,
+                                  .version = gneiss::ipc_asset_domain_version}};
 
 } // namespace
 
@@ -47,6 +50,13 @@ result register_ipc_v2_domains(ipc_domain_handler handler, void* handler_context
                             .capability = {},
                             .max_payload_size = ipc_session_max_payload_size,
                             .operations = ipc_session_operations(),
+                            .handler = handler,
+                            .handler_context = handler_context},
+      ipc_domain_descriptor{.domain = ipc_domain::asset,
+                            .version = ipc_asset_domain_version,
+                            .capability = "asset",
+                            .max_payload_size = ipc_asset_max_payload_size,
+                            .operations = ipc_asset_operations(),
                             .handler = handler,
                             .handler_context = handler_context},
       ipc_domain_descriptor{.domain = ipc_domain::control,

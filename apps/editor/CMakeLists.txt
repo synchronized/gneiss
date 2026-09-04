@@ -21,6 +21,7 @@ add_library(
   ipc/editor_ipc_router.h
   ipc/editor_ipc_session.cpp
   ipc/editor_ipc_session.h
+  ipc/inbound/asset_events.cpp
   ipc/inbound/control_events.cpp
   ipc/inbound/event_decode.h
   ipc/inbound/inspection_events.cpp
@@ -29,6 +30,7 @@ add_library(
   ipc/inbound/session_events.cpp
   ipc/inbound/statistics_events.cpp
   ipc/outbound/editor_ipc_outbound.h
+  ipc/outbound/asset_reload_command.cpp
   ipc/outbound/heartbeat_command.cpp
   ipc/outbound/inspection_resync_command.cpp
   ipc/outbound/pause_command.cpp
@@ -74,12 +76,20 @@ gneiss_target_output_directories(gneiss_editor_session)
 if(TARGET gneiss_asset_import_sdk)
   add_library(
     gneiss_editor_assets STATIC
+    asset_file_watcher.cpp
+    asset_file_watcher.h
     asset_import_controller.cpp
     asset_import_controller.h
+    asset_reimport_queue.cpp
+    asset_reimport_queue.h
     asset_browser_model.cpp
     asset_browser_model.h
   )
-  target_link_libraries(gneiss_editor_assets PUBLIC gneiss_asset_import_sdk)
+  target_link_libraries(
+    gneiss_editor_assets
+    PRIVATE gneiss_io_uv gneiss::libuv
+    PUBLIC gneiss::engine gneiss_asset_import_sdk
+  )
   target_include_directories(gneiss_editor_assets PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
   target_compile_features(gneiss_editor_assets PUBLIC cxx_std_20)
   gneiss_target_compile_warnings(gneiss_editor_assets)
@@ -270,6 +280,13 @@ if(BUILD_TESTING)
     gneiss_target_compile_warnings(gneiss_editor_asset_browser_test)
     gneiss_target_output_directories(gneiss_editor_asset_browser_test)
     add_test(NAME gneiss.editor.asset-browser COMMAND gneiss_editor_asset_browser_test)
+    add_executable(gneiss_editor_asset_file_watcher_test tests/asset_file_watcher_test.cpp)
+    target_link_libraries(gneiss_editor_asset_file_watcher_test PRIVATE gneiss_editor_assets)
+    gneiss_target_compile_warnings(gneiss_editor_asset_file_watcher_test)
+    gneiss_target_output_directories(gneiss_editor_asset_file_watcher_test)
+    add_test(
+      NAME gneiss.editor.asset-file-watcher COMMAND gneiss_editor_asset_file_watcher_test
+    )
     add_executable(gneiss_editor_asset_import_test tests/asset_import_controller_test.cpp)
     target_link_libraries(gneiss_editor_asset_import_test PRIVATE gneiss_editor_assets)
     target_compile_definitions(
@@ -279,6 +296,17 @@ if(BUILD_TESTING)
     gneiss_target_compile_warnings(gneiss_editor_asset_import_test)
     gneiss_target_output_directories(gneiss_editor_asset_import_test)
     add_test(NAME gneiss.editor.asset-import COMMAND gneiss_editor_asset_import_test)
+    add_executable(gneiss_editor_asset_reimport_queue_test tests/asset_reimport_queue_test.cpp)
+    target_link_libraries(gneiss_editor_asset_reimport_queue_test PRIVATE gneiss_editor_assets)
+    target_compile_definitions(
+      gneiss_editor_asset_reimport_queue_test
+      PRIVATE GNEISS_EDITOR_TEST_GLTF_ROOT="${PROJECT_SOURCE_DIR}/tests/data/gltf"
+    )
+    gneiss_target_compile_warnings(gneiss_editor_asset_reimport_queue_test)
+    gneiss_target_output_directories(gneiss_editor_asset_reimport_queue_test)
+    add_test(
+      NAME gneiss.editor.asset-reimport-queue COMMAND gneiss_editor_asset_reimport_queue_test
+    )
   endif()
   add_test(
     NAME gneiss.editor.smoke

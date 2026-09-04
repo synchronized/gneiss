@@ -48,6 +48,9 @@ public:
   [[nodiscard]] result notify_scene_snapshot(const ipc_inspection_batch& batch) noexcept;
   [[nodiscard]] result
   notify_property_write_result(const ipc_property_write_result& response) noexcept;
+  [[nodiscard]] result notify_asset_reload_result(const ipc_asset_reload_result& response,
+                                                  ipc_asset_operation operation,
+                                                  std::uint32_t request_id) noexcept;
   [[nodiscard]] result notify_statistics(const ipc_runtime_statistics& statistics) noexcept;
   [[nodiscard]] std::size_t pending_write_count() const noexcept;
   [[nodiscard]] std::size_t dropped_event_count() const noexcept;

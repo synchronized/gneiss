@@ -6,12 +6,14 @@
 #include "child_process.h"
 #include "editor_ipc_event.h"
 #include "editor_ipc_session.h"
+#include "ipc_asset_protocol.h"
 #include "ipc_statistics_protocol.h"
 
 #include <algorithm>
 #include <chrono>
 #include <deque>
 #include <fstream>
+#include <map>
 #include <new>
 #include <optional>
 #include <system_error>
@@ -43,6 +45,11 @@ struct runtime_process::implementation final {
   bool is_building = false;
   bool ipc_shutdown_complete = false;
   bool inspection_resync_pending = false;
+  std::map<std::string, ipc_asset_type> known_assets;
+  std::vector<ipc_asset_revision> pending_assets;
+  runtime_asset_reload_status asset_reload;
+  std::uint64_t asset_session_id = 1U;
+  bool asset_resync_required = true;
   std::deque<ipc_inspection_batch> pending_inspection_input;
   editor_ipc_session ipc_session;
   runtime_control_state control_state = runtime_control_state::stopped;
@@ -134,6 +141,25 @@ struct runtime_process::implementation final {
         }
         continue;
       }
+      if (const auto* value = std::get_if<runtime_asset_result_event>(&decoded_event)) {
+        if (value->value.session_id == asset_session_id &&
+            value->value.revision == asset_reload.revision) {
+          asset_reload.message = value->value.message;
+          switch (value->value.status) {
+          case ipc_asset_apply_status::applied:
+          case ipc_asset_apply_status::stale:
+            asset_reload.state = runtime_asset_reload_state::applied;
+            break;
+          case ipc_asset_apply_status::failed:
+            asset_reload.state = runtime_asset_reload_state::failed;
+            break;
+          case ipc_asset_apply_status::restart_required:
+            asset_reload.state = runtime_asset_reload_state::restart_required;
+            break;
+          }
+        }
+        continue;
+      }
       if (const auto* value = std::get_if<runtime_state_event>(&decoded_event)) {
         switch (value->value) {
         case ipc_control_state::running:
@@ -177,6 +203,31 @@ struct runtime_process::implementation final {
       pending_inspection_input.pop_front();
     }
     property_edits.expire(now, std::chrono::seconds(2));
+    if (ipc_session.is_authenticated() && ipc_session.supports_asset_reload() &&
+        (asset_resync_required || !pending_assets.empty())) {
+      ipc_asset_reload_request request{
+          .session_id = asset_session_id, .revision = asset_reload.revision, .assets = {}};
+      const auto operation =
+          asset_resync_required ? ipc_asset_operation::resync : ipc_asset_operation::reload;
+      if (asset_resync_required) {
+        request.assets.reserve(known_assets.size());
+        for (const auto& [uri, type] : known_assets) {
+          request.assets.push_back({.uri = uri, .type = type});
+        }
+      } else {
+        request.assets = pending_assets;
+      }
+      if (!request.assets.empty()) {
+        const auto sent = ipc_session.send_asset_reload(request, operation);
+        if (sent != result::success) {
+          fail_ipc(sent);
+          return;
+        }
+        asset_reload.state = runtime_asset_reload_state::applying;
+      }
+      asset_resync_required = false;
+      pending_assets.clear();
+    }
   }
 
   void append_console_lines(std::vector<app::runtime_log_line>& lines) noexcept {
@@ -267,6 +318,11 @@ result runtime_process::start(const std::filesystem::path& executable,
     implementation_->forced_termination_reported = false;
     implementation_->ipc_shutdown_complete = false;
     implementation_->inspection_resync_pending = false;
+    implementation_->asset_resync_required = true;
+    if (!implementation_->known_assets.empty()) {
+      implementation_->asset_reload.state = runtime_asset_reload_state::waiting;
+      implementation_->asset_reload.message = "等待 Runtime 全量同步资产修订";
+    }
     implementation_->pending_inspection_input.clear();
     implementation_->scene_mirror.reset();
     implementation_->property_edits.begin_session(0U);
@@ -429,6 +485,53 @@ result runtime_process::request_property_write(runtime_property_key key,
   return operation;
 }
 
+result runtime_process::publish_asset_revision(std::span<const std::string> output_uris) noexcept {
+  if (!implementation_ || output_uris.empty()) {
+    return result::invalid_argument;
+  }
+  try {
+    std::vector<ipc_asset_revision> assets;
+    for (const auto& uri : output_uris) {
+      std::optional<ipc_asset_type> type;
+      if (uri.ends_with(".texture.json")) {
+        type = ipc_asset_type::texture;
+      } else if (uri.ends_with(".material.json")) {
+        type = ipc_asset_type::material;
+      } else if (uri.ends_with(".gneiss-mesh") || uri.ends_with(".mesh.json")) {
+        type = ipc_asset_type::static_mesh;
+      }
+      if (type) {
+        implementation_->known_assets.insert_or_assign(uri, *type);
+        assets.push_back({.uri = uri, .type = *type});
+      }
+    }
+    if (assets.empty()) {
+      return result::unsupported;
+    }
+    ++implementation_->asset_reload.revision;
+    if (implementation_->asset_reload.revision == 0U) {
+      implementation_->asset_reload.revision = 1U;
+      ++implementation_->asset_session_id;
+    }
+    for (auto& asset : assets) {
+      const auto pending =
+          std::ranges::find(implementation_->pending_assets, asset.uri, &ipc_asset_revision::uri);
+      if (pending == implementation_->pending_assets.end()) {
+        implementation_->pending_assets.push_back(std::move(asset));
+      } else {
+        pending->type = asset.type;
+      }
+    }
+    implementation_->asset_reload.state = runtime_asset_reload_state::waiting;
+    implementation_->asset_reload.message = "等待 Runtime 应用资产修订";
+    return result::success;
+  } catch (const std::bad_alloc&) {
+    return result::out_of_memory;
+  } catch (...) {
+    return result::internal;
+  }
+}
+
 void runtime_process::update() noexcept {
   if (!implementation_) {
     return;
@@ -536,6 +639,10 @@ runtime_process::property_edit(const runtime_property_key& key) const noexcept {
 }
 bool runtime_process::supports_property_editing() const noexcept {
   return implementation_ && implementation_->ipc_session.supports_property_editing();
+}
+const runtime_asset_reload_status& runtime_process::asset_reload_status() const noexcept {
+  static const runtime_asset_reload_status empty;
+  return implementation_ ? implementation_->asset_reload : empty;
 }
 const std::filesystem::path& runtime_process::log_file() const noexcept {
   return implementation_->log_file;

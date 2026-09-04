@@ -4,6 +4,7 @@
 #ifndef GNEISS_APPS_EDITOR_IPC_OUTBOUND_EDITOR_IPC_OUTBOUND_H_
 #define GNEISS_APPS_EDITOR_IPC_OUTBOUND_EDITOR_IPC_OUTBOUND_H_
 
+#include "ipc_asset_protocol.h"
 #include "ipc_envelope.h"
 #include "ipc_property_protocol.h"
 
@@ -18,6 +19,10 @@ namespace gneiss::editor {
                                                     ipc_envelope& output) noexcept;
 [[nodiscard]] result make_property_write_command(const ipc_property_write& command,
                                                  ipc_envelope& output) noexcept;
+[[nodiscard]] result make_asset_reload_command(const ipc_asset_reload_request& command,
+                                               ipc_asset_operation operation,
+                                               std::uint32_t request_id,
+                                               ipc_envelope& output) noexcept;
 
 } // namespace gneiss::editor
 

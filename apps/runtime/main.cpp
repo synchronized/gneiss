@@ -5,9 +5,11 @@
 #include <gneiss/application.hpp>
 #include <gneiss/scene.h>
 
+#include "application/application_asset_reload_internal.h"
 #include "game/game_context_internal.h"
 #include "game_module_session.h"
 #include "game_update_scheduler.h"
+#include "runtime_asset_reloader.h"
 #include "runtime_ipc_session.h"
 #include "runtime_log.h"
 #include "runtime_property_editor.h"
@@ -23,6 +25,7 @@
 #include <memory>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace {
 
@@ -46,6 +49,7 @@ struct runtime_context final {
   gneiss::runtime_internal::runtime_ipc_session* ipc_session = nullptr;
   gneiss::runtime_internal::runtime_scene_inspection* scene_inspection = nullptr;
   gneiss::runtime_internal::runtime_property_editor* property_editor = nullptr;
+  gneiss::runtime_internal::runtime_asset_reloader* asset_reloader = nullptr;
   gneiss_scene_instance scene = GNEISS_NULL_SCENE_INSTANCE;
   std::uint64_t next_inspection_ns = 0U;
   std::uint64_t inspection_session_id = 0U;
@@ -58,6 +62,57 @@ struct runtime_context final {
 
 [[nodiscard]] std::string path_text(const std::filesystem::path& path) {
   return path.generic_string();
+}
+
+gneiss::result apply_asset_revision(gneiss_application application, gneiss_scene_instance scene,
+                                    std::span<const gneiss::ipc_asset_revision> assets) noexcept {
+  try {
+    std::vector<gneiss::render_internal::render_asset_reload> reloads;
+    reloads.reserve(assets.size());
+    for (const auto& asset : assets) {
+      gneiss::render_internal::render_asset_type type;
+      switch (asset.type) {
+      case gneiss::ipc_asset_type::texture:
+        type = gneiss::render_internal::render_asset_type::texture;
+        break;
+      case gneiss::ipc_asset_type::material:
+        type = gneiss::render_internal::render_asset_type::material;
+        break;
+      case gneiss::ipc_asset_type::static_mesh:
+        type = gneiss::render_internal::render_asset_type::mesh;
+        break;
+      default:
+        return gneiss::result::invalid_argument;
+      }
+      reloads.push_back({.uri = asset.uri, .type = type});
+    }
+    auto result = gneiss::application_internal::reload_render_assets(application, reloads);
+    if (result != GNEISS_SUCCESS) {
+      return gneiss::from_native(result);
+    }
+    std::uint64_t node_count = 0U;
+    result = gneiss_scene_instance_get_node_count(application, scene, &node_count);
+    for (std::uint64_t index = 0U; result == GNEISS_SUCCESS && index < node_count; ++index) {
+      gneiss_scene_instance_node_info info = GNEISS_SCENE_INSTANCE_NODE_INFO_INIT;
+      result = gneiss_scene_instance_get_node_info(application, scene, index, &info);
+      if (result == GNEISS_SUCCESS && info.mesh_uri != nullptr && info.mesh_uri_length != 0U &&
+          info.material_uri != nullptr && info.material_uri_length != 0U) {
+        const gneiss_scene_mesh_renderer_desc desc{.struct_size =
+                                                       sizeof(gneiss_scene_mesh_renderer_desc),
+                                                   .reserved = 0U,
+                                                   .mesh_uri = info.mesh_uri,
+                                                   .mesh_uri_length = info.mesh_uri_length,
+                                                   .material_uri = info.material_uri,
+                                                   .material_uri_length = info.material_uri_length};
+        result = gneiss_scene_instance_set_mesh_renderer(application, scene, info.node, &desc);
+      }
+    }
+    return gneiss::from_native(result);
+  } catch (const std::bad_alloc&) {
+    return gneiss::result::out_of_memory;
+  } catch (...) {
+    return gneiss::result::internal;
+  }
 }
 
 gneiss::result fixed_update_game(void* user_data, const gneiss_game_update_time& time) noexcept {
@@ -147,6 +202,26 @@ gneiss_result update_runtime(gneiss_application application, const gneiss_frame_
     }
     if (actions.request_inspection_resync) {
       context.force_full_inspection = true;
+    }
+    if (!actions.asset_reloads.empty() && context.asset_reloader == nullptr) {
+      context.ipc_failure = gneiss::result::invalid_state;
+      return gneiss_application_request_exit(application);
+    }
+    for (const auto& command : actions.asset_reloads) {
+      gneiss::ipc_asset_reload_result response;
+      auto asset_result = context.asset_reloader->execute(command.request, response);
+      if (asset_result == gneiss::result::success) {
+        asset_result = context.ipc_session->notify_asset_reload_result(response, command.operation,
+                                                                       command.request_id);
+      }
+      if (asset_result != gneiss::result::success) {
+        context.ipc_failure = asset_result;
+        if (context.log != nullptr) {
+          context.log->write("ERROR", "asset_reload", gneiss::to_native(asset_result),
+                             "Runtime 资产重载事务执行失败");
+        }
+        return gneiss_application_request_exit(application);
+      }
     }
     if (!actions.property_writes.empty() && context.property_editor == nullptr) {
       context.ipc_failure = gneiss::result::invalid_state;
@@ -357,6 +432,12 @@ void write_application_log(gneiss_application, const gneiss_log_event* event, vo
   context.scene_inspection = &scene_inspection;
   context.inspection_session_id = inspection_serial == 0U ? 1U : inspection_serial;
   context.scene = scene;
+  gneiss::runtime_internal::runtime_asset_reloader asset_reloader(
+      [application_handle = application.get(),
+       scene](std::span<const gneiss::ipc_asset_revision> assets) {
+        return apply_asset_revision(application_handle, scene, assets);
+      });
+  context.asset_reloader = &asset_reloader;
 
   gneiss_world world = GNEISS_NULL_WORLD;
   native_result = gneiss_application_get_world(application.get(), &world);
@@ -457,6 +538,7 @@ void write_application_log(gneiss_application, const gneiss_log_event* event, vo
         operation == gneiss::result::success ? 0 : static_cast<std::int32_t>(operation));
   }
   context.ipc_session = nullptr;
+  context.asset_reloader = nullptr;
   context.property_editor = nullptr;
   context.scene_inspection = nullptr;
   context.scene = GNEISS_NULL_SCENE_INSTANCE;

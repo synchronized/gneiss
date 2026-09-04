@@ -80,6 +80,7 @@
 - [VER-019：0.19.0 Prefab 实例属性覆盖](plans/VER-019-0.19.0-prefab-overrides.md)
 - [VER-020：0.20.0 Prefab 作者工作流](plans/VER-020-0.20.0-prefab-authoring.md)
 - [VER-021：0.21.0 IPC 模块化重构](plans/VER-021-0.21.0-ipc-modularization.md)
+- [VER-022：0.22.0 资产热重载](plans/VER-022-0.22.0-asset-hot-reload.md)
 - [M-100：Editor Play 工作流实施记录](records/M-100-editor-play-workflow.md)
 - [M-101：示例与跨平台验收记录](records/M-101-example-cross-platform-validation.md)
 - [M-102：Runtime 检查会话与对象标识实施记录](records/M-102-runtime-inspection-identity.md)
@@ -131,6 +132,7 @@
 - [ADR-028：Editor 与 Runtime 使用版本化本机 IPC](decisions/ADR-028-editor-runtime-ipc.md)
 - [ADR-029：Runtime 检查使用只读镜像模型](decisions/ADR-029-runtime-inspection-model.md)
 - [ADR-035：分离 IPC 传输与应用协议](decisions/ADR-035-ipc-transport-protocol-boundary.md)
+- [ADR-036：资产热重载使用修订通知与事务替换](decisions/ADR-036-asset-hot-reload.md)
 
 ## 实施与验收记录
 
@@ -187,6 +189,13 @@
 - [M-141 IPC 数据域协议实施记录](records/M-141-ipc-data-domains.md)
 - [M-142 IPC v2 会话组合实施记录](records/M-142-ipc-v2-session-composition.md)
 - [M-143 IPC 兼容与故障验收记录](records/M-143-ipc-compatibility-validation.md)
+- [M-144 资产热重载边界记录](records/M-144-asset-hot-reload-boundary.md)
+- [M-145 工程源资产文件监听实施记录](records/M-145-asset-file-watcher.md)
+- [M-146 自动重新导入队列实施记录](records/M-146-automatic-asset-reimport.md)
+- [M-147 Asset IPC 协议域实施记录](records/M-147-asset-ipc-domain.md)
+- [M-148 Runtime 资源事务重载实施记录](records/M-148-runtime-resource-transaction-reload.md)
+- [M-149 首批渲染资产热重载实施记录](records/M-149-first-render-asset-hot-reload.md)
+- [M-150 Editor 资产热重载接线与验收记录](records/M-150-editor-asset-reload-validation.md)
 - [M-65 公共 API 与稳定性审计记录](records/M-65-public-api-audit.md)
 - [M-66 稳定运行时代表性样例验收记录](records/M-66-stable-runtime-sample.md)
 - [M-67 公共 API 与 ABI 加固记录](records/M-67-api-abi-hardening.md)

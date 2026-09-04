@@ -22,6 +22,8 @@ add_library(
   ipc/core/ipc_protocol_domains.cpp
   ipc/core/ipc_protocol_domains.h
   ipc/core/ipc_router.h
+  ipc/domains/asset/ipc_asset_protocol.cpp
+  ipc/domains/asset/ipc_asset_protocol.h
   ipc/domains/control/ipc_control_protocol.cpp
   ipc/domains/control/ipc_control_protocol.h
   ipc/domains/inspection/ipc_inspection_protocol.cpp
@@ -44,6 +46,7 @@ target_include_directories(
   gneiss_app_ipc_protocol
   PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}/ipc/core"
+    "${CMAKE_CURRENT_SOURCE_DIR}/ipc/domains/asset"
     "${CMAKE_CURRENT_SOURCE_DIR}/ipc/domains/control"
     "${CMAKE_CURRENT_SOURCE_DIR}/ipc/domains/inspection"
     "${CMAKE_CURRENT_SOURCE_DIR}/ipc/domains/log"
@@ -119,4 +122,9 @@ if(BUILD_TESTING)
     NAME gneiss.app.ipc-property-protocol
     COMMAND gneiss_ipc_property_protocol_test
   )
+  add_executable(gneiss_ipc_asset_protocol_test tests/ipc/ipc_asset_protocol_test.cpp)
+  target_link_libraries(gneiss_ipc_asset_protocol_test PRIVATE gneiss_app_ipc_protocol)
+  gneiss_target_compile_warnings(gneiss_ipc_asset_protocol_test)
+  gneiss_target_output_directories(gneiss_ipc_asset_protocol_test)
+  add_test(NAME gneiss.app.ipc-asset-protocol COMMAND gneiss_ipc_asset_protocol_test)
 endif()

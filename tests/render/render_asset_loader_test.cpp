@@ -231,6 +231,52 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
     return 15;
   }
 
+  const auto old_mesh = textured_mesh.get();
+  const auto old_material = textured_material.get();
+  const auto old_texture = first_texture.get();
+  memory->files["models/textured.mesh.json"] =
+      R"({"format":"gneiss.mesh","version":2,"topology":"triangle_list","vertices":[[-1,-1,0],[1,-1,0],[0,1,0]],"uvs":[[0,0],[1,0],[0.5,1]]})";
+  memory->files["materials/textured.material.json"] =
+      R"({"format":"gneiss.material","version":2,"color":[0.2,0.4,0.6,1],"base_color_texture":"asset://textures/white.texture.json"})";
+  const std::array reloads{gneiss::render_internal::render_asset_reload{
+                               .uri = "asset://models/textured.mesh.json",
+                               .type = gneiss::render_internal::render_asset_type::mesh},
+                           gneiss::render_internal::render_asset_reload{
+                               .uri = "asset://materials/textured.material.json",
+                               .type = gneiss::render_internal::render_asset_type::material},
+                           gneiss::render_internal::render_asset_reload{
+                               .uri = "asset://textures/white.texture.json",
+                               .type = gneiss::render_internal::render_asset_type::texture}};
+  if (loader.reload_assets(reloads, diagnostic) != GNEISS_SUCCESS) {
+    return 16;
+  }
+  gneiss::render_internal::mesh_asset_lease reloaded_mesh;
+  gneiss::render_internal::material_asset_lease reloaded_material;
+  gneiss::render_internal::texture_asset_lease reloaded_texture;
+  if (loader.acquire_mesh(reloads[0].uri, reloaded_mesh, diagnostic) != GNEISS_SUCCESS ||
+      loader.acquire_material(reloads[1].uri, reloaded_material, diagnostic) != GNEISS_SUCCESS ||
+      loader.acquire_texture(reloads[2].uri, reloaded_texture, diagnostic) != GNEISS_SUCCESS ||
+      reloaded_mesh.get() == old_mesh || reloaded_material.get() == old_material ||
+      reloaded_texture.get() == old_texture) {
+    return 17;
+  }
+  const auto* reloaded_material_resource = resources.get_material(reloaded_material.get());
+  if (reloaded_material_resource == nullptr ||
+      reloaded_material_resource->base_color_texture != reloaded_texture.get() ||
+      resources.get_mesh(old_mesh) == nullptr || resources.get_material(old_material) == nullptr ||
+      resources.get_texture(old_texture) == nullptr) {
+    return 18;
+  }
+  memory->files["materials/textured.material.json"] = "{";
+  if (loader.reload_assets(reloads, diagnostic) != GNEISS_ERROR_INVALID_ARGUMENT) {
+    return 19;
+  }
+  gneiss::render_internal::material_asset_lease after_failed_reload;
+  if (loader.acquire_material(reloads[1].uri, after_failed_reload, diagnostic) != GNEISS_SUCCESS ||
+      after_failed_reload.get() != reloaded_material.get()) {
+    return 20;
+  }
+
   first_mesh = {};
   second_mesh = {};
   material = {};
@@ -240,10 +286,19 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
   missing_texture = {};
   textured_mesh = {};
   lit_mesh = {};
+  reloaded_mesh = {};
+  reloaded_material = {};
+  reloaded_texture = {};
+  after_failed_reload = {};
   loader.release_unused();
-  if (cache.size() != 2U || resources.live_resource_count() != 2U ||
-      resources.get_texture(material_resource->base_color_texture) == nullptr) {
-    return 12;
+  if (cache.size() != 0U) {
+    return 21;
+  }
+  if (resources.live_resource_count() != 2U) {
+    return 22;
+  }
+  if (resources.get_texture(old_texture) == nullptr) {
+    return 23;
   }
   textured_material = {};
   loader.release_unused();

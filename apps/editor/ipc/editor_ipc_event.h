@@ -4,6 +4,7 @@
 #ifndef GNEISS_APPS_EDITOR_IPC_EDITOR_IPC_EVENT_H_
 #define GNEISS_APPS_EDITOR_IPC_EDITOR_IPC_EVENT_H_
 
+#include "ipc_asset_protocol.h"
 #include "ipc_control_protocol.h"
 #include "ipc_inspection_protocol.h"
 #include "ipc_log_protocol.h"
@@ -29,6 +30,7 @@ using runtime_log_event = runtime_value_event<std::string>;
 using runtime_inspection_event = runtime_value_event<ipc_inspection_batch>;
 using runtime_statistics_event = runtime_value_event<ipc_runtime_statistics>;
 using runtime_property_result_event = runtime_value_event<ipc_property_write_result>;
+using runtime_asset_result_event = runtime_value_event<ipc_asset_reload_result>;
 struct runtime_ready_event final {
   std::uint32_t request_id = 0U;
 };
@@ -37,7 +39,7 @@ using runtime_ipc_event =
     std::variant<runtime_hello_event, runtime_heartbeat_event, runtime_protocol_error_event,
                  runtime_shutdown_event, runtime_ready_event, runtime_state_event,
                  runtime_log_event, runtime_inspection_event, runtime_statistics_event,
-                 runtime_property_result_event>;
+                 runtime_property_result_event, runtime_asset_result_event>;
 
 [[nodiscard]] result decode_runtime_session_event(const ipc_envelope& envelope,
                                                   runtime_ipc_event& output) noexcept;
@@ -51,6 +53,8 @@ using runtime_ipc_event =
                                                      runtime_ipc_event& output) noexcept;
 [[nodiscard]] result decode_runtime_property_event(const ipc_envelope& envelope,
                                                    runtime_ipc_event& output) noexcept;
+[[nodiscard]] result decode_runtime_asset_event(const ipc_envelope& envelope,
+                                                runtime_ipc_event& output) noexcept;
 
 } // namespace gneiss::editor
 

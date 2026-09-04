@@ -22,8 +22,20 @@ int main() {
       std::get<gneiss::editor::runtime_log_event>(event).value != "测试日志") {
     return 3;
   }
+  const gneiss::ipc_asset_reload_result asset_result{.session_id = 9U,
+                                                     .revision = 4U,
+                                                     .status =
+                                                         gneiss::ipc_asset_apply_status::applied,
+                                                     .message = "已应用"};
+  if (gneiss::encode_ipc_asset_result_v2(asset_result, gneiss::ipc_asset_operation::reload, 8U,
+                                         envelope) != gneiss::result::success ||
+      gneiss::editor::decode_runtime_asset_event(envelope, event) != gneiss::result::success ||
+      !std::holds_alternative<gneiss::editor::runtime_asset_result_event>(event) ||
+      std::get<gneiss::editor::runtime_asset_result_event>(event).value.revision != 4U) {
+    return 4;
+  }
   envelope.domain = gneiss::ipc_domain::property;
   return gneiss::editor::decode_runtime_property_event(envelope, event) != gneiss::result::success
              ? 0
-             : 4;
+             : 5;
 }

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "application/application_asset_reload_internal.h"
 #include "application/application_log_internal.h"
 #include "application/application_state.h"
 #include "core/rid_table.h"
@@ -69,6 +70,14 @@ void report_create_failure(const gneiss_application_desc& desc, gneiss_result re
 }
 
 } // namespace
+
+gneiss_result gneiss::application_internal::reload_render_assets(
+    gneiss_application application,
+    std::span<const render_internal::render_asset_reload> assets) noexcept {
+  auto state = find_application(application);
+  const auto valid = validate_application(state);
+  return valid == GNEISS_SUCCESS ? state->reload_render_assets(assets) : valid;
+}
 
 extern "C" gneiss_result gneiss_application_create(const gneiss_application_desc* desc,
                                                    gneiss_application* out_application) {

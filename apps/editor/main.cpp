@@ -21,7 +21,9 @@
 #include "transform_gizmo_math.h"
 #if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
 #include "asset_browser_model.h"
+#include "asset_file_watcher.h"
 #include "asset_import_controller.h"
+#include "asset_reimport_queue.h"
 #endif
 
 #include <gneiss/application.hpp>
@@ -159,6 +161,8 @@ struct editor_state {
   document_action pending_document_action = document_action::none;
 #if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
   gneiss::editor::asset_browser_model assets;
+  gneiss::editor::asset_file_watcher asset_watcher;
+  gneiss::editor::asset_reimport_queue asset_reimports;
   gneiss::editor::asset_browser_result asset_result = gneiss::editor::asset_browser_result::success;
   ImGuiTextFilter asset_filter;
   gneiss::editor::editor_import_report last_import;
@@ -1412,6 +1416,9 @@ void draw_asset_browser(editor_state& state) {
       state.last_import =
           gneiss::editor::import_external_asset(state.project_root, state.asset_root, selected);
       state.import_attempted = true;
+      if (state.last_import.result == gneiss::editor::editor_import_result::success) {
+        (void)state.runtime.publish_asset_revision(state.last_import.import.output_uris);
+      }
       state.asset_result = state.assets.refresh(state.project_root, state.asset_root);
     } else if (selected_result != gneiss::result::not_ready) {
       state.last_import = {};
@@ -1433,6 +1440,9 @@ void draw_asset_browser(editor_state& state) {
         state.project_root, state.asset_root,
         state.project_root / "sources" / utf8_path(selected_entry->relative_path));
     state.import_attempted = true;
+    if (state.last_import.result == gneiss::editor::editor_import_result::success) {
+      (void)state.runtime.publish_asset_revision(state.last_import.import.output_uris);
+    }
     state.asset_result = state.assets.refresh(state.project_root, state.asset_root);
   }
   state.asset_filter.Draw("Filter", -1.0F);
@@ -1447,6 +1457,18 @@ void draw_asset_browser(editor_state& state) {
       ImGui::TextColored(gneiss::editor::theme_error_color(), "Import failed: %s",
                          state.last_import.diagnostic.c_str());
     }
+  }
+  const auto& reload = state.runtime.asset_reload_status();
+  if (reload.state != gneiss::editor::runtime_asset_reload_state::idle) {
+    const auto color =
+        reload.state == gneiss::editor::runtime_asset_reload_state::applied
+            ? gneiss::editor::theme_success_color()
+        : reload.state == gneiss::editor::runtime_asset_reload_state::failed ||
+                reload.state == gneiss::editor::runtime_asset_reload_state::restart_required
+            ? gneiss::editor::theme_error_color()
+            : ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled);
+    ImGui::TextColored(color, "Runtime asset revision %llu: %s",
+                       static_cast<unsigned long long>(reload.revision), reload.message.c_str());
   }
   const gneiss::editor::scene_node_record* scene_node = state.session.selected_node();
   const auto* paired_material =
@@ -1799,6 +1821,32 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
     }
     auto& state = *static_cast<editor_state*>(user_data);
     state.runtime.update();
+#if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
+    std::vector<gneiss::editor::asset_file_event> file_events;
+    (void)state.asset_watcher.poll_events(file_events);
+    for (const auto& event : file_events) {
+      if (event.kind != gneiss::editor::asset_file_event_kind::error) {
+        (void)state.asset_reimports.notify(event.relative_path);
+      }
+    }
+    (void)state.asset_reimports.tick(state.project_root, state.asset_root);
+    std::vector<gneiss::editor::asset_reimport_event> reimport_events;
+    (void)state.asset_reimports.poll_events(reimport_events);
+    for (auto& event : reimport_events) {
+      if (event.state == gneiss::editor::asset_reimport_state::succeeded) {
+        (void)state.runtime.publish_asset_revision(event.import.import.output_uris);
+      }
+      if (event.state == gneiss::editor::asset_reimport_state::succeeded ||
+          event.state == gneiss::editor::asset_reimport_state::failed) {
+        state.last_import = std::move(event.import);
+        state.import_attempted = true;
+      }
+      if (event.state == gneiss::editor::asset_reimport_state::succeeded ||
+          event.state == gneiss::editor::asset_reimport_state::removed) {
+        state.asset_result = state.assets.refresh(state.project_root, state.asset_root);
+      }
+    }
+#endif
     if (state.runtime_attempted) {
       state.runtime_result = state.runtime.last_result();
     }
@@ -3123,6 +3171,13 @@ int run_editor(int argc, char** argv) {
   state.project_root = project.project_root;
 #if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
   state.asset_result = state.assets.refresh(state.project_root, state.asset_root);
+  const auto watcher_result = state.asset_watcher.start(state.project_root / "sources");
+  if (watcher_result != gneiss::result::success) {
+    const auto message = gneiss::result_message(watcher_result);
+    std::fprintf(stderr, "Gneiss Editor 资产监听启动失败：结果=%d，消息=%.*s\n",
+                 gneiss::to_native(watcher_result), static_cast<int>(message.size()),
+                 message.data());
+  }
 #endif
   const auto title = project.name + " - Gneiss Editor";
   gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
@@ -3196,6 +3251,11 @@ int run_editor(int argc, char** argv) {
     }
   }
   state.ui.shutdown(application.get());
+#if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
+  if (state.asset_watcher.is_running()) {
+    (void)state.asset_watcher.stop();
+  }
+#endif
   state.camera.shutdown();
   state.session.close();
   if (run_result != gneiss::result::success) {

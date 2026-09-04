@@ -40,6 +40,7 @@ struct editor_ipc_session::implementation final {
   std::string token;
   bool is_authenticated = false;
   bool supports_property_editing = false;
+  bool supports_asset_reload = false;
   ipc_timeout_tracker heartbeat{std::chrono::seconds(10)};
   ipc_timeout_tracker handshake{std::chrono::seconds(5)};
   std::chrono::steady_clock::time_point next_ping;
@@ -78,6 +79,9 @@ struct editor_ipc_session::implementation final {
     supports_property_editing =
         std::ranges::find(negotiated_domains, ipc_domain::property,
                           &ipc_domain_capability::domain) != negotiated_domains.end();
+    supports_asset_reload =
+        std::ranges::find(negotiated_domains, ipc_domain::asset, &ipc_domain_capability::domain) !=
+        negotiated_domains.end();
     heartbeat.reset(now);
     next_ping = now;
     return result::success;
@@ -104,6 +108,7 @@ result editor_ipc_session::start() noexcept {
     implementation_->token = make_session_token();
     implementation_->is_authenticated = false;
     implementation_->supports_property_editing = false;
+    implementation_->supports_asset_reload = false;
     implementation_->next_request_id = 2U;
     implementation_->next_ping_nonce = 1U;
     const auto operation = implementation_->server.start_server();
@@ -128,6 +133,7 @@ result editor_ipc_session::stop() noexcept {
   }
   implementation_->is_authenticated = false;
   implementation_->supports_property_editing = false;
+  implementation_->supports_asset_reload = false;
   implementation_->negotiated_domains.clear();
   implementation_->token.clear();
   implementation_->next_ping = {};
@@ -245,12 +251,27 @@ result editor_ipc_session::send_property_write(const ipc_property_write& value) 
   return operation == result::success ? implementation_->send(std::move(command)) : operation;
 }
 
+result editor_ipc_session::send_asset_reload(const ipc_asset_reload_request& command,
+                                             ipc_asset_operation operation) noexcept {
+  if (!is_authenticated() || !supports_asset_reload()) {
+    return result::not_ready;
+  }
+  ipc_envelope envelope;
+  auto encoded =
+      make_asset_reload_command(command, operation, implementation_->next_request_id++, envelope);
+  return encoded == result::success ? implementation_->send(std::move(envelope)) : encoded;
+}
+
 bool editor_ipc_session::is_authenticated() const noexcept {
   return implementation_ && implementation_->is_authenticated;
 }
 
 bool editor_ipc_session::supports_property_editing() const noexcept {
   return implementation_ && implementation_->supports_property_editing;
+}
+
+bool editor_ipc_session::supports_asset_reload() const noexcept {
+  return implementation_ && implementation_->supports_asset_reload;
 }
 
 ipc_endpoint editor_ipc_session::endpoint() const noexcept {
