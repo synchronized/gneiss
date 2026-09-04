@@ -9,6 +9,28 @@
 
 当前没有已记录的未发布变更。
 
+## 0.22.0 - 2026-09-04
+
+- Editor 递归监视工程源资产，以规范化路径、稳定读取、内容校验和防抖队列过滤重复或未完成的
+  文件系统事件，并自动复用现有导入事务。
+- 新增独立 Asset IPC 协议域，以类型、修订号和请求关联传递增量重载与全量重同步命令，不通过
+  控制通道传输资产正文。
+- Runtime 在主线程安全点按 Texture、Material、静态 Mesh 的依赖顺序事务式加载候选资源；失败
+  保留旧缓存映射和已有租约，成功更新不改变场景节点与实体身份。
+- Editor 在手动或自动导入成功后发布资产修订，并在 Asset Browser 展示等待、应用中、已应用、
+  失败及需要重启状态；Runtime 重连后自动重同步已知资产快照。
+- Windows、Linux Clang/GCC Shared/Static、Granit Runtime 无头测试与 Sanitizer 验收矩阵均通过。
+
+## 0.21.0 - 2026-09-04
+
+- Editor–Runtime IPC 升级为协议 v2，以协议域、域内操作、语义标志和请求 ID 组成统一信封，删除
+  尚未发布的 v1 帧与全局消息类型。
+- 建立协议注册表与统一 Dispatcher，集中校验握手状态、消息方向、协商能力、负载预算和未知操作。
+- Session、Control、Log、Inspection、Statistics 与 Property 分别拥有独立编解码和双端处理器，
+  Editor 与 Runtime 通过强类型命令和事件队列组合会话。
+- 保持既有 I/O 线程、主线程安全点、有界队列、控制优先级和本机回环 TCP 行为，并完成 Windows、
+  Linux 全矩阵及 Sanitizer 验证。
+
 ## 0.20.0 - 2026-09-03
 
 - Editor 可将普通场景子树创建为 Prefab，以原子作者事务同时写入来源资产并用引用实例替换原子树；
