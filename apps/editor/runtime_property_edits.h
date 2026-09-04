@@ -4,7 +4,7 @@
 #ifndef GNEISS_APPS_EDITOR_RUNTIME_PROPERTY_EDITS_H_
 #define GNEISS_APPS_EDITOR_RUNTIME_PROPERTY_EDITS_H_
 
-#include "ipc_property_edit_protocol.h"
+#include "ipc_property_protocol.h"
 
 #include <array>
 #include <chrono>

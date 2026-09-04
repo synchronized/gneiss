@@ -38,6 +38,7 @@ execute_process(
 if(NOT runtime_result EQUAL 0)
   message(FATAL_ERROR "带游戏模块的 Runtime 失败：${runtime_result}\n${runtime_output}\n${runtime_error}")
 endif()
-if(NOT runtime_output MATCHES "游戏模块初始化完成")
+if(NOT runtime_output MATCHES "stage=game_module" OR
+   NOT runtime_output MATCHES "gneiss.test.fixture")
   message(FATAL_ERROR "Runtime 未记录游戏模块初始化：${runtime_output}")
 endif()

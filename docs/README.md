@@ -79,6 +79,7 @@
 - [VER-018：0.18.0 Prefab 与可复用场景基础](plans/VER-018-0.18.0-prefab-foundation.md)
 - [VER-019：0.19.0 Prefab 实例属性覆盖](plans/VER-019-0.19.0-prefab-overrides.md)
 - [VER-020：0.20.0 Prefab 作者工作流](plans/VER-020-0.20.0-prefab-authoring.md)
+- [VER-021：0.21.0 IPC 模块化重构](plans/VER-021-0.21.0-ipc-modularization.md)
 - [M-100：Editor Play 工作流实施记录](records/M-100-editor-play-workflow.md)
 - [M-101：示例与跨平台验收记录](records/M-101-example-cross-platform-validation.md)
 - [M-102：Runtime 检查会话与对象标识实施记录](records/M-102-runtime-inspection-identity.md)
@@ -129,6 +130,7 @@
 - [ADR-027：Editor 使用单窗口 Docking 工作区](decisions/ADR-027-editor-ui-workspace.md)
 - [ADR-028：Editor 与 Runtime 使用版本化本机 IPC](decisions/ADR-028-editor-runtime-ipc.md)
 - [ADR-029：Runtime 检查使用只读镜像模型](decisions/ADR-029-runtime-inspection-model.md)
+- [ADR-035：分离 IPC 传输与应用协议](decisions/ADR-035-ipc-transport-protocol-boundary.md)
 
 ## 实施与验收记录
 
@@ -178,6 +180,13 @@
 - [M-134 Unpack Prefab 实例实施记录](records/M-134-unpack-prefab-instance.md)
 - [M-135 Editor Prefab 作者操作实施记录](records/M-135-editor-prefab-author-actions.md)
 - [M-136 Lantern Gallery Prefab 作者闭环验收记录](records/M-136-lantern-prefab-authoring-validation.md)
+- [M-137 IPC 耦合审计与模块化决策记录](records/M-137-ipc-modularization-audit.md)
+- [M-138 IPC v2 信封与请求关联实施记录](records/M-138-ipc-v2-envelope.md)
+- [M-139 IPC 协议注册表与统一分发实施记录](records/M-139-ipc-dispatcher.md)
+- [M-140 Session 与 Control 域协议实施记录](records/M-140-ipc-session-control.md)
+- [M-141 IPC 数据域协议实施记录](records/M-141-ipc-data-domains.md)
+- [M-142 IPC v2 会话组合实施记录](records/M-142-ipc-v2-session-composition.md)
+- [M-143 IPC 兼容与故障验收记录](records/M-143-ipc-compatibility-validation.md)
 - [M-65 公共 API 与稳定性审计记录](records/M-65-public-api-audit.md)
 - [M-66 稳定运行时代表性样例验收记录](records/M-66-stable-runtime-sample.md)
 - [M-67 公共 API 与 ABI 加固记录](records/M-67-api-abi-hardening.md)

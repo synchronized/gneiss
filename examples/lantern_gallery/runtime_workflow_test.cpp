@@ -117,9 +117,21 @@ int main() try {
       std::filesystem::path{GNEISS_LANTERN_PROJECT}};
   const std::filesystem::path runtime{GNEISS_LANTERN_RUNTIME};
 
-  if (process.start(runtime, request) != gneiss::result::success || !pump_until(process, 5s, [&] {
+  const auto start_result = process.start(runtime, request);
+  if (start_result != gneiss::result::success || !pump_until(process, 5s, [&] {
         return process.control_state() == gneiss::editor::runtime_control_state::running;
       })) {
+    std::fprintf(stderr, "Runtime 启动失败：result=%d state=%d running=%d exit_code=%d\n",
+                 static_cast<int>(start_result), static_cast<int>(process.control_state()),
+                 process.is_running() ? 1 : 0, process.exit_code());
+    for (const auto& entry : process.console().entries()) {
+      if (entry.kind == gneiss::editor::console_entry_kind::raw) {
+        std::fprintf(stderr, "console[raw]=%s\n", entry.raw_text.c_str());
+      } else {
+        std::fprintf(stderr, "console[%s][%s]=%s\n", entry.event.source.c_str(),
+                     entry.event.category.c_str(), entry.event.message.c_str());
+      }
+    }
     return 1;
   }
   const auto first_session = process.console().current_session_id();

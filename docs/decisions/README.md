@@ -39,3 +39,5 @@ Reference 和实现为准。
 - [ADR-031：Prefab 使用引用实例与复合作者身份](ADR-031-prefab-instance-boundary.md)
 - [ADR-032：Prefab 实例使用稀疏字段覆盖](ADR-032-prefab-property-overrides.md)
 - [ADR-033：Prefab 作者写入使用可恢复的多文档事务](ADR-033-prefab-author-transaction.md)
+- [ADR-034：本机 IPC 使用协议域与统一分发](ADR-034-modular-ipc-protocol.md)
+- [ADR-035：分离 IPC 传输与应用协议](ADR-035-ipc-transport-protocol-boundary.md)

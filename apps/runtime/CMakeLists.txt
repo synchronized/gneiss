@@ -18,9 +18,28 @@ target_compile_features(gneiss_game_module_session PUBLIC cxx_std_20)
 gneiss_target_compile_warnings(gneiss_game_module_session)
 gneiss_target_output_directories(gneiss_game_module_session)
 
-add_library(
-  gneiss_runtime_ipc STATIC
-  runtime_ipc_session.cpp
+  add_library(
+    gneiss_runtime_ipc STATIC
+    ipc/inbound/control_commands.cpp
+    ipc/inbound/inspection_commands.cpp
+    ipc/inbound/property_commands.cpp
+    ipc/inbound/session_commands.cpp
+    ipc/outbound/heartbeat_response.cpp
+    ipc/outbound/inspection_events.cpp
+    ipc/outbound/log_events.cpp
+    ipc/outbound/property_events.cpp
+    ipc/outbound/protocol_error_response.cpp
+    ipc/outbound/ready_event.cpp
+    ipc/outbound/runtime_ipc_outbound.h
+    ipc/outbound/session_hello_event.cpp
+    ipc/outbound/shutdown_event.cpp
+    ipc/outbound/state_event.cpp
+    ipc/outbound/statistics_events.cpp
+    ipc/runtime_command_context.cpp
+    ipc/runtime_command_context.h
+    ipc/runtime_commands.cpp
+    ipc/runtime_commands.h
+    runtime_ipc_session.cpp
   runtime_ipc_session.h
   runtime_property_editor.cpp
   runtime_property_editor.h
@@ -28,7 +47,7 @@ add_library(
   runtime_scene_inspection.h
 )
 target_link_libraries(
-  gneiss_runtime_ipc PUBLIC gneiss_uv_runtime PRIVATE gneiss_app_project gneiss::engine
+  gneiss_runtime_ipc PUBLIC gneiss_app_ipc_protocol PRIVATE gneiss_app_project gneiss::engine
 )
 target_include_directories(gneiss_runtime_ipc PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_compile_features(gneiss_runtime_ipc PUBLIC cxx_std_20)
@@ -91,6 +110,13 @@ if(BUILD_TESTING)
   gneiss_target_compile_warnings(gneiss_runtime_ipc_session_test)
   gneiss_target_output_directories(gneiss_runtime_ipc_session_test)
   add_test(NAME gneiss.runtime.ipc-session COMMAND gneiss_runtime_ipc_session_test)
+
+  add_executable(gneiss_runtime_ipc_command_test tests/runtime_ipc_command_test.cpp)
+  target_link_libraries(gneiss_runtime_ipc_command_test PRIVATE gneiss_runtime_ipc)
+  target_compile_features(gneiss_runtime_ipc_command_test PRIVATE cxx_std_20)
+  gneiss_target_compile_warnings(gneiss_runtime_ipc_command_test)
+  gneiss_target_output_directories(gneiss_runtime_ipc_command_test)
+  add_test(NAME gneiss.runtime.ipc-command COMMAND gneiss_runtime_ipc_command_test)
 
   add_executable(
     gneiss_runtime_scene_inspection_test tests/runtime_scene_inspection_test.cpp
