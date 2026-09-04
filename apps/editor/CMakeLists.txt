@@ -74,12 +74,18 @@ gneiss_target_output_directories(gneiss_editor_session)
 if(TARGET gneiss_asset_import_sdk)
   add_library(
     gneiss_editor_assets STATIC
+    asset_file_watcher.cpp
+    asset_file_watcher.h
     asset_import_controller.cpp
     asset_import_controller.h
     asset_browser_model.cpp
     asset_browser_model.h
   )
-  target_link_libraries(gneiss_editor_assets PUBLIC gneiss_asset_import_sdk)
+  target_link_libraries(
+    gneiss_editor_assets
+    PRIVATE gneiss_io_uv gneiss::libuv
+    PUBLIC gneiss::engine gneiss_asset_import_sdk
+  )
   target_include_directories(gneiss_editor_assets PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
   target_compile_features(gneiss_editor_assets PUBLIC cxx_std_20)
   gneiss_target_compile_warnings(gneiss_editor_assets)
@@ -270,6 +276,13 @@ if(BUILD_TESTING)
     gneiss_target_compile_warnings(gneiss_editor_asset_browser_test)
     gneiss_target_output_directories(gneiss_editor_asset_browser_test)
     add_test(NAME gneiss.editor.asset-browser COMMAND gneiss_editor_asset_browser_test)
+    add_executable(gneiss_editor_asset_file_watcher_test tests/asset_file_watcher_test.cpp)
+    target_link_libraries(gneiss_editor_asset_file_watcher_test PRIVATE gneiss_editor_assets)
+    gneiss_target_compile_warnings(gneiss_editor_asset_file_watcher_test)
+    gneiss_target_output_directories(gneiss_editor_asset_file_watcher_test)
+    add_test(
+      NAME gneiss.editor.asset-file-watcher COMMAND gneiss_editor_asset_file_watcher_test
+    )
     add_executable(gneiss_editor_asset_import_test tests/asset_import_controller_test.cpp)
     target_link_libraries(gneiss_editor_asset_import_test PRIVATE gneiss_editor_assets)
     target_compile_definitions(
