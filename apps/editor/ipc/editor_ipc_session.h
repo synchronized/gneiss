@@ -35,9 +35,12 @@ public:
   [[nodiscard]] result request_resume() noexcept;
   [[nodiscard]] result request_inspection_resync() noexcept;
   [[nodiscard]] result send_property_write(const ipc_property_write& command) noexcept;
+  [[nodiscard]] result send_asset_reload(const ipc_asset_reload_request& command,
+                                         ipc_asset_operation operation) noexcept;
 
   [[nodiscard]] bool is_authenticated() const noexcept;
   [[nodiscard]] bool supports_property_editing() const noexcept;
+  [[nodiscard]] bool supports_asset_reload() const noexcept;
   [[nodiscard]] ipc_endpoint endpoint() const noexcept;
   [[nodiscard]] const std::string& token() const noexcept;
 

@@ -21,6 +21,7 @@ add_library(
   ipc/editor_ipc_router.h
   ipc/editor_ipc_session.cpp
   ipc/editor_ipc_session.h
+  ipc/inbound/asset_events.cpp
   ipc/inbound/control_events.cpp
   ipc/inbound/event_decode.h
   ipc/inbound/inspection_events.cpp
@@ -29,6 +30,7 @@ add_library(
   ipc/inbound/session_events.cpp
   ipc/inbound/statistics_events.cpp
   ipc/outbound/editor_ipc_outbound.h
+  ipc/outbound/asset_reload_command.cpp
   ipc/outbound/heartbeat_command.cpp
   ipc/outbound/inspection_resync_command.cpp
   ipc/outbound/pause_command.cpp

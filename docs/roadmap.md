@@ -443,7 +443,7 @@ Asset IPC 域通知 Runtime 更新资源。首版只覆盖 Texture、Material �
 | M-147 Asset IPC 协议域 | P0 | 已完成 |
 | M-148 Runtime 资源事务重载 | P0 | 已完成 |
 | M-149 Texture、Material 与静态 Mesh 热重载 | P0 | 已完成 |
-| M-150 Editor 状态与跨平台验收 | P0 | 待开始 |
+| M-150 Editor 状态与跨平台验收 | P0 | 验证中 |
 
 详细范围、失败语义和验收条件见
 [VER-022：0.22.0 资产热重载](plans/VER-022-0.22.0-asset-hot-reload.md)。

@@ -14,7 +14,8 @@ editor_ipc_router::editor_ipc_router() noexcept {
       router_.bind(ipc_domain::log, decode_runtime_log_event) == result::success &&
       router_.bind(ipc_domain::inspection, decode_runtime_inspection_event) == result::success &&
       router_.bind(ipc_domain::statistics, decode_runtime_statistics_event) == result::success &&
-      router_.bind(ipc_domain::property, decode_runtime_property_event) == result::success;
+      router_.bind(ipc_domain::property, decode_runtime_property_event) == result::success &&
+      router_.bind(ipc_domain::asset, decode_runtime_asset_event) == result::success;
 }
 
 result editor_ipc_router::dispatch(const ipc_envelope& envelope, bool is_authenticated,

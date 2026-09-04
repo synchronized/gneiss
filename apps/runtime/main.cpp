@@ -95,7 +95,8 @@ gneiss::result apply_asset_revision(gneiss_application application, gneiss_scene
     for (std::uint64_t index = 0U; result == GNEISS_SUCCESS && index < node_count; ++index) {
       gneiss_scene_instance_node_info info = GNEISS_SCENE_INSTANCE_NODE_INFO_INIT;
       result = gneiss_scene_instance_get_node_info(application, scene, index, &info);
-      if (result == GNEISS_SUCCESS && info.mesh_uri != nullptr && info.material_uri != nullptr) {
+      if (result == GNEISS_SUCCESS && info.mesh_uri != nullptr && info.mesh_uri_length != 0U &&
+          info.material_uri != nullptr && info.material_uri_length != 0U) {
         const gneiss_scene_mesh_renderer_desc desc{.struct_size =
                                                        sizeof(gneiss_scene_mesh_renderer_desc),
                                                    .reserved = 0U,
