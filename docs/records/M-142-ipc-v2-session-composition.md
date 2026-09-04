@@ -13,8 +13,12 @@ Router 负责组合域注册、Dispatcher 和回调桥接，调用方只接收�
 直接维护无类型上下文。Dispatcher 完成域路由后直接进入对应域解码器，不再通过集中式 `domain`
 分支二次分发。
 
-Runtime 命令与 Editor 事件使用 `std::variant` 表达互斥载荷。Runtime 状态机通过 `std::visit` 执行
-命令，Editor 通过 `std::get_if` 消费事件，不再维护“种类枚举 + 所有消息字段”的无效组合。
+Runtime 使用 Operation Router 按“协议域 + 操作”注册命令处理器。除协商前的握手外，信封在完成
+通用校验后直接进入对应域模块中的解码与处理函数，不再构造集中式命令变体，也不再由 Session
+维护命令访问分支。命令只能通过短期 `runtime_command_context` 访问状态、动作输出和响应发送能力。
+
+Editor 事件仍使用 `std::variant` 表达互斥载荷，并通过 `std::get_if` 消费事件；它不会再与 Runtime
+命令共用同一种扩展模型，后续按 Editor 状态投影与队列边界独立拆分。
 
 Session 超时跟踪器归入 Session 域；Runtime 对象标识与检查顺序跟踪器归入 Inspection 域。数据域
 JSON 编解码直接读写字节载荷，不再构造旧帧。Property 的 `command_id` 已从 JSON 中移除，请求与
@@ -28,6 +32,8 @@ JSON 编解码直接读写字节载荷，不再构造旧帧。Property 的 `comm
   Runtime Process 共 6 项关键测试通过。
 - 类型化 Router 与变体消息重构后，Windows Clang Shared/Static Debug 下 Runtime IPC Command、
   Runtime IPC Session、Editor Runtime IPC Event 和 Editor Runtime Process 共 4 项测试均通过。
+- Runtime Operation Router 重构后，Windows Clang Shared/Static Debug 下 IPC Router、Runtime IPC
+  Command 和 Runtime IPC Session 共 3 项测试均通过。
 - 删除旧源文件并重新运行 CMake 配置，确认构建图不存在旧协议隐式依赖。
 - 源码扫描确认生产代码和测试中不再引用 v1 帧、全局消息类型或字符串能力常量。
 
