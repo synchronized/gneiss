@@ -15,6 +15,7 @@ add_library(
   ipc_inspection_protocol.h
   ipc_protocol_domains.cpp
   ipc_protocol_domains.h
+  ipc_router.h
   ipc_property_edit_protocol.cpp
   ipc_property_edit_protocol.h
   ipc_session_protocol.cpp
@@ -53,6 +54,13 @@ if(GNEISS_BUILD_TESTING)
   gneiss_target_compile_warnings(gneiss_ipc_dispatcher_test)
   gneiss_target_output_directories(gneiss_ipc_dispatcher_test)
   add_test(NAME gneiss.io.ipc-dispatcher COMMAND gneiss_ipc_dispatcher_test)
+
+  add_executable(gneiss_ipc_router_test tests/ipc_router_test.cpp)
+  target_link_libraries(gneiss_ipc_router_test PRIVATE gneiss_uv_runtime)
+  target_compile_features(gneiss_ipc_router_test PRIVATE cxx_std_20)
+  gneiss_target_compile_warnings(gneiss_ipc_router_test)
+  gneiss_target_output_directories(gneiss_ipc_router_test)
+  add_test(NAME gneiss.io.ipc-router COMMAND gneiss_ipc_router_test)
 
   add_executable(gneiss_ipc_session_protocol_test tests/ipc_session_protocol_test.cpp)
   target_link_libraries(gneiss_ipc_session_protocol_test PRIVATE gneiss_uv_runtime)

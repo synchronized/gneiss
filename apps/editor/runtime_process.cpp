@@ -9,6 +9,7 @@
 #include "ipc_inspection_protocol.h"
 #include "ipc_property_edit_protocol.h"
 #include "ipc_protocol_domains.h"
+#include "ipc_router.h"
 #include "ipc_session_protocol.h"
 #include "ipc_statistics_protocol.h"
 #include "ipc_transport.h"
@@ -56,10 +57,9 @@ struct runtime_process::implementation final {
   std::deque<ipc_envelope> pending_inspection_input;
   std::string ipc_token;
   ipc_transport ipc_server;
-  ipc_domain_registry ipc_registry;
-  std::unique_ptr<ipc_dispatcher> ipc_dispatcher_instance;
+  ipc_router<runtime_ipc_event> ipc_router_instance;
   std::vector<ipc_domain_capability> negotiated_domains;
-  std::optional<runtime_ipc_event> dispatched_event;
+  bool ipc_router_ready = false;
   runtime_control_state control_state = runtime_control_state::stopped;
   ipc_timeout_tracker ipc_heartbeat{std::chrono::seconds(10)};
   ipc_timeout_tracker ipc_handshake{std::chrono::seconds(5)};
@@ -69,69 +69,34 @@ struct runtime_process::implementation final {
   result last_result = result::success;
 
   implementation() {
-    const ipc_protocol_domain_handlers handlers{.session = accept_session,
-                                                .control = accept_control,
-                                                .log = accept_log,
-                                                .inspection = accept_inspection,
-                                                .statistics = accept_statistics,
-                                                .property = accept_property,
-                                                .context = this};
-    if (register_ipc_v2_domains(handlers, ipc_registry) == result::success) {
-      ipc_dispatcher_instance = std::make_unique<ipc_dispatcher>(ipc_registry);
-    }
-  }
-
-  using decoder = result (*)(const ipc_envelope&, runtime_ipc_event&) noexcept;
-
-  static result accept_event(void* context, const ipc_envelope& envelope, decoder decode) noexcept {
-    auto& self = *static_cast<implementation*>(context);
-    runtime_ipc_event event;
-    const auto operation = decode(envelope, event);
-    if (operation == result::success) {
-      self.dispatched_event = std::move(event);
-    }
-    return operation;
-  }
-
-  static result accept_session(void* context, const ipc_envelope& envelope) noexcept {
-    return accept_event(context, envelope, decode_runtime_session_event);
-  }
-
-  static result accept_control(void* context, const ipc_envelope& envelope) noexcept {
-    return accept_event(context, envelope, decode_runtime_control_event);
-  }
-
-  static result accept_log(void* context, const ipc_envelope& envelope) noexcept {
-    return accept_event(context, envelope, decode_runtime_log_event);
-  }
-
-  static result accept_inspection(void* context, const ipc_envelope& envelope) noexcept {
-    return accept_event(context, envelope, decode_runtime_inspection_event);
-  }
-
-  static result accept_statistics(void* context, const ipc_envelope& envelope) noexcept {
-    return accept_event(context, envelope, decode_runtime_statistics_event);
-  }
-
-  static result accept_property(void* context, const ipc_envelope& envelope) noexcept {
-    return accept_event(context, envelope, decode_runtime_property_event);
+    ipc_router_ready =
+        ipc_router_instance.bind(ipc_domain::session, decode_runtime_session_event) ==
+            result::success &&
+        ipc_router_instance.bind(ipc_domain::control, decode_runtime_control_event) ==
+            result::success &&
+        ipc_router_instance.bind(ipc_domain::log, decode_runtime_log_event) == result::success &&
+        ipc_router_instance.bind(ipc_domain::inspection, decode_runtime_inspection_event) ==
+            result::success &&
+        ipc_router_instance.bind(ipc_domain::statistics, decode_runtime_statistics_event) ==
+            result::success &&
+        ipc_router_instance.bind(ipc_domain::property, decode_runtime_property_event) ==
+            result::success;
   }
 
   result dispatch(const ipc_envelope& envelope, runtime_ipc_event& output) noexcept {
-    if (!ipc_dispatcher_instance) {
+    if (!ipc_router_ready) {
       return result::invalid_state;
     }
-    dispatched_event.reset();
     const ipc_dispatch_context context{.remote_role = ipc_peer_role::runtime,
                                        .handshake_complete = ipc_authenticated,
                                        .negotiated_domains = negotiated_domains};
-    const auto outcome = ipc_dispatcher_instance->dispatch(envelope, context);
-    if (!outcome.accepted() || !dispatched_event) {
-      return outcome.rejection == ipc_dispatch_rejection::handler_failed ? outcome.handler_result
-                                                                         : result::invalid_argument;
+    auto routed = ipc_router_instance.dispatch(envelope, context);
+    if (!routed.accepted()) {
+      return routed.outcome.rejection == ipc_dispatch_rejection::handler_failed
+                 ? routed.outcome.handler_result
+                 : result::invalid_argument;
     }
-    output = std::move(*dispatched_event);
-    dispatched_event.reset();
+    output = std::move(*routed.message);
     return result::success;
   }
 
