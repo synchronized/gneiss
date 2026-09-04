@@ -17,6 +17,8 @@
 
 namespace {
 
+constexpr std::size_t max_json_size = 64U * 1024U;
+
 constexpr std::size_t max_message_size = 1024U;
 constexpr std::size_t max_property_string_size = 16U * 1024U;
 constexpr char hex_digits[] = "0123456789abcdef";
@@ -232,7 +234,7 @@ gneiss::result write_payload(yyjson_mut_doc* document, yyjson_mut_val* root,
   std::size_t length = 0U;
   std::unique_ptr<char, decltype(&std::free)> json(
       yyjson_mut_write(document, YYJSON_WRITE_NOFLAG, &length), &std::free);
-  if (!json || length > gneiss::ipc_protocol_max_json_size) {
+  if (!json || length > max_json_size) {
     return json ? gneiss::result::invalid_argument : gneiss::result::out_of_memory;
   }
   std::vector<std::uint8_t> encoded(reinterpret_cast<const std::uint8_t*>(json.get()),
@@ -279,7 +281,7 @@ result encode_ipc_property_write(const ipc_property_write& command,
 
 result decode_ipc_property_write(std::span<const std::uint8_t> payload,
                                  ipc_property_write& output) noexcept {
-  if (payload.size() > ipc_protocol_max_json_size) {
+  if (payload.size() > max_json_size) {
     return result::invalid_argument;
   }
   try {
@@ -356,7 +358,7 @@ result encode_ipc_property_write_result(const ipc_property_write_result& respons
 
 result decode_ipc_property_write_result(std::span<const std::uint8_t> payload,
                                         ipc_property_write_result& output) noexcept {
-  if (payload.size() > ipc_protocol_max_json_size) {
+  if (payload.size() > max_json_size) {
     return result::invalid_argument;
   }
   try {

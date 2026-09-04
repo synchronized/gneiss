@@ -4,7 +4,7 @@
 #ifndef GNEISS_SRC_IO_IPC_PROPERTY_EDIT_PROTOCOL_H_
 #define GNEISS_SRC_IO_IPC_PROPERTY_EDIT_PROTOCOL_H_
 
-#include "ipc_protocol.h"
+#include "ipc_inspection_protocol.h"
 
 #include <gneiss/reflection.h>
 

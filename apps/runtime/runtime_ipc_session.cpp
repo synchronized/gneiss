@@ -99,27 +99,9 @@ struct runtime_ipc_session::implementation final {
            negotiated_domains.end();
   }
 
-  result send_state(ipc_runtime_state state) noexcept {
-    auto control_state = ipc_control_state::invalid;
-    switch (state) {
-    case ipc_runtime_state::loading:
-      control_state = ipc_control_state::loading;
-      break;
-    case ipc_runtime_state::ready:
-      control_state = ipc_control_state::ready;
-      break;
-    case ipc_runtime_state::running:
-      control_state = ipc_control_state::running;
-      break;
-    case ipc_runtime_state::paused:
-      control_state = ipc_control_state::paused;
-      break;
-    case ipc_runtime_state::stopping:
-      control_state = ipc_control_state::stopping;
-      break;
-    }
+  result send_state(ipc_control_state state) noexcept {
     ipc_envelope envelope;
-    const auto operation = encode_ipc_control_state(control_state, envelope);
+    const auto operation = encode_ipc_control_state(state, envelope);
     return operation == result::success ? send(std::move(envelope)) : operation;
   }
 
@@ -138,7 +120,7 @@ struct runtime_ipc_session::implementation final {
       operation = send(std::move(ready));
     }
     if (operation == result::success) {
-      operation = send_state(ipc_runtime_state::running);
+      operation = send_state(ipc_control_state::running);
     }
     if (operation == result::success) {
       current_state = runtime_ipc_state::running;
@@ -162,7 +144,7 @@ struct runtime_ipc_session::implementation final {
       }
       current_state = runtime_ipc_state::paused;
       actions.pause_game = true;
-      return send_state(ipc_runtime_state::paused);
+      return send_state(ipc_control_state::paused);
     case runtime_ipc_command_kind::resume:
       if (current_state != runtime_ipc_state::paused) {
         (void)send_protocol_error(result::invalid_state, "当前状态不能恢复", command.request_id);
@@ -170,7 +152,7 @@ struct runtime_ipc_session::implementation final {
       }
       current_state = runtime_ipc_state::running;
       actions.resume_game = true;
-      return send_state(ipc_runtime_state::running);
+      return send_state(ipc_control_state::running);
     case runtime_ipc_command_kind::inspection_resync:
       actions.request_inspection_resync = true;
       return result::success;
@@ -180,7 +162,7 @@ struct runtime_ipc_session::implementation final {
       }
       current_state = runtime_ipc_state::stopping;
       actions.request_exit = true;
-      return send_state(ipc_runtime_state::stopping);
+      return send_state(ipc_control_state::stopping);
     case runtime_ipc_command_kind::heartbeat: {
       ipc_envelope response;
       const auto operation =
@@ -351,7 +333,7 @@ result runtime_ipc_session::notify_shutdown(std::int32_t exit_code) noexcept {
     return result::invalid_state;
   }
   implementation_->current_state = runtime_ipc_state::stopping;
-  auto operation = implementation_->send_state(ipc_runtime_state::stopping);
+  auto operation = implementation_->send_state(ipc_control_state::stopping);
   if (operation == result::success) {
     ipc_envelope envelope;
     operation = encode_ipc_session_shutdown({.exit_code = exit_code}, envelope);

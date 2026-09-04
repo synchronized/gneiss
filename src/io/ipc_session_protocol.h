@@ -6,6 +6,7 @@
 
 #include "ipc_dispatcher.h"
 
+#include <chrono>
 #include <cstdint>
 #include <span>
 #include <string>
@@ -22,6 +23,20 @@ enum class ipc_session_operation : std::uint16_t {
   heartbeat = 2U,
   protocol_error = 3U,
   shutdown_complete = 4U,
+};
+
+/** 使用调用方提供的单调时钟时间点判定会话超时。 */
+class ipc_timeout_tracker final {
+public:
+  using clock = std::chrono::steady_clock;
+
+  explicit ipc_timeout_tracker(clock::duration timeout) noexcept;
+  void reset(clock::time_point now) noexcept;
+  [[nodiscard]] bool expired(clock::time_point now) const noexcept;
+
+private:
+  clock::duration timeout_;
+  clock::time_point last_observed_{};
 };
 
 struct ipc_session_hello final {

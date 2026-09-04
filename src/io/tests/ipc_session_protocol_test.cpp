@@ -99,6 +99,15 @@ namespace {
          operations[3].editor_to_runtime_kinds == 0U;
 }
 
+[[nodiscard]] bool test_timeout_tracker() {
+  using namespace std::chrono_literals;
+  const auto start = gneiss::ipc_timeout_tracker::clock::time_point{};
+  gneiss::ipc_timeout_tracker tracker(3s);
+  tracker.reset(start);
+  return !tracker.expired(start + 2999ms) && tracker.expired(start + 3s) &&
+         gneiss::ipc_timeout_tracker(0s).expired(start);
+}
+
 } // namespace
 
 int main() {
@@ -109,7 +118,7 @@ int main() {
     if (!test_session_messages()) {
       return 2;
     }
-    return test_rejections() && test_direction_rules() ? 0 : 3;
+    return test_rejections() && test_direction_rules() && test_timeout_tracker() ? 0 : 3;
   } catch (...) {
     return 1;
   }

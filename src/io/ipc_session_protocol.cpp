@@ -381,4 +381,13 @@ std::span<const ipc_operation_descriptor> ipc_session_operations() noexcept {
   return session_operations;
 }
 
+ipc_timeout_tracker::ipc_timeout_tracker(clock::duration timeout) noexcept
+    : timeout_(timeout > clock::duration::zero() ? timeout : clock::duration::zero()) {}
+
+void ipc_timeout_tracker::reset(clock::time_point now) noexcept { last_observed_ = now; }
+
+bool ipc_timeout_tracker::expired(clock::time_point now) const noexcept {
+  return timeout_ == clock::duration::zero() || now - last_observed_ >= timeout_;
+}
+
 } // namespace gneiss

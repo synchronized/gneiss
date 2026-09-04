@@ -117,12 +117,26 @@ namespace {
          gneiss::ipc_property_operations().size() == 1U;
 }
 
+[[nodiscard]] bool test_inspection_sequence_tracker() {
+  gneiss::ipc_inspection_sequence_tracker tracker;
+  if (tracker.begin(7U, 2U) != gneiss::result::success ||
+      tracker.observe({7U, 2U}) != gneiss::ipc_inspection_sequence_result::accepted ||
+      tracker.observe({7U, 2U}) != gneiss::ipc_inspection_sequence_result::duplicate ||
+      tracker.observe({7U, 4U}) != gneiss::ipc_inspection_sequence_result::gap ||
+      tracker.observe({8U, 3U}) != gneiss::ipc_inspection_sequence_result::stale_session ||
+      tracker.observe({7U, 3U}) != gneiss::ipc_inspection_sequence_result::accepted) {
+    return false;
+  }
+  tracker.reset();
+  return tracker.observe({7U, 4U}) == gneiss::ipc_inspection_sequence_result::invalid;
+}
+
 } // namespace
 
 int main() {
   try {
     return test_log_and_statistics() && test_inspection() && test_property_request_and_response() &&
-                   test_rules_and_rejections()
+                   test_rules_and_rejections() && test_inspection_sequence_tracker()
                ? 0
                : 1;
   } catch (...) {

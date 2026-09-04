@@ -19,6 +19,7 @@ constexpr std::size_t max_changes = 8192U;
 constexpr std::size_t max_string_size = 16U * 1024U;
 constexpr std::uint32_t max_chunks = 4096U;
 constexpr std::uint32_t max_outgoing_chunks = 128U;
+constexpr std::size_t max_json_size = 64U * 1024U;
 
 using document_ptr = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;
 using mutable_document_ptr = std::unique_ptr<yyjson_mut_doc, decltype(&yyjson_mut_doc_free)>;
@@ -230,7 +231,7 @@ result encode_ipc_inspection_batch(const ipc_inspection_batch& batch,
     if (!json) {
       return result::out_of_memory;
     }
-    if (length > ipc_protocol_max_json_size) {
+    if (length > max_json_size) {
       return result::invalid_argument;
     }
     std::vector<std::uint8_t> encoded(reinterpret_cast<const std::uint8_t*>(json.get()),
@@ -295,7 +296,7 @@ result encode_ipc_inspection_batch_chunks(const ipc_inspection_batch& batch,
 
 result decode_ipc_inspection_batch(std::span<const std::uint8_t> payload,
                                    ipc_inspection_batch& output) noexcept {
-  if (payload.size() > ipc_protocol_max_json_size) {
+  if (payload.size() > max_json_size) {
     return result::invalid_argument;
   }
   try {
@@ -353,6 +354,43 @@ result decode_ipc_inspection_batch(std::span<const std::uint8_t> payload,
   } catch (...) {
     return result::internal;
   }
+}
+
+result ipc_inspection_sequence_tracker::begin(std::uint64_t session_id,
+                                              std::uint64_t first_sequence) noexcept {
+  if (session_id == 0U || first_sequence == 0U) {
+    return result::invalid_argument;
+  }
+  session_id_ = session_id;
+  next_sequence_ = first_sequence;
+  return result::success;
+}
+
+void ipc_inspection_sequence_tracker::reset() noexcept {
+  session_id_ = 0U;
+  next_sequence_ = 0U;
+}
+
+ipc_inspection_sequence_result
+ipc_inspection_sequence_tracker::observe(ipc_inspection_stamp stamp) noexcept {
+  if (session_id_ == 0U || stamp.session_id == 0U || stamp.sequence == 0U || next_sequence_ == 0U) {
+    return ipc_inspection_sequence_result::invalid;
+  }
+  if (stamp.session_id != session_id_) {
+    return ipc_inspection_sequence_result::stale_session;
+  }
+  if (stamp.sequence < next_sequence_) {
+    return ipc_inspection_sequence_result::duplicate;
+  }
+  if (stamp.sequence > next_sequence_) {
+    return ipc_inspection_sequence_result::gap;
+  }
+  if (next_sequence_ == std::numeric_limits<std::uint64_t>::max()) {
+    reset();
+  } else {
+    ++next_sequence_;
+  }
+  return ipc_inspection_sequence_result::accepted;
 }
 
 } // namespace gneiss
