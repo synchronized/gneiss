@@ -15,15 +15,8 @@ gneiss::result accept(void* context, const gneiss::ipc_envelope& /*envelope*/) n
 
 int main() {
   unsigned calls = 0U;
-  const gneiss::ipc_protocol_domain_handlers handlers{.session = accept,
-                                                      .control = accept,
-                                                      .log = accept,
-                                                      .inspection = accept,
-                                                      .statistics = accept,
-                                                      .property = accept,
-                                                      .context = &calls};
   gneiss::ipc_domain_registry registry;
-  if (gneiss::register_ipc_v2_domains(handlers, registry) != gneiss::result::success ||
+  if (gneiss::register_ipc_v2_domains(accept, &calls, registry) != gneiss::result::success ||
       registry.size() != 6U || gneiss::ipc_v2_domain_capabilities().size() != 5U) {
     return 1;
   }
@@ -40,8 +33,8 @@ int main() {
     return 3;
   }
   gneiss::ipc_domain_registry unchanged;
-  const gneiss::ipc_protocol_domain_handlers invalid{};
-  return gneiss::register_ipc_v2_domains(invalid, unchanged) == gneiss::result::invalid_argument &&
+  return gneiss::register_ipc_v2_domains(nullptr, nullptr, unchanged) ==
+                     gneiss::result::invalid_argument &&
                  unchanged.size() == 0U
              ? 0
              : 4;

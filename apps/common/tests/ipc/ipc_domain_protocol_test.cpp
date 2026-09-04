@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "ipc_data_protocol.h"
+#include "ipc_inspection_protocol.h"
+#include "ipc_log_protocol.h"
+#include "ipc_property_protocol.h"
+#include "ipc_statistics_protocol.h"
 
 #include <array>
 #include <string>

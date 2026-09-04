@@ -19,21 +19,21 @@ gneiss_target_output_directories(gneiss_app_project)
 
 add_library(
   gneiss_app_ipc_protocol STATIC
-  ipc/ipc_control_protocol.cpp
-  ipc/ipc_control_protocol.h
-  ipc/ipc_data_protocol.cpp
-  ipc/ipc_data_protocol.h
-  ipc/ipc_inspection_protocol.cpp
-  ipc/ipc_inspection_protocol.h
-  ipc/ipc_property_edit_protocol.cpp
-  ipc/ipc_property_edit_protocol.h
-  ipc/ipc_protocol_domains.cpp
-  ipc/ipc_protocol_domains.h
-  ipc/ipc_router.h
-  ipc/ipc_session_protocol.cpp
-  ipc/ipc_session_protocol.h
-  ipc/ipc_statistics_protocol.cpp
-  ipc/ipc_statistics_protocol.h
+  ipc/core/ipc_protocol_domains.cpp
+  ipc/core/ipc_protocol_domains.h
+  ipc/core/ipc_router.h
+  ipc/domains/control/ipc_control_protocol.cpp
+  ipc/domains/control/ipc_control_protocol.h
+  ipc/domains/inspection/ipc_inspection_protocol.cpp
+  ipc/domains/inspection/ipc_inspection_protocol.h
+  ipc/domains/log/ipc_log_protocol.cpp
+  ipc/domains/log/ipc_log_protocol.h
+  ipc/domains/property/ipc_property_protocol.cpp
+  ipc/domains/property/ipc_property_protocol.h
+  ipc/domains/session/ipc_session_protocol.cpp
+  ipc/domains/session/ipc_session_protocol.h
+  ipc/domains/statistics/ipc_statistics_protocol.cpp
+  ipc/domains/statistics/ipc_statistics_protocol.h
 )
 target_link_libraries(
   gneiss_app_ipc_protocol
@@ -42,7 +42,14 @@ target_link_libraries(
 )
 target_include_directories(
   gneiss_app_ipc_protocol
-  PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/ipc"
+  PUBLIC
+    "${CMAKE_CURRENT_SOURCE_DIR}/ipc/core"
+    "${CMAKE_CURRENT_SOURCE_DIR}/ipc/domains/control"
+    "${CMAKE_CURRENT_SOURCE_DIR}/ipc/domains/inspection"
+    "${CMAKE_CURRENT_SOURCE_DIR}/ipc/domains/log"
+    "${CMAKE_CURRENT_SOURCE_DIR}/ipc/domains/property"
+    "${CMAKE_CURRENT_SOURCE_DIR}/ipc/domains/session"
+    "${CMAKE_CURRENT_SOURCE_DIR}/ipc/domains/statistics"
 )
 target_compile_features(gneiss_app_ipc_protocol PUBLIC cxx_std_20)
 gneiss_target_compile_warnings(gneiss_app_ipc_protocol)
@@ -89,11 +96,11 @@ if(BUILD_TESTING)
   gneiss_target_output_directories(gneiss_ipc_control_protocol_test)
   add_test(NAME gneiss.app.ipc-control-protocol COMMAND gneiss_ipc_control_protocol_test)
 
-  add_executable(gneiss_ipc_data_protocol_test tests/ipc/ipc_data_protocol_test.cpp)
-  target_link_libraries(gneiss_ipc_data_protocol_test PRIVATE gneiss_app_ipc_protocol)
-  gneiss_target_compile_warnings(gneiss_ipc_data_protocol_test)
-  gneiss_target_output_directories(gneiss_ipc_data_protocol_test)
-  add_test(NAME gneiss.app.ipc-data-protocol COMMAND gneiss_ipc_data_protocol_test)
+  add_executable(gneiss_ipc_domain_protocol_test tests/ipc/ipc_domain_protocol_test.cpp)
+  target_link_libraries(gneiss_ipc_domain_protocol_test PRIVATE gneiss_app_ipc_protocol)
+  gneiss_target_compile_warnings(gneiss_ipc_domain_protocol_test)
+  gneiss_target_output_directories(gneiss_ipc_domain_protocol_test)
+  add_test(NAME gneiss.app.ipc-domain-protocol COMMAND gneiss_ipc_domain_protocol_test)
 
   add_executable(gneiss_ipc_protocol_domains_test tests/ipc/ipc_protocol_domains_test.cpp)
   target_link_libraries(gneiss_ipc_protocol_domains_test PRIVATE gneiss_app_ipc_protocol)
@@ -102,14 +109,14 @@ if(BUILD_TESTING)
   add_test(NAME gneiss.app.ipc-protocol-domains COMMAND gneiss_ipc_protocol_domains_test)
 
   add_executable(
-    gneiss_ipc_property_edit_protocol_test
-    tests/ipc/ipc_property_edit_protocol_test.cpp
+    gneiss_ipc_property_protocol_test
+    tests/ipc/ipc_property_protocol_test.cpp
   )
-  target_link_libraries(gneiss_ipc_property_edit_protocol_test PRIVATE gneiss_app_ipc_protocol)
-  gneiss_target_compile_warnings(gneiss_ipc_property_edit_protocol_test)
-  gneiss_target_output_directories(gneiss_ipc_property_edit_protocol_test)
+  target_link_libraries(gneiss_ipc_property_protocol_test PRIVATE gneiss_app_ipc_protocol)
+  gneiss_target_compile_warnings(gneiss_ipc_property_protocol_test)
+  gneiss_target_output_directories(gneiss_ipc_property_protocol_test)
   add_test(
-    NAME gneiss.app.ipc-property-edit-protocol
-    COMMAND gneiss_ipc_property_edit_protocol_test
+    NAME gneiss.app.ipc-property-protocol
+    COMMAND gneiss_ipc_property_protocol_test
   )
 endif()

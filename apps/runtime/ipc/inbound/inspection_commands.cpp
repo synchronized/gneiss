@@ -3,7 +3,7 @@
 
 #include "ipc/runtime_commands.h"
 
-#include "ipc_data_protocol.h"
+#include "ipc_inspection_protocol.h"
 
 namespace gneiss::runtime_internal {
 namespace {

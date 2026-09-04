@@ -5,8 +5,11 @@
 #define GNEISS_APPS_EDITOR_IPC_EDITOR_IPC_EVENT_H_
 
 #include "ipc_control_protocol.h"
-#include "ipc_data_protocol.h"
+#include "ipc_inspection_protocol.h"
+#include "ipc_log_protocol.h"
+#include "ipc_property_protocol.h"
 #include "ipc_session_protocol.h"
+#include "ipc_statistics_protocol.h"
 
 #include <variant>
 

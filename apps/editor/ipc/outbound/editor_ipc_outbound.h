@@ -5,7 +5,7 @@
 #define GNEISS_APPS_EDITOR_IPC_OUTBOUND_EDITOR_IPC_OUTBOUND_H_
 
 #include "ipc_envelope.h"
-#include "ipc_property_edit_protocol.h"
+#include "ipc_property_protocol.h"
 
 namespace gneiss::editor {
 

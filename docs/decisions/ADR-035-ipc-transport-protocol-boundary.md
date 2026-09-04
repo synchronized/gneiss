@@ -17,8 +17,8 @@
 - `src/io/uv` 只保留 libuv 循环执行器与结果码适配，并由内部目标 `gneiss_io_uv` 承载；`src/ipc`
   通过独立目标 `gneiss_ipc` 提供信封、Dispatcher 和
   Transport 等通用 IPC 基础设施。
-- Editor 与 Runtime 共用的协议实现放入 `apps/common/ipc`，由独立目标
-  `gneiss_app_ipc_protocol` 提供。
+- Editor 与 Runtime 共用的协议实现按 `core` 与 `domains/<域>` 放入 `apps/common/ipc`，由独立目标
+  `gneiss_app_ipc_protocol` 提供；跨域聚合文件不得重新混合各域编解码职责。
 - Operation Router 与标准域组合属于应用协议层；它依赖已知协议域，不作为通用 I/O 能力。
 - Runtime 和 Editor 依赖应用协议目标；应用协议目标单向依赖 `gneiss_ipc` 和 Engine 数据类型，
   `gneiss_ipc` 私有依赖 `gneiss_io_uv`，不允许底层目标反向依赖应用协议。

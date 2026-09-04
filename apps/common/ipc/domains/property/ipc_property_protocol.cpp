@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "ipc_property_edit_protocol.h"
+#include "ipc_property_protocol.h"
 
 #include <yyjson.h>
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdlib>
 #include <limits>
@@ -390,6 +391,93 @@ result decode_ipc_property_write_result(std::span<const std::uint8_t> payload,
   } catch (...) {
     return result::internal;
   }
+}
+
+namespace {
+
+constexpr auto property_request_kind = ipc_kind_mask(ipc_message_kind::request);
+constexpr auto property_response_kind = ipc_kind_mask(ipc_message_kind::response);
+constexpr std::array property_operations{
+    ipc_operation_descriptor{.operation = static_cast<std::uint16_t>(ipc_property_operation::write),
+                             .editor_to_runtime_kinds = property_request_kind,
+                             .runtime_to_editor_kinds = property_response_kind}};
+
+[[nodiscard]] bool matches_property(const ipc_envelope& envelope, ipc_message_kind kind) noexcept {
+  return envelope.domain == ipc_domain::property &&
+         envelope.operation == static_cast<std::uint16_t>(ipc_property_operation::write) &&
+         envelope.kind == kind;
+}
+
+} // namespace
+
+result encode_ipc_property_write_v2(const ipc_property_write& command, std::uint32_t request_id,
+                                    ipc_envelope& output) noexcept {
+  if (request_id == 0U || command.command_id != request_id) {
+    return result::invalid_argument;
+  }
+  std::vector<std::uint8_t> payload;
+  const auto operation = encode_ipc_property_write(command, payload);
+  if (operation != result::success) {
+    return operation;
+  }
+  output = {.domain = ipc_domain::property,
+            .operation = static_cast<std::uint16_t>(ipc_property_operation::write),
+            .kind = ipc_message_kind::request,
+            .request_id = request_id,
+            .payload = std::move(payload)};
+  return result::success;
+}
+
+result decode_ipc_property_write_v2(const ipc_envelope& envelope,
+                                    ipc_property_write& output) noexcept {
+  if (!matches_property(envelope, ipc_message_kind::request) || envelope.request_id == 0U) {
+    return result::invalid_argument;
+  }
+  ipc_property_write decoded;
+  const auto operation = decode_ipc_property_write(envelope.payload, decoded);
+  if (operation != result::success) {
+    return operation;
+  }
+  decoded.command_id = envelope.request_id;
+  output = std::move(decoded);
+  return result::success;
+}
+
+result encode_ipc_property_result_v2(const ipc_property_write_result& response,
+                                     std::uint32_t request_id, ipc_envelope& output) noexcept {
+  if (request_id == 0U || response.command_id != request_id) {
+    return result::invalid_argument;
+  }
+  std::vector<std::uint8_t> payload;
+  const auto operation = encode_ipc_property_write_result(response, payload);
+  if (operation != result::success) {
+    return operation;
+  }
+  output = {.domain = ipc_domain::property,
+            .operation = static_cast<std::uint16_t>(ipc_property_operation::write),
+            .kind = ipc_message_kind::response,
+            .request_id = request_id,
+            .payload = std::move(payload)};
+  return result::success;
+}
+
+result decode_ipc_property_result_v2(const ipc_envelope& envelope,
+                                     ipc_property_write_result& output) noexcept {
+  if (!matches_property(envelope, ipc_message_kind::response) || envelope.request_id == 0U) {
+    return result::invalid_argument;
+  }
+  ipc_property_write_result decoded;
+  const auto operation = decode_ipc_property_write_result(envelope.payload, decoded);
+  if (operation != result::success) {
+    return operation;
+  }
+  decoded.command_id = envelope.request_id;
+  output = std::move(decoded);
+  return result::success;
+}
+
+std::span<const ipc_operation_descriptor> ipc_property_operations() noexcept {
+  return property_operations;
 }
 
 } // namespace gneiss

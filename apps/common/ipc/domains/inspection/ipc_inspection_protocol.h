@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#ifndef GNEISS_APPS_COMMON_IPC_INSPECTION_PROTOCOL_H_
-#define GNEISS_APPS_COMMON_IPC_INSPECTION_PROTOCOL_H_
+#ifndef GNEISS_APPS_COMMON_IPC_DOMAINS_INSPECTION_IPC_INSPECTION_PROTOCOL_H_
+#define GNEISS_APPS_COMMON_IPC_DOMAINS_INSPECTION_IPC_INSPECTION_PROTOCOL_H_
+
+#include "ipc_dispatcher.h"
 
 #include <gneiss/core/result.hpp>
 #include <gneiss/scene.h>
@@ -13,6 +15,9 @@
 #include <vector>
 
 namespace gneiss {
+
+inline constexpr std::uint16_t ipc_inspection_domain_version = 1U;
+enum class ipc_inspection_operation : std::uint16_t { snapshot = 1U, resync = 2U };
 
 /** 单次 Runtime 会话内的对象标识；跨会话或 generation 不同时不得复用。 */
 struct ipc_runtime_object_id final {
@@ -93,6 +98,15 @@ encode_ipc_inspection_batch_chunks(const ipc_inspection_batch& batch,
 /** 解码并验证 JSON 载荷，不验证镜像中的父子引用。 */
 [[nodiscard]] result decode_ipc_inspection_batch(std::span<const std::uint8_t> payload,
                                                  ipc_inspection_batch& output) noexcept;
+
+[[nodiscard]] result encode_ipc_inspection_batch_v2(const ipc_inspection_batch& batch,
+                                                    std::vector<ipc_envelope>& output) noexcept;
+[[nodiscard]] result decode_ipc_inspection_batch_v2(const ipc_envelope& envelope,
+                                                    ipc_inspection_batch& output) noexcept;
+[[nodiscard]] result encode_ipc_inspection_resync(std::uint32_t request_id,
+                                                  ipc_envelope& output) noexcept;
+[[nodiscard]] result decode_ipc_inspection_resync(const ipc_envelope& envelope) noexcept;
+[[nodiscard]] std::span<const ipc_operation_descriptor> ipc_inspection_operations() noexcept;
 
 } // namespace gneiss
 

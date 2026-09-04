@@ -3,7 +3,8 @@
 
 #include "ipc/runtime_commands.h"
 
-#include "ipc_data_protocol.h"
+#include "ipc_inspection_protocol.h"
+#include "ipc_property_protocol.h"
 
 #include <array>
 #include <vector>

@@ -6,7 +6,7 @@
 
 #include "ipc_control_protocol.h"
 #include "ipc_inspection_protocol.h"
-#include "ipc_property_edit_protocol.h"
+#include "ipc_property_protocol.h"
 #include "ipc_session_protocol.h"
 #include "ipc_statistics_protocol.h"
 

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#ifndef GNEISS_APPS_COMMON_IPC_ROUTER_H_
-#define GNEISS_APPS_COMMON_IPC_ROUTER_H_
+#ifndef GNEISS_APPS_COMMON_IPC_CORE_IPC_ROUTER_H_
+#define GNEISS_APPS_COMMON_IPC_CORE_IPC_ROUTER_H_
 
 #include "ipc_protocol_domains.h"
 
@@ -27,14 +27,7 @@ public:
   using decoder = result (*)(const ipc_envelope&, Message&) noexcept;
 
   ipc_router() noexcept {
-    const ipc_protocol_domain_handlers handlers{.session = accept,
-                                                .control = accept,
-                                                .log = accept,
-                                                .inspection = accept,
-                                                .statistics = accept,
-                                                .property = accept,
-                                                .context = this};
-    if (register_ipc_v2_domains(handlers, registry_) == result::success) {
+    if (register_ipc_v2_domains(accept, this, registry_) == result::success) {
       dispatcher_ = std::make_unique<ipc_dispatcher>(registry_);
     }
   }
@@ -114,14 +107,7 @@ public:
   using handler = result (*)(const ipc_envelope&, Context&) noexcept;
 
   ipc_operation_router() noexcept {
-    const ipc_protocol_domain_handlers handlers{.session = accept,
-                                                .control = accept,
-                                                .log = accept,
-                                                .inspection = accept,
-                                                .statistics = accept,
-                                                .property = accept,
-                                                .context = this};
-    if (register_ipc_v2_domains(handlers, registry_) == result::success) {
+    if (register_ipc_v2_domains(accept, this, registry_) == result::success) {
       dispatcher_ = std::make_unique<ipc_dispatcher>(registry_);
     }
   }

@@ -5,7 +5,7 @@
 
 #include "ipc/outbound/runtime_ipc_outbound.h"
 
-#include "ipc_data_protocol.h"
+#include "ipc_property_protocol.h"
 
 namespace gneiss::runtime_internal {
 namespace {

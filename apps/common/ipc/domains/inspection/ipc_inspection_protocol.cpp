@@ -5,6 +5,7 @@
 
 #include <yyjson.h>
 
+#include <array>
 #include <cmath>
 #include <cstdlib>
 #include <limits>
@@ -391,6 +392,89 @@ ipc_inspection_sequence_tracker::observe(ipc_inspection_stamp stamp) noexcept {
     ++next_sequence_;
   }
   return ipc_inspection_sequence_result::accepted;
+}
+
+namespace {
+
+constexpr auto inspection_event_kind = ipc_kind_mask(ipc_message_kind::event);
+constexpr auto inspection_request_kind = ipc_kind_mask(ipc_message_kind::request);
+constexpr std::array inspection_operations{
+    ipc_operation_descriptor{.operation =
+                                 static_cast<std::uint16_t>(ipc_inspection_operation::snapshot),
+                             .editor_to_runtime_kinds = 0U,
+                             .runtime_to_editor_kinds = inspection_event_kind},
+    ipc_operation_descriptor{.operation =
+                                 static_cast<std::uint16_t>(ipc_inspection_operation::resync),
+                             .editor_to_runtime_kinds = inspection_request_kind,
+                             .runtime_to_editor_kinds = 0U}};
+
+[[nodiscard]] bool matches_inspection(const ipc_envelope& envelope,
+                                      ipc_inspection_operation operation,
+                                      ipc_message_kind kind) noexcept {
+  return envelope.domain == ipc_domain::inspection &&
+         envelope.operation == static_cast<std::uint16_t>(operation) && envelope.kind == kind;
+}
+
+} // namespace
+
+result encode_ipc_inspection_batch_v2(const ipc_inspection_batch& batch,
+                                      std::vector<ipc_envelope>& output) noexcept {
+  std::vector<std::vector<std::uint8_t>> payloads;
+  auto operation = encode_ipc_inspection_batch_chunks(batch, payloads);
+  if (operation != result::success) {
+    return operation;
+  }
+  try {
+    std::vector<ipc_envelope> encoded;
+    encoded.reserve(payloads.size());
+    for (auto& payload : payloads) {
+      encoded.push_back(
+          {.domain = ipc_domain::inspection,
+           .operation = static_cast<std::uint16_t>(ipc_inspection_operation::snapshot),
+           .kind = ipc_message_kind::event,
+           .request_id = 0U,
+           .payload = std::move(payload)});
+    }
+    output = std::move(encoded);
+    return result::success;
+  } catch (const std::bad_alloc&) {
+    return result::out_of_memory;
+  } catch (...) {
+    return result::internal;
+  }
+}
+
+result decode_ipc_inspection_batch_v2(const ipc_envelope& envelope,
+                                      ipc_inspection_batch& output) noexcept {
+  if (!matches_inspection(envelope, ipc_inspection_operation::snapshot, ipc_message_kind::event) ||
+      envelope.request_id != 0U) {
+    return result::invalid_argument;
+  }
+  return decode_ipc_inspection_batch(envelope.payload, output);
+}
+
+result encode_ipc_inspection_resync(std::uint32_t request_id, ipc_envelope& output) noexcept {
+  if (request_id == 0U) {
+    return result::invalid_argument;
+  }
+  output = {.domain = ipc_domain::inspection,
+            .operation = static_cast<std::uint16_t>(ipc_inspection_operation::resync),
+            .kind = ipc_message_kind::request,
+            .request_id = request_id,
+            .payload = {}};
+  return result::success;
+}
+
+result decode_ipc_inspection_resync(const ipc_envelope& envelope) noexcept {
+  return matches_inspection(envelope, ipc_inspection_operation::resync,
+                            ipc_message_kind::request) &&
+                 envelope.request_id != 0U && envelope.payload.empty()
+             ? result::success
+             : result::invalid_argument;
+}
+
+std::span<const ipc_operation_descriptor> ipc_inspection_operations() noexcept {
+  return inspection_operations;
 }
 
 } // namespace gneiss

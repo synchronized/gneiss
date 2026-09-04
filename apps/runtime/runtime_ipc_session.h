@@ -7,7 +7,7 @@
 #include "ipc/runtime_command_context.h"
 
 #include "ipc_inspection_protocol.h"
-#include "ipc_property_edit_protocol.h"
+#include "ipc_property_protocol.h"
 #include "ipc_protocol_domains.h"
 #include "ipc_router.h"
 #include "ipc_session_protocol.h"

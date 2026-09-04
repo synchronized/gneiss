@@ -5,6 +5,7 @@
 
 #include <yyjson.h>
 
+#include <array>
 #include <cstdlib>
 #include <memory>
 #include <new>
@@ -94,6 +95,45 @@ result decode_ipc_runtime_statistics(std::span<const std::uint8_t> payload,
   } catch (...) {
     return result::internal;
   }
+}
+
+namespace {
+
+constexpr auto statistics_event_kind = ipc_kind_mask(ipc_message_kind::event);
+constexpr std::array statistics_operations{ipc_operation_descriptor{
+    .operation = static_cast<std::uint16_t>(ipc_statistics_operation::snapshot),
+    .editor_to_runtime_kinds = 0U,
+    .runtime_to_editor_kinds = statistics_event_kind}};
+
+} // namespace
+
+result encode_ipc_statistics_v2(const ipc_runtime_statistics& statistics,
+                                ipc_envelope& output) noexcept {
+  std::vector<std::uint8_t> payload;
+  const auto operation = encode_ipc_runtime_statistics(statistics, payload);
+  if (operation != result::success) {
+    return operation;
+  }
+  output = {.domain = ipc_domain::statistics,
+            .operation = static_cast<std::uint16_t>(ipc_statistics_operation::snapshot),
+            .kind = ipc_message_kind::event,
+            .request_id = 0U,
+            .payload = std::move(payload)};
+  return result::success;
+}
+
+result decode_ipc_statistics_v2(const ipc_envelope& envelope,
+                                ipc_runtime_statistics& output) noexcept {
+  if (envelope.domain != ipc_domain::statistics ||
+      envelope.operation != static_cast<std::uint16_t>(ipc_statistics_operation::snapshot) ||
+      envelope.kind != ipc_message_kind::event || envelope.request_id != 0U) {
+    return result::invalid_argument;
+  }
+  return decode_ipc_runtime_statistics(envelope.payload, output);
+}
+
+std::span<const ipc_operation_descriptor> ipc_statistics_operations() noexcept {
+  return statistics_operations;
 }
 
 } // namespace gneiss

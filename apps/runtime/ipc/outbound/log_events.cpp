@@ -3,7 +3,7 @@
 
 #include "runtime_ipc_outbound.h"
 
-#include "ipc_data_protocol.h"
+#include "ipc_log_protocol.h"
 
 #include <gneiss/app/runtime_log_protocol.h>
 

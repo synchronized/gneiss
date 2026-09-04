@@ -12,6 +12,10 @@ libuv 循环执行器保留在 `src/io/uv` 的内部目标 `gneiss_io_uv`；通�
 `src/ipc` 的 `gneiss_ipc`；标准域、域协议和 Operation Router 位于 `apps/common/ipc` 的
 `gneiss_app_ipc_protocol`。底层目标不再依赖 Editor–Runtime 应用协议。
 
+共享应用协议进一步按职责组织为 `apps/common/ipc/core` 与 `apps/common/ipc/domains/<域>`：
+Core 只组合 Router 和标准域注册表；Session、Control、Log、Inspection、Statistics 与 Property
+分别拥有自身类型、信封编解码和 Operation 描述。原先横跨四个域的 `ipc_data_protocol` 已删除。
+
 双方分别为 Session、Control、Log、Inspection、Statistics 和 Property 注册独立 Handler；类型化
 Router 负责组合域注册、Dispatcher 和回调桥接，调用方只接收路由结果与解码后的强类型消息，不再
 直接维护无类型上下文。Dispatcher 完成域路由后直接进入对应域解码器，不再通过集中式 `domain`

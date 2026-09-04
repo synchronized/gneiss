@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "ipc_property_edit_protocol.h"
+#include "ipc_property_protocol.h"
 
 #include <array>
 #include <cstdint>

@@ -5,7 +5,7 @@
 #define GNEISS_APPS_RUNTIME_IPC_RUNTIME_COMMAND_CONTEXT_H_
 
 #include "ipc_control_protocol.h"
-#include "ipc_property_edit_protocol.h"
+#include "ipc_property_protocol.h"
 #include "ipc_transport.h"
 
 #include <cstdint>
