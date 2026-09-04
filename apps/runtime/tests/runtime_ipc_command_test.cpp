@@ -3,6 +3,7 @@
 
 #include "ipc/runtime_commands.h"
 
+#include "ipc_asset_protocol.h"
 #include "ipc_inspection_protocol.h"
 #include "ipc_property_protocol.h"
 
@@ -38,7 +39,8 @@ int main() {
       ipc_domain_capability{.domain = ipc_domain::session, .version = 1U},
       ipc_domain_capability{.domain = ipc_domain::control, .version = 1U},
       ipc_domain_capability{.domain = ipc_domain::inspection, .version = 1U},
-      ipc_domain_capability{.domain = ipc_domain::property, .version = 1U}};
+      ipc_domain_capability{.domain = ipc_domain::property, .version = 1U},
+      ipc_domain_capability{.domain = ipc_domain::asset, .version = 1U}};
   const ipc_dispatch_context dispatch_context{.remote_role = ipc_peer_role::editor,
                                               .handshake_complete = true,
                                               .negotiated_domains = domains};
@@ -64,6 +66,16 @@ int main() {
       !router.dispatch(envelope, dispatch_context, context).accepted() ||
       actions.property_writes.size() != 1U || actions.property_writes.front().command_id != 9U) {
     return 3;
+  }
+  const ipc_asset_reload_request assets{.session_id = 3U,
+                                        .revision = 4U,
+                                        .assets = {{.uri = "asset://imported/a/mesh-0.gneiss-mesh",
+                                                    .type = ipc_asset_type::static_mesh}}};
+  if (encode_ipc_asset_request_v2(assets, ipc_asset_operation::reload, 10U, envelope) !=
+          result::success ||
+      !router.dispatch(envelope, dispatch_context, context).accepted() ||
+      actions.asset_reloads.size() != 1U || actions.asset_reloads.front().request_id != 10U) {
+    return 4;
   }
   return 0;
 }

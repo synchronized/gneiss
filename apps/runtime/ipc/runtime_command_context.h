@@ -4,6 +4,7 @@
 #ifndef GNEISS_APPS_RUNTIME_IPC_RUNTIME_COMMAND_CONTEXT_H_
 #define GNEISS_APPS_RUNTIME_IPC_RUNTIME_COMMAND_CONTEXT_H_
 
+#include "ipc_asset_protocol.h"
 #include "ipc_control_protocol.h"
 #include "ipc_property_protocol.h"
 #include "ipc_transport.h"
@@ -31,6 +32,12 @@ struct runtime_ipc_actions final {
   bool request_exit = false;
   bool request_inspection_resync = false;
   std::vector<ipc_property_write> property_writes;
+  struct asset_reload_command final {
+    ipc_asset_reload_request request;
+    ipc_asset_operation operation{ipc_asset_operation::reload};
+    std::uint32_t request_id = 0U;
+  };
+  std::vector<asset_reload_command> asset_reloads;
   result failure = result::success;
 };
 

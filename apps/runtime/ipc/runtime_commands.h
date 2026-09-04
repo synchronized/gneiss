@@ -11,6 +11,7 @@ namespace gneiss::runtime_internal {
 
 using runtime_command_router = ipc_operation_router<runtime_command_context>;
 
+[[nodiscard]] result register_runtime_asset_commands(runtime_command_router& router) noexcept;
 [[nodiscard]] result register_runtime_session_commands(runtime_command_router& router) noexcept;
 [[nodiscard]] result register_runtime_control_commands(runtime_command_router& router) noexcept;
 [[nodiscard]] result register_runtime_inspection_commands(runtime_command_router& router) noexcept;

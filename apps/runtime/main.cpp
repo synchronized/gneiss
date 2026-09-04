@@ -8,6 +8,7 @@
 #include "game/game_context_internal.h"
 #include "game_module_session.h"
 #include "game_update_scheduler.h"
+#include "runtime_asset_reloader.h"
 #include "runtime_ipc_session.h"
 #include "runtime_log.h"
 #include "runtime_property_editor.h"
@@ -46,6 +47,7 @@ struct runtime_context final {
   gneiss::runtime_internal::runtime_ipc_session* ipc_session = nullptr;
   gneiss::runtime_internal::runtime_scene_inspection* scene_inspection = nullptr;
   gneiss::runtime_internal::runtime_property_editor* property_editor = nullptr;
+  gneiss::runtime_internal::runtime_asset_reloader* asset_reloader = nullptr;
   gneiss_scene_instance scene = GNEISS_NULL_SCENE_INSTANCE;
   std::uint64_t next_inspection_ns = 0U;
   std::uint64_t inspection_session_id = 0U;
@@ -147,6 +149,26 @@ gneiss_result update_runtime(gneiss_application application, const gneiss_frame_
     }
     if (actions.request_inspection_resync) {
       context.force_full_inspection = true;
+    }
+    if (!actions.asset_reloads.empty() && context.asset_reloader == nullptr) {
+      context.ipc_failure = gneiss::result::invalid_state;
+      return gneiss_application_request_exit(application);
+    }
+    for (const auto& command : actions.asset_reloads) {
+      gneiss::ipc_asset_reload_result response;
+      auto asset_result = context.asset_reloader->execute(command.request, response);
+      if (asset_result == gneiss::result::success) {
+        asset_result = context.ipc_session->notify_asset_reload_result(response, command.operation,
+                                                                       command.request_id);
+      }
+      if (asset_result != gneiss::result::success) {
+        context.ipc_failure = asset_result;
+        if (context.log != nullptr) {
+          context.log->write("ERROR", "asset_reload", gneiss::to_native(asset_result),
+                             "Runtime 资产重载事务执行失败");
+        }
+        return gneiss_application_request_exit(application);
+      }
     }
     if (!actions.property_writes.empty() && context.property_editor == nullptr) {
       context.ipc_failure = gneiss::result::invalid_state;
@@ -309,6 +331,9 @@ void write_application_log(gneiss_application, const gneiss_log_event* event, vo
   log.write("INFO", "project", GNEISS_SUCCESS, "工程加载完成", path_text(project.project_root));
 
   runtime_context context{&log, options.stop_file};
+  gneiss::runtime_internal::runtime_asset_reloader asset_reloader(
+      [](std::span<const gneiss::ipc_asset_revision>) { return gneiss::result::unsupported; });
+  context.asset_reloader = &asset_reloader;
   if (!context.stop_file.empty()) {
     std::error_code error;
     std::filesystem::remove(context.stop_file, error);
@@ -457,6 +482,7 @@ void write_application_log(gneiss_application, const gneiss_log_event* event, vo
         operation == gneiss::result::success ? 0 : static_cast<std::int32_t>(operation));
   }
   context.ipc_session = nullptr;
+  context.asset_reloader = nullptr;
   context.property_editor = nullptr;
   context.scene_inspection = nullptr;
   context.scene = GNEISS_NULL_SCENE_INSTANCE;

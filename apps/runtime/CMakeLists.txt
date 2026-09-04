@@ -21,10 +21,12 @@ gneiss_target_output_directories(gneiss_game_module_session)
   add_library(
     gneiss_runtime_ipc STATIC
     ipc/inbound/control_commands.cpp
+    ipc/inbound/asset_commands.cpp
     ipc/inbound/inspection_commands.cpp
     ipc/inbound/property_commands.cpp
     ipc/inbound/session_commands.cpp
     ipc/outbound/heartbeat_response.cpp
+    ipc/outbound/asset_events.cpp
     ipc/outbound/inspection_events.cpp
     ipc/outbound/log_events.cpp
     ipc/outbound/property_events.cpp
@@ -41,6 +43,8 @@ gneiss_target_output_directories(gneiss_game_module_session)
     ipc/runtime_commands.h
     runtime_ipc_session.cpp
   runtime_ipc_session.h
+  runtime_asset_reloader.cpp
+  runtime_asset_reloader.h
   runtime_property_editor.cpp
   runtime_property_editor.h
   runtime_scene_inspection.cpp
@@ -139,6 +143,13 @@ if(BUILD_TESTING)
   gneiss_target_compile_warnings(gneiss_runtime_property_editor_test)
   gneiss_target_output_directories(gneiss_runtime_property_editor_test)
   add_test(NAME gneiss.runtime.property-editor COMMAND gneiss_runtime_property_editor_test)
+
+  add_executable(gneiss_runtime_asset_reloader_test tests/runtime_asset_reloader_test.cpp)
+  target_link_libraries(gneiss_runtime_asset_reloader_test PRIVATE gneiss_runtime_ipc)
+  target_compile_features(gneiss_runtime_asset_reloader_test PRIVATE cxx_std_20)
+  gneiss_target_compile_warnings(gneiss_runtime_asset_reloader_test)
+  gneiss_target_output_directories(gneiss_runtime_asset_reloader_test)
+  add_test(NAME gneiss.runtime.asset-reloader COMMAND gneiss_runtime_asset_reloader_test)
 
   add_executable(gneiss_runtime_log_test tests/runtime_log_test.cpp runtime_log.cpp runtime_log.h)
   target_include_directories(gneiss_runtime_log_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")

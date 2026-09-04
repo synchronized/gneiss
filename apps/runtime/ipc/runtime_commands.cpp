@@ -6,7 +6,10 @@
 namespace gneiss::runtime_internal {
 
 result register_runtime_commands(runtime_command_router& router) noexcept {
-  auto operation = register_runtime_session_commands(router);
+  auto operation = register_runtime_asset_commands(router);
+  if (operation == result::success) {
+    operation = register_runtime_session_commands(router);
+  }
   if (operation == result::success) {
     operation = register_runtime_control_commands(router);
   }

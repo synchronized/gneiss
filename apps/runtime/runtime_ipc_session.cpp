@@ -291,6 +291,19 @@ result runtime_ipc_session::notify_property_write_result(
   return operation == result::success ? implementation_->transport.send(envelope) : operation;
 }
 
+result runtime_ipc_session::notify_asset_reload_result(const ipc_asset_reload_result& response,
+                                                       ipc_asset_operation operation,
+                                                       std::uint32_t request_id) noexcept {
+  if (!implementation_ || !implementation_->negotiated(ipc_domain::asset) ||
+      (implementation_->current_state != runtime_ipc_state::running &&
+       implementation_->current_state != runtime_ipc_state::paused)) {
+    return result::not_ready;
+  }
+  ipc_envelope envelope;
+  const auto encoded = make_asset_reload_result(response, operation, request_id, envelope);
+  return encoded == result::success ? implementation_->transport.send(envelope) : encoded;
+}
+
 result runtime_ipc_session::notify_statistics(const ipc_runtime_statistics& statistics) noexcept {
   if (!implementation_ || (implementation_->current_state != runtime_ipc_state::running &&
                            implementation_->current_state != runtime_ipc_state::paused)) {
