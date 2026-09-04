@@ -34,7 +34,7 @@ public:
   struct reload_request final {
     std::string uri;
     std::uint32_t type = 0U;
-    loader load;
+    std::function<gneiss_result(resource_cache&, std::shared_ptr<void>&)> load;
   };
 
   [[nodiscard]] gneiss_result acquire(std::string_view uri, std::uint32_t type, const loader& load,

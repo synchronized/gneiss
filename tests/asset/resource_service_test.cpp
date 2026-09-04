@@ -109,15 +109,23 @@ int main() try {
     return 3;
   }
   std::vector<gneiss::asset_internal::resource_cache::reload_request> transaction{
-      {.uri = "asset://models/triangle.mesh", .type = 1U, .load = loader},
-      {.uri = "asset://models/second.mesh", .type = 1U, .load = reloader}};
+      {.uri = "asset://models/triangle.mesh",
+       .type = 1U,
+       .load = [&](gneiss::asset_internal::resource_cache&,
+                   std::shared_ptr<void>& resource) { return loader(resource); }},
+      {.uri = "asset://models/second.mesh",
+       .type = 1U,
+       .load = [&](gneiss::asset_internal::resource_cache&, std::shared_ptr<void>& resource) {
+         return reloader(resource);
+       }}};
   std::vector<std::shared_ptr<const gneiss::asset_internal::resource_cache::entry>> committed;
   if (cache.reload_transaction(transaction, committed) != GNEISS_SUCCESS ||
       committed.size() != 2U || cache.size() != 2U) {
     return 4;
   }
   auto transaction_first = committed.front();
-  transaction[1].load = failed_reloader;
+  transaction[1].load = [&](gneiss::asset_internal::resource_cache&,
+                            std::shared_ptr<void>& resource) { return failed_reloader(resource); };
   committed.clear();
   if (cache.reload_transaction(transaction, committed) != GNEISS_ERROR_IO || !committed.empty()) {
     return 4;

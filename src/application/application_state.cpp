@@ -25,6 +25,12 @@ application_state::~application_state() noexcept {
   static_cast<void>(shutdown(GNEISS_NULL_APPLICATION));
 }
 
+gneiss_result application_state::reload_render_assets(
+    std::span<const render_internal::render_asset_reload> assets) noexcept {
+  render_internal::asset_diagnostic diagnostic;
+  return asset_loader_.reload_assets(assets, diagnostic);
+}
+
 gneiss_result application_state::initialize() noexcept {
   if (desc_.log != nullptr) {
     try {

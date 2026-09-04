@@ -5,6 +5,7 @@
 #include <gneiss/application.hpp>
 #include <gneiss/scene.h>
 
+#include "application/application_asset_reload_internal.h"
 #include "game/game_context_internal.h"
 #include "game_module_session.h"
 #include "game_update_scheduler.h"
@@ -24,6 +25,7 @@
 #include <memory>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace {
 
@@ -60,6 +62,56 @@ struct runtime_context final {
 
 [[nodiscard]] std::string path_text(const std::filesystem::path& path) {
   return path.generic_string();
+}
+
+gneiss::result apply_asset_revision(gneiss_application application, gneiss_scene_instance scene,
+                                    std::span<const gneiss::ipc_asset_revision> assets) noexcept {
+  try {
+    std::vector<gneiss::render_internal::render_asset_reload> reloads;
+    reloads.reserve(assets.size());
+    for (const auto& asset : assets) {
+      gneiss::render_internal::render_asset_type type;
+      switch (asset.type) {
+      case gneiss::ipc_asset_type::texture:
+        type = gneiss::render_internal::render_asset_type::texture;
+        break;
+      case gneiss::ipc_asset_type::material:
+        type = gneiss::render_internal::render_asset_type::material;
+        break;
+      case gneiss::ipc_asset_type::static_mesh:
+        type = gneiss::render_internal::render_asset_type::mesh;
+        break;
+      default:
+        return gneiss::result::invalid_argument;
+      }
+      reloads.push_back({.uri = asset.uri, .type = type});
+    }
+    auto result = gneiss::application_internal::reload_render_assets(application, reloads);
+    if (result != GNEISS_SUCCESS) {
+      return gneiss::from_native(result);
+    }
+    std::uint64_t node_count = 0U;
+    result = gneiss_scene_instance_get_node_count(application, scene, &node_count);
+    for (std::uint64_t index = 0U; result == GNEISS_SUCCESS && index < node_count; ++index) {
+      gneiss_scene_instance_node_info info = GNEISS_SCENE_INSTANCE_NODE_INFO_INIT;
+      result = gneiss_scene_instance_get_node_info(application, scene, index, &info);
+      if (result == GNEISS_SUCCESS && info.mesh_uri != nullptr && info.material_uri != nullptr) {
+        const gneiss_scene_mesh_renderer_desc desc{.struct_size =
+                                                       sizeof(gneiss_scene_mesh_renderer_desc),
+                                                   .reserved = 0U,
+                                                   .mesh_uri = info.mesh_uri,
+                                                   .mesh_uri_length = info.mesh_uri_length,
+                                                   .material_uri = info.material_uri,
+                                                   .material_uri_length = info.material_uri_length};
+        result = gneiss_scene_instance_set_mesh_renderer(application, scene, info.node, &desc);
+      }
+    }
+    return gneiss::from_native(result);
+  } catch (const std::bad_alloc&) {
+    return gneiss::result::out_of_memory;
+  } catch (...) {
+    return gneiss::result::internal;
+  }
 }
 
 gneiss::result fixed_update_game(void* user_data, const gneiss_game_update_time& time) noexcept {
@@ -331,9 +383,6 @@ void write_application_log(gneiss_application, const gneiss_log_event* event, vo
   log.write("INFO", "project", GNEISS_SUCCESS, "工程加载完成", path_text(project.project_root));
 
   runtime_context context{&log, options.stop_file};
-  gneiss::runtime_internal::runtime_asset_reloader asset_reloader(
-      [](std::span<const gneiss::ipc_asset_revision>) { return gneiss::result::unsupported; });
-  context.asset_reloader = &asset_reloader;
   if (!context.stop_file.empty()) {
     std::error_code error;
     std::filesystem::remove(context.stop_file, error);
@@ -382,6 +431,12 @@ void write_application_log(gneiss_application, const gneiss_log_event* event, vo
   context.scene_inspection = &scene_inspection;
   context.inspection_session_id = inspection_serial == 0U ? 1U : inspection_serial;
   context.scene = scene;
+  gneiss::runtime_internal::runtime_asset_reloader asset_reloader(
+      [application_handle = application.get(),
+       scene](std::span<const gneiss::ipc_asset_revision> assets) {
+        return apply_asset_revision(application_handle, scene, assets);
+      });
+  context.asset_reloader = &asset_reloader;
 
   gneiss_world world = GNEISS_NULL_WORLD;
   native_result = gneiss_application_get_world(application.get(), &world);

@@ -10,6 +10,7 @@
 
 #include <cstddef>
 #include <memory>
+#include <span>
 #include <string>
 #include <string_view>
 
@@ -26,6 +27,13 @@ struct asset_diagnostic final {
   std::size_t byte_offset = 0;
   std::string path;
   std::string message;
+};
+
+enum class render_asset_type : std::uint32_t { mesh = 1U, material = 2U, texture = 3U };
+
+struct render_asset_reload final {
+  std::string uri;
+  render_asset_type type = render_asset_type::mesh;
 };
 
 class mesh_asset_lease final {
@@ -71,6 +79,9 @@ public:
                                                asset_diagnostic& out_diagnostic) noexcept;
   [[nodiscard]] gneiss_result acquire_texture(std::string_view uri, texture_asset_lease& out_lease,
                                               asset_diagnostic& out_diagnostic) noexcept;
+  /** 按依赖顺序构造并原子提交一组渲染资源。 */
+  [[nodiscard]] gneiss_result reload_assets(std::span<const render_asset_reload> assets,
+                                            asset_diagnostic& out_diagnostic) noexcept;
   void release_unused() noexcept { cache_.release_unused(); }
 
 private:
