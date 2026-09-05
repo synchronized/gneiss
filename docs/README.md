@@ -84,6 +84,7 @@
 - [VER-023：0.23.0 核心 API 与依赖基线](plans/VER-023-0.23.0-foundation-baseline.md)
 - [VER-024：0.24.0 Scene 与 Prefab 结构热重载](plans/VER-024-0.24.0-structural-hot-reload.md)
 - [VER-025：0.25.0 Granit 0.7 与独立渲染线程](plans/VER-025-0.25.0-render-thread.md)
+- [VER-026：0.26.0 渲染线程性能基线与帧资源复用](plans/VER-026-0.26.0-render-performance.md)
 - [M-100：Editor Play 工作流实施记录](records/M-100-editor-play-workflow.md)
 - [M-101：示例与跨平台验收记录](records/M-101-example-cross-platform-validation.md)
 - [M-102：Runtime 检查会话与对象标识实施记录](records/M-102-runtime-inspection-identity.md)
