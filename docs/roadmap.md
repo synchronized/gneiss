@@ -458,8 +458,8 @@ Asset IPC 域通知 Runtime 更新资源。首版只覆盖 Texture、Material �
 | --- | --- | --- |
 | M-151 Granit v0.5.0 依赖基线 | P0 | 已完成 |
 | M-152 C++ Result 值类型 | P0 | 已完成 |
-| M-153 Granit Provider 可重复性 | P0 | 待开始 |
-| M-154 0.23.0 发布验收 | P0 | 待开始 |
+| M-153 Granit Provider 可重复性 | P0 | 已完成 |
+| M-154 0.23.0 发布验收 | P0 | 进行中 |
 
 详细范围、兼容边界和验收条件见
 [VER-023：0.23.0 核心 API 与依赖基线](plans/VER-023-0.23.0-foundation-baseline.md)。
