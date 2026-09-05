@@ -51,6 +51,13 @@ public:
   find_source_object(std::string_view source_node_uuid) const noexcept;
   [[nodiscard]] std::size_t node_count() const noexcept { return nodes_.size(); }
   [[nodiscard]] gneiss_result get_node_info(std::size_t index, node_info& out_info) const noexcept;
+  /** 验证候选来源、覆盖与资源是否可提交，不修改 World。 */
+  [[nodiscard]] gneiss_result
+  validate_reload(const prefab_asset_lease& candidate, gneiss_type_registry registry,
+                  const std::vector<prefab_property_override>& overrides);
+  /** 保持实例根与匹配来源节点身份，提交已经验证的来源修订。 */
+  [[nodiscard]] gneiss_result reload(prefab_asset_lease candidate, gneiss_type_registry registry,
+                                     const std::vector<prefab_property_override>& overrides);
 
 private:
   struct runtime_node final {

@@ -82,6 +82,7 @@
 - [VER-021：0.21.0 IPC 模块化重构](plans/VER-021-0.21.0-ipc-modularization.md)
 - [VER-022：0.22.0 资产热重载](plans/VER-022-0.22.0-asset-hot-reload.md)
 - [VER-023：0.23.0 核心 API 与依赖基线](plans/VER-023-0.23.0-foundation-baseline.md)
+- [VER-024：0.24.0 Scene 与 Prefab 结构热重载](plans/VER-024-0.24.0-structural-hot-reload.md)
 - [M-100：Editor Play 工作流实施记录](records/M-100-editor-play-workflow.md)
 - [M-101：示例与跨平台验收记录](records/M-101-example-cross-platform-validation.md)
 - [M-102：Runtime 检查会话与对象标识实施记录](records/M-102-runtime-inspection-identity.md)
@@ -134,6 +135,7 @@
 - [ADR-029：Runtime 检查使用只读镜像模型](decisions/ADR-029-runtime-inspection-model.md)
 - [ADR-035：分离 IPC 传输与应用协议](decisions/ADR-035-ipc-transport-protocol-boundary.md)
 - [ADR-036：资产热重载使用修订通知与事务替换](decisions/ADR-036-asset-hot-reload.md)
+- [ADR-037：Scene 与 Prefab 结构热重载使用身份协调事务](decisions/ADR-037-scene-prefab-structural-hot-reload.md)
 
 ## 实施与验收记录
 
@@ -198,6 +200,11 @@
 - [M-149 首批渲染资产热重载实施记录](records/M-149-first-render-asset-hot-reload.md)
 - [M-150 Editor 资产热重载接线与验收记录](records/M-150-editor-asset-reload-validation.md)
 - [M-154 0.23.0 发布验收记录](records/M-154-0.23.0-release-validation.md)
+- [M-155 结构热重载边界与现状审计记录](records/M-155-structural-hot-reload-audit.md)
+- [M-156 身份协调结构差异实施记录](records/M-156-structural-diff.md)
+- [M-157 Scene 事务式结构替换记录](records/M-157-scene-transactional-structural-reload.md)
+- [M-158 Prefab 批量结构刷新记录](records/M-158-prefab-batch-structural-reload.md)
+- [M-159 Asset IPC 结构修订接线记录](records/M-159-structural-asset-ipc.md)
 - [M-65 公共 API 与稳定性审计记录](records/M-65-public-api-audit.md)
 - [M-66 稳定运行时代表性样例验收记录](records/M-66-stable-runtime-sample.md)
 - [M-67 公共 API 与 ABI 加固记录](records/M-67-api-abi-hardening.md)

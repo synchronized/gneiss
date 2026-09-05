@@ -79,6 +79,22 @@ gneiss_result gneiss::application_internal::reload_render_assets(
   return valid == GNEISS_SUCCESS ? state->reload_render_assets(assets) : valid;
 }
 
+gneiss_result gneiss::application_internal::reload_scene(gneiss_application application,
+                                                         gneiss_scene_instance instance,
+                                                         std::string_view uri) noexcept {
+  auto state = find_application(application);
+  const auto valid = validate_application(state);
+  return valid == GNEISS_SUCCESS ? state->reload_scene(instance, uri) : valid;
+}
+
+gneiss_result gneiss::application_internal::reload_prefab(gneiss_application application,
+                                                          gneiss_scene_instance instance,
+                                                          std::string_view uri) noexcept {
+  auto state = find_application(application);
+  const auto valid = validate_application(state);
+  return valid == GNEISS_SUCCESS ? state->reload_prefab(instance, uri) : valid;
+}
+
 extern "C" gneiss_result gneiss_application_create(const gneiss_application_desc* desc,
                                                    gneiss_application* out_application) {
   if (out_application == nullptr) {

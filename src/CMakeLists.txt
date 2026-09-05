@@ -79,6 +79,8 @@ target_sources(
     scene/prefab_runtime_instance.h
     scene/scene_instance_service.cpp
     scene/scene_instance_service.h
+    scene/structural_diff.cpp
+    scene/structural_diff.h
     world/system_scheduler.cpp
     world/system_scheduler.h
     world/render_snapshot.cpp

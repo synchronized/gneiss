@@ -76,6 +76,8 @@ gneiss_target_output_directories(gneiss_editor_session)
 if(TARGET gneiss_asset_import_sdk)
   add_library(
     gneiss_editor_assets STATIC
+    author_asset_monitor.cpp
+    author_asset_monitor.h
     asset_file_watcher.cpp
     asset_file_watcher.h
     asset_import_controller.cpp
@@ -286,6 +288,13 @@ if(BUILD_TESTING)
     gneiss_target_output_directories(gneiss_editor_asset_file_watcher_test)
     add_test(
       NAME gneiss.editor.asset-file-watcher COMMAND gneiss_editor_asset_file_watcher_test
+    )
+    add_executable(gneiss_editor_author_asset_monitor_test tests/author_asset_monitor_test.cpp)
+    target_link_libraries(gneiss_editor_author_asset_monitor_test PRIVATE gneiss_editor_assets)
+    gneiss_target_compile_warnings(gneiss_editor_author_asset_monitor_test)
+    gneiss_target_output_directories(gneiss_editor_author_asset_monitor_test)
+    add_test(
+      NAME gneiss.editor.author-asset-monitor COMMAND gneiss_editor_author_asset_monitor_test
     )
     add_executable(gneiss_editor_asset_import_test tests/asset_import_controller_test.cpp)
     target_link_libraries(gneiss_editor_asset_import_test PRIVATE gneiss_editor_assets)

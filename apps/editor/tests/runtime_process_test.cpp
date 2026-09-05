@@ -117,10 +117,10 @@ int main() try {
       process.control_state() != gneiss::editor::runtime_control_state::running) {
     return 7;
   }
-  const std::array<std::string, 1> material_reload{"asset://materials/triangle.material.json"};
-  const std::array<std::string, 1> mesh_reload{"asset://models/triangle.mesh.json"};
-  if (process.publish_asset_revision(material_reload) != gneiss::result::success ||
-      process.publish_asset_revision(mesh_reload) != gneiss::result::success) {
+  const std::array<std::string, 3> mixed_reload{"asset://materials/triangle.material.json",
+                                                "asset://models/triangle.mesh.json",
+                                                "asset://scenes/main.scene.json"};
+  if (process.publish_asset_revision(mixed_reload) != gneiss::result::success) {
     return 7;
   }
   const auto reload_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(3);

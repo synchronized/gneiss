@@ -86,6 +86,10 @@ public:
   [[nodiscard]] gneiss_result remove_camera(gneiss_scene_node_id node);
   [[nodiscard]] gneiss_result remove_mesh_renderer(gneiss_scene_node_id node);
   [[nodiscard]] gneiss_result destroy_node(gneiss_scene_node_id node);
+  /** 事务式替换普通场景节点；当前不接受 Prefab 实例容器变化。 */
+  [[nodiscard]] gneiss_result reload(scene_description candidate);
+  /** 将指定 Prefab URI 的新修订应用到当前 Scene 内全部同源实例。 */
+  [[nodiscard]] gneiss_result reload_prefab(std::string_view uri);
 
   std::vector<object> objects;
   std::vector<std::unique_ptr<prefab_runtime_instance>> prefab_instances;
@@ -118,6 +122,9 @@ public:
   }
   [[nodiscard]] gneiss_result load(std::string_view uri,
                                    gneiss_scene_instance* out_instance) noexcept;
+  [[nodiscard]] gneiss_result reload(gneiss_scene_instance instance, std::string_view uri) noexcept;
+  [[nodiscard]] gneiss_result reload_prefab(gneiss_scene_instance instance,
+                                            std::string_view uri) noexcept;
   [[nodiscard]] gneiss_result create_empty(std::string_view scene_uuid,
                                            gneiss_scene_instance* out_instance) noexcept;
   [[nodiscard]] gneiss_result unload(gneiss_scene_instance instance) noexcept;
