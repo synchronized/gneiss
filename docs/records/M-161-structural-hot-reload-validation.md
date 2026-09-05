@@ -17,5 +17,6 @@ Lantern Gallery Runtime 工作流改为复制到隔离的临时工程后执行�
 
 - Windows Clang Shared 全量构建及 129 项测试通过。
 - Windows Clang Static 全量构建及 127 项测试通过。
-- Linux 手动 Actions 运行 `33949249237` 通过：Clang/GCC Shared/Static、Granit Runtime
+- [Linux 手动 Actions 33950286080](https://github.com/synchronized/gneiss/actions/runs/33950286080)
+  在 `0.24.0` 发布元数据提交 `a6161b0` 上通过：Clang/GCC Shared/Static、Granit Runtime
   Shared/Static 及 Sanitizer 共七项任务全部成功。
