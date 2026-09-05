@@ -535,6 +535,14 @@ gneiss_result granit_render_service::collect_completions() noexcept {
     if (recycled_frame_packets_.size() < 3U) {
       recycled_frame_packets_.push_back(std::move(completion.reusable_packet));
     }
+    if (completion.policy == render_internal::render_frame_policy::required) {
+      required_frame_completions_.push_back({.sequence = completion.sequence,
+                                             .status = completion.status,
+                                             .execution = completion.execution,
+                                             .dropped = completion.dropped,
+                                             .policy = completion.policy,
+                                             .reusable_packet = {}});
+    }
     if (completion.dropped) {
       continue;
     }
@@ -546,11 +554,17 @@ gneiss_result granit_render_service::collect_completions() noexcept {
   return GNEISS_SUCCESS;
 }
 
-gneiss_result granit_render_service::prepare_frame_packet_storage(
-    render_internal::render_frame_packet& packet) noexcept {
+gneiss_result
+granit_render_service::prepare_frame_packet_storage(render_internal::render_frame_packet& packet,
+                                                    bool& out_should_prepare) noexcept {
   const auto completion_result = collect_completions();
   if (completion_result != GNEISS_SUCCESS) {
     return completion_result;
+  }
+  out_should_prepare = executor_.query_stats().pending_frames < 3U;
+  if (!out_should_prepare) {
+    executor_.record_skipped_frame_build();
+    return GNEISS_SUCCESS;
   }
   if (!recycled_frame_packets_.empty()) {
     packet = std::move(recycled_frame_packets_.back());
@@ -559,7 +573,9 @@ gneiss_result granit_render_service::prepare_frame_packet_storage(
   return GNEISS_SUCCESS;
 }
 
-gneiss_result granit_render_service::submit(render_internal::render_frame_packet packet) noexcept {
+gneiss_result granit_render_service::submit(render_internal::render_frame_packet packet,
+                                            render_internal::render_frame_policy policy,
+                                            std::uint64_t* out_sequence) noexcept {
   const auto completion_result = collect_completions();
   if (completion_result != GNEISS_SUCCESS) {
     return completion_result;
@@ -567,7 +583,21 @@ gneiss_result granit_render_service::submit(render_internal::render_frame_packet
   packet.window.needs_recreate = packet.window.needs_recreate || pending_recreate_;
   pending_recreate_ = false;
   std::uint64_t sequence{};
-  return executor_.submit_frame(std::move(packet), sequence);
+  const auto result = executor_.submit_frame(std::move(packet), sequence, policy);
+  if (result == GNEISS_SUCCESS && out_sequence != nullptr) {
+    *out_sequence = sequence;
+  }
+  return result;
+}
+
+bool granit_render_service::try_take_required_completion(
+    render_internal::render_frame_completion& completion) noexcept {
+  if (collect_completions() != GNEISS_SUCCESS || required_frame_completions_.empty()) {
+    return false;
+  }
+  completion = std::move(required_frame_completions_.front());
+  required_frame_completions_.pop_front();
+  return true;
 }
 
 render_internal::render_queue_stats
@@ -598,6 +628,7 @@ gneiss_result granit_render_service::shutdown(granit::renderer_resource_stats& s
   const auto has_completion = executor_.try_take_command_completion(completion);
   executor_.stop();
   recycled_frame_packets_.clear();
+  required_frame_completions_.clear();
   if (frame_result != GNEISS_SUCCESS) {
     return frame_result;
   }

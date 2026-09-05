@@ -20,6 +20,7 @@
 #include <granit/pipeline/debug_draw_list.hpp>
 
 #include <array>
+#include <deque>
 #include <span>
 #include <unordered_map>
 #include <vector>
@@ -31,8 +32,14 @@ public:
   [[nodiscard]] gneiss_result initialize(const native_window_info& window) noexcept;
   [[nodiscard]] gneiss_result shutdown(granit::renderer_resource_stats& stats) noexcept;
   [[nodiscard]] gneiss_result
-  prepare_frame_packet_storage(render_internal::render_frame_packet& packet) noexcept;
-  [[nodiscard]] gneiss_result submit(render_internal::render_frame_packet packet) noexcept;
+  prepare_frame_packet_storage(render_internal::render_frame_packet& packet,
+                               bool& out_should_prepare) noexcept;
+  [[nodiscard]] gneiss_result submit(render_internal::render_frame_packet packet,
+                                     render_internal::render_frame_policy policy =
+                                         render_internal::render_frame_policy::replaceable,
+                                     std::uint64_t* out_sequence = nullptr) noexcept;
+  [[nodiscard]] bool
+  try_take_required_completion(render_internal::render_frame_completion& completion) noexcept;
   [[nodiscard]] render_internal::render_queue_stats query_performance_stats() const noexcept;
 
 private:
@@ -110,6 +117,7 @@ private:
   std::uint64_t frame_index_{};
   render_internal::threaded_render_executor executor_;
   std::vector<render_internal::render_frame_packet> recycled_frame_packets_;
+  std::deque<render_internal::render_frame_completion> required_frame_completions_;
   bool pending_recreate_{};
 };
 

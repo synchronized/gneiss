@@ -295,20 +295,22 @@ gneiss_result application_state::render_frame() noexcept {
   if (granit_render_service_ == nullptr) {
     return GNEISS_SUCCESS;
   }
-  world_internal::render_snapshot snapshot;
   auto& window = granit_platform_->native_window();
   if (window.width == 0U || window.height == 0U) {
     return GNEISS_SUCCESS;
   }
+  render_internal::render_frame_packet packet;
+  bool should_prepare = false;
+  const auto storage_result =
+      granit_render_service_->prepare_frame_packet_storage(packet, should_prepare);
+  if (storage_result != GNEISS_SUCCESS || !should_prepare) {
+    return storage_result;
+  }
+  world_internal::render_snapshot snapshot;
   const auto snapshot_result =
       world_internal::get_render_snapshot(world_, window.width, window.height, snapshot);
   if (snapshot_result != GNEISS_SUCCESS) {
     return snapshot_result;
-  }
-  render_internal::render_frame_packet packet;
-  const auto storage_result = granit_render_service_->prepare_frame_packet_storage(packet);
-  if (storage_result != GNEISS_SUCCESS) {
-    return storage_result;
   }
   const auto capture_result = render_internal::capture_render_frame_packet(
       window, std::move(snapshot), resources_, ui_draw_list_, debug_draw_list_, packet);
@@ -439,14 +441,15 @@ gneiss_result application_state::shutdown(gneiss_application handle) noexcept {
     const auto performance_written = std::snprintf(
         performance_message.data(), performance_message.size(),
         "渲染线程统计：提交帧=%llu，执行帧=%llu，替换帧=%llu，提交命令=%llu，执行命令=%llu，"
-        "拒绝命令=%llu，队列高水位=%zu，最近构造=%.3f ms，复制=%zu bytes，最近排队=%.3f ms，"
-        "最大排队=%.3f ms",
+        "拒绝命令=%llu，跳过构造=%llu，队列高水位=%zu，最近构造=%.3f ms，复制=%zu bytes，"
+        "最近排队=%.3f ms，最大排队=%.3f ms",
         static_cast<unsigned long long>(render_stats.submitted_frames),
         static_cast<unsigned long long>(render_stats.executed_frames),
         static_cast<unsigned long long>(render_stats.replaced_frames),
         static_cast<unsigned long long>(render_stats.submitted_commands),
         static_cast<unsigned long long>(render_stats.executed_commands),
         static_cast<unsigned long long>(render_stats.rejected_commands),
+        static_cast<unsigned long long>(render_stats.skipped_frame_builds),
         render_stats.pending_high_watermark, render_stats.latest_frame_capture_ms,
         render_stats.latest_copied_payload_bytes, render_stats.latest_frame_queue_wait_ms,
         render_stats.maximum_frame_queue_wait_ms);

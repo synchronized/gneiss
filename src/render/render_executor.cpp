@@ -37,6 +37,7 @@ struct threaded_render_executor::state final {
   struct queued_task final {
     task_kind kind{task_kind::frame};
     std::uint64_t sequence{};
+    render_frame_policy frame_policy{render_frame_policy::replaceable};
     render_frame_packet packet;
     render_command_callback command;
     std::chrono::steady_clock::time_point enqueued_at;
@@ -79,6 +80,7 @@ void threaded_render_executor::state::run() noexcept {
     render_command_completion command_completion;
     if (task.kind == task_kind::frame) {
       frame_completion.sequence = task.sequence;
+      frame_completion.policy = task.frame_policy;
       frame_completion.execution.frame_capture_ms = task.packet.capture.capture_ms;
       frame_completion.execution.copied_payload_bytes = task.packet.capture.copied_payload_bytes;
       frame_completion.execution.queue_wait_ms =
@@ -128,6 +130,9 @@ void threaded_render_executor::state::run() noexcept {
       std::lock_guard lock(mutex);
       if (task.kind == task_kind::frame) {
         ++stats.executed_frames;
+        if (frame_completion.policy == render_frame_policy::required) {
+          ++stats.executed_required_frames;
+        }
         stats.latest_frame_queue_wait_ms = frame_completion.execution.queue_wait_ms;
         stats.latest_frame_capture_ms = frame_completion.execution.frame_capture_ms;
         stats.latest_copied_payload_bytes = frame_completion.execution.copied_payload_bytes;
@@ -170,7 +175,8 @@ gneiss_result threaded_render_executor::initialize(render_frame_callback callbac
 }
 
 gneiss_result threaded_render_executor::submit_frame(render_frame_packet packet,
-                                                     std::uint64_t& out_sequence) noexcept {
+                                                     std::uint64_t& out_sequence,
+                                                     render_frame_policy policy) noexcept {
   if (!state_) {
     return GNEISS_ERROR_NOT_READY;
   }
@@ -179,25 +185,38 @@ gneiss_result threaded_render_executor::submit_frame(render_frame_packet packet,
     if (state_->stopping) {
       return GNEISS_ERROR_NOT_READY;
     }
-    out_sequence = state_->next_sequence++;
-    ++state_->stats.submitted_frames;
     const auto frame_count = static_cast<std::size_t>(std::ranges::count_if(
         state_->pending, [](const auto& task) { return task.kind == state::task_kind::frame; }));
     if (frame_count >= state_->maximum_pending_frames) {
-      const auto replace = std::ranges::find_if(
-          state_->pending, [](const auto& task) { return task.kind == state::task_kind::frame; });
+      const auto replace = std::ranges::find_if(state_->pending, [](const auto& task) {
+        return task.kind == state::task_kind::frame &&
+               task.frame_policy == render_frame_policy::replaceable;
+      });
+      if (policy == render_frame_policy::required || replace == state_->pending.end()) {
+        if (policy == render_frame_policy::required) {
+          ++state_->stats.rejected_required_frames;
+        }
+        return GNEISS_ERROR_NOT_READY;
+      }
       const auto dropped_sequence = replace->sequence;
       render_frame_completion dropped_completion{.sequence = dropped_sequence,
                                                  .status = GNEISS_ERROR_NOT_READY,
                                                  .execution = {},
                                                  .dropped = true,
+                                                 .policy = replace->frame_policy,
                                                  .reusable_packet = std::move(replace->packet)};
       state_->pending.erase(replace);
       state_->completed_frames.push_back(std::move(dropped_completion));
       ++state_->stats.replaced_frames;
     }
+    out_sequence = state_->next_sequence++;
+    ++state_->stats.submitted_frames;
+    if (policy == render_frame_policy::required) {
+      ++state_->stats.submitted_required_frames;
+    }
     state_->pending.push_back({.kind = state::task_kind::frame,
                                .sequence = out_sequence,
+                               .frame_policy = policy,
                                .packet = std::move(packet),
                                .command = {},
                                .enqueued_at = std::chrono::steady_clock::now()});
@@ -231,6 +250,7 @@ gneiss_result threaded_render_executor::submit_command(render_command_callback c
     ++state_->stats.submitted_commands;
     state_->pending.push_back({.kind = state::task_kind::command,
                                .sequence = out_sequence,
+                               .frame_policy = render_frame_policy::replaceable,
                                .packet = {},
                                .command = std::move(command),
                                .enqueued_at = std::chrono::steady_clock::now()});
@@ -295,6 +315,14 @@ render_queue_stats threaded_render_executor::query_stats() const noexcept {
       state_->pending, [](const auto& task) { return task.kind == state::task_kind::frame; }));
   result.pending_commands = result.pending_tasks - result.pending_frames;
   return result;
+}
+
+void threaded_render_executor::record_skipped_frame_build() noexcept {
+  if (!state_) {
+    return;
+  }
+  std::lock_guard lock(state_->mutex);
+  ++state_->stats.skipped_frame_builds;
 }
 
 gneiss_result threaded_render_executor::flush() noexcept {

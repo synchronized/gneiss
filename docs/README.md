@@ -152,6 +152,8 @@
 - [M-169：渲染性能观测](records/M-169-render-performance-observability.md)
 - [M-170：Frame Slot 资源池](records/M-170-frame-slot-pool.md)
 - [M-171：Render Scene 资源镜像](records/M-171-render-scene-resource-mirror.md)
+- [M-172：帧请求语义拆分](records/M-172-render-frame-request-policy.md)
+- [M-173：渲染背压与帧节流](records/M-173-render-backpressure.md)
 - [glTF 资产链与渲染优化最终验收记录](records/2026-08-27-gltf-pipeline-final-validation.md)
 - [TOOL-001：glTF 资产编译器验收记录](records/TOOL-001-gltf-asset-compiler.md)
 - [TOOL-002：Mesh Binary v1 实施记录](records/TOOL-002-mesh-binary-v1.md)
