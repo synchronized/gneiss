@@ -453,6 +453,46 @@ gneiss_result scene_instance::reload(scene_description candidate) {
   return GNEISS_SUCCESS;
 }
 
+gneiss_result scene_instance::reload_prefab(std::string_view uri) {
+  std::vector<std::size_t> affected;
+  affected.reserve(description.prefab_instances.size());
+  for (std::size_t index = 0U; index < description.prefab_instances.size(); ++index) {
+    if (description.prefab_instances[index].prefab_uri == uri) {
+      affected.push_back(index);
+    }
+  }
+  if (affected.empty()) {
+    return GNEISS_ERROR_NOT_FOUND;
+  }
+
+  prefab_asset_lease candidate;
+  scene_diagnostic diagnostic;
+  auto result = prefab_loader_.reload(uri, candidate, diagnostic);
+  if (result != GNEISS_SUCCESS) {
+    return result;
+  }
+  for (const auto index : affected) {
+    result = prefab_instances[index]->validate_reload(
+        candidate, registry_, description.prefab_instances[index].overrides);
+    if (result != GNEISS_SUCCESS) {
+      return result;
+    }
+  }
+  for (const auto index : affected) {
+    result = prefab_instances[index]->reload(candidate, registry_,
+                                             description.prefab_instances[index].overrides);
+    if (result != GNEISS_SUCCESS) {
+      return result;
+    }
+  }
+  std::erase_if(prefab_refresh_transactions_, [&](const auto& transaction) {
+    return std::ranges::any_of(affected, [&](std::size_t index) {
+      return description.prefab_instances[index].instance_uuid == transaction.instance_uuid;
+    });
+  });
+  return GNEISS_SUCCESS;
+}
+
 gneiss_result scene_instance::get_node_info(std::uint64_t index,
                                             gneiss_scene_instance_node_info& out_info) const {
   if (index >= objects.size()) {
@@ -1539,6 +1579,21 @@ gneiss_result scene_instance_service::reload(gneiss_scene_instance instance,
     scene_diagnostic diagnostic;
     const auto result = load_scene_description(file_system_, uri, candidate, diagnostic);
     return result == GNEISS_SUCCESS ? (*value)->reload(std::move(candidate)) : result;
+  } catch (const std::bad_alloc&) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
+gneiss_result scene_instance_service::reload_prefab(gneiss_scene_instance instance,
+                                                    std::string_view uri) noexcept {
+  try {
+    auto* value = instances_.get(instance, core::resource_type::scene_instance);
+    if (value == nullptr || *value == nullptr) {
+      return GNEISS_ERROR_INVALID_HANDLE;
+    }
+    return (*value)->reload_prefab(uri);
   } catch (const std::bad_alloc&) {
     return GNEISS_ERROR_OUT_OF_MEMORY;
   } catch (...) {

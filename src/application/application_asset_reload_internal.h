@@ -24,6 +24,11 @@ GNEISS_API gneiss_result reload_scene(gneiss_application application,
                                       gneiss_scene_instance instance,
                                       std::string_view uri) noexcept;
 
+/** 刷新 Scene 内指定 URI 的全部 Prefab 实例；仅供 Gneiss 宿主使用。 */
+GNEISS_API gneiss_result reload_prefab(gneiss_application application,
+                                       gneiss_scene_instance instance,
+                                       std::string_view uri) noexcept;
+
 } // namespace gneiss::application_internal
 
 #endif
