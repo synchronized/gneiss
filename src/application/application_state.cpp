@@ -311,8 +311,13 @@ gneiss_result application_state::render_frame() noexcept {
   if (capture_result != GNEISS_SUCCESS) {
     return capture_result;
   }
+  const auto requested_recreate = window.needs_recreate;
   window.needs_recreate = false;
-  return granit_render_service_->submit(std::move(packet));
+  const auto submit_result = granit_render_service_->submit(std::move(packet));
+  if (submit_result != GNEISS_SUCCESS && requested_recreate) {
+    window.needs_recreate = true;
+  }
+  return submit_result;
 }
 #endif
 
