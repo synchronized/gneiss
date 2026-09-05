@@ -132,7 +132,8 @@ ctest --test-dir build/granit-platform --output-on-failure
 使用 `GNEISS_GRANIT_PROVIDER=FETCH` 可以强制验证下载路径，跳过 package 查找。仓库镜像和版本可
 通过 `GNEISS_GRANIT_GIT_REPOSITORY`、`GNEISS_GRANIT_GIT_TAG` 覆盖。若父工程已经定义
 `granit::granit`、`granit::window`、`granit::input` 与 `granit::render_pipeline`，所有 provider
-都会优先直接复用。Windows 使用共享库 package
+都会优先直接复用。项目会自动更新仍沿用旧默认提交的构建目录，但不会改写其他自定义提交；若需
+刻意固定旧默认提交，同时设置 `GNEISS_GRANIT_UPDATE_DEFAULTS=OFF`。Windows 使用共享库 package
 时，构建会把 Granit 的运行时 DLL 自动复制到 Gneiss 的运行时输出目录，无需手动修改 `PATH`。
 
 启用 Granit 适配并完成构建后，可以运行交互神殿或 Lantern 灯廊示例；按 `A`/`D` 绕场景旋转

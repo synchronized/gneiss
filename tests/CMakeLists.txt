@@ -24,6 +24,15 @@ add_test(
     -P "${PROJECT_SOURCE_DIR}/cmake/check_api_stability.cmake"
 )
 
+add_test(
+  NAME gneiss.granit_version_cache
+  COMMAND
+    "${CMAKE_COMMAND}"
+    "-DGNEISS_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
+    "-DGNEISS_BINARY_DIR=${PROJECT_BINARY_DIR}"
+    -P "${PROJECT_SOURCE_DIR}/cmake/check_granit_version_cache.cmake"
+)
+
 add_executable(gneiss_1_0_abi_consumer compat/1_0/consumer.c)
 target_include_directories(gneiss_1_0_abi_consumer PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/compat/1_0")
 target_link_libraries(gneiss_1_0_abi_consumer PRIVATE gneiss::engine)
