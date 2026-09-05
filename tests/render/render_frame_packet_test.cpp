@@ -7,15 +7,16 @@
 #include <cstddef>
 #include <cstdint>
 #include <utility>
+#include <vector>
 
 int main() {
   using namespace gneiss::render_internal;
   render_resource_service resources;
-  constexpr std::array<std::uint8_t, 4> pixels{1U, 2U, 3U, 4U};
+  std::vector<std::uint8_t> pixels(64U * 64U * 4U, 1U);
   gneiss_texture_desc texture_desc = GNEISS_TEXTURE_DESC_INIT;
-  texture_desc.width = 1U;
-  texture_desc.height = 1U;
-  texture_desc.row_stride_bytes = 4U;
+  texture_desc.width = 64U;
+  texture_desc.height = 64U;
+  texture_desc.row_stride_bytes = 64U * 4U;
   texture_desc.pixel_data_size = pixels.size();
   texture_desc.pixels = pixels.data();
   gneiss_texture texture = GNEISS_NULL_TEXTURE;
@@ -64,6 +65,9 @@ int main() {
   window.width = 640U;
   window.height = 480U;
   ui_draw_list ui;
+  const auto* source_mesh = resources.get_mesh(mesh);
+  const auto* source_material = resources.get_material(material);
+  const auto* source_texture = resources.get_texture(texture);
   render_frame_packet packet;
   if (capture_render_frame_packet(window, std::move(scene), resources, ui, debug, packet) !=
       GNEISS_SUCCESS) {
@@ -82,7 +86,10 @@ int main() {
       packet.debug.lines().size() != 1U || captured_mesh == nullptr ||
       captured_mesh->vertices.size() != 3U || captured_material == nullptr ||
       captured_material->base_color_texture != texture || captured_texture == nullptr ||
-      captured_texture->pixels.front() != std::byte{1}) {
+      captured_texture->pixels.front() != std::byte{1} || packet.capture.capture_ms < 0.0F ||
+      packet.capture.copied_payload_bytes == 0U || captured_mesh != source_mesh ||
+      captured_material != source_material || captured_texture != source_texture ||
+      packet.capture.copied_payload_bytes >= pixels.size()) {
     return 7;
   }
   return 0;

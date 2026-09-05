@@ -10,6 +10,7 @@
 #include "render/ui_draw_list.h"
 #include "world/render_snapshot.h"
 
+#include <cstddef>
 #include <unordered_map>
 
 namespace gneiss::render_internal {
@@ -27,9 +28,14 @@ private:
                                                    const ui_draw_list&, const debug_draw_list&,
                                                    struct render_frame_packet&) noexcept;
 
-  std::unordered_map<gneiss_mesh, mesh_resource> meshes_;
-  std::unordered_map<gneiss_material, material_resource> materials_;
-  std::unordered_map<gneiss_texture, texture_resource> textures_;
+  std::unordered_map<gneiss_mesh, std::shared_ptr<const mesh_resource>> meshes_;
+  std::unordered_map<gneiss_material, std::shared_ptr<const material_resource>> materials_;
+  std::unordered_map<gneiss_texture, std::shared_ptr<const texture_resource>> textures_;
+};
+
+struct render_frame_capture_metrics final {
+  float capture_ms{};
+  std::size_t copied_payload_bytes{};
 };
 
 /** 已提交帧的自有数据；移动后不再借用主线程的逐帧可变内存。 */
@@ -39,6 +45,7 @@ struct render_frame_packet final {
   render_resource_snapshot resources;
   ui_draw_list ui;
   debug_draw_list debug;
+  render_frame_capture_metrics capture;
 };
 
 [[nodiscard]] gneiss_result

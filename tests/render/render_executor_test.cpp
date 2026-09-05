@@ -64,6 +64,8 @@ int main() {
   render_frame_packet third;
   third.window.width = 3U;
   third.window.needs_recreate = true;
+  third.capture.capture_ms = 2.5F;
+  third.capture.copied_payload_bytes = 4096U;
   std::uint64_t third_sequence = 0U;
   if (executor.submit_frame(std::move(second), second_sequence) != GNEISS_SUCCESS ||
       executor.submit_frame(std::move(third), third_sequence) != GNEISS_SUCCESS) {
@@ -85,19 +87,29 @@ int main() {
   }
   const auto stats = executor.query_stats();
   if (executed != std::vector<std::uint32_t>{1U, 3U} || completions.size() != 3U ||
-      stats.replaced_frames != 1U || stats.pending_high_watermark == 0U) {
+      stats.replaced_frames != 1U || stats.pending_high_watermark == 0U ||
+      stats.submitted_frames != 3U || stats.executed_frames != 2U || stats.pending_tasks != 0U ||
+      stats.pending_frames != 0U || stats.pending_commands != 0U ||
+      stats.latest_frame_queue_wait_ms < 0.0F ||
+      stats.maximum_frame_queue_wait_ms < stats.latest_frame_queue_wait_ms ||
+      stats.latest_frame_capture_ms != 2.5F || stats.latest_copied_payload_bytes != 4096U) {
     return 6;
   }
   bool saw_dropped = false;
   bool saw_recreate = false;
+  bool saw_reusable_packet = false;
   for (const auto& item : completions) {
     saw_dropped = saw_dropped || (item.sequence == second_sequence && item.dropped &&
                                   item.status == GNEISS_ERROR_NOT_READY);
     saw_recreate =
         saw_recreate || (item.sequence == third_sequence && item.execution.needs_recreate);
+    saw_reusable_packet =
+        saw_reusable_packet ||
+        (item.sequence == third_sequence && item.reusable_packet.window.width == 3U &&
+         item.reusable_packet.capture.copied_payload_bytes == 4096U);
   }
   if (!saw_dropped || !saw_recreate || first_sequence == second_sequence ||
-      second_sequence == third_sequence) {
+      second_sequence == third_sequence || !saw_reusable_packet) {
     return 7;
   }
 
@@ -161,7 +173,83 @@ int main() {
       command_completion.progress.total_work != 3U || !executor.is_running()) {
     return 12;
   }
+  executor.record_skipped_frame_build();
+  const auto final_stats = executor.query_stats();
+  if (final_stats.submitted_commands != 2U || final_stats.executed_commands != 2U ||
+      final_stats.rejected_commands != 0U || command_completion.progress.total_work != 3U) {
+    return 13;
+  }
+  if (final_stats.skipped_frame_builds != 1U) {
+    return 14;
+  }
   executor.stop();
   executor.stop();
-  return executor.is_running() ? 13 : 0;
+  if (executor.is_running()) {
+    return 15;
+  }
+
+  bool required_blocked = false;
+  bool release_required = false;
+  threaded_render_executor required_executor;
+  if (required_executor.initialize(
+          [&](render_frame_packet& packet, render_execution_result&) {
+            if (packet.window.width == 10U) {
+              std::unique_lock lock(mutex);
+              required_blocked = true;
+              ready.notify_all();
+              ready.wait(lock, [&] { return release_required; });
+            }
+            return GNEISS_SUCCESS;
+          },
+          1U) != GNEISS_SUCCESS) {
+    return 16;
+  }
+  render_frame_packet blocking_packet;
+  blocking_packet.window.width = 10U;
+  std::uint64_t blocking_sequence{};
+  if (required_executor.submit_frame(std::move(blocking_packet), blocking_sequence) !=
+      GNEISS_SUCCESS) {
+    return 16;
+  }
+  {
+    std::unique_lock lock(mutex);
+    ready.wait(lock, [&] { return required_blocked; });
+  }
+  render_frame_packet required_packet;
+  required_packet.window.width = 20U;
+  std::uint64_t required_sequence{};
+  if (required_executor.submit_frame(std::move(required_packet), required_sequence,
+                                     render_frame_policy::required) != GNEISS_SUCCESS) {
+    return 17;
+  }
+  render_frame_packet replaceable_packet;
+  replaceable_packet.window.width = 30U;
+  std::uint64_t rejected_sequence{};
+  if (required_executor.submit_frame(std::move(replaceable_packet), rejected_sequence) !=
+      GNEISS_ERROR_NOT_READY) {
+    return 18;
+  }
+  render_frame_packet second_required_packet;
+  second_required_packet.window.width = 40U;
+  if (required_executor.submit_frame(std::move(second_required_packet), rejected_sequence,
+                                     render_frame_policy::required) != GNEISS_ERROR_NOT_READY) {
+    return 19;
+  }
+  {
+    std::lock_guard lock(mutex);
+    release_required = true;
+    ready.notify_all();
+  }
+  if (required_executor.flush() != GNEISS_SUCCESS) {
+    return 20;
+  }
+  const auto required_stats = required_executor.query_stats();
+  if (required_stats.submitted_required_frames != 1U ||
+      required_stats.executed_required_frames != 1U ||
+      required_stats.rejected_required_frames != 1U || required_stats.replaced_frames != 0U ||
+      required_sequence == 0U) {
+    return 21;
+  }
+  required_executor.stop();
+  return 0;
 }

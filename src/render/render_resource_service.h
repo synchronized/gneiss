@@ -10,6 +10,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <vector>
 
 namespace gneiss::render_internal {
@@ -53,13 +54,18 @@ public:
   [[nodiscard]] const mesh_resource* get_mesh(gneiss_mesh mesh) const noexcept;
   [[nodiscard]] const material_resource* get_material(gneiss_material material) const noexcept;
   [[nodiscard]] const texture_resource* get_texture(gneiss_texture texture) const noexcept;
+  [[nodiscard]] std::shared_ptr<const mesh_resource> share_mesh(gneiss_mesh mesh) const noexcept;
+  [[nodiscard]] std::shared_ptr<const material_resource>
+  share_material(gneiss_material material) const noexcept;
+  [[nodiscard]] std::shared_ptr<const texture_resource>
+  share_texture(gneiss_texture texture) const noexcept;
   [[nodiscard]] std::size_t live_resource_count() const noexcept;
 
 private:
   std::uint16_t domain_{};
-  core::rid_table<mesh_resource> meshes_;
-  core::rid_table<material_resource> materials_;
-  core::rid_table<texture_resource> textures_;
+  core::rid_table<std::shared_ptr<const mesh_resource>> meshes_;
+  core::rid_table<std::shared_ptr<const material_resource>> materials_;
+  core::rid_table<std::shared_ptr<const texture_resource>> textures_;
 };
 
 } // namespace gneiss::render_internal

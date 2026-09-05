@@ -72,7 +72,8 @@ gneiss_result render_resource_service::create_mesh(const gneiss_mesh_desc& desc,
     mesh_resource resource{.vertices = {vertices.begin(), vertices.end()},
                            .normals = {normals.begin(), normals.end()},
                            .indices = {indices.begin(), indices.end()}};
-    return meshes_.create(core::resource_type::mesh, std::move(resource), out_mesh);
+    return meshes_.create(core::resource_type::mesh,
+                          std::make_shared<const mesh_resource>(std::move(resource)), out_mesh);
   } catch (const std::bad_alloc&) {
     return GNEISS_ERROR_OUT_OF_MEMORY;
   } catch (...) {
@@ -93,13 +94,19 @@ gneiss_result render_resource_service::create_material(const gneiss_material_des
        get_texture(desc.base_color_texture) == nullptr)) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
-  return materials_.create(core::resource_type::material,
-                           material_resource{.red = desc.red,
-                                             .green = desc.green,
-                                             .blue = desc.blue,
-                                             .alpha = desc.alpha,
-                                             .base_color_texture = desc.base_color_texture},
-                           out_material);
+  try {
+    auto resource = std::make_shared<const material_resource>(
+        material_resource{.red = desc.red,
+                          .green = desc.green,
+                          .blue = desc.blue,
+                          .alpha = desc.alpha,
+                          .base_color_texture = desc.base_color_texture});
+    return materials_.create(core::resource_type::material, std::move(resource), out_material);
+  } catch (const std::bad_alloc&) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
 }
 
 gneiss_result render_resource_service::destroy_material(gneiss_material material) noexcept {
@@ -138,7 +145,9 @@ gneiss_result render_resource_service::create_texture(const gneiss_texture_desc&
                   desc.pixels + (static_cast<std::size_t>(row) * desc.row_stride_bytes),
                   static_cast<std::size_t>(row_bytes));
     }
-    return textures_.create(core::resource_type::texture, std::move(resource), out_texture);
+    return textures_.create(core::resource_type::texture,
+                            std::make_shared<const texture_resource>(std::move(resource)),
+                            out_texture);
   } catch (const std::bad_alloc&) {
     return GNEISS_ERROR_OUT_OF_MEMORY;
   } catch (...) {
@@ -151,17 +160,38 @@ gneiss_result render_resource_service::destroy_texture(gneiss_texture texture) n
 }
 
 const mesh_resource* render_resource_service::get_mesh(gneiss_mesh mesh) const noexcept {
-  return meshes_.get(mesh, core::resource_type::mesh);
+  const auto* resource = meshes_.get(mesh, core::resource_type::mesh);
+  return resource == nullptr ? nullptr : resource->get();
 }
 
 const material_resource*
 render_resource_service::get_material(gneiss_material material) const noexcept {
-  return materials_.get(material, core::resource_type::material);
+  const auto* resource = materials_.get(material, core::resource_type::material);
+  return resource == nullptr ? nullptr : resource->get();
 }
 
 const texture_resource*
 render_resource_service::get_texture(gneiss_texture texture) const noexcept {
-  return textures_.get(texture, core::resource_type::texture);
+  const auto* resource = textures_.get(texture, core::resource_type::texture);
+  return resource == nullptr ? nullptr : resource->get();
+}
+
+std::shared_ptr<const mesh_resource>
+render_resource_service::share_mesh(gneiss_mesh mesh) const noexcept {
+  const auto* resource = meshes_.get(mesh, core::resource_type::mesh);
+  return resource == nullptr ? nullptr : *resource;
+}
+
+std::shared_ptr<const material_resource>
+render_resource_service::share_material(gneiss_material material) const noexcept {
+  const auto* resource = materials_.get(material, core::resource_type::material);
+  return resource == nullptr ? nullptr : *resource;
+}
+
+std::shared_ptr<const texture_resource>
+render_resource_service::share_texture(gneiss_texture texture) const noexcept {
+  const auto* resource = textures_.get(texture, core::resource_type::texture);
+  return resource == nullptr ? nullptr : *resource;
 }
 
 std::size_t render_resource_service::live_resource_count() const noexcept {

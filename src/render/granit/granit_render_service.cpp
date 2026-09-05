@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cmath>
 #include <cstddef>
 #include <cstring>
@@ -531,6 +532,17 @@ gneiss_result granit_render_service::initialize(const native_window_info& window
 gneiss_result granit_render_service::collect_completions() noexcept {
   render_internal::render_frame_completion completion;
   while (executor_.try_take_frame_completion(completion)) {
+    if (recycled_frame_packets_.size() < 3U) {
+      recycled_frame_packets_.push_back(std::move(completion.reusable_packet));
+    }
+    if (completion.policy == render_internal::render_frame_policy::required) {
+      required_frame_completions_.push_back({.sequence = completion.sequence,
+                                             .status = completion.status,
+                                             .execution = completion.execution,
+                                             .dropped = completion.dropped,
+                                             .policy = completion.policy,
+                                             .reusable_packet = {}});
+    }
     if (completion.dropped) {
       continue;
     }
@@ -542,7 +554,28 @@ gneiss_result granit_render_service::collect_completions() noexcept {
   return GNEISS_SUCCESS;
 }
 
-gneiss_result granit_render_service::submit(render_internal::render_frame_packet packet) noexcept {
+gneiss_result
+granit_render_service::prepare_frame_packet_storage(render_internal::render_frame_packet& packet,
+                                                    bool& out_should_prepare) noexcept {
+  const auto completion_result = collect_completions();
+  if (completion_result != GNEISS_SUCCESS) {
+    return completion_result;
+  }
+  out_should_prepare = executor_.query_stats().pending_frames < 3U;
+  if (!out_should_prepare) {
+    executor_.record_skipped_frame_build();
+    return GNEISS_SUCCESS;
+  }
+  if (!recycled_frame_packets_.empty()) {
+    packet = std::move(recycled_frame_packets_.back());
+    recycled_frame_packets_.pop_back();
+  }
+  return GNEISS_SUCCESS;
+}
+
+gneiss_result granit_render_service::submit(render_internal::render_frame_packet packet,
+                                            render_internal::render_frame_policy policy,
+                                            std::uint64_t* out_sequence) noexcept {
   const auto completion_result = collect_completions();
   if (completion_result != GNEISS_SUCCESS) {
     return completion_result;
@@ -550,7 +583,26 @@ gneiss_result granit_render_service::submit(render_internal::render_frame_packet
   packet.window.needs_recreate = packet.window.needs_recreate || pending_recreate_;
   pending_recreate_ = false;
   std::uint64_t sequence{};
-  return executor_.submit_frame(std::move(packet), sequence);
+  const auto result = executor_.submit_frame(std::move(packet), sequence, policy);
+  if (result == GNEISS_SUCCESS && out_sequence != nullptr) {
+    *out_sequence = sequence;
+  }
+  return result;
+}
+
+bool granit_render_service::try_take_required_completion(
+    render_internal::render_frame_completion& completion) noexcept {
+  if (collect_completions() != GNEISS_SUCCESS || required_frame_completions_.empty()) {
+    return false;
+  }
+  completion = std::move(required_frame_completions_.front());
+  required_frame_completions_.pop_front();
+  return true;
+}
+
+render_internal::render_queue_stats
+granit_render_service::query_performance_stats() const noexcept {
+  return executor_.query_stats();
 }
 
 gneiss_result granit_render_service::shutdown(granit::renderer_resource_stats& stats) noexcept {
@@ -575,6 +627,8 @@ gneiss_result granit_render_service::shutdown(granit::renderer_resource_stats& s
   render_internal::render_command_completion completion;
   const auto has_completion = executor_.try_take_command_completion(completion);
   executor_.stop();
+  recycled_frame_packets_.clear();
+  required_frame_completions_.clear();
   if (frame_result != GNEISS_SUCCESS) {
     return frame_result;
   }
@@ -706,6 +760,7 @@ granit_render_service::execute_frame(render_internal::render_frame_packet& packe
   if (window.width == 0U || window.height == 0U) {
     return GNEISS_SUCCESS;
   }
+  const auto resource_prepare_started = std::chrono::steady_clock::now();
   if (window.needs_recreate) {
     const auto recreate_result =
         swapchain_.recreate({.width = window.width, .height = window.height});
@@ -850,8 +905,15 @@ granit_render_service::execute_frame(render_internal::render_frame_packet& packe
     return map_result(result);
   }
 
+  output.resource_prepare_ms = std::chrono::duration<float, std::milli>(
+                                   std::chrono::steady_clock::now() - resource_prepare_started)
+                                   .count();
   granit::acquired_frame frame;
+  const auto acquire_started = std::chrono::steady_clock::now();
   result = swapchain_.acquire(frame);
+  output.acquire_wait_ms =
+      std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - acquire_started)
+          .count();
   if (result == granit::result::out_of_date) {
     window.needs_recreate = true;
     return GNEISS_SUCCESS;
@@ -861,6 +923,7 @@ granit_render_service::execute_frame(render_internal::render_frame_packet& packe
   }
   window.needs_recreate = window.needs_recreate || frame.needs_recreate;
 
+  const auto record_submit_started = std::chrono::steady_clock::now();
   granit_texture texture = GRANIT_NULL_HANDLE;
   granit_texture_view view = GRANIT_NULL_HANDLE;
   result = swapchain_.backbuffer(frame.image_index, texture, view);
@@ -957,8 +1020,15 @@ granit_render_service::execute_frame(render_internal::render_frame_packet& packe
   if (result.ok()) {
     result = recording.submit();
   }
+  output.record_submit_ms = std::chrono::duration<float, std::milli>(
+                                std::chrono::steady_clock::now() - record_submit_started)
+                                .count();
   if (result.ok()) {
+    const auto present_started = std::chrono::steady_clock::now();
     result = swapchain_.present(frame);
+    output.present_wait_ms =
+        std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - present_started)
+            .count();
   }
   window.needs_recreate = window.needs_recreate || frame.needs_recreate;
   if (result == granit::result::out_of_date) {

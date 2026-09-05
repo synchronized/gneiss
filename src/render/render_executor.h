@@ -14,9 +14,18 @@
 
 namespace gneiss::render_internal {
 
+enum class render_frame_policy : std::uint8_t { replaceable, required };
+
 struct render_execution_result final {
   bool needs_recreate{};
+  float frame_capture_ms{};
+  std::size_t copied_payload_bytes{};
   float queue_wait_ms{};
+  float resource_prepare_ms{};
+  float acquire_wait_ms{};
+  float record_submit_ms{};
+  float present_wait_ms{};
+  float render_thread_ms{};
 };
 
 struct render_frame_completion final {
@@ -24,6 +33,8 @@ struct render_frame_completion final {
   gneiss_result status{GNEISS_ERROR_UNKNOWN};
   render_execution_result execution;
   bool dropped{};
+  render_frame_policy policy{render_frame_policy::replaceable};
+  render_frame_packet reusable_packet;
 };
 
 enum class render_command_stage : std::uint8_t { queued, preparing, uploading, completed };
@@ -59,8 +70,24 @@ private:
 };
 
 struct render_queue_stats final {
+  std::size_t pending_tasks{};
+  std::size_t pending_frames{};
+  std::size_t pending_commands{};
   std::size_t pending_high_watermark{};
+  std::uint64_t submitted_frames{};
+  std::uint64_t executed_frames{};
   std::uint64_t replaced_frames{};
+  std::uint64_t submitted_required_frames{};
+  std::uint64_t executed_required_frames{};
+  std::uint64_t rejected_required_frames{};
+  std::uint64_t skipped_frame_builds{};
+  std::uint64_t submitted_commands{};
+  std::uint64_t executed_commands{};
+  std::uint64_t rejected_commands{};
+  float latest_frame_queue_wait_ms{};
+  float maximum_frame_queue_wait_ms{};
+  float latest_frame_capture_ms{};
+  std::size_t latest_copied_payload_bytes{};
 };
 
 using render_frame_callback =
@@ -86,14 +113,16 @@ public:
 
   [[nodiscard]] gneiss_result initialize(render_frame_callback callback,
                                          std::size_t maximum_pending_frames = 3U) noexcept;
-  [[nodiscard]] gneiss_result submit_frame(render_frame_packet packet,
-                                           std::uint64_t& out_sequence) noexcept;
+  [[nodiscard]] gneiss_result
+  submit_frame(render_frame_packet packet, std::uint64_t& out_sequence,
+               render_frame_policy policy = render_frame_policy::replaceable) noexcept;
   [[nodiscard]] gneiss_result submit_command(render_command_callback command,
                                              std::uint64_t& out_sequence) noexcept;
   [[nodiscard]] bool try_take_frame_completion(render_frame_completion& output) noexcept;
   [[nodiscard]] bool try_take_command_completion(render_command_completion& output) noexcept;
   [[nodiscard]] bool query_command_status(render_command_status& output) const noexcept;
   [[nodiscard]] render_queue_stats query_stats() const noexcept;
+  void record_skipped_frame_build() noexcept;
   [[nodiscard]] gneiss_result flush() noexcept;
   void stop() noexcept;
   [[nodiscard]] bool is_running() const noexcept;
