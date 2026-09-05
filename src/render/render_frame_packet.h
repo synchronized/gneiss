@@ -11,6 +11,7 @@
 #include "world/render_snapshot.h"
 
 #include <cstddef>
+#include <cstdint>
 #include <unordered_map>
 
 namespace gneiss::render_internal {
@@ -40,6 +41,8 @@ struct render_frame_capture_metrics final {
 
 /** 已提交帧的自有数据；移动后不再借用主线程的逐帧可变内存。 */
 struct render_frame_packet final {
+  /** 由执行器在接受帧时写入，用于关联延迟返回的渲染结果。 */
+  std::uint64_t sequence{};
   application_internal::native_window_info window;
   world_internal::render_snapshot scene;
   render_resource_snapshot resources;

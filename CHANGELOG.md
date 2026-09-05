@@ -11,6 +11,8 @@
   最小闭环。
 - 明确 Gneiss 作者资产与 Granit 后端投影边界，Granit 专用 Shader、Material 和 Environment 格式
   仅作为可失效的派生或安装数据，不进入 Scene、公共 API 和 IPC。
+- 渲染线程按 Frame Slot 异步采集整帧 GPU 时间戳，并以 Frame 序列关联延迟结果；不支持或暂不可读
+  时保持正常渲染，退出诊断报告能力、样本数和最近 GPU 时间。
 - 将 Granit 依赖升级至 0.10.0，Fetch 锁定正式发布提交，PACKAGE 与安装消费最低版本同步提升
   至 0.10。
 

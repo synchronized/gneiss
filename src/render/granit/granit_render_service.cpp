@@ -678,6 +678,15 @@ gneiss_result granit_render_service::initialize_gpu(const native_window_info& wi
   if (result.ok()) {
     result = frame_context_.initialize(renderer_.native_handle());
   }
+  if (result.ok()) {
+    const auto timestamp_result = timestamp_queries_.initialize(
+        renderer_.native_handle(), static_cast<std::uint32_t>(timestamp_slot_valid_.size() * 2U));
+    gpu_timing_supported_ = timestamp_result.ok();
+    if (timestamp_result.failed() && timestamp_result != granit::result::unsupported &&
+        timestamp_result != granit::result::backend_unavailable) {
+      result = timestamp_result;
+    }
+  }
   granit::swapchain_info swapchain_info;
   if (result.ok()) {
     result = swapchain_.query_info(swapchain_info);
@@ -734,6 +743,10 @@ gneiss_result granit_render_service::shutdown_gpu(granit::renderer_resource_stat
   static_cast<void>(texture_layout_.reset());
   static_cast<void>(fragment_shader_.reset());
   static_cast<void>(vertex_shader_.reset());
+  static_cast<void>(timestamp_queries_.reset());
+  timestamp_slot_valid_.fill(false);
+  timestamp_slot_sequences_.fill(0U);
+  gpu_timing_supported_ = false;
   static_cast<void>(frame_context_.reset());
   static_cast<void>(swapchain_.reset());
   static_cast<void>(surface_.reset());
@@ -752,6 +765,7 @@ gneiss_result
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
 granit_render_service::execute_frame(render_internal::render_frame_packet& packet,
                                      render_internal::render_execution_result& output) noexcept {
+  output.gpu_timing_supported = gpu_timing_supported_;
   auto& window = packet.window;
   const auto& snapshot = packet.scene;
   const auto& resources = packet.resources;
@@ -931,6 +945,46 @@ granit_render_service::execute_frame(render_internal::render_frame_packet& packe
   if (result.ok()) {
     result = frame_context_.begin(frame, recording);
   }
+  auto timestamp_slot = std::size_t{};
+  auto timestamp_first_query = std::uint32_t{};
+  bool timestamp_recording = false;
+  if (result.ok() && gpu_timing_supported_) {
+    timestamp_slot = recording.frame_slot();
+    if (timestamp_slot >= timestamp_slot_valid_.size()) {
+      gpu_timing_supported_ = false;
+      output.gpu_timing_supported = false;
+    } else {
+      timestamp_first_query = static_cast<std::uint32_t>(timestamp_slot * 2U);
+      if (timestamp_slot_valid_[timestamp_slot]) {
+        std::array<std::uint64_t, 2> timestamps{};
+        const auto timestamp_result =
+            timestamp_queries_.get_results(timestamp_first_query, timestamps);
+        if (timestamp_result.ok() && timestamps[1] >= timestamps[0]) {
+          output.gpu_timing_valid = true;
+          output.gpu_timing_sequence = timestamp_slot_sequences_[timestamp_slot];
+          output.gpu_frame_ms = static_cast<float>(timestamps[1] - timestamps[0]) / 1'000'000.0F;
+        } else if (timestamp_result != granit::result::not_ready) {
+          gpu_timing_supported_ = false;
+          output.gpu_timing_supported = false;
+        }
+        timestamp_slot_valid_[timestamp_slot] = false;
+      }
+      if (gpu_timing_supported_) {
+        const auto reset_result = recording.recorder().reset_timestamp_queries(
+            timestamp_queries_.native_handle(), timestamp_first_query, 2U);
+        const auto begin_result = reset_result.ok()
+                                      ? recording.recorder().write_timestamp(
+                                            timestamp_queries_.native_handle(),
+                                            GRANIT_TIMESTAMP_STAGE_TOP, timestamp_first_query)
+                                      : reset_result;
+        timestamp_recording = begin_result.ok();
+        if (!timestamp_recording) {
+          gpu_timing_supported_ = false;
+          output.gpu_timing_supported = false;
+        }
+      }
+    }
+  }
   if (result.ok()) {
     result = recording.recorder().bind_graphics_pipeline(pipeline_.native_handle());
     const granit::viewport viewport{.x = 0.0F,
@@ -1017,8 +1071,22 @@ granit_render_service::execute_frame(render_internal::render_frame_packet& packe
       result = ui_canvas_.record(recording.recorder().native_handle(), ui_record);
     }
   }
+  if (result.ok() && timestamp_recording) {
+    const auto timestamp_result = recording.recorder().write_timestamp(
+        timestamp_queries_.native_handle(), GRANIT_TIMESTAMP_STAGE_BOTTOM,
+        timestamp_first_query + 1U);
+    if (timestamp_result.failed()) {
+      timestamp_recording = false;
+      gpu_timing_supported_ = false;
+      output.gpu_timing_supported = false;
+    }
+  }
   if (result.ok()) {
     result = recording.submit();
+    if (result.ok() && timestamp_recording) {
+      timestamp_slot_valid_[timestamp_slot] = true;
+      timestamp_slot_sequences_[timestamp_slot] = packet.sequence;
+    }
   }
   output.record_submit_ms = std::chrono::duration<float, std::milli>(
                                 std::chrono::steady_clock::now() - record_submit_started)

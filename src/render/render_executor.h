@@ -26,6 +26,10 @@ struct render_execution_result final {
   float record_submit_ms{};
   float present_wait_ms{};
   float render_thread_ms{};
+  bool gpu_timing_supported{};
+  bool gpu_timing_valid{};
+  std::uint64_t gpu_timing_sequence{};
+  float gpu_frame_ms{};
 };
 
 struct render_frame_completion final {
@@ -88,6 +92,12 @@ struct render_queue_stats final {
   float maximum_frame_queue_wait_ms{};
   float latest_frame_capture_ms{};
   std::size_t latest_copied_payload_bytes{};
+  bool gpu_timing_supported{};
+  bool latest_gpu_timing_valid{};
+  std::uint64_t latest_gpu_timing_sequence{};
+  std::uint64_t gpu_timing_sample_count{};
+  std::uint64_t gpu_timing_unavailable_count{};
+  float latest_gpu_frame_ms{};
 };
 
 using render_frame_callback =
@@ -102,6 +112,7 @@ public:
 
 private:
   render_frame_callback callback_;
+  std::uint64_t next_sequence_{1U};
 };
 
 class threaded_render_executor final {

@@ -158,6 +158,7 @@
 - [M-174：0.26.0 渲染性能与跨平台验收](records/M-174-render-performance-validation.md)
 - [M-175：Granit 0.10.0 升级与兼容审计](records/M-175-granit-0.10-upgrade.md)
 - [M-176：Granit 运行时资产边界与接入审计](records/M-176-granit-render-asset-boundary.md)
+- [M-177：异步 GPU 时间戳](records/M-177-async-gpu-timestamps.md)
 - [glTF 资产链与渲染优化最终验收记录](records/2026-08-27-gltf-pipeline-final-validation.md)
 - [TOOL-001：glTF 资产编译器验收记录](records/TOOL-001-gltf-asset-compiler.md)
 - [TOOL-002：Mesh Binary v1 实施记录](records/TOOL-002-mesh-binary-v1.md)

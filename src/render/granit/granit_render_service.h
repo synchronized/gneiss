@@ -91,6 +91,7 @@ private:
   granit::surface surface_;
   granit::swapchain swapchain_;
   granit::frame_context frame_context_;
+  granit::timestamp_query_pool timestamp_queries_;
   granit::shader vertex_shader_;
   granit::shader fragment_shader_;
   granit::bind_group_layout texture_layout_;
@@ -115,6 +116,9 @@ private:
   std::array<uniform_frame, 3> uniform_frames_;
   std::uint64_t uniform_stride_{};
   std::uint64_t frame_index_{};
+  std::array<bool, 3> timestamp_slot_valid_{};
+  std::array<std::uint64_t, 3> timestamp_slot_sequences_{};
+  bool gpu_timing_supported_{};
   render_internal::threaded_render_executor executor_;
   std::vector<render_internal::render_frame_packet> recycled_frame_packets_;
   std::deque<render_internal::render_frame_completion> required_frame_completions_;

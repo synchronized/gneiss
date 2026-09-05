@@ -15,6 +15,9 @@ int main() {
   inline_render_executor inline_executor(
       [](render_frame_packet& packet, render_execution_result& output) {
         output.needs_recreate = packet.window.width == 7U;
+        if (packet.sequence == 0U) {
+          return GNEISS_ERROR_INVALID_STATE;
+        }
         return GNEISS_SUCCESS;
       });
   render_execution_result inline_result;
@@ -41,6 +44,12 @@ int main() {
           }
         }
         output.needs_recreate = packet.window.needs_recreate;
+        output.gpu_timing_supported = true;
+        if (packet.window.width == 3U) {
+          output.gpu_timing_valid = true;
+          output.gpu_timing_sequence = packet.sequence;
+          output.gpu_frame_ms = 1.25F;
+        }
         return GNEISS_SUCCESS;
       },
       1U);
@@ -92,7 +101,10 @@ int main() {
       stats.pending_frames != 0U || stats.pending_commands != 0U ||
       stats.latest_frame_queue_wait_ms < 0.0F ||
       stats.maximum_frame_queue_wait_ms < stats.latest_frame_queue_wait_ms ||
-      stats.latest_frame_capture_ms != 2.5F || stats.latest_copied_payload_bytes != 4096U) {
+      stats.latest_frame_capture_ms != 2.5F || stats.latest_copied_payload_bytes != 4096U ||
+      !stats.gpu_timing_supported || !stats.latest_gpu_timing_valid ||
+      stats.latest_gpu_timing_sequence != third_sequence || stats.gpu_timing_sample_count != 1U ||
+      stats.gpu_timing_unavailable_count != 1U || stats.latest_gpu_frame_ms != 1.25F) {
     return 6;
   }
   bool saw_dropped = false;
