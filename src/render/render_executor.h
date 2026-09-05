@@ -17,6 +17,11 @@ namespace gneiss::render_internal {
 struct render_execution_result final {
   bool needs_recreate{};
   float queue_wait_ms{};
+  float resource_prepare_ms{};
+  float acquire_wait_ms{};
+  float record_submit_ms{};
+  float present_wait_ms{};
+  float render_thread_ms{};
 };
 
 struct render_frame_completion final {
@@ -59,8 +64,18 @@ private:
 };
 
 struct render_queue_stats final {
+  std::size_t pending_tasks{};
+  std::size_t pending_frames{};
+  std::size_t pending_commands{};
   std::size_t pending_high_watermark{};
+  std::uint64_t submitted_frames{};
+  std::uint64_t executed_frames{};
   std::uint64_t replaced_frames{};
+  std::uint64_t submitted_commands{};
+  std::uint64_t executed_commands{};
+  std::uint64_t rejected_commands{};
+  float latest_frame_queue_wait_ms{};
+  float maximum_frame_queue_wait_ms{};
 };
 
 using render_frame_callback =

@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cmath>
 #include <cstddef>
 #include <cstring>
@@ -706,6 +707,7 @@ granit_render_service::execute_frame(render_internal::render_frame_packet& packe
   if (window.width == 0U || window.height == 0U) {
     return GNEISS_SUCCESS;
   }
+  const auto resource_prepare_started = std::chrono::steady_clock::now();
   if (window.needs_recreate) {
     const auto recreate_result =
         swapchain_.recreate({.width = window.width, .height = window.height});
@@ -850,8 +852,15 @@ granit_render_service::execute_frame(render_internal::render_frame_packet& packe
     return map_result(result);
   }
 
+  output.resource_prepare_ms = std::chrono::duration<float, std::milli>(
+                                   std::chrono::steady_clock::now() - resource_prepare_started)
+                                   .count();
   granit::acquired_frame frame;
+  const auto acquire_started = std::chrono::steady_clock::now();
   result = swapchain_.acquire(frame);
+  output.acquire_wait_ms =
+      std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - acquire_started)
+          .count();
   if (result == granit::result::out_of_date) {
     window.needs_recreate = true;
     return GNEISS_SUCCESS;
@@ -861,6 +870,7 @@ granit_render_service::execute_frame(render_internal::render_frame_packet& packe
   }
   window.needs_recreate = window.needs_recreate || frame.needs_recreate;
 
+  const auto record_submit_started = std::chrono::steady_clock::now();
   granit_texture texture = GRANIT_NULL_HANDLE;
   granit_texture_view view = GRANIT_NULL_HANDLE;
   result = swapchain_.backbuffer(frame.image_index, texture, view);
@@ -957,8 +967,15 @@ granit_render_service::execute_frame(render_internal::render_frame_packet& packe
   if (result.ok()) {
     result = recording.submit();
   }
+  output.record_submit_ms = std::chrono::duration<float, std::milli>(
+                                std::chrono::steady_clock::now() - record_submit_started)
+                                .count();
   if (result.ok()) {
+    const auto present_started = std::chrono::steady_clock::now();
     result = swapchain_.present(frame);
+    output.present_wait_ms =
+        std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - present_started)
+            .count();
   }
   window.needs_recreate = window.needs_recreate || frame.needs_recreate;
   if (result == granit::result::out_of_date) {

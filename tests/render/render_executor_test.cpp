@@ -85,7 +85,11 @@ int main() {
   }
   const auto stats = executor.query_stats();
   if (executed != std::vector<std::uint32_t>{1U, 3U} || completions.size() != 3U ||
-      stats.replaced_frames != 1U || stats.pending_high_watermark == 0U) {
+      stats.replaced_frames != 1U || stats.pending_high_watermark == 0U ||
+      stats.submitted_frames != 3U || stats.executed_frames != 2U || stats.pending_tasks != 0U ||
+      stats.pending_frames != 0U || stats.pending_commands != 0U ||
+      stats.latest_frame_queue_wait_ms < 0.0F ||
+      stats.maximum_frame_queue_wait_ms < stats.latest_frame_queue_wait_ms) {
     return 6;
   }
   bool saw_dropped = false;
@@ -161,7 +165,12 @@ int main() {
       command_completion.progress.total_work != 3U || !executor.is_running()) {
     return 12;
   }
+  const auto final_stats = executor.query_stats();
+  if (final_stats.submitted_commands != 2U || final_stats.executed_commands != 2U ||
+      final_stats.rejected_commands != 0U || command_completion.progress.total_work != 3U) {
+    return 13;
+  }
   executor.stop();
   executor.stop();
-  return executor.is_running() ? 13 : 0;
+  return executor.is_running() ? 14 : 0;
 }

@@ -83,11 +83,16 @@ void threaded_render_executor::state::run() noexcept {
           std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() -
                                                    task.enqueued_at)
               .count();
+      const auto execution_started = std::chrono::steady_clock::now();
       try {
         frame_completion.status = frame_callback(task.packet, frame_completion.execution);
       } catch (...) {
         frame_completion.status = GNEISS_ERROR_INTERNAL;
       }
+      frame_completion.execution.render_thread_ms =
+          std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() -
+                                                   execution_started)
+              .count();
     } else {
       command_completion.sequence = task.sequence;
       command_completion.progress.stage = render_command_stage::preparing;
@@ -119,8 +124,13 @@ void threaded_render_executor::state::run() noexcept {
     {
       std::lock_guard lock(mutex);
       if (task.kind == task_kind::frame) {
+        ++stats.executed_frames;
+        stats.latest_frame_queue_wait_ms = frame_completion.execution.queue_wait_ms;
+        stats.maximum_frame_queue_wait_ms =
+            std::max(stats.maximum_frame_queue_wait_ms, frame_completion.execution.queue_wait_ms);
         completed_frames.push_back(std::move(frame_completion));
       } else {
+        ++stats.executed_commands;
         completed_commands.push_back(std::move(command_completion));
       }
       executing = false;
@@ -165,6 +175,7 @@ gneiss_result threaded_render_executor::submit_frame(render_frame_packet packet,
       return GNEISS_ERROR_NOT_READY;
     }
     out_sequence = state_->next_sequence++;
+    ++state_->stats.submitted_frames;
     const auto frame_count = static_cast<std::size_t>(std::ranges::count_if(
         state_->pending, [](const auto& task) { return task.kind == state::task_kind::frame; }));
     if (frame_count >= state_->maximum_pending_frames) {
@@ -206,9 +217,11 @@ gneiss_result threaded_render_executor::submit_command(render_command_callback c
     std::lock_guard lock(state_->mutex);
     if (state_->stopping ||
         state_->pending.size() >= state_->maximum_pending_frames + std::size_t{8U}) {
+      ++state_->stats.rejected_commands;
       return GNEISS_ERROR_NOT_READY;
     }
     out_sequence = state_->next_sequence++;
+    ++state_->stats.submitted_commands;
     state_->pending.push_back({.kind = state::task_kind::command,
                                .sequence = out_sequence,
                                .packet = {},
@@ -269,7 +282,12 @@ render_queue_stats threaded_render_executor::query_stats() const noexcept {
     return {};
   }
   std::lock_guard lock(state_->mutex);
-  return state_->stats;
+  auto result = state_->stats;
+  result.pending_tasks = state_->pending.size();
+  result.pending_frames = static_cast<std::size_t>(std::ranges::count_if(
+      state_->pending, [](const auto& task) { return task.kind == state::task_kind::frame; }));
+  result.pending_commands = result.pending_tasks - result.pending_frames;
+  return result;
 }
 
 gneiss_result threaded_render_executor::flush() noexcept {
