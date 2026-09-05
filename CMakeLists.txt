@@ -92,6 +92,18 @@ install(
   ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
   INCLUDES DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
 )
+if(GNEISS_ENABLE_GRANIT_PLATFORM)
+  install(
+    FILES
+      "${GNEISS_GRANIT_RENDER_PIPELINE_ASSET_DIR}/shaders/pbr/pbr_standard.vert.grshader"
+      "${GNEISS_GRANIT_RENDER_PIPELINE_ASSET_DIR}/shaders/pbr/pbr_standard.vert.grshader.spv"
+      "${GNEISS_GRANIT_RENDER_PIPELINE_ASSET_DIR}/shaders/pbr/pbr_standard.vert.grshader.wgsl"
+      "${GNEISS_GRANIT_RENDER_PIPELINE_ASSET_DIR}/shaders/pbr/pbr_standard.frag.grshader"
+      "${GNEISS_GRANIT_RENDER_PIPELINE_ASSET_DIR}/shaders/pbr/pbr_standard.frag.grshader.spv"
+      "${GNEISS_GRANIT_RENDER_PIPELINE_ASSET_DIR}/shaders/pbr/pbr_standard.frag.grshader.wgsl"
+    DESTINATION "${CMAKE_INSTALL_DATADIR}/gneiss/runtime-assets/granit/shaders/pbr"
+  )
+endif()
 if(TARGET gneiss_runtime)
   install(
     TARGETS gneiss_runtime

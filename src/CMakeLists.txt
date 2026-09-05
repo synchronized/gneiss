@@ -125,6 +125,25 @@ target_sources(
 )
 
 if(GNEISS_ENABLE_GRANIT_PLATFORM)
+  set(granit_pbr_asset_dir "${GNEISS_GRANIT_RENDER_PIPELINE_ASSET_DIR}/shaders/pbr")
+  set(
+    granit_pbr_assets
+    pbr_standard.vert.grshader
+    pbr_standard.vert.grshader.spv
+    pbr_standard.vert.grshader.wgsl
+    pbr_standard.frag.grshader
+    pbr_standard.frag.grshader.spv
+    pbr_standard.frag.grshader.wgsl
+  )
+  if(NOT GNEISS_GRANIT_RENDER_PIPELINE_ASSET_DIR)
+    message(FATAL_ERROR "Granit Render Pipeline 未提供标准资产目录")
+  endif()
+  foreach(granit_pbr_asset IN LISTS granit_pbr_assets)
+    if(NOT EXISTS "${granit_pbr_asset_dir}/${granit_pbr_asset}")
+      message(FATAL_ERROR "缺少 Granit 标准 PBR 资产：${granit_pbr_asset_dir}/${granit_pbr_asset}")
+    endif()
+  endforeach()
+
   target_sources(
     gneiss_engine
     PRIVATE
@@ -146,6 +165,19 @@ if(GNEISS_ENABLE_GRANIT_PLATFORM)
   target_compile_definitions(gneiss_engine PRIVATE GNEISS_HAS_GRANIT_PLATFORM)
   target_link_libraries(
     gneiss_engine PRIVATE granit::granit granit::window granit::input granit::render_pipeline
+  )
+  add_custom_command(
+    TARGET gneiss_engine
+    POST_BUILD
+    COMMAND "${CMAKE_COMMAND}" -E make_directory
+            "$<TARGET_FILE_DIR:gneiss_engine>/assets/granit/shaders/pbr"
+    COMMAND
+      "${CMAKE_COMMAND}" -E copy_if_different
+      ${granit_pbr_assets}
+      "$<TARGET_FILE_DIR:gneiss_engine>/assets/granit/shaders/pbr"
+    WORKING_DIRECTORY "${granit_pbr_asset_dir}"
+    COMMAND_EXPAND_LISTS
+    VERBATIM
   )
 
   get_target_property(granit_runtime_is_imported granit::granit IMPORTED)
