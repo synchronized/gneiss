@@ -602,6 +602,19 @@ gneiss_target_output_directories(gneiss_scene_instance_test)
 add_test(NAME gneiss.scene_instance COMMAND gneiss_scene_instance_test)
 
 add_executable(
+  gneiss_structural_diff_test
+  scene/structural_diff_test.cpp
+  "${PROJECT_SOURCE_DIR}/src/scene/structural_diff.cpp"
+)
+target_include_directories(
+  gneiss_structural_diff_test PRIVATE "${PROJECT_SOURCE_DIR}/src" "${PROJECT_SOURCE_DIR}/include"
+)
+target_compile_features(gneiss_structural_diff_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_structural_diff_test)
+gneiss_target_output_directories(gneiss_structural_diff_test)
+add_test(NAME gneiss.structural_diff COMMAND gneiss_structural_diff_test)
+
+add_executable(
   gneiss_prefab_runtime_instance_test
   scene/prefab_runtime_instance_test.cpp
   "${PROJECT_SOURCE_DIR}/src/asset/asset_uri.cpp"
