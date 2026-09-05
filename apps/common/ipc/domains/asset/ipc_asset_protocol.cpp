@@ -5,6 +5,7 @@
 
 #include <yyjson.h>
 
+#include <algorithm>
 #include <array>
 #include <cstdlib>
 #include <memory>
@@ -30,6 +31,10 @@ using mutable_document_ptr = std::unique_ptr<yyjson_mut_doc, decltype(&yyjson_mu
     return "material";
   case ipc_asset_type::static_mesh:
     return "static_mesh";
+  case ipc_asset_type::scene:
+    return "scene";
+  case ipc_asset_type::prefab:
+    return "prefab";
   }
   return {};
 }
@@ -55,10 +60,29 @@ using mutable_document_ptr = std::unique_ptr<yyjson_mut_doc, decltype(&yyjson_mu
     output = ipc_asset_type::material;
   } else if (text == "static_mesh") {
     output = ipc_asset_type::static_mesh;
+  } else if (text == "scene") {
+    output = ipc_asset_type::scene;
+  } else if (text == "prefab") {
+    output = ipc_asset_type::prefab;
   } else {
     return false;
   }
   return true;
+}
+
+[[nodiscard]] bool valid_asset_group(std::span<const ipc_asset_revision> assets) noexcept {
+  if (assets.empty()) {
+    return false;
+  }
+  const bool structural =
+      assets.front().type == ipc_asset_type::scene || assets.front().type == ipc_asset_type::prefab;
+  return std::ranges::all_of(assets, [&](const auto& asset) {
+    if (!structural) {
+      return asset.type == ipc_asset_type::texture || asset.type == ipc_asset_type::material ||
+             asset.type == ipc_asset_type::static_mesh;
+    }
+    return asset.type == assets.front().type;
+  });
 }
 
 [[nodiscard]] bool parse_status(std::string_view text, ipc_asset_apply_status& output) noexcept {
@@ -119,7 +143,7 @@ using mutable_document_ptr = std::unique_ptr<yyjson_mut_doc, decltype(&yyjson_mu
 
 result encode_ipc_asset_request(const ipc_asset_reload_request& request,
                                 std::vector<std::uint8_t>& output) noexcept {
-  if (request.session_id == 0U || request.revision == 0U || request.assets.empty() ||
+  if (request.session_id == 0U || request.revision == 0U || !valid_asset_group(request.assets) ||
       request.assets.size() > max_asset_count) {
     return result::invalid_argument;
   }
@@ -192,6 +216,9 @@ result decode_ipc_asset_request(std::span<const std::uint8_t> payload,
         return result::invalid_argument;
       }
       parsed.assets.push_back(std::move(revision));
+    }
+    if (!valid_asset_group(parsed.assets)) {
+      return result::invalid_argument;
     }
     output = std::move(parsed);
     return result::success;

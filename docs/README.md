@@ -204,6 +204,7 @@
 - [M-156 身份协调结构差异实施记录](records/M-156-structural-diff.md)
 - [M-157 Scene 事务式结构替换记录](records/M-157-scene-transactional-structural-reload.md)
 - [M-158 Prefab 批量结构刷新记录](records/M-158-prefab-batch-structural-reload.md)
+- [M-159 Asset IPC 结构修订接线记录](records/M-159-structural-asset-ipc.md)
 - [M-65 公共 API 与稳定性审计记录](records/M-65-public-api-audit.md)
 - [M-66 稳定运行时代表性样例验收记录](records/M-66-stable-runtime-sample.md)
 - [M-67 公共 API 与 ABI 加固记录](records/M-67-api-abi-hardening.md)

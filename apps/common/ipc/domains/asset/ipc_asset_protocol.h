@@ -13,11 +13,11 @@
 
 namespace gneiss {
 
-inline constexpr std::uint16_t ipc_asset_domain_version = 1U;
+inline constexpr std::uint16_t ipc_asset_domain_version = 2U;
 inline constexpr std::size_t ipc_asset_max_payload_size = 256U * 1024U;
 
 enum class ipc_asset_operation : std::uint16_t { reload = 1U, resync = 2U };
-enum class ipc_asset_type : std::uint8_t { texture, material, static_mesh };
+enum class ipc_asset_type : std::uint8_t { texture, material, static_mesh, scene, prefab };
 enum class ipc_asset_apply_status : std::uint8_t {
   applied,
   failed,

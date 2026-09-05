@@ -46,7 +46,13 @@ struct runtime_process::implementation final {
   bool ipc_shutdown_complete = false;
   bool inspection_resync_pending = false;
   std::map<std::string, ipc_asset_type> known_assets;
-  std::vector<ipc_asset_revision> pending_assets;
+  struct asset_batch final {
+    std::uint64_t revision = 0U;
+    ipc_asset_operation operation{ipc_asset_operation::reload};
+    std::vector<ipc_asset_revision> assets;
+  };
+  std::deque<asset_batch> pending_asset_batches;
+  std::uint64_t asset_revision_in_flight = 0U;
   runtime_asset_reload_status asset_reload;
   std::uint64_t asset_session_id = 1U;
   bool asset_resync_required = true;
@@ -54,6 +60,66 @@ struct runtime_process::implementation final {
   editor_ipc_session ipc_session;
   runtime_control_state control_state = runtime_control_state::stopped;
   result last_result = result::success;
+
+  [[nodiscard]] std::uint64_t next_asset_revision() noexcept {
+    ++asset_reload.revision;
+    if (asset_reload.revision == 0U) {
+      asset_reload.revision = 1U;
+      ++asset_session_id;
+      if (asset_session_id == 0U) {
+        asset_session_id = 1U;
+      }
+    }
+    return asset_reload.revision;
+  }
+
+  void queue_asset_batch(std::vector<ipc_asset_revision> assets, ipc_asset_operation operation) {
+    if (assets.empty()) {
+      return;
+    }
+    const auto revision = next_asset_revision();
+    const bool render_batch = assets.front().type == ipc_asset_type::texture ||
+                              assets.front().type == ipc_asset_type::material ||
+                              assets.front().type == ipc_asset_type::static_mesh;
+    if (operation == ipc_asset_operation::reload && render_batch &&
+        !pending_asset_batches.empty() &&
+        pending_asset_batches.back().operation == ipc_asset_operation::reload &&
+        (pending_asset_batches.back().assets.front().type == ipc_asset_type::texture ||
+         pending_asset_batches.back().assets.front().type == ipc_asset_type::material ||
+         pending_asset_batches.back().assets.front().type == ipc_asset_type::static_mesh)) {
+      auto& pending = pending_asset_batches.back();
+      pending.revision = revision;
+      for (auto& asset : assets) {
+        const auto found = std::ranges::find(pending.assets, asset.uri, &ipc_asset_revision::uri);
+        if (found == pending.assets.end()) {
+          pending.assets.push_back(std::move(asset));
+        } else {
+          found->type = asset.type;
+        }
+      }
+      return;
+    }
+    pending_asset_batches.push_back(
+        {.revision = revision, .operation = operation, .assets = std::move(assets)});
+  }
+
+  void queue_asset_resync() {
+    pending_asset_batches.clear();
+    std::vector<ipc_asset_revision> render_assets;
+    std::vector<ipc_asset_revision> structural_assets;
+    for (const auto& [uri, type] : known_assets) {
+      if (type == ipc_asset_type::texture || type == ipc_asset_type::material ||
+          type == ipc_asset_type::static_mesh) {
+        render_assets.push_back({.uri = uri, .type = type});
+      } else {
+        structural_assets.push_back({.uri = uri, .type = type});
+      }
+    }
+    queue_asset_batch(std::move(render_assets), ipc_asset_operation::resync);
+    for (auto& asset : structural_assets) {
+      queue_asset_batch({std::move(asset)}, ipc_asset_operation::resync);
+    }
+  }
 
   void append_event_unique(app::runtime_log_record event) noexcept {
     const auto duplicate = std::ranges::any_of(console.entries(), [&](const auto& entry) {
@@ -143,18 +209,23 @@ struct runtime_process::implementation final {
       }
       if (const auto* value = std::get_if<runtime_asset_result_event>(&decoded_event)) {
         if (value->value.session_id == asset_session_id &&
-            value->value.revision == asset_reload.revision) {
+            value->value.revision == asset_revision_in_flight) {
+          asset_revision_in_flight = 0U;
           asset_reload.message = value->value.message;
           switch (value->value.status) {
           case ipc_asset_apply_status::applied:
           case ipc_asset_apply_status::stale:
-            asset_reload.state = runtime_asset_reload_state::applied;
+            asset_reload.state = pending_asset_batches.empty()
+                                     ? runtime_asset_reload_state::applied
+                                     : runtime_asset_reload_state::waiting;
             break;
           case ipc_asset_apply_status::failed:
             asset_reload.state = runtime_asset_reload_state::failed;
+            pending_asset_batches.clear();
             break;
           case ipc_asset_apply_status::restart_required:
             asset_reload.state = runtime_asset_reload_state::restart_required;
+            pending_asset_batches.clear();
             break;
           }
         }
@@ -203,30 +274,23 @@ struct runtime_process::implementation final {
       pending_inspection_input.pop_front();
     }
     property_edits.expire(now, std::chrono::seconds(2));
-    if (ipc_session.is_authenticated() && ipc_session.supports_asset_reload() &&
-        (asset_resync_required || !pending_assets.empty())) {
-      ipc_asset_reload_request request{
-          .session_id = asset_session_id, .revision = asset_reload.revision, .assets = {}};
-      const auto operation =
-          asset_resync_required ? ipc_asset_operation::resync : ipc_asset_operation::reload;
-      if (asset_resync_required) {
-        request.assets.reserve(known_assets.size());
-        for (const auto& [uri, type] : known_assets) {
-          request.assets.push_back({.uri = uri, .type = type});
-        }
-      } else {
-        request.assets = pending_assets;
-      }
-      if (!request.assets.empty()) {
-        const auto sent = ipc_session.send_asset_reload(request, operation);
-        if (sent != result::success) {
-          fail_ipc(sent);
-          return;
-        }
-        asset_reload.state = runtime_asset_reload_state::applying;
-      }
+    if (asset_resync_required) {
+      queue_asset_resync();
       asset_resync_required = false;
-      pending_assets.clear();
+    }
+    if (ipc_session.is_authenticated() && ipc_session.supports_asset_reload() &&
+        asset_revision_in_flight == 0U && !pending_asset_batches.empty()) {
+      auto& batch = pending_asset_batches.front();
+      const ipc_asset_reload_request request{
+          .session_id = asset_session_id, .revision = batch.revision, .assets = batch.assets};
+      const auto sent = ipc_session.send_asset_reload(request, batch.operation);
+      if (sent != result::success) {
+        fail_ipc(sent);
+        return;
+      }
+      asset_revision_in_flight = batch.revision;
+      pending_asset_batches.pop_front();
+      asset_reload.state = runtime_asset_reload_state::applying;
     }
   }
 
@@ -319,6 +383,7 @@ result runtime_process::start(const std::filesystem::path& executable,
     implementation_->ipc_shutdown_complete = false;
     implementation_->inspection_resync_pending = false;
     implementation_->asset_resync_required = true;
+    implementation_->asset_revision_in_flight = 0U;
     if (!implementation_->known_assets.empty()) {
       implementation_->asset_reload.state = runtime_asset_reload_state::waiting;
       implementation_->asset_reload.message = "等待 Runtime 全量同步资产修订";
@@ -490,7 +555,8 @@ result runtime_process::publish_asset_revision(std::span<const std::string> outp
     return result::invalid_argument;
   }
   try {
-    std::vector<ipc_asset_revision> assets;
+    std::vector<ipc_asset_revision> render_assets;
+    std::vector<ipc_asset_revision> structural_assets;
     for (const auto& uri : output_uris) {
       std::optional<ipc_asset_type> type;
       if (uri.ends_with(".texture.json")) {
@@ -499,28 +565,25 @@ result runtime_process::publish_asset_revision(std::span<const std::string> outp
         type = ipc_asset_type::material;
       } else if (uri.ends_with(".gneiss-mesh") || uri.ends_with(".mesh.json")) {
         type = ipc_asset_type::static_mesh;
+      } else if (uri.ends_with(".scene.json")) {
+        type = ipc_asset_type::scene;
+      } else if (uri.ends_with(".prefab.json")) {
+        type = ipc_asset_type::prefab;
       }
       if (type) {
         implementation_->known_assets.insert_or_assign(uri, *type);
-        assets.push_back({.uri = uri, .type = *type});
+        auto& destination = *type == ipc_asset_type::scene || *type == ipc_asset_type::prefab
+                                ? structural_assets
+                                : render_assets;
+        destination.push_back({.uri = uri, .type = *type});
       }
     }
-    if (assets.empty()) {
+    if (render_assets.empty() && structural_assets.empty()) {
       return result::unsupported;
     }
-    ++implementation_->asset_reload.revision;
-    if (implementation_->asset_reload.revision == 0U) {
-      implementation_->asset_reload.revision = 1U;
-      ++implementation_->asset_session_id;
-    }
-    for (auto& asset : assets) {
-      const auto pending =
-          std::ranges::find(implementation_->pending_assets, asset.uri, &ipc_asset_revision::uri);
-      if (pending == implementation_->pending_assets.end()) {
-        implementation_->pending_assets.push_back(std::move(asset));
-      } else {
-        pending->type = asset.type;
-      }
+    implementation_->queue_asset_batch(std::move(render_assets), ipc_asset_operation::reload);
+    for (auto& asset : structural_assets) {
+      implementation_->queue_asset_batch({std::move(asset)}, ipc_asset_operation::reload);
     }
     implementation_->asset_reload.state = runtime_asset_reload_state::waiting;
     implementation_->asset_reload.message = "等待 Runtime 应用资产修订";

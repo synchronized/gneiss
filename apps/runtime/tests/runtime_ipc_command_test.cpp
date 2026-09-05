@@ -40,7 +40,7 @@ int main() {
       ipc_domain_capability{.domain = ipc_domain::control, .version = 1U},
       ipc_domain_capability{.domain = ipc_domain::inspection, .version = 1U},
       ipc_domain_capability{.domain = ipc_domain::property, .version = 1U},
-      ipc_domain_capability{.domain = ipc_domain::asset, .version = 1U}};
+      ipc_domain_capability{.domain = ipc_domain::asset, .version = ipc_asset_domain_version}};
   const ipc_dispatch_context dispatch_context{.remote_role = ipc_peer_role::editor,
                                               .handshake_complete = true,
                                               .negotiated_domains = domains};

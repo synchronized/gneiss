@@ -4,6 +4,7 @@
 #include "ipc_asset_protocol.h"
 
 int main() {
+  static_assert(gneiss::ipc_asset_domain_version == 2U);
   const gneiss::ipc_asset_reload_request request{
       .session_id = 7U,
       .revision = 11U,
@@ -24,6 +25,24 @@ int main() {
   invalid.assets.push_back(invalid.assets.front());
   if (gneiss::encode_ipc_asset_request_v2(invalid, gneiss::ipc_asset_operation::reload, 20U,
                                           envelope) != gneiss::result::invalid_argument) {
+    return 2;
+  }
+  invalid = request;
+  invalid.assets.push_back(
+      {.uri = "asset://scenes/main.scene.json", .type = gneiss::ipc_asset_type::scene});
+  if (gneiss::encode_ipc_asset_request_v2(invalid, gneiss::ipc_asset_operation::reload, 20U,
+                                          envelope) != gneiss::result::invalid_argument) {
+    return 2;
+  }
+  const gneiss::ipc_asset_reload_request prefab_request{
+      .session_id = 7U,
+      .revision = 12U,
+      .assets = {
+          {.uri = "asset://prefabs/lamp.prefab.json", .type = gneiss::ipc_asset_type::prefab}}};
+  if (gneiss::encode_ipc_asset_request_v2(prefab_request, gneiss::ipc_asset_operation::reload, 20U,
+                                          envelope) != gneiss::result::success ||
+      gneiss::decode_ipc_asset_request_v2(envelope, decoded_request) != gneiss::result::success ||
+      decoded_request.assets.front().type != gneiss::ipc_asset_type::prefab) {
     return 2;
   }
   if (gneiss::encode_ipc_asset_request_v2(request, gneiss::ipc_asset_operation::resync, 21U,

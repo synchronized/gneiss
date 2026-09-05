@@ -65,8 +65,31 @@ struct runtime_context final {
 }
 
 gneiss::result apply_asset_revision(gneiss_application application, gneiss_scene_instance scene,
+                                    std::string_view startup_scene,
                                     std::span<const gneiss::ipc_asset_revision> assets) noexcept {
   try {
+    if (assets.empty()) {
+      return gneiss::result::invalid_argument;
+    }
+    if (assets.front().type == gneiss::ipc_asset_type::scene) {
+      if (assets.size() != 1U) {
+        return gneiss::result::invalid_argument;
+      }
+      if (assets.front().uri != startup_scene) {
+        return gneiss::result::success;
+      }
+      return gneiss::from_native(
+          gneiss::application_internal::reload_scene(application, scene, assets.front().uri));
+    }
+    if (assets.front().type == gneiss::ipc_asset_type::prefab) {
+      if (assets.size() != 1U) {
+        return gneiss::result::invalid_argument;
+      }
+      const auto reloaded =
+          gneiss::application_internal::reload_prefab(application, scene, assets.front().uri);
+      return reloaded == GNEISS_ERROR_NOT_FOUND ? gneiss::result::success
+                                                : gneiss::from_native(reloaded);
+    }
     std::vector<gneiss::render_internal::render_asset_reload> reloads;
     reloads.reserve(assets.size());
     for (const auto& asset : assets) {
@@ -81,6 +104,8 @@ gneiss::result apply_asset_revision(gneiss_application application, gneiss_scene
       case gneiss::ipc_asset_type::static_mesh:
         type = gneiss::render_internal::render_asset_type::mesh;
         break;
+      case gneiss::ipc_asset_type::scene:
+      case gneiss::ipc_asset_type::prefab:
       default:
         return gneiss::result::invalid_argument;
       }
@@ -433,9 +458,9 @@ void write_application_log(gneiss_application, const gneiss_log_event* event, vo
   context.inspection_session_id = inspection_serial == 0U ? 1U : inspection_serial;
   context.scene = scene;
   gneiss::runtime_internal::runtime_asset_reloader asset_reloader(
-      [application_handle = application.get(),
-       scene](std::span<const gneiss::ipc_asset_revision> assets) {
-        return apply_asset_revision(application_handle, scene, assets);
+      [application_handle = application.get(), scene,
+       startup_scene = project.startup_scene](std::span<const gneiss::ipc_asset_revision> assets) {
+        return apply_asset_revision(application_handle, scene, startup_scene, assets);
       });
   context.asset_reloader = &asset_reloader;
 
