@@ -64,6 +64,9 @@ int main() {
   window.width = 640U;
   window.height = 480U;
   ui_draw_list ui;
+  const auto* source_mesh = resources.get_mesh(mesh);
+  const auto* source_material = resources.get_material(material);
+  const auto* source_texture = resources.get_texture(texture);
   render_frame_packet packet;
   if (capture_render_frame_packet(window, std::move(scene), resources, ui, debug, packet) !=
       GNEISS_SUCCESS) {
@@ -83,8 +86,8 @@ int main() {
       captured_mesh->vertices.size() != 3U || captured_material == nullptr ||
       captured_material->base_color_texture != texture || captured_texture == nullptr ||
       captured_texture->pixels.front() != std::byte{1} || packet.capture.capture_ms < 0.0F ||
-      packet.capture.copied_payload_bytes <
-          vertices.size() * sizeof(gneiss_mesh_vertex) + pixels.size()) {
+      packet.capture.copied_payload_bytes == 0U || captured_mesh != source_mesh ||
+      captured_material != source_material || captured_texture != source_texture) {
     return 7;
   }
   return 0;

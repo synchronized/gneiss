@@ -28,9 +28,9 @@ private:
                                                    const ui_draw_list&, const debug_draw_list&,
                                                    struct render_frame_packet&) noexcept;
 
-  std::unordered_map<gneiss_mesh, mesh_resource> meshes_;
-  std::unordered_map<gneiss_material, material_resource> materials_;
-  std::unordered_map<gneiss_texture, texture_resource> textures_;
+  std::unordered_map<gneiss_mesh, std::shared_ptr<const mesh_resource>> meshes_;
+  std::unordered_map<gneiss_material, std::shared_ptr<const material_resource>> materials_;
+  std::unordered_map<gneiss_texture, std::shared_ptr<const texture_resource>> textures_;
 };
 
 struct render_frame_capture_metrics final {
