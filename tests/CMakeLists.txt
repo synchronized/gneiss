@@ -425,6 +425,22 @@ if(GNEISS_ENABLE_GRANIT_PLATFORM)
   gneiss_target_output_directories(gneiss_render_frame_packet_test)
   add_test(NAME gneiss.render_frame_packet COMMAND gneiss_render_frame_packet_test)
 
+  add_executable(
+    gneiss_pbr_shader_resolver_test
+    render/pbr_shader_resolver_test.cpp
+    "${PROJECT_SOURCE_DIR}/src/render/granit/pbr_shader_resolver.cpp"
+  )
+  target_include_directories(gneiss_pbr_shader_resolver_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+  target_compile_definitions(
+    gneiss_pbr_shader_resolver_test
+    PRIVATE GNEISS_TEST_GRANIT_PBR_ASSET_DIR="${GNEISS_GRANIT_RENDER_PIPELINE_ASSET_DIR}/shaders/pbr"
+  )
+  target_link_libraries(gneiss_pbr_shader_resolver_test PRIVATE granit::render_pipeline)
+  target_compile_features(gneiss_pbr_shader_resolver_test PRIVATE cxx_std_20)
+  gneiss_target_compile_warnings(gneiss_pbr_shader_resolver_test)
+  gneiss_target_output_directories(gneiss_pbr_shader_resolver_test)
+  add_test(NAME gneiss.pbr_shader_resolver COMMAND gneiss_pbr_shader_resolver_test)
+
   add_executable(gneiss_granit_platform_smoke_test granit_platform_smoke_test.cpp)
   target_link_libraries(gneiss_granit_platform_smoke_test PRIVATE gneiss::engine)
   target_compile_features(gneiss_granit_platform_smoke_test PRIVATE cxx_std_20)

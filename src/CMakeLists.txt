@@ -155,6 +155,8 @@ if(GNEISS_ENABLE_GRANIT_PLATFORM)
       render/granit/granit_render_service.h
       render/granit/object_uniform.cpp
       render/granit/object_uniform.h
+      render/granit/pbr_shader_resolver.cpp
+      render/granit/pbr_shader_resolver.h
       render/render_frame_packet.cpp
       render/render_frame_packet.h
       render/render_executor.cpp
