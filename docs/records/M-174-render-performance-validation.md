@@ -6,8 +6,8 @@
 ## 结果
 
 0.26.0 已完成 Windows Clang Shared/Static 本地构建、全量自动化测试和 Lantern Gallery 冒烟
-验证。压力夹具确认普通 Frame Packet 不再复制稳定 Texture 像素正文；Linux、MSVC、安装消费、
-Granit Runtime 和 Sanitizer 仍需在最终提交上通过手动 Actions 后才能完成版本验收。
+验证。压力夹具确认普通 Frame Packet 不再复制稳定 Texture 像素正文；最终分支同时通过 Linux、
+MSVC、安装消费、Granit Runtime 和 Sanitizer 手动 Actions，版本验收完成。
 
 ## 测量方法与复制量对比
 
@@ -33,9 +33,9 @@ Granit Runtime 和 Sanitizer 仍需在最终提交上通过手动 Actions 后才
   基线。
 - `git diff --check` 通过。
 
-## 待完成验证
+## 远端验证
 
-- Linux Clang/GCC Shared/Static、Granit Runtime Shared/Static 和 Sanitizer。
-- Windows MSVC Runtime Shared/Static 与安装后 C/C++ Consumer Shared/Static。
-
-以上项目需要推送最终分支并手动触发远端 Actions；通过后再补充运行链接并将 M-174 标记为完成。
+- [Linux Actions](https://github.com/synchronized/gneiss/actions/runs/33969006592)：Clang/GCC
+  Shared/Static、Granit Runtime Shared/Static 和 Sanitizer 共 7 个任务全部通过。
+- [Windows Actions](https://github.com/synchronized/gneiss/actions/runs/33969008478)：MSVC Runtime
+  Shared/Static 和安装后 C/C++ Consumer Shared/Static 共 4 个任务全部通过。
