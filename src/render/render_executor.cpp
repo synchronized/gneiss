@@ -95,6 +95,7 @@ void threaded_render_executor::state::run() noexcept {
           std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() -
                                                    execution_started)
               .count();
+      frame_completion.reusable_packet = std::move(task.packet);
     } else {
       command_completion.sequence = task.sequence;
       command_completion.progress.stage = render_command_stage::preparing;
@@ -186,11 +187,13 @@ gneiss_result threaded_render_executor::submit_frame(render_frame_packet packet,
       const auto replace = std::ranges::find_if(
           state_->pending, [](const auto& task) { return task.kind == state::task_kind::frame; });
       const auto dropped_sequence = replace->sequence;
+      render_frame_completion dropped_completion{.sequence = dropped_sequence,
+                                                 .status = GNEISS_ERROR_NOT_READY,
+                                                 .execution = {},
+                                                 .dropped = true,
+                                                 .reusable_packet = std::move(replace->packet)};
       state_->pending.erase(replace);
-      state_->completed_frames.push_back({.sequence = dropped_sequence,
-                                          .status = GNEISS_ERROR_NOT_READY,
-                                          .execution = {},
-                                          .dropped = true});
+      state_->completed_frames.push_back(std::move(dropped_completion));
       ++state_->stats.replaced_frames;
     }
     state_->pending.push_back({.kind = state::task_kind::frame,

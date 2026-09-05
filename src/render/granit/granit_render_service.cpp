@@ -532,6 +532,9 @@ gneiss_result granit_render_service::initialize(const native_window_info& window
 gneiss_result granit_render_service::collect_completions() noexcept {
   render_internal::render_frame_completion completion;
   while (executor_.try_take_frame_completion(completion)) {
+    if (recycled_frame_packets_.size() < 3U) {
+      recycled_frame_packets_.push_back(std::move(completion.reusable_packet));
+    }
     if (completion.dropped) {
       continue;
     }
@@ -539,6 +542,19 @@ gneiss_result granit_render_service::collect_completions() noexcept {
     if (completion.status != GNEISS_SUCCESS) {
       return completion.status;
     }
+  }
+  return GNEISS_SUCCESS;
+}
+
+gneiss_result granit_render_service::prepare_frame_packet_storage(
+    render_internal::render_frame_packet& packet) noexcept {
+  const auto completion_result = collect_completions();
+  if (completion_result != GNEISS_SUCCESS) {
+    return completion_result;
+  }
+  if (!recycled_frame_packets_.empty()) {
+    packet = std::move(recycled_frame_packets_.back());
+    recycled_frame_packets_.pop_back();
   }
   return GNEISS_SUCCESS;
 }
@@ -581,6 +597,7 @@ gneiss_result granit_render_service::shutdown(granit::renderer_resource_stats& s
   render_internal::render_command_completion completion;
   const auto has_completion = executor_.try_take_command_completion(completion);
   executor_.stop();
+  recycled_frame_packets_.clear();
   if (frame_result != GNEISS_SUCCESS) {
     return frame_result;
   }

@@ -50,7 +50,11 @@ gneiss_result capture_render_frame_packet(const application_internal::native_win
                                           render_frame_packet& out_packet) noexcept {
   const auto capture_started = std::chrono::steady_clock::now();
   try {
-    render_frame_packet candidate;
+    render_frame_packet candidate = std::move(out_packet);
+    candidate.resources.meshes_.clear();
+    candidate.resources.materials_.clear();
+    candidate.resources.textures_.clear();
+    candidate.capture = {};
     candidate.window = window;
     candidate.scene = std::move(scene);
     candidate.ui = ui;

@@ -97,14 +97,19 @@ int main() {
   }
   bool saw_dropped = false;
   bool saw_recreate = false;
+  bool saw_reusable_packet = false;
   for (const auto& item : completions) {
     saw_dropped = saw_dropped || (item.sequence == second_sequence && item.dropped &&
                                   item.status == GNEISS_ERROR_NOT_READY);
     saw_recreate =
         saw_recreate || (item.sequence == third_sequence && item.execution.needs_recreate);
+    saw_reusable_packet =
+        saw_reusable_packet ||
+        (item.sequence == third_sequence && item.reusable_packet.window.width == 3U &&
+         item.reusable_packet.capture.copied_payload_bytes == 4096U);
   }
   if (!saw_dropped || !saw_recreate || first_sequence == second_sequence ||
-      second_sequence == third_sequence) {
+      second_sequence == third_sequence || !saw_reusable_packet) {
     return 7;
   }
 

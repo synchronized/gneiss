@@ -306,6 +306,10 @@ gneiss_result application_state::render_frame() noexcept {
     return snapshot_result;
   }
   render_internal::render_frame_packet packet;
+  const auto storage_result = granit_render_service_->prepare_frame_packet_storage(packet);
+  if (storage_result != GNEISS_SUCCESS) {
+    return storage_result;
+  }
   const auto capture_result = render_internal::capture_render_frame_packet(
       window, std::move(snapshot), resources_, ui_draw_list_, debug_draw_list_, packet);
   if (capture_result != GNEISS_SUCCESS) {

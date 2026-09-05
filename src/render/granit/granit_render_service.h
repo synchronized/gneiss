@@ -30,6 +30,8 @@ class granit_render_service final {
 public:
   [[nodiscard]] gneiss_result initialize(const native_window_info& window) noexcept;
   [[nodiscard]] gneiss_result shutdown(granit::renderer_resource_stats& stats) noexcept;
+  [[nodiscard]] gneiss_result
+  prepare_frame_packet_storage(render_internal::render_frame_packet& packet) noexcept;
   [[nodiscard]] gneiss_result submit(render_internal::render_frame_packet packet) noexcept;
   [[nodiscard]] render_internal::render_queue_stats query_performance_stats() const noexcept;
 
@@ -107,6 +109,7 @@ private:
   std::uint64_t uniform_stride_{};
   std::uint64_t frame_index_{};
   render_internal::threaded_render_executor executor_;
+  std::vector<render_internal::render_frame_packet> recycled_frame_packets_;
   bool pending_recreate_{};
 };
 
