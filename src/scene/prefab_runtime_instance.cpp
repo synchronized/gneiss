@@ -29,36 +29,38 @@ to_native_value(const gneiss::scene_internal::prefab_property_value& source,
         using value_type = std::decay_t<decltype(payload)>;
         if constexpr (std::is_same_v<value_type, std::monostate>) {
           return GNEISS_ERROR_INVALID_ARGUMENT;
-        } else if constexpr (std::is_same_v<value_type, bool>) {
-          output.kind = GNEISS_PROPERTY_KIND_BOOL;
-          output.payload.bool_value = payload ? UINT8_C(1) : UINT8_C(0);
-        } else if constexpr (std::is_same_v<value_type, std::int64_t>) {
-          output.kind = GNEISS_PROPERTY_KIND_INT64;
-          output.payload.int64_value = payload;
-        } else if constexpr (std::is_same_v<value_type, std::uint64_t>) {
-          output.kind = GNEISS_PROPERTY_KIND_UINT64;
-          output.payload.uint64_value = payload;
-        } else if constexpr (std::is_same_v<value_type, float>) {
-          output.kind = GNEISS_PROPERTY_KIND_FLOAT32;
-          output.payload.float32_value = payload;
-        } else if constexpr (std::is_same_v<value_type, double>) {
-          output.kind = GNEISS_PROPERTY_KIND_FLOAT64;
-          output.payload.float64_value = payload;
-        } else if constexpr (std::is_same_v<value_type, std::string>) {
-          output.kind = GNEISS_PROPERTY_KIND_STRING;
-          output.payload.string_value = {payload.data(),
-                                         static_cast<std::uint32_t>(payload.size())};
-        } else if constexpr (std::is_same_v<value_type, std::array<std::uint8_t, 16>>) {
-          output.kind = GNEISS_PROPERTY_KIND_TYPE_ID;
-          std::ranges::copy(payload, output.payload.type_id_value.bytes);
-        } else if constexpr (std::is_same_v<value_type, std::array<float, 3>>) {
-          output.kind = GNEISS_PROPERTY_KIND_VEC3;
-          output.payload.vec3_value = {payload[0], payload[1], payload[2]};
         } else {
-          output.kind = GNEISS_PROPERTY_KIND_QUATERNION;
-          output.payload.quaternion_value = {payload[0], payload[1], payload[2], payload[3]};
+          if constexpr (std::is_same_v<value_type, bool>) {
+            output.kind = GNEISS_PROPERTY_KIND_BOOL;
+            output.payload.bool_value = payload ? UINT8_C(1) : UINT8_C(0);
+          } else if constexpr (std::is_same_v<value_type, std::int64_t>) {
+            output.kind = GNEISS_PROPERTY_KIND_INT64;
+            output.payload.int64_value = payload;
+          } else if constexpr (std::is_same_v<value_type, std::uint64_t>) {
+            output.kind = GNEISS_PROPERTY_KIND_UINT64;
+            output.payload.uint64_value = payload;
+          } else if constexpr (std::is_same_v<value_type, float>) {
+            output.kind = GNEISS_PROPERTY_KIND_FLOAT32;
+            output.payload.float32_value = payload;
+          } else if constexpr (std::is_same_v<value_type, double>) {
+            output.kind = GNEISS_PROPERTY_KIND_FLOAT64;
+            output.payload.float64_value = payload;
+          } else if constexpr (std::is_same_v<value_type, std::string>) {
+            output.kind = GNEISS_PROPERTY_KIND_STRING;
+            output.payload.string_value = {payload.data(),
+                                           static_cast<std::uint32_t>(payload.size())};
+          } else if constexpr (std::is_same_v<value_type, std::array<std::uint8_t, 16>>) {
+            output.kind = GNEISS_PROPERTY_KIND_TYPE_ID;
+            std::ranges::copy(payload, output.payload.type_id_value.bytes);
+          } else if constexpr (std::is_same_v<value_type, std::array<float, 3>>) {
+            output.kind = GNEISS_PROPERTY_KIND_VEC3;
+            output.payload.vec3_value = {payload[0], payload[1], payload[2]};
+          } else {
+            output.kind = GNEISS_PROPERTY_KIND_QUATERNION;
+            output.payload.quaternion_value = {payload[0], payload[1], payload[2], payload[3]};
+          }
+          return GNEISS_SUCCESS;
         }
-        return GNEISS_SUCCESS;
       },
       source.payload);
 }
