@@ -18,7 +18,7 @@ set(
 )
 set(
   GNEISS_GRANIT_GIT_TAG
-  "a126b5f719ef48215e02a190bb1b4c5b3e5708e8"
+  "eb970c74570e278678ee39530c68afc40101879f"
   CACHE STRING
   "FETCH 模式锁定的 Granit Git tag 或完整提交"
 )

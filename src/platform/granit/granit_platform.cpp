@@ -10,22 +10,22 @@ namespace gneiss::application_internal {
 namespace {
 
 gneiss_result map_result(granit::result result) noexcept {
-  switch (result) {
-  case granit::result::success:
+  switch (result.native()) {
+  case granit::result::success.native():
     return GNEISS_SUCCESS;
-  case granit::result::invalid_argument:
+  case granit::result::invalid_argument.native():
     return GNEISS_ERROR_INVALID_ARGUMENT;
-  case granit::result::invalid_handle:
+  case granit::result::invalid_handle.native():
     return GNEISS_ERROR_INVALID_HANDLE;
-  case granit::result::out_of_memory:
+  case granit::result::out_of_memory.native():
     return GNEISS_ERROR_OUT_OF_MEMORY;
-  case granit::result::unsupported:
-  case granit::result::backend_unavailable:
+  case granit::result::unsupported.native():
+  case granit::result::backend_unavailable.native():
     return GNEISS_ERROR_UNSUPPORTED;
-  case granit::result::not_ready:
+  case granit::result::not_ready.native():
     return GNEISS_ERROR_NOT_READY;
-  case granit::result::initialization_failed:
-  case granit::result::incompatible_driver:
+  case granit::result::initialization_failed.native():
+  case granit::result::incompatible_driver.native():
     return GNEISS_ERROR_INITIALIZATION_FAILED;
   default:
     return GNEISS_ERROR_DEPENDENCY_FAILED;
@@ -36,7 +36,7 @@ gneiss_result map_result(granit::result result) noexcept {
 
 gneiss_result granit_platform::initialize(const gneiss_application_desc& desc) noexcept {
   auto result = window_system_.initialize();
-  if (granit::failed(result)) {
+  if (result.failed()) {
     return map_result(result);
   }
   std::uint32_t flags = 0;
@@ -55,14 +55,14 @@ gneiss_result granit_platform::initialize(const gneiss_application_desc& desc) n
   result = window_.initialize(
       window_system_.native_handle(),
       {.title = title, .width = desc.window_width, .height = desc.window_height, .flags = flags});
-  if (granit::failed(result)) {
+  if (result.failed()) {
     return map_result(result);
   }
   result = input_system_.initialize(window_system_.native_handle());
   if (result == granit::result::unsupported || result == granit::result::backend_unavailable) {
     // 无头合成器等环境可能不提供输入座席；窗口与渲染仍可正常工作。
     input_available_ = false;
-  } else if (granit::failed(result)) {
+  } else if (result.failed()) {
     return map_result(result);
   } else {
     input_available_ = true;
@@ -71,17 +71,17 @@ gneiss_result granit_platform::initialize(const gneiss_application_desc& desc) n
   native_window_.width = desc.window_width;
   native_window_.height = desc.window_height;
   result = window_.native_win32(native_window_.display, native_window_.window);
-  if (granit::succeeded(result)) {
+  if (result.ok()) {
     native_window_.backend = native_window_backend::win32;
     return GNEISS_SUCCESS;
   }
   result = window_.native_xcb(native_window_.display, native_window_.xcb_window);
-  if (granit::succeeded(result)) {
+  if (result.ok()) {
     native_window_.backend = native_window_backend::xcb;
     return GNEISS_SUCCESS;
   }
   result = window_.native_wayland(native_window_.display, native_window_.window);
-  if (granit::succeeded(result)) {
+  if (result.ok()) {
     native_window_.backend = native_window_backend::wayland;
     return GNEISS_SUCCESS;
   }
@@ -95,7 +95,7 @@ gneiss_result granit_platform::poll_input(gneiss_input_event& out_event) noexcep
   }
   granit::input_event source = GRANIT_INPUT_EVENT_INIT;
   const auto result = input_system_.poll(source);
-  if (granit::failed(result)) {
+  if (result.failed()) {
     return map_result(result);
   }
   out_event = GNEISS_INPUT_EVENT_INIT;
@@ -155,7 +155,7 @@ gneiss_result granit_platform::keyboard(gneiss_keyboard_state& out_state) const 
     out_state = GNEISS_KEYBOARD_STATE_INIT;
     return GNEISS_SUCCESS;
   }
-  if (granit::failed(result)) {
+  if (result.failed()) {
     return map_result(result);
   }
   static_assert(sizeof(out_state.pressed_keys) == sizeof(source.pressed_keys));
@@ -176,7 +176,7 @@ gneiss_result granit_platform::pointer(gneiss_pointer_state& out_state) const no
     out_state = GNEISS_POINTER_STATE_INIT;
     return GNEISS_SUCCESS;
   }
-  if (granit::failed(result)) {
+  if (result.failed()) {
     return map_result(result);
   }
   out_state = GNEISS_POINTER_STATE_INIT;
