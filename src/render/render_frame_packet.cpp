@@ -3,6 +3,7 @@
 
 #include "render/render_frame_packet.h"
 
+#include <chrono>
 #include <new>
 #include <utility>
 
@@ -47,6 +48,7 @@ gneiss_result capture_render_frame_packet(const application_internal::native_win
                                           const render_resource_service& resources,
                                           const ui_draw_list& ui, const debug_draw_list& debug,
                                           render_frame_packet& out_packet) noexcept {
+  const auto capture_started = std::chrono::steady_clock::now();
   try {
     render_frame_packet candidate;
     candidate.window = window;
@@ -81,6 +83,27 @@ gneiss_result capture_render_frame_packet(const application_internal::native_win
         return result;
       }
     }
+    std::size_t copied_payload_bytes =
+        candidate.scene.instances.size() * sizeof(world_internal::render_instance_snapshot) +
+        candidate.ui.vertices().size() * sizeof(gneiss_ui_vertex) +
+        candidate.ui.indices().size() * sizeof(std::uint32_t) +
+        candidate.ui.commands().size() * sizeof(gneiss_ui_draw_command) +
+        candidate.debug.lines().size() * sizeof(gneiss_debug_line);
+    for (const auto& [handle, mesh] : candidate.resources.meshes_) {
+      static_cast<void>(handle);
+      copied_payload_bytes += mesh.vertices.size() * sizeof(gneiss_mesh_vertex) +
+                              mesh.normals.size() * sizeof(gneiss_mesh_normal) +
+                              mesh.indices.size() * sizeof(std::uint32_t);
+    }
+    copied_payload_bytes += candidate.resources.materials_.size() * sizeof(material_resource);
+    for (const auto& [handle, texture] : candidate.resources.textures_) {
+      static_cast<void>(handle);
+      copied_payload_bytes += texture.pixels.size();
+    }
+    candidate.capture.capture_ms =
+        std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - capture_started)
+            .count();
+    candidate.capture.copied_payload_bytes = copied_payload_bytes;
     out_packet = std::move(candidate);
     return GNEISS_SUCCESS;
   } catch (const std::bad_alloc&) {

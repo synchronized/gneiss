@@ -554,6 +554,11 @@ gneiss_result granit_render_service::submit(render_internal::render_frame_packet
   return executor_.submit_frame(std::move(packet), sequence);
 }
 
+render_internal::render_queue_stats
+granit_render_service::query_performance_stats() const noexcept {
+  return executor_.query_stats();
+}
+
 gneiss_result granit_render_service::shutdown(granit::renderer_resource_stats& stats) noexcept {
   if (!executor_.is_running()) {
     return GNEISS_ERROR_NOT_READY;

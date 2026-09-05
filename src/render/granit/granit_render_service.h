@@ -31,6 +31,7 @@ public:
   [[nodiscard]] gneiss_result initialize(const native_window_info& window) noexcept;
   [[nodiscard]] gneiss_result shutdown(granit::renderer_resource_stats& stats) noexcept;
   [[nodiscard]] gneiss_result submit(render_internal::render_frame_packet packet) noexcept;
+  [[nodiscard]] render_internal::render_queue_stats query_performance_stats() const noexcept;
 
 private:
   [[nodiscard]] gneiss_result initialize_gpu(const native_window_info& window) noexcept;

@@ -82,7 +82,9 @@ int main() {
       packet.debug.lines().size() != 1U || captured_mesh == nullptr ||
       captured_mesh->vertices.size() != 3U || captured_material == nullptr ||
       captured_material->base_color_texture != texture || captured_texture == nullptr ||
-      captured_texture->pixels.front() != std::byte{1}) {
+      captured_texture->pixels.front() != std::byte{1} || packet.capture.capture_ms < 0.0F ||
+      packet.capture.copied_payload_bytes <
+          vertices.size() * sizeof(gneiss_mesh_vertex) + pixels.size()) {
     return 7;
   }
   return 0;

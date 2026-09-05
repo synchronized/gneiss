@@ -64,6 +64,8 @@ int main() {
   render_frame_packet third;
   third.window.width = 3U;
   third.window.needs_recreate = true;
+  third.capture.capture_ms = 2.5F;
+  third.capture.copied_payload_bytes = 4096U;
   std::uint64_t third_sequence = 0U;
   if (executor.submit_frame(std::move(second), second_sequence) != GNEISS_SUCCESS ||
       executor.submit_frame(std::move(third), third_sequence) != GNEISS_SUCCESS) {
@@ -89,7 +91,8 @@ int main() {
       stats.submitted_frames != 3U || stats.executed_frames != 2U || stats.pending_tasks != 0U ||
       stats.pending_frames != 0U || stats.pending_commands != 0U ||
       stats.latest_frame_queue_wait_ms < 0.0F ||
-      stats.maximum_frame_queue_wait_ms < stats.latest_frame_queue_wait_ms) {
+      stats.maximum_frame_queue_wait_ms < stats.latest_frame_queue_wait_ms ||
+      stats.latest_frame_capture_ms != 2.5F || stats.latest_copied_payload_bytes != 4096U) {
     return 6;
   }
   bool saw_dropped = false;

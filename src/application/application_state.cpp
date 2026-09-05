@@ -428,8 +428,32 @@ gneiss_result application_state::shutdown(gneiss_application handle) noexcept {
   }
 #ifdef GNEISS_HAS_GRANIT_PLATFORM
   if (granit_render_service_ != nullptr) {
+    const auto render_stats = granit_render_service_->query_performance_stats();
     granit::renderer_resource_stats stats;
     shutdown_result = granit_render_service_->shutdown(stats);
+    std::array<char, 768> performance_message{};
+    const auto performance_written = std::snprintf(
+        performance_message.data(), performance_message.size(),
+        "渲染线程统计：提交帧=%llu，执行帧=%llu，替换帧=%llu，提交命令=%llu，执行命令=%llu，"
+        "拒绝命令=%llu，队列高水位=%zu，最近构造=%.3f ms，复制=%zu bytes，最近排队=%.3f ms，"
+        "最大排队=%.3f ms",
+        static_cast<unsigned long long>(render_stats.submitted_frames),
+        static_cast<unsigned long long>(render_stats.executed_frames),
+        static_cast<unsigned long long>(render_stats.replaced_frames),
+        static_cast<unsigned long long>(render_stats.submitted_commands),
+        static_cast<unsigned long long>(render_stats.executed_commands),
+        static_cast<unsigned long long>(render_stats.rejected_commands),
+        render_stats.pending_high_watermark, render_stats.latest_frame_capture_ms,
+        render_stats.latest_copied_payload_bytes, render_stats.latest_frame_queue_wait_ms,
+        render_stats.maximum_frame_queue_wait_ms);
+    const auto performance_length =
+        performance_written > 0
+            ? std::min<std::size_t>(static_cast<std::size_t>(performance_written),
+                                    performance_message.size() - 1U)
+            : 0U;
+    report(handle, GNEISS_DIAGNOSTIC_INFO, GNEISS_DIAGNOSTIC_CATEGORY_BACKEND, GNEISS_SUCCESS,
+           "granit.render.performance",
+           std::string_view(performance_message.data(), performance_length));
     if (shutdown_result != GNEISS_SUCCESS) {
       std::array<char, 768> message{};
       const auto written =

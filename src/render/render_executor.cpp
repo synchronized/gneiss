@@ -79,6 +79,8 @@ void threaded_render_executor::state::run() noexcept {
     render_command_completion command_completion;
     if (task.kind == task_kind::frame) {
       frame_completion.sequence = task.sequence;
+      frame_completion.execution.frame_capture_ms = task.packet.capture.capture_ms;
+      frame_completion.execution.copied_payload_bytes = task.packet.capture.copied_payload_bytes;
       frame_completion.execution.queue_wait_ms =
           std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() -
                                                    task.enqueued_at)
@@ -126,6 +128,8 @@ void threaded_render_executor::state::run() noexcept {
       if (task.kind == task_kind::frame) {
         ++stats.executed_frames;
         stats.latest_frame_queue_wait_ms = frame_completion.execution.queue_wait_ms;
+        stats.latest_frame_capture_ms = frame_completion.execution.frame_capture_ms;
+        stats.latest_copied_payload_bytes = frame_completion.execution.copied_payload_bytes;
         stats.maximum_frame_queue_wait_ms =
             std::max(stats.maximum_frame_queue_wait_ms, frame_completion.execution.queue_wait_ms);
         completed_frames.push_back(std::move(frame_completion));
