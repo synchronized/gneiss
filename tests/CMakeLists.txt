@@ -398,6 +398,19 @@ add_test(NAME gneiss.cpp_application COMMAND gneiss_cpp_application_test)
 
 if(GNEISS_ENABLE_GRANIT_PLATFORM)
   add_executable(
+    gneiss_render_executor_test
+    render/render_executor_test.cpp
+    "${PROJECT_SOURCE_DIR}/src/render/render_executor.cpp"
+  )
+  target_include_directories(gneiss_render_executor_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+  target_compile_definitions(gneiss_render_executor_test PRIVATE GNEISS_BUILDING_LIBRARY)
+  target_link_libraries(gneiss_render_executor_test PRIVATE gneiss::engine)
+  target_compile_features(gneiss_render_executor_test PRIVATE cxx_std_20)
+  gneiss_target_compile_warnings(gneiss_render_executor_test)
+  gneiss_target_output_directories(gneiss_render_executor_test)
+  add_test(NAME gneiss.render_executor COMMAND gneiss_render_executor_test)
+
+  add_executable(
     gneiss_render_frame_packet_test
     render/render_frame_packet_test.cpp
     "${PROJECT_SOURCE_DIR}/src/render/debug_draw_list.cpp"
