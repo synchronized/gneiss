@@ -287,7 +287,7 @@ granit_render_service::create_texture_mirror(const render_internal::texture_reso
 }
 
 granit::result granit_render_service::rebuild_geometry_arena(
-    const render_internal::render_resource_service& resources) noexcept {
+    const render_internal::render_resource_snapshot& resources) noexcept {
   try {
     if (mesh_mirrors_.empty()) {
       static_cast<void>(geometry_vertices_.reset());
@@ -391,7 +391,7 @@ granit_render_service::ensure_uniform_arena(uniform_frame& frame,
 
 granit::result granit_render_service::prepare_ui_draw_list(
     const render_internal::ui_draw_list& ui,
-    const render_internal::render_resource_service& resources, std::uint32_t width,
+    const render_internal::render_resource_snapshot& resources, std::uint32_t width,
     std::uint32_t height) noexcept {
   auto result = ui_canvas_.clear();
   if (result.failed() || ui.commands().empty()) {
@@ -459,7 +459,7 @@ granit::result granit_render_service::prepare_ui_draw_list(
 }
 
 void granit_render_service::release_invalid_textures(
-    const render_internal::render_resource_service& resources) noexcept {
+    const render_internal::render_resource_snapshot& resources) noexcept {
   for (auto iterator = texture_mirrors_.begin(); iterator != texture_mirrors_.end();) {
     if (resources.get_texture(iterator->first) == nullptr) {
       iterator = texture_mirrors_.erase(iterator);
@@ -470,7 +470,7 @@ void granit_render_service::release_invalid_textures(
 }
 
 void granit_render_service::release_invalid_meshes(
-    const render_internal::render_resource_service& resources) noexcept {
+    const render_internal::render_resource_snapshot& resources) noexcept {
   for (auto iterator = mesh_mirrors_.begin(); iterator != mesh_mirrors_.end();) {
     if (resources.get_mesh(iterator->first) == nullptr) {
       iterator = mesh_mirrors_.erase(iterator);
@@ -590,11 +590,12 @@ gneiss_result granit_render_service::shutdown(granit::renderer_resource_stats& s
 // 单帧资源准备与提交必须保持 Granit 调用和失败回滚的线性顺序。
 gneiss_result
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
-granit_render_service::render(native_window_info& window,
-                              const world_internal::render_snapshot& snapshot,
-                              const render_internal::render_resource_service& resources,
-                              const render_internal::ui_draw_list& ui,
-                              const render_internal::debug_draw_list& debug) noexcept {
+granit_render_service::render(render_internal::render_frame_packet& packet) noexcept {
+  auto& window = packet.window;
+  const auto& snapshot = packet.scene;
+  const auto& resources = packet.resources;
+  const auto& ui = packet.ui;
+  const auto& debug = packet.debug;
   if (window.width == 0U || window.height == 0U) {
     return GNEISS_SUCCESS;
   }

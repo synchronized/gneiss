@@ -397,6 +397,21 @@ gneiss_target_output_directories(gneiss_cpp_application_test)
 add_test(NAME gneiss.cpp_application COMMAND gneiss_cpp_application_test)
 
 if(GNEISS_ENABLE_GRANIT_PLATFORM)
+  add_executable(
+    gneiss_render_frame_packet_test
+    render/render_frame_packet_test.cpp
+    "${PROJECT_SOURCE_DIR}/src/render/debug_draw_list.cpp"
+    "${PROJECT_SOURCE_DIR}/src/render/render_frame_packet.cpp"
+    "${PROJECT_SOURCE_DIR}/src/render/render_resource_service.cpp"
+  )
+  target_include_directories(gneiss_render_frame_packet_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+  target_compile_definitions(gneiss_render_frame_packet_test PRIVATE GNEISS_BUILDING_LIBRARY)
+  target_link_libraries(gneiss_render_frame_packet_test PRIVATE gneiss::engine)
+  target_compile_features(gneiss_render_frame_packet_test PRIVATE cxx_std_20)
+  gneiss_target_compile_warnings(gneiss_render_frame_packet_test)
+  gneiss_target_output_directories(gneiss_render_frame_packet_test)
+  add_test(NAME gneiss.render_frame_packet COMMAND gneiss_render_frame_packet_test)
+
   add_executable(gneiss_granit_platform_smoke_test granit_platform_smoke_test.cpp)
   target_link_libraries(gneiss_granit_platform_smoke_test PRIVATE gneiss::engine)
   target_compile_features(gneiss_granit_platform_smoke_test PRIVATE cxx_std_20)

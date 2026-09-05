@@ -130,11 +130,14 @@ if(GNEISS_ENABLE_GRANIT_PLATFORM)
     PRIVATE
       platform/granit/granit_platform.cpp
       platform/granit/granit_platform.h
+      platform/native_window_info.h
       render/granit/embedded_textured_shaders.h
       render/granit/granit_render_service.cpp
       render/granit/granit_render_service.h
       render/granit/object_uniform.cpp
       render/granit/object_uniform.h
+      render/render_frame_packet.cpp
+      render/render_frame_packet.h
       render/granit/textured.frag
       render/granit/textured.vert
   )
