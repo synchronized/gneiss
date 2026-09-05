@@ -15,6 +15,13 @@
 
 namespace gneiss::render_internal {
 
+void render_command_reporter::report(render_command_stage stage, std::uint64_t completed_work,
+                                     std::uint64_t total_work) const {
+  if (publish_) {
+    publish_(stage, completed_work, total_work);
+  }
+}
+
 inline_render_executor::inline_render_executor(render_frame_callback callback)
     : callback_(std::move(callback)) {}
 
@@ -48,6 +55,8 @@ struct threaded_render_executor::state final {
   bool executing{};
   bool stopping{};
   render_queue_stats stats;
+  render_command_status command_status;
+  bool has_command_status{};
 
   void run() noexcept;
 };
@@ -82,12 +91,30 @@ void threaded_render_executor::state::run() noexcept {
     } else {
       command_completion.sequence = task.sequence;
       command_completion.progress.stage = render_command_stage::preparing;
+      const render_command_reporter reporter{
+          [this, sequence = task.sequence](render_command_stage stage, std::uint64_t completed_work,
+                                           std::uint64_t total_work) {
+            std::lock_guard lock(mutex);
+            command_status = {.sequence = sequence,
+                              .progress = {.stage = stage,
+                                           .completed_work = completed_work,
+                                           .total_work = total_work},
+                              .active = true};
+            has_command_status = true;
+          }};
+      reporter.report(render_command_stage::preparing, 0U, 0U);
       try {
-        command_completion.status = task.command(command_completion.progress);
+        command_completion.status = task.command(reporter);
       } catch (...) {
         command_completion.status = GNEISS_ERROR_INTERNAL;
       }
-      command_completion.progress.stage = render_command_stage::completed;
+      {
+        std::lock_guard lock(mutex);
+        command_completion.progress = command_status.progress;
+        command_completion.progress.stage = render_command_stage::completed;
+        command_status = {
+            .sequence = task.sequence, .progress = command_completion.progress, .active = false};
+      }
     }
     {
       std::lock_guard lock(mutex);
@@ -222,6 +249,18 @@ bool threaded_render_executor::try_take_command_completion(
   }
   output = std::move(state_->completed_commands.front());
   state_->completed_commands.pop_front();
+  return true;
+}
+
+bool threaded_render_executor::query_command_status(render_command_status& output) const noexcept {
+  if (!state_) {
+    return false;
+  }
+  std::lock_guard lock(state_->mutex);
+  if (!state_->has_command_status) {
+    return false;
+  }
+  output = state_->command_status;
   return true;
 }
 

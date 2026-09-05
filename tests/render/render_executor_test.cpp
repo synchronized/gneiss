@@ -101,27 +101,67 @@ int main() {
     return 7;
   }
 
+  bool command_started = false;
+  bool release_command = false;
   std::uint64_t command_sequence = 0U;
   if (executor.submit_command(
-          [](render_command_progress& progress) {
-            progress.stage = render_command_stage::uploading;
-            progress.completed_work = 4U;
-            progress.total_work = 4U;
+          [&](const render_command_reporter& reporter) {
+            reporter.report(render_command_stage::uploading, 4U, 4U);
+            std::unique_lock lock(mutex);
+            command_started = true;
+            ready.notify_all();
+            ready.wait(lock, [&] { return release_command; });
             return GNEISS_SUCCESS;
           },
-          command_sequence) != GNEISS_SUCCESS ||
-      executor.flush() != GNEISS_SUCCESS) {
+          command_sequence) != GNEISS_SUCCESS) {
     return 8;
+  }
+  {
+    std::unique_lock lock(mutex);
+    ready.wait(lock, [&] { return command_started; });
+  }
+  render_command_status command_status;
+  if (!executor.query_command_status(command_status) || !command_status.active ||
+      command_status.sequence != command_sequence ||
+      command_status.progress.stage != render_command_stage::uploading ||
+      command_status.progress.completed_work != 4U) {
+    return 9;
+  }
+  {
+    std::lock_guard lock(mutex);
+    release_command = true;
+    ready.notify_all();
+  }
+  if (executor.flush() != GNEISS_SUCCESS) {
+    return 10;
   }
   render_command_completion command_completion;
   if (!executor.try_take_command_completion(command_completion) ||
       command_completion.sequence != command_sequence ||
       command_completion.status != GNEISS_SUCCESS ||
       command_completion.progress.stage != render_command_stage::completed ||
-      command_completion.progress.completed_work != 4U) {
-    return 9;
+      command_completion.progress.completed_work != 4U ||
+      !executor.query_command_status(command_status) || command_status.active ||
+      command_status.sequence != command_sequence ||
+      command_status.progress.stage != render_command_stage::completed) {
+    return 11;
+  }
+  std::uint64_t failed_sequence = 0U;
+  if (executor.submit_command(
+          [](const render_command_reporter& reporter) {
+            reporter.report(render_command_stage::uploading, 1U, 3U);
+            return GNEISS_ERROR_INVALID_STATE;
+          },
+          failed_sequence) != GNEISS_SUCCESS ||
+      executor.flush() != GNEISS_SUCCESS ||
+      !executor.try_take_command_completion(command_completion) ||
+      command_completion.sequence != failed_sequence ||
+      command_completion.status != GNEISS_ERROR_INVALID_STATE ||
+      command_completion.progress.completed_work != 1U ||
+      command_completion.progress.total_work != 3U || !executor.is_running()) {
+    return 12;
   }
   executor.stop();
   executor.stop();
-  return executor.is_running() ? 10 : 0;
+  return executor.is_running() ? 13 : 0;
 }

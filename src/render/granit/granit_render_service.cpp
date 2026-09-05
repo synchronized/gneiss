@@ -496,9 +496,10 @@ gneiss_result granit_render_service::initialize(const native_window_info& window
   gneiss_result initialize_result = GNEISS_ERROR_UNKNOWN;
   std::uint64_t sequence{};
   const auto submit_result = executor_.submit_command(
-      [this, window, &initialize_result](render_internal::render_command_progress& progress) {
-        progress.stage = render_internal::render_command_stage::uploading;
+      [this, window, &initialize_result](const render_internal::render_command_reporter& reporter) {
+        reporter.report(render_internal::render_command_stage::uploading, 0U, 1U);
         initialize_result = initialize_gpu(window);
+        reporter.report(render_internal::render_command_stage::uploading, 1U, 1U);
         return initialize_result;
       },
       sequence);
@@ -513,7 +514,7 @@ gneiss_result granit_render_service::initialize(const native_window_info& window
     granit::renderer_resource_stats ignored{};
     std::uint64_t cleanup_sequence{};
     if (executor_.submit_command(
-            [this, &ignored](render_internal::render_command_progress&) {
+            [this, &ignored](const render_internal::render_command_reporter&) {
               return shutdown_gpu(ignored);
             },
             cleanup_sequence) == GNEISS_SUCCESS) {
@@ -561,9 +562,11 @@ gneiss_result granit_render_service::shutdown(granit::renderer_resource_stats& s
 
   std::uint64_t sequence{};
   const auto submit_result = executor_.submit_command(
-      [this, &stats](render_internal::render_command_progress& progress) {
-        progress.stage = render_internal::render_command_stage::uploading;
-        return shutdown_gpu(stats);
+      [this, &stats](const render_internal::render_command_reporter& reporter) {
+        reporter.report(render_internal::render_command_stage::uploading, 0U, 1U);
+        const auto result = shutdown_gpu(stats);
+        reporter.report(render_internal::render_command_stage::uploading, 1U, 1U);
+        return result;
       },
       sequence);
   if (submit_result == GNEISS_SUCCESS) {

@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <utility>
 
 namespace gneiss::render_internal {
 
@@ -39,6 +40,24 @@ struct render_command_completion final {
   render_command_progress progress;
 };
 
+struct render_command_status final {
+  std::uint64_t sequence{};
+  render_command_progress progress;
+  bool active{};
+};
+
+class render_command_reporter final {
+public:
+  explicit render_command_reporter(
+      std::function<void(render_command_stage, std::uint64_t, std::uint64_t)> publish)
+      : publish_(std::move(publish)) {}
+  void report(render_command_stage stage, std::uint64_t completed_work,
+              std::uint64_t total_work) const;
+
+private:
+  std::function<void(render_command_stage, std::uint64_t, std::uint64_t)> publish_;
+};
+
 struct render_queue_stats final {
   std::size_t pending_high_watermark{};
   std::uint64_t replaced_frames{};
@@ -46,7 +65,7 @@ struct render_queue_stats final {
 
 using render_frame_callback =
     std::function<gneiss_result(render_frame_packet&, render_execution_result&)>;
-using render_command_callback = std::function<gneiss_result(render_command_progress&)>;
+using render_command_callback = std::function<gneiss_result(const render_command_reporter&)>;
 
 class inline_render_executor final {
 public:
@@ -73,6 +92,7 @@ public:
                                              std::uint64_t& out_sequence) noexcept;
   [[nodiscard]] bool try_take_frame_completion(render_frame_completion& output) noexcept;
   [[nodiscard]] bool try_take_command_completion(render_command_completion& output) noexcept;
+  [[nodiscard]] bool query_command_status(render_command_status& output) const noexcept;
   [[nodiscard]] render_queue_stats query_stats() const noexcept;
   [[nodiscard]] gneiss_result flush() noexcept;
   void stop() noexcept;
