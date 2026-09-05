@@ -5,6 +5,7 @@
 
 #include "asset/virtual_file_system.h"
 #include "scene/scene_description.h"
+#include "scene/structural_diff.h"
 
 #include <algorithm>
 #include <atomic>
@@ -177,6 +178,54 @@ gneiss_result commit_prefab_instances(gneiss_world world, const scene_descriptio
   return GNEISS_SUCCESS;
 }
 
+[[nodiscard]] bool equal_prefab_instances(const prefab_instance_description& left,
+                                          const prefab_instance_description& right) noexcept {
+  if (left.instance_uuid != right.instance_uuid || left.name != right.name ||
+      left.parent_uuid != right.parent_uuid || left.prefab_uri != right.prefab_uri ||
+      left.translation != right.translation || left.rotation != right.rotation ||
+      left.scale != right.scale || left.overrides.size() != right.overrides.size()) {
+    return false;
+  }
+  for (std::size_t index = 0U; index < left.overrides.size(); ++index) {
+    if (!(left.overrides[index].key == right.overrides[index].key) ||
+        !(left.overrides[index].value == right.overrides[index].value)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+[[nodiscard]] bool equal_prefab_container(const scene_description& left,
+                                          const scene_description& right) noexcept {
+  return left.prefab_instances.size() == right.prefab_instances.size() &&
+         std::ranges::equal(left.prefab_instances, right.prefab_instances, equal_prefab_instances);
+}
+
+gneiss_result apply_camera(gneiss_world world, gneiss_entity_id entity,
+                           const std::optional<camera_description>& camera) noexcept {
+  if (!camera) {
+    const auto result = gneiss_world_entity_remove_camera(world, entity);
+    return result == GNEISS_ERROR_NOT_FOUND ? GNEISS_SUCCESS : result;
+  }
+  const gneiss_camera value{.vertical_field_of_view_radians =
+                                camera->vertical_field_of_view_radians,
+                            .near_plane = camera->near_plane,
+                            .far_plane = camera->far_plane,
+                            .is_primary = static_cast<std::uint8_t>(camera->is_primary ? 1U : 0U),
+                            .reserved = {0U, 0U, 0U}};
+  return gneiss_world_entity_set_camera(world, entity, &value);
+}
+
+gneiss_result apply_mesh_renderer(gneiss_world world, scene_instance::object& object,
+                                  bool present) noexcept {
+  if (!present) {
+    const auto result = gneiss_world_entity_remove_mesh_renderer(world, object.entity);
+    return result == GNEISS_ERROR_NOT_FOUND ? GNEISS_SUCCESS : result;
+  }
+  const gneiss_mesh_renderer renderer{.mesh = object.mesh.get(), .material = object.material.get()};
+  return gneiss_world_entity_set_mesh_renderer(world, object.entity, &renderer);
+}
+
 } // namespace
 
 scene_instance::scene_instance(gneiss_world world, render_internal::render_asset_loader& loader,
@@ -207,6 +256,201 @@ void scene_instance::rollback() noexcept {
 gneiss_scene_node_id scene_instance::find_node(std::string_view uuid) const noexcept {
   const auto found = std::ranges::find(objects, uuid, &object::uuid);
   return found == objects.end() ? GNEISS_NULL_SCENE_NODE_ID : found->node;
+}
+
+gneiss_result scene_instance::reload(scene_description candidate) {
+  if (candidate.uuid != description.uuid || !equal_prefab_container(description, candidate)) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+
+  structural_diff diff;
+  auto result = build_structural_diff(description.objects, candidate.objects, diff);
+  if (result != GNEISS_SUCCESS) {
+    return result;
+  }
+
+  std::vector<object> staged;
+  staged.reserve(candidate.objects.size());
+  std::unordered_map<std::string_view, std::size_t> old_indices;
+  old_indices.reserve(objects.size());
+  for (std::size_t index = 0U; index < objects.size(); ++index) {
+    old_indices.emplace(objects[index].uuid, index);
+  }
+  for (const auto& source : candidate.objects) {
+    object target;
+    target.uuid = source.uuid;
+    target.name = source.name;
+    if (const auto previous = old_indices.find(source.uuid); previous != old_indices.end()) {
+      target.entity = objects[previous->second].entity;
+      target.node = objects[previous->second].node;
+    }
+    if (source.mesh_renderer) {
+      render_internal::asset_diagnostic diagnostic;
+      result = loader_.acquire_mesh(source.mesh_renderer->mesh_uri, target.mesh, diagnostic);
+      if (result == GNEISS_SUCCESS) {
+        result = loader_.acquire_material(source.mesh_renderer->material_uri, target.material,
+                                          diagnostic);
+      }
+      if (result != GNEISS_SUCCESS) {
+        return result;
+      }
+    }
+    staged.push_back(std::move(target));
+  }
+
+  std::unordered_map<std::string_view, gneiss_scene_node_id> nodes;
+  nodes.reserve(staged.size());
+  for (const auto& target : staged) {
+    if (target.node != GNEISS_NULL_SCENE_NODE_ID) {
+      nodes.emplace(target.uuid, target.node);
+    }
+  }
+
+  std::vector<std::size_t> committed_additions;
+  committed_additions.reserve(diff.added.size());
+  gneiss_entity_id active_camera_before = GNEISS_NULL_ENTITY_ID;
+  (void)gneiss_world_get_active_camera(world_, &active_camera_before);
+  const auto rollback_additions = [&]() noexcept {
+    for (auto iterator = committed_additions.rbegin(); iterator != committed_additions.rend();
+         ++iterator) {
+      auto& target = staged[*iterator];
+      if (target.entity != GNEISS_NULL_ENTITY_ID) {
+        (void)gneiss_world_entity_destroy(world_, target.entity);
+      }
+      if (target.node != GNEISS_NULL_SCENE_NODE_ID) {
+        (void)gneiss_scene_node_destroy(world_, target.node);
+      }
+      target.entity = GNEISS_NULL_ENTITY_ID;
+      target.node = GNEISS_NULL_SCENE_NODE_ID;
+    }
+    if (active_camera_before != GNEISS_NULL_ENTITY_ID) {
+      (void)gneiss_world_set_active_camera(world_, active_camera_before);
+    }
+  };
+  for (const auto& addition : diff.added) {
+    const auto& source = candidate.objects[addition.new_index];
+    const auto parent =
+        source.parent_uuid ? nodes.at(*source.parent_uuid) : GNEISS_NULL_SCENE_NODE_ID;
+    result = commit_object(world_, source, staged[addition.new_index], parent);
+    if (result != GNEISS_SUCCESS) {
+      auto& failed = staged[addition.new_index];
+      if (failed.entity != GNEISS_NULL_ENTITY_ID) {
+        (void)gneiss_world_entity_destroy(world_, failed.entity);
+      }
+      if (failed.node != GNEISS_NULL_SCENE_NODE_ID) {
+        (void)gneiss_scene_node_destroy(world_, failed.node);
+      }
+      rollback_additions();
+      return result;
+    }
+    nodes.emplace(source.uuid, staged[addition.new_index].node);
+    committed_additions.push_back(addition.new_index);
+  }
+
+  struct update_snapshot final {
+    std::size_t old_index;
+    std::size_t new_index;
+    structural_change changes;
+    gneiss_scene_node_id parent;
+    gneiss_transform transform;
+    std::optional<camera_description> camera;
+  };
+  std::vector<update_snapshot> applied;
+  applied.reserve(diff.updated.size());
+  const auto rollback_updates = [&]() noexcept {
+    for (auto iterator = applied.rbegin(); iterator != applied.rend(); ++iterator) {
+      const auto& snapshot = *iterator;
+      auto& target = staged[snapshot.new_index];
+      if (has_change(snapshot.changes, structural_change::parent)) {
+        (void)gneiss_scene_node_reparent(world_, target.node, snapshot.parent);
+      }
+      if (has_change(snapshot.changes, structural_change::transform)) {
+        (void)gneiss_scene_node_set_local_transform(world_, target.node, &snapshot.transform);
+      }
+      if (has_change(snapshot.changes, structural_change::camera)) {
+        (void)apply_camera(world_, target.entity, snapshot.camera);
+      }
+      if (has_change(snapshot.changes, structural_change::mesh_renderer)) {
+        auto& old_object = objects[snapshot.old_index];
+        (void)apply_mesh_renderer(
+            world_, old_object, description.objects[snapshot.old_index].mesh_renderer.has_value());
+      }
+    }
+  };
+
+  for (const auto& update : diff.updated) {
+    auto& target = staged[update.new_index];
+    update_snapshot snapshot{};
+    snapshot.old_index = update.old_index;
+    snapshot.new_index = update.new_index;
+    snapshot.changes = update.changes;
+    result = gneiss_scene_node_get_parent(world_, target.node, &snapshot.parent);
+    if (result == GNEISS_SUCCESS) {
+      result = gneiss_scene_node_get_local_transform(world_, target.node, &snapshot.transform);
+    }
+    if (result == GNEISS_SUCCESS && has_change(update.changes, structural_change::camera)) {
+      gneiss_camera_desc camera = GNEISS_CAMERA_DESC_INIT;
+      const auto camera_result = gneiss_world_entity_get_camera(world_, target.entity, &camera);
+      if (camera_result == GNEISS_SUCCESS) {
+        gneiss_entity_id active = GNEISS_NULL_ENTITY_ID;
+        const bool primary = gneiss_world_get_active_camera(world_, &active) == GNEISS_SUCCESS &&
+                             active == target.entity;
+        snapshot.camera = camera_description{.vertical_field_of_view_radians =
+                                                 camera.vertical_field_of_view_radians,
+                                             .near_plane = camera.near_plane,
+                                             .far_plane = camera.far_plane,
+                                             .is_primary = primary};
+      } else if (camera_result != GNEISS_ERROR_NOT_FOUND) {
+        result = camera_result;
+      }
+    }
+    if (result != GNEISS_SUCCESS) {
+      rollback_updates();
+      rollback_additions();
+      return result;
+    }
+    applied.push_back(snapshot);
+
+    const auto& source = candidate.objects[update.new_index];
+    if (has_change(update.changes, structural_change::parent)) {
+      const auto parent =
+          source.parent_uuid ? nodes.at(*source.parent_uuid) : GNEISS_NULL_SCENE_NODE_ID;
+      result = gneiss_scene_node_reparent(world_, target.node, parent);
+    }
+    if (result == GNEISS_SUCCESS && has_change(update.changes, structural_change::transform)) {
+      const auto transform = to_transform(source);
+      result = gneiss_scene_node_set_local_transform(world_, target.node, &transform);
+    }
+    if (result == GNEISS_SUCCESS && has_change(update.changes, structural_change::camera)) {
+      result = apply_camera(world_, target.entity, source.camera);
+    }
+    if (result == GNEISS_SUCCESS && has_change(update.changes, structural_change::mesh_renderer)) {
+      result = apply_mesh_renderer(world_, target, source.mesh_renderer.has_value());
+    }
+    if (result != GNEISS_SUCCESS) {
+      rollback_updates();
+      rollback_additions();
+      return result;
+    }
+  }
+
+  for (const auto& removal : diff.removed) {
+    auto& target = objects[removal.old_index];
+    result = gneiss_world_entity_destroy(world_, target.entity);
+    if (result == GNEISS_SUCCESS) {
+      result = gneiss_scene_node_destroy(world_, target.node);
+    }
+    if (result != GNEISS_SUCCESS) {
+      return result;
+    }
+    target.entity = GNEISS_NULL_ENTITY_ID;
+    target.node = GNEISS_NULL_SCENE_NODE_ID;
+  }
+
+  objects = std::move(staged);
+  description = std::move(candidate);
+  loader_.release_unused();
+  return GNEISS_SUCCESS;
 }
 
 gneiss_result scene_instance::get_node_info(std::uint64_t index,
@@ -1277,6 +1521,24 @@ gneiss_result scene_instance_service::load(std::string_view uri,
     instance->description = std::move(description);
     return instances_.create(core::resource_type::scene_instance, std::move(instance),
                              out_instance);
+  } catch (const std::bad_alloc&) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
+gneiss_result scene_instance_service::reload(gneiss_scene_instance instance,
+                                             std::string_view uri) noexcept {
+  try {
+    auto* value = instances_.get(instance, core::resource_type::scene_instance);
+    if (value == nullptr || *value == nullptr) {
+      return GNEISS_ERROR_INVALID_HANDLE;
+    }
+    scene_description candidate;
+    scene_diagnostic diagnostic;
+    const auto result = load_scene_description(file_system_, uri, candidate, diagnostic);
+    return result == GNEISS_SUCCESS ? (*value)->reload(std::move(candidate)) : result;
   } catch (const std::bad_alloc&) {
     return GNEISS_ERROR_OUT_OF_MEMORY;
   } catch (...) {

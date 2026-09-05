@@ -54,6 +54,8 @@ public:
   }
   [[nodiscard]] gneiss_result
   reload_render_assets(std::span<const render_internal::render_asset_reload> assets) noexcept;
+  [[nodiscard]] gneiss_result reload_scene(gneiss_scene_instance instance,
+                                           std::string_view uri) noexcept;
   [[nodiscard]] scene_internal::scene_instance_service* scenes() noexcept { return scenes_.get(); }
   [[nodiscard]] const gneiss_keyboard_state& keyboard_state() const noexcept {
     return input_.keyboard();

@@ -7,8 +7,10 @@
 #include "render/render_asset_loader.h"
 
 #include <gneiss/application.h>
+#include <gneiss/scene.h>
 
 #include <span>
+#include <string_view>
 
 namespace gneiss::application_internal {
 
@@ -16,6 +18,11 @@ namespace gneiss::application_internal {
 GNEISS_API gneiss_result
 reload_render_assets(gneiss_application application,
                      std::span<const render_internal::render_asset_reload> assets) noexcept;
+
+/** 在 Application 主线程事务式重载现有 Scene 实例；仅供 Gneiss 宿主使用。 */
+GNEISS_API gneiss_result reload_scene(gneiss_application application,
+                                      gneiss_scene_instance instance,
+                                      std::string_view uri) noexcept;
 
 } // namespace gneiss::application_internal
 

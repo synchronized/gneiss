@@ -31,6 +31,11 @@ gneiss_result application_state::reload_render_assets(
   return asset_loader_.reload_assets(assets, diagnostic);
 }
 
+gneiss_result application_state::reload_scene(gneiss_scene_instance instance,
+                                              std::string_view uri) noexcept {
+  return scenes_ == nullptr ? GNEISS_ERROR_INVALID_STATE : scenes_->reload(instance, uri);
+}
+
 gneiss_result application_state::initialize() noexcept {
   if (desc_.log != nullptr) {
     try {
