@@ -12,13 +12,21 @@
 #include <cstdint>
 #include <cstdio>
 #include <filesystem>
+#include <fstream>
+#include <iterator>
 #include <optional>
+#include <string>
 #include <string_view>
 #include <thread>
 
 namespace {
 
 using namespace std::chrono_literals;
+
+struct temporary_directory final {
+  std::filesystem::path path;
+  ~temporary_directory() { std::filesystem::remove_all(path); }
+};
 
 std::size_t progress_count(const gneiss::editor::runtime_process& process,
                            std::uint64_t session_id) {
@@ -109,12 +117,44 @@ bool rotation_changed(const std::array<float, 4>& left,
   return false;
 }
 
+[[nodiscard]] std::string read_text(const std::filesystem::path& path) {
+  std::ifstream stream(path, std::ios::binary);
+  return {std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>()};
+}
+
+[[nodiscard]] bool write_text(const std::filesystem::path& path, std::string_view text) {
+  std::ofstream stream(path, std::ios::binary | std::ios::trunc);
+  stream.write(text.data(), static_cast<std::streamsize>(text.size()));
+  return static_cast<bool>(stream);
+}
+
+[[nodiscard]] bool replace_once(std::string& text, std::string_view before,
+                                std::string_view after) {
+  const auto position = text.find(before);
+  if (position == std::string::npos) {
+    return false;
+  }
+  text.replace(position, before.size(), after);
+  return true;
+}
+
+[[nodiscard]] bool wait_for_asset_state(gneiss::editor::runtime_process& process,
+                                        gneiss::editor::runtime_asset_reload_state expected) {
+  return pump_until(process, 3s, [&] { return process.asset_reload_status().state == expected; });
+}
+
 } // namespace
 
 int main() try {
+  const auto temporary_project =
+      std::filesystem::temp_directory_path() /
+      ("gneiss-lantern-structural-workflow-" +
+       std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+  const temporary_directory cleanup{temporary_project};
+  std::filesystem::copy(std::filesystem::path{GNEISS_LANTERN_PROJECT}, temporary_project,
+                        std::filesystem::copy_options::recursive);
   gneiss::editor::runtime_process process;
-  const gneiss::editor::runtime_launch_request request{
-      std::filesystem::path{GNEISS_LANTERN_PROJECT}};
+  const gneiss::editor::runtime_launch_request request{temporary_project};
   const std::filesystem::path runtime{GNEISS_LANTERN_RUNTIME};
 
   const auto start_result = process.start(runtime, request);
@@ -172,6 +212,56 @@ int main() try {
                  left_body == nullptr ? 0.0 : left_body->local_transform.translation[0],
                  center_frame == nullptr ? 0.0 : center_frame->local_transform.scale[0],
                  right_glass == nullptr ? 0.0 : right_glass->local_transform.translation[1]);
+    return 2;
+  }
+  const auto root_identity = root_node(process)->id;
+  const auto glass_identity = right_glass->id;
+  const auto scene_path = temporary_project / "assets" / "scenes" / "gallery.scene.json";
+  auto scene_text = read_text(scene_path);
+  if (!replace_once(scene_text, "Lantern Pivot", "Lantern Pivot Reloaded") ||
+      !write_text(scene_path, scene_text)) {
+    return 2;
+  }
+  const std::array<std::string, 1U> scene_revision{"asset://scenes/gallery.scene.json"};
+  if (process.publish_asset_revision(scene_revision) != gneiss::result::success ||
+      !wait_for_asset_state(process, gneiss::editor::runtime_asset_reload_state::applied) ||
+      !pump_until(process, 3s, [&] {
+        const auto* root = root_node(process);
+        return root != nullptr && root->name == "Lantern Pivot Reloaded" &&
+               root->id == root_identity;
+      })) {
+    return 2;
+  }
+
+  const auto prefab_path = temporary_project / "assets" / "prefabs" / "lantern.prefab.json";
+  const auto valid_prefab = read_text(prefab_path);
+  auto updated_prefab = valid_prefab;
+  if (!replace_once(updated_prefab, "Lantern Glass", "Lantern Glass Reloaded") ||
+      !write_text(prefab_path, updated_prefab)) {
+    return 2;
+  }
+  const std::array<std::string, 1U> prefab_revision{"asset://prefabs/lantern.prefab.json"};
+  if (process.publish_asset_revision(prefab_revision) != gneiss::result::success ||
+      !wait_for_asset_state(process, gneiss::editor::runtime_asset_reload_state::applied) ||
+      !pump_until(process, 3s, [&] {
+        const auto* glass = prefab_source(process, "20000000-0000-4000-8000-000000000030",
+                                          "21000000-0000-4000-8000-000000000004");
+        return glass != nullptr && glass->name == "Lantern Glass Reloaded" &&
+               glass->id == glass_identity && glass->local_transform.translation[1] == 20.0F;
+      })) {
+    return 2;
+  }
+  if (!write_text(prefab_path, "{invalid") ||
+      process.publish_asset_revision(prefab_revision) != gneiss::result::success ||
+      !wait_for_asset_state(process, gneiss::editor::runtime_asset_reload_state::failed)) {
+    return 2;
+  }
+  const auto* preserved_glass = prefab_source(process, "20000000-0000-4000-8000-000000000030",
+                                              "21000000-0000-4000-8000-000000000004");
+  if (preserved_glass == nullptr || preserved_glass->name != "Lantern Glass Reloaded" ||
+      preserved_glass->id != glass_identity || !write_text(prefab_path, valid_prefab) ||
+      process.publish_asset_revision(prefab_revision) != gneiss::result::success ||
+      !wait_for_asset_state(process, gneiss::editor::runtime_asset_reload_state::applied)) {
     return 2;
   }
   if (!process.supports_property_editing() || !pump_until(process, 3s, [&] {
