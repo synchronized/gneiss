@@ -302,10 +302,22 @@ gneiss_result application_state::render_frame() noexcept {
   }
   const auto snapshot_result =
       world_internal::get_render_snapshot(world_, window.width, window.height, snapshot);
-  return snapshot_result == GNEISS_SUCCESS
-             ? granit_render_service_->render(window, snapshot, resources_, ui_draw_list_,
-                                              debug_draw_list_)
-             : snapshot_result;
+  if (snapshot_result != GNEISS_SUCCESS) {
+    return snapshot_result;
+  }
+  render_internal::render_frame_packet packet;
+  const auto capture_result = render_internal::capture_render_frame_packet(
+      window, std::move(snapshot), resources_, ui_draw_list_, debug_draw_list_, packet);
+  if (capture_result != GNEISS_SUCCESS) {
+    return capture_result;
+  }
+  const auto requested_recreate = window.needs_recreate;
+  window.needs_recreate = false;
+  const auto submit_result = granit_render_service_->submit(std::move(packet));
+  if (submit_result != GNEISS_SUCCESS && requested_recreate) {
+    window.needs_recreate = true;
+  }
+  return submit_result;
 }
 #endif
 

@@ -7,6 +7,8 @@
 #include "platform/granit/granit_platform.h"
 #include "render/debug_draw_list.h"
 #include "render/granit/object_uniform.h"
+#include "render/render_executor.h"
+#include "render/render_frame_packet.h"
 #include "render/render_resource_service.h"
 #include "render/ui_draw_list.h"
 #include "world/render_snapshot.h"
@@ -28,13 +30,16 @@ class granit_render_service final {
 public:
   [[nodiscard]] gneiss_result initialize(const native_window_info& window) noexcept;
   [[nodiscard]] gneiss_result shutdown(granit::renderer_resource_stats& stats) noexcept;
-  [[nodiscard]] gneiss_result render(native_window_info& window,
-                                     const world_internal::render_snapshot& snapshot,
-                                     const render_internal::render_resource_service& resources,
-                                     const render_internal::ui_draw_list& ui,
-                                     const render_internal::debug_draw_list& debug) noexcept;
+  [[nodiscard]] gneiss_result submit(render_internal::render_frame_packet packet) noexcept;
 
 private:
+  [[nodiscard]] gneiss_result initialize_gpu(const native_window_info& window) noexcept;
+  [[nodiscard]] gneiss_result shutdown_gpu(granit::renderer_resource_stats& stats) noexcept;
+  [[nodiscard]] gneiss_result
+  execute_frame(render_internal::render_frame_packet& packet,
+                render_internal::render_execution_result& output) noexcept;
+  [[nodiscard]] gneiss_result collect_completions() noexcept;
+
   struct texture_mirror final {
     granit::texture texture;
     granit::texture_view view;
@@ -60,16 +65,17 @@ private:
   create_texture_mirror(const render_internal::texture_resource& source,
                         texture_mirror& output) noexcept;
   [[nodiscard]] granit::result
-  rebuild_geometry_arena(const render_internal::render_resource_service& resources) noexcept;
+  rebuild_geometry_arena(const render_internal::render_resource_snapshot& resources) noexcept;
   [[nodiscard]] granit::result ensure_default_texture() noexcept;
   [[nodiscard]] granit::result ensure_uniform_arena(uniform_frame& frame,
                                                     std::span<const std::byte> data) noexcept;
   [[nodiscard]] granit::result
   prepare_ui_draw_list(const render_internal::ui_draw_list& ui,
-                       const render_internal::render_resource_service& resources,
+                       const render_internal::render_resource_snapshot& resources,
                        std::uint32_t width, std::uint32_t height) noexcept;
-  void release_invalid_textures(const render_internal::render_resource_service& resources) noexcept;
-  void release_invalid_meshes(const render_internal::render_resource_service& resources) noexcept;
+  void
+  release_invalid_textures(const render_internal::render_resource_snapshot& resources) noexcept;
+  void release_invalid_meshes(const render_internal::render_resource_snapshot& resources) noexcept;
 
   granit::renderer renderer_;
   granit::surface surface_;
@@ -99,6 +105,8 @@ private:
   std::array<uniform_frame, 3> uniform_frames_;
   std::uint64_t uniform_stride_{};
   std::uint64_t frame_index_{};
+  render_internal::threaded_render_executor executor_;
+  bool pending_recreate_{};
 };
 
 } // namespace gneiss::application_internal

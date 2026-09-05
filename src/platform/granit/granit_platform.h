@@ -4,6 +4,8 @@
 #ifndef GNEISS_PLATFORM_GRANIT_GRANIT_PLATFORM_H_
 #define GNEISS_PLATFORM_GRANIT_GRANIT_PLATFORM_H_
 
+#include "platform/native_window_info.h"
+
 #include <gneiss/application.h>
 #include <gneiss/input.h>
 
@@ -11,18 +13,6 @@
 #include <granit/window.hpp>
 
 namespace gneiss::application_internal {
-
-enum class native_window_backend { none, win32, xcb, wayland };
-
-struct native_window_info {
-  native_window_backend backend{native_window_backend::none};
-  void* display{};
-  void* window{};
-  std::uint32_t xcb_window{};
-  std::uint32_t width{};
-  std::uint32_t height{};
-  bool needs_recreate{};
-};
 
 class granit_platform final {
 public:

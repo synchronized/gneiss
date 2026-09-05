@@ -5,7 +5,7 @@
 
 if(@GNEISS_ENABLE_GRANIT_PLATFORM@)
   include(CMakeFindDependencyMacro)
-  find_dependency(granit 0.4 CONFIG COMPONENTS Window Input RenderPipeline)
+  find_dependency(granit 0.7 CONFIG COMPONENTS Window Input RenderPipeline)
 endif()
 
 set(GNEISS_RUNTIME_DIR "${PACKAGE_PREFIX_DIR}/@CMAKE_INSTALL_BINDIR@")

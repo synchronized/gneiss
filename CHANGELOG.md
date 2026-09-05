@@ -7,6 +7,18 @@
 
 ## 未发布
 
+## 0.25.0 - 2026-09-05
+
+- 将 Granit 依赖升级至 0.7.0，Fetch 锁定发布提交，PACKAGE 与安装消费最低版本同步提升至 0.7。
+- 新增自有 Render Frame Packet，提交后不借用 Scene、资源、UI、Debug Draw 或下一帧可变内存。
+- 新增有界 Frame/Command 渲染执行器、单调序列号和完成回执；积压 Frame 可替换，Command 保持
+  FIFO 且过载明确返回 `not_ready`。
+- Renderer、Swapchain、Pipeline、GPU 资源镜像、上传、录制、提交、Present 和销毁统一由常驻
+  渲染线程串行执行，主线程继续负责窗口事件、逻辑和 UI 构建。
+- Command 支持线程安全的准备/上传阶段与工作量报告，并可查询运行中及最终状态；失败命令不会
+  终止执行器或提交半成品资源句柄。
+- Resize、最小化、Out-of-date、初始化失败与关闭纳入确定的排空、重试、逆序释放和 Join 边界。
+
 ## 0.24.0 - 2026-09-05
 
 - 新增基于稳定作者 UUID 的 Scene 结构差异与事务式热重载，匹配节点保留实体身份，失败时完整保留
