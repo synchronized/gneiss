@@ -7,6 +7,8 @@
 
 ## 未发布
 
+- 规划 0.27.0 Granit 0.10 能力接入：异步 GPU 时间戳、标准 PBR 资产适配和 Environment Map
+  最小闭环。
 - 将 Granit 依赖升级至 0.10.0，Fetch 锁定正式发布提交，PACKAGE 与安装消费最低版本同步提升
   至 0.10。
 
