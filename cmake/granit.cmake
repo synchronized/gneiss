@@ -2,6 +2,7 @@
 # Copyright (c) 2026 Gneiss contributors
 
 include(FetchContent)
+include("${CMAKE_CURRENT_LIST_DIR}/granit_version.cmake")
 
 set(
   GNEISS_GRANIT_PROVIDER
@@ -16,13 +17,6 @@ set(
   CACHE STRING
   "FETCH 模式使用的 Granit Git 仓库"
 )
-set(
-  GNEISS_GRANIT_GIT_TAG
-  "eb970c74570e278678ee39530c68afc40101879f"
-  CACHE STRING
-  "FETCH 模式锁定的 Granit Git tag 或完整提交"
-)
-
 function(gneiss_fetch_granit)
   set(GRANIT_BUILD_TESTING OFF CACHE BOOL "" FORCE)
   set(GRANIT_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
@@ -79,14 +73,14 @@ function(gneiss_resolve_granit_runtime)
   endif()
 
   if(granit_provider STREQUAL "AUTO" OR granit_provider STREQUAL "PACKAGE")
-    find_package(granit 0.4 CONFIG QUIET COMPONENTS Window Input RenderPipeline)
+    find_package(granit 0.5 CONFIG QUIET COMPONENTS Window Input RenderPipeline)
     if(TARGET granit::granit AND TARGET granit::window AND TARGET granit::input AND
        TARGET granit::render_pipeline)
       message(STATUS "Gneiss uses the installed Granit runtime package")
       return()
     endif()
     if(granit_provider STREQUAL "PACKAGE")
-      message(FATAL_ERROR "未找到 Granit 0.4 runtime package（含 Window、Input、RenderPipeline）")
+      message(FATAL_ERROR "未找到 Granit 0.5 runtime package（含 Window、Input、RenderPipeline）")
     endif()
     if(TARGET granit::granit)
       message(FATAL_ERROR "现有 Granit targets 缺少 Window、Input 或 RenderPipeline，无法回退到 FETCH")

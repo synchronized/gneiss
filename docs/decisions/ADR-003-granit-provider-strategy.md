@@ -5,7 +5,7 @@
 
 - 状态：已接受
 - 日期：2026-08-26
-- 更新：2026-08-27
+- 更新：2026-09-05
 - 取代：[ADR-001](ADR-001-granit-dependency.md)
 
 ## 背景
@@ -16,7 +16,7 @@ CI 环境的可控性。
 
 ## 决策
 
-- Granit 最低版本为 `0.4.0`，用于公开查询设备限制并支持动态 Uniform Buffer Offset；普通接口
+- Granit 最低版本为 `0.5.0`，用于公开查询设备限制并支持动态 Uniform Buffer Offset；普通接口
   仍不得泄漏 Granit 类型。
 - `GNEISS_GRANIT_PROVIDER` 支持 `AUTO`、`PACKAGE` 和 `FETCH`，默认使用 `AUTO`。
 - 所有模式首先复用父工程已经存在的 `granit::window` 等所需目标。
@@ -24,6 +24,8 @@ CI 环境的可控性。
 - `PACKAGE` 禁止下载；package 或所需组件缺失时在配置阶段失败。
 - `FETCH` 跳过 package 查找并下载 `GNEISS_GRANIT_GIT_REPOSITORY` 的
   `GNEISS_GRANIT_GIT_TAG`。默认值使用 HTTPS 仓库和完整提交哈希，不跟踪浮动分支。
+- Gneiss 记录上次提供的默认提交；配置仍使用该默认值的旧构建目录时自动升级，而用户指定的其他
+  提交保持不变。需要固定旧默认提交时可关闭 `GNEISS_GRANIT_UPDATE_DEFAULTS`。
 - Fetch 模式关闭 Granit 自身测试、示例、benchmark、工具及可选集成，只构建 Gneiss 链接到的目标。
 - FetchContent 使用各构建目录下的 `_deps` 源码和构建目录，不写入仓库 `3rd/`。
 - 发行构建和不允许网络的 CI 使用 `PACKAGE`；CI 另设干净环境验证 `FETCH` 路径。
