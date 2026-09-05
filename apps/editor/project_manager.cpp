@@ -172,7 +172,7 @@ gneiss_result update_project_manager(gneiss_application application, const gneis
       return operation;
     }
     if (state.operation != result::success && state.operation != result::not_ready) {
-      const auto message = result_message(state.operation);
+      const auto message = state.operation.message();
       ImGui::TextColored(theme_error_color(), "%.*s", static_cast<int>(message.size()),
                          message.data());
     }
@@ -210,7 +210,7 @@ result run_project_manager(bool smoke, editor_project& output) noexcept {
     desc.window_flags = GNEISS_APPLICATION_WINDOW_VISIBLE_BIT;
     auto operation = gneiss::application::create(desc, application);
     if (operation != result::success) {
-      const auto message = result_message(operation);
+      const auto message = operation.message();
       std::fprintf(
           stderr,
           "Gneiss Editor 启动失败：阶段=Project Manager Application 创建，结果=%d，消息=%.*s\n",
@@ -219,7 +219,7 @@ result run_project_manager(bool smoke, editor_project& output) noexcept {
     }
     operation = from_native(state.ui.initialize(application.get()));
     if (operation != result::success) {
-      const auto message = result_message(operation);
+      const auto message = operation.message();
       std::fprintf(stderr,
                    "Gneiss Editor 启动失败：阶段=Project Manager UI 初始化，结果=%d，消息=%.*s\n",
                    to_native(operation), static_cast<int>(message.size()), message.data());
@@ -227,7 +227,7 @@ result run_project_manager(bool smoke, editor_project& output) noexcept {
     if (operation == result::success) {
       operation = application.run(smoke ? 3U : 0U);
       if (operation != result::success) {
-        const auto message = result_message(operation);
+        const auto message = operation.message();
         std::fprintf(stderr,
                      "Gneiss Editor 运行失败：阶段=Project Manager 事件循环，结果=%d，消息=%.*s\n",
                      to_native(operation), static_cast<int>(message.size()), message.data());

@@ -32,7 +32,7 @@ public:
   [[nodiscard]] static result create(type_registry& output) noexcept {
     gneiss_type_registry handle = GNEISS_NULL_TYPE_REGISTRY;
     const auto status = from_native(gneiss_type_registry_create(&handle));
-    if (succeeded(status)) {
+    if (status.ok()) {
       output.reset();
       output.handle_ = handle;
     }
