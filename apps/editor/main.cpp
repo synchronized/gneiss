@@ -24,6 +24,7 @@
 #include "asset_file_watcher.h"
 #include "asset_import_controller.h"
 #include "asset_reimport_queue.h"
+#include "author_asset_monitor.h"
 #endif
 
 #include <gneiss/application.hpp>
@@ -162,6 +163,8 @@ struct editor_state {
 #if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
   gneiss::editor::asset_browser_model assets;
   gneiss::editor::asset_file_watcher asset_watcher;
+  gneiss::editor::asset_file_watcher author_asset_watcher;
+  gneiss::editor::author_asset_monitor author_assets;
   gneiss::editor::asset_reimport_queue asset_reimports;
   gneiss::editor::asset_browser_result asset_result = gneiss::editor::asset_browser_result::success;
   ImGuiTextFilter asset_filter;
@@ -716,6 +719,11 @@ gneiss::result save_document_as(editor_state& state) {
   }
   if (operation == gneiss::result::success) {
     state.history.mark_saved();
+#if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
+    const auto uri = std::string{state.session.uri()};
+    (void)state.author_assets.acknowledge(uri);
+    (void)state.runtime.publish_asset_revision(std::span<const std::string>(&uri, 1U));
+#endif
   }
   return operation;
 }
@@ -727,6 +735,11 @@ gneiss::result save_document(editor_state& state) {
   const auto operation = state.session.save(state.asset_root);
   if (operation == gneiss::result::success) {
     state.history.mark_saved();
+#if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
+    const auto uri = std::string{state.session.uri()};
+    (void)state.author_assets.acknowledge(uri);
+    (void)state.runtime.publish_asset_revision(std::span<const std::string>(&uri, 1U));
+#endif
   }
   return operation;
 }
@@ -1470,6 +1483,17 @@ void draw_asset_browser(editor_state& state) {
     ImGui::TextColored(color, "Runtime asset revision %llu: %s",
                        static_cast<unsigned long long>(reload.revision), reload.message.c_str());
   }
+  const auto& author_change = state.author_assets.status();
+  if (author_change.state != gneiss::editor::author_asset_change_state::idle) {
+    const auto color =
+        author_change.state == gneiss::editor::author_asset_change_state::applied
+            ? gneiss::editor::theme_success_color()
+        : author_change.state == gneiss::editor::author_asset_change_state::conflict ||
+                author_change.state == gneiss::editor::author_asset_change_state::failed
+            ? gneiss::editor::theme_error_color()
+            : ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled);
+    ImGui::TextColored(color, "%s: %s", author_change.uri.c_str(), author_change.message.c_str());
+  }
   const gneiss::editor::scene_node_record* scene_node = state.session.selected_node();
   const auto* paired_material =
       selected_entry != state.assets.entries().end() && is_mesh_asset(*selected_entry)
@@ -1827,6 +1851,51 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
     for (const auto& event : file_events) {
       if (event.kind != gneiss::editor::asset_file_event_kind::error) {
         (void)state.asset_reimports.notify(event.relative_path);
+      }
+    }
+    std::vector<gneiss::editor::asset_file_event> author_events;
+    (void)state.author_asset_watcher.poll_events(author_events);
+    for (const auto& event : author_events) {
+      if (event.kind == gneiss::editor::asset_file_event_kind::error) {
+        continue;
+      }
+      const auto candidate_uri = "asset://" + path_utf8(event.relative_path.lexically_normal());
+      const auto affects_open_document =
+          candidate_uri == state.session.uri() ||
+          std::ranges::any_of(state.session.prefab_nodes(), [&candidate_uri](const auto& node) {
+            return node.prefab_uri == candidate_uri;
+          });
+      const auto change = state.author_assets.observe(
+          event.relative_path, state.session.is_dirty() && affects_open_document);
+      if (change.state != gneiss::editor::author_asset_change_state::changed) {
+        continue;
+      }
+      if (change.operation != gneiss::result::success) {
+        state.author_assets.mark_failed(change.uri, change.operation);
+        continue;
+      }
+      const auto is_current_scene = change.uri == state.session.uri();
+      const auto is_used_prefab =
+          std::ranges::any_of(state.session.prefab_nodes(), [&change](const auto& node) {
+            return node.prefab_uri == change.uri;
+          });
+      auto operation = gneiss::result::success;
+      if (is_current_scene || is_used_prefab) {
+        const auto current_uri = std::string{state.session.uri()};
+        operation = state.session.open(application, state.world, current_uri);
+        if (operation == gneiss::result::success) {
+          state.history.clear();
+        }
+      }
+      if (operation == gneiss::result::success) {
+        operation =
+            state.runtime.publish_asset_revision(std::span<const std::string>(&change.uri, 1U));
+      }
+      if (operation == gneiss::result::success) {
+        state.author_assets.mark_applied(change.uri);
+        state.asset_result = state.assets.refresh(state.project_root, state.asset_root);
+      } else {
+        state.author_assets.mark_failed(change.uri, operation);
       }
     }
     (void)state.asset_reimports.tick(state.project_root, state.asset_root);
@@ -3178,6 +3247,21 @@ int run_editor(int argc, char** argv) {
                  gneiss::to_native(watcher_result), static_cast<int>(message.size()),
                  message.data());
   }
+  const auto author_monitor_result = state.author_assets.initialize(state.asset_root);
+  if (author_monitor_result != gneiss::result::success) {
+    const auto message = author_monitor_result.message();
+    std::fprintf(stderr, "Gneiss Editor 作者资产监视初始化失败：结果=%d，消息=%.*s\n",
+                 gneiss::to_native(author_monitor_result), static_cast<int>(message.size()),
+                 message.data());
+  } else {
+    const auto author_watcher_result = state.author_asset_watcher.start(state.asset_root);
+    if (author_watcher_result != gneiss::result::success) {
+      const auto message = author_watcher_result.message();
+      std::fprintf(stderr, "Gneiss Editor 作者资产监听启动失败：结果=%d，消息=%.*s\n",
+                   gneiss::to_native(author_watcher_result), static_cast<int>(message.size()),
+                   message.data());
+    }
+  }
 #endif
   const auto title = project.name + " - Gneiss Editor";
   gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
@@ -3254,6 +3338,9 @@ int run_editor(int argc, char** argv) {
 #if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
   if (state.asset_watcher.is_running()) {
     (void)state.asset_watcher.stop();
+  }
+  if (state.author_asset_watcher.is_running()) {
+    (void)state.author_asset_watcher.stop();
   }
 #endif
   state.camera.shutdown();
