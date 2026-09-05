@@ -13,7 +13,7 @@ Editor。
 - CMake 3.23 或更高版本。
 - 支持 C++20 的 C/C++ 编译器。
 - 使用 Ninja preset 时需要安装 Ninja。
-- 启用 Granit 运行时适配时需要已安装的 Granit `0.4.0+` 核心、Window、Input 与 RenderPipeline
+- 启用 Granit 运行时适配时需要已安装的 Granit `0.7.0+` 核心、Window、Input 与 RenderPipeline
   组件，或由父工程提供 `granit::granit`、`granit::window`、`granit::input` 和
   `granit::render_pipeline` 目标。
 
