@@ -82,6 +82,7 @@
 - [VER-021：0.21.0 IPC 模块化重构](plans/VER-021-0.21.0-ipc-modularization.md)
 - [VER-022：0.22.0 资产热重载](plans/VER-022-0.22.0-asset-hot-reload.md)
 - [VER-023：0.23.0 核心 API 与依赖基线](plans/VER-023-0.23.0-foundation-baseline.md)
+- [VER-024：0.24.0 Scene 与 Prefab 结构热重载](plans/VER-024-0.24.0-structural-hot-reload.md)
 - [M-100：Editor Play 工作流实施记录](records/M-100-editor-play-workflow.md)
 - [M-101：示例与跨平台验收记录](records/M-101-example-cross-platform-validation.md)
 - [M-102：Runtime 检查会话与对象标识实施记录](records/M-102-runtime-inspection-identity.md)
@@ -134,6 +135,7 @@
 - [ADR-029：Runtime 检查使用只读镜像模型](decisions/ADR-029-runtime-inspection-model.md)
 - [ADR-035：分离 IPC 传输与应用协议](decisions/ADR-035-ipc-transport-protocol-boundary.md)
 - [ADR-036：资产热重载使用修订通知与事务替换](decisions/ADR-036-asset-hot-reload.md)
+- [ADR-037：Scene 与 Prefab 结构热重载使用身份协调事务](decisions/ADR-037-scene-prefab-structural-hot-reload.md)
 
 ## 实施与验收记录
 
