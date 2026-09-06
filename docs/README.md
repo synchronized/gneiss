@@ -92,6 +92,7 @@
 - [VER-030：0.30.0 Runtime API 收敛与游戏工程模板](plans/VER-030-0.30.0-runtime-api-convergence.md)
 - [VER-031：0.31.0 游戏工程创建与目录包导出](plans/VER-031-0.31.0-project-workflow.md)
 - [VER-032：0.32.0 构建配置与发布包管线](plans/VER-032-0.32.0-release-packaging.md)
+- [VER-033：0.33.0 资产构建与发布优化](plans/VER-033-0.33.0-asset-cooking.md)
 - [M-100：Editor Play 工作流实施记录](records/M-100-editor-play-workflow.md)
 - [M-101：示例与跨平台验收记录](records/M-101-example-cross-platform-validation.md)
 - [M-102：Runtime 检查会话与对象标识实施记录](records/M-102-runtime-inspection-identity.md)
@@ -146,9 +147,12 @@
 - [ADR-036：资产热重载使用修订通知与事务替换](decisions/ADR-036-asset-hot-reload.md)
 - [ADR-037：Scene 与 Prefab 结构热重载使用身份协调事务](decisions/ADR-037-scene-prefab-structural-hot-reload.md)
 - [ADR-038：渲染线程独占 GPU 对象并消费不可变任务](decisions/ADR-038-render-thread-ownership.md)
+- [ADR-042：资产构建与 Granit GPU 契约边界](decisions/ADR-042-asset-cooking-backend-boundary.md)
 
 ## 实施与验收记录
 
+- [M-214：确定性资产构建图与缓存实施记录](records/M-214-asset-build-graph-cache.md)
+- [M-215：KTX2 与 Granit 纹理能力 Spike 记录](records/M-215-ktx2-granit-capability-spike.md)
 - [M-162：Granit 0.7.0 升级与兼容审计](records/M-162-granit-0.7-upgrade.md)
 - [M-163：帧包与同步执行边界](records/M-163-render-frame-packet.md)
 - [M-164：有界渲染任务队列](records/M-164-bounded-render-executor.md)
@@ -247,6 +251,7 @@
 - [M-160 Editor 冲突与状态反馈记录](records/M-160-editor-conflict-status.md)
 - [M-161 结构热重载示例与跨平台验收记录](records/M-161-structural-hot-reload-validation.md)
 - [M-212 0.32.0 构建配置与发布包管线验收记录](records/M-212-release-packaging-validation.md)
+- [M-219 0.33.0 资产构建与发布优化验收记录](records/M-219-asset-cooking-validation.md)
 - [M-65 公共 API 与稳定性审计记录](records/M-65-public-api-audit.md)
 - [M-66 稳定运行时代表性样例验收记录](records/M-66-stable-runtime-sample.md)
 - [M-67 公共 API 与 ABI 加固记录](records/M-67-api-abi-hardening.md)

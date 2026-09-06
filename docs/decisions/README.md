@@ -47,3 +47,4 @@ Reference 和实现为准。
 - [ADR-039：Granit 渲染资产只作为后端投影](ADR-039-granit-render-asset-projection.md)
 - [ADR-040：工程脚手架与目录包导出共用工作流](ADR-040-project-scaffold-export-boundary.md)
 - [ADR-041：发布配置与可运行包边界](ADR-041-release-profile-package-boundary.md)
+- [ADR-042：资产构建归属 Gneiss 工具链，Granit 只承载 GPU 契约](ADR-042-asset-cooking-backend-boundary.md)

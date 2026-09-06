@@ -93,6 +93,22 @@ int main() try {
     return 4;
   }
 
+  if (!write_text(
+          root / "gneiss.project.json",
+          R"({"format":"gneiss.project","version":5,"name":"Test Project","asset_root":"assets","startup_scene":"asset://scenes/main.scene.json","asset_build":{"retain":["asset://studio.gneiss-environment"]}})") ||
+      gneiss::app::load_project_description(root, project, report) != gneiss::result::success ||
+      project.retained_assets != std::vector<std::string>{"asset://studio.gneiss-environment"}) {
+    return 4;
+  }
+  if (!write_text(
+          root / "gneiss.project.json",
+          R"({"format":"gneiss.project","version":5,"name":"Test Project","asset_root":"assets","startup_scene":"asset://scenes/main.scene.json","asset_build":{"retain":["asset://studio.gneiss-environment","asset://studio.gneiss-environment"]}})") ||
+      gneiss::app::load_project_description(root, project, report) !=
+          gneiss::result::invalid_argument ||
+      report.stage != gneiss::app::project_load_stage::asset_build) {
+    return 4;
+  }
+
   const auto previous_name = project.name;
   if (gneiss::app::load_project_description(root / "missing", project, report) !=
           gneiss::result::not_found ||

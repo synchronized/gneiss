@@ -126,14 +126,27 @@ int main(int argc, char** argv) {
         return fail("构建游戏模块", operation);
       }
     }
-    operation = gneiss::editor::export_editor_project(project, {.runtime_executable = argv[3],
-                                                                .output_root = argv[4],
-                                                                .profile = profile,
-                                                                .create_zip = create_zip});
+    gneiss::editor::project_export_report report;
+    gneiss::editor::project_export_options options{.runtime_executable = argv[3],
+                                                   .output_root = argv[4],
+                                                   .profile = profile,
+                                                   .create_zip = create_zip,
+                                                   .asset_progress = {}};
+    options.asset_progress = [](std::uint64_t current, std::uint64_t total, std::string_view path,
+                                bool cache_hit) {
+      std::cout << "资产 [" << current << '/' << total << "] " << path << "："
+                << (cache_hit ? "缓存命中" : "已构建") << '\n'
+                << std::flush;
+    };
+    operation = gneiss::editor::export_editor_project(project, options, report);
     if (!operation) {
       return fail("生成发布包", operation);
     }
-    std::cout << std::filesystem::path(argv[4]).string() << '\n';
+    std::cout << "资产构建：源=" << report.asset_source_count
+              << " 新建=" << report.asset_built_count
+              << " 缓存命中=" << report.asset_cache_hit_count
+              << " 裁剪=" << report.asset_pruned_count << '\n'
+              << std::filesystem::path(argv[4]).string() << '\n';
     return 0;
   }
   usage();

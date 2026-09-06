@@ -80,6 +80,7 @@ gneiss_target_compile_warnings(gneiss_editor_session)
 gneiss_target_output_directories(gneiss_editor_session)
 
 if(TARGET gneiss_asset_import_sdk)
+  target_link_libraries(gneiss_editor_session PRIVATE gneiss_asset_import_sdk)
   add_library(
     gneiss_editor_assets STATIC
     author_asset_monitor.cpp
