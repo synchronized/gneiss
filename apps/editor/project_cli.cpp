@@ -1,13 +1,20 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "package_archive.h"
 #include "project_workspace.h"
+
+#include "child_process.h"
 
 #include <gneiss/app/project_description.h>
 
+#include <chrono>
 #include <filesystem>
 #include <iostream>
 #include <string_view>
+#include <thread>
+#include <utility>
+#include <vector>
 
 namespace {
 
@@ -20,7 +27,39 @@ int fail(std::string_view stage, gneiss::result operation) {
 void usage() {
   std::cout << "用法：\n"
                "  gneiss_project create <工程目录> <工程名> [模板目录]\n"
-               "  gneiss_project export <工程目录> <Runtime 路径> <输出目录>\n";
+               "  gneiss_project export <工程目录> <Runtime 路径> <输出目录> "
+               "[debug|development|shipping] [--zip]\n"
+               "  gneiss_project package <工程目录> <Runtime 路径> <输出目录> "
+               "[debug|development|shipping] [--zip]\n"
+               "  gneiss_project verify <发布包目录>\n";
+}
+
+bool parse_profile(std::string_view text, gneiss::app::game_build_profile& output) {
+  if (text == "debug") {
+    output = gneiss::app::game_build_profile::debug;
+  } else if (text == "development") {
+    output = gneiss::app::game_build_profile::development;
+  } else if (text == "shipping") {
+    output = gneiss::app::game_build_profile::shipping;
+  } else {
+    return false;
+  }
+  return true;
+}
+
+gneiss::result run_process(const std::filesystem::path& executable,
+                           const std::filesystem::path& working_directory,
+                           std::vector<std::filesystem::path> arguments) {
+  gneiss::child_process process;
+  auto operation = process.start({executable, std::move(arguments), working_directory});
+  while (operation && process.is_running()) {
+    process.update();
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+  }
+  process.update();
+  std::cout << process.output();
+  return operation && process.exit_code() == 0 ? gneiss::result::success
+                                               : gneiss::result::dependency_failed;
 }
 
 } // namespace
@@ -42,15 +81,57 @@ int main(int argc, char** argv) {
     std::cout << project.project_root.string() << '\n';
     return 0;
   }
-  if (command == "export" && argc == 5) {
+  if (command == "verify" && argc == 3) {
+    const auto operation = gneiss::editor::verify_package_manifest(argv[2]);
+    if (!operation) {
+      return fail("校验发布包", operation);
+    }
+    std::cout << std::filesystem::path(argv[2]).string() << '\n';
+    return 0;
+  }
+  if ((command == "export" || command == "package") && argc >= 5 && argc <= 7) {
     gneiss::app::project_description project;
     auto operation = gneiss::app::load_project_description(argv[2], project);
     if (!operation) {
       return fail("加载工程", operation);
     }
-    operation = gneiss::editor::export_editor_project(project, argv[3], argv[4]);
+    gneiss::app::game_build_profile profile = gneiss::app::game_build_profile::development;
+    bool create_zip = false;
+    for (int index = 5; index < argc; ++index) {
+      const std::string_view argument(argv[index]);
+      if (argument == "--zip") {
+        create_zip = true;
+      } else if (!parse_profile(argument, profile)) {
+        usage();
+        return 2;
+      }
+    }
+    if (command == "package") {
+      const auto& build =
+          gneiss::app::game_build_profile_description_for(project.game_module, profile);
+      if (build.configure_preset.empty() || build.build_preset.empty()) {
+        return fail("选择构建配置", gneiss::result::unsupported);
+      }
+      const auto sdk_root = std::filesystem::path(argv[3]).parent_path().parent_path();
+      operation = run_process(
+          GNEISS_EDITOR_CMAKE_PATH, project.project_root,
+          {"--preset", build.configure_preset, "-DCMAKE_PREFIX_PATH=" + sdk_root.string()});
+      if (!operation) {
+        return fail("配置工程", operation);
+      }
+      operation = run_process(GNEISS_EDITOR_CMAKE_PATH, project.project_root,
+                              {"--build", "--preset", build.build_preset, "--target",
+                               project.game_module.build_target});
+      if (!operation) {
+        return fail("构建游戏模块", operation);
+      }
+    }
+    operation = gneiss::editor::export_editor_project(project, {.runtime_executable = argv[3],
+                                                                .output_root = argv[4],
+                                                                .profile = profile,
+                                                                .create_zip = create_zip});
     if (!operation) {
-      return fail("导出目录包", operation);
+      return fail("生成发布包", operation);
     }
     std::cout << std::filesystem::path(argv[4]).string() << '\n';
     return 0;

@@ -12,6 +12,13 @@
 
 namespace gneiss::editor {
 
+struct project_export_options final {
+  std::filesystem::path runtime_executable;
+  std::filesystem::path output_root;
+  app::game_build_profile profile = app::game_build_profile::development;
+  bool create_zip = false;
+};
+
 /** 返回 Editor 用户状态文件的默认路径。 */
 [[nodiscard]] std::filesystem::path default_editor_state_path();
 
@@ -36,6 +43,10 @@ namespace gneiss::editor {
 [[nodiscard]] result export_editor_project(const editor_project& project,
                                            const std::filesystem::path& runtime_executable,
                                            const std::filesystem::path& output_root) noexcept;
+
+/** 按指定配置导出带清单的目录包，并可同时生成确定性 ZIP。 */
+[[nodiscard]] result export_editor_project(const editor_project& project,
+                                           const project_export_options& options) noexcept;
 
 } // namespace gneiss::editor
 

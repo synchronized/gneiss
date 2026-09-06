@@ -2,12 +2,38 @@
   "version": 6,
   "configurePresets": [
     {
-      "name": "game-debug-configure",
-      "displayName": "Gneiss Game Module (Debug)",
+      "name": "game-base",
+      "hidden": true,
       "generator": "Ninja Multi-Config",
-      "binaryDir": "${sourceDir}/build/game-debug",
       "cacheVariables": {
         "CMAKE_PREFIX_PATH": "$env{GNEISS_SDK_ROOT}"
+      }
+    },
+    {
+      "name": "game-debug-configure",
+      "displayName": "Gneiss Game Module (Debug)",
+      "inherits": "game-base",
+      "binaryDir": "${sourceDir}/build/game-debug",
+      "cacheVariables": {
+        "GNEISS_GAME_OUTPUT_DIRECTORY": "${sourceDir}/modules/debug"
+      }
+    },
+    {
+      "name": "game-development-configure",
+      "displayName": "Gneiss Game Module (Development)",
+      "inherits": "game-base",
+      "binaryDir": "${sourceDir}/build/game-development",
+      "cacheVariables": {
+        "GNEISS_GAME_OUTPUT_DIRECTORY": "${sourceDir}/modules/development"
+      }
+    },
+    {
+      "name": "game-shipping-configure",
+      "displayName": "Gneiss Game Module (Shipping)",
+      "inherits": "game-base",
+      "binaryDir": "${sourceDir}/build/game-shipping",
+      "cacheVariables": {
+        "GNEISS_GAME_OUTPUT_DIRECTORY": "${sourceDir}/modules/shipping"
       }
     }
   ],
@@ -16,6 +42,16 @@
       "name": "game-debug",
       "configurePreset": "game-debug-configure",
       "configuration": "Debug"
+    },
+    {
+      "name": "game-development",
+      "configurePreset": "game-development-configure",
+      "configuration": "RelWithDebInfo"
+    },
+    {
+      "name": "game-shipping",
+      "configurePreset": "game-shipping-configure",
+      "configuration": "Release"
     }
   ]
 }

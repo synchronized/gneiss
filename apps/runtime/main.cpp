@@ -36,6 +36,7 @@ struct runtime_options final {
   std::string ipc_address;
   std::string ipc_token;
   std::uint16_t ipc_port = 0U;
+  gneiss::app::game_build_profile profile = gneiss::app::game_build_profile::debug;
   bool smoke = false;
 };
 
@@ -154,6 +155,20 @@ gneiss::result update_game(void* user_data, const gneiss_game_update_time& time)
     const std::string_view argument = argv[index];
     if (argument == "--smoke") {
       pending.smoke = true;
+      continue;
+    }
+    if (argument == "--profile" && index + 1 < argc) {
+      const std::string_view profile = argv[++index];
+      if (profile == "debug") {
+        pending.profile = gneiss::app::game_build_profile::debug;
+      } else if (profile == "development") {
+        pending.profile = gneiss::app::game_build_profile::development;
+      } else if (profile == "shipping") {
+        pending.profile = gneiss::app::game_build_profile::shipping;
+      } else {
+        output = std::move(pending);
+        return false;
+      }
       continue;
     }
     if (argument == "--project" && index + 1 < argc && pending.project_root.empty()) {
@@ -515,7 +530,7 @@ void write_application_log(gneiss_application, const gneiss_log_event* event, vo
   gneiss::runtime_internal::game_update_scheduler game_scheduler;
   if (!project.game_module.name.empty()) {
     std::filesystem::path module_path;
-    operation = gneiss::app::resolve_game_module_path(project, module_path);
+    operation = gneiss::app::resolve_game_module_path(project, options.profile, module_path);
     if (operation == gneiss::result::success) {
       operation = game_module.load(module_path);
     }
