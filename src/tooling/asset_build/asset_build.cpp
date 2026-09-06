@@ -3,6 +3,12 @@
 
 #include "tooling/asset_build/asset_build.h"
 
+#include "tooling/asset_build/ktx2_probe.h"
+
+#include "asset/mesh_binary.h"
+
+#include <yyjson.h>
+
 #include <algorithm>
 #include <array>
 #include <chrono>
@@ -46,6 +52,11 @@ struct source_node final {
   return !path.is_absolute() && path == path.lexically_normal() && *path.begin() != "..";
 }
 
+[[nodiscard]] bool is_runtime_source(std::string_view relative) noexcept {
+  return relative != "source" && !relative.starts_with("source/") && relative != ".gneiss" &&
+         !relative.starts_with(".gneiss/");
+}
+
 [[nodiscard]] bool uri_character(char value) noexcept {
   return (value >= 'a' && value <= 'z') || (value >= 'A' && value <= 'Z') ||
          (value >= '0' && value <= '9') || value == '_' || value == '-' || value == '.' ||
@@ -75,6 +86,66 @@ struct source_node final {
     cursor = end;
   }
   return {unique.begin(), unique.end()};
+}
+
+[[nodiscard]] std::vector<std::byte> read_bytes(const std::filesystem::path& path) {
+  std::ifstream stream(path, std::ios::binary | std::ios::ate);
+  if (!stream) {
+    return {};
+  }
+  const auto size = stream.tellg();
+  if (size <= 0) {
+    return {};
+  }
+  std::vector<std::byte> bytes(static_cast<std::size_t>(size));
+  stream.seekg(0);
+  stream.read(reinterpret_cast<char*>(bytes.data()), size);
+  return stream.good() ? std::move(bytes) : std::vector<std::byte>{};
+}
+
+[[nodiscard]] bool valid_json(const std::filesystem::path& path) {
+  const auto bytes = read_bytes(path);
+  if (bytes.empty()) {
+    return false;
+  }
+  auto* document =
+      yyjson_read(reinterpret_cast<const char*>(bytes.data()), bytes.size(), YYJSON_READ_NOFLAG);
+  if (document == nullptr) {
+    return false;
+  }
+  yyjson_doc_free(document);
+  return true;
+}
+
+[[nodiscard]] bool validate_source(const source_node& node) {
+  const auto extension = node.absolute_path.extension().string();
+  if (node.processor->id == "gneiss.texture") {
+    if (extension == ".ktx2") {
+      return inspect_ktx2(node.absolute_path).result == ktx2_probe_result::success;
+    }
+    const auto bytes = read_bytes(node.absolute_path);
+    if (extension == ".png") {
+      constexpr std::array<std::byte, 8U> signature = {
+          std::byte{0x89U}, std::byte{0x50U}, std::byte{0x4EU}, std::byte{0x47U},
+          std::byte{0x0DU}, std::byte{0x0AU}, std::byte{0x1AU}, std::byte{0x0AU}};
+      return bytes.size() >= signature.size() &&
+             std::equal(signature.begin(), signature.end(), bytes.begin());
+    }
+    return bytes.size() >= 2U && bytes[0] == std::byte{0xFFU} && bytes[1] == std::byte{0xD8U};
+  }
+  if (node.processor->id == "gneiss.mesh" && extension == ".gneiss-mesh") {
+    const auto bytes = read_bytes(node.absolute_path);
+    asset_internal::mesh_binary_data output;
+    asset_internal::mesh_binary_diagnostic diagnostic;
+    return asset_internal::decode_mesh_binary(bytes, output, diagnostic) ==
+           asset_internal::mesh_binary_result::success;
+  }
+  if ((node.processor->id == "gneiss.mesh" || node.processor->id == "gneiss.material" ||
+       node.processor->id == "gneiss.document") &&
+      extension == ".json") {
+    return valid_json(node.absolute_path);
+  }
+  return true;
 }
 
 void hash_bytes(std::uint64_t& hash, std::string_view bytes) noexcept {
@@ -213,6 +284,9 @@ build_report build_assets(const build_request& request, const processor_registry
         continue;
       }
       const auto relative = path_utf8(entry.path().lexically_relative(request.source_root));
+      if (!is_runtime_source(relative)) {
+        continue;
+      }
       const auto* processor = registry.find(relative);
       if (processor == nullptr) {
         processor = registry.find("*");
@@ -224,44 +298,7 @@ build_report build_assets(const build_request& request, const processor_registry
                        .relative_path = relative,
                        .processor = processor,
                        .dependencies = scan_dependencies(entry.path())};
-      if (!cache_key(node, request, node.cache_key)) {
-        return fail(build_result::io_error, "无法计算资产缓存键：" + relative);
-      }
       nodes.emplace(relative, std::move(node));
-    }
-
-    std::map<std::string, std::uint8_t> visit_state;
-    std::function<bool(source_node&)> finalize_key = [&](source_node& node) {
-      auto& state = visit_state[node.relative_path];
-      if (state == 2U) {
-        return true;
-      }
-      if (state == 1U) {
-        return false;
-      }
-      state = 1U;
-      std::uint64_t dependency_hash = 14695981039346656037ULL;
-      hash_bytes(dependency_hash, node.cache_key);
-      for (const auto& dependency : node.dependencies) {
-        const auto found = nodes.find(dependency);
-        if (found == nodes.end() || !finalize_key(found->second)) {
-          return false;
-        }
-        hash_bytes(dependency_hash, "\0");
-        hash_bytes(dependency_hash, dependency);
-        hash_bytes(dependency_hash, "\0");
-        hash_bytes(dependency_hash, found->second.cache_key);
-      }
-      std::ostringstream text;
-      text << std::hex << std::setfill('0') << std::setw(16) << dependency_hash;
-      node.cache_key = text.str();
-      state = 2U;
-      return true;
-    };
-    for (auto& [relative, node] : nodes) {
-      if (!finalize_key(node)) {
-        return fail(build_result::dependency_missing, "资产依赖缺失或形成循环：" + relative);
-      }
     }
 
     std::set<std::string> selected;
@@ -296,6 +333,51 @@ build_report build_assets(const build_request& request, const processor_registry
       }
     }
 
+    for (const auto& relative : selected) {
+      auto& node = nodes.at(relative);
+      if (!validate_source(node)) {
+        return fail(build_result::processor_failed, "资产处理器校验失败：" + relative);
+      }
+      if (!cache_key(node, request, node.cache_key)) {
+        return fail(build_result::io_error, "无法计算资产缓存键：" + relative);
+      }
+    }
+
+    std::map<std::string, std::uint8_t> visit_state;
+    std::function<bool(source_node&)> finalize_key = [&](source_node& node) {
+      auto& state = visit_state[node.relative_path];
+      if (state == 2U) {
+        return true;
+      }
+      if (state == 1U) {
+        return false;
+      }
+      state = 1U;
+      std::uint64_t dependency_hash = 14695981039346656037ULL;
+      hash_bytes(dependency_hash, node.cache_key);
+      for (const auto& dependency : node.dependencies) {
+        const auto found = nodes.find(dependency);
+        if (found == nodes.end() || !finalize_key(found->second)) {
+          return false;
+        }
+        hash_bytes(dependency_hash, "\0");
+        hash_bytes(dependency_hash, dependency);
+        hash_bytes(dependency_hash, "\0");
+        hash_bytes(dependency_hash, found->second.cache_key);
+      }
+      std::ostringstream text;
+      text << std::hex << std::setfill('0') << std::setw(16) << dependency_hash;
+      node.cache_key = text.str();
+      state = 2U;
+      return true;
+    };
+    for (const auto& relative : selected) {
+      auto& node = nodes.at(relative);
+      if (!finalize_key(node)) {
+        return fail(build_result::dependency_missing, "资产依赖缺失或形成循环：" + relative);
+      }
+    }
+
     const auto temporary = temporary_path(request.output_root, ".gneiss-building-");
     std::filesystem::create_directories(temporary, error);
     if (error) {
@@ -304,17 +386,20 @@ build_report build_assets(const build_request& request, const processor_registry
     build_report report{.result = build_result::success,
                         .source_count = static_cast<std::uint64_t>(nodes.size()),
                         .pruned_count = static_cast<std::uint64_t>(nodes.size() - selected.size())};
+    std::uint64_t progress_index{};
     for (const auto& relative : selected) {
       const auto& node = nodes.at(relative);
       const auto cache_file = request.cache_root / request.target_platform /
                               request.target_architecture / node.cache_key / "payload";
       const auto output_file = temporary / utf8_path(relative);
+      bool was_cache_hit = false;
       if (std::filesystem::is_regular_file(cache_file, error) && !error) {
         if (!copy_asset_file(cache_file, output_file)) {
           std::filesystem::remove_all(temporary, error);
           return fail(build_result::io_error, "无法读取资产缓存：" + relative);
         }
         ++report.cache_hit_count;
+        was_cache_hit = true;
       } else {
         error.clear();
         const auto cache_temporary = temporary_path(cache_file, ".gneiss-writing-");
@@ -341,6 +426,13 @@ build_report build_assets(const build_request& request, const processor_registry
         ++report.built_count;
       }
       report.outputs.push_back({relative, node.processor->id, node.cache_key, node.dependencies});
+      ++progress_index;
+      if (request.progress) {
+        request.progress({.current = progress_index,
+                          .total = static_cast<std::uint64_t>(selected.size()),
+                          .relative_path = relative,
+                          .cache_hit = was_cache_hit});
+      }
     }
     std::filesystem::rename(temporary, request.output_root, error);
     if (error) {

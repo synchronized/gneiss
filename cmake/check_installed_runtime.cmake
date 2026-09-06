@@ -126,11 +126,18 @@ if(GNEISS_SHARED)
     COMMAND ${runtime_environment} "${project_tool}" package "${template_source_dir}" "${runtime}"
             "${package_dir}" development --zip
     RESULT_VARIABLE package_export_result
+    OUTPUT_VARIABLE package_export_output
+    ERROR_VARIABLE package_export_error
   )
   if(NOT package_export_result EQUAL 0 OR EXISTS "${package_dir}/CMakeLists.txt" OR
      EXISTS "${package_dir}/sources" OR NOT EXISTS "${package_dir}/gneiss.project.json" OR
-     NOT EXISTS "${package_dir}/gneiss.package.json" OR NOT EXISTS "${package_dir}.zip")
-    message(FATAL_ERROR "Development 发布包导出失败：${package_export_result}")
+     NOT EXISTS "${package_dir}/gneiss.package.json" OR NOT EXISTS "${package_dir}.zip" OR
+     NOT EXISTS "${package_dir}/assets/.gneiss-build.json" OR
+     NOT EXISTS "${package_dir}/assets/debug/unused.json" OR
+     NOT package_export_output MATCHES "资产构建：源=" OR
+     NOT package_export_output MATCHES "资产 \\[1/")
+    message(FATAL_ERROR
+            "Development 发布包导出失败：${package_export_result}\n${package_export_output}${package_export_error}")
   endif()
   execute_process(
     COMMAND ${runtime_environment} "${project_tool}" verify "${package_dir}"
@@ -152,8 +159,9 @@ if(GNEISS_SHARED)
     COMMAND ${runtime_environment} "${project_tool}" export "${template_source_dir}" "${runtime}"
             "${package_repeat_dir}" development --zip
     RESULT_VARIABLE package_repeat_result
+    OUTPUT_VARIABLE package_repeat_output
   )
-  if(NOT package_repeat_result EQUAL 0)
+  if(NOT package_repeat_result EQUAL 0 OR NOT package_repeat_output MATCHES "缓存命中")
     message(FATAL_ERROR "重复发布包导出失败：${package_repeat_result}")
   endif()
   file(SHA256 "${package_dir}.zip" package_archive_hash)
@@ -192,7 +200,9 @@ if(GNEISS_SHARED)
   file(GLOB_RECURSE shipping_symbols "${shipping_package_dir}/*.pdb")
   if(NOT shipping_export_result EQUAL 0 OR
      NOT EXISTS "${shipping_package_dir}/gneiss.package.json" OR
-     EXISTS "${shipping_package_dir}/sources" OR shipping_symbols)
+     EXISTS "${shipping_package_dir}/sources" OR
+     EXISTS "${shipping_package_dir}/assets/.gneiss-build.json" OR
+     EXISTS "${shipping_package_dir}/assets/debug/unused.json" OR shipping_symbols)
     message(FATAL_ERROR "Shipping 发布包导出失败：${shipping_export_result}")
   endif()
   if(WIN32)

@@ -20,6 +20,10 @@ using namespace gneiss::tooling::asset_build;
   return !error && stream.good();
 }
 
+[[nodiscard]] std::string png_fixture(char payload) {
+  return std::string{"\x89PNG\r\n\x1a\n", 8U} + payload;
+}
+
 [[nodiscard]] const build_output* find_output(const build_report& report, const std::string& path) {
   for (const auto& output : report.outputs) {
     if (output.relative_path == path) {
@@ -40,8 +44,9 @@ int main() {
   if (!write(source / "scenes/main.scene.json",
              R"({"material":"asset://materials/a.material.json"})") ||
       !write(source / "materials/a.material.json", R"({"texture":"asset://textures/a.png"})") ||
-      !write(source / "textures/a.png", "texture-a") ||
-      !write(source / "textures/unused.png", "unused")) {
+      !write(source / "textures/a.png", png_fixture('a')) ||
+      !write(source / "textures/unused.png", "被 Shipping 裁剪的无效 PNG") ||
+      !write(source / "source/original.txt", "不进入运行时资产")) {
     return 1;
   }
 
@@ -59,8 +64,17 @@ int main() {
                                   .target_architecture = "test",
                                   .profile = build_profile::development};
   const auto first = build_assets(development, registry);
-  if (first.result != build_result::success || first.source_count != 4U ||
-      first.built_count != 4U || first.cache_hit_count != 0U || first.pruned_count != 0U) {
+  if (first.result != build_result::processor_failed) {
+    return 3;
+  }
+  if (!write(source / "textures/unused.png", png_fixture('u'))) {
+    return 3;
+  }
+  const auto first_valid = build_assets(development, registry);
+  if (first_valid.result != build_result::success || first_valid.source_count != 4U ||
+      first_valid.built_count != 4U || first_valid.cache_hit_count != 0U ||
+      first_valid.pruned_count != 0U ||
+      std::filesystem::exists(development.output_root / "source/original.txt")) {
     return 3;
   }
   auto second_request = development;
@@ -75,6 +89,9 @@ int main() {
   shipping_request.output_root = root / "shipping";
   shipping_request.profile = build_profile::shipping;
   shipping_request.root_uris = {"asset://scenes/main.scene.json"};
+  if (!write(source / "textures/unused.png", "被 Shipping 裁剪的无效 PNG")) {
+    return 5;
+  }
   const auto shipping = build_assets(shipping_request, registry);
   if (shipping.result != build_result::success || shipping.outputs.size() != 3U ||
       shipping.pruned_count != 1U ||
@@ -82,8 +99,9 @@ int main() {
     return 5;
   }
 
-  const auto* old_scene = find_output(first, "scenes/main.scene.json");
-  if (old_scene == nullptr || !write(source / "textures/a.png", "texture-b")) {
+  const auto* old_scene = find_output(first_valid, "scenes/main.scene.json");
+  if (old_scene == nullptr || !write(source / "textures/unused.png", png_fixture('u')) ||
+      !write(source / "textures/a.png", png_fixture('b'))) {
     return 6;
   }
   auto changed_request = development;

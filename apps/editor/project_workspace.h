@@ -7,6 +7,7 @@
 #include "editor_project.h"
 
 #include <filesystem>
+#include <functional>
 #include <string_view>
 #include <vector>
 
@@ -17,6 +18,15 @@ struct project_export_options final {
   std::filesystem::path output_root;
   app::game_build_profile profile = app::game_build_profile::development;
   bool create_zip = false;
+  std::function<void(std::uint64_t, std::uint64_t, std::string_view, bool)> asset_progress;
+};
+
+struct project_export_report final {
+  result operation = result::success;
+  std::uint64_t asset_source_count{};
+  std::uint64_t asset_built_count{};
+  std::uint64_t asset_cache_hit_count{};
+  std::uint64_t asset_pruned_count{};
 };
 
 /** 返回 Editor 用户状态文件的默认路径。 */
@@ -47,6 +57,11 @@ struct project_export_options final {
 /** 按指定配置导出带清单的目录包，并可同时生成确定性 ZIP。 */
 [[nodiscard]] result export_editor_project(const editor_project& project,
                                            const project_export_options& options) noexcept;
+
+/** 按指定配置导出，并返回资产构建统计。 */
+[[nodiscard]] result export_editor_project(const editor_project& project,
+                                           const project_export_options& options,
+                                           project_export_report& report) noexcept;
 
 } // namespace gneiss::editor
 

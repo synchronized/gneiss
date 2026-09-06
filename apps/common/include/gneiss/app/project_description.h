@@ -11,6 +11,7 @@
 #include <filesystem>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace gneiss::app {
 
@@ -52,6 +53,7 @@ struct project_description final {
   std::string startup_scene;
   std::string input_map;
   environment_description environment;
+  std::vector<std::string> retained_assets;
   game_module_description game_module;
 };
 
@@ -67,6 +69,7 @@ enum class project_load_stage {
   startup_scene,
   input_map,
   environment,
+  asset_build,
   game_module,
 };
 

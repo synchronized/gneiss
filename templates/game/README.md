@@ -37,3 +37,5 @@ Linux 使用 `./package/run.sh`。模板同时提供 `game-debug`、`game-develo
 
 工程描述固定为根目录的 `gneiss.project.json`。新增资产放入 `assets/`，模块产物由 preset 写入
 `modules/<配置>/`，本地构建目录为 `build/`；这两个生成目录不应提交到版本控制。
+`gneiss.project.json` 的 `asset_build.retain` 可声明没有被场景或其他 JSON 资产直接引用、但仍需
+进入 Shipping 包的动态资产。Development 包含全部运行时资产；Shipping 会裁剪不可达资产。

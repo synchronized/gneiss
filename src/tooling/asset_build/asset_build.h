@@ -5,6 +5,7 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <functional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -19,6 +20,7 @@ enum class build_result : std::uint8_t {
   source_unavailable,
   dependency_missing,
   processor_missing,
+  processor_failed,
   output_exists,
   io_error,
 };
@@ -27,6 +29,13 @@ struct processor_description final {
   std::string id;
   std::uint32_t version{};
   std::vector<std::string> suffixes;
+};
+
+struct build_progress final {
+  std::uint64_t current{};
+  std::uint64_t total{};
+  std::string_view relative_path;
+  bool cache_hit{};
 };
 
 class processor_registry final {
@@ -56,6 +65,7 @@ struct build_request final {
   std::string target_platform;
   std::string target_architecture;
   build_profile profile{build_profile::development};
+  std::function<void(const build_progress&)> progress;
 };
 
 struct build_output final {

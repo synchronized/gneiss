@@ -5,6 +5,8 @@
 
 #include "package_archive.h"
 
+#include "tooling/asset_build/asset_build.h"
+
 #include <yyjson.h>
 
 #include <array>
@@ -23,6 +25,50 @@ namespace gneiss::editor {
 namespace {
 
 constexpr std::size_t maximum_recent_projects = 10U;
+
+[[nodiscard]] constexpr std::string_view platform_name() noexcept {
+#if defined(_WIN32)
+  return "windows";
+#elif defined(__APPLE__)
+  return "macos";
+#elif defined(__linux__)
+  return "linux";
+#else
+  return "unknown";
+#endif
+}
+
+[[nodiscard]] constexpr std::string_view architecture_name() noexcept {
+#if defined(_M_X64) || defined(__x86_64__)
+  return "x86_64";
+#elif defined(_M_ARM64) || defined(__aarch64__)
+  return "arm64";
+#else
+  return "unknown";
+#endif
+}
+
+[[nodiscard]] result map_asset_build_result(tooling::asset_build::build_result operation) {
+  using tooling::asset_build::build_result;
+  switch (operation) {
+  case build_result::success:
+    return result::success;
+  case build_result::invalid_argument:
+    return result::invalid_argument;
+  case build_result::source_unavailable:
+  case build_result::dependency_missing:
+    return result::not_found;
+  case build_result::processor_missing:
+    return result::unsupported;
+  case build_result::processor_failed:
+    return result::dependency_failed;
+  case build_result::output_exists:
+    return result::invalid_state;
+  case build_result::io_error:
+    return result::io;
+  }
+  return result::unknown;
+}
 
 struct document_deleter final {
   void operator()(yyjson_doc* document) const noexcept { yyjson_doc_free(document); }
@@ -65,6 +111,54 @@ using document_ptr = std::unique_ptr<yyjson_doc, document_deleter>;
   std::ofstream stream(path, std::ios::binary | std::ios::trunc);
   stream.write(text.data(), static_cast<std::streamsize>(text.size()));
   return static_cast<bool>(stream);
+}
+
+[[nodiscard]] bool write_asset_build_metadata(const std::filesystem::path& path,
+                                              const tooling::asset_build::build_report& report) {
+  yyjson_mut_doc* raw_document = yyjson_mut_doc_new(nullptr);
+  if (raw_document == nullptr) {
+    return false;
+  }
+  using mutable_document_ptr = std::unique_ptr<yyjson_mut_doc, decltype(&yyjson_mut_doc_free)>;
+  mutable_document_ptr document(raw_document, &yyjson_mut_doc_free);
+  auto* root = yyjson_mut_obj(document.get());
+  auto* outputs = yyjson_mut_arr(document.get());
+  if (root == nullptr || outputs == nullptr ||
+      !yyjson_mut_obj_add_str(document.get(), root, "format", "gneiss.asset-build") ||
+      !yyjson_mut_obj_add_uint(document.get(), root, "version", 1U)) {
+    return false;
+  }
+  for (const auto& output : report.outputs) {
+    auto* item = yyjson_mut_obj(document.get());
+    auto* dependencies = yyjson_mut_arr(document.get());
+    if (item == nullptr || dependencies == nullptr ||
+        !yyjson_mut_obj_add_strncpy(document.get(), item, "path", output.relative_path.data(),
+                                    output.relative_path.size()) ||
+        !yyjson_mut_obj_add_strncpy(document.get(), item, "processor", output.processor_id.data(),
+                                    output.processor_id.size()) ||
+        !yyjson_mut_obj_add_strncpy(document.get(), item, "cache_key", output.cache_key.data(),
+                                    output.cache_key.size())) {
+      return false;
+    }
+    for (const auto& dependency : output.dependencies) {
+      if (!yyjson_mut_arr_add_strncpy(document.get(), dependencies, dependency.data(),
+                                      dependency.size())) {
+        return false;
+      }
+    }
+    if (!yyjson_mut_obj_add_val(document.get(), item, "dependencies", dependencies) ||
+        !yyjson_mut_arr_add_val(outputs, item)) {
+      return false;
+    }
+  }
+  if (!yyjson_mut_obj_add_val(document.get(), root, "outputs", outputs)) {
+    return false;
+  }
+  yyjson_mut_doc_set_root(document.get(), root);
+  std::size_t length{};
+  const std::unique_ptr<char, decltype(&std::free)> json(
+      yyjson_mut_write(document.get(), YYJSON_WRITE_PRETTY, &length), &std::free);
+  return json != nullptr && write_text(path, std::string_view(json.get(), length));
 }
 
 [[nodiscard]] bool copy_directory(const std::filesystem::path& source,
@@ -321,7 +415,7 @@ result create_editor_project(const std::filesystem::path& project_root,
     auto* root = yyjson_mut_obj(document.get());
     if (root == nullptr ||
         !yyjson_mut_obj_add_str(document.get(), root, "format", "gneiss.project") ||
-        !yyjson_mut_obj_add_uint(document.get(), root, "version", 4U) ||
+        !yyjson_mut_obj_add_uint(document.get(), root, "version", 5U) ||
         !yyjson_mut_obj_add_strncpy(document.get(), root, "name", name.data(), name.size()) ||
         !yyjson_mut_obj_add_str(document.get(), root, "asset_root", "assets") ||
         !yyjson_mut_obj_add_str(document.get(), root, "startup_scene",
@@ -329,12 +423,17 @@ result create_editor_project(const std::filesystem::path& project_root,
       std::filesystem::remove_all(temporary, error);
       return result::out_of_memory;
     }
+    auto* asset_build = yyjson_mut_obj(document.get());
+    auto* retained_assets = yyjson_mut_arr(document.get());
     auto* game_module = yyjson_mut_obj(document.get());
     auto* profiles = yyjson_mut_obj(document.get());
     auto* debug = yyjson_mut_obj(document.get());
     auto* development = yyjson_mut_obj(document.get());
     auto* shipping = yyjson_mut_obj(document.get());
-    if (game_module == nullptr ||
+    if (asset_build == nullptr || retained_assets == nullptr ||
+        !yyjson_mut_obj_add_val(document.get(), asset_build, "retain", retained_assets) ||
+        !yyjson_mut_obj_add_val(document.get(), root, "asset_build", asset_build) ||
+        game_module == nullptr ||
         !yyjson_mut_obj_add_str(document.get(), game_module, "name", "gneiss_game") ||
         !yyjson_mut_obj_add_str(document.get(), game_module, "build_target", "gneiss_game") ||
         profiles == nullptr || debug == nullptr || development == nullptr || shipping == nullptr ||
@@ -391,8 +490,16 @@ result export_editor_project(const editor_project& project,
 
 result export_editor_project(const editor_project& project,
                              const project_export_options& options) noexcept {
+  project_export_report report;
+  return export_editor_project(project, options, report);
+}
+
+result export_editor_project(const editor_project& project, const project_export_options& options,
+                             project_export_report& report) noexcept {
+  report = {};
   if (project.project_root.empty() || options.runtime_executable.empty() ||
       options.output_root.empty()) {
+    report.operation = result::invalid_argument;
     return result::invalid_argument;
   }
   try {
@@ -425,10 +532,49 @@ result export_editor_project(const editor_project& project,
     std::filesystem::create_directories(temporary / build.directory, error);
     std::filesystem::path module_path;
     const auto module_result = app::resolve_game_module_path(project, options.profile, module_path);
-    if (error || !module_result ||
-        !copy_directory(project.asset_root, temporary / "assets", error)) {
+    if (error || !module_result) {
       std::filesystem::remove_all(temporary, error);
       return module_result ? result::io : module_result;
+    }
+    auto root_uris = project.retained_assets;
+    root_uris.push_back(project.startup_scene);
+    if (!project.input_map.empty()) {
+      root_uris.push_back(project.input_map);
+    }
+    if (!project.environment.asset.empty()) {
+      root_uris.push_back(project.environment.asset);
+    }
+    auto asset_request = tooling::asset_build::build_request{
+        .source_root = project.asset_root,
+        .output_root = temporary / "assets",
+        .cache_root = project.project_root / "build" / ".gneiss-cache",
+        .root_uris = std::move(root_uris),
+        .target_platform = std::string(platform_name()),
+        .target_architecture = std::string(architecture_name()),
+        .profile = options.profile == app::game_build_profile::shipping
+                       ? tooling::asset_build::build_profile::shipping
+                       : tooling::asset_build::build_profile::development};
+    if (options.asset_progress) {
+      asset_request.progress = [&options](const tooling::asset_build::build_progress& progress) {
+        options.asset_progress(progress.current, progress.total, progress.relative_path,
+                               progress.cache_hit);
+      };
+    }
+    const auto asset_report = tooling::asset_build::build_assets(
+        asset_request, tooling::asset_build::make_default_registry());
+    report.asset_source_count = asset_report.source_count;
+    report.asset_built_count = asset_report.built_count;
+    report.asset_cache_hit_count = asset_report.cache_hit_count;
+    report.asset_pruned_count = asset_report.pruned_count;
+    if (asset_report.result != tooling::asset_build::build_result::success) {
+      report.operation = map_asset_build_result(asset_report.result);
+      std::filesystem::remove_all(temporary, error);
+      return report.operation;
+    }
+    if (options.profile != app::game_build_profile::shipping &&
+        !write_asset_build_metadata(temporary / "assets" / ".gneiss-build.json", asset_report)) {
+      std::filesystem::remove_all(temporary, error);
+      return result::io;
     }
     std::filesystem::copy_file(module_path, temporary / build.directory / module_path.filename(),
                                std::filesystem::copy_options::none, error);
@@ -547,6 +693,7 @@ result export_editor_project(const editor_project& project,
         return result::io;
       }
     }
+    report.operation = result::success;
     return result::success;
   } catch (const std::bad_alloc&) {
     return result::out_of_memory;

@@ -13,6 +13,7 @@
 #include <iterator>
 #include <memory>
 #include <new>
+#include <set>
 #include <string_view>
 #include <system_error>
 
@@ -141,6 +142,29 @@ using document_ptr = std::unique_ptr<yyjson_doc, document_deleter>;
   return true;
 }
 
+[[nodiscard]] bool read_retained_assets(yyjson_val* asset_build, std::vector<std::string>& output) {
+  auto* retained = yyjson_obj_get(asset_build, "retain");
+  if (!yyjson_is_arr(retained)) {
+    return false;
+  }
+  std::set<std::string> unique;
+  yyjson_val* item = nullptr;
+  std::size_t index = 0U;
+  std::size_t maximum = 0U;
+  yyjson_arr_foreach(retained, index, maximum, item) {
+    if (!yyjson_is_str(item)) {
+      return false;
+    }
+    std::string uri(yyjson_get_str(item), yyjson_get_len(item));
+    if (gneiss_asset_uri_validate(uri.data(), uri.size()) != GNEISS_SUCCESS ||
+        !unique.insert(uri).second) {
+      return false;
+    }
+    output.push_back(std::move(uri));
+  }
+  return true;
+}
+
 } // namespace
 
 std::string_view game_build_profile_name(game_build_profile profile) noexcept {
@@ -183,6 +207,8 @@ std::string_view project_load_stage_name(project_load_stage stage) noexcept {
     return "input_map";
   case project_load_stage::environment:
     return "environment";
+  case project_load_stage::asset_build:
+    return "asset_build";
   case project_load_stage::game_module:
     return "game_module";
   }
@@ -274,7 +300,7 @@ result load_project_description(const std::filesystem::path& project_root,
       return fail(report, project_load_stage::schema, result::invalid_argument, project_file);
     }
     const auto format_version = yyjson_get_uint(version);
-    if (format_version < 1U || format_version > 4U) {
+    if (format_version < 1U || format_version > 5U) {
       return fail(report, project_load_stage::schema, result::unsupported, project_file);
     }
     project_description pending;
@@ -342,6 +368,13 @@ result load_project_description(const std::filesystem::path& project_root,
         return fail(report, project_load_stage::environment, result::invalid_argument,
                     project_file);
       }
+    }
+
+    auto* asset_build = yyjson_obj_get(root, "asset_build");
+    if ((format_version >= 5U && !yyjson_is_obj(asset_build)) ||
+        (asset_build != nullptr && (format_version < 5U || !yyjson_is_obj(asset_build) ||
+                                    !read_retained_assets(asset_build, pending.retained_assets)))) {
+      return fail(report, project_load_stage::asset_build, result::invalid_argument, project_file);
     }
 
     pending.project_file = project_file;

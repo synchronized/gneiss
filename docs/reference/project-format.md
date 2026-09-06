@@ -22,12 +22,13 @@ Editor 与 Runtime 宿主均以工程为启动单位。Editor 无参数启动时
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
 | `format` | string | 固定为 `gneiss.project` |
-| `version` | unsigned integer | `1` 为基础工程，`2` 支持游戏模块，`3` 支持环境光，`4` 支持构建配置 |
+| `version` | unsigned integer | `1` 为基础工程，`2` 支持游戏模块，`3` 支持环境光，`4` 支持构建配置，`5` 支持资产构建配置 |
 | `name` | string | 非空工程显示名称 |
 | `asset_root` | string | 相对工程根目录的资产目录，使用正斜杠 |
 | `startup_scene` | string | Editor 首次打开且 Runtime 宿主默认运行的规范 `asset://` 场景 URI |
 | `input_map` | string | v2 可选；Runtime 启动时加载的规范 `asset://` 动作映射 URI |
 | `environment` | object | v3 可选；内建或已导入的工程环境光配置 |
+| `asset_build` | object | v5 必需；声明 Shipping 构建除工程入口之外仍需保留的资产 |
 
 v2 可增加原生游戏模块：
 
@@ -85,6 +86,20 @@ v4 使用独立构建配置代替单一模块目录和预设：
 三种配置必须全部声明，目录和预设使用与 v2 相同的校验规则。独立目录防止不同配置的模块被静默
 混装。Editor Play 固定使用 Debug；发布工作流默认使用 Development，Shipping 需要显式选择。v1～v3
 工程继续加载，包含旧式 `game_module` 时仅提供 Debug 配置。
+
+v5 增加资产构建配置：
+
+```json
+"asset_build": {
+  "retain": [
+    "asset://data/optional-table.json"
+  ]
+}
+```
+
+`retain` 必须是无重复项的规范 `asset://` URI 数组。Development 构建会处理全部运行时资产；
+Shipping 构建以 `startup_scene`、`input_map`、工程环境和 `retain` 为根，只输出其传递依赖可达的
+资产。`source/` 与 `.gneiss/` 是作者源文件和工具状态目录，不进入运行时资产包。
 
 安装版 Lantern Gallery 展示了 SDK 工程入口。首次打开前设置 `GNEISS_SDK_ROOT` 为包含 Gneiss 与
 Granit CMake package 的 SDK 前缀，并执行一次 `cmake --preset game-debug-configure`；之后 Editor 的

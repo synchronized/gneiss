@@ -70,17 +70,28 @@ int main() try {
   std::ofstream(runtime_root / runtime_name) << "runtime";
   std::ofstream(runtime_root / dependency_name) << "dependency";
   const auto package_root = root / "package-a";
-  const auto export_result = gneiss::editor::export_editor_project(
-      project, {.runtime_executable = runtime_root / runtime_name,
-                .output_root = package_root,
-                .profile = gneiss::app::game_build_profile::debug,
-                .create_zip = true});
+  std::uint64_t progress_count{};
+  gneiss::editor::project_export_options export_options{
+      .runtime_executable = runtime_root / runtime_name,
+      .output_root = package_root,
+      .profile = gneiss::app::game_build_profile::debug,
+      .create_zip = true};
+  export_options.asset_progress = [&progress_count](std::uint64_t current, std::uint64_t total,
+                                                    std::string_view, bool) {
+    if (current > 0U && current <= total) {
+      ++progress_count;
+    }
+  };
+  gneiss::editor::project_export_report export_report;
+  const auto export_result =
+      gneiss::editor::export_editor_project(project, export_options, export_report);
   if (export_result != gneiss::result::success) {
     std::cerr << "export failed: " << export_result.message() << '\n';
     return 7;
   }
   if (!std::filesystem::is_regular_file(package_root / "gneiss.project.json") ||
       !std::filesystem::is_regular_file(package_root / "assets" / "scenes" / "main.scene.json") ||
+      !std::filesystem::is_regular_file(package_root / "assets" / ".gneiss-build.json") ||
       !std::filesystem::is_regular_file(package_root / "modules" / "debug" / module_name) ||
       !std::filesystem::is_regular_file(package_root / "bin" / runtime_name) ||
       !std::filesystem::is_regular_file(package_root / "bin" / dependency_name) ||
@@ -90,6 +101,7 @@ int main() try {
       !std::filesystem::is_regular_file(root / "package-a.zip") ||
       std::filesystem::exists(package_root / "sources") ||
       std::filesystem::exists(package_root / "CMakeLists.txt") ||
+      progress_count != export_report.asset_source_count || export_report.asset_built_count == 0U ||
       gneiss::editor::export_editor_project(project, runtime_root / runtime_name, package_root) !=
           gneiss::result::invalid_state) {
     return 7;
