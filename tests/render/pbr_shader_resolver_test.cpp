@@ -52,5 +52,8 @@ int main() {
   if (resolver.valid() ||
       resolver.initialize(root / "missing") != GRANIT_ERROR_INITIALIZATION_FAILED)
     return 6;
+  if (resolver.initialize_embedded() != GRANIT_SUCCESS || !resolver.valid() ||
+      pbr_shader_resolver::material_archive().empty())
+    return 7;
   return 0;
 }

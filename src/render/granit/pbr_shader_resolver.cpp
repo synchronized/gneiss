@@ -21,6 +21,28 @@ constexpr std::size_t minimum_manifest_size = manifest_digest_offset + manifest_
 constexpr std::array<std::string_view, 2> shader_names{"pbr_standard.vert.grshader",
                                                        "pbr_standard.frag.grshader"};
 
+alignas(std::uint32_t) constexpr std::uint8_t vertex_manifest[]{
+#include "pbr_standard.vert.grshader.inc"
+};
+alignas(std::uint32_t) constexpr std::uint8_t vertex_spirv[]{
+#include "pbr_standard.vert.grshader.spv.inc"
+};
+alignas(std::uint32_t) constexpr std::uint8_t vertex_wgsl[]{
+#include "pbr_standard.vert.grshader.wgsl.inc"
+};
+alignas(std::uint32_t) constexpr std::uint8_t fragment_manifest[]{
+#include "pbr_standard.frag.grshader.inc"
+};
+alignas(std::uint32_t) constexpr std::uint8_t fragment_spirv[]{
+#include "pbr_standard.frag.grshader.spv.inc"
+};
+alignas(std::uint32_t) constexpr std::uint8_t fragment_wgsl[]{
+#include "pbr_standard.frag.grshader.wgsl.inc"
+};
+alignas(std::uint32_t) constexpr std::uint8_t material_archive_bytes[]{
+#include "gneiss_pbr.grmat.inc"
+};
+
 bool read_file(const std::filesystem::path& path, std::vector<std::uint8_t>& output) {
   std::ifstream stream(path, std::ios::binary | std::ios::ate);
   if (!stream)
@@ -65,12 +87,40 @@ pbr_shader_resolver::initialize(const std::filesystem::path& asset_directory) no
   }
 }
 
+granit_result pbr_shader_resolver::initialize_embedded() noexcept {
+  reset();
+  try {
+    const std::array manifests{std::span<const std::uint8_t>{vertex_manifest},
+                               std::span<const std::uint8_t>{fragment_manifest}};
+    const std::array spirv{std::span<const std::uint8_t>{vertex_spirv},
+                           std::span<const std::uint8_t>{fragment_spirv}};
+    const std::array wgsl{std::span<const std::uint8_t>{vertex_wgsl},
+                          std::span<const std::uint8_t>{fragment_wgsl}};
+    for (std::size_t index = 0; index < assets_.size(); ++index) {
+      auto& target = assets_[index];
+      target.manifest.assign(manifests[index].begin(), manifests[index].end());
+      target.spirv.assign(spirv[index].begin(), spirv[index].end());
+      target.wgsl.assign(wgsl[index].begin(), wgsl[index].end());
+      std::ranges::copy_n(target.manifest.begin() + manifest_digest_offset,
+                          target.content_id.size(), target.content_id.begin());
+    }
+    return GRANIT_SUCCESS;
+  } catch (...) {
+    reset();
+    return GRANIT_ERROR_OUT_OF_MEMORY;
+  }
+}
+
 void pbr_shader_resolver::reset() noexcept { assets_ = {}; }
 
 bool pbr_shader_resolver::valid() const noexcept {
   return std::ranges::all_of(assets_, [](const shader_asset& asset) {
     return !asset.manifest.empty() && !asset.spirv.empty() && !asset.wgsl.empty();
   });
+}
+
+std::span<const std::byte> pbr_shader_resolver::material_archive() noexcept {
+  return std::as_bytes(std::span{material_archive_bytes});
 }
 
 granit_result pbr_shader_resolver::resolve(void* user_data, const std::uint8_t asset_id[32],

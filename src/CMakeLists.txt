@@ -143,6 +143,38 @@ if(GNEISS_ENABLE_GRANIT_PLATFORM)
       message(FATAL_ERROR "缺少 Granit 标准 PBR 资产：${granit_pbr_asset_dir}/${granit_pbr_asset}")
     endif()
   endforeach()
+  set(gneiss_pbr_embedded_dir "${CMAKE_CURRENT_BINARY_DIR}/generated/pbr")
+  set(gneiss_pbr_embedded_sources)
+  foreach(granit_pbr_asset IN LISTS granit_pbr_assets)
+    set(gneiss_pbr_embedded_source "${gneiss_pbr_embedded_dir}/${granit_pbr_asset}.inc")
+    add_custom_command(
+      OUTPUT "${gneiss_pbr_embedded_source}"
+      COMMAND "${CMAKE_COMMAND}" -E make_directory "${gneiss_pbr_embedded_dir}"
+      COMMAND
+        "${CMAKE_COMMAND}" "-DINPUT=${granit_pbr_asset_dir}/${granit_pbr_asset}"
+        "-DOUTPUT=${gneiss_pbr_embedded_source}"
+        -P "${PROJECT_SOURCE_DIR}/cmake/embed_binary.cmake"
+      DEPENDS
+        "${granit_pbr_asset_dir}/${granit_pbr_asset}"
+        "${PROJECT_SOURCE_DIR}/cmake/embed_binary.cmake"
+      VERBATIM
+    )
+    list(APPEND gneiss_pbr_embedded_sources "${gneiss_pbr_embedded_source}")
+  endforeach()
+  set(gneiss_pbr_material_archive
+      "${PROJECT_SOURCE_DIR}/src/render/granit/assets/gneiss_pbr.grmat")
+  set(gneiss_pbr_material_include "${gneiss_pbr_embedded_dir}/gneiss_pbr.grmat.inc")
+  add_custom_command(
+    OUTPUT "${gneiss_pbr_material_include}"
+    COMMAND "${CMAKE_COMMAND}" -E make_directory "${gneiss_pbr_embedded_dir}"
+    COMMAND
+      "${CMAKE_COMMAND}" "-DINPUT=${gneiss_pbr_material_archive}"
+      "-DOUTPUT=${gneiss_pbr_material_include}"
+      -P "${PROJECT_SOURCE_DIR}/cmake/embed_binary.cmake"
+    DEPENDS "${gneiss_pbr_material_archive}" "${PROJECT_SOURCE_DIR}/cmake/embed_binary.cmake"
+    VERBATIM
+  )
+  list(APPEND gneiss_pbr_embedded_sources "${gneiss_pbr_material_include}")
 
   target_sources(
     gneiss_engine
@@ -157,6 +189,7 @@ if(GNEISS_ENABLE_GRANIT_PLATFORM)
       render/granit/object_uniform.h
       render/granit/pbr_shader_resolver.cpp
       render/granit/pbr_shader_resolver.h
+      ${gneiss_pbr_embedded_sources}
       render/render_frame_packet.cpp
       render/render_frame_packet.h
       render/render_executor.cpp
@@ -165,6 +198,7 @@ if(GNEISS_ENABLE_GRANIT_PLATFORM)
       render/granit/textured.vert
   )
   target_compile_definitions(gneiss_engine PRIVATE GNEISS_HAS_GRANIT_PLATFORM)
+  target_include_directories(gneiss_engine PRIVATE "${gneiss_pbr_embedded_dir}")
   target_link_libraries(
     gneiss_engine PRIVATE granit::granit granit::window granit::input granit::render_pipeline
   )

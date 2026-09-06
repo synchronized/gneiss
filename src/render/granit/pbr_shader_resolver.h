@@ -9,6 +9,7 @@
 #include <array>
 #include <cstdint>
 #include <filesystem>
+#include <span>
 #include <vector>
 
 namespace gneiss::application_internal {
@@ -17,8 +18,10 @@ namespace gneiss::application_internal {
 class pbr_shader_resolver final {
 public:
   [[nodiscard]] granit_result initialize(const std::filesystem::path& asset_directory) noexcept;
+  [[nodiscard]] granit_result initialize_embedded() noexcept;
   void reset() noexcept;
   [[nodiscard]] bool valid() const noexcept;
+  [[nodiscard]] static std::span<const std::byte> material_archive() noexcept;
 
   [[nodiscard]] static granit_result resolve(void* user_data, const std::uint8_t asset_id[32],
                                              granit_renderer_backend backend, std::uint32_t profile,
