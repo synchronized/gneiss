@@ -16,6 +16,8 @@ add_library(
   "${PROJECT_SOURCE_DIR}/src/tooling/asset_import/import_ir.h"
   "${PROJECT_SOURCE_DIR}/src/tooling/asset_build/asset_build.cpp"
   "${PROJECT_SOURCE_DIR}/src/tooling/asset_build/asset_build.h"
+  "${PROJECT_SOURCE_DIR}/src/tooling/asset_build/ktx2_probe.cpp"
+  "${PROJECT_SOURCE_DIR}/src/tooling/asset_build/ktx2_probe.h"
 )
 target_include_directories(
   gneiss_asset_import_sdk PUBLIC "${PROJECT_SOURCE_DIR}/src"
@@ -42,6 +44,17 @@ if(GNEISS_BUILD_TESTING AND BUILD_TESTING)
   gneiss_target_compile_warnings(gneiss_asset_build_test)
   gneiss_target_output_directories(gneiss_asset_build_test)
   add_test(NAME gneiss.tooling.asset_build COMMAND gneiss_asset_build_test)
+
+  add_executable(
+    gneiss_ktx2_probe_test
+    "${PROJECT_SOURCE_DIR}/tests/tooling/ktx2_probe_test.cpp"
+  )
+  target_include_directories(gneiss_ktx2_probe_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+  target_link_libraries(gneiss_ktx2_probe_test PRIVATE gneiss_asset_import_sdk)
+  target_compile_features(gneiss_ktx2_probe_test PRIVATE cxx_std_20)
+  gneiss_target_compile_warnings(gneiss_ktx2_probe_test)
+  gneiss_target_output_directories(gneiss_ktx2_probe_test)
+  add_test(NAME gneiss.tooling.ktx2_probe COMMAND gneiss_ktx2_probe_test)
 
   add_executable(
     gneiss_gltf_importer_test

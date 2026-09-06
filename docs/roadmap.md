@@ -645,7 +645,7 @@ Mesh 与 Material，并通过 KTX2/Basis Universal Spike 确认纹理容器和 G
 | --- | --- | --- |
 | M-213 资产构建、缓存与后端边界 ADR | P0 | 已完成 |
 | M-214 确定性资产构建图与缓存键 | P0 | 已完成 |
-| M-215 KTX2/Basis Universal 与 Granit 能力 Spike | P0 | 待开始 |
+| M-215 KTX2/Basis Universal 与 Granit 能力 Spike | P0 | 已完成 |
 | M-216 首批资产构建处理器 | P0 | 待开始 |
 | M-217 依赖图与 Shipping 裁剪 | P0 | 待开始 |
 | M-218 CLI 与 Editor 构建反馈 | P1 | 待开始 |
