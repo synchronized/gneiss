@@ -280,9 +280,9 @@ int main() try {
   gneiss::app::project_description module_project;
   module_project.project_root = request.project_root;
   module_project.game_module.name = "test_game";
-  module_project.game_module.directory = "modules";
-  module_project.game_module.configure_preset = "game-debug-configure";
-  module_project.game_module.build_preset = "game-debug";
+  module_project.game_module.profiles[0].directory = "modules";
+  module_project.game_module.profiles[0].configure_preset = "game-debug-configure";
+  module_project.game_module.profiles[0].build_preset = "game-debug";
   module_project.game_module.build_target = "build-fail";
   if (process.build_and_start(GNEISS_TEST_CHILD_PROCESS, executable, request, module_project) !=
           gneiss::result::success ||

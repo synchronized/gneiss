@@ -6,19 +6,35 @@
 
 #include <gneiss/core/result.hpp>
 
+#include <array>
+#include <cstdint>
 #include <filesystem>
 #include <string>
 #include <string_view>
 
 namespace gneiss::app {
 
-struct game_module_description final {
-  std::string name;
+enum class game_build_profile : std::uint8_t { debug, development, shipping };
+
+struct game_build_profile_description final {
   std::filesystem::path directory;
   std::string configure_preset;
   std::string build_preset;
-  std::string build_target;
 };
+
+struct game_module_description final {
+  std::string name;
+  std::string build_target;
+  std::array<game_build_profile_description, 3U> profiles;
+};
+
+/** 返回构建配置的稳定小写名称。 */
+[[nodiscard]] std::string_view game_build_profile_name(game_build_profile profile) noexcept;
+
+/** 返回指定构建配置；索引由 game_build_profile 的稳定顺序定义。 */
+[[nodiscard]] const game_build_profile_description&
+game_build_profile_description_for(const game_module_description& module,
+                                   game_build_profile profile) noexcept;
 
 /** 工程环境光配置；asset 为空时使用内建中性环境。 */
 struct environment_description final {
@@ -66,6 +82,11 @@ struct project_load_report final {
 
 /** 将平台无关模块基名映射为工程根内的本机动态库路径，并验证已有产物。 */
 [[nodiscard]] result resolve_game_module_path(const project_description& project,
+                                              std::filesystem::path& output) noexcept;
+
+/** 按指定构建配置解析并验证游戏模块产物。 */
+[[nodiscard]] result resolve_game_module_path(const project_description& project,
+                                              game_build_profile profile,
                                               std::filesystem::path& output) noexcept;
 
 /** 从工程根目录加载并校验固定名称的 gneiss.project.json。 */

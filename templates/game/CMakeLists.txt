@@ -5,6 +5,10 @@ cmake_minimum_required(VERSION 3.23)
 
 project(gneiss_game LANGUAGES CXX)
 
+if(NOT DEFINED GNEISS_GAME_OUTPUT_DIRECTORY OR GNEISS_GAME_OUTPUT_DIRECTORY STREQUAL "")
+  message(FATAL_ERROR "缺少 GNEISS_GAME_OUTPUT_DIRECTORY 构建配置输出目录")
+endif()
+
 find_package(gneiss CONFIG REQUIRED)
 if(NOT EXISTS "${GNEISS_GAME_TEMPLATE_DIR}/gneiss.project.json")
   message(FATAL_ERROR "Gneiss SDK 安装中缺少游戏工程模板")
@@ -22,8 +26,8 @@ target_compile_features(gneiss_game PRIVATE cxx_std_20)
 set_target_properties(
   gneiss_game
   PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY "$<1:${CMAKE_CURRENT_SOURCE_DIR}/modules>"
-    LIBRARY_OUTPUT_DIRECTORY "$<1:${CMAKE_CURRENT_SOURCE_DIR}/modules>"
+    RUNTIME_OUTPUT_DIRECTORY "$<1:${GNEISS_GAME_OUTPUT_DIRECTORY}>"
+    LIBRARY_OUTPUT_DIRECTORY "$<1:${GNEISS_GAME_OUTPUT_DIRECTORY}>"
 )
 if(WIN32)
   set_target_properties(gneiss_game PROPERTIES PREFIX "")

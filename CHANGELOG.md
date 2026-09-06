@@ -7,6 +7,16 @@
 
 ## 未发布
 
+## 0.32.0 - 2026-09-06
+
+- 工程格式 v4 为 Debug、Development 与 Shipping 显式映射独立 CMake 预设和模块输出目录；旧工程
+  继续按单一 Debug 配置加载。
+- `gneiss_project package` 统一执行配置、构建、目录收集、清单校验和可选 ZIP 归档，Runtime 可用
+  `--profile` 加载对应配置的 Game Module。
+- 发布包新增稳定排序的 SHA-256 清单和 `gneiss_project verify` 完整性校验；相同输入生成确定性 ZIP。
+- Editor File 菜单新增发布包对话框，可选择构建配置、输出目录和 ZIP，并在独立进程中展示进度及
+  失败输出。
+
 ## 0.31.0 - 2026-09-06
 
 - Project Manager 改为从正式游戏模板事务式创建工程，并为每个工程生成独立模块 ID。

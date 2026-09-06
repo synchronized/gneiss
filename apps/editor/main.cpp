@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "child_process.h"
 #include "editor_camera.h"
 #include "editor_command_history.h"
 #include "editor_project.h"
@@ -136,6 +137,13 @@ struct editor_state {
   gneiss::editor::runtime_process runtime;
   gneiss::result runtime_result = gneiss::result::success;
   bool runtime_attempted = false;
+  gneiss::child_process package_process;
+  gneiss::result package_result = gneiss::result::success;
+  bool package_attempted = false;
+  bool show_package_dialog = false;
+  bool package_zip = true;
+  int package_profile = 1;
+  std::array<char, 512> package_output{};
   gneiss::editor::console_filter console_filter;
   std::array<char, 128> console_search{};
   std::array<char, 96> console_source{};
@@ -1919,6 +1927,14 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
     if (state.runtime_attempted) {
       state.runtime_result = state.runtime.last_result();
     }
+    if (state.package_process.has_started()) {
+      state.package_process.update();
+      if (!state.package_process.is_running()) {
+        state.package_result = state.package_process.exit_code() == 0
+                                   ? gneiss::result::success
+                                   : gneiss::result::dependency_failed;
+      }
+    }
     auto result = state.ui.begin_frame(application, *time);
     if (result != GNEISS_SUCCESS) {
       return result;
@@ -1942,6 +1958,13 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
         const auto save_requested = ImGui::MenuItem("Save", "Ctrl+S");
         const auto save_as_requested = ImGui::MenuItem("Save As...", "Ctrl+Shift+S");
         ImGui::Separator();
+#if defined(GNEISS_EDITOR_HAS_RUNTIME)
+        ImGui::BeginDisabled(state.session.is_dirty() || state.runtime.is_busy() ||
+                             state.package_process.is_running());
+        const auto package_requested = ImGui::MenuItem("Export Package...");
+        ImGui::EndDisabled();
+        ImGui::Separator();
+#endif
         const auto exit_requested = ImGui::MenuItem("Exit");
         if (save_requested) {
           state.save_result = save_document(state);
@@ -1951,6 +1974,17 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
           state.save_result = save_document_as(state);
           state.save_attempted = state.save_result != gneiss::result::not_ready;
         }
+#if defined(GNEISS_EDITOR_HAS_RUNTIME)
+        if (package_requested) {
+          const auto suggested = state.project_root.parent_path() /
+                                 (state.project_root.filename().string() + "-development");
+          const auto text = suggested.string();
+          std::snprintf(state.package_output.data(), state.package_output.size(), "%s",
+                        text.c_str());
+          state.show_package_dialog = true;
+          ImGui::OpenPopup("Export Package");
+        }
+#endif
         document_action requested = document_action::none;
         if (new_requested) {
           requested = document_action::new_scene;
@@ -2094,6 +2128,55 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
     if (state.pending_save_and_run && !ImGui::IsPopupOpen("Save and Run")) {
       ImGui::OpenPopup("Save and Run");
     }
+#if defined(GNEISS_EDITOR_HAS_RUNTIME)
+    if (state.show_package_dialog && !ImGui::IsPopupOpen("Export Package")) {
+      ImGui::OpenPopup("Export Package");
+    }
+    if (state.show_package_dialog &&
+        ImGui::BeginPopupModal("Export Package", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+      constexpr const char* profiles[] = {"Debug", "Development", "Shipping"};
+      ImGui::SetNextItemWidth(480.0F);
+      ImGui::InputText("Output", state.package_output.data(), state.package_output.size());
+      ImGui::Combo("Profile", &state.package_profile, profiles,
+                   static_cast<int>(std::size(profiles)));
+      ImGui::Checkbox("Create ZIP", &state.package_zip);
+      if (state.package_process.is_running()) {
+        ImGui::TextUnformatted("正在配置、构建并生成发布包……");
+      } else {
+        if (ImGui::Button("Export")) {
+          static constexpr std::array<std::string_view, 3U> profile_names = {"debug", "development",
+                                                                             "shipping"};
+          gneiss::child_process_start_info info;
+          info.executable = GNEISS_EDITOR_PROJECT_PATH;
+          info.working_directory = state.project_root;
+          info.arguments = {"package", state.project_root, GNEISS_EDITOR_RUNTIME_PATH,
+                            state.package_output.data(),
+                            profile_names[static_cast<std::size_t>(state.package_profile)]};
+          if (state.package_zip) {
+            info.arguments.emplace_back("--zip");
+          }
+          state.package_process.clear_output();
+          state.package_result = state.package_process.start(info);
+          state.package_attempted = true;
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Close")) {
+          state.show_package_dialog = false;
+          ImGui::CloseCurrentPopup();
+        }
+      }
+      if (state.package_attempted && !state.package_process.is_running()) {
+        const auto message = state.package_result.message();
+        ImGui::Text("Result: %.*s", static_cast<int>(message.size()), message.data());
+      }
+      const auto& output = state.package_process.output();
+      if (!output.empty()) {
+        ImGui::Separator();
+        ImGui::TextWrapped("%s", output.c_str());
+      }
+      ImGui::EndPopup();
+    }
+#endif
     if (state.pending_save_and_run &&
         ImGui::BeginPopupModal("Save and Run", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
       ImGui::TextUnformatted("Save the current scene before running the project?");

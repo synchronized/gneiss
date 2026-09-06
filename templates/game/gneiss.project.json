@@ -1,14 +1,28 @@
 {
   "format": "gneiss.project",
-  "version": 2,
+  "version": 4,
   "name": "Gneiss Game",
   "asset_root": "assets",
   "startup_scene": "asset://scenes/main.scene.json",
   "game_module": {
     "name": "gneiss_game",
-    "directory": "modules",
-    "configure_preset": "game-debug-configure",
-    "build_preset": "game-debug",
-    "build_target": "gneiss_game"
+    "build_target": "gneiss_game",
+    "profiles": {
+      "debug": {
+        "directory": "modules/debug",
+        "configure_preset": "game-debug-configure",
+        "build_preset": "game-debug"
+      },
+      "development": {
+        "directory": "modules/development",
+        "configure_preset": "game-development-configure",
+        "build_preset": "game-development"
+      },
+      "shipping": {
+        "directory": "modules/shipping",
+        "configure_preset": "game-shipping-configure",
+        "build_preset": "game-shipping"
+      }
+    }
   }
 }

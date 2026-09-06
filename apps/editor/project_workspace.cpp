@@ -3,6 +3,8 @@
 
 #include "project_workspace.h"
 
+#include "package_archive.h"
+
 #include <yyjson.h>
 
 #include <array>
@@ -319,7 +321,7 @@ result create_editor_project(const std::filesystem::path& project_root,
     auto* root = yyjson_mut_obj(document.get());
     if (root == nullptr ||
         !yyjson_mut_obj_add_str(document.get(), root, "format", "gneiss.project") ||
-        !yyjson_mut_obj_add_uint(document.get(), root, "version", 2U) ||
+        !yyjson_mut_obj_add_uint(document.get(), root, "version", 4U) ||
         !yyjson_mut_obj_add_strncpy(document.get(), root, "name", name.data(), name.size()) ||
         !yyjson_mut_obj_add_str(document.get(), root, "asset_root", "assets") ||
         !yyjson_mut_obj_add_str(document.get(), root, "startup_scene",
@@ -328,13 +330,30 @@ result create_editor_project(const std::filesystem::path& project_root,
       return result::out_of_memory;
     }
     auto* game_module = yyjson_mut_obj(document.get());
+    auto* profiles = yyjson_mut_obj(document.get());
+    auto* debug = yyjson_mut_obj(document.get());
+    auto* development = yyjson_mut_obj(document.get());
+    auto* shipping = yyjson_mut_obj(document.get());
     if (game_module == nullptr ||
         !yyjson_mut_obj_add_str(document.get(), game_module, "name", "gneiss_game") ||
-        !yyjson_mut_obj_add_str(document.get(), game_module, "directory", "modules") ||
-        !yyjson_mut_obj_add_str(document.get(), game_module, "configure_preset",
-                                "game-debug-configure") ||
-        !yyjson_mut_obj_add_str(document.get(), game_module, "build_preset", "game-debug") ||
         !yyjson_mut_obj_add_str(document.get(), game_module, "build_target", "gneiss_game") ||
+        profiles == nullptr || debug == nullptr || development == nullptr || shipping == nullptr ||
+        !yyjson_mut_obj_add_str(document.get(), debug, "directory", "modules/debug") ||
+        !yyjson_mut_obj_add_str(document.get(), debug, "configure_preset",
+                                "game-debug-configure") ||
+        !yyjson_mut_obj_add_str(document.get(), debug, "build_preset", "game-debug") ||
+        !yyjson_mut_obj_add_str(document.get(), development, "directory", "modules/development") ||
+        !yyjson_mut_obj_add_str(document.get(), development, "configure_preset",
+                                "game-development-configure") ||
+        !yyjson_mut_obj_add_str(document.get(), development, "build_preset", "game-development") ||
+        !yyjson_mut_obj_add_str(document.get(), shipping, "directory", "modules/shipping") ||
+        !yyjson_mut_obj_add_str(document.get(), shipping, "configure_preset",
+                                "game-shipping-configure") ||
+        !yyjson_mut_obj_add_str(document.get(), shipping, "build_preset", "game-shipping") ||
+        !yyjson_mut_obj_add_val(document.get(), profiles, "debug", debug) ||
+        !yyjson_mut_obj_add_val(document.get(), profiles, "development", development) ||
+        !yyjson_mut_obj_add_val(document.get(), profiles, "shipping", shipping) ||
+        !yyjson_mut_obj_add_val(document.get(), game_module, "profiles", profiles) ||
         !yyjson_mut_obj_add_val(document.get(), root, "game_module", game_module)) {
       std::filesystem::remove_all(temporary, error);
       return result::out_of_memory;
@@ -365,18 +384,37 @@ result create_editor_project(const std::filesystem::path& project_root,
 result export_editor_project(const editor_project& project,
                              const std::filesystem::path& runtime_executable,
                              const std::filesystem::path& output_root) noexcept {
-  if (project.project_root.empty() || runtime_executable.empty() || output_root.empty()) {
+  return export_editor_project(project, {.runtime_executable = runtime_executable,
+                                         .output_root = output_root,
+                                         .profile = app::game_build_profile::debug});
+}
+
+result export_editor_project(const editor_project& project,
+                             const project_export_options& options) noexcept {
+  if (project.project_root.empty() || options.runtime_executable.empty() ||
+      options.output_root.empty()) {
     return result::invalid_argument;
   }
   try {
+    const auto& build =
+        app::game_build_profile_description_for(project.game_module, options.profile);
+    if (build.directory.empty() || build.configure_preset.empty() || build.build_preset.empty()) {
+      return result::unsupported;
+    }
     std::error_code error;
-    if (std::filesystem::exists(output_root, error) || error ||
-        !std::filesystem::is_regular_file(runtime_executable, error) || error) {
+    auto archive = options.output_root;
+    archive += ".zip";
+    if (std::filesystem::exists(options.output_root, error) || error ||
+        (options.create_zip && std::filesystem::exists(archive, error)) || error ||
+        !std::filesystem::is_regular_file(options.runtime_executable, error) || error) {
       return result::invalid_state;
     }
-    auto temporary = output_root;
+    auto temporary = options.output_root;
     temporary += ".gneiss-exporting";
-    if (std::filesystem::exists(temporary, error) || error) {
+    auto temporary_archive = archive;
+    temporary_archive += ".gneiss-exporting";
+    if (std::filesystem::exists(temporary, error) || error ||
+        (options.create_zip && std::filesystem::exists(temporary_archive, error)) || error) {
       return result::invalid_state;
     }
     std::filesystem::create_directories(temporary.parent_path(), error);
@@ -384,17 +422,37 @@ result export_editor_project(const editor_project& project,
       return result::io;
     }
     std::filesystem::create_directories(temporary / "bin", error);
-    if (error || !copy_directory(project.asset_root, temporary / "assets", error) ||
-        !copy_directory(project.project_root / project.game_module.directory,
-                        temporary / project.game_module.directory, error)) {
+    std::filesystem::create_directories(temporary / build.directory, error);
+    std::filesystem::path module_path;
+    const auto module_result = app::resolve_game_module_path(project, options.profile, module_path);
+    if (error || !module_result ||
+        !copy_directory(project.asset_root, temporary / "assets", error)) {
+      std::filesystem::remove_all(temporary, error);
+      return module_result ? result::io : module_result;
+    }
+    std::filesystem::copy_file(module_path, temporary / build.directory / module_path.filename(),
+                               std::filesystem::copy_options::none, error);
+#if defined(_WIN32)
+    if (!error && options.profile != app::game_build_profile::shipping) {
+      auto symbols = module_path;
+      symbols.replace_extension(".pdb");
+      if (std::filesystem::is_regular_file(symbols, error) && !error) {
+        std::filesystem::copy_file(symbols, temporary / build.directory / symbols.filename(),
+                                   std::filesystem::copy_options::none, error);
+      } else {
+        error.clear();
+      }
+    }
+#endif
+    if (error) {
       std::filesystem::remove_all(temporary, error);
       return result::io;
     }
     std::filesystem::copy_file(project.project_file, temporary / "gneiss.project.json",
                                std::filesystem::copy_options::none, error);
     if (!error) {
-      std::filesystem::copy_file(runtime_executable,
-                                 temporary / "bin" / runtime_executable.filename(),
+      std::filesystem::copy_file(options.runtime_executable,
+                                 temporary / "bin" / options.runtime_executable.filename(),
                                  std::filesystem::copy_options::none, error);
     }
     if (error) {
@@ -402,7 +460,8 @@ result export_editor_project(const editor_project& project,
       return result::io;
     }
     const std::array dependency_directories = {
-        runtime_executable.parent_path(), runtime_executable.parent_path().parent_path() / "lib"};
+        options.runtime_executable.parent_path(),
+        options.runtime_executable.parent_path().parent_path() / "lib"};
     for (const auto& directory : dependency_directories) {
       if (!std::filesystem::is_directory(directory, error) || error) {
         error.clear();
@@ -422,22 +481,25 @@ result export_editor_project(const editor_project& project,
         }
       }
     }
-    const auto runtime_assets = runtime_executable.parent_path() / "assets";
+    const auto runtime_assets = options.runtime_executable.parent_path() / "assets";
     if (std::filesystem::is_directory(runtime_assets, error) && !error &&
         !copy_directory(runtime_assets, temporary / "bin" / "assets", error)) {
       std::filesystem::remove_all(temporary, error);
       return result::io;
     }
-    const auto runtime_name = runtime_executable.filename().string();
-    if (!write_text(temporary / "run.cmd",
-                    "@echo off\r\npushd \"%~dp0\"\r\n\"bin\\" + runtime_name +
-                        "\" --project . %*\r\nset GNEISS_EXIT=%ERRORLEVEL%\r\npopd\r\n"
-                        "exit /b %GNEISS_EXIT%\r\n") ||
+    const auto runtime_name = options.runtime_executable.filename().string();
+    const auto profile_name = std::string(app::game_build_profile_name(options.profile));
+    if (!write_text(temporary / "run.cmd", "@echo off\r\npushd \"%~dp0\"\r\n\"bin\\" +
+                                               runtime_name + "\" --project . --profile " +
+                                               profile_name +
+                                               " %*\r\nset GNEISS_EXIT=%ERRORLEVEL%\r\npopd\r\n"
+                                               "exit /b %GNEISS_EXIT%\r\n") ||
         !write_text(temporary / "run.sh",
                     "#!/bin/sh\nDIR=$(CDPATH= cd -- \"$(dirname -- \"$0\")\" && pwd)\n"
                     "LD_LIBRARY_PATH=\"$DIR/bin${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}\" "
                     "\"$DIR/bin/" +
-                        runtime_name + "\" --project \"$DIR\" \"$@\"\n")) {
+                        runtime_name + "\" --project \"$DIR\" --profile " + profile_name +
+                        " \"$@\"\n")) {
       std::filesystem::remove_all(temporary, error);
       return result::io;
     }
@@ -447,10 +509,43 @@ result export_editor_project(const editor_project& project,
                                      std::filesystem::perms::others_exec,
                                  std::filesystem::perm_options::add, error);
     error.clear();
-    std::filesystem::rename(temporary, output_root, error);
+    const auto manifest_result = write_package_manifest(temporary, project, options.profile,
+#if defined(_WIN32)
+                                                        "run.cmd"
+#else
+                                                        "run.sh"
+#endif
+    );
+    if (!manifest_result) {
+      std::filesystem::remove_all(temporary, error);
+      return manifest_result;
+    }
+    const auto verify_result = verify_package_manifest(temporary);
+    if (!verify_result) {
+      std::filesystem::remove_all(temporary, error);
+      return verify_result;
+    }
+    if (options.create_zip) {
+      const auto archive_result = write_deterministic_zip(temporary, temporary_archive);
+      if (!archive_result) {
+        std::filesystem::remove_all(temporary, error);
+        std::filesystem::remove(temporary_archive, error);
+        return archive_result;
+      }
+    }
+    std::filesystem::rename(temporary, options.output_root, error);
     if (error) {
       std::filesystem::remove_all(temporary, error);
+      std::filesystem::remove(temporary_archive, error);
       return result::io;
+    }
+    if (options.create_zip) {
+      std::filesystem::rename(temporary_archive, archive, error);
+      if (error) {
+        std::filesystem::remove_all(options.output_root, error);
+        std::filesystem::remove(temporary_archive, error);
+        return result::io;
+      }
     }
     return result::success;
   } catch (const std::bad_alloc&) {

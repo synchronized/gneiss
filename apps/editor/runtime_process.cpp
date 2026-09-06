@@ -450,7 +450,9 @@ result runtime_process::build_and_start(const std::filesystem::path& cmake_execu
     child_process_start_info info;
     info.executable = cmake_executable;
     info.working_directory = project.project_root;
-    info.arguments = {"--preset", project.game_module.configure_preset,
+    const auto& profile = app::game_build_profile_description_for(project.game_module,
+                                                                  app::game_build_profile::debug);
+    info.arguments = {"--preset", profile.configure_preset,
                       "-DCMAKE_PREFIX_PATH=" +
                           runtime_executable.parent_path().parent_path().string()};
     implementation_->build_process.clear_output();
@@ -629,8 +631,9 @@ void runtime_process::update() noexcept {
       child_process_start_info info;
       info.executable = implementation_->pending_cmake;
       info.working_directory = implementation_->pending_project.project_root;
-      info.arguments = {"--build", "--preset",
-                        implementation_->pending_project.game_module.build_preset, "--target",
+      const auto& profile = app::game_build_profile_description_for(
+          implementation_->pending_project.game_module, app::game_build_profile::debug);
+      info.arguments = {"--build", "--preset", profile.build_preset, "--target",
                         implementation_->pending_project.game_module.build_target};
       implementation_->build_process.clear_output();
       const auto operation = implementation_->build_process.start(info);

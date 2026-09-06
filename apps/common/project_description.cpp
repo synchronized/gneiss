@@ -8,6 +8,7 @@
 #include <yyjson.h>
 
 #include <cmath>
+#include <cstdint>
 #include <fstream>
 #include <iterator>
 #include <memory>
@@ -125,7 +126,40 @@ using document_ptr = std::unique_ptr<yyjson_doc, document_deleter>;
   return operation;
 }
 
+[[nodiscard]] bool read_profile(yyjson_val* profiles, const char* key,
+                                game_build_profile_description& output) {
+  auto* profile = yyjson_obj_get(profiles, key);
+  std::string directory;
+  if (!yyjson_is_obj(profile) || !read_string(profile, "directory", directory) ||
+      !read_string(profile, "configure_preset", output.configure_preset) ||
+      !read_string(profile, "build_preset", output.build_preset) ||
+      !valid_relative_directory(directory) || !valid_identifier(output.configure_preset) ||
+      !valid_identifier(output.build_preset)) {
+    return false;
+  }
+  output.directory = utf8_path(directory);
+  return true;
+}
+
 } // namespace
+
+std::string_view game_build_profile_name(game_build_profile profile) noexcept {
+  switch (profile) {
+  case game_build_profile::debug:
+    return "debug";
+  case game_build_profile::development:
+    return "development";
+  case game_build_profile::shipping:
+    return "shipping";
+  }
+  return "unknown";
+}
+
+const game_build_profile_description&
+game_build_profile_description_for(const game_module_description& module,
+                                   game_build_profile profile) noexcept {
+  return module.profiles[static_cast<std::size_t>(profile)];
+}
 
 std::string_view project_load_stage_name(project_load_stage stage) noexcept {
   switch (stage) {
@@ -157,9 +191,14 @@ std::string_view project_load_stage_name(project_load_stage stage) noexcept {
 
 result resolve_game_module_path(const project_description& project,
                                 std::filesystem::path& output) noexcept {
+  return resolve_game_module_path(project, game_build_profile::debug, output);
+}
+
+result resolve_game_module_path(const project_description& project, game_build_profile profile,
+                                std::filesystem::path& output) noexcept {
   output.clear();
-  if (project.project_root.empty() || project.game_module.name.empty() ||
-      project.game_module.directory.empty()) {
+  const auto& build = game_build_profile_description_for(project.game_module, profile);
+  if (project.project_root.empty() || project.game_module.name.empty() || build.directory.empty()) {
     return result::invalid_argument;
   }
   try {
@@ -173,8 +212,8 @@ result resolve_game_module_path(const project_description& project,
     return result::unsupported;
 #endif
     std::error_code error;
-    const auto candidate = std::filesystem::weakly_canonical(
-        project.project_root / project.game_module.directory / filename, error);
+    const auto candidate =
+        std::filesystem::weakly_canonical(project.project_root / build.directory / filename, error);
     if (error || !is_within(project.project_root, candidate)) {
       return result::invalid_argument;
     }
@@ -235,7 +274,7 @@ result load_project_description(const std::filesystem::path& project_root,
       return fail(report, project_load_stage::schema, result::invalid_argument, project_file);
     }
     const auto format_version = yyjson_get_uint(version);
-    if (format_version < 1U || format_version > 3U) {
+    if (format_version < 1U || format_version > 4U) {
       return fail(report, project_load_stage::schema, result::unsupported, project_file);
     }
     project_description pending;
@@ -251,21 +290,36 @@ result load_project_description(const std::filesystem::path& project_root,
 
     auto* game_module = yyjson_obj_get(root, "game_module");
     if (game_module != nullptr) {
-      std::string directory;
       if (format_version < 2U || !yyjson_is_obj(game_module) ||
           !read_string(game_module, "name", pending.game_module.name) ||
-          !read_string(game_module, "directory", directory) ||
-          !read_string(game_module, "configure_preset", pending.game_module.configure_preset) ||
-          !read_string(game_module, "build_preset", pending.game_module.build_preset) ||
           !read_string(game_module, "build_target", pending.game_module.build_target) ||
-          !valid_identifier(pending.game_module.name) || !valid_relative_directory(directory) ||
-          !valid_identifier(pending.game_module.configure_preset) ||
-          !valid_identifier(pending.game_module.build_preset) ||
+          !valid_identifier(pending.game_module.name) ||
           !valid_identifier(pending.game_module.build_target)) {
         return fail(report, project_load_stage::game_module, result::invalid_argument,
                     project_file);
       }
-      pending.game_module.directory = utf8_path(directory);
+      auto* profiles = yyjson_obj_get(game_module, "profiles");
+      if (profiles != nullptr) {
+        if (format_version < 4U || !yyjson_is_obj(profiles) ||
+            !read_profile(profiles, "debug", pending.game_module.profiles[0]) ||
+            !read_profile(profiles, "development", pending.game_module.profiles[1]) ||
+            !read_profile(profiles, "shipping", pending.game_module.profiles[2])) {
+          return fail(report, project_load_stage::game_module, result::invalid_argument,
+                      project_file);
+        }
+      } else {
+        std::string directory;
+        auto& debug = pending.game_module.profiles[0];
+        if (format_version >= 4U || !read_string(game_module, "directory", directory) ||
+            !read_string(game_module, "configure_preset", debug.configure_preset) ||
+            !read_string(game_module, "build_preset", debug.build_preset) ||
+            !valid_relative_directory(directory) || !valid_identifier(debug.configure_preset) ||
+            !valid_identifier(debug.build_preset)) {
+          return fail(report, project_load_stage::game_module, result::invalid_argument,
+                      project_file);
+        }
+        debug.directory = utf8_path(directory);
+      }
     }
 
     if (!read_optional_string(root, "input_map", pending.input_map) ||

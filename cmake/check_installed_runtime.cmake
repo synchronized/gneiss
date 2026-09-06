@@ -10,7 +10,11 @@ endforeach()
 set(install_dir "${GNEISS_BUILD_DIR}/runtime-prefix")
 set(template_source_dir "${GNEISS_BUILD_DIR}/runtime-template-source")
 set(package_dir "${GNEISS_BUILD_DIR}/runtime-package")
-file(REMOVE_RECURSE "${install_dir}" "${template_source_dir}" "${package_dir}")
+set(package_repeat_dir "${GNEISS_BUILD_DIR}/runtime-package-repeat")
+set(shipping_package_dir "${GNEISS_BUILD_DIR}/runtime-shipping-package")
+file(REMOVE_RECURSE "${install_dir}" "${template_source_dir}" "${package_dir}"
+     "${package_dir}.zip" "${package_repeat_dir}" "${package_repeat_dir}.zip"
+     "${shipping_package_dir}")
 set(granit_build_dir "${GNEISS_BUILD_DIR}/_deps/gneiss_granit-build")
 if(EXISTS "${granit_build_dir}/cmake_install.cmake")
   set(granit_install_command
@@ -119,13 +123,43 @@ if(GNEISS_SHARED)
   endif()
 
   execute_process(
-    COMMAND ${runtime_environment} "${project_tool}" export "${template_source_dir}" "${runtime}"
-            "${package_dir}"
+    COMMAND ${runtime_environment} "${project_tool}" package "${template_source_dir}" "${runtime}"
+            "${package_dir}" development --zip
     RESULT_VARIABLE package_export_result
   )
   if(NOT package_export_result EQUAL 0 OR EXISTS "${package_dir}/CMakeLists.txt" OR
-     EXISTS "${package_dir}/sources" OR NOT EXISTS "${package_dir}/gneiss.project.json")
-    message(FATAL_ERROR "可运行目录包导出失败：${package_export_result}")
+     EXISTS "${package_dir}/sources" OR NOT EXISTS "${package_dir}/gneiss.project.json" OR
+     NOT EXISTS "${package_dir}/gneiss.package.json" OR NOT EXISTS "${package_dir}.zip")
+    message(FATAL_ERROR "Development 发布包导出失败：${package_export_result}")
+  endif()
+  execute_process(
+    COMMAND ${runtime_environment} "${project_tool}" verify "${package_dir}"
+    RESULT_VARIABLE package_verify_result
+  )
+  if(NOT package_verify_result EQUAL 0)
+    message(FATAL_ERROR "Development 发布包清单校验失败：${package_verify_result}")
+  endif()
+  execute_process(
+    COMMAND "${CMAKE_COMMAND}" -E tar tf "${package_dir}.zip"
+    RESULT_VARIABLE package_archive_result
+    OUTPUT_VARIABLE package_archive_output
+  )
+  if(NOT package_archive_result EQUAL 0 OR
+     NOT package_archive_output MATCHES "gneiss.package.json")
+    message(FATAL_ERROR "Development ZIP 无法读取：${package_archive_result}")
+  endif()
+  execute_process(
+    COMMAND ${runtime_environment} "${project_tool}" export "${template_source_dir}" "${runtime}"
+            "${package_repeat_dir}" development --zip
+    RESULT_VARIABLE package_repeat_result
+  )
+  if(NOT package_repeat_result EQUAL 0)
+    message(FATAL_ERROR "重复发布包导出失败：${package_repeat_result}")
+  endif()
+  file(SHA256 "${package_dir}.zip" package_archive_hash)
+  file(SHA256 "${package_repeat_dir}.zip" package_repeat_hash)
+  if(NOT package_archive_hash STREQUAL package_repeat_hash)
+    message(FATAL_ERROR "相同输入生成的 ZIP 不一致")
   endif()
   if(WIN32)
     execute_process(
@@ -147,6 +181,40 @@ if(GNEISS_SHARED)
      NOT package_runtime_output MATCHES "stage=shutdown")
     message(FATAL_ERROR
             "可运行目录包启动失败：${package_runtime_result}\n${package_runtime_output}${package_runtime_error}"
+    )
+  endif()
+
+  execute_process(
+    COMMAND ${runtime_environment} "${project_tool}" package "${template_source_dir}" "${runtime}"
+            "${shipping_package_dir}" shipping
+    RESULT_VARIABLE shipping_export_result
+  )
+  file(GLOB_RECURSE shipping_symbols "${shipping_package_dir}/*.pdb")
+  if(NOT shipping_export_result EQUAL 0 OR
+     NOT EXISTS "${shipping_package_dir}/gneiss.package.json" OR
+     EXISTS "${shipping_package_dir}/sources" OR shipping_symbols)
+    message(FATAL_ERROR "Shipping 发布包导出失败：${shipping_export_result}")
+  endif()
+  if(WIN32)
+    execute_process(
+      COMMAND cmd /c "${shipping_package_dir}/run.cmd" --smoke
+      RESULT_VARIABLE shipping_runtime_result
+      OUTPUT_VARIABLE shipping_runtime_output
+      ERROR_VARIABLE shipping_runtime_error
+    )
+  else()
+    execute_process(
+      COMMAND sh "${shipping_package_dir}/run.sh" --smoke
+      RESULT_VARIABLE shipping_runtime_result
+      OUTPUT_VARIABLE shipping_runtime_output
+      ERROR_VARIABLE shipping_runtime_error
+    )
+  endif()
+  if(NOT shipping_runtime_result EQUAL 0 OR
+     NOT shipping_runtime_output MATCHES "gneiss.game.installed.workflow" OR
+     NOT shipping_runtime_output MATCHES "stage=shutdown")
+    message(FATAL_ERROR
+            "Shipping 发布包启动失败：${shipping_runtime_result}\n${shipping_runtime_output}${shipping_runtime_error}"
     )
   endif()
 

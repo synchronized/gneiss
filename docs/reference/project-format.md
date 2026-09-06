@@ -22,7 +22,7 @@ Editor 与 Runtime 宿主均以工程为启动单位。Editor 无参数启动时
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
 | `format` | string | 固定为 `gneiss.project` |
-| `version` | unsigned integer | `1` 为基础工程，`2` 支持输入映射与游戏模块，`3` 支持环境光配置 |
+| `version` | unsigned integer | `1` 为基础工程，`2` 支持游戏模块，`3` 支持环境光，`4` 支持构建配置 |
 | `name` | string | 非空工程显示名称 |
 | `asset_root` | string | 相对工程根目录的资产目录，使用正斜杠 |
 | `startup_scene` | string | Editor 首次打开且 Runtime 宿主默认运行的规范 `asset://` 场景 URI |
@@ -55,6 +55,36 @@ v2 可增加原生游戏模块：
 下划线和连字符，供 Editor 通过受约束的 CMake 配置与构建流程使用，不作为任意命令执行。处理期间
 Run 被锁定，可用 Stop 中止；只有配置、构建成功且模块产物仍能在工程根内解析时才会启动 Runtime，
 各阶段输出显示在同一诊断窗口。
+
+v4 使用独立构建配置代替单一模块目录和预设：
+
+```json
+"game_module": {
+  "name": "my_game",
+  "build_target": "my_game",
+  "profiles": {
+    "debug": {
+      "directory": "modules/debug",
+      "configure_preset": "game-debug-configure",
+      "build_preset": "game-debug"
+    },
+    "development": {
+      "directory": "modules/development",
+      "configure_preset": "game-development-configure",
+      "build_preset": "game-development"
+    },
+    "shipping": {
+      "directory": "modules/shipping",
+      "configure_preset": "game-shipping-configure",
+      "build_preset": "game-shipping"
+    }
+  }
+}
+```
+
+三种配置必须全部声明，目录和预设使用与 v2 相同的校验规则。独立目录防止不同配置的模块被静默
+混装。Editor Play 固定使用 Debug；发布工作流默认使用 Development，Shipping 需要显式选择。v1～v3
+工程继续加载，包含旧式 `game_module` 时仅提供 Debug 配置。
 
 安装版 Lantern Gallery 展示了 SDK 工程入口。首次打开前设置 `GNEISS_SDK_ROOT` 为包含 Gneiss 与
 Granit CMake package 的 SDK 前缀，并执行一次 `cmake --preset game-debug-configure`；之后 Editor 的
@@ -102,7 +132,7 @@ Project Manager 与正式 Editor 使用两个连续且互不共享运行时状�
 验证使用：
 
 ```powershell
-gneiss_runtime --project <工程根> [--smoke]
+gneiss_runtime --project <工程根> [--profile debug|development|shipping] [--smoke]
 ```
 
 Runtime 宿主不读取 Editor 的最近工程状态，也不会把运行时场景修改写回工程文件或作者场景。v2

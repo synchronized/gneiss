@@ -73,8 +73,8 @@ int main() try {
       gneiss::app::load_project_description(root, project, report) != gneiss::result::success ||
       project.input_map != "asset://input/default.input-map.json" ||
       project.game_module.name != "test_game" ||
-      project.game_module.configure_preset != "game-debug-configure" ||
-      project.game_module.build_preset != "game-debug") {
+      project.game_module.profiles[0].configure_preset != "game-debug-configure" ||
+      project.game_module.profiles[0].build_preset != "game-debug") {
     return 3;
   }
   std::filesystem::path module_path;

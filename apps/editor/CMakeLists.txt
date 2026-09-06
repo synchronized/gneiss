@@ -39,6 +39,8 @@ add_library(
   ipc/outbound/stop_command.cpp
   native_author_transaction.cpp
   native_author_transaction.h
+  package_archive.cpp
+  package_archive.h
   prefab_authoring.cpp
   prefab_authoring.h
   project_workspace.cpp
@@ -131,12 +133,14 @@ add_executable(
   project_manager.h
 )
 target_link_libraries(
-  gneiss_editor PRIVATE gneiss_editor_session gneiss_editor_ui gneiss_imguizmo
+  gneiss_editor
+  PRIVATE gneiss_editor_session gneiss_editor_ui gneiss_imguizmo gneiss_child_process
 )
 if((WIN32 OR UNIX) AND TARGET gneiss_runtime)
   target_compile_definitions(
     gneiss_editor PRIVATE GNEISS_EDITOR_HAS_RUNTIME=1
                           GNEISS_EDITOR_RUNTIME_PATH="$<TARGET_FILE:gneiss_runtime>"
+                          GNEISS_EDITOR_PROJECT_PATH="$<TARGET_FILE:gneiss_project>"
                           GNEISS_EDITOR_CMAKE_PATH="${CMAKE_COMMAND}"
   )
   add_dependencies(gneiss_editor gneiss_runtime)
@@ -152,7 +156,14 @@ gneiss_target_compile_warnings(gneiss_editor)
 gneiss_target_output_directories(gneiss_editor)
 
 add_executable(gneiss_project project_cli.cpp)
-target_link_libraries(gneiss_project PRIVATE gneiss_editor_session)
+target_link_libraries(gneiss_project PRIVATE gneiss_editor_session gneiss_child_process)
+target_compile_definitions(
+  gneiss_project PRIVATE GNEISS_EDITOR_CMAKE_PATH="${CMAKE_COMMAND}"
+)
+target_compile_definitions(
+  gneiss_editor PRIVATE GNEISS_EDITOR_PROJECT_PATH="$<TARGET_FILE:gneiss_project>"
+)
+add_dependencies(gneiss_editor gneiss_project)
 gneiss_target_compile_warnings(gneiss_project)
 gneiss_target_output_directories(gneiss_project)
 
