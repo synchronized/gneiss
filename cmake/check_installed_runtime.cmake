@@ -10,9 +10,11 @@ endforeach()
 set(install_dir "${GNEISS_BUILD_DIR}/runtime-prefix")
 set(template_source_dir "${GNEISS_BUILD_DIR}/runtime-template-source")
 set(package_dir "${GNEISS_BUILD_DIR}/runtime-package")
+set(package_repeat_dir "${GNEISS_BUILD_DIR}/runtime-package-repeat")
 set(shipping_package_dir "${GNEISS_BUILD_DIR}/runtime-shipping-package")
 file(REMOVE_RECURSE "${install_dir}" "${template_source_dir}" "${package_dir}"
-     "${package_dir}.zip" "${shipping_package_dir}")
+     "${package_dir}.zip" "${package_repeat_dir}" "${package_repeat_dir}.zip"
+     "${shipping_package_dir}")
 set(granit_build_dir "${GNEISS_BUILD_DIR}/_deps/gneiss_granit-build")
 if(EXISTS "${granit_build_dir}/cmake_install.cmake")
   set(granit_install_command
@@ -131,6 +133,13 @@ if(GNEISS_SHARED)
     message(FATAL_ERROR "Development 发布包导出失败：${package_export_result}")
   endif()
   execute_process(
+    COMMAND ${runtime_environment} "${project_tool}" verify "${package_dir}"
+    RESULT_VARIABLE package_verify_result
+  )
+  if(NOT package_verify_result EQUAL 0)
+    message(FATAL_ERROR "Development 发布包清单校验失败：${package_verify_result}")
+  endif()
+  execute_process(
     COMMAND "${CMAKE_COMMAND}" -E tar tf "${package_dir}.zip"
     RESULT_VARIABLE package_archive_result
     OUTPUT_VARIABLE package_archive_output
@@ -138,6 +147,19 @@ if(GNEISS_SHARED)
   if(NOT package_archive_result EQUAL 0 OR
      NOT package_archive_output MATCHES "gneiss.package.json")
     message(FATAL_ERROR "Development ZIP 无法读取：${package_archive_result}")
+  endif()
+  execute_process(
+    COMMAND ${runtime_environment} "${project_tool}" export "${template_source_dir}" "${runtime}"
+            "${package_repeat_dir}" development --zip
+    RESULT_VARIABLE package_repeat_result
+  )
+  if(NOT package_repeat_result EQUAL 0)
+    message(FATAL_ERROR "重复发布包导出失败：${package_repeat_result}")
+  endif()
+  file(SHA256 "${package_dir}.zip" package_archive_hash)
+  file(SHA256 "${package_repeat_dir}.zip" package_repeat_hash)
+  if(NOT package_archive_hash STREQUAL package_repeat_hash)
+    message(FATAL_ERROR "相同输入生成的 ZIP 不一致")
   endif()
   if(WIN32)
     execute_process(
@@ -167,9 +189,10 @@ if(GNEISS_SHARED)
             "${shipping_package_dir}" shipping
     RESULT_VARIABLE shipping_export_result
   )
+  file(GLOB_RECURSE shipping_symbols "${shipping_package_dir}/*.pdb")
   if(NOT shipping_export_result EQUAL 0 OR
      NOT EXISTS "${shipping_package_dir}/gneiss.package.json" OR
-     EXISTS "${shipping_package_dir}/sources")
+     EXISTS "${shipping_package_dir}/sources" OR shipping_symbols)
     message(FATAL_ERROR "Shipping 发布包导出失败：${shipping_export_result}")
   endif()
   if(WIN32)

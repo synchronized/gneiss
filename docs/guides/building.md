@@ -296,17 +296,19 @@ $env:GNEISS_SDK_ROOT/bin/gneiss_runtime --project .
 配置模板会被明确拒绝。CMake package 通过 `GNEISS_GAME_TEMPLATE_DIR` 暴露模板的绝对安装位置；
 完整字段见[工程文件格式](../reference/project-format.md)。
 
-安装了 Editor 的 Shared SDK 也提供 `gneiss_project`，用于创建具有独立模块 ID 的工程，以及在模块
-构建完成后生成可运行目录包：
+安装了 Editor 的 Shared SDK 也提供 `gneiss_project`，用于创建具有独立模块 ID 的工程，并按指定
+配置完成构建和发布包生成：
 
 ```powershell
 $env:GNEISS_SDK_ROOT/bin/gneiss_project create ./MyGame "My Game"
-$env:GNEISS_SDK_ROOT/bin/gneiss_project export ./MyGame `
-  $env:GNEISS_SDK_ROOT/bin/gneiss_runtime ./MyGamePackage
+$env:GNEISS_SDK_ROOT/bin/gneiss_project package ./MyGame `
+  $env:GNEISS_SDK_ROOT/bin/gneiss_runtime ./MyGamePackage development --zip
+$env:GNEISS_SDK_ROOT/bin/gneiss_project verify ./MyGamePackage
 ```
 
-Windows 从 `MyGamePackage/run.cmd` 启动，Linux 从 `MyGamePackage/run.sh` 启动。目录包只包含工程
-描述、资产、已构建模块、Runtime 及动态依赖，不包含 `sources/`、CMake 文件、构建目录或 SDK。
+Windows 从 `MyGamePackage/run.cmd` 启动，Linux 从 `MyGamePackage/run.sh` 启动。可选配置为 `debug`、
+`development` 和 `shipping`，默认使用 Development。目录包只包含工程描述、所选模块、Runtime、
+动态依赖及资产，不包含 `sources/`、CMake 文件、构建目录或 SDK；`--zip` 同时生成确定性归档。
 
 当前宿主已提供场景会话、可选择的层级树和独立 Editor Camera。鼠标位于 Scene View 时，可以使用
 `W/A/S/D` 前后左右移动、`Q/E` 降低或升高、按住鼠标右键环视、滚轮沿视线移动；选择层级节点后

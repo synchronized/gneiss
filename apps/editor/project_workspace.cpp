@@ -422,10 +422,29 @@ result export_editor_project(const editor_project& project,
       return result::io;
     }
     std::filesystem::create_directories(temporary / "bin", error);
-    std::filesystem::create_directories((temporary / build.directory).parent_path(), error);
-    if (error || !copy_directory(project.asset_root, temporary / "assets", error) ||
-        !copy_directory(project.project_root / build.directory, temporary / build.directory,
-                        error)) {
+    std::filesystem::create_directories(temporary / build.directory, error);
+    std::filesystem::path module_path;
+    const auto module_result = app::resolve_game_module_path(project, options.profile, module_path);
+    if (error || !module_result ||
+        !copy_directory(project.asset_root, temporary / "assets", error)) {
+      std::filesystem::remove_all(temporary, error);
+      return module_result ? result::io : module_result;
+    }
+    std::filesystem::copy_file(module_path, temporary / build.directory / module_path.filename(),
+                               std::filesystem::copy_options::none, error);
+#if defined(_WIN32)
+    if (!error && options.profile != app::game_build_profile::shipping) {
+      auto symbols = module_path;
+      symbols.replace_extension(".pdb");
+      if (std::filesystem::is_regular_file(symbols, error) && !error) {
+        std::filesystem::copy_file(symbols, temporary / build.directory / symbols.filename(),
+                                   std::filesystem::copy_options::none, error);
+      } else {
+        error.clear();
+      }
+    }
+#endif
+    if (error) {
       std::filesystem::remove_all(temporary, error);
       return result::io;
     }
