@@ -4,6 +4,7 @@
 #include "render/granit/pbr_shader_resolver.h"
 
 #include <granit/core/shader_features.h>
+#include <granit/renderer/shader.h>
 
 #include <algorithm>
 #include <cstring>
@@ -15,9 +16,6 @@
 namespace gneiss::application_internal {
 namespace {
 
-constexpr std::size_t manifest_digest_offset = 48;
-constexpr std::size_t manifest_digest_size = 32;
-constexpr std::size_t minimum_manifest_size = manifest_digest_offset + manifest_digest_size;
 constexpr std::array<std::string_view, 2> shader_names{"pbr_standard.vert.grshader",
                                                        "pbr_standard.frag.grshader"};
 
@@ -40,7 +38,7 @@ alignas(std::uint32_t) constexpr std::uint8_t fragment_wgsl[]{
 #include "pbr_standard.frag.grshader.wgsl.inc"
 };
 alignas(std::uint32_t) constexpr std::uint8_t material_archive_bytes[]{
-#include "gneiss_pbr.grmat.inc"
+#include "pbr_standard.grmat.inc"
 };
 
 bool read_file(const std::filesystem::path& path, std::vector<std::uint8_t>& output) {
@@ -56,10 +54,16 @@ bool read_file(const std::filesystem::path& path, std::vector<std::uint8_t>& out
          static_cast<bool>(stream.read(reinterpret_cast<char*>(output.data()), end));
 }
 
-bool has_manifest_magic(const std::vector<std::uint8_t>& manifest) noexcept {
-  constexpr std::array<std::uint8_t, 8> magic{'G', 'R', 'N', 'S', 'H', 'D', 'R', 0};
-  return manifest.size() >= minimum_manifest_size &&
-         std::ranges::equal(magic, std::span{manifest}.first(magic.size()));
+granit_result inspect_content_id(std::span<const std::uint8_t> manifest,
+                                 std::array<std::uint8_t, 32>& content_id) noexcept {
+  granit_shader_asset_info info = GRANIT_SHADER_ASSET_INFO_INIT;
+  std::array<char, 64> entry_point{};
+  info.entry_point = entry_point.data();
+  info.entry_point_capacity = static_cast<std::uint32_t>(entry_point.size());
+  const auto result = granit_shader_asset_inspect(manifest.data(), manifest.size(), &info);
+  if (result == GRANIT_SUCCESS)
+    std::ranges::copy(info.content_id, content_id.begin());
+  return result;
 }
 
 } // namespace
@@ -71,14 +75,13 @@ pbr_shader_resolver::initialize(const std::filesystem::path& asset_directory) no
     for (std::size_t index = 0; index < assets_.size(); ++index) {
       const auto base = asset_directory / shader_names[index];
       auto& target = assets_[index];
-      if (!read_file(base, target.manifest) || !has_manifest_magic(target.manifest) ||
+      if (!read_file(base, target.manifest) ||
+          inspect_content_id(target.manifest, target.content_id) != GRANIT_SUCCESS ||
           !read_file(base.string() + ".spv", target.spirv) ||
           !read_file(base.string() + ".wgsl", target.wgsl)) {
         reset();
         return GRANIT_ERROR_INITIALIZATION_FAILED;
       }
-      std::ranges::copy_n(target.manifest.begin() + manifest_digest_offset,
-                          target.content_id.size(), target.content_id.begin());
     }
     return GRANIT_SUCCESS;
   } catch (...) {
@@ -101,8 +104,11 @@ granit_result pbr_shader_resolver::initialize_embedded() noexcept {
       target.manifest.assign(manifests[index].begin(), manifests[index].end());
       target.spirv.assign(spirv[index].begin(), spirv[index].end());
       target.wgsl.assign(wgsl[index].begin(), wgsl[index].end());
-      std::ranges::copy_n(target.manifest.begin() + manifest_digest_offset,
-                          target.content_id.size(), target.content_id.begin());
+      const auto result = inspect_content_id(target.manifest, target.content_id);
+      if (result != GRANIT_SUCCESS) {
+        reset();
+        return result;
+      }
     }
     return GRANIT_SUCCESS;
   } catch (...) {

@@ -18,7 +18,24 @@ $process = Start-Process -FilePath $Runtime `
   -ArgumentList @("--project", ('"' + $Project + '"'), "--stop-file", ('"' + $signal + '"'),
                   "--log-file", ('"' + $log + '"')) `
   -RedirectStandardOutput $stdout -RedirectStandardError $stderr -WindowStyle Hidden -PassThru
-Start-Sleep -Milliseconds 800
+$startupDeadline = [DateTime]::UtcNow.AddSeconds(30)
+while ([DateTime]::UtcNow -lt $startupDeadline) {
+  if ($process.HasExited) {
+    throw "Runtime exited before accepting the stop request with code $($process.ExitCode)"
+  }
+  if (Test-Path -LiteralPath $log) {
+    $startupLog = Get-Content -LiteralPath $log -Raw
+    if ($startupLog -match "stage=application_create") {
+      break
+    }
+  }
+  Start-Sleep -Milliseconds 50
+}
+if (-not (Test-Path -LiteralPath $log) -or
+    (Get-Content -LiteralPath $log -Raw) -notmatch "stage=application_create") {
+  Stop-Process -Id $process.Id -Force
+  throw "Runtime did not finish startup before the stop request"
+}
 New-Item -ItemType File -Path $signal -Force | Out-Null
 $exitTimeoutMilliseconds = 15000
 if (-not $process.WaitForExit($exitTimeoutMilliseconds)) {

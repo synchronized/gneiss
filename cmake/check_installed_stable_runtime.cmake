@@ -66,6 +66,24 @@ foreach(
   endif()
 endforeach()
 
+foreach(
+  required_render_asset
+  IN ITEMS
+    shaders/pbr/pbr_standard.vert.grshader
+    shaders/pbr/pbr_standard.vert.grshader.spv
+    shaders/pbr/pbr_standard.vert.grshader.wgsl
+    shaders/pbr/pbr_standard.frag.grshader
+    shaders/pbr/pbr_standard.frag.grshader.spv
+    shaders/pbr/pbr_standard.frag.grshader.wgsl
+    materials/pbr_standard.grmat
+)
+  if(NOT EXISTS
+     "${install_dir}/share/gneiss/runtime-assets/granit/${required_render_asset}"
+  )
+    message(FATAL_ERROR "Gneiss 安装树缺少 Granit 标准渲染资产：${required_render_asset}")
+  endif()
+endforeach()
+
 string(REPLACE ";" "\\;" dependency_prefix_path "${GNEISS_DEPENDENCY_PREFIX_PATH}")
 set(dependency_runtime_dirs "")
 set(dependency_library_dirs "")

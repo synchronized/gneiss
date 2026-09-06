@@ -3,6 +3,8 @@
 
 #include "render/granit/granit_render_service.h"
 
+#include <granit/pipeline/pbr_material.h>
+
 #include <algorithm>
 #include <array>
 #include <chrono>
@@ -191,43 +193,47 @@ granit_render_service::create_material_mirror(const render_internal::material_re
   constexpr std::array emissive{0.0F, 0.0F, 0.0F};
   constexpr std::uint32_t debug_display = 0;
   const std::array updates{
-      granit_material_parameter_update{granit::material_parameter_id("base_color"),
-                                       GRANIT_MATERIAL_PARAMETER_FLOAT4, 0, color.data(),
-                                       sizeof(color), 0},
-      granit_material_parameter_update{granit::material_parameter_id("metallic"),
+      granit_material_parameter_update{
+          granit::material_parameter_id(GRANIT_PBR_PARAMETER_BASE_COLOR),
+          GRANIT_MATERIAL_PARAMETER_FLOAT4, 0, color.data(), sizeof(color), 0},
+      granit_material_parameter_update{granit::material_parameter_id(GRANIT_PBR_PARAMETER_METALLIC),
                                        GRANIT_MATERIAL_PARAMETER_FLOAT32, 0, &source.metallic,
                                        sizeof(source.metallic), 0},
-      granit_material_parameter_update{granit::material_parameter_id("perceptual_roughness"),
-                                       GRANIT_MATERIAL_PARAMETER_FLOAT32, 0, &source.roughness,
-                                       sizeof(source.roughness), 0},
-      granit_material_parameter_update{granit::material_parameter_id("normal_scale"),
-                                       GRANIT_MATERIAL_PARAMETER_FLOAT32, 0, &normal_scale,
-                                       sizeof(normal_scale), 0},
-      granit_material_parameter_update{granit::material_parameter_id("occlusion_strength"),
-                                       GRANIT_MATERIAL_PARAMETER_FLOAT32, 0, &occlusion_strength,
-                                       sizeof(occlusion_strength), 0},
-      granit_material_parameter_update{granit::material_parameter_id("emissive"),
+      granit_material_parameter_update{
+          granit::material_parameter_id(GRANIT_PBR_PARAMETER_PERCEPTUAL_ROUGHNESS),
+          GRANIT_MATERIAL_PARAMETER_FLOAT32, 0, &source.roughness, sizeof(source.roughness), 0},
+      granit_material_parameter_update{
+          granit::material_parameter_id(GRANIT_PBR_PARAMETER_NORMAL_SCALE),
+          GRANIT_MATERIAL_PARAMETER_FLOAT32, 0, &normal_scale, sizeof(normal_scale), 0},
+      granit_material_parameter_update{
+          granit::material_parameter_id(GRANIT_PBR_PARAMETER_OCCLUSION_STRENGTH),
+          GRANIT_MATERIAL_PARAMETER_FLOAT32, 0, &occlusion_strength, sizeof(occlusion_strength), 0},
+      granit_material_parameter_update{granit::material_parameter_id(GRANIT_PBR_PARAMETER_EMISSIVE),
                                        GRANIT_MATERIAL_PARAMETER_FLOAT3, 0, emissive.data(),
                                        sizeof(emissive), 0},
-      granit_material_parameter_update{granit::material_parameter_id("debug_display"),
-                                       GRANIT_MATERIAL_PARAMETER_UINT32, 0, &debug_display,
-                                       sizeof(debug_display), 0},
-      granit_material_parameter_update{granit::material_parameter_id("base_color_texture"),
-                                       GRANIT_MATERIAL_PARAMETER_TEXTURE_VIEW, 0, nullptr, 0,
-                                       base_color},
-      granit_material_parameter_update{granit::material_parameter_id("metallic_roughness_texture"),
-                                       GRANIT_MATERIAL_PARAMETER_TEXTURE_VIEW, 0, nullptr, 0,
-                                       default_white_linear_.view.native_handle()},
-      granit_material_parameter_update{granit::material_parameter_id("normal_texture"),
-                                       GRANIT_MATERIAL_PARAMETER_TEXTURE_VIEW, 0, nullptr, 0,
-                                       default_normal_linear_.view.native_handle()},
-      granit_material_parameter_update{granit::material_parameter_id("occlusion_texture"),
-                                       GRANIT_MATERIAL_PARAMETER_TEXTURE_VIEW, 0, nullptr, 0,
-                                       default_white_linear_.view.native_handle()},
-      granit_material_parameter_update{granit::material_parameter_id("emissive_texture"),
-                                       GRANIT_MATERIAL_PARAMETER_TEXTURE_VIEW, 0, nullptr, 0,
-                                       default_white_srgb_.view.native_handle()},
-      granit_material_parameter_update{granit::material_parameter_id("pbr_sampler"),
+      granit_material_parameter_update{
+          granit::material_parameter_id(GRANIT_PBR_PARAMETER_DEBUG_DISPLAY),
+          GRANIT_MATERIAL_PARAMETER_UINT32, 0, &debug_display, sizeof(debug_display), 0},
+      granit_material_parameter_update{
+          granit::material_parameter_id(GRANIT_PBR_PARAMETER_BASE_COLOR_TEXTURE),
+          GRANIT_MATERIAL_PARAMETER_TEXTURE_VIEW, 0, nullptr, 0, base_color},
+      granit_material_parameter_update{
+          granit::material_parameter_id(GRANIT_PBR_PARAMETER_METALLIC_ROUGHNESS_TEXTURE),
+          GRANIT_MATERIAL_PARAMETER_TEXTURE_VIEW, 0, nullptr, 0,
+          default_white_linear_.view.native_handle()},
+      granit_material_parameter_update{
+          granit::material_parameter_id(GRANIT_PBR_PARAMETER_NORMAL_TEXTURE),
+          GRANIT_MATERIAL_PARAMETER_TEXTURE_VIEW, 0, nullptr, 0,
+          default_normal_linear_.view.native_handle()},
+      granit_material_parameter_update{
+          granit::material_parameter_id(GRANIT_PBR_PARAMETER_OCCLUSION_TEXTURE),
+          GRANIT_MATERIAL_PARAMETER_TEXTURE_VIEW, 0, nullptr, 0,
+          default_white_linear_.view.native_handle()},
+      granit_material_parameter_update{
+          granit::material_parameter_id(GRANIT_PBR_PARAMETER_EMISSIVE_TEXTURE),
+          GRANIT_MATERIAL_PARAMETER_TEXTURE_VIEW, 0, nullptr, 0,
+          default_white_srgb_.view.native_handle()},
+      granit_material_parameter_update{granit::material_parameter_id(GRANIT_PBR_PARAMETER_SAMPLER),
                                        GRANIT_MATERIAL_PARAMETER_SAMPLER, 0, nullptr, 0,
                                        sampler_.native_handle()}};
   const auto archive = pbr_shader_resolver::material_archive();
@@ -294,18 +300,22 @@ granit::result granit_render_service::rebuild_geometry_arena(
     geometry_vertices_ = std::move(replacement_vertices);
     geometry_indices_ = std::move(replacement_indices);
     const std::array attributes{
-        granit_vertex_attribute{0, GRANIT_VERTEX_FORMAT_FLOAT32X3,
+        granit_vertex_attribute{GRANIT_PBR_VERTEX_LOCATION_POSITION, GRANIT_VERTEX_FORMAT_FLOAT32X3,
                                 static_cast<std::uint32_t>(offsetof(gpu_vertex, position)), 0},
-        granit_vertex_attribute{1, GRANIT_VERTEX_FORMAT_FLOAT32X3,
+        granit_vertex_attribute{GRANIT_PBR_VERTEX_LOCATION_NORMAL, GRANIT_VERTEX_FORMAT_FLOAT32X3,
                                 static_cast<std::uint32_t>(offsetof(gpu_vertex, normal)), 0},
-        granit_vertex_attribute{2, GRANIT_VERTEX_FORMAT_FLOAT32X4,
+        granit_vertex_attribute{GRANIT_PBR_VERTEX_LOCATION_TANGENT, GRANIT_VERTEX_FORMAT_FLOAT32X4,
                                 static_cast<std::uint32_t>(offsetof(gpu_vertex, tangent)), 0},
         granit_vertex_attribute{
-            3, GRANIT_VERTEX_FORMAT_FLOAT32X2,
+            GRANIT_PBR_VERTEX_LOCATION_UV0, GRANIT_VERTEX_FORMAT_FLOAT32X2,
             static_cast<std::uint32_t>(offsetof(gpu_vertex, texture_coordinate)), 0}};
     const granit_vertex_buffer_layout layout{sizeof(gpu_vertex), GRANIT_VERTEX_STEP_MODE_VERTEX,
                                              static_cast<std::uint32_t>(attributes.size()), 0,
                                              attributes.data()};
+    if (granit_pbr_validate_vertex_layout(&layout, 1, GRANIT_PBR_TEXTURE_ALL) !=
+        GRANIT_PBR_VERTEX_LAYOUT_VALID) {
+      return granit::result::invalid_argument;
+    }
     for (auto& [rid, mirror] : mesh_mirrors_) {
       const auto* source = resources.get_mesh(rid);
       const granit_mesh_vertex_buffer vertex_buffer{geometry_vertices_.native_handle(), 0, layout};
