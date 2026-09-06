@@ -7,6 +7,7 @@
 
 #include <yyjson.h>
 
+#include <cmath>
 #include <fstream>
 #include <iterator>
 #include <memory>
@@ -57,6 +58,15 @@ using document_ptr = std::unique_ptr<yyjson_doc, document_deleter>;
   }
   output.assign(yyjson_get_str(value), yyjson_get_len(value));
   return true;
+}
+
+[[nodiscard]] bool read_number(yyjson_val* object, const char* key, float& output) noexcept {
+  auto* value = yyjson_obj_get(object, key);
+  if (!yyjson_is_num(value)) {
+    return false;
+  }
+  output = static_cast<float>(yyjson_get_num(value));
+  return std::isfinite(output);
 }
 
 [[nodiscard]] std::filesystem::path utf8_path(std::string_view value) {
@@ -137,6 +147,8 @@ std::string_view project_load_stage_name(project_load_stage stage) noexcept {
     return "startup_scene";
   case project_load_stage::input_map:
     return "input_map";
+  case project_load_stage::environment:
+    return "environment";
   case project_load_stage::game_module:
     return "game_module";
   }
@@ -223,7 +235,7 @@ result load_project_description(const std::filesystem::path& project_root,
       return fail(report, project_load_stage::schema, result::invalid_argument, project_file);
     }
     const auto format_version = yyjson_get_uint(version);
-    if (format_version != 1U && format_version != 2U) {
+    if (format_version < 1U || format_version > 3U) {
       return fail(report, project_load_stage::schema, result::unsupported, project_file);
     }
     project_description pending;
@@ -261,6 +273,21 @@ result load_project_description(const std::filesystem::path& project_root,
       return fail(report, project_load_stage::input_map, result::invalid_argument, project_file);
     }
 
+    auto* environment = yyjson_obj_get(root, "environment");
+    if (environment != nullptr) {
+      if (format_version < 3U || !yyjson_is_obj(environment) ||
+          !read_optional_string(environment, "asset", pending.environment.asset) ||
+          !read_number(environment, "intensity", pending.environment.intensity) ||
+          !read_number(environment, "rotation_degrees", pending.environment.rotation_degrees) ||
+          pending.environment.intensity < 0.0F ||
+          (!pending.environment.asset.empty() &&
+           gneiss_asset_uri_validate(pending.environment.asset.data(),
+                                     pending.environment.asset.size()) != GNEISS_SUCCESS)) {
+        return fail(report, project_load_stage::environment, result::invalid_argument,
+                    project_file);
+      }
+    }
+
     pending.project_file = project_file;
     pending.project_root = canonical_root;
     pending.asset_root =
@@ -286,6 +313,16 @@ result load_project_description(const std::filesystem::path& project_root,
       if (error || !is_within(pending.asset_root, input_map_path) ||
           !std::filesystem::is_regular_file(input_map_path, error) || error) {
         return fail(report, project_load_stage::input_map, result::not_found, input_map_path);
+      }
+    }
+    if (!pending.environment.asset.empty()) {
+      const auto environment_path = std::filesystem::weakly_canonical(
+          pending.asset_root /
+              utf8_path(std::string_view(pending.environment.asset).substr(scheme.size())),
+          error);
+      if (error || !is_within(pending.asset_root, environment_path) ||
+          !std::filesystem::is_regular_file(environment_path, error) || error) {
+        return fail(report, project_load_stage::environment, result::not_found, environment_path);
       }
     }
     output = std::move(pending);

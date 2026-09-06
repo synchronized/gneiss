@@ -160,6 +160,7 @@
 - [M-176：Granit 运行时资产边界与接入审计](records/M-176-granit-render-asset-boundary.md)
 - [M-177：异步 GPU 时间戳](records/M-177-async-gpu-timestamps.md)
 - [M-178：标准 PBR 资产适配](records/M-178-standard-pbr-adapter.md)
+- [M-179：Environment Map 最小闭环](records/M-179-environment-map.md)
 - [glTF 资产链与渲染优化最终验收记录](records/2026-08-27-gltf-pipeline-final-validation.md)
 - [TOOL-001：glTF 资产编译器验收记录](records/TOOL-001-gltf-asset-compiler.md)
 - [TOOL-002：Mesh Binary v1 实施记录](records/TOOL-002-mesh-binary-v1.md)

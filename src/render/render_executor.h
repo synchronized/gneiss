@@ -30,6 +30,13 @@ struct render_execution_result final {
   bool gpu_timing_valid{};
   std::uint64_t gpu_timing_sequence{};
   float gpu_frame_ms{};
+  float gpu_shadow_ms{};
+  float gpu_opaque_ms{};
+  float gpu_tone_mapping_ms{};
+  bool environment_asset_requested{};
+  bool environment_fallback{};
+  float environment_intensity{1.0F};
+  float environment_rotation_radians{};
 };
 
 struct render_frame_completion final {
@@ -98,6 +105,13 @@ struct render_queue_stats final {
   std::uint64_t gpu_timing_sample_count{};
   std::uint64_t gpu_timing_unavailable_count{};
   float latest_gpu_frame_ms{};
+  float latest_gpu_shadow_ms{};
+  float latest_gpu_opaque_ms{};
+  float latest_gpu_tone_mapping_ms{};
+  bool environment_asset_requested{};
+  bool environment_fallback{};
+  float environment_intensity{1.0F};
+  float environment_rotation_radians{};
 };
 
 using render_frame_callback =

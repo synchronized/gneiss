@@ -7,11 +7,13 @@
 #include "core/rid_table.h"
 
 #include <gneiss/application.h>
+#include <gneiss/asset.h>
 #include <gneiss/input.h>
 #include <gneiss/render.h>
 #include <gneiss/scene.h>
 
 #include <algorithm>
+#include <cmath>
 #include <cstring>
 #include <limits>
 #include <memory>
@@ -110,6 +112,15 @@ extern "C" gneiss_result gneiss_application_create(const gneiss_application_desc
               std::min<std::size_t>(desc->struct_size, sizeof(gneiss_application_desc)));
   if (normalized_desc.platform > GNEISS_APPLICATION_PLATFORM_GRANIT ||
       normalized_desc.asset_reserved != 0U ||
+      ((normalized_desc.environment_asset == nullptr) !=
+       (normalized_desc.environment_asset_length == 0U)) ||
+      (normalized_desc.environment_asset != nullptr &&
+       gneiss_asset_uri_validate(normalized_desc.environment_asset,
+                                 normalized_desc.environment_asset_length) != GNEISS_SUCCESS) ||
+      !std::isfinite(normalized_desc.environment_intensity) ||
+      normalized_desc.environment_intensity < 0.0F ||
+      !std::isfinite(normalized_desc.environment_rotation_radians) ||
+      normalized_desc.environment_reserved != 0U ||
       (normalized_desc.window_title == nullptr && normalized_desc.window_title_length != 0U) ||
       (normalized_desc.window_flags &
        ~(GNEISS_APPLICATION_WINDOW_VISIBLE_BIT | GNEISS_APPLICATION_WINDOW_RESIZABLE_BIT |

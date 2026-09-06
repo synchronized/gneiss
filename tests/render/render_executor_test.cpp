@@ -49,6 +49,9 @@ int main() {
           output.gpu_timing_valid = true;
           output.gpu_timing_sequence = packet.sequence;
           output.gpu_frame_ms = 1.25F;
+          output.gpu_shadow_ms = 0.25F;
+          output.gpu_opaque_ms = 0.75F;
+          output.gpu_tone_mapping_ms = 0.25F;
         }
         return GNEISS_SUCCESS;
       },
@@ -104,7 +107,9 @@ int main() {
       stats.latest_frame_capture_ms != 2.5F || stats.latest_copied_payload_bytes != 4096U ||
       !stats.gpu_timing_supported || !stats.latest_gpu_timing_valid ||
       stats.latest_gpu_timing_sequence != third_sequence || stats.gpu_timing_sample_count != 1U ||
-      stats.gpu_timing_unavailable_count != 1U || stats.latest_gpu_frame_ms != 1.25F) {
+      stats.gpu_timing_unavailable_count != 1U || stats.latest_gpu_frame_ms != 1.25F ||
+      stats.latest_gpu_shadow_ms != 0.25F || stats.latest_gpu_opaque_ms != 0.75F ||
+      stats.latest_gpu_tone_mapping_ms != 0.25F) {
     return 6;
   }
   bool saw_dropped = false;

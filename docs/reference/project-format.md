@@ -22,11 +22,12 @@ Editor 与 Runtime 宿主均以工程为启动单位。Editor 无参数启动时
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
 | `format` | string | 固定为 `gneiss.project` |
-| `version` | unsigned integer | `1` 为基础工程，`2` 支持可选输入映射与游戏模块 |
+| `version` | unsigned integer | `1` 为基础工程，`2` 支持输入映射与游戏模块，`3` 支持环境光配置 |
 | `name` | string | 非空工程显示名称 |
 | `asset_root` | string | 相对工程根目录的资产目录，使用正斜杠 |
 | `startup_scene` | string | Editor 首次打开且 Runtime 宿主默认运行的规范 `asset://` 场景 URI |
 | `input_map` | string | v2 可选；Runtime 启动时加载的规范 `asset://` 动作映射 URI |
+| `environment` | object | v3 可选；内建或已导入的工程环境光配置 |
 
 v2 可增加原生游戏模块：
 
@@ -61,6 +62,20 @@ Run 使用 `game-debug` build preset 增量构建模块。安装包同时携带�
 
 `input_map` 在启动场景与 Game Module 之前加载。模块可在初始化阶段按名称取得动作；未声明时保留
 空动作映射，以兼容既有工程。
+
+v3 可配置一个工程环境：
+
+```json
+"environment": {
+  "asset": "asset://environments/studio.gneiss-environment",
+  "intensity": 0.85,
+  "rotation_degrees": 20.0
+}
+```
+
+`asset` 可省略，省略时使用内建中性环境；指定时必须是资产根内已导入的 Gneiss 环境资产。
+`intensity` 必须为非负有限数，`rotation_degrees` 使用角度且必须为有限数。运行时通过 VFS 读取载荷，
+再投影为 Granit Environment Map；工程文件不引用 `.grenv`，也不暴露 Granit 句柄。
 
 `asset_root` 不接受绝对路径、空段、`.`、`..`、反斜杠、冒号或百分号编码。解析器会解析真实路径，
 拒绝指向工程根目录之外的目录；`startup_scene` 也必须存在于该资产根内。工程文件决定 Application

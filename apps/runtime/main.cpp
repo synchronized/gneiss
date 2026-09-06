@@ -422,6 +422,12 @@ void write_application_log(gneiss_application, const gneiss_log_event* event, vo
   desc.asset_root = asset_root.data();
   desc.asset_root_length = static_cast<std::uint32_t>(asset_root.size());
   desc.log = write_application_log;
+  desc.environment_asset =
+      project.environment.asset.empty() ? nullptr : project.environment.asset.data();
+  desc.environment_asset_length = static_cast<std::uint32_t>(project.environment.asset.size());
+  desc.environment_intensity = project.environment.intensity;
+  desc.environment_rotation_radians =
+      project.environment.rotation_degrees * 0.01745329251994329577F;
 
   gneiss::application application;
   auto operation = gneiss::application::create(desc, application);

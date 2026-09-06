@@ -3278,6 +3278,12 @@ int run_editor(int argc, char** argv) {
                       GNEISS_APPLICATION_WINDOW_HIGH_DPI_BIT;
   desc.asset_root = asset_root_text.c_str();
   desc.asset_root_length = static_cast<std::uint32_t>(asset_root_text.size());
+  desc.environment_asset =
+      project.environment.asset.empty() ? nullptr : project.environment.asset.data();
+  desc.environment_asset_length = static_cast<std::uint32_t>(project.environment.asset.size());
+  desc.environment_intensity = project.environment.intensity;
+  desc.environment_rotation_radians =
+      project.environment.rotation_degrees * 0.01745329251994329577F;
 
   auto operation = gneiss::application::create(desc, application);
   if (operation != gneiss::result::success) {

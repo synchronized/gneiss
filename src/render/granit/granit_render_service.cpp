@@ -470,7 +470,10 @@ void granit_render_service::release_invalid_materials(
   }
 }
 
-gneiss_result granit_render_service::initialize(const native_window_info& window) noexcept {
+gneiss_result granit_render_service::initialize(const native_window_info& window,
+                                                std::span<const std::byte> environment_asset,
+                                                float environment_intensity,
+                                                float environment_rotation_radians) noexcept {
   const auto executor_result =
       executor_.initialize([this](render_internal::render_frame_packet& packet,
                                   render_internal::render_execution_result& output) noexcept {
@@ -485,9 +488,11 @@ gneiss_result granit_render_service::initialize(const native_window_info& window
   gneiss_result initialize_result = GNEISS_ERROR_UNKNOWN;
   std::uint64_t sequence{};
   const auto submit_result = executor_.submit_command(
-      [this, window, &initialize_result](const render_internal::render_command_reporter& reporter) {
+      [this, window, environment_asset, environment_intensity, environment_rotation_radians,
+       &initialize_result](const render_internal::render_command_reporter& reporter) {
         reporter.report(render_internal::render_command_stage::uploading, 0U, 1U);
-        initialize_result = initialize_gpu(window);
+        initialize_result = initialize_gpu(window, environment_asset, environment_intensity,
+                                           environment_rotation_radians);
         reporter.report(render_internal::render_command_stage::uploading, 1U, 1U);
         return initialize_result;
       },
@@ -629,7 +634,10 @@ gneiss_result granit_render_service::shutdown(granit::renderer_resource_stats& s
   return completion.status;
 }
 
-gneiss_result granit_render_service::initialize_gpu(const native_window_info& window) noexcept {
+gneiss_result granit_render_service::initialize_gpu(const native_window_info& window,
+                                                    std::span<const std::byte> environment_asset,
+                                                    float environment_intensity,
+                                                    float environment_rotation_radians) noexcept {
   auto result = renderer_.initialize({.application_name = "Gneiss",
                                       .enable_validation = false,
                                       .surface_types = to_surface_type(window.backend)});
@@ -664,6 +672,27 @@ gneiss_result granit_render_service::initialize_gpu(const native_window_info& wi
   if (result.ok()) {
     swapchain_format_ = swapchain_info.format;
     result = initialize_pipeline();
+    if (result.ok()) {
+      environment_asset_requested_ = !environment_asset.empty();
+      environment_fallback_ = false;
+      if (!environment_asset.empty()) {
+        result = environment_.initialize(renderer_.native_handle(), environment_asset);
+      }
+      if (environment_asset.empty() || result.failed()) {
+        environment_fallback_ = !environment_asset.empty();
+        static_cast<void>(environment_.reset());
+        result = environment_.initialize_builtin(renderer_.native_handle());
+      }
+    }
+    if (result.ok()) {
+      result = environment_.get_info(environment_info_);
+    }
+    if (result.ok()) {
+      environment_info_.environment.intensity = environment_intensity;
+      environment_info_.environment.rotation_radians = environment_rotation_radians;
+      environment_intensity_ = environment_intensity;
+      environment_rotation_radians_ = environment_rotation_radians;
+    }
   }
   if (result.ok()) {
     result =
@@ -701,6 +730,8 @@ gneiss_result granit_render_service::initialize_gpu(const native_window_info& wi
 
 gneiss_result granit_render_service::shutdown_gpu(granit::renderer_resource_stats& stats) noexcept {
   static_cast<void>(pipeline_.reset());
+  static_cast<void>(environment_.reset());
+  environment_info_ = {};
   material_mirrors_.clear();
   mesh_mirrors_.clear();
   texture_mirrors_.clear();
@@ -720,6 +751,10 @@ gneiss_result granit_render_service::shutdown_gpu(granit::renderer_resource_stat
   pending_metric_sequences_.clear();
   last_pipeline_metric_sequence_ = 0;
   gpu_timing_supported_ = false;
+  environment_asset_requested_ = false;
+  environment_fallback_ = false;
+  environment_intensity_ = 1.0F;
+  environment_rotation_radians_ = 0.0F;
   static_cast<void>(swapchain_.reset());
   static_cast<void>(surface_.reset());
 
@@ -738,6 +773,10 @@ gneiss_result
 granit_render_service::execute_frame(render_internal::render_frame_packet& packet,
                                      render_internal::render_execution_result& output) noexcept {
   output.gpu_timing_supported = gpu_timing_supported_;
+  output.environment_asset_requested = environment_asset_requested_;
+  output.environment_fallback = environment_fallback_;
+  output.environment_intensity = environment_intensity_;
+  output.environment_rotation_radians = environment_rotation_radians_;
   auto& window = packet.window;
   const auto& snapshot = packet.scene;
   const auto& resources = packet.resources;
@@ -949,6 +988,7 @@ granit_render_service::execute_frame(render_internal::render_frame_packet& packe
     desc.canvas = ui_canvas_.native_handle();
     desc.debug_draw = debug_draw_.native_handle();
     desc.clear_color = {0.04F, 0.12F, 0.22F, 1.0F};
+    desc.environment = &environment_info_.environment;
     result = pipeline_.render(desc);
   }
   output.record_submit_ms =
@@ -964,6 +1004,9 @@ granit_render_service::execute_frame(render_internal::render_frame_packet& packe
         output.gpu_timing_valid = true;
         output.gpu_timing_sequence = pending_metric_sequences_.front();
         output.gpu_frame_ms = static_cast<float>(metrics.total_gpu_ns) / 1'000'000.0F;
+        output.gpu_shadow_ms = static_cast<float>(metrics.shadow_gpu_ns) / 1'000'000.0F;
+        output.gpu_opaque_ms = static_cast<float>(metrics.opaque_gpu_ns) / 1'000'000.0F;
+        output.gpu_tone_mapping_ms = static_cast<float>(metrics.tone_mapping_gpu_ns) / 1'000'000.0F;
         pending_metric_sequences_.pop_front();
         last_pipeline_metric_sequence_ = metrics.sample_sequence;
       } else if (metric_result.failed() && metric_result != granit::result::not_ready) {

@@ -19,6 +19,7 @@
 #include <granit/granit.hpp>
 #include <granit/pipeline/canvas_draw_list.hpp>
 #include <granit/pipeline/debug_draw_list.hpp>
+#include <granit/pipeline/environment_map.hpp>
 #include <granit/pipeline/material.hpp>
 #include <granit/pipeline/mesh.hpp>
 #include <granit/pipeline/render_pipeline.hpp>
@@ -34,7 +35,10 @@ namespace gneiss::application_internal {
 
 class granit_render_service final {
 public:
-  [[nodiscard]] gneiss_result initialize(const native_window_info& window) noexcept;
+  [[nodiscard]] gneiss_result initialize(const native_window_info& window,
+                                         std::span<const std::byte> environment_asset = {},
+                                         float environment_intensity = 1.0F,
+                                         float environment_rotation_radians = 0.0F) noexcept;
   [[nodiscard]] gneiss_result shutdown(granit::renderer_resource_stats& stats) noexcept;
   [[nodiscard]] gneiss_result
   prepare_frame_packet_storage(render_internal::render_frame_packet& packet,
@@ -48,7 +52,10 @@ public:
   [[nodiscard]] render_internal::render_queue_stats query_performance_stats() const noexcept;
 
 private:
-  [[nodiscard]] gneiss_result initialize_gpu(const native_window_info& window) noexcept;
+  [[nodiscard]] gneiss_result initialize_gpu(const native_window_info& window,
+                                             std::span<const std::byte> environment_asset,
+                                             float environment_intensity,
+                                             float environment_rotation_radians) noexcept;
   [[nodiscard]] gneiss_result shutdown_gpu(granit::renderer_resource_stats& stats) noexcept;
   [[nodiscard]] gneiss_result
   execute_frame(render_internal::render_frame_packet& packet,
@@ -99,6 +106,8 @@ private:
   granit::surface surface_;
   granit::swapchain swapchain_;
   granit::render_pipeline pipeline_;
+  granit::environment_map environment_;
+  granit_environment_map_info environment_info_{};
   pbr_shader_resolver pbr_assets_;
   granit::sampler sampler_;
   granit::sampler ui_sampler_;
@@ -117,6 +126,10 @@ private:
   std::uint64_t last_pipeline_metric_sequence_{};
   std::deque<std::uint64_t> pending_metric_sequences_;
   bool gpu_timing_supported_{};
+  bool environment_asset_requested_{};
+  bool environment_fallback_{};
+  float environment_intensity_{1.0F};
+  float environment_rotation_radians_{};
   render_internal::threaded_render_executor executor_;
   std::vector<render_internal::render_frame_packet> recycled_frame_packets_;
   std::deque<render_internal::render_frame_completion> required_frame_completions_;

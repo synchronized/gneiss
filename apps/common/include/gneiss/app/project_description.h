@@ -19,6 +19,13 @@ struct game_module_description final {
   std::string build_target;
 };
 
+/** 工程环境光配置；asset 为空时使用内建中性环境。 */
+struct environment_description final {
+  std::string asset;
+  float intensity{1.0F};
+  float rotation_degrees{};
+};
+
 /** 经过校验的工程运行描述；路径均为规范绝对路径。 */
 struct project_description final {
   std::filesystem::path project_file;
@@ -27,6 +34,7 @@ struct project_description final {
   std::string name;
   std::string startup_scene;
   std::string input_map;
+  environment_description environment;
   game_module_description game_module;
 };
 
@@ -41,6 +49,7 @@ enum class project_load_stage {
   asset_root,
   startup_scene,
   input_map,
+  environment,
   game_module,
 };
 
