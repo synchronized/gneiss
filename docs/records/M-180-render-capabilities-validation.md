@@ -19,10 +19,11 @@
   超过原有 5 秒等待；测试现使用 15 秒总上限并在超时时附带标准输出和错误输出，完整复跑通过。
 - Windows MSVC Shared Debug：启用 Editor、Runtime 与 Granit 平台后完整构建及 132/132 测试通过；
   同时修复两处仅由 MSVC 报告的变量遮蔽警告。
+- Linux Actions：Clang/GCC 的 Shared/Static 四组 Core 矩阵、Granit Runtime Shared/Static 无头窗口
+  测试及 Sanitizer Runtime 全部通过（运行编号 `34009627274`）。
 - C11/C++20 头文件、旧 ABI consumer、Material v1/v2 兼容、工程 v1/v2 兼容均通过。
 
-## 尚未执行
+## 人工观察项
 
-- Linux Clang/GCC、Sanitizer 与远端 Granit Runtime Actions 需要推送并手动触发；当前任务没有新的
-  远端操作授权，因此不把它们描述为已验证。
-- Editor 视觉效果仍建议在合并前人工观察 PBR 与环境旋转；不阻塞代码侧版本收口。
+Editor 的 PBR 外观与环境旋转仍可在后续视觉调整时继续观察；自动化已经覆盖配置、资源加载、
+回退、生命周期和诊断行为，因此不阻塞本版本发布。
