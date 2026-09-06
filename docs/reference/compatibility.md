@@ -5,7 +5,7 @@
 
 ## 当前状态
 
-Gneiss 当前目标版本为 0.12.0。0.x 版本的公共 API、ABI 和构建契约尚未冻结；当前导出符号基线只
+Gneiss 当前目标版本为 0.30.0。0.x 版本的公共 API、ABI 和构建契约尚未冻结；当前导出符号基线只
 用于发现意外变化，不代表所有符号已经稳定。未来 1.0.0 发布候选才会冻结首份 Stable 清单。
 
 ## 稳定级别
@@ -49,6 +49,11 @@ M-65 审计将以下能力作为 Stable 候选，而不是已冻结承诺：
 以下能力保持 Experimental：Type Registry 与属性访问、场景作者修改与序列化、直接创建
 Mesh/Texture/Material 的低层资源接口、UI/Debug Draw、Editor、`gneiss_assetc` 及其工具 SDK。
 代表性样例或审计可以缩小候选范围；扩大 Stable 范围必须补齐同等级跨版本测试。
+
+0.10.0 之后新增的 Game Module、Game Context、结构化日志、窗口尺寸查询和 Prefab 作者接口同样
+保持 Experimental。Editor–Runtime IPC、渲染执行器及 Granit 异步 GPU 对象属于 Internal，不安装、
+不导出，也不进入 1.x 候选 ABI。当前清单共包含 102 个导出符号，其中 46 个 Stable 候选、56 个
+Experimental；增量审计见 [M-193](../records/M-193-public-api-delta-audit.md)。
 
 决策依据见 [ADR-023](../decisions/ADR-023-public-api-stability.md)，本次审计结果见
 [M-65 公共 API 审计记录](../records/M-65-public-api-audit.md)。

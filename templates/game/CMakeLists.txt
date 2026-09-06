@@ -6,6 +6,9 @@ cmake_minimum_required(VERSION 3.23)
 project(gneiss_game LANGUAGES CXX)
 
 find_package(gneiss CONFIG REQUIRED)
+if(NOT EXISTS "${GNEISS_GAME_TEMPLATE_DIR}/gneiss.project.json")
+  message(FATAL_ERROR "Gneiss SDK 安装中缺少游戏工程模板")
+endif()
 
 get_target_property(gneiss_engine_type gneiss::engine TYPE)
 if(NOT gneiss_engine_type STREQUAL "SHARED_LIBRARY")

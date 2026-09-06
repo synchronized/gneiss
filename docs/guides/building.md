@@ -292,7 +292,8 @@ $env:GNEISS_SDK_ROOT/bin/gneiss_runtime --project .
 
 模板仅通过 `find_package(gneiss CONFIG REQUIRED)` 和 `gneiss::engine` 消费安装 SDK，并包含最小场景、
 工程描述及 Game Module 生命周期。原生 Game Module 当前要求 Shared Engine SDK；使用 Static SDK
-配置模板会被明确拒绝。完整字段见[工程文件格式](../reference/project-format.md)。
+配置模板会被明确拒绝。CMake package 通过 `GNEISS_GAME_TEMPLATE_DIR` 暴露模板的绝对安装位置；
+完整字段见[工程文件格式](../reference/project-format.md)。
 
 当前宿主已提供场景会话、可选择的层级树和独立 Editor Camera。鼠标位于 Scene View 时，可以使用
 `W/A/S/D` 前后左右移动、`Q/E` 降低或升高、按住鼠标右键环视、滚轮沿视线移动；选择层级节点后
