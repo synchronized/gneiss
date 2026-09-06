@@ -139,6 +139,15 @@ if(GNEISS_BUILD_TESTING AND BUILD_TESTING)
     NAME gneiss.tooling.assetc_inspect
     COMMAND gneiss_assetc inspect "${PROJECT_SOURCE_DIR}/tests/data/gltf/static_triangle.gltf"
   )
+  add_test(
+    NAME gneiss.tooling.assetc_cook
+    COMMAND
+      "${CMAKE_COMMAND}"
+      "-DGNEISS_ASSETC=$<TARGET_FILE:gneiss_assetc>"
+      "-DGNEISS_SOURCE=${PROJECT_SOURCE_DIR}/tests/data/gltf/static_triangle.gltf"
+      "-DGNEISS_OUTPUT=${PROJECT_BINARY_DIR}/tests/assetc-cook"
+      -P "${PROJECT_SOURCE_DIR}/cmake/check_assetc_cook.cmake"
+  )
   set_tests_properties(
     gneiss.tooling.assetc_inspect
     PROPERTIES PASS_REGULAR_EXPRESSION "场景=1 节点=1 网格=1 图元=1 材质=1 图像=1"
