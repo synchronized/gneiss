@@ -10,7 +10,7 @@
 {
   "format": "gneiss.package",
   "version": 1,
-  "gneiss_version": "0.33.0",
+  "gneiss_version": "0.34.0",
   "project": "My Game",
   "profile": "development",
   "platform": "windows",
