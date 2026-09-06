@@ -7,6 +7,9 @@
 
 ## 未发布
 
+- 规划 0.28.0 Granit 0.12 资产契约收敛：接入公共 Shader Asset 检查、标准 PBR Schema/Material
+  和统一 RenderPipeline 资产目录，删除 0.27.0 的临时重复实现。
+
 ## 0.27.0 - 2026-09-06
 
 - 明确 Gneiss 作者资产与 Granit 后端投影边界，Granit 专用 Shader、Material 和 Environment 格式

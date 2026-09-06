@@ -86,6 +86,7 @@
 - [VER-025：0.25.0 Granit 0.7 与独立渲染线程](plans/VER-025-0.25.0-render-thread.md)
 - [VER-026：0.26.0 渲染线程性能基线与帧资源复用](plans/VER-026-0.26.0-render-performance.md)
 - [VER-027：0.27.0 Granit 0.10 能力接入与 GPU 可观测性](plans/VER-027-0.27.0-granit-render-capabilities.md)
+- [VER-028：0.28.0 Granit 0.12 资产契约收敛](plans/VER-028-0.28.0-granit-asset-contract-convergence.md)
 - [M-100：Editor Play 工作流实施记录](records/M-100-editor-play-workflow.md)
 - [M-101：示例与跨平台验收记录](records/M-101-example-cross-platform-validation.md)
 - [M-102：Runtime 检查会话与对象标识实施记录](records/M-102-runtime-inspection-identity.md)
