@@ -246,6 +246,7 @@
 - [M-159 Asset IPC 结构修订接线记录](records/M-159-structural-asset-ipc.md)
 - [M-160 Editor 冲突与状态反馈记录](records/M-160-editor-conflict-status.md)
 - [M-161 结构热重载示例与跨平台验收记录](records/M-161-structural-hot-reload-validation.md)
+- [M-212 0.32.0 构建配置与发布包管线验收记录](records/M-212-release-packaging-validation.md)
 - [M-65 公共 API 与稳定性审计记录](records/M-65-public-api-audit.md)
 - [M-66 稳定运行时代表性样例验收记录](records/M-66-stable-runtime-sample.md)
 - [M-67 公共 API 与 ABI 加固记录](records/M-67-api-abi-hardening.md)
