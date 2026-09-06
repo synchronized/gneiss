@@ -182,11 +182,10 @@ if(GNEISS_ENABLE_GRANIT_PLATFORM)
       platform/granit/granit_platform.cpp
       platform/granit/granit_platform.h
       platform/native_window_info.h
-      render/granit/embedded_textured_shaders.h
       render/granit/granit_render_service.cpp
       render/granit/granit_render_service.h
-      render/granit/object_uniform.cpp
-      render/granit/object_uniform.h
+      render/granit/scene_projection_math.cpp
+      render/granit/scene_projection_math.h
       render/granit/pbr_shader_resolver.cpp
       render/granit/pbr_shader_resolver.h
       ${gneiss_pbr_embedded_sources}
@@ -194,8 +193,6 @@ if(GNEISS_ENABLE_GRANIT_PLATFORM)
       render/render_frame_packet.h
       render/render_executor.cpp
       render/render_executor.h
-      render/granit/textured.frag
-      render/granit/textured.vert
   )
   target_compile_definitions(gneiss_engine PRIVATE GNEISS_HAS_GRANIT_PLATFORM)
   target_include_directories(gneiss_engine PRIVATE "${gneiss_pbr_embedded_dir}")

@@ -6,7 +6,7 @@
 
 #include "platform/granit/granit_platform.h"
 #include "render/debug_draw_list.h"
-#include "render/granit/object_uniform.h"
+#include "render/granit/scene_projection_math.h"
 #include "render/granit/pbr_shader_resolver.h"
 #include "render/render_executor.h"
 #include "render/render_frame_packet.h"
