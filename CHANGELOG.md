@@ -7,6 +7,13 @@
 
 ## 未发布
 
+## 0.29.0 - 2026-09-06
+
+- 规划 0.29.0 Granit 异步 GPU 契约接入：审计异步操作生命周期，并让 RenderPipeline 指标层
+  复用跨后端异步 Timestamp 能力。
+- 将 Granit 依赖升级到 0.14.0，PACKAGE、安装消费和旧默认缓存迁移同步采用 0.14 基线。
+- GPU 性能统计改为报告 Granit 的独立样本序列，不再用待处理 Frame 队列猜测跳采样后的来源帧。
+
 ## 0.28.0 - 2026-09-06
 
 - 规划 0.28.0 Granit 0.12 资产契约收敛：接入公共 Shader Asset 检查、标准 PBR Schema/Material

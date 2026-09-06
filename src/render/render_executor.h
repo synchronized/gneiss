@@ -28,7 +28,7 @@ struct render_execution_result final {
   float render_thread_ms{};
   bool gpu_timing_supported{};
   bool gpu_timing_valid{};
-  std::uint64_t gpu_timing_sequence{};
+  std::uint64_t gpu_timing_sample_sequence{};
   float gpu_frame_ms{};
   float gpu_shadow_ms{};
   float gpu_opaque_ms{};
@@ -101,7 +101,7 @@ struct render_queue_stats final {
   std::size_t latest_copied_payload_bytes{};
   bool gpu_timing_supported{};
   bool latest_gpu_timing_valid{};
-  std::uint64_t latest_gpu_timing_sequence{};
+  std::uint64_t latest_gpu_timing_sample_sequence{};
   std::uint64_t gpu_timing_sample_count{};
   std::uint64_t gpu_timing_unavailable_count{};
   float latest_gpu_frame_ms{};

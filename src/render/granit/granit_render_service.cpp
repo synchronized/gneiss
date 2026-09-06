@@ -758,7 +758,6 @@ gneiss_result granit_render_service::shutdown_gpu(granit::renderer_resource_stat
   static_cast<void>(ui_sampler_.reset());
   static_cast<void>(sampler_.reset());
   pbr_assets_.reset();
-  pending_metric_sequences_.clear();
   last_pipeline_metric_sequence_ = 0;
   gpu_timing_supported_ = false;
   environment_asset_requested_ = false;
@@ -1006,18 +1005,15 @@ granit_render_service::execute_frame(render_internal::render_frame_packet& packe
           .count();
   if (result.ok()) {
     if (gpu_timing_supported_) {
-      pending_metric_sequences_.push_back(packet.sequence);
       granit_render_pipeline_metrics metrics = GRANIT_RENDER_PIPELINE_METRICS_INIT;
       const auto metric_result = pipeline_.get_metrics(metrics);
-      if (metric_result.ok() && metrics.sample_sequence > last_pipeline_metric_sequence_ &&
-          !pending_metric_sequences_.empty()) {
+      if (metric_result.ok() && metrics.sample_sequence > last_pipeline_metric_sequence_) {
         output.gpu_timing_valid = true;
-        output.gpu_timing_sequence = pending_metric_sequences_.front();
+        output.gpu_timing_sample_sequence = metrics.sample_sequence;
         output.gpu_frame_ms = static_cast<float>(metrics.total_gpu_ns) / 1'000'000.0F;
         output.gpu_shadow_ms = static_cast<float>(metrics.shadow_gpu_ns) / 1'000'000.0F;
         output.gpu_opaque_ms = static_cast<float>(metrics.opaque_gpu_ns) / 1'000'000.0F;
         output.gpu_tone_mapping_ms = static_cast<float>(metrics.tone_mapping_gpu_ns) / 1'000'000.0F;
-        pending_metric_sequences_.pop_front();
         last_pipeline_metric_sequence_ = metrics.sample_sequence;
       } else if (metric_result.failed() && metric_result != granit::result::not_ready) {
         gpu_timing_supported_ = false;

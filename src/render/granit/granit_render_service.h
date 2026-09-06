@@ -124,7 +124,6 @@ private:
   bool geometry_dirty_{};
   granit::texture_format swapchain_format_{granit::texture_format::undefined};
   std::uint64_t last_pipeline_metric_sequence_{};
-  std::deque<std::uint64_t> pending_metric_sequences_;
   bool gpu_timing_supported_{};
   bool environment_asset_requested_{};
   bool environment_fallback_{};

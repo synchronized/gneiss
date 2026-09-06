@@ -13,7 +13,7 @@ Editor。
 - CMake 3.23 或更高版本。
 - 支持 C++20 的 C/C++ 编译器。
 - 使用 Ninja preset 时需要安装 Ninja。
-- 启用 Granit 运行时适配时需要已安装的 Granit `0.12.0+` 核心、Window、Input 与 RenderPipeline
+- 启用 Granit 运行时适配时需要已安装的 Granit `0.14.0+` 核心、Window、Input 与 RenderPipeline
   组件，或由父工程提供 `granit::granit`、`granit::window`、`granit::input` 和
   `granit::render_pipeline` 目标。
 
@@ -320,8 +320,14 @@ gneiss 0.26.0
 - Ubuntu 24.04：Clang/GCC、共享/静态核心与安装 Consumer；Clang 额外执行共享/静态 Granit 无头
   窗口测试。
 
-工作流配置位于 `.github/workflows/windows.yml` 和 `.github/workflows/linux.yml`。是否触发以及验证
-哪个提交属于显式发布或评审步骤；工作流是否通过以对应手动运行的 Actions 结果为准。
+工作流配置位于 `.github/workflows/windows.yml` 和 `.github/workflows/linux.yml`。工作流是否通过以
+对应手动运行的 Actions 结果为准。同一候选提交的完整矩阵原则上只运行一次；仅当代码、构建、依赖
+或测试发生可能影响结果的变化时，才重跑受影响的工作流，纯文档验收更新不重复触发。
+
+当用户要求“推进版本直到完成”时，版本完成包含：本地验收、推送特性分支、创建或更新单一 Pull
+Request、手动远端验证、修复阻塞问题、合并到 `main`、创建并推送版本标签，以及按仓库既定方式
+创建发布。该表述视为对当前版本完整闭环的一次授权，不在每个远端步骤前重复确认；授权不会延续到
+下一版本，也不会扩展到 Granit 等其他仓库。
 
 ## 常见问题
 
