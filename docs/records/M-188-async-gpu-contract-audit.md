@@ -17,11 +17,16 @@ Granit 0.13 的 RenderPipeline 指标 Slot 仍通过
 `granit_timestamp_query_pool_get_results` 同步读取。新增的异步 Timestamp API 已覆盖 Vulkan 和
 WebGPU，但尚未进入管线指标实现，因此跨后端应用无法只通过 RenderPipeline 获得统一指标行为。
 
+当前 `sample_sequence` 仅在样本成功发布时递增，Render 描述也没有调用方相关序列。异步后端若因
+Frame Slot 尚忙而跳过一次采样，上层无法判断完成指标对应哪次渲染提交；用待处理帧队列头关联会
+把后续样本错误归到被跳过的帧。
+
 ## 上游建议
 
 建议用户向 Granit 提交聚焦 PR：在每个 RenderPipeline Frame Slot 内持有至多一个异步读取操作，
 Slot 复用前非阻塞轮询并发布最近完成样本，失败或取消时安全清理，Pipeline 销毁时处理全部操作后
-再销毁 Query Pool。保持现有 `granit_render_pipeline_get_metrics` ABI 不变，并用同一契约测试覆盖
-Vulkan、WebGPU、能力不足、未就绪、取消、失败和关闭。
+再销毁 Query Pool。每个实际采样还应保存调用方相关序列并随指标返回，避免跳过采样后的帧错配；
+使用版本化结构末尾扩展或等价接口，保持非阻塞快照语义。用同一契约测试覆盖 Vulkan、WebGPU、
+能力不足、未就绪、跳帧相关、取消、失败和关闭。
 
 Gneiss 不应复制私有管线或直接访问 RenderPipeline 内部 Query Pool；上游合并发布后再完成接入。
