@@ -102,10 +102,20 @@ typedef struct gneiss_material_desc {
   float blue;
   float alpha;
   gneiss_texture base_color_texture;
+  float metallic;
+  float roughness;
 } gneiss_material_desc;
 
 #define GNEISS_MATERIAL_DESC_INIT                                                                  \
-  {(uint32_t)sizeof(gneiss_material_desc), UINT32_C(0), 1.0F, 1.0F, 1.0F, 1.0F, GNEISS_NULL_TEXTURE}
+  {(uint32_t)sizeof(gneiss_material_desc),                                                         \
+   UINT32_C(0),                                                                                    \
+   1.0F,                                                                                           \
+   1.0F,                                                                                           \
+   1.0F,                                                                                           \
+   1.0F,                                                                                           \
+   GNEISS_NULL_TEXTURE,                                                                            \
+   0.0F,                                                                                           \
+   1.0F}
 
 /** 透视 Camera 参数。首版只允许一个 primary Camera 参与渲染。 */
 typedef struct gneiss_camera {

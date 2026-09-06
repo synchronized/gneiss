@@ -28,6 +28,7 @@ inline_render_executor::inline_render_executor(render_frame_callback callback)
 gneiss_result inline_render_executor::submit(render_frame_packet packet,
                                              render_execution_result& output) {
   output = {};
+  packet.sequence = next_sequence_++;
   return callback_ ? callback_(packet, output) : GNEISS_ERROR_INVALID_ARGUMENT;
 }
 
@@ -136,6 +137,23 @@ void threaded_render_executor::state::run() noexcept {
         stats.latest_frame_queue_wait_ms = frame_completion.execution.queue_wait_ms;
         stats.latest_frame_capture_ms = frame_completion.execution.frame_capture_ms;
         stats.latest_copied_payload_bytes = frame_completion.execution.copied_payload_bytes;
+        stats.gpu_timing_supported = frame_completion.execution.gpu_timing_supported;
+        stats.environment_asset_requested = frame_completion.execution.environment_asset_requested;
+        stats.environment_fallback = frame_completion.execution.environment_fallback;
+        stats.environment_intensity = frame_completion.execution.environment_intensity;
+        stats.environment_rotation_radians =
+            frame_completion.execution.environment_rotation_radians;
+        if (frame_completion.execution.gpu_timing_valid) {
+          stats.latest_gpu_timing_valid = true;
+          stats.latest_gpu_timing_sequence = frame_completion.execution.gpu_timing_sequence;
+          stats.latest_gpu_frame_ms = frame_completion.execution.gpu_frame_ms;
+          stats.latest_gpu_shadow_ms = frame_completion.execution.gpu_shadow_ms;
+          stats.latest_gpu_opaque_ms = frame_completion.execution.gpu_opaque_ms;
+          stats.latest_gpu_tone_mapping_ms = frame_completion.execution.gpu_tone_mapping_ms;
+          ++stats.gpu_timing_sample_count;
+        } else if (frame_completion.execution.gpu_timing_supported) {
+          ++stats.gpu_timing_unavailable_count;
+        }
         stats.maximum_frame_queue_wait_ms =
             std::max(stats.maximum_frame_queue_wait_ms, frame_completion.execution.queue_wait_ms);
         completed_frames.push_back(std::move(frame_completion));
@@ -210,6 +228,7 @@ gneiss_result threaded_render_executor::submit_frame(render_frame_packet packet,
       ++state_->stats.replaced_frames;
     }
     out_sequence = state_->next_sequence++;
+    packet.sequence = out_sequence;
     ++state_->stats.submitted_frames;
     if (policy == render_frame_policy::required) {
       ++state_->stats.submitted_required_frames;

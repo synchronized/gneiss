@@ -23,8 +23,9 @@ int main() { // NOLINT(bugprone-exception-escape)
       valid.data.nodes[0].scale != std::array<float, 3>{2.0F, 2.0F, 2.0F} ||
       valid.data.materials.size() != 1U ||
       valid.data.materials[0].base_color != std::array<float, 4>{0.5F, 0.6F, 0.7F, 1.0F} ||
-      valid.data.materials[0].base_color_image_index != 0U || valid.data.images.size() != 1U ||
-      !valid.data.images[0].is_png) {
+      valid.data.materials[0].base_color_image_index != 0U ||
+      valid.data.materials[0].metallic != 0.25F || valid.data.materials[0].roughness != 0.75F ||
+      valid.data.images.size() != 1U || !valid.data.images[0].is_png) {
     return 1;
   }
 

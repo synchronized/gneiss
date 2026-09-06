@@ -80,13 +80,23 @@ int main() try {
     return 3;
   }
 
+  if (!write_text(root / "assets" / "studio.gneiss-environment", "fixture") ||
+      !write_text(
+          root / "gneiss.project.json",
+          R"({"format":"gneiss.project","version":3,"name":"Test Project","asset_root":"assets","startup_scene":"asset://scenes/main.scene.json","environment":{"asset":"asset://studio.gneiss-environment","intensity":0.75,"rotation_degrees":30}})") ||
+      gneiss::app::load_project_description(root, project, report) != gneiss::result::success ||
+      project.environment.asset != "asset://studio.gneiss-environment" ||
+      project.environment.intensity != 0.75F || project.environment.rotation_degrees != 30.0F) {
+    return 4;
+  }
+
   const auto previous_name = project.name;
   if (gneiss::app::load_project_description(root / "missing", project, report) !=
           gneiss::result::not_found ||
       report.stage != gneiss::app::project_load_stage::project_root ||
       gneiss::app::project_load_stage_name(report.stage) != "project_root" ||
       project.name != previous_name) {
-    return 4;
+    return 5;
   }
   if (!write_text(root / "gneiss.project.json",
                   project_json("../outside", "asset://scenes/main.scene.json")) ||

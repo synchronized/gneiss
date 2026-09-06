@@ -7,6 +7,18 @@
 
 ## 未发布
 
+## 0.27.0 - 2026-09-06
+
+- 明确 Gneiss 作者资产与 Granit 后端投影边界，Granit 专用 Shader、Material 和 Environment 格式
+  仅作为可失效的派生或安装数据，不进入 Scene、公共 API 和 IPC。
+- 渲染线程按 Frame Slot 异步采集整帧 GPU 时间戳，并以 Frame 序列关联延迟结果；不支持或暂不可读
+  时保持正常渲染，退出诊断报告整帧及阴影、不透明、色调映射阶段时间。
+- Granit Render Pipeline、Mesh 和 Material Instance 接管后端投影；Material v3 与 glTF 导入器增加
+  基础颜色、金属度和粗糙度映射，并内嵌标准 PBR 后端资产。
+- 工程格式 v3 支持单环境资产、强度和水平旋转；未配置时使用内建中性环境，无效载荷回退内建环境。
+- 将 Granit 依赖升级至 0.10.0，Fetch 锁定正式发布提交，PACKAGE 与安装消费最低版本同步提升
+  至 0.10。
+
 ## 0.26.0 - 2026-09-05
 
 - 增加 Frame Packet 构造与复制量、渲染阶段耗时、队列深度、高水位、替换、拒绝及节流计数，

@@ -110,6 +110,12 @@ typedef struct gneiss_application_desc {
   gneiss_application_diagnostic_fn diagnostic;
   gneiss_application_close_requested_fn close_requested;
   gneiss_application_log_fn log;
+  /** 可选的已导入环境资产 URI；为空时使用内建中性环境。 */
+  const char* environment_asset;
+  uint32_t environment_asset_length;
+  float environment_intensity;
+  float environment_rotation_radians;
+  uint32_t environment_reserved;
 } gneiss_application_desc;
 
 #define GNEISS_APPLICATION_DESC_VERSION_1_SIZE                                                     \
@@ -124,6 +130,8 @@ typedef struct gneiss_application_desc {
               sizeof(gneiss_application_close_requested_fn)))
 #define GNEISS_APPLICATION_DESC_VERSION_5_SIZE                                                     \
   ((uint32_t)(offsetof(gneiss_application_desc, log) + sizeof(gneiss_application_log_fn)))
+#define GNEISS_APPLICATION_DESC_VERSION_6_SIZE                                                     \
+  ((uint32_t)(offsetof(gneiss_application_desc, environment_reserved) + sizeof(uint32_t)))
 
 #define GNEISS_APPLICATION_DESC_INIT                                                               \
   {(uint32_t)sizeof(gneiss_application_desc),                                                      \
@@ -146,7 +154,12 @@ typedef struct gneiss_application_desc {
    UINT32_C(0),                                                                                    \
    NULL,                                                                                           \
    NULL,                                                                                           \
-   NULL}
+   NULL,                                                                                           \
+   NULL,                                                                                           \
+   UINT32_C(0),                                                                                    \
+   1.0F,                                                                                           \
+   0.0F,                                                                                           \
+   UINT32_C(0)}
 
 #ifdef __cplusplus
 extern "C" {

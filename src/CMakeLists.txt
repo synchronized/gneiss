@@ -125,27 +125,92 @@ target_sources(
 )
 
 if(GNEISS_ENABLE_GRANIT_PLATFORM)
+  set(granit_pbr_asset_dir "${GNEISS_GRANIT_RENDER_PIPELINE_ASSET_DIR}/shaders/pbr")
+  set(
+    granit_pbr_assets
+    pbr_standard.vert.grshader
+    pbr_standard.vert.grshader.spv
+    pbr_standard.vert.grshader.wgsl
+    pbr_standard.frag.grshader
+    pbr_standard.frag.grshader.spv
+    pbr_standard.frag.grshader.wgsl
+  )
+  if(NOT GNEISS_GRANIT_RENDER_PIPELINE_ASSET_DIR)
+    message(FATAL_ERROR "Granit Render Pipeline 未提供标准资产目录")
+  endif()
+  foreach(granit_pbr_asset IN LISTS granit_pbr_assets)
+    if(NOT EXISTS "${granit_pbr_asset_dir}/${granit_pbr_asset}")
+      message(FATAL_ERROR "缺少 Granit 标准 PBR 资产：${granit_pbr_asset_dir}/${granit_pbr_asset}")
+    endif()
+  endforeach()
+  set(gneiss_pbr_embedded_dir "${CMAKE_CURRENT_BINARY_DIR}/generated/pbr")
+  set(gneiss_pbr_embedded_sources)
+  foreach(granit_pbr_asset IN LISTS granit_pbr_assets)
+    set(gneiss_pbr_embedded_source "${gneiss_pbr_embedded_dir}/${granit_pbr_asset}.inc")
+    add_custom_command(
+      OUTPUT "${gneiss_pbr_embedded_source}"
+      COMMAND "${CMAKE_COMMAND}" -E make_directory "${gneiss_pbr_embedded_dir}"
+      COMMAND
+        "${CMAKE_COMMAND}" "-DINPUT=${granit_pbr_asset_dir}/${granit_pbr_asset}"
+        "-DOUTPUT=${gneiss_pbr_embedded_source}"
+        -P "${PROJECT_SOURCE_DIR}/cmake/embed_binary.cmake"
+      DEPENDS
+        "${granit_pbr_asset_dir}/${granit_pbr_asset}"
+        "${PROJECT_SOURCE_DIR}/cmake/embed_binary.cmake"
+      VERBATIM
+    )
+    list(APPEND gneiss_pbr_embedded_sources "${gneiss_pbr_embedded_source}")
+  endforeach()
+  set(gneiss_pbr_material_archive
+      "${PROJECT_SOURCE_DIR}/src/render/granit/assets/gneiss_pbr.grmat")
+  set(gneiss_pbr_material_include "${gneiss_pbr_embedded_dir}/gneiss_pbr.grmat.inc")
+  add_custom_command(
+    OUTPUT "${gneiss_pbr_material_include}"
+    COMMAND "${CMAKE_COMMAND}" -E make_directory "${gneiss_pbr_embedded_dir}"
+    COMMAND
+      "${CMAKE_COMMAND}" "-DINPUT=${gneiss_pbr_material_archive}"
+      "-DOUTPUT=${gneiss_pbr_material_include}"
+      -P "${PROJECT_SOURCE_DIR}/cmake/embed_binary.cmake"
+    DEPENDS "${gneiss_pbr_material_archive}" "${PROJECT_SOURCE_DIR}/cmake/embed_binary.cmake"
+    VERBATIM
+  )
+  list(APPEND gneiss_pbr_embedded_sources "${gneiss_pbr_material_include}")
+
   target_sources(
     gneiss_engine
     PRIVATE
       platform/granit/granit_platform.cpp
       platform/granit/granit_platform.h
       platform/native_window_info.h
-      render/granit/embedded_textured_shaders.h
       render/granit/granit_render_service.cpp
       render/granit/granit_render_service.h
-      render/granit/object_uniform.cpp
-      render/granit/object_uniform.h
+      render/granit/scene_projection_math.cpp
+      render/granit/scene_projection_math.h
+      render/granit/pbr_shader_resolver.cpp
+      render/granit/pbr_shader_resolver.h
+      ${gneiss_pbr_embedded_sources}
       render/render_frame_packet.cpp
       render/render_frame_packet.h
       render/render_executor.cpp
       render/render_executor.h
-      render/granit/textured.frag
-      render/granit/textured.vert
   )
   target_compile_definitions(gneiss_engine PRIVATE GNEISS_HAS_GRANIT_PLATFORM)
+  target_include_directories(gneiss_engine PRIVATE "${gneiss_pbr_embedded_dir}")
   target_link_libraries(
     gneiss_engine PRIVATE granit::granit granit::window granit::input granit::render_pipeline
+  )
+  add_custom_command(
+    TARGET gneiss_engine
+    POST_BUILD
+    COMMAND "${CMAKE_COMMAND}" -E make_directory
+            "$<TARGET_FILE_DIR:gneiss_engine>/assets/granit/shaders/pbr"
+    COMMAND
+      "${CMAKE_COMMAND}" -E copy_if_different
+      ${granit_pbr_assets}
+      "$<TARGET_FILE_DIR:gneiss_engine>/assets/granit/shaders/pbr"
+    WORKING_DIRECTORY "${granit_pbr_asset_dir}"
+    COMMAND_EXPAND_LISTS
+    VERBATIM
   )
 
   get_target_property(granit_runtime_is_imported granit::granit IMPORTED)

@@ -60,6 +60,28 @@ endfunction()
 function(gneiss_resolve_granit_runtime)
   if(TARGET granit::granit AND TARGET granit::window AND TARGET granit::input AND
      TARGET granit::render_pipeline)
+    if(NOT DEFINED granit_RENDER_PIPELINE_ASSET_DIR)
+      get_target_property(granit_render_pipeline_target granit::render_pipeline ALIASED_TARGET)
+      if(NOT granit_render_pipeline_target)
+        set(granit_render_pipeline_target granit::render_pipeline)
+      endif()
+      get_target_property(
+        granit_render_pipeline_source_dir "${granit_render_pipeline_target}" SOURCE_DIR
+      )
+      if(granit_render_pipeline_source_dir)
+        cmake_path(GET granit_render_pipeline_source_dir PARENT_PATH granit_source_dir)
+        set(granit_RENDER_PIPELINE_ASSET_DIR "${granit_source_dir}/assets")
+      endif()
+    endif()
+    if(DEFINED granit_RENDER_PIPELINE_ASSET_DIR)
+      set(
+        GNEISS_GRANIT_RENDER_PIPELINE_ASSET_DIR
+        "${granit_RENDER_PIPELINE_ASSET_DIR}"
+        CACHE INTERNAL
+        "Gneiss 使用的 Granit Render Pipeline 资产目录"
+        FORCE
+      )
+    endif()
     message(STATUS "Gneiss reuses the existing Granit runtime targets")
     return()
   endif()
@@ -73,14 +95,21 @@ function(gneiss_resolve_granit_runtime)
   endif()
 
   if(granit_provider STREQUAL "AUTO" OR granit_provider STREQUAL "PACKAGE")
-    find_package(granit 0.7 CONFIG QUIET COMPONENTS Window Input RenderPipeline)
+    find_package(granit 0.10 CONFIG QUIET COMPONENTS Window Input RenderPipeline)
     if(TARGET granit::granit AND TARGET granit::window AND TARGET granit::input AND
        TARGET granit::render_pipeline)
+      set(
+        GNEISS_GRANIT_RENDER_PIPELINE_ASSET_DIR
+        "${granit_RENDER_PIPELINE_ASSET_DIR}"
+        CACHE INTERNAL
+        "Gneiss 使用的 Granit Render Pipeline 资产目录"
+        FORCE
+      )
       message(STATUS "Gneiss uses the installed Granit runtime package")
       return()
     endif()
     if(granit_provider STREQUAL "PACKAGE")
-      message(FATAL_ERROR "未找到 Granit 0.7 runtime package（含 Window、Input、RenderPipeline）")
+      message(FATAL_ERROR "未找到 Granit 0.10 runtime package（含 Window、Input、RenderPipeline）")
     endif()
     if(TARGET granit::granit)
       message(FATAL_ERROR "现有 Granit targets 缺少 Window、Input 或 RenderPipeline，无法回退到 FETCH")
@@ -98,6 +127,13 @@ function(gneiss_resolve_granit_runtime)
     "${gneiss_granit_BINARY_DIR}"
     CACHE INTERNAL
     "Gneiss FETCH 模式使用的 Granit 构建目录"
+    FORCE
+  )
+  set(
+    GNEISS_GRANIT_RENDER_PIPELINE_ASSET_DIR
+    "${gneiss_granit_SOURCE_DIR}/assets"
+    CACHE INTERNAL
+    "Gneiss 使用的 Granit Render Pipeline 资产目录"
     FORCE
   )
   if(NOT TARGET granit::granit OR NOT TARGET granit::window OR NOT TARGET granit::input OR

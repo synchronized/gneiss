@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "render/granit/object_uniform.h"
+#include "render/granit/scene_projection_math.h"
 
+#include <array>
 #include <cmath>
-#include <limits>
 
 namespace gneiss::application_internal {
 namespace {
@@ -13,19 +13,7 @@ constexpr std::size_t matrix_index(std::size_t row, std::size_t column) noexcept
   return (column * 4U) + row;
 }
 
-render_internal::matrix4 multiply(const render_internal::matrix4& left,
-                                  const render_internal::matrix4& right) noexcept {
-  render_internal::matrix4 result;
-  for (std::size_t row = 0; row < 4U; ++row) {
-    for (std::size_t column = 0; column < 4U; ++column) {
-      for (std::size_t inner = 0; inner < 4U; ++inner) {
-        result.values[matrix_index(row, column)] +=
-            left.values[matrix_index(row, inner)] * right.values[matrix_index(inner, column)];
-      }
-    }
-  }
-  return result;
-}
+} // namespace
 
 bool build_model_matrices(const gneiss_transform& transform, render_internal::matrix4& model,
                           render_internal::matrix4& normal) noexcept {
@@ -76,42 +64,6 @@ bool build_model_matrices(const gneiss_transform& transform, render_internal::ma
   }
   model.values[matrix_index(3U, 3U)] = 1.0F;
   normal.values[matrix_index(3U, 3U)] = 1.0F;
-  return true;
-}
-
-} // namespace
-
-bool calculate_uniform_stride(std::uint64_t alignment, std::uint64_t& stride) noexcept {
-  if (alignment == 0U) {
-    return false;
-  }
-  constexpr auto size = static_cast<std::uint64_t>(sizeof(object_uniform));
-  const auto remainder = size % alignment;
-  const auto padding = remainder == 0U ? 0U : alignment - remainder;
-  if (size > std::numeric_limits<std::uint64_t>::max() - padding) {
-    return false;
-  }
-  stride = size + padding;
-  return stride <= std::numeric_limits<std::uint32_t>::max();
-}
-
-bool build_object_uniform(const render_internal::matrix4& view,
-                          const render_internal::matrix4& projection,
-                          const gneiss_transform& transform, const std::array<float, 4>& color,
-                          object_uniform& output) noexcept {
-  render_internal::matrix4 model;
-  render_internal::matrix4 normal;
-  if (!build_model_matrices(transform, model, normal)) {
-    return false;
-  }
-  for (const auto value : color) {
-    if (!std::isfinite(value)) {
-      return false;
-    }
-  }
-  output = {.model_view_projection = multiply(projection, multiply(view, model)),
-            .normal = normal,
-            .color = color};
   return true;
 }
 

@@ -231,8 +231,8 @@ struct runtime_process::implementation final {
         }
         continue;
       }
-      if (const auto* value = std::get_if<runtime_state_event>(&decoded_event)) {
-        switch (value->value) {
+      if (const auto* state_event = std::get_if<runtime_state_event>(&decoded_event)) {
+        switch (state_event->value) {
         case ipc_control_state::running:
           control_state = runtime_control_state::running;
           break;
@@ -250,15 +250,16 @@ struct runtime_process::implementation final {
           fail_ipc(result::invalid_argument);
           break;
         }
-      } else if (const auto* value = std::get_if<runtime_protocol_error_event>(&decoded_event)) {
-        last_result = from_native(value->value.code);
-      } else if (auto* value = std::get_if<runtime_log_event>(&decoded_event)) {
-        while (!value->value.empty() &&
-               (value->value.back() == '\n' || value->value.back() == '\r')) {
-          value->value.pop_back();
+      } else if (const auto* protocol_error =
+                     std::get_if<runtime_protocol_error_event>(&decoded_event)) {
+        last_result = from_native(protocol_error->value.code);
+      } else if (auto* log_event = std::get_if<runtime_log_event>(&decoded_event)) {
+        while (!log_event->value.empty() &&
+               (log_event->value.back() == '\n' || log_event->value.back() == '\r')) {
+          log_event->value.pop_back();
         }
         app::runtime_log_record record;
-        if (app::parse_runtime_log_line(value->value, record) ==
+        if (app::parse_runtime_log_line(log_event->value, record) ==
             app::runtime_log_parse_result::success) {
           append_event_unique(std::move(record));
         }

@@ -13,6 +13,7 @@
 #include <chrono>
 #include <cstdio>
 #include <new>
+#include <vector>
 
 namespace gneiss::application_internal {
 
@@ -102,8 +103,21 @@ gneiss_result application_state::initialize() noexcept {
       granit_platform_.reset();
       return GNEISS_ERROR_INTERNAL;
     }
-    const auto render_result =
-        granit_render_service_->initialize(granit_platform_->native_window());
+    std::vector<std::byte> environment_asset;
+    if (desc_.environment_asset != nullptr) {
+      const auto environment_result = asset_file_system_.read(
+          std::string_view(desc_.environment_asset, desc_.environment_asset_length),
+          environment_asset);
+      if (environment_result != GNEISS_SUCCESS) {
+        report(GNEISS_NULL_APPLICATION, GNEISS_DIAGNOSTIC_ERROR, GNEISS_DIAGNOSTIC_CATEGORY_ASSET,
+               environment_result, "environment", "环境资产读取失败");
+        granit_platform_.reset();
+        return environment_result;
+      }
+    }
+    const auto render_result = granit_render_service_->initialize(
+        granit_platform_->native_window(), environment_asset, desc_.environment_intensity,
+        desc_.environment_rotation_radians);
     if (render_result != GNEISS_SUCCESS) {
       report(GNEISS_NULL_APPLICATION, GNEISS_DIAGNOSTIC_ERROR, GNEISS_DIAGNOSTIC_CATEGORY_BACKEND,
              render_result, "granit.render", "Granit 渲染服务初始化失败");
@@ -442,7 +456,9 @@ gneiss_result application_state::shutdown(gneiss_application handle) noexcept {
         performance_message.data(), performance_message.size(),
         "渲染线程统计：提交帧=%llu，执行帧=%llu，替换帧=%llu，提交命令=%llu，执行命令=%llu，"
         "拒绝命令=%llu，跳过构造=%llu，队列高水位=%zu，最近构造=%.3f ms，复制=%zu bytes，"
-        "最近排队=%.3f ms，最大排队=%.3f ms",
+        "最近排队=%.3f ms，最大排队=%.3f ms，GPU计时=%s，GPU样本=%llu，GPU暂不可用=%llu，"
+        "最近GPU帧=%llu/%.3f ms（阴影=%.3f，不透明=%.3f，色调映射=%.3f），"
+        "环境=%s，强度=%.3f，旋转=%.3f rad",
         static_cast<unsigned long long>(render_stats.submitted_frames),
         static_cast<unsigned long long>(render_stats.executed_frames),
         static_cast<unsigned long long>(render_stats.replaced_frames),
@@ -452,7 +468,18 @@ gneiss_result application_state::shutdown(gneiss_application handle) noexcept {
         static_cast<unsigned long long>(render_stats.skipped_frame_builds),
         render_stats.pending_high_watermark, render_stats.latest_frame_capture_ms,
         render_stats.latest_copied_payload_bytes, render_stats.latest_frame_queue_wait_ms,
-        render_stats.maximum_frame_queue_wait_ms);
+        render_stats.maximum_frame_queue_wait_ms,
+        render_stats.gpu_timing_supported ? "支持" : "不可用",
+        static_cast<unsigned long long>(render_stats.gpu_timing_sample_count),
+        static_cast<unsigned long long>(render_stats.gpu_timing_unavailable_count),
+        static_cast<unsigned long long>(render_stats.latest_gpu_timing_sequence),
+        render_stats.latest_gpu_timing_valid ? render_stats.latest_gpu_frame_ms : 0.0F,
+        render_stats.latest_gpu_shadow_ms, render_stats.latest_gpu_opaque_ms,
+        render_stats.latest_gpu_tone_mapping_ms,
+        render_stats.environment_fallback
+            ? "资产失败后回退"
+            : (render_stats.environment_asset_requested ? "工程资产" : "内建"),
+        render_stats.environment_intensity, render_stats.environment_rotation_radians);
     const auto performance_length =
         performance_written > 0
             ? std::min<std::size_t>(static_cast<std::size_t>(performance_written),

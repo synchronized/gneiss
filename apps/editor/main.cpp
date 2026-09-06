@@ -720,9 +720,9 @@ gneiss::result save_document_as(editor_state& state) {
   if (operation == gneiss::result::success) {
     state.history.mark_saved();
 #if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
-    const auto uri = std::string{state.session.uri()};
-    (void)state.author_assets.acknowledge(uri);
-    (void)state.runtime.publish_asset_revision(std::span<const std::string>(&uri, 1U));
+    const auto saved_uri = std::string{state.session.uri()};
+    (void)state.author_assets.acknowledge(saved_uri);
+    (void)state.runtime.publish_asset_revision(std::span<const std::string>(&saved_uri, 1U));
 #endif
   }
   return operation;
@@ -2874,11 +2874,11 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
             return;
           }
           const auto* current = state.session.find_prefab_source(instance_uuid, source_uuid);
-          gneiss::transform previous{};
-          state.history_error =
-              current == nullptr
-                  ? gneiss::result::not_found
-                  : state.session.restore_prefab_transform_field(current->node, field_id, previous);
+          gneiss::transform restored_previous{};
+          state.history_error = current == nullptr
+                                    ? gneiss::result::not_found
+                                    : state.session.restore_prefab_transform_field(
+                                          current->node, field_id, restored_previous);
           current = state.session.find_prefab_source(instance_uuid, source_uuid);
           if (state.history_error != gneiss::result::success || current == nullptr) {
             return;
@@ -2887,12 +2887,12 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
           state.history_error = state.history.record(
               {.label = "恢复 Prefab 来源字段",
                .undo =
-                   [&state, instance_uuid, source_uuid, previous] {
+                   [&state, instance_uuid, source_uuid, restored_previous] {
                      const auto* node =
                          state.session.find_prefab_source(instance_uuid, source_uuid);
                      return node == nullptr
                                 ? gneiss::result::not_found
-                                : state.session.set_local_transform(node->node, previous);
+                                : state.session.set_local_transform(node->node, restored_previous);
                    },
                .redo =
                    [&state, instance_uuid, source_uuid, restored] {
@@ -2906,7 +2906,7 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
           if (state.history_error != gneiss::result::success) {
             if (const auto* node = state.session.find_prefab_source(instance_uuid, source_uuid);
                 node != nullptr) {
-              (void)state.session.set_local_transform(node->node, previous);
+              (void)state.session.set_local_transform(node->node, restored_previous);
             }
           }
         };
@@ -2924,20 +2924,20 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
         const bool restore_all = ImGui::Button("Restore All Transform");
         ImGui::EndDisabled();
         if (restore_all) {
-          gneiss::transform previous{};
-          state.history_error = state.session.restore_prefab_transform(current->node, previous);
+          gneiss::transform all_previous{};
+          state.history_error = state.session.restore_prefab_transform(current->node, all_previous);
           current = state.session.find_prefab_source(instance_uuid, source_uuid);
           if (state.history_error == gneiss::result::success && current != nullptr) {
             const auto restored = current->local_transform;
             state.history_error = state.history.record(
                 {.label = "恢复 Prefab 来源变换",
                  .undo =
-                     [&state, instance_uuid, source_uuid, previous] {
+                     [&state, instance_uuid, source_uuid, all_previous] {
                        const auto* node =
                            state.session.find_prefab_source(instance_uuid, source_uuid);
                        return node == nullptr
                                   ? gneiss::result::not_found
-                                  : state.session.set_local_transform(node->node, previous);
+                                  : state.session.set_local_transform(node->node, all_previous);
                      },
                  .redo =
                      [&state, instance_uuid, source_uuid, restored] {
@@ -2951,7 +2951,7 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
             if (state.history_error != gneiss::result::success) {
               if (const auto* node = state.session.find_prefab_source(instance_uuid, source_uuid);
                   node != nullptr) {
-                (void)state.session.set_local_transform(node->node, previous);
+                (void)state.session.set_local_transform(node->node, all_previous);
               }
             }
           }
@@ -3278,6 +3278,12 @@ int run_editor(int argc, char** argv) {
                       GNEISS_APPLICATION_WINDOW_HIGH_DPI_BIT;
   desc.asset_root = asset_root_text.c_str();
   desc.asset_root_length = static_cast<std::uint32_t>(asset_root_text.size());
+  desc.environment_asset =
+      project.environment.asset.empty() ? nullptr : project.environment.asset.data();
+  desc.environment_asset_length = static_cast<std::uint32_t>(project.environment.asset.size());
+  desc.environment_intensity = project.environment.intensity;
+  desc.environment_rotation_radians =
+      project.environment.rotation_degrees * 0.01745329251994329577F;
 
   auto operation = gneiss::application::create(desc, application);
   if (operation != gneiss::result::success) {

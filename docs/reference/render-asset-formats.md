@@ -109,6 +109,22 @@ Material v2 将 `color` 解释为 base-color 因子，并增加必需的 Texture
 
 Material 租约持有其 Texture 租约；Material 释放前依赖的 Texture RID 始终有效。
 
+Material v3 增加标准 PBR 的金属度与感知粗糙度，并允许没有基础颜色纹理：
+
+```json
+{
+  "format": "gneiss.material",
+  "version": 3,
+  "color": [1.0, 1.0, 1.0, 1.0],
+  "base_color_texture": null,
+  "metallic": 0.0,
+  "roughness": 1.0
+}
+```
+
+`metallic` 与 `roughness` 均位于 0..1。它们属于 Gneiss 作者资产语义，运行时再投影为
+Granit Material 参数；作者资产不引用 `.grmat` 或后端 Shader。
+
 ## Texture
 
 建议扩展名为 `.texture.json`：

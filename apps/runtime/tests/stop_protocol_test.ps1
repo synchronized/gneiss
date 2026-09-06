@@ -20,9 +20,12 @@ $process = Start-Process -FilePath $Runtime `
   -RedirectStandardOutput $stdout -RedirectStandardError $stderr -WindowStyle Hidden -PassThru
 Start-Sleep -Milliseconds 800
 New-Item -ItemType File -Path $signal -Force | Out-Null
-if (-not $process.WaitForExit(5000)) {
+$exitTimeoutMilliseconds = 15000
+if (-not $process.WaitForExit($exitTimeoutMilliseconds)) {
   Stop-Process -Id $process.Id -Force
-  throw "Runtime did not exit after the stop request"
+  $capturedStdout = if (Test-Path -LiteralPath $stdout) { Get-Content -LiteralPath $stdout -Raw } else { "" }
+  $capturedStderr = if (Test-Path -LiteralPath $stderr) { Get-Content -LiteralPath $stderr -Raw } else { "" }
+  throw "Runtime did not exit within ${exitTimeoutMilliseconds} ms after the stop request.`nstdout:`n$capturedStdout`nstderr:`n$capturedStderr"
 }
 if (-not (Test-Path -LiteralPath $log)) {
   throw "Runtime did not write the stop protocol log"

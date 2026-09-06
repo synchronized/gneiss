@@ -27,6 +27,8 @@ struct material_resource {
   float blue;
   float alpha;
   gneiss_texture base_color_texture;
+  float metallic;
+  float roughness;
 };
 
 struct texture_resource {

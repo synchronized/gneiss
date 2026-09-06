@@ -425,6 +425,26 @@ if(GNEISS_ENABLE_GRANIT_PLATFORM)
   gneiss_target_output_directories(gneiss_render_frame_packet_test)
   add_test(NAME gneiss.render_frame_packet COMMAND gneiss_render_frame_packet_test)
 
+  add_executable(
+    gneiss_pbr_shader_resolver_test
+    render/pbr_shader_resolver_test.cpp
+    "${PROJECT_SOURCE_DIR}/src/render/granit/pbr_shader_resolver.cpp"
+  )
+  target_include_directories(
+    gneiss_pbr_shader_resolver_test
+    PRIVATE "${PROJECT_SOURCE_DIR}/src" "${PROJECT_BINARY_DIR}/src/generated/pbr"
+  )
+  target_compile_definitions(
+    gneiss_pbr_shader_resolver_test
+    PRIVATE GNEISS_TEST_GRANIT_PBR_ASSET_DIR="${GNEISS_GRANIT_RENDER_PIPELINE_ASSET_DIR}/shaders/pbr"
+  )
+  target_link_libraries(gneiss_pbr_shader_resolver_test PRIVATE granit::render_pipeline)
+  target_compile_features(gneiss_pbr_shader_resolver_test PRIVATE cxx_std_20)
+  add_dependencies(gneiss_pbr_shader_resolver_test gneiss_engine)
+  gneiss_target_compile_warnings(gneiss_pbr_shader_resolver_test)
+  gneiss_target_output_directories(gneiss_pbr_shader_resolver_test)
+  add_test(NAME gneiss.pbr_shader_resolver COMMAND gneiss_pbr_shader_resolver_test)
+
   add_executable(gneiss_granit_platform_smoke_test granit_platform_smoke_test.cpp)
   target_link_libraries(gneiss_granit_platform_smoke_test PRIVATE gneiss::engine)
   target_compile_features(gneiss_granit_platform_smoke_test PRIVATE cxx_std_20)
@@ -581,18 +601,18 @@ add_test(NAME gneiss.mesh_binary COMMAND gneiss_mesh_binary_test)
 
 if(GNEISS_ENABLE_GRANIT_PLATFORM)
   add_executable(
-    gneiss_object_uniform_test
-    render/object_uniform_test.cpp
-    "${PROJECT_SOURCE_DIR}/src/render/granit/object_uniform.cpp"
+    gneiss_scene_projection_math_test
+    render/scene_projection_math_test.cpp
+    "${PROJECT_SOURCE_DIR}/src/render/granit/scene_projection_math.cpp"
   )
   target_include_directories(
-    gneiss_object_uniform_test PRIVATE "${PROJECT_SOURCE_DIR}/include" "${PROJECT_SOURCE_DIR}/src"
+    gneiss_scene_projection_math_test PRIVATE "${PROJECT_SOURCE_DIR}/include" "${PROJECT_SOURCE_DIR}/src"
   )
-  target_link_libraries(gneiss_object_uniform_test PRIVATE granit::granit)
-  target_compile_features(gneiss_object_uniform_test PRIVATE cxx_std_20)
-  gneiss_target_compile_warnings(gneiss_object_uniform_test)
-  gneiss_target_output_directories(gneiss_object_uniform_test)
-  add_test(NAME gneiss.object_uniform COMMAND gneiss_object_uniform_test)
+  target_link_libraries(gneiss_scene_projection_math_test PRIVATE granit::granit)
+  target_compile_features(gneiss_scene_projection_math_test PRIVATE cxx_std_20)
+  gneiss_target_compile_warnings(gneiss_scene_projection_math_test)
+  gneiss_target_output_directories(gneiss_scene_projection_math_test)
+  add_test(NAME gneiss.scene_projection_math COMMAND gneiss_scene_projection_math_test)
 endif()
 
 add_executable(
