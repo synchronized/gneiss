@@ -93,6 +93,7 @@
 - [VER-031：0.31.0 游戏工程创建与目录包导出](plans/VER-031-0.31.0-project-workflow.md)
 - [VER-032：0.32.0 构建配置与发布包管线](plans/VER-032-0.32.0-release-packaging.md)
 - [VER-033：0.33.0 资产构建与发布优化](plans/VER-033-0.33.0-asset-cooking.md)
+- [VER-034：0.34.0 离线纹理构建与 KTX2 运行链路](plans/VER-034-0.34.0-offline-texture-cooking.md)
 - [M-100：Editor Play 工作流实施记录](records/M-100-editor-play-workflow.md)
 - [M-101：示例与跨平台验收记录](records/M-101-example-cross-platform-validation.md)
 - [M-102：Runtime 检查会话与对象标识实施记录](records/M-102-runtime-inspection-identity.md)
@@ -148,6 +149,7 @@
 - [ADR-037：Scene 与 Prefab 结构热重载使用身份协调事务](decisions/ADR-037-scene-prefab-structural-hot-reload.md)
 - [ADR-038：渲染线程独占 GPU 对象并消费不可变任务](decisions/ADR-038-render-thread-ownership.md)
 - [ADR-042：资产构建与 Granit GPU 契约边界](decisions/ADR-042-asset-cooking-backend-boundary.md)
+- [ADR-043：KTX2 作为运行时纹理容器](decisions/ADR-043-runtime-texture-container.md)
 
 ## 实施与验收记录
 
