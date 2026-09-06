@@ -6,6 +6,7 @@
 #include <yyjson.h>
 
 #include <array>
+#include <cctype>
 #include <cstdlib>
 #include <fstream>
 #include <iomanip>
@@ -37,29 +38,95 @@ using document_ptr = std::unique_ptr<yyjson_doc, document_deleter>;
       std::u8string(reinterpret_cast<const char8_t*>(text.data()), text.size()));
 }
 
+[[nodiscard]] std::filesystem::path sdk_template_root() {
+#if defined(_WIN32)
+  char* sdk_root = nullptr;
+  std::size_t length = 0U;
+  if (_dupenv_s(&sdk_root, &length, "GNEISS_SDK_ROOT") != 0 || sdk_root == nullptr ||
+      length <= 1U) {
+    std::free(sdk_root);
+    return {};
+  }
+  const std::filesystem::path root(sdk_root);
+  std::free(sdk_root);
+#else
+  const auto* sdk_root = std::getenv("GNEISS_SDK_ROOT");
+  if (sdk_root == nullptr || *sdk_root == '\0') {
+    return {};
+  }
+  const std::filesystem::path root(sdk_root);
+#endif
+  return root / "share" / "gneiss" / "templates" / "game";
+}
+
 [[nodiscard]] bool write_text(const std::filesystem::path& path, std::string_view text) {
   std::ofstream stream(path, std::ios::binary | std::ios::trunc);
   stream.write(text.data(), static_cast<std::streamsize>(text.size()));
   return static_cast<bool>(stream);
 }
 
-[[nodiscard]] std::string make_uuid() {
-  std::array<std::uint8_t, 16> bytes{};
+[[nodiscard]] bool copy_directory(const std::filesystem::path& source,
+                                  const std::filesystem::path& destination,
+                                  std::error_code& error) {
+  std::filesystem::copy(source, destination,
+                        std::filesystem::copy_options::recursive |
+                            std::filesystem::copy_options::copy_symlinks,
+                        error);
+  return !error;
+}
+
+[[nodiscard]] std::string unique_suffix() {
+  std::array<std::uint8_t, 8> bytes{};
   std::random_device random;
   for (auto& byte : bytes) {
     byte = static_cast<std::uint8_t>(random());
   }
-  bytes[6] = static_cast<std::uint8_t>((bytes[6] & 0x0fU) | 0x40U);
-  bytes[8] = static_cast<std::uint8_t>((bytes[8] & 0x3fU) | 0x80U);
   std::ostringstream output;
   output << std::hex << std::setfill('0');
-  for (std::size_t index = 0; index < bytes.size(); ++index) {
-    if (index == 4U || index == 6U || index == 8U || index == 10U) {
-      output << '-';
-    }
-    output << std::setw(2) << static_cast<unsigned int>(bytes[index]);
+  for (const auto byte : bytes) {
+    output << std::setw(2) << static_cast<unsigned int>(byte);
   }
   return output.str();
+}
+
+[[nodiscard]] std::string module_id(std::string_view name) {
+  std::string output{"gneiss.game."};
+  bool separator = false;
+  for (const auto character : name) {
+    const auto value = static_cast<unsigned char>(character);
+    if (std::isalnum(value) != 0) {
+      output.push_back(static_cast<char>(std::tolower(value)));
+      separator = false;
+    } else if (!separator && output.back() != '.') {
+      output.push_back('.');
+      separator = true;
+    }
+  }
+  while (output.back() == '.') {
+    output.pop_back();
+  }
+  if (output == "gneiss.game") {
+    output += ".project";
+  }
+  output += "." + unique_suffix();
+  return output;
+}
+
+[[nodiscard]] bool replace_text(const std::filesystem::path& path, std::string_view from,
+                                std::string_view to) {
+  std::ifstream input(path, std::ios::binary);
+  if (!input) {
+    return false;
+  }
+  std::string text{std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>()};
+  std::size_t offset = 0U;
+  bool replaced = false;
+  while ((offset = text.find(from, offset)) != std::string::npos) {
+    text.replace(offset, from.size(), to);
+    offset += to.size();
+    replaced = true;
+  }
+  return replaced && write_text(path, text);
 }
 
 [[nodiscard]] result write_recent_projects(const std::filesystem::path& state_file,
@@ -196,12 +263,33 @@ result remember_recent_project(const std::filesystem::path& state_file,
 
 result create_editor_project(const std::filesystem::path& project_root, std::string_view name,
                              editor_project& output) noexcept {
+#if defined(GNEISS_EDITOR_GAME_TEMPLATE_DIR)
+  const auto installed_template = sdk_template_root();
+  std::error_code error;
+  if (!installed_template.empty() && std::filesystem::is_directory(installed_template, error) &&
+      !error) {
+    return create_editor_project(project_root, installed_template, name, output);
+  }
+  return create_editor_project(project_root, GNEISS_EDITOR_GAME_TEMPLATE_DIR, name, output);
+#else
+  (void)project_root;
+  (void)name;
+  (void)output;
+  return result::not_found;
+#endif
+}
+
+result create_editor_project(const std::filesystem::path& project_root,
+                             const std::filesystem::path& template_root, std::string_view name,
+                             editor_project& output) noexcept {
   if (project_root.empty() || name.empty()) {
     return result::invalid_argument;
   }
   try {
     std::error_code error;
-    if (std::filesystem::exists(project_root, error) || error) {
+    if (std::filesystem::exists(project_root, error) || error ||
+        !std::filesystem::is_directory(template_root, error) || error ||
+        !std::filesystem::is_regular_file(template_root / "gneiss.project.json", error) || error) {
       return result::invalid_state;
     }
     auto temporary = project_root;
@@ -209,26 +297,18 @@ result create_editor_project(const std::filesystem::path& project_root, std::str
     if (std::filesystem::exists(temporary, error) || error) {
       return result::invalid_state;
     }
-    std::filesystem::create_directories(temporary / "assets" / "scenes", error);
-    if (!error) {
-      std::filesystem::create_directories(temporary / "sources", error);
-    }
+    std::filesystem::create_directories(temporary.parent_path(), error);
     if (error) {
       return result::io;
     }
-    const auto scene_uuid = make_uuid();
-    const auto node_uuid = make_uuid();
-    const std::string scene =
-        "{\n  \"format\": \"gneiss.scene\",\n  \"version\": 4,\n  "
-        "\"scene_uuid\": \"" +
-        scene_uuid + "\",\n  \"objects\": [\n    {\n      \"uuid\": \"" + node_uuid +
-        "\",\n      \"name\": \"Camera\",\n      \"parent\": null,\n      "
-        "\"transform\": {\"translation\": [0, 0, 3], "
-        "\"rotation\": [0, 0, 0, 1], \"scale\": [1, 1, 1]},\n      "
-        "\"components\": {\"camera\": {"
-        "\"vertical_field_of_view_radians\": 1.04719755, "
-        "\"near_plane\": 0.1, \"far_plane\": 1000, "
-        "\"is_primary\": true}}\n    }\n  ],\n  \"prefab_instances\": []\n}\n";
+    if (!copy_directory(template_root, temporary, error)) {
+      return result::io;
+    }
+    std::filesystem::create_directories(temporary / "sources", error);
+    if (error) {
+      std::filesystem::remove_all(temporary, error);
+      return result::io;
+    }
     yyjson_mut_doc* raw_document = yyjson_mut_doc_new(nullptr);
     if (raw_document == nullptr) {
       std::filesystem::remove_all(temporary, error);
@@ -239,11 +319,23 @@ result create_editor_project(const std::filesystem::path& project_root, std::str
     auto* root = yyjson_mut_obj(document.get());
     if (root == nullptr ||
         !yyjson_mut_obj_add_str(document.get(), root, "format", "gneiss.project") ||
-        !yyjson_mut_obj_add_uint(document.get(), root, "version", 1U) ||
+        !yyjson_mut_obj_add_uint(document.get(), root, "version", 2U) ||
         !yyjson_mut_obj_add_strncpy(document.get(), root, "name", name.data(), name.size()) ||
         !yyjson_mut_obj_add_str(document.get(), root, "asset_root", "assets") ||
         !yyjson_mut_obj_add_str(document.get(), root, "startup_scene",
                                 "asset://scenes/main.scene.json")) {
+      std::filesystem::remove_all(temporary, error);
+      return result::out_of_memory;
+    }
+    auto* game_module = yyjson_mut_obj(document.get());
+    if (game_module == nullptr ||
+        !yyjson_mut_obj_add_str(document.get(), game_module, "name", "gneiss_game") ||
+        !yyjson_mut_obj_add_str(document.get(), game_module, "directory", "modules") ||
+        !yyjson_mut_obj_add_str(document.get(), game_module, "configure_preset",
+                                "game-debug-configure") ||
+        !yyjson_mut_obj_add_str(document.get(), game_module, "build_preset", "game-debug") ||
+        !yyjson_mut_obj_add_str(document.get(), game_module, "build_target", "gneiss_game") ||
+        !yyjson_mut_obj_add_val(document.get(), root, "game_module", game_module)) {
       std::filesystem::remove_all(temporary, error);
       return result::out_of_memory;
     }
@@ -253,7 +345,7 @@ result create_editor_project(const std::filesystem::path& project_root, std::str
         yyjson_mut_write(document.get(), YYJSON_WRITE_PRETTY, &length), &std::free);
     if (!json ||
         !write_text(temporary / "gneiss.project.json", std::string_view(json.get(), length)) ||
-        !write_text(temporary / "assets" / "scenes" / "main.scene.json", scene)) {
+        !replace_text(temporary / "game_module.cpp", "gneiss.template.game", module_id(name))) {
       std::filesystem::remove_all(temporary, error);
       return result::io;
     }
@@ -263,6 +355,104 @@ result create_editor_project(const std::filesystem::path& project_root, std::str
       return result::io;
     }
     return load_editor_project(project_root, output);
+  } catch (const std::bad_alloc&) {
+    return result::out_of_memory;
+  } catch (...) {
+    return result::io;
+  }
+}
+
+result export_editor_project(const editor_project& project,
+                             const std::filesystem::path& runtime_executable,
+                             const std::filesystem::path& output_root) noexcept {
+  if (project.project_root.empty() || runtime_executable.empty() || output_root.empty()) {
+    return result::invalid_argument;
+  }
+  try {
+    std::error_code error;
+    if (std::filesystem::exists(output_root, error) || error ||
+        !std::filesystem::is_regular_file(runtime_executable, error) || error) {
+      return result::invalid_state;
+    }
+    auto temporary = output_root;
+    temporary += ".gneiss-exporting";
+    if (std::filesystem::exists(temporary, error) || error) {
+      return result::invalid_state;
+    }
+    std::filesystem::create_directories(temporary.parent_path(), error);
+    if (error) {
+      return result::io;
+    }
+    std::filesystem::create_directories(temporary / "bin", error);
+    if (error || !copy_directory(project.asset_root, temporary / "assets", error) ||
+        !copy_directory(project.project_root / project.game_module.directory,
+                        temporary / project.game_module.directory, error)) {
+      std::filesystem::remove_all(temporary, error);
+      return result::io;
+    }
+    std::filesystem::copy_file(project.project_file, temporary / "gneiss.project.json",
+                               std::filesystem::copy_options::none, error);
+    if (!error) {
+      std::filesystem::copy_file(runtime_executable,
+                                 temporary / "bin" / runtime_executable.filename(),
+                                 std::filesystem::copy_options::none, error);
+    }
+    if (error) {
+      std::filesystem::remove_all(temporary, error);
+      return result::io;
+    }
+    const std::array dependency_directories = {
+        runtime_executable.parent_path(), runtime_executable.parent_path().parent_path() / "lib"};
+    for (const auto& directory : dependency_directories) {
+      if (!std::filesystem::is_directory(directory, error) || error) {
+        error.clear();
+        continue;
+      }
+      for (const auto& entry : std::filesystem::directory_iterator(directory)) {
+        const auto filename = entry.path().filename().string();
+        const auto extension = entry.path().extension().string();
+        if (entry.is_regular_file() && (extension == ".dll" || extension == ".dylib" ||
+                                        filename.find(".so") != std::string::npos)) {
+          std::filesystem::copy_file(entry.path(), temporary / "bin" / entry.path().filename(),
+                                     std::filesystem::copy_options::none, error);
+          if (error) {
+            std::filesystem::remove_all(temporary, error);
+            return result::io;
+          }
+        }
+      }
+    }
+    const auto runtime_assets = runtime_executable.parent_path() / "assets";
+    if (std::filesystem::is_directory(runtime_assets, error) && !error &&
+        !copy_directory(runtime_assets, temporary / "bin" / "assets", error)) {
+      std::filesystem::remove_all(temporary, error);
+      return result::io;
+    }
+    const auto runtime_name = runtime_executable.filename().string();
+    if (!write_text(temporary / "run.cmd",
+                    "@echo off\r\npushd \"%~dp0\"\r\n\"bin\\" + runtime_name +
+                        "\" --project . %*\r\nset GNEISS_EXIT=%ERRORLEVEL%\r\npopd\r\n"
+                        "exit /b %GNEISS_EXIT%\r\n") ||
+        !write_text(temporary / "run.sh",
+                    "#!/bin/sh\nDIR=$(CDPATH= cd -- \"$(dirname -- \"$0\")\" && pwd)\n"
+                    "LD_LIBRARY_PATH=\"$DIR/bin${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}\" "
+                    "\"$DIR/bin/" +
+                        runtime_name + "\" --project \"$DIR\" \"$@\"\n")) {
+      std::filesystem::remove_all(temporary, error);
+      return result::io;
+    }
+    std::filesystem::permissions(temporary / "run.sh",
+                                 std::filesystem::perms::owner_exec |
+                                     std::filesystem::perms::group_exec |
+                                     std::filesystem::perms::others_exec,
+                                 std::filesystem::perm_options::add, error);
+    error.clear();
+    std::filesystem::rename(temporary, output_root, error);
+    if (error) {
+      std::filesystem::remove_all(temporary, error);
+      return result::io;
+    }
+    return result::success;
   } catch (const std::bad_alloc&) {
     return result::out_of_memory;
   } catch (...) {

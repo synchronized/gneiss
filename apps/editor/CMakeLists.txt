@@ -70,6 +70,10 @@ target_include_directories(
           "${CMAKE_CURRENT_SOURCE_DIR}/ipc/outbound"
 )
 target_compile_features(gneiss_editor_session PUBLIC cxx_std_20)
+target_compile_definitions(
+  gneiss_editor_session
+  PRIVATE GNEISS_EDITOR_GAME_TEMPLATE_DIR="${PROJECT_SOURCE_DIR}/templates/game"
+)
 gneiss_target_compile_warnings(gneiss_editor_session)
 gneiss_target_output_directories(gneiss_editor_session)
 
@@ -147,6 +151,13 @@ endif()
 gneiss_target_compile_warnings(gneiss_editor)
 gneiss_target_output_directories(gneiss_editor)
 
+add_executable(gneiss_project project_cli.cpp)
+target_link_libraries(gneiss_project PRIVATE gneiss_editor_session)
+gneiss_target_compile_warnings(gneiss_project)
+gneiss_target_output_directories(gneiss_project)
+
+install(TARGETS gneiss_editor gneiss_project RUNTIME DESTINATION bin)
+
 if(BUILD_TESTING)
   add_executable(gneiss_editor_ui_layout_test tests/editor_ui_layout_test.cpp)
   target_link_libraries(gneiss_editor_ui_layout_test PRIVATE gneiss_editor_ui)
@@ -164,6 +175,10 @@ if(BUILD_TESTING)
   add_test(NAME gneiss.editor.session COMMAND gneiss_editor_session_test)
   add_executable(gneiss_editor_project_workspace_test tests/project_workspace_test.cpp)
   target_link_libraries(gneiss_editor_project_workspace_test PRIVATE gneiss_editor_session)
+  target_compile_definitions(
+    gneiss_editor_project_workspace_test
+    PRIVATE GNEISS_EDITOR_TEST_TEMPLATE="${PROJECT_SOURCE_DIR}/templates/game"
+  )
   gneiss_target_compile_warnings(gneiss_editor_project_workspace_test)
   gneiss_target_output_directories(gneiss_editor_project_workspace_test)
   add_test(NAME gneiss.editor.project-workspace COMMAND gneiss_editor_project_workspace_test)

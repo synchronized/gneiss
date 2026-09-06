@@ -7,6 +7,7 @@
   "game_module": {
     "name": "gneiss_game",
     "directory": "modules",
+    "configure_preset": "game-debug-configure",
     "build_preset": "game-debug",
     "build_target": "gneiss_game"
   }

@@ -27,6 +27,16 @@ namespace gneiss::editor {
 [[nodiscard]] result create_editor_project(const std::filesystem::path& project_root,
                                            std::string_view name, editor_project& output) noexcept;
 
+/** 从指定模板创建工程；模板目录必须包含 gneiss.project.json。 */
+[[nodiscard]] result create_editor_project(const std::filesystem::path& project_root,
+                                           const std::filesystem::path& template_root,
+                                           std::string_view name, editor_project& output) noexcept;
+
+/** 将工程与 Runtime 依赖导出为可运行目录；不覆盖既有目标。 */
+[[nodiscard]] result export_editor_project(const editor_project& project,
+                                           const std::filesystem::path& runtime_executable,
+                                           const std::filesystem::path& output_root) noexcept;
+
 } // namespace gneiss::editor
 
 #endif
