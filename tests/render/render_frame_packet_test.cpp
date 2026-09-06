@@ -86,10 +86,10 @@ int main() {
       packet.debug.lines().size() != 1U || captured_mesh == nullptr ||
       captured_mesh->vertices.size() != 3U || captured_material == nullptr ||
       captured_material->base_color_texture != texture || captured_texture == nullptr ||
-      captured_texture->pixels.front() != std::byte{1} || packet.capture.capture_ms < 0.0F ||
-      packet.capture.copied_payload_bytes == 0U || captured_mesh != source_mesh ||
-      captured_material != source_material || captured_texture != source_texture ||
-      packet.capture.copied_payload_bytes >= pixels.size()) {
+      captured_texture->levels.front().pixels.front() != std::byte{1} ||
+      packet.capture.capture_ms < 0.0F || packet.capture.copied_payload_bytes == 0U ||
+      captured_mesh != source_mesh || captured_material != source_material ||
+      captured_texture != source_texture || packet.capture.copied_payload_bytes >= pixels.size()) {
     return 7;
   }
   return 0;

@@ -5,6 +5,10 @@ add_library(
   gneiss_asset_import_sdk STATIC
   "${PROJECT_SOURCE_DIR}/src/asset/mesh_binary.cpp"
   "${PROJECT_SOURCE_DIR}/src/asset/mesh_binary.h"
+  "${PROJECT_SOURCE_DIR}/src/asset/texture_ktx2.cpp"
+  "${PROJECT_SOURCE_DIR}/src/asset/texture_ktx2.h"
+  "${PROJECT_SOURCE_DIR}/src/render/png_decoder.cpp"
+  "${PROJECT_SOURCE_DIR}/src/render/png_decoder.h"
   "${PROJECT_SOURCE_DIR}/src/tooling/asset_import/asset_index.cpp"
   "${PROJECT_SOURCE_DIR}/src/tooling/asset_import/asset_index.h"
   "${PROJECT_SOURCE_DIR}/src/tooling/asset_import/asset_import_sdk.cpp"
@@ -20,9 +24,11 @@ add_library(
   "${PROJECT_SOURCE_DIR}/src/tooling/asset_build/ktx2_probe.h"
 )
 target_include_directories(
-  gneiss_asset_import_sdk PUBLIC "${PROJECT_SOURCE_DIR}/src"
+  gneiss_asset_import_sdk PUBLIC "${PROJECT_SOURCE_DIR}/src" "${PROJECT_SOURCE_DIR}/include"
 )
-target_link_libraries(gneiss_asset_import_sdk PRIVATE fastgltf::fastgltf gneiss_yyjson)
+target_link_libraries(
+  gneiss_asset_import_sdk PRIVATE fastgltf::fastgltf gneiss_yyjson gneiss_png
+)
 target_compile_features(gneiss_asset_import_sdk PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_asset_import_sdk)
 

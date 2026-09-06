@@ -139,9 +139,16 @@ Granit 标准 PBR Material 参数；作者资产不引用 `.grmat` 或后端 Sha
 }
 ```
 
-`source` 是通过 VFS 读取的 PNG URI；首版使用 libspng 解码并统一输出紧密排列的 RGBA8。
-`color_space` 必须为 `srgb` 或 `linear`，由描述文件明确指定，不从 PNG 元数据推断。图片宽高上限为
-16384，解码后像素数据上限为 256 MiB。解码器属于 Loader 私有实现，不进入公共 API 或安装包依赖。
+作者资产中的 `source` 可以指向 PNG；`color_space` 必须为 `srgb` 或 `linear`，由描述文件明确指定，
+不从 PNG 元数据推断。资产构建会把 PNG 确定性转换为同名 `.ktx2`，生成直到 1×1 的完整 Mip 链，
+并重写运行资产中的 URI。相同图像不能由多个 Texture 描述同时声明为不同颜色空间。
+
+0.34.0 的运行容器只接受二维、单层、单面、无超级压缩的 `R8G8B8A8_UNORM` 或
+`R8G8B8A8_SRGB` KTX2。Runtime 校验标识、DFD 传递函数、完整 Mip 数量、Level Index 范围和每级
+字节数，再将全部 Mip 交给 Granit。图片宽高上限为 16384，解码后资源数据上限为 256 MiB。
+
+编辑器直接运行尚未 Cook 的作者工程时保留 PNG 兼容路径；发布包只包含 KTX2 和被重写的 Texture
+描述。PNG 解码与 Mip 生成属于工具路径，不能作为发布包的运行资产格式依赖。
 
 ## 加载与生命周期
 

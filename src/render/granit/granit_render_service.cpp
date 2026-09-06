@@ -164,12 +164,13 @@ granit_render_service::create_texture_mirror(const render_internal::texture_reso
        .usage = granit::texture_usage::sampled | granit::texture_usage::transfer_destination,
        .location = granit::memory_location::device,
        .width = source.width,
-       .height = source.height});
-  if (result.ok()) {
+       .height = source.height,
+       .mip_levels = static_cast<std::uint32_t>(source.levels.size())});
+  for (std::uint32_t level = 0U; result.ok() && level < source.levels.size(); ++level) {
+    const auto& mip = source.levels[level];
     result = output.texture.write(
-        source.pixels,
-        {.offset = 0, .bytes_per_row = source.width * 4U, .rows_per_image = source.height},
-        {.width = source.width, .height = source.height});
+        mip.pixels, {.offset = 0, .bytes_per_row = mip.width * 4U, .rows_per_image = mip.height},
+        {.mip_level = level, .width = mip.width, .height = mip.height});
   }
   if (result.ok()) {
     result = output.view.initialize(renderer_.native_handle(), output.texture.native_handle(),
@@ -353,11 +354,15 @@ granit::result granit_render_service::ensure_default_textures() noexcept {
         .height = 1,
         .format = GNEISS_TEXTURE_FORMAT_RGBA8_UNORM,
         .color_space = GNEISS_TEXTURE_COLOR_SPACE_SRGB,
-        .pixels = {std::byte{0xff}, std::byte{0xff}, std::byte{0xff}, std::byte{0xff}}};
+        .levels = {
+            {.width = 1U,
+             .height = 1U,
+             .pixels = {std::byte{0xff}, std::byte{0xff}, std::byte{0xff}, std::byte{0xff}}}}};
     render_internal::texture_resource white_linear = white_srgb;
     white_linear.color_space = GNEISS_TEXTURE_COLOR_SPACE_LINEAR;
     render_internal::texture_resource normal_linear = white_linear;
-    normal_linear.pixels = {std::byte{0x80}, std::byte{0x80}, std::byte{0xff}, std::byte{0xff}};
+    normal_linear.levels.front().pixels = {std::byte{0x80}, std::byte{0x80}, std::byte{0xff},
+                                           std::byte{0xff}};
     auto result = create_texture_mirror(white_srgb, default_white_srgb_);
     if (result.ok())
       result = create_texture_mirror(white_linear, default_white_linear_);

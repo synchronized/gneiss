@@ -4,6 +4,7 @@
 #include "render/render_asset_loader.h"
 
 #include "asset/mesh_binary.h"
+#include "asset/texture_ktx2.h"
 #include "asset/virtual_file_system.h"
 #include "render/png_decoder.h"
 #include "render/render_resource_service.h"
@@ -586,29 +587,58 @@ gneiss_result render_asset_loader::acquire_texture(std::string_view uri,
         std::vector<std::byte> image_bytes;
         result = file_system_.read(source.uri, image_bytes);
         if (result != GNEISS_SUCCESS) {
-          fail(out_diagnostic, result, "/source", "无法通过 VFS 读取 PNG");
+          fail(out_diagnostic, result, "/source", "无法通过 VFS 读取纹理数据");
           return result;
         }
-        decoded_png image;
-        std::string decode_message;
-        result = decode_png(image_bytes, image, decode_message);
-        if (result != GNEISS_SUCCESS) {
-          fail(out_diagnostic, result, "/source",
-               decode_message.empty() ? "PNG 解码失败" : decode_message);
-          return result;
-        }
-        const gneiss_texture_desc desc{
-            .struct_size = sizeof(gneiss_texture_desc),
-            .format = GNEISS_TEXTURE_FORMAT_RGBA8_UNORM,
-            .color_space = source.color_space,
-            .width = image.width,
-            .height = image.height,
-            .row_stride_bytes = image.width * 4U,
-            .pixel_data_size = image.pixels.size(),
-            .pixels = reinterpret_cast<const std::uint8_t*>(image.pixels.data()),
-            .reserved = {0, 0}};
         gneiss_texture rid = GNEISS_NULL_TEXTURE;
-        result = resources_.create_texture(desc, &rid);
+        if (std::string_view(source.uri).ends_with(".ktx2")) {
+          asset_internal::texture_ktx2 texture;
+          std::string decode_message;
+          const auto decoded =
+              asset_internal::decode_texture_ktx2(image_bytes, texture, decode_message);
+          if (decoded != asset_internal::texture_ktx2_result::success) {
+            fail(out_diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/source",
+                 decode_message.empty() ? "KTX2 解码失败" : decode_message);
+            return GNEISS_ERROR_INVALID_ARGUMENT;
+          }
+          const auto expected_transfer = source.color_space == GNEISS_TEXTURE_COLOR_SPACE_SRGB
+                                             ? asset_internal::texture_transfer::srgb
+                                             : asset_internal::texture_transfer::linear;
+          if (texture.transfer != expected_transfer) {
+            fail(out_diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/color_space",
+                 "Texture 描述与 KTX2 传递函数不一致");
+            return GNEISS_ERROR_INVALID_ARGUMENT;
+          }
+          auto levels = std::move(texture.levels);
+          const auto width = levels.front().width;
+          const auto height = levels.front().height;
+          result = resources_.create_texture({.width = width,
+                                              .height = height,
+                                              .format = GNEISS_TEXTURE_FORMAT_RGBA8_UNORM,
+                                              .color_space = source.color_space,
+                                              .levels = std::move(levels)},
+                                             &rid);
+        } else {
+          decoded_png image;
+          std::string decode_message;
+          result = decode_png(image_bytes, image, decode_message);
+          if (result != GNEISS_SUCCESS) {
+            fail(out_diagnostic, result, "/source",
+                 decode_message.empty() ? "PNG 解码失败" : decode_message);
+            return result;
+          }
+          const gneiss_texture_desc desc{
+              .struct_size = sizeof(gneiss_texture_desc),
+              .format = GNEISS_TEXTURE_FORMAT_RGBA8_UNORM,
+              .color_space = source.color_space,
+              .width = image.width,
+              .height = image.height,
+              .row_stride_bytes = image.width * 4U,
+              .pixel_data_size = image.pixels.size(),
+              .pixels = reinterpret_cast<const std::uint8_t*>(image.pixels.data()),
+              .reserved = {0, 0}};
+          result = resources_.create_texture(desc, &rid);
+        }
         if (result != GNEISS_SUCCESS) {
           fail(out_diagnostic, result, "", "创建 Texture RID 失败");
           return result;

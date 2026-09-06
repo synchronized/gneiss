@@ -29,6 +29,8 @@ target_sources(
     asset/file_system.h
     asset/mesh_binary.cpp
     asset/mesh_binary.h
+    asset/texture_ktx2.cpp
+    asset/texture_ktx2.h
     asset/native_file_system.cpp
     asset/native_file_system.h
     asset/resource_cache.cpp
