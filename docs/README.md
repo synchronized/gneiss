@@ -90,6 +90,7 @@
 - [VER-029：0.29.0 Granit 0.14 异步 GPU 契约接入](plans/VER-029-0.29.0-granit-async-gpu-contracts.md)
 - [VER-030：0.30.0 Runtime API 收敛与游戏工程模板](plans/VER-030-0.30.0-runtime-api-convergence.md)
 - [VER-031：0.31.0 游戏工程创建与目录包导出](plans/VER-031-0.31.0-project-workflow.md)
+- [VER-032：0.32.0 构建配置与发布包管线](plans/VER-032-0.32.0-release-packaging.md)
 - [M-100：Editor Play 工作流实施记录](records/M-100-editor-play-workflow.md)
 - [M-101：示例与跨平台验收记录](records/M-101-example-cross-platform-validation.md)
 - [M-102：Runtime 检查会话与对象标识实施记录](records/M-102-runtime-inspection-identity.md)
