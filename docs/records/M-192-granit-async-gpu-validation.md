@@ -23,7 +23,12 @@ Gneiss 删除了待处理 Frame 序列队列，直接报告 Granit 的 `sample_s
 - 上述矩阵包含默认缓存迁移、安装消费、C11/C++20 头文件、旧 ABI Consumer、Runtime、Editor、
   Lantern Gallery、Granit 平台冒烟和资源归零检查。
 
-## 待远端验证
+## 远端验证
 
-Linux Clang/GCC Shared/Static、Granit Runtime Shared/Static 和 Sanitizer 由手动 Actions 覆盖。分支
-推送、Actions、Pull Request、合并与标签仍按发布工作流取得明确授权后执行。
+- [Linux Actions 34019949762](https://github.com/synchronized/gneiss/actions/runs/34019949762)：
+  Clang/GCC Shared/Static、Granit Runtime Shared/Static 和 Sanitizer 共 7 个作业全部通过。
+- [Windows Actions 34019951250](https://github.com/synchronized/gneiss/actions/runs/34019951250)：
+  MSVC Runtime Shared/Static 与安装 Consumer Shared/Static 共 4 个作业全部通过。
+
+Windows 工作流提示 `ilammy/msvc-dev-cmd@v1` 仍声明 Node.js 20；GitHub 当前强制使用 Node.js 24，
+本次执行成功。该依赖升级属于后续工作流维护，不阻塞 0.29.0。
