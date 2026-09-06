@@ -137,17 +137,49 @@ gneiss_result render_resource_service::create_texture(const gneiss_texture_desc&
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
   try {
-    texture_resource resource{.width = desc.width,
-                              .height = desc.height,
-                              .format = desc.format,
-                              .color_space = desc.color_space,
-                              .pixels = {}};
-    resource.pixels.resize(static_cast<std::size_t>(packed_size));
+    texture_resource resource{
+        .width = desc.width,
+        .height = desc.height,
+        .format = desc.format,
+        .color_space = desc.color_space,
+        .levels = {{.width = desc.width, .height = desc.height, .pixels = {}}}};
+    resource.levels.front().pixels.resize(static_cast<std::size_t>(packed_size));
     for (std::uint32_t row = 0; row < desc.height; ++row) {
-      std::memcpy(resource.pixels.data() + (static_cast<std::size_t>(row) * row_bytes),
+      std::memcpy(resource.levels.front().pixels.data() +
+                      (static_cast<std::size_t>(row) * row_bytes),
                   desc.pixels + (static_cast<std::size_t>(row) * desc.row_stride_bytes),
                   static_cast<std::size_t>(row_bytes));
     }
+    return create_texture(std::move(resource), out_texture);
+  } catch (const std::bad_alloc&) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
+gneiss_result render_resource_service::create_texture(texture_resource resource,
+                                                      gneiss_texture* out_texture) noexcept {
+  if (out_texture == nullptr || !is_valid() || resource.width == 0U || resource.height == 0U ||
+      resource.format != GNEISS_TEXTURE_FORMAT_RGBA8_UNORM || resource.levels.empty() ||
+      resource.levels.front().width != resource.width ||
+      resource.levels.front().height != resource.height) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  auto width = resource.width;
+  auto height = resource.height;
+  std::uint64_t total_bytes{};
+  for (const auto& level : resource.levels) {
+    const auto level_bytes = static_cast<std::uint64_t>(width) * height * 4U;
+    if (level.width != width || level.height != height || level.pixels.size() != level_bytes ||
+        level_bytes > maximum_texture_bytes || total_bytes > maximum_texture_bytes - level_bytes) {
+      return GNEISS_ERROR_INVALID_ARGUMENT;
+    }
+    total_bytes += level_bytes;
+    width = std::max(1U, width / 2U);
+    height = std::max(1U, height / 2U);
+  }
+  try {
     return textures_.create(core::resource_type::texture,
                             std::make_shared<const texture_resource>(std::move(resource)),
                             out_texture);

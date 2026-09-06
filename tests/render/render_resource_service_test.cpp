@@ -81,8 +81,8 @@ int main() {
       std::byte{13}, std::byte{14}, std::byte{15}, std::byte{16}};
   if (stored == nullptr || stored->width != 2U || stored->height != 2U ||
       stored->format != GNEISS_TEXTURE_FORMAT_RGBA8_UNORM ||
-      stored->color_space != GNEISS_TEXTURE_COLOR_SPACE_SRGB ||
-      !std::ranges::equal(stored->pixels, expected)) {
+      stored->color_space != GNEISS_TEXTURE_COLOR_SPACE_SRGB || stored->levels.size() != 1U ||
+      !std::ranges::equal(stored->levels.front().pixels, expected)) {
     return 2;
   }
   if (resources.destroy_texture(texture) != GNEISS_SUCCESS ||

@@ -21,7 +21,15 @@ using namespace gneiss::tooling::asset_build;
 }
 
 [[nodiscard]] std::string png_fixture(char payload) {
-  return std::string{"\x89PNG\r\n\x1a\n", 8U} + payload;
+  constexpr unsigned char png[] = {
+      0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x48,
+      0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x04, 0x00, 0x00,
+      0x00, 0xB5, 0x1C, 0x0C, 0x02, 0x00, 0x00, 0x00, 0x0B, 0x49, 0x44, 0x41, 0x54, 0x78,
+      0xDA, 0x63, 0x64, 0xF8, 0x0F, 0x00, 0x01, 0x05, 0x01, 0x01, 0x27, 0x18, 0xE3, 0x66,
+      0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82};
+  std::string output{reinterpret_cast<const char*>(png), sizeof(png)};
+  output.push_back(payload);
+  return output;
 }
 
 [[nodiscard]] const build_output* find_output(const build_report& report, const std::string& path) {
@@ -76,7 +84,9 @@ int main() {
   if (first_valid.result != build_result::success || first_valid.source_count != 4U ||
       first_valid.built_count != 4U || first_valid.cache_hit_count != 0U ||
       first_valid.pruned_count != 0U ||
-      std::filesystem::exists(development.output_root / "source/original.txt")) {
+      std::filesystem::exists(development.output_root / "source/original.txt") ||
+      !std::filesystem::exists(development.output_root / "textures/a.ktx2") ||
+      std::filesystem::exists(development.output_root / "textures/a.png")) {
     return 3;
   }
   auto second_request = development;
@@ -97,7 +107,7 @@ int main() {
   const auto shipping = build_assets(shipping_request, registry);
   if (shipping.result != build_result::success || shipping.outputs.size() != 3U ||
       shipping.pruned_count != 1U ||
-      std::filesystem::exists(shipping_request.output_root / "textures/unused.png")) {
+      std::filesystem::exists(shipping_request.output_root / "textures/unused.ktx2")) {
     return 5;
   }
 

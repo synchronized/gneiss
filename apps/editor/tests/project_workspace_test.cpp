@@ -33,6 +33,19 @@ int main() try {
       !std::filesystem::is_regular_file(project_root / "game_module.cpp")) {
     return 8;
   }
+  static constexpr unsigned char png[] = {
+      0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x48,
+      0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x04, 0x00, 0x00,
+      0x00, 0xB5, 0x1C, 0x0C, 0x02, 0x00, 0x00, 0x00, 0x0B, 0x49, 0x44, 0x41, 0x54, 0x78,
+      0xDA, 0x63, 0x64, 0xF8, 0x0F, 0x00, 0x01, 0x05, 0x01, 0x01, 0x27, 0x18, 0xE3, 0x66,
+      0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82};
+  std::filesystem::create_directories(project_root / "assets" / "textures");
+  std::ofstream authored_texture(project_root / "assets" / "textures" / "test.png",
+                                 std::ios::binary | std::ios::trunc);
+  authored_texture.write(reinterpret_cast<const char*>(png), sizeof(png));
+  authored_texture.close();
+  std::ofstream(project_root / "assets" / "textures" / "test.texture.json")
+      << R"({"format":"gneiss.texture","version":1,"source":"asset://textures/test.png","color_space":"srgb"})";
   if (gneiss::editor::create_editor_project(project_root, "Duplicate", project) !=
       gneiss::result::invalid_state) {
     return 9;
@@ -93,6 +106,8 @@ int main() try {
   if (!std::filesystem::is_regular_file(package_root / "gneiss.project.json") ||
       !std::filesystem::is_regular_file(package_root / "assets" / "scenes" / "main.scene.json") ||
       !std::filesystem::is_regular_file(package_root / "assets" / ".gneiss-build.json") ||
+      !std::filesystem::is_regular_file(package_root / "assets" / "textures" / "test.ktx2") ||
+      std::filesystem::exists(package_root / "assets" / "textures" / "test.png") ||
       !std::filesystem::is_regular_file(package_root / "modules" / "debug" / module_name) ||
       !std::filesystem::is_regular_file(package_root / "bin" / runtime_name) ||
       !std::filesystem::is_regular_file(package_root / "bin" / dependency_name) ||
@@ -105,6 +120,15 @@ int main() try {
       progress_count != export_report.asset_source_count || export_report.asset_built_count == 0U ||
       gneiss::editor::export_editor_project(project, runtime_root / runtime_name, package_root) !=
           gneiss::result::invalid_state) {
+    return 7;
+  }
+  std::ifstream cooked_texture_description(
+      package_root / "assets" / "textures" / "test.texture.json", std::ios::binary);
+  const std::string cooked_texture_text{std::istreambuf_iterator<char>(cooked_texture_description),
+                                        std::istreambuf_iterator<char>()};
+  cooked_texture_description.close();
+  if (cooked_texture_text.find("asset://textures/test.ktx2") == std::string::npos ||
+      cooked_texture_text.find("test.png") != std::string::npos) {
     return 7;
   }
   const auto second_package = root / "package-b";

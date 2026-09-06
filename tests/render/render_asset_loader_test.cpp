@@ -4,6 +4,7 @@
 #include "asset/file_system.h"
 #include "asset/mesh_binary.h"
 #include "asset/resource_cache.h"
+#include "asset/texture_ktx2.h"
 #include "asset/virtual_file_system.h"
 #include "render/render_asset_loader.h"
 #include "render/render_resource_service.h"
@@ -108,6 +109,23 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
   memory->files.emplace(
       "textures/missing.texture.json",
       R"({"format":"gneiss.texture","version":1,"source":"asset://textures/missing.png","color_space":"linear"})");
+  gneiss::asset_internal::texture_ktx2 ktx_source{
+      .transfer = gneiss::asset_internal::texture_transfer::linear,
+      .levels = {
+          {.width = 2U, .height = 2U, .pixels = std::vector<std::byte>(16U, std::byte{0x40})},
+          {.width = 1U, .height = 1U, .pixels = std::vector<std::byte>(4U, std::byte{0x20})}}};
+  std::vector<std::byte> ktx_bytes;
+  std::string ktx_diagnostic;
+  if (gneiss::asset_internal::encode_texture_ktx2(ktx_source, ktx_bytes, ktx_diagnostic) !=
+      gneiss::asset_internal::texture_ktx2_result::success) {
+    return 24;
+  }
+  memory->files.emplace(
+      "textures/linear.ktx2",
+      std::string(reinterpret_cast<const char*>(ktx_bytes.data()), ktx_bytes.size()));
+  memory->files.emplace(
+      "textures/linear.texture.json",
+      R"({"format":"gneiss.texture","version":1,"source":"asset://textures/linear.ktx2","color_space":"linear"})");
   memory->files.emplace(
       "models/textured.mesh.json",
       R"({"format":"gneiss.mesh","version":2,"topology":"triangle_list","vertices":[[-0.5,-0.5,0],[0.5,-0.5,0],[0,0.5,0]],"uvs":[[0,0],[1,0],[0.5,1]]})");
@@ -178,8 +196,8 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
   }
   const auto* texture = resources.get_texture(first_texture.get());
   if (texture == nullptr || texture->width != 1U || texture->height != 1U ||
-      texture->color_space != GNEISS_TEXTURE_COLOR_SPACE_SRGB || texture->pixels.size() != 4U ||
-      resources.live_resource_count() != 4U) {
+      texture->color_space != GNEISS_TEXTURE_COLOR_SPACE_SRGB || texture->levels.size() != 1U ||
+      texture->levels.front().pixels.size() != 4U || resources.live_resource_count() != 4U) {
     return 7;
   }
 
@@ -277,6 +295,19 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
       after_failed_reload.get() != reloaded_material.get()) {
     return 20;
   }
+
+  gneiss::render_internal::texture_asset_lease ktx_texture;
+  if (loader.acquire_texture("asset://textures/linear.texture.json", ktx_texture, diagnostic) !=
+      GNEISS_SUCCESS) {
+    return 24;
+  }
+  const auto* ktx_resource = resources.get_texture(ktx_texture.get());
+  if (ktx_resource == nullptr || ktx_resource->levels.size() != 2U ||
+      ktx_resource->levels[1U].width != 1U ||
+      ktx_resource->color_space != GNEISS_TEXTURE_COLOR_SPACE_LINEAR) {
+    return 25;
+  }
+  ktx_texture = {};
 
   first_mesh = {};
   second_mesh = {};

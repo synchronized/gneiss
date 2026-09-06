@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "tooling/asset_build/asset_build.h"
+#include "tooling/asset_build/ktx2_probe.h"
 #include "tooling/asset_import/asset_writer.h"
 #include "tooling/asset_import/gltf_importer.h"
 
@@ -18,9 +20,11 @@ void print_usage() {
   std::cerr << "用法：\n"
                "  gneiss_assetc inspect <source.gltf|source.glb>\n"
                "  gneiss_assetc inspect <mesh.gneiss-mesh>\n"
+               "  gneiss_assetc inspect <texture.ktx2>\n"
                "  gneiss_assetc validate <mesh.gneiss-mesh>\n"
                "  gneiss_assetc dump <mesh.gneiss-mesh> --format json\n"
-               "  gneiss_assetc import <source.gltf|source.glb> --output <directory>\n";
+               "  gneiss_assetc import <source.gltf|source.glb> --output <directory>\n"
+               "  gneiss_assetc cook <asset-directory> --output <directory> --cache <directory>\n";
 }
 
 [[nodiscard]] std::vector<std::byte> read_file(const std::filesystem::path& path) {
@@ -58,6 +62,19 @@ int process_binary_mesh(std::string_view command, const std::filesystem::path& p
   return 0;
 }
 
+int inspect_ktx2(const std::filesystem::path& path) {
+  const auto report = gneiss::tooling::asset_build::inspect_ktx2(path);
+  if (report.result != gneiss::tooling::asset_build::ktx2_probe_result::success) {
+    std::cerr << report.diagnostic << '\n';
+    return 1;
+  }
+  const auto& information = report.information;
+  std::cout << "KTX2 " << information.width << 'x' << information.height
+            << " Mip=" << information.level_count << " VkFormat=" << information.vk_format
+            << " Alpha=" << (information.has_alpha ? "是" : "否") << '\n';
+  return 0;
+}
+
 } // namespace
 
 int main(int argc, char** argv) { // NOLINT(bugprone-exception-escape)
@@ -67,14 +84,52 @@ int main(int argc, char** argv) { // NOLINT(bugprone-exception-escape)
   const bool validate = argc == 3 && std::string_view{argv[1]} == "validate";
   const bool dump = argc == 5 && std::string_view{argv[1]} == "dump" &&
                     std::string_view{argv[3]} == "--format" && std::string_view{argv[4]} == "json";
-  if (!inspect && !import && !validate && !dump) {
+  const bool cook = argc == 7 && std::string_view{argv[1]} == "cook" &&
+                    std::string_view{argv[3]} == "--output" &&
+                    std::string_view{argv[5]} == "--cache";
+  if (!inspect && !import && !validate && !dump && !cook) {
     print_usage();
     return 2;
   }
 
   const auto source = std::filesystem::path{argv[2]};
+  if (cook) {
+    const auto registry = gneiss::tooling::asset_build::make_default_registry();
+    const auto report = gneiss::tooling::asset_build::build_assets(
+        {.source_root = source,
+         .output_root = std::filesystem::path{argv[4]},
+         .cache_root = std::filesystem::path{argv[6]},
+         .root_uris = {},
+#if defined(_WIN32)
+         .target_platform = "windows",
+#elif defined(__APPLE__)
+         .target_platform = "macos",
+#else
+         .target_platform = "linux",
+#endif
+#if defined(_M_X64) || defined(__x86_64__)
+         .target_architecture = "x86_64",
+#elif defined(_M_ARM64) || defined(__aarch64__)
+         .target_architecture = "arm64",
+#else
+         .target_architecture = "unknown",
+#endif
+         .profile = gneiss::tooling::asset_build::build_profile::development,
+         .progress = {}},
+        registry);
+    if (report.result != gneiss::tooling::asset_build::build_result::success) {
+      std::cerr << report.diagnostic << '\n';
+      return 1;
+    }
+    std::cout << "资产构建完成：输出=" << report.outputs.size() << " 构建=" << report.built_count
+              << " 缓存命中=" << report.cache_hit_count << '\n';
+    return 0;
+  }
   if (validate || dump || (inspect && source.extension() == ".gneiss-mesh")) {
     return process_binary_mesh(argv[1], source);
+  }
+  if (inspect && source.extension() == ".ktx2") {
+    return inspect_ktx2(source);
   }
 
   const auto report = gneiss::tooling::asset_import::inspect_gltf(source);

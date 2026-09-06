@@ -13,7 +13,7 @@ Editor。
 - CMake 3.23 或更高版本。
 - 支持 C++20 的 C/C++ 编译器。
 - 使用 Ninja preset 时需要安装 Ninja。
-- 启用 Granit 运行时适配时需要已安装的 Granit `0.14.0+` 核心、Window、Input 与 RenderPipeline
+- 启用 Granit 运行时适配时需要已安装的 Granit `0.17.0+` 核心、Window、Input 与 RenderPipeline
   组件，或由父工程提供 `granit::granit`、`granit::window`、`granit::input` 和
   `granit::render_pipeline` 目标。
 
@@ -74,6 +74,18 @@ Linux 可选择 `linux-clang-debug` 或 `linux-gcc-debug`，可执行文件不�
 子节点；未指定材质的 Primitive 使用生成的默认材质。首版纹理仅支持基础颜色 PNG。导入先写入
 目标目录同级的暂存目录，全部成功后再替换目标目录，因此会清除上次导入遗留的文件；校验或写出
 失败时保留原有完整结果。
+
+把作者资产目录 Cook 为发布时使用的运行资产，并复用内容缓存：
+
+```powershell
+./build/windows-clang-debug/bin/gneiss_assetc.exe cook ./generated-assets `
+  --output ./runtime-assets --cache ./build/asset-cache
+./build/windows-clang-debug/bin/gneiss_assetc.exe inspect ./runtime-assets/textures/image-0.ktx2
+```
+
+`cook` 不覆盖已有输出目录。PNG 会转为带完整 Mip 的 RGBA8 KTX2，JSON URI 随之重写；相同源、
+颜色空间、处理器版本和目标再次构建时命中缓存。`gneiss_project package` 与 Editor 发布对话框使用
+同一个构建服务，通常不需要手动执行该命令。
 
 导入生成的 Mesh 使用 `.gneiss-mesh` 二进制格式。可按需检查、严格验证或导出 Debug JSON：
 

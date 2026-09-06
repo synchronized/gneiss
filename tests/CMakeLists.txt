@@ -602,6 +602,17 @@ gneiss_target_compile_warnings(gneiss_mesh_binary_test)
 gneiss_target_output_directories(gneiss_mesh_binary_test)
 add_test(NAME gneiss.mesh_binary COMMAND gneiss_mesh_binary_test)
 
+add_executable(
+  gneiss_texture_ktx2_test
+  asset/texture_ktx2_test.cpp
+  "${PROJECT_SOURCE_DIR}/src/asset/texture_ktx2.cpp"
+)
+target_include_directories(gneiss_texture_ktx2_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_compile_features(gneiss_texture_ktx2_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_texture_ktx2_test)
+gneiss_target_output_directories(gneiss_texture_ktx2_test)
+add_test(NAME gneiss.texture_ktx2 COMMAND gneiss_texture_ktx2_test)
+
 if(GNEISS_ENABLE_GRANIT_PLATFORM)
   add_executable(
     gneiss_scene_projection_math_test
@@ -623,6 +634,7 @@ add_executable(
   render/render_asset_loader_test.cpp
   "${PROJECT_SOURCE_DIR}/src/asset/asset_uri.cpp"
   "${PROJECT_SOURCE_DIR}/src/asset/mesh_binary.cpp"
+  "${PROJECT_SOURCE_DIR}/src/asset/texture_ktx2.cpp"
   "${PROJECT_SOURCE_DIR}/src/asset/resource_cache.cpp"
   "${PROJECT_SOURCE_DIR}/src/asset/virtual_file_system.cpp"
   "${PROJECT_SOURCE_DIR}/src/render/render_asset_loader.cpp"
@@ -682,6 +694,7 @@ add_executable(
   scene/prefab_runtime_instance_test.cpp
   "${PROJECT_SOURCE_DIR}/src/asset/asset_uri.cpp"
   "${PROJECT_SOURCE_DIR}/src/asset/mesh_binary.cpp"
+  "${PROJECT_SOURCE_DIR}/src/asset/texture_ktx2.cpp"
   "${PROJECT_SOURCE_DIR}/src/asset/resource_cache.cpp"
   "${PROJECT_SOURCE_DIR}/src/asset/virtual_file_system.cpp"
   "${PROJECT_SOURCE_DIR}/src/render/png_decoder.cpp"

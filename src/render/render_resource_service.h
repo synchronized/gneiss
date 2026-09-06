@@ -4,6 +4,7 @@
 #ifndef GNEISS_RENDER_RENDER_RESOURCE_SERVICE_H_
 #define GNEISS_RENDER_RENDER_RESOURCE_SERVICE_H_
 
+#include "asset/texture_ktx2.h"
 #include "core/rid_table.h"
 
 #include <gneiss/render.h>
@@ -36,7 +37,7 @@ struct texture_resource {
   std::uint32_t height;
   std::uint32_t format;
   std::uint32_t color_space;
-  std::vector<std::byte> pixels;
+  std::vector<asset_internal::texture_mip> levels;
 };
 
 class render_resource_service final {
@@ -51,6 +52,9 @@ public:
                                               gneiss_material* out_material) noexcept;
   [[nodiscard]] gneiss_result destroy_material(gneiss_material material) noexcept;
   [[nodiscard]] gneiss_result create_texture(const gneiss_texture_desc& desc,
+                                             gneiss_texture* out_texture) noexcept;
+  /** 创建已经过容器校验的内部多 Mip Texture。 */
+  [[nodiscard]] gneiss_result create_texture(texture_resource resource,
                                              gneiss_texture* out_texture) noexcept;
   [[nodiscard]] gneiss_result destroy_texture(gneiss_texture texture) noexcept;
   [[nodiscard]] const mesh_resource* get_mesh(gneiss_mesh mesh) const noexcept;

@@ -10,7 +10,7 @@
 {
   "format": "gneiss.package",
   "version": 1,
-  "gneiss_version": "0.33.0",
+  "gneiss_version": "0.34.0",
   "project": "My Game",
   "profile": "development",
   "platform": "windows",
@@ -43,3 +43,9 @@
 传递 `--zip` 时会在目录包旁生成同名 `.zip`。归档使用稳定路径顺序、固定 DOS 时间、UTF-8 文件名
 和 Store 模式；在文件内容、工具版本、平台及配置相同时，归档字节保持一致。目录包仍是权威内容，
 ZIP 不使用第二套收集规则。
+
+## 纹理运行资产
+
+0.34.0 起，目录包构建会把作者 PNG 转换为 RGBA8 KTX2，并将 JSON 中对应的 `asset://` URI 重写为
+`.ktx2`。包内不保留被转换的 PNG；`.gneiss-build.json` 记录的输出路径与依赖同样使用派生 URI。
+Debug、Development 与 Shipping 使用相同 Cook 规则，Shipping 仍只保留入口资产可达的传递闭包。
