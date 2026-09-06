@@ -61,7 +61,7 @@ function(gneiss_resolve_granit_runtime)
   if(TARGET granit::granit AND TARGET granit::window AND TARGET granit::input AND
      TARGET granit::render_pipeline)
     if(NOT granit_RENDER_PIPELINE_ASSET_DIR)
-      message(FATAL_ERROR "现有 Granit 0.13 targets 未提供 RenderPipeline 资产目录")
+      message(FATAL_ERROR "现有 Granit 0.14 targets 未提供 RenderPipeline 资产目录")
     endif()
     set(
       GNEISS_GRANIT_RENDER_PIPELINE_ASSET_DIR
@@ -83,7 +83,7 @@ function(gneiss_resolve_granit_runtime)
   endif()
 
   if(granit_provider STREQUAL "AUTO" OR granit_provider STREQUAL "PACKAGE")
-    find_package(granit 0.13 CONFIG QUIET COMPONENTS Window Input RenderPipeline)
+    find_package(granit 0.14 CONFIG QUIET COMPONENTS Window Input RenderPipeline)
     if(TARGET granit::granit AND TARGET granit::window AND TARGET granit::input AND
        TARGET granit::render_pipeline)
       set(
@@ -97,7 +97,7 @@ function(gneiss_resolve_granit_runtime)
       return()
     endif()
     if(granit_provider STREQUAL "PACKAGE")
-      message(FATAL_ERROR "未找到 Granit 0.13 runtime package（含 Window、Input、RenderPipeline）")
+      message(FATAL_ERROR "未找到 Granit 0.14 runtime package（含 Window、Input、RenderPipeline）")
     endif()
     if(TARGET granit::granit)
       message(FATAL_ERROR "现有 Granit targets 缺少 Window、Input 或 RenderPipeline，无法回退到 FETCH")
@@ -118,7 +118,7 @@ function(gneiss_resolve_granit_runtime)
     FORCE
   )
   if(NOT granit_RENDER_PIPELINE_ASSET_DIR)
-    message(FATAL_ERROR "下载的 Granit 0.13 未提供 RenderPipeline 资产目录")
+    message(FATAL_ERROR "下载的 Granit 0.14 未提供 RenderPipeline 资产目录")
   endif()
   set(
     GNEISS_GRANIT_RENDER_PIPELINE_ASSET_DIR

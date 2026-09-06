@@ -29,4 +29,5 @@ Slot 复用前非阻塞轮询并发布最近完成样本，失败或取消时安
 使用版本化结构末尾扩展或等价接口，保持非阻塞快照语义。用同一契约测试覆盖 Vulkan、WebGPU、
 能力不足、未就绪、跳帧相关、取消、失败和关闭。
 
-Gneiss 不应复制私有管线或直接访问 RenderPipeline 内部 Query Pool；上游合并发布后再完成接入。
+Gneiss 不应复制私有管线或直接访问 RenderPipeline 内部 Query Pool。Granit 0.14.0 已完成异步回读
+生命周期，但未公开来源 Frame 标识；Gneiss 因此改为报告独立样本序列，不再猜测帧关联。

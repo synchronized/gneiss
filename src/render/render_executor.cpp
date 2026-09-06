@@ -145,7 +145,8 @@ void threaded_render_executor::state::run() noexcept {
             frame_completion.execution.environment_rotation_radians;
         if (frame_completion.execution.gpu_timing_valid) {
           stats.latest_gpu_timing_valid = true;
-          stats.latest_gpu_timing_sequence = frame_completion.execution.gpu_timing_sequence;
+          stats.latest_gpu_timing_sample_sequence =
+              frame_completion.execution.gpu_timing_sample_sequence;
           stats.latest_gpu_frame_ms = frame_completion.execution.gpu_frame_ms;
           stats.latest_gpu_shadow_ms = frame_completion.execution.gpu_shadow_ms;
           stats.latest_gpu_opaque_ms = frame_completion.execution.gpu_opaque_ms;
