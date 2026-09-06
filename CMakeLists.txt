@@ -5,7 +5,7 @@ cmake_minimum_required(VERSION 3.23)
 
 project(
   gneiss
-  VERSION 0.29.0
+  VERSION 0.30.0
   DESCRIPTION "基于 Granit 构建的现代 C++20 游戏引擎"
   LANGUAGES C CXX
 )
@@ -149,6 +149,10 @@ install(
 install(
   FILES LICENSE CHANGELOG.md THIRD_PARTY_NOTICES.md
   DESTINATION "${CMAKE_INSTALL_DATADIR}/doc/gneiss"
+)
+install(
+  DIRECTORY "${PROJECT_SOURCE_DIR}/templates/game/"
+  DESTINATION "${CMAKE_INSTALL_DATADIR}/gneiss/templates/game"
 )
 install(FILES 3rd/entt/LICENSE DESTINATION "${CMAKE_INSTALL_DATADIR}/doc/gneiss/licenses"
         RENAME EnTT-LICENSE)

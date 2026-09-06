@@ -3,7 +3,10 @@
 
 cmake_minimum_required(VERSION 3.23)
 
-foreach(required_var IN ITEMS GNEISS_ABI_BASELINE GNEISS_API_STABILITY_MANIFEST)
+foreach(
+  required_var
+  IN ITEMS GNEISS_ABI_BASELINE GNEISS_API_STABILITY_MANIFEST GNEISS_PUBLIC_INCLUDE_DIR
+)
   if(NOT DEFINED ${required_var})
     message(FATAL_ERROR "缺少 API 稳定性检查参数：${required_var}")
   endif()
@@ -11,6 +14,14 @@ endforeach()
 
 file(STRINGS "${GNEISS_ABI_BASELINE}" baseline_symbols ENCODING UTF-8)
 file(STRINGS "${GNEISS_API_STABILITY_MANIFEST}" manifest_lines ENCODING UTF-8)
+
+set(filtered_baseline_symbols)
+foreach(symbol IN LISTS baseline_symbols)
+  if(NOT "${symbol}" MATCHES "^[ \t]*#" AND NOT "${symbol}" MATCHES "^[ \t]*$")
+    list(APPEND filtered_baseline_symbols "${symbol}")
+  endif()
+endforeach()
+set(baseline_symbols "${filtered_baseline_symbols}")
 
 set(manifest_symbols)
 set(stable_count 0)
@@ -35,6 +46,17 @@ foreach(line IN LISTS manifest_lines)
   endif()
 endforeach()
 
+set(sorted_baseline_symbols "${baseline_symbols}")
+list(SORT sorted_baseline_symbols)
+if(NOT "${baseline_symbols}" STREQUAL "${sorted_baseline_symbols}")
+  message(FATAL_ERROR "ABI 基线必须按符号名称排序")
+endif()
+set(sorted_manifest_symbols "${manifest_symbols}")
+list(SORT sorted_manifest_symbols)
+if(NOT "${manifest_symbols}" STREQUAL "${sorted_manifest_symbols}")
+  message(FATAL_ERROR "API 稳定性清单必须按符号名称排序")
+endif()
+
 foreach(symbol IN LISTS baseline_symbols)
   if(NOT symbol IN_LIST manifest_symbols)
     message(FATAL_ERROR "ABI 基线符号缺少稳定性分类：${symbol}")
@@ -51,6 +73,57 @@ list(LENGTH manifest_symbols manifest_count)
 if(NOT baseline_count EQUAL manifest_count)
   message(FATAL_ERROR "ABI 基线与稳定性清单数量不一致")
 endif()
+
+file(GLOB_RECURSE public_headers "${GNEISS_PUBLIC_INCLUDE_DIR}/gneiss/*.h")
+set(declared_symbols)
+set(declared_experimental_symbols)
+foreach(header IN LISTS public_headers)
+  file(READ "${header}" header_content)
+  string(REGEX MATCHALL
+         "(GNEISS_EXPERIMENTAL[ \t\r\n]+)?GNEISS_API[ \t\r\n]+[^;]*[ \t\r\n]+gneiss_[a-z0-9_]+[ \t\r\n]*\\("
+         declarations "${header_content}"
+  )
+  foreach(declaration IN LISTS declarations)
+    string(REGEX MATCH "gneiss_[a-z0-9_]+[ \t\r\n]*\\(" symbol_match "${declaration}")
+    string(REGEX REPLACE "[ \t\r\n]*\\($" "" symbol "${symbol_match}")
+    if(symbol IN_LIST declared_symbols)
+      message(FATAL_ERROR "公共头重复声明导出符号：${symbol}")
+    endif()
+    list(APPEND declared_symbols "${symbol}")
+    if("${declaration}" MATCHES "GNEISS_EXPERIMENTAL")
+      list(APPEND declared_experimental_symbols "${symbol}")
+    endif()
+  endforeach()
+endforeach()
+list(SORT declared_symbols)
+
+foreach(symbol IN LISTS declared_symbols)
+  if(NOT symbol IN_LIST manifest_symbols)
+    message(FATAL_ERROR "公共 C 声明缺少稳定性分类：${symbol}")
+  endif()
+endforeach()
+foreach(symbol IN LISTS manifest_symbols)
+  if(NOT symbol IN_LIST declared_symbols)
+    message(FATAL_ERROR "稳定性清单包含公共 C 声明外符号：${symbol}")
+  endif()
+  if(symbol IN_LIST declared_experimental_symbols)
+    set(expected_level experimental)
+  else()
+    set(expected_level stable)
+  endif()
+  set(actual_level "")
+  foreach(line IN LISTS manifest_lines)
+    if("${line}" MATCHES "^${symbol} (stable|experimental)$")
+      set(actual_level "${CMAKE_MATCH_1}")
+      break()
+    endif()
+  endforeach()
+  if(NOT actual_level STREQUAL expected_level)
+    message(FATAL_ERROR
+            "公共声明与稳定性分类不一致：${symbol} 应为 ${expected_level}，实际为 ${actual_level}"
+    )
+  endif()
+endforeach()
 
 message(
   STATUS

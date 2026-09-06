@@ -279,6 +279,22 @@ Editor Demo 会安装到 `${CMAKE_INSTALL_DATADIR}/gneiss/projects/editor-demo`�
 `bin/gneiss_runtime --project <工程目录>` 启动。`gneiss.runtime.installed-smoke` 会重建隔离安装前缀，
 确认 Runtime、Engine、Granit 动态库和工程资产不依赖源码树路径。
 
+### 从游戏工程模板开始
+
+Shared SDK 会把可复制模板安装到 `${CMAKE_INSTALL_DATADIR}/gneiss/templates/game`。复制该目录，
+设置 `GNEISS_SDK_ROOT` 为安装前缀，然后在新工程根执行：
+
+```powershell
+cmake --preset game-debug-configure
+cmake --build --preset game-debug
+$env:GNEISS_SDK_ROOT/bin/gneiss_runtime --project .
+```
+
+模板仅通过 `find_package(gneiss CONFIG REQUIRED)` 和 `gneiss::engine` 消费安装 SDK，并包含最小场景、
+工程描述及 Game Module 生命周期。原生 Game Module 当前要求 Shared Engine SDK；使用 Static SDK
+配置模板会被明确拒绝。CMake package 通过 `GNEISS_GAME_TEMPLATE_DIR` 暴露模板的绝对安装位置；
+完整字段见[工程文件格式](../reference/project-format.md)。
+
 当前宿主已提供场景会话、可选择的层级树和独立 Editor Camera。鼠标位于 Scene View 时，可以使用
 `W/A/S/D` 前后左右移动、`Q/E` 降低或升高、按住鼠标右键环视、滚轮沿视线移动；选择层级节点后
 按 `F` 可聚焦其世界位置。Scene Hierarchy 可以创建、重命名、拖放重挂接、复制和删除节点；右键
@@ -305,7 +321,7 @@ Scene View、右侧 Inspector 和底部 Console 的确定性默认工作区。�
 示例输出当前项目版本：
 
 ```text
-gneiss 0.26.0
+gneiss 0.30.0
 ```
 
 开发 preset 默认启用编译警告并将警告视为错误。

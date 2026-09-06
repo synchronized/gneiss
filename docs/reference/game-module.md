@@ -39,7 +39,7 @@
 
 ## 生命周期与所有权
 
-Runtime 计划按以下顺序调用模块：
+Runtime 按以下顺序调用模块：
 
 1. `initialize` 借用非零 Game Context，并返回模块持有的私有状态。
 2. `fixed_update` 在主线程执行零次或多次有界固定步长更新。

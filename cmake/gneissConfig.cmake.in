@@ -10,6 +10,7 @@ endif()
 
 set(GNEISS_RUNTIME_DIR "${PACKAGE_PREFIX_DIR}/@CMAKE_INSTALL_BINDIR@")
 set(GNEISS_LIBRARY_DIR "${PACKAGE_PREFIX_DIR}/@CMAKE_INSTALL_LIBDIR@")
+set(GNEISS_GAME_TEMPLATE_DIR "${PACKAGE_PREFIX_DIR}/@CMAKE_INSTALL_DATADIR@/gneiss/templates/game")
 
 include("${CMAKE_CURRENT_LIST_DIR}/gneissTargets.cmake")
 check_required_components(gneiss)

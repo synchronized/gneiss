@@ -60,6 +60,10 @@ Granit CMake package 的 SDK 前缀，并执行一次 `cmake --preset game-debug
 Run 使用 `game-debug` build preset 增量构建模块。安装包同时携带预构建模块，可直接由 Runtime smoke
 验证。
 
+安装 SDK 的 `${CMAKE_INSTALL_DATADIR}/gneiss/templates/game` 是不含示例专用逻辑的最小工程模板。
+复制后可直接修改工程名、模块名和资产；其 CMake 工程只消费 `gneiss::engine` 公共 target。当前原生
+Game Module 需要 Shared Engine SDK，Static SDK 不提供跨动态库共享 Engine 状态的模块模式。
+
 `input_map` 在启动场景与 Game Module 之前加载。模块可在初始化阶段按名称取得动作；未声明时保留
 空动作映射，以兼容既有工程。
 

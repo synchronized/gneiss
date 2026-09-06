@@ -39,6 +39,9 @@ ctest --preset windows-clang-debug
 Granit 图形示例需要启用可选的平台适配。完整构建、测试和示例运行命令见
 [构建与测试指南](docs/guides/building.md)。
 
+安装后的 SDK 在 `share/gneiss/templates/game` 提供可复制游戏工程模板，可独立构建 Game Module 并
+通过 `gneiss_runtime` 运行，不依赖 Gneiss 源码树。
+
 你可以通过 [Issues](https://github.com/synchronized/gneiss/issues) 提交建议或跟踪开发进展。
 
 ## 文档
