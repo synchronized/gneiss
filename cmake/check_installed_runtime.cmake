@@ -8,7 +8,8 @@ foreach(required_var IN ITEMS GNEISS_BUILD_DIR GNEISS_CONFIG)
 endforeach()
 
 set(install_dir "${GNEISS_BUILD_DIR}/runtime-prefix")
-file(REMOVE_RECURSE "${install_dir}")
+set(template_source_dir "${GNEISS_BUILD_DIR}/runtime-template-source")
+file(REMOVE_RECURSE "${install_dir}" "${template_source_dir}")
 set(granit_build_dir "${GNEISS_BUILD_DIR}/_deps/gneiss_granit-build")
 if(EXISTS "${granit_build_dir}/cmake_install.cmake")
   set(granit_install_command
@@ -38,6 +39,7 @@ else()
 endif()
 set(editor_demo "${install_dir}/share/gneiss/projects/editor-demo")
 set(lantern_gallery "${install_dir}/share/gneiss/examples/lantern-gallery")
+set(game_template "${install_dir}/share/gneiss/templates/game")
 if(GNEISS_SHARED AND WIN32)
   set(lantern_module "${lantern_gallery}/modules/gneiss_lantern_gallery_game.dll")
 elseif(GNEISS_SHARED AND APPLE)
@@ -46,6 +48,9 @@ elseif(GNEISS_SHARED)
   set(lantern_module "${lantern_gallery}/modules/libgneiss_lantern_gallery_game.so")
 endif()
 if(NOT EXISTS "${runtime}" OR NOT EXISTS "${editor_demo}/gneiss.project.json" OR
+   NOT EXISTS "${game_template}/gneiss.project.json" OR
+   NOT EXISTS "${game_template}/CMakeLists.txt" OR
+   NOT EXISTS "${game_template}/game_module.cpp" OR
    (GNEISS_SHARED AND
     (NOT EXISTS "${lantern_gallery}/gneiss.project.json" OR NOT EXISTS "${lantern_module}")))
   message(FATAL_ERROR "安装树缺少 Runtime、示例工程或游戏模块")
@@ -69,6 +74,39 @@ if(NOT runtime_result EQUAL 0 OR NOT runtime_output MATCHES "@gneiss-log-v1" OR
 endif()
 
 if(GNEISS_SHARED)
+  file(MAKE_DIRECTORY "${template_source_dir}")
+  file(COPY "${game_template}/" DESTINATION "${template_source_dir}")
+  execute_process(
+    COMMAND "${CMAKE_COMMAND}" -E env "GNEISS_SDK_ROOT=${install_dir}" "${CMAKE_COMMAND}"
+            --preset game-debug-configure --fresh
+    WORKING_DIRECTORY "${template_source_dir}"
+    RESULT_VARIABLE template_configure_result
+  )
+  if(NOT template_configure_result EQUAL 0)
+    message(FATAL_ERROR "安装树游戏模板配置失败：${template_configure_result}")
+  endif()
+  execute_process(
+    COMMAND "${CMAKE_COMMAND}" --build --preset game-debug --target gneiss_game
+    WORKING_DIRECTORY "${template_source_dir}"
+    RESULT_VARIABLE template_build_result
+  )
+  if(NOT template_build_result EQUAL 0)
+    message(FATAL_ERROR "安装树游戏模板构建失败：${template_build_result}")
+  endif()
+  execute_process(
+    COMMAND ${runtime_environment} "${runtime}" --smoke --project "${template_source_dir}"
+    RESULT_VARIABLE template_runtime_result
+    OUTPUT_VARIABLE template_runtime_output
+    ERROR_VARIABLE template_runtime_error
+  )
+  if(NOT template_runtime_result EQUAL 0 OR
+     NOT template_runtime_output MATCHES "gneiss.template.game" OR
+     NOT template_runtime_output MATCHES "stage=shutdown")
+    message(FATAL_ERROR
+            "安装树游戏模板启动失败：${template_runtime_result}\n${template_runtime_output}${template_runtime_error}"
+    )
+  endif()
+
   execute_process(
     COMMAND "${CMAKE_COMMAND}" -E env "GNEISS_SDK_ROOT=${install_dir}" "${CMAKE_COMMAND}"
             --preset game-debug-configure --fresh

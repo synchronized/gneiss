@@ -1,0 +1,13 @@
+{
+  "format": "gneiss.project",
+  "version": 2,
+  "name": "Gneiss Game",
+  "asset_root": "assets",
+  "startup_scene": "asset://scenes/main.scene.json",
+  "game_module": {
+    "name": "gneiss_game",
+    "directory": "modules",
+    "build_preset": "game-debug",
+    "build_target": "gneiss_game"
+  }
+}

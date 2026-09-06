@@ -1,0 +1,26 @@
+{
+  "format": "gneiss.scene",
+  "version": 4,
+  "scene_uuid": "10000000-0000-4000-8000-000000000001",
+  "objects": [
+    {
+      "uuid": "10000000-0000-4000-8000-000000000002",
+      "name": "Main Camera",
+      "parent": null,
+      "transform": {
+        "translation": [0.0, 0.0, 2.0],
+        "rotation": [0.0, 0.0, 0.0, 1.0],
+        "scale": [1.0, 1.0, 1.0]
+      },
+      "components": {
+        "camera": {
+          "vertical_field_of_view_radians": 1.04719755,
+          "near_plane": 0.1,
+          "far_plane": 1000.0,
+          "is_primary": true
+        }
+      }
+    }
+  ],
+  "prefab_instances": []
+}

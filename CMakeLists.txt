@@ -150,6 +150,10 @@ install(
   FILES LICENSE CHANGELOG.md THIRD_PARTY_NOTICES.md
   DESTINATION "${CMAKE_INSTALL_DATADIR}/doc/gneiss"
 )
+install(
+  DIRECTORY "${PROJECT_SOURCE_DIR}/templates/game/"
+  DESTINATION "${CMAKE_INSTALL_DATADIR}/gneiss/templates/game"
+)
 install(FILES 3rd/entt/LICENSE DESTINATION "${CMAKE_INSTALL_DATADIR}/doc/gneiss/licenses"
         RENAME EnTT-LICENSE)
 install(FILES 3rd/yyjson/LICENSE DESTINATION "${CMAKE_INSTALL_DATADIR}/doc/gneiss/licenses"
