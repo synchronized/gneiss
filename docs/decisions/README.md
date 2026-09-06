@@ -45,3 +45,4 @@ Reference 和实现为准。
 - [ADR-037：Scene 与 Prefab 结构热重载使用身份协调事务](ADR-037-scene-prefab-structural-hot-reload.md)
 - [ADR-038：渲染线程独占 GPU 对象并消费不可变任务](ADR-038-render-thread-ownership.md)
 - [ADR-039：Granit 渲染资产只作为后端投影](ADR-039-granit-render-asset-projection.md)
+- [ADR-040：工程脚手架与目录包导出共用工作流](ADR-040-project-scaffold-export-boundary.md)
