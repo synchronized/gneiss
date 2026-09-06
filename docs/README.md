@@ -151,6 +151,7 @@
 
 ## 实施与验收记录
 
+- [M-214：确定性资产构建图与缓存实施记录](records/M-214-asset-build-graph-cache.md)
 - [M-162：Granit 0.7.0 升级与兼容审计](records/M-162-granit-0.7-upgrade.md)
 - [M-163：帧包与同步执行边界](records/M-163-render-frame-packet.md)
 - [M-164：有界渲染任务队列](records/M-164-bounded-render-executor.md)

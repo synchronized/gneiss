@@ -14,6 +14,8 @@ add_library(
   "${PROJECT_SOURCE_DIR}/src/tooling/asset_import/gltf_importer.cpp"
   "${PROJECT_SOURCE_DIR}/src/tooling/asset_import/gltf_importer.h"
   "${PROJECT_SOURCE_DIR}/src/tooling/asset_import/import_ir.h"
+  "${PROJECT_SOURCE_DIR}/src/tooling/asset_build/asset_build.cpp"
+  "${PROJECT_SOURCE_DIR}/src/tooling/asset_build/asset_build.h"
 )
 target_include_directories(
   gneiss_asset_import_sdk PUBLIC "${PROJECT_SOURCE_DIR}/src"
@@ -30,6 +32,17 @@ gneiss_target_compile_warnings(gneiss_assetc)
 gneiss_target_output_directories(gneiss_assetc)
 
 if(GNEISS_BUILD_TESTING AND BUILD_TESTING)
+  add_executable(
+    gneiss_asset_build_test
+    "${PROJECT_SOURCE_DIR}/tests/tooling/asset_build_test.cpp"
+  )
+  target_include_directories(gneiss_asset_build_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+  target_link_libraries(gneiss_asset_build_test PRIVATE gneiss_asset_import_sdk)
+  target_compile_features(gneiss_asset_build_test PRIVATE cxx_std_20)
+  gneiss_target_compile_warnings(gneiss_asset_build_test)
+  gneiss_target_output_directories(gneiss_asset_build_test)
+  add_test(NAME gneiss.tooling.asset_build COMMAND gneiss_asset_build_test)
+
   add_executable(
     gneiss_gltf_importer_test
     "${PROJECT_SOURCE_DIR}/tests/tooling/gltf_importer_test.cpp"
