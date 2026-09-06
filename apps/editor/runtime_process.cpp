@@ -35,6 +35,7 @@ struct runtime_process::implementation final {
   bool output_finished = true;
   std::string combined_output;
   std::filesystem::path pending_runtime;
+  std::filesystem::path pending_cmake;
   runtime_launch_request pending_request;
   app::project_description pending_project;
   std::filesystem::path session_root;
@@ -43,6 +44,7 @@ struct runtime_process::implementation final {
   std::chrono::steady_clock::time_point stop_deadline;
   bool forced_termination_reported = false;
   bool is_building = false;
+  bool is_configuring = false;
   bool ipc_shutdown_complete = false;
   bool inspection_resync_pending = false;
   std::map<std::string, ipc_asset_type> known_assets;
@@ -448,20 +450,23 @@ result runtime_process::build_and_start(const std::filesystem::path& cmake_execu
     child_process_start_info info;
     info.executable = cmake_executable;
     info.working_directory = project.project_root;
-    info.arguments = {"--build", "--preset", project.game_module.build_preset, "--target",
-                      project.game_module.build_target};
+    info.arguments = {"--preset", project.game_module.configure_preset,
+                      "-DCMAKE_PREFIX_PATH=" +
+                          runtime_executable.parent_path().parent_path().string()};
     implementation_->build_process.clear_output();
     implementation_->combined_output.clear();
     implementation_->pending_runtime = runtime_executable;
+    implementation_->pending_cmake = cmake_executable;
     implementation_->pending_request = request;
     implementation_->pending_project = project;
     const auto operation = implementation_->build_process.start(info);
     implementation_->last_result = operation;
     implementation_->is_building = operation == result::success;
+    implementation_->is_configuring = operation == result::success;
     implementation_->control_state = operation == result::success ? runtime_control_state::building
                                                                   : runtime_control_state::failed;
     if (operation == result::success) {
-      implementation_->combined_output = "[Editor] 正在构建游戏模块。\n";
+      implementation_->combined_output = "[Editor] 正在配置游戏工程。\n";
     }
     return operation;
   } catch (const std::bad_alloc&) {
@@ -603,7 +608,9 @@ void runtime_process::update() noexcept {
   if (implementation_->is_building) {
     implementation_->build_process.update();
     implementation_->combined_output =
-        "[Editor] 正在构建游戏模块。\n" + implementation_->build_process.output();
+        (implementation_->is_configuring ? "[Editor] 正在配置游戏工程。\n"
+                                         : "[Editor] 正在构建游戏模块。\n") +
+        implementation_->build_process.output();
     if (implementation_->build_process.is_running()) {
       return;
     }
@@ -611,7 +618,30 @@ void runtime_process::update() noexcept {
     if (implementation_->build_process.exit_code() != 0) {
       implementation_->last_result = result::dependency_failed;
       implementation_->control_state = runtime_control_state::failed;
-      implementation_->combined_output += "\n[Editor] 游戏模块构建失败，未启动 Runtime。\n";
+      implementation_->combined_output += implementation_->is_configuring
+                                              ? "\n[Editor] 游戏工程配置失败，未启动 Runtime。\n"
+                                              : "\n[Editor] 游戏模块构建失败，未启动 Runtime。\n";
+      implementation_->is_configuring = false;
+      return;
+    }
+    if (implementation_->is_configuring) {
+      implementation_->is_configuring = false;
+      child_process_start_info info;
+      info.executable = implementation_->pending_cmake;
+      info.working_directory = implementation_->pending_project.project_root;
+      info.arguments = {"--build", "--preset",
+                        implementation_->pending_project.game_module.build_preset, "--target",
+                        implementation_->pending_project.game_module.build_target};
+      implementation_->build_process.clear_output();
+      const auto operation = implementation_->build_process.start(info);
+      implementation_->last_result = operation;
+      implementation_->is_building = operation == result::success;
+      implementation_->control_state = operation == result::success
+                                           ? runtime_control_state::building
+                                           : runtime_control_state::failed;
+      implementation_->combined_output = operation == result::success
+                                             ? "[Editor] 工程配置完成，正在构建游戏模块。\n"
+                                             : "[Editor] 工程配置完成，但构建进程启动失败。\n";
       return;
     }
     std::filesystem::path module_path;

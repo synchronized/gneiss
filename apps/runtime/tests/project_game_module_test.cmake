@@ -24,6 +24,7 @@ file(
   "  \"game_module\": {\n"
   "    \"name\": \"${module_name}\",\n"
   "    \"directory\": \"modules\",\n"
+  "    \"configure_preset\": \"game-debug-configure\",\n"
   "    \"build_preset\": \"game-debug\",\n"
   "    \"build_target\": \"${module_name}\"\n"
   "  }\n"

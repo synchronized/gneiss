@@ -15,6 +15,7 @@ namespace gneiss::app {
 struct game_module_description final {
   std::string name;
   std::filesystem::path directory;
+  std::string configure_preset;
   std::string build_preset;
   std::string build_target;
 };

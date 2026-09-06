@@ -250,7 +250,8 @@ cmake --build --preset windows-clang-debug --target gneiss_editor
 
 不传参数时会先打开 Project Manager；可以直接输入工程目录，也可以在 Windows 使用系统目录选择器。
 选择包含 `gneiss.project.json` 的目录并通过校验后，Project Manager 会完整关闭，再启动正式 Editor。
-Project Manager 还会列出最近十个有效工程，并可创建包含初始 Camera 场景的最小工程。
+Project Manager 还会列出最近十个有效工程，并可从正式游戏模板创建包含初始 Camera、独立 Game
+Module、CMake preset 和源码目录的工程。运行会依次完成工程配置、模块构建和 Runtime 启动。
 也可以跳过选择界面，直接打开工程：
 
 ```powershell
@@ -295,6 +296,18 @@ $env:GNEISS_SDK_ROOT/bin/gneiss_runtime --project .
 配置模板会被明确拒绝。CMake package 通过 `GNEISS_GAME_TEMPLATE_DIR` 暴露模板的绝对安装位置；
 完整字段见[工程文件格式](../reference/project-format.md)。
 
+安装了 Editor 的 Shared SDK 也提供 `gneiss_project`，用于创建具有独立模块 ID 的工程，以及在模块
+构建完成后生成可运行目录包：
+
+```powershell
+$env:GNEISS_SDK_ROOT/bin/gneiss_project create ./MyGame "My Game"
+$env:GNEISS_SDK_ROOT/bin/gneiss_project export ./MyGame `
+  $env:GNEISS_SDK_ROOT/bin/gneiss_runtime ./MyGamePackage
+```
+
+Windows 从 `MyGamePackage/run.cmd` 启动，Linux 从 `MyGamePackage/run.sh` 启动。目录包只包含工程
+描述、资产、已构建模块、Runtime 及动态依赖，不包含 `sources/`、CMake 文件、构建目录或 SDK。
+
 当前宿主已提供场景会话、可选择的层级树和独立 Editor Camera。鼠标位于 Scene View 时，可以使用
 `W/A/S/D` 前后左右移动、`Q/E` 降低或升高、按住鼠标右键环视、滚轮沿视线移动；选择层级节点后
 按 `F` 可聚焦其世界位置。Scene Hierarchy 可以创建、重命名、拖放重挂接、复制和删除节点；右键
@@ -321,7 +334,7 @@ Scene View、右侧 Inspector 和底部 Console 的确定性默认工作区。�
 示例输出当前项目版本：
 
 ```text
-gneiss 0.30.0
+gneiss 0.31.0
 ```
 
 开发 preset 默认启用编译警告并将警告视为错误。

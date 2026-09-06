@@ -9,6 +9,10 @@
 #include <thread>
 
 int main(int argc, char** argv) {
+  if (argc > 1 && std::string_view(argv[1]) == "--preset") {
+    std::fputs("fixture configure success\n", stdout);
+    return 0;
+  }
   if (argc > 1 && std::string_view(argv[1]) == "--build") {
     if (argc > 5 && std::string_view(argv[5]) == "build-success") {
       std::filesystem::create_directories("modules");

@@ -42,6 +42,7 @@ v2 可增加原生游戏模块：
   "game_module": {
     "name": "my_game",
     "directory": "modules",
+    "configure_preset": "game-debug-configure",
     "build_preset": "game-debug",
     "build_target": "my_game"
   }
@@ -50,14 +51,14 @@ v2 可增加原生游戏模块：
 
 `game_module.name` 是平台无关基名，Runtime 在 Windows 映射为 `<name>.dll`，在 Linux 映射为
 `lib<name>.so`，在 macOS 映射为 `lib<name>.dylib`。`directory` 是工程根内的相对产物目录；路径
-解析后仍必须位于工程根内。`build_preset` 与 `build_target` 仅允许字母、数字、下划线和连字符，供
-Editor 通过受约束的 `cmake --build --preset <preset> --target <target>` 流程使用，不作为任意命令
-执行。构建期间 Run 被锁定，可用 Stop 中止；只有构建返回成功且模块产物仍能在工程根内解析时才会
-启动 Runtime，构建输出与 Runtime 输出显示在同一诊断窗口。
+解析后仍必须位于工程根内。`configure_preset`、`build_preset` 与 `build_target` 仅允许字母、数字、
+下划线和连字符，供 Editor 通过受约束的 CMake 配置与构建流程使用，不作为任意命令执行。处理期间
+Run 被锁定，可用 Stop 中止；只有配置、构建成功且模块产物仍能在工程根内解析时才会启动 Runtime，
+各阶段输出显示在同一诊断窗口。
 
 安装版 Lantern Gallery 展示了 SDK 工程入口。首次打开前设置 `GNEISS_SDK_ROOT` 为包含 Gneiss 与
 Granit CMake package 的 SDK 前缀，并执行一次 `cmake --preset game-debug-configure`；之后 Editor 的
-Run 使用 `game-debug` build preset 增量构建模块。安装包同时携带预构建模块，可直接由 Runtime smoke
+Run 使用工程声明的 configure 与 build preset 构建模块。安装包同时携带预构建模块，可直接由 Runtime smoke
 验证。
 
 安装 SDK 的 `${CMAKE_INSTALL_DATADIR}/gneiss/templates/game` 是不含示例专用逻辑的最小工程模板。

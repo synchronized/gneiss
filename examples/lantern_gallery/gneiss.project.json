@@ -12,6 +12,7 @@
   "game_module": {
     "name": "gneiss_lantern_gallery_game",
     "directory": "modules",
+    "configure_preset": "game-debug-configure",
     "build_preset": "game-debug",
     "build_target": "gneiss_lantern_gallery_game"
   }

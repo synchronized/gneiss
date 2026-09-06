@@ -67,11 +67,14 @@ int main() try {
                   project_json("assets", "asset://scenes/main.scene.json",
                                ",\n  \"input_map\": \"asset://input/default.input-map.json\","
                                "\n  \"game_module\": {\"name\": \"test_game\", "
-                               "\"directory\": \"modules\", \"build_preset\": \"game-debug\", "
+                               "\"directory\": \"modules\", \"configure_preset\": "
+                               "\"game-debug-configure\", \"build_preset\": \"game-debug\", "
                                "\"build_target\": \"test_game\"}")) ||
       gneiss::app::load_project_description(root, project, report) != gneiss::result::success ||
       project.input_map != "asset://input/default.input-map.json" ||
-      project.game_module.name != "test_game" || project.game_module.build_preset != "game-debug") {
+      project.game_module.name != "test_game" ||
+      project.game_module.configure_preset != "game-debug-configure" ||
+      project.game_module.build_preset != "game-debug") {
     return 3;
   }
   std::filesystem::path module_path;

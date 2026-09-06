@@ -255,9 +255,11 @@ result load_project_description(const std::filesystem::path& project_root,
       if (format_version < 2U || !yyjson_is_obj(game_module) ||
           !read_string(game_module, "name", pending.game_module.name) ||
           !read_string(game_module, "directory", directory) ||
+          !read_string(game_module, "configure_preset", pending.game_module.configure_preset) ||
           !read_string(game_module, "build_preset", pending.game_module.build_preset) ||
           !read_string(game_module, "build_target", pending.game_module.build_target) ||
           !valid_identifier(pending.game_module.name) || !valid_relative_directory(directory) ||
+          !valid_identifier(pending.game_module.configure_preset) ||
           !valid_identifier(pending.game_module.build_preset) ||
           !valid_identifier(pending.game_module.build_target)) {
         return fail(report, project_load_stage::game_module, result::invalid_argument,
