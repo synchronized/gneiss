@@ -436,7 +436,9 @@ if(GNEISS_ENABLE_GRANIT_PLATFORM)
   )
   target_compile_definitions(
     gneiss_pbr_shader_resolver_test
-    PRIVATE GNEISS_TEST_GRANIT_PBR_ASSET_DIR="${GNEISS_GRANIT_RENDER_PIPELINE_ASSET_DIR}/shaders/pbr"
+    PRIVATE
+      GNEISS_TEST_GRANIT_PBR_ASSET_DIR="${GNEISS_GRANIT_RENDER_PIPELINE_ASSET_DIR}/shaders/pbr"
+      GNEISS_TEST_GRANIT_PBR_MATERIAL="${GNEISS_GRANIT_RENDER_PIPELINE_ASSET_DIR}/materials/pbr_standard.grmat"
   )
   target_link_libraries(gneiss_pbr_shader_resolver_test PRIVATE granit::render_pipeline)
   target_compile_features(gneiss_pbr_shader_resolver_test PRIVATE cxx_std_20)

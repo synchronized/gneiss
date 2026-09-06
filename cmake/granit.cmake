@@ -60,28 +60,16 @@ endfunction()
 function(gneiss_resolve_granit_runtime)
   if(TARGET granit::granit AND TARGET granit::window AND TARGET granit::input AND
      TARGET granit::render_pipeline)
-    if(NOT DEFINED granit_RENDER_PIPELINE_ASSET_DIR)
-      get_target_property(granit_render_pipeline_target granit::render_pipeline ALIASED_TARGET)
-      if(NOT granit_render_pipeline_target)
-        set(granit_render_pipeline_target granit::render_pipeline)
-      endif()
-      get_target_property(
-        granit_render_pipeline_source_dir "${granit_render_pipeline_target}" SOURCE_DIR
-      )
-      if(granit_render_pipeline_source_dir)
-        cmake_path(GET granit_render_pipeline_source_dir PARENT_PATH granit_source_dir)
-        set(granit_RENDER_PIPELINE_ASSET_DIR "${granit_source_dir}/assets")
-      endif()
+    if(NOT granit_RENDER_PIPELINE_ASSET_DIR)
+      message(FATAL_ERROR "现有 Granit 0.12 targets 未提供 RenderPipeline 资产目录")
     endif()
-    if(DEFINED granit_RENDER_PIPELINE_ASSET_DIR)
-      set(
-        GNEISS_GRANIT_RENDER_PIPELINE_ASSET_DIR
-        "${granit_RENDER_PIPELINE_ASSET_DIR}"
-        CACHE INTERNAL
-        "Gneiss 使用的 Granit Render Pipeline 资产目录"
-        FORCE
-      )
-    endif()
+    set(
+      GNEISS_GRANIT_RENDER_PIPELINE_ASSET_DIR
+      "${granit_RENDER_PIPELINE_ASSET_DIR}"
+      CACHE INTERNAL
+      "Gneiss 使用的 Granit Render Pipeline 资产目录"
+      FORCE
+    )
     message(STATUS "Gneiss reuses the existing Granit runtime targets")
     return()
   endif()
@@ -129,9 +117,12 @@ function(gneiss_resolve_granit_runtime)
     "Gneiss FETCH 模式使用的 Granit 构建目录"
     FORCE
   )
+  if(NOT granit_RENDER_PIPELINE_ASSET_DIR)
+    message(FATAL_ERROR "下载的 Granit 0.12 未提供 RenderPipeline 资产目录")
+  endif()
   set(
     GNEISS_GRANIT_RENDER_PIPELINE_ASSET_DIR
-    "${gneiss_granit_SOURCE_DIR}/assets"
+    "${granit_RENDER_PIPELINE_ASSET_DIR}"
     CACHE INTERNAL
     "Gneiss 使用的 Granit Render Pipeline 资产目录"
     FORCE

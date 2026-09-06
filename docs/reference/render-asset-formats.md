@@ -123,7 +123,8 @@ Material v3 增加标准 PBR 的金属度与感知粗糙度，并允许没有基
 ```
 
 `metallic` 与 `roughness` 均位于 0..1。它们属于 Gneiss 作者资产语义，运行时再投影为
-Granit Material 参数；作者资产不引用 `.grmat` 或后端 Shader。
+Granit 标准 PBR Material 参数；作者资产不引用 `.grmat` 或后端 Shader。后端投影使用 Granit
+公开的标准 PBR Schema、Material 和 Shader Asset 元数据契约，Gneiss 不解析或复制其私有布局。
 
 ## Texture
 

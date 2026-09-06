@@ -103,6 +103,10 @@ if(GNEISS_ENABLE_GRANIT_PLATFORM)
       "${GNEISS_GRANIT_RENDER_PIPELINE_ASSET_DIR}/shaders/pbr/pbr_standard.frag.grshader.wgsl"
     DESTINATION "${CMAKE_INSTALL_DATADIR}/gneiss/runtime-assets/granit/shaders/pbr"
   )
+  install(
+    FILES "${GNEISS_GRANIT_RENDER_PIPELINE_ASSET_DIR}/materials/pbr_standard.grmat"
+    DESTINATION "${CMAKE_INSTALL_DATADIR}/gneiss/runtime-assets/granit/materials"
+  )
 endif()
 if(TARGET gneiss_runtime)
   install(

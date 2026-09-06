@@ -143,6 +143,11 @@ if(GNEISS_ENABLE_GRANIT_PLATFORM)
       message(FATAL_ERROR "缺少 Granit 标准 PBR 资产：${granit_pbr_asset_dir}/${granit_pbr_asset}")
     endif()
   endforeach()
+  set(granit_pbr_material_archive
+      "${GNEISS_GRANIT_RENDER_PIPELINE_ASSET_DIR}/materials/pbr_standard.grmat")
+  if(NOT EXISTS "${granit_pbr_material_archive}")
+    message(FATAL_ERROR "缺少 Granit 标准 PBR Material：${granit_pbr_material_archive}")
+  endif()
   set(gneiss_pbr_embedded_dir "${CMAKE_CURRENT_BINARY_DIR}/generated/pbr")
   set(gneiss_pbr_embedded_sources)
   foreach(granit_pbr_asset IN LISTS granit_pbr_assets)
@@ -161,17 +166,25 @@ if(GNEISS_ENABLE_GRANIT_PLATFORM)
     )
     list(APPEND gneiss_pbr_embedded_sources "${gneiss_pbr_embedded_source}")
   endforeach()
-  set(gneiss_pbr_material_archive
-      "${PROJECT_SOURCE_DIR}/src/render/granit/assets/gneiss_pbr.grmat")
-  set(gneiss_pbr_material_include "${gneiss_pbr_embedded_dir}/gneiss_pbr.grmat.inc")
+  set(gneiss_pbr_material_include "${gneiss_pbr_embedded_dir}/pbr_standard.grmat.inc")
   add_custom_command(
     OUTPUT "${gneiss_pbr_material_include}"
     COMMAND "${CMAKE_COMMAND}" -E make_directory "${gneiss_pbr_embedded_dir}"
     COMMAND
-      "${CMAKE_COMMAND}" "-DINPUT=${gneiss_pbr_material_archive}"
+      "${CMAKE_COMMAND}" "-DINPUT=${granit_pbr_material_archive}"
       "-DOUTPUT=${gneiss_pbr_material_include}"
       -P "${PROJECT_SOURCE_DIR}/cmake/embed_binary.cmake"
-    DEPENDS "${gneiss_pbr_material_archive}" "${PROJECT_SOURCE_DIR}/cmake/embed_binary.cmake"
+    DEPENDS "${granit_pbr_material_archive}" "${PROJECT_SOURCE_DIR}/cmake/embed_binary.cmake"
+    VERBATIM
+  )
+  add_custom_command(
+    TARGET gneiss_engine
+    POST_BUILD
+    COMMAND "${CMAKE_COMMAND}" -E make_directory
+            "$<TARGET_FILE_DIR:gneiss_engine>/assets/granit/materials"
+    COMMAND
+      "${CMAKE_COMMAND}" -E copy_if_different "${granit_pbr_material_archive}"
+      "$<TARGET_FILE_DIR:gneiss_engine>/assets/granit/materials"
     VERBATIM
   )
   list(APPEND gneiss_pbr_embedded_sources "${gneiss_pbr_material_include}")
