@@ -88,6 +88,7 @@
 - [VER-027：0.27.0 Granit 0.10 能力接入与 GPU 可观测性](plans/VER-027-0.27.0-granit-render-capabilities.md)
 - [VER-028：0.28.0 Granit 0.12 资产契约收敛](plans/VER-028-0.28.0-granit-asset-contract-convergence.md)
 - [VER-029：0.29.0 Granit 0.14 异步 GPU 契约接入](plans/VER-029-0.29.0-granit-async-gpu-contracts.md)
+- [VER-030：0.30.0 Runtime API 收敛与游戏工程模板](plans/VER-030-0.30.0-runtime-api-convergence.md)
 - [M-100：Editor Play 工作流实施记录](records/M-100-editor-play-workflow.md)
 - [M-101：示例与跨平台验收记录](records/M-101-example-cross-platform-validation.md)
 - [M-102：Runtime 检查会话与对象标识实施记录](records/M-102-runtime-inspection-identity.md)
