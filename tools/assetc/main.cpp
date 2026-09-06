@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "tooling/asset_build/asset_build.h"
+#include "tooling/asset_build/ktx2_probe.h"
 #include "tooling/asset_import/asset_writer.h"
 #include "tooling/asset_import/gltf_importer.h"
 
@@ -19,6 +20,7 @@ void print_usage() {
   std::cerr << "用法：\n"
                "  gneiss_assetc inspect <source.gltf|source.glb>\n"
                "  gneiss_assetc inspect <mesh.gneiss-mesh>\n"
+               "  gneiss_assetc inspect <texture.ktx2>\n"
                "  gneiss_assetc validate <mesh.gneiss-mesh>\n"
                "  gneiss_assetc dump <mesh.gneiss-mesh> --format json\n"
                "  gneiss_assetc import <source.gltf|source.glb> --output <directory>\n"
@@ -57,6 +59,19 @@ int process_binary_mesh(std::string_view command, const std::filesystem::path& p
   } else {
     std::cout << "Mesh Binary 有效\n";
   }
+  return 0;
+}
+
+int inspect_ktx2(const std::filesystem::path& path) {
+  const auto report = gneiss::tooling::asset_build::inspect_ktx2(path);
+  if (report.result != gneiss::tooling::asset_build::ktx2_probe_result::success) {
+    std::cerr << report.diagnostic << '\n';
+    return 1;
+  }
+  const auto& information = report.information;
+  std::cout << "KTX2 " << information.width << 'x' << information.height
+            << " Mip=" << information.level_count << " VkFormat=" << information.vk_format
+            << " Alpha=" << (information.has_alpha ? "是" : "否") << '\n';
   return 0;
 }
 
@@ -112,6 +127,9 @@ int main(int argc, char** argv) { // NOLINT(bugprone-exception-escape)
   }
   if (validate || dump || (inspect && source.extension() == ".gneiss-mesh")) {
     return process_binary_mesh(argv[1], source);
+  }
+  if (inspect && source.extension() == ".ktx2") {
+    return inspect_ktx2(source);
   }
 
   const auto report = gneiss::tooling::asset_import::inspect_gltf(source);
