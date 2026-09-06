@@ -24,5 +24,9 @@ KTX-Software 经评估未进入本版本依赖。当前无压缩 RGBA8 范围由
 
 ## 远端验证
 
-发布候选的 Linux 与 Windows 手动 Actions 将在合并前执行；结果回填到本节，不因只更新验收记录而
-重复运行矩阵。
+- [Linux Actions 34048007253](https://github.com/synchronized/gneiss/actions/runs/34048007253)：
+  Clang/GCC、Shared/Static、Granit 无头运行及 Sanitizer 全部通过。
+- [Windows Actions 34048010183](https://github.com/synchronized/gneiss/actions/runs/34048010183)：
+  MSVC Shared/Static 与安装后 Consumer 全部通过。
+
+两套矩阵均验证发布候选提交 `60d2b75`。本节仅回填验收结果，不重复运行矩阵。
