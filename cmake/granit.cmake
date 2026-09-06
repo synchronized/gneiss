@@ -95,7 +95,7 @@ function(gneiss_resolve_granit_runtime)
   endif()
 
   if(granit_provider STREQUAL "AUTO" OR granit_provider STREQUAL "PACKAGE")
-    find_package(granit 0.10 CONFIG QUIET COMPONENTS Window Input RenderPipeline)
+    find_package(granit 0.12 CONFIG QUIET COMPONENTS Window Input RenderPipeline)
     if(TARGET granit::granit AND TARGET granit::window AND TARGET granit::input AND
        TARGET granit::render_pipeline)
       set(
@@ -109,7 +109,7 @@ function(gneiss_resolve_granit_runtime)
       return()
     endif()
     if(granit_provider STREQUAL "PACKAGE")
-      message(FATAL_ERROR "未找到 Granit 0.10 runtime package（含 Window、Input、RenderPipeline）")
+      message(FATAL_ERROR "未找到 Granit 0.12 runtime package（含 Window、Input、RenderPipeline）")
     endif()
     if(TARGET granit::granit)
       message(FATAL_ERROR "现有 Granit targets 缺少 Window、Input 或 RenderPipeline，无法回退到 FETCH")

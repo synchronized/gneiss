@@ -9,6 +9,7 @@
 
 - 规划 0.28.0 Granit 0.12 资产契约收敛：接入公共 Shader Asset 检查、标准 PBR Schema/Material
   和统一 RenderPipeline 资产目录，删除 0.27.0 的临时重复实现。
+- 将 Granit 依赖升级到 0.12.0，PACKAGE、安装消费和旧默认缓存迁移同步采用 0.12 基线。
 
 ## 0.27.0 - 2026-09-06
 
