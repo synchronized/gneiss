@@ -7,6 +7,17 @@
 
 ## 未发布
 
+## 0.30.0 - 2026-09-06
+
+- 重新审计 0.10.0 之后新增的公共运行时接口，补齐 10 个遗漏的 Experimental 导出分类；API 门禁
+  现在直接核对公共 C 声明、ABI 基线、稳定性清单及声明标记。
+- 新增可复制的最小游戏工程模板，使用安装后的 `gneiss::engine` 构建原生 Game Module，并展示
+  初始化、逐帧更新、结构化日志和确定关闭。
+- SDK 安装模板并通过 `GNEISS_GAME_TEMPLATE_DIR` 暴露位置；安装验收会在源码树外重新配置、构建
+  模块并由安装后的 `gneiss_runtime` 完成 smoke 运行。
+- 收敛 Engine Library、Runtime 宿主、Game Module 与 Editor 的外部消费和兼容边界；新增能力继续
+  保持 Experimental，不在 0.30.0 提前冻结 1.x ABI。
+
 ## 0.29.0 - 2026-09-06
 
 - 规划 0.29.0 Granit 异步 GPU 契约接入：审计异步操作生命周期，并让 RenderPipeline 指标层
