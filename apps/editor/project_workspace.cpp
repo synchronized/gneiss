@@ -485,7 +485,9 @@ result export_editor_project(const editor_project& project,
                              const std::filesystem::path& output_root) noexcept {
   return export_editor_project(project, {.runtime_executable = runtime_executable,
                                          .output_root = output_root,
-                                         .profile = app::game_build_profile::debug});
+                                         .profile = app::game_build_profile::debug,
+                                         .create_zip = false,
+                                         .asset_progress = {}});
 }
 
 result export_editor_project(const editor_project& project,
@@ -553,7 +555,8 @@ result export_editor_project(const editor_project& project, const project_export
         .target_architecture = std::string(architecture_name()),
         .profile = options.profile == app::game_build_profile::shipping
                        ? tooling::asset_build::build_profile::shipping
-                       : tooling::asset_build::build_profile::development};
+                       : tooling::asset_build::build_profile::development,
+        .progress = {}};
     if (options.asset_progress) {
       asset_request.progress = [&options](const tooling::asset_build::build_progress& progress) {
         options.asset_progress(progress.current, progress.total, progress.relative_path,

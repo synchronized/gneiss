@@ -188,7 +188,13 @@ void hash_bytes(std::uint64_t& hash, std::string_view bytes) noexcept {
 }
 
 [[nodiscard]] build_report fail(build_result result, std::string diagnostic) {
-  return {.result = result, .diagnostic = std::move(diagnostic)};
+  return {.result = result,
+          .source_count = 0U,
+          .built_count = 0U,
+          .cache_hit_count = 0U,
+          .pruned_count = 0U,
+          .outputs = {},
+          .diagnostic = std::move(diagnostic)};
 }
 
 [[nodiscard]] bool copy_asset_file(const std::filesystem::path& source,
@@ -297,7 +303,8 @@ build_report build_assets(const build_request& request, const processor_registry
       source_node node{.absolute_path = entry.path(),
                        .relative_path = relative,
                        .processor = processor,
-                       .dependencies = scan_dependencies(entry.path())};
+                       .dependencies = scan_dependencies(entry.path()),
+                       .cache_key = {}};
       nodes.emplace(relative, std::move(node));
     }
 
@@ -385,7 +392,11 @@ build_report build_assets(const build_request& request, const processor_registry
     }
     build_report report{.result = build_result::success,
                         .source_count = static_cast<std::uint64_t>(nodes.size()),
-                        .pruned_count = static_cast<std::uint64_t>(nodes.size() - selected.size())};
+                        .built_count = 0U,
+                        .cache_hit_count = 0U,
+                        .pruned_count = static_cast<std::uint64_t>(nodes.size() - selected.size()),
+                        .outputs = {},
+                        .diagnostic = {}};
     std::uint64_t progress_index{};
     for (const auto& relative : selected) {
       const auto& node = nodes.at(relative);

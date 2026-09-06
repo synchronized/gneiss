@@ -37,7 +37,7 @@ constexpr std::size_t level_entry_size = 24U;
 }
 
 [[nodiscard]] ktx2_probe_report fail(ktx2_probe_result result, std::string diagnostic) {
-  return {.result = result, .diagnostic = std::move(diagnostic)};
+  return {.result = result, .information = {}, .diagnostic = std::move(diagnostic)};
 }
 
 [[nodiscard]] bool valid_range(std::uint64_t offset, std::uint64_t length,
@@ -85,11 +85,14 @@ ktx2_probe_report inspect_ktx2(const std::filesystem::path& path) {
   default:
     return fail(ktx2_probe_result::unsupported_container, "KTX2 超级压缩方案未知");
   }
+  bool level_table_fits = true;
+  if constexpr (sizeof(std::size_t) < sizeof(std::uint64_t)) {
+    level_table_fits = static_cast<std::uint64_t>(information.level_count) <=
+                       (std::numeric_limits<std::size_t>::max() - header_size) / level_entry_size;
+  }
   if (information.width == 0U || information.face_count == 0U ||
       (information.face_count != 1U && information.face_count != 6U) ||
-      information.level_count == 0U ||
-      information.level_count >
-          (std::numeric_limits<std::size_t>::max() - header_size) / level_entry_size ||
+      information.level_count == 0U || !level_table_fits ||
       bytes.size() < header_size + information.level_count * level_entry_size) {
     return fail(ktx2_probe_result::invalid_container, "KTX2 维度、面数或 Mip 数量无效");
   }

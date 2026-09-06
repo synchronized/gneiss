@@ -75,7 +75,8 @@ int main() try {
       .runtime_executable = runtime_root / runtime_name,
       .output_root = package_root,
       .profile = gneiss::app::game_build_profile::debug,
-      .create_zip = true};
+      .create_zip = true,
+      .asset_progress = {}};
   export_options.asset_progress = [&progress_count](std::uint64_t current, std::uint64_t total,
                                                     std::string_view, bool) {
     if (current > 0U && current <= total) {
@@ -111,7 +112,8 @@ int main() try {
                                             {.runtime_executable = runtime_root / runtime_name,
                                              .output_root = second_package,
                                              .profile = gneiss::app::game_build_profile::debug,
-                                             .create_zip = true}) != gneiss::result::success) {
+                                             .create_zip = true,
+                                             .asset_progress = {}}) != gneiss::result::success) {
     return 10;
   }
   std::ifstream first_zip(root / "package-a.zip", std::ios::binary);

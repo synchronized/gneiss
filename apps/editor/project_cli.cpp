@@ -130,7 +130,8 @@ int main(int argc, char** argv) {
     gneiss::editor::project_export_options options{.runtime_executable = argv[3],
                                                    .output_root = argv[4],
                                                    .profile = profile,
-                                                   .create_zip = create_zip};
+                                                   .create_zip = create_zip,
+                                                   .asset_progress = {}};
     options.asset_progress = [](std::uint64_t current, std::uint64_t total, std::string_view path,
                                 bool cache_hit) {
       std::cout << "资产 [" << current << '/' << total << "] " << path << "："

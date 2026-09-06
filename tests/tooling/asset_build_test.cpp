@@ -60,9 +60,11 @@ int main() {
   const build_request development{.source_root = source,
                                   .output_root = root / "development-a",
                                   .cache_root = cache,
+                                  .root_uris = {},
                                   .target_platform = "test",
                                   .target_architecture = "test",
-                                  .profile = build_profile::development};
+                                  .profile = build_profile::development,
+                                  .progress = {}};
   const auto first = build_assets(development, registry);
   if (first.result != build_result::processor_failed) {
     return 3;
