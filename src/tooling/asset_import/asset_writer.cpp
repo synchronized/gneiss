@@ -72,15 +72,17 @@ void configure(std::ostream& stream) {
     return false;
   }
   configure(stream);
-  stream << "{\n  \"format\": \"gneiss.material\",\n  \"version\": "
-         << (material.base_color_image_index ? 2 : 1) << ",\n  \"color\": ["
+  stream << "{\n  \"format\": \"gneiss.material\",\n  \"version\": 3,\n  \"color\": ["
          << material.base_color[0] << ',' << material.base_color[1] << ',' << material.base_color[2]
          << ',' << material.base_color[3] << ']';
-  if (material.base_color_image_index) {
-    stream << ",\n  \"base_color_texture\": \"" << asset_uri_prefix << "textures/image-"
-           << *material.base_color_image_index << ".texture.json\"";
-  }
-  stream << "\n}\n";
+  stream << ",\n  \"base_color_texture\": ";
+  if (material.base_color_image_index)
+    stream << '"' << asset_uri_prefix << "textures/image-" << *material.base_color_image_index
+           << ".texture.json\"";
+  else
+    stream << "null";
+  stream << ",\n  \"metallic\": " << material.metallic
+         << ",\n  \"roughness\": " << material.roughness << "\n}\n";
   return stream.good();
 }
 

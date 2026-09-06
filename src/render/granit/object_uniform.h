@@ -21,6 +21,11 @@ struct alignas(16) object_uniform final {
   std::array<float, 4> color;
 };
 
+/** 从 Gneiss Transform 构造列主序 Model 与逆转置 Normal Matrix。 */
+[[nodiscard]] bool build_model_matrices(const gneiss_transform& transform,
+                                        render_internal::matrix4& model,
+                                        render_internal::matrix4& normal) noexcept;
+
 /** 计算满足设备动态 Uniform Offset 对齐要求的对象步长。 */
 [[nodiscard]] bool calculate_uniform_stride(std::uint64_t alignment,
                                             std::uint64_t& stride) noexcept;

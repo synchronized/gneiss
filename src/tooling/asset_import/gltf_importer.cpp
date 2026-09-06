@@ -276,6 +276,8 @@ void copy_image_bytes(const fastgltf::Asset& asset, const fastgltf::Image& image
     for (std::size_t index = 0; index < 4U; ++index) {
       ir_material.base_color[index] = material.pbrData.baseColorFactor[index];
     }
+    ir_material.metallic = material.pbrData.metallicFactor;
+    ir_material.roughness = material.pbrData.roughnessFactor;
     if (material.pbrData.baseColorTexture) {
       // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
       const auto texture_index = material.pbrData.baseColorTexture.value().textureIndex;

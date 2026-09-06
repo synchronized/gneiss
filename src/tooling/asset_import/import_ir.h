@@ -54,6 +54,8 @@ struct import_ir_material {
   std::string name;
   std::array<float, 4> base_color{1.0F, 1.0F, 1.0F, 1.0F};
   std::optional<std::size_t> base_color_image_index;
+  float metallic{};
+  float roughness{1.0F};
 };
 
 struct import_ir_image {

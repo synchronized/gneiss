@@ -82,6 +82,8 @@ struct texture_source final {
 struct material_source final {
   std::array<float, 4> color{};
   std::string texture_uri;
+  float metallic{};
+  float roughness{1.0F};
 };
 
 void fail(asset_diagnostic& diagnostic, gneiss_result result, std::string_view path,
@@ -331,10 +333,17 @@ using document_ptr = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;
                                  std::string_view{"color"}};
   constexpr std::array v2_fields{std::string_view{"format"}, std::string_view{"version"},
                                  std::string_view{"color"}, std::string_view{"base_color_texture"}};
+  constexpr std::array v3_fields{
+      std::string_view{"format"},   std::string_view{"version"},
+      std::string_view{"color"},    std::string_view{"base_color_texture"},
+      std::string_view{"metallic"}, std::string_view{"roughness"}};
   std::uint64_t version = 0;
-  const auto fields = requested_version == 2U ? std::span<const std::string_view>{v2_fields}
-                                              : std::span<const std::string_view>{v1_fields};
-  if (!validate_header(root, "gneiss.material", fields, 2U, version, diagnostic)) {
+  auto fields = std::span<const std::string_view>{v1_fields};
+  if (requested_version == 2U)
+    fields = v2_fields;
+  else if (requested_version == 3U)
+    fields = v3_fields;
+  if (!validate_header(root, "gneiss.material", fields, 3U, version, diagnostic)) {
     return diagnostic.result;
   }
   yyjson_val* color = yyjson_obj_get(root, "color");
@@ -350,14 +359,27 @@ using document_ptr = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;
       return diagnostic.result;
     }
   }
-  if (version == 2U) {
+  if (version >= 2U) {
     yyjson_val* texture = yyjson_obj_get(root, "base_color_texture");
-    if (!yyjson_is_str(texture) || yyjson_get_len(texture) == 0U) {
+    if (version == 3U && yyjson_is_null(texture)) {
+      out_source.texture_uri.clear();
+    } else if (!yyjson_is_str(texture) || yyjson_get_len(texture) == 0U) {
       fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/base_color_texture",
            "base-color Texture 必须是非空 URI");
       return diagnostic.result;
+    } else {
+      out_source.texture_uri.assign(json_string(texture));
     }
-    out_source.texture_uri.assign(json_string(texture));
+  }
+  if (version == 3U) {
+    if (!read_float(yyjson_obj_get(root, "metallic"), out_source.metallic) ||
+        out_source.metallic < 0.0F || out_source.metallic > 1.0F ||
+        !read_float(yyjson_obj_get(root, "roughness"), out_source.roughness) ||
+        out_source.roughness < 0.0F || out_source.roughness > 1.0F) {
+      fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/metallic",
+           "metallic 与 roughness 必须位于 0..1");
+      return diagnostic.result;
+    }
   }
   return GNEISS_SUCCESS;
 }
@@ -518,7 +540,9 @@ gneiss_result render_asset_loader::acquire_material(std::string_view uri,
                                         .green = source.color[1],
                                         .blue = source.color[2],
                                         .alpha = source.color[3],
-                                        .base_color_texture = texture.get()};
+                                        .base_color_texture = texture.get(),
+                                        .metallic = source.metallic,
+                                        .roughness = source.roughness};
         gneiss_material rid = GNEISS_NULL_MATERIAL;
         result = resources_.create_material(desc, &rid);
         if (result != GNEISS_SUCCESS) {

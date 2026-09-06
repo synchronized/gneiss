@@ -27,6 +27,8 @@ render_internal::matrix4 multiply(const render_internal::matrix4& left,
   return result;
 }
 
+} // namespace
+
 bool build_model_matrices(const gneiss_transform& transform, render_internal::matrix4& model,
                           render_internal::matrix4& normal) noexcept {
   const auto x = transform.rotation[0];
@@ -78,8 +80,6 @@ bool build_model_matrices(const gneiss_transform& transform, render_internal::ma
   normal.values[matrix_index(3U, 3U)] = 1.0F;
   return true;
 }
-
-} // namespace
 
 bool calculate_uniform_stride(std::uint64_t alignment, std::uint64_t& stride) noexcept {
   if (alignment == 0U) {

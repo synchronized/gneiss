@@ -7,6 +7,7 @@
 #include "platform/granit/granit_platform.h"
 #include "render/debug_draw_list.h"
 #include "render/granit/object_uniform.h"
+#include "render/granit/pbr_shader_resolver.h"
 #include "render/render_executor.h"
 #include "render/render_frame_packet.h"
 #include "render/render_resource_service.h"
@@ -18,6 +19,10 @@
 #include <granit/granit.hpp>
 #include <granit/pipeline/canvas_draw_list.hpp>
 #include <granit/pipeline/debug_draw_list.hpp>
+#include <granit/pipeline/material.hpp>
+#include <granit/pipeline/mesh.hpp>
+#include <granit/pipeline/render_pipeline.hpp>
+#include <granit/pipeline/scene.hpp>
 
 #include <array>
 #include <deque>
@@ -51,34 +56,35 @@ private:
   [[nodiscard]] gneiss_result collect_completions() noexcept;
 
   struct texture_mirror final {
+    const render_internal::texture_resource* source{};
     granit::texture texture;
     granit::texture_view view;
-    granit::bind_group group;
   };
 
   struct mesh_mirror final {
+    const render_internal::mesh_resource* source{};
+    granit::mesh mesh;
     std::uint32_t first_index{};
     std::int32_t vertex_offset{};
     std::uint32_t index_count{};
   };
 
-  struct uniform_frame final {
-    granit::buffer buffer;
-    granit::bind_group group;
-    std::uint64_t capacity{};
+  struct material_mirror final {
+    const render_internal::material_resource* source{};
+    gneiss_texture base_color_texture{GNEISS_NULL_TEXTURE};
+    granit::material_instance material;
   };
 
-  [[nodiscard]] granit::result initialize_pipeline(granit::texture_format format) noexcept;
-  [[nodiscard]] granit::result ensure_depth_target(std::uint32_t width,
-                                                   std::uint32_t height) noexcept;
+  [[nodiscard]] granit::result initialize_pipeline() noexcept;
   [[nodiscard]] granit::result
   create_texture_mirror(const render_internal::texture_resource& source,
                         texture_mirror& output) noexcept;
   [[nodiscard]] granit::result
+  create_material_mirror(const render_internal::material_resource& source,
+                         granit_texture_view base_color, material_mirror& output) noexcept;
+  [[nodiscard]] granit::result
   rebuild_geometry_arena(const render_internal::render_resource_snapshot& resources) noexcept;
-  [[nodiscard]] granit::result ensure_default_texture() noexcept;
-  [[nodiscard]] granit::result ensure_uniform_arena(uniform_frame& frame,
-                                                    std::span<const std::byte> data) noexcept;
+  [[nodiscard]] granit::result ensure_default_textures() noexcept;
   [[nodiscard]] granit::result
   prepare_ui_draw_list(const render_internal::ui_draw_list& ui,
                        const render_internal::render_resource_snapshot& resources,
@@ -86,38 +92,30 @@ private:
   void
   release_invalid_textures(const render_internal::render_resource_snapshot& resources) noexcept;
   void release_invalid_meshes(const render_internal::render_resource_snapshot& resources) noexcept;
+  void
+  release_invalid_materials(const render_internal::render_resource_snapshot& resources) noexcept;
 
   granit::renderer renderer_;
   granit::surface surface_;
   granit::swapchain swapchain_;
-  granit::frame_context frame_context_;
-  granit::timestamp_query_pool timestamp_queries_;
-  granit::shader vertex_shader_;
-  granit::shader fragment_shader_;
-  granit::bind_group_layout texture_layout_;
-  granit::bind_group_layout object_layout_;
-  granit::pipeline_layout pipeline_layout_;
-  granit::graphics_pipeline pipeline_;
-  granit::texture depth_texture_;
-  granit::texture_view depth_view_;
+  granit::render_pipeline pipeline_;
+  pbr_shader_resolver pbr_assets_;
   granit::sampler sampler_;
   granit::sampler ui_sampler_;
   granit::canvas_draw_list ui_canvas_;
   granit::debug_draw_list debug_draw_;
-  texture_mirror default_texture_;
+  texture_mirror default_white_srgb_;
+  texture_mirror default_white_linear_;
+  texture_mirror default_normal_linear_;
   std::unordered_map<gneiss_texture, texture_mirror> texture_mirrors_;
   std::unordered_map<gneiss_mesh, mesh_mirror> mesh_mirrors_;
+  std::unordered_map<gneiss_material, material_mirror> material_mirrors_;
   granit::buffer geometry_vertices_;
   granit::buffer geometry_indices_;
   bool geometry_dirty_{};
   granit::texture_format swapchain_format_{granit::texture_format::undefined};
-  std::uint32_t depth_width_{};
-  std::uint32_t depth_height_{};
-  std::array<uniform_frame, 3> uniform_frames_;
-  std::uint64_t uniform_stride_{};
-  std::uint64_t frame_index_{};
-  std::array<bool, 3> timestamp_slot_valid_{};
-  std::array<std::uint64_t, 3> timestamp_slot_sequences_{};
+  std::uint64_t last_pipeline_metric_sequence_{};
+  std::deque<std::uint64_t> pending_metric_sequences_;
   bool gpu_timing_supported_{};
   render_internal::threaded_render_executor executor_;
   std::vector<render_internal::render_frame_packet> recycled_frame_packets_;

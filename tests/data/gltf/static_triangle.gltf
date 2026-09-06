@@ -9,7 +9,7 @@
   }],
   "images": [{"name": "White", "uri": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="}],
   "textures": [{"source": 0}],
-  "materials": [{"name": "Stone", "pbrMetallicRoughness": {"baseColorFactor": [0.5, 0.6, 0.7, 1.0], "baseColorTexture": {"index": 0}}}],
+  "materials": [{"name": "Stone", "pbrMetallicRoughness": {"baseColorFactor": [0.5, 0.6, 0.7, 1.0], "baseColorTexture": {"index": 0}, "metallicFactor": 0.25, "roughnessFactor": 0.75}}],
   "buffers": [{
     "byteLength": 102,
     "uri": "data:application/octet-stream;base64,AAAAAAAAAAAAAAAAAACAPwAAAAAAAAAAAAAAAAAAgD8AAAAAAAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AAAAAAAAAAAAAIA/AAABAAIA"

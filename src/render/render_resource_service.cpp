@@ -89,7 +89,8 @@ gneiss_result render_resource_service::create_material(const gneiss_material_des
                                                        gneiss_material* out_material) noexcept {
   if (out_material == nullptr || !is_valid() || desc.struct_size < sizeof(gneiss_material_desc) ||
       desc.reserved != 0U || !valid_color(desc.red) || !valid_color(desc.green) ||
-      !valid_color(desc.blue) || !valid_color(desc.alpha) ||
+      !valid_color(desc.blue) || !valid_color(desc.alpha) || !valid_color(desc.metallic) ||
+      !valid_color(desc.roughness) ||
       (desc.base_color_texture != GNEISS_NULL_TEXTURE &&
        get_texture(desc.base_color_texture) == nullptr)) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
@@ -100,7 +101,9 @@ gneiss_result render_resource_service::create_material(const gneiss_material_des
                           .green = desc.green,
                           .blue = desc.blue,
                           .alpha = desc.alpha,
-                          .base_color_texture = desc.base_color_texture});
+                          .base_color_texture = desc.base_color_texture,
+                          .metallic = desc.metallic,
+                          .roughness = desc.roughness});
     return materials_.create(core::resource_type::material, std::move(resource), out_material);
   } catch (const std::bad_alloc&) {
     return GNEISS_ERROR_OUT_OF_MEMORY;

@@ -119,7 +119,7 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
       R"({"format":"gneiss.mesh","version":3,"topology":"triangle_list","vertices":[[-0.5,-0.5,0],[0.5,-0.5,0],[0,0.5,0]],"uvs":[[0,0],[1,0],[0.5,1]],"normals":[[0,0,2],[0,0,1],[0,0,1]]})");
   memory->files.emplace(
       "materials/textured.material.json",
-      R"({"format":"gneiss.material","version":2,"color":[1,0.5,0.25,1],"base_color_texture":"asset://textures/white.texture.json"})");
+      R"({"format":"gneiss.material","version":3,"color":[1,0.5,0.25,1],"base_color_texture":"asset://textures/white.texture.json","metallic":0.25,"roughness":0.75})");
   add_indexed_mesh(*memory);
 
   gneiss::asset_internal::virtual_file_system file_system;
@@ -210,6 +210,7 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
       !mesh_resource->normals.empty() || mesh_resource->vertices[1].u != 1.0F ||
       mesh_resource->vertices[2].v != 1.0F || material_resource == nullptr ||
       material_resource->base_color_texture != first_texture.get() ||
+      material_resource->metallic != 0.25F || material_resource->roughness != 0.75F ||
       resources.live_resource_count() != 7U) {
     return 11;
   }
