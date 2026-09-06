@@ -7,6 +7,9 @@
 
 ## 未发布
 
+- 规划 0.29.0 Granit 0.13 异步 GPU 契约接入：升级依赖基线，审计异步操作生命周期，并推动
+  RenderPipeline 指标层复用跨后端异步 Timestamp 能力。
+
 ## 0.28.0 - 2026-09-06
 
 - 规划 0.28.0 Granit 0.12 资产契约收敛：接入公共 Shader Asset 检查、标准 PBR Schema/Material
