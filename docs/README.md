@@ -174,6 +174,7 @@
 - [M-186：重复实现清理与版本验收](records/M-186-granit-asset-contract-validation.md)
 - [M-187：Granit 0.13.0 升级与兼容审计](records/M-187-granit-0.13-upgrade.md)
 - [M-189～M-192：Granit 0.14 异步 GPU 契约接入与版本验收](records/M-192-granit-async-gpu-validation.md)
+- [M-199～M-205：0.31.0 游戏工程工作流验收记录](records/M-205-project-workflow-validation.md)
 - [M-188：异步 GPU 契约与管线指标缺口确认](records/M-188-async-gpu-contract-audit.md)
 - [glTF 资产链与渲染优化最终验收记录](records/2026-08-27-gltf-pipeline-final-validation.md)
 - [TOOL-001：glTF 资产编译器验收记录](records/TOOL-001-gltf-asset-compiler.md)
