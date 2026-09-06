@@ -21,6 +21,7 @@ add_test(
     "${CMAKE_COMMAND}"
     "-DGNEISS_ABI_BASELINE=${PROJECT_SOURCE_DIR}/abi/baseline/gneiss-1.0.0-c.txt"
     "-DGNEISS_API_STABILITY_MANIFEST=${PROJECT_SOURCE_DIR}/abi/api-stability.txt"
+    "-DGNEISS_PUBLIC_INCLUDE_DIR=${PROJECT_SOURCE_DIR}/include"
     -P "${PROJECT_SOURCE_DIR}/cmake/check_api_stability.cmake"
 )
 
