@@ -168,6 +168,7 @@
 - [M-183：标准 PBR Schema 与 Material 收敛](records/M-183-standard-pbr-contract.md)
 - [M-184：资产目录与打包路径统一](records/M-184-render-asset-directory.md)
 - [M-185：跨后端契约与失败语义验证](records/M-185-pbr-contract-failures.md)
+- [M-186：重复实现清理与版本验收](records/M-186-granit-asset-contract-validation.md)
 - [glTF 资产链与渲染优化最终验收记录](records/2026-08-27-gltf-pipeline-final-validation.md)
 - [TOOL-001：glTF 资产编译器验收记录](records/TOOL-001-gltf-asset-compiler.md)
 - [TOOL-002：Mesh Binary v1 实施记录](records/TOOL-002-mesh-binary-v1.md)
