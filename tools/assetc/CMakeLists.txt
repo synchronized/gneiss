@@ -26,6 +26,8 @@ add_library(
   "${PROJECT_SOURCE_DIR}/src/tooling/asset_build/bc7_encoder.h"
   "${PROJECT_SOURCE_DIR}/src/tooling/asset_build/ktx2_probe.cpp"
   "${PROJECT_SOURCE_DIR}/src/tooling/asset_build/ktx2_probe.h"
+  "${PROJECT_SOURCE_DIR}/src/tooling/asset_build/sha256.cpp"
+  "${PROJECT_SOURCE_DIR}/src/tooling/asset_build/sha256.h"
 )
 target_include_directories(
   gneiss_asset_import_sdk PUBLIC "${PROJECT_SOURCE_DIR}/src" "${PROJECT_SOURCE_DIR}/include"
@@ -62,6 +64,14 @@ if(GNEISS_BUILD_TESTING AND BUILD_TESTING)
   gneiss_target_compile_warnings(gneiss_bc7_encoder_test)
   gneiss_target_output_directories(gneiss_bc7_encoder_test)
   add_test(NAME gneiss.tooling.bc7_encoder COMMAND gneiss_bc7_encoder_test)
+
+  add_executable(gneiss_sha256_test "${PROJECT_SOURCE_DIR}/tests/tooling/sha256_test.cpp")
+  target_include_directories(gneiss_sha256_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+  target_link_libraries(gneiss_sha256_test PRIVATE gneiss_asset_import_sdk)
+  target_compile_features(gneiss_sha256_test PRIVATE cxx_std_20)
+  gneiss_target_compile_warnings(gneiss_sha256_test)
+  gneiss_target_output_directories(gneiss_sha256_test)
+  add_test(NAME gneiss.tooling.sha256 COMMAND gneiss_sha256_test)
 
   add_executable(
     gneiss_ktx2_probe_test
