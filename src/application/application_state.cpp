@@ -409,7 +409,8 @@ gneiss_result application_state::run(gneiss_application handle,
     }
 #ifdef GNEISS_HAS_GRANIT_PLATFORM
     const auto render_result = render_frame();
-    if (render_result != GNEISS_SUCCESS) {
+    // 渲染队列、交换链或后端资源可能暂时未就绪；跳过本帧并在下一帧重试。
+    if (render_result != GNEISS_SUCCESS && render_result != GNEISS_ERROR_NOT_READY) {
       ui_draw_list_.clear();
       debug_draw_list_.clear();
       is_running_ = false;
