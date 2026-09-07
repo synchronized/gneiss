@@ -34,14 +34,14 @@ if(NOT cook_result EQUAL 0)
   message(FATAL_ERROR "Cook 测试资产失败：\n${cook_output}\n${cook_error}")
 endif()
 
-file(GLOB_RECURSE cooked_ktx2 "${cooked_root}/*.ktx2")
+file(GLOB_RECURSE cooked_texture "${cooked_root}/*.gneiss-texture")
 file(GLOB_RECURSE cooked_png "${cooked_root}/*.png")
-if(NOT cooked_ktx2 OR cooked_png)
-  message(FATAL_ERROR "Cook 输出必须包含 KTX2 且不得保留 PNG")
+if(NOT cooked_texture OR cooked_png)
+  message(FATAL_ERROR "Cook 输出必须包含 Gneiss 运行纹理且不得保留 PNG")
 endif()
 
 file(READ "${cooked_root}/textures/image-0.texture.json" texture_description)
-if(NOT texture_description MATCHES "asset://textures/image-0\\.ktx2" OR
+if(NOT texture_description MATCHES "asset://textures/image-0\\.gneiss-texture" OR
    texture_description MATCHES "\\.png")
-  message(FATAL_ERROR "Texture 描述未重写为 KTX2 URI")
+  message(FATAL_ERROR "Texture 描述未重写为 Gneiss 运行纹理 URI")
 endif()

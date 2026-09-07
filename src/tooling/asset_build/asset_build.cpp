@@ -4,6 +4,7 @@
 #include "tooling/asset_build/asset_build.h"
 
 #include "tooling/asset_build/ktx2_probe.h"
+#include "tooling/asset_build/runtime_texture_builder.h"
 
 #include "asset/mesh_binary.h"
 #include "asset/texture_ktx2.h"
@@ -217,7 +218,7 @@ void hash_bytes(std::uint64_t& hash, std::string_view bytes) noexcept {
 [[nodiscard]] std::string output_relative_path(const source_node& node) {
   if (node.processor->id == "gneiss.texture" && node.absolute_path.extension() == ".png") {
     auto path = utf8_path(node.relative_path);
-    path.replace_extension(".ktx2");
+    path.replace_extension(".gneiss-texture");
     return path_utf8(path);
   }
   return node.relative_path;
@@ -269,8 +270,8 @@ void hash_bytes(std::uint64_t& hash, std::string_view bytes) noexcept {
                               .height = std::max(1U, previous.height / 2U),
                               .pixels = generate_next_mip(previous)});
   }
-  return asset_internal::encode_texture_ktx2(texture, output, diagnostic) ==
-         asset_internal::texture_ktx2_result::success;
+  return build_runtime_texture(texture, output, diagnostic) ==
+         runtime_texture_build_result::success;
 }
 
 [[nodiscard]] std::vector<std::byte> rewrite_png_uris(std::vector<std::byte> bytes) {
@@ -281,8 +282,9 @@ void hash_bytes(std::uint64_t& hash, std::string_view bytes) noexcept {
         "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-./", cursor + 8U);
     const auto uri_end = end == std::string::npos ? text.size() : end;
     if (uri_end >= 4U && text.compare(uri_end - 4U, 4U, ".png") == 0) {
-      text.replace(uri_end - 4U, 4U, ".ktx2");
-      cursor = uri_end + 1U;
+      constexpr std::string_view replacement = ".gneiss-texture";
+      text.replace(uri_end - 4U, 4U, replacement);
+      cursor = uri_end - 4U + replacement.size();
     } else {
       cursor = uri_end;
     }
@@ -394,7 +396,7 @@ const processor_description* processor_registry::find(std::string_view path) con
 processor_registry make_default_registry() {
   processor_registry registry;
   static_cast<void>(registry.register_processor(
-      {.id = "gneiss.texture", .version = 2U, .suffixes = {".png", ".jpg", ".jpeg", ".ktx2"}}));
+      {.id = "gneiss.texture", .version = 3U, .suffixes = {".png", ".jpg", ".jpeg", ".ktx2"}}));
   static_cast<void>(registry.register_processor(
       {.id = "gneiss.mesh", .version = 2U, .suffixes = {".gneiss-mesh", ".mesh.json"}}));
   static_cast<void>(registry.register_processor(
