@@ -94,6 +94,7 @@
 - [VER-032：0.32.0 构建配置与发布包管线](plans/VER-032-0.32.0-release-packaging.md)
 - [VER-033：0.33.0 资产构建与发布优化](plans/VER-033-0.33.0-asset-cooking.md)
 - [VER-034：0.34.0 离线纹理构建与 KTX2 运行链路](plans/VER-034-0.34.0-offline-texture-cooking.md)
+- [VER-035：0.35.0 平台纹理变体与流式上传](plans/VER-035-0.35.0-texture-asset-variants.md)
 - [M-100：Editor Play 工作流实施记录](records/M-100-editor-play-workflow.md)
 - [M-101：示例与跨平台验收记录](records/M-101-example-cross-platform-validation.md)
 - [M-102：Runtime 检查会话与对象标识实施记录](records/M-102-runtime-inspection-identity.md)
