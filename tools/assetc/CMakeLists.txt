@@ -27,7 +27,7 @@ target_include_directories(
   gneiss_asset_import_sdk PUBLIC "${PROJECT_SOURCE_DIR}/src" "${PROJECT_SOURCE_DIR}/include"
 )
 target_link_libraries(
-  gneiss_asset_import_sdk PRIVATE fastgltf::fastgltf gneiss_yyjson gneiss_png
+  gneiss_asset_import_sdk PRIVATE fastgltf::fastgltf gneiss_bc7enc gneiss_yyjson gneiss_png
 )
 target_compile_features(gneiss_asset_import_sdk PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_asset_import_sdk)
