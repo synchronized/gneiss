@@ -7,6 +7,8 @@ add_library(
   "${PROJECT_SOURCE_DIR}/src/asset/mesh_binary.h"
   "${PROJECT_SOURCE_DIR}/src/asset/texture_ktx2.cpp"
   "${PROJECT_SOURCE_DIR}/src/asset/texture_ktx2.h"
+  "${PROJECT_SOURCE_DIR}/src/asset/texture_binary.cpp"
+  "${PROJECT_SOURCE_DIR}/src/asset/texture_binary.h"
   "${PROJECT_SOURCE_DIR}/src/render/png_decoder.cpp"
   "${PROJECT_SOURCE_DIR}/src/render/png_decoder.h"
   "${PROJECT_SOURCE_DIR}/src/tooling/asset_import/asset_index.cpp"
