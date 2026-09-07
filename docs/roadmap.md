@@ -688,7 +688,7 @@ Mesh 与 Material，并通过 KTX2/Basis Universal Spike 确认纹理容器和 G
 | M-231 BC7 私有工具依赖与确定性编码门禁 | P0 | 已完成 |
 | M-232 平台变体构建、缓存键与包内容 | P0 | 已完成 |
 | M-233 Manifest 检查、设备选择与 RGBA8 回退 | P0 | 已完成 |
-| M-234 渲染线程逐 Mip Upload Batch 与原子切换 | P0 | 待开始 |
+| M-234 渲染线程逐 Mip Upload Batch 与原子切换 | P0 | 已完成 |
 | M-235 诊断、CLI 检查与 Lantern Gallery 验收 | P1 | 待开始 |
 | M-236 跨平台矩阵与 0.35.0 发布验收 | P0 | 待开始 |
 

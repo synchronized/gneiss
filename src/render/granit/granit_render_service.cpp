@@ -4,6 +4,7 @@
 #include "render/granit/granit_render_service.h"
 
 #include <granit/renderer/texture_asset.hpp>
+#include <granit/renderer/upload_batch.hpp>
 
 #include <granit/pipeline/pbr_material.h>
 
@@ -179,24 +180,19 @@ granit_render_service::create_texture_mirror(const render_internal::texture_reso
          .width = info.width,
          .height = info.height,
          .mip_levels = info.mip_levels});
-    for (std::uint32_t index = 0U; result.ok() && index < variant.subresource_count; ++index) {
-      const auto& subresource = info.subresources[variant.first_subresource + index];
-      const auto offset = variant.payload_offset + subresource.data_offset;
-      if (offset > source.payload.size() ||
-          subresource.data_size > source.payload.size() - offset) {
-        result = granit::result::invalid_argument;
-        break;
-      }
-      const auto shift = std::min(subresource.mip_level, 31U);
-      const auto width = std::max(1U, info.width >> shift);
-      const auto height = std::max(1U, info.height >> shift);
-      result = output.texture.write(
-          std::span<const std::byte>{source.payload}.subspan(
-              static_cast<std::size_t>(offset), static_cast<std::size_t>(subresource.data_size)),
-          {.offset = 0U,
-           .bytes_per_row = subresource.bytes_per_row,
-           .rows_per_image = subresource.rows_per_image},
-          {.mip_level = subresource.mip_level, .width = width, .height = height});
+    granit::upload_batch upload;
+    if (result.ok()) {
+      result = upload.initialize(renderer_.native_handle(),
+                                 {.max_staged_bytes = variant.payload_size,
+                                  .max_operation_count = variant.subresource_count});
+    }
+    if (result.ok()) {
+      result = granit::write_texture_asset_mips(
+          renderer_.native_handle(), upload.native_handle(), output.texture.native_handle(),
+          source.manifest, source.payload, selection.variant_index, 0U, info.mip_levels);
+    }
+    if (result.ok()) {
+      result = upload.submit();
     }
     if (result.ok()) {
       result = output.view.initialize(renderer_.native_handle(), output.texture.native_handle(),
