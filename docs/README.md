@@ -151,6 +151,7 @@
 - [ADR-038：渲染线程独占 GPU 对象并消费不可变任务](decisions/ADR-038-render-thread-ownership.md)
 - [ADR-042：资产构建与 Granit GPU 契约边界](decisions/ADR-042-asset-cooking-backend-boundary.md)
 - [ADR-043：KTX2 作为运行时纹理容器](decisions/ADR-043-runtime-texture-container.md)
+- [ADR-044：运行纹理封装承载 Granit Manifest 与负载](decisions/ADR-044-texture-asset-manifest-container.md)
 
 ## 实施与验收记录
 
