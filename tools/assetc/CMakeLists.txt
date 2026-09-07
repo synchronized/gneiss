@@ -20,6 +20,8 @@ add_library(
   "${PROJECT_SOURCE_DIR}/src/tooling/asset_import/import_ir.h"
   "${PROJECT_SOURCE_DIR}/src/tooling/asset_build/asset_build.cpp"
   "${PROJECT_SOURCE_DIR}/src/tooling/asset_build/asset_build.h"
+  "${PROJECT_SOURCE_DIR}/src/tooling/asset_build/bc7_encoder.cpp"
+  "${PROJECT_SOURCE_DIR}/src/tooling/asset_build/bc7_encoder.h"
   "${PROJECT_SOURCE_DIR}/src/tooling/asset_build/ktx2_probe.cpp"
   "${PROJECT_SOURCE_DIR}/src/tooling/asset_build/ktx2_probe.h"
 )
@@ -50,6 +52,14 @@ if(GNEISS_BUILD_TESTING AND BUILD_TESTING)
   gneiss_target_compile_warnings(gneiss_asset_build_test)
   gneiss_target_output_directories(gneiss_asset_build_test)
   add_test(NAME gneiss.tooling.asset_build COMMAND gneiss_asset_build_test)
+
+  add_executable(gneiss_bc7_encoder_test "${PROJECT_SOURCE_DIR}/tests/tooling/bc7_encoder_test.cpp")
+  target_include_directories(gneiss_bc7_encoder_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+  target_link_libraries(gneiss_bc7_encoder_test PRIVATE gneiss_asset_import_sdk gneiss_bc7enc)
+  target_compile_features(gneiss_bc7_encoder_test PRIVATE cxx_std_20)
+  gneiss_target_compile_warnings(gneiss_bc7_encoder_test)
+  gneiss_target_output_directories(gneiss_bc7_encoder_test)
+  add_test(NAME gneiss.tooling.bc7_encoder COMMAND gneiss_bc7_encoder_test)
 
   add_executable(
     gneiss_ktx2_probe_test

@@ -258,6 +258,7 @@
 - [M-219 0.33.0 资产构建与发布优化验收记录](records/M-219-asset-cooking-validation.md)
 - [M-228 0.34.0 离线纹理构建验收记录](records/M-228-offline-texture-validation.md)
 - [M-229 Granit 0.19.0 升级与兼容审计](records/M-229-granit-0.19-upgrade.md)
+- [M-231 BC7 私有工具依赖与确定性编码门禁](records/M-231-bc7-encoder.md)
 - [M-65 公共 API 与稳定性审计记录](records/M-65-public-api-audit.md)
 - [M-66 稳定运行时代表性样例验收记录](records/M-66-stable-runtime-sample.md)
 - [M-67 公共 API 与 ABI 加固记录](records/M-67-api-abi-hardening.md)
