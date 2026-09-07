@@ -260,6 +260,7 @@
 - [M-229 Granit 0.19.0 升级与兼容审计](records/M-229-granit-0.19-upgrade.md)
 - [M-231 BC7 私有工具依赖与确定性编码门禁](records/M-231-bc7-encoder.md)
 - [M-232 平台纹理变体构建、缓存键与包内容](records/M-232-texture-variant-build.md)
+- [M-233 Texture Manifest 检查与设备变体选择](records/M-233-texture-variant-selection.md)
 - [M-65 公共 API 与稳定性审计记录](records/M-65-public-api-audit.md)
 - [M-66 稳定运行时代表性样例验收记录](records/M-66-stable-runtime-sample.md)
 - [M-67 公共 API 与 ABI 加固记录](records/M-67-api-abi-hardening.md)
