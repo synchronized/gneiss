@@ -26,6 +26,8 @@ add_library(
   "${PROJECT_SOURCE_DIR}/src/tooling/asset_build/bc7_encoder.h"
   "${PROJECT_SOURCE_DIR}/src/tooling/asset_build/ktx2_probe.cpp"
   "${PROJECT_SOURCE_DIR}/src/tooling/asset_build/ktx2_probe.h"
+  "${PROJECT_SOURCE_DIR}/src/tooling/asset_build/runtime_texture_builder.cpp"
+  "${PROJECT_SOURCE_DIR}/src/tooling/asset_build/runtime_texture_builder.h"
   "${PROJECT_SOURCE_DIR}/src/tooling/asset_build/sha256.cpp"
   "${PROJECT_SOURCE_DIR}/src/tooling/asset_build/sha256.h"
 )
@@ -33,7 +35,8 @@ target_include_directories(
   gneiss_asset_import_sdk PUBLIC "${PROJECT_SOURCE_DIR}/src" "${PROJECT_SOURCE_DIR}/include"
 )
 target_link_libraries(
-  gneiss_asset_import_sdk PRIVATE fastgltf::fastgltf gneiss_bc7enc gneiss_yyjson gneiss_png
+  gneiss_asset_import_sdk
+  PRIVATE fastgltf::fastgltf gneiss_bc7enc gneiss_yyjson gneiss_png granit::granit
 )
 target_compile_features(gneiss_asset_import_sdk PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_asset_import_sdk)
@@ -72,6 +75,21 @@ if(GNEISS_BUILD_TESTING AND BUILD_TESTING)
   gneiss_target_compile_warnings(gneiss_sha256_test)
   gneiss_target_output_directories(gneiss_sha256_test)
   add_test(NAME gneiss.tooling.sha256 COMMAND gneiss_sha256_test)
+
+  add_executable(
+    gneiss_runtime_texture_builder_test
+    "${PROJECT_SOURCE_DIR}/tests/tooling/runtime_texture_builder_test.cpp"
+  )
+  target_include_directories(
+    gneiss_runtime_texture_builder_test PRIVATE "${PROJECT_SOURCE_DIR}/src"
+  )
+  target_link_libraries(
+    gneiss_runtime_texture_builder_test PRIVATE gneiss_asset_import_sdk granit::granit
+  )
+  target_compile_features(gneiss_runtime_texture_builder_test PRIVATE cxx_std_20)
+  gneiss_target_compile_warnings(gneiss_runtime_texture_builder_test)
+  gneiss_target_output_directories(gneiss_runtime_texture_builder_test)
+  add_test(NAME gneiss.tooling.runtime_texture_builder COMMAND gneiss_runtime_texture_builder_test)
 
   add_executable(
     gneiss_ktx2_probe_test
