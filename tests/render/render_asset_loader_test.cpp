@@ -4,12 +4,15 @@
 #include "asset/file_system.h"
 #include "asset/mesh_binary.h"
 #include "asset/resource_cache.h"
+#include "asset/texture_binary.h"
 #include "asset/texture_ktx2.h"
 #include "asset/virtual_file_system.h"
 #include "render/render_asset_loader.h"
 #include "render/render_resource_service.h"
 
 #include <gneiss/core/result.h>
+
+#include <granit/renderer/texture_asset.hpp>
 
 #include <array>
 #include <cstddef>
@@ -85,6 +88,44 @@ indexed_mesh_is_preserved(gneiss::render_internal::render_asset_loader& loader,
          resource->indices.size() == 6U && resource->indices[5] == 3U;
 }
 
+[[nodiscard]] std::vector<std::byte> make_runtime_texture() {
+  granit::texture_asset_info info{.content_id = {},
+                                  .dimension = GRANIT_TEXTURE_DIMENSION_2D,
+                                  .width = 1U,
+                                  .height = 1U,
+                                  .depth = 1U,
+                                  .array_layers = 1U,
+                                  .mip_levels = 1U,
+                                  .variants = {},
+                                  .subresources = {}};
+  info.content_id[0] = std::byte{1U};
+  granit_texture_asset_variant_info variant{};
+  variant.format = GRANIT_TEXTURE_FORMAT_RGBA8_SRGB;
+  variant.usage = GRANIT_TEXTURE_USAGE_SAMPLED_BIT | GRANIT_TEXTURE_USAGE_TRANSFER_DESTINATION_BIT;
+  variant.subresource_count = 1U;
+  variant.payload_size = 4U;
+  info.variants.push_back(variant);
+  info.subresources.push_back({.mip_level = 0U,
+                               .array_layer = 0U,
+                               .data_offset = 0U,
+                               .data_size = 4U,
+                               .bytes_per_row = 4U,
+                               .rows_per_image = 1U,
+                               .reserved = {0U, 0U}});
+  std::vector<std::byte> manifest;
+  if (granit::encode_texture_asset(info, manifest) != granit::result::success) {
+    return {};
+  }
+  const std::array payload = {std::byte{0xff}, std::byte{0xff}, std::byte{0xff}, std::byte{0xff}};
+  std::vector<std::byte> output;
+  std::string diagnostic;
+  if (gneiss::asset_internal::encode_texture_binary(manifest, payload, output, diagnostic) !=
+      gneiss::asset_internal::texture_binary_result::success) {
+    return {};
+  }
+  return output;
+}
+
 } // namespace
 
 int main() try { // NOLINT(readability-function-cognitive-complexity)：集成测试按返回码定位阶段。
@@ -126,6 +167,16 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
   memory->files.emplace(
       "textures/linear.texture.json",
       R"({"format":"gneiss.texture","version":1,"source":"asset://textures/linear.ktx2","color_space":"linear"})");
+  const auto packaged_bytes = make_runtime_texture();
+  if (packaged_bytes.empty()) {
+    return 26;
+  }
+  memory->files.emplace(
+      "textures/packaged.gneiss-texture",
+      std::string(reinterpret_cast<const char*>(packaged_bytes.data()), packaged_bytes.size()));
+  memory->files.emplace(
+      "textures/packaged.texture.json",
+      R"({"format":"gneiss.texture","version":1,"source":"asset://textures/packaged.gneiss-texture","color_space":"srgb"})");
   memory->files.emplace(
       "models/textured.mesh.json",
       R"({"format":"gneiss.mesh","version":2,"topology":"triangle_list","vertices":[[-0.5,-0.5,0],[0.5,-0.5,0],[0,0.5,0]],"uvs":[[0,0],[1,0],[0.5,1]]})");
@@ -308,6 +359,18 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
     return 25;
   }
   ktx_texture = {};
+
+  gneiss::render_internal::texture_asset_lease packaged_texture;
+  if (loader.acquire_texture("asset://textures/packaged.texture.json", packaged_texture,
+                             diagnostic) != GNEISS_SUCCESS) {
+    return 27;
+  }
+  const auto* packaged_resource = resources.get_texture(packaged_texture.get());
+  if (packaged_resource == nullptr || !packaged_resource->levels.empty() ||
+      packaged_resource->manifest.empty() || packaged_resource->payload.size() != 4U) {
+    return 28;
+  }
+  packaged_texture = {};
 
   first_mesh = {};
   second_mesh = {};

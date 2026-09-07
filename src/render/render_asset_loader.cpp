@@ -4,12 +4,15 @@
 #include "render/render_asset_loader.h"
 
 #include "asset/mesh_binary.h"
+#include "asset/texture_binary.h"
 #include "asset/texture_ktx2.h"
 #include "asset/virtual_file_system.h"
 #include "render/png_decoder.h"
 #include "render/render_resource_service.h"
 
 #include <yyjson.h>
+
+#include <granit/renderer/texture_asset.hpp>
 
 #include <algorithm>
 #include <array>
@@ -591,7 +594,56 @@ gneiss_result render_asset_loader::acquire_texture(std::string_view uri,
           return result;
         }
         gneiss_texture rid = GNEISS_NULL_TEXTURE;
-        if (std::string_view(source.uri).ends_with(".ktx2")) {
+        if (std::string_view(source.uri).ends_with(".gneiss-texture")) {
+          asset_internal::texture_binary_view binary;
+          std::string decode_message;
+          if (asset_internal::decode_texture_binary(image_bytes, binary, decode_message) !=
+              asset_internal::texture_binary_result::success) {
+            fail(out_diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/source",
+                 decode_message.empty() ? "运行纹理封装检查失败" : decode_message);
+            return GNEISS_ERROR_INVALID_ARGUMENT;
+          }
+          granit::texture_asset_info info;
+          if (granit::inspect_texture_asset(binary.manifest, info) != granit::result::success ||
+              info.dimension != GRANIT_TEXTURE_DIMENSION_2D || info.depth != 1U ||
+              info.array_layers != 1U) {
+            fail(out_diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/source",
+                 "Granit Texture Asset Manifest 无效或不是二维单层纹理");
+            return GNEISS_ERROR_INVALID_ARGUMENT;
+          }
+          const auto srgb = source.color_space == GNEISS_TEXTURE_COLOR_SPACE_SRGB;
+          const auto matches_color_space = [srgb](const auto& variant) {
+            return srgb ? variant.format == GRANIT_TEXTURE_FORMAT_BC7_RGBA_SRGB ||
+                              variant.format == GRANIT_TEXTURE_FORMAT_RGBA8_SRGB
+                        : variant.format == GRANIT_TEXTURE_FORMAT_BC7_RGBA_UNORM ||
+                              variant.format == GRANIT_TEXTURE_FORMAT_RGBA8_UNORM;
+          };
+          const auto payload_in_bounds = [&binary](const auto& variant) {
+            return variant.payload_offset <= binary.payload.size() &&
+                   variant.payload_size <= binary.payload.size() - variant.payload_offset;
+          };
+          const auto fallback_format =
+              srgb ? GRANIT_TEXTURE_FORMAT_RGBA8_SRGB : GRANIT_TEXTURE_FORMAT_RGBA8_UNORM;
+          const auto has_fallback =
+              std::ranges::any_of(info.variants, [fallback_format](const auto& variant) {
+                return variant.format == fallback_format;
+              });
+          if (!std::ranges::all_of(info.variants, matches_color_space) ||
+              !std::ranges::all_of(info.variants, payload_in_bounds) || !has_fallback) {
+            fail(out_diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/source",
+                 "运行纹理变体颜色空间、负载边界或 RGBA8 回退无效");
+            return GNEISS_ERROR_INVALID_ARGUMENT;
+          }
+          result = resources_.create_packaged_texture(
+              {.width = info.width,
+               .height = info.height,
+               .format = GNEISS_TEXTURE_FORMAT_RGBA8_UNORM,
+               .color_space = source.color_space,
+               .levels = {},
+               .manifest = std::vector<std::byte>(binary.manifest.begin(), binary.manifest.end()),
+               .payload = std::vector<std::byte>(binary.payload.begin(), binary.payload.end())},
+              &rid);
+        } else if (std::string_view(source.uri).ends_with(".ktx2")) {
           asset_internal::texture_ktx2 texture;
           std::string decode_message;
           const auto decoded =
@@ -616,7 +668,9 @@ gneiss_result render_asset_loader::acquire_texture(std::string_view uri,
                                               .height = height,
                                               .format = GNEISS_TEXTURE_FORMAT_RGBA8_UNORM,
                                               .color_space = source.color_space,
-                                              .levels = std::move(levels)},
+                                              .levels = std::move(levels),
+                                              .manifest = {},
+                                              .payload = {}},
                                              &rid);
         } else {
           decoded_png image;

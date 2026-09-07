@@ -3,6 +3,8 @@
 
 #include "render/granit/granit_render_service.h"
 
+#include <granit/renderer/texture_asset.hpp>
+
 #include <granit/pipeline/pbr_material.h>
 
 #include <algorithm>
@@ -154,6 +156,59 @@ granit::result
 granit_render_service::create_texture_mirror(const render_internal::texture_resource& source,
                                              texture_mirror& output) noexcept {
   output.source = &source;
+  if (!source.manifest.empty()) {
+    granit::texture_asset_info info;
+    granit::texture_asset_selection selection;
+    auto result = granit::inspect_texture_asset(source.manifest, info);
+    if (result.ok()) {
+      result = granit::select_texture_asset_variant(renderer_.native_handle(), source.manifest,
+                                                    selection);
+    }
+    if (result.failed() || selection.variant_index >= info.variants.size()) {
+      output.source = nullptr;
+      return result.failed() ? result : granit::result::invalid_argument;
+    }
+    const auto& variant = info.variants[selection.variant_index];
+    const auto format = static_cast<granit::texture_format>(selection.format);
+    result = output.texture.initialize(
+        renderer_.native_handle(),
+        {.dimension = granit::texture_dimension::two_dimensional,
+         .format = format,
+         .usage = granit::texture_usage::sampled | granit::texture_usage::transfer_destination,
+         .location = granit::memory_location::device,
+         .width = info.width,
+         .height = info.height,
+         .mip_levels = info.mip_levels});
+    for (std::uint32_t index = 0U; result.ok() && index < variant.subresource_count; ++index) {
+      const auto& subresource = info.subresources[variant.first_subresource + index];
+      const auto offset = variant.payload_offset + subresource.data_offset;
+      if (offset > source.payload.size() ||
+          subresource.data_size > source.payload.size() - offset) {
+        result = granit::result::invalid_argument;
+        break;
+      }
+      const auto shift = std::min(subresource.mip_level, 31U);
+      const auto width = std::max(1U, info.width >> shift);
+      const auto height = std::max(1U, info.height >> shift);
+      result = output.texture.write(
+          std::span<const std::byte>{source.payload}.subspan(
+              static_cast<std::size_t>(offset), static_cast<std::size_t>(subresource.data_size)),
+          {.offset = 0U,
+           .bytes_per_row = subresource.bytes_per_row,
+           .rows_per_image = subresource.rows_per_image},
+          {.mip_level = subresource.mip_level, .width = width, .height = height});
+    }
+    if (result.ok()) {
+      result = output.view.initialize(renderer_.native_handle(), output.texture.native_handle(),
+                                      {.format = format});
+    }
+    if (result.failed()) {
+      static_cast<void>(output.view.reset());
+      static_cast<void>(output.texture.reset());
+      output.source = nullptr;
+    }
+    return result;
+  }
   const auto format = source.color_space == GNEISS_TEXTURE_COLOR_SPACE_SRGB
                           ? granit::texture_format::rgba8_srgb
                           : granit::texture_format::rgba8_unorm;
@@ -354,10 +409,12 @@ granit::result granit_render_service::ensure_default_textures() noexcept {
         .height = 1,
         .format = GNEISS_TEXTURE_FORMAT_RGBA8_UNORM,
         .color_space = GNEISS_TEXTURE_COLOR_SPACE_SRGB,
-        .levels = {
-            {.width = 1U,
-             .height = 1U,
-             .pixels = {std::byte{0xff}, std::byte{0xff}, std::byte{0xff}, std::byte{0xff}}}}};
+        .levels = {{.width = 1U,
+                    .height = 1U,
+                    .pixels = {std::byte{0xff}, std::byte{0xff}, std::byte{0xff},
+                               std::byte{0xff}}}},
+        .manifest = {},
+        .payload = {}};
     render_internal::texture_resource white_linear = white_srgb;
     white_linear.color_space = GNEISS_TEXTURE_COLOR_SPACE_LINEAR;
     render_internal::texture_resource normal_linear = white_linear;

@@ -38,6 +38,8 @@ struct texture_resource {
   std::uint32_t format;
   std::uint32_t color_space;
   std::vector<asset_internal::texture_mip> levels;
+  std::vector<std::byte> manifest;
+  std::vector<std::byte> payload;
 };
 
 class render_resource_service final {
@@ -56,6 +58,9 @@ public:
   /** 创建已经过容器校验的内部多 Mip Texture。 */
   [[nodiscard]] gneiss_result create_texture(texture_resource resource,
                                              gneiss_texture* out_texture) noexcept;
+  /** 保存已经过外层容器与 Granit Manifest 检查的运行纹理。 */
+  [[nodiscard]] gneiss_result create_packaged_texture(texture_resource resource,
+                                                      gneiss_texture* out_texture) noexcept;
   [[nodiscard]] gneiss_result destroy_texture(gneiss_texture texture) noexcept;
   [[nodiscard]] const mesh_resource* get_mesh(gneiss_mesh mesh) const noexcept;
   [[nodiscard]] const material_resource* get_material(gneiss_material material) const noexcept;

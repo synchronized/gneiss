@@ -645,6 +645,7 @@ add_executable(
   render/render_asset_loader_test.cpp
   "${PROJECT_SOURCE_DIR}/src/asset/asset_uri.cpp"
   "${PROJECT_SOURCE_DIR}/src/asset/mesh_binary.cpp"
+  "${PROJECT_SOURCE_DIR}/src/asset/texture_binary.cpp"
   "${PROJECT_SOURCE_DIR}/src/asset/texture_ktx2.cpp"
   "${PROJECT_SOURCE_DIR}/src/asset/resource_cache.cpp"
   "${PROJECT_SOURCE_DIR}/src/asset/virtual_file_system.cpp"
@@ -655,7 +656,7 @@ add_executable(
 target_include_directories(gneiss_render_asset_loader_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_definitions(gneiss_render_asset_loader_test PRIVATE GNEISS_BUILDING_LIBRARY)
 target_link_libraries(
-  gneiss_render_asset_loader_test PRIVATE gneiss::engine gneiss_yyjson gneiss_png
+  gneiss_render_asset_loader_test PRIVATE gneiss::engine gneiss_yyjson gneiss_png granit::granit
 )
 target_compile_features(gneiss_render_asset_loader_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_render_asset_loader_test)
