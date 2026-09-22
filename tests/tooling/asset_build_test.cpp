@@ -116,8 +116,8 @@ int main() {
       granit::inspect_texture_asset(texture_binary.manifest, texture_info) !=
           granit::result::success ||
       texture_info.variants.size() != 2U ||
-      texture_info.variants[0].format != GRANIT_TEXTURE_FORMAT_BC7_RGBA_SRGB ||
-      texture_info.variants[1].format != GRANIT_TEXTURE_FORMAT_RGBA8_SRGB) {
+      texture_info.variants[0].format != granit::texture_format::bc7_rgba_srgb ||
+      texture_info.variants[1].format != granit::texture_format::rgba8_srgb) {
     return 3;
   }
   auto second_request = development;

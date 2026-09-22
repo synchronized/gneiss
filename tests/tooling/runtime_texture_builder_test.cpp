@@ -38,8 +38,8 @@ int main() { // NOLINT(bugprone-exception-escape)
   if (granit::inspect_texture_asset(binary.manifest, info) != granit::result::success ||
       info.width != 2U || info.height != 2U || info.mip_levels != 2U ||
       info.variants.size() != 2U || info.subresources.size() != 4U ||
-      info.variants[0].format != GRANIT_TEXTURE_FORMAT_BC7_RGBA_SRGB ||
-      info.variants[1].format != GRANIT_TEXTURE_FORMAT_RGBA8_SRGB ||
+      info.variants[0].format != granit::texture_format::bc7_rgba_srgb ||
+      info.variants[1].format != granit::texture_format::rgba8_srgb ||
       info.variants[1].payload_offset != 32U || binary.payload.size() != 52U) {
     return 3;
   }

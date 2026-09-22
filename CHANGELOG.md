@@ -7,7 +7,8 @@
 
 ## 未发布
 
-- Granit 基线升级至 0.23.0，接入无可见物体时继续清屏和提交 UI 的上游修复。
+- Granit 基线升级至 0.28.0，保留无可见物体时清屏和提交 UI 的修复；接入统一 Window/Input、
+  强类型 C++ 资源引用和 AssetTools 头文件，移除独立 Input 运行时依赖。
 - 标准 PBR 接入 Shader Library；离线纹理 Manifest 改由独立 AssetTools SDK 构建，并更新纹理
   处理器缓存版本。Runtime 不依赖 AssetTools。
 

@@ -12,7 +12,7 @@
 
 #include <gneiss/core/result.h>
 
-#include <granit/tools/texture_builder.hpp>
+#include <granit/asset_tools/texture_builder.hpp>
 
 #include <array>
 #include <cstddef>
@@ -90,16 +90,16 @@ indexed_mesh_is_preserved(gneiss::render_internal::render_asset_loader& loader,
 
 [[nodiscard]] std::vector<std::byte> make_runtime_texture() {
   const std::array payload = {std::byte{0xff}, std::byte{0xff}, std::byte{0xff}, std::byte{0xff}};
-  const std::array subresources{granit_texture_asset_subresource_info{.mip_level = 0U,
-                                                                      .array_layer = 0U,
-                                                                      .data_offset = 0U,
-                                                                      .data_size = 4U,
-                                                                      .bytes_per_row = 4U,
-                                                                      .rows_per_image = 1U,
-                                                                      .reserved = {0U, 0U}}};
+  const std::array subresources{
+      granit::asset_tools::texture::subresource_info{.mip_level = 0U,
+                                                     .array_layer = 0U,
+                                                     .data_offset = 0U,
+                                                     .data_size = 4U,
+                                                     .bytes_per_row = 4U,
+                                                     .rows_per_image = 1U}};
   const std::array variants{granit::asset_tools::texture::variant_desc{
-      .format = GRANIT_TEXTURE_FORMAT_RGBA8_SRGB,
-      .usage = GRANIT_TEXTURE_USAGE_SAMPLED_BIT | GRANIT_TEXTURE_USAGE_TRANSFER_DESTINATION_BIT,
+      .format = granit::texture_format::rgba8_srgb,
+      .usage = granit::texture_usage::sampled | granit::texture_usage::transfer_destination,
       .payload = payload,
       .subresources = subresources}};
   const auto [status, built] = granit::asset_tools::texture::build({.variants = variants});

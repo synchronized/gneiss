@@ -7,7 +7,7 @@
 
 #include "asset/texture_binary.h"
 
-#include <granit/tools/texture_builder.hpp>
+#include <granit/asset_tools/texture_builder.hpp>
 
 #include <array>
 
@@ -22,8 +22,8 @@
 namespace gneiss::tooling::asset_build {
 namespace {
 
-constexpr granit_texture_usage texture_usage =
-    GRANIT_TEXTURE_USAGE_SAMPLED_BIT | GRANIT_TEXTURE_USAGE_TRANSFER_DESTINATION_BIT;
+constexpr granit::texture_usage texture_usage =
+    granit::texture_usage::sampled | granit::texture_usage::transfer_destination;
 
 [[nodiscard]] runtime_texture_build_result fail(runtime_texture_build_result result,
                                                 std::string_view message,
@@ -51,7 +51,7 @@ runtime_texture_build_result build_runtime_texture(const asset_internal::texture
   try {
     std::vector<std::byte> bc7_payload;
     std::vector<std::byte> rgba_payload;
-    std::vector<granit_texture_asset_subresource_info> subresources;
+    std::vector<granit::asset_tools::texture::subresource_info> subresources;
     subresources.reserve(source.levels.size() * 2U);
 
     auto expected_width = source.levels.front().width;
@@ -86,15 +86,12 @@ runtime_texture_build_result build_runtime_texture(const asset_internal::texture
       }
       const auto offset = bc7_payload.size();
       bc7_payload.insert(bc7_payload.end(), encoded.blocks.begin(), encoded.blocks.end());
-      subresources.push_back({
-          .mip_level = mip,
-          .array_layer = 0U,
-          .data_offset = offset,
-          .data_size = encoded.blocks.size(),
-          .bytes_per_row = encoded.block_columns * 16U,
-          .rows_per_image = encoded.block_rows,
-          .reserved = {0U, 0U},
-      });
+      subresources.push_back({.mip_level = mip,
+                              .array_layer = 0U,
+                              .data_offset = offset,
+                              .data_size = encoded.blocks.size(),
+                              .bytes_per_row = encoded.block_columns * 16U,
+                              .rows_per_image = encoded.block_rows});
       expected_width = std::max(1U, expected_width / 2U);
       expected_height = std::max(1U, expected_height / 2U);
     }
@@ -104,38 +101,35 @@ runtime_texture_build_result build_runtime_texture(const asset_internal::texture
       const auto& level = source.levels[mip];
       const auto offset = rgba_payload.size();
       rgba_payload.insert(rgba_payload.end(), level.pixels.begin(), level.pixels.end());
-      subresources.push_back({
-          .mip_level = mip,
-          .array_layer = 0U,
-          .data_offset = offset,
-          .data_size = level.pixels.size(),
-          .bytes_per_row = level.width * 4U,
-          .rows_per_image = level.height,
-          .reserved = {0U, 0U},
-      });
+      subresources.push_back({.mip_level = mip,
+                              .array_layer = 0U,
+                              .data_offset = offset,
+                              .data_size = level.pixels.size(),
+                              .bytes_per_row = level.width * 4U,
+                              .rows_per_image = level.height});
     }
 
     const auto layouts = std::span{subresources};
     const std::array variants{
         granit::asset_tools::texture::variant_desc{
             .format = source.transfer == asset_internal::texture_transfer::srgb
-                          ? GRANIT_TEXTURE_FORMAT_BC7_RGBA_SRGB
-                          : GRANIT_TEXTURE_FORMAT_BC7_RGBA_UNORM,
+                          ? granit::texture_format::bc7_rgba_srgb
+                          : granit::texture_format::bc7_rgba_unorm,
             .usage = texture_usage,
             .payload = bc7_payload,
             .subresources = layouts.first(rgba_first_subresource),
         },
         granit::asset_tools::texture::variant_desc{
             .format = source.transfer == asset_internal::texture_transfer::srgb
-                          ? GRANIT_TEXTURE_FORMAT_RGBA8_SRGB
-                          : GRANIT_TEXTURE_FORMAT_RGBA8_UNORM,
+                          ? granit::texture_format::rgba8_srgb
+                          : granit::texture_format::rgba8_unorm,
             .usage = texture_usage,
             .payload = rgba_payload,
             .subresources = layouts.subspan(rgba_first_subresource),
         },
     };
     const granit::asset_tools::texture::build_desc desc{
-        .dimension = GRANIT_TEXTURE_DIMENSION_2D,
+        .dimension = granit::texture_dimension::two_dimensional,
         .width = source.levels.front().width,
         .height = source.levels.front().height,
         .depth = 1U,

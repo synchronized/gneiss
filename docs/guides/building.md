@@ -13,8 +13,8 @@ Editor。
 - CMake 3.23 或更高版本。
 - 支持 C++20 的 C/C++ 编译器。
 - 使用 Ninja preset 时需要安装 Ninja。
-- 启用 Granit 运行时适配时需要已安装的 Granit `0.23.0+` 核心、Window、Input 与 RenderPipeline
-  组件，或由父工程提供 `granit::granit`、`granit::window`、`granit::input` 和
+- 启用 Granit 运行时适配时需要已安装的 Granit `0.28.0+` 核心、Window 与 RenderPipeline
+  组件，或由父工程提供 `granit::granit`、`granit::window` 和
   `granit::render_pipeline` 目标。
 - 离线工具或测试还需要 Granit `AssetTools` 组件。FETCH 自动启用其 SDK；PACKAGE 或父工程模式
   必须提供 `granit::asset_tools`。引擎 Runtime 不链接该工具组件。
@@ -145,7 +145,7 @@ ctest --test-dir build/granit-platform --output-on-failure
 
 使用 `GNEISS_GRANIT_PROVIDER=FETCH` 可以强制验证下载路径，跳过 package 查找。仓库镜像和版本可
 通过 `GNEISS_GRANIT_GIT_REPOSITORY`、`GNEISS_GRANIT_GIT_TAG` 覆盖。若父工程已经定义
-`granit::granit`、`granit::window`、`granit::input` 与 `granit::render_pipeline`，所有 provider
+`granit::granit`、`granit::window` 与 `granit::render_pipeline`，所有 provider
 都会优先直接复用。项目会自动更新仍沿用旧默认提交的构建目录，但不会改写其他自定义提交；若需
 刻意固定旧默认提交，同时设置 `GNEISS_GRANIT_UPDATE_DEFAULTS=OFF`。Windows 使用共享库 package
 时，构建会把 Granit 的运行时 DLL 自动复制到 Gneiss 的运行时输出目录，无需手动修改 `PATH`。

@@ -36,10 +36,6 @@ endif()
 if(GNEISS_BUILD_TOOLS OR GNEISS_BUILD_TESTING)
   gneiss_resolve_granit_tools()
 endif()
-if(GNEISS_BUILD_TESTING AND TARGET granit_asset_tool)
-  # 安装测试消费完整的 FETCH SDK；AssetTools 组件同时安装库与 CLI。
-  add_custom_target(gneiss_granit_sdk_test_dependencies ALL DEPENDS granit_asset_tool)
-endif()
 include(CTest)
 
 add_subdirectory(3rd)
@@ -121,7 +117,7 @@ if(TARGET gneiss_runtime)
   )
   foreach(
     granit_runtime_target
-    IN ITEMS granit::granit granit::window granit::input granit::render_pipeline
+    IN ITEMS granit::granit granit::window granit::render_pipeline
   )
     if(TARGET ${granit_runtime_target})
       get_target_property(granit_runtime_type ${granit_runtime_target} TYPE)

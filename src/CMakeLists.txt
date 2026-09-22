@@ -206,7 +206,7 @@ if(GNEISS_ENABLE_GRANIT_PLATFORM)
   target_compile_definitions(gneiss_engine PRIVATE GNEISS_HAS_GRANIT_PLATFORM)
   target_include_directories(gneiss_engine PRIVATE "${gneiss_pbr_embedded_dir}")
   target_link_libraries(
-    gneiss_engine PRIVATE granit::granit granit::window granit::input granit::render_pipeline
+    gneiss_engine PRIVATE granit::granit granit::window granit::render_pipeline
   )
   add_custom_command(
     TARGET gneiss_engine

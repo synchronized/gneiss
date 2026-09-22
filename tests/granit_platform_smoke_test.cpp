@@ -2,7 +2,12 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include <gneiss/application.hpp>
+#include <gneiss/input.h>
 #include <gneiss/scene.h>
+
+#ifdef _WIN32
+#include <windows.h>
+#endif
 
 #include <array>
 #include <cstdio>
@@ -12,11 +17,20 @@ namespace {
 
 struct smoke_context final {
   gneiss_texture texture = GNEISS_NULL_TEXTURE;
+  bool received_key{};
 };
 
 gneiss_result submit_ui(gneiss_application application, const gneiss_frame_time* /*time*/,
                         void* user_data) {
-  const auto& context = *static_cast<const smoke_context*>(user_data);
+  auto& context = *static_cast<smoke_context*>(user_data);
+  gneiss_input_event event = GNEISS_INPUT_EVENT_INIT;
+  while (gneiss_application_poll_input(application, &event) == GNEISS_SUCCESS) {
+    if (event.type == GNEISS_INPUT_EVENT_KEY &&
+        event.data.key.physical_key == GNEISS_PHYSICAL_KEY_A &&
+        event.data.key.action == GNEISS_KEY_PRESSED) {
+      context.received_key = true;
+    }
+  }
   constexpr std::array vertices{
       gneiss_ui_vertex{{16.0F, 16.0F}, {0.0F, 0.0F}, UINT32_C(0xccffffff)},
       gneiss_ui_vertex{{144.0F, 16.0F}, {1.0F, 0.0F}, UINT32_C(0xccffffff)},
@@ -105,6 +119,25 @@ int main() {
     return 2;
   }
   context.texture = texture.get();
+#ifdef _WIN32
+  // 投递真实窗口消息，验证显式事件泵送及强类型输入到 Gneiss ABI 的转换。
+  const auto window = FindWindowW(nullptr, L"Gneiss Granit Platform Smoke Test");
+  if (window == nullptr || !PostMessageW(window, WM_KEYDOWN, 'A', 0x001e0001) ||
+      !PostMessageW(window, WM_KEYUP, 'A', static_cast<LPARAM>(0xc01e0001U))) {
+    return 9;
+  }
+#endif
+  // 先验证没有相机和场景物体的 UI 帧，再验证常规场景及资源更新。
+  if (application.run(2) != gneiss::result::success) {
+    std::fprintf(stderr, "纯 UI 帧运行失败\n");
+    return 10;
+  }
+#ifdef _WIN32
+  if (!context.received_key) {
+    std::fprintf(stderr, "窗口按键消息未到达 Application\n");
+    return 11;
+  }
+#endif
   if (application.create_mesh(mesh_desc, mesh) != gneiss::result::success ||
       application.create_material(material_desc, plain_material) != gneiss::result::success) {
     std::fprintf(stderr, "测试基础资源创建失败\n");

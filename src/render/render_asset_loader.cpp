@@ -605,7 +605,7 @@ gneiss_result render_asset_loader::acquire_texture(std::string_view uri,
           }
           granit::texture_asset_info info;
           if (granit::inspect_texture_asset(binary.manifest, info) != granit::result::success ||
-              info.dimension != GRANIT_TEXTURE_DIMENSION_2D || info.depth != 1U ||
+              info.dimension != granit::texture_dimension::two_dimensional || info.depth != 1U ||
               info.array_layers != 1U) {
             fail(out_diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/source",
                  "Granit Texture Asset Manifest 无效或不是二维单层纹理");
@@ -613,17 +613,17 @@ gneiss_result render_asset_loader::acquire_texture(std::string_view uri,
           }
           const auto srgb = source.color_space == GNEISS_TEXTURE_COLOR_SPACE_SRGB;
           const auto matches_color_space = [srgb](const auto& variant) {
-            return srgb ? variant.format == GRANIT_TEXTURE_FORMAT_BC7_RGBA_SRGB ||
-                              variant.format == GRANIT_TEXTURE_FORMAT_RGBA8_SRGB
-                        : variant.format == GRANIT_TEXTURE_FORMAT_BC7_RGBA_UNORM ||
-                              variant.format == GRANIT_TEXTURE_FORMAT_RGBA8_UNORM;
+            return srgb ? variant.format == granit::texture_format::bc7_rgba_srgb ||
+                              variant.format == granit::texture_format::rgba8_srgb
+                        : variant.format == granit::texture_format::bc7_rgba_unorm ||
+                              variant.format == granit::texture_format::rgba8_unorm;
           };
           const auto payload_in_bounds = [&binary](const auto& variant) {
             return variant.payload_offset <= binary.payload.size() &&
                    variant.payload_size <= binary.payload.size() - variant.payload_offset;
           };
           const auto fallback_format =
-              srgb ? GRANIT_TEXTURE_FORMAT_RGBA8_SRGB : GRANIT_TEXTURE_FORMAT_RGBA8_UNORM;
+              srgb ? granit::texture_format::rgba8_srgb : granit::texture_format::rgba8_unorm;
           const auto has_fallback =
               std::ranges::any_of(info.variants, [fallback_format](const auto& variant) {
                 return variant.format == fallback_format;

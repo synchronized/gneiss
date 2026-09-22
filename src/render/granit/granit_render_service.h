@@ -108,7 +108,7 @@ private:
   granit::swapchain swapchain_;
   granit::render_pipeline pipeline_;
   granit::environment_map environment_;
-  granit_environment_map_info environment_info_{};
+  granit::environment_map_info environment_info_{};
   pbr_shader_resolver pbr_assets_;
   granit::shader_library pbr_library_;
   granit::sampler sampler_;
