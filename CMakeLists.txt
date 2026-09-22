@@ -27,9 +27,18 @@ endif()
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 include(gneiss_utility)
-if(GNEISS_ENABLE_GRANIT_PLATFORM)
+if(GNEISS_ENABLE_GRANIT_PLATFORM OR GNEISS_BUILD_TOOLS OR GNEISS_BUILD_TESTING)
   include(granit)
+endif()
+if(GNEISS_ENABLE_GRANIT_PLATFORM)
   gneiss_resolve_granit_runtime()
+endif()
+if(GNEISS_BUILD_TOOLS OR GNEISS_BUILD_TESTING)
+  gneiss_resolve_granit_tools()
+endif()
+if(GNEISS_BUILD_TESTING AND TARGET granit_asset_tool)
+  # 安装测试消费完整的 FETCH SDK；AssetTools 组件同时安装库与 CLI。
+  add_custom_target(gneiss_granit_sdk_test_dependencies ALL DEPENDS granit_asset_tool)
 endif()
 include(CTest)
 
@@ -97,13 +106,8 @@ install(
 if(GNEISS_ENABLE_GRANIT_PLATFORM)
   install(
     FILES
-      "${GNEISS_GRANIT_RENDER_PIPELINE_ASSET_DIR}/shaders/pbr/pbr_standard.vert.grshader"
-      "${GNEISS_GRANIT_RENDER_PIPELINE_ASSET_DIR}/shaders/pbr/pbr_standard.vert.grshader.spv"
-      "${GNEISS_GRANIT_RENDER_PIPELINE_ASSET_DIR}/shaders/pbr/pbr_standard.vert.grshader.wgsl"
-      "${GNEISS_GRANIT_RENDER_PIPELINE_ASSET_DIR}/shaders/pbr/pbr_standard.frag.grshader"
-      "${GNEISS_GRANIT_RENDER_PIPELINE_ASSET_DIR}/shaders/pbr/pbr_standard.frag.grshader.spv"
-      "${GNEISS_GRANIT_RENDER_PIPELINE_ASSET_DIR}/shaders/pbr/pbr_standard.frag.grshader.wgsl"
-    DESTINATION "${CMAKE_INSTALL_DATADIR}/gneiss/runtime-assets/granit/shaders/pbr"
+      "${GNEISS_GRANIT_RENDER_PIPELINE_ASSET_DIR}/libraries/pbr_standard.grshlib"
+    DESTINATION "${CMAKE_INSTALL_DATADIR}/gneiss/runtime-assets/granit/libraries"
   )
   install(
     FILES "${GNEISS_GRANIT_RENDER_PIPELINE_ASSET_DIR}/materials/pbr_standard.grmat"

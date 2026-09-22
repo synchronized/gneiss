@@ -3,6 +3,7 @@
 
 #include "render/granit/granit_render_service.h"
 
+#include <granit/core/version.h>
 #include <granit/renderer/texture_asset.hpp>
 #include <granit/renderer/upload_batch.hpp>
 
@@ -21,6 +22,9 @@
 
 namespace gneiss::application_internal {
 namespace {
+
+static_assert(GRANIT_VERSION_MAJOR > 0 || GRANIT_VERSION_MINOR >= 23,
+              "Gneiss requires Granit 0.23 or newer for empty-frame submission");
 
 gneiss_result map_result(granit::result result) noexcept {
   switch (result.native()) {
@@ -141,6 +145,10 @@ granit::result append_mesh_geometry(const render_internal::mesh_resource& source
 granit::result granit_render_service::initialize_pipeline() noexcept {
   if (const auto result = pbr_assets_.initialize_embedded(); result != GRANIT_SUCCESS)
     return granit::from_native(result);
+  if (const auto result =
+          pbr_library_.initialize(renderer_.native_handle(), pbr_assets_.shader_archive());
+      result.failed())
+    return result;
   granit_render_pipeline_desc desc = GRANIT_RENDER_PIPELINE_DESC_INIT;
   auto result = pipeline_.initialize(renderer_.native_handle(), desc);
   if (result.ok()) {
@@ -294,8 +302,7 @@ granit_render_service::create_material_mirror(const render_internal::material_re
   desc.archive_size = archive.size();
   desc.initial_updates = updates.data();
   desc.initial_update_count = static_cast<std::uint32_t>(updates.size());
-  desc.shader_resolver = pbr_shader_resolver::resolve;
-  desc.shader_resolver_user_data = &pbr_assets_;
+  desc.shader_library = pbr_library_.native_handle();
   auto result = output.material.initialize(renderer_.native_handle(), desc);
   if (result.ok()) {
     output.source = &source;
@@ -715,16 +722,16 @@ gneiss_result granit_render_service::initialize_gpu(const native_window_info& wi
 
   switch (window.backend) {
   case native_window_backend::win32:
-    result = surface_.initialize_win32(renderer_.native_handle(),
-                                       {.instance = window.display, .window = window.window});
+    result = surface_.initialize(renderer_.native_handle(),
+                                 granit::surface_desc::win32(window.display, window.window));
     break;
   case native_window_backend::xcb:
-    result = surface_.initialize_xcb(renderer_.native_handle(),
-                                     {.connection = window.display, .window = window.xcb_window});
+    result = surface_.initialize(renderer_.native_handle(),
+                                 granit::surface_desc::xcb(window.display, window.xcb_window));
     break;
   case native_window_backend::wayland:
-    result = surface_.initialize_wayland(renderer_.native_handle(),
-                                         {.display = window.display, .surface = window.window});
+    result = surface_.initialize(renderer_.native_handle(),
+                                 granit::surface_desc::wayland(window.display, window.window));
     break;
   default:
     return GNEISS_ERROR_UNSUPPORTED;
@@ -815,7 +822,10 @@ gneiss_result granit_render_service::shutdown_gpu(granit::renderer_resource_stat
   static_cast<void>(geometry_vertices_.reset());
   static_cast<void>(ui_sampler_.reset());
   static_cast<void>(sampler_.reset());
-  pbr_assets_.reset();
+  // 材质和管线先销毁，再释放借用归档内存的 Shader Library。
+  const auto library_result = pbr_library_.reset();
+  if (library_result.ok())
+    pbr_assets_.reset();
   last_pipeline_metric_sequence_ = 0;
   gpu_timing_supported_ = false;
   environment_asset_requested_ = false;

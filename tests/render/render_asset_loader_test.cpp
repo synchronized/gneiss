@@ -12,7 +12,7 @@
 
 #include <gneiss/core/result.h>
 
-#include <granit/renderer/texture_asset.hpp>
+#include <granit/tools/texture_builder.hpp>
 
 #include <array>
 #include <cstddef>
@@ -89,37 +89,26 @@ indexed_mesh_is_preserved(gneiss::render_internal::render_asset_loader& loader,
 }
 
 [[nodiscard]] std::vector<std::byte> make_runtime_texture() {
-  granit::texture_asset_info info{.content_id = {},
-                                  .dimension = GRANIT_TEXTURE_DIMENSION_2D,
-                                  .width = 1U,
-                                  .height = 1U,
-                                  .depth = 1U,
-                                  .array_layers = 1U,
-                                  .mip_levels = 1U,
-                                  .variants = {},
-                                  .subresources = {}};
-  info.content_id[0] = std::byte{1U};
-  granit_texture_asset_variant_info variant{};
-  variant.format = GRANIT_TEXTURE_FORMAT_RGBA8_SRGB;
-  variant.usage = GRANIT_TEXTURE_USAGE_SAMPLED_BIT | GRANIT_TEXTURE_USAGE_TRANSFER_DESTINATION_BIT;
-  variant.subresource_count = 1U;
-  variant.payload_size = 4U;
-  info.variants.push_back(variant);
-  info.subresources.push_back({.mip_level = 0U,
-                               .array_layer = 0U,
-                               .data_offset = 0U,
-                               .data_size = 4U,
-                               .bytes_per_row = 4U,
-                               .rows_per_image = 1U,
-                               .reserved = {0U, 0U}});
-  std::vector<std::byte> manifest;
-  if (granit::encode_texture_asset(info, manifest) != granit::result::success) {
-    return {};
-  }
   const std::array payload = {std::byte{0xff}, std::byte{0xff}, std::byte{0xff}, std::byte{0xff}};
+  const std::array subresources{granit_texture_asset_subresource_info{.mip_level = 0U,
+                                                                      .array_layer = 0U,
+                                                                      .data_offset = 0U,
+                                                                      .data_size = 4U,
+                                                                      .bytes_per_row = 4U,
+                                                                      .rows_per_image = 1U,
+                                                                      .reserved = {0U, 0U}}};
+  const std::array variants{granit::asset_tools::texture::variant_desc{
+      .format = GRANIT_TEXTURE_FORMAT_RGBA8_SRGB,
+      .usage = GRANIT_TEXTURE_USAGE_SAMPLED_BIT | GRANIT_TEXTURE_USAGE_TRANSFER_DESTINATION_BIT,
+      .payload = payload,
+      .subresources = subresources}};
+  const auto [status, built] = granit::asset_tools::texture::build({.variants = variants});
+  if (status != granit::result::success)
+    return {};
   std::vector<std::byte> output;
   std::string diagnostic;
-  if (gneiss::asset_internal::encode_texture_binary(manifest, payload, output, diagnostic) !=
+  if (gneiss::asset_internal::encode_texture_binary(built.manifest(), built.payload(), output,
+                                                    diagnostic) !=
       gneiss::asset_internal::texture_binary_result::success) {
     return {};
   }

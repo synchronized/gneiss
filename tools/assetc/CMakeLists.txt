@@ -36,7 +36,7 @@ target_include_directories(
 )
 target_link_libraries(
   gneiss_asset_import_sdk
-  PRIVATE fastgltf::fastgltf gneiss_bc7enc gneiss_yyjson gneiss_png granit::granit
+  PRIVATE fastgltf::fastgltf gneiss_bc7enc gneiss_yyjson gneiss_png granit::granit granit::asset_tools
 )
 target_compile_features(gneiss_asset_import_sdk PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_asset_import_sdk)
@@ -47,6 +47,17 @@ target_link_libraries(gneiss_assetc PRIVATE gneiss_asset_import_sdk)
 target_compile_features(gneiss_assetc PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_assetc)
 gneiss_target_output_directories(gneiss_assetc)
+
+get_target_property(granit_asset_tools_imported granit::asset_tools IMPORTED)
+get_target_property(granit_asset_tools_type granit::asset_tools TYPE)
+if(WIN32 AND granit_asset_tools_imported AND granit_asset_tools_type STREQUAL "SHARED_LIBRARY")
+  add_custom_command(
+    TARGET gneiss_assetc POST_BUILD
+    COMMAND "${CMAKE_COMMAND}" -E copy_if_different "$<TARGET_FILE:granit::asset_tools>"
+            "$<TARGET_FILE_DIR:gneiss_assetc>"
+    VERBATIM
+  )
+endif()
 
 if(GNEISS_BUILD_TESTING AND BUILD_TESTING)
   add_executable(

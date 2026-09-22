@@ -69,12 +69,7 @@ endforeach()
 foreach(
   required_render_asset
   IN ITEMS
-    shaders/pbr/pbr_standard.vert.grshader
-    shaders/pbr/pbr_standard.vert.grshader.spv
-    shaders/pbr/pbr_standard.vert.grshader.wgsl
-    shaders/pbr/pbr_standard.frag.grshader
-    shaders/pbr/pbr_standard.frag.grshader.spv
-    shaders/pbr/pbr_standard.frag.grshader.wgsl
+    libraries/pbr_standard.grshlib
     materials/pbr_standard.grmat
 )
   if(NOT EXISTS

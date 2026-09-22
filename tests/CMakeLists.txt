@@ -438,7 +438,7 @@ if(GNEISS_ENABLE_GRANIT_PLATFORM)
   target_compile_definitions(
     gneiss_pbr_shader_resolver_test
     PRIVATE
-      GNEISS_TEST_GRANIT_PBR_ASSET_DIR="${GNEISS_GRANIT_RENDER_PIPELINE_ASSET_DIR}/shaders/pbr"
+      GNEISS_TEST_GRANIT_PBR_ASSET_DIR="${GNEISS_GRANIT_RENDER_PIPELINE_ASSET_DIR}/libraries"
       GNEISS_TEST_GRANIT_PBR_MATERIAL="${GNEISS_GRANIT_RENDER_PIPELINE_ASSET_DIR}/materials/pbr_standard.grmat"
   )
   target_link_libraries(gneiss_pbr_shader_resolver_test PRIVATE granit::render_pipeline)
@@ -656,7 +656,7 @@ add_executable(
 target_include_directories(gneiss_render_asset_loader_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_definitions(gneiss_render_asset_loader_test PRIVATE GNEISS_BUILDING_LIBRARY)
 target_link_libraries(
-  gneiss_render_asset_loader_test PRIVATE gneiss::engine gneiss_yyjson gneiss_png granit::granit
+  gneiss_render_asset_loader_test PRIVATE gneiss::engine gneiss_yyjson gneiss_png granit::granit granit::asset_tools
 )
 target_compile_features(gneiss_render_asset_loader_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_render_asset_loader_test)

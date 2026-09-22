@@ -396,7 +396,7 @@ const processor_description* processor_registry::find(std::string_view path) con
 processor_registry make_default_registry() {
   processor_registry registry;
   static_cast<void>(registry.register_processor(
-      {.id = "gneiss.texture", .version = 3U, .suffixes = {".png", ".jpg", ".jpeg", ".ktx2"}}));
+      {.id = "gneiss.texture", .version = 4U, .suffixes = {".png", ".jpg", ".jpeg", ".ktx2"}}));
   static_cast<void>(registry.register_processor(
       {.id = "gneiss.mesh", .version = 2U, .suffixes = {".gneiss-mesh", ".mesh.json"}}));
   static_cast<void>(registry.register_processor(

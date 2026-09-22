@@ -6,8 +6,8 @@
 
 #include "platform/granit/granit_platform.h"
 #include "render/debug_draw_list.h"
-#include "render/granit/scene_projection_math.h"
 #include "render/granit/pbr_shader_resolver.h"
+#include "render/granit/scene_projection_math.h"
 #include "render/render_executor.h"
 #include "render/render_frame_packet.h"
 #include "render/render_resource_service.h"
@@ -24,6 +24,7 @@
 #include <granit/pipeline/mesh.hpp>
 #include <granit/pipeline/render_pipeline.hpp>
 #include <granit/pipeline/scene.hpp>
+#include <granit/renderer/shader_library.hpp>
 
 #include <array>
 #include <deque>
@@ -109,6 +110,7 @@ private:
   granit::environment_map environment_;
   granit_environment_map_info environment_info_{};
   pbr_shader_resolver pbr_assets_;
+  granit::shader_library pbr_library_;
   granit::sampler sampler_;
   granit::sampler ui_sampler_;
   granit::canvas_draw_list ui_canvas_;

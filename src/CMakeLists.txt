@@ -129,16 +129,8 @@ target_sources(
 )
 
 if(GNEISS_ENABLE_GRANIT_PLATFORM)
-  set(granit_pbr_asset_dir "${GNEISS_GRANIT_RENDER_PIPELINE_ASSET_DIR}/shaders/pbr")
-  set(
-    granit_pbr_assets
-    pbr_standard.vert.grshader
-    pbr_standard.vert.grshader.spv
-    pbr_standard.vert.grshader.wgsl
-    pbr_standard.frag.grshader
-    pbr_standard.frag.grshader.spv
-    pbr_standard.frag.grshader.wgsl
-  )
+  set(granit_pbr_asset_dir "${GNEISS_GRANIT_RENDER_PIPELINE_ASSET_DIR}/libraries")
+  set(granit_pbr_assets pbr_standard.grshlib)
   if(NOT GNEISS_GRANIT_RENDER_PIPELINE_ASSET_DIR)
     message(FATAL_ERROR "Granit Render Pipeline 未提供标准资产目录")
   endif()
@@ -220,11 +212,11 @@ if(GNEISS_ENABLE_GRANIT_PLATFORM)
     TARGET gneiss_engine
     POST_BUILD
     COMMAND "${CMAKE_COMMAND}" -E make_directory
-            "$<TARGET_FILE_DIR:gneiss_engine>/assets/granit/shaders/pbr"
+            "$<TARGET_FILE_DIR:gneiss_engine>/assets/granit/libraries"
     COMMAND
       "${CMAKE_COMMAND}" -E copy_if_different
       ${granit_pbr_assets}
-      "$<TARGET_FILE_DIR:gneiss_engine>/assets/granit/shaders/pbr"
+      "$<TARGET_FILE_DIR:gneiss_engine>/assets/granit/libraries"
     WORKING_DIRECTORY "${granit_pbr_asset_dir}"
     COMMAND_EXPAND_LISTS
     VERBATIM
