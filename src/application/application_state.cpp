@@ -117,7 +117,7 @@ gneiss_result application_state::initialize() noexcept {
     }
     const auto render_result = granit_render_service_->initialize(
         granit_platform_->native_window(), environment_asset, desc_.environment_intensity,
-        desc_.environment_rotation_radians);
+        desc_.environment_rotation_radians, log_dispatcher_.get());
     if (render_result != GNEISS_SUCCESS) {
       report(GNEISS_NULL_APPLICATION, GNEISS_DIAGNOSTIC_ERROR, GNEISS_DIAGNOSTIC_CATEGORY_BACKEND,
              render_result, "granit.render", "Granit 渲染服务初始化失败");
@@ -363,6 +363,11 @@ gneiss_result application_state::run(gneiss_application handle,
     return GNEISS_ERROR_INVALID_STATE;
   }
   is_running_ = true;
+#ifdef GNEISS_HAS_GRANIT_PLATFORM
+  if (granit_render_service_ != nullptr) {
+    granit_render_service_->set_log_application(handle);
+  }
+#endif
   should_exit_ = false;
   previous_time_ns_ = now_ns();
   std::uint64_t frames_run = 0;
@@ -424,6 +429,12 @@ gneiss_result application_state::run(gneiss_application handle,
   }
 
   is_running_ = false;
+#ifdef GNEISS_HAS_GRANIT_PLATFORM
+  // 返回前回收已提交帧，避免短程运行把尚未回传的上传失败误报为成功。
+  if (granit_render_service_ != nullptr) {
+    return granit_render_service_->finish_frames();
+  }
+#endif
   return GNEISS_SUCCESS;
 }
 

@@ -3,6 +3,8 @@
 
 #include "render/granit/granit_render_service.h"
 
+#include "log/log_dispatcher.h"
+
 #include <granit/core/version.h>
 #include <granit/renderer/native_surface.hpp>
 #include <granit/renderer/texture_asset.hpp>
@@ -15,6 +17,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstddef>
+#include <cstdio>
 #include <cstring>
 #include <limits>
 #include <new>
@@ -148,23 +151,73 @@ granit::result granit_render_service::initialize_pipeline() noexcept {
   return result;
 }
 
+void granit_render_service::log_texture(gneiss_texture rid, const char* stage,
+                                        granit::result result, std::uint32_t variant,
+                                        granit::texture_format format, std::uint32_t mips,
+                                        std::uint64_t bytes) noexcept {
+  if (log_ == nullptr) {
+    return;
+  }
+  const char* name = "undefined";
+  switch (format) {
+  case granit::texture_format::bc7_rgba_srgb:
+    name = "BC7_SRGB";
+    break;
+  case granit::texture_format::bc7_rgba_unorm:
+    name = "BC7_UNORM";
+    break;
+  case granit::texture_format::rgba8_srgb:
+    name = "RGBA8_SRGB";
+    break;
+  case granit::texture_format::rgba8_unorm:
+    name = "RGBA8_UNORM";
+    break;
+  default:
+    break;
+  }
+  std::array<char, 256> buffer{};
+  const auto length = std::snprintf(buffer.data(), buffer.size(),
+                                    "rid=%llu stage=%s variant=%u format=%s mips=%u bytes=%llu",
+                                    static_cast<unsigned long long>(rid), stage, variant, name,
+                                    mips, static_cast<unsigned long long>(bytes));
+  if (length <= 0) {
+    return;
+  }
+  constexpr std::string_view category = "render.texture";
+  gneiss_log_message message = GNEISS_LOG_MESSAGE_INIT;
+  message.severity = result.ok() ? GNEISS_LOG_INFO : GNEISS_LOG_ERROR;
+  message.category = category.data();
+  message.category_length = category.size();
+  message.message = buffer.data();
+  message.message_length = std::min(static_cast<std::size_t>(length), buffer.size() - 1U);
+  message.result = map_result(result);
+  static_cast<void>(log_->submit(log_application_.load(std::memory_order_relaxed), message,
+                                 "granit.render.texture"));
+}
+
 granit::result
 granit_render_service::create_texture_mirror(const render_internal::texture_resource& source,
-                                             texture_mirror& output) noexcept {
+                                             texture_mirror& output, gneiss_texture rid) noexcept {
   output.source = &source;
   if (!source.manifest.empty()) {
     granit::texture_asset_info info;
     granit::texture_asset_selection selection;
     auto result = granit::inspect_texture_asset(source.manifest, info);
+    const char* stage = "inspect";
     if (result.ok()) {
+      stage = "select";
       result = granit::select_texture_asset_variant(renderer_, source.manifest, selection);
     }
     if (result.failed() || selection.variant_index >= info.variants.size()) {
       output.source = nullptr;
-      return result.failed() ? result : granit::result::invalid_argument;
+      result = result.failed() ? result : granit::result::invalid_argument;
+      log_texture(rid, stage, result, selection.variant_index, selection.format, info.mip_levels,
+                  0U);
+      return result;
     }
     const auto& variant = info.variants[selection.variant_index];
     const auto format = static_cast<granit::texture_format>(selection.format);
+    stage = "create";
     result = output.texture.initialize(
         renderer_,
         {.dimension = granit::texture_dimension::two_dimensional,
@@ -176,18 +229,22 @@ granit_render_service::create_texture_mirror(const render_internal::texture_reso
          .mip_levels = info.mip_levels});
     granit::upload_batch upload;
     if (result.ok()) {
+      stage = "batch";
       result = upload.initialize(renderer_, {.max_staged_bytes = variant.payload_size,
                                              .max_operation_count = variant.subresource_count});
     }
     if (result.ok()) {
+      stage = "write";
       result = granit::write_texture_asset_mips(upload, output.texture.ref(), source.manifest,
                                                 source.payload, selection.variant_index, 0U,
                                                 info.mip_levels);
     }
     if (result.ok()) {
+      stage = "submit";
       result = upload.submit();
     }
     if (result.ok()) {
+      stage = "view";
       result = output.view.initialize(renderer_, output.texture, {.format = format});
     }
     if (result.failed()) {
@@ -195,6 +252,8 @@ granit_render_service::create_texture_mirror(const render_internal::texture_reso
       static_cast<void>(output.texture.reset());
       output.source = nullptr;
     }
+    log_texture(rid, result.ok() ? "ready" : stage, result, selection.variant_index, format,
+                info.mip_levels, variant.payload_size);
     return result;
   }
   const auto format = source.color_space == GNEISS_TEXTURE_COLOR_SPACE_SRGB
@@ -459,7 +518,7 @@ granit::result granit_render_service::prepare_ui_draw_list(
           return granit::result::invalid_handle;
         }
         texture_mirror mirror;
-        result = create_texture_mirror(*texture, mirror);
+        result = create_texture_mirror(*texture, mirror, command.texture);
         if (result.failed()) {
           return result;
         }
@@ -530,7 +589,9 @@ void granit_render_service::release_invalid_materials(
 gneiss_result granit_render_service::initialize(const native_window_info& window,
                                                 std::span<const std::byte> environment_asset,
                                                 float environment_intensity,
-                                                float environment_rotation_radians) noexcept {
+                                                float environment_rotation_radians,
+                                                log_internal::log_dispatcher* log) noexcept {
+  log_ = log;
   const auto executor_result =
       executor_.initialize([this](render_internal::render_frame_packet& packet,
                                   render_internal::render_execution_result& output) noexcept {
@@ -653,6 +714,21 @@ bool granit_render_service::try_take_required_completion(
 render_internal::render_queue_stats
 granit_render_service::query_performance_stats() const noexcept {
   return executor_.query_stats();
+}
+
+gneiss_result granit_render_service::finish_frames() noexcept {
+  const auto flushed = executor_.flush();
+  if (flushed != GNEISS_SUCCESS) {
+    return flushed;
+  }
+  auto result = GNEISS_SUCCESS;
+  for (auto completed = collect_completions(); completed != GNEISS_SUCCESS;
+       completed = collect_completions()) {
+    if (result == GNEISS_SUCCESS && completed != GNEISS_ERROR_NOT_READY) {
+      result = completed;
+    }
+  }
+  return result;
 }
 
 gneiss_result granit_render_service::shutdown(granit::renderer_resource_stats& stats) noexcept {
@@ -888,7 +964,8 @@ granit_render_service::execute_frame(render_internal::render_frame_packet& packe
         auto found = texture_mirrors_.find(material->base_color_texture);
         if (found == texture_mirrors_.end()) {
           texture_mirror mirror;
-          const auto created = create_texture_mirror(*texture, mirror);
+          const auto created =
+              create_texture_mirror(*texture, mirror, material->base_color_texture);
           if (created.failed())
             return map_result(created);
           found = texture_mirrors_.emplace(material->base_color_texture, std::move(mirror)).first;

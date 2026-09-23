@@ -7,6 +7,9 @@
 
 ## 未发布
 
+- `gneiss_assetc inspect/validate` 支持运行纹理封装，检查全部变体的 SHA-256 并输出 Mip 布局；
+  渲染日志记录实际选择的纹理变体、批次上传阶段与结果。
+- 主循环结束前回收渲染线程结果，修复短程 smoke 可能遗漏末尾纹理上传失败而返回成功的问题。
 - 缩短 Granit FETCH 构建目录，修复 Windows MSVC Static preset 的 AssetTools 中间文件路径
   超过 MAX_PATH 导致的 MSB3491；安装验收使用实际依赖构建目录。
 

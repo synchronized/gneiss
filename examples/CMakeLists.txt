@@ -161,6 +161,20 @@ if(GNEISS_ENABLE_GRANIT_PLATFORM AND TARGET gneiss_assetc)
         COMMAND gneiss_runtime --smoke --project "${lantern_gallery_project_root}"
       )
       set_tests_properties(gneiss.runtime.lantern-gallery PROPERTIES TIMEOUT 30)
+      if(TARGET gneiss_corrupt_texture_fixture)
+        add_dependencies(gneiss_runtime gneiss_corrupt_texture_fixture)
+        add_test(
+          NAME gneiss.runtime.lantern-cooked-textures
+          COMMAND "${CMAKE_COMMAND}"
+            -DGNEISS_ASSETC=$<TARGET_FILE:gneiss_assetc>
+            -DGNEISS_RUNTIME=$<TARGET_FILE:gneiss_runtime>
+            -DGNEISS_CORRUPT=$<TARGET_FILE:gneiss_corrupt_texture_fixture>
+            -DGNEISS_PROJECT=${lantern_gallery_project_root}
+            -DGNEISS_OUTPUT=${PROJECT_BINARY_DIR}/lantern-cooked-test
+            -P "${PROJECT_SOURCE_DIR}/cmake/check_lantern_cooked.cmake"
+        )
+        set_tests_properties(gneiss.runtime.lantern-cooked-textures PROPERTIES TIMEOUT 90)
+      endif()
     endif()
     if(TARGET gneiss_editor)
       add_test(

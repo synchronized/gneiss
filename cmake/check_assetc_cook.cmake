@@ -40,6 +40,28 @@ if(NOT cooked_texture OR cooked_png)
   message(FATAL_ERROR "Cook 输出必须包含 Gneiss 运行纹理且不得保留 PNG")
 endif()
 
+foreach(texture IN LISTS cooked_texture)
+  foreach(command IN ITEMS inspect validate)
+    execute_process(COMMAND "${GNEISS_ASSETC}" "${command}" "${texture}"
+      RESULT_VARIABLE result OUTPUT_VARIABLE output ERROR_VARIABLE error)
+    if(NOT result EQUAL 0)
+      message(FATAL_ERROR "运行纹理 ${command} 失败：${output}\n${error}")
+    endif()
+    if(command STREQUAL "inspect" AND
+       (NOT output MATCHES "Format=BC7_" OR NOT output MATCHES "Format=RGBA8_" OR
+        NOT output MATCHES "SHA256=ok" OR NOT output MATCHES "RowBytes="))
+      message(FATAL_ERROR "运行纹理检查未输出双变体与 Mip 布局：${output}")
+    endif()
+  endforeach()
+endforeach()
+file(WRITE "${GNEISS_OUTPUT}/invalid.gneiss-texture" "invalid")
+foreach(command IN ITEMS inspect validate)
+  execute_process(COMMAND "${GNEISS_ASSETC}" "${command}" "${GNEISS_OUTPUT}/invalid.gneiss-texture"
+    RESULT_VARIABLE result OUTPUT_VARIABLE output ERROR_VARIABLE error)
+  if(NOT result EQUAL 1 OR error STREQUAL "")
+    message(FATAL_ERROR "损坏运行纹理必须返回诊断及退出码 1：${result} ${output} ${error}")
+  endif()
+endforeach()
 file(READ "${cooked_root}/textures/image-0.texture.json" texture_description)
 if(NOT texture_description MATCHES "asset://textures/image-0\\.gneiss-texture" OR
    texture_description MATCHES "\\.png")

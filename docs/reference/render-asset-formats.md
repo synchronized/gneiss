@@ -151,6 +151,17 @@ Granit 标准 PBR Material 参数；作者资产不引用 `.grmat` 或后端 Sha
 回退负载。两种变体使用相同完整 Mip 链；颜色空间决定对应的 UNORM 或 SRGB GPU 格式。编辑器直接
 运行尚未 Cook 的作者工程时保留 PNG 兼容路径。PNG 解码、Mip 生成和 BC7 编码只存在于工具路径。
 
+`gneiss_assetc inspect <file.gneiss-texture>` 校验外层封装、Manifest、二维完整 Mip 链、颜色空间、
+RGBA8 回退与所有变体的负载 SHA-256，输出尺寸、变体格式和各 Mip 的字节范围、行跨度。
+`validate <file.gneiss-texture>` 执行相同校验，仅输出通过提示。失败时向标准错误输出诊断并返回 1；
+离线检查不判断当前 GPU 是否支持某种格式。
+
+启用 Application 日志回调时，运行纹理首次建立 GPU 镜像会产生 `render.texture` 分类日志，来源为
+`granit.render.texture`。消息包含 RID、阶段、变体下标、格式、Mip 数与所选负载字节数；缓存命中不
+重复记录。`stage=ready` 表示批次提交和 Texture View 创建成功，不表示 GPU 已完成执行或最终画面
+已验收。失败阶段为 `inspect`、`select`、`create`、`batch`、`write`、`submit` 或 `view`，结果码随日志
+返回。日志经既有有界队列异步投递，极端拥塞时遵循日志队列的丢弃策略。
+
 ## 加载与生命周期
 
 Loader 依次执行 VFS 读取、严格 JSON 校验、创建 Render RID 和缓存租约。相同 URI 与类型复用 RID；

@@ -3,6 +3,7 @@
 
 #include "tooling/asset_build/asset_build.h"
 #include "tooling/asset_build/ktx2_probe.h"
+#include "tooling/asset_build/runtime_texture_probe.h"
 #include "tooling/asset_import/asset_writer.h"
 #include "tooling/asset_import/gltf_importer.h"
 
@@ -21,6 +22,8 @@ void print_usage() {
                "  gneiss_assetc inspect <source.gltf|source.glb>\n"
                "  gneiss_assetc inspect <mesh.gneiss-mesh>\n"
                "  gneiss_assetc inspect <texture.ktx2>\n"
+               "  gneiss_assetc inspect <texture.gneiss-texture>\n"
+               "  gneiss_assetc validate <texture.gneiss-texture>\n"
                "  gneiss_assetc validate <mesh.gneiss-mesh>\n"
                "  gneiss_assetc dump <mesh.gneiss-mesh> --format json\n"
                "  gneiss_assetc import <source.gltf|source.glb> --output <directory>\n"
@@ -123,6 +126,17 @@ int main(int argc, char** argv) { // NOLINT(bugprone-exception-escape)
     }
     std::cout << "资产构建完成：输出=" << report.outputs.size() << " 构建=" << report.built_count
               << " 缓存命中=" << report.cache_hit_count << '\n';
+    return 0;
+  }
+  if ((inspect || validate) && source.extension() == ".gneiss-texture") {
+    std::string summary;
+    std::string diagnostic;
+    if (!gneiss::tooling::asset_build::inspect_runtime_texture(read_file(source), summary,
+                                                               diagnostic)) {
+      std::cerr << (diagnostic.empty() ? "运行纹理检查失败" : diagnostic) << '\n';
+      return 1;
+    }
+    std::cout << (inspect ? summary : "Texture Binary 有效（全部变体摘要已校验）\n");
     return 0;
   }
   if (validate || dump || (inspect && source.extension() == ".gneiss-mesh")) {

@@ -28,6 +28,8 @@ add_library(
   "${PROJECT_SOURCE_DIR}/src/tooling/asset_build/ktx2_probe.h"
   "${PROJECT_SOURCE_DIR}/src/tooling/asset_build/runtime_texture_builder.cpp"
   "${PROJECT_SOURCE_DIR}/src/tooling/asset_build/runtime_texture_builder.h"
+  "${PROJECT_SOURCE_DIR}/src/tooling/asset_build/runtime_texture_probe.cpp"
+  "${PROJECT_SOURCE_DIR}/src/tooling/asset_build/runtime_texture_probe.h"
   "${PROJECT_SOURCE_DIR}/src/tooling/asset_build/sha256.cpp"
   "${PROJECT_SOURCE_DIR}/src/tooling/asset_build/sha256.h"
 )
@@ -60,6 +62,15 @@ if(WIN32 AND granit_asset_tools_imported AND granit_asset_tools_type STREQUAL "S
 endif()
 
 if(GNEISS_BUILD_TESTING AND BUILD_TESTING)
+  add_executable(
+    gneiss_corrupt_texture_fixture
+    "${PROJECT_SOURCE_DIR}/tests/tooling/corrupt_texture_fixture.cpp"
+  )
+  target_link_libraries(gneiss_corrupt_texture_fixture PRIVATE gneiss_asset_import_sdk granit::granit)
+  target_compile_features(gneiss_corrupt_texture_fixture PRIVATE cxx_std_20)
+  gneiss_target_compile_warnings(gneiss_corrupt_texture_fixture)
+  gneiss_target_output_directories(gneiss_corrupt_texture_fixture)
+
   add_executable(
     gneiss_asset_build_test
     "${PROJECT_SOURCE_DIR}/tests/tooling/asset_build_test.cpp"

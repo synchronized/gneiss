@@ -181,6 +181,7 @@ GNEISS_API gneiss_result gneiss_application_destroy(gneiss_application applicati
  * 运行主循环。max_frame_count 为零时持续运行至收到退出请求。
  *
  * 每帧依次轮询事件、计算时间、调用 update，并在 Granit 模式下呈现；失败时立即返回错误。
+ * 正常结束循环前等待已提交帧完成渲染线程处理并回收错误；不保证 GPU 执行完成。
  */
 GNEISS_API gneiss_result gneiss_application_run(gneiss_application application,
                                                 uint64_t max_frame_count);
