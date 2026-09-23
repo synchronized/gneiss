@@ -1922,10 +1922,6 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
       return result;
     }
     ImGuizmo::BeginFrame();
-    const auto grid_result = submit_editor_grid(application, state);
-    if (grid_result != gneiss::result::success) {
-      return gneiss::to_native(grid_result);
-    }
     const auto selection_result = state.session.validate_selection();
     if (selection_result != gneiss::result::success &&
         selection_result != gneiss::result::invalid_handle) {
@@ -3237,6 +3233,11 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
 #endif
     if (state.show_imgui_demo) {
       ImGui::ShowDemoWindow(&state.show_imgui_demo);
+    }
+    // 相机可能被本帧滚轮、聚焦或场景操作更新；网格必须使用最终相机状态。
+    const auto grid_result = submit_editor_grid(application, state);
+    if (grid_result != gneiss::result::success) {
+      return gneiss::to_native(grid_result);
     }
     return state.ui.submit(application);
   } catch (const std::bad_alloc&) {
