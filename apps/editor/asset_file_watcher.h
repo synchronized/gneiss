@@ -39,7 +39,10 @@ public:
   asset_file_watcher(const asset_file_watcher&) = delete;
   asset_file_watcher& operator=(const asset_file_watcher&) = delete;
 
-  /** allow_missing 时缺失目录返回 not_ready 且不启动线程；调用方可在目录创建后重试。 */
+  /**
+   * allow_missing 时缺失目录返回 not_ready 且不启动线程；调用方可在目录创建后重试。
+   * 启动新的监听会清除上一轮未消费事件；丢失计数在对象生命周期内累计。
+   */
   [[nodiscard]] result start(const std::filesystem::path& source_root,
                              bool allow_missing = false) noexcept;
   [[nodiscard]] result stop() noexcept;

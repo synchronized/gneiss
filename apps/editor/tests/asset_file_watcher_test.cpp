@@ -139,6 +139,20 @@ int main() {
       watcher.stop() != gneiss::result::not_ready) {
     return 7;
   }
+  // 重启到另一目录不得带入旧事件，但历史丢失计数不能被重启掩盖。
+  const auto dropped_before_restart = watcher.dropped_event_count();
+  if (watcher.start(sources) != gneiss::result::success) {
+    return 12;
+  }
+  std::vector<gneiss::editor::asset_file_event> restarted_events;
+  if (watcher.poll_events(restarted_events) != 0U ||
+      watcher.dropped_event_count() != dropped_before_restart) {
+    return 13;
+  }
+  write_text(sources / "restarted.txt", "new watch session");
+  if (!wait_for_candidate(watcher, "restarted.txt") || watcher.stop() != gneiss::result::success) {
+    return 14;
+  }
   std::filesystem::remove_all(root, error);
   return 0;
 }

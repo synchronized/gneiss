@@ -175,6 +175,8 @@ struct editor_state {
   gneiss::editor::asset_file_watcher asset_watcher;
   std::chrono::steady_clock::time_point next_asset_watch_attempt{};
   bool asset_watch_failed = false;
+  gneiss::result asset_watch_result = gneiss::result::success;
+  gneiss::result author_watch_result = gneiss::result::success;
   gneiss::editor::asset_file_watcher author_asset_watcher;
   gneiss::editor::author_asset_monitor author_assets;
   gneiss::editor::asset_reimport_queue asset_reimports;
@@ -196,6 +198,7 @@ void start_source_asset_watch(editor_state& state) {
   }
   state.next_asset_watch_attempt = now + std::chrono::seconds{1};
   const auto operation = state.asset_watcher.start(state.project_root / "sources", true);
+  state.asset_watch_result = operation;
   if (operation == gneiss::result::not_ready) {
     return;
   }
@@ -1434,6 +1437,39 @@ find_material_for_mesh(const std::vector<gneiss::editor::asset_browser_entry>& e
 void draw_asset_browser(editor_state& state) {
   ImGui::SetNextWindowSizeConstraints(ImVec2(220.0F, 160.0F), ImVec2(FLT_MAX, FLT_MAX));
   ImGui::Begin("Asset Browser", &state.panel_visibility.asset_browser);
+  const auto draw_watch_status = [](const char* label, gneiss::editor::asset_file_watcher& watcher,
+                                    gneiss::result& operation, const std::filesystem::path& root,
+                                    bool allow_missing) {
+    ImGui::PushID(label);
+    if (operation != gneiss::result::success) {
+      const auto message = operation.message();
+      ImGui::TextColored(gneiss::editor::theme_error_color(), "%s (%s): %.*s", label,
+                         path_utf8(root).c_str(), static_cast<int>(message.size()), message.data());
+      if (ImGui::Button("Restart watch")) {
+        const auto stopped = watcher.is_running() ? watcher.stop() : gneiss::result::success;
+        operation =
+            stopped == gneiss::result::success ? watcher.start(root, allow_missing) : stopped;
+      }
+    }
+    if (watcher.dropped_event_count() != 0U) {
+      ImGui::TextColored(gneiss::editor::theme_error_color(), "%s: %llu events lost", label,
+                         static_cast<unsigned long long>(watcher.dropped_event_count()));
+      ImGui::TextWrapped(
+          "Changes may be missing. Reimport affected sources or reopen affected assets. "
+          "Restarting the watch does not recover lost changes.");
+    }
+    ImGui::PopID();
+  };
+  if (state.asset_watch_result == gneiss::result::not_ready && !state.asset_watch_failed) {
+    ImGui::TextDisabled("Source watch: waiting for sources directory");
+  } else {
+    draw_watch_status("Source watch", state.asset_watcher, state.asset_watch_result,
+                      state.project_root / "sources", true);
+    state.asset_watch_failed = state.asset_watch_result != gneiss::result::success &&
+                               state.asset_watch_result != gneiss::result::not_ready;
+  }
+  draw_watch_status("Author asset watch", state.author_asset_watcher, state.author_watch_result,
+                    state.asset_root, false);
   if (ImGui::Button("Refresh")) {
     state.asset_result = state.assets.refresh(state.project_root, state.asset_root);
   }
@@ -1873,7 +1909,10 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
     std::vector<gneiss::editor::asset_file_event> file_events;
     (void)state.asset_watcher.poll_events(file_events);
     for (const auto& event : file_events) {
-      if (event.kind != gneiss::editor::asset_file_event_kind::error) {
+      if (event.kind == gneiss::editor::asset_file_event_kind::error) {
+        state.asset_watch_result = event.operation;
+        state.asset_watch_failed = true;
+      } else {
         (void)state.asset_reimports.notify(event.relative_path);
       }
     }
@@ -1881,6 +1920,7 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
     (void)state.author_asset_watcher.poll_events(author_events);
     for (const auto& event : author_events) {
       if (event.kind == gneiss::editor::asset_file_event_kind::error) {
+        state.author_watch_result = event.operation;
         continue;
       }
       const auto candidate_uri = "asset://" + path_utf8(event.relative_path.lexically_normal());
@@ -3349,6 +3389,7 @@ int run_editor(int argc, char** argv) {
                  message.data());
   } else {
     const auto author_watcher_result = state.author_asset_watcher.start(state.asset_root);
+    state.author_watch_result = author_watcher_result;
     if (author_watcher_result != gneiss::result::success) {
       const auto message = author_watcher_result.message();
       std::fprintf(stderr, "Gneiss Editor 作者资产监听启动失败：结果=%d，消息=%.*s\n",

@@ -82,11 +82,19 @@ struct asset_file_watcher::implementation final {
       auto watch = std::make_unique<directory_watch>();
       watch->owner = this;
       watch->directory = directory;
+      // 初始化 libuv 句柄前完成所有可能分配内存的容器操作。
+      if (watches.size() == watches.capacity()) {
+        watches.reserve((std::max)(std::size_t{8U}, watches.size() * 2U));
+      }
+      watched_directories.insert(key);
       auto operation = io_internal::from_uv_status(uv_fs_event_init(loop, &watch->handle));
       if (operation != result::success) {
+        watched_directories.erase(key);
         return operation;
       }
-      watch->handle.data = watch.get();
+      watches.push_back(std::move(watch));
+      auto* active_watch = watches.back().get();
+      active_watch->handle.data = active_watch;
       unsigned int flags = 0U;
 #if defined(_WIN32)
       if (directory == source_root) {
@@ -94,13 +102,13 @@ struct asset_file_watcher::implementation final {
       }
 #endif
       operation = io_internal::from_uv_status(
-          uv_fs_event_start(&watch->handle, on_file_event, key.c_str(), flags));
+          uv_fs_event_start(&active_watch->handle, on_file_event, key.c_str(), flags));
       if (operation != result::success) {
-        uv_close(reinterpret_cast<uv_handle_t*>(&watch->handle), nullptr);
+        watched_directories.erase(key);
+        // 关闭是异步的，句柄内存保留到事件循环结束。
+        uv_close(reinterpret_cast<uv_handle_t*>(&active_watch->handle), nullptr);
         return operation;
       }
-      watched_directories.insert(key);
-      watches.push_back(std::move(watch));
       return result::success;
     } catch (const std::bad_alloc&) {
       return result::out_of_memory;
@@ -165,8 +173,8 @@ struct asset_file_watcher::implementation final {
 
   void close_watches() noexcept {
     for (const auto& watch : watches) {
-      (void)uv_fs_event_stop(&watch->handle);
       if (uv_is_closing(reinterpret_cast<uv_handle_t*>(&watch->handle)) == 0) {
+        (void)uv_fs_event_stop(&watch->handle);
         uv_close(reinterpret_cast<uv_handle_t*>(&watch->handle), nullptr);
       }
     }
@@ -198,6 +206,10 @@ result asset_file_watcher::start(const std::filesystem::path& source_root,
         return result::invalid_argument;
       }
       return result::not_found;
+    }
+    {
+      const std::scoped_lock lock(implementation_->event_mutex);
+      implementation_->events.clear();
     }
     auto operation = implementation_->executor.start();
     if (operation != result::success) {
