@@ -174,7 +174,66 @@ int main() { // NOLINT(bugprone-exception-escape)
     return 17;
   }
 
+  // 模拟监听事件完全丢失：不 notify，容量为 1 的队列仍应检查两个索引源。
+  std::ofstream(initial.source_path, std::ios::app) << ' ';
+  queue recovery({.debounce = std::chrono::milliseconds{0},
+                  .stable_read_delay = std::chrono::milliseconds{1},
+                  .capacity = 1U});
+  recovery.request_rescan();
+  if (recovery.tick(root, assets, later, 1U, 0U) != 0U || !recovery.is_rescanning()) {
+    return 18;
+  }
+  std::size_t recovered = 0U;
+  for (int frame = 0; frame < 30 && recovery.is_rescanning(); ++frame) {
+    const auto count =
+        recovery.tick(root, assets, later + std::chrono::milliseconds{frame}, 1U, 1U);
+    if (count > 1U || recovery.pending_count() > 1U) {
+      return 19;
+    }
+    recovered += count;
+    if (frame == 0) {
+      // 执行中请求下一轮不丢掉进度，后续哈希检查应避免重复导入。
+      recovery.request_rescan();
+      recovery.request_rescan();
+    }
+  }
+  if (recovery.is_rescanning() || recovery.rescan_result() != gneiss::result::success ||
+      recovered != 2U || recovery.dropped_candidate_count() != 0U) {
+    return 20;
+  }
+
   std::filesystem::remove(initial.source_path);
+  recovery.request_rescan();
+  bool recovered_removal = false;
+  bool recovered_unchanged = false;
+  for (int frame = 0; frame < 30 && recovery.is_rescanning(); ++frame) {
+    if (recovery.tick(root, assets,
+                      later + std::chrono::seconds{1} + std::chrono::milliseconds{frame}, 1U,
+                      1U) != 0U) {
+      return 21;
+    }
+    events.clear();
+    (void)recovery.poll_events(events);
+    recovered_removal |= has_state(events, gneiss::editor::asset_reimport_state::removed);
+    recovered_unchanged |= has_state(events, gneiss::editor::asset_reimport_state::unchanged);
+  }
+  if (recovery.is_rescanning() || !recovered_removal || !recovered_unchanged) {
+    return 22;
+  }
+  const auto broken_project = root / "broken";
+  std::filesystem::create_directories(broken_project / ".gneiss");
+  std::ofstream(broken_project / ".gneiss/asset-index.json") << "invalid index";
+  recovery.request_rescan();
+  (void)recovery.tick(broken_project, assets, later);
+  if (recovery.is_rescanning() || recovery.rescan_result() != gneiss::result::io) {
+    return 23;
+  }
+  recovery.request_rescan();
+  (void)recovery.tick(root, assets, later);
+  if (recovery.rescan_result() != gneiss::result::success) {
+    return 24;
+  }
+
   const auto removed = later + std::chrono::seconds{1};
   if (reimports.notify(relative, removed) != gneiss::result::success ||
       reimports.tick(root, assets, removed + std::chrono::milliseconds{20}) != 0U) {

@@ -180,6 +180,8 @@ struct editor_state {
   gneiss::editor::asset_file_watcher author_asset_watcher;
   gneiss::editor::author_asset_monitor author_assets;
   gneiss::editor::asset_reimport_queue asset_reimports;
+  std::size_t observed_source_drops = 0U;
+  std::size_t observed_candidate_drops = 0U;
   gneiss::editor::asset_browser_result asset_result = gneiss::editor::asset_browser_result::success;
   ImGuiTextFilter asset_filter;
   gneiss::editor::editor_import_report last_import;
@@ -203,6 +205,7 @@ void start_source_asset_watch(editor_state& state) {
     return;
   }
   if (operation == gneiss::result::success) {
+    state.asset_reimports.request_rescan();
     state.asset_result = state.assets.refresh(state.project_root, state.asset_root);
     return;
   }
@@ -1437,9 +1440,10 @@ find_material_for_mesh(const std::vector<gneiss::editor::asset_browser_entry>& e
 void draw_asset_browser(editor_state& state) {
   ImGui::SetNextWindowSizeConstraints(ImVec2(220.0F, 160.0F), ImVec2(FLT_MAX, FLT_MAX));
   ImGui::Begin("Asset Browser", &state.panel_visibility.asset_browser);
-  const auto draw_watch_status = [](const char* label, gneiss::editor::asset_file_watcher& watcher,
-                                    gneiss::result& operation, const std::filesystem::path& root,
-                                    bool allow_missing) {
+  const auto draw_watch_status = [&state](const char* label,
+                                          gneiss::editor::asset_file_watcher& watcher,
+                                          gneiss::result& operation,
+                                          const std::filesystem::path& root, bool allow_missing) {
     ImGui::PushID(label);
     if (operation != gneiss::result::success) {
       const auto message = operation.message();
@@ -1449,14 +1453,18 @@ void draw_asset_browser(editor_state& state) {
         const auto stopped = watcher.is_running() ? watcher.stop() : gneiss::result::success;
         operation =
             stopped == gneiss::result::success ? watcher.start(root, allow_missing) : stopped;
+        if (allow_missing && operation == gneiss::result::success) {
+          state.asset_reimports.request_rescan();
+        }
       }
     }
     if (watcher.dropped_event_count() != 0U) {
       ImGui::TextColored(gneiss::editor::theme_error_color(), "%s: %llu events lost", label,
                          static_cast<unsigned long long>(watcher.dropped_event_count()));
       ImGui::TextWrapped(
-          "Changes may be missing. Reimport affected sources or reopen affected assets. "
-          "Restarting the watch does not recover lost changes.");
+          allow_missing ? "Indexed sources are checked automatically; review import failures below."
+                        : "Reopen affected author assets; restarting the watch does not recover "
+                          "lost changes.");
     }
     ImGui::PopID();
   };
@@ -1470,6 +1478,16 @@ void draw_asset_browser(editor_state& state) {
   }
   draw_watch_status("Author asset watch", state.author_asset_watcher, state.author_watch_result,
                     state.asset_root, false);
+  if (state.asset_reimports.is_rescanning()) {
+    ImGui::TextDisabled("Checking indexed sources...");
+  } else if (state.asset_reimports.rescan_result() != gneiss::result::success) {
+    const auto message = state.asset_reimports.rescan_result().message();
+    ImGui::TextColored(gneiss::editor::theme_error_color(), "Source check failed: %.*s",
+                       static_cast<int>(message.size()), message.data());
+  }
+  if (ImGui::Button("Check indexed sources")) {
+    state.asset_reimports.request_rescan();
+  }
   if (ImGui::Button("Refresh")) {
     state.asset_result = state.assets.refresh(state.project_root, state.asset_root);
   }
@@ -1910,6 +1928,9 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
     (void)state.asset_watcher.poll_events(file_events);
     for (const auto& event : file_events) {
       if (event.kind == gneiss::editor::asset_file_event_kind::error) {
+        if (!state.asset_watch_failed) {
+          state.asset_reimports.request_rescan();
+        }
         state.asset_watch_result = event.operation;
         state.asset_watch_failed = true;
       } else {
@@ -1961,6 +1982,14 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
       } else {
         state.author_assets.mark_failed(change.uri, operation);
       }
+    }
+    const auto source_drops = state.asset_watcher.dropped_event_count();
+    const auto candidate_drops = state.asset_reimports.dropped_candidate_count();
+    if (source_drops != state.observed_source_drops ||
+        candidate_drops != state.observed_candidate_drops) {
+      state.observed_source_drops = source_drops;
+      state.observed_candidate_drops = candidate_drops;
+      state.asset_reimports.request_rescan();
     }
     (void)state.asset_reimports.tick(state.project_root, state.asset_root);
     std::vector<gneiss::editor::asset_reimport_event> reimport_events;
