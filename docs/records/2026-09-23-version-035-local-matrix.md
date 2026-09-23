@@ -53,5 +53,37 @@ MSVC Shared 安装打包首次超过 120 秒，单独复测在原时限内用时
 - 本机 `wsl --status` 仍返回 `WSL_E_WSL_OPTIONAL_COMPONENT_REQUIRED`，且无 Docker 命令，未执行
   Linux Clang/GCC 与 Sanitizer。仓库 Linux 工作流包含这些验收，但仅支持手动触发。
 - 真实桌面呈现与交互仍待检查；已有 GPU 读回和程序冒烟结果不替代此项。
-- 用户报告测试场景整体 Y 方向颠倒，正在核对 Gneiss 投影与 Granit 最终合成；方向问题未验收通过。
+- 用户报告测试场景整体 Y 方向颠倒，已通过下述 GPU 读回复现；方向问题尚未修复。
 - 未推送分支、触发远端工作流、合并、打标签或发布。M-236 保持进行中。
+
+## 场景 Y 方向诊断
+
+在 Granit 0.28.0（`1cb4e7456c339b2f4edfdded050ada1587e1b5f5`）和 Clang Shared Debug
+下构造不对称场景：相机位于 `(0,0,2)`，朝向保持单位旋转；红色三角形位于 `(-0.55,+0.55,0)`，
+蓝色三角形位于 `(-0.55,-0.55,0)`，各缩放至 0.35。三角形添加反向顶点副本，避免背面剔除干扰。
+在右侧相同世界 Y 坐标添加红、蓝 Debug Draw 线，关闭线段深度测试。
+
+临时诊断代码在第三帧将同一 Render Pipeline 输出到 1280×720 BGRA8 SRGB 纹理并读回。
+每行 5120 字节，直接保存为 PNG，未翻转像素行。结果如下：左侧场景红色物体位于下方、蓝色位于上方，
+三角形尖端也朝下；右侧调试线仍为红上蓝下。两条路径的方向不一致已确认，并非截图整体上下翻转。
+
+![场景三角形与同世界 Y 坐标调试线的方向差异](images/2026-09-23-scene-orientation.png)
+
+源码检查定位到以下链路：
+
+- Gneiss `src/render/camera_math.cpp` 的投影使用 `-focal`，世界 +Y 经正高度 Vulkan Viewport
+  投影至图像上方；场景与 Debug Draw 使用同一 View Projection。
+- Granit `assets/sources/shaders/pipeline/tone_mapping.hlsl` 的全屏三角形使用
+  `uv = position * float2(0.5, -0.5) + 0.5`，而 Vulkan 色调映射使用正高度 Viewport，
+  因此合成时反向采样 HDR 场景的行。
+- Debug Draw 在色调映射之后绘制，没有经过这次采样翻转。单独反转相机不能消除两条路径的差异，
+  还需要验证深度与调试图元的一致性。
+
+建议交由用户向 Granit 提交的最小 PR：修正 Vulkan 最终合成的屏幕位置到 HDR UV 映射，并保持
+WebGPU 的后端约定；不引入 Gneiss 场景或资产语义，也不新增要求调用方翻转相机的接口。
+验收应使用非对称上下色块，检查合成前后像素位置一致、PBR 与 Debug Draw 同坐标对齐、深度遮挡正确、
+Canvas 方向不变，并覆盖两个后端及 FXAA 开关。上游修复后，Gneiss 更新固定依赖，重新检查投影契约、
+背面剔除和编辑器场景／网格／Gizmo 对齐。本次未修改 Granit，也未验证修复后结果。
+
+临时采集代码已经移除，重新编译 Runtime 后 `gneiss.runtime.smoke` 通过。现有冒烟测试没有上下方向
+像素断言，之前测试通过不代表画面方向正确；此项仍是 M-236 的未完成验收。
