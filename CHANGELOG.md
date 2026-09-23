@@ -7,15 +7,21 @@
 
 ## 未发布
 
+- PNG Cook 产物改为包含 BC7 优选变体和 RGBA8 回退的 `.gneiss-texture`，保留完整 Mip 链与
+  颜色空间；Runtime 按设备能力选择变体，通过 Upload Batch 提交，失败不替换旧资源。
 - `gneiss_assetc inspect/validate` 支持运行纹理封装，检查全部变体的 SHA-256 并输出 Mip 布局；
   渲染日志记录实际选择的纹理变体、批次上传阶段与结果。
 - 主循环结束前回收渲染线程结果，修复短程 smoke 可能遗漏末尾纹理上传失败而返回成功的问题。
 - 缩短 Granit FETCH 构建目录，修复 Windows MSVC Static preset 的 AssetTools 中间文件路径
   超过 MAX_PATH 导致的 MSB3491；安装验收使用实际依赖构建目录。
 
-- Granit 基线升级至 0.28.1，移除相机的旧 Vulkan Y 翻转补偿，使场景与调试图形方向一致；
+- Granit 基线升级至 0.29.1，移除相机的旧 Vulkan Y 翻转补偿，使场景与调试图形方向一致；
   保留无可见物体时清屏和提交 UI 的修复；接入统一 Window/Input、
   强类型 C++ 资源引用和 AssetTools 头文件，移除独立 Input 运行时依赖。
+- 接入无阴影投射物时继续渲染的上游修复，解决编辑器拉远后持续无法呈现的问题；Shader Library
+  更新为 schema 2，升级时需要重新配置、构建和安装，不能混用旧动态库与 Shader Library。
+- 编辑器网格增加密度与距离渐隐，平滑缩放层级过渡，并与当前帧相机同步。
+- 编辑器在可选的 `sources` 目录缺失时等待，目录创建后自动启动监听，不再误报启动失败。
 - 标准 PBR 接入 Shader Library；离线纹理 Manifest 改由独立 AssetTools SDK 构建，并更新纹理
   处理器缓存版本。Runtime 不依赖 AssetTools。
 

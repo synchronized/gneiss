@@ -50,10 +50,33 @@ MSVC Shared 安装打包首次超过 120 秒，单独复测在原时限内用时
 
 ## 剩余验收
 
+### Granit 0.29.1 与编辑器修复后的补充验收
+
+本轮以 `65fd712` 为代码基线重新配置并构建 MSVC Release Shared/Static，确认依赖固定到
+`462d19b88678ea4048bfdeddbee1ea37955527b6`。两套均启用 Editor、真实 Granit 后端及严格警告。
+
+| 配置 | 结果 |
+| --- | --- |
+| MSVC Shared Release | 完整构建，142/142 一次通过，81.66 秒 |
+| MSVC Static Release | 完整构建，139/139 一次通过，48.50 秒 |
+
+Shared 安装打包 31.09 秒、停止协议 1.17 秒、Cooked Lantern 9.74 秒、Lantern Runtime 工作流
+2.90 秒，均在原限制内通过。新增的可选源目录监听回归以及 Editor 告警失败条件包含在本轮测试中。
+日志位于本地 `build/035-msvc-shared-tests.log`、`build/035-msvc-static-tests.log`。
+Clang Shared/Static 的 0.29.1 全量结果见[依赖升级记录](2026-09-23-granit-0.29.1-upgrade.md)，
+其中 Shared 的两项首次失败和复测结果保留，不记为首轮全绿。
+资产监听修复后的 Clang Shared 专项结果见 [M-145 补充记录](M-145-asset-file-watcher.md)；本轮
+Clang Static 重建 Editor 后，监听、作者监视、导入、重新导入队列及两项 Editor smoke 共 6 项
+同样通过，日志为 `build/035-clang-static-watch-tests.log`。未因文档整理重复已通过的完整矩阵。
+
+### 尚未完成
+
 - 本机 `wsl --status` 仍返回 `WSL_E_WSL_OPTIONAL_COMPONENT_REQUIRED`，且无 Docker 命令，未执行
   Linux Clang/GCC 与 Sanitizer。仓库 Linux 工作流包含这些验收，但仅支持手动触发。
-- 真实桌面呈现与交互仍待检查；已有 GPU 读回和程序冒烟结果不替代此项。
-- 用户报告测试场景整体 Y 方向颠倒，已通过下述 GPU 读回复现；方向问题尚未修复。
+- 场景 Y 方向已随 [Granit 0.28.1 接入](2026-09-23-granit-0.28.1-upgrade.md)完成修复与 GPU 读回验证。
+- 用户已确认升级 0.29.1 后实际滚轮拉远不再卡住或跳动；程序化两次 resize 后持续呈现通过，
+  详见 [0.29.1 验收](2026-09-23-granit-0.29.1-upgrade.md)。真实鼠标 resize、Gizmo 拖动及全部桌面
+  交互仍未完成验收，不能用短程 smoke 替代。
 - 未推送分支、触发远端工作流、合并、打标签或发布。M-236 保持进行中。
 
 ## 场景 Y 方向诊断
