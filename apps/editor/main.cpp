@@ -36,6 +36,7 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
@@ -172,6 +173,8 @@ struct editor_state {
 #if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
   gneiss::editor::asset_browser_model assets;
   gneiss::editor::asset_file_watcher asset_watcher;
+  std::chrono::steady_clock::time_point next_asset_watch_attempt{};
+  bool asset_watch_failed = false;
   gneiss::editor::asset_file_watcher author_asset_watcher;
   gneiss::editor::author_asset_monitor author_assets;
   gneiss::editor::asset_reimport_queue asset_reimports;
@@ -183,6 +186,29 @@ struct editor_state {
   bool asset_scene_attempted = false;
 #endif
 };
+
+#if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
+void start_source_asset_watch(editor_state& state) {
+  const auto now = std::chrono::steady_clock::now();
+  if (state.asset_watcher.is_running() || state.asset_watch_failed ||
+      now < state.next_asset_watch_attempt) {
+    return;
+  }
+  state.next_asset_watch_attempt = now + std::chrono::seconds{1};
+  const auto operation = state.asset_watcher.start(state.project_root / "sources", true);
+  if (operation == gneiss::result::not_ready) {
+    return;
+  }
+  if (operation == gneiss::result::success) {
+    state.asset_result = state.assets.refresh(state.project_root, state.asset_root);
+    return;
+  }
+  state.asset_watch_failed = true;
+  const auto message = operation.message();
+  std::fprintf(stderr, "Gneiss Editor 资产监听启动失败：结果=%d，消息=%.*s\n",
+               gneiss::to_native(operation), static_cast<int>(message.size()), message.data());
+}
+#endif
 
 constexpr std::size_t matrix_index(std::size_t row, std::size_t column) noexcept {
   return (column * 4U) + row;
@@ -1836,6 +1862,7 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
     auto& state = *static_cast<editor_state*>(user_data);
     state.runtime.update();
 #if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
+    start_source_asset_watch(state);
     std::vector<gneiss::editor::asset_file_event> file_events;
     (void)state.asset_watcher.poll_events(file_events);
     for (const auto& event : file_events) {
@@ -3306,13 +3333,7 @@ int run_editor(int argc, char** argv) {
   state.project_root = project.project_root;
 #if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
   state.asset_result = state.assets.refresh(state.project_root, state.asset_root);
-  const auto watcher_result = state.asset_watcher.start(state.project_root / "sources");
-  if (watcher_result != gneiss::result::success) {
-    const auto message = watcher_result.message();
-    std::fprintf(stderr, "Gneiss Editor 资产监听启动失败：结果=%d，消息=%.*s\n",
-                 gneiss::to_native(watcher_result), static_cast<int>(message.size()),
-                 message.data());
-  }
+  start_source_asset_watch(state);
   const auto author_monitor_result = state.author_assets.initialize(state.asset_root);
   if (author_monitor_result != gneiss::result::success) {
     const auto message = author_monitor_result.message();

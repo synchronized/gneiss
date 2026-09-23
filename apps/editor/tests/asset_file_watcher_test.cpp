@@ -78,6 +78,28 @@ int main() {
   std::filesystem::create_directories(root / "nested");
   write_text(root / "nested" / "asset.txt", "initial");
 
+  // 无源资产的工程无需创建空目录；目录后来出现后，同一监听器可以正常启动。
+  gneiss::editor::asset_file_watcher optional;
+  const auto sources = root / "sources";
+  if (optional.start(sources, true) != gneiss::result::not_ready || optional.is_running() ||
+      std::filesystem::exists(sources) || optional.stop() != gneiss::result::not_ready ||
+      optional.start(sources, true) != gneiss::result::not_ready) {
+    return 8;
+  }
+  write_text(sources, "not a directory");
+  if (optional.start(sources, true) != gneiss::result::invalid_argument || optional.is_running()) {
+    return 9;
+  }
+  std::filesystem::remove(sources);
+  std::filesystem::create_directory(sources);
+  if (optional.start(sources, true) != gneiss::result::success || !optional.is_running()) {
+    return 10;
+  }
+  write_text(sources / "late.txt", "created after startup");
+  if (!wait_for_candidate(optional, "late.txt") || optional.stop() != gneiss::result::success) {
+    return 11;
+  }
+
   gneiss::editor::asset_file_watcher watcher{2U};
   if (watcher.start(root / "missing") != gneiss::result::not_found ||
       watcher.start(root) != gneiss::result::success || !watcher.is_running()) {

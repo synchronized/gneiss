@@ -39,7 +39,9 @@ public:
   asset_file_watcher(const asset_file_watcher&) = delete;
   asset_file_watcher& operator=(const asset_file_watcher&) = delete;
 
-  [[nodiscard]] result start(const std::filesystem::path& source_root) noexcept;
+  /** allow_missing 时缺失目录返回 not_ready 且不启动线程；调用方可在目录创建后重试。 */
+  [[nodiscard]] result start(const std::filesystem::path& source_root,
+                             bool allow_missing = false) noexcept;
   [[nodiscard]] result stop() noexcept;
   [[nodiscard]] std::size_t poll_events(std::vector<asset_file_event>& output,
                                         std::size_t max_count = 64U) noexcept;

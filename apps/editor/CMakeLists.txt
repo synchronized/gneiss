@@ -364,7 +364,9 @@ if(BUILD_TESTING)
       -DMISSING_PROJECT=${PROJECT_BINARY_DIR}/missing-editor-project -P
       "${CMAKE_CURRENT_SOURCE_DIR}/tests/startup_diagnostic_test.cmake"
   )
-  set_tests_properties(gneiss.editor.smoke PROPERTIES TIMEOUT 30)
+  set_tests_properties(gneiss.editor.smoke PROPERTIES
+    TIMEOUT 30 FAIL_REGULAR_EXPRESSION "资产监听启动失败"
+  )
   set_tests_properties(gneiss.editor.project-manager-smoke PROPERTIES TIMEOUT 30)
   set_tests_properties(gneiss.editor.startup-diagnostic PROPERTIES TIMEOUT 30)
 endif()

@@ -181,7 +181,9 @@ if(GNEISS_ENABLE_GRANIT_PLATFORM AND TARGET gneiss_assetc)
         NAME gneiss.editor.lantern-gallery-project
         COMMAND gneiss_editor --smoke --project "${lantern_gallery_project_root}"
       )
-      set_tests_properties(gneiss.editor.lantern-gallery-project PROPERTIES TIMEOUT 30)
+      set_tests_properties(gneiss.editor.lantern-gallery-project PROPERTIES
+        TIMEOUT 30 FAIL_REGULAR_EXPRESSION "资产监听启动失败"
+      )
       add_executable(
         gneiss_editor_lantern_workflow_test
         "${PROJECT_SOURCE_DIR}/apps/editor/tests/lantern_workflow_test.cpp"

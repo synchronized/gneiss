@@ -182,13 +182,21 @@ asset_file_watcher::~asset_file_watcher() {
   }
 }
 
-result asset_file_watcher::start(const std::filesystem::path& source_root) noexcept {
+result asset_file_watcher::start(const std::filesystem::path& source_root,
+                                 bool allow_missing) noexcept {
   if (!implementation_ || source_root.empty() || implementation_->running.load()) {
     return result::invalid_argument;
   }
   try {
     implementation_->source_root = std::filesystem::weakly_canonical(source_root);
-    if (!std::filesystem::is_directory(implementation_->source_root)) {
+    const auto status = std::filesystem::status(implementation_->source_root);
+    if (allow_missing && !std::filesystem::exists(status)) {
+      return result::not_ready;
+    }
+    if (!std::filesystem::is_directory(status)) {
+      if (allow_missing) {
+        return result::invalid_argument;
+      }
       return result::not_found;
     }
     auto operation = implementation_->executor.start();
