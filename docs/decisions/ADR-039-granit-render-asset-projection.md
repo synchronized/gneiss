@@ -24,13 +24,13 @@ Gneiss 当前拥有 Mesh、Material、Texture 的 RID、作者 JSON、Runtime Me
   `granit_render_service` 的私有 GPU 投影，只能由渲染线程创建、更新和销毁。
 - 接入标准 PBR 时迁移到 Granit 参考 Render Pipeline 的公共 Mesh、Material、Scene 和 Draw Binding
   契约，不从其示例私有 `gpu_scene`、执行器、加载器或 UI 复制实现。
-- Granit 安装的标准 PBR `.grshader` 与 `.grmat` 是后端构建输入。Gneiss 通过 Granit 公共元数据、
+- Granit 安装的标准 PBR Shader Library `.grshlib` 与 `.grmat` 是后端构建输入。Gneiss 通过 Granit 公共元数据、
   Schema 和目录契约验证并嵌入它们，同时将运行时依赖暂存到自己的安装数据目录；Runtime 不依赖
   开发机绝对路径。
 - Granit 专用产物只允许存在于 Gneiss 派生缓存或安装数据中。缓存键至少包含 Gneiss 资产修订、
   Granit 版本、Renderer backend/profile 和输入内容摘要；不匹配时重新生成，不能迁移为作者数据。
-- Shader Resolver 由后端投影层持有，并从经过校验的暂存资产按稳定内容 ID 解析；其存储和同步
-  生命周期至少覆盖对应 Granit Material 实例。
+- Shader Library 的归档由后端投影层持有，GPU Shader 变体与内容 ID 解析由 Granit 公共 Library
+  接口负责。先销毁 Material 与 Pipeline，再销毁 Library，最后释放归档字节。
 - Environment 作者数据保存环境源 URI、强度、水平旋转和必要的导入设置；导入器产生的 `GRENV`
   字节属于派生后端产物。Render Service 从 VFS 取得字节后创建候选 Environment Map，成功才原子
   替换旧投影，失败继续使用旧环境或内建中性环境。

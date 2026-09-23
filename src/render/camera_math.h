@@ -21,10 +21,9 @@ struct matrix4 {
 [[nodiscard]] gneiss_result build_view_matrix(const gneiss_transform& transform,
                                               matrix4& out_matrix) noexcept;
 
-/** 构造适配 Vulkan 深度范围和帧缓冲 Y 方向的右手透视投影矩阵。 */
-[[nodiscard]] gneiss_result build_vulkan_perspective_matrix(const gneiss_camera& camera,
-                                                            float aspect,
-                                                            matrix4& out_matrix) noexcept;
+/** 构造右手透视投影矩阵，逻辑裁剪空间 Y 向上、深度范围为 0..1。 */
+[[nodiscard]] gneiss_result build_perspective_matrix(const gneiss_camera& camera, float aspect,
+                                                     matrix4& out_matrix) noexcept;
 
 /** 按 column 向量约定计算 matrix * vector。 */
 [[nodiscard]] std::array<float, 4> transform_vector(const matrix4& matrix,

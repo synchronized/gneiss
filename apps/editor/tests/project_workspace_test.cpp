@@ -106,7 +106,8 @@ int main() try {
   if (!std::filesystem::is_regular_file(package_root / "gneiss.project.json") ||
       !std::filesystem::is_regular_file(package_root / "assets" / "scenes" / "main.scene.json") ||
       !std::filesystem::is_regular_file(package_root / "assets" / ".gneiss-build.json") ||
-      !std::filesystem::is_regular_file(package_root / "assets" / "textures" / "test.ktx2") ||
+      !std::filesystem::is_regular_file(package_root / "assets" / "textures" /
+                                        "test.gneiss-texture") ||
       std::filesystem::exists(package_root / "assets" / "textures" / "test.png") ||
       !std::filesystem::is_regular_file(package_root / "modules" / "debug" / module_name) ||
       !std::filesystem::is_regular_file(package_root / "bin" / runtime_name) ||
@@ -127,7 +128,7 @@ int main() try {
   const std::string cooked_texture_text{std::istreambuf_iterator<char>(cooked_texture_description),
                                         std::istreambuf_iterator<char>()};
   cooked_texture_description.close();
-  if (cooked_texture_text.find("asset://textures/test.ktx2") == std::string::npos ||
+  if (cooked_texture_text.find("asset://textures/test.gneiss-texture") == std::string::npos ||
       cooked_texture_text.find("test.png") != std::string::npos) {
     return 7;
   }

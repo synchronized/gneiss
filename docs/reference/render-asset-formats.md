@@ -140,15 +140,30 @@ Granit 标准 PBR Material 参数；作者资产不引用 `.grmat` 或后端 Sha
 ```
 
 作者资产中的 `source` 可以指向 PNG；`color_space` 必须为 `srgb` 或 `linear`，由描述文件明确指定，
-不从 PNG 元数据推断。资产构建会把 PNG 确定性转换为同名 `.ktx2`，生成直到 1×1 的完整 Mip 链，
-并重写运行资产中的 URI。相同图像不能由多个 Texture 描述同时声明为不同颜色空间。
+不从 PNG 元数据推断。资产构建会生成直到 1×1 的完整 Mip 链，再确定性转换为同名
+`.gneiss-texture` 并重写运行资产中的 URI。相同图像不能由多个 Texture 描述同时声明为不同颜色空间。
 
 0.34.0 的运行容器只接受二维、单层、单面、无超级压缩的 `R8G8B8A8_UNORM` 或
 `R8G8B8A8_SRGB` KTX2。Runtime 校验标识、DFD 传递函数、完整 Mip 数量、Level Index 范围和每级
 字节数，再将全部 Mip 交给 Granit。图片宽高上限为 16384，解码后资源数据上限为 256 MiB。
 
-编辑器直接运行尚未 Cook 的作者工程时保留 PNG 兼容路径；发布包只包含 KTX2 和被重写的 Texture
-描述。PNG 解码与 Mip 生成属于工具路径，不能作为发布包的运行资产格式依赖。
+`.gneiss-texture` 包含 Gneiss 外层 Header、Granit Texture Asset Manifest、BC7 优选负载和 RGBA8
+回退负载。两种变体使用相同完整 Mip 链；颜色空间决定对应的 UNORM 或 SRGB GPU 格式。编辑器直接
+运行尚未 Cook 的作者工程时保留 PNG 兼容路径。PNG 解码、Mip 生成和 BC7 编码只存在于工具路径。
+
+运行纹理封装的 Runtime 加载要求启用 `GNEISS_ENABLE_GRANIT_PLATFORM`；关闭时返回
+`GNEISS_ERROR_UNSUPPORTED` 并定位到 `/source`，不创建纹理 RID。PNG 与 KTX2 的 CPU 加载仍可用。
+
+`gneiss_assetc inspect <file.gneiss-texture>` 校验外层封装、Manifest、二维完整 Mip 链、颜色空间、
+RGBA8 回退与所有变体的负载 SHA-256，输出尺寸、变体格式和各 Mip 的字节范围、行跨度。
+`validate <file.gneiss-texture>` 执行相同校验，仅输出通过提示。失败时向标准错误输出诊断并返回 1；
+离线检查不判断当前 GPU 是否支持某种格式。
+
+启用 Application 日志回调时，运行纹理首次建立 GPU 镜像会产生 `render.texture` 分类日志，来源为
+`granit.render.texture`。消息包含 RID、阶段、变体下标、格式、Mip 数与所选负载字节数；缓存命中不
+重复记录。`stage=ready` 表示批次提交和 Texture View 创建成功，不表示 GPU 已完成执行或最终画面
+已验收。失败阶段为 `inspect`、`select`、`create`、`batch`、`write`、`submit` 或 `view`，结果码随日志
+返回。日志经既有有界队列异步投递，极端拥塞时遵循日志队列的丢弃策略。
 
 ## 加载与生命周期
 

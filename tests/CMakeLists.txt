@@ -438,7 +438,7 @@ if(GNEISS_ENABLE_GRANIT_PLATFORM)
   target_compile_definitions(
     gneiss_pbr_shader_resolver_test
     PRIVATE
-      GNEISS_TEST_GRANIT_PBR_ASSET_DIR="${GNEISS_GRANIT_RENDER_PIPELINE_ASSET_DIR}/shaders/pbr"
+      GNEISS_TEST_GRANIT_PBR_ASSET_DIR="${GNEISS_GRANIT_RENDER_PIPELINE_ASSET_DIR}/libraries"
       GNEISS_TEST_GRANIT_PBR_MATERIAL="${GNEISS_GRANIT_RENDER_PIPELINE_ASSET_DIR}/materials/pbr_standard.grmat"
   )
   target_link_libraries(gneiss_pbr_shader_resolver_test PRIVATE granit::render_pipeline)
@@ -450,6 +450,9 @@ if(GNEISS_ENABLE_GRANIT_PLATFORM)
 
   add_executable(gneiss_granit_platform_smoke_test granit_platform_smoke_test.cpp)
   target_link_libraries(gneiss_granit_platform_smoke_test PRIVATE gneiss::engine)
+  if(WIN32)
+    target_link_libraries(gneiss_granit_platform_smoke_test PRIVATE user32)
+  endif()
   target_compile_features(gneiss_granit_platform_smoke_test PRIVATE cxx_std_20)
   gneiss_target_compile_warnings(gneiss_granit_platform_smoke_test)
   gneiss_target_output_directories(gneiss_granit_platform_smoke_test)
@@ -613,6 +616,17 @@ gneiss_target_compile_warnings(gneiss_texture_ktx2_test)
 gneiss_target_output_directories(gneiss_texture_ktx2_test)
 add_test(NAME gneiss.texture_ktx2 COMMAND gneiss_texture_ktx2_test)
 
+add_executable(
+  gneiss_texture_binary_test
+  asset/texture_binary_test.cpp
+  "${PROJECT_SOURCE_DIR}/src/asset/texture_binary.cpp"
+)
+target_include_directories(gneiss_texture_binary_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_compile_features(gneiss_texture_binary_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_texture_binary_test)
+gneiss_target_output_directories(gneiss_texture_binary_test)
+add_test(NAME gneiss.texture_binary COMMAND gneiss_texture_binary_test)
+
 if(GNEISS_ENABLE_GRANIT_PLATFORM)
   add_executable(
     gneiss_scene_projection_math_test
@@ -634,6 +648,7 @@ add_executable(
   render/render_asset_loader_test.cpp
   "${PROJECT_SOURCE_DIR}/src/asset/asset_uri.cpp"
   "${PROJECT_SOURCE_DIR}/src/asset/mesh_binary.cpp"
+  "${PROJECT_SOURCE_DIR}/src/asset/texture_binary.cpp"
   "${PROJECT_SOURCE_DIR}/src/asset/texture_ktx2.cpp"
   "${PROJECT_SOURCE_DIR}/src/asset/resource_cache.cpp"
   "${PROJECT_SOURCE_DIR}/src/asset/virtual_file_system.cpp"
@@ -643,8 +658,11 @@ add_executable(
 )
 target_include_directories(gneiss_render_asset_loader_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_definitions(gneiss_render_asset_loader_test PRIVATE GNEISS_BUILDING_LIBRARY)
+if(GNEISS_ENABLE_GRANIT_PLATFORM)
+  target_compile_definitions(gneiss_render_asset_loader_test PRIVATE GNEISS_HAS_GRANIT_PLATFORM)
+endif()
 target_link_libraries(
-  gneiss_render_asset_loader_test PRIVATE gneiss::engine gneiss_yyjson gneiss_png
+  gneiss_render_asset_loader_test PRIVATE gneiss::engine gneiss_yyjson gneiss_png granit::granit granit::asset_tools
 )
 target_compile_features(gneiss_render_asset_loader_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_render_asset_loader_test)
@@ -694,6 +712,7 @@ add_executable(
   scene/prefab_runtime_instance_test.cpp
   "${PROJECT_SOURCE_DIR}/src/asset/asset_uri.cpp"
   "${PROJECT_SOURCE_DIR}/src/asset/mesh_binary.cpp"
+  "${PROJECT_SOURCE_DIR}/src/asset/texture_binary.cpp"
   "${PROJECT_SOURCE_DIR}/src/asset/texture_ktx2.cpp"
   "${PROJECT_SOURCE_DIR}/src/asset/resource_cache.cpp"
   "${PROJECT_SOURCE_DIR}/src/asset/virtual_file_system.cpp"
@@ -710,7 +729,8 @@ add_executable(
 target_include_directories(gneiss_prefab_runtime_instance_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_definitions(gneiss_prefab_runtime_instance_test PRIVATE GNEISS_BUILDING_LIBRARY)
 target_link_libraries(
-  gneiss_prefab_runtime_instance_test PRIVATE gneiss::engine gneiss_yyjson gneiss_png
+  gneiss_prefab_runtime_instance_test
+  PRIVATE gneiss::engine gneiss_yyjson gneiss_png granit::granit
 )
 target_compile_features(gneiss_prefab_runtime_instance_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_prefab_runtime_instance_test)

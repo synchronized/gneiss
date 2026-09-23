@@ -15,7 +15,11 @@ set(shipping_package_dir "${GNEISS_BUILD_DIR}/runtime-shipping-package")
 file(REMOVE_RECURSE "${install_dir}" "${template_source_dir}" "${package_dir}"
      "${package_dir}.zip" "${package_repeat_dir}" "${package_repeat_dir}.zip"
      "${shipping_package_dir}")
-set(granit_build_dir "${GNEISS_BUILD_DIR}/_deps/gneiss_granit-build")
+if(GNEISS_GRANIT_BUILD_DIR)
+  set(granit_build_dir "${GNEISS_GRANIT_BUILD_DIR}")
+else()
+  set(granit_build_dir "${GNEISS_BUILD_DIR}/_deps/granit")
+endif()
 if(EXISTS "${granit_build_dir}/cmake_install.cmake")
   set(granit_install_command
       "${CMAKE_COMMAND}" --install "${granit_build_dir}" --prefix "${install_dir}"
@@ -128,6 +132,7 @@ if(GNEISS_SHARED)
     RESULT_VARIABLE package_export_result
     OUTPUT_VARIABLE package_export_output
     ERROR_VARIABLE package_export_error
+    ENCODING UTF-8
   )
   if(NOT package_export_result EQUAL 0 OR EXISTS "${package_dir}/CMakeLists.txt" OR
      EXISTS "${package_dir}/sources" OR NOT EXISTS "${package_dir}/gneiss.project.json" OR
@@ -160,6 +165,7 @@ if(GNEISS_SHARED)
             "${package_repeat_dir}" development --zip
     RESULT_VARIABLE package_repeat_result
     OUTPUT_VARIABLE package_repeat_output
+    ENCODING UTF-8
   )
   if(NOT package_repeat_result EQUAL 0 OR NOT package_repeat_output MATCHES "缓存命中")
     message(FATAL_ERROR "重复发布包导出失败：${package_repeat_result}")

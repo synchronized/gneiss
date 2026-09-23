@@ -64,8 +64,8 @@ gneiss_result build_view_matrix(const gneiss_transform& transform, matrix4& out_
   return GNEISS_SUCCESS;
 }
 
-gneiss_result build_vulkan_perspective_matrix(const gneiss_camera& camera, float aspect,
-                                              matrix4& out_matrix) noexcept {
+gneiss_result build_perspective_matrix(const gneiss_camera& camera, float aspect,
+                                       matrix4& out_matrix) noexcept {
   if (!std::isfinite(aspect) || aspect <= 0.0F ||
       !std::isfinite(camera.vertical_field_of_view_radians) || !std::isfinite(camera.near_plane) ||
       !std::isfinite(camera.far_plane) || camera.vertical_field_of_view_radians <= 0.0F ||
@@ -77,7 +77,7 @@ gneiss_result build_vulkan_perspective_matrix(const gneiss_camera& camera, float
   const auto focal = 1.0F / std::tan(camera.vertical_field_of_view_radians * 0.5F);
   matrix4 result;
   result.values[matrix_index(0U, 0U)] = focal / aspect;
-  result.values[matrix_index(1U, 1U)] = -focal;
+  result.values[matrix_index(1U, 1U)] = focal;
   result.values[matrix_index(2U, 2U)] = camera.far_plane / (camera.near_plane - camera.far_plane);
   result.values[matrix_index(2U, 3U)] =
       (camera.far_plane * camera.near_plane) / (camera.near_plane - camera.far_plane);

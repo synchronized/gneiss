@@ -9,7 +9,6 @@
 #include <gneiss/application.h>
 #include <gneiss/input.h>
 
-#include <granit/input/input.hpp>
 #include <granit/window.hpp>
 
 namespace gneiss::application_internal {
@@ -27,9 +26,7 @@ public:
 private:
   granit::window_system window_system_;
   granit::window window_;
-  granit::input_system input_system_;
   native_window_info native_window_;
-  bool input_available_{};
 };
 
 } // namespace gneiss::application_internal

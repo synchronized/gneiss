@@ -3,10 +3,15 @@
 
 #include "tooling/asset_build/asset_build.h"
 
+#include "asset/texture_binary.h"
+
+#include <granit/renderer/texture_asset.hpp>
+
 #include <chrono>
 #include <filesystem>
 #include <fstream>
 #include <string>
+#include <vector>
 
 namespace {
 
@@ -39,6 +44,18 @@ using namespace gneiss::tooling::asset_build;
     }
   }
   return nullptr;
+}
+
+[[nodiscard]] std::vector<std::byte> read_bytes(const std::filesystem::path& path) {
+  std::ifstream stream(path, std::ios::binary | std::ios::ate);
+  const auto size = stream.tellg();
+  if (size <= 0) {
+    return {};
+  }
+  std::vector<std::byte> bytes(static_cast<std::size_t>(size));
+  stream.seekg(0);
+  stream.read(reinterpret_cast<char*>(bytes.data()), size);
+  return stream.good() ? bytes : std::vector<std::byte>{};
 }
 
 } // namespace
@@ -85,8 +102,22 @@ int main() {
       first_valid.built_count != 4U || first_valid.cache_hit_count != 0U ||
       first_valid.pruned_count != 0U ||
       std::filesystem::exists(development.output_root / "source/original.txt") ||
-      !std::filesystem::exists(development.output_root / "textures/a.ktx2") ||
+      !std::filesystem::exists(development.output_root / "textures/a.gneiss-texture") ||
       std::filesystem::exists(development.output_root / "textures/a.png")) {
+    return 3;
+  }
+  const auto texture_bytes = read_bytes(development.output_root / "textures/a.gneiss-texture");
+  gneiss::asset_internal::texture_binary_view texture_binary;
+  std::string texture_diagnostic;
+  granit::texture_asset_info texture_info;
+  if (gneiss::asset_internal::decode_texture_binary(texture_bytes, texture_binary,
+                                                    texture_diagnostic) !=
+          gneiss::asset_internal::texture_binary_result::success ||
+      granit::inspect_texture_asset(texture_binary.manifest, texture_info) !=
+          granit::result::success ||
+      texture_info.variants.size() != 2U ||
+      texture_info.variants[0].format != granit::texture_format::bc7_rgba_srgb ||
+      texture_info.variants[1].format != granit::texture_format::rgba8_srgb) {
     return 3;
   }
   auto second_request = development;
@@ -107,7 +138,7 @@ int main() {
   const auto shipping = build_assets(shipping_request, registry);
   if (shipping.result != build_result::success || shipping.outputs.size() != 3U ||
       shipping.pruned_count != 1U ||
-      std::filesystem::exists(shipping_request.output_root / "textures/unused.ktx2")) {
+      std::filesystem::exists(shipping_request.output_root / "textures/unused.gneiss-texture")) {
     return 5;
   }
 

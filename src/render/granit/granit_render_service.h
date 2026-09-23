@@ -6,8 +6,8 @@
 
 #include "platform/granit/granit_platform.h"
 #include "render/debug_draw_list.h"
-#include "render/granit/scene_projection_math.h"
 #include "render/granit/pbr_shader_resolver.h"
+#include "render/granit/scene_projection_math.h"
 #include "render/render_executor.h"
 #include "render/render_frame_packet.h"
 #include "render/render_resource_service.h"
@@ -24,12 +24,18 @@
 #include <granit/pipeline/mesh.hpp>
 #include <granit/pipeline/render_pipeline.hpp>
 #include <granit/pipeline/scene.hpp>
+#include <granit/renderer/shader_library.hpp>
 
 #include <array>
+#include <atomic>
 #include <deque>
 #include <span>
 #include <unordered_map>
 #include <vector>
+
+namespace gneiss::log_internal {
+class log_dispatcher;
+}
 
 namespace gneiss::application_internal {
 
@@ -38,8 +44,13 @@ public:
   [[nodiscard]] gneiss_result initialize(const native_window_info& window,
                                          std::span<const std::byte> environment_asset = {},
                                          float environment_intensity = 1.0F,
-                                         float environment_rotation_radians = 0.0F) noexcept;
+                                         float environment_rotation_radians = 0.0F,
+                                         log_internal::log_dispatcher* log = nullptr) noexcept;
   [[nodiscard]] gneiss_result shutdown(granit::renderer_resource_stats& stats) noexcept;
+  [[nodiscard]] gneiss_result finish_frames() noexcept;
+  void set_log_application(gneiss_application application) noexcept {
+    log_application_.store(application, std::memory_order_relaxed);
+  }
   [[nodiscard]] gneiss_result
   prepare_frame_packet_storage(render_internal::render_frame_packet& packet,
                                bool& out_should_prepare) noexcept;
@@ -84,8 +95,11 @@ private:
 
   [[nodiscard]] granit::result initialize_pipeline() noexcept;
   [[nodiscard]] granit::result
-  create_texture_mirror(const render_internal::texture_resource& source,
-                        texture_mirror& output) noexcept;
+  create_texture_mirror(const render_internal::texture_resource& source, texture_mirror& output,
+                        gneiss_texture rid = GNEISS_NULL_TEXTURE) noexcept;
+  void log_texture(gneiss_texture rid, const char* stage, granit::result result,
+                   std::uint32_t variant, granit::texture_format format, std::uint32_t mips,
+                   std::uint64_t bytes) noexcept;
   [[nodiscard]] granit::result
   create_material_mirror(const render_internal::material_resource& source,
                          granit_texture_view base_color, material_mirror& output) noexcept;
@@ -107,8 +121,9 @@ private:
   granit::swapchain swapchain_;
   granit::render_pipeline pipeline_;
   granit::environment_map environment_;
-  granit_environment_map_info environment_info_{};
+  granit::environment_map_info environment_info_{};
   pbr_shader_resolver pbr_assets_;
+  granit::shader_library pbr_library_;
   granit::sampler sampler_;
   granit::sampler ui_sampler_;
   granit::canvas_draw_list ui_canvas_;
@@ -129,6 +144,9 @@ private:
   bool environment_fallback_{};
   float environment_intensity_{1.0F};
   float environment_rotation_radians_{};
+  // 借用 Application 的线程安全日志队列；其生命周期覆盖执行器停机。
+  log_internal::log_dispatcher* log_{};
+  std::atomic<gneiss_application> log_application_{GNEISS_NULL_APPLICATION};
   render_internal::threaded_render_executor executor_;
   std::vector<render_internal::render_frame_packet> recycled_frame_packets_;
   std::deque<render_internal::render_frame_completion> required_frame_completions_;

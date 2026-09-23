@@ -22,7 +22,7 @@ set(install_command "${CMAKE_COMMAND}" --install "${GNEISS_BUILD_DIR}" --prefix 
 if(GNEISS_GRANIT_BUILD_DIR)
   set(granit_build_dir "${GNEISS_GRANIT_BUILD_DIR}")
 else()
-  set(granit_build_dir "${GNEISS_BUILD_DIR}/_deps/gneiss_granit-build")
+  set(granit_build_dir "${GNEISS_BUILD_DIR}/_deps/granit")
 endif()
 set(build_command "${CMAKE_COMMAND}" --build "${consumer_build_dir}")
 set(test_command "${CMAKE_CTEST_COMMAND}" --test-dir "${consumer_build_dir}" --output-on-failure)
@@ -69,12 +69,7 @@ endforeach()
 foreach(
   required_render_asset
   IN ITEMS
-    shaders/pbr/pbr_standard.vert.grshader
-    shaders/pbr/pbr_standard.vert.grshader.spv
-    shaders/pbr/pbr_standard.vert.grshader.wgsl
-    shaders/pbr/pbr_standard.frag.grshader
-    shaders/pbr/pbr_standard.frag.grshader.spv
-    shaders/pbr/pbr_standard.frag.grshader.wgsl
+    libraries/pbr_standard.grshlib
     materials/pbr_standard.grmat
 )
   if(NOT EXISTS

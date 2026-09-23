@@ -49,6 +49,21 @@ int main() {
             5.0F)) {
     return 4;
   }
+  // 连续拉远穿越多个网格层级，空闲帧也不能将相机拉回。
+  input = {};
+  for (int frame = 0; frame < 1200; ++frame) {
+    const auto before = camera.current_transform();
+    input.dolly = frame % 12 == 0 ? -1.0F : 0.0F;
+    if (camera.update(input) != gneiss::result::success) {
+      return 6;
+    }
+    const auto after = camera.current_transform();
+    if (after.translation[2] < before.translation[2] ||
+        (input.dolly == 0.0F && (!near(after.translation[1], before.translation[1]) ||
+                                 !near(after.translation[2], before.translation[2])))) {
+      return 7;
+    }
+  }
   camera.shutdown();
   return camera.is_valid() || gneiss_world_get_active_camera(world.get(), &active_camera) !=
                                   GNEISS_ERROR_NOT_READY

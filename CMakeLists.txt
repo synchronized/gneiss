@@ -5,7 +5,7 @@ cmake_minimum_required(VERSION 3.23)
 
 project(
   gneiss
-  VERSION 0.34.0
+  VERSION 0.35.0
   DESCRIPTION "基于 Granit 构建的现代 C++20 游戏引擎"
   LANGUAGES C CXX
 )
@@ -27,9 +27,14 @@ endif()
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 include(gneiss_utility)
-if(GNEISS_ENABLE_GRANIT_PLATFORM)
+if(GNEISS_ENABLE_GRANIT_PLATFORM OR GNEISS_BUILD_TOOLS OR GNEISS_BUILD_TESTING)
   include(granit)
+endif()
+if(GNEISS_ENABLE_GRANIT_PLATFORM)
   gneiss_resolve_granit_runtime()
+endif()
+if(GNEISS_BUILD_TOOLS OR GNEISS_BUILD_TESTING)
+  gneiss_resolve_granit_tools()
 endif()
 include(CTest)
 
@@ -40,6 +45,8 @@ if(GNEISS_BUILD_EDITOR OR GNEISS_BUILD_RUNTIME)
 endif()
 add_subdirectory(src)
 if(GNEISS_BUILD_TOOLS)
+  include(bc7enc)
+  gneiss_resolve_bc7enc()
   include(fastgltf)
   gneiss_resolve_fastgltf()
   add_subdirectory(tools)
@@ -95,13 +102,8 @@ install(
 if(GNEISS_ENABLE_GRANIT_PLATFORM)
   install(
     FILES
-      "${GNEISS_GRANIT_RENDER_PIPELINE_ASSET_DIR}/shaders/pbr/pbr_standard.vert.grshader"
-      "${GNEISS_GRANIT_RENDER_PIPELINE_ASSET_DIR}/shaders/pbr/pbr_standard.vert.grshader.spv"
-      "${GNEISS_GRANIT_RENDER_PIPELINE_ASSET_DIR}/shaders/pbr/pbr_standard.vert.grshader.wgsl"
-      "${GNEISS_GRANIT_RENDER_PIPELINE_ASSET_DIR}/shaders/pbr/pbr_standard.frag.grshader"
-      "${GNEISS_GRANIT_RENDER_PIPELINE_ASSET_DIR}/shaders/pbr/pbr_standard.frag.grshader.spv"
-      "${GNEISS_GRANIT_RENDER_PIPELINE_ASSET_DIR}/shaders/pbr/pbr_standard.frag.grshader.wgsl"
-    DESTINATION "${CMAKE_INSTALL_DATADIR}/gneiss/runtime-assets/granit/shaders/pbr"
+      "${GNEISS_GRANIT_RENDER_PIPELINE_ASSET_DIR}/libraries/pbr_standard.grshlib"
+    DESTINATION "${CMAKE_INSTALL_DATADIR}/gneiss/runtime-assets/granit/libraries"
   )
   install(
     FILES "${GNEISS_GRANIT_RENDER_PIPELINE_ASSET_DIR}/materials/pbr_standard.grmat"
@@ -115,7 +117,7 @@ if(TARGET gneiss_runtime)
   )
   foreach(
     granit_runtime_target
-    IN ITEMS granit::granit granit::window granit::input granit::render_pipeline
+    IN ITEMS granit::granit granit::window granit::render_pipeline
   )
     if(TARGET ${granit_runtime_target})
       get_target_property(granit_runtime_type ${granit_runtime_target} TYPE)

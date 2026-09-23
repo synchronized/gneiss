@@ -142,7 +142,9 @@ gneiss_result render_resource_service::create_texture(const gneiss_texture_desc&
         .height = desc.height,
         .format = desc.format,
         .color_space = desc.color_space,
-        .levels = {{.width = desc.width, .height = desc.height, .pixels = {}}}};
+        .levels = {{.width = desc.width, .height = desc.height, .pixels = {}}},
+        .manifest = {},
+        .payload = {}};
     resource.levels.front().pixels.resize(static_cast<std::size_t>(packed_size));
     for (std::uint32_t row = 0; row < desc.height; ++row) {
       std::memcpy(resource.levels.front().pixels.data() +
@@ -162,6 +164,7 @@ gneiss_result render_resource_service::create_texture(texture_resource resource,
                                                       gneiss_texture* out_texture) noexcept {
   if (out_texture == nullptr || !is_valid() || resource.width == 0U || resource.height == 0U ||
       resource.format != GNEISS_TEXTURE_FORMAT_RGBA8_UNORM || resource.levels.empty() ||
+      !resource.manifest.empty() || !resource.payload.empty() ||
       resource.levels.front().width != resource.width ||
       resource.levels.front().height != resource.height) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
@@ -178,6 +181,27 @@ gneiss_result render_resource_service::create_texture(texture_resource resource,
     total_bytes += level_bytes;
     width = std::max(1U, width / 2U);
     height = std::max(1U, height / 2U);
+  }
+  try {
+    return textures_.create(core::resource_type::texture,
+                            std::make_shared<const texture_resource>(std::move(resource)),
+                            out_texture);
+  } catch (const std::bad_alloc&) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
+gneiss_result
+render_resource_service::create_packaged_texture(texture_resource resource,
+                                                 gneiss_texture* out_texture) noexcept {
+  if (out_texture == nullptr || !is_valid() || resource.width == 0U || resource.height == 0U ||
+      resource.format != GNEISS_TEXTURE_FORMAT_RGBA8_UNORM ||
+      (resource.color_space != GNEISS_TEXTURE_COLOR_SPACE_LINEAR &&
+       resource.color_space != GNEISS_TEXTURE_COLOR_SPACE_SRGB) ||
+      !resource.levels.empty() || resource.manifest.empty() || resource.payload.empty()) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
   }
   try {
     return textures_.create(core::resource_type::texture,

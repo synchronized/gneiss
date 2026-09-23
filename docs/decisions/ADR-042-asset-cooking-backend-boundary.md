@@ -17,7 +17,10 @@
 - Gneiss 工具链拥有资产发现、导入设置、构建图、缓存键、格式解析、转码、依赖和发布裁剪。
 - 首版使用工程 `build/.gneiss-cache` 作为内容寻址缓存，按目标平台与架构隔离，并通过临时文件原子提交。
 - Runtime 只加载 Gneiss 运行资产，不把源格式解析作为正式发布路径。
-- Granit 只提供后端无关的 GPU 资源描述、格式能力查询与上传契约，不感知 KTX2 或 Gneiss 资产格式。
+- Granit Runtime 提供后端无关的 GPU 资源描述、格式能力查询与上传契约；独立的 AssetTools
+  组件可负责通用 GPU 资产 Manifest、摘要和内容 ID 的确定性构建，不感知 Gneiss 工程或资产格式。
+- AssetTools 仅链接 Gneiss 离线工具和需要生成测试数据的测试目标，不进入引擎 Runtime 的链接接口。
+  图片解码、压缩策略、缓存和 Gneiss 外层封装继续由上层管理。
 - KTX2/Basis Universal 依赖保持私有，不通过 Gneiss 公共 C/C++ API 泄漏其类型。
 - 发现 Granit 通用能力缺口时，Gneiss 只形成最小接口与验收建议，由用户决定并提交 Granit PR。
 

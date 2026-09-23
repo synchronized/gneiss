@@ -15,6 +15,7 @@
 #include <fstream>
 #include <iterator>
 #include <optional>
+#include <source_location>
 #include <string>
 #include <string_view>
 #include <thread>
@@ -143,6 +144,16 @@ bool rotation_changed(const std::array<float, 4>& left,
   return pump_until(process, 3s, [&] { return process.asset_reload_status().state == expected; });
 }
 
+int report_failure(const gneiss::editor::runtime_process& process, int code,
+                   std::source_location location = std::source_location::current()) {
+  std::fprintf(stderr,
+               "Lantern 工作流失败：line=%u code=%d state=%d running=%d exit_code=%d reload=%d\n",
+               location.line(), code, static_cast<int>(process.control_state()),
+               process.is_running() ? 1 : 0, process.exit_code(),
+               static_cast<int>(process.asset_reload_status().state));
+  return code;
+}
+
 } // namespace
 
 int main() try {
@@ -172,7 +183,7 @@ int main() try {
                      entry.event.category.c_str(), entry.event.message.c_str());
       }
     }
-    return 1;
+    return report_failure(process, 1);
   }
   const auto first_session = process.console().current_session_id();
   if (!pump_until(process, 3s, [&] {
@@ -184,7 +195,7 @@ int main() try {
       std::fprintf(stderr, "node=%s instance=%s source=%s\n", node.uuid.c_str(),
                    node.prefab_instance_uuid.c_str(), node.prefab_source_node_uuid.c_str());
     }
-    return 2;
+    return report_failure(process, 2);
   }
   const auto initial_rotation = *root_rotation(process);
   if (!pump_until(process, 3s, [&] {
@@ -196,7 +207,7 @@ int main() try {
                              "21000000-0000-4000-8000-000000000004") != nullptr;
       })) {
     std::fprintf(stderr, "未在时限内收到三个 Prefab 来源节点\n");
-    return 2;
+    return report_failure(process, 2);
   }
   const auto* left_body = prefab_source(process, "20000000-0000-4000-8000-000000000010",
                                         "21000000-0000-4000-8000-000000000002");
@@ -212,7 +223,7 @@ int main() try {
                  left_body == nullptr ? 0.0 : left_body->local_transform.translation[0],
                  center_frame == nullptr ? 0.0 : center_frame->local_transform.scale[0],
                  right_glass == nullptr ? 0.0 : right_glass->local_transform.translation[1]);
-    return 2;
+    return report_failure(process, 2);
   }
   const auto root_identity = root_node(process)->id;
   const auto glass_identity = right_glass->id;
@@ -220,7 +231,7 @@ int main() try {
   auto scene_text = read_text(scene_path);
   if (!replace_once(scene_text, "Lantern Pivot", "Lantern Pivot Reloaded") ||
       !write_text(scene_path, scene_text)) {
-    return 2;
+    return report_failure(process, 2);
   }
   const std::array<std::string, 1U> scene_revision{"asset://scenes/gallery.scene.json"};
   if (process.publish_asset_revision(scene_revision) != gneiss::result::success ||
@@ -230,7 +241,7 @@ int main() try {
         return root != nullptr && root->name == "Lantern Pivot Reloaded" &&
                root->id == root_identity;
       })) {
-    return 2;
+    return report_failure(process, 2);
   }
 
   const auto prefab_path = temporary_project / "assets" / "prefabs" / "lantern.prefab.json";
@@ -238,7 +249,7 @@ int main() try {
   auto updated_prefab = valid_prefab;
   if (!replace_once(updated_prefab, "Lantern Glass", "Lantern Glass Reloaded") ||
       !write_text(prefab_path, updated_prefab)) {
-    return 2;
+    return report_failure(process, 2);
   }
   const std::array<std::string, 1U> prefab_revision{"asset://prefabs/lantern.prefab.json"};
   if (process.publish_asset_revision(prefab_revision) != gneiss::result::success ||
@@ -249,12 +260,12 @@ int main() try {
         return glass != nullptr && glass->name == "Lantern Glass Reloaded" &&
                glass->id == glass_identity && glass->local_transform.translation[1] == 20.0F;
       })) {
-    return 2;
+    return report_failure(process, 2);
   }
   if (!write_text(prefab_path, "{invalid") ||
       process.publish_asset_revision(prefab_revision) != gneiss::result::success ||
       !wait_for_asset_state(process, gneiss::editor::runtime_asset_reload_state::failed)) {
-    return 2;
+    return report_failure(process, 2);
   }
   const auto* preserved_glass = prefab_source(process, "20000000-0000-4000-8000-000000000030",
                                               "21000000-0000-4000-8000-000000000004");
@@ -262,17 +273,17 @@ int main() try {
       preserved_glass->id != glass_identity || !write_text(prefab_path, valid_prefab) ||
       process.publish_asset_revision(prefab_revision) != gneiss::result::success ||
       !wait_for_asset_state(process, gneiss::editor::runtime_asset_reload_state::applied)) {
-    return 2;
+    return report_failure(process, 2);
   }
   if (!process.supports_property_editing() || !pump_until(process, 3s, [&] {
         const auto current = root_rotation(process);
         return current.has_value() && rotation_changed(initial_rotation, *current);
       })) {
-    return 2;
+    return report_failure(process, 2);
   }
   const auto* running_root = root_node(process);
   if (running_root == nullptr) {
-    return 2;
+    return report_failure(process, 2);
   }
   const auto running_edit_key = transform_key(*running_root, GNEISS_TRANSFORM_FIELD_TRANSLATION);
   const auto rotation_edit_key = transform_key(*running_root, GNEISS_TRANSFORM_FIELD_ROTATION);
@@ -293,29 +304,34 @@ int main() try {
       process.request_pause() != gneiss::result::success || !pump_until(process, 3s, [&] {
         return process.control_state() == gneiss::editor::runtime_control_state::paused;
       })) {
-    return 2;
+    return report_failure(process, 2);
   }
 
-  // 暂停确认后先排空已在传输途中的事件，再观察游戏更新是否保持静止。
-  // 检查消息使用独立的有界队列；在全量测试负载下，暂停确认可能早于此前快照完成应用。
-  const auto drain_deadline = std::chrono::steady_clock::now() + 500ms;
-  while (std::chrono::steady_clock::now() < drain_deadline) {
-    process.update();
-    std::this_thread::sleep_for(10ms);
+  // 日志由独立消费线程异步发送，暂停后仍可能收到旧进度；以暂停确认后的新统计为准。
+  const auto pause_ack_sequence = process.statistics().sequence;
+  if (!pump_until(process, 3s,
+                  [&] { return process.statistics().sequence > pause_ack_sequence; })) {
+    return report_failure(process, 3);
   }
   const auto paused_count = progress_count(process, first_session);
-  const auto paused_rotation = root_rotation(process);
+  const auto paused_fixed_updates = process.statistics().fixed_update_count;
+  const auto paused_statistics_sequence = process.statistics().sequence;
   const auto* paused_root = root_node(process);
   if (paused_root == nullptr) {
-    return 3;
+    return report_failure(process, 3);
   }
   const auto paused_edit_key = transform_key(*paused_root, GNEISS_TRANSFORM_FIELD_SCALE);
   if (process.request_property_write(paused_edit_key, 1U,
                                      {std::array<float, 3>{1.1F, 1.1F, 1.1F}}) !=
           gneiss::result::success ||
-      !wait_for_applied(process, paused_edit_key)) {
-    return 3;
+      !wait_for_applied(process, paused_edit_key) || !pump_until(process, 3s, [&] {
+        const auto* root = root_node(process);
+        return root != nullptr && root->local_transform.scale[0] == 1.1F;
+      })) {
+    return report_failure(process, 3);
   }
+  // 属性结果与场景快照独立投递；观察基线必须来自暂停后这次编辑对应的新快照。
+  const auto paused_rotation = root_rotation(process);
   const auto observation_deadline = std::chrono::steady_clock::now() + 700ms;
   while (std::chrono::steady_clock::now() < observation_deadline) {
     process.update();
@@ -324,13 +340,24 @@ int main() try {
   const auto after_pause_rotation = root_rotation(process);
   if (!paused_rotation.has_value() || !after_pause_rotation.has_value() ||
       rotation_changed(*paused_rotation, *after_pause_rotation) ||
-      progress_count(process, first_session) != paused_count ||
-      process.request_resume() != gneiss::result::success ||
+      process.statistics().sequence <= paused_statistics_sequence ||
+      process.statistics().fixed_update_count != paused_fixed_updates) {
+    std::fprintf(stderr, "暂停观察失败：fixed_updates=%llu->%llu rotation_changed=%d\n",
+                 static_cast<unsigned long long>(paused_fixed_updates),
+                 static_cast<unsigned long long>(process.statistics().fixed_update_count),
+                 paused_rotation && after_pause_rotation &&
+                         rotation_changed(*paused_rotation, *after_pause_rotation)
+                     ? 1
+                     : 0);
+    return report_failure(process, 3);
+  }
+  if (process.request_resume() != gneiss::result::success ||
       !pump_until(process, 3s,
                   [&] {
                     return process.control_state() ==
                                gneiss::editor::runtime_control_state::running &&
-                           progress_count(process, first_session) > paused_count;
+                           progress_count(process, first_session) > paused_count &&
+                           process.statistics().fixed_update_count > paused_fixed_updates;
                   }) ||
       !pump_until(process, 3s,
                   [&] {
@@ -338,13 +365,13 @@ int main() try {
                     return current.has_value() && rotation_changed(*paused_rotation, *current);
                   }) ||
       !stop_session(process)) {
-    return 3;
+    return report_failure(process, 3);
   }
 
   if (process.start(runtime, request) != gneiss::result::success || !pump_until(process, 5s, [&] {
         return process.control_state() == gneiss::editor::runtime_control_state::running;
       })) {
-    return 4;
+    return report_failure(process, 4);
   }
   const auto second_session = process.console().current_session_id();
   if (second_session == first_session ||
@@ -352,9 +379,10 @@ int main() try {
       process.property_edit(running_edit_key) != nullptr ||
       process.property_edit(rotation_edit_key) != nullptr ||
       process.property_edit(paused_edit_key) != nullptr || !stop_session(process)) {
-    return 5;
+    return report_failure(process, 5);
   }
   return 0;
 } catch (...) {
+  std::fputs("Lantern 工作流失败：未处理的测试异常\n", stderr);
   return 99;
 }

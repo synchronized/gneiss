@@ -46,6 +46,7 @@ ZIP 不使用第二套收集规则。
 
 ## 纹理运行资产
 
-0.34.0 起，目录包构建会把作者 PNG 转换为 RGBA8 KTX2，并将 JSON 中对应的 `asset://` URI 重写为
-`.ktx2`。包内不保留被转换的 PNG；`.gneiss-build.json` 记录的输出路径与依赖同样使用派生 URI。
-Debug、Development 与 Shipping 使用相同 Cook 规则，Shipping 仍只保留入口资产可达的传递闭包。
+目录包构建会把作者 PNG 转换为包含 BC7 优选及 RGBA8 回退变体的 `.gneiss-texture`，并将 JSON 中
+对应的 `asset://` URI 重写为派生路径。包内不保留被转换的 PNG；`.gneiss-build.json` 记录的输出
+路径与依赖同样使用派生 URI。Debug、Development 与 Shipping 使用相同 Cook 规则，Shipping 仍只
+保留入口资产可达的传递闭包。

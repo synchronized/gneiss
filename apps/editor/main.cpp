@@ -4,6 +4,7 @@
 #include "child_process.h"
 #include "editor_camera.h"
 #include "editor_command_history.h"
+#include "editor_grid.h"
 #include "editor_project.h"
 #include "editor_rotation_math.h"
 #include "editor_session.h"
@@ -35,6 +36,7 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
@@ -171,6 +173,8 @@ struct editor_state {
 #if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
   gneiss::editor::asset_browser_model assets;
   gneiss::editor::asset_file_watcher asset_watcher;
+  std::chrono::steady_clock::time_point next_asset_watch_attempt{};
+  bool asset_watch_failed = false;
   gneiss::editor::asset_file_watcher author_asset_watcher;
   gneiss::editor::author_asset_monitor author_assets;
   gneiss::editor::asset_reimport_queue asset_reimports;
@@ -182,6 +186,29 @@ struct editor_state {
   bool asset_scene_attempted = false;
 #endif
 };
+
+#if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
+void start_source_asset_watch(editor_state& state) {
+  const auto now = std::chrono::steady_clock::now();
+  if (state.asset_watcher.is_running() || state.asset_watch_failed ||
+      now < state.next_asset_watch_attempt) {
+    return;
+  }
+  state.next_asset_watch_attempt = now + std::chrono::seconds{1};
+  const auto operation = state.asset_watcher.start(state.project_root / "sources", true);
+  if (operation == gneiss::result::not_ready) {
+    return;
+  }
+  if (operation == gneiss::result::success) {
+    state.asset_result = state.assets.refresh(state.project_root, state.asset_root);
+    return;
+  }
+  state.asset_watch_failed = true;
+  const auto message = operation.message();
+  std::fprintf(stderr, "Gneiss Editor 资产监听启动失败：结果=%d，消息=%.*s\n",
+               gneiss::to_native(operation), static_cast<int>(message.size()), message.data());
+}
+#endif
 
 constexpr std::size_t matrix_index(std::size_t row, std::size_t column) noexcept {
   return (column * 4U) + row;
@@ -215,7 +242,7 @@ gneiss::editor::gizmo_matrix build_gizmo_projection_matrix(float aspect) noexcep
   const auto focal = 1.0F / std::tan(field_of_view * 0.5F);
   gneiss::editor::gizmo_matrix result{};
   result[matrix_index(0U, 0U)] = focal / aspect;
-  // ImGuizmo 会把 NDC Y 转换为向下增长的屏幕坐标，不能重复使用 Vulkan 的 Y 翻转。
+  // ImGuizmo 将统一的 Y 向上 NDC 转换为向下增长的屏幕坐标。
   result[matrix_index(1U, 1U)] = focal;
   result[matrix_index(2U, 2U)] = far_plane / (near_plane - far_plane);
   result[matrix_index(2U, 3U)] = (far_plane * near_plane) / (near_plane - far_plane);
@@ -279,30 +306,11 @@ std::string format_console_entry(const gneiss::editor::console_entry& entry) {
   return output;
 }
 
-gneiss::result submit_editor_grid(gneiss_application application) {
-  std::vector<gneiss::debug_line> lines;
-  lines.reserve(326U);
-  constexpr int extent = 80;
-  constexpr float spacing = 0.25F;
-  for (int index = -extent; index <= extent; ++index) {
-    const auto value = static_cast<float>(index) * spacing;
-    const auto major = index % 4 == 0;
-    const auto color = index == 0 ? IM_COL32(137, 180, 250, 190)
-                       : major    ? IM_COL32(166, 173, 200, 105)
-                                  : IM_COL32(108, 112, 134, 55);
-    lines.push_back({.start = {value, 0.0F, -20.0F},
-                     .end = {value, 0.0F, 20.0F},
-                     .color_rgba8 = color,
-                     .width = major ? 1.25F : 1.0F,
-                     .depth_test = 1U,
-                     .reserved = {}});
-    lines.push_back({.start = {-20.0F, 0.0F, value},
-                     .end = {20.0F, 0.0F, value},
-                     .color_rgba8 = color,
-                     .width = major ? 1.25F : 1.0F,
-                     .depth_test = 1U,
-                     .reserved = {}});
-  }
+gneiss::result submit_editor_grid(gneiss_application application, const editor_state& state) {
+  const auto* viewport = ImGui::GetMainViewport();
+  const auto& camera = state.camera.current_transform();
+  auto lines = gneiss::editor::build_editor_grid(camera, build_view_matrix(camera),
+                                                 viewport != nullptr ? viewport->Size.y : 0.0F);
   lines.push_back({.start = {0.0F, 0.0F, 0.0F},
                    .end = {2.0F, 0.0F, 0.0F},
                    .color_rgba8 = IM_COL32(243, 139, 168, 255),
@@ -1705,7 +1713,7 @@ bool draw_transform_gizmo(editor_state& state, const ImVec2& minimum, const ImVe
   ImGuizmo::SetRect(viewport->Pos.x, viewport->Pos.y, viewport->Size.x, viewport->Size.y);
   ImGui::GetWindowDrawList()->AddText(
       ImVec2(minimum.x + 8.0F, minimum.y + size.y - ImGui::GetTextLineHeight() - 8.0F),
-      IM_COL32(205, 214, 244, 210), "Grid: 1 unit = 1 m | minor: 0.25 m");
+      IM_COL32(205, 214, 244, 210), "Grid: 1 unit = 1 m | adaptive spacing");
   const auto native_operation = state.gizmo_mode == gizmo_operation::translate ? ImGuizmo::TRANSLATE
                                 : state.gizmo_mode == gizmo_operation::rotate  ? ImGuizmo::ROTATE
                                                                                : ImGuizmo::SCALE;
@@ -1854,6 +1862,7 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
     auto& state = *static_cast<editor_state*>(user_data);
     state.runtime.update();
 #if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
+    start_source_asset_watch(state);
     std::vector<gneiss::editor::asset_file_event> file_events;
     (void)state.asset_watcher.poll_events(file_events);
     for (const auto& event : file_events) {
@@ -1940,10 +1949,6 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
       return result;
     }
     ImGuizmo::BeginFrame();
-    const auto grid_result = submit_editor_grid(application);
-    if (grid_result != gneiss::result::success) {
-      return gneiss::to_native(grid_result);
-    }
     const auto selection_result = state.session.validate_selection();
     if (selection_result != gneiss::result::success &&
         selection_result != gneiss::result::invalid_handle) {
@@ -3256,6 +3261,11 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
     if (state.show_imgui_demo) {
       ImGui::ShowDemoWindow(&state.show_imgui_demo);
     }
+    // 相机可能被本帧滚轮、聚焦或场景操作更新；网格必须使用最终相机状态。
+    const auto grid_result = submit_editor_grid(application, state);
+    if (grid_result != gneiss::result::success) {
+      return gneiss::to_native(grid_result);
+    }
     return state.ui.submit(application);
   } catch (const std::bad_alloc&) {
     // C++ 异常不得越过 C ABI 回调边界。
@@ -3323,13 +3333,7 @@ int run_editor(int argc, char** argv) {
   state.project_root = project.project_root;
 #if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
   state.asset_result = state.assets.refresh(state.project_root, state.asset_root);
-  const auto watcher_result = state.asset_watcher.start(state.project_root / "sources");
-  if (watcher_result != gneiss::result::success) {
-    const auto message = watcher_result.message();
-    std::fprintf(stderr, "Gneiss Editor 资产监听启动失败：结果=%d，消息=%.*s\n",
-                 gneiss::to_native(watcher_result), static_cast<int>(message.size()),
-                 message.data());
-  }
+  start_source_asset_watch(state);
   const auto author_monitor_result = state.author_assets.initialize(state.asset_root);
   if (author_monitor_result != gneiss::result::success) {
     const auto message = author_monitor_result.message();

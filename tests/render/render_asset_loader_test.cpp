@@ -4,12 +4,15 @@
 #include "asset/file_system.h"
 #include "asset/mesh_binary.h"
 #include "asset/resource_cache.h"
+#include "asset/texture_binary.h"
 #include "asset/texture_ktx2.h"
 #include "asset/virtual_file_system.h"
 #include "render/render_asset_loader.h"
 #include "render/render_resource_service.h"
 
 #include <gneiss/core/result.h>
+
+#include <granit/asset_tools/texture_builder.hpp>
 
 #include <array>
 #include <cstddef>
@@ -85,6 +88,33 @@ indexed_mesh_is_preserved(gneiss::render_internal::render_asset_loader& loader,
          resource->indices.size() == 6U && resource->indices[5] == 3U;
 }
 
+[[nodiscard]] std::vector<std::byte> make_runtime_texture() {
+  const std::array payload = {std::byte{0xff}, std::byte{0xff}, std::byte{0xff}, std::byte{0xff}};
+  const std::array subresources{
+      granit::asset_tools::texture::subresource_info{.mip_level = 0U,
+                                                     .array_layer = 0U,
+                                                     .data_offset = 0U,
+                                                     .data_size = 4U,
+                                                     .bytes_per_row = 4U,
+                                                     .rows_per_image = 1U}};
+  const std::array variants{granit::asset_tools::texture::variant_desc{
+      .format = granit::texture_format::rgba8_srgb,
+      .usage = granit::texture_usage::sampled | granit::texture_usage::transfer_destination,
+      .payload = payload,
+      .subresources = subresources}};
+  const auto [status, built] = granit::asset_tools::texture::build({.variants = variants});
+  if (status != granit::result::success)
+    return {};
+  std::vector<std::byte> output;
+  std::string diagnostic;
+  if (gneiss::asset_internal::encode_texture_binary(built.manifest(), built.payload(), output,
+                                                    diagnostic) !=
+      gneiss::asset_internal::texture_binary_result::success) {
+    return {};
+  }
+  return output;
+}
+
 } // namespace
 
 int main() try { // NOLINT(readability-function-cognitive-complexity)：集成测试按返回码定位阶段。
@@ -126,6 +156,16 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
   memory->files.emplace(
       "textures/linear.texture.json",
       R"({"format":"gneiss.texture","version":1,"source":"asset://textures/linear.ktx2","color_space":"linear"})");
+  const auto packaged_bytes = make_runtime_texture();
+  if (packaged_bytes.empty()) {
+    return 26;
+  }
+  memory->files.emplace(
+      "textures/packaged.gneiss-texture",
+      std::string(reinterpret_cast<const char*>(packaged_bytes.data()), packaged_bytes.size()));
+  memory->files.emplace(
+      "textures/packaged.texture.json",
+      R"({"format":"gneiss.texture","version":1,"source":"asset://textures/packaged.gneiss-texture","color_space":"srgb"})");
   memory->files.emplace(
       "models/textured.mesh.json",
       R"({"format":"gneiss.mesh","version":2,"topology":"triangle_list","vertices":[[-0.5,-0.5,0],[0.5,-0.5,0],[0,0.5,0]],"uvs":[[0,0],[1,0],[0.5,1]]})");
@@ -308,6 +348,28 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
     return 25;
   }
   ktx_texture = {};
+
+  gneiss::render_internal::texture_asset_lease packaged_texture;
+#if defined(GNEISS_HAS_GRANIT_PLATFORM)
+  if (loader.acquire_texture("asset://textures/packaged.texture.json", packaged_texture,
+                             diagnostic) != GNEISS_SUCCESS) {
+    return 27;
+  }
+  const auto* packaged_resource = resources.get_texture(packaged_texture.get());
+  if (packaged_resource == nullptr || !packaged_resource->levels.empty() ||
+      packaged_resource->manifest.empty() || packaged_resource->payload.size() != 4U) {
+    return 28;
+  }
+  packaged_texture = {};
+#else
+  const auto live_before = resources.live_resource_count();
+  if (loader.acquire_texture("asset://textures/packaged.texture.json", packaged_texture,
+                             diagnostic) != GNEISS_ERROR_UNSUPPORTED ||
+      packaged_texture || diagnostic.path != "/source" || diagnostic.message.empty() ||
+      resources.live_resource_count() != live_before) {
+    return 29;
+  }
+#endif
 
   first_mesh = {};
   second_mesh = {};

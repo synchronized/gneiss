@@ -9,6 +9,8 @@ add_library(
   console_model.h
   editor_camera.cpp
   editor_camera.h
+  editor_grid.cpp
+  editor_grid.h
   editor_command_history.cpp
   editor_command_history.h
   editor_project.h
@@ -208,6 +210,11 @@ if(BUILD_TESTING)
   gneiss_target_compile_warnings(gneiss_editor_camera_test)
   gneiss_target_output_directories(gneiss_editor_camera_test)
   add_test(NAME gneiss.editor.camera COMMAND gneiss_editor_camera_test)
+  add_executable(gneiss_editor_grid_test tests/editor_grid_test.cpp)
+  target_link_libraries(gneiss_editor_grid_test PRIVATE gneiss_editor_session)
+  gneiss_target_compile_warnings(gneiss_editor_grid_test)
+  gneiss_target_output_directories(gneiss_editor_grid_test)
+  add_test(NAME gneiss.editor.grid COMMAND gneiss_editor_grid_test)
   add_executable(gneiss_editor_property_inspector_test tests/property_inspector_model_test.cpp)
   target_link_libraries(gneiss_editor_property_inspector_test PRIVATE gneiss_editor_session)
   gneiss_target_compile_warnings(gneiss_editor_property_inspector_test)
@@ -357,7 +364,9 @@ if(BUILD_TESTING)
       -DMISSING_PROJECT=${PROJECT_BINARY_DIR}/missing-editor-project -P
       "${CMAKE_CURRENT_SOURCE_DIR}/tests/startup_diagnostic_test.cmake"
   )
-  set_tests_properties(gneiss.editor.smoke PROPERTIES TIMEOUT 30)
+  set_tests_properties(gneiss.editor.smoke PROPERTIES
+    TIMEOUT 30 FAIL_REGULAR_EXPRESSION "资产监听启动失败"
+  )
   set_tests_properties(gneiss.editor.project-manager-smoke PROPERTIES TIMEOUT 30)
   set_tests_properties(gneiss.editor.startup-diagnostic PROPERTIES TIMEOUT 30)
 endif()

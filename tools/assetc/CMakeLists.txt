@@ -7,6 +7,8 @@ add_library(
   "${PROJECT_SOURCE_DIR}/src/asset/mesh_binary.h"
   "${PROJECT_SOURCE_DIR}/src/asset/texture_ktx2.cpp"
   "${PROJECT_SOURCE_DIR}/src/asset/texture_ktx2.h"
+  "${PROJECT_SOURCE_DIR}/src/asset/texture_binary.cpp"
+  "${PROJECT_SOURCE_DIR}/src/asset/texture_binary.h"
   "${PROJECT_SOURCE_DIR}/src/render/png_decoder.cpp"
   "${PROJECT_SOURCE_DIR}/src/render/png_decoder.h"
   "${PROJECT_SOURCE_DIR}/src/tooling/asset_import/asset_index.cpp"
@@ -20,14 +22,23 @@ add_library(
   "${PROJECT_SOURCE_DIR}/src/tooling/asset_import/import_ir.h"
   "${PROJECT_SOURCE_DIR}/src/tooling/asset_build/asset_build.cpp"
   "${PROJECT_SOURCE_DIR}/src/tooling/asset_build/asset_build.h"
+  "${PROJECT_SOURCE_DIR}/src/tooling/asset_build/bc7_encoder.cpp"
+  "${PROJECT_SOURCE_DIR}/src/tooling/asset_build/bc7_encoder.h"
   "${PROJECT_SOURCE_DIR}/src/tooling/asset_build/ktx2_probe.cpp"
   "${PROJECT_SOURCE_DIR}/src/tooling/asset_build/ktx2_probe.h"
+  "${PROJECT_SOURCE_DIR}/src/tooling/asset_build/runtime_texture_builder.cpp"
+  "${PROJECT_SOURCE_DIR}/src/tooling/asset_build/runtime_texture_builder.h"
+  "${PROJECT_SOURCE_DIR}/src/tooling/asset_build/runtime_texture_probe.cpp"
+  "${PROJECT_SOURCE_DIR}/src/tooling/asset_build/runtime_texture_probe.h"
+  "${PROJECT_SOURCE_DIR}/src/tooling/asset_build/sha256.cpp"
+  "${PROJECT_SOURCE_DIR}/src/tooling/asset_build/sha256.h"
 )
 target_include_directories(
   gneiss_asset_import_sdk PUBLIC "${PROJECT_SOURCE_DIR}/src" "${PROJECT_SOURCE_DIR}/include"
 )
 target_link_libraries(
-  gneiss_asset_import_sdk PRIVATE fastgltf::fastgltf gneiss_yyjson gneiss_png
+  gneiss_asset_import_sdk
+  PRIVATE fastgltf::fastgltf gneiss_bc7enc gneiss_yyjson gneiss_png granit::granit granit::asset_tools
 )
 target_compile_features(gneiss_asset_import_sdk PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_asset_import_sdk)
@@ -39,17 +50,68 @@ target_compile_features(gneiss_assetc PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_assetc)
 gneiss_target_output_directories(gneiss_assetc)
 
+get_target_property(granit_asset_tools_imported granit::asset_tools IMPORTED)
+get_target_property(granit_asset_tools_type granit::asset_tools TYPE)
+if(WIN32 AND granit_asset_tools_imported AND granit_asset_tools_type STREQUAL "SHARED_LIBRARY")
+  add_custom_command(
+    TARGET gneiss_assetc POST_BUILD
+    COMMAND "${CMAKE_COMMAND}" -E copy_if_different "$<TARGET_FILE:granit::asset_tools>"
+            "$<TARGET_FILE_DIR:gneiss_assetc>"
+    VERBATIM
+  )
+endif()
+
 if(GNEISS_BUILD_TESTING AND BUILD_TESTING)
+  add_executable(
+    gneiss_corrupt_texture_fixture
+    "${PROJECT_SOURCE_DIR}/tests/tooling/corrupt_texture_fixture.cpp"
+  )
+  target_link_libraries(gneiss_corrupt_texture_fixture PRIVATE gneiss_asset_import_sdk granit::granit)
+  target_compile_features(gneiss_corrupt_texture_fixture PRIVATE cxx_std_20)
+  gneiss_target_compile_warnings(gneiss_corrupt_texture_fixture)
+  gneiss_target_output_directories(gneiss_corrupt_texture_fixture)
+
   add_executable(
     gneiss_asset_build_test
     "${PROJECT_SOURCE_DIR}/tests/tooling/asset_build_test.cpp"
   )
   target_include_directories(gneiss_asset_build_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
-  target_link_libraries(gneiss_asset_build_test PRIVATE gneiss_asset_import_sdk)
+  target_link_libraries(gneiss_asset_build_test PRIVATE gneiss_asset_import_sdk granit::granit)
   target_compile_features(gneiss_asset_build_test PRIVATE cxx_std_20)
   gneiss_target_compile_warnings(gneiss_asset_build_test)
   gneiss_target_output_directories(gneiss_asset_build_test)
   add_test(NAME gneiss.tooling.asset_build COMMAND gneiss_asset_build_test)
+
+  add_executable(gneiss_bc7_encoder_test "${PROJECT_SOURCE_DIR}/tests/tooling/bc7_encoder_test.cpp")
+  target_include_directories(gneiss_bc7_encoder_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+  target_link_libraries(gneiss_bc7_encoder_test PRIVATE gneiss_asset_import_sdk gneiss_bc7enc)
+  target_compile_features(gneiss_bc7_encoder_test PRIVATE cxx_std_20)
+  gneiss_target_compile_warnings(gneiss_bc7_encoder_test)
+  gneiss_target_output_directories(gneiss_bc7_encoder_test)
+  add_test(NAME gneiss.tooling.bc7_encoder COMMAND gneiss_bc7_encoder_test)
+
+  add_executable(gneiss_sha256_test "${PROJECT_SOURCE_DIR}/tests/tooling/sha256_test.cpp")
+  target_include_directories(gneiss_sha256_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+  target_link_libraries(gneiss_sha256_test PRIVATE gneiss_asset_import_sdk)
+  target_compile_features(gneiss_sha256_test PRIVATE cxx_std_20)
+  gneiss_target_compile_warnings(gneiss_sha256_test)
+  gneiss_target_output_directories(gneiss_sha256_test)
+  add_test(NAME gneiss.tooling.sha256 COMMAND gneiss_sha256_test)
+
+  add_executable(
+    gneiss_runtime_texture_builder_test
+    "${PROJECT_SOURCE_DIR}/tests/tooling/runtime_texture_builder_test.cpp"
+  )
+  target_include_directories(
+    gneiss_runtime_texture_builder_test PRIVATE "${PROJECT_SOURCE_DIR}/src"
+  )
+  target_link_libraries(
+    gneiss_runtime_texture_builder_test PRIVATE gneiss_asset_import_sdk granit::granit
+  )
+  target_compile_features(gneiss_runtime_texture_builder_test PRIVATE cxx_std_20)
+  gneiss_target_compile_warnings(gneiss_runtime_texture_builder_test)
+  gneiss_target_output_directories(gneiss_runtime_texture_builder_test)
+  add_test(NAME gneiss.tooling.runtime_texture_builder COMMAND gneiss_runtime_texture_builder_test)
 
   add_executable(
     gneiss_ktx2_probe_test

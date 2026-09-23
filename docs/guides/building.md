@@ -13,9 +13,11 @@ Editor。
 - CMake 3.23 或更高版本。
 - 支持 C++20 的 C/C++ 编译器。
 - 使用 Ninja preset 时需要安装 Ninja。
-- 启用 Granit 运行时适配时需要已安装的 Granit `0.17.0+` 核心、Window、Input 与 RenderPipeline
-  组件，或由父工程提供 `granit::granit`、`granit::window`、`granit::input` 和
+- 启用 Granit 运行时适配时需要已安装的 Granit `0.29.1+` 核心、Window 与 RenderPipeline
+  组件，或由父工程提供 `granit::granit`、`granit::window` 和
   `granit::render_pipeline` 目标。
+- 离线工具或测试还需要 Granit `AssetTools` 组件。FETCH 自动启用其 SDK；PACKAGE 或父工程模式
+  必须提供 `granit::asset_tools`。引擎 Runtime 不链接该工具组件。
 
 ## 操作步骤
 
@@ -143,7 +145,7 @@ ctest --test-dir build/granit-platform --output-on-failure
 
 使用 `GNEISS_GRANIT_PROVIDER=FETCH` 可以强制验证下载路径，跳过 package 查找。仓库镜像和版本可
 通过 `GNEISS_GRANIT_GIT_REPOSITORY`、`GNEISS_GRANIT_GIT_TAG` 覆盖。若父工程已经定义
-`granit::granit`、`granit::window`、`granit::input` 与 `granit::render_pipeline`，所有 provider
+`granit::granit`、`granit::window` 与 `granit::render_pipeline`，所有 provider
 都会优先直接复用。项目会自动更新仍沿用旧默认提交的构建目录，但不会改写其他自定义提交；若需
 刻意固定旧默认提交，同时设置 `GNEISS_GRANIT_UPDATE_DEFAULTS=OFF`。Windows 使用共享库 package
 时，构建会把 Granit 的运行时 DLL 自动复制到 Gneiss 的运行时输出目录，无需手动修改 `PATH`。
@@ -348,7 +350,7 @@ Scene View、右侧 Inspector 和底部 Console 的确定性默认工作区。�
 示例输出当前项目版本：
 
 ```text
-gneiss 0.31.0
+gneiss 0.35.0
 ```
 
 开发 preset 默认启用编译警告并将警告视为错误。
@@ -377,6 +379,9 @@ Request、手动远端验证、修复阻塞问题、合并到 `main`、创建并
 - 找不到编译器：确认 preset 指定的编译器已加入 `PATH`，或选择其他 preset。
 - 找不到 Ninja：安装 Ninja，或在 Windows 上选择 Visual Studio 2022 preset。
 - 切换编译器或链接方式：使用对应的独立 preset，不要复用其他 preset 的构建目录。
+- Windows MSBuild 路径限制：FETCH 将 Granit 放在较短的 `_deps/granit` 构建目录。若仓库路径仍
+  过长并出现 MSB3491，可用 `cmake --preset <preset> -B <较短目录>` 配置，再对该目录执行
+  `cmake --build <目录> --config Release` 和 `ctest --test-dir <目录> -C Release`。
 - 找不到 Granit：确认安装前缀包含 `lib/cmake/granit/granitConfig.cmake`，且安装时包含 Window
   组件；源码联调时由父工程先添加 Granit，再添加 Gneiss；无网络环境使用 `PACKAGE`，避免 AUTO
   在 package 缺失时尝试下载。

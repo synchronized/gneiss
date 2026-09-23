@@ -49,3 +49,4 @@ Reference 和实现为准。
 - [ADR-041：发布配置与可运行包边界](ADR-041-release-profile-package-boundary.md)
 - [ADR-042：资产构建归属 Gneiss 工具链，Granit 只承载 GPU 契约](ADR-042-asset-cooking-backend-boundary.md)
 - [ADR-043：KTX2 作为运行时纹理容器](ADR-043-runtime-texture-container.md)
+- [ADR-044：运行纹理封装承载 Granit Manifest 与负载](ADR-044-texture-asset-manifest-container.md)

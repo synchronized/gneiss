@@ -5,7 +5,8 @@
 
 ## 状态
 
-已接受。
+已被 [ADR-044：运行纹理封装承载 Granit Manifest 与负载](ADR-044-texture-asset-manifest-container.md)
+取代。
 
 ## 背景
 

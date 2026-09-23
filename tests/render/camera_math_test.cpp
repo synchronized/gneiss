@@ -16,8 +16,8 @@ bool nearly_equal(float left, float right) noexcept { return std::abs(left - rig
 } // namespace
 
 int main() {
+  using gneiss::render_internal::build_perspective_matrix;
   using gneiss::render_internal::build_view_matrix;
-  using gneiss::render_internal::build_vulkan_perspective_matrix;
   using gneiss::render_internal::matrix4;
   using gneiss::render_internal::transform_vector;
 
@@ -53,14 +53,17 @@ int main() {
   camera.near_plane = 0.1F;
   camera.far_plane = 100.0F;
   matrix4 projection;
-  if (build_vulkan_perspective_matrix(camera, 2.0F, projection) != GNEISS_SUCCESS) {
+  if (build_perspective_matrix(camera, 2.0F, projection) != GNEISS_SUCCESS) {
     return 5;
   }
   const auto near_point = transform_vector(projection, {0.0F, 0.0F, -camera.near_plane, 1.0F});
   const auto far_point = transform_vector(projection, {0.0F, 0.0F, -camera.far_plane, 1.0F});
   const auto upper_point = transform_vector(projection, {0.0F, 1.0F, -1.0F, 1.0F});
+  const auto lower_point = transform_vector(projection, {0.0F, -1.0F, -1.0F, 1.0F});
   if (!nearly_equal(near_point[2] / near_point[3], 0.0F) ||
-      !nearly_equal(far_point[2] / far_point[3], 1.0F) || upper_point[1] >= 0.0F) {
+      !nearly_equal(far_point[2] / far_point[3], 1.0F) ||
+      !nearly_equal(upper_point[1] / upper_point[3], 1.0F) ||
+      !nearly_equal(lower_point[1] / lower_point[3], -1.0F)) {
     return 6;
   }
 
@@ -69,11 +72,10 @@ int main() {
   transform.rotation[2] = 0.0F;
   transform.rotation[3] = 0.0F;
   if (build_view_matrix(transform, view) != GNEISS_ERROR_INVALID_ARGUMENT ||
-      build_vulkan_perspective_matrix(camera, 0.0F, projection) != GNEISS_ERROR_INVALID_ARGUMENT) {
+      build_perspective_matrix(camera, 0.0F, projection) != GNEISS_ERROR_INVALID_ARGUMENT) {
     return 7;
   }
   camera.far_plane = std::numeric_limits<float>::infinity();
-  return build_vulkan_perspective_matrix(camera, 1.0F, projection) == GNEISS_ERROR_INVALID_ARGUMENT
-             ? 0
-             : 8;
+  return build_perspective_matrix(camera, 1.0F, projection) == GNEISS_ERROR_INVALID_ARGUMENT ? 0
+                                                                                             : 8;
 }
