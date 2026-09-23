@@ -71,8 +71,8 @@ Clang Static 重建 Editor 后，监听、作者监视、导入、重新导入�
 
 ### 尚未完成
 
-- 本机 `wsl --status` 仍返回 `WSL_E_WSL_OPTIONAL_COMPONENT_REQUIRED`，且无 Docker 命令，未执行
-  Linux Clang/GCC 与 Sanitizer。仓库 Linux 工作流包含这些验收，但仅支持手动触发。
+- 本机 `wsl --status` 仍返回 `WSL_E_WSL_OPTIONAL_COMPONENT_REQUIRED`，且无 Docker 命令。
+  Linux Clang/GCC 与 Sanitizer 已通过下述远端矩阵，不再属于自动化验收缺口。
 - 场景 Y 方向已随 [Granit 0.28.1 接入](2026-09-23-granit-0.28.1-upgrade.md)完成修复与 GPU 读回验证。
 - 用户已确认升级 0.29.1 后实际滚轮拉远不再卡住或跳动；程序化两次 resize 后持续呈现通过，
   详见 [0.29.1 验收](2026-09-23-granit-0.29.1-upgrade.md)。真实鼠标 resize、Gizmo 拖动及全部桌面
@@ -91,7 +91,23 @@ Sanitizer 任务通过，四个 core 配置均在编译纹理加载器时失败�
 独立加载器测试与 Engine 使用相同能力宏，分别检查正常加载和不支持路径。
 
 Windows Clang 无后端 Engine 及加载器测试构建、测试通过，导入表确认 Engine 不依赖 Granit DLL。
-该修复没有通过给核心库强制链接 Granit 或关闭失败矩阵来规避问题。远端修复后结果待验证。
+该修复没有通过给核心库强制链接 Granit 或关闭失败矩阵来规避问题。启用后端的加载器、Editor
+smoke 和 Cooked Lantern 共 3 项本地回归通过；加载器 clang-tidy 仍有原有代码告警，未声称全部清零。
+
+首轮图形 Shared/Static 各 124 项测试通过。修复提交
+`2c30f150466a4ff7ba8b58d8b6fbb51c9845a053` 推送后执行
+[第二轮 Linux 工作流](https://github.com/synchronized/gneiss/actions/runs/35853733141)，7 个任务全部成功：
+
+| 配置 | 结果 |
+| --- | --- |
+| Clang Core Shared / Static | 各 73/73 通过 |
+| GCC Core Shared / Static | 各 73/73 通过 |
+| Clang Granit Runtime Shared / Static | 各 124/124 通过，包含无头窗口测试 |
+| GCC Sanitizer Runtime | 设备创建失败检查、Application/Scene 两项测试及图形 smoke 通过 |
+
+Sanitizer 沿用工作流既定边界：Application/Scene 检查启用泄漏检测；图形 smoke 使用 ASan/UBSan，
+但按现有配置关闭泄漏检测。该结果不代表所有测试或图形驱动泄漏均经过 Sanitizer 验证。
+本轮只触发 Linux 工作流；Windows 结果来自前述本地矩阵。后续纯验收文档提交不重复运行矩阵。
 
 ## 场景 Y 方向诊断
 
