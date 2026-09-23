@@ -678,7 +678,7 @@ Mesh 与 Material，并通过 KTX2/Basis Universal Spike 确认纹理容器和 G
 
 ## 0.35.0：平台纹理变体与流式上传
 
-以 Granit 0.28.1 为当前接入基线，用版本化 Gneiss 运行纹理封装承载其 Texture Asset Manifest 和负载。
+以 Granit 0.29.1 为当前接入基线，用版本化 Gneiss 运行纹理封装承载其 Texture Asset Manifest 和负载。
 首批交付 BC7 桌面颜色纹理与 RGBA8 兼容回退，并通过既有渲染线程完成逐 Mip、有界、可重试上传。
 
 | 里程碑 | 优先级 | 状态 |
