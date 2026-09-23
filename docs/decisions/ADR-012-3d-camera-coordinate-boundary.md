@@ -21,8 +21,12 @@
 - Camera 世界缩放不参与视图矩阵；旋转四元数在构造视图矩阵时归一化，零长度旋转无效。
 - 首版只支持透视 Camera，并要求有限的垂直视场角、正数宽高比以及 `0 < near < far`。
 - Render Snapshot 保存渲染所需的值副本，不保存 Camera、节点或后端对象指针。
-- 引擎空间到 Granit/Vulkan 裁剪空间的 Y 方向和深度范围适配只发生在 Granit Render Service 边界。
-- 已知点测试固定 Camera 平移与旋转、近平面深度零、远平面深度一和帧缓冲 Y 方向适配。
+- 渲染投影使用 Y 向上、深度 0..1 的逻辑裁剪空间；Granit 后端负责原生 Viewport 方向转换，
+  Gneiss 不按 Vulkan/WebGPU 重复翻转相机。
+- 已知点测试固定 Camera 平移与旋转、近平面深度零、远平面深度一和逻辑裁剪空间上下方向。
+
+2026-09-23 随 Granit 0.28.1 接入明确后端转换归属，移除旧 Vulkan 投影补偿，世界坐标与公共 ABI
+不变。验证见[接入记录](../records/2026-09-23-granit-0.28.1-upgrade.md)。
 
 ## 影响
 

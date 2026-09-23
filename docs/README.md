@@ -260,6 +260,7 @@
 - [M-229 Granit 0.19.0 升级与兼容审计](records/M-229-granit-0.19-upgrade.md)
 - [Granit 0.23.0 AssetTools 接入评审](records/2026-09-15-granit-asset-tools-review.md)
 - [Granit 0.28.0 升级验收](records/2026-09-23-granit-0.28-upgrade.md)
+- [Granit 0.28.1 坐标契约接入](records/2026-09-23-granit-0.28.1-upgrade.md)
 - [Granit 0.23.0 接入验收](records/2026-09-15-granit-0.23-upgrade.md)
 - [M-231 BC7 私有工具依赖与确定性编码门禁](records/M-231-bc7-encoder.md)
 - [M-232 平台纹理变体构建、缓存键与包内容](records/M-232-texture-variant-build.md)

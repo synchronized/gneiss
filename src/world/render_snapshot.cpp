@@ -27,7 +27,7 @@ gneiss_result build_render_snapshot(world_state& world, std::uint32_t viewport_w
         const auto aspect =
             static_cast<float>(viewport_width) / static_cast<float>(viewport_height);
         const auto projection_result =
-            render_internal::build_vulkan_perspective_matrix(component->value, aspect, projection);
+            render_internal::build_perspective_matrix(component->value, aspect, projection);
         if (view_result != GNEISS_SUCCESS) {
           return view_result;
         }

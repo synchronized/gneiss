@@ -215,7 +215,7 @@ gneiss::editor::gizmo_matrix build_gizmo_projection_matrix(float aspect) noexcep
   const auto focal = 1.0F / std::tan(field_of_view * 0.5F);
   gneiss::editor::gizmo_matrix result{};
   result[matrix_index(0U, 0U)] = focal / aspect;
-  // ImGuizmo 会把 NDC Y 转换为向下增长的屏幕坐标，不能重复使用 Vulkan 的 Y 翻转。
+  // ImGuizmo 将统一的 Y 向上 NDC 转换为向下增长的屏幕坐标。
   result[matrix_index(1U, 1U)] = focal;
   result[matrix_index(2U, 2U)] = far_plane / (near_plane - far_plane);
   result[matrix_index(2U, 3U)] = (far_plane * near_plane) / (near_plane - far_plane);
