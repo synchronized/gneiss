@@ -61,7 +61,7 @@ public:
   [[nodiscard]] result notify(const std::filesystem::path& relative_path,
                               clock::time_point now = clock::now()) noexcept;
 
-  /** 处理到期候选；返回本次实际执行的导入次数。 */
+  /** 处理到期候选；返回导入尝试次数（含失败）。异常生成失败事件，重试须再次 notify。 */
   [[nodiscard]] std::size_t tick(const std::filesystem::path& project_root,
                                  const std::filesystem::path& asset_root,
                                  clock::time_point now = clock::now(),

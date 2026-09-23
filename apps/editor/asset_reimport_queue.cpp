@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <deque>
+#include <exception>
 #include <map>
 #include <string>
 #include <utility>
@@ -31,6 +32,25 @@ namespace asset_import = gneiss::tooling::asset_import;
   editor_import_report report;
   report.result = result;
   report.diagnostic = std::move(diagnostic);
+  return report;
+}
+
+[[nodiscard]] editor_import_report
+invoke_import(const asset_reimport_queue::import_function& importer,
+              const std::filesystem::path& project, const std::filesystem::path& assets,
+              const std::filesystem::path& source) {
+  editor_import_report report;
+  try {
+    report = importer(project, assets, source);
+  } catch (const std::exception& error) {
+    report = diagnostic_report(editor_import_result::import_failed,
+                               std::string{"重新导入异常："} + error.what());
+  } catch (...) {
+    report = diagnostic_report(editor_import_result::import_failed, "重新导入发生未知异常");
+  }
+  if (report.source_path.empty()) {
+    report.source_path = source;
+  }
   return report;
 }
 
@@ -70,10 +90,10 @@ asset_reimport_queue::~asset_reimport_queue() = default;
 
 result asset_reimport_queue::notify(const std::filesystem::path& relative_path,
                                     clock::time_point now) noexcept {
-  if (!is_safe_relative_path(relative_path)) {
-    return result::invalid_argument;
-  }
   try {
+    if (!is_safe_relative_path(relative_path)) {
+      return result::invalid_argument;
+    }
     const auto normalized = relative_path.lexically_normal();
     const auto key = portable_path(normalized);
     auto existing = implementation_->candidates.find(key);
@@ -159,8 +179,9 @@ std::size_t asset_reimport_queue::tick(const std::filesystem::path& project_root
         continue;
       }
       implementation_->emit(asset_reimport_state::importing, candidate.relative_path);
-      auto report = implementation_->importer(project_root, asset_root, source_path);
+      // 失败尝试也消耗本帧预算；异常只能终止当前任务，不能在后续帧无限重复执行。
       ++imported;
+      auto report = invoke_import(implementation_->importer, project_root, asset_root, source_path);
       implementation_->emit(report.result == editor_import_result::success
                                 ? asset_reimport_state::succeeded
                                 : asset_reimport_state::failed,

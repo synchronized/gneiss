@@ -7,6 +7,7 @@
 #include <chrono>
 #include <filesystem>
 #include <fstream>
+#include <stdexcept>
 #include <vector>
 
 namespace {
@@ -95,6 +96,82 @@ int main() { // NOLINT(bugprone-exception-escape)
       bounded.dropped_candidate_count() != 1U) {
     std::filesystem::remove_all(root);
     return 8;
+  }
+
+  const auto second =
+      gneiss::editor::import_external_asset(root, assets, fixture_root / "static_triangle.gltf");
+  if (second.result != gneiss::editor::editor_import_result::success) {
+    return 11;
+  }
+  const auto failing_relative = second.source_path.lexically_relative(root / "sources");
+  std::ofstream(second.source_path, std::ios::app) << ' ';
+  std::ofstream(initial.source_path, std::ios::app) << ' ';
+  int failure_mode = 1;
+  std::size_t attempts = 0U;
+  queue isolated({.debounce = std::chrono::milliseconds{0},
+                  .stable_read_delay = std::chrono::milliseconds{1},
+                  .capacity = 16U},
+                 [&](const auto& project, const auto& asset_root, const auto& source) {
+                   ++attempts;
+                   if (source == second.source_path && failure_mode == 1) {
+                     throw std::runtime_error("test importer failure");
+                   }
+                   if (failure_mode == 2) {
+                     throw 42;
+                   }
+                   return gneiss::editor::reimport_source_asset(project, asset_root, source);
+                 });
+  // 带后缀的第二个源按名称先处理，用来确认失败不会挡住随后健康的候选。
+  if (failing_relative >= relative ||
+      isolated.notify(failing_relative, start) != gneiss::result::success ||
+      isolated.notify(relative, start) != gneiss::result::success ||
+      isolated.tick(root, assets, start) != 0U ||
+      isolated.tick(root, assets, start + std::chrono::milliseconds{1}) != 1U || attempts != 1U ||
+      isolated.pending_count() != 1U) {
+    return 12;
+  }
+  events.clear();
+  (void)isolated.poll_events(events);
+  if (!std::ranges::any_of(events,
+                           [&](const auto& event) {
+                             return event.state == gneiss::editor::asset_reimport_state::failed &&
+                                    event.relative_path == failing_relative &&
+                                    event.import.source_path == second.source_path &&
+                                    event.import.diagnostic.find("test importer failure") !=
+                                        std::string::npos;
+                           }) ||
+      isolated.tick(root, assets, start + std::chrono::milliseconds{2}) != 1U || attempts != 2U ||
+      isolated.pending_count() != 0U ||
+      isolated.tick(root, assets, start + std::chrono::milliseconds{3}) != 0U || attempts != 2U) {
+    return 13;
+  }
+  failure_mode = 0;
+  if (isolated.notify(failing_relative, later) != gneiss::result::success ||
+      isolated.tick(root, assets, later) != 0U ||
+      isolated.tick(root, assets, later + std::chrono::milliseconds{1}) != 1U || attempts != 3U ||
+      isolated.pending_count() != 0U) {
+    return 14;
+  }
+  events.clear();
+  (void)isolated.poll_events(events);
+  if (!std::ranges::any_of(events, [&](const auto& event) {
+        return event.state == gneiss::editor::asset_reimport_state::succeeded &&
+               event.relative_path == failing_relative;
+      })) {
+    return 15;
+  }
+  failure_mode = 2;
+  std::ofstream(second.source_path, std::ios::app) << ' ';
+  if (isolated.notify(failing_relative, later) != gneiss::result::success ||
+      isolated.tick(root, assets, later) != 0U ||
+      isolated.tick(root, assets, later + std::chrono::milliseconds{1}) != 1U ||
+      isolated.pending_count() != 0U) {
+    return 16;
+  }
+  events.clear();
+  (void)isolated.poll_events(events);
+  if (!has_state(events, gneiss::editor::asset_reimport_state::failed)) {
+    return 17;
   }
 
   std::filesystem::remove(initial.source_path);
