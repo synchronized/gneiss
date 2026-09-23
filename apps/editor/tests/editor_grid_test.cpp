@@ -15,12 +15,22 @@ int main() {
   if (lines.empty() || lines.size() > 40000U) {
     return 1;
   }
+  bool distant_major_visible = false;
+  bool distant_minor_visible = false;
   for (const auto& line : lines) {
+    if (line.start[2] < -9.0F && line.end[2] < -9.0F) {
+      distant_major_visible |= line.start[0] == 0.0F && line.end[0] == 0.0F;
+      distant_minor_visible |= line.start[0] == 0.25F && line.end[0] == 0.25F;
+    }
     if (line.start[1] != 0.0F || line.end[1] != 0.0F || line.depth_test != 1U ||
         (line.color_rgba8 >> 24U) > 57U || !std::isfinite(line.start[0]) ||
         !std::isfinite(line.end[2])) {
       return 2;
     }
+  }
+  // 中远距离保留主刻度，同时让低于像素密度阈值的细线退隐。
+  if (!distant_major_visible || distant_minor_visible) {
+    return 8;
   }
   const auto coverage = [](const auto& grid) {
     std::uint64_t total = 0U;

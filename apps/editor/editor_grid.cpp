@@ -31,7 +31,7 @@ std::vector<debug_line> build_editor_grid(const transform& camera, const gizmo_m
   const auto level = std::log(desired / 0.25F) / std::log(4.0F);
   const auto spacing = 0.25F * std::pow(4.0F, std::floor(level));
   const auto detail = 1.0F - fade(0.0F, 1.0F, level - std::floor(level));
-  const auto radius = desired * 48.0F;
+  const auto radius = desired * 72.0F;
   const auto center_x = std::floor(camera.translation[0] / spacing) * spacing;
   const auto center_z = std::floor(camera.translation[2] / spacing) * spacing;
   const auto count = static_cast<int>(std::ceil(radius / spacing));
@@ -45,6 +45,10 @@ std::vector<debug_line> build_editor_grid(const transform& camera, const gizmo_m
       const auto fixed = center[axis] + (static_cast<float>(index) * spacing);
       const auto major = std::abs(std::remainder(fixed, spacing * 4.0F)) < spacing * 0.01F;
       const auto next_major = std::abs(std::remainder(fixed, spacing * 16.0F)) < spacing * 0.01F;
+      const auto major_strength = major ? 0.10F + (0.12F * detail) : 0.10F * detail;
+      const auto strength = next_major ? 0.22F : major_strength;
+      // 主网格间隔更大，不能按细线的密度提前剔除。
+      const auto density_spacing = desired * (major ? 4.0F : 1.0F);
       for (int segment = 0; segment < segments; ++segment) {
         const auto begin =
             center[(1 - axis)] - radius + (static_cast<float>(segment) * segment_length);
@@ -61,11 +65,9 @@ std::vector<debug_line> build_editor_grid(const transform& camera, const gizmo_m
         }
         const auto angle = height / std::max(std::hypot(distance, height), 0.001F);
         // 密度、掠视角与范围同时渐隐，避免远端亚像素线条反复出现。
-        const auto separation = desired * pixels / depth * angle;
-        const auto major_strength = major ? 0.10F + (0.12F * detail) : 0.10F * detail;
-        const auto strength = next_major ? 0.22F : major_strength;
-        const auto opacity = strength * fade(2.0F, 8.0F, separation) * fade(0.06F, 0.3F, angle) *
-                             (1.0F - fade(radius * 0.35F, radius, distance));
+        const auto separation = density_spacing * pixels / depth * angle;
+        const auto opacity = strength * fade(2.0F, 8.0F, separation) * fade(0.03F, 0.18F, angle) *
+                             (1.0F - fade(radius * 0.5F, radius, distance));
         const auto alpha = static_cast<std::uint32_t>(std::lround(opacity * 255.0F));
         if (alpha == 0U) {
           continue;
