@@ -10,6 +10,7 @@
 #include "ipc_session_protocol.h"
 
 #include <chrono>
+#include <cstdio>
 #include <thread>
 #include <vector>
 
@@ -19,7 +20,8 @@ using namespace std::chrono_literals;
 
 bool poll_envelope(gneiss::ipc_transport& transport, gneiss::ipc_envelope& output) {
   std::vector<gneiss::ipc_transport_event> events;
-  (void)transport.poll_events(events);
+  // 每次只取一条，避免返回首个 Envelope 时丢弃同批次中的 Ready 或属性响应。
+  (void)transport.poll_events(events, 1U);
   for (auto& event : events) {
     if (event.type == gneiss::ipc_transport_event_type::envelope_received) {
       output = std::move(event.envelope);
@@ -261,7 +263,7 @@ bool test_control_lifecycle() {
   const auto pong_deadline = std::chrono::steady_clock::now() + 3s;
   bool received_pong = false;
   bool received_log = false;
-  while (std::chrono::steady_clock::now() < pong_deadline && !received_pong) {
+  while (std::chrono::steady_clock::now() < pong_deadline && (!received_pong || !received_log)) {
     if (session.pump(std::chrono::steady_clock::now(), actions) != gneiss::result::success) {
       return false;
     }
@@ -370,19 +372,28 @@ bool test_disconnect() {
 
 int main() {
   if (!test_property_write_round_trip()) {
+    std::fputs("IPC 测试失败：属性写入往返\n", stderr);
     return 1;
   }
   if (!test_control_lifecycle()) {
+    std::fputs("IPC 测试失败：控制生命周期\n", stderr);
     return 2;
   }
   if (!test_property_flood_does_not_block_stop()) {
+    std::fputs("IPC 测试失败：属性洪泛下停止\n", stderr);
     return 3;
   }
   if (!test_handshake_timeout()) {
+    std::fputs("IPC 测试失败：握手超时\n", stderr);
     return 4;
   }
   if (!test_heartbeat_timeout()) {
+    std::fputs("IPC 测试失败：心跳超时\n", stderr);
     return 5;
   }
-  return test_disconnect() ? 0 : 6;
+  if (!test_disconnect()) {
+    std::fputs("IPC 测试失败：连接断开\n", stderr);
+    return 6;
+  }
+  return 0;
 }
