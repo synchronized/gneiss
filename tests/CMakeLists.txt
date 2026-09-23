@@ -658,6 +658,9 @@ add_executable(
 )
 target_include_directories(gneiss_render_asset_loader_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_definitions(gneiss_render_asset_loader_test PRIVATE GNEISS_BUILDING_LIBRARY)
+if(GNEISS_ENABLE_GRANIT_PLATFORM)
+  target_compile_definitions(gneiss_render_asset_loader_test PRIVATE GNEISS_HAS_GRANIT_PLATFORM)
+endif()
 target_link_libraries(
   gneiss_render_asset_loader_test PRIVATE gneiss::engine gneiss_yyjson gneiss_png granit::granit granit::asset_tools
 )

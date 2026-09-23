@@ -77,7 +77,21 @@ Clang Static 重建 Editor 后，监听、作者监视、导入、重新导入�
 - 用户已确认升级 0.29.1 后实际滚轮拉远不再卡住或跳动；程序化两次 resize 后持续呈现通过，
   详见 [0.29.1 验收](2026-09-23-granit-0.29.1-upgrade.md)。真实鼠标 resize、Gizmo 拖动及全部桌面
   交互仍未完成验收，不能用短程 smoke 替代。
-- 未推送分支、触发远端工作流、合并、打标签或发布。M-236 保持进行中。
+- 分支已推送并启动 Linux 验收，结果与修复见下节；尚未合并、打标签或发布。M-236 保持进行中。
+
+## Linux 首轮验收与无后端构建修复
+
+用户同意继续远端验收后，对 `9efe1c5` 触发
+[Linux 工作流](https://github.com/synchronized/gneiss/actions/runs/35852910669)。
+Sanitizer 任务通过，四个 core 配置均在编译纹理加载器时失败：关闭 Granit 后端的 Engine
+无条件包含 `granit/renderer/texture_asset.hpp`，破坏了核心库的可选依赖边界。
+
+修复将 Granit Manifest 检查限定在启用后端的构建中；关闭时加载 `.gneiss-texture` 明确返回
+`GNEISS_ERROR_UNSUPPORTED`，保留 `/source` 诊断且不创建 RID。PNG 与 KTX2 路径不变。
+独立加载器测试与 Engine 使用相同能力宏，分别检查正常加载和不支持路径。
+
+Windows Clang 无后端 Engine 及加载器测试构建、测试通过，导入表确认 Engine 不依赖 Granit DLL。
+该修复没有通过给核心库强制链接 Granit 或关闭失败矩阵来规避问题。远端修复后结果待验证。
 
 ## 场景 Y 方向诊断
 

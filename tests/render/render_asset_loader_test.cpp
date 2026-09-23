@@ -350,6 +350,7 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
   ktx_texture = {};
 
   gneiss::render_internal::texture_asset_lease packaged_texture;
+#if defined(GNEISS_HAS_GRANIT_PLATFORM)
   if (loader.acquire_texture("asset://textures/packaged.texture.json", packaged_texture,
                              diagnostic) != GNEISS_SUCCESS) {
     return 27;
@@ -360,6 +361,15 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
     return 28;
   }
   packaged_texture = {};
+#else
+  const auto live_before = resources.live_resource_count();
+  if (loader.acquire_texture("asset://textures/packaged.texture.json", packaged_texture,
+                             diagnostic) != GNEISS_ERROR_UNSUPPORTED ||
+      packaged_texture || diagnostic.path != "/source" || diagnostic.message.empty() ||
+      resources.live_resource_count() != live_before) {
+    return 29;
+  }
+#endif
 
   first_mesh = {};
   second_mesh = {};

@@ -151,6 +151,9 @@ Granit 标准 PBR Material 参数；作者资产不引用 `.grmat` 或后端 Sha
 回退负载。两种变体使用相同完整 Mip 链；颜色空间决定对应的 UNORM 或 SRGB GPU 格式。编辑器直接
 运行尚未 Cook 的作者工程时保留 PNG 兼容路径。PNG 解码、Mip 生成和 BC7 编码只存在于工具路径。
 
+运行纹理封装的 Runtime 加载要求启用 `GNEISS_ENABLE_GRANIT_PLATFORM`；关闭时返回
+`GNEISS_ERROR_UNSUPPORTED` 并定位到 `/source`，不创建纹理 RID。PNG 与 KTX2 的 CPU 加载仍可用。
+
 `gneiss_assetc inspect <file.gneiss-texture>` 校验外层封装、Manifest、二维完整 Mip 链、颜色空间、
 RGBA8 回退与所有变体的负载 SHA-256，输出尺寸、变体格式和各 Mip 的字节范围、行跨度。
 `validate <file.gneiss-texture>` 执行相同校验，仅输出通过提示。失败时向标准错误输出诊断并返回 1；

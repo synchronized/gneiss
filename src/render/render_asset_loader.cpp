@@ -12,7 +12,9 @@
 
 #include <yyjson.h>
 
+#if defined(GNEISS_HAS_GRANIT_PLATFORM)
 #include <granit/renderer/texture_asset.hpp>
+#endif
 
 #include <algorithm>
 #include <array>
@@ -595,6 +597,7 @@ gneiss_result render_asset_loader::acquire_texture(std::string_view uri,
         }
         gneiss_texture rid = GNEISS_NULL_TEXTURE;
         if (std::string_view(source.uri).ends_with(".gneiss-texture")) {
+#if defined(GNEISS_HAS_GRANIT_PLATFORM)
           asset_internal::texture_binary_view binary;
           std::string decode_message;
           if (asset_internal::decode_texture_binary(image_bytes, binary, decode_message) !=
@@ -643,6 +646,11 @@ gneiss_result render_asset_loader::acquire_texture(std::string_view uri,
                .manifest = std::vector<std::byte>(binary.manifest.begin(), binary.manifest.end()),
                .payload = std::vector<std::byte>(binary.payload.begin(), binary.payload.end())},
               &rid);
+#else
+          fail(out_diagnostic, GNEISS_ERROR_UNSUPPORTED, "/source",
+               "当前构建未启用 Granit，无法加载运行纹理封装");
+          return GNEISS_ERROR_UNSUPPORTED;
+#endif
         } else if (std::string_view(source.uri).ends_with(".ktx2")) {
           asset_internal::texture_ktx2 texture;
           std::string decode_message;
