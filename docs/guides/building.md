@@ -379,6 +379,9 @@ Request、手动远端验证、修复阻塞问题、合并到 `main`、创建并
 - 找不到编译器：确认 preset 指定的编译器已加入 `PATH`，或选择其他 preset。
 - 找不到 Ninja：安装 Ninja，或在 Windows 上选择 Visual Studio 2022 preset。
 - 切换编译器或链接方式：使用对应的独立 preset，不要复用其他 preset 的构建目录。
+- Windows MSBuild 路径限制：FETCH 将 Granit 放在较短的 `_deps/granit` 构建目录。若仓库路径仍
+  过长并出现 MSB3491，可用 `cmake --preset <preset> -B <较短目录>` 配置，再对该目录执行
+  `cmake --build <目录> --config Release` 和 `ctest --test-dir <目录> -C Release`。
 - 找不到 Granit：确认安装前缀包含 `lib/cmake/granit/granitConfig.cmake`，且安装时包含 Window
   组件；源码联调时由父工程先添加 Granit，再添加 Gneiss；无网络环境使用 `PACKAGE`，避免 AUTO
   在 package 缺失时尝试下载。

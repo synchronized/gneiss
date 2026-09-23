@@ -7,6 +7,9 @@
 
 ## 未发布
 
+- 缩短 Granit FETCH 构建目录，修复 Windows MSVC Static preset 的 AssetTools 中间文件路径
+  超过 MAX_PATH 导致的 MSB3491；安装验收使用实际依赖构建目录。
+
 - Granit 基线升级至 0.28.0，保留无可见物体时清屏和提交 UI 的修复；接入统一 Window/Input、
   强类型 C++ 资源引用和 AssetTools 头文件，移除独立 Input 运行时依赖。
 - 标准 PBR 接入 Shader Library；离线纹理 Manifest 改由独立 AssetTools SDK 构建，并更新纹理

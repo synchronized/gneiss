@@ -32,6 +32,8 @@ function(gneiss_fetch_granit)
   if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.28)
     FetchContent_Declare(
       gneiss_granit
+      # 缩短 MSBuild 中间文件路径，避免 AssetTools 长目标名触发 MAX_PATH。
+      BINARY_DIR "${CMAKE_BINARY_DIR}/_deps/granit"
       GIT_REPOSITORY "${GNEISS_GRANIT_GIT_REPOSITORY}"
       GIT_TAG "${GNEISS_GRANIT_GIT_TAG}"
       GIT_PROGRESS TRUE
@@ -45,6 +47,8 @@ function(gneiss_fetch_granit)
   else()
     FetchContent_Declare(
       gneiss_granit
+      # 缩短 MSBuild 中间文件路径，避免 AssetTools 长目标名触发 MAX_PATH。
+      BINARY_DIR "${CMAKE_BINARY_DIR}/_deps/granit"
       GIT_REPOSITORY "${GNEISS_GRANIT_GIT_REPOSITORY}"
       GIT_TAG "${GNEISS_GRANIT_GIT_TAG}"
       GIT_PROGRESS TRUE
