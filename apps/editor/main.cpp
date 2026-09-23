@@ -4,6 +4,7 @@
 #include "child_process.h"
 #include "editor_camera.h"
 #include "editor_command_history.h"
+#include "editor_grid.h"
 #include "editor_project.h"
 #include "editor_rotation_math.h"
 #include "editor_session.h"
@@ -279,30 +280,11 @@ std::string format_console_entry(const gneiss::editor::console_entry& entry) {
   return output;
 }
 
-gneiss::result submit_editor_grid(gneiss_application application) {
-  std::vector<gneiss::debug_line> lines;
-  lines.reserve(326U);
-  constexpr int extent = 80;
-  constexpr float spacing = 0.25F;
-  for (int index = -extent; index <= extent; ++index) {
-    const auto value = static_cast<float>(index) * spacing;
-    const auto major = index % 4 == 0;
-    const auto color = index == 0 ? IM_COL32(137, 180, 250, 190)
-                       : major    ? IM_COL32(166, 173, 200, 105)
-                                  : IM_COL32(108, 112, 134, 55);
-    lines.push_back({.start = {value, 0.0F, -20.0F},
-                     .end = {value, 0.0F, 20.0F},
-                     .color_rgba8 = color,
-                     .width = major ? 1.25F : 1.0F,
-                     .depth_test = 1U,
-                     .reserved = {}});
-    lines.push_back({.start = {-20.0F, 0.0F, value},
-                     .end = {20.0F, 0.0F, value},
-                     .color_rgba8 = color,
-                     .width = major ? 1.25F : 1.0F,
-                     .depth_test = 1U,
-                     .reserved = {}});
-  }
+gneiss::result submit_editor_grid(gneiss_application application, const editor_state& state) {
+  const auto* viewport = ImGui::GetMainViewport();
+  const auto& camera = state.camera.current_transform();
+  auto lines = gneiss::editor::build_editor_grid(camera, build_view_matrix(camera),
+                                                 viewport != nullptr ? viewport->Size.y : 0.0F);
   lines.push_back({.start = {0.0F, 0.0F, 0.0F},
                    .end = {2.0F, 0.0F, 0.0F},
                    .color_rgba8 = IM_COL32(243, 139, 168, 255),
@@ -1705,7 +1687,7 @@ bool draw_transform_gizmo(editor_state& state, const ImVec2& minimum, const ImVe
   ImGuizmo::SetRect(viewport->Pos.x, viewport->Pos.y, viewport->Size.x, viewport->Size.y);
   ImGui::GetWindowDrawList()->AddText(
       ImVec2(minimum.x + 8.0F, minimum.y + size.y - ImGui::GetTextLineHeight() - 8.0F),
-      IM_COL32(205, 214, 244, 210), "Grid: 1 unit = 1 m | minor: 0.25 m");
+      IM_COL32(205, 214, 244, 210), "Grid: 1 unit = 1 m | adaptive spacing");
   const auto native_operation = state.gizmo_mode == gizmo_operation::translate ? ImGuizmo::TRANSLATE
                                 : state.gizmo_mode == gizmo_operation::rotate  ? ImGuizmo::ROTATE
                                                                                : ImGuizmo::SCALE;
@@ -1940,7 +1922,7 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
       return result;
     }
     ImGuizmo::BeginFrame();
-    const auto grid_result = submit_editor_grid(application);
+    const auto grid_result = submit_editor_grid(application, state);
     if (grid_result != gneiss::result::success) {
       return gneiss::to_native(grid_result);
     }
