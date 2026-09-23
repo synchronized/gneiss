@@ -603,6 +603,29 @@ result runtime_process::publish_asset_revision(std::span<const std::string> outp
   }
 }
 
+result runtime_process::retry_asset_reload() noexcept {
+  if (!implementation_ ||
+      implementation_->asset_reload.state != runtime_asset_reload_state::failed ||
+      implementation_->asset_revision_in_flight != 0U || implementation_->known_assets.empty() ||
+      !implementation_->ipc_session.is_authenticated() ||
+      (implementation_->control_state != runtime_control_state::running &&
+       implementation_->control_state != runtime_control_state::paused)) {
+    return result::not_ready;
+  }
+  try {
+    implementation_->queue_asset_resync();
+    implementation_->asset_reload.message = "等待 Runtime 重新同步资产";
+    implementation_->asset_reload.state = runtime_asset_reload_state::waiting;
+    return result::success;
+  } catch (const std::bad_alloc&) {
+    implementation_->pending_asset_batches.clear();
+    return result::out_of_memory;
+  } catch (...) {
+    implementation_->pending_asset_batches.clear();
+    return result::internal;
+  }
+}
+
 void runtime_process::update() noexcept {
   if (!implementation_) {
     return;

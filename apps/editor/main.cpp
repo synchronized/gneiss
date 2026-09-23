@@ -1498,6 +1498,13 @@ void draw_asset_browser(editor_state& state) {
             : ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled);
     ImGui::TextColored(color, "Runtime asset revision %llu: %s",
                        static_cast<unsigned long long>(reload.revision), reload.message.c_str());
+    if (reload.state == gneiss::editor::runtime_asset_reload_state::failed &&
+        ImGui::Button("Retry Runtime asset sync")) {
+      state.runtime_result = state.runtime.retry_asset_reload();
+    }
+    if (reload.state == gneiss::editor::runtime_asset_reload_state::restart_required) {
+      ImGui::TextUnformatted("Stop and restart Runtime to apply these assets.");
+    }
   }
   const auto& author_change = state.author_assets.status();
   if (author_change.state != gneiss::editor::author_asset_change_state::idle) {
