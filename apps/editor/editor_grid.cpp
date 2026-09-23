@@ -15,6 +15,13 @@ float fade(float low, float high, float value) noexcept {
   return t * t * (3.0F - (2.0F * t));
 }
 
+float density_scale(bool major, bool next_major, float detail) noexcept {
+  if (next_major) {
+    return 4.0F;
+  }
+  return major ? 1.0F + (3.0F * detail) : 1.0F;
+}
+
 } // namespace
 
 std::vector<debug_line> build_editor_grid(const transform& camera, const gizmo_matrix& view,
@@ -47,11 +54,12 @@ std::vector<debug_line> build_editor_grid(const transform& camera, const gizmo_m
       const auto next_major = std::abs(std::remainder(fixed, spacing * 16.0F)) < spacing * 0.01F;
       const auto major_strength = major ? 0.10F + (0.12F * detail) : 0.10F * detail;
       const auto strength = next_major ? 0.22F : major_strength;
-      // 主网格间隔更大，不能按细线的密度提前剔除。
-      const auto density_spacing = desired * (major ? 4.0F : 1.0F);
+      // 主线转为细线时，同步连续过渡密度阈值，避免缩放跨层级时整片闪跳。
+      const auto density_spacing = desired * density_scale(major, next_major, detail);
       for (int segment = 0; segment < segments; ++segment) {
-        const auto begin =
-            center[(1 - axis)] - radius + (static_cast<float>(segment) * segment_length);
+        // 只对固定刻度取整，沿线渐隐采样跟随相机连续移动。
+        const auto begin = camera.translation[(1U - axis) * 2U] - radius +
+                           (static_cast<float>(segment) * segment_length);
         const auto middle = begin + (segment_length * 0.5F);
         std::array<float, 2> point{};
         point[axis] = fixed;

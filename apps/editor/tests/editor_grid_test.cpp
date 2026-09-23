@@ -11,6 +11,28 @@ int main() {
   camera.translation[1] = 3.0F;
   camera.translation[2] = 8.0F;
   gneiss::editor::gizmo_matrix view{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, -3, -8, 1};
+  // 跨四倍层级时，同一世界主线变成细线，不能突然改变密度渐隐。
+  const auto sample_alpha = [&](float height, float fixed, float target_z) {
+    auto sample_camera = camera;
+    auto sample_view = view;
+    sample_camera.translation[1] = height;
+    sample_view[13] = -height;
+    const auto grid = gneiss::editor::build_editor_grid(sample_camera, sample_view, 720.0F);
+    for (const auto& line : grid) {
+      if (line.start[0] == fixed && line.end[0] == fixed && line.start[2] <= target_z &&
+          line.end[2] >= target_z) {
+        return static_cast<int>(line.color_rgba8 >> 24U);
+      }
+    }
+    return 0;
+  };
+  for (const auto boundary : {10.0F, 40.0F, 160.0F}) {
+    const auto before = sample_alpha(boundary - 0.001F, boundary * 0.1F, -boundary * 4.5F);
+    const auto after = sample_alpha(boundary + 0.001F, boundary * 0.1F, -boundary * 4.5F);
+    if (std::abs(before - after) > 1) {
+      return 9;
+    }
+  }
   const auto lines = gneiss::editor::build_editor_grid(camera, view, 720.0F);
   if (lines.empty() || lines.size() > 40000U) {
     return 1;
