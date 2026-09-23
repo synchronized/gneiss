@@ -7,6 +7,8 @@
 
 ## 未发布
 
+## 0.35.0 - 2026-09-23
+
 - PNG Cook 产物改为包含 BC7 优选变体和 RGBA8 回退的 `.gneiss-texture`，保留完整 Mip 链与
   颜色空间；Runtime 按设备能力选择变体，通过 Upload Batch 提交，失败不替换旧资源。
 - `gneiss_assetc inspect/validate` 支持运行纹理封装，检查全部变体的 SHA-256 并输出 Mip 布局；
