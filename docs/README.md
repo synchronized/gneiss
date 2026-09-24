@@ -265,6 +265,7 @@
 - [Granit 0.23.0 AssetTools 接入评审](records/2026-09-15-granit-asset-tools-review.md)
 - [Granit 0.28.0 升级验收](records/2026-09-23-granit-0.28-upgrade.md)
 - [Granit 0.28.1 坐标契约接入](records/2026-09-23-granit-0.28.1-upgrade.md)
+- [Granit 0.30.0 原生窗口路径升级验收](records/2026-09-25-granit-0.30.0-upgrade.md)
 - [Granit 0.29.1 无阴影投射物修复接入](records/2026-09-23-granit-0.29.1-upgrade.md)
 - [编辑器网格密度与渐隐优化](records/2026-09-23-editor-grid.md)
 - [远距离缩放冻结与无阴影投射物路径排查](records/2026-09-23-granit-no-shadow-casters.md)
