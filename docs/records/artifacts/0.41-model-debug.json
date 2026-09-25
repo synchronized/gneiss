@@ -1,0 +1,65 @@
+[
+  {
+    "mode": "thread",
+    "sample": 0,
+    "import_ms": 127.89999996311963,
+    "render_interval_median_ms": 15.986,
+    "render_interval_p95_ms": 31.8491,
+    "render_interval_max_ms": 229.7208,
+    "details": "mode=thread result=0 prepare_ms=328.969 commit_ms=12.546 upload_ms=12.319 max_update_ms=3.636 candidate_bytes=16974653 rendered=199 resize=9 restored=1 queue_peak=3\r\nlifetime_seconds=4.151 completed=1"
+  },
+  {
+    "mode": "thread",
+    "sample": 1,
+    "import_ms": 127.89999996311963,
+    "render_interval_median_ms": 15.9369,
+    "render_interval_p95_ms": 31.6384,
+    "render_interval_max_ms": 302.0979,
+    "details": "mode=thread result=0 prepare_ms=325.949 commit_ms=12.604 upload_ms=12.307 max_update_ms=6.161 candidate_bytes=16974653 rendered=199 resize=9 restored=1 queue_peak=3\r\nlifetime_seconds=4.132 completed=1"
+  },
+  {
+    "mode": "thread",
+    "sample": 2,
+    "import_ms": 127.89999996311963,
+    "render_interval_median_ms": 15.9887,
+    "render_interval_p95_ms": 32.2869,
+    "render_interval_max_ms": 303.8192,
+    "details": "mode=thread result=0 prepare_ms=431.913 commit_ms=204.313 upload_ms=14.687 max_update_ms=29.598 candidate_bytes=16974653 rendered=185 resize=9 restored=1 queue_peak=4\r\nlifetime_seconds=4.136 completed=1"
+  },
+  {
+    "mode": "cooperative",
+    "sample": 0,
+    "import_ms": 127.89999996311963,
+    "render_interval_median_ms": 16.0072,
+    "render_interval_p95_ms": 32.8931,
+    "render_interval_max_ms": 314.613,
+    "details": "mode=cooperative result=0 prepare_ms=356.046 commit_ms=82.501 upload_ms=23.559 max_update_ms=356.442 candidate_bytes=16974653 rendered=188 resize=9 restored=1 queue_peak=4\r\nlifetime_seconds=4.141 completed=1"
+  },
+  {
+    "mode": "cooperative",
+    "sample": 1,
+    "import_ms": 127.89999996311963,
+    "render_interval_median_ms": 15.998650000000001,
+    "render_interval_p95_ms": 51.5287,
+    "render_interval_max_ms": 262.7253,
+    "details": "mode=cooperative result=0 prepare_ms=316.769 commit_ms=26.838 upload_ms=12.845 max_update_ms=317.031 candidate_bytes=16974653 rendered=201 resize=9 restored=1 queue_peak=3\r\nlifetime_seconds=4.130 completed=1"
+  },
+  {
+    "mode": "cooperative",
+    "sample": 2,
+    "import_ms": 127.89999996311963,
+    "render_interval_median_ms": 15.97405,
+    "render_interval_p95_ms": 53.583,
+    "render_interval_max_ms": 276.6709,
+    "details": "mode=cooperative result=0 prepare_ms=318.354 commit_ms=27.743 upload_ms=13.815 max_update_ms=318.627 candidate_bytes=16974653 rendered=200 resize=9 restored=1 queue_peak=3\r\nlifetime_seconds=4.146 completed=1"
+  },
+  {
+    "mode": "close",
+    "sample": 0,
+    "import_ms": 127.89999996311963,
+    "render_interval_median_ms": 16.3806,
+    "render_interval_p95_ms": 16.3806,
+    "render_interval_max_ms": 16.3806,
+    "details": "mode=close result=0 prepare_ms=0.000 commit_ms=0.000 upload_ms=0.000 max_update_ms=0.705 candidate_bytes=0 rendered=59 resize=0 restored=0 queue_peak=3\r\nlifetime_seconds=1.344 completed=0"
+  }
+]

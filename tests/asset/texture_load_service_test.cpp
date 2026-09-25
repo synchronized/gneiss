@@ -214,6 +214,11 @@ void mixed(tasks::execution_mode mode) {
   texture_upload_backend backend{.begin =
                                      [&](auto data, auto& sequence) {
                                        check(!data.empty() && data.size() <= 4U);
+                                       std::size_t bytes{};
+                                       for (const auto& item : data)
+                                         bytes += item.bytes;
+                                       check(data.size() == 1U ||
+                                             bytes <= texture_load_service::upload_budget_bytes);
                                        ++chunks;
                                        uploaded = true;
                                        sequence = ++serial;
@@ -233,7 +238,10 @@ void mixed(tasks::execution_mode mode) {
                                        sequence = ++serial;
                                        return GNEISS_SUCCESS;
                                      },
-                                 .flush = [&] { ack = true; }};
+                                 .flush = [&] { ack = true; },
+                                 .estimate_bytes = [](const auto& item) -> std::size_t {
+                                   return item.mesh ? 5U * 1024U * 1024U : 1U * 1024U * 1024U;
+                                 }};
   texture_load_service service(scheduler, vfs, loader, std::move(backend));
   const auto advance = [&] {
     if (mode == tasks::execution_mode::cooperative)
@@ -255,6 +263,11 @@ void mixed(tasks::execution_mode mode) {
   check(completion.state == texture_load_state::failed && discards == 1U && chunks == 2U &&
         cache.size() == 0U && resources.live_resource_count() == 0U);
   fail = false;
+  check(service.submit_assets(requested, 1U, 2U, request) == GNEISS_SUCCESS);
+  check(service.cancel());
+  until([&] { return service.take(completion); });
+  check(completion.state == texture_load_state::cancelled && cache.size() == 0U);
+
   check(service.submit_assets(requested, 1U, 2U, request) == GNEISS_SUCCESS);
   until([&] { return service.take(completion); });
   check(completion.state == texture_load_state::applied && completion.assets.size() == 7U);
@@ -297,6 +310,9 @@ void mixed(tasks::execution_mode mode) {
   check(prepare_render_assets(
             vfs, requested, prepared, diagnostic, [] { return false; }, 2U) != GNEISS_SUCCESS);
   check(prepare_render_assets(vfs, requested, prepared, diagnostic, [] { return true; }) !=
+        GNEISS_SUCCESS);
+  check(prepare_render_assets(
+            vfs, requested, prepared, diagnostic, [] { return false; }, 256U, 8U) !=
         GNEISS_SUCCESS);
   files->files.erase("image.ktx2");
   check(prepare_render_assets(vfs, requested, prepared, diagnostic, [] { return false; }) !=

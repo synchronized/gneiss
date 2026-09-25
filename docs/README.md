@@ -166,6 +166,7 @@
 - [ADR-046：任务调度与 Service 的执行边界](decisions/ADR-046-task-scheduling-service-boundary.md)
 - [ADR-047：任务契约共用线程池与协作执行模式](decisions/ADR-047-cooperative-task-execution.md)
 - [ADR-048：Runtime 资产分离异步准备与受控提交](decisions/ADR-048-runtime-asset-preparation.md)
+- [ADR-049：模型依赖准备与整批资源发布](decisions/ADR-049-model-asset-transactions.md)
 
 ## 实施与验收记录
 
@@ -274,6 +275,7 @@
 - [M-241 0.36.0 发布验收记录](records/M-241-0.36.0-release-validation.md)
 - [M-246～M-249 0.38.0 后台资产任务验收](records/M-246-249-0.38.0-validation.md)
 - [M-250～M-255 0.39.0 任务调度与资产服务验收](records/M-250-255-0.39.0-validation.md)
+- [M-265～M-271 0.41.0 异步模型资产验收](records/M-265-271-0.41.0-validation.md)
 - [M-256～M-264 0.40.0 统一调度与异步纹理验收](records/M-256-264-0.40.0-validation.md)
 - [M-242～M-245 0.37.0 交互、响应性与发布验收](records/M-242-245-0.37.0-validation.md)
 - [M-236 0.35.0 发布验收记录](records/M-236-0.35.0-release-validation.md)
@@ -314,5 +316,3 @@
 - [项目文档规范](../DOCUMENTATION_GUIDE.md)
 
 其他教程、API 参考、ADR 和实施记录将在出现真实内容后加入本页。尚未实现的设计不是当前公共能力。
-
-- [ADR-049：模型依赖准备与整批资源发布](decisions/ADR-049-model-asset-transactions.md)

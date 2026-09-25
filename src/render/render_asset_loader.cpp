@@ -548,8 +548,8 @@ gneiss_result prepare_render_assets(const asset_internal::virtual_file_system& f
       if (source.type == render_asset_type::texture) {
         result = prepare_texture(
             files, source.uri, asset.texture, diagnostic,
-            std::min(maximum_bytes, std::size_t{64U * 1024U * 1024U}), false,
-            std::min(maximum_bytes - batch.bytes, std::size_t{64U * 1024U * 1024U}));
+            std::min(maximum_bytes, (std::size_t{64U} * 1024U * 1024U)), false,
+            std::min(maximum_bytes - batch.bytes, (std::size_t{64U} * 1024U * 1024U)));
         asset.bytes = asset.texture.manifest.size() + asset.texture.payload.size();
         for (const auto& mip : asset.texture.levels) {
           asset.bytes += mip.pixels.size();
@@ -645,6 +645,8 @@ std::uint64_t render_asset_lease::get() const noexcept {
     return 0U;
   }
   switch (type()) {
+  case render_asset_type::invalid:
+    return 0U;
   case render_asset_type::mesh:
     return std::static_pointer_cast<mesh_asset>(entry_->resource)->rid;
   case render_asset_type::material:
@@ -655,7 +657,7 @@ std::uint64_t render_asset_lease::get() const noexcept {
   return 0U;
 }
 render_asset_type render_asset_lease::type() const noexcept {
-  return entry_ ? static_cast<render_asset_type>(entry_->type) : render_asset_type{};
+  return entry_ ? static_cast<render_asset_type>(entry_->type) : render_asset_type::invalid;
 }
 texture_asset_lease
 render_asset_loader::texture_lease(const render_asset_lease& lease) const noexcept {
@@ -777,6 +779,8 @@ gneiss_result render_asset_loader::stage_asset(prepared_render_asset prepared,
       candidate.lease.entry_ = current;
       const auto existing = candidate.lease.get();
       switch (prepared.source.type) {
+      case render_asset_type::invalid:
+        return GNEISS_ERROR_INVALID_ARGUMENT;
       case render_asset_type::texture:
         candidate.previous = resources_.share_texture(existing);
         break;
@@ -1309,6 +1313,8 @@ gneiss_result render_asset_loader::reload_assets(std::span<const render_asset_re
     std::vector<render_asset_reload> ordered(assets.begin(), assets.end());
     const auto priority = [](render_asset_type type) {
       switch (type) {
+      case render_asset_type::invalid:
+        return 3U;
       case render_asset_type::texture:
         return 0U;
       case render_asset_type::material:

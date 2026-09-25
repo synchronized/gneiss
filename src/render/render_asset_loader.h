@@ -40,7 +40,12 @@ prepare_texture(const asset_internal::virtual_file_system& file_system, std::str
                 bool verify_source = false,
                 std::size_t output_limit = 256U * 1024U * 1024U) noexcept;
 
-enum class render_asset_type : std::uint32_t { mesh = 1U, material = 2U, texture = 3U };
+enum class render_asset_type : std::uint32_t {
+  invalid = 0U,
+  mesh = 1U,
+  material = 2U,
+  texture = 3U
+};
 
 struct render_asset_reload final {
   std::string uri;
