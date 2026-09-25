@@ -18,6 +18,8 @@ public:
                                     std::shared_ptr<file_system> backend) noexcept;
   [[nodiscard]] gneiss_result read(std::string_view uri,
                                    std::vector<std::byte>& out_bytes) const noexcept;
+  [[nodiscard]] gneiss_result read_bounded(std::string_view uri, std::size_t limit,
+                                           std::vector<std::byte>& out_bytes) const noexcept;
   [[nodiscard]] std::size_t mount_count() const noexcept { return mounts_.size(); }
 
 private:

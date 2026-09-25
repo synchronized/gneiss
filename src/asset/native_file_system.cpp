@@ -6,7 +6,7 @@
 #include "asset/asset_uri.h"
 
 #include <fstream>
-#include <iterator>
+#include <limits>
 #include <new>
 #include <system_error>
 
@@ -44,6 +44,11 @@ gneiss_result native_file_system::initialize(std::string_view root) noexcept {
 
 gneiss_result native_file_system::read(std::string_view path,
                                        std::vector<std::byte>& out_bytes) const noexcept {
+  return read_bounded(path, std::numeric_limits<std::size_t>::max(), out_bytes);
+}
+
+gneiss_result native_file_system::read_bounded(std::string_view path, std::size_t limit,
+                                               std::vector<std::byte>& out_bytes) const noexcept {
   if (root_.empty()) {
     return GNEISS_ERROR_INVALID_STATE;
   }
@@ -67,14 +72,18 @@ gneiss_result native_file_system::read(std::string_view path,
     if (!stream) {
       return GNEISS_ERROR_IO;
     }
-    std::vector<char> chars((std::istreambuf_iterator<char>(stream)),
-                            std::istreambuf_iterator<char>());
-    if (stream.bad()) {
+    const auto size = std::filesystem::file_size(candidate, error);
+    if (error) {
       return GNEISS_ERROR_IO;
     }
-    std::vector<std::byte> bytes(chars.size());
-    for (std::size_t index = 0; index < chars.size(); ++index) {
-      bytes[index] = static_cast<std::byte>(chars[index]);
+    if (size > limit ||
+        size > static_cast<std::uintmax_t>(std::numeric_limits<std::streamsize>::max())) {
+      return GNEISS_ERROR_INVALID_ARGUMENT;
+    }
+    std::vector<std::byte> bytes(static_cast<std::size_t>(size));
+    if (!stream.read(reinterpret_cast<char*>(bytes.data()), static_cast<std::streamsize>(size)) ||
+        stream.peek() != std::char_traits<char>::eof()) {
+      return GNEISS_ERROR_IO;
     }
     out_bytes = std::move(bytes);
     return GNEISS_SUCCESS;

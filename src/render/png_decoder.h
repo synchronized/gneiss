@@ -20,7 +20,8 @@ struct decoded_png final {
 };
 
 [[nodiscard]] gneiss_result decode_png(const std::vector<std::byte>& bytes, decoded_png& out_image,
-                                       std::string& out_message) noexcept;
+                                       std::string& out_message,
+                                       std::size_t byte_limit = 256U * 1024U * 1024U) noexcept;
 
 } // namespace gneiss::render_internal
 
