@@ -97,8 +97,9 @@
 - [VER-034：0.34.0 离线纹理构建与 KTX2 运行链路](plans/VER-034-0.34.0-offline-texture-cooking.md)
 - [VER-035：0.35.0 平台纹理变体与流式上传](plans/VER-035-0.35.0-texture-asset-variants.md)
 - [VER-036：0.36.0 编辑器资产工作流稳定性](plans/VER-036-0.36.0-editor-asset-workflow.md)
-- [VER-038：0.38.0 资产后台处理](plans/VER-038-0.38.0-background-assets.md)
 - [VER-037：0.37.0 编辑器交互稳定性](plans/VER-037-0.37.0-editor-interaction-stability.md)
+- [VER-038：0.38.0 资产后台处理](plans/VER-038-0.38.0-background-assets.md)
+- [VER-039：0.39.0 任务调度基础与资产服务接入](plans/VER-039-0.39.0-task-scheduling.md)
 - [M-100：Editor Play 工作流实施记录](records/M-100-editor-play-workflow.md)
 - [M-101：示例与跨平台验收记录](records/M-101-example-cross-platform-validation.md)
 - [M-102：Runtime 检查会话与对象标识实施记录](records/M-102-runtime-inspection-identity.md)
@@ -156,6 +157,8 @@
 - [ADR-042：资产构建与 Granit GPU 契约边界](decisions/ADR-042-asset-cooking-backend-boundary.md)
 - [ADR-043：KTX2 作为运行时纹理容器](decisions/ADR-043-runtime-texture-container.md)
 - [ADR-044：运行纹理封装承载 Granit Manifest 与负载](decisions/ADR-044-texture-asset-manifest-container.md)
+- [ADR-045：Editor 资产任务的线程与提交边界](decisions/ADR-045-editor-background-assets.md)
+- [ADR-046：任务调度与 Service 的执行边界](decisions/ADR-046-task-scheduling-service-boundary.md)
 
 ## 实施与验收记录
 
