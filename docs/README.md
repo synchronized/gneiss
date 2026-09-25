@@ -101,6 +101,8 @@
 - [VER-037：0.37.0 编辑器交互稳定性](plans/VER-037-0.37.0-editor-interaction-stability.md)
 - [VER-038：0.38.0 资产后台处理](plans/VER-038-0.38.0-background-assets.md)
 - [VER-039：0.39.0 任务调度基础与资产服务接入](plans/VER-039-0.39.0-task-scheduling.md)
+- [VER-042：0.42.0 真实大场景驱动的异步加载与切换](plans/VER-042-0.42.0-async-scene-loading.md)
+- [DEV-042：真实大场景异步加载开发计划](plans/DEV-042-async-scene-loading.md)
 - [VER-041：0.41.0 模型资产异步加载与热更新](plans/VER-041-0.41.0-async-model-assets.md)
 - [DEV-041：异步模型资产开发计划](plans/DEV-041-async-model-assets.md)
 - [VER-040：0.40.0 统一任务调度与 Runtime 异步资产加载](plans/VER-040-0.40.0-cooperative-scheduling.md)
@@ -167,6 +169,7 @@
 - [ADR-047：任务契约共用线程池与协作执行模式](decisions/ADR-047-cooperative-task-execution.md)
 - [ADR-048：Runtime 资产分离异步准备与受控提交](decisions/ADR-048-runtime-asset-preparation.md)
 - [ADR-049：模型依赖准备与整批资源发布](decisions/ADR-049-model-asset-transactions.md)
+- [ADR-050：场景加载使用隔离候选与安全点激活](decisions/ADR-050-staged-scene-activation.md)
 
 ## 实施与验收记录
 

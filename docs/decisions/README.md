@@ -57,3 +57,4 @@ Reference 和实现为准。
 - [ADR-048：Runtime 资产分离异步准备与受控提交](ADR-048-runtime-asset-preparation.md)
 
 - [ADR-049：模型依赖准备与整批资源发布](ADR-049-model-asset-transactions.md)
+- [ADR-050：场景加载使用隔离候选与安全点激活](ADR-050-staged-scene-activation.md)
