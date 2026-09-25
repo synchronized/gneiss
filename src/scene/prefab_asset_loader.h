@@ -36,6 +36,9 @@ public:
                                       scene_diagnostic& out_diagnostic) noexcept;
   [[nodiscard]] gneiss_result reload(std::string_view uri, prefab_asset_lease& out_lease,
                                      scene_diagnostic& out_diagnostic) noexcept;
+  /** 所属线程将纯准备结果安装到新的候选缓存；已有 URI 返回 INVALID_STATE，不读文件。 */
+  [[nodiscard]] gneiss_result install_prepared(std::string_view uri, prefab_description description,
+                                               prefab_asset_lease& out_lease) noexcept;
 
 private:
   const asset_internal::virtual_file_system& file_system_;

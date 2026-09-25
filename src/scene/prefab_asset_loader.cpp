@@ -34,6 +34,36 @@ const prefab_description* prefab_asset_lease::get() const noexcept {
   return entry_ ? static_cast<const prefab_description*>(entry_->resource.get()) : nullptr;
 }
 
+gneiss_result prefab_asset_loader::install_prepared(std::string_view uri,
+                                                    prefab_description description,
+                                                    prefab_asset_lease& out_lease) noexcept {
+  out_lease.entry_.reset();
+  if (asset_internal::validate_uri(uri) != GNEISS_SUCCESS || description.objects.empty()) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  if (!cache_.observe(uri).expired()) {
+    return GNEISS_ERROR_INVALID_STATE;
+  }
+  try {
+    std::shared_ptr<const asset_internal::resource_cache::entry> entry;
+    const auto result = cache_.acquire(
+        uri, prefab_resource_type,
+        [&description](std::shared_ptr<void>& resource) {
+          resource = std::make_shared<prefab_description>(std::move(description));
+          return GNEISS_SUCCESS;
+        },
+        entry);
+    if (result == GNEISS_SUCCESS) {
+      out_lease.entry_ = std::move(entry);
+    }
+    return result;
+  } catch (const std::bad_alloc&) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
 gneiss_result prefab_asset_loader::acquire(std::string_view uri, prefab_asset_lease& out_lease,
                                            scene_diagnostic& out_diagnostic) noexcept {
   out_lease.entry_.reset();

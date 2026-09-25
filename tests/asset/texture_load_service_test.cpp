@@ -256,6 +256,12 @@ void mixed(tasks::execution_mode mode) {
   };
   std::uint64_t request{};
   texture_load_completion completion;
+  check(service.submit_assets(requested, 1U, 1U, request, false, 0U) ==
+        GNEISS_ERROR_INVALID_ARGUMENT);
+  check(service.submit_assets(requested, 1U, 1U, request, false, 8U) == GNEISS_SUCCESS);
+  until([&] { return service.take(completion); });
+  check(completion.state == texture_load_state::failed && chunks == 0U && cache.size() == 0U &&
+        resources.live_resource_count() == 0U);
   check(service.submit_assets(requested, 1U, 1U, request) == GNEISS_SUCCESS);
   until([&] { return service.take(completion); });
   check(completion.state == texture_load_state::failed && discards == 1U && chunks == 2U &&

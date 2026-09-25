@@ -400,8 +400,7 @@ gneiss_result prefab_runtime_instance::create(
 }
 
 gneiss_result prefab_runtime_instance::apply_overrides(
-    gneiss_type_registry registry,
-    const std::vector<prefab_property_override>& overrides) noexcept {
+    gneiss_type_registry registry, std::span<const prefab_property_override> overrides) noexcept {
   for (const auto& override_value : overrides) {
     if (override_value.key.node.instance_uuid != instance_uuid_) {
       return GNEISS_ERROR_INVALID_ARGUMENT;
@@ -485,36 +484,11 @@ gneiss_result prefab_runtime_instance::commit(const prefab_description& descript
         }
         parent_node = found->second;
       }
-      auto& target = nodes_[index];
-      result = gneiss_world_entity_create(world_, &target.entity);
-      if (result == GNEISS_SUCCESS) {
-        result = gneiss_scene_node_create(world_, parent_node, target.entity, &target.node);
-      }
-      const auto transform = to_transform(source);
-      if (result == GNEISS_SUCCESS) {
-        result = gneiss_scene_node_set_local_transform(world_, target.node, &transform);
-      }
-      if (result == GNEISS_SUCCESS && source.camera) {
-        const gneiss_camera_desc camera{.struct_size = sizeof(gneiss_camera_desc),
-                                        .reserved = 0U,
-                                        .vertical_field_of_view_radians =
-                                            source.camera->vertical_field_of_view_radians,
-                                        .near_plane = source.camera->near_plane,
-                                        .far_plane = source.camera->far_plane};
-        result = gneiss_world_entity_configure_camera(world_, target.entity, &camera);
-        if (result == GNEISS_SUCCESS && source.camera->is_primary) {
-          result = gneiss_world_set_active_camera(world_, target.entity);
-        }
-      }
-      if (result == GNEISS_SUCCESS && source.mesh_renderer) {
-        const gneiss_mesh_renderer renderer{.mesh = target.mesh.get(),
-                                            .material = target.material.get()};
-        result = gneiss_world_entity_set_mesh_renderer(world_, target.entity, &renderer);
-      }
+      result = commit_node(index, parent_node);
       if (result != GNEISS_SUCCESS) {
         return result;
       }
-      committed_nodes.emplace(source.uuid, target.node);
+      committed_nodes.emplace(source.uuid, nodes_[index].node);
       committed[index] = true;
       ++committed_count;
       made_progress = true;
@@ -524,6 +498,91 @@ gneiss_result prefab_runtime_instance::commit(const prefab_description& descript
     }
   }
   return GNEISS_SUCCESS;
+}
+
+gneiss_result prefab_runtime_instance::commit_node(std::size_t index, gneiss_scene_node_id parent) {
+  const auto& source = prefab_.get()->objects[index];
+  auto& target = nodes_[index];
+  auto result = gneiss_world_entity_create(world_, &target.entity);
+  if (result == GNEISS_SUCCESS) {
+    result = gneiss_scene_node_create(world_, parent, target.entity, &target.node);
+  }
+  const auto transform = to_transform(source);
+  if (result == GNEISS_SUCCESS) {
+    result = gneiss_scene_node_set_local_transform(world_, target.node, &transform);
+  }
+  if (result == GNEISS_SUCCESS && source.camera) {
+    const gneiss_camera_desc camera{.struct_size = sizeof(gneiss_camera_desc),
+                                    .reserved = 0U,
+                                    .vertical_field_of_view_radians =
+                                        source.camera->vertical_field_of_view_radians,
+                                    .near_plane = source.camera->near_plane,
+                                    .far_plane = source.camera->far_plane};
+    result = gneiss_world_entity_configure_camera(world_, target.entity, &camera);
+    if (result == GNEISS_SUCCESS && source.camera->is_primary) {
+      result = gneiss_world_set_active_camera(world_, target.entity);
+    }
+  }
+  if (result == GNEISS_SUCCESS && source.mesh_renderer) {
+    const gneiss_mesh_renderer renderer{.mesh = target.mesh.get(),
+                                        .material = target.material.get()};
+    result = gneiss_world_entity_set_mesh_renderer(world_, target.entity, &renderer);
+  }
+  return result;
+}
+
+gneiss_result prefab_runtime_instance::begin_staged(gneiss_scene_node_id parent,
+                                                    const gneiss_transform& transform) {
+  if (!prefab_ || root_node_ != GNEISS_NULL_SCENE_NODE_ID || !nodes_.empty()) {
+    return GNEISS_ERROR_INVALID_STATE;
+  }
+  nodes_.resize(prefab_.get()->objects.size());
+  auto result = gneiss_world_entity_create(world_, &root_entity_);
+  if (result == GNEISS_SUCCESS) {
+    result = gneiss_scene_node_create(world_, parent, root_entity_, &root_node_);
+  }
+  if (result == GNEISS_SUCCESS) {
+    result = gneiss_scene_node_set_local_transform(world_, root_node_, &transform);
+  }
+  return result;
+}
+
+gneiss_result prefab_runtime_instance::create_staged_node(std::size_t index,
+                                                          gneiss_scene_node_id parent) {
+  if (!prefab_ || index >= nodes_.size() || nodes_[index].entity != GNEISS_NULL_ENTITY_ID) {
+    return GNEISS_ERROR_INVALID_STATE;
+  }
+  const auto& source = prefab_.get()->objects[index];
+  auto& target = nodes_[index];
+  target.address = {instance_uuid_, source.uuid};
+  target.name = source.name;
+  if (source.mesh_renderer) {
+    render_internal::render_asset_lease cached;
+    if (loader_.acquire_cached(
+            {source.mesh_renderer->mesh_uri, render_internal::render_asset_type::mesh}, cached) !=
+            GNEISS_SUCCESS ||
+        loader_.acquire_cached(
+            {source.mesh_renderer->material_uri, render_internal::render_asset_type::material},
+            cached) != GNEISS_SUCCESS) {
+      return GNEISS_ERROR_NOT_READY;
+    }
+    render_internal::asset_diagnostic diagnostic;
+    auto result = loader_.acquire_mesh(source.mesh_renderer->mesh_uri, target.mesh, diagnostic);
+    if (result == GNEISS_SUCCESS) {
+      result =
+          loader_.acquire_material(source.mesh_renderer->material_uri, target.material, diagnostic);
+    }
+    if (result != GNEISS_SUCCESS) {
+      return result;
+    }
+  }
+  return commit_node(index, parent);
+}
+
+gneiss_result
+prefab_runtime_instance::apply_staged_override(gneiss_type_registry registry,
+                                               const prefab_property_override& value) noexcept {
+  return apply_overrides(registry, std::span(&value, 1U));
 }
 
 void prefab_runtime_instance::rollback() noexcept {

@@ -59,7 +59,15 @@ public:
   [[nodiscard]] gneiss_result reload(prefab_asset_lease candidate, gneiss_type_registry registry,
                                      const std::vector<prefab_property_override>& overrides);
 
+  /** 候选 World 专用的分阶段构造；每次只创建一个节点，资源必须已经缓存。 */
+  [[nodiscard]] gneiss_result begin_staged(gneiss_scene_node_id parent,
+                                           const gneiss_transform& transform);
+  [[nodiscard]] gneiss_result create_staged_node(std::size_t index, gneiss_scene_node_id parent);
+  [[nodiscard]] gneiss_result apply_staged_override(gneiss_type_registry registry,
+                                                    const prefab_property_override& value) noexcept;
+
 private:
+  [[nodiscard]] gneiss_result commit_node(std::size_t index, gneiss_scene_node_id parent);
   struct runtime_node final {
     prefab_author_address address;
     std::string name;
@@ -76,7 +84,7 @@ private:
                                      const gneiss_transform& root_transform);
   [[nodiscard]] gneiss_result
   apply_overrides(gneiss_type_registry registry,
-                  const std::vector<prefab_property_override>& overrides) noexcept;
+                  std::span<const prefab_property_override> overrides) noexcept;
 
   gneiss_world world_;
   render_internal::render_asset_loader& loader_;

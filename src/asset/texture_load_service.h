@@ -68,8 +68,10 @@ public:
                                      bool reload = true);
   [[nodiscard]] gneiss_result
   submit_assets(std::span<const render_internal::render_asset_reload> assets, std::uint64_t session,
-                std::uint64_t revision, std::uint64_t& request, bool reload = true);
+                std::uint64_t revision, std::uint64_t& request, bool reload = true,
+                std::size_t prepare_limit = maximum_candidate_bytes);
   [[nodiscard]] bool progress(asset_load_progress& output) const;
+  [[nodiscard]] bool busy() const noexcept { return pending_ != nullptr || completed_.has_value(); }
   void advance();
   [[nodiscard]] bool take(texture_load_completion& output);
   /** 提交许可前取消；已进入 GPU 阶段的批次完成或回滚。 */

@@ -3,6 +3,7 @@
 
 #include "application/application_asset_reload_internal.h"
 #include "application/application_log_internal.h"
+#include "application/application_scene_load_internal.h"
 #include "application/application_state.h"
 #include "core/rid_table.h"
 
@@ -100,6 +101,95 @@ gneiss::application_internal::attach_task_executor(gneiss_application applicatio
   const auto valid = validate_application(state);
   return valid == GNEISS_SUCCESS ? state->attach_task_executor(executor) : valid;
 }
+gneiss_result gneiss::application_internal::request_scene_load(gneiss_application application,
+                                                               std::string_view uri,
+                                                               std::uint64_t session,
+                                                               std::uint64_t revision,
+                                                               std::uint64_t& request) noexcept {
+  request = 0U;
+  auto state = find_application(application);
+  const auto valid = validate_application(state);
+  if (valid != GNEISS_SUCCESS) {
+    return valid;
+  }
+  if (!state->scene_service() || !state->can_start_scene_load()) {
+    return GNEISS_ERROR_NOT_READY;
+  }
+  try {
+    return state->scene_service()->submit(uri, session, revision, request);
+  } catch (const std::bad_alloc&) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
+gneiss_result gneiss::application_internal::query_scene_load_progress(
+    gneiss_application application, scene_load_progress& progress, bool& active) noexcept {
+  active = false;
+  auto state = find_application(application);
+  const auto valid = validate_application(state);
+  if (valid != GNEISS_SUCCESS) {
+    return valid;
+  }
+  if (state->scene_service()) {
+    active = state->scene_service()->progress(progress);
+  }
+  return GNEISS_SUCCESS;
+}
+
+gneiss_result gneiss::application_internal::poll_scene_load(gneiss_application application,
+                                                            scene_load_completion& completion,
+                                                            bool& ready) noexcept {
+  ready = false;
+  auto state = find_application(application);
+  const auto valid = validate_application(state);
+  if (valid != GNEISS_SUCCESS) {
+    return valid;
+  }
+  if (!state->scene_service()) {
+    return GNEISS_ERROR_NOT_READY;
+  }
+  try {
+    state->advance_scene_load();
+    ready = state->scene_service()->take(completion);
+    return GNEISS_SUCCESS;
+  } catch (const std::bad_alloc&) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
+gneiss_result gneiss::application_internal::cancel_scene_load(gneiss_application application,
+                                                              std::uint64_t request) noexcept {
+  auto state = find_application(application);
+  const auto valid = validate_application(state);
+  if (valid != GNEISS_SUCCESS) {
+    return valid;
+  }
+  return state->scene_service() && state->scene_service()->cancel(request) ? GNEISS_SUCCESS
+                                                                           : GNEISS_ERROR_NOT_READY;
+}
+
+gneiss_result
+gneiss::application_internal::activate_scene_load(gneiss_application application,
+                                                  std::uint64_t request,
+                                                  scene_load_completion& completion) noexcept {
+  auto state = find_application(application);
+  const auto valid = validate_application(state);
+  if (valid != GNEISS_SUCCESS) {
+    return valid;
+  }
+  try {
+    return state->activate_scene(request, completion);
+  } catch (const std::bad_alloc&) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
 gneiss_result gneiss::application_internal::request_render_assets(
     gneiss_application application, std::span<const render_internal::render_asset_reload> assets,
     std::uint64_t session, std::uint64_t revision, std::uint64_t& request, bool reload) noexcept {
@@ -108,7 +198,7 @@ gneiss_result gneiss::application_internal::request_render_assets(
   const auto valid = validate_application(state);
   if (valid != GNEISS_SUCCESS)
     return valid;
-  if (!state->texture_service())
+  if (!state->texture_service() || state->scene_loading())
     return GNEISS_ERROR_NOT_READY;
   try {
     return state->texture_service()->submit_assets(assets, session, revision, request, reload);
@@ -149,7 +239,7 @@ gneiss_result gneiss::application_internal::request_textures(
   if (valid != GNEISS_SUCCESS) {
     return valid;
   }
-  if (!state->texture_service()) {
+  if (!state->texture_service() || state->scene_loading()) {
     return GNEISS_ERROR_NOT_READY;
   }
   try {
