@@ -5,7 +5,7 @@
 
 ## 状态与职责
 
-实现完成，正在完成桌面矩阵与发布验收。本文描述开发依赖、源码落点和阶段完成条件；版本范围、里程碑编号及
+已完成实施与发布验收，结果见[验收记录](../records/M-256-264-0.40.0-validation.md)。本文描述开发依赖、源码落点和阶段完成条件；版本范围、里程碑编号及
 发布门禁以 [VER-040](VER-040-0.40.0-cooperative-scheduling.md) 为唯一权威来源。
 执行模式和资源事务分别遵循 [ADR-047](../decisions/ADR-047-cooperative-task-execution.md) 与
 [ADR-048](../decisions/ADR-048-runtime-asset-preparation.md)。当前内部接口见[任务调度指南](../guides/task-scheduling.md)；下文保留实施顺序与完成条件。
@@ -13,9 +13,9 @@
 沿用 `feat/0.40-cooperative-scheduling` 分支。每组验证通过的连贯改动本地提交；完整版本达到
 可评审状态后形成一个 PR。2026-09-25 用户已授权本版实现、提交、推送、PR、合并及版本发布完整闭环。
 
-## 现有落点
+## 规划起点与源码落点
 
-| 源码 | 当前行为 | 计划改动 |
+| 源码 | 0.39 起点 | 本版改动 |
 | --- | --- | --- |
 | `src/core/tasks/task_scheduler.*`、`src/CMakeLists.txt` | 固定工作线程与等待机制 | 共用状态机，分离执行驱动及构建依赖 |
 | `apps/editor/asset_background_worker.*`、`author_asset_service.*`、`main.cpp` | 两服务借用宿主池，轮询完成 | 增加协作驱动与一致的关闭流程 |

@@ -367,6 +367,8 @@ gneiss 0.35.0
   ICD，因此窗口 smoke test 由 Linux 执行。
 - Ubuntu 24.04：Clang/GCC、共享/静态核心与安装 Consumer；Clang 额外执行共享/静态 Granit 无头
   窗口测试。
+- Ubuntu 24.04 独立任务：固定 Emscripten 5.0.6，构建无线程最小调度宿主并在真实 Chrome 中执行；
+  上传浏览器 DOM 和诊断日志。
 
 工作流配置位于 `.github/workflows/windows.yml` 和 `.github/workflows/linux.yml`。工作流是否通过以
 对应手动运行的 Actions 结果为准。同一候选提交的完整矩阵原则上只运行一次；仅当代码、构建、依赖
