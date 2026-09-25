@@ -7,8 +7,10 @@
 
 #include <granit/core/version.h>
 #include <granit/renderer/native_surface.hpp>
+#include <granit/renderer/readback_batch.hpp>
 #include <granit/renderer/texture_asset.hpp>
 #include <granit/renderer/upload_batch.hpp>
+#include <thread>
 
 #include <granit/pipeline/pbr_material.h>
 
@@ -1187,6 +1189,92 @@ granit_render_service::execute_frame(render_internal::render_frame_packet& packe
   output.resource_prepare_ms = std::chrono::duration<float, std::milli>(
                                    std::chrono::steady_clock::now() - resource_prepare_started)
                                    .count();
+
+  if (packet.readback) {
+    try {
+      granit::texture target;
+      auto captured =
+          target.initialize(renderer_, {.format = granit::texture_format::rgba8_unorm,
+                                        .usage = granit::texture_usage::color_attachment |
+                                                 granit::texture_usage::transfer_source,
+                                        .width = window.width,
+                                        .height = window.height});
+      granit::texture_view target_view;
+      if (captured.ok()) {
+        captured = target_view.initialize(renderer_, target,
+                                          {.format = granit::texture_format::rgba8_unorm});
+      }
+      if (captured.ok()) {
+        granit::render_pipeline_render_desc desc{};
+        desc.scene = scene.ref();
+        desc.output = target_view.ref();
+        desc.output_format = granit::texture_format::rgba8_unorm;
+        desc.width = window.width;
+        desc.height = window.height;
+        desc.draw_bindings = bindings;
+        desc.canvas = ui_canvas_.ref();
+        desc.debug_draw = debug_draw_.ref();
+        desc.clear_color = {0.04F, 0.12F, 0.22F, 1.0F};
+        desc.environment = &environment_info_.environment;
+        captured = pipeline_.render(desc);
+      }
+      granit::readback_batch batch;
+      const auto byte_count = static_cast<std::uint64_t>(window.width) * window.height * 4U;
+      if (captured.ok()) {
+        captured =
+            batch.create(renderer_, {.max_result_bytes = byte_count, .max_operation_count = 1U});
+      }
+      std::uint32_t index{};
+      if (captured.ok()) {
+        captured = batch.read_texture(target.ref(),
+                                      {.width = window.width, .height = window.height}, index);
+      }
+      granit::async_operation operation;
+      if (captured.ok()) {
+        captured = batch.submit_async(operation);
+      }
+      granit::async_operation_status status;
+      const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+      while (captured.ok()) {
+        captured = operation.get_status(status);
+        if (captured.failed() || status.complete()) {
+          break;
+        }
+        if (std::chrono::steady_clock::now() >= deadline) {
+          return GNEISS_ERROR_NOT_READY;
+        }
+        captured = renderer_.process_events();
+        std::this_thread::yield();
+      }
+      if (captured.ok()) {
+        captured = status.operation_result;
+      }
+      granit::readback_result_info info;
+      if (captured.ok()) {
+        captured = granit::get_readback_result_info(operation, index, info);
+      }
+      if (captured.failed()) {
+        return map_result(captured);
+      }
+      if (info.required_size != byte_count || info.bytes_per_row != window.width * 4U ||
+          info.format != granit::texture_format::rgba8_unorm) {
+        return GNEISS_ERROR_INTERNAL;
+      }
+      packet.readback->pixels.resize(static_cast<std::size_t>(byte_count));
+      std::uint64_t required{};
+      captured = granit::copy_readback_result(operation, index, packet.readback->pixels, required);
+      if (captured.failed()) {
+        return map_result(captured);
+      }
+      packet.readback->width = window.width;
+      packet.readback->height = window.height;
+      return GNEISS_SUCCESS;
+    } catch (const std::bad_alloc&) {
+      return GNEISS_ERROR_OUT_OF_MEMORY;
+    } catch (...) {
+      return GNEISS_ERROR_INTERNAL;
+    }
+  }
 
   granit::acquired_frame frame;
   const auto acquire_started = std::chrono::steady_clock::now();

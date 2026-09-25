@@ -34,6 +34,8 @@ class granit_render_service;
 
 class application_state final {
 public:
+  [[nodiscard]] gneiss_result capture_frame(std::uint32_t width, std::uint32_t height,
+                                            render_internal::frame_image& output) noexcept;
   [[nodiscard]] render_internal::render_queue_stats render_statistics() const noexcept;
   [[nodiscard]] gneiss_result attach_task_executor(tasks::task_executor& executor) noexcept;
   [[nodiscard]] asset_internal::texture_load_service* texture_service() noexcept {

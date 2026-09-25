@@ -357,6 +357,61 @@ gneiss_result application_state::submit_log(gneiss_application handle,
                                     : log_dispatcher_->submit(handle, message, source);
 }
 
+gneiss_result application_state::capture_frame(std::uint32_t width, std::uint32_t height,
+                                               render_internal::frame_image& output) noexcept {
+  output = {};
+  if (width == 0U || height == 0U || width > 1024U || height > 1024U) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+#ifdef GNEISS_HAS_GRANIT_PLATFORM
+  if (!granit_render_service_) {
+    return GNEISS_ERROR_UNSUPPORTED;
+  }
+  try {
+    auto window = granit_platform_->native_window();
+    window.width = width;
+    window.height = height;
+    window.needs_recreate = false;
+    world_internal::render_snapshot snapshot;
+    auto result = world_internal::get_render_snapshot(world_, width, height, snapshot);
+    if (result != GNEISS_SUCCESS) {
+      return result;
+    }
+    render_internal::render_frame_packet packet;
+    result = render_internal::capture_render_frame_packet(window, std::move(snapshot), resources_,
+                                                          ui_draw_list_, debug_draw_list_, packet);
+    if (result != GNEISS_SUCCESS) {
+      return result;
+    }
+    auto image = std::make_shared<render_internal::frame_image>();
+    packet.readback = image;
+    std::uint64_t sequence{};
+    result = granit_render_service_->submit(
+        std::move(packet), render_internal::render_frame_policy::required, &sequence);
+    if (result != GNEISS_SUCCESS) {
+      return result;
+    }
+    result = granit_render_service_->finish_frames();
+    if (result != GNEISS_SUCCESS) {
+      return result;
+    }
+    render_internal::render_frame_completion completed;
+    if (!granit_render_service_->try_take_required_completion(completed) ||
+        completed.sequence != sequence || completed.status != GNEISS_SUCCESS) {
+      return GNEISS_ERROR_INTERNAL;
+    }
+    output = std::move(*image);
+    return GNEISS_SUCCESS;
+  } catch (const std::bad_alloc&) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+#else
+  return GNEISS_ERROR_UNSUPPORTED;
+#endif
+}
+
 #ifdef GNEISS_HAS_GRANIT_PLATFORM
 gneiss_result application_state::render_frame() noexcept {
   if (granit_render_service_ == nullptr) {

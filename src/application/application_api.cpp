@@ -73,6 +73,16 @@ void report_create_failure(const gneiss_application_desc& desc, gneiss_result re
 
 } // namespace
 
+gneiss_result
+gneiss::application_internal::capture_frame(gneiss_application application, std::uint32_t width,
+                                            std::uint32_t height,
+                                            render_internal::frame_image& output) noexcept {
+  output = {};
+  auto state = find_application(application);
+  const auto valid = validate_application(state);
+  return valid == GNEISS_SUCCESS ? state->capture_frame(width, height, output) : valid;
+}
+
 gneiss_result gneiss::application_internal::query_render_statistics(
     gneiss_application application, render_internal::render_queue_stats& output) noexcept {
   auto state = find_application(application);

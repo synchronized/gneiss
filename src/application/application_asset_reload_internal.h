@@ -16,6 +16,12 @@
 
 namespace gneiss::application_internal {
 
+/** 内部同步诊断入口：通过相同场景管线离屏渲染并回读 GPU；不是逐帧截图接口。
+ * 仅所属线程，宽高 1..1024，等待渲染完成；不用于性能采样。 */
+GNEISS_API gneiss_result capture_frame(gneiss_application application, std::uint32_t width,
+                                       std::uint32_t height,
+                                       render_internal::frame_image& output) noexcept;
+
 /** 内部测量入口，返回已完成渲染帧的统计，不以主循环 tick 代替实际渲染。 */
 GNEISS_API gneiss_result query_render_statistics(
     gneiss_application application, render_internal::render_queue_stats& output) noexcept;
