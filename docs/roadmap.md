@@ -729,6 +729,11 @@ Runtime 纹理异步准备与受控提交、Editor 联动及最小 Emscripten �
 完整场景异步加载、全部 Service 统一装配及完整 Runtime Web 移植留待后续版本。
 范围与验收见 [VER-040 实施计划](plans/VER-040-0.40.0-cooperative-scheduling.md)。
 
+## 0.41.0：模型资产异步加载与热更新
+
+实施中，覆盖 GPU 像素验收、模型依赖准备、混合资产原子发布、上传预算和编辑器阶段/取消反馈。
+范围与发布门禁见 [VER-041](plans/VER-041-0.41.0-async-model-assets.md)。
+
 ## 路线图调整规则
 
 - 新任务先确认属于哪个阶段，以及是否阻塞当前端到端闭环。
