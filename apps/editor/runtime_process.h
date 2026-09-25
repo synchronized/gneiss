@@ -43,6 +43,7 @@ struct runtime_asset_reload_status final {
   runtime_asset_reload_state state{runtime_asset_reload_state::idle};
   std::uint64_t revision = 0U;
   std::string message;
+  result publish_result = result::success;
 };
 
 class runtime_process final {

@@ -559,48 +559,56 @@ result runtime_process::request_property_write(runtime_property_key key,
 }
 
 result runtime_process::publish_asset_revision(std::span<const std::string> output_uris) noexcept {
-  if (!implementation_ || output_uris.empty()) {
+  if (!implementation_) {
     return result::invalid_argument;
   }
-  try {
-    std::vector<ipc_asset_revision> render_assets;
-    std::vector<ipc_asset_revision> structural_assets;
-    for (const auto& uri : output_uris) {
-      std::optional<ipc_asset_type> type;
-      if (uri.ends_with(".texture.json")) {
-        type = ipc_asset_type::texture;
-      } else if (uri.ends_with(".material.json")) {
-        type = ipc_asset_type::material;
-      } else if (uri.ends_with(".gneiss-mesh") || uri.ends_with(".mesh.json")) {
-        type = ipc_asset_type::static_mesh;
-      } else if (uri.ends_with(".scene.json")) {
-        type = ipc_asset_type::scene;
-      } else if (uri.ends_with(".prefab.json")) {
-        type = ipc_asset_type::prefab;
+  const auto publish = [&]() -> result {
+    if (output_uris.empty()) {
+      return result::invalid_argument;
+    }
+    try {
+      std::vector<ipc_asset_revision> render_assets;
+      std::vector<ipc_asset_revision> structural_assets;
+      for (const auto& uri : output_uris) {
+        std::optional<ipc_asset_type> type;
+        if (uri.ends_with(".texture.json")) {
+          type = ipc_asset_type::texture;
+        } else if (uri.ends_with(".material.json")) {
+          type = ipc_asset_type::material;
+        } else if (uri.ends_with(".gneiss-mesh") || uri.ends_with(".mesh.json")) {
+          type = ipc_asset_type::static_mesh;
+        } else if (uri.ends_with(".scene.json")) {
+          type = ipc_asset_type::scene;
+        } else if (uri.ends_with(".prefab.json")) {
+          type = ipc_asset_type::prefab;
+        }
+        if (type) {
+          implementation_->known_assets.insert_or_assign(uri, *type);
+          auto& destination = *type == ipc_asset_type::scene || *type == ipc_asset_type::prefab
+                                  ? structural_assets
+                                  : render_assets;
+          destination.push_back({.uri = uri, .type = *type});
+        }
       }
-      if (type) {
-        implementation_->known_assets.insert_or_assign(uri, *type);
-        auto& destination = *type == ipc_asset_type::scene || *type == ipc_asset_type::prefab
-                                ? structural_assets
-                                : render_assets;
-        destination.push_back({.uri = uri, .type = *type});
+      if (render_assets.empty() && structural_assets.empty()) {
+        return result::unsupported;
       }
+      implementation_->queue_asset_batch(std::move(render_assets), ipc_asset_operation::reload);
+      for (auto& asset : structural_assets) {
+        implementation_->queue_asset_batch({std::move(asset)}, ipc_asset_operation::reload);
+      }
+      implementation_->asset_reload.state = runtime_asset_reload_state::waiting;
+      implementation_->asset_reload.message = "等待 Runtime 应用资产修订";
+      return result::success;
+    } catch (const std::bad_alloc&) {
+      return result::out_of_memory;
+    } catch (...) {
+      return result::internal;
     }
-    if (render_assets.empty() && structural_assets.empty()) {
-      return result::unsupported;
-    }
-    implementation_->queue_asset_batch(std::move(render_assets), ipc_asset_operation::reload);
-    for (auto& asset : structural_assets) {
-      implementation_->queue_asset_batch({std::move(asset)}, ipc_asset_operation::reload);
-    }
-    implementation_->asset_reload.state = runtime_asset_reload_state::waiting;
-    implementation_->asset_reload.message = "等待 Runtime 应用资产修订";
-    return result::success;
-  } catch (const std::bad_alloc&) {
-    return result::out_of_memory;
-  } catch (...) {
-    return result::internal;
-  }
+  };
+  const auto operation = publish();
+  implementation_->asset_reload.publish_result = operation;
+  return operation;
 }
 
 result runtime_process::retry_asset_reload() noexcept {

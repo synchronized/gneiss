@@ -35,6 +35,12 @@ result author_asset_monitor::initialize(const std::filesystem::path& asset_root)
     if (!std::filesystem::is_directory(asset_root_)) {
       return result::not_found;
     }
+    rescan_requested_ = false;
+    rescan_active_ = false;
+    rescan_result_ = result::success;
+    rescan_iterator_ = {};
+    rescan_known_.clear();
+    rescan_seen_.clear();
     fingerprints_.clear();
     for (const auto& item : std::filesystem::recursive_directory_iterator(asset_root_)) {
       if (!item.is_regular_file()) {
@@ -57,6 +63,56 @@ result author_asset_monitor::initialize(const std::filesystem::path& asset_root)
   } catch (...) {
     return result::io;
   }
+}
+
+result author_asset_monitor::poll_rescan(std::vector<std::filesystem::path>& output,
+                                         std::size_t budget) noexcept {
+  if (budget == 0U) {
+    return result::success;
+  }
+  try {
+    if (rescan_requested_ && !rescan_active_) {
+      rescan_requested_ = false;
+      rescan_known_.clear();
+      rescan_seen_.clear();
+      rescan_iterator_ = std::filesystem::recursive_directory_iterator(asset_root_);
+      for (const auto& [uri, hash] : fingerprints_) {
+        rescan_known_.push_back(utf8_path(std::string_view(uri).substr(8U)));
+      }
+      rescan_active_ = true;
+      rescan_result_ = result::success;
+    }
+    while (rescan_active_ && budget-- != 0U) {
+      std::filesystem::path relative;
+      if (!rescan_known_.empty()) {
+        relative = std::move(rescan_known_.front());
+        rescan_known_.pop_front();
+      } else if (rescan_iterator_ != std::filesystem::recursive_directory_iterator{}) {
+        const auto item = *rescan_iterator_;
+        ++rescan_iterator_;
+        if (!item.is_regular_file()) {
+          continue;
+        }
+        relative = item.path().lexically_relative(asset_root_);
+      } else {
+        rescan_active_ = false;
+        rescan_seen_.clear();
+        break;
+      }
+      const auto key = path_utf8(relative);
+      if (is_structural_asset(key) && rescan_seen_.insert(key).second) {
+        output.push_back(std::move(relative));
+      }
+    }
+  } catch (...) {
+    rescan_result_ = result::io;
+    rescan_active_ = false;
+    rescan_requested_ = false;
+    rescan_iterator_ = {};
+    rescan_known_.clear();
+    rescan_seen_.clear();
+  }
+  return rescan_result_;
 }
 
 result author_asset_monitor::fingerprint(std::string_view uri,

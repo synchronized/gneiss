@@ -339,6 +339,26 @@ if(BUILD_TESTING)
     gneiss_target_compile_warnings(gneiss_editor_asset_import_test)
     gneiss_target_output_directories(gneiss_editor_asset_import_test)
     add_test(NAME gneiss.editor.asset-import COMMAND gneiss_editor_asset_import_test)
+    if(TARGET gneiss_game_module_valid_fixture)
+      add_library(gneiss_game_module_workflow_fixture MODULE ../runtime/tests/game_module_fixture.cpp)
+      target_link_libraries(gneiss_game_module_workflow_fixture PRIVATE gneiss::engine)
+      target_compile_definitions(gneiss_game_module_workflow_fixture PRIVATE
+        GNEISS_BUILDING_GAME_MODULE GNEISS_TEST_CONTINUOUS_UPDATE)
+      gneiss_target_compile_warnings(gneiss_game_module_workflow_fixture)
+      gneiss_target_output_directories(gneiss_game_module_workflow_fixture)
+      add_executable(gneiss_editor_asset_workflow_test tests/asset_workflow_test.cpp)
+      target_link_libraries(gneiss_editor_asset_workflow_test PRIVATE gneiss_editor_assets gneiss_editor_session)
+      target_compile_definitions(gneiss_editor_asset_workflow_test PRIVATE
+        GNEISS_TEST_TEMPLATE="${PROJECT_SOURCE_DIR}/templates/game"
+        GNEISS_TEST_SOURCE="${PROJECT_SOURCE_DIR}/tests/data/gltf/static_triangle.gltf"
+        GNEISS_TEST_RUNTIME="$<TARGET_FILE:gneiss_runtime>"
+        GNEISS_TEST_MODULE="$<TARGET_FILE:gneiss_game_module_workflow_fixture>")
+      add_dependencies(gneiss_editor_asset_workflow_test gneiss_runtime gneiss_game_module_workflow_fixture)
+      gneiss_target_compile_warnings(gneiss_editor_asset_workflow_test)
+      gneiss_target_output_directories(gneiss_editor_asset_workflow_test)
+      add_test(NAME gneiss.editor.asset-workflow COMMAND gneiss_editor_asset_workflow_test)
+      set_tests_properties(gneiss.editor.asset-workflow PROPERTIES TIMEOUT 60)
+    endif()
     add_executable(gneiss_editor_asset_reimport_queue_test tests/asset_reimport_queue_test.cpp)
     target_link_libraries(gneiss_editor_asset_reimport_queue_test PRIVATE gneiss_editor_assets)
     target_compile_definitions(

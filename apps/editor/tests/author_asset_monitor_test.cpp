@@ -63,6 +63,55 @@ int main() {
   if (monitor.status().state != gneiss::editor::author_asset_change_state::failed) {
     return 8;
   }
+  // 丢事件后同时找回删除和新增；每次最多枚举一个目录项或已知路径。
+  const auto prefab = root / "new.prefab.json";
+  if (!write_text(prefab, "new prefab")) {
+    return 9;
+  }
+  monitor.request_rescan();
+  bool found_removed = false;
+  bool found_new = false;
+  for (int frame = 0; frame < 32 && monitor.is_rescanning(); ++frame) {
+    std::vector<std::filesystem::path> paths;
+    if (monitor.poll_rescan(paths, 1U) != gneiss::result::success || paths.size() > 1U) {
+      return 10;
+    }
+    for (const auto& path : paths) {
+      const auto change = monitor.observe(path, false);
+      found_removed |= change.uri == "asset://scenes/main.scene.json" &&
+                       change.operation == gneiss::result::not_found;
+      found_new |= change.uri == "asset://new.prefab.json" &&
+                   change.state == gneiss::editor::author_asset_change_state::changed;
+    }
+  }
+  if (monitor.is_rescanning() || !found_removed || !found_new || !write_text(scene, "third")) {
+    return 11;
+  }
+  monitor.request_rescan();
+  bool found_conflict = false;
+  for (int frame = 0; frame < 32 && monitor.is_rescanning(); ++frame) {
+    std::vector<std::filesystem::path> paths;
+    (void)monitor.poll_rescan(paths, 1U);
+    for (const auto& path : paths) {
+      found_conflict |=
+          monitor.observe(path, true).state == gneiss::editor::author_asset_change_state::conflict;
+    }
+  }
+  if (!found_conflict || monitor.observe("scenes/main.scene.json", false).state !=
+                             gneiss::editor::author_asset_change_state::changed) {
+    return 12;
+  }
+  std::filesystem::remove_all(root);
+  monitor.request_rescan();
+  std::vector<std::filesystem::path> paths;
+  if (monitor.poll_rescan(paths) != gneiss::result::io || monitor.is_rescanning()) {
+    return 13;
+  }
+  std::filesystem::create_directories(root);
+  monitor.request_rescan();
+  if (monitor.poll_rescan(paths) != gneiss::result::success) {
+    return 14;
+  }
   std::filesystem::remove_all(root);
   return 0;
 }
