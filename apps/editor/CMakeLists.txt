@@ -350,6 +350,12 @@ if(BUILD_TESTING)
     add_test(NAME gneiss.editor.asset-background-worker COMMAND gneiss_editor_asset_background_worker_test)
     set_tests_properties(gneiss.editor.asset-background-worker PROPERTIES TIMEOUT 45)
     # 手动基准保留输入目录及原始输出，不把机器相关耗时作为 CTest 门槛。
+    add_executable(gneiss_editor_task_response_benchmark tests/task_response_benchmark.cpp)
+    target_link_libraries(gneiss_editor_task_response_benchmark PRIVATE gneiss_editor_assets gneiss_editor_session)
+    target_compile_definitions(gneiss_editor_task_response_benchmark PRIVATE
+      GNEISS_TEST_PREFAB="${PROJECT_SOURCE_DIR}/tests/data/assets/prefabs/test.prefab.json")
+    gneiss_target_compile_warnings(gneiss_editor_task_response_benchmark)
+    gneiss_target_output_directories(gneiss_editor_task_response_benchmark)
     add_executable(gneiss_editor_asset_response_benchmark tests/asset_response_benchmark.cpp)
     target_link_libraries(gneiss_editor_asset_response_benchmark PRIVATE gneiss_editor_assets)
     target_compile_definitions(gneiss_editor_asset_response_benchmark PRIVATE

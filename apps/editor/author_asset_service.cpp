@@ -24,7 +24,7 @@ bool structural(std::string_view uri) {
 } // namespace
 
 struct author_asset_service::implementation {
-  enum class command_kind { probe, saved, applied };
+  enum class command_kind : std::uint8_t { probe, saved, applied };
   struct command {
     command_kind kind{};
     std::string uri{};
@@ -105,6 +105,7 @@ struct author_asset_service::implementation {
     output->revision = revision;
     std::vector<command> work;
     const auto count = std::min<std::size_t>(8U, commands.size());
+    work.reserve(count);
     for (std::size_t index = 0U; index < count; ++index) {
       work.push_back(commands[index]);
     }

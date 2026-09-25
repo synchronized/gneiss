@@ -210,7 +210,14 @@ task_scheduler::task_scheduler(scheduler_options options)
     throw;
   }
 }
-task_scheduler::~task_scheduler() { stop(); }
+task_scheduler::~task_scheduler() {
+  try {
+    stop();
+  } catch (...) {
+    // 从自身工作线程销毁违反所有权契约，无法安全释放仍被执行中的对象。
+    std::terminate();
+  }
+}
 
 task_scope task_scheduler::make_scope() {
   std::scoped_lock lock(impl_->mutex);
