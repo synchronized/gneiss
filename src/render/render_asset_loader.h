@@ -79,6 +79,23 @@ private:
 
 class render_asset_loader final {
 public:
+  struct texture_target {
+    std::string uri;
+    std::weak_ptr<const asset_internal::resource_cache::entry> expected;
+    bool existed{};
+  };
+  struct texture_candidate {
+    texture_target target;
+    texture_asset_lease lease;
+    std::shared_ptr<const texture_resource> data;
+    std::shared_ptr<const texture_resource> previous;
+  };
+  [[nodiscard]] gneiss_result observe_texture(std::string_view uri,
+                                              texture_target& output) const noexcept;
+  [[nodiscard]] gneiss_result stage_texture(const texture_target& target, texture_resource prepared,
+                                            texture_candidate& output) noexcept;
+  /** 全部身份仍有效才一次发布；调用方须先完成 GPU 候选确认，且不并发访问缓存。 */
+  [[nodiscard]] gneiss_result publish_textures(std::span<texture_candidate> candidates) noexcept;
   render_asset_loader(const asset_internal::virtual_file_system& file_system,
                       asset_internal::resource_cache& cache,
                       render_resource_service& resources) noexcept;

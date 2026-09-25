@@ -61,7 +61,7 @@ gneiss_target_output_directories(gneiss_runtime_ipc)
 add_executable(gneiss_runtime main.cpp runtime_log.cpp runtime_log.h)
 target_link_libraries(
   gneiss_runtime
-  PRIVATE gneiss_app_project gneiss::engine gneiss_game_module_session gneiss_runtime_ipc
+  PRIVATE gneiss_app_project gneiss::engine gneiss_game_module_session gneiss_runtime_ipc gneiss_tasks
 )
 target_include_directories(gneiss_runtime PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_features(gneiss_runtime PRIVATE cxx_std_20)

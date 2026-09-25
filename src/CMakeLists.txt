@@ -36,6 +36,8 @@ target_sources(
     asset/texture_ktx2.h
     asset/texture_binary.cpp
     asset/texture_binary.h
+    asset/texture_load_service.cpp
+    asset/texture_load_service.h
     asset/native_file_system.cpp
     asset/native_file_system.h
     asset/resource_cache.cpp

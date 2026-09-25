@@ -40,6 +40,14 @@ int main() try {
   if (process.retry_asset_reload() != gneiss::result::not_ready) {
     return 16;
   }
+  const std::vector<std::string> over_capacity(1025U, "asset://test.texture.json");
+  if (process.publish_asset_revision(over_capacity) != gneiss::result::not_ready) {
+    return 26;
+  }
+  const std::vector<std::string> over_texture_batch(17U, "asset://test.texture.json");
+  if (process.publish_asset_revision(over_texture_batch) != gneiss::result::invalid_argument) {
+    return 27;
+  }
   gneiss::editor::runtime_launch_request request{reload_project.root};
   const std::filesystem::path executable{GNEISS_TEST_RUNTIME};
   const auto missing_executable = executable.parent_path() / "missing-runtime";
@@ -192,6 +200,54 @@ int main() try {
       process.asset_reload_status().revision <= failed_revision ||
       process.retry_asset_reload() != gneiss::result::not_ready || !process.is_running()) {
     return 20;
+  }
+  // 实际 Runtime 的纯纹理异步回执：准备失败后恢复，窗口与 IPC 持续运行。
+  const auto texture_root = reload_project.root / "assets/textures";
+  std::filesystem::create_directories(texture_root);
+  constexpr std::array<unsigned char, 68> png{
+      0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0,    0,    0,    0x0D, 0x49, 0x48,
+      0x44, 0x52, 0,    0,    0,    1,    0,    0,    0,    1,    8,    4,    0,    0,
+      0,    0xB5, 0x1C, 0x0C, 2,    0,    0,    0,    0x0B, 0x49, 0x44, 0x41, 0x54, 0x78,
+      0xDA, 0x63, 0x64, 0xF8, 0x0F, 0,    1,    5,    1,    1,    0x27, 0x18, 0xE3, 0x66,
+      0,    0,    0,    0,    0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82};
+  const auto write_png = [&] {
+    std::ofstream stream(texture_root / "test.png", std::ios::binary | std::ios::trunc);
+    stream.write(reinterpret_cast<const char*>(png.data()),
+                 static_cast<std::streamsize>(png.size()));
+  };
+  write_png();
+  {
+    std::ofstream stream(texture_root / "test.texture.json");
+    stream
+        << R"({"format":"gneiss.texture","version":1,"source":"asset://textures/test.png","color_space":"srgb"})";
+  }
+  {
+    std::ofstream stream(material_path);
+    stream
+        << R"({"format":"gneiss.material","version":3,"color":[1,1,1,1],"base_color_texture":"asset://textures/test.texture.json","metallic":0,"roughness":1})";
+  }
+  if (process.publish_asset_revision(material_reload) != gneiss::result::success ||
+      !wait_for_reload(gneiss::editor::runtime_asset_reload_state::applied)) {
+    return 22;
+  }
+  const std::array<std::string, 1> texture_reload{"asset://textures/test.texture.json"};
+  if (process.publish_asset_revision(texture_reload) != gneiss::result::success ||
+      !wait_for_reload(gneiss::editor::runtime_asset_reload_state::applied)) {
+    return 23;
+  }
+  {
+    std::ofstream broken(texture_root / "test.png", std::ios::trunc);
+    broken << "invalid";
+  }
+  if (process.publish_asset_revision(texture_reload) != gneiss::result::success ||
+      !wait_for_reload(gneiss::editor::runtime_asset_reload_state::failed)) {
+    return 24;
+  }
+  write_png();
+  if (process.retry_asset_reload() != gneiss::result::success ||
+      !wait_for_reload(gneiss::editor::runtime_asset_reload_state::applied) ||
+      !process.is_running()) {
+    return 25;
   }
   gneiss::editor::runtime_property_key property_key{.object =
                                                         process.scene_mirror().nodes().front().id,

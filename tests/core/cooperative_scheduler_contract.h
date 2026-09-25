@@ -92,4 +92,44 @@ inline void cooperative_scheduler_contract() {
   check(scheduler.query(cancelled, completion) &&
         completion.outcome.state == task_state::cancelled);
   check(scheduler.try_close_scope(scope) && scheduler.stats().retained == 0U && count == 3U);
+
+  task_scheduler bounded({.capacity = 2U, .mode = execution_mode::cooperative});
+  const auto left = bounded.make_scope();
+  const auto right = bounded.make_scope();
+  task_handle left_task;
+  task_handle right_task;
+  const auto body = [](const auto&) { return task_outcome{}; };
+  check(bounded.submit({.scope = left}, body, left_task) == submit_result::success);
+  check(bounded.submit({.scope = right}, body, right_task) == submit_result::success);
+  task_handle overflow;
+  check(bounded.submit({.scope = right}, body, overflow) == submit_result::full);
+  bounded.cancel_scope(left);
+  check(bounded.run_ready().executed == 1U);
+  check(bounded.query(right_task, completion) && completion.outcome.state == task_state::succeeded);
+  // 未消费的终态仍占容量，取消一个作用域不影响另一个。
+  check(bounded.submit({.scope = right}, body, overflow) == submit_result::full);
+  check(bounded.try_close_scope(left));
+  check(bounded.submit({.scope = right}, body, overflow) == submit_result::success);
+
+  task_scheduler fair({.capacity = 16U, .mode = execution_mode::cooperative});
+  const auto fair_scope = fair.make_scope();
+  unsigned normals{};
+  unsigned observed = 99U;
+  for (unsigned i = 0; i < 12U; ++i) {
+    check(fair.submit(
+              {.scope = fair_scope, .priority = task_priority::normal},
+              [&](const auto&) {
+                ++normals;
+                return task_outcome{};
+              },
+              overflow) == submit_result::success);
+  }
+  check(fair.submit(
+            {.scope = fair_scope},
+            [&](const auto&) {
+              observed = normals;
+              return task_outcome{};
+            },
+            overflow) == submit_result::success);
+  check(fair.run_ready({.max_tasks = 16U, .max_time = 1s}).executed == 13U && observed == 8U);
 }

@@ -1,0 +1,192 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Gneiss contributors
+
+#include "asset/texture_ktx2.h"
+#include "asset/texture_load_service.h"
+
+#include <cstdio>
+#include <map>
+
+namespace {
+using namespace gneiss;
+using namespace asset_internal;
+using namespace render_internal;
+void check(bool value) {
+  if (!value) {
+    throw std::runtime_error("异步纹理契约失败");
+  }
+}
+struct memory_files final : file_system {
+  std::map<std::string, std::vector<std::byte>> files;
+  mutable std::thread::id reader;
+  gneiss_result read(std::string_view path, std::vector<std::byte>& bytes) const noexcept override {
+    return read_bounded(path, SIZE_MAX, bytes);
+  }
+  gneiss_result read_bounded(std::string_view path, std::size_t limit,
+                             std::vector<std::byte>& bytes) const noexcept override {
+    reader = std::this_thread::get_id();
+    const auto found = files.find(std::string(path));
+    if (found == files.end()) {
+      return GNEISS_ERROR_NOT_FOUND;
+    }
+    if (found->second.size() > limit) {
+      return GNEISS_ERROR_INVALID_ARGUMENT;
+    }
+    bytes = found->second;
+    return GNEISS_SUCCESS;
+  }
+  void text(std::string path, std::string_view text) {
+    auto& bytes = files[std::move(path)];
+    bytes.clear();
+    for (const auto c : text) {
+      bytes.push_back(static_cast<std::byte>(c));
+    }
+  }
+  void pixel(std::byte red) {
+    std::string diagnostic;
+    check(encode_texture_ktx2(
+              {.transfer = texture_transfer::srgb,
+               .levels = {{.width = 1U,
+                           .height = 1U,
+                           .pixels = {red, std::byte{}, std::byte{}, std::byte{255}}}}},
+              files["image.ktx2"], diagnostic) == texture_ktx2_result::success);
+  }
+};
+void run(tasks::execution_mode mode) {
+  tasks::task_scheduler scheduler({.workers = 2U, .mode = mode});
+  auto files = std::make_shared<memory_files>();
+  files->text(
+      "a.texture.json",
+      R"({"format":"gneiss.texture","version":1,"source":"asset://image.ktx2","color_space":"srgb"})");
+  files->text(
+      "b.texture.json",
+      R"({"format":"gneiss.texture","version":1,"source":"asset://missing.ktx2","color_space":"srgb"})");
+  files->pixel(std::byte{10});
+  virtual_file_system vfs;
+  check(vfs.mount("asset://", files) == GNEISS_SUCCESS);
+  resource_cache cache;
+  render_resource_service resources;
+  render_asset_loader loader(vfs, cache, resources);
+  bool uploaded{};
+  bool ready{};
+  gneiss_result upload_result = GNEISS_SUCCESS;
+  unsigned discarded{};
+  texture_upload_backend backend{.begin =
+                                     [&](auto, auto& sequence) {
+                                       uploaded = true;
+                                       sequence = 1U;
+                                       return GNEISS_SUCCESS;
+                                     },
+                                 .poll =
+                                     [&](auto, auto& result) {
+                                       result = upload_result;
+                                       return ready;
+                                     },
+                                 .discard =
+                                     [&](auto, auto& sequence) {
+                                       ++discarded;
+                                       sequence = 2U;
+                                       return GNEISS_SUCCESS;
+                                     },
+                                 .flush = [&] { ready = true; }};
+  texture_load_service service(scheduler, vfs, loader, std::move(backend));
+  const auto advance = [&] {
+    if (mode == tasks::execution_mode::cooperative) {
+      (void)scheduler.run_ready();
+    }
+    service.advance();
+  };
+  const auto until = [&](auto predicate) {
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+    while (!predicate()) {
+      check(std::chrono::steady_clock::now() < deadline);
+      advance();
+      std::this_thread::yield();
+    }
+  };
+  const std::vector<std::string> uris{"asset://a.texture.json"};
+  std::uint64_t request{};
+  check(service.submit(uris, 1U, 1U, request) == GNEISS_SUCCESS && request != 0U);
+  std::uint64_t rejected{};
+  check(service.submit(uris, 1U, 2U, rejected) == GNEISS_ERROR_NOT_READY);
+  until([&] { return uploaded; });
+  check(cache.size() == 0U);
+  check((files->reader == std::this_thread::get_id()) ==
+        (mode == tasks::execution_mode::cooperative));
+  texture_load_completion completion;
+  check(!service.take(completion));
+  upload_result = GNEISS_ERROR_INITIALIZATION_FAILED;
+  ready = true;
+  until([&] { return service.take(completion); });
+  check(completion.state == texture_load_state::failed && cache.size() == 0U &&
+        resources.live_resource_count() == 0U);
+  upload_result = GNEISS_SUCCESS;
+  check(service.submit(uris, 1U, 2U, request) == GNEISS_SUCCESS);
+  until([&] { return service.take(completion); });
+  check(completion.state == texture_load_state::applied && completion.textures.size() == 1U);
+  auto lease = completion.textures.front();
+  const auto rid = lease.get();
+  auto previous = resources.share_texture(rid);
+  check(previous && previous->levels.front().pixels.front() == std::byte{10});
+  files->reader = {};
+  check(service.submit(uris, 1U, 2U, request, false) == GNEISS_SUCCESS);
+  check(service.take(completion) && completion.textures.front().get() == rid &&
+        files->reader == std::thread::id{});
+  files->pixel(std::byte{20});
+  uploaded = false;
+  ready = false;
+  check(service.submit(uris, 1U, 3U, request) == GNEISS_SUCCESS);
+  until([&] { return uploaded; });
+  check(resources.share_texture(rid) == previous);
+  service.cancel(); // 上传已获许可，迟到取消不撤销提交。
+  ready = true;
+  until([&] { return service.take(completion); });
+  check(completion.state == texture_load_state::applied &&
+        completion.textures.front().get() == rid && resources.share_texture(rid) != previous &&
+        previous->levels.front().pixels.front() == std::byte{10});
+  previous = resources.share_texture(rid);
+  const std::vector<std::string> broken{uris.front(), "asset://b.texture.json"};
+  check(service.submit(broken, 1U, 4U, request) == GNEISS_SUCCESS);
+  until([&] { return service.take(completion); });
+  check(completion.state == texture_load_state::failed &&
+        resources.share_texture(rid) == previous && cache.size() == 1U);
+  // GPU 已完成但缓存身份被同步事务替换：丢弃候选，不能覆盖新的缓存。
+  uploaded = false;
+  ready = false;
+  check(service.submit(uris, 1U, 5U, request) == GNEISS_SUCCESS);
+  until([&] { return uploaded; });
+  asset_diagnostic diagnostic;
+  const std::vector<render_asset_reload> synchronous{{uris.front(), render_asset_type::texture}};
+  check(loader.reload_assets(synchronous, diagnostic) == GNEISS_SUCCESS);
+  texture_asset_lease newer;
+  check(loader.acquire_texture(uris.front(), newer, diagnostic) == GNEISS_SUCCESS);
+  const auto newer_rid = newer.get();
+  ready = true;
+  until([&] { return service.take(completion); });
+  check(completion.state == texture_load_state::failed && discarded == 1U &&
+        resources.share_texture(rid) == previous);
+  lease = std::move(newer);
+  // 未获提交许可的卸载不能被迟到候选复活。
+  check(service.submit(uris, 1U, 5U, request) == GNEISS_SUCCESS);
+  lease = {};
+  completion = {};
+  cache.release_unused();
+  check(resources.get_texture(newer_rid) == nullptr);
+  until([&] { return service.take(completion); });
+  check(completion.state == texture_load_state::failed && cache.size() == 0U);
+  check(service.submit(uris, 2U, 1U, request) == GNEISS_SUCCESS);
+  service.cancel();
+  until([&] { return service.take(completion); });
+  check(completion.state == texture_load_state::cancelled && resources.live_resource_count() == 0U);
+  service.request_stop();
+  check(service.stopped() && discarded == 1U);
+}
+}
+int main() try {
+  run(tasks::execution_mode::cooperative);
+  run(tasks::execution_mode::thread_pool);
+  return 0;
+} catch (const std::exception& error) {
+  std::fprintf(stderr, "%s\n", error.what());
+  return 1;
+}

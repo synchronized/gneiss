@@ -95,27 +95,43 @@ struct scheduler_stats {
   std::uint64_t cancelled{};
 };
 
+/** 宿主注入的内部执行入口；无独立状态。跨共享库时通过宿主虚调用保持唯一池和线程上下文。 */
+class task_executor {
+public:
+  using task_function = std::function<task_outcome(const task_context&)>;
+  virtual ~task_executor() = default;
+  [[nodiscard]] virtual task_scope make_scope() = 0;
+  [[nodiscard]] virtual submit_result submit(task_description description, task_function function,
+                                             task_handle& output) = 0;
+  [[nodiscard]] virtual bool cancel(task_handle task) = 0;
+  virtual void cancel_scope(task_scope scope) = 0;
+  [[nodiscard]] virtual bool idle(task_scope scope) const = 0;
+  [[nodiscard]] virtual bool close_scope(task_scope scope) = 0;
+  virtual std::size_t poll(task_scope scope, std::vector<task_completion>& output,
+                           std::size_t budget = 64U) = 0;
+};
+
 /// 内部调度器；无线程构建仅允许所属宿主线程访问，启用线程时提交、查询和取消线程安全。
 /// poll/close_scope 回收结果后句柄失效；已提交依赖仍持有前置终态。
 /// stop 和析构由宿主线程串行调用；不得从自身任务销毁调度器。服务须在调度器之前销毁。
-class task_scheduler final {
+class task_scheduler final : public task_executor {
 public:
   using task_function = std::function<task_outcome(const task_context&)>;
   explicit task_scheduler(scheduler_options options = {});
-  ~task_scheduler();
+  ~task_scheduler() override;
   task_scheduler(const task_scheduler&) = delete;
   task_scheduler& operator=(const task_scheduler&) = delete;
-  [[nodiscard]] task_scope make_scope();
+  [[nodiscard]] task_scope make_scope() override;
   [[nodiscard]] serial_queue make_serial_queue(task_scope scope);
   [[nodiscard]] submit_result submit(task_description description, task_function function,
-                                     task_handle& output);
-  [[nodiscard]] bool cancel(task_handle task);
-  void cancel_scope(task_scope scope);
-  [[nodiscard]] bool idle(task_scope scope) const;
+                                     task_handle& output) override;
+  [[nodiscard]] bool cancel(task_handle task) override;
+  void cancel_scope(task_scope scope) override;
+  [[nodiscard]] bool idle(task_scope scope) const override;
   /// 取消并等待该作用域，丢弃尚未消费的结果。池内调用返回 false，不发生自等待。
-  [[nodiscard]] bool close_scope(task_scope scope);
+  [[nodiscard]] bool close_scope(task_scope scope) override;
   std::size_t poll(task_scope scope, std::vector<task_completion>& output,
-                   std::size_t budget = 64U);
+                   std::size_t budget = 64U) override;
   [[nodiscard]] bool query(task_handle task, task_completion& output) const;
   [[nodiscard]] scheduler_stats stats() const;
   [[nodiscard]] execution_mode mode() const noexcept;

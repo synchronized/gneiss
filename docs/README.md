@@ -28,6 +28,7 @@
 - [C/C++ 代码风格与语言标准](guides/coding-style.md)
 - [在 Editor 中导入资产](guides/editor-assets.md)
 - [Editor 选择、变换与窗口交互](guides/editor-interaction.md)
+- [宿主任务调度与异步纹理加载](guides/task-scheduling.md)
 
 ## API 参考
 
@@ -271,6 +272,7 @@
 - [M-241 0.36.0 发布验收记录](records/M-241-0.36.0-release-validation.md)
 - [M-246～M-249 0.38.0 后台资产任务验收](records/M-246-249-0.38.0-validation.md)
 - [M-250～M-255 0.39.0 任务调度与资产服务验收](records/M-250-255-0.39.0-validation.md)
+- [M-256～M-264 0.40.0 统一调度与异步纹理验收](records/M-256-264-0.40.0-validation.md)
 - [M-242～M-245 0.37.0 交互、响应性与发布验收](records/M-242-245-0.37.0-validation.md)
 - [M-236 0.35.0 发布验收记录](records/M-236-0.35.0-release-validation.md)
 - [M-237 重导入异常诊断与任务恢复](records/M-237-reimport-failure-recovery.md)

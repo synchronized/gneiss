@@ -756,6 +756,122 @@ gneiss_result render_asset_loader::acquire_texture(std::string_view uri,
   return result;
 }
 
+gneiss_result render_asset_loader::observe_texture(std::string_view uri,
+                                                   texture_target& output) const noexcept {
+  output = {};
+  try {
+    output.uri = uri;
+    output.expected = cache_.observe(uri);
+    const auto current = output.expected.lock();
+    output.existed = static_cast<bool>(current);
+    return current && (current->type != texture_type ||
+                       current->state != asset_internal::resource_state::ready)
+               ? GNEISS_ERROR_INVALID_ARGUMENT
+               : GNEISS_SUCCESS;
+  } catch (...) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
+  }
+}
+
+gneiss_result render_asset_loader::stage_texture(const texture_target& target,
+                                                 texture_resource prepared,
+                                                 texture_candidate& output) noexcept {
+  output = {};
+  try {
+    const auto current = cache_.observe(target.uri).lock();
+    if ((target.existed && (!current || current != target.expected.lock())) ||
+        (!target.existed && current)) {
+      return GNEISS_ERROR_INVALID_STATE;
+    }
+    texture_candidate candidate;
+    candidate.target = target;
+    gneiss_texture staged = GNEISS_NULL_TEXTURE;
+    const auto created = prepared.manifest.empty()
+                             ? resources_.create_texture(std::move(prepared), &staged)
+                             : resources_.create_packaged_texture(std::move(prepared), &staged);
+    if (created != GNEISS_SUCCESS) {
+      return created;
+    }
+    // 私有暂存 RID 只用于验证和所有权；失败时不会进入缓存。
+    std::shared_ptr<texture_asset> owned;
+    try {
+      owned = std::make_shared<texture_asset>(resources_, staged);
+    } catch (...) {
+      (void)resources_.destroy_texture(staged);
+      throw;
+    }
+    candidate.data = resources_.share_texture(staged);
+    if (current) {
+      candidate.lease.entry_ = current;
+      candidate.previous = resources_.share_texture(candidate.lease.get());
+      if (!candidate.previous) {
+        return GNEISS_ERROR_INVALID_HANDLE;
+      }
+    } else {
+      auto entry = std::make_shared<asset_internal::resource_cache::entry>();
+      entry->uri = target.uri;
+      entry->type = texture_type;
+      entry->state = asset_internal::resource_state::ready;
+      entry->resource = std::move(owned);
+      candidate.lease.entry_ = std::move(entry);
+    }
+    output = std::move(candidate);
+    return GNEISS_SUCCESS;
+  } catch (const std::bad_alloc&) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
+gneiss_result
+render_asset_loader::publish_textures(std::span<texture_candidate> candidates) noexcept {
+  try {
+    std::vector<asset_internal::resource_cache::reload_request> requests;
+    requests.reserve(candidates.size());
+    for (const auto& candidate : candidates) {
+      const auto current = cache_.observe(candidate.target.uri).lock();
+      if (!candidate.data || !candidate.lease ||
+          (candidate.target.existed &&
+           (!current || current != candidate.target.expected.lock() ||
+            resources_.share_texture(candidate.lease.get()) != candidate.previous)) ||
+          (!candidate.target.existed && current) ||
+          !resources_.get_texture(candidate.lease.get())) {
+        return GNEISS_ERROR_INVALID_STATE;
+      }
+      if (candidate.target.existed) {
+        continue;
+      }
+      requests.push_back(
+          {.uri = candidate.target.uri,
+           .type = texture_type,
+           .load = [resource = candidate.lease.entry_->resource](auto&, auto& output) {
+             output = resource;
+             return GNEISS_SUCCESS;
+           }});
+    }
+    std::vector<std::shared_ptr<const asset_internal::resource_cache::entry>> committed;
+    const auto result =
+        requests.empty() ? GNEISS_SUCCESS : cache_.reload_transaction(requests, committed);
+    if (result != GNEISS_SUCCESS) {
+      return result;
+    }
+    // 缓存事务已完成全部可能分配的工作；这里仅交换已验证槽位的 shared_ptr，不会失败。
+    std::size_t inserted{};
+    for (auto& candidate : candidates) {
+      if (!candidate.target.existed) {
+        candidate.lease.entry_ = committed[inserted++];
+      }
+      (void)resources_.replace_texture(candidate.lease.get(), candidate.data);
+    }
+    return GNEISS_SUCCESS;
+  } catch (const std::bad_alloc&) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
 gneiss_result render_asset_loader::reload_assets(std::span<const render_asset_reload> assets,
                                                  asset_diagnostic& out_diagnostic) noexcept {
   out_diagnostic = {};

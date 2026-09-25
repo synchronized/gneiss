@@ -8,11 +8,13 @@
 #include <gneiss/input.h>
 
 #include "asset/resource_cache.h"
+#include "asset/texture_load_service.h"
 #include "asset/virtual_file_system.h"
 #include "input/input_service.h"
 #include "log/log_dispatcher.h"
 #include "render/debug_draw_list.h"
 #include "render/render_asset_loader.h"
+#include "render/render_executor.h"
 #include "render/render_resource_service.h"
 #include "render/ui_draw_list.h"
 #include "scene/prefab_asset_loader.h"
@@ -32,6 +34,12 @@ class granit_render_service;
 
 class application_state final {
 public:
+  [[nodiscard]] render_internal::render_queue_stats render_statistics() const noexcept;
+  [[nodiscard]] gneiss_result attach_task_executor(tasks::task_executor& executor) noexcept;
+  [[nodiscard]] asset_internal::texture_load_service* texture_service() noexcept {
+    return texture_service_.get();
+  }
+
   explicit application_state(const gneiss_application_desc& desc) noexcept;
   ~application_state() noexcept;
 
@@ -97,6 +105,7 @@ private:
   asset_internal::virtual_file_system asset_file_system_;
   asset_internal::resource_cache asset_cache_;
   render_internal::render_asset_loader asset_loader_;
+  std::unique_ptr<asset_internal::texture_load_service> texture_service_;
   scene_internal::prefab_asset_loader prefab_asset_loader_;
   gneiss_world world_ = GNEISS_NULL_WORLD;
   std::unique_ptr<scene_internal::scene_instance_service> scenes_;

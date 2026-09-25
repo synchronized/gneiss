@@ -47,6 +47,8 @@ public:
   reload_transaction(std::span<const reload_request> requests,
                      std::vector<std::shared_ptr<const entry>>& out_entries) noexcept;
   void release_unused() noexcept;
+  /** 只观察当前身份，不触发加载；返回的弱引用不会阻止卸载。 */
+  [[nodiscard]] std::weak_ptr<const entry> observe(std::string_view uri) const;
   [[nodiscard]] std::size_t size() const noexcept { return entries_.size(); }
 
 private:

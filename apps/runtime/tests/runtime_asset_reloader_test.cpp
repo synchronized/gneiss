@@ -51,5 +51,59 @@ int main() {
   result thread_result = result::success;
   std::thread other([&] { thread_result = reloader.execute(request, response); });
   other.join();
-  return thread_result == result::invalid_state ? 0 : 6;
+  if (thread_result != result::invalid_state) {
+    return 6;
+  }
+  bool completed{};
+  unsigned accepted{};
+  result async_result = result::success;
+  runtime_asset_reloader asynchronous(
+      [&](auto) {
+        ++calls;
+        return result::success;
+      },
+      [&](const auto&) {
+        ++accepted;
+        return result::success;
+      },
+      [&](result& output, bool& ready) {
+        ready = completed;
+        output = async_result;
+        return result::success;
+      });
+  request = {.session_id = 10U,
+             .revision = 1U,
+             .assets = {{.uri = "asset://a.texture.json", .type = ipc_asset_type::texture}}};
+  if (asynchronous.execute(request, response) != result::not_ready || accepted != 1U ||
+      asynchronous.applied_revision() != 0U) {
+    return 7;
+  }
+  if (asynchronous.execute(request, response) != result::invalid_state || accepted != 1U) {
+    return 13;
+  }
+  bool ready = true;
+  if (asynchronous.advance(response, ready) != result::success || ready ||
+      asynchronous.applied_revision() != 0U) {
+    return 8;
+  }
+  completed = true;
+  if (asynchronous.advance(response, ready) != result::success || !ready ||
+      response.status != ipc_asset_apply_status::applied || response.revision != 1U ||
+      asynchronous.applied_revision() != 1U) {
+    return 9;
+  }
+  if (asynchronous.advance(response, ready) != result::success || ready) {
+    return 10;
+  }
+  request.revision = 2U;
+  request.assets.front().uri = "asset://b.texture.json";
+  if (asynchronous.execute(request, response) != result::not_ready || accepted != 2U) {
+    return 11;
+  }
+  async_result = result::io;
+  if (asynchronous.advance(response, ready) != result::success || !ready ||
+      response.status != ipc_asset_apply_status::failed || asynchronous.applied_revision() != 1U) {
+    return 12;
+  }
+  return 0;
 }

@@ -436,6 +436,12 @@ drive_result task_scheduler::run_ready(drive_budget budget) {
   if (active_scheduler != nullptr) {
     return {.status = drive_status::reentrant};
   }
+  {
+    std::scoped_lock lock(impl_->mutex);
+    if (impl_->stopping) {
+      return {.status = drive_status::stopped};
+    }
+  }
   drive_result result;
   const auto start = impl_->now();
   struct execution_guard {

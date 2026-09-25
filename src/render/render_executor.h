@@ -18,6 +18,7 @@ enum class render_frame_policy : std::uint8_t { replaceable, required };
 
 struct render_execution_result final {
   bool needs_recreate{};
+  bool presented{};
   float frame_capture_ms{};
   std::size_t copied_payload_bytes{};
   float queue_wait_ms{};
@@ -60,6 +61,7 @@ struct render_command_completion final {
   std::uint64_t sequence{};
   gneiss_result status{GNEISS_ERROR_UNKNOWN};
   render_command_progress progress;
+  double execution_ms{};
 };
 
 struct render_command_status final {
@@ -87,6 +89,9 @@ struct render_queue_stats final {
   std::size_t pending_high_watermark{};
   std::uint64_t submitted_frames{};
   std::uint64_t executed_frames{};
+  std::uint64_t presented_frames{};
+  double latest_frame_interval_ms{};
+  double maximum_frame_interval_ms{};
   std::uint64_t replaced_frames{};
   std::uint64_t submitted_required_frames{};
   std::uint64_t executed_required_frames{};

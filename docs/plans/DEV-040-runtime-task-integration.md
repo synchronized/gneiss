@@ -5,10 +5,10 @@
 
 ## 状态与职责
 
-实施中；调度核心已进入桌面与浏览器验证。本文描述开发依赖、源码落点和阶段完成条件；版本范围、里程碑编号及
+实现完成，正在完成桌面矩阵与发布验收。本文描述开发依赖、源码落点和阶段完成条件；版本范围、里程碑编号及
 发布门禁以 [VER-040](VER-040-0.40.0-cooperative-scheduling.md) 为唯一权威来源。
 执行模式和资源事务分别遵循 [ADR-047](../decisions/ADR-047-cooperative-task-execution.md) 与
-[ADR-048](../decisions/ADR-048-runtime-asset-preparation.md)。以下接口及数据模型均为计划，不是当前 API。
+[ADR-048](../decisions/ADR-048-runtime-asset-preparation.md)。当前内部接口见[任务调度指南](../guides/task-scheduling.md)；下文保留实施顺序与完成条件。
 
 沿用 `feat/0.40-cooperative-scheduling` 分支。每组验证通过的连贯改动本地提交；完整版本达到
 可评审状态后形成一个 PR。2026-09-25 用户已授权本版实现、提交、推送、PR、合并及版本发布完整闭环。

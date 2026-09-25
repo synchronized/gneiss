@@ -26,6 +26,59 @@ application_state::~application_state() noexcept {
   static_cast<void>(shutdown(GNEISS_NULL_APPLICATION));
 }
 
+render_internal::render_queue_stats application_state::render_statistics() const noexcept {
+#ifdef GNEISS_HAS_GRANIT_PLATFORM
+  if (granit_render_service_) {
+    return granit_render_service_->query_performance_stats();
+  }
+#endif
+  return {};
+}
+
+gneiss_result application_state::attach_task_executor(tasks::task_executor& executor) noexcept {
+  if (texture_service_) {
+    return GNEISS_ERROR_INVALID_STATE;
+  }
+  try {
+    asset_internal::texture_upload_backend backend;
+#ifdef GNEISS_HAS_GRANIT_PLATFORM
+    if (granit_render_service_) {
+      backend.begin = [this](auto data, auto& sequence) {
+        return granit_render_service_->prepare_textures(std::move(data), sequence);
+      };
+      backend.poll = [this](auto sequence, auto& result) {
+        return granit_render_service_->poll_texture_preparation(sequence, result);
+      };
+      backend.discard = [this](auto data, auto& sequence) {
+        return granit_render_service_->discard_prepared_textures(std::move(data), sequence);
+      };
+      backend.elapsed_ms = [this] { return granit_render_service_->latest_texture_upload_ms(); };
+      backend.flush = [this] { (void)granit_render_service_->finish_frames(); };
+    } else
+#endif
+    {
+      // 无渲染平台的 Application 只验证 CPU 与资源事务，不宣称 GPU 上传成功。
+      backend.begin = [](auto, auto& sequence) {
+        sequence = 1U;
+        return GNEISS_SUCCESS;
+      };
+      backend.poll = [](auto, auto& result) {
+        result = GNEISS_SUCCESS;
+        return true;
+      };
+      backend.discard = backend.begin;
+      backend.flush = [] {};
+    }
+    texture_service_ = std::make_unique<asset_internal::texture_load_service>(
+        executor, asset_file_system_, asset_loader_, std::move(backend));
+    return GNEISS_SUCCESS;
+  } catch (const std::bad_alloc&) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
 gneiss_result application_state::reload_render_assets(
     std::span<const render_internal::render_asset_reload> assets) noexcept {
   render_internal::asset_diagnostic diagnostic;
@@ -444,6 +497,7 @@ bool application_state::is_owner_thread() const noexcept {
 
 gneiss_result application_state::shutdown(gneiss_application handle) noexcept {
   auto shutdown_result = GNEISS_SUCCESS;
+  texture_service_.reset();
   is_updating_ = false;
   ui_draw_list_.clear();
   debug_draw_list_.clear();

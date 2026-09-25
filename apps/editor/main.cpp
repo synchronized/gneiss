@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "application/application_asset_reload_internal.h"
 #include "child_process.h"
 #include "editor_camera.h"
 #include "editor_command_history.h"
@@ -3400,8 +3401,8 @@ int run_editor(int argc, char** argv) {
     report_startup_failure("资产根校验", gneiss::result::invalid_argument, asset_root_text);
     return 64;
   }
-  gneiss::application application;
   editor_state state(options.cooperative_tasks);
+  gneiss::application application;
   state.asset_root = project.asset_root;
   state.project_root = project.project_root;
 #if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
@@ -3452,6 +3453,13 @@ int run_editor(int argc, char** argv) {
     report_startup_failure("Editor Application 创建", operation, path_utf8(project.project_root));
     return 1;
   }
+#if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
+  operation = gneiss::from_native(
+      gneiss::application_internal::attach_task_executor(application.get(), state.task_scheduler));
+  if (operation != gneiss::result::success) {
+    return 2;
+  }
+#endif
   operation = gneiss::from_native(state.ui.initialize(application.get()));
   if (operation != gneiss::result::success) {
     report_startup_failure("Editor UI 初始化", operation);

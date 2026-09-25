@@ -62,6 +62,9 @@ public:
   [[nodiscard]] gneiss_result create_packaged_texture(texture_resource resource,
                                                       gneiss_texture* out_texture) noexcept;
   [[nodiscard]] gneiss_result destroy_texture(gneiss_texture texture) noexcept;
+  /** 主线程提交已验证候选；保持 RID generation，既有帧仍拥有旧数据快照。 */
+  [[nodiscard]] bool replace_texture(gneiss_texture texture,
+                                     std::shared_ptr<const texture_resource> prepared) noexcept;
   [[nodiscard]] const mesh_resource* get_mesh(gneiss_mesh mesh) const noexcept;
   [[nodiscard]] const material_resource* get_material(gneiss_material material) const noexcept;
   [[nodiscard]] const texture_resource* get_texture(gneiss_texture texture) const noexcept;
