@@ -113,5 +113,16 @@ int main() {
       gneiss::result::unsupported) {
     return 8;
   }
+  // Gizmo 只接收仿射 TRS；透视行不能被静默忽略，失败不得修改输出。
+  if (gneiss::editor::transform_to_gizmo_matrix(world, matrix) != gneiss::result::success) {
+    return 9;
+  }
+  matrix[3] = 0.25F;
+  matrix_roundtrip.translation[0] = 123.0F;
+  if (gneiss::editor::gizmo_matrix_to_transform(matrix, matrix_roundtrip) !=
+          gneiss::result::invalid_argument ||
+      matrix_roundtrip.translation[0] != 123.0F) {
+    return 10;
+  }
   return 0;
 }

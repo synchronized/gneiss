@@ -20,6 +20,7 @@
 #include "runtime_author_apply.h"
 #include "runtime_launch.h"
 #include "runtime_process.h"
+#include "transform_gizmo_drag.h"
 #include "transform_gizmo_math.h"
 #if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
 #include "asset_browser_model.h"
@@ -157,12 +158,8 @@ struct editor_state {
   bool show_imgui_demo = false;
   gneiss::editor::editor_panel_visibility panel_visibility;
   gizmo_operation gizmo_mode = gizmo_operation::translate;
-  bool gizmo_using = false;
-  bool gizmo_was_dirty = false;
-  std::string gizmo_uuid;
-  std::string gizmo_instance_uuid;
-  std::string gizmo_source_uuid;
-  gneiss::transform gizmo_initial_local = GNEISS_TRANSFORM_IDENTITY;
+  gneiss::editor::transform_gizmo_drag gizmo_drag;
+  bool gizmo_wait_release = false;
   std::uint64_t property_edit_serial = 0U;
   std::array<char, 128> rename_buffer{};
   std::string rename_uuid;
@@ -221,58 +218,6 @@ constexpr std::size_t matrix_index(std::size_t row, std::size_t column) noexcept
   return (column * 4U) + row;
 }
 
-gneiss::editor::gizmo_matrix build_view_matrix(const gneiss::transform& camera) noexcept {
-  auto inverse = camera;
-  inverse.rotation[0] = -inverse.rotation[0];
-  inverse.rotation[1] = -inverse.rotation[1];
-  inverse.rotation[2] = -inverse.rotation[2];
-  inverse.translation[0] = 0.0F;
-  inverse.translation[1] = 0.0F;
-  inverse.translation[2] = 0.0F;
-  inverse.scale[0] = 1.0F;
-  inverse.scale[1] = 1.0F;
-  inverse.scale[2] = 1.0F;
-  gneiss::editor::gizmo_matrix result{};
-  (void)gneiss::editor::transform_to_gizmo_matrix(inverse, result);
-  for (std::size_t row = 0; row < 3U; ++row) {
-    result[matrix_index(row, 3U)] = -((result[matrix_index(row, 0U)] * camera.translation[0]) +
-                                      (result[matrix_index(row, 1U)] * camera.translation[1]) +
-                                      (result[matrix_index(row, 2U)] * camera.translation[2]));
-  }
-  return result;
-}
-
-gneiss::editor::gizmo_matrix build_gizmo_projection_matrix(float aspect) noexcept {
-  constexpr float field_of_view = 1.04719755F;
-  constexpr float near_plane = 0.1F;
-  constexpr float far_plane = 1000.0F;
-  const auto focal = 1.0F / std::tan(field_of_view * 0.5F);
-  gneiss::editor::gizmo_matrix result{};
-  result[matrix_index(0U, 0U)] = focal / aspect;
-  // ImGuizmo 将统一的 Y 向上 NDC 转换为向下增长的屏幕坐标。
-  result[matrix_index(1U, 1U)] = focal;
-  result[matrix_index(2U, 2U)] = far_plane / (near_plane - far_plane);
-  result[matrix_index(2U, 3U)] = (far_plane * near_plane) / (near_plane - far_plane);
-  result[matrix_index(3U, 2U)] = -1.0F;
-  return result;
-}
-
-bool same_transform(const gneiss::transform& left, const gneiss::transform& right) noexcept {
-  constexpr float tolerance = 1.0e-5F;
-  for (std::size_t index = 0; index < 3U; ++index) {
-    if (std::abs(left.translation[index] - right.translation[index]) > tolerance ||
-        std::abs(left.scale[index] - right.scale[index]) > tolerance) {
-      return false;
-    }
-  }
-  for (std::size_t index = 0; index < 4U; ++index) {
-    if (std::abs(left.rotation[index] - right.rotation[index]) > tolerance) {
-      return false;
-    }
-  }
-  return true;
-}
-
 std::string_view console_severity_name(std::uint32_t severity) noexcept {
   switch (severity) {
   case GNEISS_LOG_TRACE:
@@ -316,8 +261,9 @@ std::string format_console_entry(const gneiss::editor::console_entry& entry) {
 gneiss::result submit_editor_grid(gneiss_application application, const editor_state& state) {
   const auto* viewport = ImGui::GetMainViewport();
   const auto& camera = state.camera.current_transform();
-  auto lines = gneiss::editor::build_editor_grid(camera, build_view_matrix(camera),
-                                                 viewport != nullptr ? viewport->Size.y : 0.0F);
+  auto lines =
+      gneiss::editor::build_editor_grid(camera, gneiss::editor::build_gizmo_view_matrix(camera),
+                                        viewport != nullptr ? viewport->Size.y : 0.0F);
   lines.push_back({.start = {0.0F, 0.0F, 0.0F},
                    .end = {2.0F, 0.0F, 0.0F},
                    .color_rgba8 = IM_COL32(243, 139, 168, 255),
@@ -343,7 +289,7 @@ gneiss::result submit_editor_grid(gneiss_application application, const editor_s
 }
 
 void draw_view_axis(const editor_state& state, const ImVec2& minimum, const ImVec2& size) noexcept {
-  const auto view = build_view_matrix(state.camera.current_transform());
+  const auto view = gneiss::editor::build_gizmo_view_matrix(state.camera.current_transform());
   const ImVec2 center{minimum.x + size.x - 54.0F, minimum.y + 48.0F};
   constexpr float length = 28.0F;
   constexpr std::array colors{IM_COL32(243, 139, 168, 255), IM_COL32(166, 227, 161, 255),
@@ -1756,17 +1702,29 @@ bool draw_transform_gizmo(editor_state& state, const ImVec2& minimum, const ImVe
   const auto* prefab = state.session.selected_prefab_node();
   const auto editable_prefab = prefab != nullptr && !prefab->is_instance_root;
   if ((selected == nullptr && !editable_prefab) || size.x <= 1.0F || size.y <= 1.0F) {
-    state.gizmo_using = false;
-    state.gizmo_uuid.clear();
-    state.gizmo_instance_uuid.clear();
-    state.gizmo_source_uuid.clear();
+    if (state.gizmo_drag.is_active()) {
+      state.history_error = state.gizmo_drag.finish(state.session, state.history);
+      state.gizmo_wait_release = ImGui::IsMouseDown(ImGuiMouseButton_Left);
+      ImGuizmo::Enable(false);
+      ImGuizmo::Enable(true);
+    }
     return false;
   }
 
+  if (state.gizmo_drag.is_active() && !state.gizmo_drag.matches_selection(state.session)) {
+    state.history_error = state.gizmo_drag.finish(state.session, state.history);
+    state.gizmo_wait_release = ImGui::IsMouseDown(ImGuiMouseButton_Left);
+    ImGuizmo::Enable(false);
+    ImGuizmo::Enable(true);
+    return true;
+  }
+  if (state.gizmo_wait_release) {
+    if (ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
+      return true;
+    }
+    state.gizmo_wait_release = false;
+  }
   const auto node = selected != nullptr ? selected->node : prefab->node;
-  const auto parent_node = selected != nullptr ? selected->parent : prefab->parent;
-  const auto local_transform =
-      selected != nullptr ? selected->local_transform : prefab->local_transform;
 
   gneiss::transform world = GNEISS_TRANSFORM_IDENTITY;
   auto operation =
@@ -1784,8 +1742,9 @@ bool draw_transform_gizmo(editor_state& state, const ImVec2& minimum, const ImVe
   if (viewport == nullptr || viewport->Size.x <= 1.0F || viewport->Size.y <= 1.0F) {
     return false;
   }
-  auto view = build_view_matrix(state.camera.current_transform());
-  auto projection = build_gizmo_projection_matrix(viewport->Size.x / viewport->Size.y);
+  auto view = gneiss::editor::build_gizmo_view_matrix(state.camera.current_transform());
+  auto projection =
+      gneiss::editor::build_gizmo_projection_matrix(viewport->Size.x / viewport->Size.y);
   ImGuizmo::SetOrthographic(false);
   ImGuizmo::SetDrawlist(ImGui::GetWindowDrawList());
   ImGuizmo::SetRect(viewport->Pos.x, viewport->Pos.y, viewport->Size.x, viewport->Size.y);
@@ -1798,99 +1757,16 @@ bool draw_transform_gizmo(editor_state& state, const ImVec2& minimum, const ImVe
   const auto manipulated = ImGuizmo::Manipulate(view.data(), projection.data(), native_operation,
                                                 ImGuizmo::WORLD, model.data());
   const auto using_now = ImGuizmo::IsUsing();
-  if (using_now && !state.gizmo_using) {
-    state.gizmo_initial_local = local_transform;
-    state.gizmo_uuid = selected != nullptr ? selected->uuid : std::string{};
-    state.gizmo_instance_uuid = editable_prefab ? prefab->instance_uuid : std::string{};
-    state.gizmo_source_uuid = editable_prefab ? prefab->source_node_uuid : std::string{};
-    state.gizmo_was_dirty = state.session.is_dirty();
+  if (using_now && !state.gizmo_drag.is_active()) {
+    state.history_error = state.gizmo_drag.begin(state.session);
   }
-  const auto same_target = selected != nullptr
-                               ? state.gizmo_uuid == selected->uuid
-                               : state.gizmo_instance_uuid == prefab->instance_uuid &&
-                                     state.gizmo_source_uuid == prefab->source_node_uuid;
-  if (manipulated && same_target) {
-    gneiss::transform target_world = GNEISS_TRANSFORM_IDENTITY;
-    operation = gneiss::editor::gizmo_matrix_to_transform(model, target_world);
-    gneiss::transform parent_world = GNEISS_TRANSFORM_IDENTITY;
-    const gneiss::transform* parent = nullptr;
-    if (operation == gneiss::result::success && parent_node.is_valid()) {
-      operation = gneiss::from_native(
-          gneiss_scene_node_get_world_transform(state.world, parent_node.get(), &parent_world));
-      parent = &parent_world;
-    }
-    gneiss::transform local = GNEISS_TRANSFORM_IDENTITY;
-    if (operation == gneiss::result::success) {
-      operation = gneiss::editor::world_to_local_transform(parent, target_world, local);
-    }
-    if (operation == gneiss::result::success) {
-      operation = state.session.set_local_transform(node, local);
-    }
-    state.history_error = operation;
+  if (manipulated && state.gizmo_drag.matches_selection(state.session)) {
+    state.history_error = state.gizmo_drag.preview(state.session, state.world, model);
   }
-  if (state.gizmo_using && !using_now &&
-      (!state.gizmo_uuid.empty() || !state.gizmo_source_uuid.empty())) {
-    const auto* current =
-        !state.gizmo_uuid.empty() ? state.session.find_node(state.gizmo_uuid) : nullptr;
-    const auto* current_prefab =
-        !state.gizmo_source_uuid.empty()
-            ? state.session.find_prefab_source(state.gizmo_instance_uuid, state.gizmo_source_uuid)
-            : nullptr;
-    const auto current_transform =
-        current != nullptr
-            ? &current->local_transform
-            : (current_prefab != nullptr ? &current_prefab->local_transform : nullptr);
-    if (current_transform != nullptr &&
-        !same_transform(state.gizmo_initial_local, *current_transform)) {
-      const auto uuid = state.gizmo_uuid;
-      const auto instance_uuid = state.gizmo_instance_uuid;
-      const auto source_uuid = state.gizmo_source_uuid;
-      const auto before = state.gizmo_initial_local;
-      const auto after = *current_transform;
-      state.history_error = state.history.record(
-          {.label = "变换节点",
-           .undo =
-               [&state, uuid, instance_uuid, source_uuid, before] {
-                 const auto* node = !uuid.empty() ? state.session.find_node(uuid) : nullptr;
-                 const auto* prefab_node =
-                     !source_uuid.empty()
-                         ? state.session.find_prefab_source(instance_uuid, source_uuid)
-                         : nullptr;
-                 const auto target =
-                     node != nullptr
-                         ? node->node
-                         : (prefab_node != nullptr ? prefab_node->node : gneiss::scene_node_id{});
-                 return !target.is_valid() ? gneiss::result::not_found
-                                           : state.session.set_local_transform(target, before);
-               },
-           .redo =
-               [&state, uuid, instance_uuid, source_uuid, after] {
-                 const auto* node = !uuid.empty() ? state.session.find_node(uuid) : nullptr;
-                 const auto* prefab_node =
-                     !source_uuid.empty()
-                         ? state.session.find_prefab_source(instance_uuid, source_uuid)
-                         : nullptr;
-                 const auto target =
-                     node != nullptr
-                         ? node->node
-                         : (prefab_node != nullptr ? prefab_node->node : gneiss::scene_node_id{});
-                 return !target.is_valid() ? gneiss::result::not_found
-                                           : state.session.set_local_transform(target, after);
-               },
-           .merge_key = {}});
-      if (state.history_error != gneiss::result::success && current_transform != nullptr) {
-        (void)state.session.set_local_transform(node, before);
-        if (!state.gizmo_was_dirty) {
-          state.session.clear_dirty();
-        }
-      }
-    }
-    state.gizmo_uuid.clear();
-    state.gizmo_instance_uuid.clear();
-    state.gizmo_source_uuid.clear();
+  if (!using_now && state.gizmo_drag.is_active()) {
+    state.history_error = state.gizmo_drag.finish(state.session, state.history);
   }
-  state.gizmo_using = using_now;
-  return using_now || ImGuizmo::IsOver();
+  return using_now || ImGuizmo::IsOver(native_operation);
 }
 
 gneiss_result update_editor_camera(editor_state& state, const gneiss_frame_time& time) {
@@ -2055,6 +1931,14 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
       return result;
     }
     ImGuizmo::BeginFrame();
+    // 先收尾再处理菜单、保存和撤销；折叠或隐藏面板也不能遗失已应用的拖动。
+    if (state.gizmo_drag.is_active() &&
+        (!ImGui::IsMouseDown(ImGuiMouseButton_Left) || ImGui::GetIO().KeyCtrl)) {
+      state.history_error = state.gizmo_drag.finish(state.session, state.history);
+      state.gizmo_wait_release = ImGui::IsMouseDown(ImGuiMouseButton_Left);
+      ImGuizmo::Enable(false);
+      ImGuizmo::Enable(true);
+    }
     const auto selection_result = state.session.validate_selection();
     if (selection_result != gneiss::result::success &&
         selection_result != gneiss::result::invalid_handle) {
@@ -2889,8 +2773,16 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
     }
 
     ImGui::SetNextWindowSizeConstraints(ImVec2(400.0F, 280.0F), ImVec2(FLT_MAX, FLT_MAX));
-    const auto scene_view_visible = ImGui::Begin("Scene View", &state.panel_visibility.scene_view,
-                                                 ImGuiWindowFlags_NoBackground);
+    const auto scene_view_begun = state.panel_visibility.scene_view;
+    const auto scene_view_visible =
+        scene_view_begun && ImGui::Begin("Scene View", &state.panel_visibility.scene_view,
+                                         ImGuiWindowFlags_NoBackground);
+    if (!scene_view_visible && state.gizmo_drag.is_active()) {
+      state.history_error = state.gizmo_drag.finish(state.session, state.history);
+      state.gizmo_wait_release = ImGui::IsMouseDown(ImGuiMouseButton_Left);
+      ImGuizmo::Enable(false);
+      ImGuizmo::Enable(true);
+    }
     if (scene_view_visible) {
       const auto scene_view_hovered = ImGui::IsWindowHovered();
       ImGui::TextUnformatted("Scene View");
@@ -2934,7 +2826,9 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
         }
       }
     }
-    ImGui::End();
+    if (scene_view_begun) {
+      ImGui::End();
+    }
 
     ImGui::SetNextWindowSizeConstraints(ImVec2(260.0F, 220.0F), ImVec2(FLT_MAX, FLT_MAX));
     ImGui::Begin("Inspector", &state.panel_visibility.inspector);

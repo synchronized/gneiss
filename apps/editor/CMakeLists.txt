@@ -59,6 +59,8 @@ add_library(
   runtime_property_edits.h
   runtime_scene_mirror.cpp
   runtime_scene_mirror.h
+  transform_gizmo_drag.cpp
+  transform_gizmo_drag.h
   transform_gizmo_math.cpp
   transform_gizmo_math.h
 )
@@ -173,6 +175,26 @@ gneiss_target_output_directories(gneiss_project)
 install(TARGETS gneiss_editor gneiss_project RUNTIME DESTINATION bin)
 
 if(BUILD_TESTING)
+  if(WIN32 AND GNEISS_ENABLE_GRANIT_PLATFORM)
+    add_executable(gneiss_editor_native_window_interaction_test tests/native_window_interaction_test.cpp)
+    target_link_libraries(gneiss_editor_native_window_interaction_test PRIVATE gneiss_editor_ui user32)
+    gneiss_target_compile_warnings(gneiss_editor_native_window_interaction_test)
+    gneiss_target_output_directories(gneiss_editor_native_window_interaction_test)
+    add_test(NAME gneiss.editor.native-window-interaction COMMAND gneiss_editor_native_window_interaction_test)
+    set_tests_properties(gneiss.editor.native-window-interaction PROPERTIES TIMEOUT 45 RUN_SERIAL TRUE)
+  endif()
+  add_executable(gneiss_editor_gizmo_input_replay_test tests/gizmo_input_replay_test.cpp)
+  target_link_libraries(gneiss_editor_gizmo_input_replay_test PRIVATE gneiss_editor_session gneiss_imguizmo)
+  gneiss_target_compile_warnings(gneiss_editor_gizmo_input_replay_test)
+  gneiss_target_output_directories(gneiss_editor_gizmo_input_replay_test)
+  add_test(NAME gneiss.editor.gizmo-input-replay COMMAND gneiss_editor_gizmo_input_replay_test)
+  add_executable(gneiss_editor_transform_gizmo_drag_test tests/transform_gizmo_drag_test.cpp)
+  target_link_libraries(gneiss_editor_transform_gizmo_drag_test PRIVATE gneiss_editor_session)
+  target_compile_definitions(gneiss_editor_transform_gizmo_drag_test PRIVATE
+    GNEISS_EDITOR_TEST_ASSET_ROOT="${PROJECT_SOURCE_DIR}/tests/data/assets")
+  gneiss_target_compile_warnings(gneiss_editor_transform_gizmo_drag_test)
+  gneiss_target_output_directories(gneiss_editor_transform_gizmo_drag_test)
+  add_test(NAME gneiss.editor.transform-gizmo-drag COMMAND gneiss_editor_transform_gizmo_drag_test)
   add_executable(gneiss_editor_ui_layout_test tests/editor_ui_layout_test.cpp)
   target_link_libraries(gneiss_editor_ui_layout_test PRIVATE gneiss_editor_ui)
   gneiss_target_compile_warnings(gneiss_editor_ui_layout_test)
@@ -311,6 +333,13 @@ if(BUILD_TESTING)
     set_tests_properties(gneiss.editor.runtime-process PROPERTIES TIMEOUT 15)
   endif()
   if(TARGET gneiss_editor_assets)
+    # 手动基准保留输入目录及原始输出，不把机器相关耗时作为 CTest 门槛。
+    add_executable(gneiss_editor_asset_response_benchmark tests/asset_response_benchmark.cpp)
+    target_link_libraries(gneiss_editor_asset_response_benchmark PRIVATE gneiss_editor_assets)
+    target_compile_definitions(gneiss_editor_asset_response_benchmark PRIVATE
+      GNEISS_TEST_SOURCE="${PROJECT_SOURCE_DIR}/tests/data/gltf/static_triangle.gltf")
+    gneiss_target_compile_warnings(gneiss_editor_asset_response_benchmark)
+    gneiss_target_output_directories(gneiss_editor_asset_response_benchmark)
     add_executable(gneiss_editor_asset_browser_test tests/asset_browser_model_test.cpp)
     target_link_libraries(gneiss_editor_asset_browser_test PRIVATE gneiss_editor_assets)
     gneiss_target_compile_warnings(gneiss_editor_asset_browser_test)

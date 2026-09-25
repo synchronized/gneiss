@@ -12,6 +12,10 @@ namespace gneiss::editor {
 
 using gizmo_matrix = std::array<float, 16>;
 
+/** 与 Editor Camera 相同的全窗口投影；输入纵横比必须为有限正数。 */
+[[nodiscard]] gizmo_matrix build_gizmo_projection_matrix(float aspect) noexcept;
+[[nodiscard]] gizmo_matrix build_gizmo_view_matrix(const transform& camera) noexcept;
+
 /** 按 column-major 布局把正缩放 TRS 转换为 Gizmo 模型矩阵。 */
 [[nodiscard]] result transform_to_gizmo_matrix(const transform& value,
                                                gizmo_matrix& output) noexcept;
