@@ -258,6 +258,7 @@
 - [M-212 0.32.0 构建配置与发布包管线验收记录](records/M-212-release-packaging-validation.md)
 - [M-219 0.33.0 资产构建与发布优化验收记录](records/M-219-asset-cooking-validation.md)
 - [M-228 0.34.0 离线纹理构建验收记录](records/M-228-offline-texture-validation.md)
+- [M-241 0.36.0 发布验收记录](records/M-241-0.36.0-release-validation.md)
 - [M-236 0.35.0 发布验收记录](records/M-236-0.35.0-release-validation.md)
 - [M-237 重导入异常诊断与任务恢复](records/M-237-reimport-failure-recovery.md)
 - [M-239/M-240 资产闭环与编辑器自动化验收](records/M-239-240-editor-workflow-validation.md)
