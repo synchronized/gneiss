@@ -141,6 +141,29 @@ int main() { // NOLINT(bugprone-exception-escape)
                             asset_import::inspect_result::invalid_source) {
     return 3;
   }
+  auto external_image_json = read_file(std::filesystem::path{GNEISS_TEST_GLTF_ROOT} / "static_triangle.gltf");
+  const auto image_uri_start = external_image_json.find("data:image/png;base64,");
+  const auto image_uri_end = external_image_json.find('"', image_uri_start);
+  if (image_uri_start == std::string::npos || image_uri_end == std::string::npos) {
+    return 4;
+  }
+  external_image_json.replace(image_uri_start, image_uri_end - image_uri_start, "external.png");
+  std::ofstream(root / "external-image.gltf") << external_image_json;
+  constexpr std::array<unsigned char, 8> signature{137, 80, 78, 71, 13, 10, 26, 10};
+  {
+    std::ofstream image(root / "external.png", std::ios::binary);
+    image.write(reinterpret_cast<const char*>(signature.data()), signature.size());
+  }
+  const auto without_mime = asset_import::inspect_gltf(root / "external-image.gltf");
+  if (without_mime.result != asset_import::inspect_result::success ||
+      !without_mime.data.images[0].is_png || without_mime.data.images[0].bytes.size() != 8U) {
+    return 5;
+  }
+  std::ofstream(root / "external.png", std::ios::binary) << "not PNG";
+  if (asset_import::inspect_gltf(root / "external-image.gltf").result !=
+      asset_import::inspect_result::unsupported_feature) {
+    return 6;
+  }
   std::filesystem::remove_all(root);
   std::filesystem::remove(outside);
   return 0;
