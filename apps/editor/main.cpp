@@ -1465,9 +1465,9 @@ void draw_asset_browser(editor_state& state) {
       ImGui::TextColored(gneiss::editor::theme_error_color(), "%s: %llu events lost", label,
                          static_cast<unsigned long long>(watcher.dropped_event_count()));
       ImGui::TextWrapped(
-          allow_missing ? "Indexed sources are checked automatically; review import failures below."
-                        : "Reopen affected author assets; restarting the watch does not recover "
-                          "lost changes.");
+          allow_missing
+              ? "Indexed sources are checked automatically; review import failures below."
+              : "Author assets are checked automatically; review unsaved document conflicts.");
     }
     ImGui::PopID();
   };
