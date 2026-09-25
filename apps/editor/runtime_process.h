@@ -7,6 +7,7 @@
 #include "runtime_launch.h"
 
 #include "console_model.h"
+#include "ipc_scene_protocol.h"
 #include "ipc_statistics_protocol.h"
 #include "runtime_property_edits.h"
 #include "runtime_scene_mirror.h"
@@ -74,6 +75,11 @@ public:
   /** 失败后全量同步已知资产；执行中或未连接时返回 not_ready。 */
   [[nodiscard]] result cancel_asset_reload() noexcept;
   [[nodiscard]] result retry_asset_reload() noexcept;
+  [[nodiscard]] result load_scene(std::string_view uri) noexcept;
+  [[nodiscard]] result cancel_scene_load() noexcept;
+  [[nodiscard]] result retry_scene_load() noexcept;
+  [[nodiscard]] bool supports_scene_loading() const noexcept;
+  [[nodiscard]] const ipc_scene_progress& scene_load_status() const noexcept;
   void update() noexcept;
 
   [[nodiscard]] bool is_running() const noexcept;

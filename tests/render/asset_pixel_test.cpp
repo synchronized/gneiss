@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "application/application_asset_reload_internal.h"
+#include "application/application_scene_load_internal.h"
 #include "asset/texture_ktx2.h"
 #include <array>
 #include <cstdio>
@@ -155,10 +156,93 @@ void run(tasks::execution_mode mode) {
   check(capture().pixels == mixed.pixels);
   check(center(capture(192U))[2] > center(capture(192U))[0] + 30U);
 }
+void run_scene(tasks::execution_mode mode) {
+  using namespace application_internal;
+  fixture files;
+  files.color(std::byte{20}, std::byte{240});
+  tasks::task_scheduler scheduler({.workers = 1U, .mode = mode});
+  application app;
+  const auto root = files.root.string();
+  auto desc = gneiss_application_desc GNEISS_APPLICATION_DESC_INIT;
+  desc.platform = GNEISS_APPLICATION_PLATFORM_GRANIT;
+  desc.asset_root = root.data();
+  desc.asset_root_length = static_cast<std::uint32_t>(root.size());
+  check(application::create(desc, app) == result::success);
+  check(attach_task_executor(app.get(), scheduler) == GNEISS_SUCCESS);
+  constexpr std::string_view uri = "asset://s.scene.json";
+  gneiss_scene_instance scene{};
+  check(gneiss_scene_instance_load(app.get(), uri.data(), uri.size(), &scene) == GNEISS_SUCCESS);
+  check(app.run(3U) == result::success);
+  const auto capture = [&] {
+    render_internal::frame_image image;
+    check(capture_frame(app.get(), 128U, 128U, image) == GNEISS_SUCCESS);
+    return image.pixels;
+  };
+  auto active_pixels = capture();
+  // 私有 GPU 候选 ready 后旧图像仍完全不变；只允许激活后发布新颜色。
+  const auto load = [&](std::uint64_t revision, bool cancel, bool fail) {
+    const auto old_scene = scene;
+    std::uint64_t request{};
+    check(request_scene_load(app.get(), uri, 1U, revision, request) == GNEISS_SUCCESS);
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+    bool requested_cancel{};
+    scene_load_completion completion;
+    while (true) {
+      check(std::chrono::steady_clock::now() < deadline);
+      if (mode == tasks::execution_mode::cooperative)
+        (void)scheduler.run_ready();
+      bool terminal{};
+      check(poll_scene_load(app.get(), completion, terminal) == GNEISS_SUCCESS);
+      if (terminal) {
+        check((fail && completion.progress.phase == scene_load_phase::failed) ||
+              (requested_cancel && completion.progress.phase == scene_load_phase::cancelled));
+        check(capture() == active_pixels);
+        break;
+      }
+      scene_load_progress progress;
+      bool available{};
+      check(query_scene_load_progress(app.get(), progress, available) == GNEISS_SUCCESS &&
+            available);
+      if (progress.phase == scene_load_phase::ready) {
+        check(!fail && capture() == active_pixels);
+        if (cancel) {
+          check(cancel_scene_load(app.get(), request) == GNEISS_SUCCESS);
+          requested_cancel = true;
+        } else {
+          check(activate_scene_load(app.get(), request, completion) == GNEISS_SUCCESS);
+          scene = completion.scene;
+          check(poll_scene_load(app.get(), completion, terminal) == GNEISS_SUCCESS);
+          check(app.run(3U) == result::success);
+          const auto changed = capture();
+          check(changed != active_pixels);
+          active_pixels = changed;
+          std::uint64_t count{};
+          check(gneiss_scene_instance_get_node_count(app.get(), old_scene, &count) ==
+                GNEISS_ERROR_INVALID_HANDLE);
+          break;
+        }
+      }
+      std::this_thread::yield();
+    }
+    scene_retirement_statistics statistics;
+    check(query_scene_retirement(app.get(), statistics) == GNEISS_SUCCESS &&
+          statistics.live_resources == 3U && !statistics.pending);
+  };
+  files.color(std::byte{240}, std::byte{20});
+  load(1U, false, false);
+  files.color(std::byte{20}, std::byte{240});
+  load(2U, true, false);
+  std::ofstream(files.root / "image.ktx2") << "broken";
+  load(3U, false, true);
+  files.color(std::byte{20}, std::byte{240});
+  load(4U, false, false);
+}
 }
 int main() try {
   run(gneiss::tasks::execution_mode::thread_pool);
   run(gneiss::tasks::execution_mode::cooperative);
+  run_scene(gneiss::tasks::execution_mode::thread_pool);
+  run_scene(gneiss::tasks::execution_mode::cooperative);
   return 0;
 } catch (const std::exception& error) {
   std::fprintf(stderr, "%s\n", error.what());

@@ -21,7 +21,8 @@ constexpr std::array<std::uint32_t, 64U> round_constants = {
     0xc24b8b70U, 0xc76c51a3U, 0xd192e819U, 0xd6990624U, 0xf40e3585U, 0x106aa070U, 0x19a4c116U,
     0x1e376c08U, 0x2748774cU, 0x34b0bcb5U, 0x391c0cb3U, 0x4ed8aa4aU, 0x5b9cca4fU, 0x682e6ff3U,
     0x748f82eeU, 0x78a5636fU, 0x84c87814U, 0x8cc70208U, 0x90befffaU, 0xa4506cebU, 0xbef9a3f7U,
-    0xc67178f2U};
+    0xc67178f2U,
+};
 
 [[nodiscard]] std::uint32_t read_big_endian(std::span<const std::byte> bytes,
                                             std::size_t offset) noexcept {
@@ -34,8 +35,10 @@ constexpr std::array<std::uint32_t, 64U> round_constants = {
 } // namespace
 
 sha256_digest sha256(std::span<const std::byte> bytes) noexcept {
-  std::array<std::uint32_t, 8U> state = {0x6a09e667U, 0xbb67ae85U, 0x3c6ef372U, 0xa54ff53aU,
-                                         0x510e527fU, 0x9b05688cU, 0x1f83d9abU, 0x5be0cd19U};
+  std::array<std::uint32_t, 8U> state = {
+      0x6a09e667U, 0xbb67ae85U, 0x3c6ef372U, 0xa54ff53aU,
+      0x510e527fU, 0x9b05688cU, 0x1f83d9abU, 0x5be0cd19U,
+  };
   const auto bit_length = static_cast<std::uint64_t>(bytes.size()) * 8U;
   const auto process = [&state](std::span<const std::byte> chunk) {
     std::array<std::uint32_t, 64U> words{};
@@ -93,7 +96,7 @@ sha256_digest sha256(std::span<const std::byte> bytes) noexcept {
   sha256_digest digest{};
   for (std::size_t word = 0U; word < state.size(); ++word) {
     for (std::size_t byte = 0U; byte < 4U; ++byte) {
-      digest[word * 4U + byte] = static_cast<std::byte>(state[word] >> ((3U - byte) * 8U));
+      digest[(word * 4U) + byte] = static_cast<std::byte>(state[word] >> ((3U - byte) * 8U));
     }
   }
   return digest;

@@ -28,6 +28,7 @@ struct scene_load_progress {
   std::size_t total{};
   std::size_t resident_bytes{};
   bool can_cancel{};
+  bool gpu_in_flight{};
 };
 struct scene_load_completion {
   scene_load_progress progress;
@@ -40,6 +41,13 @@ struct scene_load_completion {
   double upload_ms{};
   double maximum_advance_ms{};
   double activation_ms{};
+};
+
+struct scene_retirement_statistics {
+  double last_ms{};
+  std::uint64_t retired_domains{};
+  std::size_t live_resources{};
+  bool pending{};
 };
 
 /** 仅所属线程操作；使用宿主执行器，不新建线程。一个未消费请求占一个槽位。

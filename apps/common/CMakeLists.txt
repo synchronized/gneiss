@@ -24,6 +24,8 @@ add_library(
   ipc/core/ipc_router.h
   ipc/domains/asset/ipc_asset_protocol.cpp
   ipc/domains/asset/ipc_asset_protocol.h
+  ipc/domains/scene/ipc_scene_protocol.cpp
+  ipc/domains/scene/ipc_scene_protocol.h
   ipc/domains/control/ipc_control_protocol.cpp
   ipc/domains/control/ipc_control_protocol.h
   ipc/domains/inspection/ipc_inspection_protocol.cpp
@@ -47,6 +49,7 @@ target_include_directories(
   PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}/ipc/core"
     "${CMAKE_CURRENT_SOURCE_DIR}/ipc/domains/asset"
+    "${CMAKE_CURRENT_SOURCE_DIR}/ipc/domains/scene"
     "${CMAKE_CURRENT_SOURCE_DIR}/ipc/domains/control"
     "${CMAKE_CURRENT_SOURCE_DIR}/ipc/domains/inspection"
     "${CMAKE_CURRENT_SOURCE_DIR}/ipc/domains/log"
@@ -59,6 +62,11 @@ gneiss_target_compile_warnings(gneiss_app_ipc_protocol)
 gneiss_target_output_directories(gneiss_app_ipc_protocol)
 
 if(BUILD_TESTING)
+  add_executable(gneiss_ipc_scene_protocol_test tests/ipc/ipc_scene_protocol_test.cpp)
+  target_link_libraries(gneiss_ipc_scene_protocol_test PRIVATE gneiss_app_ipc_protocol)
+  gneiss_target_compile_warnings(gneiss_ipc_scene_protocol_test)
+  gneiss_target_output_directories(gneiss_ipc_scene_protocol_test)
+  add_test(NAME gneiss.app.ipc-scene-protocol COMMAND gneiss_ipc_scene_protocol_test)
   add_executable(
     gneiss_app_project_description_test
     tests/project_description_test.cpp

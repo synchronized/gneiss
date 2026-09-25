@@ -7,6 +7,7 @@
 #include "ipc_asset_protocol.h"
 #include "ipc_control_protocol.h"
 #include "ipc_property_protocol.h"
+#include "ipc_scene_protocol.h"
 #include "ipc_transport.h"
 
 #include <cstdint>
@@ -39,6 +40,12 @@ struct runtime_ipc_actions final {
   };
   std::vector<asset_reload_command> asset_reloads;
   std::vector<ipc_asset_reload_request> asset_cancels;
+  struct scene_command {
+    ipc_scene_request request;
+    std::uint32_t request_id{};
+    bool cancel{};
+  };
+  std::vector<scene_command> scene_commands;
   result failure = result::success;
 };
 

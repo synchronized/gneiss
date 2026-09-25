@@ -100,6 +100,17 @@ Debug 的全部帧时限保证。实际 Release 与 Debug 数据见
 命令只保存节点 UUID、父 UUID、属性值和资产 URI，不保存 Entity ID、Scene Node ID、组件地址、
 ImGui 状态或资源 RID。节点被恢复后，后续命令会通过 UUID 重新解析新的运行时句柄。
 
+## Runtime 场景加载与切换
+
+启动 Runtime 后，Asset Browser 显示启动场景的当前阶段与阶段计数。选择工程内已保存的
+`.scene.json`，使用 `Load scene in Runtime` 完整切换 Runtime 场景；准备期间旧场景继续运行。
+使用 `Cancel scene load` 请求取消，等待终态后可用 `Retry scene load` 重试失败或取消的请求。
+
+完整切换会建立新的 Runtime 对象身份，并使旧检查镜像、选择和属性请求失效；它不修改 Editor
+作者场景或撤销历史。未保存编辑应先保存。外部 Scene/Prefab 文件修订仍走原有结构热重载。
+只有双方协商支持场景加载协议时才启用切换操作；流程与线程边界见
+[任务调度](task-scheduling.md#runtime-完整场景加载)。
+
 ## 当前限制
 
 - 只支持现有 glTF 导入器覆盖的静态 Mesh、Material、PNG Texture 和 Scene 范围。

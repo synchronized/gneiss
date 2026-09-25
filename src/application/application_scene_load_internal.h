@@ -9,6 +9,10 @@
 
 namespace gneiss::application_internal {
 
+/** 旧域回收独立计时；live_resources 为 CPU Service RID 数量，不等于 GPU 驱动驻留量。 */
+GNEISS_API gneiss_result query_scene_retirement(gneiss_application application,
+                                                scene_retirement_statistics& output) noexcept;
+
 /** 内部完整场景切换；所属线程，要求已绑定宿主执行器。与结构/资产热重载互斥。 */
 GNEISS_API gneiss_result request_scene_load(gneiss_application application, std::string_view uri,
                                             std::uint64_t session, std::uint64_t revision,

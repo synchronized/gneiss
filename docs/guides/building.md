@@ -366,7 +366,7 @@ gneiss 0.35.0
 - Windows Server 2022：MSVC、共享/静态安装 Consumer 与 Granit 运行时；托管 Runner 缺少 Vulkan
   ICD，因此窗口 smoke test 由 Linux 执行。
 - Ubuntu 24.04：Clang/GCC、共享/静态核心与安装 Consumer；Clang 额外执行共享/静态 Granit 无头
-  窗口测试。
+  窗口测试，并构建 Editor/Runtime，验证跨进程场景切换、取消和重试。
 - Ubuntu 24.04 独立任务：固定 Emscripten 5.0.6，构建无线程最小调度宿主并在真实 Chrome 中执行；
   上传浏览器 DOM 和诊断日志。
 
@@ -397,6 +397,17 @@ Windows 的 Emscripten PowerShell 入口需要 `EMSDK_PYTHON` 指向 SDK 的 Pyt
 
 Editor 的 `--cooperative-tasks` 选项让资产服务由帧循环显式驱动，默认仍使用工作线程池。
 每次驱动最多执行 8 个任务、在任务之间检查 2 ms 时间预算；单个导入或解码不可被预算抢占。
+
+## 真实大场景测量
+
+Sponza 是显式下载的外部测试资产，不随仓库和源码 Release 分发。先按
+[固定资产审计与基线记录](../records/M-272-sponza-baseline.md) 获取、校验并生成日常/完整配置，
+再构建 `gneiss_scene_load_baseline`。`tools/performance/measure_scene_loading.py --help` 给出
+Debug/Release 路径与输出目录参数；工具顺序运行两种模式，每配置三次，保存 JSON、呈现观测 CSV
+和 GPU 回读 PPM。输出目录必须不存在，资产缺失直接报错，不把缺少外部数据记为通过。
+
+普通 CI 使用原创小夹具进行 GPU 像素、候选原子性与 IPC 生命周期回归，不下载数 GiB 的 Sponza。
+大场景结果与测量边界见 [0.42 验收记录](../records/M-273-278-0.42.0-validation.md)。
 
 ## 常见问题
 

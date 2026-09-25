@@ -37,6 +37,8 @@ jobs:
           cmake --build --preset '${{ steps.preset.outputs.name }}'
           ctest --preset '${{ steps.preset.outputs.name }}' `
             -R '^gneiss\.installed_consumer$'
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -B tools/performance/test_prepare_sponza.py
 
   msvc-runtime:
     runs-on: windows-2022
@@ -61,10 +63,11 @@ jobs:
         run: |
           cmake --preset '${{ steps.preset.outputs.name }}' `
             -DGNEISS_ENABLE_GRANIT_PLATFORM=ON `
+            -DGNEISS_BUILD_RUNTIME=ON `
             -DGNEISS_GRANIT_PROVIDER=FETCH `
             -DCMAKE_C_COMPILER_LAUNCHER=sccache `
             -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
           cmake --build --preset '${{ steps.preset.outputs.name }}'
           # 托管 Windows Runner 没有 Vulkan ICD；Linux 矩阵负责真实窗口与图形示例 smoke test。
           ctest --preset '${{ steps.preset.outputs.name }}' `
-            -E '^gneiss\.(asset-pixel|granit_platform_smoke|stable_runtime_example|temple_example|lantern_gallery_example|installed_stable_runtime_consumer)$'
+            -E '^gneiss\.(asset-pixel|granit_platform_smoke|stable_runtime_example|temple_example|lantern_gallery_example|installed_stable_runtime_consumer|runtime\.(project-game-module|smoke|installed-smoke|stop-protocol|lantern-gallery|lantern-cooked-textures))$'

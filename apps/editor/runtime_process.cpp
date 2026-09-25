@@ -30,6 +30,9 @@ struct runtime_process::implementation final {
   runtime_scene_mirror scene_mirror;
   runtime_property_edits property_edits;
   ipc_runtime_statistics statistics;
+  ipc_scene_progress scene_load;
+  std::uint64_t scene_revision{};
+  bool scene_requested{};
   app::runtime_log_line_decoder line_decoder;
   std::uint64_t runtime_session_id = 0U;
   bool output_finished = true;
@@ -262,6 +265,26 @@ struct runtime_process::implementation final {
         }
         continue;
       }
+      if (const auto* value = std::get_if<runtime_scene_progress_event>(&decoded_event)) {
+        if (scene_requested && (value->value.source.session != scene_load.source.session ||
+                                value->value.source.revision != scene_load.source.revision))
+          continue;
+        if (scene_load.source.revision != 0U &&
+            value->value.source.session == scene_load.source.session &&
+            value->value.source.revision == scene_load.source.revision &&
+            scene_phase_terminal(scene_load.phase))
+          continue;
+        scene_load = value->value;
+        if (scene_load.phase == ipc_scene_phase::applied) {
+          pending_inspection_input.clear();
+          scene_mirror.reset();
+          property_edits.begin_session(0U);
+          statistics = {};
+          inspection_resync_pending = false;
+          request_inspection_resync();
+        }
+        continue;
+      }
       if (const auto* value = std::get_if<runtime_asset_result_event>(&decoded_event)) {
         if (value->value.session_id == asset_session_id &&
             value->value.revision == asset_revision_in_flight) {
@@ -460,6 +483,8 @@ result runtime_process::start(const std::filesystem::path& executable,
     }
     implementation_->pending_inspection_input.clear();
     implementation_->scene_mirror.reset();
+    implementation_->scene_load = {};
+    implementation_->scene_requested = false;
     implementation_->property_edits.begin_session(0U);
     implementation_->statistics = {};
     implementation_->control_state = runtime_control_state::connecting;
@@ -689,6 +714,46 @@ result runtime_process::publish_asset_revision(std::span<const std::string> outp
   const auto operation = publish();
   implementation_->asset_reload.publish_result = operation;
   return operation;
+}
+
+bool runtime_process::supports_scene_loading() const noexcept {
+  return implementation_ && implementation_->ipc_session.is_authenticated() &&
+         implementation_->ipc_session.supports_scene_loading();
+}
+const ipc_scene_progress& runtime_process::scene_load_status() const noexcept {
+  return implementation_->scene_load;
+}
+result runtime_process::load_scene(std::string_view uri) noexcept try {
+  if (!supports_scene_loading())
+    return result::not_ready;
+  auto& state = *implementation_;
+  if (state.scene_load.source.revision != 0U && !scene_phase_terminal(state.scene_load.phase))
+    return result::not_ready;
+  ipc_scene_request source{1U, ++state.scene_revision, std::string(uri)};
+  const auto sent = state.ipc_session.send_scene_request(source, false);
+  if (sent != result::success)
+    return sent;
+  state.scene_load = {
+      .source = std::move(source), .can_cancel = true, .message = "等待 Runtime 接受场景切换"};
+  state.scene_requested = true;
+  return result::success;
+} catch (...) {
+  return result::out_of_memory;
+}
+result runtime_process::cancel_scene_load() noexcept {
+  if (!implementation_ || !implementation_->scene_load.can_cancel)
+    return result::not_ready;
+  const auto result =
+      implementation_->ipc_session.send_scene_request(implementation_->scene_load.source, true);
+  if (result == result::success)
+    implementation_->scene_load.can_cancel = false;
+  return result;
+}
+result runtime_process::retry_scene_load() noexcept {
+  if (!implementation_ || (implementation_->scene_load.phase != ipc_scene_phase::failed &&
+                           implementation_->scene_load.phase != ipc_scene_phase::cancelled))
+    return result::not_ready;
+  return load_scene(implementation_->scene_load.source.uri);
 }
 
 result runtime_process::cancel_asset_reload() noexcept {

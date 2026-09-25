@@ -84,6 +84,7 @@ jobs:
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
           cmake --build --preset "${{ steps.preset.outputs.name }}"
           ctest --preset "${{ steps.preset.outputs.name }}"
+          python3 -B tools/performance/test_prepare_sponza.py
       - name: 输出编译缓存统计
         if: always()
         shell: bash
@@ -131,6 +132,7 @@ jobs:
           cmake --preset "${{ steps.preset.outputs.name }}" \
             -DGNEISS_ENABLE_GRANIT_PLATFORM=ON \
             -DGNEISS_BUILD_EDITOR=ON \
+            -DGNEISS_BUILD_RUNTIME=ON \
             -DGNEISS_GRANIT_PROVIDER=FETCH \
             -DFETCHCONTENT_BASE_DIR="$GITHUB_WORKSPACE/.cache/fetchcontent" \
             -DCMAKE_C_COMPILER_LAUNCHER=ccache \
@@ -182,7 +184,9 @@ jobs:
             -DGNEISS_ENABLE_SANITIZERS=ON \
             -DGNEISS_GRANIT_PROVIDER=FETCH
           cmake --build --preset linux-gcc-debug \
-            --target gneiss_stable_runtime_example gneiss_scene_instance_test gneiss_c_application_test
+            --target gneiss_stable_runtime_example gneiss_scene_instance_test gneiss_c_application_test \
+              gneiss_scene_load_application_test gneiss_scene_load_preparation_test \
+              gneiss_scene_load_builder_test gneiss_source_revision_test
       - name: 检查内存错误与退出泄漏
         shell: bash
         env:
@@ -215,7 +219,7 @@ jobs:
           [[ "$device_failure_status" -ne 0 ]]
           grep -F '阶段=创建 Application，结果=-5' <<<"$device_failure_output"
           ctest --preset linux-gcc-debug \
-            -R '^gneiss\.(c_application|scene_instance)$'
+            -R '^gneiss\.(c_application|scene_instance|scene-load-application|scene-load-preparation|scene-load-builder|source-revision)$'
           ASAN_OPTIONS=detect_leaks=0:halt_on_error=1:strict_string_checks=1 \
             xvfb-run -a ctest --preset linux-gcc-debug \
             -R '^gneiss\.stable_runtime_example$'

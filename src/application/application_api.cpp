@@ -124,6 +124,17 @@ gneiss_result gneiss::application_internal::request_scene_load(gneiss_applicatio
   }
 }
 
+gneiss_result
+gneiss::application_internal::query_scene_retirement(gneiss_application application,
+                                                     scene_retirement_statistics& output) noexcept {
+  auto state = find_application(application);
+  const auto valid = validate_application(state);
+  if (valid != GNEISS_SUCCESS)
+    return valid;
+  output = state->scene_retirement();
+  return GNEISS_SUCCESS;
+}
+
 gneiss_result gneiss::application_internal::query_scene_load_progress(
     gneiss_application application, scene_load_progress& progress, bool& active) noexcept {
   active = false;

@@ -7,7 +7,7 @@ namespace gneiss::asset_internal {
 
 gneiss_result source_revision_file_system::read(std::string_view path,
                                                 std::vector<std::byte>& bytes) const noexcept {
-  return read_bounded(path, 256U * 1024U * 1024U, bytes);
+  return read_bounded(path, std::size_t{256U} * 1024U * 1024U, bytes);
 }
 gneiss_result
 source_revision_file_system::read_bounded(std::string_view path, std::size_t limit,
@@ -17,7 +17,7 @@ source_revision_file_system::read_bounded(std::string_view path, std::size_t lim
     if (result != GNEISS_SUCCESS) {
       return result;
     }
-    const identity current{bytes.size(), core::sha256(bytes)};
+    const identity current{.bytes = bytes.size(), .digest = core::sha256(bytes)};
     const std::scoped_lock lock(mutex_);
     const auto found = identities_.find(std::string(path));
     if (found != identities_.end()) {

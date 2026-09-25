@@ -51,10 +51,23 @@ public:
     return scene_service_ && scene_service_->busy();
   }
   void advance_scene_load() {
-    retired_scene_.reset();
+    if (retired_scene_) {
+      const auto start = std::chrono::steady_clock::now();
+      retired_scene_.reset();
+      retirement_.last_ms =
+          std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start)
+              .count();
+      ++retirement_.retired_domains;
+    }
     if (scene_service_) {
       scene_service_->advance();
     }
+  }
+  [[nodiscard]] scene_retirement_statistics scene_retirement() const noexcept {
+    auto value = retirement_;
+    value.live_resources = resources_.live_resource_count();
+    value.pending = retired_scene_ != nullptr;
+    return value;
   }
   [[nodiscard]] gneiss_result activate_scene(std::uint64_t request,
                                              scene_load_completion& completion);
@@ -128,6 +141,7 @@ private:
   asset_internal::virtual_file_system asset_file_system_;
   std::unique_ptr<application_scene_state> active_scene_;
   std::unique_ptr<application_scene_state> retired_scene_;
+  scene_retirement_statistics retirement_;
   std::unique_ptr<scene_load_service> scene_service_;
   std::unique_ptr<asset_internal::texture_load_service> texture_service_;
   std::thread::id owner_thread_;

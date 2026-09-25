@@ -304,6 +304,22 @@ result runtime_ipc_session::notify_asset_reload_result(const ipc_asset_reload_re
   return encoded == result::success ? implementation_->transport.send(envelope) : encoded;
 }
 
+result runtime_ipc_session::notify_scene_progress(const ipc_scene_progress& value,
+                                                  std::uint32_t request_id) noexcept {
+  if (!implementation_ || !implementation_->negotiated(ipc_domain::scene) ||
+      (implementation_->current_state != runtime_ipc_state::running &&
+       implementation_->current_state != runtime_ipc_state::paused))
+    return result::not_ready;
+  ipc_envelope envelope;
+  const auto encoded = encode_ipc_scene_progress(value, request_id, envelope);
+  return encoded == result::success ? implementation_->transport.send(envelope) : encoded;
+}
+
+void runtime_ipc_session::discard_pending_inspection() noexcept {
+  if (implementation_)
+    implementation_->pending_inspection_frames.clear();
+}
+
 result runtime_ipc_session::notify_statistics(const ipc_runtime_statistics& statistics) noexcept {
   if (!implementation_ || (implementation_->current_state != runtime_ipc_state::running &&
                            implementation_->current_state != runtime_ipc_state::paused)) {

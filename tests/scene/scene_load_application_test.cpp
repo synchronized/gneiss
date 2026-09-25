@@ -146,6 +146,24 @@ void run(tasks::execution_mode mode) {
   (void)await_phase(scene_load_phase::ready);
   check(activate_scene_load(app.get(), request, completion) == GNEISS_SUCCESS);
   (void)drive();
+  // 描述准备和实例化边界取消都必须保留已经激活的 World。
+  check(gneiss_application_get_world(app.get(), &observed) == GNEISS_SUCCESS);
+  for (const auto phase : {scene_load_phase::preparing, scene_load_phase::instantiating}) {
+    check(request_scene_load(app.get(), uri, 1U, 5U, request) == GNEISS_SUCCESS);
+    if (phase != scene_load_phase::preparing)
+      (void)await_phase(phase);
+    check(cancel_scene_load(app.get(), request) == GNEISS_SUCCESS);
+    const auto cancel_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+    bool stopped{};
+    while (!stopped && std::chrono::steady_clock::now() < cancel_deadline) {
+      auto [done, cancelled_result] = drive();
+      if (done) {
+        check(cancelled_result.progress.phase == scene_load_phase::cancelled);
+        stopped = true;
+      }
+    }
+    check(stopped && gneiss_world_entity_count(observed, &count) == GNEISS_SUCCESS && count == 1U);
+  }
   check(request_scene_load(app.get(), uri, 1U, 5U, request) == GNEISS_SUCCESS);
   app = application{};
   check(scheduler.stats().retained == 0U);

@@ -124,6 +124,9 @@ bool scene_load_service::progress(scene_load_progress& value) const {
   check_owner();
   if (pending_) {
     value = pending_->result.progress;
+    asset_internal::asset_load_progress child;
+    value.gpu_in_flight = pending_->assets && pending_->assets->progress(child) &&
+                          child.state == asset_internal::texture_load_state::uploading;
     return true;
   }
   if (completed_) {

@@ -182,6 +182,10 @@ result editor_ipc_session::update(bool is_peer_running,
     if (transport_failure != result::success && !received_shutdown) {
       return transport_failure;
     }
+    // 终态帧必须交给上层；此时继续发送心跳可能因对端已关闭而掩盖已收到的终态。
+    if (received_shutdown || !is_peer_running) {
+      return result::success;
+    }
     if (!implementation_->is_authenticated) {
       return is_peer_running && implementation_->handshake.expired(now) ? result::not_ready
                                                                         : result::success;
@@ -273,6 +277,22 @@ result editor_ipc_session::send_asset_reload(const ipc_asset_reload_request& com
 
 bool editor_ipc_session::is_authenticated() const noexcept {
   return implementation_ && implementation_->is_authenticated;
+}
+
+bool editor_ipc_session::supports_scene_loading() const noexcept {
+  return implementation_ && std::ranges::find(implementation_->negotiated_domains,
+                                              ipc_domain::scene, &ipc_domain_capability::domain) !=
+                                implementation_->negotiated_domains.end();
+}
+result editor_ipc_session::send_scene_request(const ipc_scene_request& value,
+                                              bool cancel) noexcept {
+  if (!is_authenticated() || !supports_scene_loading())
+    return result::not_ready;
+  ipc_envelope envelope;
+  const auto encoded = encode_ipc_scene_request(
+      value, cancel ? ipc_scene_operation::cancel : ipc_scene_operation::load,
+      cancel ? 0U : implementation_->next_request_id++, envelope);
+  return encoded == result::success ? implementation_->send(std::move(envelope)) : encoded;
 }
 
 bool editor_ipc_session::supports_property_editing() const noexcept {

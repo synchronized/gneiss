@@ -1540,6 +1540,34 @@ void draw_asset_browser(editor_state& state) {
                          state.last_import.diagnostic.c_str());
     }
   }
+  const auto& scene_load = state.runtime.scene_load_status();
+  if (scene_load.source.revision != 0U) {
+    constexpr const char* phases[] = {
+        "Preparing description", "Preparing assets", "Verifying sources", "Creating scene",
+        "Ready to activate",     "Scene active",     "Load failed",       "Load cancelled"};
+    ImGui::Text("Runtime scene: %s", phases[static_cast<unsigned>(scene_load.phase)]);
+    ImGui::TextWrapped("%s", scene_load.source.uri.c_str());
+    if (scene_load.total > 0U)
+      ImGui::Text("Current phase: %u / %u", scene_load.completed, scene_load.total);
+    if (!scene_load.message.empty())
+      ImGui::TextWrapped("%s", scene_load.message.c_str());
+    ImGui::BeginDisabled(!state.runtime.supports_scene_loading());
+    if (scene_load.can_cancel && ImGui::Button("Cancel scene load"))
+      state.runtime_result = state.runtime.cancel_scene_load();
+    if ((scene_load.phase == gneiss::ipc_scene_phase::failed ||
+         scene_load.phase == gneiss::ipc_scene_phase::cancelled) &&
+        ImGui::Button("Retry scene load"))
+      state.runtime_result = state.runtime.retry_scene_load();
+    ImGui::EndDisabled();
+  }
+  const bool can_load_scene =
+      state.runtime.supports_scene_loading() && selected_entry != state.assets.entries().end() &&
+      selected_entry->asset_uri.ends_with(".scene.json") &&
+      (scene_load.source.revision == 0U || gneiss::scene_phase_terminal(scene_load.phase));
+  ImGui::BeginDisabled(!can_load_scene);
+  if (ImGui::Button("Load scene in Runtime"))
+    state.runtime_result = state.runtime.load_scene(selected_entry->asset_uri);
+  ImGui::EndDisabled();
   const auto& reload = state.runtime.asset_reload_status();
   if (reload.publish_result != gneiss::result::success) {
     const auto message = reload.publish_result.message();

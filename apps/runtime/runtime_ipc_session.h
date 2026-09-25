@@ -43,6 +43,9 @@ public:
   [[nodiscard]] result start(clock::time_point now) noexcept;
   [[nodiscard]] result pump(clock::time_point now, runtime_ipc_actions& actions) noexcept;
   [[nodiscard]] result notify_running() noexcept;
+  [[nodiscard]] result notify_scene_progress(const ipc_scene_progress& value,
+                                             std::uint32_t request_id) noexcept;
+  void discard_pending_inspection() noexcept;
   [[nodiscard]] result notify_shutdown(std::int32_t exit_code) noexcept;
   [[nodiscard]] result notify_log_event(const gneiss_log_event& event) noexcept;
   [[nodiscard]] result notify_scene_snapshot(const ipc_inspection_batch& batch) noexcept;

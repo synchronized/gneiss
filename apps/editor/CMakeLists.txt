@@ -24,6 +24,7 @@ add_library(
   ipc/editor_ipc_session.cpp
   ipc/editor_ipc_session.h
   ipc/inbound/asset_events.cpp
+  ipc/inbound/scene_events.cpp
   ipc/inbound/control_events.cpp
   ipc/inbound/event_decode.h
   ipc/inbound/inspection_events.cpp
@@ -339,6 +340,23 @@ if(BUILD_TESTING)
     )
     add_test(NAME gneiss.editor.runtime-process COMMAND gneiss_editor_runtime_process_test)
     set_tests_properties(gneiss.editor.runtime-process PROPERTIES TIMEOUT 15)
+    add_executable(gneiss_editor_runtime_scene_loading_test tests/runtime_scene_loading_test.cpp)
+    add_library(gneiss_scene_module_fixture MODULE ../runtime/tests/game_module_fixture.cpp)
+    target_link_libraries(gneiss_scene_module_fixture PRIVATE gneiss::engine)
+    target_compile_definitions(gneiss_scene_module_fixture PRIVATE
+      GNEISS_BUILDING_GAME_MODULE GNEISS_TEST_CONTINUOUS_UPDATE GNEISS_TEST_LIFECYCLE_TRACE_ONLY)
+    gneiss_target_compile_warnings(gneiss_scene_module_fixture)
+    gneiss_target_output_directories(gneiss_scene_module_fixture)
+    target_link_libraries(gneiss_editor_runtime_scene_loading_test PRIVATE gneiss_editor_session)
+    target_compile_definitions(gneiss_editor_runtime_scene_loading_test PRIVATE
+      GNEISS_TEST_RUNTIME="$<TARGET_FILE:gneiss_runtime>"
+      GNEISS_TEST_SCENE_MODULE="$<TARGET_FILE:gneiss_scene_module_fixture>"
+      GNEISS_TEST_PROJECT_ROOT="${PROJECT_SOURCE_DIR}/examples/editor_demo")
+    gneiss_target_compile_warnings(gneiss_editor_runtime_scene_loading_test)
+    gneiss_target_output_directories(gneiss_editor_runtime_scene_loading_test)
+    add_dependencies(gneiss_editor_runtime_scene_loading_test gneiss_runtime gneiss_scene_module_fixture)
+    add_test(NAME gneiss.editor.runtime-scene-loading COMMAND gneiss_editor_runtime_scene_loading_test)
+    set_tests_properties(gneiss.editor.runtime-scene-loading PROPERTIES TIMEOUT 60)
   endif()
   if(TARGET gneiss_editor_assets)
     add_executable(gneiss_editor_asset_background_worker_test tests/asset_background_worker_test.cpp)
