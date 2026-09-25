@@ -38,9 +38,11 @@ namespace {
 
 } // namespace
 
-editor_import_report reimport_source_asset(const std::filesystem::path& project_root,
-                                           const std::filesystem::path& asset_root,
-                                           const std::filesystem::path& source_path) {
+editor_import_report
+reimport_source_asset_controlled(const std::filesystem::path& project_root,
+                                 const std::filesystem::path& asset_root,
+                                 const std::filesystem::path& source_path,
+                                 const tooling::asset_import::import_control& control) {
   if (project_root.empty() || asset_root.empty() || source_path.empty()) {
     return failure(editor_import_result::invalid_argument, "工程、资产和源文件路径不能为空");
   }
@@ -60,7 +62,7 @@ editor_import_report reimport_source_asset(const std::filesystem::path& project_
     report.source_path = source;
     report.import = gneiss::tooling::asset_import::import_project_asset_and_update_index(
         {.source_root = source_root, .imported_root = assets / "imported", .source_path = source},
-        project / ".gneiss" / "asset-index.json");
+        project / ".gneiss" / "asset-index.json", control);
     if (report.import.result != gneiss::tooling::asset_import::import_asset_result::success) {
       report.result = editor_import_result::import_failed;
       report.diagnostic = report.import.diagnostic;
@@ -74,9 +76,11 @@ editor_import_report reimport_source_asset(const std::filesystem::path& project_
   }
 }
 
-editor_import_report import_external_asset(const std::filesystem::path& project_root,
-                                           const std::filesystem::path& asset_root,
-                                           const std::filesystem::path& external_source) {
+editor_import_report
+import_external_asset_controlled(const std::filesystem::path& project_root,
+                                 const std::filesystem::path& asset_root,
+                                 const std::filesystem::path& external_source,
+                                 const tooling::asset_import::import_control& control) {
   if (project_root.empty() || asset_root.empty() || external_source.empty()) {
     return failure(editor_import_result::invalid_argument, "工程、资产和外部源路径不能为空");
   }
@@ -93,7 +97,7 @@ editor_import_report import_external_asset(const std::filesystem::path& project_
     std::filesystem::create_directories(source_root);
     const auto canonical_source_root = std::filesystem::weakly_canonical(source_root);
     if (is_within(canonical_source_root, source)) {
-      return reimport_source_asset(project, asset_root, source);
+      return reimport_source_asset_controlled(project, asset_root, source, control);
     }
     const auto destination = unique_destination(canonical_source_root, source);
     auto temporary = destination;
@@ -110,11 +114,23 @@ editor_import_report import_external_asset(const std::filesystem::path& project_
       std::filesystem::remove(temporary, error);
       return failure(editor_import_result::io_error, "提交工程源资产失败");
     }
-    return reimport_source_asset(project, asset_root, destination);
+    return reimport_source_asset_controlled(project, asset_root, destination, control);
   } catch (const std::exception& error) {
     return failure(editor_import_result::io_error,
                    std::string{"导入外部源资产失败："} + error.what());
   }
+}
+
+editor_import_report reimport_source_asset(const std::filesystem::path& project,
+                                           const std::filesystem::path& assets,
+                                           const std::filesystem::path& source) {
+  return reimport_source_asset_controlled(project, assets, source, {});
+}
+
+editor_import_report import_external_asset(const std::filesystem::path& project,
+                                           const std::filesystem::path& assets,
+                                           const std::filesystem::path& source) {
+  return import_external_asset_controlled(project, assets, source, {});
 }
 
 } // namespace gneiss::editor

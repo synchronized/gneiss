@@ -9,6 +9,8 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
+#include <chrono>
 #include <cstdint>
 #include <iomanip>
 #include <sstream>
@@ -151,7 +153,16 @@ import_asset_report import_project_asset(const import_asset_request& request) {
 }
 
 import_asset_report import_project_asset_and_update_index(const import_asset_request& request,
-                                                          const std::filesystem::path& index_path) {
+                                                          const std::filesystem::path& index_path,
+                                                          const import_control& control) {
+  if (request.source_root.empty() || request.imported_root.empty() || request.source_path.empty() ||
+      index_path.empty()) {
+    return failure(import_asset_result::invalid_argument, "导入路径不能为空");
+  }
+  const auto cancelled = [&control] { return control.cancelled && control.cancelled(); };
+  if (cancelled()) {
+    return failure(import_asset_result::cancelled, "导入已取消");
+  }
   asset_index index;
   const auto loaded = load_asset_index(index_path, index);
   if (loaded.result != asset_index_result::success &&
@@ -159,45 +170,125 @@ import_asset_report import_project_asset_and_update_index(const import_asset_req
     return failure(import_asset_result::index_update_failed,
                    "读取资产索引失败：" + loaded.diagnostic);
   }
-
-  auto imported = import_project_asset(request);
-  if (imported.result != import_asset_result::success) {
-    return imported;
+  std::string before_hash;
+  if (hash_source_file(request.source_path, before_hash).result != asset_index_result::success) {
+    return failure(import_asset_result::source_unavailable, "读取源资产失败");
   }
-
-  std::string content_hash;
-  const auto hashed = hash_source_file(request.source_path, content_hash);
-  if (hashed.result != asset_index_result::success) {
-    imported.result = import_asset_result::index_update_failed;
-    imported.diagnostic = "计算源资产哈希失败：" + hashed.diagnostic;
-    return imported;
-  }
+  // 独占临时目录位于工程元数据中，避免作者资产监听看到未提交的 Scene。
+  struct temporary_directory {
+    std::filesystem::path path;
+    ~temporary_directory() {
+      try {
+        if (!path.empty()) {
+          std::error_code ignored;
+          std::filesystem::remove_all(path, ignored);
+        }
+      } catch (...) {
+        // 清理失败不得覆盖原始导入结果，也不得在析构期间抛出。
+      }
+    }
+  } staging;
+  import_asset_report imported;
+  std::filesystem::path destination;
+  std::filesystem::path backup;
+  bool old_moved = false;
+  bool new_moved = false;
+  const auto rollback = [&] {
+    std::error_code error;
+    if (new_moved) {
+      std::filesystem::remove_all(destination, error);
+      if (error) {
+        return false;
+      }
+    }
+    if (old_moved) {
+      std::filesystem::rename(backup, destination, error);
+    }
+    return !error;
+  };
   try {
+    static std::atomic_uint64_t sequence{};
+    const auto temporary_root = std::filesystem::absolute(index_path).parent_path() / "import-work";
+    std::filesystem::create_directories(temporary_root);
+    for (;;) {
+      const auto name =
+          std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + "-" +
+          std::to_string(sequence.fetch_add(1U));
+      const auto candidate = temporary_root / name;
+      if (std::filesystem::create_directory(candidate)) {
+        staging.path = candidate;
+        break;
+      }
+    }
+    if (cancelled()) {
+      return failure(import_asset_result::cancelled, "导入已取消");
+    }
+    auto staged_request = request;
+    staged_request.imported_root = staging.path;
+    imported = import_project_asset(staged_request);
+    if (imported.result != import_asset_result::success) {
+      return imported;
+    }
+    if (cancelled()) {
+      return failure(import_asset_result::cancelled, "导入已取消，暂存产物已丢弃");
+    }
+    std::string after_hash;
+    if (hash_source_file(request.source_path, after_hash).result != asset_index_result::success ||
+        before_hash != after_hash) {
+      return failure(import_asset_result::source_changed, "导入期间源文件变化，暂存产物已丢弃");
+    }
     const auto source_root = std::filesystem::weakly_canonical(request.source_root);
     const auto source_path = std::filesystem::weakly_canonical(request.source_path);
     asset_index_entry entry{.source_path = path_utf8(source_path.lexically_relative(source_root)),
                             .source_key = imported.source_key,
                             .importer_id = "gneiss.gltf",
                             .importer_version = gltf_importer_version,
-                            .content_hash = std::move(content_hash),
+                            .content_hash = std::move(after_hash),
                             .state = asset_import_state::ready,
                             .output_uris = imported.output_uris};
     const auto updated = upsert_asset_index_entry(index, std::move(entry));
     if (updated.result != asset_index_result::success) {
-      imported.result = import_asset_result::index_update_failed;
-      imported.diagnostic = "更新资产索引记录失败：" + updated.diagnostic;
-      return imported;
+      return failure(import_asset_result::index_update_failed, updated.diagnostic);
     }
+    destination =
+        std::filesystem::absolute(request.imported_root).lexically_normal() / imported.source_key;
+    // 备份在目标目录同级，回滚失败时保留以便人工恢复；不由暂存清理器删除。
+    backup = destination;
+    backup += ".gneiss-index-backup";
+    if (std::filesystem::exists(backup)) {
+      return failure(import_asset_result::write_failed,
+                     "存在待恢复的导入备份：" + path_utf8(backup));
+    }
+    if (cancelled() || (control.begin_commit && !control.begin_commit())) {
+      return failure(import_asset_result::cancelled, "提交前已取消或被新任务取代");
+    }
+    std::filesystem::create_directories(destination.parent_path());
+    if (std::filesystem::exists(destination)) {
+      std::filesystem::rename(destination, backup);
+      old_moved = true;
+    }
+    std::filesystem::rename(imported.output_directory, destination);
+    new_moved = true;
     const auto saved = save_asset_index(index_path, index);
     if (saved.result != asset_index_result::success) {
-      imported.result = import_asset_result::index_update_failed;
-      imported.diagnostic = "保存资产索引失败：" + saved.diagnostic;
+      const auto restored = rollback();
+      old_moved = false;
+      new_moved = false;
+      return failure(import_asset_result::index_update_failed,
+                     saved.diagnostic +
+                         (restored ? "；旧产物已恢复" : "；回滚失败，请保留并恢复备份"));
     }
+    old_moved = false;
+    new_moved = false;
+    std::error_code ignored;
+    std::filesystem::remove_all(backup, ignored);
+    imported.output_directory = std::move(destination);
     return imported;
   } catch (const std::exception& error) {
-    imported.result = import_asset_result::index_update_failed;
-    imported.diagnostic = std::string{"更新资产索引路径失败："} + error.what();
-    return imported;
+    const auto restored = rollback();
+    return failure(import_asset_result::write_failed,
+                   std::string{"导入事务失败："} + error.what() +
+                       (restored ? "" : "；回滚失败，请保留并恢复备份"));
   }
 }
 

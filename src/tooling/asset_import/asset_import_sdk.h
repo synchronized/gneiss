@@ -6,6 +6,7 @@
 #include "tooling/asset_import/import_ir.h"
 
 #include <filesystem>
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -19,6 +20,14 @@ enum class import_asset_result {
   unsupported_feature,
   write_failed,
   index_update_failed,
+  cancelled,
+  source_changed,
+};
+
+/// 回调仅在调用线程执行；取得提交许可后取消不再撤销本次提交。
+struct import_control {
+  std::function<bool()> cancelled;
+  std::function<bool()> begin_commit;
 };
 
 struct import_asset_request {
@@ -43,6 +52,7 @@ struct import_asset_report {
 /// 导入资产并在产物提交成功后原子更新工程资产索引。
 [[nodiscard]] import_asset_report
 import_project_asset_and_update_index(const import_asset_request& request,
-                                      const std::filesystem::path& index_path);
+                                      const std::filesystem::path& index_path,
+                                      const import_control& control = {});
 
 } // namespace gneiss::tooling::asset_import

@@ -36,4 +36,12 @@ import_external_asset(const std::filesystem::path& project_root,
                                                          const std::filesystem::path& asset_root,
                                                          const std::filesystem::path& source_path);
 
+/// 后台调用的受控入口；回调与导入在同一工作线程执行。
+[[nodiscard]] editor_import_report reimport_source_asset_controlled(
+    const std::filesystem::path& project, const std::filesystem::path& assets,
+    const std::filesystem::path& source, const tooling::asset_import::import_control& control);
+[[nodiscard]] editor_import_report import_external_asset_controlled(
+    const std::filesystem::path& project, const std::filesystem::path& assets,
+    const std::filesystem::path& source, const tooling::asset_import::import_control& control);
+
 } // namespace gneiss::editor
