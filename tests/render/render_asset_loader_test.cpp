@@ -249,10 +249,23 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
   for (const auto* uri :
        {"asset://textures/white.texture.json", "asset://textures/linear.texture.json",
         "asset://textures/packaged.texture.json"}) {
-    if (gneiss::render_internal::prepare_texture(file_system, uri, prepared, diagnostic,
-                                                 1024U * 1024U, true) != GNEISS_SUCCESS ||
-        prepared.width == 0U || resources.live_resource_count() != before_resources ||
-        cache.size() != before_cache) {
+    auto expected = GNEISS_SUCCESS;
+#if !defined(GNEISS_HAS_GRANIT_PLATFORM)
+    if (std::string_view(uri).ends_with("packaged.texture.json")) {
+      expected = GNEISS_ERROR_UNSUPPORTED;
+    }
+#endif
+    const auto result = gneiss::render_internal::prepare_texture(file_system, uri, prepared,
+                                                                 diagnostic, 1024U * 1024U, true);
+    if (expected == GNEISS_ERROR_UNSUPPORTED) {
+      if (result != expected || prepared.width != 0U || diagnostic.path != "/source" ||
+          resources.live_resource_count() != before_resources || cache.size() != before_cache) {
+        return 43;
+      }
+      continue;
+    }
+    if (result != GNEISS_SUCCESS || prepared.width == 0U ||
+        resources.live_resource_count() != before_resources || cache.size() != before_cache) {
       return 40;
     }
   }
