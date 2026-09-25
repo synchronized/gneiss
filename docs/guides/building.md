@@ -377,6 +377,25 @@ Request、手动远端验证、修复阻塞问题、合并到 `main`、创建并
 创建发布。该表述视为对当前版本完整闭环的一次授权，不在每个远端步骤前重复确认；授权不会延续到
 下一版本，也不会扩展到 Granit 等其他仓库。
 
+## 最小无线程浏览器调度验证
+
+此入口只构建内部任务调度器，不构建完整 Editor、Runtime、Granit 或 libuv。
+本机验证工具链为 Emscripten 5.0.6；保留 C++ 异常处理，显式禁用工作线程后端。
+
+```sh
+emcmake cmake -S tests/task_web -B build/task-web -G Ninja -DCMAKE_BUILD_TYPE=Debug
+cmake --build build/task-web
+python tests/task_web/run_browser.py --build build/task-web --browser <Chrome或Chromium可执行文件>
+```
+
+Windows 的 Emscripten PowerShell 入口需要 `EMSDK_PYTHON` 指向 SDK 的 Python，并按 SDK 配置
+设置 `EM_CONFIG`。测试驱动启动本地临时 HTTP 服务，在真实无头浏览器中检查跨事件循环延迟执行、
+异常回执、取消及非阻塞关闭；结果保存在构建目录的 `browser-dom.html` 和 `browser.log`。
+本入口没有 `-pthread`、SharedArrayBuffer 或 COOP/COEP 前提，不代表完整引擎 Web 支持。
+
+Editor 的 `--cooperative-tasks` 选项让资产服务由帧循环显式驱动，默认仍使用工作线程池。
+每次驱动最多执行 8 个任务、在任务之间检查 2 ms 时间预算；单个导入或解码不可被预算抢占。
+
 ## 常见问题
 
 - 找不到编译器：确认 preset 指定的编译器已加入 `PATH`，或选择其他 preset。

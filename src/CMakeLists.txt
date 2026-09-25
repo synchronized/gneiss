@@ -2,13 +2,7 @@
 # Copyright (c) 2026 Gneiss contributors
 
 # 内部调度模块由实际宿主链接，不进入安装 package 或公共 ABI。
-find_package(Threads REQUIRED)
-add_library(gneiss_tasks STATIC core/tasks/task_scheduler.cpp core/tasks/task_scheduler.h)
-target_include_directories(gneiss_tasks PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
-target_compile_features(gneiss_tasks PUBLIC cxx_std_20)
-target_link_libraries(gneiss_tasks PRIVATE Threads::Threads)
-gneiss_target_compile_warnings(gneiss_tasks)
-gneiss_target_output_directories(gneiss_tasks)
+add_subdirectory(core/tasks)
 
 add_library(gneiss_engine)
 add_library(gneiss::engine ALIAS gneiss_engine)

@@ -64,11 +64,25 @@ struct task_completion {
   double queue_ms{};
   double execution_ms{};
 };
+enum class execution_mode : std::uint8_t { thread_pool, cooperative };
+enum class drive_status : std::uint8_t { success, wrong_mode, wrong_thread, reentrant, stopped };
+struct drive_budget {
+  std::size_t max_tasks{8U};
+  std::chrono::nanoseconds max_time{std::chrono::milliseconds(2)};
+};
+struct drive_result {
+  drive_status status{drive_status::success};
+  std::size_t executed{};
+  bool budget_exhausted{};
+};
 struct scheduler_options {
   std::size_t workers{3U};
   std::size_t capacity{256U};
   // 零表示自动保留一个普通任务工作槽（单线程时后台仍可运行）。
   std::size_t background_limit{};
+  execution_mode mode{execution_mode::thread_pool};
+  // 可选单调时钟；须不抛异常，线程池模式下须可并发调用。
+  std::function<std::chrono::steady_clock::time_point()> clock{};
 };
 struct scheduler_stats {
   std::size_t waiting{};
@@ -81,7 +95,8 @@ struct scheduler_stats {
   std::uint64_t cancelled{};
 };
 
-/// 内部线程安全调度器。poll/close_scope 回收结果后句柄失效；已提交依赖仍持有前置终态。
+/// 内部调度器；无线程构建仅允许所属宿主线程访问，启用线程时提交、查询和取消线程安全。
+/// poll/close_scope 回收结果后句柄失效；已提交依赖仍持有前置终态。
 /// stop 和析构由宿主线程串行调用；不得从自身任务销毁调度器。服务须在调度器之前销毁。
 class task_scheduler final {
 public:
@@ -103,6 +118,13 @@ public:
                    std::size_t budget = 64U);
   [[nodiscard]] bool query(task_handle task, task_completion& output) const;
   [[nodiscard]] scheduler_stats stats() const;
+  [[nodiscard]] execution_mode mode() const noexcept;
+  /// 仅协作模式所属宿主线程调用，不允许嵌套驱动任何调度器。
+  [[nodiscard]] drive_result run_ready(drive_budget budget = {});
+  void request_stop();
+  [[nodiscard]] bool stopped() const;
+  /// 请求取消并尝试回收；尚有运行任务时返回 false，不阻塞。
+  [[nodiscard]] bool try_close_scope(task_scope scope);
   void stop();
 
 private:

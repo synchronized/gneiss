@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "asset_background_worker.h"
+#include "core/tasks/task_scheduler.h"
 #include "tooling/asset_import/asset_index.h"
 
 #include <atomic>
@@ -210,6 +211,44 @@ int verify(const std::filesystem::path& root) {
   paused.request_stop();
   if (!wait_until([&] { return paused.status().stopped; })) {
     return 20;
+  }
+
+  // 协作宿主显式驱动；服务持锁提交、轮询和取消均不得隐式运行任务。
+  gneiss::tasks::task_scheduler cooperative({.mode = gneiss::tasks::execution_mode::cooperative});
+  unsigned cooperative_calls{};
+  asset_background_worker cooperative_worker(
+      [&](const auto& p, const auto& a, const auto& s, bool, const ai::import_control& control) {
+        ++cooperative_calls;
+        return reimport_source_asset_controlled(p, a, s, control);
+      },
+      &cooperative);
+  cooperative_worker.start(root, assets);
+  cooperative_worker.set_paused(true);
+  (void)cooperative_worker.import_asset(source);
+  (void)cooperative.run_ready();
+  if (cooperative_calls != 0U) {
+    return 23;
+  }
+  cooperative_worker.set_paused(false);
+  if (cooperative_calls != 0U) {
+    return 24;
+  }
+  if (!wait_until([&] {
+        (void)cooperative.run_ready();
+        (void)cooperative_worker.poll_events(events);
+        for (const auto& event : events) {
+          if (event.state == asset_reimport_state::succeeded) {
+            return true;
+          }
+        }
+        return false;
+      }) ||
+      cooperative_calls != 1U) {
+    return 25;
+  }
+  cooperative_worker.request_stop();
+  if (!cooperative_worker.status().stopped) {
+    return 26;
   }
 
   // 停止后不得提交或接收新工作，析构必须等待不可抢占调用实际返回。
