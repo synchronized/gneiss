@@ -49,6 +49,13 @@ public:
   [[nodiscard]] bool is_valid() const noexcept { return domain_ != 0U; }
   [[nodiscard]] gneiss_result create_mesh(const gneiss_mesh_desc& desc,
                                           gneiss_mesh* out_mesh) noexcept;
+  /** 内部 CPU 候选已经校验，移动所有权避免主线程复制大数组。 */
+  [[nodiscard]] gneiss_result create_prepared_mesh(mesh_resource resource,
+                                                   gneiss_mesh* output) noexcept;
+  [[nodiscard]] bool replace_mesh(gneiss_mesh rid,
+                                  std::shared_ptr<const mesh_resource> data) noexcept;
+  [[nodiscard]] bool replace_material(gneiss_material rid,
+                                      std::shared_ptr<const material_resource> data) noexcept;
   [[nodiscard]] gneiss_result destroy_mesh(gneiss_mesh mesh) noexcept;
   [[nodiscard]] gneiss_result create_material(const gneiss_material_desc& desc,
                                               gneiss_material* out_material) noexcept;

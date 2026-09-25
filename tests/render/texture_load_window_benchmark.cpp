@@ -31,6 +31,8 @@ struct context {
   tasks::task_scheduler* scheduler{};
   std::filesystem::path root;
   bool synchronous{};
+  bool model{};
+  std::vector<render_internal::render_asset_reload> assets;
   bool close_during_load{};
   gneiss_scene_instance scene{};
   gneiss_world world{};
@@ -97,7 +99,7 @@ gneiss_result update(gneiss_application app, const gneiss_frame_time*, void* opa
   }
 #endif
   if (elapsed >= 1.0 && !state.requested) {
-    {
+    if (!state.model) {
       std::ofstream stream(state.root / "textures/test.texture.json");
       stream
           << R"({"format":"gneiss.texture","version":1,"source":"asset://textures/after.png","color_space":"srgb"})";
@@ -132,7 +134,10 @@ gneiss_result update(gneiss_application app, const gneiss_frame_time*, void* opa
     } else {
       const std::vector<std::string> uris{"asset://textures/test.texture.json"};
       std::uint64_t request{};
-      const auto result = application_internal::request_textures(app, uris, 1U, 1U, request);
+      const auto result =
+          state.model
+              ? application_internal::request_render_assets(app, state.assets, 1U, 1U, request)
+              : application_internal::request_textures(app, uris, 1U, 1U, request);
       if (result != GNEISS_SUCCESS) {
         return result;
       }
@@ -166,7 +171,7 @@ gneiss_result update(gneiss_application app, const gneiss_frame_time*, void* opa
 }
 }
 int main(int argc, char** argv) try {
-  if (argc != 4) {
+  if (argc != 4 && argc != 5) {
     return 64;
   }
   const std::string mode = argv[2];
@@ -176,6 +181,20 @@ int main(int argc, char** argv) try {
   context state;
   state.scheduler = &scheduler;
   state.root = argv[1];
+  state.model = argc == 5 && std::string_view(argv[4]) == "model";
+  if (state.model) {
+    for (const auto& file : std::filesystem::recursive_directory_iterator(state.root)) {
+      if (!file.is_regular_file())
+        continue;
+      const auto name = file.path().filename().string();
+      const auto uri =
+          "asset://" + std::filesystem::relative(file.path(), state.root).generic_string();
+      if (name.ends_with(".gneiss-mesh"))
+        state.assets.push_back({uri, render_internal::render_asset_type::mesh});
+      if (name.ends_with(".material.json"))
+        state.assets.push_back({uri, render_internal::render_asset_type::material});
+    }
+  }
   state.synchronous = mode == "sync";
   state.close_during_load = mode == "close";
   application app;

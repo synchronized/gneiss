@@ -251,6 +251,15 @@ result editor_ipc_session::send_property_write(const ipc_property_write& value) 
   return operation == result::success ? implementation_->send(std::move(command)) : operation;
 }
 
+result editor_ipc_session::send_asset_cancel(std::uint64_t session,
+                                             std::uint64_t revision) noexcept {
+  if (!is_authenticated() || !supports_asset_reload())
+    return result::not_ready;
+  ipc_envelope envelope;
+  const auto encoded = encode_ipc_asset_cancel(session, revision, envelope);
+  return encoded == result::success ? implementation_->send(std::move(envelope)) : encoded;
+}
+
 result editor_ipc_session::send_asset_reload(const ipc_asset_reload_request& command,
                                              ipc_asset_operation operation) noexcept {
   if (!is_authenticated() || !supports_asset_reload()) {

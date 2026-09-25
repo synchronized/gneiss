@@ -63,6 +63,8 @@ struct runtime_context final {
   gneiss::tasks::task_scheduler* tasks{};
   std::deque<gneiss::runtime_internal::runtime_ipc_actions::asset_reload_command> pending_assets{};
   bool asset_waiting{};
+  bool asset_cancelled{};
+  std::uint64_t next_asset_progress_ns{};
 };
 
 [[nodiscard]] std::string path_text(const std::filesystem::path& path) {
@@ -275,6 +277,15 @@ gneiss_result update_runtime(gneiss_application application, const gneiss_frame_
         context.pending_assets.push_back(std::move(command));
       }
     }
+    for (const auto& cancel : actions.asset_cancels) {
+      if (context.asset_waiting && !context.pending_assets.empty()) {
+        const auto& active = context.pending_assets.front().request;
+        if (active.session_id == cancel.session_id && active.revision == cancel.revision &&
+            gneiss::application_internal::cancel_render_assets(application) == GNEISS_SUCCESS)
+          context.asset_cancelled = true;
+        context.next_asset_progress_ns = 0U;
+      }
+    }
     if (!context.pending_assets.empty()) {
       const auto& command = context.pending_assets.front();
       gneiss::ipc_asset_reload_result response;
@@ -288,10 +299,39 @@ gneiss_result update_runtime(gneiss_application application, const gneiss_frame_
         asset_result = gneiss::result::success;
       }
       if (asset_result == gneiss::result::success && ready) {
+        if (context.asset_cancelled) {
+          response.status = gneiss::ipc_asset_apply_status::cancelled;
+          response.message = "资产修订已取消，保留之前的画面";
+        }
+        context.asset_cancelled = false;
+        context.next_asset_progress_ns = 0U;
         asset_result = context.ipc_session->notify_asset_reload_result(response, command.operation,
                                                                        command.request_id);
         context.pending_assets.pop_front();
         context.asset_waiting = false;
+      }
+      if (!ready && asset_result == gneiss::result::success &&
+          time->elapsed_ns >= context.next_asset_progress_ns) {
+        gneiss::asset_internal::asset_load_progress progress;
+        bool active{};
+        if (gneiss::application_internal::query_asset_load_progress(application, progress,
+                                                                    active) == GNEISS_SUCCESS &&
+            active) {
+          const gneiss::ipc_asset_reload_result event{
+              .session_id = progress.session,
+              .revision = progress.revision,
+              .status = progress.can_cancel ? gneiss::ipc_asset_apply_status::preparing
+                                            : gneiss::ipc_asset_apply_status::uploading,
+              .message = progress.can_cancel ? "正在准备资产" : "正在上传资产，完成后整批应用",
+              .can_cancel = progress.can_cancel && !context.asset_cancelled,
+              .completed_assets = static_cast<std::uint32_t>(progress.completed_assets),
+              .total_assets = static_cast<std::uint32_t>(progress.total_assets)};
+          const auto sent = context.ipc_session->notify_asset_reload_result(
+              event, gneiss::ipc_asset_operation::progress, 0U);
+          if (sent != gneiss::result::not_ready)
+            asset_result = sent;
+        }
+        context.next_asset_progress_ns = time->elapsed_ns + UINT64_C(100000000);
       }
       if (asset_result != gneiss::result::success) {
         context.ipc_failure = asset_result;
@@ -527,13 +567,17 @@ void write_application_log(gneiss_application, const gneiss_log_event* event, vo
         return apply_asset_revision(application_handle, scene, startup_scene, assets);
       },
       [handle = application.get()](const gneiss::ipc_asset_reload_request& request) {
-        std::vector<std::string> uris;
+        std::vector<gneiss::render_internal::render_asset_reload> assets;
         for (const auto& asset : request.assets) {
-          uris.push_back(asset.uri);
+          using type = gneiss::render_internal::render_asset_type;
+          assets.push_back({asset.uri, asset.type == gneiss::ipc_asset_type::texture ? type::texture
+                                       : asset.type == gneiss::ipc_asset_type::material
+                                           ? type::material
+                                           : type::mesh});
         }
         std::uint64_t accepted{};
-        return gneiss::from_native(gneiss::application_internal::request_textures(
-            handle, uris, request.session_id, request.revision, accepted));
+        return gneiss::from_native(gneiss::application_internal::request_render_assets(
+            handle, assets, request.session_id, request.revision, accepted));
       },
       [handle = application.get(), &log](gneiss::result& result, bool& ready) {
         gneiss::asset_internal::texture_load_completion completion;

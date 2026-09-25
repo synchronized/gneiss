@@ -88,10 +88,17 @@ void run(tasks::execution_mode mode) {
   const auto blue = center(before);
   std::printf("before=%u,%u,%u\n", blue[0], blue[1], blue[2]);
   check(blue[2] > blue[0] + 30U);
-  const auto reload = [&] {
-    const std::vector<std::string> uris{"asset://t.texture.json"};
+  const auto reload = [&](bool mixed = false) {
+    using type = render_internal::render_asset_type;
+    const std::vector<render_internal::render_asset_reload> assets =
+        mixed
+            ? std::vector<render_internal::render_asset_reload>{{"asset://g.mesh.json", type::mesh},
+                                                                {"asset://m.material.json",
+                                                                 type::material}}
+            : std::vector<render_internal::render_asset_reload>{
+                  {"asset://t.texture.json", type::texture}};
     std::uint64_t request{};
-    check(application_internal::request_textures(app.get(), uris, 1U, 1U, request) ==
+    check(application_internal::request_render_assets(app.get(), assets, 1U, 1U, request) ==
           GNEISS_SUCCESS);
     asset_internal::texture_load_completion completed;
     bool ready{};
@@ -118,6 +125,35 @@ void run(tasks::execution_mode mode) {
   const auto resized = capture(192U);
   const auto resized_red = center(resized);
   check(resized_red[0] > resized_red[2] + 30U);
+  // 材质引入未显式请求的新依赖，网格同时缩小；一次发布后像素颜色和覆盖范围都必须改变。
+  files.color(std::byte{20}, std::byte{240});
+  std::ofstream(files.root / "new.texture.json")
+      << R"({"format":"gneiss.texture","version":1,"source":"asset://image.ktx2","color_space":"srgb"})";
+  std::ofstream(files.root / "m.material.json")
+      << R"({"format":"gneiss.material","version":3,"color":[1,1,1,1],"base_color_texture":"asset://new.texture.json","metallic":0,"roughness":1})";
+  std::ofstream(files.root / "g.mesh.json")
+      << R"({"format":"gneiss.mesh","version":3,"topology":"triangle_list","vertices":[[-0.3,-0.3,0],[0.3,-0.3,0],[0,0.3,0]],"uvs":[[0,0],[1,0],[0.5,1]],"normals":[[0,0,1],[0,0,1],[0,0,1]]})";
+  check(reload(true) == GNEISS_SUCCESS);
+  const auto mixed = capture();
+  const auto mixed_color = center(mixed);
+  check(mixed_color[2] > mixed_color[0] + 30U);
+  const auto coverage = [](const auto& image) {
+    std::size_t count{};
+    for (std::size_t offset = 0; offset < image.pixels.size(); offset += 4U) {
+      if (image.pixels[offset] != image.pixels[0] || image.pixels[offset + 1U] != image.pixels[1] ||
+          image.pixels[offset + 2U] != image.pixels[2])
+        ++count;
+    }
+    return count;
+  };
+  check(coverage(mixed) > 0U && coverage(mixed) < coverage(after) / 2U);
+  // 同批有效材质与损坏网格不可部分发布。
+  std::ofstream(files.root / "m.material.json")
+      << R"({"format":"gneiss.material","version":3,"color":[1,0,0,1],"metallic":0,"roughness":1})";
+  std::ofstream(files.root / "g.mesh.json") << "broken";
+  check(reload(true) != GNEISS_SUCCESS);
+  check(capture().pixels == mixed.pixels);
+  check(center(capture(192U))[2] > center(capture(192U))[0] + 30U);
 }
 }
 int main() try {

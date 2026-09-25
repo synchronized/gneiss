@@ -44,6 +44,9 @@ struct runtime_asset_reload_status final {
   std::uint64_t revision = 0U;
   std::string message;
   result publish_result = result::success;
+  bool can_cancel = false;
+  std::uint32_t completed_assets = 0U;
+  std::uint32_t total_assets = 0U;
 };
 
 class runtime_process final {
@@ -69,6 +72,7 @@ public:
   /** 发布已提交的派生资产；Runtime 未连接时保留到下次全量重同步。 */
   [[nodiscard]] result publish_asset_revision(std::span<const std::string> output_uris) noexcept;
   /** 失败后全量同步已知资产；执行中或未连接时返回 not_ready。 */
+  [[nodiscard]] result cancel_asset_reload() noexcept;
   [[nodiscard]] result retry_asset_reload() noexcept;
   void update() noexcept;
 

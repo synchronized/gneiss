@@ -97,6 +97,8 @@ int main() {
   }
   request.revision = 2U;
   request.assets.front().uri = "asset://b.texture.json";
+  request.assets.push_back({"asset://m.material.json", ipc_asset_type::material});
+  request.assets.push_back({"asset://g.mesh.json", ipc_asset_type::static_mesh});
   if (asynchronous.execute(request, response) != result::not_ready || accepted != 2U) {
     return 11;
   }

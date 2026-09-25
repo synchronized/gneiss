@@ -29,6 +29,16 @@ GNEISS_API gneiss_result query_render_statistics(
 /** 借用宿主执行入口直到 Application 关闭；同一宿主不再创建第二个池。 */
 GNEISS_API gneiss_result attach_task_executor(gneiss_application application,
                                               tasks::task_executor& executor) noexcept;
+/** 所属线程接受混合资产批次；CPU 解析交给宿主执行器，GPU 确认后整批发布。 */
+GNEISS_API gneiss_result request_render_assets(
+    gneiss_application application, std::span<const render_internal::render_asset_reload> assets,
+    std::uint64_t session, std::uint64_t revision, std::uint64_t& request,
+    bool reload = true) noexcept;
+GNEISS_API gneiss_result query_asset_load_progress(gneiss_application application,
+                                                   asset_internal::asset_load_progress& progress,
+                                                   bool& active) noexcept;
+/** 提交许可前接受取消；已进入 GPU 阶段或没有在途批次时返回 NOT_READY。 */
+GNEISS_API gneiss_result cancel_render_assets(gneiss_application application) noexcept;
 GNEISS_API gneiss_result request_textures(gneiss_application application,
                                           std::span<const std::string> uris, std::uint64_t session,
                                           std::uint64_t revision, std::uint64_t& request,

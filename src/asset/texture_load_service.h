@@ -22,6 +22,7 @@ struct texture_load_completion {
   gneiss_result result{GNEISS_ERROR_INTERNAL};
   std::string message{};
   std::vector<render_internal::texture_asset_lease> textures;
+  std::vector<render_internal::render_asset_lease> assets;
   double prepare_ms{};
   double queue_ms{};
   double upload_ms{};
@@ -29,12 +30,23 @@ struct texture_load_completion {
   std::size_t candidate_bytes{};
 };
 struct texture_upload_backend {
-  using data = std::vector<std::shared_ptr<const render_internal::texture_resource>>;
+  using data = std::vector<render_internal::render_upload_item>;
   std::function<gneiss_result(data, std::uint64_t&)> begin;
   std::function<bool(std::uint64_t, gneiss_result&)> poll;
   std::function<gneiss_result(data, std::uint64_t&)> discard;
   std::function<void()> flush;
   std::function<double()> elapsed_ms{};
+  std::function<std::size_t(const render_internal::render_upload_item&)> estimate_bytes{};
+};
+
+struct asset_load_progress {
+  std::uint64_t request{};
+  std::uint64_t session{};
+  std::uint64_t revision{};
+  texture_load_state state{texture_load_state::preparing};
+  std::size_t completed_assets{};
+  std::size_t total_assets{};
+  bool can_cancel{};
 };
 
 /** 主线程服务；只读 VFS 副本和候选由任务拥有，缓存及 GPU 操作仍留在所属线程。
@@ -43,6 +55,9 @@ struct texture_upload_backend {
 class texture_load_service final {
 public:
   static constexpr std::size_t maximum_batch = 16U;
+  static constexpr std::size_t maximum_assets = 256U;
+  static constexpr std::size_t maximum_candidate_bytes = 256U * 1024U * 1024U;
+  static constexpr std::size_t upload_budget_bytes = 8U * 1024U * 1024U;
   static constexpr std::size_t maximum_bytes = 64U * 1024U * 1024U;
   texture_load_service(tasks::task_executor& executor, virtual_file_system file_system,
                        render_internal::render_asset_loader& loader,
@@ -51,10 +66,14 @@ public:
   [[nodiscard]] gneiss_result submit(std::span<const std::string> uris, std::uint64_t session,
                                      std::uint64_t revision, std::uint64_t& request,
                                      bool reload = true);
+  [[nodiscard]] gneiss_result
+  submit_assets(std::span<const render_internal::render_asset_reload> assets, std::uint64_t session,
+                std::uint64_t revision, std::uint64_t& request, bool reload = true);
+  [[nodiscard]] bool progress(asset_load_progress& output) const;
   void advance();
   [[nodiscard]] bool take(texture_load_completion& output);
   /** 提交许可前取消；已进入 GPU 阶段的批次完成或回滚。 */
-  void cancel();
+  bool cancel();
   void request_stop();
   [[nodiscard]] bool stopped() const;
 

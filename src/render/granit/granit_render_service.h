@@ -8,6 +8,7 @@
 #include "render/debug_draw_list.h"
 #include "render/granit/pbr_shader_resolver.h"
 #include "render/granit/scene_projection_math.h"
+#include "render/render_asset_loader.h"
 #include "render/render_executor.h"
 #include "render/render_frame_packet.h"
 #include "render/render_resource_service.h"
@@ -65,12 +66,16 @@ public:
     return latest_texture_upload_ms_;
   }
   using texture_data = std::shared_ptr<const render_internal::texture_resource>;
-  [[nodiscard]] gneiss_result prepare_textures(std::vector<texture_data> data,
-                                               std::uint64_t& sequence) noexcept;
+  [[nodiscard]] static std::size_t
+  estimate_upload_bytes(const render_internal::render_upload_item& item) noexcept;
+  [[nodiscard]] gneiss_result
+  prepare_textures(std::vector<render_internal::render_upload_item> data,
+                   std::uint64_t& sequence) noexcept;
   [[nodiscard]] bool poll_texture_preparation(std::uint64_t sequence,
                                               gneiss_result& result) noexcept;
-  [[nodiscard]] gneiss_result discard_prepared_textures(std::vector<texture_data> data,
-                                                        std::uint64_t& sequence) noexcept;
+  [[nodiscard]] gneiss_result
+  discard_prepared_textures(std::vector<render_internal::render_upload_item> data,
+                            std::uint64_t& sequence) noexcept;
 
 private:
   double latest_texture_upload_ms_{};
@@ -97,6 +102,8 @@ private:
 
   struct mesh_mirror final {
     const render_internal::mesh_resource* source{};
+    granit::buffer vertices;
+    granit::buffer indices;
     granit::mesh mesh;
     std::uint32_t first_index{};
     std::int32_t vertex_offset{};
@@ -109,6 +116,22 @@ private:
     granit::material_instance material;
   };
 
+  struct prepared_mesh {
+    std::shared_ptr<const render_internal::mesh_resource> data;
+    mesh_mirror mirror;
+  };
+  struct prepared_material {
+    std::shared_ptr<const render_internal::material_resource> data;
+    material_mirror mirror;
+    texture_data dependency;
+  };
+  std::unordered_map<const render_internal::mesh_resource*, prepared_mesh> prepared_meshes_;
+  std::unordered_map<const render_internal::material_resource*, prepared_material>
+      prepared_materials_;
+  void discard_candidates(std::span<const render_internal::render_upload_item> data) noexcept;
+  [[nodiscard]] granit::result create_mesh_mirror(const render_internal::mesh_resource& source,
+                                                  mesh_mirror& output) noexcept;
+
   [[nodiscard]] granit::result initialize_pipeline() noexcept;
   [[nodiscard]] granit::result
   create_texture_mirror(const render_internal::texture_resource& source, texture_mirror& output,
@@ -119,8 +142,6 @@ private:
   [[nodiscard]] granit::result
   create_material_mirror(const render_internal::material_resource& source,
                          granit_texture_view base_color, material_mirror& output) noexcept;
-  [[nodiscard]] granit::result
-  rebuild_geometry_arena(const render_internal::render_resource_snapshot& resources) noexcept;
   [[nodiscard]] granit::result ensure_default_textures() noexcept;
   [[nodiscard]] granit::result
   prepare_ui_draw_list(const render_internal::ui_draw_list& ui,
@@ -150,9 +171,6 @@ private:
   std::unordered_map<gneiss_texture, texture_mirror> texture_mirrors_;
   std::unordered_map<gneiss_mesh, mesh_mirror> mesh_mirrors_;
   std::unordered_map<gneiss_material, material_mirror> material_mirrors_;
-  granit::buffer geometry_vertices_;
-  granit::buffer geometry_indices_;
-  bool geometry_dirty_{};
   granit::texture_format swapchain_format_{granit::texture_format::undefined};
   std::uint64_t last_pipeline_metric_sequence_{};
   bool gpu_timing_supported_{};
