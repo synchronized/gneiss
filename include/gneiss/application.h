@@ -186,7 +186,10 @@ GNEISS_API gneiss_result gneiss_application_destroy(gneiss_application applicati
 GNEISS_API gneiss_result gneiss_application_run(gneiss_application application,
                                                 uint64_t max_frame_count);
 
-/** 查询当前窗口客户区逻辑尺寸；仅允许在 Application 创建线程调用。 */
+/**
+ * 查询当前窗口客户区尺寸；仅允许在 Application 创建线程调用。
+ * Granit 原生 Win32 返回客户区物理像素，与其指针输入坐标一致，不应再次乘 DPI 缩放。
+ */
 GNEISS_EXPERIMENTAL GNEISS_API gneiss_result gneiss_application_get_window_size(
     gneiss_application application, uint32_t* out_width, uint32_t* out_height);
 

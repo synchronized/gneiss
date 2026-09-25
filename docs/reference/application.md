@@ -36,6 +36,11 @@ Application 及其 World 只能在创建线程访问。重复运行、跨线程�
 
 ## 平台适配边界
 
+`gneiss_application_get_window_size` 查询当前窗口客户区尺寸，仅限创建线程。
+Granit 原生 Win32 路径返回渲染客户区物理像素，与原生指针输入单位一致；不是额外除以 DPI 的
+逻辑尺寸。Callback 模式返回创建描述中的窗口尺寸。最小化时 Granit 窗口可能返回零尺寸，调用者
+应等待恢复，不应把它当作永久初始化失败。该查询不提供字体缩放或显示器 DPI 值。
+
 `GNEISS_APPLICATION_PLATFORM_CALLBACK` 使用描述结构中的生命周期回调，也允许全部回调为空的
 无窗口模式。所有回调均在创建线程同步执行，不得重入 `run`，C++ 回调实现不得抛出异常。
 `user_data` 由调用方持有，必须至少存活到 `shutdown` 返回。

@@ -184,6 +184,11 @@ int main() try {
     return 13;
   }
   std::uint64_t subtree_length = 0U;
+  // 捕获非根子树时不能保留快照外的父引用；恢复时由显式 parent 重新挂接。
+  if (gneiss_scene_instance_reparent_node(application, scene, generic_node, camera_node) !=
+      GNEISS_SUCCESS) {
+    return 29;
+  }
   if (gneiss_scene_instance_capture_subtree(application, scene, generic_node, nullptr, 0U,
                                             &subtree_length) != GNEISS_SUCCESS ||
       subtree_length == 0U) {

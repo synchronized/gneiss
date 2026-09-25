@@ -27,6 +27,7 @@
 - [从 0.10.0 迁移到 0.11.0](guides/migrating-0.10-to-0.11.md)
 - [C/C++ 代码风格与语言标准](guides/coding-style.md)
 - [在 Editor 中导入资产](guides/editor-assets.md)
+- [Editor 选择、变换与窗口交互](guides/editor-interaction.md)
 
 ## API 参考
 
@@ -96,6 +97,7 @@
 - [VER-034：0.34.0 离线纹理构建与 KTX2 运行链路](plans/VER-034-0.34.0-offline-texture-cooking.md)
 - [VER-035：0.35.0 平台纹理变体与流式上传](plans/VER-035-0.35.0-texture-asset-variants.md)
 - [VER-036：0.36.0 编辑器资产工作流稳定性](plans/VER-036-0.36.0-editor-asset-workflow.md)
+- [VER-037：0.37.0 编辑器交互稳定性](plans/VER-037-0.37.0-editor-interaction-stability.md)
 - [M-100：Editor Play 工作流实施记录](records/M-100-editor-play-workflow.md)
 - [M-101：示例与跨平台验收记录](records/M-101-example-cross-platform-validation.md)
 - [M-102：Runtime 检查会话与对象标识实施记录](records/M-102-runtime-inspection-identity.md)
@@ -259,6 +261,7 @@
 - [M-219 0.33.0 资产构建与发布优化验收记录](records/M-219-asset-cooking-validation.md)
 - [M-228 0.34.0 离线纹理构建验收记录](records/M-228-offline-texture-validation.md)
 - [M-241 0.36.0 发布验收记录](records/M-241-0.36.0-release-validation.md)
+- [M-242～M-245 0.37.0 交互、响应性与发布验收](records/M-242-245-0.37.0-validation.md)
 - [M-236 0.35.0 发布验收记录](records/M-236-0.35.0-release-validation.md)
 - [M-237 重导入异常诊断与任务恢复](records/M-237-reimport-failure-recovery.md)
 - [M-239/M-240 资产闭环与编辑器自动化验收](records/M-239-240-editor-workflow-validation.md)

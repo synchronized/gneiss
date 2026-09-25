@@ -43,22 +43,56 @@ constexpr std::size_t matrix_index(std::size_t row, std::size_t column) noexcept
 
 } // namespace
 
+gizmo_matrix build_gizmo_view_matrix(const gneiss::transform& camera) noexcept {
+  auto inverse = camera;
+  inverse.rotation[0] = -inverse.rotation[0];
+  inverse.rotation[1] = -inverse.rotation[1];
+  inverse.rotation[2] = -inverse.rotation[2];
+  inverse.translation[0] = 0.0F;
+  inverse.translation[1] = 0.0F;
+  inverse.translation[2] = 0.0F;
+  inverse.scale[0] = 1.0F;
+  inverse.scale[1] = 1.0F;
+  inverse.scale[2] = 1.0F;
+  gizmo_matrix result{};
+  (void)gneiss::editor::transform_to_gizmo_matrix(inverse, result);
+  for (std::size_t row = 0; row < 3U; ++row) {
+    result[matrix_index(row, 3U)] = -((result[matrix_index(row, 0U)] * camera.translation[0]) +
+                                      (result[matrix_index(row, 1U)] * camera.translation[1]) +
+                                      (result[matrix_index(row, 2U)] * camera.translation[2]));
+  }
+  return result;
+}
+
+gizmo_matrix build_gizmo_projection_matrix(float aspect) noexcept {
+  constexpr float field_of_view = 1.04719755F;
+  constexpr float near_plane = 0.05F;
+  constexpr float far_plane = 2000.0F;
+  const auto focal = 1.0F / std::tan(field_of_view * 0.5F);
+  gizmo_matrix result{};
+  result[matrix_index(0U, 0U)] = focal / aspect;
+  // ImGuizmo 将统一的 Y 向上 NDC 转换为向下增长的屏幕坐标。
+  result[matrix_index(1U, 1U)] = focal;
+  result[matrix_index(2U, 2U)] = far_plane / (near_plane - far_plane);
+  result[matrix_index(2U, 3U)] = (far_plane * near_plane) / (near_plane - far_plane);
+  result[matrix_index(3U, 2U)] = -1.0F;
+  return result;
+}
+
 result transform_to_gizmo_matrix(const transform& value, gizmo_matrix& output) noexcept {
-  if (!valid(value) || std::ranges::any_of(value.scale, [](float component) {
-        return component < 0.0F;
-      })) {
+  if (!valid(value) ||
+      std::ranges::any_of(value.scale, [](float component) { return component < 0.0F; })) {
     return result::unsupported;
   }
   const auto x = value.rotation[0];
   const auto y = value.rotation[1];
   const auto z = value.rotation[2];
   const auto w = value.rotation[3];
-  const std::array rotation{
-      1.0F - (2.0F * ((y * y) + (z * z))), 2.0F * ((x * y) + (w * z)),
-      2.0F * ((x * z) - (w * y)), 2.0F * ((x * y) - (w * z)),
-      1.0F - (2.0F * ((x * x) + (z * z))), 2.0F * ((y * z) + (w * x)),
-      2.0F * ((x * z) + (w * y)), 2.0F * ((y * z) - (w * x)),
-      1.0F - (2.0F * ((x * x) + (y * y)))};
+  const std::array rotation{1.0F - (2.0F * ((y * y) + (z * z))), 2.0F * ((x * y) + (w * z)),
+                            2.0F * ((x * z) - (w * y)),          2.0F * ((x * y) - (w * z)),
+                            1.0F - (2.0F * ((x * x) + (z * z))), 2.0F * ((y * z) + (w * x)),
+                            2.0F * ((x * z) + (w * y)),          2.0F * ((y * z) - (w * x)),
+                            1.0F - (2.0F * ((x * x) + (y * y)))};
   output.fill(0.0F);
   for (std::size_t column = 0; column < 3U; ++column) {
     for (std::size_t row = 0; row < 3U; ++row) {
@@ -72,7 +106,8 @@ result transform_to_gizmo_matrix(const transform& value, gizmo_matrix& output) n
 
 result gizmo_matrix_to_transform(const gizmo_matrix& value, transform& output) noexcept {
   if (!std::ranges::all_of(value, [](float component) { return std::isfinite(component); }) ||
-      std::abs(value[matrix_index(3U, 3U)] - 1.0F) > 1.0e-4F) {
+      std::abs(value[matrix_index(3U, 3U)] - 1.0F) > 1.0e-4F || value[3] != 0.0F ||
+      value[7] != 0.0F || value[11] != 0.0F) {
     return result::invalid_argument;
   }
   transform result = GNEISS_TRANSFORM_IDENTITY;
@@ -89,8 +124,7 @@ result gizmo_matrix_to_transform(const gizmo_matrix& value, transform& output) n
   std::array<float, 9> rotation{};
   for (std::size_t column = 0; column < 3U; ++column) {
     for (std::size_t row = 0; row < 3U; ++row) {
-      rotation[(column * 3U) + row] =
-          value[matrix_index(row, column)] / result.scale[column];
+      rotation[(column * 3U) + row] = value[matrix_index(row, column)] / result.scale[column];
     }
   }
   const auto determinant =
@@ -100,12 +134,12 @@ result gizmo_matrix_to_transform(const gizmo_matrix& value, transform& output) n
   if (determinant <= 0.0F) {
     return result::unsupported;
   }
-  const auto dot01 = (rotation[0] * rotation[3]) + (rotation[1] * rotation[4]) +
-                     (rotation[2] * rotation[5]);
-  const auto dot02 = (rotation[0] * rotation[6]) + (rotation[1] * rotation[7]) +
-                     (rotation[2] * rotation[8]);
-  const auto dot12 = (rotation[3] * rotation[6]) + (rotation[4] * rotation[7]) +
-                     (rotation[5] * rotation[8]);
+  const auto dot01 =
+      (rotation[0] * rotation[3]) + (rotation[1] * rotation[4]) + (rotation[2] * rotation[5]);
+  const auto dot02 =
+      (rotation[0] * rotation[6]) + (rotation[1] * rotation[7]) + (rotation[2] * rotation[8]);
+  const auto dot12 =
+      (rotation[3] * rotation[6]) + (rotation[4] * rotation[7]) + (rotation[5] * rotation[8]);
   if (std::max({std::abs(dot01), std::abs(dot02), std::abs(dot12)}) > 1.0e-3F) {
     return result::unsupported;
   }
@@ -118,23 +152,19 @@ result gizmo_matrix_to_transform(const gizmo_matrix& value, transform& output) n
     result.rotation[2] = (rotation[1] - rotation[3]) / factor;
   } else {
     const std::size_t axis = rotation[4] > rotation[0] ? (rotation[8] > rotation[4] ? 2U : 1U)
-                                                        : (rotation[8] > rotation[0] ? 2U : 0U);
+                                                       : (rotation[8] > rotation[0] ? 2U : 0U);
     const auto next = (axis + 1U) % 3U;
     const auto last = (axis + 2U) % 3U;
     const auto factor =
-        2.0F * std::sqrt(1.0F + rotation[(axis * 3U) + axis] -
-                         rotation[(next * 3U) + next] - rotation[(last * 3U) + last]);
+        2.0F * std::sqrt(1.0F + rotation[(axis * 3U) + axis] - rotation[(next * 3U) + next] -
+                         rotation[(last * 3U) + last]);
     result.rotation[axis] = 0.25F * factor;
-    result.rotation[3] =
-        (rotation[(next * 3U) + last] - rotation[(last * 3U) + next]) / factor;
-    result.rotation[next] =
-        (rotation[(axis * 3U) + next] + rotation[(next * 3U) + axis]) / factor;
-    result.rotation[last] =
-        (rotation[(axis * 3U) + last] + rotation[(last * 3U) + axis]) / factor;
+    result.rotation[3] = (rotation[(next * 3U) + last] - rotation[(last * 3U) + next]) / factor;
+    result.rotation[next] = (rotation[(axis * 3U) + next] + rotation[(next * 3U) + axis]) / factor;
+    result.rotation[last] = (rotation[(axis * 3U) + last] + rotation[(last * 3U) + axis]) / factor;
   }
-  const auto length = std::sqrt(std::inner_product(std::begin(result.rotation),
-                                                   std::end(result.rotation),
-                                                   std::begin(result.rotation), 0.0F));
+  const auto length = std::sqrt(std::inner_product(
+      std::begin(result.rotation), std::end(result.rotation), std::begin(result.rotation), 0.0F));
   for (auto& component : result.rotation) {
     component /= length;
   }

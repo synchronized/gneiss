@@ -102,6 +102,9 @@ ID 和实例不能跨 Application 使用。这两项操作仅限 Application 创
 或组件地址。接口使用与场景序列化相同的两次调用方式；快照用于当前版本 Editor 命令，不作为独立
 资产格式或长期存档格式。
 
+快照根节点的 `parent` 为 null，不保留快照外的父引用；恢复时使用显式 `parent` 参数重新挂接，
+局部 TRS 保持不变。这使非根子树快照也能独立通过场景 Schema 校验。
+
 单个快照最多包含 `GNEISS_SCENE_SUBTREE_MAX_NODES`（4096）个节点，超过限制返回
 `GNEISS_ERROR_UNSUPPORTED`，防止命令历史无界持有场景副本。
 
