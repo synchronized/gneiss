@@ -53,3 +53,4 @@ Reference 和实现为准。
 
 - [ADR-045：Editor 资产任务的线程与提交边界](ADR-045-editor-background-assets.md)
 - [ADR-046：任务调度与 Service 的执行边界](ADR-046-task-scheduling-service-boundary.md)
+- [ADR-047：任务契约共用线程池与协作执行模式](ADR-047-cooperative-task-execution.md)
