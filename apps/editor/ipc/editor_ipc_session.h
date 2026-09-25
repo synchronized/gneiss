@@ -35,6 +35,7 @@ public:
   [[nodiscard]] result request_resume() noexcept;
   [[nodiscard]] result request_inspection_resync() noexcept;
   [[nodiscard]] result send_property_write(const ipc_property_write& command) noexcept;
+  [[nodiscard]] result send_asset_cancel(std::uint64_t session, std::uint64_t revision) noexcept;
   [[nodiscard]] result send_asset_reload(const ipc_asset_reload_request& command,
                                          ipc_asset_operation operation) noexcept;
 

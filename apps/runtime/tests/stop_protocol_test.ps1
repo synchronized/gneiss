@@ -19,6 +19,7 @@ $process = Start-Process -FilePath $Runtime `
                   "--log-file", ('"' + $log + '"')) `
   -RedirectStandardOutput $stdout -RedirectStandardError $stderr -WindowStyle Hidden -PassThru
 $startupDeadline = [DateTime]::UtcNow.AddSeconds(30)
+$startupObserved = $false
 while ([DateTime]::UtcNow -lt $startupDeadline) {
   if ($process.HasExited) {
     throw "Runtime exited before accepting the stop request with code $($process.ExitCode)"
@@ -26,13 +27,14 @@ while ([DateTime]::UtcNow -lt $startupDeadline) {
   if (Test-Path -LiteralPath $log) {
     $startupLog = Get-Content -LiteralPath $log -Raw
     if ($startupLog -match "stage=application_create") {
+      # 使用已观察到的状态，避免重复读取正在追加的日志产生瞬时空快照。
+      $startupObserved = $true
       break
     }
   }
   Start-Sleep -Milliseconds 50
 }
-if (-not (Test-Path -LiteralPath $log) -or
-    (Get-Content -LiteralPath $log -Raw) -notmatch "stage=application_create") {
+if (-not $startupObserved) {
   Stop-Process -Id $process.Id -Force
   throw "Runtime did not finish startup before the stop request"
 }

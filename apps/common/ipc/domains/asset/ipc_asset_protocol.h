@@ -13,16 +13,24 @@
 
 namespace gneiss {
 
-inline constexpr std::uint16_t ipc_asset_domain_version = 2U;
+inline constexpr std::uint16_t ipc_asset_domain_version = 3U;
 inline constexpr std::size_t ipc_asset_max_payload_size = 256U * 1024U;
 
-enum class ipc_asset_operation : std::uint16_t { reload = 1U, resync = 2U };
+enum class ipc_asset_operation : std::uint16_t {
+  reload = 1U,
+  resync = 2U,
+  cancel = 3U,
+  progress = 4U
+};
 enum class ipc_asset_type : std::uint8_t { texture, material, static_mesh, scene, prefab };
 enum class ipc_asset_apply_status : std::uint8_t {
   applied,
   failed,
   stale,
   restart_required,
+  preparing,
+  uploading,
+  cancelled,
 };
 
 struct ipc_asset_revision final {
@@ -43,7 +51,16 @@ struct ipc_asset_reload_result final {
   std::uint64_t revision = 0U;
   ipc_asset_apply_status status{ipc_asset_apply_status::failed};
   std::string message;
+  bool can_cancel = false;
+  std::uint32_t completed_assets = 0U;
+  std::uint32_t total_assets = 0U;
 };
+
+/** 取消只携带批次身份；作为事件不占用重载响应，终态由原请求返回。 */
+[[nodiscard]] result encode_ipc_asset_cancel(std::uint64_t session, std::uint64_t revision,
+                                             ipc_envelope& output) noexcept;
+[[nodiscard]] result decode_ipc_asset_cancel(const ipc_envelope& envelope,
+                                             ipc_asset_reload_request& output) noexcept;
 
 [[nodiscard]] result encode_ipc_asset_request(const ipc_asset_reload_request& request,
                                               std::vector<std::uint8_t>& output) noexcept;

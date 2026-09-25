@@ -38,6 +38,7 @@ struct runtime_ipc_actions final {
     std::uint32_t request_id = 0U;
   };
   std::vector<asset_reload_command> asset_reloads;
+  std::vector<ipc_asset_reload_request> asset_cancels;
   result failure = result::success;
 };
 

@@ -37,6 +37,7 @@ gneiss_result resource_cache::acquire(std::string_view uri, std::uint32_t type, 
     value->type = type;
     value->state = resource_state::loading;
     entries_.emplace(value->uri, value);
+    ++revision_;
 
     std::shared_ptr<void> resource;
     const auto result = load(resource);
@@ -80,6 +81,7 @@ gneiss_result resource_cache::reload(std::string_view uri, std::uint32_t type, c
     value->resource = std::move(resource);
     value->state = resource_state::ready;
     entries_.insert_or_assign(value->uri, value);
+    ++revision_;
     out_entry = std::move(value);
     return GNEISS_SUCCESS;
   } catch (const std::bad_alloc&) {
@@ -127,6 +129,7 @@ gneiss_result resource_cache::reload_transaction(
       committed.push_back(candidate);
     }
     entries_.swap(staging.entries_);
+    ++revision_;
     out_entries = std::move(committed);
     return GNEISS_SUCCESS;
   } catch (const std::bad_alloc&) {
@@ -145,6 +148,7 @@ void resource_cache::release_unused() noexcept {
       // map 与调用方或依赖租约之外没有持有者时即可释放。
       if (iterator->second.use_count() == 1) {
         iterator = entries_.erase(iterator);
+        ++revision_;
         removed = true;
       } else {
         ++iterator;

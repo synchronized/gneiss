@@ -1557,6 +1557,10 @@ void draw_asset_browser(editor_state& state) {
             : ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled);
     ImGui::TextColored(color, "Runtime asset revision %llu: %s",
                        static_cast<unsigned long long>(reload.revision), reload.message.c_str());
+    if (reload.total_assets > 0U)
+      ImGui::Text("Uploaded: %u / %u", reload.completed_assets, reload.total_assets);
+    if (reload.can_cancel && ImGui::Button("Cancel Runtime asset update"))
+      state.runtime_result = state.runtime.cancel_asset_reload();
     if (reload.state == gneiss::editor::runtime_asset_reload_state::failed &&
         ImGui::Button("Retry Runtime asset sync")) {
       state.runtime_result = state.runtime.retry_asset_reload();

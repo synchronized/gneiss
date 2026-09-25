@@ -41,6 +41,12 @@ using mutable_document_ptr = std::unique_ptr<yyjson_mut_doc, decltype(&yyjson_mu
 
 [[nodiscard]] std::string_view status_name(ipc_asset_apply_status status) noexcept {
   switch (status) {
+  case ipc_asset_apply_status::preparing:
+    return "preparing";
+  case ipc_asset_apply_status::uploading:
+    return "uploading";
+  case ipc_asset_apply_status::cancelled:
+    return "cancelled";
   case ipc_asset_apply_status::applied:
     return "applied";
   case ipc_asset_apply_status::failed:
@@ -86,7 +92,13 @@ using mutable_document_ptr = std::unique_ptr<yyjson_mut_doc, decltype(&yyjson_mu
 }
 
 [[nodiscard]] bool parse_status(std::string_view text, ipc_asset_apply_status& output) noexcept {
-  if (text == "applied") {
+  if (text == "preparing") {
+    output = ipc_asset_apply_status::preparing;
+  } else if (text == "uploading") {
+    output = ipc_asset_apply_status::uploading;
+  } else if (text == "cancelled") {
+    output = ipc_asset_apply_status::cancelled;
+  } else if (text == "applied") {
     output = ipc_asset_apply_status::applied;
   } else if (text == "failed") {
     output = ipc_asset_apply_status::failed;
@@ -233,7 +245,9 @@ result encode_ipc_asset_result(const ipc_asset_reload_result& response,
                                std::vector<std::uint8_t>& output) noexcept {
   const auto status = status_name(response.status);
   if (response.session_id == 0U || response.revision == 0U || status.empty() ||
-      response.message.size() > max_message_size) {
+      response.message.size() > max_message_size ||
+      response.completed_assets > response.total_assets || response.total_assets > 256U ||
+      (response.can_cancel && response.status != ipc_asset_apply_status::preparing)) {
     return result::invalid_argument;
   }
   try {
@@ -243,6 +257,10 @@ result encode_ipc_asset_result(const ipc_asset_reload_result& response,
         !yyjson_mut_obj_add_uint(document.get(), root, "session_id", response.session_id) ||
         !yyjson_mut_obj_add_uint(document.get(), root, "revision", response.revision) ||
         !yyjson_mut_obj_add_strncpy(document.get(), root, "status", status.data(), status.size()) ||
+        !yyjson_mut_obj_add_bool(document.get(), root, "can_cancel", response.can_cancel) ||
+        !yyjson_mut_obj_add_uint(document.get(), root, "completed_assets",
+                                 response.completed_assets) ||
+        !yyjson_mut_obj_add_uint(document.get(), root, "total_assets", response.total_assets) ||
         !yyjson_mut_obj_add_strncpy(document.get(), root, "message", response.message.data(),
                                     response.message.size())) {
       return result::out_of_memory;
@@ -273,6 +291,17 @@ result decode_ipc_asset_result(std::span<const std::uint8_t> payload,
         !parse_status({yyjson_get_str(status), yyjson_get_len(status)}, parsed.status)) {
       return result::invalid_argument;
     }
+    auto* cancel = yyjson_obj_get(root, "can_cancel");
+    auto* completed = yyjson_obj_get(root, "completed_assets");
+    auto* total = yyjson_obj_get(root, "total_assets");
+    if (!yyjson_is_bool(cancel) || !yyjson_is_uint(completed) || !yyjson_is_uint(total) ||
+        yyjson_get_uint(total) > 256U || yyjson_get_uint(completed) > yyjson_get_uint(total) ||
+        (yyjson_get_bool(cancel) && parsed.status != ipc_asset_apply_status::preparing)) {
+      return result::invalid_argument;
+    }
+    parsed.can_cancel = yyjson_get_bool(cancel);
+    parsed.completed_assets = static_cast<std::uint32_t>(yyjson_get_uint(completed));
+    parsed.total_assets = static_cast<std::uint32_t>(yyjson_get_uint(total));
     parsed.message.assign(yyjson_get_str(message), yyjson_get_len(message));
     output = std::move(parsed);
     return result::success;
@@ -288,6 +317,12 @@ namespace {
 constexpr auto request_kind = ipc_kind_mask(ipc_message_kind::request);
 constexpr auto response_kind = ipc_kind_mask(ipc_message_kind::response);
 constexpr std::array asset_operations{
+    ipc_operation_descriptor{.operation = static_cast<std::uint16_t>(ipc_asset_operation::progress),
+                             .editor_to_runtime_kinds = 0U,
+                             .runtime_to_editor_kinds = ipc_kind_mask(ipc_message_kind::event)},
+    ipc_operation_descriptor{.operation = static_cast<std::uint16_t>(ipc_asset_operation::cancel),
+                             .editor_to_runtime_kinds = ipc_kind_mask(ipc_message_kind::event),
+                             .runtime_to_editor_kinds = 0U},
     ipc_operation_descriptor{.operation = static_cast<std::uint16_t>(ipc_asset_operation::reload),
                              .editor_to_runtime_kinds = request_kind,
                              .runtime_to_editor_kinds = response_kind},
@@ -296,6 +331,48 @@ constexpr std::array asset_operations{
                              .runtime_to_editor_kinds = response_kind}};
 
 } // namespace
+
+result encode_ipc_asset_cancel(std::uint64_t session, std::uint64_t revision,
+                               ipc_envelope& output) noexcept try {
+  if (session == 0U || revision == 0U)
+    return result::invalid_argument;
+  mutable_document_ptr document(yyjson_mut_doc_new(nullptr), &yyjson_mut_doc_free);
+  auto* root = document ? yyjson_mut_obj(document.get()) : nullptr;
+  if (!root || !yyjson_mut_obj_add_uint(document.get(), root, "session_id", session) ||
+      !yyjson_mut_obj_add_uint(document.get(), root, "revision", revision))
+    return result::out_of_memory;
+  std::vector<std::uint8_t> payload;
+  auto result = write_document(document.get(), root, payload);
+  if (result != result::success)
+    return result;
+  output = {.domain = ipc_domain::asset,
+            .operation = static_cast<std::uint16_t>(ipc_asset_operation::cancel),
+            .kind = ipc_message_kind::event,
+            .request_id = 0U,
+            .payload = std::move(payload)};
+  return result::success;
+} catch (const std::bad_alloc&) {
+  return result::out_of_memory;
+} catch (...) {
+  return result::internal;
+}
+result decode_ipc_asset_cancel(const ipc_envelope& envelope,
+                               ipc_asset_reload_request& output) noexcept {
+  if (envelope.domain != ipc_domain::asset ||
+      envelope.operation != static_cast<std::uint16_t>(ipc_asset_operation::cancel) ||
+      envelope.kind != ipc_message_kind::event || envelope.request_id != 0U ||
+      envelope.payload.size() > 256U)
+    return result::invalid_argument;
+  document_ptr document(yyjson_read(reinterpret_cast<const char*>(envelope.payload.data()),
+                                    envelope.payload.size(), YYJSON_READ_NOFLAG),
+                        &yyjson_doc_free);
+  ipc_asset_reload_request parsed;
+  if (!document ||
+      !parse_header(yyjson_doc_get_root(document.get()), parsed.session_id, parsed.revision))
+    return result::invalid_argument;
+  output = std::move(parsed);
+  return result::success;
+}
 
 result encode_ipc_asset_request_v2(const ipc_asset_reload_request& request,
                                    ipc_asset_operation operation, std::uint32_t request_id,
@@ -328,7 +405,12 @@ result decode_ipc_asset_request_v2(const ipc_envelope& envelope,
 result encode_ipc_asset_result_v2(const ipc_asset_reload_result& response,
                                   ipc_asset_operation operation, std::uint32_t request_id,
                                   ipc_envelope& output) noexcept {
-  if (request_id == 0U || !known_operation(static_cast<std::uint16_t>(operation))) {
+  const bool progress = operation == ipc_asset_operation::progress;
+  if (progress ? (request_id != 0U || (response.status != ipc_asset_apply_status::preparing &&
+                                       response.status != ipc_asset_apply_status::uploading))
+               : (request_id == 0U || !known_operation(static_cast<std::uint16_t>(operation)) ||
+                  response.status == ipc_asset_apply_status::preparing ||
+                  response.status == ipc_asset_apply_status::uploading)) {
     return result::invalid_argument;
   }
   std::vector<std::uint8_t> payload;
@@ -338,7 +420,7 @@ result encode_ipc_asset_result_v2(const ipc_asset_reload_result& response,
   }
   output = {.domain = ipc_domain::asset,
             .operation = static_cast<std::uint16_t>(operation),
-            .kind = ipc_message_kind::response,
+            .kind = progress ? ipc_message_kind::event : ipc_message_kind::response,
             .request_id = request_id,
             .payload = std::move(payload)};
   return result::success;
@@ -346,11 +428,22 @@ result encode_ipc_asset_result_v2(const ipc_asset_reload_result& response,
 
 result decode_ipc_asset_result_v2(const ipc_envelope& envelope,
                                   ipc_asset_reload_result& output) noexcept {
-  if (envelope.domain != ipc_domain::asset || !known_operation(envelope.operation) ||
-      envelope.kind != ipc_message_kind::response || envelope.request_id == 0U) {
+  const bool progress =
+      envelope.operation == static_cast<std::uint16_t>(ipc_asset_operation::progress);
+  if (envelope.domain != ipc_domain::asset ||
+      (progress ? envelope.kind != ipc_message_kind::event || envelope.request_id != 0U
+                : !known_operation(envelope.operation) ||
+                      envelope.kind != ipc_message_kind::response || envelope.request_id == 0U))
     return result::invalid_argument;
-  }
-  return decode_ipc_asset_result(envelope.payload, output);
+  ipc_asset_reload_result parsed;
+  const auto decoded = decode_ipc_asset_result(envelope.payload, parsed);
+  if (decoded != result::success)
+    return decoded;
+  if (progress != (parsed.status == ipc_asset_apply_status::preparing ||
+                   parsed.status == ipc_asset_apply_status::uploading))
+    return result::invalid_argument;
+  output = std::move(parsed);
+  return result::success;
 }
 
 std::span<const ipc_operation_descriptor> ipc_asset_operations() noexcept {

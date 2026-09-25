@@ -73,6 +73,16 @@ void report_create_failure(const gneiss_application_desc& desc, gneiss_result re
 
 } // namespace
 
+gneiss_result
+gneiss::application_internal::capture_frame(gneiss_application application, std::uint32_t width,
+                                            std::uint32_t height,
+                                            render_internal::frame_image& output) noexcept {
+  output = {};
+  auto state = find_application(application);
+  const auto valid = validate_application(state);
+  return valid == GNEISS_SUCCESS ? state->capture_frame(width, height, output) : valid;
+}
+
 gneiss_result gneiss::application_internal::query_render_statistics(
     gneiss_application application, render_internal::render_queue_stats& output) noexcept {
   auto state = find_application(application);
@@ -89,6 +99,46 @@ gneiss::application_internal::attach_task_executor(gneiss_application applicatio
   auto state = find_application(application);
   const auto valid = validate_application(state);
   return valid == GNEISS_SUCCESS ? state->attach_task_executor(executor) : valid;
+}
+gneiss_result gneiss::application_internal::request_render_assets(
+    gneiss_application application, std::span<const render_internal::render_asset_reload> assets,
+    std::uint64_t session, std::uint64_t revision, std::uint64_t& request, bool reload) noexcept {
+  request = 0U;
+  auto state = find_application(application);
+  const auto valid = validate_application(state);
+  if (valid != GNEISS_SUCCESS)
+    return valid;
+  if (!state->texture_service())
+    return GNEISS_ERROR_NOT_READY;
+  try {
+    return state->texture_service()->submit_assets(assets, session, revision, request, reload);
+  } catch (const std::bad_alloc&) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+gneiss_result gneiss::application_internal::query_asset_load_progress(
+    gneiss_application application, asset_internal::asset_load_progress& progress,
+    bool& active) noexcept {
+  active = false;
+  progress = {};
+  auto state = find_application(application);
+  const auto valid = validate_application(state);
+  if (valid != GNEISS_SUCCESS)
+    return valid;
+  if (state->texture_service())
+    active = state->texture_service()->progress(progress);
+  return GNEISS_SUCCESS;
+}
+gneiss_result
+gneiss::application_internal::cancel_render_assets(gneiss_application application) noexcept {
+  auto state = find_application(application);
+  const auto valid = validate_application(state);
+  if (valid != GNEISS_SUCCESS)
+    return valid;
+  return state->texture_service() && state->texture_service()->cancel() ? GNEISS_SUCCESS
+                                                                        : GNEISS_ERROR_NOT_READY;
 }
 gneiss_result gneiss::application_internal::request_textures(
     gneiss_application application, std::span<const std::string> uris, std::uint64_t session,

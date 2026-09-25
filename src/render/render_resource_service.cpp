@@ -81,6 +81,39 @@ gneiss_result render_resource_service::create_mesh(const gneiss_mesh_desc& desc,
   }
 }
 
+gneiss_result render_resource_service::create_prepared_mesh(mesh_resource resource,
+                                                            gneiss_mesh* output) noexcept {
+  if (output == nullptr || !is_valid()) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  try {
+    return meshes_.create(core::resource_type::mesh,
+                          std::make_shared<const mesh_resource>(std::move(resource)), output);
+  } catch (const std::bad_alloc&) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+bool render_resource_service::replace_mesh(gneiss_mesh rid,
+                                           std::shared_ptr<const mesh_resource> data) noexcept {
+  auto* slot = meshes_.get(rid, core::resource_type::mesh);
+  if (!slot || !data) {
+    return false;
+  }
+  *slot = std::move(data);
+  return true;
+}
+bool render_resource_service::replace_material(
+    gneiss_material rid, std::shared_ptr<const material_resource> data) noexcept {
+  auto* slot = materials_.get(rid, core::resource_type::material);
+  if (!slot || !data) {
+    return false;
+  }
+  *slot = std::move(data);
+  return true;
+}
+
 gneiss_result render_resource_service::destroy_mesh(gneiss_mesh mesh) noexcept {
   return meshes_.destroy(mesh, core::resource_type::mesh);
 }

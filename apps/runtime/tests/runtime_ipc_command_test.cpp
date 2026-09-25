@@ -77,5 +77,13 @@ int main() {
       actions.asset_reloads.size() != 1U || actions.asset_reloads.front().request_id != 10U) {
     return 4;
   }
+  if (encode_ipc_asset_cancel(3U, 4U, envelope) != result::success ||
+      !router.dispatch(envelope, dispatch_context, context).accepted() ||
+      actions.asset_cancels.size() != 1U || actions.asset_cancels.front().session_id != 3U ||
+      actions.asset_cancels.front().revision != 4U)
+    return 5;
+  envelope.kind = ipc_message_kind::request;
+  if (router.dispatch(envelope, dispatch_context, context).accepted())
+    return 6;
   return 0;
 }

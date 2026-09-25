@@ -713,6 +713,14 @@ add_test(NAME gneiss.texture-load-application COMMAND gneiss_texture_load_applic
 set_tests_properties(gneiss.texture-load-service gneiss.texture-load-application PROPERTIES TIMEOUT 30)
 
 if(GNEISS_ENABLE_GRANIT_PLATFORM)
+  add_executable(gneiss_asset_pixel_test render/asset_pixel_test.cpp
+    "${PROJECT_SOURCE_DIR}/src/asset/texture_ktx2.cpp")
+  target_include_directories(gneiss_asset_pixel_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+  target_link_libraries(gneiss_asset_pixel_test PRIVATE gneiss::engine gneiss_tasks)
+  gneiss_target_compile_warnings(gneiss_asset_pixel_test)
+  gneiss_target_output_directories(gneiss_asset_pixel_test)
+  add_test(NAME gneiss.asset-pixel COMMAND gneiss_asset_pixel_test)
+  set_tests_properties(gneiss.asset-pixel PROPERTIES TIMEOUT 60)
   add_executable(gneiss_texture_load_window_benchmark render/texture_load_window_benchmark.cpp)
   target_include_directories(gneiss_texture_load_window_benchmark PRIVATE "${PROJECT_SOURCE_DIR}/src")
   target_link_libraries(gneiss_texture_load_window_benchmark PRIVATE gneiss::engine gneiss_tasks)

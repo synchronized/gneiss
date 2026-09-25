@@ -4,7 +4,7 @@
 #include "ipc_asset_protocol.h"
 
 int main() {
-  static_assert(gneiss::ipc_asset_domain_version == 2U);
+  static_assert(gneiss::ipc_asset_domain_version == 3U);
   const gneiss::ipc_asset_reload_request request{
       .session_id = 7U,
       .revision = 11U,
@@ -63,10 +63,39 @@ int main() {
       decoded_response.status != response.status || decoded_response.message != response.message) {
     return 4;
   }
+  auto progress = response;
+  progress.status = gneiss::ipc_asset_apply_status::preparing;
+  progress.can_cancel = true;
+  progress.total_assets = 7U;
+  progress.completed_assets = 2U;
+  if (gneiss::encode_ipc_asset_result_v2(progress, gneiss::ipc_asset_operation::progress, 0U,
+                                         envelope) != gneiss::result::success ||
+      gneiss::decode_ipc_asset_result_v2(envelope, decoded_response) != gneiss::result::success ||
+      !decoded_response.can_cancel || decoded_response.completed_assets != 2U)
+    return 6;
+  envelope.request_id = 1U;
+  if (gneiss::decode_ipc_asset_result_v2(envelope, decoded_response) !=
+      gneiss::result::invalid_argument)
+    return 7;
+  progress.status = gneiss::ipc_asset_apply_status::uploading;
+  if (gneiss::encode_ipc_asset_result_v2(progress, gneiss::ipc_asset_operation::progress, 0U,
+                                         envelope) != gneiss::result::invalid_argument)
+    return 8;
+  if (gneiss::encode_ipc_asset_cancel(7U, 11U, envelope) != gneiss::result::success ||
+      gneiss::decode_ipc_asset_cancel(envelope, decoded_request) != gneiss::result::success ||
+      decoded_request.revision != 11U)
+    return 9;
+  envelope.request_id = 1U;
+  if (gneiss::decode_ipc_asset_cancel(envelope, decoded_request) !=
+      gneiss::result::invalid_argument)
+    return 10;
+  if (gneiss::encode_ipc_asset_result_v2(response, gneiss::ipc_asset_operation::reload, 19U,
+                                         envelope) != gneiss::result::success)
+    return 11;
   envelope.kind = gneiss::ipc_message_kind::event;
   return gneiss::decode_ipc_asset_result_v2(envelope, decoded_response) ==
                      gneiss::result::invalid_argument &&
-                 gneiss::ipc_asset_operations().size() == 2U
+                 gneiss::ipc_asset_operations().size() == 4U
              ? 0
              : 5;
 }

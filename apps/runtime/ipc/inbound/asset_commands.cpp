@@ -10,6 +10,18 @@ namespace {
 
 constexpr std::size_t asset_reload_budget = 8U;
 
+result handle_asset_cancel(const ipc_envelope& envelope,
+                           runtime_command_context& context) noexcept {
+  ipc_asset_reload_request request;
+  const auto decoded = decode_ipc_asset_cancel(envelope, request);
+  if (decoded != result::success)
+    return decoded;
+  if (context.actions().asset_cancels.size() >= asset_reload_budget)
+    return result::not_ready;
+  context.actions().asset_cancels.push_back(std::move(request));
+  return result::success;
+}
+
 result handle_asset_reload(const ipc_envelope& envelope,
                            runtime_command_context& context) noexcept {
   ipc_asset_reload_request request;
@@ -38,6 +50,10 @@ result register_runtime_asset_commands(runtime_command_router& router) noexcept 
         router.bind(ipc_domain::asset, static_cast<std::uint16_t>(ipc_asset_operation::resync),
                     handle_asset_reload);
   }
+  if (operation == result::success)
+    operation =
+        router.bind(ipc_domain::asset, static_cast<std::uint16_t>(ipc_asset_operation::cancel),
+                    handle_asset_cancel);
   return operation;
 }
 

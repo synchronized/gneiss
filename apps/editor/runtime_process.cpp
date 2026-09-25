@@ -265,15 +265,25 @@ struct runtime_process::implementation final {
       if (const auto* value = std::get_if<runtime_asset_result_event>(&decoded_event)) {
         if (value->value.session_id == asset_session_id &&
             value->value.revision == asset_revision_in_flight) {
-          asset_revision_in_flight = 0U;
+          asset_reload.can_cancel = value->value.can_cancel;
+          asset_reload.completed_assets = value->value.completed_assets;
+          asset_reload.total_assets = value->value.total_assets;
+          if (value->value.status != ipc_asset_apply_status::preparing &&
+              value->value.status != ipc_asset_apply_status::uploading)
+            asset_revision_in_flight = 0U;
           asset_reload.message = value->value.message;
           switch (value->value.status) {
+          case ipc_asset_apply_status::preparing:
+          case ipc_asset_apply_status::uploading:
+            asset_reload.state = runtime_asset_reload_state::applying;
+            break;
           case ipc_asset_apply_status::applied:
           case ipc_asset_apply_status::stale:
             asset_reload.state = pending_asset_batches.empty()
                                      ? runtime_asset_reload_state::applied
                                      : runtime_asset_reload_state::waiting;
             break;
+          case ipc_asset_apply_status::cancelled:
           case ipc_asset_apply_status::failed:
             asset_reload.state = runtime_asset_reload_state::failed;
             pending_asset_batches.clear();
@@ -679,6 +689,19 @@ result runtime_process::publish_asset_revision(std::span<const std::string> outp
   const auto operation = publish();
   implementation_->asset_reload.publish_result = operation;
   return operation;
+}
+
+result runtime_process::cancel_asset_reload() noexcept {
+  if (!implementation_ || !implementation_->asset_reload.can_cancel ||
+      implementation_->asset_revision_in_flight == 0U)
+    return result::not_ready;
+  const auto result = implementation_->ipc_session.send_asset_cancel(
+      implementation_->asset_session_id, implementation_->asset_revision_in_flight);
+  if (result == result::success) {
+    implementation_->asset_reload.can_cancel = false;
+    implementation_->asset_reload.message = "取消已请求，等待 Runtime 确认";
+  }
+  return result;
 }
 
 result runtime_process::retry_asset_reload() noexcept {

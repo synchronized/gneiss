@@ -39,6 +39,13 @@ struct render_frame_capture_metrics final {
   std::size_t copied_payload_bytes{};
 };
 
+/** 内部诊断回读：紧密 RGBA8，所有权属于请求；仅完成回执后可读取。 */
+struct frame_image final {
+  std::uint32_t width{};
+  std::uint32_t height{};
+  std::vector<std::byte> pixels;
+};
+
 /** 已提交帧的自有数据；移动后不再借用主线程的逐帧可变内存。 */
 struct render_frame_packet final {
   /** 由执行器在接受帧时写入，用于关联延迟返回的渲染结果。 */
@@ -49,6 +56,7 @@ struct render_frame_packet final {
   ui_draw_list ui;
   debug_draw_list debug;
   render_frame_capture_metrics capture;
+  std::shared_ptr<frame_image> readback;
 };
 
 [[nodiscard]] gneiss_result

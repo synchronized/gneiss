@@ -45,7 +45,8 @@ result runtime_asset_reloader::execute(const ipc_asset_reload_request& request,
   }
   auto applied = result::success;
   if (begin_ && poll_ && std::ranges::all_of(request.assets, [](const auto& item) {
-        return item.type == ipc_asset_type::texture;
+        return item.type == ipc_asset_type::texture || item.type == ipc_asset_type::material ||
+               item.type == ipc_asset_type::static_mesh;
       })) {
     try {
       pending_ = request;
@@ -102,7 +103,7 @@ result runtime_asset_reloader::advance(ipc_asset_reload_result& response, bool& 
               .revision = pending_->revision,
               .status = applied == result::success ? ipc_asset_apply_status::applied
                                                    : ipc_asset_apply_status::failed,
-              .message = applied == result::success ? "资产修订已应用" : "异步纹理应用失败"};
+              .message = applied == result::success ? "资产修订已应用" : "异步资产应用失败"};
   if (applied == result::success) {
     applied_revision_ = pending_->revision;
   }
