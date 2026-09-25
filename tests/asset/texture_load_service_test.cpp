@@ -211,37 +211,35 @@ void mixed(tasks::execution_mode mode) {
   bool uploaded = false;
   bool ack = true;
   std::uint64_t serial{};
-  texture_upload_backend backend{.begin =
-                                     [&](auto data, auto& sequence) {
-                                       check(!data.empty() && data.size() <= 4U);
-                                       std::size_t bytes{};
-                                       for (const auto& item : data)
-                                         bytes += item.bytes;
-                                       check(data.size() == 1U ||
-                                             bytes <= texture_load_service::upload_budget_bytes);
-                                       ++chunks;
-                                       uploaded = true;
-                                       sequence = ++serial;
-                                       return GNEISS_SUCCESS;
-                                     },
-                                 .poll =
-                                     [&](auto, auto& result) {
-                                       result = fail && chunks == 2U && discards == 0U
-                                                    ? GNEISS_ERROR_IO
-                                                    : GNEISS_SUCCESS;
-                                       return ack;
-                                     },
-                                 .discard =
-                                     [&](auto data, auto& sequence) {
-                                       check(data.size() == 7U);
-                                       ++discards;
-                                       sequence = ++serial;
-                                       return GNEISS_SUCCESS;
-                                     },
-                                 .flush = [&] { ack = true; },
-                                 .estimate_bytes = [](const auto& item) -> std::size_t {
-                                   return item.mesh ? 5U * 1024U * 1024U : 1U * 1024U * 1024U;
-                                 }};
+  texture_upload_backend backend{
+      .begin =
+          [&](auto data, auto& sequence) {
+            check(!data.empty() && data.size() <= 4U);
+            std::size_t bytes{};
+            for (const auto& item : data)
+              bytes += item.bytes;
+            check(data.size() == 1U || bytes <= texture_load_service::upload_budget_bytes);
+            ++chunks;
+            uploaded = true;
+            sequence = ++serial;
+            return GNEISS_SUCCESS;
+          },
+      .poll =
+          [&](auto, auto& result) {
+            result = fail && chunks == 2U && discards == 0U ? GNEISS_ERROR_IO : GNEISS_SUCCESS;
+            return ack;
+          },
+      .discard =
+          [&](auto data, auto& sequence) {
+            check(data.size() == 7U);
+            ++discards;
+            sequence = ++serial;
+            return GNEISS_SUCCESS;
+          },
+      .flush = [&] { ack = true; },
+      .estimate_bytes = [](const auto& item) -> std::size_t {
+        return item.mesh ? 5U * 1024U * 1024U : 1U * 1024U * 1024U;
+      }};
   texture_load_service service(scheduler, vfs, loader, std::move(backend));
   const auto advance = [&] {
     if (mode == tasks::execution_mode::cooperative)
