@@ -26,7 +26,8 @@ namespace {
 
 } // namespace
 
-result author_asset_monitor::initialize(const std::filesystem::path& asset_root) noexcept {
+result author_asset_monitor::initialize(const std::filesystem::path& asset_root,
+                                        bool build_baseline) noexcept {
   if (asset_root.empty()) {
     return result::invalid_argument;
   }
@@ -42,18 +43,20 @@ result author_asset_monitor::initialize(const std::filesystem::path& asset_root)
     rescan_known_.clear();
     rescan_seen_.clear();
     fingerprints_.clear();
-    for (const auto& item : std::filesystem::recursive_directory_iterator(asset_root_)) {
-      if (!item.is_regular_file()) {
-        continue;
-      }
-      const auto relative = path_utf8(item.path().lexically_relative(asset_root_));
-      if (!is_structural_asset(relative)) {
-        continue;
-      }
-      const auto uri = "asset://" + relative;
-      std::uint64_t value = 0U;
-      if (fingerprint(uri, value) == result::success) {
-        fingerprints_.insert_or_assign(uri, value);
+    if (build_baseline) {
+      for (const auto& item : std::filesystem::recursive_directory_iterator(asset_root_)) {
+        if (!item.is_regular_file()) {
+          continue;
+        }
+        const auto relative = path_utf8(item.path().lexically_relative(asset_root_));
+        if (!is_structural_asset(relative)) {
+          continue;
+        }
+        const auto uri = "asset://" + relative;
+        std::uint64_t value = 0U;
+        if (fingerprint(uri, value) == result::success) {
+          fingerprints_.insert_or_assign(uri, value);
+        }
       }
     }
     status_ = {};
@@ -122,7 +125,18 @@ result author_asset_monitor::fingerprint(std::string_view uri,
     return result::invalid_argument;
   }
   try {
-    std::ifstream stream(asset_root_ / utf8_path(uri.substr(scheme.size())), std::ios::binary);
+    const auto destination =
+        std::filesystem::weakly_canonical(asset_root_ / utf8_path(uri.substr(scheme.size())));
+    const auto relative = destination.lexically_relative(asset_root_);
+    if (relative.empty() || relative.is_absolute()) {
+      return result::invalid_argument;
+    }
+    for (const auto& component : relative) {
+      if (component == "..") {
+        return result::invalid_argument;
+      }
+    }
+    std::ifstream stream(destination, std::ios::binary);
     if (!stream) {
       return result::not_found;
     }
@@ -170,7 +184,8 @@ author_asset_change author_asset_monitor::observe(const std::filesystem::path& r
                .uri = uri,
                .operation = operation,
                .message = operation == result::success ? "检测到外部结构资产变化"
-                                                       : "结构资产已删除或不可读取"};
+                                                       : "结构资产已删除或不可读取",
+               .fingerprint = value};
     return status_;
   } catch (...) {
     status_ = {.state = author_asset_change_state::failed,
@@ -193,6 +208,31 @@ result author_asset_monitor::acknowledge(std::string_view uri) noexcept {
     }
   }
   return operation;
+}
+
+result author_asset_monitor::acknowledge_content(std::string_view uri,
+                                                 std::string_view content) noexcept {
+  try {
+    std::uint64_t value = 14695981039346656037ULL;
+    for (const unsigned char byte : content) {
+      value ^= byte;
+      value *= 1099511628211ULL;
+    }
+    accept_fingerprint(uri, value);
+    return result::success;
+  } catch (...) {
+    return result::out_of_memory;
+  }
+}
+
+void author_asset_monitor::establish_baseline(std::string_view uri) {
+  if (!fingerprints_.contains(std::string(uri))) {
+    (void)acknowledge(uri);
+  }
+}
+
+void author_asset_monitor::accept_fingerprint(std::string_view uri, std::uint64_t value) {
+  fingerprints_.insert_or_assign(std::string(uri), value);
 }
 
 void author_asset_monitor::mark_applied(std::string_view uri) noexcept {

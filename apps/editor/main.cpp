@@ -27,7 +27,7 @@
 #include "asset_browser_model.h"
 #include "asset_file_watcher.h"
 #include "asset_import_controller.h"
-#include "author_asset_monitor.h"
+#include "author_asset_service.h"
 #endif
 
 #include <gneiss/application.hpp>
@@ -175,8 +175,9 @@ struct editor_state {
   gneiss::result asset_watch_result = gneiss::result::success;
   gneiss::result author_watch_result = gneiss::result::success;
   gneiss::editor::asset_file_watcher author_asset_watcher;
-  gneiss::editor::author_asset_monitor author_assets;
-  gneiss::editor::asset_background_worker asset_reimports;
+  gneiss::tasks::task_scheduler task_scheduler;
+  gneiss::editor::author_asset_service author_assets{task_scheduler};
+  gneiss::editor::asset_background_worker asset_reimports{{}, &task_scheduler};
   bool asset_shutdown_pending{};
   std::size_t observed_author_drops = 0U;
   std::size_t observed_source_drops = 0U;
@@ -683,15 +684,19 @@ gneiss::result save_document_as(editor_state& state) {
     return operation;
   }
   std::string uri;
+  std::string saved_content;
   operation = gneiss::editor::make_asset_uri(state.asset_root, path, uri);
   if (operation == gneiss::result::success) {
-    operation = state.session.save_as(state.asset_root, uri);
+    operation = state.session.save_as(state.asset_root, uri, &saved_content);
   }
   if (operation == gneiss::result::success) {
     state.history.mark_saved();
 #if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
     const auto saved_uri = std::string{state.session.uri()};
-    (void)state.author_assets.acknowledge(saved_uri);
+    const auto acknowledged = state.author_assets.acknowledge(saved_uri, std::move(saved_content));
+    if (acknowledged != gneiss::result::success) {
+      state.author_assets.mark_failed(saved_uri, acknowledged);
+    }
     (void)state.runtime.publish_asset_revision(std::span<const std::string>(&saved_uri, 1U));
 #endif
   }
@@ -702,12 +707,16 @@ gneiss::result save_document(editor_state& state) {
   if (state.session.uri().empty()) {
     return save_document_as(state);
   }
-  const auto operation = state.session.save(state.asset_root);
+  std::string saved_content;
+  const auto operation = state.session.save(state.asset_root, &saved_content);
   if (operation == gneiss::result::success) {
     state.history.mark_saved();
 #if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
     const auto uri = std::string{state.session.uri()};
-    (void)state.author_assets.acknowledge(uri);
+    const auto acknowledged = state.author_assets.acknowledge(uri, std::move(saved_content));
+    if (acknowledged != gneiss::result::success) {
+      state.author_assets.mark_failed(uri, acknowledged);
+    }
     (void)state.runtime.publish_asset_revision(std::span<const std::string>(&uri, 1U));
 #endif
   }
@@ -781,6 +790,7 @@ gneiss::result perform_document_action(editor_state& state, gneiss_application a
 #if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
     state.asset_shutdown_pending = true;
     state.asset_reimports.request_stop();
+    state.author_assets.request_stop();
 #else
     operation = gneiss::from_native(gneiss_application_request_exit(application));
 #endif
@@ -1921,7 +1931,8 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
     (void)state.asset_reimports.poll_browser(state.assets, state.asset_result);
     state.asset_reimports.set_paused(state.show_package_dialog ||
                                      state.package_process.is_running());
-    if (state.asset_shutdown_pending && state.asset_reimports.status().stopped) {
+    if (state.asset_shutdown_pending && state.asset_reimports.status().stopped &&
+        state.author_assets.stopped()) {
       (void)gneiss_application_request_exit(application);
     }
     std::vector<gneiss::editor::asset_reimport_event> reimport_events;
@@ -3327,7 +3338,8 @@ uint8_t handle_close_requested(gneiss_application application, void* user_data) 
 #if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
     state.asset_shutdown_pending = true;
     state.asset_reimports.request_stop();
-    return state.asset_reimports.status().stopped ? 1U : 0U;
+    state.author_assets.request_stop();
+    return state.asset_reimports.status().stopped && state.author_assets.stopped() ? 1U : 0U;
 #else
     return 1U;
 #endif

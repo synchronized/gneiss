@@ -87,6 +87,8 @@ if(TARGET gneiss_asset_import_sdk)
   target_link_libraries(gneiss_editor_session PRIVATE gneiss_asset_import_sdk)
   add_library(
     gneiss_editor_assets STATIC
+    author_asset_service.cpp
+    author_asset_service.h
     author_asset_monitor.cpp
     author_asset_monitor.h
     asset_file_watcher.cpp
@@ -103,7 +105,7 @@ if(TARGET gneiss_asset_import_sdk)
   target_link_libraries(
     gneiss_editor_assets
     PRIVATE gneiss_io_uv gneiss::libuv
-    PUBLIC gneiss::engine gneiss_asset_import_sdk
+    PUBLIC gneiss::engine gneiss_asset_import_sdk gneiss_tasks
   )
   target_include_directories(gneiss_editor_assets PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
   target_compile_features(gneiss_editor_assets PUBLIC cxx_std_20)
@@ -366,6 +368,12 @@ if(BUILD_TESTING)
     add_test(
       NAME gneiss.editor.asset-file-watcher COMMAND gneiss_editor_asset_file_watcher_test
     )
+    add_executable(gneiss_editor_author_asset_service_test tests/author_asset_service_test.cpp)
+    target_link_libraries(gneiss_editor_author_asset_service_test PRIVATE gneiss_editor_assets)
+    gneiss_target_compile_warnings(gneiss_editor_author_asset_service_test)
+    gneiss_target_output_directories(gneiss_editor_author_asset_service_test)
+    add_test(NAME gneiss.editor.author-asset-service COMMAND gneiss_editor_author_asset_service_test)
+    set_tests_properties(gneiss.editor.author-asset-service PROPERTIES TIMEOUT 30)
     add_executable(gneiss_editor_author_asset_monitor_test tests/author_asset_monitor_test.cpp)
     target_link_libraries(gneiss_editor_author_asset_monitor_test PRIVATE gneiss_editor_assets)
     gneiss_target_compile_warnings(gneiss_editor_author_asset_monitor_test)

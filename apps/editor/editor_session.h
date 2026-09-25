@@ -144,17 +144,18 @@ public:
                                                   scene_node_id& out_node) noexcept;
   [[nodiscard]] result destroy_node(scene_node_id node, scene_node_snapshot& out_snapshot) noexcept;
   /** 将当前场景原子替换到原 asset URI；成功后清除脏状态。 */
-  [[nodiscard]] result save(const std::filesystem::path& asset_root) noexcept;
+  [[nodiscard]] result save(const std::filesystem::path& asset_root,
+                            std::string* saved_content = nullptr) noexcept;
   /** 将当前场景写入尚不存在的 asset URI，并将其设为后续保存目标。 */
-  [[nodiscard]] result save_as(const std::filesystem::path& asset_root,
-                               std::string_view uri) noexcept;
+  [[nodiscard]] result save_as(const std::filesystem::path& asset_root, std::string_view uri,
+                               std::string* saved_content = nullptr) noexcept;
   void mark_dirty() noexcept { is_dirty_ = true; }
   void clear_dirty() noexcept { is_dirty_ = false; }
 
 private:
   [[nodiscard]] result refresh_nodes() noexcept;
   [[nodiscard]] result save_to(const std::filesystem::path& asset_root, std::string_view uri,
-                               bool require_existing) noexcept;
+                               bool require_existing, std::string* saved_content) noexcept;
   [[nodiscard]] result create_mesh_renderer_node(const scene_node_snapshot& snapshot,
                                                  scene_node_id& out_node) noexcept;
   gneiss_world world_ = GNEISS_NULL_WORLD;
