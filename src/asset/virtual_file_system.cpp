@@ -6,6 +6,7 @@
 #include "asset/asset_uri.h"
 
 #include <algorithm>
+#include <limits>
 #include <new>
 
 namespace {
@@ -53,6 +54,11 @@ gneiss_result virtual_file_system::mount(std::string_view mount_point,
 
 gneiss_result virtual_file_system::read(std::string_view uri,
                                         std::vector<std::byte>& out_bytes) const noexcept {
+  return read_bounded(uri, std::numeric_limits<std::size_t>::max(), out_bytes);
+}
+
+gneiss_result virtual_file_system::read_bounded(std::string_view uri, std::size_t limit,
+                                                std::vector<std::byte>& out_bytes) const noexcept {
   if (validate_uri(uri) != GNEISS_SUCCESS) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
@@ -66,7 +72,10 @@ gneiss_result virtual_file_system::read(std::string_view uri,
   if (selected == nullptr) {
     return GNEISS_ERROR_NOT_FOUND;
   }
-  return selected->backend->read(uri.substr(selected->point.size()), out_bytes);
+  const auto path = uri.substr(selected->point.size());
+  return limit == std::numeric_limits<std::size_t>::max()
+             ? selected->backend->read(path, out_bytes)
+             : selected->backend->read_bounded(path, limit, out_bytes);
 }
 
 } // namespace gneiss::asset_internal

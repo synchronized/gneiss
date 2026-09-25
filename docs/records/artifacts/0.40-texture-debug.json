@@ -1,0 +1,88 @@
+{
+  "license": "MIT",
+  "date": "2026-09-25",
+  "build": "debug",
+  "samples": [
+    {
+      "mode": "sync",
+      "sample": 0,
+      "frames_observed": 131,
+      "render_interval_median_ms": 15.9613,
+      "render_interval_p95_ms": 31.2018,
+      "render_interval_max_ms": 343.6004,
+      "details": "mode=sync result=0 prepare_ms=198.661 commit_ms=0.000 upload_ms=0.000 max_update_ms=199.129 candidate_bytes=0 rendered=196 resize=9 restored=1 queue_peak=3"
+    },
+    {
+      "mode": "sync",
+      "sample": 1,
+      "frames_observed": 132,
+      "render_interval_median_ms": 15.93715,
+      "render_interval_p95_ms": 31.3746,
+      "render_interval_max_ms": 211.6057,
+      "details": "mode=sync result=0 prepare_ms=194.326 commit_ms=0.000 upload_ms=0.000 max_update_ms=194.850 candidate_bytes=0 rendered=195 resize=9 restored=1 queue_peak=3"
+    },
+    {
+      "mode": "sync",
+      "sample": 2,
+      "frames_observed": 131,
+      "render_interval_median_ms": 15.9501,
+      "render_interval_p95_ms": 31.7819,
+      "render_interval_max_ms": 316.9487,
+      "details": "mode=sync result=0 prepare_ms=191.798 commit_ms=0.000 upload_ms=0.000 max_update_ms=192.286 candidate_bytes=0 rendered=194 resize=9 restored=1 queue_peak=3"
+    },
+    {
+      "mode": "thread",
+      "sample": 0,
+      "frames_observed": 135,
+      "render_interval_median_ms": 15.9285,
+      "render_interval_p95_ms": 31.3314,
+      "render_interval_max_ms": 501.2025,
+      "details": "mode=thread result=0 prepare_ms=215.427 commit_ms=67.926 upload_ms=67.837 max_update_ms=13.954 candidate_bytes=67108864 rendered=193 resize=9 restored=1 queue_peak=3"
+    },
+    {
+      "mode": "thread",
+      "sample": 1,
+      "frames_observed": 138,
+      "render_interval_median_ms": 16.023400000000002,
+      "render_interval_p95_ms": 31.934,
+      "render_interval_max_ms": 239.1725,
+      "details": "mode=thread result=0 prepare_ms=222.317 commit_ms=58.641 upload_ms=58.543 max_update_ms=13.417 candidate_bytes=67108864 rendered=199 resize=9 restored=1 queue_peak=3"
+    },
+    {
+      "mode": "thread",
+      "sample": 2,
+      "frames_observed": 138,
+      "render_interval_median_ms": 15.9763,
+      "render_interval_p95_ms": 32.1753,
+      "render_interval_max_ms": 253.5302,
+      "details": "mode=thread result=0 prepare_ms=194.078 commit_ms=61.179 upload_ms=50.220 max_update_ms=10.730 candidate_bytes=67108864 rendered=199 resize=9 restored=1 queue_peak=3"
+    },
+    {
+      "mode": "cooperative",
+      "sample": 0,
+      "frames_observed": 133,
+      "render_interval_median_ms": 15.9706,
+      "render_interval_p95_ms": 36.4537,
+      "render_interval_max_ms": 210.75,
+      "details": "mode=cooperative result=0 prepare_ms=203.548 commit_ms=56.665 upload_ms=56.552 max_update_ms=203.825 candidate_bytes=67108864 rendered=197 resize=9 restored=1 queue_peak=3"
+    },
+    {
+      "mode": "cooperative",
+      "sample": 1,
+      "frames_observed": 132,
+      "render_interval_median_ms": 15.932,
+      "render_interval_p95_ms": 31.6492,
+      "render_interval_max_ms": 248.7082,
+      "details": "mode=cooperative result=0 prepare_ms=193.981 commit_ms=47.029 upload_ms=46.630 max_update_ms=194.463 candidate_bytes=67108864 rendered=196 resize=9 restored=1 queue_peak=3"
+    },
+    {
+      "mode": "cooperative",
+      "sample": 2,
+      "frames_observed": 135,
+      "render_interval_median_ms": 15.9479,
+      "render_interval_p95_ms": 31.7741,
+      "render_interval_max_ms": 252.4973,
+      "details": "mode=cooperative result=0 prepare_ms=209.816 commit_ms=45.578 upload_ms=45.446 max_update_ms=210.113 candidate_bytes=67108864 rendered=199 resize=9 restored=1 queue_peak=3"
+    }
+  ]
+}

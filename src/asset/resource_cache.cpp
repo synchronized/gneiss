@@ -153,4 +153,9 @@ void resource_cache::release_unused() noexcept {
   } while (removed);
 }
 
+std::weak_ptr<const resource_cache::entry> resource_cache::observe(std::string_view uri) const {
+  const auto found = entries_.find(std::string(uri));
+  return found == entries_.end() ? std::weak_ptr<const entry>{} : found->second;
+}
+
 } // namespace gneiss::asset_internal

@@ -17,6 +17,32 @@ env:
   CCACHE_MAXSIZE: 500M
 
 jobs:
+  task-web:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - name: 安装固定 Emscripten 工具链
+        shell: bash
+        run: |
+          git clone --depth 1 --branch 5.0.6 https://github.com/emscripten-core/emsdk.git "$RUNNER_TEMP/emsdk"
+          "$RUNNER_TEMP/emsdk/emsdk" install 5.0.6
+          "$RUNNER_TEMP/emsdk/emsdk" activate 5.0.6
+      - name: 验证无线程浏览器调度
+        shell: bash
+        run: |
+          source "$RUNNER_TEMP/emsdk/emsdk_env.sh"
+          emcmake cmake -S tests/task_web -B build/task-web -G Ninja -DCMAKE_BUILD_TYPE=Debug
+          cmake --build build/task-web
+          google-chrome --version
+          python3 tests/task_web/run_browser.py --build build/task-web --browser "$(command -v google-chrome)"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: task-web-browser
+          path: |
+            build/task-web/browser-dom.html
+            build/task-web/browser.log
+
   core:
     runs-on: ubuntu-24.04
     container:

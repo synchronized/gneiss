@@ -30,6 +30,23 @@ class memory_file_system final : public gneiss::asset_internal::file_system {
 public:
   std::unordered_map<std::string, std::string> files;
   mutable std::size_t read_count = 0;
+  mutable bool change_during_check{};
+  mutable unsigned bounded_reads{};
+  [[nodiscard]] gneiss_result read_bounded(std::string_view path, std::size_t limit,
+                                           std::vector<std::byte>& bytes) const noexcept override {
+    const auto found = files.find(std::string(path));
+    if (found == files.end()) {
+      return GNEISS_ERROR_NOT_FOUND;
+    }
+    if (found->second.size() > limit) {
+      return GNEISS_ERROR_INVALID_ARGUMENT;
+    }
+    const auto result = read(path, bytes);
+    if (change_during_check && ++bounded_reads == 3U && !bytes.empty()) {
+      bytes.push_back(std::byte{' '});
+    }
+    return result;
+  }
 
   [[nodiscard]] gneiss_result read(std::string_view path,
                                    std::vector<std::byte>& out_bytes) const noexcept override {
@@ -224,6 +241,49 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
       broken.get() == GNEISS_NULL_MESH || resources.live_resource_count() != 3U) {
     return 5;
   }
+
+  // 同步与任务准备共用解析；准备阶段不得触碰缓存或 RID。
+  const auto before_resources = resources.live_resource_count();
+  const auto before_cache = cache.size();
+  gneiss::render_internal::texture_resource prepared;
+  for (const auto* uri :
+       {"asset://textures/white.texture.json", "asset://textures/linear.texture.json",
+        "asset://textures/packaged.texture.json"}) {
+    auto expected = GNEISS_SUCCESS;
+#if !defined(GNEISS_HAS_GRANIT_PLATFORM)
+    if (std::string_view(uri).ends_with("packaged.texture.json")) {
+      expected = GNEISS_ERROR_UNSUPPORTED;
+    }
+#endif
+    const auto result = gneiss::render_internal::prepare_texture(file_system, uri, prepared,
+                                                                 diagnostic, 1024U * 1024U, true);
+    if (expected == GNEISS_ERROR_UNSUPPORTED) {
+      if (result != expected || prepared.width != 0U || diagnostic.path != "/source" ||
+          resources.live_resource_count() != before_resources || cache.size() != before_cache) {
+        return 43;
+      }
+      continue;
+    }
+    if (result != GNEISS_SUCCESS || prepared.width == 0U ||
+        resources.live_resource_count() != before_resources || cache.size() != before_cache) {
+      return 40;
+    }
+  }
+  if (gneiss::render_internal::prepare_texture(file_system, "asset://textures/white.texture.json",
+                                               prepared, diagnostic, 1U,
+                                               true) != GNEISS_ERROR_INVALID_ARGUMENT) {
+    return 41;
+  }
+
+  memory->change_during_check = true;
+  memory->bounded_reads = 0U;
+  if (gneiss::render_internal::prepare_texture(file_system, "asset://textures/white.texture.json",
+                                               prepared, diagnostic, 1024U * 1024U,
+                                               true) != GNEISS_ERROR_INVALID_STATE ||
+      !prepared.levels.empty()) {
+    return 42;
+  }
+  memory->change_during_check = false;
 
   gneiss::render_internal::texture_asset_lease first_texture;
   gneiss::render_internal::texture_asset_lease second_texture;

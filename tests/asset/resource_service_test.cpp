@@ -57,6 +57,16 @@ int main() try {
     return 1;
   }
 
+  const auto previous = bytes;
+  if (file_system.read_bounded("asset://models/triangle.mesh", 3U, bytes) !=
+          GNEISS_ERROR_INVALID_ARGUMENT ||
+      bytes != previous ||
+      file_system.read_bounded("asset://models/triangle.mesh", 4U, bytes) != GNEISS_SUCCESS ||
+      bytes.size() != 4U ||
+      file_system.read_bounded("asset://../outside", 4U, bytes) != GNEISS_ERROR_INVALID_ARGUMENT) {
+    return 20;
+  }
+
   const auto override_root = directory.path / "override";
   std::filesystem::create_directories(override_root);
   {

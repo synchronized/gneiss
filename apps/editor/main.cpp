@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "application/application_asset_reload_internal.h"
 #include "child_process.h"
 #include "editor_camera.h"
 #include "editor_command_history.h"
@@ -114,6 +115,13 @@ toggle_prefab_refreshes(gneiss::editor::editor_session& session,
 }
 
 struct editor_state {
+#if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
+  explicit editor_state(bool cooperative = false)
+      : task_scheduler({.mode = cooperative ? gneiss::tasks::execution_mode::cooperative
+                                            : gneiss::tasks::execution_mode::thread_pool}) {}
+#else
+  explicit editor_state(bool = false) {}
+#endif
   gneiss::editor::imgui_adapter ui;
   gneiss::editor::editor_camera camera;
   gneiss::editor::editor_session session;
@@ -317,6 +325,7 @@ void draw_view_axis(const editor_state& state, const ImVec2& minimum, const ImVe
 
 struct launch_options {
   bool smoke = false;
+  bool cooperative_tasks = false;
   std::string project;
 };
 
@@ -325,6 +334,8 @@ bool parse_options(int argc, char** argv, launch_options& options) {
     const std::string_view argument = argv[index];
     if (argument == "--smoke") {
       options.smoke = true;
+    } else if (argument == "--cooperative-tasks") {
+      options.cooperative_tasks = true;
     } else if (argument == "--project" && index + 1 < argc) {
       options.project = argv[++index];
     } else {
@@ -1847,6 +1858,9 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
     auto& state = *static_cast<editor_state*>(user_data);
     state.runtime.update();
 #if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
+    if (state.task_scheduler.mode() == gneiss::tasks::execution_mode::cooperative) {
+      (void)state.task_scheduler.run_ready();
+    }
     start_source_asset_watch(state);
     std::vector<gneiss::editor::asset_file_event> file_events;
     (void)state.asset_watcher.poll_events(file_events);
@@ -3387,8 +3401,8 @@ int run_editor(int argc, char** argv) {
     report_startup_failure("资产根校验", gneiss::result::invalid_argument, asset_root_text);
     return 64;
   }
+  editor_state state(options.cooperative_tasks);
   gneiss::application application;
-  editor_state state;
   state.asset_root = project.asset_root;
   state.project_root = project.project_root;
 #if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
@@ -3439,6 +3453,13 @@ int run_editor(int argc, char** argv) {
     report_startup_failure("Editor Application 创建", operation, path_utf8(project.project_root));
     return 1;
   }
+#if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
+  operation = gneiss::from_native(
+      gneiss::application_internal::attach_task_executor(application.get(), state.task_scheduler));
+  if (operation != gneiss::result::success) {
+    return 2;
+  }
+#endif
   operation = gneiss::from_native(state.ui.initialize(application.get()));
   if (operation != gneiss::result::success) {
     report_startup_failure("Editor UI 初始化", operation);

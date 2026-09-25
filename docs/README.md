@@ -28,6 +28,7 @@
 - [C/C++ 代码风格与语言标准](guides/coding-style.md)
 - [在 Editor 中导入资产](guides/editor-assets.md)
 - [Editor 选择、变换与窗口交互](guides/editor-interaction.md)
+- [宿主任务调度与异步纹理加载](guides/task-scheduling.md)
 
 ## API 参考
 
@@ -100,6 +101,8 @@
 - [VER-037：0.37.0 编辑器交互稳定性](plans/VER-037-0.37.0-editor-interaction-stability.md)
 - [VER-038：0.38.0 资产后台处理](plans/VER-038-0.38.0-background-assets.md)
 - [VER-039：0.39.0 任务调度基础与资产服务接入](plans/VER-039-0.39.0-task-scheduling.md)
+- [VER-040：0.40.0 统一任务调度与 Runtime 异步资产加载](plans/VER-040-0.40.0-cooperative-scheduling.md)
+- [DEV-040：统一调度与 Runtime 纹理异步加载开发计划](plans/DEV-040-runtime-task-integration.md)
 - [M-100：Editor Play 工作流实施记录](records/M-100-editor-play-workflow.md)
 - [M-101：示例与跨平台验收记录](records/M-101-example-cross-platform-validation.md)
 - [M-102：Runtime 检查会话与对象标识实施记录](records/M-102-runtime-inspection-identity.md)
@@ -159,6 +162,8 @@
 - [ADR-044：运行纹理封装承载 Granit Manifest 与负载](decisions/ADR-044-texture-asset-manifest-container.md)
 - [ADR-045：Editor 资产任务的线程与提交边界](decisions/ADR-045-editor-background-assets.md)
 - [ADR-046：任务调度与 Service 的执行边界](decisions/ADR-046-task-scheduling-service-boundary.md)
+- [ADR-047：任务契约共用线程池与协作执行模式](decisions/ADR-047-cooperative-task-execution.md)
+- [ADR-048：Runtime 资产分离异步准备与受控提交](decisions/ADR-048-runtime-asset-preparation.md)
 
 ## 实施与验收记录
 
@@ -267,6 +272,7 @@
 - [M-241 0.36.0 发布验收记录](records/M-241-0.36.0-release-validation.md)
 - [M-246～M-249 0.38.0 后台资产任务验收](records/M-246-249-0.38.0-validation.md)
 - [M-250～M-255 0.39.0 任务调度与资产服务验收](records/M-250-255-0.39.0-validation.md)
+- [M-256～M-264 0.40.0 统一调度与异步纹理验收](records/M-256-264-0.40.0-validation.md)
 - [M-242～M-245 0.37.0 交互、响应性与发布验收](records/M-242-245-0.37.0-validation.md)
 - [M-236 0.35.0 发布验收记录](records/M-236-0.35.0-release-validation.md)
 - [M-237 重导入异常诊断与任务恢复](records/M-237-reimport-failure-recovery.md)

@@ -570,33 +570,35 @@ gneiss_result render_asset_loader::acquire_material(std::string_view uri,
   return result;
 }
 
-gneiss_result render_asset_loader::acquire_texture(std::string_view uri,
-                                                   texture_asset_lease& out_lease,
-                                                   asset_diagnostic& out_diagnostic) noexcept {
-  out_lease = {};
+gneiss_result prepare_texture(const asset_internal::virtual_file_system& file_system,
+                              std::string_view uri, texture_resource& output,
+                              asset_diagnostic& out_diagnostic, std::size_t input_limit,
+                              bool verify_source, std::size_t output_limit) noexcept {
+  output = {};
   out_diagnostic = {};
-  const auto result = cache_.acquire(
-      uri, texture_type,
-      [this, uri, &out_diagnostic](std::shared_ptr<void>& output) -> gneiss_result {
-        std::vector<std::byte> description_bytes;
-        auto result = file_system_.read(uri, description_bytes);
-        if (result != GNEISS_SUCCESS) {
-          fail(out_diagnostic, result, "", "无法通过 VFS 读取 Texture 描述");
-          return result;
-        }
-        texture_source source;
-        result = parse_texture(description_bytes, source, out_diagnostic);
-        if (result != GNEISS_SUCCESS) {
-          return result;
-        }
-        std::vector<std::byte> image_bytes;
-        result = file_system_.read(source.uri, image_bytes);
-        if (result != GNEISS_SUCCESS) {
-          fail(out_diagnostic, result, "/source", "无法通过 VFS 读取纹理数据");
-          return result;
-        }
-        gneiss_texture rid = GNEISS_NULL_TEXTURE;
-        if (std::string_view(source.uri).ends_with(".gneiss-texture")) {
+  try {
+    std::vector<std::byte> description_bytes;
+    auto result = file_system.read_bounded(uri, input_limit, description_bytes);
+    if (result != GNEISS_SUCCESS) {
+      fail(out_diagnostic, result, "", "无法通过 VFS 读取 Texture 描述");
+      return result;
+    }
+    texture_source source;
+    result = parse_texture(description_bytes, source, out_diagnostic);
+    if (result != GNEISS_SUCCESS) {
+      return result;
+    }
+    std::vector<std::byte> image_bytes;
+    result = file_system.read_bounded(source.uri,
+                                      input_limit == std::numeric_limits<std::size_t>::max()
+                                          ? input_limit
+                                          : std::min(input_limit, output_limit),
+                                      image_bytes);
+    if (result != GNEISS_SUCCESS) {
+      fail(out_diagnostic, result, "/source", "无法通过 VFS 读取纹理数据");
+      return result;
+    }
+    if (std::string_view(source.uri).ends_with(".gneiss-texture")) {
 #if defined(GNEISS_HAS_GRANIT_PLATFORM)
           asset_internal::texture_binary_view binary;
           std::string decode_message;
@@ -637,70 +639,104 @@ gneiss_result render_asset_loader::acquire_texture(std::string_view uri,
                  "运行纹理变体颜色空间、负载边界或 RGBA8 回退无效");
             return GNEISS_ERROR_INVALID_ARGUMENT;
           }
-          result = resources_.create_packaged_texture(
-              {.width = info.width,
-               .height = info.height,
-               .format = GNEISS_TEXTURE_FORMAT_RGBA8_UNORM,
-               .color_space = source.color_space,
-               .levels = {},
-               .manifest = std::vector<std::byte>(binary.manifest.begin(), binary.manifest.end()),
-               .payload = std::vector<std::byte>(binary.payload.begin(), binary.payload.end())},
-              &rid);
+          output = {
+              .width = info.width,
+              .height = info.height,
+              .format = GNEISS_TEXTURE_FORMAT_RGBA8_UNORM,
+              .color_space = source.color_space,
+              .levels = {},
+              .manifest = std::vector<std::byte>(binary.manifest.begin(), binary.manifest.end()),
+              .payload = std::vector<std::byte>(binary.payload.begin(), binary.payload.end())};
 #else
           fail(out_diagnostic, GNEISS_ERROR_UNSUPPORTED, "/source",
                "当前构建未启用 Granit，无法加载运行纹理封装");
           return GNEISS_ERROR_UNSUPPORTED;
 #endif
-        } else if (std::string_view(source.uri).ends_with(".ktx2")) {
-          asset_internal::texture_ktx2 texture;
-          std::string decode_message;
-          const auto decoded =
-              asset_internal::decode_texture_ktx2(image_bytes, texture, decode_message);
-          if (decoded != asset_internal::texture_ktx2_result::success) {
-            fail(out_diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/source",
-                 decode_message.empty() ? "KTX2 解码失败" : decode_message);
-            return GNEISS_ERROR_INVALID_ARGUMENT;
-          }
-          const auto expected_transfer = source.color_space == GNEISS_TEXTURE_COLOR_SPACE_SRGB
-                                             ? asset_internal::texture_transfer::srgb
-                                             : asset_internal::texture_transfer::linear;
-          if (texture.transfer != expected_transfer) {
-            fail(out_diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/color_space",
-                 "Texture 描述与 KTX2 传递函数不一致");
-            return GNEISS_ERROR_INVALID_ARGUMENT;
-          }
-          auto levels = std::move(texture.levels);
-          const auto width = levels.front().width;
-          const auto height = levels.front().height;
-          result = resources_.create_texture({.width = width,
-                                              .height = height,
-                                              .format = GNEISS_TEXTURE_FORMAT_RGBA8_UNORM,
-                                              .color_space = source.color_space,
-                                              .levels = std::move(levels),
-                                              .manifest = {},
-                                              .payload = {}},
-                                             &rid);
-        } else {
-          decoded_png image;
-          std::string decode_message;
-          result = decode_png(image_bytes, image, decode_message);
-          if (result != GNEISS_SUCCESS) {
-            fail(out_diagnostic, result, "/source",
-                 decode_message.empty() ? "PNG 解码失败" : decode_message);
-            return result;
-          }
-          const gneiss_texture_desc desc{
-              .struct_size = sizeof(gneiss_texture_desc),
-              .format = GNEISS_TEXTURE_FORMAT_RGBA8_UNORM,
-              .color_space = source.color_space,
-              .width = image.width,
-              .height = image.height,
-              .row_stride_bytes = image.width * 4U,
-              .pixel_data_size = image.pixels.size(),
-              .pixels = reinterpret_cast<const std::uint8_t*>(image.pixels.data()),
-              .reserved = {0, 0}};
-          result = resources_.create_texture(desc, &rid);
+    } else if (std::string_view(source.uri).ends_with(".ktx2")) {
+      asset_internal::texture_ktx2 texture;
+      std::string decode_message;
+      const auto decoded =
+          asset_internal::decode_texture_ktx2(image_bytes, texture, decode_message);
+      if (decoded != asset_internal::texture_ktx2_result::success) {
+        fail(out_diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/source",
+             decode_message.empty() ? "KTX2 解码失败" : decode_message);
+        return GNEISS_ERROR_INVALID_ARGUMENT;
+      }
+      const auto expected_transfer = source.color_space == GNEISS_TEXTURE_COLOR_SPACE_SRGB
+                                         ? asset_internal::texture_transfer::srgb
+                                         : asset_internal::texture_transfer::linear;
+      if (texture.transfer != expected_transfer) {
+        fail(out_diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/color_space",
+             "Texture 描述与 KTX2 传递函数不一致");
+        return GNEISS_ERROR_INVALID_ARGUMENT;
+      }
+      auto levels = std::move(texture.levels);
+      const auto width = levels.front().width;
+      const auto height = levels.front().height;
+      output = {.width = width,
+                .height = height,
+                .format = GNEISS_TEXTURE_FORMAT_RGBA8_UNORM,
+                .color_space = source.color_space,
+                .levels = std::move(levels),
+                .manifest = {},
+                .payload = {}};
+    } else {
+      decoded_png image;
+      std::string decode_message;
+      result = decode_png(image_bytes, image, decode_message, output_limit);
+      if (result != GNEISS_SUCCESS) {
+        fail(out_diagnostic, result, "/source",
+             decode_message.empty() ? "PNG 解码失败" : decode_message);
+        return result;
+      }
+      output = {.width = image.width,
+                .height = image.height,
+                .format = GNEISS_TEXTURE_FORMAT_RGBA8_UNORM,
+                .color_space = source.color_space,
+                .levels = {},
+                .manifest = {},
+                .payload = {}};
+      output.levels.push_back(
+          {.width = image.width, .height = image.height, .pixels = std::move(image.pixels)});
+    }
+    if (verify_source) {
+      std::vector<std::byte> checked;
+      if (file_system.read_bounded(uri, input_limit, checked) != GNEISS_SUCCESS ||
+          checked != description_bytes ||
+          file_system.read_bounded(source.uri, input_limit, checked) != GNEISS_SUCCESS ||
+          checked != image_bytes) {
+        output = {};
+        fail(out_diagnostic, GNEISS_ERROR_INVALID_STATE, "/source", "准备期间纹理源已变化");
+        return GNEISS_ERROR_INVALID_STATE;
+      }
+    }
+    return GNEISS_SUCCESS;
+  } catch (const std::bad_alloc&) {
+    output = {};
+    return GNEISS_ERROR_OUT_OF_MEMORY;
+  } catch (...) {
+    output = {};
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
+gneiss_result render_asset_loader::acquire_texture(std::string_view uri,
+                                                   texture_asset_lease& out_lease,
+                                                   asset_diagnostic& out_diagnostic) noexcept {
+  out_lease = {};
+  out_diagnostic = {};
+  const auto result = cache_.acquire(
+      uri, texture_type,
+      [this, uri, &out_diagnostic](std::shared_ptr<void>& output) -> gneiss_result {
+        texture_resource prepared;
+        auto result = prepare_texture(file_system_, uri, prepared, out_diagnostic);
+        if (result != GNEISS_SUCCESS) {
+          return result;
         }
+        gneiss_texture rid = GNEISS_NULL_TEXTURE;
+        result = prepared.manifest.empty()
+                     ? resources_.create_texture(std::move(prepared), &rid)
+                     : resources_.create_packaged_texture(std::move(prepared), &rid);
         if (result != GNEISS_SUCCESS) {
           fail(out_diagnostic, result, "", "创建 Texture RID 失败");
           return result;
@@ -718,6 +754,122 @@ gneiss_result render_asset_loader::acquire_texture(std::string_view uri,
     fail(out_diagnostic, result, "", "获取 Texture 资产失败");
   }
   return result;
+}
+
+gneiss_result render_asset_loader::observe_texture(std::string_view uri,
+                                                   texture_target& output) const noexcept {
+  output = {};
+  try {
+    output.uri = uri;
+    output.expected = cache_.observe(uri);
+    const auto current = output.expected.lock();
+    output.existed = static_cast<bool>(current);
+    return current && (current->type != texture_type ||
+                       current->state != asset_internal::resource_state::ready)
+               ? GNEISS_ERROR_INVALID_ARGUMENT
+               : GNEISS_SUCCESS;
+  } catch (...) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
+  }
+}
+
+gneiss_result render_asset_loader::stage_texture(const texture_target& target,
+                                                 texture_resource prepared,
+                                                 texture_candidate& output) noexcept {
+  output = {};
+  try {
+    const auto current = cache_.observe(target.uri).lock();
+    if ((target.existed && (!current || current != target.expected.lock())) ||
+        (!target.existed && current)) {
+      return GNEISS_ERROR_INVALID_STATE;
+    }
+    texture_candidate candidate;
+    candidate.target = target;
+    gneiss_texture staged = GNEISS_NULL_TEXTURE;
+    const auto created = prepared.manifest.empty()
+                             ? resources_.create_texture(std::move(prepared), &staged)
+                             : resources_.create_packaged_texture(std::move(prepared), &staged);
+    if (created != GNEISS_SUCCESS) {
+      return created;
+    }
+    // 私有暂存 RID 只用于验证和所有权；失败时不会进入缓存。
+    std::shared_ptr<texture_asset> owned;
+    try {
+      owned = std::make_shared<texture_asset>(resources_, staged);
+    } catch (...) {
+      (void)resources_.destroy_texture(staged);
+      throw;
+    }
+    candidate.data = resources_.share_texture(staged);
+    if (current) {
+      candidate.lease.entry_ = current;
+      candidate.previous = resources_.share_texture(candidate.lease.get());
+      if (!candidate.previous) {
+        return GNEISS_ERROR_INVALID_HANDLE;
+      }
+    } else {
+      auto entry = std::make_shared<asset_internal::resource_cache::entry>();
+      entry->uri = target.uri;
+      entry->type = texture_type;
+      entry->state = asset_internal::resource_state::ready;
+      entry->resource = std::move(owned);
+      candidate.lease.entry_ = std::move(entry);
+    }
+    output = std::move(candidate);
+    return GNEISS_SUCCESS;
+  } catch (const std::bad_alloc&) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
+gneiss_result
+render_asset_loader::publish_textures(std::span<texture_candidate> candidates) noexcept {
+  try {
+    std::vector<asset_internal::resource_cache::reload_request> requests;
+    requests.reserve(candidates.size());
+    for (const auto& candidate : candidates) {
+      const auto current = cache_.observe(candidate.target.uri).lock();
+      if (!candidate.data || !candidate.lease ||
+          (candidate.target.existed &&
+           (!current || current != candidate.target.expected.lock() ||
+            resources_.share_texture(candidate.lease.get()) != candidate.previous)) ||
+          (!candidate.target.existed && current) ||
+          !resources_.get_texture(candidate.lease.get())) {
+        return GNEISS_ERROR_INVALID_STATE;
+      }
+      if (candidate.target.existed) {
+        continue;
+      }
+      requests.push_back(
+          {.uri = candidate.target.uri,
+           .type = texture_type,
+           .load = [resource = candidate.lease.entry_->resource](auto&, auto& output) {
+             output = resource;
+             return GNEISS_SUCCESS;
+           }});
+    }
+    std::vector<std::shared_ptr<const asset_internal::resource_cache::entry>> committed;
+    const auto result =
+        requests.empty() ? GNEISS_SUCCESS : cache_.reload_transaction(requests, committed);
+    if (result != GNEISS_SUCCESS) {
+      return result;
+    }
+    // 缓存事务已完成全部可能分配的工作；这里仅交换已验证槽位的 shared_ptr，不会失败。
+    std::size_t inserted{};
+    for (auto& candidate : candidates) {
+      if (!candidate.target.existed) {
+        candidate.lease.entry_ = committed[inserted++];
+      }
+      (void)resources_.replace_texture(candidate.lease.get(), candidate.data);
+    }
+    return GNEISS_SUCCESS;
+  } catch (const std::bad_alloc&) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
 }
 
 gneiss_result render_asset_loader::reload_assets(std::span<const render_asset_reload> assets,

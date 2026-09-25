@@ -38,6 +38,7 @@ struct runtime_options final {
   std::uint16_t ipc_port = 0U;
   gneiss::app::game_build_profile profile = gneiss::app::game_build_profile::debug;
   bool smoke = false;
+  bool cooperative_tasks = false;
 };
 
 struct runtime_context final {
@@ -59,6 +60,9 @@ struct runtime_context final {
   std::uint64_t fixed_update_count = 0U;
   bool force_full_inspection = false;
   gneiss::result ipc_failure = gneiss::result::success;
+  gneiss::tasks::task_scheduler* tasks{};
+  std::deque<gneiss::runtime_internal::runtime_ipc_actions::asset_reload_command> pending_assets{};
+  bool asset_waiting{};
 };
 
 [[nodiscard]] std::string path_text(const std::filesystem::path& path) {
@@ -153,6 +157,10 @@ gneiss::result update_game(void* user_data, const gneiss_game_update_time& time)
   runtime_options pending;
   for (int index = 1; index < argc; ++index) {
     const std::string_view argument = argv[index];
+    if (argument == "--cooperative-tasks") {
+      pending.cooperative_tasks = true;
+      continue;
+    }
     if (argument == "--smoke") {
       pending.smoke = true;
       continue;
@@ -223,6 +231,9 @@ gneiss_result update_runtime(gneiss_application application, const gneiss_frame_
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
   auto& context = *static_cast<runtime_context*>(user_data);
+  if (context.tasks && context.tasks->mode() == gneiss::tasks::execution_mode::cooperative) {
+    (void)context.tasks->run_ready();
+  }
   if (context.ipc_session != nullptr) {
     gneiss::runtime_internal::runtime_ipc_actions actions;
     const auto ipc_result = context.ipc_session->pump(
@@ -247,19 +258,43 @@ gneiss_result update_runtime(gneiss_application application, const gneiss_frame_
       context.ipc_failure = gneiss::result::invalid_state;
       return gneiss_application_request_exit(application);
     }
-    for (const auto& command : actions.asset_reloads) {
+    for (auto& command : actions.asset_reloads) {
+      if (context.pending_assets.size() >= 16U) {
+        const gneiss::ipc_asset_reload_result rejected{.session_id = command.request.session_id,
+                                                       .revision = command.request.revision,
+                                                       .status =
+                                                           gneiss::ipc_asset_apply_status::failed,
+                                                       .message = "Runtime 资产队列已满"};
+        const auto sent = context.ipc_session->notify_asset_reload_result(
+            rejected, command.operation, command.request_id);
+        if (sent != gneiss::result::success) {
+          context.ipc_failure = sent;
+          return gneiss_application_request_exit(application);
+        }
+      } else {
+        context.pending_assets.push_back(std::move(command));
+      }
+    }
+    if (!context.pending_assets.empty()) {
+      const auto& command = context.pending_assets.front();
       gneiss::ipc_asset_reload_result response;
-      auto asset_result = context.asset_reloader->execute(command.request, response);
-      if (asset_result == gneiss::result::success) {
+      bool ready = true;
+      auto asset_result = context.asset_waiting
+                              ? context.asset_reloader->advance(response, ready)
+                              : context.asset_reloader->execute(command.request, response);
+      if (asset_result == gneiss::result::not_ready) {
+        context.asset_waiting = true;
+        ready = false;
+        asset_result = gneiss::result::success;
+      }
+      if (asset_result == gneiss::result::success && ready) {
         asset_result = context.ipc_session->notify_asset_reload_result(response, command.operation,
                                                                        command.request_id);
+        context.pending_assets.pop_front();
+        context.asset_waiting = false;
       }
       if (asset_result != gneiss::result::success) {
         context.ipc_failure = asset_result;
-        if (context.log != nullptr) {
-          context.log->write("ERROR", "asset_reload", gneiss::to_native(asset_result),
-                             "Runtime 资产重载事务执行失败");
-        }
         return gneiss_application_request_exit(application);
       }
     }
@@ -444,6 +479,10 @@ void write_application_log(gneiss_application, const gneiss_log_event* event, vo
   desc.environment_rotation_radians =
       project.environment.rotation_degrees * 0.01745329251994329577F;
 
+  gneiss::tasks::task_scheduler task_scheduler(
+      {.mode = options.cooperative_tasks ? gneiss::tasks::execution_mode::cooperative
+                                         : gneiss::tasks::execution_mode::thread_pool});
+  context.tasks = &task_scheduler;
   gneiss::application application;
   auto operation = gneiss::application::create(desc, application);
   if (operation != gneiss::result::success) {
@@ -452,6 +491,10 @@ void write_application_log(gneiss_application, const gneiss_log_event* event, vo
     return 3;
   }
   log.write("INFO", "application_create", GNEISS_SUCCESS, "Application 创建完成");
+  if (gneiss::application_internal::attach_task_executor(application.get(), task_scheduler) !=
+      GNEISS_SUCCESS) {
+    return 3;
+  }
 
   if (!project.input_map.empty()) {
     const auto input_result = gneiss_application_load_action_map(
@@ -482,6 +525,32 @@ void write_application_log(gneiss_application, const gneiss_log_event* event, vo
       [application_handle = application.get(), scene,
        startup_scene = project.startup_scene](std::span<const gneiss::ipc_asset_revision> assets) {
         return apply_asset_revision(application_handle, scene, startup_scene, assets);
+      },
+      [handle = application.get()](const gneiss::ipc_asset_reload_request& request) {
+        std::vector<std::string> uris;
+        for (const auto& asset : request.assets) {
+          uris.push_back(asset.uri);
+        }
+        std::uint64_t accepted{};
+        return gneiss::from_native(gneiss::application_internal::request_textures(
+            handle, uris, request.session_id, request.revision, accepted));
+      },
+      [handle = application.get(), &log](gneiss::result& result, bool& ready) {
+        gneiss::asset_internal::texture_load_completion completion;
+        const auto operation =
+            gneiss::application_internal::poll_textures(handle, completion, ready);
+        if (ready) {
+          result = gneiss::from_native(completion.result);
+          const auto metrics = "prepare_ms=" + std::to_string(completion.prepare_ms) +
+                               " commit_ms=" + std::to_string(completion.commit_ms) +
+                               " candidate_bytes=" + std::to_string(completion.candidate_bytes) +
+                               " upload_ms=" + std::to_string(completion.upload_ms) +
+                               " queue_ms=" + std::to_string(completion.queue_ms) + " " +
+                               completion.message;
+          log.write(completion.result == GNEISS_SUCCESS ? "INFO" : "ERROR", "texture_load",
+                    completion.result, metrics);
+        }
+        return gneiss::from_native(operation);
       });
   context.asset_reloader = &asset_reloader;
 

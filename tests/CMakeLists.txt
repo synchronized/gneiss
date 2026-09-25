@@ -676,6 +676,53 @@ gneiss_target_compile_warnings(gneiss_render_asset_loader_test)
 gneiss_target_output_directories(gneiss_render_asset_loader_test)
 add_test(NAME gneiss.render_asset_loader COMMAND gneiss_render_asset_loader_test)
 
+add_executable(
+  gneiss_texture_load_service_test
+  asset/texture_load_service_test.cpp
+  "${PROJECT_SOURCE_DIR}/src/asset/texture_load_service.cpp"
+  "${PROJECT_SOURCE_DIR}/src/asset/asset_uri.cpp"
+  "${PROJECT_SOURCE_DIR}/src/asset/mesh_binary.cpp"
+  "${PROJECT_SOURCE_DIR}/src/asset/texture_binary.cpp"
+  "${PROJECT_SOURCE_DIR}/src/asset/texture_ktx2.cpp"
+  "${PROJECT_SOURCE_DIR}/src/asset/resource_cache.cpp"
+  "${PROJECT_SOURCE_DIR}/src/asset/virtual_file_system.cpp"
+  "${PROJECT_SOURCE_DIR}/src/render/render_asset_loader.cpp"
+  "${PROJECT_SOURCE_DIR}/src/render/render_resource_service.cpp"
+  "${PROJECT_SOURCE_DIR}/src/render/png_decoder.cpp"
+)
+target_include_directories(gneiss_texture_load_service_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_compile_definitions(gneiss_texture_load_service_test PRIVATE GNEISS_BUILDING_LIBRARY)
+if(GNEISS_ENABLE_GRANIT_PLATFORM)
+  target_compile_definitions(gneiss_texture_load_service_test PRIVATE GNEISS_HAS_GRANIT_PLATFORM)
+endif()
+target_link_libraries(
+  gneiss_texture_load_service_test PRIVATE gneiss::engine gneiss_tasks gneiss_yyjson gneiss_png granit::granit granit::asset_tools
+)
+target_compile_features(gneiss_texture_load_service_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_texture_load_service_test)
+gneiss_target_output_directories(gneiss_texture_load_service_test)
+add_test(NAME gneiss.texture-load-service COMMAND gneiss_texture_load_service_test)
+
+add_executable(gneiss_texture_load_application_test asset/texture_load_application_test.cpp
+  "${PROJECT_SOURCE_DIR}/src/asset/texture_ktx2.cpp")
+target_include_directories(gneiss_texture_load_application_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_link_libraries(gneiss_texture_load_application_test PRIVATE gneiss::engine gneiss_tasks)
+gneiss_target_compile_warnings(gneiss_texture_load_application_test)
+gneiss_target_output_directories(gneiss_texture_load_application_test)
+add_test(NAME gneiss.texture-load-application COMMAND gneiss_texture_load_application_test)
+set_tests_properties(gneiss.texture-load-service gneiss.texture-load-application PROPERTIES TIMEOUT 30)
+
+if(GNEISS_ENABLE_GRANIT_PLATFORM)
+  add_executable(gneiss_texture_load_window_benchmark render/texture_load_window_benchmark.cpp)
+  target_include_directories(gneiss_texture_load_window_benchmark PRIVATE "${PROJECT_SOURCE_DIR}/src")
+  target_link_libraries(gneiss_texture_load_window_benchmark PRIVATE gneiss::engine gneiss_tasks)
+  if(WIN32)
+    target_link_libraries(gneiss_texture_load_window_benchmark PRIVATE user32)
+  endif()
+  gneiss_target_compile_warnings(gneiss_texture_load_window_benchmark)
+  gneiss_target_output_directories(gneiss_texture_load_window_benchmark)
+endif()
+
 add_executable(gneiss_scene_instance_test scene/scene_instance_test.cpp)
 target_link_libraries(gneiss_scene_instance_test PRIVATE gneiss::engine)
 target_compile_definitions(

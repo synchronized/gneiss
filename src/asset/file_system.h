@@ -25,6 +25,12 @@ public:
   [[nodiscard]] virtual gneiss_result read(std::string_view path,
                                            std::vector<std::byte>& out_bytes) const noexcept = 0;
 
+  /** 有界读取必须在分配前检查；未实现此能力的后端不可用于异步准备。 */
+  [[nodiscard]] virtual gneiss_result read_bounded(std::string_view, std::size_t,
+                                                   std::vector<std::byte>&) const noexcept {
+    return GNEISS_ERROR_UNSUPPORTED;
+  }
+
 protected:
   file_system() = default;
 };

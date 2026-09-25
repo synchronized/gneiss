@@ -75,6 +75,29 @@ struct runtime_process::implementation final {
     return asset_reload.revision;
   }
 
+  static constexpr std::size_t asset_queue_limit = 1024U;
+  static constexpr std::size_t asset_queue_bytes = 128U * 1024U;
+  bool asset_queue_fits(std::span<const std::string> incoming) const {
+    std::size_t count = incoming.size();
+    std::size_t bytes{};
+    for (const auto& uri : incoming) {
+      if (uri.size() > asset_queue_bytes - bytes) {
+        return false;
+      }
+      bytes += uri.size();
+    }
+    for (const auto& batch : pending_asset_batches) {
+      count += batch.assets.size();
+      for (const auto& asset : batch.assets) {
+        if (asset.uri.size() > asset_queue_bytes - bytes) {
+          return false;
+        }
+        bytes += asset.uri.size();
+      }
+    }
+    return count <= asset_queue_limit;
+  }
+
   void queue_asset_batch(std::vector<ipc_asset_revision> assets, ipc_asset_operation operation) {
     if (assets.empty()) {
       return;
@@ -90,6 +113,16 @@ struct runtime_process::implementation final {
          pending_asset_batches.back().assets.front().type == ipc_asset_type::material ||
          pending_asset_batches.back().assets.front().type == ipc_asset_type::static_mesh)) {
       auto& pending = pending_asset_batches.back();
+      const auto texture_only = [](const auto& asset) {
+        return asset.type == ipc_asset_type::texture;
+      };
+      if (std::ranges::all_of(assets, texture_only) &&
+          std::ranges::all_of(pending.assets, texture_only) &&
+          assets.size() + pending.assets.size() > 16U) {
+        pending_asset_batches.push_back(
+            {.revision = revision, .operation = operation, .assets = std::move(assets)});
+        return;
+      }
       pending.revision = revision;
       for (auto& asset : assets) {
         const auto found = std::ranges::find(pending.assets, asset.uri, &ipc_asset_revision::uri);
@@ -105,7 +138,26 @@ struct runtime_process::implementation final {
         {.revision = revision, .operation = operation, .assets = std::move(assets)});
   }
 
-  void queue_asset_resync() {
+  bool queue_asset_resync() {
+    const auto textures = std::ranges::count_if(
+        known_assets, [](const auto& item) { return item.second == ipc_asset_type::texture; });
+    const auto mixed_render = std::ranges::any_of(known_assets, [](const auto& item) {
+      return item.second == ipc_asset_type::material || item.second == ipc_asset_type::static_mesh;
+    });
+    if (!mixed_render && textures > 16) {
+      return false;
+    }
+    std::size_t bytes{};
+    for (const auto& [uri, type] : known_assets) {
+      (void)type;
+      if (uri.size() > asset_queue_bytes - bytes) {
+        return false;
+      }
+      bytes += uri.size();
+    }
+    if (known_assets.size() > asset_queue_limit) {
+      return false;
+    }
     pending_asset_batches.clear();
     std::vector<ipc_asset_revision> render_assets;
     std::vector<ipc_asset_revision> structural_assets;
@@ -121,6 +173,7 @@ struct runtime_process::implementation final {
     for (auto& asset : structural_assets) {
       queue_asset_batch({std::move(asset)}, ipc_asset_operation::resync);
     }
+    return true;
   }
 
   void append_event_unique(app::runtime_log_record event) noexcept {
@@ -278,7 +331,11 @@ struct runtime_process::implementation final {
     }
     property_edits.expire(now, std::chrono::seconds(2));
     if (asset_resync_required) {
-      queue_asset_resync();
+      if (!queue_asset_resync()) {
+        asset_reload.state = runtime_asset_reload_state::failed;
+        asset_reload.publish_result = result::not_ready;
+        asset_reload.message = "资产重同步超过队列预算，请重启 Runtime";
+      }
       asset_resync_required = false;
     }
     if (ipc_session.is_authenticated() && ipc_session.supports_asset_reload() &&
@@ -566,6 +623,9 @@ result runtime_process::publish_asset_revision(std::span<const std::string> outp
     if (output_uris.empty()) {
       return result::invalid_argument;
     }
+    if (!implementation_->asset_queue_fits(output_uris)) {
+      return result::not_ready;
+    }
     try {
       std::vector<ipc_asset_revision> render_assets;
       std::vector<ipc_asset_revision> structural_assets;
@@ -583,7 +643,6 @@ result runtime_process::publish_asset_revision(std::span<const std::string> outp
           type = ipc_asset_type::prefab;
         }
         if (type) {
-          implementation_->known_assets.insert_or_assign(uri, *type);
           auto& destination = *type == ipc_asset_type::scene || *type == ipc_asset_type::prefab
                                   ? structural_assets
                                   : render_assets;
@@ -592,6 +651,17 @@ result runtime_process::publish_asset_revision(std::span<const std::string> outp
       }
       if (render_assets.empty() && structural_assets.empty()) {
         return result::unsupported;
+      }
+      if (render_assets.size() > 16U && std::ranges::all_of(render_assets, [](const auto& asset) {
+            return asset.type == ipc_asset_type::texture;
+          })) {
+        return result::invalid_argument;
+      }
+      for (const auto& asset : render_assets) {
+        implementation_->known_assets.insert_or_assign(asset.uri, asset.type);
+      }
+      for (const auto& asset : structural_assets) {
+        implementation_->known_assets.insert_or_assign(asset.uri, asset.type);
       }
       implementation_->queue_asset_batch(std::move(render_assets), ipc_asset_operation::reload);
       for (auto& asset : structural_assets) {
@@ -621,7 +691,9 @@ result runtime_process::retry_asset_reload() noexcept {
     return result::not_ready;
   }
   try {
-    implementation_->queue_asset_resync();
+    if (!implementation_->queue_asset_resync()) {
+      return result::not_ready;
+    }
     implementation_->asset_reload.message = "等待 Runtime 重新同步资产";
     implementation_->asset_reload.state = runtime_asset_reload_state::waiting;
     return result::success;

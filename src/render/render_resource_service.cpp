@@ -218,6 +218,16 @@ gneiss_result render_resource_service::destroy_texture(gneiss_texture texture) n
   return textures_.destroy(texture, core::resource_type::texture);
 }
 
+bool render_resource_service::replace_texture(
+    gneiss_texture texture, std::shared_ptr<const texture_resource> prepared) noexcept {
+  auto* slot = textures_.get(texture, core::resource_type::texture);
+  if (slot == nullptr || !prepared) {
+    return false;
+  }
+  *slot = std::move(prepared);
+  return true;
+}
+
 const mesh_resource* render_resource_service::get_mesh(gneiss_mesh mesh) const noexcept {
   const auto* resource = meshes_.get(mesh, core::resource_type::mesh);
   return resource == nullptr ? nullptr : resource->get();

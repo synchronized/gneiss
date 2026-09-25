@@ -5,6 +5,8 @@
 #define GNEISS_RENDER_RENDER_ASSET_LOADER_H_
 
 #include "asset/resource_cache.h"
+#include "render/render_resource_service.h"
+#include <limits>
 
 #include <gneiss/render.h>
 
@@ -28,6 +30,15 @@ struct asset_diagnostic final {
   std::string path;
   std::string message;
 };
+
+/** 纯 CPU 准备：不访问缓存、RID 表或 GPU；调用方拥有只读 VFS 快照及输出。
+ * 有界读取需要后端支持；verify_source 拒绝准备期间变化的描述或负载，不提供跨进程事务隔离。 */
+[[nodiscard]] gneiss_result
+prepare_texture(const asset_internal::virtual_file_system& file_system, std::string_view uri,
+                texture_resource& output, asset_diagnostic& diagnostic,
+                std::size_t input_limit = std::numeric_limits<std::size_t>::max(),
+                bool verify_source = false,
+                std::size_t output_limit = 256U * 1024U * 1024U) noexcept;
 
 enum class render_asset_type : std::uint32_t { mesh = 1U, material = 2U, texture = 3U };
 
@@ -68,6 +79,23 @@ private:
 
 class render_asset_loader final {
 public:
+  struct texture_target {
+    std::string uri;
+    std::weak_ptr<const asset_internal::resource_cache::entry> expected;
+    bool existed{};
+  };
+  struct texture_candidate {
+    texture_target target;
+    texture_asset_lease lease;
+    std::shared_ptr<const texture_resource> data;
+    std::shared_ptr<const texture_resource> previous;
+  };
+  [[nodiscard]] gneiss_result observe_texture(std::string_view uri,
+                                              texture_target& output) const noexcept;
+  [[nodiscard]] gneiss_result stage_texture(const texture_target& target, texture_resource prepared,
+                                            texture_candidate& output) noexcept;
+  /** 全部身份仍有效才一次发布；调用方须先完成 GPU 候选确认，且不并发访问缓存。 */
+  [[nodiscard]] gneiss_result publish_textures(std::span<texture_candidate> candidates) noexcept;
   render_asset_loader(const asset_internal::virtual_file_system& file_system,
                       asset_internal::resource_cache& cache,
                       render_resource_service& resources) noexcept;

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "cooperative_scheduler_contract.h"
 #include "core/tasks/task_scheduler.h"
 
 #include <atomic>
@@ -259,6 +260,20 @@ void fair_priority_and_scope_isolation() {
 }
 }
 int main() try {
+  cooperative_scheduler_contract();
+  {
+    task_scheduler scheduler({.mode = execution_mode::cooperative});
+    std::jthread other([&] {
+      require(scheduler.run_ready().status == drive_status::wrong_thread, "允许了错误线程驱动");
+      bool rejected{};
+      try {
+        scheduler.stop();
+      } catch (const std::logic_error&) {
+        rejected = true;
+      }
+      require(rejected, "允许了错误线程关闭");
+    });
+  }
   for (const auto workers : {1U, 2U, 4U}) {
     dependency_graph(workers);
   }

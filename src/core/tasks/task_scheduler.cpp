@@ -2,19 +2,19 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "core/tasks/task_scheduler.h"
+#include "core/tasks/task_platform.h"
 
 #include <algorithm>
-#include <condition_variable>
 #include <map>
 #include <mutex>
 #include <stdexcept>
-#include <thread>
 #include <utility>
 
 namespace gneiss::tasks {
 namespace {
 std::atomic_uint64_t next_owner{1U};
 thread_local const void* active_scheduler{};
+thread_local const char thread_identity{};
 bool terminal(task_state state) {
   return state != task_state::waiting && state != task_state::running;
 }
@@ -27,7 +27,7 @@ struct task_scheduler::implementation {
     task_completion completion;
     std::atomic_bool cancellation{};
     std::vector<std::shared_ptr<task>> dependencies;
-    std::chrono::steady_clock::time_point enqueued{std::chrono::steady_clock::now()};
+    std::chrono::steady_clock::time_point enqueued{};
     std::chrono::steady_clock::time_point started{};
   };
   struct lane {
@@ -36,8 +36,8 @@ struct task_scheduler::implementation {
   scheduler_options options;
   const std::uint64_t owner{next_owner.fetch_add(1U)};
   std::uint64_t sequence{1U};
-  mutable std::mutex mutex;
-  std::condition_variable wake;
+  mutable detail::mutex mutex;
+  detail::condition wake;
   std::map<std::uint64_t, bool> scopes;
   std::map<std::uint64_t, lane> lanes;
   std::map<std::uint64_t, std::shared_ptr<task>> tasks;
@@ -45,13 +45,15 @@ struct task_scheduler::implementation {
   bool stopping{};
   std::size_t running_background{};
   std::size_t normal_streak{};
-  std::vector<std::jthread> threads;
+  detail::workers threads;
+  const void* host_thread{&thread_identity};
+  auto now() const { return options.clock ? options.clock() : std::chrono::steady_clock::now(); }
 
   void finish(task& value, task_outcome outcome) {
     if (terminal(value.completion.outcome.state)) {
       return;
     }
-    const auto now = std::chrono::steady_clock::now();
+    const auto now = this->now();
     if (value.completion.outcome.state == task_state::running) {
       value.completion.execution_ms =
           std::chrono::duration<double, std::milli>(now - value.started).count();
@@ -90,7 +92,7 @@ struct task_scheduler::implementation {
   std::shared_ptr<task> select(std::chrono::steady_clock::time_point& next_due) {
     std::shared_ptr<task> normal;
     std::shared_ptr<task> background;
-    const auto now = std::chrono::steady_clock::now();
+    const auto now = this->now();
     for (auto& [id, value] : tasks) {
       (void)id;
       if (value->completion.outcome.state != task_state::waiting) {
@@ -144,6 +146,25 @@ struct task_scheduler::implementation {
     }
     return chosen;
   }
+  void execute(const std::shared_ptr<task>& current, task_function function) {
+    task_outcome outcome;
+    try {
+      outcome = function(task_context{current->cancellation});
+      if (!terminal(outcome.state) || outcome.state == task_state::dependency_failed) {
+        outcome = {.state = task_state::failed, .error = "任务返回非法终态"};
+      }
+    } catch (const std::exception& error) {
+      outcome = {.state = task_state::failed, .error = error.what()};
+    } catch (...) {
+      outcome = {.state = task_state::failed, .error = "任务发生未知异常"};
+    }
+    // 运行任务的终态由任务体决定；迟到的取消不能撤销已经提交的业务操作。
+    function = {};
+    {
+      std::scoped_lock lock(mutex);
+      finish(*current, std::move(outcome));
+    }
+  }
   void run() {
     active_scheduler = this;
     for (;;) {
@@ -168,31 +189,27 @@ struct task_scheduler::implementation {
         }
         function = std::move(current->function);
       }
-      task_outcome outcome;
-      try {
-        outcome = function(task_context{current->cancellation});
-        if (!terminal(outcome.state) || outcome.state == task_state::dependency_failed) {
-          outcome = {.state = task_state::failed, .error = "任务返回非法终态"};
-        }
-      } catch (const std::exception& error) {
-        outcome = {.state = task_state::failed, .error = error.what()};
-      } catch (...) {
-        outcome = {.state = task_state::failed, .error = "任务发生未知异常"};
-      }
-      // 运行任务的终态由任务体决定；迟到的取消不能撤销已经提交的业务操作。
-      function = {};
-      {
-        std::scoped_lock lock(mutex);
-        finish(*current, std::move(outcome));
-      }
+      execute(current, std::move(function));
     }
   }
 };
 
 task_scheduler::task_scheduler(scheduler_options options)
     : impl_(std::make_unique<implementation>()) {
-  if (options.workers == 0U || options.workers > 64U || options.capacity == 0U) {
+  if ((options.mode != execution_mode::thread_pool &&
+       options.mode != execution_mode::cooperative) ||
+      options.workers > 64U || options.capacity == 0U ||
+      (options.mode == execution_mode::thread_pool && options.workers == 0U)) {
     throw std::invalid_argument("调度器线程数或容量无效");
+  }
+#if !GNEISS_TASK_THREADS
+  if (options.mode == execution_mode::thread_pool) {
+    throw std::invalid_argument("工作线程后端不可用");
+  }
+#endif
+  if (options.mode == execution_mode::cooperative) {
+    options.workers = 1U;
+    options.background_limit = 1U;
   }
   if (options.background_limit == 0U) {
     options.background_limit = std::max(std::size_t{1U}, options.workers - 1U);
@@ -202,8 +219,9 @@ task_scheduler::task_scheduler(scheduler_options options)
   }
   impl_->options = options;
   try {
-    for (std::size_t i = 0; i < options.workers; ++i) {
-      impl_->threads.emplace_back([this] { impl_->run(); });
+    for (std::size_t i = 0; options.mode == execution_mode::thread_pool && i < options.workers;
+         ++i) {
+      impl_->threads.start([this] { impl_->run(); });
     }
   } catch (...) {
     stop();
@@ -272,6 +290,7 @@ submit_result task_scheduler::submit(task_description description, task_function
     }
     value->dependencies.push_back(before->second);
   }
+  value->enqueued = impl_->now();
   value->description = std::move(description);
   value->function = std::move(function);
   const task_handle handle{.owner = impl_->owner, .id = impl_->sequence++};
@@ -319,6 +338,20 @@ bool task_scheduler::close_scope(task_scope scope) {
     return false;
   }
   cancel_scope(scope);
+  {
+    std::unique_lock lock(impl_->mutex);
+    if (scope.owner != impl_->owner || !impl_->scopes.contains(scope.id)) {
+      return false;
+    }
+    impl_->wake.wait(lock, [&] { return impl_->scope_idle(scope.id); });
+  }
+  return try_close_scope(scope);
+}
+bool task_scheduler::try_close_scope(task_scope scope) {
+  if (active_scheduler == impl_.get()) {
+    return false;
+  }
+  cancel_scope(scope);
   std::vector<task_function> cleanup;
   std::vector<std::shared_ptr<implementation::task>> retired;
   {
@@ -326,7 +359,9 @@ bool task_scheduler::close_scope(task_scope scope) {
     if (scope.owner != impl_->owner || !impl_->scopes.contains(scope.id)) {
       return false;
     }
-    impl_->wake.wait(lock, [&] { return impl_->scope_idle(scope.id); });
+    if (!impl_->scope_idle(scope.id)) {
+      return false;
+    }
     for (auto iterator = impl_->tasks.begin(); iterator != impl_->tasks.end();) {
       if (iterator->second->description.scope.id == scope.id) {
         cleanup.push_back(std::move(iterator->second->function));
@@ -390,24 +425,75 @@ scheduler_stats task_scheduler::stats() const {
   }
   return stats;
 }
-void task_scheduler::stop() {
-  if (active_scheduler == impl_.get()) {
-    throw std::logic_error("不能从工作线程停止自身调度器");
+execution_mode task_scheduler::mode() const noexcept { return impl_->options.mode; }
+drive_result task_scheduler::run_ready(drive_budget budget) {
+  if (mode() != execution_mode::cooperative) {
+    return {.status = drive_status::wrong_mode};
+  }
+  if (impl_->host_thread != &thread_identity) {
+    return {.status = drive_status::wrong_thread};
+  }
+  if (active_scheduler != nullptr) {
+    return {.status = drive_status::reentrant};
   }
   {
     std::scoped_lock lock(impl_->mutex);
-    impl_->stopping = true;
-    for (auto& [id, value] : impl_->tasks) {
-      (void)id;
-      impl_->request_cancel(*value);
-    }
-    impl_->wake.notify_all();
-  }
-  for (auto& thread : impl_->threads) {
-    if (thread.joinable()) {
-      thread.join();
+    if (impl_->stopping) {
+      return {.status = drive_status::stopped};
     }
   }
+  drive_result result;
+  const auto start = impl_->now();
+  struct execution_guard {
+    explicit execution_guard(const void* value) { active_scheduler = value; }
+    ~execution_guard() { active_scheduler = nullptr; }
+  } guard{impl_.get()};
+  while (result.executed < budget.max_tasks && impl_->now() - start < budget.max_time) {
+    std::shared_ptr<implementation::task> current;
+    task_function function;
+    {
+      std::scoped_lock lock(impl_->mutex);
+      if (impl_->stopping) {
+        result.status = drive_status::stopped;
+        return result;
+      }
+      auto due = std::chrono::steady_clock::time_point::max();
+      current = impl_->select(due);
+      if (!current) {
+        return result;
+      }
+      function = std::move(current->function);
+    }
+    impl_->execute(current, std::move(function));
+    ++result.executed;
+  }
+  result.budget_exhausted = true;
+  return result;
+}
+void task_scheduler::request_stop() {
+  std::scoped_lock lock(impl_->mutex);
+  impl_->stopping = true;
+  for (auto& [id, value] : impl_->tasks) {
+    (void)id;
+    impl_->request_cancel(*value);
+  }
+  impl_->wake.notify_all();
+}
+bool task_scheduler::stopped() const {
+  std::scoped_lock lock(impl_->mutex);
+  return impl_->stopping && std::ranges::all_of(impl_->tasks, [](const auto& item) {
+           return terminal(item.second->completion.outcome.state);
+         });
+}
+void task_scheduler::stop() {
+  if (mode() == execution_mode::cooperative && impl_->host_thread != &thread_identity) {
+    throw std::logic_error("协作调度器必须由所属宿主线程停止");
+  }
+  if (active_scheduler == impl_.get()) {
+    throw std::logic_error("不能从任务停止自身调度器");
+  }
+  request_stop();
+  impl_->threads.join();
 }
 
 } // namespace gneiss::tasks

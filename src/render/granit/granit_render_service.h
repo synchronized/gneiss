@@ -61,8 +61,19 @@ public:
   [[nodiscard]] bool
   try_take_required_completion(render_internal::render_frame_completion& completion) noexcept;
   [[nodiscard]] render_internal::render_queue_stats query_performance_stats() const noexcept;
+  [[nodiscard]] double latest_texture_upload_ms() const noexcept {
+    return latest_texture_upload_ms_;
+  }
+  using texture_data = std::shared_ptr<const render_internal::texture_resource>;
+  [[nodiscard]] gneiss_result prepare_textures(std::vector<texture_data> data,
+                                               std::uint64_t& sequence) noexcept;
+  [[nodiscard]] bool poll_texture_preparation(std::uint64_t sequence,
+                                              gneiss_result& result) noexcept;
+  [[nodiscard]] gneiss_result discard_prepared_textures(std::vector<texture_data> data,
+                                                        std::uint64_t& sequence) noexcept;
 
 private:
+  double latest_texture_upload_ms_{};
   [[nodiscard]] gneiss_result initialize_gpu(const native_window_info& window,
                                              std::span<const std::byte> environment_asset,
                                              float environment_intensity,
@@ -78,6 +89,11 @@ private:
     granit::texture texture;
     granit::texture_view view;
   };
+  struct prepared_texture {
+    texture_data data;
+    texture_mirror mirror;
+  };
+  std::unordered_map<const render_internal::texture_resource*, prepared_texture> prepared_textures_;
 
   struct mesh_mirror final {
     const render_internal::mesh_resource* source{};

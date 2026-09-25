@@ -59,6 +59,7 @@ struct threaded_render_executor::state final {
   render_queue_stats stats;
   render_command_status command_status;
   bool has_command_status{};
+  std::chrono::steady_clock::time_point previous_frame_completed{};
 
   void run() noexcept;
 };
@@ -114,11 +115,15 @@ void threaded_render_executor::state::run() noexcept {
             has_command_status = true;
           }};
       reporter.report(render_command_stage::preparing, 0U, 0U);
+      const auto command_started = std::chrono::steady_clock::now();
       try {
         command_completion.status = task.command(reporter);
       } catch (...) {
         command_completion.status = GNEISS_ERROR_INTERNAL;
       }
+      command_completion.execution_ms = std::chrono::duration<double, std::milli>(
+                                            std::chrono::steady_clock::now() - command_started)
+                                            .count();
       {
         std::lock_guard lock(mutex);
         command_completion.progress = command_status.progress;
@@ -130,6 +135,18 @@ void threaded_render_executor::state::run() noexcept {
     {
       std::lock_guard lock(mutex);
       if (task.kind == task_kind::frame) {
+        if (frame_completion.execution.presented) {
+          const auto completed_at = std::chrono::steady_clock::now();
+          if (stats.presented_frames != 0U) {
+            stats.latest_frame_interval_ms =
+                std::chrono::duration<double, std::milli>(completed_at - previous_frame_completed)
+                    .count();
+            stats.maximum_frame_interval_ms =
+                std::max(stats.maximum_frame_interval_ms, stats.latest_frame_interval_ms);
+          }
+          previous_frame_completed = completed_at;
+          ++stats.presented_frames;
+        }
         ++stats.executed_frames;
         if (frame_completion.policy == render_frame_policy::required) {
           ++stats.executed_required_frames;

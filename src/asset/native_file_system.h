@@ -15,6 +15,9 @@ public:
   [[nodiscard]] gneiss_result initialize(std::string_view root) noexcept;
   [[nodiscard]] gneiss_result read(std::string_view path,
                                    std::vector<std::byte>& out_bytes) const noexcept override;
+  [[nodiscard]] gneiss_result
+  read_bounded(std::string_view path, std::size_t limit,
+               std::vector<std::byte>& out_bytes) const noexcept override;
   [[nodiscard]] bool is_initialized() const noexcept { return !root_.empty(); }
 
 private:

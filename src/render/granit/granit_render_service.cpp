@@ -198,6 +198,11 @@ void granit_render_service::log_texture(gneiss_texture rid, const char* stage,
 granit::result
 granit_render_service::create_texture_mirror(const render_internal::texture_resource& source,
                                              texture_mirror& output, gneiss_texture rid) noexcept {
+  if (auto found = prepared_textures_.find(&source); found != prepared_textures_.end()) {
+    output = std::move(found->second.mirror);
+    prepared_textures_.erase(found);
+    return granit::result::success;
+  }
   output.source = &source;
   if (!source.manifest.empty()) {
     granit::texture_asset_info info;
@@ -268,11 +273,25 @@ granit_render_service::create_texture_mirror(const render_internal::texture_reso
        .width = source.width,
        .height = source.height,
        .mip_levels = static_cast<std::uint32_t>(source.levels.size())});
+  granit::upload_batch upload;
+  std::uint64_t upload_bytes{};
+  for (const auto& mip : source.levels) {
+    upload_bytes += mip.pixels.size();
+  }
+  if (result.ok()) {
+    result = upload.initialize(
+        renderer_, {.max_staged_bytes = upload_bytes,
+                    .max_operation_count = static_cast<std::uint32_t>(source.levels.size())});
+  }
   for (std::uint32_t level = 0U; result.ok() && level < source.levels.size(); ++level) {
     const auto& mip = source.levels[level];
-    result = output.texture.write(
-        mip.pixels, {.offset = 0, .bytes_per_row = mip.width * 4U, .rows_per_image = mip.height},
+    result = upload.write_texture(
+        output.texture.ref(), mip.pixels,
+        {.offset = 0, .bytes_per_row = mip.width * 4U, .rows_per_image = mip.height},
         {.mip_level = level, .width = mip.width, .height = mip.height});
+  }
+  if (result.ok()) {
+    result = upload.submit();
   }
   if (result.ok()) {
     result = output.view.initialize(renderer_, output.texture, {.format = format});
@@ -548,6 +567,13 @@ granit::result granit_render_service::prepare_ui_draw_list(
 
 void granit_render_service::release_invalid_textures(
     const render_internal::render_resource_snapshot& resources) noexcept {
+  for (auto iterator = prepared_textures_.begin(); iterator != prepared_textures_.end();) {
+    if (iterator->second.data.use_count() == 1) {
+      iterator = prepared_textures_.erase(iterator);
+    } else {
+      ++iterator;
+    }
+  }
   bool invalidated = false;
   for (auto iterator = texture_mirrors_.begin(); iterator != texture_mirrors_.end();) {
     if (resources.get_texture(iterator->first) != iterator->second.source) {
@@ -583,6 +609,82 @@ void granit_render_service::release_invalid_materials(
     } else {
       ++iterator;
     }
+  }
+}
+
+gneiss_result granit_render_service::prepare_textures(std::vector<texture_data> data,
+                                                      std::uint64_t& sequence) noexcept {
+  try {
+    if (data.empty()) {
+      return GNEISS_ERROR_INVALID_ARGUMENT;
+    }
+    return executor_.submit_command(
+        [this, data = std::move(data)](const render_internal::render_command_reporter& reporter) {
+          // 仅渲染线程创建候选；失败不影响已显示的镜像。
+          std::vector<prepared_texture> pending;
+          pending.reserve(data.size());
+          for (const auto& item : data) {
+            if (!item) {
+              return GNEISS_ERROR_INVALID_ARGUMENT;
+            }
+            prepared_texture value{.data = item, .mirror = {}};
+            const auto result = create_texture_mirror(*item, value.mirror);
+            if (result.failed()) {
+              return map_result(result);
+            }
+            pending.push_back(std::move(value));
+            reporter.report(render_internal::render_command_stage::uploading, pending.size(),
+                            data.size());
+          }
+          try {
+            for (auto& value : pending) {
+              const auto* key = value.data.get();
+              prepared_textures_.insert_or_assign(key, std::move(value));
+            }
+          } catch (...) {
+            for (const auto& item : data) {
+              prepared_textures_.erase(item.get());
+            }
+            return GNEISS_ERROR_OUT_OF_MEMORY;
+          }
+          return GNEISS_SUCCESS;
+        },
+        sequence);
+
+  } catch (const std::bad_alloc&) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
+bool granit_render_service::poll_texture_preparation(std::uint64_t sequence,
+                                                     gneiss_result& result) noexcept {
+  render_internal::render_command_completion completion;
+  if (!executor_.try_take_command_completion(completion)) {
+    return false;
+  }
+  latest_texture_upload_ms_ = completion.execution_ms;
+  result = completion.sequence == sequence ? completion.status : GNEISS_ERROR_INTERNAL;
+  return true;
+}
+
+gneiss_result granit_render_service::discard_prepared_textures(std::vector<texture_data> data,
+                                                               std::uint64_t& sequence) noexcept {
+  try {
+    return executor_.submit_command(
+        [this, data = std::move(data)](const render_internal::render_command_reporter&) {
+          for (const auto& item : data) {
+            prepared_textures_.erase(item.get());
+          }
+          return GNEISS_SUCCESS;
+        },
+        sequence);
+
+  } catch (const std::bad_alloc&) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
   }
 }
 
@@ -866,6 +968,7 @@ gneiss_result granit_render_service::shutdown_gpu(granit::renderer_resource_stat
   material_mirrors_.clear();
   mesh_mirrors_.clear();
   texture_mirrors_.clear();
+  prepared_textures_.clear();
   static_cast<void>(default_normal_linear_.view.reset());
   static_cast<void>(default_normal_linear_.texture.reset());
   static_cast<void>(default_white_linear_.view.reset());
@@ -1101,6 +1204,18 @@ granit_render_service::execute_frame(render_internal::render_frame_packet& packe
 
   granit::swapchain_backbuffer backbuffer;
   result = swapchain_.backbuffer(frame, backbuffer);
+  if (result.ok()) {
+    granit::swapchain_info actual;
+    result = swapchain_.query_info(actual);
+    if (result.ok() && (actual.width != window.width || actual.height != window.height)) {
+      // 连续 resize 时，排队帧的窗口尺寸可能已经落后于实际 Backbuffer。
+      // 不将旧尺寸传给管线；归还已获取帧，下一帧按最新窗口事件重建。
+      const auto cancelled = swapchain_.cancel(frame);
+      window.needs_recreate = true;
+      output.needs_recreate = true;
+      return map_result(cancelled);
+    }
+  }
   const auto render_started = std::chrono::steady_clock::now();
   if (result.ok()) {
     granit::render_pipeline_render_desc desc{};
@@ -1139,6 +1254,7 @@ granit_render_service::execute_frame(render_internal::render_frame_packet& packe
     }
     const auto present_started = std::chrono::steady_clock::now();
     result = swapchain_.present(frame);
+    output.presented = result.ok();
     output.present_wait_ms =
         std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - present_started)
             .count();

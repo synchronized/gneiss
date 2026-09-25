@@ -44,6 +44,7 @@ int main() {
           }
         }
         output.needs_recreate = packet.window.needs_recreate;
+        output.presented = packet.window.width == 3U;
         output.gpu_timing_supported = true;
         if (packet.window.width == 3U) {
           output.gpu_timing_valid = true;
@@ -100,8 +101,8 @@ int main() {
   const auto stats = executor.query_stats();
   if (executed != std::vector<std::uint32_t>{1U, 3U} || completions.size() != 3U ||
       stats.replaced_frames != 1U || stats.pending_high_watermark == 0U ||
-      stats.submitted_frames != 3U || stats.executed_frames != 2U || stats.pending_tasks != 0U ||
-      stats.pending_frames != 0U || stats.pending_commands != 0U ||
+      stats.submitted_frames != 3U || stats.executed_frames != 2U || stats.presented_frames != 1U ||
+      stats.pending_tasks != 0U || stats.pending_frames != 0U || stats.pending_commands != 0U ||
       stats.latest_frame_queue_wait_ms < 0.0F ||
       stats.maximum_frame_queue_wait_ms < stats.latest_frame_queue_wait_ms ||
       stats.latest_frame_capture_ms != 2.5F || stats.latest_copied_payload_bytes != 4096U ||

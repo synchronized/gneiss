@@ -31,7 +31,7 @@ gneiss_result fail(int error, std::string& message) noexcept {
 } // namespace
 
 gneiss_result decode_png(const std::vector<std::byte>& bytes, decoded_png& out_image,
-                         std::string& out_message) noexcept {
+                         std::string& out_message, std::size_t byte_limit) noexcept {
   out_image = {};
   out_message.clear();
   if (bytes.empty()) {
@@ -58,7 +58,7 @@ gneiss_result decode_png(const std::vector<std::byte>& bytes, decoded_png& out_i
     if (result != 0) {
       return fail(result, out_message);
     }
-    if (decoded_size == 0U || decoded_size > maximum_decoded_bytes ||
+    if (decoded_size == 0U || decoded_size > maximum_decoded_bytes || decoded_size > byte_limit ||
         decoded_size != static_cast<std::size_t>(header.width) * header.height * 4U) {
       out_message = "PNG 解码尺寸超出限制";
       return GNEISS_ERROR_INVALID_ARGUMENT;
