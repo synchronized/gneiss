@@ -100,7 +100,8 @@
 - [VER-037：0.37.0 编辑器交互稳定性](plans/VER-037-0.37.0-editor-interaction-stability.md)
 - [VER-038：0.38.0 资产后台处理](plans/VER-038-0.38.0-background-assets.md)
 - [VER-039：0.39.0 任务调度基础与资产服务接入](plans/VER-039-0.39.0-task-scheduling.md)
-- [VER-040：0.40.0 调度器执行模式与 Web 适配基础](plans/VER-040-0.40.0-cooperative-scheduling.md)
+- [VER-040：0.40.0 统一任务调度与 Runtime 异步资产加载](plans/VER-040-0.40.0-cooperative-scheduling.md)
+- [DEV-040：统一调度与 Runtime 纹理异步加载开发计划](plans/DEV-040-runtime-task-integration.md)
 - [M-100：Editor Play 工作流实施记录](records/M-100-editor-play-workflow.md)
 - [M-101：示例与跨平台验收记录](records/M-101-example-cross-platform-validation.md)
 - [M-102：Runtime 检查会话与对象标识实施记录](records/M-102-runtime-inspection-identity.md)
@@ -161,6 +162,7 @@
 - [ADR-045：Editor 资产任务的线程与提交边界](decisions/ADR-045-editor-background-assets.md)
 - [ADR-046：任务调度与 Service 的执行边界](decisions/ADR-046-task-scheduling-service-boundary.md)
 - [ADR-047：任务契约共用线程池与协作执行模式](decisions/ADR-047-cooperative-task-execution.md)
+- [ADR-048：Runtime 资产分离异步准备与受控提交](decisions/ADR-048-runtime-asset-preparation.md)
 
 ## 实施与验收记录
 
