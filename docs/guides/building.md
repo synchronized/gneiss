@@ -13,7 +13,7 @@ Editor。
 - CMake 3.23 或更高版本。
 - 支持 C++20 的 C/C++ 编译器。
 - 使用 Ninja preset 时需要安装 Ninja。
-- 启用 Granit 运行时适配时需要已安装的 Granit `0.29.1+` 核心、Window 与 RenderPipeline
+- 启用 Granit 运行时适配时需要已安装的 Granit `0.30.0+` 核心、Window 与 RenderPipeline
   组件，或由父工程提供 `granit::granit`、`granit::window` 和
   `granit::render_pipeline` 目标。
 - 离线工具或测试还需要 Granit `AssetTools` 组件。FETCH 自动启用其 SDK；PACKAGE 或父工程模式
@@ -142,6 +142,9 @@ cmake -S . -B build/granit-platform -G Ninja \
 cmake --build build/granit-platform
 ctest --test-dir build/granit-platform --output-on-failure
 ```
+
+Gneiss 当前使用 Granit 原生 Window 后端，未接入 0.30 的可选 SDL3 Window 后端。
+升级依赖不会自动切换到 SDL3；手动选择 SDL3 前仍需迁移 Gneiss 的原生句柄 Surface 创建路径。
 
 使用 `GNEISS_GRANIT_PROVIDER=FETCH` 可以强制验证下载路径，跳过 package 查找。仓库镜像和版本可
 通过 `GNEISS_GRANIT_GIT_REPOSITORY`、`GNEISS_GRANIT_GIT_TAG` 覆盖。若父工程已经定义

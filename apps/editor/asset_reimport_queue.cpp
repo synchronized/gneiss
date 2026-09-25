@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <deque>
+#include <exception>
 #include <map>
 #include <string>
 #include <utility>
@@ -34,6 +35,25 @@ namespace asset_import = gneiss::tooling::asset_import;
   return report;
 }
 
+[[nodiscard]] editor_import_report
+invoke_import(const asset_reimport_queue::import_function& importer,
+              const std::filesystem::path& project, const std::filesystem::path& assets,
+              const std::filesystem::path& source) {
+  editor_import_report report;
+  try {
+    report = importer(project, assets, source);
+  } catch (const std::exception& error) {
+    report = diagnostic_report(editor_import_result::import_failed,
+                               std::string{"重新导入异常："} + error.what());
+  } catch (...) {
+    report = diagnostic_report(editor_import_result::import_failed, "重新导入发生未知异常");
+  }
+  if (report.source_path.empty()) {
+    report.source_path = source;
+  }
+  return report;
+}
+
 } // namespace
 
 struct asset_reimport_queue::implementation final {
@@ -48,6 +68,68 @@ struct asset_reimport_queue::implementation final {
   std::map<std::string, candidate> candidates;
   std::deque<asset_reimport_event> events;
   std::size_t dropped{};
+  bool rescan_requested = false;
+  bool rescan_active = false;
+  result rescan_operation = result::success;
+  std::vector<std::filesystem::path> rescan_sources;
+  std::size_t rescan_cursor = 0U;
+
+  void begin_rescan(const asset_import::asset_index& index,
+                    const asset_import::asset_index_report& index_report) {
+    if (rescan_requested && !rescan_active) {
+      rescan_requested = false;
+      rescan_sources.clear();
+      rescan_cursor = 0U;
+      rescan_operation = result::success;
+      if (index_report.result != asset_import::asset_index_result::success &&
+          index_report.result != asset_import::asset_index_result::not_found) {
+        rescan_operation = result::io;
+        emit(asset_reimport_state::failed, ".",
+             diagnostic_report(editor_import_result::io_error,
+                               "源资产补扫无法读取索引：" + index_report.diagnostic));
+      } else {
+        for (const auto& entry : index.entries) {
+          const auto source = std::filesystem::path(
+              std::u8string(reinterpret_cast<const char8_t*>(entry.source_path.data()),
+                            entry.source_path.size()));
+          if (!is_safe_relative_path(source)) {
+            rescan_operation = result::invalid_argument;
+            rescan_sources.clear();
+            break;
+          }
+          rescan_sources.push_back(source);
+        }
+        rescan_active = rescan_operation == result::success;
+      }
+    }
+  }
+
+  void admit_rescan(asset_reimport_queue& queue, std::size_t max_candidates,
+                    clock::time_point now) {
+    // 队列满时保留游标，后续帧继续；不要把补扫自身计作候选丢失。
+    for (std::size_t admitted = 0U;
+         rescan_active && admitted < max_candidates && rescan_cursor < rescan_sources.size() &&
+         candidates.size() < options.capacity;
+         ++admitted) {
+      const auto& source = rescan_sources[rescan_cursor];
+      if (!candidates.contains(portable_path(source))) {
+        const auto operation = queue.notify(source, now);
+        if (operation != result::success) {
+          rescan_operation = operation;
+          rescan_active = false;
+          break;
+        }
+      }
+      ++rescan_cursor;
+    }
+  }
+
+  void finish_rescan() {
+    if (rescan_active && rescan_cursor == rescan_sources.size() && candidates.empty()) {
+      rescan_active = false;
+      rescan_sources.clear();
+    }
+  }
 
   void emit(asset_reimport_state state, const std::filesystem::path& relative_path,
             editor_import_report report = {}) {
@@ -70,10 +152,10 @@ asset_reimport_queue::~asset_reimport_queue() = default;
 
 result asset_reimport_queue::notify(const std::filesystem::path& relative_path,
                                     clock::time_point now) noexcept {
-  if (!is_safe_relative_path(relative_path)) {
-    return result::invalid_argument;
-  }
   try {
+    if (!is_safe_relative_path(relative_path)) {
+      return result::invalid_argument;
+    }
     const auto normalized = relative_path.lexically_normal();
     const auto key = portable_path(normalized);
     auto existing = implementation_->candidates.find(key);
@@ -95,10 +177,24 @@ result asset_reimport_queue::notify(const std::filesystem::path& relative_path,
   }
 }
 
+void asset_reimport_queue::request_rescan() noexcept { implementation_->rescan_requested = true; }
+
+bool asset_reimport_queue::is_rescanning() const noexcept {
+  return implementation_->rescan_requested || implementation_->rescan_active;
+}
+
+result asset_reimport_queue::rescan_result() const noexcept {
+  return implementation_->rescan_operation;
+}
+
 std::size_t asset_reimport_queue::tick(const std::filesystem::path& project_root,
                                        const std::filesystem::path& asset_root,
-                                       clock::time_point now, std::size_t max_imports) noexcept {
-  if (project_root.empty() || asset_root.empty() || max_imports == 0U) {
+                                       clock::time_point now, std::size_t max_imports,
+                                       std::size_t max_candidates) noexcept {
+  if (project_root.empty() || asset_root.empty() || max_imports == 0U || max_candidates == 0U) {
+    return 0U;
+  }
+  if (implementation_->candidates.empty() && !is_rescanning()) {
     return 0U;
   }
   std::size_t imported{};
@@ -106,13 +202,18 @@ std::size_t asset_reimport_queue::tick(const std::filesystem::path& project_root
     asset_import::asset_index index;
     const auto index_report =
         asset_import::load_asset_index(project_root / ".gneiss" / "asset-index.json", index);
+    implementation_->begin_rescan(index, index_report);
+    implementation_->admit_rescan(*this, max_candidates, now);
+    std::size_t examined = 0U;
     for (auto iterator = implementation_->candidates.begin();
-         iterator != implementation_->candidates.end() && imported < max_imports;) {
+         iterator != implementation_->candidates.end() && imported < max_imports &&
+         examined < max_candidates;) {
       auto& candidate = iterator->second;
       if (candidate.due > now) {
         ++iterator;
         continue;
       }
+      ++examined;
       const auto source_path = project_root / "sources" / candidate.relative_path;
       if (!std::filesystem::is_regular_file(source_path)) {
         implementation_->emit(
@@ -159,15 +260,23 @@ std::size_t asset_reimport_queue::tick(const std::filesystem::path& project_root
         continue;
       }
       implementation_->emit(asset_reimport_state::importing, candidate.relative_path);
-      auto report = implementation_->importer(project_root, asset_root, source_path);
+      // 失败尝试也消耗本帧预算；异常只能终止当前任务，不能在后续帧无限重复执行。
       ++imported;
+      auto report = invoke_import(implementation_->importer, project_root, asset_root, source_path);
       implementation_->emit(report.result == editor_import_result::success
                                 ? asset_reimport_state::succeeded
                                 : asset_reimport_state::failed,
                             candidate.relative_path, std::move(report));
       iterator = implementation_->candidates.erase(iterator);
     }
+    implementation_->finish_rescan();
   } catch (...) {
+    if (is_rescanning()) {
+      implementation_->rescan_operation = result::io;
+      implementation_->rescan_active = false;
+      implementation_->rescan_requested = false;
+      implementation_->rescan_sources.clear();
+    }
     return imported;
   }
   return imported;

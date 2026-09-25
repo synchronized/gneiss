@@ -43,6 +43,7 @@ struct runtime_asset_reload_status final {
   runtime_asset_reload_state state{runtime_asset_reload_state::idle};
   std::uint64_t revision = 0U;
   std::string message;
+  result publish_result = result::success;
 };
 
 class runtime_process final {
@@ -67,6 +68,8 @@ public:
                                               ipc_property_value value) noexcept;
   /** 发布已提交的派生资产；Runtime 未连接时保留到下次全量重同步。 */
   [[nodiscard]] result publish_asset_revision(std::span<const std::string> output_uris) noexcept;
+  /** 失败后全量同步已知资产；执行中或未连接时返回 not_ready。 */
+  [[nodiscard]] result retry_asset_reload() noexcept;
   void update() noexcept;
 
   [[nodiscard]] bool is_running() const noexcept;

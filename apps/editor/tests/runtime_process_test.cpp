@@ -28,8 +28,19 @@ struct temporary_project final {
 } // namespace
 
 int main() try {
+  temporary_project reload_project{
+      std::filesystem::temp_directory_path() / "Gneiss" /
+          ("runtime-reload-" +
+           std::to_string(std::chrono::steady_clock::now().time_since_epoch().count())),
+  };
+  std::filesystem::create_directories(reload_project.root);
+  std::filesystem::copy(GNEISS_TEST_PROJECT_ROOT, reload_project.root,
+                        std::filesystem::copy_options::recursive);
   gneiss::editor::runtime_process process;
-  gneiss::editor::runtime_launch_request request{std::filesystem::path{GNEISS_TEST_PROJECT_ROOT}};
+  if (process.retry_asset_reload() != gneiss::result::not_ready) {
+    return 16;
+  }
+  gneiss::editor::runtime_launch_request request{reload_project.root};
   const std::filesystem::path executable{GNEISS_TEST_RUNTIME};
   const auto missing_executable = executable.parent_path() / "missing-runtime";
   if (process.start(missing_executable, request) != gneiss::result::not_found) {
@@ -117,10 +128,18 @@ int main() try {
       process.control_state() != gneiss::editor::runtime_control_state::running) {
     return 7;
   }
+  const std::array<std::string, 1> unsupported_reload{"asset://unknown.bin"};
+  if (process.publish_asset_revision({}) != gneiss::result::invalid_argument ||
+      process.asset_reload_status().publish_result != gneiss::result::invalid_argument ||
+      process.publish_asset_revision(unsupported_reload) != gneiss::result::unsupported ||
+      process.asset_reload_status().publish_result != gneiss::result::unsupported) {
+    return 21;
+  }
   const std::array<std::string, 3> mixed_reload{"asset://materials/triangle.material.json",
                                                 "asset://models/triangle.mesh.json",
                                                 "asset://scenes/main.scene.json"};
-  if (process.publish_asset_revision(mixed_reload) != gneiss::result::success) {
+  if (process.publish_asset_revision(mixed_reload) != gneiss::result::success ||
+      process.asset_reload_status().publish_result != gneiss::result::success) {
     return 7;
   }
   const auto reload_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(3);
@@ -134,6 +153,45 @@ int main() try {
       process.asset_reload_status().revision != 2U ||
       process.request_pause() != gneiss::result::success) {
     return 7;
+  }
+  // 非法材质报告失败；修复磁盘文件后显式重同步，无需重启进程。
+  const auto material_path = reload_project.root / "assets/materials/triangle.material.json";
+  {
+    std::ofstream broken_material(material_path, std::ios::trunc);
+    broken_material << "invalid material";
+  }
+  const std::array<std::string, 1> material_reload{mixed_reload.front()};
+  if (process.publish_asset_revision(material_reload) != gneiss::result::success) {
+    return 17;
+  }
+  const auto wait_for_reload = [&](gneiss::editor::runtime_asset_reload_state expected) {
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(3);
+    while (process.asset_reload_status().state != expected &&
+           std::chrono::steady_clock::now() < deadline) {
+      process.update();
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+    return process.asset_reload_status().state == expected;
+  };
+  if (!wait_for_reload(gneiss::editor::runtime_asset_reload_state::failed) ||
+      process.asset_reload_status().message.empty()) {
+    return 18;
+  }
+  const auto failed_revision = process.asset_reload_status().revision;
+  // 未修复时重试仍失败，重复点击不得重复排队。
+  if (process.retry_asset_reload() != gneiss::result::success ||
+      process.retry_asset_reload() != gneiss::result::not_ready ||
+      !wait_for_reload(gneiss::editor::runtime_asset_reload_state::failed)) {
+    return 19;
+  }
+  std::filesystem::copy_file(std::filesystem::path{GNEISS_TEST_PROJECT_ROOT} /
+                                 "assets/materials/triangle.material.json",
+                             material_path, std::filesystem::copy_options::overwrite_existing);
+  if (process.retry_asset_reload() != gneiss::result::success ||
+      !wait_for_reload(gneiss::editor::runtime_asset_reload_state::applied) ||
+      process.asset_reload_status().revision <= failed_revision ||
+      process.retry_asset_reload() != gneiss::result::not_ready || !process.is_running()) {
+    return 20;
   }
   gneiss::editor::runtime_property_key property_key{.object =
                                                         process.scene_mirror().nodes().front().id,

@@ -57,7 +57,12 @@ gneiss_result fixed_update(gneiss_game_context, void*, const gneiss_game_update_
 
 gneiss_result update(gneiss_game_context, void*, const gneiss_game_update_time* time) {
   trace('U');
+#if defined(GNEISS_TEST_CONTINUOUS_UPDATE)
+  (void)time;
+  return GNEISS_SUCCESS;
+#else
   return time->update_index == UINT64_C(99) ? GNEISS_ERROR_INTERNAL : GNEISS_SUCCESS;
+#endif
 }
 
 gneiss_result shutdown(gneiss_game_context, void*) {
