@@ -918,17 +918,18 @@ result editor_session::set_mesh_renderer(scene_node_id node, std::string_view me
   }
 }
 
-result editor_session::save(const std::filesystem::path& asset_root) noexcept {
-  return save_to(asset_root, uri_, true);
+result editor_session::save(const std::filesystem::path& asset_root,
+                            std::string* saved_content) noexcept {
+  return save_to(asset_root, uri_, true, saved_content);
 }
 
-result editor_session::save_as(const std::filesystem::path& asset_root,
-                               std::string_view uri) noexcept {
-  return save_to(asset_root, uri, false);
+result editor_session::save_as(const std::filesystem::path& asset_root, std::string_view uri,
+                               std::string* saved_content) noexcept {
+  return save_to(asset_root, uri, false, saved_content);
 }
 
 result editor_session::save_to(const std::filesystem::path& asset_root, std::string_view uri,
-                               bool require_existing) noexcept {
+                               bool require_existing, std::string* saved_content) noexcept {
   if (!is_open() || asset_root.empty() ||
       gneiss_asset_uri_validate(uri.data(), uri.size()) != GNEISS_SUCCESS) {
     return result::invalid_argument;
@@ -980,6 +981,9 @@ result editor_session::save_to(const std::filesystem::path& asset_root, std::str
       return operation;
     }
     uri_ = target_uri;
+    if (saved_content != nullptr) {
+      *saved_content = std::move(json);
+    }
     is_dirty_ = false;
     return result::success;
   } catch (const std::bad_alloc&) {

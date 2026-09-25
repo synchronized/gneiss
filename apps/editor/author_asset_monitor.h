@@ -30,15 +30,20 @@ struct author_asset_change final {
   std::string uri;
   result operation{result::success};
   std::string message;
+  std::uint64_t fingerprint{};
 };
 
 /** 跟踪 Scene/Prefab 作者文件内容；用于区分自身保存、外部变化与未保存冲突。 */
 class author_asset_monitor final {
 public:
-  [[nodiscard]] result initialize(const std::filesystem::path& asset_root) noexcept;
+  [[nodiscard]] result initialize(const std::filesystem::path& asset_root,
+                                  bool build_baseline = true) noexcept;
   [[nodiscard]] author_asset_change observe(const std::filesystem::path& relative_path,
                                             bool document_dirty) noexcept;
   [[nodiscard]] result acknowledge(std::string_view uri) noexcept;
+  [[nodiscard]] result acknowledge_content(std::string_view uri, std::string_view content) noexcept;
+  void establish_baseline(std::string_view uri);
+  void accept_fingerprint(std::string_view uri, std::uint64_t value);
   /** 分帧枚举已知与磁盘作者文件，调用方仍通过 observe 执行冲突检查。 */
   void request_rescan() noexcept { rescan_requested_ = true; }
   [[nodiscard]] result poll_rescan(std::vector<std::filesystem::path>& output,

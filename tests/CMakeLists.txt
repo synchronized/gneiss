@@ -1,6 +1,13 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Gneiss contributors
 
+add_executable(gneiss_task_scheduler_test core/task_scheduler_test.cpp)
+target_link_libraries(gneiss_task_scheduler_test PRIVATE gneiss_tasks)
+gneiss_target_compile_warnings(gneiss_task_scheduler_test)
+gneiss_target_output_directories(gneiss_task_scheduler_test)
+add_test(NAME gneiss.task-scheduler COMMAND gneiss_task_scheduler_test)
+set_tests_properties(gneiss.task-scheduler PROPERTIES TIMEOUT 30)
+
 add_executable(gneiss_c_version_test c_version_test.c)
 target_link_libraries(gneiss_c_version_test PRIVATE gneiss::engine)
 set_target_properties(
