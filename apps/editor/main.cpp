@@ -1933,7 +1933,8 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
     ImGuizmo::BeginFrame();
     // 先收尾再处理菜单、保存和撤销；折叠或隐藏面板也不能遗失已应用的拖动。
     if (state.gizmo_drag.is_active() &&
-        (!ImGui::IsMouseDown(ImGuiMouseButton_Left) || ImGui::GetIO().KeyCtrl)) {
+        (!ImGui::IsMouseDown(ImGuiMouseButton_Left) || ImGui::GetIO().KeyCtrl ||
+         ImGui::IsKeyPressed(ImGuiKey_Delete, false))) {
       state.history_error = state.gizmo_drag.finish(state.session, state.history);
       state.gizmo_wait_release = ImGui::IsMouseDown(ImGuiMouseButton_Left);
       ImGuizmo::Enable(false);

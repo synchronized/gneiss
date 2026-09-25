@@ -1018,6 +1018,14 @@ gneiss_result scene_instance::capture_subtree(gneiss_scene_node_id root,
     std::erase_if(current.objects, [&included](const auto& candidate) {
       return !included.contains(candidate.uuid);
     });
+    // 子树快照必须能独立解析；外部父节点由 restore_subtree 的 parent 参数提供。
+    // 保留该引用会让删除子节点后的 Undo 在解析阶段因父节点不在快照内而失败。
+    for (auto& candidate : current.objects) {
+      if (candidate.uuid == found->uuid) {
+        candidate.parent_uuid.reset();
+        break;
+      }
+    }
     current.author_json =
         std::string{"{\"format\":\"gneiss.scene\",\"version\":4,\"scene_uuid\":\""} + current.uuid +
         "\",\"objects\":[],\"prefab_instances\":[]}";

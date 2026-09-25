@@ -159,6 +159,75 @@ int main() try {
       near(session.selected_prefab_node()->local_transform, prefab_before)) {
     return 15;
   }
+  history.clear();
+  if (session.open(application.get(), world, "asset://scenes/triangle.scene.json") !=
+          result::success ||
+      session.select(session.nodes()[1].node) != result::success) {
+    return 16;
+  }
+  const auto uuid = session.selected_node()->uuid;
+  const auto deletion_before = session.selected_node()->local_transform;
+  if (gneiss_scene_node_get_world_transform(world, session.selection().get(), &desired) !=
+      GNEISS_SUCCESS) {
+    return 17;
+  }
+  desired.translation[0] += 2.0F;
+  if (drag.begin(session) != result::success ||
+      gneiss::editor::transform_to_gizmo_matrix(desired, matrix) != result::success ||
+      drag.preview(session, world, matrix) != result::success ||
+      drag.finish(session, history) != result::success) {
+    return 18;
+  }
+  // Delete 在拖动收尾后创建独立命令；恢复节点的新句柄仍可通过 UUID 撤销此前拖动。
+  gneiss::editor::scene_subtree_snapshot snapshot;
+  if (session.destroy_subtree(session.selection(), snapshot) != result::success ||
+      history.record({
+          .label = "删除测试节点",
+          .undo =
+              [&session, snapshot] {
+                gneiss::scene_node_id restored;
+                const auto operation = session.restore_subtree(snapshot, restored);
+                if (operation != result::success) {
+                  std::printf("restore result=%d snapshot=%s\n", gneiss::to_native(operation),
+                              snapshot.json.c_str());
+                }
+                return operation;
+              },
+          .redo =
+              [&session, uuid] {
+                const auto* current = session.find_node(uuid);
+                if (current == nullptr) {
+                  return result::not_found;
+                }
+                gneiss::editor::scene_subtree_snapshot discarded;
+                return session.destroy_subtree(current->node, discarded);
+              },
+          .merge_key = {},
+      }) != result::success) {
+    return 19;
+  }
+  if (history.size() != 2U) {
+    return 20;
+  }
+  if (history.undo() != result::success) {
+    return 21;
+  }
+  if (history.undo() != result::success) {
+    return 22;
+  }
+  if (session.find_node(uuid) == nullptr ||
+      !near(session.find_node(uuid)->local_transform, deletion_before)) {
+    return 23;
+  }
+  if (history.redo() != result::success) {
+    return 24;
+  }
+  if (history.redo() != result::success) {
+    return 25;
+  }
+  if (session.find_node(uuid) != nullptr) {
+    return 26;
+  }
   std::puts(
       "Gizmo: root/parent TRS, multi-frame, selection, undo/redo and failure recovery passed");
   return 0;
