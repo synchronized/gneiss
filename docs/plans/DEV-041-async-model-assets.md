@@ -3,7 +3,7 @@
 
 # DEV-041：异步模型资产开发计划
 
-实施中。版本范围与门禁以 [VER-041](VER-041-0.41.0-async-model-assets.md) 为准。
+已完成，结果见 [验收记录](../records/M-265-271-0.41.0-validation.md)。版本范围与门禁以 [VER-041](VER-041-0.41.0-async-model-assets.md) 为准。
 
 1. 先接通 Granit 离屏输出和 GPU Readback，建立可失败的像素验证；复用真实 Gneiss 场景与资源路径。
 2. 提取 Mesh/Material 的纯 CPU 准备，解析材质依赖并建立有界源快照，复用既有格式校验。
