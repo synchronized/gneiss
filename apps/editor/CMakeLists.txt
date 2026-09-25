@@ -95,6 +95,8 @@ if(TARGET gneiss_asset_import_sdk)
     asset_import_controller.h
     asset_reimport_queue.cpp
     asset_reimport_queue.h
+    asset_background_worker.cpp
+    asset_background_worker.h
     asset_browser_model.cpp
     asset_browser_model.h
   )
@@ -178,6 +180,10 @@ if(BUILD_TESTING)
   if(WIN32 AND GNEISS_ENABLE_GRANIT_PLATFORM)
     add_executable(gneiss_editor_native_window_interaction_test tests/native_window_interaction_test.cpp)
     target_link_libraries(gneiss_editor_native_window_interaction_test PRIVATE gneiss_editor_ui user32)
+    if(TARGET gneiss_editor_assets)
+      target_link_libraries(gneiss_editor_native_window_interaction_test PRIVATE gneiss_editor_assets gneiss_editor_session)
+      target_compile_definitions(gneiss_editor_native_window_interaction_test PRIVATE GNEISS_TEST_BACKGROUND_ASSETS)
+    endif()
     gneiss_target_compile_warnings(gneiss_editor_native_window_interaction_test)
     gneiss_target_output_directories(gneiss_editor_native_window_interaction_test)
     add_test(NAME gneiss.editor.native-window-interaction COMMAND gneiss_editor_native_window_interaction_test)
@@ -333,6 +339,14 @@ if(BUILD_TESTING)
     set_tests_properties(gneiss.editor.runtime-process PROPERTIES TIMEOUT 15)
   endif()
   if(TARGET gneiss_editor_assets)
+    add_executable(gneiss_editor_asset_background_worker_test tests/asset_background_worker_test.cpp)
+    target_link_libraries(gneiss_editor_asset_background_worker_test PRIVATE gneiss_editor_assets)
+    target_compile_definitions(gneiss_editor_asset_background_worker_test PRIVATE
+      GNEISS_TEST_SOURCE="${PROJECT_SOURCE_DIR}/tests/data/gltf/static_triangle.gltf")
+    gneiss_target_compile_warnings(gneiss_editor_asset_background_worker_test)
+    gneiss_target_output_directories(gneiss_editor_asset_background_worker_test)
+    add_test(NAME gneiss.editor.asset-background-worker COMMAND gneiss_editor_asset_background_worker_test)
+    set_tests_properties(gneiss.editor.asset-background-worker PROPERTIES TIMEOUT 45)
     # 手动基准保留输入目录及原始输出，不把机器相关耗时作为 CTest 门槛。
     add_executable(gneiss_editor_asset_response_benchmark tests/asset_response_benchmark.cpp)
     target_link_libraries(gneiss_editor_asset_response_benchmark PRIVATE gneiss_editor_assets)

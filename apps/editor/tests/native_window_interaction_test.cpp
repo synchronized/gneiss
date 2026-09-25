@@ -2,6 +2,14 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "imgui_adapter.h"
+#if defined(GNEISS_TEST_BACKGROUND_ASSETS)
+#include "asset_background_worker.h"
+#include "editor_camera.h"
+#include <atomic>
+#include <chrono>
+#include <future>
+#include <thread>
+#endif
 
 #include <gneiss/application.hpp>
 
@@ -17,6 +25,10 @@ namespace {
 
 struct state final {
   gneiss::editor::imgui_adapter ui;
+#if defined(GNEISS_TEST_BACKGROUND_ASSETS)
+  gneiss::editor::asset_background_worker* assets{};
+  gneiss::editor::editor_camera camera;
+#endif
   HWND window = nullptr;
   std::uint32_t frames = 0U;
   bool check_pointer = false;
@@ -35,6 +47,12 @@ BOOL CALLBACK find_window(HWND window, LPARAM data) {
 
 gneiss_result update(gneiss_application application, const gneiss_frame_time* time, void* data) {
   auto& value = *static_cast<state*>(data);
+#if defined(GNEISS_TEST_BACKGROUND_ASSETS)
+  if (!value.assets->status().active ||
+      value.camera.update({.delta_seconds = 0.016F, .dolly = 0.01F}) != gneiss::result::success) {
+    return GNEISS_ERROR_INVALID_STATE;
+  }
+#endif
   RECT client{};
   if (GetClientRect(value.window, &client) == 0) {
     return GNEISS_ERROR_INTERNAL;
@@ -78,7 +96,39 @@ gneiss_result update(gneiss_application application, const gneiss_frame_time* ti
 } // namespace
 
 int main() {
+#if defined(GNEISS_TEST_BACKGROUND_ASSETS)
+  std::promise<void> release;
+  auto gate = release.get_future().share();
+  std::atomic_bool entered{};
+  gneiss::editor::asset_background_worker worker([&](const auto&, const auto&, const auto&, bool,
+                                                     const auto& control) {
+    entered = true;
+    gate.wait();
+    gneiss::editor::editor_import_report report;
+    report.import.result =
+        control.cancelled() ? gneiss::tooling::asset_import::import_asset_result::cancelled
+                            : gneiss::tooling::asset_import::import_asset_result::invalid_argument;
+    return report;
+  });
+  struct release_guard {
+    std::promise<void>& value;
+    ~release_guard() { value.set_value(); }
+  } guard{release};
+  worker.start(std::filesystem::temp_directory_path(),
+               std::filesystem::temp_directory_path() / "unused-gneiss-assets");
+  (void)worker.import_asset("blocked-test-input");
+  const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+  while (!entered && std::chrono::steady_clock::now() < deadline) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  }
+  if (!entered) {
+    return 4;
+  }
+#endif
   state value;
+#if defined(GNEISS_TEST_BACKGROUND_ASSETS)
+  value.assets = &worker;
+#endif
   gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
   desc.platform = GNEISS_APPLICATION_PLATFORM_GRANIT;
   desc.window_width = 640U;
@@ -95,6 +145,13 @@ int main() {
   if (value.window == nullptr || value.ui.initialize(application.get()) != GNEISS_SUCCESS) {
     return 2;
   }
+#if defined(GNEISS_TEST_BACKGROUND_ASSETS)
+  gneiss_world world{};
+  if (application.get_world(world) != gneiss::result::success ||
+      value.camera.initialize(world) != gneiss::result::success) {
+    return 5;
+  }
+#endif
   // 使用窗口自己的 DPI 上下文查询物理客户区，避免测试进程受到 DPI 虚拟化影响。
   const auto previous = SetThreadDpiAwarenessContext(GetWindowDpiAwarenessContext(value.window));
   const auto run = [&] { return application.run(3U) == gneiss::result::success; };
@@ -127,6 +184,10 @@ int main() {
     std::printf("synthetic DPI=%u, frames=%u, aligned=%d\n", static_cast<unsigned>(dpi),
                 value.frames, static_cast<int>(success));
   }
+#if defined(GNEISS_TEST_BACKGROUND_ASSETS)
+  value.camera.shutdown();
+  worker.request_stop();
+#endif
   value.ui.shutdown(application.get());
   if (previous != nullptr) {
     (void)SetThreadDpiAwarenessContext(previous);

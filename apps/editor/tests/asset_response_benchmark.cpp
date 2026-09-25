@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "asset_background_worker.h"
 #include "asset_reimport_queue.h"
 #include "tooling/asset_import/asset_index.h"
 
@@ -10,6 +11,7 @@
 #include <fstream>
 #include <iterator>
 #include <stdexcept>
+#include <thread>
 
 namespace {
 
@@ -93,6 +95,45 @@ void run_case(const std::filesystem::path& root, std::size_t bytes, std::size_t 
                 source.size(), files, static_cast<int>(changed), initial_ms, hash_ms / 3.0,
                 reimport_ms / 3.0, rescan_ms, maximum_tick_ms, ticks, imports);
   }
+  gneiss::editor::asset_background_worker worker;
+  worker.start(root, root / "assets");
+  std::ofstream(imported_source, std::ios::app | std::ios::binary) << ' ';
+  worker.request_rescan();
+  worker.request_refresh();
+  std::size_t samples{};
+  double maximum_poll_ms{};
+  bool succeeded{};
+  const auto started = clock_type::now();
+  while (!succeeded && clock_type::now() - started < std::chrono::seconds(60)) {
+    maximum_poll_ms = std::max(
+        maximum_poll_ms, measure([&] {
+          const auto status = worker.status();
+          if (!status.error.empty()) {
+            throw std::runtime_error(status.error);
+          }
+          std::vector<gneiss::editor::asset_reimport_event> events;
+          (void)worker.poll_events(events);
+          for (const auto& event : events) {
+            succeeded = succeeded || event.state == gneiss::editor::asset_reimport_state::succeeded;
+            if (event.state == gneiss::editor::asset_reimport_state::failed) {
+              throw std::runtime_error(event.import.diagnostic);
+            }
+          }
+          gneiss::editor::asset_browser_model browser;
+          gneiss::editor::asset_browser_result result{};
+          (void)worker.poll_browser(browser, result);
+        }));
+    ++samples;
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  }
+  worker.request_stop();
+  if (!succeeded) {
+    throw std::runtime_error("background import timed out");
+  }
+  std::printf("background bytes=%zu files=%zu wall_ms=%.3f max_poll_ms=%.3f samples=%zu\n",
+              source.size(), files,
+              std::chrono::duration<double, std::milli>(clock_type::now() - started).count(),
+              maximum_poll_ms, samples);
 }
 
 } // namespace

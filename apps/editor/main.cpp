@@ -23,10 +23,10 @@
 #include "transform_gizmo_drag.h"
 #include "transform_gizmo_math.h"
 #if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
+#include "asset_background_worker.h"
 #include "asset_browser_model.h"
 #include "asset_file_watcher.h"
 #include "asset_import_controller.h"
-#include "asset_reimport_queue.h"
 #include "author_asset_monitor.h"
 #endif
 
@@ -176,7 +176,8 @@ struct editor_state {
   gneiss::result author_watch_result = gneiss::result::success;
   gneiss::editor::asset_file_watcher author_asset_watcher;
   gneiss::editor::author_asset_monitor author_assets;
-  gneiss::editor::asset_reimport_queue asset_reimports;
+  gneiss::editor::asset_background_worker asset_reimports;
+  bool asset_shutdown_pending{};
   std::size_t observed_author_drops = 0U;
   std::size_t observed_source_drops = 0U;
   std::size_t observed_candidate_drops = 0U;
@@ -204,7 +205,7 @@ void start_source_asset_watch(editor_state& state) {
   }
   if (operation == gneiss::result::success) {
     state.asset_reimports.request_rescan();
-    state.asset_result = state.assets.refresh(state.project_root, state.asset_root);
+    state.asset_reimports.request_refresh();
     return;
   }
   state.asset_watch_failed = true;
@@ -777,7 +778,12 @@ gneiss::result perform_document_action(editor_state& state, gneiss_application a
     break;
   }
   case document_action::exit_editor:
+#if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
+    state.asset_shutdown_pending = true;
+    state.asset_reimports.request_stop();
+#else
     operation = gneiss::from_native(gneiss_application_request_exit(application));
+#endif
     break;
   case document_action::none:
     return gneiss::result::success;
@@ -1446,20 +1452,18 @@ void draw_asset_browser(editor_state& state) {
     state.asset_reimports.request_rescan();
   }
   if (ImGui::Button("Refresh")) {
-    state.asset_result = state.assets.refresh(state.project_root, state.asset_root);
+    state.asset_reimports.request_refresh();
   }
   ImGui::SameLine();
   if (ImGui::Button("Import...")) {
     std::filesystem::path selected;
     const auto selected_result = gneiss::editor::select_source_asset(selected);
     if (selected_result == gneiss::result::success) {
-      state.last_import =
-          gneiss::editor::import_external_asset(state.project_root, state.asset_root, selected);
-      state.import_attempted = true;
-      if (state.last_import.result == gneiss::editor::editor_import_result::success) {
-        (void)state.runtime.publish_asset_revision(state.last_import.import.output_uris);
+      if (!state.asset_reimports.import_asset(selected, true)) {
+        state.last_import = {};
+        state.last_import.diagnostic = "导入队列已满或正在关闭，请重试";
+        state.import_attempted = true;
       }
-      state.asset_result = state.assets.refresh(state.project_root, state.asset_root);
     } else if (selected_result != gneiss::result::not_ready) {
       state.last_import = {};
       state.last_import.result = gneiss::editor::editor_import_result::io_error;
@@ -1476,15 +1480,32 @@ void draw_asset_browser(editor_state& state) {
   const auto reimport_requested = ImGui::Button("Reimport");
   ImGui::EndDisabled();
   if (reimport_requested) {
-    state.last_import = gneiss::editor::reimport_source_asset(
-        state.project_root, state.asset_root,
-        state.project_root / "sources" / utf8_path(selected_entry->relative_path));
-    state.import_attempted = true;
-    if (state.last_import.result == gneiss::editor::editor_import_result::success) {
-      (void)state.runtime.publish_asset_revision(state.last_import.import.output_uris);
+    if (!state.asset_reimports.import_asset(state.project_root / "sources" /
+                                            utf8_path(selected_entry->relative_path))) {
+      state.last_import = {};
+      state.last_import.diagnostic = "导入队列已满或正在关闭，请重试";
+      state.import_attempted = true;
     }
-    state.asset_result = state.assets.refresh(state.project_root, state.asset_root);
   }
+  const auto background = state.asset_reimports.status();
+  ImGui::Text("Assets: %s | queued: %zu", background.stage.c_str(), background.pending);
+  if (!background.source.empty()) {
+    ImGui::TextWrapped("%s", path_utf8(background.source).c_str());
+  }
+  if (!background.error.empty()) {
+    ImGui::TextColored(gneiss::editor::theme_error_color(), "%s", background.error.c_str());
+  }
+  if (background.active || background.pending != 0U || background.rescanning) {
+    if (ImGui::Button("Cancel asset tasks")) {
+      state.asset_reimports.cancel();
+    }
+  }
+  if (state.import_attempted &&
+      state.last_import.result != gneiss::editor::editor_import_result::success &&
+      !state.last_import.source_path.empty() && ImGui::Button("Retry last import")) {
+    (void)state.asset_reimports.import_asset(state.last_import.source_path);
+  }
+
   state.asset_filter.Draw("Filter", -1.0F);
   if (state.asset_result != gneiss::editor::asset_browser_result::success) {
     ImGui::TextColored(gneiss::editor::theme_error_color(), "Refresh failed: %s",
@@ -1884,7 +1905,7 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
       }
       if (operation == gneiss::result::success) {
         state.author_assets.mark_applied(change.uri);
-        state.asset_result = state.assets.refresh(state.project_root, state.asset_root);
+        state.asset_reimports.request_refresh();
       } else {
         state.author_assets.mark_failed(change.uri, operation);
       }
@@ -1897,7 +1918,12 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
       state.observed_candidate_drops = candidate_drops;
       state.asset_reimports.request_rescan();
     }
-    (void)state.asset_reimports.tick(state.project_root, state.asset_root);
+    (void)state.asset_reimports.poll_browser(state.assets, state.asset_result);
+    state.asset_reimports.set_paused(state.show_package_dialog ||
+                                     state.package_process.is_running());
+    if (state.asset_shutdown_pending && state.asset_reimports.status().stopped) {
+      (void)gneiss_application_request_exit(application);
+    }
     std::vector<gneiss::editor::asset_reimport_event> reimport_events;
     (void)state.asset_reimports.poll_events(reimport_events);
     for (auto& event : reimport_events) {
@@ -1908,10 +1934,6 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
           event.state == gneiss::editor::asset_reimport_state::failed) {
         state.last_import = std::move(event.import);
         state.import_attempted = true;
-      }
-      if (event.state == gneiss::editor::asset_reimport_state::succeeded ||
-          event.state == gneiss::editor::asset_reimport_state::removed) {
-        state.asset_result = state.assets.refresh(state.project_root, state.asset_root);
       }
     }
 #endif
@@ -1930,6 +1952,14 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
     if (result != GNEISS_SUCCESS) {
       return result;
     }
+#if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
+    if (state.asset_shutdown_pending) {
+      ImGui::Begin("Closing Editor");
+      ImGui::TextUnformatted("Waiting for the current asset stage to finish...");
+      ImGui::End();
+      return state.ui.submit(application);
+    }
+#endif
     ImGuizmo::BeginFrame();
     // 先收尾再处理菜单、保存和撤销；折叠或隐藏面板也不能遗失已应用的拖动。
     if (state.gizmo_drag.is_active() &&
@@ -2139,6 +2169,14 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
       if (state.package_process.is_running()) {
         ImGui::TextUnformatted("正在配置、构建并生成发布包……");
       } else {
+#if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
+        state.asset_reimports.set_paused(true);
+        const auto assets_busy = state.asset_reimports.status().active;
+        if (assets_busy) {
+          ImGui::TextUnformatted("Waiting for asset task to finish...");
+        }
+        ImGui::BeginDisabled(assets_busy);
+#endif
         if (ImGui::Button("Export")) {
           static constexpr std::array<std::string_view, 3U> profile_names = {"debug", "development",
                                                                              "shipping"};
@@ -2155,6 +2193,9 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
           state.package_result = state.package_process.start(info);
           state.package_attempted = true;
         }
+#if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
+        ImGui::EndDisabled();
+#endif
         ImGui::SameLine();
         if (ImGui::Button("Close")) {
           state.show_package_dialog = false;
@@ -3283,7 +3324,13 @@ uint8_t handle_close_requested(gneiss_application application, void* user_data) 
   }
   auto& state = *static_cast<editor_state*>(user_data);
   if (!state.session.is_dirty()) {
+#if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
+    state.asset_shutdown_pending = true;
+    state.asset_reimports.request_stop();
+    return state.asset_reimports.status().stopped ? 1U : 0U;
+#else
     return 1U;
+#endif
   }
   state.pending_document_action = document_action::exit_editor;
   return 0U;
@@ -3333,7 +3380,8 @@ int run_editor(int argc, char** argv) {
   state.asset_root = project.asset_root;
   state.project_root = project.project_root;
 #if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
-  state.asset_result = state.assets.refresh(state.project_root, state.asset_root);
+  state.asset_reimports.start(state.project_root, state.asset_root);
+  state.asset_reimports.request_refresh();
   start_source_asset_watch(state);
   const auto author_monitor_result = state.author_assets.initialize(state.asset_root);
   if (author_monitor_result != gneiss::result::success) {
