@@ -55,7 +55,7 @@ JSON。Debug JSON 的格式标识为 `gneiss.mesh.debug`，不是 Runtime 输入
 `vertices` 每项为 `(x, y, z)` 位置。顶点数至少为 3 且是 3 的倍数，所有数值必须有限并可表示为
 float。v1 只支持 `triangle_list`，不包含索引、法线、UV、颜色或骨骼。
 
-Mesh v2 保留 `vertices`，并增加数量必须与顶点一致的 `uvs`；每项是位于 0..1 的 `(u, v)`：
+Mesh v2 保留 `vertices`，并增加数量必须与顶点一致的 `uvs`；每项是有限二维纹理坐标 `(u, v)`：
 
 ```json
 {
@@ -66,6 +66,9 @@ Mesh v2 保留 `vertices`，并增加数量必须与顶点一致的 `uvs`；每�
   "uvs": [[0, 0], [1, 0], [0.5, 1]]
 }
 ```
+
+UV 的两个分量必须为有限 float，允许负数和大于 `1` 的平铺坐标，不进行截断或取模。
+当前 Mesh 材质采样使用重复寻址。
 
 Mesh v3 继续要求 `uvs`，并增加数量与顶点一致的单位 `normals`；每项是右手坐标中的 `(x, y, z)`：
 

@@ -69,7 +69,7 @@ public:
 
 void add_indexed_mesh(memory_file_system& memory) {
   gneiss::asset_internal::mesh_binary_data data{.vertices = {{.position = {-0.5F, -0.5F, 0.0F},
-                                                              .texcoord = {0.0F, 0.0F},
+                                                              .texcoord = {-42469.96875F, 22.5F},
                                                               .normal = {0.0F, 0.0F, 1.0F}},
                                                              {.position = {0.5F, -0.5F, 0.0F},
                                                               .texcoord = {1.0F, 0.0F},
@@ -102,7 +102,8 @@ indexed_mesh_is_preserved(gneiss::render_internal::render_asset_loader& loader,
   }
   const auto* resource = resources.get_mesh(mesh.get());
   return resource != nullptr && resource->vertices.size() == 4U && resource->normals.size() == 4U &&
-         resource->indices.size() == 6U && resource->indices[5] == 3U;
+         resource->indices.size() == 6U && resource->indices[5] == 3U &&
+         resource->vertices[0].u == -42469.96875F && resource->vertices[0].v == 22.5F;
 }
 
 [[nodiscard]] std::vector<std::byte> make_runtime_texture() {
@@ -345,6 +346,49 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
                           diagnostic) != GNEISS_ERROR_INVALID_ARGUMENT ||
       diagnostic.path != "/normals/0") {
     return 14;
+  }
+  // JSON 与二进制路径的平铺 UV 保持一致，后台准备不触碰缓存。
+  {
+    const auto cache_before = cache.size();
+    const auto resources_before = resources.live_resource_count();
+    constexpr std::string_view tiled_json =
+        R"({"format":"gneiss.mesh","version":2,"topology":"triangle_list","vertices":[[0,0,0],[1,0,0],[0,1,0]],"uvs":[[-42469.96875,22.5],[2,0],[0,-2]]})";
+    memory->files["models/tiled.mesh.json"] = tiled_json;
+    const std::array requests{
+        gneiss::render_internal::render_asset_reload{
+            "asset://models/tiled.mesh.json", gneiss::render_internal::render_asset_type::mesh},
+        gneiss::render_internal::render_asset_reload{
+            "asset://models/indexed.gneiss-mesh",
+            gneiss::render_internal::render_asset_type::mesh}};
+    gneiss::render_internal::prepared_render_batch batch;
+    if (gneiss::render_internal::prepare_render_assets(file_system, requests, batch, diagnostic,
+                                                       {}) != GNEISS_SUCCESS ||
+        batch.assets.size() != 2U || cache.size() != cache_before ||
+        resources.live_resource_count() != resources_before) {
+      return 40;
+    }
+    for (const auto& asset : batch.assets) {
+      if (asset.mesh.vertices[0].u != -42469.96875F || asset.mesh.vertices[0].v != 22.5F) {
+        return 41;
+      }
+    }
+    gneiss::render_internal::mesh_asset_lease tiled;
+    if (loader.acquire_mesh(requests[0].uri, tiled, diagnostic) != GNEISS_SUCCESS ||
+        resources.get_mesh(tiled.get())->vertices[0].u != -42469.96875F) {
+      return 42;
+    }
+    tiled = {};
+    auto invalid_json = std::string(tiled_json);
+    invalid_json.replace(invalid_json.find("-42469.96875"), 12U, "1e100");
+    memory->files["models/tiled.mesh.json"] = invalid_json;
+    // 使用重新加载绕过旧缓存，失败必须保持旧资源版本。
+    if (loader.reload_assets(std::span(requests).first(1U), diagnostic) !=
+            GNEISS_ERROR_INVALID_ARGUMENT ||
+        gneiss::render_internal::prepare_render_assets(file_system, requests, batch, diagnostic,
+                                                       {}) != GNEISS_ERROR_INVALID_ARGUMENT ||
+        !batch.assets.empty()) {
+      return 43;
+    }
   }
   if (!indexed_mesh_is_preserved(loader, resources)) {
     return 15;

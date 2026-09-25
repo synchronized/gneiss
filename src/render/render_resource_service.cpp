@@ -41,8 +41,7 @@ gneiss_result render_resource_service::create_mesh(const gneiss_mesh_desc& desc,
   const auto vertices = std::span{desc.vertices, desc.vertex_count};
   if (!std::ranges::all_of(vertices, [](const auto& vertex) {
         return std::isfinite(vertex.x) && std::isfinite(vertex.y) && std::isfinite(vertex.z) &&
-               std::isfinite(vertex.u) && std::isfinite(vertex.v) && vertex.u >= 0.0F &&
-               vertex.u <= 1.0F && vertex.v >= 0.0F && vertex.v <= 1.0F;
+               std::isfinite(vertex.u) && std::isfinite(vertex.v);
       })) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
