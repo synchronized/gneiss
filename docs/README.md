@@ -262,6 +262,7 @@
 - [M-219 0.33.0 资产构建与发布优化验收记录](records/M-219-asset-cooking-validation.md)
 - [M-228 0.34.0 离线纹理构建验收记录](records/M-228-offline-texture-validation.md)
 - [M-241 0.36.0 发布验收记录](records/M-241-0.36.0-release-validation.md)
+- [M-246～M-249 0.38.0 后台资产任务验收](records/M-246-249-0.38.0-validation.md)
 - [M-242～M-245 0.37.0 交互、响应性与发布验收](records/M-242-245-0.37.0-validation.md)
 - [M-236 0.35.0 发布验收记录](records/M-236-0.35.0-release-validation.md)
 - [M-237 重导入异常诊断与任务恢复](records/M-237-reimport-failure-recovery.md)
