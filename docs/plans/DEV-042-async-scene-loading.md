@@ -3,7 +3,8 @@
 
 # DEV-042：真实大场景异步加载开发计划
 
-实施中，资产审计与同步基线已完成，正在验证异步宿主与真实场景。范围、里程碑和验收以 [VER-042](VER-042-0.42.0-async-scene-loading.md) 为准；
+2026-09-28 完成，以下保留实施顺序。实际结果与边界见
+[验收记录](../records/M-273-278-0.42.0-validation.md)。范围与里程碑以 [VER-042](VER-042-0.42.0-async-scene-loading.md) 为准；
 长期决策见 [ADR-050](../decisions/ADR-050-staged-scene-activation.md)。
 
 ## 实施顺序
