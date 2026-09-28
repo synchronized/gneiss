@@ -29,15 +29,19 @@ struct temporary_directory final {
   ~temporary_directory() { std::filesystem::remove_all(path); }
 };
 
-std::size_t progress_count(const gneiss::editor::runtime_process& process,
-                           std::uint64_t session_id) {
-  return static_cast<std::size_t>(
-      std::ranges::count_if(process.console().entries(), [session_id](const auto& entry) {
-        return entry.session_id == session_id &&
-               entry.kind == gneiss::editor::console_entry_kind::structured &&
-               entry.event.category == "runtime_progress" &&
-               entry.event.message.starts_with("Lantern Gallery 运行帧=");
-      }));
+std::uint64_t latest_progress(const gneiss::editor::runtime_process& process,
+                              std::uint64_t session_id) {
+  // Console 是有界环形历史；满载后条数不再增长，使用记录身份判断是否收到新日志。
+  for (auto entry = process.console().entries().rbegin();
+       entry != process.console().entries().rend(); ++entry) {
+    if (entry->session_id == session_id &&
+        entry->kind == gneiss::editor::console_entry_kind::structured &&
+        entry->event.category == "runtime_progress" &&
+        entry->event.message.starts_with("Lantern Gallery 运行帧=")) {
+      return entry->id;
+    }
+  }
+  return 0U;
 }
 
 template <typename Predicate>
@@ -195,8 +199,8 @@ int main() try {
   }
   const auto first_session = process.console().current_session_id();
   if (!pump_until(process, 3s, [&] {
-        return progress_count(process, first_session) >= 1U && root_rotation(process).has_value() &&
-               process.statistics().fixed_update_count != 0U;
+        return latest_progress(process, first_session) >= 1U &&
+               root_rotation(process).has_value() && process.statistics().fixed_update_count != 0U;
       })) {
     std::fprintf(stderr, "未在时限内收到首个 Runtime 场景与进度快照\n");
     for (const auto& node : process.scene_mirror().nodes()) {
@@ -321,7 +325,6 @@ int main() try {
                   [&] { return process.statistics().sequence > pause_ack_sequence; })) {
     return report_failure(process, 3);
   }
-  const auto paused_count = progress_count(process, first_session);
   const auto paused_fixed_updates = process.statistics().fixed_update_count;
   const auto paused_statistics_sequence = process.statistics().sequence;
   const auto* paused_root = root_node(process);
@@ -359,12 +362,13 @@ int main() try {
                      : 0);
     return report_failure(process, 3);
   }
+  const auto paused_progress = latest_progress(process, first_session);
   if (process.request_resume() != gneiss::result::success ||
       !pump_until(process, 3s,
                   [&] {
                     return process.control_state() ==
                                gneiss::editor::runtime_control_state::running &&
-                           progress_count(process, first_session) > paused_count &&
+                           latest_progress(process, first_session) > paused_progress &&
                            process.statistics().fixed_update_count > paused_fixed_updates;
                   }) ||
       !pump_until(process, 3s,
@@ -383,7 +387,7 @@ int main() try {
   }
   const auto second_session = process.console().current_session_id();
   if (second_session == first_session ||
-      !pump_until(process, 3s, [&] { return progress_count(process, second_session) >= 1U; }) ||
+      !pump_until(process, 3s, [&] { return latest_progress(process, second_session) >= 1U; }) ||
       process.property_edit(running_edit_key) != nullptr ||
       process.property_edit(rotation_edit_key) != nullptr ||
       process.property_edit(paused_edit_key) != nullptr || !stop_session(process)) {
