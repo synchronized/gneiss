@@ -59,6 +59,11 @@
 - [总体架构、模块边界与核心技术](concepts/architecture.md)
 - [源码目录、模块所有权与演进规则](concepts/repository-layout.md)
 
+## 版本归档
+
+- [版本索引](versions/README.md)
+- [0.42.0：真实大场景异步加载与安全切换](versions/0.42.0.md)
+
 ## 路线图与开发计划
 
 - [Gneiss 开发路线图](roadmap.md)
