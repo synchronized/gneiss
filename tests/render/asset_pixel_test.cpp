@@ -102,13 +102,15 @@ void run_mip_sampling() {
         std::to_integer<unsigned>(image.pixels[offset + 2U]) + 30U);
 }
 
-std::array<unsigned, 3> material_pixel(std::string_view slot, std::array<std::byte, 4> pixel) {
+std::array<unsigned, 3> material_pixel(std::string_view slot, std::array<std::byte, 4> pixel,
+                                       bool reflected = false) {
   fixture files;
   std::ofstream(files.root / "t.texture.json")
       << R"({"format":"gneiss.texture","version":1,"source":"asset://image.ktx2","color_space":"linear"})";
   std::ofstream(files.root / "m.material.json")
       << R"({"format":"gneiss.material","version":4,"color":[0.5,0.5,0.5,1],"base_color_texture":null,"metallic":1,"roughness":1,")"
-      << slot << R"(":"asset://t.texture.json"})";
+      << slot << R"(":"asset://t.texture.json","emissive":[)"
+      << (slot == "emissive_texture" ? "1,1,1" : "0,0,0") << "]}";
   asset_internal::mesh_binary_data mesh{.vertices = {{{-0.8F, -0.7F, 0.0F}, {0, 0}, {0, 0, 1}},
                                                      {{0.8F, -0.7F, 0.0F}, {1, 0}, {0, 0, 1}},
                                                      {{0.0F, 0.8F, 0.0F}, {0.5F, 1}, {0, 0, 1}}},
@@ -116,6 +118,10 @@ std::array<unsigned, 3> material_pixel(std::string_view slot, std::array<std::by
                                         .tangents = {{1, 0, 0, 1}, {1, 0, 0, 1}, {1, 0, 0, 1}}};
   std::vector<std::byte> bytes;
   asset_internal::mesh_binary_diagnostic mesh_diagnostic;
+  if (reflected) {
+    // 仅用于诊断夹具：抵消反射导致的绕序变化，隔离 TBN，避免把被剔除误判为法线错误。
+    mesh.indices = {0U, 2U, 1U};
+  }
   check(asset_internal::encode_mesh_binary(mesh, bytes, mesh_diagnostic) ==
         asset_internal::mesh_binary_result::success);
   {
@@ -128,6 +134,10 @@ std::array<unsigned, 3> material_pixel(std::string_view slot, std::array<std::by
     std::string scene{std::istreambuf_iterator<char>{stream}, std::istreambuf_iterator<char>{}};
     stream.close();
     scene.replace(scene.find("g.mesh.json"), 11U, "g.gneiss-mesh");
+    if (reflected) {
+      constexpr std::string_view scale = "\"scale\":[1,1,1]";
+      scene.replace(scene.rfind(scale), scale.size(), "\"scale\":[-1,1,1]");
+    }
     std::ofstream(files.root / "s.scene.json") << scene;
   }
   std::string diagnostic;
@@ -360,7 +370,25 @@ void run_scene(tasks::execution_mode mode, bool pbr = false) {
   load(4U, false, false);
 }
 }
-int main() try {
+int main(int argc, char* argv[]) try {
+  if (argc == 2 && std::string_view{argv[1]} == "--probe-negative-scale") {
+    const auto white = std::array{std::byte{255}, std::byte{255}, std::byte{255}, std::byte{255}};
+    const auto positive_visible = material_pixel("emissive_texture", white);
+    const auto negative_visible = material_pixel("emissive_texture", white, true);
+    std::printf("visibility control: %u,%u,%u / %u,%u,%u\n", positive_visible[0],
+                positive_visible[1], positive_visible[2], negative_visible[0], negative_visible[1],
+                negative_visible[2]);
+    check(positive_visible[0] > 100U && negative_visible[0] > 100U);
+    const auto normal = std::array{std::byte{128}, std::byte{255}, std::byte{128}, std::byte{255}};
+    const auto positive = material_pixel("normal_texture", normal);
+    const auto negative = material_pixel("normal_texture", normal, true);
+    std::printf(
+        "negative-scale probe: visible=%u/%u normal-positive=%u,%u,%u normal-negative=%u,%u,%u\n",
+        positive_visible[0], negative_visible[0], positive[0], positive[1], positive[2],
+        negative[0], negative[1], negative[2]);
+    // 固定纯色法线沿 +Y；仅反射 X 不应翻转 B。此诊断独立于常规 CTest，记录上游缺口。
+    return positive == negative ? 0 : 2;
+  }
   run_mip_sampling();
   run_material_channels();
   run(gneiss::tasks::execution_mode::thread_pool, true);
