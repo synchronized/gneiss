@@ -186,7 +186,8 @@ jobs:
           cmake --build --preset linux-gcc-debug \
             --target gneiss_stable_runtime_example gneiss_scene_instance_test gneiss_c_application_test \
               gneiss_scene_load_application_test gneiss_scene_load_preparation_test \
-              gneiss_scene_load_builder_test gneiss_source_revision_test
+              gneiss_scene_load_builder_test gneiss_source_revision_test \
+              gneiss_texture_load_service_test gneiss_render_asset_loader_test gneiss_prefab_runtime_instance_test
       - name: 检查内存错误与退出泄漏
         shell: bash
         env:
@@ -219,7 +220,7 @@ jobs:
           [[ "$device_failure_status" -ne 0 ]]
           grep -F '阶段=创建 Application，结果=-5' <<<"$device_failure_output"
           ctest --preset linux-gcc-debug \
-            -R '^gneiss\.(c_application|scene_instance|scene-load-application|scene-load-preparation|scene-load-builder|source-revision)$'
+            -R '^gneiss\.(c_application|scene_instance|scene-load-application|scene-load-preparation|scene-load-builder|source-revision|texture-load-service|render_asset_loader|prefab_runtime_instance)$'
           ASAN_OPTIONS=detect_leaks=0:halt_on_error=1:strict_string_checks=1 \
             xvfb-run -a ctest --preset linux-gcc-debug \
             -R '^gneiss\.stable_runtime_example$'

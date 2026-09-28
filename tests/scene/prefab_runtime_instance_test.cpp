@@ -91,8 +91,8 @@ int main() try {
   }
 
   gneiss::asset_internal::virtual_file_system file_system;
-  gneiss::asset_internal::resource_cache cache;
   gneiss::render_internal::render_resource_service resources;
+  gneiss::asset_internal::resource_cache cache;
   gneiss::render_internal::render_asset_loader render_loader(file_system, cache, resources);
   gneiss::scene_internal::prefab_asset_loader prefab_loader(file_system, cache);
   if (file_system.mount("asset://prefabs/", std::make_shared<memory_file_system>()) !=

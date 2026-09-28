@@ -123,6 +123,7 @@ private:
   std::shared_ptr<const asset_internal::resource_cache::entry> entry_;
 };
 
+/** resources 必须晚于缓存及其所有资产租约销毁；租约析构会释放对应 RID。 */
 class render_asset_loader final {
 public:
   struct asset_candidate {

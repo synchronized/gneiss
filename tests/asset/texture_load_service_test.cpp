@@ -65,8 +65,8 @@ void run(tasks::execution_mode mode) {
   files->pixel(std::byte{10});
   virtual_file_system vfs;
   check(vfs.mount("asset://", files) == GNEISS_SUCCESS);
-  resource_cache cache;
   render_resource_service resources;
+  resource_cache cache;
   render_asset_loader loader(vfs, cache, resources);
   bool uploaded{};
   bool ready{};
@@ -203,8 +203,8 @@ void mixed(tasks::execution_mode mode) {
   }
   virtual_file_system vfs;
   check(vfs.mount("asset://", files) == GNEISS_SUCCESS);
-  resource_cache cache;
   render_resource_service resources;
+  resource_cache cache;
   render_asset_loader loader(vfs, cache, resources);
   unsigned chunks{}, discards{};
   bool fail = true;

@@ -151,6 +151,37 @@ bool test_bounded_event_queue() {
   return true;
 }
 
+bool test_log_backpressure_preserves_control() {
+  gneiss::ipc_transport server(2U, 64U);
+  gneiss::ipc_transport client;
+  GNEISS_TEST_CHECK(server.start_server() == gneiss::result::success);
+  GNEISS_TEST_CHECK(wait_for_event(server, gneiss::ipc_transport_event_type::listening));
+  GNEISS_TEST_CHECK(connect(server, client));
+  const gneiss::ipc_envelope log{.domain = gneiss::ipc_domain::log, .operation = 1U, .payload = {}};
+  const auto wait_dropped = [&](std::size_t count) {
+    const auto deadline = std::chrono::steady_clock::now() + 3s;
+    while (server.dropped_event_count() < count && std::chrono::steady_clock::now() < deadline) {
+      std::this_thread::sleep_for(1ms);
+    }
+    return server.dropped_event_count() == count;
+  };
+  for (unsigned i = 0U; i < 3U; ++i) {
+    GNEISS_TEST_CHECK(client.send(log) == gneiss::result::success);
+  }
+  GNEISS_TEST_CHECK(wait_dropped(1U));
+  const auto control = make_envelope(7U, {1U});
+  GNEISS_TEST_CHECK(client.send(control) == gneiss::result::success);
+  GNEISS_TEST_CHECK(client.send(log) == gneiss::result::success);
+  GNEISS_TEST_CHECK(wait_dropped(3U));
+  std::vector<gneiss::ipc_transport_event> events;
+  GNEISS_TEST_CHECK(server.poll_events(events) == 2U);
+  GNEISS_TEST_CHECK(events.front().envelope.domain == gneiss::ipc_domain::log);
+  GNEISS_TEST_CHECK(same_envelope(events.back().envelope, control));
+  GNEISS_TEST_CHECK(client.stop() == gneiss::result::success);
+  GNEISS_TEST_CHECK(server.stop() == gneiss::result::success);
+  return true;
+}
+
 } // namespace
 
 int main() {
@@ -160,5 +191,8 @@ int main() {
   if (!test_invalid_arguments_and_failed_connection()) {
     return 2;
   }
-  return test_bounded_event_queue() ? 0 : 3;
+  if (!test_bounded_event_queue()) {
+    return 3;
+  }
+  return test_log_backpressure_preserves_control() ? 0 : 4;
 }

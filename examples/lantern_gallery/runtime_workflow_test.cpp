@@ -151,6 +151,14 @@ int report_failure(const gneiss::editor::runtime_process& process, int code,
                location.line(), code, static_cast<int>(process.control_state()),
                process.is_running() ? 1 : 0, process.exit_code(),
                static_cast<int>(process.asset_reload_status().state));
+  for (const auto& entry : process.console().entries()) {
+    if (entry.kind == gneiss::editor::console_entry_kind::raw) {
+      std::fprintf(stderr, "console[raw]=%s\n", entry.raw_text.c_str());
+    } else {
+      std::fprintf(stderr, "console[%s][%s]=%s\n", entry.event.source.c_str(),
+                   entry.event.category.c_str(), entry.event.message.c_str());
+    }
+  }
   return code;
 }
 

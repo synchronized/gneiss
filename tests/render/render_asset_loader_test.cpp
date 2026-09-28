@@ -199,8 +199,8 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
   add_indexed_mesh(*memory);
 
   gneiss::asset_internal::virtual_file_system file_system;
-  gneiss::asset_internal::resource_cache cache;
   gneiss::render_internal::render_resource_service resources;
+  gneiss::asset_internal::resource_cache cache;
   gneiss::render_internal::render_asset_loader loader(file_system, cache, resources);
   if (file_system.mount("asset://", memory) != GNEISS_SUCCESS) {
     return 1;
