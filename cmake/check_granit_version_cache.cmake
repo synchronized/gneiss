@@ -9,8 +9,8 @@ endforeach()
 
 set(fixture_dir "${GNEISS_SOURCE_DIR}/cmake/tests/granit_version_fixture")
 set(test_root "${GNEISS_BINARY_DIR}/cmake-tests/granit-version-cache")
-set(current_default "0471650803b9ff725c9ae287d0cafc8e8cb63f71")
-set(previous_default "462d19b88678ea4048bfdeddbee1ea37955527b6")
+set(current_default "c832c8328ef54bd13746ab14b2f99a9e0aca7531")
+set(previous_default "0471650803b9ff725c9ae287d0cafc8e8cb63f71")
 set(custom_override "0123456789abcdef0123456789abcdef01234567")
 file(REMOVE_RECURSE "${test_root}")
 
