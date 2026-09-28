@@ -21,6 +21,7 @@ struct mesh_resource {
   std::vector<gneiss_mesh_vertex> vertices;
   std::vector<gneiss_mesh_normal> normals;
   std::vector<std::uint32_t> indices;
+  std::vector<gneiss_mesh_tangent> tangents{};
 };
 
 struct material_resource {

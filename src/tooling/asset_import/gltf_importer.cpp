@@ -3,6 +3,9 @@
 
 #include "tooling/asset_import/gltf_importer.h"
 
+#include "asset/mesh_tangent.h"
+#include "tooling/asset_import/tangent_generation.h"
+
 #include <fastgltf/core.hpp>
 #include <fastgltf/tools.hpp>
 #include <fastgltf/types.hpp>
@@ -196,28 +199,58 @@ void copy_image_bytes(const fastgltf::Asset& asset, const fastgltf::Image& image
     }
   }
   for (const auto& material : asset.materials) {
+    if (material.alphaMode != fastgltf::AlphaMode::Opaque) {
+      return "标准 PBR 尚不支持 MASK/BLEND，已记录上游需求 U43-01/U43-02";
+    }
+    if (material.doubleSided) {
+      return "标准 PBR 尚不支持双面法线语义，已记录上游需求 U43-02";
+    }
     for (std::size_t index = 0; index < 4U; ++index) {
       if (!std::isfinite(material.pbrData.baseColorFactor[index])) {
         return "材质基础颜色包含非有限数值";
       }
     }
-    if (!material.pbrData.baseColorTexture) {
-      continue;
+    const std::array<const fastgltf::TextureInfo*, 5> textures{
+        material.pbrData.baseColorTexture ? &*material.pbrData.baseColorTexture : nullptr,
+        material.pbrData.metallicRoughnessTexture ? &*material.pbrData.metallicRoughnessTexture
+                                                  : nullptr,
+        material.normalTexture ? &*material.normalTexture : nullptr,
+        material.occlusionTexture ? &*material.occlusionTexture : nullptr,
+        material.emissiveTexture ? &*material.emissiveTexture : nullptr};
+    for (const auto* texture : textures) {
+      if (texture == nullptr)
+        continue;
+      const auto index = texture->textureIndex;
+      if (index >= asset.textures.size() || !asset.textures[index].imageIndex ||
+          *asset.textures[index].imageIndex >= asset.images.size())
+        return "材质纹理引用无效";
+      if (texture->texCoordIndex != 0U)
+        return "标准 PBR 尚不支持非 UV0 纹理坐标，已记录上游需求 U43-03";
+      if (asset.textures[index].samplerIndex) {
+        const auto& sampler = asset.samplers[*asset.textures[index].samplerIndex];
+        if (sampler.wrapS != fastgltf::Wrap::Repeat || sampler.wrapT != fastgltf::Wrap::Repeat ||
+            (sampler.magFilter && *sampler.magFilter != fastgltf::Filter::Linear) ||
+            (sampler.minFilter && *sampler.minFilter != fastgltf::Filter::LinearMipMapLinear)) {
+          return "标准 PBR 当前只支持 repeat/linear/trilinear 采样，已记录上游需求 U43-03";
+        }
+      }
+      if (image_mime_type(asset.images[*asset.textures[index].imageIndex]) !=
+          fastgltf::MimeType::PNG) {
+        return "当前 PBR 纹理输入只支持 PNG，请显式转换其他编码";
+      }
     }
-    // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
-    const auto texture_index = material.pbrData.baseColorTexture.value().textureIndex;
-    if (texture_index >= asset.textures.size() || !asset.textures[texture_index].imageIndex ||
-        *asset.textures[texture_index].imageIndex >= asset.images.size()) {
-      return "材质基础颜色纹理引用无效";
-    }
-    if (image_mime_type(asset.images[*asset.textures[texture_index].imageIndex]) !=
-        fastgltf::MimeType::PNG) {
-      return "首版基础颜色纹理只支持 PNG";
+  }
+  for (const auto& image : asset.images) {
+    if (image_mime_type(image) != fastgltf::MimeType::PNG) {
+      return "当前图像导入只支持 PNG（包括未引用图片），请显式转换其他编码";
     }
   }
   for (const auto& mesh : asset.meshes) {
     for (const auto& primitive : mesh.primitives) {
       ++primitive_count;
+      if (primitive.findAttribute("COLOR_0") != primitive.attributes.end()) {
+        return "标准 PBR 尚不支持顶点色，不能无声丢弃 COLOR_0";
+      }
       if (primitive.type != fastgltf::PrimitiveType::Triangles || !primitive.targets.empty() ||
           primitive.dracoCompression != nullptr) {
         return "首版只支持未压缩的静态三角形 Primitive";
@@ -299,6 +332,22 @@ void copy_image_bytes(const fastgltf::Asset& asset, const fastgltf::Image& image
         ir_material.base_color_image_index = *asset.textures[texture_index].imageIndex;
       }
     }
+    const auto image_index = [&](const auto& texture) -> std::optional<std::size_t> {
+      if (!texture)
+        return std::nullopt;
+      return asset.textures[texture->textureIndex].imageIndex;
+    };
+    ir_material.metallic_roughness_image_index =
+        image_index(material.pbrData.metallicRoughnessTexture);
+    ir_material.normal_image_index = image_index(material.normalTexture);
+    ir_material.occlusion_image_index = image_index(material.occlusionTexture);
+    ir_material.emissive_image_index = image_index(material.emissiveTexture);
+    if (material.normalTexture)
+      ir_material.normal_scale = material.normalTexture->scale;
+    if (material.occlusionTexture)
+      ir_material.occlusion_strength = material.occlusionTexture->strength;
+    for (std::size_t axis = 0; axis < 3U; ++axis)
+      ir_material.emissive[axis] = material.emissiveFactor[axis];
     result.materials.push_back(std::move(ir_material));
   }
 
@@ -393,6 +442,40 @@ void copy_image_bytes(const fastgltf::Asset& asset, const fastgltf::Image& image
   }
   if (target.indices.size() % 3U != 0U) {
     return "三角形 Primitive 的索引数量必须是 3 的倍数";
+  }
+  const auto* tangent_attribute = source.findAttribute("TANGENT");
+  if (tangent_attribute == source.attributes.end()) {
+    return generate_tangents(target);
+  }
+  const auto& tangents = asset.accessors[tangent_attribute->accessorIndex];
+  if (!is_float_vector(tangents, fastgltf::AccessorType::Vec4) ||
+      tangents.count != positions.count) {
+    return "TANGENT 必须是与顶点数量一致的 Float Vec4";
+  }
+  fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec4>(
+      asset, tangents, [&](const auto& value, std::size_t index) {
+        target.vertices[index].tangent = {value[0], value[1], value[2], value[3]};
+      });
+  for (auto& vertex : target.vertices) {
+    auto& tangent = vertex.tangent;
+    const auto& normal = vertex.normal;
+    // 作者数据可能含舍入后的非正交切线；Gram-Schmidt 规范化但保留原始 UV 手性。
+    const auto normal_length =
+        (normal[0] * normal[0]) + (normal[1] * normal[1]) + (normal[2] * normal[2]);
+    const auto projection =
+        ((normal[0] * tangent[0]) + (normal[1] * tangent[1]) + (normal[2] * tangent[2])) /
+        normal_length;
+    for (std::size_t axis = 0; axis < 3U; ++axis)
+      tangent[axis] -= projection * normal[axis];
+    const auto length = std::sqrt((tangent[0] * tangent[0]) + (tangent[1] * tangent[1]) +
+                                  (tangent[2] * tangent[2]));
+    if (!std::isfinite(length) || length < 1.0e-8F)
+      return "TANGENT 退化或包含非有限值";
+    for (std::size_t axis = 0; axis < 3U; ++axis)
+      tangent[axis] /= length;
+    if (!asset_internal::valid_mesh_tangent(tangent, {normal[0], normal[1], normal[2]})) {
+      return "TANGENT 必须是正交单位切线且手性为正负一";
+    }
   }
   return std::nullopt;
 }

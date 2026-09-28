@@ -85,6 +85,12 @@ int main() {
   if (resources.create_material(desc, &material) != GNEISS_ERROR_INVALID_ARGUMENT) {
     return 7;
   }
+  desc.normal_scale = -0.5F;
+  if (resources.create_material(desc, &material) != GNEISS_SUCCESS ||
+      resources.get_material(material)->normal_scale != -0.5F ||
+      resources.destroy_material(material) != GNEISS_SUCCESS) {
+    return 13;
+  }
   desc.normal_scale = 1.0F;
   desc.occlusion_strength = 1.1F;
   if (resources.create_material(desc, &material) != GNEISS_ERROR_INVALID_ARGUMENT) {

@@ -67,7 +67,15 @@ typedef struct gneiss_mesh_normal {
   float z;
 } gneiss_mesh_normal;
 
-/** Mesh 创建参数。调用期间复制顶点、可选法线与可选索引，调用方保留其所有权。 */
+/** 单位切线 XYZ 与副切线手性 W（+1 或 -1），必须与对应法线正交。 */
+typedef struct gneiss_mesh_tangent {
+  float x;
+  float y;
+  float z;
+  float w;
+} gneiss_mesh_tangent;
+
+/** Mesh 创建参数。调用期间复制顶点、可选法线、切线和索引，调用方保留其所有权。 */
 typedef struct gneiss_mesh_desc {
   uint32_t struct_size;
   uint32_t vertex_count;
@@ -79,13 +87,21 @@ typedef struct gneiss_mesh_desc {
   uint32_t index_count;
   uint32_t reserved_3;
   const uint32_t* indices;
+  uint32_t tangent_count;
+  uint32_t reserved_4;
+  const gneiss_mesh_tangent* tangents;
 } gneiss_mesh_desc;
+
+#define GNEISS_MESH_DESC_VERSION_1_SIZE ((uint32_t)offsetof(gneiss_mesh_desc, tangent_count))
 
 #define GNEISS_MESH_DESC_INIT                                                                      \
   {(uint32_t)sizeof(gneiss_mesh_desc),                                                             \
    UINT32_C(0),                                                                                    \
    NULL,                                                                                           \
    UINT32_C(0),                                                                                    \
+   UINT32_C(0),                                                                                    \
+   UINT32_C(0),                                                                                    \
+   NULL,                                                                                           \
    UINT32_C(0),                                                                                    \
    UINT32_C(0),                                                                                    \
    NULL,                                                                                           \
@@ -108,7 +124,7 @@ typedef struct gneiss_material_desc {
   gneiss_texture normal_texture;
   gneiss_texture occlusion_texture;
   gneiss_texture emissive_texture;
-  /** 法线 XY 缩放为有限非负数；AO 强度位于 0..1。 */
+  /** 法线 XY 缩放为有限数（允许负值）；AO 强度位于 0..1。 */
   float normal_scale;
   float occlusion_strength;
   /** 线性自发光 RGB，分量位于 0..1；不转移任何 Texture 的所有权。 */

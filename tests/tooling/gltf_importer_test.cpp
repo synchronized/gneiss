@@ -5,6 +5,46 @@
 
 #include <array>
 #include <filesystem>
+#include <fstream>
+#include <iterator>
+#include <string>
+
+namespace {
+
+bool rejects_unsupported_materials(const std::filesystem::path& root) {
+  std::ifstream stream(root / "static_triangle.gltf", std::ios::binary);
+  const std::string source{std::istreambuf_iterator<char>{stream},
+                           std::istreambuf_iterator<char>{}};
+  const auto temporary = std::filesystem::temp_directory_path() / "gneiss-pbr-scope-test.gltf";
+  const std::array<std::pair<std::string, std::string>, 6> changes{{
+      {"\"name\": \"Stone\"", "\"name\": \"Stone\", \"alphaMode\": \"BLEND\""},
+      {"\"name\": \"Stone\"", "\"name\": \"Stone\", \"alphaMode\": \"MASK\""},
+      {"\"name\": \"Stone\"", "\"name\": \"Stone\", \"doubleSided\": true"},
+      {"\"index\": 0", "\"index\": 0, \"texCoord\": 1"},
+      {"\"TEXCOORD_0\": 2", "\"TEXCOORD_0\": 2, \"COLOR_0\": 1"},
+      {"\"textures\": [{\"source\": 0}]",
+       "\"samplers\": [{\"wrapS\": 33071}], \"textures\": [{\"source\": 0, \"sampler\": 0}]"},
+  }};
+  for (const auto& [from, to] : changes) {
+    auto input = source;
+    const auto offset = input.find(from);
+    if (offset == std::string::npos)
+      return false;
+    input.replace(offset, from.size(), to);
+    {
+      std::ofstream output(temporary, std::ios::binary | std::ios::trunc);
+      output << input;
+    }
+    const auto report = gneiss::tooling::asset_import::inspect_gltf(temporary);
+    std::filesystem::remove(temporary);
+    if (report.result != gneiss::tooling::asset_import::inspect_result::unsupported_feature ||
+        report.diagnostic.empty())
+      return false;
+  }
+  return true;
+}
+
+} // namespace
 
 int main() { // NOLINT(bugprone-exception-escape)
   namespace asset_import = gneiss::tooling::asset_import;
@@ -88,5 +128,5 @@ int main() { // NOLINT(bugprone-exception-escape)
     return 11;
   }
 
-  return 0;
+  return rejects_unsupported_materials(root) ? 0 : 12;
 }

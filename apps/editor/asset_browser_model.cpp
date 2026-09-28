@@ -36,7 +36,8 @@ source_status(const std::filesystem::path& source, const std::filesystem::path& 
       gneiss::tooling::asset_import::asset_index_result::success) {
     return asset_browser_status::missing;
   }
-  if (hash != indexed.content_hash) {
+  if (hash != indexed.content_hash || indexed.importer_id != "gneiss.gltf" ||
+      indexed.importer_version != gneiss::tooling::asset_import::gltf_importer_version) {
     return asset_browser_status::stale;
   }
   constexpr std::string_view scheme = "asset://";

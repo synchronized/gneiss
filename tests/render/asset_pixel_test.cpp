@@ -3,6 +3,7 @@
 
 #include "application/application_asset_reload_internal.h"
 #include "application/application_scene_load_internal.h"
+#include "asset/mesh_binary.h"
 #include "asset/texture_ktx2.h"
 #include <array>
 #include <cstdio>
@@ -58,6 +59,123 @@ struct fixture {
                  static_cast<std::streamsize>(bytes.size()));
   }
 };
+void run_mip_sampling() {
+  fixture files(true);
+  std::ofstream(files.root / "g.mesh.json")
+      << R"({"format":"gneiss.mesh","version":3,"topology":"triangle_list","vertices":[[-0.8,-0.7,0],[0.8,-0.7,0],[0,0.8,0]],"uvs":[[0,0],[1024,0],[512,1024]],"normals":[[0,0,1],[0,0,1],[0,0,1]]})";
+  asset_internal::texture_ktx2 texture;
+  texture.transfer = asset_internal::texture_transfer::srgb;
+  for (std::uint32_t width = 8U; width > 0U; width /= 2U) {
+    asset_internal::texture_mip mip{.width = width, .height = width, .pixels = {}};
+    for (std::uint32_t pixel = 0; pixel < width * width; ++pixel) {
+      mip.pixels.insert(mip.pixels.end(),
+                        {width == 8U ? std::byte{0} : std::byte{255}, std::byte{0},
+                         width == 8U ? std::byte{255} : std::byte{0}, std::byte{255}});
+    }
+    texture.levels.push_back(std::move(mip));
+  }
+  std::vector<std::byte> bytes;
+  std::string diagnostic;
+  check(asset_internal::encode_texture_ktx2(texture, bytes, diagnostic) ==
+        asset_internal::texture_ktx2_result::success);
+  {
+    std::ofstream stream(files.root / "image.ktx2", std::ios::binary);
+    stream.write(reinterpret_cast<const char*>(bytes.data()),
+                 static_cast<std::streamsize>(bytes.size()));
+  }
+  application app;
+  const auto root = files.root.string();
+  auto desc = gneiss_application_desc GNEISS_APPLICATION_DESC_INIT;
+  desc.platform = GNEISS_APPLICATION_PLATFORM_GRANIT;
+  desc.asset_root = root.data();
+  desc.asset_root_length = static_cast<std::uint32_t>(root.size());
+  check(application::create(desc, app) == result::success);
+  constexpr std::string_view uri = "asset://s.scene.json";
+  gneiss_scene_instance scene{};
+  check(gneiss_scene_instance_load(app.get(), uri.data(), uri.size(), &scene) == GNEISS_SUCCESS);
+  check(app.run(3U) == result::success);
+  render_internal::frame_image image;
+  check(application_internal::capture_frame(app.get(), 128U, 128U, image) == GNEISS_SUCCESS);
+  const auto offset = (64U * 128U + 64U) * 4U;
+  // LOD0 全蓝，缩小时应采样全红的较低分辨率层；阈值不依赖具体色调映射曲线。
+  check(std::to_integer<unsigned>(image.pixels[offset]) >
+        std::to_integer<unsigned>(image.pixels[offset + 2U]) + 30U);
+}
+
+std::array<unsigned, 3> material_pixel(std::string_view slot, std::array<std::byte, 4> pixel) {
+  fixture files;
+  std::ofstream(files.root / "t.texture.json")
+      << R"({"format":"gneiss.texture","version":1,"source":"asset://image.ktx2","color_space":"linear"})";
+  std::ofstream(files.root / "m.material.json")
+      << R"({"format":"gneiss.material","version":4,"color":[0.5,0.5,0.5,1],"base_color_texture":null,"metallic":1,"roughness":1,")"
+      << slot << R"(":"asset://t.texture.json"})";
+  asset_internal::mesh_binary_data mesh{.vertices = {{{-0.8F, -0.7F, 0.0F}, {0, 0}, {0, 0, 1}},
+                                                     {{0.8F, -0.7F, 0.0F}, {1, 0}, {0, 0, 1}},
+                                                     {{0.0F, 0.8F, 0.0F}, {0.5F, 1}, {0, 0, 1}}},
+                                        .indices = {0U, 1U, 2U},
+                                        .tangents = {{1, 0, 0, 1}, {1, 0, 0, 1}, {1, 0, 0, 1}}};
+  std::vector<std::byte> bytes;
+  asset_internal::mesh_binary_diagnostic mesh_diagnostic;
+  check(asset_internal::encode_mesh_binary(mesh, bytes, mesh_diagnostic) ==
+        asset_internal::mesh_binary_result::success);
+  {
+    std::ofstream stream(files.root / "g.gneiss-mesh", std::ios::binary);
+    stream.write(reinterpret_cast<const char*>(bytes.data()),
+                 static_cast<std::streamsize>(bytes.size()));
+  }
+  {
+    std::ifstream stream(files.root / "s.scene.json");
+    std::string scene{std::istreambuf_iterator<char>{stream}, std::istreambuf_iterator<char>{}};
+    stream.close();
+    scene.replace(scene.find("g.mesh.json"), 11U, "g.gneiss-mesh");
+    std::ofstream(files.root / "s.scene.json") << scene;
+  }
+  std::string diagnostic;
+  check(asset_internal::encode_texture_ktx2(
+            {.transfer = asset_internal::texture_transfer::linear,
+             .levels = {{.width = 1U, .height = 1U, .pixels = {pixel.begin(), pixel.end()}}}},
+            bytes, diagnostic) == asset_internal::texture_ktx2_result::success);
+  {
+    std::ofstream stream(files.root / "image.ktx2", std::ios::binary);
+    stream.write(reinterpret_cast<const char*>(bytes.data()),
+                 static_cast<std::streamsize>(bytes.size()));
+  }
+  application app;
+  const auto root = files.root.string();
+  auto desc = gneiss_application_desc GNEISS_APPLICATION_DESC_INIT;
+  desc.platform = GNEISS_APPLICATION_PLATFORM_GRANIT;
+  desc.asset_root = root.data();
+  desc.asset_root_length = static_cast<std::uint32_t>(root.size());
+  check(application::create(desc, app) == result::success);
+  constexpr std::string_view uri = "asset://s.scene.json";
+  gneiss_scene_instance scene{};
+  check(gneiss_scene_instance_load(app.get(), uri.data(), uri.size(), &scene) == GNEISS_SUCCESS);
+  check(app.run(3U) == result::success);
+  render_internal::frame_image image;
+  check(application_internal::capture_frame(app.get(), 128U, 128U, image) == GNEISS_SUCCESS);
+  const auto offset = (64U * 128U + 64U) * 4U;
+  return {std::to_integer<unsigned>(image.pixels[offset]),
+          std::to_integer<unsigned>(image.pixels[offset + 1U]),
+          std::to_integer<unsigned>(image.pixels[offset + 2U])};
+}
+
+void run_material_channels() {
+  constexpr auto zero = std::byte{0};
+  constexpr auto half = std::byte{128};
+  constexpr auto full = std::byte{255};
+  // 通道契约：MR 的 R 无效、G/B 有效；AO 只读取 R。
+  const auto dielectric = material_pixel("metallic_roughness_texture", {zero, full, zero, full});
+  check(dielectric == material_pixel("metallic_roughness_texture", {full, full, zero, full}));
+  check(dielectric != material_pixel("metallic_roughness_texture", {zero, half, zero, full}));
+  check(dielectric != material_pixel("metallic_roughness_texture", {zero, full, full, full}));
+  const auto occluded = material_pixel("occlusion_texture", {zero, full, full, full});
+  check(occluded == material_pixel("occlusion_texture", {zero, zero, zero, full}));
+  check(occluded[0] < material_pixel("occlusion_texture", {full, full, full, full})[0]);
+  // 明确的 +Y/-Y 法线在固定非对称灯光下不能产生同一结果。
+  check(material_pixel("normal_texture", {half, full, half, full}) !=
+        material_pixel("normal_texture", {half, zero, half, full}));
+}
+
 void run(tasks::execution_mode mode, bool pbr = false) {
   fixture files(pbr);
   files.color(std::byte{20}, std::byte{240});
@@ -243,6 +361,8 @@ void run_scene(tasks::execution_mode mode, bool pbr = false) {
 }
 }
 int main() try {
+  run_mip_sampling();
+  run_material_channels();
   run(gneiss::tasks::execution_mode::thread_pool, true);
   run(gneiss::tasks::execution_mode::cooperative, true);
   run_scene(gneiss::tasks::execution_mode::thread_pool, true);

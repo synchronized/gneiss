@@ -57,7 +57,7 @@ int main() { // NOLINT(bugprone-exception-escape)
   }
 
   auto unsupported = encoded;
-  write_u16(unsupported, 4U, 2U);
+  write_u16(unsupported, 4U, 3U);
   if (asset::decode_mesh_binary(unsupported, decoded, diagnostic) !=
           asset::mesh_binary_result::unsupported_version ||
       diagnostic.byte_offset != 4U) {
@@ -99,5 +99,22 @@ int main() { // NOLINT(bugprone-exception-escape)
       asset::mesh_binary_result::invalid_data) {
     return 9;
   }
+  source.indices[0] = 0U;
+  source.tangents.assign(3U, {1.0F, 0.0F, 0.0F, -1.0F});
+  if (asset::encode_mesh_binary(source, encoded, diagnostic) !=
+          asset::mesh_binary_result::success ||
+      asset::decode_mesh_binary(encoded, decoded, diagnostic) !=
+          asset::mesh_binary_result::success ||
+      decoded.tangents != source.tangents || encoded.size() != 236U)
+    return 10;
+  auto invalid_tangent = encoded;
+  write_u32(invalid_tangent, 124U, 0U);
+  if (asset::decode_mesh_binary(invalid_tangent, decoded, diagnostic) !=
+      asset::mesh_binary_result::invalid_data)
+    return 11;
+  source.tangents[0][2] = 1.0F;
+  if (asset::encode_mesh_binary(source, encoded, diagnostic) !=
+      asset::mesh_binary_result::invalid_data)
+    return 12;
   return 0;
 }

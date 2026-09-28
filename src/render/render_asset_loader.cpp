@@ -301,6 +301,7 @@ using document_ptr = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;
                                               std::vector<gneiss_mesh_vertex>& out_vertices,
                                               std::vector<gneiss_mesh_normal>& out_normals,
                                               std::vector<std::uint32_t>& out_indices,
+                                              std::vector<gneiss_mesh_tangent>& out_tangents,
                                               asset_diagnostic& diagnostic) {
   gneiss::asset_internal::mesh_binary_data data;
   gneiss::asset_internal::mesh_binary_diagnostic binary_diagnostic;
@@ -323,6 +324,10 @@ using document_ptr = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;
                             .v = source.texcoord[1]});
     out_normals.push_back({.x = source.normal[0], .y = source.normal[1], .z = source.normal[2]});
   }
+  out_tangents.reserve(data.tangents.size());
+  for (const auto& tangent : data.tangents) {
+    out_tangents.push_back({tangent[0], tangent[1], tangent[2], tangent[3]});
+  }
   out_indices = std::move(data.indices);
   return GNEISS_SUCCESS;
 }
@@ -344,13 +349,12 @@ using document_ptr = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;
   }
   auto* normal_scale = yyjson_obj_get(root, "normal_scale");
   auto* strength = yyjson_obj_get(root, "occlusion_strength");
-  if ((normal_scale != nullptr &&
-       (!read_float(normal_scale, out_source.normal_scale) || out_source.normal_scale < 0.0F)) ||
+  if ((normal_scale != nullptr && !read_float(normal_scale, out_source.normal_scale)) ||
       (strength != nullptr &&
        (!read_float(strength, out_source.occlusion_strength) ||
         out_source.occlusion_strength < 0.0F || out_source.occlusion_strength > 1.0F))) {
     fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/normal_scale",
-         "法线缩放必须非负，AO 强度必须位于 0..1");
+         "法线缩放必须有限，AO 强度必须位于 0..1");
     return diagnostic.result;
   }
   if (auto* emissive = yyjson_obj_get(root, "emissive")) {
@@ -461,12 +465,18 @@ using document_ptr = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;
     return diagnostic.result;
   }
   yyjson_val* root = yyjson_doc_get_root(document.get());
-  constexpr std::array fields{std::string_view{"format"}, std::string_view{"version"},
-                              std::string_view{"source"}, std::string_view{"color_space"}};
+  constexpr std::array v1_fields{std::string_view{"format"}, std::string_view{"version"},
+                                 std::string_view{"source"}, std::string_view{"color_space"}};
+  constexpr std::array v2_fields{std::string_view{"format"}, std::string_view{"version"},
+                                 std::string_view{"source"}, std::string_view{"color_space"},
+                                 std::string_view{"usage"}};
+  const auto requested = yyjson_obj_get(root, "version");
+  const auto fields = yyjson_is_uint(requested) && yyjson_get_uint(requested) == 2U
+                          ? std::span<const std::string_view>{v2_fields}
+                          : std::span<const std::string_view>{v1_fields};
   std::uint64_t version = 0;
-  if (!validate_header(root, "gneiss.texture", fields, 1U, version, diagnostic)) {
+  if (!validate_header(root, "gneiss.texture", fields, 2U, version, diagnostic))
     return diagnostic.result;
-  }
   yyjson_val* source = yyjson_obj_get(root, "source");
   if (!yyjson_is_str(source) || yyjson_get_len(source) == 0U) {
     fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/source", "Texture source 必须是非空 URI");
@@ -485,6 +495,15 @@ using document_ptr = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;
   } else {
     fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/color_space", "只支持 srgb 或 linear");
     return diagnostic.result;
+  }
+  if (version == 2U) {
+    const auto usage = yyjson_obj_get(root, "usage");
+    if (!yyjson_is_str(usage) || json_string(usage) != "normal" ||
+        out_source.color_space != GNEISS_TEXTURE_COLOR_SPACE_LINEAR) {
+      fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/usage",
+           "Texture v2 当前只支持 linear 法线用途");
+      return diagnostic.result;
+    }
   }
   out_source.uri.assign(json_string(source));
   return GNEISS_SUCCESS;
@@ -626,7 +645,7 @@ gneiss_result prepare_render_assets(const asset_internal::virtual_file_system& f
         if (source.type == render_asset_type::mesh) {
           result = asset_internal::is_mesh_binary(bytes)
                        ? parse_binary_mesh(bytes, asset.mesh.vertices, asset.mesh.normals,
-                                           asset.mesh.indices, diagnostic)
+                                           asset.mesh.indices, asset.mesh.tangents, diagnostic)
                        : parse_mesh(bytes, asset.mesh.vertices, asset.mesh.normals, diagnostic);
           // 此校验与 RID 创建的顶点/法线/索引契约一致，在后台完成。
           const auto& mesh = asset.mesh;
@@ -654,7 +673,8 @@ gneiss_result prepare_render_assets(const asset_internal::virtual_file_system& f
           }
           asset.bytes = mesh.vertices.size() * sizeof(gneiss_mesh_vertex) +
                         mesh.normals.size() * sizeof(gneiss_mesh_normal) +
-                        mesh.indices.size() * sizeof(std::uint32_t);
+                        mesh.indices.size() * sizeof(std::uint32_t) +
+                        mesh.tangents.size() * sizeof(gneiss_mesh_tangent);
         } else if (source.type == render_asset_type::material) {
           material_source material;
           result = parse_material(bytes, material, diagnostic);
@@ -962,9 +982,11 @@ gneiss_result render_asset_loader::acquire_mesh(std::string_view uri, mesh_asset
         std::vector<gneiss_mesh_vertex> vertices;
         std::vector<gneiss_mesh_normal> normals;
         std::vector<std::uint32_t> indices;
-        result = gneiss::asset_internal::is_mesh_binary(bytes)
-                     ? parse_binary_mesh(bytes, vertices, normals, indices, out_diagnostic)
-                     : parse_mesh(bytes, vertices, normals, out_diagnostic);
+        std::vector<gneiss_mesh_tangent> tangents;
+        result =
+            gneiss::asset_internal::is_mesh_binary(bytes)
+                ? parse_binary_mesh(bytes, vertices, normals, indices, tangents, out_diagnostic)
+                : parse_mesh(bytes, vertices, normals, out_diagnostic);
         if (result != GNEISS_SUCCESS) {
           return result;
         }
@@ -977,7 +999,10 @@ gneiss_result render_asset_loader::acquire_mesh(std::string_view uri, mesh_asset
                                     .normals = normals.empty() ? nullptr : normals.data(),
                                     .index_count = static_cast<std::uint32_t>(indices.size()),
                                     .reserved_3 = 0,
-                                    .indices = indices.empty() ? nullptr : indices.data()};
+                                    .indices = indices.empty() ? nullptr : indices.data(),
+                                    .tangent_count = static_cast<std::uint32_t>(tangents.size()),
+                                    .reserved_4 = 0U,
+                                    .tangents = tangents.empty() ? nullptr : tangents.data()};
         gneiss_mesh rid = GNEISS_NULL_MESH;
         result = resources_.create_mesh(desc, &rid);
         if (result != GNEISS_SUCCESS) {

@@ -33,6 +33,27 @@ int main() {
       resources.destroy_mesh(mesh) != GNEISS_SUCCESS) {
     return 10;
   }
+  std::array tangents{gneiss_mesh_tangent{1, 0, 0, 1}, gneiss_mesh_tangent{1, 0, 0, -1},
+                      gneiss_mesh_tangent{1, 0, 0, 1}};
+  mesh_desc.tangent_count = static_cast<std::uint32_t>(tangents.size());
+  mesh_desc.tangents = tangents.data();
+  if (resources.create_mesh(mesh_desc, &mesh) != GNEISS_SUCCESS ||
+      resources.get_mesh(mesh)->tangents[1].w != -1.0F ||
+      resources.destroy_mesh(mesh) != GNEISS_SUCCESS)
+    return 18;
+  tangents[0].w = 0.0F;
+  if (resources.create_mesh(mesh_desc, &mesh) != GNEISS_ERROR_INVALID_ARGUMENT)
+    return 19;
+  mesh_desc.struct_size = GNEISS_MESH_DESC_VERSION_1_SIZE;
+  if (resources.create_mesh(mesh_desc, &mesh) != GNEISS_SUCCESS ||
+      !resources.get_mesh(mesh)->tangents.empty() || resources.destroy_mesh(mesh) != GNEISS_SUCCESS)
+    return 20;
+  mesh_desc.struct_size = sizeof(gneiss_mesh_desc);
+  tangents[0] = {0, 0, 1, 1};
+  if (resources.create_mesh(mesh_desc, &mesh) != GNEISS_ERROR_INVALID_ARGUMENT)
+    return 21;
+  mesh_desc.tangent_count = 0U;
+  mesh_desc.tangents = nullptr;
   auto tiled_vertices = vertices;
   tiled_vertices[0].u = -42469.96875F;
   tiled_vertices[1].v = 22.5F;

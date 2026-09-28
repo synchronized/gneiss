@@ -750,6 +750,7 @@ set_tests_properties(gneiss.texture-load-service gneiss.texture-load-application
 
 if(GNEISS_ENABLE_GRANIT_PLATFORM)
   add_executable(gneiss_asset_pixel_test render/asset_pixel_test.cpp
+    "${PROJECT_SOURCE_DIR}/src/asset/mesh_binary.cpp"
     "${PROJECT_SOURCE_DIR}/src/asset/texture_ktx2.cpp")
   target_include_directories(gneiss_asset_pixel_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
   target_link_libraries(gneiss_asset_pixel_test PRIVATE gneiss::engine gneiss_tasks)

@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "asset/mesh_binary.h"
+#include "asset/mesh_tangent.h"
 
 #include <algorithm>
 #include <bit>
@@ -18,9 +19,7 @@ namespace {
 
 constexpr std::array<std::byte, 4> magic = {std::byte{'G'}, std::byte{'N'}, std::byte{'M'},
                                             std::byte{'S'}};
-constexpr std::uint16_t format_version = 1;
 constexpr std::uint16_t header_size = 80;
-constexpr std::uint16_t vertex_stride = 32;
 constexpr std::uint16_t index_size = 4;
 constexpr std::uint64_t vertex_offset = header_size;
 
@@ -98,6 +97,19 @@ mesh_binary_result encode_mesh_binary(const mesh_binary_data& data, std::vector<
       fail(diagnostic, mesh_binary_result::invalid_data, 0, "Mesh 数量超出范围或不是三角形列表");
       return diagnostic.result;
     }
+    const std::uint16_t format_version = data.tangents.empty() ? 1U : 2U;
+    const std::uint16_t vertex_stride = data.tangents.empty() ? 32U : 48U;
+    if (!data.tangents.empty() && data.tangents.size() != data.vertices.size()) {
+      fail(diagnostic, mesh_binary_result::invalid_data, 0, "切线数量必须与顶点数量一致");
+      return diagnostic.result;
+    }
+    for (std::size_t index = 0; index < data.tangents.size(); ++index) {
+      if (!valid_mesh_tangent(data.tangents[index], data.vertices[index].normal)) {
+        fail(diagnostic, mesh_binary_result::invalid_data, 0,
+             "切线必须是与法线正交的单位向量，手性为正负一");
+        return diagnostic.result;
+      }
+    }
     auto bounds_min = data.vertices.front().position;
     auto bounds_max = bounds_min;
     for (const auto& vertex : data.vertices) {
@@ -139,7 +151,8 @@ mesh_binary_result encode_mesh_binary(const mesh_binary_data& data, std::vector<
       append_float(output, value);
     }
     append_integer(output, UINT64_C(0));
-    for (const auto& vertex : data.vertices) {
+    for (std::size_t index = 0; index < data.vertices.size(); ++index) {
+      const auto& vertex = data.vertices[index];
       for (const auto value : vertex.position) {
         append_float(output, value);
       }
@@ -148,6 +161,10 @@ mesh_binary_result encode_mesh_binary(const mesh_binary_data& data, std::vector<
       }
       for (const auto value : vertex.normal) {
         append_float(output, value);
+      }
+      if (!data.tangents.empty()) {
+        for (const auto value : data.tangents[index])
+          append_float(output, value);
       }
     }
     output.resize(static_cast<std::size_t>(indices_offset), std::byte{});
@@ -177,10 +194,11 @@ mesh_binary_result decode_mesh_binary(std::span<const std::byte> bytes, mesh_bin
       return diagnostic.result;
     }
     const auto version = read_integer<std::uint16_t>(bytes, 4);
-    if (version != format_version) {
+    if (version != 1U && version != 2U) {
       fail(diagnostic, mesh_binary_result::unsupported_version, 4, "不支持的 Mesh Binary 版本");
       return diagnostic.result;
     }
+    const std::uint16_t vertex_stride = version == 1U ? 32U : 48U;
     const auto stored_header_size = read_integer<std::uint16_t>(bytes, 6);
     const auto flags = read_integer<std::uint32_t>(bytes, 8);
     const auto vertex_count = read_integer<std::uint32_t>(bytes, 12);
@@ -214,6 +232,8 @@ mesh_binary_result decode_mesh_binary(std::span<const std::byte> bytes, mesh_bin
       }
     }
     output.vertices.resize(vertex_count);
+    if (version == 2U)
+      output.tangents.resize(vertex_count);
     for (std::size_t index = 0; index < vertex_count; ++index) {
       const auto offset = static_cast<std::size_t>(stored_vertex_offset) + (index * vertex_stride);
       auto& vertex = output.vertices[index];
@@ -223,6 +243,16 @@ mesh_binary_result decode_mesh_binary(std::span<const std::byte> bytes, mesh_bin
       }
       vertex.texcoord[0] = read_float(bytes, offset + 12U);
       vertex.texcoord[1] = read_float(bytes, offset + 16U);
+      if (version == 2U) {
+        auto& tangent = output.tangents[index];
+        for (std::size_t component = 0; component < 4U; ++component) {
+          tangent[component] = read_float(bytes, offset + 32U + component * 4U);
+        }
+        if (!valid_mesh_tangent(tangent, vertex.normal)) {
+          fail(diagnostic, mesh_binary_result::invalid_data, offset + 32U, "Mesh Binary 切线无效");
+          return diagnostic.result;
+        }
+      }
       if (!finite(vertex) || !valid_normal(vertex.normal)) {
         fail(diagnostic, mesh_binary_result::invalid_data, offset,
              "Mesh Binary 顶点包含无效数值或非单位法线");
@@ -266,13 +296,20 @@ std::string dump_mesh_binary_json(const mesh_binary_data& data) {
   std::ostringstream stream;
   stream.imbue(std::locale::classic());
   stream << std::setprecision(std::numeric_limits<float>::max_digits10)
-         << "{\n  \"format\": \"gneiss.mesh.debug\",\n  \"version\": 1,\n  \"vertices\": [\n";
+         << "{\n  \"format\": \"gneiss.mesh.debug\",\n  \"version\": "
+         << (data.tangents.empty() ? 1 : 2) << ",\n  \"vertices\": [\n";
   for (std::size_t index = 0; index < data.vertices.size(); ++index) {
     const auto& value = data.vertices[index];
     stream << "    {\"position\":[" << value.position[0] << ',' << value.position[1] << ','
            << value.position[2] << "],\"uv\":[" << value.texcoord[0] << ',' << value.texcoord[1]
            << "],\"normal\":[" << value.normal[0] << ',' << value.normal[1] << ','
-           << value.normal[2] << "]}" << (index + 1U == data.vertices.size() ? "\n" : ",\n");
+           << value.normal[2] << "]";
+    if (!data.tangents.empty()) {
+      const auto& tangent = data.tangents[index];
+      stream << ",\"tangent\":[" << tangent[0] << ',' << tangent[1] << ',' << tangent[2] << ','
+             << tangent[3] << ']';
+    }
+    stream << "}" << (index + 1U == data.vertices.size() ? "\n" : ",\n");
   }
   stream << "  ],\n  \"indices\": [";
   for (std::size_t index = 0; index < data.indices.size(); ++index) {

@@ -85,9 +85,14 @@ namespace {
     outputs.push_back(prefix + "materials/default.material.json");
   }
   for (std::size_t index = 0; index < data.images.size(); ++index) {
-    const auto name = "textures/image-" + std::to_string(index);
-    outputs.push_back(prefix + name + ".png");
-    outputs.push_back(prefix + name + ".texture.json");
+    const auto variants = image_variants(data, index);
+    for (std::size_t variant = 0; variant < variants.size(); ++variant) {
+      if (!variants[variant])
+        continue;
+      const auto name = "textures/image-" + std::to_string(index) + image_variant_suffixes[variant];
+      outputs.push_back(prefix + name + ".png");
+      outputs.push_back(prefix + name + ".texture.json");
+    }
   }
   outputs.push_back(prefix + "scenes/scene.scene.json");
   return outputs;

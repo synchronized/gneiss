@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "tooling/asset_build/asset_build.h"
+#include "tooling/asset_build/texture_mip_generator.h"
 
 #include "tooling/asset_build/ktx2_probe.h"
 #include "tooling/asset_build/runtime_texture_builder.h"
@@ -37,6 +38,7 @@ struct source_node final {
   std::vector<std::string> dependencies;
   std::string cache_key;
   std::optional<asset_internal::texture_transfer> texture_transfer;
+  std::optional<bool> normal_map{};
 };
 
 [[nodiscard]] std::string path_utf8(const std::filesystem::path& path) {
@@ -186,6 +188,7 @@ void hash_bytes(std::uint64_t& hash, std::string_view bytes) noexcept {
   hash_bytes(hash, request.target_architecture);
   hash_bytes(hash, "\0");
   hash_bytes(hash, request.profile == build_profile::shipping ? "shipping" : "development");
+  hash_bytes(hash, node.normal_map.value_or(false) ? "normal" : "color-or-data");
   if (node.texture_transfer) {
     hash_bytes(hash, *node.texture_transfer == asset_internal::texture_transfer::srgb ? "srgb"
                                                                                       : "linear");
@@ -224,35 +227,6 @@ void hash_bytes(std::uint64_t& hash, std::string_view bytes) noexcept {
   return node.relative_path;
 }
 
-[[nodiscard]] std::vector<std::byte> generate_next_mip(const asset_internal::texture_mip& source) {
-  const auto width = std::max(1U, source.width / 2U);
-  const auto height = std::max(1U, source.height / 2U);
-  std::vector<std::byte> output(static_cast<std::size_t>(width) * height * 4U);
-  for (std::uint32_t y = 0; y < height; ++y) {
-    for (std::uint32_t x = 0; x < width; ++x) {
-      for (std::uint32_t channel = 0; channel < 4U; ++channel) {
-        std::uint32_t sum{};
-        std::uint32_t count{};
-        for (std::uint32_t offset_y = 0; offset_y < 2U; ++offset_y) {
-          for (std::uint32_t offset_x = 0; offset_x < 2U; ++offset_x) {
-            const auto source_x = x * 2U + offset_x;
-            const auto source_y = y * 2U + offset_y;
-            if (source_x < source.width && source_y < source.height) {
-              const auto index =
-                  (static_cast<std::size_t>(source_y) * source.width + source_x) * 4U + channel;
-              sum += std::to_integer<std::uint8_t>(source.pixels[index]);
-              ++count;
-            }
-          }
-        }
-        const auto target = (static_cast<std::size_t>(y) * width + x) * 4U + channel;
-        output[target] = static_cast<std::byte>((sum + count / 2U) / count);
-      }
-    }
-  }
-  return output;
-}
-
 [[nodiscard]] bool cook_png(const source_node& node, std::vector<std::byte>& output,
                             std::string& diagnostic) {
   const auto bytes = read_bytes(node.absolute_path);
@@ -268,7 +242,8 @@ void hash_bytes(std::uint64_t& hash, std::string_view bytes) noexcept {
     const auto& previous = texture.levels.back();
     texture.levels.push_back({.width = std::max(1U, previous.width / 2U),
                               .height = std::max(1U, previous.height / 2U),
-                              .pixels = generate_next_mip(previous)});
+                              .pixels = generate_texture_mip(previous, texture.transfer,
+                                                             node.normal_map.value_or(false))});
   }
   return build_runtime_texture(texture, output, diagnostic) ==
          runtime_texture_build_result::success;
@@ -323,7 +298,8 @@ void hash_bytes(std::uint64_t& hash, std::string_view bytes) noexcept {
 }
 
 [[nodiscard]] bool read_texture_settings(const source_node& node, std::string& source,
-                                         asset_internal::texture_transfer& transfer) {
+                                         asset_internal::texture_transfer& transfer,
+                                         bool& normal_map) {
   if (!std::string_view(node.relative_path).ends_with(".texture.json")) {
     return false;
   }
@@ -335,13 +311,26 @@ void hash_bytes(std::uint64_t& hash, std::string_view bytes) noexcept {
   auto* root = yyjson_doc_get_root(document);
   auto* source_value = yyjson_obj_get(root, "source");
   auto* color_value = yyjson_obj_get(root, "color_space");
-  const bool valid = yyjson_is_str(source_value) && yyjson_is_str(color_value);
+  auto* usage_value = yyjson_obj_get(root, "usage");
+  auto* format_value = yyjson_obj_get(root, "format");
+  auto* version_value = yyjson_obj_get(root, "version");
+  const auto version = yyjson_get_uint(version_value);
+  const std::string_view color = yyjson_is_str(color_value)
+                                     ? std::string_view{yyjson_get_str(color_value)}
+                                     : std::string_view{};
+  normal_map =
+      yyjson_is_str(usage_value) && std::string_view{yyjson_get_str(usage_value)} == "normal";
+  const bool valid = yyjson_is_str(source_value) && yyjson_is_str(format_value) &&
+                     std::string_view{yyjson_get_str(format_value)} == "gneiss.texture" &&
+                     yyjson_is_uint(version_value) && (version == 1U || version == 2U) &&
+                     (color == "linear" || color == "srgb") &&
+                     ((version == 1U && usage_value == nullptr) ||
+                      (version == 2U && normal_map && color == "linear"));
   if (valid) {
     const std::string_view uri{yyjson_get_str(source_value), yyjson_get_len(source_value)};
     constexpr std::string_view prefix = "asset://";
     if (uri.starts_with(prefix)) {
       source.assign(uri.substr(prefix.size()));
-      const std::string_view color{yyjson_get_str(color_value), yyjson_get_len(color_value)};
       transfer = color == "linear" ? asset_internal::texture_transfer::linear
                                    : asset_internal::texture_transfer::srgb;
     }
@@ -396,7 +385,7 @@ const processor_description* processor_registry::find(std::string_view path) con
 processor_registry make_default_registry() {
   processor_registry registry;
   static_cast<void>(registry.register_processor(
-      {.id = "gneiss.texture", .version = 4U, .suffixes = {".png", ".jpg", ".jpeg", ".ktx2"}}));
+      {.id = "gneiss.texture", .version = 5U, .suffixes = {".png", ".jpg", ".jpeg", ".ktx2"}}));
   static_cast<void>(registry.register_processor(
       {.id = "gneiss.mesh", .version = 2U, .suffixes = {".gneiss-mesh", ".mesh.json"}}));
   static_cast<void>(registry.register_processor(
@@ -457,7 +446,12 @@ build_report build_assets(const build_request& request, const processor_registry
       static_cast<void>(relative);
       std::string image_source;
       asset_internal::texture_transfer transfer{};
-      if (!read_texture_settings(node, image_source, transfer)) {
+      bool normal_map{};
+      if (!read_texture_settings(node, image_source, transfer, normal_map)) {
+        if (std::string_view(node.relative_path).ends_with(".texture.json")) {
+          return fail(build_result::processor_failed,
+                      "Texture 描述或用途无效：" + node.relative_path);
+        }
         continue;
       }
       const auto image = nodes.find(image_source);
@@ -468,7 +462,12 @@ build_report build_assets(const build_request& request, const processor_registry
         return fail(build_result::processor_failed,
                     "同一源图像不能同时使用 linear 与 srgb：" + image_source);
       }
+      if (image->second.normal_map && *image->second.normal_map != normal_map) {
+        return fail(build_result::processor_failed,
+                    "同一派生图像不能混用法线和颜色/数据处理，请生成独立源路径：" + image_source);
+      }
       image->second.texture_transfer = transfer;
+      image->second.normal_map = normal_map;
     }
 
     std::set<std::string> selected;

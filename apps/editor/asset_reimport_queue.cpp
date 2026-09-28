@@ -254,7 +254,8 @@ std::size_t asset_reimport_queue::tick(const std::filesystem::path& project_root
         ++iterator;
         continue;
       }
-      if (indexed->content_hash == content_hash) {
+      if (indexed->content_hash == content_hash && indexed->importer_id == "gneiss.gltf" &&
+          indexed->importer_version == asset_import::gltf_importer_version) {
         implementation_->emit(asset_reimport_state::unchanged, candidate.relative_path);
         iterator = implementation_->candidates.erase(iterator);
         continue;

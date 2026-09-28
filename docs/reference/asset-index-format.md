@@ -33,7 +33,7 @@
   "source": "models/lantern.glb",
   "source_key": "0123456789abcdef",
   "importer": "gneiss.gltf",
-  "importer_version": 1,
+  "importer_version": 2,
   "hash": "fnv1a64:0123456789abcdef",
   "state": "ready",
   "outputs": [
@@ -45,6 +45,8 @@
 - `source` 是相对于工程 `sources/` 的规范 UTF-8 路径，不允许绝对路径或 `..` 逃逸。
 - `source_key` 标识该源文件独占的 `assets/imported/<source_key>/` 目录。
 - `importer` 与 `importer_version` 共同标识生成产物的实现版本。
+  当前 glTF 导入器为 2，输出含切线 Mesh 与五槽材质；旧版本记录显示 stale，补扫/重导入时
+  不因源文件哈希未变而跳过。索引容器仍为 v1，失败时保留旧产物和索引。
 - `hash` 是变化检测指纹，不承担安全校验；v1 使用 `fnv1a64:<十六进制值>`。
 - `state` 可为 `ready`、`stale` 或 `missing`。导入失败不会覆盖上一条完整记录。
 - 每个 `outputs` URI 必须位于对应的 `asset://imported/<source_key>/` 命名空间内。

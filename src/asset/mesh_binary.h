@@ -24,6 +24,8 @@ struct mesh_binary_data final {
   std::vector<std::uint32_t> indices;
   std::array<float, 3> bounds_min{};
   std::array<float, 3> bounds_max{};
+  /** 为空时编码兼容的 v1；非空时每顶点一个切线并编码 v2。 */
+  std::vector<std::array<float, 4>> tangents{};
 };
 
 enum class mesh_binary_result : std::uint8_t { success, invalid_data, unsupported_version };

@@ -40,6 +40,7 @@ struct import_ir_primitive {
     float position[3]{};
     float normal[3]{};
     float texcoord[2]{};
+    std::array<float, 4> tangent{1.0F, 0.0F, 0.0F, 1.0F};
   };
   std::vector<vertex> vertices;
   std::vector<std::uint32_t> indices;
@@ -56,6 +57,18 @@ struct import_ir_material {
   std::optional<std::size_t> base_color_image_index;
   float metallic{};
   float roughness{1.0F};
+  std::optional<std::size_t> metallic_roughness_image_index;
+  std::optional<std::size_t> normal_image_index;
+  std::optional<std::size_t> occlusion_image_index;
+  std::optional<std::size_t> emissive_image_index;
+  float normal_scale{1.0F};
+  float occlusion_strength{1.0F};
+  std::array<float, 3> emissive{};
+
+  [[nodiscard]] std::array<std::optional<std::size_t>, 5> texture_indices() const {
+    return {base_color_image_index, metallic_roughness_image_index, normal_image_index,
+            occlusion_image_index, emissive_image_index};
+  }
 };
 
 struct import_ir_image {
@@ -70,5 +83,24 @@ struct import_ir {
   std::vector<import_ir_material> materials;
   std::vector<import_ir_image> images;
 };
+
+/** 颜色变体保留原输出名；线性数据与法线派生源使用独立路径和处理语义。 */
+[[nodiscard]] inline std::array<bool, 3> image_variants(const import_ir& data, std::size_t image) {
+  std::array<bool, 3> uses{};
+  for (const auto& material : data.materials) {
+    uses[0] = uses[0] || material.base_color_image_index == image ||
+              material.emissive_image_index == image;
+    uses[1] = uses[1] || material.metallic_roughness_image_index == image ||
+              material.occlusion_image_index == image;
+    uses[2] = uses[2] || material.normal_image_index == image;
+  }
+  // 未引用图片仍按原规则保留；已引用的图片只生成实际用途，避免重复 Cook 大纹理。
+  if (!uses[0] && !uses[1] && !uses[2]) {
+    uses[0] = true;
+  }
+  return uses;
+}
+
+inline constexpr std::array image_variant_suffixes{"", "-linear", "-normal"};
 
 } // namespace gneiss::tooling::asset_import

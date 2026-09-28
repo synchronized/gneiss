@@ -32,27 +32,29 @@
 
 ## U43-02：标准 PBR 镂空与双面契约
 
-- 状态：待验证；P1，可能阻塞 MASK/doubleSided。
+- 状态：已提出（2026-09-29 会话中告知用户）；P1，阻塞 MASK/doubleSided 及完整 Sponza 重导入。
 - 证据与边界：已检查 v0.39.0 [PBR Schema](https://github.com/synchronized/granit/blob/v0.39.0/include/granit/pipeline/pbr_material.h)
   与[标准 Shader](https://github.com/synchronized/granit/blob/v0.39.0/assets/sources/shaders/pbr/pbr_standard.hlsl)，
-  未见公开 alphaMode/cutoff 参数和相应 discard；仍需查完整 Shader 变体、Pipeline 状态与双面法线支持。
-  不能仅因 Gneiss 没有字段就断定上游所有路径均不支持。
-- 如证实缺口，建议最小 PR：明确 OPAQUE/MASK、cutoff、剔除及背面法线语义；MASK 保持深度写入，
+  标准 Shader 库仅有该标准路径，Schema 无 alphaMode/cutoff，Shader 无 discard 或背面法线翻转。
+  自定义 Shader/通用剔除状态不能替代标准 PBR 的完整材质契约。实际 Sponza 中 `lamp_glass_01` 与
+  `glass` 声明双面，新导入检查返回明确的 U43-02 诊断；尚未运行对应上游 GPU 实验。
+- 建议最小 PR：明确 OPAQUE/MASK、cutoff、剔除及背面法线语义；MASK 保持深度写入，
   若声明支持阴影则影子 Pass 使用同一遮罩；不与 BLEND 排序混为一项。
 - 验收：阈值两侧、Alpha 因子/贴图组合、正反面照明、负缩放、深度和阴影轮廓。
 - Gneiss 接入：Material 序列化与导入保留状态，通过公开材质/管线变体投影；不复制私有 Shader 布局。
-- 上游链接：尚无；完成最小实验后再提出。
+- 上游链接：尚无；用户提交后补充。
 
 ## U43-03：逐贴图 UV 与采样器
 
-- 状态：待验证；P1，可能阻塞核心 glTF 的多 UV/异构 sampler 材质。
+- 状态：已提出（2026-09-29 会话中说明导入限制）；P1，阻塞核心 glTF 的多 UV/异构 sampler 材质。
 - 证据：上述 v0.39.0 Schema 暴露 UV0 和单个 `pbr_sampler`，标准 Shader 五种纹理共用一个 UV 与 sampler。
-  需确认是否有其他公开标准路径，不能把创建任意自定义 Shader 视为标准材质已经支持。
-- 如证实缺口，建议最小 PR：逐槽选择 UV0/UV1 与 sampler，保留单 UV/共享 sampler 默认行为，
+  标准 Shader 库仅有该路径；创建任意自定义 Shader 不等于标准材质已支持。
+  Gneiss 当前明确接受 UV0、repeat/linear/trilinear，对非默认状态和 UV1 有拒绝测试。
+- 建议最小 PR：逐槽选择 UV0/UV1 与 sampler，保留单 UV/共享 sampler 默认行为，
   给出能力检查、缺失顶点属性错误及公共元数据契约。UV transform 扩展按真实资产需求另评估，不绑入最小 PR。
 - 验收：不同 UV 图案、repeat/clamp/mirror、各槽不同过滤、缺 UV1、默认兼容、资源销毁与变体验证。
 - Gneiss 接入：导入、Mesh/Material 格式和依赖保存选择，上传所需顶点属性；纹理资源可共用而采样状态独立。
-- 上游链接：尚无；M-279 最小实验后更新。
+- 上游链接：尚无；用户提交后补充，逐槽 GPU 验收待契约实现。
 
 ## U43-04：负缩放下切线空间手性
 
@@ -70,8 +72,21 @@
 - Gneiss 接入：保留导入切线手性与实体变换，升级上游标准资产后运行负缩放图像夹具；不分叉上游 Shader。
 - 上游链接：尚无；用户提交后补充。
 
+## U43-05：标准 PBR 顶点色输入
+
+- 状态：已提出（2026-09-29 会话中告知用户）；P1，阻塞原始 Sponza 的完整重导入。
+- 证据：v0.39.0 标准 Shader 的顶点输入包含 position/normal/tangent/UV，不包含 COLOR；
+  原始 Sponza 的 59 个 Primitive 声明 COLOR_0。Gneiss 现明确诊断此特性，不删除属性后声称保真导入。
+- 通用性：glTF 核心材质和多个模型查看器均可使用，不携带 Gneiss 场景语义。
+- 建议最小 PR：标准 PBR 可选线性 RGBA 顶点色，与 base-color 贴图及因子相乘；缺失时为白色。
+  公共顶点布局/变体契约应允许无颜色的旧网格保持兼容，不能要求上层猜测私有布局。
+- 验收：RGB/Alpha 各通道、无颜色默认、插值、OPAQUE/MASK/BLEND 中 Alpha 只组合一次。
+- Gneiss 接入：保存 COLOR_0，扩展版本化网格属性和上传布局；顶点色不烘焙进共用材质纹理。
+- 上游链接：尚无；用户提交后补充。GPU 验收待上游契约实现。
+
 ## Gneiss 自行完成的工作
 
 五类贴图默认绑定的替换、切线导入/生成、颜色空间与 Mip、格式版本、依赖与缓存、打包、异步事务、
 Editor 诊断及场景材质转换属于 Gneiss。本轮未证实这些需要上游新增能力，不应整体下沉为 Granit Import Service。
-顶点色及其他契约在 M-279 能力审计中逐项核验，发现实际底层缺口时按上述字段新增条目。
+本轮另修复 Gneiss 自身的 Mip 采样限制：采样器最大 LOD 与纹理 View 的层数都必须开放完整链；
+不要求 Granit 修改已正确公开的采样器和 View API。

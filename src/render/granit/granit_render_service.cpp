@@ -118,9 +118,11 @@ granit::result append_mesh_geometry(const render_internal::mesh_resource& source
     const auto& vertex = source.vertices[index];
     const auto normal =
         source.normals.empty() ? gneiss_mesh_normal{0.0F, 1.0F, 0.0F} : source.normals[index];
+    const auto tangent = source.tangents.empty() ? gneiss_mesh_tangent{1.0F, 0.0F, 0.0F, 1.0F}
+                                                 : source.tangents[index];
     vertices.push_back({.position = {vertex.x, vertex.y, vertex.z},
                         .normal = {normal.x, normal.y, normal.z},
-                        .tangent = {1.0F, 0.0F, 0.0F, 1.0F},
+                        .tangent = {tangent.x, tangent.y, tangent.z, tangent.w},
                         .texture_coordinate = {vertex.u, vertex.v}});
   }
   if (source.indices.empty()) {
@@ -252,7 +254,8 @@ granit_render_service::create_texture_mirror(const render_internal::texture_reso
     }
     if (result.ok()) {
       stage = "view";
-      result = output.view.initialize(renderer_, output.texture, {.format = format});
+      result = output.view.initialize(renderer_, output.texture,
+                                      {.format = format, .mip_level_count = info.mip_levels});
     }
     if (result.failed()) {
       static_cast<void>(output.view.reset());
@@ -296,7 +299,9 @@ granit_render_service::create_texture_mirror(const render_internal::texture_reso
     result = upload.submit();
   }
   if (result.ok()) {
-    result = output.view.initialize(renderer_, output.texture, {.format = format});
+    result = output.view.initialize(
+        renderer_, output.texture,
+        {.format = format, .mip_level_count = static_cast<std::uint32_t>(source.levels.size())});
   }
   if (result.failed()) {
     static_cast<void>(output.view.reset());
@@ -996,7 +1001,7 @@ gneiss_result granit_render_service::initialize_gpu(const native_window_info& wi
                                              .address_u = granit::address_mode::repeat,
                                              .address_v = granit::address_mode::repeat,
                                              .address_w = granit::address_mode::repeat,
-                                             .max_lod = 0.0F});
+                                             .max_lod = 14.0F});
   }
   if (result.ok()) {
     result = ensure_default_textures();

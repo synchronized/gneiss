@@ -20,6 +20,11 @@ package：
 | --- | --- | --- | --- |
 | fastgltf | v0.9.0 / `0d1b67a28c4950ea2deb796702006dcbe31e02b3` | MIT | glTF 2.0/GLB 离线解析 |
 | simdjson | 3.12.3（fastgltf 随附） | Apache-2.0 | fastgltf 的 JSON 解析实现 |
+| MikkTSpace | `3e895b49d05ea07e4c2133156cfa94369e19e409` | Zlib | 导入工具生成与法线烘焙兼容的切线空间 |
+
+MikkTSpace 来源为 <https://github.com/mmikk/MikkTSpace>，仅由离线导入工具私有静态链接，不进入
+Runtime、公共头文件或安装 SDK 的链接接口。源码保留原许可证，不修改上游代码。
+替代方案是自写切线算法，但无法保证与作者工具烘焙约定一致；因此优先使用 glTF 推荐的标准实现。
 
 第三方源码通过 Git submodule 锁定。首次检出仓库后执行：
 

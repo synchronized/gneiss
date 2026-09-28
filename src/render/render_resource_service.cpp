@@ -3,6 +3,8 @@
 
 #include "render/render_resource_service.h"
 
+#include "asset/mesh_tangent.h"
+
 #include <algorithm>
 #include <atomic>
 #include <cmath>
@@ -34,7 +36,9 @@ render_resource_service::render_resource_service() noexcept
 
 gneiss_result render_resource_service::create_mesh(const gneiss_mesh_desc& desc,
                                                    gneiss_mesh* out_mesh) noexcept {
-  if (out_mesh == nullptr || !is_valid() || desc.struct_size < sizeof(gneiss_mesh_desc) ||
+  if (out_mesh == nullptr || !is_valid() ||
+      (desc.struct_size != GNEISS_MESH_DESC_VERSION_1_SIZE &&
+       desc.struct_size < sizeof(gneiss_mesh_desc)) ||
       desc.reserved != 0U || desc.vertex_count < 3U || desc.vertices == nullptr) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
@@ -67,10 +71,29 @@ gneiss_result render_resource_service::create_mesh(const gneiss_mesh_desc& desc,
   if (!std::ranges::all_of(indices, [&](const auto index) { return index < desc.vertex_count; })) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
+  std::span<const gneiss_mesh_tangent> tangents;
+  if (desc.struct_size >= sizeof(gneiss_mesh_desc)) {
+    if (desc.reserved_4 != 0U || ((desc.tangent_count == 0U) != (desc.tangents == nullptr)) ||
+        (desc.tangent_count != 0U &&
+         (desc.tangent_count != desc.vertex_count || normals.empty()))) {
+      return GNEISS_ERROR_INVALID_ARGUMENT;
+    }
+    if (desc.tangent_count != 0U)
+      tangents = {desc.tangents, desc.tangent_count};
+    for (std::size_t index = 0; index < tangents.size(); ++index) {
+      const auto& tangent = tangents[index];
+      const auto& normal = normals[index];
+      if (!asset_internal::valid_mesh_tangent({tangent.x, tangent.y, tangent.z, tangent.w},
+                                              {normal.x, normal.y, normal.z})) {
+        return GNEISS_ERROR_INVALID_ARGUMENT;
+      }
+    }
+  }
   try {
     mesh_resource resource{.vertices = {vertices.begin(), vertices.end()},
                            .normals = {normals.begin(), normals.end()},
-                           .indices = {indices.begin(), indices.end()}};
+                           .indices = {indices.begin(), indices.end()},
+                           .tangents = {tangents.begin(), tangents.end()}};
     return meshes_.create(core::resource_type::mesh,
                           std::make_shared<const mesh_resource>(std::move(resource)), out_mesh);
   } catch (const std::bad_alloc&) {
@@ -138,7 +161,7 @@ gneiss_result render_resource_service::create_material(const gneiss_material_des
                             .metallic = desc.metallic,
                             .roughness = desc.roughness};
     if (desc.struct_size >= sizeof(gneiss_material_desc)) {
-      if (desc.reserved_2 != 0U || !std::isfinite(desc.normal_scale) || desc.normal_scale < 0.0F ||
+      if (desc.reserved_2 != 0U || !std::isfinite(desc.normal_scale) ||
           !valid_color(desc.occlusion_strength) ||
           !std::ranges::all_of(desc.emissive, valid_color)) {
         return GNEISS_ERROR_INVALID_ARGUMENT;

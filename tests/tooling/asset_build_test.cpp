@@ -8,6 +8,7 @@
 #include <granit/renderer/texture_asset.hpp>
 
 #include <chrono>
+#include <cstdio>
 #include <filesystem>
 #include <fstream>
 #include <string>
@@ -162,6 +163,66 @@ int main() {
   missing_request.root_uris = {"asset://missing.json"};
   if (build_assets(missing_request, registry).result != build_result::dependency_missing) {
     return 8;
+  }
+
+  const auto pbr_source = root / "pbr-source";
+  const std::string color_desc =
+      R"({"format":"gneiss.texture","version":1,"source":"asset://color.png","color_space":"srgb"})";
+  const std::string data_desc =
+      R"({"format":"gneiss.texture","version":1,"source":"asset://data.png","color_space":"linear"})";
+  const std::string normal_desc =
+      R"({"format":"gneiss.texture","version":2,"source":"asset://normal.png","color_space":"linear","usage":"normal"})";
+  if (!write(pbr_source / "color.png", png_fixture('p')) ||
+      !write(pbr_source / "data.png", png_fixture('p')) ||
+      !write(pbr_source / "normal.png", png_fixture('p')) ||
+      !write(pbr_source / "color.texture.json", color_desc) ||
+      !write(pbr_source / "data.texture.json", data_desc) ||
+      !write(pbr_source / "normal.texture.json", normal_desc) ||
+      !write(
+          pbr_source / "material.material.json",
+          R"({"format":"gneiss.material","version":4,"color":[1,1,1,1],"metallic":1,"roughness":1,"base_color_texture":"asset://color.texture.json","metallic_roughness_texture":"asset://data.texture.json","normal_texture":"asset://normal.texture.json","occlusion_texture":"asset://data.texture.json","emissive_texture":"asset://color.texture.json"})")) {
+    return 9;
+  }
+  auto pbr_request = shipping_request;
+  pbr_request.source_root = pbr_source;
+  pbr_request.output_root = root / "pbr-output";
+  pbr_request.root_uris = {"asset://material.material.json"};
+  const auto pbr_first = build_assets(pbr_request, registry);
+  pbr_request.output_root = root / "pbr-cached";
+  const auto pbr_cached = build_assets(pbr_request, registry);
+  if (pbr_first.result != build_result::success || pbr_first.outputs.size() != 7U ||
+      pbr_cached.result != build_result::success || pbr_cached.cache_hit_count != 7U ||
+      pbr_cached.built_count != 0U) {
+    std::fprintf(stderr, "PBR Cook: first=%d outputs=%zu cached=%d hits=%zu built=%zu\n",
+                 static_cast<int>(pbr_first.result), pbr_first.outputs.size(),
+                 static_cast<int>(pbr_cached.result),
+                 static_cast<std::size_t>(pbr_cached.cache_hit_count),
+                 static_cast<std::size_t>(pbr_cached.built_count));
+    return 10;
+  }
+  const auto* old_normal = find_output(pbr_first, "normal.gneiss-texture");
+  if (!write(
+          pbr_source / "normal.texture.json",
+          R"({"format":"gneiss.texture","version":1,"source":"asset://normal.png","color_space":"linear"})")) {
+    return 11;
+  }
+  pbr_request.output_root = root / "pbr-changed";
+  const auto pbr_changed = build_assets(pbr_request, registry);
+  const auto* new_normal = find_output(pbr_changed, "normal.gneiss-texture");
+  if (pbr_changed.result != build_result::success || old_normal == nullptr ||
+      new_normal == nullptr || old_normal->cache_key == new_normal->cache_key ||
+      pbr_changed.built_count != 2U || pbr_changed.cache_hit_count != 5U) {
+    std::fprintf(stderr, "PBR changed: result=%d old=%d new=%d built=%zu\n",
+                 static_cast<int>(pbr_changed.result), old_normal != nullptr, new_normal != nullptr,
+                 static_cast<std::size_t>(pbr_changed.built_count));
+    return 12;
+  }
+  pbr_request.output_root = root / "pbr-invalid";
+  if (!write(
+          pbr_source / "normal.texture.json",
+          R"({"format":"gneiss.texture","version":2,"source":"asset://normal.png","color_space":"srgb","usage":"normal"})") ||
+      build_assets(pbr_request, registry).result != build_result::processor_failed) {
+    return 13;
   }
 
   std::error_code error;

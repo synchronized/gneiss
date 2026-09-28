@@ -6,7 +6,7 @@
 Runtime Mesh 优先使用二进制；旧 Mesh、Material 与 Texture 描述使用严格 UTF-8 JSON。所有格式仅由
 内部 Loader 使用，资源 URI 规则见[资产 URI、目录挂载与缓存](assets.md)。
 
-## Mesh Binary v1
+## Mesh Binary v1 / v2
 
 建议扩展名为 `.gneiss-mesh`。多字节整数与 IEEE 754 Float32 固定使用小端序，所有 Offset 相对
 文件起点。Header 固定为 80 字节：
@@ -31,6 +31,11 @@ Runtime Mesh 优先使用二进制；旧 Mesh、Material 与 Texture 描述使�
 再保存 UInt32 索引。v1 只支持三角形列表、有限 Float32 和单位法线；Decoder 必须在分配或读取前验证
 版本、数量乘法、Offset、区域重叠、文件边界、AABB 和索引范围。Runtime Loader 将唯一顶点与索引
 直接交给 Render Service；Granit 后端通过 Index Buffer 绘制，不再展开为重复顶点。
+
+v2 保留 Header 布局，`version=2`、`vertex_stride=48`，在每顶点的 Normal 后追加 Tangent Float4。
+XYZ 必须为单位切线并与法线正交（误差 `1e-4`），W 必须精确为 `+1` 或 `-1`。
+新 glTF 导入器保留作者手性并正交化切线；缺失时使用 MikkTSpace 生成，在 UV 镜像接缝拆点。
+无法生成有效切线时导入失败；无切线的旧 v1 文件仍能读取，不具备准确的法线贴图基础。
 
 `gneiss_assetc inspect` 输出摘要，`validate` 只校验，`dump <file> --format json` 按需生成完整 Debug
 JSON。Debug JSON 的格式标识为 `gneiss.mesh.debug`，不是 Runtime 输入。
@@ -131,13 +136,15 @@ Granit 标准 PBR Material 参数；作者资产不引用 `.grmat` 或后端 Sha
 
 Material v4 在 v3 基础上增加可选的 `metallic_roughness_texture`、`normal_texture`、
 `occlusion_texture`、`emissive_texture` URI（省略或 null 使用中性默认纹理），以及
-`normal_scale`（默认 1，有限非负值）、`occlusion_strength`（默认 1，0..1）、
+`normal_scale`（默认 1，有限值，允许负值）、`occlusion_strength`（默认 1，0..1）、
 `emissive`（默认 `[0,0,0]`，线性 RGB 各分量 0..1）。MR 的 G/B 通道分别保存粗糙度/金属度，AO 使用 R。
 基础颜色和自发光纹理应声明 sRGB，其余槽声明 linear。材质租约和帧快照保留所有纹理依赖，
 异步材质重载将全部依赖作为一个事务准备；任一项失败不会发布部分材质。
 
-此格式和运行链路不表示 glTF 导入已保留全部材质，也不表示支持透明、镂空或多 UV。
-法线贴图还需要有效的网格切线；当前 0.43 开发进度见 [版本计划](../plans/VER-043-0.43.0-pbr-pipeline.md)。
+glTF 导入输出 v4 并保留上述五类纹理及因子。当前不支持透明、镂空、双面、顶点色、多 UV
+以及非 repeat/linear/trilinear 采样，遇到这些输入会明确诊断而不无声丢弃。
+法线贴图还需要有效的网格切线；负缩放实例的后端手性缺口见
+[上游清单](../plans/UPSTREAM-043-granit-pbr.md#u43-04负缩放下切线空间手性)。
 
 ## Texture
 
@@ -155,6 +162,13 @@ Material v4 在 v3 基础上增加可选的 `metallic_roughness_texture`、`norm
 作者资产中的 `source` 可以指向 PNG；`color_space` 必须为 `srgb` 或 `linear`，由描述文件明确指定，
 不从 PNG 元数据推断。资产构建会生成直到 1×1 的完整 Mip 链，再确定性转换为同名
 `.gneiss-texture` 并重写运行资产中的 URI。相同图像不能由多个 Texture 描述同时声明为不同颜色空间。
+
+Texture v2 在 v1 基础上要求 `usage: "normal"` 和 `color_space: "linear"`，用于声明法线 Mip。
+Cook 对 sRGB 颜色先解码至线性光域再过滤；线性数据直接过滤；法线按向量过滤并归一化，
+相消时回退为 +Z。Alpha 始终线性过滤，奇数尺寸使用面积权重覆盖边缘像素。
+glTF 同图跨颜色/数据/法线用途时生成独立派生路径，MR 与 AO 共用 linear 变体，
+base color 与 emissive 共用 sRGB 变体。纹理处理器版本与用途均进入缓存身份。
+Mesh 的 repeat/trilinear 采样允许访问完整 Mip 链；尚未 Cook 的 PNG 兼容路径仍只有基础级。
 
 0.34.0 的运行容器只接受二维、单层、单面、无超级压缩的 `R8G8B8A8_UNORM` 或
 `R8G8B8A8_SRGB` KTX2。Runtime 校验标识、DFD 传递函数、完整 Mip 数量、Level Index 范围和每级
