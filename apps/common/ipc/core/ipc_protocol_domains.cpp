@@ -8,6 +8,7 @@
 #include "ipc_inspection_protocol.h"
 #include "ipc_log_protocol.h"
 #include "ipc_property_protocol.h"
+#include "ipc_scene_protocol.h"
 #include "ipc_session_protocol.h"
 #include "ipc_statistics_protocol.h"
 
@@ -17,6 +18,8 @@
 namespace {
 
 constexpr std::array capabilities{
+    gneiss::ipc_domain_capability{.domain = gneiss::ipc_domain::scene,
+                                  .version = gneiss::ipc_scene_domain_version},
     gneiss::ipc_domain_capability{.domain = gneiss::ipc_domain::control,
                                   .version = gneiss::ipc_control_domain_version},
     gneiss::ipc_domain_capability{.domain = gneiss::ipc_domain::log,
@@ -45,6 +48,13 @@ result register_ipc_v2_domains(ipc_domain_handler handler, void* handler_context
   }
   ipc_domain_registry registry;
   const std::array descriptors{
+      ipc_domain_descriptor{.domain = ipc_domain::scene,
+                            .version = ipc_scene_domain_version,
+                            .capability = "scene",
+                            .max_payload_size = ipc_scene_max_payload_size,
+                            .operations = ipc_scene_operations(),
+                            .handler = handler,
+                            .handler_context = handler_context},
       ipc_domain_descriptor{.domain = ipc_domain::session,
                             .version = ipc_session_domain_version,
                             .capability = {},

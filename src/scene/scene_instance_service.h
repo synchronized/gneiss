@@ -42,6 +42,10 @@ public:
   };
 
   void rollback() noexcept;
+  /** 仅用于不可见候选 World，分阶段入口不执行文件读取。 */
+  void initialize_staged(scene_description candidate);
+  [[nodiscard]] gneiss_result create_staged_node(std::size_t index, gneiss_scene_node_id parent);
+
   [[nodiscard]] gneiss_scene_node_id find_node(std::string_view uuid) const noexcept;
   [[nodiscard]] gneiss_result serialize(std::string& out_json) const;
   [[nodiscard]] gneiss_result get_node_info(std::uint64_t index,
@@ -199,6 +203,7 @@ public:
                                            gneiss_scene_node_id node) noexcept;
 
 private:
+  friend class scene_load_builder;
   using instance_ptr = std::unique_ptr<scene_instance>;
   gneiss_world world_;
   const asset_internal::virtual_file_system& file_system_;

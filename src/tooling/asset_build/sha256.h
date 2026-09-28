@@ -3,15 +3,9 @@
 
 #pragma once
 
-#include <array>
-#include <cstddef>
-#include <span>
+#include "core/sha256.h"
 
 namespace gneiss::tooling::asset_build {
-
-using sha256_digest = std::array<std::byte, 32U>;
-
-/** 计算内存数据的 SHA-256；该实现仅供离线资产工具生成稳定标识与负载摘要。 */
-[[nodiscard]] sha256_digest sha256(std::span<const std::byte> bytes) noexcept;
-
+using core::sha256;
+using core::sha256_digest;
 } // namespace gneiss::tooling::asset_build

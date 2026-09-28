@@ -59,6 +59,12 @@ struct ipc_transport::implementation final {
   bool stream_initialized = false;
   bool is_stopping = false;
 
+  static bool is_log(const ipc_transport_event& event) noexcept {
+    return event.type == ipc_transport_event_type::envelope_received &&
+           event.envelope.domain == ipc_domain::log &&
+           event.envelope.kind == ipc_message_kind::event;
+  }
+
   void emit(ipc_transport_event event) noexcept {
     try {
       const std::scoped_lock lock(event_mutex);
@@ -67,17 +73,22 @@ struct ipc_transport::implementation final {
         return;
       }
       if (events.size() >= event_capacity) {
-        if (event.type == ipc_transport_event_type::envelope_received) {
+        // 日志可丢弃，但不能挤掉属性结果、场景终态与控制确认。
+        const auto log = std::ranges::find_if(events, is_log);
+        if (!is_log(event) && log != events.end()) {
+          events.erase(log);
+        } else if (event.type == ipc_transport_event_type::envelope_received) {
           dropped_events.fetch_add(1U, std::memory_order_relaxed);
           return;
-        }
-        const auto frame = std::ranges::find_if(events, [](const auto& pending) {
-          return pending.type == ipc_transport_event_type::envelope_received;
-        });
-        if (frame != events.end()) {
-          events.erase(frame);
         } else {
-          events.pop_front();
+          const auto frame = std::ranges::find_if(events, [](const auto& pending) {
+            return pending.type == ipc_transport_event_type::envelope_received;
+          });
+          if (frame != events.end()) {
+            events.erase(frame);
+          } else {
+            events.pop_front();
+          }
         }
         dropped_events.fetch_add(1U, std::memory_order_relaxed);
       }
@@ -262,10 +273,13 @@ struct ipc_transport::implementation final {
     }
   }
 
-  result enqueue(std::vector<std::uint8_t> bytes) noexcept {
+  result enqueue(std::vector<std::uint8_t> bytes, bool log) noexcept {
+    // 在同一个 CAS 中为非日志消息保留容量，避免并发日志发送占满控制通道。
+    const auto limit =
+        write_capacity - (log ? (std::min)(write_capacity / 4U, std::size_t{16U}) : 0U);
     auto pending = pending_writes.load(std::memory_order_relaxed);
     do {
-      if (pending >= write_capacity) {
+      if (pending >= limit) {
         return result::not_ready;
       }
     } while (!pending_writes.compare_exchange_weak(pending, pending + 1U, std::memory_order_acq_rel,
@@ -443,7 +457,11 @@ result ipc_transport::send(const ipc_envelope& envelope) noexcept {
   }
   std::vector<std::uint8_t> encoded;
   const auto operation = encode_ipc_envelope(envelope, encoded);
-  return operation == result::success ? implementation_->enqueue(std::move(encoded)) : operation;
+  return operation == result::success
+             ? implementation_->enqueue(std::move(encoded),
+                                        envelope.domain == ipc_domain::log &&
+                                            envelope.kind == ipc_message_kind::event)
+             : operation;
 }
 
 std::size_t ipc_transport::pending_write_count() const noexcept {

@@ -51,12 +51,16 @@ gneiss_result initialize(gneiss_game_context, void** out_state) {
 }
 
 gneiss_result fixed_update(gneiss_game_context, void*, const gneiss_game_update_time*) {
+#if !defined(GNEISS_TEST_LIFECYCLE_TRACE_ONLY)
   trace('F');
+#endif
   return GNEISS_SUCCESS;
 }
 
 gneiss_result update(gneiss_game_context, void*, const gneiss_game_update_time* time) {
+#if !defined(GNEISS_TEST_LIFECYCLE_TRACE_ONLY)
   trace('U');
+#endif
 #if defined(GNEISS_TEST_CONTINUOUS_UPDATE)
   (void)time;
   return GNEISS_SUCCESS;

@@ -65,8 +65,8 @@ void run(tasks::execution_mode mode) {
   files->pixel(std::byte{10});
   virtual_file_system vfs;
   check(vfs.mount("asset://", files) == GNEISS_SUCCESS);
-  resource_cache cache;
   render_resource_service resources;
+  resource_cache cache;
   render_asset_loader loader(vfs, cache, resources);
   bool uploaded{};
   bool ready{};
@@ -203,8 +203,8 @@ void mixed(tasks::execution_mode mode) {
   }
   virtual_file_system vfs;
   check(vfs.mount("asset://", files) == GNEISS_SUCCESS);
-  resource_cache cache;
   render_resource_service resources;
+  resource_cache cache;
   render_asset_loader loader(vfs, cache, resources);
   unsigned chunks{}, discards{};
   bool fail = true;
@@ -256,6 +256,12 @@ void mixed(tasks::execution_mode mode) {
   };
   std::uint64_t request{};
   texture_load_completion completion;
+  check(service.submit_assets(requested, 1U, 1U, request, false, 0U) ==
+        GNEISS_ERROR_INVALID_ARGUMENT);
+  check(service.submit_assets(requested, 1U, 1U, request, false, 8U) == GNEISS_SUCCESS);
+  until([&] { return service.take(completion); });
+  check(completion.state == texture_load_state::failed && chunks == 0U && cache.size() == 0U &&
+        resources.live_resource_count() == 0U);
   check(service.submit_assets(requested, 1U, 1U, request) == GNEISS_SUCCESS);
   until([&] { return service.take(completion); });
   check(completion.state == texture_load_state::failed && discards == 1U && chunks == 2U &&

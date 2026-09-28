@@ -85,6 +85,11 @@ result game_module_session::shutdown() noexcept {
   const auto shutdown_result = from_native(desc_.shutdown(context_, module_state_));
   module_state_ = nullptr;
   initialized_ = false;
+  context_ = GNEISS_NULL_GAME_CONTEXT;
+  // 一轮成功关闭后允许为新场景创建新的模块状态；关闭失败则禁止复用该会话。
+  if (shutdown_result == result::success) {
+    shutdown_called_ = false;
+  }
   return shutdown_result;
 }
 

@@ -44,7 +44,9 @@ struct ipc_transport_event final {
   ipc_envelope envelope;
 };
 
-/** 单连接、本机回环 TCP Transport；除 poll_events() 外生命周期操作由调用方外部同步。 */
+/** 单连接、本机回环 TCP Transport；除 poll_events() 外生命周期操作由调用方外部同步。
+ * 日志事件不占用发送队列最后四分之一（最多 16 项）；接收队列满时非日志优先替换日志。
+ * 保留区也满时仍返回 NOT_READY，不承诺无限可靠排队。 */
 class ipc_transport final {
 public:
   explicit ipc_transport(std::size_t event_capacity = 256U, std::size_t write_capacity = 64U);

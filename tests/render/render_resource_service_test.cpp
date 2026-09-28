@@ -7,6 +7,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 
 int main() {
   gneiss::render_internal::render_resource_service resources;
@@ -32,6 +33,32 @@ int main() {
       resources.destroy_mesh(mesh) != GNEISS_SUCCESS) {
     return 10;
   }
+  auto tiled_vertices = vertices;
+  tiled_vertices[0].u = -42469.96875F;
+  tiled_vertices[1].v = 22.5F;
+  mesh_desc.vertices = tiled_vertices.data();
+  if (resources.create_mesh(mesh_desc, &mesh) != GNEISS_SUCCESS ||
+      resources.get_mesh(mesh)->vertices[0].u != tiled_vertices[0].u ||
+      resources.get_mesh(mesh)->vertices[1].v != tiled_vertices[1].v ||
+      resources.destroy_mesh(mesh) != GNEISS_SUCCESS) {
+    return 16;
+  }
+  for (const auto invalid :
+       {std::numeric_limits<float>::infinity(), std::numeric_limits<float>::quiet_NaN()}) {
+    tiled_vertices[0].u = invalid;
+    if (resources.create_mesh(mesh_desc, &mesh) != GNEISS_ERROR_INVALID_ARGUMENT ||
+        resources.live_resource_count() != 0U) {
+      return 17;
+    }
+    tiled_vertices[0].u = 0.0F;
+    tiled_vertices[0].v = invalid;
+    if (resources.create_mesh(mesh_desc, &mesh) != GNEISS_ERROR_INVALID_ARGUMENT ||
+        resources.live_resource_count() != 0U) {
+      return 18;
+    }
+    tiled_vertices[0].v = 0.0F;
+  }
+  mesh_desc.vertices = vertices.data();
   auto invalid_normals = normals;
   invalid_normals[0].z = 2.0F;
   mesh_desc.normal_count = static_cast<std::uint32_t>(invalid_normals.size());

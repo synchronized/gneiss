@@ -8,10 +8,12 @@
 #include <fastgltf/types.hpp>
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <exception>
 #include <limits>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 
@@ -88,10 +90,22 @@ namespace {
   return std::visit(
       [](const auto& source) {
         if constexpr (requires { source.mimeType; }) {
-          return source.mimeType;
-        } else {
-          return fastgltf::MimeType::None;
+          if (source.mimeType != fastgltf::MimeType::None) {
+            return source.mimeType;
+          }
         }
+        // 外部图片 URI 可以省略 MIME；依据已读取的签名识别，不相信文件扩展名。
+        if constexpr (requires { source.bytes; }) {
+          constexpr std::array signature{std::byte{137}, std::byte{80}, std::byte{78},
+                                         std::byte{71},  std::byte{13}, std::byte{10},
+                                         std::byte{26},  std::byte{10}};
+          const auto bytes = std::span(source.bytes.data(), source.bytes.size());
+          if (bytes.size() >= signature.size() &&
+              std::ranges::equal(bytes.first(signature.size()), signature)) {
+            return fastgltf::MimeType::PNG;
+          }
+        }
+        return fastgltf::MimeType::None;
       },
       image.data);
 }

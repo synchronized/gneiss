@@ -82,5 +82,12 @@ int main(int argc, char** argv) {
       read_trace(trace_path) != "IFUUSIIS") {
     return 8;
   }
+  if (session.initialize(UINT64_C(3)) != gneiss::result::success ||
+      session.initialize(UINT64_C(4)) != gneiss::result::invalid_state ||
+      session.shutdown() != gneiss::result::success ||
+      session.shutdown() != gneiss::result::invalid_state ||
+      read_trace(trace_path) != "IFUUSIISIS") {
+    return 9;
+  }
   return 0;
 }

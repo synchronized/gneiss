@@ -16,6 +16,11 @@
 解析或资产阶段不会修改 World。提交阶段任一步失败都会逆序销毁本次创建的实体、节点和资产引用，
 因此失败前后 World 实体数量与资源存活状态一致。当前加载只允许 Application 创建线程调用。
 
+Runtime 宿主的启动与完整场景切换使用内部异步协调器，行为见
+[调度指南](../guides/task-scheduling.md#runtime-完整场景加载)。它不会改变上述公共同步接口；
+异步候选加载期间，宿主的结构/资产替换返回 `GNEISS_ERROR_NOT_READY`，调用方应等待当前事务结束。
+完整切换后应重新查询活动 World 与 Scene，不继续使用旧场景借出的节点、Entity 或字符串视图。
+
 `gneiss_scene_instance_create_empty` 使用调用方提供的小写规范场景 UUID 创建不含节点的作者实例，
 不读取 VFS，也不关联来源 URI。它用于 Editor 的未命名新场景；后续节点编辑和序列化行为与加载
 实例一致，实际写入路径仍由 Editor 的 Save As 生命周期负责。

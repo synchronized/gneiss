@@ -532,6 +532,29 @@ gneiss_target_compile_warnings(gneiss_json_format_test)
 gneiss_target_output_directories(gneiss_json_format_test)
 add_test(NAME gneiss.json_format COMMAND gneiss_json_format_test)
 
+add_executable(gneiss_scene_load_application_test scene/scene_load_application_test.cpp)
+target_include_directories(gneiss_scene_load_application_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_link_libraries(gneiss_scene_load_application_test PRIVATE gneiss::engine gneiss_tasks)
+gneiss_target_compile_warnings(gneiss_scene_load_application_test)
+gneiss_target_output_directories(gneiss_scene_load_application_test)
+add_test(NAME gneiss.scene-load-application COMMAND gneiss_scene_load_application_test)
+
+add_executable(gneiss_scene_load_preparation_test
+  scene/scene_load_preparation_test.cpp
+  "${PROJECT_SOURCE_DIR}/src/scene/scene_load_preparation.cpp"
+  "${PROJECT_SOURCE_DIR}/src/scene/scene_description.cpp"
+  "${PROJECT_SOURCE_DIR}/src/scene/prefab_description.cpp"
+  "${PROJECT_SOURCE_DIR}/src/scene/prefab_property_override.cpp"
+  "${PROJECT_SOURCE_DIR}/src/asset/asset_uri.cpp"
+  "${PROJECT_SOURCE_DIR}/src/asset/virtual_file_system.cpp")
+target_include_directories(gneiss_scene_load_preparation_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_compile_definitions(gneiss_scene_load_preparation_test PRIVATE GNEISS_BUILDING_LIBRARY)
+target_link_libraries(gneiss_scene_load_preparation_test PRIVATE gneiss::engine gneiss_yyjson)
+target_compile_features(gneiss_scene_load_preparation_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_scene_load_preparation_test)
+gneiss_target_output_directories(gneiss_scene_load_preparation_test)
+add_test(NAME gneiss.scene-load-preparation COMMAND gneiss_scene_load_preparation_test)
+
 add_executable(
   gneiss_scene_description_test
   serialization/scene_description_test.cpp
@@ -721,6 +744,14 @@ if(GNEISS_ENABLE_GRANIT_PLATFORM)
   gneiss_target_output_directories(gneiss_asset_pixel_test)
   add_test(NAME gneiss.asset-pixel COMMAND gneiss_asset_pixel_test)
   set_tests_properties(gneiss.asset-pixel PROPERTIES TIMEOUT 60)
+  add_executable(gneiss_scene_load_baseline render/scene_load_baseline.cpp)
+  target_include_directories(gneiss_scene_load_baseline PRIVATE "${PROJECT_SOURCE_DIR}/src")
+  target_link_libraries(gneiss_scene_load_baseline PRIVATE gneiss::engine gneiss_tasks)
+  if(WIN32)
+    target_link_libraries(gneiss_scene_load_baseline PRIVATE psapi)
+  endif()
+  gneiss_target_compile_warnings(gneiss_scene_load_baseline)
+  gneiss_target_output_directories(gneiss_scene_load_baseline)
   add_executable(gneiss_texture_load_window_benchmark render/texture_load_window_benchmark.cpp)
   target_include_directories(gneiss_texture_load_window_benchmark PRIVATE "${PROJECT_SOURCE_DIR}/src")
   target_link_libraries(gneiss_texture_load_window_benchmark PRIVATE gneiss::engine gneiss_tasks)
@@ -799,6 +830,22 @@ gneiss_target_compile_warnings(gneiss_prefab_runtime_instance_test)
 gneiss_target_output_directories(gneiss_prefab_runtime_instance_test)
 add_test(NAME gneiss.prefab_runtime_instance COMMAND gneiss_prefab_runtime_instance_test)
 
+get_target_property(gneiss_scene_fixture_sources gneiss_prefab_runtime_instance_test SOURCES)
+list(REMOVE_ITEM gneiss_scene_fixture_sources scene/prefab_runtime_instance_test.cpp)
+add_executable(gneiss_scene_load_builder_test scene/scene_load_builder_test.cpp
+  ${gneiss_scene_fixture_sources}
+  "${PROJECT_SOURCE_DIR}/src/application/application_scene_state.cpp"
+  "${PROJECT_SOURCE_DIR}/src/scene/scene_instance_service.cpp"
+  "${PROJECT_SOURCE_DIR}/src/scene/scene_load_builder.cpp"
+  "${PROJECT_SOURCE_DIR}/src/scene/scene_load_preparation.cpp")
+target_include_directories(gneiss_scene_load_builder_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_compile_definitions(gneiss_scene_load_builder_test PRIVATE GNEISS_BUILDING_LIBRARY)
+target_link_libraries(gneiss_scene_load_builder_test PRIVATE gneiss::engine gneiss_yyjson gneiss_png granit::granit)
+target_compile_features(gneiss_scene_load_builder_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_scene_load_builder_test)
+gneiss_target_output_directories(gneiss_scene_load_builder_test)
+add_test(NAME gneiss.scene-load-builder COMMAND gneiss_scene_load_builder_test)
+
 add_executable(gneiss_scene_prefab_instance_test scene/scene_prefab_instance_test.cpp)
 target_link_libraries(gneiss_scene_prefab_instance_test PRIVATE gneiss::engine)
 target_compile_definitions(
@@ -865,3 +912,17 @@ if(PROJECT_IS_TOP_LEVEL AND GNEISS_ENABLE_GRANIT_PLATFORM)
   )
   set_tests_properties(gneiss.installed_stable_runtime_consumer PROPERTIES TIMEOUT 120)
 endif()
+
+add_executable(gneiss_source_revision_test
+  asset/source_revision_file_system_test.cpp
+  "${PROJECT_SOURCE_DIR}/src/asset/source_revision_file_system.cpp"
+  "${PROJECT_SOURCE_DIR}/src/asset/virtual_file_system.cpp"
+  "${PROJECT_SOURCE_DIR}/src/asset/asset_uri.cpp"
+  "${PROJECT_SOURCE_DIR}/src/core/sha256.cpp"
+)
+target_include_directories(gneiss_source_revision_test PRIVATE "${PROJECT_SOURCE_DIR}/src" "${PROJECT_SOURCE_DIR}/include")
+target_compile_features(gneiss_source_revision_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_source_revision_test)
+gneiss_target_output_directories(gneiss_source_revision_test)
+add_test(NAME gneiss.source-revision COMMAND gneiss_source_revision_test)
+target_compile_definitions(gneiss_source_revision_test PRIVATE GNEISS_BUILDING_LIBRARY)

@@ -7,7 +7,8 @@
 #include <gneiss/application.h>
 #include <gneiss/input.h>
 
-#include "asset/resource_cache.h"
+#include "application/application_scene_state.h"
+#include "application/scene_load_service.h"
 #include "asset/texture_load_service.h"
 #include "asset/virtual_file_system.h"
 #include "input/input_service.h"
@@ -42,6 +43,35 @@ public:
     return texture_service_.get();
   }
 
+  [[nodiscard]] scene_load_service* scene_service() noexcept { return scene_service_.get(); }
+  [[nodiscard]] bool can_start_scene_load() const noexcept {
+    return !retired_scene_ && texture_service_ && !texture_service_->busy();
+  }
+  [[nodiscard]] bool scene_loading() const noexcept {
+    return scene_service_ && scene_service_->busy();
+  }
+  void advance_scene_load() {
+    if (retired_scene_) {
+      const auto start = std::chrono::steady_clock::now();
+      retired_scene_.reset();
+      retirement_.last_ms =
+          std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start)
+              .count();
+      ++retirement_.retired_domains;
+    }
+    if (scene_service_) {
+      scene_service_->advance();
+    }
+  }
+  [[nodiscard]] scene_retirement_statistics scene_retirement() const noexcept {
+    auto value = retirement_;
+    value.live_resources = resources_.live_resource_count();
+    value.pending = retired_scene_ != nullptr;
+    return value;
+  }
+  [[nodiscard]] gneiss_result activate_scene(std::uint64_t request,
+                                             scene_load_completion& completion);
+
   explicit application_state(const gneiss_application_desc& desc) noexcept;
   ~application_state() noexcept;
 
@@ -55,12 +85,14 @@ public:
   [[nodiscard]] gneiss_result run(gneiss_application handle,
                                   std::uint64_t max_frame_count) noexcept;
   [[nodiscard]] bool is_owner_thread() const noexcept;
-  [[nodiscard]] gneiss_world world() const noexcept { return world_; }
+  [[nodiscard]] gneiss_world world() const noexcept {
+    return active_scene_ ? active_scene_->world : GNEISS_NULL_WORLD;
+  }
   [[nodiscard]] render_internal::render_resource_service& resources() noexcept {
     return resources_;
   }
   [[nodiscard]] render_internal::render_asset_loader& asset_loader() noexcept {
-    return asset_loader_;
+    return active_scene_->assets;
   }
   [[nodiscard]] gneiss_result
   reload_render_assets(std::span<const render_internal::render_asset_reload> assets) noexcept;
@@ -68,7 +100,9 @@ public:
                                            std::string_view uri) noexcept;
   [[nodiscard]] gneiss_result reload_prefab(gneiss_scene_instance instance,
                                             std::string_view uri) noexcept;
-  [[nodiscard]] scene_internal::scene_instance_service* scenes() noexcept { return scenes_.get(); }
+  [[nodiscard]] scene_internal::scene_instance_service* scenes() noexcept {
+    return active_scene_ ? active_scene_->scenes.get() : nullptr;
+  }
   [[nodiscard]] const gneiss_keyboard_state& keyboard_state() const noexcept {
     return input_.keyboard();
   }
@@ -105,12 +139,11 @@ private:
   render_internal::ui_draw_list ui_draw_list_;
   render_internal::debug_draw_list debug_draw_list_;
   asset_internal::virtual_file_system asset_file_system_;
-  asset_internal::resource_cache asset_cache_;
-  render_internal::render_asset_loader asset_loader_;
+  std::unique_ptr<application_scene_state> active_scene_;
+  std::unique_ptr<application_scene_state> retired_scene_;
+  scene_retirement_statistics retirement_;
+  std::unique_ptr<scene_load_service> scene_service_;
   std::unique_ptr<asset_internal::texture_load_service> texture_service_;
-  scene_internal::prefab_asset_loader prefab_asset_loader_;
-  gneiss_world world_ = GNEISS_NULL_WORLD;
-  std::unique_ptr<scene_internal::scene_instance_service> scenes_;
   std::thread::id owner_thread_;
   std::uint64_t frame_index_ = 0;
   std::uint64_t elapsed_ns_ = 0;

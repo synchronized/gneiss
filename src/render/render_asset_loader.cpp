@@ -262,10 +262,9 @@ using document_ptr = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;
       yyjson_val* uv = yyjson_arr_get(uvs, index);
       if (!yyjson_is_arr(uv) || yyjson_arr_size(uv) != 2U ||
           !read_float(yyjson_arr_get(uv, 0), parsed.u) ||
-          !read_float(yyjson_arr_get(uv, 1), parsed.v) || parsed.u < 0.0F || parsed.u > 1.0F ||
-          parsed.v < 0.0F || parsed.v > 1.0F) {
+          !read_float(yyjson_arr_get(uv, 1), parsed.v)) {
         fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/uvs/" + std::to_string(index),
-             "UV 必须包含两个位于 0..1 的有限数值");
+             "UV 必须包含两个有限 float 数值");
         return diagnostic.result;
       }
     }
@@ -577,8 +576,7 @@ gneiss_result prepare_render_assets(const asset_internal::virtual_file_system& f
                                     [](const auto& v) {
                                       return std::isfinite(v.x) && std::isfinite(v.y) &&
                                              std::isfinite(v.z) && std::isfinite(v.u) &&
-                                             std::isfinite(v.v) && v.u >= 0 && v.u <= 1 &&
-                                             v.v >= 0 && v.v <= 1;
+                                             std::isfinite(v.v);
                                     }) ||
                !std::ranges::all_of(mesh.normals,
                                     [](const auto& n) {

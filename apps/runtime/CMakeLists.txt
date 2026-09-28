@@ -22,6 +22,7 @@ gneiss_target_output_directories(gneiss_game_module_session)
     gneiss_runtime_ipc STATIC
     ipc/inbound/control_commands.cpp
     ipc/inbound/asset_commands.cpp
+    ipc/inbound/scene_commands.cpp
     ipc/inbound/inspection_commands.cpp
     ipc/inbound/property_commands.cpp
     ipc/inbound/session_commands.cpp
@@ -49,11 +50,14 @@ gneiss_target_output_directories(gneiss_game_module_session)
   runtime_property_editor.h
   runtime_scene_inspection.cpp
   runtime_scene_inspection.h
+  runtime_scene_loader.cpp
+  runtime_scene_loader.h
 )
 target_link_libraries(
   gneiss_runtime_ipc PUBLIC gneiss_app_ipc_protocol PRIVATE gneiss_app_project gneiss::engine
 )
 target_include_directories(gneiss_runtime_ipc PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
+target_include_directories(gneiss_runtime_ipc PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_features(gneiss_runtime_ipc PUBLIC cxx_std_20)
 gneiss_target_compile_warnings(gneiss_runtime_ipc)
 gneiss_target_output_directories(gneiss_runtime_ipc)

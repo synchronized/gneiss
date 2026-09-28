@@ -18,9 +18,7 @@
 namespace gneiss::application_internal {
 
 application_state::application_state(const gneiss_application_desc& desc) noexcept
-    : desc_(desc), asset_loader_(asset_file_system_, asset_cache_, resources_),
-      prefab_asset_loader_(asset_file_system_, asset_cache_),
-      owner_thread_(std::this_thread::get_id()) {}
+    : desc_(desc), owner_thread_(std::this_thread::get_id()) {}
 
 application_state::~application_state() noexcept {
   static_cast<void>(shutdown(GNEISS_NULL_APPLICATION));
@@ -70,8 +68,10 @@ gneiss_result application_state::attach_task_executor(tasks::task_executor& exec
       backend.discard = backend.begin;
       backend.flush = [] {};
     }
+    scene_service_ =
+        std::make_unique<scene_load_service>(executor, asset_file_system_, resources_, backend);
     texture_service_ = std::make_unique<asset_internal::texture_load_service>(
-        executor, asset_file_system_, asset_loader_, std::move(backend));
+        executor, asset_file_system_, active_scene_->assets, std::move(backend));
     return GNEISS_SUCCESS;
   } catch (const std::bad_alloc&) {
     return GNEISS_ERROR_OUT_OF_MEMORY;
@@ -80,20 +80,48 @@ gneiss_result application_state::attach_task_executor(tasks::task_executor& exec
   }
 }
 
+gneiss_result application_state::activate_scene(std::uint64_t request,
+                                                scene_load_completion& completion) {
+  if (!scene_service_ || retired_scene_ || (texture_service_ && texture_service_->busy())) {
+    return GNEISS_ERROR_NOT_READY;
+  }
+  const auto start = std::chrono::steady_clock::now();
+  std::unique_ptr<asset_internal::texture_load_service> next_assets;
+  auto next = scene_service_->take_candidate(request, completion, next_assets);
+  if (!next) {
+    return GNEISS_ERROR_NOT_READY;
+  }
+  retired_scene_ = std::move(active_scene_);
+  active_scene_ = std::move(next);
+  texture_service_ = std::move(next_assets);
+  completion.activation_ms =
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
+  return GNEISS_SUCCESS;
+}
+
 gneiss_result application_state::reload_render_assets(
     std::span<const render_internal::render_asset_reload> assets) noexcept {
+  if (scene_loading()) {
+    return GNEISS_ERROR_NOT_READY;
+  }
   render_internal::asset_diagnostic diagnostic;
-  return asset_loader_.reload_assets(assets, diagnostic);
+  return active_scene_->assets.reload_assets(assets, diagnostic);
 }
 
 gneiss_result application_state::reload_scene(gneiss_scene_instance instance,
                                               std::string_view uri) noexcept {
-  return scenes_ == nullptr ? GNEISS_ERROR_INVALID_STATE : scenes_->reload(instance, uri);
+  if (scene_loading()) {
+    return GNEISS_ERROR_NOT_READY;
+  }
+  return scenes() == nullptr ? GNEISS_ERROR_INVALID_STATE : scenes()->reload(instance, uri);
 }
 
 gneiss_result application_state::reload_prefab(gneiss_scene_instance instance,
                                                std::string_view uri) noexcept {
-  return scenes_ == nullptr ? GNEISS_ERROR_INVALID_STATE : scenes_->reload_prefab(instance, uri);
+  if (scene_loading()) {
+    return GNEISS_ERROR_NOT_READY;
+  }
+  return scenes() == nullptr ? GNEISS_ERROR_INVALID_STATE : scenes()->reload_prefab(instance, uri);
 }
 
 gneiss_result application_state::initialize() noexcept {
@@ -199,29 +227,21 @@ gneiss_result application_state::initialize() noexcept {
   }
   platform_initialized_ = true;
 
-  const gneiss_world_desc world_desc = GNEISS_WORLD_DESC_INIT;
-  const auto result = gneiss_world_create(&world_desc, &world_);
-  if (result != GNEISS_SUCCESS) {
-    report(GNEISS_NULL_APPLICATION, GNEISS_DIAGNOSTIC_ERROR, GNEISS_DIAGNOSTIC_CATEGORY_APPLICATION,
-           result, "world", "World 创建失败");
-    static_cast<void>(shutdown(GNEISS_NULL_APPLICATION));
-    return result;
-  }
   try {
-    scenes_ = std::make_unique<scene_internal::scene_instance_service>(
-        world_, asset_file_system_, asset_loader_, prefab_asset_loader_);
+    active_scene_ = std::make_unique<application_scene_state>(asset_file_system_, resources_);
+    const auto result = active_scene_->initialize();
+    if (result != GNEISS_SUCCESS) {
+      report(GNEISS_NULL_APPLICATION, GNEISS_DIAGNOSTIC_ERROR,
+             GNEISS_DIAGNOSTIC_CATEGORY_APPLICATION, result, "scene", "场景域创建失败");
+      static_cast<void>(shutdown(GNEISS_NULL_APPLICATION));
+      return result;
+    }
   } catch (const std::bad_alloc&) {
     static_cast<void>(shutdown(GNEISS_NULL_APPLICATION));
     return GNEISS_ERROR_OUT_OF_MEMORY;
   } catch (...) {
     static_cast<void>(shutdown(GNEISS_NULL_APPLICATION));
     return GNEISS_ERROR_INTERNAL;
-  }
-  if (!scenes_->is_valid()) {
-    report(GNEISS_NULL_APPLICATION, GNEISS_DIAGNOSTIC_ERROR, GNEISS_DIAGNOSTIC_CATEGORY_APPLICATION,
-           GNEISS_ERROR_OUT_OF_MEMORY, "scene", "Scene Instance Service 创建失败");
-    static_cast<void>(shutdown(GNEISS_NULL_APPLICATION));
-    return GNEISS_ERROR_OUT_OF_MEMORY;
   }
   return GNEISS_SUCCESS;
 }
@@ -374,7 +394,7 @@ gneiss_result application_state::capture_frame(std::uint32_t width, std::uint32_
     window.height = height;
     window.needs_recreate = false;
     world_internal::render_snapshot snapshot;
-    auto result = world_internal::get_render_snapshot(world_, width, height, snapshot);
+    auto result = world_internal::get_render_snapshot(world(), width, height, snapshot);
     if (result != GNEISS_SUCCESS) {
       return result;
     }
@@ -431,7 +451,7 @@ gneiss_result application_state::render_frame() noexcept {
   }
   world_internal::render_snapshot snapshot;
   const auto snapshot_result =
-      world_internal::get_render_snapshot(world_, window.width, window.height, snapshot);
+      world_internal::get_render_snapshot(world(), window.width, window.height, snapshot);
   if (snapshot_result != GNEISS_SUCCESS) {
     return snapshot_result;
   }
@@ -553,15 +573,13 @@ bool application_state::is_owner_thread() const noexcept {
 
 gneiss_result application_state::shutdown(gneiss_application handle) noexcept {
   auto shutdown_result = GNEISS_SUCCESS;
+  scene_service_.reset();
   texture_service_.reset();
+  retired_scene_.reset();
   is_updating_ = false;
   ui_draw_list_.clear();
   debug_draw_list_.clear();
-  scenes_.reset();
-  if (world_ != GNEISS_NULL_WORLD) {
-    (void)gneiss_world_destroy(world_);
-    world_ = GNEISS_NULL_WORLD;
-  }
+  active_scene_.reset();
   if (platform_initialized_) {
     if (desc_.shutdown != nullptr) {
       desc_.shutdown(desc_.user_data);

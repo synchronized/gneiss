@@ -85,5 +85,33 @@ int main() {
   envelope.kind = ipc_message_kind::request;
   if (router.dispatch(envelope, dispatch_context, context).accepted())
     return 6;
+  const ipc_scene_request scene{3U, 5U, "asset://scenes/main.scene.json"};
+  if (encode_ipc_scene_request(scene, ipc_scene_operation::load, 11U, envelope) !=
+          result::success ||
+      router.dispatch(envelope, dispatch_context, context).rejection !=
+          ipc_dispatch_rejection::domain_not_negotiated)
+    return 7;
+  std::array scene_domains{
+      ipc_domain_capability{.domain = ipc_domain::scene, .version = ipc_scene_domain_version}};
+  auto scene_dispatch = dispatch_context;
+  scene_dispatch.negotiated_domains = scene_domains;
+  if (!router.dispatch(envelope, scene_dispatch, context).accepted() ||
+      actions.scene_commands.size() != 1U || actions.scene_commands.front().cancel ||
+      actions.scene_commands.front().request_id != 11U ||
+      actions.scene_commands.front().request.uri != scene.uri)
+    return 8;
+  if (encode_ipc_scene_request(scene, ipc_scene_operation::cancel, 0U, envelope) !=
+          result::success ||
+      !router.dispatch(envelope, scene_dispatch, context).accepted() ||
+      actions.scene_commands.size() != 2U || !actions.scene_commands.back().cancel)
+    return 9;
+  // 通用分发器把能力版本视为可理解的最高版本，不能把更高版本误当作不兼容。
+  scene_domains.front().version = 99U;
+  if (!router.dispatch(envelope, scene_dispatch, context).accepted())
+    return 10;
+  scene_domains.front().version = 0U;
+  if (router.dispatch(envelope, scene_dispatch, context).rejection !=
+      ipc_dispatch_rejection::unsupported_domain_version)
+    return 11;
   return 0;
 }

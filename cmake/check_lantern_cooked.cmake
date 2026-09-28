@@ -69,7 +69,8 @@ execute_process(COMMAND "${GNEISS_RUNTIME}" --smoke --project "${GNEISS_OUTPUT}"
   TIMEOUT 30)
 file(COPY_FILE "${backup}" "${texture}")
 file(READ "${failure_log}" events)
-if(NOT result EQUAL 7 OR NOT events MATCHES "stage=write variant=" OR
+# 纹理上传属于候选场景加载；--smoke 在候选失败后返回场景加载错误（4）。
+if(NOT result EQUAL 4 OR NOT events MATCHES "stage=write variant=" OR
    NOT events MATCHES "level=ERROR" OR events MATCHES "stage=ready")
-  message(FATAL_ERROR "损坏负载必须报告上传失败并返回运行错误（7）：${result}\n${events}\n${error}")
+  message(FATAL_ERROR "损坏负载必须报告上传失败并返回场景加载错误（4）：${result}\n${events}\n${error}")
 endif()

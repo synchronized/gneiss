@@ -44,7 +44,9 @@ Runtime 按以下顺序调用模块：
 1. `initialize` 借用非零 Game Context，并返回模块持有的私有状态。
 2. `fixed_update` 在主线程执行零次或多次有界固定步长更新。
 3. `update` 在主线程每帧至多执行一次。
-4. `shutdown` 仅在初始化成功后调用，且最多一次；返回前销毁模块私有状态。
+4. `shutdown` 在每轮初始化成功后最多调用一次；返回前销毁该轮模块私有状态。
+   Runtime 完整场景切换先关闭旧状态，激活新场景后使用新的 Game Context 再次初始化；
+   关闭失败不复用该模块会话。场景准备失败或激活前取消不会关闭活动模块。
 
 回调通过 `gneiss_result` 报告失败，异常不得穿过 C ABI。Game Context 和
 `gneiss_game_update_time` 只在当前同步调用期间借用，模块不得持久化 Engine 内部对象或后端句柄。

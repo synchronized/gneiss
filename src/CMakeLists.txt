@@ -22,11 +22,20 @@ configure_file(
 target_sources(
   gneiss_engine
   PRIVATE
+    core/sha256.cpp
+    core/sha256.h
     application/application_api.cpp
     application/application_asset_reload_internal.h
     application/application_log_internal.h
+    application/scene_load_service.cpp
+    application/scene_load_service.h
+    application/application_scene_load_internal.h
+    application/application_scene_state.cpp
+    application/application_scene_state.h
     application/application_state.cpp
     application/application_state.h
+    asset/source_revision_file_system.cpp
+    asset/source_revision_file_system.h
     asset/asset_uri.cpp
     asset/asset_uri.h
     asset/file_system.h
@@ -78,6 +87,10 @@ target_sources(
     scene/scene_tree.h
     scene/prefab_asset_loader.cpp
     scene/prefab_asset_loader.h
+    scene/scene_load_builder.cpp
+    scene/scene_load_builder.h
+    scene/scene_load_preparation.cpp
+    scene/scene_load_preparation.h
     scene/scene_description.cpp
     scene/scene_description.h
     scene/prefab_description.cpp

@@ -101,17 +101,33 @@ int main() try {
   session.close();
   app.reset();
   runtime_process runtime;
+  const auto fail = [&](int code) {
+    std::cerr << "资产工作流失败：step=" << code << " runtime_exit=" << runtime.exit_code()
+              << " state=" << static_cast<int>(runtime.control_state())
+              << " scene=" << static_cast<int>(runtime.scene_load_status().phase) << "\n"
+              << runtime.output() << '\n';
+    for (const auto& entry : runtime.console().entries()) {
+      if (entry.kind == console_entry_kind::raw) {
+        std::cerr << entry.raw_text << '\n';
+      } else {
+        std::cerr << entry.event.category << ": " << entry.event.message << '\n';
+      }
+    }
+    return code;
+  };
   if (runtime.start(GNEISS_TEST_RUNTIME, {project.project_root}) != result::success ||
-      !wait_for(runtime,
-                [&] { return runtime.control_state() == runtime_control_state::running; })) {
+      !wait_for(runtime, [&] {
+        return runtime.control_state() == runtime_control_state::running &&
+               runtime.scene_load_status().phase == ipc_scene_phase::applied;
+      })) {
     std::cerr << runtime.output() << "\nstate=" << static_cast<int>(runtime.control_state())
               << " result=" << runtime.last_result().message() << "\n";
-    return 6;
+    return fail(6);
   }
   auto source = read_text(imported.source_path);
   const auto color = source.find("0.5, 0.6, 0.7");
   if (color == std::string::npos) {
-    return 7;
+    return fail(7);
   }
   source.replace(color, 13U, "0.9, 0.2, 0.1");
   std::ofstream(imported.source_path) << source;
@@ -125,7 +141,7 @@ int main() try {
   if (queue.tick(project.project_root, project.asset_root, now + std::chrono::milliseconds(2)) !=
           1U ||
       read_text(material_path) == previous_material) {
-    return 8;
+    return fail(8);
   }
   std::vector<asset_reimport_event> events;
   (void)queue.poll_events(events);
@@ -139,7 +155,7 @@ int main() try {
                 }) ||
       runtime.request_stop() != result::success ||
       !wait_for(runtime, [&] { return !runtime.is_running(); })) {
-    return 9;
+    return fail(9);
   }
   const auto package = temporary.root / "package";
   if (export_editor_project(project,
@@ -151,15 +167,18 @@ int main() try {
                                 .asset_progress = {},
                             }) != result::success ||
       verify_package_manifest(package) != result::success) {
-    return 10;
+    return fail(10);
   }
   if (runtime.start(package / "bin" / std::filesystem::path(GNEISS_TEST_RUNTIME).filename(),
                     {package}) != result::success ||
       !wait_for(runtime,
-                [&] { return runtime.control_state() == runtime_control_state::running; }) ||
+                [&] {
+                  return runtime.control_state() == runtime_control_state::running &&
+                         runtime.scene_load_status().phase == ipc_scene_phase::applied;
+                }) ||
       runtime.request_stop() != result::success ||
       !wait_for(runtime, [&] { return !runtime.is_running(); }) || runtime.exit_code() != 0) {
-    return 11;
+    return fail(11);
   }
   return 0;
 } catch (...) {

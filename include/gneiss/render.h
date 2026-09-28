@@ -51,7 +51,7 @@ typedef struct gneiss_texture_desc {
     }                                                                                              \
   }
 
-/** Mesh 顶点；位置使用右手坐标，UV 使用归一化二维坐标。 */
+/** Mesh 顶点；位置使用右手坐标，UV 使用有限二维纹理坐标，允许超出 [0,1] 以支持重复寻址。 */
 typedef struct gneiss_mesh_vertex {
   float x;
   float y;

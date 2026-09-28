@@ -77,7 +77,8 @@ gneiss_result texture_load_service::submit(std::span<const std::string> uris, st
 }
 gneiss_result texture_load_service::submit_assets(std::span<const render_asset_reload> sources,
                                                   std::uint64_t session, std::uint64_t revision,
-                                                  std::uint64_t& request, bool reload) {
+                                                  std::uint64_t& request, bool reload,
+                                                  std::size_t prepare_limit) {
   request = 0U;
   if (std::this_thread::get_id() != owner_ || stopping_) {
     return GNEISS_ERROR_INVALID_STATE;
@@ -85,7 +86,8 @@ gneiss_result texture_load_service::submit_assets(std::span<const render_asset_r
   if (pending_ || completed_) {
     return GNEISS_ERROR_NOT_READY;
   }
-  if (sources.empty() || sources.size() > maximum_assets || session == 0U || revision == 0U) {
+  if (sources.empty() || sources.size() > maximum_assets || session == 0U || revision == 0U ||
+      prepare_limit == 0U || prepare_limit > maximum_candidate_bytes) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
   std::set<std::string> unique;
@@ -131,12 +133,12 @@ gneiss_result texture_load_service::submit_assets(std::span<const render_asset_r
   const auto accepted = executor_.submit(
       {.name = "render_assets.prepare", .scope = scope_},
       [cpu = value->cpu, sources = std::vector<render_asset_reload>(sources.begin(), sources.end()),
-       files = file_system_](const tasks::task_context& context) {
+       files = file_system_, prepare_limit](const tasks::task_context& context) {
         const auto start = std::chrono::steady_clock::now();
         asset_diagnostic diagnostic;
         cpu->result = prepare_render_assets(
             files, sources, cpu->batch, diagnostic, [&] { return context.stop_requested(); },
-            maximum_assets, maximum_candidate_bytes);
+            maximum_assets, prepare_limit);
         cpu->message = std::move(diagnostic.message);
         cpu->milliseconds =
             std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start)
