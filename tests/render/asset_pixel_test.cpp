@@ -25,12 +25,16 @@ struct fixture {
       std::filesystem::temp_directory_path() /
       ("gneiss-asset-pixel-" +
        std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
-  fixture() {
+  explicit fixture(bool pbr = false) {
     std::filesystem::create_directories(root);
     std::ofstream(root / "t.texture.json")
         << R"({"format":"gneiss.texture","version":1,"source":"asset://image.ktx2","color_space":"srgb"})";
     std::ofstream(root / "m.material.json")
         << R"({"format":"gneiss.material","version":3,"color":[1,1,1,1],"base_color_texture":"asset://t.texture.json","metallic":0,"roughness":1})";
+    if (pbr) {
+      std::ofstream(root / "m.material.json")
+          << R"({"format":"gneiss.material","version":4,"color":[0,0,0,1],"base_color_texture":null,"metallic":0,"roughness":1,"emissive":[1,1,1],"emissive_texture":"asset://t.texture.json"})";
+    }
     std::ofstream(root / "g.mesh.json")
         << R"({"format":"gneiss.mesh","version":3,"topology":"triangle_list","vertices":[[-0.8,-0.7,0],[0.8,-0.7,0],[0,0.8,0]],"uvs":[[0,0],[1,0],[0.5,1]],"normals":[[0,0,1],[0,0,1],[0,0,1]]})";
     std::ofstream(root / "s.scene.json")
@@ -54,8 +58,8 @@ struct fixture {
                  static_cast<std::streamsize>(bytes.size()));
   }
 };
-void run(tasks::execution_mode mode) {
-  fixture files;
+void run(tasks::execution_mode mode, bool pbr = false) {
+  fixture files(pbr);
   files.color(std::byte{20}, std::byte{240});
   tasks::task_scheduler scheduler({.workers = 1U, .mode = mode});
   application app;
@@ -156,9 +160,9 @@ void run(tasks::execution_mode mode) {
   check(capture().pixels == mixed.pixels);
   check(center(capture(192U))[2] > center(capture(192U))[0] + 30U);
 }
-void run_scene(tasks::execution_mode mode) {
+void run_scene(tasks::execution_mode mode, bool pbr = false) {
   using namespace application_internal;
-  fixture files;
+  fixture files(pbr);
   files.color(std::byte{20}, std::byte{240});
   tasks::task_scheduler scheduler({.workers = 1U, .mode = mode});
   application app;
@@ -239,6 +243,10 @@ void run_scene(tasks::execution_mode mode) {
 }
 }
 int main() try {
+  run(gneiss::tasks::execution_mode::thread_pool, true);
+  run(gneiss::tasks::execution_mode::cooperative, true);
+  run_scene(gneiss::tasks::execution_mode::thread_pool, true);
+  run_scene(gneiss::tasks::execution_mode::cooperative, true);
   run(gneiss::tasks::execution_mode::thread_pool);
   run(gneiss::tasks::execution_mode::cooperative);
   run_scene(gneiss::tasks::execution_mode::thread_pool);

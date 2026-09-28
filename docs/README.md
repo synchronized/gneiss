@@ -178,6 +178,7 @@
 - [ADR-048：Runtime 资产分离异步准备与受控提交](decisions/ADR-048-runtime-asset-preparation.md)
 - [ADR-049：模型依赖准备与整批资源发布](decisions/ADR-049-model-asset-transactions.md)
 - [ADR-050：场景加载使用隔离候选与安全点激活](decisions/ADR-050-staged-scene-activation.md)
+- [ADR-051：PBR 材质语义与多纹理依赖](decisions/ADR-051-pbr-material-dependencies.md)
 
 ## 实施与验收记录
 
@@ -300,6 +301,7 @@
 - [Granit 0.28.0 升级验收](records/2026-09-23-granit-0.28-upgrade.md)
 - [Granit 0.28.1 坐标契约接入](records/2026-09-23-granit-0.28.1-upgrade.md)
 - [Granit 0.30.0 原生窗口路径升级验收](records/2026-09-25-granit-0.30.0-upgrade.md)
+- [M-279：Granit 0.39.0 升级与能力审计](records/M-279-granit-0.39-upgrade.md)
 - [Granit 0.29.1 无阴影投射物修复接入](records/2026-09-23-granit-0.29.1-upgrade.md)
 - [编辑器网格密度与渐隐优化](records/2026-09-23-editor-grid.md)
 - [远距离缩放冻结与无阴影投射物路径排查](records/2026-09-23-granit-no-shadow-casters.md)

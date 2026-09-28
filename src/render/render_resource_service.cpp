@@ -119,7 +119,9 @@ gneiss_result render_resource_service::destroy_mesh(gneiss_mesh mesh) noexcept {
 
 gneiss_result render_resource_service::create_material(const gneiss_material_desc& desc,
                                                        gneiss_material* out_material) noexcept {
-  if (out_material == nullptr || !is_valid() || desc.struct_size < sizeof(gneiss_material_desc) ||
+  if (out_material == nullptr || !is_valid() ||
+      (desc.struct_size != GNEISS_MATERIAL_DESC_VERSION_1_SIZE &&
+       desc.struct_size < sizeof(gneiss_material_desc)) ||
       desc.reserved != 0U || !valid_color(desc.red) || !valid_color(desc.green) ||
       !valid_color(desc.blue) || !valid_color(desc.alpha) || !valid_color(desc.metallic) ||
       !valid_color(desc.roughness) ||
@@ -128,14 +130,33 @@ gneiss_result render_resource_service::create_material(const gneiss_material_des
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
   try {
-    auto resource = std::make_shared<const material_resource>(
-        material_resource{.red = desc.red,
-                          .green = desc.green,
-                          .blue = desc.blue,
-                          .alpha = desc.alpha,
-                          .base_color_texture = desc.base_color_texture,
-                          .metallic = desc.metallic,
-                          .roughness = desc.roughness});
+    material_resource value{.red = desc.red,
+                            .green = desc.green,
+                            .blue = desc.blue,
+                            .alpha = desc.alpha,
+                            .base_color_texture = desc.base_color_texture,
+                            .metallic = desc.metallic,
+                            .roughness = desc.roughness};
+    if (desc.struct_size >= sizeof(gneiss_material_desc)) {
+      if (desc.reserved_2 != 0U || !std::isfinite(desc.normal_scale) || desc.normal_scale < 0.0F ||
+          !valid_color(desc.occlusion_strength) ||
+          !std::ranges::all_of(desc.emissive, valid_color)) {
+        return GNEISS_ERROR_INVALID_ARGUMENT;
+      }
+      value.metallic_roughness_texture = desc.metallic_roughness_texture;
+      value.normal_texture = desc.normal_texture;
+      value.occlusion_texture = desc.occlusion_texture;
+      value.emissive_texture = desc.emissive_texture;
+      value.normal_scale = desc.normal_scale;
+      value.occlusion_strength = desc.occlusion_strength;
+      std::ranges::copy(desc.emissive, value.emissive.begin());
+      for (const auto texture : value.texture_handles()) {
+        if (texture != GNEISS_NULL_TEXTURE && get_texture(texture) == nullptr) {
+          return GNEISS_ERROR_INVALID_ARGUMENT;
+        }
+      }
+    }
+    auto resource = std::make_shared<const material_resource>(value);
     return materials_.create(core::resource_type::material, std::move(resource), out_material);
   } catch (const std::bad_alloc&) {
     return GNEISS_ERROR_OUT_OF_MEMORY;

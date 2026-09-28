@@ -9,6 +9,7 @@
 
 #include <gneiss/render.h>
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -30,6 +31,42 @@ struct material_resource {
   gneiss_texture base_color_texture;
   float metallic;
   float roughness;
+  gneiss_texture metallic_roughness_texture{};
+  gneiss_texture normal_texture{};
+  gneiss_texture occlusion_texture{};
+  gneiss_texture emissive_texture{};
+  float normal_scale{1.0F};
+  float occlusion_strength{1.0F};
+  std::array<float, 3> emissive{};
+
+  [[nodiscard]] std::array<gneiss_texture, 5> texture_handles() const noexcept {
+    return {base_color_texture, metallic_roughness_texture, normal_texture, occlusion_texture,
+            emissive_texture};
+  }
+  void set_texture(std::size_t slot, gneiss_texture texture) noexcept {
+    const std::array slots{&base_color_texture, &metallic_roughness_texture, &normal_texture,
+                           &occlusion_texture, &emissive_texture};
+    *slots[slot] = texture;
+  }
+  [[nodiscard]] gneiss_material_desc description() const noexcept {
+    gneiss_material_desc desc = GNEISS_MATERIAL_DESC_INIT;
+    desc.red = red;
+    desc.green = green;
+    desc.blue = blue;
+    desc.alpha = alpha;
+    desc.base_color_texture = base_color_texture;
+    desc.metallic = metallic;
+    desc.roughness = roughness;
+    desc.metallic_roughness_texture = metallic_roughness_texture;
+    desc.normal_texture = normal_texture;
+    desc.occlusion_texture = occlusion_texture;
+    desc.emissive_texture = emissive_texture;
+    desc.normal_scale = normal_scale;
+    desc.occlusion_strength = occlusion_strength;
+    for (std::size_t i = 0; i < emissive.size(); ++i)
+      desc.emissive[i] = emissive[i];
+    return desc;
+  }
 };
 
 struct texture_resource {

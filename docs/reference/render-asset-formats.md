@@ -129,6 +129,16 @@ Material v3 增加标准 PBR 的金属度与感知粗糙度，并允许没有基
 Granit 标准 PBR Material 参数；作者资产不引用 `.grmat` 或后端 Shader。后端投影使用 Granit
 公开的标准 PBR Schema、Material 和 Shader Asset 元数据契约，Gneiss 不解析或复制其私有布局。
 
+Material v4 在 v3 基础上增加可选的 `metallic_roughness_texture`、`normal_texture`、
+`occlusion_texture`、`emissive_texture` URI（省略或 null 使用中性默认纹理），以及
+`normal_scale`（默认 1，有限非负值）、`occlusion_strength`（默认 1，0..1）、
+`emissive`（默认 `[0,0,0]`，线性 RGB 各分量 0..1）。MR 的 G/B 通道分别保存粗糙度/金属度，AO 使用 R。
+基础颜色和自发光纹理应声明 sRGB，其余槽声明 linear。材质租约和帧快照保留所有纹理依赖，
+异步材质重载将全部依赖作为一个事务准备；任一项失败不会发布部分材质。
+
+此格式和运行链路不表示 glTF 导入已保留全部材质，也不表示支持透明、镂空或多 UV。
+法线贴图还需要有效的网格切线；当前 0.43 开发进度见 [版本计划](../plans/VER-043-0.43.0-pbr-pipeline.md)。
+
 ## Texture
 
 建议扩展名为 `.texture.json`：

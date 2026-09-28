@@ -51,14 +51,14 @@ struct mesh_asset final {
 
 struct material_asset final {
   material_asset(gneiss::render_internal::render_resource_service& owner, gneiss_material value,
-                 std::shared_ptr<const gneiss::asset_internal::resource_cache::entry>
-                     texture_dependency = {}) noexcept
-      : resources(&owner), rid(value), texture(std::move(texture_dependency)) {}
+                 std::array<std::shared_ptr<const gneiss::asset_internal::resource_cache::entry>, 5>
+                     texture_dependencies = {}) noexcept
+      : resources(&owner), rid(value), textures(std::move(texture_dependencies)) {}
   material_asset(const material_asset&) = delete;
   material_asset& operator=(const material_asset&) = delete;
   gneiss::render_internal::render_resource_service* resources;
   gneiss_material rid;
-  std::shared_ptr<const gneiss::asset_internal::resource_cache::entry> texture;
+  std::array<std::shared_ptr<const gneiss::asset_internal::resource_cache::entry>, 5> textures;
   ~material_asset() {
     if (resources != nullptr && rid != GNEISS_NULL_MATERIAL) {
       (void)resources->destroy_material(rid);
@@ -88,9 +88,12 @@ struct texture_source final {
 
 struct material_source final {
   std::array<float, 4> color{};
-  std::string texture_uri;
+  std::array<std::string, 5> texture_uris;
   float metallic{};
   float roughness{1.0F};
+  float normal_scale{1.0F};
+  float occlusion_strength{1.0F};
+  std::array<float, 3> emissive{};
 };
 
 void fail(asset_diagnostic& diagnostic, gneiss_result result, std::string_view path,
@@ -269,7 +272,7 @@ using document_ptr = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;
       }
     }
     out_vertices.push_back(parsed);
-    if (version == 3U) {
+    if (version >= 3U) {
       yyjson_val* normal = yyjson_arr_get(normals, index);
       gneiss_mesh_normal parsed_normal{};
       if (!yyjson_is_arr(normal) || yyjson_arr_size(normal) != 3U ||
@@ -324,6 +327,48 @@ using document_ptr = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;
   return GNEISS_SUCCESS;
 }
 
+[[nodiscard]] gneiss_result parse_pbr_extensions(yyjson_val* root, material_source& out_source,
+                                                 asset_diagnostic& diagnostic) {
+  constexpr std::array names{"base_color_texture", "metallic_roughness_texture", "normal_texture",
+                             "occlusion_texture", "emissive_texture"};
+  for (std::size_t slot = 1; slot < names.size(); ++slot) {
+    auto* texture = yyjson_obj_get(root, names[slot]);
+    if (texture == nullptr || yyjson_is_null(texture))
+      continue;
+    if (!yyjson_is_str(texture) || yyjson_get_len(texture) == 0U) {
+      fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, std::string{"/"} + names[slot],
+           "Texture 必须是非空 URI 或 null");
+      return diagnostic.result;
+    }
+    out_source.texture_uris[slot].assign(json_string(texture));
+  }
+  auto* normal_scale = yyjson_obj_get(root, "normal_scale");
+  auto* strength = yyjson_obj_get(root, "occlusion_strength");
+  if ((normal_scale != nullptr &&
+       (!read_float(normal_scale, out_source.normal_scale) || out_source.normal_scale < 0.0F)) ||
+      (strength != nullptr &&
+       (!read_float(strength, out_source.occlusion_strength) ||
+        out_source.occlusion_strength < 0.0F || out_source.occlusion_strength > 1.0F))) {
+    fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/normal_scale",
+         "法线缩放必须非负，AO 强度必须位于 0..1");
+    return diagnostic.result;
+  }
+  if (auto* emissive = yyjson_obj_get(root, "emissive")) {
+    if (!yyjson_is_arr(emissive) || yyjson_arr_size(emissive) != 3U) {
+      fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/emissive", "自发光必须包含三个分量");
+      return diagnostic.result;
+    }
+    for (std::size_t i = 0; i < 3U; ++i) {
+      if (!read_float(yyjson_arr_get(emissive, i), out_source.emissive[i]) ||
+          out_source.emissive[i] < 0.0F || out_source.emissive[i] > 1.0F) {
+        fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/emissive", "自发光分量必须位于 0..1");
+        return diagnostic.result;
+      }
+    }
+  }
+  return GNEISS_SUCCESS;
+}
+
 [[nodiscard]] gneiss_result parse_material(const std::vector<std::byte>& bytes,
                                            material_source& out_source,
                                            asset_diagnostic& diagnostic) {
@@ -343,13 +388,28 @@ using document_ptr = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;
       std::string_view{"format"},   std::string_view{"version"},
       std::string_view{"color"},    std::string_view{"base_color_texture"},
       std::string_view{"metallic"}, std::string_view{"roughness"}};
+  constexpr std::array v4_fields{std::string_view{"format"},
+                                 std::string_view{"version"},
+                                 std::string_view{"color"},
+                                 std::string_view{"base_color_texture"},
+                                 std::string_view{"metallic"},
+                                 std::string_view{"roughness"},
+                                 std::string_view{"metallic_roughness_texture"},
+                                 std::string_view{"normal_texture"},
+                                 std::string_view{"occlusion_texture"},
+                                 std::string_view{"emissive_texture"},
+                                 std::string_view{"normal_scale"},
+                                 std::string_view{"occlusion_strength"},
+                                 std::string_view{"emissive"}};
   std::uint64_t version = 0;
   auto fields = std::span<const std::string_view>{v1_fields};
   if (requested_version == 2U)
     fields = v2_fields;
   else if (requested_version == 3U)
     fields = v3_fields;
-  if (!validate_header(root, "gneiss.material", fields, 3U, version, diagnostic)) {
+  else if (requested_version == 4U)
+    fields = v4_fields;
+  if (!validate_header(root, "gneiss.material", fields, 4U, version, diagnostic)) {
     return diagnostic.result;
   }
   yyjson_val* color = yyjson_obj_get(root, "color");
@@ -367,17 +427,17 @@ using document_ptr = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;
   }
   if (version >= 2U) {
     yyjson_val* texture = yyjson_obj_get(root, "base_color_texture");
-    if (version == 3U && yyjson_is_null(texture)) {
-      out_source.texture_uri.clear();
+    if (version >= 3U && yyjson_is_null(texture)) {
+      out_source.texture_uris[0].clear();
     } else if (!yyjson_is_str(texture) || yyjson_get_len(texture) == 0U) {
       fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/base_color_texture",
            "base-color Texture 必须是非空 URI");
       return diagnostic.result;
     } else {
-      out_source.texture_uri.assign(json_string(texture));
+      out_source.texture_uris[0].assign(json_string(texture));
     }
   }
-  if (version == 3U) {
+  if (version >= 3U) {
     if (!read_float(yyjson_obj_get(root, "metallic"), out_source.metallic) ||
         out_source.metallic < 0.0F || out_source.metallic > 1.0F ||
         !read_float(yyjson_obj_get(root, "roughness"), out_source.roughness) ||
@@ -386,6 +446,9 @@ using document_ptr = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;
            "metallic 与 roughness 必须位于 0..1");
       return diagnostic.result;
     }
+  }
+  if (version == 4U) {
+    return parse_pbr_extensions(root, out_source, diagnostic);
   }
   return GNEISS_SUCCESS;
 }
@@ -598,11 +661,16 @@ gneiss_result prepare_render_assets(const asset_internal::virtual_file_system& f
           asset.material = {material.color[0], material.color[1],   material.color[2],
                             material.color[3], GNEISS_NULL_TEXTURE, material.metallic,
                             material.roughness};
-          asset.texture_uri = std::move(material.texture_uri);
-          if (result == GNEISS_SUCCESS && !asset.texture_uri.empty()) {
-            pending.push_back({asset.texture_uri, render_asset_type::texture});
+          asset.material.normal_scale = material.normal_scale;
+          asset.material.occlusion_strength = material.occlusion_strength;
+          asset.material.emissive = material.emissive;
+          asset.texture_uris = std::move(material.texture_uris);
+          asset.bytes = sizeof(material_resource);
+          for (const auto& uri : asset.texture_uris) {
+            if (result == GNEISS_SUCCESS && !uri.empty())
+              pending.push_back({uri, render_asset_type::texture});
+            asset.bytes += uri.size();
           }
-          asset.bytes = sizeof(material_resource) + asset.texture_uri.size();
         } else {
           result = GNEISS_ERROR_INVALID_ARGUMENT;
         }
@@ -737,34 +805,26 @@ gneiss_result render_asset_loader::stage_asset(prepared_render_asset prepared,
       }
       candidate.mesh = resources_.share_mesh(rid);
     } else if (prepared.source.type == render_asset_type::material) {
-      if (!prepared.texture_uri.empty()) {
+      for (std::size_t slot = 0; slot < prepared.texture_uris.size(); ++slot) {
+        const auto& uri = prepared.texture_uris[slot];
+        if (uri.empty())
+          continue;
         const auto found = std::ranges::find_if(staged, [&](const auto& other) {
-          return other.source.uri == prepared.texture_uri &&
-                 other.source.type == render_asset_type::texture;
+          return other.source.uri == uri && other.source.type == render_asset_type::texture;
         });
-        if (found == staged.end()) {
+        if (found == staged.end())
           return GNEISS_ERROR_INVALID_STATE;
-        }
-        prepared.material.base_color_texture = found->lease.get();
-        candidate.dependency = found->lease.entry_;
-        candidate.dependency_texture = found->texture;
+        prepared.material.set_texture(slot, found->lease.get());
+        candidate.dependencies[slot] = found->lease.entry_;
+        candidate.dependency_textures[slot] = found->texture;
       }
-      const auto& material = prepared.material;
-      const gneiss_material_desc desc{.struct_size = sizeof(gneiss_material_desc),
-                                      .reserved = 0U,
-                                      .red = material.red,
-                                      .green = material.green,
-                                      .blue = material.blue,
-                                      .alpha = material.alpha,
-                                      .base_color_texture = material.base_color_texture,
-                                      .metallic = material.metallic,
-                                      .roughness = material.roughness};
+      const auto desc = prepared.material.description();
       created = resources_.create_material(desc, &rid);
       if (created != GNEISS_SUCCESS) {
         return created;
       }
       try {
-        owned = std::make_shared<material_asset>(resources_, rid, candidate.dependency);
+        owned = std::make_shared<material_asset>(resources_, rid, candidate.dependencies);
       } catch (...) {
         (void)resources_.destroy_material(rid);
         throw;
@@ -862,17 +922,18 @@ gneiss_result render_asset_loader::publish_assets(std::span<asset_candidate> can
         (void)resources_.replace_mesh(rid, candidate.mesh);
       }
       if (candidate.material) {
-        auto dependency = candidate.dependency;
-        if (dependency) {
+        auto dependencies = candidate.dependencies;
+        for (auto& dependency : dependencies) {
+          if (!dependency)
+            continue;
           const auto found = std::ranges::find_if(candidates, [&](const auto& other) {
             return other.source.uri == dependency->uri && other.texture;
           });
-          if (found != candidates.end()) {
+          if (found != candidates.end())
             dependency = found->lease.entry_;
-          }
         }
-        std::static_pointer_cast<material_asset>(candidate.lease.entry_->resource)->texture =
-            std::move(dependency);
+        std::static_pointer_cast<material_asset>(candidate.lease.entry_->resource)->textures =
+            std::move(dependencies);
         (void)resources_.replace_material(rid, candidate.material);
       }
     }
@@ -957,26 +1018,30 @@ gneiss_result render_asset_loader::acquire_material(std::string_view uri,
         if (result != GNEISS_SUCCESS) {
           return result;
         }
-        texture_asset_lease texture;
-        if (!source.texture_uri.empty()) {
+        material_resource material{source.color[0], source.color[1],     source.color[2],
+                                   source.color[3], GNEISS_NULL_TEXTURE, source.metallic,
+                                   source.roughness};
+        material.normal_scale = source.normal_scale;
+        material.occlusion_strength = source.occlusion_strength;
+        material.emissive = source.emissive;
+        std::array<std::shared_ptr<const asset_internal::resource_cache::entry>, 5> dependencies;
+        constexpr std::array names{"base_color_texture", "metallic_roughness_texture",
+                                   "normal_texture", "occlusion_texture", "emissive_texture"};
+        for (std::size_t slot = 0; slot < source.texture_uris.size(); ++slot) {
+          if (source.texture_uris[slot].empty())
+            continue;
+          texture_asset_lease texture;
           asset_diagnostic texture_diagnostic;
-          result = acquire_texture(source.texture_uri, texture, texture_diagnostic);
+          result = acquire_texture(source.texture_uris[slot], texture, texture_diagnostic);
           if (result != GNEISS_SUCCESS) {
-            fail(out_diagnostic, result, "/base_color_texture",
-                 texture_diagnostic.message.empty() ? "加载 base-color Texture 失败"
-                                                    : texture_diagnostic.message);
+            fail(out_diagnostic, result, std::string{"/"} + names[slot],
+                 texture_diagnostic.message);
             return result;
           }
+          material.set_texture(slot, texture.get());
+          dependencies[slot] = texture.entry_;
         }
-        const gneiss_material_desc desc{.struct_size = sizeof(gneiss_material_desc),
-                                        .reserved = 0,
-                                        .red = source.color[0],
-                                        .green = source.color[1],
-                                        .blue = source.color[2],
-                                        .alpha = source.color[3],
-                                        .base_color_texture = texture.get(),
-                                        .metallic = source.metallic,
-                                        .roughness = source.roughness};
+        const auto desc = material.description();
         gneiss_material rid = GNEISS_NULL_MATERIAL;
         result = resources_.create_material(desc, &rid);
         if (result != GNEISS_SUCCESS) {
@@ -984,7 +1049,7 @@ gneiss_result render_asset_loader::acquire_material(std::string_view uri,
           return result;
         }
         try {
-          output = std::make_shared<material_asset>(resources_, rid, texture.entry_);
+          output = std::make_shared<material_asset>(resources_, rid, std::move(dependencies));
         } catch (...) {
           (void)resources_.destroy_material(rid);
           throw;
@@ -1028,57 +1093,56 @@ gneiss_result prepare_texture(const asset_internal::virtual_file_system& file_sy
     }
     if (std::string_view(source.uri).ends_with(".gneiss-texture")) {
 #if defined(GNEISS_HAS_GRANIT_PLATFORM)
-          asset_internal::texture_binary_view binary;
-          std::string decode_message;
-          if (asset_internal::decode_texture_binary(image_bytes, binary, decode_message) !=
-              asset_internal::texture_binary_result::success) {
-            fail(out_diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/source",
-                 decode_message.empty() ? "运行纹理封装检查失败" : decode_message);
-            return GNEISS_ERROR_INVALID_ARGUMENT;
-          }
-          granit::texture_asset_info info;
-          if (granit::inspect_texture_asset(binary.manifest, info) != granit::result::success ||
-              info.dimension != granit::texture_dimension::two_dimensional || info.depth != 1U ||
-              info.array_layers != 1U) {
-            fail(out_diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/source",
-                 "Granit Texture Asset Manifest 无效或不是二维单层纹理");
-            return GNEISS_ERROR_INVALID_ARGUMENT;
-          }
-          const auto srgb = source.color_space == GNEISS_TEXTURE_COLOR_SPACE_SRGB;
-          const auto matches_color_space = [srgb](const auto& variant) {
-            return srgb ? variant.format == granit::texture_format::bc7_rgba_srgb ||
-                              variant.format == granit::texture_format::rgba8_srgb
-                        : variant.format == granit::texture_format::bc7_rgba_unorm ||
-                              variant.format == granit::texture_format::rgba8_unorm;
-          };
-          const auto payload_in_bounds = [&binary](const auto& variant) {
-            return variant.payload_offset <= binary.payload.size() &&
-                   variant.payload_size <= binary.payload.size() - variant.payload_offset;
-          };
-          const auto fallback_format =
-              srgb ? granit::texture_format::rgba8_srgb : granit::texture_format::rgba8_unorm;
-          const auto has_fallback =
-              std::ranges::any_of(info.variants, [fallback_format](const auto& variant) {
-                return variant.format == fallback_format;
-              });
-          if (!std::ranges::all_of(info.variants, matches_color_space) ||
-              !std::ranges::all_of(info.variants, payload_in_bounds) || !has_fallback) {
-            fail(out_diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/source",
-                 "运行纹理变体颜色空间、负载边界或 RGBA8 回退无效");
-            return GNEISS_ERROR_INVALID_ARGUMENT;
-          }
-          output = {
-              .width = info.width,
-              .height = info.height,
-              .format = GNEISS_TEXTURE_FORMAT_RGBA8_UNORM,
-              .color_space = source.color_space,
-              .levels = {},
-              .manifest = std::vector<std::byte>(binary.manifest.begin(), binary.manifest.end()),
-              .payload = std::vector<std::byte>(binary.payload.begin(), binary.payload.end())};
+      asset_internal::texture_binary_view binary;
+      std::string decode_message;
+      if (asset_internal::decode_texture_binary(image_bytes, binary, decode_message) !=
+          asset_internal::texture_binary_result::success) {
+        fail(out_diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/source",
+             decode_message.empty() ? "运行纹理封装检查失败" : decode_message);
+        return GNEISS_ERROR_INVALID_ARGUMENT;
+      }
+      granit::texture_asset_info info;
+      if (granit::inspect_texture_asset(binary.manifest, info) != granit::result::success ||
+          info.dimension != granit::texture_dimension::two_dimensional || info.depth != 1U ||
+          info.array_layers != 1U) {
+        fail(out_diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/source",
+             "Granit Texture Asset Manifest 无效或不是二维单层纹理");
+        return GNEISS_ERROR_INVALID_ARGUMENT;
+      }
+      const auto srgb = source.color_space == GNEISS_TEXTURE_COLOR_SPACE_SRGB;
+      const auto matches_color_space = [srgb](const auto& variant) {
+        return srgb ? variant.format == granit::texture_format::bc7_rgba_srgb ||
+                          variant.format == granit::texture_format::rgba8_srgb
+                    : variant.format == granit::texture_format::bc7_rgba_unorm ||
+                          variant.format == granit::texture_format::rgba8_unorm;
+      };
+      const auto payload_in_bounds = [&binary](const auto& variant) {
+        return variant.payload_offset <= binary.payload.size() &&
+               variant.payload_size <= binary.payload.size() - variant.payload_offset;
+      };
+      const auto fallback_format =
+          srgb ? granit::texture_format::rgba8_srgb : granit::texture_format::rgba8_unorm;
+      const auto has_fallback =
+          std::ranges::any_of(info.variants, [fallback_format](const auto& variant) {
+            return variant.format == fallback_format;
+          });
+      if (!std::ranges::all_of(info.variants, matches_color_space) ||
+          !std::ranges::all_of(info.variants, payload_in_bounds) || !has_fallback) {
+        fail(out_diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/source",
+             "运行纹理变体颜色空间、负载边界或 RGBA8 回退无效");
+        return GNEISS_ERROR_INVALID_ARGUMENT;
+      }
+      output = {.width = info.width,
+                .height = info.height,
+                .format = GNEISS_TEXTURE_FORMAT_RGBA8_UNORM,
+                .color_space = source.color_space,
+                .levels = {},
+                .manifest = std::vector<std::byte>(binary.manifest.begin(), binary.manifest.end()),
+                .payload = std::vector<std::byte>(binary.payload.begin(), binary.payload.end())};
 #else
-          fail(out_diagnostic, GNEISS_ERROR_UNSUPPORTED, "/source",
-               "当前构建未启用 Granit，无法加载运行纹理封装");
-          return GNEISS_ERROR_UNSUPPORTED;
+      fail(out_diagnostic, GNEISS_ERROR_UNSUPPORTED, "/source",
+           "当前构建未启用 Granit，无法加载运行纹理封装");
+      return GNEISS_ERROR_UNSUPPORTED;
 #endif
     } else if (std::string_view(source.uri).ends_with(".ktx2")) {
       asset_internal::texture_ktx2 texture;

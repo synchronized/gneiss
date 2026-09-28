@@ -112,7 +112,6 @@ private:
 
   struct material_mirror final {
     const render_internal::material_resource* source{};
-    gneiss_texture base_color_texture{GNEISS_NULL_TEXTURE};
     granit::material_instance material;
   };
 
@@ -123,7 +122,7 @@ private:
   struct prepared_material {
     std::shared_ptr<const render_internal::material_resource> data;
     material_mirror mirror;
-    texture_data dependency;
+    std::array<texture_data, 5> dependencies;
   };
   std::unordered_map<const render_internal::mesh_resource*, prepared_mesh> prepared_meshes_;
   std::unordered_map<const render_internal::material_resource*, prepared_material>
@@ -141,7 +140,8 @@ private:
                    std::uint64_t bytes) noexcept;
   [[nodiscard]] granit::result
   create_material_mirror(const render_internal::material_resource& source,
-                         granit_texture_view base_color, material_mirror& output) noexcept;
+                         const std::array<granit_texture_view, 5>& textures,
+                         material_mirror& output) noexcept;
   [[nodiscard]] granit::result ensure_default_textures() noexcept;
   [[nodiscard]] granit::result
   prepare_ui_draw_list(const render_internal::ui_draw_list& ui,

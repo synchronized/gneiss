@@ -308,7 +308,7 @@ granit_render_service::create_texture_mirror(const render_internal::texture_reso
 
 granit::result
 granit_render_service::create_material_mirror(const render_internal::material_resource& source,
-                                              granit_texture_view base_color,
+                                              const std::array<granit_texture_view, 5>& textures,
                                               material_mirror& output) noexcept {
   if (auto found = prepared_materials_.find(&source); found != prepared_materials_.end()) {
     output = std::move(found->second.mirror);
@@ -317,9 +317,9 @@ granit_render_service::create_material_mirror(const render_internal::material_re
   }
 
   const std::array color{source.red, source.green, source.blue, source.alpha};
-  constexpr float normal_scale = 1.0F;
-  constexpr float occlusion_strength = 1.0F;
-  constexpr std::array emissive{0.0F, 0.0F, 0.0F};
+  const float normal_scale = source.normal_scale;
+  const float occlusion_strength = source.occlusion_strength;
+  const auto& emissive = source.emissive;
   constexpr std::uint32_t debug_display = 0;
   const std::array updates{
       granit::material_parameter_update::value(
@@ -348,19 +348,19 @@ granit_render_service::create_material_mirror(const render_internal::material_re
           granit::material_parameter_type::uint32, std::as_bytes(std::span{&debug_display, 1})),
       granit::material_parameter_update::texture_binding(
           granit::material_parameter_id(GRANIT_PBR_PARAMETER_BASE_COLOR_TEXTURE),
-          granit::texture_view_ref::from_native(base_color)),
+          granit::texture_view_ref::from_native(textures[0])),
       granit::material_parameter_update::texture_binding(
           granit::material_parameter_id(GRANIT_PBR_PARAMETER_METALLIC_ROUGHNESS_TEXTURE),
-          default_white_linear_.view.ref()),
+          granit::texture_view_ref::from_native(textures[1])),
       granit::material_parameter_update::texture_binding(
           granit::material_parameter_id(GRANIT_PBR_PARAMETER_NORMAL_TEXTURE),
-          default_normal_linear_.view.ref()),
+          granit::texture_view_ref::from_native(textures[2])),
       granit::material_parameter_update::texture_binding(
           granit::material_parameter_id(GRANIT_PBR_PARAMETER_OCCLUSION_TEXTURE),
-          default_white_linear_.view.ref()),
+          granit::texture_view_ref::from_native(textures[3])),
       granit::material_parameter_update::texture_binding(
           granit::material_parameter_id(GRANIT_PBR_PARAMETER_EMISSIVE_TEXTURE),
-          default_white_srgb_.view.ref()),
+          granit::texture_view_ref::from_native(textures[4])),
       granit::material_parameter_update::sampler_binding(
           granit::material_parameter_id(GRANIT_PBR_PARAMETER_SAMPLER), sampler_.ref())};
   const granit::material_desc desc{.archive = pbr_shader_resolver::material_archive(),
@@ -369,7 +369,6 @@ granit_render_service::create_material_mirror(const render_internal::material_re
   auto result = output.material.initialize(renderer_, desc);
   if (result.ok()) {
     output.source = &source;
-    output.base_color_texture = source.base_color_texture;
   }
   return result;
 }
@@ -675,18 +674,24 @@ granit_render_service::prepare_textures(std::vector<render_internal::render_uplo
                   prepared_meshes_.insert_or_assign(item.mesh.get(), std::move(value));
                 }
               } else if (item.material) {
-                granit_texture_view texture = default_white_srgb_.view.native_handle();
-                if (item.dependency_texture) {
-                  const auto found = prepared_textures_.find(item.dependency_texture.get());
+                std::array textures{default_white_srgb_.view.native_handle(),
+                                    default_white_linear_.view.native_handle(),
+                                    default_normal_linear_.view.native_handle(),
+                                    default_white_linear_.view.native_handle(),
+                                    default_white_srgb_.view.native_handle()};
+                for (std::size_t slot = 0; slot < textures.size(); ++slot) {
+                  if (!item.dependency_textures[slot])
+                    continue;
+                  const auto found = prepared_textures_.find(item.dependency_textures[slot].get());
                   if (found == prepared_textures_.end()) {
                     discard_candidates(data);
                     return GNEISS_ERROR_INVALID_STATE;
                   }
-                  texture = found->second.mirror.view.native_handle();
+                  textures[slot] = found->second.mirror.view.native_handle();
                 }
                 prepared_material value{
-                    .data = item.material, .mirror = {}, .dependency = item.dependency_texture};
-                result = create_material_mirror(*item.material, texture, value.mirror);
+                    .data = item.material, .mirror = {}, .dependencies = item.dependency_textures};
+                result = create_material_mirror(*item.material, textures, value.mirror);
                 if (result.ok()) {
                   prepared_materials_.insert_or_assign(item.material.get(), std::move(value));
                 }
@@ -1111,26 +1116,32 @@ granit_render_service::execute_frame(render_internal::render_frame_packet& packe
       const auto* material = resources.get_material(instance.material);
       if (material == nullptr)
         return GNEISS_ERROR_INVALID_HANDLE;
-      granit_texture_view base_color = default_white_srgb_.view.native_handle();
-      if (material->base_color_texture != GNEISS_NULL_TEXTURE) {
-        const auto* texture = resources.get_texture(material->base_color_texture);
+      std::array textures{
+          default_white_srgb_.view.native_handle(), default_white_linear_.view.native_handle(),
+          default_normal_linear_.view.native_handle(), default_white_linear_.view.native_handle(),
+          default_white_srgb_.view.native_handle()};
+      const auto handles = material->texture_handles();
+      for (std::size_t slot = 0; slot < handles.size(); ++slot) {
+        const auto handle = handles[slot];
+        if (handle == GNEISS_NULL_TEXTURE)
+          continue;
+        const auto* texture = resources.get_texture(handle);
         if (texture == nullptr)
           return GNEISS_ERROR_INVALID_HANDLE;
-        auto found = texture_mirrors_.find(material->base_color_texture);
+        auto found = texture_mirrors_.find(handle);
         if (found == texture_mirrors_.end()) {
           texture_mirror mirror;
-          const auto created =
-              create_texture_mirror(*texture, mirror, material->base_color_texture);
+          const auto created = create_texture_mirror(*texture, mirror, handle);
           if (created.failed())
             return map_result(created);
-          found = texture_mirrors_.emplace(material->base_color_texture, std::move(mirror)).first;
+          found = texture_mirrors_.emplace(handle, std::move(mirror)).first;
         }
-        base_color = found->second.view.native_handle();
+        textures[slot] = found->second.view.native_handle();
       }
       auto found = material_mirrors_.find(instance.material);
       if (found == material_mirrors_.end()) {
         material_mirror mirror;
-        const auto created = create_material_mirror(*material, base_color, mirror);
+        const auto created = create_material_mirror(*material, textures, mirror);
         if (created.failed())
           return map_result(created);
         material_mirrors_.emplace(instance.material, std::move(mirror));

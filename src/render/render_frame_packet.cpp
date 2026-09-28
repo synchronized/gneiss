@@ -74,10 +74,12 @@ gneiss_result capture_render_frame_packet(const application_internal::native_win
         return result;
       }
       const auto& material = *candidate.resources.materials_.at(instance.material);
-      if (material.base_color_texture != GNEISS_NULL_TEXTURE) {
-        result =
-            capture_resource(material.base_color_texture, candidate.resources.textures_,
-                             [&](const auto handle) { return resources.share_texture(handle); });
+      for (const auto texture : material.texture_handles()) {
+        if (texture == GNEISS_NULL_TEXTURE)
+          continue;
+        result = capture_resource(texture, candidate.resources.textures_, [&](const auto handle) {
+          return resources.share_texture(handle);
+        });
         if (result != GNEISS_SUCCESS) {
           return result;
         }

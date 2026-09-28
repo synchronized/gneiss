@@ -104,7 +104,21 @@ typedef struct gneiss_material_desc {
   gneiss_texture base_color_texture;
   float metallic;
   float roughness;
+  gneiss_texture metallic_roughness_texture;
+  gneiss_texture normal_texture;
+  gneiss_texture occlusion_texture;
+  gneiss_texture emissive_texture;
+  /** 法线 XY 缩放为有限非负数；AO 强度位于 0..1。 */
+  float normal_scale;
+  float occlusion_strength;
+  /** 线性自发光 RGB，分量位于 0..1；不转移任何 Texture 的所有权。 */
+  float emissive[3];
+  uint32_t reserved_2;
 } gneiss_material_desc;
+
+/** 扩展前布局大小；旧调用方缺少的 PBR 字段使用中性默认值。 */
+#define GNEISS_MATERIAL_DESC_VERSION_1_SIZE                                                        \
+  ((uint32_t)offsetof(gneiss_material_desc, metallic_roughness_texture))
 
 #define GNEISS_MATERIAL_DESC_INIT                                                                  \
   {(uint32_t)sizeof(gneiss_material_desc),                                                         \
@@ -115,7 +129,15 @@ typedef struct gneiss_material_desc {
    1.0F,                                                                                           \
    GNEISS_NULL_TEXTURE,                                                                            \
    0.0F,                                                                                           \
-   1.0F}
+   1.0F,                                                                                           \
+   GNEISS_NULL_TEXTURE,                                                                            \
+   GNEISS_NULL_TEXTURE,                                                                            \
+   GNEISS_NULL_TEXTURE,                                                                            \
+   GNEISS_NULL_TEXTURE,                                                                            \
+   1.0F,                                                                                           \
+   1.0F,                                                                                           \
+   {0.0F, 0.0F, 0.0F},                                                                             \
+   UINT32_C(0)}
 
 /** 透视 Camera 参数。首版只允许一个 primary Camera 参与渲染。 */
 typedef struct gneiss_camera {

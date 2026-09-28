@@ -58,7 +58,7 @@ struct prepared_render_asset {
   mesh_resource mesh;
   texture_resource texture{};
   material_resource material{};
-  std::string texture_uri;
+  std::array<std::string, 5> texture_uris;
   std::size_t bytes{};
 };
 struct prepared_render_batch {
@@ -89,7 +89,7 @@ struct render_upload_item {
   std::shared_ptr<const mesh_resource> mesh;
   std::shared_ptr<const material_resource> material;
   std::shared_ptr<const texture_resource> texture;
-  std::shared_ptr<const texture_resource> dependency_texture;
+  std::array<std::shared_ptr<const texture_resource>, 5> dependency_textures;
   std::size_t bytes{};
 };
 
@@ -135,8 +135,8 @@ public:
     std::shared_ptr<const material_resource> material;
     std::shared_ptr<const texture_resource> texture;
     std::shared_ptr<const void> previous;
-    std::shared_ptr<const asset_internal::resource_cache::entry> dependency;
-    std::shared_ptr<const texture_resource> dependency_texture;
+    std::array<std::shared_ptr<const asset_internal::resource_cache::entry>, 5> dependencies;
+    std::array<std::shared_ptr<const texture_resource>, 5> dependency_textures;
     std::size_t bytes{};
   };
   using revision_stamp = std::pair<std::uint64_t, std::uint64_t>;
