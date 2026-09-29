@@ -29,8 +29,8 @@
 namespace gneiss::application_internal {
 namespace {
 
-static_assert(GRANIT_VERSION_MAJOR > 0 || GRANIT_VERSION_MINOR >= 39,
-              "Gneiss requires Granit 0.39.0 or newer");
+static_assert(GRANIT_VERSION_MAJOR > 0 || GRANIT_VERSION_MINOR >= 42,
+              "Gneiss requires Granit 0.42.0 or newer");
 
 gneiss_result map_result(granit::result result) noexcept {
   switch (result.native()) {
@@ -367,7 +367,16 @@ granit_render_service::create_material_mirror(const render_internal::material_re
           granit::material_parameter_id(GRANIT_PBR_PARAMETER_EMISSIVE_TEXTURE),
           granit::texture_view_ref::from_native(textures[4])),
       granit::material_parameter_update::sampler_binding(
-          granit::material_parameter_id(GRANIT_PBR_PARAMETER_SAMPLER), sampler_.ref())};
+          granit::material_parameter_id(GRANIT_PBR_PARAMETER_BASE_COLOR_SAMPLER), sampler_.ref()),
+      granit::material_parameter_update::sampler_binding(
+          granit::material_parameter_id(GRANIT_PBR_PARAMETER_METALLIC_ROUGHNESS_SAMPLER),
+          sampler_.ref()),
+      granit::material_parameter_update::sampler_binding(
+          granit::material_parameter_id(GRANIT_PBR_PARAMETER_NORMAL_SAMPLER), sampler_.ref()),
+      granit::material_parameter_update::sampler_binding(
+          granit::material_parameter_id(GRANIT_PBR_PARAMETER_OCCLUSION_SAMPLER), sampler_.ref()),
+      granit::material_parameter_update::sampler_binding(
+          granit::material_parameter_id(GRANIT_PBR_PARAMETER_EMISSIVE_SAMPLER), sampler_.ref())};
   const granit::material_desc desc{.archive = pbr_shader_resolver::material_archive(),
                                    .initial_updates = updates,
                                    .shader_library = pbr_library_.ref()};
@@ -436,7 +445,7 @@ granit_render_service::create_mesh_mirror(const render_internal::mesh_resource& 
     const granit_vertex_buffer_layout layout{sizeof(gpu_vertex), GRANIT_VERTEX_STEP_MODE_VERTEX,
                                              static_cast<std::uint32_t>(attributes.size()), 0,
                                              attributes.data()};
-    if (granit_pbr_validate_vertex_layout(&layout, 1, GRANIT_PBR_TEXTURE_ALL) !=
+    if (granit_pbr_validate_vertex_layout(&layout, 1, GRANIT_PBR_TEXTURE_ALL, 0U, 0U) !=
         GRANIT_PBR_VERTEX_LAYOUT_VALID) {
       return granit::result::invalid_argument;
     }

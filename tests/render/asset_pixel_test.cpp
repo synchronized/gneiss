@@ -118,10 +118,6 @@ std::array<unsigned, 3> material_pixel(std::string_view slot, std::array<std::by
                                         .tangents = {{1, 0, 0, 1}, {1, 0, 0, 1}, {1, 0, 0, 1}}};
   std::vector<std::byte> bytes;
   asset_internal::mesh_binary_diagnostic mesh_diagnostic;
-  if (reflected) {
-    // 仅用于诊断夹具：抵消反射导致的绕序变化，隔离 TBN，避免把被剔除误判为法线错误。
-    mesh.indices = {0U, 2U, 1U};
-  }
   check(asset_internal::encode_mesh_binary(mesh, bytes, mesh_diagnostic) ==
         asset_internal::mesh_binary_result::success);
   {
@@ -386,8 +382,16 @@ int main(int argc, char* argv[]) try {
         "negative-scale probe: visible=%u/%u normal-positive=%u,%u,%u normal-negative=%u,%u,%u\n",
         positive_visible[0], negative_visible[0], positive[0], positive[1], positive[2],
         negative[0], negative[1], negative[2]);
-    // 固定纯色法线沿 +Y；仅反射 X 不应翻转 B。此诊断独立于常规 CTest，记录上游缺口。
-    return positive == negative ? 0 : 2;
+    // 保留相同网格绕序；固定纯色法线沿 +Y，仅反射 X 不应翻转 B 或导致对象被剔除。
+    // RGBA8 的 128 解码为 +1/255 而非零；反射 X 会改变这点残余 X 分量。
+    // 允许两个量化级，仍能区分旧实现约 80 级的 Y 手性错误。
+    for (std::size_t channel = 0; channel < positive.size(); ++channel) {
+      const auto delta = static_cast<int>(positive[channel]) - static_cast<int>(negative[channel]);
+      if (delta < -2 || delta > 2) {
+        return 2;
+      }
+    }
+    return 0;
   }
   run_mip_sampling();
   run_material_channels();
