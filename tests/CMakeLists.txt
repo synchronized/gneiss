@@ -545,7 +545,8 @@ gneiss_target_compile_warnings(gneiss_json_format_test)
 gneiss_target_output_directories(gneiss_json_format_test)
 add_test(NAME gneiss.json_format COMMAND gneiss_json_format_test)
 
-add_executable(gneiss_scene_load_application_test scene/scene_load_application_test.cpp)
+add_executable(gneiss_scene_load_application_test scene/scene_load_application_test.cpp
+  "${PROJECT_SOURCE_DIR}/src/asset/mesh_binary.cpp")
 target_include_directories(gneiss_scene_load_application_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_link_libraries(gneiss_scene_load_application_test PRIVATE gneiss::engine gneiss_tasks)
 gneiss_target_compile_warnings(gneiss_scene_load_application_test)

@@ -26,6 +26,15 @@ int main() {
       image.width != 1U || image.height != 1U || image.pixels.size() != 4U || !message.empty()) {
     return 1;
   }
+  if (gneiss::render_internal::decode_png(bytes, image, message, 3U) !=
+          GNEISS_ERROR_OUT_OF_MEMORY ||
+      image.width != 0U || !image.pixels.empty() || message.empty()) {
+    return 3;
+  }
+  if (gneiss::render_internal::decode_png(bytes, image, message, 4U) != GNEISS_SUCCESS ||
+      image.pixels.size() != 4U) {
+    return 4;
+  }
   bytes.resize(16);
   if (gneiss::render_internal::decode_png(bytes, image, message) != GNEISS_ERROR_INVALID_ARGUMENT ||
       image.width != 0U || image.height != 0U || !image.pixels.empty() || message.empty()) {

@@ -177,8 +177,10 @@ struct state_case {
   bool layers{};
   bool reverse_submission{};
   bool foreground{};
+  bool receiver{};
 };
-std::array<unsigned, 3> state_pixel(const state_case& test) {
+std::array<unsigned, 3> state_pixel(const state_case& test,
+                                    std::vector<std::byte>* frame = nullptr) {
   fixture files;
   std::ofstream material(files.root / "m.material.json");
   material
@@ -228,12 +230,12 @@ std::array<unsigned, 3> state_pixel(const state_case& test) {
     output.write(reinterpret_cast<const char*>(bytes.data()),
                  static_cast<std::streamsize>(bytes.size()));
   }
-  if (test.layers) {
+  if (test.layers || test.receiver) {
     std::ofstream(files.root / "blue.material.json")
         << R"({"format":"gneiss.material","version":5,"color":[0,0,1,)"
-        << (test.foreground ? "1" : "0.5")
+        << (test.foreground || test.receiver ? "1" : "0.5")
         << R"(],"base_color_texture":null,"metallic":0,"roughness":1,"alpha_mode":")"
-        << (test.foreground ? "OPAQUE" : "BLEND") << "\"}";
+        << (test.foreground || test.receiver ? "OPAQUE" : "BLEND") << "\"}";
     std::ifstream input(files.root / "s.scene.json");
     std::string scene_text{std::istreambuf_iterator<char>{input}, std::istreambuf_iterator<char>{}};
     input.close();
@@ -242,6 +244,10 @@ std::array<unsigned, 3> state_pixel(const state_case& test) {
     object += test.foreground ? "0.2" : "-0.2";
     object +=
         R"(],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":{"mesh_renderer":{"mesh":"asset://g.mesh.json","material":"asset://blue.material.json"}}})";
+    if (test.receiver) {
+      constexpr std::string_view scale = "\"scale\":[1,1,1]";
+      object.replace(object.find(scale), scale.size(), "\"scale\":[4,4,1]");
+    }
     if (test.reverse_submission)
       scene_text.insert(scene_text.find("\"objects\":[") + 11U, object + ',');
     else
@@ -261,6 +267,8 @@ std::array<unsigned, 3> state_pixel(const state_case& test) {
   check(app.run(3U) == result::success);
   render_internal::frame_image image;
   check(application_internal::capture_frame(app.get(), 128U, 128U, image) == GNEISS_SUCCESS);
+  if (frame != nullptr)
+    *frame = image.pixels;
   constexpr auto offset = (64U * 128U + 64U) * 4U;
   return {std::to_integer<unsigned>(image.pixels[offset]),
           std::to_integer<unsigned>(image.pixels[offset + 1]),
@@ -290,6 +298,14 @@ void run_material_states() {
   const auto foreground =
       state_pixel({.mode = "BLEND", .alpha = 0.5F, .layers = true, .foreground = true});
   check(foreground[2] > foreground[0] + 30U);
+  // 透明 Alpha 0 不投影；MASK 裁掉的整个物体也不能留下实心阴影。
+  std::vector<std::byte> invisible_blend, invisible_mask, opaque_shadow, mask_shadow;
+  (void)state_pixel({.mode = "BLEND", .alpha = 0, .receiver = true}, &invisible_blend);
+  (void)state_pixel({.mode = "MASK", .alpha = 0, .receiver = true}, &invisible_mask);
+  (void)state_pixel({.receiver = true}, &opaque_shadow);
+  (void)state_pixel({.mode = "MASK", .receiver = true}, &mask_shadow);
+  check(invisible_blend == invisible_mask);
+  check(opaque_shadow == mask_shadow && opaque_shadow != invisible_mask);
 }
 
 void run_material_channels() {

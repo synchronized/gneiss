@@ -58,10 +58,14 @@ gneiss_result decode_png(const std::vector<std::byte>& bytes, decoded_png& out_i
     if (result != 0) {
       return fail(result, out_message);
     }
-    if (decoded_size == 0U || decoded_size > maximum_decoded_bytes || decoded_size > byte_limit ||
+    if (decoded_size == 0U || decoded_size > maximum_decoded_bytes ||
         decoded_size != static_cast<std::size_t>(header.width) * header.height * 4U) {
       out_message = "PNG 解码尺寸超出限制";
       return GNEISS_ERROR_INVALID_ARGUMENT;
+    }
+    if (decoded_size > byte_limit) {
+      out_message = "PNG 解码数据超过候选剩余内存预算";
+      return GNEISS_ERROR_OUT_OF_MEMORY;
     }
     out_image.width = header.width;
     out_image.height = header.height;

@@ -326,24 +326,29 @@ using document_ptr = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;
   }
   out_tangents.reserve(data.tangents.size());
   for (const auto& tangent : data.tangents) {
-    out_tangents.push_back({tangent[0], tangent[1], tangent[2], tangent[3]});
+    out_tangents.push_back({.x = tangent[0], .y = tangent[1], .z = tangent[2], .w = tangent[3]});
   }
-  for (const auto& uv : data.uv1)
-    out_uv1.push_back({uv[0], uv[1]});
-  for (const auto& c : data.colors)
-    out_colors.push_back({c[0], c[1], c[2], c[3]});
+  for (const auto& uv : data.uv1) {
+    out_uv1.push_back({.u = uv[0], .v = uv[1]});
+  }
+  for (const auto& c : data.colors) {
+    out_colors.push_back({.r = c[0], .g = c[1], .b = c[2], .a = c[3]});
+  }
   out_indices = std::move(data.indices);
   return GNEISS_SUCCESS;
 }
 
 [[nodiscard]] gneiss_result parse_pbr_extensions(yyjson_val* root, material_source& out_source,
                                                  asset_diagnostic& diagnostic) {
-  constexpr std::array names{"base_color_texture", "metallic_roughness_texture", "normal_texture",
-                             "occlusion_texture", "emissive_texture"};
+  constexpr std::array names{
+      "base_color_texture", "metallic_roughness_texture", "normal_texture",
+      "occlusion_texture",  "emissive_texture",
+  };
   for (std::size_t slot = 1; slot < names.size(); ++slot) {
     auto* texture = yyjson_obj_get(root, names[slot]);
-    if (texture == nullptr || yyjson_is_null(texture))
+    if (texture == nullptr || yyjson_is_null(texture)) {
       continue;
+    }
     if (!yyjson_is_str(texture) || yyjson_get_len(texture) == 0U) {
       fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, std::string{"/"} + names[slot],
            "Texture 必须是非空 URI 或 null");
@@ -377,52 +382,67 @@ using document_ptr = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;
   return GNEISS_SUCCESS;
 }
 
-[[nodiscard]] bool parse_material_state(yyjson_val* root,
-                                        gneiss::render_internal::material_resource& state) {
-  if (auto* mode = yyjson_obj_get(root, "alpha_mode")) {
-    if (!yyjson_is_str(mode))
-      return false;
-    const auto name = json_string(mode);
-    if (name == "OPAQUE")
-      state.alpha_mode = GNEISS_MATERIAL_ALPHA_OPAQUE;
-    else if (name == "MASK")
-      state.alpha_mode = GNEISS_MATERIAL_ALPHA_MASK;
-    else if (name == "BLEND")
-      state.alpha_mode = GNEISS_MATERIAL_ALPHA_BLEND;
-    else
-      return false;
-  }
-  if (auto* sided = yyjson_obj_get(root, "double_sided")) {
-    if (!yyjson_is_bool(sided))
-      return false;
-    state.double_sided = yyjson_get_bool(sided) ? 1U : 0U;
-  }
-  if (auto* cutoff = yyjson_obj_get(root, "alpha_cutoff")) {
-    if (!read_float(cutoff, state.alpha_cutoff) || state.alpha_cutoff < 0.0F)
-      return false;
-  }
+[[nodiscard]] bool parse_material_sampling(yyjson_val* root,
+                                           gneiss::render_internal::material_resource& state) {
   if (auto* sampling = yyjson_obj_get(root, "sampling")) {
-    if (!yyjson_is_arr(sampling) || yyjson_arr_size(sampling) != 5U)
+    if (!yyjson_is_arr(sampling) || yyjson_arr_size(sampling) != 5U) {
       return false;
-    constexpr std::array names{"uv_set",     "mag_filter", "min_filter",
-                               "mip_filter", "address_u",  "address_v"};
+    }
+    constexpr std::array names{
+        "uv_set", "mag_filter", "min_filter", "mip_filter", "address_u", "address_v",
+    };
     constexpr std::array limits{1U, 1U, 1U, 2U, 2U, 2U};
     for (std::size_t slot = 0; slot < 5U; ++slot) {
       auto* item = yyjson_arr_get(sampling, slot);
-      if (!yyjson_is_obj(item) || yyjson_obj_size(item) != names.size())
+      if (!yyjson_is_obj(item) || yyjson_obj_size(item) != names.size()) {
         return false;
+      }
       auto& sample = state.sampling[slot];
-      const std::array destinations{&sample.uv_set,     &sample.mag_filter, &sample.min_filter,
-                                    &sample.mip_filter, &sample.address_u,  &sample.address_v};
+      const std::array destinations{
+          &sample.uv_set,     &sample.mag_filter, &sample.min_filter,
+          &sample.mip_filter, &sample.address_u,  &sample.address_v,
+      };
       for (std::size_t field = 0; field < names.size(); ++field) {
         auto* value = yyjson_obj_get(item, names[field]);
-        if (!yyjson_is_uint(value) || yyjson_get_uint(value) > limits[field])
+        if (!yyjson_is_uint(value) || yyjson_get_uint(value) > limits[field]) {
           return false;
+        }
         *destinations[field] = static_cast<std::uint32_t>(yyjson_get_uint(value));
       }
     }
   }
   return true;
+}
+
+[[nodiscard]] bool parse_material_state(yyjson_val* root,
+                                        gneiss::render_internal::material_resource& state) {
+  if (auto* mode = yyjson_obj_get(root, "alpha_mode")) {
+    if (!yyjson_is_str(mode)) {
+      return false;
+    }
+    const auto name = json_string(mode);
+    if (name == "OPAQUE") {
+      state.alpha_mode = GNEISS_MATERIAL_ALPHA_OPAQUE;
+    } else if (name == "MASK") {
+      state.alpha_mode = GNEISS_MATERIAL_ALPHA_MASK;
+    } else if (name == "BLEND") {
+      state.alpha_mode = GNEISS_MATERIAL_ALPHA_BLEND;
+    } else {
+      return false;
+    }
+  }
+  if (auto* sided = yyjson_obj_get(root, "double_sided")) {
+    if (!yyjson_is_bool(sided)) {
+      return false;
+    }
+    state.double_sided = yyjson_get_bool(sided) ? 1U : 0U;
+  }
+  if (auto* cutoff = yyjson_obj_get(root, "alpha_cutoff");
+      cutoff && (!read_float(cutoff, state.alpha_cutoff) || state.alpha_cutoff < 0.0F)) {
+    return false;
+  }
+
+  return parse_material_sampling(root, state);
 }
 
 [[nodiscard]] gneiss_result parse_material(const std::vector<std::byte>& bytes,
@@ -444,32 +464,43 @@ using document_ptr = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;
       std::string_view{"format"},   std::string_view{"version"},
       std::string_view{"color"},    std::string_view{"base_color_texture"},
       std::string_view{"metallic"}, std::string_view{"roughness"}};
-  constexpr std::array v4_fields{std::string_view{"format"},
-                                 std::string_view{"version"},
-                                 std::string_view{"color"},
-                                 std::string_view{"base_color_texture"},
-                                 std::string_view{"metallic"},
-                                 std::string_view{"roughness"},
-                                 std::string_view{"metallic_roughness_texture"},
-                                 std::string_view{"normal_texture"},
-                                 std::string_view{"occlusion_texture"},
-                                 std::string_view{"emissive_texture"},
-                                 std::string_view{"normal_scale"},
-                                 std::string_view{"occlusion_strength"},
-                                 std::string_view{"emissive"}};
+  constexpr std::array v4_fields{
+      std::string_view{"format"},
+      std::string_view{"version"},
+      std::string_view{"color"},
+      std::string_view{"base_color_texture"},
+      std::string_view{"metallic"},
+      std::string_view{"roughness"},
+      std::string_view{"metallic_roughness_texture"},
+      std::string_view{"normal_texture"},
+      std::string_view{"occlusion_texture"},
+      std::string_view{"emissive_texture"},
+      std::string_view{"normal_scale"},
+      std::string_view{"occlusion_strength"},
+      std::string_view{"emissive"},
+  };
   auto v5_fields = std::vector<std::string_view>(v4_fields.begin(), v4_fields.end());
-  for (const auto name : {"alpha_mode", "double_sided", "alpha_cutoff", "sampling"})
+  for (const auto* const name : {"alpha_mode", "double_sided", "alpha_cutoff", "sampling"}) {
     v5_fields.emplace_back(name);
+  }
   std::uint64_t version = 0;
   auto fields = std::span<const std::string_view>{v1_fields};
-  if (requested_version == 2U)
+  switch (requested_version) {
+  case 2U:
     fields = v2_fields;
-  else if (requested_version == 3U)
+    break;
+  case 3U:
     fields = v3_fields;
-  else if (requested_version == 4U)
+    break;
+  case 4U:
     fields = v4_fields;
-  else if (requested_version == 5U)
+    break;
+  case 5U:
     fields = v5_fields;
+    break;
+  default:
+    break;
+  }
   if (!validate_header(root, "gneiss.material", fields, 5U, version, diagnostic)) {
     return diagnostic.result;
   }
@@ -498,18 +529,18 @@ using document_ptr = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;
       out_source.texture_uris[0].assign(json_string(texture));
     }
   }
-  if (version >= 3U) {
-    if (!read_float(yyjson_obj_get(root, "metallic"), out_source.metallic) ||
-        out_source.metallic < 0.0F || out_source.metallic > 1.0F ||
-        !read_float(yyjson_obj_get(root, "roughness"), out_source.roughness) ||
-        out_source.roughness < 0.0F || out_source.roughness > 1.0F) {
-      fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/metallic",
-           "metallic 与 roughness 必须位于 0..1");
-      return diagnostic.result;
-    }
-  }
-  if (version >= 4U && parse_pbr_extensions(root, out_source, diagnostic) != GNEISS_SUCCESS)
+  if ((version >= 3U) && (!read_float(yyjson_obj_get(root, "metallic"), out_source.metallic) ||
+                          out_source.metallic < 0.0F || out_source.metallic > 1.0F ||
+                          !read_float(yyjson_obj_get(root, "roughness"), out_source.roughness) ||
+                          out_source.roughness < 0.0F || out_source.roughness > 1.0F)) {
+    fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/metallic",
+         "metallic 与 roughness 必须位于 0..1");
     return diagnostic.result;
+  }
+
+  if (version >= 4U && parse_pbr_extensions(root, out_source, diagnostic) != GNEISS_SUCCESS) {
+    return diagnostic.result;
+  }
   if (version == 5U && !parse_material_state(root, out_source.state)) {
     fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/sampling", "材质状态或逐槽采样设置无效");
     return diagnostic.result;
@@ -525,18 +556,24 @@ using document_ptr = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;
     return diagnostic.result;
   }
   yyjson_val* root = yyjson_doc_get_root(document.get());
-  constexpr std::array v1_fields{std::string_view{"format"}, std::string_view{"version"},
-                                 std::string_view{"source"}, std::string_view{"color_space"}};
-  constexpr std::array v2_fields{std::string_view{"format"}, std::string_view{"version"},
-                                 std::string_view{"source"}, std::string_view{"color_space"},
-                                 std::string_view{"usage"}};
-  const auto requested = yyjson_obj_get(root, "version");
+  constexpr std::array v1_fields{
+      std::string_view{"format"},
+      std::string_view{"version"},
+      std::string_view{"source"},
+      std::string_view{"color_space"},
+  };
+  constexpr std::array v2_fields{
+      std::string_view{"format"},      std::string_view{"version"}, std::string_view{"source"},
+      std::string_view{"color_space"}, std::string_view{"usage"},
+  };
+  auto* const requested = yyjson_obj_get(root, "version");
   const auto fields = yyjson_is_uint(requested) && yyjson_get_uint(requested) == 2U
                           ? std::span<const std::string_view>{v2_fields}
                           : std::span<const std::string_view>{v1_fields};
   std::uint64_t version = 0;
-  if (!validate_header(root, "gneiss.texture", fields, 2U, version, diagnostic))
+  if (!validate_header(root, "gneiss.texture", fields, 2U, version, diagnostic)) {
     return diagnostic.result;
+  }
   yyjson_val* source = yyjson_obj_get(root, "source");
   if (!yyjson_is_str(source) || yyjson_get_len(source) == 0U) {
     fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/source", "Texture source 必须是非空 URI");
@@ -557,7 +594,7 @@ using document_ptr = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;
     return diagnostic.result;
   }
   if (version == 2U) {
-    const auto usage = yyjson_obj_get(root, "usage");
+    auto* const usage = yyjson_obj_get(root, "usage");
     if (!yyjson_is_str(usage) || json_string(usage) != "normal" ||
         out_source.color_space != GNEISS_TEXTURE_COLOR_SPACE_LINEAR) {
       fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/usage",
@@ -732,12 +769,7 @@ gneiss_result prepare_render_assets(const asset_internal::virtual_file_system& f
                                     [&](auto i) { return i < mesh.vertices.size(); }))) {
             result = GNEISS_ERROR_INVALID_ARGUMENT;
           }
-          asset.bytes = mesh.vertices.size() * sizeof(gneiss_mesh_vertex) +
-                        mesh.normals.size() * sizeof(gneiss_mesh_normal) +
-                        mesh.indices.size() * sizeof(std::uint32_t) +
-                        mesh.tangents.size() * sizeof(gneiss_mesh_tangent) +
-                        mesh.uv1.size() * sizeof(gneiss_mesh_uv) +
-                        mesh.colors.size() * sizeof(gneiss_mesh_color);
+          asset.bytes = mesh.data_bytes();
         } else if (source.type == render_asset_type::material) {
           material_source material;
           result = parse_material(bytes, material, diagnostic);
@@ -755,8 +787,9 @@ gneiss_result prepare_render_assets(const asset_internal::virtual_file_system& f
           asset.texture_uris = std::move(material.texture_uris);
           asset.bytes = sizeof(material_resource);
           for (const auto& uri : asset.texture_uris) {
-            if (result == GNEISS_SUCCESS && !uri.empty())
-              pending.push_back({uri, render_asset_type::texture});
+            if (result == GNEISS_SUCCESS && !uri.empty()) {
+              pending.push_back({.uri = uri, .type = render_asset_type::texture});
+            }
             asset.bytes += uri.size();
           }
         } else {
@@ -895,13 +928,15 @@ gneiss_result render_asset_loader::stage_asset(prepared_render_asset prepared,
     } else if (prepared.source.type == render_asset_type::material) {
       for (std::size_t slot = 0; slot < prepared.texture_uris.size(); ++slot) {
         const auto& uri = prepared.texture_uris[slot];
-        if (uri.empty())
+        if (uri.empty()) {
           continue;
+        }
         const auto found = std::ranges::find_if(staged, [&](const auto& other) {
           return other.source.uri == uri && other.source.type == render_asset_type::texture;
         });
-        if (found == staged.end())
+        if (found == staged.end()) {
           return GNEISS_ERROR_INVALID_STATE;
+        }
         prepared.material.set_texture(slot, found->lease.get());
         candidate.dependencies[slot] = found->lease.entry_;
         candidate.dependency_textures[slot] = found->texture;
@@ -1012,13 +1047,15 @@ gneiss_result render_asset_loader::publish_assets(std::span<asset_candidate> can
       if (candidate.material) {
         auto dependencies = candidate.dependencies;
         for (auto& dependency : dependencies) {
-          if (!dependency)
+          if (!dependency) {
             continue;
+          }
           const auto found = std::ranges::find_if(candidates, [&](const auto& other) {
             return other.source.uri == dependency->uri && other.texture;
           });
-          if (found != candidates.end())
+          if (found != candidates.end()) {
             dependency = found->lease.entry_;
+          }
         }
         std::static_pointer_cast<material_asset>(candidate.lease.entry_->resource)->textures =
             std::move(dependencies);
@@ -1060,25 +1097,27 @@ gneiss_result render_asset_loader::acquire_mesh(std::string_view uri, mesh_asset
         if (result != GNEISS_SUCCESS) {
           return result;
         }
-        const gneiss_mesh_desc desc{.struct_size = sizeof(gneiss_mesh_desc),
-                                    .vertex_count = static_cast<std::uint32_t>(vertices.size()),
-                                    .vertices = vertices.data(),
-                                    .reserved = 0,
-                                    .reserved_2 = 0,
-                                    .normal_count = static_cast<std::uint32_t>(normals.size()),
-                                    .normals = normals.empty() ? nullptr : normals.data(),
-                                    .index_count = static_cast<std::uint32_t>(indices.size()),
-                                    .reserved_3 = 0,
-                                    .indices = indices.empty() ? nullptr : indices.data(),
-                                    .tangent_count = static_cast<std::uint32_t>(tangents.size()),
-                                    .reserved_4 = 0U,
-                                    .tangents = tangents.empty() ? nullptr : tangents.data(),
-                                    .uv1_count = static_cast<std::uint32_t>(uv1.size()),
-                                    .reserved_5 = 0U,
-                                    .uv1 = uv1.empty() ? nullptr : uv1.data(),
-                                    .color_count = static_cast<std::uint32_t>(colors.size()),
-                                    .reserved_6 = 0U,
-                                    .colors = colors.empty() ? nullptr : colors.data()};
+        const gneiss_mesh_desc desc{
+            .struct_size = sizeof(gneiss_mesh_desc),
+            .vertex_count = static_cast<std::uint32_t>(vertices.size()),
+            .vertices = vertices.data(),
+            .reserved = 0,
+            .reserved_2 = 0,
+            .normal_count = static_cast<std::uint32_t>(normals.size()),
+            .normals = normals.empty() ? nullptr : normals.data(),
+            .index_count = static_cast<std::uint32_t>(indices.size()),
+            .reserved_3 = 0,
+            .indices = indices.empty() ? nullptr : indices.data(),
+            .tangent_count = static_cast<std::uint32_t>(tangents.size()),
+            .reserved_4 = 0U,
+            .tangents = tangents.empty() ? nullptr : tangents.data(),
+            .uv1_count = static_cast<std::uint32_t>(uv1.size()),
+            .reserved_5 = 0U,
+            .uv1 = uv1.empty() ? nullptr : uv1.data(),
+            .color_count = static_cast<std::uint32_t>(colors.size()),
+            .reserved_6 = 0U,
+            .colors = colors.empty() ? nullptr : colors.data(),
+        };
         gneiss_mesh rid = GNEISS_NULL_MESH;
         result = resources_.create_mesh(desc, &rid);
         if (result != GNEISS_SUCCESS) {
@@ -1119,9 +1158,15 @@ gneiss_result render_asset_loader::acquire_material(std::string_view uri,
         if (result != GNEISS_SUCCESS) {
           return result;
         }
-        material_resource material{source.color[0], source.color[1],     source.color[2],
-                                   source.color[3], GNEISS_NULL_TEXTURE, source.metallic,
-                                   source.roughness};
+        material_resource material{
+            .red = source.color[0],
+            .green = source.color[1],
+            .blue = source.color[2],
+            .alpha = source.color[3],
+            .base_color_texture = GNEISS_NULL_TEXTURE,
+            .metallic = source.metallic,
+            .roughness = source.roughness,
+        };
         material.normal_scale = source.normal_scale;
         material.occlusion_strength = source.occlusion_strength;
         material.emissive = source.emissive;
@@ -1131,11 +1176,14 @@ gneiss_result render_asset_loader::acquire_material(std::string_view uri,
         material.sampling = source.state.sampling;
 
         std::array<std::shared_ptr<const asset_internal::resource_cache::entry>, 5> dependencies;
-        constexpr std::array names{"base_color_texture", "metallic_roughness_texture",
-                                   "normal_texture", "occlusion_texture", "emissive_texture"};
+        constexpr std::array names{
+            "base_color_texture", "metallic_roughness_texture", "normal_texture",
+            "occlusion_texture",  "emissive_texture",
+        };
         for (std::size_t slot = 0; slot < source.texture_uris.size(); ++slot) {
-          if (source.texture_uris[slot].empty())
+          if (source.texture_uris[slot].empty()) {
             continue;
+          }
           texture_asset_lease texture;
           asset_diagnostic texture_diagnostic;
           result = acquire_texture(source.texture_uris[slot], texture, texture_diagnostic);
@@ -1238,13 +1286,15 @@ gneiss_result prepare_texture(const asset_internal::virtual_file_system& file_sy
              "运行纹理变体颜色空间、负载边界或 RGBA8 回退无效");
         return GNEISS_ERROR_INVALID_ARGUMENT;
       }
-      output = {.width = info.width,
-                .height = info.height,
-                .format = GNEISS_TEXTURE_FORMAT_RGBA8_UNORM,
-                .color_space = source.color_space,
-                .levels = {},
-                .manifest = std::vector<std::byte>(binary.manifest.begin(), binary.manifest.end()),
-                .payload = std::vector<std::byte>(binary.payload.begin(), binary.payload.end())};
+      output = {
+          .width = info.width,
+          .height = info.height,
+          .format = GNEISS_TEXTURE_FORMAT_RGBA8_UNORM,
+          .color_space = source.color_space,
+          .levels = {},
+          .manifest = std::vector<std::byte>(binary.manifest.begin(), binary.manifest.end()),
+          .payload = std::vector<std::byte>(binary.payload.begin(), binary.payload.end()),
+      };
 #else
       fail(out_diagnostic, GNEISS_ERROR_UNSUPPORTED, "/source",
            "当前构建未启用 Granit，无法加载运行纹理封装");

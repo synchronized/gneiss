@@ -20,9 +20,7 @@ std::size_t resource_bytes(const render_internal::render_resource_service& resou
   using render_internal::render_asset_type;
   if (lease.type() == render_asset_type::mesh) {
     const auto* mesh = resources.get_mesh(lease.get());
-    return mesh->vertices.size() * sizeof(gneiss_mesh_vertex) +
-           mesh->normals.size() * sizeof(gneiss_mesh_normal) +
-           mesh->indices.size() * sizeof(std::uint32_t);
+    return mesh->data_bytes();
   }
   if (lease.type() == render_asset_type::texture) {
     const auto* texture = resources.get_texture(lease.get());

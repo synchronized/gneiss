@@ -335,6 +335,15 @@ int main(int argc, char** argv) try {
               static_cast<unsigned long long>(peak_resident_bytes()));
   std::fflush(stdout);
   if (result != GNEISS_SUCCESS) {
+    (void)gneiss::application_internal::query_scene_retirement(app.get(), retirement);
+    const auto peak = peak_resident_bytes();
+    app = gneiss::application{};
+    std::ofstream report(prefix.string() + ".json");
+    report << "{\"result\":" << result << ",\"load_ms\":" << load_ms
+           << ",\"candidate_resident_bytes\":" << completion.progress.resident_bytes
+           << ",\"live_resources\":" << retirement.live_resources
+           << ",\"peak_resident_bytes\":" << peak
+           << ",\"retained_tasks\":" << scheduler.stats().retained << "}\n";
     return 4;
   }
   std::uint64_t nodes{};

@@ -3,6 +3,7 @@
 
 #include "application/application_asset_reload_internal.h"
 #include "application/application_scene_load_internal.h"
+#include "asset/mesh_binary.h"
 
 #include <gneiss/application.hpp>
 
@@ -27,8 +28,22 @@ struct fixture {
        std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
   fixture() {
     std::filesystem::create_directories(root);
-    std::ofstream(root / "mesh.json")
-        << R"({"format":"gneiss.mesh","version":1,"topology":"triangle_list","vertices":[[0,0,0],[1,0,0],[0,1,0]]})";
+    asset_internal::mesh_binary_data mesh;
+    mesh.vertices = {{{0, 0, 0}, {0, 0}, {0, 0, 1}},
+                     {{1, 0, 0}, {1, 0}, {0, 0, 1}},
+                     {{0, 1, 0}, {0, 1}, {0, 0, 1}}};
+    mesh.indices = {0, 1, 2};
+    mesh.tangents.assign(3, {1, 0, 0, 1});
+    mesh.uv1.assign(3, {0.5F, 0.5F});
+    mesh.colors.assign(3, {1, 1, 1, 1});
+    std::vector<std::byte> bytes;
+    asset_internal::mesh_binary_diagnostic diagnostic;
+    check(asset_internal::encode_mesh_binary(mesh, bytes, diagnostic) ==
+          asset_internal::mesh_binary_result::success);
+    std::ofstream output(root / "mesh.json", std::ios::binary);
+    output.write(reinterpret_cast<const char*>(bytes.data()),
+                 static_cast<std::streamsize>(bytes.size()));
+    output.close();
     std::ofstream(root / "material.json")
         << R"({"format":"gneiss.material","version":1,"color":[1,0,0,1]})";
     std::ofstream(root / "scene.json")
@@ -84,7 +99,9 @@ void run(tasks::execution_mode mode) {
     }
     throw std::runtime_error("等待场景阶段超时");
   };
-  (void)await_phase(scene_load_phase::ready);
+  const auto prepared = await_phase(scene_load_phase::ready);
+  // v3 的三顶点共 216 B，索引 12 B；不得漏算切线、UV1、颜色的 120 B。
+  check(prepared.resident_bytes == 228U + sizeof(render_internal::material_resource));
   gneiss_world observed{};
   check(gneiss_application_get_world(app.get(), &observed) == GNEISS_SUCCESS &&
         observed == old_world);
