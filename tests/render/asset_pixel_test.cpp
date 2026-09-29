@@ -515,6 +515,11 @@ void run_scene(tasks::execution_mode mode, bool pbr = false) {
 }
 }
 int main(int argc, char* argv[]) try {
+  if (argc == 2 && std::string_view{argv[1]} == "--probe-mask") {
+    const auto pixel = state_pixel({.mode = "MASK", .alpha = 0.25F});
+    std::printf("mask probe: %u,%u,%u\n", pixel[0], pixel[1], pixel[2]);
+    return 0;
+  }
   if (argc == 2 && std::string_view{argv[1]} == "--probe-negative-scale") {
     const auto white = std::array{std::byte{255}, std::byte{255}, std::byte{255}, std::byte{255}};
     const auto positive_visible = material_pixel("emissive_texture", white);

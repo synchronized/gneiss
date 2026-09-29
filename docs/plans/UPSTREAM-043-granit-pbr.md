@@ -14,7 +14,8 @@ U43-04 的负缩放探针已进入普通 CTest 并通过：不再反转索引，
 U43-01/02/03/05 已接通数据、导入与 GPU。小夹具通过 MASK 阈值、双面可见性、顶点颜色/Alpha、
 UV1、clamp/mirror、BLEND Alpha 0/0.5、两层透明顺序及不透明遮挡像素检查。
 Windows 本地共享/静态回归、日常 Sponza 重复加载与交互通过；完整 4K 明确预算拒绝并回收。
-Linux 像素测试崩溃仍待诊断，不能归因为已证实的上游缺陷；Actions 额度阻塞复跑，尚未发布。
+2026-09-30 已将 Linux 崩溃定位到 MASK 首帧；本地 Vulkan 校验进一步确认 U43-06/07 两处
+上游契约错误，详见下文。尚未修改 Granit，0.43 发布继续等待修复与复验。
 接入见 [M-283](../records/M-283-granit-0.42-material-states.md)，最新门禁见
 [M-284～M-285](../records/M-284-285-0.43.0-validation.md)。
 以下需求及 v0.39.0 状态/复现证据为历史记录，以本段接入状态为准。
@@ -110,3 +111,66 @@ Linux 像素测试崩溃仍待诊断，不能归因为已证实的上游缺陷�
 Editor 诊断及场景材质转换属于 Gneiss。本轮未证实这些需要上游新增能力，不应整体下沉为 Granit Import Service。
 本轮另修复 Gneiss 自身的 Mip 采样限制：采样器最大 LOD 与纹理 View 的层数都必须开放完整链；
 不要求 Granit 修改已正确公开的采样器和 View API。
+
+## U43-06：MASK 阴影顶点阶段的材质常量可见性
+
+- 状态：已提出（2026-09-30 会话）；P0，阻塞 0.43 发布。建议 PR 目标为 Granit `main`，
+  最小范围是修正标准 MASK 阴影 Shader 与材质布局的阶段契约，并补验证层回归。
+- 复现版本：v0.42.0，SHA `29a4f18a67a8f506c585f0f515d93ddc406d7426`。
+  Gneiss [Linux 诊断矩阵](https://github.com/synchronized/gneiss/actions/runs/36595776652)
+  的共享/静态组都在首个 MASK Alpha 0.25 用例崩溃，OPAQUE 和五槽通道此前通过。
+  GDB 显示软件 Vulkan 工作线程 SIGSEGV，提交线程在等待 GPU 完成；仅凭该栈不足以归因。
+- 确认依据：Windows / Intel UHD 630 / Vulkan SDK 1.4.321.1 开启校验层，报
+  `VUID-VkGraphicsPipelineCreateInfo-layout-07988`：Set 1 / Binding 0 的 MaterialConstants
+  在顶点阶段读取，布局 `stageFlags` 却仅有 FRAGMENT。
+- 源码对应：`assets/sources/shaders/pipeline/shadow_depth.hlsl` 的 `mask_vertex_main`
+  在 UV1 变体读取 `uv1_mask`；`src/material/material_template_gpu.cpp` 的材质常量布局
+  固定为 `GRANIT_SHADER_STAGE_FRAGMENT_BIT`。Gneiss 的 72 字节顶点布局启用 UV1/Color
+  变体，即使当前槽选 UV0，也会使用该 Shader 分支；这是合法输入，不能靠隐藏属性回避。
+- 建议修复：统一常量的阶段可见性，或让阴影顶点输出两个 UV，在片元阶段读取材质并选择 UV。
+  由上游选择符合长期布局契约的方案，不要求修改 Gneiss 资产格式或复制私有 Shader。
+- 接口行为：合法的 MASK + UV1/Color 组合应能创建、绘制与回收；无 Vulkan validation error。
+  不能依靠驱动容忍非法布局，不能将崩溃改成静默丢失阴影。
+- 验收：UV0/UV1、无色/顶点 Alpha、cutoff 两侧、镜像/负缩放和纹理 Alpha，检查阴影轮廓及回收；
+  至少在 Linux Lavapipe 和一台真实 GPU 上启用校验层。修复前应复现该 VUID，修复后必须消失。
+- 通用性：标准 MASK 投影被所有 Granit PBR 调用方复用，不涉及 Gneiss RID、场景或编辑器语义。
+- Gneiss 接入：升级到含修复的固定 Granit 提交，保留现有 UV1/Color 布局，复跑像素测试与 Linux
+  共享/静态运行时。用户负责上游提交，Gneiss 本 PR 不修改上游源码。
+
+## U43-07：Shader Demote 能力与 Vulkan 设备特性不一致
+
+- 状态：已提出（2026-09-30 会话）；P0，阻塞合法 Vulkan 使用。可与 U43-06 同一修复 PR 提交，
+  但应独立验收；不声称它是本次段错误的唯一原因。
+- 证据：相同探针报 `VUID-VkShaderModuleCreateInfo-pCode-08740`，SPIR-V 声明
+  `DemoteToHelperInvocation`，设备却未启用 `shaderDemoteToHelperInvocation`。
+  `src/backend/vulkan/device.cpp` 的 Vulkan 1.3 特性只启用 synchronization2、dynamicRendering、
+  maintenance4，未启用该位。完整像素测试也出现此错误，不限于一个 MASK 实例。
+- 最小范围：核对 Shader 编译目标和设备能力协商。若生成代码依赖 demote，则查询硬件支持后明确启用；
+  不支持时在创建阶段返回明确错误或采用不依赖该特性的合法 Shader 变体。不能未经查询直接置 true。
+- 测试：支持/不支持特性两条路径，标准 Shader 的能力检查，MASK/阴影绘制无 08740；
+  保留现有功能、图像断言和错误语义，不仅检查进程退出码。
+- 通用性：这是 Vulkan Shader 与设备能力协商，适用于所有使用相关 SPIR-V 的上层项目。
+- Gneiss 接入：随固定依赖升级验证，不在 Gneiss 私自重编/改写 Granit 标准 Shader 来绕过。
+
+### 两项需求的最小复现
+
+Gneiss `feat/0.43-pbr-pipeline` 已提供 `gneiss_asset_pixel_test --probe-mask`：一个三角形，
+Material v5、MASK Alpha 0.25/cutoff 0.5、72 字节 UV1/Color 顶点、默认标准方向光与阴影。
+无第三方模型依赖。它只用于定位，不能替代完整像素验收；Windows 可能退出 0 但仍有 VUID，
+不能将退出成功视为 Vulkan 使用合法。
+
+```powershell
+cmake --build --preset windows-clang-debug --target gneiss_asset_pixel_test
+$env:VK_INSTANCE_LAYERS = 'VK_LAYER_KHRONOS_validation'
+& build/windows-clang-debug/bin/gneiss_asset_pixel_test.exe --probe-mask
+Remove-Item Env:VK_INSTANCE_LAYERS
+```
+
+Linux 使用启用 Granit 的 `linux-clang-release` 构建，在已安装 validation layers 的窗口环境下：
+
+```sh
+VK_INSTANCE_LAYERS=VK_LAYER_KHRONOS_validation xvfb-run -a \
+  build/linux-clang-release/bin/gneiss_asset_pixel_test --probe-mask
+```
+
+精简原始输出见[校验日志](../records/artifacts/0.43-mask-vulkan-validation.log)。
