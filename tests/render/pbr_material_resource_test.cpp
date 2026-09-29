@@ -8,23 +8,6 @@
 #include <cstdint>
 #include <limits>
 
-namespace {
-
-// 精确保留扩展前布局，检查旧调用方的描述不会读取到边界外。
-struct legacy_material_desc {
-  std::uint32_t struct_size;
-  std::uint32_t reserved;
-  float red;
-  float green;
-  float blue;
-  float alpha;
-  gneiss_texture base_color_texture;
-  float metallic;
-  float roughness;
-};
-
-} // namespace
-
 int main() {
   using gneiss::render_internal::render_resource_service;
   render_resource_service resources;
@@ -101,11 +84,13 @@ int main() {
   if (resources.create_material(desc, &material) != GNEISS_ERROR_INVALID_ARGUMENT) {
     return 9;
   }
-  legacy_material_desc old{
-      sizeof(legacy_material_desc), 0U, 1.0F, 1.0F, 1.0F, 1.0F, texture, 0.0F, 1.0F};
-  static_assert(sizeof(old) == GNEISS_MATERIAL_DESC_VERSION_1_SIZE);
-  // create_material 只按 struct_size 读取旧布局；Sanitizer 验证没有读取尾部新字段。
-  const auto& legacy = *reinterpret_cast<const gneiss_material_desc*>(&old);
+  // 使用真实描述对象模拟旧调用方；尾部放入非法值，验证旧大小不会使用新增字段。
+  gneiss_material_desc legacy = GNEISS_MATERIAL_DESC_INIT;
+  legacy.struct_size = GNEISS_MATERIAL_DESC_VERSION_1_SIZE;
+  legacy.base_color_texture = texture;
+  legacy.normal_scale = std::numeric_limits<float>::quiet_NaN();
+  legacy.normal_texture = foreign;
+  legacy.alpha_mode = UINT32_MAX;
   if (resources.create_material(legacy, &material) != GNEISS_SUCCESS) {
     return 10;
   }

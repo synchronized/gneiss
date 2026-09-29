@@ -5,7 +5,6 @@
 
 #include <granit/renderer/shader_library.h>
 
-#include <array>
 #include <cstdint>
 #include <fstream>
 #include <limits>
@@ -13,12 +12,12 @@
 namespace gneiss::application_internal {
 namespace {
 
-constexpr auto shader_library_bytes = std::to_array<std::uint8_t>({
+constexpr std::uint8_t shader_library_bytes[] = {
 #include "pbr_standard.grshlib.inc"
-});
-constexpr auto material_archive_bytes = std::to_array<std::uint8_t>({
+};
+constexpr std::uint8_t material_archive_bytes[] = {
 #include "pbr_standard.grmat.inc"
-});
+};
 
 } // namespace
 
