@@ -6,18 +6,20 @@
 ## 资源生命周期
 
 Mesh、Material 和 Texture 由 Application 的 Resource Service 独占。`gneiss_mesh_create` 会在调用
-期间复制顶点、可选法线、切线及可选 UInt32 索引；调用返回后，调用方可以立即释放源数据。Mesh 至少需要
+期间复制顶点、可选法线、切线、UV1、顶点色及可选 UInt32 索引；调用返回后，调用方可以立即释放源数据。Mesh 至少需要
 三个有限值顶点。索引非空时数量必须至少为三个且为三的倍数，所有索引必须小于顶点数；索引为空时
 顶点按 Triangle List 顺序解释。法线必须与顶点一一对应、保持有限且归一化；不提供法线的旧 Mesh
 使用无光照兼容路径。
 
 切线 XYZ 必须归一化并与对应法线正交，W 为 `+1/-1`，数量必须与顶点一致。旧描述大小由
-`GNEISS_MESH_DESC_VERSION_1_SIZE` 标识，按缺省切线处理，不读取新增尾部。
+`GNEISS_MESH_DESC_VERSION_1_SIZE` 标识，按缺省切线处理；Version 2 保留切线、缺省 UV1/顶点色。
+新增属性的数量、有限值及缺省规则见[资产格式](render-asset-formats.md)，不读取旧描述尾部。
 
 Material 保存线性 RGBA、金属度、粗糙度、五类 PBR Texture RID 及法线/AO/自发光因子，
 字段范围与纹理用途见 [Render 资产格式](render-asset-formats.md#material)。创建不转移 Texture 所有权；
 直接使用 C API 时调用方必须维持依赖有效，资产 Loader 的 Material 租约则持有全部 Texture 租约。
-`GNEISS_MATERIAL_DESC_VERSION_1_SIZE` 兼容旧描述，新增字段使用中性默认值。
+`GNEISS_MATERIAL_DESC_VERSION_1_SIZE` 与 Version 2 兼容旧描述，新增字段使用中性默认值。
+当前描述支持逐槽 UV0/UV1 与采样器、OPAQUE/MASK/BLEND、Alpha Cutoff 和双面。
 
 `gneiss_texture_create` 当前只接受二维 RGBA8 像素，并显式区分线性与 sRGB 颜色空间。宽高必须位于
 `1..16384`，解码后的紧凑像素总量不得超过 256 MiB；行跨度至少为 `width * 4`，输入缓冲区必须覆盖
@@ -75,9 +77,10 @@ metallic-roughness、normal、occlusion、emissive 五槽和对应因子；未�
 不带法线的旧网格仍使用无光照路径。
 
 base color/emissive 的 sRGB 采样转换为线性空间，其余槽使用线性数据。Cook 资产携带完整 Mip 链，
-场景采样采用 repeat/trilinear。CPU 资产准备及 GPU 上传、候选提交与旧帧持有由现有资产加载链路管理。
-负缩放法线贴图、透明、双面、多 UV 等未完成项见 [上游跟踪](../plans/UPSTREAM-043-granit-pbr.md)，
-不将五槽绑定等同于完整 glTF 材质支持。
+场景按材质逐槽选择 UV、寻址和过滤，缺省为 repeat/trilinear。CPU 资产准备及 GPU 上传、候选提交
+与旧帧持有由现有资产加载链路管理。负缩放切线空间、UV1、顶点色、MASK 阴影及双面可见性已有 GPU 回归；
+BLEND 使用对象级排序和标准透明阶段，不能解决相交三角形或折射，不承诺双面阴影的完整语义。
+已接入项与限制见[上游跟踪](../plans/UPSTREAM-043-granit-pbr.md)，不等同于完整 glTF 材质支持。
 
 存在当前帧 UI Draw List 时，Granit 后端在场景 Rendering 结束后通过 Granit Canvas 将 UI 录制到
 同一颜色附件，附件使用 `LOAD` 保留场景结果，整帧仍只提交和 Present 一次。Gneiss 在后端内部将

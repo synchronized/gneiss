@@ -186,7 +186,7 @@ Cook 对 sRGB 颜色先解码至线性光域再过滤；线性数据直接过滤
 相消时回退为 +Z。Alpha 始终线性过滤，奇数尺寸使用面积权重覆盖边缘像素。
 glTF 同图跨颜色/数据/法线用途时生成独立派生路径，MR 与 AO 共用 linear 变体，
 base color 与 emissive 共用 sRGB 变体。纹理处理器版本与用途均进入缓存身份。
-Mesh 的 repeat/trilinear 采样允许访问完整 Mip 链；尚未 Cook 的 PNG 兼容路径仍只有基础级。
+材质按逐槽 Mip 过滤设置访问 Mip 链；尚未 Cook 的 PNG 兼容路径仍只有基础级。
 
 0.34.0 的运行容器只接受二维、单层、单面、无超级压缩的 `R8G8B8A8_UNORM` 或
 `R8G8B8A8_SRGB` KTX2。Runtime 校验标识、DFD 传递函数、完整 Mip 数量、Level Index 范围和每级
@@ -194,7 +194,7 @@ Mesh 的 repeat/trilinear 采样允许访问完整 Mip 链；尚未 Cook 的 PNG
 
 `.gneiss-texture` 包含 Gneiss 外层 Header、Granit Texture Asset Manifest、BC7 优选负载和 RGBA8
 回退负载。两种变体使用相同完整 Mip 链；颜色空间决定对应的 UNORM 或 SRGB GPU 格式。编辑器直接
-运行尚未 Cook 的作者工程时保留 PNG 兼容路径。PNG 解码、Mip 生成和 BC7 编码只存在于工具路径。
+运行尚未 Cook 的作者工程时保留 PNG 兼容路径。PNG 兼容加载包含 CPU 解码；Mip 生成和 BC7 编码只存在于工具路径。
 
 运行纹理封装的 Runtime 加载要求启用 `GNEISS_ENABLE_GRANIT_PLATFORM`；关闭时返回
 `GNEISS_ERROR_UNSUPPORTED` 并定位到 `/source`，不创建纹理 RID。PNG 与 KTX2 的 CPU 加载仍可用。

@@ -326,6 +326,8 @@
 - [M-27 图片解码器 Spike 记录](records/M-27-image-decoder-spike.md)
 - [M-31 工具能力重新评估记录](records/M-31-tooling-reevaluation.md)
 
+- [M-284～M-285：0.43.0 PBR 与发布验收](records/M-284-285-0.43.0-validation.md)
+
 ## 文档维护
 
 
