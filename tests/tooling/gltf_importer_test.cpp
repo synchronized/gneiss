@@ -16,7 +16,7 @@ bool checks_material_states(const std::filesystem::path& root) {
   const std::string source{std::istreambuf_iterator<char>{stream},
                            std::istreambuf_iterator<char>{}};
   const auto temporary = std::filesystem::temp_directory_path() / "gneiss-pbr-scope-test.gltf";
-  const std::array<std::pair<std::string, std::string>, 6> changes{{
+  const std::array<std::pair<std::string, std::string>, 7> changes{{
       {"\"name\": \"Stone\"", "\"name\": \"Stone\", \"alphaMode\": \"BLEND\""},
       {"\"name\": \"Stone\"", "\"name\": \"Stone\", \"alphaMode\": \"MASK\""},
       {"\"name\": \"Stone\"", "\"name\": \"Stone\", \"doubleSided\": true"},
@@ -24,6 +24,7 @@ bool checks_material_states(const std::filesystem::path& root) {
       {"\"TEXCOORD_0\": 2", "\"TEXCOORD_0\": 2, \"COLOR_0\": 1"},
       {"\"textures\": [{\"source\": 0}]",
        "\"samplers\": [{\"wrapS\": 33071}], \"textures\": [{\"source\": 0, \"sampler\": 0}]"},
+      {"\"name\": \"Stone\"", "\"name\": \"Stone\", \"emissiveFactor\": [1.00000012,0,0]"},
   }};
   std::size_t case_index = 0;
   for (const auto& [from, to] : changes) {
@@ -46,6 +47,8 @@ bool checks_material_states(const std::filesystem::path& root) {
       if (report.result != inspect_result::success || report.data.materials.empty())
         return false;
       const auto& material = report.data.materials[0];
+      if (case_index == 6U && (material.emissive[0] != 1.0F || report.diagnostic.empty()))
+        return false;
       if ((case_index == 0U && material.alpha_mode != GNEISS_MATERIAL_ALPHA_BLEND) ||
           (case_index == 1U && material.alpha_mode != GNEISS_MATERIAL_ALPHA_MASK) ||
           (case_index == 2U && material.double_sided != 1U) ||

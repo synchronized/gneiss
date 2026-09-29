@@ -30,6 +30,8 @@ Windows Clang Debug / Intel UHD 630：
 - 输入修正后专项：9/9，11.95 秒；包含 glTF、Writer、Mesh Binary、材质资源、Loader、GPU 与负缩放。
 - 追加透明层次后的像素测试：1/1，11.52 秒。检查 MASK 阈值、顶点 Alpha、双面可见性、
   UV0/UV1、repeat/clamp/mirror、BLEND Alpha 0/0.5、两层透明提交顺序无关、不透明前景遮挡。
+- 静态 Debug 完整 CTest：159/159，103.45 秒，包含 C/C++ 头文件、安装消费者及上述 GPU 回归。
+  后补一 ULP 输入回归 1/1；UV1/颜色资源数量、值域与旧描述布局回归通过。
 - 原有像素测试继续检查五纹理通道、Mip、异步重载/场景候选与正负缩放。
 
 Sponza 日常输入沿用 0.42 审计身份，另写 `0.43-daily-assets-2`，没有覆盖旧基线。
@@ -52,6 +54,6 @@ Sponza 日常输入沿用 0.42 审计身份，另写 `0.43-daily-assets-2`，没
 
 ## 未完成验收
 
-静态库/安装消费者复验、Linux/Sanitizer/Web 发布矩阵、完整 Sponza 预算与重复采样、
+Linux/Sanitizer/Web 发布矩阵、完整 Sponza 预算与重复采样、
 连续切换/取消重试/窗口退出，以及双面照明与 MASK 阴影轮廓仍需完成。
 完整输入仅基础 RGBA8 贴图已超过现有 2 GiB 候选预算，不能以静默丢图或临时抬高预算代替验收。
