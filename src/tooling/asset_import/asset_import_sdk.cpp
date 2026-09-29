@@ -150,7 +150,7 @@ import_asset_report import_project_asset(const import_asset_request& request) {
             .source_key = source_key,
             .output_directory = output_directory,
             .output_uris = collect_output_uris(inspected.data, source_key),
-            .diagnostic = {}};
+            .diagnostic = std::move(inspected.diagnostic)};
   } catch (const std::exception& error) {
     return failure(import_asset_result::source_unavailable,
                    std::string{"解析导入路径失败："} + error.what());

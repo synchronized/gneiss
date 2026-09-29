@@ -46,6 +46,10 @@ void configure(std::ostream& stream) {
   data.indices = primitive.indices;
   for (const auto& source : primitive.vertices) {
     data.tangents.push_back(source.tangent);
+    if (primitive.has_uv1)
+      data.uv1.push_back(source.uv1);
+    if (primitive.has_color)
+      data.colors.push_back(source.color);
     data.vertices.push_back(
         {.position = {source.position[0], source.position[1], source.position[2]},
          .texcoord = {source.texcoord[0], source.texcoord[1]},
@@ -74,7 +78,7 @@ void configure(std::ostream& stream) {
     return false;
   }
   configure(stream);
-  stream << "{\n  \"format\": \"gneiss.material\",\n  \"version\": 4,\n  \"color\": ["
+  stream << "{\n  \"format\": \"gneiss.material\",\n  \"version\": 5,\n  \"color\": ["
          << material.base_color[0] << ',' << material.base_color[1] << ',' << material.base_color[2]
          << ',' << material.base_color[3] << ']';
   stream << ",\n  \"base_color_texture\": ";
@@ -101,7 +105,21 @@ void configure(std::ostream& stream) {
   stream << ",\n  \"normal_scale\": " << material.normal_scale
          << ",\n  \"occlusion_strength\": " << material.occlusion_strength << ",\n  \"emissive\": ["
          << material.emissive[0] << ',' << material.emissive[1] << ',' << material.emissive[2]
-         << "]\n}\n";
+         << "],\n  \"alpha_mode\": \""
+         << (material.alpha_mode == GNEISS_MATERIAL_ALPHA_BLEND
+                 ? "BLEND"
+                 : (material.alpha_mode == GNEISS_MATERIAL_ALPHA_MASK ? "MASK" : "OPAQUE"))
+         << "\",\n  \"double_sided\": " << (material.double_sided != 0U ? "true" : "false")
+         << ",\n  \"alpha_cutoff\": " << material.alpha_cutoff << ",\n  \"sampling\": [";
+  for (std::size_t slot = 0; slot < material.sampling.size(); ++slot) {
+    const auto& s = material.sampling[slot];
+    if (slot != 0U)
+      stream << ',';
+    stream << "{\"uv_set\":" << s.uv_set << ",\"mag_filter\":" << s.mag_filter
+           << ",\"min_filter\":" << s.min_filter << ",\"mip_filter\":" << s.mip_filter
+           << ",\"address_u\":" << s.address_u << ",\"address_v\":" << s.address_v << '}';
+  }
+  stream << "]\n}\n";
   return stream.good();
 }
 

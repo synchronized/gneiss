@@ -56,7 +56,11 @@ std::optional<std::string> generate_tangents(import_ir_primitive& primitive) {
   };
   callbacks.m_getTexCoord = [](const SMikkTSpaceContext* source, float output[], int face,
                                int corner) {
-    std::ranges::copy(vertex(source, face, corner).texcoord, output);
+    const auto& value = vertex(source, face, corner);
+    if (context(source).primitive.tangent_uv_set == 1U)
+      std::ranges::copy(value.uv1, output);
+    else
+      std::ranges::copy(value.texcoord, output);
   };
   callbacks.m_setTSpaceBasic = [](const SMikkTSpaceContext* source, const float tangent[],
                                   float sign, int face, int corner) {

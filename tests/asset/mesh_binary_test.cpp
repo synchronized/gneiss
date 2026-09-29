@@ -57,7 +57,7 @@ int main() { // NOLINT(bugprone-exception-escape)
   }
 
   auto unsupported = encoded;
-  write_u16(unsupported, 4U, 3U);
+  write_u16(unsupported, 4U, 4U);
   if (asset::decode_mesh_binary(unsupported, decoded, diagnostic) !=
           asset::mesh_binary_result::unsupported_version ||
       diagnostic.byte_offset != 4U) {
@@ -116,5 +116,23 @@ int main() { // NOLINT(bugprone-exception-escape)
   if (asset::encode_mesh_binary(source, encoded, diagnostic) !=
       asset::mesh_binary_result::invalid_data)
     return 12;
+  source.tangents[0][2] = 0.0F;
+  source.uv1 = {{0, 1}, {1, 0}, {0.25F, 0.75F}};
+  source.colors = {{1, 0, 0, 1}, {0, 1, 0, 0.5F}, {0, 0, 1, 0}};
+  if (asset::encode_mesh_binary(source, encoded, diagnostic) !=
+          asset::mesh_binary_result::success ||
+      asset::decode_mesh_binary(encoded, decoded, diagnostic) !=
+          asset::mesh_binary_result::success ||
+      decoded.uv1 != source.uv1 || decoded.colors != source.colors || encoded.size() != 316U)
+    return 13;
+  source.colors[0][0] = 2.0F;
+  if (asset::encode_mesh_binary(source, encoded, diagnostic) !=
+      asset::mesh_binary_result::invalid_data)
+    return 14;
+  source.colors.clear();
+  source.uv1.pop_back();
+  if (asset::encode_mesh_binary(source, encoded, diagnostic) !=
+      asset::mesh_binary_result::invalid_data)
+    return 15;
   return 0;
 }

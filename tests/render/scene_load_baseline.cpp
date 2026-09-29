@@ -258,6 +258,8 @@ int main(int argc, char** argv) try {
       if (finished || result != GNEISS_SUCCESS) {
         if (finished) {
           result = completion.result;
+          if (result != GNEISS_SUCCESS)
+            std::fprintf(stderr, "scene preparation: %s\n", completion.message.c_str());
           activation_elapsed_ms = milliseconds(start);
           if (preserve &&
               ((scenario == "failure" && completion.progress.phase == scene_load_phase::failed) ||

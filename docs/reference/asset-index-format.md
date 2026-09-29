@@ -33,7 +33,7 @@
   "source": "models/lantern.glb",
   "source_key": "0123456789abcdef",
   "importer": "gneiss.gltf",
-  "importer_version": 2,
+  "importer_version": 3,
   "hash": "fnv1a64:0123456789abcdef",
   "state": "ready",
   "outputs": [

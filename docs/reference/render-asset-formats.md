@@ -6,7 +6,7 @@
 Runtime Mesh 优先使用二进制；旧 Mesh、Material 与 Texture 描述使用严格 UTF-8 JSON。所有格式仅由
 内部 Loader 使用，资源 URI 规则见[资产 URI、目录挂载与缓存](assets.md)。
 
-## Mesh Binary v1 / v2
+## Mesh Binary v1 / v2 / v3
 
 建议扩展名为 `.gneiss-mesh`。多字节整数与 IEEE 754 Float32 固定使用小端序，所有 Offset 相对
 文件起点。Header 固定为 80 字节：
@@ -35,7 +35,12 @@ Runtime Mesh 优先使用二进制；旧 Mesh、Material 与 Texture 描述使�
 v2 保留 Header 布局，`version=2`、`vertex_stride=48`，在每顶点的 Normal 后追加 Tangent Float4。
 XYZ 必须为单位切线并与法线正交（误差 `1e-4`），W 必须精确为 `+1` 或 `-1`。
 新 glTF 导入器保留作者手性并正交化切线；缺失时使用 MikkTSpace 生成，在 UV 镜像接缝拆点。
+有限但与法线共线的作者切线按 Primitive 重生成并记录诊断；非有限值、非法手性或
 无法生成有效切线时导入失败；无切线的旧 v1 文件仍能读取，不具备准确的法线贴图基础。
+
+v3 保留 Header，步长为 72 字节：在 v2 后追加 UV1 Float2、线性 RGBA Color Float4。
+`flags` 位 0/1 分别表示 UV1/Color 存在，值必须为 1..3；缺失槽填零 UV / 白色。
+UV 必须有限，颜色分量位于 0..1；数组数量与顶点一致。存在扩展属性时导入输出 v3，否则输出 v2。
 
 `gneiss_assetc inspect` 输出摘要，`validate` 只校验，`dump <file> --format json` 按需生成完整 Debug
 JSON。Debug JSON 的格式标识为 `gneiss.mesh.debug`，不是 Runtime 输入。
@@ -73,7 +78,7 @@ Mesh v2 保留 `vertices`，并增加数量必须与顶点一致的 `uvs`；每�
 ```
 
 UV 的两个分量必须为有限 float，允许负数和大于 `1` 的平铺坐标，不进行截断或取模。
-当前 Mesh 材质采样使用重复寻址。
+采样寻址由 Material 决定，旧版本默认重复寻址。
 
 Mesh v3 继续要求 `uvs`，并增加数量与顶点一致的单位 `normals`；每项是右手坐标中的 `(x, y, z)`：
 
@@ -141,10 +146,23 @@ Material v4 在 v3 基础上增加可选的 `metallic_roughness_texture`、`norm
 基础颜色和自发光纹理应声明 sRGB，其余槽声明 linear。材质租约和帧快照保留所有纹理依赖，
 异步材质重载将全部依赖作为一个事务准备；任一项失败不会发布部分材质。
 
-glTF 导入输出 v4 并保留上述五类纹理及因子。当前不支持透明、镂空、双面、顶点色、多 UV
-以及非 repeat/linear/trilinear 采样，遇到这些输入会明确诊断而不无声丢弃。
-法线贴图还需要有效的网格切线；负缩放实例的后端手性缺口见
-[上游清单](../plans/UPSTREAM-043-granit-pbr.md#u43-04负缩放下切线空间手性)。
+Material v5 保留 v4 字段，新增可选 `alpha_mode`（`OPAQUE` 默认、`MASK`、`BLEND`）、
+`double_sided`（默认 false）、`alpha_cutoff`（默认 0.5，有限非负）以及 `sampling`。
+`sampling` 省略时五槽均使用 UV0、linear、trilinear、repeat；提供时必须为五项数组，顺序为
+base color、MR、normal、AO、emissive，每项要求以下六个整数：
+
+| 字段 | 值 |
+| --- | --- |
+| `uv_set` | 0 或 1；引用 UV1 时网格必须提供 UV1 |
+| `mag_filter` / `min_filter` | 0 nearest、1 linear |
+| `mip_filter` | 0 禁用 Mip、1 nearest、2 linear |
+| `address_u` / `address_v` | 0 repeat、1 clamp、2 mirror |
+
+glTF 导入输出 v5，保留五类纹理、逐槽 UV/采样、Alpha 模式、双面及 COLOR_0。
+UV2 及以上显式拒绝；法线缺切线时按其所用 UV 集生成。透明由 Granit 在每 View 的不透明阶段后
+进行对象级排序；不保证相交三角形的精确透明顺序，不包含折射/OIT。旧 v1–v4 材质保持 OPAQUE 默认。
+GPU 使用统一包含 UV1/Color 的布局与对应标准变体；缺失顶点色补白色，基础颜色与 Alpha 各乘一次。
+负缩放的绕序与切线空间修正由 Granit 公共管线处理。
 
 ## Texture
 

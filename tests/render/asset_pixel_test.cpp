@@ -165,6 +165,133 @@ std::array<unsigned, 3> material_pixel(std::string_view slot, std::array<std::by
           std::to_integer<unsigned>(image.pixels[offset + 2U])};
 }
 
+struct state_case {
+  std::string_view mode{"OPAQUE"};
+  float alpha{1};
+  float cutoff{0.5F};
+  bool back{};
+  bool double_sided{};
+  std::array<float, 4> color{1, 1, 1, 1};
+  unsigned uv_set{};
+  unsigned wrap{};
+  bool layers{};
+  bool reverse_submission{};
+  bool foreground{};
+};
+std::array<unsigned, 3> state_pixel(const state_case& test) {
+  fixture files;
+  std::ofstream material(files.root / "m.material.json");
+  material
+      << R"({"format":"gneiss.material","version":5,"color":[1,1,1,)" << test.alpha
+      << R"(],"base_color_texture":"asset://t.texture.json","metallic":0,"roughness":1,"alpha_mode":")"
+      << test.mode << R"(","alpha_cutoff":)" << test.cutoff << R"(,"double_sided":)"
+      << (test.double_sided ? "true" : "false") << R"(,"sampling":[)";
+  for (unsigned i = 0; i < 5; ++i) {
+    material << (i == 0 ? "" : ",") << R"({"uv_set":)" << (i == 0 ? test.uv_set : 0)
+             << R"(,"mag_filter":0,"min_filter":0,"mip_filter":0,"address_u":)" << test.wrap
+             << R"(,"address_v":0})";
+  }
+  material << "]}";
+  material.close();
+  asset_internal::mesh_binary_data mesh;
+  mesh.vertices = {{{-0.8F, -0.7F, 0}, {1.25F, 0.5F}, {0, 0, 1}},
+                   {{0.8F, -0.7F, 0}, {1.25F, 0.5F}, {0, 0, 1}},
+                   {{0, 0.8F, 0}, {1.25F, 0.5F}, {0, 0, 1}}};
+  mesh.indices =
+      test.back ? std::vector<std::uint32_t>{2, 1, 0} : std::vector<std::uint32_t>{0, 1, 2};
+  mesh.tangents.assign(3, {1, 0, 0, 1});
+  mesh.uv1.assign(3, {0.75F, 0.5F});
+  mesh.colors.assign(3, test.color);
+  std::vector<std::byte> bytes;
+  asset_internal::mesh_binary_diagnostic diagnostic;
+  check(asset_internal::encode_mesh_binary(mesh, bytes, diagnostic) ==
+        asset_internal::mesh_binary_result::success);
+  {
+    std::ofstream output(files.root / "g.mesh.json", std::ios::binary);
+    output.write(reinterpret_cast<const char*>(bytes.data()),
+                 static_cast<std::streamsize>(bytes.size()));
+  }
+  std::string message;
+  check(
+      asset_internal::encode_texture_ktx2(
+          {.transfer = asset_internal::texture_transfer::srgb,
+           .levels = {{.width = 2,
+                       .height = 1,
+                       .pixels = {std::byte{255}, std::byte{0}, std::byte{0}, std::byte{255},
+                                  std::byte{0}, std::byte{0}, std::byte{255}, std::byte{255}}},
+                      {.width = 1,
+                       .height = 1,
+                       .pixels = {std::byte{188}, std::byte{0}, std::byte{188}, std::byte{255}}}}},
+          bytes, message) == asset_internal::texture_ktx2_result::success);
+  {
+    std::ofstream output(files.root / "image.ktx2", std::ios::binary);
+    output.write(reinterpret_cast<const char*>(bytes.data()),
+                 static_cast<std::streamsize>(bytes.size()));
+  }
+  if (test.layers) {
+    std::ofstream(files.root / "blue.material.json")
+        << R"({"format":"gneiss.material","version":5,"color":[0,0,1,)"
+        << (test.foreground ? "1" : "0.5")
+        << R"(],"base_color_texture":null,"metallic":0,"roughness":1,"alpha_mode":")"
+        << (test.foreground ? "OPAQUE" : "BLEND") << "\"}";
+    std::ifstream input(files.root / "s.scene.json");
+    std::string scene_text{std::istreambuf_iterator<char>{input}, std::istreambuf_iterator<char>{}};
+    input.close();
+    std::string object =
+        R"({"uuid":"00000000-0000-4000-8000-000000000004","parent":null,"transform":{"translation":[0,0,)";
+    object += test.foreground ? "0.2" : "-0.2";
+    object +=
+        R"(],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":{"mesh_renderer":{"mesh":"asset://g.mesh.json","material":"asset://blue.material.json"}}})";
+    if (test.reverse_submission)
+      scene_text.insert(scene_text.find("\"objects\":[") + 11U, object + ',');
+    else
+      scene_text.insert(scene_text.rfind("],\"prefab_instances\""), ',' + object);
+    std::ofstream(files.root / "s.scene.json") << scene_text;
+  }
+  application app;
+  const auto root = files.root.string();
+  auto desc = gneiss_application_desc GNEISS_APPLICATION_DESC_INIT;
+  desc.platform = GNEISS_APPLICATION_PLATFORM_GRANIT;
+  desc.asset_root = root.data();
+  desc.asset_root_length = static_cast<std::uint32_t>(root.size());
+  check(application::create(desc, app) == result::success);
+  constexpr std::string_view uri = "asset://s.scene.json";
+  gneiss_scene_instance scene{};
+  check(gneiss_scene_instance_load(app.get(), uri.data(), uri.size(), &scene) == GNEISS_SUCCESS);
+  check(app.run(3U) == result::success);
+  render_internal::frame_image image;
+  check(application_internal::capture_frame(app.get(), 128U, 128U, image) == GNEISS_SUCCESS);
+  constexpr auto offset = (64U * 128U + 64U) * 4U;
+  return {std::to_integer<unsigned>(image.pixels[offset]),
+          std::to_integer<unsigned>(image.pixels[offset + 1]),
+          std::to_integer<unsigned>(image.pixels[offset + 2])};
+}
+void run_material_states() {
+  const auto opaque = state_pixel({});
+  const auto background = state_pixel({.mode = "MASK", .alpha = 0.25F});
+  check(opaque != background);
+  check(state_pixel({.mode = "MASK", .alpha = 0.75F}) == opaque);
+  check(state_pixel({.mode = "MASK", .alpha = 0.75F, .cutoff = 0.9F}) == background);
+  check(state_pixel({.back = true}) == background);
+  check(state_pixel({.back = true, .double_sided = true}) != background);
+  check(state_pixel({.color = {0, 0, 0, 1}})[0] < opaque[0]);
+  check(state_pixel({.mode = "MASK", .color = {1, 1, 1, 0.25F}}) == background);
+  const auto uv1 = state_pixel({.uv_set = 1});
+  check(opaque[0] > opaque[2] + 30U && uv1[2] > uv1[0] + 30U);
+  check(state_pixel({.wrap = 1}) == uv1);
+  check(state_pixel({.wrap = 2}) == uv1);
+  check(state_pixel({.mode = "BLEND", .alpha = 0}) == background);
+  const auto blend = state_pixel({.mode = "BLEND", .alpha = 0.5F});
+  check(blend != opaque && blend != background);
+  const auto layers = state_pixel({.mode = "BLEND", .alpha = 0.5F, .layers = true});
+  check(layers ==
+        state_pixel({.mode = "BLEND", .alpha = 0.5F, .layers = true, .reverse_submission = true}));
+  check(layers[0] > layers[2]);
+  const auto foreground =
+      state_pixel({.mode = "BLEND", .alpha = 0.5F, .layers = true, .foreground = true});
+  check(foreground[2] > foreground[0] + 30U);
+}
+
 void run_material_channels() {
   constexpr auto zero = std::byte{0};
   constexpr auto half = std::byte{128};
@@ -395,6 +522,7 @@ int main(int argc, char* argv[]) try {
   }
   run_mip_sampling();
   run_material_channels();
+  run_material_states();
   run(gneiss::tasks::execution_mode::thread_pool, true);
   run(gneiss::tasks::execution_mode::cooperative, true);
   run_scene(gneiss::tasks::execution_mode::thread_pool, true);

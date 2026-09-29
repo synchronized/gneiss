@@ -199,12 +199,6 @@ void copy_image_bytes(const fastgltf::Asset& asset, const fastgltf::Image& image
     }
   }
   for (const auto& material : asset.materials) {
-    if (material.alphaMode != fastgltf::AlphaMode::Opaque) {
-      return "标准 PBR 尚不支持 MASK/BLEND，已记录上游需求 U43-01/U43-02";
-    }
-    if (material.doubleSided) {
-      return "标准 PBR 尚不支持双面法线语义，已记录上游需求 U43-02";
-    }
     for (std::size_t index = 0; index < 4U; ++index) {
       if (!std::isfinite(material.pbrData.baseColorFactor[index])) {
         return "材质基础颜色包含非有限数值";
@@ -224,16 +218,8 @@ void copy_image_bytes(const fastgltf::Asset& asset, const fastgltf::Image& image
       if (index >= asset.textures.size() || !asset.textures[index].imageIndex ||
           *asset.textures[index].imageIndex >= asset.images.size())
         return "材质纹理引用无效";
-      if (texture->texCoordIndex != 0U)
-        return "标准 PBR 尚不支持非 UV0 纹理坐标，已记录上游需求 U43-03";
-      if (asset.textures[index].samplerIndex) {
-        const auto& sampler = asset.samplers[*asset.textures[index].samplerIndex];
-        if (sampler.wrapS != fastgltf::Wrap::Repeat || sampler.wrapT != fastgltf::Wrap::Repeat ||
-            (sampler.magFilter && *sampler.magFilter != fastgltf::Filter::Linear) ||
-            (sampler.minFilter && *sampler.minFilter != fastgltf::Filter::LinearMipMapLinear)) {
-          return "标准 PBR 当前只支持 repeat/linear/trilinear 采样，已记录上游需求 U43-03";
-        }
-      }
+      if (texture->texCoordIndex > 1U)
+        return "仅支持 UV0/UV1 纹理坐标";
       if (image_mime_type(asset.images[*asset.textures[index].imageIndex]) !=
           fastgltf::MimeType::PNG) {
         return "当前 PBR 纹理输入只支持 PNG，请显式转换其他编码";
@@ -248,9 +234,6 @@ void copy_image_bytes(const fastgltf::Asset& asset, const fastgltf::Image& image
   for (const auto& mesh : asset.meshes) {
     for (const auto& primitive : mesh.primitives) {
       ++primitive_count;
-      if (primitive.findAttribute("COLOR_0") != primitive.attributes.end()) {
-        return "标准 PBR 尚不支持顶点色，不能无声丢弃 COLOR_0";
-      }
       if (primitive.type != fastgltf::PrimitiveType::Triangles || !primitive.targets.empty() ||
           primitive.dracoCompression != nullptr) {
         return "首版只支持未压缩的静态三角形 Primitive";
@@ -263,6 +246,58 @@ void copy_image_bytes(const fastgltf::Asset& asset, const fastgltf::Image& image
     }
   }
   return std::nullopt;
+}
+
+void populate_material_state(const fastgltf::Asset& asset, const fastgltf::Material& source,
+                             import_ir_material& target) {
+  target.alpha_mode =
+      source.alphaMode == fastgltf::AlphaMode::Blend
+          ? GNEISS_MATERIAL_ALPHA_BLEND
+          : (source.alphaMode == fastgltf::AlphaMode::Mask ? GNEISS_MATERIAL_ALPHA_MASK
+                                                           : GNEISS_MATERIAL_ALPHA_OPAQUE);
+  target.double_sided = source.doubleSided ? 1U : 0U;
+  target.alpha_cutoff = source.alphaCutoff;
+  const std::array<const fastgltf::TextureInfo*, 5> textures{
+      source.pbrData.baseColorTexture ? &*source.pbrData.baseColorTexture : nullptr,
+      source.pbrData.metallicRoughnessTexture ? &*source.pbrData.metallicRoughnessTexture : nullptr,
+      source.normalTexture ? &*source.normalTexture : nullptr,
+      source.occlusionTexture ? &*source.occlusionTexture : nullptr,
+      source.emissiveTexture ? &*source.emissiveTexture : nullptr};
+  const auto address = [](fastgltf::Wrap wrap) {
+    return wrap == fastgltf::Wrap::ClampToEdge
+               ? GNEISS_TEXTURE_ADDRESS_CLAMP
+               : (wrap == fastgltf::Wrap::MirroredRepeat ? GNEISS_TEXTURE_ADDRESS_MIRROR
+                                                         : GNEISS_TEXTURE_ADDRESS_REPEAT);
+  };
+  for (std::size_t slot = 0; slot < textures.size(); ++slot) {
+    const auto* texture = textures[slot];
+    if (texture == nullptr)
+      continue;
+    auto& sampling = target.sampling[slot];
+    sampling.uv_set = static_cast<std::uint32_t>(texture->texCoordIndex);
+    const auto sampler_index = asset.textures[texture->textureIndex].samplerIndex;
+    if (!sampler_index)
+      continue;
+    const auto& sampler = asset.samplers[*sampler_index];
+    sampling.address_u = address(sampler.wrapS);
+    sampling.address_v = address(sampler.wrapT);
+    sampling.mag_filter = sampler.magFilter == fastgltf::Filter::Nearest
+                              ? GNEISS_TEXTURE_FILTER_NEAREST
+                              : GNEISS_TEXTURE_FILTER_LINEAR;
+    const auto filter = sampler.minFilter.value_or(fastgltf::Filter::LinearMipMapLinear);
+    sampling.min_filter =
+        (filter == fastgltf::Filter::Nearest || filter == fastgltf::Filter::NearestMipMapNearest ||
+         filter == fastgltf::Filter::NearestMipMapLinear)
+            ? GNEISS_TEXTURE_FILTER_NEAREST
+            : GNEISS_TEXTURE_FILTER_LINEAR;
+    sampling.mip_filter =
+        (filter == fastgltf::Filter::Nearest || filter == fastgltf::Filter::Linear)
+            ? GNEISS_TEXTURE_MIP_NONE
+            : ((filter == fastgltf::Filter::NearestMipMapNearest ||
+                filter == fastgltf::Filter::LinearMipMapNearest)
+                   ? GNEISS_TEXTURE_MIP_NEAREST
+                   : GNEISS_TEXTURE_MIP_LINEAR);
+  }
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
@@ -347,7 +382,13 @@ void copy_image_bytes(const fastgltf::Asset& asset, const fastgltf::Image& image
     if (material.occlusionTexture)
       ir_material.occlusion_strength = material.occlusionTexture->strength;
     for (std::size_t axis = 0; axis < 3U; ++axis)
-      ir_material.emissive[axis] = material.emissiveFactor[axis];
+      // 接受导出器在 1 附近的一 ULP 舍入误差，运行格式仍保持严格的 0..1。
+      ir_material.emissive[axis] =
+          material.emissiveFactor[axis] > 1.0F &&
+                  material.emissiveFactor[axis] <= std::nextafter(1.0F, 2.0F)
+              ? 1.0F
+              : material.emissiveFactor[axis];
+    populate_material_state(asset, material, ir_material);
     result.materials.push_back(std::move(ir_material));
   }
 
@@ -374,6 +415,62 @@ void copy_image_bytes(const fastgltf::Asset& asset, const fastgltf::Image& image
 
 [[nodiscard]] bool is_finite(const fastgltf::math::fvec2& value) {
   return std::isfinite(value[0]) && std::isfinite(value[1]);
+}
+
+[[nodiscard]] std::optional<std::string>
+populate_optional_attributes(const fastgltf::Asset& asset, const fastgltf::Primitive& source,
+                             import_ir_primitive& target) {
+  const auto valid_component = [](const fastgltf::Accessor& a) {
+    return (a.componentType == fastgltf::ComponentType::Float && !a.normalized) ||
+           (a.normalized && (a.componentType == fastgltf::ComponentType::UnsignedByte ||
+                             a.componentType == fastgltf::ComponentType::UnsignedShort));
+  };
+  const auto* uv = source.findAttribute("TEXCOORD_1");
+  if (uv != source.attributes.end()) {
+    const auto& accessor = asset.accessors[uv->accessorIndex];
+    if (accessor.type != fastgltf::AccessorType::Vec2 || !valid_component(accessor) ||
+        accessor.count != target.vertices.size())
+      return "UV1 类型或数量无效";
+    target.has_uv1 = true;
+    fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec2>(
+        asset, accessor,
+        [&](const auto& v, std::size_t i) { target.vertices[i].uv1 = {v[0], v[1]}; });
+  }
+  const auto* color = source.findAttribute("COLOR_0");
+  if (color != source.attributes.end()) {
+    const auto& accessor = asset.accessors[color->accessorIndex];
+    if ((accessor.type != fastgltf::AccessorType::Vec3 &&
+         accessor.type != fastgltf::AccessorType::Vec4) ||
+        !valid_component(accessor) || accessor.count != target.vertices.size())
+      return "顶点色类型或数量无效";
+    target.has_color = true;
+    if (accessor.type == fastgltf::AccessorType::Vec3)
+      fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec3>(
+          asset, accessor, [&](const auto& v, std::size_t i) {
+            target.vertices[i].color = {v[0], v[1], v[2], 1.0F};
+          });
+    else
+      fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec4>(
+          asset, accessor, [&](const auto& v, std::size_t i) {
+            target.vertices[i].color = {v[0], v[1], v[2], v[3]};
+          });
+  }
+  if (source.materialIndex) {
+    import_ir_material material;
+    populate_material_state(asset, asset.materials[*source.materialIndex], material);
+    for (const auto& sample : material.sampling)
+      if (sample.uv_set == 1U && !target.has_uv1)
+        return "材质引用 UV1，但网格缺少 TEXCOORD_1";
+    target.tangent_uv_set = material.sampling[2].uv_set;
+  }
+  for (const auto& v : target.vertices) {
+    if (!std::isfinite(v.uv1[0]) || !std::isfinite(v.uv1[1]) ||
+        !std::ranges::all_of(v.color, [](float value) {
+          return std::isfinite(value) && value >= 0.0F && value <= 1.0F;
+        }))
+      return "UV1 或顶点色数值无效";
+  }
+  return std::nullopt;
 }
 
 [[nodiscard]] std::optional<std::string> populate_primitive_data(const fastgltf::Asset& asset,
@@ -443,6 +540,8 @@ void copy_image_bytes(const fastgltf::Asset& asset, const fastgltf::Image& image
   if (target.indices.size() % 3U != 0U) {
     return "三角形 Primitive 的索引数量必须是 3 的倍数";
   }
+  if (auto error = populate_optional_attributes(asset, source, target))
+    return error;
   const auto* tangent_attribute = source.findAttribute("TANGENT");
   if (tangent_attribute == source.attributes.end()) {
     return generate_tangents(target);
@@ -456,23 +555,30 @@ void copy_image_bytes(const fastgltf::Asset& asset, const fastgltf::Image& image
       asset, tangents, [&](const auto& value, std::size_t index) {
         target.vertices[index].tangent = {value[0], value[1], value[2], value[3]};
       });
+  for (const auto& vertex : target.vertices) {
+    if (!std::ranges::all_of(vertex.tangent, [](float value) { return std::isfinite(value); }) ||
+        (vertex.tangent[3] != 1.0F && vertex.tangent[3] != -1.0F))
+      return "TANGENT 包含非有限值或无效手性";
+  }
   for (auto& vertex : target.vertices) {
     auto& tangent = vertex.tangent;
     const auto& normal = vertex.normal;
     // 作者数据可能含舍入后的非正交切线；Gram-Schmidt 规范化但保留原始 UV 手性。
-    const auto normal_length =
-        (normal[0] * normal[0]) + (normal[1] * normal[1]) + (normal[2] * normal[2]);
-    const auto projection =
-        ((normal[0] * tangent[0]) + (normal[1] * tangent[1]) + (normal[2] * tangent[2])) /
-        normal_length;
+    const std::array<double, 3> n{normal[0], normal[1], normal[2]};
+    std::array<double, 3> t{tangent[0], tangent[1], tangent[2]};
+    const auto normal_length = n[0] * n[0] + n[1] * n[1] + n[2] * n[2];
+    const auto projection = (n[0] * t[0] + n[1] * t[1] + n[2] * t[2]) / normal_length;
     for (std::size_t axis = 0; axis < 3U; ++axis)
-      tangent[axis] -= projection * normal[axis];
-    const auto length = std::sqrt((tangent[0] * tangent[0]) + (tangent[1] * tangent[1]) +
-                                  (tangent[2] * tangent[2]));
-    if (!std::isfinite(length) || length < 1.0e-8F)
-      return "TANGENT 退化或包含非有限值";
+      t[axis] -= projection * n[axis];
+    const auto length = std::sqrt(t[0] * t[0] + t[1] * t[1] + t[2] * t[2]);
+    if (!std::isfinite(length) || (tangent[3] != 1.0F && tangent[3] != -1.0F))
+      return "TANGENT 包含非有限值或无效手性";
+    if (length < 1.0e-8) {
+      target.repaired_tangents = true;
+      return generate_tangents(target);
+    }
     for (std::size_t axis = 0; axis < 3U; ++axis)
-      tangent[axis] /= length;
+      tangent[axis] = static_cast<float>(t[axis] / length);
     if (!asset_internal::valid_mesh_tangent(tangent, {normal[0], normal[1], normal[2]})) {
       return "TANGENT 必须是正交单位切线且手性为正负一";
     }
@@ -556,6 +662,20 @@ inspect_report inspect_gltf(const std::filesystem::path& source_path) {
     report.data = build_import_ir(asset);
     if (auto invalid_data = populate_vertex_data(asset, report.data)) {
       return failure(inspect_result::invalid_source, std::move(*invalid_data));
+    }
+    std::size_t repaired{};
+    for (const auto& mesh : report.data.meshes)
+      for (const auto& primitive : mesh.primitives)
+        repaired += primitive.repaired_tangents ? 1U : 0U;
+    if (repaired != 0U)
+      report.diagnostic =
+          "已用 MikkTSpace 重新生成退化作者切线，Primitive 数=" + std::to_string(repaired);
+    for (const auto& material : asset.materials) {
+      for (std::size_t axis = 0; axis < 3U; ++axis) {
+        if (material.emissiveFactor[axis] > 1.0F &&
+            material.emissiveFactor[axis] <= std::nextafter(1.0F, 2.0F))
+          report.diagnostic += "；已将自发光因子的一 ULP 越界舍入为 1";
+      }
     }
     return report;
   } catch (const std::exception& error) {

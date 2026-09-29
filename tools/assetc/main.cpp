@@ -152,6 +152,8 @@ int main(int argc, char** argv) { // NOLINT(bugprone-exception-escape)
     return 1;
   }
 
+  if (!report.diagnostic.empty())
+    std::cerr << report.diagnostic << '\n';
   if (import) {
     const auto written =
         gneiss::tooling::asset_import::write_assets(report.data, std::filesystem::path{argv[4]});

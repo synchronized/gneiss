@@ -112,6 +112,7 @@ private:
 
   struct material_mirror final {
     const render_internal::material_resource* source{};
+    std::array<granit::sampler, 5> samplers;
     granit::material_instance material;
   };
 
@@ -161,7 +162,6 @@ private:
   granit::environment_map_info environment_info_{};
   pbr_shader_resolver pbr_assets_;
   granit::shader_library pbr_library_;
-  granit::sampler sampler_;
   granit::sampler ui_sampler_;
   granit::canvas_draw_list ui_canvas_;
   granit::debug_draw_list debug_draw_;

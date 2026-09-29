@@ -44,6 +44,9 @@ private:
 using mesh_vertex = gneiss_mesh_vertex;
 using mesh_normal = gneiss_mesh_normal;
 using mesh_tangent = gneiss_mesh_tangent;
+using mesh_uv = gneiss_mesh_uv;
+using mesh_color = gneiss_mesh_color;
+using texture_sampling = gneiss_texture_sampling;
 using mesh_desc = gneiss_mesh_desc;
 using material_desc = gneiss_material_desc;
 using texture_desc = gneiss_texture_desc;

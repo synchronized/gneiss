@@ -123,6 +123,41 @@ int main() {
     return 13;
   }
   desc = GNEISS_MATERIAL_DESC_INIT;
+  desc.alpha_mode = GNEISS_MATERIAL_ALPHA_BLEND;
+  desc.double_sided = 1;
+  desc.alpha_cutoff = 1.5F;
+  desc.base_color_texture = texture;
+  desc.sampling[0].uv_set = 1;
+  desc.sampling[0].address_u = GNEISS_TEXTURE_ADDRESS_MIRROR;
+  if (resources.create_material(desc, &material) != GNEISS_SUCCESS)
+    return 16;
+  value = resources.get_material(material);
+  if (value->alpha_mode != GNEISS_MATERIAL_ALPHA_BLEND || value->double_sided != 1U ||
+      value->alpha_cutoff != 1.5F || value->uv1_mask() != 1U ||
+      value->description().sampling[0].address_u != GNEISS_TEXTURE_ADDRESS_MIRROR)
+    return 17;
+  if (resources.destroy_material(material) != GNEISS_SUCCESS)
+    return 18;
+  for (auto* field :
+       {&desc.alpha_mode, &desc.double_sided, &desc.sampling[0].uv_set,
+        &desc.sampling[0].mag_filter, &desc.sampling[0].min_filter, &desc.sampling[0].mip_filter,
+        &desc.sampling[0].address_u, &desc.sampling[0].address_v}) {
+    const auto saved = *field;
+    *field = UINT32_MAX;
+    if (resources.create_material(desc, &material) != GNEISS_ERROR_INVALID_ARGUMENT)
+      return 19;
+    *field = saved;
+  }
+  desc.alpha_cutoff = std::numeric_limits<float>::quiet_NaN();
+  if (resources.create_material(desc, &material) != GNEISS_ERROR_INVALID_ARGUMENT)
+    return 20;
+  desc.struct_size = GNEISS_MATERIAL_DESC_VERSION_2_SIZE;
+  if (resources.create_material(desc, &material) != GNEISS_SUCCESS ||
+      resources.get_material(material)->alpha_mode != GNEISS_MATERIAL_ALPHA_OPAQUE ||
+      resources.get_material(material)->uv1_mask() != 0U ||
+      resources.destroy_material(material) != GNEISS_SUCCESS)
+    return 21;
+  desc = GNEISS_MATERIAL_DESC_INIT;
   desc.normal_texture = texture;
   if (resources.destroy_texture(texture) != GNEISS_SUCCESS ||
       resources.create_material(desc, &material) != GNEISS_ERROR_INVALID_ARGUMENT ||

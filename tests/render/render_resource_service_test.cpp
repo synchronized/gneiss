@@ -108,6 +108,29 @@ int main() {
   if (resources.create_mesh(mesh_desc, &mesh) != GNEISS_ERROR_INVALID_ARGUMENT) {
     return 15;
   }
+  mesh_desc.reserved_3 = 0U;
+  std::array<gneiss_mesh_uv, 3> uv1{{{0, 1}, {1, 0}, {0.5F, 0.5F}}};
+  std::array<gneiss_mesh_color, 3> colors{{{1, 0, 0, 1}, {0, 1, 0, 0.5F}, {0, 0, 1, 0}}};
+  mesh_desc.uv1_count = 3U;
+  mesh_desc.uv1 = uv1.data();
+  mesh_desc.color_count = 3U;
+  mesh_desc.colors = colors.data();
+  if (resources.create_mesh(mesh_desc, &mesh) != GNEISS_SUCCESS ||
+      resources.get_mesh(mesh)->uv1.size() != 3U || resources.get_mesh(mesh)->colors[1].a != 0.5F ||
+      resources.destroy_mesh(mesh) != GNEISS_SUCCESS)
+    return 19;
+  mesh_desc.uv1_count = 2U;
+  if (resources.create_mesh(mesh_desc, &mesh) != GNEISS_ERROR_INVALID_ARGUMENT)
+    return 20;
+  mesh_desc.uv1_count = 3U;
+  colors[0].r = -1.0F;
+  if (resources.create_mesh(mesh_desc, &mesh) != GNEISS_ERROR_INVALID_ARGUMENT)
+    return 21;
+  mesh_desc.struct_size = GNEISS_MESH_DESC_VERSION_2_SIZE;
+  if (resources.create_mesh(mesh_desc, &mesh) != GNEISS_SUCCESS ||
+      !resources.get_mesh(mesh)->uv1.empty() || !resources.get_mesh(mesh)->colors.empty() ||
+      resources.destroy_mesh(mesh) != GNEISS_SUCCESS)
+    return 22;
   const std::array<std::uint8_t, 20> source{1,  2,  3, 4,  5,  6,  7,  8,  90, 91,
                                             92, 93, 9, 10, 11, 12, 13, 14, 15, 16};
   gneiss_texture_desc desc = GNEISS_TEXTURE_DESC_INIT;
