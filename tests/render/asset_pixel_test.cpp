@@ -181,6 +181,11 @@ struct state_case {
 };
 std::array<unsigned, 3> state_pixel(const state_case& test,
                                     std::vector<std::byte>* frame = nullptr) {
+  std::fprintf(
+      stderr,
+      "material-state mode=%.*s alpha=%g back=%d double=%d uv=%u wrap=%u layers=%d receiver=%d\n",
+      static_cast<int>(test.mode.size()), test.mode.data(), static_cast<double>(test.alpha),
+      test.back, test.double_sided, test.uv_set, test.wrap, test.layers, test.receiver);
   fixture files;
   std::ofstream material(files.root / "m.material.json");
   material
@@ -536,8 +541,11 @@ int main(int argc, char* argv[]) try {
     }
     return 0;
   }
+  std::fprintf(stderr, "asset-pixel: mip\n");
   run_mip_sampling();
+  std::fprintf(stderr, "asset-pixel: channels\n");
   run_material_channels();
+  std::fprintf(stderr, "asset-pixel: states\n");
   run_material_states();
   run(gneiss::tasks::execution_mode::thread_pool, true);
   run(gneiss::tasks::execution_mode::cooperative, true);

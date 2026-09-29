@@ -156,7 +156,15 @@ jobs:
             cat "$RUNNER_TEMP/gneiss-weston.log"
             exit 1
           }
-          xvfb-run -a ctest --preset "${{ steps.preset.outputs.name }}"
+          if ! xvfb-run -a ctest --preset "${{ steps.preset.outputs.name }}"; then
+            # 保留测试失败，同时收集像素回归的原生崩溃栈。
+            if ! command -v gdb >/dev/null; then
+              apt-get update && apt-get install -y gdb
+            fi
+            xvfb-run -a gdb --batch -ex run -ex 'thread apply all bt 20' --args \
+              "build/${{ steps.preset.outputs.name }}/bin/gneiss_asset_pixel_test" || true
+            exit 1
+          fi
       - name: 输出编译缓存统计
         if: always()
         shell: bash
