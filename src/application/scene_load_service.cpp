@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <stdexcept>
+#include <stop_token>
 
 namespace gneiss::application_internal {
 namespace {
@@ -57,6 +58,7 @@ struct scene_load_service::pending {
   };
   std::shared_ptr<cpu_result> cpu{std::make_shared<cpu_result>()};
   tasks::task_handle task;
+  std::stop_source source_stop;
   std::shared_ptr<asset_internal::source_revision_file_system> sources;
   asset_internal::virtual_file_system snapshot;
   bool verifying{};
@@ -84,6 +86,9 @@ scene_load_service::scene_load_service(tasks::task_executor& executor,
   }
 }
 scene_load_service::~scene_load_service() {
+  if (pending_) {
+    pending_->source_stop.request_stop();
+  }
   executor_.cancel_scope(scope_);
   (void)executor_.close_scope(scope_);
   // 资产服务先等待/回收已接受的 GPU 命令，再销毁候选域。
@@ -105,7 +110,8 @@ gneiss_result scene_load_service::submit(std::string_view uri, std::uint64_t ses
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
   auto next = std::make_unique<pending>();
-  next->sources = std::make_shared<asset_internal::source_revision_file_system>(files_);
+  next->sources = std::make_shared<asset_internal::source_revision_file_system>(
+      files_, [token = next->source_stop.get_token()] { return token.stop_requested(); });
   const auto mounted = next->snapshot.mount("asset://", next->sources);
   if (mounted != GNEISS_SUCCESS) {
     return mounted;
@@ -167,6 +173,7 @@ bool scene_load_service::cancel(std::uint64_t request) {
     return false;
   }
   pending_->cancelled = true;
+  pending_->source_stop.request_stop();
   pending_->result.progress.can_cancel = false;
   (void)executor_.cancel(pending_->task);
   if (pending_->assets) {
