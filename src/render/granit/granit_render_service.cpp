@@ -29,8 +29,8 @@
 namespace gneiss::application_internal {
 namespace {
 
-static_assert(GRANIT_VERSION_MAJOR > 0 || GRANIT_VERSION_MINOR >= 42,
-              "Gneiss requires Granit 0.42.0 or newer");
+static_assert(GRANIT_VERSION_MAJOR > 0 || GRANIT_VERSION_MINOR >= 43,
+              "Gneiss requires Granit 0.43.0 or newer");
 
 gneiss_result map_result(granit::result result) noexcept {
   switch (result.native()) {
