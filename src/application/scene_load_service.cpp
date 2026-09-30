@@ -348,10 +348,13 @@ void scene_load_service::advance_impl() {
       ++value.batch_count;
     }
     std::uint64_t child{};
-    const auto remaining =
+    const auto local_remaining =
         maximum_resident_bytes - std::max(progress.resident_bytes, progress.cpu_data_bytes);
+    const auto remaining = static_cast<std::size_t>(
+        std::min<std::uint64_t>(local_remaining, resources_.available_memory_bytes()));
     if (remaining == 0U) {
-      finish(GNEISS_ERROR_OUT_OF_MEMORY, scene_load_phase::failed, "场景候选累计驻留预算耗尽");
+      finish(GNEISS_ERROR_OUT_OF_MEMORY, scene_load_phase::failed,
+             "活动场景、候选或旧帧占用导致可用资源预算耗尽");
       return;
     }
     const auto submitted = value.assets->submit_assets(

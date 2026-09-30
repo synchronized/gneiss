@@ -9,7 +9,60 @@
 #include <cstdint>
 #include <limits>
 
+namespace {
+bool verify_shared_budget() {
+  using namespace gneiss::render_internal;
+  render_resource_service resources{32U};
+  const std::array<std::uint8_t, 16> pixels{};
+  gneiss_texture_desc desc = GNEISS_TEXTURE_DESC_INIT;
+  desc.width = 2U;
+  desc.height = 2U;
+  desc.row_stride_bytes = 8U;
+  desc.pixels = pixels.data();
+  desc.pixel_data_size = pixels.size();
+  gneiss_texture active{}, candidate{}, rejected{};
+  if (resources.create_texture(desc, &active) != GNEISS_SUCCESS ||
+      resources.create_texture(desc, &candidate) != GNEISS_SUCCESS) {
+    return false;
+  }
+  auto frame = resources.share_texture(active);
+  auto prepared = resources.share_texture(candidate);
+  // 发布相同对象不重复收费；旧帧在 RID 销毁后仍占额度。
+  if (!resources.replace_texture(candidate, prepared) ||
+      resources.memory_usage().logical_bytes != 32U ||
+      resources.memory_usage().cpu_data_bytes != 32U ||
+      resources.destroy_texture(active) != GNEISS_SUCCESS ||
+      resources.available_memory_bytes() != 0U) {
+    return false;
+  }
+  rejected = 123U;
+  if (resources.create_texture(desc, &rejected) != GNEISS_ERROR_OUT_OF_MEMORY || rejected != 0U ||
+      resources.share_texture(candidate) != prepared) {
+    return false;
+  }
+  const auto replacement = std::make_shared<const texture_resource>(*prepared);
+  if (resources.replace_texture(candidate, replacement) ||
+      resources.share_texture(candidate) != prepared) {
+    return false;
+  }
+  frame.reset();
+  if (resources.available_memory_bytes() != 16U ||
+      !resources.replace_texture(candidate, replacement) ||
+      resources.memory_usage().logical_bytes != 32U) {
+    return false;
+  }
+  // 被替换对象仍被 prepared 持有，必须继续计费。
+  prepared.reset();
+  return resources.available_memory_bytes() == 16U &&
+         resources.create_texture(desc, &rejected) == GNEISS_SUCCESS &&
+         resources.share_texture(candidate) == replacement;
+}
+} // namespace
+
 int main() {
+  if (!verify_shared_budget()) {
+    return 30;
+  }
   gneiss::render_internal::render_resource_service resources;
   constexpr std::array vertices{
       gneiss_mesh_vertex{.x = 0.0F, .y = 0.0F, .z = 0.0F, .u = 0.0F, .v = 0.0F},
