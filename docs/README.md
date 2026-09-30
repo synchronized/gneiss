@@ -111,6 +111,7 @@
 - [DEV-043：PBR 材质管线开发计划](plans/DEV-043-pbr-pipeline.md)
 - [VER-044：0.44.0 大场景纹理内存与加载](plans/VER-044-0.44.0-texture-residency.md)
 - [DEV-044：纹理驻留与大场景加载开发计划](plans/DEV-044-texture-residency.md)
+- [UPSTREAM-044：独立纹理变体负载上传](plans/UPSTREAM-044-granit-texture-residency.md)
 - [UPSTREAM-043：Granit PBR 上游需求与接入跟踪](plans/UPSTREAM-043-granit-pbr.md)
 - [VER-042：0.42.0 真实大场景驱动的异步加载与切换](plans/VER-042-0.42.0-async-scene-loading.md)
 - [DEV-042：真实大场景异步加载开发计划](plans/DEV-042-async-scene-loading.md)
