@@ -67,7 +67,28 @@ typedef struct gneiss_mesh_normal {
   float z;
 } gneiss_mesh_normal;
 
-/** Mesh 创建参数。调用期间复制顶点、可选法线与可选索引，调用方保留其所有权。 */
+/** 单位切线 XYZ 与副切线手性 W（+1 或 -1），必须与对应法线正交。 */
+typedef struct gneiss_mesh_tangent {
+  float x;
+  float y;
+  float z;
+  float w;
+} gneiss_mesh_tangent;
+
+/** 第二组 UV，允许平铺坐标，分量必须有限。 */
+typedef struct gneiss_mesh_uv {
+  float u;
+  float v;
+} gneiss_mesh_uv;
+/** 线性 RGBA 顶点色，各分量位于 0..1。 */
+typedef struct gneiss_mesh_color {
+  float r;
+  float g;
+  float b;
+  float a;
+} gneiss_mesh_color;
+
+/** Mesh 创建参数。调用期间复制顶点、可选法线、切线和索引，调用方保留其所有权。 */
 typedef struct gneiss_mesh_desc {
   uint32_t struct_size;
   uint32_t vertex_count;
@@ -79,7 +100,19 @@ typedef struct gneiss_mesh_desc {
   uint32_t index_count;
   uint32_t reserved_3;
   const uint32_t* indices;
+  uint32_t tangent_count;
+  uint32_t reserved_4;
+  const gneiss_mesh_tangent* tangents;
+  uint32_t uv1_count;
+  uint32_t reserved_5;
+  const gneiss_mesh_uv* uv1;
+  uint32_t color_count;
+  uint32_t reserved_6;
+  const gneiss_mesh_color* colors;
 } gneiss_mesh_desc;
+
+#define GNEISS_MESH_DESC_VERSION_1_SIZE ((uint32_t)offsetof(gneiss_mesh_desc, tangent_count))
+#define GNEISS_MESH_DESC_VERSION_2_SIZE ((uint32_t)offsetof(gneiss_mesh_desc, uv1_count))
 
 #define GNEISS_MESH_DESC_INIT                                                                      \
   {(uint32_t)sizeof(gneiss_mesh_desc),                                                             \
@@ -91,7 +124,50 @@ typedef struct gneiss_mesh_desc {
    NULL,                                                                                           \
    UINT32_C(0),                                                                                    \
    UINT32_C(0),                                                                                    \
+   NULL,                                                                                           \
+   UINT32_C(0),                                                                                    \
+   UINT32_C(0),                                                                                    \
+   NULL,                                                                                           \
+   UINT32_C(0),                                                                                    \
+   UINT32_C(0),                                                                                    \
+   NULL,                                                                                           \
+   UINT32_C(0),                                                                                    \
+   UINT32_C(0),                                                                                    \
    NULL}
+
+/** 材质 Alpha 模式：不透明、阈值裁剪或透明混合。 */
+typedef uint32_t gneiss_material_alpha_mode;
+#define GNEISS_MATERIAL_ALPHA_OPAQUE UINT32_C(0)
+#define GNEISS_MATERIAL_ALPHA_MASK UINT32_C(1)
+#define GNEISS_MATERIAL_ALPHA_BLEND UINT32_C(2)
+typedef uint32_t gneiss_texture_filter;
+#define GNEISS_TEXTURE_FILTER_NEAREST UINT32_C(0)
+#define GNEISS_TEXTURE_FILTER_LINEAR UINT32_C(1)
+typedef uint32_t gneiss_texture_mip_filter;
+#define GNEISS_TEXTURE_MIP_NONE UINT32_C(0)
+#define GNEISS_TEXTURE_MIP_NEAREST UINT32_C(1)
+#define GNEISS_TEXTURE_MIP_LINEAR UINT32_C(2)
+typedef uint32_t gneiss_texture_address;
+#define GNEISS_TEXTURE_ADDRESS_REPEAT UINT32_C(0)
+#define GNEISS_TEXTURE_ADDRESS_CLAMP UINT32_C(1)
+#define GNEISS_TEXTURE_ADDRESS_MIRROR UINT32_C(2)
+
+/** 逐槽采样状态，不持有资源。UV 仅允许 0/1；枚举不得使用未知值。 */
+typedef struct gneiss_texture_sampling {
+  uint32_t uv_set;
+  gneiss_texture_filter mag_filter;
+  gneiss_texture_filter min_filter;
+  gneiss_texture_mip_filter mip_filter;
+  gneiss_texture_address address_u;
+  gneiss_texture_address address_v;
+} gneiss_texture_sampling;
+#define GNEISS_TEXTURE_SAMPLING_INIT                                                               \
+  {UINT32_C(0),                                                                                    \
+   GNEISS_TEXTURE_FILTER_LINEAR,                                                                   \
+   GNEISS_TEXTURE_FILTER_LINEAR,                                                                   \
+   GNEISS_TEXTURE_MIP_LINEAR,                                                                      \
+   GNEISS_TEXTURE_ADDRESS_REPEAT,                                                                  \
+   GNEISS_TEXTURE_ADDRESS_REPEAT}
 
 /** Material 参数。颜色分量使用线性空间的 0..1 范围，Texture RID 不转移所有权。 */
 typedef struct gneiss_material_desc {
@@ -104,18 +180,41 @@ typedef struct gneiss_material_desc {
   gneiss_texture base_color_texture;
   float metallic;
   float roughness;
+  gneiss_texture metallic_roughness_texture;
+  gneiss_texture normal_texture;
+  gneiss_texture occlusion_texture;
+  gneiss_texture emissive_texture;
+  /** 法线 XY 缩放为有限数（允许负值）；AO 强度位于 0..1。 */
+  float normal_scale;
+  float occlusion_strength;
+  /** 线性自发光 RGB，分量位于 0..1；不转移任何 Texture 的所有权。 */
+  float emissive[3];
+  uint32_t reserved_2;
+  gneiss_material_alpha_mode alpha_mode;
+  /** 仅允许 0/1；启用时绘制正反面。 */
+  uint32_t double_sided;
+  /** MASK 阈值，有限非负，默认 0.5。 */
+  float alpha_cutoff;
+  uint32_t reserved_3;
+  /** 顺序：基础颜色、金属粗糙度、法线、AO、自发光。 */
+  gneiss_texture_sampling sampling[5];
 } gneiss_material_desc;
 
+/** 扩展前布局大小；旧调用方缺少的 PBR 字段使用中性默认值。 */
+#define GNEISS_MATERIAL_DESC_VERSION_1_SIZE                                                        \
+  ((uint32_t)offsetof(gneiss_material_desc, metallic_roughness_texture))
+#define GNEISS_MATERIAL_DESC_VERSION_2_SIZE ((uint32_t)offsetof(gneiss_material_desc, alpha_mode))
+
 #define GNEISS_MATERIAL_DESC_INIT                                                                  \
-  {(uint32_t)sizeof(gneiss_material_desc),                                                         \
-   UINT32_C(0),                                                                                    \
-   1.0F,                                                                                           \
-   1.0F,                                                                                           \
-   1.0F,                                                                                           \
-   1.0F,                                                                                           \
-   GNEISS_NULL_TEXTURE,                                                                            \
-   0.0F,                                                                                           \
-   1.0F}
+  {                                                                                                \
+    (uint32_t)sizeof(gneiss_material_desc), UINT32_C(0), 1.0F, 1.0F, 1.0F, 1.0F,                   \
+        GNEISS_NULL_TEXTURE, 0.0F, 1.0F, GNEISS_NULL_TEXTURE, GNEISS_NULL_TEXTURE,                 \
+        GNEISS_NULL_TEXTURE, GNEISS_NULL_TEXTURE, 1.0F, 1.0F, {0.0F, 0.0F, 0.0F}, UINT32_C(0),     \
+        GNEISS_MATERIAL_ALPHA_OPAQUE, UINT32_C(0), 0.5F, UINT32_C(0), {                            \
+      GNEISS_TEXTURE_SAMPLING_INIT, GNEISS_TEXTURE_SAMPLING_INIT, GNEISS_TEXTURE_SAMPLING_INIT,    \
+          GNEISS_TEXTURE_SAMPLING_INIT, GNEISS_TEXTURE_SAMPLING_INIT                               \
+    }                                                                                              \
+  }
 
 /** 透视 Camera 参数。首版只允许一个 primary Camera 参与渲染。 */
 typedef struct gneiss_camera {

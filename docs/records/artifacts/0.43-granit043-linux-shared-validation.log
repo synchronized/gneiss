@@ -1,0 +1,31 @@
+asset-pixel: mip
+asset-pixel: channels
+asset-pixel: states
+material-state mode=OPAQUE alpha=1 back=0 double=0 uv=0 wrap=0 layers=0 receiver=0
+material-state mode=MASK alpha=0.25 back=0 double=0 uv=0 wrap=0 layers=0 receiver=0
+material-state mode=MASK alpha=0.75 back=0 double=0 uv=0 wrap=0 layers=0 receiver=0
+material-state mode=MASK alpha=0.75 back=0 double=0 uv=0 wrap=0 layers=0 receiver=0
+material-state mode=OPAQUE alpha=1 back=1 double=0 uv=0 wrap=0 layers=0 receiver=0
+material-state mode=OPAQUE alpha=1 back=1 double=1 uv=0 wrap=0 layers=0 receiver=0
+material-state mode=OPAQUE alpha=1 back=0 double=0 uv=0 wrap=0 layers=0 receiver=0
+material-state mode=MASK alpha=1 back=0 double=0 uv=0 wrap=0 layers=0 receiver=0
+material-state mode=OPAQUE alpha=1 back=0 double=0 uv=1 wrap=0 layers=0 receiver=0
+material-state mode=OPAQUE alpha=1 back=0 double=0 uv=0 wrap=1 layers=0 receiver=0
+material-state mode=OPAQUE alpha=1 back=0 double=0 uv=0 wrap=2 layers=0 receiver=0
+material-state mode=BLEND alpha=0 back=0 double=0 uv=0 wrap=0 layers=0 receiver=0
+material-state mode=BLEND alpha=0.5 back=0 double=0 uv=0 wrap=0 layers=0 receiver=0
+material-state mode=BLEND alpha=0.5 back=0 double=0 uv=0 wrap=0 layers=1 receiver=0
+material-state mode=BLEND alpha=0.5 back=0 double=0 uv=0 wrap=0 layers=1 receiver=0
+material-state mode=BLEND alpha=0.5 back=0 double=0 uv=0 wrap=0 layers=1 receiver=0
+material-state mode=BLEND alpha=0 back=0 double=0 uv=0 wrap=0 layers=0 receiver=1
+material-state mode=MASK alpha=0 back=0 double=0 uv=0 wrap=0 layers=0 receiver=1
+material-state mode=OPAQUE alpha=1 back=0 double=0 uv=0 wrap=0 layers=0 receiver=1
+material-state mode=MASK alpha=1 back=0 double=0 uv=0 wrap=0 layers=0 receiver=1
+before=65,70,230
+after=229,70,75
+before=65,70,230
+after=229,70,75
+before=61,66,203
+after=200,66,71
+before=61,66,203
+after=200,66,71

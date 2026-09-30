@@ -11,7 +11,7 @@
 namespace gneiss::tooling::asset_import {
 
 inline constexpr std::uint32_t asset_index_version = 1U;
-inline constexpr std::uint32_t gltf_importer_version = 1U;
+inline constexpr std::uint32_t gltf_importer_version = 3U;
 
 enum class asset_index_result {
   success,

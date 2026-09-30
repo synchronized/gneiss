@@ -6,12 +6,20 @@
 ## 资源生命周期
 
 Mesh、Material 和 Texture 由 Application 的 Resource Service 独占。`gneiss_mesh_create` 会在调用
-期间复制顶点、可选法线及可选 UInt32 索引；调用返回后，调用方可以立即释放源数据。Mesh 至少需要
+期间复制顶点、可选法线、切线、UV1、顶点色及可选 UInt32 索引；调用返回后，调用方可以立即释放源数据。Mesh 至少需要
 三个有限值顶点。索引非空时数量必须至少为三个且为三的倍数，所有索引必须小于顶点数；索引为空时
 顶点按 Triangle List 顺序解释。法线必须与顶点一一对应、保持有限且归一化；不提供法线的旧 Mesh
 使用无光照兼容路径。
 
-Material 当前只包含线性空间的固定 RGBA 颜色，各分量必须位于 `0..1`。
+切线 XYZ 必须归一化并与对应法线正交，W 为 `+1/-1`，数量必须与顶点一致。旧描述大小由
+`GNEISS_MESH_DESC_VERSION_1_SIZE` 标识，按缺省切线处理；Version 2 保留切线、缺省 UV1/顶点色。
+新增属性的数量、有限值及缺省规则见[资产格式](render-asset-formats.md)，不读取旧描述尾部。
+
+Material 保存线性 RGBA、金属度、粗糙度、五类 PBR Texture RID 及法线/AO/自发光因子，
+字段范围与纹理用途见 [Render 资产格式](render-asset-formats.md#material)。创建不转移 Texture 所有权；
+直接使用 C API 时调用方必须维持依赖有效，资产 Loader 的 Material 租约则持有全部 Texture 租约。
+`GNEISS_MATERIAL_DESC_VERSION_1_SIZE` 与 Version 2 兼容旧描述，新增字段使用中性默认值。
+当前描述支持逐槽 UV0/UV1 与采样器、OPAQUE/MASK/BLEND、Alpha Cutoff 和双面。
 
 `gneiss_texture_create` 当前只接受二维 RGBA8 像素，并显式区分线性与 sRGB 颜色空间。宽高必须位于
 `1..16384`，解码后的紧凑像素总量不得超过 256 MiB；行跨度至少为 `width * 4`，输入缓冲区必须覆盖
@@ -62,18 +70,17 @@ domain。销毁、跨 Application 使用、类型混用或重复销毁均返回
 
 ## 当前渲染路径
 
-Granit 平台模式在每次 `update` 后提取 primary Camera、Scene Transform 和 Mesh Renderer。CPU
-生成本帧的位置、颜色与 UV 顶点，Render Service 上传临时 Vertex Buffer，并按 Material 绑定
-base-color Texture 后通过内置 Shader 绘制 Triangle List。无纹理 Material 使用默认白纹理；后端按
-Texture RID 缓存 GPU 镜像。按帧 Buffer 保留三个槽位，避免覆盖仍在飞行中的提交。
-CPU 使用 Render Snapshot 中的视图和投影矩阵生成完整裁剪空间位置，Shader 保留裁剪空间 `w`，使
-深度和 UV 插值遵循透视规则。交换链路径使用与窗口尺寸一致的 D32 深度附件，每帧清除为 `1.0`，
-并以 `less` 比较写入深度；实例保持快照顺序，遮挡不再依赖世界 Z 排序。窗口重建时会同步重建深度
-资源。旧 2.5D 资产仍可作为位于 XY 平面的普通 3D 几何渲染，但其层级也由 Camera 深度决定。
+Granit 平台模式将活动 Camera、世界 Transform 与 Mesh Renderer 提取为持有资源的帧包，
+后端按 RID 维护 GPU 镜像。带法线 Mesh 使用 Granit 标准 PBR 与索引绘制，材质绑定 base color、
+metallic-roughness、normal、occlusion、emissive 五槽和对应因子；未指定槽使用中性默认资源。
+切线来自 Mesh，旧网格缺失时保留兼容默认值，不能据此承诺准确法线贴图。
+不带法线的旧网格仍使用无光照路径。
 
-带法线 Mesh 使用一个固定方向光和 `0.2` 环境项；漫反射贡献为 `0.8 * max(N·L, 0)`。法线按世界
-Transform 的逆转置缩放与旋转变换并重新归一化，因此非均匀缩放不会扭曲光照方向。base-color
-Texture 在 sRGB 采样时由后端转换到线性空间，再与线性颜色因子和光照项相乘。
+base color/emissive 的 sRGB 采样转换为线性空间，其余槽使用线性数据。Cook 资产携带完整 Mip 链，
+场景按材质逐槽选择 UV、寻址和过滤，缺省为 repeat/trilinear。CPU 资产准备及 GPU 上传、候选提交
+与旧帧持有由现有资产加载链路管理。负缩放切线空间、UV1、顶点色、MASK 阴影及双面可见性已有 GPU 回归；
+BLEND 使用对象级排序和标准透明阶段，不能解决相交三角形或折射，不承诺双面阴影的完整语义。
+已接入项与限制见[上游跟踪](../plans/UPSTREAM-043-granit-pbr.md)，不等同于完整 glTF 材质支持。
 
 存在当前帧 UI Draw List 时，Granit 后端在场景 Rendering 结束后通过 Granit Canvas 将 UI 录制到
 同一颜色附件，附件使用 `LOAD` 保留场景结果，整帧仍只提交和 Present 一次。Gneiss 在后端内部将
@@ -81,5 +88,4 @@ Texture RID 解析为 Texture View，按 Framebuffer Scale 转换顶点和裁剪
 Canvas 负责动态几何上传、Alpha Pipeline、Scissor 和 UInt32 索引绘制。完全位于视口外的命令会被
 跳过，UI 不使用场景深度附件。
 
-当前路径用于验证 Application、World、Resource Service 与 Granit 的端到端边界，不是正式资产或
-渲染管线。暂不支持 Mip、剔除和异步上传。
+资源格式与兼容约束以 [Render 资产格式](render-asset-formats.md) 为准；本页不承诺尚未验收的后端能力。

@@ -1,0 +1,21 @@
+material-state mode=MASK alpha=0.25 back=0 double=0 uv=0 wrap=0 layers=0 receiver=0
+Validation Error: [ VUID-VkShaderModuleCreateInfo-pCode-08740 ] | MessageID = 0x6e224e9
+vkCreateShaderModule(): SPIR-V Capability DemoteToHelperInvocation was declared, but one of the following requirements is required (VkPhysicalDeviceVulkan13Features::shaderDemoteToHelperInvocation OR VkPhysicalDeviceShaderDemoteToHelperInvocationFeaturesEXT::shaderDemoteToHelperInvocation).
+The Vulkan spec states: If pCode is a pointer to SPIR-V code, and pCode declares any of the capabilities listed in the SPIR-V Environment appendix, one of the corresponding requirements must be satisfied (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/shaders.html#VUID-VkShaderModuleCreateInfo-pCode-08740)
+
+Validation Error: [ VUID-VkShaderModuleCreateInfo-pCode-08740 ] | MessageID = 0x6e224e9
+vkCreateShaderModule(): SPIR-V Capability DemoteToHelperInvocation was declared, but one of the following requirements is required (VkPhysicalDeviceVulkan13Features::shaderDemoteToHelperInvocation OR VkPhysicalDeviceShaderDemoteToHelperInvocationFeaturesEXT::shaderDemoteToHelperInvocation).
+The Vulkan spec states: If pCode is a pointer to SPIR-V code, and pCode declares any of the capabilities listed in the SPIR-V Environment appendix, one of the corresponding requirements must be satisfied (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/shaders.html#VUID-VkShaderModuleCreateInfo-pCode-08740)
+
+Validation Error: [ VUID-VkShaderModuleCreateInfo-pCode-08740 ] | MessageID = 0x6e224e9
+vkCreateShaderModule(): SPIR-V Capability DemoteToHelperInvocation was declared, but one of the following requirements is required (VkPhysicalDeviceVulkan13Features::shaderDemoteToHelperInvocation OR VkPhysicalDeviceShaderDemoteToHelperInvocationFeaturesEXT::shaderDemoteToHelperInvocation).
+The Vulkan spec states: If pCode is a pointer to SPIR-V code, and pCode declares any of the capabilities listed in the SPIR-V Environment appendix, one of the corresponding requirements must be satisfied (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/shaders.html#VUID-VkShaderModuleCreateInfo-pCode-08740)
+
+Validation Error: [ VUID-VkGraphicsPipelineCreateInfo-layout-07988 ] | MessageID = 0x215f02cd
+vkCreateGraphicsPipelines(): pCreateInfos[0].pStages[0] SPIR-V (VK_SHADER_STAGE_VERTEX_BIT) uses descriptor [Set 1, Binding 0, variable "MaterialConstants"] (type VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC or VK_DESCRIPTOR_TYPE_INLINE_UNIFORM_BLOCK or VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER) but the VkDescriptorSetLayoutBinding::stageFlags was VK_SHADER_STAGE_FRAGMENT_BIT.
+The Vulkan spec states: If a resource variable is declared in a shader, the corresponding descriptor set in layout must match the shader stage (https://vulkan.lunarg.com/doc/view/1.4.321.1/windows/antora/spec/latest/chapters/pipelines.html#VUID-VkGraphicsPipelineCreateInfo-layout-07988)
+Objects: 2
+    [0] VkShaderModule 0x350000000035
+    [1] VkPipelineLayout 0x5f000000005f
+
+mask probe: 49,112,156

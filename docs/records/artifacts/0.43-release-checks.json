@@ -1,0 +1,76 @@
+[
+  {
+    "url": "https://github.com/synchronized/gneiss/actions/runs/36649203956",
+    "head_sha": "1d683e0265956744e9b9eef257012f08ad961968",
+    "conclusion": "success",
+    "jobs": [
+      {
+        "id": 109679160822,
+        "name": "granit-runtime (shared)",
+        "conclusion": "success"
+      },
+      {
+        "id": 109679160964,
+        "name": "core (clang, shared)",
+        "conclusion": "success"
+      },
+      {
+        "id": 109679160974,
+        "name": "task-web",
+        "conclusion": "success"
+      },
+      {
+        "id": 109679161010,
+        "name": "core (gcc, shared)",
+        "conclusion": "success"
+      },
+      {
+        "id": 109679161051,
+        "name": "core (clang, static)",
+        "conclusion": "success"
+      },
+      {
+        "id": 109679161053,
+        "name": "core (gcc, static)",
+        "conclusion": "success"
+      },
+      {
+        "id": 109679161085,
+        "name": "sanitizer-runtime",
+        "conclusion": "success"
+      },
+      {
+        "id": 109679161131,
+        "name": "granit-runtime (static)",
+        "conclusion": "success"
+      }
+    ]
+  },
+  {
+    "url": "https://github.com/synchronized/gneiss/actions/runs/36649207295",
+    "head_sha": "1d683e0265956744e9b9eef257012f08ad961968",
+    "conclusion": "success",
+    "jobs": [
+      {
+        "id": 109679171869,
+        "name": "installed-consumer (shared)",
+        "conclusion": "success"
+      },
+      {
+        "id": 109679172109,
+        "name": "installed-consumer (static)",
+        "conclusion": "success"
+      },
+      {
+        "id": 109679172122,
+        "name": "msvc-runtime (static)",
+        "conclusion": "success"
+      },
+      {
+        "id": 109679172169,
+        "name": "msvc-runtime (shared)",
+        "conclusion": "success"
+      }
+    ]
+  }
+]

@@ -110,6 +110,36 @@ int main() { // NOLINT(bugprone-exception-escape)
       gneiss_application_destroy(application) != GNEISS_SUCCESS) {
     return 8;
   }
+  const auto pbr = asset_import::inspect_gltf(std::filesystem::path{GNEISS_TEST_GLTF_ROOT} /
+                                              "pbr_triangle.gltf");
+  const auto pbr_output = root / "pbr";
+  if (pbr.result != asset_import::inspect_result::success ||
+      pbr.data.materials[0].texture_indices() !=
+          std::array<std::optional<std::size_t>, 5>{0U, 0U, 0U, 0U, 0U} ||
+      pbr.data.materials[0].normal_scale != -0.5F ||
+      pbr.data.materials[0].occlusion_strength != 0.25F ||
+      pbr.data.materials[0].emissive != std::array<float, 3>{0.1F, 0.2F, 0.3F} ||
+      !asset_import::write_assets(pbr.data, pbr_output).success) {
+    return 9;
+  }
+  const auto color_image = read_file(pbr_output / "textures/image-0.png");
+  if (color_image.empty() || read_file(pbr_output / "textures/image-0-linear.png") != color_image ||
+      read_file(pbr_output / "textures/image-0-normal.png") != color_image ||
+      read_file(pbr_output / "textures/image-0.texture.json").find("srgb") == std::string::npos ||
+      read_file(pbr_output / "textures/image-0-linear.texture.json").find("linear") ==
+          std::string::npos ||
+      read_file(pbr_output / "textures/image-0-normal.texture.json")
+              .find("\"usage\": \"normal\"") == std::string::npos) {
+    return 10;
+  }
+  const auto material_file = read_file(pbr_output / "materials/material-0.material.json");
+  for (const auto* field :
+       {"metallic_roughness_texture", "normal_texture", "occlusion_texture", "emissive_texture",
+        "image-0-normal.texture.json", "image-0-linear.texture.json"}) {
+    if (material_file.find(field) == std::string::npos) {
+      return 11;
+    }
+  }
   std::filesystem::remove_all(root);
   return 0;
 }

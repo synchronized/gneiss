@@ -41,14 +41,14 @@ int main() { // NOLINT(bugprone-exception-escape)
       .entries = {{.source_path = "models/sample.gltf",
                    .source_key = "sample",
                    .importer_id = "gneiss.gltf",
-                   .importer_version = 1U,
+                   .importer_version = asset_import::gltf_importer_version,
                    .content_hash = hash,
                    .state = asset_import::asset_import_state::ready,
                    .output_uris = {"asset://imported/sample/scenes/scene.scene.json"}},
                   {.source_path = missing_source,
                    .source_key = "missing",
                    .importer_id = "gneiss.gltf",
-                   .importer_version = 1U,
+                   .importer_version = asset_import::gltf_importer_version,
                    .content_hash = "fnv1a64:0",
                    .state = asset_import::asset_import_state::ready,
                    .output_uris = {"asset://imported/missing/scenes/scene.scene.json"}}}};
@@ -86,6 +86,23 @@ int main() { // NOLINT(bugprone-exception-escape)
     return 4;
   }
 
+  index.entries[0].importer_version = 1U;
+  if (asset_import::save_asset_index(root / ".gneiss" / "asset-index.json", index).result !=
+          asset_import::asset_index_result::success ||
+      model.refresh(root, assets) != gneiss::editor::asset_browser_result::success) {
+    return 20;
+  }
+  const auto old_importer = std::ranges::find(model.entries(), "source:models/sample.gltf",
+                                              &gneiss::editor::asset_browser_entry::id);
+  if (old_importer == model.entries().end() ||
+      old_importer->status != gneiss::editor::asset_browser_status::stale) {
+    return 21;
+  }
+  index.entries[0].importer_version = asset_import::gltf_importer_version;
+  if (asset_import::save_asset_index(root / ".gneiss" / "asset-index.json", index).result !=
+      asset_import::asset_index_result::success) {
+    return 22;
+  }
   write_file(source, "source-v2");
   if (model.refresh(root, assets) != gneiss::editor::asset_browser_result::success) {
     std::filesystem::remove_all(root);

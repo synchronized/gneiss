@@ -59,6 +59,11 @@
 - [总体架构、模块边界与核心技术](concepts/architecture.md)
 - [源码目录、模块所有权与演进规则](concepts/repository-layout.md)
 
+## 版本归档
+
+- [版本索引](versions/README.md)
+- [0.42.0：真实大场景异步加载与安全切换](versions/0.42.0.md)
+
 ## 路线图与开发计划
 
 - [Gneiss 开发路线图](roadmap.md)
@@ -101,6 +106,9 @@
 - [VER-037：0.37.0 编辑器交互稳定性](plans/VER-037-0.37.0-editor-interaction-stability.md)
 - [VER-038：0.38.0 资产后台处理](plans/VER-038-0.38.0-background-assets.md)
 - [VER-039：0.39.0 任务调度基础与资产服务接入](plans/VER-039-0.39.0-task-scheduling.md)
+- [VER-043：0.43.0 Granit 升级与 PBR 材质管线补齐](plans/VER-043-0.43.0-pbr-pipeline.md)
+- [DEV-043：PBR 材质管线开发计划](plans/DEV-043-pbr-pipeline.md)
+- [UPSTREAM-043：Granit PBR 上游需求与接入跟踪](plans/UPSTREAM-043-granit-pbr.md)
 - [VER-042：0.42.0 真实大场景驱动的异步加载与切换](plans/VER-042-0.42.0-async-scene-loading.md)
 - [DEV-042：真实大场景异步加载开发计划](plans/DEV-042-async-scene-loading.md)
 - [VER-041：0.41.0 模型资产异步加载与热更新](plans/VER-041-0.41.0-async-model-assets.md)
@@ -170,6 +178,7 @@
 - [ADR-048：Runtime 资产分离异步准备与受控提交](decisions/ADR-048-runtime-asset-preparation.md)
 - [ADR-049：模型依赖准备与整批资源发布](decisions/ADR-049-model-asset-transactions.md)
 - [ADR-050：场景加载使用隔离候选与安全点激活](decisions/ADR-050-staged-scene-activation.md)
+- [ADR-051：PBR 材质语义与多纹理依赖](decisions/ADR-051-pbr-material-dependencies.md)
 
 ## 实施与验收记录
 
@@ -292,6 +301,8 @@
 - [Granit 0.28.0 升级验收](records/2026-09-23-granit-0.28-upgrade.md)
 - [Granit 0.28.1 坐标契约接入](records/2026-09-23-granit-0.28.1-upgrade.md)
 - [Granit 0.30.0 原生窗口路径升级验收](records/2026-09-25-granit-0.30.0-upgrade.md)
+- [M-279：Granit 0.39.0 升级与能力审计](records/M-279-granit-0.39-upgrade.md)
+- [M-280～282：PBR 资源、切线与纹理构建阶段验收](records/M-280-282-pbr-material-pipeline.md)
 - [Granit 0.29.1 无阴影投射物修复接入](records/2026-09-23-granit-0.29.1-upgrade.md)
 - [编辑器网格密度与渐隐优化](records/2026-09-23-editor-grid.md)
 - [远距离缩放冻结与无阴影投射物路径排查](records/2026-09-23-granit-no-shadow-casters.md)
@@ -314,6 +325,8 @@
 - [M-17 场景实例化与本地验收记录](records/M-17-scene-instantiation.md)
 - [M-27 图片解码器 Spike 记录](records/M-27-image-decoder-spike.md)
 - [M-31 工具能力重新评估记录](records/M-31-tooling-reevaluation.md)
+
+- [M-284～M-285：0.43.0 PBR 与发布验收](records/M-284-285-0.43.0-validation.md)
 
 ## 文档维护
 

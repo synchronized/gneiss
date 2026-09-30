@@ -38,6 +38,15 @@ int main() {
 
   gneiss_material_desc material_desc = GNEISS_MATERIAL_DESC_INIT;
   material_desc.base_color_texture = texture;
+  std::array<gneiss_texture, 4> pbr_textures{};
+  for (auto& handle : pbr_textures) {
+    if (resources.create_texture(texture_desc, &handle) != GNEISS_SUCCESS)
+      return 8;
+  }
+  material_desc.metallic_roughness_texture = pbr_textures[0];
+  material_desc.normal_texture = pbr_textures[1];
+  material_desc.occlusion_texture = pbr_textures[2];
+  material_desc.emissive_texture = pbr_textures[3];
   gneiss_material material = GNEISS_NULL_MATERIAL;
   if (resources.create_material(material_desc, &material) != GNEISS_SUCCESS) {
     return 3;
@@ -78,6 +87,12 @@ int main() {
       resources.destroy_mesh(mesh) != GNEISS_SUCCESS ||
       resources.destroy_texture(texture) != GNEISS_SUCCESS) {
     return 6;
+  }
+  for (const auto handle : pbr_textures) {
+    if (resources.destroy_texture(handle) != GNEISS_SUCCESS ||
+        packet.resources.get_texture(handle) == nullptr ||
+        packet.resources.get_texture(handle)->levels.front().pixels.front() != std::byte{1})
+      return 9;
   }
   const auto* captured_mesh = packet.resources.get_mesh(mesh);
   const auto* captured_material = packet.resources.get_material(material);

@@ -13,7 +13,7 @@ Editor。
 - CMake 3.23 或更高版本。
 - 支持 C++20 的 C/C++ 编译器。
 - 使用 Ninja preset 时需要安装 Ninja。
-- 启用 Granit 运行时适配时需要已安装的 Granit `0.30.0+` 核心、Window 与 RenderPipeline
+- 启用 Granit 运行时适配时需要已安装的 Granit `0.43.0+` 核心、Window 与 RenderPipeline
   组件，或由父工程提供 `granit::granit`、`granit::window` 和
   `granit::render_pipeline` 目标。
 - 离线工具或测试还需要 Granit `AssetTools` 组件。FETCH 自动启用其 SDK；PACKAGE 或父工程模式
@@ -73,7 +73,7 @@ Linux 可选择 `linux-clang-debug` 或 `linux-gcc-debug`，可执行文件不�
 
 当前命令确定性生成 `models`、`materials`、`textures` 和 `scenes` 子目录。入口场景固定为
 `scenes/scene.scene.json`。包含多个 Primitive 的 Mesh 会拆分为独立 Mesh 资产和稳定的合成场景
-子节点；未指定材质的 Primitive 使用生成的默认材质。首版纹理仅支持基础颜色 PNG。导入先写入
+子节点；未指定材质的 Primitive 使用生成的默认材质。支持 base color、metallic-roughness、normal、occlusion、emissive 五类 PNG 贴图。导入先写入
 目标目录同级的暂存目录，全部成功后再替换目标目录，因此会清除上次导入遗留的文件；校验或写出
 失败时保留原有完整结果。
 
@@ -118,6 +118,8 @@ Linux Shared 构建应将 package 导出的 `GNEISS_LIBRARY_DIR` 及外部 Grani
 
 普通 preset 默认关闭可选的运行时适配，因此无图形环境也能构建和测试核心。启用后，Granit 平台
 Application 会创建 Vulkan Renderer、Surface 和 Swapchain，并在每帧更新后执行清屏与呈现。
+Granit 0.43 的标准 PBR 要求设备支持 `shaderDemoteToHelperInvocation`；后端查询并启用该特性，
+不支持时设备选择失败，不会继续执行依赖该能力的 Shader。
 Renderer 初始化时会查询设备的 Uniform Buffer 对齐与绑定范围；渲染服务按设备对齐创建逐帧
 Uniform Arena，并通过动态 Offset 为同一帧的不同对象提供变换与材质颜色。静态 Mesh 首次使用时
 会打包到持久 GPU 几何 Arena，多个对象实例不再逐帧重复上传相同 Vertex/Index 数据。

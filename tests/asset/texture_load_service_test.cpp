@@ -182,7 +182,7 @@ void run(tasks::execution_mode mode) {
   service.request_stop();
   check(service.stopped() && discarded == 1U);
 }
-void mixed(tasks::execution_mode mode) {
+void mixed(tasks::execution_mode mode, bool pbr = false) {
   tasks::task_scheduler scheduler({.workers = 1U, .mode = mode});
   auto files = std::make_shared<memory_files>();
   files->pixel(std::byte{10});
@@ -192,6 +192,17 @@ void mixed(tasks::execution_mode mode) {
   files->text(
       "m.material.json",
       R"({"format":"gneiss.material","version":3,"color":[1,1,1,1],"base_color_texture":"asset://a.texture.json","metallic":0,"roughness":1})");
+  if (pbr) {
+    for (unsigned i = 1; i < 5U; ++i) {
+      files->text(
+          std::to_string(i) + ".texture.json",
+          R"({"format":"gneiss.texture","version":1,"source":"asset://image.ktx2","color_space":"srgb"})");
+    }
+    files->text(
+        "m.material.json",
+        R"({"format":"gneiss.material","version":4,"color":[1,1,1,1],"base_color_texture":"asset://a.texture.json","metallic":0,"roughness":1,"metallic_roughness_texture":"asset://1.texture.json","normal_texture":"asset://2.texture.json","occlusion_texture":"asset://3.texture.json","emissive_texture":"asset://4.texture.json","emissive":[0.2,0.3,0.4]})");
+  }
+  const auto expected_assets = pbr ? 11U : 7U;
   const std::string mesh =
       R"({"format":"gneiss.mesh","version":3,"topology":"triangle_list","vertices":[[0,0,0],[1,0,0],[0,1,0]],"uvs":[[0,0],[1,0],[0,1]],"normals":[[0,0,1],[0,0,1],[0,0,1]]})";
   std::vector<render_asset_reload> requested{
@@ -231,7 +242,7 @@ void mixed(tasks::execution_mode mode) {
           },
       .discard =
           [&](auto data, auto& sequence) {
-            check(data.size() == 7U);
+            check(data.size() == expected_assets);
             ++discards;
             sequence = ++serial;
             return GNEISS_SUCCESS;
@@ -274,7 +285,8 @@ void mixed(tasks::execution_mode mode) {
 
   check(service.submit_assets(requested, 1U, 2U, request) == GNEISS_SUCCESS);
   until([&] { return service.take(completion); });
-  check(completion.state == texture_load_state::applied && completion.assets.size() == 7U);
+  check(completion.state == texture_load_state::applied &&
+        completion.assets.size() == expected_assets);
   auto leases = completion.assets;
   render_asset_lease mesh_lease, material_lease;
   check(loader.acquire_cached(requested[1], mesh_lease) == GNEISS_SUCCESS);
@@ -290,8 +302,8 @@ void mixed(tasks::execution_mode mode) {
   check(service.submit_assets(requested, 1U, 3U, request) == GNEISS_SUCCESS);
   until([&] { return uploaded; });
   asset_load_progress progress;
-  check(service.progress(progress) && !progress.can_cancel && progress.total_assets == 7U &&
-        !service.cancel());
+  check(service.progress(progress) && !progress.can_cancel &&
+        progress.total_assets == expected_assets && !service.cancel());
   check(resources.share_mesh(mesh_lease.get()) == old_mesh &&
         resources.share_material(material_lease.get()) == old_material);
   ack = true;
@@ -304,6 +316,19 @@ void mixed(tasks::execution_mode mode) {
   cache.release_unused();
   const auto* material = resources.get_material(material_lease.get());
   check(material && resources.get_texture(material->base_color_texture) != nullptr);
+  if (pbr) {
+    check(material->emissive[2] == 0.4F);
+    for (const auto texture : material->texture_handles()) {
+      check(texture != GNEISS_NULL_TEXTURE && resources.get_texture(texture) != nullptr);
+    }
+    // 丢失附加纹理时不得发布部分材质，也不能替换已有版本。
+    const auto retained = resources.share_material(material_lease.get());
+    files->files.erase("3.texture.json");
+    check(service.submit_assets(requested, 1U, 4U, request) == GNEISS_SUCCESS);
+    until([&] { return service.take(completion); });
+    check(completion.state == texture_load_state::failed &&
+          resources.share_material(material_lease.get()) == retained);
+  }
   // 同 URI 类型冲突、依赖缺失、闭包容量限制都必须在发布前拒绝。
   prepared_render_batch prepared;
   asset_diagnostic diagnostic;
@@ -324,6 +349,8 @@ void mixed(tasks::execution_mode mode) {
 }
 }
 int main() try {
+  mixed(tasks::execution_mode::cooperative, true);
+  mixed(tasks::execution_mode::thread_pool, true);
   mixed(tasks::execution_mode::cooperative);
   mixed(tasks::execution_mode::thread_pool);
   run(tasks::execution_mode::cooperative);

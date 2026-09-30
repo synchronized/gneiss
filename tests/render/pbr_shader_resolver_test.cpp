@@ -66,13 +66,13 @@ int main() {
   const granit_vertex_buffer_layout valid_layout{48, GRANIT_VERTEX_STEP_MODE_VERTEX,
                                                  static_cast<std::uint32_t>(attributes.size()), 0,
                                                  attributes.data()};
-  if (granit_pbr_validate_vertex_layout(&valid_layout, 1, GRANIT_PBR_TEXTURE_ALL) !=
+  if (granit_pbr_validate_vertex_layout(&valid_layout, 1, GRANIT_PBR_TEXTURE_ALL, 0U, 0U) !=
       GRANIT_PBR_VERTEX_LAYOUT_VALID)
     return 9;
   const granit_vertex_buffer_layout missing_uv_layout{48, GRANIT_VERTEX_STEP_MODE_VERTEX, 2, 0,
                                                       attributes.data()};
-  if (granit_pbr_validate_vertex_layout(&missing_uv_layout, 1, GRANIT_PBR_TEXTURE_BASE_COLOR) !=
-      GRANIT_PBR_VERTEX_LAYOUT_MISSING_UV0)
+  if (granit_pbr_validate_vertex_layout(&missing_uv_layout, 1, GRANIT_PBR_TEXTURE_BASE_COLOR, 0U,
+                                        0U) != GRANIT_PBR_VERTEX_LAYOUT_MISSING_UV0)
     return 10;
 
   const auto unique = std::chrono::steady_clock::now().time_since_epoch().count();

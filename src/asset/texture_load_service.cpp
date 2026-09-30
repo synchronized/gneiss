@@ -237,7 +237,7 @@ void texture_load_service::advance_impl() {
         return;
       }
       render_upload_item upload{candidate.mesh, candidate.material, candidate.texture,
-                                candidate.dependency_texture, candidate.bytes};
+                                candidate.dependency_textures, candidate.bytes};
       if (backend_.estimate_bytes)
         upload.bytes = backend_.estimate_bytes(upload);
       value.data.push_back(std::move(upload));

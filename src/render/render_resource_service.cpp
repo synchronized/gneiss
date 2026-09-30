@@ -3,6 +3,8 @@
 
 #include "render/render_resource_service.h"
 
+#include "asset/mesh_tangent.h"
+
 #include <algorithm>
 #include <atomic>
 #include <cmath>
@@ -34,7 +36,10 @@ render_resource_service::render_resource_service() noexcept
 
 gneiss_result render_resource_service::create_mesh(const gneiss_mesh_desc& desc,
                                                    gneiss_mesh* out_mesh) noexcept {
-  if (out_mesh == nullptr || !is_valid() || desc.struct_size < sizeof(gneiss_mesh_desc) ||
+  if (out_mesh == nullptr || !is_valid() ||
+      (desc.struct_size != GNEISS_MESH_DESC_VERSION_1_SIZE &&
+       desc.struct_size != GNEISS_MESH_DESC_VERSION_2_SIZE &&
+       desc.struct_size < sizeof(gneiss_mesh_desc)) ||
       desc.reserved != 0U || desc.vertex_count < 3U || desc.vertices == nullptr) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
@@ -67,10 +72,49 @@ gneiss_result render_resource_service::create_mesh(const gneiss_mesh_desc& desc,
   if (!std::ranges::all_of(indices, [&](const auto index) { return index < desc.vertex_count; })) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
+  std::span<const gneiss_mesh_tangent> tangents;
+  if (desc.struct_size >= GNEISS_MESH_DESC_VERSION_2_SIZE) {
+    if (desc.reserved_4 != 0U || ((desc.tangent_count == 0U) != (desc.tangents == nullptr)) ||
+        (desc.tangent_count != 0U &&
+         (desc.tangent_count != desc.vertex_count || normals.empty()))) {
+      return GNEISS_ERROR_INVALID_ARGUMENT;
+    }
+    if (desc.tangent_count != 0U)
+      tangents = {desc.tangents, desc.tangent_count};
+    for (std::size_t index = 0; index < tangents.size(); ++index) {
+      const auto& tangent = tangents[index];
+      const auto& normal = normals[index];
+      if (!asset_internal::valid_mesh_tangent({tangent.x, tangent.y, tangent.z, tangent.w},
+                                              {normal.x, normal.y, normal.z})) {
+        return GNEISS_ERROR_INVALID_ARGUMENT;
+      }
+    }
+  }
+  std::span<const gneiss_mesh_uv> uv1;
+  std::span<const gneiss_mesh_color> colors;
+  if (desc.struct_size >= sizeof(gneiss_mesh_desc)) {
+    if (desc.reserved_5 != 0U || desc.reserved_6 != 0U ||
+        ((desc.uv1_count == 0U) != (desc.uv1 == nullptr)) ||
+        ((desc.color_count == 0U) != (desc.colors == nullptr)) ||
+        (desc.uv1_count != 0U && desc.uv1_count != desc.vertex_count) ||
+        (desc.color_count != 0U && desc.color_count != desc.vertex_count))
+      return GNEISS_ERROR_INVALID_ARGUMENT;
+    uv1 = {desc.uv1, desc.uv1_count};
+    colors = {desc.colors, desc.color_count};
+    if (!std::ranges::all_of(
+            uv1, [](const auto& uv) { return std::isfinite(uv.u) && std::isfinite(uv.v); }) ||
+        !std::ranges::all_of(colors, [](const auto& c) {
+          return valid_color(c.r) && valid_color(c.g) && valid_color(c.b) && valid_color(c.a);
+        }))
+      return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
   try {
     mesh_resource resource{.vertices = {vertices.begin(), vertices.end()},
                            .normals = {normals.begin(), normals.end()},
-                           .indices = {indices.begin(), indices.end()}};
+                           .indices = {indices.begin(), indices.end()},
+                           .tangents = {tangents.begin(), tangents.end()},
+                           .uv1 = {uv1.begin(), uv1.end()},
+                           .colors = {colors.begin(), colors.end()}};
     return meshes_.create(core::resource_type::mesh,
                           std::make_shared<const mesh_resource>(std::move(resource)), out_mesh);
   } catch (const std::bad_alloc&) {
@@ -119,7 +163,10 @@ gneiss_result render_resource_service::destroy_mesh(gneiss_mesh mesh) noexcept {
 
 gneiss_result render_resource_service::create_material(const gneiss_material_desc& desc,
                                                        gneiss_material* out_material) noexcept {
-  if (out_material == nullptr || !is_valid() || desc.struct_size < sizeof(gneiss_material_desc) ||
+  if (out_material == nullptr || !is_valid() ||
+      (desc.struct_size != GNEISS_MATERIAL_DESC_VERSION_1_SIZE &&
+       desc.struct_size != GNEISS_MATERIAL_DESC_VERSION_2_SIZE &&
+       desc.struct_size < sizeof(gneiss_material_desc)) ||
       desc.reserved != 0U || !valid_color(desc.red) || !valid_color(desc.green) ||
       !valid_color(desc.blue) || !valid_color(desc.alpha) || !valid_color(desc.metallic) ||
       !valid_color(desc.roughness) ||
@@ -128,14 +175,50 @@ gneiss_result render_resource_service::create_material(const gneiss_material_des
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
   try {
-    auto resource = std::make_shared<const material_resource>(
-        material_resource{.red = desc.red,
-                          .green = desc.green,
-                          .blue = desc.blue,
-                          .alpha = desc.alpha,
-                          .base_color_texture = desc.base_color_texture,
-                          .metallic = desc.metallic,
-                          .roughness = desc.roughness});
+    material_resource value{.red = desc.red,
+                            .green = desc.green,
+                            .blue = desc.blue,
+                            .alpha = desc.alpha,
+                            .base_color_texture = desc.base_color_texture,
+                            .metallic = desc.metallic,
+                            .roughness = desc.roughness};
+    if (desc.struct_size >= GNEISS_MATERIAL_DESC_VERSION_2_SIZE) {
+      if (desc.reserved_2 != 0U || !std::isfinite(desc.normal_scale) ||
+          !valid_color(desc.occlusion_strength) ||
+          !std::ranges::all_of(desc.emissive, valid_color)) {
+        return GNEISS_ERROR_INVALID_ARGUMENT;
+      }
+      value.metallic_roughness_texture = desc.metallic_roughness_texture;
+      value.normal_texture = desc.normal_texture;
+      value.occlusion_texture = desc.occlusion_texture;
+      value.emissive_texture = desc.emissive_texture;
+      value.normal_scale = desc.normal_scale;
+      value.occlusion_strength = desc.occlusion_strength;
+      std::ranges::copy(desc.emissive, value.emissive.begin());
+      for (const auto texture : value.texture_handles()) {
+        if (texture != GNEISS_NULL_TEXTURE && get_texture(texture) == nullptr) {
+          return GNEISS_ERROR_INVALID_ARGUMENT;
+        }
+      }
+    }
+    if (desc.struct_size >= sizeof(gneiss_material_desc)) {
+      if (desc.alpha_mode > GNEISS_MATERIAL_ALPHA_BLEND || desc.double_sided > 1U ||
+          (!std::isfinite(desc.alpha_cutoff) || desc.alpha_cutoff < 0.0F) || desc.reserved_3 != 0U)
+        return GNEISS_ERROR_INVALID_ARGUMENT;
+      for (const auto& sample : desc.sampling) {
+        if (sample.uv_set > 1U || sample.mag_filter > GNEISS_TEXTURE_FILTER_LINEAR ||
+            sample.min_filter > GNEISS_TEXTURE_FILTER_LINEAR ||
+            sample.mip_filter > GNEISS_TEXTURE_MIP_LINEAR ||
+            sample.address_u > GNEISS_TEXTURE_ADDRESS_MIRROR ||
+            sample.address_v > GNEISS_TEXTURE_ADDRESS_MIRROR)
+          return GNEISS_ERROR_INVALID_ARGUMENT;
+      }
+      value.alpha_mode = desc.alpha_mode;
+      value.double_sided = desc.double_sided;
+      value.alpha_cutoff = desc.alpha_cutoff;
+      std::ranges::copy(desc.sampling, value.sampling.begin());
+    }
+    auto resource = std::make_shared<const material_resource>(value);
     return materials_.create(core::resource_type::material, std::move(resource), out_material);
   } catch (const std::bad_alloc&) {
     return GNEISS_ERROR_OUT_OF_MEMORY;

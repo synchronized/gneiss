@@ -64,7 +64,12 @@ def main():
               "import_ms": import_ms, "nodes": len(scene["objects"]),
               "renderers": actual_renderers, "camera_source_node": camera_index,
               "camera_uuid": camera_uuid, "camera_transform": camera["transform"],
-              "rendering_differences": audit["rendering_differences"],
+              "source_audit_rendering_differences": audit["rendering_differences"],
+              "import_diagnostics": process.stderr.decode("utf-8", errors="replace"),
+              "rendering_differences": [
+                  "保留五类 PBR 贴图、切线、UV1、顶点色、Alpha 和双面状态；仍需实景 GPU 验收。",
+                  "KHR_lights_punctual 灯光未映射；本工具显式恢复固定测试相机。",
+                  "透明为对象级排序，不保证相交三角形正确顺序；不含折射/OIT。"],
               "mesh_files": len(list((output / "models").glob("*.gneiss-mesh"))),
               "runtime_bytes": sum(p.stat().st_size for p in output.rglob("*") if p.is_file())}
     (output / "conversion.json").write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n",

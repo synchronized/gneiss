@@ -217,6 +217,19 @@ gneiss_target_output_directories(gneiss_render_resource_service_test)
 add_test(NAME gneiss.render_resource_service COMMAND gneiss_render_resource_service_test)
 
 add_executable(
+  gneiss_pbr_material_resource_test
+  render/pbr_material_resource_test.cpp
+  "${PROJECT_SOURCE_DIR}/src/render/render_resource_service.cpp"
+)
+target_include_directories(gneiss_pbr_material_resource_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_compile_definitions(gneiss_pbr_material_resource_test PRIVATE GNEISS_BUILDING_LIBRARY)
+target_link_libraries(gneiss_pbr_material_resource_test PRIVATE gneiss::engine)
+target_compile_features(gneiss_pbr_material_resource_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_pbr_material_resource_test)
+gneiss_target_output_directories(gneiss_pbr_material_resource_test)
+add_test(NAME gneiss.pbr-material-resource COMMAND gneiss_pbr_material_resource_test)
+
+add_executable(
   gneiss_ui_draw_list_test
   render/ui_draw_list_test.cpp
   "${PROJECT_SOURCE_DIR}/src/render/render_resource_service.cpp"
@@ -532,7 +545,8 @@ gneiss_target_compile_warnings(gneiss_json_format_test)
 gneiss_target_output_directories(gneiss_json_format_test)
 add_test(NAME gneiss.json_format COMMAND gneiss_json_format_test)
 
-add_executable(gneiss_scene_load_application_test scene/scene_load_application_test.cpp)
+add_executable(gneiss_scene_load_application_test scene/scene_load_application_test.cpp
+  "${PROJECT_SOURCE_DIR}/src/asset/mesh_binary.cpp")
 target_include_directories(gneiss_scene_load_application_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_link_libraries(gneiss_scene_load_application_test PRIVATE gneiss::engine gneiss_tasks)
 gneiss_target_compile_warnings(gneiss_scene_load_application_test)
@@ -737,12 +751,14 @@ set_tests_properties(gneiss.texture-load-service gneiss.texture-load-application
 
 if(GNEISS_ENABLE_GRANIT_PLATFORM)
   add_executable(gneiss_asset_pixel_test render/asset_pixel_test.cpp
+    "${PROJECT_SOURCE_DIR}/src/asset/mesh_binary.cpp"
     "${PROJECT_SOURCE_DIR}/src/asset/texture_ktx2.cpp")
   target_include_directories(gneiss_asset_pixel_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
   target_link_libraries(gneiss_asset_pixel_test PRIVATE gneiss::engine gneiss_tasks)
   gneiss_target_compile_warnings(gneiss_asset_pixel_test)
   gneiss_target_output_directories(gneiss_asset_pixel_test)
   add_test(NAME gneiss.asset-pixel COMMAND gneiss_asset_pixel_test)
+  add_test(NAME gneiss.pbr-negative-scale COMMAND gneiss_asset_pixel_test --probe-negative-scale)
   set_tests_properties(gneiss.asset-pixel PROPERTIES TIMEOUT 60)
   add_executable(gneiss_scene_load_baseline render/scene_load_baseline.cpp)
   target_include_directories(gneiss_scene_load_baseline PRIVATE "${PROJECT_SOURCE_DIR}/src")

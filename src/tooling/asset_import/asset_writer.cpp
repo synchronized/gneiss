@@ -42,8 +42,14 @@ void configure(std::ostream& stream) {
                               const std::filesystem::path& path) {
   asset_internal::mesh_binary_data data;
   data.vertices.reserve(primitive.vertices.size());
+  data.tangents.reserve(primitive.vertices.size());
   data.indices = primitive.indices;
   for (const auto& source : primitive.vertices) {
+    data.tangents.push_back(source.tangent);
+    if (primitive.has_uv1)
+      data.uv1.push_back(source.uv1);
+    if (primitive.has_color)
+      data.colors.push_back(source.color);
     data.vertices.push_back(
         {.position = {source.position[0], source.position[1], source.position[2]},
          .texcoord = {source.texcoord[0], source.texcoord[1]},
@@ -72,7 +78,7 @@ void configure(std::ostream& stream) {
     return false;
   }
   configure(stream);
-  stream << "{\n  \"format\": \"gneiss.material\",\n  \"version\": 3,\n  \"color\": ["
+  stream << "{\n  \"format\": \"gneiss.material\",\n  \"version\": 5,\n  \"color\": ["
          << material.base_color[0] << ',' << material.base_color[1] << ',' << material.base_color[2]
          << ',' << material.base_color[3] << ']';
   stream << ",\n  \"base_color_texture\": ";
@@ -82,7 +88,38 @@ void configure(std::ostream& stream) {
   else
     stream << "null";
   stream << ",\n  \"metallic\": " << material.metallic
-         << ",\n  \"roughness\": " << material.roughness << "\n}\n";
+         << ",\n  \"roughness\": " << material.roughness;
+  constexpr std::array names{"base_color_texture", "metallic_roughness_texture", "normal_texture",
+                             "occlusion_texture", "emissive_texture"};
+  constexpr std::array variants{0U, 1U, 2U, 1U, 0U};
+  const auto images = material.texture_indices();
+  for (std::size_t slot = 1; slot < images.size(); ++slot) {
+    stream << ",\n  \"" << names[slot] << "\": ";
+    if (images[slot]) {
+      stream << '"' << asset_uri_prefix << "textures/image-" << *images[slot]
+             << image_variant_suffixes[variants[slot]] << ".texture.json\"";
+    } else {
+      stream << "null";
+    }
+  }
+  stream << ",\n  \"normal_scale\": " << material.normal_scale
+         << ",\n  \"occlusion_strength\": " << material.occlusion_strength << ",\n  \"emissive\": ["
+         << material.emissive[0] << ',' << material.emissive[1] << ',' << material.emissive[2]
+         << "],\n  \"alpha_mode\": \""
+         << (material.alpha_mode == GNEISS_MATERIAL_ALPHA_BLEND
+                 ? "BLEND"
+                 : (material.alpha_mode == GNEISS_MATERIAL_ALPHA_MASK ? "MASK" : "OPAQUE"))
+         << "\",\n  \"double_sided\": " << (material.double_sided != 0U ? "true" : "false")
+         << ",\n  \"alpha_cutoff\": " << material.alpha_cutoff << ",\n  \"sampling\": [";
+  for (std::size_t slot = 0; slot < material.sampling.size(); ++slot) {
+    const auto& s = material.sampling[slot];
+    if (slot != 0U)
+      stream << ',';
+    stream << "{\"uv_set\":" << s.uv_set << ",\"mag_filter\":" << s.mag_filter
+           << ",\"min_filter\":" << s.min_filter << ",\"mip_filter\":" << s.mip_filter
+           << ",\"address_u\":" << s.address_u << ",\"address_v\":" << s.address_v << '}';
+  }
+  stream << "]\n}\n";
   return stream.good();
 }
 
@@ -199,8 +236,10 @@ void write_renderer(std::ostream& stream, std::size_t mesh_index, std::size_t pr
 
 [[nodiscard]] std::optional<std::string> validate_materials(const import_ir& data) {
   for (const auto& material : data.materials) {
-    if (material.base_color_image_index && *material.base_color_image_index >= data.images.size()) {
-      return "Material 引用了不存在的图像";
+    for (const auto image : material.texture_indices()) {
+      if (image && *image >= data.images.size()) {
+        return "Material 引用了不存在的图像";
+      }
     }
   }
   return std::nullopt;
@@ -253,19 +292,26 @@ write_report write_assets_in_place(const import_ir& data,
       return {.success = false, .diagnostic = "写出默认 Material 失败"};
     }
     for (std::size_t index = 0; index < data.images.size(); ++index) {
-      const auto base = "image-" + std::to_string(index);
-      std::ofstream image(output_directory / "textures" / (base + ".png"),
-                          std::ios::binary | std::ios::trunc);
-      image.write(reinterpret_cast<const char*>(data.images[index].bytes.data()),
-                  static_cast<std::streamsize>(data.images[index].bytes.size()));
-      std::ofstream texture(output_directory / "textures" / (base + ".texture.json"),
+      const auto variants = image_variants(data, index);
+      for (std::size_t variant = 0; variant < variants.size(); ++variant) {
+        if (!variants[variant])
+          continue;
+        const auto base = "image-" + std::to_string(index) + image_variant_suffixes[variant];
+        std::ofstream image(output_directory / "textures" / (base + ".png"),
                             std::ios::binary | std::ios::trunc);
-      texture << "{\n  \"format\": \"gneiss.texture\",\n  \"version\": 1,\n"
-                 "  \"source\": \""
-              << asset_uri_prefix << "textures/" << base
-              << ".png\",\n  \"color_space\": \"srgb\"\n}\n";
-      if (!image.good() || !texture.good()) {
-        return {.success = false, .diagnostic = "写出 Texture 失败"};
+        image.write(reinterpret_cast<const char*>(data.images[index].bytes.data()),
+                    static_cast<std::streamsize>(data.images[index].bytes.size()));
+        std::ofstream texture(output_directory / "textures" / (base + ".texture.json"),
+                              std::ios::binary | std::ios::trunc);
+        texture << "{\n  \"format\": \"gneiss.texture\",\n  \"version\": "
+                << (variant == 2U ? 2 : 1) << ",\n  \"source\": \"" << asset_uri_prefix
+                << "textures/" << base << ".png\",\n  \"color_space\": \""
+                << (variant == 0U ? "srgb" : "linear") << '"';
+        if (variant == 2U)
+          texture << ",\n  \"usage\": \"normal\"";
+        texture << "\n}\n";
+        if (!image.good() || !texture.good())
+          return {.success = false, .diagnostic = "写出 Texture 失败"};
       }
     }
     if (!write_scene(data, output_directory / "scenes" / "scene.scene.json", asset_uri_prefix)) {

@@ -20,8 +20,12 @@ add_library(
   "${PROJECT_SOURCE_DIR}/src/tooling/asset_import/gltf_importer.cpp"
   "${PROJECT_SOURCE_DIR}/src/tooling/asset_import/gltf_importer.h"
   "${PROJECT_SOURCE_DIR}/src/tooling/asset_import/import_ir.h"
+  "${PROJECT_SOURCE_DIR}/src/tooling/asset_import/tangent_generation.cpp"
+  "${PROJECT_SOURCE_DIR}/src/tooling/asset_import/tangent_generation.h"
   "${PROJECT_SOURCE_DIR}/src/tooling/asset_build/asset_build.cpp"
   "${PROJECT_SOURCE_DIR}/src/tooling/asset_build/asset_build.h"
+  "${PROJECT_SOURCE_DIR}/src/tooling/asset_build/texture_mip_generator.cpp"
+  "${PROJECT_SOURCE_DIR}/src/tooling/asset_build/texture_mip_generator.h"
   "${PROJECT_SOURCE_DIR}/src/tooling/asset_build/bc7_encoder.cpp"
   "${PROJECT_SOURCE_DIR}/src/tooling/asset_build/bc7_encoder.h"
   "${PROJECT_SOURCE_DIR}/src/tooling/asset_build/ktx2_probe.cpp"
@@ -38,7 +42,7 @@ target_include_directories(
 )
 target_link_libraries(
   gneiss_asset_import_sdk
-  PRIVATE fastgltf::fastgltf gneiss_bc7enc gneiss_yyjson gneiss_png granit::granit granit::asset_tools
+  PRIVATE fastgltf::fastgltf gneiss_mikktspace gneiss_bc7enc gneiss_yyjson gneiss_png granit::granit granit::asset_tools
 )
 target_compile_features(gneiss_asset_import_sdk PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_asset_import_sdk)
@@ -62,6 +66,19 @@ if(WIN32 AND granit_asset_tools_imported AND granit_asset_tools_type STREQUAL "S
 endif()
 
 if(GNEISS_BUILD_TESTING AND BUILD_TESTING)
+  add_executable(gneiss_texture_mip_generator_test "${PROJECT_SOURCE_DIR}/tests/tooling/texture_mip_generator_test.cpp")
+  target_link_libraries(gneiss_texture_mip_generator_test PRIVATE gneiss_asset_import_sdk)
+  target_compile_features(gneiss_texture_mip_generator_test PRIVATE cxx_std_20)
+  gneiss_target_compile_warnings(gneiss_texture_mip_generator_test)
+  gneiss_target_output_directories(gneiss_texture_mip_generator_test)
+  add_test(NAME gneiss.texture-mip-generator COMMAND gneiss_texture_mip_generator_test)
+  add_executable(gneiss_tangent_generation_test "${PROJECT_SOURCE_DIR}/tests/tooling/tangent_generation_test.cpp")
+  target_link_libraries(gneiss_tangent_generation_test PRIVATE gneiss_asset_import_sdk)
+  target_compile_features(gneiss_tangent_generation_test PRIVATE cxx_std_20)
+  gneiss_target_compile_warnings(gneiss_tangent_generation_test)
+  gneiss_target_output_directories(gneiss_tangent_generation_test)
+  add_test(NAME gneiss.tangent-generation COMMAND gneiss_tangent_generation_test)
+
   add_executable(
     gneiss_corrupt_texture_fixture
     "${PROJECT_SOURCE_DIR}/tests/tooling/corrupt_texture_fixture.cpp"

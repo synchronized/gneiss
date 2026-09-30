@@ -29,8 +29,8 @@
 namespace gneiss::application_internal {
 namespace {
 
-static_assert(GRANIT_VERSION_MAJOR > 0 || GRANIT_VERSION_MINOR >= 30,
-              "Gneiss requires Granit 0.30.0 or newer");
+static_assert(GRANIT_VERSION_MAJOR > 0 || GRANIT_VERSION_MINOR >= 43,
+              "Gneiss requires Granit 0.43.0 or newer");
 
 gneiss_result map_result(granit::result result) noexcept {
   switch (result.native()) {
@@ -61,6 +61,8 @@ struct gpu_vertex {
   std::array<float, 3> normal;
   std::array<float, 4> tangent;
   std::array<float, 2> texture_coordinate;
+  std::array<float, 2> uv1;
+  std::array<float, 4> color;
 };
 
 struct geometry_range final {
@@ -118,10 +120,16 @@ granit::result append_mesh_geometry(const render_internal::mesh_resource& source
     const auto& vertex = source.vertices[index];
     const auto normal =
         source.normals.empty() ? gneiss_mesh_normal{0.0F, 1.0F, 0.0F} : source.normals[index];
+    const auto tangent = source.tangents.empty() ? gneiss_mesh_tangent{1.0F, 0.0F, 0.0F, 1.0F}
+                                                 : source.tangents[index];
+    const auto uv1 = source.uv1.empty() ? gneiss_mesh_uv{0, 0} : source.uv1[index];
+    const auto color = source.colors.empty() ? gneiss_mesh_color{1, 1, 1, 1} : source.colors[index];
     vertices.push_back({.position = {vertex.x, vertex.y, vertex.z},
                         .normal = {normal.x, normal.y, normal.z},
-                        .tangent = {1.0F, 0.0F, 0.0F, 1.0F},
-                        .texture_coordinate = {vertex.u, vertex.v}});
+                        .tangent = {tangent.x, tangent.y, tangent.z, tangent.w},
+                        .texture_coordinate = {vertex.u, vertex.v},
+                        .uv1 = {uv1.u, uv1.v},
+                        .color = {color.r, color.g, color.b, color.a}});
   }
   if (source.indices.empty()) {
     for (std::size_t index = 0; index < source.vertices.size(); ++index) {
@@ -252,7 +260,8 @@ granit_render_service::create_texture_mirror(const render_internal::texture_reso
     }
     if (result.ok()) {
       stage = "view";
-      result = output.view.initialize(renderer_, output.texture, {.format = format});
+      result = output.view.initialize(renderer_, output.texture,
+                                      {.format = format, .mip_level_count = info.mip_levels});
     }
     if (result.failed()) {
       static_cast<void>(output.view.reset());
@@ -296,7 +305,9 @@ granit_render_service::create_texture_mirror(const render_internal::texture_reso
     result = upload.submit();
   }
   if (result.ok()) {
-    result = output.view.initialize(renderer_, output.texture, {.format = format});
+    result = output.view.initialize(
+        renderer_, output.texture,
+        {.format = format, .mip_level_count = static_cast<std::uint32_t>(source.levels.size())});
   }
   if (result.failed()) {
     static_cast<void>(output.view.reset());
@@ -308,7 +319,7 @@ granit_render_service::create_texture_mirror(const render_internal::texture_reso
 
 granit::result
 granit_render_service::create_material_mirror(const render_internal::material_resource& source,
-                                              granit_texture_view base_color,
+                                              const std::array<granit_texture_view, 5>& textures,
                                               material_mirror& output) noexcept {
   if (auto found = prepared_materials_.find(&source); found != prepared_materials_.end()) {
     output = std::move(found->second.mirror);
@@ -317,11 +328,39 @@ granit_render_service::create_material_mirror(const render_internal::material_re
   }
 
   const std::array color{source.red, source.green, source.blue, source.alpha};
-  constexpr float normal_scale = 1.0F;
-  constexpr float occlusion_strength = 1.0F;
-  constexpr std::array emissive{0.0F, 0.0F, 0.0F};
+  constexpr std::array addresses{granit::address_mode::repeat, granit::address_mode::clamp_to_edge,
+                                 granit::address_mode::mirrored_repeat};
+  for (std::size_t slot = 0; slot < source.sampling.size(); ++slot) {
+    const auto& sampling = source.sampling[slot];
+    const auto initialized = output.samplers[slot].initialize(
+        renderer_, {.mag_filter = sampling.mag_filter == GNEISS_TEXTURE_FILTER_LINEAR
+                                      ? granit::filter::linear
+                                      : granit::filter::nearest,
+                    .min_filter = sampling.min_filter == GNEISS_TEXTURE_FILTER_LINEAR
+                                      ? granit::filter::linear
+                                      : granit::filter::nearest,
+                    .mip_filter = sampling.mip_filter == GNEISS_TEXTURE_MIP_LINEAR
+                                      ? granit::mipmap_filter::linear
+                                      : granit::mipmap_filter::nearest,
+                    .address_u = addresses[sampling.address_u],
+                    .address_v = addresses[sampling.address_v],
+                    .max_lod = sampling.mip_filter == GNEISS_TEXTURE_MIP_NONE ? 0.0F : 14.0F});
+    if (initialized.failed())
+      return initialized;
+  }
+  const auto uv1_mask = source.uv1_mask();
+  const float normal_scale = source.normal_scale;
+  const float occlusion_strength = source.occlusion_strength;
+  const auto& emissive = source.emissive;
   constexpr std::uint32_t debug_display = 0;
   const std::array updates{
+      granit::material_parameter_update::value(
+          granit::material_parameter_id(GRANIT_PBR_PARAMETER_ALPHA_CUTOFF),
+          granit::material_parameter_type::float32,
+          std::as_bytes(std::span{&source.alpha_cutoff, 1})),
+      granit::material_parameter_update::value(
+          granit::material_parameter_id(GRANIT_PBR_PARAMETER_UV1_MASK),
+          granit::material_parameter_type::uint32, std::as_bytes(std::span{&uv1_mask, 1})),
       granit::material_parameter_update::value(
           granit::material_parameter_id(GRANIT_PBR_PARAMETER_BASE_COLOR),
           granit::material_parameter_type::float4,
@@ -348,28 +387,40 @@ granit_render_service::create_material_mirror(const render_internal::material_re
           granit::material_parameter_type::uint32, std::as_bytes(std::span{&debug_display, 1})),
       granit::material_parameter_update::texture_binding(
           granit::material_parameter_id(GRANIT_PBR_PARAMETER_BASE_COLOR_TEXTURE),
-          granit::texture_view_ref::from_native(base_color)),
+          granit::texture_view_ref::from_native(textures[0])),
       granit::material_parameter_update::texture_binding(
           granit::material_parameter_id(GRANIT_PBR_PARAMETER_METALLIC_ROUGHNESS_TEXTURE),
-          default_white_linear_.view.ref()),
+          granit::texture_view_ref::from_native(textures[1])),
       granit::material_parameter_update::texture_binding(
           granit::material_parameter_id(GRANIT_PBR_PARAMETER_NORMAL_TEXTURE),
-          default_normal_linear_.view.ref()),
+          granit::texture_view_ref::from_native(textures[2])),
       granit::material_parameter_update::texture_binding(
           granit::material_parameter_id(GRANIT_PBR_PARAMETER_OCCLUSION_TEXTURE),
-          default_white_linear_.view.ref()),
+          granit::texture_view_ref::from_native(textures[3])),
       granit::material_parameter_update::texture_binding(
           granit::material_parameter_id(GRANIT_PBR_PARAMETER_EMISSIVE_TEXTURE),
-          default_white_srgb_.view.ref()),
+          granit::texture_view_ref::from_native(textures[4])),
       granit::material_parameter_update::sampler_binding(
-          granit::material_parameter_id(GRANIT_PBR_PARAMETER_SAMPLER), sampler_.ref())};
+          granit::material_parameter_id(GRANIT_PBR_PARAMETER_BASE_COLOR_SAMPLER),
+          output.samplers[0].ref()),
+      granit::material_parameter_update::sampler_binding(
+          granit::material_parameter_id(GRANIT_PBR_PARAMETER_METALLIC_ROUGHNESS_SAMPLER),
+          output.samplers[1].ref()),
+      granit::material_parameter_update::sampler_binding(
+          granit::material_parameter_id(GRANIT_PBR_PARAMETER_NORMAL_SAMPLER),
+          output.samplers[2].ref()),
+      granit::material_parameter_update::sampler_binding(
+          granit::material_parameter_id(GRANIT_PBR_PARAMETER_OCCLUSION_SAMPLER),
+          output.samplers[3].ref()),
+      granit::material_parameter_update::sampler_binding(
+          granit::material_parameter_id(GRANIT_PBR_PARAMETER_EMISSIVE_SAMPLER),
+          output.samplers[4].ref())};
   const granit::material_desc desc{.archive = pbr_shader_resolver::material_archive(),
                                    .initial_updates = updates,
                                    .shader_library = pbr_library_.ref()};
   auto result = output.material.initialize(renderer_, desc);
   if (result.ok()) {
     output.source = &source;
-    output.base_color_texture = source.base_color_texture;
   }
   return result;
 }
@@ -428,15 +479,19 @@ granit_render_service::create_mesh_mirror(const render_internal::mesh_resource& 
                                 static_cast<std::uint32_t>(offsetof(gpu_vertex, tangent)), 0},
         granit_vertex_attribute{
             GRANIT_PBR_VERTEX_LOCATION_UV0, GRANIT_VERTEX_FORMAT_FLOAT32X2,
-            static_cast<std::uint32_t>(offsetof(gpu_vertex, texture_coordinate)), 0}};
+            static_cast<std::uint32_t>(offsetof(gpu_vertex, texture_coordinate)), 0},
+        granit_vertex_attribute{GRANIT_PBR_VERTEX_LOCATION_UV1, GRANIT_VERTEX_FORMAT_FLOAT32X2,
+                                static_cast<std::uint32_t>(offsetof(gpu_vertex, uv1)), 0},
+        granit_vertex_attribute{GRANIT_PBR_VERTEX_LOCATION_COLOR, GRANIT_VERTEX_FORMAT_FLOAT32X4,
+                                static_cast<std::uint32_t>(offsetof(gpu_vertex, color)), 0}};
     const granit_vertex_buffer_layout layout{sizeof(gpu_vertex), GRANIT_VERTEX_STEP_MODE_VERTEX,
                                              static_cast<std::uint32_t>(attributes.size()), 0,
                                              attributes.data()};
-    if (granit_pbr_validate_vertex_layout(&layout, 1, GRANIT_PBR_TEXTURE_ALL) !=
+    if (granit_pbr_validate_vertex_layout(&layout, 1, GRANIT_PBR_TEXTURE_ALL, 0U, 0U) !=
         GRANIT_PBR_VERTEX_LAYOUT_VALID) {
       return granit::result::invalid_argument;
     }
-    std::array<granit::vertex_attribute, 4> typed_attributes;
+    std::array<granit::vertex_attribute, 6> typed_attributes;
     for (std::size_t index = 0; index < attributes.size(); ++index) {
       typed_attributes[index] = {attributes[index].location,
                                  static_cast<granit::vertex_format>(attributes[index].format),
@@ -675,18 +730,24 @@ granit_render_service::prepare_textures(std::vector<render_internal::render_uplo
                   prepared_meshes_.insert_or_assign(item.mesh.get(), std::move(value));
                 }
               } else if (item.material) {
-                granit_texture_view texture = default_white_srgb_.view.native_handle();
-                if (item.dependency_texture) {
-                  const auto found = prepared_textures_.find(item.dependency_texture.get());
+                std::array textures{default_white_srgb_.view.native_handle(),
+                                    default_white_linear_.view.native_handle(),
+                                    default_normal_linear_.view.native_handle(),
+                                    default_white_linear_.view.native_handle(),
+                                    default_white_srgb_.view.native_handle()};
+                for (std::size_t slot = 0; slot < textures.size(); ++slot) {
+                  if (!item.dependency_textures[slot])
+                    continue;
+                  const auto found = prepared_textures_.find(item.dependency_textures[slot].get());
                   if (found == prepared_textures_.end()) {
                     discard_candidates(data);
                     return GNEISS_ERROR_INVALID_STATE;
                   }
-                  texture = found->second.mirror.view.native_handle();
+                  textures[slot] = found->second.mirror.view.native_handle();
                 }
                 prepared_material value{
-                    .data = item.material, .mirror = {}, .dependency = item.dependency_texture};
-                result = create_material_mirror(*item.material, texture, value.mirror);
+                    .data = item.material, .mirror = {}, .dependencies = item.dependency_textures};
+                result = create_material_mirror(*item.material, textures, value.mirror);
                 if (result.ok()) {
                   prepared_materials_.insert_or_assign(item.material.get(), std::move(value));
                 }
@@ -985,15 +1046,6 @@ gneiss_result granit_render_service::initialize_gpu(const native_window_info& wi
     }
   }
   if (result.ok()) {
-    result = sampler_.initialize(renderer_, {.mag_filter = granit::filter::linear,
-                                             .min_filter = granit::filter::linear,
-                                             .mip_filter = granit::mipmap_filter::linear,
-                                             .address_u = granit::address_mode::repeat,
-                                             .address_v = granit::address_mode::repeat,
-                                             .address_w = granit::address_mode::repeat,
-                                             .max_lod = 0.0F});
-  }
-  if (result.ok()) {
     result = ensure_default_textures();
   }
   if (result.ok()) {
@@ -1035,7 +1087,6 @@ gneiss_result granit_render_service::shutdown_gpu(granit::renderer_resource_stat
   static_cast<void>(ui_canvas_.destroy());
   static_cast<void>(debug_draw_.destroy());
   static_cast<void>(ui_sampler_.reset());
-  static_cast<void>(sampler_.reset());
   // 材质和管线先销毁，再释放借用归档内存的 Shader Library。
   const auto library_result = pbr_library_.reset();
   if (library_result.ok())
@@ -1111,26 +1162,32 @@ granit_render_service::execute_frame(render_internal::render_frame_packet& packe
       const auto* material = resources.get_material(instance.material);
       if (material == nullptr)
         return GNEISS_ERROR_INVALID_HANDLE;
-      granit_texture_view base_color = default_white_srgb_.view.native_handle();
-      if (material->base_color_texture != GNEISS_NULL_TEXTURE) {
-        const auto* texture = resources.get_texture(material->base_color_texture);
+      std::array textures{
+          default_white_srgb_.view.native_handle(), default_white_linear_.view.native_handle(),
+          default_normal_linear_.view.native_handle(), default_white_linear_.view.native_handle(),
+          default_white_srgb_.view.native_handle()};
+      const auto handles = material->texture_handles();
+      for (std::size_t slot = 0; slot < handles.size(); ++slot) {
+        const auto handle = handles[slot];
+        if (handle == GNEISS_NULL_TEXTURE)
+          continue;
+        const auto* texture = resources.get_texture(handle);
         if (texture == nullptr)
           return GNEISS_ERROR_INVALID_HANDLE;
-        auto found = texture_mirrors_.find(material->base_color_texture);
+        auto found = texture_mirrors_.find(handle);
         if (found == texture_mirrors_.end()) {
           texture_mirror mirror;
-          const auto created =
-              create_texture_mirror(*texture, mirror, material->base_color_texture);
+          const auto created = create_texture_mirror(*texture, mirror, handle);
           if (created.failed())
             return map_result(created);
-          found = texture_mirrors_.emplace(material->base_color_texture, std::move(mirror)).first;
+          found = texture_mirrors_.emplace(handle, std::move(mirror)).first;
         }
-        base_color = found->second.view.native_handle();
+        textures[slot] = found->second.view.native_handle();
       }
       auto found = material_mirrors_.find(instance.material);
       if (found == material_mirrors_.end()) {
         material_mirror mirror;
-        const auto created = create_material_mirror(*material, base_color, mirror);
+        const auto created = create_material_mirror(*material, textures, mirror);
         if (created.failed())
           return map_result(created);
         material_mirrors_.emplace(instance.material, std::move(mirror));
@@ -1208,6 +1265,12 @@ granit_render_service::execute_frame(render_internal::render_frame_packet& packe
           return GNEISS_ERROR_INVALID_ARGUMENT;
         const auto payload = static_cast<std::uint64_t>(index) + 1U;
         const auto* mesh = resources.get_mesh(instance.mesh);
+        const auto* material = resources.get_material(instance.material);
+        if (material->uv1_mask() != 0U && mesh->uv1.empty())
+          return GNEISS_ERROR_INVALID_ARGUMENT;
+        // GPU 布局统一包含 UV1 与颜色；缺失属性填零 UV / 白色，变体必须匹配 72 字节步长。
+        const auto variant = granit_pbr_material_variant_key(
+            GRANIT_PBR_TEXTURE_ALL, material->alpha_mode, material->double_sided, 1U, 1U);
         renderables.push_back(
             {.model = to_granit_matrix(model),
              .normal_matrix = to_granit_matrix(normal),
@@ -1221,7 +1284,8 @@ granit_render_service::execute_frame(render_internal::render_frame_packet& packe
              .reserved = 0});
         bindings.push_back({.payload = payload,
                             .mesh = mesh_mirrors_.at(instance.mesh).mesh.ref(),
-                            .material = material_mirrors_.at(instance.material).material.ref()});
+                            .material = material_mirrors_.at(instance.material).material.ref(),
+                            .variant = variant});
       }
     } catch (const std::bad_alloc&) {
       return GNEISS_ERROR_OUT_OF_MEMORY;

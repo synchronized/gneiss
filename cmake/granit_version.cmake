@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Gneiss contributors
 
-set(_gneiss_granit_git_tag_default "0471650803b9ff725c9ae287d0cafc8e8cb63f71")
-set(_gneiss_granit_git_tag_previous_default "462d19b88678ea4048bfdeddbee1ea37955527b6")
+set(_gneiss_granit_git_tag_default "555b1144b02be409c74b7cc971eff2e0ecf74e25")
+set(_gneiss_granit_git_tag_previous_default "29a4f18a67a8f506c585f0f515d93ddc406d7426")
 
 option(
   GNEISS_GRANIT_UPDATE_DEFAULTS
