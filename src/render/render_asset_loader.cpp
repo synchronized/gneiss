@@ -809,8 +809,11 @@ gneiss_result prepare_render_assets(const asset_internal::virtual_file_system& f
         return result;
       }
       if (asset.bytes > maximum_bytes - batch.bytes) {
-        fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, source.uri, "渲染资产候选超过字节预算");
-        return GNEISS_ERROR_INVALID_ARGUMENT;
+        fail(diagnostic, GNEISS_ERROR_OUT_OF_MEMORY, source.uri,
+             "资产准备预算不足：需要 " + std::to_string(asset.bytes) + " 字节，可用 " +
+                 std::to_string(maximum_bytes - batch.bytes) + " 字节，批次上限 " +
+                 std::to_string(maximum_bytes) + " 字节");
+        return GNEISS_ERROR_OUT_OF_MEMORY;
       }
       batch.bytes += asset.bytes;
       batch.assets.push_back(std::move(asset));
@@ -1381,10 +1384,14 @@ gneiss_result prepare_texture(const asset_internal::virtual_file_system& file_sy
           if (output.manifest.size() > output_limit ||
               variant.payload_size > output_limit - output.manifest.size() ||
               variant.payload_size > input_limit) {
+            const auto manifest_bytes = output.manifest.size();
             output = {};
-            fail(out_diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/source",
-                 "选中纹理变体超出字节预算");
-            return GNEISS_ERROR_INVALID_ARGUMENT;
+            fail(out_diagnostic, GNEISS_ERROR_OUT_OF_MEMORY, "/source",
+                 "纹理准备预算不足：所选负载需要 " + std::to_string(variant.payload_size) +
+                     " 字节，Manifest 需要 " + std::to_string(manifest_bytes) +
+                     " 字节，负载读取上限 " + std::to_string(input_limit) + " 字节，合计可用 " +
+                     std::to_string(output_limit) + " 字节");
+            return GNEISS_ERROR_OUT_OF_MEMORY;
           }
           output.payload.resize(static_cast<std::size_t>(variant.payload_size));
           result = container->read_payload(variant.payload_offset, output.payload);

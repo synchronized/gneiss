@@ -237,11 +237,19 @@ void selected_variants() {
   require(texture.selected_variant == 1U && texture.payload.size() == rgba.size() &&
           texture.profile == fallback);
   require(prepare_texture(files, "asset://t.texture.json", texture, diagnostic, limit, false, limit,
-                          fallback) == GNEISS_ERROR_INVALID_ARGUMENT &&
+                          fallback) == GNEISS_ERROR_OUT_OF_MEMORY &&
           texture.payload.empty());
+  require(diagnostic.result == GNEISS_ERROR_OUT_OF_MEMORY &&
+          diagnostic.message.find("纹理准备预算不足") != std::string::npos &&
+          diagnostic.message.find(std::to_string(rgba.size())) != std::string::npos &&
+          diagnostic.message.find(std::to_string(limit)) != std::string::npos);
   require(prepare_texture(files, "asset://t.texture.json", texture, diagnostic, limit, false, limit,
                           {.generation = 3U}) == GNEISS_ERROR_UNSUPPORTED &&
           texture.manifest.empty());
+  // 提高额度可重试；预算拒绝不能被缓存为永久失败。
+  require(prepare_texture(files, "asset://t.texture.json", texture, diagnostic, binary.size(),
+                          false, binary.size(), fallback) == GNEISS_SUCCESS &&
+          texture.payload.size() == rgba.size());
   // 只改选中负载，不改 Manifest，必须被内容摘要拒绝。
   memory->files["t.gneiss-texture"].back() ^= 1;
   require(prepare_texture(files, "asset://t.texture.json", texture, diagnostic, binary.size(),

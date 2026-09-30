@@ -318,7 +318,9 @@ void scene_load_service::advance_impl() {
     if (progress.resident_bytes > maximum_resident_bytes ||
         progress.cpu_data_bytes > maximum_resident_bytes) {
       finish(GNEISS_ERROR_OUT_OF_MEMORY, scene_load_phase::failed,
-             "场景候选逻辑容量或 CPU 数据超过 2 GiB");
+             "场景候选预算不足：逻辑容量 " + std::to_string(progress.resident_bytes) +
+                 " 字节，CPU 数据 " + std::to_string(progress.cpu_data_bytes) + " 字节，各项上限 " +
+                 std::to_string(maximum_resident_bytes) + " 字节");
       return;
     }
     value.cursor += value.batch_count;
@@ -369,7 +371,9 @@ void scene_load_service::advance_impl() {
         std::min<std::uint64_t>(local_remaining, resources_.available_memory_bytes()));
     if (remaining == 0U) {
       finish(GNEISS_ERROR_OUT_OF_MEMORY, scene_load_phase::failed,
-             "活动场景、候选或旧帧占用导致可用资源预算耗尽");
+             "场景准备预算耗尽：候选可用 " + std::to_string(local_remaining) +
+                 " 字节，Application 可用 " + std::to_string(resources_.available_memory_bytes()) +
+                 " 字节（含活动场景、候选及旧帧）；未启动下一批");
       return;
     }
     const auto submitted = value.assets->submit_assets(
