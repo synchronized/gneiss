@@ -62,7 +62,7 @@ struct fixture {
                  static_cast<std::streamsize>(bytes.size()));
   }
 };
-void run_mip_sampling(bool packaged = false) {
+void run_mip_sampling(bool packaged = false, bool async = false) {
   fixture files(true);
   std::ofstream(files.root / "g.mesh.json")
       << R"({"format":"gneiss.mesh","version":3,"topology":"triangle_list","vertices":[[-0.8,-0.7,0],[0.8,-0.7,0],[0,0.8,0]],"uvs":[[0,0],[1024,0],[512,1024]],"normals":[[0,0,1],[0,0,1],[0,0,1]]})";
@@ -135,6 +135,7 @@ void run_mip_sampling(bool packaged = false) {
     stream.write(reinterpret_cast<const char*>(bytes.data()),
                  static_cast<std::streamsize>(bytes.size()));
   }
+  tasks::task_scheduler scheduler({.workers = 1U});
   application app;
   const auto root = files.root.string();
   auto desc = gneiss_application_desc GNEISS_APPLICATION_DESC_INIT;
@@ -144,7 +145,34 @@ void run_mip_sampling(bool packaged = false) {
   check(application::create(desc, app) == result::success);
   constexpr std::string_view uri = "asset://s.scene.json";
   gneiss_scene_instance scene{};
-  check(gneiss_scene_instance_load(app.get(), uri.data(), uri.size(), &scene) == GNEISS_SUCCESS);
+  if (async) {
+    using namespace application_internal;
+    check(attach_task_executor(app.get(), scheduler) == GNEISS_SUCCESS);
+    std::uint64_t request{};
+    check(request_scene_load(app.get(), uri, 1U, 1U, request) == GNEISS_SUCCESS);
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(15);
+    while (true) {
+      check(std::chrono::steady_clock::now() < deadline);
+      scene_load_completion completion;
+      bool terminal{};
+      check(poll_scene_load(app.get(), completion, terminal) == GNEISS_SUCCESS);
+      if (terminal)
+        std::fprintf(stderr, "scene result %d: %s\n", completion.result,
+                     completion.message.c_str());
+      check(!terminal);
+      scene_load_progress progress;
+      bool available{};
+      check(query_scene_load_progress(app.get(), progress, available) == GNEISS_SUCCESS &&
+            available);
+      if (progress.phase == scene_load_phase::ready) {
+        check(activate_scene_load(app.get(), request, completion) == GNEISS_SUCCESS);
+        break;
+      }
+      std::this_thread::yield();
+    }
+  } else {
+    check(gneiss_scene_instance_load(app.get(), uri.data(), uri.size(), &scene) == GNEISS_SUCCESS);
+  }
   check(app.run(3U) == result::success);
   render_internal::frame_image image;
   check(application_internal::capture_frame(app.get(), 128U, 128U, image) == GNEISS_SUCCESS);
@@ -602,6 +630,8 @@ int main(int argc, char* argv[]) try {
   run_mip_sampling();
   std::fprintf(stderr, "asset-pixel: nonzero variant payload\n");
   run_mip_sampling(true);
+  std::fprintf(stderr, "asset-pixel: selected variant async\n");
+  run_mip_sampling(true, true);
   std::fprintf(stderr, "asset-pixel: channels\n");
   run_material_channels();
   std::fprintf(stderr, "asset-pixel: states\n");

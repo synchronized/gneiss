@@ -37,8 +37,8 @@ struct asset_diagnostic final {
 prepare_texture(const asset_internal::virtual_file_system& file_system, std::string_view uri,
                 texture_resource& output, asset_diagnostic& diagnostic,
                 std::size_t input_limit = std::numeric_limits<std::size_t>::max(),
-                bool verify_source = false,
-                std::size_t output_limit = 256U * 1024U * 1024U) noexcept;
+                bool verify_source = false, std::size_t output_limit = 256U * 1024U * 1024U,
+                texture_prepare_profile profile = {}) noexcept;
 
 enum class render_asset_type : std::uint32_t {
   invalid = 0U,
@@ -64,6 +64,7 @@ struct prepared_render_asset {
 struct prepared_render_batch {
   std::vector<prepared_render_asset> assets;
   std::size_t bytes{};
+  /** 整文件快照持有的输入字节；区间读取没有源副本，不计入此值。 */
   std::size_t input_bytes{};
 };
 [[nodiscard]] gneiss_result
@@ -71,7 +72,8 @@ prepare_render_assets(const asset_internal::virtual_file_system& file_system,
                       std::span<const render_asset_reload> requested, prepared_render_batch& output,
                       asset_diagnostic& diagnostic, const std::function<bool()>& cancelled,
                       std::size_t maximum_assets = 256U,
-                      std::size_t maximum_bytes = 256U * 1024U * 1024U) noexcept;
+                      std::size_t maximum_bytes = 256U * 1024U * 1024U,
+                      texture_prepare_profile profile = {}) noexcept;
 
 class render_asset_lease {
 public:
@@ -140,8 +142,10 @@ public:
     std::size_t bytes{};
   };
   using revision_stamp = std::pair<std::uint64_t, std::uint64_t>;
+  /** profile 非零时校验纹理及材质纹理依赖的设备身份；零值供逻辑层读取已发布 RID。 */
   [[nodiscard]] gneiss_result acquire_cached(const render_asset_reload& source,
-                                             render_asset_lease& output) const noexcept;
+                                             render_asset_lease& output,
+                                             texture_prepare_profile profile = {}) const noexcept;
   [[nodiscard]] revision_stamp revision() const noexcept { return {cache_.revision(), revision_}; }
   [[nodiscard]] gneiss_result stage_asset(prepared_render_asset prepared,
                                           std::span<const asset_candidate> staged,

@@ -50,6 +50,7 @@ gneiss_result application_state::attach_task_executor(tasks::task_executor& exec
       backend.discard = [this](auto data, auto& sequence) {
         return granit_render_service_->discard_prepared_textures(std::move(data), sequence);
       };
+      backend.profile = granit_render_service_->texture_profile();
       backend.estimate_bytes = granit_render_service::estimate_upload_bytes;
       backend.elapsed_ms = [this] { return granit_render_service_->latest_texture_upload_ms(); };
       backend.flush = [this] { (void)granit_render_service_->finish_frames(); };

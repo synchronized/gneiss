@@ -4,7 +4,9 @@
 #include "render/render_asset_loader.h"
 
 #include "asset/mesh_binary.h"
+#include "asset/source_revision_file_system.h"
 #include "asset/texture_binary.h"
+#include "asset/texture_container.h"
 #include "asset/texture_ktx2.h"
 #include "asset/virtual_file_system.h"
 #include "render/png_decoder.h"
@@ -640,8 +642,8 @@ gneiss_result prepare_render_assets(const asset_internal::virtual_file_system& f
                                     std::span<const render_asset_reload> requested,
                                     prepared_render_batch& output, asset_diagnostic& diagnostic,
                                     const std::function<bool()>& cancelled,
-                                    std::size_t maximum_assets,
-                                    std::size_t maximum_bytes) noexcept {
+                                    std::size_t maximum_assets, std::size_t maximum_bytes,
+                                    texture_prepare_profile profile) noexcept {
   output = {};
   diagnostic = {};
   if (requested.empty() || requested.size() > maximum_assets) {
@@ -650,8 +652,14 @@ gneiss_result prepare_render_assets(const asset_internal::virtual_file_system& f
   try {
     class source_snapshot final : public asset_internal::file_system {
     public:
-      source_snapshot(const asset_internal::virtual_file_system& original, std::size_t limit)
-          : original_(original), limit_(limit) {}
+      source_snapshot(const asset_internal::virtual_file_system& original, std::size_t limit,
+                      const std::function<bool()>& cancelled)
+          : original_(original), ranges_(original, cancelled), limit_(limit) {}
+      gneiss_result
+      open_read(std::string_view path,
+                std::unique_ptr<asset_internal::read_source>& output) const noexcept override {
+        return ranges_.open_read(path, output);
+      }
       gneiss_result read(std::string_view path,
                          std::vector<std::byte>& data) const noexcept override {
         return read_bounded(path, limit_, data);
@@ -690,14 +698,15 @@ gneiss_result prepare_render_assets(const asset_internal::virtual_file_system& f
             return GNEISS_ERROR_INVALID_STATE;
           }
         }
-        return GNEISS_SUCCESS;
+        return ranges_.verify(cancelled);
       }
       const asset_internal::virtual_file_system& original_;
+      asset_internal::source_revision_file_system ranges_;
       std::size_t limit_;
       mutable std::size_t bytes_{};
       mutable std::map<std::string, std::vector<std::byte>> files_;
     };
-    auto snapshot = std::make_shared<source_snapshot>(file_system, maximum_bytes);
+    auto snapshot = std::make_shared<source_snapshot>(file_system, maximum_bytes, cancelled);
     asset_internal::virtual_file_system files;
     auto result = files.mount("asset://", snapshot);
     if (result != GNEISS_SUCCESS) {
@@ -727,7 +736,7 @@ gneiss_result prepare_render_assets(const asset_internal::virtual_file_system& f
         result = prepare_texture(
             files, source.uri, asset.texture, diagnostic,
             std::min(maximum_bytes, (std::size_t{64U} * 1024U * 1024U)), false,
-            std::min(maximum_bytes - batch.bytes, (std::size_t{64U} * 1024U * 1024U)));
+            std::min(maximum_bytes - batch.bytes, (std::size_t{64U} * 1024U * 1024U)), profile);
         asset.bytes = asset.texture.manifest.size() + asset.texture.payload.size();
         for (const auto& mip : asset.texture.levels) {
           asset.bytes += mip.pixels.size();
@@ -856,7 +865,8 @@ render_asset_loader::texture_lease(const render_asset_lease& lease) const noexce
 }
 
 gneiss_result render_asset_loader::acquire_cached(const render_asset_reload& source,
-                                                  render_asset_lease& output) const noexcept {
+                                                  render_asset_lease& output,
+                                                  texture_prepare_profile profile) const noexcept {
   output = {};
   try {
     const auto current = cache_.observe(source.uri).lock();
@@ -866,6 +876,23 @@ gneiss_result render_asset_loader::acquire_cached(const render_asset_reload& sou
     if (current->type != static_cast<std::uint32_t>(source.type) ||
         current->state != asset_internal::resource_state::ready) {
       return GNEISS_ERROR_INVALID_ARGUMENT;
+    }
+    const auto matches_profile = [&](const auto& entry) {
+      const auto rid = std::static_pointer_cast<texture_asset>(entry->resource)->rid;
+      const auto* texture = resources_.get_texture(rid);
+      return texture &&
+             (profile.generation == 0U || texture->manifest.empty() || texture->profile == profile);
+    };
+    if (source.type == render_asset_type::texture && !matches_profile(current)) {
+      return GNEISS_ERROR_NOT_FOUND;
+    }
+    if (source.type == render_asset_type::material) {
+      const auto material = std::static_pointer_cast<material_asset>(current->resource);
+      for (const auto& texture : material->textures) {
+        if (texture && !matches_profile(texture)) {
+          return GNEISS_ERROR_NOT_FOUND;
+        }
+      }
     }
     output.entry_ = current;
     const auto rid = output.get();
@@ -1220,7 +1247,8 @@ gneiss_result render_asset_loader::acquire_material(std::string_view uri,
 gneiss_result prepare_texture(const asset_internal::virtual_file_system& file_system,
                               std::string_view uri, texture_resource& output,
                               asset_diagnostic& out_diagnostic, std::size_t input_limit,
-                              bool verify_source, std::size_t output_limit) noexcept {
+                              bool verify_source, std::size_t output_limit,
+                              texture_prepare_profile profile) noexcept {
   output = {};
   out_diagnostic = {};
   try {
@@ -1236,21 +1264,50 @@ gneiss_result prepare_texture(const asset_internal::virtual_file_system& file_sy
       return result;
     }
     std::vector<std::byte> image_bytes;
-    result = file_system.read_bounded(source.uri,
-                                      input_limit == std::numeric_limits<std::size_t>::max()
-                                          ? input_limit
-                                          : std::min(input_limit, output_limit),
-                                      image_bytes);
-    if (result != GNEISS_SUCCESS) {
-      fail(out_diagnostic, result, "/source", "无法通过 VFS 读取纹理数据");
-      return result;
+    asset_internal::texture_container container;
+    std::shared_ptr<asset_internal::source_revision_file_system> revisions;
+    const bool selected =
+        profile.generation != 0U && std::string_view(source.uri).ends_with(".gneiss-texture");
+    if (selected) {
+      std::unique_ptr<asset_internal::read_source> reader;
+      if (verify_source) {
+        revisions = std::make_shared<asset_internal::source_revision_file_system>(file_system);
+        asset_internal::virtual_file_system checked;
+        result = checked.mount("asset://", revisions);
+        if (result == GNEISS_SUCCESS) {
+          result = checked.open_read(source.uri, reader);
+        }
+      } else {
+        result = file_system.open_read(source.uri, reader);
+      }
+      std::string message;
+      if (result == GNEISS_SUCCESS) {
+        result = container.open(std::move(reader), std::min(input_limit, output_limit), message);
+      }
+      if (result != GNEISS_SUCCESS) {
+        fail(out_diagnostic, result, "/source",
+             message.empty() ? "无法按范围读取运行纹理" : message);
+        return result;
+      }
+    } else {
+      result = file_system.read_bounded(source.uri,
+                                        input_limit == std::numeric_limits<std::size_t>::max()
+                                            ? input_limit
+                                            : std::min(input_limit, output_limit),
+                                        image_bytes);
+      if (result != GNEISS_SUCCESS) {
+        fail(out_diagnostic, result, "/source", "无法通过 VFS 读取纹理数据");
+        return result;
+      }
     }
     if (std::string_view(source.uri).ends_with(".gneiss-texture")) {
 #if defined(GNEISS_HAS_GRANIT_PLATFORM)
       asset_internal::texture_binary_view binary;
       std::string decode_message;
-      if (asset_internal::decode_texture_binary(image_bytes, binary, decode_message) !=
-          asset_internal::texture_binary_result::success) {
+      if (selected) {
+        binary.manifest = container.manifest();
+      } else if (asset_internal::decode_texture_binary(image_bytes, binary, decode_message) !=
+                 asset_internal::texture_binary_result::success) {
         fail(out_diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/source",
              decode_message.empty() ? "运行纹理封装检查失败" : decode_message);
         return GNEISS_ERROR_INVALID_ARGUMENT;
@@ -1270,9 +1327,10 @@ gneiss_result prepare_texture(const asset_internal::virtual_file_system& file_sy
                     : variant.format == granit::texture_format::bc7_rgba_unorm ||
                           variant.format == granit::texture_format::rgba8_unorm;
       };
-      const auto payload_in_bounds = [&binary](const auto& variant) {
-        return variant.payload_offset <= binary.payload.size() &&
-               variant.payload_size <= binary.payload.size() - variant.payload_offset;
+      const auto payload_size = selected ? container.payload_size() : binary.payload.size();
+      const auto payload_in_bounds = [payload_size](const auto& variant) {
+        return variant.payload_offset <= payload_size &&
+               variant.payload_size <= payload_size - variant.payload_offset;
       };
       const auto fallback_format =
           srgb ? granit::texture_format::rgba8_srgb : granit::texture_format::rgba8_unorm;
@@ -1295,6 +1353,49 @@ gneiss_result prepare_texture(const asset_internal::virtual_file_system& file_sy
           .manifest = std::vector<std::byte>(binary.manifest.begin(), binary.manifest.end()),
           .payload = std::vector<std::byte>(binary.payload.begin(), binary.payload.end()),
       };
+      if (selected) {
+        constexpr std::array formats{
+            granit::texture_format::rgba8_unorm, granit::texture_format::rgba8_srgb,
+            granit::texture_format::bc7_rgba_unorm, granit::texture_format::bc7_rgba_srgb};
+        constexpr auto usage = static_cast<std::uint32_t>(
+            granit::texture_usage::sampled | granit::texture_usage::transfer_destination);
+        for (std::size_t index = 0U; index < info.variants.size(); ++index) {
+          const auto& variant = info.variants[index];
+          const auto format = std::ranges::find(formats, variant.format);
+          if (format == formats.end() ||
+              !profile
+                   .sampled_transfer_formats[static_cast<std::size_t>(format - formats.begin())] ||
+              (static_cast<std::uint32_t>(variant.usage) & usage) != usage) {
+            continue;
+          }
+          if (output.manifest.size() > output_limit ||
+              variant.payload_size > output_limit - output.manifest.size() ||
+              variant.payload_size > input_limit) {
+            output = {};
+            fail(out_diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/source",
+                 "选中纹理变体超出字节预算");
+            return GNEISS_ERROR_INVALID_ARGUMENT;
+          }
+          output.payload.resize(static_cast<std::size_t>(variant.payload_size));
+          result = container.read_payload(variant.payload_offset, output.payload);
+          if (result == GNEISS_SUCCESS && core::sha256(output.payload) != variant.payload_digest) {
+            result = GNEISS_ERROR_INVALID_ARGUMENT;
+          }
+          if (result != GNEISS_SUCCESS) {
+            output = {};
+            fail(out_diagnostic, result, "/source", "选中纹理变体读取或摘要校验失败");
+            return result;
+          }
+          output.profile = profile;
+          output.selected_variant = static_cast<std::uint32_t>(index);
+          break;
+        }
+        if (output.profile.generation == 0U) {
+          output = {};
+          fail(out_diagnostic, GNEISS_ERROR_UNSUPPORTED, "/source", "设备不支持运行纹理的任何变体");
+          return GNEISS_ERROR_UNSUPPORTED;
+        }
+      }
 #else
       fail(out_diagnostic, GNEISS_ERROR_UNSUPPORTED, "/source",
            "当前构建未启用 Granit，无法加载运行纹理封装");
@@ -1351,8 +1452,10 @@ gneiss_result prepare_texture(const asset_internal::virtual_file_system& file_sy
       std::vector<std::byte> checked;
       if (file_system.read_bounded(uri, input_limit, checked) != GNEISS_SUCCESS ||
           checked != description_bytes ||
-          file_system.read_bounded(source.uri, input_limit, checked) != GNEISS_SUCCESS ||
-          checked != image_bytes) {
+          (selected
+               ? revisions->verify({}) != GNEISS_SUCCESS
+               : file_system.read_bounded(source.uri, input_limit, checked) != GNEISS_SUCCESS ||
+                     checked != image_bytes)) {
         output = {};
         fail(out_diagnostic, GNEISS_ERROR_INVALID_STATE, "/source", "准备期间纹理源已变化");
         return GNEISS_ERROR_INVALID_STATE;

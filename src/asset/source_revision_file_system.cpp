@@ -62,7 +62,7 @@ source_revision_file_system::open_read(std::string_view path,
       return result;
     }
     identity current{.bytes = source->size(), .digest = {}};
-    result = hash_source(*source, current.digest, {});
+    result = hash_source(*source, current.digest, cancelled_);
     if (result == GNEISS_SUCCESS) {
       result = remember(path, current);
     }

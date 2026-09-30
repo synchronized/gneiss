@@ -111,7 +111,7 @@ gneiss_result texture_load_service::submit_assets(std::span<const render_asset_r
     bool cached = true;
     for (const auto& source : sources) {
       render_asset_lease lease;
-      if (loader_.acquire_cached(source, lease) != GNEISS_SUCCESS) {
+      if (loader_.acquire_cached(source, lease, backend_.profile) != GNEISS_SUCCESS) {
         cached = false;
         break;
       }
@@ -133,12 +133,13 @@ gneiss_result texture_load_service::submit_assets(std::span<const render_asset_r
   const auto accepted = executor_.submit(
       {.name = "render_assets.prepare", .scope = scope_},
       [cpu = value->cpu, sources = std::vector<render_asset_reload>(sources.begin(), sources.end()),
-       files = file_system_, prepare_limit](const tasks::task_context& context) {
+       files = file_system_, prepare_limit,
+       profile = backend_.profile](const tasks::task_context& context) {
         const auto start = std::chrono::steady_clock::now();
         asset_diagnostic diagnostic;
         cpu->result = prepare_render_assets(
             files, sources, cpu->batch, diagnostic, [&] { return context.stop_requested(); },
-            maximum_assets, prepare_limit);
+            maximum_assets, prepare_limit, profile);
         cpu->message = std::move(diagnostic.message);
         cpu->milliseconds =
             std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start)

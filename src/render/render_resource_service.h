@@ -98,6 +98,14 @@ struct material_resource {
   }
 };
 
+/** 渲染服务初始化后发布的不可变值；位顺序为 RGBA8 linear/sRGB、BC7 linear/sRGB。
+ * generation 为零表示未绑定设备，保留整包兼容路径；不携带后端对象。 */
+struct texture_prepare_profile {
+  std::uint64_t generation{};
+  std::array<bool, 4> sampled_transfer_formats{};
+  bool operator==(const texture_prepare_profile&) const = default;
+};
+
 struct texture_resource {
   std::uint32_t width;
   std::uint32_t height;
@@ -106,6 +114,9 @@ struct texture_resource {
   std::vector<asset_internal::texture_mip> levels;
   std::vector<std::byte> manifest;
   std::vector<std::byte> payload;
+  /** profile 非零时 payload 从选中变体起点开始，不含其他变体。 */
+  texture_prepare_profile profile{};
+  std::uint32_t selected_variant{UINT32_MAX};
 };
 
 class render_resource_service final {

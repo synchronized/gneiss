@@ -208,6 +208,9 @@ void granit_render_service::log_texture(gneiss_texture rid, const char* stage,
 granit::result
 granit_render_service::create_texture_mirror(const render_internal::texture_resource& source,
                                              texture_mirror& output, gneiss_texture rid) noexcept {
+  if (source.profile.generation != 0U && source.profile != texture_profile_) {
+    return granit::result::invalid_argument;
+  }
   if (auto found = prepared_textures_.find(&source); found != prepared_textures_.end()) {
     output = std::move(found->second.mirror);
     prepared_textures_.erase(found);
@@ -221,7 +224,10 @@ granit_render_service::create_texture_mirror(const render_internal::texture_reso
     const char* stage = "inspect";
     if (result.ok()) {
       stage = "select";
-      result = granit::select_texture_asset_variant(renderer_, source.manifest, selection);
+      result = granit::select_texture_asset_variant(
+          renderer_, source.manifest, selection,
+          {.required_usage =
+               granit::texture_usage::sampled | granit::texture_usage::transfer_destination});
     }
     if (result.failed() || selection.variant_index >= info.variants.size()) {
       output.source = nullptr;
@@ -231,8 +237,16 @@ granit_render_service::create_texture_mirror(const render_internal::texture_reso
       return result;
     }
     const auto& variant = info.variants[selection.variant_index];
-    if (variant.payload_offset > source.payload.size() ||
-        variant.payload_size > source.payload.size() - variant.payload_offset) {
+    const bool selected = source.profile.generation != 0U;
+    if (selected &&
+        (source.profile != texture_profile_ || source.selected_variant != selection.variant_index ||
+         source.payload.size() != variant.payload_size)) {
+      output.source = nullptr;
+      return granit::result::invalid_argument;
+    }
+    const auto payload_offset = selected ? 0U : variant.payload_offset;
+    if (payload_offset > source.payload.size() ||
+        variant.payload_size > source.payload.size() - payload_offset) {
       output.source = nullptr;
       return granit::result::invalid_argument;
     }
@@ -255,9 +269,8 @@ granit_render_service::create_texture_mirror(const render_internal::texture_reso
     }
     if (result.ok()) {
       stage = "write";
-      const auto payload =
-          std::span{source.payload}.subspan(static_cast<std::size_t>(variant.payload_offset),
-                                            static_cast<std::size_t>(variant.payload_size));
+      const auto payload = std::span{source.payload}.subspan(
+          static_cast<std::size_t>(payload_offset), static_cast<std::size_t>(variant.payload_size));
       result = granit::write_texture_asset_variant_mips(
           upload, output.texture.ref(), source.manifest, payload, selection.variant_index, 0U,
           info.mip_levels);
@@ -1003,6 +1016,22 @@ gneiss_result granit_render_service::initialize_gpu(const native_window_info& wi
   if (result.failed()) {
     return map_result(result);
   }
+
+  static std::atomic<std::uint64_t> device_generation{0U};
+  texture_profile_ = {};
+  constexpr std::array formats{
+      granit::texture_format::rgba8_unorm, granit::texture_format::rgba8_srgb,
+      granit::texture_format::bc7_rgba_unorm, granit::texture_format::bc7_rgba_srgb};
+  for (std::size_t index = 0U; index < formats.size(); ++index) {
+    granit::texture_format_capabilities capabilities;
+    result = granit::get_texture_format_capabilities(renderer_, formats[index], capabilities);
+    if (result.failed()) {
+      return map_result(result);
+    }
+    texture_profile_.sampled_transfer_formats[index] = capabilities.supports(
+        granit::texture_usage::sampled | granit::texture_usage::transfer_destination);
+  }
+  texture_profile_.generation = device_generation.fetch_add(1U, std::memory_order_relaxed) + 1U;
 
   switch (window.backend) {
   case native_window_backend::win32:

@@ -37,6 +37,7 @@ struct texture_upload_backend {
   std::function<void()> flush;
   std::function<double()> elapsed_ms{};
   std::function<std::size_t(const render_internal::render_upload_item&)> estimate_bytes{};
+  render_internal::texture_prepare_profile profile{};
 };
 
 struct asset_load_progress {
