@@ -5,7 +5,7 @@
 
 ## 状态与依赖
 
-2026-09-29 开始实施，用户已授权本版完整发布闭环。范围以 [VER-043](VER-043-0.43.0-pbr-pipeline.md) 为准；
+2026-09-30 已完成确认范围并发布 [0.43.0](../versions/0.43.0.md)。以下保留实施与验收方案。范围以 [VER-043](VER-043-0.43.0-pbr-pipeline.md) 为准；
 上游问题统一维护在 [UPSTREAM-043](UPSTREAM-043-granit-pbr.md)，多纹理所有权与格式决策见
 [ADR-051](../decisions/ADR-051-pbr-material-dependencies.md)。
 
