@@ -34,72 +34,95 @@ constexpr std::array<std::uint32_t, 64U> round_constants = {
 
 } // namespace
 
-sha256_digest sha256(std::span<const std::byte> bytes) noexcept {
-  std::array<std::uint32_t, 8U> state = {
-      0x6a09e667U, 0xbb67ae85U, 0x3c6ef372U, 0xa54ff53aU,
-      0x510e527fU, 0x9b05688cU, 0x1f83d9abU, 0x5be0cd19U,
-  };
-  const auto bit_length = static_cast<std::uint64_t>(bytes.size()) * 8U;
-  const auto process = [&state](std::span<const std::byte> chunk) {
-    std::array<std::uint32_t, 64U> words{};
-    for (std::size_t index = 0U; index < 16U; ++index) {
-      words[index] = read_big_endian(chunk, index * 4U);
+void sha256_builder::process(std::span<const std::byte> chunk) noexcept {
+  std::array<std::uint32_t, 64U> words{};
+  for (std::size_t index = 0U; index < 16U; ++index) {
+    words[index] = read_big_endian(chunk, index * 4U);
+  }
+  for (std::size_t index = 16U; index < words.size(); ++index) {
+    const auto s0 = std::rotr(words[index - 15U], 7) ^ std::rotr(words[index - 15U], 18) ^
+                    (words[index - 15U] >> 3U);
+    const auto s1 = std::rotr(words[index - 2U], 17) ^ std::rotr(words[index - 2U], 19) ^
+                    (words[index - 2U] >> 10U);
+    words[index] = words[index - 16U] + s0 + words[index - 7U] + s1;
+  }
+  auto [a, b, c, d, e, f, g, h] = state_;
+  for (std::size_t index = 0U; index < words.size(); ++index) {
+    const auto sum1 = std::rotr(e, 6) ^ std::rotr(e, 11) ^ std::rotr(e, 25);
+    const auto choice = (e & f) ^ (~e & g);
+    const auto temporary1 = h + sum1 + choice + round_constants[index] + words[index];
+    const auto sum0 = std::rotr(a, 2) ^ std::rotr(a, 13) ^ std::rotr(a, 22);
+    const auto majority = (a & b) ^ (a & c) ^ (b & c);
+    h = g;
+    g = f;
+    f = e;
+    e = d + temporary1;
+    d = c;
+    c = b;
+    b = a;
+    a = temporary1 + sum0 + majority;
+  }
+  state_[0] += a;
+  state_[1] += b;
+  state_[2] += c;
+  state_[3] += d;
+  state_[4] += e;
+  state_[5] += f;
+  state_[6] += g;
+  state_[7] += h;
+}
+
+void sha256_builder::update(std::span<const std::byte> bytes) noexcept {
+  byte_count_ += static_cast<std::uint64_t>(bytes.size());
+  if (pending_size_ != 0U) {
+    const auto count = std::min(bytes.size(), pending_.size() - pending_size_);
+    std::ranges::copy(bytes.first(count),
+                      pending_.begin() + static_cast<std::ptrdiff_t>(pending_size_));
+    pending_size_ += count;
+    bytes = bytes.subspan(count);
+    if (pending_size_ == pending_.size()) {
+      process(pending_);
+      pending_size_ = 0U;
     }
-    for (std::size_t index = 16U; index < words.size(); ++index) {
-      const auto s0 = std::rotr(words[index - 15U], 7) ^ std::rotr(words[index - 15U], 18) ^
-                      (words[index - 15U] >> 3U);
-      const auto s1 = std::rotr(words[index - 2U], 17) ^ std::rotr(words[index - 2U], 19) ^
-                      (words[index - 2U] >> 10U);
-      words[index] = words[index - 16U] + s0 + words[index - 7U] + s1;
-    }
-    auto [a, b, c, d, e, f, g, h] = state;
-    for (std::size_t index = 0U; index < words.size(); ++index) {
-      const auto sum1 = std::rotr(e, 6) ^ std::rotr(e, 11) ^ std::rotr(e, 25);
-      const auto choice = (e & f) ^ (~e & g);
-      const auto temporary1 = h + sum1 + choice + round_constants[index] + words[index];
-      const auto sum0 = std::rotr(a, 2) ^ std::rotr(a, 13) ^ std::rotr(a, 22);
-      const auto majority = (a & b) ^ (a & c) ^ (b & c);
-      h = g;
-      g = f;
-      f = e;
-      e = d + temporary1;
-      d = c;
-      c = b;
-      b = a;
-      a = temporary1 + sum0 + majority;
-    }
-    state[0] += a;
-    state[1] += b;
-    state[2] += c;
-    state[3] += d;
-    state[4] += e;
-    state[5] += f;
-    state[6] += g;
-    state[7] += h;
-  };
+  }
   while (bytes.size() >= 64U) {
     process(bytes.first(64U));
     bytes = bytes.subspan(64U);
   }
+  if (!bytes.empty()) {
+    std::ranges::copy(bytes, pending_.begin());
+    pending_size_ = bytes.size();
+  }
+}
+
+sha256_digest sha256_builder::digest() const noexcept {
+  auto finalized = *this;
+  const auto bit_length = byte_count_ * 8U;
   std::array<std::byte, 128U> tail{};
-  std::ranges::copy(bytes, tail.begin());
-  tail[bytes.size()] = std::byte{0x80};
-  const auto padded = bytes.size() < 56U ? 64U : 128U;
+  std::ranges::copy(std::span{pending_}.first(pending_size_), tail.begin());
+  tail[pending_size_] = std::byte{0x80};
+  const auto padded = pending_size_ < 56U ? 64U : 128U;
   for (std::size_t index = 0; index < 8U; ++index) {
     tail[padded - 1U - index] = static_cast<std::byte>(bit_length >> (index * 8U));
   }
-  process(std::span(tail).first(64U));
+  finalized.process(std::span(tail).first(64U));
   if (padded == 128U) {
-    process(std::span(tail).subspan(64U));
+    finalized.process(std::span(tail).subspan(64U));
   }
-
   sha256_digest digest{};
-  for (std::size_t word = 0U; word < state.size(); ++word) {
+  for (std::size_t word = 0U; word < state_.size(); ++word) {
     for (std::size_t byte = 0U; byte < 4U; ++byte) {
-      digest[(word * 4U) + byte] = static_cast<std::byte>(state[word] >> ((3U - byte) * 8U));
+      digest[(word * 4U) + byte] =
+          static_cast<std::byte>(finalized.state_[word] >> ((3U - byte) * 8U));
     }
   }
   return digest;
+}
+
+sha256_digest sha256(std::span<const std::byte> bytes) noexcept {
+  sha256_builder builder;
+  builder.update(bytes);
+  return builder.digest();
 }
 
 } // namespace gneiss::core

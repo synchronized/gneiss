@@ -3,6 +3,7 @@
 
 #include "asset/source_revision_file_system.h"
 
+#include <algorithm>
 #include <cstdio>
 #include <source_location>
 #include <stdexcept>
@@ -20,7 +21,7 @@ struct memory_files final : file_system {
   gneiss_result read(std::string_view path, std::vector<std::byte>& bytes) const noexcept override {
     return read_bounded(path, 1024U, bytes);
   }
-  gneiss_result read_bounded(std::string_view, std::size_t limit,
+  gneiss_result read_bounded(std::string_view /*path*/, std::size_t limit,
                              std::vector<std::byte>& bytes) const noexcept override try {
     bytes.clear();
     if (missing) {
@@ -36,6 +37,81 @@ struct memory_files final : file_system {
     return GNEISS_ERROR_OUT_OF_MEMORY;
   }
 };
+
+struct range_state {
+  std::vector<std::byte> bytes = std::vector<std::byte>(200000U, std::byte{7});
+  std::size_t largest_read{};
+  std::size_t reads{};
+  bool fail{};
+};
+class memory_source final : public read_source {
+public:
+  explicit memory_source(std::shared_ptr<range_state> state)
+      : state_(std::move(state)), length_(state_->bytes.size()) {}
+  [[nodiscard]] std::uint64_t size() const noexcept override { return length_; }
+  [[nodiscard]] gneiss_result read_at(std::uint64_t offset,
+                                      std::span<std::byte> output) const noexcept override {
+    ++state_->reads;
+    state_->largest_read = std::max(state_->largest_read, output.size());
+    if (state_->fail || offset > state_->bytes.size() ||
+        output.size() > state_->bytes.size() - offset) {
+      return GNEISS_ERROR_IO;
+    }
+    std::ranges::copy(
+        std::span{state_->bytes}.subspan(static_cast<std::size_t>(offset), output.size()),
+        output.begin());
+    return GNEISS_SUCCESS;
+  }
+
+private:
+  std::shared_ptr<range_state> state_;
+  std::uint64_t length_;
+};
+struct range_files final : file_system {
+  std::shared_ptr<range_state> state = std::make_shared<range_state>();
+  gneiss_result read(std::string_view /*path*/,
+                     std::vector<std::byte>& /*bytes*/) const noexcept override {
+    return GNEISS_ERROR_IO;
+  }
+  gneiss_result open_read(std::string_view /*path*/,
+                          std::unique_ptr<read_source>& output) const noexcept override try {
+    output = std::make_unique<memory_source>(state);
+    return GNEISS_SUCCESS;
+  } catch (...) {
+    output.reset();
+    return GNEISS_ERROR_OUT_OF_MEMORY;
+  }
+};
+
+void run_ranges() {
+  auto backend = std::make_shared<range_files>();
+  virtual_file_system vfs;
+  check(vfs.mount("asset://", backend) == GNEISS_SUCCESS);
+  source_revision_file_system tracked(vfs);
+  std::unique_ptr<read_source> source;
+  check(tracked.open_read("large", source) == GNEISS_SUCCESS);
+  check(tracked.source_count() == 1U && backend->state->reads == 4U);
+  check(backend->state->largest_read == 65536U);
+  check(tracked.verify({}) == GNEISS_SUCCESS);
+  std::size_t polls{};
+  const auto reads = backend->state->reads;
+  check(tracked.verify([&polls] { return ++polls == 3U; }) == GNEISS_ERROR_INVALID_STATE);
+  check(backend->state->reads == reads + 1U);
+  backend->state->bytes.back() = std::byte{8};
+  check(tracked.verify({}) == GNEISS_ERROR_INVALID_STATE);
+  check(tracked.open_read("large", source) == GNEISS_ERROR_INVALID_STATE && !source);
+  backend->state->bytes.back() = std::byte{7};
+  check(tracked.open_read("large", source) == GNEISS_SUCCESS);
+  backend->state->bytes.push_back(std::byte{});
+  check(tracked.verify({}) == GNEISS_ERROR_INVALID_STATE);
+  backend->state->bytes.pop_back();
+  backend->state->fail = true;
+  check(tracked.open_read("new", source) == GNEISS_ERROR_IO && !source);
+  check(tracked.source_count() == 1U);
+  check(tracked.verify({}) == GNEISS_ERROR_INVALID_STATE);
+  backend->state->fail = false;
+  check(tracked.verify({}) == GNEISS_SUCCESS);
+}
 void run() {
   auto memory = std::make_shared<memory_files>();
   virtual_file_system files;
@@ -75,6 +151,7 @@ void run() {
 int main() {
   try {
     run();
+    run_ranges();
     return 0;
   } catch (const std::exception& error) {
     std::fprintf(stderr, "%s\n", error.what());

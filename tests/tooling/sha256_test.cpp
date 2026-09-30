@@ -3,6 +3,7 @@
 
 #include "tooling/asset_build/sha256.h"
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <string>
@@ -16,7 +17,7 @@ namespace {
   for (std::size_t index = 0U; index < digest.size(); ++index) {
     const auto value = std::to_integer<unsigned char>(digest[index]);
     if (expected[index * 2U] != digits[value >> 4U] ||
-        expected[index * 2U + 1U] != digits[value & 0x0fU]) {
+        expected[(index * 2U) + 1U] != digits[value & 0x0fU]) {
       return false;
     }
   }
@@ -25,7 +26,7 @@ namespace {
 
 } // namespace
 
-int main() {
+int main() try {
   constexpr std::array<std::byte, 0U> empty{};
   constexpr std::string_view abc = "abc";
   if (!equals_hex(gneiss::tooling::asset_build::sha256(empty),
@@ -107,5 +108,34 @@ int main() {
       return 12;
     }
   }
+  // 每个分割位置验证尾块与填充边界；digest 可重复调用并继续追加。
+  for (const auto length : {0U, 1U, 55U, 56U, 63U, 64U, 65U, 119U, 120U, 128U, 257U}) {
+    const std::string input(length, 'a');
+    const auto data = std::as_bytes(std::span{input});
+    const auto expected = gneiss::core::sha256(data);
+    for (std::size_t split = 0U; split <= data.size(); ++split) {
+      gneiss::core::sha256_builder builder;
+      builder.update(data.first(split));
+      if (builder.digest() != gneiss::core::sha256(data.first(split))) {
+        return 13;
+      }
+      builder.update({});
+      builder.update(data.subspan(split));
+      if (builder.digest() != expected || builder.digest() != expected) {
+        return 14;
+      }
+    }
+  }
+  gneiss::core::sha256_builder million;
+  const std::string block(1000U, 'a');
+  for (int index = 0; index < 1000; ++index) {
+    million.update(std::as_bytes(std::span{block}));
+  }
+  if (!equals_hex(million.digest(),
+                  "cdc76e5c9914fb9281a1c7e284d73e67f1809a48a497200e046d39ccc7112cd0")) {
+    return 15;
+  }
   return 0;
+} catch (...) {
+  return 16;
 }
