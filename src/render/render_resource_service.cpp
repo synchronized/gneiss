@@ -315,7 +315,9 @@ render_resource_service::create_packaged_texture(texture_resource resource,
       resource.format != GNEISS_TEXTURE_FORMAT_RGBA8_UNORM ||
       (resource.color_space != GNEISS_TEXTURE_COLOR_SPACE_LINEAR &&
        resource.color_space != GNEISS_TEXTURE_COLOR_SPACE_SRGB) ||
-      !resource.levels.empty() || resource.manifest.empty() || resource.payload.empty()) {
+      !resource.levels.empty() || resource.manifest.empty() ||
+      (resource.payload.empty() &&
+       (!resource.payload_source || resource.upload_payload.expired()))) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
   try {

@@ -3,6 +3,7 @@
 
 #include "render/granit/granit_render_service.h"
 
+#include "asset/texture_container.h"
 #include "log/log_dispatcher.h"
 
 #include <granit/core/version.h>
@@ -238,15 +239,42 @@ granit_render_service::create_texture_mirror(const render_internal::texture_reso
     }
     const auto& variant = info.variants[selection.variant_index];
     const bool selected = source.profile.generation != 0U;
+    auto upload_payload = source.upload_payload.lock();
+    std::vector<std::byte> restored_payload;
+    std::span<const std::byte> available_payload = source.payload;
+    if (source.payload_source && selected && available_payload.empty()) {
+      if (source.payload_source->size() != variant.payload_size ||
+          variant.payload_size > std::numeric_limits<std::size_t>::max()) {
+        output.source = nullptr;
+        return granit::result::invalid_argument;
+      }
+      if (upload_payload) {
+        available_payload = *upload_payload;
+      } else {
+        // 常规异步首次上传持有租约；仅 GPU 投影缺失时按原摘要恢复，禁止用新版源替代。
+        const auto restored = source.payload_source->read(
+            restored_payload, static_cast<std::size_t>(variant.payload_size));
+        if (restored != GNEISS_SUCCESS) {
+          output.source = nullptr;
+          const auto failure = restored == GNEISS_ERROR_OUT_OF_MEMORY
+                                   ? granit::result::out_of_memory
+                                   : granit::result::invalid_argument;
+          log_texture(rid, "restore", failure, selection.variant_index, selection.format,
+                      info.mip_levels, variant.payload_size);
+          return failure;
+        }
+        available_payload = restored_payload;
+      }
+    }
     if (selected &&
         (source.profile != texture_profile_ || source.selected_variant != selection.variant_index ||
-         source.payload.size() != variant.payload_size)) {
+         available_payload.size() != variant.payload_size)) {
       output.source = nullptr;
       return granit::result::invalid_argument;
     }
     const auto payload_offset = selected ? 0U : variant.payload_offset;
-    if (payload_offset > source.payload.size() ||
-        variant.payload_size > source.payload.size() - payload_offset) {
+    if (payload_offset > available_payload.size() ||
+        variant.payload_size > available_payload.size() - payload_offset) {
       output.source = nullptr;
       return granit::result::invalid_argument;
     }
@@ -269,7 +297,7 @@ granit_render_service::create_texture_mirror(const render_internal::texture_reso
     }
     if (result.ok()) {
       stage = "write";
-      const auto payload = std::span{source.payload}.subspan(
+      const auto payload = available_payload.subspan(
           static_cast<std::size_t>(payload_offset), static_cast<std::size_t>(variant.payload_size));
       result = granit::write_texture_asset_variant_mips(
           upload, output.texture.ref(), source.manifest, payload, selection.variant_index, 0U,
@@ -715,6 +743,9 @@ std::size_t granit_render_service::estimate_upload_bytes(
            (item.mesh->indices.empty() ? item.mesh->vertices.size() : item.mesh->indices.size()) *
                sizeof(std::uint32_t);
   if (item.texture) {
+    if (item.texture->payload_source) {
+      return static_cast<std::size_t>(item.texture->payload_source->size());
+    }
     if (!item.texture->payload.empty())
       return item.texture->payload.size();
     std::size_t bytes{};

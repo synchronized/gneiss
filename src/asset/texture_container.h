@@ -5,6 +5,7 @@
 
 #include "asset/read_source.h"
 #include "asset/texture_binary.h"
+#include "core/sha256.h"
 
 #include <memory>
 
@@ -28,6 +29,25 @@ private:
   std::unique_ptr<read_source> source_;
   texture_binary_layout layout_{};
   std::vector<std::byte> manifest_;
+};
+
+/** 固定所选字节身份的重建来源；持有原读取句柄和原偏移，绝不按 URI 重开新版文件。
+ * 来源可原地变化，因此每次恢复都验证原摘要；支持并发只读，输出归调用方所有。 */
+class texture_payload_source final {
+public:
+  texture_payload_source(std::shared_ptr<const texture_container> container, std::uint64_t offset,
+                         std::uint64_t size, core::sha256_digest digest)
+      : container_(std::move(container)), offset_(offset), size_(size), digest_(digest) {}
+  [[nodiscard]] std::uint64_t size() const noexcept { return size_; }
+  /** 预算不足不分配；短读或内容变化时清空输出，不以新内容替代旧资源。 */
+  [[nodiscard]] gneiss_result read(std::vector<std::byte>& output,
+                                   std::size_t limit) const noexcept;
+
+private:
+  std::shared_ptr<const texture_container> container_;
+  std::uint64_t offset_{};
+  std::uint64_t size_{};
+  core::sha256_digest digest_{};
 };
 
 } // namespace gneiss::asset_internal

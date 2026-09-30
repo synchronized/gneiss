@@ -23,6 +23,7 @@ struct observation {
   std::size_t calls{};
   std::size_t fail_call{};
   bool destroyed{};
+  bool changed{};
 };
 
 class counted_source final : public read_source {
@@ -43,6 +44,8 @@ public:
     counts_->bytes += output.size();
     std::ranges::copy(std::span{bytes_}.subspan(static_cast<std::size_t>(offset), output.size()),
                       output.begin());
+    if (counts_->changed && !output.empty())
+      output.back() ^= std::byte{1};
     return GNEISS_SUCCESS;
   }
 
@@ -134,10 +137,43 @@ void run() {
   }
   check(aligned->destroyed);
 }
+void recovery() {
+  const std::array manifest{std::byte{1}};
+  const std::array payload{std::byte{2}, std::byte{3}, std::byte{4}, std::byte{5}};
+  std::vector<std::byte> encoded;
+  std::string diagnostic;
+  check(encode_texture_binary(manifest, payload, encoded, diagnostic) ==
+        texture_binary_result::success);
+  auto counts = std::make_shared<observation>();
+  auto container = std::make_shared<texture_container>();
+  check(container->open(std::make_unique<counted_source>(encoded, counts), manifest.size(),
+                        diagnostic) == GNEISS_SUCCESS);
+  const auto selected = std::span{payload}.subspan(1U, 2U);
+  auto source = std::make_unique<texture_payload_source>(container, 1U, selected.size(),
+                                                         gneiss::core::sha256(selected));
+  container.reset();
+  check(!counts->destroyed);
+  std::vector<std::byte> output{std::byte{99}};
+  const auto calls = counts->calls;
+  check(source->read(output, 1U) == GNEISS_ERROR_OUT_OF_MEMORY && output.empty());
+  check(counts->calls == calls);
+  check(source->read(output, 2U) == GNEISS_SUCCESS && std::ranges::equal(output, selected));
+  counts->changed = true;
+  check(source->read(output, 2U) == GNEISS_ERROR_INVALID_STATE && output.empty());
+  counts->changed = false;
+  counts->fail_call = counts->calls + 1U;
+  check(source->read(output, 2U) == GNEISS_ERROR_IO && output.empty());
+  check(source->read(output, 2U) == GNEISS_SUCCESS && std::ranges::equal(output, selected));
+  source.reset();
+  check(counts->destroyed);
+  texture_payload_source invalid(nullptr, UINT64_MAX, UINT64_MAX, {});
+  check(invalid.read(output, SIZE_MAX) == GNEISS_ERROR_INVALID_ARGUMENT && output.empty());
+}
 } // namespace
 
 int main() try {
   run();
+  recovery();
   return 0;
 } catch (const std::exception& error) {
   std::fprintf(stderr, "%s\n", error.what());

@@ -83,4 +83,31 @@ gneiss_result texture_container::read_payload(std::uint64_t offset,
   return source_->read_at(layout_.payload_offset + offset, output);
 }
 
+gneiss_result texture_payload_source::read(std::vector<std::byte>& output,
+                                           std::size_t limit) const noexcept {
+  output.clear();
+  if (!container_ || offset_ > container_->payload_size() ||
+      size_ > container_->payload_size() - offset_) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  if (size_ > limit) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
+  }
+  try {
+    std::vector<std::byte> bytes(static_cast<std::size_t>(size_));
+    auto result = container_->read_payload(offset_, bytes);
+    if (result == GNEISS_SUCCESS && core::sha256(bytes) != digest_) {
+      result = GNEISS_ERROR_INVALID_STATE;
+    }
+    if (result == GNEISS_SUCCESS) {
+      output = std::move(bytes);
+    }
+    return result;
+  } catch (const std::bad_alloc&) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
 } // namespace gneiss::asset_internal

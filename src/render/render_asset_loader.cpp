@@ -927,6 +927,15 @@ gneiss_result render_asset_loader::stage_asset(prepared_render_asset prepared,
     std::uint64_t rid{};
     auto created = GNEISS_ERROR_INVALID_ARGUMENT;
     if (prepared.source.type == render_asset_type::texture) {
+      if (prepared.texture.payload_source) {
+        if (prepared.texture.profile.generation == 0U ||
+            prepared.texture.payload.size() != prepared.texture.payload_source->size()) {
+          return GNEISS_ERROR_INVALID_ARGUMENT;
+        }
+        candidate.texture_payload =
+            std::make_shared<const std::vector<std::byte>>(std::move(prepared.texture.payload));
+        prepared.texture.upload_payload = candidate.texture_payload;
+      }
       created = prepared.texture.manifest.empty()
                     ? resources_.create_texture(std::move(prepared.texture), &rid)
                     : resources_.create_packaged_texture(std::move(prepared.texture), &rid);
@@ -1264,11 +1273,12 @@ gneiss_result prepare_texture(const asset_internal::virtual_file_system& file_sy
       return result;
     }
     std::vector<std::byte> image_bytes;
-    asset_internal::texture_container container;
+    std::shared_ptr<asset_internal::texture_container> container;
     std::shared_ptr<asset_internal::source_revision_file_system> revisions;
     const bool selected =
         profile.generation != 0U && std::string_view(source.uri).ends_with(".gneiss-texture");
     if (selected) {
+      container = std::make_shared<asset_internal::texture_container>();
       std::unique_ptr<asset_internal::read_source> reader;
       if (verify_source) {
         revisions = std::make_shared<asset_internal::source_revision_file_system>(file_system);
@@ -1282,7 +1292,7 @@ gneiss_result prepare_texture(const asset_internal::virtual_file_system& file_sy
       }
       std::string message;
       if (result == GNEISS_SUCCESS) {
-        result = container.open(std::move(reader), std::min(input_limit, output_limit), message);
+        result = container->open(std::move(reader), std::min(input_limit, output_limit), message);
       }
       if (result != GNEISS_SUCCESS) {
         fail(out_diagnostic, result, "/source",
@@ -1305,7 +1315,7 @@ gneiss_result prepare_texture(const asset_internal::virtual_file_system& file_sy
       asset_internal::texture_binary_view binary;
       std::string decode_message;
       if (selected) {
-        binary.manifest = container.manifest();
+        binary.manifest = container->manifest();
       } else if (asset_internal::decode_texture_binary(image_bytes, binary, decode_message) !=
                  asset_internal::texture_binary_result::success) {
         fail(out_diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/source",
@@ -1327,7 +1337,7 @@ gneiss_result prepare_texture(const asset_internal::virtual_file_system& file_sy
                     : variant.format == granit::texture_format::bc7_rgba_unorm ||
                           variant.format == granit::texture_format::rgba8_unorm;
       };
-      const auto payload_size = selected ? container.payload_size() : binary.payload.size();
+      const auto payload_size = selected ? container->payload_size() : binary.payload.size();
       const auto payload_in_bounds = [payload_size](const auto& variant) {
         return variant.payload_offset <= payload_size &&
                variant.payload_size <= payload_size - variant.payload_offset;
@@ -1377,7 +1387,7 @@ gneiss_result prepare_texture(const asset_internal::virtual_file_system& file_sy
             return GNEISS_ERROR_INVALID_ARGUMENT;
           }
           output.payload.resize(static_cast<std::size_t>(variant.payload_size));
-          result = container.read_payload(variant.payload_offset, output.payload);
+          result = container->read_payload(variant.payload_offset, output.payload);
           if (result == GNEISS_SUCCESS && core::sha256(output.payload) != variant.payload_digest) {
             result = GNEISS_ERROR_INVALID_ARGUMENT;
           }
@@ -1386,6 +1396,8 @@ gneiss_result prepare_texture(const asset_internal::virtual_file_system& file_sy
             fail(out_diagnostic, result, "/source", "选中纹理变体读取或摘要校验失败");
             return result;
           }
+          output.payload_source = std::make_shared<asset_internal::texture_payload_source>(
+              container, variant.payload_offset, variant.payload_size, variant.payload_digest);
           output.profile = profile;
           output.selected_variant = static_cast<std::uint32_t>(index);
           break;

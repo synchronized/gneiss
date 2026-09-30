@@ -15,6 +15,10 @@
 #include <memory>
 #include <vector>
 
+namespace gneiss::asset_internal {
+class texture_payload_source;
+}
+
 namespace gneiss::render_internal {
 
 struct mesh_resource {
@@ -117,6 +121,9 @@ struct texture_resource {
   /** profile 非零时 payload 从选中变体起点开始，不含其他变体。 */
   texture_prepare_profile profile{};
   std::uint32_t selected_variant{UINT32_MAX};
+  /** 仅文件选中变体可重建；长期资源不强持有上传负载。 */
+  std::shared_ptr<const asset_internal::texture_payload_source> payload_source{};
+  std::weak_ptr<const std::vector<std::byte>> upload_payload{};
 };
 
 class render_resource_service final {

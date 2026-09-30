@@ -93,6 +93,7 @@ struct render_upload_item {
   std::shared_ptr<const texture_resource> texture;
   std::array<std::shared_ptr<const texture_resource>, 5> dependency_textures;
   std::size_t bytes{};
+  std::shared_ptr<const std::vector<std::byte>> texture_payload{};
 };
 
 class mesh_asset_lease final {
@@ -140,6 +141,7 @@ public:
     std::array<std::shared_ptr<const asset_internal::resource_cache::entry>, 5> dependencies;
     std::array<std::shared_ptr<const texture_resource>, 5> dependency_textures;
     std::size_t bytes{};
+    std::shared_ptr<const std::vector<std::byte>> texture_payload{};
   };
   using revision_stamp = std::pair<std::uint64_t, std::uint64_t>;
   /** profile 非零时校验纹理及材质纹理依赖的设备身份；零值供逻辑层读取已发布 RID。 */

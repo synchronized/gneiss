@@ -1,8 +1,11 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "asset/texture_container.h"
 #include "asset/texture_ktx2.h"
 #include "asset/texture_load_service.h"
+#include <algorithm>
+#include <granit/asset_tools/texture_builder.hpp>
 
 #include <cstdio>
 #include <map>
@@ -20,6 +23,36 @@ void check(bool value, std::source_location at = std::source_location::current()
 struct memory_files final : file_system {
   std::map<std::string, std::vector<std::byte>> files;
   mutable std::thread::id reader;
+  gneiss_result open_read(std::string_view path,
+                          std::unique_ptr<read_source>& output) const noexcept override {
+    output.reset();
+    const auto found = files.find(std::string(path));
+    if (found == files.end())
+      return GNEISS_ERROR_NOT_FOUND;
+    class memory_source final : public read_source {
+    public:
+      explicit memory_source(std::vector<std::byte> bytes) : bytes_(std::move(bytes)) {}
+      std::uint64_t size() const noexcept override { return bytes_.size(); }
+      gneiss_result read_at(std::uint64_t offset,
+                            std::span<std::byte> output) const noexcept override {
+        if (offset > bytes_.size() || output.size() > bytes_.size() - offset)
+          return GNEISS_ERROR_IO;
+        std::ranges::copy(
+            std::span{bytes_}.subspan(static_cast<std::size_t>(offset), output.size()),
+            output.begin());
+        return GNEISS_SUCCESS;
+      }
+
+    private:
+      std::vector<std::byte> bytes_;
+    };
+    try {
+      output = std::make_unique<memory_source>(found->second);
+    } catch (...) {
+      return GNEISS_ERROR_OUT_OF_MEMORY;
+    }
+    return GNEISS_SUCCESS;
+  }
   gneiss_result read(std::string_view path, std::vector<std::byte>& bytes) const noexcept override {
     return read_bounded(path, SIZE_MAX, bytes);
   }
@@ -347,8 +380,109 @@ void mixed(tasks::execution_mode mode, bool pbr = false) {
   check(prepare_render_assets(vfs, requested, prepared, diagnostic, [] { return false; }) !=
         GNEISS_SUCCESS);
 }
+void packaged_lifetime(tasks::execution_mode mode) {
+#if defined(GNEISS_HAS_GRANIT_PLATFORM)
+  tasks::task_scheduler scheduler({.workers = 1U, .mode = mode});
+  auto files = std::make_shared<memory_files>();
+  const std::array payload{std::byte{7}, std::byte{8}, std::byte{9}, std::byte{255}};
+  const std::array mips{granit::asset_tools::texture::subresource_info{
+      .data_size = 4U, .bytes_per_row = 4U, .rows_per_image = 1U}};
+  const std::array variants{granit::asset_tools::texture::variant_desc{
+      .format = granit::texture_format::rgba8_srgb,
+      .usage = granit::texture_usage::sampled | granit::texture_usage::transfer_destination,
+      .payload = payload,
+      .subresources = mips}};
+  const auto [status, built] = granit::asset_tools::texture::build({.variants = variants});
+  check(status == granit::result::success);
+  std::string message;
+  check(encode_texture_binary(built.manifest(), built.payload(),
+                              files->files["image.gneiss-texture"],
+                              message) == texture_binary_result::success);
+  files->text(
+      "a.texture.json",
+      R"({"format":"gneiss.texture","version":1,"source":"asset://image.gneiss-texture","color_space":"srgb"})");
+  virtual_file_system vfs;
+  check(vfs.mount("asset://", files) == GNEISS_SUCCESS);
+  render_resource_service resources;
+  resource_cache cache;
+  render_asset_loader loader(vfs, cache, resources);
+  texture_upload_backend::data in_flight;
+  std::weak_ptr<const std::vector<std::byte>> observed;
+  bool ack{};
+  auto upload_result = GNEISS_ERROR_INITIALIZATION_FAILED;
+  texture_upload_backend backend{
+      .begin =
+          [&](auto data, auto& sequence) {
+            check(data.size() == 1U && data.front().texture_payload &&
+                  data.front().texture->payload.empty());
+            observed = data.front().texture_payload;
+            in_flight = std::move(data);
+            sequence = 1U;
+            return GNEISS_SUCCESS;
+          },
+      .poll =
+          [&](auto, auto& result) {
+            if (!ack)
+              return false;
+            check(!observed.expired());
+            in_flight.clear();
+            result = upload_result;
+            return true;
+          },
+      .discard =
+          [](auto, auto& sequence) {
+            sequence = 2U;
+            return GNEISS_SUCCESS;
+          },
+      .flush = [&] { ack = true; },
+      .profile = {.generation = 1U, .sampled_transfer_formats = {true, true, false, false}}};
+  auto service = std::make_unique<texture_load_service>(scheduler, vfs, loader, std::move(backend));
+  const auto until = [&](auto predicate) {
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+    while (!predicate()) {
+      check(std::chrono::steady_clock::now() < deadline);
+      if (mode == tasks::execution_mode::cooperative)
+        (void)scheduler.run_ready();
+      service->advance();
+      std::this_thread::yield();
+    }
+  };
+  const std::array<std::string, 1> uris{"asset://a.texture.json"};
+  std::uint64_t request{};
+  texture_load_completion completion;
+  // 失败回执前后分别验证强租约存活与销毁，并确认可重试。
+  check(service->submit(uris, 1U, 1U, request) == GNEISS_SUCCESS);
+  until([&] { return !in_flight.empty(); });
+  check(!observed.expired() && !service->cancel());
+  ack = true;
+  until([&] { return service->take(completion); });
+  check(completion.state == texture_load_state::failed && observed.expired() && cache.size() == 0U);
+  upload_result = GNEISS_SUCCESS;
+  ack = false;
+  check(service->submit(uris, 1U, 2U, request) == GNEISS_SUCCESS);
+  until([&] { return !in_flight.empty(); });
+  const auto old_frame = in_flight.front().texture;
+  ack = true;
+  until([&] { return service->take(completion); });
+  check(completion.state == texture_load_state::applied && observed.expired());
+  check(old_frame->payload.empty() && old_frame->upload_payload.expired());
+  std::vector<std::byte> restored;
+  check(old_frame->payload_source->read(restored, payload.size()) == GNEISS_SUCCESS &&
+        std::ranges::equal(restored, payload));
+  // 上传中关闭必须先等待回执；旧帧只保留元数据，不阻止负载租约销毁。
+  ack = false;
+  check(service->submit(uris, 1U, 3U, request) == GNEISS_SUCCESS);
+  until([&] { return !in_flight.empty(); });
+  service.reset();
+  check(in_flight.empty() && observed.expired());
+#else
+  (void)mode;
+#endif
+}
 }
 int main() try {
+  packaged_lifetime(tasks::execution_mode::cooperative);
+  packaged_lifetime(tasks::execution_mode::thread_pool);
   mixed(tasks::execution_mode::cooperative, true);
   mixed(tasks::execution_mode::thread_pool, true);
   mixed(tasks::execution_mode::cooperative);

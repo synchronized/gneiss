@@ -94,11 +94,21 @@ void run() {
   auto first = std::async(std::launch::async, read, 0U, std::byte{'a'});
   auto second = std::async(std::launch::async, read, 7U, std::byte{'h'});
   check(first.get() && second.get());
-  // 截断并不修改打开时长度；读取缺失字节必须报告短读。
-  std::filesystem::resize_file(directory.path / "data", 2U);
+  // 长期来源不阻止文件重命名或同路径替换，也不能转而读取新版文件。
+  std::filesystem::rename(directory.path / "data", directory.path / "previous");
+  {
+    std::ofstream replacement(directory.path / "data", std::ios::binary);
+    replacement << "new-data";
+  }
+  check(source->read_at(0U, bytes) == GNEISS_SUCCESS && bytes[0] == std::byte{'a'});
+  // 截断原文件并不修改打开时长度；读取缺失字节必须报告短读。
+  std::filesystem::resize_file(directory.path / "previous", 2U);
   check(source->size() == 8U);
   check(source->read_at(4U, bytes) == GNEISS_ERROR_IO);
   check(source->read_at(0U, std::span{bytes}.first(1)) == GNEISS_SUCCESS);
+  check(std::filesystem::remove(directory.path / "previous"));
+  check(source->read_at(0U, std::span{bytes}.first(1)) == GNEISS_SUCCESS &&
+        bytes[0] == std::byte{'a'});
 }
 } // namespace
 

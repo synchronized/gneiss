@@ -689,7 +689,8 @@ add_test(NAME gneiss.texture_binary COMMAND gneiss_texture_binary_test)
 add_executable(gneiss_texture_container_test
   asset/texture_container_test.cpp
   "${PROJECT_SOURCE_DIR}/src/asset/texture_binary.cpp"
-  "${PROJECT_SOURCE_DIR}/src/asset/texture_container.cpp")
+  "${PROJECT_SOURCE_DIR}/src/asset/texture_container.cpp"
+  "${PROJECT_SOURCE_DIR}/src/core/sha256.cpp")
 target_include_directories(gneiss_texture_container_test PRIVATE
   "${PROJECT_SOURCE_DIR}/src" "${PROJECT_SOURCE_DIR}/include")
 target_compile_features(gneiss_texture_container_test PRIVATE cxx_std_20)

@@ -5,6 +5,7 @@
 #include "asset/mesh_binary.h"
 #include "asset/resource_cache.h"
 #include "asset/texture_binary.h"
+#include "asset/texture_container.h"
 #include "asset/texture_ktx2.h"
 #include "asset/virtual_file_system.h"
 #include "render/render_asset_loader.h"
@@ -259,7 +260,26 @@ void selected_variants() {
   std::array<render_asset_loader::asset_candidate, 1> candidate;
   require(loader.stage_asset(std::move(batch.assets.front()), {}, candidate.front()) ==
           GNEISS_SUCCESS);
+  const auto old_frame = candidate.front().texture;
+  require(old_frame->payload.empty() && old_frame->payload_source &&
+          !old_frame->upload_payload.expired());
+  render_upload_item command;
+  command.texture = old_frame;
+  command.texture_payload = candidate.front().texture_payload;
+  candidate.front().texture_payload.reset();
+  require(!old_frame->upload_payload.expired());
   require(loader.publish_assets(candidate) == GNEISS_SUCCESS);
+  command = {};
+  require(old_frame->upload_payload.expired() && old_frame->payload.empty());
+  std::vector<std::byte> restored;
+  require(old_frame->payload_source->read(restored, bc.size()) == GNEISS_SUCCESS &&
+          restored.size() == bc.size());
+  const auto payload_offset = binary.size() - built.payload().size();
+  memory->files["t.gneiss-texture"][payload_offset] ^= 1;
+  require(old_frame->payload_source->read(restored, bc.size()) == GNEISS_ERROR_INVALID_STATE &&
+          restored.empty());
+  memory->files["t.gneiss-texture"][payload_offset] ^= 1;
+  require(old_frame->payload_source->read(restored, bc.size()) == GNEISS_SUCCESS);
   render_asset_lease lease;
   require(loader.acquire_cached(requests.front(), lease, compressed) == GNEISS_SUCCESS);
   require(loader.acquire_cached(requests.front(), lease, fallback) == GNEISS_ERROR_NOT_FOUND &&

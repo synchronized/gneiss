@@ -5,14 +5,82 @@
 
 #include "asset/asset_uri.h"
 
+#include <algorithm>
 #include <fstream>
 #include <limits>
 #include <mutex>
 #include <new>
 #include <system_error>
 
+#ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#endif
+
 namespace {
 
+#ifdef _WIN32
+class native_read_source final : public gneiss::asset_internal::read_source {
+public:
+  ~native_read_source() override {
+    if (handle_ != INVALID_HANDLE_VALUE) {
+      (void)CloseHandle(handle_);
+    }
+  }
+  gneiss_result open(const std::filesystem::path& path) noexcept {
+    handle_ = CreateFileW(path.c_str(), GENERIC_READ,
+                          FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
+                          OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+    LARGE_INTEGER length{};
+    if (handle_ == INVALID_HANDLE_VALUE || GetFileSizeEx(handle_, &length) == FALSE ||
+        length.QuadPart < 0) {
+      return GNEISS_ERROR_IO;
+    }
+    length_ = static_cast<std::uint64_t>(length.QuadPart);
+    return GNEISS_SUCCESS;
+  }
+  std::uint64_t size() const noexcept override { return length_; }
+  gneiss_result read_at(std::uint64_t offset, std::span<std::byte> output) const noexcept override {
+    if (offset > length_ || output.size() > length_ - offset ||
+        offset > static_cast<std::uint64_t>(std::numeric_limits<LONGLONG>::max())) {
+      return GNEISS_ERROR_INVALID_ARGUMENT;
+    }
+    if (output.empty()) {
+      return GNEISS_SUCCESS;
+    }
+    try {
+      const std::scoped_lock lock(mutex_);
+      LARGE_INTEGER position{};
+      position.QuadPart = static_cast<LONGLONG>(offset);
+      if (SetFilePointerEx(handle_, position, nullptr, FILE_BEGIN) == FALSE) {
+        return GNEISS_ERROR_IO;
+      }
+      while (!output.empty()) {
+        const auto chunk = static_cast<DWORD>(
+            std::min<std::size_t>(output.size(), std::numeric_limits<DWORD>::max()));
+        DWORD count{};
+        if (ReadFile(handle_, output.data(), chunk, &count, nullptr) == FALSE || count != chunk) {
+          return GNEISS_ERROR_IO;
+        }
+        output = output.subspan(count);
+      }
+      return GNEISS_SUCCESS;
+    } catch (...) {
+      return GNEISS_ERROR_IO;
+    }
+  }
+
+private:
+  HANDLE handle_{INVALID_HANDLE_VALUE};
+  std::uint64_t length_{};
+  mutable std::mutex mutex_;
+};
+#else
 class native_read_source final : public gneiss::asset_internal::read_source {
 public:
   native_read_source(std::ifstream stream, std::uint64_t length)
@@ -49,6 +117,8 @@ private:
   mutable std::mutex mutex_;
 };
 
+#endif
+
 [[nodiscard]] std::filesystem::path path_from_utf8(std::string_view text) {
   std::u8string value;
   value.reserve(text.size());
@@ -81,6 +151,14 @@ gneiss_result native_file_system::open_read(std::string_view path,
     if (error || relative.empty() || relative.is_absolute() || *relative.begin() == "..") {
       return GNEISS_ERROR_INVALID_ARGUMENT;
     }
+#ifdef _WIN32
+    auto source = std::make_unique<native_read_source>();
+    const auto opened = source->open(candidate);
+    if (opened != GNEISS_SUCCESS) {
+      return opened;
+    }
+    output = std::move(source);
+#else
     std::ifstream stream(candidate, std::ios::binary);
     if (!stream) {
       return GNEISS_ERROR_IO;
@@ -93,6 +171,7 @@ gneiss_result native_file_system::open_read(std::string_view path,
     }
     output =
         std::make_unique<native_read_source>(std::move(stream), static_cast<std::uint64_t>(end));
+#endif
     return GNEISS_SUCCESS;
   } catch (const std::bad_alloc&) {
     return GNEISS_ERROR_OUT_OF_MEMORY;
