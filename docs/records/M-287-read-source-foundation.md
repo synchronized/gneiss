@@ -31,6 +31,25 @@ ctest --test-dir build/windows-clang-debug -R 'gneiss\.(read_source|resource_ser
 
 ## 未完成范围
 
-包后端、版本追踪包装、纹理头/Manifest 读取器、设备变体选择及加载服务尚未接入新入口。
+包后端、版本追踪包装、设备变体选择及加载服务尚未接入新入口。
 现有 Runtime 仍走整文件纹理读取，不能宣称内存峰值已经降低。
 本轮仅本地 Windows 验证，未运行 Linux、发布矩阵或 GPU 场景验收。
+
+## 纹理容器读取器（2026-09-30）
+
+新增 `texture_container`，拥有读取来源，打开时仅读取 64 字节封装头、受预算限制的 Manifest
+及最多 15 字节填充；后续 `read_payload` 使用 Payload 相对偏移读入调用者缓冲，不分配负载。
+Manifest 的纹理语义仍由渲染适配层验证，此处只验证封装布局，不解释设备格式或选择 Mip。
+
+头部校验抽取为 `decode_texture_binary_header`，旧整文件解码共用它，保持格式版本不变。
+校验覆盖来源长度、保留字段、偏移及尺寸溢出；填充由两条读取路径分别检查。
+错误消息改为在捕获异常的函数内部复制，避免分配错误消息时异常逃离 noexcept 边界。
+
+计数来源测试使用 1 MiB Payload、3 字节 Manifest：打开累计读取 80 字节，随后请求 4 字节
+负载，累计变为 84 字节。Manifest 预算不足时只读取头部，失败清空容器并销毁来源。
+覆盖每阶段 IO 失败、负载错误后重试、空/越界读取、非法版本和布局、整数极值、截断、
+非零填充、无填充布局及析构释放。旧整文件格式测试继续通过。
+
+Windows Clang Debug 引擎与测试构建通过；相关 CTest 5/5 通过（resource_service、read_source、
+texture_binary、texture_container、source-revision）。本轮没有接入版本一致性检查或实际 GPU 加载，
+因此不能作为场景加载内存下降的证据。

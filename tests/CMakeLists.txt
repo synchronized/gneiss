@@ -686,6 +686,17 @@ gneiss_target_compile_warnings(gneiss_texture_binary_test)
 gneiss_target_output_directories(gneiss_texture_binary_test)
 add_test(NAME gneiss.texture_binary COMMAND gneiss_texture_binary_test)
 
+add_executable(gneiss_texture_container_test
+  asset/texture_container_test.cpp
+  "${PROJECT_SOURCE_DIR}/src/asset/texture_binary.cpp"
+  "${PROJECT_SOURCE_DIR}/src/asset/texture_container.cpp")
+target_include_directories(gneiss_texture_container_test PRIVATE
+  "${PROJECT_SOURCE_DIR}/src" "${PROJECT_SOURCE_DIR}/include")
+target_compile_features(gneiss_texture_container_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_texture_container_test)
+gneiss_target_output_directories(gneiss_texture_container_test)
+add_test(NAME gneiss.texture_container COMMAND gneiss_texture_container_test)
+
 if(GNEISS_ENABLE_GRANIT_PLATFORM)
   add_executable(
     gneiss_scene_projection_math_test
