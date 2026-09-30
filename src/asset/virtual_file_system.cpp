@@ -29,6 +29,25 @@ constexpr std::string_view root_mount = "asset://";
 
 namespace gneiss::asset_internal {
 
+gneiss_result virtual_file_system::open_read(std::string_view uri,
+                                             std::unique_ptr<read_source>& output) const noexcept {
+  output.reset();
+  if (validate_uri(uri) != GNEISS_SUCCESS) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  const mount_entry* selected = nullptr;
+  for (const auto& entry : mounts_) {
+    if (uri.starts_with(entry.point) &&
+        (selected == nullptr || entry.point.size() > selected->point.size())) {
+      selected = &entry;
+    }
+  }
+  if (selected == nullptr) {
+    return GNEISS_ERROR_NOT_FOUND;
+  }
+  return selected->backend->open_read(uri.substr(selected->point.size()), output);
+}
+
 gneiss_result virtual_file_system::mount(std::string_view mount_point,
                                          std::shared_ptr<file_system> backend) noexcept {
   if (backend == nullptr) {

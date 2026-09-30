@@ -6,7 +6,10 @@
 
 #include <gneiss/core/result.h>
 
+#include "asset/read_source.h"
+
 #include <cstddef>
+#include <memory>
 #include <string_view>
 #include <vector>
 
@@ -16,6 +19,13 @@ namespace gneiss::asset_internal {
 class file_system {
 public:
   virtual ~file_system() = default;
+
+  /** 打开区间读取来源；失败清空输出。默认不支持，禁止整文件模拟按需读取。 */
+  [[nodiscard]] virtual gneiss_result
+  open_read(std::string_view, std::unique_ptr<read_source>& output) const noexcept {
+    output.reset();
+    return GNEISS_ERROR_UNSUPPORTED;
+  }
 
   file_system(const file_system&) = delete;
   file_system& operator=(const file_system&) = delete;
