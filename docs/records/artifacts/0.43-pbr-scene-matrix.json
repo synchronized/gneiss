@@ -572,6 +572,45 @@
         "presented_frames": 2247,
         "peak_resident_bytes": 2169077760
       }
+    },
+    "granit043-debug": {
+      "code_candidate": "1d683e0",
+      "granit": "v0.43.0",
+      "sha256": "aa6f505b8bf869ab62d74004bf862bff87c55a0f72b6c3db1db02b42fc2cda1e",
+      "result": {
+        "load_ms": 84934.7191,
+        "mode": "thread",
+        "scenario": "initial",
+        "load_and_drain_ms": 85614.3367,
+        "verified_capture_ms": 88325.2621,
+        "completed_switches": 1,
+        "maximum_activation_ms": 1.1423,
+        "maximum_retirement_ms": 0.0215,
+        "retirement_ms": 0.0215,
+        "live_resources": 505,
+        "old_resources": 0,
+        "cancel_ms": 0,
+        "resizes": 0,
+        "restored": 0,
+        "minimized": 0,
+        "minimized_at_ms": 0,
+        "prepare_ms": 66.7113,
+        "asset_prepare_ms": 50947.2977,
+        "verify_ms": 20563.042,
+        "upload_ms": 892.3595,
+        "maximum_advance_ms": 3.0505,
+        "activation_ms": 1.1423,
+        "candidate_resident_bytes": 464453832,
+        "event_interval_p95_ms": 16.2883,
+        "event_interval_max_ms": 63.5145,
+        "minimized_event_count": 0,
+        "minimized_event_max_ms": 0,
+        "render_60_ticks_ms": 2193.9423,
+        "capture_ms": 516.9831,
+        "nodes": 553,
+        "presented_frames": 4960,
+        "peak_resident_bytes": 1454575616
+      }
     }
   }
 }
