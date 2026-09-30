@@ -341,6 +341,9 @@ int main(int argc, char** argv) try {
     std::ofstream report(prefix.string() + ".json");
     report << "{\"result\":" << result << ",\"load_ms\":" << load_ms
            << ",\"candidate_resident_bytes\":" << completion.progress.resident_bytes
+           << ",\"candidate_cpu_data_bytes\":" << completion.progress.cpu_data_bytes
+           << ",\"candidate_texture_payload_bytes\":" << completion.progress.texture_payload_bytes
+           << ",\"peak_upload_bytes\":" << completion.progress.peak_upload_bytes
            << ",\"live_resources\":" << retirement.live_resources
            << ",\"peak_resident_bytes\":" << peak
            << ",\"retained_tasks\":" << scheduler.stats().retained << "}\n";
@@ -406,6 +409,9 @@ int main(int argc, char** argv) try {
          << ",\n  \"maximum_advance_ms\": " << completion.maximum_advance_ms
          << ",\n  \"activation_ms\": " << completion.activation_ms
          << ",\n  \"candidate_resident_bytes\": " << completion.progress.resident_bytes
+         << ",\"candidate_cpu_data_bytes\":" << completion.progress.cpu_data_bytes
+         << ",\"candidate_texture_payload_bytes\":" << completion.progress.texture_payload_bytes
+         << ",\"peak_upload_bytes\":" << completion.progress.peak_upload_bytes
          << ",\n  \"event_interval_p95_ms\": " << event_p95
          << ",\n  \"event_interval_max_ms\": " << event_max
          << ",\n  \"minimized_event_count\": " << minimized_event_intervals.size()

@@ -39,6 +39,9 @@ public:
                          std::uint64_t size, core::sha256_digest digest)
       : container_(std::move(container)), offset_(offset), size_(size), digest_(digest) {}
   [[nodiscard]] std::uint64_t size() const noexcept { return size_; }
+  [[nodiscard]] std::size_t metadata_bytes() const noexcept {
+    return container_ ? container_->manifest().size() : 0U;
+  }
   /** 预算不足不分配；短读或内容变化时清空输出，不以新内容替代旧资源。 */
   [[nodiscard]] gneiss_result read(std::vector<std::byte>& output,
                                    std::size_t limit) const noexcept;

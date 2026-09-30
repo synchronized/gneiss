@@ -26,9 +26,14 @@ struct scene_load_progress {
   scene_load_phase phase{scene_load_phase::preparing};
   std::size_t completed{};
   std::size_t total{};
+  /** 去重后的候选逻辑容量；纹理释放 CPU 负载后仍计入所选负载，约束 2 GiB 上限。 */
   std::size_t resident_bytes{};
   bool can_cancel{};
   bool gpu_in_flight{};
+  /** 候选已提交 CPU 数组字节与纹理逻辑负载；不是 RSS 或驱动显存。 */
+  std::size_t cpu_data_bytes{};
+  std::size_t texture_payload_bytes{};
+  std::size_t peak_upload_bytes{};
 };
 struct scene_load_completion {
   scene_load_progress progress;

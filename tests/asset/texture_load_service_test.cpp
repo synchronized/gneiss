@@ -409,6 +409,7 @@ void packaged_lifetime(tasks::execution_mode mode) {
   texture_upload_backend::data in_flight;
   std::weak_ptr<const std::vector<std::byte>> observed;
   bool ack{};
+  bool oversized{true};
   auto upload_result = GNEISS_ERROR_INITIALIZATION_FAILED;
   texture_upload_backend backend{
       .begin =
@@ -435,6 +436,10 @@ void packaged_lifetime(tasks::execution_mode mode) {
             return GNEISS_SUCCESS;
           },
       .flush = [&] { ack = true; },
+      .estimate_bytes =
+          [&](const auto&) {
+            return oversized ? texture_load_service::maximum_upload_bytes + 1U : payload.size();
+          },
       .profile = {.generation = 1U, .sampled_transfer_formats = {true, true, false, false}}};
   auto service = std::make_unique<texture_load_service>(scheduler, vfs, loader, std::move(backend));
   const auto until = [&](auto predicate) {
@@ -450,10 +455,18 @@ void packaged_lifetime(tasks::execution_mode mode) {
   const std::array<std::string, 1> uris{"asset://a.texture.json"};
   std::uint64_t request{};
   texture_load_completion completion;
+  // 超出硬上限不得调用上传后端，也不得发布候选。
+  check(service->submit(uris, 1U, 1U, request) == GNEISS_SUCCESS);
+  until([&] { return service->take(completion); });
+  check(completion.result == GNEISS_ERROR_OUT_OF_MEMORY && in_flight.empty() &&
+        observed.expired() && cache.size() == 0U && !completion.message.empty());
+  oversized = false;
   // 失败回执前后分别验证强租约存活与销毁，并确认可重试。
   check(service->submit(uris, 1U, 1U, request) == GNEISS_SUCCESS);
   until([&] { return !in_flight.empty(); });
   check(!observed.expired() && !service->cancel());
+  asset_load_progress progress;
+  check(service->progress(progress) && progress.upload_reserved_bytes == payload.size());
   ack = true;
   until([&] { return service->take(completion); });
   check(completion.state == texture_load_state::failed && observed.expired() && cache.size() == 0U);
@@ -464,7 +477,9 @@ void packaged_lifetime(tasks::execution_mode mode) {
   const auto old_frame = in_flight.front().texture;
   ack = true;
   until([&] { return service->take(completion); });
-  check(completion.state == texture_load_state::applied && observed.expired());
+  check(completion.state == texture_load_state::applied && observed.expired() &&
+        completion.peak_upload_bytes == payload.size());
+  check(!service->progress(progress) && progress.upload_reserved_bytes == 0U);
   check(old_frame->payload.empty() && old_frame->upload_payload.expired());
   std::vector<std::byte> restored;
   check(old_frame->payload_source->read(restored, payload.size()) == GNEISS_SUCCESS &&

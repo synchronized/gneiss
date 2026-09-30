@@ -140,6 +140,7 @@ void run_mip_sampling(bool packaged = false, bool async = false) {
   const auto root = files.root.string();
   auto desc = gneiss_application_desc GNEISS_APPLICATION_DESC_INIT;
   desc.platform = GNEISS_APPLICATION_PLATFORM_GRANIT;
+  desc.window_flags &= ~GNEISS_APPLICATION_WINDOW_VISIBLE_BIT;
   desc.asset_root = root.data();
   desc.asset_root_length = static_cast<std::uint32_t>(root.size());
   check(application::create(desc, app) == result::success);
@@ -166,6 +167,16 @@ void run_mip_sampling(bool packaged = false, bool async = false) {
             available);
       if (progress.phase == scene_load_phase::ready) {
         check(activate_scene_load(app.get(), request, completion) == GNEISS_SUCCESS);
+        check(completion.progress.texture_payload_bytes > 0U);
+        check(completion.progress.peak_upload_bytes > 0U);
+        // 小纹理的 Manifest 可大于负载；分别核对逻辑负载与两个元数据副本。
+        asset_internal::texture_binary_view view;
+        std::string message;
+        check(asset_internal::decode_texture_binary(bytes, view, message) ==
+              asset_internal::texture_binary_result::success);
+        check(completion.progress.texture_payload_bytes == 340U);
+        check(completion.progress.resident_bytes + view.manifest.size() ==
+              completion.progress.cpu_data_bytes + completion.progress.texture_payload_bytes);
         break;
       }
       std::this_thread::yield();
@@ -230,6 +241,7 @@ std::array<unsigned, 3> material_pixel(std::string_view slot, std::array<std::by
   const auto root = files.root.string();
   auto desc = gneiss_application_desc GNEISS_APPLICATION_DESC_INIT;
   desc.platform = GNEISS_APPLICATION_PLATFORM_GRANIT;
+  desc.window_flags &= ~GNEISS_APPLICATION_WINDOW_VISIBLE_BIT;
   desc.asset_root = root.data();
   desc.asset_root_length = static_cast<std::uint32_t>(root.size());
   check(application::create(desc, app) == result::success);
@@ -343,6 +355,7 @@ std::array<unsigned, 3> state_pixel(const state_case& test,
   const auto root = files.root.string();
   auto desc = gneiss_application_desc GNEISS_APPLICATION_DESC_INIT;
   desc.platform = GNEISS_APPLICATION_PLATFORM_GRANIT;
+  desc.window_flags &= ~GNEISS_APPLICATION_WINDOW_VISIBLE_BIT;
   desc.asset_root = root.data();
   desc.asset_root_length = static_cast<std::uint32_t>(root.size());
   check(application::create(desc, app) == result::success);
@@ -418,6 +431,7 @@ void run(tasks::execution_mode mode, bool pbr = false) {
   const auto root = files.root.string();
   gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
   desc.platform = GNEISS_APPLICATION_PLATFORM_GRANIT;
+  desc.window_flags &= ~GNEISS_APPLICATION_WINDOW_VISIBLE_BIT;
   desc.asset_root = root.data();
   desc.asset_root_length = static_cast<std::uint32_t>(root.size());
   check(application::create(desc, app) == result::success);
@@ -521,6 +535,7 @@ void run_scene(tasks::execution_mode mode, bool pbr = false) {
   const auto root = files.root.string();
   auto desc = gneiss_application_desc GNEISS_APPLICATION_DESC_INIT;
   desc.platform = GNEISS_APPLICATION_PLATFORM_GRANIT;
+  desc.window_flags &= ~GNEISS_APPLICATION_WINDOW_VISIBLE_BIT;
   desc.asset_root = root.data();
   desc.asset_root_length = static_cast<std::uint32_t>(root.size());
   check(application::create(desc, app) == result::success);

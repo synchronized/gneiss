@@ -5,6 +5,7 @@
 
 #include "asset/asset_uri.h"
 #include "asset/source_revision_file_system.h"
+#include "asset/texture_container.h"
 
 #include <algorithm>
 #include <stdexcept>
@@ -15,12 +16,17 @@ using clock_type = std::chrono::steady_clock;
 double elapsed(clock_type::time_point start) {
   return std::chrono::duration<double, std::milli>(clock_type::now() - start).count();
 }
-std::size_t resource_bytes(const render_internal::render_resource_service& resources,
-                           const render_internal::render_asset_lease& lease) {
+struct resource_usage {
+  std::size_t logical{};
+  std::size_t cpu{};
+  std::size_t texture{};
+};
+resource_usage resource_bytes(const render_internal::render_resource_service& resources,
+                              const render_internal::render_asset_lease& lease) {
   using render_internal::render_asset_type;
   if (lease.type() == render_asset_type::mesh) {
     const auto* mesh = resources.get_mesh(lease.get());
-    return mesh->data_bytes();
+    return {.logical = mesh->data_bytes(), .cpu = mesh->data_bytes(), .texture = 0U};
   }
   if (lease.type() == render_asset_type::texture) {
     const auto* texture = resources.get_texture(lease.get());
@@ -28,9 +34,18 @@ std::size_t resource_bytes(const render_internal::render_resource_service& resou
     for (const auto& level : texture->levels) {
       size += level.pixels.size();
     }
-    return size;
+    const auto payload = texture->payload_source
+                             ? static_cast<std::size_t>(texture->payload_source->size())
+                             : size - texture->manifest.size();
+    const auto cpu =
+        size + (texture->payload_source ? texture->payload_source->metadata_bytes() : 0U);
+    return {.logical = texture->manifest.size() + payload, .cpu = cpu, .texture = payload};
   }
-  return sizeof(render_internal::material_resource);
+  return {
+      .logical = sizeof(render_internal::material_resource),
+      .cpu = sizeof(render_internal::material_resource),
+      .texture = 0U,
+  };
 }
 } // namespace
 
@@ -49,7 +64,7 @@ struct scene_load_service::pending {
   std::unique_ptr<application_scene_state> candidate;
   std::unique_ptr<asset_internal::texture_load_service> assets;
   std::unique_ptr<scene_internal::scene_load_builder> builder;
-  std::map<std::uint64_t, std::size_t> resident;
+  std::map<std::uint64_t, resource_usage> resident;
   std::vector<render_internal::render_asset_reload> requested;
   std::size_t cursor{};
   std::size_t batch_count{};
@@ -266,6 +281,7 @@ void scene_load_service::advance_impl() {
     value.batch_pending = false;
     value.result.asset_prepare_ms += completion.prepare_ms;
     value.result.upload_ms += completion.upload_ms;
+    progress.peak_upload_bytes = std::max(progress.peak_upload_bytes, completion.peak_upload_bytes);
     if (value.cancelled) {
       finish(GNEISS_ERROR_INVALID_STATE, scene_load_phase::cancelled);
       return;
@@ -276,12 +292,18 @@ void scene_load_service::advance_impl() {
     }
     for (const auto& lease : completion.assets) {
       auto& previous = value.resident[lease.get()];
-      progress.resident_bytes -= previous;
+      progress.resident_bytes -= previous.logical;
+      progress.cpu_data_bytes -= previous.cpu;
+      progress.texture_payload_bytes -= previous.texture;
       previous = resource_bytes(resources_, lease);
-      progress.resident_bytes += previous;
+      progress.resident_bytes += previous.logical;
+      progress.cpu_data_bytes += previous.cpu;
+      progress.texture_payload_bytes += previous.texture;
     }
-    if (progress.resident_bytes > maximum_resident_bytes) {
-      finish(GNEISS_ERROR_OUT_OF_MEMORY, scene_load_phase::failed, "场景候选累计驻留超过 2 GiB");
+    if (progress.resident_bytes > maximum_resident_bytes ||
+        progress.cpu_data_bytes > maximum_resident_bytes) {
+      finish(GNEISS_ERROR_OUT_OF_MEMORY, scene_load_phase::failed,
+             "场景候选逻辑容量或 CPU 数据超过 2 GiB");
       return;
     }
     value.cursor += value.batch_count;
@@ -326,7 +348,8 @@ void scene_load_service::advance_impl() {
       ++value.batch_count;
     }
     std::uint64_t child{};
-    const auto remaining = maximum_resident_bytes - progress.resident_bytes;
+    const auto remaining =
+        maximum_resident_bytes - std::max(progress.resident_bytes, progress.cpu_data_bytes);
     if (remaining == 0U) {
       finish(GNEISS_ERROR_OUT_OF_MEMORY, scene_load_phase::failed, "场景候选累计驻留预算耗尽");
       return;
