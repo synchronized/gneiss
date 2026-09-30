@@ -757,6 +757,16 @@ Granit 0.43.0、五类贴图、切线及导入到运行闭环已接入，UV/采�
 [DEV-043](plans/DEV-043-pbr-pipeline.md)，跨仓库需求见
 [UPSTREAM-043](plans/UPSTREAM-043-granit-pbr.md)。
 
+## 0.44.0：大场景纹理内存与加载
+
+已规划，尚未实现。M-286～M-291 依次覆盖内存测量、按需准备纹理变体、CPU 驻留与重建、
+预算回收、完整 4K 场景验收和发布门禁。复用现有 BC7 Cook，以原始分辨率成功加载与切换为目标，
+不以提高候选上限或裁剪资产替代验收；虚拟纹理和视距 Mip 流送留待后续。
+
+范围见 [VER-044](plans/VER-044-0.44.0-texture-residency.md)，实施与验收见
+[DEV-044](plans/DEV-044-texture-residency.md)，所有权决策见
+[ADR-052](decisions/ADR-052-texture-residency-and-budgets.md)。
+
 ## 路线图调整规则
 
 - 新任务先确认属于哪个阶段，以及是否阻塞当前端到端闭环。
