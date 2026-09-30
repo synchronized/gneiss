@@ -5,6 +5,12 @@
 
 ## 状态与审计范围
 
+2026-09-30 用户已完成上游提交：[PR #125](https://github.com/synchronized/granit/pull/125)
+已合并，[Granit 0.44.0](https://github.com/synchronized/granit/releases/tag/v0.44.0) 已发布。
+Gneiss 更新固定依赖到 `369adc7ebc9e202056c5d583bfd8d65243de6a4d`，已接入
+`write_texture_asset_variant_mips` 并通过本地非零偏移像素回归。下面保留 0.43 接口审计与原始需求；
+接入验证状态见本页末尾。
+
 2026-09-30 已向用户提出 U44-01，尚未提交上游 Issue/PR，也未修改 Granit。
 审计对象为 Gneiss 当前锁定的 Granit 0.43.0，提交
 `555b1144b02be409c74b7cc971eff2e0ecf74e25`；不表示已检查未锁定的上游更新。
@@ -79,3 +85,15 @@ VFS/文件版本校验与 GPU 变体摘要是不同职责，两者均保留。
 当前 `get_texture_format_capabilities` 已能查询格式使用与特性；`select_texture_asset_variant`
 已有按 Manifest 顺序选择的规则。Gneiss 应在合法后端线程获得纯数据快照并传给准备任务，
 设备代次、缓存身份与重试由 Gneiss 实现。本轮不提出第二套上游任务调度或 Gneiss 专用选择服务。
+
+## Gneiss 接入状态
+
+上游新增独立变体入口并保留旧接口。Gneiss 渲染后端先检查所选范围，再将该范围作为局部负载传入新入口。
+目前 CPU 资源仍保留原始全部负载；此改动验证上传接口，不能宣称按需加载或驻留优化已经完成。
+后续设备能力快照、CPU 选择、仅读取所选负载和预算回收仍由 Gneiss 完成。
+
+新增真实场景像素夹具：第一个 RGBA8 变体仅允许 transfer_destination，第二个允许采样且偏移非零。
+两个负载内容不同，第二个含完整 Mip 链；运行中必须选择第二个并采样正确 Mip 才能通过像素断言。
+Windows 本机完整 asset-pixel 开启 Vulkan 校验通过，无 Validation Error/VUID。
+版本缓存迁移与 render_asset_loader 2/2 通过；后续平台检查见
+[Granit 0.44 接入记录](../records/M-287-granit-0.44-integration.md)。

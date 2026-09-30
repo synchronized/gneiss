@@ -1,0 +1,42 @@
+{
+  "granit_version": "0.44.0",
+  "granit_commit": "369adc7ebc9e202056c5d583bfd8d65243de6a4d",
+  "platform": "Windows Clang Debug",
+  "shared_first_run": {
+    "passed": 161,
+    "total": 164
+  },
+  "shared_failed_recheck": {
+    "passed": 3,
+    "total": 3,
+    "code_changed": false
+  },
+  "static_foundation": {
+    "passed": 5,
+    "total": 5
+  },
+  "static_consumers_and_pixels": {
+    "passed": 21,
+    "total": 21
+  },
+  "gpu_validation_errors": 0,
+  "scope": "dependency and upload integration; selected-only CPU loading not implemented",
+  "logs": {
+    "granit044-pixel-validation.log": {
+      "bytes": 1919,
+      "sha256": "3f05e77d94b1684f9483a8020c262af07425c692d8e8628da056ff5dfda99a74"
+    },
+    "granit044-ctest.log": {
+      "bytes": 71005,
+      "sha256": "be48b4e8b5dfcc69b5d8a9bdc6b4eec2bd9b5c4b7c8594c552b1f599fb7fc6d0"
+    },
+    "granit044-recheck.log": {
+      "bytes": 532,
+      "sha256": "5e099395ec4d4ef817d6a68c3f1d55a50f238b79a509802b0c250fd72b986e95"
+    },
+    "granit044-static-ctest.log": {
+      "bytes": 2720,
+      "sha256": "6ba48fa84297c30c15c8bc34ad6c4dfe6674910c57eaa5c32af187e2ba9c843a"
+    }
+  }
+}

@@ -334,6 +334,7 @@
 - [M-284～M-285：0.43.0 PBR 与发布验收](records/M-284-285-0.43.0-validation.md)
 - [M-286：纹理容量与加载所有权初审](records/M-286-texture-memory-audit.md)
 - [M-287：VFS 读取来源基础](records/M-287-read-source-foundation.md)
+- [M-287：Granit 0.44 独立变体上传接入](records/M-287-granit-0.44-integration.md)
 
 ## 文档维护
 

@@ -29,8 +29,8 @@
 namespace gneiss::application_internal {
 namespace {
 
-static_assert(GRANIT_VERSION_MAJOR > 0 || GRANIT_VERSION_MINOR >= 43,
-              "Gneiss requires Granit 0.43.0 or newer");
+static_assert(GRANIT_VERSION_MAJOR > 0 || GRANIT_VERSION_MINOR >= 44,
+              "Gneiss requires Granit 0.44.0 or newer");
 
 gneiss_result map_result(granit::result result) noexcept {
   switch (result.native()) {
@@ -231,6 +231,11 @@ granit_render_service::create_texture_mirror(const render_internal::texture_reso
       return result;
     }
     const auto& variant = info.variants[selection.variant_index];
+    if (variant.payload_offset > source.payload.size() ||
+        variant.payload_size > source.payload.size() - variant.payload_offset) {
+      output.source = nullptr;
+      return granit::result::invalid_argument;
+    }
     const auto format = static_cast<granit::texture_format>(selection.format);
     stage = "create";
     result = output.texture.initialize(
@@ -250,9 +255,12 @@ granit_render_service::create_texture_mirror(const render_internal::texture_reso
     }
     if (result.ok()) {
       stage = "write";
-      result = granit::write_texture_asset_mips(upload, output.texture.ref(), source.manifest,
-                                                source.payload, selection.variant_index, 0U,
-                                                info.mip_levels);
+      const auto payload =
+          std::span{source.payload}.subspan(static_cast<std::size_t>(variant.payload_offset),
+                                            static_cast<std::size_t>(variant.payload_size));
+      result = granit::write_texture_asset_variant_mips(
+          upload, output.texture.ref(), source.manifest, payload, selection.variant_index, 0U,
+          info.mip_levels);
     }
     if (result.ok()) {
       stage = "submit";
