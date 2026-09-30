@@ -5,6 +5,11 @@
 
 ## 状态与规则
 
+2026-09-30 修复接入：用户通过 [Granit PR #122](https://github.com/synchronized/granit/pull/122)
+修复 U43-06/07，已发布于 v0.43.0。Gneiss 当前锁定
+`555b1144b02be409c74b7cc971eff2e0ecf74e25`，正在进行带 Vulkan 校验层的端到端复验。
+下面旧版本缺陷与复现保留为历史证据；最终结果见 [M-284～M-285](../records/M-284-285-0.43.0-validation.md)。
+
 2026-09-29 接入更新：上游 [PR #117](https://github.com/synchronized/granit/pull/117) 已实现下列
 五项需求，包含在当前最新正式版 [v0.42.0](https://github.com/synchronized/granit/releases/tag/v0.42.0)。
 Gneiss 已锁定 `29a4f18a67a8f506c585f0f515d93ddc406d7426`，适配五个独立采样器参数与新顶点布局校验。
@@ -114,7 +119,7 @@ Editor 诊断及场景材质转换属于 Gneiss。本轮未证实这些需要上
 
 ## U43-06：MASK 阴影顶点阶段的材质常量可见性
 
-- 状态：已提出（2026-09-30 会话）；P0，阻塞 0.43 发布。建议 PR 目标为 Granit `main`，
+- 状态：上游已修复（Granit 0.43.0 / PR #122），Gneiss 待复验；P0。建议 PR 目标为 Granit `main`，
   最小范围是修正标准 MASK 阴影 Shader 与材质布局的阶段契约，并补验证层回归。
 - 复现版本：v0.42.0，SHA `29a4f18a67a8f506c585f0f515d93ddc406d7426`。
   Gneiss [Linux 诊断矩阵](https://github.com/synchronized/gneiss/actions/runs/36595776652)
@@ -139,7 +144,7 @@ Editor 诊断及场景材质转换属于 Gneiss。本轮未证实这些需要上
 
 ## U43-07：Shader Demote 能力与 Vulkan 设备特性不一致
 
-- 状态：已提出（2026-09-30 会话）；P0，阻塞合法 Vulkan 使用。可与 U43-06 同一修复 PR 提交，
+- 状态：上游已修复（Granit 0.43.0 / PR #122），Gneiss 待复验；P0。可与 U43-06 同一修复 PR 提交，
   但应独立验收；不声称它是本次段错误的唯一原因。
 - 证据：相同探针报 `VUID-VkShaderModuleCreateInfo-pCode-08740`，SPIR-V 声明
   `DemoteToHelperInvocation`，设备却未启用 `shaderDemoteToHelperInvocation`。

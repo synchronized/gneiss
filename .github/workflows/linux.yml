@@ -156,6 +156,10 @@ jobs:
             cat "$RUNNER_TEMP/gneiss-weston.log"
             exit 1
           }
+          if [[ ! -f /usr/share/vulkan/explicit_layer.d/VkLayer_khronos_validation.json ]]; then
+            apt-get update && apt-get install -y vulkan-validationlayers
+          fi
+          test -f /usr/share/vulkan/explicit_layer.d/VkLayer_khronos_validation.json
           if ! xvfb-run -a ctest --preset "${{ steps.preset.outputs.name }}"; then
             # 保留测试失败，同时收集像素回归的原生崩溃栈。
             if ! command -v gdb >/dev/null; then
@@ -165,6 +169,18 @@ jobs:
               "build/${{ steps.preset.outputs.name }}/bin/gneiss_asset_pixel_test" || true
             exit 1
           fi
+          # 退出成功不代表 Vulkan 使用合法；完整像素回归还必须没有校验错误。
+          validation_log="build/${{ steps.preset.outputs.name }}/pbr-validation.log"
+          VK_INSTANCE_LAYERS=VK_LAYER_KHRONOS_validation xvfb-run -a \
+            "build/${{ steps.preset.outputs.name }}/bin/gneiss_asset_pixel_test" \
+            >"$validation_log" 2>&1
+          cat "$validation_log"
+          ! grep -E 'Validation Error|VUID-' "$validation_log"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pbr-validation-${{ matrix.linkage }}
+          path: build/${{ steps.preset.outputs.name }}/pbr-validation.log
       - name: 输出编译缓存统计
         if: always()
         shell: bash

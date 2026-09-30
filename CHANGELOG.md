@@ -7,7 +7,7 @@
 
 ## 未发布
 
-- 升级 Granit 至 0.42.0，接通五类 PBR 贴图、法线切线空间、完整 Mip 和负缩放修正。
+- 升级 Granit 至 0.43.0，接通五类 PBR 贴图、法线切线空间、完整 Mip 和负缩放修正。
 - Material v5 保存逐槽 UV/采样、OPAQUE/MASK/BLEND 与双面；Mesh Binary v3 保存 UV1/顶点色。
   旧文件及 C 描述保持兼容，glTF 导入器版本 3 使旧缓存失效。
 - 使用 MikkTSpace 生成缺失或退化切线，保留修复诊断；按颜色、数据、法线用途生成正确的 Mip。
