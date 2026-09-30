@@ -84,7 +84,15 @@ CPU 数组字节与纹理所选负载；CPU 数据亦不能超过该上限。按
 
 当前准入发生于 CPU 对象准备后、RID 发布前，不替代所有分配之前的预留；后台准备临时数组、
 后端额外暂存和 GPU 缓存重建仍需独立协调。统计数组大小而非分配器容量，共享来源元数据可能保守
-重复计费。不同 Application 不共用预算池，Editor 分项展示仍待接入。
+重复计费。不同 Application 不共用预算池。
+
+场景加载的内部进度和终态提供资源账本快照，Runtime 经 `scene` 域可选 `budget` 对象传到 Editor。
+旧消息省略该对象时显示原有阶段信息；对象存在时所有字段必须为无符号 64 位整数。
+字段包括 `candidate_logical_bytes`、`candidate_cpu_data_bytes`、`application_logical_bytes`、
+`application_cpu_data_bytes`、`available_bytes`、`upload_reserved_bytes`、`peak_upload_bytes`，单位均为字节。
+候选数值为已完成批次统计，Application 数值为查询时资源账本；上传预留为当前子批次估算。
+终态保留结束时、候选回收前的快照，不作为失败后持续更新的占用。Editor 标明这些数字不是 RSS 或
+实际 GPU 显存；不改变 IPC 域版本及既有请求身份、取消、唯一终态语义。
 
 ## 影响与成本
 

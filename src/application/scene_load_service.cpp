@@ -133,10 +133,23 @@ gneiss_result scene_load_service::submit(std::string_view uri, std::uint64_t ses
   pending_ = std::move(next);
   return GNEISS_SUCCESS;
 }
+void scene_load_service::sample_budget(scene_load_progress& value) const {
+  const auto usage = resources_.memory_usage();
+  value.application_logical_bytes = usage.logical_bytes;
+  value.application_cpu_data_bytes = usage.cpu_data_bytes;
+  value.available_bytes = resources_.available_memory_bytes();
+  value.upload_reserved_bytes = 0U;
+  asset_internal::asset_load_progress child;
+  if (pending_ && pending_->assets && pending_->assets->progress(child)) {
+    value.upload_reserved_bytes = child.upload_reserved_bytes;
+    value.peak_upload_bytes = std::max(value.peak_upload_bytes, child.upload_reserved_bytes);
+  }
+}
 bool scene_load_service::progress(scene_load_progress& value) const {
   check_owner();
   if (pending_) {
     value = pending_->result.progress;
+    sample_budget(value);
     asset_internal::asset_load_progress child;
     value.gpu_in_flight = pending_->assets && pending_->assets->progress(child) &&
                           child.state == asset_internal::texture_load_state::uploading;
@@ -166,6 +179,7 @@ void scene_load_service::finish(gneiss_result result, scene_load_phase phase, st
   pending_->result.progress.phase = phase;
   pending_->result.progress.can_cancel = false;
   pending_->result.message = std::move(message);
+  sample_budget(pending_->result.progress);
   completed_ = std::move(pending_->result);
   pending_.reset();
 }
@@ -186,6 +200,7 @@ scene_load_service::take_candidate(std::uint64_t request, scene_load_completion&
       pending_->result.progress.phase != scene_load_phase::ready) {
     return {};
   }
+  sample_budget(pending_->result.progress);
   result = std::move(pending_->result);
   result.scene = pending_->builder->instance();
   result.result = GNEISS_SUCCESS;

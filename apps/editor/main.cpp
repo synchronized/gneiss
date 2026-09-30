@@ -1549,6 +1549,21 @@ void draw_asset_browser(editor_state& state) {
     ImGui::TextWrapped("%s", scene_load.source.uri.c_str());
     if (scene_load.total > 0U)
       ImGui::Text("Current phase: %u / %u", scene_load.completed, scene_load.total);
+    if (scene_load.budget) {
+      const auto& budget = *scene_load.budget;
+      constexpr double mib = 1024.0 * 1024.0;
+      ImGui::Text("Candidate: logical %.1f MiB, CPU data %.1f MiB",
+                  static_cast<double>(budget.candidate_logical_bytes) / mib,
+                  static_cast<double>(budget.candidate_cpu_data_bytes) / mib);
+      ImGui::Text("Application: logical %.1f MiB, CPU data %.1f MiB",
+                  static_cast<double>(budget.application_logical_bytes) / mib,
+                  static_cast<double>(budget.application_cpu_data_bytes) / mib);
+      ImGui::Text("Available: %.1f MiB | Upload: %.1f MiB (peak %.1f MiB)",
+                  static_cast<double>(budget.available_bytes) / mib,
+                  static_cast<double>(budget.upload_reserved_bytes) / mib,
+                  static_cast<double>(budget.peak_upload_bytes) / mib);
+      ImGui::TextDisabled("Resource accounting snapshot; not process RAM or GPU memory");
+    }
     if (!scene_load.message.empty())
       ImGui::TextWrapped("%s", scene_load.message.c_str());
     ImGui::BeginDisabled(!state.runtime.supports_scene_loading());

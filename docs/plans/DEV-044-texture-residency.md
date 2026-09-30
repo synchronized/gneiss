@@ -67,6 +67,8 @@
 候选分项验证见 [M-289 记录](../records/M-289-budget-accounting.md)。
 已增加 Application 共享资源准入，按对象生命周期涵盖活动、候选与旧帧；
 验证及分配前预留等剩余范围见 [共享资源预算记录](../records/M-289-shared-resource-budget.md)。
+Editor 已显示候选、Application 与上传分项快照，兼容和进程联测见
+[预算反馈记录](../records/M-289-budget-feedback.md)；统一分配前预留及详细超额诊断仍待完善。
 
 - 在现有 Application/Service 装配边界协调预算，读取和分配前先预留；申请失败不启动无界工作。
   候选发布时转移归属，不重复累计共享纹理；上传暂存直到后端确认完成才退还。

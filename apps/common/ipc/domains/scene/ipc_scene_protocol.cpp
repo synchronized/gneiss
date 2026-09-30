@@ -14,6 +14,44 @@ namespace {
 constexpr std::array<std::string_view, 8U> phases{
     "preparing", "assets", "verifying", "instantiating", "ready", "applied", "failed", "cancelled",
 };
+bool read_budget(yyjson_val* budget, ipc_scene_budget& parsed) {
+  if (!yyjson_is_obj(budget)) {
+    return false;
+  }
+  if (!yyjson_is_uint(yyjson_obj_get(budget, "candidate_logical_bytes"))) {
+    return false;
+  }
+  parsed.candidate_logical_bytes =
+      yyjson_get_uint(yyjson_obj_get(budget, "candidate_logical_bytes"));
+  if (!yyjson_is_uint(yyjson_obj_get(budget, "candidate_cpu_data_bytes"))) {
+    return false;
+  }
+  parsed.candidate_cpu_data_bytes =
+      yyjson_get_uint(yyjson_obj_get(budget, "candidate_cpu_data_bytes"));
+  if (!yyjson_is_uint(yyjson_obj_get(budget, "application_logical_bytes"))) {
+    return false;
+  }
+  parsed.application_logical_bytes =
+      yyjson_get_uint(yyjson_obj_get(budget, "application_logical_bytes"));
+  if (!yyjson_is_uint(yyjson_obj_get(budget, "application_cpu_data_bytes"))) {
+    return false;
+  }
+  parsed.application_cpu_data_bytes =
+      yyjson_get_uint(yyjson_obj_get(budget, "application_cpu_data_bytes"));
+  if (!yyjson_is_uint(yyjson_obj_get(budget, "available_bytes"))) {
+    return false;
+  }
+  parsed.available_bytes = yyjson_get_uint(yyjson_obj_get(budget, "available_bytes"));
+  if (!yyjson_is_uint(yyjson_obj_get(budget, "upload_reserved_bytes"))) {
+    return false;
+  }
+  parsed.upload_reserved_bytes = yyjson_get_uint(yyjson_obj_get(budget, "upload_reserved_bytes"));
+  if (!yyjson_is_uint(yyjson_obj_get(budget, "peak_upload_bytes"))) {
+    return false;
+  }
+  parsed.peak_upload_bytes = yyjson_get_uint(yyjson_obj_get(budget, "peak_upload_bytes"));
+  return true;
+}
 bool valid_source(const ipc_scene_request& value) {
   return value.session != 0U && value.revision != 0U && value.uri.starts_with("asset://") &&
          value.uri.size() > 8U && value.uri.size() <= 2048U &&
@@ -132,6 +170,26 @@ result encode_ipc_scene_progress(const ipc_scene_progress& value, std::uint32_t 
                                   value.message.size())) {
     return result::out_of_memory;
   }
+  if (value.budget) {
+    auto* budget = yyjson_mut_obj(doc.get());
+    if (budget == nullptr || !yyjson_mut_obj_add_val(doc.get(), root, "budget", budget) ||
+        !yyjson_mut_obj_add_uint(doc.get(), budget, "candidate_logical_bytes",
+                                 value.budget->candidate_logical_bytes) ||
+        !yyjson_mut_obj_add_uint(doc.get(), budget, "candidate_cpu_data_bytes",
+                                 value.budget->candidate_cpu_data_bytes) ||
+        !yyjson_mut_obj_add_uint(doc.get(), budget, "application_logical_bytes",
+                                 value.budget->application_logical_bytes) ||
+        !yyjson_mut_obj_add_uint(doc.get(), budget, "application_cpu_data_bytes",
+                                 value.budget->application_cpu_data_bytes) ||
+        !yyjson_mut_obj_add_uint(doc.get(), budget, "available_bytes",
+                                 value.budget->available_bytes) ||
+        !yyjson_mut_obj_add_uint(doc.get(), budget, "upload_reserved_bytes",
+                                 value.budget->upload_reserved_bytes) ||
+        !yyjson_mut_obj_add_uint(doc.get(), budget, "peak_upload_bytes",
+                                 value.budget->peak_upload_bytes)) {
+      return result::out_of_memory;
+    }
+  }
   yyjson_mut_doc_set_root(doc.get(), root);
   std::size_t length{};
   std::unique_ptr<char, decltype(&std::free)> text(
@@ -207,6 +265,13 @@ result decode_ipc_scene_progress(const ipc_envelope& envelope, ipc_scene_progres
   value.total = static_cast<std::uint32_t>(yyjson_get_uint(total));
   value.can_cancel = yyjson_get_bool(cancel);
   value.message.assign(yyjson_get_str(message), yyjson_get_len(message));
+  if (auto* budget = yyjson_obj_get(root, "budget")) {
+    ipc_scene_budget parsed;
+    if (!read_budget(budget, parsed)) {
+      return result::invalid_argument;
+    }
+    value.budget = parsed;
+  }
   if (!found || !valid_progress(value) || (response && !scene_phase_terminal(value.phase))) {
     return result::invalid_argument;
   }

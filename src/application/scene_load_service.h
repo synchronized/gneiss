@@ -34,6 +34,11 @@ struct scene_load_progress {
   std::size_t cpu_data_bytes{};
   std::size_t texture_payload_bytes{};
   std::size_t peak_upload_bytes{};
+  /** Application 资源账本快照；不含后台临时分配或驱动额外占用。 */
+  std::uint64_t application_logical_bytes{};
+  std::uint64_t application_cpu_data_bytes{};
+  std::uint64_t available_bytes{};
+  std::uint64_t upload_reserved_bytes{};
 };
 struct scene_load_completion {
   scene_load_progress progress;
@@ -80,6 +85,7 @@ private:
   struct pending;
   void advance_impl();
   void finish(gneiss_result result, scene_load_phase phase, std::string message = {});
+  void sample_budget(scene_load_progress& value) const;
   void check_owner() const;
   tasks::task_executor& executor_;
   tasks::task_scope scope_;

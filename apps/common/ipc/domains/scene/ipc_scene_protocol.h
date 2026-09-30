@@ -5,6 +5,7 @@
 
 #include "ipc_dispatcher.h"
 
+#include <optional>
 #include <string>
 
 namespace gneiss {
@@ -27,6 +28,16 @@ struct ipc_scene_request {
   std::uint64_t revision{};
   std::string uri;
 };
+/** 可选资源账本快照，单位字节；不是 RSS 或驱动显存，终态保留结束时数值。 */
+struct ipc_scene_budget {
+  std::uint64_t candidate_logical_bytes{};
+  std::uint64_t candidate_cpu_data_bytes{};
+  std::uint64_t application_logical_bytes{};
+  std::uint64_t application_cpu_data_bytes{};
+  std::uint64_t available_bytes{};
+  std::uint64_t upload_reserved_bytes{};
+  std::uint64_t peak_upload_bytes{};
+};
 struct ipc_scene_progress {
   ipc_scene_request source;
   ipc_scene_phase phase{ipc_scene_phase::preparing};
@@ -34,6 +45,7 @@ struct ipc_scene_progress {
   std::uint32_t total{};
   bool can_cancel{};
   std::string message;
+  std::optional<ipc_scene_budget> budget{};
 };
 [[nodiscard]] bool scene_phase_terminal(ipc_scene_phase phase) noexcept;
 [[nodiscard]] result encode_ipc_scene_request(const ipc_scene_request& value,

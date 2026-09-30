@@ -79,6 +79,9 @@ void run() {
            !process.scene_mirror().nodes().empty();
   });
   check(process.supports_scene_loading());
+  check(process.scene_load_status().budget.has_value());
+  check(process.scene_load_status().budget->available_bytes > 0U);
+  check(process.scene_load_status().budget->upload_reserved_bytes == 0U);
   check(lifecycle() == "I");
   const auto old_session = process.scene_mirror().session_id();
   const auto old_node = process.scene_mirror().nodes().front().id;
