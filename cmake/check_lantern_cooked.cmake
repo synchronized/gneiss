@@ -43,7 +43,8 @@ set(log "${GNEISS_OUTPUT}/texture-upload.log")
 file(WRITE "${log}" "")
 execute_process(COMMAND "${GNEISS_RUNTIME}" --smoke --project "${GNEISS_OUTPUT}"
   --log-file "${log}" RESULT_VARIABLE result OUTPUT_VARIABLE output ERROR_VARIABLE error
-  TIMEOUT 30)
+  # 0.44 会在候选发布前复验源文件版本；Debug 构建可能在验证阶段超过 30 秒。
+  TIMEOUT 90)
 if(NOT result EQUAL 0)
   message(FATAL_ERROR "Cooked Lantern 运行失败：${output}\n${error}")
 endif()
@@ -66,11 +67,13 @@ set(failure_log "${GNEISS_OUTPUT}/texture-upload-failure.log")
 file(WRITE "${failure_log}" "")
 execute_process(COMMAND "${GNEISS_RUNTIME}" --smoke --project "${GNEISS_OUTPUT}"
   --log-file "${failure_log}" RESULT_VARIABLE result OUTPUT_VARIABLE output ERROR_VARIABLE error
-  TIMEOUT 30)
+  TIMEOUT 90)
 file(COPY_FILE "${backup}" "${texture}")
 file(READ "${failure_log}" events)
-# 纹理上传属于候选场景加载；--smoke 在候选失败后返回场景加载错误（4）。
-if(NOT result EQUAL 4 OR NOT events MATCHES "stage=write variant=" OR
+# 纹理候选在读取/摘要校验或上传阶段失败；--smoke 返回场景加载错误（4）。
+if(NOT result EQUAL 4 OR
+   (NOT events MATCHES "stage=write variant=" AND
+    NOT events MATCHES "stage=scene_load result=-[0-9]+.*选中纹理变体读取或摘要校验失败") OR
    NOT events MATCHES "level=ERROR" OR events MATCHES "stage=ready")
   message(FATAL_ERROR "损坏负载必须报告上传失败并返回场景加载错误（4）：${result}\n${events}\n${error}")
 endif()
