@@ -5,7 +5,8 @@
 
 ## 状态与依赖
 
-2026-09-30 规划完成，实施尚未开始。范围以 [VER-044](VER-044-0.44.0-texture-residency.md) 为准，
+2026-09-30 已开始 M-286，[容量与所有权初审](../records/M-286-texture-memory-audit.md) 已记录；
+运行峰值与预算冻结尚未完成。范围以 [VER-044](VER-044-0.44.0-texture-residency.md) 为准，
 所有权和分层以 [ADR-052](../decisions/ADR-052-texture-residency-and-budgets.md) 为准。
 下列内容是实施要求，不代表接口已经存在。
 

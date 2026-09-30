@@ -331,6 +331,7 @@
 - [M-31 工具能力重新评估记录](records/M-31-tooling-reevaluation.md)
 
 - [M-284～M-285：0.43.0 PBR 与发布验收](records/M-284-285-0.43.0-validation.md)
+- [M-286：纹理容量与加载所有权初审](records/M-286-texture-memory-audit.md)
 
 ## 文档维护
 
