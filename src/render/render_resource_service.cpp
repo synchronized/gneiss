@@ -4,6 +4,7 @@
 #include "render/render_resource_service.h"
 
 #include "asset/mesh_tangent.h"
+#include "asset/texture_container.h"
 
 #include <algorithm>
 #include <atomic>
@@ -29,10 +30,74 @@ bool valid_color(float value) noexcept {
   return std::isfinite(value) && value >= 0.0F && value <= 1.0F;
 }
 
+std::uint64_t saturated_add(std::uint64_t left, std::uint64_t right) noexcept {
+  return right > UINT64_MAX - left ? UINT64_MAX : left + right;
+}
+render_memory_usage measure(const mesh_resource& value) noexcept {
+  return {.logical_bytes = value.data_bytes(), .cpu_data_bytes = value.data_bytes()};
+}
+render_memory_usage measure([[maybe_unused]] const material_resource& value) noexcept {
+  return {.logical_bytes = sizeof(material_resource), .cpu_data_bytes = sizeof(material_resource)};
+}
+render_memory_usage measure(const texture_resource& value) noexcept {
+  std::uint64_t bytes = value.payload.size();
+  for (const auto& mip : value.levels) {
+    bytes = saturated_add(bytes, mip.pixels.size());
+  }
+  auto cpu = saturated_add(bytes, value.manifest.size());
+  if (value.payload_source) {
+    bytes = value.payload_source->size();
+    cpu = saturated_add(cpu, value.payload_source->metadata_bytes());
+    if (const auto upload = value.upload_payload.lock()) {
+      cpu = saturated_add(cpu, upload->size());
+    }
+  }
+  return {.logical_bytes = saturated_add(bytes, value.manifest.size()), .cpu_data_bytes = cpu};
+}
 } // namespace
 
-render_resource_service::render_resource_service() noexcept
-    : domain_(allocate_domain()), meshes_(domain_), materials_(domain_), textures_(domain_) {}
+render_resource_service::render_resource_service(std::uint64_t memory_limit) noexcept
+    : memory_limit_(memory_limit), domain_(allocate_domain()), meshes_(domain_),
+      materials_(domain_), textures_(domain_) {}
+
+render_memory_usage render_resource_service::memory_usage() const noexcept {
+  render_memory_usage total;
+  const auto collect = [&](auto& history) {
+    std::erase_if(history, [](const auto& item) { return item.expired(); });
+    for (const auto& item : history) {
+      if (const auto resource = item.lock()) {
+        const auto usage = measure(*resource);
+        total.logical_bytes = saturated_add(total.logical_bytes, usage.logical_bytes);
+        total.cpu_data_bytes = saturated_add(total.cpu_data_bytes, usage.cpu_data_bytes);
+      }
+    }
+  };
+  collect(mesh_history_);
+  collect(material_history_);
+  collect(texture_history_);
+  return total;
+}
+std::uint64_t render_resource_service::available_memory_bytes() const noexcept {
+  const auto usage = memory_usage();
+  return memory_limit_ -
+         std::min(memory_limit_, std::max(usage.logical_bytes, usage.cpu_data_bytes));
+}
+template <typename Resource>
+std::shared_ptr<const Resource>
+render_resource_service::track(std::shared_ptr<const Resource> resource,
+                               std::vector<std::weak_ptr<const Resource>>& history) {
+  if (std::ranges::any_of(history, [&](const auto& item) { return item.lock() == resource; })) {
+    return resource;
+  }
+  const auto usage = measure(*resource);
+  const auto current = memory_usage();
+  if (usage.logical_bytes > memory_limit_ - std::min(memory_limit_, current.logical_bytes) ||
+      usage.cpu_data_bytes > memory_limit_ - std::min(memory_limit_, current.cpu_data_bytes)) {
+    throw std::bad_alloc{};
+  }
+  history.push_back(resource);
+  return resource;
+}
 
 gneiss_result render_resource_service::create_mesh(const gneiss_mesh_desc& desc,
                                                    gneiss_mesh* out_mesh) noexcept {
@@ -108,6 +173,7 @@ gneiss_result render_resource_service::create_mesh(const gneiss_mesh_desc& desc,
         }))
       return GNEISS_ERROR_INVALID_ARGUMENT;
   }
+  *out_mesh = 0U;
   try {
     mesh_resource resource{.vertices = {vertices.begin(), vertices.end()},
                            .normals = {normals.begin(), normals.end()},
@@ -115,8 +181,9 @@ gneiss_result render_resource_service::create_mesh(const gneiss_mesh_desc& desc,
                            .tangents = {tangents.begin(), tangents.end()},
                            .uv1 = {uv1.begin(), uv1.end()},
                            .colors = {colors.begin(), colors.end()}};
-    return meshes_.create(core::resource_type::mesh,
-                          std::make_shared<const mesh_resource>(std::move(resource)), out_mesh);
+    return meshes_.create(
+        core::resource_type::mesh,
+        track(std::make_shared<const mesh_resource>(std::move(resource)), mesh_history_), out_mesh);
   } catch (const std::bad_alloc&) {
     return GNEISS_ERROR_OUT_OF_MEMORY;
   } catch (...) {
@@ -129,9 +196,11 @@ gneiss_result render_resource_service::create_prepared_mesh(mesh_resource resour
   if (output == nullptr || !is_valid()) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
+  *output = 0U;
   try {
-    return meshes_.create(core::resource_type::mesh,
-                          std::make_shared<const mesh_resource>(std::move(resource)), output);
+    return meshes_.create(
+        core::resource_type::mesh,
+        track(std::make_shared<const mesh_resource>(std::move(resource)), mesh_history_), output);
   } catch (const std::bad_alloc&) {
     return GNEISS_ERROR_OUT_OF_MEMORY;
   } catch (...) {
@@ -144,7 +213,11 @@ bool render_resource_service::replace_mesh(gneiss_mesh rid,
   if (!slot || !data) {
     return false;
   }
-  *slot = std::move(data);
+  try {
+    *slot = track(std::move(data), mesh_history_);
+  } catch (...) {
+    return false;
+  }
   return true;
 }
 bool render_resource_service::replace_material(
@@ -153,7 +226,11 @@ bool render_resource_service::replace_material(
   if (!slot || !data) {
     return false;
   }
-  *slot = std::move(data);
+  try {
+    *slot = track(std::move(data), material_history_);
+  } catch (...) {
+    return false;
+  }
   return true;
 }
 
@@ -174,6 +251,7 @@ gneiss_result render_resource_service::create_material(const gneiss_material_des
        get_texture(desc.base_color_texture) == nullptr)) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
+  *out_material = 0U;
   try {
     material_resource value{.red = desc.red,
                             .green = desc.green,
@@ -218,7 +296,7 @@ gneiss_result render_resource_service::create_material(const gneiss_material_des
       value.alpha_cutoff = desc.alpha_cutoff;
       std::ranges::copy(desc.sampling, value.sampling.begin());
     }
-    auto resource = std::make_shared<const material_resource>(value);
+    auto resource = track(std::make_shared<const material_resource>(value), material_history_);
     return materials_.create(core::resource_type::material, std::move(resource), out_material);
   } catch (const std::bad_alloc&) {
     return GNEISS_ERROR_OUT_OF_MEMORY;
@@ -297,10 +375,12 @@ gneiss_result render_resource_service::create_texture(texture_resource resource,
     width = std::max(1U, width / 2U);
     height = std::max(1U, height / 2U);
   }
+  *out_texture = 0U;
   try {
-    return textures_.create(core::resource_type::texture,
-                            std::make_shared<const texture_resource>(std::move(resource)),
-                            out_texture);
+    return textures_.create(
+        core::resource_type::texture,
+        track(std::make_shared<const texture_resource>(std::move(resource)), texture_history_),
+        out_texture);
   } catch (const std::bad_alloc&) {
     return GNEISS_ERROR_OUT_OF_MEMORY;
   } catch (...) {
@@ -315,13 +395,17 @@ render_resource_service::create_packaged_texture(texture_resource resource,
       resource.format != GNEISS_TEXTURE_FORMAT_RGBA8_UNORM ||
       (resource.color_space != GNEISS_TEXTURE_COLOR_SPACE_LINEAR &&
        resource.color_space != GNEISS_TEXTURE_COLOR_SPACE_SRGB) ||
-      !resource.levels.empty() || resource.manifest.empty() || resource.payload.empty()) {
+      !resource.levels.empty() || resource.manifest.empty() ||
+      (resource.payload.empty() &&
+       (!resource.payload_source || resource.upload_payload.expired()))) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
+  *out_texture = 0U;
   try {
-    return textures_.create(core::resource_type::texture,
-                            std::make_shared<const texture_resource>(std::move(resource)),
-                            out_texture);
+    return textures_.create(
+        core::resource_type::texture,
+        track(std::make_shared<const texture_resource>(std::move(resource)), texture_history_),
+        out_texture);
   } catch (const std::bad_alloc&) {
     return GNEISS_ERROR_OUT_OF_MEMORY;
   } catch (...) {
@@ -339,7 +423,11 @@ bool render_resource_service::replace_texture(
   if (slot == nullptr || !prepared) {
     return false;
   }
-  *slot = std::move(prepared);
+  try {
+    *slot = track(std::move(prepared), texture_history_);
+  } catch (...) {
+    return false;
+  }
   return true;
 }
 

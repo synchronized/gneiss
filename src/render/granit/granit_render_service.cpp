@@ -3,6 +3,7 @@
 
 #include "render/granit/granit_render_service.h"
 
+#include "asset/texture_container.h"
 #include "log/log_dispatcher.h"
 
 #include <granit/core/version.h>
@@ -29,8 +30,8 @@
 namespace gneiss::application_internal {
 namespace {
 
-static_assert(GRANIT_VERSION_MAJOR > 0 || GRANIT_VERSION_MINOR >= 43,
-              "Gneiss requires Granit 0.43.0 or newer");
+static_assert(GRANIT_VERSION_MAJOR > 0 || GRANIT_VERSION_MINOR >= 44,
+              "Gneiss requires Granit 0.44.0 or newer");
 
 gneiss_result map_result(granit::result result) noexcept {
   switch (result.native()) {
@@ -208,6 +209,9 @@ void granit_render_service::log_texture(gneiss_texture rid, const char* stage,
 granit::result
 granit_render_service::create_texture_mirror(const render_internal::texture_resource& source,
                                              texture_mirror& output, gneiss_texture rid) noexcept {
+  if (source.profile.generation != 0U && source.profile != texture_profile_) {
+    return granit::result::invalid_argument;
+  }
   if (auto found = prepared_textures_.find(&source); found != prepared_textures_.end()) {
     output = std::move(found->second.mirror);
     prepared_textures_.erase(found);
@@ -221,7 +225,10 @@ granit_render_service::create_texture_mirror(const render_internal::texture_reso
     const char* stage = "inspect";
     if (result.ok()) {
       stage = "select";
-      result = granit::select_texture_asset_variant(renderer_, source.manifest, selection);
+      result = granit::select_texture_asset_variant(
+          renderer_, source.manifest, selection,
+          {.required_usage =
+               granit::texture_usage::sampled | granit::texture_usage::transfer_destination});
     }
     if (result.failed() || selection.variant_index >= info.variants.size()) {
       output.source = nullptr;
@@ -231,6 +238,46 @@ granit_render_service::create_texture_mirror(const render_internal::texture_reso
       return result;
     }
     const auto& variant = info.variants[selection.variant_index];
+    const bool selected = source.profile.generation != 0U;
+    auto upload_payload = source.upload_payload.lock();
+    std::vector<std::byte> restored_payload;
+    std::span<const std::byte> available_payload = source.payload;
+    if (source.payload_source && selected && available_payload.empty()) {
+      if (source.payload_source->size() != variant.payload_size ||
+          variant.payload_size > std::numeric_limits<std::size_t>::max()) {
+        output.source = nullptr;
+        return granit::result::invalid_argument;
+      }
+      if (upload_payload) {
+        available_payload = *upload_payload;
+      } else {
+        // 常规异步首次上传持有租约；仅 GPU 投影缺失时按原摘要恢复，禁止用新版源替代。
+        const auto restored = source.payload_source->read(
+            restored_payload, static_cast<std::size_t>(variant.payload_size));
+        if (restored != GNEISS_SUCCESS) {
+          output.source = nullptr;
+          const auto failure = restored == GNEISS_ERROR_OUT_OF_MEMORY
+                                   ? granit::result::out_of_memory
+                                   : granit::result::invalid_argument;
+          log_texture(rid, "restore", failure, selection.variant_index, selection.format,
+                      info.mip_levels, variant.payload_size);
+          return failure;
+        }
+        available_payload = restored_payload;
+      }
+    }
+    if (selected &&
+        (source.profile != texture_profile_ || source.selected_variant != selection.variant_index ||
+         available_payload.size() != variant.payload_size)) {
+      output.source = nullptr;
+      return granit::result::invalid_argument;
+    }
+    const auto payload_offset = selected ? 0U : variant.payload_offset;
+    if (payload_offset > available_payload.size() ||
+        variant.payload_size > available_payload.size() - payload_offset) {
+      output.source = nullptr;
+      return granit::result::invalid_argument;
+    }
     const auto format = static_cast<granit::texture_format>(selection.format);
     stage = "create";
     result = output.texture.initialize(
@@ -250,9 +297,11 @@ granit_render_service::create_texture_mirror(const render_internal::texture_reso
     }
     if (result.ok()) {
       stage = "write";
-      result = granit::write_texture_asset_mips(upload, output.texture.ref(), source.manifest,
-                                                source.payload, selection.variant_index, 0U,
-                                                info.mip_levels);
+      const auto payload = available_payload.subspan(
+          static_cast<std::size_t>(payload_offset), static_cast<std::size_t>(variant.payload_size));
+      result = granit::write_texture_asset_variant_mips(
+          upload, output.texture.ref(), source.manifest, payload, selection.variant_index, 0U,
+          info.mip_levels);
     }
     if (result.ok()) {
       stage = "submit";
@@ -694,6 +743,9 @@ std::size_t granit_render_service::estimate_upload_bytes(
            (item.mesh->indices.empty() ? item.mesh->vertices.size() : item.mesh->indices.size()) *
                sizeof(std::uint32_t);
   if (item.texture) {
+    if (item.texture->payload_source) {
+      return static_cast<std::size_t>(item.texture->payload_source->size());
+    }
     if (!item.texture->payload.empty())
       return item.texture->payload.size();
     std::size_t bytes{};
@@ -995,6 +1047,22 @@ gneiss_result granit_render_service::initialize_gpu(const native_window_info& wi
   if (result.failed()) {
     return map_result(result);
   }
+
+  static std::atomic<std::uint64_t> device_generation{0U};
+  texture_profile_ = {};
+  constexpr std::array formats{
+      granit::texture_format::rgba8_unorm, granit::texture_format::rgba8_srgb,
+      granit::texture_format::bc7_rgba_unorm, granit::texture_format::bc7_rgba_srgb};
+  for (std::size_t index = 0U; index < formats.size(); ++index) {
+    granit::texture_format_capabilities capabilities;
+    result = granit::get_texture_format_capabilities(renderer_, formats[index], capabilities);
+    if (result.failed()) {
+      return map_result(result);
+    }
+    texture_profile_.sampled_transfer_formats[index] = capabilities.supports(
+        granit::texture_usage::sampled | granit::texture_usage::transfer_destination);
+  }
+  texture_profile_.generation = device_generation.fetch_add(1U, std::memory_order_relaxed) + 1U;
 
   switch (window.backend) {
   case native_window_backend::win32:

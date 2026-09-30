@@ -30,6 +30,7 @@ struct texture_load_service::pending {
   std::size_t next_upload{};
   std::size_t completed_uploads{};
   std::uint64_t upload{};
+  std::size_t upload_reserved_bytes{};
   gneiss_result failure{GNEISS_SUCCESS};
   std::chrono::steady_clock::time_point commit_started;
 };
@@ -111,7 +112,7 @@ gneiss_result texture_load_service::submit_assets(std::span<const render_asset_r
     bool cached = true;
     for (const auto& source : sources) {
       render_asset_lease lease;
-      if (loader_.acquire_cached(source, lease) != GNEISS_SUCCESS) {
+      if (loader_.acquire_cached(source, lease, backend_.profile) != GNEISS_SUCCESS) {
         cached = false;
         break;
       }
@@ -133,12 +134,13 @@ gneiss_result texture_load_service::submit_assets(std::span<const render_asset_r
   const auto accepted = executor_.submit(
       {.name = "render_assets.prepare", .scope = scope_},
       [cpu = value->cpu, sources = std::vector<render_asset_reload>(sources.begin(), sources.end()),
-       files = file_system_, prepare_limit](const tasks::task_context& context) {
+       files = file_system_, prepare_limit,
+       profile = backend_.profile](const tasks::task_context& context) {
         const auto start = std::chrono::steady_clock::now();
         asset_diagnostic diagnostic;
         cpu->result = prepare_render_assets(
             files, sources, cpu->batch, diagnostic, [&] { return context.stop_requested(); },
-            maximum_assets, prepare_limit);
+            maximum_assets, prepare_limit, profile);
         cpu->message = std::move(diagnostic.message);
         cpu->milliseconds =
             std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start)
@@ -236,8 +238,9 @@ void texture_load_service::advance_impl() {
         finish(result, texture_load_state::failed);
         return;
       }
-      render_upload_item upload{candidate.mesh, candidate.material, candidate.texture,
-                                candidate.dependency_textures, candidate.bytes};
+      render_upload_item upload{candidate.mesh,    candidate.material,
+                                candidate.texture, candidate.dependency_textures,
+                                candidate.bytes,   candidate.texture_payload};
       if (backend_.estimate_bytes)
         upload.bytes = backend_.estimate_bytes(upload);
       value.data.push_back(std::move(upload));
@@ -256,6 +259,7 @@ void texture_load_service::advance_impl() {
       return;
     }
     value.in_flight = false;
+    value.upload_reserved_bytes = 0U;
     if (value.discarding) {
       finish(value.failure, texture_load_state::failed);
       return;
@@ -292,6 +296,16 @@ void texture_load_service::advance_impl() {
     auto end = value.next_upload;
     while (end < value.data.size() && batch.size() < 4U) {
       const auto& item = value.data[end];
+      if (item.bytes > maximum_upload_bytes) {
+        value.cpu->message = "GPU 上传预算不足：需要 " + std::to_string(item.bytes) +
+                             " 字节，上限 " + std::to_string(maximum_upload_bytes);
+        if (value.completed_uploads != 0U) {
+          value.failure = GNEISS_ERROR_OUT_OF_MEMORY;
+        } else {
+          finish(GNEISS_ERROR_OUT_OF_MEMORY, texture_load_state::failed);
+        }
+        return;
+      }
       if (!batch.empty() &&
           item.bytes > upload_budget_bytes - std::min(bytes, upload_budget_bytes)) {
         break;
@@ -312,6 +326,8 @@ void texture_load_service::advance_impl() {
       }
       return;
     }
+    value.upload_reserved_bytes = bytes;
+    value.completion.peak_upload_bytes = std::max(value.completion.peak_upload_bytes, bytes);
     value.uploading = true;
     value.in_flight = true;
     value.next_upload = end;
@@ -363,13 +379,16 @@ bool texture_load_service::progress(asset_load_progress& output) const {
   if (!pending_) {
     return false;
   }
-  output = {pending_->completion.request,
-            pending_->completion.session,
-            pending_->completion.revision,
-            pending_->uploading ? texture_load_state::uploading : texture_load_state::preparing,
-            pending_->completed_uploads,
-            pending_->prepared ? pending_->cpu->batch.assets.size() : 0U,
-            !pending_->uploading};
+  output = {
+      pending_->completion.request,
+      pending_->completion.session,
+      pending_->completion.revision,
+      pending_->uploading ? texture_load_state::uploading : texture_load_state::preparing,
+      pending_->completed_uploads,
+      pending_->prepared ? pending_->cpu->batch.assets.size() : 0U,
+      !pending_->uploading,
+      pending_->upload_reserved_bytes,
+  };
   return true;
 }
 } // namespace gneiss::asset_internal

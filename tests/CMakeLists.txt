@@ -638,6 +638,21 @@ gneiss_target_compile_warnings(gneiss_resource_service_test)
 gneiss_target_output_directories(gneiss_resource_service_test)
 add_test(NAME gneiss.resource_service COMMAND gneiss_resource_service_test)
 
+find_package(Threads REQUIRED)
+add_executable(gneiss_read_source_test
+  asset/read_source_test.cpp
+  "${PROJECT_SOURCE_DIR}/src/asset/asset_uri.cpp"
+  "${PROJECT_SOURCE_DIR}/src/asset/native_file_system.cpp"
+  "${PROJECT_SOURCE_DIR}/src/asset/virtual_file_system.cpp")
+target_include_directories(gneiss_read_source_test PRIVATE
+  "${PROJECT_SOURCE_DIR}/src" "${PROJECT_SOURCE_DIR}/include")
+target_link_libraries(gneiss_read_source_test PRIVATE Threads::Threads)
+target_compile_definitions(gneiss_read_source_test PRIVATE GNEISS_BUILDING_LIBRARY)
+target_compile_features(gneiss_read_source_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_read_source_test)
+gneiss_target_output_directories(gneiss_read_source_test)
+add_test(NAME gneiss.read_source COMMAND gneiss_read_source_test)
+
 add_executable(
   gneiss_mesh_binary_test
   asset/mesh_binary_test.cpp
@@ -671,6 +686,18 @@ gneiss_target_compile_warnings(gneiss_texture_binary_test)
 gneiss_target_output_directories(gneiss_texture_binary_test)
 add_test(NAME gneiss.texture_binary COMMAND gneiss_texture_binary_test)
 
+add_executable(gneiss_texture_container_test
+  asset/texture_container_test.cpp
+  "${PROJECT_SOURCE_DIR}/src/asset/texture_binary.cpp"
+  "${PROJECT_SOURCE_DIR}/src/asset/texture_container.cpp"
+  "${PROJECT_SOURCE_DIR}/src/core/sha256.cpp")
+target_include_directories(gneiss_texture_container_test PRIVATE
+  "${PROJECT_SOURCE_DIR}/src" "${PROJECT_SOURCE_DIR}/include")
+target_compile_features(gneiss_texture_container_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_texture_container_test)
+gneiss_target_output_directories(gneiss_texture_container_test)
+add_test(NAME gneiss.texture_container COMMAND gneiss_texture_container_test)
+
 if(GNEISS_ENABLE_GRANIT_PLATFORM)
   add_executable(
     gneiss_scene_projection_math_test
@@ -697,6 +724,9 @@ add_executable(
   "${PROJECT_SOURCE_DIR}/src/asset/resource_cache.cpp"
   "${PROJECT_SOURCE_DIR}/src/asset/virtual_file_system.cpp"
   "${PROJECT_SOURCE_DIR}/src/render/render_asset_loader.cpp"
+  "${PROJECT_SOURCE_DIR}/src/asset/texture_container.cpp"
+  "${PROJECT_SOURCE_DIR}/src/asset/source_revision_file_system.cpp"
+  "${PROJECT_SOURCE_DIR}/src/core/sha256.cpp"
   "${PROJECT_SOURCE_DIR}/src/render/render_resource_service.cpp"
   "${PROJECT_SOURCE_DIR}/src/render/png_decoder.cpp"
 )
@@ -724,6 +754,9 @@ add_executable(
   "${PROJECT_SOURCE_DIR}/src/asset/resource_cache.cpp"
   "${PROJECT_SOURCE_DIR}/src/asset/virtual_file_system.cpp"
   "${PROJECT_SOURCE_DIR}/src/render/render_asset_loader.cpp"
+  "${PROJECT_SOURCE_DIR}/src/asset/texture_container.cpp"
+  "${PROJECT_SOURCE_DIR}/src/asset/source_revision_file_system.cpp"
+  "${PROJECT_SOURCE_DIR}/src/core/sha256.cpp"
   "${PROJECT_SOURCE_DIR}/src/render/render_resource_service.cpp"
   "${PROJECT_SOURCE_DIR}/src/render/png_decoder.cpp"
 )
@@ -751,10 +784,11 @@ set_tests_properties(gneiss.texture-load-service gneiss.texture-load-application
 
 if(GNEISS_ENABLE_GRANIT_PLATFORM)
   add_executable(gneiss_asset_pixel_test render/asset_pixel_test.cpp
+    "${PROJECT_SOURCE_DIR}/src/asset/texture_binary.cpp"
     "${PROJECT_SOURCE_DIR}/src/asset/mesh_binary.cpp"
     "${PROJECT_SOURCE_DIR}/src/asset/texture_ktx2.cpp")
   target_include_directories(gneiss_asset_pixel_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
-  target_link_libraries(gneiss_asset_pixel_test PRIVATE gneiss::engine gneiss_tasks)
+  target_link_libraries(gneiss_asset_pixel_test PRIVATE gneiss::engine gneiss_tasks granit::asset_tools granit::granit)
   gneiss_target_compile_warnings(gneiss_asset_pixel_test)
   gneiss_target_output_directories(gneiss_asset_pixel_test)
   add_test(NAME gneiss.asset-pixel COMMAND gneiss_asset_pixel_test)
@@ -827,6 +861,9 @@ add_executable(
   "${PROJECT_SOURCE_DIR}/src/asset/virtual_file_system.cpp"
   "${PROJECT_SOURCE_DIR}/src/render/png_decoder.cpp"
   "${PROJECT_SOURCE_DIR}/src/render/render_asset_loader.cpp"
+  "${PROJECT_SOURCE_DIR}/src/asset/texture_container.cpp"
+  "${PROJECT_SOURCE_DIR}/src/asset/source_revision_file_system.cpp"
+  "${PROJECT_SOURCE_DIR}/src/core/sha256.cpp"
   "${PROJECT_SOURCE_DIR}/src/render/render_resource_service.cpp"
   "${PROJECT_SOURCE_DIR}/src/scene/prefab_asset_loader.cpp"
   "${PROJECT_SOURCE_DIR}/src/scene/prefab_description.cpp"

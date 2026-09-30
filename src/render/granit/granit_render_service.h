@@ -65,6 +65,10 @@ public:
   [[nodiscard]] double latest_texture_upload_ms() const noexcept {
     return latest_texture_upload_ms_;
   }
+  /** 仅在 initialize 完成后由宿主读取；设备重建必须重新发布。 */
+  [[nodiscard]] render_internal::texture_prepare_profile texture_profile() const noexcept {
+    return texture_profile_;
+  }
   using texture_data = std::shared_ptr<const render_internal::texture_resource>;
   [[nodiscard]] static std::size_t
   estimate_upload_bytes(const render_internal::render_upload_item& item) noexcept;
@@ -155,6 +159,7 @@ private:
   release_invalid_materials(const render_internal::render_resource_snapshot& resources) noexcept;
 
   granit::renderer renderer_;
+  render_internal::texture_prepare_profile texture_profile_{};
   granit::surface surface_;
   granit::swapchain swapchain_;
   granit::render_pipeline pipeline_;

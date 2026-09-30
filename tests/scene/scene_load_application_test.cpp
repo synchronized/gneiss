@@ -102,6 +102,13 @@ void run(tasks::execution_mode mode) {
   const auto prepared = await_phase(scene_load_phase::ready);
   // v3 的三顶点共 216 B，索引 12 B；不得漏算切线、UV1、颜色的 120 B。
   check(prepared.resident_bytes == 228U + sizeof(render_internal::material_resource));
+  check(prepared.cpu_data_bytes == prepared.resident_bytes);
+  check(prepared.application_logical_bytes >= prepared.resident_bytes);
+  check(prepared.application_cpu_data_bytes >= prepared.cpu_data_bytes);
+  check(prepared.available_bytes +
+            std::max(prepared.application_logical_bytes, prepared.application_cpu_data_bytes) ==
+        render_internal::render_resource_service::default_memory_limit);
+  check(prepared.upload_reserved_bytes == 0U);
   gneiss_world observed{};
   check(gneiss_application_get_world(app.get(), &observed) == GNEISS_SUCCESS &&
         observed == old_world);

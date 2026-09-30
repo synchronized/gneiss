@@ -4,6 +4,7 @@
 #include "application/application_asset_reload_internal.h"
 #include "application/application_scene_load_internal.h"
 #include "asset/mesh_binary.h"
+#include "asset/texture_binary.h"
 #include "asset/texture_ktx2.h"
 #include <array>
 #include <cstdio>
@@ -11,6 +12,8 @@
 #include <fstream>
 #include <gneiss/application.hpp>
 #include <gneiss/scene.h>
+#include <granit/asset_tools/texture_builder.hpp>
+#include <granit/renderer/texture_asset.hpp>
 #include <source_location>
 #include <stdexcept>
 
@@ -59,7 +62,7 @@ struct fixture {
                  static_cast<std::streamsize>(bytes.size()));
   }
 };
-void run_mip_sampling() {
+void run_mip_sampling(bool packaged = false, bool async = false) {
   fixture files(true);
   std::ofstream(files.root / "g.mesh.json")
       << R"({"format":"gneiss.mesh","version":3,"topology":"triangle_list","vertices":[[-0.8,-0.7,0],[0.8,-0.7,0],[0,0.8,0]],"uvs":[[0,0],[1024,0],[512,1024]],"normals":[[0,0,1],[0,0,1],[0,0,1]]})";
@@ -78,21 +81,109 @@ void run_mip_sampling() {
   std::string diagnostic;
   check(asset_internal::encode_texture_ktx2(texture, bytes, diagnostic) ==
         asset_internal::texture_ktx2_result::success);
+  if (packaged) {
+    std::vector<std::byte> payload;
+    std::vector<granit::asset_tools::texture::subresource_info> subresources;
+    for (std::uint32_t mip = 0; mip < texture.levels.size(); ++mip) {
+      const auto& level = texture.levels[mip];
+      subresources.push_back({.mip_level = mip,
+                              .array_layer = 0U,
+                              .data_offset = payload.size(),
+                              .data_size = level.pixels.size(),
+                              .bytes_per_row = level.width * 4U,
+                              .rows_per_image = level.height});
+      payload.insert(payload.end(), level.pixels.begin(), level.pixels.end());
+    }
+    auto unused = payload;
+    for (auto& value : unused) {
+      value = std::byte{};
+    }
+    // 第一个变体不允许采样，必须选择非零偏移的第二个 RGBA8 变体。
+    const std::array variants{
+        granit::asset_tools::texture::variant_desc{.format = granit::texture_format::rgba8_srgb,
+                                                   .usage =
+                                                       granit::texture_usage::transfer_destination,
+                                                   .payload = unused,
+                                                   .subresources = subresources},
+        granit::asset_tools::texture::variant_desc{
+            .format = granit::texture_format::rgba8_srgb,
+            .usage = granit::texture_usage::sampled | granit::texture_usage::transfer_destination,
+            .payload = payload,
+            .subresources = subresources},
+    };
+    const auto [status, built] = granit::asset_tools::texture::build(
+        {.dimension = granit::texture_dimension::two_dimensional,
+         .width = 8U,
+         .height = 8U,
+         .depth = 1U,
+         .array_layers = 1U,
+         .mip_levels = static_cast<std::uint32_t>(texture.levels.size()),
+         .variants = variants});
+    check(status == granit::result::success);
+    granit::texture_asset_info info;
+    check(granit::inspect_texture_asset(built.manifest(), info) == granit::result::success);
+    check(info.variants.size() == 2U && info.variants[1].payload_offset > 0U);
+    check(asset_internal::encode_texture_binary(built.manifest(), built.payload(), bytes,
+                                                diagnostic) ==
+          asset_internal::texture_binary_result::success);
+    std::ofstream(files.root / "t.texture.json")
+        << R"({"format":"gneiss.texture","version":1,"source":"asset://image.gneiss-texture","color_space":"srgb"})";
+  }
   {
-    std::ofstream stream(files.root / "image.ktx2", std::ios::binary);
+    std::ofstream stream(files.root / (packaged ? "image.gneiss-texture" : "image.ktx2"),
+                         std::ios::binary);
     stream.write(reinterpret_cast<const char*>(bytes.data()),
                  static_cast<std::streamsize>(bytes.size()));
   }
+  tasks::task_scheduler scheduler({.workers = 1U});
   application app;
   const auto root = files.root.string();
   auto desc = gneiss_application_desc GNEISS_APPLICATION_DESC_INIT;
   desc.platform = GNEISS_APPLICATION_PLATFORM_GRANIT;
+  desc.window_flags &= ~GNEISS_APPLICATION_WINDOW_VISIBLE_BIT;
   desc.asset_root = root.data();
   desc.asset_root_length = static_cast<std::uint32_t>(root.size());
   check(application::create(desc, app) == result::success);
   constexpr std::string_view uri = "asset://s.scene.json";
   gneiss_scene_instance scene{};
-  check(gneiss_scene_instance_load(app.get(), uri.data(), uri.size(), &scene) == GNEISS_SUCCESS);
+  if (async) {
+    using namespace application_internal;
+    check(attach_task_executor(app.get(), scheduler) == GNEISS_SUCCESS);
+    std::uint64_t request{};
+    check(request_scene_load(app.get(), uri, 1U, 1U, request) == GNEISS_SUCCESS);
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(15);
+    while (true) {
+      check(std::chrono::steady_clock::now() < deadline);
+      scene_load_completion completion;
+      bool terminal{};
+      check(poll_scene_load(app.get(), completion, terminal) == GNEISS_SUCCESS);
+      if (terminal)
+        std::fprintf(stderr, "scene result %d: %s\n", completion.result,
+                     completion.message.c_str());
+      check(!terminal);
+      scene_load_progress progress;
+      bool available{};
+      check(query_scene_load_progress(app.get(), progress, available) == GNEISS_SUCCESS &&
+            available);
+      if (progress.phase == scene_load_phase::ready) {
+        check(activate_scene_load(app.get(), request, completion) == GNEISS_SUCCESS);
+        check(completion.progress.texture_payload_bytes > 0U);
+        check(completion.progress.peak_upload_bytes > 0U);
+        // 小纹理的 Manifest 可大于负载；分别核对逻辑负载与两个元数据副本。
+        asset_internal::texture_binary_view view;
+        std::string message;
+        check(asset_internal::decode_texture_binary(bytes, view, message) ==
+              asset_internal::texture_binary_result::success);
+        check(completion.progress.texture_payload_bytes == 340U);
+        check(completion.progress.resident_bytes + view.manifest.size() ==
+              completion.progress.cpu_data_bytes + completion.progress.texture_payload_bytes);
+        break;
+      }
+      std::this_thread::yield();
+    }
+  } else {
+    check(gneiss_scene_instance_load(app.get(), uri.data(), uri.size(), &scene) == GNEISS_SUCCESS);
+  }
   check(app.run(3U) == result::success);
   render_internal::frame_image image;
   check(application_internal::capture_frame(app.get(), 128U, 128U, image) == GNEISS_SUCCESS);
@@ -150,6 +241,7 @@ std::array<unsigned, 3> material_pixel(std::string_view slot, std::array<std::by
   const auto root = files.root.string();
   auto desc = gneiss_application_desc GNEISS_APPLICATION_DESC_INIT;
   desc.platform = GNEISS_APPLICATION_PLATFORM_GRANIT;
+  desc.window_flags &= ~GNEISS_APPLICATION_WINDOW_VISIBLE_BIT;
   desc.asset_root = root.data();
   desc.asset_root_length = static_cast<std::uint32_t>(root.size());
   check(application::create(desc, app) == result::success);
@@ -263,6 +355,7 @@ std::array<unsigned, 3> state_pixel(const state_case& test,
   const auto root = files.root.string();
   auto desc = gneiss_application_desc GNEISS_APPLICATION_DESC_INIT;
   desc.platform = GNEISS_APPLICATION_PLATFORM_GRANIT;
+  desc.window_flags &= ~GNEISS_APPLICATION_WINDOW_VISIBLE_BIT;
   desc.asset_root = root.data();
   desc.asset_root_length = static_cast<std::uint32_t>(root.size());
   check(application::create(desc, app) == result::success);
@@ -338,6 +431,7 @@ void run(tasks::execution_mode mode, bool pbr = false) {
   const auto root = files.root.string();
   gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
   desc.platform = GNEISS_APPLICATION_PLATFORM_GRANIT;
+  desc.window_flags &= ~GNEISS_APPLICATION_WINDOW_VISIBLE_BIT;
   desc.asset_root = root.data();
   desc.asset_root_length = static_cast<std::uint32_t>(root.size());
   check(application::create(desc, app) == result::success);
@@ -441,6 +535,7 @@ void run_scene(tasks::execution_mode mode, bool pbr = false) {
   const auto root = files.root.string();
   auto desc = gneiss_application_desc GNEISS_APPLICATION_DESC_INIT;
   desc.platform = GNEISS_APPLICATION_PLATFORM_GRANIT;
+  desc.window_flags &= ~GNEISS_APPLICATION_WINDOW_VISIBLE_BIT;
   desc.asset_root = root.data();
   desc.asset_root_length = static_cast<std::uint32_t>(root.size());
   check(application::create(desc, app) == result::success);
@@ -548,6 +643,10 @@ int main(int argc, char* argv[]) try {
   }
   std::fprintf(stderr, "asset-pixel: mip\n");
   run_mip_sampling();
+  std::fprintf(stderr, "asset-pixel: nonzero variant payload\n");
+  run_mip_sampling(true);
+  std::fprintf(stderr, "asset-pixel: selected variant async\n");
+  run_mip_sampling(true, true);
   std::fprintf(stderr, "asset-pixel: channels\n");
   run_material_channels();
   std::fprintf(stderr, "asset-pixel: states\n");

@@ -198,7 +198,8 @@ int main() try {
     return report_failure(process, 1);
   }
   const auto first_session = process.console().current_session_id();
-  if (!pump_until(process, 3s, [&] {
+  // 0.44 的场景源版本复验发生在首个快照前；Debug 构建需要更长的启动窗口。
+  if (!pump_until(process, 8s, [&] {
         return latest_progress(process, first_session) >= 1U &&
                root_rotation(process).has_value() && process.statistics().fixed_update_count != 0U;
       })) {

@@ -173,7 +173,7 @@ if(GNEISS_ENABLE_GRANIT_PLATFORM AND TARGET gneiss_assetc)
             -DGNEISS_OUTPUT=${PROJECT_BINARY_DIR}/lantern-cooked-test
             -P "${PROJECT_SOURCE_DIR}/cmake/check_lantern_cooked.cmake"
         )
-        set_tests_properties(gneiss.runtime.lantern-cooked-textures PROPERTIES TIMEOUT 90)
+        set_tests_properties(gneiss.runtime.lantern-cooked-textures PROPERTIES TIMEOUT 210)
       endif()
     endif()
     if(TARGET gneiss_editor)

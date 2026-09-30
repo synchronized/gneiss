@@ -14,6 +14,8 @@ namespace gneiss::asset_internal {
 
 class virtual_file_system final {
 public:
+  [[nodiscard]] gneiss_result open_read(std::string_view uri,
+                                        std::unique_ptr<read_source>& output) const noexcept;
   [[nodiscard]] gneiss_result mount(std::string_view mount_point,
                                     std::shared_ptr<file_system> backend) noexcept;
   [[nodiscard]] gneiss_result read(std::string_view uri,

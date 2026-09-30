@@ -5,6 +5,7 @@
 #include "asset/mesh_binary.h"
 #include "asset/resource_cache.h"
 #include "asset/texture_binary.h"
+#include "asset/texture_container.h"
 #include "asset/texture_ktx2.h"
 #include "asset/virtual_file_system.h"
 #include "render/render_asset_loader.h"
@@ -14,10 +15,13 @@
 
 #include <granit/asset_tools/texture_builder.hpp>
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <cstdio>
 #include <memory>
+#include <source_location>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -30,6 +34,47 @@ class memory_file_system final : public gneiss::asset_internal::file_system {
 public:
   std::unordered_map<std::string, std::string> files;
   mutable std::size_t read_count = 0;
+  mutable std::size_t range_bytes{};
+  mutable unsigned full_reads{};
+  mutable bool change_full_verify{};
+  gneiss_result
+  open_read(std::string_view path,
+            std::unique_ptr<gneiss::asset_internal::read_source>& output) const noexcept override {
+    output.reset();
+    const auto found = files.find(std::string(path));
+    if (found == files.end())
+      return GNEISS_ERROR_NOT_FOUND;
+    class reader final : public gneiss::asset_internal::read_source {
+    public:
+      reader(const std::string& bytes, const memory_file_system& owner)
+          : bytes_(bytes), owner_(owner) {}
+      std::uint64_t size() const noexcept override { return bytes_.size(); }
+      gneiss_result read_at(std::uint64_t offset,
+                            std::span<std::byte> output) const noexcept override {
+        if (offset > bytes_.size() || output.size() > bytes_.size() - offset)
+          return GNEISS_ERROR_INVALID_ARGUMENT;
+        for (std::size_t i = 0; i < output.size(); ++i)
+          output[i] = static_cast<std::byte>(bytes_[static_cast<std::size_t>(offset) + i]);
+        owner_.range_bytes += output.size();
+        if (offset == 0U && output.size() == bytes_.size()) {
+          ++owner_.full_reads;
+          if (owner_.change_full_verify && owner_.full_reads == 2U && !output.empty())
+            output.back() ^= std::byte{1};
+        }
+        return GNEISS_SUCCESS;
+      }
+
+    private:
+      const std::string& bytes_;
+      const memory_file_system& owner_;
+    };
+    try {
+      output = std::make_unique<reader>(found->second, *this);
+    } catch (...) {
+      return GNEISS_ERROR_OUT_OF_MEMORY;
+    }
+    return GNEISS_SUCCESS;
+  }
   mutable bool change_during_check{};
   mutable unsigned bounded_reads{};
   [[nodiscard]] gneiss_result read_bounded(std::string_view path, std::size_t limit,
@@ -133,9 +178,143 @@ indexed_mesh_is_preserved(gneiss::render_internal::render_asset_loader& loader,
   return output;
 }
 
+void selected_variants() {
+#if defined(GNEISS_HAS_GRANIT_PLATFORM)
+  using namespace gneiss::render_internal;
+  const auto require = [](bool value,
+                          std::source_location where = std::source_location::current()) {
+    if (!value) {
+      std::fprintf(stderr, "variant test line %u\n", where.line());
+      throw std::runtime_error("单变体加载测试失败");
+    }
+  };
+  const std::array<std::byte, 16> bc{};
+  const std::array<std::byte, 64> rgba{};
+  const std::array bc_mips{granit::asset_tools::texture::subresource_info{
+      .data_size = bc.size(), .bytes_per_row = 16U, .rows_per_image = 1U}};
+  const std::array rgba_mips{granit::asset_tools::texture::subresource_info{
+      .data_size = rgba.size(), .bytes_per_row = 16U, .rows_per_image = 4U}};
+  constexpr auto usage =
+      granit::texture_usage::sampled | granit::texture_usage::transfer_destination;
+  const std::array variants{
+      granit::asset_tools::texture::variant_desc{.format = granit::texture_format::bc7_rgba_srgb,
+                                                 .usage = usage,
+                                                 .payload = bc,
+                                                 .subresources = bc_mips},
+      granit::asset_tools::texture::variant_desc{.format = granit::texture_format::rgba8_srgb,
+                                                 .usage = usage,
+                                                 .payload = rgba,
+                                                 .subresources = rgba_mips}};
+  const auto [status, built] =
+      granit::asset_tools::texture::build({.width = 4U, .height = 4U, .variants = variants});
+  require(status == granit::result::success);
+  std::vector<std::byte> binary;
+  std::string message;
+  require(gneiss::asset_internal::encode_texture_binary(built.manifest(), built.payload(), binary,
+                                                        message) ==
+          gneiss::asset_internal::texture_binary_result::success);
+  auto memory = std::make_shared<memory_file_system>();
+  memory->files["t.gneiss-texture"] =
+      std::string(reinterpret_cast<const char*>(binary.data()), binary.size());
+  memory->files["t.texture.json"] =
+      R"({"format":"gneiss.texture","version":1,"source":"asset://t.gneiss-texture","color_space":"srgb"})";
+  gneiss::asset_internal::virtual_file_system files;
+  require(files.mount("asset://", memory) == GNEISS_SUCCESS);
+  const texture_prepare_profile compressed{.generation = 1U,
+                                           .sampled_transfer_formats = {true, true, true, true}};
+  const texture_prepare_profile fallback{.generation = 2U,
+                                         .sampled_transfer_formats = {true, true, false, false}};
+  texture_resource texture;
+  asset_diagnostic diagnostic;
+  const auto limit = built.manifest().size() + bc.size();
+  require(prepare_texture(files, "asset://t.texture.json", texture, diagnostic, limit, false, limit,
+                          compressed) == GNEISS_SUCCESS);
+  require(texture.selected_variant == 0U && texture.payload.size() == bc.size() &&
+          texture.profile == compressed && memory->range_bytes < binary.size() &&
+          memory->read_count == 1U);
+  require(prepare_texture(files, "asset://t.texture.json", texture, diagnostic, binary.size(), true,
+                          binary.size(), fallback) == GNEISS_SUCCESS);
+  require(texture.selected_variant == 1U && texture.payload.size() == rgba.size() &&
+          texture.profile == fallback);
+  require(prepare_texture(files, "asset://t.texture.json", texture, diagnostic, limit, false, limit,
+                          fallback) == GNEISS_ERROR_OUT_OF_MEMORY &&
+          texture.payload.empty());
+  require(diagnostic.result == GNEISS_ERROR_OUT_OF_MEMORY &&
+          diagnostic.message.find("纹理准备预算不足") != std::string::npos &&
+          diagnostic.message.find(std::to_string(rgba.size())) != std::string::npos &&
+          diagnostic.message.find(std::to_string(limit)) != std::string::npos);
+  require(prepare_texture(files, "asset://t.texture.json", texture, diagnostic, limit, false, limit,
+                          {.generation = 3U}) == GNEISS_ERROR_UNSUPPORTED &&
+          texture.manifest.empty());
+  // 提高额度可重试；预算拒绝不能被缓存为永久失败。
+  require(prepare_texture(files, "asset://t.texture.json", texture, diagnostic, binary.size(),
+                          false, binary.size(), fallback) == GNEISS_SUCCESS &&
+          texture.payload.size() == rgba.size());
+  // 只改选中负载，不改 Manifest，必须被内容摘要拒绝。
+  memory->files["t.gneiss-texture"].back() ^= 1;
+  require(prepare_texture(files, "asset://t.texture.json", texture, diagnostic, binary.size(),
+                          false, binary.size(), fallback) == GNEISS_ERROR_INVALID_ARGUMENT &&
+          texture.payload.empty());
+  memory->files["t.gneiss-texture"].back() ^= 1;
+  const std::array requests{
+      render_asset_reload{.uri = "asset://t.texture.json", .type = render_asset_type::texture}};
+  prepared_render_batch batch;
+  require(prepare_render_assets(files, requests, batch, diagnostic, {}, 1U, limit, compressed) ==
+          GNEISS_SUCCESS);
+  require(batch.bytes == limit && batch.assets.front().texture.profile == compressed);
+  render_resource_service resources;
+  gneiss::asset_internal::resource_cache cache;
+  render_asset_loader loader(files, cache, resources);
+  std::array<render_asset_loader::asset_candidate, 1> candidate;
+  require(loader.stage_asset(std::move(batch.assets.front()), {}, candidate.front()) ==
+          GNEISS_SUCCESS);
+  const auto old_frame = candidate.front().texture;
+  require(old_frame->payload.empty() && old_frame->payload_source &&
+          !old_frame->upload_payload.expired());
+  render_upload_item command;
+  command.texture = old_frame;
+  command.texture_payload = candidate.front().texture_payload;
+  candidate.front().texture_payload.reset();
+  require(!old_frame->upload_payload.expired());
+  require(loader.publish_assets(candidate) == GNEISS_SUCCESS);
+  command = {};
+  require(old_frame->upload_payload.expired() && old_frame->payload.empty());
+  std::vector<std::byte> restored;
+  require(old_frame->payload_source->read(restored, bc.size()) == GNEISS_SUCCESS &&
+          restored.size() == bc.size());
+  const auto payload_offset = binary.size() - built.payload().size();
+  memory->files["t.gneiss-texture"][payload_offset] ^= 1;
+  require(old_frame->payload_source->read(restored, bc.size()) == GNEISS_ERROR_INVALID_STATE &&
+          restored.empty());
+  memory->files["t.gneiss-texture"][payload_offset] ^= 1;
+  require(old_frame->payload_source->read(restored, bc.size()) == GNEISS_SUCCESS);
+  render_asset_lease lease;
+  require(loader.acquire_cached(requests.front(), lease, compressed) == GNEISS_SUCCESS);
+  require(loader.acquire_cached(requests.front(), lease, fallback) == GNEISS_ERROR_NOT_FOUND &&
+          !lease);
+  require(prepare_render_assets(
+              files, requests, batch, diagnostic, [] { return true; }, 1U, limit, compressed) ==
+              GNEISS_ERROR_INVALID_STATE &&
+          batch.assets.empty());
+  // 第二次完整哈希读发生在结束校验；此时文件变化必须拒绝整批。
+  memory->full_reads = 0U;
+  memory->change_full_verify = true;
+  require(prepare_render_assets(files, requests, batch, diagnostic, {}, 1U, limit, compressed) ==
+              GNEISS_ERROR_INVALID_STATE &&
+          batch.assets.empty());
+  memory->change_full_verify = false;
+  unsigned cancellation_checks{};
+  require(prepare_render_assets(
+              files, requests, batch, diagnostic, [&] { return ++cancellation_checks == 2U; }, 1U,
+              limit, compressed) == GNEISS_ERROR_INVALID_STATE &&
+          batch.assets.empty());
+#endif
+}
+
 } // namespace
 
 int main() try { // NOLINT(readability-function-cognitive-complexity)：集成测试按返回码定位阶段。
+  selected_variants();
   static constexpr std::array<std::uint8_t, 68> png_bytes = {
       0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x48,
       0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x04, 0x00, 0x00,

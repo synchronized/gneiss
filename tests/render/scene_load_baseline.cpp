@@ -85,8 +85,11 @@ int main(int argc, char** argv) try {
   constexpr std::string_view title = "Gneiss Scene Loading Baseline";
   desc.window_title = title.data();
   desc.window_title_length = static_cast<std::uint32_t>(title.size());
-  desc.window_flags =
-      GNEISS_APPLICATION_WINDOW_VISIBLE_BIT | GNEISS_APPLICATION_WINDOW_RESIZABLE_BIT;
+  // 只有窗口交互验收显示窗口，其余 GPU 测量保持隐藏，避免打断桌面操作。
+  desc.window_flags = GNEISS_APPLICATION_WINDOW_RESIZABLE_BIT;
+  if (scenario == "interact") {
+    desc.window_flags |= GNEISS_APPLICATION_WINDOW_VISIBLE_BIT;
+  }
   if (gneiss::application::create(desc, app) != gneiss::result::success ||
       app.run(3U) != gneiss::result::success) {
     return 3;
@@ -333,6 +336,9 @@ int main(int argc, char** argv) try {
   const auto load_ms = mode == "sync" ? load_and_drain_ms : activation_elapsed_ms;
   std::printf("scene_load result=%d milliseconds=%.3f peak_resident_bytes=%llu\n", result, load_ms,
               static_cast<unsigned long long>(peak_resident_bytes()));
+  if (!completion.message.empty()) {
+    std::printf("scene_load diagnostic=%s\n", completion.message.c_str());
+  }
   std::fflush(stdout);
   if (result != GNEISS_SUCCESS) {
     (void)gneiss::application_internal::query_scene_retirement(app.get(), retirement);
@@ -341,6 +347,12 @@ int main(int argc, char** argv) try {
     std::ofstream report(prefix.string() + ".json");
     report << "{\"result\":" << result << ",\"load_ms\":" << load_ms
            << ",\"candidate_resident_bytes\":" << completion.progress.resident_bytes
+           << ",\"candidate_cpu_data_bytes\":" << completion.progress.cpu_data_bytes
+           << ",\"candidate_texture_payload_bytes\":" << completion.progress.texture_payload_bytes
+           << ",\"peak_upload_bytes\":" << completion.progress.peak_upload_bytes
+           << ",\"application_logical_bytes\":" << completion.progress.application_logical_bytes
+           << ",\"application_cpu_data_bytes\":" << completion.progress.application_cpu_data_bytes
+           << ",\"available_bytes\":" << completion.progress.available_bytes
            << ",\"live_resources\":" << retirement.live_resources
            << ",\"peak_resident_bytes\":" << peak
            << ",\"retained_tasks\":" << scheduler.stats().retained << "}\n";
@@ -406,6 +418,12 @@ int main(int argc, char** argv) try {
          << ",\n  \"maximum_advance_ms\": " << completion.maximum_advance_ms
          << ",\n  \"activation_ms\": " << completion.activation_ms
          << ",\n  \"candidate_resident_bytes\": " << completion.progress.resident_bytes
+         << ",\"candidate_cpu_data_bytes\":" << completion.progress.cpu_data_bytes
+         << ",\"candidate_texture_payload_bytes\":" << completion.progress.texture_payload_bytes
+         << ",\"peak_upload_bytes\":" << completion.progress.peak_upload_bytes
+           << ",\"application_logical_bytes\":" << completion.progress.application_logical_bytes
+           << ",\"application_cpu_data_bytes\":" << completion.progress.application_cpu_data_bytes
+           << ",\"available_bytes\":" << completion.progress.available_bytes
          << ",\n  \"event_interval_p95_ms\": " << event_p95
          << ",\n  \"event_interval_max_ms\": " << event_max
          << ",\n  \"minimized_event_count\": " << minimized_event_intervals.size()

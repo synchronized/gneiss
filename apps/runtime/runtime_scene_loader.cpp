@@ -97,6 +97,19 @@ runtime_scene_loader::activate(application_internal::scene_load_completion& comp
   // 激活后的任意模块副作用不在场景事务的自动回滚承诺内。
   return after_activate ? after_activate(completion) : GNEISS_SUCCESS;
 }
+namespace {
+ipc_scene_budget budget_snapshot(const application_internal::scene_load_progress& value) {
+  return {
+      .candidate_logical_bytes = value.resident_bytes,
+      .candidate_cpu_data_bytes = value.cpu_data_bytes,
+      .application_logical_bytes = value.application_logical_bytes,
+      .application_cpu_data_bytes = value.application_cpu_data_bytes,
+      .available_bytes = value.available_bytes,
+      .upload_reserved_bytes = value.upload_reserved_bytes,
+      .peak_upload_bytes = value.peak_upload_bytes,
+  };
+}
+} // namespace
 gneiss_result runtime_scene_loader::advance() {
   using namespace application_internal;
   scene_load_completion completion;
@@ -120,6 +133,7 @@ gneiss_result runtime_scene_loader::advance() {
     progress_.completed = static_cast<std::uint32_t>(current.completed);
     progress_.total = static_cast<std::uint32_t>(current.total);
     progress_.can_cancel = current.can_cancel;
+    progress_.budget = budget_snapshot(current);
     if (current.phase != scene_load_phase::ready) {
       return GNEISS_SUCCESS;
     }
@@ -131,6 +145,7 @@ gneiss_result runtime_scene_loader::advance() {
   active_ = false;
   result_ = completion.result;
   progress_.phase = convert(completion.progress.phase);
+  progress_.budget = budget_snapshot(completion.progress);
   progress_.can_cancel = false;
   progress_.message = completion.message;
   if (progress_.message.empty()) {

@@ -17,7 +17,12 @@ namespace gneiss::asset_internal {
  * 最终复读是变化检测，不提供跨进程文件系统的原子快照。 */
 class source_revision_file_system final : public file_system {
 public:
-  explicit source_revision_file_system(virtual_file_system source) : source_(std::move(source)) {}
+  explicit source_revision_file_system(virtual_file_system source,
+                                       std::function<bool()> cancelled = {})
+      : source_(std::move(source)), cancelled_(std::move(cancelled)) {}
+  /** 分块计算完整来源摘要后建账；不建立不可变快照，使用后仍须 verify。 */
+  [[nodiscard]] gneiss_result
+  open_read(std::string_view path, std::unique_ptr<read_source>& output) const noexcept override;
   gneiss_result read(std::string_view path, std::vector<std::byte>& bytes) const noexcept override;
   gneiss_result read_bounded(std::string_view path, std::size_t limit,
                              std::vector<std::byte>& bytes) const noexcept override;
@@ -26,10 +31,12 @@ public:
 
 private:
   struct identity {
-    std::size_t bytes{};
+    std::uint64_t bytes{};
     core::sha256_digest digest{};
   };
+  [[nodiscard]] gneiss_result remember(std::string_view path, const identity& current) const;
   virtual_file_system source_;
+  std::function<bool()> cancelled_;
   mutable std::mutex mutex_;
   mutable std::map<std::string, identity> identities_;
 };

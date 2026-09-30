@@ -52,6 +52,34 @@ void run() {
     check(encode_ipc_scene_progress(progress, 0U, envelope) == result::success &&
           envelope.kind == ipc_message_kind::event);
     check(decode_ipc_scene_progress(envelope, decoded) == result::success);
+    check(!decoded.budget.has_value());
+    progress.budget = ipc_scene_budget{
+        .candidate_logical_bytes = UINT64_MAX,
+        .candidate_cpu_data_bytes = 2U,
+        .application_logical_bytes = 3U,
+        .application_cpu_data_bytes = 4U,
+        .available_bytes = 5U,
+        .upload_reserved_bytes = 6U,
+        .peak_upload_bytes = 7U,
+    };
+    check(encode_ipc_scene_progress(progress, 0U, envelope) == result::success);
+    check(decode_ipc_scene_progress(envelope, decoded) == result::success);
+    check(decoded.budget && decoded.budget->candidate_logical_bytes == UINT64_MAX &&
+          decoded.budget->candidate_cpu_data_bytes == 2U &&
+          decoded.budget->application_logical_bytes == 3U &&
+          decoded.budget->application_cpu_data_bytes == 4U &&
+          decoded.budget->available_bytes == 5U && decoded.budget->upload_reserved_bytes == 6U &&
+          decoded.budget->peak_upload_bytes == 7U);
+    const std::string encoded(envelope.payload.begin(), envelope.payload.end());
+    for (const auto* replacement : {"-1", "1.5", "null", "18446744073709551616"}) {
+      auto malformed = encoded;
+      const auto begin = malformed.find("18446744073709551615");
+      check(begin != std::string::npos);
+      malformed.replace(begin, 20U, replacement);
+      envelope.payload.assign(malformed.begin(), malformed.end());
+      check(decode_ipc_scene_progress(envelope, decoded) == result::invalid_argument);
+      check(decoded.budget->candidate_logical_bytes == UINT64_MAX);
+    }
     progress.total = 65537U;
     check(encode_ipc_scene_progress(progress, 9U, envelope) == result::invalid_argument);
   }

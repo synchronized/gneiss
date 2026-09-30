@@ -26,9 +26,19 @@ struct scene_load_progress {
   scene_load_phase phase{scene_load_phase::preparing};
   std::size_t completed{};
   std::size_t total{};
+  /** 去重后的候选逻辑容量；纹理释放 CPU 负载后仍计入所选负载，约束 2 GiB 上限。 */
   std::size_t resident_bytes{};
   bool can_cancel{};
   bool gpu_in_flight{};
+  /** 候选已提交 CPU 数组字节与纹理逻辑负载；不是 RSS 或驱动显存。 */
+  std::size_t cpu_data_bytes{};
+  std::size_t texture_payload_bytes{};
+  std::size_t peak_upload_bytes{};
+  /** Application 资源账本快照；不含后台临时分配或驱动额外占用。 */
+  std::uint64_t application_logical_bytes{};
+  std::uint64_t application_cpu_data_bytes{};
+  std::uint64_t available_bytes{};
+  std::uint64_t upload_reserved_bytes{};
 };
 struct scene_load_completion {
   scene_load_progress progress;
@@ -75,6 +85,7 @@ private:
   struct pending;
   void advance_impl();
   void finish(gneiss_result result, scene_load_phase phase, std::string message = {});
+  void sample_budget(scene_load_progress& value) const;
   void check_owner() const;
   tasks::task_executor& executor_;
   tasks::task_scope scope_;

@@ -28,6 +28,8 @@ struct texture_load_completion {
   double upload_ms{};
   double commit_ms{};
   std::size_t candidate_bytes{};
+  /** 后端估算的最大单次在途上传字节，不是驱动显存统计。 */
+  std::size_t peak_upload_bytes{};
 };
 struct texture_upload_backend {
   using data = std::vector<render_internal::render_upload_item>;
@@ -37,6 +39,7 @@ struct texture_upload_backend {
   std::function<void()> flush;
   std::function<double()> elapsed_ms{};
   std::function<std::size_t(const render_internal::render_upload_item&)> estimate_bytes{};
+  render_internal::texture_prepare_profile profile{};
 };
 
 struct asset_load_progress {
@@ -47,6 +50,7 @@ struct asset_load_progress {
   std::size_t completed_assets{};
   std::size_t total_assets{};
   bool can_cancel{};
+  std::size_t upload_reserved_bytes{};
 };
 
 /** 主线程服务；只读 VFS 副本和候选由任务拥有，缓存及 GPU 操作仍留在所属线程。
@@ -57,7 +61,9 @@ public:
   static constexpr std::size_t maximum_batch = 16U;
   static constexpr std::size_t maximum_assets = 256U;
   static constexpr std::size_t maximum_candidate_bytes = 256U * 1024U * 1024U;
+  // 8 MiB 为分批目标；不可拆单资产允许超出，但不得超过上传硬上限。
   static constexpr std::size_t upload_budget_bytes = 8U * 1024U * 1024U;
+  static constexpr std::size_t maximum_upload_bytes = maximum_candidate_bytes;
   static constexpr std::size_t maximum_bytes = 64U * 1024U * 1024U;
   texture_load_service(tasks::task_executor& executor, virtual_file_system file_system,
                        render_internal::render_asset_loader& loader,

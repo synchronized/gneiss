@@ -13,6 +13,8 @@ namespace gneiss::asset_internal {
 class native_file_system final : public file_system {
 public:
   [[nodiscard]] gneiss_result initialize(std::string_view root) noexcept;
+  [[nodiscard]] gneiss_result
+  open_read(std::string_view path, std::unique_ptr<read_source>& output) const noexcept override;
   [[nodiscard]] gneiss_result read(std::string_view path,
                                    std::vector<std::byte>& out_bytes) const noexcept override;
   [[nodiscard]] gneiss_result

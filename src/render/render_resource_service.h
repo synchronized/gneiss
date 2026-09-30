@@ -15,6 +15,10 @@
 #include <memory>
 #include <vector>
 
+namespace gneiss::asset_internal {
+class texture_payload_source;
+}
+
 namespace gneiss::render_internal {
 
 struct mesh_resource {
@@ -98,6 +102,14 @@ struct material_resource {
   }
 };
 
+/** 渲染服务初始化后发布的不可变值；位顺序为 RGBA8 linear/sRGB、BC7 linear/sRGB。
+ * generation 为零表示未绑定设备，保留整包兼容路径；不携带后端对象。 */
+struct texture_prepare_profile {
+  std::uint64_t generation{};
+  std::array<bool, 4> sampled_transfer_formats{};
+  bool operator==(const texture_prepare_profile&) const = default;
+};
+
 struct texture_resource {
   std::uint32_t width;
   std::uint32_t height;
@@ -106,11 +118,26 @@ struct texture_resource {
   std::vector<asset_internal::texture_mip> levels;
   std::vector<std::byte> manifest;
   std::vector<std::byte> payload;
+  /** profile 非零时 payload 从选中变体起点开始，不含其他变体。 */
+  texture_prepare_profile profile{};
+  std::uint32_t selected_variant{UINT32_MAX};
+  /** 仅文件选中变体可重建；长期资源不强持有上传负载。 */
+  std::shared_ptr<const asset_internal::texture_payload_source> payload_source{};
+  std::weak_ptr<const std::vector<std::byte>> upload_payload{};
+};
+
+struct render_memory_usage {
+  std::uint64_t logical_bytes{};
+  std::uint64_t cpu_data_bytes{};
 };
 
 class render_resource_service final {
 public:
-  render_resource_service() noexcept;
+  static constexpr std::uint64_t default_memory_limit = UINT64_C(4) * 1024U * 1024U * 1024U;
+  explicit render_resource_service(std::uint64_t memory_limit = default_memory_limit) noexcept;
+  /** 所属线程查询；跟踪共享对象，包含仍被旧帧持有的已销毁 RID 数据，不强持有对象。 */
+  [[nodiscard]] render_memory_usage memory_usage() const noexcept;
+  [[nodiscard]] std::uint64_t available_memory_bytes() const noexcept;
 
   [[nodiscard]] bool is_valid() const noexcept { return domain_ != 0U; }
   [[nodiscard]] gneiss_result create_mesh(const gneiss_mesh_desc& desc,
@@ -149,6 +176,13 @@ public:
   [[nodiscard]] std::size_t live_resource_count() const noexcept;
 
 private:
+  template <typename Resource>
+  std::shared_ptr<const Resource> track(std::shared_ptr<const Resource> resource,
+                                        std::vector<std::weak_ptr<const Resource>>& history);
+  std::uint64_t memory_limit_{};
+  mutable std::vector<std::weak_ptr<const mesh_resource>> mesh_history_;
+  mutable std::vector<std::weak_ptr<const material_resource>> material_history_;
+  mutable std::vector<std::weak_ptr<const texture_resource>> texture_history_;
   std::uint16_t domain_{};
   core::rid_table<std::shared_ptr<const mesh_resource>> meshes_;
   core::rid_table<std::shared_ptr<const material_resource>> materials_;

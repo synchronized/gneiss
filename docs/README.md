@@ -109,6 +109,9 @@
 - [VER-039：0.39.0 任务调度基础与资产服务接入](plans/VER-039-0.39.0-task-scheduling.md)
 - [VER-043：0.43.0 Granit 升级与 PBR 材质管线补齐](plans/VER-043-0.43.0-pbr-pipeline.md)
 - [DEV-043：PBR 材质管线开发计划](plans/DEV-043-pbr-pipeline.md)
+- [VER-044：0.44.0 大场景纹理内存与加载](plans/VER-044-0.44.0-texture-residency.md)
+- [DEV-044：纹理驻留与大场景加载开发计划](plans/DEV-044-texture-residency.md)
+- [UPSTREAM-044：独立纹理变体负载上传](plans/UPSTREAM-044-granit-texture-residency.md)
 - [UPSTREAM-043：Granit PBR 上游需求与接入跟踪](plans/UPSTREAM-043-granit-pbr.md)
 - [VER-042：0.42.0 真实大场景驱动的异步加载与切换](plans/VER-042-0.42.0-async-scene-loading.md)
 - [DEV-042：真实大场景异步加载开发计划](plans/DEV-042-async-scene-loading.md)
@@ -180,6 +183,7 @@
 - [ADR-049：模型依赖准备与整批资源发布](decisions/ADR-049-model-asset-transactions.md)
 - [ADR-050：场景加载使用隔离候选与安全点激活](decisions/ADR-050-staged-scene-activation.md)
 - [ADR-051：PBR 材质语义与多纹理依赖](decisions/ADR-051-pbr-material-dependencies.md)
+- [ADR-052：纹理驻留与加载预算](decisions/ADR-052-texture-residency-and-budgets.md)
 
 ## 实施与验收记录
 
@@ -328,6 +332,9 @@
 - [M-31 工具能力重新评估记录](records/M-31-tooling-reevaluation.md)
 
 - [M-284～M-285：0.43.0 PBR 与发布验收](records/M-284-285-0.43.0-validation.md)
+- [M-286：纹理容量与加载所有权初审](records/M-286-texture-memory-audit.md)
+- [M-287：VFS 读取来源基础](records/M-287-read-source-foundation.md)
+- [M-287：Granit 0.44 独立变体上传接入](records/M-287-granit-0.44-integration.md)
 
 ## 文档维护
 
