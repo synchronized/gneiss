@@ -284,9 +284,13 @@
       "cpp_candidate_files": [
         "include/gneiss/log.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "仅借用消息字符串，校验不转移所有权，无分配且线程安全",
+      "tests": [
+        "gneiss.c_log",
+        "gneiss.cpp_log"
+      ],
+      "cpp_entry": "gneiss::validate_log_message"
     },
     {
       "symbol": "gneiss_type_registry_create",

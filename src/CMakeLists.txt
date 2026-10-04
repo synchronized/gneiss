@@ -70,6 +70,9 @@ target_sources(
     input/input_service.h
     input/action_map.cpp
     input/action_map.h
+    api/c/log_api.cpp
+    api/c/log_validation.hpp
+    log/log.hpp
     log/log.cpp
     log/log_dispatcher.cpp
     log/log_dispatcher.h

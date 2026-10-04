@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "api/c/log_validation.hpp"
 #include "game_context_internal.h"
 
 #include "application/application_log_internal.h"
@@ -145,7 +146,7 @@ extern "C" gneiss_result gneiss_game_context_request_exit(gneiss_game_context co
 
 extern "C" gneiss_result gneiss_game_context_log(gneiss_game_context context,
                                                  const gneiss_log_message* message) {
-  const auto validation_result = gneiss_log_message_validate(message);
+  const auto validation_result = gneiss::abi_internal::validate_log_message(message);
   if (validation_result != GNEISS_SUCCESS) {
     return validation_result;
   }

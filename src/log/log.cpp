@@ -1,16 +1,14 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include <gneiss/log.h>
+#include "log/log.hpp"
 
-#include <algorithm>
-#include <cstddef>
 #include <cstdint>
-#include <iterator>
 
 namespace {
-
-[[nodiscard]] bool is_valid_utf8(const char* value, std::uint64_t length) noexcept {
+[[nodiscard]] bool is_valid_utf8(std::string_view text) noexcept {
+  const auto* value = text.data();
+  const auto length = text.size();
   if (length == 0U) {
     return true;
   }
@@ -63,16 +61,7 @@ namespace {
 
 } // namespace
 
-extern "C" gneiss_result gneiss_log_message_validate(const gneiss_log_message* message) {
-  if (message == nullptr || message->struct_size < GNEISS_LOG_MESSAGE_VERSION_1_SIZE ||
-      message->severity < GNEISS_LOG_TRACE || message->severity > GNEISS_LOG_FATAL ||
-      message->category == nullptr || message->category_length == 0U || message->flags != 0U ||
-      std::any_of(
-          std::begin(message->reserved), std::end(message->reserved),
-          [](std::uint64_t value) { return value != 0U; }) ||
-      !is_valid_utf8(message->category, message->category_length) ||
-      !is_valid_utf8(message->message, message->message_length)) {
-    return GNEISS_ERROR_INVALID_ARGUMENT;
-  }
-  return GNEISS_SUCCESS;
+bool gneiss::log_internal::valid_text(std::string_view category,
+                                      std::string_view message) noexcept {
+  return !category.empty() && is_valid_utf8(category) && is_valid_utf8(message);
 }

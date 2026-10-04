@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "api/c/log_validation.hpp"
 #include "application/application_asset_reload_internal.h"
 #include "application/application_log_internal.h"
 #include "application/application_scene_load_internal.h"
@@ -478,7 +479,7 @@ gneiss::application_internal::submit_application_log(gneiss_application applicat
 
 extern "C" gneiss_result gneiss_application_log(gneiss_application application,
                                                 const gneiss_log_message* message) {
-  const auto message_result = gneiss_log_message_validate(message);
+  const auto message_result = gneiss::abi_internal::validate_log_message(message);
   if (message_result != GNEISS_SUCCESS) {
     return message_result;
   }
