@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include <gneiss/core/result.h>
+#include "core/result.hpp"
 
-extern "C" const char* gneiss_result_message(gneiss_result result) {
+const char* gneiss::core::result_message(gneiss_result result) noexcept {
   switch (result) {
   case GNEISS_SUCCESS:
     return "success";

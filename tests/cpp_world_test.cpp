@@ -29,11 +29,43 @@ int main() {
     return 4;
   }
 
+  std::uint64_t count{};
+  gneiss::scene_node_id root;
+  gneiss::scene_node_id child;
+  gneiss::scene_node_id parent;
+  gneiss::entity_id associated;
+  gneiss::transform local = GNEISS_TRANSFORM_IDENTITY;
+  local.translation[0] = 7.0F;
+  gneiss::transform queried = GNEISS_TRANSFORM_IDENTITY;
+  if (first.entity_count(count) != gneiss::result::success || count != 1U ||
+      first.create_scene_node({}, {}, root) != gneiss::result::success ||
+      first.create_scene_node(root, entity, child) != gneiss::result::success ||
+      first.set_local_transform(child, local) != gneiss::result::success ||
+      first.get_local_transform(child, queried) != gneiss::result::success ||
+      queried.translation[0] != 7.0F ||
+      first.get_entity(child, associated) != gneiss::result::success || associated != entity ||
+      first.get_parent(child, parent) != gneiss::result::success || parent != root ||
+      first.get_parent(root, parent) != gneiss::result::success || parent.is_valid()) {
+    return 6;
+  }
+  gneiss::type_registry registry;
+  gneiss_type_info info = GNEISS_TYPE_INFO_INIT;
+  if (gneiss::type_registry::create(registry) != gneiss::result::success ||
+      gneiss::world::register_reflection(registry) != gneiss::result::success ||
+      registry.freeze() != gneiss::result::success ||
+      registry.find_type(gneiss::transform_type_id(), info) != gneiss::result::success ||
+      registry.find_type(gneiss::camera_type_id(), info) != gneiss::result::success) {
+    return 7;
+  }
   gneiss::world second{std::move(first)};
   // NOLINTNEXTLINE(bugprone-use-after-move): world 明确定义了可查询的移动后状态。
   if (first.is_valid() || !second.is_valid() ||
       second.destroy_entity(entity) != gneiss::result::success) {
     return 5;
+  }
+  if (first.entity_count(count) != gneiss::result::invalid_handle ||
+      first.get_parent(child, parent) != gneiss::result::invalid_handle || parent.is_valid()) {
+    return 8;
   }
   return 0;
 }

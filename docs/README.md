@@ -340,6 +340,8 @@
 - [M-287：VFS 读取来源基础](records/M-287-read-source-foundation.md)
 - [M-287：Granit 0.44 独立变体上传接入](records/M-287-granit-0.44-integration.md)
 
+- [M-292～M-293：接口审计与 Core 边界首轮实施](records/M-292-293-cpp-boundary-foundation.md)
+
 ## 文档维护
 
 

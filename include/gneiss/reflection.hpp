@@ -49,6 +49,20 @@ public:
   [[nodiscard]] result freeze() noexcept {
     return from_native(gneiss_type_registry_freeze(handle_));
   }
+  /** 查询是否冻结；失败时不改变输出。 */
+  [[nodiscard]] result is_frozen(bool& output) const noexcept {
+    std::uint8_t value{};
+    const auto status = from_native(gneiss_type_registry_is_frozen(handle_, &value));
+    if (status.ok()) {
+      output = value != 0U;
+    }
+    return status;
+  }
+  /** 按序号借用冻结 Registry 元数据，有效期不超过 Registry。 */
+  [[nodiscard]] result type_at(std::uint32_t index, gneiss_type_info& output) const noexcept {
+    output = GNEISS_TYPE_INFO_INIT;
+    return from_native(gneiss_type_registry_type_at(handle_, index, &output));
+  }
   [[nodiscard]] result type_count(std::uint32_t& output) const noexcept {
     return from_native(gneiss_type_registry_type_count(handle_, &output));
   }

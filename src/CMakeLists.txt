@@ -58,6 +58,9 @@ target_sources(
     core/service_registry.cpp
     core/service_registry.h
     core/rid_table.h
+    api/c/core_api.cpp
+    core/result.hpp
+    core/version.hpp
     core/result.cpp
     core/version.cpp
     game/game_module.cpp

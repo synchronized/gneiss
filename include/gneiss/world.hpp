@@ -15,6 +15,13 @@
 
 namespace gneiss {
 
+/** 内建 Transform 的稳定类型标识，值不依赖 World 生命周期。 */
+[[nodiscard]] inline gneiss_type_id transform_type_id() noexcept {
+  return gneiss_transform_type_id();
+}
+/** 内建 Camera 的稳定类型标识，值不依赖 World 生命周期。 */
+[[nodiscard]] inline gneiss_type_id camera_type_id() noexcept { return gneiss_camera_type_id(); }
+
 /** 独占拥有一个 World 的 RAII 包装；只允许在创建线程访问。 */
 class world final {
 public:
@@ -58,6 +65,11 @@ public:
       out_entity = entity_id{native_entity};
     }
     return from_native(native_result);
+  }
+
+  /** 查询存活实体数；须在 World 所属线程调用。 */
+  [[nodiscard]] result entity_count(std::uint64_t& output) const noexcept {
+    return from_native(gneiss_world_entity_count(handle_, &output));
   }
 
   [[nodiscard]] result destroy_entity(entity_id entity) noexcept {
@@ -123,6 +135,29 @@ public:
 
   [[nodiscard]] result set_local_transform(entity_id entity, const transform& value) noexcept {
     return from_native(gneiss_world_entity_set_local_transform(handle_, entity.get(), &value));
+  }
+
+  /** 读取节点局部变换，不转移节点所有权。 */
+  [[nodiscard]] result get_local_transform(scene_node_id node, transform& output) const noexcept {
+    return from_native(gneiss_scene_node_get_local_transform(handle_, node.get(), &output));
+  }
+  /** 查询节点关联实体；失败时不改变输出。 */
+  [[nodiscard]] result get_entity(scene_node_id node, entity_id& output) const noexcept {
+    gneiss_entity_id value{};
+    const auto status = from_native(gneiss_scene_node_get_entity(handle_, node.get(), &value));
+    if (status.ok()) {
+      output = entity_id{value};
+    }
+    return status;
+  }
+  /** 查询父节点；根节点成功返回空标识，失败时不改变输出。 */
+  [[nodiscard]] result get_parent(scene_node_id node, scene_node_id& output) const noexcept {
+    gneiss_scene_node_id value{};
+    const auto status = from_native(gneiss_scene_node_get_parent(handle_, node.get(), &value));
+    if (status.ok()) {
+      output = scene_node_id{value};
+    }
+    return status;
   }
 
   [[nodiscard]] result get_local_transform(entity_id entity, transform& output) const noexcept {

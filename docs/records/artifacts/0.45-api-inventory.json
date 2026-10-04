@@ -1,0 +1,1066 @@
+{
+  "baseline": "v0.44.0",
+  "method": "函数声明与稳定性清单交叉校验；包装文件引用仅为候选，不代表语义覆盖",
+  "functions": [
+    {
+      "symbol": "gneiss_application_create",
+      "header": "include/gneiss/application.h",
+      "cpp_candidate_files": [
+        "include/gneiss/application.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_application_destroy",
+      "header": "include/gneiss/application.h",
+      "cpp_candidate_files": [
+        "include/gneiss/application.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_application_run",
+      "header": "include/gneiss/application.h",
+      "cpp_candidate_files": [
+        "include/gneiss/application.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_application_get_window_size",
+      "header": "include/gneiss/application.h",
+      "cpp_candidate_files": [
+        "include/gneiss/application.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_application_request_exit",
+      "header": "include/gneiss/application.h",
+      "cpp_candidate_files": [
+        "include/gneiss/application.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_application_set_paused",
+      "header": "include/gneiss/application.h",
+      "cpp_candidate_files": [
+        "include/gneiss/application.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_application_log",
+      "header": "include/gneiss/application.h",
+      "cpp_candidate_files": [
+        "include/gneiss/application.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_application_get_world",
+      "header": "include/gneiss/application.h",
+      "cpp_candidate_files": [
+        "include/gneiss/application.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_asset_uri_validate",
+      "header": "include/gneiss/asset.h",
+      "cpp_candidate_files": [
+        "include/gneiss/asset.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_result_message",
+      "header": "include/gneiss/core/result.h",
+      "cpp_candidate_files": [
+        "include/gneiss/core/result.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "静态文本借用，不可释放",
+      "tests": [
+        "gneiss.c_result",
+        "gneiss.cpp_result"
+      ],
+      "cpp_entry": "gneiss::result::message"
+    },
+    {
+      "symbol": "gneiss_game_module_validate",
+      "header": "include/gneiss/game_module.h",
+      "cpp_candidate_files": [
+        "include/gneiss/game_module.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_game_context_get_world",
+      "header": "include/gneiss/game_module.h",
+      "cpp_candidate_files": [
+        "include/gneiss/game_module.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_game_context_get_startup_root_entity",
+      "header": "include/gneiss/game_module.h",
+      "cpp_candidate_files": [
+        "include/gneiss/game_module.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_game_context_find_action",
+      "header": "include/gneiss/game_module.h",
+      "cpp_candidate_files": [
+        "include/gneiss/game_module.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_game_context_get_action_state",
+      "header": "include/gneiss/game_module.h",
+      "cpp_candidate_files": [
+        "include/gneiss/game_module.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_game_context_request_exit",
+      "header": "include/gneiss/game_module.h",
+      "cpp_candidate_files": [
+        "include/gneiss/game_module.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_game_context_log",
+      "header": "include/gneiss/game_module.h",
+      "cpp_candidate_files": [
+        "include/gneiss/game_module.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_version_major",
+      "header": "include/gneiss/gneiss.h",
+      "cpp_candidate_files": [
+        "include/gneiss/gneiss.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "返回版本值，无资源所有权",
+      "tests": [
+        "gneiss.c_version",
+        "gneiss.cpp_version"
+      ],
+      "cpp_entry": "gneiss::library_version"
+    },
+    {
+      "symbol": "gneiss_version_minor",
+      "header": "include/gneiss/gneiss.h",
+      "cpp_candidate_files": [
+        "include/gneiss/gneiss.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "返回版本值，无资源所有权",
+      "tests": [
+        "gneiss.c_version",
+        "gneiss.cpp_version"
+      ],
+      "cpp_entry": "gneiss::library_version"
+    },
+    {
+      "symbol": "gneiss_version_patch",
+      "header": "include/gneiss/gneiss.h",
+      "cpp_candidate_files": [
+        "include/gneiss/gneiss.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "返回版本值，无资源所有权",
+      "tests": [
+        "gneiss.c_version",
+        "gneiss.cpp_version"
+      ],
+      "cpp_entry": "gneiss::library_version"
+    },
+    {
+      "symbol": "gneiss_application_poll_input",
+      "header": "include/gneiss/input.h",
+      "cpp_candidate_files": [
+        "include/gneiss/input.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_application_get_keyboard_state",
+      "header": "include/gneiss/input.h",
+      "cpp_candidate_files": [
+        "include/gneiss/input.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_application_get_pointer_state",
+      "header": "include/gneiss/input.h",
+      "cpp_candidate_files": [
+        "include/gneiss/input.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_application_load_action_map",
+      "header": "include/gneiss/input.h",
+      "cpp_candidate_files": [
+        "include/gneiss/input.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_application_find_action",
+      "header": "include/gneiss/input.h",
+      "cpp_candidate_files": [
+        "include/gneiss/input.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_application_get_action_state",
+      "header": "include/gneiss/input.h",
+      "cpp_candidate_files": [
+        "include/gneiss/input.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_log_message_validate",
+      "header": "include/gneiss/log.h",
+      "cpp_candidate_files": [
+        "include/gneiss/log.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_type_registry_create",
+      "header": "include/gneiss/reflection.h",
+      "cpp_candidate_files": [
+        "include/gneiss/reflection.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_type_registry_destroy",
+      "header": "include/gneiss/reflection.h",
+      "cpp_candidate_files": [
+        "include/gneiss/reflection.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_type_registry_register",
+      "header": "include/gneiss/reflection.h",
+      "cpp_candidate_files": [
+        "include/gneiss/reflection.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_type_registry_bind_property",
+      "header": "include/gneiss/reflection.h",
+      "cpp_candidate_files": [
+        "include/gneiss/reflection.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_type_registry_freeze",
+      "header": "include/gneiss/reflection.h",
+      "cpp_candidate_files": [
+        "include/gneiss/reflection.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_type_registry_is_frozen",
+      "header": "include/gneiss/reflection.h",
+      "cpp_candidate_files": [
+        "include/gneiss/reflection.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "查询不转移所有权；Registry 元数据借用有效期不超过 Registry，其余返回值类型",
+      "tests": [
+        "gneiss.cpp_reflection"
+      ],
+      "cpp_entry": "gneiss::type_registry::is_frozen"
+    },
+    {
+      "symbol": "gneiss_type_registry_type_count",
+      "header": "include/gneiss/reflection.h",
+      "cpp_candidate_files": [
+        "include/gneiss/reflection.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_type_registry_type_at",
+      "header": "include/gneiss/reflection.h",
+      "cpp_candidate_files": [
+        "include/gneiss/reflection.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "查询不转移所有权；Registry 元数据借用有效期不超过 Registry，其余返回值类型",
+      "tests": [
+        "gneiss.cpp_reflection"
+      ],
+      "cpp_entry": "gneiss::type_registry::type_at"
+    },
+    {
+      "symbol": "gneiss_type_registry_find_type",
+      "header": "include/gneiss/reflection.h",
+      "cpp_candidate_files": [
+        "include/gneiss/reflection.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_type_registry_find_field",
+      "header": "include/gneiss/reflection.h",
+      "cpp_candidate_files": [
+        "include/gneiss/reflection.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_type_registry_get_property",
+      "header": "include/gneiss/reflection.h",
+      "cpp_candidate_files": [
+        "include/gneiss/reflection.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_type_registry_set_property",
+      "header": "include/gneiss/reflection.h",
+      "cpp_candidate_files": [
+        "include/gneiss/reflection.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_mesh_create",
+      "header": "include/gneiss/render.h",
+      "cpp_candidate_files": [
+        "include/gneiss/application.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_mesh_destroy",
+      "header": "include/gneiss/render.h",
+      "cpp_candidate_files": [
+        "include/gneiss/application.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_material_create",
+      "header": "include/gneiss/render.h",
+      "cpp_candidate_files": [
+        "include/gneiss/application.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_material_destroy",
+      "header": "include/gneiss/render.h",
+      "cpp_candidate_files": [
+        "include/gneiss/application.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_texture_create",
+      "header": "include/gneiss/render.h",
+      "cpp_candidate_files": [
+        "include/gneiss/application.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_texture_destroy",
+      "header": "include/gneiss/render.h",
+      "cpp_candidate_files": [
+        "include/gneiss/application.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_application_submit_ui_draw_list",
+      "header": "include/gneiss/render.h",
+      "cpp_candidate_files": [
+        "include/gneiss/application.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_application_submit_debug_draw_list",
+      "header": "include/gneiss/render.h",
+      "cpp_candidate_files": [
+        "include/gneiss/application.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_world_entity_set_camera",
+      "header": "include/gneiss/render.h",
+      "cpp_candidate_files": [
+        "include/gneiss/world.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_world_entity_configure_camera",
+      "header": "include/gneiss/render.h",
+      "cpp_candidate_files": [
+        "include/gneiss/world.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_world_entity_get_camera",
+      "header": "include/gneiss/render.h",
+      "cpp_candidate_files": [
+        "include/gneiss/world.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_world_entity_remove_camera",
+      "header": "include/gneiss/render.h",
+      "cpp_candidate_files": [
+        "include/gneiss/world.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_world_set_active_camera",
+      "header": "include/gneiss/render.h",
+      "cpp_candidate_files": [
+        "include/gneiss/world.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_world_get_active_camera",
+      "header": "include/gneiss/render.h",
+      "cpp_candidate_files": [
+        "include/gneiss/world.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_world_entity_set_mesh_renderer",
+      "header": "include/gneiss/render.h",
+      "cpp_candidate_files": [
+        "include/gneiss/world.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_world_entity_remove_mesh_renderer",
+      "header": "include/gneiss/render.h",
+      "cpp_candidate_files": [
+        "include/gneiss/world.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_scene_node_create",
+      "header": "include/gneiss/scene.h",
+      "cpp_candidate_files": [
+        "include/gneiss/world.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_scene_node_destroy",
+      "header": "include/gneiss/scene.h",
+      "cpp_candidate_files": [
+        "include/gneiss/world.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_scene_node_reparent",
+      "header": "include/gneiss/scene.h",
+      "cpp_candidate_files": [
+        "include/gneiss/world.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_scene_node_set_local_transform",
+      "header": "include/gneiss/scene.h",
+      "cpp_candidate_files": [
+        "include/gneiss/world.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_scene_node_get_local_transform",
+      "header": "include/gneiss/scene.h",
+      "cpp_candidate_files": [
+        "include/gneiss/world.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "查询不转移所有权；Registry 元数据借用有效期不超过 Registry，其余返回值类型",
+      "tests": [
+        "gneiss.cpp_world"
+      ],
+      "cpp_entry": "gneiss::world::get_local_transform(scene_node_id, transform&)"
+    },
+    {
+      "symbol": "gneiss_scene_node_get_world_transform",
+      "header": "include/gneiss/scene.h",
+      "cpp_candidate_files": [
+        "include/gneiss/world.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_scene_node_get_entity",
+      "header": "include/gneiss/scene.h",
+      "cpp_candidate_files": [
+        "include/gneiss/world.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "查询不转移所有权；Registry 元数据借用有效期不超过 Registry，其余返回值类型",
+      "tests": [
+        "gneiss.cpp_world"
+      ],
+      "cpp_entry": "gneiss::world::get_entity"
+    },
+    {
+      "symbol": "gneiss_scene_node_get_parent",
+      "header": "include/gneiss/scene.h",
+      "cpp_candidate_files": [
+        "include/gneiss/world.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "查询不转移所有权；Registry 元数据借用有效期不超过 Registry，其余返回值类型",
+      "tests": [
+        "gneiss.cpp_world"
+      ],
+      "cpp_entry": "gneiss::world::get_parent"
+    },
+    {
+      "symbol": "gneiss_world_entity_get_local_transform",
+      "header": "include/gneiss/scene.h",
+      "cpp_candidate_files": [
+        "include/gneiss/world.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_world_entity_set_local_transform",
+      "header": "include/gneiss/scene.h",
+      "cpp_candidate_files": [
+        "include/gneiss/world.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_scene_instance_load",
+      "header": "include/gneiss/scene.h",
+      "cpp_candidate_files": [
+        "include/gneiss/scene.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_scene_instance_create_empty",
+      "header": "include/gneiss/scene.h",
+      "cpp_candidate_files": [
+        "include/gneiss/scene.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_scene_instance_unload",
+      "header": "include/gneiss/scene.h",
+      "cpp_candidate_files": [
+        "include/gneiss/scene.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_scene_instance_find_node",
+      "header": "include/gneiss/scene.h",
+      "cpp_candidate_files": [
+        "include/gneiss/scene.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_scene_instance_get_node_count",
+      "header": "include/gneiss/scene.h",
+      "cpp_candidate_files": [
+        "include/gneiss/scene.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_scene_instance_get_node_info",
+      "header": "include/gneiss/scene.h",
+      "cpp_candidate_files": [
+        "include/gneiss/scene.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_scene_instance_get_prefab_node_count",
+      "header": "include/gneiss/scene.h",
+      "cpp_candidate_files": [
+        "include/gneiss/scene.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_scene_instance_get_prefab_node_info",
+      "header": "include/gneiss/scene.h",
+      "cpp_candidate_files": [
+        "include/gneiss/scene.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_scene_instance_create_prefab_instance",
+      "header": "include/gneiss/scene.h",
+      "cpp_candidate_files": [
+        "include/gneiss/scene.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_scene_instance_set_prefab_instance_name",
+      "header": "include/gneiss/scene.h",
+      "cpp_candidate_files": [
+        "include/gneiss/scene.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_scene_instance_set_prefab_source_transform",
+      "header": "include/gneiss/scene.h",
+      "cpp_candidate_files": [
+        "include/gneiss/scene.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_scene_instance_destroy_prefab_instance",
+      "header": "include/gneiss/scene.h",
+      "cpp_candidate_files": [
+        "include/gneiss/scene.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_scene_instance_refresh_prefab_instance",
+      "header": "include/gneiss/scene.h",
+      "cpp_candidate_files": [
+        "include/gneiss/scene.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_scene_instance_toggle_prefab_refresh",
+      "header": "include/gneiss/scene.h",
+      "cpp_candidate_files": [
+        "include/gneiss/scene.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_scene_instance_release_prefab_refresh",
+      "header": "include/gneiss/scene.h",
+      "cpp_candidate_files": [
+        "include/gneiss/scene.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_scene_instance_create_node",
+      "header": "include/gneiss/scene.h",
+      "cpp_candidate_files": [
+        "include/gneiss/scene.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_scene_instance_set_node_name",
+      "header": "include/gneiss/scene.h",
+      "cpp_candidate_files": [
+        "include/gneiss/scene.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_scene_instance_reparent_node",
+      "header": "include/gneiss/scene.h",
+      "cpp_candidate_files": [
+        "include/gneiss/scene.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_scene_instance_capture_subtree",
+      "header": "include/gneiss/scene.h",
+      "cpp_candidate_files": [
+        "include/gneiss/scene.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_scene_instance_restore_subtree",
+      "header": "include/gneiss/scene.h",
+      "cpp_candidate_files": [
+        "include/gneiss/scene.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_scene_instance_destroy_subtree",
+      "header": "include/gneiss/scene.h",
+      "cpp_candidate_files": [
+        "include/gneiss/scene.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_scene_instance_create_mesh_renderer_node",
+      "header": "include/gneiss/scene.h",
+      "cpp_candidate_files": [
+        "include/gneiss/scene.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_scene_instance_set_mesh_renderer",
+      "header": "include/gneiss/scene.h",
+      "cpp_candidate_files": [
+        "include/gneiss/scene.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_scene_instance_set_camera",
+      "header": "include/gneiss/scene.h",
+      "cpp_candidate_files": [
+        "include/gneiss/scene.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_scene_instance_remove_camera",
+      "header": "include/gneiss/scene.h",
+      "cpp_candidate_files": [
+        "include/gneiss/scene.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_scene_instance_remove_mesh_renderer",
+      "header": "include/gneiss/scene.h",
+      "cpp_candidate_files": [
+        "include/gneiss/scene.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_scene_instance_destroy_node",
+      "header": "include/gneiss/scene.h",
+      "cpp_candidate_files": [
+        "include/gneiss/scene.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_scene_instance_serialize",
+      "header": "include/gneiss/scene.h",
+      "cpp_candidate_files": [
+        "include/gneiss/scene.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_world_create",
+      "header": "include/gneiss/world.h",
+      "cpp_candidate_files": [
+        "include/gneiss/world.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_world_destroy",
+      "header": "include/gneiss/world.h",
+      "cpp_candidate_files": [
+        "include/gneiss/world.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_world_entity_create",
+      "header": "include/gneiss/world.h",
+      "cpp_candidate_files": [
+        "include/gneiss/world.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_world_entity_destroy",
+      "header": "include/gneiss/world.h",
+      "cpp_candidate_files": [
+        "include/gneiss/world.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_world_entity_is_alive",
+      "header": "include/gneiss/world.h",
+      "cpp_candidate_files": [
+        "include/gneiss/world.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    },
+    {
+      "symbol": "gneiss_world_entity_count",
+      "header": "include/gneiss/world.h",
+      "cpp_candidate_files": [
+        "include/gneiss/world.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "查询不转移所有权；Registry 元数据借用有效期不超过 Registry，其余返回值类型",
+      "tests": [
+        "gneiss.cpp_world"
+      ],
+      "cpp_entry": "gneiss::world::entity_count"
+    },
+    {
+      "symbol": "gneiss_transform_type_id",
+      "header": "include/gneiss/world.h",
+      "cpp_candidate_files": [
+        "include/gneiss/world.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "查询不转移所有权；Registry 元数据借用有效期不超过 Registry，其余返回值类型",
+      "tests": [
+        "gneiss.cpp_world"
+      ],
+      "cpp_entry": "gneiss::transform_type_id"
+    },
+    {
+      "symbol": "gneiss_camera_type_id",
+      "header": "include/gneiss/world.h",
+      "cpp_candidate_files": [
+        "include/gneiss/world.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "查询不转移所有权；Registry 元数据借用有效期不超过 Registry，其余返回值类型",
+      "tests": [
+        "gneiss.cpp_world"
+      ],
+      "cpp_entry": "gneiss::camera_type_id"
+    },
+    {
+      "symbol": "gneiss_world_register_reflection",
+      "header": "include/gneiss/world.h",
+      "cpp_candidate_files": [
+        "include/gneiss/world.hpp"
+      ],
+      "review": "pending",
+      "ownership": "pending",
+      "tests": []
+    }
+  ]
+}

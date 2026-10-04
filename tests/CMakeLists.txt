@@ -979,3 +979,14 @@ gneiss_target_compile_warnings(gneiss_source_revision_test)
 gneiss_target_output_directories(gneiss_source_revision_test)
 add_test(NAME gneiss.source-revision COMMAND gneiss_source_revision_test)
 target_compile_definitions(gneiss_source_revision_test PRIVATE GNEISS_BUILDING_LIBRARY)
+
+add_test(NAME gneiss.core-boundary
+  COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
+    -P "${PROJECT_SOURCE_DIR}/cmake/check_core_boundary.cmake")
+add_test(NAME gneiss.core-boundary-negative
+  COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
+    "-DGNEISS_BINARY_DIR=${PROJECT_BINARY_DIR}"
+    -P "${PROJECT_SOURCE_DIR}/cmake/test_core_boundary.cmake")
+add_test(NAME gneiss.cpp-api-inventory
+  COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
+    -P "${PROJECT_SOURCE_DIR}/cmake/check_cpp_inventory.cmake")

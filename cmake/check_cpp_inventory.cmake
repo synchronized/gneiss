@@ -1,0 +1,28 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Gneiss contributors
+
+cmake_minimum_required(VERSION 3.23)
+file(READ "${GNEISS_SOURCE_DIR}/docs/records/artifacts/0.45-api-inventory.json" inventory)
+string(JSON count LENGTH "${inventory}" functions)
+math(EXPR last "${count} - 1")
+set(symbols)
+foreach(index RANGE 0 ${last})
+  string(JSON symbol GET "${inventory}" functions ${index} symbol)
+  if(symbol IN_LIST symbols)
+    message(FATAL_ERROR "重复 API 清单符号：${symbol}")
+  endif()
+  list(APPEND symbols "${symbol}")
+endforeach()
+file(STRINGS "${GNEISS_SOURCE_DIR}/abi/api-stability.txt" declarations)
+set(expected)
+foreach(line IN LISTS declarations)
+  if(line MATCHES "^(gneiss_[a-zA-Z0-9_]+) ")
+    list(APPEND expected "${CMAKE_MATCH_1}")
+  endif()
+endforeach()
+list(SORT expected)
+list(SORT symbols)
+if(NOT "${symbols}" STREQUAL "${expected}")
+  message(FATAL_ERROR "公共 C API 与 C++ 审计清单不一致；需更新包装及测试映射")
+endif()
+# 此检查只防止漏登记；pending 不表示已经完成语义审查，发布门槛另行收口。
