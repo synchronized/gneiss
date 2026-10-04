@@ -67,6 +67,9 @@
 
 ## 路线图与开发计划
 
+- [VER-045：0.45.0 内部 C++ 分层与完整 SDK 包装](plans/VER-045-0.45.0-cpp-boundaries.md)
+- [DEV-045：分层重构与包装实施计划](plans/DEV-045-cpp-boundaries.md)
+
 - [Gneiss 开发路线图](roadmap.md)
 - [VER-001：0.1.0 最小运行时闭环](plans/VER-001-0.1.0-runtime-slice.md)
 - [VER-002：0.2.0 资源与场景闭环](plans/VER-002-0.2.0-resource-scene-slice.md)
@@ -183,6 +186,7 @@
 - [ADR-049：模型依赖准备与整批资源发布](decisions/ADR-049-model-asset-transactions.md)
 - [ADR-050：场景加载使用隔离候选与安全点激活](decisions/ADR-050-staged-scene-activation.md)
 - [ADR-051：PBR 材质语义与多纹理依赖](decisions/ADR-051-pbr-material-dependencies.md)
+- [ADR-053：内部 C++ 实现与 C ABI、C++ SDK 分层](decisions/ADR-053-cpp-core-and-c-abi.md)
 - [ADR-052：纹理驻留与加载预算](decisions/ADR-052-texture-residency-and-budgets.md)
 
 ## 实施与验收记录

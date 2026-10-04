@@ -58,3 +58,5 @@ Reference 和实现为准。
 
 - [ADR-049：模型依赖准备与整批资源发布](ADR-049-model-asset-transactions.md)
 - [ADR-050：场景加载使用隔离候选与安全点激活](ADR-050-staged-scene-activation.md)
+
+- [ADR-053：内部 C++ 实现与 C ABI、C++ SDK 分层](ADR-053-cpp-core-and-c-abi.md)
