@@ -441,27 +441,12 @@ gneiss_result render_asset_loader::acquire_mesh(std::string_view uri, mesh_asset
         if (result != GNEISS_SUCCESS) {
           return result;
         }
-        const gneiss_mesh_desc desc{
-            .struct_size = sizeof(gneiss_mesh_desc),
-            .vertex_count = static_cast<std::uint32_t>(vertices.size()),
-            .vertices = vertices.data(),
-            .reserved = 0,
-            .reserved_2 = 0,
-            .normal_count = static_cast<std::uint32_t>(normals.size()),
-            .normals = normals.empty() ? nullptr : normals.data(),
-            .index_count = static_cast<std::uint32_t>(indices.size()),
-            .reserved_3 = 0,
-            .indices = indices.empty() ? nullptr : indices.data(),
-            .tangent_count = static_cast<std::uint32_t>(tangents.size()),
-            .reserved_4 = 0U,
-            .tangents = tangents.empty() ? nullptr : tangents.data(),
-            .uv1_count = static_cast<std::uint32_t>(uv1.size()),
-            .reserved_5 = 0U,
-            .uv1 = uv1.empty() ? nullptr : uv1.data(),
-            .color_count = static_cast<std::uint32_t>(colors.size()),
-            .reserved_6 = 0U,
-            .colors = colors.empty() ? nullptr : colors.data(),
-        };
+        const asset_internal::mesh_view desc{.vertices = vertices,
+                                             .normals = normals,
+                                             .indices = indices,
+                                             .tangents = tangents,
+                                             .uv1 = uv1,
+                                             .colors = colors};
         gneiss_mesh rid = GNEISS_NULL_MESH;
         result = resources_.create_mesh(desc, &rid);
         if (result != GNEISS_SUCCESS) {

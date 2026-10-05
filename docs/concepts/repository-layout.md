@@ -91,6 +91,10 @@ World 的提取函数位于 `src/engine/function/world/render_snapshot.hpp`，Re
 纹理加载与上传事务由 `src/engine/function/render/texture_load_service.hpp` 组织，属于 Render 功能层；
 其依赖 Asset 的 VFS，但 Asset 不反向包含 Render。
 
+Render 的同步资源创建接收内部 `mesh_view`、`texture_view` 与 `material_resource`，借用数组只在
+创建调用期间有效。公共描述的尺寸、版本、保留字段与指针/长度转换归 `src/engine/api/`；资源服务
+继续负责数值、拓扑、RID 与预算校验，成功后拥有数据副本。资产加载器不生成版本化 C 描述。
+
 `render_asset_loader` 暂仍位于 Render，它连接 Asset 缓存租约与 Render 资源发布，并不只是格式
 解码器。CPU 准备和解析实现位于 `src/engine/asset/asset_preparation.hpp/.cpp`，
 Render 的准备适配只传入发布资源的预算。三类准备数据均使用 Asset 值类型，材质依赖仅用 URI，

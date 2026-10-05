@@ -27,6 +27,8 @@ target_sources(
     engine/api/application_api.cpp
     engine/api/render_api.cpp
     engine/api/material_description.hpp
+    engine/api/mesh_description.hpp
+    engine/api/texture_description.hpp
     engine/api/scene_api.cpp
     engine/api/input_api.cpp
     engine/function/application/application_registry.cpp
@@ -88,6 +90,7 @@ target_sources(
     engine/core/log/log_dispatcher.hpp
     engine/function/render/render_resource_service.cpp
     engine/function/render/render_resource_service.hpp
+    engine/function/render/texture_view.hpp
     engine/function/render/debug_draw_list.cpp
     engine/function/render/debug_draw_list.hpp
     engine/function/render/ui_draw_list.cpp

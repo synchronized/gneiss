@@ -99,79 +99,53 @@ render_resource_service::track(std::shared_ptr<const Resource> resource,
   return resource;
 }
 
-gneiss_result render_resource_service::create_mesh(const gneiss_mesh_desc& desc,
+gneiss_result render_resource_service::create_mesh(const asset_internal::mesh_view& desc,
                                                    gneiss_mesh* out_mesh) noexcept {
-  if (out_mesh == nullptr || !is_valid() ||
-      (desc.struct_size != GNEISS_MESH_DESC_VERSION_1_SIZE &&
-       desc.struct_size != GNEISS_MESH_DESC_VERSION_2_SIZE &&
-       desc.struct_size < sizeof(gneiss_mesh_desc)) ||
-      desc.reserved != 0U || desc.vertex_count < 3U || desc.vertices == nullptr) {
+  if (out_mesh == nullptr || !is_valid() || desc.vertices.size() < 3U) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
-  const auto vertices = std::span{desc.vertices, desc.vertex_count};
-  if (!std::ranges::all_of(vertices, [](const auto& vertex) {
-        return std::isfinite(vertex.x) && std::isfinite(vertex.y) && std::isfinite(vertex.z) &&
-               std::isfinite(vertex.u) && std::isfinite(vertex.v);
+  const auto vertices = desc.vertices;
+  const auto normals = desc.normals;
+  const auto indices = desc.indices;
+  const auto tangents = desc.tangents;
+  const auto uv1 = desc.uv1;
+  const auto colors = desc.colors;
+  if ((!normals.empty() && normals.size() != vertices.size()) ||
+      (!indices.empty() && (indices.size() < 3U || indices.size() % 3U != 0U)) ||
+      (!tangents.empty() && (tangents.size() != vertices.size() || normals.empty())) ||
+      (!uv1.empty() && uv1.size() != vertices.size()) ||
+      (!colors.empty() && colors.size() != vertices.size())) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  if (!std::ranges::all_of(vertices,
+                           [](const auto& vertex) {
+                             return std::isfinite(vertex.x) && std::isfinite(vertex.y) &&
+                                    std::isfinite(vertex.z) && std::isfinite(vertex.u) &&
+                                    std::isfinite(vertex.v);
+                           }) ||
+      !std::ranges::all_of(normals,
+                           [](const auto& normal) {
+                             const auto length =
+                                 std::sqrt((normal.x * normal.x) + (normal.y * normal.y) +
+                                           (normal.z * normal.z));
+                             return std::isfinite(length) && std::abs(length - 1.0F) <= 1.0e-4F;
+                           }) ||
+      !std::ranges::all_of(indices, [&](const auto index) { return index < vertices.size(); }) ||
+      !std::ranges::all_of(
+          uv1, [](const auto& uv) { return std::isfinite(uv.u) && std::isfinite(uv.v); }) ||
+      !std::ranges::all_of(colors, [](const auto& color) {
+        return valid_color(color.r) && valid_color(color.g) && valid_color(color.b) &&
+               valid_color(color.a);
       })) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
-  if (desc.reserved_2 != 0U || ((desc.normal_count == 0U) != (desc.normals == nullptr)) ||
-      (desc.normal_count != 0U && desc.normal_count != desc.vertex_count)) {
-    return GNEISS_ERROR_INVALID_ARGUMENT;
-  }
-  const auto normals = desc.normal_count != 0U ? std::span{desc.normals, desc.normal_count}
-                                               : std::span<const gneiss_mesh_normal>{};
-  if (!std::ranges::all_of(normals, [](const auto& normal) {
-        const auto length =
-            std::sqrt((normal.x * normal.x) + (normal.y * normal.y) + (normal.z * normal.z));
-        return std::isfinite(length) && std::abs(length - 1.0F) <= 1.0e-4F;
-      })) {
-    return GNEISS_ERROR_INVALID_ARGUMENT;
-  }
-  if (desc.reserved_3 != 0U || ((desc.index_count == 0U) != (desc.indices == nullptr)) ||
-      (desc.index_count != 0U && (desc.index_count < 3U || desc.index_count % 3U != 0U))) {
-    return GNEISS_ERROR_INVALID_ARGUMENT;
-  }
-  const auto indices = desc.index_count != 0U ? std::span{desc.indices, desc.index_count}
-                                              : std::span<const std::uint32_t>{};
-  if (!std::ranges::all_of(indices, [&](const auto index) { return index < desc.vertex_count; })) {
-    return GNEISS_ERROR_INVALID_ARGUMENT;
-  }
-  std::span<const gneiss_mesh_tangent> tangents;
-  if (desc.struct_size >= GNEISS_MESH_DESC_VERSION_2_SIZE) {
-    if (desc.reserved_4 != 0U || ((desc.tangent_count == 0U) != (desc.tangents == nullptr)) ||
-        (desc.tangent_count != 0U &&
-         (desc.tangent_count != desc.vertex_count || normals.empty()))) {
+  for (std::size_t index = 0; index < tangents.size(); ++index) {
+    const auto& tangent = tangents[index];
+    const auto& normal = normals[index];
+    if (!asset_internal::valid_mesh_tangent({tangent.x, tangent.y, tangent.z, tangent.w},
+                                            {normal.x, normal.y, normal.z})) {
       return GNEISS_ERROR_INVALID_ARGUMENT;
     }
-    if (desc.tangent_count != 0U)
-      tangents = {desc.tangents, desc.tangent_count};
-    for (std::size_t index = 0; index < tangents.size(); ++index) {
-      const auto& tangent = tangents[index];
-      const auto& normal = normals[index];
-      if (!asset_internal::valid_mesh_tangent({tangent.x, tangent.y, tangent.z, tangent.w},
-                                              {normal.x, normal.y, normal.z})) {
-        return GNEISS_ERROR_INVALID_ARGUMENT;
-      }
-    }
-  }
-  std::span<const gneiss_mesh_uv> uv1;
-  std::span<const gneiss_mesh_color> colors;
-  if (desc.struct_size >= sizeof(gneiss_mesh_desc)) {
-    if (desc.reserved_5 != 0U || desc.reserved_6 != 0U ||
-        ((desc.uv1_count == 0U) != (desc.uv1 == nullptr)) ||
-        ((desc.color_count == 0U) != (desc.colors == nullptr)) ||
-        (desc.uv1_count != 0U && desc.uv1_count != desc.vertex_count) ||
-        (desc.color_count != 0U && desc.color_count != desc.vertex_count))
-      return GNEISS_ERROR_INVALID_ARGUMENT;
-    uv1 = {desc.uv1, desc.uv1_count};
-    colors = {desc.colors, desc.color_count};
-    if (!std::ranges::all_of(
-            uv1, [](const auto& uv) { return std::isfinite(uv.u) && std::isfinite(uv.v); }) ||
-        !std::ranges::all_of(colors, [](const auto& c) {
-          return valid_color(c.r) && valid_color(c.g) && valid_color(c.b) && valid_color(c.a);
-        }))
-      return GNEISS_ERROR_INVALID_ARGUMENT;
   }
   *out_mesh = 0U;
   try {
@@ -280,15 +254,13 @@ gneiss_result render_resource_service::destroy_material(gneiss_material material
   return materials_.destroy(material, core::resource_type::material);
 }
 
-gneiss_result render_resource_service::create_texture(const gneiss_texture_desc& desc,
+gneiss_result render_resource_service::create_texture(const texture_view& desc,
                                                       gneiss_texture* out_texture) noexcept {
-  if (out_texture == nullptr || !is_valid() || desc.struct_size < sizeof(gneiss_texture_desc) ||
-      desc.format != GNEISS_TEXTURE_FORMAT_RGBA8_UNORM ||
+  if (out_texture == nullptr || !is_valid() || desc.format != GNEISS_TEXTURE_FORMAT_RGBA8_UNORM ||
       (desc.color_space != GNEISS_TEXTURE_COLOR_SPACE_LINEAR &&
        desc.color_space != GNEISS_TEXTURE_COLOR_SPACE_SRGB) ||
       desc.width == 0U || desc.height == 0U || desc.width > maximum_texture_dimension ||
-      desc.height > maximum_texture_dimension || desc.pixels == nullptr || desc.reserved[0] != 0U ||
-      desc.reserved[1] != 0U) {
+      desc.height > maximum_texture_dimension || desc.pixels.empty()) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
   const auto row_bytes = static_cast<std::uint64_t>(desc.width) * 4U;
@@ -297,7 +269,7 @@ gneiss_result render_resource_service::create_texture(const gneiss_texture_desc&
                               static_cast<std::uint64_t>(desc.height - 1U)) +
                              row_bytes;
   if (desc.row_stride_bytes < row_bytes || packed_size > maximum_texture_bytes ||
-      required_size > desc.pixel_data_size) {
+      required_size > desc.pixels.size()) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
   try {
@@ -313,7 +285,7 @@ gneiss_result render_resource_service::create_texture(const gneiss_texture_desc&
     for (std::uint32_t row = 0; row < desc.height; ++row) {
       std::memcpy(resource.levels.front().pixels.data() +
                       (static_cast<std::size_t>(row) * row_bytes),
-                  desc.pixels + (static_cast<std::size_t>(row) * desc.row_stride_bytes),
+                  desc.pixels.data() + (static_cast<std::size_t>(row) * desc.row_stride_bytes),
                   static_cast<std::size_t>(row_bytes));
     }
     return create_texture(std::move(resource), out_texture);

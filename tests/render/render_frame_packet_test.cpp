@@ -13,12 +13,11 @@ int main() {
   using namespace gneiss::render_internal;
   render_resource_service resources;
   std::vector<std::uint8_t> pixels(64U * 64U * 4U, 1U);
-  gneiss_texture_desc texture_desc = GNEISS_TEXTURE_DESC_INIT;
+  gneiss::render_internal::texture_view texture_desc;
   texture_desc.width = 64U;
   texture_desc.height = 64U;
   texture_desc.row_stride_bytes = 64U * 4U;
-  texture_desc.pixel_data_size = pixels.size();
-  texture_desc.pixels = pixels.data();
+  texture_desc.pixels = pixels;
   gneiss_texture texture = GNEISS_NULL_TEXTURE;
   if (resources.create_texture(texture_desc, &texture) != GNEISS_SUCCESS) {
     return 1;
@@ -28,9 +27,8 @@ int main() {
       gneiss_mesh_vertex{.x = 0.0F, .y = 0.0F, .z = 0.0F, .u = 0.0F, .v = 0.0F},
       gneiss_mesh_vertex{.x = 1.0F, .y = 0.0F, .z = 0.0F, .u = 1.0F, .v = 0.0F},
       gneiss_mesh_vertex{.x = 0.0F, .y = 1.0F, .z = 0.0F, .u = 0.0F, .v = 1.0F}};
-  gneiss_mesh_desc mesh_desc = GNEISS_MESH_DESC_INIT;
-  mesh_desc.vertex_count = static_cast<std::uint32_t>(vertices.size());
-  mesh_desc.vertices = vertices.data();
+  gneiss::asset_internal::mesh_view mesh_desc;
+  mesh_desc.vertices = vertices;
   gneiss_mesh mesh = GNEISS_NULL_MESH;
   if (resources.create_mesh(mesh_desc, &mesh) != GNEISS_SUCCESS) {
     return 2;

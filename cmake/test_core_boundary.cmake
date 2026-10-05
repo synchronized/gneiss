@@ -255,7 +255,9 @@ endif()
 file(WRITE "${fixture}/src/engine/function/application/probe.cpp" "")
 
 foreach(content IN ITEMS "#include <engine/api/material_description.hpp>"
-    "void create(const gneiss_material_desc&);")
+    "void create(const gneiss_material_desc&);"
+    "void create(const gneiss_mesh_desc&);"
+    "void create(const gneiss_texture_desc&);")
   file(WRITE "${fixture}/src/engine/function/render/probe.cpp" "${content}\n")
   execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
     -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"

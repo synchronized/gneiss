@@ -6,6 +6,7 @@
 
 #include "engine/core/rid_table.hpp"
 #include "engine/function/render/render_resource_data.hpp"
+#include "engine/function/render/texture_view.hpp"
 
 #include <gneiss/render.h>
 
@@ -35,7 +36,7 @@ public:
   [[nodiscard]] std::uint64_t available_memory_bytes() const noexcept;
 
   [[nodiscard]] bool is_valid() const noexcept { return domain_ != 0U; }
-  [[nodiscard]] gneiss_result create_mesh(const gneiss_mesh_desc& desc,
+  [[nodiscard]] gneiss_result create_mesh(const asset_internal::mesh_view& desc,
                                           gneiss_mesh* out_mesh) noexcept;
   /** 内部 CPU 候选已经校验，移动所有权避免主线程复制大数组。 */
   [[nodiscard]] gneiss_result create_prepared_mesh(mesh_resource resource,
@@ -48,7 +49,7 @@ public:
   [[nodiscard]] gneiss_result create_material(const material_resource& value,
                                               gneiss_material* out_material) noexcept;
   [[nodiscard]] gneiss_result destroy_material(gneiss_material material) noexcept;
-  [[nodiscard]] gneiss_result create_texture(const gneiss_texture_desc& desc,
+  [[nodiscard]] gneiss_result create_texture(const texture_view& desc,
                                              gneiss_texture* out_texture) noexcept;
   /** 创建已经过容器校验的内部多 Mip Texture。 */
   [[nodiscard]] gneiss_result create_texture(texture_resource resource,

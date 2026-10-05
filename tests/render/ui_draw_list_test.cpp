@@ -9,12 +9,11 @@
 int main() {
   gneiss::render_internal::render_resource_service resources;
   constexpr std::array<std::uint8_t, 4> pixels{255U, 255U, 255U, 255U};
-  gneiss_texture_desc texture_desc = GNEISS_TEXTURE_DESC_INIT;
+  gneiss::render_internal::texture_view texture_desc;
   texture_desc.width = 1U;
   texture_desc.height = 1U;
   texture_desc.row_stride_bytes = 4U;
-  texture_desc.pixel_data_size = pixels.size();
-  texture_desc.pixels = pixels.data();
+  texture_desc.pixels = pixels;
   gneiss_texture texture = GNEISS_NULL_TEXTURE;
   if (resources.create_texture(texture_desc, &texture) != GNEISS_SUCCESS) {
     return 1;

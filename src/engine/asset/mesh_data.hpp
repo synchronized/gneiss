@@ -7,9 +7,20 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <span>
 #include <vector>
 
 namespace gneiss::asset_internal {
+
+/** 创建期间借用；校验通过后资源服务复制数组，调用结束后不保留视图。 */
+struct mesh_view {
+  std::span<const gneiss_mesh_vertex> vertices;
+  std::span<const gneiss_mesh_normal> normals;
+  std::span<const std::uint32_t> indices;
+  std::span<const gneiss_mesh_tangent> tangents;
+  std::span<const gneiss_mesh_uv> uv1;
+  std::span<const gneiss_mesh_color> colors;
+};
 
 struct mesh_data {
   std::vector<gneiss_mesh_vertex> vertices;
