@@ -24,10 +24,10 @@ target_sources(
   PRIVATE
     engine/core/sha256.cpp
     engine/core/sha256.hpp
-    api/c/application_api.cpp
-    api/c/render_api.cpp
-    api/c/scene_api.cpp
-    api/c/input_api.cpp
+    engine/api/application_api.cpp
+    engine/api/render_api.cpp
+    engine/api/scene_api.cpp
+    engine/api/input_api.cpp
     engine/function/application/application_registry.cpp
     engine/function/application/application_registry.hpp
     engine/function/application/application_host.cpp
@@ -65,21 +65,21 @@ target_sources(
     engine/core/service_registry.cpp
     engine/core/service_registry.hpp
     engine/core/rid_table.hpp
-    api/c/core_api.cpp
+    engine/api/core_api.cpp
     engine/core/result.hpp
     engine/core/version.hpp
     engine/core/result.cpp
     engine/core/version.cpp
-    api/c/game_module_api.cpp
-    api/c/asset_api.cpp
+    engine/api/game_module_api.cpp
+    engine/api/asset_api.cpp
     engine/function/game/game_context.cpp
     engine/function/game/game_context_internal.hpp
     engine/function/input/input_service.cpp
     engine/function/input/input_service.hpp
     engine/function/input/action_map.cpp
     engine/function/input/action_map.hpp
-    api/c/log_api.cpp
-    api/c/log_validation.hpp
+    engine/api/log_api.cpp
+    engine/api/log_validation.hpp
     engine/core/log/log.hpp
     engine/core/log/log.cpp
     engine/core/log/log_dispatcher.cpp
@@ -102,7 +102,7 @@ target_sources(
     engine/function/render/normal_math.hpp
     engine/core/reflection/type_registry.cpp
     engine/core/reflection/type_registry.hpp
-    api/c/reflection_api.cpp
+    engine/api/reflection_api.cpp
     engine/function/scene/scene_tree.cpp
     engine/function/scene/scene_tree.hpp
     engine/function/scene/prefab_asset_loader.cpp
@@ -127,7 +127,7 @@ target_sources(
     engine/function/world/system_scheduler.hpp
     engine/function/world/render_snapshot.cpp
     engine/function/world/render_snapshot.hpp
-    api/c/world_api.cpp
+    engine/api/world_api.cpp
     engine/function/world/world_service.cpp
     engine/function/world/world_service.hpp
     engine/function/world/component_reflection.cpp

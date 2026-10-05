@@ -2,8 +2,10 @@
 # Copyright (c) 2026 Gneiss contributors
 
 cmake_minimum_required(VERSION 3.23)
-set(fixture "${GNEISS_BINARY_DIR}/function-boundary-fixture")
+set(fixture "${GNEISS_BINARY_DIR}/api-boundary-fixture")
 file(MAKE_DIRECTORY "${fixture}/src/engine/platform")
+file(MAKE_DIRECTORY "${fixture}/src/engine/api")
+file(WRITE "${fixture}/src/engine/api/probe.cpp" "")
 # 每次先恢复合法内容，避免上次中断的反例污染其他检查。
 file(WRITE "${fixture}/src/engine/platform/probe.cpp" "#include <gneiss/core/result.hpp>\n")
 file(MAKE_DIRECTORY "${fixture}/src/engine/core" "${fixture}/src/engine/function/world" "${fixture}/src/engine/function/application" "${fixture}/src/engine/core/reflection" "${fixture}/src/engine/function/render" "${fixture}/src/engine/asset")
@@ -191,3 +193,22 @@ foreach(header IN ITEMS "engine/function/application/state.hpp" "engine/function
   endif()
 endforeach()
 file(WRITE "${fixture}/src/engine/platform/probe.cpp" "#include <gneiss/core/result.h>\n")
+
+# C 入口允许位于适配层，但不得借此绕过 Engine 的宿主依赖限制。
+file(MAKE_DIRECTORY "${fixture}/src/engine/api")
+foreach(case IN ITEMS valid apps editor tooling)
+  if(case STREQUAL "valid")
+    set(content "extern \"C\" void gneiss_probe() {}")
+  else()
+    set(content "#include <${case}/probe.hpp>")
+  endif()
+  file(WRITE "${fixture}/src/engine/api/probe.cpp" "${content}\n")
+  execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
+    -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
+    RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
+  if(case STREQUAL "valid" AND NOT status EQUAL 0)
+    message(FATAL_ERROR "边界检查错误拒绝 C 适配入口")
+  elseif(NOT case STREQUAL "valid" AND status EQUAL 0)
+    message(FATAL_ERROR "边界检查未拒绝 C 适配层包含 ${case}")
+  endif()
+endforeach()

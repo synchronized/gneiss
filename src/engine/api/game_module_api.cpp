@@ -3,7 +3,7 @@
 
 #include <gneiss/game_module.h>
 
-#include "api/c/log_validation.hpp"
+#include "engine/api/log_validation.hpp"
 #include "engine/function/game/game_context_internal.hpp"
 
 extern "C" gneiss_result gneiss_game_module_validate(const gneiss_game_module_desc* desc) {

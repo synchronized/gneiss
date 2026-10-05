@@ -14,7 +14,7 @@
 [VER-045](VER-045-0.45.0-cpp-boundaries.md) 为准；目录与所有权以
 [ADR-053](../decisions/ADR-053-cpp-core-and-c-abi.md) 与
 [ADR-054](../decisions/ADR-054-source-layout-and-host-boundaries.md) 为准。后者的精简布局已确认，
-Core、Platform、Asset 与 Function 已执行物理迁移；C ABI 目录、Editor/Apps 拆分继续按计划推进。
+Core、Platform、Asset 与 Function 已执行物理迁移；C ABI 已迁至 Engine，Editor/Apps 拆分继续按计划推进。
 
 ## M-292：审计与冻结基线
 
@@ -33,7 +33,7 @@ Core、Platform、Asset 与 Function 已执行物理迁移；C ABI 目录、Edit
 首选 Core 的结果/版本与 Log，验证目录、错误转换、回调寿命和 C++ 包装路径。
 如 Log 审计显示与宿主强耦合，先完成 Core，再选择边界更独立的模块并记录原因。
 
-第一阶段已将 ABI 入口迁至当前 `src/api/c/`，最终按 ADR-054 迁至 Engine 的 api 目录；
+ABI 入口已按 ADR-054 迁至 `src/engine/api/`；
 核心实现留在所属模块；建立第一版依赖检查，使用故意违规的测试
 验证检查能失败。更新 CMake 私有依赖、独立头和安装消费者，确认没有新增第三方传播或重复符号。
 
@@ -59,6 +59,7 @@ CPU 准备已与资源发布分开编译并建立独立链接验证，见
 [准备数据记录](../records/M-295-prepared-data.md)。CPU 准备与解析已归入 Asset，Render 传入发布预算，
 见 [Asset 准备闭环记录](../records/M-295-asset-preparation.md)。
 Function 六模块迁移与新路径边界验证见 [迁移记录](../records/M-295-function-layout.md)。
+C ABI 目录与清单检查迁移见 [适配层记录](../records/M-295-api-layout.md)。
 
 - 将解码、格式解析、资源加载与 GPU 生命周期按 ADR 分开，先记录允许依赖再搬文件。
 - Granit 适配进入 Render 私有后端，Platform 的窗口适配维持独立所有权。
@@ -72,7 +73,7 @@ Function 六模块迁移与新路径边界验证见 [迁移记录](../records/M-
 
 | 当前代码 | 目标归属与拆分要求 |
 | --- | --- |
-| `src/api/c/` | `src/engine/api/`；保持公共头、C 导出与调用方向 |
+| 原 `src/api/c/` | 已迁至 `src/engine/api/`；保持公共头、C 导出与调用方向 |
 | 原 `src/application/`、`world/`、`scene/`、`render/`、`input/`、`game/` | 已迁至 `src/engine/function/` 下同名模块，内部头统一 `.hpp`；Granit 后端随 Render |
 | 原 `src/asset/` | 基础能力已迁至 `src/engine/asset/`；纹理加载与上传事务归 `src/engine/function/render/texture_load_service.hpp`，CPU 准备与解析已归入 Asset，Render 仅传入发布预算 |
 | 原 `src/core/`、`reflection/`、`log/` | 已迁入 `src/engine/core/`；投递器使用 C++ 消息与事件视图，Application 回调适配留在所属模块 |

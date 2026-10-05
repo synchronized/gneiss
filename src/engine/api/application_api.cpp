@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "api/c/log_validation.hpp"
+#include "engine/api/log_validation.hpp"
 #include "engine/function/application/application_log_internal.hpp"
 #include "engine/function/application/application_registry.hpp"
 #include "engine/function/application/application_state.hpp"

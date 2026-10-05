@@ -8,7 +8,7 @@
 本文描述当前实际源码布局，不把已批准的迁移目标当成已实现。0.45 的精简目标目录与宿主边界见
 [ADR-054](../decisions/ADR-054-source-layout-and-host-boundaries.md)，迁移映射与验收见
 [DEV-045](../plans/DEV-045-cpp-boundaries.md)。Core、Platform、Asset 与 Function 已迁入 `src/engine/`，
-C ABI 适配与 `src/editor/` 尚未完成迁移；
+C ABI 适配已迁入 `src/engine/api/`，`src/editor/` 尚未完成迁移；
 `apps/` 保持位于仓库根目录，编辑器实现与入口的拆分尚未完成。
 
 总体分层以[总体架构](architecture.md)为准，代码与文档规范分别以
@@ -28,7 +28,7 @@ C ABI 适配与 `src/editor/` 尚未完成迁移；
 | `3rd/` | 锁定版本并与自有代码隔离的第三方依赖 |
 | `cmake/` | 项目构建策略和可复用的 CMake 模块 |
 
-当前 `gneiss_engine` 的四层实现已集中在 `src/engine/`，C ABI 适配仍位于 `src/api/c/`。
+当前 `gneiss_engine` 的四层实现已集中在 `src/engine/`，C ABI 适配位于 `src/engine/api/`。
 Runtime 宿主与 Editor 分别位于 `apps/runtime/` 和 `apps/editor/`；两者可以依赖 Engine Library，
 Engine Library 不得反向依赖它们。Editor 的 ImGui Context、字体、主题、DockSpace 和通用控件由
 不安装、不导出的 `gneiss_editor_ui` 内部静态库统一管理，业务面板状态仍由 Editor 应用层持有。
@@ -53,7 +53,7 @@ Engine Library 不得反向依赖它们。Editor 的 ImGui Context、字体、�
 | Game | `src/engine/function/game/` | Game Module 上下文与宿主桥接 | 已迁移 |
 | Reflection | `src/engine/core/reflection/` | 唯一类型注册表与属性访问 | 已存在 |
 | Log | `src/engine/core/log/` | 通用文本校验与异步事件投递；Application 独立适配公共回调 | 已迁移 |
-| C ABI | `src/api/c/` | 公开描述适配、异常隔离及内部入口委托 | 已存在 |
+| C ABI | `src/engine/api/` | 公开描述适配、异常隔离及内部入口委托 | 已存在 |
 | Tooling | `src/tooling/` | 离线资产处理实现 | 已存在 |
 | Granit 后端 | `src/engine/function/render/backend/granit/` | Granit 类型、调用和错误转换的隔离 | 已存在 |
 

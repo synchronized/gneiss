@@ -27,8 +27,8 @@ if(NOT "${symbols}" STREQUAL "${expected}")
 endif()
 # 此检查只防止漏登记；pending 不表示已经完成语义审查，发布门槛另行收口。
 
-# 已迁移的全部公共 C 定义必须集中于 api/c，并与声明清单逐项一致。
-file(GLOB adapters "${GNEISS_SOURCE_DIR}/src/api/c/*.cpp")
+# 已迁移的全部公共 C 定义必须集中于 engine/api，并与声明清单逐项一致。
+file(GLOB adapters "${GNEISS_SOURCE_DIR}/src/engine/api/*.cpp")
 set(definitions)
 foreach(adapter IN LISTS adapters)
   file(READ "${adapter}" content)
@@ -44,5 +44,5 @@ foreach(adapter IN LISTS adapters)
 endforeach()
 list(SORT definitions)
 if(NOT "${definitions}" STREQUAL "${expected}")
-  message(FATAL_ERROR "api/c 的公共定义与稳定性清单不一致")
+  message(FATAL_ERROR "engine/api 的公共定义与稳定性清单不一致")
 endif()

@@ -5,11 +5,10 @@ cmake_minimum_required(VERSION 3.23)
 if(NOT DEFINED GNEISS_SOURCE_DIR)
   message(FATAL_ERROR "缺少 GNEISS_SOURCE_DIR")
 endif()
-# 所有内部模块适用；公共边界单独位于 api/c。
+# 所有内部模块适用；公共边界单独位于 engine/api。
 file(GLOB_RECURSE sources "${GNEISS_SOURCE_DIR}/src/*.cpp"
                           "${GNEISS_SOURCE_DIR}/src/*.h"
                           "${GNEISS_SOURCE_DIR}/src/*.hpp")
-list(FILTER sources EXCLUDE REGEX "/src/api/c/")
 if(NOT sources)
   message(FATAL_ERROR "内部模块 检查未找到源码，拒绝空检查")
 endif()
@@ -18,6 +17,10 @@ foreach(source IN LISTS sources)
   if(source MATCHES "/src/engine/" AND
       content MATCHES "#[ \t]*include[ \t]*[<\"](apps|editor|tooling)/")
     message(FATAL_ERROR "Engine 不得反向包含宿主、编辑器或离线工具：${source}")
+  endif()
+  # C 适配仅豁免内部入口规则，仍遵守 Engine 对宿主的依赖方向。
+  if(source MATCHES "/src/engine/api/")
+    continue()
   endif()
   if(source MATCHES "(/src/engine/asset/asset_(preparation|parsing)|/src/(engine/function/)?render/(render_asset_preparation|render_resource_data))\\.(cpp|hpp)$" AND
       content MATCHES "#[ \t]*include[ \t]*[<\"]((engine/function/)?render/(render_asset_loader|render_resource_service)\\.(h|hpp)|engine/(asset/resource_cache|core/rid_table)\\.hpp)[>\"]")

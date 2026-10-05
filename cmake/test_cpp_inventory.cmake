@@ -3,7 +3,7 @@
 
 cmake_minimum_required(VERSION 3.23)
 set(fixture "${GNEISS_BINARY_DIR}/cpp-inventory-fixture")
-file(MAKE_DIRECTORY "${fixture}/src/api/c" "${fixture}/abi" "${fixture}/docs/records/artifacts")
+file(MAKE_DIRECTORY "${fixture}/src/engine/api" "${fixture}/abi" "${fixture}/docs/records/artifacts")
 configure_file("${GNEISS_SOURCE_DIR}/abi/api-stability.txt" "${fixture}/abi/api-stability.txt" COPYONLY)
 configure_file("${GNEISS_SOURCE_DIR}/docs/records/artifacts/0.45-api-inventory.json"
   "${fixture}/docs/records/artifacts/0.45-api-inventory.json" COPYONLY)
@@ -32,7 +32,7 @@ foreach(case IN ITEMS valid missing duplicate extra)
   else()
     set(content "${complete}extern \"C\" void gneiss_unregistered_probe() {}\n")
   endif()
-  file(WRITE "${fixture}/src/api/c/probe.cpp" "${content}")
+  file(WRITE "${fixture}/src/engine/api/probe.cpp" "${content}")
   execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
     -P "${GNEISS_SOURCE_DIR}/cmake/check_cpp_inventory.cmake"
     RESULT_VARIABLE result OUTPUT_QUIET ERROR_QUIET)
