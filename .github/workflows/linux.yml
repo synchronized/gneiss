@@ -5,6 +5,12 @@ name: Linux
 
 on:
   workflow_dispatch:
+    inputs:
+      scope:
+        description: "all 为完整矩阵；editor 仅验证 Editor/Runtime 相关修改"
+        type: choice
+        default: all
+        options: [all, editor]
 
 permissions:
   contents: read
@@ -18,6 +24,7 @@ env:
 
 jobs:
   task-web:
+    if: ${{ inputs.scope != 'editor' }}
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
@@ -44,6 +51,7 @@ jobs:
             build/task-web/browser.log
 
   core:
+    if: ${{ inputs.scope != 'editor' }}
     runs-on: ubuntu-24.04
     container:
       image: >-
@@ -187,6 +195,7 @@ jobs:
         run: ccache --show-stats
 
   sanitizer-runtime:
+    if: ${{ inputs.scope != 'editor' }}
     runs-on: ubuntu-24.04
     container:
       image: >-

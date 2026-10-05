@@ -422,3 +422,8 @@ Debug/Release 路径与输出目录参数；工具顺序运行两种模式，每
 - 找不到 Granit：确认安装前缀包含 `lib/cmake/granit/granitConfig.cmake`，且安装时包含 Window
   组件；源码联调时由父工程先添加 Granit，再添加 Gneiss；无网络环境使用 `PACKAGE`，避免 AUTO
   在 package 缺失时尝试下载。
+
+
+手动 Windows/Linux Actions 的 `scope` 默认为 `all`，运行完整发布矩阵。只修改 Editor/Runtime
+或其测试后可选 `editor` 补验宿主矩阵；该范围不能代替首次完整验收，未执行的核心、Web 和安装
+任务仍须单独完成。纯记录更新不重跑矩阵。

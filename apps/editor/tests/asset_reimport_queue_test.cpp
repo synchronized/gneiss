@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cstdio>
 #include <filesystem>
 #include <fstream>
 #include <stdexcept>
@@ -13,6 +14,11 @@
 namespace {
 
 using queue = gneiss::editor::asset_reimport_queue;
+
+[[nodiscard]] int failed(int stage) {
+  std::fprintf(stderr, "重导入队列测试失败：阶段=%d\n", stage);
+  return stage;
+}
 
 [[nodiscard]] bool has_state(const std::vector<gneiss::editor::asset_reimport_event>& events,
                              gneiss::editor::asset_reimport_state state) {
@@ -23,7 +29,9 @@ using queue = gneiss::editor::asset_reimport_queue;
 
 int main() { // NOLINT(bugprone-exception-escape)
   const auto fixture_root = std::filesystem::path{GNEISS_EDITOR_TEST_GLTF_ROOT};
-  const auto root = std::filesystem::temp_directory_path() / "gneiss-reimport-queue-test";
+  // 导入器返回规范路径；临时目录可能含短路径或目录联接，相对路径必须使用同一基准。
+  const auto root = std::filesystem::weakly_canonical(std::filesystem::temp_directory_path()) /
+                    "gneiss-reimport-queue-test";
   const auto assets = root / "assets";
   std::filesystem::remove_all(root);
   std::filesystem::create_directories(assets);
@@ -32,7 +40,7 @@ int main() { // NOLINT(bugprone-exception-escape)
       gneiss::editor::import_external_asset(root, assets, fixture_root / "static_triangle.gltf");
   if (initial.result != gneiss::editor::editor_import_result::success) {
     std::filesystem::remove_all(root);
-    return 1;
+    return failed(1);
   }
   const auto relative = initial.source_path.lexically_relative(root / "sources");
   const auto start = queue::clock::now();
@@ -47,14 +55,14 @@ int main() { // NOLINT(bugprone-exception-escape)
       reimports.tick(root, assets, start + std::chrono::milliseconds{25}) != 0U ||
       reimports.tick(root, assets, start + std::chrono::milliseconds{35}) != 0U) {
     std::filesystem::remove_all(root);
-    return 2;
+    return failed(2);
   }
   std::vector<gneiss::editor::asset_reimport_event> events;
   const auto unchanged_event_count = reimports.poll_events(events);
   if (unchanged_event_count == 0U ||
       !has_state(events, gneiss::editor::asset_reimport_state::unchanged)) {
     std::filesystem::remove_all(root);
-    return 3;
+    return failed(3);
   }
 
   std::ofstream(initial.source_path, std::ios::binary | std::ios::app) << ' ';
@@ -63,7 +71,7 @@ int main() { // NOLINT(bugprone-exception-escape)
       reimports.tick(root, assets, changed + std::chrono::milliseconds{20}) != 0U ||
       reimports.tick(root, assets, changed + std::chrono::milliseconds{30}) != 1U) {
     std::filesystem::remove_all(root);
-    return 4;
+    return failed(4);
   }
   events.clear();
   const auto imported_event_count = reimports.poll_events(events);
@@ -71,7 +79,7 @@ int main() { // NOLINT(bugprone-exception-escape)
       !has_state(events, gneiss::editor::asset_reimport_state::importing) ||
       !has_state(events, gneiss::editor::asset_reimport_state::succeeded)) {
     std::filesystem::remove_all(root);
-    return 5;
+    return failed(5);
   }
 
   const auto untracked = std::filesystem::path{"untracked.gltf"};
@@ -80,14 +88,14 @@ int main() { // NOLINT(bugprone-exception-escape)
   if (reimports.notify(untracked, later) != gneiss::result::success ||
       reimports.tick(root, assets, later + std::chrono::milliseconds{20}) != 0U) {
     std::filesystem::remove_all(root);
-    return 6;
+    return failed(6);
   }
   events.clear();
   const auto untracked_event_count = reimports.poll_events(events);
   if (untracked_event_count == 0U ||
       !has_state(events, gneiss::editor::asset_reimport_state::untracked)) {
     std::filesystem::remove_all(root);
-    return 7;
+    return failed(7);
   }
 
   queue bounded({.capacity = 1U});
@@ -95,13 +103,13 @@ int main() { // NOLINT(bugprone-exception-escape)
       bounded.notify("second.gltf", start) != gneiss::result::not_ready ||
       bounded.dropped_candidate_count() != 1U) {
     std::filesystem::remove_all(root);
-    return 8;
+    return failed(8);
   }
 
   const auto second =
       gneiss::editor::import_external_asset(root, assets, fixture_root / "static_triangle.gltf");
   if (second.result != gneiss::editor::editor_import_result::success) {
-    return 11;
+    return failed(11);
   }
   const auto failing_relative = second.source_path.lexically_relative(root / "sources");
   std::ofstream(second.source_path, std::ios::app) << ' ';
@@ -128,7 +136,7 @@ int main() { // NOLINT(bugprone-exception-escape)
       isolated.tick(root, assets, start) != 0U ||
       isolated.tick(root, assets, start + std::chrono::milliseconds{1}) != 1U || attempts != 1U ||
       isolated.pending_count() != 1U) {
-    return 12;
+    return failed(12);
   }
   events.clear();
   (void)isolated.poll_events(events);
@@ -143,14 +151,14 @@ int main() { // NOLINT(bugprone-exception-escape)
       isolated.tick(root, assets, start + std::chrono::milliseconds{2}) != 1U || attempts != 2U ||
       isolated.pending_count() != 0U ||
       isolated.tick(root, assets, start + std::chrono::milliseconds{3}) != 0U || attempts != 2U) {
-    return 13;
+    return failed(13);
   }
   failure_mode = 0;
   if (isolated.notify(failing_relative, later) != gneiss::result::success ||
       isolated.tick(root, assets, later) != 0U ||
       isolated.tick(root, assets, later + std::chrono::milliseconds{1}) != 1U || attempts != 3U ||
       isolated.pending_count() != 0U) {
-    return 14;
+    return failed(14);
   }
   events.clear();
   (void)isolated.poll_events(events);
@@ -158,7 +166,7 @@ int main() { // NOLINT(bugprone-exception-escape)
         return event.state == gneiss::editor::asset_reimport_state::succeeded &&
                event.relative_path == failing_relative;
       })) {
-    return 15;
+    return failed(15);
   }
   failure_mode = 2;
   std::ofstream(second.source_path, std::ios::app) << ' ';
@@ -166,12 +174,12 @@ int main() { // NOLINT(bugprone-exception-escape)
       isolated.tick(root, assets, later) != 0U ||
       isolated.tick(root, assets, later + std::chrono::milliseconds{1}) != 1U ||
       isolated.pending_count() != 0U) {
-    return 16;
+    return failed(16);
   }
   events.clear();
   (void)isolated.poll_events(events);
   if (!has_state(events, gneiss::editor::asset_reimport_state::failed)) {
-    return 17;
+    return failed(17);
   }
 
   // 模拟监听事件完全丢失：不 notify，容量为 1 的队列仍应检查两个索引源。
@@ -181,14 +189,14 @@ int main() { // NOLINT(bugprone-exception-escape)
                   .capacity = 1U});
   recovery.request_rescan();
   if (recovery.tick(root, assets, later, 1U, 0U) != 0U || !recovery.is_rescanning()) {
-    return 18;
+    return failed(18);
   }
   std::size_t recovered = 0U;
   for (int frame = 0; frame < 30 && recovery.is_rescanning(); ++frame) {
     const auto count =
         recovery.tick(root, assets, later + std::chrono::milliseconds{frame}, 1U, 1U);
     if (count > 1U || recovery.pending_count() > 1U) {
-      return 19;
+      return failed(19);
     }
     recovered += count;
     if (frame == 0) {
@@ -199,7 +207,7 @@ int main() { // NOLINT(bugprone-exception-escape)
   }
   if (recovery.is_rescanning() || recovery.rescan_result() != gneiss::result::success ||
       recovered != 2U || recovery.dropped_candidate_count() != 0U) {
-    return 20;
+    return failed(20);
   }
 
   std::filesystem::remove(initial.source_path);
@@ -210,7 +218,7 @@ int main() { // NOLINT(bugprone-exception-escape)
     if (recovery.tick(root, assets,
                       later + std::chrono::seconds{1} + std::chrono::milliseconds{frame}, 1U,
                       1U) != 0U) {
-      return 21;
+      return failed(21);
     }
     events.clear();
     (void)recovery.poll_events(events);
@@ -218,7 +226,7 @@ int main() { // NOLINT(bugprone-exception-escape)
     recovered_unchanged |= has_state(events, gneiss::editor::asset_reimport_state::unchanged);
   }
   if (recovery.is_rescanning() || !recovered_removal || !recovered_unchanged) {
-    return 22;
+    return failed(22);
   }
   const auto broken_project = root / "broken";
   std::filesystem::create_directories(broken_project / ".gneiss");
@@ -226,26 +234,26 @@ int main() { // NOLINT(bugprone-exception-escape)
   recovery.request_rescan();
   (void)recovery.tick(broken_project, assets, later);
   if (recovery.is_rescanning() || recovery.rescan_result() != gneiss::result::io) {
-    return 23;
+    return failed(23);
   }
   recovery.request_rescan();
   (void)recovery.tick(root, assets, later);
   if (recovery.rescan_result() != gneiss::result::success) {
-    return 24;
+    return failed(24);
   }
 
   const auto removed = later + std::chrono::seconds{1};
   if (reimports.notify(relative, removed) != gneiss::result::success ||
       reimports.tick(root, assets, removed + std::chrono::milliseconds{20}) != 0U) {
     std::filesystem::remove_all(root);
-    return 9;
+    return failed(9);
   }
   events.clear();
   const auto removed_event_count = reimports.poll_events(events);
   if (removed_event_count == 0U ||
       !has_state(events, gneiss::editor::asset_reimport_state::removed)) {
     std::filesystem::remove_all(root);
-    return 10;
+    return failed(10);
   }
 
   std::filesystem::remove_all(root);
