@@ -154,6 +154,8 @@ add_test(NAME gneiss.log_dispatcher COMMAND gneiss_log_dispatcher_test)
 add_executable(gneiss_game_context_test game_context_test.cpp)
 target_include_directories(gneiss_game_context_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_link_libraries(gneiss_game_context_test PRIVATE gneiss::engine)
+target_compile_definitions(gneiss_game_context_test
+  PRIVATE GNEISS_TEST_ASSET_ROOT="${PROJECT_SOURCE_DIR}/tests/data/assets")
 target_compile_features(gneiss_game_context_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_game_context_test)
 gneiss_target_output_directories(gneiss_game_context_test)
@@ -416,6 +418,15 @@ target_compile_features(gneiss_cpp_application_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_cpp_application_test)
 gneiss_target_output_directories(gneiss_cpp_application_test)
 add_test(NAME gneiss.cpp_application COMMAND gneiss_cpp_application_test)
+
+add_executable(gneiss_cpp_input_test cpp_input_test.cpp)
+target_link_libraries(gneiss_cpp_input_test PRIVATE gneiss::engine)
+target_compile_definitions(gneiss_cpp_input_test
+  PRIVATE GNEISS_TEST_ASSET_ROOT="${PROJECT_SOURCE_DIR}/tests/data/assets")
+target_compile_features(gneiss_cpp_input_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_cpp_input_test)
+gneiss_target_output_directories(gneiss_cpp_input_test)
+add_test(NAME gneiss.cpp_input COMMAND gneiss_cpp_input_test)
 
 if(GNEISS_ENABLE_GRANIT_PLATFORM)
   add_executable(

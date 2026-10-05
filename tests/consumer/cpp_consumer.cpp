@@ -20,6 +20,13 @@ int main() {
   if (gneiss::application::create(desc, application) != gneiss::result::success) {
     return 1;
   }
+  gneiss::action_id action;
+  gneiss::action_state input = GNEISS_ACTION_STATE_INIT;
+  if (application.load_action_map("asset://input/default.input-map.json").failed() ||
+      application.find_action("move_horizontal", action).failed() ||
+      application.get_action_state(action, input).failed()) {
+    return 6;
+  }
 
   gneiss::scene_instance scene;
   if (gneiss::scene_instance::load(application.get(), scene_uri, scene) !=

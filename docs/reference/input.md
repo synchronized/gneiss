@@ -26,3 +26,13 @@ UTF-8 文本或指针负载。物理键值采用 USB HID Keyboard/Keypad usage�
 Granit 的类型、句柄和枚举只存在于 `src/engine/platform/granit/`，不属于 Gneiss 公共 ABI。版本化动作
 映射在原始快照之上提供 `pressed`、`held`、`released` 和标量值，格式与句柄规则见
 [输入动作映射格式 v1](input-map-format.md)。
+
+## C++ 入口
+
+`application` 提供 `poll_input`、`get_keyboard_state`、`get_pointer_state`、`load_action_map`、
+`find_action` 和 `get_action_state` 成员；不需要先取出裸 Application 句柄。
+事件和状态是 C 布局的值类型映射，仍须使用对应 `GNEISS_*_INIT` 初始化结构尺寸，线程和错误规则与 C API 一致。
+
+`action_id` 是非拥有的强类型标识，不能隐式当作实体或其他整数句柄。动作映射成功重载后旧 ID
+失效，加载失败保留原映射；ID 不能跨 Application 使用。`find_action` 的强类型重载失败时保留
+原输出，非零 ID 不保证映射仍存活。原 `action` 整数别名和接受裸 Application 的自由函数保留兼容。

@@ -134,9 +134,13 @@
       "cpp_candidate_files": [
         "include/gneiss/game_module.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "借用 World，限生命周期回调线程；强类型输出失败保留，不延长父资源寿命",
+      "tests": [
+        "gneiss.game_context",
+        "gneiss.cpp_game_module"
+      ],
+      "cpp_entry": "gneiss::game_context::get_world(world_ref&)"
     },
     {
       "symbol": "gneiss_game_context_get_startup_root_entity",
@@ -144,9 +148,13 @@
       "cpp_candidate_files": [
         "include/gneiss/game_module.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "借用启动实体，限生命周期回调线程；强类型输出失败保留",
+      "tests": [
+        "gneiss.game_context",
+        "gneiss.cpp_game_module"
+      ],
+      "cpp_entry": "gneiss::game_context::get_startup_root_entity(entity_id&)"
     },
     {
       "symbol": "gneiss_game_context_find_action",
@@ -154,9 +162,13 @@
       "cpp_candidate_files": [
         "include/gneiss/game_module.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "上下文验证后借用所属 Application 动作；强类型输出失败不变",
+      "tests": [
+        "gneiss.game_context",
+        "gneiss.cpp_game_module"
+      ],
+      "cpp_entry": "gneiss::game_context::find_action(name, action_id&)"
     },
     {
       "symbol": "gneiss_game_context_get_action_state",
@@ -164,9 +176,13 @@
       "cpp_candidate_files": [
         "include/gneiss/game_module.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "所属生命周期线程读取动作值快照；所有权和 generation 与 Application 动作相同",
+      "tests": [
+        "gneiss.game_context",
+        "gneiss.cpp_game_module"
+      ],
+      "cpp_entry": "gneiss::game_context::get_action_state(action_id, action_state&)"
     },
     {
       "symbol": "gneiss_game_context_request_exit",
@@ -234,61 +250,91 @@
       "symbol": "gneiss_application_poll_input",
       "header": "include/gneiss/input.h",
       "cpp_candidate_files": [
-        "include/gneiss/input.hpp"
+        "include/gneiss/input.hpp",
+        "include/gneiss/application.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "所属线程消费当帧队列；事件值复制，队列空 not_ready；结构尺寸规则继承 C",
+      "tests": [
+        "gneiss.cpp_input",
+        "gneiss.c_application"
+      ],
+      "cpp_entry": "gneiss::application::poll_input / gneiss::poll_input"
     },
     {
       "symbol": "gneiss_application_get_keyboard_state",
       "header": "include/gneiss/input.h",
       "cpp_candidate_files": [
-        "include/gneiss/input.hpp"
+        "include/gneiss/input.hpp",
+        "include/gneiss/application.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "所属线程输出键盘值快照，不借用后端内存",
+      "tests": [
+        "gneiss.cpp_input",
+        "gneiss.c_application"
+      ],
+      "cpp_entry": "gneiss::application::get_keyboard_state / gneiss::get_keyboard_state"
     },
     {
       "symbol": "gneiss_application_get_pointer_state",
       "header": "include/gneiss/input.h",
       "cpp_candidate_files": [
-        "include/gneiss/input.hpp"
+        "include/gneiss/input.hpp",
+        "include/gneiss/application.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "所属线程输出指针值快照，不借用后端内存",
+      "tests": [
+        "gneiss.cpp_input",
+        "gneiss.c_application"
+      ],
+      "cpp_entry": "gneiss::application::get_pointer_state / gneiss::get_pointer_state"
     },
     {
       "symbol": "gneiss_application_load_action_map",
       "header": "include/gneiss/input.h",
       "cpp_candidate_files": [
-        "include/gneiss/input.hpp"
+        "include/gneiss/input.hpp",
+        "include/gneiss/application.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "URI 只在调用期间借用；成功替换映射使旧动作 ID 失效，失败保留映射",
+      "tests": [
+        "gneiss.cpp_input",
+        "gneiss.c_application"
+      ],
+      "cpp_entry": "gneiss::application::load_action_map / gneiss::load_action_map"
     },
     {
       "symbol": "gneiss_application_find_action",
       "header": "include/gneiss/input.h",
       "cpp_candidate_files": [
-        "include/gneiss/input.hpp"
+        "include/gneiss/input.hpp",
+        "include/gneiss/application.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "借用强类型 action_id，限所属线程；强类型输出失败不变，原整数别名入口保留兼容",
+      "tests": [
+        "gneiss.cpp_input",
+        "gneiss.c_application"
+      ],
+      "cpp_entry": "gneiss::application::find_action / gneiss::find_action"
     },
     {
       "symbol": "gneiss_application_get_action_state",
       "header": "include/gneiss/input.h",
       "cpp_candidate_files": [
-        "include/gneiss/input.hpp"
+        "include/gneiss/input.hpp",
+        "include/gneiss/application.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "输出当帧值快照；不拥有动作，拒绝过期 generation 与跨 Application 动作，结构尺寸校验同 C",
+      "tests": [
+        "gneiss.cpp_input",
+        "gneiss.c_application"
+      ],
+      "cpp_entry": "gneiss::application::get_action_state / gneiss::get_action_state"
     },
     {
       "symbol": "gneiss_log_message_validate",

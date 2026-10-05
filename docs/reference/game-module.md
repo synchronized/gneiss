@@ -81,3 +81,11 @@ World、实体和动作均为借用值，不得在 Context 销毁后继续使用
 - `gneiss::validate_game_module`：返回 `gneiss::result` 的轻量描述校验。
 
 C++ 包装不建立第二套模块状态，也不改变 C ABI 的所有权和线程规则。
+
+## C++ 借用视图
+
+`game_context` 不拥有上下文，也不改变 Runtime 的创建/销毁规则。`get_world(world_ref&)`、
+`get_startup_root_entity(entity_id&)`、`find_action(name, action_id&)` 提供强类型借用输出，
+失败时保留调用方原值；动作状态可直接用 `action_id` 查询。原裸句柄重载继续可用。
+这些查询只允许在模块生命周期回调线程执行；上下文失效或完整场景切换后重新获取当前借用视图，
+不能依靠 C++ 包装延长 World、实体或动作映射寿命。跨线程日志的例外仍遵循原日志契约。

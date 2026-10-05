@@ -6,6 +6,7 @@
 
 #include <gneiss/application.h>
 #include <gneiss/core/result.hpp>
+#include <gneiss/input.hpp>
 #include <gneiss/render.hpp>
 #include <gneiss/world.hpp>
 
@@ -64,6 +65,29 @@ public:
   }
   [[nodiscard]] result set_paused(bool is_paused) noexcept {
     return from_native(gneiss_application_set_paused(handle_, is_paused ? UINT8_C(1) : UINT8_C(0)));
+  }
+  /** 取出当帧输入事件；队列为空返回 not_ready，仅限创建线程。 */
+  [[nodiscard]] result poll_input(input_event& output) noexcept {
+    return gneiss::poll_input(handle_, output);
+  }
+  /** 输出键盘值快照；仅限创建线程。 */
+  [[nodiscard]] result get_keyboard_state(keyboard_state& output) const noexcept {
+    return gneiss::get_keyboard_state(handle_, output);
+  }
+  /** 输出指针值快照；仅限创建线程。 */
+  [[nodiscard]] result get_pointer_state(pointer_state& output) const noexcept {
+    return gneiss::get_pointer_state(handle_, output);
+  }
+  /** 同步加载动作映射；成功使旧动作 ID 失效，失败保留原映射。 */
+  [[nodiscard]] result load_action_map(std::string_view uri) noexcept {
+    return gneiss::load_action_map(handle_, uri);
+  }
+  /** 返回非拥有动作 ID；失败保留 output，仅限创建线程。 */
+  [[nodiscard]] result find_action(std::string_view name, action_id& output) const noexcept {
+    return gneiss::find_action(handle_, name, output);
+  }
+  [[nodiscard]] result get_action_state(action_id id, action_state& output) const noexcept {
+    return gneiss::get_action_state(handle_, id, output);
   }
   [[nodiscard]] result get_world(gneiss_world& out_world) const noexcept {
     return from_native(gneiss_application_get_world(handle_, &out_world));
