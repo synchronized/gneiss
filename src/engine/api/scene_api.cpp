@@ -14,6 +14,7 @@
 #include <new>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace {
 using gneiss::application_internal::find_application;
@@ -482,12 +483,25 @@ gneiss_scene_instance_restore_subtree(gneiss_application application,
   try {
     auto state = find_application(application);
     const auto validation_result = validate_application(state);
-    return validation_result == GNEISS_SUCCESS
-               ? state->scenes()->restore_subtree(
-                     instance,
-                     std::string_view(snapshot, static_cast<std::size_t>(snapshot_length)), parent,
-                     mappings, mapping_count, out_root)
-               : validation_result;
+    if (validation_result != GNEISS_SUCCESS) {
+      return validation_result;
+    }
+    std::vector<gneiss::scene_internal::uuid_mapping> values;
+    values.reserve(static_cast<std::size_t>(mapping_count));
+    for (std::uint64_t index = 0; index < mapping_count; ++index) {
+      const auto& mapping = mappings[index];
+      values.push_back({
+          .source_uuid = std::string_view(mapping.source_uuid,
+                                          static_cast<std::size_t>(mapping.source_uuid_length)),
+          .target_uuid = std::string_view(mapping.target_uuid,
+                                          static_cast<std::size_t>(mapping.target_uuid_length)),
+      });
+    }
+    return state->scenes()->restore_subtree(
+        instance, std::string_view(snapshot, static_cast<std::size_t>(snapshot_length)), parent,
+        values, out_root);
+  } catch (const std::bad_alloc&) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;
   }
@@ -601,8 +615,22 @@ extern "C" gneiss_result gneiss_scene_instance_set_camera(gneiss_application app
   try {
     auto state = find_application(application);
     const auto validation_result = validate_application(state);
-    return validation_result == GNEISS_SUCCESS ? state->scenes()->set_camera(instance, node, *desc)
-                                               : validation_result;
+    if (validation_result != GNEISS_SUCCESS) {
+      return validation_result;
+    }
+    if (desc->camera.reserved != 0U) {
+      // 保留既有错误顺序：场景/作者节点无效时优先报告句柄错误。
+      const auto node_result = state->scenes()->validate_editable_node(instance, node);
+      return node_result == GNEISS_SUCCESS ? GNEISS_ERROR_INVALID_ARGUMENT : node_result;
+    }
+    return state->scenes()->set_camera(
+        instance, node,
+        {
+            .vertical_field_of_view_radians = desc->camera.vertical_field_of_view_radians,
+            .near_plane = desc->camera.near_plane,
+            .far_plane = desc->camera.far_plane,
+            .is_primary = desc->is_primary != 0U,
+        });
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;
   }

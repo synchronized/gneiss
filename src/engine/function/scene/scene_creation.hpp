@@ -33,4 +33,10 @@ struct prefab_creation {
   gneiss_transform local_transform = GNEISS_TRANSFORM_IDENTITY;
 };
 
+/** 子树恢复期间借用；UUID 重写规则与唯一性仍由 Scene 校验。 */
+struct uuid_mapping {
+  std::string_view source_uuid;
+  std::string_view target_uuid;
+};
+
 } // namespace gneiss::scene_internal

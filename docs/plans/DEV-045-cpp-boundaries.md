@@ -45,6 +45,7 @@ ABI 入口已按 ADR-054 迁至 `src/engine/api/`；
 
 Scene 三类节点创建的参数转换已留在 API，见 [创建边界记录](../records/M-294-scene-creation-boundary.md)。
 普通节点及 Prefab 查询已返回内部借用视图，见 [查询边界记录](../records/M-294-scene-query-boundary.md)。
+相机与子树 UUID 映射的收口见 [编辑边界记录](../records/M-294-scene-edit-boundary.md)。
 
 1. 将句柄解析与公开描述校验和核心生命周期、World 操作、场景逻辑分开，注册表保持唯一。
 2. Application 只装配与协调；服务资源仍由对应 Service 管理。Scene 节点只关联实体 ID。

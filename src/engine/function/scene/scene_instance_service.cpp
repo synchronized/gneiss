@@ -1082,8 +1082,7 @@ gneiss_result scene_instance::capture_subtree(gneiss_scene_node_id root,
 
 gneiss_result scene_instance::restore_subtree(std::string_view snapshot,
                                               gneiss_scene_node_id parent,
-                                              const gneiss_scene_uuid_mapping* mappings,
-                                              std::uint64_t mapping_count,
+                                              std::span<const uuid_mapping> mappings,
                                               gneiss_scene_node_id* out_root) {
   scene_description subtree;
   scene_diagnostic diagnostic;
@@ -1125,19 +1124,16 @@ gneiss_result scene_instance::restore_subtree(std::string_view snapshot,
     }
     const auto source_root_uuid = root->uuid;
     std::unordered_map<std::string, std::string> uuid_map;
-    if (mapping_count != 0U) {
-      if (mapping_count != subtree.objects.size()) {
+    if (!mappings.empty()) {
+      if (mappings.size() != subtree.objects.size()) {
         return GNEISS_ERROR_INVALID_ARGUMENT;
       }
-      uuid_map.reserve(static_cast<std::size_t>(mapping_count));
+      uuid_map.reserve(mappings.size());
       std::unordered_set<std::string> targets;
-      targets.reserve(static_cast<std::size_t>(mapping_count));
-      for (std::uint64_t index = 0; index < mapping_count; ++index) {
-        const auto& mapping = mappings[index];
-        const std::string source(mapping.source_uuid,
-                                 static_cast<std::size_t>(mapping.source_uuid_length));
-        const std::string target(mapping.target_uuid,
-                                 static_cast<std::size_t>(mapping.target_uuid_length));
+      targets.reserve(mappings.size());
+      for (const auto& mapping : mappings) {
+        const std::string source(mapping.source_uuid);
+        const std::string target(mapping.target_uuid);
         if (!source_uuids.contains(source) || !is_canonical_uuid(target) ||
             find_node(target) != GNEISS_NULL_SCENE_NODE_ID ||
             !uuid_map.emplace(source, target).second || !targets.emplace(target).second) {
@@ -1424,39 +1420,34 @@ gneiss_result scene_instance::set_mesh_renderer(gneiss_scene_node_id node,
 }
 
 gneiss_result scene_instance::set_camera(gneiss_scene_node_id node,
-                                         const gneiss_scene_camera_desc& desc) {
+                                         const camera_description& desc) {
   const auto found = std::ranges::find(objects, node, &object::node);
   if (found == objects.end()) {
     return GNEISS_ERROR_INVALID_HANDLE;
   }
-  if (desc.camera.struct_size < sizeof(gneiss_camera_desc) || desc.camera.reserved != 0U) {
-    return GNEISS_ERROR_INVALID_ARGUMENT;
-  }
   const auto result = gneiss::world_internal::entity_configure_camera(
       world_, found->entity,
-      {.vertical_field_of_view_radians = desc.camera.vertical_field_of_view_radians, .near_plane = desc.camera.near_plane, .far_plane = desc.camera.far_plane});
+      {.vertical_field_of_view_radians = desc.vertical_field_of_view_radians,
+       .near_plane = desc.near_plane,
+       .far_plane = desc.far_plane});
   if (result != GNEISS_SUCCESS) {
     return result;
   }
-  if (desc.is_primary != 0U) {
+  if (desc.is_primary) {
     const auto active_result = gneiss::world_internal::set_active_camera(world_, found->entity);
     if (active_result != GNEISS_SUCCESS) {
       return active_result;
     }
   }
   const auto index = static_cast<std::size_t>(std::distance(objects.begin(), found));
-  if (desc.is_primary != 0U) {
+  if (desc.is_primary) {
     for (auto& author : description.objects) {
       if (author.camera) {
         author.camera->is_primary = false;
       }
     }
   }
-  description.objects[index].camera = camera_description{
-      .vertical_field_of_view_radians = desc.camera.vertical_field_of_view_radians,
-      .near_plane = desc.camera.near_plane,
-      .far_plane = desc.camera.far_plane,
-      .is_primary = desc.is_primary != 0U};
+  description.objects[index].camera = desc;
   return GNEISS_SUCCESS;
 }
 
@@ -1942,8 +1933,7 @@ gneiss_result scene_instance_service::capture_subtree(gneiss_scene_instance inst
 gneiss_result scene_instance_service::restore_subtree(gneiss_scene_instance instance,
                                                       std::string_view snapshot,
                                                       gneiss_scene_node_id parent,
-                                                      const gneiss_scene_uuid_mapping* mappings,
-                                                      std::uint64_t mapping_count,
+                                                      std::span<const uuid_mapping> mappings,
                                                       gneiss_scene_node_id* out_root) noexcept {
   if (out_root == nullptr) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
@@ -1953,7 +1943,7 @@ gneiss_result scene_instance_service::restore_subtree(gneiss_scene_instance inst
     auto* value = instances_.get(instance, core::resource_type::scene_instance);
     return value == nullptr || *value == nullptr
                ? GNEISS_ERROR_INVALID_HANDLE
-               : (*value)->restore_subtree(snapshot, parent, mappings, mapping_count, out_root);
+               : (*value)->restore_subtree(snapshot, parent, mappings, out_root);
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;
   }
@@ -2002,9 +1992,22 @@ gneiss_result scene_instance_service::set_mesh_renderer(gneiss_scene_instance in
   }
 }
 
+gneiss_result
+scene_instance_service::validate_editable_node(gneiss_scene_instance instance,
+                                               gneiss_scene_node_id node) const noexcept {
+  const auto* value = instances_.get(instance, core::resource_type::scene_instance);
+  if (value == nullptr || *value == nullptr) {
+    return GNEISS_ERROR_INVALID_HANDLE;
+  }
+  return std::ranges::find((*value)->objects, node, &scene_instance::object::node) ==
+                 (*value)->objects.end()
+             ? GNEISS_ERROR_INVALID_HANDLE
+             : GNEISS_SUCCESS;
+}
+
 gneiss_result scene_instance_service::set_camera(gneiss_scene_instance instance,
                                                  gneiss_scene_node_id node,
-                                                 const gneiss_scene_camera_desc& desc) noexcept {
+                                                 const camera_description& desc) noexcept {
   auto* value = instances_.get(instance, core::resource_type::scene_instance);
   return value == nullptr || *value == nullptr ? GNEISS_ERROR_INVALID_HANDLE
                                                : (*value)->set_camera(node, desc);

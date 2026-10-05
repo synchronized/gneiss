@@ -15,6 +15,7 @@
 #include <gneiss/scene.h>
 
 #include <memory>
+#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -77,8 +78,7 @@ public:
                                               std::string& out_snapshot) const;
   [[nodiscard]] gneiss_result restore_subtree(std::string_view snapshot,
                                               gneiss_scene_node_id parent,
-                                              const gneiss_scene_uuid_mapping* mappings,
-                                              std::uint64_t mapping_count,
+                                              std::span<const uuid_mapping> mappings,
                                               gneiss_scene_node_id* out_root);
   [[nodiscard]] gneiss_result destroy_subtree(gneiss_scene_node_id root);
   [[nodiscard]] gneiss_result create_mesh_renderer_node(const mesh_renderer_node_creation& desc,
@@ -86,8 +86,7 @@ public:
   [[nodiscard]] gneiss_result set_mesh_renderer(gneiss_scene_node_id node,
                                                 std::string_view mesh_uri,
                                                 std::string_view material_uri);
-  [[nodiscard]] gneiss_result set_camera(gneiss_scene_node_id node,
-                                         const gneiss_scene_camera_desc& desc);
+  [[nodiscard]] gneiss_result set_camera(gneiss_scene_node_id node, const camera_description& desc);
   [[nodiscard]] gneiss_result remove_camera(gneiss_scene_node_id node);
   [[nodiscard]] gneiss_result remove_mesh_renderer(gneiss_scene_node_id node);
   [[nodiscard]] gneiss_result destroy_node(gneiss_scene_node_id node);
@@ -117,6 +116,9 @@ private:
 
 class scene_instance_service final {
 public:
+  /** 验证普通作者节点归属，不接受 Prefab 的只读来源节点。 */
+  [[nodiscard]] gneiss_result validate_editable_node(gneiss_scene_instance instance,
+                                                     gneiss_scene_node_id node) const noexcept;
   scene_instance_service(gneiss_world world, const asset_internal::virtual_file_system& file_system,
                          render_internal::render_asset_loader& loader,
                          prefab_asset_loader& prefab_loader) noexcept;
@@ -179,10 +181,11 @@ public:
   [[nodiscard]] gneiss_result capture_subtree(gneiss_scene_instance instance,
                                               gneiss_scene_node_id root,
                                               std::string& out_snapshot) const noexcept;
-  [[nodiscard]] gneiss_result
-  restore_subtree(gneiss_scene_instance instance, std::string_view snapshot,
-                  gneiss_scene_node_id parent, const gneiss_scene_uuid_mapping* mappings,
-                  std::uint64_t mapping_count, gneiss_scene_node_id* out_root) noexcept;
+  [[nodiscard]] gneiss_result restore_subtree(gneiss_scene_instance instance,
+                                              std::string_view snapshot,
+                                              gneiss_scene_node_id parent,
+                                              std::span<const uuid_mapping> mappings,
+                                              gneiss_scene_node_id* out_root) noexcept;
   [[nodiscard]] gneiss_result destroy_subtree(gneiss_scene_instance instance,
                                               gneiss_scene_node_id root) noexcept;
   [[nodiscard]] gneiss_result create_mesh_renderer_node(gneiss_scene_instance instance,
@@ -193,7 +196,7 @@ public:
                                                 std::string_view mesh_uri,
                                                 std::string_view material_uri) noexcept;
   [[nodiscard]] gneiss_result set_camera(gneiss_scene_instance instance, gneiss_scene_node_id node,
-                                         const gneiss_scene_camera_desc& desc) noexcept;
+                                         const camera_description& desc) noexcept;
   [[nodiscard]] gneiss_result remove_camera(gneiss_scene_instance instance,
                                             gneiss_scene_node_id node) noexcept;
   [[nodiscard]] gneiss_result remove_mesh_renderer(gneiss_scene_instance instance,

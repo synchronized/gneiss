@@ -62,7 +62,7 @@ foreach(source IN LISTS sources)
     message(FATAL_ERROR "Render 资源实现不得消费或生成版本化 C 描述：${source}")
   endif()
   if(source MATCHES "/src/engine/function/scene/" AND
-      content MATCHES "gneiss_scene_((node|mesh_renderer_node|prefab_instance)_desc|(instance|prefab)_node_info)")
+      content MATCHES "gneiss_scene_((node|mesh_renderer_node|prefab_instance|camera)_desc|(instance|prefab)_node_info|uuid_mapping)")
     message(FATAL_ERROR "Scene 只能接收内部借用配置和视图，不得消费 C 创建或查询描述：${source}")
   endif()
   if(content MATCHES "extern[ \t]+\"C\"")

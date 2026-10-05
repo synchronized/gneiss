@@ -158,6 +158,16 @@ int main() try {
   }
   gneiss_scene_camera_desc author_camera = GNEISS_SCENE_CAMERA_DESC_INIT;
   author_camera.camera.near_plane = 0.2F;
+  author_camera.camera.reserved = 1U;
+  if (gneiss_scene_instance_set_camera(application, scene, created_node, &author_camera) !=
+          GNEISS_ERROR_INVALID_ARGUMENT ||
+      gneiss_scene_instance_set_camera(application, GNEISS_NULL_SCENE_INSTANCE, created_node,
+                                       &author_camera) != GNEISS_ERROR_INVALID_HANDLE ||
+      gneiss_scene_instance_set_camera(application, scene, UINT64_MAX, &author_camera) !=
+          GNEISS_ERROR_INVALID_HANDLE) {
+    return 34;
+  }
+  author_camera.camera.reserved = 0U;
   if (gneiss_scene_instance_set_camera(application, scene, created_node, &author_camera) !=
           GNEISS_SUCCESS ||
       gneiss_scene_instance_remove_camera(application, scene, created_node) != GNEISS_SUCCESS ||
