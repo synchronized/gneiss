@@ -6,7 +6,7 @@
 
 #include <cstdint>
 
-namespace gneiss::application_internal {
+namespace gneiss::platform {
 
 enum class native_window_backend { none, win32, xcb, wayland };
 
@@ -20,6 +20,6 @@ struct native_window_info {
   bool needs_recreate{};
 };
 
-} // namespace gneiss::application_internal
+} // namespace gneiss::platform
 
 #endif

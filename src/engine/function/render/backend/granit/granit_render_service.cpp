@@ -855,11 +855,11 @@ gneiss_result granit_render_service::discard_prepared_textures(
   }
 }
 
-gneiss_result
-granit_render_service::initialize(const application_internal::native_window_info& window,
-                                  std::span<const std::byte> environment_asset,
-                                  float environment_intensity, float environment_rotation_radians,
-                                  log_internal::log_dispatcher* log) noexcept {
+gneiss_result granit_render_service::initialize(const platform::native_window_info& window,
+                                                std::span<const std::byte> environment_asset,
+                                                float environment_intensity,
+                                                float environment_rotation_radians,
+                                                log_internal::log_dispatcher* log) noexcept {
   log_ = log;
   const auto executor_result =
       executor_.initialize([this](render_internal::render_frame_packet& packet,
@@ -1036,11 +1036,10 @@ gneiss_result granit_render_service::shutdown(granit::renderer_resource_stats& s
   return completion.status;
 }
 
-gneiss_result
-granit_render_service::initialize_gpu(const application_internal::native_window_info& window,
-                                      std::span<const std::byte> environment_asset,
-                                      float environment_intensity,
-                                      float environment_rotation_radians) noexcept {
+gneiss_result granit_render_service::initialize_gpu(const platform::native_window_info& window,
+                                                    std::span<const std::byte> environment_asset,
+                                                    float environment_intensity,
+                                                    float environment_rotation_radians) noexcept {
   auto result = renderer_.initialize({.application_name = "Gneiss",
                                       .enable_validation = false,
                                       .presentation = granit::presentation_mode::enabled});
@@ -1065,15 +1064,15 @@ granit_render_service::initialize_gpu(const application_internal::native_window_
   texture_profile_.generation = device_generation.fetch_add(1U, std::memory_order_relaxed) + 1U;
 
   switch (window.backend) {
-  case application_internal::native_window_backend::win32:
+  case platform::native_window_backend::win32:
     result =
         surface_.initialize(renderer_, granit::surface_desc::win32(window.display, window.window));
     break;
-  case application_internal::native_window_backend::xcb:
+  case platform::native_window_backend::xcb:
     result = surface_.initialize(renderer_,
                                  granit::surface_desc::xcb(window.display, window.xcb_window));
     break;
-  case application_internal::native_window_backend::wayland:
+  case platform::native_window_backend::wayland:
     result = surface_.initialize(renderer_,
                                  granit::surface_desc::wayland(window.display, window.window));
     break;

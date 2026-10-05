@@ -40,11 +40,11 @@ gneiss_result validate_application(const application_resource& application) noex
   return application->is_owner_thread() ? GNEISS_SUCCESS : GNEISS_ERROR_INVALID_STATE;
 }
 
-gneiss_result create_application(const gneiss_application_desc& normalized_desc,
+gneiss_result create_application(const application_configuration& config,
                                  gneiss_application& output) noexcept {
   output = GNEISS_NULL_APPLICATION;
   try {
-    auto state = std::make_shared<gneiss::application_internal::application_state>(normalized_desc);
+    auto state = std::make_shared<gneiss::application_internal::application_state>(config);
     const auto initialize_result = state->initialize();
     if (initialize_result != GNEISS_SUCCESS) {
       return initialize_result;

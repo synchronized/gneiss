@@ -230,3 +230,26 @@ foreach(header IN ITEMS "gneiss/application.hpp" "apps/editor/main.hpp" "../../a
   endif()
 endforeach()
 file(WRITE "${fixture}/src/editor/probe.cpp" "")
+
+file(WRITE "${fixture}/src/engine/platform/probe.cpp" "void initialize(const gneiss_application_desc&);\n")
+execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
+  -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
+  RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
+if(status EQUAL 0)
+  message(FATAL_ERROR "边界检查未拒绝 Platform 消费 Application ABI 描述")
+endif()
+file(WRITE "${fixture}/src/engine/platform/probe.cpp" "void initialize(const window_configuration&);\n")
+execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
+  -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake" RESULT_VARIABLE status)
+if(NOT status EQUAL 0)
+  message(FATAL_ERROR "边界检查错误拒绝 Platform 语义配置")
+endif()
+
+file(WRITE "${fixture}/src/engine/function/application/probe.cpp" "void create(const gneiss_application_desc&);\n")
+execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
+  -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
+  RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
+if(status EQUAL 0)
+  message(FATAL_ERROR "边界检查未拒绝 Application 核心消费 ABI 描述")
+endif()
+file(WRITE "${fixture}/src/engine/function/application/probe.cpp" "")

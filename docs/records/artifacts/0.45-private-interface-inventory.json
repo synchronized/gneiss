@@ -1,0 +1,120 @@
+{
+  "status": "同版本私有 C++ 导出，不安装头，不承诺 SDK/ABI 稳定；不计入 102 个公共 C 函数",
+  "interfaces": [
+    {
+      "header": "src/engine/function/world/world_service.hpp",
+      "owner": "World registry",
+      "purpose": "内部调用与原生/C 边界共享状态测试；宿主与 SDK 使用公开 World API",
+      "consumers": [
+        "tests/world/world_service_test.cpp"
+      ],
+      "symbols": [
+        "gneiss::world_internal::create",
+        "gneiss::world_internal::destroy",
+        "gneiss::world_internal::entity_create",
+        "gneiss::world_internal::entity_destroy",
+        "gneiss::world_internal::entity_is_alive",
+        "gneiss::world_internal::entity_count",
+        "gneiss::world_internal::entity_set_camera",
+        "gneiss::world_internal::entity_configure_camera",
+        "gneiss::world_internal::entity_get_camera",
+        "gneiss::world_internal::entity_remove_camera",
+        "gneiss::world_internal::set_active_camera",
+        "gneiss::world_internal::get_active_camera",
+        "gneiss::world_internal::entity_set_mesh_renderer",
+        "gneiss::world_internal::entity_remove_mesh_renderer",
+        "gneiss::world_internal::node_create",
+        "gneiss::world_internal::node_destroy",
+        "gneiss::world_internal::node_reparent",
+        "gneiss::world_internal::node_set_local_transform",
+        "gneiss::world_internal::node_get_local_transform",
+        "gneiss::world_internal::node_get_world_transform",
+        "gneiss::world_internal::node_get_entity",
+        "gneiss::world_internal::node_get_parent",
+        "gneiss::world_internal::entity_get_local_transform",
+        "gneiss::world_internal::entity_set_local_transform",
+        "gneiss::world_internal::transform_type_id",
+        "gneiss::world_internal::camera_type_id",
+        "gneiss::world_internal::register_reflection"
+      ]
+    },
+    {
+      "header": "src/engine/core/reflection/type_registry.hpp",
+      "owner": "Type Registry",
+      "purpose": "内部调用与原生/C 边界共享状态测试；用户扩展走公开反射 API",
+      "consumers": [
+        "tests/reflection/type_registry_boundary_test.cpp"
+      ],
+      "symbols": [
+        "gneiss::reflection_internal::resolve",
+        "gneiss::reflection_internal::create",
+        "gneiss::reflection_internal::destroy",
+        "gneiss::reflection_internal::register_type",
+        "gneiss::reflection_internal::bind_property",
+        "gneiss::reflection_internal::freeze",
+        "gneiss::reflection_internal::is_frozen",
+        "gneiss::reflection_internal::type_count",
+        "gneiss::reflection_internal::type_at",
+        "gneiss::reflection_internal::find_type",
+        "gneiss::reflection_internal::find_field",
+        "gneiss::reflection_internal::get_property",
+        "gneiss::reflection_internal::set_property"
+      ]
+    },
+    {
+      "header": "src/engine/function/game/game_context_internal.hpp",
+      "owner": "Game Context registry",
+      "purpose": "Runtime 创建/关闭模块上下文并绑定可信日志来源，不向模块开放管理权",
+      "consumers": [
+        "apps/runtime/main.cpp",
+        "tests/game_context_test.cpp"
+      ],
+      "symbols": [
+        "gneiss::game_internal::create_game_context",
+        "gneiss::game_internal::destroy_game_context",
+        "gneiss::game_internal::set_game_context_log_source"
+      ]
+    },
+    {
+      "header": "src/engine/function/application/application_scene_load_internal.hpp",
+      "owner": "Application scene loading service",
+      "purpose": "同版本 Runtime 场景请求、取消、激活与旧域回收；不公开加载服务状态",
+      "consumers": [
+        "apps/runtime/runtime_scene_loader.h",
+        "tests/scene/scene_load_application_test.cpp"
+      ],
+      "symbols": [
+        "gneiss::application_internal::query_scene_retirement",
+        "gneiss::application_internal::request_scene_load",
+        "gneiss::application_internal::query_scene_load_progress",
+        "gneiss::application_internal::poll_scene_load",
+        "gneiss::application_internal::cancel_scene_load",
+        "gneiss::application_internal::activate_scene_load"
+      ]
+    },
+    {
+      "header": "src/engine/function/application/application_asset_reload_internal.hpp",
+      "owner": "Application and Render/Asset services",
+      "purpose": "同版本宿主注入执行器、提交资产批次、热重载与采样；没有第二个资源注册表",
+      "consumers": [
+        "apps/runtime/main.cpp",
+        "apps/editor/main.cpp",
+        "tests/render/asset_pixel_test.cpp"
+      ],
+      "symbols": [
+        "gneiss::application_internal::capture_frame",
+        "gneiss::application_internal::query_render_statistics",
+        "gneiss::application_internal::attach_task_executor",
+        "gneiss::application_internal::request_render_assets",
+        "gneiss::application_internal::query_asset_load_progress",
+        "gneiss::application_internal::cancel_render_assets",
+        "gneiss::application_internal::request_textures",
+        "gneiss::application_internal::poll_textures",
+        "gneiss::application_internal::cancel_textures",
+        "gneiss::application_internal::reload_render_assets",
+        "gneiss::application_internal::reload_scene",
+        "gneiss::application_internal::reload_prefab"
+      ]
+    }
+  ]
+}

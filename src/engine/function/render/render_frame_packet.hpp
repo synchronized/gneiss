@@ -23,7 +23,7 @@ public:
   [[nodiscard]] const texture_resource* get_texture(gneiss_texture texture) const noexcept;
 
 private:
-  friend gneiss_result capture_render_frame_packet(const application_internal::native_window_info&,
+  friend gneiss_result capture_render_frame_packet(const platform::native_window_info&,
                                                    render_internal::render_snapshot,
                                                    const render_resource_service&,
                                                    const ui_draw_list&, const debug_draw_list&,
@@ -50,7 +50,7 @@ struct frame_image final {
 struct render_frame_packet final {
   /** 由执行器在接受帧时写入，用于关联延迟返回的渲染结果。 */
   std::uint64_t sequence{};
-  application_internal::native_window_info window;
+  platform::native_window_info window;
   render_internal::render_snapshot scene;
   render_resource_snapshot resources;
   ui_draw_list ui;
@@ -59,11 +59,12 @@ struct render_frame_packet final {
   std::shared_ptr<frame_image> readback;
 };
 
-[[nodiscard]] gneiss_result
-capture_render_frame_packet(const application_internal::native_window_info& window,
-                            render_internal::render_snapshot scene,
-                            const render_resource_service& resources, const ui_draw_list& ui,
-                            const debug_draw_list& debug, render_frame_packet& out_packet) noexcept;
+[[nodiscard]] gneiss_result capture_render_frame_packet(const platform::native_window_info& window,
+                                                        render_internal::render_snapshot scene,
+                                                        const render_resource_service& resources,
+                                                        const ui_draw_list& ui,
+                                                        const debug_draw_list& debug,
+                                                        render_frame_packet& out_packet) noexcept;
 
 } // namespace gneiss::render_internal
 

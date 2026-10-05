@@ -82,7 +82,9 @@ assetc CLI 位于 `apps/assetc/`，工具测试由 `tests/tooling/` 组织，性
 | Granit 后端 | `src/engine/function/render/backend/granit/` | Granit 类型、调用和错误转换的隔离 | 已存在 |
 
 Platform 的 Granit Window 适配位于 `src/engine/platform/granit/`；`src/engine/function/render/backend/granit/` 只负责
-渲染后端，两者不共享原生对象所有权。渲染快照的值类型位于 `src/engine/function/render/render_snapshot.hpp`，
+渲染后端，两者不共享原生对象所有权。窗口配置与原生窗口视图归 `gneiss::platform`；
+Application 的 C 入口将版本化描述转换为内部 `application_configuration`，Platform 只接收
+`window_configuration`。用户回调仍是实际 ABI 边界，不将回调上下文复制成另一套状态。渲染快照的值类型位于 `src/engine/function/render/render_snapshot.hpp`，
 World 的提取函数位于 `src/engine/function/world/render_snapshot.hpp`，Render 不反向包含 World/Scene/Application。
 `src/engine/asset/png_decoder.hpp` 提供 CPU 解码，Cook 与运行时加载共用；解码不依赖渲染服务。
 

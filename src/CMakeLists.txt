@@ -41,6 +41,7 @@ target_sources(
     engine/function/application/application_scene_state.hpp
     engine/function/application/application_state.cpp
     engine/function/application/application_state.hpp
+    engine/function/application/application_configuration.hpp
     engine/asset/source_revision_file_system.cpp
     engine/asset/source_revision_file_system.hpp
     engine/asset/asset_uri.cpp
@@ -231,6 +232,7 @@ if(GNEISS_ENABLE_GRANIT_PLATFORM)
       engine/platform/granit/granit_platform.cpp
       engine/platform/granit/granit_platform.hpp
       engine/platform/native_window_info.hpp
+      engine/platform/window_configuration.hpp
       engine/function/render/backend/granit/granit_render_service.cpp
       engine/function/render/backend/granit/granit_render_service.hpp
       engine/function/render/backend/granit/scene_projection_math.cpp

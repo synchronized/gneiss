@@ -77,7 +77,51 @@ extern "C" gneiss_result gneiss_application_create(const gneiss_application_desc
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
 
-  return gneiss::application_internal::create_application(normalized_desc, *out_application);
+  // 保留资产根目录空指针/长度不匹配时的结果；有效的空配置表示不挂载目录。
+  if ((normalized_desc.asset_root == nullptr) != (normalized_desc.asset_root_length == 0U)) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  const gneiss::application_internal::application_configuration config{
+      .callbacks =
+          {
+              .user_data = normalized_desc.user_data,
+              .initialize = normalized_desc.initialize,
+              .poll_events = normalized_desc.poll_events,
+              .now_ns = normalized_desc.now_ns,
+              .update = normalized_desc.update,
+              .shutdown = normalized_desc.shutdown,
+              .diagnostic = normalized_desc.diagnostic,
+              .close_requested = normalized_desc.close_requested,
+              .log = normalized_desc.log,
+          },
+      .use_granit_window = normalized_desc.platform == GNEISS_APPLICATION_PLATFORM_GRANIT,
+      .window =
+          {
+              .title = normalized_desc.window_title_length == 0U
+                           ? std::string_view{"Gneiss"}
+                           : std::string_view{normalized_desc.window_title,
+                                              normalized_desc.window_title_length},
+              .width = normalized_desc.window_width,
+              .height = normalized_desc.window_height,
+              .visible =
+                  (normalized_desc.window_flags & GNEISS_APPLICATION_WINDOW_VISIBLE_BIT) != 0U,
+              .resizable =
+                  (normalized_desc.window_flags & GNEISS_APPLICATION_WINDOW_RESIZABLE_BIT) != 0U,
+              .high_dpi =
+                  (normalized_desc.window_flags & GNEISS_APPLICATION_WINDOW_HIGH_DPI_BIT) != 0U,
+          },
+      .asset_root =
+          normalized_desc.asset_root == nullptr
+              ? std::string_view{}
+              : std::string_view{normalized_desc.asset_root, normalized_desc.asset_root_length},
+      .environment_asset = normalized_desc.environment_asset == nullptr
+                               ? std::string_view{}
+                               : std::string_view{normalized_desc.environment_asset,
+                                                  normalized_desc.environment_asset_length},
+      .environment_intensity = normalized_desc.environment_intensity,
+      .environment_rotation_radians = normalized_desc.environment_rotation_radians,
+  };
+  return gneiss::application_internal::create_application(config, *out_application);
 }
 
 extern "C" gneiss_result gneiss_application_destroy(gneiss_application application) {

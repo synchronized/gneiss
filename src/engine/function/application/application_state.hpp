@@ -7,16 +7,17 @@
 #include <gneiss/application.h>
 #include <gneiss/input.h>
 
+#include "engine/asset/virtual_file_system.hpp"
+#include "engine/core/log/log_dispatcher.hpp"
+#include "engine/function/application/application_configuration.hpp"
 #include "engine/function/application/application_scene_state.hpp"
 #include "engine/function/application/scene_load_service.hpp"
-#include "engine/function/render/texture_load_service.hpp"
-#include "engine/asset/virtual_file_system.hpp"
 #include "engine/function/input/input_service.hpp"
-#include "engine/core/log/log_dispatcher.hpp"
 #include "engine/function/render/debug_draw_list.hpp"
 #include "engine/function/render/render_asset_loader.hpp"
 #include "engine/function/render/render_executor.hpp"
 #include "engine/function/render/render_resource_service.hpp"
+#include "engine/function/render/texture_load_service.hpp"
 #include "engine/function/render/ui_draw_list.hpp"
 #include "engine/function/scene/prefab_asset_loader.hpp"
 #include "engine/function/scene/scene_instance_service.hpp"
@@ -30,11 +31,11 @@ namespace gneiss::render_internal {
 class granit_render_service;
 }
 
-namespace gneiss::application_internal {
-
-#ifdef GNEISS_HAS_GRANIT_PLATFORM
+namespace gneiss::platform {
 class granit_platform;
-#endif
+}
+
+namespace gneiss::application_internal {
 
 class application_state final {
 public:
@@ -75,7 +76,7 @@ public:
   [[nodiscard]] gneiss_result activate_scene(std::uint64_t request,
                                              scene_load_completion& completion);
 
-  explicit application_state(const gneiss_application_desc& desc) noexcept;
+  explicit application_state(const application_configuration& config) noexcept;
   ~application_state() noexcept;
 
   application_state(const application_state&) = delete;
@@ -137,7 +138,7 @@ private:
 #ifdef GNEISS_HAS_GRANIT_PLATFORM
   [[nodiscard]] gneiss_result render_frame() noexcept;
 #endif
-  gneiss_application_desc desc_;
+  application_configuration config_;
   render_internal::render_resource_service resources_;
   render_internal::ui_draw_list ui_draw_list_;
   render_internal::debug_draw_list debug_draw_list_;
@@ -159,7 +160,7 @@ private:
   input_internal::input_service input_;
   std::unique_ptr<log_internal::log_dispatcher> log_dispatcher_;
 #ifdef GNEISS_HAS_GRANIT_PLATFORM
-  std::unique_ptr<granit_platform> granit_platform_;
+  std::unique_ptr<platform::granit_platform> granit_platform_;
   std::unique_ptr<render_internal::granit_render_service> granit_render_service_;
 #endif
 };

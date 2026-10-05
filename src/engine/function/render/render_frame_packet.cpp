@@ -44,7 +44,7 @@ render_resource_snapshot::get_texture(gneiss_texture texture) const noexcept {
   return found == textures_.end() ? nullptr : found->second.get();
 }
 
-gneiss_result capture_render_frame_packet(const application_internal::native_window_info& window,
+gneiss_result capture_render_frame_packet(const platform::native_window_info& window,
                                           render_internal::render_snapshot scene,
                                           const render_resource_service& resources,
                                           const ui_draw_list& ui, const debug_draw_list& debug,

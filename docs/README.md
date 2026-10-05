@@ -347,6 +347,7 @@
 - [M-294：World C++ 内部契约与 C 入口拆分](records/M-294-world-cpp-boundary.md)
 
 - [M-294：Application 注册表与宿主入口拆分](records/M-294-application-boundary.md)
+- [M-294：Application 语义配置与平台窗口归属](records/M-294-application-configuration.md)
 
 - [M-295：Reflection 内部注册契约与 C 适配](records/M-295-reflection-boundary.md)
 

@@ -70,7 +70,7 @@ int main() {
     return 4;
   }
 
-  gneiss::application_internal::native_window_info window;
+  gneiss::platform::native_window_info window;
   window.width = 640U;
   window.height = 480U;
   ui_draw_list ui;

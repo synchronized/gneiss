@@ -6,16 +6,16 @@
 
 #include "engine/platform/native_window_info.hpp"
 
-#include <gneiss/application.h>
+#include "engine/platform/window_configuration.hpp"
 #include <gneiss/input.h>
 
 #include <granit/window.hpp>
 
-namespace gneiss::application_internal {
+namespace gneiss::platform {
 
 class granit_platform final {
 public:
-  [[nodiscard]] gneiss_result initialize(const gneiss_application_desc& desc) noexcept;
+  [[nodiscard]] gneiss_result initialize(const window_configuration& config) noexcept;
   [[nodiscard]] gneiss_result poll(bool& out_should_close, bool& out_focus_lost) noexcept;
   [[nodiscard]] gneiss_result poll_input(gneiss_input_event& out_event) noexcept;
   [[nodiscard]] gneiss_result keyboard(gneiss_keyboard_state& out_state) const noexcept;
@@ -29,6 +29,6 @@ private:
   native_window_info native_window_;
 };
 
-} // namespace gneiss::application_internal
+} // namespace gneiss::platform
 
 #endif

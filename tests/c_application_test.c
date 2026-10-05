@@ -274,5 +274,20 @@ int main(void) {
   if (gneiss_application_destroy(application) != GNEISS_SUCCESS) {
     return 6;
   }
+  /* ABI 入口拒绝不成对的目录指针与长度，不能发布半初始化句柄。 */
+  desc = (gneiss_application_desc)GNEISS_APPLICATION_DESC_INIT;
+  desc.asset_root_length = 1U;
+  application = UINT64_C(1);
+  if (gneiss_application_create(&desc, &application) != GNEISS_ERROR_INVALID_ARGUMENT ||
+      application != GNEISS_NULL_APPLICATION) {
+    return 7;
+  }
+  desc.asset_root = "";
+  desc.asset_root_length = 0U;
+  application = UINT64_C(1);
+  if (gneiss_application_create(&desc, &application) != GNEISS_ERROR_INVALID_ARGUMENT ||
+      application != GNEISS_NULL_APPLICATION) {
+    return 8;
+  }
   return 0;
 }

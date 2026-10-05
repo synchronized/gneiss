@@ -8,7 +8,7 @@
 #include <cstring>
 #include <string_view>
 
-namespace gneiss::application_internal {
+namespace gneiss::platform {
 namespace {
 
 gneiss_result map_result(granit::result result) noexcept {
@@ -36,33 +36,26 @@ gneiss_result map_result(granit::result result) noexcept {
 
 } // namespace
 
-gneiss_result granit_platform::initialize(const gneiss_application_desc& desc) noexcept {
+gneiss_result granit_platform::initialize(const window_configuration& config) noexcept {
   auto result = window_system_.initialize();
   if (result.failed()) {
     return map_result(result);
   }
   std::uint32_t flags = 0;
-  flags |= (desc.window_flags & GNEISS_APPLICATION_WINDOW_VISIBLE_BIT) != 0U
-               ? GRANIT_WINDOW_VISIBLE_BIT
-               : 0U;
-  flags |= (desc.window_flags & GNEISS_APPLICATION_WINDOW_RESIZABLE_BIT) != 0U
-               ? GRANIT_WINDOW_RESIZABLE_BIT
-               : 0U;
-  flags |= (desc.window_flags & GNEISS_APPLICATION_WINDOW_HIGH_DPI_BIT) != 0U
-               ? GRANIT_WINDOW_HIGH_DPI_BIT
-               : 0U;
-  const auto title = desc.window_title_length == 0U
-                         ? std::string_view{"Gneiss"}
-                         : std::string_view{desc.window_title, desc.window_title_length};
-  result = window_.initialize(window_system_, {.title = title,
-                                               .width = desc.window_width,
-                                               .height = desc.window_height,
-                                               .flags = static_cast<granit::window_flag>(flags)});
+  flags |= config.visible ? GRANIT_WINDOW_VISIBLE_BIT : 0U;
+  flags |= config.resizable ? GRANIT_WINDOW_RESIZABLE_BIT : 0U;
+  flags |= config.high_dpi ? GRANIT_WINDOW_HIGH_DPI_BIT : 0U;
+  result = window_.initialize(window_system_, {
+                                                  .title = config.title,
+                                                  .width = config.width,
+                                                  .height = config.height,
+                                                  .flags = static_cast<granit::window_flag>(flags),
+                                              });
   if (result.failed()) {
     return map_result(result);
   }
-  native_window_.width = desc.window_width;
-  native_window_.height = desc.window_height;
+  native_window_.width = config.width;
+  native_window_.height = config.height;
   granit::window_native_win32 win32{};
   result = granit::get_native(window_system_, window_.ref(), win32);
   if (result.ok()) {
@@ -209,4 +202,4 @@ gneiss_result granit_platform::poll(bool& out_should_close, bool& out_focus_lost
   return result == granit::result::not_ready ? GNEISS_SUCCESS : map_result(result);
 }
 
-} // namespace gneiss::application_internal
+} // namespace gneiss::platform

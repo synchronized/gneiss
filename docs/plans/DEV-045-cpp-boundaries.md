@@ -8,7 +8,8 @@
 2026-10-05 已开始接口审计和 Core 迁移；首轮证据见
 [M-292～M-293 记录](../records/M-292-293-cpp-boundary-foundation.md)。World 内部入口迁移见
 [World 阶段记录](../records/M-294-world-cpp-boundary.md)，Application 拆分见
-[Application 阶段记录](../records/M-294-application-boundary.md)。Reflection 迁移见
+[Application 阶段记录](../records/M-294-application-boundary.md)，内部配置与窗口归属见
+[配置记录](../records/M-294-application-configuration.md)。Reflection 迁移见
 [Reflection 阶段记录](../records/M-295-reflection-boundary.md)。全部 C 入口集中见
 [C 边界记录](../records/M-295-c-boundary-completion.md)；语义配置与其余模块仍在实施。范围和门槛以
 [VER-045](VER-045-0.45.0-cpp-boundaries.md) 为准；目录与所有权以
@@ -17,6 +18,9 @@
 Core、Platform、Asset 与 Function 已执行物理迁移；C ABI 已迁至 Engine，Editor/Apps 拆分继续按计划推进。
 
 ## M-292：审计与冻结基线
+
+公共函数、类型及回调映射已完成；私有导出分类与实测导出表见
+[配置与私有接口记录](../records/M-294-application-configuration.md#私有导出核对)。
 
 - 枚举公共 `.h` 导出函数、结构、枚举、宏、回调和 `.hpp` 包装。生成可复核清单：C 符号、
   C++ 入口、拥有/借用、父资源、线程限制、成功/错误/寿命测试、缺口。
@@ -89,7 +93,7 @@ Runtime 层级与属性面板迁移见 [面板边界记录](../records/M-295-run
 | 原 `src/asset/` | 基础能力已迁至 `src/engine/asset/`；纹理加载与上传事务归 `src/engine/function/render/texture_load_service.hpp`，CPU 准备与解析已归入 Asset，Render 仅传入发布预算 |
 | 原 `src/core/`、`reflection/`、`log/` | 已迁入 `src/engine/core/`；投递器使用 C++ 消息与事件视图，Application 回调适配留在所属模块 |
 | Render 中的数学代码 | 通用数学迁 Core；相机语义、后端投影适配仍留所属功能，逐文件判断 |
-| 原 `src/platform/`、`io/`、`process/`、`ipc/` | 已迁至 `src/engine/platform/`，内部头改为 `.hpp`；编辑器/运行宿主协议仍留 Apps，平台语义描述与命名空间继续审计 |
+| 原 `src/platform/`、`io/`、`process/`、`ipc/` | 已迁至 `src/engine/platform/`，内部头改为 `.hpp`；编辑器/运行宿主协议仍留 Apps，窗口语义配置与命名空间已独立；其他平台接口继续审计 |
 | `apps/editor/` | UI、主题、ImGui 适配、字体、资产服务、独立编辑模型与场景会话已迁至 `src/editor/`；宿主控制与面板编排仍待拆分，程序入口与启动配置保留在 `apps/editor/` |
 | `apps/runtime/` | 程序入口与宿主控制保留在 `apps/runtime/`；可复用引擎能力回归 Engine |
 | `apps/common/` | 逐项核定所有者；运行时通用能力归 Engine，纯宿主共用代码按实际需要保留私有共用目标，不原样下沉 Core |

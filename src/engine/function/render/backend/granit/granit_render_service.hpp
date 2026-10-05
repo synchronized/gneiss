@@ -41,7 +41,7 @@ namespace gneiss::render_internal {
 
 class granit_render_service final {
 public:
-  [[nodiscard]] gneiss_result initialize(const application_internal::native_window_info& window,
+  [[nodiscard]] gneiss_result initialize(const platform::native_window_info& window,
                                          std::span<const std::byte> environment_asset = {},
                                          float environment_intensity = 1.0F,
                                          float environment_rotation_radians = 0.0F,
@@ -82,7 +82,7 @@ public:
 
 private:
   double latest_texture_upload_ms_{};
-  [[nodiscard]] gneiss_result initialize_gpu(const application_internal::native_window_info& window,
+  [[nodiscard]] gneiss_result initialize_gpu(const platform::native_window_info& window,
                                              std::span<const std::byte> environment_asset,
                                              float environment_intensity,
                                              float environment_rotation_radians) noexcept;
