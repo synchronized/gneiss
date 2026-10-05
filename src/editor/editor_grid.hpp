@@ -4,7 +4,7 @@
 #ifndef GNEISS_APPS_EDITOR_EDITOR_GRID_H_
 #define GNEISS_APPS_EDITOR_EDITOR_GRID_H_
 
-#include "transform_gizmo_math.h"
+#include "transform_gizmo_math.hpp"
 #include <gneiss/render.hpp>
 #include <vector>
 

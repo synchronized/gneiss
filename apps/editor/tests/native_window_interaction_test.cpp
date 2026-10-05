@@ -4,7 +4,7 @@
 #include "imgui_adapter.hpp"
 #if defined(GNEISS_TEST_BACKGROUND_ASSETS)
 #include "asset_background_worker.hpp"
-#include "editor_camera.h"
+#include "editor_camera.hpp"
 #include <atomic>
 #include <chrono>
 #include <future>

@@ -4,7 +4,7 @@
 #ifndef GNEISS_APPS_EDITOR_PREFAB_AUTHORING_H_
 #define GNEISS_APPS_EDITOR_PREFAB_AUTHORING_H_
 
-#include "author_transaction.h"
+#include "author_transaction.hpp"
 
 #include <span>
 #include <string>

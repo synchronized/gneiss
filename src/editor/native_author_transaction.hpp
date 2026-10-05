@@ -4,7 +4,7 @@
 #ifndef GNEISS_APPS_EDITOR_NATIVE_AUTHOR_TRANSACTION_H_
 #define GNEISS_APPS_EDITOR_NATIVE_AUTHOR_TRANSACTION_H_
 
-#include "author_transaction.h"
+#include "author_transaction.hpp"
 
 #include <cstddef>
 #include <filesystem>

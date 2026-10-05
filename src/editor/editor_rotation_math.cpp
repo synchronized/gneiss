@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "editor_rotation_math.h"
+#include "editor_rotation_math.hpp"
 
 #include <algorithm>
 #include <cmath>

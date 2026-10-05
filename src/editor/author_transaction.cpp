@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "author_transaction.h"
+#include "author_transaction.hpp"
 
 #include <algorithm>
 #include <limits>

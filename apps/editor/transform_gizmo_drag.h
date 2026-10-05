@@ -3,9 +3,9 @@
 
 #pragma once
 
-#include "editor_command_history.h"
+#include "editor_command_history.hpp"
 #include "editor_session.h"
-#include "transform_gizmo_math.h"
+#include "transform_gizmo_math.hpp"
 
 namespace gneiss::editor {
 

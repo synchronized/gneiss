@@ -3,7 +3,7 @@
 
 #include "asset_browser_model.hpp"
 #include "asset_import_controller.hpp"
-#include "editor_command_history.h"
+#include "editor_command_history.hpp"
 #include "editor_project.h"
 #include "editor_session.h"
 

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "prefab_authoring.h"
+#include "prefab_authoring.hpp"
 
 #include <gneiss/asset.h>
 
@@ -416,8 +416,7 @@ mapped_uuid(std::span<const unpack_prefab_uuid_mapping> mappings,
 [[nodiscard]] result make_unpacked_scene(yyjson_doc* scene_source,
                                          const unpack_prefab_author_request& request,
                                          yyjson_doc* prefab_source, yyjson_val* instance,
-                                         std::size_t instance_index,
-                                         std::string& output) {
+                                         std::size_t instance_index, std::string& output) {
   auto* overrides = yyjson_obj_get(instance, "overrides");
   std::string projected_prefab_json;
   auto operation = apply_overrides_to_prefab(prefab_source, overrides, projected_prefab_json);

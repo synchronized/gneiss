@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "editor_grid.h"
+#include "editor_grid.hpp"
 
 #include <algorithm>
 #include <cmath>

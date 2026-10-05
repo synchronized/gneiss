@@ -4,7 +4,7 @@
 #ifndef GNEISS_APPS_EDITOR_RUNTIME_AUTHOR_APPLY_H_
 #define GNEISS_APPS_EDITOR_RUNTIME_AUTHOR_APPLY_H_
 
-#include "editor_command_history.h"
+#include "editor_command_history.hpp"
 #include "editor_session.h"
 #include "ipc_inspection_protocol.h"
 

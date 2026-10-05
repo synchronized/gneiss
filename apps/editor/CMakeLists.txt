@@ -3,19 +3,9 @@
 
 add_library(
   gneiss_editor_session STATIC
-  author_transaction.cpp
-  author_transaction.h
   console_model.cpp
   console_model.h
-  editor_camera.cpp
-  editor_camera.h
-  editor_grid.cpp
-  editor_grid.h
-  editor_command_history.cpp
-  editor_command_history.h
   editor_project.h
-  editor_rotation_math.cpp
-  editor_rotation_math.h
   editor_session.cpp
   editor_session.h
   ipc/editor_ipc_event.h
@@ -40,16 +30,10 @@ add_library(
   ipc/outbound/property_write_command.cpp
   ipc/outbound/resume_command.cpp
   ipc/outbound/stop_command.cpp
-  native_author_transaction.cpp
-  native_author_transaction.h
   package_archive.cpp
   package_archive.h
-  prefab_authoring.cpp
-  prefab_authoring.h
   project_workspace.cpp
   project_workspace.h
-  property_inspector_model.cpp
-  property_inspector_model.h
   runtime_launch.cpp
   runtime_launch.h
   runtime_author_apply.cpp
@@ -62,13 +46,11 @@ add_library(
   runtime_scene_mirror.h
   transform_gizmo_drag.cpp
   transform_gizmo_drag.h
-  transform_gizmo_math.cpp
-  transform_gizmo_math.h
 )
 target_link_libraries(
   gneiss_editor_session
   PRIVATE gneiss_yyjson gneiss_child_process
-  PUBLIC gneiss::engine gneiss_app_project gneiss_app_ipc_protocol
+  PUBLIC gneiss::engine gneiss_editor_model gneiss_app_project gneiss_app_ipc_protocol
 )
 target_include_directories(
   gneiss_editor_session
@@ -191,44 +173,44 @@ if(BUILD_TESTING)
   gneiss_target_output_directories(gneiss_editor_save_test)
   add_test(NAME gneiss.editor.save COMMAND gneiss_editor_save_test)
   add_executable(gneiss_editor_camera_test tests/editor_camera_test.cpp)
-  target_link_libraries(gneiss_editor_camera_test PRIVATE gneiss_editor_session)
+  target_link_libraries(gneiss_editor_camera_test PRIVATE gneiss_editor_model)
   gneiss_target_compile_warnings(gneiss_editor_camera_test)
   gneiss_target_output_directories(gneiss_editor_camera_test)
   add_test(NAME gneiss.editor.camera COMMAND gneiss_editor_camera_test)
   add_executable(gneiss_editor_grid_test tests/editor_grid_test.cpp)
-  target_link_libraries(gneiss_editor_grid_test PRIVATE gneiss_editor_session)
+  target_link_libraries(gneiss_editor_grid_test PRIVATE gneiss_editor_model)
   gneiss_target_compile_warnings(gneiss_editor_grid_test)
   gneiss_target_output_directories(gneiss_editor_grid_test)
   add_test(NAME gneiss.editor.grid COMMAND gneiss_editor_grid_test)
   add_executable(gneiss_editor_property_inspector_test tests/property_inspector_model_test.cpp)
-  target_link_libraries(gneiss_editor_property_inspector_test PRIVATE gneiss_editor_session)
+  target_link_libraries(gneiss_editor_property_inspector_test PRIVATE gneiss_editor_model)
   gneiss_target_compile_warnings(gneiss_editor_property_inspector_test)
   gneiss_target_output_directories(gneiss_editor_property_inspector_test)
   add_test(NAME gneiss.editor.property-inspector COMMAND gneiss_editor_property_inspector_test)
   add_executable(gneiss_editor_command_history_test tests/editor_command_history_test.cpp)
-  target_link_libraries(gneiss_editor_command_history_test PRIVATE gneiss_editor_session)
+  target_link_libraries(gneiss_editor_command_history_test PRIVATE gneiss_editor_model)
   gneiss_target_compile_warnings(gneiss_editor_command_history_test)
   gneiss_target_output_directories(gneiss_editor_command_history_test)
   add_test(NAME gneiss.editor.command-history COMMAND gneiss_editor_command_history_test)
   add_executable(gneiss_editor_author_transaction_test tests/author_transaction_test.cpp)
-  target_link_libraries(gneiss_editor_author_transaction_test PRIVATE gneiss_editor_session)
+  target_link_libraries(gneiss_editor_author_transaction_test PRIVATE gneiss_editor_model)
   gneiss_target_compile_warnings(gneiss_editor_author_transaction_test)
   gneiss_target_output_directories(gneiss_editor_author_transaction_test)
   add_test(NAME gneiss.editor.author-transaction COMMAND gneiss_editor_author_transaction_test)
   add_executable(gneiss_editor_prefab_authoring_test tests/prefab_authoring_test.cpp)
   target_link_libraries(
-    gneiss_editor_prefab_authoring_test PRIVATE gneiss_editor_session gneiss_yyjson
+    gneiss_editor_prefab_authoring_test PRIVATE gneiss_editor_model gneiss_yyjson
   )
   gneiss_target_compile_warnings(gneiss_editor_prefab_authoring_test)
   gneiss_target_output_directories(gneiss_editor_prefab_authoring_test)
   add_test(NAME gneiss.editor.prefab-authoring COMMAND gneiss_editor_prefab_authoring_test)
   add_executable(gneiss_editor_transform_gizmo_math_test tests/transform_gizmo_math_test.cpp)
-  target_link_libraries(gneiss_editor_transform_gizmo_math_test PRIVATE gneiss_editor_session)
+  target_link_libraries(gneiss_editor_transform_gizmo_math_test PRIVATE gneiss_editor_model)
   gneiss_target_compile_warnings(gneiss_editor_transform_gizmo_math_test)
   gneiss_target_output_directories(gneiss_editor_transform_gizmo_math_test)
   add_test(NAME gneiss.editor.transform-gizmo-math COMMAND gneiss_editor_transform_gizmo_math_test)
   add_executable(gneiss_editor_rotation_math_test tests/editor_rotation_math_test.cpp)
-  target_link_libraries(gneiss_editor_rotation_math_test PRIVATE gneiss_editor_session)
+  target_link_libraries(gneiss_editor_rotation_math_test PRIVATE gneiss_editor_model)
   gneiss_target_compile_warnings(gneiss_editor_rotation_math_test)
   gneiss_target_output_directories(gneiss_editor_rotation_math_test)
   add_test(NAME gneiss.editor.rotation-math COMMAND gneiss_editor_rotation_math_test)

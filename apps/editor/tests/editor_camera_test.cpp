@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "editor_camera.h"
+#include "editor_camera.hpp"
 
 #include <gneiss/world.hpp>
 

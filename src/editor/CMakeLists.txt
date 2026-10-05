@@ -49,3 +49,31 @@ if(TARGET gneiss_asset_import_sdk)
   gneiss_target_compile_warnings(gneiss_editor_assets)
   gneiss_target_output_directories(gneiss_editor_assets)
 endif()
+
+# 不依赖宿主工程与进程协议的编辑模型。
+add_library(
+  gneiss_editor_model STATIC
+  author_transaction.cpp
+  author_transaction.hpp
+  native_author_transaction.cpp
+  native_author_transaction.hpp
+  prefab_authoring.cpp
+  prefab_authoring.hpp
+  property_inspector_model.cpp
+  property_inspector_model.hpp
+  editor_command_history.cpp
+  editor_command_history.hpp
+  editor_camera.cpp
+  editor_camera.hpp
+  editor_grid.cpp
+  editor_grid.hpp
+  editor_rotation_math.cpp
+  editor_rotation_math.hpp
+  transform_gizmo_math.cpp
+  transform_gizmo_math.hpp
+)
+target_link_libraries(gneiss_editor_model PUBLIC gneiss::engine PRIVATE gneiss_yyjson)
+target_include_directories(gneiss_editor_model PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
+target_compile_features(gneiss_editor_model PUBLIC cxx_std_20)
+gneiss_target_compile_warnings(gneiss_editor_model)
+gneiss_target_output_directories(gneiss_editor_model)

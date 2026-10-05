@@ -8,7 +8,7 @@
 本文描述当前实际源码布局，不把已批准的迁移目标当成已实现。0.45 的精简目标目录与宿主边界见
 [ADR-054](../decisions/ADR-054-source-layout-and-host-boundaries.md)，迁移映射与验收见
 [DEV-045](../plans/DEV-045-cpp-boundaries.md)。Core、Platform、Asset 与 Function 已迁入 `src/engine/`，
-C ABI 适配已迁入 `src/engine/api/`，`src/editor/` 已迁入 UI 与资产服务，编辑会话及面板编排仍待迁移；
+C ABI 适配已迁入 `src/engine/api/`，`src/editor/` 已迁入 UI、资产服务与独立编辑模型，编辑会话及面板编排仍待迁移；
 `apps/` 保持位于仓库根目录，编辑器实现与入口的拆分尚未完成。
 
 总体分层以[总体架构](architecture.md)为准，代码与文档规范分别以
@@ -36,6 +36,10 @@ Engine Library 不得反向依赖它们。Editor 的 ImGui Context、字体、�
 编辑器资产浏览、监听、导入控制、重导入队列与后台服务也位于 `src/editor/`，
 由 `gneiss_editor_assets` 内部静态库组织，依赖 Engine、Tooling、任务调度和平台 IO。
 该目标不依赖 Apps 或编辑会话；入口仍在 Apps 装配服务并轮询结果。
+
+`gneiss_editor_model` 位于 `src/editor/`，管理相机、网格、旋转/Gizmo 数学、命令历史、属性检查
+及创作事务，不依赖 Apps 工程、IPC 或会话。`apps/editor/` 的会话目标复用该库，
+Gizmo 拖拽仍依赖会话并留在宿主侧。`apps/common` 的构建/启动工程描述与进程协议仍待分离。
 
 公共头目录按能力组织，但 `.h` 与 `.hpp` 始终成对维护。内部源码目录按拥有运行时状态的模块组织，
 不机械复制公共头目录。

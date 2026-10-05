@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "property_inspector_model.h"
+#include "property_inspector_model.hpp"
 
 #include <algorithm>
 #include <array>
