@@ -187,6 +187,7 @@ public:
   [[nodiscard]] result get_node_count(std::uint64_t& out_count) const noexcept {
     return from_native(gneiss_scene_instance_get_node_count(application_, handle_, &out_count));
   }
+  /** 描述按值输出，但字符串只借用到下次场景修改或父对象失效；跨修改使用前须复制。 */
   [[nodiscard]] result get_node_info(std::uint64_t index,
                                      scene_instance_node_info& out_info) const noexcept {
     return from_native(
@@ -196,6 +197,7 @@ public:
     return from_native(
         gneiss_scene_instance_get_prefab_node_count(application_, handle_, &out_count));
   }
+  /** Prefab 描述的字符串借用期限与 get_node_info 相同；刷新后节点 ID 也须重新查询。 */
   [[nodiscard]] result get_prefab_node_info(std::uint64_t index,
                                             scene_prefab_node_info& out_info) const noexcept {
     return from_native(

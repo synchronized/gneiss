@@ -874,9 +874,13 @@
       "cpp_candidate_files": [
         "include/gneiss/scene.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "静态工厂同步加载；成功独占场景、失败保留原拥有者，父 Application 寿命不延长；操作限所属 Application 线程",
+      "tests": [
+        "gneiss.cpp_scene_instance",
+        "gneiss.scene_instance"
+      ],
+      "cpp_entry": "gneiss::scene_instance::load"
     },
     {
       "symbol": "gneiss_scene_instance_create_empty",
@@ -912,9 +916,13 @@
       "cpp_candidate_files": [
         "include/gneiss/scene.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "按 UUID 返回借用节点 ID，失败保留 C++ 输出；节点/场景卸载后失效；操作限所属 Application 线程",
+      "tests": [
+        "gneiss.cpp_scene_instance",
+        "gneiss.scene_instance"
+      ],
+      "cpp_entry": "gneiss::scene_instance::find_node"
     },
     {
       "symbol": "gneiss_scene_instance_get_node_count",
@@ -922,9 +930,13 @@
       "cpp_candidate_files": [
         "include/gneiss/scene.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "返回普通作者节点数量值，不返回内部容器；操作限所属 Application 线程",
+      "tests": [
+        "gneiss.cpp_scene_instance",
+        "gneiss.scene_instance"
+      ],
+      "cpp_entry": "gneiss::scene_instance::get_node_count"
     },
     {
       "symbol": "gneiss_scene_instance_get_node_info",
@@ -932,9 +944,13 @@
       "cpp_candidate_files": [
         "include/gneiss/scene.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "C 描述值映射，内部字符串借用至下次场景修改或卸载；须使用 INIT，失败输出不可当作完整描述；操作限所属 Application 线程",
+      "tests": [
+        "gneiss.cpp_scene_instance",
+        "gneiss.scene_instance"
+      ],
+      "cpp_entry": "gneiss::scene_instance::get_node_info"
     },
     {
       "symbol": "gneiss_scene_instance_get_prefab_node_count",
@@ -942,9 +958,13 @@
       "cpp_candidate_files": [
         "include/gneiss/scene.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "返回实例根及展开来源节点总数值，不返回内部容器；操作限所属 Application 线程",
+      "tests": [
+        "gneiss.cpp_scene_instance",
+        "gneiss.scene_prefab_instance"
+      ],
+      "cpp_entry": "gneiss::scene_instance::get_prefab_node_count"
     },
     {
       "symbol": "gneiss_scene_instance_get_prefab_node_info",
@@ -952,9 +972,13 @@
       "cpp_candidate_files": [
         "include/gneiss/scene.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "C 描述值映射，字符串借用至下次场景修改/刷新/卸载；刷新后旧节点 ID 失效；操作限所属 Application 线程",
+      "tests": [
+        "gneiss.cpp_scene_instance",
+        "gneiss.scene_prefab_instance"
+      ],
+      "cpp_entry": "gneiss::scene_instance::get_prefab_node_info"
     },
     {
       "symbol": "gneiss_scene_instance_create_prefab_instance",
@@ -962,9 +986,13 @@
       "cpp_candidate_files": [
         "include/gneiss/scene.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "借用描述字符串到调用返回，原子创建场景持有的 Prefab 与投影，失败保留 C++ 输出；操作限所属 Application 线程",
+      "tests": [
+        "gneiss.cpp_scene_instance",
+        "gneiss.scene_prefab_instance"
+      ],
+      "cpp_entry": "gneiss::scene_instance::create_prefab_instance"
     },
     {
       "symbol": "gneiss_scene_instance_set_prefab_instance_name",
@@ -972,9 +1000,13 @@
       "cpp_candidate_files": [
         "include/gneiss/scene.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "调用期间借用名称，场景复制作者文本，不改写来源资产；操作限所属 Application 线程",
+      "tests": [
+        "gneiss.cpp_scene_instance",
+        "gneiss.scene_prefab_instance"
+      ],
+      "cpp_entry": "gneiss::scene_instance::set_prefab_instance_name"
     },
     {
       "symbol": "gneiss_scene_instance_set_prefab_source_transform",
@@ -982,9 +1014,13 @@
       "cpp_candidate_files": [
         "include/gneiss/scene.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "复制 Transform 为实例覆盖，不修改共享来源资产；输入不逃逸调用；操作限所属 Application 线程",
+      "tests": [
+        "gneiss.cpp_scene_instance",
+        "gneiss.scene_prefab_instance"
+      ],
+      "cpp_entry": "gneiss::scene_instance::set_prefab_source_transform"
     },
     {
       "symbol": "gneiss_scene_instance_destroy_prefab_instance",
@@ -992,9 +1028,13 @@
       "cpp_candidate_files": [
         "include/gneiss/scene.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "删除场景内实例声明与投影，旧节点失效；尚存刷新历史由各令牌管理；操作限所属 Application 线程",
+      "tests": [
+        "gneiss.cpp_scene_instance",
+        "gneiss.scene_prefab_instance"
+      ],
+      "cpp_entry": "gneiss::scene_instance::destroy_prefab_instance"
     },
     {
       "symbol": "gneiss_scene_instance_refresh_prefab_instance",
@@ -1047,9 +1087,13 @@
       "cpp_candidate_files": [
         "include/gneiss/scene.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "场景拥有新实体和节点；描述只借用到返回，C++ 返回非拥有节点 ID，失败保留输出；操作限所属 Application 线程",
+      "tests": [
+        "gneiss.cpp_scene_instance",
+        "gneiss.scene_instance"
+      ],
+      "cpp_entry": "gneiss::scene_instance::create_node"
     },
     {
       "symbol": "gneiss_scene_instance_set_node_name",
@@ -1057,9 +1101,13 @@
       "cpp_candidate_files": [
         "include/gneiss/scene.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "借用名称到返回并复制入场景；已有字符串视图须重新查询；操作限所属 Application 线程",
+      "tests": [
+        "gneiss.cpp_scene_instance",
+        "gneiss.scene_instance"
+      ],
+      "cpp_entry": "gneiss::scene_instance::set_node_name"
     },
     {
       "symbol": "gneiss_scene_instance_reparent_node",
@@ -1067,9 +1115,13 @@
       "cpp_candidate_files": [
         "include/gneiss/scene.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "只重挂所属场景作者节点；拒绝循环/外场景父节点，不转移所有权；操作限所属 Application 线程",
+      "tests": [
+        "gneiss.cpp_scene_instance",
+        "gneiss.scene_instance"
+      ],
+      "cpp_entry": "gneiss::scene_instance::reparent_node"
     },
     {
       "symbol": "gneiss_scene_instance_capture_subtree",
@@ -1077,9 +1129,13 @@
       "cpp_candidate_files": [
         "include/gneiss/scene.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "两次 C 查询构造拥有型 string 快照；C++ 失败不改输出，捕获不含无关 Prefab，子树含 Prefab 时 unsupported；操作限所属 Application 线程",
+      "tests": [
+        "gneiss.cpp_scene_instance",
+        "gneiss.scene_instance"
+      ],
+      "cpp_entry": "gneiss::scene_instance::capture_subtree"
     },
     {
       "symbol": "gneiss_scene_instance_restore_subtree",
@@ -1087,9 +1143,13 @@
       "cpp_candidate_files": [
         "include/gneiss/scene.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "同步借用 snapshot/span 及 UUID 字符串；原子创建后返回非拥有 ID，失败保留输出；含 Prefab 快照 unsupported；操作限所属 Application 线程",
+      "tests": [
+        "gneiss.cpp_scene_instance",
+        "gneiss.scene_instance"
+      ],
+      "cpp_entry": "gneiss::scene_instance::restore_subtree"
     },
     {
       "symbol": "gneiss_scene_instance_destroy_subtree",
@@ -1097,9 +1157,13 @@
       "cpp_candidate_files": [
         "include/gneiss/scene.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "销毁普通作者子树的实体、节点与租约；子树挂接 Prefab 时 unsupported 且不修改实例；操作限所属 Application 线程",
+      "tests": [
+        "gneiss.cpp_scene_instance",
+        "gneiss.scene_instance"
+      ],
+      "cpp_entry": "gneiss::scene_instance::destroy_subtree"
     },
     {
       "symbol": "gneiss_scene_instance_create_mesh_renderer_node",
@@ -1107,9 +1171,13 @@
       "cpp_candidate_files": [
         "include/gneiss/scene.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "场景持有资源租约及新节点；描述 URI 仅在调用期间借用，C++ 失败保留输出；操作限所属 Application 线程",
+      "tests": [
+        "gneiss.cpp_scene_instance",
+        "gneiss.scene_instance"
+      ],
+      "cpp_entry": "gneiss::scene_instance::create_mesh_renderer_node"
     },
     {
       "symbol": "gneiss_scene_instance_set_mesh_renderer",
@@ -1117,9 +1185,13 @@
       "cpp_candidate_files": [
         "include/gneiss/scene.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "原子更新作者 URI、组件与场景持有的租约；失败保留原资源引用；操作限所属 Application 线程",
+      "tests": [
+        "gneiss.cpp_scene_instance",
+        "gneiss.scene_instance"
+      ],
+      "cpp_entry": "gneiss::scene_instance::set_mesh_renderer"
     },
     {
       "symbol": "gneiss_scene_instance_set_camera",
@@ -1127,9 +1199,13 @@
       "cpp_candidate_files": [
         "include/gneiss/scene.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "复制作者 Camera 值，按 is_primary 选择活动相机；输入不逃逸调用；操作限所属 Application 线程",
+      "tests": [
+        "gneiss.cpp_scene_instance",
+        "gneiss.scene_instance"
+      ],
+      "cpp_entry": "gneiss::scene_instance::set_camera"
     },
     {
       "symbol": "gneiss_scene_instance_remove_camera",
@@ -1137,9 +1213,13 @@
       "cpp_candidate_files": [
         "include/gneiss/scene.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "删除作者与运行时组件，不销毁实体，重复删除 not_found；操作限所属 Application 线程",
+      "tests": [
+        "gneiss.cpp_scene_instance",
+        "gneiss.scene_instance"
+      ],
+      "cpp_entry": "gneiss::scene_instance::remove_camera"
     },
     {
       "symbol": "gneiss_scene_instance_remove_mesh_renderer",
@@ -1147,9 +1227,13 @@
       "cpp_candidate_files": [
         "include/gneiss/scene.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "移除作者引用、运行时组件和场景租约；不要求调用方再销毁所借 RID；操作限所属 Application 线程",
+      "tests": [
+        "gneiss.cpp_scene_instance",
+        "gneiss.scene_instance"
+      ],
+      "cpp_entry": "gneiss::scene_instance::remove_mesh_renderer"
     },
     {
       "symbol": "gneiss_scene_instance_destroy_node",
@@ -1157,9 +1241,13 @@
       "cpp_candidate_files": [
         "include/gneiss/scene.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "删除无子节点的作者节点、实体和场景租约；普通或 Prefab 子节点均阻止删除；操作限所属 Application 线程",
+      "tests": [
+        "gneiss.cpp_scene_instance",
+        "gneiss.scene_instance"
+      ],
+      "cpp_entry": "gneiss::scene_instance::destroy_node"
     },
     {
       "symbol": "gneiss_scene_instance_serialize",
@@ -1167,9 +1255,13 @@
       "cpp_candidate_files": [
         "include/gneiss/scene.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "两次 C 查询构造拥有型 UTF-8 string；失败不改 C++ 输出，捕获长度/分配异常返回错误，不写入 VFS；操作限所属 Application 线程",
+      "tests": [
+        "gneiss.cpp_scene_instance",
+        "gneiss.scene_instance"
+      ],
+      "cpp_entry": "gneiss::scene_instance::serialize"
     },
     {
       "symbol": "gneiss_world_create",

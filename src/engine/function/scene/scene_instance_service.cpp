@@ -1064,6 +1064,14 @@ gneiss_result scene_instance::capture_subtree(gneiss_scene_node_id root,
     if (included.size() > GNEISS_SCENE_SUBTREE_MAX_NODES) {
       return GNEISS_ERROR_UNSUPPORTED;
     }
+    // 当前子树恢复只处理普通作者节点；不能生成会遗漏 Prefab 的撤销快照。
+    if (std::ranges::any_of(current.prefab_instances, [&included](const auto& instance) {
+          return instance.parent_uuid && included.contains(*instance.parent_uuid);
+        })) {
+      return GNEISS_ERROR_UNSUPPORTED;
+    }
+    // 场景其他位置的 Prefab 不属于本次快照，保留它们会产生快照外父引用。
+    current.prefab_instances.clear();
     std::erase_if(current.objects, [&included](const auto& candidate) {
       return !included.contains(candidate.uuid);
     });
@@ -1096,6 +1104,9 @@ gneiss_result scene_instance::restore_subtree(std::string_view snapshot,
   auto result = parse_scene_description(snapshot, subtree, diagnostic);
   if (result != GNEISS_SUCCESS || subtree.objects.empty()) {
     return result == GNEISS_SUCCESS ? GNEISS_ERROR_INVALID_ARGUMENT : result;
+  }
+  if (!subtree.prefab_instances.empty()) {
+    return GNEISS_ERROR_UNSUPPORTED;
   }
   if (subtree.objects.size() > GNEISS_SCENE_SUBTREE_MAX_NODES) {
     return GNEISS_ERROR_UNSUPPORTED;
@@ -1272,6 +1283,11 @@ gneiss_result scene_instance::destroy_subtree(gneiss_scene_node_id root) {
           changed = true;
         }
       }
+    }
+    if (std::ranges::any_of(description.prefab_instances, [&removed](const auto& instance) {
+          return instance.parent_uuid && removed.contains(*instance.parent_uuid);
+        })) {
+      return GNEISS_ERROR_UNSUPPORTED;
     }
     std::vector<std::pair<object*, std::size_t>> ordered;
     ordered.reserve(removed.size());
@@ -1505,8 +1521,12 @@ gneiss_result scene_instance::destroy_node(gneiss_scene_node_id node) {
   }
   const auto index = static_cast<std::size_t>(std::distance(objects.begin(), found));
   const auto& uuid = description.objects[index].uuid;
-  if (std::ranges::any_of(description.objects, [&uuid](const auto& candidate) {
-        return candidate.parent_uuid && *candidate.parent_uuid == uuid;
+  if (std::ranges::any_of(description.objects,
+                          [&uuid](const auto& candidate) {
+                            return candidate.parent_uuid && *candidate.parent_uuid == uuid;
+                          }) ||
+      std::ranges::any_of(description.prefab_instances, [&uuid](const auto& instance) {
+        return instance.parent_uuid && *instance.parent_uuid == uuid;
       })) {
     return GNEISS_ERROR_INVALID_STATE;
   }

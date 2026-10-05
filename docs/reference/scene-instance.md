@@ -52,14 +52,17 @@ JSON 可为对象增加可选字符串 `name`；旧场景无需迁移，名称�
 文本。V1/V2 调用方仍可使用旧结构尺寸读取原有字段；V3 字段只在调用方提供完整结构尺寸时写入。
 
 节点描述中的 UTF-8 UUID 和名称是实例借出的“指针 + 长度”视图，不以零结尾为契约，不能由调用方
-释放；实例卸载或 Application 销毁后立即失效。`out_info` 必须以
+释放。场景的下一次修改可能重分配或替换这些字符串，修改后必须重新查询；实例卸载或 Application
+销毁后也立即失效。需要跨编辑保存名称、UUID 或 URI 时，必须在修改前复制字符串，不能只复制
+包含指针的描述结构。`out_info` 必须以
 `GNEISS_SCENE_INSTANCE_NODE_INFO_INIT` 初始化。索引越界返回 `GNEISS_ERROR_NOT_FOUND`；节点或实体
 已被外部销毁时返回句柄错误。C++ 包装提供对应的 `get_node_count` 和 `get_node_info`。
 
 Prefab 使用独立的实验性枚举接口 `gneiss_scene_instance_get_prefab_node_count` 与
 `gneiss_scene_instance_get_prefab_node_info`，不改变普通 `objects` 的数量和顺序。枚举顺序为每个实例
 的实例根，其后为 Prefab 来源节点；描述包含实例 UUID、来源节点 UUID、Prefab URI、Runtime ID、
-局部 Transform 以及实例根或来源只读标志。所有字符串视图的生命周期与场景实例一致。
+局部 Transform 以及实例根或来源只读标志。字符串同样只借用到下一次场景修改或父对象失效；
+Prefab 刷新、撤销/重做和重命名之后应重新枚举，不能沿用旧字符串指针。
 
 `gneiss_scene_instance_create_prefab_instance` 在普通作者节点或场景根下原子放置 Prefab。调用方提供
 唯一实例 UUID、显示名称、规范 Prefab URI 和实例根 Transform；资源获取或 Runtime 创建失败时不会
@@ -115,6 +118,11 @@ ID 和实例不能跨 Application 使用。这两项操作仅限 Application 创
 资产租约失效。有子节点时返回 `GNEISS_ERROR_INVALID_STATE`，未知节点返回句柄错误。
 
 ## 子树快照、复制与恢复
+
+当前子树接口仅处理普通作者节点。场景其他位置的 Prefab 不进入子树快照；子树自身挂有 Prefab
+引用时，捕获与删除返回 `GNEISS_ERROR_UNSUPPORTED`，不改变场景。恢复含 Prefab 引用的快照也
+返回该错误，避免只恢复普通节点而遗漏 Prefab。单节点删除同样把挂接的 Prefab 视为子节点，
+返回 `GNEISS_ERROR_INVALID_STATE`；可先通过专用 Prefab 接口处理实例，再操作普通作者子树。
 
 `gneiss_scene_instance_capture_subtree` 输出当前版本场景 Schema 的 UTF-8 JSON 值快照，包含目标根、
 全部后代、层级、Transform、Camera 和 Mesh Renderer 作者值，不包含 Entity ID、Scene Node ID、RID
