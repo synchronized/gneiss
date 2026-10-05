@@ -354,6 +354,7 @@
 - [M-296：C++ 拥有者生命周期](records/M-296-owner-lifecycle.md)
 - [M-296：Prefab 刷新令牌的 C++ 所有权](records/M-296-prefab-refresh-owner.md)
 - [M-296：输入与 Game Context 强类型借用](records/M-296-input-context-views.md)
+- [M-296：World、节点和组件的 SDK 所有权审查](records/M-296-world-scene-ownership.md)
 
 - [M-295：Render 快照与 Asset 解码边界](records/M-295-render-asset-layout.md)
 

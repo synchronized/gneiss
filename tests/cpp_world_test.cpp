@@ -20,13 +20,28 @@ int main() {
   }
   gneiss::camera_desc camera = GNEISS_CAMERA_DESC_INIT;
   gneiss::camera_desc queried_camera = GNEISS_CAMERA_DESC_INIT;
-  gneiss::entity_id active_camera;
+  gneiss::entity_id active_camera = entity;
+  if (first.get_active_camera(active_camera) != gneiss::result::not_ready ||
+      active_camera.is_valid()) {
+    return 9;
+  }
   if (first.configure_camera(entity, camera) != gneiss::result::success ||
       first.get_camera(entity, queried_camera) != gneiss::result::success ||
       first.set_active_camera(entity) != gneiss::result::success ||
       first.get_active_camera(active_camera) != gneiss::result::success ||
       active_camera != entity) {
     return 4;
+  }
+  if (first.remove_camera(entity).failed() ||
+      first.remove_camera(entity) != gneiss::result::not_found ||
+      first.get_active_camera(active_camera) != gneiss::result::not_ready ||
+      active_camera.is_valid()) {
+    return 10;
+  }
+  const gneiss::camera legacy_camera = GNEISS_CAMERA_INIT;
+  if (first.set_camera(entity, legacy_camera).failed() ||
+      first.get_active_camera(active_camera).failed() || active_camera != entity) {
+    return 11;
   }
 
   std::uint64_t count{};
@@ -64,7 +79,9 @@ int main() {
     return 5;
   }
   if (first.entity_count(count) != gneiss::result::invalid_handle ||
-      first.get_parent(child, parent) != gneiss::result::invalid_handle || parent.is_valid()) {
+      first.get_parent(child, parent) != gneiss::result::invalid_handle || parent.is_valid() ||
+      first.get_active_camera(active_camera) != gneiss::result::invalid_handle ||
+      active_camera.is_valid()) {
     return 8;
   }
   return 0;

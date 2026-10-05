@@ -37,6 +37,13 @@ World 及其实体只能在创建 World 的线程访问。跨线程调用返回 
 Application 更换对应 World 后，旧视图操作返回无效句柄。`is_valid()` 仅检查句柄非零。
 视图和拥有者都须遵守 World 所属线程约束。
 
+节点与实体 ID 均为借用标识。递归删除节点不删除其关联实体；移除 Mesh Renderer 或删除实体也不
+销毁所引用的 Mesh、Material，资源仍由原 Service/RAII 拥有者管理。
+
+输出错误行为保留既有契约：`get_active_camera` 在未设置相机时返回 `not_ready`，失败清空实体 ID；
+实体重载的 `get_local_transform` 在失败时输出单位变换。`create_entity`、`create_scene_node`、
+`get_parent`、`get_entity` 和 `is_alive` 的 C++ 输出仅在成功时修改，不应把一种输出规则套用到所有查询。
+
 拥有型包装的关闭、失败保留与所有权转移遵循 [Application C++ 契约](application.md#生命周期)。
 `reset()` 可在所属线程重试；`release()` 不改变底层 World 的线程归属。
 

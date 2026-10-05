@@ -626,9 +626,13 @@
       "cpp_candidate_files": [
         "include/gneiss/world.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "复制旧 Camera 值；is_primary 可更新活动相机，不拥有外部资源；遵守所属 World 线程约束",
+      "tests": [
+        "gneiss.cpp_world",
+        "gneiss.c_world"
+      ],
+      "cpp_entry": "gneiss::world_ref::set_camera / gneiss::world"
     },
     {
       "symbol": "gneiss_world_entity_configure_camera",
@@ -636,9 +640,14 @@
       "cpp_candidate_files": [
         "include/gneiss/world.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "复制版本化 Camera 值，不改变活动相机；结构尺寸与投影参数先校验；遵守所属 World 线程约束",
+      "tests": [
+        "gneiss.cpp_world",
+        "gneiss.c_world",
+        "gneiss.world-service-boundary"
+      ],
+      "cpp_entry": "gneiss::world_ref::configure_camera / gneiss::world"
     },
     {
       "symbol": "gneiss_world_entity_get_camera",
@@ -646,9 +655,14 @@
       "cpp_candidate_files": [
         "include/gneiss/world.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "返回 Camera 值快照，失败保留输出；结构须用 INIT 初始化；遵守所属 World 线程约束",
+      "tests": [
+        "gneiss.cpp_world",
+        "gneiss.c_world",
+        "gneiss.world-service-boundary"
+      ],
+      "cpp_entry": "gneiss::world_ref::get_camera / gneiss::world"
     },
     {
       "symbol": "gneiss_world_entity_remove_camera",
@@ -656,9 +670,13 @@
       "cpp_candidate_files": [
         "include/gneiss/world.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "移除组件；活动相机被移除后变为未设置，重复移除 not_found；遵守所属 World 线程约束",
+      "tests": [
+        "gneiss.cpp_world",
+        "gneiss.c_world"
+      ],
+      "cpp_entry": "gneiss::world_ref::remove_camera / gneiss::world"
     },
     {
       "symbol": "gneiss_world_set_active_camera",
@@ -666,9 +684,13 @@
       "cpp_candidate_files": [
         "include/gneiss/world.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "只借用 World 内已配置 Camera 的实体，不转移实体所有权；遵守所属 World 线程约束",
+      "tests": [
+        "gneiss.cpp_world",
+        "gneiss.c_world"
+      ],
+      "cpp_entry": "gneiss::world_ref::set_active_camera / gneiss::world"
     },
     {
       "symbol": "gneiss_world_get_active_camera",
@@ -676,9 +698,13 @@
       "cpp_candidate_files": [
         "include/gneiss/world.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "返回借用实体；未设置返回 not_ready；C++ 保持既有失败清空输出规则；遵守所属 World 线程约束",
+      "tests": [
+        "gneiss.cpp_world",
+        "gneiss.c_world"
+      ],
+      "cpp_entry": "gneiss::world_ref::get_active_camera / gneiss::world"
     },
     {
       "symbol": "gneiss_world_entity_set_mesh_renderer",
@@ -686,9 +712,12 @@
       "cpp_candidate_files": [
         "include/gneiss/world.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "复制 Mesh/Material RID，不取得资源所有权；拒绝零 RID，其他资源有效性在提取时校验；遵守所属 World 线程约束",
+      "tests": [
+        "gneiss.cpp-resource-ownership"
+      ],
+      "cpp_entry": "gneiss::world_ref::set_mesh_renderer / gneiss::world"
     },
     {
       "symbol": "gneiss_world_entity_remove_mesh_renderer",
@@ -696,9 +725,12 @@
       "cpp_candidate_files": [
         "include/gneiss/world.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "只删除组件，不销毁所借用的资源；重复移除 not_found；遵守所属 World 线程约束",
+      "tests": [
+        "gneiss.cpp-resource-ownership"
+      ],
+      "cpp_entry": "gneiss::world_ref::remove_mesh_renderer / gneiss::world"
     },
     {
       "symbol": "gneiss_scene_node_create",
@@ -706,9 +738,13 @@
       "cpp_candidate_files": [
         "include/gneiss/world.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "World 拥有节点，返回借用强类型 ID；关联实体不转移所有权；C++ 失败保留输出；遵守所属 World 线程约束",
+      "tests": [
+        "gneiss.cpp_scene",
+        "gneiss.c_scene"
+      ],
+      "cpp_entry": "gneiss::world_ref::create_scene_node / gneiss::world"
     },
     {
       "symbol": "gneiss_scene_node_destroy",
@@ -716,9 +752,13 @@
       "cpp_candidate_files": [
         "include/gneiss/world.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "递归删除节点及子节点，实体仍由 World 持有；旧 generation 失效；遵守所属 World 线程约束",
+      "tests": [
+        "gneiss.cpp_scene",
+        "gneiss.c_scene"
+      ],
+      "cpp_entry": "gneiss::world_ref::destroy_scene_node / gneiss::world"
     },
     {
       "symbol": "gneiss_scene_node_reparent",
@@ -726,9 +766,13 @@
       "cpp_candidate_files": [
         "include/gneiss/world.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "只改变所属 World 内父链；拒绝循环，不改变实体所有权；遵守所属 World 线程约束",
+      "tests": [
+        "gneiss.cpp_scene",
+        "gneiss.c_scene"
+      ],
+      "cpp_entry": "gneiss::world_ref::reparent_scene_node / gneiss::world"
     },
     {
       "symbol": "gneiss_scene_node_set_local_transform",
@@ -736,9 +780,13 @@
       "cpp_candidate_files": [
         "include/gneiss/world.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "复制变换值；拒绝非有限、非法旋转与零缩放，不借用输入；遵守所属 World 线程约束",
+      "tests": [
+        "gneiss.cpp_scene",
+        "gneiss.scene_tree_transform"
+      ],
+      "cpp_entry": "gneiss::world_ref::set_local_transform(scene_node_id, transform) / gneiss::world"
     },
     {
       "symbol": "gneiss_scene_node_get_local_transform",
@@ -759,9 +807,14 @@
       "cpp_candidate_files": [
         "include/gneiss/world.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "输出父链组合的变换值，不返回内部引用；遵守所属 World 线程约束",
+      "tests": [
+        "gneiss.cpp_scene",
+        "gneiss.c_scene",
+        "gneiss.scene_tree_transform"
+      ],
+      "cpp_entry": "gneiss::world_ref::get_world_transform / gneiss::world"
     },
     {
       "symbol": "gneiss_scene_node_get_entity",
@@ -795,9 +848,12 @@
       "cpp_candidate_files": [
         "include/gneiss/world.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "通过关联节点读取值快照；C++ 继承 C 入口先将输出置单位变换的规则；遵守所属 World 线程约束",
+      "tests": [
+        "gneiss.cpp_scene"
+      ],
+      "cpp_entry": "gneiss::world_ref::get_local_transform(entity_id, transform&) / gneiss::world"
     },
     {
       "symbol": "gneiss_world_entity_set_local_transform",
@@ -805,9 +861,12 @@
       "cpp_candidate_files": [
         "include/gneiss/world.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "通过关联节点写入变换值；不关联时失败，不改变对象所有权；遵守所属 World 线程约束",
+      "tests": [
+        "gneiss.cpp_scene"
+      ],
+      "cpp_entry": "gneiss::world_ref::set_local_transform(entity_id, transform) / gneiss::world"
     },
     {
       "symbol": "gneiss_scene_instance_load",
@@ -1146,9 +1205,14 @@
       "cpp_candidate_files": [
         "include/gneiss/world.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "World 拥有实体，返回借用强类型 ID；C++ 失败保留输出；遵守所属 World 线程约束",
+      "tests": [
+        "gneiss.cpp_world",
+        "gneiss.c_world",
+        "gneiss.world-service-boundary"
+      ],
+      "cpp_entry": "gneiss::world_ref::create_entity / gneiss::world"
     },
     {
       "symbol": "gneiss_world_entity_destroy",
@@ -1156,9 +1220,14 @@
       "cpp_candidate_files": [
         "include/gneiss/world.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "World 中销毁实体并使旧 generation 失效；组件引用资源不随实体销毁；遵守所属 World 线程约束",
+      "tests": [
+        "gneiss.cpp_world",
+        "gneiss.c_world",
+        "gneiss.cpp-resource-ownership"
+      ],
+      "cpp_entry": "gneiss::world_ref::destroy_entity / gneiss::world"
     },
     {
       "symbol": "gneiss_world_entity_is_alive",
@@ -1166,9 +1235,13 @@
       "cpp_candidate_files": [
         "include/gneiss/world.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "不取得所有权；过期/外域实体成功返回 false，无效 World 失败；C++ bool 仅在成功时改写；遵守所属 World 线程约束",
+      "tests": [
+        "gneiss.cpp_world",
+        "gneiss.c_world"
+      ],
+      "cpp_entry": "gneiss::world_ref::is_alive / gneiss::world"
     },
     {
       "symbol": "gneiss_world_entity_count",
@@ -1215,9 +1288,13 @@
       "cpp_candidate_files": [
         "include/gneiss/world.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "借用未冻结 Registry 注册内建类型与访问器；不取得 Registry 所有权，重复注册幂等",
+      "tests": [
+        "gneiss.cpp_world",
+        "gneiss.component_reflection"
+      ],
+      "cpp_entry": "gneiss::world_ref::register_reflection / gneiss::world"
     }
   ]
 }

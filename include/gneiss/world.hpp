@@ -74,6 +74,7 @@ public:
     return from_native(gneiss_world_set_active_camera(handle_, entity.get()));
   }
 
+  /** 返回借用的活动相机实体；未设置返回 not_ready。失败清空输出，保持既有 C 契约。 */
   [[nodiscard]] result get_active_camera(entity_id& out_entity) const noexcept {
     gneiss_entity_id native_entity = GNEISS_NULL_ENTITY_ID;
     const auto native_result = gneiss_world_get_active_camera(handle_, &native_entity);

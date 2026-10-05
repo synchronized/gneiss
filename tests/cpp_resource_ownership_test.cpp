@@ -115,6 +115,26 @@ int main() {
       app.create_texture(texture_desc, texture).failed()) {
     return 6;
   }
+  gneiss::entity_id rendered;
+  const gneiss::mesh_renderer renderer{.mesh = mesh.get(), .material = material.get()};
+  const gneiss::mesh_renderer invalid = GNEISS_MESH_RENDERER_INIT;
+  if (borrowed.create_entity(rendered).failed() ||
+      borrowed.set_mesh_renderer(rendered, invalid) != gneiss::result::invalid_argument ||
+      borrowed.set_mesh_renderer(rendered, renderer).failed() ||
+      borrowed.remove_mesh_renderer(rendered).failed() ||
+      borrowed.remove_mesh_renderer(rendered) != gneiss::result::not_found ||
+      borrowed.set_mesh_renderer(rendered, renderer).failed() ||
+      borrowed.destroy_entity(rendered).failed() ||
+      borrowed.set_mesh_renderer(rendered, renderer) != gneiss::result::invalid_handle) {
+    return 11;
+  }
+  // 组件只借用 RID；删除组件/实体后，原拥有者仍可释放资源。
+  if (app.destroy_mesh(mesh.release()).failed() ||
+      app.destroy_material(material.release()).failed() ||
+      app.create_mesh(mesh_desc, mesh).failed() ||
+      app.create_material(material_desc, material).failed()) {
+    return 12;
+  }
   app.reset();
   if (borrowed.entity_count(count) != gneiss::result::invalid_handle || mesh.reset().failed() ||
       material.reset().failed() || texture.reset().failed() || mesh || material || texture) {
