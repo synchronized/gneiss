@@ -17,6 +17,13 @@ constexpr std::size_t maximum_decoded_bytes = 256U * 1024U * 1024U;
 
 using context_ptr = std::unique_ptr<spng_ctx, decltype(&spng_ctx_free)>;
 
+// 错误清理不能构造新 vector：Debug 标准库的空容器也可能分配代理对象。
+void clear_image(decoded_png& image) noexcept {
+  image.width = 0U;
+  image.height = 0U;
+  image.pixels.clear();
+}
+
 gneiss_result fail(int error, std::string& message) noexcept {
   try {
     const char* text = spng_strerror(error);
@@ -32,13 +39,13 @@ gneiss_result fail(int error, std::string& message) noexcept {
 
 gneiss_result decode_png(const std::vector<std::byte>& bytes, decoded_png& out_image,
                          std::string& out_message, std::size_t byte_limit) noexcept {
-  out_image = {};
+  clear_image(out_image);
   out_message.clear();
-  if (bytes.empty()) {
-    out_message = "PNG 数据为空";
-    return GNEISS_ERROR_INVALID_ARGUMENT;
-  }
   try {
+    if (bytes.empty()) {
+      out_message = "PNG 数据为空";
+      return GNEISS_ERROR_INVALID_ARGUMENT;
+    }
     context_ptr context(spng_ctx_new(0), &spng_ctx_free);
     if (!context) {
       return GNEISS_ERROR_OUT_OF_MEMORY;
@@ -73,15 +80,15 @@ gneiss_result decode_png(const std::vector<std::byte>& bytes, decoded_png& out_i
     result = spng_decode_image(context.get(), out_image.pixels.data(), out_image.pixels.size(),
                                SPNG_FMT_RGBA8, SPNG_DECODE_TRNS);
     if (result != 0) {
-      out_image = {};
+      clear_image(out_image);
       return fail(result, out_message);
     }
     return GNEISS_SUCCESS;
   } catch (const std::bad_alloc&) {
-    out_image = {};
+    clear_image(out_image);
     return GNEISS_ERROR_OUT_OF_MEMORY;
   } catch (...) {
-    out_image = {};
+    clear_image(out_image);
     return GNEISS_ERROR_INTERNAL;
   }
 }
