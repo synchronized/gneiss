@@ -22,13 +22,13 @@ namespace gneiss::render_internal {
 using mesh_resource = asset_internal::mesh_data;
 
 struct material_resource {
-  float red;
-  float green;
-  float blue;
-  float alpha;
-  gneiss_texture base_color_texture;
-  float metallic;
-  float roughness;
+  float red{1.0F};
+  float green{1.0F};
+  float blue{1.0F};
+  float alpha{1.0F};
+  gneiss_texture base_color_texture{};
+  float metallic{0.0F};
+  float roughness{1.0F};
   gneiss_texture metallic_roughness_texture{};
   gneiss_texture normal_texture{};
   gneiss_texture occlusion_texture{};
@@ -59,30 +59,6 @@ struct material_resource {
     const std::array slots{&base_color_texture, &metallic_roughness_texture, &normal_texture,
                            &occlusion_texture, &emissive_texture};
     *slots[slot] = texture;
-  }
-  [[nodiscard]] gneiss_material_desc description() const noexcept {
-    gneiss_material_desc desc = GNEISS_MATERIAL_DESC_INIT;
-    desc.red = red;
-    desc.green = green;
-    desc.blue = blue;
-    desc.alpha = alpha;
-    desc.base_color_texture = base_color_texture;
-    desc.metallic = metallic;
-    desc.roughness = roughness;
-    desc.metallic_roughness_texture = metallic_roughness_texture;
-    desc.normal_texture = normal_texture;
-    desc.occlusion_texture = occlusion_texture;
-    desc.emissive_texture = emissive_texture;
-    desc.normal_scale = normal_scale;
-    desc.occlusion_strength = occlusion_strength;
-    desc.alpha_mode = alpha_mode;
-    desc.double_sided = double_sided;
-    desc.alpha_cutoff = alpha_cutoff;
-    for (std::size_t i = 0; i < sampling.size(); ++i)
-      desc.sampling[i] = sampling[i];
-    for (std::size_t i = 0; i < emissive.size(); ++i)
-      desc.emissive[i] = emissive[i];
-    return desc;
   }
 };
 

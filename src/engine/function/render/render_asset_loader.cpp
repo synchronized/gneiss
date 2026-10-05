@@ -286,8 +286,7 @@ gneiss_result render_asset_loader::stage_asset(prepared_render_asset prepared,
         candidate.dependencies[slot] = found->lease.entry_;
         candidate.dependency_textures[slot] = found->texture;
       }
-      const auto desc = material.description();
-      created = resources_.create_material(desc, &rid);
+      created = resources_.create_material(material, &rid);
       if (created != GNEISS_SUCCESS) {
         return created;
       }
@@ -525,9 +524,8 @@ gneiss_result render_asset_loader::acquire_material(std::string_view uri,
           material.set_texture(slot, texture.get());
           dependencies[slot] = texture.entry_;
         }
-        const auto desc = material.description();
         gneiss_material rid = GNEISS_NULL_MATERIAL;
-        result = resources_.create_material(desc, &rid);
+        result = resources_.create_material(material, &rid);
         if (result != GNEISS_SUCCESS) {
           fail(out_diagnostic, result, "", "创建 Material RID 失败");
           return result;

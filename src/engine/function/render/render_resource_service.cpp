@@ -238,64 +238,35 @@ gneiss_result render_resource_service::destroy_mesh(gneiss_mesh mesh) noexcept {
   return meshes_.destroy(mesh, core::resource_type::mesh);
 }
 
-gneiss_result render_resource_service::create_material(const gneiss_material_desc& desc,
+gneiss_result render_resource_service::create_material(const material_resource& value,
                                                        gneiss_material* out_material) noexcept {
-  if (out_material == nullptr || !is_valid() ||
-      (desc.struct_size != GNEISS_MATERIAL_DESC_VERSION_1_SIZE &&
-       desc.struct_size != GNEISS_MATERIAL_DESC_VERSION_2_SIZE &&
-       desc.struct_size < sizeof(gneiss_material_desc)) ||
-      desc.reserved != 0U || !valid_color(desc.red) || !valid_color(desc.green) ||
-      !valid_color(desc.blue) || !valid_color(desc.alpha) || !valid_color(desc.metallic) ||
-      !valid_color(desc.roughness) ||
-      (desc.base_color_texture != GNEISS_NULL_TEXTURE &&
-       get_texture(desc.base_color_texture) == nullptr)) {
+  if (out_material == nullptr || !is_valid() || !valid_color(value.red) ||
+      !valid_color(value.green) || !valid_color(value.blue) || !valid_color(value.alpha) ||
+      !valid_color(value.metallic) || !valid_color(value.roughness)) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
   *out_material = 0U;
+  if (!std::isfinite(value.normal_scale) || !valid_color(value.occlusion_strength) ||
+      !std::ranges::all_of(value.emissive, valid_color) ||
+      value.alpha_mode > GNEISS_MATERIAL_ALPHA_BLEND || value.double_sided > 1U ||
+      !std::isfinite(value.alpha_cutoff) || value.alpha_cutoff < 0.0F) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  for (const auto texture : value.texture_handles()) {
+    if (texture != GNEISS_NULL_TEXTURE && get_texture(texture) == nullptr) {
+      return GNEISS_ERROR_INVALID_ARGUMENT;
+    }
+  }
+  for (const auto& sample : value.sampling) {
+    if (sample.uv_set > 1U || sample.mag_filter > GNEISS_TEXTURE_FILTER_LINEAR ||
+        sample.min_filter > GNEISS_TEXTURE_FILTER_LINEAR ||
+        sample.mip_filter > GNEISS_TEXTURE_MIP_LINEAR ||
+        sample.address_u > GNEISS_TEXTURE_ADDRESS_MIRROR ||
+        sample.address_v > GNEISS_TEXTURE_ADDRESS_MIRROR) {
+      return GNEISS_ERROR_INVALID_ARGUMENT;
+    }
+  }
   try {
-    material_resource value{.red = desc.red,
-                            .green = desc.green,
-                            .blue = desc.blue,
-                            .alpha = desc.alpha,
-                            .base_color_texture = desc.base_color_texture,
-                            .metallic = desc.metallic,
-                            .roughness = desc.roughness};
-    if (desc.struct_size >= GNEISS_MATERIAL_DESC_VERSION_2_SIZE) {
-      if (desc.reserved_2 != 0U || !std::isfinite(desc.normal_scale) ||
-          !valid_color(desc.occlusion_strength) ||
-          !std::ranges::all_of(desc.emissive, valid_color)) {
-        return GNEISS_ERROR_INVALID_ARGUMENT;
-      }
-      value.metallic_roughness_texture = desc.metallic_roughness_texture;
-      value.normal_texture = desc.normal_texture;
-      value.occlusion_texture = desc.occlusion_texture;
-      value.emissive_texture = desc.emissive_texture;
-      value.normal_scale = desc.normal_scale;
-      value.occlusion_strength = desc.occlusion_strength;
-      std::ranges::copy(desc.emissive, value.emissive.begin());
-      for (const auto texture : value.texture_handles()) {
-        if (texture != GNEISS_NULL_TEXTURE && get_texture(texture) == nullptr) {
-          return GNEISS_ERROR_INVALID_ARGUMENT;
-        }
-      }
-    }
-    if (desc.struct_size >= sizeof(gneiss_material_desc)) {
-      if (desc.alpha_mode > GNEISS_MATERIAL_ALPHA_BLEND || desc.double_sided > 1U ||
-          (!std::isfinite(desc.alpha_cutoff) || desc.alpha_cutoff < 0.0F) || desc.reserved_3 != 0U)
-        return GNEISS_ERROR_INVALID_ARGUMENT;
-      for (const auto& sample : desc.sampling) {
-        if (sample.uv_set > 1U || sample.mag_filter > GNEISS_TEXTURE_FILTER_LINEAR ||
-            sample.min_filter > GNEISS_TEXTURE_FILTER_LINEAR ||
-            sample.mip_filter > GNEISS_TEXTURE_MIP_LINEAR ||
-            sample.address_u > GNEISS_TEXTURE_ADDRESS_MIRROR ||
-            sample.address_v > GNEISS_TEXTURE_ADDRESS_MIRROR)
-          return GNEISS_ERROR_INVALID_ARGUMENT;
-      }
-      value.alpha_mode = desc.alpha_mode;
-      value.double_sided = desc.double_sided;
-      value.alpha_cutoff = desc.alpha_cutoff;
-      std::ranges::copy(desc.sampling, value.sampling.begin());
-    }
     auto resource = track(std::make_shared<const material_resource>(value), material_history_);
     return materials_.create(core::resource_type::material, std::move(resource), out_material);
   } catch (const std::bad_alloc&) {

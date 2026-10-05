@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "engine/api/material_description.hpp"
 #include "engine/function/application/application_registry.hpp"
 #include "engine/function/application/application_state.hpp"
 
@@ -55,9 +56,13 @@ extern "C" gneiss_result gneiss_material_create(gneiss_application application,
   try {
     auto state = find_application(application);
     const auto validation_result = validate_application(state);
-    return validation_result == GNEISS_SUCCESS
-               ? state->resources().create_material(*desc, out_material)
-               : validation_result;
+    if (validation_result != GNEISS_SUCCESS) {
+      return validation_result;
+    }
+    gneiss::render_internal::material_resource value;
+    const auto converted = gneiss::api::read_material_description(*desc, value);
+    return converted == GNEISS_SUCCESS ? state->resources().create_material(value, out_material)
+                                       : converted;
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;
   }

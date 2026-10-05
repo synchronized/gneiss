@@ -36,7 +36,7 @@ int main() {
     return 2;
   }
 
-  gneiss_material_desc material_desc = GNEISS_MATERIAL_DESC_INIT;
+  material_resource material_desc;
   material_desc.base_color_texture = texture;
   std::array<gneiss_texture, 4> pbr_textures{};
   for (auto& handle : pbr_textures) {

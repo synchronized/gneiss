@@ -45,7 +45,7 @@ public:
   [[nodiscard]] bool replace_material(gneiss_material rid,
                                       std::shared_ptr<const material_resource> data) noexcept;
   [[nodiscard]] gneiss_result destroy_mesh(gneiss_mesh mesh) noexcept;
-  [[nodiscard]] gneiss_result create_material(const gneiss_material_desc& desc,
+  [[nodiscard]] gneiss_result create_material(const material_resource& value,
                                               gneiss_material* out_material) noexcept;
   [[nodiscard]] gneiss_result destroy_material(gneiss_material material) noexcept;
   [[nodiscard]] gneiss_result create_texture(const gneiss_texture_desc& desc,

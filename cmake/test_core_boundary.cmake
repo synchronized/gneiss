@@ -253,3 +253,15 @@ if(status EQUAL 0)
   message(FATAL_ERROR "边界检查未拒绝 Application 核心消费 ABI 描述")
 endif()
 file(WRITE "${fixture}/src/engine/function/application/probe.cpp" "")
+
+foreach(content IN ITEMS "#include <engine/api/material_description.hpp>"
+    "void create(const gneiss_material_desc&);")
+  file(WRITE "${fixture}/src/engine/function/render/probe.cpp" "${content}\n")
+  execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
+    -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
+    RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
+  if(status EQUAL 0)
+    message(FATAL_ERROR "边界检查未拒绝 Render 反向消费 ABI：${content}")
+  endif()
+endforeach()
+file(WRITE "${fixture}/src/engine/function/render/probe.cpp" "")

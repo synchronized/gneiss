@@ -26,6 +26,7 @@ target_sources(
     engine/core/sha256.hpp
     engine/api/application_api.cpp
     engine/api/render_api.cpp
+    engine/api/material_description.hpp
     engine/api/scene_api.cpp
     engine/api/input_api.cpp
     engine/function/application/application_registry.cpp
