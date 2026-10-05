@@ -24,6 +24,7 @@ struct capture_state final {
   std::string category;
   std::string message;
   gneiss_result reentrant_result = GNEISS_SUCCESS;
+  bool check_reentrancy = true;
   std::atomic<bool> callback_active = false;
   std::atomic<bool> was_concurrent = false;
 };
@@ -44,7 +45,7 @@ void capture(gneiss_application application, const gneiss_log_event* event, void
       state.message.assign(event->message, event->message_length);
       ++state.count;
     }
-    if (state.count == 1U) {
+    if (state.check_reentrancy && state.count == 1U) {
       const auto nested = gneiss::make_log_message(gneiss::log_severity::debug, "test", "nested");
       state.reentrant_result = gneiss_application_log(application, &nested);
     }
@@ -142,6 +143,8 @@ int main() {
   }
   // C++ 拥有者允许工作线程提交日志，关闭等待回调结束；不并发修改拥有者本身。
   capture_state owned_capture;
+  // 关闭排空期间句柄可先失效；重入拒绝已在上面的存活期用例验证。
+  owned_capture.check_reentrancy = false;
   desc.log = capture;
   desc.user_data = &owned_capture;
   gneiss::application owned;
@@ -159,8 +162,8 @@ int main() {
   }
   const std::scoped_lock lock(owned_capture.mutex);
   if (owned_capture.count != 1U || owned_capture.message != "owned worker" ||
-      owned_capture.category != "cpp" ||
-      owned_capture.reentrant_result != GNEISS_ERROR_INVALID_STATE) {
+      owned_capture.category != "cpp" || owned_capture.callback_active ||
+      owned_capture.was_concurrent) {
     return 12;
   }
   return 0;

@@ -7,6 +7,10 @@
 #include <cmath>
 #include <cstdint>
 #include <limits>
+#include <stdexcept>
+#include <string>
+#include <string_view>
+#include <utility>
 
 namespace {
 
@@ -19,6 +23,8 @@ struct camera_fixture {
   float field_of_view = 60.0F;
   const char* label = "主相机";
   std::uint32_t label_length = 9U;
+  bool fail_get = false;
+  bool fail_set = false;
 };
 
 gneiss_result get_field_of_view(void* user_data, gneiss_property_target target,
@@ -27,6 +33,9 @@ gneiss_result get_field_of_view(void* user_data, gneiss_property_target target,
     return GNEISS_ERROR_NOT_FOUND;
   }
   const auto* fixture = static_cast<const camera_fixture*>(user_data);
+  if (fixture->fail_get) {
+    throw std::runtime_error("getter probe");
+  }
   output->kind = GNEISS_PROPERTY_KIND_FLOAT32;
   output->payload.float32_value = fixture->field_of_view;
   return GNEISS_SUCCESS;
@@ -40,7 +49,11 @@ gneiss_result set_field_of_view(void* user_data, gneiss_property_target target,
   if (value->payload.float32_value < 1.0F || value->payload.float32_value > 179.0F) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
-  static_cast<camera_fixture*>(user_data)->field_of_view = value->payload.float32_value;
+  auto* fixture = static_cast<camera_fixture*>(user_data);
+  if (fixture->fail_set) {
+    throw std::runtime_error("setter probe");
+  }
+  fixture->field_of_view = value->payload.float32_value;
   return GNEISS_SUCCESS;
 }
 
@@ -59,9 +72,44 @@ gneiss_result get_malformed(void* /*user_data*/, gneiss_property_target /*target
   return GNEISS_SUCCESS;
 }
 
+int verify_callback_contract(gneiss::type_registry& registry, camera_fixture& fixture,
+                             gneiss_property_target target) {
+  gneiss_property_value value = GNEISS_PROPERTY_VALUE_INIT;
+  // 不合约的 C++ 回调异常必须在适配器处转换；getter 失败清空输出。
+  fixture.fail_get = true;
+  if (registry.get_property(camera_type, 1U, target, value) != gneiss::result::internal ||
+      value.kind != GNEISS_PROPERTY_KIND_INVALID) {
+    return 10;
+  }
+  fixture.fail_get = false;
+  fixture.fail_set = true;
+  value.kind = GNEISS_PROPERTY_KIND_FLOAT32;
+  value.payload.float32_value = 100.0F;
+  if (registry.set_property(camera_type, 1U, target, value) != gneiss::result::internal ||
+      std::abs(fixture.field_of_view - 90.0F) > 0.001F) {
+    return 11;
+  }
+  // Registry 移动不转移或复制调用方上下文；字符串需由调用方复制以便长期保存。
+  auto moved = std::move(registry);
+  if (moved.get_property(camera_type, 2U, target, value).failed()) {
+    return 12;
+  }
+  const std::string copied(value.payload.string_value.data, value.payload.string_value.length);
+  fixture.label = "changed";
+  fixture.label_length = 7U;
+  if (moved.get_property(camera_type, 2U, target, value).failed() || copied != "主相机" ||
+      std::string_view(value.payload.string_value.data, value.payload.string_value.length) !=
+          "changed" ||
+      moved.reset().failed() ||
+      moved.get_property(camera_type, 1U, target, value) != gneiss::result::invalid_handle) {
+    return 13;
+  }
+  return 0;
+}
+
 } // namespace
 
-int main() {
+int main() try {
   camera_fixture fixture;
   const std::array fields{gneiss_field_desc{.struct_size = sizeof(gneiss_field_desc),
                                             .id = 1U,
@@ -178,5 +226,7 @@ int main() {
       value.kind != GNEISS_PROPERTY_KIND_INVALID) {
     return 9;
   }
-  return 0;
+  return verify_callback_contract(registry, fixture, target);
+} catch (...) {
+  return 99;
 }

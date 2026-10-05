@@ -33,6 +33,7 @@
 ## API 参考
 
 - [API 稳定级别与兼容策略](reference/compatibility.md)
+- [C++ SDK 的类型与借用边界](reference/cpp-sdk.md)
 - [Core 版本与结果接口](reference/core.md)
 - [RID 有效性与 Service 生命周期](reference/rid.md)
 - [World、Entity 与内部 ECS 边界](reference/world.md)
@@ -357,6 +358,7 @@
 - [M-296：World、节点和组件的 SDK 所有权审查](records/M-296-world-scene-ownership.md)
 - [M-296：场景实例包装与子树 Prefab 边界](records/M-296-scene-instance-sdk.md)
 - [M-296：公共函数包装覆盖与日志回调契约](records/M-296-function-coverage.md)
+- [M-296：公共类型、常量与回调映射](records/M-296-type-callback-coverage.md)
 
 - [M-295：Render 快照与 Asset 解码边界](records/M-295-render-asset-layout.md)
 

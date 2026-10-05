@@ -27,7 +27,8 @@
 - 同一 Application 的回调在专用消费线程串行执行；事件序号按入队顺序从一开始递增。
 - 队列有固定上限；已满时丢弃新事件并在恢复后生成包含丢弃数量的 `backpressure` 告警。
 - 回调内的事件和字符串均为借用值，只在该次回调期间有效。
-- 回调不得重入日志提交；重入返回 `GNEISS_ERROR_INVALID_STATE`。
+- 回调不得重入日志提交；Application 仍有效时重入返回 `GNEISS_ERROR_INVALID_STATE`。
+  关闭排空期间传入的 Application 句柄可能已失效，接收方只应消费事件。
 - 没有设置回调时，有效消息返回成功但不会写入文件或标准流。
 - Application 销毁不能与日志提交并发；宿主应先停止生产者，再销毁 Application。
 - C++ `application::log` 遵循同一契约；工作线程提交期间不能移动或重置同一个拥有者。

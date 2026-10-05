@@ -68,3 +68,5 @@ list(SORT definitions)
 if(NOT "${definitions}" STREQUAL "${expected}")
   message(FATAL_ERROR "engine/api 的公共定义与稳定性清单不一致")
 endif()
+
+include("${CMAKE_CURRENT_LIST_DIR}/check_cpp_types.cmake")
