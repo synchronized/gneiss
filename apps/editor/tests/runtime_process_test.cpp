@@ -3,6 +3,7 @@
 
 #include "runtime_log_adapter.hpp"
 #include "runtime_process.h"
+#include "runtime_property_adapter.hpp"
 
 #include <gneiss/world.h>
 
@@ -27,9 +28,56 @@ struct temporary_project final {
   }
 };
 
+bool test_property_adapter() {
+  const std::array<gneiss::ipc_property_payload, 10> values{
+      std::monostate{},
+      true,
+      std::int64_t{-17},
+      std::uint64_t{42},
+      1.5F,
+      2.5,
+      std::string(512U, 'p'),
+      std::array<std::uint8_t, 16>{1U, 2U},
+      std::array<float, 3>{1.0F, 2.0F, 3.0F},
+      std::array<float, 4>{1.0F, 2.0F, 3.0F, 4.0F}};
+  for (const auto& payload : values) {
+    gneiss::editor::runtime_property_write request{
+        .session_id = 11U,
+        .command_id = 12U,
+        .object = {13U, 14U},
+        .type_id = {{15U}},
+        .field_id = 16U,
+        .expected_revision = 17U,
+        .value = gneiss::editor::to_runtime_property_value({payload})};
+    const auto wire = gneiss::editor::to_ipc_property_write(std::move(request));
+    if (wire.session_id != 11U || wire.command_id != 12U || wire.object.value != 13U ||
+        wire.object.generation != 14U || wire.type_id.bytes[0] != 15U || wire.field_id != 16U ||
+        wire.expected_revision != 17U || wire.value.payload != payload) {
+      return false;
+    }
+    // 临时协议响应在表达式结束时销毁，模型结果必须持有消息与规范值。
+    const auto result =
+        gneiss::editor::to_runtime_property_result({.session_id = 11U,
+                                                    .command_id = 12U,
+                                                    .code = GNEISS_ERROR_INVALID_ARGUMENT,
+                                                    .revision = 18U,
+                                                    .message = std::string(256U, 'r'),
+                                                    .canonical_value = {payload}});
+    if (result.session_id != 11U || result.command_id != 12U ||
+        result.code != GNEISS_ERROR_INVALID_ARGUMENT || result.revision != 18U ||
+        result.message != std::string(256U, 'r') || result.canonical_value.payload != payload) {
+      return false;
+    }
+  }
+  return true;
+}
+
 } // namespace
 
 int main() try {
+  if (!test_property_adapter()) {
+    return 91;
+  }
   // 协议对象销毁后，控制台值仍拥有全部字段和长字符串。
   auto converted = [] {
     gneiss::app::runtime_log_record record;
@@ -272,10 +320,11 @@ int main() try {
       !process.is_running()) {
     return 25;
   }
-  gneiss::editor::runtime_property_key property_key{.object =
-                                                        process.scene_mirror().nodes().front().id,
-                                                    .type_id = {},
-                                                    .field_id = GNEISS_TRANSFORM_FIELD_TRANSLATION};
+  gneiss::editor::runtime_property_key property_key{
+      .object = {process.scene_mirror().nodes().front().id.value,
+                 process.scene_mirror().nodes().front().id.generation},
+      .type_id = {},
+      .field_id = GNEISS_TRANSFORM_FIELD_TRANSLATION};
   const auto transform_type = gneiss_transform_type_id();
   std::ranges::copy(transform_type.bytes, property_key.type_id.begin());
   if (!process.supports_property_editing() ||

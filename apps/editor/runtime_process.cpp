@@ -9,6 +9,7 @@
 #include "ipc_asset_protocol.h"
 #include "ipc_statistics_protocol.h"
 #include "runtime_log_adapter.hpp"
+#include "runtime_property_adapter.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -259,7 +260,7 @@ struct runtime_process::implementation final {
         continue;
       }
       if (auto* value = std::get_if<runtime_property_result_event>(&decoded_event)) {
-        const auto accepted = property_edits.accept(std::move(value->value));
+        const auto accepted = property_edits.accept(to_runtime_property_result(std::move(value->value)));
         if (accepted != result::success && accepted != result::not_found &&
             accepted != result::invalid_state) {
           last_result = accepted;
@@ -637,14 +638,14 @@ result runtime_process::request_property_write(runtime_property_key key,
        implementation_->control_state != runtime_control_state::paused)) {
     return result::not_ready;
   }
-  ipc_property_write command;
+  runtime_property_write command;
   auto operation =
-      implementation_->property_edits.prepare(std::move(key), expected_revision, std::move(value),
+      implementation_->property_edits.prepare(std::move(key), expected_revision, to_runtime_property_value(std::move(value)),
                                               std::chrono::steady_clock::now(), command);
   if (operation != result::success) {
     return operation;
   }
-  operation = implementation_->ipc_session.send_property_write(command);
+  operation = implementation_->ipc_session.send_property_write(to_ipc_property_write(std::move(command)));
   if (operation != result::success) {
     implementation_->fail_ipc(operation);
   }

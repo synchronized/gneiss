@@ -7,9 +7,10 @@
 #include "runtime_launch.h"
 
 #include "console_model.hpp"
+#include "ipc_property_protocol.h"
 #include "ipc_scene_protocol.h"
 #include "ipc_statistics_protocol.h"
-#include "runtime_property_edits.h"
+#include "runtime_property_edits.hpp"
 #include "runtime_scene_mirror.h"
 
 #include <gneiss/app/project_description.h>

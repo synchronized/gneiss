@@ -4,19 +4,56 @@
 #ifndef GNEISS_APPS_EDITOR_RUNTIME_PROPERTY_EDITS_H_
 #define GNEISS_APPS_EDITOR_RUNTIME_PROPERTY_EDITS_H_
 
-#include "ipc_property_protocol.h"
+#include <gneiss/core/result.hpp>
+#include <gneiss/reflection.h>
 
 #include <array>
 #include <chrono>
 #include <cstdint>
 #include <map>
 #include <optional>
+#include <string>
 #include <tuple>
+#include <variant>
 
 namespace gneiss::editor {
 
+/** Runtime 对象身份；generation 防止重用对象编号误匹配。 */
+struct runtime_object_id final {
+  std::uint64_t value = 0U;
+  std::uint32_t generation = 0U;
+  [[nodiscard]] bool is_valid() const noexcept { return value != 0U && generation != 0U; }
+  [[nodiscard]] bool operator==(const runtime_object_id&) const noexcept = default;
+};
+
+/** 模型拥有的属性值；不借用协议缓冲区，不含传输版本。 */
+struct runtime_property_value final {
+  std::variant<std::monostate, bool, std::int64_t, std::uint64_t, float, double, std::string,
+               std::array<std::uint8_t, 16>, std::array<float, 3>, std::array<float, 4>>
+      payload;
+};
+
+struct runtime_property_write final {
+  std::uint64_t session_id = 0U;
+  std::uint64_t command_id = 0U;
+  runtime_object_id object;
+  gneiss_type_id type_id{};
+  gneiss_field_id field_id = GNEISS_NULL_FIELD_ID;
+  std::uint64_t expected_revision = 0U;
+  runtime_property_value value;
+};
+
+struct runtime_property_write_result final {
+  std::uint64_t session_id = 0U;
+  std::uint64_t command_id = 0U;
+  std::int32_t code = 0;
+  std::uint64_t revision = 0U;
+  std::string message;
+  runtime_property_value canonical_value;
+};
+
 struct runtime_property_key final {
-  ipc_runtime_object_id object;
+  runtime_object_id object;
   std::array<std::uint8_t, 16> type_id{};
   gneiss_field_id field_id = GNEISS_NULL_FIELD_ID;
 
@@ -40,7 +77,7 @@ struct runtime_property_edit final {
   std::uint64_t revision = 0U;
   std::int32_t code = GNEISS_SUCCESS;
   std::string message;
-  ipc_property_value canonical_value;
+  runtime_property_value canonical_value;
 };
 
 /** Editor 主线程拥有的 Runtime 属性写入状态模型。 */
@@ -51,9 +88,9 @@ public:
   void begin_session(std::uint64_t session_id) noexcept;
   void disconnect() noexcept;
   [[nodiscard]] result prepare(runtime_property_key key, std::uint64_t expected_revision,
-                               ipc_property_value value, clock::time_point now,
-                               ipc_property_write& output) noexcept;
-  [[nodiscard]] result accept(ipc_property_write_result response) noexcept;
+                               runtime_property_value value, clock::time_point now,
+                               runtime_property_write& output) noexcept;
+  [[nodiscard]] result accept(runtime_property_write_result response) noexcept;
   void expire(clock::time_point now, std::chrono::milliseconds timeout) noexcept;
   [[nodiscard]] const runtime_property_edit* find(const runtime_property_key& key) const noexcept;
   [[nodiscard]] std::uint64_t session_id() const noexcept { return session_id_; }

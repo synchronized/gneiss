@@ -35,8 +35,7 @@ add_library(
   runtime_launch.h
   runtime_process.cpp
   runtime_process.h
-  runtime_property_edits.cpp
-  runtime_property_edits.h
+  runtime_property_adapter.hpp
   runtime_scene_mirror.cpp
   runtime_scene_mirror.h
 )
@@ -220,7 +219,7 @@ if(BUILD_TESTING)
     NAME gneiss.editor.runtime-scene-mirror COMMAND gneiss_editor_runtime_scene_mirror_test
   )
   add_executable(gneiss_editor_runtime_property_edits_test tests/runtime_property_edits_test.cpp)
-  target_link_libraries(gneiss_editor_runtime_property_edits_test PRIVATE gneiss_editor_host)
+  target_link_libraries(gneiss_editor_runtime_property_edits_test PRIVATE gneiss_editor_model)
   gneiss_target_compile_warnings(gneiss_editor_runtime_property_edits_test)
   gneiss_target_output_directories(gneiss_editor_runtime_property_edits_test)
   add_test(

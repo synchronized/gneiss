@@ -1072,7 +1072,7 @@ const gneiss::ipc_inspection_node* selected_runtime_node(const editor_state& sta
 
 gneiss::editor::runtime_property_key runtime_transform_key(const gneiss::ipc_inspection_node& node,
                                                            gneiss_field_id field_id) {
-  gneiss::editor::runtime_property_key key{.object = node.id, .type_id = {}, .field_id = field_id};
+  gneiss::editor::runtime_property_key key{.object = {node.id.value, node.id.generation}, .type_id = {}, .field_id = field_id};
   const auto type_id = gneiss_transform_type_id();
   std::ranges::copy(type_id.bytes, key.type_id.begin());
   return key;

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "runtime_property_edits.h"
+#include "runtime_property_edits.hpp"
 
 #include <algorithm>
 #include <new>
@@ -34,8 +34,8 @@ void runtime_property_edits::disconnect() noexcept {
 }
 
 result runtime_property_edits::prepare(runtime_property_key key, std::uint64_t expected_revision,
-                                       ipc_property_value value, clock::time_point now,
-                                       ipc_property_write& output) noexcept {
+                                       runtime_property_value value, clock::time_point now,
+                                       runtime_property_write& output) noexcept {
   if (session_id_ == 0U || !key.object.is_valid() || key.field_id == GNEISS_NULL_FIELD_ID ||
       expected_revision == 0U || next_command_id_ == 0U) {
     return result::invalid_state;
@@ -46,13 +46,13 @@ result runtime_property_edits::prepare(runtime_property_key key, std::uint64_t e
   }
   try {
     const auto command_id = next_command_id_++;
-    ipc_property_write command{.session_id = session_id_,
-                               .command_id = command_id,
-                               .object = key.object,
-                               .type_id = {},
-                               .field_id = key.field_id,
-                               .expected_revision = expected_revision,
-                               .value = std::move(value)};
+    runtime_property_write command{.session_id = session_id_,
+                                   .command_id = command_id,
+                                   .object = key.object,
+                                   .type_id = {},
+                                   .field_id = key.field_id,
+                                   .expected_revision = expected_revision,
+                                   .value = std::move(value)};
     std::ranges::copy(key.type_id, command.type_id.bytes);
     edits_[key] = {.state = runtime_property_edit_state::pending,
                    .command_id = command_id,
@@ -70,7 +70,7 @@ result runtime_property_edits::prepare(runtime_property_key key, std::uint64_t e
   }
 }
 
-result runtime_property_edits::accept(ipc_property_write_result response) noexcept {
+result runtime_property_edits::accept(runtime_property_write_result response) noexcept {
   if (response.session_id != session_id_) {
     return result::invalid_state;
   }
