@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "author_asset_monitor.h"
+#include "author_asset_monitor.hpp"
 
 #include <chrono>
 #include <filesystem>

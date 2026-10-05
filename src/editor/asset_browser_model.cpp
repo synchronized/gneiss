@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "asset_browser_model.h"
+#include "asset_browser_model.hpp"
 
 #include "tooling/asset_import/asset_index.h"
 

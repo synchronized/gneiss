@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "asset_import_controller.h"
+#include "asset_import_controller.hpp"
 
 #include <gneiss/core/result.hpp>
 

@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "author_asset_monitor.h"
+#include "author_asset_monitor.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 
 #include <memory>

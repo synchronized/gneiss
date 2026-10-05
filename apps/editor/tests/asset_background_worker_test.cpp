@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "asset_background_worker.h"
+#include "asset_background_worker.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "tooling/asset_import/asset_index.h"
 

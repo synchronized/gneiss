@@ -3,8 +3,8 @@
 
 #pragma once
 
-#include "asset_browser_model.h"
-#include "asset_reimport_queue.h"
+#include "asset_browser_model.hpp"
+#include "asset_reimport_queue.hpp"
 
 #include <memory>
 #include <string>

@@ -369,6 +369,7 @@
 - [M-295：Function 六模块目录迁移](records/M-295-function-layout.md)
 - [M-295：C ABI 适配目录迁移](records/M-295-api-layout.md)
 - [M-295：Editor UI 实现与入口分离](records/M-295-editor-ui-layout.md)
+- [M-295：Editor 资产服务目录迁移](records/M-295-editor-assets-layout.md)
 
 ## 文档维护
 

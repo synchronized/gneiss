@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "asset_reimport_queue.h"
+#include "asset_reimport_queue.hpp"
 
 #include "tooling/asset_import/asset_index.h"
 

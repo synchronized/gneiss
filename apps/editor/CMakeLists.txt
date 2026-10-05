@@ -86,32 +86,6 @@ gneiss_target_output_directories(gneiss_editor_session)
 
 if(TARGET gneiss_asset_import_sdk)
   target_link_libraries(gneiss_editor_session PRIVATE gneiss_asset_import_sdk)
-  add_library(
-    gneiss_editor_assets STATIC
-    author_asset_service.cpp
-    author_asset_service.h
-    author_asset_monitor.cpp
-    author_asset_monitor.h
-    asset_file_watcher.cpp
-    asset_file_watcher.h
-    asset_import_controller.cpp
-    asset_import_controller.h
-    asset_reimport_queue.cpp
-    asset_reimport_queue.h
-    asset_background_worker.cpp
-    asset_background_worker.h
-    asset_browser_model.cpp
-    asset_browser_model.h
-  )
-  target_link_libraries(
-    gneiss_editor_assets
-    PRIVATE gneiss_io_uv gneiss::libuv
-    PUBLIC gneiss::engine gneiss_asset_import_sdk gneiss_tasks
-  )
-  target_include_directories(gneiss_editor_assets PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
-  target_compile_features(gneiss_editor_assets PUBLIC cxx_std_20)
-  gneiss_target_compile_warnings(gneiss_editor_assets)
-  gneiss_target_output_directories(gneiss_editor_assets)
 endif()
 
 add_executable(

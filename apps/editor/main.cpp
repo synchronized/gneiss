@@ -24,11 +24,11 @@
 #include "transform_gizmo_drag.h"
 #include "transform_gizmo_math.h"
 #if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
-#include "asset_background_worker.h"
-#include "asset_browser_model.h"
-#include "asset_file_watcher.h"
-#include "asset_import_controller.h"
-#include "author_asset_service.h"
+#include "asset_background_worker.hpp"
+#include "asset_browser_model.hpp"
+#include "asset_file_watcher.hpp"
+#include "asset_import_controller.hpp"
+#include "author_asset_service.hpp"
 #endif
 
 #include <gneiss/application.hpp>
