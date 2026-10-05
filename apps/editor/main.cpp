@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "asset_scene_commands.hpp"
 #include "author_property_edit.hpp"
 #include "author_property_panel.hpp"
 #include "child_process.hpp"
@@ -1316,42 +1317,9 @@ void draw_asset_browser(editor_state& state) {
   const auto add_requested = ImGui::Button("Add Mesh");
   ImGui::EndDisabled();
   if (add_requested) {
-    const auto was_dirty = state.session.is_dirty();
-    gneiss::scene_node_id node;
-    state.asset_scene_result = state.session.create_mesh_renderer_node(
-        selected_entry->display_name, selected_entry->asset_uri, paired_material->asset_uri, node);
-    if (state.asset_scene_result == gneiss::result::success) {
-      const auto* created = state.session.selected_node();
-      const gneiss::editor::scene_node_snapshot snapshot{.uuid = created->uuid,
-                                                         .parent_uuid = {},
-                                                         .display_name = created->display_name,
-                                                         .mesh_uri = created->mesh_uri,
-                                                         .material_uri = created->material_uri};
-      state.asset_scene_result = state.history.record(
-          {.label = "创建 Mesh Renderer 节点",
-           .undo =
-               [&state, uuid = snapshot.uuid] {
-                 const auto* current = state.session.find_node(uuid);
-                 if (current == nullptr) {
-                   return gneiss::result::not_found;
-                 }
-                 gneiss::editor::scene_node_snapshot discarded;
-                 return state.session.destroy_node(current->node, discarded);
-               },
-           .redo =
-               [&state, snapshot] {
-                 gneiss::scene_node_id restored;
-                 return state.session.restore_mesh_renderer_node(snapshot, restored);
-               },
-           .merge_key = {}});
-      if (state.asset_scene_result != gneiss::result::success) {
-        gneiss::editor::scene_node_snapshot discarded;
-        (void)state.session.destroy_node(node, discarded);
-        if (!was_dirty) {
-          state.session.clear_dirty();
-        }
-      }
-    }
+    state.asset_scene_result = gneiss::editor::add_mesh_asset(
+        state.session, state.history, selected_entry->display_name,
+        {.mesh_uri = selected_entry->asset_uri, .material_uri = paired_material->asset_uri});
     state.asset_scene_attempted = true;
     scene_node = state.session.selected_node();
   }
@@ -1364,36 +1332,9 @@ void draw_asset_browser(editor_state& state) {
   const auto add_prefab_requested = ImGui::Button("Add Prefab");
   ImGui::EndDisabled();
   if (add_prefab_requested) {
-    gneiss::scene_node_id root;
-    state.asset_scene_result = state.session.create_prefab_instance(
-        selected_entry->display_name, selected_entry->asset_uri,
-        scene_node == nullptr ? gneiss::scene_node_id{} : scene_node->node, root);
-    if (state.asset_scene_result == gneiss::result::success) {
-      const auto uuid = state.session.selected_prefab_node()->instance_uuid;
-      auto snapshot = std::make_shared<gneiss::editor::prefab_instance_snapshot>();
-      state.asset_scene_result = state.history.record(
-          {.label = "放置 Prefab 实例",
-           .undo =
-               [&state, uuid, snapshot] {
-                 const auto* current = state.session.find_prefab_root(uuid);
-                 return current == nullptr
-                            ? gneiss::result::not_found
-                            : state.session.destroy_prefab_instance(current->node, *snapshot);
-               },
-           .redo =
-               [&state, snapshot] {
-                 gneiss::scene_node_id restored;
-                 return state.session.restore_prefab_instance(*snapshot, restored);
-               },
-           .merge_key = {}});
-      if (state.asset_scene_result != gneiss::result::success) {
-        const auto* current = state.session.find_prefab_root(uuid);
-        if (current != nullptr) {
-          gneiss::editor::prefab_instance_snapshot discarded;
-          (void)state.session.destroy_prefab_instance(current->node, discarded);
-        }
-      }
-    }
+    state.asset_scene_result = gneiss::editor::add_prefab_asset(
+        state.session, state.history, selected_entry->display_name, selected_entry->asset_uri,
+        scene_node == nullptr ? gneiss::scene_node_id{} : scene_node->node);
     state.asset_scene_attempted = true;
     scene_node = state.session.selected_node();
   }
@@ -1408,40 +1349,10 @@ void draw_asset_browser(editor_state& state) {
   const auto apply_requested = ImGui::Button("Apply to Node");
   ImGui::EndDisabled();
   if (apply_requested) {
-    const auto was_dirty = state.session.is_dirty();
-    const auto uuid = scene_node->uuid;
-    const auto previous_mesh = scene_node->mesh_uri;
-    const auto previous_material = scene_node->material_uri;
-    const auto mesh_uri = can_apply_mesh ? selected_entry->asset_uri : scene_node->mesh_uri;
-    const auto material_uri =
-        can_apply_material ? selected_entry->asset_uri : scene_node->material_uri;
-    state.asset_scene_result =
-        state.session.set_mesh_renderer(scene_node->node, mesh_uri, material_uri);
-    if (state.asset_scene_result == gneiss::result::success) {
-      state.asset_scene_result = state.history.record(
-          {.label = "替换 Mesh Renderer 资源",
-           .undo =
-               [&state, uuid, previous_mesh, previous_material] {
-                 const auto* current = state.session.find_node(uuid);
-                 return current == nullptr ? gneiss::result::not_found
-                                           : state.session.set_mesh_renderer(
-                                                 current->node, previous_mesh, previous_material);
-               },
-           .redo =
-               [&state, uuid, mesh = std::string{mesh_uri}, material = std::string{material_uri}] {
-                 const auto* current = state.session.find_node(uuid);
-                 return current == nullptr
-                            ? gneiss::result::not_found
-                            : state.session.set_mesh_renderer(current->node, mesh, material);
-               },
-           .merge_key = {}});
-      if (state.asset_scene_result != gneiss::result::success) {
-        (void)state.session.set_mesh_renderer(scene_node->node, previous_mesh, previous_material);
-        if (!was_dirty) {
-          state.session.clear_dirty();
-        }
-      }
-    }
+    state.asset_scene_result = gneiss::editor::replace_mesh_assets(
+        state.session, state.history, scene_node->uuid,
+        {.mesh_uri = can_apply_mesh ? selected_entry->asset_uri : scene_node->mesh_uri,
+         .material_uri = can_apply_material ? selected_entry->asset_uri : scene_node->material_uri});
     state.asset_scene_attempted = true;
   }
   if (state.asset_scene_attempted && state.asset_scene_result != gneiss::result::success) {

@@ -97,6 +97,8 @@ add_library(
   gneiss_editor_session STATIC
   runtime_launch.cpp
   runtime_launch.hpp
+  asset_scene_commands.cpp
+  asset_scene_commands.hpp
   author_property_edit.cpp
   author_property_edit.hpp
   runtime_author_apply.cpp

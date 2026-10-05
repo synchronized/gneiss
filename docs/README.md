@@ -396,6 +396,7 @@
 - [M-294：内部日志输入与回调边界核对](records/M-294-log-input-boundary.md)
 - [M-295：Apps 私有头与宿主共用契约](records/M-295-apps-private-headers.md)
 - [M-295：作者属性面板与编辑事务](records/M-295-author-property-panel.md)
+- [M-295：资产面板的作者编辑命令](records/M-295-asset-scene-commands.md)
 
 ## 文档维护
 

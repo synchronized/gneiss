@@ -52,6 +52,9 @@ Apps 在每次绘制时提供同步属性提交、回写作者场景与结果报
 Runtime 直接使用这些共用契约，不链接 Editor。通用 IPC 传输和子进程机制由 Engine Platform 提供，
 工程格式、消息领域与启动约定继续归 Apps。Apps 私有 C++ 头统一使用 `.hpp`，不属于公共 C ABI。
 
+`asset_scene_commands.hpp/.cpp` 属于 Editor 会话目标，统一添加 Mesh/Prefab 与替换资源的撤销事务；
+它只接收作者身份和资产 URI，不依赖资产面板、导入服务或宿主协议。
+
 `src/editor/runtime_author_apply.hpp` 接收 UUID 与局部变换视图，负责变换回写和撤销命令。
 Apps 从 IPC 节点提取输入；Editor 命令复制身份字符串，不保留协议对象或借用字符串。
 控制台接收拥有字符串的 `console_event`；Apps 的日志适配负责从已解析协议记录移动字段，
