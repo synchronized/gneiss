@@ -15,6 +15,10 @@ if(NOT sources)
 endif()
 foreach(source IN LISTS sources)
   file(READ "${source}" content)
+  if(source MATCHES "/src/render/(render_asset_(preparation|parsing)|render_resource_data)\\.(cpp|hpp)$" AND
+      content MATCHES "#[ \t]*include[ \t]*[<\"](render/(render_asset_loader|render_resource_service)\\.(h|hpp)|engine/(asset/resource_cache|core/rid_table)\\.hpp)[>\"]")
+    message(FATAL_ERROR "CPU 准备与值类型不得包含资源发布、缓存或 RID 表：${source}")
+  endif()
   if(source MATCHES "/src/engine/core/" AND
       content MATCHES "#[ \t]*include[ \t]*[<\"]((engine/)?(platform|function|application|world|scene|render|asset|editor|tooling|apps)/|gneiss/application\\.h[>\"])")
     message(FATAL_ERROR "Core 不得依赖平台或上层实现及 Application 协议：${source}")

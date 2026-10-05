@@ -714,6 +714,31 @@ if(GNEISS_ENABLE_GRANIT_PLATFORM)
   add_test(NAME gneiss.scene_projection_math COMMAND gneiss_scene_projection_math_test)
 endif()
 
+# CPU 准备单独链接：不得通过 Engine 或资源服务补齐依赖。
+add_executable(gneiss_render_asset_preparation_test
+  render/render_asset_preparation_test.cpp
+  "${PROJECT_SOURCE_DIR}/src/render/render_asset_preparation.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/asset/asset_uri.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/asset/mesh_binary.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/asset/texture_binary.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/asset/texture_ktx2.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/asset/texture_container.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/asset/source_revision_file_system.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/asset/virtual_file_system.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/asset/png_decoder.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/core/sha256.cpp"
+)
+target_include_directories(gneiss_render_asset_preparation_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_link_libraries(gneiss_render_asset_preparation_test PRIVATE
+  gneiss_core_values gneiss_yyjson gneiss_png granit::granit Threads::Threads)
+if(GNEISS_ENABLE_GRANIT_PLATFORM)
+  target_compile_definitions(gneiss_render_asset_preparation_test PRIVATE GNEISS_HAS_GRANIT_PLATFORM)
+endif()
+target_compile_features(gneiss_render_asset_preparation_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_render_asset_preparation_test)
+gneiss_target_output_directories(gneiss_render_asset_preparation_test)
+add_test(NAME gneiss.render_asset_preparation COMMAND gneiss_render_asset_preparation_test)
+
 add_executable(
   gneiss_render_asset_loader_test
   render/render_asset_loader_test.cpp
@@ -724,6 +749,7 @@ add_executable(
   "${PROJECT_SOURCE_DIR}/src/engine/asset/resource_cache.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/asset/virtual_file_system.cpp"
   "${PROJECT_SOURCE_DIR}/src/render/render_asset_loader.cpp"
+  "${PROJECT_SOURCE_DIR}/src/render/render_asset_preparation.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/asset/texture_container.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/asset/source_revision_file_system.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/core/sha256.cpp"
@@ -754,6 +780,7 @@ add_executable(
   "${PROJECT_SOURCE_DIR}/src/engine/asset/resource_cache.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/asset/virtual_file_system.cpp"
   "${PROJECT_SOURCE_DIR}/src/render/render_asset_loader.cpp"
+  "${PROJECT_SOURCE_DIR}/src/render/render_asset_preparation.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/asset/texture_container.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/asset/source_revision_file_system.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/core/sha256.cpp"
@@ -861,6 +888,7 @@ add_executable(
   "${PROJECT_SOURCE_DIR}/src/engine/asset/virtual_file_system.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/asset/png_decoder.cpp"
   "${PROJECT_SOURCE_DIR}/src/render/render_asset_loader.cpp"
+  "${PROJECT_SOURCE_DIR}/src/render/render_asset_preparation.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/asset/texture_container.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/asset/source_revision_file_system.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/core/sha256.cpp"

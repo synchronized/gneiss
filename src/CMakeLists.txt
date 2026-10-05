@@ -91,6 +91,7 @@ target_sources(
     render/ui_draw_list.cpp
     render/ui_draw_list.h
     render/render_asset_loader.cpp
+    render/render_asset_preparation.cpp
     render/render_asset_loader.h
     engine/asset/png_decoder.cpp
     engine/asset/png_decoder.hpp
