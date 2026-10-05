@@ -5,7 +5,7 @@
 #define GNEISS_RENDER_RENDER_RESOURCE_SERVICE_H_
 
 #include "asset/texture_ktx2.h"
-#include "core/rid_table.h"
+#include "engine/core/rid_table.hpp"
 
 #include <gneiss/render.h>
 

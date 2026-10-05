@@ -4,7 +4,7 @@
 #ifndef GNEISS_SCENE_SCENE_INSTANCE_SERVICE_H_
 #define GNEISS_SCENE_SCENE_INSTANCE_SERVICE_H_
 
-#include "core/rid_table.h"
+#include "engine/core/rid_table.hpp"
 #include "render/render_asset_loader.h"
 #include "scene/prefab_asset_loader.h"
 #include "scene/prefab_runtime_instance.h"

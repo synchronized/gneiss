@@ -5,7 +5,7 @@
 
 #include "asset/read_source.h"
 #include "asset/texture_binary.h"
-#include "core/sha256.h"
+#include "engine/core/sha256.hpp"
 
 #include <memory>
 

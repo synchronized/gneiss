@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "core/tasks/task_scheduler.h"
-#include "core/tasks/task_platform.h"
+#include "engine/core/tasks/task_scheduler.hpp"
+#include "engine/core/tasks/task_platform.hpp"
 
 #include <algorithm>
 #include <map>

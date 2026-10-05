@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "core/result.hpp"
+#include "engine/core/result.hpp"
 
 const char* gneiss::core::result_message(gneiss_result result) noexcept {
   switch (result) {

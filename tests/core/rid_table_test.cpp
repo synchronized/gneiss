@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "core/rid_table.h"
+#include "engine/core/rid_table.hpp"
 
 #include <cstdint>
 

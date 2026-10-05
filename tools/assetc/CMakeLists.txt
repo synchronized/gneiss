@@ -34,7 +34,7 @@ add_library(
   "${PROJECT_SOURCE_DIR}/src/tooling/asset_build/runtime_texture_builder.h"
   "${PROJECT_SOURCE_DIR}/src/tooling/asset_build/runtime_texture_probe.cpp"
   "${PROJECT_SOURCE_DIR}/src/tooling/asset_build/runtime_texture_probe.h"
-  "${PROJECT_SOURCE_DIR}/src/core/sha256.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/core/sha256.cpp"
   "${PROJECT_SOURCE_DIR}/src/tooling/asset_build/sha256.h"
 )
 target_include_directories(

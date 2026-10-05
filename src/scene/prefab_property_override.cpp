@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "reflection/type_registry.hpp"
+#include "engine/core/reflection/type_registry.hpp"
 
 #include "scene/prefab_property_override.h"
 

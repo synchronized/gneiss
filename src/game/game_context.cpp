@@ -7,7 +7,7 @@
 #include "application/application_state.hpp"
 
 #include "application/application_log_internal.hpp"
-#include "core/rid_table.h"
+#include "engine/core/rid_table.hpp"
 
 #include <mutex>
 #include <new>

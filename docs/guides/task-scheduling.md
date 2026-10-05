@@ -5,7 +5,7 @@
 
 ## 接口范围
 
-此处描述 `src/core/tasks` 与 `application_asset_reload_internal.h` 的内部 C++ 接口，不属于安装 SDK
+此处描述 `src/engine/core/tasks` 与 `application_asset_reload_internal.hpp` 的内部 C++ 接口，不属于安装 SDK
 或公共 C ABI。调度器安排执行，Service 管理请求、资源身份与事务；渲染仍由专用渲染执行器拥有。
 设计取舍见 [ADR-047](../decisions/ADR-047-cooperative-task-execution.md) 和
 [ADR-048](../decisions/ADR-048-runtime-asset-preparation.md)。

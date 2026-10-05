@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "core/sha256.h"
+#include "engine/core/sha256.hpp"
 
 namespace gneiss::tooling::asset_build {
 using core::sha256;

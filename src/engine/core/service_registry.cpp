@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "core/service_registry.h"
+#include "engine/core/service_registry.hpp"
 
 #include <algorithm>
 #include <new>

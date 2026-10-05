@@ -4,7 +4,7 @@
 #include "application/application_registry.hpp"
 
 #include "application/application_state.hpp"
-#include "core/rid_table.h"
+#include "engine/core/rid_table.hpp"
 #include <mutex>
 #include <new>
 #include <utility>

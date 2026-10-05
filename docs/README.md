@@ -357,6 +357,8 @@
 
 - [M-295：平台工具的链接边界](records/M-295-platform-link-boundary.md)
 
+- [M-295：Core 源码布局与依赖边界](records/M-295-core-layout.md)
+
 ## 文档维护
 
 

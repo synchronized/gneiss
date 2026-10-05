@@ -2,7 +2,7 @@
 # Copyright (c) 2026 Gneiss contributors
 
 # 内部调度模块由实际宿主链接，不进入安装 package 或公共 ABI。
-add_subdirectory(core)
+add_subdirectory(engine/core)
 
 add_library(gneiss_engine)
 add_library(gneiss::engine ALIAS gneiss_engine)
@@ -22,8 +22,8 @@ configure_file(
 target_sources(
   gneiss_engine
   PRIVATE
-    core/sha256.cpp
-    core/sha256.h
+    engine/core/sha256.cpp
+    engine/core/sha256.hpp
     api/c/application_api.cpp
     api/c/render_api.cpp
     api/c/scene_api.cpp
@@ -61,14 +61,14 @@ target_sources(
     asset/resource_cache.h
     asset/virtual_file_system.cpp
     asset/virtual_file_system.h
-    core/service_registry.cpp
-    core/service_registry.h
-    core/rid_table.h
+    engine/core/service_registry.cpp
+    engine/core/service_registry.hpp
+    engine/core/rid_table.hpp
     api/c/core_api.cpp
-    core/result.hpp
-    core/version.hpp
-    core/result.cpp
-    core/version.cpp
+    engine/core/result.hpp
+    engine/core/version.hpp
+    engine/core/result.cpp
+    engine/core/version.cpp
     api/c/game_module_api.cpp
     api/c/asset_api.cpp
     game/game_context.cpp
@@ -79,8 +79,8 @@ target_sources(
     input/action_map.h
     api/c/log_api.cpp
     api/c/log_validation.hpp
-    log/log.hpp
-    log/log.cpp
+    engine/core/log/log.hpp
+    engine/core/log/log.cpp
     log/log_dispatcher.cpp
     log/log_dispatcher.h
     render/render_resource_service.cpp
@@ -98,8 +98,8 @@ target_sources(
     render/render_snapshot.hpp
     render/normal_math.cpp
     render/normal_math.h
-    reflection/type_registry.cpp
-    reflection/type_registry.hpp
+    engine/core/reflection/type_registry.cpp
+    engine/core/reflection/type_registry.hpp
     api/c/reflection_api.cpp
     scene/scene_tree.cpp
     scene/scene_tree.h

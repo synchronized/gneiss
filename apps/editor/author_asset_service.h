@@ -4,7 +4,7 @@
 #pragma once
 
 #include "author_asset_monitor.h"
-#include "core/tasks/task_scheduler.h"
+#include "engine/core/tasks/task_scheduler.hpp"
 
 #include <memory>
 

@@ -15,6 +15,10 @@ if(NOT sources)
 endif()
 foreach(source IN LISTS sources)
   file(READ "${source}" content)
+  if(source MATCHES "/src/engine/core/" AND
+      content MATCHES "#[ \t]*include[ \t]*[<\"]((engine/)?(platform|function|application|world|scene|render|asset|editor|tooling|apps)/|gneiss/application\\.h[>\"])")
+    message(FATAL_ERROR "Core 不得依赖平台或上层实现及 Application 协议：${source}")
+  endif()
   if(source MATCHES "/src/engine/platform/" AND
       content MATCHES "#[ \t]*include[ \t]*[<\"](application|world|scene|render|asset|apps)/")
     message(FATAL_ERROR "Platform 不得反向包含上层实现：${source}")

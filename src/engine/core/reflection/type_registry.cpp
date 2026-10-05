@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "reflection/type_registry.hpp"
+#include "engine/core/reflection/type_registry.hpp"
 
-#include "core/rid_table.h"
+#include "engine/core/rid_table.hpp"
 
 #include <algorithm>
 #include <array>

@@ -3,7 +3,7 @@
 
 #include "world/world_service.hpp"
 
-#include "core/rid_table.h"
+#include "engine/core/rid_table.hpp"
 #include "world/render_snapshot.hpp"
 #include "world/world_state.hpp"
 

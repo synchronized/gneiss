@@ -4,7 +4,7 @@
 #pragma once
 
 #include "asset/virtual_file_system.h"
-#include "core/tasks/task_scheduler.h"
+#include "engine/core/tasks/task_scheduler.hpp"
 #include "render/render_asset_loader.h"
 
 #include <deque>

@@ -7,7 +7,7 @@
 
 本文描述当前实际源码布局，不把已批准的迁移目标当成已实现。0.45 的精简目标目录与宿主边界见
 [ADR-054](../decisions/ADR-054-source-layout-and-host-boundaries.md)，迁移映射与验收见
-[DEV-045](../plans/DEV-045-cpp-boundaries.md)。Platform 已迁入 `src/engine/platform/`，
+[DEV-045](../plans/DEV-045-cpp-boundaries.md)。Core 与 Platform 已迁入 `src/engine/`，
 其余 Engine 模块与 `src/editor/` 尚未完成迁移；
 `apps/` 保持位于仓库根目录，编辑器实现与入口的拆分尚未完成。
 
@@ -28,7 +28,7 @@
 | `3rd/` | 锁定版本并与自有代码隔离的第三方依赖 |
 | `cmake/` | 项目构建策略和可复用的 CMake 模块 |
 
-当前 `gneiss_engine` 实现除 Platform 外仍分布在 `src/` 的模块目录，尚未全部集中到 `src/engine/`。
+当前 `gneiss_engine` 实现除 Core、Platform 外仍分布在 `src/` 的模块目录，尚未全部集中到 `src/engine/`。
 Runtime 宿主与 Editor 分别位于 `apps/runtime/` 和 `apps/editor/`；两者可以依赖 Engine Library，
 Engine Library 不得反向依赖它们。Editor 的 ImGui Context、字体、主题、DockSpace 和通用控件由
 不安装、不导出的 `gneiss_editor_ui` 内部静态库统一管理，业务面板状态仍由 Editor 应用层持有。
@@ -42,14 +42,15 @@ Engine Library 不得反向依赖它们。Editor 的 ImGui Context、字体、�
 
 | 模块 | 目录 | 职责 | 状态 |
 | --- | --- | --- | --- |
-| Core | `src/core/` | 结果、RID、Service 注册等无领域倾向的基础设施 | 已存在 |
+| Core | `src/engine/core/` | 结果、RID、Service 注册等无领域倾向的基础设施 | 已存在 |
 | World | `src/world/` | World、Entity、System 与 EnTT 适配 | 已存在 |
 | Scene | `src/scene/` | Scene Tree、节点映射与层级 Transform | 已存在 |
 | Application | `src/application/` | 顶层生命周期、初始化回滚和主循环编排 | 已存在 |
 | Platform | `src/engine/platform/` | 窗口、IO、IPC、子进程和动态库等平台能力的隔离 | 已存在 |
 | Asset | `src/asset/` | VFS、格式、CPU 解码、缓存及加载任务 | 已存在 |
 | Render | `src/render/` | 渲染输入快照、资源 RID、帧包与执行器 | 已存在 |
-| Reflection | `src/reflection/` | 唯一类型注册表与属性访问 | 已存在 |
+| Reflection | `src/engine/core/reflection/` | 唯一类型注册表与属性访问 | 已存在 |
+| Log | `src/engine/core/log/`、`src/log/` | 通用文本校验归 Core；使用 Application 协议的投递器仍待拆分 | 部分迁移 |
 | C ABI | `src/api/c/` | 公开描述适配、异常隔离及内部入口委托 | 已存在 |
 | Tooling | `src/tooling/` | 离线资产处理实现 | 已存在 |
 | Granit 后端 | `src/render/backend/granit/` | Granit 类型、调用和错误转换的隔离 | 已存在 |

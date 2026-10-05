@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "core/result.hpp"
-#include "core/version.hpp"
+#include "engine/core/result.hpp"
+#include "engine/core/version.hpp"
 
 #include <gneiss/gneiss.h>
 

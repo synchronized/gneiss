@@ -4,7 +4,7 @@
 #ifndef GNEISS_SRC_API_C_LOG_VALIDATION_HPP
 #define GNEISS_SRC_API_C_LOG_VALIDATION_HPP
 
-#include "log/log.hpp"
+#include "engine/core/log/log.hpp"
 #include <gneiss/log.h>
 
 #include <algorithm>

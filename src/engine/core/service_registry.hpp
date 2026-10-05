@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#ifndef GNEISS_CORE_SERVICE_REGISTRY_H_
-#define GNEISS_CORE_SERVICE_REGISTRY_H_
+#ifndef GNEISS_CORE_SERVICE_REGISTRY_HPP_
+#define GNEISS_CORE_SERVICE_REGISTRY_HPP_
 
 #include <gneiss/core/result.h>
 

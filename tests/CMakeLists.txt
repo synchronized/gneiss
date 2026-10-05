@@ -308,7 +308,7 @@ add_test(NAME gneiss.rid_table COMMAND gneiss_rid_table_test)
 add_executable(
   gneiss_service_registry_test
   core/service_registry_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/core/service_registry.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/core/service_registry.cpp"
 )
 target_include_directories(gneiss_service_registry_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_link_libraries(gneiss_service_registry_test PRIVATE gneiss::engine)
@@ -690,7 +690,7 @@ add_executable(gneiss_texture_container_test
   asset/texture_container_test.cpp
   "${PROJECT_SOURCE_DIR}/src/asset/texture_binary.cpp"
   "${PROJECT_SOURCE_DIR}/src/asset/texture_container.cpp"
-  "${PROJECT_SOURCE_DIR}/src/core/sha256.cpp")
+  "${PROJECT_SOURCE_DIR}/src/engine/core/sha256.cpp")
 target_include_directories(gneiss_texture_container_test PRIVATE
   "${PROJECT_SOURCE_DIR}/src" "${PROJECT_SOURCE_DIR}/include")
 target_compile_features(gneiss_texture_container_test PRIVATE cxx_std_20)
@@ -726,7 +726,7 @@ add_executable(
   "${PROJECT_SOURCE_DIR}/src/render/render_asset_loader.cpp"
   "${PROJECT_SOURCE_DIR}/src/asset/texture_container.cpp"
   "${PROJECT_SOURCE_DIR}/src/asset/source_revision_file_system.cpp"
-  "${PROJECT_SOURCE_DIR}/src/core/sha256.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/core/sha256.cpp"
   "${PROJECT_SOURCE_DIR}/src/render/render_resource_service.cpp"
   "${PROJECT_SOURCE_DIR}/src/asset/png_decoder.cpp"
 )
@@ -756,7 +756,7 @@ add_executable(
   "${PROJECT_SOURCE_DIR}/src/render/render_asset_loader.cpp"
   "${PROJECT_SOURCE_DIR}/src/asset/texture_container.cpp"
   "${PROJECT_SOURCE_DIR}/src/asset/source_revision_file_system.cpp"
-  "${PROJECT_SOURCE_DIR}/src/core/sha256.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/core/sha256.cpp"
   "${PROJECT_SOURCE_DIR}/src/render/render_resource_service.cpp"
   "${PROJECT_SOURCE_DIR}/src/asset/png_decoder.cpp"
 )
@@ -863,7 +863,7 @@ add_executable(
   "${PROJECT_SOURCE_DIR}/src/render/render_asset_loader.cpp"
   "${PROJECT_SOURCE_DIR}/src/asset/texture_container.cpp"
   "${PROJECT_SOURCE_DIR}/src/asset/source_revision_file_system.cpp"
-  "${PROJECT_SOURCE_DIR}/src/core/sha256.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/core/sha256.cpp"
   "${PROJECT_SOURCE_DIR}/src/render/render_resource_service.cpp"
   "${PROJECT_SOURCE_DIR}/src/scene/prefab_asset_loader.cpp"
   "${PROJECT_SOURCE_DIR}/src/scene/prefab_description.cpp"
@@ -971,7 +971,7 @@ add_executable(gneiss_source_revision_test
   "${PROJECT_SOURCE_DIR}/src/asset/source_revision_file_system.cpp"
   "${PROJECT_SOURCE_DIR}/src/asset/virtual_file_system.cpp"
   "${PROJECT_SOURCE_DIR}/src/asset/asset_uri.cpp"
-  "${PROJECT_SOURCE_DIR}/src/core/sha256.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/core/sha256.cpp"
 )
 target_include_directories(gneiss_source_revision_test PRIVATE "${PROJECT_SOURCE_DIR}/src" "${PROJECT_SOURCE_DIR}/include")
 target_compile_features(gneiss_source_revision_test PRIVATE cxx_std_20)

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "log/log.hpp"
+#include "engine/core/log/log.hpp"
 
 #include <cstdint>
 
