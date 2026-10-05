@@ -22,7 +22,7 @@
 | `src/render/granit/granit_render_service.*` | GPU 候选、上传预算和回读 |
 | `src/application/application_asset_reload_internal.*` | 内部混合资产请求、状态与测试接入 |
 | `apps/runtime/`、`apps/editor/` | 修订、IPC 进度、取消及可见反馈 |
-| `tests/`、`tools/performance/` | 两模式事务、真实图形像素与模型负载 |
+| `tests/`、`scripts/performance/` | 两模式事务、真实图形像素与模型负载 |
 
 线程、所有权与失败语义先于性能优化收口；每阶段完成连贯回归后本地提交。接口保持内部 C++，
 不增加不稳定公共 C ABI。新增长期取舍写入 [ADR-049](../decisions/ADR-049-model-asset-transactions.md)。

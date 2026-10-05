@@ -5,7 +5,7 @@
 
 #include "package_archive.h"
 
-#include "tooling/asset_build/asset_build.h"
+#include "tooling/asset_build/asset_build.hpp"
 
 #include <yyjson.h>
 

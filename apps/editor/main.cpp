@@ -19,7 +19,7 @@
 #include "project_workspace.h"
 #include "property_inspector_model.hpp"
 #include "runtime_author_apply.hpp"
-#include "runtime_launch.h"
+#include "runtime_launch.hpp"
 #include "runtime_process.h"
 #include "transform_gizmo_drag.hpp"
 #include "transform_gizmo_math.hpp"

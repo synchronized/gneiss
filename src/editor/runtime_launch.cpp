@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "runtime_launch.h"
+#include "runtime_launch.hpp"
 
 #include <new>
 

@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "tooling/asset_import/import_ir.h"
+#include "tooling/asset_import/import_ir.hpp"
 
 #include <filesystem>
 #include <string>

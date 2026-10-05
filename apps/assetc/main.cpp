@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "tooling/asset_build/asset_build.h"
-#include "tooling/asset_build/ktx2_probe.h"
-#include "tooling/asset_build/runtime_texture_probe.h"
-#include "tooling/asset_import/asset_writer.h"
-#include "tooling/asset_import/gltf_importer.h"
+#include "tooling/asset_build/asset_build.hpp"
+#include "tooling/asset_build/ktx2_probe.hpp"
+#include "tooling/asset_build/runtime_texture_probe.hpp"
+#include "tooling/asset_import/asset_writer.hpp"
+#include "tooling/asset_import/gltf_importer.hpp"
 
 #include "engine/asset/mesh_binary.hpp"
 

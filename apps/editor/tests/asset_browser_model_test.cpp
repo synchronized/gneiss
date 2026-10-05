@@ -3,7 +3,7 @@
 
 #include "asset_browser_model.hpp"
 
-#include "tooling/asset_import/asset_index.h"
+#include "tooling/asset_import/asset_index.hpp"
 
 #include <algorithm>
 #include <filesystem>

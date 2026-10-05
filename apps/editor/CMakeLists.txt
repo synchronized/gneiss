@@ -31,8 +31,6 @@ add_library(
   package_archive.h
   project_workspace.cpp
   project_workspace.h
-  runtime_launch.cpp
-  runtime_launch.h
   runtime_process.cpp
   runtime_process.h
   runtime_property_adapter.hpp

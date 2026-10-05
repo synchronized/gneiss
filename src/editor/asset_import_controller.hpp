@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "tooling/asset_import/asset_import_sdk.h"
+#include "tooling/asset_import/asset_import_sdk.hpp"
 
 #include <filesystem>
 #include <string>

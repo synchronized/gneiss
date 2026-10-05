@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "tooling/asset_build/ktx2_probe.h"
+#include "tooling/asset_build/ktx2_probe.hpp"
 
 #include <algorithm>
 #include <array>

@@ -3,7 +3,7 @@
 
 #include "asset_import_controller.hpp"
 
-#include "tooling/asset_import/asset_index.h"
+#include "tooling/asset_import/asset_index.hpp"
 
 #include <filesystem>
 #include <fstream>

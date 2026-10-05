@@ -38,7 +38,7 @@ jobs:
           ctest --preset '${{ steps.preset.outputs.name }}' `
             -R '^gneiss\.installed_consumer$'
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          python -B tools/performance/test_prepare_sponza.py
+          python -B scripts/performance/test_prepare_sponza.py
 
   msvc-runtime:
     runs-on: windows-2022

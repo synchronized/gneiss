@@ -20,8 +20,8 @@ C ABI 适配已迁入 `src/engine/api/`，`src/editor/` 已迁入 UI、资产服
 | --- | --- |
 | `include/gneiss/` | 稳定的 C11 公共接口及其轻量 C++20 包装 |
 | `src/` | 内部运行时实现、第三方适配及离线处理 |
-| `apps/` | 当前 Editor、Runtime 宿主及共用代码 |
-| `tools/` | 当前 assetc 程序、性能与检查工具 |
+| `apps/` | Editor、Runtime、assetc 程序入口及宿主共用代码 |
+| `scripts/` | 仓库维护与性能测量脚本 |
 | `tests/` | 公共接口、内部行为、生命周期与集成验证 |
 | `examples/` | 使用公共接口构建的独立最小示例 |
 | `docs/` | Guide、Reference、Concept、Plan、ADR 和执行记录 |
@@ -49,6 +49,10 @@ Apps 从 IPC 节点提取输入；Editor 命令复制身份字符串，不保留
 模型继续唯一管理 pending、乱序响应、超时和断连。场景镜像同样位于独立模型库，
 使用 `runtime_scene_data.hpp` 的节点批次，唯一管理分块、顺序与图校验。宿主只适配解码结果，
 镜像与属性模型共用 `runtime_object_id.hpp`；不向 Runtime 传播 Editor 库依赖。
+运行前的场景保存与启动条件判断由 `src/editor/runtime_launch.hpp` 提供；进程启动仍归 Apps。
+
+离线导入库的构建定义与 C++ 实现集中于 `src/tooling/`，内部头使用 `.hpp`。
+assetc CLI 位于 `apps/assetc/`，工具测试由 `tests/tooling/` 组织，性能脚本位于 `scripts/performance/`。
 
 公共头目录按能力组织，但 `.h` 与 `.hpp` 始终成对维护。内部源码目录按拥有运行时状态的模块组织，
 不机械复制公共头目录。

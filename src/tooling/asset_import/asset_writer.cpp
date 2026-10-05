@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "tooling/asset_import/asset_writer.h"
+#include "tooling/asset_import/asset_writer.hpp"
 
 #include "engine/asset/mesh_binary.hpp"
 

@@ -68,6 +68,7 @@ Runtime Transform 回写脱离 IPC 的结果见 [回写边界记录](../records/
 控制台与 Runtime 日志协议拆分见 [控制台记录](../records/M-295-console-boundary.md)。
 属性请求/响应与模型拆分见 [属性边界记录](../records/M-295-property-boundary.md)。
 场景镜像及唯一顺序跟踪器迁移见 [镜像边界记录](../records/M-295-scene-mirror-boundary.md)。
+Tooling、assetc、性能脚本及启动条件迁移见 [工具布局记录](../records/M-295-tooling-host-layout.md)。
 
 - 将解码、格式解析、资源加载与 GPU 生命周期按 ADR 分开，先记录允许依赖再搬文件。
 - Granit 适配进入 Render 私有后端，Platform 的窗口适配维持独立所有权。
@@ -90,8 +91,8 @@ Runtime Transform 回写脱离 IPC 的结果见 [回写边界记录](../records/
 | `apps/editor/` | UI、主题、ImGui 适配、字体、资产服务、独立编辑模型与场景会话已迁至 `src/editor/`；宿主控制与面板编排仍待拆分，程序入口与启动配置保留在 `apps/editor/` |
 | `apps/runtime/` | 程序入口与宿主控制保留在 `apps/runtime/`；可复用引擎能力回归 Engine |
 | `apps/common/` | 逐项核定所有者；运行时通用能力归 Engine，纯宿主共用代码按实际需要保留私有共用目标，不原样下沉 Core |
-| `src/tooling/`、`tools/assetc/` | 离线实现留 `src/tooling/`；assetc 入口、CLI 进入根目录的 `apps/assetc/` |
-| `tools/performance/`、`tools/sanitizers/` 等 | 仓库维护脚本归根 `scripts/`；可编译验证/基准程序归对应 tests，不能仅改名假定全是脚本 |
+| `src/tooling/`、原 `tools/assetc/` | 导入库实现与构建定义已归 `src/tooling/`，内部头统一 `.hpp`；CLI 已迁至 `apps/assetc/`，测试构建定义归 `tests/tooling/` |
+| 原 `tools/performance/` | 9 个性能与验证脚本已迁至 `scripts/performance/`；工具目录已无跟踪源码 |
 | 测试、示例、构建与检查 | 按被测模块更新路径和私有 include；公共 SDK 示例与安装消费路径保持兼容 |
 
 1. 先审计包含与 target 依赖，记录每个模块的唯一状态所有者。拆开资产 CPU 准备、GPU 发布与

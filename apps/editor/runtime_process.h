@@ -4,7 +4,7 @@
 #ifndef GNEISS_APPS_EDITOR_RUNTIME_PROCESS_H_
 #define GNEISS_APPS_EDITOR_RUNTIME_PROCESS_H_
 
-#include "runtime_launch.h"
+#include "runtime_launch.hpp"
 
 #include "console_model.hpp"
 #include "ipc_property_protocol.h"
