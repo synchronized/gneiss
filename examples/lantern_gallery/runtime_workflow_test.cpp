@@ -150,11 +150,13 @@ bool rotation_changed(const std::array<float, 4>& left,
 
 int report_failure(const gneiss::editor::runtime_process& process, int code,
                    std::source_location location = std::source_location::current()) {
-  std::fprintf(stderr,
-               "Lantern 工作流失败：line=%u code=%d state=%d running=%d exit_code=%d reload=%d\n",
-               location.line(), code, static_cast<int>(process.control_state()),
-               process.is_running() ? 1 : 0, process.exit_code(),
-               static_cast<int>(process.asset_reload_status().state));
+  std::fprintf(
+      stderr,
+      "Lantern 工作流失败：line=%u code=%d state=%d running=%d exit_code=%d reload=%d scene=%d\n",
+      location.line(), code, static_cast<int>(process.control_state()),
+      process.is_running() ? 1 : 0, process.exit_code(),
+      static_cast<int>(process.asset_reload_status().state),
+      static_cast<int>(process.scene_load_status().phase));
   for (const auto& entry : process.console().entries()) {
     if (entry.kind == gneiss::editor::console_entry_kind::raw) {
       std::fprintf(stderr, "console[raw]=%s\n", entry.raw_text.c_str());
@@ -381,8 +383,10 @@ int main() try {
     return report_failure(process, 3);
   }
 
+  // running 只代表主循环已启动；场景提交后游戏模块才开始产生进度日志。
   if (process.start(runtime, request) != gneiss::result::success || !pump_until(process, 5s, [&] {
-        return process.control_state() == gneiss::editor::runtime_control_state::running;
+        return process.control_state() == gneiss::editor::runtime_control_state::running &&
+               process.scene_load_status().phase == gneiss::ipc_scene_phase::applied;
       })) {
     return report_failure(process, 4);
   }
