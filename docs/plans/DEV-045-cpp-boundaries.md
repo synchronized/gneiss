@@ -106,8 +106,8 @@ Mesh/Prefab 添加和资源替换事务见 [资产命令记录](../records/M-295
 | 原 `src/asset/` | 基础能力已迁至 `src/engine/asset/`；纹理加载与上传事务归 `src/engine/function/render/texture_load_service.hpp`，CPU 准备与解析已归入 Asset，Render 仅传入发布预算 |
 | 原 `src/core/`、`reflection/`、`log/` | 已迁入 `src/engine/core/`；投递器使用 C++ 消息与事件视图，Application 回调适配留在所属模块 |
 | Render 中的数学代码 | 通用数学迁 Core；相机语义、后端投影适配仍留所属功能，逐文件判断 |
-| 原 `src/platform/`、`io/`、`process/`、`ipc/` | 已迁至 `src/engine/platform/`，内部头改为 `.hpp`；编辑器/运行宿主协议仍留 Apps，窗口语义配置与命名空间已独立；其他平台接口继续审计 |
-| `apps/editor/` | UI、主题、ImGui 适配、字体、资产服务、独立编辑模型与场景会话已迁至 `src/editor/`；宿主控制与面板编排仍待拆分，程序入口与启动配置保留在 `apps/editor/` |
+| 原 `src/platform/`、`io/`、`process/`、`ipc/` | 已迁至 `src/engine/platform/`，内部头改为 `.hpp`；编辑器/运行宿主协议仍留 Apps，窗口语义配置与命名空间已独立；平台接口已纳入边界检查 |
+| `apps/editor/` | UI、主题、ImGui 适配、字体、资产服务、独立编辑模型与场景会话已迁至 `src/editor/`；面板和创作事务归 Editor；项目菜单、对话框、进程协议及服务装配归 Apps，main 仅调用私有 C++ 入口 |
 | `apps/runtime/` | 程序入口与宿主控制保留在 `apps/runtime/`；可复用引擎能力回归 Engine |
 | `apps/common/` | 已核定工程/启动与 IPC 领域协议分别保留在两个宿主私有目标；通用传输归 Platform，Runtime 不链接 Editor；Apps 私有头统一 `.hpp` |
 | `src/tooling/`、原 `tools/assetc/` | 导入库实现与构建定义已归 `src/tooling/`，内部头统一 `.hpp`；CLI 已迁至 `apps/assetc/`，测试构建定义归 `tests/tooling/` |
@@ -160,11 +160,10 @@ Mesh/Prefab 添加和资源替换事务见 [资产命令记录](../records/M-295
 
 ## 未决项与风险
 
-- 完整接口数量和具体缺口由 M-292 得出，当前不声称已完成全量审计。
-- 具体模块 target 划分、私有导出清单及强耦合处拆分顺序由依赖图确定。
+- 公共 102 个函数及类型、常量、回调映射已核对；最终平台验证仍可能发现编译器或生命周期差异。
+- 模块 target 与私有导出已建立清单；最终安装与导出验收确认重构未泄漏内部接口。
 - 父服务销毁与线程亲和性可能暴露已有缺陷；先固定契约与复现，再最小修复并独立记录。
 - 如果必须改变现有 ABI 或增加新的强持有关系，先补 ADR 与迁移决策，不默默扩大重构范围。
 - GAMES104 分层参考及精简布局已确认；具体文件的归属需按依赖审计决定，不机械按旧目录整体搬移。
-- 平台工具对 Engine 的反向链接已移除；宿主共用代码仍含工程与通信职责。
-  目录迁移前继续核定依赖与所有者，
-  不为实现四层图而新增空模块、重复实现或永久白名单。
+- 平台工具对 Engine 的反向链接已移除；宿主共用工程与通信职责经审计保留在 Apps 私有目标。
+  不新增空模块、重复实现或永久白名单。

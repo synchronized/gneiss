@@ -8,8 +8,8 @@
 本文描述当前实际源码布局，不把已批准的迁移目标当成已实现。0.45 的精简目标目录与宿主边界见
 [ADR-054](../decisions/ADR-054-source-layout-and-host-boundaries.md)，迁移映射与验收见
 [DEV-045](../plans/DEV-045-cpp-boundaries.md)。Core、Platform、Asset 与 Function 已迁入 `src/engine/`，
-C ABI 适配已迁入 `src/engine/api/`，`src/editor/` 已迁入 UI、资产服务、独立编辑模型与场景会话，宿主控制及面板编排仍待拆分；
-`apps/` 保持位于仓库根目录，编辑器实现与入口的拆分尚未完成。
+C ABI 适配位于 `src/engine/api/`，`src/editor/` 管理 UI、资产服务、编辑模型、场景会话与创作事务；
+`apps/` 保持位于仓库根目录，负责程序入口及宿主装配。
 
 总体分层以[总体架构](architecture.md)为准，代码与文档规范分别以
 [C/C++ 代码风格](../guides/coding-style.md)和[项目文档规范](../../DOCUMENTATION_GUIDE.md)为准。
@@ -50,6 +50,9 @@ Apps 在每次绘制时提供同步属性提交、回写作者场景与结果报
 及创作事务、控制台模型，不依赖 Apps 工程、IPC 或会话。场景会话与 Gizmo 拖拽由同目录的
 `gneiss_editor_session` 管理，只依赖该模型库与 Engine。`apps/editor/` 的 `gneiss_editor_host`
 负责工程、子进程、IPC 与运行时同步装配。
+Gizmo 绘制和 ImGuizmo 适配归 `transform_gizmo_view.hpp/.cpp`，只借用会话、历史与拖拽状态。
+`apps/editor/main.cpp` 仅转交 `run_editor_application`；`editor_application.cpp` 拥有窗口与程序状态，
+组合项目菜单、文件对话框、服务轮询和面板请求。退出时先清理命令历史，再关闭其借用的会话。
 
 `apps/common/` 保留两个宿主私有目标：`gneiss_app_project` 管理构建/启动工程描述及启动日志协议，
 `gneiss_app_ipc_protocol` 管理 Editor/Runtime 进程通信协议。它们不安装、不导出为 Engine SDK；

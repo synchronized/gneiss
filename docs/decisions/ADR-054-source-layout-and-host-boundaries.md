@@ -5,7 +5,7 @@
 
 ## 状态与背景
 
-2026-10-05 已接受，纳入 0.45；Core、Platform、Asset 与 Function 已按新布局迁移；C ABI 已迁至 `src/engine/api/`，Editor/Apps 拆分尚未完成。
+2026-10-05 已接受，纳入 0.45；Core、Platform、Asset 与 Function 已按新布局迁移；C ABI 已迁至 `src/engine/api/`，Editor 可复用实现与 Apps 宿主装配已拆分，最终平台矩阵待验收。
 本决策替代 [ADR-053](ADR-053-cpp-core-and-c-abi.md) 的旧目标目录，保留其接口、ABI 与所有权约束。
 实施顺序与迁移映射见 [DEV-045](../plans/DEV-045-cpp-boundaries.md)，当前路径见
 [源码目录说明](../concepts/repository-layout.md)。
@@ -16,7 +16,7 @@
 
 ## 目标布局
 
-以下是目标路径的唯一完整目录树，尚未全部实现。只列有明确职责的层级，细分目录随真实规模建立。
+以下是已落实路径的唯一完整目录树。只列有明确职责的层级，细分目录随真实规模建立。
 
 ```text
 gneiss/

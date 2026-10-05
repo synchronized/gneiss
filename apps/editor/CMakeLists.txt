@@ -62,6 +62,8 @@ endif()
 add_executable(
   gneiss_editor
   main.cpp
+  editor_application.cpp
+  editor_application.hpp
   native_dialog.cpp
   native_dialog.hpp
   project_manager.cpp
@@ -69,7 +71,7 @@ add_executable(
 )
 target_link_libraries(
   gneiss_editor
-  PRIVATE gneiss_editor_host gneiss_editor_ui gneiss_imguizmo gneiss_child_process
+  PRIVATE gneiss_editor_host gneiss_editor_ui gneiss_child_process
 )
 if((WIN32 OR UNIX) AND TARGET gneiss_runtime)
   target_compile_definitions(

@@ -3,6 +3,8 @@
 
 add_library(
   gneiss_editor_ui STATIC
+  transform_gizmo_view.cpp
+  transform_gizmo_view.hpp
   author_hierarchy_panel.cpp
   author_hierarchy_panel.hpp
   author_property_panel.cpp
@@ -18,7 +20,7 @@ add_library(
   imgui_adapter.cpp
   imgui_adapter.hpp
 )
-target_link_libraries(gneiss_editor_ui PUBLIC gneiss::engine gneiss_imgui PRIVATE gneiss_editor_model)
+target_link_libraries(gneiss_editor_ui PUBLIC gneiss::engine gneiss_imgui PRIVATE gneiss_editor_model gneiss_editor_session gneiss_imguizmo)
 target_include_directories(gneiss_editor_ui PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_compile_features(gneiss_editor_ui PUBLIC cxx_std_20)
 target_compile_definitions(
