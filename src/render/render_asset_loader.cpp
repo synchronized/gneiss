@@ -47,6 +47,22 @@ material_for_publication(const gneiss::asset_internal::material_parameters& para
   return material;
 }
 
+// 数组所有权在发布边界移动，弱上传引用由 Render 随后建立。
+[[nodiscard]] gneiss::render_internal::texture_resource
+texture_for_publication(gneiss::asset_internal::prepared_texture_data prepared) noexcept {
+  return {.width = prepared.width,
+          .height = prepared.height,
+          .format = prepared.format,
+          .color_space = prepared.color_space,
+          .levels = std::move(prepared.levels),
+          .manifest = std::move(prepared.manifest),
+          .payload = std::move(prepared.payload),
+          .profile = prepared.profile,
+          .selected_variant = prepared.selected_variant,
+          .payload_source = std::move(prepared.payload_source),
+          .upload_payload = {}};
+}
+
 constexpr std::uint32_t mesh_type = 1;
 constexpr std::uint32_t material_type = 2;
 constexpr std::uint32_t texture_type = 3;
@@ -218,18 +234,19 @@ gneiss_result render_asset_loader::stage_asset(prepared_render_asset prepared,
     std::uint64_t rid{};
     auto created = GNEISS_ERROR_INVALID_ARGUMENT;
     if (prepared.source.type == render_asset_type::texture) {
-      if (prepared.texture.payload_source) {
-        if (prepared.texture.profile.generation == 0U ||
-            prepared.texture.payload.size() != prepared.texture.payload_source->size()) {
+      auto texture = texture_for_publication(std::move(prepared.texture));
+      if (texture.payload_source) {
+        if (texture.profile.generation == 0U ||
+            texture.payload.size() != texture.payload_source->size()) {
           return GNEISS_ERROR_INVALID_ARGUMENT;
         }
         candidate.texture_payload =
-            std::make_shared<const std::vector<std::byte>>(std::move(prepared.texture.payload));
-        prepared.texture.upload_payload = candidate.texture_payload;
+            std::make_shared<const std::vector<std::byte>>(std::move(texture.payload));
+        texture.upload_payload = candidate.texture_payload;
       }
-      created = prepared.texture.manifest.empty()
-                    ? resources_.create_texture(std::move(prepared.texture), &rid)
-                    : resources_.create_packaged_texture(std::move(prepared.texture), &rid);
+      created = texture.manifest.empty()
+                    ? resources_.create_texture(std::move(texture), &rid)
+                    : resources_.create_packaged_texture(std::move(texture), &rid);
       if (created != GNEISS_SUCCESS) {
         return created;
       }
@@ -538,15 +555,16 @@ gneiss_result render_asset_loader::acquire_texture(std::string_view uri,
   const auto result = cache_.acquire(
       uri, texture_type,
       [this, uri, &out_diagnostic](std::shared_ptr<void>& output) -> gneiss_result {
-        texture_resource prepared;
+        asset_internal::prepared_texture_data prepared;
         auto result = prepare_texture(file_system_, uri, prepared, out_diagnostic);
         if (result != GNEISS_SUCCESS) {
           return result;
         }
         gneiss_texture rid = GNEISS_NULL_TEXTURE;
-        result = prepared.manifest.empty()
-                     ? resources_.create_texture(std::move(prepared), &rid)
-                     : resources_.create_packaged_texture(std::move(prepared), &rid);
+        auto texture = texture_for_publication(std::move(prepared));
+        result = texture.manifest.empty()
+                     ? resources_.create_texture(std::move(texture), &rid)
+                     : resources_.create_packaged_texture(std::move(texture), &rid);
         if (result != GNEISS_SUCCESS) {
           fail(out_diagnostic, result, "", "创建 Texture RID 失败");
           return result;
@@ -584,7 +602,7 @@ gneiss_result render_asset_loader::observe_texture(std::string_view uri,
 }
 
 gneiss_result render_asset_loader::stage_texture(const texture_target& target,
-                                                 texture_resource prepared,
+                                                 asset_internal::prepared_texture_data prepared,
                                                  texture_candidate& output) noexcept {
   output = {};
   try {
@@ -596,9 +614,10 @@ gneiss_result render_asset_loader::stage_texture(const texture_target& target,
     texture_candidate candidate;
     candidate.target = target;
     gneiss_texture staged = GNEISS_NULL_TEXTURE;
-    const auto created = prepared.manifest.empty()
-                             ? resources_.create_texture(std::move(prepared), &staged)
-                             : resources_.create_packaged_texture(std::move(prepared), &staged);
+    auto texture = texture_for_publication(std::move(prepared));
+    const auto created = texture.manifest.empty()
+                             ? resources_.create_texture(std::move(texture), &staged)
+                             : resources_.create_packaged_texture(std::move(texture), &staged);
     if (created != GNEISS_SUCCESS) {
       return created;
     }

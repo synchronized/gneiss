@@ -4,6 +4,7 @@
 #include "render/render_asset_preparation.hpp"
 
 #include "render/render_asset_parsing.hpp"
+#include "render/render_resource_data.hpp" // 材质发布预算，尚未下沉 Asset。
 
 #include "engine/asset/mesh_binary.hpp"
 #include "engine/asset/png_decoder.hpp"
@@ -746,7 +747,7 @@ gneiss_result prepare_render_assets(const asset_internal::virtual_file_system& f
 }
 
 gneiss_result prepare_texture(const asset_internal::virtual_file_system& file_system,
-                              std::string_view uri, texture_resource& output,
+                              std::string_view uri, asset_internal::prepared_texture_data& output,
                               asset_diagnostic& out_diagnostic, std::size_t input_limit,
                               bool verify_source, std::size_t output_limit,
                               texture_prepare_profile profile) noexcept {

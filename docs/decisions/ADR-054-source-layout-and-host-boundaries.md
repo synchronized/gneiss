@@ -65,6 +65,8 @@ gneiss/
   Scene 关联实体 ID、ECS 保存数据/RID、Service 管理后端的既有约束继续有效。
 - Asset 负责无 GPU 对象的格式、解码、缓存与 CPU 准备；GPU 上传、候选及发布由 Render 负责，
   跨两者的事务协调放在 Function 的所属协调模块，禁止 Asset 反向依赖 Render/World/Scene。
+  纹理准备可接收调用方提供的格式能力与不透明设备身份值；上传负载弱引用和回执属于 Render，
+  发布边界移动 CPU 数组所有权，不为分层复制大型负载。
 - Core 不认识资产业务、游戏世界、渲染或编辑器。Platform 可使用 Core 的基础契约，但 Core 不
   反向依赖整个 Platform；OS 专用实现隔离在私有实现文件。不得形成 target 或包含循环。
 - Granit 渲染实现留在 Render 的私有 `backend/granit/`；窗口适配归 Platform。不建立供所有

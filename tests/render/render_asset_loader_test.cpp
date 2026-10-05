@@ -224,7 +224,7 @@ void selected_variants() {
                                            .sampled_transfer_formats = {true, true, true, true}};
   const texture_prepare_profile fallback{.generation = 2U,
                                          .sampled_transfer_formats = {true, true, false, false}};
-  texture_resource texture;
+  gneiss::asset_internal::prepared_texture_data texture;
   asset_diagnostic diagnostic;
   const auto limit = built.manifest().size() + bc.size();
   require(prepare_texture(files, "asset://t.texture.json", texture, diagnostic, limit, false, limit,
@@ -262,6 +262,8 @@ void selected_variants() {
   require(prepare_render_assets(files, requests, batch, diagnostic, {}, 1U, limit, compressed) ==
           GNEISS_SUCCESS);
   require(batch.bytes == limit && batch.assets.front().texture.profile == compressed);
+  const auto* prepared_payload = batch.assets.front().texture.payload.data();
+  const auto* prepared_manifest = batch.assets.front().texture.manifest.data();
   render_resource_service resources;
   gneiss::asset_internal::resource_cache cache;
   render_asset_loader loader(files, cache, resources);
@@ -269,6 +271,9 @@ void selected_variants() {
   require(loader.stage_asset(std::move(batch.assets.front()), {}, candidate.front()) ==
           GNEISS_SUCCESS);
   const auto old_frame = candidate.front().texture;
+  require(candidate.front().texture_payload->data() == prepared_payload &&
+          old_frame->manifest.data() == prepared_manifest && old_frame->profile == compressed &&
+          old_frame->selected_variant == 0U);
   require(old_frame->payload.empty() && old_frame->payload_source &&
           !old_frame->upload_payload.expired());
   render_upload_item command;
@@ -308,6 +313,19 @@ void selected_variants() {
               files, requests, batch, diagnostic, [&] { return ++cancellation_checks == 2U; }, 1U,
               limit, compressed) == GNEISS_ERROR_INVALID_STATE &&
           batch.assets.empty());
+  // 单纹理暂存入口同样接收纯准备数据，移动后保留 payload 与设备身份。
+  require(prepare_texture(files, "asset://t.texture.json", texture, diagnostic, binary.size(),
+                          false, binary.size(), compressed) == GNEISS_SUCCESS);
+  const auto* single_payload = texture.payload.data();
+  render_asset_loader::texture_target target;
+  require(loader.observe_texture("asset://single.texture.json", target) == GNEISS_SUCCESS);
+  std::array<render_asset_loader::texture_candidate, 1> single;
+  require(loader.stage_texture(target, std::move(texture), single.front()) == GNEISS_SUCCESS);
+  require(single.front().data->payload.data() == single_payload &&
+          single.front().data->profile == compressed &&
+          single.front().data->selected_variant == 0U);
+  require(loader.publish_textures(single) == GNEISS_SUCCESS);
+
 #endif
 }
 
@@ -521,7 +539,7 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
   // 同步与任务准备共用解析；准备阶段不得触碰缓存或 RID。
   const auto before_resources = resources.live_resource_count();
   const auto before_cache = cache.size();
-  gneiss::render_internal::texture_resource prepared;
+  gneiss::asset_internal::prepared_texture_data prepared;
   for (const auto* uri :
        {"asset://textures/white.texture.json", "asset://textures/linear.texture.json",
         "asset://textures/packaged.texture.json"}) {

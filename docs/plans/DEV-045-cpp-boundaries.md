@@ -55,7 +55,8 @@ Render 快照、PNG 解码与 Granit 目录子项见 [迁移记录](../records/M
 [资产边界记录](../records/M-295-asset-layout.md)。
 CPU 准备已与资源发布分开编译并建立独立链接验证，见
 [准备接口记录](../records/M-295-render-preparation.md)；材质准备值已去除 RID，见
-[材质参数记录](../records/M-295-material-parameters.md)，网格与纹理准备值继续审计。
+[材质参数记录](../records/M-295-material-parameters.md)。网格与纹理准备值已归入 Asset，见
+[准备数据记录](../records/M-295-prepared-data.md)；准备实现中的材质发布预算依赖仍待拆分。
 
 - 将解码、格式解析、资源加载与 GPU 生命周期按 ADR 分开，先记录允许依赖再搬文件。
 - Granit 适配进入 Render 私有后端，Platform 的窗口适配维持独立所有权。

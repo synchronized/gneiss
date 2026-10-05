@@ -4,7 +4,8 @@
 #pragma once
 
 #include "engine/asset/material_parameters.hpp"
-#include "render/render_resource_data.hpp"
+#include "engine/asset/mesh_data.hpp"
+#include "engine/asset/texture_preparation_data.hpp"
 
 #include <functional>
 #include <limits>
@@ -18,6 +19,8 @@ class virtual_file_system;
 
 namespace gneiss::render_internal {
 
+using texture_prepare_profile = asset_internal::texture_prepare_profile;
+
 struct asset_diagnostic final {
   gneiss_result result = GNEISS_SUCCESS;
   std::size_t byte_offset = 0;
@@ -29,7 +32,7 @@ struct asset_diagnostic final {
  * 有界读取需要后端支持；verify_source 拒绝准备期间变化的描述或负载，不提供跨进程事务隔离。 */
 [[nodiscard]] gneiss_result
 prepare_texture(const asset_internal::virtual_file_system& file_system, std::string_view uri,
-                texture_resource& output, asset_diagnostic& diagnostic,
+                asset_internal::prepared_texture_data& output, asset_diagnostic& diagnostic,
                 std::size_t input_limit = std::numeric_limits<std::size_t>::max(),
                 bool verify_source = false, std::size_t output_limit = 256U * 1024U * 1024U,
                 texture_prepare_profile profile = {}) noexcept;
@@ -49,8 +52,8 @@ struct render_asset_reload final {
 /** 后台解析后的自有 CPU 数据；不持有缓存或后端对象，材质依赖仅使用 URI。 */
 struct prepared_render_asset {
   render_asset_reload source;
-  mesh_resource mesh;
-  texture_resource texture{};
+  asset_internal::mesh_data mesh;
+  asset_internal::prepared_texture_data texture{};
   asset_internal::material_parameters material{};
   std::array<std::string, 5> texture_uris;
   std::size_t bytes{};

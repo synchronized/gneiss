@@ -20,6 +20,11 @@ static_assert(
 static_assert(!has_publication_description<
               decltype(gneiss::render_internal::prepared_render_asset::material)>);
 
+template <typename T>
+concept has_upload_reference = requires(T value) { value.upload_payload; };
+static_assert(
+    !has_upload_reference<decltype(gneiss::render_internal::prepared_render_asset::texture)>);
+
 class mesh_source final : public gneiss::asset_internal::file_system {
 public:
   mutable unsigned reads{};

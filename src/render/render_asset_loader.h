@@ -6,6 +6,7 @@
 
 #include "engine/asset/resource_cache.hpp"
 #include "render/render_asset_preparation.hpp"
+#include "render/render_resource_data.hpp"
 
 #include <gneiss/render.h>
 
@@ -115,7 +116,8 @@ public:
   };
   [[nodiscard]] gneiss_result observe_texture(std::string_view uri,
                                               texture_target& output) const noexcept;
-  [[nodiscard]] gneiss_result stage_texture(const texture_target& target, texture_resource prepared,
+  [[nodiscard]] gneiss_result stage_texture(const texture_target& target,
+                                            asset_internal::prepared_texture_data prepared,
                                             texture_candidate& output) noexcept;
   /** 全部身份仍有效才一次发布；调用方须先完成 GPU 候选确认，且不并发访问缓存。 */
   [[nodiscard]] gneiss_result publish_textures(std::span<texture_candidate> candidates) noexcept;
