@@ -123,7 +123,7 @@ gneiss_result query_context(gneiss_game_context context, context_view& output) n
   }
 }
 gneiss_result submit_context_log(gneiss_game_context context,
-                                 const gneiss_log_message& message) noexcept {
+                                 const log_internal::message_view& message) noexcept {
   try {
     const std::scoped_lock lock(context_mutex);
     const auto* state = contexts.get(context, core::resource_type::game_context);

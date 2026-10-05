@@ -265,12 +265,17 @@ gneiss_result gneiss::application_internal::reload_prefab(gneiss_application app
 
 gneiss_result
 gneiss::application_internal::submit_application_log(gneiss_application application,
-                                                     const gneiss_log_message& message,
+                                                     const log_internal::message_view& message,
                                                      std::string_view source) noexcept {
   try {
     auto state = find_application(application);
-    return state == nullptr ? GNEISS_ERROR_INVALID_HANDLE
-                            : state->submit_log(application, message, source);
+    if (state == nullptr) {
+      return GNEISS_ERROR_INVALID_HANDLE;
+    }
+    auto value = message;
+    value.context = application;
+    value.source = source;
+    return state->submit_log(value);
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;
   }

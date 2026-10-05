@@ -9,6 +9,10 @@
 
 #include <string_view>
 
+namespace gneiss::log_internal {
+struct message_view;
+}
+
 namespace gneiss::game_internal {
 
 [[nodiscard]] GNEISS_API gneiss_result
@@ -28,7 +32,7 @@ struct context_view {
                                           context_view& output) noexcept;
 /** message 已经过 ABI 校验；此入口允许跨线程，日志来源在锁内借用。 */
 [[nodiscard]] gneiss_result submit_context_log(gneiss_game_context context,
-                                               const gneiss_log_message& message) noexcept;
+                                               const log_internal::message_view& message) noexcept;
 } // namespace gneiss::game_internal
 
 #endif

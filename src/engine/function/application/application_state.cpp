@@ -356,34 +356,18 @@ void application_state::report(gneiss_application handle, std::uint32_t severity
                                         : category == GNEISS_DIAGNOSTIC_CATEGORY_BACKEND
                                             ? "backend"
                                             : "application";
-  const gneiss_log_message log_message = {
-      .struct_size = sizeof(gneiss_log_message),
+  static_cast<void>(submit_log({
+      .context = handle,
       .severity = log_severity,
-      .category = log_category.data(),
-      .category_length = log_category.size(),
-      .message = message.data(),
-      .message_length = message.size(),
+      .source = module,
+      .category = log_category,
+      .message = message,
       .result = result,
-      .flags = 0U,
-      .reserved = {},
-  };
-  static_cast<void>(submit_log(handle, log_message, module));
+  }));
 }
 
-gneiss_result application_state::submit_log(gneiss_application handle,
-                                            const gneiss_log_message& message,
-                                            std::string_view source) noexcept {
-  return log_dispatcher_ == nullptr
-             ? GNEISS_SUCCESS
-             : log_dispatcher_->submit(
-                   {.context = handle,
-                    .severity = message.severity,
-                    .source = source,
-                    .category = {message.category, message.category_length},
-                    .message = message.message_length == 0U
-                                   ? std::string_view{}
-                                   : std::string_view{message.message, message.message_length},
-                    .result = message.result});
+gneiss_result application_state::submit_log(const log_internal::message_view& message) noexcept {
+  return log_dispatcher_ == nullptr ? GNEISS_SUCCESS : log_dispatcher_->submit(message);
 }
 
 gneiss_result application_state::capture_frame(std::uint32_t width, std::uint32_t height,

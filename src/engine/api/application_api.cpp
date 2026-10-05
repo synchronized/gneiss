@@ -204,7 +204,8 @@ extern "C" gneiss_result gneiss_application_log(gneiss_application application,
   if (message_result != GNEISS_SUCCESS) {
     return message_result;
   }
-  return gneiss::application_internal::submit_application_log(application, *message, "application");
+  return gneiss::application_internal::submit_application_log(
+      application, gneiss::abi_internal::log_message_view(*message), "application");
 }
 
 extern "C" gneiss_result gneiss_application_get_world(gneiss_application application,

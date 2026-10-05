@@ -166,5 +166,18 @@ int main() {
       owned_capture.was_concurrent) {
     return 12;
   }
+  capture_state empty_capture;
+  empty_capture.check_reentrancy = false;
+  desc.user_data = &empty_capture;
+  if (gneiss::application::create(desc, owned).failed() ||
+      owned.log(gneiss::make_log_message(gneiss::log_severity::info, "empty", {})).failed() ||
+      owned.reset().failed()) {
+    return 13;
+  }
+  const std::scoped_lock empty_lock(empty_capture.mutex);
+  if (empty_capture.count != 1U || !empty_capture.message.empty() ||
+      empty_capture.category != "empty" || empty_capture.source != "application") {
+    return 14;
+  }
   return 0;
 }

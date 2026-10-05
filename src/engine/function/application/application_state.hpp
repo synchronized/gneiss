@@ -128,9 +128,7 @@ public:
   submit_debug_draw_list(std::span<const gneiss_debug_line> lines) noexcept;
   void report(gneiss_application handle, std::uint32_t severity, std::uint32_t category,
               gneiss_result result, std::string_view module, std::string_view message) noexcept;
-  [[nodiscard]] gneiss_result submit_log(gneiss_application handle,
-                                         const gneiss_log_message& message,
-                                         std::string_view source = "application") noexcept;
+  [[nodiscard]] gneiss_result submit_log(const log_internal::message_view& message) noexcept;
   void request_exit() noexcept { should_exit_ = true; }
   void set_paused(bool value) noexcept { is_paused_ = value; }
 
