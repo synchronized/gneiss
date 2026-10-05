@@ -12,7 +12,7 @@
 #include "asset/texture_load_service.h"
 #include "asset/virtual_file_system.h"
 #include "input/input_service.h"
-#include "log/log_dispatcher.h"
+#include "engine/core/log/log_dispatcher.hpp"
 #include "render/debug_draw_list.h"
 #include "render/render_asset_loader.h"
 #include "render/render_executor.h"

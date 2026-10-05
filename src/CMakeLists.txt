@@ -33,6 +33,7 @@ target_sources(
     application/application_host.cpp
     application/application_asset_reload_internal.hpp
     application/application_log_internal.hpp
+    application/application_log_sink.hpp
     application/scene_load_service.cpp
     application/scene_load_service.hpp
     application/application_scene_load_internal.hpp
@@ -81,8 +82,8 @@ target_sources(
     api/c/log_validation.hpp
     engine/core/log/log.hpp
     engine/core/log/log.cpp
-    log/log_dispatcher.cpp
-    log/log_dispatcher.h
+    engine/core/log/log_dispatcher.cpp
+    engine/core/log/log_dispatcher.hpp
     render/render_resource_service.cpp
     render/render_resource_service.h
     render/debug_draw_list.cpp

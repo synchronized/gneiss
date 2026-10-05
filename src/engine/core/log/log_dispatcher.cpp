@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "log_dispatcher.h"
+#include "log_dispatcher.hpp"
 
 #include <chrono>
 #include <functional>
@@ -30,10 +30,9 @@ thread_local bool is_in_log_callback = false;
 
 namespace gneiss::log_internal {
 
-log_dispatcher::log_dispatcher(gneiss_application_log_fn callback, void* user_data,
-                               std::size_t capacity)
-    : callback_(callback), user_data_(user_data), capacity_(capacity) {
-  if (callback_ == nullptr || capacity_ == 0U) {
+log_dispatcher::log_dispatcher(event_sink callback, std::size_t capacity)
+    : callback_(std::move(callback)), capacity_(capacity) {
+  if (!callback_ || capacity_ == 0U) {
     throw std::invalid_argument("日志投递器配置无效");
   }
   worker_ = std::thread(&log_dispatcher::run, this);
@@ -50,23 +49,19 @@ log_dispatcher::~log_dispatcher() noexcept {
   }
 }
 
-gneiss_result log_dispatcher::submit(gneiss_application application,
-                                     const gneiss_log_message& message,
-                                     std::string_view source) noexcept {
+gneiss_result log_dispatcher::submit(const message_view& message) noexcept {
   if (is_in_log_callback) {
     return GNEISS_ERROR_INVALID_STATE;
   }
   try {
     owned_event event;
-    event.application = application;
+    event.context = message.context;
     event.severity = message.severity;
     event.timestamp_ns = current_time_ns();
     event.thread_id = current_thread_id();
-    event.source.assign(source);
-    event.category.assign(message.category, message.category_length);
-    if (message.message_length != 0U) {
-      event.message.assign(message.message, message.message_length);
-    }
+    event.source.assign(message.source);
+    event.category.assign(message.category);
+    event.message.assign(message.message);
     event.result = message.result;
     {
       const std::scoped_lock lock(mutex_);
@@ -125,25 +120,23 @@ void log_dispatcher::run() noexcept {
 }
 
 void log_dispatcher::deliver(const owned_event& event) noexcept {
-  const gneiss_log_event borrowed = {
-      .struct_size = sizeof(gneiss_log_event),
-      .severity = event.severity,
+  const event_view borrowed{
+      .message =
+          {
+              .context = event.context,
+              .severity = event.severity,
+              .source = event.source,
+              .category = event.category,
+              .message = event.message,
+              .result = event.result,
+          },
       .sequence = event.sequence,
       .timestamp_ns = event.timestamp_ns,
       .thread_id = event.thread_id,
-      .source = event.source.data(),
-      .source_length = event.source.size(),
-      .category = event.category.data(),
-      .category_length = event.category.size(),
-      .message = event.message.data(),
-      .message_length = event.message.size(),
-      .result = event.result,
-      .flags = 0U,
-      .reserved = {},
   };
   try {
     is_in_log_callback = true;
-    callback_(event.application, &borrowed, user_data_);
+    callback_(borrowed);
     is_in_log_callback = false;
   } catch (...) {
     is_in_log_callback = false;

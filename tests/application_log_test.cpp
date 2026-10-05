@@ -53,6 +53,11 @@ void capture(gneiss_application application, const gneiss_log_event* event, void
   state.changed.notify_all();
 }
 
+void throwing_capture(gneiss_application, const gneiss_log_event*, void* user_data) {
+  ++*static_cast<std::uint32_t*>(user_data);
+  throw 1;
+}
+
 } // namespace
 
 int main() {
@@ -122,6 +127,18 @@ int main() {
       gneiss_application_log(application, &first) != GNEISS_SUCCESS ||
       gneiss_application_destroy(application) != GNEISS_SUCCESS) {
     return 8;
+  }
+  // Application 适配器不得提前 noexcept 终止，关闭时必须等待两个事件处理完。
+  std::uint32_t throwing_calls{};
+  desc.log = throwing_capture;
+  desc.user_data = &throwing_calls;
+  const auto throwing_message =
+      gneiss::make_log_message(gneiss::log_severity::info, "test", "throw");
+  if (gneiss_application_create(&desc, &application) != GNEISS_SUCCESS ||
+      gneiss_application_log(application, &throwing_message) != GNEISS_SUCCESS ||
+      gneiss_application_log(application, &throwing_message) != GNEISS_SUCCESS ||
+      gneiss_application_destroy(application) != GNEISS_SUCCESS || throwing_calls != 2U) {
+    return 9;
   }
   return 0;
 }

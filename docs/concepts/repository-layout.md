@@ -50,7 +50,7 @@ Engine Library 不得反向依赖它们。Editor 的 ImGui Context、字体、�
 | Asset | `src/asset/` | VFS、格式、CPU 解码、缓存及加载任务 | 已存在 |
 | Render | `src/render/` | 渲染输入快照、资源 RID、帧包与执行器 | 已存在 |
 | Reflection | `src/engine/core/reflection/` | 唯一类型注册表与属性访问 | 已存在 |
-| Log | `src/engine/core/log/`、`src/log/` | 通用文本校验归 Core；使用 Application 协议的投递器仍待拆分 | 部分迁移 |
+| Log | `src/engine/core/log/` | 通用文本校验与异步事件投递；Application 独立适配公共回调 | 已迁移 |
 | C ABI | `src/api/c/` | 公开描述适配、异常隔离及内部入口委托 | 已存在 |
 | Tooling | `src/tooling/` | 离线资产处理实现 | 已存在 |
 | Granit 后端 | `src/render/backend/granit/` | Granit 类型、调用和错误转换的隔离 | 已存在 |

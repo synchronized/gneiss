@@ -359,6 +359,8 @@
 
 - [M-295：Core 源码布局与依赖边界](records/M-295-core-layout.md)
 
+- [M-295：日志事件投递与 Application 回调边界](records/M-295-log-sink-boundary.md)
+
 ## 文档维护
 
 

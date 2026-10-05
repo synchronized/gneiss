@@ -4,7 +4,7 @@
 #include "render/backend/granit/granit_render_service.hpp"
 
 #include "asset/texture_container.h"
-#include "log/log_dispatcher.h"
+#include "engine/core/log/log_dispatcher.hpp"
 
 #include <granit/core/version.h>
 #include <granit/renderer/native_surface.hpp>
@@ -195,15 +195,14 @@ void granit_render_service::log_texture(gneiss_texture rid, const char* stage,
     return;
   }
   constexpr std::string_view category = "render.texture";
-  gneiss_log_message message = GNEISS_LOG_MESSAGE_INIT;
-  message.severity = result.ok() ? GNEISS_LOG_INFO : GNEISS_LOG_ERROR;
-  message.category = category.data();
-  message.category_length = category.size();
-  message.message = buffer.data();
-  message.message_length = std::min(static_cast<std::size_t>(length), buffer.size() - 1U);
-  message.result = map_result(result);
-  static_cast<void>(log_->submit(log_application_.load(std::memory_order_relaxed), message,
-                                 "granit.render.texture"));
+  static_cast<void>(log_->submit({
+      .context = log_application_.load(std::memory_order_relaxed),
+      .severity = result.ok() ? GNEISS_LOG_INFO : GNEISS_LOG_ERROR,
+      .source = "granit.render.texture",
+      .category = category,
+      .message = {buffer.data(), std::min(static_cast<std::size_t>(length), buffer.size() - 1U)},
+      .result = map_result(result),
+  }));
 }
 
 granit::result

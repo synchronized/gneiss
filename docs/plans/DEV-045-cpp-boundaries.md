@@ -50,7 +50,8 @@ Core 与 Platform 已执行物理迁移，其余模块继续按计划推进。
 Render 快照、PNG 解码与 Granit 目录子项见 [迁移记录](../records/M-295-render-asset-layout.md)；
 加载准备与发布接口、其余内部头及语义配置仍待完成。平台工具反向链接清理见
 [链接边界记录](../records/M-295-platform-link-boundary.md)；Core 迁移见
-[基础层记录](../records/M-295-core-layout.md)。
+[基础层记录](../records/M-295-core-layout.md)，日志投递拆分见
+[日志边界记录](../records/M-295-log-sink-boundary.md)。
 
 - 将解码、格式解析、资源加载与 GPU 生命周期按 ADR 分开，先记录允许依赖再搬文件。
 - Granit 适配进入 Render 私有后端，Platform 的窗口适配维持独立所有权。
@@ -67,7 +68,7 @@ Render 快照、PNG 解码与 Granit 目录子项见 [迁移记录](../records/M
 | `src/api/c/` | `src/engine/api/`；保持公共头、C 导出与调用方向 |
 | `src/application/`、`world/`、`scene/`、`render/`、`input/`、`game/` | `src/engine/function/` 下同名模块；Granit 后端随 Render |
 | `src/asset/` | `src/engine/asset/`；加载中依赖 GPU/场景的协调部分先分离到 Function |
-| 原 `src/core/`、`reflection/`、`log/` | Core、Reflection 与通用日志校验已迁入 `src/engine/core/`；Application 日志投递器暂留 `src/log/`，须先拆开协议适配 |
+| 原 `src/core/`、`reflection/`、`log/` | 已迁入 `src/engine/core/`；投递器使用 C++ 消息与事件视图，Application 回调适配留在所属模块 |
 | Render 中的数学代码 | 通用数学迁 Core；相机语义、后端投影适配仍留所属功能，逐文件判断 |
 | 原 `src/platform/`、`io/`、`process/`、`ipc/` | 已迁至 `src/engine/platform/`，内部头改为 `.hpp`；编辑器/运行宿主协议仍留 Apps，平台语义描述与命名空间继续审计 |
 | `apps/editor/` | 编辑功能进入 `src/editor/`；程序入口与启动配置保留在 `apps/editor/` |

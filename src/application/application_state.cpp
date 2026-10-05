@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "application/application_state.hpp"
+#include "application/application_log_sink.hpp"
 
 #include "asset/native_file_system.h"
 #include "world/render_snapshot.hpp"
@@ -129,7 +130,8 @@ gneiss_result application_state::reload_prefab(gneiss_scene_instance instance,
 gneiss_result application_state::initialize() noexcept {
   if (desc_.log != nullptr) {
     try {
-      log_dispatcher_ = std::make_unique<log_internal::log_dispatcher>(desc_.log, desc_.user_data);
+      log_dispatcher_ = std::make_unique<log_internal::log_dispatcher>(
+          make_application_log_sink(desc_.log, desc_.user_data));
     } catch (const std::bad_alloc&) {
       return GNEISS_ERROR_OUT_OF_MEMORY;
     } catch (...) {
@@ -376,8 +378,17 @@ void application_state::report(gneiss_application handle, std::uint32_t severity
 gneiss_result application_state::submit_log(gneiss_application handle,
                                             const gneiss_log_message& message,
                                             std::string_view source) noexcept {
-  return log_dispatcher_ == nullptr ? GNEISS_SUCCESS
-                                    : log_dispatcher_->submit(handle, message, source);
+  return log_dispatcher_ == nullptr
+             ? GNEISS_SUCCESS
+             : log_dispatcher_->submit(
+                   {.context = handle,
+                    .severity = message.severity,
+                    .source = source,
+                    .category = {message.category, message.category_length},
+                    .message = message.message_length == 0U
+                                   ? std::string_view{}
+                                   : std::string_view{message.message, message.message_length},
+                    .result = message.result});
 }
 
 gneiss_result application_state::capture_frame(std::uint32_t width, std::uint32_t height,
