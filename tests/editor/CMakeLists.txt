@@ -37,3 +37,14 @@ target_compile_definitions(gneiss_editor_asset_scene_commands_test
 gneiss_target_compile_warnings(gneiss_editor_asset_scene_commands_test)
 gneiss_target_output_directories(gneiss_editor_asset_scene_commands_test)
 add_test(NAME gneiss.editor.asset-scene-commands COMMAND gneiss_editor_asset_scene_commands_test)
+
+if(TARGET gneiss_editor_assets)
+  add_executable(gneiss_editor_asset_browser_panel_test asset_browser_panel_test.cpp)
+  target_link_libraries(gneiss_editor_asset_browser_panel_test PRIVATE gneiss_editor_ui gneiss_editor_assets)
+  target_compile_features(gneiss_editor_asset_browser_panel_test PRIVATE cxx_std_20)
+  target_compile_definitions(gneiss_editor_asset_browser_panel_test
+    PRIVATE GNEISS_EDITOR_TEST_ASSET_ROOT="${PROJECT_SOURCE_DIR}/tests/data/assets")
+  gneiss_target_compile_warnings(gneiss_editor_asset_browser_panel_test)
+  gneiss_target_output_directories(gneiss_editor_asset_browser_panel_test)
+  add_test(NAME gneiss.editor.asset-browser-panel COMMAND gneiss_editor_asset_browser_panel_test)
+endif()

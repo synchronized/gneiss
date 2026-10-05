@@ -155,4 +155,34 @@ bool asset_browser_model::select(std::string_view id) noexcept {
   return true;
 }
 
+[[nodiscard]] bool is_mesh_asset(const asset_browser_entry& entry) {
+  return entry.asset_uri.ends_with(".gneiss-mesh") || entry.asset_uri.ends_with(".mesh.json");
+}
+
+[[nodiscard]] bool is_material_asset(const asset_browser_entry& entry) {
+  return entry.asset_uri.ends_with(".material.json");
+}
+
+[[nodiscard]] bool is_prefab_asset(const asset_browser_entry& entry) {
+  return entry.asset_uri.ends_with(".prefab.json");
+}
+
+[[nodiscard]] const asset_browser_entry*
+find_material_for_mesh(const std::vector<asset_browser_entry>& entries,
+                       const asset_browser_entry& mesh) {
+  const auto models = mesh.asset_uri.find("/models/");
+  const auto prefix =
+      models == std::string::npos ? std::string{} : mesh.asset_uri.substr(0U, models);
+  const auto preferred = prefix + "/materials/material-0.material.json";
+  const auto exact = std::ranges::find(entries, preferred, &asset_browser_entry::asset_uri);
+  if (exact != entries.end()) {
+    return &*exact;
+  }
+  const auto found = std::ranges::find_if(entries, [&prefix](const auto& entry) {
+    return is_material_asset(entry) &&
+           (prefix.empty() || entry.asset_uri.starts_with(prefix + "/materials/"));
+  });
+  return found == entries.end() ? nullptr : &*found;
+}
+
 } // namespace gneiss::editor

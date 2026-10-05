@@ -83,6 +83,8 @@ gneiss/
 内部静态目标。场景会话与 Gizmo 拖拽组成 `gneiss_editor_session`，只依赖模型与 Engine；
 工程、进程、IPC 和运行时同步则由 Apps 中的 `gneiss_editor_host` 装配。
 该目标不增加状态或公开 SDK，宿主通过目标依赖复用唯一实现。
+资产面板只接收单帧显示值，返回拥有选择身份的请求；宿主在绘制结束后执行服务操作，
+不以复制协议状态建立第二套运行时模型。
 工程/启动契约与 IPC 领域协议分别由 `gneiss_app_project`、`gneiss_app_ipc_protocol` 私有目标组织；
 二者保留在根目录 Apps，不安装、不作为 Engine SDK 导出。通用传输机制归 Platform，宿主协议不下沉。
 Runtime 变换回写在宿主提取 UUID 与局部变换后进入 Editor；Editor 不依赖 IPC 节点类型，

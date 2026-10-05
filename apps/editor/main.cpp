@@ -31,6 +31,7 @@
 #if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
 #include "asset_background_worker.hpp"
 #include "asset_browser_model.hpp"
+#include "asset_browser_panel.hpp"
 #include "asset_file_watcher.hpp"
 #include "asset_import_controller.hpp"
 #include "author_asset_service.hpp"
@@ -1037,346 +1038,237 @@ void draw_reflected_properties(editor_state& state) {
 }
 
 #if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
-[[nodiscard]] const char* asset_kind_name(gneiss::editor::asset_browser_kind kind) {
-  switch (kind) {
-  case gneiss::editor::asset_browser_kind::source:
-    return "SRC";
-  case gneiss::editor::asset_browser_kind::authored_asset:
-    return "ASSET";
-  case gneiss::editor::asset_browser_kind::imported_output:
-    return "GEN";
-  }
-  return "?";
-}
-
-[[nodiscard]] const char* asset_status_name(gneiss::editor::asset_browser_status status) {
-  switch (status) {
-  case gneiss::editor::asset_browser_status::untracked:
-    return "Untracked";
-  case gneiss::editor::asset_browser_status::ready:
-    return "Ready";
-  case gneiss::editor::asset_browser_status::stale:
-    return "Stale";
-  case gneiss::editor::asset_browser_status::missing:
-    return "Missing";
-  }
-  return "Unknown";
-}
-
-[[nodiscard]] bool is_mesh_asset(const gneiss::editor::asset_browser_entry& entry) {
-  return entry.asset_uri.ends_with(".gneiss-mesh") || entry.asset_uri.ends_with(".mesh.json");
-}
-
-[[nodiscard]] bool is_material_asset(const gneiss::editor::asset_browser_entry& entry) {
-  return entry.asset_uri.ends_with(".material.json");
-}
-
-[[nodiscard]] bool is_prefab_asset(const gneiss::editor::asset_browser_entry& entry) {
-  return entry.asset_uri.ends_with(".prefab.json");
-}
-
-[[nodiscard]] const gneiss::editor::asset_browser_entry*
-find_material_for_mesh(const std::vector<gneiss::editor::asset_browser_entry>& entries,
-                       const gneiss::editor::asset_browser_entry& mesh) {
-  const auto models = mesh.asset_uri.find("/models/");
-  const auto prefix =
-      models == std::string::npos ? std::string{} : mesh.asset_uri.substr(0U, models);
-  const auto preferred = prefix + "/materials/material-0.material.json";
-  const auto exact =
-      std::ranges::find(entries, preferred, &gneiss::editor::asset_browser_entry::asset_uri);
-  if (exact != entries.end()) {
-    return &*exact;
-  }
-  const auto found = std::ranges::find_if(entries, [&prefix](const auto& entry) {
-    return is_material_asset(entry) &&
-           (prefix.empty() || entry.asset_uri.starts_with(prefix + "/materials/"));
-  });
-  return found == entries.end() ? nullptr : &*found;
-}
-
-void draw_asset_browser(editor_state& state) {
-  ImGui::SetNextWindowSizeConstraints(ImVec2(220.0F, 160.0F), ImVec2(FLT_MAX, FLT_MAX));
-  ImGui::Begin("Asset Browser", &state.panel_visibility.asset_browser);
-  const auto draw_watch_status = [&state](const char* label,
-                                          gneiss::editor::asset_file_watcher& watcher,
-                                          gneiss::result& operation,
-                                          const std::filesystem::path& root, bool allow_missing) {
-    ImGui::PushID(label);
-    if (operation != gneiss::result::success) {
-      const auto message = operation.message();
-      ImGui::TextColored(gneiss::editor::theme_error_color(), "%s (%s): %.*s", label,
-                         path_utf8(root).c_str(), static_cast<int>(message.size()), message.data());
-      if (ImGui::Button("Restart watch")) {
-        const auto stopped = watcher.is_running() ? watcher.stop() : gneiss::result::success;
-        operation =
-            stopped == gneiss::result::success ? watcher.start(root, allow_missing) : stopped;
-        if (allow_missing && operation == gneiss::result::success) {
-          state.asset_reimports.request_rescan();
-        } else if (!allow_missing && operation == gneiss::result::success) {
-          state.author_assets.request_rescan();
-        }
-      }
-    }
-    if (watcher.dropped_event_count() != 0U) {
-      ImGui::TextColored(gneiss::editor::theme_error_color(), "%s: %llu events lost", label,
-                         static_cast<unsigned long long>(watcher.dropped_event_count()));
-      ImGui::TextWrapped(
-          allow_missing
-              ? "Indexed sources are checked automatically; review import failures below."
-              : "Author assets are checked automatically; review unsaved document conflicts.");
-    }
-    ImGui::PopID();
-  };
-  if (state.asset_watch_result == gneiss::result::not_ready && !state.asset_watch_failed) {
-    ImGui::TextDisabled("Source watch: waiting for sources directory");
-  } else {
-    draw_watch_status("Source watch", state.asset_watcher, state.asset_watch_result,
-                      state.project_root / "sources", true);
-    state.asset_watch_failed = state.asset_watch_result != gneiss::result::success &&
-                               state.asset_watch_result != gneiss::result::not_ready;
-  }
-  draw_watch_status("Author asset watch", state.author_asset_watcher, state.author_watch_result,
-                    state.asset_root, false);
-  if (state.asset_reimports.is_rescanning()) {
-    ImGui::TextDisabled("Checking indexed sources...");
-  } else if (state.asset_reimports.rescan_result() != gneiss::result::success) {
-    const auto message = state.asset_reimports.rescan_result().message();
-    ImGui::TextColored(gneiss::editor::theme_error_color(), "Source check failed: %.*s",
-                       static_cast<int>(message.size()), message.data());
-  }
-  if (state.author_assets.is_rescanning()) {
-    ImGui::TextDisabled("Checking author assets...");
-  } else if (state.author_assets.rescan_result() != gneiss::result::success) {
-    ImGui::TextColored(gneiss::editor::theme_error_color(), "Author asset check failed");
-  }
-  if (ImGui::Button("Check author assets")) {
-    state.author_assets.request_rescan();
-  }
-  if (ImGui::Button("Check indexed sources")) {
-    state.asset_reimports.request_rescan();
-  }
-  if (ImGui::Button("Refresh")) {
-    state.asset_reimports.request_refresh();
-  }
-  ImGui::SameLine();
-  if (ImGui::Button("Import...")) {
-    std::filesystem::path selected;
-    const auto selected_result = gneiss::editor::select_source_asset(selected);
-    if (selected_result == gneiss::result::success) {
-      if (!state.asset_reimports.import_asset(selected, true)) {
-        state.last_import = {};
-        state.last_import.diagnostic = "导入队列已满或正在关闭，请重试";
-        state.import_attempted = true;
-      }
-    } else if (selected_result != gneiss::result::not_ready) {
-      state.last_import = {};
-      state.last_import.result = gneiss::editor::editor_import_result::io_error;
-      state.last_import.diagnostic = std::string{selected_result.message()};
-      state.import_attempted = true;
-    }
-  }
-  const auto selected_entry = std::ranges::find(state.assets.entries(), state.assets.selection(),
-                                                &gneiss::editor::asset_browser_entry::id);
-  const auto can_reimport = selected_entry != state.assets.entries().end() &&
-                            selected_entry->kind == gneiss::editor::asset_browser_kind::source;
-  ImGui::SameLine();
-  ImGui::BeginDisabled(!can_reimport);
-  const auto reimport_requested = ImGui::Button("Reimport");
-  ImGui::EndDisabled();
-  if (reimport_requested) {
-    if (!state.asset_reimports.import_asset(state.project_root / "sources" /
-                                            utf8_path(selected_entry->relative_path))) {
+void execute_asset_browser_request(editor_state& state,
+                                   const gneiss::editor::asset_browser_request& request) {
+  using namespace gneiss::editor;
+  using action = asset_browser_action;
+  const auto entry =
+      std::ranges::find(state.assets.entries(), request.asset_id, &asset_browser_entry::id);
+  const auto queued = [&state](bool accepted) {
+    if (!accepted) {
       state.last_import = {};
       state.last_import.diagnostic = "导入队列已满或正在关闭，请重试";
       state.import_attempted = true;
     }
-  }
-  const auto background = state.asset_reimports.status();
-  ImGui::Text("Assets: %s | queued: %zu", background.stage.c_str(), background.pending);
-  if (!background.source.empty()) {
-    ImGui::TextWrapped("%s", path_utf8(background.source).c_str());
-  }
-  if (!background.error.empty()) {
-    ImGui::TextColored(gneiss::editor::theme_error_color(), "%s", background.error.c_str());
-  }
-  if (background.active || background.pending != 0U || background.rescanning) {
-    if (ImGui::Button("Cancel asset tasks")) {
-      state.asset_reimports.cancel();
+  };
+  switch (request.action) {
+  case action::none:
+    break;
+  case action::restart_source_watch: {
+    const auto stopped =
+        state.asset_watcher.is_running() ? state.asset_watcher.stop() : gneiss::result::success;
+    state.asset_watch_result =
+        stopped.ok() ? state.asset_watcher.start(state.project_root / "sources", true) : stopped;
+    if (state.asset_watch_result.ok()) {
+      state.asset_reimports.request_rescan();
     }
+    state.asset_watch_failed = state.asset_watch_result != gneiss::result::success &&
+                               state.asset_watch_result != gneiss::result::not_ready;
+    break;
   }
-  if (state.import_attempted &&
-      state.last_import.result != gneiss::editor::editor_import_result::success &&
-      !state.last_import.source_path.empty() && ImGui::Button("Retry last import")) {
+  case action::restart_author_watch: {
+    const auto stopped = state.author_asset_watcher.is_running() ? state.author_asset_watcher.stop()
+                                                                 : gneiss::result::success;
+    state.author_watch_result =
+        stopped.ok() ? state.author_asset_watcher.start(state.asset_root, false) : stopped;
+    if (state.author_watch_result.ok()) {
+      state.author_assets.request_rescan();
+    }
+    break;
+  }
+  case action::scan_sources:
+    state.asset_reimports.request_rescan();
+    break;
+  case action::scan_author_assets:
+    state.author_assets.request_rescan();
+    break;
+  case action::refresh:
+    state.asset_reimports.request_refresh();
+    break;
+  case action::import_asset: {
+    std::filesystem::path selected;
+    const auto selected_result = select_source_asset(selected);
+    if (selected_result.ok()) {
+      queued(state.asset_reimports.import_asset(selected, true));
+    } else if (selected_result != gneiss::result::not_ready) {
+      state.last_import = {};
+      state.last_import.result = editor_import_result::io_error;
+      state.last_import.diagnostic = std::string{selected_result.message()};
+      state.import_attempted = true;
+    }
+    break;
+  }
+  case action::reimport_selected:
+    if (entry != state.assets.entries().end() && entry->kind == asset_browser_kind::source) {
+      queued(state.asset_reimports.import_asset(state.project_root / "sources" /
+                                                utf8_path(entry->relative_path)));
+    }
+    break;
+  case action::cancel_tasks:
+    state.asset_reimports.cancel();
+    break;
+  case action::retry_import:
     (void)state.asset_reimports.import_asset(state.last_import.source_path);
-  }
-
-  state.asset_filter.Draw("Filter", -1.0F);
-  if (state.asset_result != gneiss::editor::asset_browser_result::success) {
-    ImGui::TextColored(gneiss::editor::theme_error_color(), "Refresh failed: %s",
-                       state.assets.diagnostic().c_str());
-  }
-  if (state.import_attempted) {
-    if (state.last_import.result == gneiss::editor::editor_import_result::success) {
-      ImGui::TextColored(gneiss::editor::theme_success_color(), "Import succeeded");
-    } else {
-      ImGui::TextColored(gneiss::editor::theme_error_color(), "Import failed: %s",
-                         state.last_import.diagnostic.c_str());
+    break;
+  case action::cancel_scene_load:
+    state.runtime_result = state.runtime.cancel_scene_load();
+    break;
+  case action::retry_scene_load:
+    state.runtime_result = state.runtime.retry_scene_load();
+    break;
+  case action::load_scene:
+    if (entry != state.assets.entries().end()) {
+      state.runtime_result = state.runtime.load_scene(entry->asset_uri);
     }
-  }
-  const auto& scene_load = state.runtime.scene_load_status();
-  if (scene_load.source.revision != 0U) {
-    constexpr const char* phases[] = {
-        "Preparing description", "Preparing assets", "Verifying sources", "Creating scene",
-        "Ready to activate",     "Scene active",     "Load failed",       "Load cancelled"};
-    ImGui::Text("Runtime scene: %s", phases[static_cast<unsigned>(scene_load.phase)]);
-    ImGui::TextWrapped("%s", scene_load.source.uri.c_str());
-    if (scene_load.total > 0U)
-      ImGui::Text("Current phase: %u / %u", scene_load.completed, scene_load.total);
-    if (scene_load.budget) {
-      const auto& budget = *scene_load.budget;
-      constexpr double mib = 1024.0 * 1024.0;
-      ImGui::Text("Candidate: logical %.1f MiB, CPU data %.1f MiB",
-                  static_cast<double>(budget.candidate_logical_bytes) / mib,
-                  static_cast<double>(budget.candidate_cpu_data_bytes) / mib);
-      ImGui::Text("Application: logical %.1f MiB, CPU data %.1f MiB",
-                  static_cast<double>(budget.application_logical_bytes) / mib,
-                  static_cast<double>(budget.application_cpu_data_bytes) / mib);
-      ImGui::Text("Available: %.1f MiB | Upload: %.1f MiB (peak %.1f MiB)",
-                  static_cast<double>(budget.available_bytes) / mib,
-                  static_cast<double>(budget.upload_reserved_bytes) / mib,
-                  static_cast<double>(budget.peak_upload_bytes) / mib);
-      ImGui::TextDisabled("Resource accounting snapshot; not process RAM or GPU memory");
+    break;
+  case action::cancel_runtime_reload:
+    state.runtime_result = state.runtime.cancel_asset_reload();
+    break;
+  case action::retry_runtime_reload:
+    state.runtime_result = state.runtime.retry_asset_reload();
+    break;
+  case action::add_mesh:
+    if (entry != state.assets.entries().end() && is_mesh_asset(*entry)) {
+      const auto* material = find_material_for_mesh(state.assets.entries(), *entry);
+      if (material != nullptr) {
+        state.asset_scene_result =
+            add_mesh_asset(state.session, state.history, entry->display_name,
+                           {.mesh_uri = entry->asset_uri, .material_uri = material->asset_uri});
+        state.asset_scene_attempted = true;
+      }
     }
-    if (!scene_load.message.empty())
-      ImGui::TextWrapped("%s", scene_load.message.c_str());
-    ImGui::BeginDisabled(!state.runtime.supports_scene_loading());
-    if (scene_load.can_cancel && ImGui::Button("Cancel scene load"))
-      state.runtime_result = state.runtime.cancel_scene_load();
-    if ((scene_load.phase == gneiss::ipc_scene_phase::failed ||
-         scene_load.phase == gneiss::ipc_scene_phase::cancelled) &&
-        ImGui::Button("Retry scene load"))
-      state.runtime_result = state.runtime.retry_scene_load();
-    ImGui::EndDisabled();
-  }
-  const bool can_load_scene =
-      state.runtime.supports_scene_loading() && selected_entry != state.assets.entries().end() &&
-      selected_entry->asset_uri.ends_with(".scene.json") &&
-      (scene_load.source.revision == 0U || gneiss::scene_phase_terminal(scene_load.phase));
-  ImGui::BeginDisabled(!can_load_scene);
-  if (ImGui::Button("Load scene in Runtime"))
-    state.runtime_result = state.runtime.load_scene(selected_entry->asset_uri);
-  ImGui::EndDisabled();
-  const auto& reload = state.runtime.asset_reload_status();
-  if (reload.publish_result != gneiss::result::success) {
-    const auto message = reload.publish_result.message();
-    ImGui::TextColored(gneiss::editor::theme_error_color(), "Runtime asset publish failed: %.*s",
-                       static_cast<int>(message.size()), message.data());
-    ImGui::TextWrapped("Retry importing or saving the affected asset.");
-  }
-  if (reload.state != gneiss::editor::runtime_asset_reload_state::idle) {
-    const auto color =
-        reload.state == gneiss::editor::runtime_asset_reload_state::applied
-            ? gneiss::editor::theme_success_color()
-        : reload.state == gneiss::editor::runtime_asset_reload_state::failed ||
-                reload.state == gneiss::editor::runtime_asset_reload_state::restart_required
-            ? gneiss::editor::theme_error_color()
-            : ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled);
-    ImGui::TextColored(color, "Runtime asset revision %llu: %s",
-                       static_cast<unsigned long long>(reload.revision), reload.message.c_str());
-    if (reload.total_assets > 0U)
-      ImGui::Text("Uploaded: %u / %u", reload.completed_assets, reload.total_assets);
-    if (reload.can_cancel && ImGui::Button("Cancel Runtime asset update"))
-      state.runtime_result = state.runtime.cancel_asset_reload();
-    if (reload.state == gneiss::editor::runtime_asset_reload_state::failed &&
-        ImGui::Button("Retry Runtime asset sync")) {
-      state.runtime_result = state.runtime.retry_asset_reload();
+    break;
+  case action::add_prefab:
+    if (entry != state.assets.entries().end() && is_prefab_asset(*entry)) {
+      const auto* node = state.session.selected_node();
+      state.asset_scene_result =
+          add_prefab_asset(state.session, state.history, entry->display_name, entry->asset_uri,
+                           node == nullptr ? gneiss::scene_node_id{} : node->node);
+      state.asset_scene_attempted = true;
     }
-    if (reload.state == gneiss::editor::runtime_asset_reload_state::restart_required) {
-      ImGui::TextUnformatted("Stop and restart Runtime to apply these assets.");
+    break;
+  case action::apply_to_node: {
+    const auto* node = state.session.selected_node();
+    if (node != nullptr && entry != state.assets.entries().end()) {
+      const auto mesh = is_mesh_asset(*entry) && !node->material_uri.empty();
+      const auto material = is_material_asset(*entry) && !node->mesh_uri.empty();
+      if (mesh || material) {
+        state.asset_scene_result =
+            replace_mesh_assets(state.session, state.history, node->uuid,
+                                {.mesh_uri = mesh ? entry->asset_uri : node->mesh_uri,
+                                 .material_uri = material ? entry->asset_uri : node->material_uri});
+        state.asset_scene_attempted = true;
+      }
     }
+    break;
   }
-  const auto& author_change = state.author_assets.status();
-  if (author_change.state != gneiss::editor::author_asset_change_state::idle) {
-    const auto color =
-        author_change.state == gneiss::editor::author_asset_change_state::applied
-            ? gneiss::editor::theme_success_color()
-        : author_change.state == gneiss::editor::author_asset_change_state::conflict ||
-                author_change.state == gneiss::editor::author_asset_change_state::failed
-            ? gneiss::editor::theme_error_color()
-            : ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled);
-    ImGui::TextColored(color, "%s: %s", author_change.uri.c_str(), author_change.message.c_str());
   }
-  const gneiss::editor::scene_node_record* scene_node = state.session.selected_node();
-  const auto* paired_material =
-      selected_entry != state.assets.entries().end() && is_mesh_asset(*selected_entry)
-          ? find_material_for_mesh(state.assets.entries(), *selected_entry)
-          : nullptr;
-  const auto can_add = selected_entry != state.assets.entries().end() &&
-                       is_mesh_asset(*selected_entry) && paired_material != nullptr;
-  ImGui::BeginDisabled(!can_add);
-  const auto add_requested = ImGui::Button("Add Mesh");
-  ImGui::EndDisabled();
-  if (add_requested) {
-    state.asset_scene_result = gneiss::editor::add_mesh_asset(
-        state.session, state.history, selected_entry->display_name,
-        {.mesh_uri = selected_entry->asset_uri, .material_uri = paired_material->asset_uri});
-    state.asset_scene_attempted = true;
-    scene_node = state.session.selected_node();
-  }
-  const auto can_add_prefab =
-      selected_entry != state.assets.entries().end() &&
-      selected_entry->kind == gneiss::editor::asset_browser_kind::authored_asset &&
-      is_prefab_asset(*selected_entry);
-  ImGui::SameLine();
-  ImGui::BeginDisabled(!can_add_prefab);
-  const auto add_prefab_requested = ImGui::Button("Add Prefab");
-  ImGui::EndDisabled();
-  if (add_prefab_requested) {
-    state.asset_scene_result = gneiss::editor::add_prefab_asset(
-        state.session, state.history, selected_entry->display_name, selected_entry->asset_uri,
-        scene_node == nullptr ? gneiss::scene_node_id{} : scene_node->node);
-    state.asset_scene_attempted = true;
-    scene_node = state.session.selected_node();
-  }
-  const auto can_apply_mesh = scene_node != nullptr && !scene_node->material_uri.empty() &&
-                              selected_entry != state.assets.entries().end() &&
-                              is_mesh_asset(*selected_entry);
-  const auto can_apply_material = scene_node != nullptr && !scene_node->mesh_uri.empty() &&
-                                  selected_entry != state.assets.entries().end() &&
-                                  is_material_asset(*selected_entry);
-  ImGui::SameLine();
-  ImGui::BeginDisabled(!can_apply_mesh && !can_apply_material);
-  const auto apply_requested = ImGui::Button("Apply to Node");
-  ImGui::EndDisabled();
-  if (apply_requested) {
-    state.asset_scene_result = gneiss::editor::replace_mesh_assets(
-        state.session, state.history, scene_node->uuid,
-        {.mesh_uri = can_apply_mesh ? selected_entry->asset_uri : scene_node->mesh_uri,
-         .material_uri = can_apply_material ? selected_entry->asset_uri : scene_node->material_uri});
-    state.asset_scene_attempted = true;
-  }
-  if (state.asset_scene_attempted && state.asset_scene_result != gneiss::result::success) {
-    const auto message = state.asset_scene_result.message();
-    ImGui::TextColored(gneiss::editor::theme_error_color(), "Scene edit failed: %.*s",
-                       static_cast<int>(message.size()), message.data());
-  }
-  ImGui::Separator();
-  for (const auto& entry : state.assets.entries()) {
-    if (!state.asset_filter.PassFilter(entry.relative_path.c_str())) {
-      continue;
-    }
-    ImGui::PushID(entry.id.c_str());
-    const auto label = std::string{"["} + asset_kind_name(entry.kind) + "] " + entry.display_name;
-    if (ImGui::Selectable(label.c_str(), state.assets.selection() == entry.id)) {
-      (void)state.assets.select(entry.id);
-    }
-    if (ImGui::IsItemHovered()) {
-      ImGui::SetTooltip("%s\n%s", entry.relative_path.c_str(), asset_status_name(entry.status));
-    }
-    ImGui::PopID();
-  }
-  ImGui::End();
 }
+
+void draw_asset_browser(editor_state& state) {
+  using namespace gneiss::editor;
+  const auto background = state.asset_reimports.status();
+  const auto source_root = path_utf8(state.project_root / "sources");
+  const auto author_root = path_utf8(state.asset_root);
+  const auto worker_source = path_utf8(background.source);
+  asset_browser_view view;
+  view.watches[0] = {.root = source_root,
+                     .operation = state.asset_watch_result,
+                     .dropped = state.asset_watcher.dropped_event_count(),
+                     .waiting = state.asset_watch_result == gneiss::result::not_ready &&
+                                !state.asset_watch_failed};
+  view.watches[1] = {.root = author_root,
+                     .operation = state.author_watch_result,
+                     .dropped = state.author_asset_watcher.dropped_event_count(),
+                     .waiting = false};
+  view.source_rescanning = state.asset_reimports.is_rescanning();
+  view.author_rescanning = state.author_assets.is_rescanning();
+  view.source_scan_result = state.asset_reimports.rescan_result();
+  view.author_scan_result = state.author_assets.rescan_result();
+  view.worker_stage = background.stage;
+  view.worker_source = worker_source;
+  view.worker_error = background.error;
+  view.queued = background.pending;
+  view.can_cancel_tasks = background.active || background.pending != 0U || background.rescanning;
+  view.refresh_failed = state.asset_result != asset_browser_result::success;
+  view.import_attempted = state.import_attempted;
+  view.import_succeeded = state.last_import.result == editor_import_result::success;
+  view.can_retry_import =
+      state.import_attempted && !view.import_succeeded && !state.last_import.source_path.empty();
+  view.import_diagnostic = state.last_import.diagnostic;
+  const auto selected =
+      std::ranges::find(state.assets.entries(), state.assets.selection(), &asset_browser_entry::id);
+  const auto& load = state.runtime.scene_load_status();
+  constexpr const char* phases[] = {
+      "Preparing description", "Preparing assets", "Verifying sources", "Creating scene",
+      "Ready to activate",     "Scene active",     "Load failed",       "Load cancelled"};
+  const auto phase = static_cast<unsigned>(load.phase);
+  view.scene.enabled = state.runtime.supports_scene_loading();
+  view.scene.visible = load.source.revision != 0U;
+  view.scene.phase = phase < std::size(phases) ? phases[phase] : "Unknown";
+  view.scene.uri = load.source.uri;
+  view.scene.message = load.message;
+  view.scene.completed = load.completed;
+  view.scene.total = load.total;
+  view.scene.can_cancel = load.can_cancel;
+  view.scene.can_retry = load.phase == gneiss::ipc_scene_phase::failed ||
+                         load.phase == gneiss::ipc_scene_phase::cancelled;
+  view.scene.can_load = view.scene.enabled && selected != state.assets.entries().end() &&
+                        selected->asset_uri.ends_with(".scene.json") &&
+                        (!view.scene.visible || gneiss::scene_phase_terminal(load.phase));
+  if (load.budget) {
+    const auto& budget = *load.budget;
+    view.scene.budget = asset_budget_view{.candidate_logical = budget.candidate_logical_bytes,
+                                          .candidate_cpu = budget.candidate_cpu_data_bytes,
+                                          .application_logical = budget.application_logical_bytes,
+                                          .application_cpu = budget.application_cpu_data_bytes,
+                                          .available = budget.available_bytes,
+                                          .upload = budget.upload_reserved_bytes,
+                                          .peak_upload = budget.peak_upload_bytes};
+  }
+  const auto& reload = state.runtime.asset_reload_status();
+  view.reload.publish_result = reload.publish_result;
+  view.reload.visible = reload.state != runtime_asset_reload_state::idle;
+  if (reload.state == runtime_asset_reload_state::applied) {
+    view.reload.tone = asset_status_tone::success;
+  } else if (reload.state == runtime_asset_reload_state::failed ||
+             reload.state == runtime_asset_reload_state::restart_required) {
+    view.reload.tone = asset_status_tone::error;
+  }
+  view.reload.revision = reload.revision;
+  view.reload.message = reload.message;
+  view.reload.completed = reload.completed_assets;
+  view.reload.total = reload.total_assets;
+  view.reload.can_cancel = reload.can_cancel;
+  view.reload.can_retry = reload.state == runtime_asset_reload_state::failed;
+  view.reload.restart_required = reload.state == runtime_asset_reload_state::restart_required;
+  const auto& change = state.author_assets.status();
+  view.author_change_visible = change.state != author_asset_change_state::idle;
+  if (change.state == author_asset_change_state::applied) {
+    view.author_change_tone = asset_status_tone::success;
+  } else if (change.state == author_asset_change_state::conflict ||
+             change.state == author_asset_change_state::failed) {
+    view.author_change_tone = asset_status_tone::error;
+  }
+  view.author_uri = change.uri;
+  view.author_message = change.message;
+  const auto* node = state.session.selected_node();
+  if (selected != state.assets.entries().end()) {
+    view.can_add_mesh = is_mesh_asset(*selected) &&
+                        find_material_for_mesh(state.assets.entries(), *selected) != nullptr;
+    view.can_add_prefab =
+        selected->kind == asset_browser_kind::authored_asset && is_prefab_asset(*selected);
+    view.can_apply =
+        node != nullptr && ((!node->material_uri.empty() && is_mesh_asset(*selected)) ||
+                            (!node->mesh_uri.empty() && is_material_asset(*selected)));
+  }
+  view.scene_edit_attempted = state.asset_scene_attempted;
+  view.scene_edit_result = state.asset_scene_result;
+  const auto request = draw_asset_browser_panel(state.assets, state.asset_filter,
+                                                state.panel_visibility.asset_browser, view);
+  execute_asset_browser_request(state, request);
+}
+
 #endif
 
 bool draw_transform_gizmo(editor_state& state, const ImVec2& minimum, const ImVec2& size) noexcept {

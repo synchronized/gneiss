@@ -54,6 +54,8 @@ if(TARGET gneiss_asset_import_sdk)
   target_compile_features(gneiss_editor_assets PUBLIC cxx_std_20)
   gneiss_target_compile_warnings(gneiss_editor_assets)
   gneiss_target_output_directories(gneiss_editor_assets)
+  target_sources(gneiss_editor_ui PRIVATE asset_browser_panel.cpp asset_browser_panel.hpp)
+  target_link_libraries(gneiss_editor_ui PRIVATE gneiss_editor_assets)
 endif()
 
 # 不依赖宿主工程与进程协议的编辑模型。

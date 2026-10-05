@@ -86,6 +86,7 @@ Runtime 层级与属性面板迁移见 [面板边界记录](../records/M-295-run
 Apps 私有头与共用契约收口见 [宿主边界记录](../records/M-295-apps-private-headers.md)。
 作者属性控件与撤销事务拆分见 [作者属性面板记录](../records/M-295-author-property-panel.md)。
 Mesh/Prefab 添加和资源替换事务见 [资产命令记录](../records/M-295-asset-scene-commands.md)。
+资产面板与单帧宿主请求见 [资产面板记录](../records/M-295-asset-browser-panel.md)。
 
 - 将解码、格式解析、资源加载与 GPU 生命周期按 ADR 分开，先记录允许依赖再搬文件。
 - Granit 适配进入 Render 私有后端，Platform 的窗口适配维持独立所有权。

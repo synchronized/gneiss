@@ -397,6 +397,7 @@
 - [M-295：Apps 私有头与宿主共用契约](records/M-295-apps-private-headers.md)
 - [M-295：作者属性面板与编辑事务](records/M-295-author-property-panel.md)
 - [M-295：资产面板的作者编辑命令](records/M-295-asset-scene-commands.md)
+- [M-295：资产面板与宿主操作分离](records/M-295-asset-browser-panel.md)
 
 ## 文档维护
 

@@ -22,6 +22,14 @@ struct asset_browser_entry {
   asset_browser_status status{asset_browser_status::untracked};
 };
 
+/** 资产类型与默认材质配对；返回条目借用，模型刷新后失效。 */
+[[nodiscard]] bool is_mesh_asset(const asset_browser_entry& entry);
+[[nodiscard]] bool is_material_asset(const asset_browser_entry& entry);
+[[nodiscard]] bool is_prefab_asset(const asset_browser_entry& entry);
+[[nodiscard]] const asset_browser_entry*
+find_material_for_mesh(const std::vector<asset_browser_entry>& entries,
+                       const asset_browser_entry& mesh);
+
 class asset_browser_model final {
 public:
   [[nodiscard]] asset_browser_result refresh(const std::filesystem::path& project_root,
