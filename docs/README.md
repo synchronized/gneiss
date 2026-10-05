@@ -187,6 +187,7 @@
 - [ADR-050：场景加载使用隔离候选与安全点激活](decisions/ADR-050-staged-scene-activation.md)
 - [ADR-051：PBR 材质语义与多纹理依赖](decisions/ADR-051-pbr-material-dependencies.md)
 - [ADR-053：内部 C++ 实现与 C ABI、C++ SDK 分层](decisions/ADR-053-cpp-core-and-c-abi.md)
+- [ADR-054：精简源码布局与宿主边界](decisions/ADR-054-source-layout-and-host-boundaries.md)
 - [ADR-052：纹理驻留与加载预算](decisions/ADR-052-texture-residency-and-budgets.md)
 
 ## 实施与验收记录

@@ -12,7 +12,8 @@
 [Reflection 阶段记录](../records/M-295-reflection-boundary.md)。全部 C 入口集中见
 [C 边界记录](../records/M-295-c-boundary-completion.md)；语义配置与其余模块仍在实施。范围和门槛以
 [VER-045](VER-045-0.45.0-cpp-boundaries.md) 为准；目录与所有权以
-[ADR-053](../decisions/ADR-053-cpp-core-and-c-abi.md) 为准。
+[ADR-053](../decisions/ADR-053-cpp-core-and-c-abi.md) 与
+[ADR-054](../decisions/ADR-054-source-layout-and-host-boundaries.md) 为准。后者的精简布局已确认，尚未执行物理迁移。
 
 ## M-292：审计与冻结基线
 
@@ -31,7 +32,8 @@
 首选 Core 的结果/版本与 Log，验证目录、错误转换、回调寿命和 C++ 包装路径。
 如 Log 审计显示与宿主强耦合，先完成 Core，再选择边界更独立的模块并记录原因。
 
-将 ABI 入口迁至 `src/api/c/`，将核心实现留在所属模块；建立第一版依赖检查，使用故意违规的测试
+第一阶段已将 ABI 入口迁至当前 `src/api/c/`，最终按 ADR-054 迁至 Engine 的 api 目录；
+核心实现留在所属模块；建立第一版依赖检查，使用故意违规的测试
 验证检查能失败。更新 CMake 私有依赖、独立头和安装消费者，确认没有新增第三方传播或重复符号。
 
 ## M-294：Application、World 与 Scene
@@ -52,6 +54,38 @@ Render 快照、PNG 解码与 Granit 目录子项见 [迁移记录](../records/M
 - 保持 CPU 准备、上传回执、纹理租约、场景候选和预算计数语义；不借重构重新实现加载系统。
 - 完成 Input、Reflection、Log、Game Module 等余下模块；明确插件 ABI 边界允许的 C 调用。
 - 内部头按模块迁移为 `.hpp`，调整测试归属和 target，不进行无关格式化。
+
+### 精简布局迁移映射与顺序
+
+目标目录树只在 ADR-054 维护；下表用于核对现有代码的迁移范围，不表示已经移动。
+
+| 当前代码 | 目标归属与拆分要求 |
+| --- | --- |
+| `src/api/c/` | `src/engine/api/`；保持公共头、C 导出与调用方向 |
+| `src/application/`、`world/`、`scene/`、`render/`、`input/`、`game/` | `src/engine/function/` 下同名模块；Granit 后端随 Render |
+| `src/asset/` | `src/engine/asset/`；加载中依赖 GPU/场景的协调部分先分离到 Function |
+| `src/core/`、`reflection/`、`log/` | `src/engine/core/`；只收通用能力，不将业务策略塞入基础层 |
+| Render 中的数学代码 | 通用数学迁 Core；相机语义、后端投影适配仍留所属功能，逐文件判断 |
+| `src/platform/`、`io/`、`process/`、`ipc/` | `src/engine/platform/`；通用协议值类型与系统适配分清，编辑器/运行宿主协议不下沉 |
+| `apps/editor/` | 编辑功能进入 `src/editor/`；程序入口与启动配置进入 `src/apps/editor/` |
+| `apps/runtime/` | 程序入口与宿主控制进入 `src/apps/runtime/`；可复用引擎能力回归 Engine |
+| `apps/common/` | 逐项核定所有者；运行时通用能力归 Engine，纯宿主共用代码按实际需要保留私有共用目标，不原样下沉 Core |
+| `src/tooling/`、`tools/assetc/` | 离线实现留 `src/tooling/`；assetc 入口、CLI 进入 `src/apps/assetc/` |
+| `tools/performance/`、`tools/sanitizers/` 等 | 仓库维护脚本归根 `scripts/`；可编译验证/基准程序归对应 tests，不能仅改名假定全是脚本 |
+| 测试、示例、构建与检查 | 按被测模块更新路径和私有 include；公共 SDK 示例与安装消费路径保持兼容 |
+
+1. 先审计包含与 target 依赖，记录每个模块的唯一状态所有者。拆开资产 CPU 准备、GPU 发布与
+   Function 协调，消除 Platform/Core 的反向链接；不把现有循环依赖带进新目录。
+2. 按 Core/Platform、Asset、Function 逐组迁移，伴随更新 CMake、内部 `.hpp` 路径及正反例检查。
+   不复制实现作为过渡，不把整个 src 作为所有目标的公共包含目录。
+3. 拆分 Editor 实现、Tooling 实现与 Apps 入口；收口 `apps/common`，确认运行宿主不链接编辑器。
+   保持进程协议、工作目录、资源定位和现有可执行文件名不变。
+4. 更新测试、维护脚本及文档的实际路径；每组完成相关验证后本地提交，最终统一完成发布矩阵。
+   未迁移前的历史 Record 与版本归档保留原路径事实，当前 Guide/Concept 随实际迁移更新。
+
+验收需包含错误方向的故意违规反例：Engine→Editor/Apps、Asset→Render、Render→World、
+内部模块→公共 RAII，以及 Core/Platform 的循环。工具可用文本检查辅助，但还需构建与链接证据。
+本任务不增加插件加载器、插件目录或编辑器公开 API；仅建立独立实现与入口边界。
 
 ## M-296：完整 C++ SDK
 
@@ -83,4 +117,7 @@ Render 快照、PNG 解码与 Granit 目录子项见 [迁移记录](../records/M
 - 具体模块 target 划分、私有导出清单及强耦合处拆分顺序由依赖图确定。
 - 父服务销毁与线程亲和性可能暴露已有缺陷；先固定契约与复现，再最小修复并独立记录。
 - 如果必须改变现有 ABI 或增加新的强持有关系，先补 ADR 与迁移决策，不默默扩大重构范围。
-- GAMES101/GAMES104 指代尚未确认；以已确认的三层结构和当前 Granit 为实施参考，不依赖课程布局。
+- GAMES104 分层参考及精简布局已确认；具体文件的归属需按依赖审计决定，不机械按旧目录整体搬移。
+- 当前 Platform 的 `gneiss_dynamic_library` 目标链接 Engine；宿主共用代码含工程与通信职责。
+  迁移前先拆清依赖与所有者，
+  不为实现四层图而新增空模块、重复实现或永久白名单。

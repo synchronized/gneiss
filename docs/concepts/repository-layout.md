@@ -5,8 +5,9 @@
 
 ## 目的
 
-目录用于表达模块所有权和依赖方向，而不是提前枚举全部未来功能。当前只创建已有真实实现的目录；
-规划中的目录在对应功能进入开发后再落地，避免空目录和未经验证的模块边界。
+本文描述当前实际源码布局，不把已批准的迁移目标当成已实现。0.45 的精简目标目录与宿主边界见
+[ADR-054](../decisions/ADR-054-source-layout-and-host-boundaries.md)，迁移映射与验收见
+[DEV-045](../plans/DEV-045-cpp-boundaries.md)。源码尚未迁入 `src/engine/`、`src/editor/` 或 `src/apps/`。
 
 总体分层以[总体架构](architecture.md)为准，代码与文档规范分别以
 [C/C++ 代码风格](../guides/coding-style.md)和[项目文档规范](../../DOCUMENTATION_GUIDE.md)为准。
@@ -16,14 +17,16 @@
 | 目录 | 所有权与职责 |
 | --- | --- |
 | `include/gneiss/` | 稳定的 C11 公共接口及其轻量 C++20 包装 |
-| `src/` | 不进入公共 ABI 的运行时实现和第三方适配 |
+| `src/` | 内部运行时实现、第三方适配及离线处理 |
+| `apps/` | 当前 Editor、Runtime 宿主及共用代码 |
+| `tools/` | 当前 assetc 程序、性能与检查工具 |
 | `tests/` | 公共接口、内部行为、生命周期与集成验证 |
 | `examples/` | 使用公共接口构建的独立最小示例 |
 | `docs/` | Guide、Reference、Concept、Plan、ADR 和执行记录 |
 | `3rd/` | 锁定版本并与自有代码隔离的第三方依赖 |
 | `cmake/` | 项目构建策略和可复用的 CMake 模块 |
 
-`gneiss_engine` 库及其 `src/` 实现就是完整 Engine Library，不额外建立职责宽泛的 `src/engine/`。
+当前 `gneiss_engine` 运行时实现分布在 `src/` 的模块目录，尚未按新目标集中到 `src/engine/`。
 Runtime 宿主与 Editor 分别位于 `apps/runtime/` 和 `apps/editor/`；两者可以依赖 Engine Library，
 Engine Library 不得反向依赖它们。Editor 的 ImGui Context、字体、主题、DockSpace 和通用控件由
 不安装、不导出的 `gneiss_editor_ui` 内部静态库统一管理，业务面板状态仍由 Editor 应用层持有。
@@ -33,7 +36,7 @@ Engine Library 不得反向依赖它们。Editor 的 ImGui Context、字体、�
 
 ## 运行时模块
 
-以下是随功能逐步形成的目标结构。表中“规划”只表示预留的所有权边界，不代表目录或能力已经存在。
+以下为当前实现路径；目录迁移前继续以这些路径定位源码。
 
 | 模块 | 目录 | 职责 | 状态 |
 | --- | --- | --- | --- |
@@ -58,21 +61,9 @@ World 的提取函数位于 `src/world/render_snapshot.hpp`，Render 不反向�
 解码器。其 CPU 准备接口与发布接口的进一步拆分属于 [0.45 实施计划](../plans/DEV-045-cpp-boundaries.md)，
 不能把搬移 PNG 描述为整个加载系统分层已完成。
 
-测试优先镜像被验证模块，例如 `tests/core/`、`tests/world/` 和 `tests/scene/`。公共头独立编译测试
-统一位于 `tests/headers/`，跨模块生命周期与端到端测试进入 `tests/integration/`。只有出现对应测试
-后才创建目录。
-
-## 长期扩展边界
-
-以下模块仍待真实用例和独立 Plan，不代表当前能力：
-
-- `src/serialization/`：消费稳定 Schema，负责版本化数据格式、迁移和读写。
-- `src/ui/`：正式 UI 运行时；临时诊断 UI 不自动成为该模块。
-- `src/audio/`、`src/physics/`、`src/network/`、`src/script/`：按真实需求引入的独立 Service。
-
-长期依赖方向固定为：Serialization 可以依赖 Reflection；Editor 可以依赖运行时、Reflection 和
-Serialization；运行时核心不得反向依赖 Editor。Reflection 只描述类型，不负责具体文件格式；
-Serialization 不把编辑器状态写入运行时契约。
+当前测试分布在 tests 根目录及 `tests/core/`、`tests/world/`、`tests/scene/` 等模块目录。
+公共头独立编译位于 `tests/headers/`，安装消费者位于 `tests/consumer/`；跨模块工作流还通过
+CMake 脚本验证。尚未统一迁移到新的测试层级，不创建空的 integration 目录。
 
 ## 演进规则
 
