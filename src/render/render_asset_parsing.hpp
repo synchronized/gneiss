@@ -9,14 +9,8 @@
 namespace gneiss::render_internal::asset_parsing {
 
 struct material_source final {
-  std::array<float, 4> color{};
+  asset_internal::material_parameters parameters;
   std::array<std::string, 5> texture_uris;
-  float metallic{};
-  float roughness{1.0F};
-  float normal_scale{1.0F};
-  float occlusion_strength{1.0F};
-  std::array<float, 3> emissive{};
-  gneiss::render_internal::material_resource state{};
 };
 
 void fail(asset_diagnostic& diagnostic, gneiss_result result, std::string_view path,

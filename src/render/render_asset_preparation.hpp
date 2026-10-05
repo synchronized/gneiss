@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "engine/asset/material_parameters.hpp"
 #include "render/render_resource_data.hpp"
 
 #include <functional>
@@ -45,12 +46,12 @@ struct render_asset_reload final {
   render_asset_type type = render_asset_type::mesh;
 };
 
-/** 后台解析后的自有 CPU 数据；不持有缓存或后端对象，材质纹理句柄保持零值。 */
+/** 后台解析后的自有 CPU 数据；不持有缓存或后端对象，材质依赖仅使用 URI。 */
 struct prepared_render_asset {
   render_asset_reload source;
   mesh_resource mesh;
   texture_resource texture{};
-  material_resource material{};
+  asset_internal::material_parameters material{};
   std::array<std::string, 5> texture_uris;
   std::size_t bytes{};
 };

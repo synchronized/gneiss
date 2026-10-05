@@ -311,6 +311,92 @@ void selected_variants() {
 #endif
 }
 
+// 同步与批次发布都必须保留纯参数，并且只有依赖就绪后才绑定 RID。
+bool material_parameter_roundtrip(gneiss::asset_internal::virtual_file_system& files,
+                                  memory_file_system& memory) {
+  using namespace gneiss::render_internal;
+  std::string json =
+      R"({"format":"gneiss.material","version":5,"color":[0.25,0.5,0.75,0.5],"metallic":0.25,"roughness":0.75,"normal_scale":0.5,"occlusion_strength":0.25,"emissive":[0.25,0.5,0.75],"alpha_mode":"MASK","alpha_cutoff":0.25,"double_sided":true,)";
+  constexpr std::array names{"base_color_texture", "metallic_roughness_texture", "normal_texture",
+                             "occlusion_texture", "emissive_texture"};
+  for (const auto* name : names) {
+    json += "\"" + std::string(name) + "\":\"asset://textures/white.texture.json\",";
+  }
+  json += "\"sampling\":[";
+  for (unsigned slot = 0; slot < 5U; ++slot) {
+    if (slot != 0U) {
+      json += ",";
+    }
+    json += "{\"uv_set\":" + std::to_string(slot % 2U) +
+            ",\"mag_filter\":0,\"min_filter\":1,\"mip_filter\":2,\"address_u\":" +
+            std::to_string(slot % 3U) + ",\"address_v\":1}";
+  }
+  json += "]}";
+  memory.files["parameters.material.json"] = json;
+  const auto matches = [](const material_resource* value) {
+    if (value == nullptr || value->red != 0.25F || value->green != 0.5F || value->blue != 0.75F ||
+        value->alpha != 0.5F || value->metallic != 0.25F || value->roughness != 0.75F ||
+        value->normal_scale != 0.5F || value->occlusion_strength != 0.25F ||
+        value->emissive != std::array{0.25F, 0.5F, 0.75F} ||
+        value->alpha_mode != GNEISS_MATERIAL_ALPHA_MASK || value->alpha_cutoff != 0.25F ||
+        value->double_sided != 1U) {
+      return false;
+    }
+    const auto handles = value->texture_handles();
+    for (std::size_t slot = 0; slot < handles.size(); ++slot) {
+      const auto& sample = value->sampling[slot];
+      if (handles[slot] == GNEISS_NULL_TEXTURE || sample.uv_set != slot % 2U ||
+          sample.mag_filter != 0U || sample.min_filter != 1U || sample.mip_filter != 2U ||
+          sample.address_u != slot % 3U || sample.address_v != 1U) {
+        return false;
+      }
+    }
+    return true;
+  };
+  render_resource_service resources;
+  gneiss::asset_internal::resource_cache cache;
+  render_asset_loader loader(files, cache, resources);
+  asset_diagnostic diagnostic;
+  material_asset_lease synchronous;
+  if (loader.acquire_material("asset://parameters.material.json", synchronous, diagnostic) !=
+          GNEISS_SUCCESS ||
+      !matches(resources.get_material(synchronous.get()))) {
+    return false;
+  }
+
+  prepared_render_batch batch;
+  const std::array request{render_asset_reload{.uri = "asset://parameters.material.json",
+                                               .type = render_asset_type::material}};
+  const auto before = resources.live_resource_count();
+  if (prepare_render_assets(files, request, batch, diagnostic, {}) != GNEISS_SUCCESS ||
+      batch.assets.size() != 2U || resources.live_resource_count() != before ||
+      batch.assets.back().bytes !=
+          sizeof(material_resource) +
+              5U * std::string_view("asset://textures/white.texture.json").size() ||
+      batch.assets.back().material.color != std::array{0.25F, 0.5F, 0.75F, 0.5F}) {
+    return false;
+  }
+  render_asset_loader::asset_candidate missing;
+  if (loader.stage_asset(batch.assets.back(), {}, missing) != GNEISS_ERROR_INVALID_STATE ||
+      resources.live_resource_count() != before) {
+    return false;
+  }
+  std::vector<render_asset_loader::asset_candidate> candidates;
+  for (auto& prepared : batch.assets) {
+    render_asset_loader::asset_candidate candidate;
+    if (loader.stage_asset(std::move(prepared), candidates, candidate) != GNEISS_SUCCESS) {
+      return false;
+    }
+    candidates.push_back(std::move(candidate));
+  }
+  if (!matches(candidates.back().material.get()) ||
+      loader.publish_assets(candidates) != GNEISS_SUCCESS ||
+      !matches(resources.get_material(synchronous.get()))) {
+    return false;
+  }
+  return true;
+}
+
 } // namespace
 
 int main() try { // NOLINT(readability-function-cognitive-complexity)：集成测试按返回码定位阶段。
@@ -383,6 +469,16 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
   gneiss::render_internal::render_asset_loader loader(file_system, cache, resources);
   if (file_system.mount("asset://", memory) != GNEISS_SUCCESS) {
     return 1;
+  }
+
+  {
+    auto parameter_files = std::make_shared<memory_file_system>();
+    parameter_files->files = memory->files;
+    gneiss::asset_internal::virtual_file_system parameter_vfs;
+    if (parameter_vfs.mount("asset://", parameter_files) != GNEISS_SUCCESS ||
+        !material_parameter_roundtrip(parameter_vfs, *parameter_files)) {
+      return 40;
+    }
   }
 
   gneiss::render_internal::mesh_asset_lease first_mesh;

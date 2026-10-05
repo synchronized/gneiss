@@ -10,6 +10,16 @@
 #include <thread>
 
 namespace {
+// 准备契约不能再次退化为带纹理句柄与发布操作的资源结构。
+template <typename T>
+concept has_texture_handle = requires(T value) { value.base_color_texture; };
+template <typename T>
+concept has_publication_description = requires(T value) { value.description(); };
+static_assert(
+    !has_texture_handle<decltype(gneiss::render_internal::prepared_render_asset::material)>);
+static_assert(!has_publication_description<
+              decltype(gneiss::render_internal::prepared_render_asset::material)>);
+
 class mesh_source final : public gneiss::asset_internal::file_system {
 public:
   mutable unsigned reads{};

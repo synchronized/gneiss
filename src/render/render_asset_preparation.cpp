@@ -298,10 +298,10 @@ using document_ptr = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;
   }
   auto* normal_scale = yyjson_obj_get(root, "normal_scale");
   auto* strength = yyjson_obj_get(root, "occlusion_strength");
-  if ((normal_scale != nullptr && !read_float(normal_scale, out_source.normal_scale)) ||
-      (strength != nullptr &&
-       (!read_float(strength, out_source.occlusion_strength) ||
-        out_source.occlusion_strength < 0.0F || out_source.occlusion_strength > 1.0F))) {
+  if ((normal_scale != nullptr && !read_float(normal_scale, out_source.parameters.normal_scale)) ||
+      (strength != nullptr && (!read_float(strength, out_source.parameters.occlusion_strength) ||
+                               out_source.parameters.occlusion_strength < 0.0F ||
+                               out_source.parameters.occlusion_strength > 1.0F))) {
     fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/normal_scale",
          "法线缩放必须有限，AO 强度必须位于 0..1");
     return diagnostic.result;
@@ -312,8 +312,8 @@ using document_ptr = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;
       return diagnostic.result;
     }
     for (std::size_t i = 0; i < 3U; ++i) {
-      if (!read_float(yyjson_arr_get(emissive, i), out_source.emissive[i]) ||
-          out_source.emissive[i] < 0.0F || out_source.emissive[i] > 1.0F) {
+      if (!read_float(yyjson_arr_get(emissive, i), out_source.parameters.emissive[i]) ||
+          out_source.parameters.emissive[i] < 0.0F || out_source.parameters.emissive[i] > 1.0F) {
         fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/emissive", "自发光分量必须位于 0..1");
         return diagnostic.result;
       }
@@ -323,7 +323,7 @@ using document_ptr = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;
 }
 
 [[nodiscard]] bool parse_material_sampling(yyjson_val* root,
-                                           gneiss::render_internal::material_resource& state) {
+                                           asset_internal::material_parameters& state) {
   if (auto* sampling = yyjson_obj_get(root, "sampling")) {
     if (!yyjson_is_arr(sampling) || yyjson_arr_size(sampling) != 5U) {
       return false;
@@ -355,7 +355,7 @@ using document_ptr = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;
 }
 
 [[nodiscard]] bool parse_material_state(yyjson_val* root,
-                                        gneiss::render_internal::material_resource& state) {
+                                        asset_internal::material_parameters& state) {
   if (auto* mode = yyjson_obj_get(root, "alpha_mode")) {
     if (!yyjson_is_str(mode)) {
       return false;
@@ -445,13 +445,13 @@ using document_ptr = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;
     return diagnostic.result;
   }
   yyjson_val* color = yyjson_obj_get(root, "color");
-  if (!yyjson_is_arr(color) || yyjson_arr_size(color) != out_source.color.size()) {
+  if (!yyjson_is_arr(color) || yyjson_arr_size(color) != out_source.parameters.color.size()) {
     fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/color", "颜色必须包含四个分量");
     return diagnostic.result;
   }
-  for (std::size_t index = 0; index < out_source.color.size(); ++index) {
-    if (!read_float(yyjson_arr_get(color, index), out_source.color[index]) ||
-        out_source.color[index] < 0.0F || out_source.color[index] > 1.0F) {
+  for (std::size_t index = 0; index < out_source.parameters.color.size(); ++index) {
+    if (!read_float(yyjson_arr_get(color, index), out_source.parameters.color[index]) ||
+        out_source.parameters.color[index] < 0.0F || out_source.parameters.color[index] > 1.0F) {
       fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/color/" + std::to_string(index),
            "颜色分量必须位于 0..1");
       return diagnostic.result;
@@ -469,10 +469,11 @@ using document_ptr = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;
       out_source.texture_uris[0].assign(json_string(texture));
     }
   }
-  if ((version >= 3U) && (!read_float(yyjson_obj_get(root, "metallic"), out_source.metallic) ||
-                          out_source.metallic < 0.0F || out_source.metallic > 1.0F ||
-                          !read_float(yyjson_obj_get(root, "roughness"), out_source.roughness) ||
-                          out_source.roughness < 0.0F || out_source.roughness > 1.0F)) {
+  if ((version >= 3U) &&
+      (!read_float(yyjson_obj_get(root, "metallic"), out_source.parameters.metallic) ||
+       out_source.parameters.metallic < 0.0F || out_source.parameters.metallic > 1.0F ||
+       !read_float(yyjson_obj_get(root, "roughness"), out_source.parameters.roughness) ||
+       out_source.parameters.roughness < 0.0F || out_source.parameters.roughness > 1.0F)) {
     fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/metallic",
          "metallic 与 roughness 必须位于 0..1");
     return diagnostic.result;
@@ -481,7 +482,7 @@ using document_ptr = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;
   if (version >= 4U && parse_pbr_extensions(root, out_source, diagnostic) != GNEISS_SUCCESS) {
     return diagnostic.result;
   }
-  if (version == 5U && !parse_material_state(root, out_source.state)) {
+  if (version == 5U && !parse_material_state(root, out_source.parameters)) {
     fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/sampling", "材质状态或逐槽采样设置无效");
     return diagnostic.result;
   }
@@ -695,18 +696,10 @@ gneiss_result prepare_render_assets(const asset_internal::virtual_file_system& f
         } else if (source.type == render_asset_type::material) {
           material_source material;
           result = parse_material(bytes, material, diagnostic);
-          asset.material = {material.color[0], material.color[1],   material.color[2],
-                            material.color[3], GNEISS_NULL_TEXTURE, material.metallic,
-                            material.roughness};
-          asset.material.normal_scale = material.normal_scale;
-          asset.material.occlusion_strength = material.occlusion_strength;
-          asset.material.emissive = material.emissive;
-          asset.material.alpha_mode = material.state.alpha_mode;
-          asset.material.double_sided = material.state.double_sided;
-          asset.material.alpha_cutoff = material.state.alpha_cutoff;
-          asset.material.sampling = material.state.sampling;
+          asset.material = material.parameters;
 
           asset.texture_uris = std::move(material.texture_uris);
+          // 继续按发布资源估算预算，不能因去除准备数据中的 RID 而放宽上限。
           asset.bytes = sizeof(material_resource);
           for (const auto& uri : asset.texture_uris) {
             if (result == GNEISS_SUCCESS && !uri.empty()) {

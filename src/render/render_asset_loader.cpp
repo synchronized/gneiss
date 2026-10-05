@@ -24,6 +24,29 @@ namespace {
 
 using namespace gneiss::render_internal::asset_parsing;
 
+// 仅在所属线程的发布边界构造资源值，随后绑定经过验证的纹理租约。
+[[nodiscard]] gneiss::render_internal::material_resource
+material_for_publication(const gneiss::asset_internal::material_parameters& parameters) noexcept {
+  gneiss::render_internal::material_resource material{
+      .red = parameters.color[0],
+      .green = parameters.color[1],
+      .blue = parameters.color[2],
+      .alpha = parameters.color[3],
+      .base_color_texture = GNEISS_NULL_TEXTURE,
+      .metallic = parameters.metallic,
+      .roughness = parameters.roughness,
+  };
+  material.normal_scale = parameters.normal_scale;
+  material.occlusion_strength = parameters.occlusion_strength;
+  material.emissive = parameters.emissive;
+  material.alpha_mode = parameters.alpha_mode;
+  material.double_sided = parameters.double_sided;
+  material.alpha_cutoff = parameters.alpha_cutoff;
+  material.sampling = parameters.sampling;
+
+  return material;
+}
+
 constexpr std::uint32_t mesh_type = 1;
 constexpr std::uint32_t material_type = 2;
 constexpr std::uint32_t texture_type = 3;
@@ -230,6 +253,7 @@ gneiss_result render_asset_loader::stage_asset(prepared_render_asset prepared,
       }
       candidate.mesh = resources_.share_mesh(rid);
     } else if (prepared.source.type == render_asset_type::material) {
+      auto material = material_for_publication(prepared.material);
       for (std::size_t slot = 0; slot < prepared.texture_uris.size(); ++slot) {
         const auto& uri = prepared.texture_uris[slot];
         if (uri.empty()) {
@@ -241,11 +265,11 @@ gneiss_result render_asset_loader::stage_asset(prepared_render_asset prepared,
         if (found == staged.end()) {
           return GNEISS_ERROR_INVALID_STATE;
         }
-        prepared.material.set_texture(slot, found->lease.get());
+        material.set_texture(slot, found->lease.get());
         candidate.dependencies[slot] = found->lease.entry_;
         candidate.dependency_textures[slot] = found->texture;
       }
-      const auto desc = prepared.material.description();
+      const auto desc = material.description();
       created = resources_.create_material(desc, &rid);
       if (created != GNEISS_SUCCESS) {
         return created;
@@ -462,22 +486,7 @@ gneiss_result render_asset_loader::acquire_material(std::string_view uri,
         if (result != GNEISS_SUCCESS) {
           return result;
         }
-        material_resource material{
-            .red = source.color[0],
-            .green = source.color[1],
-            .blue = source.color[2],
-            .alpha = source.color[3],
-            .base_color_texture = GNEISS_NULL_TEXTURE,
-            .metallic = source.metallic,
-            .roughness = source.roughness,
-        };
-        material.normal_scale = source.normal_scale;
-        material.occlusion_strength = source.occlusion_strength;
-        material.emissive = source.emissive;
-        material.alpha_mode = source.state.alpha_mode;
-        material.double_sided = source.state.double_sided;
-        material.alpha_cutoff = source.state.alpha_cutoff;
-        material.sampling = source.state.sampling;
+        auto material = material_for_publication(source.parameters);
 
         std::array<std::shared_ptr<const asset_internal::resource_cache::entry>, 5> dependencies;
         constexpr std::array names{

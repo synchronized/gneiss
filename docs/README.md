@@ -363,6 +363,7 @@
 
 - [M-295：Asset 基础能力与上传服务归属](records/M-295-asset-layout.md)
 - [M-295：CPU 准备与资源发布分开编译](records/M-295-render-preparation.md)
+- [M-295：材质准备参数与纹理 RID 分离](records/M-295-material-parameters.md)
 
 ## 文档维护
 
