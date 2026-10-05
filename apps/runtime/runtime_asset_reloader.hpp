@@ -4,7 +4,7 @@
 #ifndef GNEISS_APPS_RUNTIME_RUNTIME_ASSET_RELOADER_H_
 #define GNEISS_APPS_RUNTIME_RUNTIME_ASSET_RELOADER_H_
 
-#include "ipc_asset_protocol.h"
+#include "ipc_asset_protocol.hpp"
 
 #include <functional>
 #include <optional>

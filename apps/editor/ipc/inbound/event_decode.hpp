@@ -4,7 +4,7 @@
 #ifndef GNEISS_APPS_EDITOR_IPC_INBOUND_EVENT_DECODE_H_
 #define GNEISS_APPS_EDITOR_IPC_INBOUND_EVENT_DECODE_H_
 
-#include "editor_ipc_event.h"
+#include "editor_ipc_event.hpp"
 
 #include <utility>
 

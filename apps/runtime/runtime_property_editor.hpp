@@ -4,8 +4,8 @@
 #ifndef GNEISS_APPS_RUNTIME_RUNTIME_PROPERTY_EDITOR_H_
 #define GNEISS_APPS_RUNTIME_RUNTIME_PROPERTY_EDITOR_H_
 
-#include "ipc_property_protocol.h"
-#include "runtime_scene_inspection.h"
+#include "ipc_property_protocol.hpp"
+#include "runtime_scene_inspection.hpp"
 
 #include <gneiss/world.h>
 

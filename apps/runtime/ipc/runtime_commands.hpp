@@ -4,8 +4,8 @@
 #ifndef GNEISS_APPS_RUNTIME_IPC_RUNTIME_COMMANDS_H_
 #define GNEISS_APPS_RUNTIME_IPC_RUNTIME_COMMANDS_H_
 
-#include "ipc_router.h"
-#include "runtime_command_context.h"
+#include "ipc_router.hpp"
+#include "runtime_command_context.hpp"
 
 namespace gneiss::runtime_internal {
 

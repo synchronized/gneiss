@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "editor_ipc_outbound.h"
+#include "editor_ipc_outbound.hpp"
 
-#include "ipc_property_protocol.h"
+#include "ipc_property_protocol.hpp"
 
 namespace gneiss::editor {
 

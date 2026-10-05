@@ -83,6 +83,7 @@ Runtime Transform 回写脱离 IPC 的结果见 [回写边界记录](../records/
 Tooling、assetc、性能脚本及启动条件迁移见 [工具布局记录](../records/M-295-tooling-host-layout.md)。
 Runtime 层级与属性面板迁移见 [面板边界记录](../records/M-295-runtime-panels.md)。
 控制台面板与展示状态迁移见 [控制台面板记录](../records/M-295-console-panel.md)。
+Apps 私有头与共用契约收口见 [宿主边界记录](../records/M-295-apps-private-headers.md)。
 
 - 将解码、格式解析、资源加载与 GPU 生命周期按 ADR 分开，先记录允许依赖再搬文件。
 - Granit 适配进入 Render 私有后端，Platform 的窗口适配维持独立所有权。
@@ -104,7 +105,7 @@ Runtime 层级与属性面板迁移见 [面板边界记录](../records/M-295-run
 | 原 `src/platform/`、`io/`、`process/`、`ipc/` | 已迁至 `src/engine/platform/`，内部头改为 `.hpp`；编辑器/运行宿主协议仍留 Apps，窗口语义配置与命名空间已独立；其他平台接口继续审计 |
 | `apps/editor/` | UI、主题、ImGui 适配、字体、资产服务、独立编辑模型与场景会话已迁至 `src/editor/`；宿主控制与面板编排仍待拆分，程序入口与启动配置保留在 `apps/editor/` |
 | `apps/runtime/` | 程序入口与宿主控制保留在 `apps/runtime/`；可复用引擎能力回归 Engine |
-| `apps/common/` | 逐项核定所有者；运行时通用能力归 Engine，纯宿主共用代码按实际需要保留私有共用目标，不原样下沉 Core |
+| `apps/common/` | 已核定工程/启动与 IPC 领域协议分别保留在两个宿主私有目标；通用传输归 Platform，Runtime 不链接 Editor；Apps 私有头统一 `.hpp` |
 | `src/tooling/`、原 `tools/assetc/` | 导入库实现与构建定义已归 `src/tooling/`，内部头统一 `.hpp`；CLI 已迁至 `apps/assetc/`，测试构建定义归 `tests/tooling/` |
 | 原 `tools/performance/` | 9 个性能与验证脚本已迁至 `scripts/performance/`；工具目录已无跟踪源码 |
 | 测试、示例、构建与检查 | 按被测模块更新路径和私有 include；公共 SDK 示例与安装消费路径保持兼容 |

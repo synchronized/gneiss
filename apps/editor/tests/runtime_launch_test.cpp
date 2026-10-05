@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "project_workspace.h"
+#include "project_workspace.hpp"
 #include "runtime_author_apply.hpp"
 #include "runtime_launch.hpp"
 

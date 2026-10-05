@@ -387,6 +387,14 @@
 - [M-295：Tooling、assetc 与宿主入口布局](records/M-295-tooling-host-layout.md)
 - [M-295：Runtime 面板与宿主分离](records/M-295-runtime-panels.md)
 - [M-295：控制台面板与宿主分离](records/M-295-console-panel.md)
+- [M-295：材质创建的 ABI 边界](records/M-295-material-abi-boundary.md)
+- [M-295：网格与原始纹理输入边界](records/M-295-resource-input-boundary.md)
+- [M-295：UI 与 Debug 绘制提交边界](records/M-295-draw-submission-boundary.md)
+- [M-294：Scene 创建参数边界](records/M-294-scene-creation-boundary.md)
+- [M-294：Scene 查询结果边界](records/M-294-scene-query-boundary.md)
+- [M-294：相机设置与子树映射边界](records/M-294-scene-edit-boundary.md)
+- [M-294：内部日志输入与回调边界核对](records/M-294-log-input-boundary.md)
+- [M-295：Apps 私有头与宿主共用契约](records/M-295-apps-private-headers.md)
 
 ## 文档维护
 

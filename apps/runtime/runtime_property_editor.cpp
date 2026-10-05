@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "runtime_property_editor.h"
+#include "runtime_property_editor.hpp"
 
 #include <algorithm>
 #include <limits>

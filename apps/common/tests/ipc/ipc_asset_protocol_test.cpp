@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "ipc_asset_protocol.h"
+#include "ipc_asset_protocol.hpp"
 
 int main() {
   static_assert(gneiss::ipc_asset_domain_version == 3U);

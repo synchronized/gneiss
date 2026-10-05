@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "package_archive.h"
-#include "project_workspace.h"
+#include "package_archive.hpp"
+#include "project_workspace.hpp"
 
 #include <chrono>
 #include <filesystem>

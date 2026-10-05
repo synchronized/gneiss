@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "runtime_ipc_outbound.h"
+#include "runtime_ipc_outbound.hpp"
 
-#include "ipc_inspection_protocol.h"
+#include "ipc_inspection_protocol.hpp"
 
 namespace gneiss::runtime_internal {
 

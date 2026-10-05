@@ -4,9 +4,9 @@
 #ifndef GNEISS_APPS_EDITOR_IPC_OUTBOUND_EDITOR_IPC_OUTBOUND_H_
 #define GNEISS_APPS_EDITOR_IPC_OUTBOUND_EDITOR_IPC_OUTBOUND_H_
 
-#include "ipc_asset_protocol.h"
+#include "ipc_asset_protocol.hpp"
 #include "ipc_envelope.hpp"
-#include "ipc_property_protocol.h"
+#include "ipc_property_protocol.hpp"
 
 namespace gneiss::editor {
 

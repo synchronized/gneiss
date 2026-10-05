@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "ipc_protocol_domains.h"
+#include "ipc_protocol_domains.hpp"
 
-#include "ipc_asset_protocol.h"
-#include "ipc_control_protocol.h"
-#include "ipc_inspection_protocol.h"
-#include "ipc_log_protocol.h"
-#include "ipc_property_protocol.h"
-#include "ipc_scene_protocol.h"
-#include "ipc_session_protocol.h"
-#include "ipc_statistics_protocol.h"
+#include "ipc_asset_protocol.hpp"
+#include "ipc_control_protocol.hpp"
+#include "ipc_inspection_protocol.hpp"
+#include "ipc_log_protocol.hpp"
+#include "ipc_property_protocol.hpp"
+#include "ipc_scene_protocol.hpp"
+#include "ipc_session_protocol.hpp"
+#include "ipc_statistics_protocol.hpp"
 
 #include <array>
 #include <utility>

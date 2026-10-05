@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "runtime_process.h"
+#include "runtime_process.hpp"
 
 #include "child_process.hpp"
-#include "editor_ipc_event.h"
-#include "editor_ipc_session.h"
-#include "ipc_asset_protocol.h"
-#include "ipc_statistics_protocol.h"
+#include "editor_ipc_event.hpp"
+#include "editor_ipc_session.hpp"
+#include "ipc_asset_protocol.hpp"
+#include "ipc_statistics_protocol.hpp"
 #include "runtime_log_adapter.hpp"
 #include "runtime_property_adapter.hpp"
 #include "runtime_scene_adapter.hpp"

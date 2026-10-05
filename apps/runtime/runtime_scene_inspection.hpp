@@ -4,7 +4,7 @@
 #ifndef GNEISS_APPS_RUNTIME_RUNTIME_SCENE_INSPECTION_H_
 #define GNEISS_APPS_RUNTIME_RUNTIME_SCENE_INSPECTION_H_
 
-#include "ipc_inspection_protocol.h"
+#include "ipc_inspection_protocol.hpp"
 
 #include <gneiss/application.h>
 #include <gneiss/scene.h>

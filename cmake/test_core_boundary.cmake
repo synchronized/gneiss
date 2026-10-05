@@ -218,7 +218,8 @@ endforeach()
 file(WRITE "${fixture}/src/engine/api/probe.cpp" "")
 # 编辑器允许消费 SDK；源码迁入 src 不意味着成为 Engine 内部模块。
 foreach(header IN ITEMS "gneiss/application.hpp" "apps/editor/main.hpp" "../../apps/editor/main.hpp"
-    "gneiss/app/runtime_log_protocol.h" "ipc_inspection_protocol.h")
+    "gneiss/app/runtime_log_protocol.h" "ipc_inspection_protocol.h"
+    "gneiss/app/runtime_log_protocol.hpp" "ipc_inspection_protocol.hpp")
   file(WRITE "${fixture}/src/editor/probe.cpp" "#include <${header}>\n")
   execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
     -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"

@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "runtime_log_adapter.hpp"
-#include "runtime_process.h"
+#include "runtime_process.hpp"
 #include "runtime_property_adapter.hpp"
 #include "runtime_scene_adapter.hpp"
 

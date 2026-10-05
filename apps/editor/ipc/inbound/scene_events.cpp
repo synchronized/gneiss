@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "editor_ipc_event.h"
-#include "event_decode.h"
+#include "editor_ipc_event.hpp"
+#include "event_decode.hpp"
 
 namespace gneiss::editor {
 result decode_runtime_scene_event(const ipc_envelope& envelope,

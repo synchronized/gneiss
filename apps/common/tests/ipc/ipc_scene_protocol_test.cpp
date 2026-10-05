@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "ipc_protocol_domains.h"
-#include "ipc_scene_protocol.h"
+#include "ipc_protocol_domains.hpp"
+#include "ipc_scene_protocol.hpp"
 
 #include <cstdio>
 #include <source_location>

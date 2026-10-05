@@ -4,7 +4,7 @@
 #ifndef GNEISS_APPS_EDITOR_IPC_EDITOR_IPC_SESSION_H_
 #define GNEISS_APPS_EDITOR_IPC_EDITOR_IPC_SESSION_H_
 
-#include "editor_ipc_event.h"
+#include "editor_ipc_event.hpp"
 
 #include "ipc_transport.hpp"
 

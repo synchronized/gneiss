@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "runtime_ipc_session.h"
+#include "runtime_ipc_session.hpp"
 
-#include "ipc_control_protocol.h"
-#include "ipc_inspection_protocol.h"
-#include "ipc_log_protocol.h"
-#include "ipc_property_protocol.h"
-#include "ipc_session_protocol.h"
+#include "ipc_control_protocol.hpp"
+#include "ipc_inspection_protocol.hpp"
+#include "ipc_log_protocol.hpp"
+#include "ipc_property_protocol.hpp"
+#include "ipc_session_protocol.hpp"
 
 #include <chrono>
 #include <cstdio>

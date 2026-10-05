@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "project_manager.h"
+#include "project_manager.hpp"
 
 #include "editor_theme.hpp"
 #include "imgui_adapter.hpp"
-#include "native_dialog.h"
-#include "project_workspace.h"
+#include "native_dialog.hpp"
+#include "project_workspace.hpp"
 
 #include <gneiss/application.hpp>
 

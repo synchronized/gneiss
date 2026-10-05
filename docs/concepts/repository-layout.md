@@ -43,7 +43,12 @@ Apps 在每次绘制时提供同步属性提交、回写作者场景与结果报
 `gneiss_editor_model` 位于 `src/editor/`，管理相机、网格、旋转/Gizmo 数学、命令历史、属性检查
 及创作事务、控制台模型，不依赖 Apps 工程、IPC 或会话。场景会话与 Gizmo 拖拽由同目录的
 `gneiss_editor_session` 管理，只依赖该模型库与 Engine。`apps/editor/` 的 `gneiss_editor_host`
-负责工程、子进程、IPC 与运行时同步装配；`apps/common` 的构建/启动工程描述与进程协议仍待分离。
+负责工程、子进程、IPC 与运行时同步装配。
+
+`apps/common/` 保留两个宿主私有目标：`gneiss_app_project` 管理构建/启动工程描述及启动日志协议，
+`gneiss_app_ipc_protocol` 管理 Editor/Runtime 进程通信协议。它们不安装、不导出为 Engine SDK；
+Runtime 直接使用这些共用契约，不链接 Editor。通用 IPC 传输和子进程机制由 Engine Platform 提供，
+工程格式、消息领域与启动约定继续归 Apps。Apps 私有 C++ 头统一使用 `.hpp`，不属于公共 C ABI。
 
 `src/editor/runtime_author_apply.hpp` 接收 UUID 与局部变换视图，负责变换回写和撤销命令。
 Apps 从 IPC 节点提取输入；Editor 命令复制身份字符串，不保留协议对象或借用字符串。

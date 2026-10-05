@@ -4,7 +4,7 @@
 #ifndef GNEISS_APPS_COMMON_IPC_CORE_IPC_ROUTER_H_
 #define GNEISS_APPS_COMMON_IPC_CORE_IPC_ROUTER_H_
 
-#include "ipc_protocol_domains.h"
+#include "ipc_protocol_domains.hpp"
 
 #include <algorithm>
 #include <memory>

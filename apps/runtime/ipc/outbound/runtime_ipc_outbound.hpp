@@ -4,13 +4,13 @@
 #ifndef GNEISS_APPS_RUNTIME_IPC_OUTBOUND_RUNTIME_IPC_OUTBOUND_H_
 #define GNEISS_APPS_RUNTIME_IPC_OUTBOUND_RUNTIME_IPC_OUTBOUND_H_
 
-#include "ipc_asset_protocol.h"
+#include "ipc_asset_protocol.hpp"
 
-#include "ipc_control_protocol.h"
-#include "ipc_inspection_protocol.h"
-#include "ipc_property_protocol.h"
-#include "ipc_session_protocol.h"
-#include "ipc_statistics_protocol.h"
+#include "ipc_control_protocol.hpp"
+#include "ipc_inspection_protocol.hpp"
+#include "ipc_property_protocol.hpp"
+#include "ipc_session_protocol.hpp"
+#include "ipc_statistics_protocol.hpp"
 
 #include <gneiss/log.h>
 

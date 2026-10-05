@@ -4,22 +4,22 @@
 add_library(
   gneiss_editor_host STATIC
   runtime_log_adapter.hpp
-  editor_project.h
-  ipc/editor_ipc_event.h
+  editor_project.hpp
+  ipc/editor_ipc_event.hpp
   ipc/editor_ipc_router.cpp
-  ipc/editor_ipc_router.h
+  ipc/editor_ipc_router.hpp
   ipc/editor_ipc_session.cpp
-  ipc/editor_ipc_session.h
+  ipc/editor_ipc_session.hpp
   ipc/inbound/asset_events.cpp
   ipc/inbound/scene_events.cpp
   ipc/inbound/control_events.cpp
-  ipc/inbound/event_decode.h
+  ipc/inbound/event_decode.hpp
   ipc/inbound/inspection_events.cpp
   ipc/inbound/log_events.cpp
   ipc/inbound/property_events.cpp
   ipc/inbound/session_events.cpp
   ipc/inbound/statistics_events.cpp
-  ipc/outbound/editor_ipc_outbound.h
+  ipc/outbound/editor_ipc_outbound.hpp
   ipc/outbound/asset_reload_command.cpp
   ipc/outbound/heartbeat_command.cpp
   ipc/outbound/inspection_resync_command.cpp
@@ -28,11 +28,11 @@ add_library(
   ipc/outbound/resume_command.cpp
   ipc/outbound/stop_command.cpp
   package_archive.cpp
-  package_archive.h
+  package_archive.hpp
   project_workspace.cpp
-  project_workspace.h
+  project_workspace.hpp
   runtime_process.cpp
-  runtime_process.h
+  runtime_process.hpp
   runtime_property_adapter.hpp
   runtime_scene_adapter.hpp
 )
@@ -63,9 +63,9 @@ add_executable(
   gneiss_editor
   main.cpp
   native_dialog.cpp
-  native_dialog.h
+  native_dialog.hpp
   project_manager.cpp
-  project_manager.h
+  project_manager.hpp
 )
 target_link_libraries(
   gneiss_editor

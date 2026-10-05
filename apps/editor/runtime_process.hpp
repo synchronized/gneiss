@@ -7,13 +7,13 @@
 #include "runtime_launch.hpp"
 
 #include "console_model.hpp"
-#include "ipc_property_protocol.h"
-#include "ipc_scene_protocol.h"
-#include "ipc_statistics_protocol.h"
+#include "ipc_property_protocol.hpp"
+#include "ipc_scene_protocol.hpp"
+#include "ipc_statistics_protocol.hpp"
 #include "runtime_property_edits.hpp"
 #include "runtime_scene_mirror.hpp"
 
-#include <gneiss/app/project_description.h>
+#include <gneiss/app/project_description.hpp>
 
 #include <cstdint>
 #include <memory>

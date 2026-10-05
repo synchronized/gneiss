@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "editor_ipc_event.h"
+#include "editor_ipc_event.hpp"
 
 int main() {
   gneiss::ipc_envelope envelope;

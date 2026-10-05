@@ -5,7 +5,7 @@
 
 #include "console_model.hpp"
 
-#include <gneiss/app/runtime_log_protocol.h>
+#include <gneiss/app/runtime_log_protocol.hpp>
 
 #include <utility>
 

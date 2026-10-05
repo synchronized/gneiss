@@ -4,10 +4,10 @@
 #ifndef GNEISS_APPS_RUNTIME_IPC_RUNTIME_COMMAND_CONTEXT_H_
 #define GNEISS_APPS_RUNTIME_IPC_RUNTIME_COMMAND_CONTEXT_H_
 
-#include "ipc_asset_protocol.h"
-#include "ipc_control_protocol.h"
-#include "ipc_property_protocol.h"
-#include "ipc_scene_protocol.h"
+#include "ipc_asset_protocol.hpp"
+#include "ipc_control_protocol.hpp"
+#include "ipc_property_protocol.hpp"
+#include "ipc_scene_protocol.hpp"
 #include "ipc_transport.hpp"
 
 #include <cstdint>

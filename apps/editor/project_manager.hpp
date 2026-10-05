@@ -4,7 +4,7 @@
 #ifndef GNEISS_APPS_EDITOR_PROJECT_MANAGER_H_
 #define GNEISS_APPS_EDITOR_PROJECT_MANAGER_H_
 
-#include "editor_project.h"
+#include "editor_project.hpp"
 
 namespace gneiss::editor {
 

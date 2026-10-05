@@ -4,10 +4,10 @@
 #ifndef GNEISS_APPS_EDITOR_IPC_EDITOR_IPC_ROUTER_H_
 #define GNEISS_APPS_EDITOR_IPC_EDITOR_IPC_ROUTER_H_
 
-#include "editor_ipc_event.h"
+#include "editor_ipc_event.hpp"
 
-#include "ipc_protocol_domains.h"
-#include "ipc_router.h"
+#include "ipc_protocol_domains.hpp"
+#include "ipc_router.hpp"
 
 #include <vector>
 

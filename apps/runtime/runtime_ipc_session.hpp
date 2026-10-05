@@ -4,14 +4,14 @@
 #ifndef GNEISS_APPS_RUNTIME_RUNTIME_IPC_SESSION_H_
 #define GNEISS_APPS_RUNTIME_RUNTIME_IPC_SESSION_H_
 
-#include "ipc/runtime_command_context.h"
+#include "ipc/runtime_command_context.hpp"
 
-#include "ipc_inspection_protocol.h"
-#include "ipc_property_protocol.h"
-#include "ipc_protocol_domains.h"
-#include "ipc_router.h"
-#include "ipc_session_protocol.h"
-#include "ipc_statistics_protocol.h"
+#include "ipc_inspection_protocol.hpp"
+#include "ipc_property_protocol.hpp"
+#include "ipc_protocol_domains.hpp"
+#include "ipc_router.hpp"
+#include "ipc_session_protocol.hpp"
+#include "ipc_statistics_protocol.hpp"
 #include "ipc_transport.hpp"
 
 #include <chrono>

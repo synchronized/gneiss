@@ -3,9 +3,9 @@
 
 #include "asset_reimport_queue.hpp"
 #include "editor_session.hpp"
-#include "package_archive.h"
-#include "project_workspace.h"
-#include "runtime_process.h"
+#include "package_archive.hpp"
+#include "project_workspace.hpp"
+#include "runtime_process.hpp"
 
 #include <gneiss/application.hpp>
 

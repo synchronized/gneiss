@@ -4,7 +4,7 @@
 #ifndef GNEISS_APPS_COMMON_IPC_DOMAINS_PROPERTY_IPC_PROPERTY_PROTOCOL_H_
 #define GNEISS_APPS_COMMON_IPC_DOMAINS_PROPERTY_IPC_PROPERTY_PROTOCOL_H_
 
-#include "ipc_inspection_protocol.h"
+#include "ipc_inspection_protocol.hpp"
 
 #include "ipc_dispatcher.hpp"
 

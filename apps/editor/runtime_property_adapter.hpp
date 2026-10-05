@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "ipc_property_protocol.h"
+#include "ipc_property_protocol.hpp"
 #include "runtime_property_edits.hpp"
 
 #include <utility>

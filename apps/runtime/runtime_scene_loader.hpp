@@ -4,7 +4,7 @@
 #pragma once
 
 #include "engine/function/application/application_scene_load_internal.hpp"
-#include "ipc_scene_protocol.h"
+#include "ipc_scene_protocol.hpp"
 
 #include <functional>
 

@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "ipc_inspection_protocol.h"
+#include "ipc_inspection_protocol.hpp"
 #include "runtime_scene_data.hpp"
 
 #include <new>
