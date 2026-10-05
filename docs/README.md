@@ -344,6 +344,8 @@
 
 - [M-294：World C++ 内部契约与 C 入口拆分](records/M-294-world-cpp-boundary.md)
 
+- [M-294：Application 注册表与宿主入口拆分](records/M-294-application-boundary.md)
+
 ## 文档维护
 
 

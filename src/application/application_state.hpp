@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#ifndef GNEISS_APPLICATION_APPLICATION_STATE_H_
-#define GNEISS_APPLICATION_APPLICATION_STATE_H_
+#ifndef GNEISS_APPLICATION_APPLICATION_STATE_HPP_
+#define GNEISS_APPLICATION_APPLICATION_STATE_HPP_
 
 #include <gneiss/application.h>
 #include <gneiss/input.h>
 
-#include "application/application_scene_state.h"
-#include "application/scene_load_service.h"
+#include "application/application_scene_state.hpp"
+#include "application/scene_load_service.hpp"
 #include "asset/texture_load_service.h"
 #include "asset/virtual_file_system.h"
 #include "input/input_service.h"

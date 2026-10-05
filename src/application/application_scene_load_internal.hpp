@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "application/scene_load_service.h"
+#include "application/scene_load_service.hpp"
 
 #include <gneiss/application.h>
 

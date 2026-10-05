@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "application/application_scene_state.h"
+#include "application/application_scene_state.hpp"
 #include "asset/texture_load_service.h"
 #include "scene/scene_load_builder.h"
 

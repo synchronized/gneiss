@@ -3,7 +3,7 @@
 
 #include "world/world_service.hpp"
 
-#include "application/application_scene_state.h"
+#include "application/application_scene_state.hpp"
 
 namespace gneiss::application_internal {
 

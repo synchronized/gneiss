@@ -24,16 +24,22 @@ target_sources(
   PRIVATE
     core/sha256.cpp
     core/sha256.h
-    application/application_api.cpp
-    application/application_asset_reload_internal.h
-    application/application_log_internal.h
+    api/c/application_api.cpp
+    api/c/render_api.cpp
+    api/c/scene_api.cpp
+    api/c/input_api.cpp
+    application/application_registry.cpp
+    application/application_registry.hpp
+    application/application_host.cpp
+    application/application_asset_reload_internal.hpp
+    application/application_log_internal.hpp
     application/scene_load_service.cpp
-    application/scene_load_service.h
-    application/application_scene_load_internal.h
+    application/scene_load_service.hpp
+    application/application_scene_load_internal.hpp
     application/application_scene_state.cpp
-    application/application_scene_state.h
+    application/application_scene_state.hpp
     application/application_state.cpp
-    application/application_state.h
+    application/application_state.hpp
     asset/source_revision_file_system.cpp
     asset/source_revision_file_system.h
     asset/asset_uri.cpp

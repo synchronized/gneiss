@@ -4,7 +4,7 @@
 #include "api/c/log_validation.hpp"
 #include "game_context_internal.h"
 
-#include "application/application_log_internal.h"
+#include "application/application_log_internal.hpp"
 #include "core/rid_table.h"
 
 #include <mutex>

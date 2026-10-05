@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "application/application_state.h"
+#include "application/application_state.hpp"
 
 #include "asset/native_file_system.h"
 

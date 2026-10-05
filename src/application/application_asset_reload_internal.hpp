@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#ifndef GNEISS_SRC_APPLICATION_APPLICATION_ASSET_RELOAD_INTERNAL_H_
-#define GNEISS_SRC_APPLICATION_APPLICATION_ASSET_RELOAD_INTERNAL_H_
+#ifndef GNEISS_SRC_APPLICATION_APPLICATION_ASSET_RELOAD_INTERNAL_HPP_
+#define GNEISS_SRC_APPLICATION_APPLICATION_ASSET_RELOAD_INTERNAL_HPP_
 
 #include "asset/texture_load_service.h"
 #include "render/render_asset_loader.h"

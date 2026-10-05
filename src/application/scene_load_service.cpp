@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "application/scene_load_service.h"
+#include "application/scene_load_service.hpp"
 
 #include "asset/asset_uri.h"
 #include "asset/source_revision_file_system.h"
