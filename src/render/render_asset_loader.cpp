@@ -4,12 +4,12 @@
 #include "render/render_asset_loader.h"
 
 #include "asset/mesh_binary.h"
+#include "asset/png_decoder.hpp"
 #include "asset/source_revision_file_system.h"
 #include "asset/texture_binary.h"
 #include "asset/texture_container.h"
 #include "asset/texture_ktx2.h"
 #include "asset/virtual_file_system.h"
-#include "render/png_decoder.h"
 #include "render/render_resource_service.h"
 
 #include <yyjson.h>
@@ -1449,9 +1449,9 @@ gneiss_result prepare_texture(const asset_internal::virtual_file_system& file_sy
                 .manifest = {},
                 .payload = {}};
     } else {
-      decoded_png image;
+      asset_internal::decoded_png image;
       std::string decode_message;
-      result = decode_png(image_bytes, image, decode_message, output_limit);
+      result = asset_internal::decode_png(image_bytes, image, decode_message, output_limit);
       if (result != GNEISS_SUCCESS) {
         fail(out_diagnostic, result, "/source",
              decode_message.empty() ? "PNG 解码失败" : decode_message);

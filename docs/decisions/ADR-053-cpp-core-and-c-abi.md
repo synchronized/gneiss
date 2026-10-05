@@ -24,6 +24,8 @@ ABI 描述中的 `struct_size`、指针长度、保留字段与旧布局处理�
 内部实现继续按状态所有权划分；后端只能由对应 Service 依赖。Render 资源的 GPU 生命周期属于
 Render，格式解析、解码、缓存与资产任务依据依赖图归入 Asset 或其子模块；离线 Cook 归 Tooling。
 不建立职责重叠的 `resource/` 或可被任意模块访问的通用后端目录。
+Render 定义只含值与 RID 的提交快照；World 负责提取，Render 不反向包含 World/Scene 的状态或接口。
+独立 PNG 解码归 Asset，Cook 与运行时加载复用同一解码实现；GPU 候选、上传和镜像仍归 Render。
 
 公共包装保持轻量、无第二套状态：拥有资源使用不可复制、可移动 RAII；借用使用 ref/view；
 实体及资源 ID 是强类型值，不自动意味着拥有。包装通常只保存父句柄与资源句柄，不为安全性

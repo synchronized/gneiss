@@ -352,6 +352,8 @@
 
 - [M-296：C++ 拥有者生命周期](records/M-296-owner-lifecycle.md)
 
+- [M-295：Render 快照与 Asset 解码边界](records/M-295-render-asset-layout.md)
+
 ## 文档维护
 
 

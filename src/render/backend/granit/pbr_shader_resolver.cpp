@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "render/granit/pbr_shader_resolver.h"
+#include "render/backend/granit/pbr_shader_resolver.hpp"
 
 #include <granit/renderer/shader_library.h>
 
@@ -9,7 +9,7 @@
 #include <fstream>
 #include <limits>
 
-namespace gneiss::application_internal {
+namespace gneiss::render_internal {
 namespace {
 
 constexpr std::uint8_t shader_library_bytes[] = {
@@ -78,4 +78,4 @@ std::span<const std::byte> pbr_shader_resolver::material_archive() noexcept {
   return std::as_bytes(std::span{material_archive_bytes});
 }
 
-} // namespace gneiss::application_internal
+} // namespace gneiss::render_internal

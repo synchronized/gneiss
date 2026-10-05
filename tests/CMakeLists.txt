@@ -258,8 +258,8 @@ add_test(NAME gneiss.debug_draw_list COMMAND gneiss_debug_draw_list_test)
 
 add_executable(
   gneiss_png_decoder_test
-  render/png_decoder_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/render/png_decoder.cpp"
+  asset/png_decoder_test.cpp
+  "${PROJECT_SOURCE_DIR}/src/asset/png_decoder.cpp"
 )
 target_include_directories(gneiss_png_decoder_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_link_libraries(gneiss_png_decoder_test PRIVATE gneiss::engine gneiss_png)
@@ -449,7 +449,7 @@ if(GNEISS_ENABLE_GRANIT_PLATFORM)
   add_executable(
     gneiss_pbr_shader_resolver_test
     render/pbr_shader_resolver_test.cpp
-    "${PROJECT_SOURCE_DIR}/src/render/granit/pbr_shader_resolver.cpp"
+    "${PROJECT_SOURCE_DIR}/src/render/backend/granit/pbr_shader_resolver.cpp"
   )
   target_include_directories(
     gneiss_pbr_shader_resolver_test
@@ -702,7 +702,7 @@ if(GNEISS_ENABLE_GRANIT_PLATFORM)
   add_executable(
     gneiss_scene_projection_math_test
     render/scene_projection_math_test.cpp
-    "${PROJECT_SOURCE_DIR}/src/render/granit/scene_projection_math.cpp"
+    "${PROJECT_SOURCE_DIR}/src/render/backend/granit/scene_projection_math.cpp"
   )
   target_include_directories(
     gneiss_scene_projection_math_test PRIVATE "${PROJECT_SOURCE_DIR}/include" "${PROJECT_SOURCE_DIR}/src"
@@ -728,7 +728,7 @@ add_executable(
   "${PROJECT_SOURCE_DIR}/src/asset/source_revision_file_system.cpp"
   "${PROJECT_SOURCE_DIR}/src/core/sha256.cpp"
   "${PROJECT_SOURCE_DIR}/src/render/render_resource_service.cpp"
-  "${PROJECT_SOURCE_DIR}/src/render/png_decoder.cpp"
+  "${PROJECT_SOURCE_DIR}/src/asset/png_decoder.cpp"
 )
 target_include_directories(gneiss_render_asset_loader_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_definitions(gneiss_render_asset_loader_test PRIVATE GNEISS_BUILDING_LIBRARY)
@@ -758,7 +758,7 @@ add_executable(
   "${PROJECT_SOURCE_DIR}/src/asset/source_revision_file_system.cpp"
   "${PROJECT_SOURCE_DIR}/src/core/sha256.cpp"
   "${PROJECT_SOURCE_DIR}/src/render/render_resource_service.cpp"
-  "${PROJECT_SOURCE_DIR}/src/render/png_decoder.cpp"
+  "${PROJECT_SOURCE_DIR}/src/asset/png_decoder.cpp"
 )
 target_include_directories(gneiss_texture_load_service_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_definitions(gneiss_texture_load_service_test PRIVATE GNEISS_BUILDING_LIBRARY)
@@ -859,7 +859,7 @@ add_executable(
   "${PROJECT_SOURCE_DIR}/src/asset/texture_ktx2.cpp"
   "${PROJECT_SOURCE_DIR}/src/asset/resource_cache.cpp"
   "${PROJECT_SOURCE_DIR}/src/asset/virtual_file_system.cpp"
-  "${PROJECT_SOURCE_DIR}/src/render/png_decoder.cpp"
+  "${PROJECT_SOURCE_DIR}/src/asset/png_decoder.cpp"
   "${PROJECT_SOURCE_DIR}/src/render/render_asset_loader.cpp"
   "${PROJECT_SOURCE_DIR}/src/asset/texture_container.cpp"
   "${PROJECT_SOURCE_DIR}/src/asset/source_revision_file_system.cpp"

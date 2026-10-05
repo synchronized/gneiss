@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "render/granit/pbr_shader_resolver.h"
+#include "render/backend/granit/pbr_shader_resolver.hpp"
 
 #include <granit/pipeline/pbr_material.h>
 #include <granit/renderer/shader_library.h>
@@ -30,7 +30,7 @@ std::vector<std::byte> read_file(const std::filesystem::path& path) {
 } // namespace
 
 int main() {
-  using gneiss::application_internal::pbr_shader_resolver;
+  using gneiss::render_internal::pbr_shader_resolver;
   const auto root = std::filesystem::path{GNEISS_TEST_GRANIT_PBR_ASSET_DIR};
   pbr_shader_resolver resolver;
   if (resolver.valid() || resolver.initialize(root) != GRANIT_SUCCESS || !resolver.valid())

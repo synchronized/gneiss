@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#ifndef GNEISS_RENDER_PNG_DECODER_H_
-#define GNEISS_RENDER_PNG_DECODER_H_
+#ifndef GNEISS_ASSET_PNG_DECODER_HPP_
+#define GNEISS_ASSET_PNG_DECODER_HPP_
 
 #include <gneiss/core/result.h>
 
@@ -11,7 +11,7 @@
 #include <string>
 #include <vector>
 
-namespace gneiss::render_internal {
+namespace gneiss::asset_internal {
 
 struct decoded_png final {
   std::uint32_t width{};
@@ -23,6 +23,6 @@ struct decoded_png final {
                                        std::string& out_message,
                                        std::size_t byte_limit = 256U * 1024U * 1024U) noexcept;
 
-} // namespace gneiss::render_internal
+} // namespace gneiss::asset_internal
 
 #endif

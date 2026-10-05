@@ -8,8 +8,8 @@
 #include "tooling/asset_build/runtime_texture_builder.h"
 
 #include "asset/mesh_binary.h"
+#include "asset/png_decoder.hpp"
 #include "asset/texture_ktx2.h"
-#include "render/png_decoder.h"
 
 #include <yyjson.h>
 
@@ -230,8 +230,8 @@ void hash_bytes(std::uint64_t& hash, std::string_view bytes) noexcept {
 [[nodiscard]] bool cook_png(const source_node& node, std::vector<std::byte>& output,
                             std::string& diagnostic) {
   const auto bytes = read_bytes(node.absolute_path);
-  render_internal::decoded_png decoded;
-  if (render_internal::decode_png(bytes, decoded, diagnostic) != GNEISS_SUCCESS) {
+  asset_internal::decoded_png decoded;
+  if (asset_internal::decode_png(bytes, decoded, diagnostic) != GNEISS_SUCCESS) {
     return false;
   }
   asset_internal::texture_ktx2 texture{

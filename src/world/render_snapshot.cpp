@@ -11,12 +11,12 @@ namespace gneiss::world_internal {
 
 gneiss_result build_render_snapshot(world_state& world, std::uint32_t viewport_width,
                                     std::uint32_t viewport_height,
-                                    render_snapshot& out_snapshot) noexcept {
+                                    render_internal::render_snapshot& out_snapshot) noexcept {
   if (viewport_width == 0U || viewport_height == 0U) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
   try {
-    render_snapshot snapshot;
+    render_internal::render_snapshot snapshot;
     const auto active_camera = world.active_camera();
     if (const auto* component = world.get<camera_component>(active_camera); component != nullptr) {
       gneiss_transform transform = GNEISS_TRANSFORM_IDENTITY;

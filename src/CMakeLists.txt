@@ -91,10 +91,11 @@ target_sources(
     render/ui_draw_list.h
     render/render_asset_loader.cpp
     render/render_asset_loader.h
-    render/png_decoder.cpp
-    render/png_decoder.h
+    asset/png_decoder.cpp
+    asset/png_decoder.hpp
     render/camera_math.cpp
     render/camera_math.h
+    render/render_snapshot.hpp
     render/normal_math.cpp
     render/normal_math.h
     reflection/type_registry.cpp
@@ -228,12 +229,12 @@ if(GNEISS_ENABLE_GRANIT_PLATFORM)
       platform/granit/granit_platform.cpp
       platform/granit/granit_platform.h
       platform/native_window_info.h
-      render/granit/granit_render_service.cpp
-      render/granit/granit_render_service.h
-      render/granit/scene_projection_math.cpp
-      render/granit/scene_projection_math.h
-      render/granit/pbr_shader_resolver.cpp
-      render/granit/pbr_shader_resolver.h
+      render/backend/granit/granit_render_service.cpp
+      render/backend/granit/granit_render_service.hpp
+      render/backend/granit/scene_projection_math.cpp
+      render/backend/granit/scene_projection_math.hpp
+      render/backend/granit/pbr_shader_resolver.cpp
+      render/backend/granit/pbr_shader_resolver.hpp
       ${gneiss_pbr_embedded_sources}
       render/render_frame_packet.cpp
       render/render_frame_packet.h

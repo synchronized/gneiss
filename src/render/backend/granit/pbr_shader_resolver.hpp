@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#ifndef GNEISS_RENDER_GRANIT_PBR_SHADER_RESOLVER_H_
-#define GNEISS_RENDER_GRANIT_PBR_SHADER_RESOLVER_H_
+#ifndef GNEISS_RENDER_BACKEND_GRANIT_PBR_SHADER_RESOLVER_HPP_
+#define GNEISS_RENDER_BACKEND_GRANIT_PBR_SHADER_RESOLVER_HPP_
 
 #include <granit/core/result.h>
 
@@ -11,7 +11,7 @@
 #include <span>
 #include <vector>
 
-namespace gneiss::application_internal {
+namespace gneiss::render_internal {
 
 /** 校验并持有标准 PBR Shader Library 字节；GPU 变体解析由 Granit 负责。 */
 class pbr_shader_resolver final {
@@ -29,6 +29,6 @@ private:
   std::vector<std::byte> archive_;
 };
 
-} // namespace gneiss::application_internal
+} // namespace gneiss::render_internal
 
 #endif

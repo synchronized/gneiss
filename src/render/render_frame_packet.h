@@ -7,8 +7,8 @@
 #include "platform/native_window_info.h"
 #include "render/debug_draw_list.h"
 #include "render/render_resource_service.h"
+#include "render/render_snapshot.hpp"
 #include "render/ui_draw_list.h"
-#include "world/render_snapshot.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -24,7 +24,7 @@ public:
 
 private:
   friend gneiss_result capture_render_frame_packet(const application_internal::native_window_info&,
-                                                   world_internal::render_snapshot,
+                                                   render_internal::render_snapshot,
                                                    const render_resource_service&,
                                                    const ui_draw_list&, const debug_draw_list&,
                                                    struct render_frame_packet&) noexcept;
@@ -51,7 +51,7 @@ struct render_frame_packet final {
   /** 由执行器在接受帧时写入，用于关联延迟返回的渲染结果。 */
   std::uint64_t sequence{};
   application_internal::native_window_info window;
-  world_internal::render_snapshot scene;
+  render_internal::render_snapshot scene;
   render_resource_snapshot resources;
   ui_draw_list ui;
   debug_draw_list debug;
@@ -61,7 +61,7 @@ struct render_frame_packet final {
 
 [[nodiscard]] gneiss_result
 capture_render_frame_packet(const application_internal::native_window_info& window,
-                            world_internal::render_snapshot scene,
+                            render_internal::render_snapshot scene,
                             const render_resource_service& resources, const ui_draw_list& ui,
                             const debug_draw_list& debug, render_frame_packet& out_packet) noexcept;
 

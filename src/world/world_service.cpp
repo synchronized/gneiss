@@ -508,7 +508,7 @@ gneiss_result entity_set_local_transform(gneiss_world world, gneiss_entity_id en
 
 gneiss_result get_render_snapshot(gneiss_world world, std::uint32_t viewport_width,
                                   std::uint32_t viewport_height,
-                                  render_snapshot& out_snapshot) noexcept {
+                                  render_internal::render_snapshot& out_snapshot) noexcept {
   try {
     auto& registry = get_world_registry();
     const std::scoped_lock lock{registry.mutex};

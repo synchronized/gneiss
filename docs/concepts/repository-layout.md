@@ -42,12 +42,21 @@ Engine Library 不得反向依赖它们。Editor 的 ImGui Context、字体、�
 | Scene | `src/scene/` | Scene Tree、节点映射与层级 Transform | 已存在 |
 | Application | `src/application/` | 顶层生命周期、初始化回滚和主循环编排 | 已存在 |
 | Platform | `src/platform/` | 窗口、事件和时间等平台能力的隔离 | 已存在 |
-| Resource | `src/resource/` | 资源状态、缓存和加载生命周期 | 规划 |
-| Render | `src/render/` | Render Service 与渲染数据提取 | 已存在 |
-| Granit 后端 | `src/render/granit/` | Granit 类型、调用和错误转换的隔离 | 已存在 |
+| Asset | `src/asset/` | VFS、格式、CPU 解码、缓存及加载任务 | 已存在 |
+| Render | `src/render/` | 渲染输入快照、资源 RID、帧包与执行器 | 已存在 |
+| Reflection | `src/reflection/` | 唯一类型注册表与属性访问 | 已存在 |
+| C ABI | `src/api/c/` | 公开描述适配、异常隔离及内部入口委托 | 已存在 |
+| Tooling | `src/tooling/` | 离线资产处理实现 | 已存在 |
+| Granit 后端 | `src/render/backend/granit/` | Granit 类型、调用和错误转换的隔离 | 已存在 |
 
-Platform 的 Granit Window 适配位于 `src/platform/granit/`；`src/render/granit/` 只负责
-渲染后端，两者不共享原生对象所有权。
+Platform 的 Granit Window 适配位于 `src/platform/granit/`；`src/render/backend/granit/` 只负责
+渲染后端，两者不共享原生对象所有权。渲染快照的值类型位于 `src/render/render_snapshot.hpp`，
+World 的提取函数位于 `src/world/render_snapshot.hpp`，Render 不反向包含 World/Scene/Application。
+`src/asset/png_decoder.hpp` 提供 CPU 解码，Cook 与运行时加载共用；解码不依赖渲染服务。
+
+`render_asset_loader` 暂仍位于 Render，它连接 Asset 缓存租约与 Render 资源发布，并不只是格式
+解码器。其 CPU 准备接口与发布接口的进一步拆分属于 [0.45 实施计划](../plans/DEV-045-cpp-boundaries.md)，
+不能把搬移 PNG 描述为整个加载系统分层已完成。
 
 测试优先镜像被验证模块，例如 `tests/core/`、`tests/world/` 和 `tests/scene/`。公共头独立编译测试
 统一位于 `tests/headers/`，跨模块生命周期与端到端测试进入 `tests/integration/`。只有出现对应测试
@@ -55,15 +64,11 @@ Platform 的 Granit Window 适配位于 `src/platform/granit/`；`src/render/gra
 
 ## 长期扩展边界
 
-以下模块不属于当前 `0.1.0` 能力，待真实用例和独立 Plan 出现后再创建：
+以下模块仍待真实用例和独立 Plan，不代表当前能力：
 
-- `src/reflection/`：维护类型 Schema、字段元数据和运行时属性访问。
 - `src/serialization/`：消费稳定 Schema，负责版本化数据格式、迁移和读写。
-- `apps/editor/`：独立编辑器宿主、Inspector、撤销重做及工具工作流。
-- `apps/runtime/`：独立游戏运行宿主和发布入口。
 - `src/ui/`：正式 UI 运行时；临时诊断 UI 不自动成为该模块。
 - `src/audio/`、`src/physics/`、`src/network/`、`src/script/`：按真实需求引入的独立 Service。
-- `tools/`：资产构建、代码生成或其他可独立运行的开发工具。
 
 长期依赖方向固定为：Serialization 可以依赖 Reflection；Editor 可以依赖运行时、Reflection 和
 Serialization；运行时核心不得反向依赖 Editor。Reflection 只描述类型，不负责具体文件格式；

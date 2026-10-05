@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "render/granit/scene_projection_math.h"
+#include "render/backend/granit/scene_projection_math.hpp"
 
 #include <array>
 #include <cmath>
 
-namespace gneiss::application_internal {
+namespace gneiss::render_internal {
 namespace {
 
 constexpr std::size_t matrix_index(std::size_t row, std::size_t column) noexcept {
@@ -67,4 +67,4 @@ bool build_model_matrices(const gneiss_transform& transform, render_internal::ma
   return true;
 }
 
-} // namespace gneiss::application_internal
+} // namespace gneiss::render_internal

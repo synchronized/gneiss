@@ -26,11 +26,14 @@
 #include <span>
 #include <thread>
 
+namespace gneiss::render_internal {
+class granit_render_service;
+}
+
 namespace gneiss::application_internal {
 
 #ifdef GNEISS_HAS_GRANIT_PLATFORM
 class granit_platform;
-class granit_render_service;
 #endif
 
 class application_state final {
@@ -157,7 +160,7 @@ private:
   std::unique_ptr<log_internal::log_dispatcher> log_dispatcher_;
 #ifdef GNEISS_HAS_GRANIT_PLATFORM
   std::unique_ptr<granit_platform> granit_platform_;
-  std::unique_ptr<granit_render_service> granit_render_service_;
+  std::unique_ptr<render_internal::granit_render_service> granit_render_service_;
 #endif
 };
 

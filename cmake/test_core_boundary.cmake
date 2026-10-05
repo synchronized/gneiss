@@ -3,8 +3,10 @@
 
 cmake_minimum_required(VERSION 3.23)
 set(fixture "${GNEISS_BINARY_DIR}/core-boundary-fixture")
-file(MAKE_DIRECTORY "${fixture}/src/core" "${fixture}/src/world" "${fixture}/src/application" "${fixture}/src/reflection")
+file(MAKE_DIRECTORY "${fixture}/src/core" "${fixture}/src/world" "${fixture}/src/application" "${fixture}/src/reflection" "${fixture}/src/render" "${fixture}/src/asset")
 # 清除上一次失败用例遗留的内容，保证反例可重复执行。
+file(WRITE "${fixture}/src/render/probe.cpp" "#include <gneiss/render.h>\n")
+file(WRITE "${fixture}/src/asset/png_decoder.cpp" "#include <gneiss/core/result.h>\n")
 file(WRITE "${fixture}/src/reflection/probe.cpp" "#include <gneiss/reflection.h>\n")
 file(WRITE "${fixture}/src/world/probe.cpp" "#include <gneiss/render.h>\n")
 file(WRITE "${fixture}/src/application/probe.cpp" "#include <gneiss/application.h>\n")
@@ -73,3 +75,22 @@ foreach(content IN ITEMS "extern \"C\" int forbidden();" "#include <gneiss/refle
   endif()
 endforeach()
 file(WRITE "${fixture}/src/reflection/probe.cpp" "#include <gneiss/reflection.h>\n")
+
+foreach(layer IN ITEMS world scene application)
+  file(WRITE "${fixture}/src/render/probe.cpp" "#include \"${layer}/state.hpp\"\n")
+  execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
+    -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
+    RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
+  if(status EQUAL 0)
+    message(FATAL_ERROR "边界检查未拒绝 Render 反向依赖 ${layer}")
+  endif()
+endforeach()
+file(WRITE "${fixture}/src/render/probe.cpp" "#include <gneiss/render.h>\n")
+file(WRITE "${fixture}/src/asset/png_decoder.cpp" "#include \"render/resource.hpp\"\n")
+execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
+  -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
+  RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
+if(status EQUAL 0)
+  message(FATAL_ERROR "边界检查未拒绝 PNG 解码依赖 Render")
+endif()
+file(WRITE "${fixture}/src/asset/png_decoder.cpp" "#include <gneiss/core/result.h>\n")

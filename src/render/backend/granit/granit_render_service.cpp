@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "render/granit/granit_render_service.h"
+#include "render/backend/granit/granit_render_service.hpp"
 
 #include "asset/texture_container.h"
 #include "log/log_dispatcher.h"
@@ -27,7 +27,7 @@
 #include <span>
 #include <vector>
 
-namespace gneiss::application_internal {
+namespace gneiss::render_internal {
 namespace {
 
 static_assert(GRANIT_VERSION_MAJOR > 0 || GRANIT_VERSION_MINOR >= 44,
@@ -856,11 +856,11 @@ gneiss_result granit_render_service::discard_prepared_textures(
   }
 }
 
-gneiss_result granit_render_service::initialize(const native_window_info& window,
-                                                std::span<const std::byte> environment_asset,
-                                                float environment_intensity,
-                                                float environment_rotation_radians,
-                                                log_internal::log_dispatcher* log) noexcept {
+gneiss_result
+granit_render_service::initialize(const application_internal::native_window_info& window,
+                                  std::span<const std::byte> environment_asset,
+                                  float environment_intensity, float environment_rotation_radians,
+                                  log_internal::log_dispatcher* log) noexcept {
   log_ = log;
   const auto executor_result =
       executor_.initialize([this](render_internal::render_frame_packet& packet,
@@ -1037,10 +1037,11 @@ gneiss_result granit_render_service::shutdown(granit::renderer_resource_stats& s
   return completion.status;
 }
 
-gneiss_result granit_render_service::initialize_gpu(const native_window_info& window,
-                                                    std::span<const std::byte> environment_asset,
-                                                    float environment_intensity,
-                                                    float environment_rotation_radians) noexcept {
+gneiss_result
+granit_render_service::initialize_gpu(const application_internal::native_window_info& window,
+                                      std::span<const std::byte> environment_asset,
+                                      float environment_intensity,
+                                      float environment_rotation_radians) noexcept {
   auto result = renderer_.initialize({.application_name = "Gneiss",
                                       .enable_validation = false,
                                       .presentation = granit::presentation_mode::enabled});
@@ -1065,15 +1066,15 @@ gneiss_result granit_render_service::initialize_gpu(const native_window_info& wi
   texture_profile_.generation = device_generation.fetch_add(1U, std::memory_order_relaxed) + 1U;
 
   switch (window.backend) {
-  case native_window_backend::win32:
+  case application_internal::native_window_backend::win32:
     result =
         surface_.initialize(renderer_, granit::surface_desc::win32(window.display, window.window));
     break;
-  case native_window_backend::xcb:
+  case application_internal::native_window_backend::xcb:
     result = surface_.initialize(renderer_,
                                  granit::surface_desc::xcb(window.display, window.xcb_window));
     break;
-  case native_window_backend::wayland:
+  case application_internal::native_window_backend::wayland:
     result = surface_.initialize(renderer_,
                                  granit::surface_desc::wayland(window.display, window.window));
     break;
@@ -1539,4 +1540,4 @@ granit_render_service::execute_frame(render_internal::render_frame_packet& packe
   return map_result(result);
 }
 
-} // namespace gneiss::application_internal
+} // namespace gneiss::render_internal

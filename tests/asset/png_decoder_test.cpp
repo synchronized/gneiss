@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "render/png_decoder.h"
+#include "asset/png_decoder.hpp"
 
 #include <array>
 #include <cstddef>
@@ -20,23 +20,22 @@ int main() {
   for (const auto value : png) {
     bytes.push_back(static_cast<std::byte>(value));
   }
-  gneiss::render_internal::decoded_png image;
+  gneiss::asset_internal::decoded_png image;
   std::string message;
-  if (gneiss::render_internal::decode_png(bytes, image, message) != GNEISS_SUCCESS ||
+  if (gneiss::asset_internal::decode_png(bytes, image, message) != GNEISS_SUCCESS ||
       image.width != 1U || image.height != 1U || image.pixels.size() != 4U || !message.empty()) {
     return 1;
   }
-  if (gneiss::render_internal::decode_png(bytes, image, message, 3U) !=
-          GNEISS_ERROR_OUT_OF_MEMORY ||
+  if (gneiss::asset_internal::decode_png(bytes, image, message, 3U) != GNEISS_ERROR_OUT_OF_MEMORY ||
       image.width != 0U || !image.pixels.empty() || message.empty()) {
     return 3;
   }
-  if (gneiss::render_internal::decode_png(bytes, image, message, 4U) != GNEISS_SUCCESS ||
+  if (gneiss::asset_internal::decode_png(bytes, image, message, 4U) != GNEISS_SUCCESS ||
       image.pixels.size() != 4U) {
     return 4;
   }
   bytes.resize(16);
-  if (gneiss::render_internal::decode_png(bytes, image, message) != GNEISS_ERROR_INVALID_ARGUMENT ||
+  if (gneiss::asset_internal::decode_png(bytes, image, message) != GNEISS_ERROR_INVALID_ARGUMENT ||
       image.width != 0U || image.height != 0U || !image.pixels.empty() || message.empty()) {
     return 2;
   }

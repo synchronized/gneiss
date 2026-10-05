@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "render/granit/scene_projection_math.h"
+#include "render/backend/granit/scene_projection_math.hpp"
 
 #include <cmath>
 
@@ -12,7 +12,7 @@ bool near(float left, float right) { return std::abs(left - right) < 0.0001F; }
 } // namespace
 
 int main() {
-  using gneiss::application_internal::build_model_matrices;
+  using gneiss::render_internal::build_model_matrices;
   using gneiss::render_internal::matrix4;
 
   gneiss_transform transform{};

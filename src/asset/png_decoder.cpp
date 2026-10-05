@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "render/png_decoder.h"
+#include "asset/png_decoder.hpp"
 
 #include <spng.h>
 
@@ -9,7 +9,7 @@
 #include <memory>
 #include <new>
 
-namespace gneiss::render_internal {
+namespace gneiss::asset_internal {
 namespace {
 
 constexpr std::uint32_t maximum_dimension = 16384U;
@@ -86,4 +86,4 @@ gneiss_result decode_png(const std::vector<std::byte>& bytes, decoded_png& out_i
   }
 }
 
-} // namespace gneiss::render_internal
+} // namespace gneiss::asset_internal

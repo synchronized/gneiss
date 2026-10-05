@@ -44,6 +44,9 @@
 
 ## M-295：Render、Asset 与其他模块
 
+Render 快照、PNG 解码与 Granit 目录子项见 [迁移记录](../records/M-295-render-asset-layout.md)；
+加载准备与发布接口、其余内部头及语义配置仍待完成。
+
 - 将解码、格式解析、资源加载与 GPU 生命周期按 ADR 分开，先记录允许依赖再搬文件。
 - Granit 适配进入 Render 私有后端，Platform 的窗口适配维持独立所有权。
 - 保持 CPU 准备、上传回执、纹理租约、场景候选和预算计数语义；不借重构重新实现加载系统。

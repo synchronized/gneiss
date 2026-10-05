@@ -4,10 +4,11 @@
 #include "application/application_state.hpp"
 
 #include "asset/native_file_system.h"
+#include "world/render_snapshot.hpp"
 
 #ifdef GNEISS_HAS_GRANIT_PLATFORM
 #include "platform/granit/granit_platform.h"
-#include "render/granit/granit_render_service.h"
+#include "render/backend/granit/granit_render_service.hpp"
 #endif
 
 #include <chrono>
@@ -51,7 +52,7 @@ gneiss_result application_state::attach_task_executor(tasks::task_executor& exec
         return granit_render_service_->discard_prepared_textures(std::move(data), sequence);
       };
       backend.profile = granit_render_service_->texture_profile();
-      backend.estimate_bytes = granit_render_service::estimate_upload_bytes;
+      backend.estimate_bytes = render_internal::granit_render_service::estimate_upload_bytes;
       backend.elapsed_ms = [this] { return granit_render_service_->latest_texture_upload_ms(); };
       backend.flush = [this] { (void)granit_render_service_->finish_frames(); };
     } else
@@ -178,7 +179,7 @@ gneiss_result application_state::initialize() noexcept {
       return platform_result;
     }
     try {
-      granit_render_service_ = std::make_unique<granit_render_service>();
+      granit_render_service_ = std::make_unique<render_internal::granit_render_service>();
     } catch (const std::bad_alloc&) {
       granit_platform_.reset();
       return GNEISS_ERROR_OUT_OF_MEMORY;
@@ -394,7 +395,7 @@ gneiss_result application_state::capture_frame(std::uint32_t width, std::uint32_
     window.width = width;
     window.height = height;
     window.needs_recreate = false;
-    world_internal::render_snapshot snapshot;
+    render_internal::render_snapshot snapshot;
     auto result = world_internal::get_render_snapshot(world(), width, height, snapshot);
     if (result != GNEISS_SUCCESS) {
       return result;
@@ -450,7 +451,7 @@ gneiss_result application_state::render_frame() noexcept {
   if (storage_result != GNEISS_SUCCESS || !should_prepare) {
     return storage_result;
   }
-  world_internal::render_snapshot snapshot;
+  render_internal::render_snapshot snapshot;
   const auto snapshot_result =
       world_internal::get_render_snapshot(world(), window.width, window.height, snapshot);
   if (snapshot_result != GNEISS_SUCCESS) {

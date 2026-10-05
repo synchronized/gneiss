@@ -52,7 +52,7 @@ int main() {
     return 3;
   }
 
-  gneiss::world_internal::render_snapshot scene;
+  gneiss::render_internal::render_snapshot scene;
   scene.has_camera = true;
   scene.instances.push_back(
       {.mesh = mesh, .material = material, .transform = GNEISS_TRANSFORM_IDENTITY});

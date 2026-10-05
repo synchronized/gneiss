@@ -1,19 +1,18 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#ifndef GNEISS_RENDER_GRANIT_GRANIT_RENDER_SERVICE_H_
-#define GNEISS_RENDER_GRANIT_GRANIT_RENDER_SERVICE_H_
+#ifndef GNEISS_RENDER_BACKEND_GRANIT_GRANIT_RENDER_SERVICE_HPP_
+#define GNEISS_RENDER_BACKEND_GRANIT_GRANIT_RENDER_SERVICE_HPP_
 
-#include "platform/granit/granit_platform.h"
+#include "platform/native_window_info.h"
+#include "render/backend/granit/pbr_shader_resolver.hpp"
+#include "render/backend/granit/scene_projection_math.hpp"
 #include "render/debug_draw_list.h"
-#include "render/granit/pbr_shader_resolver.h"
-#include "render/granit/scene_projection_math.h"
 #include "render/render_asset_loader.h"
 #include "render/render_executor.h"
 #include "render/render_frame_packet.h"
 #include "render/render_resource_service.h"
 #include "render/ui_draw_list.h"
-#include "world/render_snapshot.hpp"
 
 #include <gneiss/core/result.h>
 
@@ -38,11 +37,11 @@ namespace gneiss::log_internal {
 class log_dispatcher;
 }
 
-namespace gneiss::application_internal {
+namespace gneiss::render_internal {
 
 class granit_render_service final {
 public:
-  [[nodiscard]] gneiss_result initialize(const native_window_info& window,
+  [[nodiscard]] gneiss_result initialize(const application_internal::native_window_info& window,
                                          std::span<const std::byte> environment_asset = {},
                                          float environment_intensity = 1.0F,
                                          float environment_rotation_radians = 0.0F,
@@ -83,7 +82,7 @@ public:
 
 private:
   double latest_texture_upload_ms_{};
-  [[nodiscard]] gneiss_result initialize_gpu(const native_window_info& window,
+  [[nodiscard]] gneiss_result initialize_gpu(const application_internal::native_window_info& window,
                                              std::span<const std::byte> environment_asset,
                                              float environment_intensity,
                                              float environment_rotation_radians) noexcept;
@@ -192,6 +191,6 @@ private:
   bool pending_recreate_{};
 };
 
-} // namespace gneiss::application_internal
+} // namespace gneiss::render_internal
 
 #endif

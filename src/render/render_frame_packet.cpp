@@ -45,7 +45,7 @@ render_resource_snapshot::get_texture(gneiss_texture texture) const noexcept {
 }
 
 gneiss_result capture_render_frame_packet(const application_internal::native_window_info& window,
-                                          world_internal::render_snapshot scene,
+                                          render_internal::render_snapshot scene,
                                           const render_resource_service& resources,
                                           const ui_draw_list& ui, const debug_draw_list& debug,
                                           render_frame_packet& out_packet) noexcept {
@@ -94,7 +94,7 @@ gneiss_result capture_render_frame_packet(const application_internal::native_win
       }
     }
     std::size_t copied_payload_bytes =
-        candidate.scene.instances.size() * sizeof(world_internal::render_instance_snapshot) +
+        candidate.scene.instances.size() * sizeof(render_internal::render_instance_snapshot) +
         candidate.ui.vertices().size() * sizeof(gneiss_ui_vertex) +
         candidate.ui.indices().size() * sizeof(std::uint32_t) +
         candidate.ui.commands().size() * sizeof(gneiss_ui_draw_command) +
