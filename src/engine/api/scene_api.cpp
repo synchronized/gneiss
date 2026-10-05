@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "engine/api/scene_query_conversion.hpp"
 #include "engine/function/application/application_registry.hpp"
 #include "engine/function/application/application_state.hpp"
 
@@ -133,9 +134,20 @@ gneiss_scene_instance_get_node_info(gneiss_application application, gneiss_scene
   try {
     auto state = find_application(application);
     const auto validation_result = validate_application(state);
-    return validation_result == GNEISS_SUCCESS
-               ? state->scenes()->get_node_info(instance, index, out_info)
-               : validation_result;
+    if (validation_result != GNEISS_SUCCESS) {
+      return validation_result;
+    }
+    using gneiss::scene_internal::node_query_detail;
+    auto detail = node_query_detail::identity;
+    if (out_info->struct_size >= GNEISS_SCENE_INSTANCE_NODE_INFO_VERSION_3_SIZE) {
+      detail = node_query_detail::components;
+    } else if (out_info->struct_size >= GNEISS_SCENE_INSTANCE_NODE_INFO_VERSION_2_SIZE) {
+      detail = node_query_detail::assets;
+    }
+    gneiss::scene_internal::scene_node_view value;
+    const auto result = state->scenes()->get_node_info(instance, index, value, detail);
+    gneiss::api::write_scene_node(value, *out_info);
+    return result;
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;
   }
@@ -169,9 +181,13 @@ gneiss_scene_instance_get_prefab_node_info(gneiss_application application,
   try {
     auto state = find_application(application);
     const auto validation_result = validate_application(state);
-    return validation_result == GNEISS_SUCCESS
-               ? state->scenes()->get_prefab_node_info(instance, index, out_info)
-               : validation_result;
+    if (validation_result != GNEISS_SUCCESS) {
+      return validation_result;
+    }
+    gneiss::scene_internal::prefab_node_view value;
+    const auto result = state->scenes()->get_prefab_node_info(instance, index, value);
+    gneiss::api::write_prefab_node(value, *out_info);
+    return result;
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;
   }

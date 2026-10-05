@@ -64,8 +64,8 @@ void run() {
   check(active->initialize() == GNEISS_SUCCESS);
   gneiss_scene_instance old_scene{};
   check(active->scenes->load("asset://s.scene", &old_scene) == GNEISS_SUCCESS);
-  gneiss_scene_instance_node_info old_info = GNEISS_SCENE_INSTANCE_NODE_INFO_INIT;
-  check(active->scenes->get_node_info(old_scene, 0U, &old_info) == GNEISS_SUCCESS);
+  scene_internal::scene_node_view old_info;
+  check(active->scenes->get_node_info(old_scene, 0U, old_info) == GNEISS_SUCCESS);
   render_internal::material_asset_lease old_material;
   render_internal::asset_diagnostic diagnostic;
   check(active->assets.acquire_material("asset://m.material", old_material, diagnostic) ==

@@ -536,8 +536,8 @@ gneiss_result scene_instance::reload_prefab(std::string_view uri) {
   return GNEISS_SUCCESS;
 }
 
-gneiss_result scene_instance::get_node_info(std::uint64_t index,
-                                            gneiss_scene_instance_node_info& out_info) const {
+gneiss_result scene_instance::get_node_info(std::uint64_t index, scene_node_view& out_info,
+                                            node_query_detail detail) const {
   if (index >= objects.size()) {
     return GNEISS_ERROR_NOT_FOUND;
   }
@@ -555,21 +555,16 @@ gneiss_result scene_instance::get_node_info(std::uint64_t index,
   out_info.node = object.node;
   out_info.parent = parent;
   out_info.entity = entity;
-  out_info.uuid = object.uuid.data();
-  out_info.uuid_length = object.uuid.size();
-  out_info.name = object.name.empty() ? nullptr : object.name.data();
-  out_info.name_length = object.name.size();
-  if (out_info.struct_size >= GNEISS_SCENE_INSTANCE_NODE_INFO_VERSION_2_SIZE) {
+  out_info.uuid = object.uuid;
+  out_info.name = object.name;
+  if (detail != node_query_detail::identity) {
     const auto& author = description.objects[static_cast<std::size_t>(index)];
-    out_info.mesh_uri = author.mesh_renderer ? author.mesh_renderer->mesh_uri.data() : nullptr;
-    out_info.mesh_uri_length =
-        author.mesh_renderer ? author.mesh_renderer->mesh_uri.size() : UINT64_C(0);
-    out_info.material_uri =
-        author.mesh_renderer ? author.mesh_renderer->material_uri.data() : nullptr;
-    out_info.material_uri_length =
-        author.mesh_renderer ? author.mesh_renderer->material_uri.size() : UINT64_C(0);
+    if (author.mesh_renderer) {
+      out_info.mesh_uri = author.mesh_renderer->mesh_uri;
+      out_info.material_uri = author.mesh_renderer->material_uri;
+    }
   }
-  if (out_info.struct_size >= GNEISS_SCENE_INSTANCE_NODE_INFO_VERSION_3_SIZE) {
+  if (detail == node_query_detail::components) {
     const auto& author = description.objects[static_cast<std::size_t>(index)];
     result = gneiss::world_internal::entity_get_local_transform(world_, entity,
                                                                 out_info.local_transform);
@@ -585,10 +580,12 @@ gneiss_result scene_instance::get_node_info(std::uint64_t index,
       if (result != GNEISS_SUCCESS) {
         return result;
       }
-      out_info.camera = GNEISS_CAMERA_DESC_INIT;
-      out_info.camera.vertical_field_of_view_radians = camera.vertical_field_of_view_radians;
-      out_info.camera.near_plane = camera.near_plane;
-      out_info.camera.far_plane = camera.far_plane;
+      out_info.camera = camera_description{
+          .vertical_field_of_view_radians = camera.vertical_field_of_view_radians,
+          .near_plane = camera.near_plane,
+          .far_plane = camera.far_plane,
+          .is_primary = author.camera->is_primary,
+      };
       out_info.component_flags |= GNEISS_SCENE_NODE_COMPONENT_CAMERA;
       if (author.camera->is_primary) {
         out_info.component_flags |= GNEISS_SCENE_NODE_COMPONENT_PRIMARY_CAMERA;
@@ -607,7 +604,7 @@ std::uint64_t scene_instance::get_prefab_node_count() const noexcept {
 }
 
 gneiss_result scene_instance::get_prefab_node_info(std::uint64_t index,
-                                                   gneiss_scene_prefab_node_info& out_info) const {
+                                                   prefab_node_view& out_info) const {
   std::uint64_t offset = 0;
   for (std::size_t instance_index = 0; instance_index < prefab_instances.size(); ++instance_index) {
     const auto& runtime = *prefab_instances[instance_index];
@@ -627,12 +624,9 @@ gneiss_result scene_instance::get_prefab_node_info(std::uint64_t index,
       out_info.node = runtime.root();
       out_info.parent = parent;
       out_info.entity = runtime.root_entity();
-      out_info.instance_uuid = author.instance_uuid.data();
-      out_info.instance_uuid_length = author.instance_uuid.size();
-      out_info.name = author.name.empty() ? nullptr : author.name.data();
-      out_info.name_length = author.name.size();
-      out_info.prefab_uri = author.prefab_uri.data();
-      out_info.prefab_uri_length = author.prefab_uri.size();
+      out_info.instance_uuid = author.instance_uuid;
+      out_info.name = author.name;
+      out_info.prefab_uri = author.prefab_uri;
       out_info.local_transform = transform;
       return GNEISS_SUCCESS;
     }
@@ -647,14 +641,10 @@ gneiss_result scene_instance::get_prefab_node_info(std::uint64_t index,
       out_info.node = source.node;
       out_info.parent = source.parent;
       out_info.entity = source.entity;
-      out_info.instance_uuid = source.address->instance_uuid.data();
-      out_info.instance_uuid_length = source.address->instance_uuid.size();
-      out_info.source_node_uuid = source.address->source_node_uuid.data();
-      out_info.source_node_uuid_length = source.address->source_node_uuid.size();
-      out_info.name = source.name.empty() ? nullptr : source.name.data();
-      out_info.name_length = source.name.size();
-      out_info.prefab_uri = author.prefab_uri.data();
-      out_info.prefab_uri_length = author.prefab_uri.size();
+      out_info.instance_uuid = source.address->instance_uuid;
+      out_info.source_node_uuid = source.address->source_node_uuid;
+      out_info.name = source.name;
+      out_info.prefab_uri = author.prefab_uri;
       const auto* source_object = runtime.find_source_object(source.address->source_node_uuid);
       if (source_object == nullptr) {
         return GNEISS_ERROR_INVALID_STATE;
@@ -1772,18 +1762,13 @@ scene_instance_service::get_prefab_node_count(gneiss_scene_instance instance,
   return GNEISS_SUCCESS;
 }
 
-gneiss_result scene_instance_service::get_prefab_node_info(
-    gneiss_scene_instance instance, std::uint64_t index,
-    gneiss_scene_prefab_node_info* out_info) const noexcept {
-  if (out_info == nullptr || out_info->struct_size < sizeof(gneiss_scene_prefab_node_info)) {
-    return GNEISS_ERROR_INVALID_ARGUMENT;
-  }
-  const auto struct_size = out_info->struct_size;
-  *out_info = GNEISS_SCENE_PREFAB_NODE_INFO_INIT;
-  out_info->struct_size = struct_size;
+gneiss_result
+scene_instance_service::get_prefab_node_info(gneiss_scene_instance instance, std::uint64_t index,
+                                             prefab_node_view& out_info) const noexcept {
+  out_info = {};
   const auto* value = instances_.get(instance, core::resource_type::scene_instance);
   return value == nullptr || *value == nullptr ? GNEISS_ERROR_INVALID_HANDLE
-                                               : (*value)->get_prefab_node_info(index, *out_info);
+                                               : (*value)->get_prefab_node_info(index, out_info);
 }
 
 gneiss_result
@@ -1891,42 +1876,15 @@ scene_instance_service::release_prefab_refresh(gneiss_scene_instance instance,
                                                : (*value)->release_prefab_refresh(token);
 }
 
-gneiss_result
-scene_instance_service::get_node_info(gneiss_scene_instance instance, std::uint64_t index,
-                                      gneiss_scene_instance_node_info* out_info) const noexcept {
-  if (out_info == nullptr ||
-      out_info->struct_size < GNEISS_SCENE_INSTANCE_NODE_INFO_VERSION_1_SIZE) {
-    return GNEISS_ERROR_INVALID_ARGUMENT;
-  }
-  const auto struct_size = out_info->struct_size;
-  out_info->reserved = 0U;
-  out_info->node = GNEISS_NULL_SCENE_NODE_ID;
-  out_info->parent = GNEISS_NULL_SCENE_NODE_ID;
-  out_info->entity = GNEISS_NULL_ENTITY_ID;
-  out_info->uuid = nullptr;
-  out_info->uuid_length = 0U;
-  out_info->name = nullptr;
-  out_info->name_length = 0U;
-  out_info->reserved_2[0] = 0U;
-  out_info->reserved_2[1] = 0U;
-  if (struct_size >= GNEISS_SCENE_INSTANCE_NODE_INFO_VERSION_2_SIZE) {
-    out_info->mesh_uri = nullptr;
-    out_info->mesh_uri_length = 0U;
-    out_info->material_uri = nullptr;
-    out_info->material_uri_length = 0U;
-  }
-  if (struct_size >= GNEISS_SCENE_INSTANCE_NODE_INFO_VERSION_3_SIZE) {
-    out_info->local_transform = GNEISS_TRANSFORM_IDENTITY;
-    out_info->component_flags = 0U;
-    out_info->reserved_3 = 0U;
-    out_info->camera = GNEISS_CAMERA_DESC_INIT;
-  }
-  out_info->struct_size = struct_size;
+gneiss_result scene_instance_service::get_node_info(gneiss_scene_instance instance,
+                                                    std::uint64_t index, scene_node_view& out_info,
+                                                    node_query_detail detail) const noexcept {
+  out_info = {};
   const auto* value = instances_.get(instance, core::resource_type::scene_instance);
   if (value == nullptr || *value == nullptr) {
     return GNEISS_ERROR_INVALID_HANDLE;
   }
-  return (*value)->get_node_info(index, *out_info);
+  return (*value)->get_node_info(index, out_info, detail);
 }
 
 gneiss_result scene_instance_service::create_node(gneiss_scene_instance instance,

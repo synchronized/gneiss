@@ -31,6 +31,7 @@ target_sources(
     engine/api/mesh_description.hpp
     engine/api/texture_description.hpp
     engine/api/scene_api.cpp
+    engine/api/scene_query_conversion.hpp
     engine/api/input_api.cpp
     engine/function/application/application_registry.cpp
     engine/function/application/application_registry.hpp
@@ -120,6 +121,7 @@ target_sources(
     engine/function/scene/scene_description.cpp
     engine/function/scene/scene_description.hpp
     engine/function/scene/scene_creation.hpp
+    engine/function/scene/scene_query.hpp
     engine/function/scene/prefab_description.cpp
     engine/function/scene/prefab_description.hpp
     engine/function/scene/prefab_property_override.cpp

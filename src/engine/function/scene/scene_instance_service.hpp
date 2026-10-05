@@ -10,6 +10,7 @@
 #include "engine/function/scene/prefab_runtime_instance.hpp"
 #include "engine/function/scene/scene_creation.hpp"
 #include "engine/function/scene/scene_description.hpp"
+#include "engine/function/scene/scene_query.hpp"
 
 #include <gneiss/scene.h>
 
@@ -49,11 +50,11 @@ public:
 
   [[nodiscard]] gneiss_scene_node_id find_node(std::string_view uuid) const noexcept;
   [[nodiscard]] gneiss_result serialize(std::string& out_json) const;
-  [[nodiscard]] gneiss_result get_node_info(std::uint64_t index,
-                                            gneiss_scene_instance_node_info& out_info) const;
+  [[nodiscard]] gneiss_result get_node_info(std::uint64_t index, scene_node_view& out_info,
+                                            node_query_detail detail) const;
   [[nodiscard]] std::uint64_t get_prefab_node_count() const noexcept;
   [[nodiscard]] gneiss_result get_prefab_node_info(std::uint64_t index,
-                                                   gneiss_scene_prefab_node_info& out_info) const;
+                                                   prefab_node_view& out_info) const;
   [[nodiscard]] gneiss_result create_prefab_instance(const prefab_creation& desc,
                                                      gneiss_scene_node_id* out_root);
   [[nodiscard]] gneiss_result set_prefab_instance_name(gneiss_scene_node_id root,
@@ -139,13 +140,13 @@ public:
   [[nodiscard]] gneiss_result get_node_count(gneiss_scene_instance instance,
                                              std::uint64_t* out_count) const noexcept;
   [[nodiscard]] gneiss_result
-  get_node_info(gneiss_scene_instance instance, std::uint64_t index,
-                gneiss_scene_instance_node_info* out_info) const noexcept;
+  get_node_info(gneiss_scene_instance instance, std::uint64_t index, scene_node_view& out_info,
+                node_query_detail detail = node_query_detail::components) const noexcept;
   [[nodiscard]] gneiss_result get_prefab_node_count(gneiss_scene_instance instance,
                                                     std::uint64_t* out_count) const noexcept;
-  [[nodiscard]] gneiss_result
-  get_prefab_node_info(gneiss_scene_instance instance, std::uint64_t index,
-                       gneiss_scene_prefab_node_info* out_info) const noexcept;
+  [[nodiscard]] gneiss_result get_prefab_node_info(gneiss_scene_instance instance,
+                                                   std::uint64_t index,
+                                                   prefab_node_view& out_info) const noexcept;
   [[nodiscard]] gneiss_result create_prefab_instance(gneiss_scene_instance instance,
                                                      const prefab_creation& desc,
                                                      gneiss_scene_node_id* out_root) noexcept;

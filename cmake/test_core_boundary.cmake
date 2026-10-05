@@ -282,3 +282,15 @@ foreach(type IN ITEMS node mesh_renderer_node prefab_instance)
   endif()
 endforeach()
 file(WRITE "${fixture}/src/engine/function/scene/probe.cpp" "")
+
+foreach(type IN ITEMS instance prefab)
+  file(WRITE "${fixture}/src/engine/function/scene/probe.cpp"
+    "void query(gneiss_scene_${type}_node_info&);\n")
+  execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
+    -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
+    RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
+  if(status EQUAL 0)
+    message(FATAL_ERROR "边界检查未拒绝 Scene 消费 C 查询描述：${type}")
+  endif()
+endforeach()
+file(WRITE "${fixture}/src/engine/function/scene/probe.cpp" "")

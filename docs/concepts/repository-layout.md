@@ -88,6 +88,9 @@ Application 的 C 入口将版本化描述转换为内部 `application_configura
 World 的提取函数位于 `src/engine/function/world/render_snapshot.hpp`，Render 不反向包含 World/Scene/Application。
 `src/engine/asset/png_decoder.hpp` 提供 CPU 解码，Cook 与运行时加载共用；解码不依赖渲染服务。
 
+Scene 的节点创建使用内部借用参数，普通节点与 Prefab 查询返回内部视图。公共查询结构的版本写回
+归 `src/engine/api/scene_query_conversion.hpp`；核心查询不依据 ABI 尺寸分支。字符串寿命仍由 Scene 管理。
+
 纹理加载与上传事务由 `src/engine/function/render/texture_load_service.hpp` 组织，属于 Render 功能层；
 其依赖 Asset 的 VFS，但 Asset 不反向包含 Render。
 
