@@ -3,7 +3,7 @@
 
 #include "application/scene_load_service.hpp"
 
-#include "asset/asset_uri.h"
+#include "asset/asset_uri.hpp"
 #include "asset/source_revision_file_system.h"
 #include "asset/texture_container.h"
 

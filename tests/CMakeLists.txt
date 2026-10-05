@@ -1013,3 +1013,7 @@ target_compile_features(gneiss_reflection_boundary_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_reflection_boundary_test)
 gneiss_target_output_directories(gneiss_reflection_boundary_test)
 add_test(NAME gneiss.reflection-boundary COMMAND gneiss_reflection_boundary_test)
+
+add_test(NAME gneiss.cpp-api-inventory-negative
+  COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
+    "-DGNEISS_BINARY_DIR=${PROJECT_BINARY_DIR}" -P "${PROJECT_SOURCE_DIR}/cmake/test_cpp_inventory.cmake")

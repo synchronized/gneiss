@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#ifndef GNEISS_ASSET_ASSET_URI_H_
-#define GNEISS_ASSET_ASSET_URI_H_
+#ifndef GNEISS_ASSET_ASSET_URI_HPP_
+#define GNEISS_ASSET_ASSET_URI_HPP_
 
 #include <gneiss/core/result.h>
 

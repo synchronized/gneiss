@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "asset/texture_load_service.h"
-#include "asset/asset_uri.h"
+#include "asset/asset_uri.hpp"
 #include <algorithm>
 #include <set>
 #include <stdexcept>

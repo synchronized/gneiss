@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "game/game_context_internal.h"
+#include "game/game_context_internal.hpp"
 
 #include <gneiss/application.h>
 #include <gneiss/game_module.h>
@@ -81,6 +81,22 @@ int main() {
           GNEISS_ERROR_NOT_FOUND ||
       gneiss_game_context_request_exit(context) != GNEISS_SUCCESS) {
     return 3;
+  }
+
+  // 上下文身份先于动作参数校验；普通 World 查询则先检查输出指针。
+  action = 7U;
+  gneiss_action_state invalid_action_state = GNEISS_ACTION_STATE_INIT;
+  invalid_action_state.struct_size = 0U;
+  if (gneiss_game_context_find_action(context, nullptr, 0U, &action) !=
+          GNEISS_ERROR_INVALID_ARGUMENT ||
+      action != 7U ||
+      gneiss_game_context_find_action(GNEISS_NULL_GAME_CONTEXT, nullptr, 0U, nullptr) !=
+          GNEISS_ERROR_INVALID_HANDLE ||
+      gneiss_game_context_get_action_state(context, 0U, &invalid_action_state) !=
+          GNEISS_ERROR_INVALID_ARGUMENT ||
+      gneiss_game_context_get_world(GNEISS_NULL_GAME_CONTEXT, nullptr) !=
+          GNEISS_ERROR_INVALID_ARGUMENT) {
+    return 6;
   }
 
   gneiss_result cross_thread_result = GNEISS_SUCCESS;

@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "reflection/type_registry.hpp"
+
 #include "world/world_service.hpp"
 
 #include "scene/scene_instance_service.h"
@@ -658,7 +660,7 @@ gneiss_result scene_instance::get_prefab_node_info(std::uint64_t index,
         return GNEISS_ERROR_INVALID_STATE;
       }
       out_info.source_local_transform = to_transform(*source_object);
-      const auto transform_type = gneiss_transform_type_id();
+      const auto transform_type = gneiss::world_internal::transform_type_id();
       for (const auto& override_value : author.overrides) {
         if (override_value.key.node.source_node_uuid != source.address->source_node_uuid ||
             !std::ranges::equal(override_value.key.type_id.bytes, transform_type.bytes)) {
@@ -780,7 +782,7 @@ gneiss_result scene_instance::set_prefab_source_transform(gneiss_scene_node_id n
         return GNEISS_ERROR_INVALID_STATE;
       }
       auto pending = description.prefab_instances[index].overrides;
-      const auto type_id = gneiss_transform_type_id();
+      const auto type_id = gneiss::world_internal::transform_type_id();
       const std::array candidates{
           prefab_property_override{.key = {.node = *info.address,
                                            .type_id = type_id,
@@ -1576,22 +1578,27 @@ scene_instance_service::scene_instance_service(
     render_internal::render_asset_loader& loader, prefab_asset_loader& prefab_loader) noexcept
     : world_(world), file_system_(file_system), loader_(loader), prefab_loader_(prefab_loader),
       domain_(allocate_domain()), instances_(domain_) {
-  auto result = gneiss_type_registry_create(&registry_);
-  if (result == GNEISS_SUCCESS) {
-    result = gneiss_world_register_reflection(registry_);
-  }
-  if (result == GNEISS_SUCCESS) {
-    result = gneiss_type_registry_freeze(registry_);
+  gneiss_result result = GNEISS_ERROR_INTERNAL;
+  try {
+    result = gneiss::reflection_internal::create(registry_);
+    if (result == GNEISS_SUCCESS) {
+      result = gneiss::world_internal::register_reflection(registry_);
+    }
+    if (result == GNEISS_SUCCESS) {
+      result = gneiss::reflection_internal::freeze(gneiss::reflection_internal::resolve(registry_));
+    }
+  } catch (...) {
+    result = GNEISS_ERROR_INTERNAL;
   }
   if (result != GNEISS_SUCCESS && registry_ != GNEISS_NULL_TYPE_REGISTRY) {
-    (void)gneiss_type_registry_destroy(registry_);
+    (void)gneiss::reflection_internal::destroy(registry_);
     registry_ = GNEISS_NULL_TYPE_REGISTRY;
   }
 }
 
 scene_instance_service::~scene_instance_service() noexcept {
   if (registry_ != GNEISS_NULL_TYPE_REGISTRY) {
-    (void)gneiss_type_registry_destroy(registry_);
+    (void)gneiss::reflection_internal::destroy(registry_);
   }
 }
 

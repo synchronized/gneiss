@@ -3,7 +3,7 @@
 
 #include "asset/native_file_system.h"
 
-#include "asset/asset_uri.h"
+#include "asset/asset_uri.hpp"
 
 #include <algorithm>
 #include <fstream>

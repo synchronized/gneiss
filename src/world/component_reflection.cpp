@@ -181,7 +181,7 @@ make_field(gneiss_field_id id, gneiss_type_id value_type_id, std::uint32_t flags
 [[nodiscard]] gneiss_result bind(gneiss_type_registry registry, gneiss_type_id type_id,
                                  gneiss_field_id field_id, std::uint32_t kind,
                                  gneiss_property_getter getter, gneiss_property_setter setter,
-                                 const void* field) noexcept {
+                                 const void* field) {
   const gneiss::reflection_internal::property_binding accessor{
       .kind = kind, .getter = getter, .setter = setter, .user_data = const_cast<void*>(field)};
   return gneiss::reflection_internal::bind_property(gneiss::reflection_internal::resolve(registry),

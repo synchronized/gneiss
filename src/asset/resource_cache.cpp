@@ -3,7 +3,7 @@
 
 #include "asset/resource_cache.h"
 
-#include "asset/asset_uri.h"
+#include "asset/asset_uri.hpp"
 
 #include <new>
 #include <set>

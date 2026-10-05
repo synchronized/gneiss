@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "reflection/type_registry.hpp"
+
 #include "scene/prefab_property_override.h"
 
 #include <algorithm>
@@ -187,14 +189,15 @@ gneiss_property_kind prefab_property_value_kind(const prefab_property_value& val
 }
 
 gneiss_result validate_prefab_property_override(gneiss_type_registry registry,
-                                                const prefab_property_override& value) noexcept {
+                                                const prefab_property_override& value) noexcept
+    try {
   if (!is_valid_prefab_author_address(value.key.node) || is_zero_type_id(value.key.type_id) ||
       value.key.field_id == GNEISS_NULL_FIELD_ID || !valid_value(value.value)) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
   gneiss_field_info field = GNEISS_FIELD_INFO_INIT;
-  const auto found =
-      gneiss_type_registry_find_field(registry, value.key.type_id, value.key.field_id, &field);
+  const auto found = gneiss::reflection_internal::find_field(
+      gneiss::reflection_internal::resolve(registry), value.key.type_id, value.key.field_id, field);
   if (found != GNEISS_SUCCESS) {
     return found;
   }
@@ -203,6 +206,8 @@ gneiss_result validate_prefab_property_override(gneiss_type_registry registry,
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
   return GNEISS_SUCCESS;
+} catch (...) {
+  return GNEISS_ERROR_INTERNAL;
 }
 
 gneiss_result set_prefab_property_override(gneiss_type_registry registry,

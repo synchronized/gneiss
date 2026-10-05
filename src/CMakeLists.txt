@@ -43,7 +43,7 @@ target_sources(
     asset/source_revision_file_system.cpp
     asset/source_revision_file_system.h
     asset/asset_uri.cpp
-    asset/asset_uri.h
+    asset/asset_uri.hpp
     asset/file_system.h
     asset/mesh_binary.cpp
     asset/mesh_binary.h
@@ -69,9 +69,10 @@ target_sources(
     core/version.hpp
     core/result.cpp
     core/version.cpp
-    game/game_module.cpp
+    api/c/game_module_api.cpp
+    api/c/asset_api.cpp
     game/game_context.cpp
-    game/game_context_internal.h
+    game/game_context_internal.hpp
     input/input_service.cpp
     input/input_service.h
     input/action_map.cpp

@@ -348,6 +348,8 @@
 
 - [M-295：Reflection 内部注册契约与 C 适配](records/M-295-reflection-boundary.md)
 
+- [M-295：公共 C 入口集中与内部调用收口](records/M-295-c-boundary-completion.md)
+
 ## 文档维护
 
 

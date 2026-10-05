@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "reflection/type_registry.hpp"
+
 #include "world/world_service.hpp"
 
 #include "scene/prefab_runtime_instance.h"
@@ -128,7 +130,7 @@ prefab_runtime_instance::validate_reload(const prefab_asset_lease& candidate,
     }
   }
 
-  const auto camera_type = gneiss_camera_type_id();
+  const auto camera_type = gneiss::world_internal::camera_type_id();
   for (const auto& override_value : overrides) {
     if (override_value.key.node.instance_uuid != instance_uuid_) {
       return GNEISS_ERROR_INVALID_ARGUMENT;
@@ -406,7 +408,8 @@ gneiss_result prefab_runtime_instance::create(
 }
 
 gneiss_result prefab_runtime_instance::apply_overrides(
-    gneiss_type_registry registry, std::span<const prefab_property_override> overrides) noexcept {
+    gneiss_type_registry registry, std::span<const prefab_property_override> overrides) noexcept
+    try {
   for (const auto& override_value : overrides) {
     if (override_value.key.node.instance_uuid != instance_uuid_) {
       return GNEISS_ERROR_INVALID_ARGUMENT;
@@ -425,14 +428,17 @@ gneiss_result prefab_runtime_instance::apply_overrides(
     auto result = to_native_value(override_value.value, native_value);
     if (result == GNEISS_SUCCESS) {
       const gneiss_property_target target{.context = world_, .object = found->entity};
-      result = gneiss_type_registry_set_property(
-          registry, override_value.key.type_id, override_value.key.field_id, target, &native_value);
+      result = gneiss::reflection_internal::set_property(
+          gneiss::reflection_internal::resolve(registry), override_value.key.type_id,
+          override_value.key.field_id, target, native_value);
     }
     if (result != GNEISS_SUCCESS) {
       return result;
     }
   }
   return GNEISS_SUCCESS;
+} catch (...) {
+  return GNEISS_ERROR_INTERNAL;
 }
 
 gneiss_result prefab_runtime_instance::stage_assets(const prefab_description& description) {
