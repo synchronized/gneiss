@@ -84,6 +84,7 @@ Tooling、assetc、性能脚本及启动条件迁移见 [工具布局记录](../
 Runtime 层级与属性面板迁移见 [面板边界记录](../records/M-295-runtime-panels.md)。
 控制台面板与展示状态迁移见 [控制台面板记录](../records/M-295-console-panel.md)。
 Apps 私有头与共用契约收口见 [宿主边界记录](../records/M-295-apps-private-headers.md)。
+作者属性控件与撤销事务拆分见 [作者属性面板记录](../records/M-295-author-property-panel.md)。
 
 - 将解码、格式解析、资源加载与 GPU 生命周期按 ADR 分开，先记录允许依赖再搬文件。
 - Granit 适配进入 Render 私有后端，Platform 的窗口适配维持独立所有权。

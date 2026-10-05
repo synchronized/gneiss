@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "author_property_edit.hpp"
+#include "author_property_panel.hpp"
 #include "child_process.hpp"
 #include "console_panel.hpp"
 #include "editor_camera.hpp"
@@ -1016,127 +1018,21 @@ runtime_inspector_actions(editor_state& state, const gneiss::editor::runtime_sce
               }};
 }
 
-bool draw_property(editor_state& state, const gneiss::editor::inspector_component& component,
-                   const gneiss::editor::inspector_property& property, gneiss::result& error) {
-  auto value = property.value;
-  const auto writable = (property.capabilities & GNEISS_PROPERTY_CAPABILITY_WRITABLE) != 0U;
-  bool changed = false;
-  ImGui::PushID(static_cast<int>(property.id));
-  ImGui::BeginDisabled(!writable);
-  switch (property.kind) {
-  case GNEISS_PROPERTY_KIND_BOOL: {
-    auto checked = value.payload.bool_value != 0U;
-    changed = ImGui::Checkbox(property.name.c_str(), &checked);
-    value.payload.bool_value = checked ? 1U : 0U;
-    break;
-  }
-  case GNEISS_PROPERTY_KIND_FLOAT32:
-    changed = ImGui::DragFloat(property.name.c_str(), &value.payload.float32_value, 0.01F);
-    break;
-  case GNEISS_PROPERTY_KIND_VEC3:
-    changed = ImGui::DragFloat3(property.name.c_str(), &value.payload.vec3_value.x, 0.05F);
-    break;
-  case GNEISS_PROPERTY_KIND_QUATERNION: {
-    std::array<float, 3> euler{};
-    error = gneiss::editor::quaternion_to_euler_degrees(value.payload.quaternion_value, euler);
-    if (error != gneiss::result::success) {
-      break;
-    }
-    changed = ImGui::DragFloat3(property.name.c_str(), euler.data(), 0.25F, 0.0F, 0.0F, "%.1f°");
-    if (changed) {
-      error = gneiss::editor::euler_degrees_to_quaternion(euler, value.payload.quaternion_value);
-    }
-    break;
-  }
-  default:
-    ImGui::TextDisabled("%s: unsupported property kind", property.name.c_str());
-    break;
-  }
-  ImGui::EndDisabled();
-  const auto item_activated = ImGui::IsItemActivated();
-  ImGui::PopID();
-  if (item_activated) {
-    ++state.property_edit_serial;
-  }
-  if (!changed) {
-    return false;
-  }
-  if (error != gneiss::result::success) {
-    return false;
-  }
-  const auto previous = property.value;
-  const auto* selected = state.session.selected_node();
-  if (selected == nullptr) {
-    error = gneiss::result::invalid_state;
-    return false;
-  }
-  const auto uuid = selected->uuid;
-  error = state.inspector.set_value(component.type_id, property.id, value);
-  if (error != gneiss::result::success) {
-    return false;
-  }
-  const auto type_id = component.type_id;
-  const auto field_id = property.id;
-  std::string merge_key = "property:" + uuid;
-  merge_key.append(reinterpret_cast<const char*>(type_id.bytes), sizeof(type_id.bytes));
-  merge_key.append(reinterpret_cast<const char*>(&field_id), sizeof(field_id));
-  merge_key.append(reinterpret_cast<const char*>(&state.property_edit_serial),
-                   sizeof(state.property_edit_serial));
-  const auto record_result = state.history.record(
-      {.label = std::string{"修改 "} + property.name,
-       .undo =
-           [&state, uuid, type_id, field_id, previous] {
-             const auto* current = state.session.find_node(uuid);
-             if (current == nullptr) {
-               return gneiss::result::not_found;
-             }
-             const auto operation = state.inspector.set_value(state.world, current->entity, type_id,
-                                                              field_id, previous);
-             if (operation == gneiss::result::success) {
-               state.session.mark_dirty();
-             }
-             return operation;
-           },
-       .redo =
-           [&state, uuid, type_id, field_id, value] {
-             const auto* current = state.session.find_node(uuid);
-             if (current == nullptr) {
-               return gneiss::result::not_found;
-             }
-             const auto operation =
-                 state.inspector.set_value(state.world, current->entity, type_id, field_id, value);
-             if (operation == gneiss::result::success) {
-               state.session.mark_dirty();
-             }
-             return operation;
-           },
-       .merge_key = std::move(merge_key)});
-  if (record_result != gneiss::result::success) {
-    (void)state.inspector.set_value(type_id, field_id, previous);
-    error = record_result;
-    return false;
-  }
-  return true;
-}
-
 void draw_reflected_properties(editor_state& state) {
-  bool edited = false;
-  for (const auto& component : state.inspector.components()) {
-    if (!ImGui::CollapsingHeader(component.name.c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
-      continue;
-    }
-    for (const auto& property : component.properties) {
-      edited = draw_property(state, component, property, state.inspector_error) || edited;
-    }
-  }
-  if (edited) {
-    state.session.mark_dirty();
-  }
-  if (state.inspector_error != gneiss::result::success) {
-    const auto message = state.inspector_error.message();
-    ImGui::TextColored(gneiss::editor::theme_error_color(), "%.*s",
-                       static_cast<int>(message.size()), message.data());
-  }
+  gneiss::editor::draw_author_properties(
+      state.inspector.components(), state.property_edit_serial, state.inspector_error,
+      {
+          .context = &state,
+          .write =
+              [](void* context, const gneiss::editor::inspector_component& component,
+                 const gneiss::editor::inspector_property& property,
+                 const gneiss_property_value& value, std::uint64_t serial) {
+                auto& editor = *static_cast<editor_state*>(context);
+                return gneiss::editor::edit_author_property(editor.session, editor.history,
+                                                            editor.inspector, editor.world,
+                                                            component, property, value, serial);
+              },
+      });
 }
 
 #if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)

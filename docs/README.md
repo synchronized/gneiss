@@ -395,6 +395,7 @@
 - [M-294：相机设置与子树映射边界](records/M-294-scene-edit-boundary.md)
 - [M-294：内部日志输入与回调边界核对](records/M-294-log-input-boundary.md)
 - [M-295：Apps 私有头与宿主共用契约](records/M-295-apps-private-headers.md)
+- [M-295：作者属性面板与编辑事务](records/M-295-author-property-panel.md)
 
 ## 文档维护
 

@@ -3,6 +3,8 @@
 
 add_library(
   gneiss_editor_ui STATIC
+  author_property_panel.cpp
+  author_property_panel.hpp
   console_panel.cpp
   console_panel.hpp
   runtime_panels.cpp
@@ -95,6 +97,8 @@ add_library(
   gneiss_editor_session STATIC
   runtime_launch.cpp
   runtime_launch.hpp
+  author_property_edit.cpp
+  author_property_edit.hpp
   runtime_author_apply.cpp
   runtime_author_apply.hpp
   editor_session.cpp
