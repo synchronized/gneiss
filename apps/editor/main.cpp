@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/function/application/application_asset_reload_internal.hpp"
 #include "child_process.hpp"
 #include "editor_camera.hpp"
 #include "editor_command_history.hpp"
@@ -11,6 +10,7 @@
 #include "editor_session.hpp"
 #include "editor_theme.hpp"
 #include "editor_ui.hpp"
+#include "engine/function/application/application_asset_reload_internal.hpp"
 #include "imgui_adapter.hpp"
 #include "native_author_transaction.hpp"
 #include "native_dialog.h"
@@ -20,6 +20,7 @@
 #include "property_inspector_model.hpp"
 #include "runtime_author_apply.hpp"
 #include "runtime_launch.hpp"
+#include "runtime_panels.hpp"
 #include "runtime_process.h"
 #include "transform_gizmo_drag.hpp"
 #include "transform_gizmo_math.hpp"
@@ -129,8 +130,7 @@ struct editor_state {
   gneiss::editor::property_inspector_model inspector;
   gneiss_world world = GNEISS_NULL_WORLD;
   gneiss::entity_id inspected_entity;
-  gneiss::editor::runtime_object_id inspected_runtime_node;
-  std::uint64_t inspected_runtime_session = 0U;
+  gneiss::editor::runtime_scene_selection runtime_selection;
   gneiss::result inspector_error = gneiss::result::success;
   gneiss::result history_error = gneiss::result::success;
   gneiss::result prefab_author_result = gneiss::result::success;
@@ -916,8 +916,8 @@ void draw_prefab_node(editor_state& state, const gneiss::editor::prefab_node_rec
   }
   if (ImGui::IsItemClicked()) {
     (void)state.session.select(node.node);
-    state.inspected_runtime_node = {};
-    state.inspected_runtime_session = 0U;
+    state.runtime_selection.object = {};
+    state.runtime_selection.session = 0U;
   }
   if (ImGui::IsItemHovered()) {
     ImGui::SetTooltip("%s\n%s", node.prefab_uri.c_str(),
@@ -959,8 +959,8 @@ void draw_scene_node(editor_state& state, const gneiss::editor::scene_node_recor
   const auto is_open = ImGui::TreeNodeEx(node.display_name.c_str(), flags);
   if (ImGui::IsItemClicked()) {
     (void)state.session.select(node.node);
-    state.inspected_runtime_node = {};
-    state.inspected_runtime_session = 0U;
+    state.runtime_selection.object = {};
+    state.runtime_selection.session = 0U;
   }
   if (ImGui::BeginPopupContextItem("Node Actions")) {
     if (ImGui::MenuItem("Rename", "F2")) {
@@ -1026,210 +1026,39 @@ void draw_scene_node(editor_state& state, const gneiss::editor::scene_node_recor
   ImGui::PopID();
 }
 
-void draw_runtime_scene_node(editor_state& state,
-                             const std::vector<gneiss::editor::runtime_scene_node>& nodes,
-                             const gneiss::editor::runtime_scene_node& node) {
-  const auto has_children = std::ranges::any_of(
-      nodes, [&](const auto& candidate) { return candidate.parent == node.id; });
-  auto flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_SpanAvailWidth |
-               ImGuiTreeNodeFlags_FramePadding;
-  if (!has_children) {
-    flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen;
-  }
-  if (state.inspected_runtime_session == state.runtime.scene_mirror().session_id() &&
-      state.inspected_runtime_node == node.id) {
-    flags |= ImGuiTreeNodeFlags_Selected;
-  }
-  ImGui::PushID(node.uuid.c_str());
-  const auto& label = node.name.empty() ? node.uuid : node.name;
-  const auto is_open = ImGui::TreeNodeEx(label.c_str(), flags);
-  if (ImGui::IsItemClicked()) {
-    state.inspected_runtime_node = node.id;
-    state.inspected_runtime_session = state.runtime.scene_mirror().session_id();
-  }
-  if (has_children && is_open) {
-    for (const auto& child : nodes) {
-      if (child.parent == node.id) {
-        draw_runtime_scene_node(state, nodes, child);
-      }
-    }
-    ImGui::TreePop();
-  }
-  ImGui::PopID();
-}
-
-const gneiss::editor::runtime_scene_node* selected_runtime_node(const editor_state& state) noexcept {
-  const auto& mirror = state.runtime.scene_mirror();
-  if (state.inspected_runtime_session == 0U ||
-      state.inspected_runtime_session != mirror.session_id()) {
-    return nullptr;
-  }
-  const auto& nodes = mirror.nodes();
-  const auto found =
-      std::ranges::find(nodes, state.inspected_runtime_node, &gneiss::editor::runtime_scene_node::id);
-  return found == nodes.end() ? nullptr : &*found;
-}
-
-gneiss::editor::runtime_property_key runtime_transform_key(const gneiss::editor::runtime_scene_node& node,
-                                                           gneiss_field_id field_id) {
-  gneiss::editor::runtime_property_key key{.object = {node.id.value, node.id.generation}, .type_id = {}, .field_id = field_id};
-  const auto type_id = gneiss_transform_type_id();
-  std::ranges::copy(type_id.bytes, key.type_id.begin());
-  return key;
-}
-
-void draw_runtime_property_status(const gneiss::editor::runtime_property_edit* edit,
-                                  const gneiss::ipc_property_value& observed) {
-  if (edit == nullptr) {
-    return;
-  }
-  switch (edit->state) {
-  case gneiss::editor::runtime_property_edit_state::pending:
-    ImGui::TextDisabled("等待 Runtime 确认…");
-    break;
-  case gneiss::editor::runtime_property_edit_state::applied:
-    if (edit->canonical_value.payload != observed.payload) {
-      ImGui::TextColored({0.95F, 0.75F, 0.35F, 1.0F}, "已应用，但运行逻辑随后覆盖了该值");
-    } else {
-      ImGui::TextColored({0.65F, 0.9F, 0.55F, 1.0F}, "已由 Runtime 应用");
-    }
-    break;
-  case gneiss::editor::runtime_property_edit_state::rejected:
-    ImGui::TextColored({0.95F, 0.45F, 0.45F, 1.0F}, "Runtime 拒绝：%s", edit->message.c_str());
-    break;
-  case gneiss::editor::runtime_property_edit_state::timed_out:
-    ImGui::TextColored({0.95F, 0.75F, 0.35F, 1.0F}, "等待 Runtime 响应超时");
-    break;
-  case gneiss::editor::runtime_property_edit_state::disconnected:
-    ImGui::TextDisabled("Runtime 连接已断开");
-    break;
-  }
-}
-
-void draw_runtime_inspector(editor_state& state, const gneiss::editor::runtime_scene_node& node) {
-  ImGui::Text("Name: %s", node.name.empty() ? node.uuid.c_str() : node.name.c_str());
-  ImGui::Text("UUID: %s", node.uuid.c_str());
-  const auto editable = state.runtime.supports_property_editing();
-  ImGui::TextDisabled(editable ? "Runtime 实时属性" : "Runtime 只读（未协商属性编辑能力）");
-  const auto can_apply = !node.uuid.empty() && state.session.find_node(node.uuid) != nullptr;
-  ImGui::BeginDisabled(!can_apply);
-  if (ImGui::Button("应用 Transform 到作者场景")) {
-    state.history_error =
-        gneiss::editor::apply_runtime_transform_to_author(
-            state.session, state.history,
-            {node.uuid, node.prefab_instance_uuid, node.prefab_source_node_uuid, node.local_transform});
-    if (state.history_error == gneiss::result::success) {
-      synchronize_history_dirty(state);
-    }
-  }
-  ImGui::EndDisabled();
-  if (!can_apply && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
-    ImGui::SetTooltip("该 Runtime 节点没有可用的作者场景 UUID 映射");
-  }
-  ImGui::Separator();
-  if (ImGui::CollapsingHeader("Transform", ImGuiTreeNodeFlags_DefaultOpen)) {
-    auto translation = std::to_array(node.local_transform.translation);
-    auto scale = std::to_array(node.local_transform.scale);
-    gneiss_property_quaternion quaternion{
-        node.local_transform.rotation[0], node.local_transform.rotation[1],
-        node.local_transform.rotation[2], node.local_transform.rotation[3]};
-    std::array<float, 3> rotation{};
-    (void)gneiss::editor::quaternion_to_euler_degrees(quaternion, rotation);
-
-    const auto draw_vec3 = [&](const char* label, gneiss_field_id field_id,
-                               std::array<float, 3>& value, float speed) {
-      const auto observed = value;
-      const auto key = runtime_transform_key(node, field_id);
-      const auto* edit = state.runtime.property_edit(key);
-      const auto pending =
-          edit != nullptr && edit->state == gneiss::editor::runtime_property_edit_state::pending;
-      ImGui::BeginDisabled(!editable || pending);
-      ImGui::PushID(static_cast<int>(field_id));
-      (void)ImGui::DragFloat3(label, value.data(), speed);
-      const auto committed = ImGui::IsItemDeactivatedAfterEdit();
-      ImGui::PopID();
-      ImGui::EndDisabled();
-      if (committed) {
-        const auto revision = edit != nullptr && edit->revision != 0U ? edit->revision : 1U;
-        state.runtime_result = state.runtime.request_property_write(key, revision, {value});
-        state.runtime_attempted = true;
-      }
-      draw_runtime_property_status(edit, {observed});
-    };
-
-    const auto translation_key = runtime_transform_key(node, GNEISS_TRANSFORM_FIELD_TRANSLATION);
-    const auto* translation_edit = state.runtime.property_edit(translation_key);
-    ImGui::BeginDisabled(!editable || (translation_edit != nullptr &&
-                                       translation_edit->state ==
-                                           gneiss::editor::runtime_property_edit_state::pending));
-    ImGui::PushID(static_cast<int>(GNEISS_TRANSFORM_FIELD_TRANSLATION));
-    (void)ImGui::DragFloat3("Translation", translation.data(), 0.05F);
-    const auto translation_committed = ImGui::IsItemDeactivatedAfterEdit();
-    ImGui::PopID();
-    ImGui::EndDisabled();
-    if (translation_committed) {
-      const auto revision = translation_edit != nullptr && translation_edit->revision != 0U
-                                ? translation_edit->revision
-                                : 1U;
-      state.runtime_result =
-          state.runtime.request_property_write(translation_key, revision, {translation});
-      state.runtime_attempted = true;
-    }
-    draw_runtime_property_status(translation_edit,
-                                 {std::to_array(node.local_transform.translation)});
-
-    const auto rotation_key = runtime_transform_key(node, GNEISS_TRANSFORM_FIELD_ROTATION);
-    const auto* rotation_edit = state.runtime.property_edit(rotation_key);
-    ImGui::BeginDisabled(!editable || (rotation_edit != nullptr &&
-                                       rotation_edit->state ==
-                                           gneiss::editor::runtime_property_edit_state::pending));
-    ImGui::PushID(static_cast<int>(GNEISS_TRANSFORM_FIELD_ROTATION));
-    (void)ImGui::DragFloat3("Rotation (degrees)", rotation.data(), 0.25F, 0.0F, 0.0F, "%.1f°");
-    const auto rotation_committed = ImGui::IsItemDeactivatedAfterEdit();
-    ImGui::PopID();
-    ImGui::EndDisabled();
-    if (rotation_committed) {
-      gneiss_property_quaternion edited{};
-      const auto converted = gneiss::editor::euler_degrees_to_quaternion(rotation, edited);
-      if (converted == gneiss::result::success) {
-        const auto revision = rotation_edit != nullptr && rotation_edit->revision != 0U
-                                  ? rotation_edit->revision
-                                  : 1U;
-        state.runtime_result = state.runtime.request_property_write(
-            rotation_key, revision, {std::array<float, 4>{edited.x, edited.y, edited.z, edited.w}});
-      } else {
-        state.runtime_result = converted;
-      }
-      state.runtime_attempted = true;
-    }
-    draw_runtime_property_status(rotation_edit, {std::array<float, 4>{quaternion.x, quaternion.y,
-                                                                      quaternion.z, quaternion.w}});
-
-    draw_vec3("Scale", GNEISS_TRANSFORM_FIELD_SCALE, scale, 0.05F);
-  }
-  ImGui::BeginDisabled();
-  if ((node.component_flags & GNEISS_SCENE_NODE_COMPONENT_CAMERA) != 0U &&
-      ImGui::CollapsingHeader("Camera", ImGuiTreeNodeFlags_DefaultOpen)) {
-    auto field_of_view = node.camera.vertical_field_of_view_radians;
-    auto near_plane = node.camera.near_plane;
-    auto far_plane = node.camera.far_plane;
-    ImGui::PushID(static_cast<int>(GNEISS_CAMERA_FIELD_VERTICAL_FIELD_OF_VIEW_RADIANS));
-    ImGui::DragFloat("Vertical FOV (radians)", &field_of_view);
-    ImGui::PopID();
-    ImGui::PushID(static_cast<int>(GNEISS_CAMERA_FIELD_NEAR_PLANE));
-    ImGui::DragFloat("Near plane", &near_plane);
-    ImGui::PopID();
-    ImGui::PushID(static_cast<int>(GNEISS_CAMERA_FIELD_FAR_PLANE));
-    ImGui::DragFloat("Far plane", &far_plane);
-    ImGui::PopID();
-  }
-  ImGui::EndDisabled();
-  if ((node.component_flags & GNEISS_SCENE_NODE_COMPONENT_MESH_RENDERER) != 0U &&
-      ImGui::CollapsingHeader("Mesh Renderer", ImGuiTreeNodeFlags_DefaultOpen)) {
-    ImGui::TextWrapped("Mesh: %s", node.mesh_uri.empty() ? "(none)" : node.mesh_uri.c_str());
-    ImGui::TextWrapped("Material: %s",
-                       node.material_uri.empty() ? "(none)" : node.material_uri.c_str());
-  }
+gneiss::editor::runtime_inspector_actions
+runtime_inspector_actions(editor_state& state, const gneiss::editor::runtime_scene_node& node) {
+  return {.context = &state,
+          .editable = state.runtime.supports_property_editing(),
+          .can_apply_to_author =
+              !node.uuid.empty() && state.session.find_node(node.uuid) != nullptr,
+          .find_edit =
+              [](void* context, const gneiss::editor::runtime_property_key& key) {
+                return static_cast<editor_state*>(context)->runtime.property_edit(key);
+              },
+          .write_property =
+              [](void* context, const gneiss::editor::runtime_property_key& key,
+                 std::uint64_t revision, gneiss::editor::runtime_property_value value) {
+                return static_cast<editor_state*>(context)->runtime.request_property_write(
+                    key, revision, {std::move(value.payload)});
+              },
+          .apply_to_author =
+              [](void* context, const gneiss::editor::runtime_scene_node& selected) {
+                auto& editor = *static_cast<editor_state*>(context);
+                editor.history_error = gneiss::editor::apply_runtime_transform_to_author(
+                    editor.session, editor.history,
+                    {selected.uuid, selected.prefab_instance_uuid, selected.prefab_source_node_uuid,
+                     selected.local_transform});
+                if (editor.history_error == gneiss::result::success) {
+                  synchronize_history_dirty(editor);
+                }
+              },
+          .report_result =
+              [](void* context, gneiss::result status) {
+                auto& editor = *static_cast<editor_state*>(context);
+                editor.runtime_result = status;
+                editor.runtime_attempted = true;
+              }};
 }
 
 bool draw_property(editor_state& state, const gneiss::editor::inspector_component& component,
@@ -2493,11 +2322,8 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
         if (runtime_nodes.empty()) {
           ImGui::TextDisabled("Waiting for Runtime scene snapshot");
         } else {
-          for (const auto& node : runtime_nodes) {
-            if (!node.parent.is_valid()) {
-              draw_runtime_scene_node(state, runtime_nodes, node);
-            }
-          }
+          gneiss::editor::draw_runtime_hierarchy(state.runtime.scene_mirror(),
+                                                 state.runtime_selection);
         }
       }
       ImGui::SeparatorText("Author Scene");
@@ -2973,11 +2799,14 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
                          static_cast<int>(message.size()), message.data());
     }
     ImGui::Separator();
-    if (const auto* runtime_selected = selected_runtime_node(state); runtime_selected != nullptr) {
+    if (const auto* runtime_selected = gneiss::editor::selected_runtime_node(
+            state.runtime.scene_mirror(), state.runtime_selection);
+        runtime_selected != nullptr) {
       state.inspector.clear();
       state.inspected_entity = {};
       state.inspector_error = gneiss::result::success;
-      draw_runtime_inspector(state, *runtime_selected);
+      gneiss::editor::draw_runtime_inspector(*runtime_selected,
+                                             runtime_inspector_actions(state, *runtime_selected));
     } else if (const auto* prefab = state.session.selected_prefab_node(); prefab != nullptr) {
       state.inspector.clear();
       state.inspected_entity = {};

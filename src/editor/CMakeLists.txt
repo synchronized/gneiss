@@ -3,6 +3,8 @@
 
 add_library(
   gneiss_editor_ui STATIC
+  runtime_panels.cpp
+  runtime_panels.hpp
   editor_ui.cpp
   editor_ui.hpp
   editor_theme.cpp
@@ -10,7 +12,7 @@ add_library(
   imgui_adapter.cpp
   imgui_adapter.hpp
 )
-target_link_libraries(gneiss_editor_ui PUBLIC gneiss::engine gneiss_imgui)
+target_link_libraries(gneiss_editor_ui PUBLIC gneiss::engine gneiss_imgui PRIVATE gneiss_editor_model)
 target_include_directories(gneiss_editor_ui PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_compile_features(gneiss_editor_ui PUBLIC cxx_std_20)
 target_compile_definitions(

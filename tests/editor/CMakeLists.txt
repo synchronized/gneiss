@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Gneiss contributors
+
+add_executable(gneiss_editor_runtime_panels_test runtime_panels_test.cpp)
+target_link_libraries(gneiss_editor_runtime_panels_test PRIVATE gneiss_editor_ui gneiss_editor_model)
+target_compile_features(gneiss_editor_runtime_panels_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_editor_runtime_panels_test)
+gneiss_target_output_directories(gneiss_editor_runtime_panels_test)
+add_test(NAME gneiss.editor.runtime-panels COMMAND gneiss_editor_runtime_panels_test)

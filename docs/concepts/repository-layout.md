@@ -31,7 +31,9 @@ C ABI 适配已迁入 `src/engine/api/`，`src/editor/` 已迁入 UI、资产服
 当前 `gneiss_engine` 的四层实现已集中在 `src/engine/`，C ABI 适配位于 `src/engine/api/`。
 Runtime 宿主与 Editor 入口分别位于 `apps/runtime/` 和 `apps/editor/`；两者可以依赖 Engine Library，
 Engine Library 不得反向依赖它们。Editor 的 ImGui Context、字体、主题、DockSpace 和通用控件由
-`src/editor/` 中不安装、不导出的 `gneiss_editor_ui` 内部静态库统一管理，业务面板状态仍由 Editor 应用层持有。
+`src/editor/` 中不安装、不导出的 `gneiss_editor_ui` 内部静态库统一管理，面板选择状态仍由 Editor 应用层持有。
+Runtime 层级树和属性面板由 `runtime_panels.hpp/.cpp` 绘制，只读取 Editor 模型；
+Apps 在每次绘制时提供同步属性提交、回写作者场景与结果报告回调，协议值只在宿主边界适配。
 
 编辑器资产浏览、监听、导入控制、重导入队列与后台服务也位于 `src/editor/`，
 由 `gneiss_editor_assets` 内部静态库组织，依赖 Engine、Tooling、任务调度和平台 IO。

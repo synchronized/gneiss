@@ -1085,3 +1085,7 @@ if(TARGET gneiss_dynamic_library AND (WIN32 OR UNIX) AND NOT EMSCRIPTEN)
   add_test(NAME gneiss.platform.dynamic-library COMMAND gneiss_dynamic_library_test
     "$<TARGET_FILE:gneiss_dynamic_library_fixture>")
 endif()
+
+if(TARGET gneiss_editor_ui)
+  add_subdirectory(editor)
+endif()
