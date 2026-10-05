@@ -4,6 +4,8 @@
 #ifndef GNEISS_APPS_EDITOR_RUNTIME_PROPERTY_EDITS_H_
 #define GNEISS_APPS_EDITOR_RUNTIME_PROPERTY_EDITS_H_
 
+#include "runtime_object_id.hpp"
+
 #include <gneiss/core/result.hpp>
 #include <gneiss/reflection.h>
 
@@ -17,14 +19,6 @@
 #include <variant>
 
 namespace gneiss::editor {
-
-/** Runtime 对象身份；generation 防止重用对象编号误匹配。 */
-struct runtime_object_id final {
-  std::uint64_t value = 0U;
-  std::uint32_t generation = 0U;
-  [[nodiscard]] bool is_valid() const noexcept { return value != 0U && generation != 0U; }
-  [[nodiscard]] bool operator==(const runtime_object_id&) const noexcept = default;
-};
 
 /** 模型拥有的属性值；不借用协议缓冲区，不含传输版本。 */
 struct runtime_property_value final {

@@ -11,7 +11,7 @@
 #include "ipc_scene_protocol.h"
 #include "ipc_statistics_protocol.h"
 #include "runtime_property_edits.hpp"
-#include "runtime_scene_mirror.h"
+#include "runtime_scene_mirror.hpp"
 
 #include <gneiss/app/project_description.h>
 

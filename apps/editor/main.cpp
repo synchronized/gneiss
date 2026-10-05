@@ -129,7 +129,7 @@ struct editor_state {
   gneiss::editor::property_inspector_model inspector;
   gneiss_world world = GNEISS_NULL_WORLD;
   gneiss::entity_id inspected_entity;
-  gneiss::ipc_runtime_object_id inspected_runtime_node;
+  gneiss::editor::runtime_object_id inspected_runtime_node;
   std::uint64_t inspected_runtime_session = 0U;
   gneiss::result inspector_error = gneiss::result::success;
   gneiss::result history_error = gneiss::result::success;
@@ -1027,8 +1027,8 @@ void draw_scene_node(editor_state& state, const gneiss::editor::scene_node_recor
 }
 
 void draw_runtime_scene_node(editor_state& state,
-                             const std::vector<gneiss::ipc_inspection_node>& nodes,
-                             const gneiss::ipc_inspection_node& node) {
+                             const std::vector<gneiss::editor::runtime_scene_node>& nodes,
+                             const gneiss::editor::runtime_scene_node& node) {
   const auto has_children = std::ranges::any_of(
       nodes, [&](const auto& candidate) { return candidate.parent == node.id; });
   auto flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_SpanAvailWidth |
@@ -1058,7 +1058,7 @@ void draw_runtime_scene_node(editor_state& state,
   ImGui::PopID();
 }
 
-const gneiss::ipc_inspection_node* selected_runtime_node(const editor_state& state) noexcept {
+const gneiss::editor::runtime_scene_node* selected_runtime_node(const editor_state& state) noexcept {
   const auto& mirror = state.runtime.scene_mirror();
   if (state.inspected_runtime_session == 0U ||
       state.inspected_runtime_session != mirror.session_id()) {
@@ -1066,11 +1066,11 @@ const gneiss::ipc_inspection_node* selected_runtime_node(const editor_state& sta
   }
   const auto& nodes = mirror.nodes();
   const auto found =
-      std::ranges::find(nodes, state.inspected_runtime_node, &gneiss::ipc_inspection_node::id);
+      std::ranges::find(nodes, state.inspected_runtime_node, &gneiss::editor::runtime_scene_node::id);
   return found == nodes.end() ? nullptr : &*found;
 }
 
-gneiss::editor::runtime_property_key runtime_transform_key(const gneiss::ipc_inspection_node& node,
+gneiss::editor::runtime_property_key runtime_transform_key(const gneiss::editor::runtime_scene_node& node,
                                                            gneiss_field_id field_id) {
   gneiss::editor::runtime_property_key key{.object = {node.id.value, node.id.generation}, .type_id = {}, .field_id = field_id};
   const auto type_id = gneiss_transform_type_id();
@@ -1106,7 +1106,7 @@ void draw_runtime_property_status(const gneiss::editor::runtime_property_edit* e
   }
 }
 
-void draw_runtime_inspector(editor_state& state, const gneiss::ipc_inspection_node& node) {
+void draw_runtime_inspector(editor_state& state, const gneiss::editor::runtime_scene_node& node) {
   ImGui::Text("Name: %s", node.name.empty() ? node.uuid.c_str() : node.name.c_str());
   ImGui::Text("UUID: %s", node.uuid.c_str());
   const auto editable = state.runtime.supports_property_editing();

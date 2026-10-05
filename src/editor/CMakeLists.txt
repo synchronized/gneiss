@@ -53,6 +53,10 @@ endif()
 # 不依赖宿主工程与进程协议的编辑模型。
 add_library(
   gneiss_editor_model STATIC
+  runtime_object_id.hpp
+  runtime_scene_data.hpp
+  runtime_scene_mirror.cpp
+  runtime_scene_mirror.hpp
   runtime_property_edits.cpp
   runtime_property_edits.hpp
   console_model.cpp

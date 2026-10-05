@@ -10,6 +10,7 @@
 #include "ipc_statistics_protocol.h"
 #include "runtime_log_adapter.hpp"
 #include "runtime_property_adapter.hpp"
+#include "runtime_scene_adapter.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -201,14 +202,20 @@ struct runtime_process::implementation final {
     }
   }
 
-  void apply_inspection_batch(const ipc_inspection_batch& batch) noexcept {
-    const auto applied = scene_mirror.apply(batch);
+  void apply_inspection_batch(ipc_inspection_batch&& batch) noexcept {
+    runtime_scene_batch converted;
+    auto applied = to_runtime_scene_batch(std::move(batch), converted);
+    if (applied == result::success) {
+      applied = scene_mirror.apply(converted);
+    } else {
+      scene_mirror.invalidate();
+    }
     if (applied != result::success) {
       last_result = applied;
       if (scene_mirror.needs_full_snapshot()) {
         request_inspection_resync();
       }
-    } else if (batch.is_full && !scene_mirror.needs_full_snapshot()) {
+    } else if (converted.is_full && !scene_mirror.needs_full_snapshot()) {
       inspection_resync_pending = false;
     }
     if (applied == result::success && scene_mirror.session_id() != 0U) {
@@ -361,7 +368,7 @@ struct runtime_process::implementation final {
     constexpr std::size_t inspection_apply_budget = 8U;
     for (std::size_t count = 0U;
          count < inspection_apply_budget && !pending_inspection_input.empty(); ++count) {
-      apply_inspection_batch(pending_inspection_input.front());
+      apply_inspection_batch(std::move(pending_inspection_input.front()));
       pending_inspection_input.pop_front();
     }
     property_edits.expire(now, std::chrono::seconds(2));

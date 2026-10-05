@@ -4,6 +4,7 @@
 #include "runtime_log_adapter.hpp"
 #include "runtime_process.h"
 #include "runtime_property_adapter.hpp"
+#include "runtime_scene_adapter.hpp"
 
 #include <gneiss/world.h>
 
@@ -27,6 +28,59 @@ struct temporary_project final {
     std::filesystem::remove_all(root, error);
   }
 };
+
+bool test_scene_adapter() {
+  gneiss::editor::runtime_scene_batch output;
+  {
+    gneiss::ipc_inspection_batch input{
+        .stamp = {31U, 32U}, .is_full = true, .chunk_index = 2U, .chunk_count = 3U, .changes = {}};
+    gneiss::ipc_inspection_change change;
+    change.id = {41U, 42U};
+    change.node.id = change.id;
+    change.node.parent = {43U, 44U};
+    change.node.uuid = "node-uuid";
+    change.node.prefab_instance_uuid = "instance-uuid";
+    change.node.prefab_source_node_uuid = "source-uuid";
+    change.node.name = std::string(512U, 's');
+    change.node.local_transform.translation[1] = 7.0F;
+    change.node.component_flags = 3U;
+    change.node.camera.near_plane = 0.75F;
+    change.node.mesh_uri = "asset://mesh";
+    change.node.material_uri = "asset://material";
+    input.changes.push_back(std::move(change));
+    input.changes.push_back(
+        {.type = gneiss::ipc_inspection_change_type::remove, .id = {51U, 52U}, .node = {}});
+    if (gneiss::editor::to_runtime_scene_batch(std::move(input), output) !=
+        gneiss::result::success) {
+      return false;
+    }
+  }
+  if (output.stamp.session_id != 31U || output.stamp.sequence != 32U || !output.is_full ||
+      output.chunk_index != 2U || output.chunk_count != 3U || output.changes.size() != 2U) {
+    return false;
+  }
+  const auto& change = output.changes[0];
+  const auto& node = change.node;
+  if (change.type != gneiss::editor::runtime_scene_change_type::upsert || change.id.value != 41U ||
+      change.id.generation != 42U || node.id != change.id || node.parent.value != 43U ||
+      node.parent.generation != 44U || node.uuid != "node-uuid" ||
+      node.prefab_instance_uuid != "instance-uuid" ||
+      node.prefab_source_node_uuid != "source-uuid" || node.name != std::string(512U, 's') ||
+      node.local_transform.translation[1] != 7.0F || node.component_flags != 3U ||
+      node.camera.near_plane != 0.75F || node.mesh_uri != "asset://mesh" ||
+      node.material_uri != "asset://material" ||
+      output.changes[1].type != gneiss::editor::runtime_scene_change_type::remove ||
+      output.changes[1].id.value != 51U || output.changes[1].id.generation != 52U) {
+    return false;
+  }
+  gneiss::ipc_inspection_batch invalid;
+  invalid.changes.push_back(
+      {.type = static_cast<gneiss::ipc_inspection_change_type>(255U), .id = {}, .node = {}});
+  return gneiss::editor::to_runtime_scene_batch(std::move(invalid), output) ==
+             gneiss::result::invalid_argument &&
+         output.stamp.session_id == 31U && output.changes.size() == 2U &&
+         output.changes[0].node.name == std::string(512U, 's');
+}
 
 bool test_property_adapter() {
   const std::array<gneiss::ipc_property_payload, 10> values{
@@ -75,7 +129,7 @@ bool test_property_adapter() {
 } // namespace
 
 int main() try {
-  if (!test_property_adapter()) {
+  if (!test_scene_adapter() || !test_property_adapter()) {
     return 91;
   }
   // 协议对象销毁后，控制台值仍拥有全部字段和长字符串。
