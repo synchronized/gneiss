@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "asset_scene_commands.hpp"
+#include "author_hierarchy_panel.hpp"
 #include "author_property_edit.hpp"
 #include "author_property_panel.hpp"
 #include "child_process.hpp"
@@ -848,141 +849,6 @@ bool reparent_with_history(editor_state& state, std::string_view source_uuid,
     }
   }
   return true;
-}
-
-void draw_prefab_node(editor_state& state, const gneiss::editor::prefab_node_record& node) {
-  const auto& nodes = state.session.prefab_nodes();
-  const auto has_children = std::ranges::any_of(
-      nodes, [node_id = node.node](const auto& candidate) { return candidate.parent == node_id; });
-  auto flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_SpanAvailWidth |
-               ImGuiTreeNodeFlags_FramePadding;
-  if (!has_children) {
-    flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen;
-  }
-  if (state.session.selection() == node.node) {
-    flags |= ImGuiTreeNodeFlags_Selected;
-  }
-  ImGui::PushID(node.instance_uuid.c_str());
-  ImGui::PushID(node.source_node_uuid.c_str());
-  const auto label = node.is_instance_root ? std::string{"[Prefab] "} + node.display_name
-                                           : node.display_name + " (read-only)";
-  if (node.is_read_only) {
-    ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled));
-  }
-  const auto is_open = ImGui::TreeNodeEx(label.c_str(), flags);
-  if (node.is_read_only) {
-    ImGui::PopStyleColor();
-  }
-  if (ImGui::IsItemClicked()) {
-    (void)state.session.select(node.node);
-    state.runtime_selection.object = {};
-    state.runtime_selection.session = 0U;
-  }
-  if (ImGui::IsItemHovered()) {
-    ImGui::SetTooltip("%s\n%s", node.prefab_uri.c_str(),
-                      node.is_read_only ? "Prefab source node (read-only)"
-                                        : "Prefab instance root");
-  }
-  if (has_children && is_open) {
-    for (const auto& child : nodes) {
-      if (child.parent == node.node) {
-        draw_prefab_node(state, child);
-      }
-    }
-    ImGui::TreePop();
-  }
-  ImGui::PopID();
-  ImGui::PopID();
-}
-
-void draw_scene_node(editor_state& state, const gneiss::editor::scene_node_record& node) {
-  const auto& nodes = state.session.nodes();
-  const auto& prefab_nodes = state.session.prefab_nodes();
-  const auto target_uuid = node.uuid;
-  const auto has_children =
-      std::ranges::any_of(
-          nodes,
-          [node_id = node.node](const auto& candidate) { return candidate.parent == node_id; }) ||
-      std::ranges::any_of(prefab_nodes, [node_id = node.node](const auto& candidate) {
-        return candidate.parent == node_id;
-      });
-  auto flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_SpanAvailWidth |
-               ImGuiTreeNodeFlags_FramePadding;
-  if (!has_children) {
-    flags |= ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_NoTreePushOnOpen;
-  }
-  if (state.session.selection() == node.node) {
-    flags |= ImGuiTreeNodeFlags_Selected;
-  }
-  ImGui::PushID(node.uuid.c_str());
-  const auto is_open = ImGui::TreeNodeEx(node.display_name.c_str(), flags);
-  if (ImGui::IsItemClicked()) {
-    (void)state.session.select(node.node);
-    state.runtime_selection.object = {};
-    state.runtime_selection.session = 0U;
-  }
-  if (ImGui::BeginPopupContextItem("Node Actions")) {
-    if (ImGui::MenuItem("Rename", "F2")) {
-      state.pending_hierarchy_action = hierarchy_action::rename;
-      state.pending_hierarchy_uuid = node.uuid;
-    }
-    if (ImGui::MenuItem("Duplicate", "Ctrl+D")) {
-      state.pending_hierarchy_action = hierarchy_action::duplicate;
-      state.pending_hierarchy_uuid = node.uuid;
-    }
-    if (ImGui::MenuItem("Delete", "Delete")) {
-      state.pending_hierarchy_action = hierarchy_action::remove;
-      state.pending_hierarchy_uuid = node.uuid;
-    }
-    ImGui::Separator();
-    ImGui::BeginDisabled(state.session.is_dirty() || state.runtime.is_busy());
-    if (ImGui::MenuItem("Create Prefab...")) {
-      state.pending_prefab_author_action = prefab_author_action::create;
-      state.pending_prefab_root_uuid = node.uuid;
-      state.prefab_path_buffer.fill('\0');
-      const auto path = std::string{"prefabs/"} + node.uuid + ".prefab.json";
-      const auto length = std::min(path.size(), state.prefab_path_buffer.size() - 1U);
-      std::ranges::copy_n(path.begin(), length, state.prefab_path_buffer.begin());
-    }
-    ImGui::EndDisabled();
-    ImGui::EndPopup();
-  }
-  if (ImGui::BeginDragDropSource()) {
-    ImGui::SetDragDropPayload("GNEISS_SCENE_NODE_UUID", node.uuid.data(), node.uuid.size());
-    ImGui::TextUnformatted(node.display_name.c_str());
-    ImGui::EndDragDropSource();
-  }
-  if (ImGui::BeginDragDropTarget()) {
-    bool hierarchy_changed = false;
-    if (const auto* payload = ImGui::AcceptDragDropPayload("GNEISS_SCENE_NODE_UUID");
-        payload != nullptr) {
-      const std::string source_uuid{static_cast<const char*>(payload->Data),
-                                    static_cast<std::size_t>(payload->DataSize)};
-      hierarchy_changed = reparent_with_history(state, source_uuid, target_uuid);
-    }
-    ImGui::EndDragDropTarget();
-    if (hierarchy_changed) {
-      if (has_children && is_open) {
-        ImGui::TreePop();
-      }
-      ImGui::PopID();
-      return;
-    }
-  }
-  if (has_children && is_open) {
-    for (const auto& child : nodes) {
-      if (child.parent == node.node) {
-        draw_scene_node(state, child);
-      }
-    }
-    for (const auto& child : prefab_nodes) {
-      if (child.parent == node.node) {
-        draw_prefab_node(state, child);
-      }
-    }
-    ImGui::TreePop();
-  }
-  ImGui::PopID();
 }
 
 gneiss::editor::runtime_inspector_actions
@@ -2155,26 +2021,44 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
         }
         ImGui::EndDisabled();
       }
-      for (const auto& node : state.session.nodes()) {
-        if (!node.parent.is_valid()) {
-          draw_scene_node(state, node);
+      const auto tree_request = gneiss::editor::draw_author_hierarchy({
+          .nodes = state.session.nodes(),
+          .prefab_nodes = state.session.prefab_nodes(),
+          .selection = state.session.selection(),
+          .can_create_prefab = !state.session.is_dirty() && !state.runtime.is_busy(),
+      });
+      using tree_action = gneiss::editor::author_hierarchy_action;
+      switch (tree_request.action) {
+      case tree_action::none:
+        break;
+      case tree_action::select:
+        (void)state.session.select(tree_request.node);
+        state.runtime_selection = {};
+        break;
+      case tree_action::rename:
+      case tree_action::duplicate:
+      case tree_action::remove:
+        if (tree_request.action == tree_action::rename) {
+          state.pending_hierarchy_action = hierarchy_action::rename;
+        } else if (tree_request.action == tree_action::duplicate) {
+          state.pending_hierarchy_action = hierarchy_action::duplicate;
+        } else {
+          state.pending_hierarchy_action = hierarchy_action::remove;
         }
+        state.pending_hierarchy_uuid = tree_request.uuid;
+        break;
+      case tree_action::create_prefab: {
+        state.pending_prefab_author_action = prefab_author_action::create;
+        state.pending_prefab_root_uuid = tree_request.uuid;
+        state.prefab_path_buffer.fill('\0');
+        const auto path = std::string{"prefabs/"} + tree_request.uuid + ".prefab.json";
+        const auto length = std::min(path.size(), state.prefab_path_buffer.size() - 1U);
+        std::ranges::copy_n(path.begin(), length, state.prefab_path_buffer.begin());
+        break;
       }
-      for (const auto& node : state.session.prefab_nodes()) {
-        if (!node.parent.is_valid()) {
-          draw_prefab_node(state, node);
-        }
-      }
-      ImGui::Separator();
-      ImGui::Selectable("Drop here to move to root", false);
-      if (ImGui::BeginDragDropTarget()) {
-        if (const auto* payload = ImGui::AcceptDragDropPayload("GNEISS_SCENE_NODE_UUID");
-            payload != nullptr) {
-          const std::string source_uuid{static_cast<const char*>(payload->Data),
-                                        static_cast<std::size_t>(payload->DataSize)};
-          (void)reparent_with_history(state, source_uuid, {});
-        }
-        ImGui::EndDragDropTarget();
+      case tree_action::reparent:
+        (void)reparent_with_history(state, tree_request.uuid, tree_request.parent_uuid);
+        break;
       }
       if (state.pending_prefab_author_action != prefab_author_action::none &&
           !ImGui::IsPopupOpen("Prefab Author Action")) {

@@ -33,6 +33,8 @@ Runtime 宿主与 Editor 入口分别位于 `apps/runtime/` 和 `apps/editor/`�
 Engine Library 不得反向依赖它们。Editor 的 ImGui Context、字体、主题、DockSpace 和通用控件由
 `src/editor/` 中不安装、不导出的 `gneiss_editor_ui` 内部静态库统一管理，面板选择状态仍由 Editor 应用层持有。
 控制台面板由 `console_panel.hpp/.cpp` 绘制，借用日志模型及进程展示值；清空请求通过宿主同步回调执行。
+作者层级树由 `author_hierarchy_panel.hpp/.cpp` 读取节点快照，拖拽和菜单请求在整棵树绘制后处理，
+避免递归期间刷新节点数组。
 作者属性 Inspector 由 `author_property_panel.hpp/.cpp` 绘制，属性写入与撤销事务归
 `author_property_edit.hpp/.cpp` 所在的会话目标；Apps 只提供同步连接，不把应用状态交给 UI 实现。
 Runtime 层级树和属性面板由 `runtime_panels.hpp/.cpp` 绘制，只读取 Editor 模型；

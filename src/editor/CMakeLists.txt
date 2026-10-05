@@ -3,6 +3,8 @@
 
 add_library(
   gneiss_editor_ui STATIC
+  author_hierarchy_panel.cpp
+  author_hierarchy_panel.hpp
   author_property_panel.cpp
   author_property_panel.hpp
   console_panel.cpp
