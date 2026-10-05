@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "imgui_adapter.h"
+#include "imgui_adapter.hpp"
 
-#include "editor_theme.h"
+#include "editor_theme.hpp"
 
 #include <algorithm>
 #include <cfloat>

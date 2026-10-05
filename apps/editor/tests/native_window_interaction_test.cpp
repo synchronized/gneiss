@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "imgui_adapter.h"
+#include "imgui_adapter.hpp"
 #if defined(GNEISS_TEST_BACKGROUND_ASSETS)
 #include "asset_background_worker.h"
 #include "editor_camera.h"

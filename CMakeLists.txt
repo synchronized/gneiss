@@ -66,6 +66,7 @@ if(GNEISS_BUILD_EDITOR)
   gneiss_resolve_imgui()
   include(imguizmo)
   gneiss_resolve_imguizmo()
+  add_subdirectory(src/editor)
   add_subdirectory(apps/editor)
 endif()
 

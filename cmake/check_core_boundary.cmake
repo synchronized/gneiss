@@ -18,6 +18,13 @@ foreach(source IN LISTS sources)
       content MATCHES "#[ \t]*include[ \t]*[<\"](apps|editor|tooling)/")
     message(FATAL_ERROR "Engine 不得反向包含宿主、编辑器或离线工具：${source}")
   endif()
+  # Editor 是 Engine SDK 的消费者，允许公共接口调用，但不得反向依赖 Apps。
+  if(source MATCHES "/src/editor/")
+    if(content MATCHES "#[ \t]*include[ \t]*[<\"](\\.\\./)*apps/")
+      message(FATAL_ERROR "Editor 实现不得反向包含 Apps：${source}")
+    endif()
+    continue()
+  endif()
   # C 适配仅豁免内部入口规则，仍遵守 Engine 对宿主的依赖方向。
   if(source MATCHES "/src/engine/api/")
     continue()

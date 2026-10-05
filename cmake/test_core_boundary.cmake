@@ -4,6 +4,8 @@
 cmake_minimum_required(VERSION 3.23)
 set(fixture "${GNEISS_BINARY_DIR}/api-boundary-fixture")
 file(MAKE_DIRECTORY "${fixture}/src/engine/platform")
+file(MAKE_DIRECTORY "${fixture}/src/editor")
+file(WRITE "${fixture}/src/editor/probe.cpp" "")
 file(MAKE_DIRECTORY "${fixture}/src/engine/api")
 file(WRITE "${fixture}/src/engine/api/probe.cpp" "")
 # 每次先恢复合法内容，避免上次中断的反例污染其他检查。
@@ -212,3 +214,18 @@ foreach(case IN ITEMS valid apps editor tooling)
     message(FATAL_ERROR "边界检查未拒绝 C 适配层包含 ${case}")
   endif()
 endforeach()
+
+file(WRITE "${fixture}/src/engine/api/probe.cpp" "")
+# 编辑器允许消费 SDK；源码迁入 src 不意味着成为 Engine 内部模块。
+foreach(header IN ITEMS "gneiss/application.hpp" "apps/editor/main.hpp" "../../apps/editor/main.hpp")
+  file(WRITE "${fixture}/src/editor/probe.cpp" "#include <${header}>\n")
+  execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
+    -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
+    RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
+  if(header STREQUAL "gneiss/application.hpp" AND NOT status EQUAL 0)
+    message(FATAL_ERROR "边界检查错误拒绝 Editor 使用 SDK")
+  elseif(NOT header STREQUAL "gneiss/application.hpp" AND status EQUAL 0)
+    message(FATAL_ERROR "边界检查未拒绝 Editor 包含 Apps：${header}")
+  endif()
+endforeach()
+file(WRITE "${fixture}/src/editor/probe.cpp" "")

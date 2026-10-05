@@ -245,7 +245,7 @@ Editor 默认不参与普通构建。启用时会下载并静态构建固定提�
 Editor 当前需要 Granit
 平台适配。Project Manager 与正式 Editor 统一使用以 Catppuccin Mocha 为基础、Peach 为主强调色
 的 `Gneiss Mocha` 主题，并使用 Inter Regular 与 Noto Sans SC 中文回退作为界面字体；上游配色许可见
-`apps/editor/CATPPUCCIN_NOTICE.md`，字体来源与许可见 `apps/editor/fonts/README.md`：
+`src/editor/CATPPUCCIN_NOTICE.md`，字体来源与许可见 `src/editor/fonts/README.md`：
 
 ```sh
 cmake --preset windows-clang-debug \

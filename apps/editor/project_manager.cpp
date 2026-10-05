@@ -3,8 +3,8 @@
 
 #include "project_manager.h"
 
-#include "editor_theme.h"
-#include "imgui_adapter.h"
+#include "editor_theme.hpp"
+#include "imgui_adapter.hpp"
 #include "native_dialog.h"
 #include "project_workspace.h"
 
