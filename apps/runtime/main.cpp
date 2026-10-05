@@ -5,8 +5,8 @@
 #include <gneiss/application.hpp>
 #include <gneiss/scene.h>
 
-#include "application/application_asset_reload_internal.hpp"
-#include "game/game_context_internal.hpp"
+#include "engine/function/application/application_asset_reload_internal.hpp"
+#include "engine/function/game/game_context_internal.hpp"
 #include "game_module_session.h"
 #include "game_update_scheduler.h"
 #include "runtime_asset_reloader.h"

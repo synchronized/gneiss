@@ -1,0 +1,70 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Gneiss contributors
+
+#ifndef GNEISS_RENDER_RENDER_FRAME_PACKET_HPP_
+#define GNEISS_RENDER_RENDER_FRAME_PACKET_HPP_
+
+#include "engine/platform/native_window_info.hpp"
+#include "engine/function/render/debug_draw_list.hpp"
+#include "engine/function/render/render_resource_service.hpp"
+#include "engine/function/render/render_snapshot.hpp"
+#include "engine/function/render/ui_draw_list.hpp"
+
+#include <cstddef>
+#include <cstdint>
+#include <unordered_map>
+
+namespace gneiss::render_internal {
+
+class render_resource_snapshot final {
+public:
+  [[nodiscard]] const mesh_resource* get_mesh(gneiss_mesh mesh) const noexcept;
+  [[nodiscard]] const material_resource* get_material(gneiss_material material) const noexcept;
+  [[nodiscard]] const texture_resource* get_texture(gneiss_texture texture) const noexcept;
+
+private:
+  friend gneiss_result capture_render_frame_packet(const application_internal::native_window_info&,
+                                                   render_internal::render_snapshot,
+                                                   const render_resource_service&,
+                                                   const ui_draw_list&, const debug_draw_list&,
+                                                   struct render_frame_packet&) noexcept;
+
+  std::unordered_map<gneiss_mesh, std::shared_ptr<const mesh_resource>> meshes_;
+  std::unordered_map<gneiss_material, std::shared_ptr<const material_resource>> materials_;
+  std::unordered_map<gneiss_texture, std::shared_ptr<const texture_resource>> textures_;
+};
+
+struct render_frame_capture_metrics final {
+  float capture_ms{};
+  std::size_t copied_payload_bytes{};
+};
+
+/** 内部诊断回读：紧密 RGBA8，所有权属于请求；仅完成回执后可读取。 */
+struct frame_image final {
+  std::uint32_t width{};
+  std::uint32_t height{};
+  std::vector<std::byte> pixels;
+};
+
+/** 已提交帧的自有数据；移动后不再借用主线程的逐帧可变内存。 */
+struct render_frame_packet final {
+  /** 由执行器在接受帧时写入，用于关联延迟返回的渲染结果。 */
+  std::uint64_t sequence{};
+  application_internal::native_window_info window;
+  render_internal::render_snapshot scene;
+  render_resource_snapshot resources;
+  ui_draw_list ui;
+  debug_draw_list debug;
+  render_frame_capture_metrics capture;
+  std::shared_ptr<frame_image> readback;
+};
+
+[[nodiscard]] gneiss_result
+capture_render_frame_packet(const application_internal::native_window_info& window,
+                            render_internal::render_snapshot scene,
+                            const render_resource_service& resources, const ui_draw_list& ui,
+                            const debug_draw_list& debug, render_frame_packet& out_packet) noexcept;
+
+} // namespace gneiss::render_internal
+
+#endif

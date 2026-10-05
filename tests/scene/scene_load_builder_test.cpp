@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "application/application_scene_state.hpp"
-#include "render/render_resource_service.h"
+#include "engine/function/application/application_scene_state.hpp"
+#include "engine/function/render/render_resource_service.hpp"
 #include "engine/asset/virtual_file_system.hpp"
-#include "scene/scene_load_builder.h"
+#include "engine/function/scene/scene_load_builder.hpp"
 
 #include <cstdio>
 #include <source_location>

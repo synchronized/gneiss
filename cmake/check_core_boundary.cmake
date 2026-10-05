@@ -15,8 +15,12 @@ if(NOT sources)
 endif()
 foreach(source IN LISTS sources)
   file(READ "${source}" content)
-  if(source MATCHES "(/src/engine/asset/asset_(preparation|parsing)|/src/render/(render_asset_preparation|render_resource_data))\\.(cpp|hpp)$" AND
-      content MATCHES "#[ \t]*include[ \t]*[<\"](render/(render_asset_loader|render_resource_service)\\.(h|hpp)|engine/(asset/resource_cache|core/rid_table)\\.hpp)[>\"]")
+  if(source MATCHES "/src/engine/" AND
+      content MATCHES "#[ \t]*include[ \t]*[<\"](apps|editor|tooling)/")
+    message(FATAL_ERROR "Engine 不得反向包含宿主、编辑器或离线工具：${source}")
+  endif()
+  if(source MATCHES "(/src/engine/asset/asset_(preparation|parsing)|/src/(engine/function/)?render/(render_asset_preparation|render_resource_data))\\.(cpp|hpp)$" AND
+      content MATCHES "#[ \t]*include[ \t]*[<\"]((engine/function/)?render/(render_asset_loader|render_resource_service)\\.(h|hpp)|engine/(asset/resource_cache|core/rid_table)\\.hpp)[>\"]")
     message(FATAL_ERROR "CPU 准备与值类型不得包含资源发布、缓存或 RID 表：${source}")
   endif()
   if(source MATCHES "/src/engine/core/" AND
@@ -24,11 +28,11 @@ foreach(source IN LISTS sources)
     message(FATAL_ERROR "Core 不得依赖平台或上层实现及 Application 协议：${source}")
   endif()
   if(source MATCHES "/src/engine/platform/" AND
-      content MATCHES "#[ \t]*include[ \t]*[<\"](application|world|scene|render|asset|apps)/")
+      content MATCHES "#[ \t]*include[ \t]*[<\"]((engine/function/)?(application|world|scene|render|input|game)|engine/asset|asset|apps)/")
     message(FATAL_ERROR "Platform 不得反向包含上层实现：${source}")
   endif()
-  if(source MATCHES "/src/render/" AND
-      content MATCHES "#[ \t]*include[ \t]*[<\"](world|scene|application)/")
+  if(source MATCHES "/src/(engine/function/)?render/" AND
+      content MATCHES "#[ \t]*include[ \t]*[<\"](engine/function/)?(world|scene|application)/")
     message(FATAL_ERROR "Render 不得反向包含 World / Scene / Application：${source}")
   endif()
   if(source MATCHES "/src/engine/asset/" AND

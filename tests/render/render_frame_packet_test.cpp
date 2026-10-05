@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "render/render_frame_packet.h"
+#include "engine/function/render/render_frame_packet.hpp"
 
 #include <array>
 #include <cstddef>

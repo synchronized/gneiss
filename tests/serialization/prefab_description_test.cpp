@@ -4,9 +4,9 @@
 #include "engine/asset/file_system.hpp"
 #include "engine/asset/resource_cache.hpp"
 #include "engine/asset/virtual_file_system.hpp"
-#include "scene/prefab_asset_loader.h"
-#include "scene/prefab_description.h"
-#include "scene/scene_tree.h"
+#include "engine/function/scene/prefab_asset_loader.hpp"
+#include "engine/function/scene/prefab_description.hpp"
+#include "engine/function/scene/scene_tree.hpp"
 
 #include <gneiss/core/result.h>
 

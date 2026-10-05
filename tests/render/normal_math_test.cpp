@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "render/normal_math.h"
+#include "engine/function/render/normal_math.hpp"
 
 #include <cmath>
 

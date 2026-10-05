@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "world/world_service.hpp"
+#include "engine/function/world/world_service.hpp"
 
 #include <cstdint>
 #include <thread>

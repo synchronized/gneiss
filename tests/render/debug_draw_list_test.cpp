@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "render/debug_draw_list.h"
+#include "engine/function/render/debug_draw_list.hpp"
 
 #include <limits>
 

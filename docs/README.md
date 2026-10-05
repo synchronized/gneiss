@@ -366,6 +366,7 @@
 - [M-295：材质准备参数与纹理 RID 分离](records/M-295-material-parameters.md)
 - [M-295：网格与纹理准备数据归属](records/M-295-prepared-data.md)
 - [M-295：Asset CPU 准备闭环](records/M-295-asset-preparation.md)
+- [M-295：Function 六模块目录迁移](records/M-295-function-layout.md)
 
 ## 文档维护
 

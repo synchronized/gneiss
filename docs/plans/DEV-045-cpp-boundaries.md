@@ -14,7 +14,7 @@
 [VER-045](VER-045-0.45.0-cpp-boundaries.md) 为准；目录与所有权以
 [ADR-053](../decisions/ADR-053-cpp-core-and-c-abi.md) 与
 [ADR-054](../decisions/ADR-054-source-layout-and-host-boundaries.md) 为准。后者的精简布局已确认，
-Core、Platform 与 Asset 已执行物理迁移，其余模块继续按计划推进。
+Core、Platform、Asset 与 Function 已执行物理迁移；C ABI 目录、Editor/Apps 拆分继续按计划推进。
 
 ## M-292：审计与冻结基线
 
@@ -48,7 +48,7 @@ Core、Platform 与 Asset 已执行物理迁移，其余模块继续按计划推
 ## M-295：Render、Asset 与其他模块
 
 Render 快照、PNG 解码与 Granit 目录子项见 [迁移记录](../records/M-295-render-asset-layout.md)；
-加载准备与发布接口、其余内部头及语义配置仍待完成。平台工具反向链接清理见
+资产 CPU 准备与发布已拆分；其余接口语义与配置审计仍待完成。平台工具反向链接清理见
 [链接边界记录](../records/M-295-platform-link-boundary.md)；Core 迁移见
 [基础层记录](../records/M-295-core-layout.md)，日志投递拆分见
 [日志边界记录](../records/M-295-log-sink-boundary.md)。Asset 基础能力迁移与上传服务归属见
@@ -58,6 +58,7 @@ CPU 准备已与资源发布分开编译并建立独立链接验证，见
 [材质参数记录](../records/M-295-material-parameters.md)。网格与纹理准备值已归入 Asset，见
 [准备数据记录](../records/M-295-prepared-data.md)。CPU 准备与解析已归入 Asset，Render 传入发布预算，
 见 [Asset 准备闭环记录](../records/M-295-asset-preparation.md)。
+Function 六模块迁移与新路径边界验证见 [迁移记录](../records/M-295-function-layout.md)。
 
 - 将解码、格式解析、资源加载与 GPU 生命周期按 ADR 分开，先记录允许依赖再搬文件。
 - Granit 适配进入 Render 私有后端，Platform 的窗口适配维持独立所有权。
@@ -72,8 +73,8 @@ CPU 准备已与资源发布分开编译并建立独立链接验证，见
 | 当前代码 | 目标归属与拆分要求 |
 | --- | --- |
 | `src/api/c/` | `src/engine/api/`；保持公共头、C 导出与调用方向 |
-| `src/application/`、`world/`、`scene/`、`render/`、`input/`、`game/` | `src/engine/function/` 下同名模块；Granit 后端随 Render |
-| 原 `src/asset/` | 基础能力已迁至 `src/engine/asset/`；纹理加载与上传事务归 `src/render/texture_load_service.hpp`，CPU 准备与解析已归入 Asset，Render 仅传入发布预算 |
+| 原 `src/application/`、`world/`、`scene/`、`render/`、`input/`、`game/` | 已迁至 `src/engine/function/` 下同名模块，内部头统一 `.hpp`；Granit 后端随 Render |
+| 原 `src/asset/` | 基础能力已迁至 `src/engine/asset/`；纹理加载与上传事务归 `src/engine/function/render/texture_load_service.hpp`，CPU 准备与解析已归入 Asset，Render 仅传入发布预算 |
 | 原 `src/core/`、`reflection/`、`log/` | 已迁入 `src/engine/core/`；投递器使用 C++ 消息与事件视图，Application 回调适配留在所属模块 |
 | Render 中的数学代码 | 通用数学迁 Core；相机语义、后端投影适配仍留所属功能，逐文件判断 |
 | 原 `src/platform/`、`io/`、`process/`、`ipc/` | 已迁至 `src/engine/platform/`，内部头改为 `.hpp`；编辑器/运行宿主协议仍留 Apps，平台语义描述与命名空间继续审计 |

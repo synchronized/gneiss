@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "scene/structural_diff.h"
+#include "engine/function/scene/structural_diff.hpp"
 
 #include <array>
 #include <optional>

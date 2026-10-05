@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "application/application_registry.hpp"
-#include "application/application_state.hpp"
+#include "engine/function/application/application_registry.hpp"
+#include "engine/function/application/application_state.hpp"
 
 #include <gneiss/render.h>
 

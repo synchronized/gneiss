@@ -2,9 +2,9 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/asset/texture_container.hpp"
-#include "render/render_resource_service.h"
+#include "engine/function/render/render_resource_service.hpp"
 #include "engine/asset/texture_ktx2.hpp"
-#include "render/texture_load_service.hpp"
+#include "engine/function/render/texture_load_service.hpp"
 #include <algorithm>
 #include <granit/asset_tools/texture_builder.hpp>
 

@@ -8,8 +8,8 @@
 #include "engine/asset/texture_container.hpp"
 #include "engine/asset/texture_ktx2.hpp"
 #include "engine/asset/virtual_file_system.hpp"
-#include "render/render_asset_loader.h"
-#include "render/render_resource_service.h"
+#include "engine/function/render/render_asset_loader.hpp"
+#include "engine/function/render/render_resource_service.hpp"
 
 #include <gneiss/core/result.h>
 

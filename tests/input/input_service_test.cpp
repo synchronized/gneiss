@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "input/input_service.h"
+#include "engine/function/input/input_service.hpp"
 
 #include <gneiss/input.h>
 

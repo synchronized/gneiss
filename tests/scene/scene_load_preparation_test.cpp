@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "scene/scene_load_preparation.h"
+#include "engine/function/scene/scene_load_preparation.hpp"
 
 #include "engine/asset/virtual_file_system.hpp"
 

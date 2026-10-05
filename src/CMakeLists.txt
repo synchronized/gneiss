@@ -28,19 +28,19 @@ target_sources(
     api/c/render_api.cpp
     api/c/scene_api.cpp
     api/c/input_api.cpp
-    application/application_registry.cpp
-    application/application_registry.hpp
-    application/application_host.cpp
-    application/application_asset_reload_internal.hpp
-    application/application_log_internal.hpp
-    application/application_log_sink.hpp
-    application/scene_load_service.cpp
-    application/scene_load_service.hpp
-    application/application_scene_load_internal.hpp
-    application/application_scene_state.cpp
-    application/application_scene_state.hpp
-    application/application_state.cpp
-    application/application_state.hpp
+    engine/function/application/application_registry.cpp
+    engine/function/application/application_registry.hpp
+    engine/function/application/application_host.cpp
+    engine/function/application/application_asset_reload_internal.hpp
+    engine/function/application/application_log_internal.hpp
+    engine/function/application/application_log_sink.hpp
+    engine/function/application/scene_load_service.cpp
+    engine/function/application/scene_load_service.hpp
+    engine/function/application/application_scene_load_internal.hpp
+    engine/function/application/application_scene_state.cpp
+    engine/function/application/application_scene_state.hpp
+    engine/function/application/application_state.cpp
+    engine/function/application/application_state.hpp
     engine/asset/source_revision_file_system.cpp
     engine/asset/source_revision_file_system.hpp
     engine/asset/asset_uri.cpp
@@ -54,8 +54,8 @@ target_sources(
     engine/asset/texture_binary.hpp
     engine/asset/texture_container.cpp
     engine/asset/texture_container.hpp
-    render/texture_load_service.cpp
-    render/texture_load_service.hpp
+    engine/function/render/texture_load_service.cpp
+    engine/function/render/texture_load_service.hpp
     engine/asset/native_file_system.cpp
     engine/asset/native_file_system.hpp
     engine/asset/resource_cache.cpp
@@ -72,66 +72,66 @@ target_sources(
     engine/core/version.cpp
     api/c/game_module_api.cpp
     api/c/asset_api.cpp
-    game/game_context.cpp
-    game/game_context_internal.hpp
-    input/input_service.cpp
-    input/input_service.h
-    input/action_map.cpp
-    input/action_map.h
+    engine/function/game/game_context.cpp
+    engine/function/game/game_context_internal.hpp
+    engine/function/input/input_service.cpp
+    engine/function/input/input_service.hpp
+    engine/function/input/action_map.cpp
+    engine/function/input/action_map.hpp
     api/c/log_api.cpp
     api/c/log_validation.hpp
     engine/core/log/log.hpp
     engine/core/log/log.cpp
     engine/core/log/log_dispatcher.cpp
     engine/core/log/log_dispatcher.hpp
-    render/render_resource_service.cpp
-    render/render_resource_service.h
-    render/debug_draw_list.cpp
-    render/debug_draw_list.h
-    render/ui_draw_list.cpp
-    render/ui_draw_list.h
-    render/render_asset_loader.cpp
+    engine/function/render/render_resource_service.cpp
+    engine/function/render/render_resource_service.hpp
+    engine/function/render/debug_draw_list.cpp
+    engine/function/render/debug_draw_list.hpp
+    engine/function/render/ui_draw_list.cpp
+    engine/function/render/ui_draw_list.hpp
+    engine/function/render/render_asset_loader.cpp
     engine/asset/asset_preparation.cpp
-    render/render_asset_loader.h
+    engine/function/render/render_asset_loader.hpp
     engine/asset/png_decoder.cpp
     engine/asset/png_decoder.hpp
-    render/camera_math.cpp
-    render/camera_math.h
-    render/render_snapshot.hpp
-    render/normal_math.cpp
-    render/normal_math.h
+    engine/function/render/camera_math.cpp
+    engine/function/render/camera_math.hpp
+    engine/function/render/render_snapshot.hpp
+    engine/function/render/normal_math.cpp
+    engine/function/render/normal_math.hpp
     engine/core/reflection/type_registry.cpp
     engine/core/reflection/type_registry.hpp
     api/c/reflection_api.cpp
-    scene/scene_tree.cpp
-    scene/scene_tree.h
-    scene/prefab_asset_loader.cpp
-    scene/prefab_asset_loader.h
-    scene/scene_load_builder.cpp
-    scene/scene_load_builder.h
-    scene/scene_load_preparation.cpp
-    scene/scene_load_preparation.h
-    scene/scene_description.cpp
-    scene/scene_description.h
-    scene/prefab_description.cpp
-    scene/prefab_description.h
-    scene/prefab_property_override.cpp
-    scene/prefab_property_override.h
-    scene/prefab_runtime_instance.cpp
-    scene/prefab_runtime_instance.h
-    scene/scene_instance_service.cpp
-    scene/scene_instance_service.h
-    scene/structural_diff.cpp
-    scene/structural_diff.h
-    world/system_scheduler.cpp
-    world/system_scheduler.hpp
-    world/render_snapshot.cpp
-    world/render_snapshot.hpp
+    engine/function/scene/scene_tree.cpp
+    engine/function/scene/scene_tree.hpp
+    engine/function/scene/prefab_asset_loader.cpp
+    engine/function/scene/prefab_asset_loader.hpp
+    engine/function/scene/scene_load_builder.cpp
+    engine/function/scene/scene_load_builder.hpp
+    engine/function/scene/scene_load_preparation.cpp
+    engine/function/scene/scene_load_preparation.hpp
+    engine/function/scene/scene_description.cpp
+    engine/function/scene/scene_description.hpp
+    engine/function/scene/prefab_description.cpp
+    engine/function/scene/prefab_description.hpp
+    engine/function/scene/prefab_property_override.cpp
+    engine/function/scene/prefab_property_override.hpp
+    engine/function/scene/prefab_runtime_instance.cpp
+    engine/function/scene/prefab_runtime_instance.hpp
+    engine/function/scene/scene_instance_service.cpp
+    engine/function/scene/scene_instance_service.hpp
+    engine/function/scene/structural_diff.cpp
+    engine/function/scene/structural_diff.hpp
+    engine/function/world/system_scheduler.cpp
+    engine/function/world/system_scheduler.hpp
+    engine/function/world/render_snapshot.cpp
+    engine/function/world/render_snapshot.hpp
     api/c/world_api.cpp
-    world/world_service.cpp
-    world/world_service.hpp
-    world/component_reflection.cpp
-    world/world_state.hpp
+    engine/function/world/world_service.cpp
+    engine/function/world/world_service.hpp
+    engine/function/world/component_reflection.cpp
+    engine/function/world/world_state.hpp
   PUBLIC
     FILE_SET HEADERS
     BASE_DIRS
@@ -231,17 +231,17 @@ if(GNEISS_ENABLE_GRANIT_PLATFORM)
       engine/platform/granit/granit_platform.cpp
       engine/platform/granit/granit_platform.hpp
       engine/platform/native_window_info.hpp
-      render/backend/granit/granit_render_service.cpp
-      render/backend/granit/granit_render_service.hpp
-      render/backend/granit/scene_projection_math.cpp
-      render/backend/granit/scene_projection_math.hpp
-      render/backend/granit/pbr_shader_resolver.cpp
-      render/backend/granit/pbr_shader_resolver.hpp
+      engine/function/render/backend/granit/granit_render_service.cpp
+      engine/function/render/backend/granit/granit_render_service.hpp
+      engine/function/render/backend/granit/scene_projection_math.cpp
+      engine/function/render/backend/granit/scene_projection_math.hpp
+      engine/function/render/backend/granit/pbr_shader_resolver.cpp
+      engine/function/render/backend/granit/pbr_shader_resolver.hpp
       ${gneiss_pbr_embedded_sources}
-      render/render_frame_packet.cpp
-      render/render_frame_packet.h
-      render/render_executor.cpp
-      render/render_executor.h
+      engine/function/render/render_frame_packet.cpp
+      engine/function/render/render_frame_packet.hpp
+      engine/function/render/render_executor.cpp
+      engine/function/render/render_executor.hpp
   )
   target_compile_definitions(gneiss_engine PRIVATE GNEISS_HAS_GRANIT_PLATFORM)
   target_include_directories(gneiss_engine PRIVATE "${gneiss_pbr_embedded_dir}")

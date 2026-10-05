@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "render/backend/granit/pbr_shader_resolver.hpp"
+#include "engine/function/render/backend/granit/pbr_shader_resolver.hpp"
 
 #include <granit/pipeline/pbr_material.h>
 #include <granit/renderer/shader_library.h>

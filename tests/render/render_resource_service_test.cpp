@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "render/render_resource_service.h"
+#include "engine/function/render/render_resource_service.hpp"
 
 #include <algorithm>
 #include <array>

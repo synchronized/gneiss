@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "scene/prefab_property_override.h"
+#include "engine/function/scene/prefab_property_override.hpp"
 
 #include <gneiss/world.h>
 

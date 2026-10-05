@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "application/application_asset_reload_internal.hpp"
+#include "engine/function/application/application_asset_reload_internal.hpp"
 #include "child_process.hpp"
 #include "editor_camera.h"
 #include "editor_command_history.h"

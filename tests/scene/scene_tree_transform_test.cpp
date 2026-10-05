@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "scene/scene_tree.h"
+#include "engine/function/scene/scene_tree.hpp"
 
 #include <algorithm>
 #include <array>

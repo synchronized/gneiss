@@ -3,7 +3,7 @@
 
 #include "engine/asset/file_system.hpp"
 #include "engine/asset/virtual_file_system.hpp"
-#include "scene/scene_description.h"
+#include "engine/function/scene/scene_description.hpp"
 
 #include <gneiss/core/result.h>
 

@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "application/application_scene_load_internal.hpp"
+#include "engine/function/application/application_scene_load_internal.hpp"
 #include "ipc_scene_protocol.h"
 
 #include <functional>
