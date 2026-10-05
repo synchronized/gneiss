@@ -7,6 +7,7 @@
 #include <gneiss/application.h>
 #include <gneiss/core/result.hpp>
 #include <gneiss/render.hpp>
+#include <gneiss/world.hpp>
 
 #include <cstdint>
 #include <utility>
@@ -59,6 +60,24 @@ public:
   }
   [[nodiscard]] result get_world(gneiss_world& out_world) const noexcept {
     return from_native(gneiss_application_get_world(handle_, &out_world));
+  }
+  /** 获取借用 World 视图，不转移所有权；场景切换或 Application 销毁可能使其失效。 */
+  [[nodiscard]] result get_world(world_ref& output) const noexcept {
+    gneiss_world value{};
+    const auto status = from_native(gneiss_application_get_world(handle_, &value));
+    if (status.ok()) {
+      output = world_ref{value};
+    }
+    return status;
+  }
+  [[nodiscard]] result create_mesh(const mesh_desc& desc, mesh& output) noexcept {
+    return mesh::create(handle_, desc, output);
+  }
+  [[nodiscard]] result create_material(const material_desc& desc, material& output) noexcept {
+    return material::create(handle_, desc, output);
+  }
+  [[nodiscard]] result create_texture(const texture_desc& desc, texture& output) noexcept {
+    return texture::create(handle_, desc, output);
   }
   [[nodiscard]] result create_mesh(const mesh_desc& desc, mesh_id& out_mesh) noexcept {
     gneiss_mesh handle = GNEISS_NULL_MESH;

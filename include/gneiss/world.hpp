@@ -22,35 +22,12 @@ namespace gneiss {
 /** 内建 Camera 的稳定类型标识，值不依赖 World 生命周期。 */
 [[nodiscard]] inline gneiss_type_id camera_type_id() noexcept { return gneiss_camera_type_id(); }
 
-/** 独占拥有一个 World 的 RAII 包装；只允许在创建线程访问。 */
-class world final {
+/** 非拥有 World 视图；销毁视图不销毁 World，父对象失效后操作返回无效句柄。
+ * 仅在 World 所属线程调用；is_valid() 只检查本地非零值，不探测存活状态。 */
+class world_ref {
 public:
-  world() noexcept = default;
-  ~world() noexcept { reset(); }
-
-  world(const world&) = delete;
-  world& operator=(const world&) = delete;
-
-  world(world&& other) noexcept : handle_(std::exchange(other.handle_, GNEISS_NULL_WORLD)) {}
-  world& operator=(world&& other) noexcept {
-    if (this != &other) {
-      reset();
-      handle_ = std::exchange(other.handle_, GNEISS_NULL_WORLD);
-    }
-    return *this;
-  }
-
-  [[nodiscard]] static result create(world& out_world) noexcept {
-    const gneiss_world_desc desc = GNEISS_WORLD_DESC_INIT;
-    gneiss_world handle = GNEISS_NULL_WORLD;
-    const auto native_result = gneiss_world_create(&desc, &handle);
-    if (native_result == GNEISS_SUCCESS) {
-      out_world.reset();
-      out_world.handle_ = handle;
-    }
-    return from_native(native_result);
-  }
-
+  world_ref() noexcept = default;
+  explicit world_ref(gneiss_world handle) noexcept : handle_(handle) {}
   [[nodiscard]] bool is_valid() const noexcept { return handle_ != GNEISS_NULL_WORLD; }
   [[nodiscard]] gneiss_world get() const noexcept { return handle_; }
 
@@ -179,15 +156,71 @@ public:
     return from_native(native_result);
   }
 
+protected:
+  gneiss_world handle_ = GNEISS_NULL_WORLD;
+};
+
+/** 独占拥有一个 World 的 RAII 包装；只允许在创建线程访问。 */
+class world final : private world_ref {
+public:
+  using world_ref::configure_camera;
+  using world_ref::create_entity;
+  using world_ref::create_scene_node;
+  using world_ref::destroy_entity;
+  using world_ref::destroy_scene_node;
+  using world_ref::entity_count;
+  using world_ref::get;
+  using world_ref::get_active_camera;
+  using world_ref::get_camera;
+  using world_ref::get_entity;
+  using world_ref::get_local_transform;
+  using world_ref::get_parent;
+  using world_ref::get_world_transform;
+  using world_ref::is_alive;
+  using world_ref::is_valid;
+  using world_ref::register_reflection;
+  using world_ref::remove_camera;
+  using world_ref::remove_mesh_renderer;
+  using world_ref::reparent_scene_node;
+  using world_ref::set_active_camera;
+  using world_ref::set_camera;
+  using world_ref::set_local_transform;
+  using world_ref::set_mesh_renderer;
+
+  world() noexcept = default;
+  ~world() noexcept { reset(); }
+
+  world(const world&) = delete;
+  world& operator=(const world&) = delete;
+
+  world(world&& other) noexcept : world_ref(std::exchange(other.handle_, GNEISS_NULL_WORLD)) {}
+  world& operator=(world&& other) noexcept {
+    if (this != &other) {
+      reset();
+      handle_ = std::exchange(other.handle_, GNEISS_NULL_WORLD);
+    }
+    return *this;
+  }
+
+  [[nodiscard]] static result create(world& out_world) noexcept {
+    const gneiss_world_desc desc = GNEISS_WORLD_DESC_INIT;
+    gneiss_world handle = GNEISS_NULL_WORLD;
+    const auto native_result = gneiss_world_create(&desc, &handle);
+    if (native_result == GNEISS_SUCCESS) {
+      out_world.reset();
+      out_world.handle_ = handle;
+    }
+    return from_native(native_result);
+  }
+
+  /** 返回不拥有 World 的视图，不延长本对象生命周期。 */
+  [[nodiscard]] world_ref ref() const noexcept { return world_ref{handle_}; }
   void reset() noexcept {
     if (handle_ != GNEISS_NULL_WORLD) {
       (void)gneiss_world_destroy(handle_);
       handle_ = GNEISS_NULL_WORLD;
     }
   }
-
-private:
-  gneiss_world handle_ = GNEISS_NULL_WORLD;
 };
 
 } // namespace gneiss

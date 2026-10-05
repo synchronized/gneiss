@@ -30,6 +30,22 @@ Material 可选引用 Texture RID；Granit 后端按 RID 建立 GPU 镜像并通
 domain。销毁、跨 Application 使用、类型混用或重复销毁均返回
 `GNEISS_ERROR_INVALID_HANDLE`。
 
+## C++ 资源所有权
+
+`gneiss::mesh`、`material`、`texture` 是不可复制、可移动的拥有型包装，保存父 Application
+句柄和资源 RID，析构自动销毁资源。Application 的 `create_mesh`、`create_material`、
+`create_texture` 接受对应拥有型输出；旧的 ID 输出和显式销毁入口继续可用。
+
+- `id()` 借用强类型 ID，不转移所有权；包装不延长父 Application 生命周期。
+- `release()` 转移销毁责任并清空包装；调用方须在调用前保存 `owner()`。
+- `reset()` 幂等；父 Application 或 RID 已失效时清空句柄并返回成功。
+- 其他销毁错误保留句柄并返回结果，便于在正确线程重试。析构和移动赋值不能返回错误，
+  违反所属线程等约束导致关闭失败时调用 `std::terminate`，不得跨线程析构有效资源。
+- 创建失败保留原输出，成功创建后才替换旧资源。`operator bool` 只表示包装持有非零句柄，
+  不探测父服务或 RID 是否仍有效。
+
+Material 包装不替调用方持有 Texture 包装；引用关系遵循上面的 C API 生命周期。
+
 ## 当前帧即时 UI 数据
 
 `gneiss_application_submit_ui_draw_list` 在 Application 的 `update` 回调内提交后端无关的即时 UI

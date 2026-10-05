@@ -61,3 +61,17 @@ C 导出、Application 与 Game Context 的 ABI 入口共用该适配，不再�
 清单另完成日志校验 1 项审查，当前累计 13 项，余下 89 项 pending；不代表完整 SDK 审查完成。
 
 最终日志专项在静态库 5/5（1.01 秒）和共享库 5/5（0.29 秒）通过。
+
+## M-296：Render 拥有型包装与 World 借用视图
+
+新增 Mesh、Material、Texture 拥有型 RAII，保留原有 ID 与显式创建/销毁入口。
+World 操作复用在借用视图中；拥有型 World 通过私有继承避免借用视图赋值篡改所有权。
+生命周期和线程错误契约见 [Render Reference](../reference/render.md) 与
+[World Reference](../reference/world.md)，实现没有增加后台销毁队列或共享运行时状态。
+
+共享库与静态库全量构建通过，包含独立公共头；相关 ABI、安装消费者与包装测试分别
+11/11（10.63 秒）与 11/11（11.63 秒）通过。补充移动构造测试后共享新增测试再次通过。
+专项覆盖失败创建保留输出、移动构造/覆盖、析构、release、跨线程关闭保留句柄、父 Application
+先销毁及 World 借用视图失效。静态检查仅余既有 Application 初始化宏的有符号位运算告警；
+移动后读取是契约验证，作逐行说明。此轮不包含交互 GPU 或跨平台验证。
+清单累计 20 项 reviewed、82 项 pending；旧 Application/World/Scene 拥有者的关闭错误语义仍待审查。

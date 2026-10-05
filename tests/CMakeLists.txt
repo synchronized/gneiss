@@ -990,3 +990,10 @@ add_test(NAME gneiss.core-boundary-negative
 add_test(NAME gneiss.cpp-api-inventory
   COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
     -P "${PROJECT_SOURCE_DIR}/cmake/check_cpp_inventory.cmake")
+
+add_executable(gneiss_cpp_resource_ownership_test cpp_resource_ownership_test.cpp)
+target_link_libraries(gneiss_cpp_resource_ownership_test PRIVATE gneiss::engine)
+target_compile_features(gneiss_cpp_resource_ownership_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_cpp_resource_ownership_test)
+gneiss_target_output_directories(gneiss_cpp_resource_ownership_test)
+add_test(NAME gneiss.cpp-resource-ownership COMMAND gneiss_cpp_resource_ownership_test)

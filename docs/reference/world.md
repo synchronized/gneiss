@@ -32,6 +32,11 @@ World 及其实体只能在创建 World 的线程访问。跨线程调用返回 
 `gneiss::world` 独占 World，默认不可复制但可以移动，析构时自动销毁。`gneiss::entity_id` 只包装
 运行时标识，不拥有实体；World 销毁后所有关联实体 ID 都失效。
 
+`world::ref()` 和 `application::get_world(world_ref&)` 返回可复制的借用视图，不负责销毁 World。
+`world_ref` 提供与拥有型 World 相同的实体、组件和节点操作，不延长所有者寿命；所有者销毁或
+Application 更换对应 World 后，旧视图操作返回无效句柄。`is_valid()` 仅检查句柄非零。
+视图和拥有者都须遵守 World 所属线程约束。
+
 ## ECS 与 System
 
 EnTT `3.15.0` 只用于 World 的内部组件存储。Gneiss 公共头、Entity ID 和 C ABI 不依赖 EnTT。
