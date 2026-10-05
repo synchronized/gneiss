@@ -3,6 +3,8 @@
 
 add_library(
   gneiss_editor_ui STATIC
+  console_panel.cpp
+  console_panel.hpp
   runtime_panels.cpp
   runtime_panels.hpp
   editor_ui.cpp

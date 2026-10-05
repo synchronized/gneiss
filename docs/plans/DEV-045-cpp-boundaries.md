@@ -70,6 +70,7 @@ Runtime Transform 回写脱离 IPC 的结果见 [回写边界记录](../records/
 场景镜像及唯一顺序跟踪器迁移见 [镜像边界记录](../records/M-295-scene-mirror-boundary.md)。
 Tooling、assetc、性能脚本及启动条件迁移见 [工具布局记录](../records/M-295-tooling-host-layout.md)。
 Runtime 层级与属性面板迁移见 [面板边界记录](../records/M-295-runtime-panels.md)。
+控制台面板与展示状态迁移见 [控制台面板记录](../records/M-295-console-panel.md)。
 
 - 将解码、格式解析、资源加载与 GPU 生命周期按 ADR 分开，先记录允许依赖再搬文件。
 - Granit 适配进入 Render 私有后端，Platform 的窗口适配维持独立所有权。

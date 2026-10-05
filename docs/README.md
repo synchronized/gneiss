@@ -383,6 +383,7 @@
 - [M-295：场景镜像脱离 IPC](records/M-295-scene-mirror-boundary.md)
 - [M-295：Tooling、assetc 与宿主入口布局](records/M-295-tooling-host-layout.md)
 - [M-295：Runtime 面板与宿主分离](records/M-295-runtime-panels.md)
+- [M-295：控制台面板与宿主分离](records/M-295-console-panel.md)
 
 ## 文档维护
 
