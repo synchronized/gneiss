@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "reflection/type_registry.hpp"
 #include "world/world_service.hpp"
 
 #include <gneiss/world.h>
@@ -169,16 +170,10 @@ constexpr camera_field field_of_view_field = camera_field::field_of_view;
 constexpr camera_field near_plane_field = camera_field::near_plane;
 constexpr camera_field far_plane_field = camera_field::far_plane;
 
-[[nodiscard]] constexpr gneiss_field_desc make_field(gneiss_field_id id,
-                                                     gneiss_type_id value_type_id,
-                                                     std::uint32_t flags, const char* name,
-                                                     std::uint32_t name_length) noexcept {
-  return {.struct_size = sizeof(gneiss_field_desc),
-          .id = id,
-          .value_type_id = value_type_id,
-          .flags = flags,
-          .name = name,
-          .name_length = name_length};
+[[nodiscard]] constexpr gneiss::reflection_internal::field_definition
+make_field(gneiss_field_id id, gneiss_type_id value_type_id, std::uint32_t flags, const char* name,
+           std::uint32_t name_length) noexcept {
+  return {.id = id, .value_type_id = value_type_id, .flags = flags, .name = {name, name_length}};
 }
 
 // Field ID 与属性类别均为定宽整数，调用点使用命名常量明确区分。
@@ -187,12 +182,10 @@ constexpr camera_field far_plane_field = camera_field::far_plane;
                                  gneiss_field_id field_id, std::uint32_t kind,
                                  gneiss_property_getter getter, gneiss_property_setter setter,
                                  const void* field) noexcept {
-  const gneiss_property_accessor_desc accessor{.struct_size = sizeof(gneiss_property_accessor_desc),
-                                               .kind = kind,
-                                               .getter = getter,
-                                               .setter = setter,
-                                               .user_data = const_cast<void*>(field)};
-  return gneiss_type_registry_bind_property(registry, type_id, field_id, &accessor);
+  const gneiss::reflection_internal::property_binding accessor{
+      .kind = kind, .getter = getter, .setter = setter, .user_data = const_cast<void*>(field)};
+  return gneiss::reflection_internal::bind_property(gneiss::reflection_internal::resolve(registry),
+                                                    type_id, field_id, accessor);
 }
 // NOLINTEND(bugprone-easily-swappable-parameters)
 
@@ -214,24 +207,15 @@ gneiss_result gneiss::world_internal::register_reflection(gneiss_type_registry r
       make_field(GNEISS_CAMERA_FIELD_FAR_PLANE, float32_id, 0U, "far_plane", 9U),
       make_field(GNEISS_CAMERA_FIELD_IS_PRIMARY, bool_id, GNEISS_FIELD_FLAG_READ_ONLY, "is_primary",
                  10U)};
-  const gneiss_type_desc transform{.struct_size = sizeof(gneiss_type_desc),
-                                   .id = transform_id,
-                                   .schema_version = 1U,
-                                   .name = "transform",
-                                   .name_length = 9U,
-                                   .fields = transform_fields.data(),
-                                   .field_count =
-                                       static_cast<std::uint32_t>(transform_fields.size())};
-  const gneiss_type_desc camera{.struct_size = sizeof(gneiss_type_desc),
-                                .id = camera_id,
-                                .schema_version = 1U,
-                                .name = "camera",
-                                .name_length = 6U,
-                                .fields = camera_fields.data(),
-                                .field_count = static_cast<std::uint32_t>(camera_fields.size())};
-  auto result = gneiss_type_registry_register(registry, &transform);
+  const gneiss::reflection_internal::type_definition transform{
+      .id = transform_id, .schema_version = 1U, .name = "transform", .fields = transform_fields};
+  const gneiss::reflection_internal::type_definition camera{
+      .id = camera_id, .schema_version = 1U, .name = "camera", .fields = camera_fields};
+  auto result = gneiss::reflection_internal::register_type(
+      gneiss::reflection_internal::resolve(registry), transform);
   if (result == GNEISS_SUCCESS) {
-    result = gneiss_type_registry_register(registry, &camera);
+    result = gneiss::reflection_internal::register_type(
+        gneiss::reflection_internal::resolve(registry), camera);
   }
   if (result == GNEISS_SUCCESS) {
     result = bind(registry, transform_id, GNEISS_TRANSFORM_FIELD_TRANSLATION,

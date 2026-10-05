@@ -97,6 +97,8 @@ target_sources(
     render/normal_math.cpp
     render/normal_math.h
     reflection/type_registry.cpp
+    reflection/type_registry.hpp
+    api/c/reflection_api.cpp
     scene/scene_tree.cpp
     scene/scene_tree.h
     scene/prefab_asset_loader.cpp

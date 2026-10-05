@@ -322,9 +322,14 @@
       "cpp_candidate_files": [
         "include/gneiss/reflection.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "Registry 拥有复制的元数据；输出元数据、回调上下文和属性字符串按 Reference 借用；销毁同步由调用方负责",
+      "tests": [
+        "gneiss.cpp_reflection",
+        "gneiss.property_access",
+        "gneiss.reflection-boundary"
+      ],
+      "cpp_entry": "gneiss::type_registry::register_type"
     },
     {
       "symbol": "gneiss_type_registry_bind_property",
@@ -332,9 +337,14 @@
       "cpp_candidate_files": [
         "include/gneiss/reflection.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "Registry 拥有复制的元数据；输出元数据、回调上下文和属性字符串按 Reference 借用；销毁同步由调用方负责",
+      "tests": [
+        "gneiss.cpp_reflection",
+        "gneiss.property_access",
+        "gneiss.reflection-boundary"
+      ],
+      "cpp_entry": "gneiss::type_registry::bind_property"
     },
     {
       "symbol": "gneiss_type_registry_freeze",
@@ -342,9 +352,14 @@
       "cpp_candidate_files": [
         "include/gneiss/reflection.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "Registry 拥有复制的元数据；输出元数据、回调上下文和属性字符串按 Reference 借用；销毁同步由调用方负责",
+      "tests": [
+        "gneiss.cpp_reflection",
+        "gneiss.property_access",
+        "gneiss.reflection-boundary"
+      ],
+      "cpp_entry": "gneiss::type_registry::freeze"
     },
     {
       "symbol": "gneiss_type_registry_is_frozen",
@@ -365,9 +380,14 @@
       "cpp_candidate_files": [
         "include/gneiss/reflection.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "Registry 拥有复制的元数据；输出元数据、回调上下文和属性字符串按 Reference 借用；销毁同步由调用方负责",
+      "tests": [
+        "gneiss.cpp_reflection",
+        "gneiss.property_access",
+        "gneiss.reflection-boundary"
+      ],
+      "cpp_entry": "gneiss::type_registry::type_count"
     },
     {
       "symbol": "gneiss_type_registry_type_at",
@@ -388,9 +408,14 @@
       "cpp_candidate_files": [
         "include/gneiss/reflection.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "Registry 拥有复制的元数据；输出元数据、回调上下文和属性字符串按 Reference 借用；销毁同步由调用方负责",
+      "tests": [
+        "gneiss.cpp_reflection",
+        "gneiss.property_access",
+        "gneiss.reflection-boundary"
+      ],
+      "cpp_entry": "gneiss::type_registry::find_type"
     },
     {
       "symbol": "gneiss_type_registry_find_field",
@@ -398,9 +423,14 @@
       "cpp_candidate_files": [
         "include/gneiss/reflection.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "Registry 拥有复制的元数据；输出元数据、回调上下文和属性字符串按 Reference 借用；销毁同步由调用方负责",
+      "tests": [
+        "gneiss.cpp_reflection",
+        "gneiss.property_access",
+        "gneiss.reflection-boundary"
+      ],
+      "cpp_entry": "gneiss::type_registry::find_field"
     },
     {
       "symbol": "gneiss_type_registry_get_property",
@@ -408,9 +438,14 @@
       "cpp_candidate_files": [
         "include/gneiss/reflection.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "Registry 拥有复制的元数据；输出元数据、回调上下文和属性字符串按 Reference 借用；销毁同步由调用方负责",
+      "tests": [
+        "gneiss.cpp_reflection",
+        "gneiss.property_access",
+        "gneiss.reflection-boundary"
+      ],
+      "cpp_entry": "gneiss::type_registry::get_property"
     },
     {
       "symbol": "gneiss_type_registry_set_property",
@@ -418,9 +453,14 @@
       "cpp_candidate_files": [
         "include/gneiss/reflection.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "Registry 拥有复制的元数据；输出元数据、回调上下文和属性字符串按 Reference 借用；销毁同步由调用方负责",
+      "tests": [
+        "gneiss.cpp_reflection",
+        "gneiss.property_access",
+        "gneiss.reflection-boundary"
+      ],
+      "cpp_entry": "gneiss::type_registry::set_property"
     },
     {
       "symbol": "gneiss_mesh_create",

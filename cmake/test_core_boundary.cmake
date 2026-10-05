@@ -3,8 +3,9 @@
 
 cmake_minimum_required(VERSION 3.23)
 set(fixture "${GNEISS_BINARY_DIR}/core-boundary-fixture")
-file(MAKE_DIRECTORY "${fixture}/src/core" "${fixture}/src/world" "${fixture}/src/application")
+file(MAKE_DIRECTORY "${fixture}/src/core" "${fixture}/src/world" "${fixture}/src/application" "${fixture}/src/reflection")
 # 清除上一次失败用例遗留的内容，保证反例可重复执行。
+file(WRITE "${fixture}/src/reflection/probe.cpp" "#include <gneiss/reflection.h>\n")
 file(WRITE "${fixture}/src/world/probe.cpp" "#include <gneiss/render.h>\n")
 file(WRITE "${fixture}/src/application/probe.cpp" "#include <gneiss/application.h>\n")
 foreach(content IN ITEMS "extern \"C\" int forbidden();" "#include <gneiss/application.hpp>")
@@ -52,3 +53,23 @@ foreach(content IN ITEMS "extern \"C\" int forbidden();" "#include <gneiss/appli
   endif()
 endforeach()
 file(WRITE "${fixture}/src/application/probe.cpp" "#include <gneiss/application.h>\n")
+
+file(WRITE "${fixture}/src/world/probe.cpp" "auto result = gneiss_type_registry_freeze(registry);\n")
+execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
+  -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
+  RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
+if(status EQUAL 0)
+  message(FATAL_ERROR "边界检查未拒绝内部绕回 Reflection C ABI")
+endif()
+file(WRITE "${fixture}/src/world/probe.cpp" "#include <gneiss/render.h>\n")
+
+foreach(content IN ITEMS "extern \"C\" int forbidden();" "#include <gneiss/reflection.hpp>")
+  file(WRITE "${fixture}/src/reflection/probe.cpp" "${content}\n")
+  execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
+    -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
+    RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
+  if(status EQUAL 0)
+    message(FATAL_ERROR "Reflection 边界检查未拒绝违规输入：${content}")
+  endif()
+endforeach()
+file(WRITE "${fixture}/src/reflection/probe.cpp" "#include <gneiss/reflection.h>\n")

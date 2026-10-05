@@ -346,6 +346,8 @@
 
 - [M-294：Application 注册表与宿主入口拆分](records/M-294-application-boundary.md)
 
+- [M-295：Reflection 内部注册契约与 C 适配](records/M-295-reflection-boundary.md)
+
 ## 文档维护
 
 
