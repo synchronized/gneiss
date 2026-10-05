@@ -4,7 +4,7 @@
 #ifndef GNEISS_APPS_COMMON_IPC_CORE_IPC_PROTOCOL_DOMAINS_H_
 #define GNEISS_APPS_COMMON_IPC_CORE_IPC_PROTOCOL_DOMAINS_H_
 
-#include "ipc_dispatcher.h"
+#include "ipc_dispatcher.hpp"
 
 #include <array>
 

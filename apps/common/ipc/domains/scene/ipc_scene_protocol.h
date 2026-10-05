@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "ipc_dispatcher.h"
+#include "ipc_dispatcher.hpp"
 
 #include <optional>
 #include <string>

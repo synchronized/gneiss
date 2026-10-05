@@ -4,7 +4,7 @@
 #ifndef GNEISS_APPS_COMMON_IPC_DOMAINS_STATISTICS_IPC_STATISTICS_PROTOCOL_H_
 #define GNEISS_APPS_COMMON_IPC_DOMAINS_STATISTICS_IPC_STATISTICS_PROTOCOL_H_
 
-#include "ipc_dispatcher.h"
+#include "ipc_dispatcher.hpp"
 
 #include <gneiss/core/result.hpp>
 

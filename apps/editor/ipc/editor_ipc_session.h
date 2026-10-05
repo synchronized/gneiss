@@ -6,7 +6,7 @@
 
 #include "editor_ipc_event.h"
 
-#include "ipc_transport.h"
+#include "ipc_transport.hpp"
 
 #include <chrono>
 #include <cstdint>

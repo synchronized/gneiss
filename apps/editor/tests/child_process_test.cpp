@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "child_process.h"
+#include "child_process.hpp"
 
 #include <chrono>
 #include <filesystem>

@@ -4,7 +4,7 @@
 #include "package_archive.h"
 #include "project_workspace.h"
 
-#include "child_process.h"
+#include "child_process.hpp"
 
 #include <gneiss/app/project_description.h>
 

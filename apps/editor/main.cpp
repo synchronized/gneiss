@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "application/application_asset_reload_internal.hpp"
-#include "child_process.h"
+#include "child_process.hpp"
 #include "editor_camera.h"
 #include "editor_command_history.h"
 #include "editor_grid.h"

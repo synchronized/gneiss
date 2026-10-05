@@ -12,7 +12,7 @@
 #include "ipc_router.h"
 #include "ipc_session_protocol.h"
 #include "ipc_statistics_protocol.h"
-#include "ipc_transport.h"
+#include "ipc_transport.hpp"
 
 #include <chrono>
 #include <gneiss/log.h>

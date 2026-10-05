@@ -3,9 +3,9 @@
 
 #include "asset_file_watcher.h"
 
-#include "uv_loop_access.h"
-#include "uv_loop_executor.h"
-#include "uv_result.h"
+#include "uv_loop_access.hpp"
+#include "uv_loop_executor.hpp"
+#include "uv_result.hpp"
 
 #include <uv.h>
 

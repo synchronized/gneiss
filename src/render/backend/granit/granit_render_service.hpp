@@ -4,7 +4,7 @@
 #ifndef GNEISS_RENDER_BACKEND_GRANIT_GRANIT_RENDER_SERVICE_HPP_
 #define GNEISS_RENDER_BACKEND_GRANIT_GRANIT_RENDER_SERVICE_HPP_
 
-#include "platform/native_window_info.h"
+#include "engine/platform/native_window_info.hpp"
 #include "render/backend/granit/pbr_shader_resolver.hpp"
 #include "render/backend/granit/scene_projection_math.hpp"
 #include "render/debug_draw_list.h"

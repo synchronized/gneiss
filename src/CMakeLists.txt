@@ -226,9 +226,9 @@ if(GNEISS_ENABLE_GRANIT_PLATFORM)
   target_sources(
     gneiss_engine
     PRIVATE
-      platform/granit/granit_platform.cpp
-      platform/granit/granit_platform.h
-      platform/native_window_info.h
+      engine/platform/granit/granit_platform.cpp
+      engine/platform/granit/granit_platform.hpp
+      engine/platform/native_window_info.hpp
       render/backend/granit/granit_render_service.cpp
       render/backend/granit/granit_render_service.hpp
       render/backend/granit/scene_projection_math.cpp
@@ -306,11 +306,5 @@ set_target_properties(
 )
 
 if(GNEISS_BUILD_EDITOR OR GNEISS_BUILD_RUNTIME)
-  add_subdirectory(io)
-  add_subdirectory(ipc)
-  add_subdirectory(platform)
-endif()
-
-if(GNEISS_BUILD_EDITOR)
-  add_subdirectory(process)
+  add_subdirectory(engine/platform)
 endif()

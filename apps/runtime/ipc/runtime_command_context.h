@@ -8,7 +8,7 @@
 #include "ipc_control_protocol.h"
 #include "ipc_property_protocol.h"
 #include "ipc_scene_protocol.h"
-#include "ipc_transport.h"
+#include "ipc_transport.hpp"
 
 #include <cstdint>
 #include <string>

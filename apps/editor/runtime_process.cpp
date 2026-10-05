@@ -3,7 +3,7 @@
 
 #include "runtime_process.h"
 
-#include "child_process.h"
+#include "child_process.hpp"
 #include "editor_ipc_event.h"
 #include "editor_ipc_session.h"
 #include "ipc_asset_protocol.h"

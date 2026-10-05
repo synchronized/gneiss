@@ -4,7 +4,7 @@
 #ifndef GNEISS_APPS_RUNTIME_GAME_MODULE_SESSION_H_
 #define GNEISS_APPS_RUNTIME_GAME_MODULE_SESSION_H_
 
-#include "dynamic_library.h"
+#include "dynamic_library.hpp"
 
 #include <gneiss/game_module.h>
 

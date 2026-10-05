@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "dynamic_library.h"
+#include "dynamic_library.hpp"
 
-int main(int argc, char** argv) {
+int main(int argc, char** argv) try {
   if (argc != 2) {
     return 1;
   }
@@ -40,4 +40,7 @@ int main(int argc, char** argv) {
     return 5;
   }
   return 0;
+} catch (...) {
+  // 路径转换等标准库操作失败时返回测试失败，避免弹出未处理异常对话框。
+  return 6;
 }

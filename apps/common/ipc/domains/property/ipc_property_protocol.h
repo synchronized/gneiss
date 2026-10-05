@@ -6,7 +6,7 @@
 
 #include "ipc_inspection_protocol.h"
 
-#include "ipc_dispatcher.h"
+#include "ipc_dispatcher.hpp"
 
 #include <gneiss/reflection.h>
 

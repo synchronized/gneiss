@@ -3,6 +3,9 @@
 
 cmake_minimum_required(VERSION 3.23)
 set(fixture "${GNEISS_BINARY_DIR}/core-boundary-fixture")
+file(MAKE_DIRECTORY "${fixture}/src/engine/platform")
+# 每次先恢复合法内容，避免上次中断的反例污染其他检查。
+file(WRITE "${fixture}/src/engine/platform/probe.cpp" "#include <gneiss/core/result.hpp>\n")
 file(MAKE_DIRECTORY "${fixture}/src/core" "${fixture}/src/world" "${fixture}/src/application" "${fixture}/src/reflection" "${fixture}/src/render" "${fixture}/src/asset")
 # 清除上一次失败用例遗留的内容，保证反例可重复执行。
 file(WRITE "${fixture}/src/render/probe.cpp" "#include <gneiss/render.h>\n")
@@ -94,3 +97,19 @@ if(status EQUAL 0)
   message(FATAL_ERROR "边界检查未拒绝 PNG 解码依赖 Render")
 endif()
 file(WRITE "${fixture}/src/asset/png_decoder.cpp" "#include <gneiss/core/result.h>\n")
+
+foreach(layer IN ITEMS application world scene render asset apps)
+  file(WRITE "${fixture}/src/engine/platform/probe.cpp" "#include \"${layer}/state.hpp\"\n")
+  execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
+    -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
+    RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
+  if(status EQUAL 0)
+    message(FATAL_ERROR "边界检查未拒绝 Platform 反向依赖 ${layer}")
+  endif()
+endforeach()
+file(WRITE "${fixture}/src/engine/platform/probe.cpp" "#include <gneiss/core/result.hpp>\n")
+execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
+  -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake" RESULT_VARIABLE status)
+if(NOT status EQUAL 0)
+  message(FATAL_ERROR "边界检查错误拒绝 Platform 共享值类型")
+endif()

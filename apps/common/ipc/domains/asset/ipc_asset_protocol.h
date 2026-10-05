@@ -4,7 +4,7 @@
 #ifndef GNEISS_APPS_COMMON_IPC_DOMAINS_ASSET_IPC_ASSET_PROTOCOL_H_
 #define GNEISS_APPS_COMMON_IPC_DOMAINS_ASSET_IPC_ASSET_PROTOCOL_H_
 
-#include "ipc_dispatcher.h"
+#include "ipc_dispatcher.hpp"
 
 #include <cstdint>
 #include <span>

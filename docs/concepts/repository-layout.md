@@ -7,7 +7,8 @@
 
 本文描述当前实际源码布局，不把已批准的迁移目标当成已实现。0.45 的精简目标目录与宿主边界见
 [ADR-054](../decisions/ADR-054-source-layout-and-host-boundaries.md)，迁移映射与验收见
-[DEV-045](../plans/DEV-045-cpp-boundaries.md)。源码尚未迁入 `src/engine/` 或 `src/editor/`；
+[DEV-045](../plans/DEV-045-cpp-boundaries.md)。Platform 已迁入 `src/engine/platform/`，
+其余 Engine 模块与 `src/editor/` 尚未完成迁移；
 `apps/` 保持位于仓库根目录，编辑器实现与入口的拆分尚未完成。
 
 总体分层以[总体架构](architecture.md)为准，代码与文档规范分别以
@@ -27,7 +28,7 @@
 | `3rd/` | 锁定版本并与自有代码隔离的第三方依赖 |
 | `cmake/` | 项目构建策略和可复用的 CMake 模块 |
 
-当前 `gneiss_engine` 运行时实现分布在 `src/` 的模块目录，尚未按新目标集中到 `src/engine/`。
+当前 `gneiss_engine` 实现除 Platform 外仍分布在 `src/` 的模块目录，尚未全部集中到 `src/engine/`。
 Runtime 宿主与 Editor 分别位于 `apps/runtime/` 和 `apps/editor/`；两者可以依赖 Engine Library，
 Engine Library 不得反向依赖它们。Editor 的 ImGui Context、字体、主题、DockSpace 和通用控件由
 不安装、不导出的 `gneiss_editor_ui` 内部静态库统一管理，业务面板状态仍由 Editor 应用层持有。
@@ -37,7 +38,7 @@ Engine Library 不得反向依赖它们。Editor 的 ImGui Context、字体、�
 
 ## 运行时模块
 
-以下为当前实现路径；目录迁移前继续以这些路径定位源码。
+以下为当前实现路径；按各模块实际迁移结果更新。
 
 | 模块 | 目录 | 职责 | 状态 |
 | --- | --- | --- | --- |
@@ -45,7 +46,7 @@ Engine Library 不得反向依赖它们。Editor 的 ImGui Context、字体、�
 | World | `src/world/` | World、Entity、System 与 EnTT 适配 | 已存在 |
 | Scene | `src/scene/` | Scene Tree、节点映射与层级 Transform | 已存在 |
 | Application | `src/application/` | 顶层生命周期、初始化回滚和主循环编排 | 已存在 |
-| Platform | `src/platform/` | 窗口、事件和时间等平台能力的隔离 | 已存在 |
+| Platform | `src/engine/platform/` | 窗口、IO、IPC、子进程和动态库等平台能力的隔离 | 已存在 |
 | Asset | `src/asset/` | VFS、格式、CPU 解码、缓存及加载任务 | 已存在 |
 | Render | `src/render/` | 渲染输入快照、资源 RID、帧包与执行器 | 已存在 |
 | Reflection | `src/reflection/` | 唯一类型注册表与属性访问 | 已存在 |
@@ -53,7 +54,7 @@ Engine Library 不得反向依赖它们。Editor 的 ImGui Context、字体、�
 | Tooling | `src/tooling/` | 离线资产处理实现 | 已存在 |
 | Granit 后端 | `src/render/backend/granit/` | Granit 类型、调用和错误转换的隔离 | 已存在 |
 
-Platform 的 Granit Window 适配位于 `src/platform/granit/`；`src/render/backend/granit/` 只负责
+Platform 的 Granit Window 适配位于 `src/engine/platform/granit/`；`src/render/backend/granit/` 只负责
 渲染后端，两者不共享原生对象所有权。渲染快照的值类型位于 `src/render/render_snapshot.hpp`，
 World 的提取函数位于 `src/world/render_snapshot.hpp`，Render 不反向包含 World/Scene/Application。
 `src/asset/png_decoder.hpp` 提供 CPU 解码，Cook 与运行时加载共用；解码不依赖渲染服务。
@@ -71,6 +72,6 @@ CMake 脚本验证。尚未统一迁移到新的测试层级，不创建空的 i
 - 新目录必须对应一个已经开始实施的模块或工具，不添加占位文件。
 - 新模块先确认职责、拥有的状态、公开接口和允许依赖；跨层变化使用 ADR 记录。
 - 第三方后端放在所属 Service 下面，不建立可被所有模块随意依赖的通用 `backend/`。
-- 平台差异集中在 `src/platform/` 或具体后端目录，不散布到 World、Scene 和业务组件。
+- 平台差异集中在 `src/engine/platform/` 或具体后端目录，不散布到 World、Scene 和业务组件。
 - 单个实现文件只被一个模块使用时留在该模块内部；只有形成稳定跨模块契约后才提升为公共接口。
 - 目录调整应伴随真实代码迁移和验证，不单独进行大规模结构美化。

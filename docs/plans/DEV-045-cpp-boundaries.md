@@ -13,7 +13,8 @@
 [C 边界记录](../records/M-295-c-boundary-completion.md)；语义配置与其余模块仍在实施。范围和门槛以
 [VER-045](VER-045-0.45.0-cpp-boundaries.md) 为准；目录与所有权以
 [ADR-053](../decisions/ADR-053-cpp-core-and-c-abi.md) 与
-[ADR-054](../decisions/ADR-054-source-layout-and-host-boundaries.md) 为准。后者的精简布局已确认，尚未执行物理迁移。
+[ADR-054](../decisions/ADR-054-source-layout-and-host-boundaries.md) 为准。后者的精简布局已确认，
+Platform 已执行物理迁移，其余模块继续按计划推进。
 
 ## M-292：审计与冻结基线
 
@@ -58,7 +59,7 @@ Render 快照、PNG 解码与 Granit 目录子项见 [迁移记录](../records/M
 
 ### 精简布局迁移映射与顺序
 
-目标目录树只在 ADR-054 维护；下表用于核对现有代码的迁移范围，不表示已经移动。
+目标目录树只在 ADR-054 维护；下表用于核对原有代码的迁移范围；完成项单独标明，其他项仍待迁移。
 
 | 当前代码 | 目标归属与拆分要求 |
 | --- | --- |
@@ -67,7 +68,7 @@ Render 快照、PNG 解码与 Granit 目录子项见 [迁移记录](../records/M
 | `src/asset/` | `src/engine/asset/`；加载中依赖 GPU/场景的协调部分先分离到 Function |
 | `src/core/`、`reflection/`、`log/` | `src/engine/core/`；只收通用能力，不将业务策略塞入基础层 |
 | Render 中的数学代码 | 通用数学迁 Core；相机语义、后端投影适配仍留所属功能，逐文件判断 |
-| `src/platform/`、`io/`、`process/`、`ipc/` | `src/engine/platform/`；通用协议值类型与系统适配分清，编辑器/运行宿主协议不下沉 |
+| 原 `src/platform/`、`io/`、`process/`、`ipc/` | 已迁至 `src/engine/platform/`，内部头改为 `.hpp`；编辑器/运行宿主协议仍留 Apps，平台语义描述与命名空间继续审计 |
 | `apps/editor/` | 编辑功能进入 `src/editor/`；程序入口与启动配置保留在 `apps/editor/` |
 | `apps/runtime/` | 程序入口与宿主控制保留在 `apps/runtime/`；可复用引擎能力回归 Engine |
 | `apps/common/` | 逐项核定所有者；运行时通用能力归 Engine，纯宿主共用代码按实际需要保留私有共用目标，不原样下沉 Core |

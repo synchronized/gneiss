@@ -15,6 +15,10 @@ if(NOT sources)
 endif()
 foreach(source IN LISTS sources)
   file(READ "${source}" content)
+  if(source MATCHES "/src/engine/platform/" AND
+      content MATCHES "#[ \t]*include[ \t]*[<\"](application|world|scene|render|asset|apps)/")
+    message(FATAL_ERROR "Platform 不得反向包含上层实现：${source}")
+  endif()
   if(source MATCHES "/src/render/" AND
       content MATCHES "#[ \t]*include[ \t]*[<\"](world|scene|application)/")
     message(FATAL_ERROR "Render 不得反向包含 World / Scene / Application：${source}")

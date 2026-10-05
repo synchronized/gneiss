@@ -7,7 +7,7 @@
 #include "world/render_snapshot.hpp"
 
 #ifdef GNEISS_HAS_GRANIT_PLATFORM
-#include "platform/granit/granit_platform.h"
+#include "engine/platform/granit/granit_platform.hpp"
 #include "render/backend/granit/granit_render_service.hpp"
 #endif
 
