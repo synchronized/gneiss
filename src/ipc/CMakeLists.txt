@@ -12,7 +12,7 @@ add_library(
 )
 target_link_libraries(
   gneiss_ipc
-  PUBLIC gneiss::engine
+  PUBLIC gneiss_core_values
   PRIVATE gneiss_io_uv gneiss::libuv
 )
 target_include_directories(gneiss_ipc PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")

@@ -2,7 +2,7 @@
 # Copyright (c) 2026 Gneiss contributors
 
 # 内部调度模块由实际宿主链接，不进入安装 package 或公共 ABI。
-add_subdirectory(core/tasks)
+add_subdirectory(core)
 
 add_library(gneiss_engine)
 add_library(gneiss::engine ALIAS gneiss_engine)

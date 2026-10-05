@@ -355,6 +355,8 @@
 
 - [M-295：Render 快照与 Asset 解码边界](records/M-295-render-asset-layout.md)
 
+- [M-295：平台工具的链接边界](records/M-295-platform-link-boundary.md)
+
 ## 文档维护
 
 

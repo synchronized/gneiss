@@ -1028,3 +1028,18 @@ add_test(NAME gneiss.reflection-boundary COMMAND gneiss_reflection_boundary_test
 add_test(NAME gneiss.cpp-api-inventory-negative
   COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
     "-DGNEISS_BINARY_DIR=${PROJECT_BINARY_DIR}" -P "${PROJECT_SOURCE_DIR}/cmake/test_cpp_inventory.cmake")
+
+if(TARGET gneiss_dynamic_library AND (WIN32 OR UNIX) AND NOT EMSCRIPTEN)
+  add_library(gneiss_dynamic_library_fixture SHARED platform/dynamic_library_fixture.c)
+  set_target_properties(gneiss_dynamic_library_fixture PROPERTIES WINDOWS_EXPORT_ALL_SYMBOLS ON)
+  target_compile_features(gneiss_dynamic_library_fixture PRIVATE c_std_11)
+  gneiss_target_compile_warnings(gneiss_dynamic_library_fixture)
+  gneiss_target_output_directories(gneiss_dynamic_library_fixture)
+  add_executable(gneiss_dynamic_library_test platform/dynamic_library_test.cpp)
+  target_link_libraries(gneiss_dynamic_library_test PRIVATE gneiss_dynamic_library)
+  gneiss_target_compile_warnings(gneiss_dynamic_library_test)
+  gneiss_target_output_directories(gneiss_dynamic_library_test)
+  add_dependencies(gneiss_dynamic_library_test gneiss_dynamic_library_fixture)
+  add_test(NAME gneiss.platform.dynamic-library COMMAND gneiss_dynamic_library_test
+    "$<TARGET_FILE:gneiss_dynamic_library_fixture>")
+endif()

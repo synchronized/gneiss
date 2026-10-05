@@ -11,7 +11,7 @@ add_library(
 )
 target_link_libraries(
   gneiss_io_uv
-  PUBLIC gneiss::engine
+  PUBLIC gneiss_core_values
   PRIVATE gneiss::libuv
 )
 target_include_directories(gneiss_io_uv PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/uv")
