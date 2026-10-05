@@ -4,7 +4,7 @@
 #include "application/application_state.hpp"
 #include "application/application_log_sink.hpp"
 
-#include "asset/native_file_system.h"
+#include "engine/asset/native_file_system.hpp"
 #include "world/render_snapshot.hpp"
 
 #ifdef GNEISS_HAS_GRANIT_PLATFORM
@@ -40,7 +40,7 @@ gneiss_result application_state::attach_task_executor(tasks::task_executor& exec
     return GNEISS_ERROR_INVALID_STATE;
   }
   try {
-    asset_internal::texture_upload_backend backend;
+    render_internal::texture_upload_backend backend;
 #ifdef GNEISS_HAS_GRANIT_PLATFORM
     if (granit_render_service_) {
       backend.begin = [this](auto data, auto& sequence) {
@@ -73,7 +73,7 @@ gneiss_result application_state::attach_task_executor(tasks::task_executor& exec
     }
     scene_service_ =
         std::make_unique<scene_load_service>(executor, asset_file_system_, resources_, backend);
-    texture_service_ = std::make_unique<asset_internal::texture_load_service>(
+    texture_service_ = std::make_unique<render_internal::texture_load_service>(
         executor, asset_file_system_, active_scene_->assets, std::move(backend));
     return GNEISS_SUCCESS;
   } catch (const std::bad_alloc&) {
@@ -89,7 +89,7 @@ gneiss_result application_state::activate_scene(std::uint64_t request,
     return GNEISS_ERROR_NOT_READY;
   }
   const auto start = std::chrono::steady_clock::now();
-  std::unique_ptr<asset_internal::texture_load_service> next_assets;
+  std::unique_ptr<render_internal::texture_load_service> next_assets;
   auto next = scene_service_->take_candidate(request, completion, next_assets);
   if (!next) {
     return GNEISS_ERROR_NOT_READY;

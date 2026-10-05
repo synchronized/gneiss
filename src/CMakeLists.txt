@@ -41,27 +41,27 @@ target_sources(
     application/application_scene_state.hpp
     application/application_state.cpp
     application/application_state.hpp
-    asset/source_revision_file_system.cpp
-    asset/source_revision_file_system.h
-    asset/asset_uri.cpp
-    asset/asset_uri.hpp
-    asset/file_system.h
-    asset/mesh_binary.cpp
-    asset/mesh_binary.h
-    asset/texture_ktx2.cpp
-    asset/texture_ktx2.h
-    asset/texture_binary.cpp
-    asset/texture_binary.h
-    asset/texture_container.cpp
-    asset/texture_container.h
-    asset/texture_load_service.cpp
-    asset/texture_load_service.h
-    asset/native_file_system.cpp
-    asset/native_file_system.h
-    asset/resource_cache.cpp
-    asset/resource_cache.h
-    asset/virtual_file_system.cpp
-    asset/virtual_file_system.h
+    engine/asset/source_revision_file_system.cpp
+    engine/asset/source_revision_file_system.hpp
+    engine/asset/asset_uri.cpp
+    engine/asset/asset_uri.hpp
+    engine/asset/file_system.hpp
+    engine/asset/mesh_binary.cpp
+    engine/asset/mesh_binary.hpp
+    engine/asset/texture_ktx2.cpp
+    engine/asset/texture_ktx2.hpp
+    engine/asset/texture_binary.cpp
+    engine/asset/texture_binary.hpp
+    engine/asset/texture_container.cpp
+    engine/asset/texture_container.hpp
+    render/texture_load_service.cpp
+    render/texture_load_service.hpp
+    engine/asset/native_file_system.cpp
+    engine/asset/native_file_system.hpp
+    engine/asset/resource_cache.cpp
+    engine/asset/resource_cache.hpp
+    engine/asset/virtual_file_system.cpp
+    engine/asset/virtual_file_system.hpp
     engine/core/service_registry.cpp
     engine/core/service_registry.hpp
     engine/core/rid_table.hpp
@@ -92,8 +92,8 @@ target_sources(
     render/ui_draw_list.h
     render/render_asset_loader.cpp
     render/render_asset_loader.h
-    asset/png_decoder.cpp
-    asset/png_decoder.hpp
+    engine/asset/png_decoder.cpp
+    engine/asset/png_decoder.hpp
     render/camera_math.cpp
     render/camera_math.h
     render/render_snapshot.hpp

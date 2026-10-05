@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "asset/texture_binary.h"
+#include "engine/asset/texture_binary.hpp"
 
 #include <algorithm>
 #include <array>

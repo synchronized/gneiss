@@ -3,9 +3,9 @@
 
 #include "application/scene_load_service.hpp"
 
-#include "asset/asset_uri.hpp"
-#include "asset/source_revision_file_system.h"
-#include "asset/texture_container.h"
+#include "engine/asset/asset_uri.hpp"
+#include "engine/asset/source_revision_file_system.hpp"
+#include "engine/asset/texture_container.hpp"
 
 #include <algorithm>
 #include <stdexcept>
@@ -64,7 +64,7 @@ struct scene_load_service::pending {
   bool verifying{};
   scene_load_completion result;
   std::unique_ptr<application_scene_state> candidate;
-  std::unique_ptr<asset_internal::texture_load_service> assets;
+  std::unique_ptr<render_internal::texture_load_service> assets;
   std::unique_ptr<scene_internal::scene_load_builder> builder;
   std::map<std::uint64_t, resource_usage> resident;
   std::vector<render_internal::render_asset_reload> requested;
@@ -78,7 +78,7 @@ struct scene_load_service::pending {
 scene_load_service::scene_load_service(tasks::task_executor& executor,
                                        asset_internal::virtual_file_system files,
                                        render_internal::render_resource_service& resources,
-                                       asset_internal::texture_upload_backend backend)
+                                       render_internal::texture_upload_backend backend)
     : executor_(executor), scope_(executor.make_scope()), files_(std::move(files)),
       resources_(resources), backend_(std::move(backend)) {
   if (scope_.id == 0U) {
@@ -145,7 +145,7 @@ void scene_load_service::sample_budget(scene_load_progress& value) const {
   value.application_cpu_data_bytes = usage.cpu_data_bytes;
   value.available_bytes = resources_.available_memory_bytes();
   value.upload_reserved_bytes = 0U;
-  asset_internal::asset_load_progress child;
+  render_internal::asset_load_progress child;
   if (pending_ && pending_->assets && pending_->assets->progress(child)) {
     value.upload_reserved_bytes = child.upload_reserved_bytes;
     value.peak_upload_bytes = std::max(value.peak_upload_bytes, child.upload_reserved_bytes);
@@ -156,9 +156,9 @@ bool scene_load_service::progress(scene_load_progress& value) const {
   if (pending_) {
     value = pending_->result.progress;
     sample_budget(value);
-    asset_internal::asset_load_progress child;
+    render_internal::asset_load_progress child;
     value.gpu_in_flight = pending_->assets && pending_->assets->progress(child) &&
-                          child.state == asset_internal::texture_load_state::uploading;
+                          child.state == render_internal::texture_load_state::uploading;
     return true;
   }
   if (completed_) {
@@ -201,7 +201,7 @@ bool scene_load_service::take(scene_load_completion& result) {
 }
 std::unique_ptr<application_scene_state>
 scene_load_service::take_candidate(std::uint64_t request, scene_load_completion& result,
-                                   std::unique_ptr<asset_internal::texture_load_service>& assets) {
+                                   std::unique_ptr<render_internal::texture_load_service>& assets) {
   check_owner();
   if (!pending_ || pending_->cancelled || pending_->result.progress.request != request ||
       pending_->result.progress.phase != scene_load_phase::ready) {
@@ -261,7 +261,7 @@ void scene_load_service::advance_impl() {
       finish(initialized, scene_load_phase::failed);
       return;
     }
-    value.assets = std::make_unique<asset_internal::texture_load_service>(
+    value.assets = std::make_unique<render_internal::texture_load_service>(
         executor_, value.snapshot, value.candidate->assets, backend_);
     value.requested = std::move(value.cpu->description.assets);
     progress.phase = scene_load_phase::assets;
@@ -290,13 +290,13 @@ void scene_load_service::advance_impl() {
     value.builder = std::make_unique<scene_internal::scene_load_builder>(
         *value.candidate->scenes, std::move(value.cpu->description));
     // 激活后的热重载必须回到宿主原始 VFS，不能继承一次性加载会话的内容固定规则。
-    value.assets = std::make_unique<asset_internal::texture_load_service>(
+    value.assets = std::make_unique<render_internal::texture_load_service>(
         executor_, files_, value.candidate->assets, backend_);
     return;
   }
   if (value.batch_pending) {
     value.assets->advance();
-    asset_internal::texture_load_completion completion;
+    render_internal::texture_load_completion completion;
     if (!value.assets->take(completion)) {
       return;
     }
@@ -386,7 +386,7 @@ void scene_load_service::advance_impl() {
     const auto submitted = value.assets->submit_assets(
         std::span(value.requested).subspan(value.cursor, value.batch_count), progress.session,
         progress.revision, child, false,
-        std::min(remaining, asset_internal::texture_load_service::maximum_candidate_bytes));
+        std::min(remaining, render_internal::texture_load_service::maximum_candidate_bytes));
     if (submitted == GNEISS_ERROR_NOT_READY) {
       return;
     }

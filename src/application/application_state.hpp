@@ -9,8 +9,8 @@
 
 #include "application/application_scene_state.hpp"
 #include "application/scene_load_service.hpp"
-#include "asset/texture_load_service.h"
-#include "asset/virtual_file_system.h"
+#include "render/texture_load_service.hpp"
+#include "engine/asset/virtual_file_system.hpp"
 #include "input/input_service.h"
 #include "engine/core/log/log_dispatcher.hpp"
 #include "render/debug_draw_list.h"
@@ -42,7 +42,7 @@ public:
                                             render_internal::frame_image& output) noexcept;
   [[nodiscard]] render_internal::render_queue_stats render_statistics() const noexcept;
   [[nodiscard]] gneiss_result attach_task_executor(tasks::task_executor& executor) noexcept;
-  [[nodiscard]] asset_internal::texture_load_service* texture_service() noexcept {
+  [[nodiscard]] render_internal::texture_load_service* texture_service() noexcept {
     return texture_service_.get();
   }
 
@@ -146,7 +146,7 @@ private:
   std::unique_ptr<application_scene_state> retired_scene_;
   scene_retirement_statistics retirement_;
   std::unique_ptr<scene_load_service> scene_service_;
-  std::unique_ptr<asset_internal::texture_load_service> texture_service_;
+  std::unique_ptr<render_internal::texture_load_service> texture_service_;
   std::thread::id owner_thread_;
   std::uint64_t frame_index_ = 0;
   std::uint64_t elapsed_ns_ = 0;

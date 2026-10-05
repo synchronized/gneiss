@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "asset/virtual_file_system.h"
+#include "engine/asset/virtual_file_system.hpp"
 #include "engine/core/sha256.hpp"
 
 #include <functional>

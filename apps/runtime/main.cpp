@@ -347,7 +347,7 @@ gneiss_result update_runtime(gneiss_application application, const gneiss_frame_
       }
       if (!ready && asset_result == gneiss::result::success &&
           time->elapsed_ns >= context.next_asset_progress_ns) {
-        gneiss::asset_internal::asset_load_progress progress;
+        gneiss::render_internal::asset_load_progress progress;
         bool active{};
         if (gneiss::application_internal::query_asset_load_progress(application, progress,
                                                                     active) == GNEISS_SUCCESS &&
@@ -647,7 +647,7 @@ void write_application_log(gneiss_application, const gneiss_log_event* event, vo
             handle, assets, request.session_id, request.revision, accepted));
       },
       [handle = application.get(), &log](gneiss::result& result, bool& ready) {
-        gneiss::asset_internal::texture_load_completion completion;
+        gneiss::render_internal::texture_load_completion completion;
         const auto operation =
             gneiss::application_internal::poll_textures(handle, completion, ready);
         if (ready) {

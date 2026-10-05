@@ -5,7 +5,7 @@
 
 #include "tooling/asset_build/bc7_encoder.h"
 
-#include "asset/texture_binary.h"
+#include "engine/asset/texture_binary.hpp"
 
 #include <granit/asset_tools/texture_builder.hpp>
 

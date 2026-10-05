@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "asset/mesh_binary.h"
-#include "asset/mesh_tangent.h"
+#include "engine/asset/mesh_binary.hpp"
+#include "engine/asset/mesh_tangent.hpp"
 
 #include <algorithm>
 #include <bit>

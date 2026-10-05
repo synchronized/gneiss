@@ -3,8 +3,8 @@
 
 #pragma once
 
-#include "asset/resource_cache.h"
-#include "asset/virtual_file_system.h"
+#include "engine/asset/resource_cache.hpp"
+#include "engine/asset/virtual_file_system.hpp"
 #include "render/render_asset_loader.h"
 #include "scene/prefab_asset_loader.h"
 #include "scene/scene_instance_service.h"

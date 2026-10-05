@@ -4,7 +4,7 @@
 #ifndef GNEISS_RENDER_RENDER_RESOURCE_SERVICE_H_
 #define GNEISS_RENDER_RENDER_RESOURCE_SERVICE_H_
 
-#include "asset/texture_ktx2.h"
+#include "engine/asset/texture_ktx2.hpp"
 #include "engine/core/rid_table.hpp"
 
 #include <gneiss/render.h>

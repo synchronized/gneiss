@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#ifndef GNEISS_ASSET_VIRTUAL_FILE_SYSTEM_H_
-#define GNEISS_ASSET_VIRTUAL_FILE_SYSTEM_H_
+#ifndef GNEISS_ASSET_VIRTUAL_FILE_SYSTEM_HPP_
+#define GNEISS_ASSET_VIRTUAL_FILE_SYSTEM_HPP_
 
-#include "asset/file_system.h"
+#include "engine/asset/file_system.hpp"
 
 #include <memory>
 #include <string>

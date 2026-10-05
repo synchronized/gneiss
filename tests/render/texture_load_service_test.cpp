@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "asset/texture_container.h"
-#include "asset/texture_ktx2.h"
-#include "asset/texture_load_service.h"
+#include "engine/asset/texture_container.hpp"
+#include "engine/asset/texture_ktx2.hpp"
+#include "render/texture_load_service.hpp"
 #include <algorithm>
 #include <granit/asset_tools/texture_builder.hpp>
 

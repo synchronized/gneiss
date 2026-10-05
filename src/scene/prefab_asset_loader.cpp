@@ -3,8 +3,8 @@
 
 #include "scene/prefab_asset_loader.h"
 
-#include "asset/asset_uri.hpp"
-#include "asset/virtual_file_system.h"
+#include "engine/asset/asset_uri.hpp"
+#include "engine/asset/virtual_file_system.hpp"
 
 #include <memory>
 #include <new>

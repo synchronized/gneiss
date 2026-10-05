@@ -3,7 +3,7 @@
 
 #include "tooling/asset_build/runtime_texture_probe.h"
 
-#include "asset/texture_binary.h"
+#include "engine/asset/texture_binary.hpp"
 #include "tooling/asset_build/sha256.h"
 
 #include <granit/renderer/texture_asset.hpp>

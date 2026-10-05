@@ -4,7 +4,7 @@
 #ifndef GNEISS_SRC_APPLICATION_APPLICATION_ASSET_RELOAD_INTERNAL_HPP_
 #define GNEISS_SRC_APPLICATION_APPLICATION_ASSET_RELOAD_INTERNAL_HPP_
 
-#include "asset/texture_load_service.h"
+#include "render/texture_load_service.hpp"
 #include "render/render_asset_loader.h"
 #include "render/render_executor.h"
 
@@ -35,7 +35,7 @@ GNEISS_API gneiss_result request_render_assets(
     std::uint64_t session, std::uint64_t revision, std::uint64_t& request,
     bool reload = true) noexcept;
 GNEISS_API gneiss_result query_asset_load_progress(gneiss_application application,
-                                                   asset_internal::asset_load_progress& progress,
+                                                   render_internal::asset_load_progress& progress,
                                                    bool& active) noexcept;
 /** 提交许可前接受取消；已进入 GPU 阶段或没有在途批次时返回 NOT_READY。 */
 GNEISS_API gneiss_result cancel_render_assets(gneiss_application application) noexcept;
@@ -44,7 +44,7 @@ GNEISS_API gneiss_result request_textures(gneiss_application application,
                                           std::uint64_t revision, std::uint64_t& request,
                                           bool reload = true) noexcept;
 GNEISS_API gneiss_result poll_textures(gneiss_application application,
-                                       asset_internal::texture_load_completion& completion,
+                                       render_internal::texture_load_completion& completion,
                                        bool& ready) noexcept;
 GNEISS_API gneiss_result cancel_textures(gneiss_application application) noexcept;
 

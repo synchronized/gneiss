@@ -27,9 +27,9 @@ foreach(source IN LISTS sources)
       content MATCHES "#[ \t]*include[ \t]*[<\"](world|scene|application)/")
     message(FATAL_ERROR "Render 不得反向包含 World / Scene / Application：${source}")
   endif()
-  if(source MATCHES "/src/asset/png_decoder\\.(cpp|hpp)$" AND
-      content MATCHES "#[ \t]*include[ \t]*[<\"]render/")
-    message(FATAL_ERROR "PNG 解码不得依赖 Render：${source}")
+  if(source MATCHES "/src/engine/asset/" AND
+      content MATCHES "#[ \t]*include[ \t]*[<\"]((engine/)?(function|render|world|scene|application|editor|tooling|apps)/)")
+    message(FATAL_ERROR "Asset 不得反向包含功能层或宿主实现：${source}")
   endif()
   if(content MATCHES "extern[ \t]+\"C\"")
     message(FATAL_ERROR "内部模块 不得定义 C ABI 入口：${source}")

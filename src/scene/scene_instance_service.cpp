@@ -7,7 +7,7 @@
 
 #include "scene/scene_instance_service.h"
 
-#include "asset/virtual_file_system.h"
+#include "engine/asset/virtual_file_system.hpp"
 #include "scene/scene_description.h"
 #include "scene/structural_diff.h"
 

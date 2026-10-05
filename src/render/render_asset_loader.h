@@ -4,7 +4,7 @@
 #ifndef GNEISS_RENDER_RENDER_ASSET_LOADER_H_
 #define GNEISS_RENDER_RENDER_ASSET_LOADER_H_
 
-#include "asset/resource_cache.h"
+#include "engine/asset/resource_cache.hpp"
 #include "render/render_resource_service.h"
 #include <limits>
 

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#ifndef GNEISS_ASSET_TEXTURE_KTX2_H_
-#define GNEISS_ASSET_TEXTURE_KTX2_H_
+#ifndef GNEISS_ASSET_TEXTURE_KTX2_HPP_
+#define GNEISS_ASSET_TEXTURE_KTX2_HPP_
 
 #include <cstddef>
 #include <cstdint>

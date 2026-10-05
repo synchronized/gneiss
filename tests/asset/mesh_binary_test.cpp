@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "asset/mesh_binary.h"
+#include "engine/asset/mesh_binary.hpp"
 
 #include <array>
 #include <cstddef>

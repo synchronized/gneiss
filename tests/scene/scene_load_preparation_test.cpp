@@ -3,7 +3,7 @@
 
 #include "scene/scene_load_preparation.h"
 
-#include "asset/virtual_file_system.h"
+#include "engine/asset/virtual_file_system.hpp"
 
 #include <cstdio>
 #include <map>

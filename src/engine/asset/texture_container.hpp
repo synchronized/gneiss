@@ -3,8 +3,8 @@
 
 #pragma once
 
-#include "asset/read_source.h"
-#include "asset/texture_binary.h"
+#include "engine/asset/read_source.hpp"
+#include "engine/asset/texture_binary.hpp"
 #include "engine/core/sha256.hpp"
 
 #include <memory>

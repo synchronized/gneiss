@@ -1,14 +1,13 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "asset/texture_load_service.h"
-#include "asset/asset_uri.hpp"
+#include "render/texture_load_service.hpp"
+#include "engine/asset/asset_uri.hpp"
 #include <algorithm>
 #include <set>
 #include <stdexcept>
 
-namespace gneiss::asset_internal {
-using namespace render_internal;
+namespace gneiss::render_internal {
 struct texture_load_service::pending {
   struct cpu_result {
     prepared_render_batch batch;
@@ -35,7 +34,7 @@ struct texture_load_service::pending {
   std::chrono::steady_clock::time_point commit_started;
 };
 texture_load_service::texture_load_service(tasks::task_executor& executor,
-                                           virtual_file_system file_system,
+                                           asset_internal::virtual_file_system file_system,
                                            render_asset_loader& loader,
                                            texture_upload_backend backend)
     : executor_(executor), scope_(executor.make_scope()), file_system_(std::move(file_system)),
@@ -93,7 +92,8 @@ gneiss_result texture_load_service::submit_assets(std::span<const render_asset_r
   }
   std::set<std::string> unique;
   for (const auto& source : sources) {
-    if (validate_uri(source.uri) != GNEISS_SUCCESS || !unique.insert(source.uri).second ||
+    if (asset_internal::validate_uri(source.uri) != GNEISS_SUCCESS ||
+        !unique.insert(source.uri).second ||
         (source.type != render_asset_type::mesh && source.type != render_asset_type::material &&
          source.type != render_asset_type::texture)) {
       return GNEISS_ERROR_INVALID_ARGUMENT;
@@ -391,4 +391,4 @@ bool texture_load_service::progress(asset_load_progress& output) const {
   };
   return true;
 }
-} // namespace gneiss::asset_internal
+} // namespace gneiss::render_internal

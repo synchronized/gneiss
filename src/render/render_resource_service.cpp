@@ -3,8 +3,8 @@
 
 #include "render/render_resource_service.h"
 
-#include "asset/mesh_tangent.h"
-#include "asset/texture_container.h"
+#include "engine/asset/mesh_tangent.hpp"
+#include "engine/asset/texture_container.hpp"
 
 #include <algorithm>
 #include <atomic>

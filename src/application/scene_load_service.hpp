@@ -4,7 +4,7 @@
 #pragma once
 
 #include "application/application_scene_state.hpp"
-#include "asset/texture_load_service.h"
+#include "render/texture_load_service.hpp"
 #include "scene/scene_load_builder.h"
 
 namespace gneiss::application_internal {
@@ -67,7 +67,7 @@ public:
   static constexpr std::size_t maximum_resident_bytes = 2ULL * 1024U * 1024U * 1024U;
   scene_load_service(tasks::task_executor& executor, asset_internal::virtual_file_system files,
                      render_internal::render_resource_service& resources,
-                     asset_internal::texture_upload_backend backend);
+                     render_internal::texture_upload_backend backend);
   ~scene_load_service();
   [[nodiscard]] gneiss_result submit(std::string_view uri, std::uint64_t session,
                                      std::uint64_t revision, std::uint64_t& request);
@@ -78,7 +78,7 @@ public:
   /** 仅 ready 可取，取出后取消过晚；调用方必须完成不可失败的指针交换再报告 applied。 */
   [[nodiscard]] std::unique_ptr<application_scene_state>
   take_candidate(std::uint64_t request, scene_load_completion& result,
-                 std::unique_ptr<asset_internal::texture_load_service>& assets);
+                 std::unique_ptr<render_internal::texture_load_service>& assets);
   [[nodiscard]] bool take(scene_load_completion& result);
 
 private:
@@ -91,7 +91,7 @@ private:
   tasks::task_scope scope_;
   asset_internal::virtual_file_system files_;
   render_internal::render_resource_service& resources_;
-  asset_internal::texture_upload_backend backend_;
+  render_internal::texture_upload_backend backend_;
   std::unique_ptr<pending> pending_;
   std::optional<scene_load_completion> completed_;
   std::uint64_t sequence_{};

@@ -361,6 +361,8 @@
 
 - [M-295：日志事件投递与 Application 回调边界](records/M-295-log-sink-boundary.md)
 
+- [M-295：Asset 基础能力与上传服务归属](records/M-295-asset-layout.md)
+
 ## 文档维护
 
 

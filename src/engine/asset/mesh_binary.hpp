@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#ifndef GNEISS_ASSET_MESH_BINARY_H_
-#define GNEISS_ASSET_MESH_BINARY_H_
+#ifndef GNEISS_ASSET_MESH_BINARY_HPP_
+#define GNEISS_ASSET_MESH_BINARY_HPP_
 
 #include <array>
 #include <cstddef>

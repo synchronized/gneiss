@@ -3,7 +3,7 @@
 
 #include "input/action_map.h"
 
-#include "asset/virtual_file_system.h"
+#include "engine/asset/virtual_file_system.hpp"
 
 #include <yyjson.h>
 

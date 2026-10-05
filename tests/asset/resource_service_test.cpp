@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "asset/native_file_system.h"
-#include "asset/resource_cache.h"
-#include "asset/virtual_file_system.h"
+#include "engine/asset/native_file_system.hpp"
+#include "engine/asset/resource_cache.hpp"
+#include "engine/asset/virtual_file_system.hpp"
 
 #include <gneiss/core/result.h>
 

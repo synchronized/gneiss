@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "application/application_scene_state.hpp"
-#include "asset/virtual_file_system.h"
+#include "engine/asset/virtual_file_system.hpp"
 #include "scene/scene_load_builder.h"
 
 #include <cstdio>

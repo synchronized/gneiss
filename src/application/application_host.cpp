@@ -158,7 +158,7 @@ gneiss_result gneiss::application_internal::request_render_assets(
 }
 
 gneiss_result gneiss::application_internal::query_asset_load_progress(
-    gneiss_application application, asset_internal::asset_load_progress& progress,
+    gneiss_application application, render_internal::asset_load_progress& progress,
     bool& active) noexcept {
   active = false;
   progress = {};
@@ -204,7 +204,7 @@ gneiss_result gneiss::application_internal::request_textures(
 
 gneiss_result
 gneiss::application_internal::poll_textures(gneiss_application application,
-                                            asset_internal::texture_load_completion& completion,
+                                            render_internal::texture_load_completion& completion,
                                             bool& ready) noexcept {
   ready = false;
   auto state = find_application(application);

@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#ifndef GNEISS_ASSET_FILE_SYSTEM_H_
-#define GNEISS_ASSET_FILE_SYSTEM_H_
+#ifndef GNEISS_ASSET_FILE_SYSTEM_HPP_
+#define GNEISS_ASSET_FILE_SYSTEM_HPP_
 
 #include <gneiss/core/result.h>
 
-#include "asset/read_source.h"
+#include "engine/asset/read_source.hpp"
 
 #include <cstddef>
 #include <memory>

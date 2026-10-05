@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "application/application_asset_reload_internal.hpp"
-#include "asset/texture_ktx2.h"
+#include "engine/asset/texture_ktx2.hpp"
 
 #include <gneiss/application.hpp>
 
@@ -60,7 +60,7 @@ void run(gneiss::tasks::execution_mode mode) {
   std::uint64_t request{};
   check(application_internal::request_textures(app.get(), uris, 2U, 1U, request, false) ==
         GNEISS_SUCCESS);
-  asset_internal::texture_load_completion completion;
+  render_internal::texture_load_completion completion;
   bool ready{};
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
   while (!ready) {

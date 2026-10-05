@@ -3,7 +3,7 @@
 
 #include "render/backend/granit/granit_render_service.hpp"
 
-#include "asset/texture_container.h"
+#include "engine/asset/texture_container.hpp"
 #include "engine/core/log/log_dispatcher.hpp"
 
 #include <granit/core/version.h>

@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "asset/virtual_file_system.h"
+#include "engine/asset/virtual_file_system.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "render/render_asset_loader.h"
 
@@ -11,7 +11,7 @@
 #include <optional>
 #include <thread>
 
-namespace gneiss::asset_internal {
+namespace gneiss::render_internal {
 
 enum class texture_load_state : std::uint8_t { preparing, uploading, applied, failed, cancelled };
 struct texture_load_completion {
@@ -65,7 +65,8 @@ public:
   static constexpr std::size_t upload_budget_bytes = 8U * 1024U * 1024U;
   static constexpr std::size_t maximum_upload_bytes = maximum_candidate_bytes;
   static constexpr std::size_t maximum_bytes = 64U * 1024U * 1024U;
-  texture_load_service(tasks::task_executor& executor, virtual_file_system file_system,
+  texture_load_service(tasks::task_executor& executor,
+                       asset_internal::virtual_file_system file_system,
                        render_internal::render_asset_loader& loader,
                        texture_upload_backend backend);
   ~texture_load_service();
@@ -92,7 +93,7 @@ private:
   void finish(gneiss_result result, texture_load_state state);
   tasks::task_executor& executor_;
   tasks::task_scope scope_;
-  virtual_file_system file_system_;
+  asset_internal::virtual_file_system file_system_;
   render_internal::render_asset_loader& loader_;
   texture_upload_backend backend_;
   std::unique_ptr<pending> pending_;
@@ -102,4 +103,4 @@ private:
   const std::thread::id owner_{std::this_thread::get_id()};
 };
 
-} // namespace gneiss::asset_internal
+} // namespace gneiss::render_internal

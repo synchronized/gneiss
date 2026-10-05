@@ -3,7 +3,7 @@
 
 #include "application/application_asset_reload_internal.hpp"
 #include "application/application_scene_load_internal.hpp"
-#include "asset/mesh_binary.h"
+#include "engine/asset/mesh_binary.hpp"
 
 #include <gneiss/application.hpp>
 

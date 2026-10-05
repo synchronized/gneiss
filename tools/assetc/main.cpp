@@ -7,7 +7,7 @@
 #include "tooling/asset_import/asset_writer.h"
 #include "tooling/asset_import/gltf_importer.h"
 
-#include "asset/mesh_binary.h"
+#include "engine/asset/mesh_binary.hpp"
 
 #include <filesystem>
 #include <fstream>

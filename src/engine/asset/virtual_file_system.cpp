@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "asset/virtual_file_system.h"
+#include "engine/asset/virtual_file_system.hpp"
 
-#include "asset/asset_uri.hpp"
+#include "engine/asset/asset_uri.hpp"
 
 #include <algorithm>
 #include <limits>

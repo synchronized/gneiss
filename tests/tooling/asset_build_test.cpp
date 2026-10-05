@@ -3,7 +3,7 @@
 
 #include "tooling/asset_build/asset_build.h"
 
-#include "asset/texture_binary.h"
+#include "engine/asset/texture_binary.hpp"
 
 #include <granit/renderer/texture_asset.hpp>
 

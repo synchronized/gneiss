@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "asset/source_revision_file_system.h"
+#include "engine/asset/source_revision_file_system.hpp"
 
 #include <algorithm>
 #include <array>

@@ -3,7 +3,7 @@
 
 #include "tooling/asset_import/gltf_importer.h"
 
-#include "asset/mesh_tangent.h"
+#include "engine/asset/mesh_tangent.hpp"
 #include "tooling/asset_import/tangent_generation.h"
 
 #include <fastgltf/core.hpp>

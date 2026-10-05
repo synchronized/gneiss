@@ -3,13 +3,13 @@
 
 #include "render/render_asset_loader.h"
 
-#include "asset/mesh_binary.h"
-#include "asset/png_decoder.hpp"
-#include "asset/source_revision_file_system.h"
-#include "asset/texture_binary.h"
-#include "asset/texture_container.h"
-#include "asset/texture_ktx2.h"
-#include "asset/virtual_file_system.h"
+#include "engine/asset/mesh_binary.hpp"
+#include "engine/asset/png_decoder.hpp"
+#include "engine/asset/source_revision_file_system.hpp"
+#include "engine/asset/texture_binary.hpp"
+#include "engine/asset/texture_container.hpp"
+#include "engine/asset/texture_ktx2.hpp"
+#include "engine/asset/virtual_file_system.hpp"
 #include "render/render_resource_service.h"
 
 #include <yyjson.h>

@@ -3,14 +3,14 @@
 
 add_library(
   gneiss_asset_import_sdk STATIC
-  "${PROJECT_SOURCE_DIR}/src/asset/mesh_binary.cpp"
-  "${PROJECT_SOURCE_DIR}/src/asset/mesh_binary.h"
-  "${PROJECT_SOURCE_DIR}/src/asset/texture_ktx2.cpp"
-  "${PROJECT_SOURCE_DIR}/src/asset/texture_ktx2.h"
-  "${PROJECT_SOURCE_DIR}/src/asset/texture_binary.cpp"
-  "${PROJECT_SOURCE_DIR}/src/asset/texture_binary.h"
-  "${PROJECT_SOURCE_DIR}/src/asset/png_decoder.cpp"
-  "${PROJECT_SOURCE_DIR}/src/asset/png_decoder.hpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/asset/mesh_binary.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/asset/mesh_binary.hpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/asset/texture_ktx2.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/asset/texture_ktx2.hpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/asset/texture_binary.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/asset/texture_binary.hpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/asset/png_decoder.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/asset/png_decoder.hpp"
   "${PROJECT_SOURCE_DIR}/src/tooling/asset_import/asset_index.cpp"
   "${PROJECT_SOURCE_DIR}/src/tooling/asset_import/asset_index.h"
   "${PROJECT_SOURCE_DIR}/src/tooling/asset_import/asset_import_sdk.cpp"
