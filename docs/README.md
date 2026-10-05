@@ -349,6 +349,7 @@
 - [M-294：Application 注册表与宿主入口拆分](records/M-294-application-boundary.md)
 - [M-294：Application 语义配置与平台窗口归属](records/M-294-application-configuration.md)
 
+- [M-297：0.45.0 整版验收](records/M-297-0.45.0-validation.md)
 - [M-295：Gizmo 绘制与宿主入口](records/M-295-gizmo-host-entry.md)
 - [M-295：Reflection 内部注册契约与 C 适配](records/M-295-reflection-boundary.md)
 

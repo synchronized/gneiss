@@ -355,7 +355,7 @@ Scene View、右侧 Inspector 和底部 Console 的确定性默认工作区。�
 示例输出当前项目版本：
 
 ```text
-gneiss 0.35.0
+gneiss 0.45.0
 ```
 
 开发 preset 默认启用编译警告并将警告视为错误。

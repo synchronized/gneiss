@@ -5,17 +5,17 @@
 
 ## 状态与依据
 
-2026-10-05 已开始接口审计和 Core 迁移；首轮证据见
+2026-10-06 已完成分层、源码归属与 SDK 本地专项，进入整版验收；首轮证据见
 [M-292～M-293 记录](../records/M-292-293-cpp-boundary-foundation.md)。World 内部入口迁移见
 [World 阶段记录](../records/M-294-world-cpp-boundary.md)，Application 拆分见
 [Application 阶段记录](../records/M-294-application-boundary.md)，内部配置与窗口归属见
 [配置记录](../records/M-294-application-configuration.md)。Reflection 迁移见
 [Reflection 阶段记录](../records/M-295-reflection-boundary.md)。全部 C 入口集中见
-[C 边界记录](../records/M-295-c-boundary-completion.md)；语义配置与其余模块仍在实施。范围和门槛以
+[C 边界记录](../records/M-295-c-boundary-completion.md)；语义配置与模块收口已完成本地专项。范围和门槛以
 [VER-045](VER-045-0.45.0-cpp-boundaries.md) 为准；目录与所有权以
 [ADR-053](../decisions/ADR-053-cpp-core-and-c-abi.md) 与
 [ADR-054](../decisions/ADR-054-source-layout-and-host-boundaries.md) 为准。后者的精简布局已确认，
-Core、Platform、Asset 与 Function 已执行物理迁移；C ABI 已迁至 Engine，Editor/Apps 拆分继续按计划推进。
+Core、Platform、Asset 与 Function 已执行物理迁移；C ABI 已迁至 Engine，Editor/Apps 已按职责拆分，最终平台矩阵待验收。
 
 ## M-292：审计与冻结基线
 
@@ -57,7 +57,7 @@ Scene 三类节点创建的参数转换已留在 API，见 [创建边界记录](
 ## M-295：Render、Asset 与其他模块
 
 Render 快照、PNG 解码与 Granit 目录子项见 [迁移记录](../records/M-295-render-asset-layout.md)；
-资产 CPU 准备与发布已拆分；其余接口语义与配置审计仍待完成。平台工具反向链接清理见
+资产 CPU 准备与发布已拆分，接口语义与配置已按内部值类型及真实回调协议核对。平台工具反向链接清理见
 [链接边界记录](../records/M-295-platform-link-boundary.md)；Core 迁移见
 [基础层记录](../records/M-295-core-layout.md)，日志投递拆分见
 [日志边界记录](../records/M-295-log-sink-boundary.md)。Asset 基础能力迁移与上传服务归属见
