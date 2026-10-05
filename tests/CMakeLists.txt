@@ -716,8 +716,8 @@ endif()
 
 # CPU 准备单独链接：不得通过 Engine 或资源服务补齐依赖。
 add_executable(gneiss_render_asset_preparation_test
-  render/render_asset_preparation_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/render/render_asset_preparation.cpp"
+  asset/asset_preparation_test.cpp
+  "${PROJECT_SOURCE_DIR}/src/engine/asset/asset_preparation.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/asset/asset_uri.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/asset/mesh_binary.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/asset/texture_binary.cpp"
@@ -749,7 +749,7 @@ add_executable(
   "${PROJECT_SOURCE_DIR}/src/engine/asset/resource_cache.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/asset/virtual_file_system.cpp"
   "${PROJECT_SOURCE_DIR}/src/render/render_asset_loader.cpp"
-  "${PROJECT_SOURCE_DIR}/src/render/render_asset_preparation.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/asset/asset_preparation.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/asset/texture_container.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/asset/source_revision_file_system.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/core/sha256.cpp"
@@ -780,7 +780,7 @@ add_executable(
   "${PROJECT_SOURCE_DIR}/src/engine/asset/resource_cache.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/asset/virtual_file_system.cpp"
   "${PROJECT_SOURCE_DIR}/src/render/render_asset_loader.cpp"
-  "${PROJECT_SOURCE_DIR}/src/render/render_asset_preparation.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/asset/asset_preparation.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/asset/texture_container.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/asset/source_revision_file_system.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/core/sha256.cpp"
@@ -888,7 +888,7 @@ add_executable(
   "${PROJECT_SOURCE_DIR}/src/engine/asset/virtual_file_system.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/asset/png_decoder.cpp"
   "${PROJECT_SOURCE_DIR}/src/render/render_asset_loader.cpp"
-  "${PROJECT_SOURCE_DIR}/src/render/render_asset_preparation.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/asset/asset_preparation.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/asset/texture_container.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/asset/source_revision_file_system.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/core/sha256.cpp"

@@ -64,11 +64,10 @@ World 的提取函数位于 `src/world/render_snapshot.hpp`，Render 不反向�
 其依赖 Asset 的 VFS，但 Asset 不反向包含 Render。
 
 `render_asset_loader` 暂仍位于 Render，它连接 Asset 缓存租约与 Render 资源发布，并不只是格式
-解码器。CPU 准备接口及解析实现已分离至 `render_asset_preparation.hpp/.cpp`，资源值类型独立于
-资源服务声明；准备代码可以不链接 Engine、缓存或 RID 服务独立验证。材质准备使用 Asset 的无 RID 参数，纹理依赖仅用 URI 表达，
-发布时才绑定纹理租约。网格 CPU 数组与纹理准备值也归入 Asset，纹理上传弱引用仅保留在
-Render 发布资源中；准备实现暂仍因材质预算依赖 Render，进一步拆分属于 [0.45 实施计划](../plans/DEV-045-cpp-boundaries.md)，
-不能把独立编译描述为整个加载系统分层已完成。
+解码器。CPU 准备和解析实现位于 `src/engine/asset/asset_preparation.hpp/.cpp`，
+Render 的准备适配只传入发布资源的预算。三类准备数据均使用 Asset 值类型，材质依赖仅用 URI，
+发布边界绑定纹理 RID 并移动纹理数组；上传弱引用仍由 Render 管理。Asset 不包含 Render 实现，
+独立准备测试不链接 Engine、缓存或资源服务。其余迁移见 [0.45 实施计划](../plans/DEV-045-cpp-boundaries.md)。
 
 当前测试分布在 tests 根目录及 `tests/core/`、`tests/world/`、`tests/scene/` 等模块目录。
 公共头独立编译位于 `tests/headers/`，安装消费者位于 `tests/consumer/`；跨模块工作流还通过

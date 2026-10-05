@@ -3,10 +3,10 @@
 
 #pragma once
 
-#include "render/render_asset_preparation.hpp"
+#include "engine/asset/asset_preparation.hpp"
 
 // 同步加载与后台准备共用解析契约；不接触缓存或资源服务。
-namespace gneiss::render_internal::asset_parsing {
+namespace gneiss::asset_internal::asset_parsing {
 
 struct material_source final {
   asset_internal::material_parameters parameters;
@@ -31,4 +31,4 @@ void fail(asset_diagnostic& diagnostic, gneiss_result result, std::string_view p
                                            material_source& out_source,
                                            asset_diagnostic& diagnostic);
 
-} // namespace gneiss::render_internal::asset_parsing
+} // namespace gneiss::asset_internal::asset_parsing

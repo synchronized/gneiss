@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "render/render_asset_preparation.hpp"
+#include "engine/asset/asset_preparation.hpp"
 
-#include "render/render_asset_parsing.hpp"
-#include "render/render_resource_data.hpp" // 材质发布预算，尚未下沉 Asset。
+#include "engine/asset/asset_parsing.hpp"
 
 #include "engine/asset/mesh_binary.hpp"
 #include "engine/asset/png_decoder.hpp"
@@ -31,7 +30,7 @@
 #include <span>
 #include <vector>
 
-namespace gneiss::render_internal::asset_parsing {
+namespace gneiss::asset_internal::asset_parsing {
 
 struct texture_source final {
   std::string uri;
@@ -548,17 +547,16 @@ using document_ptr = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;
   return GNEISS_SUCCESS;
 }
 
-} // namespace gneiss::render_internal::asset_parsing
+} // namespace gneiss::asset_internal::asset_parsing
 
-namespace gneiss::render_internal {
+namespace gneiss::asset_internal {
 using namespace asset_parsing;
 
-gneiss_result prepare_render_assets(const asset_internal::virtual_file_system& file_system,
-                                    std::span<const render_asset_reload> requested,
-                                    prepared_render_batch& output, asset_diagnostic& diagnostic,
-                                    const std::function<bool()>& cancelled,
-                                    std::size_t maximum_assets, std::size_t maximum_bytes,
-                                    texture_prepare_profile profile) noexcept {
+gneiss_result prepare_assets(const asset_internal::virtual_file_system& file_system,
+                             std::span<const asset_request> requested, prepared_batch& output,
+                             asset_diagnostic& diagnostic, const std::function<bool()>& cancelled,
+                             std::size_t material_bytes, std::size_t maximum_assets,
+                             std::size_t maximum_bytes, texture_prepare_profile profile) noexcept {
   output = {};
   diagnostic = {};
   if (requested.empty() || requested.size() > maximum_assets) {
@@ -627,9 +625,9 @@ gneiss_result prepare_render_assets(const asset_internal::virtual_file_system& f
     if (result != GNEISS_SUCCESS) {
       return result;
     }
-    std::vector<render_asset_reload> pending(requested.begin(), requested.end());
-    std::map<std::string, render_asset_type> seen;
-    prepared_render_batch batch;
+    std::vector<asset_request> pending(requested.begin(), requested.end());
+    std::map<std::string, asset_type> seen;
+    prepared_batch batch;
     for (std::size_t index = 0U; index < pending.size(); ++index) {
       if (cancelled && cancelled()) {
         return GNEISS_ERROR_INVALID_STATE;
@@ -645,9 +643,9 @@ gneiss_result prepare_render_assets(const asset_internal::virtual_file_system& f
         return GNEISS_ERROR_INVALID_ARGUMENT;
       }
       seen.emplace(source.uri, source.type);
-      prepared_render_asset asset;
+      prepared_asset asset;
       asset.source = source;
-      if (source.type == render_asset_type::texture) {
+      if (source.type == asset_type::texture) {
         result = prepare_texture(
             files, source.uri, asset.texture, diagnostic,
             std::min(maximum_bytes, (std::size_t{64U} * 1024U * 1024U)), false,
@@ -663,7 +661,7 @@ gneiss_result prepare_render_assets(const asset_internal::virtual_file_system& f
           fail(diagnostic, result, source.uri, "无法读取渲染资产源");
           return result;
         }
-        if (source.type == render_asset_type::mesh) {
+        if (source.type == asset_type::mesh) {
           result = asset_internal::is_mesh_binary(bytes)
                        ? parse_binary_mesh(bytes, asset.mesh.vertices, asset.mesh.normals,
                                            asset.mesh.indices, asset.mesh.tangents, asset.mesh.uv1,
@@ -694,17 +692,32 @@ gneiss_result prepare_render_assets(const asset_internal::virtual_file_system& f
             result = GNEISS_ERROR_INVALID_ARGUMENT;
           }
           asset.bytes = mesh.data_bytes();
-        } else if (source.type == render_asset_type::material) {
+        } else if (source.type == asset_type::material) {
           material_source material;
           result = parse_material(bytes, material, diagnostic);
+          if (result != GNEISS_SUCCESS) {
+            return result;
+          }
           asset.material = material.parameters;
 
           asset.texture_uris = std::move(material.texture_uris);
-          // 继续按发布资源估算预算，不能因去除准备数据中的 RID 而放宽上限。
-          asset.bytes = sizeof(material_resource);
+          // 由调用方传入发布预算，Asset 不依赖资源对象布局。
+          if (material_bytes == 0U) {
+            fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, source.uri, "材质发布预算不得为零");
+            return GNEISS_ERROR_INVALID_ARGUMENT;
+          }
+          if (material_bytes > maximum_bytes) {
+            fail(diagnostic, GNEISS_ERROR_OUT_OF_MEMORY, source.uri, "材质发布预算超过批次上限");
+            return GNEISS_ERROR_OUT_OF_MEMORY;
+          }
+          asset.bytes = material_bytes;
           for (const auto& uri : asset.texture_uris) {
             if (result == GNEISS_SUCCESS && !uri.empty()) {
-              pending.push_back({.uri = uri, .type = render_asset_type::texture});
+              pending.push_back({.uri = uri, .type = asset_type::texture});
+            }
+            if (uri.size() > maximum_bytes - asset.bytes) {
+              fail(diagnostic, GNEISS_ERROR_OUT_OF_MEMORY, source.uri, "材质依赖超出批次字节上限");
+              return GNEISS_ERROR_OUT_OF_MEMORY;
             }
             asset.bytes += uri.size();
           }
@@ -732,7 +745,7 @@ gneiss_result prepare_render_assets(const asset_internal::virtual_file_system& f
     }
     std::stable_sort(batch.assets.begin(), batch.assets.end(), [](const auto& a, const auto& b) {
       const auto order = [](auto type) {
-        return type == render_asset_type::texture ? 0 : type == render_asset_type::mesh ? 1 : 2;
+        return type == asset_type::texture ? 0 : type == asset_type::mesh ? 1 : 2;
       };
       return order(a.source.type) < order(b.source.type);
     });
@@ -980,4 +993,4 @@ gneiss_result prepare_texture(const asset_internal::virtual_file_system& file_sy
   }
 }
 
-} // namespace gneiss::render_internal
+} // namespace gneiss::asset_internal

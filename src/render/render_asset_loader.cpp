@@ -6,7 +6,7 @@
 #include "engine/asset/mesh_binary.hpp"
 #include "engine/asset/texture_container.hpp"
 #include "engine/asset/virtual_file_system.hpp"
-#include "render/render_asset_parsing.hpp"
+#include "engine/asset/asset_parsing.hpp"
 #include "render/render_resource_service.h"
 
 #include <algorithm>
@@ -22,7 +22,7 @@
 
 namespace {
 
-using namespace gneiss::render_internal::asset_parsing;
+using namespace gneiss::asset_internal::asset_parsing;
 
 // 仅在所属线程的发布边界构造资源值，随后绑定经过验证的纹理租约。
 [[nodiscard]] gneiss::render_internal::material_resource

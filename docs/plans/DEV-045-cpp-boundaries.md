@@ -56,7 +56,8 @@ Render 快照、PNG 解码与 Granit 目录子项见 [迁移记录](../records/M
 CPU 准备已与资源发布分开编译并建立独立链接验证，见
 [准备接口记录](../records/M-295-render-preparation.md)；材质准备值已去除 RID，见
 [材质参数记录](../records/M-295-material-parameters.md)。网格与纹理准备值已归入 Asset，见
-[准备数据记录](../records/M-295-prepared-data.md)；准备实现中的材质发布预算依赖仍待拆分。
+[准备数据记录](../records/M-295-prepared-data.md)。CPU 准备与解析已归入 Asset，Render 传入发布预算，
+见 [Asset 准备闭环记录](../records/M-295-asset-preparation.md)。
 
 - 将解码、格式解析、资源加载与 GPU 生命周期按 ADR 分开，先记录允许依赖再搬文件。
 - Granit 适配进入 Render 私有后端，Platform 的窗口适配维持独立所有权。
@@ -72,7 +73,7 @@ CPU 准备已与资源发布分开编译并建立独立链接验证，见
 | --- | --- |
 | `src/api/c/` | `src/engine/api/`；保持公共头、C 导出与调用方向 |
 | `src/application/`、`world/`、`scene/`、`render/`、`input/`、`game/` | `src/engine/function/` 下同名模块；Granit 后端随 Render |
-| 原 `src/asset/` | 基础能力已迁至 `src/engine/asset/`；纹理加载与上传事务归 `src/render/texture_load_service.hpp`，其余 CPU 准备契约继续拆分 |
+| 原 `src/asset/` | 基础能力已迁至 `src/engine/asset/`；纹理加载与上传事务归 `src/render/texture_load_service.hpp`，CPU 准备与解析已归入 Asset，Render 仅传入发布预算 |
 | 原 `src/core/`、`reflection/`、`log/` | 已迁入 `src/engine/core/`；投递器使用 C++ 消息与事件视图，Application 回调适配留在所属模块 |
 | Render 中的数学代码 | 通用数学迁 Core；相机语义、后端投影适配仍留所属功能，逐文件判断 |
 | 原 `src/platform/`、`io/`、`process/`、`ipc/` | 已迁至 `src/engine/platform/`，内部头改为 `.hpp`；编辑器/运行宿主协议仍留 Apps，平台语义描述与命名空间继续审计 |

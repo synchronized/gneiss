@@ -15,11 +15,7 @@ if(NOT sources)
 endif()
 foreach(source IN LISTS sources)
   file(READ "${source}" content)
-  if(source MATCHES "/src/render/render_asset_preparation\\.hpp$" AND
-      content MATCHES "#[ \t]*include[ \t]*[<\"]render/")
-    message(FATAL_ERROR "CPU 准备契约只允许 Asset 与基础值依赖：${source}")
-  endif()
-  if(source MATCHES "/src/render/(render_asset_(preparation|parsing)|render_resource_data)\\.(cpp|hpp)$" AND
+  if(source MATCHES "(/src/engine/asset/asset_(preparation|parsing)|/src/render/(render_asset_preparation|render_resource_data))\\.(cpp|hpp)$" AND
       content MATCHES "#[ \t]*include[ \t]*[<\"](render/(render_asset_loader|render_resource_service)\\.(h|hpp)|engine/(asset/resource_cache|core/rid_table)\\.hpp)[>\"]")
     message(FATAL_ERROR "CPU 准备与值类型不得包含资源发布、缓存或 RID 表：${source}")
   endif()

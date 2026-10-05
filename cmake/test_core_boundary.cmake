@@ -10,8 +10,8 @@ file(MAKE_DIRECTORY "${fixture}/src/engine/core" "${fixture}/src/world" "${fixtu
 # 清除上一次失败用例遗留的内容，保证反例可重复执行。
 file(WRITE "${fixture}/src/engine/asset/probe.cpp" "#include <gneiss/core/result.h>\n")
 file(WRITE "${fixture}/src/render/probe.cpp" "#include <gneiss/render.h>\n")
-file(WRITE "${fixture}/src/render/render_asset_preparation.cpp" "#include <gneiss/core/result.h>\n")
-file(WRITE "${fixture}/src/render/render_asset_preparation.hpp" "#include <gneiss/core/result.h>\n")
+file(WRITE "${fixture}/src/engine/asset/asset_preparation.cpp" "#include <gneiss/core/result.h>\n")
+file(WRITE "${fixture}/src/engine/asset/asset_preparation.hpp" "#include <gneiss/core/result.h>\n")
 file(WRITE "${fixture}/src/engine/asset/png_decoder.cpp" "#include <gneiss/core/result.h>\n")
 file(WRITE "${fixture}/src/engine/core/reflection/probe.cpp" "#include <gneiss/reflection.h>\n")
 file(WRITE "${fixture}/src/world/probe.cpp" "#include <gneiss/render.h>\n")
@@ -149,7 +149,7 @@ file(WRITE "${fixture}/src/engine/asset/probe.cpp" "#include <gneiss/core/result
 
 foreach(header IN ITEMS "render/render_asset_loader.h" "render/render_resource_service.h"
     "engine/asset/resource_cache.hpp" "engine/core/rid_table.hpp")
-  file(WRITE "${fixture}/src/render/render_asset_preparation.cpp" "#include <${header}>\n")
+  file(WRITE "${fixture}/src/engine/asset/asset_preparation.cpp" "#include <${header}>\n")
   execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
     -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
     RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
@@ -157,13 +157,13 @@ foreach(header IN ITEMS "render/render_asset_loader.h" "render/render_resource_s
     message(FATAL_ERROR "边界检查未拒绝 CPU 准备包含 ${header}")
   endif()
 endforeach()
-file(WRITE "${fixture}/src/render/render_asset_preparation.cpp" "#include <gneiss/core/result.h>\n")
+file(WRITE "${fixture}/src/engine/asset/asset_preparation.cpp" "#include <gneiss/core/result.h>\n")
 
-file(WRITE "${fixture}/src/render/render_asset_preparation.hpp" "#include <render/render_resource_data.hpp>\n")
+file(WRITE "${fixture}/src/engine/asset/asset_preparation.hpp" "#include <render/render_resource_data.hpp>\n")
 execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
   -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
   RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
 if(status EQUAL 0)
   message(FATAL_ERROR "边界检查未拒绝准备契约包含 Render 资源值")
 endif()
-file(WRITE "${fixture}/src/render/render_asset_preparation.hpp" "#include <gneiss/core/result.h>\n")
+file(WRITE "${fixture}/src/engine/asset/asset_preparation.hpp" "#include <gneiss/core/result.h>\n")
