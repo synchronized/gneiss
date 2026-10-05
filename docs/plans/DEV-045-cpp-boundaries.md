@@ -66,6 +66,7 @@ Function 六模块迁移与新路径边界验证见 [迁移记录](../records/M-
 C ABI 目录与清单检查迁移见 [适配层记录](../records/M-295-api-layout.md)。
 材质创建已改为内部值直传，旧版布局转换归 API，见 [材质 ABI 记录](../records/M-295-material-abi-boundary.md)。
 网格与原始纹理的同步借用及 ABI 转换见 [资源输入记录](../records/M-295-resource-input-boundary.md)。
+UI/Debug 的描述转换与内部同步借用见 [绘制提交记录](../records/M-295-draw-submission-boundary.md)。
 Editor UI 的实现与入口分离见 [UI 迁移记录](../records/M-295-editor-ui-layout.md)。
 资产服务迁移与验证见 [资产服务记录](../records/M-295-editor-assets-layout.md)。
 独立编辑模型与宿主共用能力审计见 [模型记录](../records/M-295-editor-model-layout.md)。

@@ -10,15 +10,12 @@
 
 namespace gneiss::render_internal {
 
-gneiss_result debug_draw_list::replace(const gneiss_debug_draw_list_desc& desc) noexcept {
+gneiss_result debug_draw_list::replace(std::span<const gneiss_debug_line> lines) noexcept {
   constexpr std::uint32_t maximum_lines = 1024U * 1024U;
-  if (desc.struct_size < GNEISS_DEBUG_DRAW_LIST_DESC_VERSION_1_SIZE || desc.reserved != 0U ||
-      desc.reserved_2 != 0U || desc.line_count > maximum_lines ||
-      (desc.line_count != 0U && desc.lines == nullptr)) {
+  if (lines.size() > maximum_lines) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
-  for (std::uint32_t index = 0; index < desc.line_count; ++index) {
-    const auto& line = desc.lines[index];
+  for (const auto& line : lines) {
     if (line.depth_test > 1U || line.reserved[0] != 0U || line.reserved[1] != 0U ||
         line.reserved[2] != 0U || !std::isfinite(line.width) || line.width <= 0.0F ||
         !std::ranges::all_of(line.start, [](float value) { return std::isfinite(value); }) ||
@@ -28,8 +25,8 @@ gneiss_result debug_draw_list::replace(const gneiss_debug_draw_list_desc& desc) 
   }
   try {
     std::vector<gneiss_debug_line> pending;
-    if (desc.line_count != 0U) {
-      pending.assign(desc.lines, desc.lines + desc.line_count);
+    if (!lines.empty()) {
+      pending.assign(lines.begin(), lines.end());
     }
     lines_ = std::move(pending);
     return GNEISS_SUCCESS;

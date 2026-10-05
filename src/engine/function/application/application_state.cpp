@@ -322,13 +322,13 @@ gneiss_result application_state::get_action_state(gneiss_action action,
 }
 
 gneiss_result
-application_state::submit_ui_draw_list(const gneiss_ui_draw_list_desc& desc) noexcept {
+application_state::submit_ui_draw_list(const render_internal::ui_draw_view& desc) noexcept {
   return is_updating_ ? ui_draw_list_.replace(desc, resources_) : GNEISS_ERROR_INVALID_STATE;
 }
 
 gneiss_result
-application_state::submit_debug_draw_list(const gneiss_debug_draw_list_desc& desc) noexcept {
-  return is_updating_ ? debug_draw_list_.replace(desc) : GNEISS_ERROR_INVALID_STATE;
+application_state::submit_debug_draw_list(std::span<const gneiss_debug_line> lines) noexcept {
+  return is_updating_ ? debug_draw_list_.replace(lines) : GNEISS_ERROR_INVALID_STATE;
 }
 
 void application_state::report(gneiss_application handle, std::uint32_t severity,

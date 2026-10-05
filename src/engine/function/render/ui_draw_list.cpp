@@ -17,41 +17,31 @@ constexpr std::uint32_t maximum_commands = UINT32_C(1024) * 1024U;
 
 bool is_finite(float value) noexcept { return std::isfinite(value); }
 
-bool has_valid_arrays(const gneiss_ui_draw_list_desc& desc) noexcept {
-  return desc.vertex_count <= maximum_vertices && desc.index_count <= maximum_indices &&
-         desc.command_count <= maximum_commands &&
-         (desc.vertex_count == 0U || desc.vertices != nullptr) &&
-         (desc.index_count == 0U || desc.indices != nullptr) &&
-         (desc.command_count == 0U || desc.commands != nullptr);
-}
-
 } // namespace
 
-gneiss_result ui_draw_list::replace(const gneiss_ui_draw_list_desc& desc,
+gneiss_result ui_draw_list::replace(const ui_draw_view& desc,
                                     const render_resource_service& resources) noexcept {
-  if (desc.struct_size < GNEISS_UI_DRAW_LIST_DESC_VERSION_1_SIZE || desc.reserved != 0U ||
-      desc.reserved_2 != 0U || !is_finite(desc.display_width) || desc.display_width <= 0.0F ||
+  if (!is_finite(desc.display_width) || desc.display_width <= 0.0F ||
       !is_finite(desc.display_height) || desc.display_height <= 0.0F ||
       !is_finite(desc.framebuffer_scale_x) || desc.framebuffer_scale_x <= 0.0F ||
       !is_finite(desc.framebuffer_scale_y) || desc.framebuffer_scale_y <= 0.0F ||
-      !has_valid_arrays(desc)) {
+      desc.vertices.size() > maximum_vertices || desc.indices.size() > maximum_indices ||
+      desc.commands.size() > maximum_commands) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
-  for (std::uint32_t index = 0; index < desc.vertex_count; ++index) {
-    const auto& vertex = desc.vertices[index];
+  for (const auto& vertex : desc.vertices) {
     if (!is_finite(vertex.position[0]) || !is_finite(vertex.position[1]) ||
         !is_finite(vertex.uv[0]) || !is_finite(vertex.uv[1])) {
       return GNEISS_ERROR_INVALID_ARGUMENT;
     }
   }
-  for (std::uint32_t index = 0; index < desc.command_count; ++index) {
-    const auto& command = desc.commands[index];
+  for (const auto& command : desc.commands) {
     if (command.reserved != 0U || command.texture == GNEISS_NULL_TEXTURE ||
         resources.get_texture(command.texture) == nullptr || !is_finite(command.clip_min[0]) ||
         !is_finite(command.clip_min[1]) || !is_finite(command.clip_max[0]) ||
         !is_finite(command.clip_max[1]) || command.clip_min[0] >= command.clip_max[0] ||
-        command.clip_min[1] >= command.clip_max[1] || command.first_index > desc.index_count ||
-        command.index_count > desc.index_count - command.first_index ||
+        command.clip_min[1] >= command.clip_max[1] || command.first_index > desc.indices.size() ||
+        command.index_count > desc.indices.size() - command.first_index ||
         command.index_count % 3U != 0U) {
       return command.texture != GNEISS_NULL_TEXTURE &&
                      resources.get_texture(command.texture) == nullptr
@@ -61,7 +51,7 @@ gneiss_result ui_draw_list::replace(const gneiss_ui_draw_list_desc& desc,
     for (std::uint32_t item = 0; item < command.index_count; ++item) {
       const auto source_index = desc.indices[command.first_index + item];
       if (source_index > std::numeric_limits<std::uint32_t>::max() - command.vertex_offset ||
-          source_index + command.vertex_offset >= desc.vertex_count) {
+          source_index + command.vertex_offset >= desc.vertices.size()) {
         return GNEISS_ERROR_INVALID_ARGUMENT;
       }
     }
@@ -70,14 +60,14 @@ gneiss_result ui_draw_list::replace(const gneiss_ui_draw_list_desc& desc,
     std::vector<gneiss_ui_vertex> vertices;
     std::vector<std::uint32_t> indices;
     std::vector<gneiss_ui_draw_command> commands;
-    if (desc.vertex_count != 0U) {
-      vertices.assign(desc.vertices, desc.vertices + desc.vertex_count);
+    if (!desc.vertices.empty()) {
+      vertices.assign(desc.vertices.begin(), desc.vertices.end());
     }
-    if (desc.index_count != 0U) {
-      indices.assign(desc.indices, desc.indices + desc.index_count);
+    if (!desc.indices.empty()) {
+      indices.assign(desc.indices.begin(), desc.indices.end());
     }
-    if (desc.command_count != 0U) {
-      commands.assign(desc.commands, desc.commands + desc.command_count);
+    if (!desc.commands.empty()) {
+      commands.assign(desc.commands.begin(), desc.commands.end());
     }
     display_width_ = desc.display_width;
     display_height_ = desc.display_height;

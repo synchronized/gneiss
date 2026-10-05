@@ -66,6 +66,43 @@ static gneiss_result update(gneiss_application application, const gneiss_frame_t
     ui.display_width = 640.0F;
     ui.display_height = 480.0F;
     context->ui_submit_result = gneiss_application_submit_ui_draw_list(application, &ui);
+    ui.reserved = 1U;
+    if (gneiss_application_submit_ui_draw_list(application, &ui) != GNEISS_ERROR_INVALID_ARGUMENT) {
+      return GNEISS_ERROR_INTERNAL;
+    }
+    ui.reserved = 0U;
+    ui.vertex_count = 1U;
+    if (gneiss_application_submit_ui_draw_list(application, &ui) != GNEISS_ERROR_INVALID_ARGUMENT) {
+      return GNEISS_ERROR_INTERNAL;
+    }
+    ui.vertex_count = 0U;
+    ui.struct_size = GNEISS_UI_DRAW_LIST_DESC_VERSION_1_SIZE - 1U;
+    if (gneiss_application_submit_ui_draw_list(application, &ui) != GNEISS_ERROR_INVALID_ARGUMENT) {
+      return GNEISS_ERROR_INTERNAL;
+    }
+  }
+  {
+    gneiss_debug_draw_list_desc debug = GNEISS_DEBUG_DRAW_LIST_DESC_INIT;
+    if (gneiss_application_submit_debug_draw_list(application, &debug) != GNEISS_SUCCESS) {
+      return GNEISS_ERROR_INTERNAL;
+    }
+    debug.reserved_2 = 1U;
+    if (gneiss_application_submit_debug_draw_list(application, &debug) !=
+        GNEISS_ERROR_INVALID_ARGUMENT) {
+      return GNEISS_ERROR_INTERNAL;
+    }
+    debug.reserved_2 = 0U;
+    debug.line_count = 1U;
+    if (gneiss_application_submit_debug_draw_list(application, &debug) !=
+        GNEISS_ERROR_INVALID_ARGUMENT) {
+      return GNEISS_ERROR_INTERNAL;
+    }
+    debug.line_count = 0U;
+    debug.struct_size = GNEISS_DEBUG_DRAW_LIST_DESC_VERSION_1_SIZE - 1U;
+    if (gneiss_application_submit_debug_draw_list(application, &debug) !=
+        GNEISS_ERROR_INVALID_ARGUMENT) {
+      return GNEISS_ERROR_INTERNAL;
+    }
   }
   if (context->update_count == UINT64_C(3)) {
     return gneiss_application_request_exit(application);
@@ -117,6 +154,15 @@ int main(void) {
     ui.display_width = 640.0F;
     ui.display_height = 480.0F;
     if (gneiss_application_submit_ui_draw_list(application, &ui) != GNEISS_ERROR_INVALID_STATE) {
+      return 1;
+    }
+    /* 非 update 阶段的错误优先级不受描述有效性影响。 */
+    ui.struct_size = 0U;
+    gneiss_debug_draw_list_desc debug = GNEISS_DEBUG_DRAW_LIST_DESC_INIT;
+    debug.struct_size = 0U;
+    if (gneiss_application_submit_ui_draw_list(application, &ui) != GNEISS_ERROR_INVALID_STATE ||
+        gneiss_application_submit_debug_draw_list(application, &debug) !=
+            GNEISS_ERROR_INVALID_STATE) {
       return 1;
     }
   }

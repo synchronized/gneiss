@@ -6,13 +6,15 @@
 
 #include <gneiss/render.h>
 
+#include <span>
 #include <vector>
 
 namespace gneiss::render_internal {
 
 class debug_draw_list final {
 public:
-  [[nodiscard]] gneiss_result replace(const gneiss_debug_draw_list_desc& desc) noexcept;
+  /** 同步复制线段；失败保留上一份列表。 */
+  [[nodiscard]] gneiss_result replace(std::span<const gneiss_debug_line> lines) noexcept;
   void clear() noexcept { lines_.clear(); }
   [[nodiscard]] const std::vector<gneiss_debug_line>& lines() const noexcept { return lines_; }
 

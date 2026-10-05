@@ -8,13 +8,25 @@
 
 #include <gneiss/render.h>
 
+#include <span>
 #include <vector>
 
 namespace gneiss::render_internal {
 
+/** 同步提交借用；成功后绘制列表拥有数组副本，失败保留上一份列表。 */
+struct ui_draw_view {
+  float display_width{};
+  float display_height{};
+  float framebuffer_scale_x{1.0F};
+  float framebuffer_scale_y{1.0F};
+  std::span<const gneiss_ui_vertex> vertices;
+  std::span<const std::uint32_t> indices;
+  std::span<const gneiss_ui_draw_command> commands;
+};
+
 class ui_draw_list final {
 public:
-  [[nodiscard]] gneiss_result replace(const gneiss_ui_draw_list_desc& desc,
+  [[nodiscard]] gneiss_result replace(const ui_draw_view& desc,
                                       const render_resource_service& resources) noexcept;
   void clear() noexcept;
 

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "engine/api/draw_description.hpp"
 #include "engine/api/material_description.hpp"
 #include "engine/api/mesh_description.hpp"
 #include "engine/api/texture_description.hpp"
@@ -135,8 +136,15 @@ gneiss_application_submit_ui_draw_list(gneiss_application application,
   try {
     auto state = find_application(application);
     const auto validation_result = validate_application(state);
-    return validation_result == GNEISS_SUCCESS ? state->submit_ui_draw_list(*desc)
-                                               : validation_result;
+    if (validation_result != GNEISS_SUCCESS) {
+      return validation_result;
+    }
+    if (!state->can_submit_draw_lists()) {
+      return GNEISS_ERROR_INVALID_STATE;
+    }
+    gneiss::render_internal::ui_draw_view value;
+    const auto converted = gneiss::api::read_ui_draw_description(*desc, value);
+    return converted == GNEISS_SUCCESS ? state->submit_ui_draw_list(value) : converted;
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;
   }
@@ -151,8 +159,15 @@ gneiss_application_submit_debug_draw_list(gneiss_application application,
   try {
     auto state = find_application(application);
     const auto validation_result = validate_application(state);
-    return validation_result == GNEISS_SUCCESS ? state->submit_debug_draw_list(*desc)
-                                               : validation_result;
+    if (validation_result != GNEISS_SUCCESS) {
+      return validation_result;
+    }
+    if (!state->can_submit_draw_lists()) {
+      return GNEISS_ERROR_INVALID_STATE;
+    }
+    std::span<const gneiss_debug_line> value;
+    const auto converted = gneiss::api::read_debug_draw_description(*desc, value);
+    return converted == GNEISS_SUCCESS ? state->submit_debug_draw_list(value) : converted;
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;
   }

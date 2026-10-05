@@ -61,10 +61,7 @@ int main() {
                                            .width = 1.0F,
                                            .depth_test = 1U,
                                            .reserved = {}}};
-  gneiss_debug_draw_list_desc debug_desc = GNEISS_DEBUG_DRAW_LIST_DESC_INIT;
-  debug_desc.line_count = static_cast<std::uint32_t>(lines.size());
-  debug_desc.lines = lines.data();
-  if (debug.replace(debug_desc) != GNEISS_SUCCESS) {
+  if (debug.replace(lines) != GNEISS_SUCCESS) {
     return 4;
   }
 
