@@ -40,7 +40,11 @@ Engine Library 不得反向依赖它们。Editor 的 ImGui Context、字体、�
 `gneiss_editor_model` 位于 `src/editor/`，管理相机、网格、旋转/Gizmo 数学、命令历史、属性检查
 及创作事务，不依赖 Apps 工程、IPC 或会话。场景会话与 Gizmo 拖拽由同目录的
 `gneiss_editor_session` 管理，只依赖该模型库与 Engine。`apps/editor/` 的 `gneiss_editor_host`
-负责工程、子进程、IPC 与运行时同步；`apps/common` 的构建/启动工程描述与进程协议仍待分离。
+负责工程、子进程、IPC 与运行时同步装配；`apps/common` 的构建/启动工程描述与进程协议仍待分离。
+
+`src/editor/runtime_author_apply.hpp` 接收 UUID 与局部变换视图，负责变换回写和撤销命令。
+Apps 从 IPC 节点提取输入；Editor 命令复制身份字符串，不保留协议对象或借用字符串。
+场景镜像、属性响应模型与控制台的协议依赖仍待拆分。
 
 公共头目录按能力组织，但 `.h` 与 `.hpp` 始终成对维护。内部源码目录按拥有运行时状态的模块组织，
 不机械复制公共头目录。

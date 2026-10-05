@@ -81,6 +81,8 @@ gneiss_target_output_directories(gneiss_editor_model)
 # 场景编辑状态与 Gizmo 事务不依赖宿主工程、进程或 IPC。
 add_library(
   gneiss_editor_session STATIC
+  runtime_author_apply.cpp
+  runtime_author_apply.hpp
   editor_session.cpp
   editor_session.hpp
   transform_gizmo_drag.cpp

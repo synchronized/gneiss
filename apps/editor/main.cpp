@@ -18,7 +18,7 @@
 #include "project_manager.h"
 #include "project_workspace.h"
 #include "property_inspector_model.hpp"
-#include "runtime_author_apply.h"
+#include "runtime_author_apply.hpp"
 #include "runtime_launch.h"
 #include "runtime_process.h"
 #include "transform_gizmo_drag.hpp"
@@ -1115,7 +1115,9 @@ void draw_runtime_inspector(editor_state& state, const gneiss::ipc_inspection_no
   ImGui::BeginDisabled(!can_apply);
   if (ImGui::Button("应用 Transform 到作者场景")) {
     state.history_error =
-        gneiss::editor::apply_runtime_transform_to_author(state.session, state.history, node);
+        gneiss::editor::apply_runtime_transform_to_author(
+            state.session, state.history,
+            {node.uuid, node.prefab_instance_uuid, node.prefab_source_node_uuid, node.local_transform});
     if (state.history_error == gneiss::result::success) {
       synchronize_history_dirty(state);
     }

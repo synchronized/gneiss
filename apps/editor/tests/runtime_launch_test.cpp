@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "project_workspace.h"
-#include "runtime_author_apply.h"
+#include "runtime_author_apply.hpp"
 #include "runtime_launch.h"
 
 #include <gneiss/application.hpp>
@@ -71,8 +71,9 @@ int main() try {
   if (created_author == nullptr) {
     return 6;
   }
-  gneiss::ipc_inspection_node runtime_snapshot;
-  runtime_snapshot.uuid = created_author->uuid;
+  const std::string author_uuid = created_author->uuid;
+  gneiss::editor::runtime_author_transform runtime_snapshot;
+  runtime_snapshot.uuid = author_uuid;
   runtime_snapshot.local_transform = created_author->local_transform;
   runtime_snapshot.local_transform.translation[0] = 4.0F;
   gneiss::editor::editor_command_history history;
@@ -92,7 +93,7 @@ int main() try {
     return 6;
   }
   author_session.clear_dirty();
-  gneiss::ipc_inspection_node unmapped;
+  gneiss::editor::runtime_author_transform unmapped;
   unmapped.uuid = "runtime-only";
   if (gneiss::editor::apply_runtime_transform_to_author(author_session, history, unmapped) !=
       gneiss::result::not_found) {

@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "runtime_author_apply.h"
+#include "runtime_author_apply.hpp"
 
+#include <new>
 #include <string>
 #include <string_view>
 
@@ -25,7 +26,8 @@ gneiss::scene_node_id resolve_author_node(gneiss::editor::editor_session& sessio
 namespace gneiss::editor {
 
 result apply_runtime_transform_to_author(editor_session& session, editor_command_history& history,
-                                         const ipc_inspection_node& runtime_node) noexcept {
+                                         const runtime_author_transform& runtime_node) noexcept
+    try {
   if (runtime_node.uuid.empty()) {
     return result::invalid_argument;
   }
@@ -44,9 +46,9 @@ result apply_runtime_transform_to_author(editor_session& session, editor_command
   if (author_node == nullptr && prefab_node == nullptr) {
     return result::not_found;
   }
-  const auto uuid = runtime_node.uuid;
-  const auto instance_uuid = runtime_node.prefab_instance_uuid;
-  const auto source_uuid = runtime_node.prefab_source_node_uuid;
+  const std::string uuid(runtime_node.uuid);
+  const std::string instance_uuid(runtime_node.prefab_instance_uuid);
+  const std::string source_uuid(runtime_node.prefab_source_node_uuid);
   const auto before =
       author_node != nullptr ? author_node->local_transform : prefab_node->local_transform;
   const auto after = runtime_node.local_transform;
@@ -64,6 +66,10 @@ result apply_runtime_transform_to_author(editor_session& session, editor_command
              return !node.is_valid() ? result::not_found : session.set_local_transform(node, after);
            },
        .merge_key = {}});
+} catch (const std::bad_alloc&) {
+  return result::out_of_memory;
+} catch (...) {
+  return result::internal;
 }
 
 } // namespace gneiss::editor

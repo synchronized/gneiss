@@ -34,8 +34,6 @@ add_library(
   project_workspace.h
   runtime_launch.cpp
   runtime_launch.h
-  runtime_author_apply.cpp
-  runtime_author_apply.h
   runtime_process.cpp
   runtime_process.h
   runtime_property_edits.cpp
@@ -142,7 +140,7 @@ if(BUILD_TESTING)
   gneiss_target_output_directories(gneiss_editor_ui_layout_test)
   add_test(NAME gneiss.editor.ui-layout COMMAND gneiss_editor_ui_layout_test)
   add_executable(gneiss_editor_session_test tests/editor_session_test.cpp)
-  target_link_libraries(gneiss_editor_session_test PRIVATE gneiss_editor_host)
+  target_link_libraries(gneiss_editor_session_test PRIVATE gneiss_editor_session)
   target_compile_definitions(
     gneiss_editor_session_test
     PRIVATE GNEISS_EDITOR_TEST_ASSET_ROOT="${PROJECT_SOURCE_DIR}/tests/data/assets"
