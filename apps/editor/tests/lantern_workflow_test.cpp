@@ -5,7 +5,7 @@
 #include "asset_import_controller.hpp"
 #include "editor_command_history.hpp"
 #include "editor_project.h"
-#include "editor_session.h"
+#include "editor_session.hpp"
 
 #include <gneiss/application.hpp>
 

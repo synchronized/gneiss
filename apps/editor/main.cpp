@@ -8,7 +8,7 @@
 #include "editor_grid.hpp"
 #include "editor_project.h"
 #include "editor_rotation_math.hpp"
-#include "editor_session.h"
+#include "editor_session.hpp"
 #include "editor_theme.hpp"
 #include "editor_ui.hpp"
 #include "imgui_adapter.hpp"
@@ -21,7 +21,7 @@
 #include "runtime_author_apply.h"
 #include "runtime_launch.h"
 #include "runtime_process.h"
-#include "transform_gizmo_drag.h"
+#include "transform_gizmo_drag.hpp"
 #include "transform_gizmo_math.hpp"
 #if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
 #include "asset_background_worker.hpp"

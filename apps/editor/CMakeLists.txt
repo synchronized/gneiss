@@ -2,12 +2,10 @@
 # Copyright (c) 2026 Gneiss contributors
 
 add_library(
-  gneiss_editor_session STATIC
+  gneiss_editor_host STATIC
   console_model.cpp
   console_model.h
   editor_project.h
-  editor_session.cpp
-  editor_session.h
   ipc/editor_ipc_event.h
   ipc/editor_ipc_router.cpp
   ipc/editor_ipc_router.h
@@ -44,30 +42,28 @@ add_library(
   runtime_property_edits.h
   runtime_scene_mirror.cpp
   runtime_scene_mirror.h
-  transform_gizmo_drag.cpp
-  transform_gizmo_drag.h
 )
 target_link_libraries(
-  gneiss_editor_session
+  gneiss_editor_host
   PRIVATE gneiss_yyjson gneiss_child_process
-  PUBLIC gneiss::engine gneiss_editor_model gneiss_app_project gneiss_app_ipc_protocol
+  PUBLIC gneiss::engine gneiss_editor_session gneiss_app_project gneiss_app_ipc_protocol
 )
 target_include_directories(
-  gneiss_editor_session
+  gneiss_editor_host
   PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/ipc"
   PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/ipc/inbound"
           "${CMAKE_CURRENT_SOURCE_DIR}/ipc/outbound"
 )
-target_compile_features(gneiss_editor_session PUBLIC cxx_std_20)
+target_compile_features(gneiss_editor_host PUBLIC cxx_std_20)
 target_compile_definitions(
-  gneiss_editor_session
+  gneiss_editor_host
   PRIVATE GNEISS_EDITOR_GAME_TEMPLATE_DIR="${PROJECT_SOURCE_DIR}/templates/game"
 )
-gneiss_target_compile_warnings(gneiss_editor_session)
-gneiss_target_output_directories(gneiss_editor_session)
+gneiss_target_compile_warnings(gneiss_editor_host)
+gneiss_target_output_directories(gneiss_editor_host)
 
 if(TARGET gneiss_asset_import_sdk)
-  target_link_libraries(gneiss_editor_session PRIVATE gneiss_asset_import_sdk)
+  target_link_libraries(gneiss_editor_host PRIVATE gneiss_asset_import_sdk)
 endif()
 
 add_executable(
@@ -80,7 +76,7 @@ add_executable(
 )
 target_link_libraries(
   gneiss_editor
-  PRIVATE gneiss_editor_session gneiss_editor_ui gneiss_imguizmo gneiss_child_process
+  PRIVATE gneiss_editor_host gneiss_editor_ui gneiss_imguizmo gneiss_child_process
 )
 if((WIN32 OR UNIX) AND TARGET gneiss_runtime)
   target_compile_definitions(
@@ -102,7 +98,7 @@ gneiss_target_compile_warnings(gneiss_editor)
 gneiss_target_output_directories(gneiss_editor)
 
 add_executable(gneiss_project project_cli.cpp)
-target_link_libraries(gneiss_project PRIVATE gneiss_editor_session gneiss_child_process)
+target_link_libraries(gneiss_project PRIVATE gneiss_editor_host gneiss_child_process)
 target_compile_definitions(
   gneiss_project PRIVATE GNEISS_EDITOR_CMAKE_PATH="${CMAKE_COMMAND}"
 )
@@ -120,7 +116,7 @@ if(BUILD_TESTING)
     add_executable(gneiss_editor_native_window_interaction_test tests/native_window_interaction_test.cpp)
     target_link_libraries(gneiss_editor_native_window_interaction_test PRIVATE gneiss_editor_ui user32)
     if(TARGET gneiss_editor_assets)
-      target_link_libraries(gneiss_editor_native_window_interaction_test PRIVATE gneiss_editor_assets gneiss_editor_session)
+      target_link_libraries(gneiss_editor_native_window_interaction_test PRIVATE gneiss_editor_assets gneiss_editor_host)
       target_compile_definitions(gneiss_editor_native_window_interaction_test PRIVATE GNEISS_TEST_BACKGROUND_ASSETS)
     endif()
     gneiss_target_compile_warnings(gneiss_editor_native_window_interaction_test)
@@ -129,7 +125,7 @@ if(BUILD_TESTING)
     set_tests_properties(gneiss.editor.native-window-interaction PROPERTIES TIMEOUT 45 RUN_SERIAL TRUE)
   endif()
   add_executable(gneiss_editor_gizmo_input_replay_test tests/gizmo_input_replay_test.cpp)
-  target_link_libraries(gneiss_editor_gizmo_input_replay_test PRIVATE gneiss_editor_session gneiss_imguizmo)
+  target_link_libraries(gneiss_editor_gizmo_input_replay_test PRIVATE gneiss_editor_model gneiss_imguizmo)
   gneiss_target_compile_warnings(gneiss_editor_gizmo_input_replay_test)
   gneiss_target_output_directories(gneiss_editor_gizmo_input_replay_test)
   add_test(NAME gneiss.editor.gizmo-input-replay COMMAND gneiss_editor_gizmo_input_replay_test)
@@ -146,7 +142,7 @@ if(BUILD_TESTING)
   gneiss_target_output_directories(gneiss_editor_ui_layout_test)
   add_test(NAME gneiss.editor.ui-layout COMMAND gneiss_editor_ui_layout_test)
   add_executable(gneiss_editor_session_test tests/editor_session_test.cpp)
-  target_link_libraries(gneiss_editor_session_test PRIVATE gneiss_editor_session)
+  target_link_libraries(gneiss_editor_session_test PRIVATE gneiss_editor_host)
   target_compile_definitions(
     gneiss_editor_session_test
     PRIVATE GNEISS_EDITOR_TEST_ASSET_ROOT="${PROJECT_SOURCE_DIR}/tests/data/assets"
@@ -155,7 +151,7 @@ if(BUILD_TESTING)
   gneiss_target_output_directories(gneiss_editor_session_test)
   add_test(NAME gneiss.editor.session COMMAND gneiss_editor_session_test)
   add_executable(gneiss_editor_project_workspace_test tests/project_workspace_test.cpp)
-  target_link_libraries(gneiss_editor_project_workspace_test PRIVATE gneiss_editor_session)
+  target_link_libraries(gneiss_editor_project_workspace_test PRIVATE gneiss_editor_host)
   target_compile_definitions(
     gneiss_editor_project_workspace_test
     PRIVATE GNEISS_EDITOR_TEST_TEMPLATE="${PROJECT_SOURCE_DIR}/templates/game"
@@ -215,31 +211,31 @@ if(BUILD_TESTING)
   gneiss_target_output_directories(gneiss_editor_rotation_math_test)
   add_test(NAME gneiss.editor.rotation-math COMMAND gneiss_editor_rotation_math_test)
   add_executable(gneiss_editor_runtime_launch_test tests/runtime_launch_test.cpp)
-  target_link_libraries(gneiss_editor_runtime_launch_test PRIVATE gneiss_editor_session)
+  target_link_libraries(gneiss_editor_runtime_launch_test PRIVATE gneiss_editor_host)
   gneiss_target_compile_warnings(gneiss_editor_runtime_launch_test)
   gneiss_target_output_directories(gneiss_editor_runtime_launch_test)
   add_test(NAME gneiss.editor.runtime-launch COMMAND gneiss_editor_runtime_launch_test)
   add_executable(gneiss_editor_runtime_scene_mirror_test tests/runtime_scene_mirror_test.cpp)
-  target_link_libraries(gneiss_editor_runtime_scene_mirror_test PRIVATE gneiss_editor_session)
+  target_link_libraries(gneiss_editor_runtime_scene_mirror_test PRIVATE gneiss_editor_host)
   gneiss_target_compile_warnings(gneiss_editor_runtime_scene_mirror_test)
   gneiss_target_output_directories(gneiss_editor_runtime_scene_mirror_test)
   add_test(
     NAME gneiss.editor.runtime-scene-mirror COMMAND gneiss_editor_runtime_scene_mirror_test
   )
   add_executable(gneiss_editor_runtime_property_edits_test tests/runtime_property_edits_test.cpp)
-  target_link_libraries(gneiss_editor_runtime_property_edits_test PRIVATE gneiss_editor_session)
+  target_link_libraries(gneiss_editor_runtime_property_edits_test PRIVATE gneiss_editor_host)
   gneiss_target_compile_warnings(gneiss_editor_runtime_property_edits_test)
   gneiss_target_output_directories(gneiss_editor_runtime_property_edits_test)
   add_test(
     NAME gneiss.editor.runtime-property-edits COMMAND gneiss_editor_runtime_property_edits_test
   )
   add_executable(gneiss_editor_ipc_event_test tests/editor_ipc_event_test.cpp)
-  target_link_libraries(gneiss_editor_ipc_event_test PRIVATE gneiss_editor_session)
+  target_link_libraries(gneiss_editor_ipc_event_test PRIVATE gneiss_editor_host)
   gneiss_target_compile_warnings(gneiss_editor_ipc_event_test)
   gneiss_target_output_directories(gneiss_editor_ipc_event_test)
   add_test(NAME gneiss.editor.ipc-event COMMAND gneiss_editor_ipc_event_test)
   add_executable(gneiss_editor_console_model_test tests/console_model_test.cpp)
-  target_link_libraries(gneiss_editor_console_model_test PRIVATE gneiss_editor_session)
+  target_link_libraries(gneiss_editor_console_model_test PRIVATE gneiss_editor_host)
   gneiss_target_compile_warnings(gneiss_editor_console_model_test)
   gneiss_target_output_directories(gneiss_editor_console_model_test)
   add_test(NAME gneiss.editor.console-model COMMAND gneiss_editor_console_model_test)
@@ -261,7 +257,7 @@ if(BUILD_TESTING)
     add_test(NAME gneiss.process.child-process COMMAND gneiss_child_process_test)
     set_tests_properties(gneiss.process.child-process PROPERTIES TIMEOUT 15)
   add_executable(gneiss_editor_runtime_process_test tests/runtime_process_test.cpp)
-    target_link_libraries(gneiss_editor_runtime_process_test PRIVATE gneiss_editor_session)
+    target_link_libraries(gneiss_editor_runtime_process_test PRIVATE gneiss_editor_host)
     target_compile_definitions(
       gneiss_editor_runtime_process_test
       PRIVATE
@@ -283,7 +279,7 @@ if(BUILD_TESTING)
       GNEISS_BUILDING_GAME_MODULE GNEISS_TEST_CONTINUOUS_UPDATE GNEISS_TEST_LIFECYCLE_TRACE_ONLY)
     gneiss_target_compile_warnings(gneiss_scene_module_fixture)
     gneiss_target_output_directories(gneiss_scene_module_fixture)
-    target_link_libraries(gneiss_editor_runtime_scene_loading_test PRIVATE gneiss_editor_session)
+    target_link_libraries(gneiss_editor_runtime_scene_loading_test PRIVATE gneiss_editor_host)
     target_compile_definitions(gneiss_editor_runtime_scene_loading_test PRIVATE
       GNEISS_TEST_RUNTIME="$<TARGET_FILE:gneiss_runtime>"
       GNEISS_TEST_SCENE_MODULE="$<TARGET_FILE:gneiss_scene_module_fixture>"
@@ -305,7 +301,7 @@ if(BUILD_TESTING)
     set_tests_properties(gneiss.editor.asset-background-worker PROPERTIES TIMEOUT 45)
     # 手动基准保留输入目录及原始输出，不把机器相关耗时作为 CTest 门槛。
     add_executable(gneiss_editor_task_response_benchmark tests/task_response_benchmark.cpp)
-    target_link_libraries(gneiss_editor_task_response_benchmark PRIVATE gneiss_editor_assets gneiss_editor_session)
+    target_link_libraries(gneiss_editor_task_response_benchmark PRIVATE gneiss_editor_assets gneiss_editor_host)
     target_compile_definitions(gneiss_editor_task_response_benchmark PRIVATE
       GNEISS_TEST_PREFAB="${PROJECT_SOURCE_DIR}/tests/data/assets/prefabs/test.prefab.json")
     gneiss_target_compile_warnings(gneiss_editor_task_response_benchmark)
@@ -358,7 +354,7 @@ if(BUILD_TESTING)
       gneiss_target_compile_warnings(gneiss_game_module_workflow_fixture)
       gneiss_target_output_directories(gneiss_game_module_workflow_fixture)
       add_executable(gneiss_editor_asset_workflow_test tests/asset_workflow_test.cpp)
-      target_link_libraries(gneiss_editor_asset_workflow_test PRIVATE gneiss_editor_assets gneiss_editor_session)
+      target_link_libraries(gneiss_editor_asset_workflow_test PRIVATE gneiss_editor_assets gneiss_editor_host)
       target_compile_definitions(gneiss_editor_asset_workflow_test PRIVATE
         GNEISS_TEST_TEMPLATE="${PROJECT_SOURCE_DIR}/templates/game"
         GNEISS_TEST_SOURCE="${PROJECT_SOURCE_DIR}/tests/data/gltf/static_triangle.gltf"

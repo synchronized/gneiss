@@ -371,6 +371,7 @@
 - [M-295：Editor UI 实现与入口分离](records/M-295-editor-ui-layout.md)
 - [M-295：Editor 资产服务目录迁移](records/M-295-editor-assets-layout.md)
 - [M-295：独立编辑模型与宿主边界](records/M-295-editor-model-layout.md)
+- [M-295：场景会话与宿主目标拆分](records/M-295-editor-session-layout.md)
 
 ## 文档维护
 

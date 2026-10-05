@@ -4,7 +4,7 @@
 #pragma once
 
 #include "editor_command_history.hpp"
-#include "editor_session.h"
+#include "editor_session.hpp"
 #include "transform_gizmo_math.hpp"
 
 namespace gneiss::editor {

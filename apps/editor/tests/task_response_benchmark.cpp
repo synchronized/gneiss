@@ -3,7 +3,7 @@
 
 #include "asset_background_worker.hpp"
 #include "author_asset_service.hpp"
-#include "editor_session.h"
+#include "editor_session.hpp"
 
 #include <gneiss/application.hpp>
 

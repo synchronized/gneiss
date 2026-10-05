@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "asset_reimport_queue.hpp"
-#include "editor_session.h"
+#include "editor_session.hpp"
 #include "package_archive.h"
 #include "project_workspace.h"
 #include "runtime_process.h"

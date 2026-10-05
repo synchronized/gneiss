@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "editor_session.h"
+#include "editor_session.hpp"
 
 #include <gneiss/asset.h>
 

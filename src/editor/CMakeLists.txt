@@ -77,3 +77,17 @@ target_include_directories(gneiss_editor_model PUBLIC "${CMAKE_CURRENT_SOURCE_DI
 target_compile_features(gneiss_editor_model PUBLIC cxx_std_20)
 gneiss_target_compile_warnings(gneiss_editor_model)
 gneiss_target_output_directories(gneiss_editor_model)
+
+# 场景编辑状态与 Gizmo 事务不依赖宿主工程、进程或 IPC。
+add_library(
+  gneiss_editor_session STATIC
+  editor_session.cpp
+  editor_session.hpp
+  transform_gizmo_drag.cpp
+  transform_gizmo_drag.hpp
+)
+target_link_libraries(gneiss_editor_session PUBLIC gneiss_editor_model)
+target_include_directories(gneiss_editor_session PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
+target_compile_features(gneiss_editor_session PUBLIC cxx_std_20)
+gneiss_target_compile_warnings(gneiss_editor_session)
+gneiss_target_output_directories(gneiss_editor_session)

@@ -4,7 +4,7 @@
 #ifndef GNEISS_APPS_EDITOR_RUNTIME_LAUNCH_H_
 #define GNEISS_APPS_EDITOR_RUNTIME_LAUNCH_H_
 
-#include "editor_session.h"
+#include "editor_session.hpp"
 
 #include <filesystem>
 

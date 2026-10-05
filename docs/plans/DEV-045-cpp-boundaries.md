@@ -63,6 +63,7 @@ C ABI 目录与清单检查迁移见 [适配层记录](../records/M-295-api-layo
 Editor UI 的实现与入口分离见 [UI 迁移记录](../records/M-295-editor-ui-layout.md)。
 资产服务迁移与验证见 [资产服务记录](../records/M-295-editor-assets-layout.md)。
 独立编辑模型与宿主共用能力审计见 [模型记录](../records/M-295-editor-model-layout.md)。
+场景会话与宿主目标拆分见 [会话记录](../records/M-295-editor-session-layout.md)。
 
 - 将解码、格式解析、资源加载与 GPU 生命周期按 ADR 分开，先记录允许依赖再搬文件。
 - Granit 适配进入 Render 私有后端，Platform 的窗口适配维持独立所有权。
@@ -82,7 +83,7 @@ Editor UI 的实现与入口分离见 [UI 迁移记录](../records/M-295-editor-
 | 原 `src/core/`、`reflection/`、`log/` | 已迁入 `src/engine/core/`；投递器使用 C++ 消息与事件视图，Application 回调适配留在所属模块 |
 | Render 中的数学代码 | 通用数学迁 Core；相机语义、后端投影适配仍留所属功能，逐文件判断 |
 | 原 `src/platform/`、`io/`、`process/`、`ipc/` | 已迁至 `src/engine/platform/`，内部头改为 `.hpp`；编辑器/运行宿主协议仍留 Apps，平台语义描述与命名空间继续审计 |
-| `apps/editor/` | UI、主题、ImGui 适配、字体、资产服务与独立编辑模型已迁至 `src/editor/`；会话与面板编排仍待迁移，程序入口与启动配置保留在 `apps/editor/` |
+| `apps/editor/` | UI、主题、ImGui 适配、字体、资产服务、独立编辑模型与场景会话已迁至 `src/editor/`；宿主控制与面板编排仍待拆分，程序入口与启动配置保留在 `apps/editor/` |
 | `apps/runtime/` | 程序入口与宿主控制保留在 `apps/runtime/`；可复用引擎能力回归 Engine |
 | `apps/common/` | 逐项核定所有者；运行时通用能力归 Engine，纯宿主共用代码按实际需要保留私有共用目标，不原样下沉 Core |
 | `src/tooling/`、`tools/assetc/` | 离线实现留 `src/tooling/`；assetc 入口、CLI 进入根目录的 `apps/assetc/` |

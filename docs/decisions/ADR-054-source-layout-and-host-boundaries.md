@@ -80,8 +80,9 @@ gneiss/
 `apps/common` 当前包含构建配置、模块路径与启动工程描述，以及 Editor/Runtime 进程协议。
 这些不是无领域倾向的基础设施，不整体迁入 Core/Platform，也不让 Runtime 链接 Editor。
 先把相机、网格、命令历史、属性检查与创作事务组成不依赖宿主的 `gneiss_editor_model`
-内部静态目标；会话继续在宿主装配工程与 IPC，Gizmo 拖拽随会话边界单独处理。
-该目标不增加状态或公开 SDK，现有 Session 通过目标依赖复用唯一实现。
+内部静态目标。场景会话与 Gizmo 拖拽组成 `gneiss_editor_session`，只依赖模型与 Engine；
+工程、进程、IPC 和运行时同步则由 Apps 中的 `gneiss_editor_host` 装配。
+该目标不增加状态或公开 SDK，宿主通过目标依赖复用唯一实现。
 工程与协议契约后续仍需拆分，当前不以移动目录掩盖它们的宿主语义。
 
 ## 插件扩展边界
