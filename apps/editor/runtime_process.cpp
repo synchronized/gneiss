@@ -8,6 +8,7 @@
 #include "editor_ipc_session.h"
 #include "ipc_asset_protocol.h"
 #include "ipc_statistics_protocol.h"
+#include "runtime_log_adapter.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -186,7 +187,7 @@ struct runtime_process::implementation final {
              entry.event.source == event.source;
     });
     if (!duplicate) {
-      (void)console.append_event(runtime_session_id, std::move(event));
+      (void)console.append_event(runtime_session_id, to_console_event(std::move(event)));
     }
   }
 

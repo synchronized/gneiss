@@ -3,8 +3,7 @@
 
 add_library(
   gneiss_editor_host STATIC
-  console_model.cpp
-  console_model.h
+  runtime_log_adapter.hpp
   editor_project.h
   ipc/editor_ipc_event.h
   ipc/editor_ipc_router.cpp
@@ -233,7 +232,7 @@ if(BUILD_TESTING)
   gneiss_target_output_directories(gneiss_editor_ipc_event_test)
   add_test(NAME gneiss.editor.ipc-event COMMAND gneiss_editor_ipc_event_test)
   add_executable(gneiss_editor_console_model_test tests/console_model_test.cpp)
-  target_link_libraries(gneiss_editor_console_model_test PRIVATE gneiss_editor_host)
+  target_link_libraries(gneiss_editor_console_model_test PRIVATE gneiss_editor_model)
   gneiss_target_compile_warnings(gneiss_editor_console_model_test)
   gneiss_target_output_directories(gneiss_editor_console_model_test)
   add_test(NAME gneiss.editor.console-model COMMAND gneiss_editor_console_model_test)

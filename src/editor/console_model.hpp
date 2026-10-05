@@ -4,8 +4,8 @@
 #ifndef GNEISS_APPS_EDITOR_CONSOLE_MODEL_H_
 #define GNEISS_APPS_EDITOR_CONSOLE_MODEL_H_
 
-#include <gneiss/app/runtime_log_protocol.h>
 #include <gneiss/core/result.hpp>
+#include <gneiss/log.h>
 
 #include <cstddef>
 #include <cstdint>
@@ -21,11 +21,23 @@ enum class console_entry_kind : std::uint8_t {
   raw,
 };
 
+/** 控制台持有的日志值；不含传输版本或协议对象，字符串由该值拥有。 */
+struct console_event final {
+  std::uint32_t severity = GNEISS_LOG_INFO;
+  std::uint64_t sequence = 0U;
+  std::uint64_t timestamp_ns = 0U;
+  std::uint64_t thread_id = 0U;
+  std::string source;
+  std::string category;
+  std::string message;
+  gneiss_result operation = GNEISS_SUCCESS;
+};
+
 struct console_entry final {
   std::uint64_t id = 0U;
   console_entry_kind kind = console_entry_kind::raw;
   std::uint64_t session_id = 0U;
-  app::runtime_log_record event;
+  console_event event;
   std::string raw_text;
   bool was_truncated = false;
 };
@@ -46,8 +58,7 @@ public:
 
   /** 开始新 Runtime 会话；已有记录保留原会话标识。 */
   [[nodiscard]] std::uint64_t begin_session() noexcept;
-  [[nodiscard]] result append_event(std::uint64_t session_id,
-                                    app::runtime_log_record event) noexcept;
+  [[nodiscard]] result append_event(std::uint64_t session_id, console_event event) noexcept;
   [[nodiscard]] result append_raw(std::uint64_t session_id, std::string_view text,
                                   bool was_truncated = false) noexcept;
   void clear() noexcept;

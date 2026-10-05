@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "runtime_log_adapter.hpp"
 #include "runtime_process.h"
 
 #include <gneiss/world.h>
@@ -13,6 +14,7 @@
 #include <fstream>
 #include <string>
 #include <thread>
+#include <utility>
 
 namespace {
 
@@ -28,6 +30,27 @@ struct temporary_project final {
 } // namespace
 
 int main() try {
+  // 协议对象销毁后，控制台值仍拥有全部字段和长字符串。
+  auto converted = [] {
+    gneiss::app::runtime_log_record record;
+    record.severity = GNEISS_LOG_ERROR;
+    record.sequence = 42U;
+    record.timestamp_ns = 123456U;
+    record.thread_id = 17U;
+    record.source = "runtime-module";
+    record.category = "resource-import";
+    record.message = std::string(512U, 'x');
+    record.operation = GNEISS_ERROR_NOT_FOUND;
+    return gneiss::editor::to_console_event(std::move(record));
+  }();
+  if (converted.severity != GNEISS_LOG_ERROR || converted.sequence != 42U ||
+      converted.timestamp_ns != 123456U || converted.thread_id != 17U ||
+      converted.source != "runtime-module" || converted.category != "resource-import" ||
+      converted.message != std::string(512U, 'x') ||
+      converted.operation != GNEISS_ERROR_NOT_FOUND) {
+    return 90;
+  }
+
   temporary_project reload_project{
       std::filesystem::temp_directory_path() / "Gneiss" /
           ("runtime-reload-" +

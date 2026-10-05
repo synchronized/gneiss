@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "console_model.h"
+#include "console_model.hpp"
 
 #include <limits>
 #include <utility>
@@ -20,8 +20,7 @@ std::uint64_t console_model::begin_session() noexcept {
   return current_session_id_;
 }
 
-result console_model::append_event(std::uint64_t session_id,
-                                   app::runtime_log_record event) noexcept {
+result console_model::append_event(std::uint64_t session_id, console_event event) noexcept {
   if (capacity_ == 0U || session_id == 0U) {
     return result::invalid_argument;
   }

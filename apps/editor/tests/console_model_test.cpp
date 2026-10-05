@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "console_model.h"
+#include "console_model.hpp"
 
 #include <utility>
 #include <vector>
@@ -9,7 +9,7 @@
 int main() {
   gneiss::editor::console_model model(2U);
   const auto first_session = model.begin_session();
-  gneiss::app::runtime_log_record event;
+  gneiss::editor::console_event event;
   event.source = "application";
   event.category = "runtime";
   event.message = "first";
@@ -50,7 +50,7 @@ int main() {
 
   gneiss::editor::console_model structured_model;
   const auto structured_session = structured_model.begin_session();
-  gneiss::app::runtime_log_record warning;
+  gneiss::editor::console_event warning;
   warning.severity = GNEISS_LOG_WARNING;
   warning.source = "game";
   warning.category = "asset";
@@ -68,6 +68,13 @@ int main() {
   if (structured_model.visible_indices(filter, visible) != gneiss::result::success ||
       visible.size() != 1U) {
     return 8;
+  }
+
+  gneiss::editor::console_model disabled(0U);
+  if (disabled.append_event(disabled.begin_session(), {}) != gneiss::result::invalid_argument ||
+      model.append_event(0U, {}) != gneiss::result::invalid_argument ||
+      !disabled.entries().empty()) {
+    return 9;
   }
 
   model.clear();

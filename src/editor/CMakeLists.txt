@@ -53,6 +53,8 @@ endif()
 # 不依赖宿主工程与进程协议的编辑模型。
 add_library(
   gneiss_editor_model STATIC
+  console_model.cpp
+  console_model.hpp
   author_transaction.cpp
   author_transaction.hpp
   native_author_transaction.cpp

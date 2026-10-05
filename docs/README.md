@@ -373,6 +373,7 @@
 - [M-295：独立编辑模型与宿主边界](records/M-295-editor-model-layout.md)
 - [M-295：场景会话与宿主目标拆分](records/M-295-editor-session-layout.md)
 - [M-295：Runtime Transform 回写脱离 IPC](records/M-295-author-transform-boundary.md)
+- [M-295：控制台脱离 Runtime 日志协议](records/M-295-console-boundary.md)
 
 ## 文档维护
 
