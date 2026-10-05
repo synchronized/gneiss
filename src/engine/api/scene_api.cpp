@@ -196,9 +196,29 @@ extern "C" gneiss_result gneiss_scene_instance_create_prefab_instance(
   try {
     auto state = find_application(application);
     const auto validation_result = validate_application(state);
-    return validation_result == GNEISS_SUCCESS
-               ? state->scenes()->create_prefab_instance(instance, *desc, out_root)
-               : validation_result;
+    if (validation_result != GNEISS_SUCCESS) {
+      return validation_result;
+    }
+    const gneiss::scene_internal::prefab_creation value{
+        .instance_uuid =
+            {
+                desc->instance_uuid,
+                static_cast<std::size_t>(desc->instance_uuid_length),
+            },
+        .name =
+            {
+                desc->name == nullptr ? "" : desc->name,
+                static_cast<std::size_t>(desc->name_length),
+            },
+        .prefab_uri =
+            {
+                desc->prefab_uri,
+                static_cast<std::size_t>(desc->prefab_uri_length),
+            },
+        .parent = desc->parent,
+        .local_transform = desc->local_transform,
+    };
+    return state->scenes()->create_prefab_instance(instance, value, out_root);
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;
   }
@@ -322,9 +342,24 @@ extern "C" gneiss_result gneiss_scene_instance_create_node(gneiss_application ap
   try {
     auto state = find_application(application);
     const auto validation_result = validate_application(state);
-    return validation_result == GNEISS_SUCCESS
-               ? state->scenes()->create_node(instance, *desc, out_node)
-               : validation_result;
+    if (validation_result != GNEISS_SUCCESS) {
+      return validation_result;
+    }
+    const gneiss::scene_internal::node_creation value{
+        .uuid =
+            {
+                desc->uuid,
+                static_cast<std::size_t>(desc->uuid_length),
+            },
+        .name =
+            {
+                desc->name == nullptr ? "" : desc->name,
+                static_cast<std::size_t>(desc->name_length),
+            },
+        .parent = desc->parent,
+        .local_transform = desc->local_transform,
+    };
+    return state->scenes()->create_node(instance, value, out_node);
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;
   }
@@ -478,9 +513,33 @@ extern "C" gneiss_result gneiss_scene_instance_create_mesh_renderer_node(
   try {
     auto state = find_application(application);
     const auto validation_result = validate_application(state);
-    return validation_result == GNEISS_SUCCESS
-               ? state->scenes()->create_mesh_renderer_node(instance, *desc, out_node)
-               : validation_result;
+    if (validation_result != GNEISS_SUCCESS) {
+      return validation_result;
+    }
+    const gneiss::scene_internal::mesh_renderer_node_creation value{
+        .uuid =
+            {
+                desc->uuid,
+                static_cast<std::size_t>(desc->uuid_length),
+            },
+        .name =
+            {
+                desc->name == nullptr ? "" : desc->name,
+                static_cast<std::size_t>(desc->name_length),
+            },
+        .parent = desc->parent,
+        .mesh_uri =
+            {
+                desc->renderer.mesh_uri,
+                static_cast<std::size_t>(desc->renderer.mesh_uri_length),
+            },
+        .material_uri =
+            {
+                desc->renderer.material_uri,
+                static_cast<std::size_t>(desc->renderer.material_uri_length),
+            },
+    };
+    return state->scenes()->create_mesh_renderer_node(instance, value, out_node);
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;
   }

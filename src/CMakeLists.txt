@@ -119,6 +119,7 @@ target_sources(
     engine/function/scene/scene_load_preparation.hpp
     engine/function/scene/scene_description.cpp
     engine/function/scene/scene_description.hpp
+    engine/function/scene/scene_creation.hpp
     engine/function/scene/prefab_description.cpp
     engine/function/scene/prefab_description.hpp
     engine/function/scene/prefab_property_override.cpp

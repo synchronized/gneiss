@@ -8,6 +8,7 @@
 #include "engine/function/render/render_asset_loader.hpp"
 #include "engine/function/scene/prefab_asset_loader.hpp"
 #include "engine/function/scene/prefab_runtime_instance.hpp"
+#include "engine/function/scene/scene_creation.hpp"
 #include "engine/function/scene/scene_description.hpp"
 
 #include <gneiss/scene.h>
@@ -53,7 +54,7 @@ public:
   [[nodiscard]] std::uint64_t get_prefab_node_count() const noexcept;
   [[nodiscard]] gneiss_result get_prefab_node_info(std::uint64_t index,
                                                    gneiss_scene_prefab_node_info& out_info) const;
-  [[nodiscard]] gneiss_result create_prefab_instance(const gneiss_scene_prefab_instance_desc& desc,
+  [[nodiscard]] gneiss_result create_prefab_instance(const prefab_creation& desc,
                                                      gneiss_scene_node_id* out_root);
   [[nodiscard]] gneiss_result set_prefab_instance_name(gneiss_scene_node_id root,
                                                        std::string_view name);
@@ -67,7 +68,7 @@ public:
                                                     gneiss_scene_node_id* out_new_root);
   [[nodiscard]] gneiss_result
   release_prefab_refresh(gneiss_scene_prefab_refresh_token token) noexcept;
-  [[nodiscard]] gneiss_result create_node(const gneiss_scene_node_desc& desc,
+  [[nodiscard]] gneiss_result create_node(const node_creation& desc,
                                           gneiss_scene_node_id* out_node);
   [[nodiscard]] gneiss_result set_node_name(gneiss_scene_node_id node, std::string_view name);
   [[nodiscard]] gneiss_result reparent_node(gneiss_scene_node_id node, gneiss_scene_node_id parent);
@@ -79,9 +80,8 @@ public:
                                               std::uint64_t mapping_count,
                                               gneiss_scene_node_id* out_root);
   [[nodiscard]] gneiss_result destroy_subtree(gneiss_scene_node_id root);
-  [[nodiscard]] gneiss_result
-  create_mesh_renderer_node(const gneiss_scene_mesh_renderer_node_desc& desc,
-                            gneiss_scene_node_id* out_node);
+  [[nodiscard]] gneiss_result create_mesh_renderer_node(const mesh_renderer_node_creation& desc,
+                                                        gneiss_scene_node_id* out_node);
   [[nodiscard]] gneiss_result set_mesh_renderer(gneiss_scene_node_id node,
                                                 std::string_view mesh_uri,
                                                 std::string_view material_uri);
@@ -147,7 +147,7 @@ public:
   get_prefab_node_info(gneiss_scene_instance instance, std::uint64_t index,
                        gneiss_scene_prefab_node_info* out_info) const noexcept;
   [[nodiscard]] gneiss_result create_prefab_instance(gneiss_scene_instance instance,
-                                                     const gneiss_scene_prefab_instance_desc& desc,
+                                                     const prefab_creation& desc,
                                                      gneiss_scene_node_id* out_root) noexcept;
   [[nodiscard]] gneiss_result set_prefab_instance_name(gneiss_scene_instance instance,
                                                        gneiss_scene_node_id root,
@@ -167,8 +167,7 @@ public:
   [[nodiscard]] gneiss_result
   release_prefab_refresh(gneiss_scene_instance instance,
                          gneiss_scene_prefab_refresh_token token) noexcept;
-  [[nodiscard]] gneiss_result create_node(gneiss_scene_instance instance,
-                                          const gneiss_scene_node_desc& desc,
+  [[nodiscard]] gneiss_result create_node(gneiss_scene_instance instance, const node_creation& desc,
                                           gneiss_scene_node_id* out_node) noexcept;
   [[nodiscard]] gneiss_result set_node_name(gneiss_scene_instance instance,
                                             gneiss_scene_node_id node,
@@ -185,10 +184,9 @@ public:
                   std::uint64_t mapping_count, gneiss_scene_node_id* out_root) noexcept;
   [[nodiscard]] gneiss_result destroy_subtree(gneiss_scene_instance instance,
                                               gneiss_scene_node_id root) noexcept;
-  [[nodiscard]] gneiss_result
-  create_mesh_renderer_node(gneiss_scene_instance instance,
-                            const gneiss_scene_mesh_renderer_node_desc& desc,
-                            gneiss_scene_node_id* out_node) noexcept;
+  [[nodiscard]] gneiss_result create_mesh_renderer_node(gneiss_scene_instance instance,
+                                                        const mesh_renderer_node_creation& desc,
+                                                        gneiss_scene_node_id* out_node) noexcept;
   [[nodiscard]] gneiss_result set_mesh_renderer(gneiss_scene_instance instance,
                                                 gneiss_scene_node_id node,
                                                 std::string_view mesh_uri,

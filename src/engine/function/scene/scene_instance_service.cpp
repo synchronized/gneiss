@@ -689,15 +689,12 @@ gneiss_result scene_instance::get_prefab_node_info(std::uint64_t index,
   return GNEISS_ERROR_NOT_FOUND;
 }
 
-gneiss_result scene_instance::create_prefab_instance(const gneiss_scene_prefab_instance_desc& desc,
+gneiss_result scene_instance::create_prefab_instance(const prefab_creation& desc,
                                                      gneiss_scene_node_id* out_root) {
   *out_root = GNEISS_NULL_SCENE_NODE_ID;
-  const std::string_view instance_uuid{desc.instance_uuid,
-                                       static_cast<std::size_t>(desc.instance_uuid_length)};
-  const std::string_view name{desc.name == nullptr ? "" : desc.name,
-                              static_cast<std::size_t>(desc.name_length)};
-  const std::string_view prefab_uri{desc.prefab_uri,
-                                    static_cast<std::size_t>(desc.prefab_uri_length)};
+  const auto instance_uuid = desc.instance_uuid;
+  const auto name = desc.name;
+  const auto prefab_uri = desc.prefab_uri;
   if (!is_canonical_uuid(instance_uuid) ||
       std::ranges::any_of(
           objects, [instance_uuid](const auto& object) { return object.uuid == instance_uuid; }) ||
@@ -931,11 +928,10 @@ scene_instance::release_prefab_refresh(gneiss_scene_prefab_refresh_token token) 
   return GNEISS_SUCCESS;
 }
 
-gneiss_result scene_instance::create_node(const gneiss_scene_node_desc& desc,
+gneiss_result scene_instance::create_node(const node_creation& desc,
                                           gneiss_scene_node_id* out_node) {
-  const std::string_view uuid(desc.uuid, static_cast<std::size_t>(desc.uuid_length));
-  const std::string_view name(desc.name == nullptr ? "" : desc.name,
-                              static_cast<std::size_t>(desc.name_length));
+  const auto uuid = desc.uuid;
+  const auto name = desc.name;
   if (!is_canonical_uuid(uuid) || find_node(uuid) != GNEISS_NULL_SCENE_NODE_ID) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
@@ -1336,16 +1332,12 @@ gneiss_result scene_instance::destroy_subtree(gneiss_scene_node_id root) {
   }
 }
 
-gneiss_result
-scene_instance::create_mesh_renderer_node(const gneiss_scene_mesh_renderer_node_desc& desc,
-                                          gneiss_scene_node_id* out_node) {
-  const std::string_view uuid(desc.uuid, static_cast<std::size_t>(desc.uuid_length));
-  const std::string_view name(desc.name == nullptr ? "" : desc.name,
-                              static_cast<std::size_t>(desc.name_length));
-  const std::string_view mesh_uri(desc.renderer.mesh_uri,
-                                  static_cast<std::size_t>(desc.renderer.mesh_uri_length));
-  const std::string_view material_uri(desc.renderer.material_uri,
-                                      static_cast<std::size_t>(desc.renderer.material_uri_length));
+gneiss_result scene_instance::create_mesh_renderer_node(const mesh_renderer_node_creation& desc,
+                                                        gneiss_scene_node_id* out_node) {
+  const auto uuid = desc.uuid;
+  const auto name = desc.name;
+  const auto mesh_uri = desc.mesh_uri;
+  const auto material_uri = desc.material_uri;
   if (!is_canonical_uuid(uuid) || find_node(uuid) != GNEISS_NULL_SCENE_NODE_ID) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
@@ -1796,7 +1788,7 @@ gneiss_result scene_instance_service::get_prefab_node_info(
 
 gneiss_result
 scene_instance_service::create_prefab_instance(gneiss_scene_instance instance,
-                                               const gneiss_scene_prefab_instance_desc& desc,
+                                               const prefab_creation& desc,
                                                gneiss_scene_node_id* out_root) noexcept {
   if (out_root == nullptr) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
@@ -1938,7 +1930,7 @@ scene_instance_service::get_node_info(gneiss_scene_instance instance, std::uint6
 }
 
 gneiss_result scene_instance_service::create_node(gneiss_scene_instance instance,
-                                                  const gneiss_scene_node_desc& desc,
+                                                  const node_creation& desc,
                                                   gneiss_scene_node_id* out_node) noexcept {
   if (out_node == nullptr) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
@@ -2022,7 +2014,7 @@ gneiss_result scene_instance_service::destroy_subtree(gneiss_scene_instance inst
 
 gneiss_result
 scene_instance_service::create_mesh_renderer_node(gneiss_scene_instance instance,
-                                                  const gneiss_scene_mesh_renderer_node_desc& desc,
+                                                  const mesh_renderer_node_creation& desc,
                                                   gneiss_scene_node_id* out_node) noexcept {
   if (out_node == nullptr) {
     return GNEISS_ERROR_INVALID_ARGUMENT;

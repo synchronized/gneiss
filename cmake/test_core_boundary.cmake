@@ -269,3 +269,16 @@ foreach(content IN ITEMS "#include <engine/api/material_description.hpp>"
   endif()
 endforeach()
 file(WRITE "${fixture}/src/engine/function/render/probe.cpp" "")
+
+file(MAKE_DIRECTORY "${fixture}/src/engine/function/scene")
+foreach(type IN ITEMS node mesh_renderer_node prefab_instance)
+  file(WRITE "${fixture}/src/engine/function/scene/probe.cpp"
+    "void create(const gneiss_scene_${type}_desc&);\n")
+  execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
+    -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
+    RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
+  if(status EQUAL 0)
+    message(FATAL_ERROR "边界检查未拒绝 Scene 消费 C 创建描述：${type}")
+  endif()
+endforeach()
+file(WRITE "${fixture}/src/engine/function/scene/probe.cpp" "")

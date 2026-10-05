@@ -69,15 +69,32 @@ int main() try {
   }
 
   gneiss::scene_node_desc node_desc = GNEISS_SCENE_NODE_DESC_INIT;
-  node_desc.uuid = child_uuid.data();
+  std::string source_uuid(child_uuid);
+  std::string source_name(160U, 'n');
+  const auto expected_name = source_name;
+  node_desc.uuid = source_uuid.data();
   node_desc.uuid_length = child_uuid.size();
+  node_desc.name = source_name.data();
+  node_desc.name_length = source_name.size();
   node_desc.parent = anchor.get();
+  node_desc.struct_size = sizeof(node_desc) - 1U;
+  if (scene.create_node(node_desc, found) != result::invalid_argument || found != anchor) {
+    return 18;
+  }
+  node_desc.struct_size = sizeof(node_desc);
   gneiss::scene_node_id child;
   if (scene.create_node(node_desc, child).failed() ||
       scene.create_node(node_desc, found) != result::invalid_argument || found != anchor ||
       scene.reparent_node(anchor, child) != result::invalid_argument ||
       scene.reparent_node(child, {}).failed() || scene.reparent_node(child, anchor).failed()) {
     return 6;
+  }
+  source_uuid[0] = '7';
+  source_name[0] = 'x';
+  if (scene.get_node_info(1U, info).failed() ||
+      std::string_view(info.uuid, info.uuid_length) != child_uuid ||
+      std::string_view(info.name, info.name_length) != expected_name) {
+    return 19;
   }
   gneiss::scene_camera_desc camera = GNEISS_SCENE_CAMERA_DESC_INIT;
   gneiss::scene_mesh_renderer_desc renderer = GNEISS_SCENE_MESH_RENDERER_DESC_INIT;

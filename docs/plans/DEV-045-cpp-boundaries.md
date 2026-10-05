@@ -43,6 +43,8 @@ ABI 入口已按 ADR-054 迁至 `src/engine/api/`；
 
 ## M-294：Application、World 与 Scene
 
+Scene 三类节点创建的参数转换已留在 API，见 [创建边界记录](../records/M-294-scene-creation-boundary.md)。
+
 1. 将句柄解析与公开描述校验和核心生命周期、World 操作、场景逻辑分开，注册表保持唯一。
 2. Application 只装配与协调；服务资源仍由对应 Service 管理。Scene 节点只关联实体 ID。
 3. 收口宿主内部访问：公共能力走完整 SDK，专用能力走明确的私有接口；去掉因便利直接访问状态的调用。
