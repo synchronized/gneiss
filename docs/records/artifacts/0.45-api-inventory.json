@@ -36,9 +36,13 @@
       "cpp_candidate_files": [
         "include/gneiss/application.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "创建线程同步运行且不可重入；帧参数为回调期借用，包装不缓存帧或建立循环状态",
+      "tests": [
+        "gneiss.cpp_application",
+        "gneiss.c_application"
+      ],
+      "cpp_entry": "gneiss::application::run"
     },
     {
       "symbol": "gneiss_application_get_window_size",
@@ -46,9 +50,14 @@
       "cpp_candidate_files": [
         "include/gneiss/application.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "创建线程输出尺寸值；返回客户区物理像素，失败沿用 C 入口清零规则",
+      "tests": [
+        "gneiss.cpp_application",
+        "gneiss.c_application",
+        "gneiss.editor.native-window-interaction"
+      ],
+      "cpp_entry": "gneiss::application::get_window_size"
     },
     {
       "symbol": "gneiss_application_request_exit",
@@ -56,9 +65,13 @@
       "cpp_candidate_files": [
         "include/gneiss/application.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "所属线程请求当前回调返回后退出；不销毁 Application",
+      "tests": [
+        "gneiss.cpp_application",
+        "gneiss.c_application"
+      ],
+      "cpp_entry": "gneiss::application::request_exit"
     },
     {
       "symbol": "gneiss_application_set_paused",
@@ -66,9 +79,13 @@
       "cpp_candidate_files": [
         "include/gneiss/application.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "将 bool 映射为固定宽度值；暂停保留主循环和事件处理，不改变对象所有权",
+      "tests": [
+        "gneiss.cpp_application",
+        "gneiss.c_application"
+      ],
+      "cpp_entry": "gneiss::application::set_paused"
     },
     {
       "symbol": "gneiss_application_log",
@@ -76,9 +93,12 @@
       "cpp_candidate_files": [
         "include/gneiss/application.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "提交期复制 UTF-8 字符串；允许工作线程提交但不能并发移动/reset 包装；sink 串行消费，userdata 至关闭完成仍须存活",
+      "tests": [
+        "gneiss.application_log"
+      ],
+      "cpp_entry": "gneiss::application::log"
     },
     {
       "symbol": "gneiss_application_get_world",
@@ -100,9 +120,12 @@
       "cpp_candidate_files": [
         "include/gneiss/asset.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "string_view 仅在校验期间借用，不读文件、不保留 URI，线程安全",
+      "tests": [
+        "gneiss.c_asset"
+      ],
+      "cpp_entry": "gneiss::validate_asset_uri"
     },
     {
       "symbol": "gneiss_result_message",
@@ -124,9 +147,13 @@
       "cpp_candidate_files": [
         "include/gneiss/game_module.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "C 描述值映射；仅校验布局、版本、字符串和函数指针，不接管模块状态、回调或动态库",
+      "tests": [
+        "gneiss.cpp_game_module",
+        "gneiss.c_game_module"
+      ],
+      "cpp_entry": "gneiss::validate_game_module"
     },
     {
       "symbol": "gneiss_game_context_get_world",
@@ -190,9 +217,12 @@
       "cpp_candidate_files": [
         "include/gneiss/game_module.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "生命周期回调线程借用 Context 请求宿主退出；不销毁上下文或模块",
+      "tests": [
+        "gneiss.game_context"
+      ],
+      "cpp_entry": "gneiss::game_context::request_exit"
     },
     {
       "symbol": "gneiss_game_context_log",
@@ -200,9 +230,13 @@
       "cpp_candidate_files": [
         "include/gneiss/game_module.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "存活 Context 可从工作线程提交，返回前复制消息；上下文不由包装拥有，回调期日志视图不能外泄",
+      "tests": [
+        "gneiss.game_context",
+        "gneiss.cpp_game_module"
+      ],
+      "cpp_entry": "gneiss::game_context::log"
     },
     {
       "symbol": "gneiss_version_major",
@@ -606,9 +640,13 @@
       "cpp_candidate_files": [
         "include/gneiss/application.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "仅 update 回调中提交；返回前复制顶点/索引/命令数组，同帧成功提交替换原值；纹理 RID 仍借用资源",
+      "tests": [
+        "gneiss.c_application",
+        "gneiss.granit_platform"
+      ],
+      "cpp_entry": "gneiss::application::submit_ui_draw_list"
     },
     {
       "symbol": "gneiss_application_submit_debug_draw_list",
@@ -616,9 +654,12 @@
       "cpp_candidate_files": [
         "include/gneiss/application.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "仅 update 回调中复制线段数组；同帧成功提交替换，帧后失效，不取得调用方数组所有权",
+      "tests": [
+        "gneiss.granit_platform"
+      ],
+      "cpp_entry": "gneiss::application::submit_debug_draw_list"
     },
     {
       "symbol": "gneiss_world_entity_set_camera",

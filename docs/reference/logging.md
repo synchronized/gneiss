@@ -6,9 +6,8 @@
 ## 当前范围
 
 `gneiss_log_message` 是日志生产者提交给 Engine 的 Experimental 消息描述。Application 可通过
-`gneiss_application_log` 提交，并由创建描述中的可选 `log` 回调同步接收 Engine 补全后的
-`gneiss_log_event`。Game Context、队列、基础 Sink 和 Runtime 传输协议已经接入；Editor Console 仍按
-[0.13.0 计划](../plans/VER-013-0.13.0-structured-logging-console.md) 实施。
+`gneiss_application_log` 提交，并由创建描述中的可选 `log` 回调在消费线程接收 Engine 补全后的
+`gneiss_log_event`。Game Context、队列、基础 Sink、Runtime 传输协议与 Editor Console 已接入。
 
 ## 字段与所有权
 
@@ -17,7 +16,7 @@
 - `message` 是 UTF-8 正文，可以为空。
 - `result` 可携带相关 Gneiss 结果码；没有相关操作时使用 `GNEISS_SUCCESS`。
 - `flags` 和 `reserved` 当前必须为零。
-- 字符串使用指针与长度，不要求 NUL 结尾。校验和未来提交接口均不取得调用方内存所有权。
+- 字符串使用指针与长度，不要求 NUL 结尾。校验和提交接口均不取得调用方内存所有权。
 
 时间戳、线程标识、进程与可信来源不由生产者填写。Engine 接收消息后生成这些元数据，Game Module
 也不能借此伪造 Engine 或 Runtime 来源。
@@ -31,6 +30,8 @@
 - 回调不得重入日志提交；重入返回 `GNEISS_ERROR_INVALID_STATE`。
 - 没有设置回调时，有效消息返回成功但不会写入文件或标准流。
 - Application 销毁不能与日志提交并发；宿主应先停止生产者，再销毁 Application。
+- C++ `application::log` 遵循同一契约；工作线程提交期间不能移动或重置同一个拥有者。
+  `reset()` 关闭前排空已接收事件，回调及 `user_data` 必须存活至关闭返回。
 
 Application 入口的可信来源固定为 `application`。Game Module 使用
 `gneiss_game_context_log` 提交，Runtime 在模块查询成功后把经过校验的模块 ID 绑定为可信来源；模块

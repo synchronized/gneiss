@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include <gneiss/application.h>
+#include <gneiss/application.hpp>
 #include <gneiss/log.hpp>
 
 #include <atomic>
@@ -139,6 +139,29 @@ int main() {
       gneiss_application_log(application, &throwing_message) != GNEISS_SUCCESS ||
       gneiss_application_destroy(application) != GNEISS_SUCCESS || throwing_calls != 2U) {
     return 9;
+  }
+  // C++ 拥有者允许工作线程提交日志，关闭等待回调结束；不并发修改拥有者本身。
+  capture_state owned_capture;
+  desc.log = capture;
+  desc.user_data = &owned_capture;
+  gneiss::application owned;
+  if (gneiss::application::create(desc, owned).failed()) {
+    return 10;
+  }
+  gneiss::result submitted;
+  std::thread worker([&] {
+    const std::string transient = "owned worker";
+    submitted = owned.log(gneiss::make_log_message(gneiss::log_severity::info, "cpp", transient));
+  });
+  worker.join();
+  if (submitted.failed() || owned.reset().failed()) {
+    return 11;
+  }
+  const std::scoped_lock lock(owned_capture.mutex);
+  if (owned_capture.count != 1U || owned_capture.message != "owned worker" ||
+      owned_capture.category != "cpp" ||
+      owned_capture.reentrant_result != GNEISS_ERROR_INVALID_STATE) {
+    return 12;
   }
   return 0;
 }

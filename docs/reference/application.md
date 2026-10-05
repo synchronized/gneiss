@@ -11,7 +11,7 @@
 固定为 World、平台回调状态、Render Service、平台窗口、Application；销毁后借用的 World 句柄
 立即失效。
 
-Application 及其 World 只能在创建线程访问。重复运行、跨线程调用、无效句柄和重复销毁均返回
+除[日志提交](logging.md)外，Application 及其 World 只能在创建线程访问。重复运行、跨线程调用、无效句柄和重复销毁均返回
 明确错误。C++ 的 `gneiss::application` 提供不可复制、可移动的 RAII 包装。
 
 `reset()` 返回关闭结果：成功或句柄已失效时清空所有权，其他失败保留句柄供重试。直接调用
@@ -47,7 +47,8 @@ Granit 原生 Win32 路径返回渲染客户区物理像素，与原生指针输
 应等待恢复，不应把它当作永久初始化失败。该查询不提供字体缩放或显示器 DPI 值。
 
 `GNEISS_APPLICATION_PLATFORM_CALLBACK` 使用描述结构中的生命周期回调，也允许全部回调为空的
-无窗口模式。所有回调均在创建线程同步执行，不得重入 `run`，C++ 回调实现不得抛出异常。
+无窗口模式。生命周期回调在创建线程同步执行，不得重入 `run`，C++ 回调实现不得抛出异常；
+日志回调在专用消费线程执行，其寿命与关闭规则见[日志参考](logging.md)。
 `user_data` 由调用方持有，必须至少存活到 `shutdown` 返回。
 
 构建时启用 `GNEISS_ENABLE_GRANIT_PLATFORM` 后，可以选择

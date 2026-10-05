@@ -99,7 +99,7 @@ int main() {
       actual_root != expected_root ||
       gneiss_game_context_find_action(context, "missing", UINT64_C(7), &action) !=
           GNEISS_ERROR_NOT_FOUND ||
-      gneiss_game_context_request_exit(context) != GNEISS_SUCCESS) {
+      borrowed.request_exit().failed()) {
     return 3;
   }
 
@@ -126,7 +126,7 @@ int main() {
   std::thread other([&] {
     cross_thread_result = gneiss_game_context_get_world(context, &actual_world);
     typed_thread_result = borrowed.get_world(typed_world);
-    cross_thread_log_result = gneiss_game_context_log(context, &message);
+    cross_thread_log_result = borrowed.log(message).native();
   });
   other.join();
   if (cross_thread_result != GNEISS_ERROR_INVALID_HANDLE ||

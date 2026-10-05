@@ -116,7 +116,8 @@ Runtime 层级与属性面板迁移见 [面板边界记录](../records/M-295-run
 [令牌记录](../records/M-296-prefab-refresh-owner.md)。输入和上下文借用见
 [强类型入口记录](../records/M-296-input-context-views.md)。World、节点和组件审查见
 [所有权记录](../records/M-296-world-scene-ownership.md)。场景实例与子树修复见
-[场景 SDK 记录](../records/M-296-scene-instance-sdk.md)。其余包装和类型/回调审计继续进行。
+[场景 SDK 记录](../records/M-296-scene-instance-sdk.md)。102 个函数映射审查已完成，见
+[函数覆盖记录](../records/M-296-function-coverage.md)；类型、常量和完整回调契约审计继续进行。
 
 - 每个公共 C 功能都有强类型入口或明确的值类型映射；现有 C++ 调用方式尽量兼容。
 - 拥有/借用类型分开，测试 move、reset、release、失败创建与父句柄先失效。

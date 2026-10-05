@@ -16,7 +16,7 @@
 
 namespace gneiss {
 
-/** 独占拥有 Application 的 RAII 包装；只允许在创建线程访问。
+/** 独占拥有 Application 的 RAII 包装；除 log 外操作限创建线程。
  * 析构或移动覆盖若关闭失败则终止进程；需处理错误时先显式 reset()。 */
 class application final {
 public:
@@ -144,12 +144,16 @@ public:
   [[nodiscard]] result destroy_texture(texture_id texture) noexcept {
     return from_native(gneiss_texture_destroy(handle_, texture.get()));
   }
+  /** 仅在 update 中提交当帧 UI；数组在返回前复制，纹理 RID 仍借用所属 Application 的资源。 */
   [[nodiscard]] result submit_ui_draw_list(const ui_draw_list_desc& desc) noexcept {
     return from_native(gneiss_application_submit_ui_draw_list(handle_, &desc));
   }
+  /** 仅在 update 中提交当帧调试线段；复制数组，不取得调用方所有权。 */
   [[nodiscard]] result submit_debug_draw_list(const debug_draw_list_desc& desc) noexcept {
     return from_native(gneiss_application_submit_debug_draw_list(handle_, &desc));
   }
+  /** 消息字符串在返回前复制，可从工作线程提交；不得与本包装的移动/reset 并发。
+   * 接收回调串行执行，不能重入日志；回调 userdata 必须存活至 Application 关闭完成。 */
   [[nodiscard]] result log(const gneiss_log_message& message) noexcept {
     return from_native(gneiss_application_log(handle_, &message));
   }
