@@ -938,6 +938,20 @@ gneiss_target_compile_warnings(gneiss_scene_prefab_instance_test)
 gneiss_target_output_directories(gneiss_scene_prefab_instance_test)
 add_test(NAME gneiss.scene_prefab_instance COMMAND gneiss_scene_prefab_instance_test)
 
+add_executable(gneiss_cpp_prefab_refresh_test scene/cpp_prefab_refresh_test.cpp)
+target_link_libraries(gneiss_cpp_prefab_refresh_test PRIVATE gneiss::engine)
+target_compile_definitions(gneiss_cpp_prefab_refresh_test
+  PRIVATE GNEISS_TEST_ASSET_ROOT="${PROJECT_SOURCE_DIR}/tests/data/assets")
+target_compile_features(gneiss_cpp_prefab_refresh_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_cpp_prefab_refresh_test)
+gneiss_target_output_directories(gneiss_cpp_prefab_refresh_test)
+add_test(NAME gneiss.cpp-prefab-refresh COMMAND gneiss_cpp_prefab_refresh_test)
+add_test(NAME gneiss.cpp-prefab-refresh-termination
+  COMMAND ${CMAKE_COMMAND}
+    "-DGNEISS_TEST_EXECUTABLE=$<TARGET_FILE:gneiss_cpp_prefab_refresh_test>"
+    "-DGNEISS_OWNER_KINDS=prefab"
+    -P "${PROJECT_SOURCE_DIR}/cmake/test_owner_termination.cmake")
+
 add_executable(gneiss_prefab_structural_reload_test scene/prefab_structural_reload_test.cpp)
 target_link_libraries(gneiss_prefab_structural_reload_test PRIVATE gneiss::engine)
 target_include_directories(gneiss_prefab_structural_reload_test PRIVATE "${PROJECT_SOURCE_DIR}/src")

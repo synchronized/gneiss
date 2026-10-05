@@ -897,9 +897,14 @@
       "cpp_candidate_files": [
         "include/gneiss/scene.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "场景线程刷新并返回独占历史租约；RAII 输出须为空，失败不改变输出和原投影；不延长父对象寿命",
+      "tests": [
+        "gneiss.cpp-prefab-refresh",
+        "gneiss.cpp-prefab-refresh-termination",
+        "gneiss.scene_prefab_instance"
+      ],
+      "cpp_entry": "gneiss::scene_instance::refresh_prefab_instance / gneiss::scene_prefab_refresh"
     },
     {
       "symbol": "gneiss_scene_instance_toggle_prefab_refresh",
@@ -907,9 +912,14 @@
       "cpp_candidate_files": [
         "include/gneiss/scene.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "使用保存的 Application/场景/令牌切换，成功旧节点失效，失败保留 C++ 输出；零令牌 invalid_argument，过期令牌 invalid_handle",
+      "tests": [
+        "gneiss.cpp-prefab-refresh",
+        "gneiss.cpp-prefab-refresh-termination",
+        "gneiss.scene_prefab_instance"
+      ],
+      "cpp_entry": "gneiss::scene_prefab_refresh::toggle / gneiss::scene_instance::toggle_prefab_refresh"
     },
     {
       "symbol": "gneiss_scene_instance_release_prefab_refresh",
@@ -917,9 +927,14 @@
       "cpp_candidate_files": [
         "include/gneiss/scene.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "所属线程释放历史不回滚投影；父对象或令牌失效可清空；其他失败保留拥有者，析构失败终止；release 转移手动释放责任",
+      "tests": [
+        "gneiss.cpp-prefab-refresh",
+        "gneiss.cpp-prefab-refresh-termination",
+        "gneiss.scene_prefab_instance"
+      ],
+      "cpp_entry": "gneiss::scene_prefab_refresh::reset / release / gneiss::scene_instance::release_prefab_refresh"
     },
     {
       "symbol": "gneiss_scene_instance_create_node",

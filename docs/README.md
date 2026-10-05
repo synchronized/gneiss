@@ -352,6 +352,7 @@
 - [M-295：公共 C 入口集中与内部调用收口](records/M-295-c-boundary-completion.md)
 
 - [M-296：C++ 拥有者生命周期](records/M-296-owner-lifecycle.md)
+- [M-296：Prefab 刷新令牌的 C++ 所有权](records/M-296-prefab-refresh-owner.md)
 
 - [M-295：Render 快照与 Asset 解码边界](records/M-295-render-asset-layout.md)
 

@@ -83,6 +83,17 @@ Transform 接口修改根变换，并通过 `gneiss_scene_instance_destroy_prefa
 供 Undo/Redo 使用。命令离开历史后必须调用 `gneiss_scene_instance_release_prefab_refresh`；场景卸载
 也会释放尚未显式释放的令牌及其资产租约。
 
+C++ `scene_prefab_refresh` 独占令牌并记录所属 Application 与场景句柄，不延长父对象寿命。
+`scene_instance::refresh_prefab_instance(root, out_root, out_refresh)` 的输出拥有者必须为空；
+非空时返回 `invalid_state`，不修改场景或两个输出。空输出下的加载失败也保持输出与原投影。
+成功后可以用 `out_refresh.toggle(out_root)` 撤销或重做；失败时保留输出根 ID。
+空令牌调用 toggle 与 C API 一样返回 `invalid_argument`。
+
+拥有者不可复制，可移动；`reset()` 和析构释放历史租约，不回滚当前投影。外部释放、场景卸载或
+Application 销毁后，`reset()` 可安全清空失效令牌；其他错误保留令牌供所属线程重试。
+操作和析构须在 Application 所属线程，析构/移动覆盖无法关闭时终止进程。
+`release()` 转移手动释放责任，调用前保存 `owner()` 和 `scene()`。原裸令牌包装仍保留供旧调用方使用。
+
 ## 作者节点编辑
 
 `gneiss_scene_instance_create_node` 原子创建不含可选组件的通用作者节点。调用方提供稳定 UUID、可选
