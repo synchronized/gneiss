@@ -13,7 +13,7 @@
 #include "render/render_frame_packet.h"
 #include "render/render_resource_service.h"
 #include "render/ui_draw_list.h"
-#include "world/render_snapshot.h"
+#include "world/render_snapshot.hpp"
 
 #include <gneiss/core/result.h>
 

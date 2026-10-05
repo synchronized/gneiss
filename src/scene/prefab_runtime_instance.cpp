@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "world/world_service.hpp"
+
 #include "scene/prefab_runtime_instance.h"
 
 #include "scene/structural_diff.h"
@@ -69,7 +71,7 @@ gneiss_result
 apply_camera(gneiss_world world, gneiss_entity_id entity,
              const std::optional<gneiss::scene_internal::camera_description>& camera) noexcept {
   if (!camera) {
-    const auto result = gneiss_world_entity_remove_camera(world, entity);
+    const auto result = gneiss::world_internal::entity_remove_camera(world, entity);
     return result == GNEISS_ERROR_NOT_FOUND ? GNEISS_SUCCESS : result;
   }
   const gneiss_camera value{.vertical_field_of_view_radians =
@@ -78,7 +80,7 @@ apply_camera(gneiss_world world, gneiss_entity_id entity,
                             .far_plane = camera->far_plane,
                             .is_primary = static_cast<std::uint8_t>(camera->is_primary ? 1U : 0U),
                             .reserved = {0U, 0U, 0U}};
-  return gneiss_world_entity_set_camera(world, entity, &value);
+  return gneiss::world_internal::entity_set_camera(world, entity, value);
 }
 
 } // namespace
@@ -198,32 +200,32 @@ prefab_runtime_instance::reload(prefab_asset_lease candidate, gneiss_type_regist
   std::vector<std::size_t> additions;
   additions.reserve(diff.added.size());
   gneiss_entity_id active_camera_before = GNEISS_NULL_ENTITY_ID;
-  (void)gneiss_world_get_active_camera(world_, &active_camera_before);
+  (void)gneiss::world_internal::get_active_camera(world_, active_camera_before);
   const auto rollback_additions = [&]() noexcept {
     for (auto iterator = additions.rbegin(); iterator != additions.rend(); ++iterator) {
       auto& target = staged[*iterator];
       if (target.entity != GNEISS_NULL_ENTITY_ID) {
-        (void)gneiss_world_entity_destroy(world_, target.entity);
+        (void)gneiss::world_internal::entity_destroy(world_, target.entity);
       }
       if (target.node != GNEISS_NULL_SCENE_NODE_ID) {
-        (void)gneiss_scene_node_destroy(world_, target.node);
+        (void)gneiss::world_internal::node_destroy(world_, target.node);
       }
     }
     if (active_camera_before != GNEISS_NULL_ENTITY_ID) {
-      (void)gneiss_world_set_active_camera(world_, active_camera_before);
+      (void)gneiss::world_internal::set_active_camera(world_, active_camera_before);
     }
   };
   for (const auto& addition : diff.added) {
     const auto& source = candidate.get()->objects[addition.new_index];
     auto& target = staged[addition.new_index];
     const auto parent = source.parent_uuid ? runtime_nodes.at(*source.parent_uuid) : root_node_;
-    result = gneiss_world_entity_create(world_, &target.entity);
+    result = gneiss::world_internal::entity_create(world_, target.entity);
     if (result == GNEISS_SUCCESS) {
-      result = gneiss_scene_node_create(world_, parent, target.entity, &target.node);
+      result = gneiss::world_internal::node_create(world_, parent, target.entity, target.node);
     }
     const auto transform = to_transform(source);
     if (result == GNEISS_SUCCESS) {
-      result = gneiss_scene_node_set_local_transform(world_, target.node, &transform);
+      result = gneiss::world_internal::node_set_local_transform(world_, target.node, transform);
     }
     if (result == GNEISS_SUCCESS) {
       result = apply_camera(world_, target.entity, source.camera);
@@ -231,14 +233,14 @@ prefab_runtime_instance::reload(prefab_asset_lease candidate, gneiss_type_regist
     if (result == GNEISS_SUCCESS && source.mesh_renderer) {
       const gneiss_mesh_renderer renderer{.mesh = target.mesh.get(),
                                           .material = target.material.get()};
-      result = gneiss_world_entity_set_mesh_renderer(world_, target.entity, &renderer);
+      result = gneiss::world_internal::entity_set_mesh_renderer(world_, target.entity, renderer);
     }
     if (result != GNEISS_SUCCESS) {
       if (target.entity != GNEISS_NULL_ENTITY_ID) {
-        (void)gneiss_world_entity_destroy(world_, target.entity);
+        (void)gneiss::world_internal::entity_destroy(world_, target.entity);
       }
       if (target.node != GNEISS_NULL_SCENE_NODE_ID) {
-        (void)gneiss_scene_node_destroy(world_, target.node);
+        (void)gneiss::world_internal::node_destroy(world_, target.node);
       }
       rollback_additions();
       return result;
@@ -262,10 +264,11 @@ prefab_runtime_instance::reload(prefab_asset_lease candidate, gneiss_type_regist
       const auto& snapshot = *iterator;
       auto& target = staged[snapshot.new_index];
       if (has_change(snapshot.changes, structural_change::parent)) {
-        (void)gneiss_scene_node_reparent(world_, target.node, snapshot.parent);
+        (void)gneiss::world_internal::node_reparent(world_, target.node, snapshot.parent);
       }
       if (has_change(snapshot.changes, structural_change::transform)) {
-        (void)gneiss_scene_node_set_local_transform(world_, target.node, &snapshot.transform);
+        (void)gneiss::world_internal::node_set_local_transform(world_, target.node,
+                                                               snapshot.transform);
       }
       if (has_change(snapshot.changes, structural_change::camera)) {
         (void)apply_camera(world_, target.entity, snapshot.camera);
@@ -276,9 +279,9 @@ prefab_runtime_instance::reload(prefab_asset_lease candidate, gneiss_type_regist
           const gneiss_mesh_renderer renderer{.mesh = nodes_[snapshot.old_index].mesh.get(),
                                               .material =
                                                   nodes_[snapshot.old_index].material.get()};
-          (void)gneiss_world_entity_set_mesh_renderer(world_, target.entity, &renderer);
+          (void)gneiss::world_internal::entity_set_mesh_renderer(world_, target.entity, renderer);
         } else {
-          (void)gneiss_world_entity_remove_mesh_renderer(world_, target.entity);
+          (void)gneiss::world_internal::entity_remove_mesh_renderer(world_, target.entity);
         }
       }
     }
@@ -290,21 +293,24 @@ prefab_runtime_instance::reload(prefab_asset_lease candidate, gneiss_type_regist
     snapshot.old_index = update.old_index;
     snapshot.new_index = update.new_index;
     snapshot.changes = update.changes;
-    result = gneiss_scene_node_get_parent(world_, target.node, &snapshot.parent);
+    result = gneiss::world_internal::node_get_parent(world_, target.node, snapshot.parent);
     if (result == GNEISS_SUCCESS) {
-      result = gneiss_scene_node_get_local_transform(world_, target.node, &snapshot.transform);
+      result =
+          gneiss::world_internal::node_get_local_transform(world_, target.node, snapshot.transform);
     }
     if (result == GNEISS_SUCCESS && has_change(update.changes, structural_change::camera)) {
-      gneiss_camera_desc camera = GNEISS_CAMERA_DESC_INIT;
-      const auto camera_result = gneiss_world_entity_get_camera(world_, target.entity, &camera);
+      gneiss::world_internal::camera_settings camera;
+      const auto camera_result =
+          gneiss::world_internal::entity_get_camera(world_, target.entity, camera);
       if (camera_result == GNEISS_SUCCESS) {
         gneiss_entity_id active = GNEISS_NULL_ENTITY_ID;
         snapshot.camera = camera_description{
             .vertical_field_of_view_radians = camera.vertical_field_of_view_radians,
             .near_plane = camera.near_plane,
             .far_plane = camera.far_plane,
-            .is_primary = gneiss_world_get_active_camera(world_, &active) == GNEISS_SUCCESS &&
-                          active == target.entity};
+            .is_primary =
+                gneiss::world_internal::get_active_camera(world_, active) == GNEISS_SUCCESS &&
+                active == target.entity};
       } else if (camera_result != GNEISS_ERROR_NOT_FOUND) {
         result = camera_result;
       }
@@ -318,11 +324,11 @@ prefab_runtime_instance::reload(prefab_asset_lease candidate, gneiss_type_regist
     const auto& source = candidate.get()->objects[update.new_index];
     if (has_change(update.changes, structural_change::parent)) {
       const auto parent = source.parent_uuid ? runtime_nodes.at(*source.parent_uuid) : root_node_;
-      result = gneiss_scene_node_reparent(world_, target.node, parent);
+      result = gneiss::world_internal::node_reparent(world_, target.node, parent);
     }
     if (result == GNEISS_SUCCESS && has_change(update.changes, structural_change::transform)) {
       const auto transform = to_transform(source);
-      result = gneiss_scene_node_set_local_transform(world_, target.node, &transform);
+      result = gneiss::world_internal::node_set_local_transform(world_, target.node, transform);
     }
     if (result == GNEISS_SUCCESS && has_change(update.changes, structural_change::camera)) {
       result = apply_camera(world_, target.entity, source.camera);
@@ -331,9 +337,9 @@ prefab_runtime_instance::reload(prefab_asset_lease candidate, gneiss_type_regist
       if (source.mesh_renderer) {
         const gneiss_mesh_renderer renderer{.mesh = target.mesh.get(),
                                             .material = target.material.get()};
-        result = gneiss_world_entity_set_mesh_renderer(world_, target.entity, &renderer);
+        result = gneiss::world_internal::entity_set_mesh_renderer(world_, target.entity, renderer);
       } else {
-        result = gneiss_world_entity_remove_mesh_renderer(world_, target.entity);
+        result = gneiss::world_internal::entity_remove_mesh_renderer(world_, target.entity);
       }
     }
     if (result != GNEISS_SUCCESS) {
@@ -355,8 +361,8 @@ prefab_runtime_instance::reload(prefab_asset_lease candidate, gneiss_type_regist
   }
   for (const auto& removal : diff.removed) {
     const auto& target = previous_nodes[removal.old_index];
-    (void)gneiss_world_entity_destroy(world_, target.entity);
-    (void)gneiss_scene_node_destroy(world_, target.node);
+    (void)gneiss::world_internal::entity_destroy(world_, target.entity);
+    (void)gneiss::world_internal::node_destroy(world_, target.node);
   }
   prefab_ = std::move(candidate);
   loader_.release_unused();
@@ -454,12 +460,12 @@ gneiss_result prefab_runtime_instance::stage_assets(const prefab_description& de
 gneiss_result prefab_runtime_instance::commit(const prefab_description& description,
                                               gneiss_scene_node_id parent,
                                               const gneiss_transform& root_transform) {
-  auto result = gneiss_world_entity_create(world_, &root_entity_);
+  auto result = gneiss::world_internal::entity_create(world_, root_entity_);
   if (result == GNEISS_SUCCESS) {
-    result = gneiss_scene_node_create(world_, parent, root_entity_, &root_node_);
+    result = gneiss::world_internal::node_create(world_, parent, root_entity_, root_node_);
   }
   if (result == GNEISS_SUCCESS) {
-    result = gneiss_scene_node_set_local_transform(world_, root_node_, &root_transform);
+    result = gneiss::world_internal::node_set_local_transform(world_, root_node_, root_transform);
   }
   if (result != GNEISS_SUCCESS) {
     return result;
@@ -503,30 +509,28 @@ gneiss_result prefab_runtime_instance::commit(const prefab_description& descript
 gneiss_result prefab_runtime_instance::commit_node(std::size_t index, gneiss_scene_node_id parent) {
   const auto& source = prefab_.get()->objects[index];
   auto& target = nodes_[index];
-  auto result = gneiss_world_entity_create(world_, &target.entity);
+  auto result = gneiss::world_internal::entity_create(world_, target.entity);
   if (result == GNEISS_SUCCESS) {
-    result = gneiss_scene_node_create(world_, parent, target.entity, &target.node);
+    result = gneiss::world_internal::node_create(world_, parent, target.entity, target.node);
   }
   const auto transform = to_transform(source);
   if (result == GNEISS_SUCCESS) {
-    result = gneiss_scene_node_set_local_transform(world_, target.node, &transform);
+    result = gneiss::world_internal::node_set_local_transform(world_, target.node, transform);
   }
   if (result == GNEISS_SUCCESS && source.camera) {
-    const gneiss_camera_desc camera{.struct_size = sizeof(gneiss_camera_desc),
-                                    .reserved = 0U,
-                                    .vertical_field_of_view_radians =
-                                        source.camera->vertical_field_of_view_radians,
-                                    .near_plane = source.camera->near_plane,
-                                    .far_plane = source.camera->far_plane};
-    result = gneiss_world_entity_configure_camera(world_, target.entity, &camera);
+    const gneiss::world_internal::camera_settings camera{
+        .vertical_field_of_view_radians = source.camera->vertical_field_of_view_radians,
+        .near_plane = source.camera->near_plane,
+        .far_plane = source.camera->far_plane};
+    result = gneiss::world_internal::entity_configure_camera(world_, target.entity, camera);
     if (result == GNEISS_SUCCESS && source.camera->is_primary) {
-      result = gneiss_world_set_active_camera(world_, target.entity);
+      result = gneiss::world_internal::set_active_camera(world_, target.entity);
     }
   }
   if (result == GNEISS_SUCCESS && source.mesh_renderer) {
     const gneiss_mesh_renderer renderer{.mesh = target.mesh.get(),
                                         .material = target.material.get()};
-    result = gneiss_world_entity_set_mesh_renderer(world_, target.entity, &renderer);
+    result = gneiss::world_internal::entity_set_mesh_renderer(world_, target.entity, renderer);
   }
   return result;
 }
@@ -537,12 +541,12 @@ gneiss_result prefab_runtime_instance::begin_staged(gneiss_scene_node_id parent,
     return GNEISS_ERROR_INVALID_STATE;
   }
   nodes_.resize(prefab_.get()->objects.size());
-  auto result = gneiss_world_entity_create(world_, &root_entity_);
+  auto result = gneiss::world_internal::entity_create(world_, root_entity_);
   if (result == GNEISS_SUCCESS) {
-    result = gneiss_scene_node_create(world_, parent, root_entity_, &root_node_);
+    result = gneiss::world_internal::node_create(world_, parent, root_entity_, root_node_);
   }
   if (result == GNEISS_SUCCESS) {
-    result = gneiss_scene_node_set_local_transform(world_, root_node_, &transform);
+    result = gneiss::world_internal::node_set_local_transform(world_, root_node_, transform);
   }
   return result;
 }
@@ -588,21 +592,21 @@ prefab_runtime_instance::apply_staged_override(gneiss_type_registry registry,
 void prefab_runtime_instance::rollback() noexcept {
   for (auto iterator = nodes_.rbegin(); iterator != nodes_.rend(); ++iterator) {
     if (iterator->entity != GNEISS_NULL_ENTITY_ID) {
-      (void)gneiss_world_entity_destroy(world_, iterator->entity);
+      (void)gneiss::world_internal::entity_destroy(world_, iterator->entity);
     }
     if (iterator->node != GNEISS_NULL_SCENE_NODE_ID) {
-      (void)gneiss_scene_node_destroy(world_, iterator->node);
+      (void)gneiss::world_internal::node_destroy(world_, iterator->node);
     }
     iterator->mesh = {};
     iterator->material = {};
   }
   nodes_.clear();
   if (root_entity_ != GNEISS_NULL_ENTITY_ID) {
-    (void)gneiss_world_entity_destroy(world_, root_entity_);
+    (void)gneiss::world_internal::entity_destroy(world_, root_entity_);
     root_entity_ = GNEISS_NULL_ENTITY_ID;
   }
   if (root_node_ != GNEISS_NULL_SCENE_NODE_ID) {
-    (void)gneiss_scene_node_destroy(world_, root_node_);
+    (void)gneiss::world_internal::node_destroy(world_, root_node_);
     root_node_ = GNEISS_NULL_SCENE_NODE_ID;
   }
   prefab_ = {};
@@ -640,7 +644,7 @@ gneiss_result prefab_runtime_instance::get_node_info(std::size_t index,
   }
   const auto& source = nodes_[index];
   gneiss_scene_node_id parent = GNEISS_NULL_SCENE_NODE_ID;
-  const auto result = gneiss_scene_node_get_parent(world_, source.node, &parent);
+  const auto result = gneiss::world_internal::node_get_parent(world_, source.node, parent);
   if (result != GNEISS_SUCCESS) {
     return result;
   }

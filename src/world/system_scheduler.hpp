@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#ifndef GNEISS_WORLD_SYSTEM_SCHEDULER_H_
-#define GNEISS_WORLD_SYSTEM_SCHEDULER_H_
+#ifndef GNEISS_WORLD_SYSTEM_SCHEDULER_HPP_
+#define GNEISS_WORLD_SYSTEM_SCHEDULER_HPP_
 
-#include "world/world_state.h"
+#include "world/world_state.hpp"
 
 #include <gneiss/core/result.h>
 

@@ -19,3 +19,21 @@ execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
 if(NOT status EQUAL 0)
   message(FATAL_ERROR "边界检查错误拒绝共享值类型")
 endif()
+
+file(MAKE_DIRECTORY "${fixture}/src/world")
+foreach(content IN ITEMS "extern \"C\" int forbidden();" "#include <gneiss/world.hpp>"
+    "auto result = gneiss_world_destroy(world);")
+  file(WRITE "${fixture}/src/world/probe.cpp" "${content}\n")
+  execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
+    -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
+    RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
+  if(status EQUAL 0)
+    message(FATAL_ERROR "World 边界检查未拒绝违规输入：${content}")
+  endif()
+endforeach()
+file(WRITE "${fixture}/src/world/probe.cpp" "#include <gneiss/render.h>\n")
+execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
+  -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake" RESULT_VARIABLE status)
+if(NOT status EQUAL 0)
+  message(FATAL_ERROR "World 边界检查错误拒绝共享值类型")
+endif()

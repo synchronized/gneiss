@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "world/world_service.hpp"
+
 #include <gneiss/world.h>
 
 #include <gneiss/render.h>
@@ -38,8 +40,8 @@ enum class camera_field : std::uint8_t { field_of_view = 1, near_plane = 2, far_
 gneiss_result get_transform(void* user_data, gneiss_property_target target,
                             gneiss_property_value* output) {
   gneiss_transform transform = GNEISS_TRANSFORM_IDENTITY;
-  const auto result = gneiss_world_entity_get_local_transform(target_world(target),
-                                                              target_entity(target), &transform);
+  const auto result = gneiss::world_internal::entity_get_local_transform(
+      target_world(target), target_entity(target), transform);
   if (result != GNEISS_SUCCESS) {
     return result;
   }
@@ -69,8 +71,8 @@ gneiss_result get_transform(void* user_data, gneiss_property_target target,
 gneiss_result set_transform(void* user_data, gneiss_property_target target,
                             const gneiss_property_value* value) {
   gneiss_transform transform = GNEISS_TRANSFORM_IDENTITY;
-  auto result = gneiss_world_entity_get_local_transform(target_world(target), target_entity(target),
-                                                        &transform);
+  auto result = gneiss::world_internal::entity_get_local_transform(
+      target_world(target), target_entity(target), transform);
   if (result != GNEISS_SUCCESS) {
     return result;
   }
@@ -92,15 +94,15 @@ gneiss_result set_transform(void* user_data, gneiss_property_target target,
     transform.scale[2] = value->payload.vec3_value.z;
     break;
   }
-  return gneiss_world_entity_set_local_transform(target_world(target), target_entity(target),
-                                                 &transform);
+  return gneiss::world_internal::entity_set_local_transform(target_world(target),
+                                                            target_entity(target), transform);
 }
 
 gneiss_result get_camera(void* user_data, gneiss_property_target target,
                          gneiss_property_value* output) {
-  gneiss_camera_desc camera = GNEISS_CAMERA_DESC_INIT;
-  const auto result =
-      gneiss_world_entity_get_camera(target_world(target), target_entity(target), &camera);
+  gneiss::world_internal::camera_settings camera;
+  const auto result = gneiss::world_internal::entity_get_camera(target_world(target),
+                                                                target_entity(target), camera);
   if (result != GNEISS_SUCCESS) {
     return result;
   }
@@ -121,9 +123,9 @@ gneiss_result get_camera(void* user_data, gneiss_property_target target,
 
 gneiss_result set_camera(void* user_data, gneiss_property_target target,
                          const gneiss_property_value* value) {
-  gneiss_camera_desc camera = GNEISS_CAMERA_DESC_INIT;
-  auto result =
-      gneiss_world_entity_get_camera(target_world(target), target_entity(target), &camera);
+  gneiss::world_internal::camera_settings camera;
+  auto result = gneiss::world_internal::entity_get_camera(target_world(target),
+                                                          target_entity(target), camera);
   if (result != GNEISS_SUCCESS) {
     return result;
   }
@@ -138,19 +140,20 @@ gneiss_result set_camera(void* user_data, gneiss_property_target target,
     camera.far_plane = value->payload.float32_value;
     break;
   }
-  return gneiss_world_entity_configure_camera(target_world(target), target_entity(target), &camera);
+  return gneiss::world_internal::entity_configure_camera(target_world(target),
+                                                         target_entity(target), camera);
 }
 
 gneiss_result get_is_primary(void* /*user_data*/, gneiss_property_target target,
                              gneiss_property_value* output) {
-  gneiss_camera_desc camera = GNEISS_CAMERA_DESC_INIT;
-  auto result =
-      gneiss_world_entity_get_camera(target_world(target), target_entity(target), &camera);
+  gneiss::world_internal::camera_settings camera;
+  auto result = gneiss::world_internal::entity_get_camera(target_world(target),
+                                                          target_entity(target), camera);
   if (result != GNEISS_SUCCESS) {
     return result;
   }
   gneiss_entity_id active = GNEISS_NULL_ENTITY_ID;
-  result = gneiss_world_get_active_camera(target_world(target), &active);
+  result = gneiss::world_internal::get_active_camera(target_world(target), active);
   if (result != GNEISS_SUCCESS && result != GNEISS_ERROR_NOT_READY) {
     return result;
   }
@@ -195,11 +198,11 @@ constexpr camera_field far_plane_field = camera_field::far_plane;
 
 } // namespace
 
-extern "C" gneiss_type_id gneiss_transform_type_id(void) { return transform_id; }
+gneiss_type_id gneiss::world_internal::transform_type_id() noexcept { return transform_id; }
 
-extern "C" gneiss_type_id gneiss_camera_type_id(void) { return camera_id; }
+gneiss_type_id gneiss::world_internal::camera_type_id() noexcept { return camera_id; }
 
-extern "C" gneiss_result gneiss_world_register_reflection(gneiss_type_registry registry) {
+gneiss_result gneiss::world_internal::register_reflection(gneiss_type_registry registry) {
   constexpr std::array transform_fields{
       make_field(GNEISS_TRANSFORM_FIELD_TRANSLATION, vec3_id, 0U, "translation", 11U),
       make_field(GNEISS_TRANSFORM_FIELD_ROTATION, quaternion_id, 0U, "rotation", 8U),

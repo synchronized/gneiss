@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "world/world_service.hpp"
+
 #include "application/application_scene_state.h"
 
 namespace gneiss::application_internal {
@@ -13,7 +15,7 @@ application_scene_state::application_scene_state(
 application_scene_state::~application_scene_state() noexcept {
   scenes.reset();
   if (world != GNEISS_NULL_WORLD) {
-    (void)gneiss_world_destroy(world);
+    (void)gneiss::world_internal::destroy(world);
   }
 }
 
@@ -21,8 +23,7 @@ gneiss_result application_scene_state::initialize() noexcept {
   if (world != GNEISS_NULL_WORLD) {
     return GNEISS_ERROR_INVALID_STATE;
   }
-  const gneiss_world_desc desc = GNEISS_WORLD_DESC_INIT;
-  const auto result = gneiss_world_create(&desc, &world);
+  const auto result = gneiss::world_internal::create(world);
   if (result != GNEISS_SUCCESS) {
     return result;
   }

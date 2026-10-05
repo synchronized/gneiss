@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "world/render_snapshot.h"
-#include "world/world_state.h"
+#include "world/render_snapshot.hpp"
+#include "world/world_state.hpp"
 
 int run_tests() {
   gneiss::world_internal::world_state world{1};

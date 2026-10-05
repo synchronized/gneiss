@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#ifndef GNEISS_WORLD_RENDER_SNAPSHOT_H_
-#define GNEISS_WORLD_RENDER_SNAPSHOT_H_
+#ifndef GNEISS_WORLD_RENDER_SNAPSHOT_HPP_
+#define GNEISS_WORLD_RENDER_SNAPSHOT_HPP_
 
 #include <gneiss/render.h>
 #include <gneiss/scene.h>

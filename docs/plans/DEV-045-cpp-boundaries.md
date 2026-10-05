@@ -6,7 +6,8 @@
 ## 状态与依据
 
 2026-10-05 已开始接口审计和 Core 迁移；首轮证据见
-[M-292～M-293 记录](../records/M-292-293-cpp-boundary-foundation.md)。范围和门槛以
+[M-292～M-293 记录](../records/M-292-293-cpp-boundary-foundation.md)。World 内部入口迁移见
+[M-294 阶段记录](../records/M-294-world-cpp-boundary.md)，Application 与其余模块仍在实施。范围和门槛以
 [VER-045](VER-045-0.45.0-cpp-boundaries.md) 为准；目录与所有权以
 [ADR-053](../decisions/ADR-053-cpp-core-and-c-abi.md) 为准。
 

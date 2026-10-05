@@ -112,12 +112,14 @@ target_sources(
     scene/structural_diff.cpp
     scene/structural_diff.h
     world/system_scheduler.cpp
-    world/system_scheduler.h
+    world/system_scheduler.hpp
     world/render_snapshot.cpp
-    world/render_snapshot.h
-    world/world_api.cpp
+    world/render_snapshot.hpp
+    api/c/world_api.cpp
+    world/world_service.cpp
+    world/world_service.hpp
     world/component_reflection.cpp
-    world/world_state.h
+    world/world_state.hpp
   PUBLIC
     FILE_SET HEADERS
     BASE_DIRS

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "world/system_scheduler.h"
-#include "world/world_state.h"
+#include "world/system_scheduler.hpp"
+#include "world/world_state.hpp"
 
 #include <array>
 #include <cstddef>

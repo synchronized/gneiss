@@ -342,6 +342,8 @@
 
 - [M-292～M-293：接口审计与 Core 边界首轮实施](records/M-292-293-cpp-boundary-foundation.md)
 
+- [M-294：World C++ 内部契约与 C 入口拆分](records/M-294-world-cpp-boundary.md)
+
 ## 文档维护
 
 

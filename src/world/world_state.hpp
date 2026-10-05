@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#ifndef GNEISS_WORLD_WORLD_STATE_H_
-#define GNEISS_WORLD_WORLD_STATE_H_
+#ifndef GNEISS_WORLD_WORLD_STATE_HPP_
+#define GNEISS_WORLD_WORLD_STATE_HPP_
 
 #include <gneiss/core/entity.h>
 #include <gneiss/render.h>
