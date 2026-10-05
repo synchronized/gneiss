@@ -35,11 +35,11 @@ gneiss/
 │  │  ├─ core/             # RID、任务、通用数学、反射与日志
 │  │  └─ platform/         # 窗口、IO、进程及系统适配
 │  ├─ editor/              # 编辑器实现，独立于启动入口
-│  ├─ tooling/             # 可复用的导入、Cook 等离线处理
-│  └─ apps/                # 可执行程序入口、配置与宿主装配
-│     ├─ editor/
-│     ├─ runtime/
-│     └─ assetc/
+│  └─ tooling/             # 可复用的导入、Cook 等离线处理
+├─ apps/                   # 可执行程序入口、配置与宿主装配
+│  ├─ editor/
+│  ├─ runtime/
+│  └─ assetc/
 ├─ tests/                  # 按被测模块组织；保留公共头、消费者与集成验证
 ├─ examples/
 ├─ templates/
@@ -49,6 +49,9 @@ gneiss/
 ├─ abi/
 └─ 3rd/
 ```
+
+`apps/` 保留在仓库根目录，与 `src/` 并列：前者组织可执行程序，后者组织可复用实现。
+编辑器实现归 `src/editor/`，启动入口归 `apps/editor/`；目录位置不改变下述依赖与所有权约束。
 
 `api/` 当前仅承载 C 适配，不额外保留只有一个子目录的 `api/c/`。内部以 `.hpp`/`.cpp` 组织，
 公共 `.h`/`.hpp` 路径保持兼容。不预建 asset 的 formats/codecs/cache/loading、编辑器面板细分

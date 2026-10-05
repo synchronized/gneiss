@@ -7,7 +7,8 @@
 
 本文描述当前实际源码布局，不把已批准的迁移目标当成已实现。0.45 的精简目标目录与宿主边界见
 [ADR-054](../decisions/ADR-054-source-layout-and-host-boundaries.md)，迁移映射与验收见
-[DEV-045](../plans/DEV-045-cpp-boundaries.md)。源码尚未迁入 `src/engine/`、`src/editor/` 或 `src/apps/`。
+[DEV-045](../plans/DEV-045-cpp-boundaries.md)。源码尚未迁入 `src/engine/` 或 `src/editor/`；
+`apps/` 保持位于仓库根目录，编辑器实现与入口的拆分尚未完成。
 
 总体分层以[总体架构](architecture.md)为准，代码与文档规范分别以
 [C/C++ 代码风格](../guides/coding-style.md)和[项目文档规范](../../DOCUMENTATION_GUIDE.md)为准。

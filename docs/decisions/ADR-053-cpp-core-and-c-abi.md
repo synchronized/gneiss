@@ -44,8 +44,8 @@ Render 定义只含值与 RID 的提交快照；World 负责提取，Render 不�
 
 ## 目录与构建约束
 
-目标布局已由 [ADR-054](ADR-054-source-layout-and-host-boundaries.md) 更新：源码按 Engine、Editor、
-Tooling、Apps 归属组织，Engine 内按功能、资产、基础与平台分层。本决策不再维护第二份目录树。
+目标布局已由 [ADR-054](ADR-054-source-layout-and-host-boundaries.md) 更新：src 下组织 Engine、Editor、
+Tooling 实现，根目录 apps 组织程序入口；Engine 内按功能、资产、基础与平台分层。本决策不再维护第二份目录树。
 当前物理路径见 [源码目录说明](../concepts/repository-layout.md)，迁移步骤见 DEV-045。
 
 通过 target 私有链接、包含范围和依赖检查约束方向；不强制每个目录成为独立动态库。

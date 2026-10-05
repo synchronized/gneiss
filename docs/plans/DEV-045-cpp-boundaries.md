@@ -67,10 +67,10 @@ Render 快照、PNG 解码与 Granit 目录子项见 [迁移记录](../records/M
 | `src/core/`、`reflection/`、`log/` | `src/engine/core/`；只收通用能力，不将业务策略塞入基础层 |
 | Render 中的数学代码 | 通用数学迁 Core；相机语义、后端投影适配仍留所属功能，逐文件判断 |
 | `src/platform/`、`io/`、`process/`、`ipc/` | `src/engine/platform/`；通用协议值类型与系统适配分清，编辑器/运行宿主协议不下沉 |
-| `apps/editor/` | 编辑功能进入 `src/editor/`；程序入口与启动配置进入 `src/apps/editor/` |
-| `apps/runtime/` | 程序入口与宿主控制进入 `src/apps/runtime/`；可复用引擎能力回归 Engine |
+| `apps/editor/` | 编辑功能进入 `src/editor/`；程序入口与启动配置保留在 `apps/editor/` |
+| `apps/runtime/` | 程序入口与宿主控制保留在 `apps/runtime/`；可复用引擎能力回归 Engine |
 | `apps/common/` | 逐项核定所有者；运行时通用能力归 Engine，纯宿主共用代码按实际需要保留私有共用目标，不原样下沉 Core |
-| `src/tooling/`、`tools/assetc/` | 离线实现留 `src/tooling/`；assetc 入口、CLI 进入 `src/apps/assetc/` |
+| `src/tooling/`、`tools/assetc/` | 离线实现留 `src/tooling/`；assetc 入口、CLI 进入根目录的 `apps/assetc/` |
 | `tools/performance/`、`tools/sanitizers/` 等 | 仓库维护脚本归根 `scripts/`；可编译验证/基准程序归对应 tests，不能仅改名假定全是脚本 |
 | 测试、示例、构建与检查 | 按被测模块更新路径和私有 include；公共 SDK 示例与安装消费路径保持兼容 |
 
@@ -78,7 +78,7 @@ Render 快照、PNG 解码与 Granit 目录子项见 [迁移记录](../records/M
    Function 协调，消除 Platform/Core 的反向链接；不把现有循环依赖带进新目录。
 2. 按 Core/Platform、Asset、Function 逐组迁移，伴随更新 CMake、内部 `.hpp` 路径及正反例检查。
    不复制实现作为过渡，不把整个 src 作为所有目标的公共包含目录。
-3. 拆分 Editor 实现、Tooling 实现与 Apps 入口；收口 `apps/common`，确认运行宿主不链接编辑器。
+3. 拆分 src 下的 Editor、Tooling 实现与根目录 Apps 入口；收口 `apps/common`，确认运行宿主不链接编辑器。
    保持进程协议、工作目录、资源定位和现有可执行文件名不变。
 4. 更新测试、维护脚本及文档的实际路径；每组完成相关验证后本地提交，最终统一完成发布矩阵。
    未迁移前的历史 Record 与版本归档保留原路径事实，当前 Guide/Concept 随实际迁移更新。
