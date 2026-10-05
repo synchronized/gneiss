@@ -998,6 +998,17 @@ gneiss_target_compile_warnings(gneiss_cpp_resource_ownership_test)
 gneiss_target_output_directories(gneiss_cpp_resource_ownership_test)
 add_test(NAME gneiss.cpp-resource-ownership COMMAND gneiss_cpp_resource_ownership_test)
 
+add_executable(gneiss_cpp_owner_lifecycle_test cpp_owner_lifecycle_test.cpp)
+target_link_libraries(gneiss_cpp_owner_lifecycle_test PRIVATE gneiss::engine)
+target_compile_features(gneiss_cpp_owner_lifecycle_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_cpp_owner_lifecycle_test)
+gneiss_target_output_directories(gneiss_cpp_owner_lifecycle_test)
+add_test(NAME gneiss.cpp-owner-lifecycle COMMAND gneiss_cpp_owner_lifecycle_test)
+add_test(NAME gneiss.cpp-owner-termination
+  COMMAND ${CMAKE_COMMAND}
+    "-DGNEISS_TEST_EXECUTABLE=$<TARGET_FILE:gneiss_cpp_owner_lifecycle_test>"
+    -P "${PROJECT_SOURCE_DIR}/cmake/test_owner_termination.cmake")
+
 add_executable(gneiss_world_service_test world/world_service_test.cpp)
 target_link_libraries(gneiss_world_service_test PRIVATE gneiss::engine)
 target_include_directories(gneiss_world_service_test PRIVATE "${PROJECT_SOURCE_DIR}/src")

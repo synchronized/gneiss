@@ -31,7 +31,10 @@ Runtime 宿主的启动与完整场景切换使用内部异步协调器，行为
 实体、节点和资产租约，句柄立即失效；重复卸载返回句柄错误。Application 销毁时会先卸载仍存活的
 场景，再销毁 World 和 Render Resource Service。
 
-C++ `gneiss::scene_instance` 提供移动专属的 RAII 包装，必须在所属 `gneiss::application` 之前析构。
+C++ `gneiss::scene_instance` 提供移动专属的 RAII 包装，不延长 Application 寿命。正常使用先关闭
+场景再关闭 Application；父对象已销毁时 `reset()` 安全清空失效句柄。关闭失败时保留句柄，析构
+和移动覆盖失败的规则见 [Application C++ 契约](application.md#生命周期)。`owner()` 返回父句柄，
+`release()` 转移场景所有权；调用前须保存 `owner()`，由接收者在所属线程手动卸载。
 场景中的 Mesh Renderer 只借用 RID，资源生命周期由场景实例持有的租约保证。
 
 ## UUID 查询

@@ -9,6 +9,7 @@
 #include <gneiss/scene.h>
 
 #include <cstdint>
+#include <exception>
 #include <limits>
 #include <new>
 #include <span>
@@ -44,11 +45,11 @@ using scene_mesh_renderer_desc = gneiss_scene_mesh_renderer_desc;
 using scene_camera_desc = gneiss_scene_camera_desc;
 using scene_mesh_renderer_node_desc = gneiss_scene_mesh_renderer_node_desc;
 
-/** 独占拥有已加载场景；必须在所属 Application 销毁前释放。 */
+/** 独占拥有已加载场景；只在所属 Application 线程操作，不延长父对象寿命。 */
 class scene_instance final {
 public:
   scene_instance() noexcept = default;
-  ~scene_instance() noexcept { reset(); }
+  ~scene_instance() noexcept { reset_or_terminate(); }
 
   scene_instance(const scene_instance&) = delete;
   scene_instance& operator=(const scene_instance&) = delete;
@@ -57,7 +58,7 @@ public:
         handle_(std::exchange(other.handle_, GNEISS_NULL_SCENE_INSTANCE)) {}
   scene_instance& operator=(scene_instance&& other) noexcept {
     if (this != &other) {
-      reset();
+      reset_or_terminate();
       application_ = std::exchange(other.application_, GNEISS_NULL_APPLICATION);
       handle_ = std::exchange(other.handle_, GNEISS_NULL_SCENE_INSTANCE);
     }
@@ -70,9 +71,14 @@ public:
     const auto native_result =
         gneiss_scene_instance_load(application, uri.data(), uri.size(), &handle);
     if (native_result == GNEISS_SUCCESS) {
-      out_instance.reset();
-      out_instance.application_ = application;
-      out_instance.handle_ = handle;
+      scene_instance candidate;
+      candidate.application_ = application;
+      candidate.handle_ = handle;
+      const auto closed = out_instance.reset();
+      if (closed.failed()) {
+        return closed;
+      }
+      out_instance = std::move(candidate);
     }
     return from_native(native_result);
   }
@@ -84,9 +90,14 @@ public:
     const auto native_result = gneiss_scene_instance_create_empty(application, scene_uuid.data(),
                                                                   scene_uuid.size(), &handle);
     if (native_result == GNEISS_SUCCESS) {
-      out_instance.reset();
-      out_instance.application_ = application;
-      out_instance.handle_ = handle;
+      scene_instance candidate;
+      candidate.application_ = application;
+      candidate.handle_ = handle;
+      const auto closed = out_instance.reset();
+      if (closed.failed()) {
+        return closed;
+      }
+      out_instance = std::move(candidate);
     }
     return from_native(native_result);
   }
@@ -278,15 +289,34 @@ public:
       return result::internal;
     }
   }
-  void reset() noexcept {
-    if (handle_ != GNEISS_NULL_SCENE_INSTANCE) {
-      (void)gneiss_scene_instance_unload(application_, handle_);
-      handle_ = GNEISS_NULL_SCENE_INSTANCE;
-      application_ = GNEISS_NULL_APPLICATION;
+  /** 所属 Application 的非拥有句柄；release() 前保存以便手动卸载。 */
+  [[nodiscard]] gneiss_application owner() const noexcept { return application_; }
+  /** 转移场景所有权；调用方负责使用原 owner() 在所属线程卸载。 */
+  [[nodiscard]] gneiss_scene_instance release() noexcept {
+    application_ = GNEISS_NULL_APPLICATION;
+    return std::exchange(handle_, GNEISS_NULL_SCENE_INSTANCE);
+  }
+  /** 幂等卸载；父对象或场景已失效视为释放完成，其他失败保留句柄供重试。
+   * 析构或移动覆盖若关闭失败则终止进程；不会隐式跨线程卸载。 */
+  result reset() noexcept {
+    if (handle_ == GNEISS_NULL_SCENE_INSTANCE) {
+      return result::success;
     }
+    const auto status = from_native(gneiss_scene_instance_unload(application_, handle_));
+    if (status.failed() && status != result::invalid_handle) {
+      return status;
+    }
+    handle_ = GNEISS_NULL_SCENE_INSTANCE;
+    application_ = GNEISS_NULL_APPLICATION;
+    return result::success;
   }
 
 private:
+  void reset_or_terminate() noexcept {
+    if (reset().failed()) {
+      std::terminate();
+    }
+  }
   gneiss_application application_ = GNEISS_NULL_APPLICATION;
   gneiss_scene_instance handle_ = GNEISS_NULL_SCENE_INSTANCE;
 };

@@ -350,6 +350,8 @@
 
 - [M-295：公共 C 入口集中与内部调用收口](records/M-295-c-boundary-completion.md)
 
+- [M-296：C++ 拥有者生命周期](records/M-296-owner-lifecycle.md)
+
 ## 文档维护
 
 

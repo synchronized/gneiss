@@ -10,15 +10,17 @@
 #include <gneiss/world.hpp>
 
 #include <cstdint>
+#include <exception>
 #include <utility>
 
 namespace gneiss {
 
-/** 独占拥有 Application 的 RAII 包装；只允许在创建线程访问。 */
+/** 独占拥有 Application 的 RAII 包装；只允许在创建线程访问。
+ * 析构或移动覆盖若关闭失败则终止进程；需处理错误时先显式 reset()。 */
 class application final {
 public:
   application() noexcept = default;
-  ~application() noexcept { reset(); }
+  ~application() noexcept { reset_or_terminate(); }
 
   application(const application&) = delete;
   application& operator=(const application&) = delete;
@@ -26,7 +28,7 @@ public:
       : handle_(std::exchange(other.handle_, GNEISS_NULL_APPLICATION)) {}
   application& operator=(application&& other) noexcept {
     if (this != &other) {
-      reset();
+      reset_or_terminate();
       handle_ = std::exchange(other.handle_, GNEISS_NULL_APPLICATION);
     }
     return *this;
@@ -37,8 +39,13 @@ public:
     gneiss_application handle = GNEISS_NULL_APPLICATION;
     const auto native_result = gneiss_application_create(&desc, &handle);
     if (native_result == GNEISS_SUCCESS) {
-      out_application.reset();
-      out_application.handle_ = handle;
+      application candidate;
+      candidate.handle_ = handle;
+      const auto closed = out_application.reset();
+      if (closed.failed()) {
+        return closed;
+      }
+      out_application.handle_ = candidate.release();
     }
     return from_native(native_result);
   }
@@ -123,14 +130,31 @@ public:
     return from_native(gneiss_application_log(handle_, &message));
   }
 
-  void reset() noexcept {
-    if (handle_ != GNEISS_NULL_APPLICATION) {
-      (void)gneiss_application_destroy(handle_);
-      handle_ = GNEISS_NULL_APPLICATION;
+  /** 幂等关闭；无效句柄视为已释放，其他失败保留句柄供所属线程重试。
+   * 返回结果可供检查；保留直接 reset() 的既有调用方式。 */
+  result reset() noexcept {
+    if (handle_ == GNEISS_NULL_APPLICATION) {
+      return result::success;
     }
+    const auto status = from_native(gneiss_application_destroy(handle_));
+    if (status.failed() && status != result::invalid_handle) {
+      return status;
+    }
+    handle_ = GNEISS_NULL_APPLICATION;
+    return result::success;
+  }
+
+  /** 转移原始句柄所有权，调用方负责在所属线程销毁。 */
+  [[nodiscard]] gneiss_application release() noexcept {
+    return std::exchange(handle_, GNEISS_NULL_APPLICATION);
   }
 
 private:
+  void reset_or_terminate() noexcept {
+    if (reset().failed()) {
+      std::terminate();
+    }
+  }
   gneiss_application handle_ = GNEISS_NULL_APPLICATION;
 };
 

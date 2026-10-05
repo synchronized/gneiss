@@ -8,9 +8,13 @@
       "cpp_candidate_files": [
         "include/gneiss/application.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "独占 Application；失败保留原输出并回收候选；回调 userdata 由调用方持有至销毁完成",
+      "tests": [
+        "gneiss.cpp-owner-lifecycle",
+        "gneiss.cpp-owner-termination"
+      ],
+      "cpp_entry": "gneiss::application::create"
     },
     {
       "symbol": "gneiss_application_destroy",
@@ -18,9 +22,13 @@
       "cpp_candidate_files": [
         "include/gneiss/application.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "所属线程关闭；失败保留句柄供重试，析构失败终止；release 转移手动销毁责任",
+      "tests": [
+        "gneiss.cpp-owner-lifecycle",
+        "gneiss.cpp-owner-termination"
+      ],
+      "cpp_entry": "gneiss::application::reset / release"
     },
     {
       "symbol": "gneiss_application_run",
@@ -302,9 +310,12 @@
       "cpp_candidate_files": [
         "include/gneiss/reflection.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "独占 Registry；可移动，替换时销毁旧对象",
+      "tests": [
+        "gneiss.cpp-owner-lifecycle"
+      ],
+      "cpp_entry": "gneiss::type_registry::create"
     },
     {
       "symbol": "gneiss_type_registry_destroy",
@@ -312,9 +323,12 @@
       "cpp_candidate_files": [
         "include/gneiss/reflection.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "销毁使所有元数据借用失效；允许外部同步后的跨线程关闭；release 转移销毁责任",
+      "tests": [
+        "gneiss.cpp-owner-lifecycle"
+      ],
+      "cpp_entry": "gneiss::type_registry::reset / release"
     },
     {
       "symbol": "gneiss_type_registry_register",
@@ -765,9 +779,13 @@
       "cpp_candidate_files": [
         "include/gneiss/scene.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "独占场景，不延长父 Application 寿命；失败保留原输出并回收候选",
+      "tests": [
+        "gneiss.cpp-owner-lifecycle",
+        "gneiss.cpp-owner-termination"
+      ],
+      "cpp_entry": "gneiss::scene_instance::create_empty"
     },
     {
       "symbol": "gneiss_scene_instance_unload",
@@ -775,9 +793,13 @@
       "cpp_candidate_files": [
         "include/gneiss/scene.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "所属线程卸载；父对象失效时安全清空；release 前保存 owner 并承担卸载责任",
+      "tests": [
+        "gneiss.cpp-owner-lifecycle",
+        "gneiss.cpp-owner-termination"
+      ],
+      "cpp_entry": "gneiss::scene_instance::reset / release"
     },
     {
       "symbol": "gneiss_scene_instance_find_node",
@@ -1035,9 +1057,13 @@
       "cpp_candidate_files": [
         "include/gneiss/world.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "独占 World；替换失败保留原输出并回收候选",
+      "tests": [
+        "gneiss.cpp-owner-lifecycle",
+        "gneiss.cpp-owner-termination"
+      ],
+      "cpp_entry": "gneiss::world::create"
     },
     {
       "symbol": "gneiss_world_destroy",
@@ -1045,9 +1071,13 @@
       "cpp_candidate_files": [
         "include/gneiss/world.hpp"
       ],
-      "review": "pending",
-      "ownership": "pending",
-      "tests": []
+      "review": "reviewed",
+      "ownership": "所属线程关闭；失败保留句柄，销毁使借用 world_ref 失效",
+      "tests": [
+        "gneiss.cpp-owner-lifecycle",
+        "gneiss.cpp-owner-termination"
+      ],
+      "cpp_entry": "gneiss::world::reset / release"
     },
     {
       "symbol": "gneiss_world_entity_create",

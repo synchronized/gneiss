@@ -37,6 +37,9 @@ World 及其实体只能在创建 World 的线程访问。跨线程调用返回 
 Application 更换对应 World 后，旧视图操作返回无效句柄。`is_valid()` 仅检查句柄非零。
 视图和拥有者都须遵守 World 所属线程约束。
 
+拥有型包装的关闭、失败保留与所有权转移遵循 [Application C++ 契约](application.md#生命周期)。
+`reset()` 可在所属线程重试；`release()` 不改变底层 World 的线程归属。
+
 ## ECS 与 System
 
 EnTT `3.15.0` 只用于 World 的内部组件存储。Gneiss 公共头、Entity ID 和 C ABI 不依赖 EnTT。

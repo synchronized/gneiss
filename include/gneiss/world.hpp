@@ -11,6 +11,7 @@
 #include <gneiss/scene.hpp>
 #include <gneiss/world.h>
 
+#include <exception>
 #include <utility>
 
 namespace gneiss {
@@ -160,7 +161,8 @@ protected:
   gneiss_world handle_ = GNEISS_NULL_WORLD;
 };
 
-/** 独占拥有一个 World 的 RAII 包装；只允许在创建线程访问。 */
+/** 独占拥有一个 World 的 RAII 包装；只允许在创建线程访问。
+ * 析构或移动覆盖若关闭失败则终止进程；需处理错误时先显式 reset()。 */
 class world final : private world_ref {
 public:
   using world_ref::configure_camera;
@@ -188,7 +190,7 @@ public:
   using world_ref::set_mesh_renderer;
 
   world() noexcept = default;
-  ~world() noexcept { reset(); }
+  ~world() noexcept { reset_or_terminate(); }
 
   world(const world&) = delete;
   world& operator=(const world&) = delete;
@@ -196,7 +198,7 @@ public:
   world(world&& other) noexcept : world_ref(std::exchange(other.handle_, GNEISS_NULL_WORLD)) {}
   world& operator=(world&& other) noexcept {
     if (this != &other) {
-      reset();
+      reset_or_terminate();
       handle_ = std::exchange(other.handle_, GNEISS_NULL_WORLD);
     }
     return *this;
@@ -207,18 +209,41 @@ public:
     gneiss_world handle = GNEISS_NULL_WORLD;
     const auto native_result = gneiss_world_create(&desc, &handle);
     if (native_result == GNEISS_SUCCESS) {
-      out_world.reset();
-      out_world.handle_ = handle;
+      world candidate;
+      candidate.handle_ = handle;
+      const auto closed = out_world.reset();
+      if (closed.failed()) {
+        return closed;
+      }
+      out_world.handle_ = candidate.release();
     }
     return from_native(native_result);
   }
 
   /** 返回不拥有 World 的视图，不延长本对象生命周期。 */
   [[nodiscard]] world_ref ref() const noexcept { return world_ref{handle_}; }
-  void reset() noexcept {
-    if (handle_ != GNEISS_NULL_WORLD) {
-      (void)gneiss_world_destroy(handle_);
-      handle_ = GNEISS_NULL_WORLD;
+  /** 幂等关闭；无效句柄视为已释放，其他失败保留句柄供所属线程重试。
+   * 返回结果可供检查；保留直接 reset() 的既有调用方式。 */
+  result reset() noexcept {
+    if (handle_ == GNEISS_NULL_WORLD) {
+      return result::success;
+    }
+    const auto status = from_native(gneiss_world_destroy(handle_));
+    if (status.failed() && status != result::invalid_handle) {
+      return status;
+    }
+    handle_ = GNEISS_NULL_WORLD;
+    return result::success;
+  }
+  /** 转移原始句柄所有权，调用方负责在所属线程销毁。 */
+  [[nodiscard]] gneiss_world release() noexcept {
+    return std::exchange(handle_, GNEISS_NULL_WORLD);
+  }
+
+private:
+  void reset_or_terminate() noexcept {
+    if (reset().failed()) {
+      std::terminate();
     }
   }
 };
