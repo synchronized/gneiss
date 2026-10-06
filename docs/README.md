@@ -203,6 +203,8 @@
 
 ## 实施与验收记录
 
+- [M-304：原生日志提交描述](records/M-304-native-log-message.md)
+
 - [M-301 / M-303：原生输入 SDK 与迁移门禁实施记录](records/M-301-303-native-input-sdk.md)
 
 - [M-214：确定性资产构建图与缓存实施记录](records/M-214-asset-build-graph-cache.md)

@@ -7,6 +7,7 @@
 #include <gneiss/engine/application.h>
 #include <gneiss/engine/core/result.hpp>
 #include <gneiss/engine/input.hpp>
+#include <gneiss/engine/log.hpp>
 #include <gneiss/engine/render.hpp>
 #include <gneiss/engine/world.hpp>
 
@@ -154,8 +155,9 @@ public:
   }
   /** 消息字符串在返回前复制，可从工作线程提交；不得与本包装的移动/reset 并发。
    * 接收回调串行执行，不能重入日志；回调 userdata 必须存活至 Application 关闭完成。 */
-  [[nodiscard]] result log(const gneiss_log_message& message) noexcept {
-    return from_native(gneiss_application_log(handle_, &message));
+  [[nodiscard]] result log(const log_message& message) noexcept {
+    const auto native = to_native(message);
+    return from_native(gneiss_application_log(handle_, &native));
   }
 
   /** 幂等关闭；无效句柄视为已释放，其他失败保留句柄供所属线程重试。

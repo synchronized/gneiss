@@ -22,6 +22,9 @@ int main() {
   if (gneiss::application::create(desc, application) != gneiss::result::success) {
     return 1;
   }
+  if (application.log({.category = "consumer", .message = "native C++ log"}).failed()) {
+    return 7;
+  }
   gneiss::action_id action;
   gneiss::action_state input{};
   if (application.load_action_map("asset://input/default.input-map.json").failed() ||

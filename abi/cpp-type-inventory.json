@@ -1217,26 +1217,26 @@
         {
           "symbol": "gneiss_log_message",
           "kind": "struct",
-          "cpp_mapping": "gneiss_log_message（原生 C 值/签名，C++ 直接使用）",
-          "native_review": "pending"
+          "cpp_mapping": "gneiss::log_message",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_log_severity",
           "kind": "scalar",
           "cpp_mapping": "gneiss::log_severity",
-          "native_review": "pending"
+          "native_review": "implemented"
         }
       ],
       "constants": [
         {
           "symbol": "GNEISS_LOG_DEBUG",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::log_severity::debug"
         },
         {
           "symbol": "GNEISS_LOG_ERROR",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::log_severity::error"
         },
         {
           "symbol": "GNEISS_LOG_EVENT_VERSION_1_SIZE",
@@ -1245,33 +1245,33 @@
         },
         {
           "symbol": "GNEISS_LOG_FATAL",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::log_severity::fatal"
         },
         {
           "symbol": "GNEISS_LOG_INFO",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::log_severity::info"
         },
         {
           "symbol": "GNEISS_LOG_MESSAGE_INIT",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::log_message{}（默认 category 为空，提交前必须设置）"
         },
         {
           "symbol": "GNEISS_LOG_MESSAGE_VERSION_1_SIZE",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "abi_only",
+          "cpp_mapping": "C ABI 布局版本；C++ 消息由内部适配填写当前尺寸"
         },
         {
           "symbol": "GNEISS_LOG_TRACE",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::log_severity::trace"
         },
         {
           "symbol": "GNEISS_LOG_WARNING",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::log_severity::warning"
         }
       ]
     },

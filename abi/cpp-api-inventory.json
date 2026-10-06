@@ -100,12 +100,12 @@
         "include/gneiss/engine/application.hpp"
       ],
       "review": "reviewed",
-      "ownership": "提交期复制 UTF-8 字符串；允许工作线程提交但不能并发移动/reset 包装；sink 串行消费，userdata 至关闭完成仍须存活",
+      "ownership": "提交期复制 UTF-8 字符串；允许工作线程提交但不能并发移动/reset 包装；sink 串行消费，userdata 至关闭完成仍须存活；C++ 输入为独立 log_message，字符串借用到同步提交返回，布局与保留字段由适配填写",
       "tests": [
         "gneiss.application_log"
       ],
       "cpp_entry": "gneiss::application::log",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_application_get_world",
@@ -247,13 +247,13 @@
         "include/gneiss/engine/game_module.hpp"
       ],
       "review": "reviewed",
-      "ownership": "存活 Context 可从工作线程提交，返回前复制消息；上下文不由包装拥有，回调期日志视图不能外泄",
+      "ownership": "存活 Context 可从工作线程提交，返回前复制消息；上下文不由包装拥有，回调期日志视图不能外泄；C++ 输入为独立 log_message，字符串借用到同步提交返回，布局与保留字段由适配填写",
       "tests": [
         "gneiss.game_context",
         "gneiss.cpp_game_module"
       ],
       "cpp_entry": "gneiss::game_context::log",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_version_major",
@@ -403,13 +403,13 @@
         "include/gneiss/engine/log.hpp"
       ],
       "review": "reviewed",
-      "ownership": "仅借用消息字符串，校验不转移所有权，无分配且线程安全",
+      "ownership": "仅借用消息字符串，校验不转移所有权，无分配且线程安全；C++ 输入为独立 log_message，字符串借用到同步提交返回，布局与保留字段由适配填写",
       "tests": [
         "gneiss.c_log",
         "gneiss.cpp_log"
       ],
       "cpp_entry": "gneiss::validate_log_message",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_type_registry_create",

@@ -87,8 +87,9 @@ public:
     return from_native(gneiss_game_context_request_exit(value_));
   }
 
-  [[nodiscard]] result log(const gneiss_log_message& message) const noexcept {
-    return from_native(gneiss_game_context_log(value_, &message));
+  [[nodiscard]] result log(const log_message& message) const noexcept {
+    const auto native = to_native(message);
+    return from_native(gneiss_game_context_log(value_, &native));
   }
 
   friend constexpr bool operator==(game_context, game_context) noexcept = default;

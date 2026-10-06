@@ -123,6 +123,7 @@ int main() {
   gneiss::result typed_thread_result;
   gneiss_result cross_thread_log_result = GNEISS_ERROR_INTERNAL;
   const auto message = gneiss::make_log_message(gneiss::log_severity::info, "test", "worker ready");
+  const auto native_message = gneiss::to_native(message);
   std::thread other([&] {
     cross_thread_result = gneiss_game_context_get_world(context, &actual_world);
     typed_thread_result = borrowed.get_world(typed_world);
@@ -140,7 +141,7 @@ int main() {
       borrowed.find_action("move_horizontal", typed_action) != gneiss::result::invalid_handle ||
       typed_action != original_action ||
       gneiss_game_context_get_world(context, &actual_world) != GNEISS_ERROR_INVALID_HANDLE ||
-      gneiss_game_context_log(context, &message) != GNEISS_ERROR_INVALID_HANDLE ||
+      gneiss_game_context_log(context, &native_message) != GNEISS_ERROR_INVALID_HANDLE ||
       gneiss::game_internal::destroy_game_context(context) != GNEISS_ERROR_INVALID_HANDLE ||
       gneiss_application_destroy(application) != GNEISS_SUCCESS) {
     return 4;
