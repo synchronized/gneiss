@@ -35,6 +35,12 @@
 关闭、移动覆盖与父对象先销毁规则以 [Application](application.md#生命周期)、
 [Render](render.md)、[Scene](scene-instance.md) 和 [Reflection](reflection.md) 为准。
 
+## Application 与 World 样板
+
+[最小示例](../guides/application-world-example.md)展示创建、实体变换、回调退出和关闭。
+两个模块的公共声明与 inline 适配定义分开维护；`detail/*.inl` 自动包含并随安装包分发，
+不是用户入口。错误码、输出参数和上述所有权契约不因组织调整而变化。
+
 ## 指针、字符串与回调
 
 | 数据 | 有效期与复制行为 |

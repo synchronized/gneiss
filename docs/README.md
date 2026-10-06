@@ -25,6 +25,7 @@
 - [从 0.46 迁移到 0.47](guides/migrating-0.46-to-0.47.md)
 
 - [构建、测试与运行示例](guides/building.md)
+- [Application 与 World 的最小 C++ 示例](guides/application-world-example.md)
 - [从 0.9.0 迁移到 0.10.0](guides/migrating-0.9-to-0.10.md)
 - [从 0.10.0 迁移到 0.11.0](guides/migrating-0.10-to-0.11.md)
 - [C/C++ 代码风格与语言标准](guides/coding-style.md)
@@ -74,6 +75,7 @@
 ## 路线图与开发计划
 
 - [VER-047：0.47.0 原生 C++ SDK 与公共头收口](plans/VER-047-0.47.0-native-cpp-sdk.md)
+- [SDK-001：Application 与 World 可读性样板](plans/SDK-001-application-world-readability.md)
 - [DEV-047：原生 C++ SDK 与公共头收口开发计划](plans/DEV-047-native-cpp-sdk.md)
 
 - [VER-046：0.46.0 公共头目录整理](plans/VER-046-0.46.0-public-header-layout.md)

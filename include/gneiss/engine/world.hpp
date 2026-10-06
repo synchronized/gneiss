@@ -46,161 +46,59 @@ public:
   [[nodiscard]] bool is_valid() const noexcept { return handle_ != GNEISS_NULL_WORLD; }
   [[nodiscard]] gneiss_world get() const noexcept { return handle_; }
 
-  [[nodiscard]] static result register_reflection(type_registry& registry) noexcept {
-    return from_native(gneiss_world_register_reflection(registry.get()));
-  }
+  [[nodiscard]] static result register_reflection(type_registry& registry) noexcept;
 
-  [[nodiscard]] result create_entity(entity_id& out_entity) noexcept {
-    gneiss_entity_id native_entity = GNEISS_NULL_ENTITY_ID;
-    const auto native_result = gneiss_world_entity_create(handle_, &native_entity);
-    if (native_result == GNEISS_SUCCESS) {
-      out_entity = entity_id{native_entity};
-    }
-    return from_native(native_result);
-  }
+  /** 创建实体身份，不自动创建场景节点或变换；失败保留输出。 */
+  [[nodiscard]] result create_entity(entity_id& out_entity) noexcept;
 
   /** 查询存活实体数；须在 World 所属线程调用。 */
-  [[nodiscard]] result entity_count(std::uint64_t& output) const noexcept {
-    return from_native(gneiss_world_entity_count(handle_, &output));
-  }
+  [[nodiscard]] result entity_count(std::uint64_t& output) const noexcept;
 
-  [[nodiscard]] result destroy_entity(entity_id entity) noexcept {
-    return from_native(gneiss_world_entity_destroy(handle_, entity.get()));
-  }
+  [[nodiscard]] result destroy_entity(entity_id entity) noexcept;
 
-  [[nodiscard]] result set_camera(entity_id entity, const camera& value) noexcept {
-    const auto native = to_native(value);
-    return from_native(gneiss_world_entity_set_camera(handle_, entity.get(), &native));
-  }
+  [[nodiscard]] result set_camera(entity_id entity, const camera& value) noexcept;
 
-  [[nodiscard]] result configure_camera(entity_id entity, const camera_desc& value) noexcept {
-    const auto native = to_native(value);
-    return from_native(gneiss_world_entity_configure_camera(handle_, entity.get(), &native));
-  }
+  [[nodiscard]] result configure_camera(entity_id entity, const camera_desc& value) noexcept;
 
-  [[nodiscard]] result get_camera(entity_id entity, camera_desc& out_camera) const noexcept {
-    gneiss_camera_desc native = GNEISS_CAMERA_DESC_INIT;
-    const auto status = from_native(gneiss_world_entity_get_camera(handle_, entity.get(), &native));
-    if (status.ok()) {
-      out_camera = from_native(native);
-    }
-    return status;
-  }
+  [[nodiscard]] result get_camera(entity_id entity, camera_desc& out_camera) const noexcept;
 
-  [[nodiscard]] result remove_camera(entity_id entity) noexcept {
-    return from_native(gneiss_world_entity_remove_camera(handle_, entity.get()));
-  }
+  [[nodiscard]] result remove_camera(entity_id entity) noexcept;
 
-  [[nodiscard]] result set_active_camera(entity_id entity) noexcept {
-    return from_native(gneiss_world_set_active_camera(handle_, entity.get()));
-  }
+  [[nodiscard]] result set_active_camera(entity_id entity) noexcept;
 
   /** 返回借用的活动相机实体；未设置返回 not_ready。失败清空输出，保持既有 C 契约。 */
-  [[nodiscard]] result get_active_camera(entity_id& out_entity) const noexcept {
-    gneiss_entity_id native_entity = GNEISS_NULL_ENTITY_ID;
-    const auto native_result = gneiss_world_get_active_camera(handle_, &native_entity);
-    out_entity = entity_id{native_entity};
-    return from_native(native_result);
-  }
+  [[nodiscard]] result get_active_camera(entity_id& out_entity) const noexcept;
 
-  [[nodiscard]] result set_mesh_renderer(entity_id entity, const mesh_renderer& value) noexcept {
-    const auto native = to_native(value);
-    return from_native(gneiss_world_entity_set_mesh_renderer(handle_, entity.get(), &native));
-  }
-  [[nodiscard]] result remove_mesh_renderer(entity_id entity) noexcept {
-    return from_native(gneiss_world_entity_remove_mesh_renderer(handle_, entity.get()));
-  }
+  [[nodiscard]] result set_mesh_renderer(entity_id entity, const mesh_renderer& value) noexcept;
+  [[nodiscard]] result remove_mesh_renderer(entity_id entity) noexcept;
 
   [[nodiscard]] result create_scene_node(scene_node_id parent, entity_id entity,
-                                         scene_node_id& out_node) noexcept {
-    gneiss_scene_node_id native_node = GNEISS_NULL_SCENE_NODE_ID;
-    const auto native_result =
-        gneiss_scene_node_create(handle_, parent.get(), entity.get(), &native_node);
-    if (native_result == GNEISS_SUCCESS) {
-      out_node = scene_node_id{native_node};
-    }
-    return from_native(native_result);
-  }
+                                         scene_node_id& out_node) noexcept;
 
-  [[nodiscard]] result destroy_scene_node(scene_node_id node) noexcept {
-    return from_native(gneiss_scene_node_destroy(handle_, node.get()));
-  }
+  [[nodiscard]] result destroy_scene_node(scene_node_id node) noexcept;
 
-  [[nodiscard]] result reparent_scene_node(scene_node_id node, scene_node_id parent) noexcept {
-    return from_native(gneiss_scene_node_reparent(handle_, node.get(), parent.get()));
-  }
+  [[nodiscard]] result reparent_scene_node(scene_node_id node, scene_node_id parent) noexcept;
 
   [[nodiscard]] result set_local_transform(scene_node_id node,
-                                           const transform& value) const noexcept {
-    const auto native = to_native(value);
-    return from_native(gneiss_scene_node_set_local_transform(handle_, node.get(), &native));
-  }
+                                           const transform& value) const noexcept;
 
-  [[nodiscard]] result set_local_transform(entity_id entity,
-                                           const transform& value) const noexcept {
-    const auto native = to_native(value);
-    return from_native(gneiss_world_entity_set_local_transform(handle_, entity.get(), &native));
-  }
+  /** 实体必须已关联场景节点；未关联返回 not_found，不隐式创建节点。 */
+  [[nodiscard]] result set_local_transform(entity_id entity, const transform& value) const noexcept;
 
   /** 读取节点局部变换，不转移节点所有权。 */
-  [[nodiscard]] result get_local_transform(scene_node_id node, transform& output) const noexcept {
-    gneiss_transform native{};
-    const auto status =
-        from_native(gneiss_scene_node_get_local_transform(handle_, node.get(), &native));
-    if (status.ok()) {
-      output = from_native(native);
-    }
-    return status;
-  }
+  [[nodiscard]] result get_local_transform(scene_node_id node, transform& output) const noexcept;
   /** 查询节点关联实体；失败时不改变输出。 */
-  [[nodiscard]] result get_entity(scene_node_id node, entity_id& output) const noexcept {
-    gneiss_entity_id value{};
-    const auto status = from_native(gneiss_scene_node_get_entity(handle_, node.get(), &value));
-    if (status.ok()) {
-      output = entity_id{value};
-    }
-    return status;
-  }
+  [[nodiscard]] result get_entity(scene_node_id node, entity_id& output) const noexcept;
   /** 查询父节点；根节点成功返回空标识，失败时不改变输出。 */
-  [[nodiscard]] result get_parent(scene_node_id node, scene_node_id& output) const noexcept {
-    gneiss_scene_node_id value{};
-    const auto status = from_native(gneiss_scene_node_get_parent(handle_, node.get(), &value));
-    if (status.ok()) {
-      output = scene_node_id{value};
-    }
-    return status;
-  }
+  [[nodiscard]] result get_parent(scene_node_id node, scene_node_id& output) const noexcept;
 
-  [[nodiscard]] result get_local_transform(entity_id entity, transform& output) const noexcept {
-    gneiss_transform native{};
-    const auto status =
-        from_native(gneiss_world_entity_get_local_transform(handle_, entity.get(), &native));
-    if (status.ok()) {
-      output = from_native(native);
-    }
-    return status;
-  }
+  /** 实体未关联场景节点时返回 not_found；失败保留输出。 */
+  [[nodiscard]] result get_local_transform(entity_id entity, transform& output) const noexcept;
 
   [[nodiscard]] result get_world_transform(scene_node_id node,
-                                           transform& out_transform) const noexcept {
-    gneiss_transform native{};
-    const auto status =
-        from_native(gneiss_scene_node_get_world_transform(handle_, node.get(), &native));
-    if (status.ok()) {
-      out_transform = from_native(native);
-    }
-    return status;
-  }
+                                           transform& out_transform) const noexcept;
 
-  [[nodiscard]] result is_alive(entity_id entity, bool& out_is_alive) const noexcept {
-    uint8_t native_is_alive = 0;
-    const auto native_result =
-        gneiss_world_entity_is_alive(handle_, entity.get(), &native_is_alive);
-    if (native_result == GNEISS_SUCCESS) {
-      out_is_alive = native_is_alive != 0;
-    }
-    return from_native(native_result);
-  }
+  [[nodiscard]] result is_alive(entity_id entity, bool& out_is_alive) const noexcept;
 
 protected:
   gneiss_world handle_ = GNEISS_NULL_WORLD;
@@ -249,50 +147,25 @@ public:
     return *this;
   }
 
-  [[nodiscard]] static result create(world& out_world) noexcept {
-    const gneiss_world_desc desc = GNEISS_WORLD_DESC_INIT;
-    gneiss_world handle = GNEISS_NULL_WORLD;
-    const auto native_result = gneiss_world_create(&desc, &handle);
-    if (native_result == GNEISS_SUCCESS) {
-      world candidate;
-      candidate.handle_ = handle;
-      const auto closed = out_world.reset();
-      if (closed.failed()) {
-        return closed;
-      }
-      out_world.handle_ = candidate.release();
-    }
-    return from_native(native_result);
-  }
+  [[nodiscard]] static result create(world& out_world) noexcept;
 
   /** 返回不拥有 World 的视图，不延长本对象生命周期。 */
   [[nodiscard]] world_ref ref() const noexcept { return world_ref{handle_}; }
   /** 幂等关闭；无效句柄视为已释放，其他失败保留句柄供所属线程重试。
    * 返回结果可供检查；保留直接 reset() 的既有调用方式。 */
-  result reset() noexcept {
-    if (handle_ == GNEISS_NULL_WORLD) {
-      return result::success;
-    }
-    const auto status = from_native(gneiss_world_destroy(handle_));
-    if (status.failed() && status != result::invalid_handle) {
-      return status;
-    }
-    handle_ = GNEISS_NULL_WORLD;
-    return result::success;
-  }
+  result reset() noexcept;
   /** 转移原始句柄所有权，调用方负责在所属线程销毁。 */
   [[nodiscard]] gneiss_world release() noexcept {
     return std::exchange(handle_, GNEISS_NULL_WORLD);
   }
 
 private:
-  void reset_or_terminate() noexcept {
-    if (reset().failed()) {
-      std::terminate();
-    }
-  }
+  void reset_or_terminate() noexcept;
 };
 
 } // namespace gneiss
+
+// 实现随 SDK 安装；使用者只需包含本模块头。
+#include <gneiss/engine/detail/world.inl>
 
 #endif
