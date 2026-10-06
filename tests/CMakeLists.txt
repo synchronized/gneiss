@@ -314,7 +314,8 @@ foreach(header IN LISTS engine_sdk_headers)
     set(header_target gneiss_c_header_test)
   endif()
   set(header_source "${CMAKE_CURRENT_BINARY_DIR}/headers/${unit}.${extension}")
-  file(WRITE "${header_source}" "#include <${header}>\n")
+  # 仅宏头也必须构成非空 C 编译单元，兼容 MSVC /WX；不引入其他头依赖。
+  file(WRITE "${header_source}" "#include <${header}>\ntypedef int gneiss_header_compile_probe;\n")
   target_sources(${header_target} PRIVATE "${header_source}")
 endforeach()
 
