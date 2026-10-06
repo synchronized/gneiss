@@ -3,6 +3,8 @@
 
 #include "transform_gizmo_drag.hpp"
 
+#include <gneiss/engine/world.hpp>
+
 #include <algorithm>
 #include <iterator>
 #include <new>
@@ -11,9 +13,8 @@ namespace gneiss::editor {
 namespace {
 
 bool equal(const transform& left, const transform& right) noexcept {
-  return std::equal(std::begin(left.translation), std::end(left.translation), right.translation) &&
-         std::equal(std::begin(left.rotation), std::end(left.rotation), right.rotation) &&
-         std::equal(std::begin(left.scale), std::end(left.scale), right.scale);
+  return left.translation == right.translation && left.rotation == right.rotation &&
+         left.scale == right.scale;
 }
 
 } // namespace
@@ -50,7 +51,7 @@ result transform_gizmo_drag::preview(editor_session& session, gneiss_world world
   auto operation = gizmo_matrix_to_transform(matrix, target);
   transform parent = GNEISS_TRANSFORM_IDENTITY;
   if (operation == result::success && parent_.is_valid()) {
-    operation = from_native(gneiss_scene_node_get_world_transform(world, parent_.get(), &parent));
+    operation = world_ref{world}.get_world_transform(parent_, parent);
   }
   transform local = GNEISS_TRANSFORM_IDENTITY;
   if (operation == result::success) {

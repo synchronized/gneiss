@@ -49,9 +49,9 @@ int main() {
   gneiss::scene_node_id child;
   gneiss::scene_node_id parent;
   gneiss::entity_id associated;
-  gneiss::transform local = GNEISS_TRANSFORM_IDENTITY;
+  gneiss::transform local{};
   local.translation[0] = 7.0F;
-  gneiss::transform queried = GNEISS_TRANSFORM_IDENTITY;
+  gneiss::transform queried{};
   if (first.entity_count(count) != gneiss::result::success || count != 1U ||
       first.create_scene_node({}, {}, root) != gneiss::result::success ||
       first.create_scene_node(root, entity, child) != gneiss::result::success ||

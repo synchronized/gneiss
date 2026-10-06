@@ -142,7 +142,7 @@ int main() try {
     return 10;
   }
   const gneiss::scene_node_id source{prefab_info.node};
-  auto transform = prefab_info.local_transform;
+  auto transform = gneiss::from_native(prefab_info.local_transform);
   transform.translation[0] = 6.0F;
   if (scene.set_prefab_source_transform(source, transform).failed() ||
       scene.get_prefab_node_info(1U, prefab_info).failed() ||

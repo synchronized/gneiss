@@ -66,3 +66,10 @@ Application 原生回调使用 noexcept C++ 函数指针和显式上下文，其
 
 公共功能头的规范路径为 `<gneiss/engine/模块.hpp>`，根总入口保持 `<gneiss/gneiss.hpp>`。
 旧路径继续通过兼容头转发；详细规则见[公共头路径](../concepts/repository-layout.md#公共头路径)。
+
+### Transform 值
+
+`gneiss::transform{}` 是独立 C++ 值，三个字段分别为 `std::array<float, 3>` 平移、
+`std::array<float, 4>` 四元数和 `std::array<float, 3>` 缩放；默认单位变换，无需 C 初始化宏。
+World 节点和实体的变换读写、Prefab 来源变换设置使用此类型；失败查询保留调用方输出。
+显式 C 互操作使用 `to_native` / `from_native` 逐字段复制，不能将两种类型的指针互相转换。

@@ -51,7 +51,7 @@ int main() {
       gneiss::result::success) {
     return 3;
   }
-  gneiss::transform transform = GNEISS_TRANSFORM_IDENTITY;
+  gneiss::transform transform{};
   if (world.get_local_transform(entity, transform) != gneiss::result::success ||
       !nearly_equal(transform.translation[0], 2.0F)) {
     return 4;

@@ -9,7 +9,7 @@
 M-303 的 Input 子项已落地；M-304 已接入原生日志提交描述。其余任务尚未完成。
 先行选择不涉及持久回调的 Input 小闭环，避免在 Application 回调寿命定稿前扩大改动。
 本组实现与验证见 [M-301 / M-303 记录](../records/M-301-303-native-input-sdk.md)。
-日志生产者迁移见 [M-304 记录](../records/M-304-native-log-message.md)，接收回调仍待实施。
+日志生产者迁移见 [M-304 记录](../records/M-304-native-log-message.md)，接收回调已随 Application 接入。
 范围、兼容决策与发布条件以 [VER-047](VER-047-0.47.0-native-cpp-sdk.md) 为准。
 设计依据为 [ADR-055](../decisions/ADR-055-native-cpp-sdk.md)。
 整版使用一个特性分支及一个最终 PR，按下列顺序形成可独立验证的本地提交。
@@ -87,3 +87,10 @@ Game Module 真实动态库导出继续遵循 C ABI，使用场景和例外在�
 新测试覆盖描述离开作用域、移动、跨线程关闭失败、释放与接管、载体析构、初始化失败诊断与清理。
 输入/资源与安装消费者的 Application 创建已使用原生配置；宿主和 C ABI 夹具显式使用 create_native。
 M-302 的 World/Transform 以及其他模块仍待完成，未执行最终远端矩阵。
+
+### Transform 迁移状态
+
+已替换 C 结构别名，采用默认单位变换的独立 C++ 数组值，World 与 Prefab 入口逐字段转换。
+编辑器 Gizmo、保存、Camera 和作者属性操作同步适配；父子组合、非法变换与失败输出保留已有回归。
+共享全量构建及相关测试、静态 World/Scene 回归和独立 C++ 头编译通过。
+Camera/Render/Scene 描述与 Reflection 仍待迁移，此项不表示 M-302 或整版已完成。

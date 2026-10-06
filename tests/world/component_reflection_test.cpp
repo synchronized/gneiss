@@ -56,7 +56,7 @@ int main() {
                             value) != gneiss::result::success) {
     return 4;
   }
-  gneiss::transform transform = GNEISS_TRANSFORM_IDENTITY;
+  gneiss::transform transform{};
   if (first.get_local_transform(entity, transform) != gneiss::result::success ||
       !nearly_equal(transform.translation[0], 2.0F) ||
       registry.get_property(gneiss_transform_type_id(), GNEISS_TRANSFORM_FIELD_TRANSLATION,

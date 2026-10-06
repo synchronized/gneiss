@@ -3,7 +3,8 @@
 
 #include "author_property_edit.hpp"
 
-#include <gneiss/application.hpp>
+#include <gneiss/engine/application.hpp>
+#include <gneiss/engine/world.hpp>
 
 #include <algorithm>
 #include <cmath>
@@ -31,9 +32,8 @@ int main() try {
     return 2;
   }
   const auto is_x = [&](float expected) {
-    transform local = GNEISS_TRANSFORM_IDENTITY;
-    return gneiss_world_entity_get_local_transform(world_handle, entity.get(), &local) ==
-               GNEISS_SUCCESS &&
+    transform local{};
+    return world_ref{world_handle}.get_local_transform(entity, local) == result::success &&
            std::abs(local.translation[0] - expected) < 0.0001F;
   };
   const auto edit_x = [&](float next, editor_command_history& target, std::uint64_t serial) {

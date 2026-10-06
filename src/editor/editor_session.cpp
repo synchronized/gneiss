@@ -3,6 +3,8 @@
 
 #include "editor_session.hpp"
 
+#include <gneiss/engine/world.hpp>
+
 #include <gneiss/asset.h>
 
 #include <algorithm>
@@ -203,7 +205,7 @@ result editor_session::refresh_nodes() noexcept {
                                ? std::string{}
                                : std::string{info.material_uri,
                                              static_cast<std::size_t>(info.material_uri_length)},
-           .local_transform = transform{info.local_transform},
+           .local_transform = from_native(info.local_transform),
            .component_flags = info.component_flags,
            .camera = info.camera,
            .is_primary_camera =
@@ -241,8 +243,8 @@ result editor_session::refresh_nodes() noexcept {
                                : std::string{info.name, static_cast<std::size_t>(info.name_length)},
            .prefab_uri =
                std::string{info.prefab_uri, static_cast<std::size_t>(info.prefab_uri_length)},
-           .local_transform = transform{info.local_transform},
-           .source_local_transform = transform{info.source_local_transform},
+           .local_transform = from_native(info.local_transform),
+           .source_local_transform = from_native(info.source_local_transform),
            .override_flags = info.flags & (GNEISS_SCENE_PREFAB_NODE_TRANSLATION_OVERRIDDEN |
                                            GNEISS_SCENE_PREFAB_NODE_ROTATION_OVERRIDDEN |
                                            GNEISS_SCENE_PREFAB_NODE_SCALE_OVERRIDDEN),
@@ -268,10 +270,9 @@ result editor_session::set_local_transform(scene_node_id node, const transform& 
   if (found == nodes_.end() && prefab == prefab_nodes_.end()) {
     return result::invalid_argument;
   }
-  const auto operation =
-      prefab != prefab_nodes_.end() && !prefab->is_instance_root
-          ? scene_.set_prefab_source_transform(node, value)
-          : from_native(gneiss_scene_node_set_local_transform(world_, node.get(), &value));
+  const auto operation = prefab != prefab_nodes_.end() && !prefab->is_instance_root
+                             ? scene_.set_prefab_source_transform(node, value)
+                             : world_ref{world_}.set_local_transform(node, value);
   if (operation != result::success) {
     return operation;
   }
@@ -308,13 +309,13 @@ result editor_session::restore_prefab_transform_field(scene_node_id node, gneiss
   auto restored = found->local_transform;
   switch (field_id) {
   case GNEISS_TRANSFORM_FIELD_TRANSLATION:
-    std::ranges::copy(found->source_local_transform.translation, restored.translation);
+    std::ranges::copy(found->source_local_transform.translation, restored.translation.begin());
     break;
   case GNEISS_TRANSFORM_FIELD_ROTATION:
-    std::ranges::copy(found->source_local_transform.rotation, restored.rotation);
+    std::ranges::copy(found->source_local_transform.rotation, restored.rotation.begin());
     break;
   case GNEISS_TRANSFORM_FIELD_SCALE:
-    std::ranges::copy(found->source_local_transform.scale, restored.scale);
+    std::ranges::copy(found->source_local_transform.scale, restored.scale.begin());
     break;
   default:
     return result::invalid_argument;
@@ -464,7 +465,7 @@ result editor_session::restore_prefab_instance(const prefab_instance_snapshot& s
   desc.name_length = snapshot.display_name.size();
   desc.prefab_uri = snapshot.prefab_uri.data();
   desc.prefab_uri_length = snapshot.prefab_uri.size();
-  desc.local_transform = snapshot.local_transform;
+  desc.local_transform = to_native(snapshot.local_transform);
   auto operation = scene_.create_prefab_instance(desc, out_root);
   if (operation == result::success) {
     selection_ = out_root;

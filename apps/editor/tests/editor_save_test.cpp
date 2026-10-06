@@ -69,10 +69,11 @@ int main() try {
       session.select(session.nodes()[0].node) != gneiss::result::success) {
     return 3;
   }
-  gneiss::transform transform = GNEISS_TRANSFORM_IDENTITY;
+  gneiss::transform transform{};
   transform.translation[0] = 7.0F;
-  if (gneiss_world_entity_set_local_transform(world, session.selected_node()->entity.get(),
-                                              &transform) != GNEISS_SUCCESS) {
+  if (gneiss::world_ref{world}
+          .set_local_transform(gneiss::entity_id{session.selected_node()->entity.get()}, transform)
+          .native() != GNEISS_SUCCESS) {
     return 4;
   }
   session.mark_dirty();
@@ -138,8 +139,9 @@ int main() try {
   }
 
   transform.translation[0] = 9.0F;
-  if (gneiss_world_entity_set_local_transform(world, session.selected_node()->entity.get(),
-                                              &transform) != GNEISS_SUCCESS) {
+  if (gneiss::world_ref{world}
+          .set_local_transform(gneiss::entity_id{session.selected_node()->entity.get()}, transform)
+          .native() != GNEISS_SUCCESS) {
     return 9;
   }
   session.mark_dirty();
@@ -183,14 +185,15 @@ int main() try {
   gneiss::scene_node_id camera_node;
   gneiss::scene_node_id reloaded_created_node;
   gneiss_entity_id camera_entity = GNEISS_NULL_ENTITY_ID;
-  gneiss::transform reloaded_transform = GNEISS_TRANSFORM_IDENTITY;
+  gneiss::transform reloaded_transform{};
   if (reloaded_application.get_world(reloaded_world) != gneiss::result::success ||
       reloaded_scene.find_node(camera_uuid, camera_node) != gneiss::result::success ||
       reloaded_scene.find_node(created_uuid, reloaded_created_node) != gneiss::result::success ||
       gneiss_scene_node_get_entity(reloaded_world, camera_node.get(), &camera_entity) !=
           GNEISS_SUCCESS ||
-      gneiss_world_entity_get_local_transform(reloaded_world, camera_entity, &reloaded_transform) !=
-          GNEISS_SUCCESS ||
+      gneiss::world_ref{reloaded_world}
+              .get_local_transform(gneiss::entity_id{camera_entity}, reloaded_transform)
+              .native() != GNEISS_SUCCESS ||
       std::abs(reloaded_transform.translation[0] - 7.0F) > 0.0001F) {
     return 12;
   }

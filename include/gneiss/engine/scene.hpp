@@ -8,6 +8,7 @@
 #include <gneiss/engine/core/result.hpp>
 #include <gneiss/engine/scene.h>
 
+#include <array>
 #include <cstdint>
 #include <exception>
 #include <limits>
@@ -35,7 +36,24 @@ private:
 };
 
 inline constexpr scene_node_id null_scene_node_id{};
-using transform = gneiss_transform;
+/** 右手系变换值；默认零平移、单位四元数与单位缩放，不持有场景资源。 */
+struct transform {
+  std::array<float, 3> translation{0.0F, 0.0F, 0.0F};
+  std::array<float, 4> rotation{0.0F, 0.0F, 0.0F, 1.0F};
+  std::array<float, 3> scale{1.0F, 1.0F, 1.0F};
+};
+/** 显式复制到 C ABI 值，不依赖两种类型的内存布局。 */
+[[nodiscard]] constexpr gneiss_transform to_native(const transform& value) noexcept {
+  return {.translation = {value.translation[0], value.translation[1], value.translation[2]},
+          .rotation = {value.rotation[0], value.rotation[1], value.rotation[2], value.rotation[3]},
+          .scale = {value.scale[0], value.scale[1], value.scale[2]}};
+}
+/** 从 C ABI 值逐字段复制；几何有效性在设置到场景时校验。 */
+[[nodiscard]] constexpr transform from_native(const gneiss_transform& value) noexcept {
+  return {.translation = {value.translation[0], value.translation[1], value.translation[2]},
+          .rotation = {value.rotation[0], value.rotation[1], value.rotation[2], value.rotation[3]},
+          .scale = {value.scale[0], value.scale[1], value.scale[2]}};
+}
 using scene_instance_node_info = gneiss_scene_instance_node_info;
 using scene_node_desc = gneiss_scene_node_desc;
 using scene_prefab_node_info = gneiss_scene_prefab_node_info;
@@ -219,9 +237,10 @@ public:
         application_, handle_, root.get(), name.data(), name.size()));
   }
   [[nodiscard]] result set_prefab_source_transform(scene_node_id node,
-                                                   const transform& value) noexcept {
+                                                   const transform& value) const noexcept {
+    const auto native = to_native(value);
     return from_native(gneiss_scene_instance_set_prefab_source_transform(application_, handle_,
-                                                                         node.get(), &value));
+                                                                         node.get(), &native));
   }
   [[nodiscard]] result destroy_prefab_instance(scene_node_id root) noexcept {
     return from_native(

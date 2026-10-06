@@ -1898,7 +1898,7 @@
           "symbol": "gneiss_transform",
           "kind": "struct",
           "cpp_mapping": "gneiss::transform",
-          "native_review": "pending"
+          "native_review": "implemented"
         }
       ],
       "constants": [
@@ -2014,8 +2014,8 @@
         },
         {
           "symbol": "GNEISS_TRANSFORM_IDENTITY",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::transform{}"
         }
       ]
     },

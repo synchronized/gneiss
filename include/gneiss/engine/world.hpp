@@ -108,17 +108,27 @@ public:
     return from_native(gneiss_scene_node_reparent(handle_, node.get(), parent.get()));
   }
 
-  [[nodiscard]] result set_local_transform(scene_node_id node, const transform& value) noexcept {
-    return from_native(gneiss_scene_node_set_local_transform(handle_, node.get(), &value));
+  [[nodiscard]] result set_local_transform(scene_node_id node,
+                                           const transform& value) const noexcept {
+    const auto native = to_native(value);
+    return from_native(gneiss_scene_node_set_local_transform(handle_, node.get(), &native));
   }
 
-  [[nodiscard]] result set_local_transform(entity_id entity, const transform& value) noexcept {
-    return from_native(gneiss_world_entity_set_local_transform(handle_, entity.get(), &value));
+  [[nodiscard]] result set_local_transform(entity_id entity,
+                                           const transform& value) const noexcept {
+    const auto native = to_native(value);
+    return from_native(gneiss_world_entity_set_local_transform(handle_, entity.get(), &native));
   }
 
   /** 读取节点局部变换，不转移节点所有权。 */
   [[nodiscard]] result get_local_transform(scene_node_id node, transform& output) const noexcept {
-    return from_native(gneiss_scene_node_get_local_transform(handle_, node.get(), &output));
+    gneiss_transform native{};
+    const auto status =
+        from_native(gneiss_scene_node_get_local_transform(handle_, node.get(), &native));
+    if (status.ok()) {
+      output = from_native(native);
+    }
+    return status;
   }
   /** 查询节点关联实体；失败时不改变输出。 */
   [[nodiscard]] result get_entity(scene_node_id node, entity_id& output) const noexcept {
@@ -140,12 +150,24 @@ public:
   }
 
   [[nodiscard]] result get_local_transform(entity_id entity, transform& output) const noexcept {
-    return from_native(gneiss_world_entity_get_local_transform(handle_, entity.get(), &output));
+    gneiss_transform native{};
+    const auto status =
+        from_native(gneiss_world_entity_get_local_transform(handle_, entity.get(), &native));
+    if (status.ok()) {
+      output = from_native(native);
+    }
+    return status;
   }
 
   [[nodiscard]] result get_world_transform(scene_node_id node,
                                            transform& out_transform) const noexcept {
-    return from_native(gneiss_scene_node_get_world_transform(handle_, node.get(), &out_transform));
+    gneiss_transform native{};
+    const auto status =
+        from_native(gneiss_scene_node_get_world_transform(handle_, node.get(), &native));
+    if (status.ok()) {
+      out_transform = from_native(native);
+    }
+    return status;
   }
 
   [[nodiscard]] result is_alive(entity_id entity, bool& out_is_alive) const noexcept {

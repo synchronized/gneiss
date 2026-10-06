@@ -30,8 +30,8 @@
 #include "runtime_panels.hpp"
 #include "runtime_process.hpp"
 #include "transform_gizmo_drag.hpp"
-#include "transform_gizmo_view.hpp"
 #include "transform_gizmo_math.hpp"
+#include "transform_gizmo_view.hpp"
 #if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
 #include "asset_background_worker.hpp"
 #include "asset_browser_model.hpp"
@@ -875,7 +875,7 @@ runtime_inspector_actions(editor_state& state, const gneiss::editor::runtime_sce
                 editor.history_error = gneiss::editor::apply_runtime_transform_to_author(
                     editor.session, editor.history,
                     {selected.uuid, selected.prefab_instance_uuid, selected.prefab_source_node_uuid,
-                     selected.local_transform});
+                     gneiss::from_native(selected.local_transform)});
                 if (editor.history_error == gneiss::result::success) {
                   synchronize_history_dirty(editor);
                 }
@@ -1186,7 +1186,7 @@ gneiss_result update_editor_camera(editor_state& state, const gneiss_frame_time&
       if (result != GNEISS_SUCCESS) {
         return result;
       }
-      return gneiss::to_native(state.camera.focus(target));
+      return gneiss::to_native(state.camera.focus(gneiss::from_native(target)));
     }
   }
   return gneiss::to_native(state.camera.update(input));
@@ -2228,7 +2228,7 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
         const gneiss_property_quaternion quaternion{edited.rotation[0], edited.rotation[1],
                                                     edited.rotation[2], edited.rotation[3]};
         (void)gneiss::editor::quaternion_to_euler_degrees(quaternion, rotation);
-        bool changed = ImGui::DragFloat3("Translation", edited.translation, 0.05F);
+        bool changed = ImGui::DragFloat3("Translation", edited.translation.data(), 0.05F);
         if (ImGui::DragFloat3("Rotation (degrees)", rotation.data(), 0.25F, 0.0F, 0.0F, "%.1f°")) {
           gneiss_property_quaternion converted{};
           if (gneiss::editor::euler_degrees_to_quaternion(rotation, converted) ==
@@ -2240,7 +2240,7 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
             changed = true;
           }
         }
-        changed = ImGui::DragFloat3("Scale", edited.scale, 0.05F) || changed;
+        changed = ImGui::DragFloat3("Scale", edited.scale.data(), 0.05F) || changed;
         if (changed) {
           const auto* current = state.session.find_prefab_source(instance_uuid, source_uuid);
           state.history_error = current == nullptr
@@ -2409,7 +2409,7 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
                                                     edited.rotation[2], edited.rotation[3]};
         (void)gneiss::editor::quaternion_to_euler_degrees(quaternion, rotation);
         const auto previous = prefab->local_transform;
-        bool changed = ImGui::DragFloat3("Translation", edited.translation, 0.05F);
+        bool changed = ImGui::DragFloat3("Translation", edited.translation.data(), 0.05F);
         if (ImGui::DragFloat3("Rotation (degrees)", rotation.data(), 0.25F, 0.0F, 0.0F, "%.1f°")) {
           gneiss_property_quaternion converted{};
           if (gneiss::editor::euler_degrees_to_quaternion(rotation, converted) ==
@@ -2421,7 +2421,7 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
             changed = true;
           }
         }
-        changed = ImGui::DragFloat3("Scale", edited.scale, 0.05F) || changed;
+        changed = ImGui::DragFloat3("Scale", edited.scale.data(), 0.05F) || changed;
         if (changed) {
           const auto* current = state.session.find_prefab_root(instance_uuid);
           state.history_error = current == nullptr

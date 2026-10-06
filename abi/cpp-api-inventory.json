@@ -886,7 +886,7 @@
         "gneiss.scene_tree_transform"
       ],
       "cpp_entry": "gneiss::world_ref::set_local_transform(scene_node_id, transform) / gneiss::world",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_scene_node_get_local_transform",
@@ -900,7 +900,7 @@
         "gneiss.cpp_world"
       ],
       "cpp_entry": "gneiss::world::get_local_transform(scene_node_id, transform&)",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_scene_node_get_world_transform",
@@ -916,7 +916,7 @@
         "gneiss.scene_tree_transform"
       ],
       "cpp_entry": "gneiss::world_ref::get_world_transform / gneiss::world",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_scene_node_get_entity",
@@ -958,7 +958,7 @@
         "gneiss.cpp_scene"
       ],
       "cpp_entry": "gneiss::world_ref::get_local_transform(entity_id, transform&) / gneiss::world",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_world_entity_set_local_transform",
@@ -972,7 +972,7 @@
         "gneiss.cpp_scene"
       ],
       "cpp_entry": "gneiss::world_ref::set_local_transform(entity_id, transform) / gneiss::world",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_scene_instance_load",
@@ -1137,7 +1137,7 @@
         "gneiss.scene_prefab_instance"
       ],
       "cpp_entry": "gneiss::scene_instance::set_prefab_source_transform",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_scene_instance_destroy_prefab_instance",
