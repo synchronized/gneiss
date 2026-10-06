@@ -4,7 +4,7 @@
 #ifndef GNEISS_SRC_LOG_LOG_DISPATCHER_HPP_
 #define GNEISS_SRC_LOG_LOG_DISPATCHER_HPP_
 
-#include <gneiss/log.h>
+#include <gneiss/engine/log.h>
 
 #include <condition_variable>
 #include <cstddef>

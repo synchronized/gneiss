@@ -4,7 +4,7 @@
 #include "engine/function/application/application_registry.hpp"
 #include "engine/function/application/application_state.hpp"
 
-#include <gneiss/input.h>
+#include <gneiss/engine/input.h>
 
 #include <cstddef>
 #include <limits>

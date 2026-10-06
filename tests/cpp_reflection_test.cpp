@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include <gneiss/reflection.hpp>
+#include <gneiss/engine/reflection.hpp>
 
 #include <array>
 #include <atomic>

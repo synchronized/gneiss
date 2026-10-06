@@ -4,8 +4,8 @@
 #include "engine/function/application/application_asset_reload_internal.hpp"
 #include "engine/function/application/application_scene_load_internal.hpp"
 
-#include <gneiss/application.hpp>
-#include <gneiss/scene.h>
+#include <gneiss/engine/application.hpp>
+#include <gneiss/engine/scene.h>
 
 #include <algorithm>
 #include <chrono>

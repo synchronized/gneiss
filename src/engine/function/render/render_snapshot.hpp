@@ -6,8 +6,8 @@
 
 #include "engine/function/render/camera_math.hpp"
 #include <cstdint>
-#include <gneiss/render.h>
-#include <gneiss/scene.h>
+#include <gneiss/engine/render.h>
+#include <gneiss/engine/scene.h>
 #include <vector>
 
 namespace gneiss::render_internal {

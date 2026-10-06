@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include <gneiss/render.h>
+#include <gneiss/engine/render.h>
 
 _Static_assert(sizeof(gneiss_texture_format) == sizeof(uint32_t), "Texture 格式类型必须保持 32 位");
 _Static_assert(sizeof(gneiss_texture_color_space) == sizeof(uint32_t),

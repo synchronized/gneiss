@@ -3,7 +3,7 @@
 
 #ifndef GNEISS_APPLICATION_APPLICATION_REGISTRY_HPP_
 #define GNEISS_APPLICATION_APPLICATION_REGISTRY_HPP_
-#include <gneiss/application.h>
+#include <gneiss/engine/application.h>
 #include <memory>
 
 namespace gneiss::application_internal {

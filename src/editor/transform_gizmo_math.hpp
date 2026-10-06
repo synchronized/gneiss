@@ -4,7 +4,7 @@
 #ifndef GNEISS_APPS_EDITOR_TRANSFORM_GIZMO_MATH_H_
 #define GNEISS_APPS_EDITOR_TRANSFORM_GIZMO_MATH_H_
 
-#include <gneiss/scene.hpp>
+#include <gneiss/engine/scene.hpp>
 
 #include <array>
 

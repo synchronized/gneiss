@@ -8,7 +8,7 @@
 #include "native_dialog.hpp"
 #include "project_workspace.hpp"
 
-#include <gneiss/application.hpp>
+#include <gneiss/engine/application.hpp>
 
 #include <imgui.h>
 

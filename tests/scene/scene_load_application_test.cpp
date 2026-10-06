@@ -5,7 +5,7 @@
 #include "engine/function/application/application_scene_load_internal.hpp"
 #include "engine/asset/mesh_binary.hpp"
 
-#include <gneiss/application.hpp>
+#include <gneiss/engine/application.hpp>
 
 #include <cstdio>
 #include <filesystem>

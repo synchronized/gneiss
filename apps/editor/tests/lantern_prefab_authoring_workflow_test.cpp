@@ -4,8 +4,8 @@
 #include "native_author_transaction.hpp"
 #include "prefab_authoring.hpp"
 
-#include <gneiss/application.hpp>
-#include <gneiss/scene.hpp>
+#include <gneiss/engine/application.hpp>
+#include <gneiss/engine/scene.hpp>
 
 #include <array>
 #include <chrono>

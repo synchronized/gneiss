@@ -5,7 +5,7 @@
 
 #include <gneiss/engine/world.hpp>
 
-#include <gneiss/asset.h>
+#include <gneiss/engine/asset.h>
 
 #include <algorithm>
 #include <array>

@@ -3,7 +3,7 @@
 
 #include "asset_scene_commands.hpp"
 
-#include <gneiss/application.hpp>
+#include <gneiss/engine/application.hpp>
 
 #include <string>
 

@@ -8,7 +8,7 @@
 #include "engine/function/application/application_registry.hpp"
 #include "engine/function/application/application_state.hpp"
 
-#include <gneiss/render.h>
+#include <gneiss/engine/render.h>
 
 namespace {
 using gneiss::application_internal::find_application;

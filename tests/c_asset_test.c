@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include <gneiss/application.h>
-#include <gneiss/asset.h>
+#include <gneiss/engine/application.h>
+#include <gneiss/engine/asset.h>
 
 #include <stdint.h>
 #include <string.h>

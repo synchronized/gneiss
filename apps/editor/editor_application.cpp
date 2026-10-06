@@ -41,7 +41,7 @@
 #include "author_asset_service.hpp"
 #endif
 
-#include <gneiss/application.hpp>
+#include <gneiss/engine/application.hpp>
 
 #include <imgui.h>
 

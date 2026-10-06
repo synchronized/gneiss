@@ -299,7 +299,7 @@ target_link_libraries(gneiss_cpp_header_test PRIVATE gneiss::engine)
 target_compile_features(gneiss_cpp_header_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_cpp_header_test)
 
-# 新规范路径逐头独立编译，原 headers 用例继续验证兼容路径。
+# 规范路径逐头独立编译；headers 用例额外验证总入口和常用功能头。
 file(GLOB_RECURSE engine_sdk_headers CONFIGURE_DEPENDS RELATIVE "${PROJECT_SOURCE_DIR}/include"
   "${PROJECT_SOURCE_DIR}/include/gneiss/engine/*.h"
   "${PROJECT_SOURCE_DIR}/include/gneiss/engine/*.hpp")

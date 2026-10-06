@@ -4,9 +4,9 @@
 #include "tooling/asset_import/asset_writer.hpp"
 #include "tooling/asset_import/gltf_importer.hpp"
 
-#include <gneiss/application.h>
-#include <gneiss/scene.h>
-#include <gneiss/world.h>
+#include <gneiss/engine/application.h>
+#include <gneiss/engine/scene.h>
+#include <gneiss/engine/world.h>
 
 #include <array>
 #include <cstdint>

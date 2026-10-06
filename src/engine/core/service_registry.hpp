@@ -4,7 +4,7 @@
 #ifndef GNEISS_CORE_SERVICE_REGISTRY_HPP_
 #define GNEISS_CORE_SERVICE_REGISTRY_HPP_
 
-#include <gneiss/core/result.h>
+#include <gneiss/engine/core/result.h>
 
 #include <cstddef>
 #include <cstdint>

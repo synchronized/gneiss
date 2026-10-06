@@ -11,7 +11,7 @@
 #include "engine/function/render/render_asset_loader.hpp"
 #include "engine/function/render/render_resource_service.hpp"
 
-#include <gneiss/core/result.h>
+#include <gneiss/engine/core/result.h>
 
 #include <granit/asset_tools/texture_builder.hpp>
 

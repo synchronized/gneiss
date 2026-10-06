@@ -5,7 +5,7 @@
 
 #include "engine/platform/window_configuration.hpp"
 
-#include <gneiss/application.h>
+#include <gneiss/engine/application.h>
 #include <string_view>
 
 namespace gneiss::application_internal {

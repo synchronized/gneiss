@@ -3,7 +3,7 @@
 
 #include "prefab_authoring.hpp"
 
-#include <gneiss/asset.h>
+#include <gneiss/engine/asset.h>
 
 #include <yyjson.h>
 

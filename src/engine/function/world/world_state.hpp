@@ -4,8 +4,8 @@
 #ifndef GNEISS_WORLD_WORLD_STATE_HPP_
 #define GNEISS_WORLD_WORLD_STATE_HPP_
 
-#include <gneiss/core/entity.h>
-#include <gneiss/render.h>
+#include <gneiss/engine/core/entity.h>
+#include <gneiss/engine/render.h>
 
 #include "engine/function/scene/scene_tree.hpp"
 

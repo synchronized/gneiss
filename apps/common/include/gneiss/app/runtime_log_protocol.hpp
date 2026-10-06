@@ -3,8 +3,8 @@
 
 #pragma once
 
-#include <gneiss/core/result.hpp>
-#include <gneiss/log.h>
+#include <gneiss/engine/core/result.hpp>
+#include <gneiss/engine/log.h>
 
 #include <cstdint>
 #include <string>

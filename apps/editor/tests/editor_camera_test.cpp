@@ -3,7 +3,7 @@
 
 #include "editor_camera.hpp"
 
-#include <gneiss/world.hpp>
+#include <gneiss/engine/world.hpp>
 
 #include <cmath>
 

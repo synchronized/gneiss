@@ -4,7 +4,7 @@
 #pragma once
 
 #include "engine/core/log/log_dispatcher.hpp"
-#include <gneiss/application.h>
+#include <gneiss/engine/application.h>
 
 namespace gneiss::application_internal {
 /** callback 须非空；复制回调配置，user_data 须由调用方保持至投递器关闭完成。 */

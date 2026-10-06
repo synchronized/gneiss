@@ -14,7 +14,7 @@
 #include "engine/function/render/render_resource_service.hpp"
 #include "engine/function/render/ui_draw_list.hpp"
 
-#include <gneiss/core/result.h>
+#include <gneiss/engine/core/result.h>
 
 #include <granit/granit.hpp>
 #include <granit/pipeline/canvas_draw_list.hpp>

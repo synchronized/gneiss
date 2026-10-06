@@ -2,8 +2,8 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include <gneiss/app/project_description.hpp>
-#include <gneiss/application.hpp>
-#include <gneiss/scene.h>
+#include <gneiss/engine/application.hpp>
+#include <gneiss/engine/scene.h>
 
 #include "engine/function/application/application_asset_reload_internal.hpp"
 #include "engine/function/game/game_context_internal.hpp"

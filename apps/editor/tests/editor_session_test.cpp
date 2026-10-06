@@ -4,7 +4,7 @@
 #include "editor_session.hpp"
 #include "runtime_author_apply.hpp"
 
-#include <gneiss/application.hpp>
+#include <gneiss/engine/application.hpp>
 
 #include <string>
 #include <string_view>

@@ -6,7 +6,7 @@
 
 #include "ipc_envelope.hpp"
 
-#include <gneiss/core/result.hpp>
+#include <gneiss/engine/core/result.hpp>
 
 #include <cstddef>
 #include <cstdint>

@@ -5,7 +5,7 @@
 
 #include "engine/function/application/scene_load_service.hpp"
 
-#include <gneiss/application.h>
+#include <gneiss/engine/application.h>
 
 namespace gneiss::application_internal {
 

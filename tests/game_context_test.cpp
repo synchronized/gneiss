@@ -3,9 +3,9 @@
 
 #include "engine/function/game/game_context_internal.hpp"
 
-#include <gneiss/application.h>
-#include <gneiss/game_module.hpp>
-#include <gneiss/log.hpp>
+#include <gneiss/engine/application.h>
+#include <gneiss/engine/game_module.hpp>
+#include <gneiss/engine/log.hpp>
 
 #include <mutex>
 #include <string>

@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include <gneiss/application.hpp>
-#include <gneiss/input.h>
-#include <gneiss/scene.h>
+#include <gneiss/engine/application.hpp>
+#include <gneiss/engine/input.h>
+#include <gneiss/engine/scene.h>
 
 #ifdef _WIN32
 #include <windows.h>

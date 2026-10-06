@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include <gneiss/application.hpp>
+#include <gneiss/engine/application.hpp>
 #include <gneiss/engine/application.hpp>
 #include <gneiss/engine/scene.hpp>
-#include <gneiss/scene.hpp>
+#include <gneiss/engine/scene.hpp>
 
 #include <cstdint>
 #include <string>

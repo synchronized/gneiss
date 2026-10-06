@@ -7,7 +7,7 @@
 #include "project_workspace.hpp"
 #include "runtime_process.hpp"
 
-#include <gneiss/application.hpp>
+#include <gneiss/engine/application.hpp>
 
 #include <algorithm>
 #include <chrono>

@@ -3,7 +3,7 @@
 
 #include "runtime_property_editor.hpp"
 
-#include <gneiss/world.hpp>
+#include <gneiss/engine/world.hpp>
 
 #include <array>
 #include <cstdint>

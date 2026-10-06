@@ -10,8 +10,8 @@
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
-#include <gneiss/application.hpp>
-#include <gneiss/scene.h>
+#include <gneiss/engine/application.hpp>
+#include <gneiss/engine/scene.h>
 #include <granit/asset_tools/texture_builder.hpp>
 #include <granit/renderer/texture_asset.hpp>
 #include <source_location>

@@ -8,8 +8,8 @@
 #include "engine/function/render/render_asset_loader.hpp"
 #include "engine/function/render/render_executor.hpp"
 
-#include <gneiss/application.h>
-#include <gneiss/scene.h>
+#include <gneiss/engine/application.h>
+#include <gneiss/engine/scene.h>
 
 #include <span>
 #include <string_view>

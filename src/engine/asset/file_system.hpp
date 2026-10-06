@@ -4,7 +4,7 @@
 #ifndef GNEISS_ASSET_FILE_SYSTEM_HPP_
 #define GNEISS_ASSET_FILE_SYSTEM_HPP_
 
-#include <gneiss/core/result.h>
+#include <gneiss/engine/core/result.h>
 
 #include "engine/asset/read_source.hpp"
 

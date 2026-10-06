@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include <gneiss/reflection.h>
+#include <gneiss/engine/reflection.h>
 
 #include <stdint.h>
 #include <string.h>

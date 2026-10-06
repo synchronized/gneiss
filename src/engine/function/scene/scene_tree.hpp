@@ -4,7 +4,7 @@
 #ifndef GNEISS_SCENE_SCENE_TREE_HPP_
 #define GNEISS_SCENE_SCENE_TREE_HPP_
 
-#include <gneiss/scene.h>
+#include <gneiss/engine/scene.h>
 
 #include <cstdint>
 #include <memory>

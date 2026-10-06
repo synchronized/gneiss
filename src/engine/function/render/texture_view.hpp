@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include <gneiss/render.h>
+#include <gneiss/engine/render.h>
 
 #include <cstdint>
 #include <span>

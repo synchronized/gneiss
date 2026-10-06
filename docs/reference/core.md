@@ -5,7 +5,7 @@
 
 ## 版本
 
-构建生成的 `<gneiss/core/version.h>` 提供编译期版本宏：
+构建生成的 `<gneiss/engine/core/version.h>` 提供编译期版本宏：
 
 - `GNEISS_VERSION_MAJOR`
 - `GNEISS_VERSION_MINOR`

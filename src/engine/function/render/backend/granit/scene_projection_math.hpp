@@ -6,7 +6,7 @@
 
 #include "engine/function/render/camera_math.hpp"
 
-#include <gneiss/scene.h>
+#include <gneiss/engine/scene.h>
 
 namespace gneiss::render_internal {
 

@@ -3,8 +3,8 @@
 
 #ifndef GNEISS_WORLD_WORLD_SERVICE_HPP_
 #define GNEISS_WORLD_WORLD_SERVICE_HPP_
-#include <gneiss/scene.h>
-#include <gneiss/world.h>
+#include <gneiss/engine/scene.h>
+#include <gneiss/engine/world.h>
 
 namespace gneiss::world_internal {
 /** 私有同版本宿主接口，不安装；唯一注册表负责线程和 generation 校验。 */

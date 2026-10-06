@@ -3,8 +3,8 @@
 
 #include "editor_camera.hpp"
 
-#include <gneiss/render.h>
-#include <gneiss/world.h>
+#include <gneiss/engine/render.h>
+#include <gneiss/engine/world.h>
 
 #include <algorithm>
 #include <cmath>

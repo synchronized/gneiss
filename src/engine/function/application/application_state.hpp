@@ -4,8 +4,8 @@
 #ifndef GNEISS_APPLICATION_APPLICATION_STATE_HPP_
 #define GNEISS_APPLICATION_APPLICATION_STATE_HPP_
 
-#include <gneiss/application.h>
-#include <gneiss/input.h>
+#include <gneiss/engine/application.h>
+#include <gneiss/engine/input.h>
 
 #include "engine/asset/virtual_file_system.hpp"
 #include "engine/core/log/log_dispatcher.hpp"

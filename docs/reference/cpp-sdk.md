@@ -19,7 +19,8 @@ Application 配置/回调、输入和日志接口已使用原生 C++ 类型；�
 | Application 配置与回调 | `application_desc`、`application_callbacks`、`frame_time`、`diagnostic`、`log_event` | 配置文本借用至 create 返回，回调表复制，user_data 与回调文本的寿命见 Application 参考 |
 | Application 所属 World | `world_ref` | 借用；不能调用拥有者的销毁/转移操作 |
 | 结果、版本、日志级别 | `result`、`version`、`log_severity` | 值；结果不通过异常报告 |
-| Transform、Render/Scene 描述 | 模块 `.hpp` 的值别名 | 与 C 布局相同；结构含指针不代表复制了指向的数据 |
+| Transform、Camera、MeshRenderer | 独立 C++ 值、数组与资源 ID | 逐字段适配 C ABI，不共享类型布局 |
+| 其他 Render/Scene 描述 | 待迁移的 C 值别名 | 结构含指针不代表复制了指向的数据 |
 | 输入事件、键盘/指针/动作快照 | 独立结构、强类型枚举与 variant | 自有快照，默认构造，详见[输入接口](input.md) |
 | 日志提交消息 | `log_message`，字段使用 `log_severity`、`string_view`、`result` | 借用文本至同步提交返回，详见[日志契约](logging.md#c-日志提交) |
 | World 创建描述、反射元数据、Game Module 描述 | 直接使用 `gneiss_*` C 值 | 由对应操作决定复制与借用，见下表及模块参考 |
@@ -65,7 +66,7 @@ Application 原生回调使用 noexcept C++ 函数指针和显式上下文，其
 具体错误输出、所属线程和失效行为以模块 Reference 为准。
 
 公共功能头的规范路径为 `<gneiss/engine/模块.hpp>`，根总入口保持 `<gneiss/gneiss.hpp>`。
-旧路径继续通过兼容头转发；详细规则见[公共头路径](../concepts/repository-layout.md#公共头路径)。
+旧功能头与 `gneiss/core/` 转发路径已删除；请使用干净安装前缀，详细规则见[公共头路径](../concepts/repository-layout.md#公共头路径)。
 
 ### Transform 值
 

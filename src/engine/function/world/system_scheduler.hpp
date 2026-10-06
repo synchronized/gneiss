@@ -6,7 +6,7 @@
 
 #include "engine/function/world/world_state.hpp"
 
-#include <gneiss/core/result.h>
+#include <gneiss/engine/core/result.h>
 
 #include <cstdint>
 #include <vector>

@@ -3,7 +3,7 @@
 
 #include "editor_session.hpp"
 
-#include <gneiss/application.hpp>
+#include <gneiss/engine/application.hpp>
 
 #include <chrono>
 #include <cmath>

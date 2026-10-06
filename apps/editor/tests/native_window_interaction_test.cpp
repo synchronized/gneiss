@@ -11,7 +11,7 @@
 #include <thread>
 #endif
 
-#include <gneiss/application.hpp>
+#include <gneiss/engine/application.hpp>
 
 #include <algorithm>
 #include <cmath>

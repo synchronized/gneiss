@@ -6,7 +6,7 @@
 #include "runtime_property_adapter.hpp"
 #include "runtime_scene_adapter.hpp"
 
-#include <gneiss/world.h>
+#include <gneiss/engine/world.h>
 
 #include <algorithm>
 #include <array>

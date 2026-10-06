@@ -4,7 +4,7 @@
 #ifndef GNEISS_ASSET_PNG_DECODER_HPP_
 #define GNEISS_ASSET_PNG_DECODER_HPP_
 
-#include <gneiss/core/result.h>
+#include <gneiss/engine/core/result.h>
 
 #include <cstddef>
 #include <cstdint>

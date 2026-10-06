@@ -4,8 +4,8 @@
 #ifndef GNEISS_SRC_GAME_GAME_CONTEXT_INTERNAL_HPP_
 #define GNEISS_SRC_GAME_GAME_CONTEXT_INTERNAL_HPP_
 
-#include <gneiss/application.h>
-#include <gneiss/game_module.h>
+#include <gneiss/engine/application.h>
+#include <gneiss/engine/game_module.h>
 
 #include <string_view>
 

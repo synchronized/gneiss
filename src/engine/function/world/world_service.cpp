@@ -7,8 +7,8 @@
 #include "engine/function/world/render_snapshot.hpp"
 #include "engine/function/world/world_state.hpp"
 
-#include <gneiss/scene.h>
-#include <gneiss/world.h>
+#include <gneiss/engine/scene.h>
+#include <gneiss/engine/world.h>
 
 #include <cmath>
 #include <limits>

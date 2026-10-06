@@ -5,7 +5,7 @@
 
 ## 当前范围
 
-`<gneiss/reflection.h>` 提供 C11 Type Registry 和实验性元数据查询；`<gneiss/reflection.hpp>` 提供
+`<gneiss/engine/reflection.h>` 提供 C11 Type Registry 和实验性元数据查询；`<gneiss/engine/reflection.hpp>` 提供
 独占 RAII 包装。当前接口描述类型和字段，并通过显式绑定的适配器提供类型安全属性读写；内建注册
 已接入 Transform 和 Camera，但尚不提供对象构造、继承或序列化迁移。
 

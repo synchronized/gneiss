@@ -8,7 +8,7 @@
 #include "engine/function/render/render_resource_data.hpp"
 #include "engine/function/render/texture_view.hpp"
 
-#include <gneiss/render.h>
+#include <gneiss/engine/render.h>
 
 #include <array>
 #include <cstddef>

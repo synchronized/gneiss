@@ -5,7 +5,7 @@
 
 ## 稳定性
 
-`<gneiss/game_module.h>` 提供 0.12.0 开始使用的 Experimental 原生 Game Module C ABI。该接口尚未
+`<gneiss/engine/game_module.h>` 提供 0.12.0 开始使用的 Experimental 原生 Game Module C ABI。该接口尚未
 进入 Stable 兼容承诺；升级 Gneiss 后应重新编译模块，并在加载时校验 ABI 版本。
 
 当前版本已实现动态库加载会话、Game Context、Runtime 帧调度及 Editor 构建工作流。v2 工程声明
@@ -74,7 +74,7 @@ World、实体和动作均为借用值，不得在 Context 销毁后继续使用
 
 ## C++ 包装
 
-`<gneiss/game_module.hpp>` 提供：
+`<gneiss/engine/game_module.hpp>` 提供：
 
 - `gneiss::game_context`：不拥有底层句柄的强类型包装，并转发上述受控访问能力。
 - `gneiss::game_module_abi_version` 与 `gneiss::game_module_query_symbol`：编译期常量。

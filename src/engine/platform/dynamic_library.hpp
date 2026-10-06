@@ -4,7 +4,7 @@
 #ifndef GNEISS_SRC_PLATFORM_DYNAMIC_LIBRARY_HPP_
 #define GNEISS_SRC_PLATFORM_DYNAMIC_LIBRARY_HPP_
 
-#include <gneiss/core/result.hpp>
+#include <gneiss/engine/core/result.hpp>
 
 #include <filesystem>
 
