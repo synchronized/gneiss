@@ -2,17 +2,25 @@
 # Copyright (c) 2026 Gneiss contributors
 
 cmake_minimum_required(VERSION 3.23)
-set(fixture "${GNEISS_BINARY_DIR}/cpp-inventory-fixture")
-file(MAKE_DIRECTORY "${fixture}/src/engine/api" "${fixture}/abi" "${fixture}/docs/records/artifacts")
+# 每次重建专用夹具，避免公共头迁移后残留旧文件；删除前确认位于构建目录内。
+file(REAL_PATH "${GNEISS_BINARY_DIR}" fixture_root)
+set(fixture "${fixture_root}/cpp-inventory-fixture")
+file(REAL_PATH "${fixture}" resolved_fixture)
+cmake_path(IS_PREFIX fixture_root "${resolved_fixture}" NORMALIZE fixture_in_build)
+if(NOT fixture_in_build OR resolved_fixture STREQUAL fixture_root)
+  message(FATAL_ERROR "清单夹具路径不在构建目录内：${resolved_fixture}")
+endif()
+file(REMOVE_RECURSE "${fixture}")
+file(MAKE_DIRECTORY "${fixture}/src/engine/api" "${fixture}/abi")
 file(MAKE_DIRECTORY "${fixture}/include")
 file(COPY "${GNEISS_SOURCE_DIR}/include/gneiss" DESTINATION "${fixture}/include")
 configure_file("${GNEISS_SOURCE_DIR}/abi/api-stability.txt" "${fixture}/abi/api-stability.txt" COPYONLY)
-configure_file("${GNEISS_SOURCE_DIR}/docs/records/artifacts/0.45-api-inventory.json"
-  "${fixture}/docs/records/artifacts/0.45-api-inventory.json" COPYONLY)
-configure_file("${GNEISS_SOURCE_DIR}/docs/records/artifacts/0.45-type-inventory.json"
-  "${fixture}/docs/records/artifacts/0.45-type-inventory.json" COPYONLY)
-file(READ "${fixture}/docs/records/artifacts/0.45-type-inventory.json" type_inventory)
-file(READ "${fixture}/docs/records/artifacts/0.45-api-inventory.json" inventory)
+configure_file("${GNEISS_SOURCE_DIR}/abi/cpp-api-inventory.json"
+  "${fixture}/abi/cpp-api-inventory.json" COPYONLY)
+configure_file("${GNEISS_SOURCE_DIR}/abi/cpp-type-inventory.json"
+  "${fixture}/abi/cpp-type-inventory.json" COPYONLY)
+file(READ "${fixture}/abi/cpp-type-inventory.json" type_inventory)
+file(READ "${fixture}/abi/cpp-api-inventory.json" inventory)
 string(JSON count LENGTH "${inventory}" functions)
 math(EXPR last "${count} - 1")
 set(complete "")
@@ -64,8 +72,8 @@ foreach(case IN ITEMS valid missing duplicate extra pending unowned unwrapped un
       file(WRITE "${fixture}/include/gneiss/inventory_probe.h" "#define GNEISS_INVENTORY_PROBE 1\n")
     endif()
   endif()
-  file(WRITE "${fixture}/docs/records/artifacts/0.45-type-inventory.json" "${probe_types}")
-  file(WRITE "${fixture}/docs/records/artifacts/0.45-api-inventory.json" "${probe_inventory}")
+  file(WRITE "${fixture}/abi/cpp-type-inventory.json" "${probe_types}")
+  file(WRITE "${fixture}/abi/cpp-api-inventory.json" "${probe_inventory}")
   file(WRITE "${fixture}/src/engine/api/probe.cpp" "${content}")
   execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
     -P "${GNEISS_SOURCE_DIR}/cmake/check_cpp_inventory.cmake"

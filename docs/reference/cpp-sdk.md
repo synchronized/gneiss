@@ -50,7 +50,10 @@ C++ 回调仍使用 C 函数指针与显式上下文；捕获状态需由调用�
 
 ## 审查依据
 
-当前版本的[函数清单](../records/artifacts/0.45-api-inventory.json)记录 C++ 入口与测试；
-[类型清单](../records/artifacts/0.45-type-inventory.json)枚举公共类型（含回调）和宏，包括生成版本头模板。
+当前版本的[函数清单](../../abi/cpp-api-inventory.json)记录 C++ 入口与测试；
+[类型清单](../../abi/cpp-type-inventory.json)枚举公共类型（含回调）和宏，包括生成版本头模板。
 头保护宏不计入，平台条件下重复定义的导出宏只登记一次。清单检查验证新增/遗漏，不代替语义审查。
 具体错误输出、所属线程和失效行为以模块 Reference 为准。
+
+公共功能头的规范路径为 `<gneiss/engine/模块.hpp>`，根总入口保持 `<gneiss/gneiss.hpp>`。
+旧路径继续通过兼容头转发；详细规则见[公共头路径](../concepts/repository-layout.md#公共头路径)。

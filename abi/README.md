@@ -10,3 +10,8 @@
 
 `api-stability.txt` 为每个当前导出符号记录 `stable` 或 `experimental`。测试要求清单与基线集合完全
 一致，拒绝未知级别、重复、遗漏和基线外符号。
+
+## 当前 C++ 映射清单
+
+`cpp-api-inventory.json` 和 `cpp-type-inventory.json` 随当前公共头维护，供覆盖检查使用。
+0.45 发布时的原始清单仍保留在 `docs/records/artifacts/`，不随目录整理回写历史证据。

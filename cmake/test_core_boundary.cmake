@@ -20,7 +20,7 @@ file(WRITE "${fixture}/src/engine/asset/png_decoder.cpp" "#include <gneiss/core/
 file(WRITE "${fixture}/src/engine/core/reflection/probe.cpp" "#include <gneiss/reflection.h>\n")
 file(WRITE "${fixture}/src/engine/function/world/probe.cpp" "#include <gneiss/render.h>\n")
 file(WRITE "${fixture}/src/engine/function/application/probe.cpp" "#include <gneiss/application.h>\n")
-foreach(content IN ITEMS "extern \"C\" int forbidden();" "#include <gneiss/application.hpp>")
+foreach(content IN ITEMS "extern \"C\" int forbidden();" "#include <gneiss/application.hpp>" "#include <gneiss/engine/application.hpp>")
   file(WRITE "${fixture}/src/engine/core/probe.cpp" "${content}\n")
   execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
     -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
@@ -54,7 +54,7 @@ if(NOT status EQUAL 0)
   message(FATAL_ERROR "World 边界检查错误拒绝共享值类型")
 endif()
 
-foreach(content IN ITEMS "extern \"C\" int forbidden();" "#include <gneiss/application.hpp>"
+foreach(content IN ITEMS "extern \"C\" int forbidden();" "#include <gneiss/application.hpp>" "#include <gneiss/engine/application.hpp>"
     "auto result = gneiss_application_destroy(application);")
   file(WRITE "${fixture}/src/engine/function/application/probe.cpp" "${content}\n")
   execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
@@ -123,7 +123,7 @@ endif()
 
 foreach(header IN ITEMS "application/state.hpp" "engine/platform/native_window_info.hpp"
     "engine/function/world/state.hpp" "asset/cache.hpp" "apps/editor/session.hpp"
-    "gneiss/application.h")
+    "gneiss/application.h" "gneiss/engine/application.h")
   file(WRITE "${fixture}/src/engine/core/probe.cpp" "#include <${header}>\n")
   execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
     -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"

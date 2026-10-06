@@ -2,7 +2,7 @@
 # Copyright (c) 2026 Gneiss contributors
 
 cmake_minimum_required(VERSION 3.23)
-file(READ "${GNEISS_SOURCE_DIR}/docs/records/artifacts/0.45-api-inventory.json" inventory)
+file(READ "${GNEISS_SOURCE_DIR}/abi/cpp-api-inventory.json" inventory)
 string(JSON count LENGTH "${inventory}" functions)
 math(EXPR last "${count} - 1")
 set(symbols)

@@ -4,19 +4,19 @@
 #ifndef GNEISS_GNEISS_HPP_
 #define GNEISS_GNEISS_HPP_
 
-#include <gneiss/application.hpp>
-#include <gneiss/asset.hpp>
-#include <gneiss/core/entity.hpp>
-#include <gneiss/core/result.hpp>
-#include <gneiss/core/rid.hpp>
-#include <gneiss/game_module.hpp>
+#include <gneiss/engine/application.hpp>
+#include <gneiss/engine/asset.hpp>
+#include <gneiss/engine/core/entity.hpp>
+#include <gneiss/engine/core/result.hpp>
+#include <gneiss/engine/core/rid.hpp>
+#include <gneiss/engine/game_module.hpp>
+#include <gneiss/engine/input.hpp>
+#include <gneiss/engine/log.hpp>
+#include <gneiss/engine/reflection.hpp>
+#include <gneiss/engine/render.hpp>
+#include <gneiss/engine/scene.hpp>
+#include <gneiss/engine/world.hpp>
 #include <gneiss/gneiss.h>
-#include <gneiss/input.hpp>
-#include <gneiss/log.hpp>
-#include <gneiss/reflection.hpp>
-#include <gneiss/render.hpp>
-#include <gneiss/scene.hpp>
-#include <gneiss/world.hpp>
 
 #include <cstdint>
 

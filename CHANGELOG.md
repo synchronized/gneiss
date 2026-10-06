@@ -7,6 +7,8 @@
 
 ## 未发布
 
+- Engine 公共功能头整理到 `gneiss/engine/`，保留根总入口及旧路径转发兼容，不改变 ABI。
+
 ## 0.45.0 - 2026-10-06
 
 - 内部实现按 Engine 的 Core/Platform/Asset/Function 分层，C ABI 适配集中到 `src/engine/api/`；公共头路径保持兼容。
