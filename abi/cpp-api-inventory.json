@@ -607,7 +607,7 @@
         "gneiss.cpp-resource-ownership"
       ],
       "cpp_entry": "gneiss::mesh::create",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_mesh_destroy",
@@ -621,7 +621,7 @@
         "gneiss.cpp-resource-ownership"
       ],
       "cpp_entry": "gneiss::mesh::reset / destructor",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_material_create",
@@ -635,7 +635,7 @@
         "gneiss.cpp-resource-ownership"
       ],
       "cpp_entry": "gneiss::material::create",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_material_destroy",
@@ -649,7 +649,7 @@
         "gneiss.cpp-resource-ownership"
       ],
       "cpp_entry": "gneiss::material::reset / destructor",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_texture_create",
@@ -663,7 +663,7 @@
         "gneiss.cpp-resource-ownership"
       ],
       "cpp_entry": "gneiss::texture::create",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_texture_destroy",
@@ -677,7 +677,7 @@
         "gneiss.cpp-resource-ownership"
       ],
       "cpp_entry": "gneiss::texture::reset / destructor",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_application_submit_ui_draw_list",
@@ -689,10 +689,11 @@
       "ownership": "仅 update 回调中提交；返回前复制顶点/索引/命令数组，同帧成功提交替换原值；纹理 RID 仍借用资源",
       "tests": [
         "gneiss.c_application",
-        "gneiss.granit_platform"
+        "gneiss.granit_platform",
+        "gneiss.cpp-draw-submission"
       ],
       "cpp_entry": "gneiss::application::submit_ui_draw_list",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_application_submit_debug_draw_list",
@@ -703,10 +704,11 @@
       "review": "reviewed",
       "ownership": "仅 update 回调中复制线段数组；同帧成功提交替换，帧后失效，不取得调用方数组所有权",
       "tests": [
-        "gneiss.granit_platform"
+        "gneiss.granit_platform",
+        "gneiss.cpp-draw-submission"
       ],
       "cpp_entry": "gneiss::application::submit_debug_draw_list",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_world_entity_set_camera",
@@ -768,7 +770,7 @@
         "gneiss.c_world"
       ],
       "cpp_entry": "gneiss::world_ref::remove_camera / gneiss::world",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_world_set_active_camera",
@@ -783,7 +785,7 @@
         "gneiss.c_world"
       ],
       "cpp_entry": "gneiss::world_ref::set_active_camera / gneiss::world",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_world_get_active_camera",
@@ -798,7 +800,7 @@
         "gneiss.c_world"
       ],
       "cpp_entry": "gneiss::world_ref::get_active_camera / gneiss::world",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_world_entity_set_mesh_renderer",
@@ -826,7 +828,7 @@
         "gneiss.cpp-resource-ownership"
       ],
       "cpp_entry": "gneiss::world_ref::remove_mesh_renderer / gneiss::world",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_scene_node_create",

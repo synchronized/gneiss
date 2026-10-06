@@ -1129,3 +1129,11 @@ endif()
 if(TARGET gneiss_editor_ui)
   add_subdirectory(editor)
 endif()
+
+# 原生 C++ 绘制描述、借用数组和提交阶段的端到端验证。
+add_executable(gneiss_cpp_draw_submission_test cpp_draw_submission_test.cpp)
+target_link_libraries(gneiss_cpp_draw_submission_test PRIVATE gneiss::engine)
+target_compile_features(gneiss_cpp_draw_submission_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_cpp_draw_submission_test)
+gneiss_target_output_directories(gneiss_cpp_draw_submission_test)
+add_test(NAME gneiss.cpp-draw-submission COMMAND gneiss_cpp_draw_submission_test)

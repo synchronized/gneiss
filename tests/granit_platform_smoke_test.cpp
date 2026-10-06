@@ -95,21 +95,19 @@ int main() {
       gneiss::mesh_vertex{.x = -0.6F, .y = -0.5F, .z = 0.0F, .u = 0.0F, .v = 0.0F},
       gneiss::mesh_vertex{.x = 0.6F, .y = -0.5F, .z = 0.0F, .u = 1.0F, .v = 0.0F},
       gneiss::mesh_vertex{.x = 0.0F, .y = 0.6F, .z = 0.0F, .u = 0.5F, .v = 1.0F}};
-  gneiss::mesh_desc mesh_desc = GNEISS_MESH_DESC_INIT;
-  mesh_desc.vertices = vertices.data();
-  mesh_desc.vertex_count = static_cast<std::uint32_t>(vertices.size());
-  gneiss::material_desc material_desc = GNEISS_MATERIAL_DESC_INIT;
+  gneiss::mesh_desc mesh_desc{};
+  mesh_desc.vertices = vertices;
+  gneiss::material_desc material_desc{};
   material_desc.red = 0.95F;
   material_desc.green = 0.35F;
   material_desc.blue = 0.12F;
   constexpr std::array<std::uint8_t, 16> pixels{255, 255, 255, 255, 32,  64,  255, 255,
                                                 32,  64,  255, 255, 255, 255, 255, 255};
-  gneiss::texture_desc texture_desc = GNEISS_TEXTURE_DESC_INIT;
+  gneiss::texture_desc texture_desc{};
   texture_desc.width = 2;
   texture_desc.height = 2;
   texture_desc.row_stride_bytes = 8;
-  texture_desc.pixel_data_size = pixels.size();
-  texture_desc.pixels = pixels.data();
+  texture_desc.pixels = pixels;
   gneiss::mesh_id mesh;
   gneiss::material_id material;
   gneiss::material_id plain_material;
@@ -143,7 +141,7 @@ int main() {
     std::fprintf(stderr, "测试基础资源创建失败\n");
     return 2;
   }
-  material_desc.base_color_texture = texture.get();
+  material_desc.base_color_texture = texture;
   if (application.create_material(material_desc, material) != gneiss::result::success) {
     std::fprintf(stderr, "测试资源创建失败\n");
     return 2;

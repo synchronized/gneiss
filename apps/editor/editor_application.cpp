@@ -240,24 +240,19 @@ gneiss::result submit_editor_grid(gneiss_application application, const editor_s
                    .end = {2.0F, 0.0F, 0.0F},
                    .color_rgba8 = IM_COL32(243, 139, 168, 255),
                    .width = 2.0F,
-                   .depth_test = 1U,
-                   .reserved = {}});
+                   .depth_test = true});
   lines.push_back({.start = {0.0F, 0.0F, 0.0F},
                    .end = {0.0F, 2.0F, 0.0F},
                    .color_rgba8 = IM_COL32(166, 227, 161, 255),
                    .width = 2.0F,
-                   .depth_test = 1U,
-                   .reserved = {}});
+                   .depth_test = true});
   lines.push_back({.start = {0.0F, 0.0F, 0.0F},
                    .end = {0.0F, 0.0F, 2.0F},
                    .color_rgba8 = IM_COL32(137, 180, 250, 255),
                    .width = 2.0F,
-                   .depth_test = 1U,
-                   .reserved = {}});
-  gneiss::debug_draw_list_desc desc = GNEISS_DEBUG_DRAW_LIST_DESC_INIT;
-  desc.line_count = static_cast<std::uint32_t>(lines.size());
-  desc.lines = lines.data();
-  return gneiss::from_native(gneiss_application_submit_debug_draw_list(application, &desc));
+                   .depth_test = true});
+  const gneiss::debug_draw_list_desc desc{.lines = lines};
+  return gneiss::application_ref{application}.submit_debug_draw_list(desc);
 }
 
 void draw_view_axis(const editor_state& state, const ImVec2& minimum, const ImVec2& size) noexcept {

@@ -20,7 +20,8 @@ Application 配置/回调、输入和日志接口已使用原生 C++ 类型；�
 | Application 所属 World | `world_ref` | 借用；不能调用拥有者的销毁/转移操作 |
 | 结果、版本、日志级别 | `result`、`version`、`log_severity` | 值；结果不通过异常报告 |
 | Transform、Camera、MeshRenderer | 独立 C++ 值、数组与资源 ID | 逐字段适配 C ABI，不共享类型布局 |
-| 其他 Render/Scene 描述 | 待迁移的 C 值别名 | 结构含指针不代表复制了指向的数据 |
+| Render 描述 | 原生枚举、资源 ID、数组值与 span | 输入借用至调用返回；属性转换临时分配，C ABI 内部再复制到资源 |
+| 其他 Scene 描述 | 待迁移的 C 值别名 | 结构含指针不代表复制了指向的数据 |
 | 输入事件、键盘/指针/动作快照 | 独立结构、强类型枚举与 variant | 自有快照，默认构造，详见[输入接口](input.md) |
 | 日志提交消息 | `log_message`，字段使用 `log_severity`、`string_view`、`result` | 借用文本至同步提交返回，详见[日志契约](logging.md#c-日志提交) |
 | World 创建描述、反射元数据、Game Module 描述 | 直接使用 `gneiss_*` C 值 | 由对应操作决定复制与借用，见下表及模块参考 |
@@ -82,3 +83,18 @@ World 节点和实体的变换读写、Prefab 来源变换设置使用此类型�
 `mesh_renderer` 的 `mesh` 与 `material` 分别为 `mesh_id` 和 `material_id`，仅借用资源，
 可用资源拥有者的 `id()` 填入，不延长父 Application 或资源寿命。需要 C ABI 值时显式调用
 `to_native`；从 C 值构造则使用 `from_native`。
+
+### Render 描述与临时数组
+
+`mesh_desc` 的顶点、法线、切线、第二组 UV、颜色和索引使用 `span`；`texture_desc::pixels`
+使用字节 span。`material_desc` 的 Alpha 模式、采样模式是枚举，纹理是 `texture_id`，
+双面开关为 bool。各描述默认构造，无需填写 C 布局大小或数组计数。
+
+网格属性、UI 顶点/命令和调试线段在包装内逐元素转换为临时 C 数组；像素与索引直接借用。
+转换数组和输入借用都只持续至同步调用返回，成功后由底层复制到资源或当前帧。
+这一步有临时分配成本；内存不足返回 `out_of_memory`，计数超过 ABI 表达范围返回
+`invalid_argument`，资源拥有者和输出 ID 在失败时保持原值。包装不强转两种元素的指针。
+显式 `to_native(texture_desc)` 仍借用原像素，不能超过像素存储寿命。
+
+`application_ref::submit_ui_draw_list` / `submit_debug_draw_list` 只允许 update 回调内调用；
+原生描述不会改变所属线程、同帧替换或帧结束失效的规则。

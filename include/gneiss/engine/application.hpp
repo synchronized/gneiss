@@ -85,47 +85,51 @@ public:
     return texture::create(handle_, desc, output);
   }
   [[nodiscard]] result create_mesh(const mesh_desc& desc, mesh_id& out_mesh) const noexcept {
-    gneiss_mesh handle = GNEISS_NULL_MESH;
-    const auto native_result = gneiss_mesh_create(handle_, &desc, &handle);
-    if (native_result == GNEISS_SUCCESS) {
-      out_mesh = mesh_id{handle};
+    mesh candidate;
+    const auto status = mesh::create(handle_, desc, candidate);
+    if (status.ok()) {
+      out_mesh = candidate.release();
     }
-    return from_native(native_result);
+    return status;
   }
   [[nodiscard]] result destroy_mesh(mesh_id mesh) const noexcept {
     return from_native(gneiss_mesh_destroy(handle_, mesh.get()));
   }
   [[nodiscard]] result create_material(const material_desc& desc,
                                        material_id& out_material) const noexcept {
-    gneiss_material handle = GNEISS_NULL_MATERIAL;
-    const auto native_result = gneiss_material_create(handle_, &desc, &handle);
-    if (native_result == GNEISS_SUCCESS) {
-      out_material = material_id{handle};
+    material candidate;
+    const auto status = material::create(handle_, desc, candidate);
+    if (status.ok()) {
+      out_material = candidate.release();
     }
-    return from_native(native_result);
+    return status;
   }
   [[nodiscard]] result destroy_material(material_id material) const noexcept {
     return from_native(gneiss_material_destroy(handle_, material.get()));
   }
   [[nodiscard]] result create_texture(const texture_desc& desc,
                                       texture_id& out_texture) const noexcept {
-    gneiss_texture handle = GNEISS_NULL_TEXTURE;
-    const auto native_result = gneiss_texture_create(handle_, &desc, &handle);
-    if (native_result == GNEISS_SUCCESS) {
-      out_texture = texture_id{handle};
+    texture candidate;
+    const auto status = texture::create(handle_, desc, candidate);
+    if (status.ok()) {
+      out_texture = candidate.release();
     }
-    return from_native(native_result);
+    return status;
   }
   [[nodiscard]] result destroy_texture(texture_id texture) const noexcept {
     return from_native(gneiss_texture_destroy(handle_, texture.get()));
   }
   /** 仅在 update 中提交当帧 UI；数组在返回前复制，纹理 RID 仍借用所属 Application 的资源。 */
   [[nodiscard]] result submit_ui_draw_list(const ui_draw_list_desc& desc) const noexcept {
-    return from_native(gneiss_application_submit_ui_draw_list(handle_, &desc));
+    return detail::with_render_desc(desc, [&](const auto& native) {
+      return gneiss_application_submit_ui_draw_list(handle_, &native);
+    });
   }
   /** 仅在 update 中提交当帧调试线段；复制数组，不取得调用方所有权。 */
   [[nodiscard]] result submit_debug_draw_list(const debug_draw_list_desc& desc) const noexcept {
-    return from_native(gneiss_application_submit_debug_draw_list(handle_, &desc));
+    return detail::with_render_desc(desc, [&](const auto& native) {
+      return gneiss_application_submit_debug_draw_list(handle_, &native);
+    });
   }
   /** 消息字符串在返回前复制，可从工作线程提交；不得与本包装的移动/reset 并发。
    * 接收回调串行执行，不能重入日志；回调 userdata 必须存活至 Application 关闭完成。 */
