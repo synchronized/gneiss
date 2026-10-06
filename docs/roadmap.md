@@ -801,3 +801,10 @@ M-301～M-306 已完成，[0.47.0 已发布](versions/0.47.0.md)。现有 Engine
 旧转发头已删除；保持 C ABI，不开发插件或公开 Editor API。
 范围见 [VER-047](plans/VER-047-0.47.0-native-cpp-sdk.md)，
 实施顺序见 [DEV-047](plans/DEV-047-native-cpp-sdk.md)。
+
+## 0.48.0：C++ SDK 可读性与调用一致性
+
+实施中：Application/World 样板已纳入 M-307，继续推进其他公共 C++ 模块的职责整理。
+保持现有 result、输出参数与 C ABI 契约，不加入插件或 Editor API 开发。
+范围见 [VER-048](plans/VER-048-0.48.0-cpp-sdk-readability.md)，
+进度与验收见 [DEV-048](plans/DEV-048-cpp-sdk-readability.md)。

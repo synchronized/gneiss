@@ -74,6 +74,9 @@
 
 ## 路线图与开发计划
 
+- [VER-048：0.48.0 C++ SDK 可读性与调用一致性](plans/VER-048-0.48.0-cpp-sdk-readability.md)
+- [DEV-048：C++ SDK 可读性与调用一致性开发计划](plans/DEV-048-cpp-sdk-readability.md)
+
 - [VER-047：0.47.0 原生 C++ SDK 与公共头收口](plans/VER-047-0.47.0-native-cpp-sdk.md)
 - [SDK-001：Application 与 World 可读性样板](plans/SDK-001-application-world-readability.md)
 - [DEV-047：原生 C++ SDK 与公共头收口开发计划](plans/DEV-047-native-cpp-sdk.md)
