@@ -44,7 +44,8 @@ template <typename Owner, auto Create, auto Destroy> bool verify_standalone() {
     return false;
   }
   auto transferred = third.release();
-  if constexpr (std::is_same_v<Owner, gneiss::application>) {
+  if constexpr (std::is_same_v<Owner, gneiss::application> ||
+                std::is_same_v<Owner, gneiss::type_registry>) {
     if (third.get() != 0U || transferred.get() == 0U || transferred.reset().failed())
       return false;
   } else {

@@ -124,3 +124,11 @@ Mesh、Material、Texture、UI 和 Debug Draw 已替换 C 别名，所有数组�
 共享全量构建通过，Scene/Prefab/Editor 与清单回归 10/10 通过；静态场景与令牌回归 3/3 通过。
 两类安装消费者各 3/3 通过。新增测试覆盖失败查询保留输出和 UUID 映射恢复，既有保存、Gizmo、
 作者事务与 Prefab 作者操作继续通过。Reflection、Game Module 边界审计与最终发布矩阵尚未完成。
+
+### M-304：Reflection 原生值与稳定回调
+
+已实现原生 Type/Field ID、注册描述、拥有字段数组的查询输出与 variant 属性值。
+访问器回调表稳定保存，重复绑定复用适配记录但不绕过冻结检查；release/adopt 同时转移存储。
+普通属性检查示例已迁移，现有 Editor 的 C 属性值边界显式使用 `_native` 互操作，未重构 Editor API。
+共享全量构建和相关回归 10/10 通过；新增原生访问器测试覆盖临时描述、失败输出保留、全量属性值转换、
+重复/冲突绑定、冻结限制、移动、释放与接管及畸形 getter 输出。Game Module 审计和最终发布矩阵仍待完成。

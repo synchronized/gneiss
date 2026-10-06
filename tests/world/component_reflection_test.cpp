@@ -33,9 +33,9 @@ int main() {
   }
 
   gneiss_type_info type_info{};
-  if (registry.find_type(gneiss_transform_type_id(), type_info) != gneiss::result::success ||
+  if (registry.find_type_native(gneiss_transform_type_id(), type_info) != gneiss::result::success ||
       type_info.field_count != 3U ||
-      registry.find_type(gneiss_camera_type_id(), type_info) != gneiss::result::success ||
+      registry.find_type_native(gneiss_camera_type_id(), type_info) != gneiss::result::success ||
       type_info.field_count != 4U) {
     return 2;
   }
@@ -45,31 +45,31 @@ int main() {
                                               .object = missing_component.get()};
   const gneiss_property_target cross_world_target{.context = second.get(), .object = entity.get()};
   gneiss_property_value value = GNEISS_PROPERTY_VALUE_INIT;
-  if (registry.get_property(gneiss_transform_type_id(), GNEISS_TRANSFORM_FIELD_TRANSLATION, target,
-                            value) != gneiss::result::success ||
+  if (registry.get_property_native(gneiss_transform_type_id(), GNEISS_TRANSFORM_FIELD_TRANSLATION,
+                                   target, value) != gneiss::result::success ||
       value.kind != GNEISS_PROPERTY_KIND_VEC3 || !nearly_equal(value.payload.vec3_value.x, 0.0F)) {
     return 3;
   }
   value.kind = GNEISS_PROPERTY_KIND_VEC3;
   value.payload.vec3_value = {.x = 2.0F, .y = 3.0F, .z = 4.0F};
-  if (registry.set_property(gneiss_transform_type_id(), GNEISS_TRANSFORM_FIELD_TRANSLATION, target,
-                            value) != gneiss::result::success) {
+  if (registry.set_property_native(gneiss_transform_type_id(), GNEISS_TRANSFORM_FIELD_TRANSLATION,
+                                   target, value) != gneiss::result::success) {
     return 4;
   }
   gneiss::transform transform{};
   if (first.get_local_transform(entity, transform) != gneiss::result::success ||
       !nearly_equal(transform.translation[0], 2.0F) ||
-      registry.get_property(gneiss_transform_type_id(), GNEISS_TRANSFORM_FIELD_TRANSLATION,
-                            missing_target, value) != gneiss::result::not_found ||
-      registry.get_property(gneiss_transform_type_id(), GNEISS_TRANSFORM_FIELD_TRANSLATION,
-                            cross_world_target, value) != gneiss::result::invalid_handle) {
+      registry.get_property_native(gneiss_transform_type_id(), GNEISS_TRANSFORM_FIELD_TRANSLATION,
+                                   missing_target, value) != gneiss::result::not_found ||
+      registry.get_property_native(gneiss_transform_type_id(), GNEISS_TRANSFORM_FIELD_TRANSLATION,
+                                   cross_world_target, value) != gneiss::result::invalid_handle) {
     return 5;
   }
 
   value.kind = GNEISS_PROPERTY_KIND_VEC3;
   value.payload.vec3_value = {.x = 0.0F, .y = 1.0F, .z = 1.0F};
-  if (registry.set_property(gneiss_transform_type_id(), GNEISS_TRANSFORM_FIELD_SCALE, target,
-                            value) != gneiss::result::invalid_argument ||
+  if (registry.set_property_native(gneiss_transform_type_id(), GNEISS_TRANSFORM_FIELD_SCALE, target,
+                                   value) != gneiss::result::invalid_argument ||
       first.get_local_transform(entity, transform) != gneiss::result::success ||
       !nearly_equal(transform.scale[0], 1.0F)) {
     return 6;
@@ -78,32 +78,32 @@ int main() {
   gneiss::camera_desc camera{};
   if (first.configure_camera(entity, camera) != gneiss::result::success ||
       first.set_active_camera(entity) != gneiss::result::success ||
-      registry.get_property(gneiss_camera_type_id(), GNEISS_CAMERA_FIELD_IS_PRIMARY, target,
-                            value) != gneiss::result::success ||
+      registry.get_property_native(gneiss_camera_type_id(), GNEISS_CAMERA_FIELD_IS_PRIMARY, target,
+                                   value) != gneiss::result::success ||
       value.kind != GNEISS_PROPERTY_KIND_BOOL || value.payload.bool_value != 1U) {
     return 7;
   }
   value.kind = GNEISS_PROPERTY_KIND_FLOAT32;
   value.payload.float32_value = 0.5F;
-  if (registry.set_property(gneiss_camera_type_id(), GNEISS_CAMERA_FIELD_NEAR_PLANE, target,
-                            value) != gneiss::result::success ||
+  if (registry.set_property_native(gneiss_camera_type_id(), GNEISS_CAMERA_FIELD_NEAR_PLANE, target,
+                                   value) != gneiss::result::success ||
       first.get_camera(entity, camera) != gneiss::result::success ||
       !nearly_equal(camera.near_plane, 0.5F)) {
     return 8;
   }
   value.payload.float32_value = camera.far_plane + 1.0F;
-  if (registry.set_property(gneiss_camera_type_id(), GNEISS_CAMERA_FIELD_NEAR_PLANE, target,
-                            value) != gneiss::result::invalid_argument ||
+  if (registry.set_property_native(gneiss_camera_type_id(), GNEISS_CAMERA_FIELD_NEAR_PLANE, target,
+                                   value) != gneiss::result::invalid_argument ||
       first.get_camera(entity, camera) != gneiss::result::success ||
       !nearly_equal(camera.near_plane, 0.5F) ||
-      registry.get_property(gneiss_camera_type_id(), GNEISS_CAMERA_FIELD_NEAR_PLANE, missing_target,
-                            value) != gneiss::result::not_found) {
+      registry.get_property_native(gneiss_camera_type_id(), GNEISS_CAMERA_FIELD_NEAR_PLANE,
+                                   missing_target, value) != gneiss::result::not_found) {
     return 9;
   }
 
   if (first.destroy_entity(entity) != gneiss::result::success ||
-      registry.get_property(gneiss_camera_type_id(), GNEISS_CAMERA_FIELD_NEAR_PLANE, target,
-                            value) != gneiss::result::invalid_handle) {
+      registry.get_property_native(gneiss_camera_type_id(), GNEISS_CAMERA_FIELD_NEAR_PLANE, target,
+                                   value) != gneiss::result::invalid_handle) {
     return 10;
   }
   return 0;

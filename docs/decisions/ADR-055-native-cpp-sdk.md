@@ -52,3 +52,16 @@
 原生回调接收 application_ref 和原生参数；函数指针要求 noexcept，调用方在回调内处理异常。
 不承诺把越过 noexcept 的用户异常恢复为结果；这种违反契约的行为由语言终止，不能穿过 C ABI。
 create_native 是显式 C ABI 互操作入口，C 回调与 userdata 继续由调用方管理；它不是 create 的兼容重载。
+
+## Reflection 适配所有权决策
+
+原生属性访问器使用 noexcept 的原生参数回调。Registry 包装持有稳定的适配记录，记录只承载
+C/C++ 回调桥接，不建立第二套元数据注册表。重复绑定相同 Type/Field 与相同回调/user_data
+复用同一记录，保持底层幂等语义；在成功调用 C 绑定前完成所有可能失败的分配。
+
+Registry 的 release 与 Application 一致，返回同时拥有句柄和适配存储的载体；移动、接管和关闭
+必须同步处理两者。user_data 仍由调用方持有到 Registry 关闭，冻结前绑定及销毁遵守 C 契约的
+外部同步要求，不宣称自动注销或延长用户状态寿命。
+
+原生 type_info 拥有转换后的字段数组，字段名称与类型名称仍借用冻结 Registry 的文本。
+查询失败保留原输出，不让输出 span 指向临时转换数组。属性字符串保持适配器规定的借用寿命。

@@ -7,7 +7,7 @@
 
 `<gneiss/gneiss.hpp>` 汇总公共 C++20 SDK；也可以独立包含模块 `.hpp`。
 包装通过 C ABI 操作同一个运行时，不创建第二套注册表、资源或主循环。
-Application 配置/回调、输入和日志接口已使用原生 C++ 类型；其余描述、值类型及回调仍有 C 表达，正在按
+Application、World、Scene、Render、Input、Reflection 和日志接口已使用原生 C++ 类型；Game Module 导出边界仍在按
 [0.47 计划](../plans/VER-047-0.47.0-native-cpp-sdk.md)逐组迁移，尚不能称为全部原生 SDK。
 
 | C 功能 | C++ 表达 | 所有权 |
@@ -24,11 +24,12 @@ Application 配置/回调、输入和日志接口已使用原生 C++ 类型；�
 | Scene 描述与查询 | 原生 ID、变换、标志枚举与 string_view | 输入借用至调用返回；查询文本借用至下次修改/父对象失效 |
 | 输入事件、键盘/指针/动作快照 | 独立结构、强类型枚举与 variant | 自有快照，默认构造，详见[输入接口](input.md) |
 | 日志提交消息 | `log_message`，字段使用 `log_severity`、`string_view`、`result` | 借用文本至同步提交返回，详见[日志契约](logging.md#c-日志提交) |
-| World 创建描述、反射元数据、Game Module 描述 | 直接使用 `gneiss_*` C 值 | 由对应操作决定复制与借用，见下表及模块参考 |
+| 反射元数据与属性 | 原生描述、字段 ID、variant 与 noexcept 回调 | type_info 拥有字段数组，名称和属性字符串按各自约定借用 |
+| World 创建描述与 Game Module 导出 | 无字段配置由 create 内部填入；模块导出仍遵循 C ABI | Game Module 边界审计尚在进行 |
 | 常量、标志、默认初始化器、旧结构大小、构建导出宏 | 输入业务常量使用 C++ 枚举/默认构造，其余仍使用 `GNEISS_*` | 无运行时所有权；初始化器保留 `struct_size` 与保留字段规则 |
 
 拥有者的 `get()`/`id()` 只借用原始身份；`release()` 才转移销毁责任。Application 返回
-携带回调存储的 `released_application` 载体，其余拥有者仍按各自契约转移原始身份。
+携带回调存储的 `released_application` 载体；Registry 返回 `released_type_registry`，其余拥有者按各自契约转移原始身份。
 `operator bool` 或 `is_valid()` 只判断非零，不探测后端是否仍然存在。
 关闭、移动覆盖与父对象先销毁规则以 [Application](application.md#生命周期)、
 [Render](render.md)、[Scene](scene-instance.md) 和 [Reflection](reflection.md) 为准。
@@ -108,3 +109,16 @@ World 节点和实体的变换读写、Prefab 来源变换设置使用此类型�
 普通 Prefab 刷新使用 `scene_prefab_refresh` RAII 令牌；裸 C 令牌互操作分别使用
 `refresh_prefab_instance_native`、`toggle_prefab_refresh_native`、`release_prefab_refresh_native`。
 这些显式入口不会接管裸令牌的销毁责任，不能替代普通拥有者。
+
+### Reflection 的值与生命周期
+
+原生 `type_id`、`field_id`、`field_desc`、`type_desc` 描述注册信息；注册复制文本和字段。
+`type_info` 拥有转换后的字段数组，名称仍借用冻结 Registry 的文本；复制/移动输出不产生临时数组悬空。
+`property_value::payload` 是 variant，`kind()` 由活动类型确定；无独立标签需要手工同步。
+字符串使用 string_view，寿命由访问器约定。普通访问器使用 noexcept 的原生参数，
+`bind_property` 复制回调表，user_data 必须存活到关闭。成功 getter 返回不可表示的值按适配器错误返回 internal。
+
+Registry 的移动、release/adopt 同时转移句柄与回调存储，release 返回 RAII 载体；不能把载体隐式转为整数。
+冻结前注册/绑定及关闭需要调用方遵守外部同步契约；包装不提供注销，不复制第二套元数据注册表。
+显式 C ABI 互操作方法使用 `_native` 后缀；Editor 现有 C 属性值边界及 C 回调异常夹具使用这些入口。
+新示例使用普通原生方法，见 `examples/property_inspector/main.cpp`。

@@ -13,15 +13,14 @@
 
 namespace {
 
-constexpr gneiss_type_id camera_type{{0x30, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1}};
-constexpr gneiss_type_id float_type{{0x10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2}};
+constexpr gneiss::type_id camera_type{{0x30, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1}};
+constexpr gneiss::type_id float_type{{0x10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2}};
 
 bool verify_registry_queries(const gneiss::type_registry& registry) {
   bool frozen{};
-  gneiss_type_info info = GNEISS_TYPE_INFO_INIT;
+  gneiss::type_info info{};
   if (registry.is_frozen(frozen) != gneiss::result::success || !frozen ||
-      registry.type_at(0U, info) != gneiss::result::success ||
-      std::string_view(info.name, info.name_length) != "Camera" ||
+      registry.type_at(0U, info) != gneiss::result::success || info.name != "Camera" ||
       registry.type_at(1U, info) != gneiss::result::not_found) {
     return false;
   }
@@ -37,46 +36,37 @@ int run_tests() {
   }
 
   bool frozen = true;
-  gneiss_type_info early = GNEISS_TYPE_INFO_INIT;
+  gneiss::type_info early{};
   if (registry.is_frozen(frozen) != gneiss::result::success || frozen ||
       registry.type_at(0U, early) != gneiss::result::not_ready) {
     return 20;
   }
   static constexpr std::array fields{
-      gneiss_field_desc{.struct_size = sizeof(gneiss_field_desc),
-                        .id = 2U,
-                        .value_type_id = float_type,
-                        .flags = GNEISS_FIELD_FLAG_READ_ONLY,
-                        .name = "far_plane",
-                        .name_length = 9U},
-      gneiss_field_desc{.struct_size = sizeof(gneiss_field_desc),
-                        .id = 1U,
-                        .value_type_id = float_type,
-                        .flags = 0U,
-                        .name = "field_of_view",
-                        .name_length = 13U},
+      gneiss::field_desc{.id = gneiss::field_id{2U},
+                         .value_type_id = float_type,
+                         .flags = gneiss::field_flags::read_only,
+                         .name = "far_plane"},
+      gneiss::field_desc{.id = gneiss::field_id{1U},
+                         .value_type_id = float_type,
+                         .flags = gneiss::field_flags::none,
+                         .name = "field_of_view"},
   };
-  static constexpr gneiss_type_desc type{.struct_size = sizeof(gneiss_type_desc),
-                                         .id = camera_type,
-                                         .schema_version = 1U,
-                                         .name = "Camera",
-                                         .name_length = 6U,
-                                         .fields = fields.data(),
-                                         .field_count = static_cast<std::uint32_t>(fields.size())};
+  static constexpr gneiss::type_desc type{
+      .id = camera_type, .schema_version = 1U, .name = "Camera", .fields = fields};
   if (registry.register_type(type) != gneiss::result::success ||
       registry.freeze() != gneiss::result::success) {
     return 2;
   }
 
   std::uint32_t count = 0;
-  gneiss_type_info info{};
-  gneiss_field_info field{};
+  gneiss::type_info info{};
+  gneiss::field_info field{};
   if (registry.type_count(count) != gneiss::result::success || count != 1U ||
-      registry.find_type(camera_type, info) != gneiss::result::success || info.field_count != 2U ||
-      info.fields[0].id != 1U || info.fields[1].id != 2U ||
-      registry.find_field(camera_type, 2U, field) != gneiss::result::success ||
-      field.flags != GNEISS_FIELD_FLAG_READ_ONLY ||
-      std::string_view(field.name, field.name_length) != "far_plane") {
+      registry.find_type(camera_type, info) != gneiss::result::success ||
+      info.fields.size() != 2U || info.fields[0].id != gneiss::field_id{1} ||
+      info.fields[1].id != gneiss::field_id{2} ||
+      registry.find_field(camera_type, gneiss::field_id{2}, field) != gneiss::result::success ||
+      field.flags != gneiss::field_flags::read_only || field.name != "far_plane") {
     return 3;
   }
 
@@ -89,9 +79,9 @@ int run_tests() {
   for (std::uint32_t worker = 0; worker < 8U; ++worker) {
     workers.emplace_back([&registry, &queries_succeeded] {
       for (std::uint32_t iteration = 0; iteration < 1000U; ++iteration) {
-        gneiss_type_info queried{};
+        gneiss::type_info queried{};
         if (registry.find_type(camera_type, queried) != gneiss::result::success ||
-            queried.field_count != 2U) {
+            queried.fields.size() != 2U) {
           queries_succeeded = false;
           return;
         }
@@ -106,7 +96,7 @@ int run_tests() {
   }
 
   gneiss::type_registry isolated;
-  gneiss_type_info isolated_info{};
+  gneiss::type_info isolated_info{};
   if (gneiss::type_registry::create(isolated) != gneiss::result::success ||
       isolated.freeze() != gneiss::result::success ||
       isolated.find_type(camera_type, isolated_info) != gneiss::result::not_found) {

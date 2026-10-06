@@ -104,7 +104,7 @@ int main() {
     return 6;
   }
   gneiss::type_registry registry;
-  gneiss_type_info info = GNEISS_TYPE_INFO_INIT;
+  gneiss::type_info info{};
   if (gneiss::type_registry::create(registry) != gneiss::result::success ||
       gneiss::world::register_reflection(registry) != gneiss::result::success ||
       registry.freeze() != gneiss::result::success ||

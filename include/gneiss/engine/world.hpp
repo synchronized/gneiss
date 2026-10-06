@@ -17,11 +17,25 @@
 namespace gneiss {
 
 /** 内建 Transform 的稳定类型标识，值不依赖 World 生命周期。 */
-[[nodiscard]] inline gneiss_type_id transform_type_id() noexcept {
-  return gneiss_transform_type_id();
+[[nodiscard]] inline type_id transform_type_id() noexcept {
+  return from_native(gneiss_transform_type_id());
 }
 /** 内建 Camera 的稳定类型标识，值不依赖 World 生命周期。 */
-[[nodiscard]] inline gneiss_type_id camera_type_id() noexcept { return gneiss_camera_type_id(); }
+[[nodiscard]] inline type_id camera_type_id() noexcept {
+  return from_native(gneiss_camera_type_id());
+}
+
+namespace transform_fields {
+inline constexpr field_id translation{1};
+inline constexpr field_id rotation{2};
+inline constexpr field_id scale{3};
+} // namespace transform_fields
+namespace camera_fields {
+inline constexpr field_id vertical_field_of_view_radians{1};
+inline constexpr field_id near_plane{2};
+inline constexpr field_id far_plane{3};
+inline constexpr field_id is_primary{4};
+} // namespace camera_fields
 
 /** 非拥有 World 视图；销毁视图不销毁 World，父对象失效后操作返回无效句柄。
  * 仅在 World 所属线程调用；is_valid() 只检查本地非零值，不探测存活状态。 */

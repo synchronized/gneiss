@@ -91,3 +91,13 @@ Registry 查询和访问器查找支持并发调用。目标对象是否支持�
 `gneiss::type_registry` 独占 C 句柄，不可复制、可以移动，析构时自动销毁。`create`、`register_type`、
 `bind_property`、`freeze`、查询、`get_property` 和 `set_property` 直接返回 `gneiss::result`，不建立
 第二套元数据或属性状态。
+
+## C++ 原生值与访问器
+
+`type_registry` 的普通注册、查询和属性方法使用独立 C++ 描述、ID 和 variant 属性值。
+`type_info` 拥有字段数组，名称仍借用 Registry；失败查询保留输出，复制数组不延长文本寿命。
+`property_accessor_desc` 使用 noexcept 回调，Registry 复制稳定回调表，调用方持有 user_data 至关闭。
+重复绑定相同回调保持幂等，冻结后的绑定仍由底层拒绝；包装不提供不存在的注销能力。
+Registry 的 release 返回 `released_type_registry`，移动与 adopt 同时转移回调存储和句柄。
+显式 C 值调用使用 `_native` 方法，遵循原 C 错误和借用契约。
+完整普通使用示例见[属性检查示例](../../examples/property_inspector/main.cpp)。

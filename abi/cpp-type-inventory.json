@@ -1282,221 +1282,221 @@
         {
           "symbol": "gneiss_field_desc",
           "kind": "struct",
-          "cpp_mapping": "gneiss_field_desc（原生 C 值/签名，C++ 直接使用）",
-          "native_review": "pending"
+          "cpp_mapping": "gneiss::field_desc",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_field_id",
           "kind": "scalar",
-          "cpp_mapping": "gneiss_field_id（原生 C 值/签名，C++ 直接使用）",
-          "native_review": "pending"
+          "cpp_mapping": "gneiss::field_id",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_field_info",
           "kind": "struct",
-          "cpp_mapping": "gneiss_field_info（原生 C 值/签名，C++ 直接使用）",
-          "native_review": "pending"
+          "cpp_mapping": "gneiss::field_info",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_property_accessor_desc",
           "kind": "struct",
-          "cpp_mapping": "gneiss_property_accessor_desc（原生 C 值/签名，C++ 直接使用）",
-          "native_review": "pending"
+          "cpp_mapping": "gneiss::property_accessor_desc",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_property_getter",
           "kind": "callback",
-          "cpp_mapping": "gneiss_property_getter（原生 C 值/签名，C++ 直接使用）",
-          "native_review": "pending"
+          "cpp_mapping": "decltype(gneiss::property_accessor_desc::getter)",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_property_kind",
           "kind": "scalar",
-          "cpp_mapping": "gneiss_property_kind（原生 C 值/签名，C++ 直接使用）",
-          "native_review": "pending"
+          "cpp_mapping": "gneiss::property_kind",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_property_payload",
           "kind": "union",
-          "cpp_mapping": "gneiss_property_payload（原生 C 值/签名，C++ 直接使用）",
-          "native_review": "pending"
+          "cpp_mapping": "gneiss::property_payload",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_property_quaternion",
           "kind": "struct",
-          "cpp_mapping": "gneiss_property_quaternion（原生 C 值/签名，C++ 直接使用）",
-          "native_review": "pending"
+          "cpp_mapping": "gneiss::property_quaternion",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_property_setter",
           "kind": "callback",
-          "cpp_mapping": "gneiss_property_setter（原生 C 值/签名，C++ 直接使用）",
-          "native_review": "pending"
+          "cpp_mapping": "decltype(gneiss::property_accessor_desc::setter)",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_property_string",
           "kind": "struct",
-          "cpp_mapping": "gneiss_property_string（原生 C 值/签名，C++ 直接使用）",
-          "native_review": "pending"
+          "cpp_mapping": "gneiss::property_string",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_property_target",
           "kind": "struct",
-          "cpp_mapping": "gneiss_property_target（原生 C 值/签名，C++ 直接使用）",
-          "native_review": "pending"
+          "cpp_mapping": "gneiss::property_target",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_property_value",
           "kind": "struct",
-          "cpp_mapping": "gneiss_property_value（原生 C 值/签名，C++ 直接使用）",
-          "native_review": "pending"
+          "cpp_mapping": "gneiss::property_value",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_property_vec3",
           "kind": "struct",
-          "cpp_mapping": "gneiss_property_vec3（原生 C 值/签名，C++ 直接使用）",
-          "native_review": "pending"
+          "cpp_mapping": "gneiss::property_vec3",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_type_desc",
           "kind": "struct",
-          "cpp_mapping": "gneiss_type_desc（原生 C 值/签名，C++ 直接使用）",
-          "native_review": "pending"
+          "cpp_mapping": "gneiss::type_desc",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_type_id",
           "kind": "struct",
-          "cpp_mapping": "gneiss_type_id（原生 C 值/签名，C++ 直接使用）",
-          "native_review": "pending"
+          "cpp_mapping": "gneiss::type_id",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_type_info",
           "kind": "struct",
-          "cpp_mapping": "gneiss_type_info（原生 C 值/签名，C++ 直接使用）",
-          "native_review": "pending"
+          "cpp_mapping": "gneiss::type_info",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_type_registry",
           "kind": "owner",
           "cpp_mapping": "gneiss::type_registry",
-          "native_review": "pending"
+          "native_review": "implemented"
         }
       ],
       "constants": [
         {
           "symbol": "GNEISS_FIELD_DESC_INIT",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::field_desc{}"
         },
         {
           "symbol": "GNEISS_FIELD_FLAG_READ_ONLY",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::field_flags::read_only"
         },
         {
           "symbol": "GNEISS_FIELD_INFO_INIT",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::field_info{}"
         },
         {
           "symbol": "GNEISS_FIELD_INFO_VERSION_1_SIZE",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "abi_only",
+          "cpp_mapping": "仅 C ABI 历史布局大小；包装始终填入当前版本"
         },
         {
           "symbol": "GNEISS_NULL_FIELD_ID",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::null_field_id"
         },
         {
           "symbol": "GNEISS_NULL_TYPE_REGISTRY",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::type_registry{}"
         },
         {
           "symbol": "GNEISS_PROPERTY_ACCESSOR_DESC_INIT",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::property_accessor_desc{}"
         },
         {
           "symbol": "GNEISS_PROPERTY_CAPABILITY_READABLE",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::property_capabilities::readable"
         },
         {
           "symbol": "GNEISS_PROPERTY_CAPABILITY_WRITABLE",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::property_capabilities::writable"
         },
         {
           "symbol": "GNEISS_PROPERTY_KIND_BOOL",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::property_kind::boolean"
         },
         {
           "symbol": "GNEISS_PROPERTY_KIND_FLOAT32",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::property_kind::float32"
         },
         {
           "symbol": "GNEISS_PROPERTY_KIND_FLOAT64",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::property_kind::float64"
         },
         {
           "symbol": "GNEISS_PROPERTY_KIND_INT64",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::property_kind::int64"
         },
         {
           "symbol": "GNEISS_PROPERTY_KIND_INVALID",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::property_kind::invalid"
         },
         {
           "symbol": "GNEISS_PROPERTY_KIND_QUATERNION",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::property_kind::quaternion"
         },
         {
           "symbol": "GNEISS_PROPERTY_KIND_STRING",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::property_kind::string"
         },
         {
           "symbol": "GNEISS_PROPERTY_KIND_TYPE_ID",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::property_kind::type_id"
         },
         {
           "symbol": "GNEISS_PROPERTY_KIND_UINT64",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::property_kind::uint64"
         },
         {
           "symbol": "GNEISS_PROPERTY_KIND_VEC3",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::property_kind::vec3"
         },
         {
           "symbol": "GNEISS_PROPERTY_VALUE_INIT",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::property_value{}"
         },
         {
           "symbol": "GNEISS_TYPE_DESC_INIT",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::type_desc{}"
         },
         {
           "symbol": "GNEISS_TYPE_INFO_INIT",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::type_info{}"
         },
         {
           "symbol": "GNEISS_TYPE_INFO_VERSION_1_SIZE",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "abi_only",
+          "cpp_mapping": "仅 C ABI 历史布局大小；包装始终填入当前版本"
         }
       ]
     },
@@ -2039,23 +2039,23 @@
       "constants": [
         {
           "symbol": "GNEISS_CAMERA_FIELD_FAR_PLANE",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::camera_fields::far_plane"
         },
         {
           "symbol": "GNEISS_CAMERA_FIELD_IS_PRIMARY",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::camera_fields::is_primary"
         },
         {
           "symbol": "GNEISS_CAMERA_FIELD_NEAR_PLANE",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::camera_fields::near_plane"
         },
         {
           "symbol": "GNEISS_CAMERA_FIELD_VERTICAL_FIELD_OF_VIEW_RADIANS",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::camera_fields::vertical_field_of_view_radians"
         },
         {
           "symbol": "GNEISS_NULL_WORLD",
@@ -2064,18 +2064,18 @@
         },
         {
           "symbol": "GNEISS_TRANSFORM_FIELD_ROTATION",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::transform_fields::rotation"
         },
         {
           "symbol": "GNEISS_TRANSFORM_FIELD_SCALE",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::transform_fields::scale"
         },
         {
           "symbol": "GNEISS_TRANSFORM_FIELD_TRANSLATION",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::transform_fields::translation"
         },
         {
           "symbol": "GNEISS_WORLD_DESC_INIT",

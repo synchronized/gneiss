@@ -420,10 +420,11 @@
       "review": "reviewed",
       "ownership": "独占 Registry；可移动，替换时销毁旧对象",
       "tests": [
-        "gneiss.cpp-owner-lifecycle"
+        "gneiss.cpp-owner-lifecycle",
+        "gneiss.native-property-access"
       ],
       "cpp_entry": "gneiss::type_registry::create",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_type_registry_destroy",
@@ -434,10 +435,11 @@
       "review": "reviewed",
       "ownership": "销毁使所有元数据借用失效；允许外部同步后的跨线程关闭；release 转移销毁责任",
       "tests": [
-        "gneiss.cpp-owner-lifecycle"
+        "gneiss.cpp-owner-lifecycle",
+        "gneiss.native-property-access"
       ],
-      "cpp_entry": "gneiss::type_registry::reset / release",
-      "native_review": "pending"
+      "cpp_entry": "gneiss::type_registry::reset / released_type_registry::reset; release/adopt 同时转移回调存储",
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_type_registry_register",
@@ -453,7 +455,7 @@
         "gneiss.reflection-boundary"
       ],
       "cpp_entry": "gneiss::type_registry::register_type",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_type_registry_bind_property",
@@ -466,10 +468,11 @@
       "tests": [
         "gneiss.cpp_reflection",
         "gneiss.property_access",
-        "gneiss.reflection-boundary"
+        "gneiss.reflection-boundary",
+        "gneiss.native-property-access"
       ],
       "cpp_entry": "gneiss::type_registry::bind_property",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_type_registry_freeze",
@@ -485,7 +488,7 @@
         "gneiss.reflection-boundary"
       ],
       "cpp_entry": "gneiss::type_registry::freeze",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_type_registry_is_frozen",
@@ -499,7 +502,7 @@
         "gneiss.cpp_reflection"
       ],
       "cpp_entry": "gneiss::type_registry::is_frozen",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_type_registry_type_count",
@@ -515,7 +518,7 @@
         "gneiss.reflection-boundary"
       ],
       "cpp_entry": "gneiss::type_registry::type_count",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_type_registry_type_at",
@@ -529,7 +532,7 @@
         "gneiss.cpp_reflection"
       ],
       "cpp_entry": "gneiss::type_registry::type_at",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_type_registry_find_type",
@@ -545,7 +548,7 @@
         "gneiss.reflection-boundary"
       ],
       "cpp_entry": "gneiss::type_registry::find_type",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_type_registry_find_field",
@@ -561,7 +564,7 @@
         "gneiss.reflection-boundary"
       ],
       "cpp_entry": "gneiss::type_registry::find_field",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_type_registry_get_property",
@@ -574,10 +577,11 @@
       "tests": [
         "gneiss.cpp_reflection",
         "gneiss.property_access",
-        "gneiss.reflection-boundary"
+        "gneiss.reflection-boundary",
+        "gneiss.native-property-access"
       ],
       "cpp_entry": "gneiss::type_registry::get_property",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_type_registry_set_property",
@@ -590,10 +594,11 @@
       "tests": [
         "gneiss.cpp_reflection",
         "gneiss.property_access",
-        "gneiss.reflection-boundary"
+        "gneiss.reflection-boundary",
+        "gneiss.native-property-access"
       ],
       "cpp_entry": "gneiss::type_registry::set_property",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_mesh_create",
@@ -1502,7 +1507,7 @@
         "gneiss.cpp_world"
       ],
       "cpp_entry": "gneiss::transform_type_id",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_camera_type_id",
@@ -1516,7 +1521,7 @@
         "gneiss.cpp_world"
       ],
       "cpp_entry": "gneiss::camera_type_id",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_world_register_reflection",
@@ -1531,7 +1536,7 @@
         "gneiss.component_reflection"
       ],
       "cpp_entry": "gneiss::world_ref::register_reflection / gneiss::world",
-      "native_review": "pending"
+      "native_review": "implemented"
     }
   ]
 }
