@@ -1832,67 +1832,67 @@
           "symbol": "gneiss_scene_camera_desc",
           "kind": "struct",
           "cpp_mapping": "gneiss::scene_camera_desc",
-          "native_review": "pending"
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_scene_instance",
           "kind": "owner",
           "cpp_mapping": "gneiss::scene_instance",
-          "native_review": "pending"
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_scene_instance_node_info",
           "kind": "struct",
           "cpp_mapping": "gneiss::scene_instance_node_info",
-          "native_review": "pending"
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_scene_mesh_renderer_desc",
           "kind": "struct",
           "cpp_mapping": "gneiss::scene_mesh_renderer_desc",
-          "native_review": "pending"
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_scene_mesh_renderer_node_desc",
           "kind": "struct",
           "cpp_mapping": "gneiss::scene_mesh_renderer_node_desc",
-          "native_review": "pending"
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_scene_node_desc",
           "kind": "struct",
           "cpp_mapping": "gneiss::scene_node_desc",
-          "native_review": "pending"
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_scene_node_id",
           "kind": "borrowed_id",
           "cpp_mapping": "gneiss::scene_node_id",
-          "native_review": "pending"
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_scene_prefab_instance_desc",
           "kind": "struct",
           "cpp_mapping": "gneiss::scene_prefab_instance_desc",
-          "native_review": "pending"
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_scene_prefab_node_info",
           "kind": "struct",
           "cpp_mapping": "gneiss::scene_prefab_node_info",
-          "native_review": "pending"
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_scene_prefab_refresh_token",
           "kind": "owner",
           "cpp_mapping": "gneiss::scene_prefab_refresh",
-          "native_review": "pending"
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_scene_uuid_mapping",
           "kind": "struct",
           "cpp_mapping": "gneiss::scene_uuid_mapping",
-          "native_review": "pending"
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_transform",
@@ -1904,113 +1904,113 @@
       "constants": [
         {
           "symbol": "GNEISS_NULL_SCENE_INSTANCE",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::scene_instance{}"
         },
         {
           "symbol": "GNEISS_NULL_SCENE_NODE_ID",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::scene_node_id{}"
         },
         {
           "symbol": "GNEISS_NULL_SCENE_PREFAB_REFRESH_TOKEN",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::scene_prefab_refresh{}"
         },
         {
           "symbol": "GNEISS_SCENE_CAMERA_DESC_INIT",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::scene_camera_desc{}"
         },
         {
           "symbol": "GNEISS_SCENE_INSTANCE_NODE_INFO_INIT",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::scene_instance_node_info{}"
         },
         {
           "symbol": "GNEISS_SCENE_INSTANCE_NODE_INFO_VERSION_1_SIZE",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "abi_only",
+          "cpp_mapping": "仅 C ABI 旧结构布局；原生 C++ 描述始终由包装填写当前布局"
         },
         {
           "symbol": "GNEISS_SCENE_INSTANCE_NODE_INFO_VERSION_2_SIZE",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "abi_only",
+          "cpp_mapping": "仅 C ABI 旧结构布局；原生 C++ 描述始终由包装填写当前布局"
         },
         {
           "symbol": "GNEISS_SCENE_INSTANCE_NODE_INFO_VERSION_3_SIZE",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "abi_only",
+          "cpp_mapping": "仅 C ABI 旧结构布局；原生 C++ 描述始终由包装填写当前布局"
         },
         {
           "symbol": "GNEISS_SCENE_MESH_RENDERER_DESC_INIT",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::scene_mesh_renderer_desc{}"
         },
         {
           "symbol": "GNEISS_SCENE_MESH_RENDERER_NODE_DESC_INIT",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::scene_mesh_renderer_node_desc{}"
         },
         {
           "symbol": "GNEISS_SCENE_NODE_COMPONENT_CAMERA",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::scene_node_components::camera"
         },
         {
           "symbol": "GNEISS_SCENE_NODE_COMPONENT_MESH_RENDERER",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::scene_node_components::mesh_renderer"
         },
         {
           "symbol": "GNEISS_SCENE_NODE_COMPONENT_PRIMARY_CAMERA",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::scene_node_components::primary_camera"
         },
         {
           "symbol": "GNEISS_SCENE_NODE_DESC_INIT",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::scene_node_desc{}"
         },
         {
           "symbol": "GNEISS_SCENE_PREFAB_INSTANCE_DESC_INIT",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::scene_prefab_instance_desc{}"
         },
         {
           "symbol": "GNEISS_SCENE_PREFAB_NODE_INFO_INIT",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::scene_prefab_node_info{}"
         },
         {
           "symbol": "GNEISS_SCENE_PREFAB_NODE_INSTANCE_ROOT",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::scene_prefab_flags::instance_root"
         },
         {
           "symbol": "GNEISS_SCENE_PREFAB_NODE_ROTATION_OVERRIDDEN",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::scene_prefab_flags::rotation_overridden"
         },
         {
           "symbol": "GNEISS_SCENE_PREFAB_NODE_SCALE_OVERRIDDEN",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::scene_prefab_flags::scale_overridden"
         },
         {
           "symbol": "GNEISS_SCENE_PREFAB_NODE_SOURCE_READ_ONLY",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::scene_prefab_flags::source_read_only"
         },
         {
           "symbol": "GNEISS_SCENE_PREFAB_NODE_TRANSLATION_OVERRIDDEN",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::scene_prefab_flags::translation_overridden"
         },
         {
           "symbol": "GNEISS_SCENE_SUBTREE_MAX_NODES",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::scene_subtree_max_nodes"
         },
         {
           "symbol": "GNEISS_TRANSFORM_IDENTITY",

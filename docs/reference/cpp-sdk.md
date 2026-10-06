@@ -21,7 +21,7 @@ Application 配置/回调、输入和日志接口已使用原生 C++ 类型；�
 | 结果、版本、日志级别 | `result`、`version`、`log_severity` | 值；结果不通过异常报告 |
 | Transform、Camera、MeshRenderer | 独立 C++ 值、数组与资源 ID | 逐字段适配 C ABI，不共享类型布局 |
 | Render 描述 | 原生枚举、资源 ID、数组值与 span | 输入借用至调用返回；属性转换临时分配，C ABI 内部再复制到资源 |
-| 其他 Scene 描述 | 待迁移的 C 值别名 | 结构含指针不代表复制了指向的数据 |
+| Scene 描述与查询 | 原生 ID、变换、标志枚举与 string_view | 输入借用至调用返回；查询文本借用至下次修改/父对象失效 |
 | 输入事件、键盘/指针/动作快照 | 独立结构、强类型枚举与 variant | 自有快照，默认构造，详见[输入接口](input.md) |
 | 日志提交消息 | `log_message`，字段使用 `log_severity`、`string_view`、`result` | 借用文本至同步提交返回，详见[日志契约](logging.md#c-日志提交) |
 | World 创建描述、反射元数据、Game Module 描述 | 直接使用 `gneiss_*` C 值 | 由对应操作决定复制与借用，见下表及模块参考 |
@@ -98,3 +98,13 @@ World 节点和实体的变换读写、Prefab 来源变换设置使用此类型�
 
 `application_ref::submit_ui_draw_list` / `submit_debug_draw_list` 只允许 update 回调内调用；
 原生描述不会改变所属线程、同帧替换或帧结束失效的规则。
+
+### Scene 借用与查询
+
+节点/Prefab 创建描述使用 `string_view` 和原生 Transform，输出元数据直接返回原生 ID、标志和文本视图。
+查询失败保留输出；成功查询的文本由场景拥有，只借用到下次场景修改或父对象失效，跨修改必须先复制。
+`restore_subtree` 接收 `span<const scene_uuid_mapping>`，临时转换映射数组，失败保留根 ID 输出。
+
+普通 Prefab 刷新使用 `scene_prefab_refresh` RAII 令牌；裸 C 令牌互操作分别使用
+`refresh_prefab_instance_native`、`toggle_prefab_refresh_native`、`release_prefab_refresh_native`。
+这些显式入口不会接管裸令牌的销毁责任，不能替代普通拥有者。

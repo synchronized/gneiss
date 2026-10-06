@@ -94,7 +94,7 @@ int main() try {
     return 13;
   }
   const auto child_uuid = session.find_node(session.selected_node()->uuid)->uuid;
-  gneiss::scene_camera_desc author_camera = GNEISS_SCENE_CAMERA_DESC_INIT;
+  gneiss::scene_camera_desc author_camera{};
   if (session.set_camera(empty_child, author_camera) != gneiss::result::success ||
       (session.find_node(child_uuid)->component_flags & GNEISS_SCENE_NODE_COMPONENT_CAMERA) == 0U ||
       session.remove_camera(session.find_node(child_uuid)->node) != gneiss::result::success ||

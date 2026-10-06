@@ -2462,8 +2462,8 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
       bool components_changed = false;
       if (ImGui::Button(has_camera ? "Remove Camera" : "Add Camera")) {
         if (has_camera) {
-          gneiss::scene_camera_desc previous = GNEISS_SCENE_CAMERA_DESC_INIT;
-          previous.camera = selected->camera;
+          gneiss::scene_camera_desc previous{};
+          previous.camera = gneiss::from_native(selected->camera);
           previous.is_primary = selected->is_primary_camera ? 1U : 0U;
           state.history_error = state.session.remove_camera(selected->node);
           if (state.history_error == gneiss::result::success) {
@@ -2489,7 +2489,7 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
             }
           }
         } else {
-          gneiss::scene_camera_desc camera = GNEISS_SCENE_CAMERA_DESC_INIT;
+          gneiss::scene_camera_desc camera{};
           state.history_error = state.session.set_camera(selected->node, camera);
           if (state.history_error == gneiss::result::success) {
             state.history_error = state.history.record(

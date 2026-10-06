@@ -2,8 +2,6 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include <gneiss/engine/application.hpp>
-#include <gneiss/engine/application.hpp>
-#include <gneiss/engine/scene.hpp>
 #include <gneiss/engine/scene.hpp>
 
 #include <cstdint>
@@ -38,10 +36,9 @@ int main() {
     return 2;
   }
   std::uint64_t node_count = 0;
-  gneiss::scene_instance_node_info node_info = GNEISS_SCENE_INSTANCE_NODE_INFO_INIT;
+  gneiss::scene_instance_node_info node_info{};
   if (scene.get_node_count(node_count) != gneiss::result::success || node_count == 0U ||
-      scene.get_node_info(0U, node_info) != gneiss::result::success ||
-      node_info.node == GNEISS_NULL_SCENE_NODE_ID) {
+      scene.get_node_info(0U, node_info) != gneiss::result::success || !node_info.node.is_valid()) {
     return 3;
   }
   std::string json;
@@ -50,7 +47,7 @@ int main() {
   }
   scene.reset();
   gneiss::scene_prefab_refresh refresh;
-  gneiss::scene_prefab_node_info prefab = GNEISS_SCENE_PREFAB_NODE_INFO_INIT;
+  gneiss::scene_prefab_node_info prefab{};
   gneiss::scene_node_id root;
   if (gneiss::scene_instance::load(application.get(), "asset://scenes/prefab.scene.json", scene)
           .failed() ||

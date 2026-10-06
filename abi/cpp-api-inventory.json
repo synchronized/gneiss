@@ -843,7 +843,7 @@
         "gneiss.c_scene"
       ],
       "cpp_entry": "gneiss::world_ref::create_scene_node / gneiss::world",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_scene_node_destroy",
@@ -858,7 +858,7 @@
         "gneiss.c_scene"
       ],
       "cpp_entry": "gneiss::world_ref::destroy_scene_node / gneiss::world",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_scene_node_reparent",
@@ -873,7 +873,7 @@
         "gneiss.c_scene"
       ],
       "cpp_entry": "gneiss::world_ref::reparent_scene_node / gneiss::world",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_scene_node_set_local_transform",
@@ -932,7 +932,7 @@
         "gneiss.cpp_world"
       ],
       "cpp_entry": "gneiss::world::get_entity",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_scene_node_get_parent",
@@ -946,7 +946,7 @@
         "gneiss.cpp_world"
       ],
       "cpp_entry": "gneiss::world::get_parent",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_world_entity_get_local_transform",
@@ -989,7 +989,7 @@
         "gneiss.scene_instance"
       ],
       "cpp_entry": "gneiss::scene_instance::load",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_scene_instance_create_empty",
@@ -1004,7 +1004,7 @@
         "gneiss.cpp-owner-termination"
       ],
       "cpp_entry": "gneiss::scene_instance::create_empty",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_scene_instance_unload",
@@ -1019,7 +1019,7 @@
         "gneiss.cpp-owner-termination"
       ],
       "cpp_entry": "gneiss::scene_instance::reset / release",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_scene_instance_find_node",
@@ -1034,7 +1034,7 @@
         "gneiss.scene_instance"
       ],
       "cpp_entry": "gneiss::scene_instance::find_node",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_scene_instance_get_node_count",
@@ -1049,7 +1049,7 @@
         "gneiss.scene_instance"
       ],
       "cpp_entry": "gneiss::scene_instance::get_node_count",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_scene_instance_get_node_info",
@@ -1064,7 +1064,7 @@
         "gneiss.scene_instance"
       ],
       "cpp_entry": "gneiss::scene_instance::get_node_info",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_scene_instance_get_prefab_node_count",
@@ -1079,7 +1079,7 @@
         "gneiss.scene_prefab_instance"
       ],
       "cpp_entry": "gneiss::scene_instance::get_prefab_node_count",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_scene_instance_get_prefab_node_info",
@@ -1094,7 +1094,7 @@
         "gneiss.scene_prefab_instance"
       ],
       "cpp_entry": "gneiss::scene_instance::get_prefab_node_info",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_scene_instance_create_prefab_instance",
@@ -1109,7 +1109,7 @@
         "gneiss.scene_prefab_instance"
       ],
       "cpp_entry": "gneiss::scene_instance::create_prefab_instance",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_scene_instance_set_prefab_instance_name",
@@ -1124,7 +1124,7 @@
         "gneiss.scene_prefab_instance"
       ],
       "cpp_entry": "gneiss::scene_instance::set_prefab_instance_name",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_scene_instance_set_prefab_source_transform",
@@ -1154,7 +1154,7 @@
         "gneiss.scene_prefab_instance"
       ],
       "cpp_entry": "gneiss::scene_instance::destroy_prefab_instance",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_scene_instance_refresh_prefab_instance",
@@ -1170,7 +1170,7 @@
         "gneiss.scene_prefab_instance"
       ],
       "cpp_entry": "gneiss::scene_instance::refresh_prefab_instance / gneiss::scene_prefab_refresh",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_scene_instance_toggle_prefab_refresh",
@@ -1185,8 +1185,8 @@
         "gneiss.cpp-prefab-refresh-termination",
         "gneiss.scene_prefab_instance"
       ],
-      "cpp_entry": "gneiss::scene_prefab_refresh::toggle / gneiss::scene_instance::toggle_prefab_refresh",
-      "native_review": "pending"
+      "cpp_entry": "gneiss::scene_prefab_refresh::toggle / gneiss::scene_instance::toggle_prefab_refresh_native",
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_scene_instance_release_prefab_refresh",
@@ -1201,8 +1201,8 @@
         "gneiss.cpp-prefab-refresh-termination",
         "gneiss.scene_prefab_instance"
       ],
-      "cpp_entry": "gneiss::scene_prefab_refresh::reset / release / gneiss::scene_instance::release_prefab_refresh",
-      "native_review": "pending"
+      "cpp_entry": "gneiss::scene_prefab_refresh::reset / release / gneiss::scene_instance::release_prefab_refresh_native",
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_scene_instance_create_node",
@@ -1217,7 +1217,7 @@
         "gneiss.scene_instance"
       ],
       "cpp_entry": "gneiss::scene_instance::create_node",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_scene_instance_set_node_name",
@@ -1232,7 +1232,7 @@
         "gneiss.scene_instance"
       ],
       "cpp_entry": "gneiss::scene_instance::set_node_name",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_scene_instance_reparent_node",
@@ -1247,7 +1247,7 @@
         "gneiss.scene_instance"
       ],
       "cpp_entry": "gneiss::scene_instance::reparent_node",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_scene_instance_capture_subtree",
@@ -1262,7 +1262,7 @@
         "gneiss.scene_instance"
       ],
       "cpp_entry": "gneiss::scene_instance::capture_subtree",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_scene_instance_restore_subtree",
@@ -1277,7 +1277,7 @@
         "gneiss.scene_instance"
       ],
       "cpp_entry": "gneiss::scene_instance::restore_subtree",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_scene_instance_destroy_subtree",
@@ -1292,7 +1292,7 @@
         "gneiss.scene_instance"
       ],
       "cpp_entry": "gneiss::scene_instance::destroy_subtree",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_scene_instance_create_mesh_renderer_node",
@@ -1307,7 +1307,7 @@
         "gneiss.scene_instance"
       ],
       "cpp_entry": "gneiss::scene_instance::create_mesh_renderer_node",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_scene_instance_set_mesh_renderer",
@@ -1322,7 +1322,7 @@
         "gneiss.scene_instance"
       ],
       "cpp_entry": "gneiss::scene_instance::set_mesh_renderer",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_scene_instance_set_camera",
@@ -1337,7 +1337,7 @@
         "gneiss.scene_instance"
       ],
       "cpp_entry": "gneiss::scene_instance::set_camera",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_scene_instance_remove_camera",
@@ -1352,7 +1352,7 @@
         "gneiss.scene_instance"
       ],
       "cpp_entry": "gneiss::scene_instance::remove_camera",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_scene_instance_remove_mesh_renderer",
@@ -1367,7 +1367,7 @@
         "gneiss.scene_instance"
       ],
       "cpp_entry": "gneiss::scene_instance::remove_mesh_renderer",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_scene_instance_destroy_node",
@@ -1382,7 +1382,7 @@
         "gneiss.scene_instance"
       ],
       "cpp_entry": "gneiss::scene_instance::destroy_node",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_scene_instance_serialize",
@@ -1397,7 +1397,7 @@
         "gneiss.scene_instance"
       ],
       "cpp_entry": "gneiss::scene_instance::serialize",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_world_create",

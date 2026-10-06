@@ -6,17 +6,21 @@
 
 #include <gneiss/engine/core/entity.hpp>
 #include <gneiss/engine/core/result.hpp>
+#include <gneiss/engine/render.hpp>
 #include <gneiss/engine/scene.h>
 
 #include <array>
+#include <concepts>
 #include <cstdint>
 #include <exception>
 #include <limits>
 #include <new>
 #include <span>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 namespace gneiss {
 
@@ -44,25 +48,215 @@ struct transform {
 };
 /** 显式复制到 C ABI 值，不依赖两种类型的内存布局。 */
 [[nodiscard]] constexpr gneiss_transform to_native(const transform& value) noexcept {
-  return {.translation = {value.translation[0], value.translation[1], value.translation[2]},
-          .rotation = {value.rotation[0], value.rotation[1], value.rotation[2], value.rotation[3]},
-          .scale = {value.scale[0], value.scale[1], value.scale[2]}};
+  return {
+      .translation = {value.translation[0], value.translation[1], value.translation[2]},
+      .rotation = {value.rotation[0], value.rotation[1], value.rotation[2], value.rotation[3]},
+      .scale = {value.scale[0], value.scale[1], value.scale[2]},
+  };
 }
 /** 从 C ABI 值逐字段复制；几何有效性在设置到场景时校验。 */
 [[nodiscard]] constexpr transform from_native(const gneiss_transform& value) noexcept {
-  return {.translation = {value.translation[0], value.translation[1], value.translation[2]},
-          .rotation = {value.rotation[0], value.rotation[1], value.rotation[2], value.rotation[3]},
-          .scale = {value.scale[0], value.scale[1], value.scale[2]}};
+  return {
+      .translation = {value.translation[0], value.translation[1], value.translation[2]},
+      .rotation = {value.rotation[0], value.rotation[1], value.rotation[2], value.rotation[3]},
+      .scale = {value.scale[0], value.scale[1], value.scale[2]},
+  };
 }
-using scene_instance_node_info = gneiss_scene_instance_node_info;
-using scene_node_desc = gneiss_scene_node_desc;
-using scene_prefab_node_info = gneiss_scene_prefab_node_info;
-using scene_prefab_instance_desc = gneiss_scene_prefab_instance_desc;
-using scene_uuid_mapping = gneiss_scene_uuid_mapping;
-using scene_mesh_renderer_desc = gneiss_scene_mesh_renderer_desc;
-using scene_camera_desc = gneiss_scene_camera_desc;
-using scene_mesh_renderer_node_desc = gneiss_scene_mesh_renderer_node_desc;
-
+// NOLINTNEXTLINE(performance-enum-size): 保留完整标志位宽度。
+enum class scene_node_components : std::uint32_t {
+  none = 0,
+  camera = 1,
+  mesh_renderer = 2,
+  primary_camera = 4,
+};
+// NOLINTNEXTLINE(performance-enum-size): 保留完整标志位宽度。
+enum class scene_prefab_flags : std::uint32_t {
+  none = 0,
+  instance_root = 1,
+  source_read_only = 2,
+  translation_overridden = 4,
+  rotation_overridden = 8,
+  scale_overridden = 16,
+};
+template <typename T>
+concept scene_flags = std::same_as<T, scene_node_components> || std::same_as<T, scene_prefab_flags>;
+template <scene_flags T> [[nodiscard]] constexpr T operator|(T left, T right) noexcept {
+  return static_cast<T>(static_cast<std::uint32_t>(left) | static_cast<std::uint32_t>(right));
+}
+template <scene_flags T> [[nodiscard]] constexpr T operator&(T left, T right) noexcept {
+  return static_cast<T>(static_cast<std::uint32_t>(left) & static_cast<std::uint32_t>(right));
+}
+template <scene_flags T> [[nodiscard]] constexpr bool has_flags(T value, T flags) noexcept {
+  return (value & flags) == flags;
+}
+inline constexpr std::uint64_t scene_subtree_max_nodes = 4096;
+// 描述默认值允许 designated 初始化省略字段，避免消费者的缺省字段告警。
+// NOLINTBEGIN(readability-redundant-member-init)
+/** 值描述；文本借用到下次场景修改或实例/父对象失效，跨修改须自行复制。 */
+struct scene_instance_node_info {
+  scene_node_id node{};
+  scene_node_id parent{};
+  entity_id entity{};
+  std::string_view uuid{};
+  std::string_view name{};
+  std::string_view mesh_uri{};
+  std::string_view material_uri{};
+  transform local_transform{};
+  scene_node_components component_flags = scene_node_components::none;
+  camera_desc camera{};
+};
+/** 所有输入文本只在同步创建期间借用。 */
+struct scene_node_desc {
+  scene_node_id parent{};
+  std::string_view uuid{};
+  std::string_view name{};
+  transform local_transform{};
+};
+/** 文本借用期同普通节点描述；刷新后节点 ID 也须重新查询。 */
+struct scene_prefab_node_info {
+  scene_prefab_flags flags = scene_prefab_flags::none;
+  scene_node_id node{};
+  scene_node_id parent{};
+  entity_id entity{};
+  std::string_view instance_uuid{};
+  std::string_view source_node_uuid{};
+  std::string_view name{};
+  std::string_view prefab_uri{};
+  transform local_transform{};
+  transform source_local_transform{};
+};
+struct scene_prefab_instance_desc {
+  scene_node_id parent{};
+  std::string_view instance_uuid{};
+  std::string_view name{};
+  std::string_view prefab_uri{};
+  transform local_transform{};
+};
+struct scene_uuid_mapping {
+  std::string_view source_uuid{};
+  std::string_view target_uuid{};
+};
+struct scene_mesh_renderer_desc {
+  std::string_view mesh_uri{};
+  std::string_view material_uri{};
+};
+struct scene_camera_desc {
+  camera_desc camera{};
+  bool is_primary = false;
+};
+struct scene_mesh_renderer_node_desc {
+  scene_node_id parent{};
+  std::string_view uuid{};
+  std::string_view name{};
+  scene_mesh_renderer_desc renderer{};
+};
+// NOLINTEND(readability-redundant-member-init)
+/** 显式 C 互操作；文本仍借用原存储，不延长寿命。 */
+[[nodiscard]] inline gneiss_scene_node_desc to_native(const scene_node_desc& value) noexcept {
+  gneiss_scene_node_desc native{};
+  native.struct_size = sizeof(native);
+  native.parent = value.parent.get();
+  native.uuid = value.uuid.data();
+  native.uuid_length = value.uuid.size();
+  native.name = value.name.data();
+  native.name_length = value.name.size();
+  native.local_transform = to_native(value.local_transform);
+  return native;
+}
+/** 显式 C 互操作；文本仍借用原存储，不延长寿命。 */
+[[nodiscard]] inline gneiss_scene_prefab_instance_desc
+to_native(const scene_prefab_instance_desc& value) noexcept {
+  gneiss_scene_prefab_instance_desc native{};
+  native.struct_size = sizeof(native);
+  native.parent = value.parent.get();
+  native.instance_uuid = value.instance_uuid.data();
+  native.instance_uuid_length = value.instance_uuid.size();
+  native.name = value.name.data();
+  native.name_length = value.name.size();
+  native.prefab_uri = value.prefab_uri.data();
+  native.prefab_uri_length = value.prefab_uri.size();
+  native.local_transform = to_native(value.local_transform);
+  return native;
+}
+/** 显式 C 互操作；文本仍借用原存储，不延长寿命。 */
+[[nodiscard]] inline gneiss_scene_uuid_mapping to_native(const scene_uuid_mapping& value) noexcept {
+  gneiss_scene_uuid_mapping native{};
+  native.source_uuid = value.source_uuid.data();
+  native.source_uuid_length = value.source_uuid.size();
+  native.target_uuid = value.target_uuid.data();
+  native.target_uuid_length = value.target_uuid.size();
+  return native;
+}
+/** 显式 C 互操作；文本仍借用原存储，不延长寿命。 */
+[[nodiscard]] inline gneiss_scene_mesh_renderer_desc
+to_native(const scene_mesh_renderer_desc& value) noexcept {
+  gneiss_scene_mesh_renderer_desc native{};
+  native.struct_size = sizeof(native);
+  native.mesh_uri = value.mesh_uri.data();
+  native.mesh_uri_length = value.mesh_uri.size();
+  native.material_uri = value.material_uri.data();
+  native.material_uri_length = value.material_uri.size();
+  return native;
+}
+/** 显式 C 互操作；文本仍借用原存储，不延长寿命。 */
+[[nodiscard]] inline gneiss_scene_camera_desc to_native(const scene_camera_desc& value) noexcept {
+  gneiss_scene_camera_desc native{};
+  native.struct_size = sizeof(native);
+  native.camera = to_native(value.camera);
+  native.is_primary = static_cast<std::uint8_t>(value.is_primary);
+  return native;
+}
+/** 显式 C 互操作；文本仍借用原存储，不延长寿命。 */
+[[nodiscard]] inline gneiss_scene_mesh_renderer_node_desc
+to_native(const scene_mesh_renderer_node_desc& value) noexcept {
+  gneiss_scene_mesh_renderer_node_desc native{};
+  native.struct_size = sizeof(native);
+  native.parent = value.parent.get();
+  native.uuid = value.uuid.data();
+  native.uuid_length = value.uuid.size();
+  native.name = value.name.data();
+  native.name_length = value.name.size();
+  native.renderer = to_native(value.renderer);
+  return native;
+}
+namespace detail {
+inline std::string_view scene_text(const char* text, std::uint64_t length) noexcept {
+  return text == nullptr ? std::string_view{}
+                         : std::string_view{text, static_cast<std::size_t>(length)};
+}
+} // namespace detail
+/** 从有效 C 查询值借用文本；不复制文本内容。 */
+[[nodiscard]] inline scene_instance_node_info
+from_native(const gneiss_scene_instance_node_info& value) noexcept {
+  return {
+      .node = scene_node_id{value.node},
+      .parent = scene_node_id{value.parent},
+      .entity = entity_id{value.entity},
+      .uuid = detail::scene_text(value.uuid, value.uuid_length),
+      .name = detail::scene_text(value.name, value.name_length),
+      .mesh_uri = detail::scene_text(value.mesh_uri, value.mesh_uri_length),
+      .material_uri = detail::scene_text(value.material_uri, value.material_uri_length),
+      .local_transform = from_native(value.local_transform),
+      .component_flags = static_cast<scene_node_components>(value.component_flags),
+      .camera = from_native(value.camera),
+  };
+}
+/** 从有效 C 查询值借用文本；不复制文本内容。 */
+[[nodiscard]] inline scene_prefab_node_info
+from_native(const gneiss_scene_prefab_node_info& value) noexcept {
+  return {
+      .flags = static_cast<scene_prefab_flags>(value.flags),
+      .node = scene_node_id{value.node},
+      .parent = scene_node_id{value.parent},
+      .entity = entity_id{value.entity},
+      .instance_uuid = detail::scene_text(value.instance_uuid, value.instance_uuid_length),
+      .source_node_uuid = detail::scene_text(value.source_node_uuid, value.source_node_uuid_length),
+      .name = detail::scene_text(value.name, value.name_length),
+      .prefab_uri = detail::scene_text(value.prefab_uri, value.prefab_uri_length),
+      .local_transform = from_native(value.local_transform),
+      .source_local_transform = from_native(value.source_local_transform),
+  };
+}
 /** 独占 Prefab 刷新的撤销令牌，不延长 Application 或场景寿命。
  * 操作、析构及移动覆盖限所属 Application 线程；释放只丢弃历史，不撤销当前投影。 */
 class scene_prefab_refresh final {
@@ -208,8 +402,13 @@ public:
   /** 描述按值输出，但字符串只借用到下次场景修改或父对象失效；跨修改使用前须复制。 */
   [[nodiscard]] result get_node_info(std::uint64_t index,
                                      scene_instance_node_info& out_info) const noexcept {
-    return from_native(
-        gneiss_scene_instance_get_node_info(application_, handle_, index, &out_info));
+    gneiss_scene_instance_node_info native = GNEISS_SCENE_INSTANCE_NODE_INFO_INIT;
+    const auto status =
+        from_native(gneiss_scene_instance_get_node_info(application_, handle_, index, &native));
+    if (status.ok()) {
+      out_info = from_native(native);
+    }
+    return status;
   }
   [[nodiscard]] result get_prefab_node_count(std::uint64_t& out_count) const noexcept {
     return from_native(
@@ -218,14 +417,20 @@ public:
   /** Prefab 描述的字符串借用期限与 get_node_info 相同；刷新后节点 ID 也须重新查询。 */
   [[nodiscard]] result get_prefab_node_info(std::uint64_t index,
                                             scene_prefab_node_info& out_info) const noexcept {
-    return from_native(
-        gneiss_scene_instance_get_prefab_node_info(application_, handle_, index, &out_info));
+    gneiss_scene_prefab_node_info native = GNEISS_SCENE_PREFAB_NODE_INFO_INIT;
+    const auto status = from_native(
+        gneiss_scene_instance_get_prefab_node_info(application_, handle_, index, &native));
+    if (status.ok()) {
+      out_info = from_native(native);
+    }
+    return status;
   }
   [[nodiscard]] result create_prefab_instance(const scene_prefab_instance_desc& desc,
-                                              scene_node_id& out_root) noexcept {
+                                              scene_node_id& out_root) const noexcept {
     gneiss_scene_node_id root = GNEISS_NULL_SCENE_NODE_ID;
+    const auto native = to_native(desc);
     const auto native_result =
-        gneiss_scene_instance_create_prefab_instance(application_, handle_, &desc, &root);
+        gneiss_scene_instance_create_prefab_instance(application_, handle_, &native, &root);
     if (native_result == GNEISS_SUCCESS) {
       out_root = scene_node_id{root};
     }
@@ -247,8 +452,8 @@ public:
         gneiss_scene_instance_destroy_prefab_instance(application_, handle_, root.get()));
   }
   [[nodiscard]] result
-  refresh_prefab_instance(scene_node_id root, scene_node_id& out_new_root,
-                          gneiss_scene_prefab_refresh_token& out_token) noexcept {
+  refresh_prefab_instance_native(scene_node_id root, scene_node_id& out_new_root,
+                                 gneiss_scene_prefab_refresh_token& out_token) noexcept {
     gneiss_scene_node_id new_root = GNEISS_NULL_SCENE_NODE_ID;
     gneiss_scene_prefab_refresh_token token = GNEISS_NULL_SCENE_PREFAB_REFRESH_TOKEN;
     const auto native_result = gneiss_scene_instance_refresh_prefab_instance(
@@ -267,7 +472,7 @@ public:
       return result::invalid_state;
     }
     gneiss_scene_prefab_refresh_token token = GNEISS_NULL_SCENE_PREFAB_REFRESH_TOKEN;
-    const auto status = refresh_prefab_instance(root, out_new_root, token);
+    const auto status = refresh_prefab_instance_native(root, out_new_root, token);
     if (status.ok()) {
       out_refresh.application_ = application_;
       out_refresh.scene_ = handle_;
@@ -275,8 +480,8 @@ public:
     }
     return status;
   }
-  [[nodiscard]] result toggle_prefab_refresh(gneiss_scene_prefab_refresh_token token,
-                                             scene_node_id& out_new_root) noexcept {
+  [[nodiscard]] result toggle_prefab_refresh_native(gneiss_scene_prefab_refresh_token token,
+                                                    scene_node_id& out_new_root) noexcept {
     gneiss_scene_node_id new_root = GNEISS_NULL_SCENE_NODE_ID;
     const auto native_result =
         gneiss_scene_instance_toggle_prefab_refresh(application_, handle_, token, &new_root);
@@ -285,23 +490,27 @@ public:
     }
     return from_native(native_result);
   }
-  [[nodiscard]] result release_prefab_refresh(gneiss_scene_prefab_refresh_token token) noexcept {
+  [[nodiscard]] result
+  release_prefab_refresh_native(gneiss_scene_prefab_refresh_token token) noexcept {
     return from_native(gneiss_scene_instance_release_prefab_refresh(application_, handle_, token));
   }
   [[nodiscard]] result create_mesh_renderer_node(const scene_mesh_renderer_node_desc& desc,
-                                                 scene_node_id& out_node) noexcept {
+                                                 scene_node_id& out_node) const noexcept {
     gneiss_scene_node_id node = GNEISS_NULL_SCENE_NODE_ID;
+    const auto native = to_native(desc);
     const auto native_result =
-        gneiss_scene_instance_create_mesh_renderer_node(application_, handle_, &desc, &node);
+        gneiss_scene_instance_create_mesh_renderer_node(application_, handle_, &native, &node);
     if (native_result == GNEISS_SUCCESS) {
       out_node = scene_node_id{node};
     }
     return from_native(native_result);
   }
-  [[nodiscard]] result create_node(const scene_node_desc& desc, scene_node_id& out_node) noexcept {
+  [[nodiscard]] result create_node(const scene_node_desc& desc,
+                                   scene_node_id& out_node) const noexcept {
     gneiss_scene_node_id node = GNEISS_NULL_SCENE_NODE_ID;
+    const auto native = to_native(desc);
     const auto native_result =
-        gneiss_scene_instance_create_node(application_, handle_, &desc, &node);
+        gneiss_scene_instance_create_node(application_, handle_, &native, &node);
     if (native_result == GNEISS_SUCCESS) {
       out_node = scene_node_id{node};
     }
@@ -342,26 +551,41 @@ public:
   }
   [[nodiscard]] result restore_subtree(std::string_view snapshot, scene_node_id parent,
                                        std::span<const scene_uuid_mapping> mappings,
-                                       scene_node_id& out_root) noexcept {
-    gneiss_scene_node_id root = GNEISS_NULL_SCENE_NODE_ID;
-    const auto native_result = gneiss_scene_instance_restore_subtree(
-        application_, handle_, snapshot.data(), snapshot.size(), parent.get(), mappings.data(),
-        mappings.size(), &root);
-    if (native_result == GNEISS_SUCCESS) {
-      out_root = scene_node_id{root};
+                                       scene_node_id& out_root) const noexcept {
+    try {
+      std::vector<gneiss_scene_uuid_mapping> native;
+      native.reserve(mappings.size());
+      for (const auto& mapping : mappings) {
+        native.push_back(to_native(mapping));
+      }
+      gneiss_scene_node_id root = GNEISS_NULL_SCENE_NODE_ID;
+      const auto status = from_native(gneiss_scene_instance_restore_subtree(
+          application_, handle_, snapshot.data(), snapshot.size(), parent.get(), native.data(),
+          native.size(), &root));
+      if (status.ok()) {
+        out_root = scene_node_id{root};
+      }
+      return status;
+    } catch (const std::bad_alloc&) {
+      return result::out_of_memory;
+    } catch (const std::length_error&) {
+      return result::invalid_argument;
     }
-    return from_native(native_result);
   }
   [[nodiscard]] result destroy_subtree(scene_node_id root) noexcept {
     return from_native(gneiss_scene_instance_destroy_subtree(application_, handle_, root.get()));
   }
   [[nodiscard]] result set_mesh_renderer(scene_node_id node,
-                                         const scene_mesh_renderer_desc& desc) noexcept {
+                                         const scene_mesh_renderer_desc& desc) const noexcept {
+    const auto native = to_native(desc);
     return from_native(
-        gneiss_scene_instance_set_mesh_renderer(application_, handle_, node.get(), &desc));
+        gneiss_scene_instance_set_mesh_renderer(application_, handle_, node.get(), &native));
   }
-  [[nodiscard]] result set_camera(scene_node_id node, const scene_camera_desc& desc) noexcept {
-    return from_native(gneiss_scene_instance_set_camera(application_, handle_, node.get(), &desc));
+  [[nodiscard]] result set_camera(scene_node_id node,
+                                  const scene_camera_desc& desc) const noexcept {
+    const auto native = to_native(desc);
+    return from_native(
+        gneiss_scene_instance_set_camera(application_, handle_, node.get(), &native));
   }
   [[nodiscard]] result remove_camera(scene_node_id node) noexcept {
     return from_native(gneiss_scene_instance_remove_camera(application_, handle_, node.get()));
