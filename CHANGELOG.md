@@ -7,6 +7,8 @@
 
 ## 未发布
 
+## 0.45.0 - 2026-10-06
+
 - 内部实现按 Engine 的 Core/Platform/Asset/Function 分层，C ABI 适配集中到 `src/engine/api/`；公共头路径保持兼容。
 - Editor 模型、会话、资产服务与面板归 `src/editor/`，离线库归 `src/tooling/`；根目录 `apps/` 保留入口及宿主装配。
 - 补齐 102 个公共 C 函数的 C++ 映射及类型、常量、回调审计，增加拥有/借用视图和 Prefab 刷新令牌 RAII。

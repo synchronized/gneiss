@@ -1,0 +1,217 @@
+{
+  "note": "首轮失败/取消保留；受影响任务以 cc063e4 专项通过结果替代，未改动任务复用 af0a4d9。共覆盖 Windows 4 项与 Linux 8 项。",
+  "runs": [
+    {
+      "conclusion": "failure",
+      "headSha": "af0a4d9f63f9f48f5df98f5aa1409227b276eb5b",
+      "jobs": [
+        {
+          "completedAt": "2026-10-05T21:21:33Z",
+          "conclusion": "success",
+          "databaseId": 111976462302,
+          "name": "installed-consumer (static)",
+          "startedAt": "2026-10-05T21:09:56Z",
+          "status": "completed",
+          "url": "https://github.com/synchronized/gneiss/actions/runs/37369124239/job/111976462302"
+        },
+        {
+          "completedAt": "2026-10-05T20:37:06Z",
+          "conclusion": "failure",
+          "databaseId": 111976463496,
+          "name": "msvc-runtime (shared)",
+          "startedAt": "2026-10-05T20:21:06Z",
+          "status": "completed",
+          "url": "https://github.com/synchronized/gneiss/actions/runs/37369124239/job/111976463496"
+        },
+        {
+          "completedAt": "2026-10-05T20:42:31Z",
+          "conclusion": "failure",
+          "databaseId": 111976464152,
+          "name": "msvc-runtime (static)",
+          "startedAt": "2026-10-05T20:21:15Z",
+          "status": "completed",
+          "url": "https://github.com/synchronized/gneiss/actions/runs/37369124239/job/111976464152"
+        },
+        {
+          "completedAt": "2026-10-05T20:30:14Z",
+          "conclusion": "success",
+          "databaseId": 111976507518,
+          "name": "installed-consumer (shared)",
+          "startedAt": "2026-10-05T20:21:15Z",
+          "status": "completed",
+          "url": "https://github.com/synchronized/gneiss/actions/runs/37369124239/job/111976507518"
+        }
+      ],
+      "status": "completed",
+      "url": "https://github.com/synchronized/gneiss/actions/runs/37369124239"
+    },
+    {
+      "conclusion": "success",
+      "headSha": "cc063e4ea37afbc26384ffa0deb1b767747679ab",
+      "jobs": [
+        {
+          "completedAt": "2026-10-05T21:09:02Z",
+          "conclusion": "success",
+          "databaseId": 111970978305,
+          "name": "msvc-runtime (shared)",
+          "startedAt": "2026-10-05T20:48:18Z",
+          "status": "completed",
+          "url": "https://github.com/synchronized/gneiss/actions/runs/37371935127/job/111970978305"
+        },
+        {
+          "completedAt": "2026-10-05T21:18:46Z",
+          "conclusion": "success",
+          "databaseId": 111970978456,
+          "name": "msvc-runtime (static)",
+          "startedAt": "2026-10-05T20:58:13Z",
+          "status": "completed",
+          "url": "https://github.com/synchronized/gneiss/actions/runs/37371935127/job/111970978456"
+        },
+        {
+          "completedAt": "2026-10-05T20:47:39Z",
+          "conclusion": "skipped",
+          "databaseId": 111970979692,
+          "name": "installed-consumer",
+          "startedAt": "2026-10-05T20:47:39Z",
+          "status": "completed",
+          "url": "https://github.com/synchronized/gneiss/actions/runs/37371935127/job/111970979692"
+        }
+      ],
+      "status": "completed",
+      "url": "https://github.com/synchronized/gneiss/actions/runs/37371935127"
+    },
+    {
+      "conclusion": "cancelled",
+      "headSha": "af0a4d9f63f9f48f5df98f5aa1409227b276eb5b",
+      "jobs": [
+        {
+          "completedAt": "2026-10-06T02:18:45Z",
+          "conclusion": "success",
+          "databaseId": 112075598238,
+          "name": "task-web",
+          "startedAt": "2026-10-06T02:18:05Z",
+          "status": "completed",
+          "url": "https://github.com/synchronized/gneiss/actions/runs/37369129117/job/112075598238"
+        },
+        {
+          "completedAt": "2026-10-05T20:23:32Z",
+          "conclusion": "success",
+          "databaseId": 112075599293,
+          "name": "sanitizer-runtime",
+          "startedAt": "2026-10-05T20:20:54Z",
+          "status": "completed",
+          "url": "https://github.com/synchronized/gneiss/actions/runs/37369129117/job/112075599293"
+        },
+        {
+          "completedAt": "2026-10-05T20:35:39Z",
+          "conclusion": "cancelled",
+          "databaseId": 112075599426,
+          "name": "granit-runtime (shared)",
+          "startedAt": "2026-10-06T02:18:03Z",
+          "status": "completed",
+          "url": "https://github.com/synchronized/gneiss/actions/runs/37369129117/job/112075599426"
+        },
+        {
+          "completedAt": "2026-10-06T02:17:49Z",
+          "conclusion": "success",
+          "databaseId": 112075599777,
+          "name": "core (gcc, shared)",
+          "startedAt": "2026-10-06T02:13:49Z",
+          "status": "completed",
+          "url": "https://github.com/synchronized/gneiss/actions/runs/37369129117/job/112075599777"
+        },
+        {
+          "completedAt": "2026-10-05T20:29:19Z",
+          "conclusion": "success",
+          "databaseId": 112075600109,
+          "name": "core (clang, static)",
+          "startedAt": "2026-10-05T20:26:09Z",
+          "status": "completed",
+          "url": "https://github.com/synchronized/gneiss/actions/runs/37369129117/job/112075600109"
+        },
+        {
+          "completedAt": "2026-10-05T20:29:34Z",
+          "conclusion": "success",
+          "databaseId": 112075600324,
+          "name": "core (gcc, static)",
+          "startedAt": "2026-10-05T20:25:45Z",
+          "status": "completed",
+          "url": "https://github.com/synchronized/gneiss/actions/runs/37369129117/job/112075600324"
+        },
+        {
+          "completedAt": "2026-10-05T20:30:19Z",
+          "conclusion": "success",
+          "databaseId": 112075621708,
+          "name": "core (clang, shared)",
+          "startedAt": "2026-10-05T20:25:43Z",
+          "status": "completed",
+          "url": "https://github.com/synchronized/gneiss/actions/runs/37369129117/job/112075621708"
+        },
+        {
+          "completedAt": "2026-10-05T20:39:07Z",
+          "conclusion": "success",
+          "databaseId": 112075634504,
+          "name": "granit-runtime (static)",
+          "startedAt": "2026-10-05T20:31:17Z",
+          "status": "completed",
+          "url": "https://github.com/synchronized/gneiss/actions/runs/37369129117/job/112075634504"
+        }
+      ],
+      "status": "completed",
+      "url": "https://github.com/synchronized/gneiss/actions/runs/37369129117"
+    },
+    {
+      "conclusion": "success",
+      "headSha": "cc063e4ea37afbc26384ffa0deb1b767747679ab",
+      "jobs": [
+        {
+          "completedAt": "2026-10-06T02:22:26Z",
+          "conclusion": "success",
+          "databaseId": 112074497113,
+          "name": "granit-runtime (shared)",
+          "startedAt": "2026-10-06T02:13:49Z",
+          "status": "completed",
+          "url": "https://github.com/synchronized/gneiss/actions/runs/37371939336/job/112074497113"
+        },
+        {
+          "completedAt": "2026-10-05T20:47:42Z",
+          "conclusion": "skipped",
+          "databaseId": 112074498154,
+          "name": "task-web",
+          "startedAt": "2026-10-06T02:13:47Z",
+          "status": "completed",
+          "url": "https://github.com/synchronized/gneiss/actions/runs/37371939336/job/112074498154"
+        },
+        {
+          "completedAt": "2026-10-05T20:49:52Z",
+          "conclusion": "success",
+          "databaseId": 112074498492,
+          "name": "granit-runtime (static)",
+          "startedAt": "2026-10-05T20:48:25Z",
+          "status": "completed",
+          "url": "https://github.com/synchronized/gneiss/actions/runs/37371939336/job/112074498492"
+        },
+        {
+          "completedAt": "2026-10-05T20:47:42Z",
+          "conclusion": "skipped",
+          "databaseId": 112074522429,
+          "name": "core",
+          "startedAt": "2026-10-06T02:13:52Z",
+          "status": "completed",
+          "url": "https://github.com/synchronized/gneiss/actions/runs/37371939336/job/112074522429"
+        },
+        {
+          "completedAt": "2026-10-05T20:47:42Z",
+          "conclusion": "skipped",
+          "databaseId": 112074524940,
+          "name": "sanitizer-runtime",
+          "startedAt": "2026-10-06T02:13:53Z",
+          "status": "completed",
+          "url": "https://github.com/synchronized/gneiss/actions/runs/37371939336/job/112074524940"
+        }
+      ],
+      "status": "completed",
+      "url": "https://github.com/synchronized/gneiss/actions/runs/37371939336"
+    }
+  ]
+}

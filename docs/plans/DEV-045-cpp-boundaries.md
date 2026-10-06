@@ -5,7 +5,7 @@
 
 ## 状态与依据
 
-2026-10-06 已完成分层、源码归属与 SDK 本地专项，进入整版验收；首轮证据见
+2026-10-06 已完成分层、源码归属与 SDK 重构及整版验收，待发布；首轮证据见
 [M-292～M-293 记录](../records/M-292-293-cpp-boundary-foundation.md)。World 内部入口迁移见
 [World 阶段记录](../records/M-294-world-cpp-boundary.md)，Application 拆分见
 [Application 阶段记录](../records/M-294-application-boundary.md)，内部配置与窗口归属见
@@ -15,7 +15,7 @@
 [VER-045](VER-045-0.45.0-cpp-boundaries.md) 为准；目录与所有权以
 [ADR-053](../decisions/ADR-053-cpp-core-and-c-abi.md) 与
 [ADR-054](../decisions/ADR-054-source-layout-and-host-boundaries.md) 为准。后者的精简布局已确认，
-Core、Platform、Asset 与 Function 已执行物理迁移；C ABI 已迁至 Engine，Editor/Apps 已按职责拆分，最终平台矩阵待验收。
+Core、Platform、Asset 与 Function 已执行物理迁移；C ABI 已迁至 Engine，Editor/Apps 已按职责拆分，最终平台矩阵已通过，证据见 [M-297](../records/M-297-0.45.0-validation.md)。
 
 ## M-292：审计与冻结基线
 
