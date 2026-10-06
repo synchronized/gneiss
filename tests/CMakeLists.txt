@@ -1071,6 +1071,7 @@ add_test(NAME gneiss.core-boundary-negative
     -P "${PROJECT_SOURCE_DIR}/cmake/test_core_boundary.cmake")
 add_test(NAME gneiss.cpp-api-inventory
   COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
+    -DGNEISS_REQUIRE_NATIVE_CPP_SDK=ON
     -P "${PROJECT_SOURCE_DIR}/cmake/check_cpp_inventory.cmake")
 
 add_executable(gneiss_cpp_resource_ownership_test cpp_resource_ownership_test.cpp)

@@ -131,10 +131,11 @@
       "review": "reviewed",
       "ownership": "string_view 仅在校验期间借用，不读文件、不保留 URI，线程安全",
       "tests": [
-        "gneiss.c_asset"
+        "gneiss.c_asset",
+        "gneiss.installed_consumer"
       ],
       "cpp_entry": "gneiss::validate_asset_uri",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_result_message",
@@ -149,7 +150,7 @@
         "gneiss.cpp_result"
       ],
       "cpp_entry": "gneiss::result::message",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_game_module_validate",
@@ -163,8 +164,8 @@
         "gneiss.cpp_game_module",
         "gneiss.c_game_module"
       ],
-      "cpp_entry": "gneiss::validate_game_module",
-      "native_review": "pending"
+      "cpp_entry": "gneiss::game_module<Callbacks>::validate / validate_game_module_native",
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_game_context_get_world",
@@ -179,7 +180,7 @@
         "gneiss.cpp_game_module"
       ],
       "cpp_entry": "gneiss::game_context::get_world(world_ref&)",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_game_context_get_startup_root_entity",
@@ -194,7 +195,7 @@
         "gneiss.cpp_game_module"
       ],
       "cpp_entry": "gneiss::game_context::get_startup_root_entity(entity_id&)",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_game_context_find_action",
@@ -209,7 +210,7 @@
         "gneiss.cpp_game_module"
       ],
       "cpp_entry": "gneiss::game_context::find_action(name, action_id&)",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_game_context_get_action_state",
@@ -224,7 +225,7 @@
         "gneiss.cpp_game_module"
       ],
       "cpp_entry": "gneiss::game_context::get_action_state(action_id, action_state&)",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_game_context_request_exit",
@@ -238,7 +239,7 @@
         "gneiss.game_context"
       ],
       "cpp_entry": "gneiss::game_context::request_exit",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_game_context_log",
@@ -268,7 +269,7 @@
         "gneiss.cpp_version"
       ],
       "cpp_entry": "gneiss::library_version",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_version_minor",
@@ -283,7 +284,7 @@
         "gneiss.cpp_version"
       ],
       "cpp_entry": "gneiss::library_version",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_version_patch",
@@ -298,7 +299,7 @@
         "gneiss.cpp_version"
       ],
       "cpp_entry": "gneiss::library_version",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_application_poll_input",
@@ -1417,7 +1418,7 @@
         "gneiss.cpp-owner-termination"
       ],
       "cpp_entry": "gneiss::world::create",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_world_destroy",
@@ -1432,7 +1433,7 @@
         "gneiss.cpp-owner-termination"
       ],
       "cpp_entry": "gneiss::world::reset / release",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_world_entity_create",
@@ -1448,7 +1449,7 @@
         "gneiss.world-service-boundary"
       ],
       "cpp_entry": "gneiss::world_ref::create_entity / gneiss::world",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_world_entity_destroy",
@@ -1464,7 +1465,7 @@
         "gneiss.cpp-resource-ownership"
       ],
       "cpp_entry": "gneiss::world_ref::destroy_entity / gneiss::world",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_world_entity_is_alive",
@@ -1479,7 +1480,7 @@
         "gneiss.c_world"
       ],
       "cpp_entry": "gneiss::world_ref::is_alive / gneiss::world",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_world_entity_count",
@@ -1493,7 +1494,7 @@
         "gneiss.cpp_world"
       ],
       "cpp_entry": "gneiss::world::entity_count",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_transform_type_id",

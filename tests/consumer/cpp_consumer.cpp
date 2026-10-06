@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include <gneiss/engine/application.hpp>
+#include <gneiss/engine/asset.hpp>
 #include <gneiss/engine/scene.hpp>
 
 #include <cstdint>
@@ -11,6 +12,11 @@
 int main() {
   constexpr std::string_view asset_root = GNEISS_CONSUMER_ASSET_ROOT;
   constexpr std::string_view scene_uri = "asset://scenes/triangle.scene.json";
+
+  if (gneiss::validate_asset_uri(scene_uri).failed() ||
+      gneiss::validate_asset_uri("file://outside.scene.json") != gneiss::result::invalid_argument) {
+    return 8;
+  }
 
   gneiss::application_desc desc{};
   desc.asset_root = asset_root;

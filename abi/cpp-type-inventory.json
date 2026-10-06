@@ -212,14 +212,14 @@
           "symbol": "gneiss_entity_id",
           "kind": "borrowed_id",
           "cpp_mapping": "gneiss::entity_id",
-          "native_review": "pending"
+          "native_review": "implemented"
         }
       ],
       "constants": [
         {
           "symbol": "GNEISS_NULL_ENTITY_ID",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::null_entity_id"
         }
       ]
     },
@@ -230,18 +230,18 @@
       "constants": [
         {
           "symbol": "GNEISS_API",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "abi_only",
+          "cpp_mapping": "C ABI 导出与导入基础设施，不属于业务值；C++ 包装调用同一 C 符号"
         },
         {
           "symbol": "GNEISS_EXPERIMENTAL",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "abi_only",
+          "cpp_mapping": "C ABI 稳定性标记基础设施，不属于 C++ 业务值"
         },
         {
           "symbol": "GNEISS_LOCAL",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "abi_only",
+          "cpp_mapping": "内部符号可见性基础设施，不属于 C++ 业务值"
         }
       ]
     },
@@ -253,74 +253,74 @@
           "symbol": "gneiss_result",
           "kind": "scalar",
           "cpp_mapping": "gneiss::result",
-          "native_review": "pending"
+          "native_review": "implemented"
         }
       ],
       "constants": [
         {
           "symbol": "GNEISS_ERROR_DEPENDENCY_FAILED",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::result::dependency_failed"
         },
         {
           "symbol": "GNEISS_ERROR_INITIALIZATION_FAILED",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::result::initialization_failed"
         },
         {
           "symbol": "GNEISS_ERROR_INTERNAL",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::result::internal"
         },
         {
           "symbol": "GNEISS_ERROR_INVALID_ARGUMENT",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::result::invalid_argument"
         },
         {
           "symbol": "GNEISS_ERROR_INVALID_HANDLE",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::result::invalid_handle"
         },
         {
           "symbol": "GNEISS_ERROR_INVALID_STATE",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::result::invalid_state"
         },
         {
           "symbol": "GNEISS_ERROR_IO",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::result::io"
         },
         {
           "symbol": "GNEISS_ERROR_NOT_FOUND",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::result::not_found"
         },
         {
           "symbol": "GNEISS_ERROR_NOT_READY",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::result::not_ready"
         },
         {
           "symbol": "GNEISS_ERROR_OUT_OF_MEMORY",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::result::out_of_memory"
         },
         {
           "symbol": "GNEISS_ERROR_UNKNOWN",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::result::unknown"
         },
         {
           "symbol": "GNEISS_ERROR_UNSUPPORTED",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::result::unsupported"
         },
         {
           "symbol": "GNEISS_SUCCESS",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::result::success"
         }
       ]
     },
@@ -332,14 +332,14 @@
           "symbol": "gneiss_rid",
           "kind": "borrowed_id",
           "cpp_mapping": "gneiss::rid",
-          "native_review": "pending"
+          "native_review": "implemented"
         }
       ],
       "constants": [
         {
           "symbol": "GNEISS_NULL_RID",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::null_rid"
         }
       ]
     },
@@ -350,23 +350,23 @@
       "constants": [
         {
           "symbol": "GNEISS_VERSION_MAJOR",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::header_version.major"
         },
         {
           "symbol": "GNEISS_VERSION_MINOR",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::header_version.minor"
         },
         {
           "symbol": "GNEISS_VERSION_PATCH",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::header_version.patch"
         },
         {
           "symbol": "GNEISS_VERSION_STRING",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::header_version_string"
         }
       ]
     },
@@ -378,86 +378,86 @@
           "symbol": "gneiss_game_context",
           "kind": "borrowed_id",
           "cpp_mapping": "gneiss::game_context",
-          "native_review": "pending"
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_game_module_desc",
           "kind": "struct",
-          "cpp_mapping": "gneiss_game_module_desc（原生 C 值/签名，C++ 直接使用）",
-          "native_review": "pending"
+          "cpp_mapping": "gneiss::game_module_desc / game_module<Callbacks>",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_game_module_fixed_update_fn",
           "kind": "callback",
-          "cpp_mapping": "gneiss_game_module_fixed_update_fn（原生 C 值/签名，C++ 直接使用）",
-          "native_review": "pending"
+          "cpp_mapping": "decltype(gneiss::game_module_callbacks::fixed_update)",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_game_module_initialize_fn",
           "kind": "callback",
-          "cpp_mapping": "gneiss_game_module_initialize_fn（原生 C 值/签名，C++ 直接使用）",
-          "native_review": "pending"
+          "cpp_mapping": "decltype(gneiss::game_module_callbacks::initialize)",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_game_module_query_fn",
           "kind": "callback",
-          "cpp_mapping": "gneiss_game_module_query_fn（原生 C 值/签名，C++ 直接使用）",
-          "native_review": "pending"
+          "cpp_mapping": "动态库真实 C ABI 查询入口；game_module<Callbacks>::export_query 在边界适配",
+          "native_review": "abi_only"
         },
         {
           "symbol": "gneiss_game_module_shutdown_fn",
           "kind": "callback",
-          "cpp_mapping": "gneiss_game_module_shutdown_fn（原生 C 值/签名，C++ 直接使用）",
-          "native_review": "pending"
+          "cpp_mapping": "decltype(gneiss::game_module_callbacks::shutdown)",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_game_module_update_fn",
           "kind": "callback",
-          "cpp_mapping": "gneiss_game_module_update_fn（原生 C 值/签名，C++ 直接使用）",
-          "native_review": "pending"
+          "cpp_mapping": "decltype(gneiss::game_module_callbacks::update)",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_game_update_time",
           "kind": "struct",
-          "cpp_mapping": "gneiss_game_update_time（原生 C 值/签名，C++ 直接使用）",
-          "native_review": "pending"
+          "cpp_mapping": "gneiss::game_update_time",
+          "native_review": "implemented"
         }
       ],
       "constants": [
         {
           "symbol": "GNEISS_GAME_MODULE_ABI_VERSION_1",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::game_module_abi_version_1"
         },
         {
           "symbol": "GNEISS_GAME_MODULE_ABI_VERSION_CURRENT",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::game_module_abi_version"
         },
         {
           "symbol": "GNEISS_GAME_MODULE_DESC_VERSION_1_SIZE",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "abi_only",
+          "cpp_mapping": "C ABI 描述布局版本；原生 game_module_desc 不暴露结构大小"
         },
         {
           "symbol": "GNEISS_GAME_MODULE_EXPORT",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "abi_only",
+          "cpp_mapping": "动态库真实 C ABI 符号导出基础设施"
         },
         {
           "symbol": "GNEISS_GAME_MODULE_QUERY_SYMBOL",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::game_module_query_symbol"
         },
         {
           "symbol": "GNEISS_GAME_UPDATE_TIME_VERSION_1_SIZE",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "abi_only",
+          "cpp_mapping": "C ABI 时间布局版本；原生 game_update_time 不暴露结构大小"
         },
         {
           "symbol": "GNEISS_NULL_GAME_CONTEXT",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::null_game_context"
         }
       ]
     },
@@ -2027,13 +2027,13 @@
           "symbol": "gneiss_world",
           "kind": "owner",
           "cpp_mapping": "gneiss::world / gneiss::world_ref",
-          "native_review": "pending"
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_world_desc",
           "kind": "struct",
-          "cpp_mapping": "gneiss_world_desc（原生 C 值/签名，C++ 直接使用）",
-          "native_review": "pending"
+          "cpp_mapping": "只有 struct_size 与保留字段；gneiss::world::create 内部填入，无业务配置",
+          "native_review": "abi_only"
         }
       ],
       "constants": [
@@ -2059,8 +2059,8 @@
         },
         {
           "symbol": "GNEISS_NULL_WORLD",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::world_ref{} / world{}"
         },
         {
           "symbol": "GNEISS_TRANSFORM_FIELD_ROTATION",
@@ -2079,8 +2079,8 @@
         },
         {
           "symbol": "GNEISS_WORLD_DESC_INIT",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "abi_only",
+          "cpp_mapping": "C 布局初始化；gneiss::world::create 内部填入，无业务配置"
         }
       ]
     }

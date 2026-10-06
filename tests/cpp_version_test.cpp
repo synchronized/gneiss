@@ -4,9 +4,8 @@
 #include <gneiss/gneiss.hpp>
 
 int main() {
-  const auto version = gneiss::library_version();
-  return version.major == GNEISS_VERSION_MAJOR && version.minor == GNEISS_VERSION_MINOR &&
-                 version.patch == GNEISS_VERSION_PATCH
+  return gneiss::library_version() == gneiss::header_version &&
+                 !gneiss::header_version_string.empty()
              ? 0
              : 1;
 }

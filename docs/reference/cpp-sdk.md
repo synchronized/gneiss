@@ -7,8 +7,8 @@
 
 `<gneiss/gneiss.hpp>` 汇总公共 C++20 SDK；也可以独立包含模块 `.hpp`。
 包装通过 C ABI 操作同一个运行时，不创建第二套注册表、资源或主循环。
-Application、World、Scene、Render、Input、Reflection 和日志接口已使用原生 C++ 类型；Game Module 导出边界仍在按
-[0.47 计划](../plans/VER-047-0.47.0-native-cpp-sdk.md)逐组迁移，尚不能称为全部原生 SDK。
+普通调用使用原生 C++ 类型、枚举、默认值与 noexcept 回调，不需要 C 业务宏或布局字段。
+显式 `_native` / `to_native` 互操作及 Game Module 动态库导出保留真实 C ABI 边界。
 
 | C 功能 | C++ 表达 | 所有权 |
 | --- | --- | --- |
@@ -25,8 +25,9 @@ Application、World、Scene、Render、Input、Reflection 和日志接口已使�
 | 输入事件、键盘/指针/动作快照 | 独立结构、强类型枚举与 variant | 自有快照，默认构造，详见[输入接口](input.md) |
 | 日志提交消息 | `log_message`，字段使用 `log_severity`、`string_view`、`result` | 借用文本至同步提交返回，详见[日志契约](logging.md#c-日志提交) |
 | 反射元数据与属性 | 原生描述、字段 ID、variant 与 noexcept 回调 | type_info 拥有字段数组，名称和属性字符串按各自约定借用 |
-| World 创建描述与 Game Module 导出 | 无字段配置由 create 内部填入；模块导出仍遵循 C ABI | Game Module 边界审计尚在进行 |
-| 常量、标志、默认初始化器、旧结构大小、构建导出宏 | 输入业务常量使用 C++ 枚举/默认构造，其余仍使用 `GNEISS_*` | 无运行时所有权；初始化器保留 `struct_size` 与保留字段规则 |
+| World 创建 | `world::create(output)` 内部填入无业务字段的描述 | 与拥有者契约相同 |
+| Game Module | `game_module_desc`、`game_module_callbacks`、`game_update_time`、`game_module<Callbacks>` | 编译期生成 C 导出桥接；私有状态由模块回调管理 |
+| 常量与默认初始化 | 原生枚举、flags、默认构造、`header_version` / `header_version_string` | 值；C 布局大小及导出宏仅作为 ABI 基础设施保留 |
 
 拥有者的 `get()`/`id()` 只借用原始身份；`release()` 才转移销毁责任。Application 返回
 携带回调存储的 `released_application` 载体；Registry 返回 `released_type_registry`，其余拥有者按各自契约转移原始身份。
@@ -48,8 +49,8 @@ Application、World、Scene、Render、Input、Reflection 和日志接口已使�
 | Game Module 描述与函数指针 | 动态库卸载前保持有效；模块私有状态由模块初始化/关闭回调负责 |
 | Game Context、启动实体、输入动作 | 不拥有 Engine 对象；关闭或场景切换后重新获取，动作映射重载使旧动作失效 |
 
-Application 原生回调使用 noexcept C++ 函数指针和显式上下文，其函数表被复制；其他尚未迁移的
-回调及 create_native 使用 C 函数指针。捕获状态需由调用方持有，不能注册临时对象后让其提前析构。
+Application、Reflection 和 Game Module 原生回调使用 noexcept C++ 函数指针；前两者复制
+回调表，后者在编译期生成桥接。显式 `_native` 入口使用 C 函数指针。捕获状态需由调用方持有，不能注册临时对象后让其提前析构。
 包装不提供隐藏的 `std::function` 注册表，也不因保存一个回调而延长 DLL 或 Application 寿命。
 所有回调实现均不得让异常穿过 ABI；日志 Sink 和反射访问器有防御性异常隔离，但不能把这一点
 泛化为全部生命周期回调均可抛异常。模块更新与 Application 关闭等回调应自行捕获并按其签名报告错误。
@@ -63,7 +64,7 @@ Application 原生回调使用 noexcept C++ 函数指针和显式上下文，其
 [类型清单](../../abi/cpp-type-inventory.json)枚举公共类型（含回调）和宏，包括生成版本头模板。
 头保护宏不计入，平台条件下重复定义的导出宏只登记一次。`native_review` 独立记录原生迁移的
 `pending`、`implemented` 和类型/常量的 `abi_only` 例外；旧 `reviewed` 不代表原生迁移已完成。
-检查器的 `GNEISS_REQUIRE_NATIVE_CPP_SDK=ON` 严格模式拒绝 pending，普通模式允许显式待办。
+CTest 已启用 `GNEISS_REQUIRE_NATIVE_CPP_SDK=ON` 严格模式，拒绝 pending 项进入发布候选。
 清单检查验证新增/遗漏和直接 C 别名误标，不能代替签名、生命周期与消费者语义审查。
 具体错误输出、所属线程和失效行为以模块 Reference 为准。
 
@@ -122,3 +123,14 @@ Registry 的移动、release/adopt 同时转移句柄与回调存储，release �
 冻结前注册/绑定及关闭需要调用方遵守外部同步契约；包装不提供注销，不复制第二套元数据注册表。
 显式 C ABI 互操作方法使用 `_native` 后缀；Editor 现有 C 属性值边界及 C 回调异常夹具使用这些入口。
 新示例使用普通原生方法，见 `examples/property_inspector/main.cpp`。
+
+### Game Module 与版本
+
+`game_module<Callbacks>` 接收编译期 `game_module_callbacks`，业务回调使用 `game_context`、
+`game_update_time` 和 `result`。模块 C ABI 没有回调 user_data，因此采用静态桥接，不引入全局闭包表。
+模块可把自己的状态交给 initialize 输出参数，成功后由 shutdown 负责释放，失败则由 initialize 自行清理。
+真实动态库导出调用 `export_query`，其写入只覆盖已知字段，失败保留输出；名称须存活至动态库卸载。
+完整示例为 [工程模板](../../templates/game/game_module.cpp)，细节见 [Game Module](game-module.md)。
+
+`header_version` / `header_version_string` 表示编译所用头文件版本，`library_version()` 查询运行时库版本。
+版本类型支持值比较；C++ 源码不需要使用 `GNEISS_VERSION_*`。
