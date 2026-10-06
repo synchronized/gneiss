@@ -78,12 +78,12 @@ int main() {
   gneiss::world_ref typed_world;
   gneiss::entity_id typed_root;
   gneiss::action_id typed_action;
-  gneiss::action_state typed_state = GNEISS_ACTION_STATE_INIT;
+  gneiss::action_state typed_state{};
   if (borrowed.get_world(typed_world).failed() || typed_world.get() != expected_world ||
       borrowed.get_startup_root_entity(typed_root).failed() || typed_root.get() != expected_root ||
       gneiss::load_action_map(application, "asset://input/default.input-map.json").failed() ||
       borrowed.find_action("move_horizontal", typed_action).failed() || !typed_action.is_valid() ||
-      borrowed.get_action_state(typed_action, typed_state).failed() || typed_state.held != 0U) {
+      borrowed.get_action_state(typed_action, typed_state).failed() || typed_state.held) {
     return 7;
   }
   const auto original_action = typed_action;

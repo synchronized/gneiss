@@ -203,6 +203,8 @@
 
 ## 实施与验收记录
 
+- [M-301 / M-303：原生输入 SDK 与迁移门禁实施记录](records/M-301-303-native-input-sdk.md)
+
 - [M-214：确定性资产构建图与缓存实施记录](records/M-214-asset-build-graph-cache.md)
 - [M-215：KTX2 与 Granit 纹理能力 Spike 记录](records/M-215-ktx2-granit-capability-spike.md)
 - [M-162：Granit 0.7.0 升级与兼容审计](records/M-162-granit-0.7-upgrade.md)

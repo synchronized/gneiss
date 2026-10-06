@@ -14,7 +14,8 @@
         "gneiss.cpp-owner-lifecycle",
         "gneiss.cpp-owner-termination"
       ],
-      "cpp_entry": "gneiss::application::create"
+      "cpp_entry": "gneiss::application::create",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_application_destroy",
@@ -28,7 +29,8 @@
         "gneiss.cpp-owner-lifecycle",
         "gneiss.cpp-owner-termination"
       ],
-      "cpp_entry": "gneiss::application::reset / release"
+      "cpp_entry": "gneiss::application::reset / release",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_application_run",
@@ -42,7 +44,8 @@
         "gneiss.cpp_application",
         "gneiss.c_application"
       ],
-      "cpp_entry": "gneiss::application::run"
+      "cpp_entry": "gneiss::application::run",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_application_get_window_size",
@@ -57,7 +60,8 @@
         "gneiss.c_application",
         "gneiss.editor.native-window-interaction"
       ],
-      "cpp_entry": "gneiss::application::get_window_size"
+      "cpp_entry": "gneiss::application::get_window_size",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_application_request_exit",
@@ -71,7 +75,8 @@
         "gneiss.cpp_application",
         "gneiss.c_application"
       ],
-      "cpp_entry": "gneiss::application::request_exit"
+      "cpp_entry": "gneiss::application::request_exit",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_application_set_paused",
@@ -85,7 +90,8 @@
         "gneiss.cpp_application",
         "gneiss.c_application"
       ],
-      "cpp_entry": "gneiss::application::set_paused"
+      "cpp_entry": "gneiss::application::set_paused",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_application_log",
@@ -98,7 +104,8 @@
       "tests": [
         "gneiss.application_log"
       ],
-      "cpp_entry": "gneiss::application::log"
+      "cpp_entry": "gneiss::application::log",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_application_get_world",
@@ -112,7 +119,8 @@
         "gneiss.cpp-resource-ownership",
         "gneiss.cpp_application"
       ],
-      "cpp_entry": "gneiss::application::get_world(world_ref&)"
+      "cpp_entry": "gneiss::application::get_world(world_ref&)",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_asset_uri_validate",
@@ -125,7 +133,8 @@
       "tests": [
         "gneiss.c_asset"
       ],
-      "cpp_entry": "gneiss::validate_asset_uri"
+      "cpp_entry": "gneiss::validate_asset_uri",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_result_message",
@@ -139,7 +148,8 @@
         "gneiss.c_result",
         "gneiss.cpp_result"
       ],
-      "cpp_entry": "gneiss::result::message"
+      "cpp_entry": "gneiss::result::message",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_game_module_validate",
@@ -153,7 +163,8 @@
         "gneiss.cpp_game_module",
         "gneiss.c_game_module"
       ],
-      "cpp_entry": "gneiss::validate_game_module"
+      "cpp_entry": "gneiss::validate_game_module",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_game_context_get_world",
@@ -167,7 +178,8 @@
         "gneiss.game_context",
         "gneiss.cpp_game_module"
       ],
-      "cpp_entry": "gneiss::game_context::get_world(world_ref&)"
+      "cpp_entry": "gneiss::game_context::get_world(world_ref&)",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_game_context_get_startup_root_entity",
@@ -181,7 +193,8 @@
         "gneiss.game_context",
         "gneiss.cpp_game_module"
       ],
-      "cpp_entry": "gneiss::game_context::get_startup_root_entity(entity_id&)"
+      "cpp_entry": "gneiss::game_context::get_startup_root_entity(entity_id&)",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_game_context_find_action",
@@ -195,7 +208,8 @@
         "gneiss.game_context",
         "gneiss.cpp_game_module"
       ],
-      "cpp_entry": "gneiss::game_context::find_action(name, action_id&)"
+      "cpp_entry": "gneiss::game_context::find_action(name, action_id&)",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_game_context_get_action_state",
@@ -209,7 +223,8 @@
         "gneiss.game_context",
         "gneiss.cpp_game_module"
       ],
-      "cpp_entry": "gneiss::game_context::get_action_state(action_id, action_state&)"
+      "cpp_entry": "gneiss::game_context::get_action_state(action_id, action_state&)",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_game_context_request_exit",
@@ -222,7 +237,8 @@
       "tests": [
         "gneiss.game_context"
       ],
-      "cpp_entry": "gneiss::game_context::request_exit"
+      "cpp_entry": "gneiss::game_context::request_exit",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_game_context_log",
@@ -236,7 +252,8 @@
         "gneiss.game_context",
         "gneiss.cpp_game_module"
       ],
-      "cpp_entry": "gneiss::game_context::log"
+      "cpp_entry": "gneiss::game_context::log",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_version_major",
@@ -250,7 +267,8 @@
         "gneiss.c_version",
         "gneiss.cpp_version"
       ],
-      "cpp_entry": "gneiss::library_version"
+      "cpp_entry": "gneiss::library_version",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_version_minor",
@@ -264,7 +282,8 @@
         "gneiss.c_version",
         "gneiss.cpp_version"
       ],
-      "cpp_entry": "gneiss::library_version"
+      "cpp_entry": "gneiss::library_version",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_version_patch",
@@ -278,7 +297,8 @@
         "gneiss.c_version",
         "gneiss.cpp_version"
       ],
-      "cpp_entry": "gneiss::library_version"
+      "cpp_entry": "gneiss::library_version",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_application_poll_input",
@@ -288,12 +308,13 @@
         "include/gneiss/engine/application.hpp"
       ],
       "review": "reviewed",
-      "ownership": "所属线程消费当帧队列；事件值复制，队列空 not_ready；结构尺寸规则继承 C",
+      "ownership": "所属线程消费当帧队列；转换为自有 variant 快照，失败保留输出；未知事件已出队并返回 unsupported，非法文本长度返回 invalid_argument",
       "tests": [
         "gneiss.cpp_input",
         "gneiss.c_application"
       ],
-      "cpp_entry": "gneiss::application::poll_input / gneiss::poll_input"
+      "cpp_entry": "gneiss::application::poll_input / gneiss::poll_input",
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_application_get_keyboard_state",
@@ -308,7 +329,8 @@
         "gneiss.cpp_input",
         "gneiss.c_application"
       ],
-      "cpp_entry": "gneiss::application::get_keyboard_state / gneiss::get_keyboard_state"
+      "cpp_entry": "gneiss::application::get_keyboard_state / gneiss::get_keyboard_state",
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_application_get_pointer_state",
@@ -323,7 +345,8 @@
         "gneiss.cpp_input",
         "gneiss.c_application"
       ],
-      "cpp_entry": "gneiss::application::get_pointer_state / gneiss::get_pointer_state"
+      "cpp_entry": "gneiss::application::get_pointer_state / gneiss::get_pointer_state",
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_application_load_action_map",
@@ -338,7 +361,8 @@
         "gneiss.cpp_input",
         "gneiss.c_application"
       ],
-      "cpp_entry": "gneiss::application::load_action_map / gneiss::load_action_map"
+      "cpp_entry": "gneiss::application::load_action_map / gneiss::load_action_map",
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_application_find_action",
@@ -348,12 +372,13 @@
         "include/gneiss/engine/application.hpp"
       ],
       "review": "reviewed",
-      "ownership": "借用强类型 action_id，限所属线程；强类型输出失败不变，原整数别名入口保留兼容",
+      "ownership": "输出强类型 action_id；所属线程查询，失败保留输出；不再保留裸动作兼容重载",
       "tests": [
         "gneiss.cpp_input",
         "gneiss.c_application"
       ],
-      "cpp_entry": "gneiss::application::find_action / gneiss::find_action"
+      "cpp_entry": "gneiss::application::find_action / gneiss::find_action",
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_application_get_action_state",
@@ -363,12 +388,13 @@
         "include/gneiss/engine/application.hpp"
       ],
       "review": "reviewed",
-      "ownership": "输出当帧值快照；不拥有动作，拒绝过期 generation 与跨 Application 动作，结构尺寸校验同 C",
+      "ownership": "输出独立 C++ 当帧值快照；不拥有动作；拒绝过期 generation 或跨 Application 动作，结构尺寸由适配层设置，失败保留输出",
       "tests": [
         "gneiss.cpp_input",
         "gneiss.c_application"
       ],
-      "cpp_entry": "gneiss::application::get_action_state / gneiss::get_action_state"
+      "cpp_entry": "gneiss::application::get_action_state / gneiss::get_action_state",
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_log_message_validate",
@@ -382,7 +408,8 @@
         "gneiss.c_log",
         "gneiss.cpp_log"
       ],
-      "cpp_entry": "gneiss::validate_log_message"
+      "cpp_entry": "gneiss::validate_log_message",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_type_registry_create",
@@ -395,7 +422,8 @@
       "tests": [
         "gneiss.cpp-owner-lifecycle"
       ],
-      "cpp_entry": "gneiss::type_registry::create"
+      "cpp_entry": "gneiss::type_registry::create",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_type_registry_destroy",
@@ -408,7 +436,8 @@
       "tests": [
         "gneiss.cpp-owner-lifecycle"
       ],
-      "cpp_entry": "gneiss::type_registry::reset / release"
+      "cpp_entry": "gneiss::type_registry::reset / release",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_type_registry_register",
@@ -423,7 +452,8 @@
         "gneiss.property_access",
         "gneiss.reflection-boundary"
       ],
-      "cpp_entry": "gneiss::type_registry::register_type"
+      "cpp_entry": "gneiss::type_registry::register_type",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_type_registry_bind_property",
@@ -438,7 +468,8 @@
         "gneiss.property_access",
         "gneiss.reflection-boundary"
       ],
-      "cpp_entry": "gneiss::type_registry::bind_property"
+      "cpp_entry": "gneiss::type_registry::bind_property",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_type_registry_freeze",
@@ -453,7 +484,8 @@
         "gneiss.property_access",
         "gneiss.reflection-boundary"
       ],
-      "cpp_entry": "gneiss::type_registry::freeze"
+      "cpp_entry": "gneiss::type_registry::freeze",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_type_registry_is_frozen",
@@ -466,7 +498,8 @@
       "tests": [
         "gneiss.cpp_reflection"
       ],
-      "cpp_entry": "gneiss::type_registry::is_frozen"
+      "cpp_entry": "gneiss::type_registry::is_frozen",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_type_registry_type_count",
@@ -481,7 +514,8 @@
         "gneiss.property_access",
         "gneiss.reflection-boundary"
       ],
-      "cpp_entry": "gneiss::type_registry::type_count"
+      "cpp_entry": "gneiss::type_registry::type_count",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_type_registry_type_at",
@@ -494,7 +528,8 @@
       "tests": [
         "gneiss.cpp_reflection"
       ],
-      "cpp_entry": "gneiss::type_registry::type_at"
+      "cpp_entry": "gneiss::type_registry::type_at",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_type_registry_find_type",
@@ -509,7 +544,8 @@
         "gneiss.property_access",
         "gneiss.reflection-boundary"
       ],
-      "cpp_entry": "gneiss::type_registry::find_type"
+      "cpp_entry": "gneiss::type_registry::find_type",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_type_registry_find_field",
@@ -524,7 +560,8 @@
         "gneiss.property_access",
         "gneiss.reflection-boundary"
       ],
-      "cpp_entry": "gneiss::type_registry::find_field"
+      "cpp_entry": "gneiss::type_registry::find_field",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_type_registry_get_property",
@@ -539,7 +576,8 @@
         "gneiss.property_access",
         "gneiss.reflection-boundary"
       ],
-      "cpp_entry": "gneiss::type_registry::get_property"
+      "cpp_entry": "gneiss::type_registry::get_property",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_type_registry_set_property",
@@ -554,7 +592,8 @@
         "gneiss.property_access",
         "gneiss.reflection-boundary"
       ],
-      "cpp_entry": "gneiss::type_registry::set_property"
+      "cpp_entry": "gneiss::type_registry::set_property",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_mesh_create",
@@ -567,7 +606,8 @@
       "tests": [
         "gneiss.cpp-resource-ownership"
       ],
-      "cpp_entry": "gneiss::mesh::create"
+      "cpp_entry": "gneiss::mesh::create",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_mesh_destroy",
@@ -580,7 +620,8 @@
       "tests": [
         "gneiss.cpp-resource-ownership"
       ],
-      "cpp_entry": "gneiss::mesh::reset / destructor"
+      "cpp_entry": "gneiss::mesh::reset / destructor",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_material_create",
@@ -593,7 +634,8 @@
       "tests": [
         "gneiss.cpp-resource-ownership"
       ],
-      "cpp_entry": "gneiss::material::create"
+      "cpp_entry": "gneiss::material::create",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_material_destroy",
@@ -606,7 +648,8 @@
       "tests": [
         "gneiss.cpp-resource-ownership"
       ],
-      "cpp_entry": "gneiss::material::reset / destructor"
+      "cpp_entry": "gneiss::material::reset / destructor",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_texture_create",
@@ -619,7 +662,8 @@
       "tests": [
         "gneiss.cpp-resource-ownership"
       ],
-      "cpp_entry": "gneiss::texture::create"
+      "cpp_entry": "gneiss::texture::create",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_texture_destroy",
@@ -632,7 +676,8 @@
       "tests": [
         "gneiss.cpp-resource-ownership"
       ],
-      "cpp_entry": "gneiss::texture::reset / destructor"
+      "cpp_entry": "gneiss::texture::reset / destructor",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_application_submit_ui_draw_list",
@@ -646,7 +691,8 @@
         "gneiss.c_application",
         "gneiss.granit_platform"
       ],
-      "cpp_entry": "gneiss::application::submit_ui_draw_list"
+      "cpp_entry": "gneiss::application::submit_ui_draw_list",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_application_submit_debug_draw_list",
@@ -659,7 +705,8 @@
       "tests": [
         "gneiss.granit_platform"
       ],
-      "cpp_entry": "gneiss::application::submit_debug_draw_list"
+      "cpp_entry": "gneiss::application::submit_debug_draw_list",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_world_entity_set_camera",
@@ -673,7 +720,8 @@
         "gneiss.cpp_world",
         "gneiss.c_world"
       ],
-      "cpp_entry": "gneiss::world_ref::set_camera / gneiss::world"
+      "cpp_entry": "gneiss::world_ref::set_camera / gneiss::world",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_world_entity_configure_camera",
@@ -688,7 +736,8 @@
         "gneiss.c_world",
         "gneiss.world-service-boundary"
       ],
-      "cpp_entry": "gneiss::world_ref::configure_camera / gneiss::world"
+      "cpp_entry": "gneiss::world_ref::configure_camera / gneiss::world",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_world_entity_get_camera",
@@ -703,7 +752,8 @@
         "gneiss.c_world",
         "gneiss.world-service-boundary"
       ],
-      "cpp_entry": "gneiss::world_ref::get_camera / gneiss::world"
+      "cpp_entry": "gneiss::world_ref::get_camera / gneiss::world",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_world_entity_remove_camera",
@@ -717,7 +767,8 @@
         "gneiss.cpp_world",
         "gneiss.c_world"
       ],
-      "cpp_entry": "gneiss::world_ref::remove_camera / gneiss::world"
+      "cpp_entry": "gneiss::world_ref::remove_camera / gneiss::world",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_world_set_active_camera",
@@ -731,7 +782,8 @@
         "gneiss.cpp_world",
         "gneiss.c_world"
       ],
-      "cpp_entry": "gneiss::world_ref::set_active_camera / gneiss::world"
+      "cpp_entry": "gneiss::world_ref::set_active_camera / gneiss::world",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_world_get_active_camera",
@@ -745,7 +797,8 @@
         "gneiss.cpp_world",
         "gneiss.c_world"
       ],
-      "cpp_entry": "gneiss::world_ref::get_active_camera / gneiss::world"
+      "cpp_entry": "gneiss::world_ref::get_active_camera / gneiss::world",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_world_entity_set_mesh_renderer",
@@ -758,7 +811,8 @@
       "tests": [
         "gneiss.cpp-resource-ownership"
       ],
-      "cpp_entry": "gneiss::world_ref::set_mesh_renderer / gneiss::world"
+      "cpp_entry": "gneiss::world_ref::set_mesh_renderer / gneiss::world",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_world_entity_remove_mesh_renderer",
@@ -771,7 +825,8 @@
       "tests": [
         "gneiss.cpp-resource-ownership"
       ],
-      "cpp_entry": "gneiss::world_ref::remove_mesh_renderer / gneiss::world"
+      "cpp_entry": "gneiss::world_ref::remove_mesh_renderer / gneiss::world",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_scene_node_create",
@@ -785,7 +840,8 @@
         "gneiss.cpp_scene",
         "gneiss.c_scene"
       ],
-      "cpp_entry": "gneiss::world_ref::create_scene_node / gneiss::world"
+      "cpp_entry": "gneiss::world_ref::create_scene_node / gneiss::world",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_scene_node_destroy",
@@ -799,7 +855,8 @@
         "gneiss.cpp_scene",
         "gneiss.c_scene"
       ],
-      "cpp_entry": "gneiss::world_ref::destroy_scene_node / gneiss::world"
+      "cpp_entry": "gneiss::world_ref::destroy_scene_node / gneiss::world",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_scene_node_reparent",
@@ -813,7 +870,8 @@
         "gneiss.cpp_scene",
         "gneiss.c_scene"
       ],
-      "cpp_entry": "gneiss::world_ref::reparent_scene_node / gneiss::world"
+      "cpp_entry": "gneiss::world_ref::reparent_scene_node / gneiss::world",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_scene_node_set_local_transform",
@@ -827,7 +885,8 @@
         "gneiss.cpp_scene",
         "gneiss.scene_tree_transform"
       ],
-      "cpp_entry": "gneiss::world_ref::set_local_transform(scene_node_id, transform) / gneiss::world"
+      "cpp_entry": "gneiss::world_ref::set_local_transform(scene_node_id, transform) / gneiss::world",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_scene_node_get_local_transform",
@@ -840,7 +899,8 @@
       "tests": [
         "gneiss.cpp_world"
       ],
-      "cpp_entry": "gneiss::world::get_local_transform(scene_node_id, transform&)"
+      "cpp_entry": "gneiss::world::get_local_transform(scene_node_id, transform&)",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_scene_node_get_world_transform",
@@ -855,7 +915,8 @@
         "gneiss.c_scene",
         "gneiss.scene_tree_transform"
       ],
-      "cpp_entry": "gneiss::world_ref::get_world_transform / gneiss::world"
+      "cpp_entry": "gneiss::world_ref::get_world_transform / gneiss::world",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_scene_node_get_entity",
@@ -868,7 +929,8 @@
       "tests": [
         "gneiss.cpp_world"
       ],
-      "cpp_entry": "gneiss::world::get_entity"
+      "cpp_entry": "gneiss::world::get_entity",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_scene_node_get_parent",
@@ -881,7 +943,8 @@
       "tests": [
         "gneiss.cpp_world"
       ],
-      "cpp_entry": "gneiss::world::get_parent"
+      "cpp_entry": "gneiss::world::get_parent",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_world_entity_get_local_transform",
@@ -894,7 +957,8 @@
       "tests": [
         "gneiss.cpp_scene"
       ],
-      "cpp_entry": "gneiss::world_ref::get_local_transform(entity_id, transform&) / gneiss::world"
+      "cpp_entry": "gneiss::world_ref::get_local_transform(entity_id, transform&) / gneiss::world",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_world_entity_set_local_transform",
@@ -907,7 +971,8 @@
       "tests": [
         "gneiss.cpp_scene"
       ],
-      "cpp_entry": "gneiss::world_ref::set_local_transform(entity_id, transform) / gneiss::world"
+      "cpp_entry": "gneiss::world_ref::set_local_transform(entity_id, transform) / gneiss::world",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_scene_instance_load",
@@ -921,7 +986,8 @@
         "gneiss.cpp_scene_instance",
         "gneiss.scene_instance"
       ],
-      "cpp_entry": "gneiss::scene_instance::load"
+      "cpp_entry": "gneiss::scene_instance::load",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_scene_instance_create_empty",
@@ -935,7 +1001,8 @@
         "gneiss.cpp-owner-lifecycle",
         "gneiss.cpp-owner-termination"
       ],
-      "cpp_entry": "gneiss::scene_instance::create_empty"
+      "cpp_entry": "gneiss::scene_instance::create_empty",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_scene_instance_unload",
@@ -949,7 +1016,8 @@
         "gneiss.cpp-owner-lifecycle",
         "gneiss.cpp-owner-termination"
       ],
-      "cpp_entry": "gneiss::scene_instance::reset / release"
+      "cpp_entry": "gneiss::scene_instance::reset / release",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_scene_instance_find_node",
@@ -963,7 +1031,8 @@
         "gneiss.cpp_scene_instance",
         "gneiss.scene_instance"
       ],
-      "cpp_entry": "gneiss::scene_instance::find_node"
+      "cpp_entry": "gneiss::scene_instance::find_node",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_scene_instance_get_node_count",
@@ -977,7 +1046,8 @@
         "gneiss.cpp_scene_instance",
         "gneiss.scene_instance"
       ],
-      "cpp_entry": "gneiss::scene_instance::get_node_count"
+      "cpp_entry": "gneiss::scene_instance::get_node_count",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_scene_instance_get_node_info",
@@ -991,7 +1061,8 @@
         "gneiss.cpp_scene_instance",
         "gneiss.scene_instance"
       ],
-      "cpp_entry": "gneiss::scene_instance::get_node_info"
+      "cpp_entry": "gneiss::scene_instance::get_node_info",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_scene_instance_get_prefab_node_count",
@@ -1005,7 +1076,8 @@
         "gneiss.cpp_scene_instance",
         "gneiss.scene_prefab_instance"
       ],
-      "cpp_entry": "gneiss::scene_instance::get_prefab_node_count"
+      "cpp_entry": "gneiss::scene_instance::get_prefab_node_count",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_scene_instance_get_prefab_node_info",
@@ -1019,7 +1091,8 @@
         "gneiss.cpp_scene_instance",
         "gneiss.scene_prefab_instance"
       ],
-      "cpp_entry": "gneiss::scene_instance::get_prefab_node_info"
+      "cpp_entry": "gneiss::scene_instance::get_prefab_node_info",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_scene_instance_create_prefab_instance",
@@ -1033,7 +1106,8 @@
         "gneiss.cpp_scene_instance",
         "gneiss.scene_prefab_instance"
       ],
-      "cpp_entry": "gneiss::scene_instance::create_prefab_instance"
+      "cpp_entry": "gneiss::scene_instance::create_prefab_instance",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_scene_instance_set_prefab_instance_name",
@@ -1047,7 +1121,8 @@
         "gneiss.cpp_scene_instance",
         "gneiss.scene_prefab_instance"
       ],
-      "cpp_entry": "gneiss::scene_instance::set_prefab_instance_name"
+      "cpp_entry": "gneiss::scene_instance::set_prefab_instance_name",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_scene_instance_set_prefab_source_transform",
@@ -1061,7 +1136,8 @@
         "gneiss.cpp_scene_instance",
         "gneiss.scene_prefab_instance"
       ],
-      "cpp_entry": "gneiss::scene_instance::set_prefab_source_transform"
+      "cpp_entry": "gneiss::scene_instance::set_prefab_source_transform",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_scene_instance_destroy_prefab_instance",
@@ -1075,7 +1151,8 @@
         "gneiss.cpp_scene_instance",
         "gneiss.scene_prefab_instance"
       ],
-      "cpp_entry": "gneiss::scene_instance::destroy_prefab_instance"
+      "cpp_entry": "gneiss::scene_instance::destroy_prefab_instance",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_scene_instance_refresh_prefab_instance",
@@ -1090,7 +1167,8 @@
         "gneiss.cpp-prefab-refresh-termination",
         "gneiss.scene_prefab_instance"
       ],
-      "cpp_entry": "gneiss::scene_instance::refresh_prefab_instance / gneiss::scene_prefab_refresh"
+      "cpp_entry": "gneiss::scene_instance::refresh_prefab_instance / gneiss::scene_prefab_refresh",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_scene_instance_toggle_prefab_refresh",
@@ -1105,7 +1183,8 @@
         "gneiss.cpp-prefab-refresh-termination",
         "gneiss.scene_prefab_instance"
       ],
-      "cpp_entry": "gneiss::scene_prefab_refresh::toggle / gneiss::scene_instance::toggle_prefab_refresh"
+      "cpp_entry": "gneiss::scene_prefab_refresh::toggle / gneiss::scene_instance::toggle_prefab_refresh",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_scene_instance_release_prefab_refresh",
@@ -1120,7 +1199,8 @@
         "gneiss.cpp-prefab-refresh-termination",
         "gneiss.scene_prefab_instance"
       ],
-      "cpp_entry": "gneiss::scene_prefab_refresh::reset / release / gneiss::scene_instance::release_prefab_refresh"
+      "cpp_entry": "gneiss::scene_prefab_refresh::reset / release / gneiss::scene_instance::release_prefab_refresh",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_scene_instance_create_node",
@@ -1134,7 +1214,8 @@
         "gneiss.cpp_scene_instance",
         "gneiss.scene_instance"
       ],
-      "cpp_entry": "gneiss::scene_instance::create_node"
+      "cpp_entry": "gneiss::scene_instance::create_node",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_scene_instance_set_node_name",
@@ -1148,7 +1229,8 @@
         "gneiss.cpp_scene_instance",
         "gneiss.scene_instance"
       ],
-      "cpp_entry": "gneiss::scene_instance::set_node_name"
+      "cpp_entry": "gneiss::scene_instance::set_node_name",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_scene_instance_reparent_node",
@@ -1162,7 +1244,8 @@
         "gneiss.cpp_scene_instance",
         "gneiss.scene_instance"
       ],
-      "cpp_entry": "gneiss::scene_instance::reparent_node"
+      "cpp_entry": "gneiss::scene_instance::reparent_node",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_scene_instance_capture_subtree",
@@ -1176,7 +1259,8 @@
         "gneiss.cpp_scene_instance",
         "gneiss.scene_instance"
       ],
-      "cpp_entry": "gneiss::scene_instance::capture_subtree"
+      "cpp_entry": "gneiss::scene_instance::capture_subtree",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_scene_instance_restore_subtree",
@@ -1190,7 +1274,8 @@
         "gneiss.cpp_scene_instance",
         "gneiss.scene_instance"
       ],
-      "cpp_entry": "gneiss::scene_instance::restore_subtree"
+      "cpp_entry": "gneiss::scene_instance::restore_subtree",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_scene_instance_destroy_subtree",
@@ -1204,7 +1289,8 @@
         "gneiss.cpp_scene_instance",
         "gneiss.scene_instance"
       ],
-      "cpp_entry": "gneiss::scene_instance::destroy_subtree"
+      "cpp_entry": "gneiss::scene_instance::destroy_subtree",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_scene_instance_create_mesh_renderer_node",
@@ -1218,7 +1304,8 @@
         "gneiss.cpp_scene_instance",
         "gneiss.scene_instance"
       ],
-      "cpp_entry": "gneiss::scene_instance::create_mesh_renderer_node"
+      "cpp_entry": "gneiss::scene_instance::create_mesh_renderer_node",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_scene_instance_set_mesh_renderer",
@@ -1232,7 +1319,8 @@
         "gneiss.cpp_scene_instance",
         "gneiss.scene_instance"
       ],
-      "cpp_entry": "gneiss::scene_instance::set_mesh_renderer"
+      "cpp_entry": "gneiss::scene_instance::set_mesh_renderer",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_scene_instance_set_camera",
@@ -1246,7 +1334,8 @@
         "gneiss.cpp_scene_instance",
         "gneiss.scene_instance"
       ],
-      "cpp_entry": "gneiss::scene_instance::set_camera"
+      "cpp_entry": "gneiss::scene_instance::set_camera",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_scene_instance_remove_camera",
@@ -1260,7 +1349,8 @@
         "gneiss.cpp_scene_instance",
         "gneiss.scene_instance"
       ],
-      "cpp_entry": "gneiss::scene_instance::remove_camera"
+      "cpp_entry": "gneiss::scene_instance::remove_camera",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_scene_instance_remove_mesh_renderer",
@@ -1274,7 +1364,8 @@
         "gneiss.cpp_scene_instance",
         "gneiss.scene_instance"
       ],
-      "cpp_entry": "gneiss::scene_instance::remove_mesh_renderer"
+      "cpp_entry": "gneiss::scene_instance::remove_mesh_renderer",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_scene_instance_destroy_node",
@@ -1288,7 +1379,8 @@
         "gneiss.cpp_scene_instance",
         "gneiss.scene_instance"
       ],
-      "cpp_entry": "gneiss::scene_instance::destroy_node"
+      "cpp_entry": "gneiss::scene_instance::destroy_node",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_scene_instance_serialize",
@@ -1302,7 +1394,8 @@
         "gneiss.cpp_scene_instance",
         "gneiss.scene_instance"
       ],
-      "cpp_entry": "gneiss::scene_instance::serialize"
+      "cpp_entry": "gneiss::scene_instance::serialize",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_world_create",
@@ -1316,7 +1409,8 @@
         "gneiss.cpp-owner-lifecycle",
         "gneiss.cpp-owner-termination"
       ],
-      "cpp_entry": "gneiss::world::create"
+      "cpp_entry": "gneiss::world::create",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_world_destroy",
@@ -1330,7 +1424,8 @@
         "gneiss.cpp-owner-lifecycle",
         "gneiss.cpp-owner-termination"
       ],
-      "cpp_entry": "gneiss::world::reset / release"
+      "cpp_entry": "gneiss::world::reset / release",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_world_entity_create",
@@ -1345,7 +1440,8 @@
         "gneiss.c_world",
         "gneiss.world-service-boundary"
       ],
-      "cpp_entry": "gneiss::world_ref::create_entity / gneiss::world"
+      "cpp_entry": "gneiss::world_ref::create_entity / gneiss::world",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_world_entity_destroy",
@@ -1360,7 +1456,8 @@
         "gneiss.c_world",
         "gneiss.cpp-resource-ownership"
       ],
-      "cpp_entry": "gneiss::world_ref::destroy_entity / gneiss::world"
+      "cpp_entry": "gneiss::world_ref::destroy_entity / gneiss::world",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_world_entity_is_alive",
@@ -1374,7 +1471,8 @@
         "gneiss.cpp_world",
         "gneiss.c_world"
       ],
-      "cpp_entry": "gneiss::world_ref::is_alive / gneiss::world"
+      "cpp_entry": "gneiss::world_ref::is_alive / gneiss::world",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_world_entity_count",
@@ -1387,7 +1485,8 @@
       "tests": [
         "gneiss.cpp_world"
       ],
-      "cpp_entry": "gneiss::world::entity_count"
+      "cpp_entry": "gneiss::world::entity_count",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_transform_type_id",
@@ -1400,7 +1499,8 @@
       "tests": [
         "gneiss.cpp_world"
       ],
-      "cpp_entry": "gneiss::transform_type_id"
+      "cpp_entry": "gneiss::transform_type_id",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_camera_type_id",
@@ -1413,7 +1513,8 @@
       "tests": [
         "gneiss.cpp_world"
       ],
-      "cpp_entry": "gneiss::camera_type_id"
+      "cpp_entry": "gneiss::camera_type_id",
+      "native_review": "pending"
     },
     {
       "symbol": "gneiss_world_register_reflection",
@@ -1427,7 +1528,8 @@
         "gneiss.cpp_world",
         "gneiss.component_reflection"
       ],
-      "cpp_entry": "gneiss::world_ref::register_reflection / gneiss::world"
+      "cpp_entry": "gneiss::world_ref::register_reflection / gneiss::world",
+      "native_review": "pending"
     }
   ]
 }

@@ -23,7 +23,7 @@ int main() {
     return 1;
   }
   gneiss::action_id action;
-  gneiss::action_state input = GNEISS_ACTION_STATE_INIT;
+  gneiss::action_state input{};
   if (application.load_action_map("asset://input/default.input-map.json").failed() ||
       application.find_action("move_horizontal", action).failed() ||
       application.get_action_state(action, input).failed()) {

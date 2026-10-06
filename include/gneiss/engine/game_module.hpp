@@ -75,7 +75,12 @@ public:
     return status;
   }
   [[nodiscard]] result get_action_state(action_id id, action_state& output) const noexcept {
-    return get_action_state(id.get(), output);
+    gneiss_action_state native = GNEISS_ACTION_STATE_INIT;
+    const auto status = get_action_state(id.get(), native);
+    if (status.ok()) {
+      output = detail::from_action_state(native);
+    }
+    return status;
   }
 
   [[nodiscard]] result request_exit() const noexcept {

@@ -7,7 +7,8 @@
 
 `<gneiss/gneiss.hpp>` 汇总公共 C++20 SDK；也可以独立包含模块 `.hpp`。
 包装通过 C ABI 操作同一个运行时，不创建第二套注册表、资源或主循环。
-描述结构、值类型、宏和函数指针可以直接使用对应 C 表达；没有要求每个标量都变成类。
+输入接口已使用原生 C++ 类型；其余描述、值类型及回调仍有 C 表达，正在按
+[0.47 计划](../plans/VER-047-0.47.0-native-cpp-sdk.md)逐组迁移，尚不能称为全部原生 SDK。
 
 | C 功能 | C++ 表达 | 所有权 |
 | --- | --- | --- |
@@ -17,9 +18,10 @@
 | Entity、Scene Node、Action、Game Context、RID | `entity_id`、`scene_node_id`、`action_id`、`game_context`、`rid` | 值形式的借用身份，不延长所属服务寿命 |
 | Application 所属 World | `world_ref` | 借用；不能调用拥有者的销毁/转移操作 |
 | 结果、版本、日志级别 | `result`、`version`、`log_severity` | 值；结果不通过异常报告 |
-| Transform、Render/Scene 描述、输入快照 | 模块 `.hpp` 的值别名 | 与 C 布局相同；结构含指针不代表复制了指向的数据 |
+| Transform、Render/Scene 描述 | 模块 `.hpp` 的值别名 | 与 C 布局相同；结构含指针不代表复制了指向的数据 |
+| 输入事件、键盘/指针/动作快照 | 独立结构、强类型枚举与 variant | 自有快照，默认构造，详见[输入接口](input.md) |
 | Application/World 创建描述、反射元数据、日志事件、Game Module 描述 | 直接使用 `gneiss_*` C 值 | 由对应操作决定复制与借用，见下表及模块参考 |
-| 常量、标志、默认初始化器、旧结构大小、构建导出宏 | 直接使用 `GNEISS_*` | 无运行时所有权；初始化器保留 `struct_size` 与保留字段规则 |
+| 常量、标志、默认初始化器、旧结构大小、构建导出宏 | 输入业务常量使用 C++ 枚举/默认构造，其余仍使用 `GNEISS_*` | 无运行时所有权；初始化器保留 `struct_size` 与保留字段规则 |
 
 拥有者的 `get()`/`id()` 只借用原始身份；`release()` 才转移销毁责任。
 `operator bool` 或 `is_valid()` 只判断非零，不探测后端是否仍然存在。
@@ -52,7 +54,10 @@ C++ 回调仍使用 C 函数指针与显式上下文；捕获状态需由调用�
 
 当前版本的[函数清单](../../abi/cpp-api-inventory.json)记录 C++ 入口与测试；
 [类型清单](../../abi/cpp-type-inventory.json)枚举公共类型（含回调）和宏，包括生成版本头模板。
-头保护宏不计入，平台条件下重复定义的导出宏只登记一次。清单检查验证新增/遗漏，不代替语义审查。
+头保护宏不计入，平台条件下重复定义的导出宏只登记一次。`native_review` 独立记录原生迁移的
+`pending`、`implemented` 和类型/常量的 `abi_only` 例外；旧 `reviewed` 不代表原生迁移已完成。
+检查器的 `GNEISS_REQUIRE_NATIVE_CPP_SDK=ON` 严格模式拒绝 pending，普通模式允许显式待办。
+清单检查验证新增/遗漏和直接 C 别名误标，不能代替签名、生命周期与消费者语义审查。
 具体错误输出、所属线程和失效行为以模块 Reference 为准。
 
 公共功能头的规范路径为 `<gneiss/engine/模块.hpp>`，根总入口保持 `<gneiss/gneiss.hpp>`。

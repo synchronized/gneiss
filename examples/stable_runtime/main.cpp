@@ -24,8 +24,8 @@ constexpr std::uint64_t measure_sample_frames = 300U;
 struct sample_state {
   gneiss_world world = GNEISS_NULL_WORLD;
   gneiss_scene_node_id camera_node = GNEISS_NULL_SCENE_NODE_ID;
-  gneiss_action orbit = GNEISS_NULL_ACTION;
-  gneiss_action quit = GNEISS_NULL_ACTION;
+  gneiss::action_id orbit{};
+  gneiss::action_id quit{};
   double angle = 0.0;
   bool measure = false;
   std::chrono::steady_clock::time_point previous_update{};
@@ -56,17 +56,17 @@ gneiss_result update_sample(gneiss_application application, const gneiss_frame_t
     }
     state->previous_update = current_update;
   }
-  gneiss_action_state orbit = GNEISS_ACTION_STATE_INIT;
-  gneiss_action_state quit = GNEISS_ACTION_STATE_INIT;
-  const auto orbit_result = gneiss_application_get_action_state(application, state->orbit, &orbit);
-  if (orbit_result != GNEISS_SUCCESS) {
-    return orbit_result;
+  gneiss::action_state orbit{};
+  gneiss::action_state quit{};
+  const auto orbit_result = gneiss::get_action_state(application, state->orbit, orbit);
+  if (orbit_result.failed()) {
+    return orbit_result.native();
   }
-  const auto quit_result = gneiss_application_get_action_state(application, state->quit, &quit);
-  if (quit_result != GNEISS_SUCCESS) {
-    return quit_result;
+  const auto quit_result = gneiss::get_action_state(application, state->quit, quit);
+  if (quit_result.failed()) {
+    return quit_result.native();
   }
-  if (quit.pressed != 0U) {
+  if (quit.pressed) {
     return gneiss_application_request_exit(application);
   }
 
@@ -156,10 +156,9 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure) {
     report_failure("加载输入映射", result);
     return 4;
   }
-  result = static_cast<gneiss_result>(
-      gneiss::find_action(application.get(), "move_horizontal", state.orbit));
+  result = static_cast<gneiss_result>(application.find_action("move_horizontal", state.orbit));
   if (result == GNEISS_SUCCESS) {
-    result = static_cast<gneiss_result>(gneiss::find_action(application.get(), "quit", state.quit));
+    result = static_cast<gneiss_result>(application.find_action("quit", state.quit));
   }
   if (result != GNEISS_SUCCESS) {
     report_failure("查找输入动作", result);

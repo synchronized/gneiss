@@ -5,5 +5,5 @@
 
 #include <type_traits>
 
-static_assert(std::is_standard_layout_v<gneiss::input_event>);
-static_assert(sizeof(gneiss::input_event) == sizeof(gneiss_input_event));
+static_assert(std::is_nothrow_copy_constructible_v<gneiss::input_event>);
+static_assert(!std::is_same_v<gneiss::input_event, gneiss_input_event>);
