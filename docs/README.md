@@ -22,6 +22,8 @@
 
 ## 操作指南
 
+- [从 0.46 迁移到 0.47](guides/migrating-0.46-to-0.47.md)
+
 - [构建、测试与运行示例](guides/building.md)
 - [从 0.9.0 迁移到 0.10.0](guides/migrating-0.9-to-0.10.md)
 - [从 0.10.0 迁移到 0.11.0](guides/migrating-0.10-to-0.11.md)
@@ -202,6 +204,9 @@
 - [ADR-052：纹理驻留与加载预算](decisions/ADR-052-texture-residency-and-budgets.md)
 
 ## 实施与验收记录
+
+- [M-306：0.47.0 原生 C++ SDK 验收](records/M-306-native-cpp-sdk-validation.md)
+- [M-305：旧转发头移除](records/M-305-remove-forwarding-headers.md)
 
 - [M-304：原生日志提交描述](records/M-304-native-log-message.md)
 

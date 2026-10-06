@@ -797,7 +797,7 @@ M-298～M-300 聚焦现有 Engine 公共头的规范路径、转发兼容、安�
 
 ## 0.47.0：原生 C++ SDK 与公共头收口
 
-M-301 迁移清单与门禁、M-303 输入子项已开始落地，整版尚未完成。覆盖现有 Engine SDK 的原生类型、回调与生命周期验证，
-并移除旧头文件转发兼容；保持 C ABI，不开发插件或公开 Editor API。
+M-301～M-305 已实现，M-306 整版验收与发布进行中。现有 Engine SDK 已采用原生类型和回调，
+旧转发头已删除；保持 C ABI，不开发插件或公开 Editor API。
 范围见 [VER-047](plans/VER-047-0.47.0-native-cpp-sdk.md)，
 实施顺序见 [DEV-047](plans/DEV-047-native-cpp-sdk.md)。

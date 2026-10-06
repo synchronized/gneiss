@@ -73,7 +73,7 @@ Registry 不由 World 持有，Scene Tree 节点也仍然只关联实体 ID。
 `GNEISS_ERROR_NOT_FOUND`。空输出指针、全零 Type ID、零 Field ID 和无效描述返回
 `GNEISS_ERROR_INVALID_ARGUMENT`；失效或重复销毁的 Registry 返回 `GNEISS_ERROR_INVALID_HANDLE`。
 
-调用 `type_at`、`find_type` 或 `find_field` 前，输出结构必须分别使用 `GNEISS_TYPE_INFO_INIT` 或
+调用 C ABI 元数据查询前，输出结构必须分别使用 `GNEISS_TYPE_INFO_INIT` 或
 `GNEISS_FIELD_INFO_INIT` 初始化。实现通过首字段 `struct_size` 判断调用方可见版本；小于 v1 大小的
 结构返回 `GNEISS_ERROR_INVALID_ARGUMENT`。C++20 包装会自动完成初始化。
 
