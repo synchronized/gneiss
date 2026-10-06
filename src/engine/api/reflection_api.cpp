@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/core/reflection/type_registry.hpp"
-#include <gneiss/reflection.h>
+#include <gneiss/engine/reflection.h>
 #include <new>
 #include <vector>
 

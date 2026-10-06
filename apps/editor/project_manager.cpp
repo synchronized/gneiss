@@ -8,7 +8,7 @@
 #include "native_dialog.hpp"
 #include "project_workspace.hpp"
 
-#include <gneiss/application.hpp>
+#include <gneiss/engine/application.hpp>
 
 #include <imgui.h>
 
@@ -208,7 +208,7 @@ result run_project_manager(bool smoke, editor_project& output) noexcept {
     desc.window_width = 720U;
     desc.window_height = 420U;
     desc.window_flags = GNEISS_APPLICATION_WINDOW_VISIBLE_BIT;
-    auto operation = gneiss::application::create(desc, application);
+    auto operation = gneiss::application::create_native(desc, application);
     if (operation != result::success) {
       const auto message = operation.message();
       std::fprintf(

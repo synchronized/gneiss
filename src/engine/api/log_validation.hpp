@@ -6,7 +6,7 @@
 
 #include "engine/core/log/log.hpp"
 #include "engine/core/log/log_dispatcher.hpp"
-#include <gneiss/log.h>
+#include <gneiss/engine/log.h>
 
 #include <algorithm>
 #include <cstdint>

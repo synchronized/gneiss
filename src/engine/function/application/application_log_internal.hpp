@@ -4,7 +4,7 @@
 #ifndef GNEISS_SRC_APPLICATION_APPLICATION_LOG_INTERNAL_HPP_
 #define GNEISS_SRC_APPLICATION_APPLICATION_LOG_INTERNAL_HPP_
 
-#include <gneiss/application.h>
+#include <gneiss/engine/application.h>
 
 #include <string_view>
 

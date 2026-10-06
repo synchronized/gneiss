@@ -3,7 +3,7 @@
 
 #include "package_archive.hpp"
 
-#include <gneiss/core/version.h>
+#include <gneiss/engine/core/version.h>
 
 #include <yyjson.h>
 

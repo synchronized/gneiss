@@ -6,8 +6,8 @@
 
 #include "ipc_dispatcher.hpp"
 
-#include <gneiss/core/result.hpp>
-#include <gneiss/scene.h>
+#include <gneiss/engine/core/result.hpp>
+#include <gneiss/engine/scene.h>
 
 #include <cstdint>
 #include <span>

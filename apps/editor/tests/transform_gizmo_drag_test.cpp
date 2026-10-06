@@ -3,7 +3,7 @@
 
 #include "transform_gizmo_drag.hpp"
 
-#include <gneiss/application.hpp>
+#include <gneiss/engine/application.hpp>
 
 #include <cmath>
 #include <cstdio>
@@ -36,7 +36,7 @@ int main() try {
   gneiss::application application;
   gneiss_world world = GNEISS_NULL_WORLD;
   gneiss::editor::editor_session session;
-  if (gneiss::application::create(desc, application) != result::success ||
+  if (gneiss::application::create_native(desc, application) != result::success ||
       application.get_world(world) != result::success ||
       session.open(application.get(), world, "asset://scenes/triangle.scene.json") !=
           result::success) {
@@ -65,8 +65,10 @@ int main() try {
       if (drag.begin(session) != result::success) {
         return 4;
       }
-      gneiss::transform desired = GNEISS_TRANSFORM_IDENTITY;
-      if (gneiss_scene_node_get_world_transform(world, target.get(), &desired) != GNEISS_SUCCESS) {
+      gneiss::transform desired{};
+      if (gneiss::world_ref{world}
+              .get_world_transform(gneiss::scene_node_id{target.get()}, desired)
+              .native() != GNEISS_SUCCESS) {
         return 5;
       }
       for (int frame = 0; frame < 4; ++frame) {
@@ -82,10 +84,12 @@ int main() try {
           desired.scale[1] += 0.5F;
         }
         gneiss::editor::gizmo_matrix matrix{};
-        gneiss::transform actual = GNEISS_TRANSFORM_IDENTITY;
+        gneiss::transform actual{};
         if (gneiss::editor::transform_to_gizmo_matrix(desired, matrix) != result::success ||
             drag.preview(session, world, matrix) != result::success ||
-            gneiss_scene_node_get_world_transform(world, target.get(), &actual) != GNEISS_SUCCESS ||
+            gneiss::world_ref{world}
+                    .get_world_transform(gneiss::scene_node_id{target.get()}, actual)
+                    .native() != GNEISS_SUCCESS ||
             !near(actual, desired) || history.size() != 0U) {
           return 6;
         }
@@ -144,7 +148,9 @@ int main() try {
   }
   const auto prefab_id = session.selection();
   const auto prefab_before = session.selected_prefab_node()->local_transform;
-  if (gneiss_scene_node_get_world_transform(world, prefab_id.get(), &desired) != GNEISS_SUCCESS) {
+  if (gneiss::world_ref{world}
+          .get_world_transform(gneiss::scene_node_id{prefab_id.get()}, desired)
+          .native() != GNEISS_SUCCESS) {
     return 14;
   }
   desired.translation[0] += 3.0F;
@@ -167,8 +173,9 @@ int main() try {
   }
   const auto uuid = session.selected_node()->uuid;
   const auto deletion_before = session.selected_node()->local_transform;
-  if (gneiss_scene_node_get_world_transform(world, session.selection().get(), &desired) !=
-      GNEISS_SUCCESS) {
+  if (gneiss::world_ref{world}
+          .get_world_transform(gneiss::scene_node_id{session.selection().get()}, desired)
+          .native() != GNEISS_SUCCESS) {
     return 17;
   }
   desired.translation[0] += 2.0F;

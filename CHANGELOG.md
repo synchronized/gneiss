@@ -7,6 +7,14 @@
 
 ## 未发布
 
+## 0.47.0 - 2026-10-06
+
+- C++ SDK 改用独立原生描述、枚举、标志、默认值与 noexcept 回调，覆盖 Application、World、Scene、Render、Input、Reflection 和 Game Module。
+- Application 与 Reflection 的释放载体同时保留回调存储，移动或移交所有权后回调保持有效；Render 数组转换、Reflection 字段查询与属性值明确所有权。
+- 游戏工程模板改用原生 C++ 生命周期回调，只有动态库查询入口保留 C ABI。
+- 删除 26 个旧转发头；改用 `gneiss/engine/` 规范路径，根总入口不变。旧 C++ 描述和回调签名需迁移并重新编译，安装须使用干净 SDK 前缀。
+- C 函数、布局和语义保持；严格原生映射清单及旧头负向安装检查纳入验收。
+
 ## 0.46.0 - 2026-10-06
 
 - Engine 公共功能头整理到 `gneiss/engine/`，保留根总入口及旧路径转发兼容，不改变 ABI。

@@ -4,7 +4,7 @@
 #ifndef GNEISS_SCENE_SCENE_DESCRIPTION_HPP_
 #define GNEISS_SCENE_SCENE_DESCRIPTION_HPP_
 
-#include <gneiss/core/result.h>
+#include <gneiss/engine/core/result.h>
 
 #include "engine/function/scene/prefab_property_override.hpp"
 

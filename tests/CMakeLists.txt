@@ -299,7 +299,7 @@ target_link_libraries(gneiss_cpp_header_test PRIVATE gneiss::engine)
 target_compile_features(gneiss_cpp_header_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_cpp_header_test)
 
-# 新规范路径逐头独立编译，原 headers 用例继续验证兼容路径。
+# 规范路径逐头独立编译；headers 用例额外验证总入口和常用功能头。
 file(GLOB_RECURSE engine_sdk_headers CONFIGURE_DEPENDS RELATIVE "${PROJECT_SOURCE_DIR}/include"
   "${PROJECT_SOURCE_DIR}/include/gneiss/engine/*.h"
   "${PROJECT_SOURCE_DIR}/include/gneiss/engine/*.hpp")
@@ -1071,6 +1071,7 @@ add_test(NAME gneiss.core-boundary-negative
     -P "${PROJECT_SOURCE_DIR}/cmake/test_core_boundary.cmake")
 add_test(NAME gneiss.cpp-api-inventory
   COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
+    -DGNEISS_REQUIRE_NATIVE_CPP_SDK=ON
     -P "${PROJECT_SOURCE_DIR}/cmake/check_cpp_inventory.cmake")
 
 add_executable(gneiss_cpp_resource_ownership_test cpp_resource_ownership_test.cpp)
@@ -1129,3 +1130,18 @@ endif()
 if(TARGET gneiss_editor_ui)
   add_subdirectory(editor)
 endif()
+
+# 原生 C++ 绘制描述、借用数组和提交阶段的端到端验证。
+add_executable(gneiss_cpp_draw_submission_test cpp_draw_submission_test.cpp)
+target_link_libraries(gneiss_cpp_draw_submission_test PRIVATE gneiss::engine)
+target_compile_features(gneiss_cpp_draw_submission_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_cpp_draw_submission_test)
+gneiss_target_output_directories(gneiss_cpp_draw_submission_test)
+add_test(NAME gneiss.cpp-draw-submission COMMAND gneiss_cpp_draw_submission_test)
+
+add_executable(gneiss_native_property_access_test reflection/native_property_access_test.cpp)
+target_link_libraries(gneiss_native_property_access_test PRIVATE gneiss::engine)
+target_compile_features(gneiss_native_property_access_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_native_property_access_test)
+gneiss_target_output_directories(gneiss_native_property_access_test)
+add_test(NAME gneiss.native-property-access COMMAND gneiss_native_property_access_test)

@@ -12,7 +12,7 @@
 #include "engine/function/scene/scene_description.hpp"
 #include "engine/function/scene/scene_query.hpp"
 
-#include <gneiss/scene.h>
+#include <gneiss/engine/scene.h>
 
 #include <memory>
 #include <span>

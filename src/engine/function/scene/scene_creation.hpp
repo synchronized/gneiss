@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include <gneiss/scene.h>
+#include <gneiss/engine/scene.h>
 
 #include <string_view>
 

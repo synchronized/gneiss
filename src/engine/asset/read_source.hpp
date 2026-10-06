@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include <gneiss/core/result.h>
+#include <gneiss/engine/core/result.h>
 
 #include <cstddef>
 #include <cstdint>

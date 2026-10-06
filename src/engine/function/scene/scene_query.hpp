@@ -5,7 +5,7 @@
 
 #include "engine/function/scene/scene_description.hpp"
 
-#include <gneiss/scene.h>
+#include <gneiss/engine/scene.h>
 
 #include <optional>
 #include <string_view>

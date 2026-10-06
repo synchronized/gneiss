@@ -4,7 +4,7 @@
 #ifndef GNEISS_APPS_EDITOR_EDITOR_UI_H_
 #define GNEISS_APPS_EDITOR_EDITOR_UI_H_
 
-#include <gneiss/core/result.hpp>
+#include <gneiss/engine/core/result.hpp>
 
 #include <filesystem>
 

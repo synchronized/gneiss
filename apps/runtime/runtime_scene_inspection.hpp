@@ -6,8 +6,8 @@
 
 #include "ipc_inspection_protocol.hpp"
 
-#include <gneiss/application.h>
-#include <gneiss/scene.h>
+#include <gneiss/engine/application.h>
+#include <gneiss/engine/scene.h>
 
 #include <cstdint>
 #include <map>

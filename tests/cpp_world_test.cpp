@@ -3,7 +3,44 @@
 
 #include <gneiss/gneiss.hpp>
 
+#include <thread>
+#include <type_traits>
 #include <utility>
+
+static_assert(!std::is_same_v<gneiss::camera_desc, gneiss_camera_desc>);
+static_assert(gneiss::camera_desc{}.near_plane == 0.1F);
+static_assert(gneiss::camera{}.is_primary);
+static_assert(!gneiss::mesh_renderer{}.mesh.is_valid());
+
+namespace {
+bool verify_camera(gneiss::world& world, gneiss::entity_id entity) {
+  gneiss::camera_desc expected{
+      .vertical_field_of_view_radians = 0.8F,
+      .near_plane = 0.5F,
+      .far_plane = 42.0F,
+  };
+  gneiss::camera_desc output{};
+  if (world.configure_camera(entity, expected).failed() ||
+      world.get_camera(entity, output).failed() ||
+      output.vertical_field_of_view_radians != expected.vertical_field_of_view_radians ||
+      output.near_plane != expected.near_plane || output.far_plane != expected.far_plane) {
+    return false;
+  }
+  auto invalid = expected;
+  invalid.far_plane = 0.1F;
+  if (world.configure_camera(entity, invalid) != gneiss::result::invalid_argument ||
+      world.get_camera({}, output) != gneiss::result::invalid_handle || output.far_plane != 42.0F) {
+    return false;
+  }
+  gneiss::result other_thread = gneiss::result::success;
+  std::thread worker([&] { other_thread = world.get_camera(entity, output); });
+  worker.join();
+  if (other_thread != gneiss::result::invalid_state || output.far_plane != 42.0F) {
+    return false;
+  }
+  return world.get_camera(entity, output).ok() && output.far_plane == 42.0F;
+}
+} // namespace
 
 int main() {
   gneiss::world first;
@@ -18,8 +55,8 @@ int main() {
   if (first.is_alive(entity, is_alive) != gneiss::result::success || !is_alive) {
     return 3;
   }
-  gneiss::camera_desc camera = GNEISS_CAMERA_DESC_INIT;
-  gneiss::camera_desc queried_camera = GNEISS_CAMERA_DESC_INIT;
+  gneiss::camera_desc camera{};
+  gneiss::camera_desc queried_camera{};
   gneiss::entity_id active_camera = entity;
   if (first.get_active_camera(active_camera) != gneiss::result::not_ready ||
       active_camera.is_valid()) {
@@ -38,7 +75,10 @@ int main() {
       active_camera.is_valid()) {
     return 10;
   }
-  const gneiss::camera legacy_camera = GNEISS_CAMERA_INIT;
+  if (!verify_camera(first, entity)) {
+    return 12;
+  }
+  const gneiss::camera legacy_camera{};
   if (first.set_camera(entity, legacy_camera).failed() ||
       first.get_active_camera(active_camera).failed() || active_camera != entity) {
     return 11;
@@ -49,9 +89,9 @@ int main() {
   gneiss::scene_node_id child;
   gneiss::scene_node_id parent;
   gneiss::entity_id associated;
-  gneiss::transform local = GNEISS_TRANSFORM_IDENTITY;
+  gneiss::transform local{};
   local.translation[0] = 7.0F;
-  gneiss::transform queried = GNEISS_TRANSFORM_IDENTITY;
+  gneiss::transform queried{};
   if (first.entity_count(count) != gneiss::result::success || count != 1U ||
       first.create_scene_node({}, {}, root) != gneiss::result::success ||
       first.create_scene_node(root, entity, child) != gneiss::result::success ||
@@ -64,7 +104,7 @@ int main() {
     return 6;
   }
   gneiss::type_registry registry;
-  gneiss_type_info info = GNEISS_TYPE_INFO_INIT;
+  gneiss::type_info info{};
   if (gneiss::type_registry::create(registry) != gneiss::result::success ||
       gneiss::world::register_reflection(registry) != gneiss::result::success ||
       registry.freeze() != gneiss::result::success ||

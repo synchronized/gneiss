@@ -3,7 +3,7 @@
 
 #include <gneiss/app/project_description.hpp>
 
-#include <gneiss/asset.h>
+#include <gneiss/engine/asset.h>
 
 #include <yyjson.h>
 

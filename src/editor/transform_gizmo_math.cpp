@@ -191,13 +191,13 @@ result world_to_local_transform(const transform* parent_world, const transform& 
   std::array delta{target_world.translation[0] - parent_world->translation[0],
                    target_world.translation[1] - parent_world->translation[1],
                    target_world.translation[2] - parent_world->translation[2]};
-  delta = rotate_inverse(parent_world->rotation, delta);
+  delta = rotate_inverse(parent_world->rotation.data(), delta);
   for (std::size_t index = 0; index < delta.size(); ++index) {
     local.translation[index] = delta[index] / parent_world->scale[index];
     local.scale[index] = target_world.scale[index] / parent_world->scale[index];
   }
-  const auto* parent = parent_world->rotation;
-  const auto* world = target_world.rotation;
+  const auto& parent = parent_world->rotation;
+  const auto& world = target_world.rotation;
   local.rotation[0] = (parent[3] * world[0]) - (parent[0] * world[3]) - (parent[1] * world[2]) +
                       (parent[2] * world[1]);
   local.rotation[1] = (parent[3] * world[1]) + (parent[0] * world[2]) - (parent[1] * world[3]) -

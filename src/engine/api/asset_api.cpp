@@ -3,7 +3,7 @@
 
 #include "engine/asset/asset_uri.hpp"
 #include <cstddef>
-#include <gneiss/asset.h>
+#include <gneiss/engine/asset.h>
 #include <limits>
 
 extern "C" gneiss_result gneiss_asset_uri_validate(const char* uri, uint64_t uri_length) {

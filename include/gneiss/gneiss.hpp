@@ -19,15 +19,23 @@
 #include <gneiss/gneiss.h>
 
 #include <cstdint>
+#include <string_view>
 
 namespace gneiss {
 
 /** Gneiss 语义版本。 */
 struct version {
-  std::uint32_t major;
-  std::uint32_t minor;
-  std::uint32_t patch;
+  std::uint32_t major = 0;
+  std::uint32_t minor = 0;
+  std::uint32_t patch = 0;
+
+  friend constexpr bool operator==(version, version) noexcept = default;
 };
+
+/** 编译当前程序时所用的 SDK 版本。 */
+inline constexpr version header_version{GNEISS_VERSION_MAJOR, GNEISS_VERSION_MINOR,
+                                        GNEISS_VERSION_PATCH};
+inline constexpr std::string_view header_version_string = GNEISS_VERSION_STRING;
 
 /** 返回运行时链接的 Gneiss 版本。 */
 [[nodiscard]] inline version library_version() noexcept {

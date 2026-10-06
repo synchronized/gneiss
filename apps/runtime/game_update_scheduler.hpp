@@ -4,9 +4,9 @@
 #ifndef GNEISS_APPS_RUNTIME_GAME_UPDATE_SCHEDULER_H_
 #define GNEISS_APPS_RUNTIME_GAME_UPDATE_SCHEDULER_H_
 
-#include <gneiss/application.h>
-#include <gneiss/core/result.hpp>
-#include <gneiss/game_module.h>
+#include <gneiss/engine/application.h>
+#include <gneiss/engine/core/result.hpp>
+#include <gneiss/engine/game_module.h>
 
 #include <cstdint>
 

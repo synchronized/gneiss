@@ -6,7 +6,7 @@
 
 #include "engine/function/render/render_resource_service.hpp"
 
-#include <gneiss/render.h>
+#include <gneiss/engine/render.h>
 
 #include <span>
 #include <vector>

@@ -4,7 +4,7 @@
 #ifndef GNEISS_SRC_IO_UV_UV_LOOP_EXECUTOR_HPP_
 #define GNEISS_SRC_IO_UV_UV_LOOP_EXECUTOR_HPP_
 
-#include <gneiss/core/result.hpp>
+#include <gneiss/engine/core/result.hpp>
 
 #include <cstddef>
 #include <functional>

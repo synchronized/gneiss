@@ -5,7 +5,7 @@
 
 ## 稳定性
 
-`<gneiss/game_module.h>` 提供 0.12.0 开始使用的 Experimental 原生 Game Module C ABI。该接口尚未
+`<gneiss/engine/game_module.h>` 提供 0.12.0 开始使用的 Experimental 原生 Game Module C ABI。该接口尚未
 进入 Stable 兼容承诺；升级 Gneiss 后应重新编译模块，并在加载时校验 ABI 版本。
 
 当前版本已实现动态库加载会话、Game Context、Runtime 帧调度及 Editor 构建工作流。v2 工程声明
@@ -74,18 +74,29 @@ World、实体和动作均为借用值，不得在 Context 销毁后继续使用
 
 ## C++ 包装
 
-`<gneiss/game_module.hpp>` 提供：
+`<gneiss/engine/game_module.hpp>` 提供：
 
 - `gneiss::game_context`：不拥有底层句柄的强类型包装，并转发上述受控访问能力。
 - `gneiss::game_module_abi_version` 与 `gneiss::game_module_query_symbol`：编译期常量。
-- `gneiss::validate_game_module`：返回 `gneiss::result` 的轻量描述校验。
+- `gneiss::game_update_time`、`game_module_desc`：原生值与借用文本，无需填写 C 布局大小。
+- `gneiss::game_module_callbacks`：原生 noexcept 生命周期回调。
+- `gneiss::game_module<Callbacks>`：由编译期回调表生成静态 C 桥接，`validate` 校验原生描述，
+  `export_query` 实现真实导出边界，`to_native` 为显式互操作。
+- `gneiss::validate_game_module_native`：显式校验 C ABI 描述。
 
-C++ 包装不建立第二套模块状态，也不改变 C ABI 的所有权和线程规则。
+C++ 包装不建立第二套模块状态，也不改变 C ABI 的所有权和线程规则。C ABI 没有回调 user_data，
+故回调表固定在编译期，不建立全局闭包注册表。initialize 成功时交出私有状态；失败时自行回收，
+适配器保留调用方原输出。回调不得抛异常，需要错误恢复时自行捕获并返回 result。
+
+`export_query` 遇到空输出返回 invalid_argument，Engine ABI 或输出布局过旧返回 unsupported；
+描述校验失败返回相应结果，失败不写输出。成功只写当前已知字段，并保留调用方扩展尾部。
+更新桥接拒绝空时间、过小时间布局和非零保留字段；原生时间只借用至回调返回。
+工程模板已使用该包装，仅 `gneiss_game_module_query` 保留 C 导出签名和导出宏。
 
 ## C++ 借用视图
 
 `game_context` 不拥有上下文，也不改变 Runtime 的创建/销毁规则。`get_world(world_ref&)`、
 `get_startup_root_entity(entity_id&)`、`find_action(name, action_id&)` 提供强类型借用输出，
-失败时保留调用方原值；动作状态可直接用 `action_id` 查询。原裸句柄重载继续可用。
+失败时保留调用方原值；动作状态可直接用 `action_id` 查询。裸句柄互操作使用显式 `_native` 方法。
 这些查询只允许在模块生命周期回调线程执行；上下文失效或完整场景切换后重新获取当前借用视图，
 不能依靠 C++ 包装延长 World、实体或动作映射寿命。跨线程日志的例外仍遵循原日志契约。

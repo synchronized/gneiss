@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include <gneiss/application.hpp>
+#include <gneiss/engine/application.hpp>
 
 #include <cstdlib>
 #include <exception>
@@ -18,16 +18,15 @@ int main(int argc, [[maybe_unused]] char** argv) {
   static_assert(std::is_nothrow_move_assignable_v<scene_prefab_refresh>);
   constexpr std::string_view asset_root = GNEISS_TEST_ASSET_ROOT;
   constexpr std::string_view uri = "asset://scenes/prefab.scene.json";
-  gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
-  desc.asset_root = asset_root.data();
-  desc.asset_root_length = static_cast<std::uint32_t>(asset_root.size());
+  gneiss::application_desc desc{};
+  desc.asset_root = asset_root;
   gneiss::application app;
   gneiss::scene_instance scene;
   if (gneiss::application::create(desc, app).failed() ||
       gneiss::scene_instance::load(app.get(), uri, scene).failed()) {
     return 1;
   }
-  gneiss::scene_prefab_node_info info = GNEISS_SCENE_PREFAB_NODE_INFO_INIT;
+  gneiss::scene_prefab_node_info info{};
   if (scene.get_prefab_node_info(0U, info).failed()) {
     return 2;
   }
@@ -54,7 +53,7 @@ int main(int argc, [[maybe_unused]] char** argv) {
   // 非空输出必须在改变场景前被拒绝，不能隐式丢失先前历史。
   if (scene.refresh_prefab_instance(root, root, first) != result::invalid_state ||
       root != refreshed_root || first.get() != original_token ||
-      scene.get_prefab_node_info(0U, info).failed() || info.node != root.get()) {
+      scene.get_prefab_node_info(0U, info).failed() || info.node != root) {
     return 5;
   }
   result reset_status;
@@ -86,7 +85,7 @@ int main(int argc, [[maybe_unused]] char** argv) {
   third = std::move(second);
   // NOLINTNEXTLINE(bugprone-use-after-move): 移动覆盖释放旧令牌并清空源。
   if (second || third.get() != original_token ||
-      scene.release_prefab_refresh(replaced) != result::invalid_handle) {
+      scene.release_prefab_refresh_native(replaced) != result::invalid_handle) {
     return 9;
   }
   const auto owner = third.owner();
@@ -106,11 +105,11 @@ int main(int argc, [[maybe_unused]] char** argv) {
     }
     scoped_token = scoped.get();
   }
-  if (scene.release_prefab_refresh(scoped_token) != result::invalid_handle ||
-      scene.get_prefab_node_info(0U, info).failed() || info.node != root.get() ||
+  if (scene.release_prefab_refresh_native(scoped_token) != result::invalid_handle ||
+      scene.get_prefab_node_info(0U, info).failed() || info.node != root ||
       scene.refresh_prefab_instance(root, root, third).failed() ||
-      scene.release_prefab_refresh(third.get()).failed() || third.reset().failed() || third ||
-      scene.refresh_prefab_instance(root, root, third).failed()) {
+      scene.release_prefab_refresh_native(third.get()).failed() || third.reset().failed() ||
+      third || scene.refresh_prefab_instance(root, root, third).failed()) {
     return 12;
   }
   // 场景移动不改变令牌所属句柄；场景卸载使令牌失效，但 reset 可安全完成。

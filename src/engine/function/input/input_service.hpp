@@ -4,7 +4,7 @@
 #ifndef GNEISS_INPUT_INPUT_SERVICE_HPP_
 #define GNEISS_INPUT_INPUT_SERVICE_HPP_
 
-#include <gneiss/input.h>
+#include <gneiss/engine/input.h>
 
 #include "engine/function/input/action_map.hpp"
 

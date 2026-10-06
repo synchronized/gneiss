@@ -4,8 +4,8 @@
 #ifndef GNEISS_APPS_EDITOR_PROPERTY_INSPECTOR_MODEL_H_
 #define GNEISS_APPS_EDITOR_PROPERTY_INSPECTOR_MODEL_H_
 
-#include <gneiss/reflection.hpp>
-#include <gneiss/world.hpp>
+#include <gneiss/engine/reflection.hpp>
+#include <gneiss/engine/world.hpp>
 
 #include <string>
 #include <vector>

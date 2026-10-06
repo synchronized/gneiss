@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include <gneiss/application.hpp>
+#include <gneiss/engine/application.hpp>
 
 #include <array>
 #include <thread>
@@ -19,7 +19,13 @@ bool verify_owner(gneiss::application& app, const Desc& desc) {
   }
   const auto original = first.get();
   auto invalid = desc;
-  invalid.struct_size = 0U;
+  if constexpr (std::is_same_v<Desc, gneiss::material_desc>) {
+    invalid.roughness = -1.0F;
+  } else if constexpr (std::is_same_v<Desc, gneiss::texture_desc>) {
+    invalid.width = 0U;
+  } else {
+    invalid.vertices = {};
+  }
   if (Resource::create(app.get(), invalid, first) != gneiss::result::invalid_argument ||
       first.get() != original) {
     return false;
@@ -62,36 +68,117 @@ bool verify_owner(gneiss::application& app, const Desc& desc) {
   }
   return Destroy(app.get(), scoped) == GNEISS_ERROR_INVALID_HANDLE;
 }
+
+bool verify_material_values(gneiss::application& app) {
+  static_assert(!std::is_same_v<gneiss::material_desc, gneiss_material_desc>);
+  static_assert(!std::is_same_v<gneiss::texture_desc, gneiss_texture_desc>);
+  static_assert(gneiss::material_desc{}.sampling[4].mip_filter ==
+                gneiss::texture_mip_filter::linear);
+  const std::array<std::uint8_t, 4> pixels{128, 128, 255, 255};
+  gneiss::texture_desc source{.width = 1, .height = 1, .row_stride_bytes = 4, .pixels = pixels};
+  gneiss::texture texture;
+  if (app.create_texture(source, texture).failed()) {
+    return false;
+  }
+  const auto original = texture.get();
+  source.format = static_cast<gneiss::texture_format>(99);
+  if (app.create_texture(source, texture) != gneiss::result::invalid_argument ||
+      texture.get() != original) {
+    return false;
+  }
+  source.format = gneiss::texture_format::rgba8_unorm;
+  source.pixels = {};
+  if (app.create_texture(source, texture) != gneiss::result::invalid_argument ||
+      texture.get() != original) {
+    return false;
+  }
+  gneiss::material_desc desc{};
+  desc.base_color_texture = texture.id();
+  desc.metallic_roughness_texture = texture.id();
+  desc.normal_texture = texture.id();
+  desc.occlusion_texture = texture.id();
+  desc.emissive_texture = texture.id();
+  desc.emissive = {0.1F, 0.2F, 0.3F};
+  desc.alpha_mode = gneiss::material_alpha_mode::mask;
+  desc.double_sided = true;
+  desc.normal_scale = -0.5F;
+  desc.sampling[4].address_u = gneiss::texture_address::mirror;
+  desc.sampling[4].min_filter = gneiss::texture_filter::nearest;
+  const auto native = gneiss::to_native(desc);
+  if (native.double_sided != 1 || native.alpha_mode != GNEISS_MATERIAL_ALPHA_MASK ||
+      native.emissive[2] != 0.3F || native.normal_scale != -0.5F ||
+      native.sampling[4].address_u != GNEISS_TEXTURE_ADDRESS_MIRROR ||
+      native.sampling[4].min_filter != GNEISS_TEXTURE_FILTER_NEAREST ||
+      native.emissive_texture != texture.get()) {
+    return false;
+  }
+  gneiss::material material;
+  if (app.create_material(desc, material).failed()) {
+    return false;
+  }
+  const auto previous = material.get();
+  desc.sampling[4].address_u = static_cast<gneiss::texture_address>(99);
+  if (app.create_material(desc, material) != gneiss::result::invalid_argument ||
+      material.get() != previous) {
+    return false;
+  }
+  desc.sampling[4].address_u = gneiss::texture_address::repeat;
+  gneiss::application other;
+  gneiss::material foreign;
+  const gneiss::application_desc other_desc{};
+  return gneiss::application::create(other_desc, other).ok() &&
+         other.create_material(desc, foreign) == gneiss::result::invalid_argument && !foreign;
+}
 } // namespace
 
 int main() {
   gneiss::application app;
-  const gneiss_application_desc app_desc = GNEISS_APPLICATION_DESC_INIT;
+  const gneiss::application_desc app_desc{};
   if (gneiss::application::create(app_desc, app).failed()) {
     return 1;
   }
   const std::array vertices{
-      gneiss_mesh_vertex{.x = 0, .y = 0, .z = 0, .u = 0, .v = 0},
-      gneiss_mesh_vertex{.x = 1, .y = 0, .z = 0, .u = 1, .v = 0},
-      gneiss_mesh_vertex{.x = 0, .y = 1, .z = 0, .u = 0, .v = 1},
+      gneiss::mesh_vertex{.x = 0, .y = 0, .z = 0, .u = 0, .v = 0},
+      gneiss::mesh_vertex{.x = 1, .y = 0, .z = 0, .u = 1, .v = 0},
+      gneiss::mesh_vertex{.x = 0, .y = 1, .z = 0, .u = 0, .v = 1},
   };
-  gneiss::mesh_desc mesh_desc = GNEISS_MESH_DESC_INIT;
-  mesh_desc.vertices = vertices.data();
-  mesh_desc.vertex_count = 3U;
-  gneiss::material_desc material_desc = GNEISS_MATERIAL_DESC_INIT;
+  const std::array normals{
+      gneiss::mesh_normal{.z = 1},
+      gneiss::mesh_normal{.z = 1},
+      gneiss::mesh_normal{.z = 1},
+  };
+  const std::array tangents{
+      gneiss::mesh_tangent{.x = 1},
+      gneiss::mesh_tangent{.x = 1},
+      gneiss::mesh_tangent{.x = 1},
+  };
+  const std::array uv1{gneiss::mesh_uv{.u = 0}, gneiss::mesh_uv{.u = 1}, gneiss::mesh_uv{.v = 1}};
+  const std::array<gneiss::mesh_color, 3> colors{};
+  const std::array<std::uint32_t, 3> indices{0, 1, 2};
+  gneiss::mesh_desc mesh_desc{
+      .normals = normals,
+      .indices = indices,
+      .tangents = tangents,
+      .uv1 = uv1,
+      .colors = colors,
+  };
+  mesh_desc.vertices = vertices;
+  gneiss::material_desc material_desc{};
   const std::array<std::uint8_t, 4> pixels{255, 255, 255, 255};
-  gneiss::texture_desc texture_desc = GNEISS_TEXTURE_DESC_INIT;
+  gneiss::texture_desc texture_desc{};
   texture_desc.width = 1U;
   texture_desc.height = 1U;
   texture_desc.row_stride_bytes = 4U;
-  texture_desc.pixel_data_size = pixels.size();
-  texture_desc.pixels = pixels.data();
+  texture_desc.pixels = pixels;
   if (!verify_owner<gneiss::mesh, gneiss::mesh_desc, gneiss_mesh_destroy>(app, mesh_desc) ||
       !verify_owner<gneiss::material, gneiss::material_desc, gneiss_material_destroy>(
           app, material_desc) ||
       !verify_owner<gneiss::texture, gneiss::texture_desc, gneiss_texture_destroy>(app,
                                                                                    texture_desc)) {
     return 2;
+  }
+  if (!verify_material_values(app)) {
+    return 13;
   }
   gneiss::world_ref borrowed;
   if (app.get_world(borrowed).failed()) {
@@ -116,8 +203,8 @@ int main() {
     return 6;
   }
   gneiss::entity_id rendered;
-  const gneiss::mesh_renderer renderer{.mesh = mesh.get(), .material = material.get()};
-  const gneiss::mesh_renderer invalid = GNEISS_MESH_RENDERER_INIT;
+  const gneiss::mesh_renderer renderer{.mesh = mesh.id(), .material = material.id()};
+  const gneiss::mesh_renderer invalid{};
   if (borrowed.create_entity(rendered).failed() ||
       borrowed.set_mesh_renderer(rendered, invalid) != gneiss::result::invalid_argument ||
       borrowed.set_mesh_renderer(rendered, renderer).failed() ||

@@ -3,8 +3,8 @@
 
 #pragma once
 
-#include <gneiss/core/result.h>
-#include <gneiss/log.h>
+#include <gneiss/engine/core/result.h>
+#include <gneiss/engine/log.h>
 
 #include <filesystem>
 #include <fstream>

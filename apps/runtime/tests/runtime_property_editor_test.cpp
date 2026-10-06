@@ -3,7 +3,7 @@
 
 #include "runtime_property_editor.hpp"
 
-#include <gneiss/world.hpp>
+#include <gneiss/engine/world.hpp>
 
 #include <array>
 #include <cstdint>
@@ -27,7 +27,7 @@ bool test_write_and_revision() {
   GNEISS_TEST_CHECK(world.create_entity(entity) == gneiss::result::success);
   gneiss::scene_node_id scene_node;
   GNEISS_TEST_CHECK(world.create_scene_node({}, entity, scene_node) == gneiss::result::success);
-  const gneiss::transform identity = GNEISS_TRANSFORM_IDENTITY;
+  const gneiss::transform identity{};
   GNEISS_TEST_CHECK(world.set_local_transform(scene_node, identity) == gneiss::result::success);
 
   gneiss::runtime_internal::runtime_scene_inspection inspection(7U);
@@ -65,7 +65,7 @@ bool test_write_and_revision() {
   GNEISS_TEST_CHECK(response.code == GNEISS_SUCCESS);
   GNEISS_TEST_CHECK(response.revision == 2U);
   GNEISS_TEST_CHECK(response.canonical_value.payload == command.value.payload);
-  gneiss::transform transform = GNEISS_TRANSFORM_IDENTITY;
+  gneiss::transform transform{};
   GNEISS_TEST_CHECK(world.get_local_transform(entity, transform) == gneiss::result::success);
   GNEISS_TEST_CHECK(transform.translation[0] == 2.0F && transform.translation[1] == 3.0F &&
                     transform.translation[2] == 4.0F);

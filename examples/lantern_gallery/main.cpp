@@ -21,8 +21,8 @@ namespace {
 struct example_state {
   gneiss_world world = GNEISS_NULL_WORLD;
   gneiss_scene_node_id camera_node = GNEISS_NULL_SCENE_NODE_ID;
-  gneiss_action orbit = GNEISS_NULL_ACTION;
-  gneiss_action quit = GNEISS_NULL_ACTION;
+  gneiss::action_id orbit{};
+  gneiss::action_id quit{};
   double angle = 0.0;
 };
 
@@ -32,13 +32,13 @@ gneiss_result update_gallery(gneiss_application application, const gneiss_frame_
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
   auto* state = static_cast<example_state*>(user_data);
-  gneiss_action_state orbit = GNEISS_ACTION_STATE_INIT;
-  gneiss_action_state quit = GNEISS_ACTION_STATE_INIT;
-  if (gneiss_application_get_action_state(application, state->orbit, &orbit) != GNEISS_SUCCESS ||
-      gneiss_application_get_action_state(application, state->quit, &quit) != GNEISS_SUCCESS) {
+  gneiss::action_state orbit{};
+  gneiss::action_state quit{};
+  if (gneiss::get_action_state(application, state->orbit, orbit).failed() ||
+      gneiss::get_action_state(application, state->quit, quit).failed()) {
     return GNEISS_ERROR_INVALID_STATE;
   }
-  if (quit.pressed != 0U) {
+  if (quit.pressed) {
     return gneiss_application_request_exit(application);
   }
   constexpr double nanoseconds_per_second = 1'000'000'000.0;
@@ -94,7 +94,7 @@ int run_example(int argc, char** argv) {
   desc.asset_root_length = static_cast<std::uint32_t>(asset_root.size());
 
   gneiss::application application;
-  if (gneiss::application::create(desc, application) != gneiss::result::success ||
+  if (gneiss::application::create_native(desc, application) != gneiss::result::success ||
       application.get_world(state.world) != gneiss::result::success) {
     return 1;
   }
@@ -106,9 +106,8 @@ int run_example(int argc, char** argv) {
   }
   const auto scene_ready = clock::now();
   if (gneiss::load_action_map(application.get(), input_map_uri) != gneiss::result::success ||
-      gneiss::find_action(application.get(), "move_horizontal", state.orbit) !=
-          gneiss::result::success ||
-      gneiss::find_action(application.get(), "quit", state.quit) != gneiss::result::success ||
+      application.find_action("move_horizontal", state.orbit) != gneiss::result::success ||
+      application.find_action("quit", state.quit) != gneiss::result::success ||
       gneiss_scene_instance_find_node(application.get(), scene, camera_uuid.data(),
                                       camera_uuid.size(), &state.camera_node) != GNEISS_SUCCESS) {
     return 2;

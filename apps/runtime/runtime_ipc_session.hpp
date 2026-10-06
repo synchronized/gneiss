@@ -15,7 +15,7 @@
 #include "ipc_transport.hpp"
 
 #include <chrono>
-#include <gneiss/log.h>
+#include <gneiss/engine/log.h>
 #include <memory>
 #include <string>
 #include <vector>

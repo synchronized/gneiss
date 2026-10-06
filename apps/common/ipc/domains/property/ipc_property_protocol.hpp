@@ -8,7 +8,7 @@
 
 #include "ipc_dispatcher.hpp"
 
-#include <gneiss/reflection.h>
+#include <gneiss/engine/reflection.h>
 
 #include <array>
 #include <cstdint>

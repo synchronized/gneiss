@@ -5,7 +5,7 @@
 #include "author_asset_service.hpp"
 #include "editor_session.hpp"
 
-#include <gneiss/application.hpp>
+#include <gneiss/engine/application.hpp>
 
 #include <algorithm>
 #include <chrono>
@@ -82,7 +82,7 @@ void run(const std::filesystem::path& root, const std::filesystem::path& source)
   application app;
   gneiss_world world{};
   editor_session session;
-  require(application::create(desc, app) == result::success &&
+  require(application::create_native(desc, app) == result::success &&
               app.get_world(world) == result::success,
           "基准应用创建失败");
   const auto open_ms = measure([&] {

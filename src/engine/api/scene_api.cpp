@@ -5,7 +5,7 @@
 #include "engine/function/application/application_registry.hpp"
 #include "engine/function/application/application_state.hpp"
 
-#include <gneiss/scene.h>
+#include <gneiss/engine/scene.h>
 
 #include <algorithm>
 #include <cstddef>

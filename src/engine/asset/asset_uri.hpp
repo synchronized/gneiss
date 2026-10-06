@@ -4,7 +4,7 @@
 #ifndef GNEISS_ASSET_ASSET_URI_HPP_
 #define GNEISS_ASSET_ASSET_URI_HPP_
 
-#include <gneiss/core/result.h>
+#include <gneiss/engine/core/result.h>
 
 #include <string_view>
 

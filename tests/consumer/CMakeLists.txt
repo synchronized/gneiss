@@ -8,6 +8,49 @@ project(gneiss_consumer LANGUAGES C CXX)
 include(CTest)
 find_package(gneiss CONFIG REQUIRED)
 
+# 必须在干净前缀验证：旧转发路径不可编译，失败原因必须确为缺少头文件。
+function(gneiss_verify_removed_headers)
+  set(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY)
+  set(removed_headers)
+  foreach(module application asset game_module input log reflection render scene world)
+    list(APPEND removed_headers "gneiss/${module}.h" "gneiss/${module}.hpp")
+  endforeach()
+  foreach(module entity result rid)
+    list(APPEND removed_headers "gneiss/core/${module}.h" "gneiss/core/${module}.hpp")
+  endforeach()
+  list(APPEND removed_headers "gneiss/core/export.h" "gneiss/core/version.h")
+  foreach(header IN LISTS removed_headers)
+    string(MAKE_C_IDENTIFIER "${header}" probe)
+    if(header MATCHES "\\.hpp$")
+      set(extension cpp)
+    else()
+      set(extension c)
+    endif()
+    set(source "${CMAKE_CURRENT_BINARY_DIR}/removed_headers/${probe}.${extension}")
+    file(WRITE "${source}" "#include <${header}>\ntypedef int gneiss_removed_header_probe;\n")
+    set(probe_sources "${source}")
+    if(extension STREQUAL "c")
+      # 较旧 CMake 不会因导入目标的 cxx_std_20 自动启用 CXX；C 探针仍独立按 C11 编译。
+      set(cxx_source "${CMAKE_CURRENT_BINARY_DIR}/removed_headers/${probe}_language.cpp")
+      file(WRITE "${cxx_source}" "typedef int gneiss_removed_header_cxx_language;\n")
+      list(APPEND probe_sources "${cxx_source}")
+    endif()
+    try_compile(old_header_compiles
+      "${CMAKE_CURRENT_BINARY_DIR}/removed_headers/${probe}"
+      SOURCES ${probe_sources}
+      CMAKE_FLAGS "-DCMAKE_C_STANDARD=11" "-DCMAKE_CXX_STANDARD=20"
+      LINK_LIBRARIES gneiss::engine
+      OUTPUT_VARIABLE output)
+    if(old_header_compiles)
+      message(FATAL_ERROR "旧头路径仍可编译，请改用干净安装前缀：${header}")
+    endif()
+    if(NOT output MATCHES "[Ff]ile not found|[Nn]o such file or directory|[Cc]annot open include file")
+      message(FATAL_ERROR "旧头负向检查不是因为缺少头文件而失败：${header}\n${output}")
+    endif()
+  endforeach()
+endfunction()
+gneiss_verify_removed_headers()
+
 add_executable(gneiss_c_consumer c_consumer.c)
 target_link_libraries(gneiss_c_consumer PRIVATE gneiss::engine)
 set_target_properties(

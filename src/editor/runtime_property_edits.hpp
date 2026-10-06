@@ -6,8 +6,8 @@
 
 #include "runtime_object_id.hpp"
 
-#include <gneiss/core/result.hpp>
-#include <gneiss/reflection.h>
+#include <gneiss/engine/core/result.hpp>
+#include <gneiss/engine/reflection.h>
 
 #include <array>
 #include <chrono>

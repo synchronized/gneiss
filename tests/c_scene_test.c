@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include <gneiss/scene.h>
+#include <gneiss/engine/scene.h>
 
 int main(void) {
   const gneiss_world_desc desc = GNEISS_WORLD_DESC_INIT;

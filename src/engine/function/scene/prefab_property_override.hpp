@@ -4,7 +4,7 @@
 #ifndef GNEISS_SCENE_PREFAB_PROPERTY_OVERRIDE_HPP_
 #define GNEISS_SCENE_PREFAB_PROPERTY_OVERRIDE_HPP_
 
-#include <gneiss/reflection.h>
+#include <gneiss/engine/reflection.h>
 
 #include <array>
 #include <cstdint>

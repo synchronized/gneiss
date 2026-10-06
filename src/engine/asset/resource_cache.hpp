@@ -4,7 +4,7 @@
 #ifndef GNEISS_ASSET_RESOURCE_CACHE_HPP_
 #define GNEISS_ASSET_RESOURCE_CACHE_HPP_
 
-#include <gneiss/core/result.h>
+#include <gneiss/engine/core/result.h>
 
 #include <cstdint>
 #include <functional>

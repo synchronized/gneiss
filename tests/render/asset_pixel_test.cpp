@@ -10,8 +10,8 @@
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
-#include <gneiss/application.hpp>
-#include <gneiss/scene.h>
+#include <gneiss/engine/application.hpp>
+#include <gneiss/engine/scene.h>
 #include <granit/asset_tools/texture_builder.hpp>
 #include <granit/renderer/texture_asset.hpp>
 #include <source_location>
@@ -143,7 +143,7 @@ void run_mip_sampling(bool packaged = false, bool async = false) {
   desc.window_flags &= ~GNEISS_APPLICATION_WINDOW_VISIBLE_BIT;
   desc.asset_root = root.data();
   desc.asset_root_length = static_cast<std::uint32_t>(root.size());
-  check(application::create(desc, app) == result::success);
+  check(application::create_native(desc, app) == result::success);
   constexpr std::string_view uri = "asset://s.scene.json";
   gneiss_scene_instance scene{};
   if (async) {
@@ -244,7 +244,7 @@ std::array<unsigned, 3> material_pixel(std::string_view slot, std::array<std::by
   desc.window_flags &= ~GNEISS_APPLICATION_WINDOW_VISIBLE_BIT;
   desc.asset_root = root.data();
   desc.asset_root_length = static_cast<std::uint32_t>(root.size());
-  check(application::create(desc, app) == result::success);
+  check(application::create_native(desc, app) == result::success);
   constexpr std::string_view uri = "asset://s.scene.json";
   gneiss_scene_instance scene{};
   check(gneiss_scene_instance_load(app.get(), uri.data(), uri.size(), &scene) == GNEISS_SUCCESS);
@@ -358,7 +358,7 @@ std::array<unsigned, 3> state_pixel(const state_case& test,
   desc.window_flags &= ~GNEISS_APPLICATION_WINDOW_VISIBLE_BIT;
   desc.asset_root = root.data();
   desc.asset_root_length = static_cast<std::uint32_t>(root.size());
-  check(application::create(desc, app) == result::success);
+  check(application::create_native(desc, app) == result::success);
   constexpr std::string_view uri = "asset://s.scene.json";
   gneiss_scene_instance scene{};
   check(gneiss_scene_instance_load(app.get(), uri.data(), uri.size(), &scene) == GNEISS_SUCCESS);
@@ -434,7 +434,7 @@ void run(tasks::execution_mode mode, bool pbr = false) {
   desc.window_flags &= ~GNEISS_APPLICATION_WINDOW_VISIBLE_BIT;
   desc.asset_root = root.data();
   desc.asset_root_length = static_cast<std::uint32_t>(root.size());
-  check(application::create(desc, app) == result::success);
+  check(application::create_native(desc, app) == result::success);
   check(application_internal::attach_task_executor(app.get(), scheduler) == GNEISS_SUCCESS);
   gneiss_scene_instance scene{};
   constexpr std::string_view uri = "asset://s.scene.json";
@@ -538,7 +538,7 @@ void run_scene(tasks::execution_mode mode, bool pbr = false) {
   desc.window_flags &= ~GNEISS_APPLICATION_WINDOW_VISIBLE_BIT;
   desc.asset_root = root.data();
   desc.asset_root_length = static_cast<std::uint32_t>(root.size());
-  check(application::create(desc, app) == result::success);
+  check(application::create_native(desc, app) == result::success);
   check(attach_task_executor(app.get(), scheduler) == GNEISS_SUCCESS);
   constexpr std::string_view uri = "asset://s.scene.json";
   gneiss_scene_instance scene{};

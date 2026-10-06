@@ -5,7 +5,7 @@
 
 #include "transform_gizmo_drag.hpp"
 
-#include <gneiss/world.hpp>
+#include <gneiss/engine/world.hpp>
 
 struct ImVec2;
 

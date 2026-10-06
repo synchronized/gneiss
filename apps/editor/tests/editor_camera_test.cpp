@@ -3,7 +3,7 @@
 
 #include "editor_camera.hpp"
 
-#include <gneiss/world.hpp>
+#include <gneiss/engine/world.hpp>
 
 #include <cmath>
 
@@ -31,7 +31,7 @@ int main() {
       near(camera.current_transform().translation[2], initial.translation[2])) {
     return 2;
   }
-  gneiss::transform target = GNEISS_TRANSFORM_IDENTITY;
+  gneiss::transform target{};
   target.translation[0] = 3.0F;
   target.translation[1] = 4.0F;
   target.translation[2] = 5.0F;

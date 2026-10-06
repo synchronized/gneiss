@@ -6,7 +6,7 @@
 
 #include "dynamic_library.hpp"
 
-#include <gneiss/game_module.h>
+#include <gneiss/engine/game_module.h>
 
 #include <filesystem>
 #include <string_view>

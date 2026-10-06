@@ -4,8 +4,8 @@
 #ifndef GNEISS_CORE_RID_TABLE_HPP_
 #define GNEISS_CORE_RID_TABLE_HPP_
 
-#include <gneiss/core/result.h>
-#include <gneiss/core/rid.h>
+#include <gneiss/engine/core/result.h>
+#include <gneiss/engine/core/rid.h>
 
 #include <cstddef>
 #include <cstdint>

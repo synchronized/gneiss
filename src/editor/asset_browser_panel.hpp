@@ -5,7 +5,7 @@
 
 #include "asset_browser_model.hpp"
 
-#include <gneiss/core/result.hpp>
+#include <gneiss/engine/core/result.hpp>
 
 #include <array>
 #include <cstddef>

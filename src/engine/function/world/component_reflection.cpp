@@ -4,10 +4,10 @@
 #include "engine/core/reflection/type_registry.hpp"
 #include "engine/function/world/world_service.hpp"
 
-#include <gneiss/world.h>
+#include <gneiss/engine/world.h>
 
-#include <gneiss/render.h>
-#include <gneiss/scene.h>
+#include <gneiss/engine/render.h>
+#include <gneiss/engine/scene.h>
 
 #include <array>
 #include <cstdint>

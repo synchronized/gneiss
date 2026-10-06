@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include <gneiss/application.hpp>
-#include <gneiss/log.hpp>
+#include <gneiss/engine/application.hpp>
+#include <gneiss/engine/log.hpp>
 
 #include <atomic>
 #include <chrono>
@@ -23,6 +23,7 @@ struct capture_state final {
   std::string source;
   std::string category;
   std::string message;
+  gneiss::result operation = gneiss::result::success;
   gneiss_result reentrant_result = GNEISS_SUCCESS;
   bool check_reentrancy = true;
   std::atomic<bool> callback_active = false;
@@ -43,10 +44,12 @@ void capture(gneiss_application application, const gneiss_log_event* event, void
       state.source.assign(event->source, event->source_length);
       state.category.assign(event->category, event->category_length);
       state.message.assign(event->message, event->message_length);
+      state.operation = gneiss::from_native(event->result);
       ++state.count;
     }
     if (state.check_reentrancy && state.count == 1U) {
-      const auto nested = gneiss::make_log_message(gneiss::log_severity::debug, "test", "nested");
+      const auto nested = gneiss::to_native(
+          gneiss::make_log_message(gneiss::log_severity::debug, "test", "nested"));
       state.reentrant_result = gneiss_application_log(application, &nested);
     }
   }
@@ -73,7 +76,8 @@ int main() {
 
   std::string category = "game";
   std::string text = "ready";
-  auto first = gneiss::make_log_message(gneiss::log_severity::info, category, text);
+  auto first =
+      gneiss::to_native(gneiss::make_log_message(gneiss::log_severity::info, category, text));
   if (gneiss_application_log(application, &first) != GNEISS_SUCCESS) {
     return 2;
   }
@@ -96,7 +100,8 @@ int main() {
   std::vector<std::thread> threads;
   for (std::uint32_t thread_index = 0U; thread_index < thread_count; ++thread_index) {
     threads.emplace_back([application] {
-      const auto message = gneiss::make_log_message(gneiss::log_severity::debug, "worker", "tick");
+      const auto message = gneiss::to_native(
+          gneiss::make_log_message(gneiss::log_severity::debug, "worker", "tick"));
       for (std::uint32_t index = 0U; index < messages_per_thread; ++index) {
         if (gneiss_application_log(application, &message) != GNEISS_SUCCESS) {
           return;
@@ -134,7 +139,7 @@ int main() {
   desc.log = throwing_capture;
   desc.user_data = &throwing_calls;
   const auto throwing_message =
-      gneiss::make_log_message(gneiss::log_severity::info, "test", "throw");
+      gneiss::to_native(gneiss::make_log_message(gneiss::log_severity::info, "test", "throw"));
   if (gneiss_application_create(&desc, &application) != GNEISS_SUCCESS ||
       gneiss_application_log(application, &throwing_message) != GNEISS_SUCCESS ||
       gneiss_application_log(application, &throwing_message) != GNEISS_SUCCESS ||
@@ -148,13 +153,16 @@ int main() {
   desc.log = capture;
   desc.user_data = &owned_capture;
   gneiss::application owned;
-  if (gneiss::application::create(desc, owned).failed()) {
+  if (gneiss::application::create_native(desc, owned).failed()) {
     return 10;
   }
   gneiss::result submitted;
   std::thread worker([&] {
     const std::string transient = "owned worker";
-    submitted = owned.log(gneiss::make_log_message(gneiss::log_severity::info, "cpp", transient));
+    submitted = owned.log({.severity = gneiss::log_severity::warning,
+                           .category = "cpp",
+                           .message = transient,
+                           .operation = gneiss::result::not_ready});
   });
   worker.join();
   if (submitted.failed() || owned.reset().failed()) {
@@ -162,14 +170,14 @@ int main() {
   }
   const std::scoped_lock lock(owned_capture.mutex);
   if (owned_capture.count != 1U || owned_capture.message != "owned worker" ||
-      owned_capture.category != "cpp" || owned_capture.callback_active ||
-      owned_capture.was_concurrent) {
+      owned_capture.category != "cpp" || owned_capture.operation != gneiss::result::not_ready ||
+      owned_capture.callback_active || owned_capture.was_concurrent) {
     return 12;
   }
   capture_state empty_capture;
   empty_capture.check_reentrancy = false;
   desc.user_data = &empty_capture;
-  if (gneiss::application::create(desc, owned).failed() ||
+  if (gneiss::application::create_native(desc, owned).failed() ||
       owned.log(gneiss::make_log_message(gneiss::log_severity::info, "empty", {})).failed() ||
       owned.reset().failed()) {
     return 13;

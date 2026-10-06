@@ -7,7 +7,7 @@
 #include "engine/platform/native_window_info.hpp"
 
 #include "engine/platform/window_configuration.hpp"
-#include <gneiss/input.h>
+#include <gneiss/engine/input.h>
 
 #include <granit/window.hpp>
 

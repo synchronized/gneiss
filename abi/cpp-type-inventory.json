@@ -1,5 +1,5 @@
 {
-  "method": "按公共 C 头及生成版本头模板枚举；值与回调可直接使用 C 表达，生命周期以契约和 cpp-sdk 参考为准；不按类数量衡量完整性",
+  "method": "按公共 C 头枚举现有映射；native_review 单独记录 0.47 原生类型迁移，pending 不代表已完成；ABI 例外必须给出理由",
   "headers": [
     {
       "header": "include/gneiss/engine/application.h",
@@ -8,101 +8,200 @@
         {
           "symbol": "gneiss_application",
           "kind": "owner",
-          "cpp_mapping": "gneiss::application"
+          "cpp_mapping": "gneiss::application / application_ref / released_application",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_application_close_requested_fn",
           "kind": "callback",
-          "cpp_mapping": "gneiss_application_close_requested_fn（原生 C 值/签名，C++ 直接使用）"
+          "cpp_mapping": "decltype(gneiss::application_callbacks::close_requested)",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_application_desc",
           "kind": "struct",
-          "cpp_mapping": "gneiss_application_desc（原生 C 值/签名，C++ 直接使用）"
+          "cpp_mapping": "gneiss::application_desc",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_application_diagnostic_fn",
           "kind": "callback",
-          "cpp_mapping": "gneiss_application_diagnostic_fn（原生 C 值/签名，C++ 直接使用）"
+          "cpp_mapping": "decltype(gneiss::application_callbacks::diagnostic)",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_application_initialize_fn",
           "kind": "callback",
-          "cpp_mapping": "gneiss_application_initialize_fn（原生 C 值/签名，C++ 直接使用）"
+          "cpp_mapping": "decltype(gneiss::application_callbacks::initialize)",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_application_log_fn",
           "kind": "callback",
-          "cpp_mapping": "gneiss_application_log_fn（原生 C 值/签名，C++ 直接使用）"
+          "cpp_mapping": "decltype(gneiss::application_callbacks::log)",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_application_now_ns_fn",
           "kind": "callback",
-          "cpp_mapping": "gneiss_application_now_ns_fn（原生 C 值/签名，C++ 直接使用）"
+          "cpp_mapping": "decltype(gneiss::application_callbacks::now_ns)",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_application_platform",
           "kind": "scalar",
-          "cpp_mapping": "gneiss_application_platform（原生 C 值/签名，C++ 直接使用）"
+          "cpp_mapping": "gneiss::application_platform",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_application_poll_events_fn",
           "kind": "callback",
-          "cpp_mapping": "gneiss_application_poll_events_fn（原生 C 值/签名，C++ 直接使用）"
+          "cpp_mapping": "decltype(gneiss::application_callbacks::poll_events)",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_application_shutdown_fn",
           "kind": "callback",
-          "cpp_mapping": "gneiss_application_shutdown_fn（原生 C 值/签名，C++ 直接使用）"
+          "cpp_mapping": "decltype(gneiss::application_callbacks::shutdown)",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_application_update_fn",
           "kind": "callback",
-          "cpp_mapping": "gneiss_application_update_fn（原生 C 值/签名，C++ 直接使用）"
+          "cpp_mapping": "decltype(gneiss::application_callbacks::update)",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_diagnostic",
           "kind": "struct",
-          "cpp_mapping": "gneiss_diagnostic（原生 C 值/签名，C++ 直接使用）"
+          "cpp_mapping": "gneiss::diagnostic",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_diagnostic_category",
           "kind": "scalar",
-          "cpp_mapping": "gneiss_diagnostic_category（原生 C 值/签名，C++ 直接使用）"
+          "cpp_mapping": "gneiss::diagnostic_category",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_diagnostic_severity",
           "kind": "scalar",
-          "cpp_mapping": "gneiss_diagnostic_severity（原生 C 值/签名，C++ 直接使用）"
+          "cpp_mapping": "gneiss::diagnostic_severity",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_frame_time",
           "kind": "struct",
-          "cpp_mapping": "gneiss_frame_time（原生 C 值/签名，C++ 直接使用）"
+          "cpp_mapping": "gneiss::frame_time",
+          "native_review": "implemented"
         }
       ],
       "constants": [
-        "GNEISS_APPLICATION_DESC_INIT",
-        "GNEISS_APPLICATION_DESC_VERSION_1_SIZE",
-        "GNEISS_APPLICATION_DESC_VERSION_2_SIZE",
-        "GNEISS_APPLICATION_DESC_VERSION_3_SIZE",
-        "GNEISS_APPLICATION_DESC_VERSION_4_SIZE",
-        "GNEISS_APPLICATION_DESC_VERSION_5_SIZE",
-        "GNEISS_APPLICATION_DESC_VERSION_6_SIZE",
-        "GNEISS_APPLICATION_PLATFORM_CALLBACK",
-        "GNEISS_APPLICATION_PLATFORM_GRANIT",
-        "GNEISS_APPLICATION_WINDOW_HIGH_DPI_BIT",
-        "GNEISS_APPLICATION_WINDOW_RESIZABLE_BIT",
-        "GNEISS_APPLICATION_WINDOW_VISIBLE_BIT",
-        "GNEISS_DIAGNOSTIC_CATEGORY_APPLICATION",
-        "GNEISS_DIAGNOSTIC_CATEGORY_ASSET",
-        "GNEISS_DIAGNOSTIC_CATEGORY_BACKEND",
-        "GNEISS_DIAGNOSTIC_CATEGORY_INPUT",
-        "GNEISS_DIAGNOSTIC_ERROR",
-        "GNEISS_DIAGNOSTIC_INFO",
-        "GNEISS_DIAGNOSTIC_VERSION_1_SIZE",
-        "GNEISS_DIAGNOSTIC_WARNING",
-        "GNEISS_NULL_APPLICATION"
+        {
+          "symbol": "GNEISS_APPLICATION_DESC_INIT",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::application_desc{}"
+        },
+        {
+          "symbol": "GNEISS_APPLICATION_DESC_VERSION_1_SIZE",
+          "native_review": "abi_only",
+          "cpp_mapping": "C ABI 描述布局版本；C++ 适配内部填写当前尺寸"
+        },
+        {
+          "symbol": "GNEISS_APPLICATION_DESC_VERSION_2_SIZE",
+          "native_review": "abi_only",
+          "cpp_mapping": "C ABI 描述布局版本；C++ 适配内部填写当前尺寸"
+        },
+        {
+          "symbol": "GNEISS_APPLICATION_DESC_VERSION_3_SIZE",
+          "native_review": "abi_only",
+          "cpp_mapping": "C ABI 描述布局版本；C++ 适配内部填写当前尺寸"
+        },
+        {
+          "symbol": "GNEISS_APPLICATION_DESC_VERSION_4_SIZE",
+          "native_review": "abi_only",
+          "cpp_mapping": "C ABI 描述布局版本；C++ 适配内部填写当前尺寸"
+        },
+        {
+          "symbol": "GNEISS_APPLICATION_DESC_VERSION_5_SIZE",
+          "native_review": "abi_only",
+          "cpp_mapping": "C ABI 描述布局版本；C++ 适配内部填写当前尺寸"
+        },
+        {
+          "symbol": "GNEISS_APPLICATION_DESC_VERSION_6_SIZE",
+          "native_review": "abi_only",
+          "cpp_mapping": "C ABI 描述布局版本；C++ 适配内部填写当前尺寸"
+        },
+        {
+          "symbol": "GNEISS_APPLICATION_PLATFORM_CALLBACK",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::application_platform::callback"
+        },
+        {
+          "symbol": "GNEISS_APPLICATION_PLATFORM_GRANIT",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::application_platform::granit"
+        },
+        {
+          "symbol": "GNEISS_APPLICATION_WINDOW_HIGH_DPI_BIT",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::application_window_flags::high_dpi"
+        },
+        {
+          "symbol": "GNEISS_APPLICATION_WINDOW_RESIZABLE_BIT",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::application_window_flags::resizable"
+        },
+        {
+          "symbol": "GNEISS_APPLICATION_WINDOW_VISIBLE_BIT",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::application_window_flags::visible"
+        },
+        {
+          "symbol": "GNEISS_DIAGNOSTIC_CATEGORY_APPLICATION",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::diagnostic_category::application"
+        },
+        {
+          "symbol": "GNEISS_DIAGNOSTIC_CATEGORY_ASSET",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::diagnostic_category::asset"
+        },
+        {
+          "symbol": "GNEISS_DIAGNOSTIC_CATEGORY_BACKEND",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::diagnostic_category::backend"
+        },
+        {
+          "symbol": "GNEISS_DIAGNOSTIC_CATEGORY_INPUT",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::diagnostic_category::input"
+        },
+        {
+          "symbol": "GNEISS_DIAGNOSTIC_ERROR",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::diagnostic_severity::error"
+        },
+        {
+          "symbol": "GNEISS_DIAGNOSTIC_INFO",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::diagnostic_severity::info"
+        },
+        {
+          "symbol": "GNEISS_DIAGNOSTIC_VERSION_1_SIZE",
+          "native_review": "abi_only",
+          "cpp_mapping": "C ABI 描述布局版本；C++ 适配内部填写当前尺寸"
+        },
+        {
+          "symbol": "GNEISS_DIAGNOSTIC_WARNING",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::diagnostic_severity::warning"
+        },
+        {
+          "symbol": "GNEISS_NULL_APPLICATION",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::application_ref{} / application{}"
+        }
       ]
     },
     {
@@ -112,11 +211,16 @@
         {
           "symbol": "gneiss_entity_id",
           "kind": "borrowed_id",
-          "cpp_mapping": "gneiss::entity_id"
+          "cpp_mapping": "gneiss::entity_id",
+          "native_review": "implemented"
         }
       ],
       "constants": [
-        "GNEISS_NULL_ENTITY_ID"
+        {
+          "symbol": "GNEISS_NULL_ENTITY_ID",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::null_entity_id"
+        }
       ]
     },
     {
@@ -124,9 +228,21 @@
       "contract": "docs/reference/core.md",
       "types": [],
       "constants": [
-        "GNEISS_API",
-        "GNEISS_EXPERIMENTAL",
-        "GNEISS_LOCAL"
+        {
+          "symbol": "GNEISS_API",
+          "native_review": "abi_only",
+          "cpp_mapping": "C ABI 导出与导入基础设施，不属于业务值；C++ 包装调用同一 C 符号"
+        },
+        {
+          "symbol": "GNEISS_EXPERIMENTAL",
+          "native_review": "abi_only",
+          "cpp_mapping": "C ABI 稳定性标记基础设施，不属于 C++ 业务值"
+        },
+        {
+          "symbol": "GNEISS_LOCAL",
+          "native_review": "abi_only",
+          "cpp_mapping": "内部符号可见性基础设施，不属于 C++ 业务值"
+        }
       ]
     },
     {
@@ -136,23 +252,76 @@
         {
           "symbol": "gneiss_result",
           "kind": "scalar",
-          "cpp_mapping": "gneiss::result"
+          "cpp_mapping": "gneiss::result",
+          "native_review": "implemented"
         }
       ],
       "constants": [
-        "GNEISS_ERROR_DEPENDENCY_FAILED",
-        "GNEISS_ERROR_INITIALIZATION_FAILED",
-        "GNEISS_ERROR_INTERNAL",
-        "GNEISS_ERROR_INVALID_ARGUMENT",
-        "GNEISS_ERROR_INVALID_HANDLE",
-        "GNEISS_ERROR_INVALID_STATE",
-        "GNEISS_ERROR_IO",
-        "GNEISS_ERROR_NOT_FOUND",
-        "GNEISS_ERROR_NOT_READY",
-        "GNEISS_ERROR_OUT_OF_MEMORY",
-        "GNEISS_ERROR_UNKNOWN",
-        "GNEISS_ERROR_UNSUPPORTED",
-        "GNEISS_SUCCESS"
+        {
+          "symbol": "GNEISS_ERROR_DEPENDENCY_FAILED",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::result::dependency_failed"
+        },
+        {
+          "symbol": "GNEISS_ERROR_INITIALIZATION_FAILED",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::result::initialization_failed"
+        },
+        {
+          "symbol": "GNEISS_ERROR_INTERNAL",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::result::internal"
+        },
+        {
+          "symbol": "GNEISS_ERROR_INVALID_ARGUMENT",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::result::invalid_argument"
+        },
+        {
+          "symbol": "GNEISS_ERROR_INVALID_HANDLE",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::result::invalid_handle"
+        },
+        {
+          "symbol": "GNEISS_ERROR_INVALID_STATE",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::result::invalid_state"
+        },
+        {
+          "symbol": "GNEISS_ERROR_IO",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::result::io"
+        },
+        {
+          "symbol": "GNEISS_ERROR_NOT_FOUND",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::result::not_found"
+        },
+        {
+          "symbol": "GNEISS_ERROR_NOT_READY",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::result::not_ready"
+        },
+        {
+          "symbol": "GNEISS_ERROR_OUT_OF_MEMORY",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::result::out_of_memory"
+        },
+        {
+          "symbol": "GNEISS_ERROR_UNKNOWN",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::result::unknown"
+        },
+        {
+          "symbol": "GNEISS_ERROR_UNSUPPORTED",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::result::unsupported"
+        },
+        {
+          "symbol": "GNEISS_SUCCESS",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::result::success"
+        }
       ]
     },
     {
@@ -162,11 +331,16 @@
         {
           "symbol": "gneiss_rid",
           "kind": "borrowed_id",
-          "cpp_mapping": "gneiss::rid"
+          "cpp_mapping": "gneiss::rid",
+          "native_review": "implemented"
         }
       ],
       "constants": [
-        "GNEISS_NULL_RID"
+        {
+          "symbol": "GNEISS_NULL_RID",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::null_rid"
+        }
       ]
     },
     {
@@ -174,10 +348,26 @@
       "contract": "docs/reference/core.md",
       "types": [],
       "constants": [
-        "GNEISS_VERSION_MAJOR",
-        "GNEISS_VERSION_MINOR",
-        "GNEISS_VERSION_PATCH",
-        "GNEISS_VERSION_STRING"
+        {
+          "symbol": "GNEISS_VERSION_MAJOR",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::header_version.major"
+        },
+        {
+          "symbol": "GNEISS_VERSION_MINOR",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::header_version.minor"
+        },
+        {
+          "symbol": "GNEISS_VERSION_PATCH",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::header_version.patch"
+        },
+        {
+          "symbol": "GNEISS_VERSION_STRING",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::header_version_string"
+        }
       ]
     },
     {
@@ -187,52 +377,88 @@
         {
           "symbol": "gneiss_game_context",
           "kind": "borrowed_id",
-          "cpp_mapping": "gneiss::game_context"
+          "cpp_mapping": "gneiss::game_context",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_game_module_desc",
           "kind": "struct",
-          "cpp_mapping": "gneiss_game_module_desc（原生 C 值/签名，C++ 直接使用）"
+          "cpp_mapping": "gneiss::game_module_desc / game_module<Callbacks>",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_game_module_fixed_update_fn",
           "kind": "callback",
-          "cpp_mapping": "gneiss_game_module_fixed_update_fn（原生 C 值/签名，C++ 直接使用）"
+          "cpp_mapping": "decltype(gneiss::game_module_callbacks::fixed_update)",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_game_module_initialize_fn",
           "kind": "callback",
-          "cpp_mapping": "gneiss_game_module_initialize_fn（原生 C 值/签名，C++ 直接使用）"
+          "cpp_mapping": "decltype(gneiss::game_module_callbacks::initialize)",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_game_module_query_fn",
           "kind": "callback",
-          "cpp_mapping": "gneiss_game_module_query_fn（原生 C 值/签名，C++ 直接使用）"
+          "cpp_mapping": "动态库真实 C ABI 查询入口；game_module<Callbacks>::export_query 在边界适配",
+          "native_review": "abi_only"
         },
         {
           "symbol": "gneiss_game_module_shutdown_fn",
           "kind": "callback",
-          "cpp_mapping": "gneiss_game_module_shutdown_fn（原生 C 值/签名，C++ 直接使用）"
+          "cpp_mapping": "decltype(gneiss::game_module_callbacks::shutdown)",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_game_module_update_fn",
           "kind": "callback",
-          "cpp_mapping": "gneiss_game_module_update_fn（原生 C 值/签名，C++ 直接使用）"
+          "cpp_mapping": "decltype(gneiss::game_module_callbacks::update)",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_game_update_time",
           "kind": "struct",
-          "cpp_mapping": "gneiss_game_update_time（原生 C 值/签名，C++ 直接使用）"
+          "cpp_mapping": "gneiss::game_update_time",
+          "native_review": "implemented"
         }
       ],
       "constants": [
-        "GNEISS_GAME_MODULE_ABI_VERSION_1",
-        "GNEISS_GAME_MODULE_ABI_VERSION_CURRENT",
-        "GNEISS_GAME_MODULE_DESC_VERSION_1_SIZE",
-        "GNEISS_GAME_MODULE_EXPORT",
-        "GNEISS_GAME_MODULE_QUERY_SYMBOL",
-        "GNEISS_GAME_UPDATE_TIME_VERSION_1_SIZE",
-        "GNEISS_NULL_GAME_CONTEXT"
+        {
+          "symbol": "GNEISS_GAME_MODULE_ABI_VERSION_1",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::game_module_abi_version_1"
+        },
+        {
+          "symbol": "GNEISS_GAME_MODULE_ABI_VERSION_CURRENT",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::game_module_abi_version"
+        },
+        {
+          "symbol": "GNEISS_GAME_MODULE_DESC_VERSION_1_SIZE",
+          "native_review": "abi_only",
+          "cpp_mapping": "C ABI 描述布局版本；原生 game_module_desc 不暴露结构大小"
+        },
+        {
+          "symbol": "GNEISS_GAME_MODULE_EXPORT",
+          "native_review": "abi_only",
+          "cpp_mapping": "动态库真实 C ABI 符号导出基础设施"
+        },
+        {
+          "symbol": "GNEISS_GAME_MODULE_QUERY_SYMBOL",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::game_module_query_symbol"
+        },
+        {
+          "symbol": "GNEISS_GAME_UPDATE_TIME_VERSION_1_SIZE",
+          "native_review": "abi_only",
+          "cpp_mapping": "C ABI 时间布局版本；原生 game_update_time 不暴露结构大小"
+        },
+        {
+          "symbol": "GNEISS_NULL_GAME_CONTEXT",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::null_game_context"
+        }
       ]
     },
     {
@@ -242,190 +468,740 @@
         {
           "symbol": "gneiss_action",
           "kind": "borrowed_id",
-          "cpp_mapping": "gneiss::action_id（兼容别名 action）"
+          "cpp_mapping": "gneiss::action_id",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_action_state",
           "kind": "struct",
-          "cpp_mapping": "gneiss::action_state"
+          "cpp_mapping": "gneiss::action_state",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_input_event",
           "kind": "struct",
-          "cpp_mapping": "gneiss::input_event"
+          "cpp_mapping": "gneiss::input_event",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_input_event_data",
           "kind": "union",
-          "cpp_mapping": "gneiss_input_event_data（原生 C 值/签名，C++ 直接使用）"
+          "cpp_mapping": "gneiss::input_event_data",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_input_event_type",
           "kind": "scalar",
-          "cpp_mapping": "gneiss_input_event_type（原生 C 值/签名，C++ 直接使用）"
+          "cpp_mapping": "std::holds_alternative / std::get_if / std::visit（事件种类由 input_event_data 的活动分支表达）",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_key_action",
           "kind": "scalar",
-          "cpp_mapping": "gneiss_key_action（原生 C 值/签名，C++ 直接使用）"
+          "cpp_mapping": "gneiss::key_action",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_keyboard_state",
           "kind": "struct",
-          "cpp_mapping": "gneiss::keyboard_state"
+          "cpp_mapping": "gneiss::keyboard_state",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_logical_key",
           "kind": "scalar",
-          "cpp_mapping": "gneiss_logical_key（原生 C 值/签名，C++ 直接使用）"
+          "cpp_mapping": "gneiss::logical_key",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_physical_key",
           "kind": "scalar",
-          "cpp_mapping": "gneiss_physical_key（原生 C 值/签名，C++ 直接使用）"
+          "cpp_mapping": "gneiss::physical_key",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_pointer_state",
           "kind": "struct",
-          "cpp_mapping": "gneiss::pointer_state"
+          "cpp_mapping": "gneiss::pointer_state",
+          "native_review": "implemented"
         }
       ],
       "constants": [
-        "GNEISS_ACTION_STATE_INIT",
-        "GNEISS_ACTION_STATE_VERSION_1_SIZE",
-        "GNEISS_INPUT_EVENT_INIT",
-        "GNEISS_INPUT_EVENT_KEY",
-        "GNEISS_INPUT_EVENT_POINTER_BUTTON",
-        "GNEISS_INPUT_EVENT_POINTER_ENTERED",
-        "GNEISS_INPUT_EVENT_POINTER_LEFT",
-        "GNEISS_INPUT_EVENT_POINTER_MOVED",
-        "GNEISS_INPUT_EVENT_POINTER_WHEEL",
-        "GNEISS_INPUT_EVENT_TEXT",
-        "GNEISS_INPUT_EVENT_VERSION_1_SIZE",
-        "GNEISS_INPUT_TEXT_CAPACITY",
-        "GNEISS_KEYBOARD_STATE_INIT",
-        "GNEISS_KEYBOARD_STATE_VERSION_1_SIZE",
-        "GNEISS_KEY_PRESSED",
-        "GNEISS_KEY_RELEASED",
-        "GNEISS_KEY_REPEATED",
-        "GNEISS_LOGICAL_KEY_BACKSPACE",
-        "GNEISS_LOGICAL_KEY_DELETE",
-        "GNEISS_LOGICAL_KEY_DOWN",
-        "GNEISS_LOGICAL_KEY_END",
-        "GNEISS_LOGICAL_KEY_ENTER",
-        "GNEISS_LOGICAL_KEY_ESCAPE",
-        "GNEISS_LOGICAL_KEY_F1",
-        "GNEISS_LOGICAL_KEY_F10",
-        "GNEISS_LOGICAL_KEY_F11",
-        "GNEISS_LOGICAL_KEY_F12",
-        "GNEISS_LOGICAL_KEY_F2",
-        "GNEISS_LOGICAL_KEY_F3",
-        "GNEISS_LOGICAL_KEY_F4",
-        "GNEISS_LOGICAL_KEY_F5",
-        "GNEISS_LOGICAL_KEY_F6",
-        "GNEISS_LOGICAL_KEY_F7",
-        "GNEISS_LOGICAL_KEY_F8",
-        "GNEISS_LOGICAL_KEY_F9",
-        "GNEISS_LOGICAL_KEY_HOME",
-        "GNEISS_LOGICAL_KEY_INSERT",
-        "GNEISS_LOGICAL_KEY_LEFT",
-        "GNEISS_LOGICAL_KEY_NONE",
-        "GNEISS_LOGICAL_KEY_PAGE_DOWN",
-        "GNEISS_LOGICAL_KEY_PAGE_UP",
-        "GNEISS_LOGICAL_KEY_RIGHT",
-        "GNEISS_LOGICAL_KEY_SPACE",
-        "GNEISS_LOGICAL_KEY_TAB",
-        "GNEISS_LOGICAL_KEY_UP",
-        "GNEISS_MODIFIER_CAPS_LOCK_BIT",
-        "GNEISS_MODIFIER_LEFT_ALT_BIT",
-        "GNEISS_MODIFIER_LEFT_CONTROL_BIT",
-        "GNEISS_MODIFIER_LEFT_SHIFT_BIT",
-        "GNEISS_MODIFIER_LEFT_SUPER_BIT",
-        "GNEISS_MODIFIER_NUM_LOCK_BIT",
-        "GNEISS_MODIFIER_RIGHT_ALT_BIT",
-        "GNEISS_MODIFIER_RIGHT_CONTROL_BIT",
-        "GNEISS_MODIFIER_RIGHT_SHIFT_BIT",
-        "GNEISS_MODIFIER_RIGHT_SUPER_BIT",
-        "GNEISS_NULL_ACTION",
-        "GNEISS_PHYSICAL_KEY_0",
-        "GNEISS_PHYSICAL_KEY_1",
-        "GNEISS_PHYSICAL_KEY_2",
-        "GNEISS_PHYSICAL_KEY_3",
-        "GNEISS_PHYSICAL_KEY_4",
-        "GNEISS_PHYSICAL_KEY_5",
-        "GNEISS_PHYSICAL_KEY_6",
-        "GNEISS_PHYSICAL_KEY_7",
-        "GNEISS_PHYSICAL_KEY_8",
-        "GNEISS_PHYSICAL_KEY_9",
-        "GNEISS_PHYSICAL_KEY_A",
-        "GNEISS_PHYSICAL_KEY_B",
-        "GNEISS_PHYSICAL_KEY_BACKSPACE",
-        "GNEISS_PHYSICAL_KEY_C",
-        "GNEISS_PHYSICAL_KEY_D",
-        "GNEISS_PHYSICAL_KEY_DELETE",
-        "GNEISS_PHYSICAL_KEY_DOWN",
-        "GNEISS_PHYSICAL_KEY_E",
-        "GNEISS_PHYSICAL_KEY_END",
-        "GNEISS_PHYSICAL_KEY_ENTER",
-        "GNEISS_PHYSICAL_KEY_ESCAPE",
-        "GNEISS_PHYSICAL_KEY_F",
-        "GNEISS_PHYSICAL_KEY_F1",
-        "GNEISS_PHYSICAL_KEY_F10",
-        "GNEISS_PHYSICAL_KEY_F11",
-        "GNEISS_PHYSICAL_KEY_F12",
-        "GNEISS_PHYSICAL_KEY_F2",
-        "GNEISS_PHYSICAL_KEY_F3",
-        "GNEISS_PHYSICAL_KEY_F4",
-        "GNEISS_PHYSICAL_KEY_F5",
-        "GNEISS_PHYSICAL_KEY_F6",
-        "GNEISS_PHYSICAL_KEY_F7",
-        "GNEISS_PHYSICAL_KEY_F8",
-        "GNEISS_PHYSICAL_KEY_F9",
-        "GNEISS_PHYSICAL_KEY_G",
-        "GNEISS_PHYSICAL_KEY_H",
-        "GNEISS_PHYSICAL_KEY_HOME",
-        "GNEISS_PHYSICAL_KEY_I",
-        "GNEISS_PHYSICAL_KEY_INSERT",
-        "GNEISS_PHYSICAL_KEY_J",
-        "GNEISS_PHYSICAL_KEY_K",
-        "GNEISS_PHYSICAL_KEY_L",
-        "GNEISS_PHYSICAL_KEY_LEFT",
-        "GNEISS_PHYSICAL_KEY_LEFT_ALT",
-        "GNEISS_PHYSICAL_KEY_LEFT_CONTROL",
-        "GNEISS_PHYSICAL_KEY_LEFT_SHIFT",
-        "GNEISS_PHYSICAL_KEY_LEFT_SUPER",
-        "GNEISS_PHYSICAL_KEY_M",
-        "GNEISS_PHYSICAL_KEY_N",
-        "GNEISS_PHYSICAL_KEY_O",
-        "GNEISS_PHYSICAL_KEY_P",
-        "GNEISS_PHYSICAL_KEY_PAGE_DOWN",
-        "GNEISS_PHYSICAL_KEY_PAGE_UP",
-        "GNEISS_PHYSICAL_KEY_Q",
-        "GNEISS_PHYSICAL_KEY_R",
-        "GNEISS_PHYSICAL_KEY_RIGHT",
-        "GNEISS_PHYSICAL_KEY_RIGHT_ALT",
-        "GNEISS_PHYSICAL_KEY_RIGHT_CONTROL",
-        "GNEISS_PHYSICAL_KEY_RIGHT_SHIFT",
-        "GNEISS_PHYSICAL_KEY_RIGHT_SUPER",
-        "GNEISS_PHYSICAL_KEY_S",
-        "GNEISS_PHYSICAL_KEY_SPACE",
-        "GNEISS_PHYSICAL_KEY_T",
-        "GNEISS_PHYSICAL_KEY_TAB",
-        "GNEISS_PHYSICAL_KEY_U",
-        "GNEISS_PHYSICAL_KEY_UNKNOWN",
-        "GNEISS_PHYSICAL_KEY_UP",
-        "GNEISS_PHYSICAL_KEY_V",
-        "GNEISS_PHYSICAL_KEY_W",
-        "GNEISS_PHYSICAL_KEY_X",
-        "GNEISS_PHYSICAL_KEY_Y",
-        "GNEISS_PHYSICAL_KEY_Z",
-        "GNEISS_POINTER_MIDDLE_BIT",
-        "GNEISS_POINTER_PRIMARY_BIT",
-        "GNEISS_POINTER_SECONDARY_BIT",
-        "GNEISS_POINTER_STATE_INIT",
-        "GNEISS_POINTER_STATE_VERSION_1_SIZE",
-        "GNEISS_POINTER_X1_BIT",
-        "GNEISS_POINTER_X2_BIT"
+        {
+          "symbol": "GNEISS_ACTION_STATE_INIT",
+          "native_review": "implemented",
+          "cpp_mapping": "对应 C++ 快照的默认构造"
+        },
+        {
+          "symbol": "GNEISS_ACTION_STATE_VERSION_1_SIZE",
+          "native_review": "abi_only",
+          "cpp_mapping": "C ABI 结构尺寸版本；普通 C++ 查询由内部适配设置当前尺寸"
+        },
+        {
+          "symbol": "GNEISS_INPUT_EVENT_INIT",
+          "native_review": "implemented",
+          "cpp_mapping": "对应 C++ 快照的默认构造"
+        },
+        {
+          "symbol": "GNEISS_INPUT_EVENT_KEY",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::input_event_data 对应的 variant 活动分支"
+        },
+        {
+          "symbol": "GNEISS_INPUT_EVENT_POINTER_BUTTON",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::input_event_data 对应的 variant 活动分支"
+        },
+        {
+          "symbol": "GNEISS_INPUT_EVENT_POINTER_ENTERED",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::input_event_data 对应的 variant 活动分支"
+        },
+        {
+          "symbol": "GNEISS_INPUT_EVENT_POINTER_LEFT",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::input_event_data 对应的 variant 活动分支"
+        },
+        {
+          "symbol": "GNEISS_INPUT_EVENT_POINTER_MOVED",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::input_event_data 对应的 variant 活动分支"
+        },
+        {
+          "symbol": "GNEISS_INPUT_EVENT_POINTER_WHEEL",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::input_event_data 对应的 variant 活动分支"
+        },
+        {
+          "symbol": "GNEISS_INPUT_EVENT_TEXT",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::input_event_data 对应的 variant 活动分支"
+        },
+        {
+          "symbol": "GNEISS_INPUT_EVENT_VERSION_1_SIZE",
+          "native_review": "abi_only",
+          "cpp_mapping": "C ABI 结构尺寸版本；普通 C++ 查询由内部适配设置当前尺寸"
+        },
+        {
+          "symbol": "GNEISS_INPUT_TEXT_CAPACITY",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::input_text_capacity"
+        },
+        {
+          "symbol": "GNEISS_KEYBOARD_STATE_INIT",
+          "native_review": "implemented",
+          "cpp_mapping": "对应 C++ 快照的默认构造"
+        },
+        {
+          "symbol": "GNEISS_KEYBOARD_STATE_VERSION_1_SIZE",
+          "native_review": "abi_only",
+          "cpp_mapping": "C ABI 结构尺寸版本；普通 C++ 查询由内部适配设置当前尺寸"
+        },
+        {
+          "symbol": "GNEISS_KEY_PRESSED",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::key_action::pressed"
+        },
+        {
+          "symbol": "GNEISS_KEY_RELEASED",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::key_action::released"
+        },
+        {
+          "symbol": "GNEISS_KEY_REPEATED",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::key_action::repeated"
+        },
+        {
+          "symbol": "GNEISS_LOGICAL_KEY_BACKSPACE",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::logical_key::backspace"
+        },
+        {
+          "symbol": "GNEISS_LOGICAL_KEY_DELETE",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::logical_key::delete_key"
+        },
+        {
+          "symbol": "GNEISS_LOGICAL_KEY_DOWN",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::logical_key::down"
+        },
+        {
+          "symbol": "GNEISS_LOGICAL_KEY_END",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::logical_key::end"
+        },
+        {
+          "symbol": "GNEISS_LOGICAL_KEY_ENTER",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::logical_key::enter"
+        },
+        {
+          "symbol": "GNEISS_LOGICAL_KEY_ESCAPE",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::logical_key::escape"
+        },
+        {
+          "symbol": "GNEISS_LOGICAL_KEY_F1",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::logical_key::f1"
+        },
+        {
+          "symbol": "GNEISS_LOGICAL_KEY_F10",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::logical_key::f10"
+        },
+        {
+          "symbol": "GNEISS_LOGICAL_KEY_F11",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::logical_key::f11"
+        },
+        {
+          "symbol": "GNEISS_LOGICAL_KEY_F12",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::logical_key::f12"
+        },
+        {
+          "symbol": "GNEISS_LOGICAL_KEY_F2",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::logical_key::f2"
+        },
+        {
+          "symbol": "GNEISS_LOGICAL_KEY_F3",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::logical_key::f3"
+        },
+        {
+          "symbol": "GNEISS_LOGICAL_KEY_F4",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::logical_key::f4"
+        },
+        {
+          "symbol": "GNEISS_LOGICAL_KEY_F5",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::logical_key::f5"
+        },
+        {
+          "symbol": "GNEISS_LOGICAL_KEY_F6",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::logical_key::f6"
+        },
+        {
+          "symbol": "GNEISS_LOGICAL_KEY_F7",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::logical_key::f7"
+        },
+        {
+          "symbol": "GNEISS_LOGICAL_KEY_F8",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::logical_key::f8"
+        },
+        {
+          "symbol": "GNEISS_LOGICAL_KEY_F9",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::logical_key::f9"
+        },
+        {
+          "symbol": "GNEISS_LOGICAL_KEY_HOME",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::logical_key::home"
+        },
+        {
+          "symbol": "GNEISS_LOGICAL_KEY_INSERT",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::logical_key::insert"
+        },
+        {
+          "symbol": "GNEISS_LOGICAL_KEY_LEFT",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::logical_key::left"
+        },
+        {
+          "symbol": "GNEISS_LOGICAL_KEY_NONE",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::logical_key::none"
+        },
+        {
+          "symbol": "GNEISS_LOGICAL_KEY_PAGE_DOWN",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::logical_key::page_down"
+        },
+        {
+          "symbol": "GNEISS_LOGICAL_KEY_PAGE_UP",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::logical_key::page_up"
+        },
+        {
+          "symbol": "GNEISS_LOGICAL_KEY_RIGHT",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::logical_key::right"
+        },
+        {
+          "symbol": "GNEISS_LOGICAL_KEY_SPACE",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::logical_key::space"
+        },
+        {
+          "symbol": "GNEISS_LOGICAL_KEY_TAB",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::logical_key::tab"
+        },
+        {
+          "symbol": "GNEISS_LOGICAL_KEY_UP",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::logical_key::up"
+        },
+        {
+          "symbol": "GNEISS_MODIFIER_CAPS_LOCK_BIT",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::input_modifier::caps_lock"
+        },
+        {
+          "symbol": "GNEISS_MODIFIER_LEFT_ALT_BIT",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::input_modifier::left_alt"
+        },
+        {
+          "symbol": "GNEISS_MODIFIER_LEFT_CONTROL_BIT",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::input_modifier::left_control"
+        },
+        {
+          "symbol": "GNEISS_MODIFIER_LEFT_SHIFT_BIT",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::input_modifier::left_shift"
+        },
+        {
+          "symbol": "GNEISS_MODIFIER_LEFT_SUPER_BIT",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::input_modifier::left_super"
+        },
+        {
+          "symbol": "GNEISS_MODIFIER_NUM_LOCK_BIT",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::input_modifier::num_lock"
+        },
+        {
+          "symbol": "GNEISS_MODIFIER_RIGHT_ALT_BIT",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::input_modifier::right_alt"
+        },
+        {
+          "symbol": "GNEISS_MODIFIER_RIGHT_CONTROL_BIT",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::input_modifier::right_control"
+        },
+        {
+          "symbol": "GNEISS_MODIFIER_RIGHT_SHIFT_BIT",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::input_modifier::right_shift"
+        },
+        {
+          "symbol": "GNEISS_MODIFIER_RIGHT_SUPER_BIT",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::input_modifier::right_super"
+        },
+        {
+          "symbol": "GNEISS_NULL_ACTION",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::null_action_id"
+        },
+        {
+          "symbol": "GNEISS_PHYSICAL_KEY_0",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::physical_key::digit_0"
+        },
+        {
+          "symbol": "GNEISS_PHYSICAL_KEY_1",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::physical_key::digit_1"
+        },
+        {
+          "symbol": "GNEISS_PHYSICAL_KEY_2",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::physical_key::digit_2"
+        },
+        {
+          "symbol": "GNEISS_PHYSICAL_KEY_3",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::physical_key::digit_3"
+        },
+        {
+          "symbol": "GNEISS_PHYSICAL_KEY_4",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::physical_key::digit_4"
+        },
+        {
+          "symbol": "GNEISS_PHYSICAL_KEY_5",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::physical_key::digit_5"
+        },
+        {
+          "symbol": "GNEISS_PHYSICAL_KEY_6",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::physical_key::digit_6"
+        },
+        {
+          "symbol": "GNEISS_PHYSICAL_KEY_7",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::physical_key::digit_7"
+        },
+        {
+          "symbol": "GNEISS_PHYSICAL_KEY_8",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::physical_key::digit_8"
+        },
+        {
+          "symbol": "GNEISS_PHYSICAL_KEY_9",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::physical_key::digit_9"
+        },
+        {
+          "symbol": "GNEISS_PHYSICAL_KEY_A",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::physical_key::a"
+        },
+        {
+          "symbol": "GNEISS_PHYSICAL_KEY_B",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::physical_key::b"
+        },
+        {
+          "symbol": "GNEISS_PHYSICAL_KEY_BACKSPACE",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::physical_key::backspace"
+        },
+        {
+          "symbol": "GNEISS_PHYSICAL_KEY_C",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::physical_key::c"
+        },
+        {
+          "symbol": "GNEISS_PHYSICAL_KEY_D",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::physical_key::d"
+        },
+        {
+          "symbol": "GNEISS_PHYSICAL_KEY_DELETE",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::physical_key::delete_key"
+        },
+        {
+          "symbol": "GNEISS_PHYSICAL_KEY_DOWN",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::physical_key::down"
+        },
+        {
+          "symbol": "GNEISS_PHYSICAL_KEY_E",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::physical_key::e"
+        },
+        {
+          "symbol": "GNEISS_PHYSICAL_KEY_END",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::physical_key::end"
+        },
+        {
+          "symbol": "GNEISS_PHYSICAL_KEY_ENTER",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::physical_key::enter"
+        },
+        {
+          "symbol": "GNEISS_PHYSICAL_KEY_ESCAPE",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::physical_key::escape"
+        },
+        {
+          "symbol": "GNEISS_PHYSICAL_KEY_F",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::physical_key::f"
+        },
+        {
+          "symbol": "GNEISS_PHYSICAL_KEY_F1",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::physical_key::f1"
+        },
+        {
+          "symbol": "GNEISS_PHYSICAL_KEY_F10",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::physical_key::f10"
+        },
+        {
+          "symbol": "GNEISS_PHYSICAL_KEY_F11",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::physical_key::f11"
+        },
+        {
+          "symbol": "GNEISS_PHYSICAL_KEY_F12",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::physical_key::f12"
+        },
+        {
+          "symbol": "GNEISS_PHYSICAL_KEY_F2",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::physical_key::f2"
+        },
+        {
+          "symbol": "GNEISS_PHYSICAL_KEY_F3",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::physical_key::f3"
+        },
+        {
+          "symbol": "GNEISS_PHYSICAL_KEY_F4",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::physical_key::f4"
+        },
+        {
+          "symbol": "GNEISS_PHYSICAL_KEY_F5",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::physical_key::f5"
+        },
+        {
+          "symbol": "GNEISS_PHYSICAL_KEY_F6",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::physical_key::f6"
+        },
+        {
+          "symbol": "GNEISS_PHYSICAL_KEY_F7",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::physical_key::f7"
+        },
+        {
+          "symbol": "GNEISS_PHYSICAL_KEY_F8",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::physical_key::f8"
+        },
+        {
+          "symbol": "GNEISS_PHYSICAL_KEY_F9",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::physical_key::f9"
+        },
+        {
+          "symbol": "GNEISS_PHYSICAL_KEY_G",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::physical_key::g"
+        },
+        {
+          "symbol": "GNEISS_PHYSICAL_KEY_H",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::physical_key::h"
+        },
+        {
+          "symbol": "GNEISS_PHYSICAL_KEY_HOME",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::physical_key::home"
+        },
+        {
+          "symbol": "GNEISS_PHYSICAL_KEY_I",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::physical_key::i"
+        },
+        {
+          "symbol": "GNEISS_PHYSICAL_KEY_INSERT",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::physical_key::insert"
+        },
+        {
+          "symbol": "GNEISS_PHYSICAL_KEY_J",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::physical_key::j"
+        },
+        {
+          "symbol": "GNEISS_PHYSICAL_KEY_K",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::physical_key::k"
+        },
+        {
+          "symbol": "GNEISS_PHYSICAL_KEY_L",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::physical_key::l"
+        },
+        {
+          "symbol": "GNEISS_PHYSICAL_KEY_LEFT",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::physical_key::left"
+        },
+        {
+          "symbol": "GNEISS_PHYSICAL_KEY_LEFT_ALT",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::physical_key::left_alt"
+        },
+        {
+          "symbol": "GNEISS_PHYSICAL_KEY_LEFT_CONTROL",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::physical_key::left_control"
+        },
+        {
+          "symbol": "GNEISS_PHYSICAL_KEY_LEFT_SHIFT",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::physical_key::left_shift"
+        },
+        {
+          "symbol": "GNEISS_PHYSICAL_KEY_LEFT_SUPER",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::physical_key::left_super"
+        },
+        {
+          "symbol": "GNEISS_PHYSICAL_KEY_M",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::physical_key::m"
+        },
+        {
+          "symbol": "GNEISS_PHYSICAL_KEY_N",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::physical_key::n"
+        },
+        {
+          "symbol": "GNEISS_PHYSICAL_KEY_O",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::physical_key::o"
+        },
+        {
+          "symbol": "GNEISS_PHYSICAL_KEY_P",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::physical_key::p"
+        },
+        {
+          "symbol": "GNEISS_PHYSICAL_KEY_PAGE_DOWN",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::physical_key::page_down"
+        },
+        {
+          "symbol": "GNEISS_PHYSICAL_KEY_PAGE_UP",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::physical_key::page_up"
+        },
+        {
+          "symbol": "GNEISS_PHYSICAL_KEY_Q",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::physical_key::q"
+        },
+        {
+          "symbol": "GNEISS_PHYSICAL_KEY_R",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::physical_key::r"
+        },
+        {
+          "symbol": "GNEISS_PHYSICAL_KEY_RIGHT",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::physical_key::right"
+        },
+        {
+          "symbol": "GNEISS_PHYSICAL_KEY_RIGHT_ALT",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::physical_key::right_alt"
+        },
+        {
+          "symbol": "GNEISS_PHYSICAL_KEY_RIGHT_CONTROL",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::physical_key::right_control"
+        },
+        {
+          "symbol": "GNEISS_PHYSICAL_KEY_RIGHT_SHIFT",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::physical_key::right_shift"
+        },
+        {
+          "symbol": "GNEISS_PHYSICAL_KEY_RIGHT_SUPER",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::physical_key::right_super"
+        },
+        {
+          "symbol": "GNEISS_PHYSICAL_KEY_S",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::physical_key::s"
+        },
+        {
+          "symbol": "GNEISS_PHYSICAL_KEY_SPACE",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::physical_key::space"
+        },
+        {
+          "symbol": "GNEISS_PHYSICAL_KEY_T",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::physical_key::t"
+        },
+        {
+          "symbol": "GNEISS_PHYSICAL_KEY_TAB",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::physical_key::tab"
+        },
+        {
+          "symbol": "GNEISS_PHYSICAL_KEY_U",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::physical_key::u"
+        },
+        {
+          "symbol": "GNEISS_PHYSICAL_KEY_UNKNOWN",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::physical_key::unknown"
+        },
+        {
+          "symbol": "GNEISS_PHYSICAL_KEY_UP",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::physical_key::up"
+        },
+        {
+          "symbol": "GNEISS_PHYSICAL_KEY_V",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::physical_key::v"
+        },
+        {
+          "symbol": "GNEISS_PHYSICAL_KEY_W",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::physical_key::w"
+        },
+        {
+          "symbol": "GNEISS_PHYSICAL_KEY_X",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::physical_key::x"
+        },
+        {
+          "symbol": "GNEISS_PHYSICAL_KEY_Y",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::physical_key::y"
+        },
+        {
+          "symbol": "GNEISS_PHYSICAL_KEY_Z",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::physical_key::z"
+        },
+        {
+          "symbol": "GNEISS_POINTER_MIDDLE_BIT",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::pointer_button::middle"
+        },
+        {
+          "symbol": "GNEISS_POINTER_PRIMARY_BIT",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::pointer_button::primary"
+        },
+        {
+          "symbol": "GNEISS_POINTER_SECONDARY_BIT",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::pointer_button::secondary"
+        },
+        {
+          "symbol": "GNEISS_POINTER_STATE_INIT",
+          "native_review": "implemented",
+          "cpp_mapping": "对应 C++ 快照的默认构造"
+        },
+        {
+          "symbol": "GNEISS_POINTER_STATE_VERSION_1_SIZE",
+          "native_review": "abi_only",
+          "cpp_mapping": "C ABI 结构尺寸版本；普通 C++ 查询由内部适配设置当前尺寸"
+        },
+        {
+          "symbol": "GNEISS_POINTER_X1_BIT",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::pointer_button::x1"
+        },
+        {
+          "symbol": "GNEISS_POINTER_X2_BIT",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::pointer_button::x2"
+        }
       ]
     },
     {
@@ -435,29 +1211,68 @@
         {
           "symbol": "gneiss_log_event",
           "kind": "struct",
-          "cpp_mapping": "gneiss_log_event（原生 C 值/签名，C++ 直接使用）"
+          "cpp_mapping": "gneiss::log_event（回调期借用字符串）",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_log_message",
           "kind": "struct",
-          "cpp_mapping": "gneiss_log_message（原生 C 值/签名，C++ 直接使用）"
+          "cpp_mapping": "gneiss::log_message",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_log_severity",
           "kind": "scalar",
-          "cpp_mapping": "gneiss::log_severity"
+          "cpp_mapping": "gneiss::log_severity",
+          "native_review": "implemented"
         }
       ],
       "constants": [
-        "GNEISS_LOG_DEBUG",
-        "GNEISS_LOG_ERROR",
-        "GNEISS_LOG_EVENT_VERSION_1_SIZE",
-        "GNEISS_LOG_FATAL",
-        "GNEISS_LOG_INFO",
-        "GNEISS_LOG_MESSAGE_INIT",
-        "GNEISS_LOG_MESSAGE_VERSION_1_SIZE",
-        "GNEISS_LOG_TRACE",
-        "GNEISS_LOG_WARNING"
+        {
+          "symbol": "GNEISS_LOG_DEBUG",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::log_severity::debug"
+        },
+        {
+          "symbol": "GNEISS_LOG_ERROR",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::log_severity::error"
+        },
+        {
+          "symbol": "GNEISS_LOG_EVENT_VERSION_1_SIZE",
+          "native_review": "abi_only",
+          "cpp_mapping": "C ABI 接收事件版本；原生回调转换不暴露 struct_size"
+        },
+        {
+          "symbol": "GNEISS_LOG_FATAL",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::log_severity::fatal"
+        },
+        {
+          "symbol": "GNEISS_LOG_INFO",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::log_severity::info"
+        },
+        {
+          "symbol": "GNEISS_LOG_MESSAGE_INIT",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::log_message{}（默认 category 为空，提交前必须设置）"
+        },
+        {
+          "symbol": "GNEISS_LOG_MESSAGE_VERSION_1_SIZE",
+          "native_review": "abi_only",
+          "cpp_mapping": "C ABI 布局版本；C++ 消息由内部适配填写当前尺寸"
+        },
+        {
+          "symbol": "GNEISS_LOG_TRACE",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::log_severity::trace"
+        },
+        {
+          "symbol": "GNEISS_LOG_WARNING",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::log_severity::warning"
+        }
       ]
     },
     {
@@ -467,113 +1282,222 @@
         {
           "symbol": "gneiss_field_desc",
           "kind": "struct",
-          "cpp_mapping": "gneiss_field_desc（原生 C 值/签名，C++ 直接使用）"
+          "cpp_mapping": "gneiss::field_desc",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_field_id",
           "kind": "scalar",
-          "cpp_mapping": "gneiss_field_id（原生 C 值/签名，C++ 直接使用）"
+          "cpp_mapping": "gneiss::field_id",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_field_info",
           "kind": "struct",
-          "cpp_mapping": "gneiss_field_info（原生 C 值/签名，C++ 直接使用）"
+          "cpp_mapping": "gneiss::field_info",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_property_accessor_desc",
           "kind": "struct",
-          "cpp_mapping": "gneiss_property_accessor_desc（原生 C 值/签名，C++ 直接使用）"
+          "cpp_mapping": "gneiss::property_accessor_desc",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_property_getter",
           "kind": "callback",
-          "cpp_mapping": "gneiss_property_getter（原生 C 值/签名，C++ 直接使用）"
+          "cpp_mapping": "decltype(gneiss::property_accessor_desc::getter)",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_property_kind",
           "kind": "scalar",
-          "cpp_mapping": "gneiss_property_kind（原生 C 值/签名，C++ 直接使用）"
+          "cpp_mapping": "gneiss::property_kind",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_property_payload",
           "kind": "union",
-          "cpp_mapping": "gneiss_property_payload（原生 C 值/签名，C++ 直接使用）"
+          "cpp_mapping": "gneiss::property_payload",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_property_quaternion",
           "kind": "struct",
-          "cpp_mapping": "gneiss_property_quaternion（原生 C 值/签名，C++ 直接使用）"
+          "cpp_mapping": "gneiss::property_quaternion",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_property_setter",
           "kind": "callback",
-          "cpp_mapping": "gneiss_property_setter（原生 C 值/签名，C++ 直接使用）"
+          "cpp_mapping": "decltype(gneiss::property_accessor_desc::setter)",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_property_string",
           "kind": "struct",
-          "cpp_mapping": "gneiss_property_string（原生 C 值/签名，C++ 直接使用）"
+          "cpp_mapping": "gneiss::property_string",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_property_target",
           "kind": "struct",
-          "cpp_mapping": "gneiss_property_target（原生 C 值/签名，C++ 直接使用）"
+          "cpp_mapping": "gneiss::property_target",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_property_value",
           "kind": "struct",
-          "cpp_mapping": "gneiss_property_value（原生 C 值/签名，C++ 直接使用）"
+          "cpp_mapping": "gneiss::property_value",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_property_vec3",
           "kind": "struct",
-          "cpp_mapping": "gneiss_property_vec3（原生 C 值/签名，C++ 直接使用）"
+          "cpp_mapping": "gneiss::property_vec3",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_type_desc",
           "kind": "struct",
-          "cpp_mapping": "gneiss_type_desc（原生 C 值/签名，C++ 直接使用）"
+          "cpp_mapping": "gneiss::type_desc",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_type_id",
           "kind": "struct",
-          "cpp_mapping": "gneiss_type_id（原生 C 值/签名，C++ 直接使用）"
+          "cpp_mapping": "gneiss::type_id",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_type_info",
           "kind": "struct",
-          "cpp_mapping": "gneiss_type_info（原生 C 值/签名，C++ 直接使用）"
+          "cpp_mapping": "gneiss::type_info",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_type_registry",
           "kind": "owner",
-          "cpp_mapping": "gneiss::type_registry"
+          "cpp_mapping": "gneiss::type_registry",
+          "native_review": "implemented"
         }
       ],
       "constants": [
-        "GNEISS_FIELD_DESC_INIT",
-        "GNEISS_FIELD_FLAG_READ_ONLY",
-        "GNEISS_FIELD_INFO_INIT",
-        "GNEISS_FIELD_INFO_VERSION_1_SIZE",
-        "GNEISS_NULL_FIELD_ID",
-        "GNEISS_NULL_TYPE_REGISTRY",
-        "GNEISS_PROPERTY_ACCESSOR_DESC_INIT",
-        "GNEISS_PROPERTY_CAPABILITY_READABLE",
-        "GNEISS_PROPERTY_CAPABILITY_WRITABLE",
-        "GNEISS_PROPERTY_KIND_BOOL",
-        "GNEISS_PROPERTY_KIND_FLOAT32",
-        "GNEISS_PROPERTY_KIND_FLOAT64",
-        "GNEISS_PROPERTY_KIND_INT64",
-        "GNEISS_PROPERTY_KIND_INVALID",
-        "GNEISS_PROPERTY_KIND_QUATERNION",
-        "GNEISS_PROPERTY_KIND_STRING",
-        "GNEISS_PROPERTY_KIND_TYPE_ID",
-        "GNEISS_PROPERTY_KIND_UINT64",
-        "GNEISS_PROPERTY_KIND_VEC3",
-        "GNEISS_PROPERTY_VALUE_INIT",
-        "GNEISS_TYPE_DESC_INIT",
-        "GNEISS_TYPE_INFO_INIT",
-        "GNEISS_TYPE_INFO_VERSION_1_SIZE"
+        {
+          "symbol": "GNEISS_FIELD_DESC_INIT",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::field_desc{}"
+        },
+        {
+          "symbol": "GNEISS_FIELD_FLAG_READ_ONLY",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::field_flags::read_only"
+        },
+        {
+          "symbol": "GNEISS_FIELD_INFO_INIT",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::field_info{}"
+        },
+        {
+          "symbol": "GNEISS_FIELD_INFO_VERSION_1_SIZE",
+          "native_review": "abi_only",
+          "cpp_mapping": "仅 C ABI 历史布局大小；包装始终填入当前版本"
+        },
+        {
+          "symbol": "GNEISS_NULL_FIELD_ID",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::null_field_id"
+        },
+        {
+          "symbol": "GNEISS_NULL_TYPE_REGISTRY",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::type_registry{}"
+        },
+        {
+          "symbol": "GNEISS_PROPERTY_ACCESSOR_DESC_INIT",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::property_accessor_desc{}"
+        },
+        {
+          "symbol": "GNEISS_PROPERTY_CAPABILITY_READABLE",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::property_capabilities::readable"
+        },
+        {
+          "symbol": "GNEISS_PROPERTY_CAPABILITY_WRITABLE",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::property_capabilities::writable"
+        },
+        {
+          "symbol": "GNEISS_PROPERTY_KIND_BOOL",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::property_kind::boolean"
+        },
+        {
+          "symbol": "GNEISS_PROPERTY_KIND_FLOAT32",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::property_kind::float32"
+        },
+        {
+          "symbol": "GNEISS_PROPERTY_KIND_FLOAT64",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::property_kind::float64"
+        },
+        {
+          "symbol": "GNEISS_PROPERTY_KIND_INT64",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::property_kind::int64"
+        },
+        {
+          "symbol": "GNEISS_PROPERTY_KIND_INVALID",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::property_kind::invalid"
+        },
+        {
+          "symbol": "GNEISS_PROPERTY_KIND_QUATERNION",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::property_kind::quaternion"
+        },
+        {
+          "symbol": "GNEISS_PROPERTY_KIND_STRING",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::property_kind::string"
+        },
+        {
+          "symbol": "GNEISS_PROPERTY_KIND_TYPE_ID",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::property_kind::type_id"
+        },
+        {
+          "symbol": "GNEISS_PROPERTY_KIND_UINT64",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::property_kind::uint64"
+        },
+        {
+          "symbol": "GNEISS_PROPERTY_KIND_VEC3",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::property_kind::vec3"
+        },
+        {
+          "symbol": "GNEISS_PROPERTY_VALUE_INIT",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::property_value{}"
+        },
+        {
+          "symbol": "GNEISS_TYPE_DESC_INIT",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::type_desc{}"
+        },
+        {
+          "symbol": "GNEISS_TYPE_INFO_INIT",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::type_info{}"
+        },
+        {
+          "symbol": "GNEISS_TYPE_INFO_VERSION_1_SIZE",
+          "native_review": "abi_only",
+          "cpp_mapping": "仅 C ABI 历史布局大小；包装始终填入当前版本"
+        }
       ]
     },
     {
@@ -583,167 +1507,321 @@
         {
           "symbol": "gneiss_camera",
           "kind": "struct",
-          "cpp_mapping": "gneiss::camera"
+          "cpp_mapping": "gneiss::camera",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_camera_desc",
           "kind": "struct",
-          "cpp_mapping": "gneiss::camera_desc"
+          "cpp_mapping": "gneiss::camera_desc",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_debug_draw_list_desc",
           "kind": "struct",
-          "cpp_mapping": "gneiss::debug_draw_list_desc"
+          "cpp_mapping": "gneiss::debug_draw_list_desc",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_debug_line",
           "kind": "struct",
-          "cpp_mapping": "gneiss::debug_line"
+          "cpp_mapping": "gneiss::debug_line",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_material",
           "kind": "owner",
-          "cpp_mapping": "gneiss::material / gneiss::material_id"
+          "cpp_mapping": "gneiss::material",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_material_alpha_mode",
           "kind": "scalar",
-          "cpp_mapping": "gneiss_material_alpha_mode（原生 C 值/签名，C++ 直接使用）"
+          "cpp_mapping": "gneiss::material_alpha_mode",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_material_desc",
           "kind": "struct",
-          "cpp_mapping": "gneiss::material_desc"
+          "cpp_mapping": "gneiss::material_desc",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_mesh",
           "kind": "owner",
-          "cpp_mapping": "gneiss::mesh / gneiss::mesh_id"
+          "cpp_mapping": "gneiss::mesh",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_mesh_color",
           "kind": "struct",
-          "cpp_mapping": "gneiss::mesh_color"
+          "cpp_mapping": "gneiss::mesh_color",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_mesh_desc",
           "kind": "struct",
-          "cpp_mapping": "gneiss::mesh_desc"
+          "cpp_mapping": "gneiss::mesh_desc",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_mesh_normal",
           "kind": "struct",
-          "cpp_mapping": "gneiss::mesh_normal"
+          "cpp_mapping": "gneiss::mesh_normal",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_mesh_renderer",
           "kind": "struct",
-          "cpp_mapping": "gneiss::mesh_renderer"
+          "cpp_mapping": "gneiss::mesh_renderer",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_mesh_tangent",
           "kind": "struct",
-          "cpp_mapping": "gneiss::mesh_tangent"
+          "cpp_mapping": "gneiss::mesh_tangent",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_mesh_uv",
           "kind": "struct",
-          "cpp_mapping": "gneiss::mesh_uv"
+          "cpp_mapping": "gneiss::mesh_uv",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_mesh_vertex",
           "kind": "struct",
-          "cpp_mapping": "gneiss::mesh_vertex"
+          "cpp_mapping": "gneiss::mesh_vertex",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_texture",
           "kind": "owner",
-          "cpp_mapping": "gneiss::texture / gneiss::texture_id"
+          "cpp_mapping": "gneiss::texture",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_texture_address",
           "kind": "scalar",
-          "cpp_mapping": "gneiss_texture_address（原生 C 值/签名，C++ 直接使用）"
+          "cpp_mapping": "gneiss::texture_address",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_texture_color_space",
           "kind": "scalar",
-          "cpp_mapping": "gneiss_texture_color_space（原生 C 值/签名，C++ 直接使用）"
+          "cpp_mapping": "gneiss::texture_color_space",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_texture_desc",
           "kind": "struct",
-          "cpp_mapping": "gneiss::texture_desc"
+          "cpp_mapping": "gneiss::texture_desc",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_texture_filter",
           "kind": "scalar",
-          "cpp_mapping": "gneiss_texture_filter（原生 C 值/签名，C++ 直接使用）"
+          "cpp_mapping": "gneiss::texture_filter",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_texture_format",
           "kind": "scalar",
-          "cpp_mapping": "gneiss_texture_format（原生 C 值/签名，C++ 直接使用）"
+          "cpp_mapping": "gneiss::texture_format",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_texture_mip_filter",
           "kind": "scalar",
-          "cpp_mapping": "gneiss_texture_mip_filter（原生 C 值/签名，C++ 直接使用）"
+          "cpp_mapping": "gneiss::texture_mip_filter",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_texture_sampling",
           "kind": "struct",
-          "cpp_mapping": "gneiss::texture_sampling"
+          "cpp_mapping": "gneiss::texture_sampling",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_ui_draw_command",
           "kind": "struct",
-          "cpp_mapping": "gneiss::ui_draw_command"
+          "cpp_mapping": "gneiss::ui_draw_command",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_ui_draw_list_desc",
           "kind": "struct",
-          "cpp_mapping": "gneiss::ui_draw_list_desc"
+          "cpp_mapping": "gneiss::ui_draw_list_desc",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_ui_vertex",
           "kind": "struct",
-          "cpp_mapping": "gneiss::ui_vertex"
+          "cpp_mapping": "gneiss::ui_vertex",
+          "native_review": "implemented"
         }
       ],
       "constants": [
-        "GNEISS_CAMERA_DESC_INIT",
-        "GNEISS_CAMERA_INIT",
-        "GNEISS_DEBUG_DRAW_LIST_DESC_INIT",
-        "GNEISS_DEBUG_DRAW_LIST_DESC_VERSION_1_SIZE",
-        "GNEISS_MATERIAL_ALPHA_BLEND",
-        "GNEISS_MATERIAL_ALPHA_MASK",
-        "GNEISS_MATERIAL_ALPHA_OPAQUE",
-        "GNEISS_MATERIAL_DESC_INIT",
-        "GNEISS_MATERIAL_DESC_VERSION_1_SIZE",
-        "GNEISS_MATERIAL_DESC_VERSION_2_SIZE",
-        "GNEISS_MESH_DESC_INIT",
-        "GNEISS_MESH_DESC_VERSION_1_SIZE",
-        "GNEISS_MESH_DESC_VERSION_2_SIZE",
-        "GNEISS_MESH_RENDERER_INIT",
-        "GNEISS_NULL_MATERIAL",
-        "GNEISS_NULL_MESH",
-        "GNEISS_NULL_TEXTURE",
-        "GNEISS_TEXTURE_ADDRESS_CLAMP",
-        "GNEISS_TEXTURE_ADDRESS_MIRROR",
-        "GNEISS_TEXTURE_ADDRESS_REPEAT",
-        "GNEISS_TEXTURE_COLOR_SPACE_LINEAR",
-        "GNEISS_TEXTURE_COLOR_SPACE_SRGB",
-        "GNEISS_TEXTURE_DESC_INIT",
-        "GNEISS_TEXTURE_FILTER_LINEAR",
-        "GNEISS_TEXTURE_FILTER_NEAREST",
-        "GNEISS_TEXTURE_FORMAT_RGBA8_UNORM",
-        "GNEISS_TEXTURE_MIP_LINEAR",
-        "GNEISS_TEXTURE_MIP_NEAREST",
-        "GNEISS_TEXTURE_MIP_NONE",
-        "GNEISS_TEXTURE_SAMPLING_INIT",
-        "GNEISS_UI_DRAW_LIST_DESC_INIT",
-        "GNEISS_UI_DRAW_LIST_DESC_VERSION_1_SIZE"
+        {
+          "symbol": "GNEISS_CAMERA_DESC_INIT",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::camera_desc{}"
+        },
+        {
+          "symbol": "GNEISS_CAMERA_INIT",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::camera{}"
+        },
+        {
+          "symbol": "GNEISS_DEBUG_DRAW_LIST_DESC_INIT",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::debug_draw_list_desc{}"
+        },
+        {
+          "symbol": "GNEISS_DEBUG_DRAW_LIST_DESC_VERSION_1_SIZE",
+          "native_review": "abi_only",
+          "cpp_mapping": "仅 C ABI 旧结构布局版本；C++ 描述始终由包装填写当前布局"
+        },
+        {
+          "symbol": "GNEISS_MATERIAL_ALPHA_BLEND",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::material_alpha_mode::blend"
+        },
+        {
+          "symbol": "GNEISS_MATERIAL_ALPHA_MASK",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::material_alpha_mode::mask"
+        },
+        {
+          "symbol": "GNEISS_MATERIAL_ALPHA_OPAQUE",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::material_alpha_mode::opaque"
+        },
+        {
+          "symbol": "GNEISS_MATERIAL_DESC_INIT",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::material_desc{}"
+        },
+        {
+          "symbol": "GNEISS_MATERIAL_DESC_VERSION_1_SIZE",
+          "native_review": "abi_only",
+          "cpp_mapping": "仅 C ABI 旧结构布局版本；C++ 描述始终由包装填写当前布局"
+        },
+        {
+          "symbol": "GNEISS_MATERIAL_DESC_VERSION_2_SIZE",
+          "native_review": "abi_only",
+          "cpp_mapping": "仅 C ABI 旧结构布局版本；C++ 描述始终由包装填写当前布局"
+        },
+        {
+          "symbol": "GNEISS_MESH_DESC_INIT",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::mesh_desc{}"
+        },
+        {
+          "symbol": "GNEISS_MESH_DESC_VERSION_1_SIZE",
+          "native_review": "abi_only",
+          "cpp_mapping": "仅 C ABI 旧结构布局版本；C++ 描述始终由包装填写当前布局"
+        },
+        {
+          "symbol": "GNEISS_MESH_DESC_VERSION_2_SIZE",
+          "native_review": "abi_only",
+          "cpp_mapping": "仅 C ABI 旧结构布局版本；C++ 描述始终由包装填写当前布局"
+        },
+        {
+          "symbol": "GNEISS_MESH_RENDERER_INIT",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::mesh_renderer{}"
+        },
+        {
+          "symbol": "GNEISS_NULL_MATERIAL",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::material_id{}"
+        },
+        {
+          "symbol": "GNEISS_NULL_MESH",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::mesh_id{}"
+        },
+        {
+          "symbol": "GNEISS_NULL_TEXTURE",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::texture_id{}"
+        },
+        {
+          "symbol": "GNEISS_TEXTURE_ADDRESS_CLAMP",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::texture_address::clamp"
+        },
+        {
+          "symbol": "GNEISS_TEXTURE_ADDRESS_MIRROR",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::texture_address::mirror"
+        },
+        {
+          "symbol": "GNEISS_TEXTURE_ADDRESS_REPEAT",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::texture_address::repeat"
+        },
+        {
+          "symbol": "GNEISS_TEXTURE_COLOR_SPACE_LINEAR",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::texture_color_space::linear"
+        },
+        {
+          "symbol": "GNEISS_TEXTURE_COLOR_SPACE_SRGB",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::texture_color_space::srgb"
+        },
+        {
+          "symbol": "GNEISS_TEXTURE_DESC_INIT",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::texture_desc{}"
+        },
+        {
+          "symbol": "GNEISS_TEXTURE_FILTER_LINEAR",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::texture_filter::linear"
+        },
+        {
+          "symbol": "GNEISS_TEXTURE_FILTER_NEAREST",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::texture_filter::nearest"
+        },
+        {
+          "symbol": "GNEISS_TEXTURE_FORMAT_RGBA8_UNORM",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::texture_format::rgba8_unorm"
+        },
+        {
+          "symbol": "GNEISS_TEXTURE_MIP_LINEAR",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::texture_mip_filter::linear"
+        },
+        {
+          "symbol": "GNEISS_TEXTURE_MIP_NEAREST",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::texture_mip_filter::nearest"
+        },
+        {
+          "symbol": "GNEISS_TEXTURE_MIP_NONE",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::texture_mip_filter::none"
+        },
+        {
+          "symbol": "GNEISS_TEXTURE_SAMPLING_INIT",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::texture_sampling{}"
+        },
+        {
+          "symbol": "GNEISS_UI_DRAW_LIST_DESC_INIT",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::ui_draw_list_desc{}"
+        },
+        {
+          "symbol": "GNEISS_UI_DRAW_LIST_DESC_VERSION_1_SIZE",
+          "native_review": "abi_only",
+          "cpp_mapping": "仅 C ABI 旧结构布局版本；C++ 描述始终由包装填写当前布局"
+        }
       ]
     },
     {
@@ -753,88 +1831,192 @@
         {
           "symbol": "gneiss_scene_camera_desc",
           "kind": "struct",
-          "cpp_mapping": "gneiss::scene_camera_desc"
+          "cpp_mapping": "gneiss::scene_camera_desc",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_scene_instance",
           "kind": "owner",
-          "cpp_mapping": "gneiss::scene_instance"
+          "cpp_mapping": "gneiss::scene_instance",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_scene_instance_node_info",
           "kind": "struct",
-          "cpp_mapping": "gneiss::scene_instance_node_info"
+          "cpp_mapping": "gneiss::scene_instance_node_info",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_scene_mesh_renderer_desc",
           "kind": "struct",
-          "cpp_mapping": "gneiss::scene_mesh_renderer_desc"
+          "cpp_mapping": "gneiss::scene_mesh_renderer_desc",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_scene_mesh_renderer_node_desc",
           "kind": "struct",
-          "cpp_mapping": "gneiss::scene_mesh_renderer_node_desc"
+          "cpp_mapping": "gneiss::scene_mesh_renderer_node_desc",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_scene_node_desc",
           "kind": "struct",
-          "cpp_mapping": "gneiss::scene_node_desc"
+          "cpp_mapping": "gneiss::scene_node_desc",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_scene_node_id",
           "kind": "borrowed_id",
-          "cpp_mapping": "gneiss::scene_node_id"
+          "cpp_mapping": "gneiss::scene_node_id",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_scene_prefab_instance_desc",
           "kind": "struct",
-          "cpp_mapping": "gneiss::scene_prefab_instance_desc"
+          "cpp_mapping": "gneiss::scene_prefab_instance_desc",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_scene_prefab_node_info",
           "kind": "struct",
-          "cpp_mapping": "gneiss::scene_prefab_node_info"
+          "cpp_mapping": "gneiss::scene_prefab_node_info",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_scene_prefab_refresh_token",
           "kind": "owner",
-          "cpp_mapping": "gneiss::scene_prefab_refresh"
+          "cpp_mapping": "gneiss::scene_prefab_refresh",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_scene_uuid_mapping",
           "kind": "struct",
-          "cpp_mapping": "gneiss::scene_uuid_mapping"
+          "cpp_mapping": "gneiss::scene_uuid_mapping",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_transform",
           "kind": "struct",
-          "cpp_mapping": "gneiss::transform"
+          "cpp_mapping": "gneiss::transform",
+          "native_review": "implemented"
         }
       ],
       "constants": [
-        "GNEISS_NULL_SCENE_INSTANCE",
-        "GNEISS_NULL_SCENE_NODE_ID",
-        "GNEISS_NULL_SCENE_PREFAB_REFRESH_TOKEN",
-        "GNEISS_SCENE_CAMERA_DESC_INIT",
-        "GNEISS_SCENE_INSTANCE_NODE_INFO_INIT",
-        "GNEISS_SCENE_INSTANCE_NODE_INFO_VERSION_1_SIZE",
-        "GNEISS_SCENE_INSTANCE_NODE_INFO_VERSION_2_SIZE",
-        "GNEISS_SCENE_INSTANCE_NODE_INFO_VERSION_3_SIZE",
-        "GNEISS_SCENE_MESH_RENDERER_DESC_INIT",
-        "GNEISS_SCENE_MESH_RENDERER_NODE_DESC_INIT",
-        "GNEISS_SCENE_NODE_COMPONENT_CAMERA",
-        "GNEISS_SCENE_NODE_COMPONENT_MESH_RENDERER",
-        "GNEISS_SCENE_NODE_COMPONENT_PRIMARY_CAMERA",
-        "GNEISS_SCENE_NODE_DESC_INIT",
-        "GNEISS_SCENE_PREFAB_INSTANCE_DESC_INIT",
-        "GNEISS_SCENE_PREFAB_NODE_INFO_INIT",
-        "GNEISS_SCENE_PREFAB_NODE_INSTANCE_ROOT",
-        "GNEISS_SCENE_PREFAB_NODE_ROTATION_OVERRIDDEN",
-        "GNEISS_SCENE_PREFAB_NODE_SCALE_OVERRIDDEN",
-        "GNEISS_SCENE_PREFAB_NODE_SOURCE_READ_ONLY",
-        "GNEISS_SCENE_PREFAB_NODE_TRANSLATION_OVERRIDDEN",
-        "GNEISS_SCENE_SUBTREE_MAX_NODES",
-        "GNEISS_TRANSFORM_IDENTITY"
+        {
+          "symbol": "GNEISS_NULL_SCENE_INSTANCE",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::scene_instance{}"
+        },
+        {
+          "symbol": "GNEISS_NULL_SCENE_NODE_ID",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::scene_node_id{}"
+        },
+        {
+          "symbol": "GNEISS_NULL_SCENE_PREFAB_REFRESH_TOKEN",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::scene_prefab_refresh{}"
+        },
+        {
+          "symbol": "GNEISS_SCENE_CAMERA_DESC_INIT",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::scene_camera_desc{}"
+        },
+        {
+          "symbol": "GNEISS_SCENE_INSTANCE_NODE_INFO_INIT",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::scene_instance_node_info{}"
+        },
+        {
+          "symbol": "GNEISS_SCENE_INSTANCE_NODE_INFO_VERSION_1_SIZE",
+          "native_review": "abi_only",
+          "cpp_mapping": "仅 C ABI 旧结构布局；原生 C++ 描述始终由包装填写当前布局"
+        },
+        {
+          "symbol": "GNEISS_SCENE_INSTANCE_NODE_INFO_VERSION_2_SIZE",
+          "native_review": "abi_only",
+          "cpp_mapping": "仅 C ABI 旧结构布局；原生 C++ 描述始终由包装填写当前布局"
+        },
+        {
+          "symbol": "GNEISS_SCENE_INSTANCE_NODE_INFO_VERSION_3_SIZE",
+          "native_review": "abi_only",
+          "cpp_mapping": "仅 C ABI 旧结构布局；原生 C++ 描述始终由包装填写当前布局"
+        },
+        {
+          "symbol": "GNEISS_SCENE_MESH_RENDERER_DESC_INIT",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::scene_mesh_renderer_desc{}"
+        },
+        {
+          "symbol": "GNEISS_SCENE_MESH_RENDERER_NODE_DESC_INIT",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::scene_mesh_renderer_node_desc{}"
+        },
+        {
+          "symbol": "GNEISS_SCENE_NODE_COMPONENT_CAMERA",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::scene_node_components::camera"
+        },
+        {
+          "symbol": "GNEISS_SCENE_NODE_COMPONENT_MESH_RENDERER",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::scene_node_components::mesh_renderer"
+        },
+        {
+          "symbol": "GNEISS_SCENE_NODE_COMPONENT_PRIMARY_CAMERA",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::scene_node_components::primary_camera"
+        },
+        {
+          "symbol": "GNEISS_SCENE_NODE_DESC_INIT",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::scene_node_desc{}"
+        },
+        {
+          "symbol": "GNEISS_SCENE_PREFAB_INSTANCE_DESC_INIT",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::scene_prefab_instance_desc{}"
+        },
+        {
+          "symbol": "GNEISS_SCENE_PREFAB_NODE_INFO_INIT",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::scene_prefab_node_info{}"
+        },
+        {
+          "symbol": "GNEISS_SCENE_PREFAB_NODE_INSTANCE_ROOT",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::scene_prefab_flags::instance_root"
+        },
+        {
+          "symbol": "GNEISS_SCENE_PREFAB_NODE_ROTATION_OVERRIDDEN",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::scene_prefab_flags::rotation_overridden"
+        },
+        {
+          "symbol": "GNEISS_SCENE_PREFAB_NODE_SCALE_OVERRIDDEN",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::scene_prefab_flags::scale_overridden"
+        },
+        {
+          "symbol": "GNEISS_SCENE_PREFAB_NODE_SOURCE_READ_ONLY",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::scene_prefab_flags::source_read_only"
+        },
+        {
+          "symbol": "GNEISS_SCENE_PREFAB_NODE_TRANSLATION_OVERRIDDEN",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::scene_prefab_flags::translation_overridden"
+        },
+        {
+          "symbol": "GNEISS_SCENE_SUBTREE_MAX_NODES",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::scene_subtree_max_nodes"
+        },
+        {
+          "symbol": "GNEISS_TRANSFORM_IDENTITY",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::transform{}"
+        }
       ]
     },
     {
@@ -844,24 +2026,62 @@
         {
           "symbol": "gneiss_world",
           "kind": "owner",
-          "cpp_mapping": "gneiss::world / gneiss::world_ref"
+          "cpp_mapping": "gneiss::world / gneiss::world_ref",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_world_desc",
           "kind": "struct",
-          "cpp_mapping": "gneiss_world_desc（原生 C 值/签名，C++ 直接使用）"
+          "cpp_mapping": "只有 struct_size 与保留字段；gneiss::world::create 内部填入，无业务配置",
+          "native_review": "abi_only"
         }
       ],
       "constants": [
-        "GNEISS_CAMERA_FIELD_FAR_PLANE",
-        "GNEISS_CAMERA_FIELD_IS_PRIMARY",
-        "GNEISS_CAMERA_FIELD_NEAR_PLANE",
-        "GNEISS_CAMERA_FIELD_VERTICAL_FIELD_OF_VIEW_RADIANS",
-        "GNEISS_NULL_WORLD",
-        "GNEISS_TRANSFORM_FIELD_ROTATION",
-        "GNEISS_TRANSFORM_FIELD_SCALE",
-        "GNEISS_TRANSFORM_FIELD_TRANSLATION",
-        "GNEISS_WORLD_DESC_INIT"
+        {
+          "symbol": "GNEISS_CAMERA_FIELD_FAR_PLANE",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::camera_fields::far_plane"
+        },
+        {
+          "symbol": "GNEISS_CAMERA_FIELD_IS_PRIMARY",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::camera_fields::is_primary"
+        },
+        {
+          "symbol": "GNEISS_CAMERA_FIELD_NEAR_PLANE",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::camera_fields::near_plane"
+        },
+        {
+          "symbol": "GNEISS_CAMERA_FIELD_VERTICAL_FIELD_OF_VIEW_RADIANS",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::camera_fields::vertical_field_of_view_radians"
+        },
+        {
+          "symbol": "GNEISS_NULL_WORLD",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::world_ref{} / world{}"
+        },
+        {
+          "symbol": "GNEISS_TRANSFORM_FIELD_ROTATION",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::transform_fields::rotation"
+        },
+        {
+          "symbol": "GNEISS_TRANSFORM_FIELD_SCALE",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::transform_fields::scale"
+        },
+        {
+          "symbol": "GNEISS_TRANSFORM_FIELD_TRANSLATION",
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::transform_fields::translation"
+        },
+        {
+          "symbol": "GNEISS_WORLD_DESC_INIT",
+          "native_review": "abi_only",
+          "cpp_mapping": "C 布局初始化；gneiss::world::create 内部填入，无业务配置"
+        }
       ]
     }
   ]

@@ -162,3 +162,11 @@ C++ `gneiss::scene_instance::serialize` 直接输出到调用方提供的 `std::
 序列化只允许在所属 Application 创建线程执行。实例中的实体、节点或原有 Camera 已被调用方删除
 时返回对应错误且不产生部分输出。输出文本如何落盘由工具或宿主负责；只读 VFS 不会被保存操作
 隐式修改。
+
+## C++ 原生描述
+
+`scene_node_desc`、Prefab 和组件描述使用 `string_view`、强类型 ID 和原生变换/相机配置，
+默认构造即可使用，不填写布局大小或字符串计数。输入文本借用至方法返回。
+节点查询输出使用 `scene_node_components`，Prefab 标志使用 `scene_prefab_flags`；
+二者支持位运算和 `has_flags`，不能混用。输出文本借用至下次场景修改或父对象失效，
+失败查询保持原输出。跨修改持有名称时应复制为 `std::string`。

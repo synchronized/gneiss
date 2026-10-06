@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include <gneiss/core/result.h>
+#include <gneiss/engine/core/result.h>
 
 namespace gneiss::core {
 /** 静态结果文本，线程安全；未知值保持可诊断，不分配内存。 */

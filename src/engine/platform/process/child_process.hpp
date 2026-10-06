@@ -4,7 +4,7 @@
 #ifndef GNEISS_SRC_PROCESS_CHILD_PROCESS_HPP_
 #define GNEISS_SRC_PROCESS_CHILD_PROCESS_HPP_
 
-#include <gneiss/core/result.hpp>
+#include <gneiss/engine/core/result.hpp>
 
 #include <filesystem>
 #include <memory>

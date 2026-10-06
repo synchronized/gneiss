@@ -8,7 +8,7 @@
 #include "engine/function/scene/prefab_asset_loader.hpp"
 #include "engine/function/scene/prefab_description.hpp"
 
-#include <gneiss/scene.h>
+#include <gneiss/engine/scene.h>
 
 #include <memory>
 #include <string>

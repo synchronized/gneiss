@@ -4,9 +4,9 @@
 #ifndef GNEISS_RENDER_CAMERA_MATH_HPP_
 #define GNEISS_RENDER_CAMERA_MATH_HPP_
 
-#include <gneiss/core/result.h>
-#include <gneiss/render.h>
-#include <gneiss/scene.h>
+#include <gneiss/engine/core/result.h>
+#include <gneiss/engine/render.h>
+#include <gneiss/engine/scene.h>
 
 #include <array>
 

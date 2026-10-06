@@ -5,7 +5,7 @@
 #define GNEISS_REFLECTION_TYPE_REGISTRY_HPP_
 #include <algorithm>
 #include <cstdint>
-#include <gneiss/reflection.h>
+#include <gneiss/engine/reflection.h>
 #include <memory>
 #include <span>
 #include <string_view>

@@ -8,7 +8,7 @@
 #include "engine/function/scene/prefab_description.hpp"
 #include "engine/function/scene/scene_tree.hpp"
 
-#include <gneiss/core/result.h>
+#include <gneiss/engine/core/result.h>
 
 #include <cstddef>
 #include <memory>

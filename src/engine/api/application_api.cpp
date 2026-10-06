@@ -6,8 +6,8 @@
 #include "engine/function/application/application_registry.hpp"
 #include "engine/function/application/application_state.hpp"
 
-#include <gneiss/application.h>
-#include <gneiss/asset.h>
+#include <gneiss/engine/application.h>
+#include <gneiss/engine/asset.h>
 
 #include <algorithm>
 #include <cmath>

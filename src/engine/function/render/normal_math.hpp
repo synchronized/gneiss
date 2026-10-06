@@ -4,8 +4,8 @@
 #ifndef GNEISS_RENDER_NORMAL_MATH_HPP_
 #define GNEISS_RENDER_NORMAL_MATH_HPP_
 
-#include <gneiss/render.h>
-#include <gneiss/scene.h>
+#include <gneiss/engine/render.h>
+#include <gneiss/engine/scene.h>
 
 #include <array>
 

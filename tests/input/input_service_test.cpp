@@ -3,7 +3,7 @@
 
 #include "engine/function/input/input_service.hpp"
 
-#include <gneiss/input.h>
+#include <gneiss/engine/input.h>
 
 int main() {
   gneiss::input_internal::input_service input;

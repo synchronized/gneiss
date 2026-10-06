@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include <gneiss/application.h>
-#include <gneiss/input.h>
-#include <gneiss/render.h>
+#include <gneiss/engine/application.h>
+#include <gneiss/engine/input.h>
+#include <gneiss/engine/render.h>
 
 _Static_assert(sizeof(gneiss_application_platform) == sizeof(uint32_t),
                "Application 平台类型必须保持 32 位");

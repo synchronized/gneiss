@@ -3,7 +3,7 @@
 
 #include "asset_scene_commands.hpp"
 
-#include <gneiss/application.hpp>
+#include <gneiss/engine/application.hpp>
 
 #include <string>
 
@@ -18,7 +18,7 @@ int main() try {
   gneiss_world world = GNEISS_NULL_WORLD;
   editor_session session;
   editor_command_history history;
-  if (application::create(desc, app).failed() || app.get_world(world).failed() ||
+  if (application::create_native(desc, app).failed() || app.get_world(world).failed() ||
       session.open(app.get(), world, "asset://scenes/triangle.scene.json").failed()) {
     return 1;
   }

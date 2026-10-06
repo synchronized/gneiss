@@ -17,11 +17,25 @@
 namespace gneiss {
 
 /** 内建 Transform 的稳定类型标识，值不依赖 World 生命周期。 */
-[[nodiscard]] inline gneiss_type_id transform_type_id() noexcept {
-  return gneiss_transform_type_id();
+[[nodiscard]] inline type_id transform_type_id() noexcept {
+  return from_native(gneiss_transform_type_id());
 }
 /** 内建 Camera 的稳定类型标识，值不依赖 World 生命周期。 */
-[[nodiscard]] inline gneiss_type_id camera_type_id() noexcept { return gneiss_camera_type_id(); }
+[[nodiscard]] inline type_id camera_type_id() noexcept {
+  return from_native(gneiss_camera_type_id());
+}
+
+namespace transform_fields {
+inline constexpr field_id translation{1};
+inline constexpr field_id rotation{2};
+inline constexpr field_id scale{3};
+} // namespace transform_fields
+namespace camera_fields {
+inline constexpr field_id vertical_field_of_view_radians{1};
+inline constexpr field_id near_plane{2};
+inline constexpr field_id far_plane{3};
+inline constexpr field_id is_primary{4};
+} // namespace camera_fields
 
 /** 非拥有 World 视图；销毁视图不销毁 World，父对象失效后操作返回无效句柄。
  * 仅在 World 所属线程调用；is_valid() 只检查本地非零值，不探测存活状态。 */
@@ -55,15 +69,22 @@ public:
   }
 
   [[nodiscard]] result set_camera(entity_id entity, const camera& value) noexcept {
-    return from_native(gneiss_world_entity_set_camera(handle_, entity.get(), &value));
+    const auto native = to_native(value);
+    return from_native(gneiss_world_entity_set_camera(handle_, entity.get(), &native));
   }
 
   [[nodiscard]] result configure_camera(entity_id entity, const camera_desc& value) noexcept {
-    return from_native(gneiss_world_entity_configure_camera(handle_, entity.get(), &value));
+    const auto native = to_native(value);
+    return from_native(gneiss_world_entity_configure_camera(handle_, entity.get(), &native));
   }
 
   [[nodiscard]] result get_camera(entity_id entity, camera_desc& out_camera) const noexcept {
-    return from_native(gneiss_world_entity_get_camera(handle_, entity.get(), &out_camera));
+    gneiss_camera_desc native = GNEISS_CAMERA_DESC_INIT;
+    const auto status = from_native(gneiss_world_entity_get_camera(handle_, entity.get(), &native));
+    if (status.ok()) {
+      out_camera = from_native(native);
+    }
+    return status;
   }
 
   [[nodiscard]] result remove_camera(entity_id entity) noexcept {
@@ -83,7 +104,8 @@ public:
   }
 
   [[nodiscard]] result set_mesh_renderer(entity_id entity, const mesh_renderer& value) noexcept {
-    return from_native(gneiss_world_entity_set_mesh_renderer(handle_, entity.get(), &value));
+    const auto native = to_native(value);
+    return from_native(gneiss_world_entity_set_mesh_renderer(handle_, entity.get(), &native));
   }
   [[nodiscard]] result remove_mesh_renderer(entity_id entity) noexcept {
     return from_native(gneiss_world_entity_remove_mesh_renderer(handle_, entity.get()));
@@ -108,17 +130,27 @@ public:
     return from_native(gneiss_scene_node_reparent(handle_, node.get(), parent.get()));
   }
 
-  [[nodiscard]] result set_local_transform(scene_node_id node, const transform& value) noexcept {
-    return from_native(gneiss_scene_node_set_local_transform(handle_, node.get(), &value));
+  [[nodiscard]] result set_local_transform(scene_node_id node,
+                                           const transform& value) const noexcept {
+    const auto native = to_native(value);
+    return from_native(gneiss_scene_node_set_local_transform(handle_, node.get(), &native));
   }
 
-  [[nodiscard]] result set_local_transform(entity_id entity, const transform& value) noexcept {
-    return from_native(gneiss_world_entity_set_local_transform(handle_, entity.get(), &value));
+  [[nodiscard]] result set_local_transform(entity_id entity,
+                                           const transform& value) const noexcept {
+    const auto native = to_native(value);
+    return from_native(gneiss_world_entity_set_local_transform(handle_, entity.get(), &native));
   }
 
   /** 读取节点局部变换，不转移节点所有权。 */
   [[nodiscard]] result get_local_transform(scene_node_id node, transform& output) const noexcept {
-    return from_native(gneiss_scene_node_get_local_transform(handle_, node.get(), &output));
+    gneiss_transform native{};
+    const auto status =
+        from_native(gneiss_scene_node_get_local_transform(handle_, node.get(), &native));
+    if (status.ok()) {
+      output = from_native(native);
+    }
+    return status;
   }
   /** 查询节点关联实体；失败时不改变输出。 */
   [[nodiscard]] result get_entity(scene_node_id node, entity_id& output) const noexcept {
@@ -140,12 +172,24 @@ public:
   }
 
   [[nodiscard]] result get_local_transform(entity_id entity, transform& output) const noexcept {
-    return from_native(gneiss_world_entity_get_local_transform(handle_, entity.get(), &output));
+    gneiss_transform native{};
+    const auto status =
+        from_native(gneiss_world_entity_get_local_transform(handle_, entity.get(), &native));
+    if (status.ok()) {
+      output = from_native(native);
+    }
+    return status;
   }
 
   [[nodiscard]] result get_world_transform(scene_node_id node,
                                            transform& out_transform) const noexcept {
-    return from_native(gneiss_scene_node_get_world_transform(handle_, node.get(), &out_transform));
+    gneiss_transform native{};
+    const auto status =
+        from_native(gneiss_scene_node_get_world_transform(handle_, node.get(), &native));
+    if (status.ok()) {
+      out_transform = from_native(native);
+    }
+    return status;
   }
 
   [[nodiscard]] result is_alive(entity_id entity, bool& out_is_alive) const noexcept {

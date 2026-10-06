@@ -26,7 +26,7 @@ int main() {
       inspector.initialize() != gneiss::result::success) {
     return 1;
   }
-  gneiss::camera_desc camera = GNEISS_CAMERA_DESC_INIT;
+  gneiss::camera_desc camera{};
   if (world.create_scene_node({}, entity, entity_node) != gneiss::result::success ||
       world.create_scene_node({}, transform_only, transform_only_node) != gneiss::result::success ||
       world.configure_camera(entity, camera) != gneiss::result::success ||
@@ -51,7 +51,7 @@ int main() {
       gneiss::result::success) {
     return 3;
   }
-  gneiss::transform transform = GNEISS_TRANSFORM_IDENTITY;
+  gneiss::transform transform{};
   if (world.get_local_transform(entity, transform) != gneiss::result::success ||
       !nearly_equal(transform.translation[0], 2.0F)) {
     return 4;

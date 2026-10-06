@@ -9,7 +9,7 @@
 #include "engine/function/scene/prefab_asset_loader.hpp"
 #include "engine/function/scene/prefab_runtime_instance.hpp"
 
-#include <gneiss/world.h>
+#include <gneiss/engine/world.h>
 
 #include <array>
 #include <cstddef>

@@ -5,8 +5,8 @@
 
 #include "runtime_object_id.hpp"
 
-#include <gneiss/core/result.hpp>
-#include <gneiss/scene.h>
+#include <gneiss/engine/core/result.hpp>
+#include <gneiss/engine/scene.h>
 
 #include <string>
 #include <vector>

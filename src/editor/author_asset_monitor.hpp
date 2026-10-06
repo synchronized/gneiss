@@ -4,7 +4,7 @@
 #ifndef GNEISS_APPS_EDITOR_AUTHOR_ASSET_MONITOR_H_
 #define GNEISS_APPS_EDITOR_AUTHOR_ASSET_MONITOR_H_
 
-#include <gneiss/core/result.hpp>
+#include <gneiss/engine/core/result.hpp>
 
 #include <cstdint>
 #include <deque>

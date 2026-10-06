@@ -4,7 +4,7 @@
 #ifndef GNEISS_APPS_EDITOR_EDITOR_CAMERA_H_
 #define GNEISS_APPS_EDITOR_EDITOR_CAMERA_H_
 
-#include <gneiss/scene.hpp>
+#include <gneiss/engine/scene.hpp>
 
 namespace gneiss::editor {
 

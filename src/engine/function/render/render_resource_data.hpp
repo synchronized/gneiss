@@ -5,7 +5,7 @@
 
 #include "engine/asset/mesh_data.hpp"
 #include "engine/asset/texture_preparation_data.hpp"
-#include <gneiss/render.h>
+#include <gneiss/engine/render.h>
 
 #include <array>
 #include <cstddef>

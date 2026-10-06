@@ -3,9 +3,9 @@
 
 #include "engine/function/application/application_asset_reload_internal.hpp"
 
-#include <gneiss/application.h>
-#include <gneiss/scene.h>
-#include <gneiss/world.h>
+#include <gneiss/engine/application.h>
+#include <gneiss/engine/scene.h>
+#include <gneiss/engine/world.h>
 
 #include <filesystem>
 #include <fstream>

@@ -61,3 +61,27 @@ Application 已识别的运行时诊断会在调用原有诊断回调后转换�
 
 `gneiss_log_message_validate` 检查结构版本、严重级别、字符串边界、UTF-8 编码和保留字段。该函数
 线程安全，不保存传入结构或字符串。它只验证消息描述，不提交、排队或写出日志。
+
+## C++ 日志提交
+
+`gneiss::log_message` 是独立 C++ 描述，包含 severity、category、message 和 operation；默认级别
+为 info、结果为 success。分类必须非空，消息允许为空。字符串通过 string_view 借用到同步提交
+返回，不因复制描述而延长寿命。提交成功后 Engine 已复制文本，调用方可释放原字符串。
+
+```cpp
+gneiss::log_message message{
+    .severity = gneiss::log_severity::warning,
+    .category = "assets",
+    .message = "资源尚未就绪",
+    .operation = gneiss::result::not_ready,
+};
+auto status = app.log(message);
+```
+
+其中 app 是已创建的 Application；Game Context 的 log 方法使用同一描述。
+`make_log_message` 也返回该 C++ 类型；`validate_log_message` 复用 C 校验，非法枚举、空分类或非法
+UTF-8 返回 invalid_argument。包装隐藏 struct_size、flags 和保留字段，不增加运行时日志状态。
+
+仅在需要显式 C ABI 互操作时调用 `to_native(message)`；得到的 C 描述仍借用相同字符串，不可在
+文本失效后使用。C++ 校验和提交不再接受 C 描述兼容重载；原 C 函数继续接受 C 描述。
+日志接收回调和事件仍使用 C ABI，本次仅迁移生产者描述，不代表原生 Application 回调已经完成。

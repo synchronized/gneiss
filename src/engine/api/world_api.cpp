@@ -3,8 +3,8 @@
 
 #include "engine/function/world/world_service.hpp"
 
-#include <gneiss/scene.h>
-#include <gneiss/world.h>
+#include <gneiss/engine/scene.h>
+#include <gneiss/engine/world.h>
 
 #include <new>
 

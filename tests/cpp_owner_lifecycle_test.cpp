@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include <gneiss/application.hpp>
+#include <gneiss/engine/application.hpp>
 
 #include <cstdlib>
 #include <exception>
@@ -15,7 +15,7 @@ constexpr std::string_view scene_uuid = "12345678-1234-4234-8234-123456789abc";
 
 gneiss::result create_application(gneiss::application& output) {
   const gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
-  return gneiss::application::create(desc, output);
+  return gneiss::application::create_native(desc, output);
 }
 
 template <typename Owner, auto Create, auto Destroy> bool verify_standalone() {
@@ -43,20 +43,26 @@ template <typename Owner, auto Create, auto Destroy> bool verify_standalone() {
       Destroy(original) != GNEISS_ERROR_INVALID_HANDLE) {
     return false;
   }
-  const auto transferred = third.release();
-  if (third.get() != 0U || transferred == 0U || Destroy(transferred) != GNEISS_SUCCESS ||
-      third.reset().failed() || Create(third).failed()) {
-    return false;
+  auto transferred = third.release();
+  if constexpr (std::is_same_v<Owner, gneiss::application> ||
+                std::is_same_v<Owner, gneiss::type_registry>) {
+    if (third.get() != 0U || transferred.get() == 0U || transferred.reset().failed())
+      return false;
+  } else {
+    if (third.get() != 0U || transferred == 0U || Destroy(transferred) != GNEISS_SUCCESS)
+      return false;
   }
+  if (third.reset().failed() || Create(third).failed())
+    return false;
   const auto externally_destroyed = third.get();
   if (Destroy(externally_destroyed) != GNEISS_SUCCESS || third.reset().failed() ||
       third.get() != 0U || third.reset().failed()) {
     return false;
   }
-  decltype(transferred) scoped = [&] {
+  decltype(third.get()) scoped = [&] {
     Owner local;
     if (Create(local).failed()) {
-      return decltype(transferred){};
+      return decltype(third.get()){};
     }
     return local.get();
   }();
@@ -88,18 +94,18 @@ bool verify_application_rollback() {
   desc.user_data = &shutdown_count;
   desc.shutdown = [](void* user_data) { ++*static_cast<std::uint64_t*>(user_data); };
   gneiss::application app;
-  if (gneiss::application::create(desc, app).failed()) {
+  if (gneiss::application::create_native(desc, app).failed()) {
     return false;
   }
   const auto original = app.get();
   auto invalid = desc;
   invalid.struct_size = 0U;
-  if (gneiss::application::create(invalid, app) != gneiss::result::invalid_argument ||
+  if (gneiss::application::create_native(invalid, app) != gneiss::result::invalid_argument ||
       app.get() != original || shutdown_count != 0U) {
     return false;
   }
   gneiss::result status;
-  std::thread worker([&] { status = gneiss::application::create(desc, app); });
+  std::thread worker([&] { status = gneiss::application::create_native(desc, app); });
   worker.join();
   // 替换失败时新候选已执行 shutdown，原 Application 的所有权和回调上下文仍有效。
   return status == gneiss::result::invalid_state && app.get() == original && shutdown_count == 1U &&

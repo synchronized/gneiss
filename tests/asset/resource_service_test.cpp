@@ -5,7 +5,7 @@
 #include "engine/asset/resource_cache.hpp"
 #include "engine/asset/virtual_file_system.hpp"
 
-#include <gneiss/core/result.h>
+#include <gneiss/engine/core/result.h>
 
 #include <cstddef>
 #include <filesystem>

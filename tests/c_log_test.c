@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include <gneiss/log.h>
+#include <gneiss/engine/log.h>
 
 int main(void) {
   gneiss_log_message message = GNEISS_LOG_MESSAGE_INIT;

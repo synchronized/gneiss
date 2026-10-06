@@ -3,9 +3,9 @@
 
 #include "engine/function/game/game_context_internal.hpp"
 
-#include <gneiss/application.h>
-#include <gneiss/game_module.hpp>
-#include <gneiss/log.hpp>
+#include <gneiss/engine/application.h>
+#include <gneiss/engine/game_module.hpp>
+#include <gneiss/engine/log.hpp>
 
 #include <mutex>
 #include <string>
@@ -78,12 +78,12 @@ int main() {
   gneiss::world_ref typed_world;
   gneiss::entity_id typed_root;
   gneiss::action_id typed_action;
-  gneiss::action_state typed_state = GNEISS_ACTION_STATE_INIT;
+  gneiss::action_state typed_state{};
   if (borrowed.get_world(typed_world).failed() || typed_world.get() != expected_world ||
       borrowed.get_startup_root_entity(typed_root).failed() || typed_root.get() != expected_root ||
       gneiss::load_action_map(application, "asset://input/default.input-map.json").failed() ||
       borrowed.find_action("move_horizontal", typed_action).failed() || !typed_action.is_valid() ||
-      borrowed.get_action_state(typed_action, typed_state).failed() || typed_state.held != 0U) {
+      borrowed.get_action_state(typed_action, typed_state).failed() || typed_state.held) {
     return 7;
   }
   const auto original_action = typed_action;
@@ -123,6 +123,7 @@ int main() {
   gneiss::result typed_thread_result;
   gneiss_result cross_thread_log_result = GNEISS_ERROR_INTERNAL;
   const auto message = gneiss::make_log_message(gneiss::log_severity::info, "test", "worker ready");
+  const auto native_message = gneiss::to_native(message);
   std::thread other([&] {
     cross_thread_result = gneiss_game_context_get_world(context, &actual_world);
     typed_thread_result = borrowed.get_world(typed_world);
@@ -140,7 +141,7 @@ int main() {
       borrowed.find_action("move_horizontal", typed_action) != gneiss::result::invalid_handle ||
       typed_action != original_action ||
       gneiss_game_context_get_world(context, &actual_world) != GNEISS_ERROR_INVALID_HANDLE ||
-      gneiss_game_context_log(context, &message) != GNEISS_ERROR_INVALID_HANDLE ||
+      gneiss_game_context_log(context, &native_message) != GNEISS_ERROR_INVALID_HANDLE ||
       gneiss::game_internal::destroy_game_context(context) != GNEISS_ERROR_INVALID_HANDLE ||
       gneiss_application_destroy(application) != GNEISS_SUCCESS) {
     return 4;

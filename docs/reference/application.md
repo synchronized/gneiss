@@ -16,7 +16,8 @@
 
 `reset()` 返回关闭结果：成功或句柄已失效时清空所有权，其他失败保留句柄供重试。直接调用
 `reset();` 的既有源码继续可用；依赖原 `void` 返回类型的成员函数指针需要更新。
-`release()` 清空包装并转移原始句柄，调用方负责销毁。析构或移动覆盖若关闭失败则终止进程，
+`release()` 清空包装并返回 `released_application`，载体同时拥有句柄与回调适配存储；
+其 get() 仅借用 C 句柄，reset()/析构负责关闭，`application::adopt` 可收回所有权。析构或移动覆盖若关闭失败则终止进程，
 不会静默遗失所有权；需要处理错误时先显式 `reset()`。创建失败或无法关闭原输出时保留原包装。
 
 ## 主循环
@@ -62,3 +63,21 @@ Granit Renderer、Surface、Swapchain 与 Frame Context；当前每帧清屏，�
 未启用构建选项时请求 Granit 平台返回 `GNEISS_ERROR_UNSUPPORTED`。Granit 类型和句柄均不会进入
 Gneiss 公共 ABI；运行时适配私有链接 `granit::granit`、`granit::window`、`granit::input` 与
 `granit::render_pipeline`。
+
+## 原生 C++ 配置与回调
+
+`application::create` 接收独立 `application_desc`，配置字符串使用 string_view，平台和窗口标志使用
+强类型枚举。窗口默认 1280×720，环境强度默认为 1；未知平台、窗口标志和超出 uint32 范围的
+字符串长度在调用 C ABI 前拒绝。结构尺寸及保留字段不向普通 C++ 调用方暴露。
+
+`desc.callbacks` 的函数表复制到稳定存储，描述对象可在 create 返回后销毁。userdata 仍由调用方
+持有至关闭完成；回调函数必须 noexcept，在回调内自行处理异常。更新回调收到 application_ref 与
+frame_time；诊断和日志回调收到原生值结构，文本只借用到回调返回。日志运行于消费线程，其余
+回调在创建线程执行。application_ref 不拥有句柄，不提供销毁和释放操作。
+
+移动、release 和 adopt 同时转移稳定回调存储；关闭先调用 C ABI 并等待日志排空，再释放存储。
+关闭失败时保留上下文，不能提前销毁。载体不允许隐式转换为整数，C 互操作时必须保留载体直到
+C 操作结束；直接用 C 函数销毁后，再 reset 载体会安全清空已失效句柄。
+
+`create_native` 是显式 C ABI 互操作入口，接受 C 描述，原生 C 回调及 userdata 的寿命由调用方负责。
+它不提供 C++ 回调表的复制与适配，不是 create 的旧签名兼容重载。

@@ -3,8 +3,8 @@
 
 #include "editor_camera.hpp"
 
-#include <gneiss/render.h>
-#include <gneiss/world.h>
+#include <gneiss/engine/render.h>
+#include <gneiss/engine/world.h>
 
 #include <algorithm>
 #include <cmath>
@@ -86,7 +86,8 @@ result editor_camera::commit_transform() noexcept {
   if (!is_valid()) {
     return result::invalid_state;
   }
-  return from_native(gneiss_scene_node_set_local_transform(world_, node_.get(), &transform_));
+  const auto native = to_native(transform_);
+  return from_native(gneiss_scene_node_set_local_transform(world_, node_.get(), &native));
 }
 
 result editor_camera::update(const editor_camera_input& input) noexcept {

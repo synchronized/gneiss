@@ -4,8 +4,8 @@
 #include "native_author_transaction.hpp"
 #include "prefab_authoring.hpp"
 
-#include <gneiss/application.hpp>
-#include <gneiss/scene.hpp>
+#include <gneiss/engine/application.hpp>
+#include <gneiss/engine/scene.hpp>
 
 #include <array>
 #include <chrono>
@@ -53,7 +53,7 @@ struct temporary_project final {
   gneiss::scene_instance scene;
   std::uint64_t objects = 0U;
   std::uint64_t prefab_nodes = 0U;
-  return gneiss::application::create(desc, application) == gneiss::result::success &&
+  return gneiss::application::create_native(desc, application) == gneiss::result::success &&
          gneiss::scene_instance::load(application.get(), scene_uri, scene) ==
              gneiss::result::success &&
          scene.get_node_count(objects) == gneiss::result::success && objects == expected_objects &&

@@ -4,8 +4,8 @@
 #include "native_author_transaction.hpp"
 #include "prefab_authoring.hpp"
 
-#include <gneiss/application.hpp>
-#include <gneiss/scene.hpp>
+#include <gneiss/engine/application.hpp>
+#include <gneiss/engine/scene.hpp>
 
 #include <yyjson.h>
 
@@ -143,7 +143,7 @@ verify_documents(const std::vector<gneiss::editor::author_document_change>& chan
   gneiss::scene_instance scene;
   std::uint64_t object_count = 0U;
   std::uint64_t prefab_node_count = 0U;
-  return gneiss::application::create(desc, application) == gneiss::result::success &&
+  return gneiss::application::create_native(desc, application) == gneiss::result::success &&
          gneiss::scene_instance::load(application.get(), "asset://scenes/main.scene.json", scene) ==
              gneiss::result::success &&
          scene.get_node_count(object_count) == gneiss::result::success &&

@@ -3,7 +3,7 @@
 
 #include "engine/function/scene/prefab_property_override.hpp"
 
-#include <gneiss/world.h>
+#include <gneiss/engine/world.h>
 
 #include <array>
 #include <cmath>

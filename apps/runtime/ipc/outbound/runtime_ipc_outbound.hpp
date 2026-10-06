@@ -12,7 +12,7 @@
 #include "ipc_session_protocol.hpp"
 #include "ipc_statistics_protocol.hpp"
 
-#include <gneiss/log.h>
+#include <gneiss/engine/log.h>
 
 #include <cstdint>
 #include <string>

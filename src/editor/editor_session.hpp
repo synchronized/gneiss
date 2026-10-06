@@ -4,7 +4,7 @@
 #ifndef GNEISS_APPS_EDITOR_EDITOR_SESSION_H_
 #define GNEISS_APPS_EDITOR_EDITOR_SESSION_H_
 
-#include <gneiss/scene.hpp>
+#include <gneiss/engine/scene.hpp>
 
 #include <cstdint>
 #include <filesystem>

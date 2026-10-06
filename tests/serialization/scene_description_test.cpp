@@ -5,7 +5,7 @@
 #include "engine/asset/virtual_file_system.hpp"
 #include "engine/function/scene/scene_description.hpp"
 
-#include <gneiss/core/result.h>
+#include <gneiss/engine/core/result.h>
 
 #include <array>
 #include <cstddef>

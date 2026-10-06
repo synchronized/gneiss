@@ -18,9 +18,8 @@ constexpr std::string_view camera_uuid = "37cff772-2e8d-4bc7-9ed2-f94435926d4e";
 
 [[nodiscard]] gneiss::result create_application(std::string_view root,
                                                 gneiss::application& output) noexcept {
-  gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
-  desc.asset_root = root.data();
-  desc.asset_root_length = static_cast<std::uint32_t>(root.size());
+  gneiss::application_desc desc{};
+  desc.asset_root = root;
   return gneiss::application::create(desc, output);
 }
 
@@ -30,15 +29,16 @@ constexpr std::string_view camera_uuid = "37cff772-2e8d-4bc7-9ed2-f94435926d4e";
     return false;
   }
   for (std::uint32_t type_index = 0; type_index < type_count; ++type_index) {
-    gneiss_type_info type = GNEISS_TYPE_INFO_INIT;
-    if (gneiss_type_registry_type_at(registry.get(), type_index, &type) != GNEISS_SUCCESS) {
+    gneiss::type_info type{};
+    if (registry.type_at(type_index, type).failed()) {
       return false;
     }
-    std::printf("类型 %.*s\n", static_cast<int>(type.name_length), type.name);
-    for (std::uint32_t field_index = 0; field_index < type.field_count; ++field_index) {
+    std::printf("类型 %.*s\n", static_cast<int>(type.name.size()), type.name.data());
+    for (std::uint32_t field_index = 0; field_index < type.fields.size(); ++field_index) {
       const auto& field = type.fields[field_index];
-      std::printf("  字段 %u: %.*s%s\n", field.id, static_cast<int>(field.name_length), field.name,
-                  (field.property_capabilities & GNEISS_PROPERTY_CAPABILITY_WRITABLE) != 0U
+      std::printf("  字段 %u: %.*s%s\n", field.id.get(), static_cast<int>(field.name.size()),
+                  field.name.data(),
+                  gneiss::has_flags(field.capabilities, gneiss::property_capabilities::writable)
                       ? "（可写）"
                       : "（只读）");
     }
@@ -47,44 +47,42 @@ constexpr std::string_view camera_uuid = "37cff772-2e8d-4bc7-9ed2-f94435926d4e";
 }
 
 [[nodiscard]] bool find_camera(gneiss::application& application,
-                               const gneiss::scene_instance& scene, gneiss_world& out_world,
-                               gneiss_entity_id& out_entity) {
+                               const gneiss::scene_instance& scene, gneiss::world_ref& out_world,
+                               gneiss::entity_id& out_entity) {
   gneiss::scene_node_id node;
   return application.get_world(out_world) == gneiss::result::success &&
          scene.find_node(camera_uuid, node) == gneiss::result::success &&
-         gneiss_scene_node_get_entity(out_world, node.get(), &out_entity) == GNEISS_SUCCESS;
+         out_world.get_entity(node, out_entity).ok();
 }
 
-[[nodiscard]] bool set_properties(const gneiss::type_registry& registry, gneiss_world world,
-                                  gneiss_entity_id entity) {
-  const gneiss_property_target target{.context = world, .object = entity};
-  gneiss_property_value value = GNEISS_PROPERTY_VALUE_INIT;
-  value.kind = GNEISS_PROPERTY_KIND_VEC3;
-  value.payload.vec3_value = {.x = 2.0F, .y = 1.0F, .z = 4.0F};
-  if (registry.set_property(gneiss_transform_type_id(), GNEISS_TRANSFORM_FIELD_TRANSLATION, target,
-                            value) != gneiss::result::success) {
+[[nodiscard]] bool set_properties(const gneiss::type_registry& registry, gneiss::world_ref world,
+                                  gneiss::entity_id entity) {
+  const gneiss::property_target target{.context = world.get(), .object = entity.get()};
+  gneiss::property_value value{};
+  value.payload = gneiss::property_vec3{.x = 2.0F, .y = 1.0F, .z = 4.0F};
+  if (registry.set_property(gneiss::transform_type_id(), gneiss::transform_fields::translation,
+                            target, value) != gneiss::result::success) {
     return false;
   }
-  value.kind = GNEISS_PROPERTY_KIND_FLOAT32;
-  value.payload.float32_value = 0.25F;
-  return registry.set_property(gneiss_camera_type_id(), GNEISS_CAMERA_FIELD_NEAR_PLANE, target,
+  value.payload = 0.25F;
+  return registry.set_property(gneiss::camera_type_id(), gneiss::camera_fields::near_plane, target,
                                value) == gneiss::result::success;
 }
 
-[[nodiscard]] bool verify_properties(const gneiss::type_registry& registry, gneiss_world world,
-                                     gneiss_entity_id entity) {
-  const gneiss_property_target target{.context = world, .object = entity};
-  gneiss_property_value value = GNEISS_PROPERTY_VALUE_INIT;
-  if (registry.get_property(gneiss_transform_type_id(), GNEISS_TRANSFORM_FIELD_TRANSLATION, target,
-                            value) != gneiss::result::success ||
-      value.kind != GNEISS_PROPERTY_KIND_VEC3 ||
-      std::abs(value.payload.vec3_value.x - 2.0F) > 0.0001F) {
+[[nodiscard]] bool verify_properties(const gneiss::type_registry& registry, gneiss::world_ref world,
+                                     gneiss::entity_id entity) {
+  const gneiss::property_target target{.context = world.get(), .object = entity.get()};
+  gneiss::property_value value{};
+  if (registry.get_property(gneiss::transform_type_id(), gneiss::transform_fields::translation,
+                            target, value) != gneiss::result::success ||
+      value.kind() != gneiss::property_kind::vec3 ||
+      std::abs(std::get<gneiss::property_vec3>(value.payload).x - 2.0F) > 0.0001F) {
     return false;
   }
-  return registry.get_property(gneiss_camera_type_id(), GNEISS_CAMERA_FIELD_NEAR_PLANE, target,
+  return registry.get_property(gneiss::camera_type_id(), gneiss::camera_fields::near_plane, target,
                                value) == gneiss::result::success &&
-         value.kind == GNEISS_PROPERTY_KIND_FLOAT32 &&
-         std::abs(value.payload.float32_value - 0.25F) <= 0.0001F;
+         value.kind() == gneiss::property_kind::float32 &&
+         std::abs(std::get<float>(value.payload) - 0.25F) <= 0.0001F;
 }
 
 [[nodiscard]] std::filesystem::path make_output_root() {
@@ -111,8 +109,8 @@ int main() try {
           gneiss::result::success) {
     return 2;
   }
-  gneiss_world world = GNEISS_NULL_WORLD;
-  gneiss_entity_id entity = GNEISS_NULL_ENTITY_ID;
+  gneiss::world_ref world;
+  gneiss::entity_id entity;
   if (!find_camera(application, scene, world, entity) || !set_properties(registry, world, entity)) {
     return 3;
   }

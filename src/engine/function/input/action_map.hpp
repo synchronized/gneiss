@@ -4,7 +4,7 @@
 #ifndef GNEISS_INPUT_ACTION_MAP_HPP_
 #define GNEISS_INPUT_ACTION_MAP_HPP_
 
-#include <gneiss/core/result.h>
+#include <gneiss/engine/core/result.h>
 
 #include <cstdint>
 #include <string>

@@ -4,9 +4,9 @@
 #ifndef GNEISS_APPS_EDITOR_IMGUI_ADAPTER_H_
 #define GNEISS_APPS_EDITOR_IMGUI_ADAPTER_H_
 
-#include <gneiss/application.h>
-#include <gneiss/input.h>
-#include <gneiss/render.h>
+#include <gneiss/engine/application.h>
+#include <gneiss/engine/input.h>
+#include <gneiss/engine/render.h>
 
 #include <imgui.h>
 

@@ -4,8 +4,8 @@
 #ifndef GNEISS_APPS_EDITOR_CONSOLE_MODEL_H_
 #define GNEISS_APPS_EDITOR_CONSOLE_MODEL_H_
 
-#include <gneiss/core/result.hpp>
-#include <gneiss/log.h>
+#include <gneiss/engine/core/result.hpp>
+#include <gneiss/engine/log.h>
 
 #include <cstddef>
 #include <cstdint>

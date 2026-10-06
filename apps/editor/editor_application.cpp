@@ -30,8 +30,8 @@
 #include "runtime_panels.hpp"
 #include "runtime_process.hpp"
 #include "transform_gizmo_drag.hpp"
-#include "transform_gizmo_view.hpp"
 #include "transform_gizmo_math.hpp"
+#include "transform_gizmo_view.hpp"
 #if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
 #include "asset_background_worker.hpp"
 #include "asset_browser_model.hpp"
@@ -41,7 +41,7 @@
 #include "author_asset_service.hpp"
 #endif
 
-#include <gneiss/application.hpp>
+#include <gneiss/engine/application.hpp>
 
 #include <imgui.h>
 
@@ -240,24 +240,19 @@ gneiss::result submit_editor_grid(gneiss_application application, const editor_s
                    .end = {2.0F, 0.0F, 0.0F},
                    .color_rgba8 = IM_COL32(243, 139, 168, 255),
                    .width = 2.0F,
-                   .depth_test = 1U,
-                   .reserved = {}});
+                   .depth_test = true});
   lines.push_back({.start = {0.0F, 0.0F, 0.0F},
                    .end = {0.0F, 2.0F, 0.0F},
                    .color_rgba8 = IM_COL32(166, 227, 161, 255),
                    .width = 2.0F,
-                   .depth_test = 1U,
-                   .reserved = {}});
+                   .depth_test = true});
   lines.push_back({.start = {0.0F, 0.0F, 0.0F},
                    .end = {0.0F, 0.0F, 2.0F},
                    .color_rgba8 = IM_COL32(137, 180, 250, 255),
                    .width = 2.0F,
-                   .depth_test = 1U,
-                   .reserved = {}});
-  gneiss::debug_draw_list_desc desc = GNEISS_DEBUG_DRAW_LIST_DESC_INIT;
-  desc.line_count = static_cast<std::uint32_t>(lines.size());
-  desc.lines = lines.data();
-  return gneiss::from_native(gneiss_application_submit_debug_draw_list(application, &desc));
+                   .depth_test = true});
+  const gneiss::debug_draw_list_desc desc{.lines = lines};
+  return gneiss::application_ref{application}.submit_debug_draw_list(desc);
 }
 
 void draw_view_axis(const editor_state& state, const ImVec2& minimum, const ImVec2& size) noexcept {
@@ -875,7 +870,7 @@ runtime_inspector_actions(editor_state& state, const gneiss::editor::runtime_sce
                 editor.history_error = gneiss::editor::apply_runtime_transform_to_author(
                     editor.session, editor.history,
                     {selected.uuid, selected.prefab_instance_uuid, selected.prefab_source_node_uuid,
-                     selected.local_transform});
+                     gneiss::from_native(selected.local_transform)});
                 if (editor.history_error == gneiss::result::success) {
                   synchronize_history_dirty(editor);
                 }
@@ -1186,7 +1181,7 @@ gneiss_result update_editor_camera(editor_state& state, const gneiss_frame_time&
       if (result != GNEISS_SUCCESS) {
         return result;
       }
-      return gneiss::to_native(state.camera.focus(target));
+      return gneiss::to_native(state.camera.focus(gneiss::from_native(target)));
     }
   }
   return gneiss::to_native(state.camera.update(input));
@@ -2228,7 +2223,7 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
         const gneiss_property_quaternion quaternion{edited.rotation[0], edited.rotation[1],
                                                     edited.rotation[2], edited.rotation[3]};
         (void)gneiss::editor::quaternion_to_euler_degrees(quaternion, rotation);
-        bool changed = ImGui::DragFloat3("Translation", edited.translation, 0.05F);
+        bool changed = ImGui::DragFloat3("Translation", edited.translation.data(), 0.05F);
         if (ImGui::DragFloat3("Rotation (degrees)", rotation.data(), 0.25F, 0.0F, 0.0F, "%.1f°")) {
           gneiss_property_quaternion converted{};
           if (gneiss::editor::euler_degrees_to_quaternion(rotation, converted) ==
@@ -2240,7 +2235,7 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
             changed = true;
           }
         }
-        changed = ImGui::DragFloat3("Scale", edited.scale, 0.05F) || changed;
+        changed = ImGui::DragFloat3("Scale", edited.scale.data(), 0.05F) || changed;
         if (changed) {
           const auto* current = state.session.find_prefab_source(instance_uuid, source_uuid);
           state.history_error = current == nullptr
@@ -2409,7 +2404,7 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
                                                     edited.rotation[2], edited.rotation[3]};
         (void)gneiss::editor::quaternion_to_euler_degrees(quaternion, rotation);
         const auto previous = prefab->local_transform;
-        bool changed = ImGui::DragFloat3("Translation", edited.translation, 0.05F);
+        bool changed = ImGui::DragFloat3("Translation", edited.translation.data(), 0.05F);
         if (ImGui::DragFloat3("Rotation (degrees)", rotation.data(), 0.25F, 0.0F, 0.0F, "%.1f°")) {
           gneiss_property_quaternion converted{};
           if (gneiss::editor::euler_degrees_to_quaternion(rotation, converted) ==
@@ -2421,7 +2416,7 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
             changed = true;
           }
         }
-        changed = ImGui::DragFloat3("Scale", edited.scale, 0.05F) || changed;
+        changed = ImGui::DragFloat3("Scale", edited.scale.data(), 0.05F) || changed;
         if (changed) {
           const auto* current = state.session.find_prefab_root(instance_uuid);
           state.history_error = current == nullptr
@@ -2467,8 +2462,8 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
       bool components_changed = false;
       if (ImGui::Button(has_camera ? "Remove Camera" : "Add Camera")) {
         if (has_camera) {
-          gneiss::scene_camera_desc previous = GNEISS_SCENE_CAMERA_DESC_INIT;
-          previous.camera = selected->camera;
+          gneiss::scene_camera_desc previous{};
+          previous.camera = gneiss::from_native(selected->camera);
           previous.is_primary = selected->is_primary_camera ? 1U : 0U;
           state.history_error = state.session.remove_camera(selected->node);
           if (state.history_error == gneiss::result::success) {
@@ -2494,7 +2489,7 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
             }
           }
         } else {
-          gneiss::scene_camera_desc camera = GNEISS_SCENE_CAMERA_DESC_INIT;
+          gneiss::scene_camera_desc camera{};
           state.history_error = state.session.set_camera(selected->node, camera);
           if (state.history_error == gneiss::result::success) {
             state.history_error = state.history.record(
@@ -2696,7 +2691,7 @@ int run_editor(int argc, char** argv) {
   desc.environment_rotation_radians =
       project.environment.rotation_degrees * 0.01745329251994329577F;
 
-  auto operation = gneiss::application::create(desc, application);
+  auto operation = gneiss::application::create_native(desc, application);
   if (operation != gneiss::result::success) {
     report_startup_failure("Editor Application 创建", operation, path_utf8(project.project_root));
     return 1;

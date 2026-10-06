@@ -22,6 +22,8 @@
 
 ## 操作指南
 
+- [从 0.46 迁移到 0.47](guides/migrating-0.46-to-0.47.md)
+
 - [构建、测试与运行示例](guides/building.md)
 - [从 0.9.0 迁移到 0.10.0](guides/migrating-0.9-to-0.10.md)
 - [从 0.10.0 迁移到 0.11.0](guides/migrating-0.10-to-0.11.md)
@@ -69,6 +71,9 @@
 - [0.42.0：真实大场景异步加载与安全切换](versions/0.42.0.md)
 
 ## 路线图与开发计划
+
+- [VER-047：0.47.0 原生 C++ SDK 与公共头收口](plans/VER-047-0.47.0-native-cpp-sdk.md)
+- [DEV-047：原生 C++ SDK 与公共头收口开发计划](plans/DEV-047-native-cpp-sdk.md)
 
 - [VER-046：0.46.0 公共头目录整理](plans/VER-046-0.46.0-public-header-layout.md)
 - [DEV-046：公共头目录整理开发计划](plans/DEV-046-public-header-layout.md)
@@ -150,6 +155,8 @@
 
 ## 架构决策
 
+- [ADR-055：原生 C++ 公共类型与规范头路径](decisions/ADR-055-native-cpp-sdk.md)
+
 - [架构决策索引](decisions/README.md)
 - [ADR-001：Granit 依赖接入边界（已取代）](decisions/ADR-001-granit-dependency.md)
 - [ADR-002：ECS、反射与序列化边界](decisions/ADR-002-ecs-reflection-boundary.md)
@@ -197,6 +204,13 @@
 - [ADR-052：纹理驻留与加载预算](decisions/ADR-052-texture-residency-and-budgets.md)
 
 ## 实施与验收记录
+
+- [M-306：0.47.0 原生 C++ SDK 验收](records/M-306-native-cpp-sdk-validation.md)
+- [M-305：旧转发头移除](records/M-305-remove-forwarding-headers.md)
+
+- [M-304：原生日志提交描述](records/M-304-native-log-message.md)
+
+- [M-301 / M-303：原生输入 SDK 与迁移门禁实施记录](records/M-301-303-native-input-sdk.md)
 
 - [M-214：确定性资产构建图与缓存实施记录](records/M-214-asset-build-graph-cache.md)
 - [M-215：KTX2 与 Granit 纹理能力 Spike 记录](records/M-215-ktx2-granit-capability-spike.md)

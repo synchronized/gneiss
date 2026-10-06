@@ -4,7 +4,7 @@
 #include "editor_session.hpp"
 #include "runtime_author_apply.hpp"
 
-#include <gneiss/application.hpp>
+#include <gneiss/engine/application.hpp>
 
 #include <string>
 #include <string_view>
@@ -31,7 +31,7 @@ int main() try {
   gneiss::application application;
   gneiss_world world = GNEISS_NULL_WORLD;
   gneiss::editor::editor_session session;
-  if (gneiss::application::create(desc, application) != gneiss::result::success ||
+  if (gneiss::application::create_native(desc, application) != gneiss::result::success ||
       application.get_world(world) != gneiss::result::success ||
       session.open(application.get(), world, scene_uri) != gneiss::result::success ||
       !session.is_open() || session.is_dirty() || session.uri() != scene_uri ||
