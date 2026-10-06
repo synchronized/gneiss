@@ -22,6 +22,14 @@ enum class log_severity : std::uint32_t {
   fatal = GNEISS_LOG_FATAL,
 };
 
+/** 字符串只在日志消费线程的当次回调内借用。 */
+struct log_event {
+  log_severity severity = log_severity::info;
+  std::uint64_t sequence{}, timestamp_ns{}, thread_id{};
+  std::string_view source, category, message;
+  result operation = result::success;
+};
+
 /** 日志提交值；字符串由调用方持有至提交返回，复制本结构不会复制文本。
  * 默认级别为 info，category 必须填写；线程安全取决于借用文本是否被并发修改。 */
 struct log_message {

@@ -130,7 +130,7 @@ int main(int argc, char** argv) try {
   if (scenario == "interact") {
     desc.window_flags |= GNEISS_APPLICATION_WINDOW_VISIBLE_BIT;
   }
-  if (gneiss::application::create(desc, app) != gneiss::result::success ||
+  if (gneiss::application::create_native(desc, app) != gneiss::result::success ||
       app.run(3U) != gneiss::result::success) {
     return 3;
   }

@@ -122,9 +122,8 @@ int main() {
   static_assert(!std::is_convertible_v<gneiss_action, gneiss::action_id>);
   constexpr std::string_view asset_root = GNEISS_TEST_ASSET_ROOT;
   constexpr std::string_view uri = "asset://input/default.input-map.json";
-  gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
-  desc.asset_root = asset_root.data();
-  desc.asset_root_length = static_cast<std::uint32_t>(asset_root.size());
+  gneiss::application_desc desc{};
+  desc.asset_root = asset_root;
   gneiss::application app;
   gneiss::application other;
   gneiss::action_id action;

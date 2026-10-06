@@ -36,7 +36,7 @@ int main() try {
   gneiss::application application;
   gneiss_world world = GNEISS_NULL_WORLD;
   gneiss::editor::editor_session session;
-  if (gneiss::application::create(desc, application) != result::success ||
+  if (gneiss::application::create_native(desc, application) != result::success ||
       application.get_world(world) != result::success ||
       session.open(application.get(), world, "asset://scenes/triangle.scene.json") !=
           result::success) {

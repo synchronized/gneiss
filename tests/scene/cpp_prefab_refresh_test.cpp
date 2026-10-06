@@ -23,7 +23,7 @@ int main(int argc, [[maybe_unused]] char** argv) {
   desc.asset_root_length = static_cast<std::uint32_t>(asset_root.size());
   gneiss::application app;
   gneiss::scene_instance scene;
-  if (gneiss::application::create(desc, app).failed() ||
+  if (gneiss::application::create_native(desc, app).failed() ||
       gneiss::scene_instance::load(app.get(), uri, scene).failed()) {
     return 1;
   }

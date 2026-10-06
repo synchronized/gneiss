@@ -209,7 +209,7 @@ int main(int argc, char** argv) try {
       GNEISS_APPLICATION_WINDOW_VISIBLE_BIT | GNEISS_APPLICATION_WINDOW_RESIZABLE_BIT;
   desc.update = update;
   desc.user_data = &state;
-  if (application::create(desc, app) != result::success ||
+  if (application::create_native(desc, app) != result::success ||
       application_internal::attach_task_executor(app.get(), scheduler) != GNEISS_SUCCESS) {
     return 1;
   }

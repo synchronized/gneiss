@@ -18,9 +18,8 @@ constexpr std::string_view camera_uuid = "37cff772-2e8d-4bc7-9ed2-f94435926d4e";
 
 [[nodiscard]] gneiss::result create_application(std::string_view root,
                                                 gneiss::application& output) noexcept {
-  gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
-  desc.asset_root = root.data();
-  desc.asset_root_length = static_cast<std::uint32_t>(root.size());
+  gneiss::application_desc desc{};
+  desc.asset_root = root;
   return gneiss::application::create(desc, output);
 }
 

@@ -8,199 +8,199 @@
         {
           "symbol": "gneiss_application",
           "kind": "owner",
-          "cpp_mapping": "gneiss::application",
-          "native_review": "pending"
+          "cpp_mapping": "gneiss::application / application_ref / released_application",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_application_close_requested_fn",
           "kind": "callback",
-          "cpp_mapping": "gneiss_application_close_requested_fn（原生 C 值/签名，C++ 直接使用）",
-          "native_review": "pending"
+          "cpp_mapping": "decltype(gneiss::application_callbacks::close_requested)",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_application_desc",
           "kind": "struct",
-          "cpp_mapping": "gneiss_application_desc（原生 C 值/签名，C++ 直接使用）",
-          "native_review": "pending"
+          "cpp_mapping": "gneiss::application_desc",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_application_diagnostic_fn",
           "kind": "callback",
-          "cpp_mapping": "gneiss_application_diagnostic_fn（原生 C 值/签名，C++ 直接使用）",
-          "native_review": "pending"
+          "cpp_mapping": "decltype(gneiss::application_callbacks::diagnostic)",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_application_initialize_fn",
           "kind": "callback",
-          "cpp_mapping": "gneiss_application_initialize_fn（原生 C 值/签名，C++ 直接使用）",
-          "native_review": "pending"
+          "cpp_mapping": "decltype(gneiss::application_callbacks::initialize)",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_application_log_fn",
           "kind": "callback",
-          "cpp_mapping": "gneiss_application_log_fn（原生 C 值/签名，C++ 直接使用）",
-          "native_review": "pending"
+          "cpp_mapping": "decltype(gneiss::application_callbacks::log)",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_application_now_ns_fn",
           "kind": "callback",
-          "cpp_mapping": "gneiss_application_now_ns_fn（原生 C 值/签名，C++ 直接使用）",
-          "native_review": "pending"
+          "cpp_mapping": "decltype(gneiss::application_callbacks::now_ns)",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_application_platform",
           "kind": "scalar",
-          "cpp_mapping": "gneiss_application_platform（原生 C 值/签名，C++ 直接使用）",
-          "native_review": "pending"
+          "cpp_mapping": "gneiss::application_platform",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_application_poll_events_fn",
           "kind": "callback",
-          "cpp_mapping": "gneiss_application_poll_events_fn（原生 C 值/签名，C++ 直接使用）",
-          "native_review": "pending"
+          "cpp_mapping": "decltype(gneiss::application_callbacks::poll_events)",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_application_shutdown_fn",
           "kind": "callback",
-          "cpp_mapping": "gneiss_application_shutdown_fn（原生 C 值/签名，C++ 直接使用）",
-          "native_review": "pending"
+          "cpp_mapping": "decltype(gneiss::application_callbacks::shutdown)",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_application_update_fn",
           "kind": "callback",
-          "cpp_mapping": "gneiss_application_update_fn（原生 C 值/签名，C++ 直接使用）",
-          "native_review": "pending"
+          "cpp_mapping": "decltype(gneiss::application_callbacks::update)",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_diagnostic",
           "kind": "struct",
-          "cpp_mapping": "gneiss_diagnostic（原生 C 值/签名，C++ 直接使用）",
-          "native_review": "pending"
+          "cpp_mapping": "gneiss::diagnostic",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_diagnostic_category",
           "kind": "scalar",
-          "cpp_mapping": "gneiss_diagnostic_category（原生 C 值/签名，C++ 直接使用）",
-          "native_review": "pending"
+          "cpp_mapping": "gneiss::diagnostic_category",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_diagnostic_severity",
           "kind": "scalar",
-          "cpp_mapping": "gneiss_diagnostic_severity（原生 C 值/签名，C++ 直接使用）",
-          "native_review": "pending"
+          "cpp_mapping": "gneiss::diagnostic_severity",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_frame_time",
           "kind": "struct",
-          "cpp_mapping": "gneiss_frame_time（原生 C 值/签名，C++ 直接使用）",
-          "native_review": "pending"
+          "cpp_mapping": "gneiss::frame_time",
+          "native_review": "implemented"
         }
       ],
       "constants": [
         {
           "symbol": "GNEISS_APPLICATION_DESC_INIT",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::application_desc{}"
         },
         {
           "symbol": "GNEISS_APPLICATION_DESC_VERSION_1_SIZE",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "abi_only",
+          "cpp_mapping": "C ABI 描述布局版本；C++ 适配内部填写当前尺寸"
         },
         {
           "symbol": "GNEISS_APPLICATION_DESC_VERSION_2_SIZE",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "abi_only",
+          "cpp_mapping": "C ABI 描述布局版本；C++ 适配内部填写当前尺寸"
         },
         {
           "symbol": "GNEISS_APPLICATION_DESC_VERSION_3_SIZE",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "abi_only",
+          "cpp_mapping": "C ABI 描述布局版本；C++ 适配内部填写当前尺寸"
         },
         {
           "symbol": "GNEISS_APPLICATION_DESC_VERSION_4_SIZE",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "abi_only",
+          "cpp_mapping": "C ABI 描述布局版本；C++ 适配内部填写当前尺寸"
         },
         {
           "symbol": "GNEISS_APPLICATION_DESC_VERSION_5_SIZE",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "abi_only",
+          "cpp_mapping": "C ABI 描述布局版本；C++ 适配内部填写当前尺寸"
         },
         {
           "symbol": "GNEISS_APPLICATION_DESC_VERSION_6_SIZE",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "abi_only",
+          "cpp_mapping": "C ABI 描述布局版本；C++ 适配内部填写当前尺寸"
         },
         {
           "symbol": "GNEISS_APPLICATION_PLATFORM_CALLBACK",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::application_platform::callback"
         },
         {
           "symbol": "GNEISS_APPLICATION_PLATFORM_GRANIT",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::application_platform::granit"
         },
         {
           "symbol": "GNEISS_APPLICATION_WINDOW_HIGH_DPI_BIT",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::application_window_flags::high_dpi"
         },
         {
           "symbol": "GNEISS_APPLICATION_WINDOW_RESIZABLE_BIT",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::application_window_flags::resizable"
         },
         {
           "symbol": "GNEISS_APPLICATION_WINDOW_VISIBLE_BIT",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::application_window_flags::visible"
         },
         {
           "symbol": "GNEISS_DIAGNOSTIC_CATEGORY_APPLICATION",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::diagnostic_category::application"
         },
         {
           "symbol": "GNEISS_DIAGNOSTIC_CATEGORY_ASSET",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::diagnostic_category::asset"
         },
         {
           "symbol": "GNEISS_DIAGNOSTIC_CATEGORY_BACKEND",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::diagnostic_category::backend"
         },
         {
           "symbol": "GNEISS_DIAGNOSTIC_CATEGORY_INPUT",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::diagnostic_category::input"
         },
         {
           "symbol": "GNEISS_DIAGNOSTIC_ERROR",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::diagnostic_severity::error"
         },
         {
           "symbol": "GNEISS_DIAGNOSTIC_INFO",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::diagnostic_severity::info"
         },
         {
           "symbol": "GNEISS_DIAGNOSTIC_VERSION_1_SIZE",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "abi_only",
+          "cpp_mapping": "C ABI 描述布局版本；C++ 适配内部填写当前尺寸"
         },
         {
           "symbol": "GNEISS_DIAGNOSTIC_WARNING",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::diagnostic_severity::warning"
         },
         {
           "symbol": "GNEISS_NULL_APPLICATION",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::application_ref{} / application{}"
         }
       ]
     },
@@ -1211,8 +1211,8 @@
         {
           "symbol": "gneiss_log_event",
           "kind": "struct",
-          "cpp_mapping": "gneiss_log_event（原生 C 值/签名，C++ 直接使用）",
-          "native_review": "pending"
+          "cpp_mapping": "gneiss::log_event（回调期借用字符串）",
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_log_message",
@@ -1240,8 +1240,8 @@
         },
         {
           "symbol": "GNEISS_LOG_EVENT_VERSION_1_SIZE",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "abi_only",
+          "cpp_mapping": "C ABI 接收事件版本；原生回调转换不暴露 struct_size"
         },
         {
           "symbol": "GNEISS_LOG_FATAL",

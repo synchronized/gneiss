@@ -7,7 +7,7 @@
 
 `<gneiss/gneiss.hpp>` 汇总公共 C++20 SDK；也可以独立包含模块 `.hpp`。
 包装通过 C ABI 操作同一个运行时，不创建第二套注册表、资源或主循环。
-输入接口和日志提交消息已使用原生 C++ 类型；其余描述、值类型及回调仍有 C 表达，正在按
+Application 配置/回调、输入和日志接口已使用原生 C++ 类型；其余描述、值类型及回调仍有 C 表达，正在按
 [0.47 计划](../plans/VER-047-0.47.0-native-cpp-sdk.md)逐组迁移，尚不能称为全部原生 SDK。
 
 | C 功能 | C++ 表达 | 所有权 |
@@ -16,15 +16,17 @@
 | Mesh、Material、Texture | `mesh`、`material`、`texture`；对应 `*_id` | 拥有者与借用身份分开，材质不会隐式拥有纹理 |
 | Prefab 刷新历史令牌 | `scene_prefab_refresh` | 拥有令牌；关闭不撤销当前投影，父 Scene/Application 失效后安全清空 |
 | Entity、Scene Node、Action、Game Context、RID | `entity_id`、`scene_node_id`、`action_id`、`game_context`、`rid` | 值形式的借用身份，不延长所属服务寿命 |
+| Application 配置与回调 | `application_desc`、`application_callbacks`、`frame_time`、`diagnostic`、`log_event` | 配置文本借用至 create 返回，回调表复制，user_data 与回调文本的寿命见 Application 参考 |
 | Application 所属 World | `world_ref` | 借用；不能调用拥有者的销毁/转移操作 |
 | 结果、版本、日志级别 | `result`、`version`、`log_severity` | 值；结果不通过异常报告 |
 | Transform、Render/Scene 描述 | 模块 `.hpp` 的值别名 | 与 C 布局相同；结构含指针不代表复制了指向的数据 |
 | 输入事件、键盘/指针/动作快照 | 独立结构、强类型枚举与 variant | 自有快照，默认构造，详见[输入接口](input.md) |
 | 日志提交消息 | `log_message`，字段使用 `log_severity`、`string_view`、`result` | 借用文本至同步提交返回，详见[日志契约](logging.md#c-日志提交) |
-| Application/World 创建描述、反射元数据、日志事件、Game Module 描述 | 直接使用 `gneiss_*` C 值 | 由对应操作决定复制与借用，见下表及模块参考 |
+| World 创建描述、反射元数据、Game Module 描述 | 直接使用 `gneiss_*` C 值 | 由对应操作决定复制与借用，见下表及模块参考 |
 | 常量、标志、默认初始化器、旧结构大小、构建导出宏 | 输入业务常量使用 C++ 枚举/默认构造，其余仍使用 `GNEISS_*` | 无运行时所有权；初始化器保留 `struct_size` 与保留字段规则 |
 
-拥有者的 `get()`/`id()` 只借用原始身份；`release()` 才转移销毁责任。
+拥有者的 `get()`/`id()` 只借用原始身份；`release()` 才转移销毁责任。Application 返回
+携带回调存储的 `released_application` 载体，其余拥有者仍按各自契约转移原始身份。
 `operator bool` 或 `is_valid()` 只判断非零，不探测后端是否仍然存在。
 关闭、移动覆盖与父对象先销毁规则以 [Application](application.md#生命周期)、
 [Render](render.md)、[Scene](scene-instance.md) 和 [Reflection](reflection.md) 为准。
@@ -43,7 +45,8 @@
 | Game Module 描述与函数指针 | 动态库卸载前保持有效；模块私有状态由模块初始化/关闭回调负责 |
 | Game Context、启动实体、输入动作 | 不拥有 Engine 对象；关闭或场景切换后重新获取，动作映射重载使旧动作失效 |
 
-C++ 回调仍使用 C 函数指针与显式上下文；捕获状态需由调用方持有，不能注册临时对象后让其提前析构。
+Application 原生回调使用 noexcept C++ 函数指针和显式上下文，其函数表被复制；其他尚未迁移的
+回调及 create_native 使用 C 函数指针。捕获状态需由调用方持有，不能注册临时对象后让其提前析构。
 包装不提供隐藏的 `std::function` 注册表，也不因保存一个回调而延长 DLL 或 Application 寿命。
 所有回调实现均不得让异常穿过 ABI；日志 Sink 和反射访问器有防御性异常隔离，但不能把这一点
 泛化为全部生命周期回调均可抛异常。模块更新与 Application 关闭等回调应自行捕获并按其签名报告错误。

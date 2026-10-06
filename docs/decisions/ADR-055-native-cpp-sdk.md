@@ -41,3 +41,14 @@
 拒绝继续以 C 别名加 RAII 声称完整原生 SDK，也拒绝让 C++ SDK 绕过 C ABI 直接暴露内部实现。
 不增加与用户当前需求无关的插件、Editor API 或通用数学框架。
 完整范围及验收见 [VER-047](../plans/VER-047-0.47.0-native-cpp-sdk.md)。
+
+## Application 回调所有权补充
+
+回调函数与 user_data 被复制到包装独占的稳定适配存储，配置字符串只在创建调用期间借用。
+移动必须同时转移句柄与存储；release 返回不可复制的 released_application 载体，不再返回裸句柄。
+载体 get 只提供借用的 C 句柄，reset/析构关闭引擎并等待日志排空后释放存储；adopt 可转回 application。
+关闭失败保留两者。不能为兼容裸句柄释放而泄漏适配存储或留下悬空回调。
+
+原生回调接收 application_ref 和原生参数；函数指针要求 noexcept，调用方在回调内处理异常。
+不承诺把越过 noexcept 的用户异常恢复为结果；这种违反契约的行为由语言终止，不能穿过 C ABI。
+create_native 是显式 C ABI 互操作入口，C 回调与 userdata 继续由调用方管理；它不是 create 的兼容重载。

@@ -131,7 +131,7 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure) {
   desc.asset_root_length = static_cast<std::uint32_t>(asset_root.size());
 
   gneiss::application application;
-  const auto create_result = gneiss::application::create(desc, application);
+  const auto create_result = gneiss::application::create_native(desc, application);
   if (create_result != gneiss::result::success) {
     report_failure("创建 Application", static_cast<gneiss_result>(create_result));
     return 1;

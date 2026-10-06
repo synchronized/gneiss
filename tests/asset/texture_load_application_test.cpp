@@ -52,7 +52,7 @@ void run(gneiss::tasks::execution_mode mode) {
   gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
   desc.asset_root = root.data();
   desc.asset_root_length = static_cast<std::uint32_t>(root.size());
-  check(application::create(desc, app) == result::success);
+  check(application::create_native(desc, app) == result::success);
   check(application_internal::attach_task_executor(app.get(), scheduler) == GNEISS_SUCCESS);
   check(application_internal::attach_task_executor(app.get(), scheduler) ==
         GNEISS_ERROR_INVALID_STATE);

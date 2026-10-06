@@ -66,7 +66,7 @@ bool verify_owner(gneiss::application& app, const Desc& desc) {
 
 int main() {
   gneiss::application app;
-  const gneiss_application_desc app_desc = GNEISS_APPLICATION_DESC_INIT;
+  const gneiss::application_desc app_desc{};
   if (gneiss::application::create(app_desc, app).failed()) {
     return 1;
   }

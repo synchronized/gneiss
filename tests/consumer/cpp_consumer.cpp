@@ -14,9 +14,8 @@ int main() {
   constexpr std::string_view asset_root = GNEISS_CONSUMER_ASSET_ROOT;
   constexpr std::string_view scene_uri = "asset://scenes/triangle.scene.json";
 
-  gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
-  desc.asset_root = asset_root.data();
-  desc.asset_root_length = static_cast<std::uint32_t>(asset_root.size());
+  gneiss::application_desc desc{};
+  desc.asset_root = asset_root;
 
   gneiss::application application;
   if (gneiss::application::create(desc, application) != gneiss::result::success) {

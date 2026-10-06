@@ -91,7 +91,7 @@ int main() try {
   gneiss_world world{};
   editor_session session;
   scene_node_id node;
-  if (application::create(desc, app) != result::success ||
+  if (application::create_native(desc, app) != result::success ||
       app.get_world(world) != result::success ||
       session.open(app.get(), world, project.startup_scene) != result::success ||
       session.create_mesh_renderer_node("Imported", *mesh, *material, node) != result::success ||

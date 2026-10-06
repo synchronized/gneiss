@@ -15,7 +15,7 @@
         "gneiss.cpp-owner-termination"
       ],
       "cpp_entry": "gneiss::application::create",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_application_destroy",
@@ -24,13 +24,13 @@
         "include/gneiss/engine/application.hpp"
       ],
       "review": "reviewed",
-      "ownership": "所属线程关闭；失败保留句柄供重试，析构失败终止；release 转移手动销毁责任",
+      "ownership": "创建线程关闭并排空日志后释放回调存储；失败保留句柄和存储。release 转移到 RAII 载体，get 仅借用，adopt 收回所有权",
       "tests": [
         "gneiss.cpp-owner-lifecycle",
         "gneiss.cpp-owner-termination"
       ],
       "cpp_entry": "gneiss::application::reset / release",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_application_run",
@@ -45,7 +45,7 @@
         "gneiss.c_application"
       ],
       "cpp_entry": "gneiss::application::run",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_application_get_window_size",
@@ -61,7 +61,7 @@
         "gneiss.editor.native-window-interaction"
       ],
       "cpp_entry": "gneiss::application::get_window_size",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_application_request_exit",
@@ -76,7 +76,7 @@
         "gneiss.c_application"
       ],
       "cpp_entry": "gneiss::application::request_exit",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_application_set_paused",
@@ -91,7 +91,7 @@
         "gneiss.c_application"
       ],
       "cpp_entry": "gneiss::application::set_paused",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_application_log",
@@ -120,7 +120,7 @@
         "gneiss.cpp_application"
       ],
       "cpp_entry": "gneiss::application::get_world(world_ref&)",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_asset_uri_validate",

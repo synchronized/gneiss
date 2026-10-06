@@ -62,7 +62,7 @@ void run(tasks::execution_mode mode) {
   const auto root = files.root.string();
   desc.asset_root = root.data();
   desc.asset_root_length = static_cast<std::uint32_t>(root.size());
-  check(application::create(desc, app) == result::success);
+  check(application::create_native(desc, app) == result::success);
   check(attach_task_executor(app.get(), scheduler) == GNEISS_SUCCESS);
   gneiss_world old_world{};
   check(gneiss_application_get_world(app.get(), &old_world) == GNEISS_SUCCESS);

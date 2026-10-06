@@ -596,7 +596,7 @@ void write_application_log(gneiss_application, const gneiss_log_event* event, vo
                                          : gneiss::tasks::execution_mode::thread_pool});
   context.tasks = &task_scheduler;
   gneiss::application application;
-  auto operation = gneiss::application::create(desc, application);
+  auto operation = gneiss::application::create_native(desc, application);
   if (operation != gneiss::result::success) {
     log.write("ERROR", "application_create", static_cast<gneiss_result>(operation),
               "Application 创建失败", asset_root);

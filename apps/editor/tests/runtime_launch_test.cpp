@@ -19,7 +19,7 @@ namespace {
   gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
   desc.asset_root = root.data();
   desc.asset_root_length = static_cast<std::uint32_t>(root.size());
-  return gneiss::application::create(desc, output);
+  return gneiss::application::create_native(desc, output);
 }
 
 } // namespace
