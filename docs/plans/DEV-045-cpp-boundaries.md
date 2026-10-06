@@ -5,7 +5,7 @@
 
 ## 状态与依据
 
-2026-10-06 已完成分层、源码归属与 SDK 重构及整版验收，待发布；首轮证据见
+2026-10-06 已完成分层、源码归属与 SDK 重构及整版验收，[0.45.0 已发布](../versions/0.45.0.md)；首轮证据见
 [M-292～M-293 记录](../records/M-292-293-cpp-boundary-foundation.md)。World 内部入口迁移见
 [World 阶段记录](../records/M-294-world-cpp-boundary.md)，Application 拆分见
 [Application 阶段记录](../records/M-294-application-boundary.md)，内部配置与窗口归属见
