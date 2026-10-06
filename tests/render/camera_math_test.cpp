@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "render/camera_math.h"
+#include "engine/function/render/camera_math.hpp"
 
 #include <array>
 #include <cmath>

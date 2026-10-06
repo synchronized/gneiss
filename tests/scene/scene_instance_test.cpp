@@ -116,6 +116,23 @@ int main() try {
       legacy_info.mesh_uri != legacy_sentinel) {
     return 3;
   }
+  legacy_info.struct_size = GNEISS_SCENE_INSTANCE_NODE_INFO_VERSION_2_SIZE;
+  legacy_info.local_transform.translation[0] = 123.0F;
+  legacy_info.component_flags = UINT32_MAX;
+  legacy_info.camera.far_plane = 321.0F;
+  if (gneiss_scene_instance_get_node_info(application, scene, 1U, &legacy_info) != GNEISS_SUCCESS ||
+      std::string_view(legacy_info.mesh_uri, legacy_info.mesh_uri_length) != mesh_uri ||
+      legacy_info.local_transform.translation[0] != 123.0F ||
+      legacy_info.component_flags != UINT32_MAX || legacy_info.camera.far_plane != 321.0F) {
+    return 32;
+  }
+  if (gneiss_scene_instance_get_node_info(application, GNEISS_NULL_SCENE_INSTANCE, 0U,
+                                          &legacy_info) != GNEISS_ERROR_INVALID_HANDLE ||
+      legacy_info.node != GNEISS_NULL_SCENE_NODE_ID || legacy_info.uuid != nullptr ||
+      legacy_info.mesh_uri != nullptr || legacy_info.local_transform.translation[0] != 123.0F ||
+      legacy_info.camera.far_plane != 321.0F) {
+    return 33;
+  }
   gneiss_scene_mesh_renderer_node_desc create_desc = GNEISS_SCENE_MESH_RENDERER_NODE_DESC_INIT;
   create_desc.parent = camera_node;
   create_desc.uuid = created_uuid.data();
@@ -141,6 +158,16 @@ int main() try {
   }
   gneiss_scene_camera_desc author_camera = GNEISS_SCENE_CAMERA_DESC_INIT;
   author_camera.camera.near_plane = 0.2F;
+  author_camera.camera.reserved = 1U;
+  if (gneiss_scene_instance_set_camera(application, scene, created_node, &author_camera) !=
+          GNEISS_ERROR_INVALID_ARGUMENT ||
+      gneiss_scene_instance_set_camera(application, GNEISS_NULL_SCENE_INSTANCE, created_node,
+                                       &author_camera) != GNEISS_ERROR_INVALID_HANDLE ||
+      gneiss_scene_instance_set_camera(application, scene, UINT64_MAX, &author_camera) !=
+          GNEISS_ERROR_INVALID_HANDLE) {
+    return 34;
+  }
+  author_camera.camera.reserved = 0U;
   if (gneiss_scene_instance_set_camera(application, scene, created_node, &author_camera) !=
           GNEISS_SUCCESS ||
       gneiss_scene_instance_remove_camera(application, scene, created_node) != GNEISS_SUCCESS ||

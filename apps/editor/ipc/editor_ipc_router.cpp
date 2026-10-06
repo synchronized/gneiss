@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "editor_ipc_router.h"
+#include "editor_ipc_router.hpp"
 
 #include <utility>
 

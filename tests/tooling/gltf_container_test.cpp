@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "tooling/asset_import/gltf_importer.h"
+#include "tooling/asset_import/gltf_importer.hpp"
 
 #include <array>
 #include <cstdint>

@@ -1,14 +1,13 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "log/log_dispatcher.h"
-
-#include <gneiss/log.hpp>
+#include "engine/core/log/log_dispatcher.hpp"
 
 #include <chrono>
 #include <condition_variable>
 #include <cstdint>
 #include <mutex>
+#include <stdexcept>
 #include <string_view>
 
 namespace {
@@ -23,7 +22,7 @@ struct capture_state final {
   bool first_started = false;
 };
 
-void capture(gneiss_application, const gneiss_log_event* event, void* user_data) {
+void capture(const gneiss::log_internal::event_view& event, void* user_data) {
   auto& state = *static_cast<capture_state*>(user_data);
   std::unique_lock lock(state.mutex);
   if (state.block_first) {
@@ -31,25 +30,65 @@ void capture(gneiss_application, const gneiss_log_event* event, void* user_data)
     state.changed.notify_all();
     state.changed.wait(lock, [&state] { return !state.block_first; });
   }
-  if (event->sequence <= state.previous_sequence) {
+  if (event.sequence <= state.previous_sequence) {
     state.previous_sequence = UINT64_MAX;
   } else {
-    state.previous_sequence = event->sequence;
+    state.previous_sequence = event.sequence;
   }
   ++state.event_count;
-  if (std::string_view(event->category, event->category_length) == "backpressure") {
+  if (event.message.category == "backpressure") {
     ++state.dropped_reports;
   }
   state.changed.notify_all();
 }
 
+bool verify_failure_and_shutdown() {
+  using namespace gneiss::log_internal;
+  try {
+    log_dispatcher invalid(event_sink{});
+    return false;
+  } catch (const std::invalid_argument&) {
+  }
+  try {
+    log_dispatcher invalid([](const event_view&) {}, 0U);
+    return false;
+  } catch (const std::invalid_argument&) {
+  }
+  std::uint32_t calls{};
+  bool valid = true;
+  log_dispatcher* active{};
+  {
+    log_dispatcher dispatcher([&](const event_view& event) {
+      ++calls;
+      valid = valid && event.message.context == 9U && event.thread_id != 0U &&
+              event.timestamp_ns != 0U && event.sequence == calls &&
+              active->submit({.category = "nested"}) == GNEISS_ERROR_INVALID_STATE;
+      if (calls == 1U) {
+        throw std::runtime_error("测试回调异常隔离");
+      }
+    });
+    active = &dispatcher;
+    if (dispatcher.submit({.context = 9U, .category = "test"}) != GNEISS_SUCCESS ||
+        dispatcher.submit({.context = 9U, .category = "test"}) != GNEISS_SUCCESS) {
+      return false;
+    }
+    // 不主动 flush，验证析构排空队列且异常不会阻止后续投递。
+  }
+  return calls == 2U && valid;
+}
+
 } // namespace
 
-int main() {
+int main() try {
+  if (!verify_failure_and_shutdown()) {
+    return 5;
+  }
   capture_state state;
-  gneiss::log_internal::log_dispatcher dispatcher(capture, &state, 2U);
-  const auto message = gneiss::make_log_message(gneiss::log_severity::info, "test", "event");
-  if (dispatcher.submit(1U, message, "test") != GNEISS_SUCCESS) {
+  gneiss::log_internal::log_dispatcher dispatcher(
+      [&state](const auto& event) { capture(event, &state); }, 2U);
+  const gneiss::log_internal::message_view message{
+      .context = 1U, .source = "test", .category = "test", .message = "event"};
+  if (dispatcher.submit(message) != GNEISS_SUCCESS) {
     return 1;
   }
   {
@@ -60,7 +99,7 @@ int main() {
     }
   }
   for (std::uint32_t index = 0U; index < 8U; ++index) {
-    if (dispatcher.submit(1U, message, "test") != GNEISS_SUCCESS) {
+    if (dispatcher.submit(message) != GNEISS_SUCCESS) {
       return 3;
     }
   }
@@ -77,4 +116,6 @@ int main() {
     }
   }
   return 0;
+} catch (...) {
+  return 6;
 }

@@ -322,6 +322,8 @@ GNEISS_API gneiss_result gneiss_scene_instance_get_node_count(gneiss_application
  *
  * out_info 必须使用 GNEISS_SCENE_INSTANCE_NODE_INFO_INIT
  * 初始化。节点或实体被外部销毁时返回句柄错误。
+ * 字符串为场景借用视图；下次场景修改、卸载或父 Application 销毁后须重新获取。
+ * 需要跨修改保存时应在修改前复制字符串，不能只复制描述结构中的指针。
  */
 GNEISS_API gneiss_result
 gneiss_scene_instance_get_node_info(gneiss_application application, gneiss_scene_instance instance,
@@ -331,7 +333,8 @@ gneiss_scene_instance_get_node_info(gneiss_application application, gneiss_scene
 GNEISS_EXPERIMENTAL GNEISS_API gneiss_result gneiss_scene_instance_get_prefab_node_count(
     gneiss_application application, gneiss_scene_instance instance, uint64_t* out_count);
 
-/** 按声明顺序读取 Prefab 实例根及其来源节点；来源节点带只读标记。 */
+/** 按声明顺序读取 Prefab 实例根及其来源节点；来源节点带只读标记。
+ * 字符串为借用视图，下次场景修改（包括刷新/切换 Prefab）、卸载或父对象销毁后须重新获取。 */
 GNEISS_EXPERIMENTAL GNEISS_API gneiss_result gneiss_scene_instance_get_prefab_node_info(
     gneiss_application application, gneiss_scene_instance instance, uint64_t index,
     gneiss_scene_prefab_node_info* out_info);
@@ -389,6 +392,7 @@ gneiss_scene_instance_reparent_node(gneiss_application application, gneiss_scene
  * 将以 root 为根的当前作者子树写入 UTF-8 JSON 快照。
  *
  * buffer 为空且 capacity 为零时只查询所需字节数；快照不包含 Runtime ID 或 RID。
+ * 子树挂有 Prefab 时返回 GNEISS_ERROR_UNSUPPORTED；其他位置的 Prefab 不进入快照。
  */
 GNEISS_EXPERIMENTAL GNEISS_API gneiss_result gneiss_scene_instance_capture_subtree(
     gneiss_application application, gneiss_scene_instance instance, gneiss_scene_node_id root,
@@ -398,6 +402,7 @@ GNEISS_EXPERIMENTAL GNEISS_API gneiss_result gneiss_scene_instance_capture_subtr
  * 原子恢复或复制作者子树。parent 为零时恢复为根；映射为空时保留快照 UUID。
  *
  * 非空映射必须完整覆盖快照中的每个 UUID，source 与 target 均不得重复。
+ * 当前不恢复 Prefab 引用；快照包含 Prefab 时返回 GNEISS_ERROR_UNSUPPORTED，实例保持不变。
  */
 GNEISS_EXPERIMENTAL GNEISS_API gneiss_result gneiss_scene_instance_restore_subtree(
     gneiss_application application, gneiss_scene_instance instance, const char* snapshot,
@@ -405,7 +410,8 @@ GNEISS_EXPERIMENTAL GNEISS_API gneiss_result gneiss_scene_instance_restore_subtr
     const gneiss_scene_uuid_mapping* mappings, uint64_t mapping_count,
     gneiss_scene_node_id* out_root);
 
-/** 原子删除完整作者子树；成功后其中全部 Runtime ID 失效。 */
+/** 原子删除普通作者子树；成功后其中全部 Runtime ID 失效。
+ * 子树挂有 Prefab 时返回 GNEISS_ERROR_UNSUPPORTED，不修改实例。 */
 GNEISS_EXPERIMENTAL GNEISS_API gneiss_result gneiss_scene_instance_destroy_subtree(
     gneiss_application application, gneiss_scene_instance instance, gneiss_scene_node_id root);
 

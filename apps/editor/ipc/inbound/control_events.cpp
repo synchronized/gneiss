@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "editor_ipc_event.h"
+#include "editor_ipc_event.hpp"
 
-#include "event_decode.h"
+#include "event_decode.hpp"
 
 namespace gneiss::editor {
 

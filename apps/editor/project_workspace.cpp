@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "project_workspace.h"
+#include "project_workspace.hpp"
 
-#include "package_archive.h"
+#include "package_archive.hpp"
 
-#include "tooling/asset_build/asset_build.h"
+#include "tooling/asset_build/asset_build.hpp"
 
 #include <yyjson.h>
 

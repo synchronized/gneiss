@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "tooling/asset_build/asset_build.h"
-#include "tooling/asset_build/texture_mip_generator.h"
+#include "tooling/asset_build/asset_build.hpp"
+#include "tooling/asset_build/texture_mip_generator.hpp"
 
-#include "tooling/asset_build/ktx2_probe.h"
-#include "tooling/asset_build/runtime_texture_builder.h"
+#include "tooling/asset_build/ktx2_probe.hpp"
+#include "tooling/asset_build/runtime_texture_builder.hpp"
 
-#include "asset/mesh_binary.h"
-#include "asset/texture_ktx2.h"
-#include "render/png_decoder.h"
+#include "engine/asset/mesh_binary.hpp"
+#include "engine/asset/png_decoder.hpp"
+#include "engine/asset/texture_ktx2.hpp"
 
 #include <yyjson.h>
 
@@ -230,8 +230,8 @@ void hash_bytes(std::uint64_t& hash, std::string_view bytes) noexcept {
 [[nodiscard]] bool cook_png(const source_node& node, std::vector<std::byte>& output,
                             std::string& diagnostic) {
   const auto bytes = read_bytes(node.absolute_path);
-  render_internal::decoded_png decoded;
-  if (render_internal::decode_png(bytes, decoded, diagnostic) != GNEISS_SUCCESS) {
+  asset_internal::decoded_png decoded;
+  if (asset_internal::decode_png(bytes, decoded, diagnostic) != GNEISS_SUCCESS) {
     return false;
   }
   asset_internal::texture_ktx2 texture{

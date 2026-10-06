@@ -32,6 +32,21 @@ World 及其实体只能在创建 World 的线程访问。跨线程调用返回 
 `gneiss::world` 独占 World，默认不可复制但可以移动，析构时自动销毁。`gneiss::entity_id` 只包装
 运行时标识，不拥有实体；World 销毁后所有关联实体 ID 都失效。
 
+`world::ref()` 和 `application::get_world(world_ref&)` 返回可复制的借用视图，不负责销毁 World。
+`world_ref` 提供与拥有型 World 相同的实体、组件和节点操作，不延长所有者寿命；所有者销毁或
+Application 更换对应 World 后，旧视图操作返回无效句柄。`is_valid()` 仅检查句柄非零。
+视图和拥有者都须遵守 World 所属线程约束。
+
+节点与实体 ID 均为借用标识。递归删除节点不删除其关联实体；移除 Mesh Renderer 或删除实体也不
+销毁所引用的 Mesh、Material，资源仍由原 Service/RAII 拥有者管理。
+
+输出错误行为保留既有契约：`get_active_camera` 在未设置相机时返回 `not_ready`，失败清空实体 ID；
+实体重载的 `get_local_transform` 在失败时输出单位变换。`create_entity`、`create_scene_node`、
+`get_parent`、`get_entity` 和 `is_alive` 的 C++ 输出仅在成功时修改，不应把一种输出规则套用到所有查询。
+
+拥有型包装的关闭、失败保留与所有权转移遵循 [Application C++ 契约](application.md#生命周期)。
+`reset()` 可在所属线程重试；`release()` 不改变底层 World 的线程归属。
+
 ## ECS 与 System
 
 EnTT `3.15.0` 只用于 World 的内部组件存储。Gneiss 公共头、Entity ID 和 C ABI 不依赖 EnTT。

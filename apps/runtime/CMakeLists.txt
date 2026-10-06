@@ -4,9 +4,9 @@
 add_library(
   gneiss_game_module_session STATIC
   game_module_session.cpp
-  game_module_session.h
+  game_module_session.hpp
   game_update_scheduler.cpp
-  game_update_scheduler.h
+  game_update_scheduler.hpp
 )
 target_link_libraries(gneiss_game_module_session PUBLIC gneiss::engine gneiss_dynamic_library)
 target_include_directories(
@@ -33,25 +33,25 @@ gneiss_target_output_directories(gneiss_game_module_session)
     ipc/outbound/property_events.cpp
     ipc/outbound/protocol_error_response.cpp
     ipc/outbound/ready_event.cpp
-    ipc/outbound/runtime_ipc_outbound.h
+    ipc/outbound/runtime_ipc_outbound.hpp
     ipc/outbound/session_hello_event.cpp
     ipc/outbound/shutdown_event.cpp
     ipc/outbound/state_event.cpp
     ipc/outbound/statistics_events.cpp
     ipc/runtime_command_context.cpp
-    ipc/runtime_command_context.h
+    ipc/runtime_command_context.hpp
     ipc/runtime_commands.cpp
-    ipc/runtime_commands.h
+    ipc/runtime_commands.hpp
     runtime_ipc_session.cpp
-  runtime_ipc_session.h
+  runtime_ipc_session.hpp
   runtime_asset_reloader.cpp
-  runtime_asset_reloader.h
+  runtime_asset_reloader.hpp
   runtime_property_editor.cpp
-  runtime_property_editor.h
+  runtime_property_editor.hpp
   runtime_scene_inspection.cpp
-  runtime_scene_inspection.h
+  runtime_scene_inspection.hpp
   runtime_scene_loader.cpp
-  runtime_scene_loader.h
+  runtime_scene_loader.hpp
 )
 target_link_libraries(
   gneiss_runtime_ipc PUBLIC gneiss_app_ipc_protocol PRIVATE gneiss_app_project gneiss::engine
@@ -62,7 +62,7 @@ target_compile_features(gneiss_runtime_ipc PUBLIC cxx_std_20)
 gneiss_target_compile_warnings(gneiss_runtime_ipc)
 gneiss_target_output_directories(gneiss_runtime_ipc)
 
-add_executable(gneiss_runtime main.cpp runtime_log.cpp runtime_log.h)
+add_executable(gneiss_runtime main.cpp runtime_log.cpp runtime_log.hpp)
 target_link_libraries(
   gneiss_runtime
   PRIVATE gneiss_app_project gneiss::engine gneiss_game_module_session gneiss_runtime_ipc gneiss_tasks
@@ -155,7 +155,7 @@ if(BUILD_TESTING)
   gneiss_target_output_directories(gneiss_runtime_asset_reloader_test)
   add_test(NAME gneiss.runtime.asset-reloader COMMAND gneiss_runtime_asset_reloader_test)
 
-  add_executable(gneiss_runtime_log_test tests/runtime_log_test.cpp runtime_log.cpp runtime_log.h)
+  add_executable(gneiss_runtime_log_test tests/runtime_log_test.cpp runtime_log.cpp runtime_log.hpp)
   target_include_directories(gneiss_runtime_log_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
   target_link_libraries(gneiss_runtime_log_test PRIVATE gneiss_app_project gneiss::engine)
   target_compile_features(gneiss_runtime_log_test PRIVATE cxx_std_20)

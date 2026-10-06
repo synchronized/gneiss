@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "application/application_asset_reload_internal.h"
+#include "engine/function/application/application_asset_reload_internal.hpp"
 
 #include <gneiss/application.h>
 #include <gneiss/scene.h>

@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "asset_reimport_queue.h"
-#include "editor_session.h"
-#include "package_archive.h"
-#include "project_workspace.h"
-#include "runtime_process.h"
+#include "asset_reimport_queue.hpp"
+#include "editor_session.hpp"
+#include "package_archive.hpp"
+#include "project_workspace.hpp"
+#include "runtime_process.hpp"
 
 #include <gneiss/application.hpp>
 

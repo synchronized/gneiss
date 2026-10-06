@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "asset_file_watcher.h"
+#include "asset_file_watcher.hpp"
 
 #include <algorithm>
 #include <chrono>

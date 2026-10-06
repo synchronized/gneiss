@@ -31,7 +31,10 @@ Runtime 宿主的启动与完整场景切换使用内部异步协调器，行为
 实体、节点和资产租约，句柄立即失效；重复卸载返回句柄错误。Application 销毁时会先卸载仍存活的
 场景，再销毁 World 和 Render Resource Service。
 
-C++ `gneiss::scene_instance` 提供移动专属的 RAII 包装，必须在所属 `gneiss::application` 之前析构。
+C++ `gneiss::scene_instance` 提供移动专属的 RAII 包装，不延长 Application 寿命。正常使用先关闭
+场景再关闭 Application；父对象已销毁时 `reset()` 安全清空失效句柄。关闭失败时保留句柄，析构
+和移动覆盖失败的规则见 [Application C++ 契约](application.md#生命周期)。`owner()` 返回父句柄，
+`release()` 转移场景所有权；调用前须保存 `owner()`，由接收者在所属线程手动卸载。
 场景中的 Mesh Renderer 只借用 RID，资源生命周期由场景实例持有的租约保证。
 
 ## UUID 查询
@@ -49,14 +52,17 @@ JSON 可为对象增加可选字符串 `name`；旧场景无需迁移，名称�
 文本。V1/V2 调用方仍可使用旧结构尺寸读取原有字段；V3 字段只在调用方提供完整结构尺寸时写入。
 
 节点描述中的 UTF-8 UUID 和名称是实例借出的“指针 + 长度”视图，不以零结尾为契约，不能由调用方
-释放；实例卸载或 Application 销毁后立即失效。`out_info` 必须以
+释放。场景的下一次修改可能重分配或替换这些字符串，修改后必须重新查询；实例卸载或 Application
+销毁后也立即失效。需要跨编辑保存名称、UUID 或 URI 时，必须在修改前复制字符串，不能只复制
+包含指针的描述结构。`out_info` 必须以
 `GNEISS_SCENE_INSTANCE_NODE_INFO_INIT` 初始化。索引越界返回 `GNEISS_ERROR_NOT_FOUND`；节点或实体
 已被外部销毁时返回句柄错误。C++ 包装提供对应的 `get_node_count` 和 `get_node_info`。
 
 Prefab 使用独立的实验性枚举接口 `gneiss_scene_instance_get_prefab_node_count` 与
 `gneiss_scene_instance_get_prefab_node_info`，不改变普通 `objects` 的数量和顺序。枚举顺序为每个实例
 的实例根，其后为 Prefab 来源节点；描述包含实例 UUID、来源节点 UUID、Prefab URI、Runtime ID、
-局部 Transform 以及实例根或来源只读标志。所有字符串视图的生命周期与场景实例一致。
+局部 Transform 以及实例根或来源只读标志。字符串同样只借用到下一次场景修改或父对象失效；
+Prefab 刷新、撤销/重做和重命名之后应重新枚举，不能沿用旧字符串指针。
 
 `gneiss_scene_instance_create_prefab_instance` 在普通作者节点或场景根下原子放置 Prefab。调用方提供
 唯一实例 UUID、显示名称、规范 Prefab URI 和实例根 Transform；资源获取或 Runtime 创建失败时不会
@@ -80,6 +86,17 @@ Transform 接口修改根变换，并通过 `gneiss_scene_instance_destroy_prefa
 供 Undo/Redo 使用。命令离开历史后必须调用 `gneiss_scene_instance_release_prefab_refresh`；场景卸载
 也会释放尚未显式释放的令牌及其资产租约。
 
+C++ `scene_prefab_refresh` 独占令牌并记录所属 Application 与场景句柄，不延长父对象寿命。
+`scene_instance::refresh_prefab_instance(root, out_root, out_refresh)` 的输出拥有者必须为空；
+非空时返回 `invalid_state`，不修改场景或两个输出。空输出下的加载失败也保持输出与原投影。
+成功后可以用 `out_refresh.toggle(out_root)` 撤销或重做；失败时保留输出根 ID。
+空令牌调用 toggle 与 C API 一样返回 `invalid_argument`。
+
+拥有者不可复制，可移动；`reset()` 和析构释放历史租约，不回滚当前投影。外部释放、场景卸载或
+Application 销毁后，`reset()` 可安全清空失效令牌；其他错误保留令牌供所属线程重试。
+操作和析构须在 Application 所属线程，析构/移动覆盖无法关闭时终止进程。
+`release()` 转移手动释放责任，调用前保存 `owner()` 和 `scene()`。原裸令牌包装仍保留供旧调用方使用。
+
 ## 作者节点编辑
 
 `gneiss_scene_instance_create_node` 原子创建不含可选组件的通用作者节点。调用方提供稳定 UUID、可选
@@ -101,6 +118,11 @@ ID 和实例不能跨 Application 使用。这两项操作仅限 Application 创
 资产租约失效。有子节点时返回 `GNEISS_ERROR_INVALID_STATE`，未知节点返回句柄错误。
 
 ## 子树快照、复制与恢复
+
+当前子树接口仅处理普通作者节点。场景其他位置的 Prefab 不进入子树快照；子树自身挂有 Prefab
+引用时，捕获与删除返回 `GNEISS_ERROR_UNSUPPORTED`，不改变场景。恢复含 Prefab 引用的快照也
+返回该错误，避免只恢复普通节点而遗漏 Prefab。单节点删除同样把挂接的 Prefab 视为子节点，
+返回 `GNEISS_ERROR_INVALID_STATE`；可先通过专用 Prefab 接口处理实例，再操作普通作者子树。
 
 `gneiss_scene_instance_capture_subtree` 输出当前版本场景 Schema 的 UTF-8 JSON 值快照，包含目标根、
 全部后代、层级、Transform、Camera 和 Mesh Renderer 作者值，不包含 Entity ID、Scene Node ID、RID

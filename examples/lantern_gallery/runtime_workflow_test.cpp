@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "runtime_process.h"
+#include "runtime_process.hpp"
 
 #include <gneiss/world.h>
 
@@ -77,14 +77,14 @@ std::optional<std::array<float, 4>> root_rotation(const gneiss::editor::runtime_
   return std::to_array(root->local_transform.rotation);
 }
 
-const gneiss::ipc_inspection_node* root_node(const gneiss::editor::runtime_process& process) {
+const gneiss::editor::runtime_scene_node* root_node(const gneiss::editor::runtime_process& process) {
   const auto& nodes = process.scene_mirror().nodes();
   const auto root =
       std::ranges::find_if(nodes, [](const auto& node) { return !node.parent.is_valid(); });
   return root == nodes.end() ? nullptr : &*root;
 }
 
-const gneiss::ipc_inspection_node* prefab_source(const gneiss::editor::runtime_process& process,
+const gneiss::editor::runtime_scene_node* prefab_source(const gneiss::editor::runtime_process& process,
                                                  std::string_view instance_uuid,
                                                  std::string_view source_uuid) {
   const auto& nodes = process.scene_mirror().nodes();
@@ -95,9 +95,9 @@ const gneiss::ipc_inspection_node* prefab_source(const gneiss::editor::runtime_p
   return found == nodes.end() ? nullptr : &*found;
 }
 
-gneiss::editor::runtime_property_key transform_key(const gneiss::ipc_inspection_node& node,
+gneiss::editor::runtime_property_key transform_key(const gneiss::editor::runtime_scene_node& node,
                                                    gneiss_field_id field_id) {
-  gneiss::editor::runtime_property_key key{.object = node.id, .type_id = {}, .field_id = field_id};
+  gneiss::editor::runtime_property_key key{.object = {node.id.value, node.id.generation}, .type_id = {}, .field_id = field_id};
   const auto type_id = gneiss_transform_type_id();
   std::ranges::copy(type_id.bytes, key.type_id.begin());
   return key;
@@ -150,11 +150,13 @@ bool rotation_changed(const std::array<float, 4>& left,
 
 int report_failure(const gneiss::editor::runtime_process& process, int code,
                    std::source_location location = std::source_location::current()) {
-  std::fprintf(stderr,
-               "Lantern 工作流失败：line=%u code=%d state=%d running=%d exit_code=%d reload=%d\n",
-               location.line(), code, static_cast<int>(process.control_state()),
-               process.is_running() ? 1 : 0, process.exit_code(),
-               static_cast<int>(process.asset_reload_status().state));
+  std::fprintf(
+      stderr,
+      "Lantern 工作流失败：line=%u code=%d state=%d running=%d exit_code=%d reload=%d scene=%d\n",
+      location.line(), code, static_cast<int>(process.control_state()),
+      process.is_running() ? 1 : 0, process.exit_code(),
+      static_cast<int>(process.asset_reload_status().state),
+      static_cast<int>(process.scene_load_status().phase));
   for (const auto& entry : process.console().entries()) {
     if (entry.kind == gneiss::editor::console_entry_kind::raw) {
       std::fprintf(stderr, "console[raw]=%s\n", entry.raw_text.c_str());
@@ -381,8 +383,10 @@ int main() try {
     return report_failure(process, 3);
   }
 
+  // running 只代表主循环已启动；场景提交后游戏模块才开始产生进度日志。
   if (process.start(runtime, request) != gneiss::result::success || !pump_until(process, 5s, [&] {
-        return process.control_state() == gneiss::editor::runtime_control_state::running;
+        return process.control_state() == gneiss::editor::runtime_control_state::running &&
+               process.scene_load_status().phase == gneiss::ipc_scene_phase::applied;
       })) {
     return report_failure(process, 4);
   }

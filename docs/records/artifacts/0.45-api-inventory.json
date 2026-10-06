@@ -1,0 +1,1433 @@
+{
+  "baseline": "v0.44.0",
+  "method": "函数声明与稳定性清单交叉校验；包装文件引用仅为候选，不代表语义覆盖",
+  "functions": [
+    {
+      "symbol": "gneiss_application_create",
+      "header": "include/gneiss/application.h",
+      "cpp_candidate_files": [
+        "include/gneiss/application.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "独占 Application；失败保留原输出并回收候选；回调 userdata 由调用方持有至销毁完成",
+      "tests": [
+        "gneiss.cpp-owner-lifecycle",
+        "gneiss.cpp-owner-termination"
+      ],
+      "cpp_entry": "gneiss::application::create"
+    },
+    {
+      "symbol": "gneiss_application_destroy",
+      "header": "include/gneiss/application.h",
+      "cpp_candidate_files": [
+        "include/gneiss/application.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "所属线程关闭；失败保留句柄供重试，析构失败终止；release 转移手动销毁责任",
+      "tests": [
+        "gneiss.cpp-owner-lifecycle",
+        "gneiss.cpp-owner-termination"
+      ],
+      "cpp_entry": "gneiss::application::reset / release"
+    },
+    {
+      "symbol": "gneiss_application_run",
+      "header": "include/gneiss/application.h",
+      "cpp_candidate_files": [
+        "include/gneiss/application.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "创建线程同步运行且不可重入；帧参数为回调期借用，包装不缓存帧或建立循环状态",
+      "tests": [
+        "gneiss.cpp_application",
+        "gneiss.c_application"
+      ],
+      "cpp_entry": "gneiss::application::run"
+    },
+    {
+      "symbol": "gneiss_application_get_window_size",
+      "header": "include/gneiss/application.h",
+      "cpp_candidate_files": [
+        "include/gneiss/application.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "创建线程输出尺寸值；返回客户区物理像素，失败沿用 C 入口清零规则",
+      "tests": [
+        "gneiss.cpp_application",
+        "gneiss.c_application",
+        "gneiss.editor.native-window-interaction"
+      ],
+      "cpp_entry": "gneiss::application::get_window_size"
+    },
+    {
+      "symbol": "gneiss_application_request_exit",
+      "header": "include/gneiss/application.h",
+      "cpp_candidate_files": [
+        "include/gneiss/application.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "所属线程请求当前回调返回后退出；不销毁 Application",
+      "tests": [
+        "gneiss.cpp_application",
+        "gneiss.c_application"
+      ],
+      "cpp_entry": "gneiss::application::request_exit"
+    },
+    {
+      "symbol": "gneiss_application_set_paused",
+      "header": "include/gneiss/application.h",
+      "cpp_candidate_files": [
+        "include/gneiss/application.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "将 bool 映射为固定宽度值；暂停保留主循环和事件处理，不改变对象所有权",
+      "tests": [
+        "gneiss.cpp_application",
+        "gneiss.c_application"
+      ],
+      "cpp_entry": "gneiss::application::set_paused"
+    },
+    {
+      "symbol": "gneiss_application_log",
+      "header": "include/gneiss/application.h",
+      "cpp_candidate_files": [
+        "include/gneiss/application.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "提交期复制 UTF-8 字符串；允许工作线程提交但不能并发移动/reset 包装；sink 串行消费，userdata 至关闭完成仍须存活",
+      "tests": [
+        "gneiss.application_log"
+      ],
+      "cpp_entry": "gneiss::application::log"
+    },
+    {
+      "symbol": "gneiss_application_get_world",
+      "header": "include/gneiss/application.h",
+      "cpp_candidate_files": [
+        "include/gneiss/application.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "借用 world_ref，不销毁或延长 World 寿命",
+      "tests": [
+        "gneiss.cpp-resource-ownership",
+        "gneiss.cpp_application"
+      ],
+      "cpp_entry": "gneiss::application::get_world(world_ref&)"
+    },
+    {
+      "symbol": "gneiss_asset_uri_validate",
+      "header": "include/gneiss/asset.h",
+      "cpp_candidate_files": [
+        "include/gneiss/asset.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "string_view 仅在校验期间借用，不读文件、不保留 URI，线程安全",
+      "tests": [
+        "gneiss.c_asset"
+      ],
+      "cpp_entry": "gneiss::validate_asset_uri"
+    },
+    {
+      "symbol": "gneiss_result_message",
+      "header": "include/gneiss/core/result.h",
+      "cpp_candidate_files": [
+        "include/gneiss/core/result.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "静态文本借用，不可释放",
+      "tests": [
+        "gneiss.c_result",
+        "gneiss.cpp_result"
+      ],
+      "cpp_entry": "gneiss::result::message"
+    },
+    {
+      "symbol": "gneiss_game_module_validate",
+      "header": "include/gneiss/game_module.h",
+      "cpp_candidate_files": [
+        "include/gneiss/game_module.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "C 描述值映射；仅校验布局、版本、字符串和函数指针，不接管模块状态、回调或动态库",
+      "tests": [
+        "gneiss.cpp_game_module",
+        "gneiss.c_game_module"
+      ],
+      "cpp_entry": "gneiss::validate_game_module"
+    },
+    {
+      "symbol": "gneiss_game_context_get_world",
+      "header": "include/gneiss/game_module.h",
+      "cpp_candidate_files": [
+        "include/gneiss/game_module.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "借用 World，限生命周期回调线程；强类型输出失败保留，不延长父资源寿命",
+      "tests": [
+        "gneiss.game_context",
+        "gneiss.cpp_game_module"
+      ],
+      "cpp_entry": "gneiss::game_context::get_world(world_ref&)"
+    },
+    {
+      "symbol": "gneiss_game_context_get_startup_root_entity",
+      "header": "include/gneiss/game_module.h",
+      "cpp_candidate_files": [
+        "include/gneiss/game_module.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "借用启动实体，限生命周期回调线程；强类型输出失败保留",
+      "tests": [
+        "gneiss.game_context",
+        "gneiss.cpp_game_module"
+      ],
+      "cpp_entry": "gneiss::game_context::get_startup_root_entity(entity_id&)"
+    },
+    {
+      "symbol": "gneiss_game_context_find_action",
+      "header": "include/gneiss/game_module.h",
+      "cpp_candidate_files": [
+        "include/gneiss/game_module.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "上下文验证后借用所属 Application 动作；强类型输出失败不变",
+      "tests": [
+        "gneiss.game_context",
+        "gneiss.cpp_game_module"
+      ],
+      "cpp_entry": "gneiss::game_context::find_action(name, action_id&)"
+    },
+    {
+      "symbol": "gneiss_game_context_get_action_state",
+      "header": "include/gneiss/game_module.h",
+      "cpp_candidate_files": [
+        "include/gneiss/game_module.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "所属生命周期线程读取动作值快照；所有权和 generation 与 Application 动作相同",
+      "tests": [
+        "gneiss.game_context",
+        "gneiss.cpp_game_module"
+      ],
+      "cpp_entry": "gneiss::game_context::get_action_state(action_id, action_state&)"
+    },
+    {
+      "symbol": "gneiss_game_context_request_exit",
+      "header": "include/gneiss/game_module.h",
+      "cpp_candidate_files": [
+        "include/gneiss/game_module.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "生命周期回调线程借用 Context 请求宿主退出；不销毁上下文或模块",
+      "tests": [
+        "gneiss.game_context"
+      ],
+      "cpp_entry": "gneiss::game_context::request_exit"
+    },
+    {
+      "symbol": "gneiss_game_context_log",
+      "header": "include/gneiss/game_module.h",
+      "cpp_candidate_files": [
+        "include/gneiss/game_module.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "存活 Context 可从工作线程提交，返回前复制消息；上下文不由包装拥有，回调期日志视图不能外泄",
+      "tests": [
+        "gneiss.game_context",
+        "gneiss.cpp_game_module"
+      ],
+      "cpp_entry": "gneiss::game_context::log"
+    },
+    {
+      "symbol": "gneiss_version_major",
+      "header": "include/gneiss/gneiss.h",
+      "cpp_candidate_files": [
+        "include/gneiss/gneiss.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "返回版本值，无资源所有权",
+      "tests": [
+        "gneiss.c_version",
+        "gneiss.cpp_version"
+      ],
+      "cpp_entry": "gneiss::library_version"
+    },
+    {
+      "symbol": "gneiss_version_minor",
+      "header": "include/gneiss/gneiss.h",
+      "cpp_candidate_files": [
+        "include/gneiss/gneiss.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "返回版本值，无资源所有权",
+      "tests": [
+        "gneiss.c_version",
+        "gneiss.cpp_version"
+      ],
+      "cpp_entry": "gneiss::library_version"
+    },
+    {
+      "symbol": "gneiss_version_patch",
+      "header": "include/gneiss/gneiss.h",
+      "cpp_candidate_files": [
+        "include/gneiss/gneiss.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "返回版本值，无资源所有权",
+      "tests": [
+        "gneiss.c_version",
+        "gneiss.cpp_version"
+      ],
+      "cpp_entry": "gneiss::library_version"
+    },
+    {
+      "symbol": "gneiss_application_poll_input",
+      "header": "include/gneiss/input.h",
+      "cpp_candidate_files": [
+        "include/gneiss/input.hpp",
+        "include/gneiss/application.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "所属线程消费当帧队列；事件值复制，队列空 not_ready；结构尺寸规则继承 C",
+      "tests": [
+        "gneiss.cpp_input",
+        "gneiss.c_application"
+      ],
+      "cpp_entry": "gneiss::application::poll_input / gneiss::poll_input"
+    },
+    {
+      "symbol": "gneiss_application_get_keyboard_state",
+      "header": "include/gneiss/input.h",
+      "cpp_candidate_files": [
+        "include/gneiss/input.hpp",
+        "include/gneiss/application.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "所属线程输出键盘值快照，不借用后端内存",
+      "tests": [
+        "gneiss.cpp_input",
+        "gneiss.c_application"
+      ],
+      "cpp_entry": "gneiss::application::get_keyboard_state / gneiss::get_keyboard_state"
+    },
+    {
+      "symbol": "gneiss_application_get_pointer_state",
+      "header": "include/gneiss/input.h",
+      "cpp_candidate_files": [
+        "include/gneiss/input.hpp",
+        "include/gneiss/application.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "所属线程输出指针值快照，不借用后端内存",
+      "tests": [
+        "gneiss.cpp_input",
+        "gneiss.c_application"
+      ],
+      "cpp_entry": "gneiss::application::get_pointer_state / gneiss::get_pointer_state"
+    },
+    {
+      "symbol": "gneiss_application_load_action_map",
+      "header": "include/gneiss/input.h",
+      "cpp_candidate_files": [
+        "include/gneiss/input.hpp",
+        "include/gneiss/application.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "URI 只在调用期间借用；成功替换映射使旧动作 ID 失效，失败保留映射",
+      "tests": [
+        "gneiss.cpp_input",
+        "gneiss.c_application"
+      ],
+      "cpp_entry": "gneiss::application::load_action_map / gneiss::load_action_map"
+    },
+    {
+      "symbol": "gneiss_application_find_action",
+      "header": "include/gneiss/input.h",
+      "cpp_candidate_files": [
+        "include/gneiss/input.hpp",
+        "include/gneiss/application.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "借用强类型 action_id，限所属线程；强类型输出失败不变，原整数别名入口保留兼容",
+      "tests": [
+        "gneiss.cpp_input",
+        "gneiss.c_application"
+      ],
+      "cpp_entry": "gneiss::application::find_action / gneiss::find_action"
+    },
+    {
+      "symbol": "gneiss_application_get_action_state",
+      "header": "include/gneiss/input.h",
+      "cpp_candidate_files": [
+        "include/gneiss/input.hpp",
+        "include/gneiss/application.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "输出当帧值快照；不拥有动作，拒绝过期 generation 与跨 Application 动作，结构尺寸校验同 C",
+      "tests": [
+        "gneiss.cpp_input",
+        "gneiss.c_application"
+      ],
+      "cpp_entry": "gneiss::application::get_action_state / gneiss::get_action_state"
+    },
+    {
+      "symbol": "gneiss_log_message_validate",
+      "header": "include/gneiss/log.h",
+      "cpp_candidate_files": [
+        "include/gneiss/log.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "仅借用消息字符串，校验不转移所有权，无分配且线程安全",
+      "tests": [
+        "gneiss.c_log",
+        "gneiss.cpp_log"
+      ],
+      "cpp_entry": "gneiss::validate_log_message"
+    },
+    {
+      "symbol": "gneiss_type_registry_create",
+      "header": "include/gneiss/reflection.h",
+      "cpp_candidate_files": [
+        "include/gneiss/reflection.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "独占 Registry；可移动，替换时销毁旧对象",
+      "tests": [
+        "gneiss.cpp-owner-lifecycle"
+      ],
+      "cpp_entry": "gneiss::type_registry::create"
+    },
+    {
+      "symbol": "gneiss_type_registry_destroy",
+      "header": "include/gneiss/reflection.h",
+      "cpp_candidate_files": [
+        "include/gneiss/reflection.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "销毁使所有元数据借用失效；允许外部同步后的跨线程关闭；release 转移销毁责任",
+      "tests": [
+        "gneiss.cpp-owner-lifecycle"
+      ],
+      "cpp_entry": "gneiss::type_registry::reset / release"
+    },
+    {
+      "symbol": "gneiss_type_registry_register",
+      "header": "include/gneiss/reflection.h",
+      "cpp_candidate_files": [
+        "include/gneiss/reflection.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "Registry 拥有复制的元数据；输出元数据、回调上下文和属性字符串按 Reference 借用；销毁同步由调用方负责",
+      "tests": [
+        "gneiss.cpp_reflection",
+        "gneiss.property_access",
+        "gneiss.reflection-boundary"
+      ],
+      "cpp_entry": "gneiss::type_registry::register_type"
+    },
+    {
+      "symbol": "gneiss_type_registry_bind_property",
+      "header": "include/gneiss/reflection.h",
+      "cpp_candidate_files": [
+        "include/gneiss/reflection.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "Registry 拥有复制的元数据；输出元数据、回调上下文和属性字符串按 Reference 借用；销毁同步由调用方负责",
+      "tests": [
+        "gneiss.cpp_reflection",
+        "gneiss.property_access",
+        "gneiss.reflection-boundary"
+      ],
+      "cpp_entry": "gneiss::type_registry::bind_property"
+    },
+    {
+      "symbol": "gneiss_type_registry_freeze",
+      "header": "include/gneiss/reflection.h",
+      "cpp_candidate_files": [
+        "include/gneiss/reflection.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "Registry 拥有复制的元数据；输出元数据、回调上下文和属性字符串按 Reference 借用；销毁同步由调用方负责",
+      "tests": [
+        "gneiss.cpp_reflection",
+        "gneiss.property_access",
+        "gneiss.reflection-boundary"
+      ],
+      "cpp_entry": "gneiss::type_registry::freeze"
+    },
+    {
+      "symbol": "gneiss_type_registry_is_frozen",
+      "header": "include/gneiss/reflection.h",
+      "cpp_candidate_files": [
+        "include/gneiss/reflection.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "查询不转移所有权；Registry 元数据借用有效期不超过 Registry，其余返回值类型",
+      "tests": [
+        "gneiss.cpp_reflection"
+      ],
+      "cpp_entry": "gneiss::type_registry::is_frozen"
+    },
+    {
+      "symbol": "gneiss_type_registry_type_count",
+      "header": "include/gneiss/reflection.h",
+      "cpp_candidate_files": [
+        "include/gneiss/reflection.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "Registry 拥有复制的元数据；输出元数据、回调上下文和属性字符串按 Reference 借用；销毁同步由调用方负责",
+      "tests": [
+        "gneiss.cpp_reflection",
+        "gneiss.property_access",
+        "gneiss.reflection-boundary"
+      ],
+      "cpp_entry": "gneiss::type_registry::type_count"
+    },
+    {
+      "symbol": "gneiss_type_registry_type_at",
+      "header": "include/gneiss/reflection.h",
+      "cpp_candidate_files": [
+        "include/gneiss/reflection.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "查询不转移所有权；Registry 元数据借用有效期不超过 Registry，其余返回值类型",
+      "tests": [
+        "gneiss.cpp_reflection"
+      ],
+      "cpp_entry": "gneiss::type_registry::type_at"
+    },
+    {
+      "symbol": "gneiss_type_registry_find_type",
+      "header": "include/gneiss/reflection.h",
+      "cpp_candidate_files": [
+        "include/gneiss/reflection.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "Registry 拥有复制的元数据；输出元数据、回调上下文和属性字符串按 Reference 借用；销毁同步由调用方负责",
+      "tests": [
+        "gneiss.cpp_reflection",
+        "gneiss.property_access",
+        "gneiss.reflection-boundary"
+      ],
+      "cpp_entry": "gneiss::type_registry::find_type"
+    },
+    {
+      "symbol": "gneiss_type_registry_find_field",
+      "header": "include/gneiss/reflection.h",
+      "cpp_candidate_files": [
+        "include/gneiss/reflection.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "Registry 拥有复制的元数据；输出元数据、回调上下文和属性字符串按 Reference 借用；销毁同步由调用方负责",
+      "tests": [
+        "gneiss.cpp_reflection",
+        "gneiss.property_access",
+        "gneiss.reflection-boundary"
+      ],
+      "cpp_entry": "gneiss::type_registry::find_field"
+    },
+    {
+      "symbol": "gneiss_type_registry_get_property",
+      "header": "include/gneiss/reflection.h",
+      "cpp_candidate_files": [
+        "include/gneiss/reflection.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "Registry 拥有复制的元数据；输出元数据、回调上下文和属性字符串按 Reference 借用；销毁同步由调用方负责",
+      "tests": [
+        "gneiss.cpp_reflection",
+        "gneiss.property_access",
+        "gneiss.reflection-boundary"
+      ],
+      "cpp_entry": "gneiss::type_registry::get_property"
+    },
+    {
+      "symbol": "gneiss_type_registry_set_property",
+      "header": "include/gneiss/reflection.h",
+      "cpp_candidate_files": [
+        "include/gneiss/reflection.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "Registry 拥有复制的元数据；输出元数据、回调上下文和属性字符串按 Reference 借用；销毁同步由调用方负责",
+      "tests": [
+        "gneiss.cpp_reflection",
+        "gneiss.property_access",
+        "gneiss.reflection-boundary"
+      ],
+      "cpp_entry": "gneiss::type_registry::set_property"
+    },
+    {
+      "symbol": "gneiss_mesh_create",
+      "header": "include/gneiss/render.h",
+      "cpp_candidate_files": [
+        "include/gneiss/application.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "RAII 独占 RID；父 Application 借用；所属线程关闭；父失效允许清空",
+      "tests": [
+        "gneiss.cpp-resource-ownership"
+      ],
+      "cpp_entry": "gneiss::mesh::create"
+    },
+    {
+      "symbol": "gneiss_mesh_destroy",
+      "header": "include/gneiss/render.h",
+      "cpp_candidate_files": [
+        "include/gneiss/application.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "RAII 独占 RID；父 Application 借用；所属线程关闭；父失效允许清空",
+      "tests": [
+        "gneiss.cpp-resource-ownership"
+      ],
+      "cpp_entry": "gneiss::mesh::reset / destructor"
+    },
+    {
+      "symbol": "gneiss_material_create",
+      "header": "include/gneiss/render.h",
+      "cpp_candidate_files": [
+        "include/gneiss/application.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "RAII 独占 RID；父 Application 借用；所属线程关闭；父失效允许清空",
+      "tests": [
+        "gneiss.cpp-resource-ownership"
+      ],
+      "cpp_entry": "gneiss::material::create"
+    },
+    {
+      "symbol": "gneiss_material_destroy",
+      "header": "include/gneiss/render.h",
+      "cpp_candidate_files": [
+        "include/gneiss/application.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "RAII 独占 RID；父 Application 借用；所属线程关闭；父失效允许清空",
+      "tests": [
+        "gneiss.cpp-resource-ownership"
+      ],
+      "cpp_entry": "gneiss::material::reset / destructor"
+    },
+    {
+      "symbol": "gneiss_texture_create",
+      "header": "include/gneiss/render.h",
+      "cpp_candidate_files": [
+        "include/gneiss/application.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "RAII 独占 RID；父 Application 借用；所属线程关闭；父失效允许清空",
+      "tests": [
+        "gneiss.cpp-resource-ownership"
+      ],
+      "cpp_entry": "gneiss::texture::create"
+    },
+    {
+      "symbol": "gneiss_texture_destroy",
+      "header": "include/gneiss/render.h",
+      "cpp_candidate_files": [
+        "include/gneiss/application.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "RAII 独占 RID；父 Application 借用；所属线程关闭；父失效允许清空",
+      "tests": [
+        "gneiss.cpp-resource-ownership"
+      ],
+      "cpp_entry": "gneiss::texture::reset / destructor"
+    },
+    {
+      "symbol": "gneiss_application_submit_ui_draw_list",
+      "header": "include/gneiss/render.h",
+      "cpp_candidate_files": [
+        "include/gneiss/application.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "仅 update 回调中提交；返回前复制顶点/索引/命令数组，同帧成功提交替换原值；纹理 RID 仍借用资源",
+      "tests": [
+        "gneiss.c_application",
+        "gneiss.granit_platform"
+      ],
+      "cpp_entry": "gneiss::application::submit_ui_draw_list"
+    },
+    {
+      "symbol": "gneiss_application_submit_debug_draw_list",
+      "header": "include/gneiss/render.h",
+      "cpp_candidate_files": [
+        "include/gneiss/application.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "仅 update 回调中复制线段数组；同帧成功提交替换，帧后失效，不取得调用方数组所有权",
+      "tests": [
+        "gneiss.granit_platform"
+      ],
+      "cpp_entry": "gneiss::application::submit_debug_draw_list"
+    },
+    {
+      "symbol": "gneiss_world_entity_set_camera",
+      "header": "include/gneiss/render.h",
+      "cpp_candidate_files": [
+        "include/gneiss/world.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "复制旧 Camera 值；is_primary 可更新活动相机，不拥有外部资源；遵守所属 World 线程约束",
+      "tests": [
+        "gneiss.cpp_world",
+        "gneiss.c_world"
+      ],
+      "cpp_entry": "gneiss::world_ref::set_camera / gneiss::world"
+    },
+    {
+      "symbol": "gneiss_world_entity_configure_camera",
+      "header": "include/gneiss/render.h",
+      "cpp_candidate_files": [
+        "include/gneiss/world.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "复制版本化 Camera 值，不改变活动相机；结构尺寸与投影参数先校验；遵守所属 World 线程约束",
+      "tests": [
+        "gneiss.cpp_world",
+        "gneiss.c_world",
+        "gneiss.world-service-boundary"
+      ],
+      "cpp_entry": "gneiss::world_ref::configure_camera / gneiss::world"
+    },
+    {
+      "symbol": "gneiss_world_entity_get_camera",
+      "header": "include/gneiss/render.h",
+      "cpp_candidate_files": [
+        "include/gneiss/world.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "返回 Camera 值快照，失败保留输出；结构须用 INIT 初始化；遵守所属 World 线程约束",
+      "tests": [
+        "gneiss.cpp_world",
+        "gneiss.c_world",
+        "gneiss.world-service-boundary"
+      ],
+      "cpp_entry": "gneiss::world_ref::get_camera / gneiss::world"
+    },
+    {
+      "symbol": "gneiss_world_entity_remove_camera",
+      "header": "include/gneiss/render.h",
+      "cpp_candidate_files": [
+        "include/gneiss/world.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "移除组件；活动相机被移除后变为未设置，重复移除 not_found；遵守所属 World 线程约束",
+      "tests": [
+        "gneiss.cpp_world",
+        "gneiss.c_world"
+      ],
+      "cpp_entry": "gneiss::world_ref::remove_camera / gneiss::world"
+    },
+    {
+      "symbol": "gneiss_world_set_active_camera",
+      "header": "include/gneiss/render.h",
+      "cpp_candidate_files": [
+        "include/gneiss/world.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "只借用 World 内已配置 Camera 的实体，不转移实体所有权；遵守所属 World 线程约束",
+      "tests": [
+        "gneiss.cpp_world",
+        "gneiss.c_world"
+      ],
+      "cpp_entry": "gneiss::world_ref::set_active_camera / gneiss::world"
+    },
+    {
+      "symbol": "gneiss_world_get_active_camera",
+      "header": "include/gneiss/render.h",
+      "cpp_candidate_files": [
+        "include/gneiss/world.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "返回借用实体；未设置返回 not_ready；C++ 保持既有失败清空输出规则；遵守所属 World 线程约束",
+      "tests": [
+        "gneiss.cpp_world",
+        "gneiss.c_world"
+      ],
+      "cpp_entry": "gneiss::world_ref::get_active_camera / gneiss::world"
+    },
+    {
+      "symbol": "gneiss_world_entity_set_mesh_renderer",
+      "header": "include/gneiss/render.h",
+      "cpp_candidate_files": [
+        "include/gneiss/world.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "复制 Mesh/Material RID，不取得资源所有权；拒绝零 RID，其他资源有效性在提取时校验；遵守所属 World 线程约束",
+      "tests": [
+        "gneiss.cpp-resource-ownership"
+      ],
+      "cpp_entry": "gneiss::world_ref::set_mesh_renderer / gneiss::world"
+    },
+    {
+      "symbol": "gneiss_world_entity_remove_mesh_renderer",
+      "header": "include/gneiss/render.h",
+      "cpp_candidate_files": [
+        "include/gneiss/world.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "只删除组件，不销毁所借用的资源；重复移除 not_found；遵守所属 World 线程约束",
+      "tests": [
+        "gneiss.cpp-resource-ownership"
+      ],
+      "cpp_entry": "gneiss::world_ref::remove_mesh_renderer / gneiss::world"
+    },
+    {
+      "symbol": "gneiss_scene_node_create",
+      "header": "include/gneiss/scene.h",
+      "cpp_candidate_files": [
+        "include/gneiss/world.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "World 拥有节点，返回借用强类型 ID；关联实体不转移所有权；C++ 失败保留输出；遵守所属 World 线程约束",
+      "tests": [
+        "gneiss.cpp_scene",
+        "gneiss.c_scene"
+      ],
+      "cpp_entry": "gneiss::world_ref::create_scene_node / gneiss::world"
+    },
+    {
+      "symbol": "gneiss_scene_node_destroy",
+      "header": "include/gneiss/scene.h",
+      "cpp_candidate_files": [
+        "include/gneiss/world.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "递归删除节点及子节点，实体仍由 World 持有；旧 generation 失效；遵守所属 World 线程约束",
+      "tests": [
+        "gneiss.cpp_scene",
+        "gneiss.c_scene"
+      ],
+      "cpp_entry": "gneiss::world_ref::destroy_scene_node / gneiss::world"
+    },
+    {
+      "symbol": "gneiss_scene_node_reparent",
+      "header": "include/gneiss/scene.h",
+      "cpp_candidate_files": [
+        "include/gneiss/world.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "只改变所属 World 内父链；拒绝循环，不改变实体所有权；遵守所属 World 线程约束",
+      "tests": [
+        "gneiss.cpp_scene",
+        "gneiss.c_scene"
+      ],
+      "cpp_entry": "gneiss::world_ref::reparent_scene_node / gneiss::world"
+    },
+    {
+      "symbol": "gneiss_scene_node_set_local_transform",
+      "header": "include/gneiss/scene.h",
+      "cpp_candidate_files": [
+        "include/gneiss/world.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "复制变换值；拒绝非有限、非法旋转与零缩放，不借用输入；遵守所属 World 线程约束",
+      "tests": [
+        "gneiss.cpp_scene",
+        "gneiss.scene_tree_transform"
+      ],
+      "cpp_entry": "gneiss::world_ref::set_local_transform(scene_node_id, transform) / gneiss::world"
+    },
+    {
+      "symbol": "gneiss_scene_node_get_local_transform",
+      "header": "include/gneiss/scene.h",
+      "cpp_candidate_files": [
+        "include/gneiss/world.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "查询不转移所有权；Registry 元数据借用有效期不超过 Registry，其余返回值类型",
+      "tests": [
+        "gneiss.cpp_world"
+      ],
+      "cpp_entry": "gneiss::world::get_local_transform(scene_node_id, transform&)"
+    },
+    {
+      "symbol": "gneiss_scene_node_get_world_transform",
+      "header": "include/gneiss/scene.h",
+      "cpp_candidate_files": [
+        "include/gneiss/world.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "输出父链组合的变换值，不返回内部引用；遵守所属 World 线程约束",
+      "tests": [
+        "gneiss.cpp_scene",
+        "gneiss.c_scene",
+        "gneiss.scene_tree_transform"
+      ],
+      "cpp_entry": "gneiss::world_ref::get_world_transform / gneiss::world"
+    },
+    {
+      "symbol": "gneiss_scene_node_get_entity",
+      "header": "include/gneiss/scene.h",
+      "cpp_candidate_files": [
+        "include/gneiss/world.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "查询不转移所有权；Registry 元数据借用有效期不超过 Registry，其余返回值类型",
+      "tests": [
+        "gneiss.cpp_world"
+      ],
+      "cpp_entry": "gneiss::world::get_entity"
+    },
+    {
+      "symbol": "gneiss_scene_node_get_parent",
+      "header": "include/gneiss/scene.h",
+      "cpp_candidate_files": [
+        "include/gneiss/world.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "查询不转移所有权；Registry 元数据借用有效期不超过 Registry，其余返回值类型",
+      "tests": [
+        "gneiss.cpp_world"
+      ],
+      "cpp_entry": "gneiss::world::get_parent"
+    },
+    {
+      "symbol": "gneiss_world_entity_get_local_transform",
+      "header": "include/gneiss/scene.h",
+      "cpp_candidate_files": [
+        "include/gneiss/world.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "通过关联节点读取值快照；C++ 继承 C 入口先将输出置单位变换的规则；遵守所属 World 线程约束",
+      "tests": [
+        "gneiss.cpp_scene"
+      ],
+      "cpp_entry": "gneiss::world_ref::get_local_transform(entity_id, transform&) / gneiss::world"
+    },
+    {
+      "symbol": "gneiss_world_entity_set_local_transform",
+      "header": "include/gneiss/scene.h",
+      "cpp_candidate_files": [
+        "include/gneiss/world.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "通过关联节点写入变换值；不关联时失败，不改变对象所有权；遵守所属 World 线程约束",
+      "tests": [
+        "gneiss.cpp_scene"
+      ],
+      "cpp_entry": "gneiss::world_ref::set_local_transform(entity_id, transform) / gneiss::world"
+    },
+    {
+      "symbol": "gneiss_scene_instance_load",
+      "header": "include/gneiss/scene.h",
+      "cpp_candidate_files": [
+        "include/gneiss/scene.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "静态工厂同步加载；成功独占场景、失败保留原拥有者，父 Application 寿命不延长；操作限所属 Application 线程",
+      "tests": [
+        "gneiss.cpp_scene_instance",
+        "gneiss.scene_instance"
+      ],
+      "cpp_entry": "gneiss::scene_instance::load"
+    },
+    {
+      "symbol": "gneiss_scene_instance_create_empty",
+      "header": "include/gneiss/scene.h",
+      "cpp_candidate_files": [
+        "include/gneiss/scene.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "独占场景，不延长父 Application 寿命；失败保留原输出并回收候选",
+      "tests": [
+        "gneiss.cpp-owner-lifecycle",
+        "gneiss.cpp-owner-termination"
+      ],
+      "cpp_entry": "gneiss::scene_instance::create_empty"
+    },
+    {
+      "symbol": "gneiss_scene_instance_unload",
+      "header": "include/gneiss/scene.h",
+      "cpp_candidate_files": [
+        "include/gneiss/scene.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "所属线程卸载；父对象失效时安全清空；release 前保存 owner 并承担卸载责任",
+      "tests": [
+        "gneiss.cpp-owner-lifecycle",
+        "gneiss.cpp-owner-termination"
+      ],
+      "cpp_entry": "gneiss::scene_instance::reset / release"
+    },
+    {
+      "symbol": "gneiss_scene_instance_find_node",
+      "header": "include/gneiss/scene.h",
+      "cpp_candidate_files": [
+        "include/gneiss/scene.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "按 UUID 返回借用节点 ID，失败保留 C++ 输出；节点/场景卸载后失效；操作限所属 Application 线程",
+      "tests": [
+        "gneiss.cpp_scene_instance",
+        "gneiss.scene_instance"
+      ],
+      "cpp_entry": "gneiss::scene_instance::find_node"
+    },
+    {
+      "symbol": "gneiss_scene_instance_get_node_count",
+      "header": "include/gneiss/scene.h",
+      "cpp_candidate_files": [
+        "include/gneiss/scene.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "返回普通作者节点数量值，不返回内部容器；操作限所属 Application 线程",
+      "tests": [
+        "gneiss.cpp_scene_instance",
+        "gneiss.scene_instance"
+      ],
+      "cpp_entry": "gneiss::scene_instance::get_node_count"
+    },
+    {
+      "symbol": "gneiss_scene_instance_get_node_info",
+      "header": "include/gneiss/scene.h",
+      "cpp_candidate_files": [
+        "include/gneiss/scene.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "C 描述值映射，内部字符串借用至下次场景修改或卸载；须使用 INIT，失败输出不可当作完整描述；操作限所属 Application 线程",
+      "tests": [
+        "gneiss.cpp_scene_instance",
+        "gneiss.scene_instance"
+      ],
+      "cpp_entry": "gneiss::scene_instance::get_node_info"
+    },
+    {
+      "symbol": "gneiss_scene_instance_get_prefab_node_count",
+      "header": "include/gneiss/scene.h",
+      "cpp_candidate_files": [
+        "include/gneiss/scene.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "返回实例根及展开来源节点总数值，不返回内部容器；操作限所属 Application 线程",
+      "tests": [
+        "gneiss.cpp_scene_instance",
+        "gneiss.scene_prefab_instance"
+      ],
+      "cpp_entry": "gneiss::scene_instance::get_prefab_node_count"
+    },
+    {
+      "symbol": "gneiss_scene_instance_get_prefab_node_info",
+      "header": "include/gneiss/scene.h",
+      "cpp_candidate_files": [
+        "include/gneiss/scene.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "C 描述值映射，字符串借用至下次场景修改/刷新/卸载；刷新后旧节点 ID 失效；操作限所属 Application 线程",
+      "tests": [
+        "gneiss.cpp_scene_instance",
+        "gneiss.scene_prefab_instance"
+      ],
+      "cpp_entry": "gneiss::scene_instance::get_prefab_node_info"
+    },
+    {
+      "symbol": "gneiss_scene_instance_create_prefab_instance",
+      "header": "include/gneiss/scene.h",
+      "cpp_candidate_files": [
+        "include/gneiss/scene.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "借用描述字符串到调用返回，原子创建场景持有的 Prefab 与投影，失败保留 C++ 输出；操作限所属 Application 线程",
+      "tests": [
+        "gneiss.cpp_scene_instance",
+        "gneiss.scene_prefab_instance"
+      ],
+      "cpp_entry": "gneiss::scene_instance::create_prefab_instance"
+    },
+    {
+      "symbol": "gneiss_scene_instance_set_prefab_instance_name",
+      "header": "include/gneiss/scene.h",
+      "cpp_candidate_files": [
+        "include/gneiss/scene.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "调用期间借用名称，场景复制作者文本，不改写来源资产；操作限所属 Application 线程",
+      "tests": [
+        "gneiss.cpp_scene_instance",
+        "gneiss.scene_prefab_instance"
+      ],
+      "cpp_entry": "gneiss::scene_instance::set_prefab_instance_name"
+    },
+    {
+      "symbol": "gneiss_scene_instance_set_prefab_source_transform",
+      "header": "include/gneiss/scene.h",
+      "cpp_candidate_files": [
+        "include/gneiss/scene.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "复制 Transform 为实例覆盖，不修改共享来源资产；输入不逃逸调用；操作限所属 Application 线程",
+      "tests": [
+        "gneiss.cpp_scene_instance",
+        "gneiss.scene_prefab_instance"
+      ],
+      "cpp_entry": "gneiss::scene_instance::set_prefab_source_transform"
+    },
+    {
+      "symbol": "gneiss_scene_instance_destroy_prefab_instance",
+      "header": "include/gneiss/scene.h",
+      "cpp_candidate_files": [
+        "include/gneiss/scene.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "删除场景内实例声明与投影，旧节点失效；尚存刷新历史由各令牌管理；操作限所属 Application 线程",
+      "tests": [
+        "gneiss.cpp_scene_instance",
+        "gneiss.scene_prefab_instance"
+      ],
+      "cpp_entry": "gneiss::scene_instance::destroy_prefab_instance"
+    },
+    {
+      "symbol": "gneiss_scene_instance_refresh_prefab_instance",
+      "header": "include/gneiss/scene.h",
+      "cpp_candidate_files": [
+        "include/gneiss/scene.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "场景线程刷新并返回独占历史租约；RAII 输出须为空，失败不改变输出和原投影；不延长父对象寿命",
+      "tests": [
+        "gneiss.cpp-prefab-refresh",
+        "gneiss.cpp-prefab-refresh-termination",
+        "gneiss.scene_prefab_instance"
+      ],
+      "cpp_entry": "gneiss::scene_instance::refresh_prefab_instance / gneiss::scene_prefab_refresh"
+    },
+    {
+      "symbol": "gneiss_scene_instance_toggle_prefab_refresh",
+      "header": "include/gneiss/scene.h",
+      "cpp_candidate_files": [
+        "include/gneiss/scene.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "使用保存的 Application/场景/令牌切换，成功旧节点失效，失败保留 C++ 输出；零令牌 invalid_argument，过期令牌 invalid_handle",
+      "tests": [
+        "gneiss.cpp-prefab-refresh",
+        "gneiss.cpp-prefab-refresh-termination",
+        "gneiss.scene_prefab_instance"
+      ],
+      "cpp_entry": "gneiss::scene_prefab_refresh::toggle / gneiss::scene_instance::toggle_prefab_refresh"
+    },
+    {
+      "symbol": "gneiss_scene_instance_release_prefab_refresh",
+      "header": "include/gneiss/scene.h",
+      "cpp_candidate_files": [
+        "include/gneiss/scene.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "所属线程释放历史不回滚投影；父对象或令牌失效可清空；其他失败保留拥有者，析构失败终止；release 转移手动释放责任",
+      "tests": [
+        "gneiss.cpp-prefab-refresh",
+        "gneiss.cpp-prefab-refresh-termination",
+        "gneiss.scene_prefab_instance"
+      ],
+      "cpp_entry": "gneiss::scene_prefab_refresh::reset / release / gneiss::scene_instance::release_prefab_refresh"
+    },
+    {
+      "symbol": "gneiss_scene_instance_create_node",
+      "header": "include/gneiss/scene.h",
+      "cpp_candidate_files": [
+        "include/gneiss/scene.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "场景拥有新实体和节点；描述只借用到返回，C++ 返回非拥有节点 ID，失败保留输出；操作限所属 Application 线程",
+      "tests": [
+        "gneiss.cpp_scene_instance",
+        "gneiss.scene_instance"
+      ],
+      "cpp_entry": "gneiss::scene_instance::create_node"
+    },
+    {
+      "symbol": "gneiss_scene_instance_set_node_name",
+      "header": "include/gneiss/scene.h",
+      "cpp_candidate_files": [
+        "include/gneiss/scene.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "借用名称到返回并复制入场景；已有字符串视图须重新查询；操作限所属 Application 线程",
+      "tests": [
+        "gneiss.cpp_scene_instance",
+        "gneiss.scene_instance"
+      ],
+      "cpp_entry": "gneiss::scene_instance::set_node_name"
+    },
+    {
+      "symbol": "gneiss_scene_instance_reparent_node",
+      "header": "include/gneiss/scene.h",
+      "cpp_candidate_files": [
+        "include/gneiss/scene.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "只重挂所属场景作者节点；拒绝循环/外场景父节点，不转移所有权；操作限所属 Application 线程",
+      "tests": [
+        "gneiss.cpp_scene_instance",
+        "gneiss.scene_instance"
+      ],
+      "cpp_entry": "gneiss::scene_instance::reparent_node"
+    },
+    {
+      "symbol": "gneiss_scene_instance_capture_subtree",
+      "header": "include/gneiss/scene.h",
+      "cpp_candidate_files": [
+        "include/gneiss/scene.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "两次 C 查询构造拥有型 string 快照；C++ 失败不改输出，捕获不含无关 Prefab，子树含 Prefab 时 unsupported；操作限所属 Application 线程",
+      "tests": [
+        "gneiss.cpp_scene_instance",
+        "gneiss.scene_instance"
+      ],
+      "cpp_entry": "gneiss::scene_instance::capture_subtree"
+    },
+    {
+      "symbol": "gneiss_scene_instance_restore_subtree",
+      "header": "include/gneiss/scene.h",
+      "cpp_candidate_files": [
+        "include/gneiss/scene.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "同步借用 snapshot/span 及 UUID 字符串；原子创建后返回非拥有 ID，失败保留输出；含 Prefab 快照 unsupported；操作限所属 Application 线程",
+      "tests": [
+        "gneiss.cpp_scene_instance",
+        "gneiss.scene_instance"
+      ],
+      "cpp_entry": "gneiss::scene_instance::restore_subtree"
+    },
+    {
+      "symbol": "gneiss_scene_instance_destroy_subtree",
+      "header": "include/gneiss/scene.h",
+      "cpp_candidate_files": [
+        "include/gneiss/scene.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "销毁普通作者子树的实体、节点与租约；子树挂接 Prefab 时 unsupported 且不修改实例；操作限所属 Application 线程",
+      "tests": [
+        "gneiss.cpp_scene_instance",
+        "gneiss.scene_instance"
+      ],
+      "cpp_entry": "gneiss::scene_instance::destroy_subtree"
+    },
+    {
+      "symbol": "gneiss_scene_instance_create_mesh_renderer_node",
+      "header": "include/gneiss/scene.h",
+      "cpp_candidate_files": [
+        "include/gneiss/scene.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "场景持有资源租约及新节点；描述 URI 仅在调用期间借用，C++ 失败保留输出；操作限所属 Application 线程",
+      "tests": [
+        "gneiss.cpp_scene_instance",
+        "gneiss.scene_instance"
+      ],
+      "cpp_entry": "gneiss::scene_instance::create_mesh_renderer_node"
+    },
+    {
+      "symbol": "gneiss_scene_instance_set_mesh_renderer",
+      "header": "include/gneiss/scene.h",
+      "cpp_candidate_files": [
+        "include/gneiss/scene.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "原子更新作者 URI、组件与场景持有的租约；失败保留原资源引用；操作限所属 Application 线程",
+      "tests": [
+        "gneiss.cpp_scene_instance",
+        "gneiss.scene_instance"
+      ],
+      "cpp_entry": "gneiss::scene_instance::set_mesh_renderer"
+    },
+    {
+      "symbol": "gneiss_scene_instance_set_camera",
+      "header": "include/gneiss/scene.h",
+      "cpp_candidate_files": [
+        "include/gneiss/scene.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "复制作者 Camera 值，按 is_primary 选择活动相机；输入不逃逸调用；操作限所属 Application 线程",
+      "tests": [
+        "gneiss.cpp_scene_instance",
+        "gneiss.scene_instance"
+      ],
+      "cpp_entry": "gneiss::scene_instance::set_camera"
+    },
+    {
+      "symbol": "gneiss_scene_instance_remove_camera",
+      "header": "include/gneiss/scene.h",
+      "cpp_candidate_files": [
+        "include/gneiss/scene.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "删除作者与运行时组件，不销毁实体，重复删除 not_found；操作限所属 Application 线程",
+      "tests": [
+        "gneiss.cpp_scene_instance",
+        "gneiss.scene_instance"
+      ],
+      "cpp_entry": "gneiss::scene_instance::remove_camera"
+    },
+    {
+      "symbol": "gneiss_scene_instance_remove_mesh_renderer",
+      "header": "include/gneiss/scene.h",
+      "cpp_candidate_files": [
+        "include/gneiss/scene.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "移除作者引用、运行时组件和场景租约；不要求调用方再销毁所借 RID；操作限所属 Application 线程",
+      "tests": [
+        "gneiss.cpp_scene_instance",
+        "gneiss.scene_instance"
+      ],
+      "cpp_entry": "gneiss::scene_instance::remove_mesh_renderer"
+    },
+    {
+      "symbol": "gneiss_scene_instance_destroy_node",
+      "header": "include/gneiss/scene.h",
+      "cpp_candidate_files": [
+        "include/gneiss/scene.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "删除无子节点的作者节点、实体和场景租约；普通或 Prefab 子节点均阻止删除；操作限所属 Application 线程",
+      "tests": [
+        "gneiss.cpp_scene_instance",
+        "gneiss.scene_instance"
+      ],
+      "cpp_entry": "gneiss::scene_instance::destroy_node"
+    },
+    {
+      "symbol": "gneiss_scene_instance_serialize",
+      "header": "include/gneiss/scene.h",
+      "cpp_candidate_files": [
+        "include/gneiss/scene.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "两次 C 查询构造拥有型 UTF-8 string；失败不改 C++ 输出，捕获长度/分配异常返回错误，不写入 VFS；操作限所属 Application 线程",
+      "tests": [
+        "gneiss.cpp_scene_instance",
+        "gneiss.scene_instance"
+      ],
+      "cpp_entry": "gneiss::scene_instance::serialize"
+    },
+    {
+      "symbol": "gneiss_world_create",
+      "header": "include/gneiss/world.h",
+      "cpp_candidate_files": [
+        "include/gneiss/world.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "独占 World；替换失败保留原输出并回收候选",
+      "tests": [
+        "gneiss.cpp-owner-lifecycle",
+        "gneiss.cpp-owner-termination"
+      ],
+      "cpp_entry": "gneiss::world::create"
+    },
+    {
+      "symbol": "gneiss_world_destroy",
+      "header": "include/gneiss/world.h",
+      "cpp_candidate_files": [
+        "include/gneiss/world.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "所属线程关闭；失败保留句柄，销毁使借用 world_ref 失效",
+      "tests": [
+        "gneiss.cpp-owner-lifecycle",
+        "gneiss.cpp-owner-termination"
+      ],
+      "cpp_entry": "gneiss::world::reset / release"
+    },
+    {
+      "symbol": "gneiss_world_entity_create",
+      "header": "include/gneiss/world.h",
+      "cpp_candidate_files": [
+        "include/gneiss/world.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "World 拥有实体，返回借用强类型 ID；C++ 失败保留输出；遵守所属 World 线程约束",
+      "tests": [
+        "gneiss.cpp_world",
+        "gneiss.c_world",
+        "gneiss.world-service-boundary"
+      ],
+      "cpp_entry": "gneiss::world_ref::create_entity / gneiss::world"
+    },
+    {
+      "symbol": "gneiss_world_entity_destroy",
+      "header": "include/gneiss/world.h",
+      "cpp_candidate_files": [
+        "include/gneiss/world.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "World 中销毁实体并使旧 generation 失效；组件引用资源不随实体销毁；遵守所属 World 线程约束",
+      "tests": [
+        "gneiss.cpp_world",
+        "gneiss.c_world",
+        "gneiss.cpp-resource-ownership"
+      ],
+      "cpp_entry": "gneiss::world_ref::destroy_entity / gneiss::world"
+    },
+    {
+      "symbol": "gneiss_world_entity_is_alive",
+      "header": "include/gneiss/world.h",
+      "cpp_candidate_files": [
+        "include/gneiss/world.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "不取得所有权；过期/外域实体成功返回 false，无效 World 失败；C++ bool 仅在成功时改写；遵守所属 World 线程约束",
+      "tests": [
+        "gneiss.cpp_world",
+        "gneiss.c_world"
+      ],
+      "cpp_entry": "gneiss::world_ref::is_alive / gneiss::world"
+    },
+    {
+      "symbol": "gneiss_world_entity_count",
+      "header": "include/gneiss/world.h",
+      "cpp_candidate_files": [
+        "include/gneiss/world.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "查询不转移所有权；Registry 元数据借用有效期不超过 Registry，其余返回值类型",
+      "tests": [
+        "gneiss.cpp_world"
+      ],
+      "cpp_entry": "gneiss::world::entity_count"
+    },
+    {
+      "symbol": "gneiss_transform_type_id",
+      "header": "include/gneiss/world.h",
+      "cpp_candidate_files": [
+        "include/gneiss/world.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "查询不转移所有权；Registry 元数据借用有效期不超过 Registry，其余返回值类型",
+      "tests": [
+        "gneiss.cpp_world"
+      ],
+      "cpp_entry": "gneiss::transform_type_id"
+    },
+    {
+      "symbol": "gneiss_camera_type_id",
+      "header": "include/gneiss/world.h",
+      "cpp_candidate_files": [
+        "include/gneiss/world.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "查询不转移所有权；Registry 元数据借用有效期不超过 Registry，其余返回值类型",
+      "tests": [
+        "gneiss.cpp_world"
+      ],
+      "cpp_entry": "gneiss::camera_type_id"
+    },
+    {
+      "symbol": "gneiss_world_register_reflection",
+      "header": "include/gneiss/world.h",
+      "cpp_candidate_files": [
+        "include/gneiss/world.hpp"
+      ],
+      "review": "reviewed",
+      "ownership": "借用未冻结 Registry 注册内建类型与访问器；不取得 Registry 所有权，重复注册幂等",
+      "tests": [
+        "gneiss.cpp_world",
+        "gneiss.component_reflection"
+      ],
+      "cpp_entry": "gneiss::world_ref::register_reflection / gneiss::world"
+    }
+  ]
+}

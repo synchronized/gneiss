@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "ipc_session_protocol.h"
+#include "ipc_session_protocol.hpp"
 
 #include <array>
 

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "game_module_session.h"
+#include "game_module_session.hpp"
 
 #include <cstdlib>
 #include <filesystem>

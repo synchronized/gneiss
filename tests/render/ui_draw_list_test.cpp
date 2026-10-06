@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "render/ui_draw_list.h"
+#include "engine/function/render/ui_draw_list.hpp"
 
 #include <array>
 #include <cstdint>
@@ -9,12 +9,11 @@
 int main() {
   gneiss::render_internal::render_resource_service resources;
   constexpr std::array<std::uint8_t, 4> pixels{255U, 255U, 255U, 255U};
-  gneiss_texture_desc texture_desc = GNEISS_TEXTURE_DESC_INIT;
+  gneiss::render_internal::texture_view texture_desc;
   texture_desc.width = 1U;
   texture_desc.height = 1U;
   texture_desc.row_stride_bytes = 4U;
-  texture_desc.pixel_data_size = pixels.size();
-  texture_desc.pixels = pixels.data();
+  texture_desc.pixels = pixels;
   gneiss_texture texture = GNEISS_NULL_TEXTURE;
   if (resources.create_texture(texture_desc, &texture) != GNEISS_SUCCESS) {
     return 1;
@@ -31,15 +30,12 @@ int main() {
                                              .index_count = 3U,
                                              .vertex_offset = 0U,
                                              .reserved = 0U}};
-  gneiss_ui_draw_list_desc desc = GNEISS_UI_DRAW_LIST_DESC_INIT;
+  gneiss::render_internal::ui_draw_view desc;
   desc.display_width = 640.0F;
   desc.display_height = 480.0F;
-  desc.vertex_count = static_cast<std::uint32_t>(vertices.size());
-  desc.vertices = vertices.data();
-  desc.index_count = static_cast<std::uint32_t>(indices.size());
-  desc.indices = indices.data();
-  desc.command_count = static_cast<std::uint32_t>(commands.size());
-  desc.commands = commands.data();
+  desc.vertices = vertices;
+  desc.indices = indices;
+  desc.commands = commands;
 
   gneiss::render_internal::ui_draw_list draw_list;
   if (draw_list.replace(desc, resources) != GNEISS_SUCCESS || draw_list.vertices().size() != 3U ||

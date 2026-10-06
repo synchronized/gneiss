@@ -1,20 +1,20 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include <gneiss/app/project_description.h>
+#include <gneiss/app/project_description.hpp>
 #include <gneiss/application.hpp>
 #include <gneiss/scene.h>
 
-#include "application/application_asset_reload_internal.h"
-#include "game/game_context_internal.h"
-#include "game_module_session.h"
-#include "game_update_scheduler.h"
-#include "runtime_asset_reloader.h"
-#include "runtime_ipc_session.h"
-#include "runtime_log.h"
-#include "runtime_property_editor.h"
-#include "runtime_scene_inspection.h"
-#include "runtime_scene_loader.h"
+#include "engine/function/application/application_asset_reload_internal.hpp"
+#include "engine/function/game/game_context_internal.hpp"
+#include "game_module_session.hpp"
+#include "game_update_scheduler.hpp"
+#include "runtime_asset_reloader.hpp"
+#include "runtime_ipc_session.hpp"
+#include "runtime_log.hpp"
+#include "runtime_property_editor.hpp"
+#include "runtime_scene_inspection.hpp"
+#include "runtime_scene_loader.hpp"
 
 #include <algorithm>
 #include <charconv>
@@ -347,7 +347,7 @@ gneiss_result update_runtime(gneiss_application application, const gneiss_frame_
       }
       if (!ready && asset_result == gneiss::result::success &&
           time->elapsed_ns >= context.next_asset_progress_ns) {
-        gneiss::asset_internal::asset_load_progress progress;
+        gneiss::render_internal::asset_load_progress progress;
         bool active{};
         if (gneiss::application_internal::query_asset_load_progress(application, progress,
                                                                     active) == GNEISS_SUCCESS &&
@@ -647,7 +647,7 @@ void write_application_log(gneiss_application, const gneiss_log_event* event, vo
             handle, assets, request.session_id, request.revision, accepted));
       },
       [handle = application.get(), &log](gneiss::result& result, bool& ready) {
-        gneiss::asset_internal::texture_load_completion completion;
+        gneiss::render_internal::texture_load_completion completion;
         const auto operation =
             gneiss::application_internal::poll_textures(handle, completion, ready);
         if (ready) {

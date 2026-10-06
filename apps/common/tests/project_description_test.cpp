@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include <gneiss/app/project_description.h>
+#include <gneiss/app/project_description.hpp>
 
 #include <chrono>
 #include <filesystem>

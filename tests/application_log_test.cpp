@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include <gneiss/application.h>
+#include <gneiss/application.hpp>
 #include <gneiss/log.hpp>
 
 #include <atomic>
@@ -24,6 +24,7 @@ struct capture_state final {
   std::string category;
   std::string message;
   gneiss_result reentrant_result = GNEISS_SUCCESS;
+  bool check_reentrancy = true;
   std::atomic<bool> callback_active = false;
   std::atomic<bool> was_concurrent = false;
 };
@@ -44,13 +45,18 @@ void capture(gneiss_application application, const gneiss_log_event* event, void
       state.message.assign(event->message, event->message_length);
       ++state.count;
     }
-    if (state.count == 1U) {
+    if (state.check_reentrancy && state.count == 1U) {
       const auto nested = gneiss::make_log_message(gneiss::log_severity::debug, "test", "nested");
       state.reentrant_result = gneiss_application_log(application, &nested);
     }
   }
   state.callback_active = false;
   state.changed.notify_all();
+}
+
+void throwing_capture(gneiss_application, const gneiss_log_event*, void* user_data) {
+  ++*static_cast<std::uint32_t*>(user_data);
+  throw 1;
 }
 
 } // namespace
@@ -122,6 +128,56 @@ int main() {
       gneiss_application_log(application, &first) != GNEISS_SUCCESS ||
       gneiss_application_destroy(application) != GNEISS_SUCCESS) {
     return 8;
+  }
+  // Application 适配器不得提前 noexcept 终止，关闭时必须等待两个事件处理完。
+  std::uint32_t throwing_calls{};
+  desc.log = throwing_capture;
+  desc.user_data = &throwing_calls;
+  const auto throwing_message =
+      gneiss::make_log_message(gneiss::log_severity::info, "test", "throw");
+  if (gneiss_application_create(&desc, &application) != GNEISS_SUCCESS ||
+      gneiss_application_log(application, &throwing_message) != GNEISS_SUCCESS ||
+      gneiss_application_log(application, &throwing_message) != GNEISS_SUCCESS ||
+      gneiss_application_destroy(application) != GNEISS_SUCCESS || throwing_calls != 2U) {
+    return 9;
+  }
+  // C++ 拥有者允许工作线程提交日志，关闭等待回调结束；不并发修改拥有者本身。
+  capture_state owned_capture;
+  // 关闭排空期间句柄可先失效；重入拒绝已在上面的存活期用例验证。
+  owned_capture.check_reentrancy = false;
+  desc.log = capture;
+  desc.user_data = &owned_capture;
+  gneiss::application owned;
+  if (gneiss::application::create(desc, owned).failed()) {
+    return 10;
+  }
+  gneiss::result submitted;
+  std::thread worker([&] {
+    const std::string transient = "owned worker";
+    submitted = owned.log(gneiss::make_log_message(gneiss::log_severity::info, "cpp", transient));
+  });
+  worker.join();
+  if (submitted.failed() || owned.reset().failed()) {
+    return 11;
+  }
+  const std::scoped_lock lock(owned_capture.mutex);
+  if (owned_capture.count != 1U || owned_capture.message != "owned worker" ||
+      owned_capture.category != "cpp" || owned_capture.callback_active ||
+      owned_capture.was_concurrent) {
+    return 12;
+  }
+  capture_state empty_capture;
+  empty_capture.check_reentrancy = false;
+  desc.user_data = &empty_capture;
+  if (gneiss::application::create(desc, owned).failed() ||
+      owned.log(gneiss::make_log_message(gneiss::log_severity::info, "empty", {})).failed() ||
+      owned.reset().failed()) {
+    return 13;
+  }
+  const std::scoped_lock empty_lock(empty_capture.mutex);
+  if (empty_capture.count != 1U || !empty_capture.message.empty() ||
+      empty_capture.category != "empty" || empty_capture.source != "application") {
+    return 14;
   }
   return 0;
 }

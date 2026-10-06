@@ -1,0 +1,114 @@
+<!-- SPDX-License-Identifier: MIT -->
+<!-- Copyright (c) 2026 Gneiss contributors -->
+
+# ADR-054：精简源码布局与宿主边界
+
+## 状态与背景
+
+2026-10-05 已接受，纳入 0.45；Core、Platform、Asset 与 Function 已按新布局迁移；C ABI 已迁至 `src/engine/api/`，Editor 可复用实现与 Apps 宿主装配已拆分，最终平台矩阵待验收。
+本决策替代 [ADR-053](ADR-053-cpp-core-and-c-abi.md) 的旧目标目录，保留其接口、ABI 与所有权约束。
+实施顺序与迁移映射见 [DEV-045](../plans/DEV-045-cpp-boundaries.md)，当前路径见
+[源码目录说明](../concepts/repository-layout.md)。
+
+参考 GAMES104 的功能、资源、基础和平台分层；Engine/Editor/Runtime 是库与宿主的组织维度，
+内部 C++ / C ABI / C++ SDK 是接口维度，二者与架构分层并存。Tool 层对应创作工具；Runtime
+是使用引擎的运行宿主，不因位于 apps 就成为编辑工具。不照搬课程全部目录或实现。
+
+## 目标布局
+
+以下是已落实路径的唯一完整目录树。只列有明确职责的层级，细分目录随真实规模建立。
+
+```text
+gneiss/
+├─ include/gneiss/          # 公共 C11 ABI 与 C++20 SDK，保留现有头路径
+├─ src/
+│  ├─ engine/              # 可独立使用的引擎库
+│  │  ├─ api/              # 公共 C ABI 适配，按功能拆分 *_api.cpp
+│  │  ├─ function/
+│  │  │  ├─ application/   # 生命周期、服务装配与跨模块协调
+│  │  │  ├─ world/         # ECS、组件与系统
+│  │  │  ├─ scene/         # 场景树、实例与 Prefab
+│  │  │  ├─ render/        # 渲染资源、帧包、执行器与所属后端
+│  │  │  ├─ input/
+│  │  │  └─ game/          # 游戏模块接入与上下文
+│  │  ├─ asset/            # 格式、CPU 解码、VFS、缓存与准备
+│  │  ├─ core/             # RID、任务、通用数学、反射与日志
+│  │  └─ platform/         # 窗口、IO、进程及系统适配
+│  ├─ editor/              # 编辑器实现，独立于启动入口
+│  └─ tooling/             # 可复用的导入、Cook 等离线处理
+├─ apps/                   # 可执行程序入口、配置与宿主装配
+│  ├─ editor/
+│  ├─ runtime/
+│  └─ assetc/
+├─ tests/                  # 按被测模块组织；保留公共头、消费者与集成验证
+├─ examples/
+├─ templates/
+├─ docs/
+├─ cmake/
+├─ scripts/                # 仓库开发、检查与维护脚本
+├─ abi/
+└─ 3rd/
+```
+
+`apps/` 保留在仓库根目录，与 `src/` 并列：前者组织可执行程序，后者组织可复用实现。
+编辑器实现归 `src/editor/`，启动入口归 `apps/editor/`；目录位置不改变下述依赖与所有权约束。
+
+`api/` 当前仅承载 C 适配，不额外保留只有一个子目录的 `api/c/`。内部以 `.hpp`/`.cpp` 组织，
+公共 `.h`/`.hpp` 路径保持兼容。不预建 asset 的 formats/codecs/cache/loading、编辑器面板细分
+或插件目录。目录归属不自动要求新增动态库，也不改变现有可执行文件名、安装目标和消费方式。
+
+## 所有权与依赖
+
+- Engine 不依赖 Editor、Tooling 或 Apps；Editor 可使用 Engine 和离线 Tooling，Tooling 不依赖
+  Editor/Apps。Apps 装配相应实现，其他模块不反向包含 Apps；启动文件不承担可复用业务规则。
+- Function 消费 Asset、Core、Platform 的内部契约；同在 Function 下不意味着可任意互相依赖。
+  Scene 关联实体 ID、ECS 保存数据/RID、Service 管理后端的既有约束继续有效。
+- Asset 负责无 GPU 对象的格式、解码、缓存与 CPU 准备；GPU 上传、候选及发布由 Render 负责，
+  跨两者的事务协调放在 Function 的所属协调模块，禁止 Asset 反向依赖 Render/World/Scene。
+  纹理准备可接收调用方提供的格式能力与不透明设备身份值；上传负载弱引用和回执属于 Render，
+  发布边界移动 CPU 数组所有权，不为分层复制大型负载。
+  准备时的材质发布预算由所属调用方显式传入，Asset 校验字节上限，不依赖 Render 资源布局。
+- Core 不认识资产业务、游戏世界、渲染或编辑器。Platform 可使用 Core 的基础契约，但 Core 不
+  反向依赖整个 Platform；OS 专用实现隔离在私有实现文件。不得形成 target 或包含循环。
+- Granit 渲染实现留在 Render 的私有 `backend/granit/`；窗口适配归 Platform。不建立供所有
+  模块访问的通用后端目录；项目协议和编辑器语义不得因使用 IO/IPC 而下沉到 Platform。
+- API 适配委托 Engine 内部实现，内部不绕回公共 ABI；动态 Game Module 等真实边界单独标明。
+  构建私有依赖与违规反例检查必须随迁移更新，不能只通过改路径表示分层完成。
+
+## 编辑器与宿主共用能力的拆分顺序
+
+`apps/common` 当前包含构建配置、模块路径与启动工程描述，以及 Editor/Runtime 进程协议。
+这些不是无领域倾向的基础设施，不整体迁入 Core/Platform，也不让 Runtime 链接 Editor。
+先把相机、网格、命令历史、属性检查与创作事务组成不依赖宿主的 `gneiss_editor_model`
+内部静态目标。场景会话与 Gizmo 拖拽组成 `gneiss_editor_session`，只依赖模型与 Engine；
+工程、进程、IPC 和运行时同步则由 Apps 中的 `gneiss_editor_host` 装配。
+该目标不增加状态或公开 SDK，宿主通过目标依赖复用唯一实现。
+资产面板只接收单帧显示值，返回拥有选择身份的请求；宿主在绘制结束后执行服务操作，
+不以复制协议状态建立第二套运行时模型。
+工程/启动契约与 IPC 领域协议分别由 `gneiss_app_project`、`gneiss_app_ipc_protocol` 私有目标组织；
+二者保留在根目录 Apps，不安装、不作为 Engine SDK 导出。通用传输机制归 Platform，宿主协议不下沉。
+Runtime 变换回写在宿主提取 UUID 与局部变换后进入 Editor；Editor 不依赖 IPC 节点类型，
+命令持有身份副本，输入字符串仅在调用期间借用。宿主协议不能通过私有 include 别名绕过边界。
+控制台同样只保存日志值，不持有协议版本；日志解析、版本校验和去重留在宿主，
+宿主将文本字段移动进控制台。该转换不建立第二套日志服务或历史缓存。
+属性编辑的 pending、超时与响应状态由 Editor 模型唯一持有；模型请求/结果只含值，
+宿主在发送和接收边界映射对象 generation、关联 ID、修订号及类型化负载，不把线协议下沉。
+场景镜像独立拥有分块、顺序和图校验；顺序跟踪器从协议模块迁入 Editor，不保留重复实现。
+宿主移动解码后的节点值，转换失败则让镜像失效并重同步；属性与镜像共用 Editor 对象身份值。
+Runtime 面板只借用镜像与宿主提供的同步操作，不直接依赖进程或 IPC；选择由窗口唯一持有，
+属性请求在宿主发送边界适配。绘制回调及输入不得逃逸当前 Editor 主线程调用。
+控制台面板遵循同样边界：借用唯一日志模型与进程展示值，窗口持有筛选/暂停状态，
+清空通过同步宿主回调同时清理进程输出与日志模型；不将子进程或协议头引入 UI 库。
+
+## 插件扩展边界
+
+本版不实现插件框架，不创建占位 API。编辑器实现与入口拆开，为后续独立扩展服务保留边界。
+将来引擎扩展与编辑器扩展按能力分开：编辑器 SDK 可独立放在 `include/gneiss/editor/`，运行宿主
+不依赖它。插件通过公开接口访问能力，不直接包含 src。版本协商、回调注销、任务结束与卸载安全
+需独立 ADR；先评估已有 Game Module ABI 的复用范围，不提前承诺通用插件 ABI。
+
+## 取舍
+
+采用用途分区和 Engine 内部四层，便于定位所有者；保留 asset 名称，避免与现有资源模块重名。
+暂不采用更深的目录树，也不把每个模块变成独立库。迁移成本包括 CMake、内部 include、宿主路径、
+脚本、测试夹具与安装验证；一次迁移一个可验证模块，保留唯一实现，不以复制源码过渡。

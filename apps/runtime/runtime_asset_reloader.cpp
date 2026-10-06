@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "runtime_asset_reloader.h"
+#include "runtime_asset_reloader.hpp"
 
 #include <gneiss/core/result.hpp>
 

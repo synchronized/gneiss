@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "input/action_map.h"
+#include "engine/function/input/action_map.hpp"
 
 int main() {
   gneiss::input_internal::action_map map;

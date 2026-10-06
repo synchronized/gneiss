@@ -1,13 +1,16 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "runtime_process.h"
+#include "runtime_process.hpp"
 
-#include "child_process.h"
-#include "editor_ipc_event.h"
-#include "editor_ipc_session.h"
-#include "ipc_asset_protocol.h"
-#include "ipc_statistics_protocol.h"
+#include "child_process.hpp"
+#include "editor_ipc_event.hpp"
+#include "editor_ipc_session.hpp"
+#include "ipc_asset_protocol.hpp"
+#include "ipc_statistics_protocol.hpp"
+#include "runtime_log_adapter.hpp"
+#include "runtime_property_adapter.hpp"
+#include "runtime_scene_adapter.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -186,7 +189,7 @@ struct runtime_process::implementation final {
              entry.event.source == event.source;
     });
     if (!duplicate) {
-      (void)console.append_event(runtime_session_id, std::move(event));
+      (void)console.append_event(runtime_session_id, to_console_event(std::move(event)));
     }
   }
 
@@ -199,14 +202,20 @@ struct runtime_process::implementation final {
     }
   }
 
-  void apply_inspection_batch(const ipc_inspection_batch& batch) noexcept {
-    const auto applied = scene_mirror.apply(batch);
+  void apply_inspection_batch(ipc_inspection_batch&& batch) noexcept {
+    runtime_scene_batch converted;
+    auto applied = to_runtime_scene_batch(std::move(batch), converted);
+    if (applied == result::success) {
+      applied = scene_mirror.apply(converted);
+    } else {
+      scene_mirror.invalidate();
+    }
     if (applied != result::success) {
       last_result = applied;
       if (scene_mirror.needs_full_snapshot()) {
         request_inspection_resync();
       }
-    } else if (batch.is_full && !scene_mirror.needs_full_snapshot()) {
+    } else if (converted.is_full && !scene_mirror.needs_full_snapshot()) {
       inspection_resync_pending = false;
     }
     if (applied == result::success && scene_mirror.session_id() != 0U) {
@@ -258,7 +267,7 @@ struct runtime_process::implementation final {
         continue;
       }
       if (auto* value = std::get_if<runtime_property_result_event>(&decoded_event)) {
-        const auto accepted = property_edits.accept(std::move(value->value));
+        const auto accepted = property_edits.accept(to_runtime_property_result(std::move(value->value)));
         if (accepted != result::success && accepted != result::not_found &&
             accepted != result::invalid_state) {
           last_result = accepted;
@@ -359,7 +368,7 @@ struct runtime_process::implementation final {
     constexpr std::size_t inspection_apply_budget = 8U;
     for (std::size_t count = 0U;
          count < inspection_apply_budget && !pending_inspection_input.empty(); ++count) {
-      apply_inspection_batch(pending_inspection_input.front());
+      apply_inspection_batch(std::move(pending_inspection_input.front()));
       pending_inspection_input.pop_front();
     }
     property_edits.expire(now, std::chrono::seconds(2));
@@ -636,14 +645,14 @@ result runtime_process::request_property_write(runtime_property_key key,
        implementation_->control_state != runtime_control_state::paused)) {
     return result::not_ready;
   }
-  ipc_property_write command;
+  runtime_property_write command;
   auto operation =
-      implementation_->property_edits.prepare(std::move(key), expected_revision, std::move(value),
+      implementation_->property_edits.prepare(std::move(key), expected_revision, to_runtime_property_value(std::move(value)),
                                               std::chrono::steady_clock::now(), command);
   if (operation != result::success) {
     return operation;
   }
-  operation = implementation_->ipc_session.send_property_write(command);
+  operation = implementation_->ipc_session.send_property_write(to_ipc_property_write(std::move(command)));
   if (operation != result::success) {
     implementation_->fail_ipc(operation);
   }

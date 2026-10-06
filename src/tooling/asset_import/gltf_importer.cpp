@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "tooling/asset_import/gltf_importer.h"
+#include "tooling/asset_import/gltf_importer.hpp"
 
-#include "asset/mesh_tangent.h"
-#include "tooling/asset_import/tangent_generation.h"
+#include "engine/asset/mesh_tangent.hpp"
+#include "tooling/asset_import/tangent_generation.hpp"
 
 #include <fastgltf/core.hpp>
 #include <fastgltf/tools.hpp>

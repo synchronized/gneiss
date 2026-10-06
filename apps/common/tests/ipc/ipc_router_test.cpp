@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "ipc_control_protocol.h"
-#include "ipc_router.h"
+#include "ipc_control_protocol.hpp"
+#include "ipc_router.hpp"
 
 #include <array>
 

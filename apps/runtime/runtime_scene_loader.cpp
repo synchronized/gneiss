@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "runtime_scene_loader.h"
+#include "runtime_scene_loader.hpp"
 
 namespace gneiss::runtime_internal {
 namespace {

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "native_dialog.h"
+#include "native_dialog.hpp"
 
 #if defined(_WIN32)
 #define WIN32_LEAN_AND_MEAN

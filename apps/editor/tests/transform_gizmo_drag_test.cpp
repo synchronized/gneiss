@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "transform_gizmo_drag.h"
+#include "transform_gizmo_drag.hpp"
 
 #include <gneiss/application.hpp>
 

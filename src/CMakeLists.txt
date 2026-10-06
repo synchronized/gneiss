@@ -2,7 +2,7 @@
 # Copyright (c) 2026 Gneiss contributors
 
 # 内部调度模块由实际宿主链接，不进入安装 package 或公共 ABI。
-add_subdirectory(core/tasks)
+add_subdirectory(engine/core)
 
 add_library(gneiss_engine)
 add_library(gneiss::engine ALIAS gneiss_engine)
@@ -22,96 +22,125 @@ configure_file(
 target_sources(
   gneiss_engine
   PRIVATE
-    core/sha256.cpp
-    core/sha256.h
-    application/application_api.cpp
-    application/application_asset_reload_internal.h
-    application/application_log_internal.h
-    application/scene_load_service.cpp
-    application/scene_load_service.h
-    application/application_scene_load_internal.h
-    application/application_scene_state.cpp
-    application/application_scene_state.h
-    application/application_state.cpp
-    application/application_state.h
-    asset/source_revision_file_system.cpp
-    asset/source_revision_file_system.h
-    asset/asset_uri.cpp
-    asset/asset_uri.h
-    asset/file_system.h
-    asset/mesh_binary.cpp
-    asset/mesh_binary.h
-    asset/texture_ktx2.cpp
-    asset/texture_ktx2.h
-    asset/texture_binary.cpp
-    asset/texture_binary.h
-    asset/texture_container.cpp
-    asset/texture_container.h
-    asset/texture_load_service.cpp
-    asset/texture_load_service.h
-    asset/native_file_system.cpp
-    asset/native_file_system.h
-    asset/resource_cache.cpp
-    asset/resource_cache.h
-    asset/virtual_file_system.cpp
-    asset/virtual_file_system.h
-    core/service_registry.cpp
-    core/service_registry.h
-    core/rid_table.h
-    core/result.cpp
-    core/version.cpp
-    game/game_module.cpp
-    game/game_context.cpp
-    game/game_context_internal.h
-    input/input_service.cpp
-    input/input_service.h
-    input/action_map.cpp
-    input/action_map.h
-    log/log.cpp
-    log/log_dispatcher.cpp
-    log/log_dispatcher.h
-    render/render_resource_service.cpp
-    render/render_resource_service.h
-    render/debug_draw_list.cpp
-    render/debug_draw_list.h
-    render/ui_draw_list.cpp
-    render/ui_draw_list.h
-    render/render_asset_loader.cpp
-    render/render_asset_loader.h
-    render/png_decoder.cpp
-    render/png_decoder.h
-    render/camera_math.cpp
-    render/camera_math.h
-    render/normal_math.cpp
-    render/normal_math.h
-    reflection/type_registry.cpp
-    scene/scene_tree.cpp
-    scene/scene_tree.h
-    scene/prefab_asset_loader.cpp
-    scene/prefab_asset_loader.h
-    scene/scene_load_builder.cpp
-    scene/scene_load_builder.h
-    scene/scene_load_preparation.cpp
-    scene/scene_load_preparation.h
-    scene/scene_description.cpp
-    scene/scene_description.h
-    scene/prefab_description.cpp
-    scene/prefab_description.h
-    scene/prefab_property_override.cpp
-    scene/prefab_property_override.h
-    scene/prefab_runtime_instance.cpp
-    scene/prefab_runtime_instance.h
-    scene/scene_instance_service.cpp
-    scene/scene_instance_service.h
-    scene/structural_diff.cpp
-    scene/structural_diff.h
-    world/system_scheduler.cpp
-    world/system_scheduler.h
-    world/render_snapshot.cpp
-    world/render_snapshot.h
-    world/world_api.cpp
-    world/component_reflection.cpp
-    world/world_state.h
+    engine/core/sha256.cpp
+    engine/core/sha256.hpp
+    engine/api/application_api.cpp
+    engine/api/render_api.cpp
+    engine/api/draw_description.hpp
+    engine/api/material_description.hpp
+    engine/api/mesh_description.hpp
+    engine/api/texture_description.hpp
+    engine/api/scene_api.cpp
+    engine/api/scene_query_conversion.hpp
+    engine/api/input_api.cpp
+    engine/function/application/application_registry.cpp
+    engine/function/application/application_registry.hpp
+    engine/function/application/application_host.cpp
+    engine/function/application/application_asset_reload_internal.hpp
+    engine/function/application/application_log_internal.hpp
+    engine/function/application/application_log_sink.hpp
+    engine/function/application/scene_load_service.cpp
+    engine/function/application/scene_load_service.hpp
+    engine/function/application/application_scene_load_internal.hpp
+    engine/function/application/application_scene_state.cpp
+    engine/function/application/application_scene_state.hpp
+    engine/function/application/application_state.cpp
+    engine/function/application/application_state.hpp
+    engine/function/application/application_configuration.hpp
+    engine/asset/source_revision_file_system.cpp
+    engine/asset/source_revision_file_system.hpp
+    engine/asset/asset_uri.cpp
+    engine/asset/asset_uri.hpp
+    engine/asset/file_system.hpp
+    engine/asset/mesh_binary.cpp
+    engine/asset/mesh_binary.hpp
+    engine/asset/texture_ktx2.cpp
+    engine/asset/texture_ktx2.hpp
+    engine/asset/texture_binary.cpp
+    engine/asset/texture_binary.hpp
+    engine/asset/texture_container.cpp
+    engine/asset/texture_container.hpp
+    engine/function/render/texture_load_service.cpp
+    engine/function/render/texture_load_service.hpp
+    engine/asset/native_file_system.cpp
+    engine/asset/native_file_system.hpp
+    engine/asset/resource_cache.cpp
+    engine/asset/resource_cache.hpp
+    engine/asset/virtual_file_system.cpp
+    engine/asset/virtual_file_system.hpp
+    engine/core/service_registry.cpp
+    engine/core/service_registry.hpp
+    engine/core/rid_table.hpp
+    engine/api/core_api.cpp
+    engine/core/result.hpp
+    engine/core/version.hpp
+    engine/core/result.cpp
+    engine/core/version.cpp
+    engine/api/game_module_api.cpp
+    engine/api/asset_api.cpp
+    engine/function/game/game_context.cpp
+    engine/function/game/game_context_internal.hpp
+    engine/function/input/input_service.cpp
+    engine/function/input/input_service.hpp
+    engine/function/input/action_map.cpp
+    engine/function/input/action_map.hpp
+    engine/api/log_api.cpp
+    engine/api/log_validation.hpp
+    engine/core/log/log.hpp
+    engine/core/log/log.cpp
+    engine/core/log/log_dispatcher.cpp
+    engine/core/log/log_dispatcher.hpp
+    engine/function/render/render_resource_service.cpp
+    engine/function/render/render_resource_service.hpp
+    engine/function/render/texture_view.hpp
+    engine/function/render/debug_draw_list.cpp
+    engine/function/render/debug_draw_list.hpp
+    engine/function/render/ui_draw_list.cpp
+    engine/function/render/ui_draw_list.hpp
+    engine/function/render/render_asset_loader.cpp
+    engine/asset/asset_preparation.cpp
+    engine/function/render/render_asset_loader.hpp
+    engine/asset/png_decoder.cpp
+    engine/asset/png_decoder.hpp
+    engine/function/render/camera_math.cpp
+    engine/function/render/camera_math.hpp
+    engine/function/render/render_snapshot.hpp
+    engine/function/render/normal_math.cpp
+    engine/function/render/normal_math.hpp
+    engine/core/reflection/type_registry.cpp
+    engine/core/reflection/type_registry.hpp
+    engine/api/reflection_api.cpp
+    engine/function/scene/scene_tree.cpp
+    engine/function/scene/scene_tree.hpp
+    engine/function/scene/prefab_asset_loader.cpp
+    engine/function/scene/prefab_asset_loader.hpp
+    engine/function/scene/scene_load_builder.cpp
+    engine/function/scene/scene_load_builder.hpp
+    engine/function/scene/scene_load_preparation.cpp
+    engine/function/scene/scene_load_preparation.hpp
+    engine/function/scene/scene_description.cpp
+    engine/function/scene/scene_description.hpp
+    engine/function/scene/scene_creation.hpp
+    engine/function/scene/scene_query.hpp
+    engine/function/scene/prefab_description.cpp
+    engine/function/scene/prefab_description.hpp
+    engine/function/scene/prefab_property_override.cpp
+    engine/function/scene/prefab_property_override.hpp
+    engine/function/scene/prefab_runtime_instance.cpp
+    engine/function/scene/prefab_runtime_instance.hpp
+    engine/function/scene/scene_instance_service.cpp
+    engine/function/scene/scene_instance_service.hpp
+    engine/function/scene/structural_diff.cpp
+    engine/function/scene/structural_diff.hpp
+    engine/function/world/system_scheduler.cpp
+    engine/function/world/system_scheduler.hpp
+    engine/function/world/render_snapshot.cpp
+    engine/function/world/render_snapshot.hpp
+    engine/api/world_api.cpp
+    engine/function/world/world_service.cpp
+    engine/function/world/world_service.hpp
+    engine/function/world/component_reflection.cpp
+    engine/function/world/world_state.hpp
   PUBLIC
     FILE_SET HEADERS
     BASE_DIRS
@@ -208,20 +237,21 @@ if(GNEISS_ENABLE_GRANIT_PLATFORM)
   target_sources(
     gneiss_engine
     PRIVATE
-      platform/granit/granit_platform.cpp
-      platform/granit/granit_platform.h
-      platform/native_window_info.h
-      render/granit/granit_render_service.cpp
-      render/granit/granit_render_service.h
-      render/granit/scene_projection_math.cpp
-      render/granit/scene_projection_math.h
-      render/granit/pbr_shader_resolver.cpp
-      render/granit/pbr_shader_resolver.h
+      engine/platform/granit/granit_platform.cpp
+      engine/platform/granit/granit_platform.hpp
+      engine/platform/native_window_info.hpp
+      engine/platform/window_configuration.hpp
+      engine/function/render/backend/granit/granit_render_service.cpp
+      engine/function/render/backend/granit/granit_render_service.hpp
+      engine/function/render/backend/granit/scene_projection_math.cpp
+      engine/function/render/backend/granit/scene_projection_math.hpp
+      engine/function/render/backend/granit/pbr_shader_resolver.cpp
+      engine/function/render/backend/granit/pbr_shader_resolver.hpp
       ${gneiss_pbr_embedded_sources}
-      render/render_frame_packet.cpp
-      render/render_frame_packet.h
-      render/render_executor.cpp
-      render/render_executor.h
+      engine/function/render/render_frame_packet.cpp
+      engine/function/render/render_frame_packet.hpp
+      engine/function/render/render_executor.cpp
+      engine/function/render/render_executor.hpp
   )
   target_compile_definitions(gneiss_engine PRIVATE GNEISS_HAS_GRANIT_PLATFORM)
   target_include_directories(gneiss_engine PRIVATE "${gneiss_pbr_embedded_dir}")
@@ -288,11 +318,5 @@ set_target_properties(
 )
 
 if(GNEISS_BUILD_EDITOR OR GNEISS_BUILD_RUNTIME)
-  add_subdirectory(io)
-  add_subdirectory(ipc)
-  add_subdirectory(platform)
-endif()
-
-if(GNEISS_BUILD_EDITOR)
-  add_subdirectory(process)
+  add_subdirectory(engine/platform)
 endif()

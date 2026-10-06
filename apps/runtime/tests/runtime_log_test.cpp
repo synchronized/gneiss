@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "runtime_log.h"
+#include "runtime_log.hpp"
 
 #include <filesystem>
 #include <fstream>

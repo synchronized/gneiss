@@ -6,18 +6,22 @@
 
 #include <gneiss/application.h>
 #include <gneiss/core/result.hpp>
+#include <gneiss/input.hpp>
 #include <gneiss/render.hpp>
+#include <gneiss/world.hpp>
 
 #include <cstdint>
+#include <exception>
 #include <utility>
 
 namespace gneiss {
 
-/** 独占拥有 Application 的 RAII 包装；只允许在创建线程访问。 */
+/** 独占拥有 Application 的 RAII 包装；除 log 外操作限创建线程。
+ * 析构或移动覆盖若关闭失败则终止进程；需处理错误时先显式 reset()。 */
 class application final {
 public:
   application() noexcept = default;
-  ~application() noexcept { reset(); }
+  ~application() noexcept { reset_or_terminate(); }
 
   application(const application&) = delete;
   application& operator=(const application&) = delete;
@@ -25,7 +29,7 @@ public:
       : handle_(std::exchange(other.handle_, GNEISS_NULL_APPLICATION)) {}
   application& operator=(application&& other) noexcept {
     if (this != &other) {
-      reset();
+      reset_or_terminate();
       handle_ = std::exchange(other.handle_, GNEISS_NULL_APPLICATION);
     }
     return *this;
@@ -36,8 +40,13 @@ public:
     gneiss_application handle = GNEISS_NULL_APPLICATION;
     const auto native_result = gneiss_application_create(&desc, &handle);
     if (native_result == GNEISS_SUCCESS) {
-      out_application.reset();
-      out_application.handle_ = handle;
+      application candidate;
+      candidate.handle_ = handle;
+      const auto closed = out_application.reset();
+      if (closed.failed()) {
+        return closed;
+      }
+      out_application.handle_ = candidate.release();
     }
     return from_native(native_result);
   }
@@ -57,8 +66,49 @@ public:
   [[nodiscard]] result set_paused(bool is_paused) noexcept {
     return from_native(gneiss_application_set_paused(handle_, is_paused ? UINT8_C(1) : UINT8_C(0)));
   }
+  /** 取出当帧输入事件；队列为空返回 not_ready，仅限创建线程。 */
+  [[nodiscard]] result poll_input(input_event& output) noexcept {
+    return gneiss::poll_input(handle_, output);
+  }
+  /** 输出键盘值快照；仅限创建线程。 */
+  [[nodiscard]] result get_keyboard_state(keyboard_state& output) const noexcept {
+    return gneiss::get_keyboard_state(handle_, output);
+  }
+  /** 输出指针值快照；仅限创建线程。 */
+  [[nodiscard]] result get_pointer_state(pointer_state& output) const noexcept {
+    return gneiss::get_pointer_state(handle_, output);
+  }
+  /** 同步加载动作映射；成功使旧动作 ID 失效，失败保留原映射。 */
+  [[nodiscard]] result load_action_map(std::string_view uri) noexcept {
+    return gneiss::load_action_map(handle_, uri);
+  }
+  /** 返回非拥有动作 ID；失败保留 output，仅限创建线程。 */
+  [[nodiscard]] result find_action(std::string_view name, action_id& output) const noexcept {
+    return gneiss::find_action(handle_, name, output);
+  }
+  [[nodiscard]] result get_action_state(action_id id, action_state& output) const noexcept {
+    return gneiss::get_action_state(handle_, id, output);
+  }
   [[nodiscard]] result get_world(gneiss_world& out_world) const noexcept {
     return from_native(gneiss_application_get_world(handle_, &out_world));
+  }
+  /** 获取借用 World 视图，不转移所有权；场景切换或 Application 销毁可能使其失效。 */
+  [[nodiscard]] result get_world(world_ref& output) const noexcept {
+    gneiss_world value{};
+    const auto status = from_native(gneiss_application_get_world(handle_, &value));
+    if (status.ok()) {
+      output = world_ref{value};
+    }
+    return status;
+  }
+  [[nodiscard]] result create_mesh(const mesh_desc& desc, mesh& output) noexcept {
+    return mesh::create(handle_, desc, output);
+  }
+  [[nodiscard]] result create_material(const material_desc& desc, material& output) noexcept {
+    return material::create(handle_, desc, output);
+  }
+  [[nodiscard]] result create_texture(const texture_desc& desc, texture& output) noexcept {
+    return texture::create(handle_, desc, output);
   }
   [[nodiscard]] result create_mesh(const mesh_desc& desc, mesh_id& out_mesh) noexcept {
     gneiss_mesh handle = GNEISS_NULL_MESH;
@@ -94,24 +144,45 @@ public:
   [[nodiscard]] result destroy_texture(texture_id texture) noexcept {
     return from_native(gneiss_texture_destroy(handle_, texture.get()));
   }
+  /** 仅在 update 中提交当帧 UI；数组在返回前复制，纹理 RID 仍借用所属 Application 的资源。 */
   [[nodiscard]] result submit_ui_draw_list(const ui_draw_list_desc& desc) noexcept {
     return from_native(gneiss_application_submit_ui_draw_list(handle_, &desc));
   }
+  /** 仅在 update 中提交当帧调试线段；复制数组，不取得调用方所有权。 */
   [[nodiscard]] result submit_debug_draw_list(const debug_draw_list_desc& desc) noexcept {
     return from_native(gneiss_application_submit_debug_draw_list(handle_, &desc));
   }
+  /** 消息字符串在返回前复制，可从工作线程提交；不得与本包装的移动/reset 并发。
+   * 接收回调串行执行，不能重入日志；回调 userdata 必须存活至 Application 关闭完成。 */
   [[nodiscard]] result log(const gneiss_log_message& message) noexcept {
     return from_native(gneiss_application_log(handle_, &message));
   }
 
-  void reset() noexcept {
-    if (handle_ != GNEISS_NULL_APPLICATION) {
-      (void)gneiss_application_destroy(handle_);
-      handle_ = GNEISS_NULL_APPLICATION;
+  /** 幂等关闭；无效句柄视为已释放，其他失败保留句柄供所属线程重试。
+   * 返回结果可供检查；保留直接 reset() 的既有调用方式。 */
+  result reset() noexcept {
+    if (handle_ == GNEISS_NULL_APPLICATION) {
+      return result::success;
     }
+    const auto status = from_native(gneiss_application_destroy(handle_));
+    if (status.failed() && status != result::invalid_handle) {
+      return status;
+    }
+    handle_ = GNEISS_NULL_APPLICATION;
+    return result::success;
+  }
+
+  /** 转移原始句柄所有权，调用方负责在所属线程销毁。 */
+  [[nodiscard]] gneiss_application release() noexcept {
+    return std::exchange(handle_, GNEISS_NULL_APPLICATION);
   }
 
 private:
+  void reset_or_terminate() noexcept {
+    if (reset().failed()) {
+      std::terminate();
+    }
+  }
   gneiss_application handle_ = GNEISS_NULL_APPLICATION;
 };
 

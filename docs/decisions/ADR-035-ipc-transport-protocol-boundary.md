@@ -6,6 +6,10 @@
 - 状态：已接受
 - 日期：2026-09-04
 
+0.45 按 [ADR-054](ADR-054-source-layout-and-host-boundaries.md) 将 IO 与 IPC 迁入
+`src/engine/platform/`；下文保留决策时的路径，协议边界不变。当前路径见
+[源码目录说明](../concepts/repository-layout.md)。
+
 ## 背景
 
 最初的 `gneiss_uv_runtime` 同时包含 libuv 运行循环、信封传输、通用分发，以及 Editor 与 Runtime

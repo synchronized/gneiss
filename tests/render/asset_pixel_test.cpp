@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "application/application_asset_reload_internal.h"
-#include "application/application_scene_load_internal.h"
-#include "asset/mesh_binary.h"
-#include "asset/texture_binary.h"
-#include "asset/texture_ktx2.h"
+#include "engine/function/application/application_asset_reload_internal.hpp"
+#include "engine/function/application/application_scene_load_internal.hpp"
+#include "engine/asset/mesh_binary.hpp"
+#include "engine/asset/texture_binary.hpp"
+#include "engine/asset/texture_ktx2.hpp"
 #include <array>
 #include <cstdio>
 #include <filesystem>
@@ -471,7 +471,7 @@ void run(tasks::execution_mode mode, bool pbr = false) {
     std::uint64_t request{};
     check(application_internal::request_render_assets(app.get(), assets, 1U, 1U, request) ==
           GNEISS_SUCCESS);
-    asset_internal::texture_load_completion completed;
+    render_internal::texture_load_completion completed;
     bool ready{};
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
     while (!ready) {

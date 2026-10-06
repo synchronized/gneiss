@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "tooling/asset_build/runtime_texture_builder.h"
-#include "tooling/asset_build/runtime_texture_probe.h"
+#include "tooling/asset_build/runtime_texture_builder.hpp"
+#include "tooling/asset_build/runtime_texture_probe.hpp"
 
-#include "asset/texture_binary.h"
+#include "engine/asset/texture_binary.hpp"
 
 #include <granit/renderer/texture_asset.hpp>
 

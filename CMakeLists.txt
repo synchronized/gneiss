@@ -5,7 +5,7 @@ cmake_minimum_required(VERSION 3.23)
 
 project(
   gneiss
-  VERSION 0.43.0
+  VERSION 0.45.0
   DESCRIPTION "基于 Granit 构建的现代 C++20 游戏引擎"
   LANGUAGES C CXX
 )
@@ -51,7 +51,11 @@ if(GNEISS_BUILD_TOOLS)
   gneiss_resolve_fastgltf()
   include(mikktspace)
   gneiss_resolve_mikktspace()
-  add_subdirectory(tools)
+  add_subdirectory(src/tooling)
+  add_subdirectory(apps/assetc)
+  if(GNEISS_BUILD_TESTING AND BUILD_TESTING)
+    add_subdirectory(tests/tooling)
+  endif()
 endif()
 if(GNEISS_BUILD_EDITOR OR GNEISS_BUILD_RUNTIME)
   add_subdirectory(apps/common)
@@ -66,6 +70,7 @@ if(GNEISS_BUILD_EDITOR)
   gneiss_resolve_imgui()
   include(imguizmo)
   gneiss_resolve_imguizmo()
+  add_subdirectory(src/editor)
   add_subdirectory(apps/editor)
 endif()
 

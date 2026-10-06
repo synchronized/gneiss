@@ -20,6 +20,13 @@ int main() {
   if (gneiss::application::create(desc, application) != gneiss::result::success) {
     return 1;
   }
+  gneiss::action_id action;
+  gneiss::action_state input = GNEISS_ACTION_STATE_INIT;
+  if (application.load_action_map("asset://input/default.input-map.json").failed() ||
+      application.find_action("move_horizontal", action).failed() ||
+      application.get_action_state(action, input).failed()) {
+    return 6;
+  }
 
   gneiss::scene_instance scene;
   if (gneiss::scene_instance::load(application.get(), scene_uri, scene) !=
@@ -38,5 +45,15 @@ int main() {
     return 4;
   }
   scene.reset();
+  gneiss::scene_prefab_refresh refresh;
+  gneiss::scene_prefab_node_info prefab = GNEISS_SCENE_PREFAB_NODE_INFO_INIT;
+  gneiss::scene_node_id root;
+  if (gneiss::scene_instance::load(application.get(), "asset://scenes/prefab.scene.json", scene)
+          .failed() ||
+      scene.get_prefab_node_info(0U, prefab).failed() ||
+      scene.refresh_prefab_instance(gneiss::scene_node_id{prefab.node}, root, refresh).failed() ||
+      !refresh || refresh.toggle(root).failed() || refresh.reset().failed()) {
+    return 5;
+  }
   return 0;
 }

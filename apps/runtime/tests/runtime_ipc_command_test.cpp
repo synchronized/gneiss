@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "ipc/runtime_commands.h"
+#include "ipc/runtime_commands.hpp"
 
-#include "ipc_asset_protocol.h"
-#include "ipc_inspection_protocol.h"
-#include "ipc_property_protocol.h"
+#include "ipc_asset_protocol.hpp"
+#include "ipc_inspection_protocol.hpp"
+#include "ipc_property_protocol.hpp"
 
 #include <array>
 #include <vector>

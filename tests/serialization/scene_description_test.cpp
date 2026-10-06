@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "asset/file_system.h"
-#include "asset/virtual_file_system.h"
-#include "scene/scene_description.h"
+#include "engine/asset/file_system.hpp"
+#include "engine/asset/virtual_file_system.hpp"
+#include "engine/function/scene/scene_description.hpp"
 
 #include <gneiss/core/result.h>
 

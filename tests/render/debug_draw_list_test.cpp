@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "render/debug_draw_list.h"
+#include "engine/function/render/debug_draw_list.hpp"
 
 #include <limits>
 
@@ -13,15 +13,16 @@ int main() {
                          .width = 1.0F,
                          .depth_test = 1U,
                          .reserved = {}};
-  gneiss_debug_draw_list_desc desc = GNEISS_DEBUG_DRAW_LIST_DESC_INIT;
-  desc.line_count = 1U;
-  desc.lines = &line;
-  if (list.replace(desc) != GNEISS_SUCCESS || list.lines().size() != 1U) {
+  if (list.replace({&line, 1U}) != GNEISS_SUCCESS || list.lines().size() != 1U) {
     return 1;
   }
   line.width = std::numeric_limits<float>::quiet_NaN();
-  if (list.replace(desc) != GNEISS_ERROR_INVALID_ARGUMENT || list.lines().size() != 1U) {
+  if (list.replace({&line, 1U}) != GNEISS_ERROR_INVALID_ARGUMENT || list.lines().size() != 1U ||
+      list.lines()[0].width != 1.0F) {
     return 2;
+  }
+  if (list.replace({}) != GNEISS_SUCCESS || !list.lines().empty()) {
+    return 4;
   }
   list.clear();
   return list.lines().empty() ? 0 : 3;

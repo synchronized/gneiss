@@ -16,12 +16,32 @@ namespace {
 constexpr gneiss_type_id camera_type{{0x30, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1}};
 constexpr gneiss_type_id float_type{{0x10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2}};
 
+bool verify_registry_queries(const gneiss::type_registry& registry) {
+  bool frozen{};
+  gneiss_type_info info = GNEISS_TYPE_INFO_INIT;
+  if (registry.is_frozen(frozen) != gneiss::result::success || !frozen ||
+      registry.type_at(0U, info) != gneiss::result::success ||
+      std::string_view(info.name, info.name_length) != "Camera" ||
+      registry.type_at(1U, info) != gneiss::result::not_found) {
+    return false;
+  }
+  gneiss::type_registry empty;
+  return empty.is_frozen(frozen) == gneiss::result::invalid_handle && frozen &&
+         empty.type_at(0U, info) == gneiss::result::invalid_handle;
+}
+
 int run_tests() {
   gneiss::type_registry registry;
   if (gneiss::type_registry::create(registry) != gneiss::result::success || !registry) {
     return 1;
   }
 
+  bool frozen = true;
+  gneiss_type_info early = GNEISS_TYPE_INFO_INIT;
+  if (registry.is_frozen(frozen) != gneiss::result::success || frozen ||
+      registry.type_at(0U, early) != gneiss::result::not_ready) {
+    return 20;
+  }
   static constexpr std::array fields{
       gneiss_field_desc{.struct_size = sizeof(gneiss_field_desc),
                         .id = 2U,
@@ -60,6 +80,9 @@ int run_tests() {
     return 3;
   }
 
+  if (!verify_registry_queries(registry)) {
+    return 21;
+  }
   std::atomic<bool> queries_succeeded = true;
   std::vector<std::thread> workers;
   workers.reserve(8U);

@@ -1,13 +1,25 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "editor_session.h"
-#include "runtime_author_apply.h"
+#include "editor_session.hpp"
+#include "runtime_author_apply.hpp"
 
 #include <gneiss/application.hpp>
 
 #include <string>
 #include <string_view>
+
+// 临时输入在返回后销毁；后续 Undo/Redo 必须使用命令持有的身份副本。
+static gneiss::result
+apply_temporary_transform(gneiss::editor::editor_session& session,
+                          gneiss::editor::editor_command_history& history,
+                          const gneiss::editor::runtime_author_transform& input) {
+  const std::string uuid(input.uuid);
+  const std::string instance(input.prefab_instance_uuid);
+  const std::string source(input.prefab_source_node_uuid);
+  return gneiss::editor::apply_runtime_transform_to_author(
+      session, history, {uuid, instance, source, input.local_transform});
+}
 
 int main() try {
   constexpr std::string_view scene_uri = "asset://scenes/triangle.scene.json";
@@ -91,15 +103,16 @@ int main() try {
     return 8;
   }
   const auto* prefab_source = session.selected_prefab_node();
-  gneiss::ipc_inspection_node runtime_source;
-  runtime_source.uuid = prefab_source->source_node_uuid;
-  runtime_source.prefab_instance_uuid = prefab_source->instance_uuid;
-  runtime_source.prefab_source_node_uuid = prefab_source->source_node_uuid;
+  const std::string source_uuid = prefab_source->source_node_uuid;
+  const std::string instance_uuid = prefab_source->instance_uuid;
+  gneiss::editor::runtime_author_transform runtime_source;
+  runtime_source.uuid = source_uuid;
+  runtime_source.prefab_instance_uuid = instance_uuid;
+  runtime_source.prefab_source_node_uuid = source_uuid;
   runtime_source.local_transform = prefab_source->local_transform;
   runtime_source.local_transform.scale[0] = 2.0F;
   gneiss::editor::editor_command_history history;
-  if (gneiss::editor::apply_runtime_transform_to_author(session, history, runtime_source) !=
-          gneiss::result::success ||
+  if (apply_temporary_transform(session, history, runtime_source) != gneiss::result::success ||
       session.selected_prefab_node()->local_transform.scale[0] != 2.0F ||
       (session.selected_prefab_node()->override_flags &
        GNEISS_SCENE_PREFAB_NODE_SCALE_OVERRIDDEN) == 0U ||
@@ -110,7 +123,7 @@ int main() try {
     return 9;
   }
   auto invalid_runtime_source = runtime_source;
-  invalid_runtime_source.prefab_instance_uuid.clear();
+  invalid_runtime_source.prefab_instance_uuid = {};
   auto stale_runtime_source = runtime_source;
   stale_runtime_source.prefab_instance_uuid = "ffffffff-ffff-4fff-8fff-ffffffffffff";
   if (gneiss::editor::apply_runtime_transform_to_author(session, history, invalid_runtime_source) !=

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "asset/native_file_system.h"
-#include "asset/virtual_file_system.h"
+#include "engine/asset/native_file_system.hpp"
+#include "engine/asset/virtual_file_system.hpp"
 
 #include <array>
 #include <chrono>

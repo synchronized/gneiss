@@ -180,7 +180,7 @@ ctest --test-dir build/stable-runtime-consumer --output-on-failure
 仓库的安装验收也会先把 Consumer 源码和资产复制到隔离目录，防止测试因源码树仍存在而误通过。
 `--measure` 固定执行 60 帧预热和 300 帧采样，以单行 JSON 报告各启动阶段、退出阶段及稳定帧
 的最小值、中位数、P95 和最大值。性能基线必须使用 Release 构建并重复采样；单次输出不能作为
-回归阈值。`tools/performance/measure_stable_runtime.py` 默认执行 1 次进程预热和 10 次有效采样，
+回归阈值。`scripts/performance/measure_stable_runtime.py` 默认执行 1 次进程预热和 10 次有效采样，
 保存原始数据、汇总、进程峰值常驻内存及环境元数据；使用 `--help` 查看必填的版本标识参数。
 采样时必须显式填写 CPU、实际使用的 GPU 和驱动版本，不能仅凭系统枚举猜测 Vulkan 设备。
 
@@ -245,7 +245,7 @@ Editor 默认不参与普通构建。启用时会下载并静态构建固定提�
 Editor 当前需要 Granit
 平台适配。Project Manager 与正式 Editor 统一使用以 Catppuccin Mocha 为基础、Peach 为主强调色
 的 `Gneiss Mocha` 主题，并使用 Inter Regular 与 Noto Sans SC 中文回退作为界面字体；上游配色许可见
-`apps/editor/CATPPUCCIN_NOTICE.md`，字体来源与许可见 `apps/editor/fonts/README.md`：
+`src/editor/CATPPUCCIN_NOTICE.md`，字体来源与许可见 `src/editor/fonts/README.md`：
 
 ```sh
 cmake --preset windows-clang-debug \
@@ -355,7 +355,7 @@ Scene View、右侧 Inspector 和底部 Console 的确定性默认工作区。�
 示例输出当前项目版本：
 
 ```text
-gneiss 0.35.0
+gneiss 0.45.0
 ```
 
 开发 preset 默认启用编译警告并将警告视为错误。
@@ -404,7 +404,7 @@ Editor 的 `--cooperative-tasks` 选项让资产服务由帧循环显式驱动�
 
 Sponza 是显式下载的外部测试资产，不随仓库和源码 Release 分发。先按
 [固定资产审计与基线记录](../records/M-272-sponza-baseline.md) 获取、校验并生成日常/完整配置，
-再构建 `gneiss_scene_load_baseline`。`tools/performance/measure_scene_loading.py --help` 给出
+再构建 `gneiss_scene_load_baseline`。`scripts/performance/measure_scene_loading.py --help` 给出
 Debug/Release 路径与输出目录参数；工具顺序运行两种模式，每配置三次，保存 JSON、呈现观测 CSV
 和 GPU 回读 PPM。输出目录必须不存在，资产缺失直接报错，不把缺少外部数据记为通过。
 
@@ -422,3 +422,8 @@ Debug/Release 路径与输出目录参数；工具顺序运行两种模式，每
 - 找不到 Granit：确认安装前缀包含 `lib/cmake/granit/granitConfig.cmake`，且安装时包含 Window
   组件；源码联调时由父工程先添加 Granit，再添加 Gneiss；无网络环境使用 `PACKAGE`，避免 AUTO
   在 package 缺失时尝试下载。
+
+
+手动 Windows/Linux Actions 的 `scope` 默认为 `all`，运行完整发布矩阵。只修改 Editor/Runtime
+或其测试后可选 `editor` 补验宿主矩阵；该范围不能代替首次完整验收，未执行的核心、Web 和安装
+任务仍须单独完成。纯记录更新不重跑矩阵。

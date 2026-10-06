@@ -5,8 +5,8 @@ add_library(
   gneiss_app_project STATIC
   project_description.cpp
   runtime_log_protocol.cpp
-  include/gneiss/app/project_description.h
-  include/gneiss/app/runtime_log_protocol.h
+  include/gneiss/app/project_description.hpp
+  include/gneiss/app/runtime_log_protocol.hpp
 )
 target_link_libraries(gneiss_app_project PRIVATE gneiss_yyjson PUBLIC gneiss::engine)
 target_include_directories(
@@ -20,24 +20,24 @@ gneiss_target_output_directories(gneiss_app_project)
 add_library(
   gneiss_app_ipc_protocol STATIC
   ipc/core/ipc_protocol_domains.cpp
-  ipc/core/ipc_protocol_domains.h
-  ipc/core/ipc_router.h
+  ipc/core/ipc_protocol_domains.hpp
+  ipc/core/ipc_router.hpp
   ipc/domains/asset/ipc_asset_protocol.cpp
-  ipc/domains/asset/ipc_asset_protocol.h
+  ipc/domains/asset/ipc_asset_protocol.hpp
   ipc/domains/scene/ipc_scene_protocol.cpp
-  ipc/domains/scene/ipc_scene_protocol.h
+  ipc/domains/scene/ipc_scene_protocol.hpp
   ipc/domains/control/ipc_control_protocol.cpp
-  ipc/domains/control/ipc_control_protocol.h
+  ipc/domains/control/ipc_control_protocol.hpp
   ipc/domains/inspection/ipc_inspection_protocol.cpp
-  ipc/domains/inspection/ipc_inspection_protocol.h
+  ipc/domains/inspection/ipc_inspection_protocol.hpp
   ipc/domains/log/ipc_log_protocol.cpp
-  ipc/domains/log/ipc_log_protocol.h
+  ipc/domains/log/ipc_log_protocol.hpp
   ipc/domains/property/ipc_property_protocol.cpp
-  ipc/domains/property/ipc_property_protocol.h
+  ipc/domains/property/ipc_property_protocol.hpp
   ipc/domains/session/ipc_session_protocol.cpp
-  ipc/domains/session/ipc_session_protocol.h
+  ipc/domains/session/ipc_session_protocol.hpp
   ipc/domains/statistics/ipc_statistics_protocol.cpp
-  ipc/domains/statistics/ipc_statistics_protocol.h
+  ipc/domains/statistics/ipc_statistics_protocol.hpp
 )
 target_link_libraries(
   gneiss_app_ipc_protocol

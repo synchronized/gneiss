@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "tooling/asset_import/tangent_generation.h"
+#include "tooling/asset_import/tangent_generation.hpp"
 
-#include "asset/mesh_tangent.h"
+#include "engine/asset/mesh_tangent.hpp"
 
 #include <mikktspace.h>
 

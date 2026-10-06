@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "world/render_snapshot.h"
-#include "world/world_state.h"
+#include "engine/function/world/render_snapshot.hpp"
+#include "engine/function/world/world_state.hpp"
 
 int run_tests() {
   gneiss::world_internal::world_state world{1};
@@ -27,7 +27,7 @@ int run_tests() {
   }
   world.emplace<gneiss::world_internal::mesh_renderer_component>(mesh_entity, renderer);
 
-  gneiss::world_internal::render_snapshot snapshot;
+  gneiss::render_internal::render_snapshot snapshot;
   if (gneiss::world_internal::build_render_snapshot(world, 1280U, 720U, snapshot) !=
           GNEISS_SUCCESS ||
       !snapshot.has_camera || snapshot.instances.size() != 1U ||

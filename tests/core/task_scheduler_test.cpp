@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "cooperative_scheduler_contract.h"
-#include "core/tasks/task_scheduler.h"
+#include "engine/core/tasks/task_scheduler.hpp"
 
 #include <atomic>
 #include <chrono>

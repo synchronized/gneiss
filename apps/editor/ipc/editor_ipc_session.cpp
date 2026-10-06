@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "editor_ipc_session.h"
+#include "editor_ipc_session.hpp"
 
-#include "editor_ipc_outbound.h"
-#include "editor_ipc_router.h"
-#include "ipc_protocol_domains.h"
-#include "ipc_session_protocol.h"
+#include "editor_ipc_outbound.hpp"
+#include "editor_ipc_router.hpp"
+#include "ipc_protocol_domains.hpp"
+#include "ipc_session_protocol.hpp"
 
 #include <algorithm>
 #include <array>

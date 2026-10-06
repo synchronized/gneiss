@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "tooling/asset_build/bc7_encoder.h"
+#include "tooling/asset_build/bc7_encoder.hpp"
 
 #include <bc7decomp.h>
 

@@ -23,5 +23,30 @@ int main(void) {
       gneiss_log_message_validate(NULL) != GNEISS_ERROR_INVALID_ARGUMENT) {
     return 3;
   }
-  return 0;
+  message.category = "game";
+  message.message = NULL;
+  if (gneiss_log_message_validate(&message) != GNEISS_ERROR_INVALID_ARGUMENT) {
+    return 4;
+  }
+  message.message_length = 0;
+  if (gneiss_log_message_validate(&message) != GNEISS_SUCCESS) {
+    return 5;
+  }
+  message.message = "\xC0\x80";
+  message.message_length = 2;
+  if (gneiss_log_message_validate(&message) != GNEISS_ERROR_INVALID_ARGUMENT) {
+    return 6;
+  }
+  message.message = "\xE4\xB8\xAD";
+  message.message_length = 3;
+  if (gneiss_log_message_validate(&message) != GNEISS_SUCCESS) {
+    return 7;
+  }
+  message.reserved[0] = 1;
+  if (gneiss_log_message_validate(&message) != GNEISS_ERROR_INVALID_ARGUMENT) {
+    return 8;
+  }
+  message.reserved[0] = 0;
+  message.struct_size = GNEISS_LOG_MESSAGE_VERSION_1_SIZE - 1;
+  return gneiss_log_message_validate(&message) == GNEISS_ERROR_INVALID_ARGUMENT ? 0 : 9;
 }

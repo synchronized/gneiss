@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "asset_browser_model.h"
-#include "asset_import_controller.h"
-#include "editor_command_history.h"
-#include "editor_project.h"
-#include "editor_session.h"
+#include "asset_browser_model.hpp"
+#include "asset_import_controller.hpp"
+#include "editor_command_history.hpp"
+#include "editor_project.hpp"
+#include "editor_session.hpp"
 
 #include <gneiss/application.hpp>
 

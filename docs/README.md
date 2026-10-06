@@ -33,6 +33,7 @@
 ## API 参考
 
 - [API 稳定级别与兼容策略](reference/compatibility.md)
+- [C++ SDK 的类型与借用边界](reference/cpp-sdk.md)
 - [Core 版本与结果接口](reference/core.md)
 - [RID 有效性与 Service 生命周期](reference/rid.md)
 - [World、Entity 与内部 ECS 边界](reference/world.md)
@@ -66,6 +67,9 @@
 - [0.42.0：真实大场景异步加载与安全切换](versions/0.42.0.md)
 
 ## 路线图与开发计划
+
+- [VER-045：0.45.0 内部 C++ 分层与完整 SDK 包装](plans/VER-045-0.45.0-cpp-boundaries.md)
+- [DEV-045：分层重构与包装实施计划](plans/DEV-045-cpp-boundaries.md)
 
 - [Gneiss 开发路线图](roadmap.md)
 - [VER-001：0.1.0 最小运行时闭环](plans/VER-001-0.1.0-runtime-slice.md)
@@ -183,6 +187,8 @@
 - [ADR-049：模型依赖准备与整批资源发布](decisions/ADR-049-model-asset-transactions.md)
 - [ADR-050：场景加载使用隔离候选与安全点激活](decisions/ADR-050-staged-scene-activation.md)
 - [ADR-051：PBR 材质语义与多纹理依赖](decisions/ADR-051-pbr-material-dependencies.md)
+- [ADR-053：内部 C++ 实现与 C ABI、C++ SDK 分层](decisions/ADR-053-cpp-core-and-c-abi.md)
+- [ADR-054：精简源码布局与宿主边界](decisions/ADR-054-source-layout-and-host-boundaries.md)
 - [ADR-052：纹理驻留与加载预算](decisions/ADR-052-texture-residency-and-budgets.md)
 
 ## 实施与验收记录
@@ -335,6 +341,66 @@
 - [M-286：纹理容量与加载所有权初审](records/M-286-texture-memory-audit.md)
 - [M-287：VFS 读取来源基础](records/M-287-read-source-foundation.md)
 - [M-287：Granit 0.44 独立变体上传接入](records/M-287-granit-0.44-integration.md)
+
+- [M-292～M-293：接口审计与 Core 边界首轮实施](records/M-292-293-cpp-boundary-foundation.md)
+
+- [M-294：World C++ 内部契约与 C 入口拆分](records/M-294-world-cpp-boundary.md)
+
+- [M-294：Application 注册表与宿主入口拆分](records/M-294-application-boundary.md)
+- [M-294：Application 语义配置与平台窗口归属](records/M-294-application-configuration.md)
+
+- [M-297：0.45.0 整版验收](records/M-297-0.45.0-validation.md)
+- [M-295：Gizmo 绘制与宿主入口](records/M-295-gizmo-host-entry.md)
+- [M-295：Reflection 内部注册契约与 C 适配](records/M-295-reflection-boundary.md)
+
+- [M-295：公共 C 入口集中与内部调用收口](records/M-295-c-boundary-completion.md)
+
+- [M-296：C++ 拥有者生命周期](records/M-296-owner-lifecycle.md)
+- [M-296：Prefab 刷新令牌的 C++ 所有权](records/M-296-prefab-refresh-owner.md)
+- [M-296：输入与 Game Context 强类型借用](records/M-296-input-context-views.md)
+- [M-296：World、节点和组件的 SDK 所有权审查](records/M-296-world-scene-ownership.md)
+- [M-296：场景实例包装与子树 Prefab 边界](records/M-296-scene-instance-sdk.md)
+- [M-296：公共函数包装覆盖与日志回调契约](records/M-296-function-coverage.md)
+- [M-296：公共类型、常量与回调映射](records/M-296-type-callback-coverage.md)
+
+- [M-295：Render 快照与 Asset 解码边界](records/M-295-render-asset-layout.md)
+
+- [M-295：平台工具的链接边界](records/M-295-platform-link-boundary.md)
+
+- [M-295：Core 源码布局与依赖边界](records/M-295-core-layout.md)
+
+- [M-295：日志事件投递与 Application 回调边界](records/M-295-log-sink-boundary.md)
+
+- [M-295：Asset 基础能力与上传服务归属](records/M-295-asset-layout.md)
+- [M-295：CPU 准备与资源发布分开编译](records/M-295-render-preparation.md)
+- [M-295：材质准备参数与纹理 RID 分离](records/M-295-material-parameters.md)
+- [M-295：网格与纹理准备数据归属](records/M-295-prepared-data.md)
+- [M-295：Asset CPU 准备闭环](records/M-295-asset-preparation.md)
+- [M-295：Function 六模块目录迁移](records/M-295-function-layout.md)
+- [M-295：C ABI 适配目录迁移](records/M-295-api-layout.md)
+- [M-295：Editor UI 实现与入口分离](records/M-295-editor-ui-layout.md)
+- [M-295：Editor 资产服务目录迁移](records/M-295-editor-assets-layout.md)
+- [M-295：独立编辑模型与宿主边界](records/M-295-editor-model-layout.md)
+- [M-295：场景会话与宿主目标拆分](records/M-295-editor-session-layout.md)
+- [M-295：Runtime Transform 回写脱离 IPC](records/M-295-author-transform-boundary.md)
+- [M-295：控制台脱离 Runtime 日志协议](records/M-295-console-boundary.md)
+- [M-295：属性编辑模型脱离 IPC](records/M-295-property-boundary.md)
+- [M-295：场景镜像脱离 IPC](records/M-295-scene-mirror-boundary.md)
+- [M-295：Tooling、assetc 与宿主入口布局](records/M-295-tooling-host-layout.md)
+- [M-295：Runtime 面板与宿主分离](records/M-295-runtime-panels.md)
+- [M-295：控制台面板与宿主分离](records/M-295-console-panel.md)
+- [M-295：材质创建的 ABI 边界](records/M-295-material-abi-boundary.md)
+- [M-295：网格与原始纹理输入边界](records/M-295-resource-input-boundary.md)
+- [M-295：UI 与 Debug 绘制提交边界](records/M-295-draw-submission-boundary.md)
+- [M-294：Scene 创建参数边界](records/M-294-scene-creation-boundary.md)
+- [M-294：Scene 查询结果边界](records/M-294-scene-query-boundary.md)
+- [M-294：相机设置与子树映射边界](records/M-294-scene-edit-boundary.md)
+- [M-294：内部日志输入与回调边界核对](records/M-294-log-input-boundary.md)
+- [M-295：Apps 私有头与宿主共用契约](records/M-295-apps-private-headers.md)
+- [M-295：作者属性面板与编辑事务](records/M-295-author-property-panel.md)
+- [M-295：资产面板的作者编辑命令](records/M-295-asset-scene-commands.md)
+- [M-295：资产面板与宿主操作分离](records/M-295-asset-browser-panel.md)
+- [M-295：作者层级树与拖拽请求](records/M-295-author-hierarchy-panel.md)
 
 ## 文档维护
 

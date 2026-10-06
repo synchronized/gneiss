@@ -8,14 +8,16 @@
 #include <gneiss/reflection.h>
 
 #include <cstdint>
+#include <exception>
 
 namespace gneiss {
 
-/** Type Registry 的独占 RAII 包装。查询结果仍由 Registry 持有。 */
+/** Type Registry 的独占 RAII 包装。查询结果仍由 Registry 持有；并发访问需外部同步。
+ * 析构或移动覆盖若关闭失败则终止进程；需处理错误时先显式 reset()。 */
 class type_registry final {
 public:
   type_registry() noexcept = default;
-  ~type_registry() noexcept { reset(); }
+  ~type_registry() noexcept { reset_or_terminate(); }
 
   type_registry(const type_registry&) = delete;
   type_registry& operator=(const type_registry&) = delete;
@@ -23,7 +25,7 @@ public:
   type_registry(type_registry&& other) noexcept : handle_(other.release()) {}
   type_registry& operator=(type_registry&& other) noexcept {
     if (this != &other) {
-      reset();
+      reset_or_terminate();
       handle_ = other.release();
     }
     return *this;
@@ -33,8 +35,13 @@ public:
     gneiss_type_registry handle = GNEISS_NULL_TYPE_REGISTRY;
     const auto status = from_native(gneiss_type_registry_create(&handle));
     if (status.ok()) {
-      output.reset();
-      output.handle_ = handle;
+      type_registry candidate;
+      candidate.handle_ = handle;
+      const auto closed = output.reset();
+      if (closed.failed()) {
+        return closed;
+      }
+      output.handle_ = candidate.release();
     }
     return status;
   }
@@ -48,6 +55,20 @@ public:
   }
   [[nodiscard]] result freeze() noexcept {
     return from_native(gneiss_type_registry_freeze(handle_));
+  }
+  /** 查询是否冻结；失败时不改变输出。 */
+  [[nodiscard]] result is_frozen(bool& output) const noexcept {
+    std::uint8_t value{};
+    const auto status = from_native(gneiss_type_registry_is_frozen(handle_, &value));
+    if (status.ok()) {
+      output = value != 0U;
+    }
+    return status;
+  }
+  /** 按序号借用冻结 Registry 元数据，有效期不超过 Registry。 */
+  [[nodiscard]] result type_at(std::uint32_t index, gneiss_type_info& output) const noexcept {
+    output = GNEISS_TYPE_INFO_INIT;
+    return from_native(gneiss_type_registry_type_at(handle_, index, &output));
   }
   [[nodiscard]] result type_count(std::uint32_t& output) const noexcept {
     return from_native(gneiss_type_registry_type_count(handle_, &output));
@@ -79,20 +100,33 @@ public:
     return handle_ != GNEISS_NULL_TYPE_REGISTRY;
   }
 
-  void reset() noexcept {
-    if (handle_ != GNEISS_NULL_TYPE_REGISTRY) {
-      (void)gneiss_type_registry_destroy(handle_);
-      handle_ = GNEISS_NULL_TYPE_REGISTRY;
+  /** 幂等关闭；无效句柄视为已释放，其他失败保留句柄供所属线程重试。
+   * 返回结果可供检查；保留直接 reset() 的既有调用方式。 */
+  result reset() noexcept {
+    if (handle_ == GNEISS_NULL_TYPE_REGISTRY) {
+      return result::success;
     }
+    const auto status = from_native(gneiss_type_registry_destroy(handle_));
+    if (status.failed() && status != result::invalid_handle) {
+      return status;
+    }
+    handle_ = GNEISS_NULL_TYPE_REGISTRY;
+    return result::success;
   }
 
-private:
+  /** 转移原始 Registry 所有权，调用方负责销毁；借用元数据寿命不变。 */
   [[nodiscard]] gneiss_type_registry release() noexcept {
     const auto value = handle_;
     handle_ = GNEISS_NULL_TYPE_REGISTRY;
     return value;
   }
 
+private:
+  void reset_or_terminate() noexcept {
+    if (reset().failed()) {
+      std::terminate();
+    }
+  }
   gneiss_type_registry handle_ = GNEISS_NULL_TYPE_REGISTRY;
 };
 

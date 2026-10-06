@@ -42,7 +42,7 @@
 | `src/render/granit/granit_render_service.*` | 复用 GPU 候选、回执及回读；不移入场景业务语义 |
 | `src/application/`、`apps/runtime/` | 内部加载/切换请求，窗口推进、模块启动和退出顺序 |
 | `apps/editor/`、`apps/common/ipc/` | 可见阶段、请求身份、取消/重试及切换后的镜像失效 |
-| `tests/`、`tools/performance/` | 原创小夹具、场景资产获取/转换、交互回放和分阶段测量 |
+| `tests/`、`scripts/performance/` | 原创小夹具、场景资产获取/转换、交互回放和分阶段测量 |
 
 上述是计划落点，不表示已经存在对应异步入口；新增内部类名和文件名在最小原型后确定。
 

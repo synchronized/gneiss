@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "application/application_asset_reload_internal.h"
-#include "application/application_scene_load_internal.h"
+#include "engine/function/application/application_asset_reload_internal.hpp"
+#include "engine/function/application/application_scene_load_internal.hpp"
 
 #include <gneiss/application.hpp>
 #include <gneiss/scene.h>
@@ -42,6 +42,46 @@ std::uint64_t peak_resident_bytes() {
   return getrusage(RUSAGE_SELF, &usage) == 0 ? static_cast<std::uint64_t>(usage.ru_maxrss) * 1024U
                                              : 0U;
 #endif
+}
+// 场景切换的预载也走设备变体选择和有界上传，不能用同步预载阻断被测异步路径。
+gneiss_result preload_scene(gneiss::application& app, gneiss::tasks::task_scheduler& scheduler,
+                            bool cooperative, std::string_view uri, gneiss_scene_instance& scene) {
+  using namespace gneiss::application_internal;
+  std::uint64_t request{};
+  auto result = request_scene_load(app.get(), uri, 1U, 1U, request);
+  const auto deadline = clock_type::now() + std::chrono::minutes(15);
+  while (result == GNEISS_SUCCESS && clock_type::now() < deadline) {
+    if (cooperative) {
+      (void)scheduler.run_ready();
+    }
+    result = static_cast<gneiss_result>(app.run(1U));
+    if (result != GNEISS_SUCCESS) {
+      break;
+    }
+    scene_load_completion completion;
+    bool finished{};
+    result = poll_scene_load(app.get(), completion, finished);
+    if (finished) {
+      return completion.result;
+    }
+    scene_load_progress progress;
+    bool active{};
+    if (result == GNEISS_SUCCESS) {
+      result = query_scene_load_progress(app.get(), progress, active);
+    }
+    if (result == GNEISS_SUCCESS && active && progress.phase == scene_load_phase::ready) {
+      result = activate_scene_load(app.get(), request, completion);
+      if (result == GNEISS_SUCCESS) {
+        scene = completion.scene;
+        // 消费预载终态并回收旧域，之后才能发起被测切换。
+        result = poll_scene_load(app.get(), completion, finished);
+      }
+      return result;
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  }
+  (void)cancel_scene_load(app.get(), request);
+  return result == GNEISS_SUCCESS ? GNEISS_ERROR_NOT_READY : result;
 }
 } // namespace
 
@@ -94,6 +134,10 @@ int main(int argc, char** argv) try {
       app.run(3U) != gneiss::result::success) {
     return 3;
   }
+  if (mode != "sync" &&
+      gneiss::application_internal::attach_task_executor(app.get(), scheduler) != GNEISS_SUCCESS) {
+    return 3;
+  }
   gneiss_scene_instance scene{};
   constexpr std::string_view uri = "asset://scenes/scene.scene.json";
   gneiss_scene_instance previous_scene{};
@@ -103,8 +147,12 @@ int main(int argc, char** argv) try {
   gneiss::render_internal::frame_image previous_image;
   const bool preserve = scenario == "failure" || scenario.starts_with("cancel-");
   if (scenario != "initial") {
-    if (gneiss_scene_instance_load(app.get(), uri.data(), uri.size(), &previous_scene) !=
-            GNEISS_SUCCESS ||
+    const auto preload = preload_scene(app, scheduler, mode == "cooperative", uri, previous_scene);
+    if (preload != GNEISS_SUCCESS) {
+      std::fprintf(stderr, "异步预载失败：结果=%d\n", preload);
+      return 11;
+    }
+    if (previous_scene == GNEISS_NULL_SCENE_INSTANCE ||
         gneiss_application_get_world(app.get(), &previous_world) != GNEISS_SUCCESS ||
         app.run(10U) != gneiss::result::success)
       return 11;
@@ -182,7 +230,6 @@ int main(int argc, char** argv) try {
     result = gneiss_scene_instance_load(app.get(), uri.data(), uri.size(), &scene);
   } else {
     using namespace gneiss::application_internal;
-    result = attach_task_executor(app.get(), scheduler);
     std::uint64_t request{};
     if (result == GNEISS_SUCCESS) {
       result = request_scene_load(app.get(), source_uri, 1U, 1U, request);

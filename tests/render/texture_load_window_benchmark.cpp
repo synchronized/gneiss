@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "application/application_asset_reload_internal.h"
+#include "engine/function/application/application_asset_reload_internal.hpp"
 
 #include <gneiss/application.hpp>
 #include <gneiss/scene.h>
@@ -144,7 +144,7 @@ gneiss_result update(gneiss_application app, const gneiss_frame_time*, void* opa
     }
   }
   if (state.requested && !state.completed) {
-    asset_internal::texture_load_completion completion;
+    render_internal::texture_load_completion completion;
     bool ready{};
     const auto result = application_internal::poll_textures(app, completion, ready);
     if (result != GNEISS_SUCCESS) {

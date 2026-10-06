@@ -5,7 +5,7 @@
 
 ## 接口范围
 
-此处描述 `src/core/tasks` 与 `application_asset_reload_internal.h` 的内部 C++ 接口，不属于安装 SDK
+此处描述 `src/engine/core/tasks` 与 `application_asset_reload_internal.hpp` 的内部 C++ 接口，不属于安装 SDK
 或公共 C ABI。调度器安排执行，Service 管理请求、资源身份与事务；渲染仍由专用渲染执行器拥有。
 设计取舍见 [ADR-047](../decisions/ADR-047-cooperative-task-execution.md) 和
 [ADR-048](../decisions/ADR-048-runtime-asset-preparation.md)。
@@ -106,7 +106,7 @@ GPU 已接受的子批次先安全收尾，再回收整个场景候选。成功�
 网格覆盖范围、失败保持旧画面与不同输出尺寸；还验证完整场景候选 ready 前后不污染旧画面、
 激活后像素改变、旧 Scene 句柄失效、取消/失败后图像与资源数量保持。它不是系统截图或性能采样接口。
 
-`gneiss_texture_load_window_benchmark` 配合 `tools/performance/measure_texture_loading.py` 测量
-大纹理，配合 `tools/performance/measure_model_loading.py` 重新导入 Lantern 并测量混合资产加载。
+`gneiss_texture_load_window_benchmark` 配合 `scripts/performance/measure_texture_loading.py` 测量
+大纹理，配合 `scripts/performance/measure_model_loading.py` 重新导入 Lantern 并测量混合资产加载。
 Windows 同时移动相机、连续 resize、最小化恢复，并独立验证加载期间退出；CSV 记录实际已呈现
 帧完成间隔。单独报告导入工具耗时，不混入 Runtime 加载阶段；不以主循环 tick 代替呈现帧。

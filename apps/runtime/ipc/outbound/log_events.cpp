@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "runtime_ipc_outbound.h"
+#include "runtime_ipc_outbound.hpp"
 
-#include "ipc_log_protocol.h"
+#include "ipc_log_protocol.hpp"
 
-#include <gneiss/app/runtime_log_protocol.h>
+#include <gneiss/app/runtime_log_protocol.hpp>
 
 #include <new>
 #include <string>

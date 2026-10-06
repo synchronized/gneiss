@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "runtime_ipc_session.h"
+#include "runtime_ipc_session.hpp"
 
-#include "ipc/outbound/runtime_ipc_outbound.h"
-#include "ipc/runtime_commands.h"
+#include "ipc/outbound/runtime_ipc_outbound.hpp"
+#include "ipc/runtime_commands.hpp"
 
 #include <algorithm>
 #include <deque>

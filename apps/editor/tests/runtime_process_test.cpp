@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "runtime_process.h"
+#include "runtime_log_adapter.hpp"
+#include "runtime_process.hpp"
+#include "runtime_property_adapter.hpp"
+#include "runtime_scene_adapter.hpp"
 
 #include <gneiss/world.h>
 
@@ -13,6 +16,7 @@
 #include <fstream>
 #include <string>
 #include <thread>
+#include <utility>
 
 namespace {
 
@@ -25,9 +29,130 @@ struct temporary_project final {
   }
 };
 
+bool test_scene_adapter() {
+  gneiss::editor::runtime_scene_batch output;
+  {
+    gneiss::ipc_inspection_batch input{
+        .stamp = {31U, 32U}, .is_full = true, .chunk_index = 2U, .chunk_count = 3U, .changes = {}};
+    gneiss::ipc_inspection_change change;
+    change.id = {41U, 42U};
+    change.node.id = change.id;
+    change.node.parent = {43U, 44U};
+    change.node.uuid = "node-uuid";
+    change.node.prefab_instance_uuid = "instance-uuid";
+    change.node.prefab_source_node_uuid = "source-uuid";
+    change.node.name = std::string(512U, 's');
+    change.node.local_transform.translation[1] = 7.0F;
+    change.node.component_flags = 3U;
+    change.node.camera.near_plane = 0.75F;
+    change.node.mesh_uri = "asset://mesh";
+    change.node.material_uri = "asset://material";
+    input.changes.push_back(std::move(change));
+    input.changes.push_back(
+        {.type = gneiss::ipc_inspection_change_type::remove, .id = {51U, 52U}, .node = {}});
+    if (gneiss::editor::to_runtime_scene_batch(std::move(input), output) !=
+        gneiss::result::success) {
+      return false;
+    }
+  }
+  if (output.stamp.session_id != 31U || output.stamp.sequence != 32U || !output.is_full ||
+      output.chunk_index != 2U || output.chunk_count != 3U || output.changes.size() != 2U) {
+    return false;
+  }
+  const auto& change = output.changes[0];
+  const auto& node = change.node;
+  if (change.type != gneiss::editor::runtime_scene_change_type::upsert || change.id.value != 41U ||
+      change.id.generation != 42U || node.id != change.id || node.parent.value != 43U ||
+      node.parent.generation != 44U || node.uuid != "node-uuid" ||
+      node.prefab_instance_uuid != "instance-uuid" ||
+      node.prefab_source_node_uuid != "source-uuid" || node.name != std::string(512U, 's') ||
+      node.local_transform.translation[1] != 7.0F || node.component_flags != 3U ||
+      node.camera.near_plane != 0.75F || node.mesh_uri != "asset://mesh" ||
+      node.material_uri != "asset://material" ||
+      output.changes[1].type != gneiss::editor::runtime_scene_change_type::remove ||
+      output.changes[1].id.value != 51U || output.changes[1].id.generation != 52U) {
+    return false;
+  }
+  gneiss::ipc_inspection_batch invalid;
+  invalid.changes.push_back(
+      {.type = static_cast<gneiss::ipc_inspection_change_type>(255U), .id = {}, .node = {}});
+  return gneiss::editor::to_runtime_scene_batch(std::move(invalid), output) ==
+             gneiss::result::invalid_argument &&
+         output.stamp.session_id == 31U && output.changes.size() == 2U &&
+         output.changes[0].node.name == std::string(512U, 's');
+}
+
+bool test_property_adapter() {
+  const std::array<gneiss::ipc_property_payload, 10> values{
+      std::monostate{},
+      true,
+      std::int64_t{-17},
+      std::uint64_t{42},
+      1.5F,
+      2.5,
+      std::string(512U, 'p'),
+      std::array<std::uint8_t, 16>{1U, 2U},
+      std::array<float, 3>{1.0F, 2.0F, 3.0F},
+      std::array<float, 4>{1.0F, 2.0F, 3.0F, 4.0F}};
+  for (const auto& payload : values) {
+    gneiss::editor::runtime_property_write request{
+        .session_id = 11U,
+        .command_id = 12U,
+        .object = {13U, 14U},
+        .type_id = {{15U}},
+        .field_id = 16U,
+        .expected_revision = 17U,
+        .value = gneiss::editor::to_runtime_property_value({payload})};
+    const auto wire = gneiss::editor::to_ipc_property_write(std::move(request));
+    if (wire.session_id != 11U || wire.command_id != 12U || wire.object.value != 13U ||
+        wire.object.generation != 14U || wire.type_id.bytes[0] != 15U || wire.field_id != 16U ||
+        wire.expected_revision != 17U || wire.value.payload != payload) {
+      return false;
+    }
+    // 临时协议响应在表达式结束时销毁，模型结果必须持有消息与规范值。
+    const auto result =
+        gneiss::editor::to_runtime_property_result({.session_id = 11U,
+                                                    .command_id = 12U,
+                                                    .code = GNEISS_ERROR_INVALID_ARGUMENT,
+                                                    .revision = 18U,
+                                                    .message = std::string(256U, 'r'),
+                                                    .canonical_value = {payload}});
+    if (result.session_id != 11U || result.command_id != 12U ||
+        result.code != GNEISS_ERROR_INVALID_ARGUMENT || result.revision != 18U ||
+        result.message != std::string(256U, 'r') || result.canonical_value.payload != payload) {
+      return false;
+    }
+  }
+  return true;
+}
+
 } // namespace
 
 int main() try {
+  if (!test_scene_adapter() || !test_property_adapter()) {
+    return 91;
+  }
+  // 协议对象销毁后，控制台值仍拥有全部字段和长字符串。
+  auto converted = [] {
+    gneiss::app::runtime_log_record record;
+    record.severity = GNEISS_LOG_ERROR;
+    record.sequence = 42U;
+    record.timestamp_ns = 123456U;
+    record.thread_id = 17U;
+    record.source = "runtime-module";
+    record.category = "resource-import";
+    record.message = std::string(512U, 'x');
+    record.operation = GNEISS_ERROR_NOT_FOUND;
+    return gneiss::editor::to_console_event(std::move(record));
+  }();
+  if (converted.severity != GNEISS_LOG_ERROR || converted.sequence != 42U ||
+      converted.timestamp_ns != 123456U || converted.thread_id != 17U ||
+      converted.source != "runtime-module" || converted.category != "resource-import" ||
+      converted.message != std::string(512U, 'x') ||
+      converted.operation != GNEISS_ERROR_NOT_FOUND) {
+    return 90;
+  }
+
   temporary_project reload_project{
       std::filesystem::temp_directory_path() / "Gneiss" /
           ("runtime-reload-" +
@@ -249,10 +374,11 @@ int main() try {
       !process.is_running()) {
     return 25;
   }
-  gneiss::editor::runtime_property_key property_key{.object =
-                                                        process.scene_mirror().nodes().front().id,
-                                                    .type_id = {},
-                                                    .field_id = GNEISS_TRANSFORM_FIELD_TRANSLATION};
+  gneiss::editor::runtime_property_key property_key{
+      .object = {process.scene_mirror().nodes().front().id.value,
+                 process.scene_mirror().nodes().front().id.generation},
+      .type_id = {},
+      .field_id = GNEISS_TRANSFORM_FIELD_TRANSLATION};
   const auto transform_type = gneiss_transform_type_id();
   std::ranges::copy(transform_type.bytes, property_key.type_id.begin());
   if (!process.supports_property_editing() ||

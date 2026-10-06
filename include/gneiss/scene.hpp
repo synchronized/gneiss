@@ -9,6 +9,7 @@
 #include <gneiss/scene.h>
 
 #include <cstdint>
+#include <exception>
 #include <limits>
 #include <new>
 #include <span>
@@ -44,11 +45,82 @@ using scene_mesh_renderer_desc = gneiss_scene_mesh_renderer_desc;
 using scene_camera_desc = gneiss_scene_camera_desc;
 using scene_mesh_renderer_node_desc = gneiss_scene_mesh_renderer_node_desc;
 
-/** 独占拥有已加载场景；必须在所属 Application 销毁前释放。 */
+/** 独占 Prefab 刷新的撤销令牌，不延长 Application 或场景寿命。
+ * 操作、析构及移动覆盖限所属 Application 线程；释放只丢弃历史，不撤销当前投影。 */
+class scene_prefab_refresh final {
+public:
+  scene_prefab_refresh() noexcept = default;
+  ~scene_prefab_refresh() noexcept { reset_or_terminate(); }
+  scene_prefab_refresh(const scene_prefab_refresh&) = delete;
+  scene_prefab_refresh& operator=(const scene_prefab_refresh&) = delete;
+  scene_prefab_refresh(scene_prefab_refresh&& other) noexcept
+      : application_(std::exchange(other.application_, GNEISS_NULL_APPLICATION)),
+        scene_(std::exchange(other.scene_, GNEISS_NULL_SCENE_INSTANCE)),
+        token_(std::exchange(other.token_, GNEISS_NULL_SCENE_PREFAB_REFRESH_TOKEN)) {}
+  scene_prefab_refresh& operator=(scene_prefab_refresh&& other) noexcept {
+    if (this != &other) {
+      reset_or_terminate();
+      application_ = std::exchange(other.application_, GNEISS_NULL_APPLICATION);
+      scene_ = std::exchange(other.scene_, GNEISS_NULL_SCENE_INSTANCE);
+      token_ = std::exchange(other.token_, GNEISS_NULL_SCENE_PREFAB_REFRESH_TOKEN);
+    }
+    return *this;
+  }
+  /** 非零仅表示包装持有令牌，不保证父对象仍存活。 */
+  [[nodiscard]] explicit operator bool() const noexcept {
+    return token_ != GNEISS_NULL_SCENE_PREFAB_REFRESH_TOKEN;
+  }
+  [[nodiscard]] gneiss_scene_prefab_refresh_token get() const noexcept { return token_; }
+  [[nodiscard]] gneiss_application owner() const noexcept { return application_; }
+  [[nodiscard]] gneiss_scene_instance scene() const noexcept { return scene_; }
+  /** 在新旧版本间切换；成功后旧节点 ID 失效，失败保留 out_new_root。 */
+  [[nodiscard]] result toggle(scene_node_id& out_new_root) noexcept {
+    gneiss_scene_node_id root = GNEISS_NULL_SCENE_NODE_ID;
+    const auto status = from_native(
+        gneiss_scene_instance_toggle_prefab_refresh(application_, scene_, token_, &root));
+    if (status.ok()) {
+      out_new_root = scene_node_id{root};
+    }
+    return status;
+  }
+  /** 转移令牌；调用前保存 owner() 和 scene()，接收者负责手动释放。 */
+  [[nodiscard]] gneiss_scene_prefab_refresh_token release() noexcept {
+    application_ = GNEISS_NULL_APPLICATION;
+    scene_ = GNEISS_NULL_SCENE_INSTANCE;
+    return std::exchange(token_, GNEISS_NULL_SCENE_PREFAB_REFRESH_TOKEN);
+  }
+  /** 幂等释放；令牌或父对象已失效视为完成。其他失败保留句柄供重试。
+   * 析构和移动覆盖若关闭失败则终止进程。 */
+  [[nodiscard]] result reset() noexcept {
+    if (!*this) {
+      return result::success;
+    }
+    const auto status =
+        from_native(gneiss_scene_instance_release_prefab_refresh(application_, scene_, token_));
+    if (status.failed() && status != result::invalid_handle) {
+      return status;
+    }
+    (void)release();
+    return result::success;
+  }
+
+private:
+  friend class scene_instance;
+  void reset_or_terminate() noexcept {
+    if (reset().failed()) {
+      std::terminate();
+    }
+  }
+  gneiss_application application_ = GNEISS_NULL_APPLICATION;
+  gneiss_scene_instance scene_ = GNEISS_NULL_SCENE_INSTANCE;
+  gneiss_scene_prefab_refresh_token token_ = GNEISS_NULL_SCENE_PREFAB_REFRESH_TOKEN;
+};
+
+/** 独占拥有已加载场景；只在所属 Application 线程操作，不延长父对象寿命。 */
 class scene_instance final {
 public:
   scene_instance() noexcept = default;
-  ~scene_instance() noexcept { reset(); }
+  ~scene_instance() noexcept { reset_or_terminate(); }
 
   scene_instance(const scene_instance&) = delete;
   scene_instance& operator=(const scene_instance&) = delete;
@@ -57,7 +129,7 @@ public:
         handle_(std::exchange(other.handle_, GNEISS_NULL_SCENE_INSTANCE)) {}
   scene_instance& operator=(scene_instance&& other) noexcept {
     if (this != &other) {
-      reset();
+      reset_or_terminate();
       application_ = std::exchange(other.application_, GNEISS_NULL_APPLICATION);
       handle_ = std::exchange(other.handle_, GNEISS_NULL_SCENE_INSTANCE);
     }
@@ -70,9 +142,14 @@ public:
     const auto native_result =
         gneiss_scene_instance_load(application, uri.data(), uri.size(), &handle);
     if (native_result == GNEISS_SUCCESS) {
-      out_instance.reset();
-      out_instance.application_ = application;
-      out_instance.handle_ = handle;
+      scene_instance candidate;
+      candidate.application_ = application;
+      candidate.handle_ = handle;
+      const auto closed = out_instance.reset();
+      if (closed.failed()) {
+        return closed;
+      }
+      out_instance = std::move(candidate);
     }
     return from_native(native_result);
   }
@@ -84,9 +161,14 @@ public:
     const auto native_result = gneiss_scene_instance_create_empty(application, scene_uuid.data(),
                                                                   scene_uuid.size(), &handle);
     if (native_result == GNEISS_SUCCESS) {
-      out_instance.reset();
-      out_instance.application_ = application;
-      out_instance.handle_ = handle;
+      scene_instance candidate;
+      candidate.application_ = application;
+      candidate.handle_ = handle;
+      const auto closed = out_instance.reset();
+      if (closed.failed()) {
+        return closed;
+      }
+      out_instance = std::move(candidate);
     }
     return from_native(native_result);
   }
@@ -105,6 +187,7 @@ public:
   [[nodiscard]] result get_node_count(std::uint64_t& out_count) const noexcept {
     return from_native(gneiss_scene_instance_get_node_count(application_, handle_, &out_count));
   }
+  /** 描述按值输出，但字符串只借用到下次场景修改或父对象失效；跨修改使用前须复制。 */
   [[nodiscard]] result get_node_info(std::uint64_t index,
                                      scene_instance_node_info& out_info) const noexcept {
     return from_native(
@@ -114,6 +197,7 @@ public:
     return from_native(
         gneiss_scene_instance_get_prefab_node_count(application_, handle_, &out_count));
   }
+  /** Prefab 描述的字符串借用期限与 get_node_info 相同；刷新后节点 ID 也须重新查询。 */
   [[nodiscard]] result get_prefab_node_info(std::uint64_t index,
                                             scene_prefab_node_info& out_info) const noexcept {
     return from_native(
@@ -155,6 +239,22 @@ public:
       out_token = token;
     }
     return from_native(native_result);
+  }
+  /** 刷新并接管撤销令牌；out_refresh 必须为空，否则返回 invalid_state 且不刷新。
+   * 失败不改变场景及两个输出；成功后由 out_refresh 自动释放历史租约。 */
+  [[nodiscard]] result refresh_prefab_instance(scene_node_id root, scene_node_id& out_new_root,
+                                               scene_prefab_refresh& out_refresh) noexcept {
+    if (out_refresh) {
+      return result::invalid_state;
+    }
+    gneiss_scene_prefab_refresh_token token = GNEISS_NULL_SCENE_PREFAB_REFRESH_TOKEN;
+    const auto status = refresh_prefab_instance(root, out_new_root, token);
+    if (status.ok()) {
+      out_refresh.application_ = application_;
+      out_refresh.scene_ = handle_;
+      out_refresh.token_ = token;
+    }
+    return status;
   }
   [[nodiscard]] result toggle_prefab_refresh(gneiss_scene_prefab_refresh_token token,
                                              scene_node_id& out_new_root) noexcept {
@@ -278,15 +378,34 @@ public:
       return result::internal;
     }
   }
-  void reset() noexcept {
-    if (handle_ != GNEISS_NULL_SCENE_INSTANCE) {
-      (void)gneiss_scene_instance_unload(application_, handle_);
-      handle_ = GNEISS_NULL_SCENE_INSTANCE;
-      application_ = GNEISS_NULL_APPLICATION;
+  /** 所属 Application 的非拥有句柄；release() 前保存以便手动卸载。 */
+  [[nodiscard]] gneiss_application owner() const noexcept { return application_; }
+  /** 转移场景所有权；调用方负责使用原 owner() 在所属线程卸载。 */
+  [[nodiscard]] gneiss_scene_instance release() noexcept {
+    application_ = GNEISS_NULL_APPLICATION;
+    return std::exchange(handle_, GNEISS_NULL_SCENE_INSTANCE);
+  }
+  /** 幂等卸载；父对象或场景已失效视为释放完成，其他失败保留句柄供重试。
+   * 析构或移动覆盖若关闭失败则终止进程；不会隐式跨线程卸载。 */
+  result reset() noexcept {
+    if (handle_ == GNEISS_NULL_SCENE_INSTANCE) {
+      return result::success;
     }
+    const auto status = from_native(gneiss_scene_instance_unload(application_, handle_));
+    if (status.failed() && status != result::invalid_handle) {
+      return status;
+    }
+    handle_ = GNEISS_NULL_SCENE_INSTANCE;
+    application_ = GNEISS_NULL_APPLICATION;
+    return result::success;
   }
 
 private:
+  void reset_or_terminate() noexcept {
+    if (reset().failed()) {
+      std::terminate();
+    }
+  }
   gneiss_application application_ = GNEISS_NULL_APPLICATION;
   gneiss_scene_instance handle_ = GNEISS_NULL_SCENE_INSTANCE;
 };

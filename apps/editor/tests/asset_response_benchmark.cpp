@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "asset_background_worker.h"
-#include "asset_reimport_queue.h"
-#include "tooling/asset_import/asset_index.h"
+#include "asset_background_worker.hpp"
+#include "asset_reimport_queue.hpp"
+#include "tooling/asset_import/asset_index.hpp"
 
 #include <algorithm>
 #include <chrono>

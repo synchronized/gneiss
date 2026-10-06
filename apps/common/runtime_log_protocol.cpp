@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include <gneiss/app/runtime_log_protocol.h>
+#include <gneiss/app/runtime_log_protocol.hpp>
 
 #include <yyjson.h>
 

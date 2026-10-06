@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "asset_background_worker.h"
-#include "author_asset_service.h"
-#include "editor_session.h"
+#include "asset_background_worker.hpp"
+#include "author_asset_service.hpp"
+#include "editor_session.hpp"
 
 #include <gneiss/application.hpp>
 

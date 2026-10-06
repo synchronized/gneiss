@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "asset/file_system.h"
-#include "asset/mesh_binary.h"
-#include "asset/resource_cache.h"
-#include "asset/texture_binary.h"
-#include "asset/texture_container.h"
-#include "asset/texture_ktx2.h"
-#include "asset/virtual_file_system.h"
-#include "render/render_asset_loader.h"
-#include "render/render_resource_service.h"
+#include "engine/asset/file_system.hpp"
+#include "engine/asset/mesh_binary.hpp"
+#include "engine/asset/resource_cache.hpp"
+#include "engine/asset/texture_binary.hpp"
+#include "engine/asset/texture_container.hpp"
+#include "engine/asset/texture_ktx2.hpp"
+#include "engine/asset/virtual_file_system.hpp"
+#include "engine/function/render/render_asset_loader.hpp"
+#include "engine/function/render/render_resource_service.hpp"
 
 #include <gneiss/core/result.h>
 
@@ -224,7 +224,7 @@ void selected_variants() {
                                            .sampled_transfer_formats = {true, true, true, true}};
   const texture_prepare_profile fallback{.generation = 2U,
                                          .sampled_transfer_formats = {true, true, false, false}};
-  texture_resource texture;
+  gneiss::asset_internal::prepared_texture_data texture;
   asset_diagnostic diagnostic;
   const auto limit = built.manifest().size() + bc.size();
   require(prepare_texture(files, "asset://t.texture.json", texture, diagnostic, limit, false, limit,
@@ -262,6 +262,8 @@ void selected_variants() {
   require(prepare_render_assets(files, requests, batch, diagnostic, {}, 1U, limit, compressed) ==
           GNEISS_SUCCESS);
   require(batch.bytes == limit && batch.assets.front().texture.profile == compressed);
+  const auto* prepared_payload = batch.assets.front().texture.payload.data();
+  const auto* prepared_manifest = batch.assets.front().texture.manifest.data();
   render_resource_service resources;
   gneiss::asset_internal::resource_cache cache;
   render_asset_loader loader(files, cache, resources);
@@ -269,6 +271,9 @@ void selected_variants() {
   require(loader.stage_asset(std::move(batch.assets.front()), {}, candidate.front()) ==
           GNEISS_SUCCESS);
   const auto old_frame = candidate.front().texture;
+  require(candidate.front().texture_payload->data() == prepared_payload &&
+          old_frame->manifest.data() == prepared_manifest && old_frame->profile == compressed &&
+          old_frame->selected_variant == 0U);
   require(old_frame->payload.empty() && old_frame->payload_source &&
           !old_frame->upload_payload.expired());
   render_upload_item command;
@@ -308,7 +313,106 @@ void selected_variants() {
               files, requests, batch, diagnostic, [&] { return ++cancellation_checks == 2U; }, 1U,
               limit, compressed) == GNEISS_ERROR_INVALID_STATE &&
           batch.assets.empty());
+  // 单纹理暂存入口同样接收纯准备数据，移动后保留 payload 与设备身份。
+  require(prepare_texture(files, "asset://t.texture.json", texture, diagnostic, binary.size(),
+                          false, binary.size(), compressed) == GNEISS_SUCCESS);
+  const auto* single_payload = texture.payload.data();
+  render_asset_loader::texture_target target;
+  require(loader.observe_texture("asset://single.texture.json", target) == GNEISS_SUCCESS);
+  std::array<render_asset_loader::texture_candidate, 1> single;
+  require(loader.stage_texture(target, std::move(texture), single.front()) == GNEISS_SUCCESS);
+  require(single.front().data->payload.data() == single_payload &&
+          single.front().data->profile == compressed &&
+          single.front().data->selected_variant == 0U);
+  require(loader.publish_textures(single) == GNEISS_SUCCESS);
+
 #endif
+}
+
+// 同步与批次发布都必须保留纯参数，并且只有依赖就绪后才绑定 RID。
+bool material_parameter_roundtrip(gneiss::asset_internal::virtual_file_system& files,
+                                  memory_file_system& memory) {
+  using namespace gneiss::render_internal;
+  std::string json =
+      R"({"format":"gneiss.material","version":5,"color":[0.25,0.5,0.75,0.5],"metallic":0.25,"roughness":0.75,"normal_scale":0.5,"occlusion_strength":0.25,"emissive":[0.25,0.5,0.75],"alpha_mode":"MASK","alpha_cutoff":0.25,"double_sided":true,)";
+  constexpr std::array names{"base_color_texture", "metallic_roughness_texture", "normal_texture",
+                             "occlusion_texture", "emissive_texture"};
+  for (const auto* name : names) {
+    json += "\"" + std::string(name) + "\":\"asset://textures/white.texture.json\",";
+  }
+  json += "\"sampling\":[";
+  for (unsigned slot = 0; slot < 5U; ++slot) {
+    if (slot != 0U) {
+      json += ",";
+    }
+    json += "{\"uv_set\":" + std::to_string(slot % 2U) +
+            ",\"mag_filter\":0,\"min_filter\":1,\"mip_filter\":2,\"address_u\":" +
+            std::to_string(slot % 3U) + ",\"address_v\":1}";
+  }
+  json += "]}";
+  memory.files["parameters.material.json"] = json;
+  const auto matches = [](const material_resource* value) {
+    if (value == nullptr || value->red != 0.25F || value->green != 0.5F || value->blue != 0.75F ||
+        value->alpha != 0.5F || value->metallic != 0.25F || value->roughness != 0.75F ||
+        value->normal_scale != 0.5F || value->occlusion_strength != 0.25F ||
+        value->emissive != std::array{0.25F, 0.5F, 0.75F} ||
+        value->alpha_mode != GNEISS_MATERIAL_ALPHA_MASK || value->alpha_cutoff != 0.25F ||
+        value->double_sided != 1U) {
+      return false;
+    }
+    const auto handles = value->texture_handles();
+    for (std::size_t slot = 0; slot < handles.size(); ++slot) {
+      const auto& sample = value->sampling[slot];
+      if (handles[slot] == GNEISS_NULL_TEXTURE || sample.uv_set != slot % 2U ||
+          sample.mag_filter != 0U || sample.min_filter != 1U || sample.mip_filter != 2U ||
+          sample.address_u != slot % 3U || sample.address_v != 1U) {
+        return false;
+      }
+    }
+    return true;
+  };
+  render_resource_service resources;
+  gneiss::asset_internal::resource_cache cache;
+  render_asset_loader loader(files, cache, resources);
+  asset_diagnostic diagnostic;
+  material_asset_lease synchronous;
+  if (loader.acquire_material("asset://parameters.material.json", synchronous, diagnostic) !=
+          GNEISS_SUCCESS ||
+      !matches(resources.get_material(synchronous.get()))) {
+    return false;
+  }
+
+  prepared_render_batch batch;
+  const std::array request{render_asset_reload{.uri = "asset://parameters.material.json",
+                                               .type = render_asset_type::material}};
+  const auto before = resources.live_resource_count();
+  if (prepare_render_assets(files, request, batch, diagnostic, {}) != GNEISS_SUCCESS ||
+      batch.assets.size() != 2U || resources.live_resource_count() != before ||
+      batch.assets.back().bytes !=
+          sizeof(material_resource) +
+              5U * std::string_view("asset://textures/white.texture.json").size() ||
+      batch.assets.back().material.color != std::array{0.25F, 0.5F, 0.75F, 0.5F}) {
+    return false;
+  }
+  render_asset_loader::asset_candidate missing;
+  if (loader.stage_asset(batch.assets.back(), {}, missing) != GNEISS_ERROR_INVALID_STATE ||
+      resources.live_resource_count() != before) {
+    return false;
+  }
+  std::vector<render_asset_loader::asset_candidate> candidates;
+  for (auto& prepared : batch.assets) {
+    render_asset_loader::asset_candidate candidate;
+    if (loader.stage_asset(std::move(prepared), candidates, candidate) != GNEISS_SUCCESS) {
+      return false;
+    }
+    candidates.push_back(std::move(candidate));
+  }
+  if (!matches(candidates.back().material.get()) ||
+      loader.publish_assets(candidates) != GNEISS_SUCCESS ||
+      !matches(resources.get_material(synchronous.get()))) {
+    return false;
+  }
+  return true;
 }
 
 } // namespace
@@ -385,6 +489,16 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
     return 1;
   }
 
+  {
+    auto parameter_files = std::make_shared<memory_file_system>();
+    parameter_files->files = memory->files;
+    gneiss::asset_internal::virtual_file_system parameter_vfs;
+    if (parameter_vfs.mount("asset://", parameter_files) != GNEISS_SUCCESS ||
+        !material_parameter_roundtrip(parameter_vfs, *parameter_files)) {
+      return 40;
+    }
+  }
+
   gneiss::render_internal::mesh_asset_lease first_mesh;
   gneiss::render_internal::mesh_asset_lease second_mesh;
   gneiss::render_internal::material_asset_lease material;
@@ -425,7 +539,7 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
   // 同步与任务准备共用解析；准备阶段不得触碰缓存或 RID。
   const auto before_resources = resources.live_resource_count();
   const auto before_cache = cache.size();
-  gneiss::render_internal::texture_resource prepared;
+  gneiss::asset_internal::prepared_texture_data prepared;
   for (const auto* uri :
        {"asset://textures/white.texture.json", "asset://textures/linear.texture.json",
         "asset://textures/packaged.texture.json"}) {

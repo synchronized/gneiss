@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "runtime_scene_inspection.h"
+#include "runtime_scene_inspection.hpp"
 
 #include <algorithm>
 #include <array>
