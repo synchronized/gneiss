@@ -346,7 +346,7 @@ inline gneiss_property_accessor_desc reflection_accessor(property_binding& bindi
 } // namespace detail
 class released_type_registry;
 
-/** Type Registry 的独占 RAII 包装。查询结果仍由 Registry 持有；并发访问需外部同步。
+/** Type Registry 的独占 RAII 包装。查询名称借用 Registry；冻结前修改及关闭需外部同步。
  * 析构或移动覆盖若关闭失败则终止进程；需处理错误时先显式 reset()。 */
 class type_registry final {
 public:

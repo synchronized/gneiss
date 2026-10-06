@@ -7,6 +7,8 @@
 
 ## 未发布
 
+## 0.47.0 - 2026-10-06
+
 - C++ SDK 改用独立原生描述、枚举、标志、默认值与 noexcept 回调，覆盖 Application、World、Scene、Render、Input、Reflection 和 Game Module。
 - Application 与 Reflection 的释放载体同时保留回调存储，移动或移交所有权后回调保持有效；Render 数组转换、Reflection 字段查询与属性值明确所有权。
 - 游戏工程模板改用原生 C++ 生命周期回调，只有动态库查询入口保留 C ABI。
