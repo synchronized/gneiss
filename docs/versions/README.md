@@ -8,6 +8,7 @@
 
 | 版本 | 发布日期 | 主要变化 | 发布入口 |
 | --- | --- | --- | --- |
+| [0.47.0](0.47.0.md) | 2026-10-06 | 原生 C++ SDK、回调所有权与旧转发头移除 | [源码 Release](https://github.com/synchronized/gneiss/releases/tag/v0.47.0) |
 | [0.46.0](0.46.0.md) | 2026-10-06 | Engine 公共头归属、旧路径兼容与安装验证 | [源码 Release](https://github.com/synchronized/gneiss/releases/tag/v0.46.0) |
 | [0.45.0](0.45.0.md) | 2026-10-06 | 内部 C++ 分层、完整 SDK 与 Editor/Apps 边界 | [源码 Release](https://github.com/synchronized/gneiss/releases/tag/v0.45.0) |
 | [0.44.0](0.44.0.md) | 2026-10-01 | 单变体纹理驻留、共享预算与大场景加载 | [源码 Release](https://github.com/synchronized/gneiss/releases/tag/v0.44.0) |
