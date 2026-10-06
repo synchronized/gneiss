@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#pragma once
+#ifndef GNEISS_DETAIL_WORLD_INL_
+#define GNEISS_DETAIL_WORLD_INL_
 
 #include <gneiss/engine/world.hpp>
 
@@ -11,7 +12,7 @@ inline result world_ref::register_reflection(type_registry& registry) noexcept {
   return from_native(gneiss_world_register_reflection(registry.get()));
 }
 
-inline result world_ref::create_entity(entity_id& out_entity) noexcept {
+inline result world_ref::create_entity(entity_id& out_entity) const noexcept {
   gneiss_entity_id native_entity = GNEISS_NULL_ENTITY_ID;
   const auto native_result = gneiss_world_entity_create(handle_, &native_entity);
   if (native_result == GNEISS_SUCCESS) {
@@ -24,16 +25,17 @@ inline result world_ref::entity_count(std::uint64_t& output) const noexcept {
   return from_native(gneiss_world_entity_count(handle_, &output));
 }
 
-inline result world_ref::destroy_entity(entity_id entity) noexcept {
+inline result world_ref::destroy_entity(entity_id entity) const noexcept {
   return from_native(gneiss_world_entity_destroy(handle_, entity.get()));
 }
 
-inline result world_ref::set_camera(entity_id entity, const camera& value) noexcept {
+inline result world_ref::set_camera(entity_id entity, const camera& value) const noexcept {
   const auto native = to_native(value);
   return from_native(gneiss_world_entity_set_camera(handle_, entity.get(), &native));
 }
 
-inline result world_ref::configure_camera(entity_id entity, const camera_desc& value) noexcept {
+inline result world_ref::configure_camera(entity_id entity,
+                                          const camera_desc& value) const noexcept {
   const auto native = to_native(value);
   return from_native(gneiss_world_entity_configure_camera(handle_, entity.get(), &native));
 }
@@ -47,11 +49,11 @@ inline result world_ref::get_camera(entity_id entity, camera_desc& out_camera) c
   return status;
 }
 
-inline result world_ref::remove_camera(entity_id entity) noexcept {
+inline result world_ref::remove_camera(entity_id entity) const noexcept {
   return from_native(gneiss_world_entity_remove_camera(handle_, entity.get()));
 }
 
-inline result world_ref::set_active_camera(entity_id entity) noexcept {
+inline result world_ref::set_active_camera(entity_id entity) const noexcept {
   return from_native(gneiss_world_set_active_camera(handle_, entity.get()));
 }
 
@@ -62,17 +64,18 @@ inline result world_ref::get_active_camera(entity_id& out_entity) const noexcept
   return from_native(native_result);
 }
 
-inline result world_ref::set_mesh_renderer(entity_id entity, const mesh_renderer& value) noexcept {
+inline result world_ref::set_mesh_renderer(entity_id entity,
+                                           const mesh_renderer& value) const noexcept {
   const auto native = to_native(value);
   return from_native(gneiss_world_entity_set_mesh_renderer(handle_, entity.get(), &native));
 }
 
-inline result world_ref::remove_mesh_renderer(entity_id entity) noexcept {
+inline result world_ref::remove_mesh_renderer(entity_id entity) const noexcept {
   return from_native(gneiss_world_entity_remove_mesh_renderer(handle_, entity.get()));
 }
 
 inline result world_ref::create_scene_node(scene_node_id parent, entity_id entity,
-                                           scene_node_id& out_node) noexcept {
+                                           scene_node_id& out_node) const noexcept {
   gneiss_scene_node_id native_node = GNEISS_NULL_SCENE_NODE_ID;
   const auto native_result =
       gneiss_scene_node_create(handle_, parent.get(), entity.get(), &native_node);
@@ -82,11 +85,12 @@ inline result world_ref::create_scene_node(scene_node_id parent, entity_id entit
   return from_native(native_result);
 }
 
-inline result world_ref::destroy_scene_node(scene_node_id node) noexcept {
+inline result world_ref::destroy_scene_node(scene_node_id node) const noexcept {
   return from_native(gneiss_scene_node_destroy(handle_, node.get()));
 }
 
-inline result world_ref::reparent_scene_node(scene_node_id node, scene_node_id parent) noexcept {
+inline result world_ref::reparent_scene_node(scene_node_id node,
+                                             scene_node_id parent) const noexcept {
   return from_native(gneiss_scene_node_reparent(handle_, node.get(), parent.get()));
 }
 
@@ -195,3 +199,5 @@ inline void world::reset_or_terminate() noexcept {
 }
 
 } // namespace gneiss
+
+#endif

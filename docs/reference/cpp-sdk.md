@@ -38,8 +38,14 @@
 ## Application 与 World 样板
 
 [最小示例](../guides/application-world-example.md)展示创建、实体变换、回调退出和关闭。
-两个模块的公共声明与 inline 适配定义分开维护；`detail/*.inl` 自动包含并随安装包分发，
+Application、World、Input 和 Game Context 的公共操作与 inline 适配定义分开维护；`detail/*.inl` 自动包含并随安装包分发，
 不是用户入口。错误码、输出参数和上述所有权契约不因组织调整而变化。
+
+`world_ref` 与 `application_ref` 的 const 约束视图自身，不表示后端对象只读；修改操作
+仍受所属线程和生命周期限制。World 原先未加 const 的操作现在统一为 const 成员，普通调用
+不变；显式保存这些成员函数指针的消费者需要更新指针类型。C ABI 不受影响。
+
+日志模块仅包含短值类型、构造与校验函数，保留在单个头内，避免无实际收益的拆分。
 
 ## 指针、字符串与回调
 

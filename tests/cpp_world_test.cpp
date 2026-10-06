@@ -12,6 +12,16 @@ static_assert(gneiss::camera_desc{}.near_plane == 0.1F);
 static_assert(gneiss::camera{}.is_primary);
 static_assert(!gneiss::mesh_renderer{}.mesh.is_valid());
 
+// 借用视图自身为 const 时仍可修改所属 World；不改变线程或生命周期约束。
+static_assert(requires(const gneiss::world_ref& view, gneiss::entity_id entity,
+                       gneiss::scene_node_id node, const gneiss::camera_desc& camera) {
+  view.create_entity(entity);
+  view.destroy_entity(entity);
+  view.configure_camera(entity, camera);
+  view.create_scene_node({}, entity, node);
+  view.destroy_scene_node(node);
+});
+
 namespace {
 bool verify_camera(gneiss::world& world, gneiss::entity_id entity) {
   gneiss::camera_desc expected{

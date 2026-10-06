@@ -153,6 +153,8 @@ target_sources(
       "${PROJECT_SOURCE_DIR}/include/gneiss/engine/application.hpp"
       "${PROJECT_SOURCE_DIR}/include/gneiss/engine/detail/application.inl"
       "${PROJECT_SOURCE_DIR}/include/gneiss/engine/detail/world.inl"
+      "${PROJECT_SOURCE_DIR}/include/gneiss/engine/detail/input.inl"
+      "${PROJECT_SOURCE_DIR}/include/gneiss/engine/detail/game_context.inl"
       "${PROJECT_SOURCE_DIR}/include/gneiss/engine/asset.h"
       "${PROJECT_SOURCE_DIR}/include/gneiss/engine/asset.hpp"
       "${PROJECT_SOURCE_DIR}/include/gneiss/engine/game_module.h"

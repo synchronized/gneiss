@@ -38,6 +38,7 @@ inline constexpr field_id is_primary{4};
 } // namespace camera_fields
 
 /** 非拥有 World 视图；销毁视图不销毁 World，父对象失效后操作返回无效句柄。
+ * const 只约束借用视图本身，不表示 World 只读。
  * 仅在 World 所属线程调用；is_valid() 只检查本地非零值，不探测存活状态。 */
 class world_ref {
 public:
@@ -49,35 +50,36 @@ public:
   [[nodiscard]] static result register_reflection(type_registry& registry) noexcept;
 
   /** 创建实体身份，不自动创建场景节点或变换；失败保留输出。 */
-  [[nodiscard]] result create_entity(entity_id& out_entity) noexcept;
+  [[nodiscard]] result create_entity(entity_id& out_entity) const noexcept;
 
   /** 查询存活实体数；须在 World 所属线程调用。 */
   [[nodiscard]] result entity_count(std::uint64_t& output) const noexcept;
 
-  [[nodiscard]] result destroy_entity(entity_id entity) noexcept;
+  [[nodiscard]] result destroy_entity(entity_id entity) const noexcept;
 
-  [[nodiscard]] result set_camera(entity_id entity, const camera& value) noexcept;
+  [[nodiscard]] result set_camera(entity_id entity, const camera& value) const noexcept;
 
-  [[nodiscard]] result configure_camera(entity_id entity, const camera_desc& value) noexcept;
+  [[nodiscard]] result configure_camera(entity_id entity, const camera_desc& value) const noexcept;
 
   [[nodiscard]] result get_camera(entity_id entity, camera_desc& out_camera) const noexcept;
 
-  [[nodiscard]] result remove_camera(entity_id entity) noexcept;
+  [[nodiscard]] result remove_camera(entity_id entity) const noexcept;
 
-  [[nodiscard]] result set_active_camera(entity_id entity) noexcept;
+  [[nodiscard]] result set_active_camera(entity_id entity) const noexcept;
 
   /** 返回借用的活动相机实体；未设置返回 not_ready。失败清空输出，保持既有 C 契约。 */
   [[nodiscard]] result get_active_camera(entity_id& out_entity) const noexcept;
 
-  [[nodiscard]] result set_mesh_renderer(entity_id entity, const mesh_renderer& value) noexcept;
-  [[nodiscard]] result remove_mesh_renderer(entity_id entity) noexcept;
+  [[nodiscard]] result set_mesh_renderer(entity_id entity,
+                                         const mesh_renderer& value) const noexcept;
+  [[nodiscard]] result remove_mesh_renderer(entity_id entity) const noexcept;
 
   [[nodiscard]] result create_scene_node(scene_node_id parent, entity_id entity,
-                                         scene_node_id& out_node) noexcept;
+                                         scene_node_id& out_node) const noexcept;
 
-  [[nodiscard]] result destroy_scene_node(scene_node_id node) noexcept;
+  [[nodiscard]] result destroy_scene_node(scene_node_id node) const noexcept;
 
-  [[nodiscard]] result reparent_scene_node(scene_node_id node, scene_node_id parent) noexcept;
+  [[nodiscard]] result reparent_scene_node(scene_node_id node, scene_node_id parent) const noexcept;
 
   [[nodiscard]] result set_local_transform(scene_node_id node,
                                            const transform& value) const noexcept;

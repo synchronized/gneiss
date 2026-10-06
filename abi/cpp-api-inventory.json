@@ -179,7 +179,8 @@
       "symbol": "gneiss_game_context_get_world",
       "header": "include/gneiss/engine/game_module.h",
       "cpp_candidate_files": [
-        "include/gneiss/engine/game_module.hpp"
+        "include/gneiss/engine/game_module.hpp",
+        "include/gneiss/engine/detail/game_context.inl"
       ],
       "review": "reviewed",
       "ownership": "借用 World，限生命周期回调线程；强类型输出失败保留，不延长父资源寿命",
@@ -194,7 +195,8 @@
       "symbol": "gneiss_game_context_get_startup_root_entity",
       "header": "include/gneiss/engine/game_module.h",
       "cpp_candidate_files": [
-        "include/gneiss/engine/game_module.hpp"
+        "include/gneiss/engine/game_module.hpp",
+        "include/gneiss/engine/detail/game_context.inl"
       ],
       "review": "reviewed",
       "ownership": "借用启动实体，限生命周期回调线程；强类型输出失败保留",
@@ -209,7 +211,8 @@
       "symbol": "gneiss_game_context_find_action",
       "header": "include/gneiss/engine/game_module.h",
       "cpp_candidate_files": [
-        "include/gneiss/engine/game_module.hpp"
+        "include/gneiss/engine/game_module.hpp",
+        "include/gneiss/engine/detail/game_context.inl"
       ],
       "review": "reviewed",
       "ownership": "上下文验证后借用所属 Application 动作；强类型输出失败不变",
@@ -224,7 +227,8 @@
       "symbol": "gneiss_game_context_get_action_state",
       "header": "include/gneiss/engine/game_module.h",
       "cpp_candidate_files": [
-        "include/gneiss/engine/game_module.hpp"
+        "include/gneiss/engine/game_module.hpp",
+        "include/gneiss/engine/detail/game_context.inl"
       ],
       "review": "reviewed",
       "ownership": "所属生命周期线程读取动作值快照；所有权和 generation 与 Application 动作相同",
@@ -239,7 +243,8 @@
       "symbol": "gneiss_game_context_request_exit",
       "header": "include/gneiss/engine/game_module.h",
       "cpp_candidate_files": [
-        "include/gneiss/engine/game_module.hpp"
+        "include/gneiss/engine/game_module.hpp",
+        "include/gneiss/engine/detail/game_context.inl"
       ],
       "review": "reviewed",
       "ownership": "生命周期回调线程借用 Context 请求宿主退出；不销毁上下文或模块",
@@ -253,7 +258,8 @@
       "symbol": "gneiss_game_context_log",
       "header": "include/gneiss/engine/game_module.h",
       "cpp_candidate_files": [
-        "include/gneiss/engine/game_module.hpp"
+        "include/gneiss/engine/game_module.hpp",
+        "include/gneiss/engine/detail/game_context.inl"
       ],
       "review": "reviewed",
       "ownership": "存活 Context 可从工作线程提交，返回前复制消息；上下文不由包装拥有，回调期日志视图不能外泄；C++ 输入为独立 log_message，字符串借用到同步提交返回，布局与保留字段由适配填写",
@@ -314,6 +320,7 @@
       "header": "include/gneiss/engine/input.h",
       "cpp_candidate_files": [
         "include/gneiss/engine/input.hpp",
+        "include/gneiss/engine/detail/input.inl",
         "include/gneiss/engine/application.hpp",
         "include/gneiss/engine/detail/application.inl"
       ],
@@ -331,6 +338,7 @@
       "header": "include/gneiss/engine/input.h",
       "cpp_candidate_files": [
         "include/gneiss/engine/input.hpp",
+        "include/gneiss/engine/detail/input.inl",
         "include/gneiss/engine/application.hpp",
         "include/gneiss/engine/detail/application.inl"
       ],
@@ -348,6 +356,7 @@
       "header": "include/gneiss/engine/input.h",
       "cpp_candidate_files": [
         "include/gneiss/engine/input.hpp",
+        "include/gneiss/engine/detail/input.inl",
         "include/gneiss/engine/application.hpp",
         "include/gneiss/engine/detail/application.inl"
       ],
@@ -365,6 +374,7 @@
       "header": "include/gneiss/engine/input.h",
       "cpp_candidate_files": [
         "include/gneiss/engine/input.hpp",
+        "include/gneiss/engine/detail/input.inl",
         "include/gneiss/engine/application.hpp",
         "include/gneiss/engine/detail/application.inl"
       ],
@@ -382,6 +392,7 @@
       "header": "include/gneiss/engine/input.h",
       "cpp_candidate_files": [
         "include/gneiss/engine/input.hpp",
+        "include/gneiss/engine/detail/input.inl",
         "include/gneiss/engine/application.hpp",
         "include/gneiss/engine/detail/application.inl"
       ],
@@ -399,6 +410,7 @@
       "header": "include/gneiss/engine/input.h",
       "cpp_candidate_files": [
         "include/gneiss/engine/input.hpp",
+        "include/gneiss/engine/detail/input.inl",
         "include/gneiss/engine/application.hpp",
         "include/gneiss/engine/detail/application.inl"
       ],

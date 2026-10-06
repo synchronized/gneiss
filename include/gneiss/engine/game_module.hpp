@@ -30,68 +30,26 @@ public:
   }
   [[nodiscard]] constexpr gneiss_game_context get() const noexcept { return value_; }
 
-  [[nodiscard]] result get_world_native(gneiss_world& out_world) const noexcept {
-    return from_native(gneiss_game_context_get_world(value_, &out_world));
-  }
+  [[nodiscard]] result get_world_native(gneiss_world& out_world) const noexcept;
   /** 借用当前 World，不取得所有权；上下文失效或场景切换后须重新获取。失败保留输出。 */
-  [[nodiscard]] result get_world(world_ref& output) const noexcept {
-    gneiss_world value = GNEISS_NULL_WORLD;
-    const auto status = get_world_native(value);
-    if (status.ok()) {
-      output = world_ref{value};
-    }
-    return status;
-  }
+  [[nodiscard]] result get_world(world_ref& output) const noexcept;
 
-  [[nodiscard]] result get_startup_root_entity_native(gneiss_entity_id& out_entity) const noexcept {
-    return from_native(gneiss_game_context_get_startup_root_entity(value_, &out_entity));
-  }
+  [[nodiscard]] result get_startup_root_entity_native(gneiss_entity_id& out_entity) const noexcept;
   /** 借用启动根实体；仅限模块生命周期回调线程，失败保留输出。 */
-  [[nodiscard]] result get_startup_root_entity(entity_id& output) const noexcept {
-    gneiss_entity_id value = GNEISS_NULL_ENTITY_ID;
-    const auto status = get_startup_root_entity_native(value);
-    if (status.ok()) {
-      output = entity_id{value};
-    }
-    return status;
-  }
+  [[nodiscard]] result get_startup_root_entity(entity_id& output) const noexcept;
 
   [[nodiscard]] result find_action_native(std::string_view name,
-                                          gneiss_action& out_action) const noexcept {
-    return from_native(
-        gneiss_game_context_find_action(value_, name.data(), name.size(), &out_action));
-  }
+                                          gneiss_action& out_action) const noexcept;
 
   [[nodiscard]] result get_action_state_native(gneiss_action action,
-                                               gneiss_action_state& out_state) const noexcept {
-    return from_native(gneiss_game_context_get_action_state(value_, action, &out_state));
-  }
+                                               gneiss_action_state& out_state) const noexcept;
   /** 返回借用动作 ID；失败保留输出，仅限模块生命周期回调线程。 */
-  [[nodiscard]] result find_action(std::string_view name, action_id& output) const noexcept {
-    gneiss_action value = GNEISS_NULL_ACTION;
-    const auto status = find_action_native(name, value);
-    if (status.ok()) {
-      output = action_id{value};
-    }
-    return status;
-  }
-  [[nodiscard]] result get_action_state(action_id id, action_state& output) const noexcept {
-    gneiss_action_state native = GNEISS_ACTION_STATE_INIT;
-    const auto status = get_action_state_native(id.get(), native);
-    if (status.ok()) {
-      output = detail::from_action_state(native);
-    }
-    return status;
-  }
+  [[nodiscard]] result find_action(std::string_view name, action_id& output) const noexcept;
+  [[nodiscard]] result get_action_state(action_id id, action_state& output) const noexcept;
 
-  [[nodiscard]] result request_exit() const noexcept {
-    return from_native(gneiss_game_context_request_exit(value_));
-  }
+  [[nodiscard]] result request_exit() const noexcept;
 
-  [[nodiscard]] result log(const log_message& message) const noexcept {
-    const auto native = to_native(message);
-    return from_native(gneiss_game_context_log(value_, &native));
-  }
+  [[nodiscard]] result log(const log_message& message) const noexcept;
 
   friend constexpr bool operator==(game_context, game_context) noexcept = default;
 
@@ -237,5 +195,7 @@ private:
 };
 
 } // namespace gneiss
+
+#include <gneiss/engine/detail/game_context.inl>
 
 #endif

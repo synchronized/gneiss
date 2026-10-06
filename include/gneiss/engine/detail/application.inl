@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#pragma once
+#ifndef GNEISS_DETAIL_APPLICATION_INL_
+#define GNEISS_DETAIL_APPLICATION_INL_
 
 #include <gneiss/engine/application.hpp>
 
@@ -309,3 +310,5 @@ inline result application::replace_with(application&& candidate) noexcept {
 inline result released_application::reset() noexcept { return owner_.reset(); }
 
 } // namespace gneiss
+
+#endif
