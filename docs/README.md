@@ -69,6 +69,9 @@
 
 ## 路线图与开发计划
 
+- [VER-046：0.46.0 公共头目录整理](plans/VER-046-0.46.0-public-header-layout.md)
+- [DEV-046：公共头目录整理开发计划](plans/DEV-046-public-header-layout.md)
+
 - [VER-045：0.45.0 内部 C++ 分层与完整 SDK 包装](plans/VER-045-0.45.0-cpp-boundaries.md)
 - [DEV-045：分层重构与包装实施计划](plans/DEV-045-cpp-boundaries.md)
 
