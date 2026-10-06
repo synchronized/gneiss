@@ -47,7 +47,10 @@ Scene/Prefab、Reflection 元数据及属性访问均完成共享/静态专项�
 26 个旧路径负向配置检查通过；共享/静态消费者各 3/3 通过。
 共享最终完整回归 189/189 通过（207.51 秒），包含原失败的灯廊工作流。
 最终代码同时补充了 Application/Log 描述指定初始化的显式默认值；共享/静态独立 C11/C++20 头构建通过。
-远端 Windows/Linux 完整矩阵待执行。
+候选 `375cb2a` 已触发首轮 Windows/Linux 完整矩阵。Linux GCC/Clang 核心任务及共享图形构建
+发现 reflection.hpp 使用 std::exchange 却没有显式包含 utility；Windows 传递包含掩盖了问题。
+已补显式标准头，不改接口及运行逻辑。本地独立头重编译与 Game Module/Reflection/属性访问 3/3 通过；
+修复候选继续验证远端矩阵，不跳过失败编译单元。
 
 ## 已知限制
 
