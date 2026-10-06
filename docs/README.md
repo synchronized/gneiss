@@ -70,6 +70,9 @@
 
 ## 路线图与开发计划
 
+- [VER-047：0.47.0 原生 C++ SDK 与公共头收口](plans/VER-047-0.47.0-native-cpp-sdk.md)
+- [DEV-047：原生 C++ SDK 与公共头收口开发计划](plans/DEV-047-native-cpp-sdk.md)
+
 - [VER-046：0.46.0 公共头目录整理](plans/VER-046-0.46.0-public-header-layout.md)
 - [DEV-046：公共头目录整理开发计划](plans/DEV-046-public-header-layout.md)
 
@@ -149,6 +152,8 @@
 - [TOOL-003：索引渲染最小闭环](plans/TOOL-003-indexed-rendering.md)
 
 ## 架构决策
+
+- [ADR-055：原生 C++ 公共类型与规范头路径](decisions/ADR-055-native-cpp-sdk.md)
 
 - [架构决策索引](decisions/README.md)
 - [ADR-001：Granit 依赖接入边界（已取代）](decisions/ADR-001-granit-dependency.md)
