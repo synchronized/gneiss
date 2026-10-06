@@ -13,34 +13,34 @@ struct module_state final {
   std::uint64_t ticks = 0;
   bool stopped = false;
 };
-module_state state;
+module_state test_state;
 
 gneiss::result initialize(gneiss::game_context context, void*& output) noexcept {
-  output = &state;
+  output = &test_state;
   return context.is_valid() ? gneiss::result::success : gneiss::result::invalid_handle;
 }
 gneiss::result fixed_update(gneiss::game_context context, void* value,
                             const gneiss::game_update_time& time) noexcept {
-  if (value != &state || context.get() != 42 || time.update_index != 7 || time.delta_ns != 16 ||
-      time.elapsed_ns != 112) {
+  if (value != &test_state || context.get() != 42 || time.update_index != 7 ||
+      time.delta_ns != 16 || time.elapsed_ns != 112) {
     return gneiss::result::invalid_argument;
   }
-  ++state.fixed_ticks;
+  ++test_state.fixed_ticks;
   return gneiss::result::success;
 }
 gneiss::result update(gneiss::game_context context, void* value,
                       const gneiss::game_update_time& time) noexcept {
   const auto status = fixed_update(context, value, time);
   if (status.ok()) {
-    ++state.ticks;
+    ++test_state.ticks;
   }
   return status;
 }
 gneiss::result shutdown(gneiss::game_context /*context*/, void* value) noexcept {
-  if (value != &state) {
+  if (value != &test_state) {
     return gneiss::result::invalid_argument;
   }
-  state.stopped = true;
+  test_state.stopped = true;
   return gneiss::result::success;
 }
 constexpr gneiss::game_module_callbacks callbacks{
@@ -96,7 +96,7 @@ bool check_lifecycle() {
   void* output = &sentinel;
   if (native.initialize(42, nullptr) != GNEISS_ERROR_INVALID_ARGUMENT ||
       native.initialize(0, &output) != GNEISS_ERROR_INVALID_HANDLE || output != &sentinel ||
-      native.initialize(42, &output) != GNEISS_SUCCESS || output != &state) {
+      native.initialize(42, &output) != GNEISS_SUCCESS || output != &test_state) {
     return false;
   }
   gneiss_game_update_time time{
@@ -107,8 +107,9 @@ bool check_lifecycle() {
       .elapsed_ns = 112,
   };
   if (native.fixed_update(42, output, &time) != GNEISS_SUCCESS ||
-      native.update(42, output, &time) != GNEISS_SUCCESS || state.fixed_ticks != 2 ||
-      state.ticks != 1 || native.update(42, output, nullptr) != GNEISS_ERROR_INVALID_ARGUMENT) {
+      native.update(42, output, &time) != GNEISS_SUCCESS || test_state.fixed_ticks != 2 ||
+      test_state.ticks != 1 ||
+      native.update(42, output, nullptr) != GNEISS_ERROR_INVALID_ARGUMENT) {
     return false;
   }
   time.reserved = 1;
@@ -118,8 +119,8 @@ bool check_lifecycle() {
   time.reserved = 0;
   time.struct_size = 0;
   return native.fixed_update(42, output, &time) == GNEISS_ERROR_INVALID_ARGUMENT &&
-         state.fixed_ticks == 2 && state.ticks == 1 &&
-         native.shutdown(42, output) == GNEISS_SUCCESS && state.stopped;
+         test_state.fixed_ticks == 2 && test_state.ticks == 1 &&
+         native.shutdown(42, output) == GNEISS_SUCCESS && test_state.stopped;
 }
 } // namespace
 

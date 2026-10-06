@@ -28,9 +28,16 @@ function(gneiss_verify_removed_headers)
     endif()
     set(source "${CMAKE_CURRENT_BINARY_DIR}/removed_headers/${probe}.${extension}")
     file(WRITE "${source}" "#include <${header}>\ntypedef int gneiss_removed_header_probe;\n")
+    set(probe_sources "${source}")
+    if(extension STREQUAL "c")
+      # 较旧 CMake 不会因导入目标的 cxx_std_20 自动启用 CXX；C 探针仍独立按 C11 编译。
+      set(cxx_source "${CMAKE_CURRENT_BINARY_DIR}/removed_headers/${probe}_language.cpp")
+      file(WRITE "${cxx_source}" "typedef int gneiss_removed_header_cxx_language;\n")
+      list(APPEND probe_sources "${cxx_source}")
+    endif()
     try_compile(old_header_compiles
       "${CMAKE_CURRENT_BINARY_DIR}/removed_headers/${probe}"
-      SOURCES "${source}"
+      SOURCES ${probe_sources}
       CMAKE_FLAGS "-DCMAKE_C_STANDARD=11" "-DCMAKE_CXX_STANDARD=20"
       LINK_LIBRARIES gneiss::engine
       OUTPUT_VARIABLE output)

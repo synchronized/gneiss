@@ -141,17 +141,31 @@ template <game_module_callbacks Callbacks> class game_module final {
 public:
   /** 显式构造 C 描述；仅借用 module_id，不进行校验。 */
   [[nodiscard]] static gneiss_game_module_desc to_native(game_module_desc desc) noexcept {
-    return {
+    gneiss_game_module_desc native{
         .struct_size = sizeof(gneiss_game_module_desc),
         .abi_version = desc.abi_version,
         .module_id = desc.module_id.data(),
         .module_id_length = desc.module_id.size(),
-        .initialize = Callbacks.initialize != nullptr ? initialize : nullptr,
-        .fixed_update = Callbacks.fixed_update != nullptr ? fixed_update : nullptr,
-        .update = Callbacks.update != nullptr ? update : nullptr,
-        .shutdown = Callbacks.shutdown != nullptr ? shutdown : nullptr,
+        .initialize = nullptr,
+        .fixed_update = nullptr,
+        .update = nullptr,
+        .shutdown = nullptr,
         .reserved = {},
     };
+    // 不实例化缺失回调的桥接，避免编译器生成空函数指针调用。
+    if constexpr (Callbacks.initialize != nullptr) {
+      native.initialize = initialize;
+    }
+    if constexpr (Callbacks.fixed_update != nullptr) {
+      native.fixed_update = fixed_update;
+    }
+    if constexpr (Callbacks.update != nullptr) {
+      native.update = update;
+    }
+    if constexpr (Callbacks.shutdown != nullptr) {
+      native.shutdown = shutdown;
+    }
+    return native;
   }
 
   [[nodiscard]] static result validate(game_module_desc desc) noexcept {

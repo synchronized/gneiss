@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Gneiss contributors
 
+cmake_minimum_required(VERSION 3.23)
+
 # 类型/宏登记和当前公共头一致；生命周期的语义审查仍需对应 Reference 与测试。
 file(READ "${GNEISS_SOURCE_DIR}/abi/cpp-type-inventory.json" type_inventory)
 # 迁移状态与旧版函数覆盖分开；发布门禁必须显式启用严格模式。
