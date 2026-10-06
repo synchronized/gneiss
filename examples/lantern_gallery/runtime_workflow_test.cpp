@@ -3,7 +3,7 @@
 
 #include "runtime_process.hpp"
 
-#include <gneiss/world.h>
+#include <gneiss/engine/world.h>
 
 #include <algorithm>
 #include <array>
@@ -77,16 +77,17 @@ std::optional<std::array<float, 4>> root_rotation(const gneiss::editor::runtime_
   return std::to_array(root->local_transform.rotation);
 }
 
-const gneiss::editor::runtime_scene_node* root_node(const gneiss::editor::runtime_process& process) {
+const gneiss::editor::runtime_scene_node*
+root_node(const gneiss::editor::runtime_process& process) {
   const auto& nodes = process.scene_mirror().nodes();
   const auto root =
       std::ranges::find_if(nodes, [](const auto& node) { return !node.parent.is_valid(); });
   return root == nodes.end() ? nullptr : &*root;
 }
 
-const gneiss::editor::runtime_scene_node* prefab_source(const gneiss::editor::runtime_process& process,
-                                                 std::string_view instance_uuid,
-                                                 std::string_view source_uuid) {
+const gneiss::editor::runtime_scene_node*
+prefab_source(const gneiss::editor::runtime_process& process, std::string_view instance_uuid,
+              std::string_view source_uuid) {
   const auto& nodes = process.scene_mirror().nodes();
   const auto found = std::ranges::find_if(nodes, [&](const auto& node) {
     return node.prefab_instance_uuid == instance_uuid &&
@@ -97,7 +98,8 @@ const gneiss::editor::runtime_scene_node* prefab_source(const gneiss::editor::ru
 
 gneiss::editor::runtime_property_key transform_key(const gneiss::editor::runtime_scene_node& node,
                                                    gneiss_field_id field_id) {
-  gneiss::editor::runtime_property_key key{.object = {node.id.value, node.id.generation}, .type_id = {}, .field_id = field_id};
+  gneiss::editor::runtime_property_key key{
+      .object = {node.id.value, node.id.generation}, .type_id = {}, .field_id = field_id};
   const auto type_id = gneiss_transform_type_id();
   std::ranges::copy(type_id.bytes, key.type_id.begin());
   return key;

@@ -18,7 +18,7 @@ C ABI 适配位于 `src/engine/api/`，`src/editor/` 管理 UI、资产服务、
 
 | 目录 | 所有权与职责 |
 | --- | --- |
-| `include/gneiss/` | 稳定的 C11 公共接口及其轻量 C++20 包装 |
+| `include/gneiss/` | 根总入口及旧路径兼容头；Engine 公共声明和包装位于 `engine/` |
 | `src/` | 内部运行时实现、第三方适配及离线处理 |
 | `apps/` | Editor、Runtime、assetc 程序入口及宿主共用代码 |
 | `scripts/` | 仓库维护与性能测量脚本 |
@@ -133,3 +133,13 @@ CMake 脚本验证。尚未统一迁移到新的测试层级，不创建空的 i
 - 平台差异集中在 `src/engine/platform/` 或具体后端目录，不散布到 World、Scene 和业务组件。
 - 单个实现文件只被一个模块使用时留在该模块内部；只有形成稳定跨模块契约后才提升为公共接口。
 - 目录调整应伴随真实代码迁移和验证，不单独进行大规模结构美化。
+
+## 公共头路径
+
+Engine 公共接口统一位于 `include/gneiss/engine/`，基础类型位于其 `core/` 子目录。
+例如使用 `<gneiss/engine/scene.h>` 或 `<gneiss/engine/scene.hpp>`；根总入口
+`<gneiss/gneiss.h>` / `<gneiss/gneiss.hpp>` 保留。旧功能头和 `gneiss/core/` 路径仅转发，
+声明、C 符号、命名空间与运行时状态保持唯一。新旧路径均随 SDK 安装。
+
+本次只整理已有 Engine SDK 目录；不建立 Runtime、Editor、Tooling 或插件公共 API，
+不改变内部模块边界。现有 `apps/runtime` 仍是宿主，而非第二套引擎库。

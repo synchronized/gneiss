@@ -10,11 +10,11 @@ gneiss_target_output_directories(gneiss_engine)
 
 set(GNEISS_GENERATED_INCLUDE_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated/include")
 set(GNEISS_GENERATED_VERSION_HEADER
-    "${GNEISS_GENERATED_INCLUDE_DIR}/gneiss/core/version.h")
+    "${GNEISS_GENERATED_INCLUDE_DIR}/gneiss/engine/core/version.h")
 
-file(MAKE_DIRECTORY "${GNEISS_GENERATED_INCLUDE_DIR}/gneiss/core")
+file(MAKE_DIRECTORY "${GNEISS_GENERATED_INCLUDE_DIR}/gneiss/engine/core")
 configure_file(
-  "${PROJECT_SOURCE_DIR}/include/gneiss/core/version.h.in"
+  "${PROJECT_SOURCE_DIR}/include/gneiss/engine/core/version.h.in"
   "${GNEISS_GENERATED_VERSION_HEADER}"
   @ONLY
 )
@@ -174,6 +174,32 @@ target_sources(
       "${PROJECT_SOURCE_DIR}/include/gneiss/scene.hpp"
       "${PROJECT_SOURCE_DIR}/include/gneiss/world.h"
       "${PROJECT_SOURCE_DIR}/include/gneiss/world.hpp"
+      "${PROJECT_SOURCE_DIR}/include/gneiss/core/version.h"
+      "${PROJECT_SOURCE_DIR}/include/gneiss/engine/application.h"
+      "${PROJECT_SOURCE_DIR}/include/gneiss/engine/application.hpp"
+      "${PROJECT_SOURCE_DIR}/include/gneiss/engine/asset.h"
+      "${PROJECT_SOURCE_DIR}/include/gneiss/engine/asset.hpp"
+      "${PROJECT_SOURCE_DIR}/include/gneiss/engine/game_module.h"
+      "${PROJECT_SOURCE_DIR}/include/gneiss/engine/game_module.hpp"
+      "${PROJECT_SOURCE_DIR}/include/gneiss/engine/input.h"
+      "${PROJECT_SOURCE_DIR}/include/gneiss/engine/input.hpp"
+      "${PROJECT_SOURCE_DIR}/include/gneiss/engine/log.h"
+      "${PROJECT_SOURCE_DIR}/include/gneiss/engine/log.hpp"
+      "${PROJECT_SOURCE_DIR}/include/gneiss/engine/reflection.h"
+      "${PROJECT_SOURCE_DIR}/include/gneiss/engine/reflection.hpp"
+      "${PROJECT_SOURCE_DIR}/include/gneiss/engine/render.h"
+      "${PROJECT_SOURCE_DIR}/include/gneiss/engine/render.hpp"
+      "${PROJECT_SOURCE_DIR}/include/gneiss/engine/scene.h"
+      "${PROJECT_SOURCE_DIR}/include/gneiss/engine/scene.hpp"
+      "${PROJECT_SOURCE_DIR}/include/gneiss/engine/world.h"
+      "${PROJECT_SOURCE_DIR}/include/gneiss/engine/world.hpp"
+      "${PROJECT_SOURCE_DIR}/include/gneiss/engine/core/entity.h"
+      "${PROJECT_SOURCE_DIR}/include/gneiss/engine/core/entity.hpp"
+      "${PROJECT_SOURCE_DIR}/include/gneiss/engine/core/export.h"
+      "${PROJECT_SOURCE_DIR}/include/gneiss/engine/core/result.h"
+      "${PROJECT_SOURCE_DIR}/include/gneiss/engine/core/result.hpp"
+      "${PROJECT_SOURCE_DIR}/include/gneiss/engine/core/rid.h"
+      "${PROJECT_SOURCE_DIR}/include/gneiss/engine/core/rid.hpp"
       "${GNEISS_GENERATED_VERSION_HEADER}"
 )
 

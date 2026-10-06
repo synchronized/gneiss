@@ -299,6 +299,26 @@ target_link_libraries(gneiss_cpp_header_test PRIVATE gneiss::engine)
 target_compile_features(gneiss_cpp_header_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_cpp_header_test)
 
+# 新规范路径逐头独立编译，原 headers 用例继续验证兼容路径。
+file(GLOB_RECURSE engine_sdk_headers CONFIGURE_DEPENDS RELATIVE "${PROJECT_SOURCE_DIR}/include"
+  "${PROJECT_SOURCE_DIR}/include/gneiss/engine/*.h"
+  "${PROJECT_SOURCE_DIR}/include/gneiss/engine/*.hpp")
+list(APPEND engine_sdk_headers "gneiss/engine/core/version.h")
+foreach(header IN LISTS engine_sdk_headers)
+  string(MAKE_C_IDENTIFIER "${header}" unit)
+  if(header MATCHES "\\.hpp$")
+    set(extension cpp)
+    set(header_target gneiss_cpp_header_test)
+  else()
+    set(extension c)
+    set(header_target gneiss_c_header_test)
+  endif()
+  set(header_source "${CMAKE_CURRENT_BINARY_DIR}/headers/${unit}.${extension}")
+  # 仅宏头也必须构成非空 C 编译单元，兼容 MSVC /WX；不引入其他头依赖。
+  file(WRITE "${header_source}" "#include <${header}>\ntypedef int gneiss_header_compile_probe;\n")
+  target_sources(${header_target} PRIVATE "${header_source}")
+endforeach()
+
 add_executable(gneiss_rid_table_test core/rid_table_test.cpp)
 target_include_directories(gneiss_rid_table_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_link_libraries(gneiss_rid_table_test PRIVATE gneiss::engine)

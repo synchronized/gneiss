@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include <gneiss/application.hpp>
-#include <gneiss/input.hpp>
-#include <gneiss/scene.h>
+#include <gneiss/engine/application.hpp>
+#include <gneiss/engine/input.hpp>
+#include <gneiss/engine/scene.h>
 
 #include <algorithm>
 #include <chrono>

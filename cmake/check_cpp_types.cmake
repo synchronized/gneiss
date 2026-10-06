@@ -2,7 +2,7 @@
 # Copyright (c) 2026 Gneiss contributors
 
 # 类型/宏登记和当前公共头一致；生命周期的语义审查仍需对应 Reference 与测试。
-file(READ "${GNEISS_SOURCE_DIR}/docs/records/artifacts/0.45-type-inventory.json" type_inventory)
+file(READ "${GNEISS_SOURCE_DIR}/abi/cpp-type-inventory.json" type_inventory)
 string(JSON header_count LENGTH "${type_inventory}" headers)
 math(EXPR header_last "${header_count} - 1")
 set(recorded_types)
