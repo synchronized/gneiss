@@ -32,12 +32,16 @@ struct log_event {
 
 /** 日志提交值；字符串由调用方持有至提交返回，复制本结构不会复制文本。
  * 默认级别为 info，category 必须填写；线程安全取决于借用文本是否被并发修改。 */
+// 显式默认值允许指定初始化器省略非标量字段。
+// NOLINTBEGIN(readability-redundant-member-init)
 struct log_message {
   log_severity severity = log_severity::info;
-  std::string_view category;
-  std::string_view message;
+  std::string_view category{};
+  std::string_view message{};
   result operation = result::success;
 };
+
+// NOLINTEND(readability-redundant-member-init)
 
 /** 构造借用字符串的消息；返回值不得比 category 和 message 存活更久。 */
 [[nodiscard]] constexpr log_message make_log_message(log_severity severity,

@@ -193,17 +193,21 @@ struct application_callbacks {
   void (*log)(application_ref, const log_event&, void*) noexcept = nullptr;
 };
 /** 配置字符串只借用到 create 返回；回调表复制到稳定存储，user_data 不复制。 */
+// 显式默认值允许指定初始化器省略非标量字段，避免缺字段诊断。
+// NOLINTBEGIN(readability-redundant-member-init)
 struct application_desc {
-  application_callbacks callbacks;
+  application_callbacks callbacks{};
   application_platform platform = application_platform::callback;
-  std::string_view window_title;
+  std::string_view window_title{};
   std::uint32_t window_width = 1280, window_height = 720;
   application_window_flags window_flags = application_window_flags::visible |
                                           application_window_flags::resizable |
                                           application_window_flags::high_dpi;
-  std::string_view asset_root, environment_asset;
+  std::string_view asset_root{}, environment_asset{};
   float environment_intensity = 1.0F, environment_rotation_radians = 0.0F;
 };
+
+// NOLINTEND(readability-redundant-member-init)
 
 namespace detail {
 inline std::string_view application_text(const char* text, std::uint64_t length) noexcept {

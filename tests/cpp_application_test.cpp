@@ -52,6 +52,10 @@ int verify_failed_initialization() {
 }
 int main() {
   using gneiss::result;
+  constexpr gneiss::application_desc defaults{.platform = gneiss::application_platform::callback};
+  static_assert(defaults.asset_root.empty() && defaults.window_title.empty());
+  constexpr gneiss::log_message empty_message{.category = "defaults"};
+  static_assert(empty_message.message.empty());
   static_assert(!std::is_convertible_v<gneiss::released_application, gneiss_application>);
   static_assert(!std::is_copy_constructible_v<gneiss::released_application>);
   context state;
