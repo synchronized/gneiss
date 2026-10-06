@@ -721,7 +721,7 @@
         "gneiss.c_world"
       ],
       "cpp_entry": "gneiss::world_ref::set_camera / gneiss::world",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_world_entity_configure_camera",
@@ -737,7 +737,7 @@
         "gneiss.world-service-boundary"
       ],
       "cpp_entry": "gneiss::world_ref::configure_camera / gneiss::world",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_world_entity_get_camera",
@@ -753,7 +753,7 @@
         "gneiss.world-service-boundary"
       ],
       "cpp_entry": "gneiss::world_ref::get_camera / gneiss::world",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_world_entity_remove_camera",
@@ -812,7 +812,7 @@
         "gneiss.cpp-resource-ownership"
       ],
       "cpp_entry": "gneiss::world_ref::set_mesh_renderer / gneiss::world",
-      "native_review": "pending"
+      "native_review": "implemented"
     },
     {
       "symbol": "gneiss_world_entity_remove_mesh_renderer",

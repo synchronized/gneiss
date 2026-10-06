@@ -59,9 +59,64 @@ using ui_draw_command = gneiss_ui_draw_command;
 using ui_draw_list_desc = gneiss_ui_draw_list_desc;
 using debug_line = gneiss_debug_line;
 using debug_draw_list_desc = gneiss_debug_draw_list_desc;
-using camera = gneiss_camera;
-using camera_desc = gneiss_camera_desc;
-using mesh_renderer = gneiss_mesh_renderer;
+/** 透视相机配置；默认视角约 60 度，裁剪面为 0.1 与 1000。 */
+struct camera_desc {
+  float vertical_field_of_view_radians = 1.04719755F;
+  float near_plane = 0.1F;
+  float far_plane = 1000.0F;
+};
+/** 兼容既有 set_camera 的主相机选择语义；新代码可用 configure_camera + set_active_camera。 */
+struct camera {
+  float vertical_field_of_view_radians = 1.04719755F;
+  float near_plane = 0.1F;
+  float far_plane = 1000.0F;
+  bool is_primary = true;
+};
+/** 只借用资源标识，不延长 Mesh、Material 或其所属 Application 的寿命。 */
+struct mesh_renderer {
+  mesh_id mesh;
+  material_id material;
+};
+/** 显式 C 互操作；逐字段转换，不依赖内存布局。 */
+[[nodiscard]] constexpr gneiss_camera_desc to_native(const camera_desc& value) noexcept {
+  return {
+      .struct_size = sizeof(gneiss_camera_desc),
+      .reserved = 0,
+      .vertical_field_of_view_radians = value.vertical_field_of_view_radians,
+      .near_plane = value.near_plane,
+      .far_plane = value.far_plane,
+  };
+}
+[[nodiscard]] constexpr camera_desc from_native(const gneiss_camera_desc& value) noexcept {
+  return {
+      .vertical_field_of_view_radians = value.vertical_field_of_view_radians,
+      .near_plane = value.near_plane,
+      .far_plane = value.far_plane,
+  };
+}
+[[nodiscard]] constexpr gneiss_camera to_native(const camera& value) noexcept {
+  return {
+      .vertical_field_of_view_radians = value.vertical_field_of_view_radians,
+      .near_plane = value.near_plane,
+      .far_plane = value.far_plane,
+      .is_primary = static_cast<std::uint8_t>(value.is_primary),
+      .reserved = {},
+  };
+}
+[[nodiscard]] constexpr camera from_native(const gneiss_camera& value) noexcept {
+  return {
+      .vertical_field_of_view_radians = value.vertical_field_of_view_radians,
+      .near_plane = value.near_plane,
+      .far_plane = value.far_plane,
+      .is_primary = value.is_primary != 0,
+  };
+}
+[[nodiscard]] constexpr gneiss_mesh_renderer to_native(const mesh_renderer& value) noexcept {
+  return {.mesh = value.mesh.get(), .material = value.material.get()};
+}
+[[nodiscard]] constexpr mesh_renderer from_native(const gneiss_mesh_renderer& value) noexcept {
+  return {.mesh = mesh_id{value.mesh}, .material = material_id{value.material}};
+}
 
 namespace detail {
 /** 仅保存父句柄与资源句柄；不得在创建线程之外销毁或移动覆盖资源。 */

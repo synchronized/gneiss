@@ -1508,13 +1508,13 @@
           "symbol": "gneiss_camera",
           "kind": "struct",
           "cpp_mapping": "gneiss::camera",
-          "native_review": "pending"
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_camera_desc",
           "kind": "struct",
           "cpp_mapping": "gneiss::camera_desc",
-          "native_review": "pending"
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_debug_draw_list_desc",
@@ -1574,7 +1574,7 @@
           "symbol": "gneiss_mesh_renderer",
           "kind": "struct",
           "cpp_mapping": "gneiss::mesh_renderer",
-          "native_review": "pending"
+          "native_review": "implemented"
         },
         {
           "symbol": "gneiss_mesh_tangent",
@@ -1664,13 +1664,13 @@
       "constants": [
         {
           "symbol": "GNEISS_CAMERA_DESC_INIT",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::camera_desc{}"
         },
         {
           "symbol": "GNEISS_CAMERA_INIT",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::camera{}"
         },
         {
           "symbol": "GNEISS_DEBUG_DRAW_LIST_DESC_INIT",
@@ -1729,8 +1729,8 @@
         },
         {
           "symbol": "GNEISS_MESH_RENDERER_INIT",
-          "native_review": "pending",
-          "cpp_mapping": ""
+          "native_review": "implemented",
+          "cpp_mapping": "gneiss::mesh_renderer{}"
         },
         {
           "symbol": "GNEISS_NULL_MATERIAL",

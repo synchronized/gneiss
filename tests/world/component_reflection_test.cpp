@@ -75,7 +75,7 @@ int main() {
     return 6;
   }
 
-  gneiss::camera_desc camera = GNEISS_CAMERA_DESC_INIT;
+  gneiss::camera_desc camera{};
   if (first.configure_camera(entity, camera) != gneiss::result::success ||
       first.set_active_camera(entity) != gneiss::result::success ||
       registry.get_property(gneiss_camera_type_id(), GNEISS_CAMERA_FIELD_IS_PRIMARY, target,

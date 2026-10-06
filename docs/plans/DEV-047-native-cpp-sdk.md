@@ -94,3 +94,9 @@ M-302 的 World/Transform 以及其他模块仍待完成，未执行最终远端
 编辑器 Gizmo、保存、Camera 和作者属性操作同步适配；父子组合、非法变换与失败输出保留已有回归。
 共享全量构建及相关测试、静态 World/Scene 回归和独立 C++ 头编译通过。
 Camera/Render/Scene 描述与 Reflection 仍待迁移，此项不表示 M-302 或整版已完成。
+
+### Camera 与 MeshRenderer 迁移状态
+
+World 相机配置/查询及 MeshRenderer 设置已使用原生 C++ 值和强类型资源 ID。
+共享构建通过，共享/静态 World 与资源生命周期各 2/2 通过；新增查询回归覆盖自定义配置、
+非法裁剪面、无效实体和跨线程失败保留输出。Render 资源描述、Scene 描述仍在后续迁移范围内。

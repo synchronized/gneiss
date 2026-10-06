@@ -116,8 +116,8 @@ int main() {
     return 6;
   }
   gneiss::entity_id rendered;
-  const gneiss::mesh_renderer renderer{.mesh = mesh.get(), .material = material.get()};
-  const gneiss::mesh_renderer invalid = GNEISS_MESH_RENDERER_INIT;
+  const gneiss::mesh_renderer renderer{.mesh = mesh.id(), .material = material.id()};
+  const gneiss::mesh_renderer invalid{};
   if (borrowed.create_entity(rendered).failed() ||
       borrowed.set_mesh_renderer(rendered, invalid) != gneiss::result::invalid_argument ||
       borrowed.set_mesh_renderer(rendered, renderer).failed() ||

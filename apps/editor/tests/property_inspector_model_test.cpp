@@ -26,7 +26,7 @@ int main() {
       inspector.initialize() != gneiss::result::success) {
     return 1;
   }
-  gneiss::camera_desc camera = GNEISS_CAMERA_DESC_INIT;
+  gneiss::camera_desc camera{};
   if (world.create_scene_node({}, entity, entity_node) != gneiss::result::success ||
       world.create_scene_node({}, transform_only, transform_only_node) != gneiss::result::success ||
       world.configure_camera(entity, camera) != gneiss::result::success ||

@@ -73,3 +73,11 @@ Application 原生回调使用 noexcept C++ 函数指针和显式上下文，其
 `std::array<float, 4>` 四元数和 `std::array<float, 3>` 缩放；默认单位变换，无需 C 初始化宏。
 World 节点和实体的变换读写、Prefab 来源变换设置使用此类型；失败查询保留调用方输出。
 显式 C 互操作使用 `to_native` / `from_native` 逐字段复制，不能将两种类型的指针互相转换。
+
+### Camera 与 MeshRenderer 值
+
+`camera_desc{}` 与 `camera{}` 提供原生默认视角、近远裁剪面；后者的 `is_primary` 是 bool。
+`world_ref::get_camera` 在失败时保留输出；线程限制仍与 C API 一致。
+`mesh_renderer` 的 `mesh` 与 `material` 分别为 `mesh_id` 和 `material_id`，仅借用资源，
+可用资源拥有者的 `id()` 填入，不延长父 Application 或资源寿命。需要 C ABI 值时显式调用
+`to_native`；从 C 值构造则使用 `from_native`。
