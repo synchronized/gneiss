@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "engine/asset/mesh_binary.hpp"
 #include "engine/function/application/application_asset_reload_internal.hpp"
 #include "engine/function/application/application_scene_load_internal.hpp"
-#include "engine/asset/mesh_binary.hpp"
 
 #include <gneiss/engine/application.hpp>
 
@@ -54,6 +54,55 @@ struct fixture {
     std::filesystem::remove_all(root, ignored);
   }
 };
+void cancel_drain(tasks::execution_mode mode) {
+  fixture files;
+  tasks::task_scheduler scheduler({.workers = 1U, .mode = mode});
+  application app;
+  auto desc = gneiss_application_desc GNEISS_APPLICATION_DESC_INIT;
+  const auto root = files.root.string();
+  desc.asset_root = root.data();
+  desc.asset_root_length = static_cast<std::uint32_t>(root.size());
+  check(application::create_native(desc, app) == result::success);
+  check(attach_task_executor(app.get(), scheduler) == GNEISS_SUCCESS);
+  constexpr std::string_view uri = "asset://scene.json";
+  std::uint64_t request{};
+  check(request_scene_load(app.get(), uri, 1U, 1U, request) == GNEISS_SUCCESS);
+  scene_load_progress progress;
+  bool available{};
+  const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+  do {
+    check(std::chrono::steady_clock::now() < deadline);
+    if (mode == tasks::execution_mode::cooperative) {
+      (void)scheduler.run_ready();
+    }
+    check(app.run(1U) == result::success);
+    scene_load_completion interim;
+    bool terminal{};
+    check(poll_scene_load(app.get(), interim, terminal) == GNEISS_SUCCESS && !terminal);
+    check(query_scene_load_progress(app.get(), progress, available) == GNEISS_SUCCESS && available);
+  } while (!progress.gpu_in_flight);
+  check(cancel_scene_load(app.get(), request) == GNEISS_SUCCESS);
+  check(cancel_scene_load(app.get(), request) == GNEISS_SUCCESS);
+  scene_load_completion completion;
+  bool finished{};
+  check(poll_scene_load(app.get(), completion, finished) == GNEISS_SUCCESS && finished);
+  check(completion.progress.phase == scene_load_phase::cancelled &&
+        completion.progress.cleanup_pending && !completion.progress.cleanup_complete);
+  std::uint64_t rejected{};
+  check(request_scene_load(app.get(), uri, 1U, 2U, rejected) == GNEISS_ERROR_NOT_READY);
+  do {
+    check(std::chrono::steady_clock::now() < deadline);
+    check(app.run(1U) == result::success);
+    check(poll_scene_load(app.get(), completion, finished) == GNEISS_SUCCESS && !finished);
+    check(query_scene_load_progress(app.get(), progress, available) == GNEISS_SUCCESS && available);
+  } while (!progress.cleanup_complete);
+  check(!progress.cleanup_pending && progress.upload_reserved_bytes == 0U &&
+        progress.application_logical_bytes == 0U && !progress.gpu_in_flight);
+  check(request_scene_load(app.get(), uri, 1U, 2U, request) == GNEISS_SUCCESS);
+  check(query_scene_load_progress(app.get(), progress, available) == GNEISS_SUCCESS && available &&
+        progress.phase == scene_load_phase::preparing && !progress.cleanup_complete);
+}
+
 void run(tasks::execution_mode mode) {
   fixture files;
   tasks::task_scheduler scheduler({.workers = 1U, .mode = mode});
@@ -132,6 +181,10 @@ void run(tasks::execution_mode mode) {
   check(cancel_scene_load(app.get(), request) == GNEISS_SUCCESS);
   auto [finished, cancelled] = drive();
   check(finished && cancelled.progress.phase == scene_load_phase::cancelled);
+  check(cancelled.progress.cleanup_complete && !cancelled.progress.gpu_in_flight);
+  check(cancelled.progress.upload_reserved_bytes == 0U);
+  check(cancelled.progress.application_logical_bytes == prepared.application_logical_bytes);
+  check(cancelled.progress.application_cpu_data_bytes == prepared.application_cpu_data_bytes);
   check(gneiss_application_get_world(app.get(), &old_world) == GNEISS_SUCCESS &&
         old_world == observed);
 
@@ -146,6 +199,8 @@ void run(tasks::execution_mode mode) {
     if (result.first) {
       check(result.second.progress.phase == scene_load_phase::failed &&
             result.second.result == GNEISS_ERROR_INVALID_STATE);
+      check(result.second.progress.cleanup_complete &&
+            result.second.progress.upload_reserved_bytes == 0U);
       changed = true;
     }
   }
@@ -174,8 +229,9 @@ void run(tasks::execution_mode mode) {
   check(gneiss_application_get_world(app.get(), &observed) == GNEISS_SUCCESS);
   for (const auto phase : {scene_load_phase::preparing, scene_load_phase::instantiating}) {
     check(request_scene_load(app.get(), uri, 1U, 5U, request) == GNEISS_SUCCESS);
-    if (phase != scene_load_phase::preparing)
+    if (phase != scene_load_phase::preparing) {
       (void)await_phase(phase);
+    }
     check(cancel_scene_load(app.get(), request) == GNEISS_SUCCESS);
     const auto cancel_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
     bool stopped{};
@@ -183,6 +239,8 @@ void run(tasks::execution_mode mode) {
       auto [done, cancelled_result] = drive();
       if (done) {
         check(cancelled_result.progress.phase == scene_load_phase::cancelled);
+        check(cancelled_result.progress.cleanup_complete &&
+              cancelled_result.progress.upload_reserved_bytes == 0U);
         stopped = true;
       }
     }
@@ -194,6 +252,8 @@ void run(tasks::execution_mode mode) {
 }
 } // namespace
 int main() try {
+  cancel_drain(tasks::execution_mode::thread_pool);
+  cancel_drain(tasks::execution_mode::cooperative);
   run(tasks::execution_mode::thread_pool);
   run(tasks::execution_mode::cooperative);
   return 0;

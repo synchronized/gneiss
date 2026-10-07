@@ -46,17 +46,41 @@ std::uint64_t latest_progress(const gneiss::editor::runtime_process& process,
 
 template <typename Predicate>
 bool pump_until(gneiss::editor::runtime_process& process, std::chrono::milliseconds timeout,
-                Predicate&& predicate) {
-  const auto deadline = std::chrono::steady_clock::now() + timeout;
+                Predicate&& predicate,
+                std::source_location location = std::source_location::current()) {
+  const auto start = std::chrono::steady_clock::now();
+  const auto deadline = start + timeout;
+  int previous_control = -1;
+  int previous_scene = -1;
   while (std::chrono::steady_clock::now() < deadline) {
     process.update();
+    const auto control = static_cast<int>(process.control_state());
+    const auto scene = static_cast<int>(process.scene_load_status().phase);
+    if (control != previous_control || scene != previous_scene) {
+      // 保留原期限，按调用点记录首次/再次启动及关闭的阶段变化，辅助区分加载与协议等待。
+      std::fprintf(
+          stderr, "Lantern 等待：line=%u elapsed_ms=%.3f control=%d scene=%d running=%d\n",
+          location.line(),
+          std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start)
+              .count(),
+          control, scene, process.is_running() ? 1 : 0);
+      previous_control = control;
+      previous_scene = scene;
+    }
     if (predicate()) {
       return true;
     }
     std::this_thread::sleep_for(10ms);
   }
   process.update();
-  return predicate();
+  const bool completed = predicate();
+  if (!completed) {
+    std::fprintf(stderr, "Lantern 等待超时：line=%u limit_ms=%lld control=%d scene=%d exit=%d\n",
+                 location.line(), static_cast<long long>(timeout.count()),
+                 static_cast<int>(process.control_state()),
+                 static_cast<int>(process.scene_load_status().phase), process.exit_code());
+  }
+  return completed;
 }
 
 bool stop_session(gneiss::editor::runtime_process& process) {

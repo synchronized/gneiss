@@ -267,7 +267,8 @@ struct runtime_process::implementation final {
         continue;
       }
       if (auto* value = std::get_if<runtime_property_result_event>(&decoded_event)) {
-        const auto accepted = property_edits.accept(to_runtime_property_result(std::move(value->value)));
+        const auto accepted =
+            property_edits.accept(to_runtime_property_result(std::move(value->value)));
         if (accepted != result::success && accepted != result::not_found &&
             accepted != result::invalid_state) {
           last_result = accepted;
@@ -281,8 +282,11 @@ struct runtime_process::implementation final {
         if (scene_load.source.revision != 0U &&
             value->value.source.session == scene_load.source.session &&
             value->value.source.revision == scene_load.source.revision &&
-            scene_phase_terminal(scene_load.phase))
+            scene_phase_terminal(scene_load.phase)) {
+          // 终态不可复活；同一请求只接受从清理中到完成的预算补报。
+          (void)apply_scene_cleanup_update(scene_load, value->value);
           continue;
+        }
         scene_load = value->value;
         if (scene_load.phase == ipc_scene_phase::applied) {
           pending_inspection_input.clear();
@@ -646,13 +650,14 @@ result runtime_process::request_property_write(runtime_property_key key,
     return result::not_ready;
   }
   runtime_property_write command;
-  auto operation =
-      implementation_->property_edits.prepare(std::move(key), expected_revision, to_runtime_property_value(std::move(value)),
-                                              std::chrono::steady_clock::now(), command);
+  auto operation = implementation_->property_edits.prepare(
+      std::move(key), expected_revision, to_runtime_property_value(std::move(value)),
+      std::chrono::steady_clock::now(), command);
   if (operation != result::success) {
     return operation;
   }
-  operation = implementation_->ipc_session.send_property_write(to_ipc_property_write(std::move(command)));
+  operation =
+      implementation_->ipc_session.send_property_write(to_ipc_property_write(std::move(command)));
   if (operation != result::success) {
     implementation_->fail_ipc(operation);
   }
@@ -736,6 +741,8 @@ result runtime_process::load_scene(std::string_view uri) noexcept try {
   if (!supports_scene_loading())
     return result::not_ready;
   auto& state = *implementation_;
+  if (state.scene_load.budget && state.scene_load.budget->cleanup_pending)
+    return result::not_ready;
   if (state.scene_load.source.revision != 0U && !scene_phase_terminal(state.scene_load.phase))
     return result::not_ready;
   ipc_scene_request source{1U, ++state.scene_revision, std::string(uri)};

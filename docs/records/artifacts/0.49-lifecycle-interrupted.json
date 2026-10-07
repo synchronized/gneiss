@@ -1,0 +1,11 @@
+{
+  "status": "interrupted",
+  "reason": "三次独立切换错误共用15分钟请求期限；前两次通过，第三次进行中，修正夹具后从头重跑",
+  "source_commit": "db620d4",
+  "completed_switches": 2,
+  "switch_end_ms": [
+    321898.402,
+    635198.562
+  ],
+  "log": "scene_load phase=1 elapsed_ms=52.383 completed=0 total=433\nscene_load phase=2 elapsed_ms=229463.760 completed=0 total=578\nscene_load phase=3 elapsed_ms=321753.560 completed=0 total=553\nscene_load phase=0 elapsed_ms=321898.402 completed=0 total=0\nscene_load phase=1 elapsed_ms=321938.616 completed=0 total=433\nscene_load phase=2 elapsed_ms=541484.463 completed=0 total=578\nscene_load phase=3 elapsed_ms=635057.526 completed=0 total=553\nscene_load phase=0 elapsed_ms=635198.562 completed=0 total=0\nscene_load phase=1 elapsed_ms=635244.691 completed=0 total=433\n"
+}

@@ -37,6 +37,9 @@ struct ipc_scene_budget {
   std::uint64_t available_bytes{};
   std::uint64_t upload_reserved_bytes{};
   std::uint64_t peak_upload_bytes{};
+  /** 可选扩展；旧消息缺省 false（未确认），true 表示失败/取消请求已完成清理。 */
+  bool cleanup_complete{};
+  bool cleanup_pending{};
 };
 struct ipc_scene_progress {
   ipc_scene_request source;
@@ -47,6 +50,9 @@ struct ipc_scene_progress {
   std::string message;
   std::optional<ipc_scene_budget> budget{};
 };
+/** 仅补报同一已取消请求的清理账本，不改变终态或请求身份。 */
+[[nodiscard]] bool apply_scene_cleanup_update(ipc_scene_progress& current,
+                                              const ipc_scene_progress& incoming) noexcept;
 [[nodiscard]] bool scene_phase_terminal(ipc_scene_phase phase) noexcept;
 [[nodiscard]] result encode_ipc_scene_request(const ipc_scene_request& value,
                                               ipc_scene_operation operation,
@@ -54,7 +60,8 @@ struct ipc_scene_progress {
                                               ipc_envelope& output) noexcept;
 [[nodiscard]] result decode_ipc_scene_request(const ipc_envelope& envelope,
                                               ipc_scene_request& output) noexcept;
-/** 启动场景及进度使用事件；外部切换的唯一终态使用原 request_id 的响应。 */
+/** 启动场景及进度使用事件；外部切换的唯一终态使用原 request_id 的响应；后续清理账本使用
+ * request_id=0 的事件。 */
 [[nodiscard]] result encode_ipc_scene_progress(const ipc_scene_progress& value,
                                                std::uint32_t request_id,
                                                ipc_envelope& output) noexcept;

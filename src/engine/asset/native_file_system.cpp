@@ -8,9 +8,11 @@
 #include <algorithm>
 #include <fstream>
 #include <limits>
+#include <memory>
 #include <mutex>
 #include <new>
 #include <system_error>
+#include <vector>
 
 #ifdef _WIN32
 #ifndef WIN32_LEAN_AND_MEAN
@@ -25,6 +27,75 @@
 namespace {
 
 #ifdef _WIN32
+struct native_async_file {
+  explicit native_async_file(HANDLE value) : handle(value) {}
+  ~native_async_file() { (void)CloseHandle(handle); }
+  native_async_file(const native_async_file&) = delete;
+  native_async_file& operator=(const native_async_file&) = delete;
+  HANDLE handle;
+};
+
+class native_read_operation final : public gneiss::asset_internal::read_operation {
+public:
+  native_read_operation(std::shared_ptr<native_async_file> file, std::size_t size)
+      : file_(std::move(file)), bytes_(size) {}
+  ~native_read_operation() override {
+    if (pending_) {
+      (void)CancelIoEx(file_->handle, &overlapped_);
+      DWORD ignored{};
+      // 缓冲和 OVERLAPPED 必须存活到内核确认完成/取消，不把悬空内存交给 I/O。
+      (void)GetOverlappedResult(file_->handle, &overlapped_, &ignored, TRUE);
+    }
+    if (overlapped_.hEvent != nullptr) {
+      (void)CloseHandle(overlapped_.hEvent);
+    }
+  }
+  gneiss_result start(std::uint64_t offset) noexcept {
+    if (bytes_.empty()) {
+      return GNEISS_SUCCESS;
+    }
+    overlapped_.Offset = static_cast<DWORD>(offset);
+    overlapped_.OffsetHigh = static_cast<DWORD>(offset >> 32U);
+    overlapped_.hEvent = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+    if (overlapped_.hEvent == nullptr) {
+      return GNEISS_ERROR_IO;
+    }
+    DWORD count{};
+    if (ReadFile(file_->handle, bytes_.data(), static_cast<DWORD>(bytes_.size()), &count,
+                 &overlapped_) != FALSE) {
+      return count == bytes_.size() ? GNEISS_SUCCESS : GNEISS_ERROR_IO;
+    }
+    if (GetLastError() != ERROR_IO_PENDING) {
+      return GNEISS_ERROR_IO;
+    }
+    pending_ = true;
+    return GNEISS_SUCCESS;
+  }
+  [[nodiscard]] gneiss_result poll(std::span<const std::byte>& output) noexcept override {
+    output = {};
+    if (pending_) {
+      DWORD count{};
+      const auto completed = GetOverlappedResult(file_->handle, &overlapped_, &count, FALSE);
+      if (completed == FALSE && GetLastError() == ERROR_IO_INCOMPLETE) {
+        return GNEISS_ERROR_NOT_READY;
+      }
+      pending_ = false;
+      result_ = completed != FALSE && count == bytes_.size() ? GNEISS_SUCCESS : GNEISS_ERROR_IO;
+    }
+    if (result_ == GNEISS_SUCCESS) {
+      output = bytes_;
+    }
+    return result_;
+  }
+
+private:
+  std::shared_ptr<native_async_file> file_;
+  std::vector<std::byte> bytes_;
+  OVERLAPPED overlapped_{};
+  bool pending_{};
+  gneiss_result result_{GNEISS_SUCCESS};
+};
+
 class native_read_source final : public gneiss::asset_internal::read_source {
 public:
   ~native_read_source() override {
@@ -45,6 +116,45 @@ public:
     return GNEISS_SUCCESS;
   }
   std::uint64_t size() const noexcept override { return length_; }
+  [[nodiscard]] gneiss_result begin_read(
+      std::uint64_t offset, std::size_t size,
+      std::unique_ptr<gneiss::asset_internal::read_operation>& output) const noexcept override {
+    output.reset();
+    if (offset > length_ || size > length_ - offset || size > std::numeric_limits<DWORD>::max()) {
+      return GNEISS_ERROR_INVALID_ARGUMENT;
+    }
+    try {
+      std::shared_ptr<native_async_file> file;
+      {
+        const std::scoped_lock lock(async_mutex_);
+        if (!async_file_) {
+          auto* const reopened = ReOpenFile(handle_, GENERIC_READ,
+                                            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                                            FILE_FLAG_OVERLAPPED);
+          if (reopened == INVALID_HANDLE_VALUE) {
+            return GNEISS_ERROR_IO;
+          }
+          try {
+            async_file_ = std::make_shared<native_async_file>(reopened);
+          } catch (...) {
+            (void)CloseHandle(reopened);
+            throw;
+          }
+        }
+        file = async_file_;
+      }
+      auto request = std::make_unique<native_read_operation>(std::move(file), size);
+      const auto started = request->start(offset);
+      if (started == GNEISS_SUCCESS) {
+        output = std::move(request);
+      }
+      return started;
+    } catch (const std::bad_alloc&) {
+      return GNEISS_ERROR_OUT_OF_MEMORY;
+    } catch (...) {
+      return GNEISS_ERROR_INTERNAL;
+    }
+  }
   gneiss_result read_at(std::uint64_t offset, std::span<std::byte> output) const noexcept override {
     if (offset > length_ || output.size() > length_ - offset ||
         offset > static_cast<std::uint64_t>(std::numeric_limits<LONGLONG>::max())) {
@@ -79,6 +189,8 @@ private:
   HANDLE handle_{INVALID_HANDLE_VALUE};
   std::uint64_t length_{};
   mutable std::mutex mutex_;
+  mutable std::shared_ptr<native_async_file> async_file_;
+  mutable std::mutex async_mutex_;
 };
 #else
 class native_read_source final : public gneiss::asset_internal::read_source {

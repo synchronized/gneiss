@@ -9,6 +9,7 @@
 
 #include <functional>
 #include <limits>
+#include <memory>
 #include <span>
 #include <string>
 #include <string_view>
@@ -57,9 +58,31 @@ struct prepared_batch {
   /** 整文件快照持有的输入字节；区间读取没有源副本，不计入此值。 */
   std::size_t input_bytes{};
 };
+/** 资产层的分步 CPU 准备；同一实例须串行推进。候选仅在全部来源复验后输出。
+ * 每步限制区间读取/摘要字节，解析仍是单项同步调用；旧整文件后端保留同步兼容行为。 */
+class asset_preparation final {
+public:
+  struct limits {
+    std::size_t material_bytes{};
+    std::size_t maximum_assets{};
+    std::size_t maximum_bytes{};
+    bool deferred_reads{true};
+  };
+  asset_preparation(const virtual_file_system& files, std::span<const asset_request> requested,
+                    limits budget, texture_prepare_profile profile);
+  ~asset_preparation();
+  [[nodiscard]] gneiss_result advance(std::size_t byte_budget,
+                                      const std::function<bool()>& cancelled,
+                                      prepared_batch& output, asset_diagnostic& diagnostic,
+                                      bool& complete) noexcept;
+
+private:
+  struct state;
+  std::unique_ptr<state> state_;
+};
 /** material_bytes 由调用方指定单个材质发布所需的字节估算；含材质时不得为零。
  * 该值与依赖 URI 共同计入 maximum_bytes，溢出或预算不足拒绝整批。 */
-[[nodiscard]] gneiss_result prepare_assets(const asset_internal::virtual_file_system& file_system,
+[[nodiscard]] gneiss_result prepare_assets(const asset_internal::virtual_file_system& files,
                                            std::span<const asset_request> requested,
                                            prepared_batch& output, asset_diagnostic& diagnostic,
                                            const std::function<bool()>& cancelled,

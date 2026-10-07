@@ -74,20 +74,24 @@ public:
                                      std::uint64_t revision, std::uint64_t& request,
                                      bool reload = true);
   [[nodiscard]] gneiss_result
-  submit_assets(std::span<const render_internal::render_asset_reload> assets, std::uint64_t session,
-                std::uint64_t revision, std::uint64_t& request, bool reload = true,
-                std::size_t prepare_limit = maximum_candidate_bytes);
+  submit_assets(std::span<const render_internal::render_asset_reload> sources,
+                std::uint64_t session, std::uint64_t revision, std::uint64_t& request,
+                bool reload = true, std::size_t prepare_limit = maximum_candidate_bytes);
   [[nodiscard]] bool progress(asset_load_progress& output) const;
   [[nodiscard]] bool busy() const noexcept { return pending_ != nullptr || completed_.has_value(); }
   void advance();
   [[nodiscard]] bool take(texture_load_completion& output);
   /** 提交许可前取消；已进入 GPU 阶段的批次完成或回滚。 */
   bool cancel();
+  /** 隔离场景候选专用：停止后续上传，等待在途回执并回滚，完成清理前不报告终态。 */
+  bool cancel_unpublished();
   void request_stop();
   [[nodiscard]] bool stopped() const;
 
 private:
   struct pending;
+  tasks::submit_result submit_preparation(pending& value);
+  bool advance_preparation(pending& value);
   void advance_impl();
   void check_owner() const;
   void finish(gneiss_result result, texture_load_state state);

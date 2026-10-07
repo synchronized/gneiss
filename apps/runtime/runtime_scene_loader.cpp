@@ -107,6 +107,8 @@ ipc_scene_budget budget_snapshot(const application_internal::scene_load_progress
       .available_bytes = value.available_bytes,
       .upload_reserved_bytes = value.upload_reserved_bytes,
       .peak_upload_bytes = value.peak_upload_bytes,
+      .cleanup_complete = value.cleanup_complete,
+      .cleanup_pending = value.cleanup_pending,
   };
 }
 } // namespace
@@ -134,6 +136,9 @@ gneiss_result runtime_scene_loader::advance() {
     progress_.total = static_cast<std::uint32_t>(current.total);
     progress_.can_cancel = current.can_cancel;
     progress_.budget = budget_snapshot(current);
+    if (current.phase == scene_load_phase::cancelled && current.cleanup_complete) {
+      active_ = false;
+    }
     if (current.phase != scene_load_phase::ready) {
       return GNEISS_SUCCESS;
     }
@@ -142,7 +147,7 @@ gneiss_result runtime_scene_loader::advance() {
       return result;
     }
   }
-  active_ = false;
+  active_ = completion.progress.cleanup_pending;
   result_ = completion.result;
   progress_.phase = convert(completion.progress.phase);
   progress_.budget = budget_snapshot(completion.progress);

@@ -6,7 +6,10 @@
 #include <chrono>
 #include <cstdint>
 #include <cstdio>
+#include <source_location>
+#include <stdexcept>
 #include <thread>
+#include <uv.h>
 #include <vector>
 
 namespace {
@@ -182,9 +185,123 @@ bool test_log_backpressure_preserves_control() {
   return true;
 }
 
+// 不启动读操作，使服务端发送缓冲确定性积压；半关闭和复位均由测试显式发起。
+class controlled_peer final {
+public:
+  controlled_peer() = default;
+  controlled_peer(const controlled_peer&) = delete;
+  controlled_peer& operator=(const controlled_peer&) = delete;
+  ~controlled_peer() {
+    if (stream_ready_ && uv_is_closing(reinterpret_cast<uv_handle_t*>(&stream_)) == 0) {
+      uv_close(reinterpret_cast<uv_handle_t*>(&stream_), nullptr);
+    }
+    if (loop_ready_) {
+      (void)uv_run(&loop_, UV_RUN_DEFAULT);
+      (void)uv_loop_close(&loop_);
+    }
+  }
+  bool connect(const gneiss::ipc_endpoint& endpoint) {
+    loop_ready_ = uv_loop_init(&loop_) == 0;
+    if (!loop_ready_) {
+      return false;
+    }
+    stream_ready_ = uv_tcp_init(&loop_, &stream_) == 0;
+    if (!stream_ready_) {
+      return false;
+    }
+    sockaddr_in address{};
+    if (uv_ip4_addr(endpoint.address.c_str(), endpoint.port, &address) != 0) {
+      return false;
+    }
+    int receive_bytes = 4096;
+    // 收窄接收窗口；与服务端 pending_write_count 联合确认积压，而非依赖 sleep。
+    request_.data = this;
+    const auto started =
+        uv_tcp_connect(&request_, &stream_, reinterpret_cast<const sockaddr*>(&address),
+                       [](uv_connect_t* request, int status) {
+                         auto& self = *static_cast<controlled_peer*>(request->data);
+                         self.connected_ = true;
+                         self.status_ = status;
+                       });
+    if (started != 0) {
+      return false;
+    }
+    const auto deadline = std::chrono::steady_clock::now() + 3s;
+    while (!connected_ && std::chrono::steady_clock::now() < deadline) {
+      (void)uv_run(&loop_, UV_RUN_NOWAIT);
+      std::this_thread::yield();
+    }
+    return connected_ && status_ == 0 &&
+           uv_recv_buffer_size(reinterpret_cast<uv_handle_t*>(&stream_), &receive_bytes) == 0;
+  }
+  bool half_close() {
+    shutdown_.data = this;
+    const auto started = uv_shutdown(&shutdown_, reinterpret_cast<uv_stream_t*>(&stream_),
+                                     [](uv_shutdown_t* request, int status) {
+                                       auto& self = *static_cast<controlled_peer*>(request->data);
+                                       self.shutdown_done_ = true;
+                                       self.status_ = status;
+                                     });
+    if (started != 0) {
+      return false;
+    }
+    const auto deadline = std::chrono::steady_clock::now() + 3s;
+    while (!shutdown_done_ && std::chrono::steady_clock::now() < deadline) {
+      (void)uv_run(&loop_, UV_RUN_NOWAIT);
+    }
+    return shutdown_done_ && status_ == 0;
+  }
+  bool reset() { return uv_tcp_close_reset(&stream_, nullptr) == 0; }
+
+private:
+  uv_loop_t loop_{};
+  uv_tcp_t stream_{};
+  uv_connect_t request_{};
+  uv_shutdown_t shutdown_{};
+  bool loop_ready_{};
+  bool stream_ready_{};
+  bool connected_{};
+  bool shutdown_done_{};
+  int status_{};
+};
+
+void check_disconnect(bool success, std::source_location at = std::source_location::current()) {
+  if (!success) {
+    throw std::runtime_error("IPC 断连测试失败，行=" + std::to_string(at.line()));
+  }
+}
+
+void test_controlled_disconnect(bool reset) {
+  gneiss::ipc_transport server;
+  check_disconnect(server.start_server() == gneiss::result::success);
+  controlled_peer peer;
+  check_disconnect(peer.connect(server.endpoint()));
+  check_disconnect(wait_for_event(server, gneiss::ipc_transport_event_type::connected));
+  if (reset) {
+    const auto large = make_envelope(11U, std::vector<std::uint8_t>(std::size_t{1024U} * 1024U));
+    for (unsigned count = 0U; count < 32U; ++count) {
+      check_disconnect(server.send(large) == gneiss::result::success);
+    }
+    check_disconnect(server.pending_write_count() > 0U);
+    check_disconnect(peer.reset());
+  } else {
+    check_disconnect(peer.half_close());
+  }
+  check_disconnect(wait_for_state(server, gneiss::ipc_transport_state::listening));
+  check_disconnect(server.pending_write_count() == 0U);
+  check_disconnect(server.send(make_envelope(12U, {})) == gneiss::result::not_ready);
+  // 断连后同一监听器可接收新会话，不遗留上一会话的写请求或帧解码状态。
+  gneiss::ipc_transport replacement;
+  check_disconnect(connect(server, replacement));
+  check_disconnect(replacement.send(make_envelope(13U, {1U})) == gneiss::result::success);
+  check_disconnect(wait_for_event(server, gneiss::ipc_transport_event_type::envelope_received));
+  check_disconnect(replacement.stop() == gneiss::result::success);
+  check_disconnect(server.stop() == gneiss::result::success);
+}
+
 } // namespace
 
-int main() {
+int main() try {
   if (!test_lifecycle_and_bidirectional_envelopes()) {
     return 1;
   }
@@ -194,5 +311,13 @@ int main() {
   if (!test_bounded_event_queue()) {
     return 3;
   }
-  return test_log_backpressure_preserves_control() ? 0 : 4;
+  if (!test_log_backpressure_preserves_control()) {
+    return 4;
+  }
+  test_controlled_disconnect(false);
+  test_controlled_disconnect(true);
+  return 0;
+} catch (const std::exception& error) {
+  std::fprintf(stderr, "%s\n", error.what());
+  return 5;
 }

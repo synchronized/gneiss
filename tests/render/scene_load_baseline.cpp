@@ -8,6 +8,7 @@
 #include <gneiss/engine/scene.h>
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cmath>
 #include <cstdio>
@@ -103,10 +104,12 @@ int main(int argc, char** argv) try {
   if (scenario != "initial" && scenario != "switch" && scenario != "repeat" &&
       scenario != "interact" && scenario != "cancel-prepare" && scenario != "cancel-verify" &&
       scenario != "cancel-assets" && scenario != "cancel-gpu" && scenario != "cancel-ready" &&
-      scenario != "failure" && scenario != "close")
+      scenario != "failure" && scenario != "close") {
     return 2;
-  if (mode == "sync" && scenario != "initial")
+  }
+  if (mode == "sync" && scenario != "initial") {
     return 2;
+  }
   gneiss::tasks::task_scheduler scheduler(
       {.workers = 1U,
        .mode = mode == "cooperative" ? gneiss::tasks::execution_mode::cooperative
@@ -154,28 +157,34 @@ int main(int argc, char** argv) try {
     }
     if (previous_scene == GNEISS_NULL_SCENE_INSTANCE ||
         gneiss_application_get_world(app.get(), &previous_world) != GNEISS_SUCCESS ||
-        app.run(10U) != gneiss::result::success)
+        app.run(10U) != gneiss::result::success) {
       return 11;
+    }
     std::uint64_t count{};
-    if (gneiss_scene_instance_get_node_count(app.get(), previous_scene, &count) != GNEISS_SUCCESS)
+    if (gneiss_scene_instance_get_node_count(app.get(), previous_scene, &count) != GNEISS_SUCCESS) {
       return 11;
+    }
     for (std::uint64_t index = 0U; index < count; ++index) {
       gneiss_scene_instance_node_info node = GNEISS_SCENE_INSTANCE_NODE_INFO_INIT;
       if (gneiss_scene_instance_get_node_info(app.get(), previous_scene, index, &node) !=
-          GNEISS_SUCCESS)
+          GNEISS_SUCCESS) {
         return 11;
+      }
       if ((node.component_flags & GNEISS_SCENE_NODE_COMPONENT_CAMERA) != 0U) {
         camera = node;
         break;
       }
     }
     gneiss::application_internal::scene_retirement_statistics measured;
-    if (gneiss::application_internal::query_scene_retirement(app.get(), measured) != GNEISS_SUCCESS)
+    if (gneiss::application_internal::query_scene_retirement(app.get(), measured) !=
+        GNEISS_SUCCESS) {
       return 11;
+    }
     previous_resources = measured.live_resources;
     if (preserve && gneiss::application_internal::capture_frame(app.get(), 1024U, 768U,
-                                                                previous_image) != GNEISS_SUCCESS)
+                                                                previous_image) != GNEISS_SUCCESS) {
       return 11;
+    }
   }
   struct temporary_source {
     std::filesystem::path path;
@@ -189,25 +198,30 @@ int main(int argc, char** argv) try {
   std::string source_uri(uri);
   if (scenario == "failure") {
     const auto path = std::filesystem::path(root) / "gneiss-benchmark-invalid.scene.json";
-    if (std::filesystem::exists(path))
+    if (std::filesystem::exists(path)) {
       return 12;
+    }
     std::ifstream input(std::filesystem::path(root) / "scenes/scene.scene.json");
     std::string text{std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>()};
     const auto offset = text.find("asset://materials/");
-    if (offset == std::string::npos)
+    if (offset == std::string::npos) {
       return 12;
+    }
     text.replace(offset, 18U, "asset://missing-materials/");
     temporary.path = path;
     std::ofstream output(path);
     output << text;
-    if (!output)
+    if (!output) {
       return 12;
+    }
     source_uri = "asset://gneiss-benchmark-invalid.scene.json";
   }
   unsigned resized{};
   unsigned completed_switches{};
   double maximum_activation_ms{}, maximum_retirement_ms{};
   bool minimized{}, restored{}, cancel_requested{}, closed{};
+  bool awaiting_cleanup{}, observed_cleanup_pending{};
+  double cancel_cleanup_ms{};
   double minimized_at_ms{};
   double cancel_ms{}, shutdown_ms{};
   auto cancel_start = clock_type::now();
@@ -225,6 +239,8 @@ int main(int argc, char** argv) try {
   gneiss::application_internal::scene_load_completion completion;
   std::vector<double> event_intervals;
   std::vector<double> minimized_event_intervals;
+  std::array<double, 8> phase_maximum_intervals{};
+  auto previous_phase = gneiss::application_internal::scene_load_phase::preparing;
   double activation_elapsed_ms{};
   if (mode == "sync") {
     result = gneiss_scene_instance_load(app.get(), uri.data(), uri.size(), &scene);
@@ -240,16 +256,30 @@ int main(int argc, char** argv) try {
       cancel_requested = result == GNEISS_SUCCESS;
     }
     auto previous = clock_type::now();
-    const auto deadline = previous + std::chrono::minutes(15);
+    auto deadline = previous + std::chrono::minutes(15);
     update = [&](gneiss_application handle) {
       const bool currently_minimized = minimized && !restored;
-      if (scene == GNEISS_NULL_SCENE_INSTANCE)
-        (currently_minimized ? minimized_event_intervals : event_intervals)
-            .push_back(milliseconds(previous));
+      if (scene == GNEISS_NULL_SCENE_INSTANCE) {
+        const auto interval = milliseconds(previous);
+        (currently_minimized ? minimized_event_intervals : event_intervals).push_back(interval);
+        auto& phase_maximum = phase_maximum_intervals[static_cast<std::size_t>(previous_phase)];
+        phase_maximum = std::max(phase_maximum, interval);
+        scene_load_progress before_work;
+        bool active{};
+        if (query_scene_load_progress(handle, before_work, active) == GNEISS_SUCCESS && active) {
+          if (previous_phase != before_work.phase) {
+            std::fprintf(stderr, "scene_load phase=%u elapsed_ms=%.3f completed=%zu total=%zu\n",
+                         static_cast<unsigned>(before_work.phase), milliseconds(start),
+                         before_work.completed, before_work.total);
+          }
+          previous_phase = before_work.phase;
+        }
+      }
       previous = clock_type::now();
       gneiss::render_internal::render_queue_stats render_stats;
-      if (query_render_statistics(handle, render_stats) != GNEISS_SUCCESS)
+      if (query_render_statistics(handle, render_stats) != GNEISS_SUCCESS) {
         return GNEISS_ERROR_INTERNAL;
+      }
       if (sampled_frame != render_stats.presented_frames) {
         render_samples.push_back({milliseconds(start), render_stats.presented_frames,
                                   render_stats.latest_frame_interval_ms, currently_minimized});
@@ -261,8 +291,9 @@ int main(int argc, char** argv) try {
           auto transform = camera.local_transform;
           transform.translation[0] += static_cast<float>(std::sin(elapsed / 1000.0) * 0.1);
           if (gneiss_scene_node_set_local_transform(previous_world, camera.node, &transform) !=
-              GNEISS_SUCCESS)
+              GNEISS_SUCCESS) {
             return GNEISS_ERROR_INTERNAL;
+          }
         }
 #ifdef _WIN32
         const auto window = FindWindowA(nullptr, title.data());
@@ -305,6 +336,22 @@ int main(int argc, char** argv) try {
       if (result == GNEISS_SUCCESS) {
         result = poll_scene_load(handle, completion, finished);
       }
+      if (awaiting_cleanup && result == GNEISS_SUCCESS) {
+        scene_load_progress cleanup;
+        bool available{};
+        result = query_scene_load_progress(handle, cleanup, available);
+        if (finished) {
+          return GNEISS_ERROR_INVALID_STATE; // 清理补报不得形成第二个终态。
+        }
+        if (available && cleanup.cleanup_complete) {
+          completion.progress = cleanup;
+          cancel_cleanup_ms = milliseconds(cancel_start);
+          scene = previous_scene;
+          return gneiss_application_request_exit(handle);
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        return result;
+      }
       if (finished || result != GNEISS_SUCCESS) {
         if (finished) {
           result = completion.result;
@@ -316,8 +363,15 @@ int main(int argc, char** argv) try {
                (cancel_requested && completion.progress.phase == scene_load_phase::cancelled))) {
             result = GNEISS_SUCCESS;
             scene = previous_scene;
-            if (cancel_requested)
+            if (cancel_requested) {
               cancel_ms = milliseconds(cancel_start);
+              cancel_cleanup_ms = cancel_ms;
+              if (completion.progress.cleanup_pending) {
+                awaiting_cleanup = observed_cleanup_pending = true;
+                scene = GNEISS_NULL_SCENE_INSTANCE;
+                return GNEISS_SUCCESS;
+              }
+            }
           }
         }
         return gneiss_application_request_exit(handle);
@@ -331,6 +385,8 @@ int main(int argc, char** argv) try {
           if (completed_switches < 3U) {
             result = request_scene_load(handle, source_uri, 1U, completed_switches + 1U, request);
             scene = GNEISS_NULL_SCENE_INSTANCE;
+            // 超时属于单次请求，不能让后续切换消耗前两次加载已经占用的期限。
+            deadline = clock_type::now() + std::chrono::minutes(15);
             return result;
           }
         }
@@ -363,10 +419,12 @@ int main(int argc, char** argv) try {
     };
     if (result == GNEISS_SUCCESS) {
       const auto run_result = static_cast<gneiss_result>(app.run());
-      if (run_result != GNEISS_SUCCESS)
+      if (run_result != GNEISS_SUCCESS) {
         result = run_result;
-      if (!closed && scene == GNEISS_NULL_SCENE_INSTANCE && result == GNEISS_SUCCESS)
+      }
+      if (!closed && scene == GNEISS_NULL_SCENE_INSTANCE && result == GNEISS_SUCCESS) {
         result = GNEISS_ERROR_INVALID_STATE;
+      }
     }
     update = {};
   }
@@ -400,6 +458,9 @@ int main(int argc, char** argv) try {
            << ",\"application_logical_bytes\":" << completion.progress.application_logical_bytes
            << ",\"application_cpu_data_bytes\":" << completion.progress.application_cpu_data_bytes
            << ",\"available_bytes\":" << completion.progress.available_bytes
+           << ",\"cleanup_ms\":" << completion.cleanup_ms
+           << ",\"cleanup_complete\":" << (completion.progress.cleanup_complete ? "true" : "false")
+           << ",\"upload_reserved_bytes\":" << completion.progress.upload_reserved_bytes
            << ",\"live_resources\":" << retirement.live_resources
            << ",\"peak_resident_bytes\":" << peak
            << ",\"retained_tasks\":" << scheduler.stats().retained << "}\n";
@@ -428,13 +489,40 @@ int main(int argc, char** argv) try {
   const auto capture_ms = milliseconds(capture_start);
   (void)gneiss::application_internal::query_scene_retirement(app.get(), retirement);
   if (preserve &&
-      (image.pixels != previous_image.pixels || retirement.live_resources != previous_resources))
+      (image.pixels != previous_image.pixels || retirement.live_resources != previous_resources)) {
     return 14;
+  }
+  // 终态证明请求已清理，旧场景仍拥有其资源；失败后在同一 Application 内重新加载。
+  if (preserve &&
+      (!completion.progress.cleanup_complete || completion.progress.upload_reserved_bytes != 0U)) {
+    return 15;
+  }
+  double retry_ms{};
+  bool retried{};
+  if (scenario == "failure") {
+    const auto retry_start = clock_type::now();
+    if (preload_scene(app, scheduler, mode == "cooperative", uri, scene) != GNEISS_SUCCESS ||
+        app.run(60U) != gneiss::result::success) {
+      return 16;
+    }
+    retry_ms = milliseconds(retry_start);
+    gneiss::render_internal::frame_image retried_image;
+    if (gneiss::application_internal::capture_frame(app.get(), 1024U, 768U, retried_image) !=
+            GNEISS_SUCCESS ||
+        retried_image.pixels != previous_image.pixels ||
+        gneiss::application_internal::query_scene_retirement(app.get(), retirement) !=
+            GNEISS_SUCCESS ||
+        retirement.live_resources != previous_resources || retirement.pending) {
+      return 17;
+    }
+    retried = true;
+  }
   std::ofstream frames(prefix.string() + ".csv");
   frames << "elapsed_ms,presented_frame,latest_interval_ms,minimized\n";
-  for (const auto& sample : render_samples)
+  for (const auto& sample : render_samples) {
     frames << sample.elapsed << ',' << sample.frame << ',' << sample.interval << ','
            << sample.minimized << '\n';
+  }
   std::ofstream pixels(prefix.string() + ".ppm", std::ios::binary);
   pixels << "P6\n" << image.width << ' ' << image.height << "\n255\n";
   for (std::size_t offset = 0; offset < image.pixels.size(); offset += 4U) {
@@ -456,21 +544,33 @@ int main(int argc, char** argv) try {
          << ",\n  \"retirement_ms\": " << retirement.last_ms
          << ",\n  \"live_resources\": " << retirement.live_resources
          << ",\n  \"old_resources\": " << previous_resources << ",\n  \"cancel_ms\": " << cancel_ms
-         << ",\n  \"resizes\": " << resized << ",\n  \"restored\": " << restored
-         << ",\n  \"minimized\": " << minimized << ",\n  \"minimized_at_ms\": " << minimized_at_ms
+         << ",\n  \"cancel_cleanup_ms\": " << cancel_cleanup_ms
+         << ",\n  \"observed_cleanup_pending\": " << (observed_cleanup_pending ? "true" : "false")
+         << ",\n  \"retried\": " << (retried ? "true" : "false")
+         << ",\n  \"retry_ms\": " << retry_ms << ",\n  \"resizes\": " << resized
+         << ",\n  \"restored\": " << restored << ",\n  \"minimized\": " << minimized
+         << ",\n  \"minimized_at_ms\": " << minimized_at_ms
          << ",\n  \"prepare_ms\": " << completion.prepare_ms
          << ",\n  \"asset_prepare_ms\": " << completion.asset_prepare_ms
          << ",\n  \"verify_ms\": " << completion.verify_ms
+         << ",\n  \"verify_maximum_step_ms\": " << completion.verify_maximum_step_ms
+         << ",\n  \"verify_maximum_open_ms\": " << completion.verify_maximum_open_ms
+         << ",\n  \"verify_maximum_read_ms\": " << completion.verify_maximum_read_ms
+         << ",\n  \"verify_maximum_hash_ms\": " << completion.verify_maximum_hash_ms
          << ",\n  \"upload_ms\": " << completion.upload_ms
          << ",\n  \"maximum_advance_ms\": " << completion.maximum_advance_ms
-         << ",\n  \"activation_ms\": " << completion.activation_ms
+         << ",\n  \"activation_ms\": " << completion.activation_ms << ",\n  \"cleanup_ms\": "
+         << (observed_cleanup_pending ? std::string{"null"} : std::to_string(completion.cleanup_ms))
+         << ",\n  \"cleanup_complete\": "
+         << (completion.progress.cleanup_complete ? "true" : "false")
+         << ",\n  \"upload_reserved_bytes\": " << completion.progress.upload_reserved_bytes
          << ",\n  \"candidate_resident_bytes\": " << completion.progress.resident_bytes
          << ",\"candidate_cpu_data_bytes\":" << completion.progress.cpu_data_bytes
          << ",\"candidate_texture_payload_bytes\":" << completion.progress.texture_payload_bytes
          << ",\"peak_upload_bytes\":" << completion.progress.peak_upload_bytes
-           << ",\"application_logical_bytes\":" << completion.progress.application_logical_bytes
-           << ",\"application_cpu_data_bytes\":" << completion.progress.application_cpu_data_bytes
-           << ",\"available_bytes\":" << completion.progress.available_bytes
+         << ",\"application_logical_bytes\":" << completion.progress.application_logical_bytes
+         << ",\"application_cpu_data_bytes\":" << completion.progress.application_cpu_data_bytes
+         << ",\"available_bytes\":" << completion.progress.available_bytes
          << ",\n  \"event_interval_p95_ms\": " << event_p95
          << ",\n  \"event_interval_max_ms\": " << event_max
          << ",\n  \"minimized_event_count\": " << minimized_event_intervals.size()
@@ -478,8 +578,20 @@ int main(int argc, char** argv) try {
          << (minimized_event_intervals.empty()
                  ? 0.0
                  : *std::ranges::max_element(minimized_event_intervals))
-         << ",\n  \"render_60_ticks_ms\": " << render_ms << ",\n  \"capture_ms\": " << capture_ms
-         << ",\n  \"nodes\": " << nodes << ",\n  \"presented_frames\": " << stats.presented_frames
+         << ",\n  \"phase_maximum_event_interval_ms\": {";
+  constexpr std::array phase_names{
+      "preparing", "assets",  "verifying", "instantiating",
+      "ready",     "applied", "failed",    "cancelled",
+  };
+  for (std::size_t index = 0U; index < phase_names.size(); ++index) {
+    if (index != 0U) {
+      report << ',';
+    }
+    report << '"' << phase_names[index] << "\":" << phase_maximum_intervals[index];
+  }
+  report << "}" << ",\n  \"render_60_ticks_ms\": " << render_ms
+         << ",\n  \"capture_ms\": " << capture_ms << ",\n  \"nodes\": " << nodes
+         << ",\n  \"presented_frames\": " << stats.presented_frames
          << ",\n  \"peak_resident_bytes\": " << peak_resident_bytes() << "\n}\n";
   return pixels.good() && report.good() ? 0 : 9;
 } catch (const std::exception& error) {

@@ -116,8 +116,15 @@ gneiss_result gneiss::application_internal::cancel_scene_load(gneiss_application
   if (valid != GNEISS_SUCCESS) {
     return valid;
   }
-  return state->scene_service() && state->scene_service()->cancel(request) ? GNEISS_SUCCESS
-                                                                           : GNEISS_ERROR_NOT_READY;
+  try {
+    return state->scene_service() && state->scene_service()->cancel(request)
+               ? GNEISS_SUCCESS
+               : GNEISS_ERROR_NOT_READY;
+  } catch (const std::bad_alloc&) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
 }
 
 gneiss_result

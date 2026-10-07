@@ -76,6 +76,9 @@
 
 ## 路线图与开发计划
 
+- [VER-049：0.49.0 大场景加载响应性与生命周期稳定性](plans/VER-049-0.49.0-loading-stability.md)
+- [DEV-049：大场景加载响应性与生命周期稳定性开发计划](plans/DEV-049-loading-stability.md)
+
 - [VER-048：0.48.0 C++ SDK 可读性与调用一致性](plans/VER-048-0.48.0-cpp-sdk-readability.md)
 - [DEV-048：C++ SDK 可读性与调用一致性开发计划](plans/DEV-048-cpp-sdk-readability.md)
 
@@ -162,6 +165,9 @@
 - [TOOL-003：索引渲染最小闭环](plans/TOOL-003-indexed-rendering.md)
 
 ## 架构决策
+
+- [ADR-057：资产准备的显式分步执行](decisions/ADR-057-incremental-asset-preparation.md)
+- [ADR-058：场景取消终态与资源清理](decisions/ADR-058-scene-cancellation-cleanup.md)
 
 - [ADR-055：原生 C++ 公共类型与规范头路径](decisions/ADR-055-native-cpp-sdk.md)
 - [ADR-056：SDK 接口组织与调用约定](decisions/ADR-056-cpp-sdk-interface-and-adaptation.md)
@@ -432,6 +438,10 @@
 - [M-295：作者层级树与拖拽请求](records/M-295-author-hierarchy-panel.md)
 
 - [M-311：0.48.0 SDK 整理与发布验收](records/M-311-0.48.0-sdk-validation.md)
+
+- [M-312：0.49 加载基线与量化门槛](records/M-312-loading-stability-baseline.md)
+- [M-313～M-316：加载响应性与生命周期验收](records/M-313-316-loading-stability-validation.md)
+- [M-317：0.49.0 平台与发布验收](records/M-317-0.49.0-release-validation.md)
 
 ## 文档维护
 
