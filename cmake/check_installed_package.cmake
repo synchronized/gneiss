@@ -22,6 +22,9 @@ file(COPY "${GNEISS_SOURCE_DIR}/examples/property_inspector/main.cpp"
 file(COPY "${GNEISS_SOURCE_DIR}/examples/property_inspector/assets"
      DESTINATION "${consumer_source_dir}/examples/property_inspector"
 )
+file(COPY "${GNEISS_SOURCE_DIR}/examples/application_world"
+     DESTINATION "${consumer_source_dir}/examples"
+)
 
 set(install_command "${CMAKE_COMMAND}" --install "${GNEISS_BUILD_DIR}" --prefix "${install_dir}")
 set(build_command "${CMAKE_COMMAND}" --build "${consumer_build_dir}")
