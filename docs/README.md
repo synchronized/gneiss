@@ -440,6 +440,7 @@
 
 - [M-312：0.49 加载基线与量化门槛](records/M-312-loading-stability-baseline.md)
 - [M-313～M-316：加载响应性与生命周期验收](records/M-313-316-loading-stability-validation.md)
+- [M-317：0.49.0 平台与发布验收](records/M-317-0.49.0-release-validation.md)
 
 ## 文档维护
 
