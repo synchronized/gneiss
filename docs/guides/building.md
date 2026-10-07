@@ -448,10 +448,32 @@ try {
 `total_ms` 为本次循环体加前一循环结束后的间隔，`gap_ms` 单列循环簿记与调度间隔。
 它与测量宿主旧 event_interval 的边界不同。事件、更新、渲染与绘制列表清理为顶层阶段；
 场景推进、资产接收/发布、上传回执/提交、候选收尾与帧快照等为嵌套阶段。
+window_pump/window_events 区分平台事件泵与窗口队列接收，input_state/input_events 区分
+输入状态读取与事件转换；task_collect/task_submit 记录加载服务的任务结果接收与续步提交。
 清理计时不等同于 GPU 驱动资源已经释放；run 返回前的 finish_frames 等待及关闭不在循环体内。
 最长样本不能用于推算全量 P95。详细计时默认关闭，关闭时不读取时钟或分配每帧诊断记录；
 开启时保留固定容量数据，文件写入在循环结束后完成。应对照插桩开销，不把诊断耗时计作产品优化。
 输出失败向 stderr 报告，不改变 Application 的运行结果。
+
+Windows 下可使用下列工具顺序测量实际 Runtime 的进程/主线程 CPU 时间，并交替运行诊断开关：
+
+```powershell
+python -X utf8 -B scripts/performance/measure_runtime_loop.py `
+  --runtime build/windows-clang-release/bin/gneiss_runtime.exe `
+  --daily-project <日常工程目录> --full-project <完整工程目录> `
+  --output build/runtime-cpu-baseline --repeat 3
+```
+
+两个工程须已准备好 gneiss.project.json 与工程内资产；输出目录必须尚不存在。
+工具不生成或修改资产，不清理系统缓存，每组启动独立进程；测试期间不要并行构建或运行其他 GPU 测试。
+每次保存日志、退出状态和可选循环 CSV，summary.json 持续保存已完成样本，失败不丢弃此前结果。
+成功须同时有场景激活和正常退出日志。默认每次期限 900 秒，超时只结束工具自己启动的子进程。
+
+CPU 数据包含启动与退出；主线程取进程中最早创建的线程，并保留句柄读取最终 user + kernel 时间。
+main_thread_core_equivalent 为主线程 CPU 时间 / 进程墙钟时间，1 表示约一个核心，
+不是整机 CPU 百分比。退出通过 250 ms 轮询发现，墙钟时间可能包含末尾轮询延迟与测量开销，
+不能用微小开关差异推断精确插桩成本。内存每 250 ms 查询历史工作集峰值，可能漏掉末次采样后的峰值；
+它不是 GPU 显存，也不是资产候选预算。Runtime smoke 没有测量交互输入延迟或捕获验收图像。
 
 普通 CI 使用原创小夹具进行 GPU 像素、候选原子性与 IPC 生命周期回归，不下载数 GiB 的 Sponza。
 大场景结果与测量边界见 [0.42 验收记录](../records/M-273-278-0.42.0-validation.md)。
