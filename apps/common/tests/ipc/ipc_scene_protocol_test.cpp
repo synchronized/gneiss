@@ -17,7 +17,10 @@ void check(bool value, std::source_location location = std::source_location::cur
 }
 void cleanup_updates() {
   const ipc_scene_request source{
-      .session = 5U, .revision = 7U, .uri = "asset://scenes/main.scene.json"};
+      .session = 5U,
+      .revision = 7U,
+      .uri = "asset://scenes/main.scene.json",
+  };
   ipc_envelope envelope;
   ipc_scene_progress invalid_progress;
   ipc_scene_progress draining{.source = source, .phase = ipc_scene_phase::cancelled, .message = {}};

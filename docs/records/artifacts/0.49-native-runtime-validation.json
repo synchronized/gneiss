@@ -1,0 +1,103 @@
+{
+  "status": "passed",
+  "commit": "aa02fbd597fbf2be9c3d9e566d87a70e84355841",
+  "samples": [
+    {
+      "name": "pixels",
+      "exit": 0,
+      "elapsed_ms": 10929.913899861276,
+      "validation_errors": [],
+      "validation_layer_evidence": [
+        "[Vulkan Loader] INFO | LAYER:   Insert instance layer \"VK_LAYER_KHRONOS_validation\" (D:\\sunday\\programs\\vulkan-sdk\\1.4.321.1\\Bin\\.\\VkLayer_khronos_validation.dll)",
+        "[Vulkan Loader] INFO | LAYER:   Insert instance layer \"VK_LAYER_KHRONOS_validation\" (D:\\sunday\\programs\\vulkan-sdk\\1.4.321.1\\Bin\\.\\VkLayer_khronos_validation.dll)",
+        "[Vulkan Loader] INFO | LAYER:   Insert instance layer \"VK_LAYER_KHRONOS_validation\" (D:\\sunday\\programs\\vulkan-sdk\\1.4.321.1\\Bin\\.\\VkLayer_khronos_validation.dll)",
+        "[Vulkan Loader] INFO | LAYER:   Insert instance layer \"VK_LAYER_KHRONOS_validation\" (D:\\sunday\\programs\\vulkan-sdk\\1.4.321.1\\Bin\\.\\VkLayer_khronos_validation.dll)",
+        "[Vulkan Loader] INFO | LAYER:   Insert instance layer \"VK_LAYER_KHRONOS_validation\" (D:\\sunday\\programs\\vulkan-sdk\\1.4.321.1\\Bin\\.\\VkLayer_khronos_validation.dll)",
+        "[Vulkan Loader] INFO | LAYER:   Insert instance layer \"VK_LAYER_KHRONOS_validation\" (D:\\sunday\\programs\\vulkan-sdk\\1.4.321.1\\Bin\\.\\VkLayer_khronos_validation.dll)",
+        "[Vulkan Loader] INFO | LAYER:   Insert instance layer \"VK_LAYER_KHRONOS_validation\" (D:\\sunday\\programs\\vulkan-sdk\\1.4.321.1\\Bin\\.\\VkLayer_khronos_validation.dll)",
+        "[Vulkan Loader] INFO | LAYER:   Insert instance layer \"VK_LAYER_KHRONOS_validation\" (D:\\sunday\\programs\\vulkan-sdk\\1.4.321.1\\Bin\\.\\VkLayer_khronos_validation.dll)",
+        "[Vulkan Loader] INFO | LAYER:   Insert instance layer \"VK_LAYER_KHRONOS_validation\" (D:\\sunday\\programs\\vulkan-sdk\\1.4.321.1\\Bin\\.\\VkLayer_khronos_validation.dll)",
+        "[Vulkan Loader] INFO | LAYER:   Insert instance layer \"VK_LAYER_KHRONOS_validation\" (D:\\sunday\\programs\\vulkan-sdk\\1.4.321.1\\Bin\\.\\VkLayer_khronos_validation.dll)",
+        "[Vulkan Loader] INFO | LAYER:   Insert instance layer \"VK_LAYER_KHRONOS_validation\" (D:\\sunday\\programs\\vulkan-sdk\\1.4.321.1\\Bin\\.\\VkLayer_khronos_validation.dll)",
+        "[Vulkan Loader] INFO | LAYER:   Insert instance layer \"VK_LAYER_KHRONOS_validation\" (D:\\sunday\\programs\\vulkan-sdk\\1.4.321.1\\Bin\\.\\VkLayer_khronos_validation.dll)",
+        "[Vulkan Loader] INFO | LAYER:   Insert instance layer \"VK_LAYER_KHRONOS_validation\" (D:\\sunday\\programs\\vulkan-sdk\\1.4.321.1\\Bin\\.\\VkLayer_khronos_validation.dll)",
+        "[Vulkan Loader] INFO | LAYER:   Insert instance layer \"VK_LAYER_KHRONOS_validation\" (D:\\sunday\\programs\\vulkan-sdk\\1.4.321.1\\Bin\\.\\VkLayer_khronos_validation.dll)",
+        "[Vulkan Loader] INFO | LAYER:   Insert instance layer \"VK_LAYER_KHRONOS_validation\" (D:\\sunday\\programs\\vulkan-sdk\\1.4.321.1\\Bin\\.\\VkLayer_khronos_validation.dll)",
+        "[Vulkan Loader] INFO | LAYER:   Insert instance layer \"VK_LAYER_KHRONOS_validation\" (D:\\sunday\\programs\\vulkan-sdk\\1.4.321.1\\Bin\\.\\VkLayer_khronos_validation.dll)",
+        "[Vulkan Loader] INFO | LAYER:   Insert instance layer \"VK_LAYER_KHRONOS_validation\" (D:\\sunday\\programs\\vulkan-sdk\\1.4.321.1\\Bin\\.\\VkLayer_khronos_validation.dll)",
+        "[Vulkan Loader] INFO | LAYER:   Insert instance layer \"VK_LAYER_KHRONOS_validation\" (D:\\sunday\\programs\\vulkan-sdk\\1.4.321.1\\Bin\\.\\VkLayer_khronos_validation.dll)",
+        "[Vulkan Loader] INFO | LAYER:   Insert instance layer \"VK_LAYER_KHRONOS_validation\" (D:\\sunday\\programs\\vulkan-sdk\\1.4.321.1\\Bin\\.\\VkLayer_khronos_validation.dll)",
+        "[Vulkan Loader] INFO | LAYER:   Insert instance layer \"VK_LAYER_KHRONOS_validation\" (D:\\sunday\\programs\\vulkan-sdk\\1.4.321.1\\Bin\\.\\VkLayer_khronos_validation.dll)",
+        "[Vulkan Loader] INFO | LAYER:   Insert instance layer \"VK_LAYER_KHRONOS_validation\" (D:\\sunday\\programs\\vulkan-sdk\\1.4.321.1\\Bin\\.\\VkLayer_khronos_validation.dll)",
+        "[Vulkan Loader] INFO | LAYER:   Insert instance layer \"VK_LAYER_KHRONOS_validation\" (D:\\sunday\\programs\\vulkan-sdk\\1.4.321.1\\Bin\\.\\VkLayer_khronos_validation.dll)",
+        "[Vulkan Loader] INFO | LAYER:   Insert instance layer \"VK_LAYER_KHRONOS_validation\" (D:\\sunday\\programs\\vulkan-sdk\\1.4.321.1\\Bin\\.\\VkLayer_khronos_validation.dll)",
+        "[Vulkan Loader] INFO | LAYER:   Insert instance layer \"VK_LAYER_KHRONOS_validation\" (D:\\sunday\\programs\\vulkan-sdk\\1.4.321.1\\Bin\\.\\VkLayer_khronos_validation.dll)",
+        "[Vulkan Loader] INFO | LAYER:   Insert instance layer \"VK_LAYER_KHRONOS_validation\" (D:\\sunday\\programs\\vulkan-sdk\\1.4.321.1\\Bin\\.\\VkLayer_khronos_validation.dll)",
+        "[Vulkan Loader] INFO | LAYER:   Insert instance layer \"VK_LAYER_KHRONOS_validation\" (D:\\sunday\\programs\\vulkan-sdk\\1.4.321.1\\Bin\\.\\VkLayer_khronos_validation.dll)",
+        "[Vulkan Loader] INFO | LAYER:   Insert instance layer \"VK_LAYER_KHRONOS_validation\" (D:\\sunday\\programs\\vulkan-sdk\\1.4.321.1\\Bin\\.\\VkLayer_khronos_validation.dll)",
+        "[Vulkan Loader] INFO | LAYER:   Insert instance layer \"VK_LAYER_KHRONOS_validation\" (D:\\sunday\\programs\\vulkan-sdk\\1.4.321.1\\Bin\\.\\VkLayer_khronos_validation.dll)",
+        "[Vulkan Loader] INFO | LAYER:   Insert instance layer \"VK_LAYER_KHRONOS_validation\" (D:\\sunday\\programs\\vulkan-sdk\\1.4.321.1\\Bin\\.\\VkLayer_khronos_validation.dll)",
+        "[Vulkan Loader] INFO | LAYER:   Insert instance layer \"VK_LAYER_KHRONOS_validation\" (D:\\sunday\\programs\\vulkan-sdk\\1.4.321.1\\Bin\\.\\VkLayer_khronos_validation.dll)",
+        "[Vulkan Loader] INFO | LAYER:   Insert instance layer \"VK_LAYER_KHRONOS_validation\" (D:\\sunday\\programs\\vulkan-sdk\\1.4.321.1\\Bin\\.\\VkLayer_khronos_validation.dll)",
+        "[Vulkan Loader] INFO | LAYER:   Insert instance layer \"VK_LAYER_KHRONOS_validation\" (D:\\sunday\\programs\\vulkan-sdk\\1.4.321.1\\Bin\\.\\VkLayer_khronos_validation.dll)",
+        "[Vulkan Loader] INFO | LAYER:   Insert instance layer \"VK_LAYER_KHRONOS_validation\" (D:\\sunday\\programs\\vulkan-sdk\\1.4.321.1\\Bin\\.\\VkLayer_khronos_validation.dll)",
+        "[Vulkan Loader] INFO | LAYER:   Insert instance layer \"VK_LAYER_KHRONOS_validation\" (D:\\sunday\\programs\\vulkan-sdk\\1.4.321.1\\Bin\\.\\VkLayer_khronos_validation.dll)",
+        "[Vulkan Loader] INFO | LAYER:   Insert instance layer \"VK_LAYER_KHRONOS_validation\" (D:\\sunday\\programs\\vulkan-sdk\\1.4.321.1\\Bin\\.\\VkLayer_khronos_validation.dll)",
+        "[Vulkan Loader] INFO | LAYER:   Insert instance layer \"VK_LAYER_KHRONOS_validation\" (D:\\sunday\\programs\\vulkan-sdk\\1.4.321.1\\Bin\\.\\VkLayer_khronos_validation.dll)",
+        "[Vulkan Loader] INFO | LAYER:   Insert instance layer \"VK_LAYER_KHRONOS_validation\" (D:\\sunday\\programs\\vulkan-sdk\\1.4.321.1\\Bin\\.\\VkLayer_khronos_validation.dll)",
+        "[Vulkan Loader] INFO | LAYER:   Insert instance layer \"VK_LAYER_KHRONOS_validation\" (D:\\sunday\\programs\\vulkan-sdk\\1.4.321.1\\Bin\\.\\VkLayer_khronos_validation.dll)",
+        "[Vulkan Loader] INFO | LAYER:   Insert instance layer \"VK_LAYER_KHRONOS_validation\" (D:\\sunday\\programs\\vulkan-sdk\\1.4.321.1\\Bin\\.\\VkLayer_khronos_validation.dll)",
+        "[Vulkan Loader] INFO | LAYER:   Insert instance layer \"VK_LAYER_KHRONOS_validation\" (D:\\sunday\\programs\\vulkan-sdk\\1.4.321.1\\Bin\\.\\VkLayer_khronos_validation.dll)"
+      ],
+      "command": [
+        "D:\\sunday\\workspace\\build\\github\\synchronized\\gneiss\\build\\windows-clang-release\\bin\\gneiss_asset_pixel_test.exe"
+      ],
+      "executable_sha256": "ba4c6e3ecad4d023d7b44174db64889b6a64ff97bc234b551b26011ffe907317",
+      "passed": true
+    },
+    {
+      "name": "thread",
+      "exit": 0,
+      "elapsed_ms": 219871.55450042337,
+      "validation_errors": [],
+      "validation_layer_evidence": [
+        "[Vulkan Loader] INFO | LAYER:   Insert instance layer \"VK_LAYER_KHRONOS_validation\" (D:\\sunday\\programs\\vulkan-sdk\\1.4.321.1\\Bin\\.\\VkLayer_khronos_validation.dll)"
+      ],
+      "command": [
+        "D:\\sunday\\workspace\\build\\github\\synchronized\\gneiss\\build\\windows-clang-release\\bin\\gneiss_runtime.exe",
+        "--smoke",
+        "--project",
+        "D:\\sunday\\workspace\\build\\github\\synchronized\\gneiss\\build\\0.49-runtime-validation-project",
+        "--log-file",
+        "D:\\sunday\\workspace\\build\\github\\synchronized\\gneiss\\build\\0.49-native-runtime-validation\\thread.jsonl"
+      ],
+      "executable_sha256": "9d2ff3ebe7dd4bf23ace1ebb1e41ff732bc8c507f1fa7f518aec7eed121da4f6",
+      "applied": true,
+      "normal_shutdown": true,
+      "passed": true
+    },
+    {
+      "name": "cooperative",
+      "exit": 0,
+      "elapsed_ms": 219766.89630001783,
+      "validation_errors": [],
+      "validation_layer_evidence": [
+        "[Vulkan Loader] INFO | LAYER:   Insert instance layer \"VK_LAYER_KHRONOS_validation\" (D:\\sunday\\programs\\vulkan-sdk\\1.4.321.1\\Bin\\.\\VkLayer_khronos_validation.dll)"
+      ],
+      "command": [
+        "D:\\sunday\\workspace\\build\\github\\synchronized\\gneiss\\build\\windows-clang-release\\bin\\gneiss_runtime.exe",
+        "--smoke",
+        "--project",
+        "D:\\sunday\\workspace\\build\\github\\synchronized\\gneiss\\build\\0.49-runtime-validation-project",
+        "--log-file",
+        "D:\\sunday\\workspace\\build\\github\\synchronized\\gneiss\\build\\0.49-native-runtime-validation\\cooperative.jsonl",
+        "--cooperative-tasks"
+      ],
+      "executable_sha256": "9d2ff3ebe7dd4bf23ace1ebb1e41ff732bc8c507f1fa7f518aec7eed121da4f6",
+      "applied": true,
+      "normal_shutdown": true,
+      "passed": true
+    }
+  ],
+  "engine_sha256": "b7ccd010cc16793d7bbb7a8b60284aa3ad3b4d7e00407cb1f846491562e7ad3b"
+}
