@@ -140,6 +140,7 @@ private:
 #ifdef GNEISS_HAS_GRANIT_PLATFORM
   [[nodiscard]] gneiss_result render_frame() noexcept;
 #endif
+  std::shared_ptr<core::progress_notification> loop_notification_;
   application_configuration config_;
   render_internal::render_resource_service resources_;
   render_internal::ui_draw_list ui_draw_list_;

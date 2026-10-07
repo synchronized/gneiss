@@ -455,6 +455,14 @@ window_pump/window_events 区分平台事件泵与窗口队列接收，input_sta
 开启时保留固定容量数据，文件写入在循环结束后完成。应对照插桩开销，不把诊断耗时计作产品优化。
 输出失败向 stderr 报告，不改变 Application 的运行结果。
 
+启用工作线程的原生 Granit Application 在循环末尾使用进展通知和最多请求 4 ms 的有限等待，
+避免无进展时持续轮询。任务终态及渲染回执可提前结束等待；未接入原生窗口等待接口时，
+输入与 IPC 依靠截止期限重新轮询。实际唤醒可能受 OS 调度推迟，不能把 4 ms 当作实测上限。
+诊断新增 idle_wait_ms，属于完整循环时间的一部分；Headless、Web 和无线程配置不启用该等待。
+Windows 的 gneiss_main_loop_response 测试通过独立线程发送按键与任务；可指定 JSON 输出路径，
+再加参数 stall 注入一次 50 ms 主线程停顿，用于验证测量夹具自身。该小夹具不代替大资产交互验收。
+
+
 Windows 下可使用下列工具顺序测量实际 Runtime 的进程/主线程 CPU 时间，并交替运行诊断开关：
 
 ```powershell

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "engine/core/loop_progress.hpp"
 #include "engine/function/render/render_executor.hpp"
 
 #include <condition_variable>
@@ -267,6 +268,20 @@ int main() {
       required_stats.rejected_required_frames != 1U || required_stats.replaced_frames != 0U ||
       required_sequence == 0U) {
     return 21;
+  }
+  auto signal = std::make_shared<gneiss::core::loop_progress>();
+  required_executor.set_completion_notification(signal);
+  const auto observed = signal->snapshot();
+  std::uint64_t notified_sequence{};
+  if (required_executor.submit_command([](const auto&) { return GNEISS_ERROR_INTERNAL; },
+                                       notified_sequence) != GNEISS_SUCCESS ||
+      !signal->wait(observed, std::chrono::seconds(2))) {
+    return 22;
+  }
+  render_command_completion notified;
+  if (!required_executor.try_take_command_completion(notified) ||
+      notified.sequence != notified_sequence || notified.status != GNEISS_ERROR_INTERNAL) {
+    return 23;
   }
   required_executor.stop();
   return 0;

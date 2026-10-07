@@ -1,6 +1,15 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Gneiss contributors
 
+if(NOT EMSCRIPTEN AND GNEISS_TASK_THREADS)
+  add_executable(gneiss_loop_progress_test core/loop_progress_test.cpp)
+  target_link_libraries(gneiss_loop_progress_test PRIVATE gneiss_tasks Threads::Threads)
+  gneiss_target_compile_warnings(gneiss_loop_progress_test)
+  gneiss_target_output_directories(gneiss_loop_progress_test)
+  add_test(NAME gneiss.loop-progress COMMAND gneiss_loop_progress_test)
+  set_tests_properties(gneiss.loop-progress PROPERTIES TIMEOUT 30)
+endif()
+
 add_executable(gneiss_task_scheduler_test core/task_scheduler_test.cpp)
 target_link_libraries(gneiss_task_scheduler_test PRIVATE gneiss_tasks)
 gneiss_target_compile_warnings(gneiss_task_scheduler_test)

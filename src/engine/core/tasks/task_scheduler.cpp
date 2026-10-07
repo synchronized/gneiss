@@ -75,6 +75,9 @@ struct task_scheduler::implementation {
     }
     // 终态无需保留整条前置链；其他任务已单独持有它所需的终态。
     value.dependencies.clear();
+    if (value.description.notification) {
+      value.description.notification->notify();
+    }
     wake.notify_all();
   }
   void request_cancel(task& value) {

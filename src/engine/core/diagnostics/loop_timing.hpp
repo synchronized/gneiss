@@ -39,6 +39,7 @@ enum class loop_stage : std::uint8_t {
   input_events,
   task_collect,
   task_submit,
+  idle_wait,
   count,
 };
 inline constexpr std::array loop_stage_names{
@@ -64,6 +65,7 @@ inline constexpr std::array loop_stage_names{
     "input_events",
     "task_collect",
     "task_submit",
+    "idle_wait",
 };
 static_assert(loop_stage_names.size() == static_cast<std::size_t>(loop_stage::count));
 using timing_clock = std::chrono::steady_clock;

@@ -36,12 +36,12 @@ struct texture_load_service::pending {
   gneiss_result failure{GNEISS_SUCCESS};
   std::chrono::steady_clock::time_point commit_started;
 };
-texture_load_service::texture_load_service(tasks::task_executor& executor,
-                                           asset_internal::virtual_file_system file_system,
-                                           render_asset_loader& loader,
-                                           texture_upload_backend backend)
+texture_load_service::texture_load_service(
+    tasks::task_executor& executor, asset_internal::virtual_file_system file_system,
+    render_asset_loader& loader, texture_upload_backend backend,
+    std::shared_ptr<core::progress_notification> notification)
     : executor_(executor), scope_(executor.make_scope()), file_system_(std::move(file_system)),
-      loader_(loader), backend_(std::move(backend)) {
+      loader_(loader), backend_(std::move(backend)), notification_(std::move(notification)) {
   if (scope_.id == 0U || !backend_.begin || !backend_.poll || !backend_.discard ||
       !backend_.flush) {
     if (scope_.id != 0U) {
@@ -153,7 +153,7 @@ gneiss_result texture_load_service::submit_assets(std::span<const render_asset_r
 }
 tasks::submit_result texture_load_service::submit_preparation(pending& value) {
   return executor_.submit(
-      {.name = "render_assets.prepare", .scope = scope_},
+      {.name = "render_assets.prepare", .scope = scope_, .notification = notification_},
       [cpu = value.cpu](const tasks::task_context& context) {
         const auto start = std::chrono::steady_clock::now();
         asset_diagnostic diagnostic;

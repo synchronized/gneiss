@@ -47,6 +47,7 @@ struct threaded_render_executor::state final {
   std::mutex mutex;
   std::condition_variable work_ready;
   std::condition_variable idle;
+  std::shared_ptr<core::progress_notification> notification;
   std::deque<queued_task> pending;
   std::deque<render_frame_completion> completed_frames;
   std::deque<render_command_completion> completed_commands;
@@ -180,10 +181,21 @@ void threaded_render_executor::state::run() noexcept {
         completed_commands.push_back(std::move(command_completion));
       }
       executing = false;
+      if (notification) {
+        notification->notify();
+      }
       if (pending.empty()) {
         idle.notify_all();
       }
     }
+  }
+}
+
+void threaded_render_executor::set_completion_notification(
+    std::shared_ptr<core::progress_notification> notification) noexcept {
+  if (state_) {
+    const std::scoped_lock lock(state_->mutex);
+    state_->notification = std::move(notification);
   }
 }
 

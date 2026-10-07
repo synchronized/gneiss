@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include "engine/core/progress_notification.hpp"
+
 #include <atomic>
 #include <chrono>
 #include <cstddef>
@@ -56,6 +58,7 @@ struct task_description {
   std::vector<task_handle> prerequisites{};
   task_priority priority{task_priority::background};
   std::chrono::steady_clock::time_point not_before{};
+  std::shared_ptr<core::progress_notification> notification{};
 };
 struct task_completion {
   task_handle task;

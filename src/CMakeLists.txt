@@ -262,6 +262,9 @@ if(GNEISS_ENABLE_GRANIT_PLATFORM)
       engine/function/render/render_executor.hpp
   )
   target_compile_definitions(gneiss_engine PRIVATE GNEISS_HAS_GRANIT_PLATFORM)
+  if(GNEISS_TASK_THREADS AND NOT EMSCRIPTEN)
+    target_compile_definitions(gneiss_engine PRIVATE GNEISS_NATIVE_LOOP_WAIT)
+  endif()
   target_include_directories(gneiss_engine PRIVATE "${gneiss_pbr_embedded_dir}")
   target_link_libraries(
     gneiss_engine PRIVATE granit::granit granit::window granit::render_pipeline

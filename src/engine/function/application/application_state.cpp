@@ -2,6 +2,9 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/function/application/application_state.hpp"
+#ifdef GNEISS_NATIVE_LOOP_WAIT
+#include "engine/core/loop_progress.hpp"
+#endif
 #include "engine/function/application/application_log_sink.hpp"
 
 #include "engine/asset/native_file_system.hpp"
@@ -130,10 +133,11 @@ gneiss_result application_state::attach_task_executor(tasks::task_executor& exec
       backend.discard = backend.begin;
       backend.flush = [] {};
     }
-    scene_service_ =
-        std::make_unique<scene_load_service>(executor, asset_file_system_, resources_, backend);
+    scene_service_ = std::make_unique<scene_load_service>(executor, asset_file_system_, resources_,
+                                                          backend, loop_notification_);
     texture_service_ = std::make_unique<render_internal::texture_load_service>(
-        executor, asset_file_system_, active_scene_->assets, std::move(backend));
+        executor, asset_file_system_, active_scene_->assets, std::move(backend),
+        loop_notification_);
     return GNEISS_SUCCESS;
   } catch (const std::bad_alloc&) {
     return GNEISS_ERROR_OUT_OF_MEMORY;
@@ -237,6 +241,9 @@ gneiss_result application_state::initialize() noexcept {
     }
     try {
       granit_render_service_ = std::make_unique<render_internal::granit_render_service>();
+#ifdef GNEISS_NATIVE_LOOP_WAIT
+      loop_notification_ = std::make_shared<core::loop_progress>();
+#endif
     } catch (const std::bad_alloc&) {
       granit_platform_.reset();
       return GNEISS_ERROR_OUT_OF_MEMORY;
@@ -265,6 +272,7 @@ gneiss_result application_state::initialize() noexcept {
       granit_platform_.reset();
       return render_result;
     }
+    granit_render_service_->set_completion_notification(loop_notification_);
 #else
     report(GNEISS_NULL_APPLICATION, GNEISS_DIAGNOSTIC_ERROR, GNEISS_DIAGNOSTIC_CATEGORY_BACKEND,
            GNEISS_ERROR_UNSUPPORTED, "granit.platform", "当前构建未启用 Granit 平台适配");
@@ -576,6 +584,10 @@ gneiss_result application_state::run(gneiss_application handle,
 
   while (!should_exit_ && (max_frame_count == 0U || frames_run < max_frame_count)) {
     const diagnostics::loop_frame frame_trace(trace.get(), frame_index_, trace_origin);
+#ifdef GNEISS_NATIVE_LOOP_WAIT
+    auto* progress = static_cast<core::loop_progress*>(loop_notification_.get());
+    const auto observed = progress != nullptr ? progress->snapshot() : 0U;
+#endif
     bool should_close = false;
     const auto poll_result = diagnostics::measure(diagnostics::loop_stage::events,
                                                   [&] { return poll_events(should_close); });
@@ -637,6 +649,13 @@ gneiss_result application_state::run(gneiss_application handle,
     });
     ++frame_index_;
     ++frames_run;
+#ifdef GNEISS_NATIVE_LOOP_WAIT
+    if (progress != nullptr && !should_exit_ &&
+        (max_frame_count == 0U || frames_run < max_frame_count)) {
+      diagnostics::measure(diagnostics::loop_stage::idle_wait,
+                           [&] { (void)progress->wait(observed, std::chrono::milliseconds(4)); });
+    }
+#endif
   }
 
   is_running_ = false;

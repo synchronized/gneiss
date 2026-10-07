@@ -83,9 +83,10 @@ struct scene_load_service::pending {
 scene_load_service::scene_load_service(tasks::task_executor& executor,
                                        asset_internal::virtual_file_system files,
                                        render_internal::render_resource_service& resources,
-                                       render_internal::texture_upload_backend backend)
+                                       render_internal::texture_upload_backend backend,
+                                       std::shared_ptr<core::progress_notification> notification)
     : executor_(executor), scope_(executor.make_scope()), files_(std::move(files)),
-      resources_(resources), backend_(std::move(backend)) {
+      resources_(resources), backend_(std::move(backend)), notification_(std::move(notification)) {
   if (scope_.id == 0U) {
     throw std::invalid_argument("无法创建场景任务作用域");
   }
@@ -127,7 +128,7 @@ gneiss_result scene_load_service::submit(std::string_view uri, std::uint64_t ses
   next->result.progress = {
       .request = ++sequence_, .session = session, .revision = revision, .can_cancel = true};
   const auto accepted = executor_.submit(
-      {.name = "scene.prepare", .scope = scope_},
+      {.name = "scene.prepare", .scope = scope_, .notification = notification_},
       [cpu = next->cpu, files = next->snapshot,
        source = std::string(uri)](const tasks::task_context& context) {
         cpu->result = scene_internal::prepare_scene_description(
@@ -285,7 +286,7 @@ void scene_load_service::advance() {
 }
 tasks::submit_result scene_load_service::submit_verification() {
   return executor_.submit(
-      {.name = "scene.verify", .scope = scope_},
+      {.name = "scene.verify", .scope = scope_, .notification = notification_},
       [cpu = pending_->cpu, sources = pending_->sources](const tasks::task_context& context) {
         if (!cpu->verification) {
           cpu->result = sources->begin_verification(cpu->verification);
@@ -351,7 +352,7 @@ void scene_load_service::advance_verification(pending& value) {
       *value.candidate->scenes, std::move(value.cpu->description));
   // 激活后的热重载必须回到宿主原始 VFS，不能继承一次性加载会话的内容固定规则。
   value.assets = std::make_unique<render_internal::texture_load_service>(
-      executor_, files_, value.candidate->assets, backend_);
+      executor_, files_, value.candidate->assets, backend_, notification_);
 }
 void scene_load_service::advance_impl() {
   auto& value = *pending_;
@@ -380,7 +381,7 @@ void scene_load_service::advance_impl() {
       return;
     }
     value.assets = std::make_unique<render_internal::texture_load_service>(
-        executor_, value.snapshot, value.candidate->assets, backend_);
+        executor_, value.snapshot, value.candidate->assets, backend_, notification_);
     value.requested = std::move(value.cpu->description.assets);
     progress.phase = scene_load_phase::assets;
     progress.total = value.requested.size();
