@@ -254,7 +254,7 @@ int main(int argc, char** argv) try {
       cancel_requested = result == GNEISS_SUCCESS;
     }
     auto previous = clock_type::now();
-    const auto deadline = previous + std::chrono::minutes(15);
+    auto deadline = previous + std::chrono::minutes(15);
     update = [&](gneiss_application handle) {
       const bool currently_minimized = minimized && !restored;
       if (scene == GNEISS_NULL_SCENE_INSTANCE) {
@@ -360,6 +360,8 @@ int main(int argc, char** argv) try {
           if (completed_switches < 3U) {
             result = request_scene_load(handle, source_uri, 1U, completed_switches + 1U, request);
             scene = GNEISS_NULL_SCENE_INSTANCE;
+            // 超时属于单次请求，不能让后续切换消耗前两次加载已经占用的期限。
+            deadline = clock_type::now() + std::chrono::minutes(15);
             return result;
           }
         }
