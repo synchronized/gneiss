@@ -5,19 +5,78 @@
 #include "engine/function/application/application_log_sink.hpp"
 
 #include "engine/asset/native_file_system.hpp"
+#include "engine/core/diagnostics/loop_timing.hpp"
 #include "engine/function/world/render_snapshot.hpp"
 
 #ifdef GNEISS_HAS_GRANIT_PLATFORM
-#include "engine/platform/granit/granit_platform.hpp"
 #include "engine/function/render/backend/granit/granit_render_service.hpp"
+#include "engine/platform/granit/granit_platform.hpp"
 #endif
 
 #include <chrono>
 #include <cstdio>
+#include <cstdlib>
+#include <fstream>
+#include <iomanip>
 #include <new>
 #include <vector>
 
 namespace gneiss::application_internal {
+namespace {
+class loop_trace_file final {
+public:
+  loop_trace_file() noexcept {
+    try {
+#ifdef _WIN32
+      char* value = nullptr;
+      std::size_t length{};
+      if (_dupenv_s(&value, &length, "GNEISS_LOOP_TRACE") != 0) {
+        return;
+      }
+      const std::unique_ptr<char, decltype(&std::free)> owned(value, &std::free);
+#else
+      const auto* value = std::getenv("GNEISS_LOOP_TRACE");
+#endif
+      if (value == nullptr || *value == '\0') {
+        return;
+      }
+      output_ = std::make_unique<std::ofstream>(value, std::ios::app);
+      if (!*output_) {
+        std::fputs("Gneiss 循环诊断：无法打开输出\n", stderr);
+        return;
+      }
+      timing_ = std::make_unique<diagnostics::loop_timing>();
+    } catch (...) {
+      std::fputs("Gneiss 循环诊断：初始化失败\n", stderr);
+    }
+  }
+  ~loop_trace_file() {
+    if (timing_) {
+      try {
+        *output_ << "# origin_ns="
+                 << std::chrono::duration_cast<std::chrono::nanoseconds>(origin_.time_since_epoch())
+                        .count()
+                 << '\n'
+                 << std::setprecision(10);
+        timing_->write(*output_);
+        output_->flush();
+        if (!*output_) {
+          std::fputs("Gneiss 循环诊断：写入失败\n", stderr);
+        }
+      } catch (...) {
+        std::fputs("Gneiss 循环诊断：写入失败\n", stderr);
+      }
+    }
+  }
+  void set_origin(diagnostics::timing_clock::time_point origin) noexcept { origin_ = origin; }
+  [[nodiscard]] diagnostics::loop_timing* get() const noexcept { return timing_.get(); }
+
+private:
+  diagnostics::timing_clock::time_point origin_;
+  std::unique_ptr<std::ofstream> output_;
+  std::unique_ptr<diagnostics::loop_timing> timing_;
+};
+} // namespace
 
 application_state::application_state(const application_configuration& config) noexcept
     : config_(config), owner_thread_(std::this_thread::get_id()) {}
@@ -437,24 +496,34 @@ gneiss_result application_state::render_frame() noexcept {
   render_internal::render_frame_packet packet;
   bool should_prepare = false;
   const auto storage_result =
-      granit_render_service_->prepare_frame_packet_storage(packet, should_prepare);
+      diagnostics::measure(diagnostics::loop_stage::frame_storage, [&]() noexcept {
+        return granit_render_service_->prepare_frame_packet_storage(packet, should_prepare);
+      });
   if (storage_result != GNEISS_SUCCESS || !should_prepare) {
     return storage_result;
   }
   render_internal::render_snapshot snapshot;
   const auto snapshot_result =
-      world_internal::get_render_snapshot(world(), window.width, window.height, snapshot);
+      diagnostics::measure(diagnostics::loop_stage::render_snapshot, [&]() noexcept {
+        return world_internal::get_render_snapshot(world(), window.width, window.height, snapshot);
+      });
   if (snapshot_result != GNEISS_SUCCESS) {
     return snapshot_result;
   }
-  const auto capture_result = render_internal::capture_render_frame_packet(
-      window, std::move(snapshot), resources_, ui_draw_list_, debug_draw_list_, packet);
+  const auto capture_result =
+      diagnostics::measure(diagnostics::loop_stage::frame_capture, [&]() noexcept {
+        return render_internal::capture_render_frame_packet(
+            window, std::move(snapshot), resources_, ui_draw_list_, debug_draw_list_, packet);
+      });
   if (capture_result != GNEISS_SUCCESS) {
     return capture_result;
   }
   const auto requested_recreate = window.needs_recreate;
   window.needs_recreate = false;
-  const auto submit_result = granit_render_service_->submit(std::move(packet));
+  const auto submit_result =
+      diagnostics::measure(diagnostics::loop_stage::frame_submit, [&]() noexcept {
+        return granit_render_service_->submit(std::move(packet));
+      });
   if (submit_result != GNEISS_SUCCESS && requested_recreate) {
     window.needs_recreate = true;
   }
@@ -490,12 +559,18 @@ gneiss_result application_state::run(gneiss_application handle,
   }
 #endif
   should_exit_ = false;
+  loop_trace_file trace;
+  const auto trace_origin = trace.get() != nullptr ? diagnostics::timing_clock::now()
+                                                   : diagnostics::timing_clock::time_point{};
+  trace.set_origin(trace_origin);
   previous_time_ns_ = now_ns();
   std::uint64_t frames_run = 0;
 
   while (!should_exit_ && (max_frame_count == 0U || frames_run < max_frame_count)) {
+    const diagnostics::loop_frame frame_trace(trace.get(), frame_index_, trace_origin);
     bool should_close = false;
-    const auto poll_result = poll_events(should_close);
+    const auto poll_result = diagnostics::measure(diagnostics::loop_stage::events,
+                                                  [&] { return poll_events(should_close); });
     if (poll_result != GNEISS_SUCCESS) {
       is_running_ = false;
       return poll_result;
@@ -520,12 +595,15 @@ gneiss_result application_state::run(gneiss_application handle,
         .is_paused = static_cast<std::uint8_t>(is_paused_ ? 1U : 0U),
         .reserved = {},
     };
-    ui_draw_list_.clear();
-    debug_draw_list_.clear();
+    diagnostics::measure(diagnostics::loop_stage::draw_clear, [&] {
+      ui_draw_list_.clear();
+      debug_draw_list_.clear();
+    });
     if (config_.callbacks.update != nullptr) {
       is_updating_ = true;
-      const auto update_result =
-          config_.callbacks.update(handle, &time, config_.callbacks.user_data);
+      const auto update_result = diagnostics::measure(diagnostics::loop_stage::update, [&] {
+        return config_.callbacks.update(handle, &time, config_.callbacks.user_data);
+      });
       is_updating_ = false;
       if (update_result != GNEISS_SUCCESS) {
         ui_draw_list_.clear();
@@ -535,7 +613,8 @@ gneiss_result application_state::run(gneiss_application handle,
       }
     }
 #ifdef GNEISS_HAS_GRANIT_PLATFORM
-    const auto render_result = render_frame();
+    const auto render_result =
+        diagnostics::measure(diagnostics::loop_stage::render, [&] { return render_frame(); });
     // 渲染队列、交换链或后端资源可能暂时未就绪；跳过本帧并在下一帧重试。
     if (render_result != GNEISS_SUCCESS && render_result != GNEISS_ERROR_NOT_READY) {
       ui_draw_list_.clear();
@@ -544,8 +623,10 @@ gneiss_result application_state::run(gneiss_application handle,
       return render_result;
     }
 #endif
-    ui_draw_list_.clear();
-    debug_draw_list_.clear();
+    diagnostics::measure(diagnostics::loop_stage::draw_clear, [&] {
+      ui_draw_list_.clear();
+      debug_draw_list_.clear();
+    });
     ++frame_index_;
     ++frames_run;
   }

@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/function/application/scene_load_service.hpp"
+#include "engine/core/diagnostics/loop_timing.hpp"
 #include "engine/function/render/render_resource_service.hpp"
 
 #include "engine/asset/asset_uri.hpp"
@@ -264,6 +265,7 @@ scene_load_service::take_candidate(std::uint64_t request, scene_load_completion&
   return candidate;
 }
 void scene_load_service::advance() {
+  const diagnostics::loop_span span(diagnostics::loop_stage::scene_advance);
   check_owner();
   if (!pending_) {
     return;

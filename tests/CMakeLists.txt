@@ -670,6 +670,14 @@ gneiss_target_output_directories(gneiss_resource_service_test)
 add_test(NAME gneiss.resource_service COMMAND gneiss_resource_service_test)
 
 find_package(Threads REQUIRED)
+add_executable(gneiss_loop_timing_test loop_timing_test.cpp)
+target_include_directories(gneiss_loop_timing_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_link_libraries(gneiss_loop_timing_test PRIVATE Threads::Threads)
+target_compile_features(gneiss_loop_timing_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_loop_timing_test)
+gneiss_target_output_directories(gneiss_loop_timing_test)
+add_test(NAME gneiss.loop_timing COMMAND gneiss_loop_timing_test)
+
 add_executable(gneiss_read_source_test
   asset/read_source_test.cpp
   "${PROJECT_SOURCE_DIR}/src/engine/asset/asset_uri.cpp"

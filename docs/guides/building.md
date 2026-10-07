@@ -427,6 +427,32 @@ Release 路径、可选 Debug 功能矩阵与输出目录参数；工具顺序�
 详细记录在测量完成后批量写出，默认关闭；开启时会增加内存与计时开销，须另作开关对照。
 宿主原有 `sleep_for(1 ms)` 保持，不能将移除等待导致的数字下降宣称为引擎优化。
 
+要同时观测引擎内部，可在单个进程启动前设置 `GNEISS_LOOP_TRACE` 为可写的 CSV 路径，
+父目录须存在；诊断同样适用于实际 `gneiss_runtime --smoke --project <工程目录>`。
+
+```powershell
+$gneissPreviousTrace = $env:GNEISS_LOOP_TRACE
+try {
+  $env:GNEISS_LOOP_TRACE = Join-Path (Get-Location) 'build/runtime-loop.csv'
+  ./build/windows-clang-release/bin/gneiss_runtime.exe --smoke --project <工程目录>
+} finally {
+  $env:GNEISS_LOOP_TRACE = $gneissPreviousTrace
+}
+```
+
+每次 Application::run 结束后追加一个 CSV 表，开头记录单调时钟 origin_ns，
+最多保留最长 128 个循环及一行 maxima；maxima 的 frame 列表示该轮 run 的总循环数，
+各阶段最大值独立统计，不能相加。末尾注释统计循环累计时间及阈值超限次数。
+多个 run 的预热、加载和回读不能混作同一组；诊断路径应为本次进程单独指定。
+
+`total_ms` 为本次循环体加前一循环结束后的间隔，`gap_ms` 单列循环簿记与调度间隔。
+它与测量宿主旧 event_interval 的边界不同。事件、更新、渲染与绘制列表清理为顶层阶段；
+场景推进、资产接收/发布、上传回执/提交、候选收尾与帧快照等为嵌套阶段。
+清理计时不等同于 GPU 驱动资源已经释放；run 返回前的 finish_frames 等待及关闭不在循环体内。
+最长样本不能用于推算全量 P95。详细计时默认关闭，关闭时不读取时钟或分配每帧诊断记录；
+开启时保留固定容量数据，文件写入在循环结束后完成。应对照插桩开销，不把诊断耗时计作产品优化。
+输出失败向 stderr 报告，不改变 Application 的运行结果。
+
 普通 CI 使用原创小夹具进行 GPU 像素、候选原子性与 IPC 生命周期回归，不下载数 GiB 的 Sponza。
 大场景结果与测量边界见 [0.42 验收记录](../records/M-273-278-0.42.0-validation.md)。
 

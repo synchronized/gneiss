@@ -8,6 +8,7 @@
 #include <gneiss/engine/input.h>
 
 #include "engine/asset/virtual_file_system.hpp"
+#include "engine/core/diagnostics/loop_timing.hpp"
 #include "engine/core/log/log_dispatcher.hpp"
 #include "engine/function/application/application_configuration.hpp"
 #include "engine/function/application/application_scene_state.hpp"
@@ -57,6 +58,7 @@ public:
   void advance_scene_load() {
     if (retired_scene_) {
       const auto start = std::chrono::steady_clock::now();
+      const diagnostics::loop_span span(diagnostics::loop_stage::retirement);
       retired_scene_.reset();
       retirement_.last_ms =
           std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start)
