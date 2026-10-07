@@ -271,6 +271,8 @@ void scene_load_service::advance() {
   if (!pending_) {
     return;
   }
+  const auto previous_phase = pending_->result.progress.phase;
+  const auto previous_completed = pending_->result.progress.completed;
   const auto start = clock_type::now();
   try {
     advance_impl();
@@ -278,6 +280,10 @@ void scene_load_service::advance() {
     finish(GNEISS_ERROR_OUT_OF_MEMORY, scene_load_phase::failed);
   } catch (...) {
     finish(GNEISS_ERROR_INTERNAL, scene_load_phase::failed);
+  }
+  if (notification_ && (!pending_ || pending_->result.progress.phase != previous_phase ||
+                        pending_->result.progress.completed != previous_completed)) {
+    notification_->notify();
   }
   auto* result = pending_ ? &pending_->result : completed_ ? &*completed_ : nullptr;
   if (result != nullptr) {

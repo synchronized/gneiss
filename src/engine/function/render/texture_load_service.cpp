@@ -185,6 +185,9 @@ void texture_load_service::finish(gneiss_result result, texture_load_state state
   pending_->completion.prepare_ms = pending_->cpu->milliseconds;
   pending_->completion.candidate_bytes = pending_->cpu->batch.bytes;
   completed_ = std::move(pending_->completion);
+  if (notification_) {
+    notification_->notify();
+  }
   pending_.reset();
 }
 void texture_load_service::check_owner() const {
@@ -248,6 +251,9 @@ bool texture_load_service::advance_preparation(pending& value) {
     return false;
   }
   value.prepared = true;
+  if (notification_) {
+    notification_->notify();
+  }
   value.commit_started = std::chrono::steady_clock::now();
   return true;
 }
@@ -288,6 +294,9 @@ void texture_load_service::advance_impl() {
       }
       value.data.push_back(std::move(upload));
       value.candidates.push_back(std::move(candidate));
+      if (notification_) {
+        notification_->notify();
+      }
       if (std::chrono::steady_clock::now() - start >= std::chrono::milliseconds(2)) {
         break;
       }

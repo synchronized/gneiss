@@ -543,6 +543,10 @@ gneiss_result application_state::render_frame() noexcept {
   if (submit_result != GNEISS_SUCCESS && requested_recreate) {
     window.needs_recreate = true;
   }
+  // 成功推进队列后先继续排空本地可做工作，队列繁忙且无进展时才等待。
+  if (submit_result == GNEISS_SUCCESS && loop_notification_) {
+    loop_notification_->notify();
+  }
   return submit_result;
 }
 #endif
