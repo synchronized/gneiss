@@ -1,0 +1,42 @@
+{
+  "commit": "8765a487b6db6b3376ad550993171f591d8f1042",
+  "load": "两个独立 SHA-256 CPU 工作进程；不模拟磁盘负载",
+  "samples": [
+    {
+      "condition": "idle",
+      "repetition": 1,
+      "exit": 0,
+      "elapsed_s": 9.641939000226557
+    },
+    {
+      "condition": "idle",
+      "repetition": 2,
+      "exit": 0,
+      "elapsed_s": 9.328279500361532
+    },
+    {
+      "condition": "idle",
+      "repetition": 3,
+      "exit": 0,
+      "elapsed_s": 9.518411800265312
+    },
+    {
+      "condition": "two-cpu-workers",
+      "repetition": 1,
+      "exit": 0,
+      "elapsed_s": 8.944861399941146
+    },
+    {
+      "condition": "two-cpu-workers",
+      "repetition": 2,
+      "exit": 0,
+      "elapsed_s": 8.428545800037682
+    },
+    {
+      "condition": "two-cpu-workers",
+      "repetition": 3,
+      "exit": 0,
+      "elapsed_s": 8.557971100322902
+    }
+  ]
+}
