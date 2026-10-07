@@ -76,6 +76,9 @@
 
 ## 路线图与开发计划
 
+- [VER-049：0.49.0 大场景加载响应性与生命周期稳定性](plans/VER-049-0.49.0-loading-stability.md)
+- [DEV-049：大场景加载响应性与生命周期稳定性开发计划](plans/DEV-049-loading-stability.md)
+
 - [VER-048：0.48.0 C++ SDK 可读性与调用一致性](plans/VER-048-0.48.0-cpp-sdk-readability.md)
 - [DEV-048：C++ SDK 可读性与调用一致性开发计划](plans/DEV-048-cpp-sdk-readability.md)
 
