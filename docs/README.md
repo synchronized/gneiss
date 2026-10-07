@@ -77,6 +77,8 @@
 
 ## 路线图与开发计划
 
+- [VER-050：0.50.0 后台加载主线程延迟](plans/VER-050-0.50.0-main-loop-latency.md)
+- [DEV-050：后台加载主线程延迟开发计划](plans/DEV-050-main-loop-latency.md)
 - [VER-049：0.49.0 大场景加载响应性与生命周期稳定性](plans/VER-049-0.49.0-loading-stability.md)
 - [DEV-049：大场景加载响应性与生命周期稳定性开发计划](plans/DEV-049-loading-stability.md)
 
