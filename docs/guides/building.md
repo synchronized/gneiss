@@ -468,6 +468,10 @@ task_submit_lock 与 task_submit_work 区分提交取锁和锁内工作；alloca
 Windows 的 gneiss_main_loop_response 测试通过独立线程发送按键与任务；可指定 JSON 输出路径，
 再加参数 stall 注入一次 50 ms 主线程停顿，用于验证测量夹具自身。可再加 `--assets <Cook资产根>`，在完整场景加载期间持续投递直到激活，并记录节点与资源数；
 它使用隐藏 320×240 窗口和单工作线程，不将耗时与 Runtime 吞吐对照混比，也不代替像素或窗口恢复验收。
+指定输出路径并加 `--trace` 可额外生成 `<输出路径>.probes.csv`，分别保留最慢的 16 个输入和任务探针。
+序号用于关联两种接收，绝对 steady_clock 纳秒时间戳可与 `GNEISS_LOOP_TRACE` 的 `origin_ns`
+对齐；输入起点在提交任务及 PostMessage 之前，任务起点在工作函数结束、终态发布之前。
+此诊断默认关闭，不改变响应门槛；未复现的超限样本不能被诊断通过覆盖。
 
 
 Windows 下可使用下列工具顺序测量实际 Runtime 的进程/主线程 CPU 时间，并交替运行诊断开关：

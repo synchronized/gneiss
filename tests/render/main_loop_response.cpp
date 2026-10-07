@@ -13,6 +13,7 @@
 #include <windows.h>
 
 #include <algorithm>
+#include <array>
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
@@ -30,6 +31,29 @@ std::int64_t now_ns() {
   return std::chrono::duration_cast<std::chrono::nanoseconds>(clock_type::now().time_since_epoch())
       .count();
 }
+struct probe_sample {
+  unsigned index{};
+  std::int64_t sent_ns{}, received_ns{};
+  [[nodiscard]] std::int64_t duration() const { return received_ns - sent_ns; }
+};
+// 仅保留最慢的探针，热路径不分配内存；时间原点与引擎分段采样一致。
+struct probe_trace {
+  std::array<probe_sample, 16> samples{};
+  void record(probe_sample sample) {
+    auto shortest = std::ranges::min_element(samples, {}, &probe_sample::duration);
+    if (sample.duration() > shortest->duration()) {
+      *shortest = sample;
+    }
+  }
+  void write(std::ostream& output, const char* kind) const {
+    for (const auto& sample : samples) {
+      if (sample.index != 0U) {
+        output << kind << ',' << sample.index << ',' << sample.sent_ns << ',' << sample.received_ns
+               << ',' << static_cast<double>(sample.duration()) / 1e6 << '\n';
+      }
+    }
+  }
+};
 struct response_context {
   std::atomic_int64_t key_sent, task_finished, close_sent;
   std::atomic_uint sent, keys, tasks;
@@ -39,6 +63,8 @@ struct response_context {
   std::vector<double> key_ms, task_ms;
   double close_ms{};
   bool stall{};
+  bool trace{};
+  probe_trace key_trace, task_trace;
   std::atomic_bool scene_ready{true};
   std::uint64_t scene_request{}, nodes{}, resources{};
   clock_type::time_point deadline = clock_type::now() + 10s;
@@ -87,7 +113,15 @@ gneiss_result update(gneiss_application app, const gneiss_frame_time* /*unused*/
     if (event.type == GNEISS_INPUT_EVENT_KEY &&
         event.data.key.physical_key == GNEISS_PHYSICAL_KEY_A &&
         event.data.key.action == GNEISS_KEY_PRESSED) {
-      state.key_ms.push_back(static_cast<double>(now_ns() - state.key_sent.load()) / 1e6);
+      const probe_sample sample{
+          .index = state.keys.load() + 1U,
+          .sent_ns = state.key_sent.load(),
+          .received_ns = now_ns(),
+      };
+      state.key_ms.push_back(static_cast<double>(sample.duration()) / 1e6);
+      if (state.trace) {
+        state.key_trace.record(sample);
+      }
       std::scoped_lock lock(state.mutex);
       ++state.keys;
       state.received.notify_all();
@@ -99,7 +133,15 @@ gneiss_result update(gneiss_application app, const gneiss_frame_time* /*unused*/
     if (result.outcome.state != gneiss::tasks::task_state::succeeded) {
       state.failed = true;
     }
-    state.task_ms.push_back(static_cast<double>(now_ns() - state.task_finished.load()) / 1e6);
+    const probe_sample sample{
+        .index = state.tasks.load() + 1U,
+        .sent_ns = state.task_finished.load(),
+        .received_ns = now_ns(),
+    };
+    state.task_ms.push_back(static_cast<double>(sample.duration()) / 1e6);
+    if (state.trace) {
+      state.task_trace.record(sample);
+    }
     std::scoped_lock lock(state.mutex);
     ++state.tasks;
     state.received.notify_all();
@@ -164,6 +206,16 @@ void send_probes(response_context& state, HWND window) noexcept {
     state.failed = true;
   }
 }
+bool write_probe_trace(const response_context& state, const char* path) {
+  if (!state.trace) {
+    return true;
+  }
+  std::ofstream output(std::string(path) + ".probes.csv");
+  output << "kind,index,sent_ns,received_ns,latency_ms\n";
+  state.key_trace.write(output, "key");
+  state.task_trace.write(output, "task");
+  return static_cast<bool>(output);
+}
 } // namespace
 
 int main(int argc, char** argv) try {
@@ -174,6 +226,8 @@ int main(int argc, char** argv) try {
     const std::string_view argument(argv[index]);
     if (argument == "stall") {
       inject_stall = true;
+    } else if (argument == "--trace") {
+      state.trace = true;
     } else if (argument == "--assets" && index + 1 < argc && asset_root.empty()) {
       asset_root = argv[++index];
     } else {
@@ -235,6 +289,9 @@ int main(int argc, char** argv) try {
            : key_max <= 100.0 && task_max <= 100.0 && state.close_ms <= 100.0 &&
                  percentile(state.key_ms, 0.95) <= 33.3 && percentile(state.task_ms, 0.95) <= 33.3);
   if (argc > 1) {
+    if (!write_probe_trace(state, argv[1])) {
+      return 4;
+    }
     std::ofstream output(argv[1]);
     output << "{\"passed\":" << std::boolalpha << passed << ",\"keys\":" << state.keys.load()
            << ",\"tasks\":" << state.tasks.load()
