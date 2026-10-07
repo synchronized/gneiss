@@ -16,6 +16,11 @@
 #include <thread>
 #include <utility>
 
+#ifndef _WIN32
+#include <pthread.h>
+#include <signal.h>
+#endif
+
 namespace gneiss::io_internal {
 
 struct uv_loop_executor::implementation final {
@@ -58,7 +63,20 @@ struct uv_loop_executor::implementation final {
   }
 
   void run() noexcept {
-    auto operation = from_uv_status(uv_loop_init(&loop));
+    auto operation = result::success;
+#ifndef _WIN32
+    // libuv 的 POSIX 流写入可能产生 SIGPIPE。只在自有 I/O 线程阻塞它，
+    // 保留 EPIPE 回执，不改变宿主的进程级信号处理器或调用线程掩码。
+    // 线程退出时丢弃其待决信号，不在退出前解除阻塞。
+    sigset_t blocked{};
+    if (sigemptyset(&blocked) != 0 || sigaddset(&blocked, SIGPIPE) != 0 ||
+        pthread_sigmask(SIG_BLOCK, &blocked, nullptr) != 0) {
+      operation = result::initialization_failed;
+    }
+#endif
+    if (operation == result::success) {
+      operation = from_uv_status(uv_loop_init(&loop));
+    }
     if (operation == result::success) {
       wakeup.data = this;
       operation = from_uv_status(uv_async_init(&loop, &wakeup, on_wakeup));

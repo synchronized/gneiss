@@ -166,6 +166,8 @@
 
 ## 架构决策
 
+- [ADR-057：资产准备的显式分步执行](decisions/ADR-057-incremental-asset-preparation.md)
+
 - [ADR-055：原生 C++ 公共类型与规范头路径](decisions/ADR-055-native-cpp-sdk.md)
 - [ADR-056：SDK 接口组织与调用约定](decisions/ADR-056-cpp-sdk-interface-and-adaptation.md)
 
@@ -435,6 +437,9 @@
 - [M-295：作者层级树与拖拽请求](records/M-295-author-hierarchy-panel.md)
 
 - [M-311：0.48.0 SDK 整理与发布验收](records/M-311-0.48.0-sdk-validation.md)
+
+- [M-312：0.49 加载基线与量化门槛](records/M-312-loading-stability-baseline.md)
+- [M-313～M-316：加载响应性与生命周期验收](records/M-313-316-loading-stability-validation.md)
 
 ## 文档维护
 

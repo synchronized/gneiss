@@ -1087,7 +1087,8 @@ void draw_asset_browser(editor_state& state) {
                                           .application_cpu = budget.application_cpu_data_bytes,
                                           .available = budget.available_bytes,
                                           .upload = budget.upload_reserved_bytes,
-                                          .peak_upload = budget.peak_upload_bytes};
+                                          .peak_upload = budget.peak_upload_bytes,
+                                          .cleanup_complete = budget.cleanup_complete};
   }
   const auto& reload = state.runtime.asset_reload_status();
   view.reload.publish_result = reload.publish_result;

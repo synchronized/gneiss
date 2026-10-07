@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/asset/native_file_system.hpp"
+#include "engine/asset/read_slice.hpp"
 #include "engine/asset/virtual_file_system.hpp"
 
 #include <array>
@@ -12,6 +13,7 @@
 #include <limits>
 #include <source_location>
 #include <stdexcept>
+#include <thread>
 
 namespace {
 using namespace gneiss::asset_internal;
@@ -43,6 +45,159 @@ struct legacy_files final : file_system {
     return GNEISS_ERROR_IO;
   }
 };
+
+struct deferred_state {
+  bool ready{};
+  bool fail{};
+  bool short_read{};
+  unsigned live{};
+};
+class deferred_source final : public read_source {
+public:
+  std::shared_ptr<deferred_state> state = std::make_shared<deferred_state>();
+  [[nodiscard]] std::uint64_t size() const noexcept override { return 8U; }
+  [[nodiscard]] gneiss_result read_at(std::uint64_t /*offset*/,
+                                      std::span<std::byte> /*output*/) const noexcept override {
+    return GNEISS_ERROR_UNSUPPORTED;
+  }
+  [[nodiscard]] gneiss_result
+  begin_read(std::uint64_t offset, std::size_t count,
+             std::unique_ptr<read_operation>& output) const noexcept override {
+    class operation final : public read_operation {
+    public:
+      operation(std::shared_ptr<deferred_state> state, std::size_t count)
+          : state_(std::move(state)), bytes_(count, std::byte{42}) {
+        ++state_->live;
+      }
+      ~operation() override { --state_->live; }
+      [[nodiscard]] gneiss_result poll(std::span<const std::byte>& output) noexcept override {
+        output = {};
+        if (!state_->ready) {
+          return GNEISS_ERROR_NOT_READY;
+        }
+        if (state_->fail) {
+          return GNEISS_ERROR_IO;
+        }
+        output = std::span{bytes_}.first(bytes_.size() - (state_->short_read ? 1U : 0U));
+        return GNEISS_SUCCESS;
+      }
+
+    private:
+      std::shared_ptr<deferred_state> state_;
+      std::vector<std::byte> bytes_;
+    };
+    output.reset();
+    if (offset > size() || count > size() - offset) {
+      return GNEISS_ERROR_INVALID_ARGUMENT;
+    }
+    try {
+      output = std::make_unique<operation>(state, count);
+      return GNEISS_SUCCESS;
+    } catch (...) {
+      return GNEISS_ERROR_OUT_OF_MEMORY;
+    }
+  }
+};
+
+void deferred_reads() {
+  deferred_source source;
+  read_slice slice;
+  std::span<const std::byte> bytes;
+  std::unique_ptr<read_operation> primed;
+  check(source.begin_read(0U, 8U, primed) == GNEISS_SUCCESS);
+  slice.prime(std::move(primed), {.offset = 0U, .size = 8U});
+  check(slice.take(source, {.offset = 0U, .size = 8U}, bytes) == GNEISS_ERROR_NOT_READY &&
+        bytes.empty());
+  check(source.state->live == 1U);
+  check(slice.take(source, {.offset = 0U, .size = 2U}, bytes) == GNEISS_ERROR_NOT_READY);
+  source.state->ready = true;
+  check(slice.take(source, {.offset = 0U, .size = 2U}, bytes) == GNEISS_SUCCESS &&
+        bytes.size() == 2U);
+  check(bytes.front() == std::byte{42});
+  check(slice.take(source, {.offset = 2U, .size = 6U}, bytes) == GNEISS_SUCCESS &&
+        bytes.size() == 6U);
+  slice = {};
+  check(source.state->live == 0U);
+  source.state->ready = false;
+  check(slice.take(source, {.offset = 0U, .size = 8U}, bytes) == GNEISS_ERROR_NOT_READY);
+  slice = {}; // 未完成请求的取消回收不能依赖来源或栈输出缓冲。
+  check(source.state->live == 0U);
+  source.state->ready = true;
+  source.state->short_read = true;
+  check(slice.take(source, {.offset = 0U, .size = 8U}, bytes) == GNEISS_ERROR_IO);
+  slice = {};
+  source.state->short_read = false;
+  source.state->fail = true;
+  check(slice.take(source, {.offset = 0U, .size = 8U}, bytes) == GNEISS_ERROR_IO);
+}
+
+#ifdef _WIN32
+void native_deferred_reads() {
+  temporary_directory directory;
+  {
+    std::ofstream file(directory.path / "data", std::ios::binary);
+    file << "abcdefgh";
+  }
+  std::unique_ptr<read_operation> first;
+  std::unique_ptr<read_operation> second;
+  {
+    native_file_system files;
+    check(files.initialize(directory.path.string()) == GNEISS_SUCCESS);
+    std::unique_ptr<read_source> source;
+    check(files.open_read("data", source) == GNEISS_SUCCESS);
+    check(source->begin_read(9U, 1U, first) == GNEISS_ERROR_INVALID_ARGUMENT && !first);
+    check(source->begin_read(2U, 3U, first) == GNEISS_SUCCESS);
+    check(source->begin_read(0U, 8U, second) == GNEISS_SUCCESS);
+    std::unique_ptr<read_operation> empty;
+    std::span<const std::byte> bytes;
+    check(source->begin_read(8U, 0U, empty) == GNEISS_SUCCESS);
+    check(empty->poll(bytes) == GNEISS_SUCCESS && bytes.empty());
+    std::unique_ptr<read_operation> discarded;
+    check(source->begin_read(0U, 8U, discarded) == GNEISS_SUCCESS);
+    discarded.reset(); // 完成或仍在途均须安全取消/回收，不要求内核制造特定时序。
+  }
+  // 来源、VFS 销毁和路径替换不改变在途请求指向的打开对象。
+  std::filesystem::rename(directory.path / "data", directory.path / "previous");
+  {
+    std::ofstream file(directory.path / "data", std::ios::binary);
+    file << "new-data";
+  }
+  const auto wait = [](read_operation& operation, std::size_t size, std::byte expected) {
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(3);
+    std::span<const std::byte> bytes;
+    auto result = operation.poll(bytes);
+    while (result == GNEISS_ERROR_NOT_READY && std::chrono::steady_clock::now() < deadline) {
+      std::this_thread::yield();
+      result = operation.poll(bytes);
+    }
+    check(result == GNEISS_SUCCESS && bytes.size() == size && bytes.front() == expected);
+    check(operation.poll(bytes) == GNEISS_SUCCESS && bytes.front() == expected);
+  };
+  wait(*first, 3U, std::byte{'c'});
+  wait(*second, 8U, std::byte{'a'});
+  native_file_system files;
+  check(files.initialize(directory.path.string()) == GNEISS_SUCCESS);
+  std::unique_ptr<read_source> source;
+  check(files.open_read("data", source) == GNEISS_SUCCESS);
+  std::filesystem::remove(directory.path / "data");
+  std::unique_ptr<read_operation> after_remove;
+  check(source->begin_read(0U, 8U, after_remove) == GNEISS_SUCCESS);
+  wait(*after_remove, 8U, std::byte{'n'});
+  check(files.open_read("previous", source) == GNEISS_SUCCESS);
+  std::filesystem::resize_file(directory.path / "previous", 2U);
+  std::unique_ptr<read_operation> truncated;
+  auto result = source->begin_read(4U, 3U, truncated);
+  if (result == GNEISS_SUCCESS) {
+    std::span<const std::byte> bytes;
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(3);
+    do {
+      result = truncated->poll(bytes);
+      std::this_thread::yield();
+    } while (result == GNEISS_ERROR_NOT_READY && std::chrono::steady_clock::now() < deadline);
+  }
+  check(result == GNEISS_ERROR_IO);
+}
+#endif
 
 void run() {
   temporary_directory directory;
@@ -113,6 +268,10 @@ void run() {
 } // namespace
 
 int main() try {
+  deferred_reads();
+#ifdef _WIN32
+  native_deferred_reads();
+#endif
   run();
   return 0;
 } catch (const std::exception& error) {

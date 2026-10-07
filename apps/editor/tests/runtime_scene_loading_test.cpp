@@ -15,8 +15,9 @@
 namespace {
 using namespace gneiss;
 void check(bool value, std::source_location where = std::source_location::current()) {
-  if (!value)
+  if (!value) {
     throw std::runtime_error("Runtime 场景加载契约失败，行=" + std::to_string(where.line()));
+  }
 }
 struct fixture {
   std::filesystem::path root =
@@ -55,9 +56,11 @@ void run() {
     std::ifstream stream(trace);
     std::string value;
     char event{};
-    while (stream.get(event))
-      if (event == 'I' || event == 'S')
+    while (stream.get(event)) {
+      if (event == 'I' || event == 'S') {
         value += event;
+      }
+    }
     return value;
   };
   editor::runtime_process process;
@@ -103,6 +106,9 @@ void run() {
   check(process.load_scene("asset://scenes/main.scene.json") == result::success);
   check(process.cancel_scene_load() == result::success);
   await([&] { return process.scene_load_status().phase == ipc_scene_phase::cancelled; });
+  check(process.scene_load_status().budget &&
+        process.scene_load_status().budget->cleanup_complete &&
+        process.scene_load_status().budget->upload_reserved_bytes == 0U);
   check(process.scene_mirror().session_id() == new_session);
   check(lifecycle() == "ISI");
   check(process.retry_scene_load() == result::success);

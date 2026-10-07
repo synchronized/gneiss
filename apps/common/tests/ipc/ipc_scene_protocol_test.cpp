@@ -11,8 +11,9 @@
 namespace {
 using namespace gneiss;
 void check(bool value, std::source_location location = std::source_location::current()) {
-  if (!value)
+  if (!value) {
     throw std::runtime_error("场景协议契约失败，行=" + std::to_string(location.line()));
+  }
 }
 void run() {
   const ipc_scene_request source{5U, 7U, "asset://scenes/main.scene.json"};
@@ -61,6 +62,7 @@ void run() {
         .available_bytes = 5U,
         .upload_reserved_bytes = 6U,
         .peak_upload_bytes = 7U,
+        .cleanup_complete = true,
     };
     check(encode_ipc_scene_progress(progress, 0U, envelope) == result::success);
     check(decode_ipc_scene_progress(envelope, decoded) == result::success);
@@ -69,8 +71,23 @@ void run() {
           decoded.budget->application_logical_bytes == 3U &&
           decoded.budget->application_cpu_data_bytes == 4U &&
           decoded.budget->available_bytes == 5U && decoded.budget->upload_reserved_bytes == 6U &&
-          decoded.budget->peak_upload_bytes == 7U);
+          decoded.budget->peak_upload_bytes == 7U && decoded.budget->cleanup_complete);
     const std::string encoded(envelope.payload.begin(), envelope.payload.end());
+    auto legacy = encoded;
+    const auto cleanup_offset = legacy.find(",\"cleanup_complete\":true");
+    check(cleanup_offset != std::string::npos);
+    legacy.erase(cleanup_offset, std::string_view{",\"cleanup_complete\":true"}.size());
+    envelope.payload.assign(legacy.begin(), legacy.end());
+    check(decode_ipc_scene_progress(envelope, decoded) == result::success && decoded.budget &&
+          !decoded.budget->cleanup_complete);
+    for (const auto* replacement : {"0", "null", "\"true\""}) {
+      auto malformed = encoded;
+      malformed.replace(cleanup_offset + std::string_view{",\"cleanup_complete\":"}.size(), 4U,
+                        replacement);
+      envelope.payload.assign(malformed.begin(), malformed.end());
+      check(decode_ipc_scene_progress(envelope, decoded) == result::invalid_argument);
+      check(!decoded.budget->cleanup_complete);
+    }
     for (const auto* replacement : {"-1", "1.5", "null", "18446744073709551616"}) {
       auto malformed = encoded;
       const auto begin = malformed.find("18446744073709551615");

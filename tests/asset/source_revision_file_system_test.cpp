@@ -112,6 +112,89 @@ void run_ranges() {
   backend->state->fail = false;
   check(tracked.verify({}) == GNEISS_SUCCESS);
 }
+void run_incremental() {
+  auto backend = std::make_shared<range_files>();
+  virtual_file_system files;
+  check(files.mount("asset://", backend) == GNEISS_SUCCESS);
+  source_revision_file_system tracked(files);
+  std::unique_ptr<read_source> opened;
+  check(tracked.open_read("large", opened) == GNEISS_SUCCESS);
+  opened.reset();
+  std::unique_ptr<source_revision_file_system::verification> cursor;
+  check(tracked.begin_verification(cursor) == GNEISS_SUCCESS);
+  bool complete = true;
+  const auto initial_reads = backend->state->reads;
+  check(cursor->advance(0U, {}, complete) == GNEISS_ERROR_INVALID_ARGUMENT && !complete);
+  check(backend->state->reads == initial_reads);
+  for (std::size_t step = 1U; step <= 4U; ++step) {
+    check(cursor->advance(65536U, {}, complete) == GNEISS_SUCCESS);
+    check(backend->state->reads == initial_reads + step);
+    check(complete == (step == 4U));
+  }
+  check(cursor->completed_sources() == 1U);
+  check(cursor->advance(65536U, {}, complete) == GNEISS_SUCCESS && complete);
+  check(backend->state->reads == initial_reads + 4U);
+
+  // 同一游标跨步检测未读部分变化；失败后不能恢复成成功或继续 I/O。
+  check(tracked.begin_verification(cursor) == GNEISS_SUCCESS);
+  check(cursor->advance(65536U, {}, complete) == GNEISS_SUCCESS && !complete);
+  backend->state->bytes.back() = std::byte{8};
+  check(cursor->advance(200000U, {}, complete) == GNEISS_ERROR_INVALID_STATE && !complete);
+  const auto failed_reads = backend->state->reads;
+  backend->state->bytes.back() = std::byte{7};
+  check(cursor->advance(200000U, {}, complete) == GNEISS_ERROR_INVALID_STATE);
+  check(backend->state->reads == failed_reads);
+  check(tracked.begin_verification(cursor) == GNEISS_SUCCESS);
+  check(cursor->advance(65536U, {}, complete) == GNEISS_SUCCESS && !complete);
+  check(cursor->advance(65536U, [] { return true; }, complete) == GNEISS_ERROR_INVALID_STATE);
+  check(!complete);
+  check(cursor->advance(65536U, {}, complete) == GNEISS_ERROR_INVALID_STATE);
+  // 重试使用新游标；游标持有来源，不借用已经销毁的版本账本。
+  {
+    source_revision_file_system temporary(files);
+    check(temporary.open_read("large", opened) == GNEISS_SUCCESS);
+    check(temporary.begin_verification(cursor) == GNEISS_SUCCESS);
+  }
+  check(cursor->advance(200000U, {}, complete) == GNEISS_SUCCESS && complete);
+  backend->state->bytes.clear();
+  source_revision_file_system empty(files);
+  for (std::size_t index = 0U; index < 17U; ++index) {
+    check(empty.open_read(std::to_string(index), opened) == GNEISS_SUCCESS);
+  }
+  check(empty.begin_verification(cursor) == GNEISS_SUCCESS);
+  check(cursor->advance(1U, {}, complete) == GNEISS_SUCCESS && !complete);
+  check(cursor->completed_sources() == 16U);
+  check(cursor->advance(1U, {}, complete) == GNEISS_SUCCESS && complete);
+}
+void run_deferred_validation() {
+  auto backend = std::make_shared<range_files>();
+  virtual_file_system files;
+  check(files.mount("asset://", backend) == GNEISS_SUCCESS);
+  auto outer = std::make_shared<source_revision_file_system>(files);
+  virtual_file_system nested;
+  check(nested.mount("asset://", outer) == GNEISS_SUCCESS);
+  std::unique_ptr<read_source> source;
+  {
+    source_revision_file_system inner(nested);
+    check(inner.open_read_for_validation("large", source) == GNEISS_SUCCESS);
+    check(backend->state->reads == 0U && outer->source_count() == 0U && inner.source_count() == 0U);
+    std::vector<std::byte> bytes(static_cast<std::size_t>(source->size()));
+    check(source->read_at(0U, bytes) == GNEISS_SUCCESS);
+    check(source->complete_validation(gneiss::core::sha256(bytes)) == GNEISS_SUCCESS);
+    check(backend->state->reads == 1U && outer->source_count() == 1U && inner.source_count() == 1U);
+    std::unique_ptr<source_revision_file_system::verification> cursor;
+    check(inner.begin_verification(cursor) == GNEISS_SUCCESS);
+    bool complete{};
+    check(cursor->advance(65536U, {}, complete) == GNEISS_SUCCESS && !complete);
+    // 嵌套版本跟踪不能在一次分步读取前偷偷同步扫描整个来源。
+    check(backend->state->reads == 2U);
+  }
+  // 版本账本销毁后读取对象仍独立拥有验证所需状态。
+  check(source->complete_validation(gneiss::core::sha256(backend->state->bytes)) == GNEISS_SUCCESS);
+  backend->state->bytes.back() = std::byte{9};
+  check(source->complete_validation(gneiss::core::sha256(backend->state->bytes)) ==
+        GNEISS_ERROR_INVALID_STATE);
+}
 void run() {
   auto memory = std::make_shared<memory_files>();
   virtual_file_system files;
@@ -152,6 +235,8 @@ int main() {
   try {
     run();
     run_ranges();
+    run_incremental();
+    run_deferred_validation();
     return 0;
   } catch (const std::exception& error) {
     std::fprintf(stderr, "%s\n", error.what());

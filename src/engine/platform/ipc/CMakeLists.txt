@@ -34,7 +34,7 @@ if(GNEISS_BUILD_TESTING)
   add_test(NAME gneiss.ipc.dispatcher COMMAND gneiss_ipc_dispatcher_test)
 
   add_executable(gneiss_ipc_transport_test tests/ipc_transport_test.cpp)
-  target_link_libraries(gneiss_ipc_transport_test PRIVATE gneiss_ipc)
+  target_link_libraries(gneiss_ipc_transport_test PRIVATE gneiss_ipc gneiss::libuv)
   gneiss_target_compile_warnings(gneiss_ipc_transport_test)
   gneiss_target_output_directories(gneiss_ipc_transport_test)
   add_test(NAME gneiss.ipc.transport COMMAND gneiss_ipc_transport_test)

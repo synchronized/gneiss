@@ -164,7 +164,8 @@ void draw_scene_status(const asset_browser_view& view, const panel_buttons& butt
     if (scene.budget) {
       const auto& budget = *scene.budget;
       constexpr double mib = 1024.0 * 1024.0;
-      ImGui::Text("Candidate: logical %.1f MiB, CPU data %.1f MiB",
+      ImGui::Text("%s: logical %.1f MiB, CPU data %.1f MiB",
+                  budget.cleanup_complete ? "Candidate before cleanup" : "Candidate",
                   static_cast<double>(budget.candidate_logical) / mib,
                   static_cast<double>(budget.candidate_cpu) / mib);
       ImGui::Text("Application: logical %.1f MiB, CPU data %.1f MiB",
@@ -175,6 +176,9 @@ void draw_scene_status(const asset_browser_view& view, const panel_buttons& butt
                   static_cast<double>(budget.upload) / mib,
                   static_cast<double>(budget.peak_upload) / mib);
       ImGui::TextDisabled("Resource accounting snapshot; not process RAM or GPU memory");
+      if (budget.cleanup_complete) {
+        ImGui::TextUnformatted("Request cleanup complete; other live resources may remain");
+      }
     }
     if (!scene.message.empty()) {
       wrapped(scene.message);

@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "engine/asset/mesh_binary.hpp"
 #include "engine/function/application/application_asset_reload_internal.hpp"
 #include "engine/function/application/application_scene_load_internal.hpp"
-#include "engine/asset/mesh_binary.hpp"
 
 #include <gneiss/engine/application.hpp>
 
@@ -132,6 +132,10 @@ void run(tasks::execution_mode mode) {
   check(cancel_scene_load(app.get(), request) == GNEISS_SUCCESS);
   auto [finished, cancelled] = drive();
   check(finished && cancelled.progress.phase == scene_load_phase::cancelled);
+  check(cancelled.progress.cleanup_complete && !cancelled.progress.gpu_in_flight);
+  check(cancelled.progress.upload_reserved_bytes == 0U);
+  check(cancelled.progress.application_logical_bytes == prepared.application_logical_bytes);
+  check(cancelled.progress.application_cpu_data_bytes == prepared.application_cpu_data_bytes);
   check(gneiss_application_get_world(app.get(), &old_world) == GNEISS_SUCCESS &&
         old_world == observed);
 
@@ -146,6 +150,8 @@ void run(tasks::execution_mode mode) {
     if (result.first) {
       check(result.second.progress.phase == scene_load_phase::failed &&
             result.second.result == GNEISS_ERROR_INVALID_STATE);
+      check(result.second.progress.cleanup_complete &&
+            result.second.progress.upload_reserved_bytes == 0U);
       changed = true;
     }
   }
@@ -174,8 +180,9 @@ void run(tasks::execution_mode mode) {
   check(gneiss_application_get_world(app.get(), &observed) == GNEISS_SUCCESS);
   for (const auto phase : {scene_load_phase::preparing, scene_load_phase::instantiating}) {
     check(request_scene_load(app.get(), uri, 1U, 5U, request) == GNEISS_SUCCESS);
-    if (phase != scene_load_phase::preparing)
+    if (phase != scene_load_phase::preparing) {
       (void)await_phase(phase);
+    }
     check(cancel_scene_load(app.get(), request) == GNEISS_SUCCESS);
     const auto cancel_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
     bool stopped{};
@@ -183,6 +190,8 @@ void run(tasks::execution_mode mode) {
       auto [done, cancelled_result] = drive();
       if (done) {
         check(cancelled_result.progress.phase == scene_load_phase::cancelled);
+        check(cancelled_result.progress.cleanup_complete &&
+              cancelled_result.progress.upload_reserved_bytes == 0U);
         stopped = true;
       }
     }

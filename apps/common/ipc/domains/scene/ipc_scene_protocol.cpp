@@ -50,6 +50,12 @@ bool read_budget(yyjson_val* budget, ipc_scene_budget& parsed) {
     return false;
   }
   parsed.peak_upload_bytes = yyjson_get_uint(yyjson_obj_get(budget, "peak_upload_bytes"));
+  if (auto* cleanup = yyjson_obj_get(budget, "cleanup_complete")) {
+    if (!yyjson_is_bool(cleanup)) {
+      return false;
+    }
+    parsed.cleanup_complete = yyjson_get_bool(cleanup);
+  }
   return true;
 }
 bool valid_source(const ipc_scene_request& value) {
@@ -186,7 +192,9 @@ result encode_ipc_scene_progress(const ipc_scene_progress& value, std::uint32_t 
         !yyjson_mut_obj_add_uint(doc.get(), budget, "upload_reserved_bytes",
                                  value.budget->upload_reserved_bytes) ||
         !yyjson_mut_obj_add_uint(doc.get(), budget, "peak_upload_bytes",
-                                 value.budget->peak_upload_bytes)) {
+                                 value.budget->peak_upload_bytes) ||
+        !yyjson_mut_obj_add_bool(doc.get(), budget, "cleanup_complete",
+                                 value.budget->cleanup_complete)) {
       return result::out_of_memory;
     }
   }

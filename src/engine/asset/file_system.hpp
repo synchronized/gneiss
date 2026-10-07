@@ -26,6 +26,12 @@ public:
     output.reset();
     return GNEISS_ERROR_UNSUPPORTED;
   }
+  /** 供分步准备使用；版本包装延迟全文件扫描，调用者必须完成来源的验证回执后再发布。 */
+  [[nodiscard]] virtual gneiss_result
+  open_read_for_validation(std::string_view path,
+                           std::unique_ptr<read_source>& output) const noexcept {
+    return open_read(path, output);
+  }
 
   file_system(const file_system&) = delete;
   file_system& operator=(const file_system&) = delete;

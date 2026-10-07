@@ -405,8 +405,12 @@ Editor 的 `--cooperative-tasks` 选项让资产服务由帧循环显式驱动�
 Sponza 是显式下载的外部测试资产，不随仓库和源码 Release 分发。先按
 [固定资产审计与基线记录](../records/M-272-sponza-baseline.md) 获取、校验并生成日常/完整配置，
 再构建 `gneiss_scene_load_baseline`。`scripts/performance/measure_scene_loading.py --help` 给出
-Debug/Release 路径与输出目录参数；工具顺序运行两种模式，每配置三次，保存 JSON、呈现观测 CSV
+Release 路径、可选 Debug 功能矩阵与输出目录参数；工具顺序运行两种模式，每配置三次，保存 JSON、呈现观测 CSV
 和 GPU 回读 PPM。输出目录必须不存在，资产缺失直接报错，不把缺少外部数据记为通过。
+性能门槛只检查 Release，两种执行模式均检查响应性。`--daily-assets`、`--full-assets`
+可指定现有 Cook 目录；五贴图夹具使用 `--expected-resources 505`，旧夹具默认 458。
+`--baseline docs/records/artifacts/0.49-baseline-release.json` 还会比较加载中位数、进程峰值与图像。
+资产身份和门槛见 [0.49 基线记录](../records/M-312-loading-stability-baseline.md)。
 
 普通 CI 使用原创小夹具进行 GPU 像素、候选原子性与 IPC 生命周期回归，不下载数 GiB 的 Sponza。
 大场景结果与测量边界见 [0.42 验收记录](../records/M-273-278-0.42.0-validation.md)。

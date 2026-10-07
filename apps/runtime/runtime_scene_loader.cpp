@@ -107,6 +107,7 @@ ipc_scene_budget budget_snapshot(const application_internal::scene_load_progress
       .available_bytes = value.available_bytes,
       .upload_reserved_bytes = value.upload_reserved_bytes,
       .peak_upload_bytes = value.peak_upload_bytes,
+      .cleanup_complete = value.cleanup_complete,
   };
 }
 } // namespace

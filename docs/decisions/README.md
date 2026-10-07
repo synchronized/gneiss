@@ -63,3 +63,5 @@ Reference 和实现为准。
 - [ADR-054：精简源码布局与宿主边界](ADR-054-source-layout-and-host-boundaries.md)
 - [ADR-055：原生 C++ 公共类型与规范头路径](ADR-055-native-cpp-sdk.md)
 - [ADR-056：SDK 接口组织与调用约定](ADR-056-cpp-sdk-interface-and-adaptation.md)
+
+- [ADR-057：资产准备的显式分步执行](ADR-057-incremental-asset-preparation.md)

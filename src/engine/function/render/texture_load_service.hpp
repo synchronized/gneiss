@@ -74,9 +74,9 @@ public:
                                      std::uint64_t revision, std::uint64_t& request,
                                      bool reload = true);
   [[nodiscard]] gneiss_result
-  submit_assets(std::span<const render_internal::render_asset_reload> assets, std::uint64_t session,
-                std::uint64_t revision, std::uint64_t& request, bool reload = true,
-                std::size_t prepare_limit = maximum_candidate_bytes);
+  submit_assets(std::span<const render_internal::render_asset_reload> sources,
+                std::uint64_t session, std::uint64_t revision, std::uint64_t& request,
+                bool reload = true, std::size_t prepare_limit = maximum_candidate_bytes);
   [[nodiscard]] bool progress(asset_load_progress& output) const;
   [[nodiscard]] bool busy() const noexcept { return pending_ != nullptr || completed_.has_value(); }
   void advance();
@@ -88,6 +88,8 @@ public:
 
 private:
   struct pending;
+  tasks::submit_result submit_preparation(pending& value);
+  bool advance_preparation(pending& value);
   void advance_impl();
   void check_owner() const;
   void finish(gneiss_result result, texture_load_state state);

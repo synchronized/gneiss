@@ -39,6 +39,8 @@ struct scene_load_progress {
   std::uint64_t application_cpu_data_bytes{};
   std::uint64_t available_bytes{};
   std::uint64_t upload_reserved_bytes{};
+  /** 失败/取消后请求容器与上传租约已释放；不表示活动场景或旧帧占用归零。 */
+  bool cleanup_complete{};
 };
 struct scene_load_completion {
   scene_load_progress progress;
@@ -48,9 +50,14 @@ struct scene_load_completion {
   double prepare_ms{};
   double asset_prepare_ms{};
   double verify_ms{};
+  double verify_maximum_step_ms{};
+  double verify_maximum_open_ms{};
+  double verify_maximum_read_ms{};
+  double verify_maximum_hash_ms{};
   double upload_ms{};
   double maximum_advance_ms{};
   double activation_ms{};
+  double cleanup_ms{};
 };
 
 struct scene_retirement_statistics {
@@ -84,6 +91,8 @@ public:
 private:
   struct pending;
   void advance_impl();
+  tasks::submit_result submit_verification();
+  void advance_verification(pending& value);
   void finish(gneiss_result result, scene_load_phase phase, std::string message = {});
   void sample_budget(scene_load_progress& value) const;
   void check_owner() const;

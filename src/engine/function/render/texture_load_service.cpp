@@ -11,6 +11,8 @@ namespace gneiss::render_internal {
 struct texture_load_service::pending {
   struct cpu_result {
     prepared_render_batch batch;
+    std::unique_ptr<asset_internal::asset_preparation> preparation;
+    bool complete{};
     gneiss_result result{GNEISS_ERROR_INTERNAL};
     std::string message;
     double milliseconds{};
@@ -131,26 +133,15 @@ gneiss_result texture_load_service::submit_assets(std::span<const render_asset_r
     value->completion.assets.clear();
     value->completion.textures.clear();
   }
-  const auto accepted = executor_.submit(
-      {.name = "render_assets.prepare", .scope = scope_},
-      [cpu = value->cpu, sources = std::vector<render_asset_reload>(sources.begin(), sources.end()),
-       files = file_system_, prepare_limit,
-       profile = backend_.profile](const tasks::task_context& context) {
-        const auto start = std::chrono::steady_clock::now();
-        asset_diagnostic diagnostic;
-        cpu->result = prepare_render_assets(
-            files, sources, cpu->batch, diagnostic, [&] { return context.stop_requested(); },
-            maximum_assets, prepare_limit, profile);
-        cpu->message = std::move(diagnostic.message);
-        cpu->milliseconds =
-            std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start)
-                .count();
-        return tasks::task_outcome{.state = context.stop_requested() ? tasks::task_state::cancelled
-                                            : cpu->result == GNEISS_SUCCESS
-                                                ? tasks::task_state::succeeded
-                                                : tasks::task_state::failed};
+  value->cpu->preparation = std::make_unique<asset_internal::asset_preparation>(
+      file_system_, sources,
+      asset_internal::asset_preparation::limits{
+          .material_bytes = sizeof(material_resource),
+          .maximum_assets = maximum_assets,
+          .maximum_bytes = prepare_limit,
       },
-      value->task);
+      backend_.profile);
+  const auto accepted = submit_preparation(*value);
   if (accepted != tasks::submit_result::success) {
     return accepted == tasks::submit_result::full ? GNEISS_ERROR_NOT_READY
                                                   : GNEISS_ERROR_INVALID_STATE;
@@ -158,6 +149,32 @@ gneiss_result texture_load_service::submit_assets(std::span<const render_asset_r
   request = value->completion.request;
   pending_ = std::move(value);
   return GNEISS_SUCCESS;
+}
+tasks::submit_result texture_load_service::submit_preparation(pending& value) {
+  return executor_.submit(
+      {.name = "render_assets.prepare", .scope = scope_},
+      [cpu = value.cpu](const tasks::task_context& context) {
+        const auto start = std::chrono::steady_clock::now();
+        asset_diagnostic diagnostic;
+        cpu->result = cpu->preparation->advance(
+            std::size_t{16U} * 1024U * 1024U, [&] { return context.stop_requested(); }, cpu->batch,
+            diagnostic, cpu->complete);
+        if (cpu->complete) {
+          cpu->message = std::move(diagnostic.message);
+          cpu->preparation.reset();
+        }
+        cpu->milliseconds +=
+            std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start)
+                .count();
+        if (context.stop_requested()) {
+          return tasks::task_outcome{.state = tasks::task_state::cancelled};
+        }
+        return tasks::task_outcome{
+            .state = cpu->result == GNEISS_SUCCESS ? tasks::task_state::succeeded
+                                                   : tasks::task_state::failed,
+        };
+      },
+      value.task);
 }
 void texture_load_service::finish(gneiss_result result, texture_load_state state) {
   pending_->completion.result = result;
@@ -195,29 +212,47 @@ void texture_load_service::advance() {
     }
   }
 }
-void texture_load_service::advance_impl() {
-  if (!pending_) {
-    return;
-  }
-  auto& value = *pending_;
-  if (!value.prepared) {
+bool texture_load_service::advance_preparation(pending& value) {
+  if (value.task.id != 0U) {
     std::vector<tasks::task_completion> results;
     if (executor_.poll(scope_, results, 1U) == 0U) {
-      return;
+      return false;
     }
+    value.task = {};
     if (value.cancelled || results.front().outcome.state == tasks::task_state::cancelled) {
       finish(GNEISS_ERROR_INVALID_STATE, texture_load_state::cancelled);
-      return;
+      return false;
     }
     if (results.front().outcome.state != tasks::task_state::succeeded ||
         value.cpu->result != GNEISS_SUCCESS) {
       finish(value.cpu->result == GNEISS_SUCCESS ? GNEISS_ERROR_INTERNAL : value.cpu->result,
              texture_load_state::failed);
-      return;
+      return false;
     }
-    value.completion.queue_ms = results.front().queue_ms;
-    value.prepared = true;
-    value.commit_started = std::chrono::steady_clock::now();
+    value.completion.queue_ms += results.front().queue_ms;
+  }
+  if (value.cancelled) {
+    finish(GNEISS_ERROR_INVALID_STATE, texture_load_state::cancelled);
+    return false;
+  }
+  if (!value.cpu->complete) {
+    const auto accepted = submit_preparation(value);
+    if (accepted != tasks::submit_result::success && accepted != tasks::submit_result::full) {
+      finish(GNEISS_ERROR_INVALID_STATE, texture_load_state::failed);
+    }
+    return false;
+  }
+  value.prepared = true;
+  value.commit_started = std::chrono::steady_clock::now();
+  return true;
+}
+void texture_load_service::advance_impl() {
+  if (!pending_) {
+    return;
+  }
+  auto& value = *pending_;
+  if (!value.prepared && !advance_preparation(value)) {
+    return;
   }
   if (!value.uploading) {
     if (value.cancelled) {
@@ -241,8 +276,9 @@ void texture_load_service::advance_impl() {
       render_upload_item upload{candidate.mesh,    candidate.material,
                                 candidate.texture, candidate.dependency_textures,
                                 candidate.bytes,   candidate.texture_payload};
-      if (backend_.estimate_bytes)
+      if (backend_.estimate_bytes) {
         upload.bytes = backend_.estimate_bytes(upload);
+      }
       value.data.push_back(std::move(upload));
       value.candidates.push_back(std::move(candidate));
       if (std::chrono::steady_clock::now() - start >= std::chrono::milliseconds(2)) {

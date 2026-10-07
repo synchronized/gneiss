@@ -31,6 +31,16 @@ namespace gneiss::asset_internal {
 
 gneiss_result virtual_file_system::open_read(std::string_view uri,
                                              std::unique_ptr<read_source>& output) const noexcept {
+  return open_impl(uri, output, false);
+}
+gneiss_result
+virtual_file_system::open_read_for_validation(std::string_view uri,
+                                              std::unique_ptr<read_source>& output) const noexcept {
+  return open_impl(uri, output, true);
+}
+gneiss_result virtual_file_system::open_impl(std::string_view uri,
+                                             std::unique_ptr<read_source>& output,
+                                             bool deferred_validation) const noexcept {
   output.reset();
   if (validate_uri(uri) != GNEISS_SUCCESS) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
@@ -45,7 +55,10 @@ gneiss_result virtual_file_system::open_read(std::string_view uri,
   if (selected == nullptr) {
     return GNEISS_ERROR_NOT_FOUND;
   }
-  return selected->backend->open_read(uri.substr(selected->point.size()), output);
+  return deferred_validation
+             ? selected->backend->open_read_for_validation(uri.substr(selected->point.size()),
+                                                           output)
+             : selected->backend->open_read(uri.substr(selected->point.size()), output);
 }
 
 gneiss_result virtual_file_system::mount(std::string_view mount_point,

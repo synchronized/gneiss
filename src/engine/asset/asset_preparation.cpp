@@ -7,6 +7,7 @@
 
 #include "engine/asset/mesh_binary.hpp"
 #include "engine/asset/png_decoder.hpp"
+#include "engine/asset/read_slice.hpp"
 #include "engine/asset/source_revision_file_system.hpp"
 #include "engine/asset/texture_binary.hpp"
 #include "engine/asset/texture_container.hpp"
@@ -21,6 +22,7 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <limits>
@@ -552,87 +554,296 @@ using document_ptr = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;
 namespace gneiss::asset_internal {
 using namespace asset_parsing;
 
-gneiss_result prepare_assets(const asset_internal::virtual_file_system& file_system,
-                             std::span<const asset_request> requested, prepared_batch& output,
-                             asset_diagnostic& diagnostic, const std::function<bool()>& cancelled,
-                             std::size_t material_bytes, std::size_t maximum_assets,
-                             std::size_t maximum_bytes, texture_prepare_profile profile) noexcept {
-  output = {};
-  diagnostic = {};
-  if (requested.empty() || requested.size() > maximum_assets) {
-    return GNEISS_ERROR_INVALID_ARGUMENT;
-  }
-  try {
-    class source_snapshot final : public asset_internal::file_system {
-    public:
-      source_snapshot(const asset_internal::virtual_file_system& original, std::size_t limit,
-                      const std::function<bool()>& cancelled)
-          : original_(original), ranges_(original, cancelled), limit_(limit) {}
-      gneiss_result
-      open_read(std::string_view path,
-                std::unique_ptr<asset_internal::read_source>& output) const noexcept override {
-        return ranges_.open_read(path, output);
-      }
-      gneiss_result read(std::string_view path,
-                         std::vector<std::byte>& data) const noexcept override {
-        return read_bounded(path, limit_, data);
-      }
-      gneiss_result read_bounded(std::string_view path, std::size_t limit,
-                                 std::vector<std::byte>& data) const noexcept override {
-        try {
-          auto found = files_.find(std::string(path));
-          if (found == files_.end()) {
-            std::vector<std::byte> loaded;
-            const auto result = original_.read_bounded("asset://" + std::string(path),
-                                                       std::min(limit, limit_ - bytes_), loaded);
-            if (result != GNEISS_SUCCESS) {
-              return result;
-            }
-            bytes_ += loaded.size();
-            found = files_.emplace(path, std::move(loaded)).first;
-          }
-          if (found->second.size() > limit) {
-            return GNEISS_ERROR_INVALID_ARGUMENT;
-          }
-          data = found->second;
-          return GNEISS_SUCCESS;
-        } catch (...) {
-          return GNEISS_ERROR_OUT_OF_MEMORY;
-        }
-      }
-      gneiss_result verify(const std::function<bool()>& cancelled) const {
-        for (const auto& [path, bytes] : files_) {
-          if (cancelled && cancelled()) {
-            return GNEISS_ERROR_INVALID_STATE;
-          }
-          std::vector<std::byte> current;
-          if (original_.read_bounded("asset://" + path, limit_, current) != GNEISS_SUCCESS ||
-              current != bytes) {
-            return GNEISS_ERROR_INVALID_STATE;
-          }
-        }
-        return ranges_.verify(cancelled);
-      }
-      const asset_internal::virtual_file_system& original_;
-      asset_internal::source_revision_file_system ranges_;
-      std::size_t limit_;
-      mutable std::size_t bytes_{};
-      mutable std::map<std::string, std::vector<std::byte>> files_;
-    };
-    auto snapshot = std::make_shared<source_snapshot>(file_system, maximum_bytes, cancelled);
-    asset_internal::virtual_file_system files;
-    auto result = files.mount("asset://", snapshot);
+namespace {
+bool invalid_prepared_mesh(const mesh_data& mesh) {
+  return (mesh.vertices.size() < 3U ||
+          (!mesh.normals.empty() && mesh.normals.size() != mesh.vertices.size()) ||
+          (!mesh.indices.empty() && (mesh.indices.size() < 3U || mesh.indices.size() % 3U != 0U)) ||
+          !std::ranges::all_of(mesh.vertices,
+                               [](const auto& v) {
+                                 return std::isfinite(v.x) && std::isfinite(v.y) &&
+                                        std::isfinite(v.z) && std::isfinite(v.u) &&
+                                        std::isfinite(v.v);
+                               }) ||
+          !std::ranges::all_of(mesh.normals,
+                               [](const auto& n) {
+                                 const auto length =
+                                     std::sqrt((n.x * n.x) + (n.y * n.y) + (n.z * n.z));
+                                 return std::isfinite(length) && std::abs(length - 1.0F) <= 1.0e-4F;
+                               }) ||
+          !std::ranges::all_of(mesh.indices, [&](auto i) { return i < mesh.vertices.size(); }));
+}
+gneiss_result decode_non_texture(const asset_request& source, const std::vector<std::byte>& bytes,
+                                 prepared_asset& asset, asset_diagnostic& diagnostic,
+                                 std::size_t material_bytes, std::size_t maximum_bytes,
+                                 std::vector<asset_request>& pending) {
+  auto result = GNEISS_SUCCESS;
+  if (source.type == asset_type::mesh) {
+    result =
+        asset_internal::is_mesh_binary(bytes)
+            ? parse_binary_mesh(bytes, asset.mesh.vertices, asset.mesh.normals, asset.mesh.indices,
+                                asset.mesh.tangents, asset.mesh.uv1, asset.mesh.colors, diagnostic)
+            : parse_mesh(bytes, asset.mesh.vertices, asset.mesh.normals, diagnostic);
+    // 此校验与 RID 创建的顶点/法线/索引契约一致，在后台完成。
+    const auto& mesh = asset.mesh;
+    if (result == GNEISS_SUCCESS && invalid_prepared_mesh(mesh)) {
+      result = GNEISS_ERROR_INVALID_ARGUMENT;
+    }
+    asset.bytes = mesh.data_bytes();
+  } else if (source.type == asset_type::material) {
+    material_source material;
+    result = parse_material(bytes, material, diagnostic);
     if (result != GNEISS_SUCCESS) {
       return result;
     }
-    std::vector<asset_request> pending(requested.begin(), requested.end());
-    std::map<std::string, asset_type> seen;
-    prepared_batch batch;
-    for (std::size_t index = 0U; index < pending.size(); ++index) {
+    asset.material = material.parameters;
+
+    asset.texture_uris = std::move(material.texture_uris);
+    // 由调用方传入发布预算，Asset 不依赖资源对象布局。
+    if (material_bytes == 0U) {
+      fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, source.uri, "材质发布预算不得为零");
+      return GNEISS_ERROR_INVALID_ARGUMENT;
+    }
+    if (material_bytes > maximum_bytes) {
+      fail(diagnostic, GNEISS_ERROR_OUT_OF_MEMORY, source.uri, "材质发布预算超过批次上限");
+      return GNEISS_ERROR_OUT_OF_MEMORY;
+    }
+    asset.bytes = material_bytes;
+    for (const auto& uri : asset.texture_uris) {
+      if (result == GNEISS_SUCCESS && !uri.empty()) {
+        pending.push_back({.uri = uri, .type = asset_type::texture});
+      }
+      if (uri.size() > maximum_bytes - asset.bytes) {
+        fail(diagnostic, GNEISS_ERROR_OUT_OF_MEMORY, source.uri, "材质依赖超出批次字节上限");
+        return GNEISS_ERROR_OUT_OF_MEMORY;
+      }
+      asset.bytes += uri.size();
+    }
+  } else {
+    result = GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  return result;
+}
+class shared_read_source final : public read_source {
+public:
+  explicit shared_read_source(std::shared_ptr<read_source> source) : source_(std::move(source)) {}
+  [[nodiscard]] gneiss_result
+  begin_read(std::uint64_t offset, std::size_t size,
+             std::unique_ptr<read_operation>& output) const noexcept override {
+    return source_->begin_read(offset, size, output);
+  }
+  [[nodiscard]] std::uint64_t size() const noexcept override { return source_->size(); }
+  [[nodiscard]] gneiss_result read_at(std::uint64_t offset,
+                                      std::span<std::byte> output) const noexcept override {
+    return source_->read_at(offset, output);
+  }
+
+private:
+  std::shared_ptr<read_source> source_;
+};
+// 单项解析只访问已验证的输入，不在同步解析调用内重新触发整文件扫描。
+class prepared_input_files final : public file_system {
+public:
+  std::string description_uri;
+  std::string image_uri;
+  std::vector<std::byte> description;
+  std::vector<std::byte> image;
+  std::shared_ptr<read_source> source;
+  gneiss_result read(std::string_view path,
+                     std::vector<std::byte>& output) const noexcept override {
+    return read_bounded(path, std::numeric_limits<std::size_t>::max(), output);
+  }
+  gneiss_result read_bounded(std::string_view path, std::size_t limit,
+                             std::vector<std::byte>& output) const noexcept override {
+    output.clear();
+    try {
+      const auto uri = "asset://" + std::string(path);
+      const std::vector<std::byte>* bytes = nullptr;
+      if (uri == description_uri) {
+        bytes = &description;
+      } else if (uri == image_uri) {
+        bytes = &image;
+      }
+      if (bytes == nullptr) {
+        return GNEISS_ERROR_NOT_FOUND;
+      }
+      if (bytes->size() > limit) {
+        return GNEISS_ERROR_INVALID_ARGUMENT;
+      }
+      output = *bytes;
+      return GNEISS_SUCCESS;
+    } catch (...) {
+      return GNEISS_ERROR_OUT_OF_MEMORY;
+    }
+  }
+  gneiss_result open_read(std::string_view path,
+                          std::unique_ptr<read_source>& output) const noexcept override {
+    output.reset();
+    try {
+      if ("asset://" + std::string(path) != image_uri || !source) {
+        return GNEISS_ERROR_UNSUPPORTED;
+      }
+      output = std::make_unique<shared_read_source>(source);
+      return GNEISS_SUCCESS;
+    } catch (...) {
+      return GNEISS_ERROR_OUT_OF_MEMORY;
+    }
+  }
+};
+unsigned asset_order(asset_type type) {
+  switch (type) {
+  case asset_type::texture:
+    return 0U;
+  case asset_type::mesh:
+    return 1U;
+  default:
+    return 2U;
+  }
+}
+} // namespace
+
+struct asset_preparation::state {
+  enum class phase : std::uint8_t { select, description, payload, decode, verify, finished };
+  virtual_file_system files;
+  std::shared_ptr<source_revision_file_system> versions;
+  std::unique_ptr<source_revision_file_system::verification> verification;
+  std::vector<asset_request> pending;
+  std::map<std::string, asset_type> seen;
+  std::size_t index{};
+  std::size_t material_bytes{};
+  std::size_t maximum_assets{};
+  std::size_t maximum_bytes{};
+  texture_prepare_profile profile;
+  prepared_batch batch;
+  prepared_asset current;
+  std::shared_ptr<prepared_input_files> input;
+  std::unique_ptr<read_source> reader;
+  read_slice slice;
+  struct prefetched_input {
+    std::unique_ptr<read_source> source;
+    std::unique_ptr<read_operation> operation;
+  };
+  // 仅预读当前批次的短 Mesh 描述，最多 8 MiB；不提前解码或发布候选。
+  std::map<std::string, prefetched_input> prefetched;
+  std::vector<std::byte> bytes;
+  core::sha256_builder digest;
+  std::uint64_t offset{};
+  bool retain{};
+  bool read_complete{};
+  bool selected{};
+  bool deferred_reads{true};
+  phase step{phase::select};
+  gneiss_result result{GNEISS_SUCCESS};
+  asset_diagnostic diagnostic;
+
+  void prefetch_descriptions() {
+    if (!deferred_reads) {
+      return;
+    }
+    for (auto next = index; next < pending.size() && next - index < 8U; ++next) {
+      const auto& requested = pending[next];
+      if (prefetched.size() >= 8U) {
+        break;
+      }
+      if (requested.type != asset_type::mesh || seen.contains(requested.uri) ||
+          prefetched.contains(requested.uri)) {
+        continue;
+      }
+      prefetched_input input;
+      if (files.open_read_for_validation(requested.uri, input.source) != GNEISS_SUCCESS ||
+          input.source->size() > std::size_t{1024U} * 1024U ||
+          input.source->size() > maximum_bytes) {
+        continue;
+      }
+      const auto started = input.source->begin_read(
+          0U, static_cast<std::size_t>(input.source->size()), input.operation);
+      if (started == GNEISS_ERROR_UNSUPPORTED) {
+        return;
+      }
+      if (started == GNEISS_SUCCESS) {
+        prefetched.emplace(requested.uri, std::move(input));
+      }
+    }
+  }
+
+  gneiss_result begin_read(std::string_view uri, std::size_t limit, bool keep_bytes) {
+    slice = {};
+    reader.reset();
+    bytes = {};
+    digest = {};
+    offset = 0U;
+    retain = keep_bytes;
+    read_complete = false;
+    auto opened = GNEISS_SUCCESS;
+    const auto found = prefetched.find(std::string(uri));
+    if (found == prefetched.end()) {
+      opened = files.open_read_for_validation(uri, reader);
+    } else {
+      reader = std::move(found->second.source);
+      slice.prime(std::move(found->second.operation),
+                  {.offset = 0U, .size = static_cast<std::size_t>(reader->size())});
+      prefetched.erase(found);
+    }
+    if (opened == GNEISS_ERROR_UNSUPPORTED && retain) {
+      // 兼容仅提供整文件读取的自定义后端；不宣称这一回退具有分块时间上界。
+      const auto loaded = files.read_bounded(uri, limit, bytes);
+      read_complete = loaded == GNEISS_SUCCESS;
+      return loaded;
+    }
+    if (opened != GNEISS_SUCCESS) {
+      return opened;
+    }
+    if (retain) {
+      if (reader->size() > limit) {
+        return GNEISS_ERROR_INVALID_ARGUMENT;
+      }
+      bytes.resize(static_cast<std::size_t>(reader->size()));
+    }
+    return GNEISS_SUCCESS;
+  }
+  gneiss_result read_step(std::size_t& budget, const std::function<bool()>& cancelled) {
+    if (read_complete) {
+      return GNEISS_SUCCESS;
+    }
+    while (offset < reader->size() && budget != 0U) {
       if (cancelled && cancelled()) {
         return GNEISS_ERROR_INVALID_STATE;
       }
-      const auto source = pending[index];
+      const auto count =
+          static_cast<std::size_t>(std::min<std::uint64_t>(budget, reader->size() - offset));
+      std::span<const std::byte> chunk;
+      const auto loaded =
+          slice.take(*reader, {.offset = offset, .size = count}, chunk, deferred_reads);
+      if (loaded == GNEISS_ERROR_NOT_READY) {
+        budget = 0U;
+        return GNEISS_SUCCESS;
+      }
+      if (loaded != GNEISS_SUCCESS) {
+        return loaded;
+      }
+      if (retain) {
+        std::ranges::copy(chunk, bytes.begin() + static_cast<std::ptrdiff_t>(offset));
+      }
+      digest.update(chunk);
+      offset += chunk.size();
+      budget -= chunk.size();
+    }
+    if (offset == reader->size()) {
+      if (cancelled && cancelled()) {
+        return GNEISS_ERROR_INVALID_STATE;
+      }
+      const auto checked = reader->complete_validation(digest.digest());
+      if (checked != GNEISS_SUCCESS) {
+        return checked;
+      }
+      read_complete = true;
+    }
+    return GNEISS_SUCCESS;
+  }
+  gneiss_result select() {
+    prefetch_descriptions();
+    for (unsigned count = 0U; index < pending.size() && count < 16U; ++count) {
+      const auto source = pending[index++];
       if (const auto previous = seen.find(source.uri); previous != seen.end()) {
         if (previous->second != source.type) {
           return GNEISS_ERROR_INVALID_ARGUMENT;
@@ -643,115 +854,224 @@ gneiss_result prepare_assets(const asset_internal::virtual_file_system& file_sys
         return GNEISS_ERROR_INVALID_ARGUMENT;
       }
       seen.emplace(source.uri, source.type);
-      prepared_asset asset;
-      asset.source = source;
-      if (source.type == asset_type::texture) {
-        result = prepare_texture(
-            files, source.uri, asset.texture, diagnostic,
-            std::min(maximum_bytes, (std::size_t{64U} * 1024U * 1024U)), false,
-            std::min(maximum_bytes - batch.bytes, (std::size_t{64U} * 1024U * 1024U)), profile);
-        asset.bytes = asset.texture.manifest.size() + asset.texture.payload.size();
-        for (const auto& mip : asset.texture.levels) {
-          asset.bytes += mip.pixels.size();
-        }
-      } else {
-        std::vector<std::byte> bytes;
-        result = files.read_bounded(source.uri, maximum_bytes, bytes);
-        if (result != GNEISS_SUCCESS) {
-          fail(diagnostic, result, source.uri, "无法读取渲染资产源");
-          return result;
-        }
-        if (source.type == asset_type::mesh) {
-          result = asset_internal::is_mesh_binary(bytes)
-                       ? parse_binary_mesh(bytes, asset.mesh.vertices, asset.mesh.normals,
-                                           asset.mesh.indices, asset.mesh.tangents, asset.mesh.uv1,
-                                           asset.mesh.colors, diagnostic)
-                       : parse_mesh(bytes, asset.mesh.vertices, asset.mesh.normals, diagnostic);
-          // 此校验与 RID 创建的顶点/法线/索引契约一致，在后台完成。
-          const auto& mesh = asset.mesh;
-          if (result == GNEISS_SUCCESS &&
-              (mesh.vertices.size() < 3U ||
-               (!mesh.normals.empty() && mesh.normals.size() != mesh.vertices.size()) ||
-               (!mesh.indices.empty() &&
-                (mesh.indices.size() < 3U || mesh.indices.size() % 3U != 0U)) ||
-               !std::ranges::all_of(mesh.vertices,
-                                    [](const auto& v) {
-                                      return std::isfinite(v.x) && std::isfinite(v.y) &&
-                                             std::isfinite(v.z) && std::isfinite(v.u) &&
-                                             std::isfinite(v.v);
-                                    }) ||
-               !std::ranges::all_of(mesh.normals,
-                                    [](const auto& n) {
-                                      const auto length =
-                                          std::sqrt(n.x * n.x + n.y * n.y + n.z * n.z);
-                                      return std::isfinite(length) &&
-                                             std::abs(length - 1.0F) <= 1.0e-4F;
-                                    }) ||
-               !std::ranges::all_of(mesh.indices,
-                                    [&](auto i) { return i < mesh.vertices.size(); }))) {
-            result = GNEISS_ERROR_INVALID_ARGUMENT;
-          }
-          asset.bytes = mesh.data_bytes();
-        } else if (source.type == asset_type::material) {
-          material_source material;
-          result = parse_material(bytes, material, diagnostic);
-          if (result != GNEISS_SUCCESS) {
-            return result;
-          }
-          asset.material = material.parameters;
-
-          asset.texture_uris = std::move(material.texture_uris);
-          // 由调用方传入发布预算，Asset 不依赖资源对象布局。
-          if (material_bytes == 0U) {
-            fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, source.uri, "材质发布预算不得为零");
-            return GNEISS_ERROR_INVALID_ARGUMENT;
-          }
-          if (material_bytes > maximum_bytes) {
-            fail(diagnostic, GNEISS_ERROR_OUT_OF_MEMORY, source.uri, "材质发布预算超过批次上限");
-            return GNEISS_ERROR_OUT_OF_MEMORY;
-          }
-          asset.bytes = material_bytes;
-          for (const auto& uri : asset.texture_uris) {
-            if (result == GNEISS_SUCCESS && !uri.empty()) {
-              pending.push_back({.uri = uri, .type = asset_type::texture});
-            }
-            if (uri.size() > maximum_bytes - asset.bytes) {
-              fail(diagnostic, GNEISS_ERROR_OUT_OF_MEMORY, source.uri, "材质依赖超出批次字节上限");
-              return GNEISS_ERROR_OUT_OF_MEMORY;
-            }
-            asset.bytes += uri.size();
-          }
-        } else {
-          result = GNEISS_ERROR_INVALID_ARGUMENT;
-        }
-      }
-      if (result != GNEISS_SUCCESS) {
-        return result;
-      }
-      if (asset.bytes > maximum_bytes - batch.bytes) {
-        fail(diagnostic, GNEISS_ERROR_OUT_OF_MEMORY, source.uri,
-             "资产准备预算不足：需要 " + std::to_string(asset.bytes) + " 字节，可用 " +
-                 std::to_string(maximum_bytes - batch.bytes) + " 字节，批次上限 " +
-                 std::to_string(maximum_bytes) + " 字节");
-        return GNEISS_ERROR_OUT_OF_MEMORY;
-      }
-      batch.bytes += asset.bytes;
-      batch.assets.push_back(std::move(asset));
+      current = {};
+      current.source = source;
+      input = std::make_shared<prepared_input_files>();
+      input->description_uri = source.uri;
+      step = phase::description;
+      return begin_read(source.uri, maximum_bytes, true);
     }
-    result = snapshot->verify(cancelled);
-    if (result != GNEISS_SUCCESS) {
-      fail(diagnostic, result, "", "准备期间源变化或请求取消");
+    if (index == pending.size()) {
+      step = phase::verify;
+      return versions->begin_verification(verification, deferred_reads);
+    }
+    return GNEISS_SUCCESS;
+  }
+  gneiss_result read_description(std::size_t& budget, const std::function<bool()>& cancelled) {
+    const auto loaded = read_step(budget, cancelled);
+    if (loaded != GNEISS_SUCCESS || !read_complete) {
+      return loaded;
+    }
+    input->description = std::move(bytes);
+    reader.reset();
+    if (current.source.type != asset_type::texture) {
+      step = phase::decode;
+      return GNEISS_SUCCESS;
+    }
+    texture_source source;
+    const auto parsed = parse_texture(input->description, source, diagnostic);
+    if (parsed != GNEISS_SUCCESS) {
+      return parsed;
+    }
+    input->image_uri = source.uri;
+    selected =
+        profile.generation != 0U && std::string_view(source.uri).ends_with(".gneiss-texture");
+    step = phase::payload;
+    const auto limit = std::min(maximum_bytes - batch.bytes, std::size_t{64U} * 1024U * 1024U);
+    return begin_read(source.uri, limit, !selected);
+  }
+  gneiss_result read_payload(std::size_t& budget, const std::function<bool()>& cancelled) {
+    const auto loaded = read_step(budget, cancelled);
+    if (loaded != GNEISS_SUCCESS || !read_complete) {
+      return loaded;
+    }
+    if (selected) {
+      input->source = std::move(reader);
+    } else {
+      input->image = std::move(bytes);
+    }
+    reader.reset();
+    step = phase::decode;
+    return GNEISS_SUCCESS;
+  }
+  gneiss_result decode() {
+    auto decoded = GNEISS_SUCCESS;
+    if (current.source.type == asset_type::texture) {
+      virtual_file_system prepared;
+      decoded = prepared.mount("asset://", input);
+      if (decoded == GNEISS_SUCCESS) {
+        decoded = prepare_texture(
+            prepared, current.source.uri, current.texture, diagnostic,
+            std::min(maximum_bytes, std::size_t{64U} * 1024U * 1024U), false,
+            std::min(maximum_bytes - batch.bytes, std::size_t{64U} * 1024U * 1024U), profile);
+      }
+      current.bytes = current.texture.manifest.size() + current.texture.payload.size();
+      for (const auto& level : current.texture.levels) {
+        current.bytes += level.pixels.size();
+      }
+    } else {
+      decoded = decode_non_texture(current.source, input->description, current, diagnostic,
+                                   material_bytes, maximum_bytes, pending);
+    }
+    if (decoded != GNEISS_SUCCESS) {
+      return decoded;
+    }
+    if (current.bytes > maximum_bytes - batch.bytes) {
+      fail(diagnostic, GNEISS_ERROR_OUT_OF_MEMORY, current.source.uri,
+           "资产准备预算不足：需要 " + std::to_string(current.bytes) + " 字节，可用 " +
+               std::to_string(maximum_bytes - batch.bytes) + " 字节，批次上限 " +
+               std::to_string(maximum_bytes) + " 字节");
+      return GNEISS_ERROR_OUT_OF_MEMORY;
+    }
+    batch.bytes += current.bytes;
+    batch.assets.push_back(std::move(current));
+    input.reset();
+    step = phase::select;
+    return GNEISS_SUCCESS;
+  }
+  gneiss_result advance_once(std::size_t& budget, const std::function<bool()>& cancelled,
+                             bool& complete) {
+    switch (step) {
+    case phase::select:
+      return select();
+    case phase::description:
+      return read_description(budget, cancelled);
+    case phase::payload:
+      return read_payload(budget, cancelled);
+    case phase::decode:
+      return decode();
+    case phase::verify: {
+      const auto checked = verification->advance(budget, cancelled, complete);
+      budget = 0U;
+      if (checked != GNEISS_SUCCESS) {
+        fail(diagnostic, checked, "", "准备期间源变化或请求取消");
+      }
+      return checked;
+    }
+    case phase::finished:
+      complete = true;
       return result;
     }
-    std::stable_sort(batch.assets.begin(), batch.assets.end(), [](const auto& a, const auto& b) {
-      const auto order = [](auto type) {
-        return type == asset_type::texture ? 0 : type == asset_type::mesh ? 1 : 2;
-      };
-      return order(a.source.type) < order(b.source.type);
-    });
-    batch.input_bytes = snapshot->bytes_;
-    output = std::move(batch);
+    return GNEISS_ERROR_INTERNAL;
+  }
+  gneiss_result advance(std::size_t budget, const std::function<bool()>& cancelled,
+                        bool& complete) {
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(8);
+    // 小描述和状态转换共用一份预算，避免每个转换都等待下一宿主帧。
+    // 时间边界仅在操作之间检查，单次解析/解码仍需单独测量。
+    for (unsigned transitions = 0U; transitions < 64U; ++transitions) {
+      if (cancelled && cancelled()) {
+        return GNEISS_ERROR_INVALID_STATE;
+      }
+      const auto advanced = advance_once(budget, cancelled, complete);
+      if (advanced != GNEISS_SUCCESS || complete || budget == 0U ||
+          std::chrono::steady_clock::now() >= deadline) {
+        return advanced;
+      }
+    }
     return GNEISS_SUCCESS;
+  }
+};
+asset_preparation::asset_preparation(const virtual_file_system& files,
+                                     std::span<const asset_request> requested, limits budget,
+                                     texture_prepare_profile profile)
+    : state_(std::make_unique<state>()) {
+  auto& value = *state_;
+  value.versions = std::make_shared<source_revision_file_system>(files);
+  value.result = value.files.mount("asset://", value.versions);
+  value.pending.assign(requested.begin(), requested.end());
+  value.material_bytes = budget.material_bytes;
+  value.maximum_assets = budget.maximum_assets;
+  value.maximum_bytes = budget.maximum_bytes;
+  value.deferred_reads = budget.deferred_reads;
+  value.profile = profile;
+  if (requested.empty() || requested.size() > budget.maximum_assets) {
+    value.result = GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+}
+asset_preparation::~asset_preparation() = default;
+gneiss_result asset_preparation::advance(std::size_t byte_budget,
+                                         const std::function<bool()>& cancelled,
+                                         prepared_batch& output, asset_diagnostic& diagnostic,
+                                         bool& complete) noexcept {
+  complete = false;
+  auto& value = *state_;
+  if (value.step == state::phase::finished) {
+    complete = true;
+    return value.result;
+  }
+  if (byte_budget == 0U) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  try {
+    if (value.result == GNEISS_SUCCESS) {
+      value.result = value.advance(byte_budget, cancelled, complete);
+    }
+    if (value.result == GNEISS_SUCCESS && complete) {
+      std::ranges::stable_sort(value.batch.assets, {},
+                               [](const auto& asset) { return asset_order(asset.source.type); });
+      output = std::move(value.batch);
+    }
+    if (value.result != GNEISS_SUCCESS && value.diagnostic.message.empty()) {
+      fail(value.diagnostic, value.result, value.current.source.uri, "资产读取、校验或解析失败");
+    }
+  } catch (const std::bad_alloc&) {
+    value.result = GNEISS_ERROR_OUT_OF_MEMORY;
+  } catch (...) {
+    value.result = GNEISS_ERROR_INTERNAL;
+  }
+  if (value.result != GNEISS_SUCCESS || complete) {
+    if (value.result != GNEISS_SUCCESS) {
+      output = {};
+    }
+    value.diagnostic.result = value.result;
+    diagnostic = std::move(value.diagnostic);
+    value.batch = {};
+    value.current = {};
+    value.input.reset();
+    value.reader.reset();
+    value.slice = {};
+    value.prefetched.clear();
+    value.verification.reset();
+    std::vector<std::byte>{}.swap(value.bytes);
+    value.step = state::phase::finished;
+    complete = true;
+  }
+  return value.result;
+}
+gneiss_result prepare_assets(const virtual_file_system& files,
+                             std::span<const asset_request> requested, prepared_batch& output,
+                             asset_diagnostic& diagnostic, const std::function<bool()>& cancelled,
+                             std::size_t material_bytes, std::size_t maximum_assets,
+                             std::size_t maximum_bytes, texture_prepare_profile profile) noexcept {
+  output = {};
+  diagnostic = {};
+  try {
+    asset_preparation preparation(files, requested,
+                                  {
+                                      .material_bytes = material_bytes,
+                                      .maximum_assets = maximum_assets,
+                                      .maximum_bytes = maximum_bytes,
+                                      .deferred_reads = false,
+                                  },
+                                  profile);
+    bool complete{};
+    auto result = GNEISS_SUCCESS;
+    while (result == GNEISS_SUCCESS && !complete) {
+      result = preparation.advance(std::size_t{4U} * 1024U * 1024U, cancelled, output, diagnostic,
+                                   complete);
+    }
+    return result;
   } catch (const std::bad_alloc&) {
     return GNEISS_ERROR_OUT_OF_MEMORY;
   } catch (...) {
