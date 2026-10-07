@@ -105,8 +105,9 @@ bool apply_scene_cleanup_update(ipc_scene_progress& current,
       current.source.revision != incoming.source.revision ||
       current.source.uri != incoming.source.uri || !current.budget ||
       !current.budget->cleanup_pending || !incoming.budget || !incoming.budget->cleanup_complete ||
-      incoming.budget->cleanup_pending)
+      incoming.budget->cleanup_pending) {
     return false;
+  }
   current.budget = incoming.budget;
   return true;
 }

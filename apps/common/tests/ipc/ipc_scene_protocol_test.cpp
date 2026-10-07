@@ -15,7 +15,50 @@ void check(bool value, std::source_location location = std::source_location::cur
     throw std::runtime_error("场景协议契约失败，行=" + std::to_string(location.line()));
   }
 }
+void cleanup_updates() {
+  const ipc_scene_request source{
+      .session = 5U, .revision = 7U, .uri = "asset://scenes/main.scene.json"};
+  ipc_envelope envelope;
+  ipc_scene_progress invalid_progress;
+  ipc_scene_progress draining{.source = source, .phase = ipc_scene_phase::cancelled, .message = {}};
+  draining.budget.emplace();
+  draining.budget->cleanup_pending = true;
+  check(encode_ipc_scene_progress(draining, 9U, envelope) == result::success);
+  check(decode_ipc_scene_progress(envelope, invalid_progress) == result::success &&
+        invalid_progress.budget && invalid_progress.budget->cleanup_pending);
+  auto cleaned = draining;
+  cleaned.budget->cleanup_pending = false;
+  cleaned.budget->cleanup_complete = true;
+  cleaned.message = "资源清理完成";
+  for (unsigned mismatch = 0; mismatch < 4; ++mismatch) {
+    auto stale = cleaned;
+    if (mismatch == 0) {
+      ++stale.source.session;
+    }
+    if (mismatch == 1) {
+      ++stale.source.revision;
+    }
+    if (mismatch == 2) {
+      stale.source.uri += ".other";
+    }
+    if (mismatch == 3) {
+      stale.phase = ipc_scene_phase::applied;
+    }
+    check(!apply_scene_cleanup_update(draining, stale));
+    check(draining.budget->cleanup_pending);
+  }
+  check(encode_ipc_scene_progress(cleaned, 0U, envelope) == result::success &&
+        envelope.kind == ipc_message_kind::event);
+  auto terminal = draining;
+  check(apply_scene_cleanup_update(terminal, cleaned));
+  check(terminal.phase == ipc_scene_phase::cancelled && terminal.message == draining.message &&
+        terminal.budget->cleanup_complete && !terminal.budget->cleanup_pending);
+  check(!apply_scene_cleanup_update(terminal, cleaned));
+  draining.budget->cleanup_complete = true;
+  check(encode_ipc_scene_progress(draining, 9U, envelope) == result::invalid_argument);
+}
 void run() {
+  cleanup_updates();
   const ipc_scene_request source{5U, 7U, "asset://scenes/main.scene.json"};
   ipc_envelope envelope;
   ipc_scene_request request;
@@ -117,38 +160,6 @@ void run() {
   ipc_scene_progress invalid_progress{
       .source = source, .phase = ipc_scene_phase::applied, .can_cancel = true, .message = {}};
   check(encode_ipc_scene_progress(invalid_progress, 9U, envelope) == result::invalid_argument);
-  ipc_scene_progress draining{.source = source, .phase = ipc_scene_phase::cancelled, .message = {}};
-  draining.budget.emplace();
-  draining.budget->cleanup_pending = true;
-  check(encode_ipc_scene_progress(draining, 9U, envelope) == result::success);
-  check(decode_ipc_scene_progress(envelope, invalid_progress) == result::success &&
-        invalid_progress.budget && invalid_progress.budget->cleanup_pending);
-  auto cleaned = draining;
-  cleaned.budget->cleanup_pending = false;
-  cleaned.budget->cleanup_complete = true;
-  cleaned.message = "资源清理完成";
-  for (unsigned mismatch = 0; mismatch < 4; ++mismatch) {
-    auto stale = cleaned;
-    if (mismatch == 0)
-      ++stale.source.session;
-    if (mismatch == 1)
-      ++stale.source.revision;
-    if (mismatch == 2)
-      stale.source.uri += ".other";
-    if (mismatch == 3)
-      stale.phase = ipc_scene_phase::applied;
-    check(!apply_scene_cleanup_update(draining, stale));
-    check(draining.budget->cleanup_pending);
-  }
-  check(encode_ipc_scene_progress(cleaned, 0U, envelope) == result::success &&
-        envelope.kind == ipc_message_kind::event);
-  auto terminal = draining;
-  check(apply_scene_cleanup_update(terminal, cleaned));
-  check(terminal.phase == ipc_scene_phase::cancelled && terminal.message == draining.message &&
-        terminal.budget->cleanup_complete && !terminal.budget->cleanup_pending);
-  check(!apply_scene_cleanup_update(terminal, cleaned));
-  draining.budget->cleanup_complete = true;
-  check(encode_ipc_scene_progress(draining, 9U, envelope) == result::invalid_argument);
   envelope.payload.assign(ipc_scene_max_payload_size + 1U, 0U);
   check(decode_ipc_scene_progress(envelope, invalid_progress) == result::invalid_argument);
 }
