@@ -749,19 +749,19 @@ struct asset_preparation::state {
           prefetched.contains(requested.uri)) {
         continue;
       }
-      prefetched_input input;
-      if (files.open_read_for_validation(requested.uri, input.source) != GNEISS_SUCCESS ||
-          input.source->size() > std::size_t{1024U} * 1024U ||
-          input.source->size() > maximum_bytes) {
+      prefetched_input ahead;
+      if (files.open_read_for_validation(requested.uri, ahead.source) != GNEISS_SUCCESS ||
+          ahead.source->size() > std::size_t{1024U} * 1024U ||
+          ahead.source->size() > maximum_bytes) {
         continue;
       }
-      const auto started = input.source->begin_read(
-          0U, static_cast<std::size_t>(input.source->size()), input.operation);
+      const auto started = ahead.source->begin_read(
+          0U, static_cast<std::size_t>(ahead.source->size()), ahead.operation);
       if (started == GNEISS_ERROR_UNSUPPORTED) {
         return;
       }
       if (started == GNEISS_SUCCESS) {
-        prefetched.emplace(requested.uri, std::move(input));
+        prefetched.emplace(requested.uri, std::move(ahead));
       }
     }
   }
