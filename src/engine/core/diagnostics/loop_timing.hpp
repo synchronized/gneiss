@@ -33,6 +33,12 @@ enum class loop_stage : std::uint8_t {
   render_snapshot,
   frame_capture,
   frame_submit,
+  window_pump,
+  window_events,
+  input_state,
+  input_events,
+  task_collect,
+  task_submit,
   count,
 };
 inline constexpr std::array loop_stage_names{
@@ -52,7 +58,14 @@ inline constexpr std::array loop_stage_names{
     "render_snapshot",
     "frame_capture",
     "frame_submit",
+    "window_pump",
+    "window_events",
+    "input_state",
+    "input_events",
+    "task_collect",
+    "task_submit",
 };
+static_assert(loop_stage_names.size() == static_cast<std::size_t>(loop_stage::count));
 using timing_clock = std::chrono::steady_clock;
 using stage_times = std::array<double, static_cast<std::size_t>(loop_stage::count)>;
 inline thread_local stage_times* active_loop_times = nullptr;

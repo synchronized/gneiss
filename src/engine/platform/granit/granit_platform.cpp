@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/platform/granit/granit_platform.hpp"
+#include "engine/core/diagnostics/loop_timing.hpp"
 
 #include <granit/window/native.hpp>
 
@@ -174,10 +175,13 @@ gneiss_result granit_platform::poll(bool& out_should_close, bool& out_focus_lost
   out_should_close = false;
   out_focus_lost = false;
   // 每轮只泵送一次，再依次消费窗口和输入队列。
-  const auto pump_result = window_system_.process_events();
+  const auto pump_result =
+      diagnostics::measure(diagnostics::loop_stage::window_pump,
+                           [&]() noexcept { return window_system_.process_events(); });
   if (pump_result.failed()) {
     return map_result(pump_result);
   }
+  const diagnostics::loop_span events(diagnostics::loop_stage::window_events);
   granit::window_event event{};
   auto result = window_system_.poll(event);
   while (result == granit::result::success) {

@@ -324,26 +324,34 @@ gneiss_result application_state::poll_events(bool& out_should_close) noexcept {
       return platform_result;
     }
     gneiss_keyboard_state keyboard = GNEISS_KEYBOARD_STATE_INIT;
-    auto input_result = granit_platform_->keyboard(keyboard);
+    auto input_result = diagnostics::measure(diagnostics::loop_stage::input_state, [&]() noexcept {
+      return granit_platform_->keyboard(keyboard);
+    });
     if (input_result != GNEISS_SUCCESS) {
       return input_result;
     }
     gneiss_pointer_state pointer = GNEISS_POINTER_STATE_INIT;
-    input_result = granit_platform_->pointer(pointer);
+    input_result = diagnostics::measure(diagnostics::loop_stage::input_state, [&]() noexcept {
+      return granit_platform_->pointer(pointer);
+    });
     if (input_result != GNEISS_SUCCESS) {
       return input_result;
     }
     input_.set_keyboard(keyboard);
     input_.set_pointer(pointer);
     gneiss_input_event event = GNEISS_INPUT_EVENT_INIT;
-    input_result = granit_platform_->poll_input(event);
+    input_result = diagnostics::measure(diagnostics::loop_stage::input_events, [&]() noexcept {
+      return granit_platform_->poll_input(event);
+    });
     while (input_result == GNEISS_SUCCESS) {
       if (!input_.push(event)) {
         input_.clear_focus();
         return GNEISS_ERROR_INVALID_STATE;
       }
       event = GNEISS_INPUT_EVENT_INIT;
-      input_result = granit_platform_->poll_input(event);
+      input_result = diagnostics::measure(diagnostics::loop_stage::input_events, [&]() noexcept {
+        return granit_platform_->poll_input(event);
+      });
     }
     if (focus_lost) {
       input_.clear_focus();

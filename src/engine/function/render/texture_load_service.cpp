@@ -218,7 +218,8 @@ void texture_load_service::advance() {
 bool texture_load_service::advance_preparation(pending& value) {
   if (value.task.id != 0U) {
     std::vector<tasks::task_completion> results;
-    if (executor_.poll(scope_, results, 1U) == 0U) {
+    if (diagnostics::measure(diagnostics::loop_stage::task_collect,
+                             [&] { return executor_.poll(scope_, results, 1U); }) == 0U) {
       return false;
     }
     value.task = {};
@@ -239,7 +240,8 @@ bool texture_load_service::advance_preparation(pending& value) {
     return false;
   }
   if (!value.cpu->complete) {
-    const auto accepted = submit_preparation(value);
+    const auto accepted = diagnostics::measure(diagnostics::loop_stage::task_submit,
+                                               [&] { return submit_preparation(value); });
     if (accepted != tasks::submit_result::success && accepted != tasks::submit_result::full) {
       finish(GNEISS_ERROR_INVALID_STATE, texture_load_state::failed);
     }

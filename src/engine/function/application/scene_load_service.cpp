@@ -310,7 +310,8 @@ void scene_load_service::advance_verification(pending& value) {
   auto& progress = value.result.progress;
   if (value.task.id != 0U) {
     std::vector<tasks::task_completion> completions;
-    executor_.poll(scope_, completions);
+    diagnostics::measure(diagnostics::loop_stage::task_collect,
+                         [&] { return executor_.poll(scope_, completions); });
     if (completions.empty()) {
       return;
     }
@@ -335,7 +336,8 @@ void scene_load_service::advance_verification(pending& value) {
     value.result.verify_maximum_hash_ms = timings.maximum_hash_ms;
   }
   if (!value.cpu->verification_complete) {
-    const auto accepted = submit_verification();
+    const auto accepted = diagnostics::measure(diagnostics::loop_stage::task_submit,
+                                               [&] { return submit_verification(); });
     if (accepted != tasks::submit_result::success && accepted != tasks::submit_result::full) {
       finish(GNEISS_ERROR_INVALID_STATE, scene_load_phase::failed);
     }
@@ -356,7 +358,8 @@ void scene_load_service::advance_impl() {
   auto& progress = value.result.progress;
   if (value.preparing) {
     std::vector<tasks::task_completion> completions;
-    executor_.poll(scope_, completions);
+    diagnostics::measure(diagnostics::loop_stage::task_collect,
+                         [&] { return executor_.poll(scope_, completions); });
     if (completions.empty()) {
       return;
     }
@@ -433,7 +436,8 @@ void scene_load_service::advance_impl() {
   }
   if (progress.phase == scene_load_phase::assets) {
     if (value.cursor == value.requested.size()) {
-      const auto accepted = submit_verification();
+      const auto accepted = diagnostics::measure(diagnostics::loop_stage::task_submit,
+                                                 [&] { return submit_verification(); });
       if (accepted == tasks::submit_result::full) {
         return;
       }
