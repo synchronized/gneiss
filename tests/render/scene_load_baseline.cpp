@@ -465,6 +465,31 @@ int main(int argc, char** argv) try {
       (image.pixels != previous_image.pixels || retirement.live_resources != previous_resources)) {
     return 14;
   }
+  // 终态证明请求已清理，旧场景仍拥有其资源；失败后在同一 Application 内重新加载。
+  if (preserve &&
+      (!completion.progress.cleanup_complete || completion.progress.upload_reserved_bytes != 0U)) {
+    return 15;
+  }
+  double retry_ms{};
+  bool retried{};
+  if (scenario == "failure") {
+    const auto retry_start = clock_type::now();
+    if (preload_scene(app, scheduler, mode == "cooperative", uri, scene) != GNEISS_SUCCESS ||
+        app.run(60U) != gneiss::result::success) {
+      return 16;
+    }
+    retry_ms = milliseconds(retry_start);
+    gneiss::render_internal::frame_image retried_image;
+    if (gneiss::application_internal::capture_frame(app.get(), 1024U, 768U, retried_image) !=
+            GNEISS_SUCCESS ||
+        retried_image.pixels != previous_image.pixels ||
+        gneiss::application_internal::query_scene_retirement(app.get(), retirement) !=
+            GNEISS_SUCCESS ||
+        retirement.live_resources != previous_resources || retirement.pending) {
+      return 17;
+    }
+    retried = true;
+  }
   std::ofstream frames(prefix.string() + ".csv");
   frames << "elapsed_ms,presented_frame,latest_interval_ms,minimized\n";
   for (const auto& sample : render_samples) {
@@ -492,8 +517,10 @@ int main(int argc, char** argv) try {
          << ",\n  \"retirement_ms\": " << retirement.last_ms
          << ",\n  \"live_resources\": " << retirement.live_resources
          << ",\n  \"old_resources\": " << previous_resources << ",\n  \"cancel_ms\": " << cancel_ms
-         << ",\n  \"resizes\": " << resized << ",\n  \"restored\": " << restored
-         << ",\n  \"minimized\": " << minimized << ",\n  \"minimized_at_ms\": " << minimized_at_ms
+         << ",\n  \"retried\": " << (retried ? "true" : "false")
+         << ",\n  \"retry_ms\": " << retry_ms << ",\n  \"resizes\": " << resized
+         << ",\n  \"restored\": " << restored << ",\n  \"minimized\": " << minimized
+         << ",\n  \"minimized_at_ms\": " << minimized_at_ms
          << ",\n  \"prepare_ms\": " << completion.prepare_ms
          << ",\n  \"asset_prepare_ms\": " << completion.asset_prepare_ms
          << ",\n  \"verify_ms\": " << completion.verify_ms
@@ -522,8 +549,10 @@ int main(int argc, char** argv) try {
                  ? 0.0
                  : *std::ranges::max_element(minimized_event_intervals))
          << ",\n  \"phase_maximum_event_interval_ms\": {";
-  constexpr std::array phase_names{"preparing", "assets",  "verifying", "instantiating",
-                                   "ready",     "applied", "failed",    "cancelled"};
+  constexpr std::array phase_names{
+      "preparing", "assets",  "verifying", "instantiating",
+      "ready",     "applied", "failed",    "cancelled",
+  };
   for (std::size_t index = 0U; index < phase_names.size(); ++index) {
     if (index != 0U) {
       report << ',';

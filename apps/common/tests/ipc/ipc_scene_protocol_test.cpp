@@ -86,7 +86,7 @@ void run() {
                         replacement);
       envelope.payload.assign(malformed.begin(), malformed.end());
       check(decode_ipc_scene_progress(envelope, decoded) == result::invalid_argument);
-      check(!decoded.budget->cleanup_complete);
+      check(decoded.budget && !decoded.budget->cleanup_complete);
     }
     for (const auto* replacement : {"-1", "1.5", "null", "18446744073709551616"}) {
       auto malformed = encoded;
@@ -95,7 +95,7 @@ void run() {
       malformed.replace(begin, 20U, replacement);
       envelope.payload.assign(malformed.begin(), malformed.end());
       check(decode_ipc_scene_progress(envelope, decoded) == result::invalid_argument);
-      check(decoded.budget->candidate_logical_bytes == UINT64_MAX);
+      check(decoded.budget && decoded.budget->candidate_logical_bytes == UINT64_MAX);
     }
     progress.total = 65537U;
     check(encode_ipc_scene_progress(progress, 9U, envelope) == result::invalid_argument);
