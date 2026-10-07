@@ -5,7 +5,7 @@
 
 ## 状态
 
-2026-10-07，M-318 进行中。范围与约束见 [VER-050](VER-050-0.50.0-main-loop-latency.md)。
+2026-10-07，M-318 已完成宿主/引擎分段诊断及首次实际 Runtime 对照，重复基线与线程归因仍在进行。范围与约束见 [VER-050](VER-050-0.50.0-main-loop-latency.md)。
 初步观测及夹具修正记录见 [M-318](../records/M-318-main-loop-observation.md)。
 计划、实现和验收统一使用 feature/0.50-main-loop-latency 分支。
 
