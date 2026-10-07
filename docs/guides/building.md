@@ -408,9 +408,24 @@ Sponza 是显式下载的外部测试资产，不随仓库和源码 Release 分�
 Release 路径、可选 Debug 功能矩阵与输出目录参数；工具顺序运行两种模式，每配置三次，保存 JSON、呈现观测 CSV
 和 GPU 回读 PPM。输出目录必须不存在，资产缺失直接报错，不把缺少外部数据记为通过。
 性能门槛只检查 Release，两种执行模式均检查响应性。`--daily-assets`、`--full-assets`
-可指定现有 Cook 目录；五贴图夹具使用 `--expected-resources 505`，旧夹具默认 458。
+可指定现有 Cook 目录；默认资源数为 505，旧夹具需显式使用 `--expected-resources 458`。
 `--baseline docs/records/artifacts/0.49-baseline-release.json` 还会比较加载中位数、进程峰值与图像。
 资产身份和门槛见 [0.49 基线记录](../records/M-312-loading-stability-baseline.md)。
+
+诊断后台加载的长间隔时，可单独运行测量程序并追加 `trace`：
+
+```powershell
+./build/windows-clang-release/bin/gneiss_scene_load_baseline.exe <资产目录> <输出前缀> thread initial trace
+```
+
+输出前缀的父目录须存在。常规 JSON 额外记录样本数、P50/P99 和超过
+16.7/33.3/50/100 ms 的次数及比例；旧 P95/最大值定义保持。
+可选 `.loop.csv` 保存每次更新回调的起点、此前已观测场景阶段、回调总耗时、
+协作调度、场景推进及实际睡眠耗时。后三项嵌套于回调总耗时，不能相加后再加总耗时。
+`outside_callback_ms` 是直到下一回调的剩余时间，含渲染、下一轮事件处理和观测开销，
+尚不能归因于某个引擎调用；最后一行未闭合，使用 -1。墙钟耗时包含线程失去调度的时间。
+详细记录在测量完成后批量写出，默认关闭；开启时会增加内存与计时开销，须另作开关对照。
+宿主原有 `sleep_for(1 ms)` 保持，不能将移除等待导致的数字下降宣称为引擎优化。
 
 普通 CI 使用原创小夹具进行 GPU 像素、候选原子性与 IPC 生命周期回归，不下载数 GiB 的 Sponza。
 大场景结果与测量边界见 [0.42 验收记录](../records/M-273-278-0.42.0-validation.md)。

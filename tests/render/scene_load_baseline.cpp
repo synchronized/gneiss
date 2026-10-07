@@ -31,6 +31,26 @@ using clock_type = std::chrono::steady_clock;
 double milliseconds(clock_type::time_point start) {
   return std::chrono::duration<double, std::milli>(clock_type::now() - start).count();
 }
+// 仅诊断模式计时；墙钟耗时包含线程被系统暂停的时间，不等同于 CPU 执行时间。
+struct measured_scope {
+  double* output{};
+  clock_type::time_point start = output != nullptr ? clock_type::now() : clock_type::time_point{};
+  ~measured_scope() {
+    if (output != nullptr) {
+      *output += milliseconds(start);
+    }
+  }
+};
+struct loop_sample {
+  double start_ms{};
+  unsigned phase{};
+  double callback_ms{};
+  double scheduler_ms{};
+  double scene_poll_ms{};
+  double sleep_ms{};
+  // 直到下一次回调入口才能闭合，最后一行保持 -1。
+  double outside_callback_ms{-1.0};
+};
 std::uint64_t peak_resident_bytes() {
 #ifdef _WIN32
   PROCESS_MEMORY_COUNTERS counters{};
@@ -88,10 +108,14 @@ gneiss_result preload_scene(gneiss::application& app, gneiss::tasks::task_schedu
 
 // 显式运行的测量工具，不加入普通 CTest，缺少外部夹具不得当作通过。
 int main(int argc, char** argv) try {
-  if (argc < 3 || argc > 5) {
+  if (argc < 3 || argc > 6) {
     std::fprintf(stderr, "用法：scene_load_baseline <资产目录> <输出前缀> [thread|cooperative] "
                          "[initial|switch|repeat|interact|cancel-prepare|cancel-assets|cancel-gpu|"
-                         "cancel-verify|cancel-ready|failure|close]\n");
+                         "cancel-verify|cancel-ready|failure|close] [trace]\n");
+    return 2;
+  }
+  const bool trace_loop = argc == 6 && std::string_view(argv[5]) == "trace";
+  if (argc == 6 && !trace_loop) {
     return 2;
   }
   const auto root = std::filesystem::absolute(argv[1]).string();
@@ -100,7 +124,7 @@ int main(int argc, char** argv) try {
   if (mode != "sync" && mode != "thread" && mode != "cooperative") {
     return 2;
   }
-  const std::string_view scenario = argc == 5 ? argv[4] : "initial";
+  const std::string_view scenario = argc >= 5 ? argv[4] : "initial";
   if (scenario != "initial" && scenario != "switch" && scenario != "repeat" &&
       scenario != "interact" && scenario != "cancel-prepare" && scenario != "cancel-verify" &&
       scenario != "cancel-assets" && scenario != "cancel-gpu" && scenario != "cancel-ready" &&
@@ -237,6 +261,10 @@ int main(int argc, char** argv) try {
   const auto start = clock_type::now();
   auto result = GNEISS_SUCCESS;
   gneiss::application_internal::scene_load_completion completion;
+  std::vector<loop_sample> loop_samples;
+  if (trace_loop) {
+    loop_samples.reserve(65536U);
+  }
   std::vector<double> event_intervals;
   std::vector<double> minimized_event_intervals;
   std::array<double, 8> phase_maximum_intervals{};
@@ -258,6 +286,19 @@ int main(int argc, char** argv) try {
     auto previous = clock_type::now();
     auto deadline = previous + std::chrono::minutes(15);
     update = [&](gneiss_application handle) {
+      loop_sample* sample = nullptr;
+      if (trace_loop) {
+        const auto entered_ms = milliseconds(start);
+        if (!loop_samples.empty()) {
+          auto& prior = loop_samples.back();
+          prior.outside_callback_ms = entered_ms - prior.start_ms - prior.callback_ms;
+        }
+        loop_samples.push_back(
+            {.start_ms = entered_ms, .phase = static_cast<unsigned>(previous_phase)});
+        sample = &loop_samples.back();
+      }
+      const measured_scope callback_time{.output =
+                                             sample != nullptr ? &sample->callback_ms : nullptr};
       const bool currently_minimized = minimized && !restored;
       if (scene == GNEISS_NULL_SCENE_INSTANCE) {
         const auto interval = milliseconds(previous);
@@ -330,10 +371,14 @@ int main(int argc, char** argv) try {
         return gneiss_application_request_exit(handle);
       }
       if (mode == "cooperative") {
+        const measured_scope scheduler_time{.output = sample != nullptr ? &sample->scheduler_ms
+                                                                        : nullptr};
         (void)scheduler.run_ready();
       }
       bool finished{};
       if (result == GNEISS_SUCCESS) {
+        const measured_scope poll_time{.output =
+                                           sample != nullptr ? &sample->scene_poll_ms : nullptr};
         result = poll_scene_load(handle, completion, finished);
       }
       if (awaiting_cleanup && result == GNEISS_SUCCESS) {
@@ -349,7 +394,11 @@ int main(int argc, char** argv) try {
           scene = previous_scene;
           return gneiss_application_request_exit(handle);
         }
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        {
+          const measured_scope sleep_time{.output =
+                                              sample != nullptr ? &sample->sleep_ms : nullptr};
+          std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
         return result;
       }
       if (finished || result != GNEISS_SUCCESS) {
@@ -414,7 +463,10 @@ int main(int argc, char** argv) try {
           activation_elapsed_ms = milliseconds(start);
         }
       }
-      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+      {
+        const measured_scope sleep_time{.output = sample != nullptr ? &sample->sleep_ms : nullptr};
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+      }
       return GNEISS_SUCCESS;
     };
     if (result == GNEISS_SUCCESS) {
@@ -428,6 +480,22 @@ int main(int argc, char** argv) try {
     }
     update = {};
   }
+  const auto load_and_drain_ms = milliseconds(start);
+  const auto load_ms = mode == "sync" ? load_and_drain_ms : activation_elapsed_ms;
+
+  if (trace_loop) {
+    std::ofstream trace(prefix.string() + ".loop.csv");
+    trace << "start_ms,phase,callback_ms,scheduler_ms,scene_poll_ms,sleep_ms,outside_callback_ms\n";
+    trace << std::setprecision(10);
+    for (const auto& sample : loop_samples) {
+      trace << sample.start_ms << ',' << sample.phase << ',' << sample.callback_ms << ','
+            << sample.scheduler_ms << ',' << sample.scene_poll_ms << ',' << sample.sleep_ms << ','
+            << sample.outside_callback_ms << '\n';
+    }
+    if (!trace.good()) {
+      return 9;
+    }
+  }
   if (closed) {
     const auto closing_start = clock_type::now();
     app = gneiss::application{};
@@ -437,8 +505,6 @@ int main(int argc, char** argv) try {
            << ",\"retained_tasks\":" << scheduler.stats().retained << "}\n";
     return report.good() && scheduler.stats().retained == 0U ? 0 : 13;
   }
-  const auto load_and_drain_ms = milliseconds(start);
-  const auto load_ms = mode == "sync" ? load_and_drain_ms : activation_elapsed_ms;
   std::printf("scene_load result=%d milliseconds=%.3f peak_resident_bytes=%llu\n", result, load_ms,
               static_cast<unsigned long long>(peak_resident_bytes()));
   if (!completion.message.empty()) {
@@ -533,7 +599,33 @@ int main(int argc, char** argv) try {
   const auto event_p95 =
       event_intervals.empty() ? 0.0 : event_intervals[(event_intervals.size() - 1U) * 95U / 100U];
   const auto event_max = event_intervals.empty() ? 0.0 : event_intervals.back();
-  report << std::setprecision(10) << "{\n  \"load_ms\": " << load_ms << ",\n  \"mode\": \"" << mode
+  const auto event_percentile = [&](std::size_t percentile) {
+    return event_intervals.empty()
+               ? 0.0
+               : event_intervals[(event_intervals.size() - 1U) * percentile / 100U];
+  };
+  report << std::setprecision(10)
+         << "{\n  \"loop_trace_enabled\": " << (trace_loop ? "true" : "false")
+         << ",\n  \"event_interval_count\": " << event_intervals.size()
+         << ",\n  \"event_interval_p50_ms\": " << event_percentile(50U)
+         << ",\n  \"event_interval_p99_ms\": " << event_percentile(99U)
+         << ",\n  \"event_interval_exceedances\": [";
+  bool first_threshold = true;
+  for (const auto threshold : {16.7, 33.3, 50.0, 100.0}) {
+    const auto count = std::ranges::count_if(
+        event_intervals, [threshold](double interval) { return interval > threshold; });
+    if (!first_threshold) {
+      report << ',';
+    }
+    first_threshold = false;
+    report << "{\"threshold_ms\":" << threshold << ",\"count\":" << count << ",\"ratio\":"
+           << (event_intervals.empty()
+                   ? 0.0
+                   : static_cast<double>(count) / static_cast<double>(event_intervals.size()))
+           << '}';
+  }
+  report << "],\n";
+  report << std::setprecision(10) << "  \"load_ms\": " << load_ms << ",\n  \"mode\": \"" << mode
          << "\""
          << ",\n  \"scenario\": \"" << scenario << "\""
          << ",\n  \"load_and_drain_ms\": " << load_and_drain_ms
