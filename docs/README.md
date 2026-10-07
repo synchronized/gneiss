@@ -67,6 +67,7 @@
 ## 版本归档
 
 - [版本索引](versions/README.md)
+- [0.48.0：C++ SDK 可读性与调用一致性](versions/0.48.0.md)
 - [0.47.0：原生 C++ SDK 与公共头收口](versions/0.47.0.md)
 - [0.46.0：公共头目录整理](versions/0.46.0.md)
 - [0.45.0：内部 C++ 分层与完整 SDK](versions/0.45.0.md)
