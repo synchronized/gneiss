@@ -45,11 +45,14 @@ struct task_outcome {
 };
 class task_context final {
 public:
-  explicit task_context(const std::atomic_bool& cancelled) noexcept : cancelled_(cancelled) {}
+  explicit task_context(const std::atomic_bool& cancelled, bool worker_thread = false) noexcept
+      : cancelled_(cancelled), worker_thread_(worker_thread) {}
   [[nodiscard]] bool stop_requested() const noexcept { return cancelled_.load(); }
+  [[nodiscard]] bool allows_blocking_wait() const noexcept { return worker_thread_; }
 
 private:
   const std::atomic_bool& cancelled_;
+  bool worker_thread_;
 };
 struct task_description {
   std::string name{};

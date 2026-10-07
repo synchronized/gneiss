@@ -301,7 +301,8 @@ tasks::submit_result scene_load_service::submit_verification() {
           // 每个任务只复验一段；由宿主消费回执后继续提交，不嵌套驱动或增加线程。
           cpu->result = cpu->verification->advance(
               std::size_t{16U} * 1024U * 1024U, [&] { return context.stop_requested(); },
-              cpu->verification_complete);
+              cpu->verification_complete,
+              std::chrono::milliseconds(context.allows_blocking_wait() ? 4 : 0));
         }
         if (context.stop_requested()) {
           return tasks::task_outcome{.state = tasks::task_state::cancelled};

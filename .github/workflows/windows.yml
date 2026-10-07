@@ -48,6 +48,7 @@ jobs:
             -R '^gneiss\.installed_consumer$'
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -B scripts/performance/test_prepare_sponza.py
+          python -B scripts/performance/test_validate_runtime_loop.py
 
   msvc-runtime:
     runs-on: windows-2022

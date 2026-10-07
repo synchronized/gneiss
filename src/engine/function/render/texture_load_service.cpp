@@ -159,7 +159,8 @@ tasks::submit_result texture_load_service::submit_preparation(pending& value) {
         asset_diagnostic diagnostic;
         cpu->result = cpu->preparation->advance(
             std::size_t{16U} * 1024U * 1024U, [&] { return context.stop_requested(); }, cpu->batch,
-            diagnostic, cpu->complete);
+            diagnostic, cpu->complete,
+            std::chrono::milliseconds(context.allows_blocking_wait() ? 4 : 0));
         if (cpu->complete) {
           cpu->message = std::move(diagnostic.message);
           cpu->preparation.reset();

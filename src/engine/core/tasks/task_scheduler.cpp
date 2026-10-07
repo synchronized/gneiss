@@ -152,7 +152,8 @@ struct task_scheduler::implementation {
   void execute(const std::shared_ptr<task>& current, task_function function) {
     task_outcome outcome;
     try {
-      outcome = function(task_context{current->cancellation});
+      outcome = function(
+          task_context{current->cancellation, options.mode == execution_mode::thread_pool});
       if (!terminal(outcome.state) || outcome.state == task_state::dependency_failed) {
         outcome = {.state = task_state::failed, .error = "任务返回非法终态"};
       }

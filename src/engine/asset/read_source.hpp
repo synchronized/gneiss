@@ -6,6 +6,7 @@
 #include "engine/core/sha256.hpp"
 #include <gneiss/engine/core/result.h>
 
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -21,6 +22,16 @@ public:
   read_operation(const read_operation&) = delete;
   read_operation& operator=(const read_operation&) = delete;
   [[nodiscard]] virtual gneiss_result poll(std::span<const std::byte>& output) noexcept = 0;
+  /** 仅允许可阻塞的工作线程请求有限等待；零预算保持轮询。
+   * 默认后端不等待，返回 poll 结果；成功视图与 poll 相同，超时返回 NOT_READY。 */
+  [[nodiscard]] virtual gneiss_result wait_for(std::chrono::milliseconds timeout,
+                                               std::span<const std::byte>& output) noexcept {
+    if (timeout < std::chrono::milliseconds::zero()) {
+      output = {};
+      return GNEISS_ERROR_INVALID_ARGUMENT;
+    }
+    return poll(output);
+  }
 
 protected:
   read_operation() = default;

@@ -459,6 +459,9 @@ window_pump/window_events 区分平台事件泵与窗口队列接收，input_sta
 避免无进展时持续轮询。任务终态及渲染回执可提前结束等待；未接入原生窗口等待接口时，
 输入与 IPC 依靠截止期限重新轮询。实际唤醒可能受 OS 调度推迟，不能把 4 ms 当作实测上限。
 诊断新增 idle_wait_ms，属于完整循环时间的一部分；Headless、Web 和无线程配置不启用该等待。
+资产工作线程在异步区间读取未完成时，每次推进可在原生 I/O 完成事件上最多请求 4 ms 等待；
+协作模式不使用该等待，read_operation.poll 仍保持非阻塞。Runtime 的 task_statistics 日志记录
+主循环结束时的任务提交、完成与保留数，可用于区分有意义的工作和频繁续步。
 Windows 的 gneiss_main_loop_response 测试通过独立线程发送按键与任务；可指定 JSON 输出路径，
 再加参数 stall 注入一次 50 ms 主线程停顿，用于验证测量夹具自身。该小夹具不代替大资产交互验收。
 
@@ -471,6 +474,16 @@ python -X utf8 -B scripts/performance/measure_runtime_loop.py `
   --daily-project <日常工程目录> --full-project <完整工程目录> `
   --output build/runtime-cpu-baseline --repeat 3
 ```
+
+0.50 候选采样完成后，用冻结基线检查 CPU、吞吐、工作集和循环最大间隔；输出文件须尚不存在：
+
+```powershell
+python -X utf8 -B scripts/performance/validate_runtime_loop.py `
+  docs/records/artifacts/0.50-runtime-cpu-baseline.json `
+  build/runtime-cpu-baseline/summary.json --output build/runtime-cpu-gates.json
+```
+
+该检查不代替资产身份、窗口输入、生命周期与图像验收；缺少三次独立样本或报告未完成即失败。
 
 两个工程须已准备好 gneiss.project.json 与工程内资产；输出目录必须尚不存在。
 工具不生成或修改资产，不清理系统缓存，每组启动独立进程；测试期间不要并行构建或运行其他 GPU 测试。

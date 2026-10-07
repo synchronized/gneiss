@@ -87,6 +87,24 @@ public:
     }
     return result_;
   }
+  [[nodiscard]] gneiss_result wait_for(std::chrono::milliseconds timeout,
+                                       std::span<const std::byte>& output) noexcept override {
+    output = {};
+    if (timeout.count() < 0 || static_cast<std::uint64_t>(timeout.count()) >= INFINITE) {
+      return GNEISS_ERROR_INVALID_ARGUMENT;
+    }
+    if (pending_ && timeout.count() != 0) {
+      const auto waited =
+          WaitForSingleObject(overlapped_.hEvent, static_cast<DWORD>(timeout.count()));
+      if (waited == WAIT_TIMEOUT) {
+        return GNEISS_ERROR_NOT_READY;
+      }
+      if (waited != WAIT_OBJECT_0) {
+        return GNEISS_ERROR_IO;
+      }
+    }
+    return poll(output);
+  }
 
 private:
   std::shared_ptr<native_async_file> file_;

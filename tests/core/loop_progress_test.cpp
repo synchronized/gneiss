@@ -49,7 +49,11 @@ int main() try {
   task_handle failure;
   task_handle cancelled;
   const auto before = signal->snapshot();
-  const auto good = [](const task_context&) { return task_outcome{}; };
+  const auto good = [](const task_context& context) {
+    return task_outcome{
+        .state = context.allows_blocking_wait() ? task_state::failed : task_state::succeeded,
+    };
+  };
   if (scheduler.submit({.name = "success", .scope = scope, .notification = signal}, good,
                        success) != submit_result::success ||
       scheduler.submit(
@@ -77,6 +81,28 @@ int main() try {
       results[1].outcome.state != task_state::failed ||
       results[2].outcome.state != task_state::cancelled || !scheduler.close_scope(scope)) {
     return 7;
+  }
+  task_scheduler workers({.workers = 1U});
+  const auto worker_scope = workers.make_scope();
+  auto worker_signal = std::make_shared<gneiss::core::loop_progress>();
+  task_handle worker_task;
+  if (workers.submit(
+          {.scope = worker_scope, .notification = worker_signal},
+          [](const task_context& context) {
+            return task_outcome{
+                .state =
+                    context.allows_blocking_wait() ? task_state::succeeded : task_state::failed,
+            };
+          },
+          worker_task) != submit_result::success ||
+      !worker_signal->wait(0U, 2s)) {
+    return 9;
+  }
+  results.clear();
+  if (workers.poll(worker_scope, results) != 1U ||
+      results.front().outcome.state != task_state::succeeded ||
+      !workers.close_scope(worker_scope)) {
+    return 10;
   }
   return 0;
 } catch (...) {

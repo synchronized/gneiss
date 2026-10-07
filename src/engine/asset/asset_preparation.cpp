@@ -732,6 +732,7 @@ struct asset_preparation::state {
   bool read_complete{};
   bool selected{};
   bool deferred_reads{true};
+  std::chrono::milliseconds io_wait{};
   phase step{phase::select};
   gneiss_result result{GNEISS_SUCCESS};
   asset_diagnostic diagnostic;
@@ -813,7 +814,8 @@ struct asset_preparation::state {
           static_cast<std::size_t>(std::min<std::uint64_t>(budget, reader->size() - offset));
       std::span<const std::byte> chunk;
       const auto loaded =
-          slice.take(*reader, {.offset = offset, .size = count}, chunk, deferred_reads);
+          slice.take(*reader, {.offset = offset, .size = count}, chunk, deferred_reads,
+                     std::exchange(io_wait, std::chrono::milliseconds{}));
       if (loaded == GNEISS_ERROR_NOT_READY) {
         budget = 0U;
         return GNEISS_SUCCESS;
@@ -951,7 +953,8 @@ struct asset_preparation::state {
     case phase::decode:
       return decode();
     case phase::verify: {
-      const auto checked = verification->advance(budget, cancelled, complete);
+      const auto checked = verification->advance(
+          budget, cancelled, complete, std::exchange(io_wait, std::chrono::milliseconds{}));
       budget = 0U;
       if (checked != GNEISS_SUCCESS) {
         fail(diagnostic, checked, "", "准备期间源变化或请求取消");
@@ -1003,18 +1006,20 @@ asset_preparation::~asset_preparation() = default;
 gneiss_result asset_preparation::advance(std::size_t byte_budget,
                                          const std::function<bool()>& cancelled,
                                          prepared_batch& output, asset_diagnostic& diagnostic,
-                                         bool& complete) noexcept {
+                                         bool& complete,
+                                         std::chrono::milliseconds wait_budget) noexcept {
   complete = false;
   auto& value = *state_;
   if (value.step == state::phase::finished) {
     complete = true;
     return value.result;
   }
-  if (byte_budget == 0U) {
+  if (byte_budget == 0U || wait_budget < std::chrono::milliseconds::zero()) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
   try {
     if (value.result == GNEISS_SUCCESS) {
+      value.io_wait = wait_budget;
       value.result = value.advance(byte_budget, cancelled, complete);
     }
     if (value.result == GNEISS_SUCCESS && complete) {
