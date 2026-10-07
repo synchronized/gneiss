@@ -98,37 +98,9 @@ struct game_module_callbacks final {
 template <game_module_callbacks Callbacks> class game_module final {
 public:
   /** 显式构造 C 描述；仅借用 module_id，不进行校验。 */
-  [[nodiscard]] static gneiss_game_module_desc to_native(game_module_desc desc) noexcept {
-    gneiss_game_module_desc native{
-        .struct_size = sizeof(gneiss_game_module_desc),
-        .abi_version = desc.abi_version,
-        .module_id = desc.module_id.data(),
-        .module_id_length = desc.module_id.size(),
-        .initialize = nullptr,
-        .fixed_update = nullptr,
-        .update = nullptr,
-        .shutdown = nullptr,
-        .reserved = {},
-    };
-    // 不实例化缺失回调的桥接，避免编译器生成空函数指针调用。
-    if constexpr (Callbacks.initialize != nullptr) {
-      native.initialize = initialize;
-    }
-    if constexpr (Callbacks.fixed_update != nullptr) {
-      native.fixed_update = fixed_update;
-    }
-    if constexpr (Callbacks.update != nullptr) {
-      native.update = update;
-    }
-    if constexpr (Callbacks.shutdown != nullptr) {
-      native.shutdown = shutdown;
-    }
-    return native;
-  }
+  [[nodiscard]] static gneiss_game_module_desc to_native(game_module_desc desc) noexcept;
 
-  [[nodiscard]] static result validate(game_module_desc desc) noexcept {
-    return validate_game_module_native(to_native(desc));
-  }
+  [[nodiscard]] static result validate(game_module_desc desc) noexcept;
 
   /**
    * 用于固定 C 导出入口；失败保留输出。只写当前已知字段，不触碰调用方的扩展尾部。
@@ -136,66 +108,26 @@ public:
    */
   [[nodiscard]] static result export_query(std::uint32_t engine_abi_version,
                                            gneiss_game_module_desc* output,
-                                           game_module_desc desc) noexcept {
-    if (output == nullptr) {
-      return result::invalid_argument;
-    }
-    if (engine_abi_version != game_module_abi_version ||
-        output->struct_size < sizeof(gneiss_game_module_desc)) {
-      return result::unsupported;
-    }
-    auto native = to_native(desc);
-    const auto status = validate_game_module_native(native);
-    if (status.ok()) {
-      native.struct_size = output->struct_size;
-      *output = native;
-    }
-    return status;
-  }
+                                           game_module_desc desc) noexcept;
 
 private:
-  static gneiss_result initialize(gneiss_game_context context, void** output) noexcept {
-    if (output == nullptr) {
-      return result::invalid_argument.native();
-    }
-    void* state = nullptr;
-    const auto status = Callbacks.initialize(game_context{context}, state);
-    if (status.ok()) {
-      *output = state;
-    }
-    return status.native();
-  }
+  static gneiss_result initialize(gneiss_game_context context, void** output) noexcept;
 
   template <auto Callback>
   static gneiss_result invoke_update(gneiss_game_context context, void* state,
-                                     const gneiss_game_update_time* time) noexcept {
-    if (time == nullptr || time->struct_size < GNEISS_GAME_UPDATE_TIME_VERSION_1_SIZE ||
-        time->reserved != 0) {
-      return result::invalid_argument.native();
-    }
-    const game_update_time value{
-        .update_index = time->update_index,
-        .delta_ns = time->delta_ns,
-        .elapsed_ns = time->elapsed_ns,
-    };
-    return Callback(game_context{context}, state, value).native();
-  }
+                                     const gneiss_game_update_time* time) noexcept;
 
   static gneiss_result fixed_update(gneiss_game_context context, void* state,
-                                    const gneiss_game_update_time* time) noexcept {
-    return invoke_update<Callbacks.fixed_update>(context, state, time);
-  }
+                                    const gneiss_game_update_time* time) noexcept;
   static gneiss_result update(gneiss_game_context context, void* state,
-                              const gneiss_game_update_time* time) noexcept {
-    return invoke_update<Callbacks.update>(context, state, time);
-  }
-  static gneiss_result shutdown(gneiss_game_context context, void* state) noexcept {
-    return Callbacks.shutdown(game_context{context}, state).native();
-  }
+                              const gneiss_game_update_time* time) noexcept;
+  static gneiss_result shutdown(gneiss_game_context context, void* state) noexcept;
 };
 
 } // namespace gneiss
 
 #include <gneiss/engine/detail/game_context.inl>
+
+#include <gneiss/engine/detail/game_module.inl>
 
 #endif

@@ -25,6 +25,7 @@
 - [从 0.46 迁移到 0.47](guides/migrating-0.46-to-0.47.md)
 
 - [构建、测试与运行示例](guides/building.md)
+- [从 0.47 迁移到 0.48](guides/migrating-0.47-to-0.48.md)
 - [Application 与 World 的最小 C++ 示例](guides/application-world-example.md)
 - [从 0.9.0 迁移到 0.10.0](guides/migrating-0.9-to-0.10.md)
 - [从 0.10.0 迁移到 0.11.0](guides/migrating-0.10-to-0.11.md)
@@ -162,6 +163,7 @@
 ## 架构决策
 
 - [ADR-055：原生 C++ 公共类型与规范头路径](decisions/ADR-055-native-cpp-sdk.md)
+- [ADR-056：SDK 接口组织与调用约定](decisions/ADR-056-cpp-sdk-interface-and-adaptation.md)
 
 - [架构决策索引](decisions/README.md)
 - [ADR-001：Granit 依赖接入边界（已取代）](decisions/ADR-001-granit-dependency.md)
@@ -427,6 +429,8 @@
 - [M-295：资产面板的作者编辑命令](records/M-295-asset-scene-commands.md)
 - [M-295：资产面板与宿主操作分离](records/M-295-asset-browser-panel.md)
 - [M-295：作者层级树与拖拽请求](records/M-295-author-hierarchy-panel.md)
+
+- [M-311：0.48.0 SDK 整理与发布验收](records/M-311-0.48.0-sdk-validation.md)
 
 ## 文档维护
 

@@ -7,6 +7,11 @@
 
 ## 未发布
 
+- C++ SDK 的复杂 ABI 转换、回调桥接和资源关闭实现集中到随安装包分发的 detail 实现片段，模块头保留类型、接口与所有权结构。
+- 统一 World/Scene 包装的 const 操作约定；显式成员函数指针需适配 const，普通调用及 C ABI 保持。
+- 新增无窗口 Application/World 示例及双编译单元安装验证；稳定运行时示例改用原生 C++ 描述、Scene RAII 与输入操作。
+- 保留 result/输出参数、失败语义及回调寿命；未引入新运行时、插件或性能承诺。
+
 ## 0.47.0 - 2026-10-06
 
 - C++ SDK 改用独立原生描述、枚举、标志、默认值与 noexcept 回调，覆盖 Application、World、Scene、Render、Input、Reflection 和 Game Module。

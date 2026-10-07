@@ -35,14 +35,15 @@
 关闭、移动覆盖与父对象先销毁规则以 [Application](application.md#生命周期)、
 [Render](render.md)、[Scene](scene-instance.md) 和 [Reflection](reflection.md) 为准。
 
-## Application 与 World 样板
+## 接口组织与使用示例
 
 [最小示例](../guides/application-world-example.md)展示创建、实体变换、回调退出和关闭。
-Application、World、Input 和 Game Context 的公共操作与 inline 适配定义分开维护；`detail/*.inl` 自动包含并随安装包分发，
+Application、World、Input、Scene、Render、Reflection 与 Game Module 的复杂适配定义
+与公共声明分开维护；`detail/*.inl` 自动包含并随安装包分发，
 不是用户入口。错误码、输出参数和上述所有权契约不因组织调整而变化。
 
-`world_ref` 与 `application_ref` 的 const 约束视图自身，不表示后端对象只读；修改操作
-仍受所属线程和生命周期限制。World 原先未加 const 的操作现在统一为 const 成员，普通调用
+`world_ref`、`application_ref` 与场景包装的 const 约束视图自身，不表示后端对象只读；修改操作
+仍受所属线程和生命周期限制。World 与 Scene 原先未加 const 的操作现在统一为 const 成员，普通调用
 不变；显式保存这些成员函数指针的消费者需要更新指针类型。C ABI 不受影响。
 
 日志模块仅包含短值类型、构造与校验函数，保留在单个头内，避免无实际收益的拆分。
@@ -69,6 +70,9 @@ Application、Reflection 和 Game Module 原生回调使用 noexcept C++ 函数�
 
 公共 C ABI 当前没有异步请求拥有者或取消令牌，因此 SDK 不承诺析构等待任务、后台取消或自动注销。
 内部任务/资产服务的生命周期不因此成为公共 API。
+
+[0.48 迁移说明](../guides/migrating-0.47-to-0.48.md)记录安装实现片段与成员函数指针变化；
+组织决策见 [ADR-056](../decisions/ADR-056-cpp-sdk-interface-and-adaptation.md)。
 
 ## 审查依据
 

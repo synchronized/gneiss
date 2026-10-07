@@ -42,17 +42,25 @@ int run_tests() {
     return 20;
   }
   static constexpr std::array fields{
-      gneiss::field_desc{.id = gneiss::field_id{2U},
-                         .value_type_id = float_type,
-                         .flags = gneiss::field_flags::read_only,
-                         .name = "far_plane"},
-      gneiss::field_desc{.id = gneiss::field_id{1U},
-                         .value_type_id = float_type,
-                         .flags = gneiss::field_flags::none,
-                         .name = "field_of_view"},
+      gneiss::field_desc{
+          .id = gneiss::field_id{2U},
+          .value_type_id = float_type,
+          .flags = gneiss::field_flags::read_only,
+          .name = "far_plane",
+      },
+      gneiss::field_desc{
+          .id = gneiss::field_id{1U},
+          .value_type_id = float_type,
+          .flags = gneiss::field_flags::none,
+          .name = "field_of_view",
+      },
   };
   static constexpr gneiss::type_desc type{
-      .id = camera_type, .schema_version = 1U, .name = "Camera", .fields = fields};
+      .id = camera_type,
+      .schema_version = 1U,
+      .name = "Camera",
+      .fields = fields,
+  };
   if (registry.register_type(type) != gneiss::result::success ||
       registry.freeze() != gneiss::result::success) {
     return 2;
