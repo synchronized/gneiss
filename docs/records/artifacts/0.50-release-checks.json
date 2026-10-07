@@ -1,0 +1,1092 @@
+{
+  "status": "passed",
+  "scope": "候选77d9192的远端完整矩阵；不替代本地GPU/完整资产与后续夹具修改验收。",
+  "runs": [
+    {
+      "conclusion": "success",
+      "databaseId": 37650056766,
+      "headSha": "77d919229f330302e778724daa3112e40d4e89fb",
+      "jobs": [
+        {
+          "completedAt": "2026-10-07T16:24:56Z",
+          "conclusion": "success",
+          "databaseId": 112890732908,
+          "name": "installed-consumer (static)",
+          "startedAt": "2026-10-07T16:11:11Z",
+          "status": "completed",
+          "steps": [
+            {
+              "completedAt": "2026-10-07T16:11:12Z",
+              "conclusion": "success",
+              "name": "Set up job",
+              "number": 1,
+              "startedAt": "2026-10-07T16:11:11Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:11:29Z",
+              "conclusion": "success",
+              "name": "Run actions/checkout@v5",
+              "number": 2,
+              "startedAt": "2026-10-07T16:11:12Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:11:29Z",
+              "conclusion": "success",
+              "name": "选择 preset",
+              "number": 3,
+              "startedAt": "2026-10-07T16:11:29Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:24:52Z",
+              "conclusion": "success",
+              "name": "验证安装后 C/C++ Consumer",
+              "number": 4,
+              "startedAt": "2026-10-07T16:11:29Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:24:55Z",
+              "conclusion": "success",
+              "name": "Post Run actions/checkout@v5",
+              "number": 8,
+              "startedAt": "2026-10-07T16:24:52Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:24:55Z",
+              "conclusion": "success",
+              "name": "Complete job",
+              "number": 9,
+              "startedAt": "2026-10-07T16:24:55Z",
+              "status": "completed"
+            }
+          ],
+          "url": "https://github.com/synchronized/gneiss/actions/runs/37650056766/job/112890732908"
+        },
+        {
+          "completedAt": "2026-10-07T16:33:10Z",
+          "conclusion": "success",
+          "databaseId": 112890733268,
+          "name": "msvc-runtime (static)",
+          "startedAt": "2026-10-07T16:11:11Z",
+          "status": "completed",
+          "steps": [
+            {
+              "completedAt": "2026-10-07T16:11:13Z",
+              "conclusion": "success",
+              "name": "Set up job",
+              "number": 1,
+              "startedAt": "2026-10-07T16:11:12Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:11:36Z",
+              "conclusion": "success",
+              "name": "Run actions/checkout@v5",
+              "number": 2,
+              "startedAt": "2026-10-07T16:11:13Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:11:38Z",
+              "conclusion": "success",
+              "name": "启用 MSVC 编译缓存",
+              "number": 3,
+              "startedAt": "2026-10-07T16:11:36Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:11:38Z",
+              "conclusion": "success",
+              "name": "选择 preset",
+              "number": 4,
+              "startedAt": "2026-10-07T16:11:38Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:33:00Z",
+              "conclusion": "success",
+              "name": "配置、构建与测试",
+              "number": 5,
+              "startedAt": "2026-10-07T16:11:38Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:33:04Z",
+              "conclusion": "success",
+              "name": "Post 启用 MSVC 编译缓存",
+              "number": 9,
+              "startedAt": "2026-10-07T16:33:00Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:33:07Z",
+              "conclusion": "success",
+              "name": "Post Run actions/checkout@v5",
+              "number": 10,
+              "startedAt": "2026-10-07T16:33:04Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:33:07Z",
+              "conclusion": "success",
+              "name": "Complete job",
+              "number": 11,
+              "startedAt": "2026-10-07T16:33:07Z",
+              "status": "completed"
+            }
+          ],
+          "url": "https://github.com/synchronized/gneiss/actions/runs/37650056766/job/112890733268"
+        },
+        {
+          "completedAt": "2026-10-07T16:34:34Z",
+          "conclusion": "success",
+          "databaseId": 112890733309,
+          "name": "msvc-runtime (shared)",
+          "startedAt": "2026-10-07T16:11:11Z",
+          "status": "completed",
+          "steps": [
+            {
+              "completedAt": "2026-10-07T16:11:13Z",
+              "conclusion": "success",
+              "name": "Set up job",
+              "number": 1,
+              "startedAt": "2026-10-07T16:11:12Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:11:30Z",
+              "conclusion": "success",
+              "name": "Run actions/checkout@v5",
+              "number": 2,
+              "startedAt": "2026-10-07T16:11:13Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:11:31Z",
+              "conclusion": "success",
+              "name": "启用 MSVC 编译缓存",
+              "number": 3,
+              "startedAt": "2026-10-07T16:11:30Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:11:31Z",
+              "conclusion": "success",
+              "name": "选择 preset",
+              "number": 4,
+              "startedAt": "2026-10-07T16:11:31Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:34:24Z",
+              "conclusion": "success",
+              "name": "配置、构建与测试",
+              "number": 5,
+              "startedAt": "2026-10-07T16:11:31Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:34:28Z",
+              "conclusion": "success",
+              "name": "Post 启用 MSVC 编译缓存",
+              "number": 9,
+              "startedAt": "2026-10-07T16:34:24Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:34:31Z",
+              "conclusion": "success",
+              "name": "Post Run actions/checkout@v5",
+              "number": 10,
+              "startedAt": "2026-10-07T16:34:28Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:34:31Z",
+              "conclusion": "success",
+              "name": "Complete job",
+              "number": 11,
+              "startedAt": "2026-10-07T16:34:31Z",
+              "status": "completed"
+            }
+          ],
+          "url": "https://github.com/synchronized/gneiss/actions/runs/37650056766/job/112890733309"
+        },
+        {
+          "completedAt": "2026-10-07T16:24:35Z",
+          "conclusion": "success",
+          "databaseId": 112890733320,
+          "name": "installed-consumer (shared)",
+          "startedAt": "2026-10-07T16:11:12Z",
+          "status": "completed",
+          "steps": [
+            {
+              "completedAt": "2026-10-07T16:11:14Z",
+              "conclusion": "success",
+              "name": "Set up job",
+              "number": 1,
+              "startedAt": "2026-10-07T16:11:13Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:11:37Z",
+              "conclusion": "success",
+              "name": "Run actions/checkout@v5",
+              "number": 2,
+              "startedAt": "2026-10-07T16:11:14Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:11:38Z",
+              "conclusion": "success",
+              "name": "选择 preset",
+              "number": 3,
+              "startedAt": "2026-10-07T16:11:37Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:24:31Z",
+              "conclusion": "success",
+              "name": "验证安装后 C/C++ Consumer",
+              "number": 4,
+              "startedAt": "2026-10-07T16:11:38Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:24:33Z",
+              "conclusion": "success",
+              "name": "Post Run actions/checkout@v5",
+              "number": 8,
+              "startedAt": "2026-10-07T16:24:31Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:24:33Z",
+              "conclusion": "success",
+              "name": "Complete job",
+              "number": 9,
+              "startedAt": "2026-10-07T16:24:33Z",
+              "status": "completed"
+            }
+          ],
+          "url": "https://github.com/synchronized/gneiss/actions/runs/37650056766/job/112890733320"
+        }
+      ],
+      "status": "completed",
+      "url": "https://github.com/synchronized/gneiss/actions/runs/37650056766"
+    },
+    {
+      "conclusion": "success",
+      "databaseId": 37650064099,
+      "headSha": "77d919229f330302e778724daa3112e40d4e89fb",
+      "jobs": [
+        {
+          "completedAt": "2026-10-07T16:11:55Z",
+          "conclusion": "success",
+          "databaseId": 112890760487,
+          "name": "task-web",
+          "startedAt": "2026-10-07T16:11:15Z",
+          "status": "completed",
+          "steps": [
+            {
+              "completedAt": "2026-10-07T16:11:16Z",
+              "conclusion": "success",
+              "name": "Set up job",
+              "number": 1,
+              "startedAt": "2026-10-07T16:11:15Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:11:18Z",
+              "conclusion": "success",
+              "name": "Run actions/checkout@v5",
+              "number": 2,
+              "startedAt": "2026-10-07T16:11:16Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:11:45Z",
+              "conclusion": "success",
+              "name": "安装固定 Emscripten 工具链",
+              "number": 3,
+              "startedAt": "2026-10-07T16:11:18Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:11:51Z",
+              "conclusion": "success",
+              "name": "验证无线程浏览器调度",
+              "number": 4,
+              "startedAt": "2026-10-07T16:11:45Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:11:52Z",
+              "conclusion": "success",
+              "name": "Run actions/upload-artifact@v4",
+              "number": 5,
+              "startedAt": "2026-10-07T16:11:51Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:11:52Z",
+              "conclusion": "success",
+              "name": "Post Run actions/checkout@v5",
+              "number": 10,
+              "startedAt": "2026-10-07T16:11:52Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:11:52Z",
+              "conclusion": "success",
+              "name": "Complete job",
+              "number": 11,
+              "startedAt": "2026-10-07T16:11:52Z",
+              "status": "completed"
+            }
+          ],
+          "url": "https://github.com/synchronized/gneiss/actions/runs/37650064099/job/112890760487"
+        },
+        {
+          "completedAt": "2026-10-07T16:19:58Z",
+          "conclusion": "success",
+          "databaseId": 112890760771,
+          "name": "granit-runtime (shared)",
+          "startedAt": "2026-10-07T16:11:15Z",
+          "status": "completed",
+          "steps": [
+            {
+              "completedAt": "2026-10-07T16:11:16Z",
+              "conclusion": "success",
+              "name": "Set up job",
+              "number": 1,
+              "startedAt": "2026-10-07T16:11:15Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:11:40Z",
+              "conclusion": "success",
+              "name": "Initialize containers",
+              "number": 2,
+              "startedAt": "2026-10-07T16:11:16Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:11:52Z",
+              "conclusion": "success",
+              "name": "Run actions/checkout@v5",
+              "number": 3,
+              "startedAt": "2026-10-07T16:11:40Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:11:53Z",
+              "conclusion": "success",
+              "name": "恢复编译缓存",
+              "number": 4,
+              "startedAt": "2026-10-07T16:11:52Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:11:53Z",
+              "conclusion": "success",
+              "name": "恢复第三方依赖缓存",
+              "number": 5,
+              "startedAt": "2026-10-07T16:11:53Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:11:53Z",
+              "conclusion": "success",
+              "name": "选择 preset",
+              "number": 6,
+              "startedAt": "2026-10-07T16:11:53Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:18:35Z",
+              "conclusion": "success",
+              "name": "配置并构建 Granit 运行时",
+              "number": 7,
+              "startedAt": "2026-10-07T16:11:53Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:19:43Z",
+              "conclusion": "success",
+              "name": "运行无头窗口测试",
+              "number": 8,
+              "startedAt": "2026-10-07T16:18:35Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:19:45Z",
+              "conclusion": "success",
+              "name": "Run actions/upload-artifact@v4",
+              "number": 9,
+              "startedAt": "2026-10-07T16:19:43Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:19:45Z",
+              "conclusion": "success",
+              "name": "输出编译缓存统计",
+              "number": 10,
+              "startedAt": "2026-10-07T16:19:45Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:19:53Z",
+              "conclusion": "success",
+              "name": "Post 恢复第三方依赖缓存",
+              "number": 17,
+              "startedAt": "2026-10-07T16:19:45Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:19:55Z",
+              "conclusion": "success",
+              "name": "Post 恢复编译缓存",
+              "number": 18,
+              "startedAt": "2026-10-07T16:19:53Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:19:56Z",
+              "conclusion": "success",
+              "name": "Post Run actions/checkout@v5",
+              "number": 19,
+              "startedAt": "2026-10-07T16:19:55Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:19:56Z",
+              "conclusion": "success",
+              "name": "Stop containers",
+              "number": 20,
+              "startedAt": "2026-10-07T16:19:56Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:19:56Z",
+              "conclusion": "success",
+              "name": "Complete job",
+              "number": 21,
+              "startedAt": "2026-10-07T16:19:56Z",
+              "status": "completed"
+            }
+          ],
+          "url": "https://github.com/synchronized/gneiss/actions/runs/37650064099/job/112890760771"
+        },
+        {
+          "completedAt": "2026-10-07T16:14:14Z",
+          "conclusion": "success",
+          "databaseId": 112890760838,
+          "name": "core (clang, shared)",
+          "startedAt": "2026-10-07T16:11:14Z",
+          "status": "completed",
+          "steps": [
+            {
+              "completedAt": "2026-10-07T16:11:15Z",
+              "conclusion": "success",
+              "name": "Set up job",
+              "number": 1,
+              "startedAt": "2026-10-07T16:11:15Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:11:37Z",
+              "conclusion": "success",
+              "name": "Initialize containers",
+              "number": 2,
+              "startedAt": "2026-10-07T16:11:15Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:11:48Z",
+              "conclusion": "success",
+              "name": "Run actions/checkout@v5",
+              "number": 3,
+              "startedAt": "2026-10-07T16:11:37Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:11:49Z",
+              "conclusion": "success",
+              "name": "恢复编译缓存",
+              "number": 4,
+              "startedAt": "2026-10-07T16:11:48Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:11:49Z",
+              "conclusion": "success",
+              "name": "选择 preset",
+              "number": 5,
+              "startedAt": "2026-10-07T16:11:49Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:14:11Z",
+              "conclusion": "success",
+              "name": "配置、构建与测试",
+              "number": 6,
+              "startedAt": "2026-10-07T16:11:49Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:14:11Z",
+              "conclusion": "success",
+              "name": "输出编译缓存统计",
+              "number": 7,
+              "startedAt": "2026-10-07T16:14:11Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:14:12Z",
+              "conclusion": "success",
+              "name": "Post 恢复编译缓存",
+              "number": 12,
+              "startedAt": "2026-10-07T16:14:11Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:14:12Z",
+              "conclusion": "success",
+              "name": "Post Run actions/checkout@v5",
+              "number": 13,
+              "startedAt": "2026-10-07T16:14:12Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:14:13Z",
+              "conclusion": "success",
+              "name": "Stop containers",
+              "number": 14,
+              "startedAt": "2026-10-07T16:14:12Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:14:13Z",
+              "conclusion": "success",
+              "name": "Complete job",
+              "number": 15,
+              "startedAt": "2026-10-07T16:14:13Z",
+              "status": "completed"
+            }
+          ],
+          "url": "https://github.com/synchronized/gneiss/actions/runs/37650064099/job/112890760838"
+        },
+        {
+          "completedAt": "2026-10-07T16:15:48Z",
+          "conclusion": "success",
+          "databaseId": 112890760884,
+          "name": "core (clang, static)",
+          "startedAt": "2026-10-07T16:11:15Z",
+          "status": "completed",
+          "steps": [
+            {
+              "completedAt": "2026-10-07T16:11:16Z",
+              "conclusion": "success",
+              "name": "Set up job",
+              "number": 1,
+              "startedAt": "2026-10-07T16:11:15Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:11:45Z",
+              "conclusion": "success",
+              "name": "Initialize containers",
+              "number": 2,
+              "startedAt": "2026-10-07T16:11:16Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:11:58Z",
+              "conclusion": "success",
+              "name": "Run actions/checkout@v5",
+              "number": 3,
+              "startedAt": "2026-10-07T16:11:45Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:11:58Z",
+              "conclusion": "success",
+              "name": "恢复编译缓存",
+              "number": 4,
+              "startedAt": "2026-10-07T16:11:58Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:11:59Z",
+              "conclusion": "success",
+              "name": "选择 preset",
+              "number": 5,
+              "startedAt": "2026-10-07T16:11:58Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:15:43Z",
+              "conclusion": "success",
+              "name": "配置、构建与测试",
+              "number": 6,
+              "startedAt": "2026-10-07T16:11:59Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:15:43Z",
+              "conclusion": "success",
+              "name": "输出编译缓存统计",
+              "number": 7,
+              "startedAt": "2026-10-07T16:15:43Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:15:45Z",
+              "conclusion": "success",
+              "name": "Post 恢复编译缓存",
+              "number": 12,
+              "startedAt": "2026-10-07T16:15:43Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:15:46Z",
+              "conclusion": "success",
+              "name": "Post Run actions/checkout@v5",
+              "number": 13,
+              "startedAt": "2026-10-07T16:15:45Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:15:46Z",
+              "conclusion": "success",
+              "name": "Stop containers",
+              "number": 14,
+              "startedAt": "2026-10-07T16:15:46Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:15:46Z",
+              "conclusion": "success",
+              "name": "Complete job",
+              "number": 15,
+              "startedAt": "2026-10-07T16:15:46Z",
+              "status": "completed"
+            }
+          ],
+          "url": "https://github.com/synchronized/gneiss/actions/runs/37650064099/job/112890760884"
+        },
+        {
+          "completedAt": "2026-10-07T16:14:19Z",
+          "conclusion": "success",
+          "databaseId": 112890760917,
+          "name": "core (gcc, static)",
+          "startedAt": "2026-10-07T16:11:15Z",
+          "status": "completed",
+          "steps": [
+            {
+              "completedAt": "2026-10-07T16:11:16Z",
+              "conclusion": "success",
+              "name": "Set up job",
+              "number": 1,
+              "startedAt": "2026-10-07T16:11:15Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:11:37Z",
+              "conclusion": "success",
+              "name": "Initialize containers",
+              "number": 2,
+              "startedAt": "2026-10-07T16:11:16Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:11:47Z",
+              "conclusion": "success",
+              "name": "Run actions/checkout@v5",
+              "number": 3,
+              "startedAt": "2026-10-07T16:11:37Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:11:47Z",
+              "conclusion": "success",
+              "name": "恢复编译缓存",
+              "number": 4,
+              "startedAt": "2026-10-07T16:11:47Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:11:47Z",
+              "conclusion": "success",
+              "name": "选择 preset",
+              "number": 5,
+              "startedAt": "2026-10-07T16:11:47Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:14:15Z",
+              "conclusion": "success",
+              "name": "配置、构建与测试",
+              "number": 6,
+              "startedAt": "2026-10-07T16:11:47Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:14:15Z",
+              "conclusion": "success",
+              "name": "输出编译缓存统计",
+              "number": 7,
+              "startedAt": "2026-10-07T16:14:15Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:14:16Z",
+              "conclusion": "success",
+              "name": "Post 恢复编译缓存",
+              "number": 12,
+              "startedAt": "2026-10-07T16:14:15Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:14:17Z",
+              "conclusion": "success",
+              "name": "Post Run actions/checkout@v5",
+              "number": 13,
+              "startedAt": "2026-10-07T16:14:16Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:14:17Z",
+              "conclusion": "success",
+              "name": "Stop containers",
+              "number": 14,
+              "startedAt": "2026-10-07T16:14:17Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:14:17Z",
+              "conclusion": "success",
+              "name": "Complete job",
+              "number": 15,
+              "startedAt": "2026-10-07T16:14:17Z",
+              "status": "completed"
+            }
+          ],
+          "url": "https://github.com/synchronized/gneiss/actions/runs/37650064099/job/112890760917"
+        },
+        {
+          "completedAt": "2026-10-07T16:14:25Z",
+          "conclusion": "success",
+          "databaseId": 112890760983,
+          "name": "sanitizer-runtime",
+          "startedAt": "2026-10-07T16:11:15Z",
+          "status": "completed",
+          "steps": [
+            {
+              "completedAt": "2026-10-07T16:11:16Z",
+              "conclusion": "success",
+              "name": "Set up job",
+              "number": 1,
+              "startedAt": "2026-10-07T16:11:16Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:11:41Z",
+              "conclusion": "success",
+              "name": "Initialize containers",
+              "number": 2,
+              "startedAt": "2026-10-07T16:11:16Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:11:59Z",
+              "conclusion": "success",
+              "name": "Run actions/checkout@v5",
+              "number": 3,
+              "startedAt": "2026-10-07T16:11:41Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:14:19Z",
+              "conclusion": "success",
+              "name": "配置并构建 Sanitizer 运行时",
+              "number": 4,
+              "startedAt": "2026-10-07T16:11:59Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:14:21Z",
+              "conclusion": "success",
+              "name": "检查内存错误与退出泄漏",
+              "number": 5,
+              "startedAt": "2026-10-07T16:14:19Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:14:21Z",
+              "conclusion": "success",
+              "name": "Post Run actions/checkout@v5",
+              "number": 9,
+              "startedAt": "2026-10-07T16:14:21Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:14:23Z",
+              "conclusion": "success",
+              "name": "Stop containers",
+              "number": 10,
+              "startedAt": "2026-10-07T16:14:21Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:14:23Z",
+              "conclusion": "success",
+              "name": "Complete job",
+              "number": 11,
+              "startedAt": "2026-10-07T16:14:23Z",
+              "status": "completed"
+            }
+          ],
+          "url": "https://github.com/synchronized/gneiss/actions/runs/37650064099/job/112890760983"
+        },
+        {
+          "completedAt": "2026-10-07T16:15:51Z",
+          "conclusion": "success",
+          "databaseId": 112890761008,
+          "name": "core (gcc, shared)",
+          "startedAt": "2026-10-07T16:11:14Z",
+          "status": "completed",
+          "steps": [
+            {
+              "completedAt": "2026-10-07T16:11:16Z",
+              "conclusion": "success",
+              "name": "Set up job",
+              "number": 1,
+              "startedAt": "2026-10-07T16:11:15Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:11:35Z",
+              "conclusion": "success",
+              "name": "Initialize containers",
+              "number": 2,
+              "startedAt": "2026-10-07T16:11:16Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:11:49Z",
+              "conclusion": "success",
+              "name": "Run actions/checkout@v5",
+              "number": 3,
+              "startedAt": "2026-10-07T16:11:35Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:11:50Z",
+              "conclusion": "success",
+              "name": "恢复编译缓存",
+              "number": 4,
+              "startedAt": "2026-10-07T16:11:49Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:11:50Z",
+              "conclusion": "success",
+              "name": "选择 preset",
+              "number": 5,
+              "startedAt": "2026-10-07T16:11:50Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:15:46Z",
+              "conclusion": "success",
+              "name": "配置、构建与测试",
+              "number": 6,
+              "startedAt": "2026-10-07T16:11:50Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:15:46Z",
+              "conclusion": "success",
+              "name": "输出编译缓存统计",
+              "number": 7,
+              "startedAt": "2026-10-07T16:15:46Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:15:48Z",
+              "conclusion": "success",
+              "name": "Post 恢复编译缓存",
+              "number": 12,
+              "startedAt": "2026-10-07T16:15:46Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:15:48Z",
+              "conclusion": "success",
+              "name": "Post Run actions/checkout@v5",
+              "number": 13,
+              "startedAt": "2026-10-07T16:15:48Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:15:49Z",
+              "conclusion": "success",
+              "name": "Stop containers",
+              "number": 14,
+              "startedAt": "2026-10-07T16:15:48Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:15:49Z",
+              "conclusion": "success",
+              "name": "Complete job",
+              "number": 15,
+              "startedAt": "2026-10-07T16:15:49Z",
+              "status": "completed"
+            }
+          ],
+          "url": "https://github.com/synchronized/gneiss/actions/runs/37650064099/job/112890761008"
+        },
+        {
+          "completedAt": "2026-10-07T16:19:07Z",
+          "conclusion": "success",
+          "databaseId": 112890761020,
+          "name": "granit-runtime (static)",
+          "startedAt": "2026-10-07T16:11:14Z",
+          "status": "completed",
+          "steps": [
+            {
+              "completedAt": "2026-10-07T16:11:16Z",
+              "conclusion": "success",
+              "name": "Set up job",
+              "number": 1,
+              "startedAt": "2026-10-07T16:11:15Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:11:40Z",
+              "conclusion": "success",
+              "name": "Initialize containers",
+              "number": 2,
+              "startedAt": "2026-10-07T16:11:16Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:11:50Z",
+              "conclusion": "success",
+              "name": "Run actions/checkout@v5",
+              "number": 3,
+              "startedAt": "2026-10-07T16:11:40Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:11:51Z",
+              "conclusion": "success",
+              "name": "恢复编译缓存",
+              "number": 4,
+              "startedAt": "2026-10-07T16:11:50Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:11:51Z",
+              "conclusion": "success",
+              "name": "恢复第三方依赖缓存",
+              "number": 5,
+              "startedAt": "2026-10-07T16:11:51Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:11:51Z",
+              "conclusion": "success",
+              "name": "选择 preset",
+              "number": 6,
+              "startedAt": "2026-10-07T16:11:51Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:18:00Z",
+              "conclusion": "success",
+              "name": "配置并构建 Granit 运行时",
+              "number": 7,
+              "startedAt": "2026-10-07T16:11:51Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:18:50Z",
+              "conclusion": "success",
+              "name": "运行无头窗口测试",
+              "number": 8,
+              "startedAt": "2026-10-07T16:18:00Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:18:51Z",
+              "conclusion": "success",
+              "name": "Run actions/upload-artifact@v4",
+              "number": 9,
+              "startedAt": "2026-10-07T16:18:50Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:18:51Z",
+              "conclusion": "success",
+              "name": "输出编译缓存统计",
+              "number": 10,
+              "startedAt": "2026-10-07T16:18:51Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:19:02Z",
+              "conclusion": "success",
+              "name": "Post 恢复第三方依赖缓存",
+              "number": 17,
+              "startedAt": "2026-10-07T16:18:51Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:19:04Z",
+              "conclusion": "success",
+              "name": "Post 恢复编译缓存",
+              "number": 18,
+              "startedAt": "2026-10-07T16:19:02Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:19:05Z",
+              "conclusion": "success",
+              "name": "Post Run actions/checkout@v5",
+              "number": 19,
+              "startedAt": "2026-10-07T16:19:04Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:19:05Z",
+              "conclusion": "success",
+              "name": "Stop containers",
+              "number": 20,
+              "startedAt": "2026-10-07T16:19:05Z",
+              "status": "completed"
+            },
+            {
+              "completedAt": "2026-10-07T16:19:05Z",
+              "conclusion": "success",
+              "name": "Complete job",
+              "number": 21,
+              "startedAt": "2026-10-07T16:19:05Z",
+              "status": "completed"
+            }
+          ],
+          "url": "https://github.com/synchronized/gneiss/actions/runs/37650064099/job/112890761020"
+        }
+      ],
+      "status": "completed",
+      "url": "https://github.com/synchronized/gneiss/actions/runs/37650064099"
+    }
+  ]
+}
