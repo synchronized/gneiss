@@ -90,3 +90,22 @@ IPC 断连测试使用不读取的可控对端：确认发送积压后主动复�
 thread 终态 14.87 ms、实际清理 675.03 ms；cooperative 终态 13.07 ms、实际清理 501.44 ms。
 两者均明确观测到清理中状态，最终上传预留为零、553 节点/505 资源、旧图像摘要与基线一致。
 该结果覆盖 GPU 上传阶段取消，不能替代其余生命周期矩阵。
+
+
+## 生命周期复现入口
+
+`scripts/performance/measure_scene_lifecycle.py` 顺序启动测量进程并按冻结门槛判断，
+默认覆盖 thread/cooperative 的连续切换、五个取消阶段、失败重试、窗口操作与关闭。
+输出目录必须不存在；失败保留 JSON、日志与图像，不会继续运行或混入旧样本。
+例如在 Windows Release 构建后：
+
+```powershell
+python -X utf8 -B scripts/performance/measure_scene_lifecycle.py `
+  build/windows-clang-release/bin/gneiss_scene_load_baseline.exe `
+  D:/sunday/workspace/asset-cache/intel-sponza/0.44-full-cooked `
+  --output build/0.49-lifecycle-reproduction
+```
+
+可通过 `--modes thread`、`--scenarios cancel-gpu` 缩小复验范围；
+`--image-sha256` 指定同一输入和视角的基线摘要。Debug 使用 `--functional-only`，
+其结果只证明功能，不能计为 Release 性能门槛通过。测量期间不并行构建或其他 GPU 测试。
