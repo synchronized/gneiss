@@ -63,6 +63,7 @@ struct asset_budget_view final {
   std::uint64_t upload = 0U;
   std::uint64_t peak_upload = 0U;
   bool cleanup_complete = false;
+  bool cleanup_pending = false;
 };
 
 struct asset_scene_load_view final {

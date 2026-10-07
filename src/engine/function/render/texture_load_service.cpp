@@ -297,12 +297,14 @@ void texture_load_service::advance_impl() {
     value.in_flight = false;
     value.upload_reserved_bytes = 0U;
     if (value.discarding) {
-      finish(value.failure, texture_load_state::failed);
+      finish(value.failure,
+             value.cancelled ? texture_load_state::cancelled : texture_load_state::failed);
       return;
     }
     if (result != GNEISS_SUCCESS) {
       if (value.completed_uploads == 0U) {
-        finish(result, texture_load_state::failed);
+        finish(result,
+               value.cancelled ? texture_load_state::cancelled : texture_load_state::failed);
         return;
       }
       value.failure = result;
@@ -312,6 +314,9 @@ void texture_load_service::advance_impl() {
         value.completion.upload_ms += backend_.elapsed_ms();
       }
     }
+  }
+  if (value.cancelled) {
+    value.failure = GNEISS_ERROR_INVALID_STATE;
   }
   if (value.failure != GNEISS_SUCCESS) {
     const auto result = backend_.discard(value.data, value.upload);
@@ -403,6 +408,15 @@ bool texture_load_service::cancel() {
     return true;
   }
   return false;
+}
+bool texture_load_service::cancel_unpublished() {
+  check_owner();
+  if (!pending_) {
+    return false;
+  }
+  pending_->cancelled = true;
+  (void)executor_.cancel(pending_->task);
+  return true;
 }
 void texture_load_service::request_stop() {
   stopping_ = true;

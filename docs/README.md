@@ -167,6 +167,7 @@
 ## 架构决策
 
 - [ADR-057：资产准备的显式分步执行](decisions/ADR-057-incremental-asset-preparation.md)
+- [ADR-058：场景取消终态与资源清理](decisions/ADR-058-scene-cancellation-cleanup.md)
 
 - [ADR-055：原生 C++ 公共类型与规范头路径](decisions/ADR-055-native-cpp-sdk.md)
 - [ADR-056：SDK 接口组织与调用约定](decisions/ADR-056-cpp-sdk-interface-and-adaptation.md)

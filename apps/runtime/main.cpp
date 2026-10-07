@@ -66,6 +66,7 @@ struct runtime_context final {
   gneiss::runtime_internal::runtime_scene_loader* scene_loader{};
   std::uint64_t next_scene_progress_ns{};
   bool scene_terminal_sent{};
+  bool scene_cleanup_sent{};
   bool smoke{};
   std::uint32_t smoke_frames{};
   bool scene_failed{};
@@ -284,6 +285,7 @@ gneiss_result update_runtime(gneiss_application application, const gneiss_frame_
           return gneiss::to_native(sent);
       } else {
         context.scene_terminal_sent = false;
+        context.scene_cleanup_sent = false;
         context.next_scene_progress_ns = 0U;
       }
     }
@@ -410,15 +412,20 @@ gneiss_result update_runtime(gneiss_application application, const gneiss_frame_
                          progress.source.uri);
     }
     const bool terminal = gneiss::scene_phase_terminal(progress.phase);
-    if (!terminal)
+    if (!terminal) {
       context.scene_terminal_sent = false;
+      context.scene_cleanup_sent = false;
+    }
+    const bool cleaned = progress.budget && progress.budget->cleanup_complete;
     if (context.ipc_session && time->elapsed_ns >= context.next_scene_progress_ns &&
-        (!terminal || !context.scene_terminal_sent)) {
-      const auto sent =
-          context.ipc_session->notify_scene_progress(progress, context.scene_loader->request_id());
+        (!terminal || !context.scene_terminal_sent || (cleaned && !context.scene_cleanup_sent))) {
+      const auto sent = context.ipc_session->notify_scene_progress(
+          progress,
+          terminal && context.scene_terminal_sent ? 0U : context.scene_loader->request_id());
       if (sent == gneiss::result::success) {
         context.next_scene_progress_ns = time->elapsed_ns + UINT64_C(100000000);
         context.scene_terminal_sent = terminal;
+        context.scene_cleanup_sent = cleaned;
       } else if (sent != gneiss::result::not_ready)
         return gneiss::to_native(sent);
     }

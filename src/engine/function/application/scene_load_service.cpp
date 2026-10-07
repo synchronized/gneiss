@@ -76,6 +76,7 @@ struct scene_load_service::pending {
   bool preparing{true};
   bool batch_pending{};
   bool cancelled{};
+  bool cancellation_reported{};
 };
 
 scene_load_service::scene_load_service(tasks::task_executor& executor,
@@ -91,6 +92,9 @@ scene_load_service::scene_load_service(tasks::task_executor& executor,
 scene_load_service::~scene_load_service() {
   if (pending_) {
     pending_->source_stop.request_stop();
+    if (pending_->assets) {
+      (void)pending_->assets->cancel_unpublished();
+    }
   }
   executor_.cancel_scope(scope_);
   (void)executor_.close_scope(scope_);
@@ -142,6 +146,7 @@ gneiss_result scene_load_service::submit(std::string_view uri, std::uint64_t ses
                                                   : GNEISS_ERROR_INVALID_STATE;
   }
   request = next->result.progress.request;
+  cleanup_snapshot_.reset();
   pending_ = std::move(next);
   return GNEISS_SUCCESS;
 }
@@ -161,6 +166,9 @@ bool scene_load_service::progress(scene_load_progress& value) const {
   check_owner();
   if (pending_) {
     value = pending_->result.progress;
+    if (pending_->cancellation_reported) {
+      value.phase = scene_load_phase::cancelled;
+    }
     sample_budget(value);
     render_internal::asset_load_progress child;
     value.gpu_in_flight = pending_->assets && pending_->assets->progress(child) &&
@@ -169,6 +177,10 @@ bool scene_load_service::progress(scene_load_progress& value) const {
   }
   if (completed_) {
     value = completed_->progress;
+    return true;
+  }
+  if (cleanup_snapshot_) {
+    value = *cleanup_snapshot_;
     return true;
   }
   return false;
@@ -183,7 +195,19 @@ bool scene_load_service::cancel(std::uint64_t request) {
   pending_->result.progress.can_cancel = false;
   (void)executor_.cancel(pending_->task);
   if (pending_->assets) {
-    (void)pending_->assets->cancel();
+    (void)pending_->assets->cancel_unpublished();
+    render_internal::asset_load_progress child;
+    if (!pending_->cancellation_reported && pending_->assets->progress(child) &&
+        child.state == render_internal::texture_load_state::uploading) {
+      completed_.emplace(pending_->result);
+      pending_->cancellation_reported = true;
+      pending_->result.progress.cleanup_pending = true;
+      completed_->result = GNEISS_ERROR_INVALID_STATE;
+      completed_->progress.phase = scene_load_phase::cancelled;
+      completed_->progress.cleanup_pending = true;
+      completed_->progress.gpu_in_flight = true;
+      sample_budget(completed_->progress);
+    }
   }
   return true;
 }
@@ -193,14 +217,23 @@ void scene_load_service::finish(gneiss_result result, scene_load_phase phase, st
   pending_->result.progress.can_cancel = false;
   pending_->result.message = std::move(message);
   sample_budget(pending_->result.progress);
-  completed_ = std::move(pending_->result);
+  const bool reported = pending_->cancellation_reported;
+  auto completion = std::move(pending_->result);
   const auto cleanup_started = clock_type::now();
   pending_.reset();
   // 候选分项保留结束前的诊断值，Application/上传账本必须在请求销毁后采样。
-  sample_budget(completed_->progress);
-  completed_->progress.gpu_in_flight = false;
-  completed_->progress.cleanup_complete = true;
-  completed_->cleanup_ms = elapsed(cleanup_started);
+  sample_budget(completion.progress);
+  completion.progress.gpu_in_flight = false;
+  completion.progress.cleanup_complete = true;
+  completion.progress.cleanup_pending = false;
+  completion.cleanup_ms = elapsed(cleanup_started);
+  if (reported) {
+    cleanup_snapshot_ = completion.progress;
+  }
+  // 已消费取消终态的调用者通过进度取得清理快照，不再投递第二个终态。
+  if (!reported || completed_) {
+    completed_ = std::move(completion);
+  }
 }
 bool scene_load_service::take(scene_load_completion& result) {
   check_owner();

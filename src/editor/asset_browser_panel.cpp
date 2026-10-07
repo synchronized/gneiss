@@ -179,6 +179,9 @@ void draw_scene_status(const asset_browser_view& view, const panel_buttons& butt
       if (budget.cleanup_complete) {
         ImGui::TextUnformatted("Request cleanup complete; other live resources may remain");
       }
+      if (budget.cleanup_pending) {
+        ImGui::TextUnformatted("Cancelled; waiting for resource cleanup");
+      }
     }
     if (!scene.message.empty()) {
       wrapped(scene.message);

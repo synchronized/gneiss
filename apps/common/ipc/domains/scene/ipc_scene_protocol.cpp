@@ -56,6 +56,15 @@ bool read_budget(yyjson_val* budget, ipc_scene_budget& parsed) {
     }
     parsed.cleanup_complete = yyjson_get_bool(cleanup);
   }
+  if (auto* pending = yyjson_obj_get(budget, "cleanup_pending")) {
+    if (!yyjson_is_bool(pending)) {
+      return false;
+    }
+    parsed.cleanup_pending = yyjson_get_bool(pending);
+  }
+  if (parsed.cleanup_complete && parsed.cleanup_pending) {
+    return false;
+  }
   return true;
 }
 bool valid_source(const ipc_scene_request& value) {
@@ -66,7 +75,8 @@ bool valid_source(const ipc_scene_request& value) {
 bool valid_progress(const ipc_scene_progress& value) {
   return valid_source(value.source) && static_cast<std::size_t>(value.phase) < phases.size() &&
          value.total <= 65536U && value.completed <= value.total && value.message.size() <= 4096U &&
-         (!value.can_cancel || !scene_phase_terminal(value.phase));
+         (!value.can_cancel || !scene_phase_terminal(value.phase)) &&
+         (!value.budget || !value.budget->cleanup_pending || !value.budget->cleanup_complete);
 }
 constexpr auto request_kind = ipc_kind_mask(ipc_message_kind::request);
 constexpr auto event_kind = ipc_kind_mask(ipc_message_kind::event);
@@ -87,6 +97,18 @@ constexpr std::array operations{
         .runtime_to_editor_kinds = event_kind,
     },
 };
+}
+bool apply_scene_cleanup_update(ipc_scene_progress& current,
+                                const ipc_scene_progress& incoming) noexcept {
+  if (current.phase != ipc_scene_phase::cancelled || incoming.phase != current.phase ||
+      current.source.session != incoming.source.session ||
+      current.source.revision != incoming.source.revision ||
+      current.source.uri != incoming.source.uri || !current.budget ||
+      !current.budget->cleanup_pending || !incoming.budget || !incoming.budget->cleanup_complete ||
+      incoming.budget->cleanup_pending)
+    return false;
+  current.budget = incoming.budget;
+  return true;
 }
 bool scene_phase_terminal(ipc_scene_phase phase) noexcept {
   return phase == ipc_scene_phase::applied || phase == ipc_scene_phase::failed ||
@@ -194,7 +216,9 @@ result encode_ipc_scene_progress(const ipc_scene_progress& value, std::uint32_t 
         !yyjson_mut_obj_add_uint(doc.get(), budget, "peak_upload_bytes",
                                  value.budget->peak_upload_bytes) ||
         !yyjson_mut_obj_add_bool(doc.get(), budget, "cleanup_complete",
-                                 value.budget->cleanup_complete)) {
+                                 value.budget->cleanup_complete) ||
+        !yyjson_mut_obj_add_bool(doc.get(), budget, "cleanup_pending",
+                                 value.budget->cleanup_pending)) {
       return result::out_of_memory;
     }
   }

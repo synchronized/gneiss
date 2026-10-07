@@ -41,6 +41,8 @@ struct scene_load_progress {
   std::uint64_t upload_reserved_bytes{};
   /** 失败/取消后请求容器与上传租约已释放；不表示活动场景或旧帧占用归零。 */
   bool cleanup_complete{};
+  /** 取消已确认，但上传回执与候选清理仍在推进；此时不得重试。 */
+  bool cleanup_pending{};
 };
 struct scene_load_completion {
   scene_load_progress progress;
@@ -103,6 +105,7 @@ private:
   render_internal::texture_upload_backend backend_;
   std::unique_ptr<pending> pending_;
   std::optional<scene_load_completion> completed_;
+  std::optional<scene_load_progress> cleanup_snapshot_;
   std::uint64_t sequence_{};
   const std::thread::id owner_{std::this_thread::get_id()};
 };

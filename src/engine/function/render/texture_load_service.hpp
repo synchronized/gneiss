@@ -83,6 +83,8 @@ public:
   [[nodiscard]] bool take(texture_load_completion& output);
   /** 提交许可前取消；已进入 GPU 阶段的批次完成或回滚。 */
   bool cancel();
+  /** 隔离场景候选专用：停止后续上传，等待在途回执并回滚，完成清理前不报告终态。 */
+  bool cancel_unpublished();
   void request_stop();
   [[nodiscard]] bool stopped() const;
 

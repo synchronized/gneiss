@@ -54,6 +54,55 @@ struct fixture {
     std::filesystem::remove_all(root, ignored);
   }
 };
+void cancel_drain(tasks::execution_mode mode) {
+  fixture files;
+  tasks::task_scheduler scheduler({.workers = 1U, .mode = mode});
+  application app;
+  auto desc = gneiss_application_desc GNEISS_APPLICATION_DESC_INIT;
+  const auto root = files.root.string();
+  desc.asset_root = root.data();
+  desc.asset_root_length = static_cast<std::uint32_t>(root.size());
+  check(application::create_native(desc, app) == result::success);
+  check(attach_task_executor(app.get(), scheduler) == GNEISS_SUCCESS);
+  constexpr std::string_view uri = "asset://scene.json";
+  std::uint64_t request{};
+  check(request_scene_load(app.get(), uri, 1U, 1U, request) == GNEISS_SUCCESS);
+  scene_load_progress progress;
+  bool available{};
+  const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+  do {
+    check(std::chrono::steady_clock::now() < deadline);
+    if (mode == tasks::execution_mode::cooperative) {
+      (void)scheduler.run_ready();
+    }
+    check(app.run(1U) == result::success);
+    scene_load_completion interim;
+    bool terminal{};
+    check(poll_scene_load(app.get(), interim, terminal) == GNEISS_SUCCESS && !terminal);
+    check(query_scene_load_progress(app.get(), progress, available) == GNEISS_SUCCESS && available);
+  } while (!progress.gpu_in_flight);
+  check(cancel_scene_load(app.get(), request) == GNEISS_SUCCESS);
+  check(cancel_scene_load(app.get(), request) == GNEISS_SUCCESS);
+  scene_load_completion completion;
+  bool finished{};
+  check(poll_scene_load(app.get(), completion, finished) == GNEISS_SUCCESS && finished);
+  check(completion.progress.phase == scene_load_phase::cancelled &&
+        completion.progress.cleanup_pending && !completion.progress.cleanup_complete);
+  std::uint64_t rejected{};
+  check(request_scene_load(app.get(), uri, 1U, 2U, rejected) == GNEISS_ERROR_NOT_READY);
+  do {
+    check(std::chrono::steady_clock::now() < deadline);
+    check(app.run(1U) == result::success);
+    check(poll_scene_load(app.get(), completion, finished) == GNEISS_SUCCESS && !finished);
+    check(query_scene_load_progress(app.get(), progress, available) == GNEISS_SUCCESS && available);
+  } while (!progress.cleanup_complete);
+  check(!progress.cleanup_pending && progress.upload_reserved_bytes == 0U &&
+        progress.application_logical_bytes == 0U && !progress.gpu_in_flight);
+  check(request_scene_load(app.get(), uri, 1U, 2U, request) == GNEISS_SUCCESS);
+  check(query_scene_load_progress(app.get(), progress, available) == GNEISS_SUCCESS && available &&
+        progress.phase == scene_load_phase::preparing && !progress.cleanup_complete);
+}
+
 void run(tasks::execution_mode mode) {
   fixture files;
   tasks::task_scheduler scheduler({.workers = 1U, .mode = mode});
@@ -203,6 +252,8 @@ void run(tasks::execution_mode mode) {
 }
 } // namespace
 int main() try {
+  cancel_drain(tasks::execution_mode::thread_pool);
+  cancel_drain(tasks::execution_mode::cooperative);
   run(tasks::execution_mode::thread_pool);
   run(tasks::execution_mode::cooperative);
   return 0;

@@ -1079,6 +1079,10 @@ void draw_asset_browser(editor_state& state) {
   view.scene.can_load = view.scene.enabled && selected != state.assets.entries().end() &&
                         selected->asset_uri.ends_with(".scene.json") &&
                         (!view.scene.visible || gneiss::scene_phase_terminal(load.phase));
+  if (load.budget && load.budget->cleanup_pending) {
+    view.scene.can_retry = false;
+    view.scene.can_load = false;
+  }
   if (load.budget) {
     const auto& budget = *load.budget;
     view.scene.budget = asset_budget_view{
@@ -1090,6 +1094,7 @@ void draw_asset_browser(editor_state& state) {
         .upload = budget.upload_reserved_bytes,
         .peak_upload = budget.peak_upload_bytes,
         .cleanup_complete = budget.cleanup_complete,
+        .cleanup_pending = budget.cleanup_pending,
     };
   }
   const auto& reload = state.runtime.asset_reload_status();

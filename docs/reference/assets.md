@@ -56,6 +56,12 @@ Windows 原生后端提供 OVERLAPPED 范围请求，跨步骤保留自有缓冲
 
 ## 场景请求的清理快照
 
+场景候选尚未发布时，取消会停止后续上传批次；已经提交的上传仍等待回执，
+再回滚未发布的 GPU 投影。回滚结束前不销毁上传租约，也不报告清理完成。
+上传中的场景取消可以先返回唯一取消终态，同时以 `cleanup_pending=true` 明确资源仍在清理。
+清理期间不能激活候选或接受重试；完成后通过进度查询获得账本补报，不产生第二次终态。
+普通资产重载获得上传许可后仍完成或回滚原事务，不改变其迟到取消语义。
+
 Runtime 的 `scene` 域消息可携带内部 `budget` 对象。容量字段为无符号 64 位字节数：
 `candidate_logical_bytes`、`candidate_cpu_data_bytes`、`application_logical_bytes`、
 `application_cpu_data_bytes`、`available_bytes`、`upload_reserved_bytes`、`peak_upload_bytes`。
@@ -66,3 +72,7 @@ Runtime 的 `scene` 域消息可携带内部 `budget` 对象。容量字段为�
 活动场景、共享缓存和旧渲染帧仍可合法持有资源；该字段不表示整个 Application 已清空。
 成功激活将候选转移给活动场景，不使用这个标记表示释放。
 旧消息省略该字段按 false（未确认）处理；错误类型被拒绝，既有 IPC 域版本不变。
+
+`cleanup_pending` 同样是可选布尔字段，缺省 false，不能与 `cleanup_complete` 同时为 true。
+Runtime 的清理补报为事件，不重复发送请求响应；Editor 仅更新同一取消请求的预算。
+生命周期依据见 [ADR-058](../decisions/ADR-058-scene-cancellation-cleanup.md)。

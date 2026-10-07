@@ -503,7 +503,96 @@ void packaged_lifetime(tasks::execution_mode mode) {
 #endif
 }
 }
+namespace {
+void cancel_unpublished_upload(tasks::execution_mode mode) {
+  tasks::task_scheduler scheduler({.workers = 1U, .mode = mode});
+  auto files = std::make_shared<memory_files>();
+  files->pixel(std::byte{10});
+  for (const auto* path : {"a.texture.json", "b.texture.json"}) {
+    files->text(
+        path,
+        R"({"format":"gneiss.texture","version":1,"source":"asset://image.ktx2","color_space":"srgb"})");
+  }
+  virtual_file_system vfs;
+  check(vfs.mount("asset://", files) == GNEISS_SUCCESS);
+  render_resource_service resources;
+  resource_cache cache;
+  render_asset_loader loader(vfs, cache, resources);
+  unsigned uploads{};
+  unsigned discards{};
+  bool upload_ack{};
+  bool discard_ack{};
+  texture_upload_backend::data retained;
+  texture_upload_backend backend{
+      .begin =
+          [&](auto data, auto& sequence) {
+            check(data.size() == 1U);
+            retained = std::move(data);
+            sequence = 1U;
+            ++uploads;
+            return GNEISS_SUCCESS;
+          },
+      .poll =
+          [&](auto sequence, auto& result) {
+            const bool ready = sequence == 1U ? upload_ack : discard_ack;
+            if (ready) {
+              retained.clear();
+              result = GNEISS_SUCCESS;
+            }
+            return ready;
+          },
+      .discard =
+          [&](auto data, auto& sequence) {
+            check(data.size() == 2U);
+            retained = std::move(data);
+            sequence = 2U;
+            ++discards;
+            return GNEISS_SUCCESS;
+          },
+      .flush = [&] { upload_ack = discard_ack = true; },
+      .estimate_bytes = [](const auto&) { return texture_load_service::upload_budget_bytes; },
+  };
+  texture_load_service service(scheduler, vfs, loader, std::move(backend));
+  const auto advance = [&] {
+    if (mode == tasks::execution_mode::cooperative) {
+      (void)scheduler.run_ready();
+    }
+    service.advance();
+  };
+  const auto until = [&](auto predicate) {
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+    while (!predicate()) {
+      check(std::chrono::steady_clock::now() < deadline);
+      advance();
+      std::this_thread::yield();
+    }
+  };
+  const std::array<std::string, 2> uris{"asset://a.texture.json", "asset://b.texture.json"};
+  std::uint64_t request{};
+  texture_load_completion completion;
+  check(service.submit(uris, 1U, 1U, request, false) == GNEISS_SUCCESS);
+  until([&] { return uploads == 1U; });
+  check(!service.cancel() && service.cancel_unpublished() && service.cancel_unpublished());
+  advance();
+  check(!service.take(completion) && uploads == 1U && discards == 0U && !retained.empty());
+  upload_ack = true;
+  until([&] { return discards == 1U; });
+  advance();
+  check(!service.take(completion) && uploads == 1U && cache.size() == 0U && !retained.empty());
+  discard_ack = true;
+  until([&] { return service.take(completion); });
+  check(completion.state == texture_load_state::cancelled && retained.empty() &&
+        resources.live_resource_count() == 0U && !service.cancel_unpublished());
+  check(service.submit(uris, 1U, 2U, request, false) == GNEISS_SUCCESS);
+  until([&] { return service.take(completion); });
+  check(completion.state == texture_load_state::applied && uploads == 3U && discards == 1U &&
+        cache.size() == 2U);
+}
+} // namespace
+
 int main() try {
+  cancel_unpublished_upload(tasks::execution_mode::cooperative);
+  cancel_unpublished_upload(tasks::execution_mode::thread_pool);
   packaged_lifetime(tasks::execution_mode::cooperative);
   packaged_lifetime(tasks::execution_mode::thread_pool);
   mixed(tasks::execution_mode::cooperative, true);

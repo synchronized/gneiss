@@ -220,6 +220,8 @@ int main(int argc, char** argv) try {
   unsigned completed_switches{};
   double maximum_activation_ms{}, maximum_retirement_ms{};
   bool minimized{}, restored{}, cancel_requested{}, closed{};
+  bool awaiting_cleanup{}, observed_cleanup_pending{};
+  double cancel_cleanup_ms{};
   double minimized_at_ms{};
   double cancel_ms{}, shutdown_ms{};
   auto cancel_start = clock_type::now();
@@ -334,6 +336,22 @@ int main(int argc, char** argv) try {
       if (result == GNEISS_SUCCESS) {
         result = poll_scene_load(handle, completion, finished);
       }
+      if (awaiting_cleanup && result == GNEISS_SUCCESS) {
+        scene_load_progress cleanup;
+        bool available{};
+        result = query_scene_load_progress(handle, cleanup, available);
+        if (finished) {
+          return GNEISS_ERROR_INVALID_STATE; // 清理补报不得形成第二个终态。
+        }
+        if (available && cleanup.cleanup_complete) {
+          completion.progress = cleanup;
+          cancel_cleanup_ms = milliseconds(cancel_start);
+          scene = previous_scene;
+          return gneiss_application_request_exit(handle);
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        return result;
+      }
       if (finished || result != GNEISS_SUCCESS) {
         if (finished) {
           result = completion.result;
@@ -345,8 +363,15 @@ int main(int argc, char** argv) try {
                (cancel_requested && completion.progress.phase == scene_load_phase::cancelled))) {
             result = GNEISS_SUCCESS;
             scene = previous_scene;
-            if (cancel_requested)
+            if (cancel_requested) {
               cancel_ms = milliseconds(cancel_start);
+              cancel_cleanup_ms = cancel_ms;
+              if (completion.progress.cleanup_pending) {
+                awaiting_cleanup = observed_cleanup_pending = true;
+                scene = GNEISS_NULL_SCENE_INSTANCE;
+                return GNEISS_SUCCESS;
+              }
+            }
           }
         }
         return gneiss_application_request_exit(handle);
@@ -519,6 +544,8 @@ int main(int argc, char** argv) try {
          << ",\n  \"retirement_ms\": " << retirement.last_ms
          << ",\n  \"live_resources\": " << retirement.live_resources
          << ",\n  \"old_resources\": " << previous_resources << ",\n  \"cancel_ms\": " << cancel_ms
+         << ",\n  \"cancel_cleanup_ms\": " << cancel_cleanup_ms
+         << ",\n  \"observed_cleanup_pending\": " << (observed_cleanup_pending ? "true" : "false")
          << ",\n  \"retried\": " << (retried ? "true" : "false")
          << ",\n  \"retry_ms\": " << retry_ms << ",\n  \"resizes\": " << resized
          << ",\n  \"restored\": " << restored << ",\n  \"minimized\": " << minimized
@@ -532,8 +559,9 @@ int main(int argc, char** argv) try {
          << ",\n  \"verify_maximum_hash_ms\": " << completion.verify_maximum_hash_ms
          << ",\n  \"upload_ms\": " << completion.upload_ms
          << ",\n  \"maximum_advance_ms\": " << completion.maximum_advance_ms
-         << ",\n  \"activation_ms\": " << completion.activation_ms
-         << ",\n  \"cleanup_ms\": " << completion.cleanup_ms << ",\n  \"cleanup_complete\": "
+         << ",\n  \"activation_ms\": " << completion.activation_ms << ",\n  \"cleanup_ms\": "
+         << (observed_cleanup_pending ? std::string{"null"} : std::to_string(completion.cleanup_ms))
+         << ",\n  \"cleanup_complete\": "
          << (completion.progress.cleanup_complete ? "true" : "false")
          << ",\n  \"upload_reserved_bytes\": " << completion.progress.upload_reserved_bytes
          << ",\n  \"candidate_resident_bytes\": " << completion.progress.resident_bytes
