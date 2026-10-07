@@ -109,3 +109,16 @@ python -X utf8 -B scripts/performance/measure_scene_lifecycle.py `
 可通过 `--modes thread`、`--scenarios cancel-gpu` 缩小复验范围；
 `--image-sha256` 指定同一输入和视角的基线摘要。Debug 使用 `--functional-only`，
 其结果只证明功能，不能计为 Release 性能门槛通过。测量期间不并行构建或其他 GPU 测试。
+
+
+## 生命周期矩阵进展
+
+[生命周期汇总](artifacts/0.49-release-lifecycle.json) 当前完成 10/18：thread 9/9，cooperative 上传取消 1/9。
+thread 的三次连续切换、五个阶段取消、失败重试、窗口交互与关闭均通过。
+窗口用例完成 10 次 resize 与最小化恢复，最大主循环间隔 47.07 ms，最终图像与基线一致。
+失败后在同一个 Application 重试成功；关闭耗时 271.05 ms、保留任务数为零。
+
+汇总保留每个样本的二进制摘要与实现提交。`d302b5b` 的连续切换、准备/资产准备取消三个已通过
+样本对应未被后续修复改变的路径；上传取消用例采用 `9ee754f` 的修复后结果，绝不沿用失败样本。
+其余样本使用与上传取消复测完全相同的测量程序及引擎二进制。
+协作模式剩余 8 项仍在运行，尚未满足发布门禁。
