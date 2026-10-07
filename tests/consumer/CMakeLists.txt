@@ -79,9 +79,16 @@ target_compile_definitions(
 )
 
 add_test(NAME gneiss.consumer.c COMMAND gneiss_c_consumer)
+add_executable(gneiss_application_world_consumer
+  "${CMAKE_CURRENT_LIST_DIR}/../../examples/application_world/main.cpp"
+  "${CMAKE_CURRENT_LIST_DIR}/../../examples/application_world/scene_update.cpp")
+target_link_libraries(gneiss_application_world_consumer PRIVATE gneiss::engine)
+target_compile_features(gneiss_application_world_consumer PRIVATE cxx_std_20)
+add_test(NAME gneiss.consumer.application_world COMMAND gneiss_application_world_consumer)
 add_test(NAME gneiss.consumer.cpp COMMAND gneiss_cpp_consumer)
 add_test(NAME gneiss.consumer.property_inspector COMMAND gneiss_property_inspector_consumer)
 set_tests_properties(
   gneiss.consumer.c gneiss.consumer.cpp gneiss.consumer.property_inspector
+  gneiss.consumer.application_world
   PROPERTIES ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:${GNEISS_RUNTIME_DIR}"
 )

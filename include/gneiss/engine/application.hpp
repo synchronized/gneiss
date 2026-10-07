@@ -13,9 +13,7 @@
 
 #include <cstdint>
 #include <exception>
-#include <limits>
 #include <memory>
-#include <new>
 #include <utility>
 
 namespace gneiss {
@@ -27,116 +25,43 @@ public:
   explicit application_ref(gneiss_application handle) noexcept : handle_(handle) {}
   [[nodiscard]] bool is_valid() const noexcept { return handle_ != GNEISS_NULL_APPLICATION; }
   [[nodiscard]] gneiss_application get() const noexcept { return handle_; }
-  [[nodiscard]] result run(std::uint64_t max_frame_count = 0) const noexcept {
-    return from_native(gneiss_application_run(handle_, max_frame_count));
-  }
-  [[nodiscard]] result request_exit() const noexcept {
-    return from_native(gneiss_application_request_exit(handle_));
-  }
+  [[nodiscard]] result run(std::uint64_t max_frame_count = 0) const noexcept;
+  [[nodiscard]] result request_exit() const noexcept;
   [[nodiscard]] result get_window_size(std::uint32_t& out_width,
-                                       std::uint32_t& out_height) const noexcept {
-    return from_native(gneiss_application_get_window_size(handle_, &out_width, &out_height));
-  }
-  [[nodiscard]] result set_paused(bool is_paused) const noexcept {
-    return from_native(gneiss_application_set_paused(handle_, is_paused ? UINT8_C(1) : UINT8_C(0)));
-  }
+                                       std::uint32_t& out_height) const noexcept;
+  [[nodiscard]] result set_paused(bool is_paused) const noexcept;
   /** 取出当帧输入事件；队列为空返回 not_ready，仅限创建线程。 */
-  [[nodiscard]] result poll_input(input_event& output) const noexcept {
-    return gneiss::poll_input(handle_, output);
-  }
+  [[nodiscard]] result poll_input(input_event& output) const noexcept;
   /** 输出键盘值快照；仅限创建线程。 */
-  [[nodiscard]] result get_keyboard_state(keyboard_state& output) const noexcept {
-    return gneiss::get_keyboard_state(handle_, output);
-  }
+  [[nodiscard]] result get_keyboard_state(keyboard_state& output) const noexcept;
   /** 输出指针值快照；仅限创建线程。 */
-  [[nodiscard]] result get_pointer_state(pointer_state& output) const noexcept {
-    return gneiss::get_pointer_state(handle_, output);
-  }
+  [[nodiscard]] result get_pointer_state(pointer_state& output) const noexcept;
   /** 同步加载动作映射；成功使旧动作 ID 失效，失败保留原映射。 */
-  [[nodiscard]] result load_action_map(std::string_view uri) const noexcept {
-    return gneiss::load_action_map(handle_, uri);
-  }
+  [[nodiscard]] result load_action_map(std::string_view uri) const noexcept;
   /** 返回非拥有动作 ID；失败保留 output，仅限创建线程。 */
-  [[nodiscard]] result find_action(std::string_view name, action_id& output) const noexcept {
-    return gneiss::find_action(handle_, name, output);
-  }
-  [[nodiscard]] result get_action_state(action_id id, action_state& output) const noexcept {
-    return gneiss::get_action_state(handle_, id, output);
-  }
-  [[nodiscard]] result get_world(gneiss_world& out_world) const noexcept {
-    return from_native(gneiss_application_get_world(handle_, &out_world));
-  }
+  [[nodiscard]] result find_action(std::string_view name, action_id& output) const noexcept;
+  [[nodiscard]] result get_action_state(action_id id, action_state& output) const noexcept;
+  [[nodiscard]] result get_world(gneiss_world& out_world) const noexcept;
   /** 获取借用 World 视图，不转移所有权；场景切换或 Application 销毁可能使其失效。 */
-  [[nodiscard]] result get_world(world_ref& output) const noexcept {
-    gneiss_world value{};
-    const auto status = from_native(gneiss_application_get_world(handle_, &value));
-    if (status.ok()) {
-      output = world_ref{value};
-    }
-    return status;
-  }
-  [[nodiscard]] result create_mesh(const mesh_desc& desc, mesh& output) const noexcept {
-    return mesh::create(handle_, desc, output);
-  }
-  [[nodiscard]] result create_material(const material_desc& desc, material& output) const noexcept {
-    return material::create(handle_, desc, output);
-  }
-  [[nodiscard]] result create_texture(const texture_desc& desc, texture& output) const noexcept {
-    return texture::create(handle_, desc, output);
-  }
-  [[nodiscard]] result create_mesh(const mesh_desc& desc, mesh_id& out_mesh) const noexcept {
-    mesh candidate;
-    const auto status = mesh::create(handle_, desc, candidate);
-    if (status.ok()) {
-      out_mesh = candidate.release();
-    }
-    return status;
-  }
-  [[nodiscard]] result destroy_mesh(mesh_id mesh) const noexcept {
-    return from_native(gneiss_mesh_destroy(handle_, mesh.get()));
-  }
+  [[nodiscard]] result get_world(world_ref& output) const noexcept;
+  [[nodiscard]] result create_mesh(const mesh_desc& desc, mesh& output) const noexcept;
+  [[nodiscard]] result create_material(const material_desc& desc, material& output) const noexcept;
+  [[nodiscard]] result create_texture(const texture_desc& desc, texture& output) const noexcept;
+  [[nodiscard]] result create_mesh(const mesh_desc& desc, mesh_id& out_mesh) const noexcept;
+  [[nodiscard]] result destroy_mesh(mesh_id mesh) const noexcept;
   [[nodiscard]] result create_material(const material_desc& desc,
-                                       material_id& out_material) const noexcept {
-    material candidate;
-    const auto status = material::create(handle_, desc, candidate);
-    if (status.ok()) {
-      out_material = candidate.release();
-    }
-    return status;
-  }
-  [[nodiscard]] result destroy_material(material_id material) const noexcept {
-    return from_native(gneiss_material_destroy(handle_, material.get()));
-  }
+                                       material_id& out_material) const noexcept;
+  [[nodiscard]] result destroy_material(material_id material) const noexcept;
   [[nodiscard]] result create_texture(const texture_desc& desc,
-                                      texture_id& out_texture) const noexcept {
-    texture candidate;
-    const auto status = texture::create(handle_, desc, candidate);
-    if (status.ok()) {
-      out_texture = candidate.release();
-    }
-    return status;
-  }
-  [[nodiscard]] result destroy_texture(texture_id texture) const noexcept {
-    return from_native(gneiss_texture_destroy(handle_, texture.get()));
-  }
+                                      texture_id& out_texture) const noexcept;
+  [[nodiscard]] result destroy_texture(texture_id texture) const noexcept;
   /** 仅在 update 中提交当帧 UI；数组在返回前复制，纹理 RID 仍借用所属 Application 的资源。 */
-  [[nodiscard]] result submit_ui_draw_list(const ui_draw_list_desc& desc) const noexcept {
-    return detail::with_render_desc(desc, [&](const auto& native) {
-      return gneiss_application_submit_ui_draw_list(handle_, &native);
-    });
-  }
+  [[nodiscard]] result submit_ui_draw_list(const ui_draw_list_desc& desc) const noexcept;
   /** 仅在 update 中提交当帧调试线段；复制数组，不取得调用方所有权。 */
-  [[nodiscard]] result submit_debug_draw_list(const debug_draw_list_desc& desc) const noexcept {
-    return detail::with_render_desc(desc, [&](const auto& native) {
-      return gneiss_application_submit_debug_draw_list(handle_, &native);
-    });
-  }
+  [[nodiscard]] result submit_debug_draw_list(const debug_draw_list_desc& desc) const noexcept;
   /** 消息字符串在返回前复制，可从工作线程提交；不得与本包装的移动/reset 并发。
    * 接收回调串行执行，不能重入日志；回调 userdata 必须存活至 Application 关闭完成。 */
-  [[nodiscard]] result log(const log_message& message) const noexcept {
-    const auto native = to_native(message);
-    return from_native(gneiss_application_log(handle_, &native));
-  }
+  [[nodiscard]] result log(const log_message& message) const noexcept;
 
 protected:
   gneiss_application handle_ = GNEISS_NULL_APPLICATION;
@@ -209,93 +134,6 @@ struct application_desc {
 
 // NOLINTEND(readability-redundant-member-init)
 
-namespace detail {
-inline std::string_view application_text(const char* text, std::uint64_t length) noexcept {
-  return length == 0 ? std::string_view{}
-                     : std::string_view{text, static_cast<std::size_t>(length)};
-}
-inline void bind_application_callbacks(gneiss_application_desc& desc,
-                                       application_callbacks* callbacks) noexcept {
-  desc.user_data = callbacks;
-  if (callbacks->initialize != nullptr) {
-    desc.initialize = [](void* data) noexcept {
-      auto& cb = *static_cast<application_callbacks*>(data);
-      return cb.initialize(cb.user_data).native();
-    };
-  }
-  if (callbacks->poll_events != nullptr) {
-    desc.poll_events = [](void* data, std::uint8_t* output) noexcept {
-      auto& cb = *static_cast<application_callbacks*>(data);
-      bool close{};
-      auto status = cb.poll_events(cb.user_data, close);
-      *output = close ? 1 : 0;
-      return status.native();
-    };
-  }
-  if (callbacks->now_ns != nullptr) {
-    desc.now_ns = [](void* data) noexcept {
-      auto& cb = *static_cast<application_callbacks*>(data);
-      return cb.now_ns(cb.user_data);
-    };
-  }
-  if (callbacks->shutdown != nullptr) {
-    desc.shutdown = [](void* data) noexcept {
-      auto& cb = *static_cast<application_callbacks*>(data);
-      cb.shutdown(cb.user_data);
-    };
-  }
-  if (callbacks->update != nullptr) {
-    desc.update = [](gneiss_application handle, const gneiss_frame_time* time,
-                     void* data) noexcept {
-      auto& cb = *static_cast<application_callbacks*>(data);
-      const frame_time value{
-          .frame_index = time->frame_index,
-          .delta_ns = time->delta_ns,
-          .elapsed_ns = time->elapsed_ns,
-          .is_paused = time->is_paused != 0,
-      };
-      return cb.update(application_ref{handle}, value, cb.user_data).native();
-    };
-  }
-  if (callbacks->close_requested != nullptr) {
-    desc.close_requested = [](gneiss_application handle, void* data) noexcept -> std::uint8_t {
-      auto& cb = *static_cast<application_callbacks*>(data);
-      return cb.close_requested(application_ref{handle}, cb.user_data) ? 1 : 0;
-    };
-  }
-  if (callbacks->diagnostic != nullptr) {
-    desc.diagnostic = [](gneiss_application handle, const gneiss_diagnostic* value,
-                         void* data) noexcept {
-      auto& cb = *static_cast<application_callbacks*>(data);
-      const diagnostic event{
-          .severity = static_cast<diagnostic_severity>(value->severity),
-          .category = static_cast<diagnostic_category>(value->category),
-          .operation = from_native(value->result),
-          .module = application_text(value->module, value->module_length),
-          .message = application_text(value->message, value->message_length),
-      };
-      cb.diagnostic(application_ref{handle}, event, cb.user_data);
-    };
-  }
-  if (callbacks->log != nullptr) {
-    desc.log = [](gneiss_application handle, const gneiss_log_event* value, void* data) noexcept {
-      auto& cb = *static_cast<application_callbacks*>(data);
-      const log_event event{
-          .severity = static_cast<log_severity>(value->severity),
-          .sequence = value->sequence,
-          .timestamp_ns = value->timestamp_ns,
-          .thread_id = value->thread_id,
-          .source = application_text(value->source, value->source_length),
-          .category = application_text(value->category, value->category_length),
-          .message = application_text(value->message, value->message_length),
-          .operation = from_native(value->result),
-      };
-      cb.log(application_ref{handle}, event, cb.user_data);
-    };
-  }
-}
-} // namespace detail
-
 class released_application;
 /** 独占拥有 Application；移动与释放同时转移回调适配存储。关闭失败时保留所有权。 */
 class application final : public application_ref {
@@ -316,85 +154,21 @@ public:
     return *this;
   }
   /** 创建失败保留输出；配置字符串只在调用期间借用。 */
-  [[nodiscard]] static result create(const application_desc& desc, application& output) noexcept {
-    const auto limit = std::numeric_limits<std::uint32_t>::max();
-    if (desc.window_title.size() > limit || desc.asset_root.size() > limit ||
-        desc.environment_asset.size() > limit || static_cast<std::uint32_t>(desc.platform) > 1U ||
-        (static_cast<std::uint32_t>(desc.window_flags) & ~7U) != 0U) {
-      return result::invalid_argument;
-    }
-    application candidate;
-    try {
-      candidate.callbacks_ = std::make_unique<application_callbacks>(desc.callbacks);
-    } catch (const std::bad_alloc&) {
-      return result::out_of_memory;
-    }
-    gneiss_application_desc native = GNEISS_APPLICATION_DESC_INIT;
-    native.platform = static_cast<std::uint32_t>(desc.platform);
-    native.window_title = desc.window_title.data();
-    native.window_title_length = static_cast<std::uint32_t>(desc.window_title.size());
-    native.window_width = desc.window_width;
-    native.window_height = desc.window_height;
-    native.window_flags = static_cast<std::uint32_t>(desc.window_flags);
-    native.asset_root = desc.asset_root.data();
-    native.asset_root_length = static_cast<std::uint32_t>(desc.asset_root.size());
-    native.environment_asset = desc.environment_asset.data();
-    native.environment_asset_length = static_cast<std::uint32_t>(desc.environment_asset.size());
-    native.environment_intensity = desc.environment_intensity;
-    native.environment_rotation_radians = desc.environment_rotation_radians;
-    detail::bind_application_callbacks(native, candidate.callbacks_.get());
-    const auto status = from_native(gneiss_application_create(&native, &candidate.handle_));
-    if (status.failed()) {
-      return status;
-    }
-    const auto closed = output.reset();
-    if (closed.failed()) {
-      return closed;
-    }
-    output = std::move(candidate);
-    return status;
-  }
+  [[nodiscard]] static result create(const application_desc& desc, application& output) noexcept;
   /** 显式 C ABI 创建入口；原生回调和 user_data 寿命完全由调用方管理。 */
   [[nodiscard]] static result create_native(const gneiss_application_desc& desc,
-                                            application& output) noexcept {
-    application candidate;
-    const auto status = from_native(gneiss_application_create(&desc, &candidate.handle_));
-    if (status.failed()) {
-      return status;
-    }
-    const auto closed = output.reset();
-    if (closed.failed()) {
-      return closed;
-    }
-    output = std::move(candidate);
-    return status;
-  }
+                                            application& output) noexcept;
   [[nodiscard]] application_ref ref() const noexcept { return application_ref{handle_}; }
   /** 返回携带回调存储的所有权载体；不能隐式转换为裸句柄。 */
   [[nodiscard]] released_application release() noexcept;
   /** 收回释放载体的所有权；输出关闭失败时载体保持不变。 */
   [[nodiscard]] static result adopt(released_application&& released, application& output) noexcept;
   /** 关闭等待日志排空；非失效错误保留句柄与回调存储，供创建线程重试。 */
-  result reset() noexcept {
-    if (handle_ == GNEISS_NULL_APPLICATION) {
-      callbacks_.reset();
-      return result::success;
-    }
-    const auto status = from_native(gneiss_application_destroy(handle_));
-    if (status.failed() && status != result::invalid_handle) {
-      return status;
-    }
-    handle_ = GNEISS_NULL_APPLICATION;
-    callbacks_.reset();
-    return result::success;
-  }
+  result reset() noexcept;
 
 private:
-  void reset_or_terminate() noexcept {
-    if (reset().failed()) {
-      std::terminate();
-    }
-  }
+  result replace_with(application&& candidate) noexcept;
+  void reset_or_terminate() noexcept;
   std::unique_ptr<application_callbacks> callbacks_;
 };
 
@@ -408,25 +182,17 @@ public:
   released_application(const released_application&) = delete;
   released_application& operator=(const released_application&) = delete;
   [[nodiscard]] gneiss_application get() const noexcept { return owner_.get(); }
-  result reset() noexcept { return owner_.reset(); }
+  result reset() noexcept;
 
 private:
   friend class application;
   explicit released_application(application&& owner) noexcept : owner_(std::move(owner)) {}
   application owner_;
 };
-inline released_application application::release() noexcept {
-  return released_application{std::move(*this)};
-}
-inline result application::adopt(released_application&& released, application& output) noexcept {
-  const auto status = output.reset();
-  if (status.failed()) {
-    return status;
-  }
-  output = std::move(released.owner_);
-  return result::success;
-}
 
 } // namespace gneiss
+
+// 实现随 SDK 安装；使用者只需包含本模块头。
+#include <gneiss/engine/detail/application.inl>
 
 #endif

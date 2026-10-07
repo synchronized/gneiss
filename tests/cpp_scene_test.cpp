@@ -11,6 +11,15 @@ static_assert(gneiss::transform{}.translation[0] == 0.0F);
 static_assert(gneiss::transform{}.rotation[3] == 1.0F);
 static_assert(gneiss::transform{}.scale[2] == 1.0F);
 
+// const 不改变场景/令牌的拥有关系；仅表示包装身份不变。
+static_assert(requires(const gneiss::scene_instance& scene, gneiss::scene_node_id node,
+                       const gneiss::scene_prefab_refresh& refresh) {
+  scene.set_node_name(node, "name");
+  scene.reparent_node(node, {});
+  scene.destroy_node(node);
+  refresh.toggle(node);
+});
+
 int main() {
   gneiss::world world;
   gneiss::entity_id entity;

@@ -6,6 +6,15 @@ target_link_libraries(gneiss_version_example PRIVATE gneiss::engine)
 gneiss_target_compile_warnings(gneiss_version_example)
 gneiss_target_output_directories(gneiss_version_example)
 
+add_executable(gneiss_application_world_example
+  application_world/main.cpp application_world/scene_update.cpp)
+target_link_libraries(gneiss_application_world_example PRIVATE gneiss::engine)
+gneiss_target_compile_warnings(gneiss_application_world_example)
+gneiss_target_output_directories(gneiss_application_world_example)
+if(BUILD_TESTING)
+  add_test(NAME gneiss.application_world_example COMMAND gneiss_application_world_example)
+endif()
+
 install(
   DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/editor_demo/"
   DESTINATION "${CMAKE_INSTALL_DATADIR}/gneiss/projects/editor-demo"
