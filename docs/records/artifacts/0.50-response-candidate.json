@@ -1,0 +1,117 @@
+{
+  "status": "passed",
+  "date": "2026-10-08",
+  "engine_source": "aeaeab0",
+  "scope": "Windows隐藏320x240窗口，单个工作线程；独立线程投递按键与任务，完整资产持续到激活；不是硬件输入端到端或吞吐对照。",
+  "samples": [
+    {
+      "passed": true,
+      "keys": 4051,
+      "tasks": 4051,
+      "key_p95_ms": 17.8166,
+      "key_max_ms": 35.5932,
+      "task_p95_ms": 16.8273,
+      "task_max_ms": 21.5198,
+      "close_ms": 11.3024,
+      "nodes": 553,
+      "resources": 505,
+      "loaded_scene": true,
+      "injected_stall": false,
+      "name": "full"
+    },
+    {
+      "passed": true,
+      "keys": 64,
+      "tasks": 64,
+      "key_p95_ms": 17.7391,
+      "key_max_ms": 20.035,
+      "task_p95_ms": 17.5802,
+      "task_max_ms": 20.0081,
+      "close_ms": 13.3789,
+      "nodes": 0,
+      "resources": 0,
+      "loaded_scene": false,
+      "injected_stall": false,
+      "name": "small-1"
+    },
+    {
+      "passed": true,
+      "keys": 64,
+      "tasks": 64,
+      "key_p95_ms": 18.0577,
+      "key_max_ms": 21.1134,
+      "task_p95_ms": 18.0323,
+      "task_max_ms": 21.1265,
+      "close_ms": 14.8924,
+      "nodes": 0,
+      "resources": 0,
+      "loaded_scene": false,
+      "injected_stall": false,
+      "name": "small-2"
+    },
+    {
+      "passed": true,
+      "keys": 64,
+      "tasks": 64,
+      "key_p95_ms": 18.6901,
+      "key_max_ms": 21.354,
+      "task_p95_ms": 18.3588,
+      "task_max_ms": 21.3184,
+      "close_ms": 0.5539,
+      "nodes": 0,
+      "resources": 0,
+      "loaded_scene": false,
+      "injected_stall": false,
+      "name": "small-3"
+    },
+    {
+      "passed": true,
+      "keys": 64,
+      "tasks": 64,
+      "key_p95_ms": 16.7593,
+      "key_max_ms": 79.2894,
+      "task_p95_ms": 16.7719,
+      "task_max_ms": 79.2248,
+      "close_ms": 0.0139,
+      "nodes": 0,
+      "resources": 0,
+      "loaded_scene": false,
+      "injected_stall": true,
+      "name": "stall"
+    }
+  ],
+  "fixture_sha256": "4b8f3af70495c78de07a69a03853f6638fb323ce96b3d88864f77ec3974848ae",
+  "executable_sha256": "9f35b2e93329c227bc75d14ef9c2e618810557e18300bb6cab429c83ab9d2f24",
+  "engine_sha256": "f1f37d526b804a57d43dbb3e7a0563092eaf6ca81cf205f79ed5edd1fca2f6a4",
+  "raw_files": [
+    {
+      "path": "build/0.50-response-final/full.json",
+      "sha256": "9c450af1e1289dcda7394a0d5dda537ab824285cd75772869c258e45d8b8ef19"
+    },
+    {
+      "path": "build/0.50-response-final/full.log",
+      "sha256": "1c3b73c609eb4ad40a6218f1c3869e2439dafd1198b10f903721b048a70ade72"
+    },
+    {
+      "path": "build/0.50-response-final/small-1.json",
+      "sha256": "118a433aea1dcfc35229d4251cb938ca1773660b8e571f0086cee38035edae93"
+    },
+    {
+      "path": "build/0.50-response-final/small-2.json",
+      "sha256": "8299c680df755d898def8a341efd5e0bbc55a5030882cbac0040655cd46ce2c6"
+    },
+    {
+      "path": "build/0.50-response-final/small-3.json",
+      "sha256": "f282fcb8c48d6950b09eaf210756de07d2c1329b047d529a032c20750e14c4ad"
+    },
+    {
+      "path": "build/0.50-response-final/stall.json",
+      "sha256": "734849e721010e48228cf00c31dcfc16b436ef4c9a33a6b50c9162df9fd599b2"
+    }
+  ],
+  "notes": [
+    "三次小夹具和stall运行后只将BOOL隐式布尔判断改为显式==0，再重建运行完整资产；不改变测量行为。",
+    "完整资产身份沿用0.49-asset-identities.json；此夹具不捕获图像或测试跨屏DPI。",
+    "clang-tidy新夹具无项目告警。"
+  ]
+}

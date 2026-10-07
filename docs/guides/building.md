@@ -463,7 +463,8 @@ window_pump/window_events 区分平台事件泵与窗口队列接收，input_sta
 协作模式不使用该等待，read_operation.poll 仍保持非阻塞。Runtime 的 task_statistics 日志记录
 主循环结束时的任务提交、完成与保留数，可用于区分有意义的工作和频繁续步。
 Windows 的 gneiss_main_loop_response 测试通过独立线程发送按键与任务；可指定 JSON 输出路径，
-再加参数 stall 注入一次 50 ms 主线程停顿，用于验证测量夹具自身。该小夹具不代替大资产交互验收。
+再加参数 stall 注入一次 50 ms 主线程停顿，用于验证测量夹具自身。可再加 `--assets <Cook资产根>`，在完整场景加载期间持续投递直到激活，并记录节点与资源数；
+它使用隐藏 320×240 窗口和单工作线程，不将耗时与 Runtime 吞吐对照混比，也不代替像素或窗口恢复验收。
 
 
 Windows 下可使用下列工具顺序测量实际 Runtime 的进程/主线程 CPU 时间，并交替运行诊断开关：

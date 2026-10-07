@@ -2,9 +2,11 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/function/application/application_asset_reload_internal.hpp"
+#include "engine/function/application/application_scene_load_internal.hpp"
 
 #include <gneiss/engine/application.hpp>
 #include <gneiss/engine/input.h>
+#include <gneiss/engine/scene.h>
 
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
@@ -39,8 +41,39 @@ struct response_context {
   std::vector<double> key_ms, task_ms;
   double close_ms{};
   bool stall{};
-  const clock_type::time_point deadline = clock_type::now() + 10s;
+  std::atomic_bool scene_ready{true};
+  std::uint64_t scene_request{}, nodes{}, resources{};
+  clock_type::time_point deadline = clock_type::now() + 10s;
 };
+gneiss_result advance_scene(gneiss_application app, response_context& state) {
+  using namespace gneiss::application_internal;
+  if (state.scene_ready) {
+    return GNEISS_SUCCESS;
+  }
+  scene_load_completion completion;
+  bool terminal{};
+  auto result = poll_scene_load(app, completion, terminal);
+  if (result != GNEISS_SUCCESS || terminal) {
+    return result != GNEISS_SUCCESS ? result : completion.result;
+  }
+  scene_load_progress progress;
+  bool active{};
+  result = query_scene_load_progress(app, progress, active);
+  if (result == GNEISS_SUCCESS && active && progress.phase == scene_load_phase::ready) {
+    result = activate_scene_load(app, state.scene_request, completion);
+    if (result == GNEISS_SUCCESS) {
+      result = gneiss_scene_instance_get_node_count(app, completion.scene, &state.nodes);
+      scene_retirement_statistics retirement;
+      if (result == GNEISS_SUCCESS) {
+        result = query_scene_retirement(app, retirement);
+        state.resources = retirement.live_resources;
+      }
+      state.scene_ready = result == GNEISS_SUCCESS;
+    }
+  }
+  return result;
+}
+
 gneiss_result update(gneiss_application app, const gneiss_frame_time* /*unused*/,
                      void* opaque) try {
   auto& state = *static_cast<response_context*>(opaque);
@@ -70,6 +103,10 @@ gneiss_result update(gneiss_application app, const gneiss_frame_time* /*unused*/
     ++state.tasks;
     state.received.notify_all();
   }
+  const auto scene_result = advance_scene(app, state);
+  if (scene_result != GNEISS_SUCCESS) {
+    return scene_result;
+  }
   if (state.failed || clock_type::now() > state.deadline) {
     state.failed = true;
     return gneiss_application_request_exit(app);
@@ -89,17 +126,73 @@ double percentile(std::vector<double> values, double fraction) {
              ? 0.0
              : values[static_cast<std::size_t>(fraction * static_cast<double>(values.size() - 1U))];
 }
+// 单个未确认样本避免覆盖时间戳；独立发送线程能够观测主循环停顿。
+void send_probes(response_context& state, HWND window) noexcept {
+  try {
+    for (unsigned index = 1U; (index <= 64U || !state.scene_ready) && !state.stopped; ++index) {
+      std::this_thread::sleep_for(20ms);
+      state.key_sent = now_ns();
+      state.sent = index;
+      gneiss::tasks::task_handle task;
+      const auto submitted = state.scheduler.submit(
+          {.name = "response", .scope = state.scope},
+          [&](const gneiss::tasks::task_context&) {
+            state.task_finished = now_ns();
+            return gneiss::tasks::task_outcome{};
+          },
+          task);
+      if (submitted != gneiss::tasks::submit_result::success ||
+          PostMessageW(window, WM_KEYDOWN, 'A', 0x001e0001) == 0 ||
+          PostMessageW(window, WM_KEYUP, 'A', static_cast<LPARAM>(0xc01e0001U)) == 0) {
+        state.failed = true;
+        break;
+      }
+      std::unique_lock lock(state.mutex);
+      if (!state.received.wait_for(lock, 2s, [&] {
+            return state.stopped || (state.keys >= index && state.tasks >= index);
+          })) {
+        state.failed = true;
+        break;
+      }
+    }
+  } catch (...) {
+    state.failed = true;
+  }
+  state.close_sent = now_ns();
+  if (PostMessageW(window, WM_CLOSE, 0U, 0) == 0) {
+    state.failed = true;
+  }
+}
 } // namespace
 
 int main(int argc, char** argv) try {
   response_context state;
-  const bool inject_stall = argc > 2 && std::string_view(argv[2]) == "stall";
+  bool inject_stall = false;
+  std::string asset_root;
+  for (int index = 2; index < argc; ++index) {
+    const std::string_view argument(argv[index]);
+    if (argument == "stall") {
+      inject_stall = true;
+    } else if (argument == "--assets" && index + 1 < argc && asset_root.empty()) {
+      asset_root = argv[++index];
+    } else {
+      return 2;
+    }
+  }
+  if (!asset_root.empty()) {
+    state.deadline = clock_type::now() + 15min;
+    state.scene_ready = false;
+  }
   state.stall = inject_stall;
-  state.key_ms.reserve(64U);
-  state.task_ms.reserve(64U);
+  state.key_ms.reserve(asset_root.empty() ? 64U : 45000U);
+  state.task_ms.reserve(asset_root.empty() ? 64U : 45000U);
   const auto title = "Gneiss Response " + std::to_string(GetCurrentProcessId());
   auto desc = gneiss_application_desc GNEISS_APPLICATION_DESC_INIT;
   desc.platform = GNEISS_APPLICATION_PLATFORM_GRANIT;
+  if (!asset_root.empty()) {
+    desc.asset_root = asset_root.data();
+    desc.asset_root_length = static_cast<std::uint32_t>(asset_root.size());
+  }
   desc.window_flags = GNEISS_APPLICATION_WINDOW_RESIZABLE_BIT;
   desc.window_title = title.data();
   desc.window_title_length = static_cast<std::uint32_t>(title.size());
@@ -114,43 +207,16 @@ int main(int argc, char** argv) try {
           GNEISS_SUCCESS) {
     return 1;
   }
+  if (!asset_root.empty() && gneiss::application_internal::request_scene_load(
+                                 app.get(), "asset://scenes/scene.scene.json", 1U, 1U,
+                                 state.scene_request) != GNEISS_SUCCESS) {
+    return 1;
+  }
   auto* const window = FindWindowA(nullptr, title.c_str());
   if (window == nullptr) {
     return 2;
   }
-  // 单个未确认样本保证按键与任务时间戳不被下一个样本覆盖；发送线程不依赖主循环运行。
-  std::jthread sender([&] {
-    for (unsigned index = 1U; index <= 64U && !state.stopped; ++index) {
-      std::this_thread::sleep_for(20ms);
-      state.key_sent = now_ns();
-      state.sent = index;
-      gneiss::tasks::task_handle task;
-      const auto submitted = state.scheduler.submit(
-          {.name = "response", .scope = state.scope},
-          [&](const gneiss::tasks::task_context&) {
-            state.task_finished = now_ns();
-            return gneiss::tasks::task_outcome{};
-          },
-          task);
-      if (submitted != gneiss::tasks::submit_result::success ||
-          !PostMessageW(window, WM_KEYDOWN, 'A', 0x001e0001) ||
-          !PostMessageW(window, WM_KEYUP, 'A', static_cast<LPARAM>(0xc01e0001U))) {
-        state.failed = true;
-        break;
-      }
-      std::unique_lock lock(state.mutex);
-      if (!state.received.wait_for(lock, 2s, [&] {
-            return state.stopped || (state.keys >= index && state.tasks >= index);
-          })) {
-        state.failed = true;
-        break;
-      }
-    }
-    state.close_sent = now_ns();
-    if (!PostMessageW(window, WM_CLOSE, 0U, 0)) {
-      state.failed = true;
-    }
-  });
+  std::jthread sender([&] { send_probes(state, window); });
   const auto result = app.run();
   {
     std::scoped_lock lock(state.mutex);
@@ -161,8 +227,8 @@ int main(int argc, char** argv) try {
   const double key_max = percentile(state.key_ms, 1.0);
   const double task_max = percentile(state.task_ms, 1.0);
   const bool passed =
-      result == gneiss::result::success && !state.failed && state.keys == 64U &&
-      state.tasks == 64U && state.close_ms > 0.0 &&
+      result == gneiss::result::success && !state.failed && state.keys >= 64U &&
+      state.tasks == state.keys && state.scene_ready && state.close_ms > 0.0 &&
       (inject_stall
            ? key_max >= 40.0
            : key_max <= 100.0 && task_max <= 100.0 && state.close_ms <= 100.0 &&
@@ -174,7 +240,9 @@ int main(int argc, char** argv) try {
            << ",\"key_p95_ms\":" << percentile(state.key_ms, 0.95) << ",\"key_max_ms\":" << key_max
            << ",\"task_p95_ms\":" << percentile(state.task_ms, 0.95)
            << ",\"task_max_ms\":" << task_max << ",\"close_ms\":" << state.close_ms
-           << ",\"injected_stall\":" << inject_stall << "}\n";
+           << ",\"nodes\":" << state.nodes << ",\"resources\":" << state.resources
+           << ",\"loaded_scene\":" << !asset_root.empty() << ",\"injected_stall\":" << inject_stall
+           << "}\n";
     if (!output) {
       return 4;
     }
