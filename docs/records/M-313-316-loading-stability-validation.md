@@ -97,7 +97,7 @@ thread 终态 14.87 ms、实际清理 675.03 ms；cooperative 终态 13.07 ms、
 `scripts/performance/measure_scene_lifecycle.py` 顺序启动测量进程并按冻结门槛判断，
 默认覆盖 thread/cooperative 的连续切换、五个取消阶段、失败重试、窗口操作与关闭。
 输出目录必须不存在；失败保留 JSON、日志与图像，不会继续运行或混入旧样本。
-例如在 Windows Release 构建后：
+例如按[构建指南](../guides/building.md)启用 Granit 运行时及图形回归目标、完成 Windows Release 构建后：
 
 ```powershell
 python -X utf8 -B scripts/performance/measure_scene_lifecycle.py `

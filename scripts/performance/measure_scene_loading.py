@@ -38,7 +38,7 @@ def main():
     parser.add_argument("--release", type=Path, required=True)
     parser.add_argument("--daily-assets", type=Path)
     parser.add_argument("--full-assets", type=Path)
-    parser.add_argument("--expected-resources", type=int, default=458)
+    parser.add_argument("--expected-resources", type=int, default=505)
     parser.add_argument("--baseline", type=Path, help="0.49 基线原始报告，用于吞吐、内存和图像比较")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
