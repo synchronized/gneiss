@@ -1,0 +1,40 @@
+{
+  "status": "passed",
+  "source_commit": "77b8b3311cef8560ccaa62e733fb9a12763844a7",
+  "date": "2026-10-08",
+  "builds": [
+    "Release",
+    "Debug shared",
+    "Debug static"
+  ],
+  "tests": [
+    {
+      "log": "build/0.50-final-shared-tests.log",
+      "passed": 193,
+      "sha256": "7ec4e73b04344e0951b55f87c1f5c377ae647553f475889254b5171c55a01984"
+    },
+    {
+      "log": "build/0.50-final-static-tests.log",
+      "passed": 190,
+      "sha256": "d6d5e1a676e4ad56770dd09ab3c61002451e4b950e2004c4a3e3a2b3cf9a6281"
+    },
+    {
+      "log": "build/0.50-complete-windows-clang-debug-consumer-tests.log",
+      "passed": 4,
+      "sha256": "ddfaf2133f91c1505fd1f59cbb34e20eeab017e0cae334e59d0eb3815df2813a"
+    },
+    {
+      "log": "build/0.50-complete-windows-clang-static-debug-consumer-tests.log",
+      "passed": 4,
+      "sha256": "4657fba72f6d9d43568272c9ae95a2116ce68e04b211846bdac26fac728ae3e6"
+    }
+  ],
+  "consumer_source": "build/0.50-consumer-complete-source",
+  "consumer_prefixes": [
+    "build/0.50-install-complete-windows-clang-debug",
+    "build/0.50-install-complete-windows-clang-static-debug"
+  ],
+  "consumer_scope": "全新隔离源码和安装前缀；包含匹配的Granit SDK，C11/C++20消费者与旧头路径负向检查。",
+  "setup_failure": "首次独立安装脚本遗漏Granit SDK，配置失败；保留build/0.50-windows-clang-debug-consumer-configure.log，补齐依赖后用新前缀完成验证。",
+  "performance_scope": "这些是功能回归，不代替独立性能矩阵。"
+}
