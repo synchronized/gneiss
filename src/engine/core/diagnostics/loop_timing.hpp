@@ -40,6 +40,13 @@ enum class loop_stage : std::uint8_t {
   task_collect,
   task_submit,
   idle_wait,
+  task_submit_lock,
+  task_submit_work,
+  task_submit_allocate,
+  task_submit_insert,
+  task_submit_notify,
+  idle_lock,
+  idle_condition,
   count,
 };
 inline constexpr std::array loop_stage_names{
@@ -66,6 +73,13 @@ inline constexpr std::array loop_stage_names{
     "task_collect",
     "task_submit",
     "idle_wait",
+    "task_submit_lock",
+    "task_submit_work",
+    "task_submit_allocate",
+    "task_submit_insert",
+    "task_submit_notify",
+    "idle_lock",
+    "idle_condition",
 };
 static_assert(loop_stage_names.size() == static_cast<std::size_t>(loop_stage::count));
 using timing_clock = std::chrono::steady_clock;
@@ -75,9 +89,11 @@ inline thread_local stage_times* active_loop_times = nullptr;
 class loop_span final {
 public:
   explicit loop_span(loop_stage stage) noexcept
-      : output_(active_loop_times != nullptr
-                    ? &(*active_loop_times)[static_cast<std::size_t>(stage)]
-                    : nullptr),
+      : loop_span(active_loop_times != nullptr
+                      ? &(*active_loop_times)[static_cast<std::size_t>(stage)]
+                      : nullptr) {}
+  explicit loop_span(double* output) noexcept
+      : output_(output),
         started_(output_ != nullptr ? timing_clock::now() : timing_clock::time_point{}) {}
   ~loop_span() {
     if (output_ != nullptr) {
@@ -96,6 +112,13 @@ template <typename Function>
 decltype(auto) measure(loop_stage stage,
                        Function&& function) noexcept(noexcept(std::forward<Function>(function)())) {
   const loop_span span(stage);
+  return std::forward<Function>(function)();
+}
+
+template <typename Function>
+decltype(auto) measure(double* output,
+                       Function&& function) noexcept(noexcept(std::forward<Function>(function)())) {
+  const loop_span span(output);
   return std::forward<Function>(function)();
 }
 

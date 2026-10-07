@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/function/application/scene_load_service.hpp"
-#include "engine/core/diagnostics/loop_timing.hpp"
+#include "engine/core/diagnostics/task_submission.hpp"
 #include "engine/function/render/render_resource_service.hpp"
 
 #include "engine/asset/asset_uri.hpp"
@@ -291,17 +291,19 @@ void scene_load_service::advance() {
   }
 }
 tasks::submit_result scene_load_service::submit_verification() {
-  return executor_.submit(
-      {.name = "scene.verify", .scope = scope_, .notification = notification_},
+  return diagnostics::submit_observed(
+      executor_, {.name = "scene.verify", .scope = scope_, .notification = notification_},
       [cpu = pending_->cpu, sources = pending_->sources](const tasks::task_context& context) {
         if (!cpu->verification) {
           cpu->result = sources->begin_verification(cpu->verification);
         }
         if (cpu->result == GNEISS_SUCCESS) {
           // 每个任务只复验一段；由宿主消费回执后继续提交，不嵌套驱动或增加线程。
+          // 协作任务不可被驱动预算抢占，缩小单块校验；后台保留吞吐批次。
+          const auto byte_budget =
+              std::size_t{context.allows_blocking_wait() ? 16U : 4U} * 1024U * 1024U;
           cpu->result = cpu->verification->advance(
-              std::size_t{16U} * 1024U * 1024U, [&] { return context.stop_requested(); },
-              cpu->verification_complete,
+              byte_budget, [&] { return context.stop_requested(); }, cpu->verification_complete,
               std::chrono::milliseconds(context.allows_blocking_wait() ? 4 : 0));
         }
         if (context.stop_requested()) {

@@ -54,6 +54,11 @@ private:
   const std::atomic_bool& cancelled_;
   bool worker_thread_;
 };
+/** 可选的同步提交观测；仅由 submit 调用线程写入，每次覆盖，不可并发复用。 */
+struct task_submission_timings {
+  bool measured{};
+  double lock_ms{}, work_ms{}, allocate_ms{}, insert_ms{}, notify_ms{};
+};
 struct task_description {
   std::string name{};
   task_scope scope{};
@@ -62,6 +67,8 @@ struct task_description {
   task_priority priority{task_priority::background};
   std::chrono::steady_clock::time_point not_before{};
   std::shared_ptr<core::progress_notification> notification{};
+  // 仅借用到 submit 返回；调度器不得将此指针留给任务或后台线程。
+  task_submission_timings* submission_timings{};
 };
 struct task_completion {
   task_handle task;

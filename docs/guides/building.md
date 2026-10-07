@@ -450,6 +450,9 @@ try {
 场景推进、资产接收/发布、上传回执/提交、候选收尾与帧快照等为嵌套阶段。
 window_pump/window_events 区分平台事件泵与窗口队列接收，input_state/input_events 区分
 输入状态读取与事件转换；task_collect/task_submit 记录加载服务的任务结果接收与续步提交。
+task_submit_lock 与 task_submit_work 区分提交取锁和锁内工作；allocate/insert/notify 子项
+嵌套于 work。idle_lock 是等待前初次取锁，idle_condition 包含条件等待及其内部重新取锁。
+这些子项仍包含线程失去调度的时间，不把它们直接解释成 CPU 执行，也不重复加总。
 清理计时不等同于 GPU 驱动资源已经释放；run 返回前的 finish_frames 等待及关闭不在循环体内。
 最长样本不能用于推算全量 P95。详细计时默认关闭，关闭时不读取时钟或分配每帧诊断记录；
 开启时保留固定容量数据，文件写入在循环结束后完成。应对照插桩开销，不把诊断耗时计作产品优化。

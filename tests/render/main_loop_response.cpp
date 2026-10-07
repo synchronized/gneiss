@@ -31,8 +31,6 @@ std::int64_t now_ns() {
       .count();
 }
 struct response_context {
-  gneiss::tasks::task_scheduler scheduler{{.workers = 1U}};
-  gneiss::tasks::task_scope scope = scheduler.make_scope();
   std::atomic_int64_t key_sent, task_finished, close_sent;
   std::atomic_uint sent, keys, tasks;
   std::atomic_bool failed, stopped;
@@ -44,6 +42,9 @@ struct response_context {
   std::atomic_bool scene_ready{true};
   std::uint64_t scene_request{}, nodes{}, resources{};
   clock_type::time_point deadline = clock_type::now() + 10s;
+  // 调度器先于被探针任务引用的状态销毁，异常退出也会先等待任务结束。
+  gneiss::tasks::task_scheduler scheduler{{.workers = 1U}};
+  gneiss::tasks::task_scope scope = scheduler.make_scope();
 };
 gneiss_result advance_scene(gneiss_application app, response_context& state) {
   using namespace gneiss::application_internal;

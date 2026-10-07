@@ -3,7 +3,7 @@
 
 #include "engine/function/render/texture_load_service.hpp"
 #include "engine/asset/asset_uri.hpp"
-#include "engine/core/diagnostics/loop_timing.hpp"
+#include "engine/core/diagnostics/task_submission.hpp"
 #include <algorithm>
 #include <set>
 #include <stdexcept>
@@ -142,7 +142,8 @@ gneiss_result texture_load_service::submit_assets(std::span<const render_asset_r
           .maximum_bytes = prepare_limit,
       },
       backend_.profile);
-  const auto accepted = submit_preparation(*value);
+  const auto accepted = diagnostics::measure(diagnostics::loop_stage::task_submit,
+                                             [&] { return submit_preparation(*value); });
   if (accepted != tasks::submit_result::success) {
     return accepted == tasks::submit_result::full ? GNEISS_ERROR_NOT_READY
                                                   : GNEISS_ERROR_INVALID_STATE;
@@ -152,15 +153,17 @@ gneiss_result texture_load_service::submit_assets(std::span<const render_asset_r
   return GNEISS_SUCCESS;
 }
 tasks::submit_result texture_load_service::submit_preparation(pending& value) {
-  return executor_.submit(
-      {.name = "render_assets.prepare", .scope = scope_, .notification = notification_},
+  return diagnostics::submit_observed(
+      executor_, {.name = "render_assets.prepare", .scope = scope_, .notification = notification_},
       [cpu = value.cpu](const tasks::task_context& context) {
         const auto start = std::chrono::steady_clock::now();
         asset_diagnostic diagnostic;
+        // 协作任务与主线程共用执行时间，单块预算不能沿用后台吞吐批次。
+        const auto byte_budget =
+            std::size_t{context.allows_blocking_wait() ? 16U : 4U} * 1024U * 1024U;
         cpu->result = cpu->preparation->advance(
-            std::size_t{16U} * 1024U * 1024U, [&] { return context.stop_requested(); }, cpu->batch,
-            diagnostic, cpu->complete,
-            std::chrono::milliseconds(context.allows_blocking_wait() ? 4 : 0));
+            byte_budget, [&] { return context.stop_requested(); }, cpu->batch, diagnostic,
+            cpu->complete, std::chrono::milliseconds(context.allows_blocking_wait() ? 4 : 0));
         if (cpu->complete) {
           cpu->message = std::move(diagnostic.message);
           cpu->preparation.reset();
