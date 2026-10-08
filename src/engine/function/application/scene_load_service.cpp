@@ -317,6 +317,7 @@ tasks::submit_result scene_load_service::submit_verification() {
       pending_->task);
 }
 void scene_load_service::advance_verification(pending& value) {
+  const diagnostics::loop_span span(diagnostics::loop_stage::scene_verify);
   auto& progress = value.result.progress;
   if (value.task.id != 0U) {
     std::vector<tasks::task_completion> completions;
@@ -357,11 +358,15 @@ void scene_load_service::advance_verification(pending& value) {
   progress.phase = scene_load_phase::instantiating;
   progress.completed = 0U;
   progress.total = value.cpu->description.instance_nodes;
-  value.builder = std::make_unique<scene_internal::scene_load_builder>(
-      *value.candidate->scenes, std::move(value.cpu->description));
+  diagnostics::measure(diagnostics::loop_stage::scene_builder_create, [&] {
+    value.builder = std::make_unique<scene_internal::scene_load_builder>(
+        *value.candidate->scenes, std::move(value.cpu->description));
+  });
   // 激活后的热重载必须回到宿主原始 VFS，不能继承一次性加载会话的内容固定规则。
-  value.assets = std::make_unique<render_internal::texture_load_service>(
-      executor_, files_, value.candidate->assets, backend_, notification_);
+  diagnostics::measure(diagnostics::loop_stage::scene_asset_service_reset, [&] {
+    value.assets = std::make_unique<render_internal::texture_load_service>(
+        executor_, files_, value.candidate->assets, backend_, notification_);
+  });
 }
 void scene_load_service::advance_impl() {
   auto& value = *pending_;
@@ -497,7 +502,8 @@ void scene_load_service::advance_impl() {
   }
   if (progress.phase == scene_load_phase::instantiating) {
     bool complete{};
-    const auto built = value.builder->advance(complete);
+    const auto built = diagnostics::measure(diagnostics::loop_stage::scene_build,
+                                            [&] { return value.builder->advance(complete); });
     progress.completed = value.builder->completed_nodes();
     if (built != GNEISS_SUCCESS) {
       finish(built, scene_load_phase::failed);

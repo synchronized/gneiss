@@ -47,6 +47,10 @@ enum class loop_stage : std::uint8_t {
   task_submit_notify,
   idle_lock,
   idle_condition,
+  scene_verify,
+  scene_builder_create,
+  scene_asset_service_reset,
+  scene_build,
   count,
 };
 inline constexpr std::array loop_stage_names{
@@ -80,6 +84,10 @@ inline constexpr std::array loop_stage_names{
     "task_submit_notify",
     "idle_lock",
     "idle_condition",
+    "scene_verify",
+    "scene_builder_create",
+    "scene_asset_service_reset",
+    "scene_build",
 };
 static_assert(loop_stage_names.size() == static_cast<std::size_t>(loop_stage::count));
 using timing_clock = std::chrono::steady_clock;

@@ -473,6 +473,20 @@ Windows 的 gneiss_main_loop_response 测试通过独立线程发送按键与任
 对齐；输入起点在提交任务及 PostMessage 之前，任务起点在工作函数结束、终态发布之前。
 此诊断默认关闭，不改变响应门槛；未复现的超限样本不能被诊断通过覆盖。
 
+用同一进程的两份 CSV 离线关联探针与保留的循环：
+
+```powershell
+python -X utf8 -B scripts/performance/correlate_loop_response.py `
+  <引擎循环.csv> <输出.json.probes.csv> --output <关联报告.json>
+```
+
+输出区分循环前空档、循环内部重叠与未保留时间。`total_ms` 包含 `gap_ms`，
+循环内部的结束时刻为 `start_ms + total_ms - gap_ms`。阶段耗时是整轮累计且可能嵌套，
+不能直接相加或视作探针窗口内的耗时；关联报告不代替原始门槛验收。
+场景收尾额外记录 `scene_verify`、`scene_builder_create`、`scene_asset_service_reset`
+与 `scene_build`，分别覆盖复验推进、构建器创建、资产服务切换和节点分批构建。
+其中构建器创建与资产服务切换包含在复验推进内，不重复累加。
+
 
 Windows 下可使用下列工具顺序测量实际 Runtime 的进程/主线程 CPU 时间，并交替运行诊断开关：
 
