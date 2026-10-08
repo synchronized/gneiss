@@ -453,6 +453,10 @@ window_pump/window_events 区分平台事件泵与窗口队列接收，input_sta
 task_submit_lock 与 task_submit_work 区分提交取锁和锁内工作；allocate/insert/notify 子项
 嵌套于 work。idle_lock 是等待前初次取锁，idle_condition 包含条件等待及其内部重新取锁。
 这些子项仍包含线程失去调度的时间，不把它们直接解释成 CPU 执行，也不重复加总。
+`task_submit_dispatch` 覆盖观测包装内的 executor.submit 调用，包含其参数迁移与返回，
+不包含进入包装前的参数构造。场景来源复验另记录 `scene_verify_submit_body` 函数体
+和其中的 `task_callback_create` 回调构造；函数入口执行前的等待仍只落在外层 `task_submit`。
+这些阶段相互嵌套，外层减去内层的差额不能直接视为锁等待或缺页耗时。
 清理计时不等同于 GPU 驱动资源已经释放；run 返回前的 finish_frames 等待及关闭不在循环体内。
 最长样本不能用于推算全量 P95。详细计时默认关闭，关闭时不读取时钟或分配每帧诊断记录；
 开启时保留固定容量数据，文件写入在循环结束后完成。应对照插桩开销，不把诊断耗时计作产品优化。

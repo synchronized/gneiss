@@ -33,7 +33,9 @@ inline tasks::submit_result submit_observed(tasks::task_executor& executor,
     }
   } current{active_loop_times};
   description.submission_timings = &current.timings;
-  return executor.submit(std::move(description), std::move(function), output);
+  return measure(loop_stage::task_submit_dispatch, [&] {
+    return executor.submit(std::move(description), std::move(function), output);
+  });
 }
 
 } // namespace gneiss::diagnostics

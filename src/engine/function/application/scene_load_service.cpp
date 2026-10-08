@@ -291,30 +291,34 @@ void scene_load_service::advance() {
   }
 }
 tasks::submit_result scene_load_service::submit_verification() {
+  const diagnostics::loop_span body(diagnostics::loop_stage::scene_verify_submit_body);
+  auto function = diagnostics::measure(diagnostics::loop_stage::task_callback_create, [&] {
+    return tasks::task_executor::task_function{
+        [cpu = pending_->cpu, sources = pending_->sources](const tasks::task_context& context) {
+          if (!cpu->verification) {
+            cpu->result = sources->begin_verification(cpu->verification);
+          }
+          if (cpu->result == GNEISS_SUCCESS) {
+            // 每个任务只复验一段；由宿主消费回执后继续提交，不嵌套驱动或增加线程。
+            // 协作任务不可被驱动预算抢占，缩小单块校验；后台保留吞吐批次。
+            const auto byte_budget =
+                std::size_t{context.allows_blocking_wait() ? 16U : 4U} * 1024U * 1024U;
+            cpu->result = cpu->verification->advance(
+                byte_budget, [&] { return context.stop_requested(); }, cpu->verification_complete,
+                std::chrono::milliseconds(context.allows_blocking_wait() ? 4 : 0));
+          }
+          if (context.stop_requested()) {
+            return tasks::task_outcome{.state = tasks::task_state::cancelled};
+          }
+          return tasks::task_outcome{
+              .state = cpu->result == GNEISS_SUCCESS ? tasks::task_state::succeeded
+                                                     : tasks::task_state::failed,
+          };
+        }};
+  });
   return diagnostics::submit_observed(
       executor_, {.name = "scene.verify", .scope = scope_, .notification = notification_},
-      [cpu = pending_->cpu, sources = pending_->sources](const tasks::task_context& context) {
-        if (!cpu->verification) {
-          cpu->result = sources->begin_verification(cpu->verification);
-        }
-        if (cpu->result == GNEISS_SUCCESS) {
-          // 每个任务只复验一段；由宿主消费回执后继续提交，不嵌套驱动或增加线程。
-          // 协作任务不可被驱动预算抢占，缩小单块校验；后台保留吞吐批次。
-          const auto byte_budget =
-              std::size_t{context.allows_blocking_wait() ? 16U : 4U} * 1024U * 1024U;
-          cpu->result = cpu->verification->advance(
-              byte_budget, [&] { return context.stop_requested(); }, cpu->verification_complete,
-              std::chrono::milliseconds(context.allows_blocking_wait() ? 4 : 0));
-        }
-        if (context.stop_requested()) {
-          return tasks::task_outcome{.state = tasks::task_state::cancelled};
-        }
-        return tasks::task_outcome{
-            .state = cpu->result == GNEISS_SUCCESS ? tasks::task_state::succeeded
-                                                   : tasks::task_state::failed,
-        };
-      },
-      pending_->task);
+      std::move(function), pending_->task);
 }
 void scene_load_service::advance_verification(pending& value) {
   const diagnostics::loop_span span(diagnostics::loop_stage::scene_verify);
