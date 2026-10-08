@@ -275,6 +275,7 @@ namespace gneiss::asset_internal {
 gneiss_result native_file_system::open_read(std::string_view path,
                                             std::unique_ptr<read_source>& output) const noexcept {
   GNEISS_PROFILE_SCOPE("asset.fs.open_read");
+  GNEISS_PROFILE_TEXT(path);
   output.reset();
   if (root_.empty()) {
     return GNEISS_ERROR_INVALID_STATE;
@@ -286,7 +287,15 @@ gneiss_result native_file_system::open_read(std::string_view path,
     std::error_code error;
     const auto candidate = [&] {
       GNEISS_PROFILE_SCOPE("asset.fs.canonical");
-      return std::filesystem::canonical(root_ / path_from_utf8(path), error);
+      GNEISS_PROFILE_TEXT(path);
+      const auto input_path = [&] {
+        GNEISS_PROFILE_SCOPE("asset.fs.path_build");
+        return root_ / path_from_utf8(path);
+      }();
+      {
+        GNEISS_PROFILE_SCOPE("asset.fs.canonical_call");
+        return std::filesystem::canonical(input_path, error);
+      }
     }();
     if (error) {
       return GNEISS_ERROR_NOT_FOUND;

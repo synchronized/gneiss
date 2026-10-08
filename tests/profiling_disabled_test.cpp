@@ -8,6 +8,8 @@ int main() {
   int evaluated{};
   GNEISS_PROFILE_SCOPE(++evaluated);
   GNEISS_PROFILE_THREAD(++evaluated);
+  GNEISS_PROFILE_TEXT(++evaluated);
+  GNEISS_PROFILE_TEXT(unavailable_text);
   GNEISS_PROFILE_TASK(++evaluated, unavailable_task, unavailable_name);
   GNEISS_PROFILE_FRAME();
   return evaluated;

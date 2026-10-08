@@ -12,6 +12,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <string>
+#include <string_view>
 
 namespace gneiss::diagnostics {
 inline auto profile_task_label(std::uint64_t owner, std::uint64_t task) {
@@ -24,6 +25,16 @@ inline auto profile_task_label(std::uint64_t owner, std::uint64_t task) {
 #define GNEISS_PROFILE_SCOPE(name) ZoneScopedN(name)
 #define GNEISS_PROFILE_FRAME() FrameMark
 #define GNEISS_PROFILE_THREAD(name) tracy::SetThreadName(name)
+#define GNEISS_PROFILE_TEXT(value)                                                                 \
+  do {                                                                                             \
+    if (ZoneIsActive) {                                                                            \
+      const std::string_view gneiss_profile_text{value};                                           \
+      if (!gneiss_profile_text.empty()) {                                                          \
+        ZoneText(gneiss_profile_text.data(),                                                       \
+                 std::min(gneiss_profile_text.size(), std::size_t{1024}));                         \
+      }                                                                                            \
+    }                                                                                              \
+  } while (false)
 #define GNEISS_PROFILE_TASK(owner, id, name)                                                       \
   do {                                                                                             \
     if (ZoneIsActive) {                                                                            \
@@ -40,5 +51,6 @@ inline auto profile_task_label(std::uint64_t owner, std::uint64_t task) {
 #define GNEISS_PROFILE_SCOPE(name) ((void)0)
 #define GNEISS_PROFILE_FRAME() ((void)0)
 #define GNEISS_PROFILE_THREAD(name) ((void)0)
+#define GNEISS_PROFILE_TEXT(value) ((void)0)
 #define GNEISS_PROFILE_TASK(owner, id, name) ((void)0)
 #endif

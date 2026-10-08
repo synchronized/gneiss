@@ -72,12 +72,15 @@ tracy-csvexport.exe -u capture.tracy > zones.csv
 | `asset.verify.open` / `asset.verify.read_next` / `asset.verify.hash` | 来源复验的打开 / 分块读取与验证 / 摘要更新 |
 | `asset.io.open` / `asset.io.begin_read` / `asset.io.reopen` | Windows 原生文件打开 / 创建异步读取 / 首次重开异步句柄 |
 | `asset.fs.open_read` / `asset.fs.canonical` / `asset.fs.file_type` / `asset.fs.relative` | 原生 VFS 打开完整入口 / 规范化路径 / 检查文件类型 / 计算相对路径 |
+| `asset.fs.path_build` / `asset.fs.canonical_call` | UTF-8 路径转换与拼接 / 单独的标准库 canonical 调用 |
 | `asset.io.request.allocate` / `asset.io.request.start` / `asset.io.request.destroy` | Windows 异步请求缓冲分配 / 发起读取 / 析构函数体（可能包含取消等待，不含成员自动析构） |
 | `task.submit` / `task.execute` | 调度器提交调用 / 执行及执行后收尾 |
 | `task.complete` / `task.receive` | 发布终态 / 宿主消费回执 |
 
 任务区域文本带有 `scheduler=<owner> task=<id>` 和任务名，数值为 task id。
 任务名仅采集前 1024 字节，空名称不产生文本事件，不改变调度器保存的名称。
+原生 VFS 打开与规范化外层区域附带资产相对路径文本，最多 1024 字节；空文本不记录。
+导出前应留意路径是否包含项目内部名称。文本仅在采集区域有效时求值，关闭 profiling 时不求值。
 查找相同二元组即可关联不同线程，不能仅凭任务名或单独 task id 区分调度器。
 失败、取消或依赖失败可能没有执行区域，但仍有终态和被消费的回执；提交拒绝没有有效
 task id。当前未绘制自动跨线程连线，也未接入 GPU、全量分配或互斥锁专用事件。
