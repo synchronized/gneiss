@@ -274,6 +274,7 @@ namespace gneiss::asset_internal {
 
 gneiss_result native_file_system::open_read(std::string_view path,
                                             std::unique_ptr<read_source>& output) const noexcept {
+  GNEISS_PROFILE_SCOPE("asset.fs.open_read");
   output.reset();
   if (root_.empty()) {
     return GNEISS_ERROR_INVALID_STATE;
@@ -283,11 +284,24 @@ gneiss_result native_file_system::open_read(std::string_view path,
       return GNEISS_ERROR_INVALID_ARGUMENT;
     }
     std::error_code error;
-    const auto candidate = std::filesystem::canonical(root_ / path_from_utf8(path), error);
-    if (error || !std::filesystem::is_regular_file(candidate, error) || error) {
+    const auto candidate = [&] {
+      GNEISS_PROFILE_SCOPE("asset.fs.canonical");
+      return std::filesystem::canonical(root_ / path_from_utf8(path), error);
+    }();
+    if (error) {
       return GNEISS_ERROR_NOT_FOUND;
     }
-    const auto relative = std::filesystem::relative(candidate, root_, error);
+    const auto regular = [&] {
+      GNEISS_PROFILE_SCOPE("asset.fs.file_type");
+      return std::filesystem::is_regular_file(candidate, error);
+    }();
+    if (!regular || error) {
+      return GNEISS_ERROR_NOT_FOUND;
+    }
+    const auto relative = [&] {
+      GNEISS_PROFILE_SCOPE("asset.fs.relative");
+      return std::filesystem::relative(candidate, root_, error);
+    }();
     if (error || relative.empty() || relative.is_absolute() || *relative.begin() == "..") {
       return GNEISS_ERROR_INVALID_ARGUMENT;
     }

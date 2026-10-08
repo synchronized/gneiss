@@ -4,6 +4,7 @@
 #pragma once
 
 #include "engine/core/diagnostics/loop_timing.hpp"
+#include "engine/core/diagnostics/profiling.hpp"
 #include "engine/core/progress_notification.hpp"
 
 #include <atomic>
@@ -30,8 +31,12 @@ public:
   }
   bool wait(std::uint64_t observed, std::chrono::milliseconds timeout) {
     std::unique_lock lock(mutex_, std::defer_lock);
-    diagnostics::measure(diagnostics::loop_stage::idle_lock, [&] { lock.lock(); });
+    diagnostics::measure(diagnostics::loop_stage::idle_lock, [&] {
+      GNEISS_PROFILE_SCOPE("application.idle_lock");
+      lock.lock();
+    });
     return diagnostics::measure(diagnostics::loop_stage::idle_condition, [&] {
+      GNEISS_PROFILE_SCOPE("application.idle_condition");
       return ready_.wait_for(lock, timeout, [&] { return snapshot() != observed; });
     });
   }

@@ -58,6 +58,7 @@ tracy-csvexport.exe -u capture.tracy > zones.csv
 | `application.events` / `application.update` | 输入与平台事件处理 / 宿主更新回调 |
 | `application.render.submit` | CPU 渲染准备与提交，不是 GPU 执行耗时 |
 | `application.idle_wait` | 主循环主动等待进展 |
+| `application.idle_lock` / `application.idle_condition` | 等待前首次取锁 / 条件变量等待（包含唤醒后重新取锁） |
 | `scene.advance` / `scene.verify.submit` / `scene.verify.step` | 场景推进 / 复验提交 / 复验任务体 |
 | `scene.build.step` / `asset.advance` | 节点构建步骤 / 资产与上传推进 |
 | `scene.builder.create` / `scene.assets.reset` | 复验完成后创建构建器 / 切换资产服务，包含辅助函数入口 |
@@ -70,6 +71,7 @@ tracy-csvexport.exe -u capture.tracy > zones.csv
 | `asset.prepare.publish` / `asset.prepare.cleanup` | 排序并移交准备结果 / 清理准备状态 |
 | `asset.verify.open` / `asset.verify.read_next` / `asset.verify.hash` | 来源复验的打开 / 分块读取与验证 / 摘要更新 |
 | `asset.io.open` / `asset.io.begin_read` / `asset.io.reopen` | Windows 原生文件打开 / 创建异步读取 / 首次重开异步句柄 |
+| `asset.fs.open_read` / `asset.fs.canonical` / `asset.fs.file_type` / `asset.fs.relative` | 原生 VFS 打开完整入口 / 规范化路径 / 检查文件类型 / 计算相对路径 |
 | `asset.io.request.allocate` / `asset.io.request.start` / `asset.io.request.destroy` | Windows 异步请求缓冲分配 / 发起读取 / 析构函数体（可能包含取消等待，不含成员自动析构） |
 | `task.submit` / `task.execute` | 调度器提交调用 / 执行及执行后收尾 |
 | `task.complete` / `task.receive` | 发布终态 / 宿主消费回执 |
