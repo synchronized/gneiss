@@ -486,6 +486,20 @@ python -X utf8 -B scripts/performance/correlate_loop_response.py `
 场景收尾额外记录 `scene_verify`、`scene_builder_create`、`scene_asset_service_reset`
 与 `scene_build`，分别覆盖复验推进、构建器创建、资产服务切换和节点分批构建。
 其中构建器创建与资产服务切换包含在复验推进内，不重复累加。
+构建器内部还记录 `scene_description_move`、`scene_instance_allocate`、
+`scene_instance_initialize` 和 `scene_node_index_reserve`；未覆盖的外层分配、形参构造及其他
+成员初始化仍包含在 `scene_builder_create` 内，不能把子项之和当作构建器总耗时。
+
+Windows 响应夹具的 `--trace` 还保留最慢 16 次 `scene` 推进回调及 `cpu_ns`。
+`scene` 序号是回调序号，与 `key`/`task` 探针对编号独立；按绝对时间窗关联。
+CPU 值来自同线程内核态和用户态计数增量，`-1` 表示未采集或查询失败。
+计数粒度和查询边界会带来误差，零增量不代表没有执行，也不能将墙钟减去 CPU 值
+直接解释为精确的锁等待或系统调度时间。诊断关闭时不查询线程 CPU 计数。
+辅助字段 `cpu_cycles` 是线程用户态与内核态执行周期增量，`-1` 同样表示不可用；
+根据 [Windows QueryThreadCycleTime 文档](https://learn.microsoft.com/en-us/windows/win32/api/realtimeapiset/nf-realtimeapiset-querythreadcycletime)，
+不能将它直接换算为经过时间。
+循环 CSV 的 `peak:<阶段>` 行保留各阶段最大耗时所在的完整循环，不受最长 128 轮筛选影响；
+同一轮可能被多个阶段保留，关联工具按 frame 去重，且检查重复上下文一致。
 
 
 Windows 下可使用下列工具顺序测量实际 Runtime 的进程/主线程 CPU 时间，并交替运行诊断开关：

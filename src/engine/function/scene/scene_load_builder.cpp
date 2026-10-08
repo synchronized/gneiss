@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/function/scene/scene_load_builder.hpp"
+#include "engine/core/diagnostics/loop_timing.hpp"
 
 #include <algorithm>
 
@@ -9,11 +10,17 @@ namespace gneiss::scene_internal {
 
 scene_load_builder::scene_load_builder(scene_instance_service& service,
                                        prepared_scene_description prepared)
-    : service_(service), prepared_(std::move(prepared)),
-      instance_(std::make_unique<scene_instance>(service.world_, service.loader_,
-                                                 service.prefab_loader_, service.registry_)) {
-  instance_->initialize_staged(std::move(prepared_.description));
-  nodes_.reserve(instance_->description.objects.size());
+    : service_(service),
+      prepared_(diagnostics::measure(diagnostics::loop_stage::scene_description_move,
+                                     [&] { return std::move(prepared); })),
+      instance_(diagnostics::measure(diagnostics::loop_stage::scene_instance_allocate, [&] {
+        return std::make_unique<scene_instance>(service.world_, service.loader_,
+                                                service.prefab_loader_, service.registry_);
+      })) {
+  diagnostics::measure(diagnostics::loop_stage::scene_instance_initialize,
+                       [&] { instance_->initialize_staged(std::move(prepared_.description)); });
+  diagnostics::measure(diagnostics::loop_stage::scene_node_index_reserve,
+                       [&] { nodes_.reserve(instance_->description.objects.size()); });
 }
 
 gneiss_result scene_load_builder::step_prefab() {

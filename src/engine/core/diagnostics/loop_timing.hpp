@@ -51,6 +51,10 @@ enum class loop_stage : std::uint8_t {
   scene_builder_create,
   scene_asset_service_reset,
   scene_build,
+  scene_description_move,
+  scene_instance_allocate,
+  scene_instance_initialize,
+  scene_node_index_reserve,
   count,
 };
 inline constexpr std::array loop_stage_names{
@@ -88,6 +92,10 @@ inline constexpr std::array loop_stage_names{
     "scene_builder_create",
     "scene_asset_service_reset",
     "scene_build",
+    "scene_description_move",
+    "scene_instance_allocate",
+    "scene_instance_initialize",
+    "scene_node_index_reserve",
 };
 static_assert(loop_stage_names.size() == static_cast<std::size_t>(loop_stage::count));
 using timing_clock = std::chrono::steady_clock;
@@ -155,7 +163,10 @@ public:
       exceeds_[index] += record.total_ms > thresholds_[index] ? 1U : 0U;
     }
     for (std::size_t index = 0; index < maxima_.size(); ++index) {
-      maxima_[index] = std::max(maxima_[index], record.stages[index]);
+      if (record.stages[index] > maxima_[index]) {
+        maxima_[index] = record.stages[index];
+        stage_peaks_[index] = record;
+      }
     }
     if (retained_ < capacity) {
       longest_[retained_++] = record;
@@ -185,6 +196,19 @@ public:
       }
       output << '\n';
     }
+    // 阶段峰值可能不在最长的 128 轮里，单独保留它的完整上下文。
+    for (std::size_t index = 0; index < maxima_.size(); ++index) {
+      if (maxima_[index] <= 0.0) {
+        continue;
+      }
+      const auto& record = stage_peaks_[index];
+      output << "peak:" << loop_stage_names[index] << ',' << record.frame << ',' << record.start_ms
+             << ',' << record.total_ms << ',' << record.gap_ms;
+      for (auto value : record.stages) {
+        output << ',' << value;
+      }
+      output << '\n';
+    }
     output << "maxima," << count_ << ",0," << maximum_ms_ << ",0";
     for (auto value : maxima_) {
       output << ',' << value;
@@ -207,6 +231,7 @@ private:
   std::array<std::uint64_t, thresholds_.size()> exceeds_{};
   std::array<loop_record, capacity> longest_{};
   stage_times maxima_{};
+  std::array<loop_record, static_cast<std::size_t>(loop_stage::count)> stage_peaks_{};
   std::size_t retained_{};
   std::uint64_t count_{};
   double sum_ms_{};

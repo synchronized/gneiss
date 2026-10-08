@@ -18,6 +18,29 @@ HEADER = 'kind,index,sent_ns,received_ns,latency_ms\n'
 
 
 class CorrelationTests(unittest.TestCase):
+    def test_peak_context_is_used_once(self):
+        peak = 'peak:scene_builder_create,3,30,5,0,4,1\n'
+        engine = ENGINE + peak + peak.replace('scene_builder_create', 'update')
+        sample = correlate(engine, HEADER + 'scene,1,1030000000,1035000000,5\n')['probes'][0]
+        self.assertEqual(len(sample['loops']), 1)
+        self.assertEqual(sample['unretained_ms'], 0)
+        with self.assertRaises(ValueError):
+            correlate(engine + peak.replace('30,5,0', '30,6,0'),
+                      HEADER + 'scene,1,1030000000,1035000000,5\n')
+
+    def test_scene_cpu_and_unavailable_counter(self):
+        header = HEADER.strip() + ',cpu_ns,cpu_cycles\n'
+        samples = correlate(ENGINE, header + 'scene,1,1010000000,1015000000,5,2000000,900\n'
+                            + 'key,1,1010000000,1011000000,1,-1,-1\n')['probes']
+        self.assertEqual(samples[0]['thread_cpu_ms'], 2)
+        self.assertEqual(samples[0]['thread_cycles'], 900)
+        self.assertIsNone(samples[1]['thread_cpu_ms'])
+        self.assertIsNone(samples[1]['thread_cycles'])
+        with self.assertRaises(ValueError):
+            correlate(ENGINE, header + 'scene,1,1010000000,1015000000,5,-2,-1\n')
+        with self.assertRaises(ValueError):
+            correlate(ENGINE, header + 'scene,1,1010000000,1015000000,5,-1,-2\n')
+
     def test_gap_is_before_start(self):
         report = correlate(ENGINE, HEADER + 'key,1,1006000000,1017000000,11\n')
         sample = report['probes'][0]

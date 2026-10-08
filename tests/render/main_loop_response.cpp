@@ -31,9 +31,30 @@ std::int64_t now_ns() {
   return std::chrono::duration_cast<std::chrono::nanoseconds>(clock_type::now().time_since_epoch())
       .count();
 }
+// Windows 线程 CPU 计数粒度可能比墙钟粗；失败用 -1 表示，不能当作零开销。
+std::int64_t thread_cpu_ns() {
+  FILETIME created{};
+  FILETIME exited{};
+  FILETIME kernel{};
+  FILETIME user{};
+  if (GetThreadTimes(GetCurrentThread(), &created, &exited, &kernel, &user) == 0) {
+    return -1;
+  }
+  const auto ticks = [](FILETIME value) {
+    return (static_cast<std::uint64_t>(value.dwHighDateTime) << 32U) | value.dwLowDateTime;
+  };
+  return static_cast<std::int64_t>((ticks(kernel) + ticks(user)) * 100U);
+}
+std::int64_t thread_cycles() {
+  ULONG64 cycles{};
+  return QueryThreadCycleTime(GetCurrentThread(), &cycles) != 0 ? static_cast<std::int64_t>(cycles)
+                                                                : -1;
+}
 struct probe_sample {
   unsigned index{};
   std::int64_t sent_ns{}, received_ns{};
+  std::int64_t cpu_ns{-1};
+  std::int64_t cpu_cycles{-1};
   [[nodiscard]] std::int64_t duration() const { return received_ns - sent_ns; }
 };
 // 仅保留最慢的探针，热路径不分配内存；时间原点与引擎分段采样一致。
@@ -49,7 +70,8 @@ struct probe_trace {
     for (const auto& sample : samples) {
       if (sample.index != 0U) {
         output << kind << ',' << sample.index << ',' << sample.sent_ns << ',' << sample.received_ns
-               << ',' << static_cast<double>(sample.duration()) / 1e6 << '\n';
+               << ',' << static_cast<double>(sample.duration()) / 1e6 << ',' << sample.cpu_ns << ','
+               << sample.cpu_cycles << '\n';
       }
     }
   }
@@ -64,7 +86,8 @@ struct response_context {
   double close_ms{};
   bool stall{};
   bool trace{};
-  probe_trace key_trace, task_trace;
+  probe_trace key_trace, task_trace, scene_trace;
+  unsigned scene_updates{};
   std::atomic_bool scene_ready{true};
   std::uint64_t scene_request{}, nodes{}, resources{};
   clock_type::time_point deadline = clock_type::now() + 10s;
@@ -98,6 +121,27 @@ gneiss_result advance_scene(gneiss_application app, response_context& state) {
       state.scene_ready = result == GNEISS_SUCCESS;
     }
   }
+  return result;
+}
+
+gneiss_result advance_scene_observed(gneiss_application app, response_context& state) {
+  if (!state.trace) {
+    return advance_scene(app, state);
+  }
+  const auto cpu_start = thread_cpu_ns();
+  const auto cycles_start = thread_cycles();
+  probe_sample sample{.index = ++state.scene_updates, .sent_ns = now_ns()};
+  const auto result = advance_scene(app, state);
+  sample.received_ns = now_ns();
+  const auto cycles_end = thread_cycles();
+  const auto cpu_end = thread_cpu_ns();
+  if (cpu_start >= 0 && cpu_end >= cpu_start) {
+    sample.cpu_ns = cpu_end - cpu_start;
+  }
+  if (cycles_start >= 0 && cycles_end >= cycles_start) {
+    sample.cpu_cycles = cycles_end - cycles_start;
+  }
+  state.scene_trace.record(sample);
   return result;
 }
 
@@ -146,7 +190,7 @@ gneiss_result update(gneiss_application app, const gneiss_frame_time* /*unused*/
     ++state.tasks;
     state.received.notify_all();
   }
-  const auto scene_result = advance_scene(app, state);
+  const auto scene_result = advance_scene_observed(app, state);
   if (scene_result != GNEISS_SUCCESS) {
     return scene_result;
   }
@@ -211,9 +255,10 @@ bool write_probe_trace(const response_context& state, const char* path) {
     return true;
   }
   std::ofstream output(std::string(path) + ".probes.csv");
-  output << "kind,index,sent_ns,received_ns,latency_ms\n";
+  output << "kind,index,sent_ns,received_ns,latency_ms,cpu_ns,cpu_cycles\n";
   state.key_trace.write(output, "key");
   state.task_trace.write(output, "task");
+  state.scene_trace.write(output, "scene");
   return static_cast<bool>(output);
 }
 } // namespace

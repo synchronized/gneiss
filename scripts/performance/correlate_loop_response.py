@@ -21,17 +21,24 @@ def correlate(engine_text, probe_text):
     rows = list(csv.DictReader(io.StringIO('\n'.join(
         line for line in lines if not line.startswith('#')))))
     loops = []
+    frames = {}
     for row in rows:
-        if row['kind'] != 'sample':
+        if row['kind'] != 'sample' and not row['kind'].startswith('peak:'):
             continue
+        frame = int(row['frame'])
         values = {key: float(value) for key, value in row.items() if key.endswith('_ms')}
         if not all(math.isfinite(value) and value >= 0 for value in values.values()):
             raise ValueError('循环包含无效耗时')
         start, total, gap = (values[key] for key in ['start_ms', 'total_ms', 'gap_ms'])
         if total < gap:
             raise ValueError('循环总间隔小于循环前空档')
+        if frame in frames:
+            if frames[frame] != values:
+                raise ValueError('同一循环的保留样本与阶段峰值上下文不一致')
+            continue
+        frames[frame] = values
         # total 包含 gap：真实循环区间为 [start, start + total - gap]。
-        loops.append((int(row['frame']), start, start + total - gap, gap, values))
+        loops.append((frame, start, start + total - gap, gap, values))
     if not loops:
         raise ValueError('缺少保留的循环样本')
     results = []
@@ -39,7 +46,7 @@ def correlate(engine_text, probe_text):
     for probe in csv.DictReader(io.StringIO(probe_text)):
         kind, index = probe['kind'], int(probe['index'])
         sent, received = int(probe['sent_ns']), int(probe['received_ns'])
-        if kind not in ('key', 'task') or index <= 0 or (kind, index) in seen:
+        if kind not in ('key', 'task', 'scene') or index <= 0 or (kind, index) in seen:
             raise ValueError('探针类型、序号无效或重复')
         seen.add((kind, index))
         if sent < origins[0] or received < sent:
@@ -58,7 +65,13 @@ def correlate(engine_text, probe_text):
         for start, finish in sorted(intervals):
             covered += max(0.0, finish - max(start, previous_end))
             previous_end = max(previous_end, finish)
+        cpu_ns = int(probe.get('cpu_ns', '-1'))
+        cycles = int(probe.get('cpu_cycles', '-1'))
+        if cpu_ns < -1 or cycles < -1:
+            raise ValueError('线程 CPU 计数无效')
         results.append({'kind': kind, 'index': index, 'latency_ms': end - begin,
+                        'thread_cpu_ms': cpu_ns / 1e6 if cpu_ns >= 0 else None,
+                        'thread_cycles': cycles if cycles >= 0 else None,
                         'start_ms': begin, 'end_ms': end, 'loops': matches,
                         'unretained_ms': max(0.0, end - begin - covered)})
     if not results:
