@@ -366,15 +366,22 @@ void scene_load_service::advance_verification(pending& value) {
   progress.phase = scene_load_phase::instantiating;
   progress.completed = 0U;
   progress.total = value.cpu->description.instance_nodes;
-  diagnostics::measure(diagnostics::loop_stage::scene_builder_create, [&] {
-    value.builder = std::make_unique<scene_internal::scene_load_builder>(
-        *value.candidate->scenes, std::move(value.cpu->description));
-  });
+  {
+    // 调用方记录完整区间，包含辅助函数和构建器入口前的等待。
+    GNEISS_PROFILE_SCOPE("scene.builder.create");
+    diagnostics::measure(diagnostics::loop_stage::scene_builder_create, [&] {
+      value.builder = std::make_unique<scene_internal::scene_load_builder>(
+          *value.candidate->scenes, std::move(value.cpu->description));
+    });
+  }
   // 激活后的热重载必须回到宿主原始 VFS，不能继承一次性加载会话的内容固定规则。
-  diagnostics::measure(diagnostics::loop_stage::scene_asset_service_reset, [&] {
-    value.assets = std::make_unique<render_internal::texture_load_service>(
-        executor_, files_, value.candidate->assets, backend_, notification_);
-  });
+  {
+    GNEISS_PROFILE_SCOPE("scene.assets.reset");
+    diagnostics::measure(diagnostics::loop_stage::scene_asset_service_reset, [&] {
+      value.assets = std::make_unique<render_internal::texture_load_service>(
+          executor_, files_, value.candidate->assets, backend_, notification_);
+    });
+  }
 }
 void scene_load_service::advance_impl() {
   auto& value = *pending_;

@@ -84,6 +84,9 @@ struct response_context {
   std::condition_variable received;
   std::vector<double> key_ms, task_ms;
   double close_ms{};
+  // 由发送线程写入，join 后输出；未消费的超时探针不在已完成样本最大值内。
+  bool probe_timed_out{};
+  double timed_out_probe_ms{};
   bool stall{};
   bool trace{};
   probe_trace key_trace, task_trace, scene_trace;
@@ -238,6 +241,8 @@ void send_probes(response_context& state, HWND window) noexcept {
       if (!state.received.wait_for(lock, 2s, [&] {
             return state.stopped || (state.keys >= index && state.tasks >= index);
           })) {
+        state.probe_timed_out = true;
+        state.timed_out_probe_ms = static_cast<double>(now_ns() - state.key_sent.load()) / 1e6;
         state.failed = true;
         break;
       }
@@ -345,7 +350,9 @@ int main(int argc, char** argv) try {
            << ",\"task_max_ms\":" << task_max << ",\"close_ms\":" << state.close_ms
            << ",\"nodes\":" << state.nodes << ",\"resources\":" << state.resources
            << ",\"loaded_scene\":" << !asset_root.empty() << ",\"injected_stall\":" << inject_stall
-           << "}\n";
+           << ",\"scene_ready\":" << state.scene_ready.load()
+           << ",\"probe_timed_out\":" << state.probe_timed_out
+           << ",\"timed_out_probe_ms\":" << state.timed_out_probe_ms << "}\n";
     if (!output) {
       return 4;
     }

@@ -60,6 +60,8 @@ tracy-csvexport.exe -u capture.tracy > zones.csv
 | `application.idle_wait` | 主循环主动等待进展 |
 | `scene.advance` / `scene.verify.submit` / `scene.verify.step` | 场景推进 / 复验提交 / 复验任务体 |
 | `scene.build.step` / `asset.advance` | 节点构建步骤 / 资产与上传推进 |
+| `scene.builder.create` / `scene.assets.reset` | 复验完成后创建构建器 / 切换资产服务，包含辅助函数入口 |
+| `scene.description.move` / `scene.instance.allocate` / `scene.instance.initialize` | 构建器内部的描述移动 / 实例分配 / 实例初始化 |
 | `task.submit` / `task.execute` | 调度器提交调用 / 执行及执行后收尾 |
 | `task.complete` / `task.receive` | 发布终态 / 宿主消费回执 |
 

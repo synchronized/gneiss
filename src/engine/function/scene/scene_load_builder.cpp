@@ -13,13 +13,19 @@ scene_load_builder::scene_load_builder(scene_instance_service& service,
                                        prepared_scene_description prepared)
     : service_(service),
       prepared_(diagnostics::measure(diagnostics::loop_stage::scene_description_move,
-                                     [&] { return std::move(prepared); })),
+                                     [&] {
+                                       GNEISS_PROFILE_SCOPE("scene.description.move");
+                                       return std::move(prepared);
+                                     })),
       instance_(diagnostics::measure(diagnostics::loop_stage::scene_instance_allocate, [&] {
+        GNEISS_PROFILE_SCOPE("scene.instance.allocate");
         return std::make_unique<scene_instance>(service.world_, service.loader_,
                                                 service.prefab_loader_, service.registry_);
       })) {
-  diagnostics::measure(diagnostics::loop_stage::scene_instance_initialize,
-                       [&] { instance_->initialize_staged(std::move(prepared_.description)); });
+  diagnostics::measure(diagnostics::loop_stage::scene_instance_initialize, [&] {
+    GNEISS_PROFILE_SCOPE("scene.instance.initialize");
+    instance_->initialize_staged(std::move(prepared_.description));
+  });
   diagnostics::measure(diagnostics::loop_stage::scene_node_index_reserve,
                        [&] { nodes_.reserve(instance_->description.objects.size()); });
 }
