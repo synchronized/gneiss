@@ -88,3 +88,42 @@ task id。当前未绘制自动跨线程连线，也未接入 GPU、全量分配
 区域记录墙钟，等待和抢占可能包含其中；采样火焰图与区域时间线口径不同。系统级调度、
 等待调用栈及缺页定位仍依赖平台能力和权限，接入 Tracy 不保证这些信息自动可用。
 RenderDoc 用于独立检查渲染帧状态，不能替代这条 CPU 时间线。
+
+## Windows 系统事件联合采集
+
+当长区间已经定位到文件系统或条件变量内部，使用 WPR 补充文件操作、硬缺页及线程
+切换事件。此步骤需要管理员终端；Tracy 本身不因此获得系统事件权限。脚本当前已验证
+预检查及模拟异常清理，真实管理员采集闭环仍待验证。
+
+准备上述 profiling 构建和 Tracy v0.13.1 命令行工具后，在仓库根目录执行：
+
+```powershell
+# 只检查条件，不创建会话或输出目录；条件不足返回 2。
+python -X utf8 -B scripts/performance/capture_windows_trace.py --assets <Cook资产根> --check
+
+# 在管理员终端执行，默认最多等待夹具 900 秒。
+python -X utf8 -B scripts/performance/capture_windows_trace.py --assets <Cook资产根>
+```
+
+脚本默认使用 `build/windows-clang-profiling/bin/gneiss_main_loop_response.exe` 和
+`build/tracy-tools/unpacked/tracy-capture.exe`；可通过 `--exe`、`--tracy` 指定。
+`--output` 必须是尚不存在的目录，默认创建 `build/windows-trace-日期-时间/`。
+仅运行一个 profiling 宿主和一个 Tracy collector，采集期间不要并行构建或跑 GPU 测试。
+
+WPR 使用 `GeneralProfile` 与 `FileIO` 的文件模式，独立实例名记录在 `run.json`；
+命令语义见 [WPR 文档](https://learn.microsoft.com/en-us/windows-hardware/test/wpt/wpr-command-line-options)。
+文件模式可能产生较大的 ETL，存放在指定输出目录。退出或夹具失败后仍尝试保存：
+
+- `system.etl`：用 WPA 打开，检查 File I/O、Disk I/O、Hard Faults、CPU Usage (Precise)。
+- `application.tracy`：打开具体 canonical 或主循环区域。
+- `response.json`：保留夹具通过/失败结果，采集成功不意味着性能达标。
+- `run.json`、`fixture.log`、`tracy.log`、`wpr-start.log`、`wpr-stop.log`：PID、UTC 时间、
+  二进制摘要、退出状态及日志。
+
+先以 PID 与文件路径找到同一进程和资产，再检查慢操作的持续时间、线程切换和调用栈。
+Tracy 相对时间与 ETL 起点不能直接相减；UTC 起止记录只用于定位进程生命周期。
+符号缺失、事件丢失或未复现都应记录，不能据此断言不存在阻塞。
+
+脚本不会自动取消其他采集。若 WPR 保存失败，保留现场，按 `run.json` 的
+`stop_command`（参数数组）重试保存；其中 `-instancename` 必须保持原值并位于最后。
+脚本返回 2 表示采集不完整或前置条件不足；采集完整时返回夹具退出码（包括失败的 3）。
