@@ -4,6 +4,7 @@
 #include "engine/asset/native_file_system.hpp"
 
 #include "engine/asset/asset_uri.hpp"
+#include "engine/core/diagnostics/profiling.hpp"
 
 #include <algorithm>
 #include <fstream>
@@ -40,6 +41,7 @@ public:
   native_read_operation(std::shared_ptr<native_async_file> file, std::size_t size)
       : file_(std::move(file)), bytes_(size) {}
   ~native_read_operation() override {
+    GNEISS_PROFILE_SCOPE("asset.io.request.destroy");
     if (pending_) {
       (void)CancelIoEx(file_->handle, &overlapped_);
       DWORD ignored{};
@@ -51,6 +53,7 @@ public:
     }
   }
   gneiss_result start(std::uint64_t offset) noexcept {
+    GNEISS_PROFILE_SCOPE("asset.io.request.start");
     if (bytes_.empty()) {
       return GNEISS_SUCCESS;
     }
@@ -122,6 +125,7 @@ public:
     }
   }
   gneiss_result open(const std::filesystem::path& path) noexcept {
+    GNEISS_PROFILE_SCOPE("asset.io.open");
     handle_ = CreateFileW(path.c_str(), GENERIC_READ,
                           FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
                           OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
@@ -137,6 +141,7 @@ public:
   [[nodiscard]] gneiss_result begin_read(
       std::uint64_t offset, std::size_t size,
       std::unique_ptr<gneiss::asset_internal::read_operation>& output) const noexcept override {
+    GNEISS_PROFILE_SCOPE("asset.io.begin_read");
     output.reset();
     if (offset > length_ || size > length_ - offset || size > std::numeric_limits<DWORD>::max()) {
       return GNEISS_ERROR_INVALID_ARGUMENT;
@@ -146,6 +151,7 @@ public:
       {
         const std::scoped_lock lock(async_mutex_);
         if (!async_file_) {
+          GNEISS_PROFILE_SCOPE("asset.io.reopen");
           auto* const reopened = ReOpenFile(handle_, GENERIC_READ,
                                             FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
                                             FILE_FLAG_OVERLAPPED);
@@ -161,7 +167,11 @@ public:
         }
         file = async_file_;
       }
-      auto request = std::make_unique<native_read_operation>(std::move(file), size);
+      std::unique_ptr<native_read_operation> request;
+      {
+        GNEISS_PROFILE_SCOPE("asset.io.request.allocate");
+        request = std::make_unique<native_read_operation>(std::move(file), size);
+      }
       const auto started = request->start(offset);
       if (started == GNEISS_SUCCESS) {
         output = std::move(request);

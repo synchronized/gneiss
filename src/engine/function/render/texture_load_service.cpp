@@ -157,6 +157,7 @@ tasks::submit_result texture_load_service::submit_preparation(pending& value) {
   return diagnostics::submit_observed(
       executor_, {.name = "render_assets.prepare", .scope = scope_, .notification = notification_},
       [cpu = value.cpu](const tasks::task_context& context) {
+        GNEISS_PROFILE_SCOPE("asset.prepare.step");
         const auto start = std::chrono::steady_clock::now();
         asset_diagnostic diagnostic;
         // 协作任务与主线程共用执行时间，单块预算不能沿用后台吞吐批次。
@@ -166,6 +167,7 @@ tasks::submit_result texture_load_service::submit_preparation(pending& value) {
             byte_budget, [&] { return context.stop_requested(); }, cpu->batch, diagnostic,
             cpu->complete, std::chrono::milliseconds(context.allows_blocking_wait() ? 4 : 0));
         if (cpu->complete) {
+          GNEISS_PROFILE_SCOPE("asset.prepare.destroy");
           cpu->message = std::move(diagnostic.message);
           cpu->preparation.reset();
         }

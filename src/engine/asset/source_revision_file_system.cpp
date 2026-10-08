@@ -3,6 +3,7 @@
 
 #include "engine/asset/source_revision_file_system.hpp"
 #include "engine/asset/read_slice.hpp"
+#include "engine/core/diagnostics/profiling.hpp"
 
 #include <algorithm>
 #include <array>
@@ -182,6 +183,7 @@ struct source_revision_file_system::verification::state {
   bool deferred_reads{true};
   std::chrono::milliseconds io_wait{};
   gneiss_result read_next(std::size_t& byte_budget, std::uint64_t expected_bytes) {
+    GNEISS_PROFILE_SCOPE("asset.verify.read_next");
     const auto count =
         static_cast<std::size_t>(std::min<std::uint64_t>(byte_budget, expected_bytes - offset));
     if (count != 0U) {
@@ -198,7 +200,10 @@ struct source_revision_file_system::verification::state {
         return GNEISS_ERROR_INVALID_STATE;
       }
       const auto hash_at = clock_type::now();
-      digest.update(chunk);
+      {
+        GNEISS_PROFILE_SCOPE("asset.verify.hash");
+        digest.update(chunk);
+      }
       record_duration(hash_at, timings.maximum_hash_ms);
       offset += chunk.size();
       byte_budget -= chunk.size();
@@ -207,6 +212,7 @@ struct source_revision_file_system::verification::state {
   }
   gneiss_result open_source(const std::string& path, const identity& expected,
                             const std::function<bool()>& cancelled, bool& whole_file) {
+    GNEISS_PROFILE_SCOPE("asset.verify.open");
     const auto opened_at = clock_type::now();
     const auto opened = files.open_read_for_validation("asset://" + path, source);
     record_duration(opened_at, timings.maximum_open_ms);
