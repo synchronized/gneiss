@@ -3,6 +3,7 @@
 
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/core/diagnostics/loop_timing.hpp"
+#include "engine/core/diagnostics/profiling.hpp"
 #include "engine/core/tasks/task_platform.hpp"
 
 #include <algorithm>
@@ -54,6 +55,8 @@ struct task_scheduler::implementation {
     if (terminal(value.completion.outcome.state)) {
       return;
     }
+    GNEISS_PROFILE_SCOPE("task.complete");
+    GNEISS_PROFILE_TASK(owner, value.completion.task.id, value.description.name);
     const auto now = this->now();
     if (value.completion.outcome.state == task_state::running) {
       value.completion.execution_ms =
@@ -151,6 +154,8 @@ struct task_scheduler::implementation {
     return chosen;
   }
   void execute(const std::shared_ptr<task>& current, task_function function) {
+    GNEISS_PROFILE_SCOPE("task.execute");
+    GNEISS_PROFILE_TASK(owner, current->completion.task.id, current->description.name);
     task_outcome outcome;
     try {
       outcome = function(
@@ -171,6 +176,7 @@ struct task_scheduler::implementation {
     }
   }
   void run() {
+    GNEISS_PROFILE_THREAD("Gneiss worker");
     active_scheduler = this;
     for (;;) {
       std::shared_ptr<task> current;
@@ -264,6 +270,7 @@ serial_queue task_scheduler::make_serial_queue(task_scope scope) {
 }
 submit_result task_scheduler::submit(task_description description, task_function function,
                                      task_handle& output) {
+  GNEISS_PROFILE_SCOPE("task.submit");
   output = {};
   auto* timings = std::exchange(description.submission_timings, nullptr);
   if (timings != nullptr) {
@@ -315,6 +322,7 @@ submit_result task_scheduler::submit(task_description description, task_function
                        [&] { impl_->tasks.emplace(handle.id, value); });
   ++impl_->counters.submitted;
   output = handle;
+  GNEISS_PROFILE_TASK(impl_->owner, handle.id, value->description.name);
   diagnostics::measure(timings != nullptr ? &timings->notify_ms : nullptr,
                        [&] { impl_->wake.notify_all(); });
   return submit_result::success;
@@ -404,6 +412,8 @@ std::size_t task_scheduler::poll(task_scope scope, std::vector<task_completion>&
          iterator != impl_->tasks.end() && retired.size() < budget;) {
       auto& value = iterator->second;
       if (value->description.scope.id == scope.id && terminal(value->completion.outcome.state)) {
+        GNEISS_PROFILE_SCOPE("task.receive");
+        GNEISS_PROFILE_TASK(impl_->owner, value->completion.task.id, value->description.name);
         output.push_back(value->completion);
         cleanup.push_back(std::move(value->function));
         retired.push_back(std::move(value));

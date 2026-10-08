@@ -3,6 +3,7 @@
 
 #include "engine/function/render/texture_load_service.hpp"
 #include "engine/asset/asset_uri.hpp"
+#include "engine/core/diagnostics/profiling.hpp"
 #include "engine/core/diagnostics/task_submission.hpp"
 #include <algorithm>
 #include <set>
@@ -200,6 +201,7 @@ void texture_load_service::check_owner() const {
   }
 }
 void texture_load_service::advance() {
+  GNEISS_PROFILE_SCOPE("asset.advance");
   const diagnostics::loop_span span(diagnostics::loop_stage::texture_advance);
   check_owner();
   try {

@@ -25,6 +25,7 @@
 - [从 0.46 迁移到 0.47](guides/migrating-0.46-to-0.47.md)
 
 - [构建、测试与运行示例](guides/building.md)
+- [Tracy CPU 与任务时间线采集](guides/profiling.md)
 - [从 0.47 迁移到 0.48](guides/migrating-0.47-to-0.48.md)
 - [Application 与 World 的最小 C++ 示例](guides/application-world-example.md)
 - [从 0.9.0 迁移到 0.10.0](guides/migrating-0.9-to-0.10.md)

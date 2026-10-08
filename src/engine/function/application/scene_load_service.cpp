@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/function/application/scene_load_service.hpp"
+#include "engine/core/diagnostics/profiling.hpp"
 #include "engine/core/diagnostics/task_submission.hpp"
 #include "engine/function/render/render_resource_service.hpp"
 
@@ -266,6 +267,7 @@ scene_load_service::take_candidate(std::uint64_t request, scene_load_completion&
   return candidate;
 }
 void scene_load_service::advance() {
+  GNEISS_PROFILE_SCOPE("scene.advance");
   const diagnostics::loop_span span(diagnostics::loop_stage::scene_advance);
   check_owner();
   if (!pending_) {
@@ -291,10 +293,12 @@ void scene_load_service::advance() {
   }
 }
 tasks::submit_result scene_load_service::submit_verification() {
+  GNEISS_PROFILE_SCOPE("scene.verify.submit");
   const diagnostics::loop_span body(diagnostics::loop_stage::scene_verify_submit_body);
   auto function = diagnostics::measure(diagnostics::loop_stage::task_callback_create, [&] {
     return tasks::task_executor::task_function{
         [cpu = pending_->cpu, sources = pending_->sources](const tasks::task_context& context) {
+          GNEISS_PROFILE_SCOPE("scene.verify.step");
           if (!cpu->verification) {
             cpu->result = sources->begin_verification(cpu->verification);
           }

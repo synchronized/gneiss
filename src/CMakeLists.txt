@@ -6,6 +6,7 @@ add_subdirectory(engine/core)
 
 add_library(gneiss_engine)
 add_library(gneiss::engine ALIAS gneiss_engine)
+gneiss_target_profiling(gneiss_engine)
 gneiss_target_output_directories(gneiss_engine)
 
 set(GNEISS_GENERATED_INCLUDE_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated/include")

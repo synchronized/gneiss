@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/function/application/application_state.hpp"
+#include "engine/core/diagnostics/profiling.hpp"
 #ifdef GNEISS_NATIVE_LOOP_WAIT
 #include "engine/core/loop_progress.hpp"
 #endif
@@ -322,6 +323,7 @@ std::uint64_t application_state::now_ns() const noexcept {
 }
 
 gneiss_result application_state::poll_events(bool& out_should_close) noexcept {
+  GNEISS_PROFILE_SCOPE("application.events");
   out_should_close = false;
 #ifdef GNEISS_HAS_GRANIT_PLATFORM
   if (granit_platform_ != nullptr) {
@@ -502,6 +504,7 @@ gneiss_result application_state::capture_frame(std::uint32_t width, std::uint32_
 
 #ifdef GNEISS_HAS_GRANIT_PLATFORM
 gneiss_result application_state::render_frame() noexcept {
+  GNEISS_PROFILE_SCOPE("application.render.submit");
   if (granit_render_service_ == nullptr) {
     return GNEISS_SUCCESS;
   }
@@ -585,8 +588,11 @@ gneiss_result application_state::run(gneiss_application handle,
   trace.set_origin(trace_origin);
   previous_time_ns_ = now_ns();
   std::uint64_t frames_run = 0;
+  GNEISS_PROFILE_THREAD("Gneiss main");
 
   while (!should_exit_ && (max_frame_count == 0U || frames_run < max_frame_count)) {
+    GNEISS_PROFILE_FRAME();
+    GNEISS_PROFILE_SCOPE("application.loop");
     const diagnostics::loop_frame frame_trace(trace.get(), frame_index_, trace_origin);
 #ifdef GNEISS_NATIVE_LOOP_WAIT
     auto* progress = static_cast<core::loop_progress*>(loop_notification_.get());
@@ -626,6 +632,7 @@ gneiss_result application_state::run(gneiss_application handle,
     if (config_.callbacks.update != nullptr) {
       is_updating_ = true;
       const auto update_result = diagnostics::measure(diagnostics::loop_stage::update, [&] {
+        GNEISS_PROFILE_SCOPE("application.update");
         return config_.callbacks.update(handle, &time, config_.callbacks.user_data);
       });
       is_updating_ = false;
@@ -656,8 +663,10 @@ gneiss_result application_state::run(gneiss_application handle,
 #ifdef GNEISS_NATIVE_LOOP_WAIT
     if (progress != nullptr && !should_exit_ &&
         (max_frame_count == 0U || frames_run < max_frame_count)) {
-      diagnostics::measure(diagnostics::loop_stage::idle_wait,
-                           [&] { (void)progress->wait(observed, std::chrono::milliseconds(4)); });
+      diagnostics::measure(diagnostics::loop_stage::idle_wait, [&] {
+        GNEISS_PROFILE_SCOPE("application.idle_wait");
+        (void)progress->wait(observed, std::chrono::milliseconds(4));
+      });
     }
 #endif
   }

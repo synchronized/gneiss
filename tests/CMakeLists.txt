@@ -1,6 +1,23 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Gneiss contributors
 
+add_executable(gneiss_profiling_disabled_test profiling_disabled_test.cpp)
+target_include_directories(gneiss_profiling_disabled_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_compile_features(gneiss_profiling_disabled_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_profiling_disabled_test)
+gneiss_target_output_directories(gneiss_profiling_disabled_test)
+add_test(NAME gneiss.profiling-disabled COMMAND gneiss_profiling_disabled_test)
+
+if(GNEISS_ENABLE_PROFILING AND GNEISS_TASK_THREADS)
+  add_executable(gneiss_profiling_capture profiling_capture.cpp)
+  target_link_libraries(gneiss_profiling_capture PRIVATE gneiss::engine gneiss_tasks)
+  gneiss_target_profiling(gneiss_profiling_capture)
+  gneiss_target_compile_warnings(gneiss_profiling_capture)
+  gneiss_target_output_directories(gneiss_profiling_capture)
+  add_test(NAME gneiss.profiling-capture COMMAND gneiss_profiling_capture)
+  set_tests_properties(gneiss.profiling-capture PROPERTIES TIMEOUT 15)
+endif()
+
 if(NOT EMSCRIPTEN AND GNEISS_TASK_THREADS)
   add_executable(gneiss_loop_progress_test core/loop_progress_test.cpp)
   target_link_libraries(gneiss_loop_progress_test PRIVATE gneiss_tasks Threads::Threads)

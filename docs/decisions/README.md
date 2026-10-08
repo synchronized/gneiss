@@ -67,3 +67,4 @@ Reference 和实现为准。
 - [ADR-057：资产准备的显式分步执行](ADR-057-incremental-asset-preparation.md)
 
 - [ADR-059：主循环进展通知与有限等待](ADR-059-main-loop-progress-wait.md)
+- [ADR-060：可选 CPU 性能采集](ADR-060-optional-cpu-profiler.md)

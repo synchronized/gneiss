@@ -1,0 +1,74 @@
+<!-- SPDX-License-Identifier: MIT -->
+<!-- Copyright (c) 2026 Gneiss contributors -->
+
+# CPU 性能采集
+
+使用可选 Tracy 配置记录主循环与后台任务的连续时间线。普通构建默认不下载或链接 Tracy。
+采集会改变 CPU、内存与代码布局，不能代替[构建指南](building.md)中的性能验收。
+依赖和模块边界见 [ADR-060](../decisions/ADR-060-optional-cpu-profiler.md)。
+
+## 构建
+
+```powershell
+cmake --preset windows-clang-profiling -DGNEISS_ENABLE_GRANIT_PLATFORM=ON
+cmake --build build/windows-clang-profiling --target gneiss_main_loop_response gneiss_profiling_capture
+```
+
+该配置使用 RelWithDebInfo，保留优化和符号。任意原生配置可设置
+`-DGNEISS_ENABLE_PROFILING=ON`；Web 暂不支持。Windows 本地验证记录见 M-321，其他平台
+尚需验证。离线构建可用 `FETCHCONTENT_SOURCE_DIR_GNEISS_TRACY_SOURCE` 指定固定版本源码。
+运行目录应保留 `gneiss_tracy` 共享库，静态引擎的 profiling 配置也需要它。
+公共头不包含 Tracy，安装消费者不需要自行添加其头路径或编译宏。
+
+## 采集与查看
+
+下载 [Tracy v0.13.1 工具](https://github.com/wolfpld/tracy/releases/tag/v0.13.1)，与 client
+保持版本一致。打开分析器连接 `127.0.0.1`；或先在一个终端启动命令行采集：
+
+```powershell
+tracy-capture.exe -a 127.0.0.1 -o capture.tracy -s 600
+```
+
+再在另一个终端运行夹具或实际宿主，以下两条命令择一执行：
+
+```powershell
+# 128 次主循环与后台任务，最多等待分析器连接 20 秒。
+build/windows-clang-profiling/bin/gneiss_profiling_capture.exe --wait-for-profiler
+
+# 完整资产加载，无需打开旧的逐段 CSV 观测。
+build/windows-clang-profiling/bin/gneiss_main_loop_response.exe response.json --assets <Cook资产根>
+```
+
+同一时刻只运行一个 profiling 进程和一个采集客户端。在分析器中打开 `capture.tracy`，
+按主循环标记选择区间，查看主线程与工作线程。命令行可重新读取文件验证事件：
+
+```powershell
+tracy-csvexport.exe -u capture.tracy > zones.csv
+```
+
+正式应用不等待分析器连接，正常退出也不以分析器确认为条件；连接前、断连后及退出
+尾部可能没有记录。需要完整启动阶段时使用专门夹具，不修改正式应用退出契约。
+按需连接只监听本机、关闭广播，不将 profiler 端口作为产品远程接口。
+
+## 事件口径
+
+| 事件 | 含义 |
+| --- | --- |
+| `application.loop` / 帧标记 | 一次主循环，不是 GPU 呈现完成时间 |
+| `application.events` / `application.update` | 输入与平台事件处理 / 宿主更新回调 |
+| `application.render.submit` | CPU 渲染准备与提交，不是 GPU 执行耗时 |
+| `application.idle_wait` | 主循环主动等待进展 |
+| `scene.advance` / `scene.verify.submit` / `scene.verify.step` | 场景推进 / 复验提交 / 复验任务体 |
+| `scene.build.step` / `asset.advance` | 节点构建步骤 / 资产与上传推进 |
+| `task.submit` / `task.execute` | 调度器提交调用 / 执行及执行后收尾 |
+| `task.complete` / `task.receive` | 发布终态 / 宿主消费回执 |
+
+任务区域文本带有 `scheduler=<owner> task=<id>` 和任务名，数值为 task id。
+任务名仅采集前 1024 字节，空名称不产生文本事件，不改变调度器保存的名称。
+查找相同二元组即可关联不同线程，不能仅凭任务名或单独 task id 区分调度器。
+失败、取消或依赖失败可能没有执行区域，但仍有终态和被消费的回执；提交拒绝没有有效
+task id。当前未绘制自动跨线程连线，也未接入 GPU、全量分配或互斥锁专用事件。
+
+区域记录墙钟，等待和抢占可能包含其中；采样火焰图与区域时间线口径不同。系统级调度、
+等待调用栈及缺页定位仍依赖平台能力和权限，接入 Tracy 不保证这些信息自动可用。
+RenderDoc 用于独立检查渲染帧状态，不能替代这条 CPU 时间线。

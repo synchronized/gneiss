@@ -3,6 +3,8 @@
 
 # 构建与测试 Gneiss
 
+可选 CPU 与任务时间线采集见 [Tracy 性能采集](profiling.md)。
+
 ## 适用场景
 
 本指南用于配置、构建并验证当前 Gneiss 工程、version、属性检查、Granit 图形示例、Runtime 宿主和

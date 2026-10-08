@@ -3,6 +3,7 @@
 
 #include "engine/function/scene/scene_load_builder.hpp"
 #include "engine/core/diagnostics/loop_timing.hpp"
+#include "engine/core/diagnostics/profiling.hpp"
 
 #include <algorithm>
 
@@ -71,6 +72,7 @@ gneiss_result scene_load_builder::step_prefab() {
 }
 
 gneiss_result scene_load_builder::step() {
+  GNEISS_PROFILE_SCOPE("scene.build.step");
   if (prefabs_.size() < prepared_.prefabs.size()) {
     // map 的稳定键顺序与安装顺序一致；每次最多安装一份已经解析的描述。
     auto source = prepared_.prefabs.begin();

@@ -3,6 +3,9 @@
 
 # 第三方依赖
 
+可选性能采集另通过 FetchContent 获取 Tracy；锁定版本、许可证、替代方案和安装影响见
+[ADR-060](../docs/decisions/ADR-060-optional-cpu-profiler.md)。默认构建不获取该依赖。
+
 本目录保存 Gneiss 可复现构建所需的第三方源码。除 Gneiss 自己的 CMake 包装外，不直接修改上游
 源码。
 
