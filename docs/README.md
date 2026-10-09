@@ -25,6 +25,7 @@
 - [从 0.46 迁移到 0.47](guides/migrating-0.46-to-0.47.md)
 
 - [构建、测试与运行示例](guides/building.md)
+- [Tracy CPU 与任务时间线采集](guides/profiling.md)
 - [从 0.47 迁移到 0.48](guides/migrating-0.47-to-0.48.md)
 - [Application 与 World 的最小 C++ 示例](guides/application-world-example.md)
 - [从 0.9.0 迁移到 0.10.0](guides/migrating-0.9-to-0.10.md)
@@ -77,6 +78,9 @@
 
 ## 路线图与开发计划
 
+- [UPSTREAM-050：窗口事件等待与跨线程唤醒](plans/UPSTREAM-050-granit-window-wait.md)
+- [VER-050：0.50.0 后台加载主线程延迟](plans/VER-050-0.50.0-main-loop-latency.md)
+- [DEV-050：后台加载主线程延迟开发计划](plans/DEV-050-main-loop-latency.md)
 - [VER-049：0.49.0 大场景加载响应性与生命周期稳定性](plans/VER-049-0.49.0-loading-stability.md)
 - [DEV-049：大场景加载响应性与生命周期稳定性开发计划](plans/DEV-049-loading-stability.md)
 
@@ -442,6 +446,9 @@
 
 - [M-312：0.49 加载基线与量化门槛](records/M-312-loading-stability-baseline.md)
 - [M-313～M-316：加载响应性与生命周期验收](records/M-313-316-loading-stability-validation.md)
+- [M-319：主线程调用路径审计](records/M-319-main-thread-path-audit.md)
+- [M-321：0.50 生命周期与发布验收](records/M-321-0.50.0-release-validation.md)
+- [M-318：后台加载主循环观测](records/M-318-main-loop-observation.md)
 - [M-317：0.49.0 平台与发布验收](records/M-317-0.49.0-release-validation.md)
 
 ## 文档维护

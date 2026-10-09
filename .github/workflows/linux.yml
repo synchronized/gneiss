@@ -93,6 +93,7 @@ jobs:
           cmake --build --preset "${{ steps.preset.outputs.name }}"
           ctest --preset "${{ steps.preset.outputs.name }}"
           python3 -B scripts/performance/test_prepare_sponza.py
+          python3 -B scripts/performance/test_validate_runtime_loop.py
       - name: 输出编译缓存统计
         if: always()
         shell: bash

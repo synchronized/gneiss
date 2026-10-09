@@ -76,7 +76,8 @@ public:
   static constexpr std::size_t maximum_resident_bytes = 2ULL * 1024U * 1024U * 1024U;
   scene_load_service(tasks::task_executor& executor, asset_internal::virtual_file_system files,
                      render_internal::render_resource_service& resources,
-                     render_internal::texture_upload_backend backend);
+                     render_internal::texture_upload_backend backend,
+                     std::shared_ptr<core::progress_notification> notification = {});
   ~scene_load_service();
   [[nodiscard]] gneiss_result submit(std::string_view uri, std::uint64_t session,
                                      std::uint64_t revision, std::uint64_t& request);
@@ -103,6 +104,7 @@ private:
   asset_internal::virtual_file_system files_;
   render_internal::render_resource_service& resources_;
   render_internal::texture_upload_backend backend_;
+  std::shared_ptr<core::progress_notification> notification_;
   std::unique_ptr<pending> pending_;
   std::optional<scene_load_completion> completed_;
   std::optional<scene_load_progress> cleanup_snapshot_;

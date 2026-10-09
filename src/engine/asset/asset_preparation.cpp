@@ -13,6 +13,7 @@
 #include "engine/asset/texture_container.hpp"
 #include "engine/asset/texture_ktx2.hpp"
 #include "engine/asset/virtual_file_system.hpp"
+#include "engine/core/diagnostics/profiling.hpp"
 
 #include <yyjson.h>
 
@@ -732,11 +733,13 @@ struct asset_preparation::state {
   bool read_complete{};
   bool selected{};
   bool deferred_reads{true};
+  std::chrono::milliseconds io_wait{};
   phase step{phase::select};
   gneiss_result result{GNEISS_SUCCESS};
   asset_diagnostic diagnostic;
 
   void prefetch_descriptions() {
+    GNEISS_PROFILE_SCOPE("asset.prepare.prefetch");
     if (!deferred_reads) {
       return;
     }
@@ -767,6 +770,7 @@ struct asset_preparation::state {
   }
 
   gneiss_result begin_read(std::string_view uri, std::size_t limit, bool keep_bytes) {
+    GNEISS_PROFILE_SCOPE("asset.prepare.open");
     slice = {};
     reader.reset();
     bytes = {};
@@ -802,6 +806,7 @@ struct asset_preparation::state {
     return GNEISS_SUCCESS;
   }
   gneiss_result read_step(std::size_t& budget, const std::function<bool()>& cancelled) {
+    GNEISS_PROFILE_SCOPE("asset.prepare.read");
     if (read_complete) {
       return GNEISS_SUCCESS;
     }
@@ -812,8 +817,12 @@ struct asset_preparation::state {
       const auto count =
           static_cast<std::size_t>(std::min<std::uint64_t>(budget, reader->size() - offset));
       std::span<const std::byte> chunk;
-      const auto loaded =
-          slice.take(*reader, {.offset = offset, .size = count}, chunk, deferred_reads);
+      gneiss_result loaded;
+      {
+        GNEISS_PROFILE_SCOPE("asset.prepare.read_slice");
+        loaded = slice.take(*reader, {.offset = offset, .size = count}, chunk, deferred_reads,
+                            std::exchange(io_wait, std::chrono::milliseconds{}));
+      }
       if (loaded == GNEISS_ERROR_NOT_READY) {
         budget = 0U;
         return GNEISS_SUCCESS;
@@ -822,9 +831,13 @@ struct asset_preparation::state {
         return loaded;
       }
       if (retain) {
+        GNEISS_PROFILE_SCOPE("asset.prepare.copy");
         std::ranges::copy(chunk, bytes.begin() + static_cast<std::ptrdiff_t>(offset));
       }
-      digest.update(chunk);
+      {
+        GNEISS_PROFILE_SCOPE("asset.prepare.hash");
+        digest.update(chunk);
+      }
       offset += chunk.size();
       budget -= chunk.size();
     }
@@ -841,6 +854,7 @@ struct asset_preparation::state {
     return GNEISS_SUCCESS;
   }
   gneiss_result select() {
+    GNEISS_PROFILE_SCOPE("asset.prepare.select");
     prefetch_descriptions();
     for (unsigned count = 0U; index < pending.size() && count < 16U; ++count) {
       const auto source = pending[index++];
@@ -905,6 +919,7 @@ struct asset_preparation::state {
     return GNEISS_SUCCESS;
   }
   gneiss_result decode() {
+    GNEISS_PROFILE_SCOPE("asset.prepare.decode");
     auto decoded = GNEISS_SUCCESS;
     if (current.source.type == asset_type::texture) {
       virtual_file_system prepared;
@@ -951,7 +966,9 @@ struct asset_preparation::state {
     case phase::decode:
       return decode();
     case phase::verify: {
-      const auto checked = verification->advance(budget, cancelled, complete);
+      GNEISS_PROFILE_SCOPE("asset.prepare.verify");
+      const auto checked = verification->advance(
+          budget, cancelled, complete, std::exchange(io_wait, std::chrono::milliseconds{}));
       budget = 0U;
       if (checked != GNEISS_SUCCESS) {
         fail(diagnostic, checked, "", "准备期间源变化或请求取消");
@@ -1003,21 +1020,24 @@ asset_preparation::~asset_preparation() = default;
 gneiss_result asset_preparation::advance(std::size_t byte_budget,
                                          const std::function<bool()>& cancelled,
                                          prepared_batch& output, asset_diagnostic& diagnostic,
-                                         bool& complete) noexcept {
+                                         bool& complete,
+                                         std::chrono::milliseconds wait_budget) noexcept {
   complete = false;
   auto& value = *state_;
   if (value.step == state::phase::finished) {
     complete = true;
     return value.result;
   }
-  if (byte_budget == 0U) {
+  if (byte_budget == 0U || wait_budget < std::chrono::milliseconds::zero()) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
   try {
     if (value.result == GNEISS_SUCCESS) {
+      value.io_wait = wait_budget;
       value.result = value.advance(byte_budget, cancelled, complete);
     }
     if (value.result == GNEISS_SUCCESS && complete) {
+      GNEISS_PROFILE_SCOPE("asset.prepare.publish");
       std::ranges::stable_sort(value.batch.assets, {},
                                [](const auto& asset) { return asset_order(asset.source.type); });
       output = std::move(value.batch);
@@ -1031,6 +1051,7 @@ gneiss_result asset_preparation::advance(std::size_t byte_budget,
     value.result = GNEISS_ERROR_INTERNAL;
   }
   if (value.result != GNEISS_SUCCESS || complete) {
+    GNEISS_PROFILE_SCOPE("asset.prepare.cleanup");
     if (value.result != GNEISS_SUCCESS) {
       output = {};
     }

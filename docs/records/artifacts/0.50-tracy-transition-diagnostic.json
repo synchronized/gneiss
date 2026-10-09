@@ -1,0 +1,1597 @@
+{
+  "purpose": "Tracy 同轮时间窗分析；诊断采集不替代冻结验收。",
+  "previous_complete_capture": {
+    "frame": {
+      "name": "application.loop",
+      "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/application/application_state.cpp",
+      "line": 595,
+      "start": 275093448947,
+      "duration": 109560979,
+      "thread": 1,
+      "text": ""
+    },
+    "overlap": [
+      {
+        "name": "application.update",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/application/application_state.cpp",
+        "line": 635,
+        "start": 275093449271,
+        "duration": 109549486,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "application.events",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/application/application_state.cpp",
+        "line": 326,
+        "start": 275093448955,
+        "duration": 290,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "scene.advance",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/application/scene_load_service.cpp",
+        "line": 270,
+        "start": 275093449438,
+        "duration": 109526307,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "application.render.submit",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/application/application_state.cpp",
+        "line": 507,
+        "start": 275202998928,
+        "duration": 10273,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "application.idle_wait",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/application/application_state.cpp",
+        "line": 667,
+        "start": 275203009360,
+        "duration": 429,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "task.complete",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/core/tasks/task_scheduler.cpp",
+        "line": 58,
+        "start": 275122217179,
+        "duration": 909,
+        "thread": 2,
+        "text": "scheduler=1 task=14828"
+      },
+      {
+        "name": "task.execute",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/core/tasks/task_scheduler.cpp",
+        "line": 157,
+        "start": 275122214726,
+        "duration": 3419,
+        "thread": 2,
+        "text": "scheduler=1 task=14828"
+      },
+      {
+        "name": "task.receive",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/core/tasks/task_scheduler.cpp",
+        "line": 415,
+        "start": 275093449505,
+        "duration": 712,
+        "thread": 1,
+        "text": "scheduler=1 task=14827"
+      },
+      {
+        "name": "task.submit",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/core/tasks/task_scheduler.cpp",
+        "line": 273,
+        "start": 275122157828,
+        "duration": 50986,
+        "thread": 3,
+        "text": "scheduler=1 task=14828"
+      },
+      {
+        "name": "application.loop",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/application/application_state.cpp",
+        "line": 595,
+        "start": 275093448947,
+        "duration": 109560979,
+        "thread": 1,
+        "text": ""
+      }
+    ],
+    "neighborhood": [
+      {
+        "name": "scene.verify.submit",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/application/scene_load_service.cpp",
+        "line": 296,
+        "start": 275093404308,
+        "duration": 3224,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "application.update",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/application/application_state.cpp",
+        "line": 635,
+        "start": 275075570545,
+        "duration": 55912,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "application.update",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/application/application_state.cpp",
+        "line": 635,
+        "start": 275091293617,
+        "duration": 31136,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "application.update",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/application/application_state.cpp",
+        "line": 635,
+        "start": 275093390307,
+        "duration": 38792,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "application.update",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/application/application_state.cpp",
+        "line": 635,
+        "start": 275093433122,
+        "duration": 14044,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "application.update",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/application/application_state.cpp",
+        "line": 635,
+        "start": 275093449271,
+        "duration": 109549486,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "application.update",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/application/application_state.cpp",
+        "line": 635,
+        "start": 275203060705,
+        "duration": 4696264,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "application.update",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/application/application_state.cpp",
+        "line": 635,
+        "start": 275207765165,
+        "duration": 14261025,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "application.update",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/application/application_state.cpp",
+        "line": 635,
+        "start": 275222042187,
+        "duration": 51048141,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "application.events",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/application/application_state.cpp",
+        "line": 326,
+        "start": 275075566300,
+        "duration": 3996,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "application.events",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/application/application_state.cpp",
+        "line": 326,
+        "start": 275091280762,
+        "duration": 12402,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "application.events",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/application/application_state.cpp",
+        "line": 326,
+        "start": 275093387565,
+        "duration": 2401,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "application.events",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/application/application_state.cpp",
+        "line": 326,
+        "start": 275093432425,
+        "duration": 669,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "application.events",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/application/application_state.cpp",
+        "line": 326,
+        "start": 275093448955,
+        "duration": 290,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "application.events",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/application/application_state.cpp",
+        "line": 326,
+        "start": 275203010552,
+        "duration": 49997,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "application.events",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/application/application_state.cpp",
+        "line": 326,
+        "start": 275207763440,
+        "duration": 1622,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "application.events",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/application/application_state.cpp",
+        "line": 326,
+        "start": 275222038549,
+        "duration": 3496,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "scene.verify.step",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/application/scene_load_service.cpp",
+        "line": 301,
+        "start": 275093415744,
+        "duration": 27531,
+        "thread": 2,
+        "text": ""
+      },
+      {
+        "name": "scene.advance",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/application/scene_load_service.cpp",
+        "line": 270,
+        "start": 275075574005,
+        "duration": 851,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "scene.advance",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/application/scene_load_service.cpp",
+        "line": 270,
+        "start": 275091297707,
+        "duration": 926,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "scene.advance",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/application/scene_load_service.cpp",
+        "line": 270,
+        "start": 275093400791,
+        "duration": 7024,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "scene.advance",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/application/scene_load_service.cpp",
+        "line": 270,
+        "start": 275093433447,
+        "duration": 171,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "scene.advance",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/application/scene_load_service.cpp",
+        "line": 270,
+        "start": 275093449438,
+        "duration": 109526307,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "scene.advance",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/application/scene_load_service.cpp",
+        "line": 270,
+        "start": 275203072469,
+        "duration": 4665660,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "scene.advance",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/application/scene_load_service.cpp",
+        "line": 270,
+        "start": 275207765896,
+        "duration": 14231284,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "scene.advance",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/application/scene_load_service.cpp",
+        "line": 270,
+        "start": 275222043985,
+        "duration": 51020527,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "application.render.submit",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/application/application_state.cpp",
+        "line": 507,
+        "start": 275075626655,
+        "duration": 5397,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "application.render.submit",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/application/application_state.cpp",
+        "line": 507,
+        "start": 275091324887,
+        "duration": 4909,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "application.render.submit",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/application/application_state.cpp",
+        "line": 507,
+        "start": 275093429220,
+        "duration": 2883,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "application.render.submit",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/application/application_state.cpp",
+        "line": 507,
+        "start": 275093447193,
+        "duration": 1575,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "application.render.submit",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/application/application_state.cpp",
+        "line": 507,
+        "start": 275202998928,
+        "duration": 10273,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "application.render.submit",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/application/application_state.cpp",
+        "line": 507,
+        "start": 275207757057,
+        "duration": 5763,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "application.render.submit",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/application/application_state.cpp",
+        "line": 507,
+        "start": 275222026334,
+        "duration": 10963,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "application.idle_wait",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/application/application_state.cpp",
+        "line": 667,
+        "start": 275075632183,
+        "duration": 15647841,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "application.idle_wait",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/application/application_state.cpp",
+        "line": 667,
+        "start": 275091329885,
+        "duration": 2057093,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "application.idle_wait",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/application/application_state.cpp",
+        "line": 667,
+        "start": 275093432205,
+        "duration": 142,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "application.idle_wait",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/application/application_state.cpp",
+        "line": 667,
+        "start": 275093448782,
+        "duration": 103,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "application.idle_wait",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/application/application_state.cpp",
+        "line": 667,
+        "start": 275203009360,
+        "duration": 429,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "application.idle_wait",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/application/application_state.cpp",
+        "line": 667,
+        "start": 275207762932,
+        "duration": 187,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "application.idle_wait",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/application/application_state.cpp",
+        "line": 667,
+        "start": 275222037397,
+        "duration": 418,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "task.complete",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/core/tasks/task_scheduler.cpp",
+        "line": 58,
+        "start": 275093355222,
+        "duration": 6077,
+        "thread": 2,
+        "text": "scheduler=1 task=14825"
+      },
+      {
+        "name": "task.complete",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/core/tasks/task_scheduler.cpp",
+        "line": 58,
+        "start": 275093363615,
+        "duration": 347,
+        "thread": 2,
+        "text": "scheduler=1 task=14826"
+      },
+      {
+        "name": "task.complete",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/core/tasks/task_scheduler.cpp",
+        "line": 58,
+        "start": 275093443710,
+        "duration": 1268,
+        "thread": 2,
+        "text": "scheduler=1 task=14827"
+      },
+      {
+        "name": "task.complete",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/core/tasks/task_scheduler.cpp",
+        "line": 58,
+        "start": 275122217179,
+        "duration": 909,
+        "thread": 2,
+        "text": "scheduler=1 task=14828"
+      },
+      {
+        "name": "task.execute",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/core/tasks/task_scheduler.cpp",
+        "line": 157,
+        "start": 275093362968,
+        "duration": 1019,
+        "thread": 2,
+        "text": "scheduler=1 task=14826"
+      },
+      {
+        "name": "task.execute",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/core/tasks/task_scheduler.cpp",
+        "line": 157,
+        "start": 275093414119,
+        "duration": 30930,
+        "thread": 2,
+        "text": "scheduler=1 task=14827"
+      },
+      {
+        "name": "task.execute",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/core/tasks/task_scheduler.cpp",
+        "line": 157,
+        "start": 275122214726,
+        "duration": 3419,
+        "thread": 2,
+        "text": "scheduler=1 task=14828"
+      },
+      {
+        "name": "scene.build.step",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/scene/scene_load_builder.cpp",
+        "line": 75,
+        "start": 275203078624,
+        "duration": 4658802,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "scene.build.step",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/scene/scene_load_builder.cpp",
+        "line": 75,
+        "start": 275207766121,
+        "duration": 1703,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "scene.build.step",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/scene/scene_load_builder.cpp",
+        "line": 75,
+        "start": 275207767848,
+        "duration": 614,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "scene.build.step",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/scene/scene_load_builder.cpp",
+        "line": 75,
+        "start": 275207768491,
+        "duration": 1169,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "scene.build.step",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/scene/scene_load_builder.cpp",
+        "line": 75,
+        "start": 275207769688,
+        "duration": 812,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "scene.build.step",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/scene/scene_load_builder.cpp",
+        "line": 75,
+        "start": 275207770538,
+        "duration": 638,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "scene.build.step",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/scene/scene_load_builder.cpp",
+        "line": 75,
+        "start": 275207771205,
+        "duration": 1100,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "scene.build.step",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/scene/scene_load_builder.cpp",
+        "line": 75,
+        "start": 275207772340,
+        "duration": 374,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "scene.build.step",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/scene/scene_load_builder.cpp",
+        "line": 75,
+        "start": 275207772741,
+        "duration": 413,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "scene.build.step",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/scene/scene_load_builder.cpp",
+        "line": 75,
+        "start": 275207773182,
+        "duration": 1020,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "scene.build.step",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/scene/scene_load_builder.cpp",
+        "line": 75,
+        "start": 275207774232,
+        "duration": 489,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "scene.build.step",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/scene/scene_load_builder.cpp",
+        "line": 75,
+        "start": 275207774749,
+        "duration": 464,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "scene.build.step",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/scene/scene_load_builder.cpp",
+        "line": 75,
+        "start": 275207775247,
+        "duration": 428,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "scene.build.step",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/scene/scene_load_builder.cpp",
+        "line": 75,
+        "start": 275207775704,
+        "duration": 1055,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "scene.build.step",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/scene/scene_load_builder.cpp",
+        "line": 75,
+        "start": 275207776786,
+        "duration": 505,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "scene.build.step",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/scene/scene_load_builder.cpp",
+        "line": 75,
+        "start": 275207777317,
+        "duration": 477,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "scene.build.step",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/scene/scene_load_builder.cpp",
+        "line": 75,
+        "start": 275207777821,
+        "duration": 556,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "scene.build.step",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/scene/scene_load_builder.cpp",
+        "line": 75,
+        "start": 275207778406,
+        "duration": 413,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "scene.build.step",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/scene/scene_load_builder.cpp",
+        "line": 75,
+        "start": 275207778846,
+        "duration": 412,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "scene.build.step",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/scene/scene_load_builder.cpp",
+        "line": 75,
+        "start": 275207779288,
+        "duration": 1228,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "scene.build.step",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/scene/scene_load_builder.cpp",
+        "line": 75,
+        "start": 275207780549,
+        "duration": 427,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "scene.build.step",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/scene/scene_load_builder.cpp",
+        "line": 75,
+        "start": 275207781012,
+        "duration": 423,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "scene.build.step",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/scene/scene_load_builder.cpp",
+        "line": 75,
+        "start": 275207781465,
+        "duration": 346,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "scene.build.step",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/scene/scene_load_builder.cpp",
+        "line": 75,
+        "start": 275207781850,
+        "duration": 442,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "scene.build.step",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/scene/scene_load_builder.cpp",
+        "line": 75,
+        "start": 275207782327,
+        "duration": 298,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "scene.build.step",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/scene/scene_load_builder.cpp",
+        "line": 75,
+        "start": 275207782656,
+        "duration": 716,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "scene.build.step",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/scene/scene_load_builder.cpp",
+        "line": 75,
+        "start": 275207783410,
+        "duration": 351,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "scene.build.step",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/scene/scene_load_builder.cpp",
+        "line": 75,
+        "start": 275207783798,
+        "duration": 369,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "scene.build.step",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/scene/scene_load_builder.cpp",
+        "line": 75,
+        "start": 275207784205,
+        "duration": 1631,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "scene.build.step",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/scene/scene_load_builder.cpp",
+        "line": 75,
+        "start": 275207785875,
+        "duration": 445,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "scene.build.step",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/scene/scene_load_builder.cpp",
+        "line": 75,
+        "start": 275207786350,
+        "duration": 349,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "scene.build.step",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/scene/scene_load_builder.cpp",
+        "line": 75,
+        "start": 275207786729,
+        "duration": 1183,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "scene.build.step",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/scene/scene_load_builder.cpp",
+        "line": 75,
+        "start": 275207787945,
+        "duration": 485,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "scene.build.step",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/scene/scene_load_builder.cpp",
+        "line": 75,
+        "start": 275207788458,
+        "duration": 517,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "scene.build.step",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/scene/scene_load_builder.cpp",
+        "line": 75,
+        "start": 275207789002,
+        "duration": 433,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "scene.build.step",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/scene/scene_load_builder.cpp",
+        "line": 75,
+        "start": 275207789463,
+        "duration": 14205856,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "scene.build.step",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/scene/scene_load_builder.cpp",
+        "line": 75,
+        "start": 275222044623,
+        "duration": 3494,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "scene.build.step",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/scene/scene_load_builder.cpp",
+        "line": 75,
+        "start": 275222048184,
+        "duration": 861,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "scene.build.step",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/scene/scene_load_builder.cpp",
+        "line": 75,
+        "start": 275222049075,
+        "duration": 703,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "scene.build.step",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/scene/scene_load_builder.cpp",
+        "line": 75,
+        "start": 275222049809,
+        "duration": 912,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "scene.build.step",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/scene/scene_load_builder.cpp",
+        "line": 75,
+        "start": 275222050751,
+        "duration": 497,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "scene.build.step",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/scene/scene_load_builder.cpp",
+        "line": 75,
+        "start": 275222051275,
+        "duration": 2132,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "scene.build.step",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/scene/scene_load_builder.cpp",
+        "line": 75,
+        "start": 275222053436,
+        "duration": 5544,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "scene.build.step",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/scene/scene_load_builder.cpp",
+        "line": 75,
+        "start": 275222059029,
+        "duration": 588,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "scene.build.step",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/scene/scene_load_builder.cpp",
+        "line": 75,
+        "start": 275222059647,
+        "duration": 760,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "scene.build.step",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/scene/scene_load_builder.cpp",
+        "line": 75,
+        "start": 275222060440,
+        "duration": 615,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "scene.build.step",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/scene/scene_load_builder.cpp",
+        "line": 75,
+        "start": 275222061085,
+        "duration": 638,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "scene.build.step",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/scene/scene_load_builder.cpp",
+        "line": 75,
+        "start": 275222061753,
+        "duration": 517,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "scene.build.step",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/scene/scene_load_builder.cpp",
+        "line": 75,
+        "start": 275222062299,
+        "duration": 796,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "scene.build.step",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/scene/scene_load_builder.cpp",
+        "line": 75,
+        "start": 275222063124,
+        "duration": 650,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "scene.build.step",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/scene/scene_load_builder.cpp",
+        "line": 75,
+        "start": 275222063802,
+        "duration": 482,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "scene.build.step",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/scene/scene_load_builder.cpp",
+        "line": 75,
+        "start": 275222064312,
+        "duration": 514,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "scene.build.step",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/scene/scene_load_builder.cpp",
+        "line": 75,
+        "start": 275222064854,
+        "duration": 1233,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "scene.build.step",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/scene/scene_load_builder.cpp",
+        "line": 75,
+        "start": 275222066118,
+        "duration": 640,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "scene.build.step",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/scene/scene_load_builder.cpp",
+        "line": 75,
+        "start": 275222066797,
+        "duration": 1128,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "scene.build.step",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/scene/scene_load_builder.cpp",
+        "line": 75,
+        "start": 275222067958,
+        "duration": 679,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "scene.build.step",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/scene/scene_load_builder.cpp",
+        "line": 75,
+        "start": 275222068675,
+        "duration": 663,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "scene.build.step",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/scene/scene_load_builder.cpp",
+        "line": 75,
+        "start": 275222069379,
+        "duration": 508,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "scene.build.step",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/scene/scene_load_builder.cpp",
+        "line": 75,
+        "start": 275222069918,
+        "duration": 1104,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "scene.build.step",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/scene/scene_load_builder.cpp",
+        "line": 75,
+        "start": 275222071053,
+        "duration": 669,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "scene.build.step",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/scene/scene_load_builder.cpp",
+        "line": 75,
+        "start": 275222071755,
+        "duration": 615,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "scene.build.step",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/scene/scene_load_builder.cpp",
+        "line": 75,
+        "start": 275222072399,
+        "duration": 576,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "scene.build.step",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/scene/scene_load_builder.cpp",
+        "line": 75,
+        "start": 275222073004,
+        "duration": 911,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "scene.build.step",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/scene/scene_load_builder.cpp",
+        "line": 75,
+        "start": 275222073944,
+        "duration": 50988597,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "task.receive",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/core/tasks/task_scheduler.cpp",
+        "line": 415,
+        "start": 275093391656,
+        "duration": 4748,
+        "thread": 1,
+        "text": "scheduler=1 task=14826"
+      },
+      {
+        "name": "task.receive",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/core/tasks/task_scheduler.cpp",
+        "line": 415,
+        "start": 275093401649,
+        "duration": 1262,
+        "thread": 1,
+        "text": "scheduler=1 task=14825"
+      },
+      {
+        "name": "task.receive",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/core/tasks/task_scheduler.cpp",
+        "line": 415,
+        "start": 275093449505,
+        "duration": 712,
+        "thread": 1,
+        "text": "scheduler=1 task=14827"
+      },
+      {
+        "name": "task.receive",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/core/tasks/task_scheduler.cpp",
+        "line": 415,
+        "start": 275203065938,
+        "duration": 5483,
+        "thread": 1,
+        "text": "scheduler=1 task=14828"
+      },
+      {
+        "name": "task.submit",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/core/tasks/task_scheduler.cpp",
+        "line": 273,
+        "start": 275093404814,
+        "duration": 2541,
+        "thread": 1,
+        "text": "scheduler=1 task=14827"
+      },
+      {
+        "name": "task.submit",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/core/tasks/task_scheduler.cpp",
+        "line": 273,
+        "start": 275122157828,
+        "duration": 50986,
+        "thread": 3,
+        "text": "scheduler=1 task=14828"
+      },
+      {
+        "name": "application.loop",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/application/application_state.cpp",
+        "line": 595,
+        "start": 275075566145,
+        "duration": 15714164,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "application.loop",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/application/application_state.cpp",
+        "line": 595,
+        "start": 275091280602,
+        "duration": 2106591,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "application.loop",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/application/application_state.cpp",
+        "line": 595,
+        "start": 275093387449,
+        "duration": 44912,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "application.loop",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/application/application_state.cpp",
+        "line": 595,
+        "start": 275093432416,
+        "duration": 16474,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "application.loop",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/application/application_state.cpp",
+        "line": 595,
+        "start": 275093448947,
+        "duration": 109560979,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "application.loop",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/application/application_state.cpp",
+        "line": 595,
+        "start": 275203010309,
+        "duration": 4752868,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "application.loop",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/application/application_state.cpp",
+        "line": 595,
+        "start": 275207763324,
+        "duration": 14274639,
+        "thread": 1,
+        "text": ""
+      },
+      {
+        "name": "application.loop",
+        "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/application/application_state.cpp",
+        "line": 595,
+        "start": 275222038423,
+        "duration": 51062725,
+        "thread": 1,
+        "text": ""
+      }
+    ]
+  },
+  "attempts": [
+    {
+      "directory": "build/0.50-tracy-transition",
+      "run": {
+        "fixture_exit": 3,
+        "capture_exit": 0,
+        "hashes": {
+          "gneiss_main_loop_response.exe": "fe98f0105c6bf91f8f4fa205cea797fc9429bed81d4e146384ef52dd4e6ee041",
+          "gneiss_engine.dll": "eef91a63f91067c49ca406fe15aeaf8a6cd8a86e3e1ac4843fece975da23ff76",
+          "gneiss_tracy.dll": "124743793823423c5aee7fadc82f98e583c7a862a421eb2a4839fd50bd87052c"
+        }
+      },
+      "result": {
+        "passed": false,
+        "keys": 171,
+        "tasks": 170,
+        "key_p95_ms": 16.7217,
+        "key_max_ms": 19.0759,
+        "task_p95_ms": 16.0046,
+        "task_max_ms": 19.053,
+        "close_ms": 15.8694,
+        "nodes": 0,
+        "resources": 0,
+        "loaded_scene": true,
+        "injected_stall": false
+      },
+      "sha256": {
+        "full.tracy": "6b00ede9e55a1e3b9cfe8519f0d2298d160caa5ca2e1cce92ed82390d1a12a87",
+        "zones.csv": "5e810e51eca16cc3d2a9f4c3894cff8e4a8babd2436a7a3a4c13e190f86dfcb8",
+        "result.json": "3f188e104286020ed653b1856b87d1f10995e3bd7ab704b5640fa640342876bb",
+        "run.json": "dc30d73781d865f5db418a77b2a5d56fc1bc467ae7133e2e10d58a6d0ca5cdc2"
+      },
+      "summary": {
+        "application.events": {
+          "count": 1535,
+          "max_ms": 2.500086
+        },
+        "application.idle_wait": {
+          "count": 1534,
+          "max_ms": 21.969739
+        },
+        "application.loop": {
+          "count": 1535,
+          "max_ms": 21.994647
+        },
+        "application.render.submit": {
+          "count": 1534,
+          "max_ms": 0.450004
+        },
+        "application.update": {
+          "count": 1534,
+          "max_ms": 4.641032
+        },
+        "asset.advance": {
+          "count": 1533,
+          "max_ms": 4.63549
+        },
+        "scene.advance": {
+          "count": 1534,
+          "max_ms": 4.638462
+        },
+        "task.complete": {
+          "count": 484,
+          "max_ms": 0.340138
+        },
+        "task.execute": {
+          "count": 484,
+          "max_ms": 2239.87521
+        },
+        "task.receive": {
+          "count": 483,
+          "max_ms": 0.209874
+        },
+        "task.submit": {
+          "count": 484,
+          "max_ms": 0.46652
+        }
+      },
+      "longest_worker": {
+        "name": "task.execute",
+        "start_ns": 10567673227,
+        "duration_ns": 2239875210,
+        "thread": 3,
+        "text": "scheduler=1 task=498",
+        "task_name": "render_assets.prepare"
+      },
+      "nearby_tasks": [
+        {
+          "name": "task.complete",
+          "start_ns": 10567572242,
+          "duration_ns": 6635,
+          "thread": 3,
+          "text": "scheduler=1 task=496",
+          "task_name": "render_assets.prepare"
+        },
+        {
+          "name": "task.complete",
+          "start_ns": 10567581273,
+          "duration_ns": 427,
+          "thread": 3,
+          "text": "scheduler=1 task=497",
+          "task_name": "response"
+        },
+        {
+          "name": "task.complete",
+          "start_ns": 12807537804,
+          "duration_ns": 10490,
+          "thread": 3,
+          "text": "scheduler=1 task=498",
+          "task_name": "render_assets.prepare"
+        },
+        {
+          "name": "task.complete",
+          "start_ns": 12807551432,
+          "duration_ns": 458,
+          "thread": 3,
+          "text": "scheduler=1 task=499",
+          "task_name": "response"
+        },
+        {
+          "name": "task.execute",
+          "start_ns": 10567580380,
+          "duration_ns": 1338,
+          "thread": 3,
+          "text": "scheduler=1 task=497",
+          "task_name": "response"
+        },
+        {
+          "name": "task.execute",
+          "start_ns": 10567673227,
+          "duration_ns": 2239875210,
+          "thread": 3,
+          "text": "scheduler=1 task=498",
+          "task_name": "render_assets.prepare"
+        },
+        {
+          "name": "task.execute",
+          "start_ns": 12807550121,
+          "duration_ns": 1808,
+          "thread": 3,
+          "text": "scheduler=1 task=499",
+          "task_name": "response"
+        },
+        {
+          "name": "task.receive",
+          "start_ns": 10567615764,
+          "duration_ns": 4306,
+          "thread": 1,
+          "text": "scheduler=1 task=497",
+          "task_name": "response"
+        },
+        {
+          "name": "task.receive",
+          "start_ns": 10567625029,
+          "duration_ns": 1673,
+          "thread": 1,
+          "text": "scheduler=1 task=496",
+          "task_name": "render_assets.prepare"
+        },
+        {
+          "name": "task.submit",
+          "start_ns": 10567627663,
+          "duration_ns": 3430,
+          "thread": 1,
+          "text": "scheduler=1 task=498",
+          "task_name": "render_assets.prepare"
+        },
+        {
+          "name": "task.submit",
+          "start_ns": 10597428495,
+          "duration_ns": 15204,
+          "thread": 2,
+          "text": "scheduler=1 task=499",
+          "task_name": "response"
+        }
+      ],
+      "transition_events": []
+    },
+    {
+      "directory": "build/0.50-tracy-transition-retry",
+      "run": {
+        "fixture_exit": 3,
+        "capture_exit": 0,
+        "hashes": {
+          "gneiss_main_loop_response.exe": "fe98f0105c6bf91f8f4fa205cea797fc9429bed81d4e146384ef52dd4e6ee041",
+          "gneiss_engine.dll": "eef91a63f91067c49ca406fe15aeaf8a6cd8a86e3e1ac4843fece975da23ff76",
+          "gneiss_tracy.dll": "124743793823423c5aee7fadc82f98e583c7a862a421eb2a4839fd50bd87052c"
+        }
+      },
+      "result": {
+        "passed": false,
+        "keys": 814,
+        "tasks": 813,
+        "key_p95_ms": 17.5148,
+        "key_max_ms": 21.2264,
+        "task_p95_ms": 16.5093,
+        "task_max_ms": 21.1644,
+        "close_ms": 15.2388,
+        "nodes": 0,
+        "resources": 0,
+        "loaded_scene": true,
+        "injected_stall": false
+      },
+      "sha256": {
+        "full.tracy": "abc5f6fbf99139554a186f3abe9a7c31d63388f6204aadb40db208be5aa4cff1",
+        "zones.csv": "cac8d191014413e12e4896f3816dbd585355b2b813948106e48323f077c47d5d",
+        "result.json": "f063aa0683fb04b677ecb13adedb29ad8e58cb87fc0ddba5b0659e6021e0a41f",
+        "run.json": "dc30d73781d865f5db418a77b2a5d56fc1bc467ae7133e2e10d58a6d0ca5cdc2"
+      },
+      "summary": {
+        "application.events": {
+          "count": 6171,
+          "max_ms": 5.829885
+        },
+        "application.idle_wait": {
+          "count": 6170,
+          "max_ms": 20.263991
+        },
+        "application.loop": {
+          "count": 6171,
+          "max_ms": 22.983441
+        },
+        "application.render.submit": {
+          "count": 6170,
+          "max_ms": 0.799842
+        },
+        "application.update": {
+          "count": 6170,
+          "max_ms": 5.08165
+        },
+        "asset.advance": {
+          "count": 6160,
+          "max_ms": 5.06878
+        },
+        "scene.advance": {
+          "count": 6170,
+          "max_ms": 5.076006
+        },
+        "task.complete": {
+          "count": 2199,
+          "max_ms": 1.518125
+        },
+        "task.execute": {
+          "count": 2198,
+          "max_ms": 2822.983961
+        },
+        "task.receive": {
+          "count": 2197,
+          "max_ms": 1.040815
+        },
+        "task.submit": {
+          "count": 2197,
+          "max_ms": 0.832705
+        }
+      },
+      "longest_worker": {
+        "name": "task.execute",
+        "start_ns": 47972308493,
+        "duration_ns": 2822983961,
+        "thread": 2,
+        "text": "scheduler=1 task=2211",
+        "task_name": "render_assets.prepare"
+      },
+      "nearby_tasks": [
+        {
+          "name": "task.receive",
+          "start_ns": 47972281347,
+          "duration_ns": 4774,
+          "thread": 1,
+          "text": "scheduler=1 task=2210",
+          "task_name": "response"
+        },
+        {
+          "name": "task.receive",
+          "start_ns": 47972292305,
+          "duration_ns": 1616,
+          "thread": 1,
+          "text": "scheduler=1 task=2209",
+          "task_name": "render_assets.prepare"
+        },
+        {
+          "name": "task.execute",
+          "start_ns": 47972237423,
+          "duration_ns": 1359,
+          "thread": 2,
+          "text": "scheduler=1 task=2210",
+          "task_name": "response"
+        },
+        {
+          "name": "task.execute",
+          "start_ns": 47972308493,
+          "duration_ns": 2822983961,
+          "thread": 2,
+          "text": "scheduler=1 task=2211",
+          "task_name": "render_assets.prepare"
+        },
+        {
+          "name": "task.execute",
+          "start_ns": 50795293647,
+          "duration_ns": 1416,
+          "thread": 2,
+          "text": "scheduler=1 task=2212",
+          "task_name": "response"
+        },
+        {
+          "name": "task.complete",
+          "start_ns": 47972227381,
+          "duration_ns": 8278,
+          "thread": 2,
+          "text": "scheduler=1 task=2209",
+          "task_name": "render_assets.prepare"
+        },
+        {
+          "name": "task.complete",
+          "start_ns": 47972238322,
+          "duration_ns": 438,
+          "thread": 2,
+          "text": "scheduler=1 task=2210",
+          "task_name": "response"
+        },
+        {
+          "name": "task.complete",
+          "start_ns": 50795285317,
+          "duration_ns": 7000,
+          "thread": 2,
+          "text": "scheduler=1 task=2211",
+          "task_name": "render_assets.prepare"
+        },
+        {
+          "name": "task.complete",
+          "start_ns": 50795294609,
+          "duration_ns": 436,
+          "thread": 2,
+          "text": "scheduler=1 task=2212",
+          "task_name": "response"
+        },
+        {
+          "name": "task.submit",
+          "start_ns": 47972295193,
+          "duration_ns": 3997,
+          "thread": 1,
+          "text": "scheduler=1 task=2211",
+          "task_name": "render_assets.prepare"
+        },
+        {
+          "name": "task.submit",
+          "start_ns": 47997006496,
+          "duration_ns": 8201,
+          "thread": 3,
+          "text": "scheduler=1 task=2212",
+          "task_name": "response"
+        }
+      ],
+      "transition_events": []
+    }
+  ],
+  "limitations": [
+    "两轮均未激活场景，不能测量新增构建器区域；保留失败不覆盖。",
+    "已完成的任务回执最大值不包含未消费的超时探针。",
+    "loaded_scene 旧字段只表示传入资产路径。",
+    "新增报告字段在两轮采集后加入；不补造历史字段。",
+    "任务区域为墙钟，不能区分计算、阻塞、缺页或抢占。",
+    "原始 266.238 / 272.921 ms 超标尚未解释，发布仍阻塞。"
+  ]
+}

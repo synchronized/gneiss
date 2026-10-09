@@ -1,6 +1,42 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Gneiss contributors
 
+add_executable(gneiss_profiling_disabled_test profiling_disabled_test.cpp)
+target_include_directories(gneiss_profiling_disabled_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_compile_features(gneiss_profiling_disabled_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_profiling_disabled_test)
+gneiss_target_output_directories(gneiss_profiling_disabled_test)
+add_test(NAME gneiss.profiling-disabled COMMAND gneiss_profiling_disabled_test)
+
+if(GNEISS_ENABLE_PROFILING AND GNEISS_TASK_THREADS)
+  add_executable(gneiss_profiling_capture profiling_capture.cpp)
+  target_link_libraries(gneiss_profiling_capture PRIVATE gneiss::engine gneiss_tasks)
+  gneiss_target_profiling(gneiss_profiling_capture)
+  gneiss_target_compile_warnings(gneiss_profiling_capture)
+  gneiss_target_output_directories(gneiss_profiling_capture)
+  add_test(NAME gneiss.profiling-capture COMMAND gneiss_profiling_capture)
+  set_tests_properties(gneiss.profiling-capture PROPERTIES TIMEOUT 15)
+endif()
+
+if(GNEISS_ENABLE_PROFILING AND WIN32)
+  # 手动诊断夹具只链接 Tracy，不携带引擎、调度器或渲染器。
+  add_executable(gneiss_filesystem_trace_probe asset/filesystem_trace_probe.cpp)
+  target_include_directories(gneiss_filesystem_trace_probe PRIVATE "${PROJECT_SOURCE_DIR}/src")
+  target_compile_features(gneiss_filesystem_trace_probe PRIVATE cxx_std_20)
+  gneiss_target_profiling(gneiss_filesystem_trace_probe)
+  gneiss_target_compile_warnings(gneiss_filesystem_trace_probe)
+  gneiss_target_output_directories(gneiss_filesystem_trace_probe)
+endif()
+
+if(NOT EMSCRIPTEN AND GNEISS_TASK_THREADS)
+  add_executable(gneiss_loop_progress_test core/loop_progress_test.cpp)
+  target_link_libraries(gneiss_loop_progress_test PRIVATE gneiss_tasks Threads::Threads)
+  gneiss_target_compile_warnings(gneiss_loop_progress_test)
+  gneiss_target_output_directories(gneiss_loop_progress_test)
+  add_test(NAME gneiss.loop-progress COMMAND gneiss_loop_progress_test)
+  set_tests_properties(gneiss.loop-progress PROPERTIES TIMEOUT 30)
+endif()
+
 add_executable(gneiss_task_scheduler_test core/task_scheduler_test.cpp)
 target_link_libraries(gneiss_task_scheduler_test PRIVATE gneiss_tasks)
 gneiss_target_compile_warnings(gneiss_task_scheduler_test)
@@ -670,6 +706,14 @@ gneiss_target_output_directories(gneiss_resource_service_test)
 add_test(NAME gneiss.resource_service COMMAND gneiss_resource_service_test)
 
 find_package(Threads REQUIRED)
+add_executable(gneiss_loop_timing_test loop_timing_test.cpp)
+target_include_directories(gneiss_loop_timing_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_link_libraries(gneiss_loop_timing_test PRIVATE Threads::Threads)
+target_compile_features(gneiss_loop_timing_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_loop_timing_test)
+gneiss_target_output_directories(gneiss_loop_timing_test)
+add_test(NAME gneiss.loop_timing COMMAND gneiss_loop_timing_test)
+
 add_executable(gneiss_read_source_test
   asset/read_source_test.cpp
   "${PROJECT_SOURCE_DIR}/src/engine/asset/asset_uri.cpp"
@@ -852,6 +896,15 @@ if(GNEISS_ENABLE_GRANIT_PLATFORM)
   add_test(NAME gneiss.asset-pixel COMMAND gneiss_asset_pixel_test)
   add_test(NAME gneiss.pbr-negative-scale COMMAND gneiss_asset_pixel_test --probe-negative-scale)
   set_tests_properties(gneiss.asset-pixel PROPERTIES TIMEOUT 60)
+  if(WIN32 AND GNEISS_TASK_THREADS)
+    add_executable(gneiss_main_loop_response render/main_loop_response.cpp)
+    target_include_directories(gneiss_main_loop_response PRIVATE "${PROJECT_SOURCE_DIR}/src")
+    target_link_libraries(gneiss_main_loop_response PRIVATE gneiss::engine gneiss_tasks user32)
+    gneiss_target_compile_warnings(gneiss_main_loop_response)
+    gneiss_target_output_directories(gneiss_main_loop_response)
+    add_test(NAME gneiss.main-loop-response COMMAND gneiss_main_loop_response)
+    set_tests_properties(gneiss.main-loop-response PROPERTIES TIMEOUT 30 LABELS "gpu")
+  endif()
   add_executable(gneiss_scene_load_baseline render/scene_load_baseline.cpp)
   target_include_directories(gneiss_scene_load_baseline PRIVATE "${PROJECT_SOURCE_DIR}/src")
   target_link_libraries(gneiss_scene_load_baseline PRIVATE gneiss::engine gneiss_tasks)

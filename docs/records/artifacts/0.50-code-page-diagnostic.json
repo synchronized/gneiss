@@ -1,0 +1,618 @@
+{
+  "status": "diagnostic_only_not_release_acceptance",
+  "date": "2026-10-08",
+  "limits": [
+    "原始输入 266.238 ms 失败没有同轮引擎记录，本归档不能追溯解释或撤销该失败。",
+    "栈采样暂停主线程，pause_ns 必须单独保留，不能将被干扰的墙钟用于性能验收。",
+    "原始栈文本中的最近导出符号名称不可靠；仅采用同 .text 链接映射解析的 RVA。",
+    "页面 Valid 从 0 变为 1 支持代码页面驻留变化，不证明磁盘硬缺页或物理内存不足。",
+    "被动观察只查询工作集，不暂停线程、不读写目标内存；仍属于诊断样本。",
+    "线程 CPU 计数零增量不代表零工作，线程周期不能换算成墙钟耗时。"
+  ],
+  "exact_mapping": {
+    "text_sha256_original_and_map_clone": "096dceed31d9edaf10eba198c36cb77982b0ff9c9226d88cce6ea5c9a5c9caf8",
+    "map_sha256": "41ff9cd5fad435bc3affdc4a9e7619d44fb78b763e6fffcd40303dd8b1ead793",
+    "entries": [
+      "0001:000535c0       gneiss_scene_instance_get_node_count 00000001800545c0     scene_api.cpp.obj",
+      "0001:000cdea0       ??0scene_load_builder@scene_internal@gneiss@@QEAA@AEAVscene_instance_service@12@Uprepared_scene_description@12@@Z 00000001800ceea0     scene_load_builder.cpp.obj",
+      "0001:000fe4e0       ??0scene_instance@scene_internal@gneiss@@QEAA@_KAEAVrender_asset_loader@render_internal@2@AEAVprefab_asset_loader@12@0@Z 00000001800ff4e0     scene_instance_service.cpp.obj",
+      "0001:000fe7f0       ?initialize_staged@scene_instance@scene_internal@gneiss@@QEAAXUscene_description@23@@Z 00000001800ff7f0     scene_instance_service.cpp.obj",
+      "0001:000a8950       ?_Delete_this@?$_Func_impl_no_alloc@V<lambda_5>@?0??acquire_material@render_asset_loader@render_internal@gneiss@@QEAAHV?$basic_string_view@DU?$char_traits@D@std@@@std@@AEAVmaterial_asset_lease@45@AEAUasset_diagnostic@asset_internal@5@@Z@HAEAV?$shared_ptr@X@7@@std@@EEAAX_N@Z 00000001800a9950     render_asset_loader.cpp.obj"
+    ]
+  },
+  "tools": {
+    "build\\0.50-stack-sampler.cpp": "f5967383a20439d98d4077968e71d7e8343a9a5aee2b6e8d054b59660097542f",
+    "build\\0.50-page-observer.cpp": "1317ce1e76e094c1755be9588b2db1a7d9eea49416b27878b17740003596dd32",
+    "build\\0.50-stack-final-fixture-source.cpp": "964a221eb002f3889127ad2056c4aacfeb7702a590b1882932eef015368aa263",
+    "build\\0.50-run-passive-pages.py": "c3f4d00580dc5224508334bf8d7674662dbf6db18f0b8cc11ce5def7ffb05a75"
+  },
+  "runs": [
+    {
+      "name": "0.50-builder-stack-diagnostic",
+      "status": "rejected_observation",
+      "files": {
+        "console.log": {
+          "sha256": "37ba318cf71642aff6e46e56c91eaaa9c8eb5ec21dab64217baafbf2a331d7f6",
+          "bytes": 139
+        },
+        "engine.csv": {
+          "sha256": "9a11232195528211fbc2f8e169df35661d0b15e202c7e2764770b01443c1cf78",
+          "bytes": 35934
+        },
+        "result.json": {
+          "sha256": "e34b87529ed41a10fe67ccb08d6910161d1bcf7d53744843f024d875a363071e",
+          "bytes": 218
+        },
+        "result.json.probes.csv": {
+          "sha256": "afbb182deba35121ac3d012e062b9219ce4b971a3d5416f4f9890d445e0fb2db",
+          "bytes": 3002
+        },
+        "run.json": {
+          "sha256": "b4699f0bc8be5e72e7d1b38f4f5af81fc50535a9fc4f8830fe996ec10beae98e",
+          "bytes": 116
+        },
+        "stacks.txt": {
+          "sha256": "f29ac1c36a70ed35caa74fba37dc07058ca71b99ef481b9b54b24f6e91536258",
+          "bytes": 852
+        }
+      },
+      "result": {
+        "passed": true,
+        "keys": 4085,
+        "tasks": 4085,
+        "key_p95_ms": 17.7448,
+        "key_max_ms": 33.9798,
+        "task_p95_ms": 16.7081,
+        "task_max_ms": 33.9342,
+        "close_ms": 14.2038,
+        "nodes": 553,
+        "resources": 505,
+        "loaded_scene": true,
+        "injected_stall": false
+      },
+      "raw_stack_observations": "sample start_ns=140733146624662 captured_ns=2535314530202000 pause_ns=17081300 error=0\n7fff2aeedc24 ntdll+9dc24 NtDelayExecution+14\n7fff2aeedc24 ntdll+9dc24 NtDelayExecution+14\n7fff289d62ce KERNELBASE+462ce SleepEx+9e\n7ffefd366ea1 OpenGL32+6ea1 ?+0\n7ffefd367296 OpenGL32+7296 ?+0\n7ffefd43fdcf OpenGL32+dfdcf wglSwapBuffers+9f79f\n7fff2ae69a1d ntdll+19a1d RtlActivateActivationContextUnsafeFast+11d\n7fff2aeaf1ca ntdll+5f1ca LdrShutdownProcess+22a\n7fff2aeaef7d ntdll+5ef7d RtlExitUserProcess+ad\n7fff2ab2e3eb KERNEL32+1e3eb FatalExit+b\n7fff288805bc ucrtbase+205bc exit+1dc\n7fff2888045f ucrtbase+2045f exit+7f\n7ff757be1cb7 gneiss_main_loop_response+11cb7 ?+0\n7fff2ab27374 KERNEL32+17374 BaseThreadInitThunk+14\n7fff2ae9cc91 ntdll+4cc91 RtlUserThreadStart+21\nsample start_ns=140733875110233 captured_ns=2535314593339200 pause_ns=3000 error=5\n",
+      "reason": "活动标记生命周期结束后读到失效值，采集的是退出栈；不得用于加载延迟归因。"
+    },
+    {
+      "name": "0.50-builder-stack-final-phase",
+      "status": "diagnostic_only",
+      "files": {
+        "console.log": {
+          "sha256": "a75ef1fc5f454a17f1b300bc829c297616b3b488c69e949bfae624cc8e01f641",
+          "bytes": 139
+        },
+        "correlation.json": {
+          "sha256": "b417465b701a414f8e993a8fbe1fb170f81506cac8fffefec1a43e5b8f454174",
+          "bytes": 26252
+        },
+        "engine.csv": {
+          "sha256": "c68f0be897143bf3c75de958c43ddab3a4fcbbee8315078727b96e8ec3ccaee7",
+          "bytes": 35958
+        },
+        "result.json": {
+          "sha256": "c8dbb418241bbfb260f05ae69a3993179bf1494bf64f594fd3c19336abfd0004",
+          "bytes": 218
+        },
+        "result.json.probes.csv": {
+          "sha256": "0471b0bdc6b602d1864f20ee2321b0e2edd77f0b1463569aac267a6645e3f3a3",
+          "bytes": 2985
+        },
+        "run.json": {
+          "sha256": "b4699f0bc8be5e72e7d1b38f4f5af81fc50535a9fc4f8830fe996ec10beae98e",
+          "bytes": 116
+        },
+        "stacks.txt": {
+          "sha256": "4ac3e2bcc44d6a7cfc4ed19371a1fa0df05a65dcb44430ce2ff7621cf706485f",
+          "bytes": 2799
+        }
+      },
+      "result": {
+        "passed": true,
+        "keys": 3995,
+        "tasks": 3995,
+        "key_p95_ms": 17.6196,
+        "key_max_ms": 25.3462,
+        "task_p95_ms": 16.7234,
+        "task_max_ms": 21.7609,
+        "close_ms": 15.2117,
+        "nodes": 553,
+        "resources": 505,
+        "loaded_scene": true,
+        "injected_stall": false
+      },
+      "raw_stack_observations": "sample start_ns=2535657767380700 captured_ns=2535657770598300 pause_ns=30804100 error=0\n7ffec790eea0 gneiss_engine+ceea0 gneiss_type_registry_set_property+2bb0\n7ffec790eea0 gneiss_engine+ceea0 gneiss_type_registry_set_property+2bb0\n7ffec789dac2 gneiss_engine+5dac2 gneiss::application_internal::reload_prefab+5212\n7ffec789b0d7 gneiss_engine+5b0d7 gneiss::application_internal::reload_prefab+2827\n7ffec7897e90 gneiss_engine+57e90 gneiss::application_internal::poll_scene_load+50\n7ff727d8426a gneiss_main_loop_response+426a ?+0\n7ff727d836ab gneiss_main_loop_response+36ab ?+0\n7ffec78a8e90 gneiss_engine+68e90 gneiss::application_internal::reload_prefab+105e0\n7ffec7893289 gneiss_engine+53289 gneiss_application_run+39\n7ff727d81dbd gneiss_main_loop_response+1dbd ?+0\n7ff727d91cd0 gneiss_main_loop_response+11cd0 ?+0\n7fff2ab27374 KERNEL32+17374 BaseThreadInitThunk+14\n7fff2ae9cc91 ntdll+4cc91 RtlUserThreadStart+21\nsample start_ns=2535657813480800 captured_ns=2535657817932600 pause_ns=1810600 error=0\n7ffec78e9950 gneiss_engine+a9950 gneiss_log_message_validate+e730\n7ffec78e9950 gneiss_engine+a9950 gneiss_log_message_validate+e730\n7ffec78e589d gneiss_engine+a589d gneiss_log_message_validate+a67d\n7ffec793ff65 gneiss_engine+fff65 gneiss_type_registry_set_property+33c75\n7ffec7910987 gneiss_engine+d0987 gneiss_type_registry_set_property+4697\n7ffec7910ad9 gneiss_engine+d0ad9 gneiss_type_registry_set_property+47e9\n7ffec789bd59 gneiss_engine+5bd59 gneiss::application_internal::reload_prefab+34a9\n7ffec789b0d7 gneiss_engine+5b0d7 gneiss::application_internal::reload_prefab+2827\n7ffec7897e90 gneiss_engine+57e90 gneiss::application_internal::poll_scene_load+50\n7ff727d8426a gneiss_main_loop_response+426a ?+0\n7ff727d836ab gneiss_main_loop_response+36ab ?+0\n7ffec78a8e90 gneiss_engine+68e90 gneiss::application_internal::reload_prefab+105e0\n7ffec7893289 gneiss_engine+53289 gneiss_application_run+39\n7ff727d81dbd gneiss_main_loop_response+1dbd ?+0\n7ff727d91cd0 gneiss_main_loop_response+11cd0 ?+0\n7fff2ab27374 KERNEL32+17374 BaseThreadInitThunk+14\n7fff2ae9cc91 ntdll+4cc91 RtlUserThreadStart+21\nsample start_ns=2535657820824700 captured_ns=2535657823244000 pause_ns=1022100 error=0\n7ffec78945c0 gneiss_engine+545c0 gneiss_scene_instance_get_node_count+0\n7ffec78945c0 gneiss_engine+545c0 gneiss_scene_instance_get_node_count+0\n7ff727d843b3 gneiss_main_loop_response+43b3 ?+0\n7ff727d836ab gneiss_main_loop_response+36ab ?+0\n7ffec78a8e90 gneiss_engine+68e90 gneiss::application_internal::reload_prefab+105e0\n7ffec7893289 gneiss_engine+53289 gneiss_application_run+39\n7ff727d81dbd gneiss_main_loop_response+1dbd ?+0\n7ff727d91cd0 gneiss_main_loop_response+11cd0 ?+0\n7fff2ab27374 KERNEL32+17374 BaseThreadInitThunk+14\n7fff2ae9cc91 ntdll+4cc91 RtlUserThreadStart+21\n",
+      "builder_peak": {
+        "kind": "peak:scene_builder_create",
+        "frame": "25981",
+        "start_ms": "218429.9627",
+        "total_ms": "46.0393",
+        "gap_ms": "0.0003",
+        "events_ms": "0.0018",
+        "update_ms": "46.0329",
+        "render_ms": "0.0034",
+        "draw_clear_ms": "0.0003",
+        "scene_advance_ms": "45.9981",
+        "texture_advance_ms": "0",
+        "asset_stage_ms": "0",
+        "upload_poll_ms": "0",
+        "upload_submit_ms": "0",
+        "asset_publish_ms": "0",
+        "candidate_cleanup_ms": "0",
+        "retirement_ms": "0",
+        "frame_storage_ms": "0.0022",
+        "render_snapshot_ms": "0",
+        "frame_capture_ms": "0",
+        "frame_submit_ms": "0",
+        "window_pump_ms": "0.0006",
+        "window_events_ms": "0.0002",
+        "input_state_ms": "0.0005",
+        "input_events_ms": "0.0002",
+        "task_collect_ms": "0.0022",
+        "task_submit_ms": "0",
+        "idle_wait_ms": "0.0003",
+        "task_submit_lock_ms": "0",
+        "task_submit_work_ms": "0",
+        "task_submit_allocate_ms": "0",
+        "task_submit_insert_ms": "0",
+        "task_submit_notify_ms": "0",
+        "idle_lock_ms": "0",
+        "idle_condition_ms": "0.0001",
+        "scene_verify_ms": "45.9973",
+        "scene_builder_create_ms": "45.9864",
+        "scene_asset_service_reset_ms": "0.0082",
+        "scene_build_ms": "0",
+        "scene_description_move_ms": "0.0018",
+        "scene_instance_allocate_ms": "11.404",
+        "scene_instance_initialize_ms": "0.5093",
+        "scene_node_index_reserve_ms": "0.0029"
+      },
+      "matched_scene_callbacks": [
+        {
+          "kind": "scene",
+          "index": 25982,
+          "latency_ms": 46.02689999999711,
+          "thread_cpu_ms": 0.0,
+          "thread_cycles": 836254,
+          "start_ms": 218429.9674,
+          "end_ms": 218475.9943,
+          "loops": [
+            {
+              "frame": 25981,
+              "inside_overlap_ms": 46.02689999999711,
+              "gap_overlap_ms": 0.0,
+              "loop_stage_totals_ms": {
+                "start_ms": 218429.9627,
+                "total_ms": 46.0393,
+                "gap_ms": 0.0003,
+                "events_ms": 0.0018,
+                "update_ms": 46.0329,
+                "render_ms": 0.0034,
+                "draw_clear_ms": 0.0003,
+                "scene_advance_ms": 45.9981,
+                "texture_advance_ms": 0.0,
+                "asset_stage_ms": 0.0,
+                "upload_poll_ms": 0.0,
+                "upload_submit_ms": 0.0,
+                "asset_publish_ms": 0.0,
+                "candidate_cleanup_ms": 0.0,
+                "retirement_ms": 0.0,
+                "frame_storage_ms": 0.0022,
+                "render_snapshot_ms": 0.0,
+                "frame_capture_ms": 0.0,
+                "frame_submit_ms": 0.0,
+                "window_pump_ms": 0.0006,
+                "window_events_ms": 0.0002,
+                "input_state_ms": 0.0005,
+                "input_events_ms": 0.0002,
+                "task_collect_ms": 0.0022,
+                "task_submit_ms": 0.0,
+                "idle_wait_ms": 0.0003,
+                "task_submit_lock_ms": 0.0,
+                "task_submit_work_ms": 0.0,
+                "task_submit_allocate_ms": 0.0,
+                "task_submit_insert_ms": 0.0,
+                "task_submit_notify_ms": 0.0,
+                "idle_lock_ms": 0.0,
+                "idle_condition_ms": 0.0001,
+                "scene_verify_ms": 45.9973,
+                "scene_builder_create_ms": 45.9864,
+                "scene_asset_service_reset_ms": 0.0082,
+                "scene_build_ms": 0.0,
+                "scene_description_move_ms": 0.0018,
+                "scene_instance_allocate_ms": 11.404,
+                "scene_instance_initialize_ms": 0.5093,
+                "scene_node_index_reserve_ms": 0.0029
+              }
+            }
+          ],
+          "unretained_ms": 0.0
+        }
+      ]
+    },
+    {
+      "name": "0.50-builder-page-diagnostic",
+      "status": "diagnostic_only",
+      "files": {
+        "console.log": {
+          "sha256": "a3bb050e8f02a74e6f31525a94b350a83cafb72b2cfa4b5898e33dbd1dc38c2a",
+          "bytes": 139
+        },
+        "correlation.json": {
+          "sha256": "7ce5220bce34e81e5b0dd84338403955c921d8d36806e3307aa59c760d0a2dda",
+          "bytes": 33473
+        },
+        "engine.csv": {
+          "sha256": "e25bb6bfc1a98b6928e598eac1f97836a8990dc42fc0218057d9eb42f1ee0b13",
+          "bytes": 36360
+        },
+        "result.json": {
+          "sha256": "f4ea6f810181cdae69d5dc7d849c096c14159b101ca3de084384092991400141",
+          "bytes": 217
+        },
+        "result.json.probes.csv": {
+          "sha256": "e5b8e35a775f389e7387887658250fe9d6f3c7cb7b0b5b187f029674e4dfe14a",
+          "bytes": 2961
+        },
+        "run.json": {
+          "sha256": "b4699f0bc8be5e72e7d1b38f4f5af81fc50535a9fc4f8830fe996ec10beae98e",
+          "bytes": 116
+        },
+        "stacks.txt": {
+          "sha256": "04011cc4ef8bc729f535f18190c2a10011488099751449e8fb43d414b703fbd2",
+          "bytes": 1854
+        }
+      },
+      "result": {
+        "passed": true,
+        "keys": 3895,
+        "tasks": 3895,
+        "key_p95_ms": 17.6927,
+        "key_max_ms": 91.739,
+        "task_p95_ms": 16.7102,
+        "task_max_ms": 91.7242,
+        "close_ms": 14.9572,
+        "nodes": 553,
+        "resources": 505,
+        "loaded_scene": true,
+        "injected_stall": false
+      },
+      "raw_stack_observations": "sample start_ns=2536165129377600 captured_ns=2536165133138300 pause_ns=106787200 error=0 builder_before=0 builder_after=0 pc_valid=0 stack_valid=1\n7ffec790eea0 gneiss_engine+ceea0 gneiss_type_registry_set_property+2bb0\n7ffec790eea0 gneiss_engine+ceea0 gneiss_type_registry_set_property+2bb0\n7ffec789dac2 gneiss_engine+5dac2 gneiss::application_internal::reload_prefab+5212\n7ffec789b0d7 gneiss_engine+5b0d7 gneiss::application_internal::reload_prefab+2827\n7ffec7897e90 gneiss_engine+57e90 gneiss::application_internal::poll_scene_load+50\n7ff727d8426a gneiss_main_loop_response+426a ?+0\n7ff727d836ab gneiss_main_loop_response+36ab ?+0\n7ffec78a8e90 gneiss_engine+68e90 gneiss::application_internal::reload_prefab+105e0\n7ffec7893289 gneiss_engine+53289 gneiss_application_run+39\n7ff727d81dbd gneiss_main_loop_response+1dbd ?+0\n7ff727d91cd0 gneiss_main_loop_response+11cd0 ?+0\n7fff2ab27374 KERNEL32+17374 BaseThreadInitThunk+14\n7fff2ae9cc91 ntdll+4cc91 RtlUserThreadStart+21\nsample start_ns=2536165249547800 captured_ns=2536165251763200 pause_ns=14256700 error=0 builder_before=1 builder_after=1 pc_valid=0 stack_valid=1\n7ffec78945c0 gneiss_engine+545c0 gneiss_scene_instance_get_node_count+0\n7ffec78945c0 gneiss_engine+545c0 gneiss_scene_instance_get_node_count+0\n7ff727d843b3 gneiss_main_loop_response+43b3 ?+0\n7ff727d836ab gneiss_main_loop_response+36ab ?+0\n7ffec78a8e90 gneiss_engine+68e90 gneiss::application_internal::reload_prefab+105e0\n7ffec7893289 gneiss_engine+53289 gneiss_application_run+39\n7ff727d81dbd gneiss_main_loop_response+1dbd ?+0\n7ff727d91cd0 gneiss_main_loop_response+11cd0 ?+0\n7fff2ab27374 KERNEL32+17374 BaseThreadInitThunk+14\n7fff2ae9cc91 ntdll+4cc91 RtlUserThreadStart+21\nbuilder_page time_ns=2535951803268000 valid=0 address=7ffec790eea0\nbuilder_page time_ns=2536165241234000 valid=1 address=7ffec790eea0\n",
+      "builder_peak": {
+        "kind": "peak:scene_builder_create",
+        "frame": "25763",
+        "start_ms": "213416.8203",
+        "total_ms": "118.5068",
+        "gap_ms": "0.0003",
+        "events_ms": "0.0015",
+        "update_ms": "118.4999",
+        "render_ms": "0.0041",
+        "draw_clear_ms": "0.0003",
+        "scene_advance_ms": "118.4624",
+        "texture_advance_ms": "0",
+        "asset_stage_ms": "0",
+        "upload_poll_ms": "0",
+        "upload_submit_ms": "0",
+        "asset_publish_ms": "0",
+        "candidate_cleanup_ms": "0",
+        "retirement_ms": "0",
+        "frame_storage_ms": "0.0024",
+        "render_snapshot_ms": "0",
+        "frame_capture_ms": "0",
+        "frame_submit_ms": "0",
+        "window_pump_ms": "0.0005",
+        "window_events_ms": "0.0002",
+        "input_state_ms": "0.0004",
+        "input_events_ms": "0.0001",
+        "task_collect_ms": "0.0018",
+        "task_submit_ms": "0",
+        "idle_wait_ms": "0.0004",
+        "task_submit_lock_ms": "0",
+        "task_submit_work_ms": "0",
+        "task_submit_allocate_ms": "0",
+        "task_submit_insert_ms": "0",
+        "task_submit_notify_ms": "0",
+        "idle_lock_ms": "0.0001",
+        "idle_condition_ms": "0.0001",
+        "scene_verify_ms": "118.4612",
+        "scene_builder_create_ms": "118.4498",
+        "scene_asset_service_reset_ms": "0.0091",
+        "scene_build_ms": "0",
+        "scene_description_move_ms": "0.0022",
+        "scene_instance_allocate_ms": "7.6305",
+        "scene_instance_initialize_ms": "0.2253",
+        "scene_node_index_reserve_ms": "0.0031"
+      },
+      "matched_scene_callbacks": [
+        {
+          "kind": "scene",
+          "index": 25764,
+          "latency_ms": 118.49340000000666,
+          "thread_cpu_ms": 0.0,
+          "thread_cycles": 832336,
+          "start_ms": 213416.8245,
+          "end_ms": 213535.3179,
+          "loops": [
+            {
+              "frame": 25763,
+              "inside_overlap_ms": 118.49340000000666,
+              "gap_overlap_ms": 0.0,
+              "loop_stage_totals_ms": {
+                "start_ms": 213416.8203,
+                "total_ms": 118.5068,
+                "gap_ms": 0.0003,
+                "events_ms": 0.0015,
+                "update_ms": 118.4999,
+                "render_ms": 0.0041,
+                "draw_clear_ms": 0.0003,
+                "scene_advance_ms": 118.4624,
+                "texture_advance_ms": 0.0,
+                "asset_stage_ms": 0.0,
+                "upload_poll_ms": 0.0,
+                "upload_submit_ms": 0.0,
+                "asset_publish_ms": 0.0,
+                "candidate_cleanup_ms": 0.0,
+                "retirement_ms": 0.0,
+                "frame_storage_ms": 0.0024,
+                "render_snapshot_ms": 0.0,
+                "frame_capture_ms": 0.0,
+                "frame_submit_ms": 0.0,
+                "window_pump_ms": 0.0005,
+                "window_events_ms": 0.0002,
+                "input_state_ms": 0.0004,
+                "input_events_ms": 0.0001,
+                "task_collect_ms": 0.0018,
+                "task_submit_ms": 0.0,
+                "idle_wait_ms": 0.0004,
+                "task_submit_lock_ms": 0.0,
+                "task_submit_work_ms": 0.0,
+                "task_submit_allocate_ms": 0.0,
+                "task_submit_insert_ms": 0.0,
+                "task_submit_notify_ms": 0.0,
+                "idle_lock_ms": 0.0001,
+                "idle_condition_ms": 0.0001,
+                "scene_verify_ms": 118.4612,
+                "scene_builder_create_ms": 118.4498,
+                "scene_asset_service_reset_ms": 0.0091,
+                "scene_build_ms": 0.0,
+                "scene_description_move_ms": 0.0022,
+                "scene_instance_allocate_ms": 7.6305,
+                "scene_instance_initialize_ms": 0.2253,
+                "scene_node_index_reserve_ms": 0.0031
+              }
+            }
+          ],
+          "unretained_ms": 0.0
+        }
+      ]
+    },
+    {
+      "name": "0.50-builder-passive-pages",
+      "status": "diagnostic_only",
+      "files": {
+        "console.log": {
+          "sha256": "846bc69b3a2d3e5f0868efd168c5ac5e6ad0949af8ceca2a4ed4cffdbd31a914",
+          "bytes": 96
+        },
+        "correlation.json": {
+          "sha256": "9b54aea96611c358a89d35fb719bcd9ba606e3e34ff5527fdc02f9a470865487",
+          "bytes": 22693
+        },
+        "engine.csv": {
+          "sha256": "fefab34f3d7be6ebf407b2bd8c1bf04356a3bdf48bbc248a12e8b017e424317c",
+          "bytes": 35919
+        },
+        "pages.csv": {
+          "sha256": "a65912cc77645a2c653573cdb4694bdde282e2e3a4d2a994292eb7708b95cee6",
+          "bytes": 335
+        },
+        "result.json": {
+          "sha256": "aa5b500d7db83f797accba97dcf3900faa6ac7aa5e48268dd57980acb4d77a08",
+          "bytes": 217
+        },
+        "result.json.probes.csv": {
+          "sha256": "f6128df5c09f1c6e0acbdb3f01d13ab3f3e7835fa2f9bdc6d80c9900195d8773",
+          "bytes": 2971
+        },
+        "run.json": {
+          "sha256": "8bc4234eb41223f2e0afe4d334c2c63093b6a2df2d4fa91530157e4d794b8d03",
+          "bytes": 153
+        }
+      },
+      "result": {
+        "passed": true,
+        "keys": 3924,
+        "tasks": 3924,
+        "key_p95_ms": 17.6887,
+        "key_max_ms": 22.7074,
+        "task_p95_ms": 16.8431,
+        "task_max_ms": 22.702,
+        "close_ms": 10.5447,
+        "nodes": 553,
+        "resources": 505,
+        "loaded_scene": true,
+        "injected_stall": false
+      },
+      "builder_peak": {
+        "kind": "peak:scene_builder_create",
+        "frame": "25773",
+        "start_ms": "215910.4181",
+        "total_ms": "24.7887",
+        "gap_ms": "0.0002",
+        "events_ms": "0.0014",
+        "update_ms": "24.7814",
+        "render_ms": "0.0048",
+        "draw_clear_ms": "0.0002",
+        "scene_advance_ms": "24.7449",
+        "texture_advance_ms": "0",
+        "asset_stage_ms": "0",
+        "upload_poll_ms": "0",
+        "upload_submit_ms": "0",
+        "asset_publish_ms": "0",
+        "candidate_cleanup_ms": "0",
+        "retirement_ms": "0",
+        "frame_storage_ms": "0.0026",
+        "render_snapshot_ms": "0",
+        "frame_capture_ms": "0",
+        "frame_submit_ms": "0",
+        "window_pump_ms": "0.0005",
+        "window_events_ms": "0.0001",
+        "input_state_ms": "0.0002",
+        "input_events_ms": "0.0001",
+        "task_collect_ms": "0.0016",
+        "task_submit_ms": "0",
+        "idle_wait_ms": "0.0003",
+        "task_submit_lock_ms": "0",
+        "task_submit_work_ms": "0",
+        "task_submit_allocate_ms": "0",
+        "task_submit_insert_ms": "0",
+        "task_submit_notify_ms": "0",
+        "idle_lock_ms": "0",
+        "idle_condition_ms": "0.0001",
+        "scene_verify_ms": "24.7441",
+        "scene_builder_create_ms": "24.7335",
+        "scene_asset_service_reset_ms": "0.0087",
+        "scene_build_ms": "0",
+        "scene_description_move_ms": "0.0024",
+        "scene_instance_allocate_ms": "1.355",
+        "scene_instance_initialize_ms": "0.546",
+        "scene_node_index_reserve_ms": "0.0038"
+      },
+      "matched_scene_callbacks": [
+        {
+          "kind": "scene",
+          "index": 25774,
+          "latency_ms": 24.775499999988824,
+          "thread_cpu_ms": 0.0,
+          "thread_cycles": 851092,
+          "start_ms": 215910.4218,
+          "end_ms": 215935.1973,
+          "loops": [
+            {
+              "frame": 25773,
+              "inside_overlap_ms": 24.775499999988824,
+              "gap_overlap_ms": 0.0,
+              "loop_stage_totals_ms": {
+                "start_ms": 215910.4181,
+                "total_ms": 24.7887,
+                "gap_ms": 0.0002,
+                "events_ms": 0.0014,
+                "update_ms": 24.7814,
+                "render_ms": 0.0048,
+                "draw_clear_ms": 0.0002,
+                "scene_advance_ms": 24.7449,
+                "texture_advance_ms": 0.0,
+                "asset_stage_ms": 0.0,
+                "upload_poll_ms": 0.0,
+                "upload_submit_ms": 0.0,
+                "asset_publish_ms": 0.0,
+                "candidate_cleanup_ms": 0.0,
+                "retirement_ms": 0.0,
+                "frame_storage_ms": 0.0026,
+                "render_snapshot_ms": 0.0,
+                "frame_capture_ms": 0.0,
+                "frame_submit_ms": 0.0,
+                "window_pump_ms": 0.0005,
+                "window_events_ms": 0.0001,
+                "input_state_ms": 0.0002,
+                "input_events_ms": 0.0001,
+                "task_collect_ms": 0.0016,
+                "task_submit_ms": 0.0,
+                "idle_wait_ms": 0.0003,
+                "task_submit_lock_ms": 0.0,
+                "task_submit_work_ms": 0.0,
+                "task_submit_allocate_ms": 0.0,
+                "task_submit_insert_ms": 0.0,
+                "task_submit_notify_ms": 0.0,
+                "idle_lock_ms": 0.0,
+                "idle_condition_ms": 0.0001,
+                "scene_verify_ms": 24.7441,
+                "scene_builder_create_ms": 24.7335,
+                "scene_asset_service_reset_ms": 0.0087,
+                "scene_build_ms": 0.0,
+                "scene_description_move_ms": 0.0024,
+                "scene_instance_allocate_ms": 1.355,
+                "scene_instance_initialize_ms": 0.546,
+                "scene_node_index_reserve_ms": 0.0038
+              }
+            }
+          ],
+          "unretained_ms": 0.0
+        }
+      ],
+      "page_transitions": [
+        {
+          "time_ns": "2536457299227000",
+          "rva": "ceea0",
+          "valid": "0",
+          "relative_ms": -29.1158
+        },
+        {
+          "time_ns": "2536457299227000",
+          "rva": "ff4e0",
+          "valid": "0",
+          "relative_ms": -29.1158
+        },
+        {
+          "time_ns": "2536457299227000",
+          "rva": "545c0",
+          "valid": "0",
+          "relative_ms": -29.1158
+        },
+        {
+          "time_ns": "2536457299227000",
+          "rva": "a9950",
+          "valid": "0",
+          "relative_ms": -29.1158
+        },
+        {
+          "time_ns": "2536673261960600",
+          "rva": "ceea0",
+          "valid": "1",
+          "relative_ms": 215933.6178
+        },
+        {
+          "time_ns": "2536673263968100",
+          "rva": "ff4e0",
+          "valid": "1",
+          "relative_ms": 215935.6253
+        },
+        {
+          "time_ns": "2536673265544900",
+          "rva": "a9950",
+          "valid": "1",
+          "relative_ms": 215937.2021
+        },
+        {
+          "time_ns": "2536673275891400",
+          "rva": "545c0",
+          "valid": "1",
+          "relative_ms": 215947.5486
+        },
+        {
+          "time_ns": "2536673985756500",
+          "rva": "ceea0",
+          "valid": "-1",
+          "relative_ms": 216657.4137
+        },
+        {
+          "time_ns": "2536673985756500",
+          "rva": "ff4e0",
+          "valid": "-1",
+          "relative_ms": 216657.4137
+        },
+        {
+          "time_ns": "2536673985756500",
+          "rva": "545c0",
+          "valid": "-1",
+          "relative_ms": 216657.4137
+        },
+        {
+          "time_ns": "2536673985756500",
+          "rva": "a9950",
+          "valid": "-1",
+          "relative_ms": 216657.4137
+        }
+      ]
+    }
+  ]
+}

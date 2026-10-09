@@ -8,6 +8,7 @@
 #include <gneiss/engine/input.h>
 
 #include "engine/asset/virtual_file_system.hpp"
+#include "engine/core/diagnostics/loop_timing.hpp"
 #include "engine/core/log/log_dispatcher.hpp"
 #include "engine/function/application/application_configuration.hpp"
 #include "engine/function/application/application_scene_state.hpp"
@@ -57,6 +58,7 @@ public:
   void advance_scene_load() {
     if (retired_scene_) {
       const auto start = std::chrono::steady_clock::now();
+      const diagnostics::loop_span span(diagnostics::loop_stage::retirement);
       retired_scene_.reset();
       retirement_.last_ms =
           std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start)
@@ -138,6 +140,7 @@ private:
 #ifdef GNEISS_HAS_GRANIT_PLATFORM
   [[nodiscard]] gneiss_result render_frame() noexcept;
 #endif
+  std::shared_ptr<core::progress_notification> loop_notification_;
   application_configuration config_;
   render_internal::render_resource_service resources_;
   render_internal::ui_draw_list ui_draw_list_;

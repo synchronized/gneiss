@@ -6,6 +6,7 @@
 #include "engine/asset/virtual_file_system.hpp"
 #include "engine/core/sha256.hpp"
 
+#include <chrono>
 #include <functional>
 #include <map>
 #include <mutex>
@@ -29,8 +30,8 @@ public:
     /** 区间来源每步最多处理 byte_budget 字节；只支持整文件的旧后端每步最多一个文件。
      * complete 仅表示全部摘要匹配；错误为粘滞终态，取消不发布部分结果。 */
     [[nodiscard]] gneiss_result advance(std::size_t byte_budget,
-                                        const std::function<bool()>& cancelled,
-                                        bool& complete) noexcept;
+                                        const std::function<bool()>& cancelled, bool& complete,
+                                        std::chrono::milliseconds wait_budget = {}) noexcept;
     [[nodiscard]] std::size_t completed_sources() const noexcept;
     [[nodiscard]] statistics timings() const noexcept;
 

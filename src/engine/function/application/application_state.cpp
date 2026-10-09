@@ -2,22 +2,85 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/function/application/application_state.hpp"
+#include "engine/core/diagnostics/profiling.hpp"
+#ifdef GNEISS_NATIVE_LOOP_WAIT
+#include "engine/core/loop_progress.hpp"
+#endif
 #include "engine/function/application/application_log_sink.hpp"
 
 #include "engine/asset/native_file_system.hpp"
+#include "engine/core/diagnostics/loop_timing.hpp"
 #include "engine/function/world/render_snapshot.hpp"
 
 #ifdef GNEISS_HAS_GRANIT_PLATFORM
-#include "engine/platform/granit/granit_platform.hpp"
 #include "engine/function/render/backend/granit/granit_render_service.hpp"
+#include "engine/platform/granit/granit_platform.hpp"
 #endif
 
 #include <chrono>
 #include <cstdio>
+#include <cstdlib>
+#include <fstream>
+#include <iomanip>
 #include <new>
 #include <vector>
 
 namespace gneiss::application_internal {
+namespace {
+class loop_trace_file final {
+public:
+  loop_trace_file() noexcept {
+    try {
+#ifdef _WIN32
+      char* value = nullptr;
+      std::size_t length{};
+      if (_dupenv_s(&value, &length, "GNEISS_LOOP_TRACE") != 0) {
+        return;
+      }
+      const std::unique_ptr<char, decltype(&std::free)> owned(value, &std::free);
+#else
+      const auto* value = std::getenv("GNEISS_LOOP_TRACE");
+#endif
+      if (value == nullptr || *value == '\0') {
+        return;
+      }
+      output_ = std::make_unique<std::ofstream>(value, std::ios::app);
+      if (!*output_) {
+        std::fputs("Gneiss 循环诊断：无法打开输出\n", stderr);
+        return;
+      }
+      timing_ = std::make_unique<diagnostics::loop_timing>();
+    } catch (...) {
+      std::fputs("Gneiss 循环诊断：初始化失败\n", stderr);
+    }
+  }
+  ~loop_trace_file() {
+    if (timing_) {
+      try {
+        *output_ << "# origin_ns="
+                 << std::chrono::duration_cast<std::chrono::nanoseconds>(origin_.time_since_epoch())
+                        .count()
+                 << '\n'
+                 << std::setprecision(10);
+        timing_->write(*output_);
+        output_->flush();
+        if (!*output_) {
+          std::fputs("Gneiss 循环诊断：写入失败\n", stderr);
+        }
+      } catch (...) {
+        std::fputs("Gneiss 循环诊断：写入失败\n", stderr);
+      }
+    }
+  }
+  void set_origin(diagnostics::timing_clock::time_point origin) noexcept { origin_ = origin; }
+  [[nodiscard]] diagnostics::loop_timing* get() const noexcept { return timing_.get(); }
+
+private:
+  diagnostics::timing_clock::time_point origin_;
+  std::unique_ptr<std::ofstream> output_;
+  std::unique_ptr<diagnostics::loop_timing> timing_;
+};
+} // namespace
 
 application_state::application_state(const application_configuration& config) noexcept
     : config_(config), owner_thread_(std::this_thread::get_id()) {}
@@ -71,10 +134,11 @@ gneiss_result application_state::attach_task_executor(tasks::task_executor& exec
       backend.discard = backend.begin;
       backend.flush = [] {};
     }
-    scene_service_ =
-        std::make_unique<scene_load_service>(executor, asset_file_system_, resources_, backend);
+    scene_service_ = std::make_unique<scene_load_service>(executor, asset_file_system_, resources_,
+                                                          backend, loop_notification_);
     texture_service_ = std::make_unique<render_internal::texture_load_service>(
-        executor, asset_file_system_, active_scene_->assets, std::move(backend));
+        executor, asset_file_system_, active_scene_->assets, std::move(backend),
+        loop_notification_);
     return GNEISS_SUCCESS;
   } catch (const std::bad_alloc&) {
     return GNEISS_ERROR_OUT_OF_MEMORY;
@@ -178,6 +242,9 @@ gneiss_result application_state::initialize() noexcept {
     }
     try {
       granit_render_service_ = std::make_unique<render_internal::granit_render_service>();
+#ifdef GNEISS_NATIVE_LOOP_WAIT
+      loop_notification_ = std::make_shared<core::loop_progress>();
+#endif
     } catch (const std::bad_alloc&) {
       granit_platform_.reset();
       return GNEISS_ERROR_OUT_OF_MEMORY;
@@ -206,6 +273,7 @@ gneiss_result application_state::initialize() noexcept {
       granit_platform_.reset();
       return render_result;
     }
+    granit_render_service_->set_completion_notification(loop_notification_);
 #else
     report(GNEISS_NULL_APPLICATION, GNEISS_DIAGNOSTIC_ERROR, GNEISS_DIAGNOSTIC_CATEGORY_BACKEND,
            GNEISS_ERROR_UNSUPPORTED, "granit.platform", "当前构建未启用 Granit 平台适配");
@@ -255,6 +323,7 @@ std::uint64_t application_state::now_ns() const noexcept {
 }
 
 gneiss_result application_state::poll_events(bool& out_should_close) noexcept {
+  GNEISS_PROFILE_SCOPE("application.events");
   out_should_close = false;
 #ifdef GNEISS_HAS_GRANIT_PLATFORM
   if (granit_platform_ != nullptr) {
@@ -265,26 +334,34 @@ gneiss_result application_state::poll_events(bool& out_should_close) noexcept {
       return platform_result;
     }
     gneiss_keyboard_state keyboard = GNEISS_KEYBOARD_STATE_INIT;
-    auto input_result = granit_platform_->keyboard(keyboard);
+    auto input_result = diagnostics::measure(diagnostics::loop_stage::input_state, [&]() noexcept {
+      return granit_platform_->keyboard(keyboard);
+    });
     if (input_result != GNEISS_SUCCESS) {
       return input_result;
     }
     gneiss_pointer_state pointer = GNEISS_POINTER_STATE_INIT;
-    input_result = granit_platform_->pointer(pointer);
+    input_result = diagnostics::measure(diagnostics::loop_stage::input_state, [&]() noexcept {
+      return granit_platform_->pointer(pointer);
+    });
     if (input_result != GNEISS_SUCCESS) {
       return input_result;
     }
     input_.set_keyboard(keyboard);
     input_.set_pointer(pointer);
     gneiss_input_event event = GNEISS_INPUT_EVENT_INIT;
-    input_result = granit_platform_->poll_input(event);
+    input_result = diagnostics::measure(diagnostics::loop_stage::input_events, [&]() noexcept {
+      return granit_platform_->poll_input(event);
+    });
     while (input_result == GNEISS_SUCCESS) {
       if (!input_.push(event)) {
         input_.clear_focus();
         return GNEISS_ERROR_INVALID_STATE;
       }
       event = GNEISS_INPUT_EVENT_INIT;
-      input_result = granit_platform_->poll_input(event);
+      input_result = diagnostics::measure(diagnostics::loop_stage::input_events, [&]() noexcept {
+        return granit_platform_->poll_input(event);
+      });
     }
     if (focus_lost) {
       input_.clear_focus();
@@ -427,6 +504,7 @@ gneiss_result application_state::capture_frame(std::uint32_t width, std::uint32_
 
 #ifdef GNEISS_HAS_GRANIT_PLATFORM
 gneiss_result application_state::render_frame() noexcept {
+  GNEISS_PROFILE_SCOPE("application.render.submit");
   if (granit_render_service_ == nullptr) {
     return GNEISS_SUCCESS;
   }
@@ -437,26 +515,40 @@ gneiss_result application_state::render_frame() noexcept {
   render_internal::render_frame_packet packet;
   bool should_prepare = false;
   const auto storage_result =
-      granit_render_service_->prepare_frame_packet_storage(packet, should_prepare);
+      diagnostics::measure(diagnostics::loop_stage::frame_storage, [&]() noexcept {
+        return granit_render_service_->prepare_frame_packet_storage(packet, should_prepare);
+      });
   if (storage_result != GNEISS_SUCCESS || !should_prepare) {
     return storage_result;
   }
   render_internal::render_snapshot snapshot;
   const auto snapshot_result =
-      world_internal::get_render_snapshot(world(), window.width, window.height, snapshot);
+      diagnostics::measure(diagnostics::loop_stage::render_snapshot, [&]() noexcept {
+        return world_internal::get_render_snapshot(world(), window.width, window.height, snapshot);
+      });
   if (snapshot_result != GNEISS_SUCCESS) {
     return snapshot_result;
   }
-  const auto capture_result = render_internal::capture_render_frame_packet(
-      window, std::move(snapshot), resources_, ui_draw_list_, debug_draw_list_, packet);
+  const auto capture_result =
+      diagnostics::measure(diagnostics::loop_stage::frame_capture, [&]() noexcept {
+        return render_internal::capture_render_frame_packet(
+            window, std::move(snapshot), resources_, ui_draw_list_, debug_draw_list_, packet);
+      });
   if (capture_result != GNEISS_SUCCESS) {
     return capture_result;
   }
   const auto requested_recreate = window.needs_recreate;
   window.needs_recreate = false;
-  const auto submit_result = granit_render_service_->submit(std::move(packet));
+  const auto submit_result =
+      diagnostics::measure(diagnostics::loop_stage::frame_submit, [&]() noexcept {
+        return granit_render_service_->submit(std::move(packet));
+      });
   if (submit_result != GNEISS_SUCCESS && requested_recreate) {
     window.needs_recreate = true;
+  }
+  // 成功推进队列后先继续排空本地可做工作，队列繁忙且无进展时才等待。
+  if (submit_result == GNEISS_SUCCESS && loop_notification_) {
+    loop_notification_->notify();
   }
   return submit_result;
 }
@@ -490,12 +582,25 @@ gneiss_result application_state::run(gneiss_application handle,
   }
 #endif
   should_exit_ = false;
+  loop_trace_file trace;
+  const auto trace_origin = trace.get() != nullptr ? diagnostics::timing_clock::now()
+                                                   : diagnostics::timing_clock::time_point{};
+  trace.set_origin(trace_origin);
   previous_time_ns_ = now_ns();
   std::uint64_t frames_run = 0;
+  GNEISS_PROFILE_THREAD("Gneiss main");
 
   while (!should_exit_ && (max_frame_count == 0U || frames_run < max_frame_count)) {
+    GNEISS_PROFILE_FRAME();
+    GNEISS_PROFILE_SCOPE("application.loop");
+    const diagnostics::loop_frame frame_trace(trace.get(), frame_index_, trace_origin);
+#ifdef GNEISS_NATIVE_LOOP_WAIT
+    auto* progress = static_cast<core::loop_progress*>(loop_notification_.get());
+    const auto observed = progress != nullptr ? progress->snapshot() : 0U;
+#endif
     bool should_close = false;
-    const auto poll_result = poll_events(should_close);
+    const auto poll_result = diagnostics::measure(diagnostics::loop_stage::events,
+                                                  [&] { return poll_events(should_close); });
     if (poll_result != GNEISS_SUCCESS) {
       is_running_ = false;
       return poll_result;
@@ -520,12 +625,16 @@ gneiss_result application_state::run(gneiss_application handle,
         .is_paused = static_cast<std::uint8_t>(is_paused_ ? 1U : 0U),
         .reserved = {},
     };
-    ui_draw_list_.clear();
-    debug_draw_list_.clear();
+    diagnostics::measure(diagnostics::loop_stage::draw_clear, [&] {
+      ui_draw_list_.clear();
+      debug_draw_list_.clear();
+    });
     if (config_.callbacks.update != nullptr) {
       is_updating_ = true;
-      const auto update_result =
-          config_.callbacks.update(handle, &time, config_.callbacks.user_data);
+      const auto update_result = diagnostics::measure(diagnostics::loop_stage::update, [&] {
+        GNEISS_PROFILE_SCOPE("application.update");
+        return config_.callbacks.update(handle, &time, config_.callbacks.user_data);
+      });
       is_updating_ = false;
       if (update_result != GNEISS_SUCCESS) {
         ui_draw_list_.clear();
@@ -535,7 +644,8 @@ gneiss_result application_state::run(gneiss_application handle,
       }
     }
 #ifdef GNEISS_HAS_GRANIT_PLATFORM
-    const auto render_result = render_frame();
+    const auto render_result =
+        diagnostics::measure(diagnostics::loop_stage::render, [&] { return render_frame(); });
     // 渲染队列、交换链或后端资源可能暂时未就绪；跳过本帧并在下一帧重试。
     if (render_result != GNEISS_SUCCESS && render_result != GNEISS_ERROR_NOT_READY) {
       ui_draw_list_.clear();
@@ -544,10 +654,21 @@ gneiss_result application_state::run(gneiss_application handle,
       return render_result;
     }
 #endif
-    ui_draw_list_.clear();
-    debug_draw_list_.clear();
+    diagnostics::measure(diagnostics::loop_stage::draw_clear, [&] {
+      ui_draw_list_.clear();
+      debug_draw_list_.clear();
+    });
     ++frame_index_;
     ++frames_run;
+#ifdef GNEISS_NATIVE_LOOP_WAIT
+    if (progress != nullptr && !should_exit_ &&
+        (max_frame_count == 0U || frames_run < max_frame_count)) {
+      diagnostics::measure(diagnostics::loop_stage::idle_wait, [&] {
+        GNEISS_PROFILE_SCOPE("application.idle_wait");
+        (void)progress->wait(observed, std::chrono::milliseconds(4));
+      });
+    }
+#endif
   }
 
   is_running_ = false;

@@ -7,6 +7,7 @@
 #include "engine/asset/mesh_data.hpp"
 #include "engine/asset/texture_preparation_data.hpp"
 
+#include <chrono>
 #include <functional>
 #include <limits>
 #include <memory>
@@ -74,7 +75,8 @@ public:
   [[nodiscard]] gneiss_result advance(std::size_t byte_budget,
                                       const std::function<bool()>& cancelled,
                                       prepared_batch& output, asset_diagnostic& diagnostic,
-                                      bool& complete) noexcept;
+                                      bool& complete,
+                                      std::chrono::milliseconds wait_budget = {}) noexcept;
 
 private:
   struct state;

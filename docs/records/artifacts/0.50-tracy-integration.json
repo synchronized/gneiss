@@ -1,0 +1,297 @@
+{
+  "status": "profiling_integration_validation_not_release_acceptance",
+  "date": "2026-10-08",
+  "tracy_commit": "05cceee0df3b8d7c6fa87e9638af311dbabc63cb",
+  "smoke": {
+    "counts": {
+      "task.submit": 128,
+      "task.receive": 128,
+      "application.update": 128,
+      "application.loop": 128,
+      "task.execute": 128,
+      "task.complete": 128,
+      "application.render.submit": 128,
+      "application.events": 128
+    },
+    "task_pair_count": 128,
+    "threads": {
+      "task.submit": [
+        "1"
+      ],
+      "task.receive": [
+        "1"
+      ],
+      "task.execute": [
+        "2"
+      ],
+      "task.complete": [
+        "2"
+      ]
+    },
+    "long_name_bytes": 65536,
+    "captured_name_bytes": 1024,
+    "capture_log": "Connecting to 127.0.0.1:8086...\nTimer resolution: 7 ns\n\nFrames: 131\nTime span: 2.01 s\nZones: 1,024\nElapsed time: 2.08 s\nSaving trace... done!\nTrace size 25.26 KB (22.89% ratio)\n",
+    "files": {
+      "capture.log": {
+        "bytes": 186,
+        "sha256": "b5963aa8631f56da09fd8e0bfb372c09ad0ceb0ece9ed93424f0ac72d3db14e4"
+      },
+      "smoke.tracy": {
+        "bytes": 25880,
+        "sha256": "40149db5ac1e530802a77f58bcc83bb4bc78be49d2ea459c628f6e6106452c4d"
+      },
+      "zones.csv": {
+        "bytes": 172299,
+        "sha256": "a49d108ad1b605eb97c32838fe47ab8b0b8268f454f510018444452f0feb3928"
+      }
+    }
+  },
+  "full": {
+    "run": {
+      "fixture_exit": 0,
+      "capture_exit": 0,
+      "hashes": {
+        "gneiss_main_loop_response.exe": "bc1ccd62a68d6a53495fcd0b2bb90a5dfe74bfbe5a765970b598c609981fcca8",
+        "gneiss_engine.dll": "269f1d492282560e3c003e612417b3f57a031bd8c482d80ff5d78018d37e213d",
+        "gneiss_tracy.dll": "124743793823423c5aee7fadc82f98e583c7a862a421eb2a4839fd50bd87052c"
+      }
+    },
+    "result": {
+      "passed": true,
+      "keys": 4989,
+      "tasks": 4989,
+      "key_p95_ms": 17.6068,
+      "key_max_ms": 80.905,
+      "task_p95_ms": 16.4786,
+      "task_max_ms": 80.8552,
+      "close_ms": 0.2423,
+      "nodes": 553,
+      "resources": 505,
+      "loaded_scene": true,
+      "injected_stall": false
+    },
+    "capture_log": "Connecting to 127.0.0.1:8086...\nTimer resolution: 4 ns\n\nFrames: 36382\nTime span: 4:35.5\nZones: 309,974\nElapsed time: 4:35.8\nSaving trace... done!\nTrace size 2427.08 KB (21.39% ratio)\n",
+    "zones": {
+      "scene.verify.submit": {
+        "count": 3829,
+        "max_ms": 0.316566,
+        "threads": [
+          "1"
+        ],
+        "longest": {
+          "start_ns": 266994560179,
+          "duration_ns": 316566,
+          "thread": "1",
+          "text": ""
+        }
+      },
+      "application.update": {
+        "count": 36378,
+        "max_ms": 109.549486,
+        "threads": [
+          "1"
+        ],
+        "longest": {
+          "start_ns": 275093449271,
+          "duration_ns": 109549486,
+          "thread": "1",
+          "text": ""
+        }
+      },
+      "application.events": {
+        "count": 36379,
+        "max_ms": 7.959301,
+        "threads": [
+          "1"
+        ],
+        "longest": {
+          "start_ns": 68452499629,
+          "duration_ns": 7959301,
+          "thread": "1",
+          "text": ""
+        }
+      },
+      "scene.verify.step": {
+        "count": 3829,
+        "max_ms": 168.25289,
+        "threads": [
+          "2"
+        ],
+        "longest": {
+          "start_ns": 255269983302,
+          "duration_ns": 168252890,
+          "thread": "2",
+          "text": ""
+        }
+      },
+      "scene.advance": {
+        "count": 36376,
+        "max_ms": 109.526307,
+        "threads": [
+          "1"
+        ],
+        "longest": {
+          "start_ns": 275093449438,
+          "duration_ns": 109526307,
+          "thread": "1",
+          "text": ""
+        }
+      },
+      "application.render.submit": {
+        "count": 36378,
+        "max_ms": 0.734646,
+        "threads": [
+          "1"
+        ],
+        "longest": {
+          "start_ns": 24576102841,
+          "duration_ns": 734646,
+          "thread": "1",
+          "text": ""
+        }
+      },
+      "application.idle_wait": {
+        "count": 36378,
+        "max_ms": 49.718366,
+        "threads": [
+          "1"
+        ],
+        "longest": {
+          "start_ns": 62505687963,
+          "duration_ns": 49718366,
+          "thread": "1",
+          "text": ""
+        }
+      },
+      "task.complete": {
+        "count": 14826,
+        "max_ms": 0.523156,
+        "threads": [
+          "2"
+        ],
+        "longest": {
+          "start_ns": 212981155018,
+          "duration_ns": 523156,
+          "thread": "2",
+          "text": "scheduler=1 task=10710"
+        }
+      },
+      "task.execute": {
+        "count": 14826,
+        "max_ms": 180.51959,
+        "threads": [
+          "2"
+        ],
+        "longest": {
+          "start_ns": 62469000262,
+          "duration_ns": 180519590,
+          "thread": "2",
+          "text": "scheduler=1 task=3025"
+        }
+      },
+      "asset.advance": {
+        "count": 24190,
+        "max_ms": 6.492197,
+        "threads": [
+          "1"
+        ],
+        "longest": {
+          "start_ns": 163613082103,
+          "duration_ns": 6492197,
+          "thread": "1",
+          "text": ""
+        }
+      },
+      "scene.build.step": {
+        "count": 554,
+        "max_ms": 50.988597,
+        "threads": [
+          "1"
+        ],
+        "longest": {
+          "start_ns": 275222073944,
+          "duration_ns": 50988597,
+          "thread": "1",
+          "text": ""
+        }
+      },
+      "task.receive": {
+        "count": 14826,
+        "max_ms": 0.714271,
+        "threads": [
+          "1"
+        ],
+        "longest": {
+          "start_ns": 152760049312,
+          "duration_ns": 714271,
+          "thread": "1",
+          "text": "scheduler=1 task=7584"
+        }
+      },
+      "task.submit": {
+        "count": 14826,
+        "max_ms": 1.88391,
+        "threads": [
+          "1",
+          "3"
+        ],
+        "longest": {
+          "start_ns": 180943226869,
+          "duration_ns": 1883910,
+          "thread": "3",
+          "text": "scheduler=1 task=9081"
+        }
+      },
+      "application.loop": {
+        "count": 36379,
+        "max_ms": 109.560979,
+        "threads": [
+          "1"
+        ],
+        "longest": {
+          "start_ns": 275093448947,
+          "duration_ns": 109560979,
+          "thread": "1",
+          "text": ""
+        }
+      }
+    },
+    "files": {
+      "capture.log": {
+        "bytes": 192,
+        "sha256": "816ec0e7060dd8e8710092450a4457274752325ea1e593a232926fd1e619b6df"
+      },
+      "fixture.log": {
+        "bytes": 95,
+        "sha256": "ec7c4ef5114ab2b1af344b8af536de4ad2e732a53b2670bfdbf0cc5f9e2e11ee"
+      },
+      "full.tracy": {
+        "bytes": 2486044,
+        "sha256": "31a7451cefda45fd21175c0b57ed43325ed51dacffaa92c69bbf59f6aac48e56"
+      },
+      "result.json": {
+        "bytes": 216,
+        "sha256": "113d41ff50d7267abd25f63d49247d631b6cb248787b497b183f4df46fdc724a"
+      },
+      "run.json": {
+        "bytes": 362,
+        "sha256": "065b98423822f4f562fa29970026d7f3c3a544d9635ce14e4924f5d4b3d21773"
+      },
+      "summary.json": {
+        "bytes": 3513,
+        "sha256": "808ff6db053d764f120fff2d5e18db95207dc76c341fdeb8d7bfeaa75b4d98de"
+      },
+      "zones.csv": {
+        "bytes": 49222548,
+        "sha256": "dd1681a671a06c6e1064fcefab2497f3b456af841a2d160672cc6b7e6aa81fe4"
+      }
+    }
+  },
+  "limits": [
+    "完整捕获在任务名称长度保护补丁之前，普通任务名称未受影响；不宣称最终二进制已重新完成完整场景验收。",
+    "原生共享、静态核心和安装消费者在 Windows 验证；未运行 Linux 完整矩阵。",
+    "原始 266.238/272.921 ms 失败仍保留；本次为 profiling 构建，不能计算优化收益。",
+    "Tracy 系统事件受权限限制，此处仅验证应用区域与线程关联，不宣称取得调度或缺页根因。",
+    "采集原始文件保存在 build 目录，归档仅保存摘要和事件统计。"
+  ]
+}

@@ -51,6 +51,8 @@ struct deferred_state {
   bool fail{};
   bool short_read{};
   unsigned live{};
+  unsigned waits{};
+  bool wake_on_wait{};
 };
 class deferred_source final : public read_source {
 public:
@@ -82,6 +84,16 @@ public:
         return GNEISS_SUCCESS;
       }
 
+      gneiss_result wait_for(std::chrono::milliseconds timeout,
+                             std::span<const std::byte>& output) noexcept override {
+        ++state_->waits;
+        if (timeout != std::chrono::milliseconds(4)) {
+          return GNEISS_ERROR_INVALID_ARGUMENT;
+        }
+        state_->ready = state_->wake_on_wait;
+        return poll(output);
+      }
+
     private:
       std::shared_ptr<deferred_state> state_;
       std::vector<std::byte> bytes_;
@@ -110,8 +122,13 @@ void deferred_reads() {
         bytes.empty());
   check(source.state->live == 1U);
   check(slice.take(source, {.offset = 0U, .size = 2U}, bytes) == GNEISS_ERROR_NOT_READY);
-  source.state->ready = true;
-  check(slice.take(source, {.offset = 0U, .size = 2U}, bytes) == GNEISS_SUCCESS &&
+  check(source.state->waits == 0U);
+  check(slice.take(source, {.offset = 0U, .size = 2U}, bytes, true, std::chrono::milliseconds(4)) ==
+        GNEISS_ERROR_NOT_READY);
+  check(source.state->waits == 1U);
+  source.state->wake_on_wait = true;
+  check(slice.take(source, {.offset = 0U, .size = 2U}, bytes, true, std::chrono::milliseconds(4)) ==
+            GNEISS_SUCCESS &&
         bytes.size() == 2U);
   check(bytes.front() == std::byte{42});
   check(slice.take(source, {.offset = 2U, .size = 6U}, bytes) == GNEISS_SUCCESS &&
@@ -152,6 +169,10 @@ void native_deferred_reads() {
     std::span<const std::byte> bytes;
     check(source->begin_read(8U, 0U, empty) == GNEISS_SUCCESS);
     check(empty->poll(bytes) == GNEISS_SUCCESS && bytes.empty());
+    check(empty->wait_for(std::chrono::milliseconds(0), bytes) == GNEISS_SUCCESS && bytes.empty());
+    check(empty->wait_for(std::chrono::milliseconds(-1), bytes) == GNEISS_ERROR_INVALID_ARGUMENT);
+    check(empty->wait_for(std::chrono::milliseconds(UINT32_MAX), bytes) ==
+          GNEISS_ERROR_INVALID_ARGUMENT);
     std::unique_ptr<read_operation> discarded;
     check(source->begin_read(0U, 8U, discarded) == GNEISS_SUCCESS);
     discarded.reset(); // 完成或仍在途均须安全取消/回收，不要求内核制造特定时序。
@@ -165,10 +186,9 @@ void native_deferred_reads() {
   const auto wait = [](read_operation& operation, std::size_t size, std::byte expected) {
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(3);
     std::span<const std::byte> bytes;
-    auto result = operation.poll(bytes);
+    auto result = operation.wait_for(std::chrono::milliseconds(4), bytes);
     while (result == GNEISS_ERROR_NOT_READY && std::chrono::steady_clock::now() < deadline) {
-      std::this_thread::yield();
-      result = operation.poll(bytes);
+      result = operation.wait_for(std::chrono::milliseconds(4), bytes);
     }
     check(result == GNEISS_SUCCESS && bytes.size() == size && bytes.front() == expected);
     check(operation.poll(bytes) == GNEISS_SUCCESS && bytes.front() == expected);

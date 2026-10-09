@@ -4,7 +4,6 @@
 #ifndef GNEISS_RENDER_BACKEND_GRANIT_GRANIT_RENDER_SERVICE_HPP_
 #define GNEISS_RENDER_BACKEND_GRANIT_GRANIT_RENDER_SERVICE_HPP_
 
-#include "engine/platform/native_window_info.hpp"
 #include "engine/function/render/backend/granit/pbr_shader_resolver.hpp"
 #include "engine/function/render/backend/granit/scene_projection_math.hpp"
 #include "engine/function/render/debug_draw_list.hpp"
@@ -13,6 +12,7 @@
 #include "engine/function/render/render_frame_packet.hpp"
 #include "engine/function/render/render_resource_service.hpp"
 #include "engine/function/render/ui_draw_list.hpp"
+#include "engine/platform/native_window_info.hpp"
 
 #include <gneiss/engine/core/result.h>
 
@@ -48,6 +48,10 @@ public:
                                          log_internal::log_dispatcher* log = nullptr) noexcept;
   [[nodiscard]] gneiss_result shutdown(granit::renderer_resource_stats& stats) noexcept;
   [[nodiscard]] gneiss_result finish_frames() noexcept;
+  void
+  set_completion_notification(std::shared_ptr<core::progress_notification> notification) noexcept {
+    executor_.set_completion_notification(std::move(notification));
+  }
   void set_log_application(gneiss_application application) noexcept {
     log_application_.store(application, std::memory_order_relaxed);
   }

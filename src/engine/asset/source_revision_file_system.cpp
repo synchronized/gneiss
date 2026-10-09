@@ -3,6 +3,7 @@
 
 #include "engine/asset/source_revision_file_system.hpp"
 #include "engine/asset/read_slice.hpp"
+#include "engine/core/diagnostics/profiling.hpp"
 
 #include <algorithm>
 #include <array>
@@ -180,14 +181,17 @@ struct source_revision_file_system::verification::state {
   statistics timings;
   read_slice slice;
   bool deferred_reads{true};
+  std::chrono::milliseconds io_wait{};
   gneiss_result read_next(std::size_t& byte_budget, std::uint64_t expected_bytes) {
+    GNEISS_PROFILE_SCOPE("asset.verify.read_next");
     const auto count =
         static_cast<std::size_t>(std::min<std::uint64_t>(byte_budget, expected_bytes - offset));
     if (count != 0U) {
       std::span<const std::byte> chunk;
       const auto read_at = clock_type::now();
       const auto read_result =
-          slice.take(*source, {.offset = offset, .size = count}, chunk, deferred_reads);
+          slice.take(*source, {.offset = offset, .size = count}, chunk, deferred_reads,
+                     std::exchange(io_wait, std::chrono::milliseconds{}));
       record_duration(read_at, timings.maximum_read_ms);
       if (read_result == GNEISS_ERROR_NOT_READY) {
         return GNEISS_ERROR_NOT_READY;
@@ -196,7 +200,10 @@ struct source_revision_file_system::verification::state {
         return GNEISS_ERROR_INVALID_STATE;
       }
       const auto hash_at = clock_type::now();
-      digest.update(chunk);
+      {
+        GNEISS_PROFILE_SCOPE("asset.verify.hash");
+        digest.update(chunk);
+      }
       record_duration(hash_at, timings.maximum_hash_ms);
       offset += chunk.size();
       byte_budget -= chunk.size();
@@ -205,6 +212,7 @@ struct source_revision_file_system::verification::state {
   }
   gneiss_result open_source(const std::string& path, const identity& expected,
                             const std::function<bool()>& cancelled, bool& whole_file) {
+    GNEISS_PROFILE_SCOPE("asset.verify.open");
     const auto opened_at = clock_type::now();
     const auto opened = files.open_read_for_validation("asset://" + path, source);
     record_duration(opened_at, timings.maximum_open_ms);
@@ -299,16 +307,18 @@ gneiss_result source_revision_file_system::begin_verification(std::unique_ptr<ve
   }
 }
 gneiss_result source_revision_file_system::verification::advance(
-    std::size_t byte_budget, const std::function<bool()>& cancelled, bool& complete) noexcept {
+    std::size_t byte_budget, const std::function<bool()>& cancelled, bool& complete,
+    std::chrono::milliseconds wait_budget) noexcept {
   complete = false;
   auto& value = *state_;
-  if (byte_budget == 0U) {
+  if (byte_budget == 0U || wait_budget < std::chrono::milliseconds::zero()) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
   if (value.result != GNEISS_SUCCESS) {
     return value.result;
   }
   try {
+    value.io_wait = wait_budget;
     value.result = cancelled && cancelled() ? GNEISS_ERROR_INVALID_STATE
                                             : value.advance(byte_budget, cancelled, complete);
   } catch (const std::bad_alloc&) {

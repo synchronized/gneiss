@@ -4,8 +4,11 @@
 #include "engine/asset/native_file_system.hpp"
 
 #include "engine/asset/asset_uri.hpp"
+#include "engine/core/diagnostics/profiling.hpp"
 
 #include <algorithm>
+#include <array>
+#include <cstdio>
 #include <fstream>
 #include <limits>
 #include <memory>
@@ -27,6 +30,29 @@
 namespace {
 
 #ifdef _WIN32
+#ifdef GNEISS_ENABLE_PROFILING
+struct thread_execution_sample {
+  ULONGLONG cpu_ticks{};
+  ULONG64 cycles{};
+  bool valid{};
+};
+thread_execution_sample sample_thread_execution() noexcept {
+  FILETIME created{};
+  FILETIME exited{};
+  FILETIME kernel{};
+  FILETIME user{};
+  thread_execution_sample sample;
+  sample.valid = GetThreadTimes(GetCurrentThread(), &created, &exited, &kernel, &user) != FALSE &&
+                 QueryThreadCycleTime(GetCurrentThread(), &sample.cycles) != FALSE;
+  if (sample.valid) {
+    const auto ticks = [](FILETIME value) {
+      return (static_cast<ULONGLONG>(value.dwHighDateTime) << 32U) | value.dwLowDateTime;
+    };
+    sample.cpu_ticks = ticks(kernel) + ticks(user);
+  }
+  return sample;
+}
+#endif
 struct native_async_file {
   explicit native_async_file(HANDLE value) : handle(value) {}
   ~native_async_file() { (void)CloseHandle(handle); }
@@ -40,6 +66,7 @@ public:
   native_read_operation(std::shared_ptr<native_async_file> file, std::size_t size)
       : file_(std::move(file)), bytes_(size) {}
   ~native_read_operation() override {
+    GNEISS_PROFILE_SCOPE("asset.io.request.destroy");
     if (pending_) {
       (void)CancelIoEx(file_->handle, &overlapped_);
       DWORD ignored{};
@@ -51,6 +78,7 @@ public:
     }
   }
   gneiss_result start(std::uint64_t offset) noexcept {
+    GNEISS_PROFILE_SCOPE("asset.io.request.start");
     if (bytes_.empty()) {
       return GNEISS_SUCCESS;
     }
@@ -87,6 +115,24 @@ public:
     }
     return result_;
   }
+  [[nodiscard]] gneiss_result wait_for(std::chrono::milliseconds timeout,
+                                       std::span<const std::byte>& output) noexcept override {
+    output = {};
+    if (timeout.count() < 0 || static_cast<std::uint64_t>(timeout.count()) >= INFINITE) {
+      return GNEISS_ERROR_INVALID_ARGUMENT;
+    }
+    if (pending_ && timeout.count() != 0) {
+      const auto waited =
+          WaitForSingleObject(overlapped_.hEvent, static_cast<DWORD>(timeout.count()));
+      if (waited == WAIT_TIMEOUT) {
+        return GNEISS_ERROR_NOT_READY;
+      }
+      if (waited != WAIT_OBJECT_0) {
+        return GNEISS_ERROR_IO;
+      }
+    }
+    return poll(output);
+  }
 
 private:
   std::shared_ptr<native_async_file> file_;
@@ -104,13 +150,22 @@ public:
     }
   }
   gneiss_result open(const std::filesystem::path& path) noexcept {
-    handle_ = CreateFileW(path.c_str(), GENERIC_READ,
-                          FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
-                          OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
-    LARGE_INTEGER length{};
-    if (handle_ == INVALID_HANDLE_VALUE || GetFileSizeEx(handle_, &length) == FALSE ||
-        length.QuadPart < 0) {
+    GNEISS_PROFILE_SCOPE("asset.io.open");
+    {
+      GNEISS_PROFILE_SCOPE("asset.io.create_file");
+      handle_ = CreateFileW(path.c_str(), GENERIC_READ,
+                            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
+                            OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+    }
+    if (handle_ == INVALID_HANDLE_VALUE) {
       return GNEISS_ERROR_IO;
+    }
+    LARGE_INTEGER length{};
+    {
+      GNEISS_PROFILE_SCOPE("asset.io.file_size");
+      if (GetFileSizeEx(handle_, &length) == FALSE || length.QuadPart < 0) {
+        return GNEISS_ERROR_IO;
+      }
     }
     length_ = static_cast<std::uint64_t>(length.QuadPart);
     return GNEISS_SUCCESS;
@@ -119,6 +174,7 @@ public:
   [[nodiscard]] gneiss_result begin_read(
       std::uint64_t offset, std::size_t size,
       std::unique_ptr<gneiss::asset_internal::read_operation>& output) const noexcept override {
+    GNEISS_PROFILE_SCOPE("asset.io.begin_read");
     output.reset();
     if (offset > length_ || size > length_ - offset || size > std::numeric_limits<DWORD>::max()) {
       return GNEISS_ERROR_INVALID_ARGUMENT;
@@ -128,6 +184,7 @@ public:
       {
         const std::scoped_lock lock(async_mutex_);
         if (!async_file_) {
+          GNEISS_PROFILE_SCOPE("asset.io.reopen");
           auto* const reopened = ReOpenFile(handle_, GENERIC_READ,
                                             FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
                                             FILE_FLAG_OVERLAPPED);
@@ -143,7 +200,11 @@ public:
         }
         file = async_file_;
       }
-      auto request = std::make_unique<native_read_operation>(std::move(file), size);
+      std::unique_ptr<native_read_operation> request;
+      {
+        GNEISS_PROFILE_SCOPE("asset.io.request.allocate");
+        request = std::make_unique<native_read_operation>(std::move(file), size);
+      }
       const auto started = request->start(offset);
       if (started == GNEISS_SUCCESS) {
         output = std::move(request);
@@ -246,6 +307,8 @@ namespace gneiss::asset_internal {
 
 gneiss_result native_file_system::open_read(std::string_view path,
                                             std::unique_ptr<read_source>& output) const noexcept {
+  GNEISS_PROFILE_SCOPE("asset.fs.open_read");
+  GNEISS_PROFILE_TEXT(path);
   output.reset();
   if (root_.empty()) {
     return GNEISS_ERROR_INVALID_STATE;
@@ -255,11 +318,53 @@ gneiss_result native_file_system::open_read(std::string_view path,
       return GNEISS_ERROR_INVALID_ARGUMENT;
     }
     std::error_code error;
-    const auto candidate = std::filesystem::canonical(root_ / path_from_utf8(path), error);
-    if (error || !std::filesystem::is_regular_file(candidate, error) || error) {
+    const auto candidate = [&] {
+      GNEISS_PROFILE_SCOPE("asset.fs.canonical");
+      GNEISS_PROFILE_TEXT(path);
+      const auto input_path = [&] {
+        GNEISS_PROFILE_SCOPE("asset.fs.path_build");
+        return root_ / path_from_utf8(path);
+      }();
+      {
+        GNEISS_PROFILE_SCOPE("asset.fs.canonical_call");
+#if defined(_WIN32) && defined(GNEISS_ENABLE_PROFILING)
+        // 仅连接采集时读取线程计数；墙钟包含观测开销，计数不能区分具体等待原因。
+        const bool sample = ZoneIsActive;
+        const auto before = sample ? sample_thread_execution() : thread_execution_sample{};
+        auto result = std::filesystem::canonical(input_path, error);
+        if (sample) {
+          const auto after = sample_thread_execution();
+          if (before.valid && after.valid) {
+            std::array<char, 160> text{};
+            std::snprintf(text.data(), text.size(), "os_tid=%lu cpu_100ns=%llu cycles=%llu",
+                          static_cast<unsigned long>(GetCurrentThreadId()),
+                          static_cast<unsigned long long>(after.cpu_ticks - before.cpu_ticks),
+                          static_cast<unsigned long long>(after.cycles - before.cycles));
+            GNEISS_PROFILE_TEXT(text.data());
+          } else {
+            GNEISS_PROFILE_TEXT("thread_counters_unavailable");
+          }
+        }
+        return result;
+#else
+        return std::filesystem::canonical(input_path, error);
+#endif
+      }
+    }();
+    if (error) {
       return GNEISS_ERROR_NOT_FOUND;
     }
-    const auto relative = std::filesystem::relative(candidate, root_, error);
+    const auto regular = [&] {
+      GNEISS_PROFILE_SCOPE("asset.fs.file_type");
+      return std::filesystem::is_regular_file(candidate, error);
+    }();
+    if (!regular || error) {
+      return GNEISS_ERROR_NOT_FOUND;
+    }
+    const auto relative = [&] {
+      GNEISS_PROFILE_SCOPE("asset.fs.relative");
+      return std::filesystem::relative(candidate, root_, error);
+    }();
     if (error || relative.empty() || relative.is_absolute() || *relative.begin() == "..") {
       return GNEISS_ERROR_INVALID_ARGUMENT;
     }

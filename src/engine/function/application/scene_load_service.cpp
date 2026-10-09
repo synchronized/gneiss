@@ -2,6 +2,8 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/function/application/scene_load_service.hpp"
+#include "engine/core/diagnostics/profiling.hpp"
+#include "engine/core/diagnostics/task_submission.hpp"
 #include "engine/function/render/render_resource_service.hpp"
 
 #include "engine/asset/asset_uri.hpp"
@@ -82,9 +84,10 @@ struct scene_load_service::pending {
 scene_load_service::scene_load_service(tasks::task_executor& executor,
                                        asset_internal::virtual_file_system files,
                                        render_internal::render_resource_service& resources,
-                                       render_internal::texture_upload_backend backend)
+                                       render_internal::texture_upload_backend backend,
+                                       std::shared_ptr<core::progress_notification> notification)
     : executor_(executor), scope_(executor.make_scope()), files_(std::move(files)),
-      resources_(resources), backend_(std::move(backend)) {
+      resources_(resources), backend_(std::move(backend)), notification_(std::move(notification)) {
   if (scope_.id == 0U) {
     throw std::invalid_argument("无法创建场景任务作用域");
   }
@@ -126,7 +129,7 @@ gneiss_result scene_load_service::submit(std::string_view uri, std::uint64_t ses
   next->result.progress = {
       .request = ++sequence_, .session = session, .revision = revision, .can_cancel = true};
   const auto accepted = executor_.submit(
-      {.name = "scene.prepare", .scope = scope_},
+      {.name = "scene.prepare", .scope = scope_, .notification = notification_},
       [cpu = next->cpu, files = next->snapshot,
        source = std::string(uri)](const tasks::task_context& context) {
         cpu->result = scene_internal::prepare_scene_description(
@@ -264,10 +267,14 @@ scene_load_service::take_candidate(std::uint64_t request, scene_load_completion&
   return candidate;
 }
 void scene_load_service::advance() {
+  GNEISS_PROFILE_SCOPE("scene.advance");
+  const diagnostics::loop_span span(diagnostics::loop_stage::scene_advance);
   check_owner();
   if (!pending_) {
     return;
   }
+  const auto previous_phase = pending_->result.progress.phase;
+  const auto previous_completed = pending_->result.progress.completed;
   const auto start = clock_type::now();
   try {
     advance_impl();
@@ -276,39 +283,54 @@ void scene_load_service::advance() {
   } catch (...) {
     finish(GNEISS_ERROR_INTERNAL, scene_load_phase::failed);
   }
+  if (notification_ && (!pending_ || pending_->result.progress.phase != previous_phase ||
+                        pending_->result.progress.completed != previous_completed)) {
+    notification_->notify();
+  }
   auto* result = pending_ ? &pending_->result : completed_ ? &*completed_ : nullptr;
   if (result != nullptr) {
     result->maximum_advance_ms = std::max(result->maximum_advance_ms, elapsed(start));
   }
 }
 tasks::submit_result scene_load_service::submit_verification() {
-  return executor_.submit(
-      {.name = "scene.verify", .scope = scope_},
-      [cpu = pending_->cpu, sources = pending_->sources](const tasks::task_context& context) {
-        if (!cpu->verification) {
-          cpu->result = sources->begin_verification(cpu->verification);
-        }
-        if (cpu->result == GNEISS_SUCCESS) {
-          // 每个任务只复验一段；由宿主消费回执后继续提交，不嵌套驱动或增加线程。
-          cpu->result = cpu->verification->advance(
-              std::size_t{16U} * 1024U * 1024U, [&] { return context.stop_requested(); },
-              cpu->verification_complete);
-        }
-        if (context.stop_requested()) {
-          return tasks::task_outcome{.state = tasks::task_state::cancelled};
-        }
-        return tasks::task_outcome{
-            .state = cpu->result == GNEISS_SUCCESS ? tasks::task_state::succeeded
-                                                   : tasks::task_state::failed,
-        };
-      },
-      pending_->task);
+  GNEISS_PROFILE_SCOPE("scene.verify.submit");
+  const diagnostics::loop_span body(diagnostics::loop_stage::scene_verify_submit_body);
+  auto function = diagnostics::measure(diagnostics::loop_stage::task_callback_create, [&] {
+    return tasks::task_executor::task_function{
+        [cpu = pending_->cpu, sources = pending_->sources](const tasks::task_context& context) {
+          GNEISS_PROFILE_SCOPE("scene.verify.step");
+          if (!cpu->verification) {
+            cpu->result = sources->begin_verification(cpu->verification);
+          }
+          if (cpu->result == GNEISS_SUCCESS) {
+            // 每个任务只复验一段；由宿主消费回执后继续提交，不嵌套驱动或增加线程。
+            // 协作任务不可被驱动预算抢占，缩小单块校验；后台保留吞吐批次。
+            const auto byte_budget =
+                std::size_t{context.allows_blocking_wait() ? 16U : 4U} * 1024U * 1024U;
+            cpu->result = cpu->verification->advance(
+                byte_budget, [&] { return context.stop_requested(); }, cpu->verification_complete,
+                std::chrono::milliseconds(context.allows_blocking_wait() ? 4 : 0));
+          }
+          if (context.stop_requested()) {
+            return tasks::task_outcome{.state = tasks::task_state::cancelled};
+          }
+          return tasks::task_outcome{
+              .state = cpu->result == GNEISS_SUCCESS ? tasks::task_state::succeeded
+                                                     : tasks::task_state::failed,
+          };
+        }};
+  });
+  return diagnostics::submit_observed(
+      executor_, {.name = "scene.verify", .scope = scope_, .notification = notification_},
+      std::move(function), pending_->task);
 }
 void scene_load_service::advance_verification(pending& value) {
+  const diagnostics::loop_span span(diagnostics::loop_stage::scene_verify);
   auto& progress = value.result.progress;
   if (value.task.id != 0U) {
     std::vector<tasks::task_completion> completions;
-    executor_.poll(scope_, completions);
+    diagnostics::measure(diagnostics::loop_stage::task_collect,
+                         [&] { return executor_.poll(scope_, completions); });
     if (completions.empty()) {
       return;
     }
@@ -333,7 +355,8 @@ void scene_load_service::advance_verification(pending& value) {
     value.result.verify_maximum_hash_ms = timings.maximum_hash_ms;
   }
   if (!value.cpu->verification_complete) {
-    const auto accepted = submit_verification();
+    const auto accepted = diagnostics::measure(diagnostics::loop_stage::task_submit,
+                                               [&] { return submit_verification(); });
     if (accepted != tasks::submit_result::success && accepted != tasks::submit_result::full) {
       finish(GNEISS_ERROR_INVALID_STATE, scene_load_phase::failed);
     }
@@ -343,18 +366,30 @@ void scene_load_service::advance_verification(pending& value) {
   progress.phase = scene_load_phase::instantiating;
   progress.completed = 0U;
   progress.total = value.cpu->description.instance_nodes;
-  value.builder = std::make_unique<scene_internal::scene_load_builder>(
-      *value.candidate->scenes, std::move(value.cpu->description));
+  {
+    // 调用方记录完整区间，包含辅助函数和构建器入口前的等待。
+    GNEISS_PROFILE_SCOPE("scene.builder.create");
+    diagnostics::measure(diagnostics::loop_stage::scene_builder_create, [&] {
+      value.builder = std::make_unique<scene_internal::scene_load_builder>(
+          *value.candidate->scenes, std::move(value.cpu->description));
+    });
+  }
   // 激活后的热重载必须回到宿主原始 VFS，不能继承一次性加载会话的内容固定规则。
-  value.assets = std::make_unique<render_internal::texture_load_service>(
-      executor_, files_, value.candidate->assets, backend_);
+  {
+    GNEISS_PROFILE_SCOPE("scene.assets.reset");
+    diagnostics::measure(diagnostics::loop_stage::scene_asset_service_reset, [&] {
+      value.assets = std::make_unique<render_internal::texture_load_service>(
+          executor_, files_, value.candidate->assets, backend_, notification_);
+    });
+  }
 }
 void scene_load_service::advance_impl() {
   auto& value = *pending_;
   auto& progress = value.result.progress;
   if (value.preparing) {
     std::vector<tasks::task_completion> completions;
-    executor_.poll(scope_, completions);
+    diagnostics::measure(diagnostics::loop_stage::task_collect,
+                         [&] { return executor_.poll(scope_, completions); });
     if (completions.empty()) {
       return;
     }
@@ -375,7 +410,7 @@ void scene_load_service::advance_impl() {
       return;
     }
     value.assets = std::make_unique<render_internal::texture_load_service>(
-        executor_, value.snapshot, value.candidate->assets, backend_);
+        executor_, value.snapshot, value.candidate->assets, backend_, notification_);
     value.requested = std::move(value.cpu->description.assets);
     progress.phase = scene_load_phase::assets;
     progress.total = value.requested.size();
@@ -431,7 +466,8 @@ void scene_load_service::advance_impl() {
   }
   if (progress.phase == scene_load_phase::assets) {
     if (value.cursor == value.requested.size()) {
-      const auto accepted = submit_verification();
+      const auto accepted = diagnostics::measure(diagnostics::loop_stage::task_submit,
+                                                 [&] { return submit_verification(); });
       if (accepted == tasks::submit_result::full) {
         return;
       }
@@ -481,7 +517,8 @@ void scene_load_service::advance_impl() {
   }
   if (progress.phase == scene_load_phase::instantiating) {
     bool complete{};
-    const auto built = value.builder->advance(complete);
+    const auto built = diagnostics::measure(diagnostics::loop_stage::scene_build,
+                                            [&] { return value.builder->advance(complete); });
     progress.completed = value.builder->completed_nodes();
     if (built != GNEISS_SUCCESS) {
       finish(built, scene_load_phase::failed);

@@ -5,7 +5,7 @@ cmake_minimum_required(VERSION 3.23)
 
 project(
   gneiss
-  VERSION 0.49.0
+  VERSION 0.50.0
   DESCRIPTION "基于 Granit 构建的现代 C++20 游戏引擎"
   LANGUAGES C CXX
 )
@@ -27,6 +27,7 @@ endif()
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 include(gneiss_utility)
+include(profiling)
 if(GNEISS_ENABLE_GRANIT_PLATFORM OR GNEISS_BUILD_TOOLS OR GNEISS_BUILD_TESTING)
   include(granit)
 endif()
