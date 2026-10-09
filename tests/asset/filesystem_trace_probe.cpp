@@ -8,7 +8,6 @@
 #include <windows.h>
 
 #include <algorithm>
-#include <array>
 #include <chrono>
 #include <cstdio>
 #include <filesystem>
@@ -51,13 +50,36 @@ bool native_path(const std::filesystem::path& path, std::string_view label) {
   if (file.value == INVALID_HANDLE_VALUE) {
     return false;
   }
-  std::array<wchar_t, 32768> buffer{};
-  GNEISS_PROFILE_SCOPE("probe.final_path");
-  GNEISS_PROFILE_TEXT(label);
-  const auto length =
-      GetFinalPathNameByHandleW(file.value, buffer.data(), static_cast<DWORD>(buffer.size()),
-                                VOLUME_NAME_DOS | FILE_NAME_NORMALIZED);
-  return length != 0U && length < buffer.size();
+  std::wstring buffer;
+  {
+    // 与本机 STL 的初始容量一致，单独观察堆分配；不修改第三方实现。
+    GNEISS_PROFILE_SCOPE("probe.buffer_allocate");
+    buffer.resize(MAX_PATH);
+  }
+  for (;;) {
+    DWORD length{};
+    {
+      GNEISS_PROFILE_SCOPE("probe.final_path");
+      GNEISS_PROFILE_TEXT(label);
+      length =
+          GetFinalPathNameByHandleW(file.value, buffer.data(), static_cast<DWORD>(buffer.size()),
+                                    VOLUME_NAME_DOS | FILE_NAME_NORMALIZED);
+    }
+    if (length == 0U) {
+      return false;
+    }
+    const auto capacity = buffer.size();
+    {
+      GNEISS_PROFILE_SCOPE("probe.buffer_resize");
+      buffer.resize(length);
+    }
+    if (length < capacity) {
+      // 单独记录释放，避免将字符串析构归入文件句柄关闭。
+      GNEISS_PROFILE_SCOPE("probe.buffer_release");
+      std::wstring{}.swap(buffer);
+      return true;
+    }
+  }
 }
 bool wait_for_profiler() {
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(20);

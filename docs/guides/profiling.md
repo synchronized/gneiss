@@ -119,7 +119,11 @@ build/windows-clang-profiling/bin/gneiss_filesystem_trace_probe.exe <Cook资产�
 夹具最多等待连接 20 秒。每个文件执行标准库 canonical 和原生打开属性句柄、查询最终
 路径、关闭句柄两组操作；相邻文件交替顺序，第二轮反转。查看 `probe.canonical`、
 `probe.open_attributes`、`probe.final_path` 和 `probe.close_handle`，路径与顺序位于
-区域文本。成功完成 N 个文件的两轮操作后，每类操作应有 2N 个事件。
+区域文本。成功完成 N 个文件的两轮操作后，canonical、打开和关闭各应有 2N 个事件。
+原生对照使用初始 260 个宽字符的动态字符串，按返回长度调整；缓冲区不足时重复查询。
+`probe.buffer_allocate`、`probe.buffer_resize`、`probe.buffer_release` 分别记录初始分配、
+调整与释放。最终路径查询与调整事件可能因重试多于 2N，其余成功操作各为 2N。
+这些区域属于原生对照，不是标准库 canonical 内部埋点。
 
 连接模式退出前留出 200 ms 发送时间，仅适用于该诊断夹具，不保证尾部事件送达；必须
 核对事件数，缺失时不能将已记录区间的最大值视作整轮最大值。原生对照没有实现标准库

@@ -1,0 +1,151 @@
+{
+  "purpose": "动态路径缓冲区对照；不是标准库调用内部埋点。",
+  "run": {
+    "fixture_exit": 0,
+    "capture_exit": 0,
+    "binary_sha256": "f24953ac934c869177eb290bf2bfc281f567e2b33744b737fafb3f940166ea6b"
+  },
+  "zones": {
+    "probe.open_attributes": {
+      "count": 1160,
+      "max_ms": 1.596228,
+      "path": "models/mesh-5-primitive-1.gneiss-mesh"
+    },
+    "probe.buffer_release": {
+      "count": 1160,
+      "max_ms": 0.011018,
+      "path": ""
+    },
+    "probe.canonical": {
+      "count": 1160,
+      "max_ms": 29.549078,
+      "path": "models/mesh-85-primitive-0.gneiss-mesh"
+    },
+    "probe.enumerate": {
+      "count": 1,
+      "max_ms": 2.298956,
+      "path": ""
+    },
+    "probe.buffer_allocate": {
+      "count": 1160,
+      "max_ms": 0.316929,
+      "path": ""
+    },
+    "probe.final_path": {
+      "count": 1160,
+      "max_ms": 28.210904,
+      "path": "models/mesh-81-primitive-5.gneiss-mesh"
+    },
+    "probe.buffer_resize": {
+      "count": 1160,
+      "max_ms": 0.012212,
+      "path": ""
+    },
+    "probe.close_handle": {
+      "count": 1160,
+      "max_ms": 60.148982,
+      "path": ""
+    },
+    "probe.file": {
+      "count": 1160,
+      "max_ms": 60.654477,
+      "path": "models/mesh-79-primitive-1.gneiss-mesh"
+    }
+  },
+  "checks": [
+    {
+      "case": "arguments",
+      "exit": 2,
+      "expected": 2,
+      "stdout": ""
+    },
+    {
+      "case": "unknown",
+      "exit": 2,
+      "expected": 2,
+      "stdout": ""
+    },
+    {
+      "case": "missing",
+      "exit": 1,
+      "expected": 1,
+      "stdout": ""
+    },
+    {
+      "case": "empty",
+      "exit": 4,
+      "expected": 4,
+      "stdout": ""
+    },
+    {
+      "case": "unicode-long",
+      "exit": 0,
+      "expected": 0,
+      "stdout": "files=1 passes=2 failures=0\r\n"
+    }
+  ],
+  "path_length": 302,
+  "trace_sha256": "645c5fd4382d3a6e565cc700d9668341a217702e0c00452c62b3c5d659430b43",
+  "limitations": [
+    "首轮捕获期间本会话文件搜索尚未确认退出；不能作为隔离性能基线。",
+    "复测前已确认本会话文件搜索退出；系统仍存在其他搜索进程，未终止用户进程。",
+    "区域记录墙钟，包含抢占与观测开销；非标准库内部埋点。",
+    "首轮 Python 创建未加扩展前缀的长路径失败，改用 Windows 扩展路径前缀后检查通过。"
+  ],
+  "repeat": {
+    "directory": "build\\0.50-filesystem-tracy-heap-repeat",
+    "run": {
+      "fixture_exit": 0,
+      "capture_exit": 0,
+      "binary_sha256": "f24953ac934c869177eb290bf2bfc281f567e2b33744b737fafb3f940166ea6b"
+    },
+    "zones": {
+      "probe.open_attributes": {
+        "count": 1160,
+        "max_ms": 0.404364,
+        "path": "models/mesh-11-primitive-1.gneiss-mesh"
+      },
+      "probe.buffer_release": {
+        "count": 1160,
+        "max_ms": 0.035282,
+        "path": ""
+      },
+      "probe.canonical": {
+        "count": 1160,
+        "max_ms": 1.853804,
+        "path": "models/mesh-114-primitive-21.gneiss-mesh"
+      },
+      "probe.enumerate": {
+        "count": 1,
+        "max_ms": 1.43753,
+        "path": ""
+      },
+      "probe.buffer_allocate": {
+        "count": 1160,
+        "max_ms": 0.02023,
+        "path": ""
+      },
+      "probe.final_path": {
+        "count": 1160,
+        "max_ms": 0.352474,
+        "path": "models/mesh-12-primitive-3.gneiss-mesh"
+      },
+      "probe.buffer_resize": {
+        "count": 1160,
+        "max_ms": 0.015551,
+        "path": ""
+      },
+      "probe.close_handle": {
+        "count": 1160,
+        "max_ms": 0.417865,
+        "path": ""
+      },
+      "probe.file": {
+        "count": 1160,
+        "max_ms": 2.123037,
+        "path": "models/mesh-114-primitive-21.gneiss-mesh"
+      }
+    },
+    "trace_sha256": "c8bd2c68c3865b9ea524edb7a31a57e9a60331f9c4fc0f931f5c4929d006469c"
+  }
+}
