@@ -96,6 +96,36 @@ CPU 计数单位为 100 ns，但实际记账较粗，零增量不代表完全没
 为耗时。该区域包含计数查询与记录的观测开销，未连接或关闭 profiling 时不查询计数。
 它能辅助区分持续计算与非执行时间，不能识别具体 I/O、缺页、锁或抢占原因。
 
+## 独立文件元数据对照
+
+Windows profiling 构建提供手动诊断夹具 `gneiss_filesystem_trace_probe`，只链接 Tracy，
+不链接引擎、调度器或渲染器，不注册为自动测试。它遍历指定目录中的普通文件，不读取
+payload、不修改资产，默认不跟随目录符号链接。先构建：
+
+```powershell
+cmake --build build/windows-clang-profiling --target gneiss_filesystem_trace_probe
+```
+
+在两个终端先后启动 collector 和夹具；采集期间不要并行构建或测试：
+
+```powershell
+build/tracy-tools/unpacked/tracy-capture.exe -a 127.0.0.1 -o filesystem.tracy -s 180
+```
+
+```powershell
+build/windows-clang-profiling/bin/gneiss_filesystem_trace_probe.exe <Cook资产根> --wait-for-profiler
+```
+
+夹具最多等待连接 20 秒。每个文件执行标准库 canonical 和原生打开属性句柄、查询最终
+路径、关闭句柄两组操作；相邻文件交替顺序，第二轮反转。查看 `probe.canonical`、
+`probe.open_attributes`、`probe.final_path` 和 `probe.close_handle`，路径与顺序位于
+区域文本。成功完成 N 个文件的两轮操作后，每类操作应有 2N 个事件。
+
+连接模式退出前留出 200 ms 发送时间，仅适用于该诊断夹具，不保证尾部事件送达；必须
+核对事件数，缺失时不能将已记录区间的最大值视作整轮最大值。原生对照没有实现标准库
+的全部回退与路径前缀处理，不能直接作为 canonical 的生产替代。交替顺序也不能消除
+全部缓存和系统状态差异；未复现不能证明此前的停顿已修复。
+
 ## Windows 系统事件联合采集
 
 当长区间已经定位到文件系统或条件变量内部，使用 WPR 补充文件操作、硬缺页及线程

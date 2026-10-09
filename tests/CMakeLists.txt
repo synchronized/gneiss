@@ -18,6 +18,16 @@ if(GNEISS_ENABLE_PROFILING AND GNEISS_TASK_THREADS)
   set_tests_properties(gneiss.profiling-capture PROPERTIES TIMEOUT 15)
 endif()
 
+if(GNEISS_ENABLE_PROFILING AND WIN32)
+  # 手动诊断夹具只链接 Tracy，不携带引擎、调度器或渲染器。
+  add_executable(gneiss_filesystem_trace_probe asset/filesystem_trace_probe.cpp)
+  target_include_directories(gneiss_filesystem_trace_probe PRIVATE "${PROJECT_SOURCE_DIR}/src")
+  target_compile_features(gneiss_filesystem_trace_probe PRIVATE cxx_std_20)
+  gneiss_target_profiling(gneiss_filesystem_trace_probe)
+  gneiss_target_compile_warnings(gneiss_filesystem_trace_probe)
+  gneiss_target_output_directories(gneiss_filesystem_trace_probe)
+endif()
+
 if(NOT EMSCRIPTEN AND GNEISS_TASK_THREADS)
   add_executable(gneiss_loop_progress_test core/loop_progress_test.cpp)
   target_link_libraries(gneiss_loop_progress_test PRIVATE gneiss_tasks Threads::Threads)
