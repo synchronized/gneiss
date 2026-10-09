@@ -71,6 +71,7 @@ tracy-csvexport.exe -u capture.tracy > zones.csv
 | `asset.prepare.publish` / `asset.prepare.cleanup` | 排序并移交准备结果 / 清理准备状态 |
 | `asset.verify.open` / `asset.verify.read_next` / `asset.verify.hash` | 来源复验的打开 / 分块读取与验证 / 摘要更新 |
 | `asset.io.open` / `asset.io.begin_read` / `asset.io.reopen` | Windows 原生文件打开 / 创建异步读取 / 首次重开异步句柄 |
+| `asset.io.create_file` / `asset.io.file_size` | 原生打开中的 CreateFileW / GetFileSizeEx，父区域保留入口及分段外耗时 |
 | `asset.fs.open_read` / `asset.fs.canonical` / `asset.fs.file_type` / `asset.fs.relative` | 原生 VFS 打开完整入口 / 规范化路径 / 检查文件类型 / 计算相对路径 |
 | `asset.fs.path_build` / `asset.fs.canonical_call` | UTF-8 路径转换与拼接 / 单独的标准库 canonical 调用 |
 | `asset.io.request.allocate` / `asset.io.request.start` / `asset.io.request.destroy` | Windows 异步请求缓冲分配 / 发起读取 / 析构函数体（可能包含取消等待，不含成员自动析构） |

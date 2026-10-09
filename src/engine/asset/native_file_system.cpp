@@ -151,13 +151,21 @@ public:
   }
   gneiss_result open(const std::filesystem::path& path) noexcept {
     GNEISS_PROFILE_SCOPE("asset.io.open");
-    handle_ = CreateFileW(path.c_str(), GENERIC_READ,
-                          FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
-                          OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
-    LARGE_INTEGER length{};
-    if (handle_ == INVALID_HANDLE_VALUE || GetFileSizeEx(handle_, &length) == FALSE ||
-        length.QuadPart < 0) {
+    {
+      GNEISS_PROFILE_SCOPE("asset.io.create_file");
+      handle_ = CreateFileW(path.c_str(), GENERIC_READ,
+                            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
+                            OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+    }
+    if (handle_ == INVALID_HANDLE_VALUE) {
       return GNEISS_ERROR_IO;
+    }
+    LARGE_INTEGER length{};
+    {
+      GNEISS_PROFILE_SCOPE("asset.io.file_size");
+      if (GetFileSizeEx(handle_, &length) == FALSE || length.QuadPart < 0) {
+        return GNEISS_ERROR_IO;
+      }
     }
     length_ = static_cast<std::uint64_t>(length.QuadPart);
     return GNEISS_SUCCESS;
