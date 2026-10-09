@@ -7,6 +7,8 @@
 #include "engine/core/diagnostics/profiling.hpp"
 
 #include <algorithm>
+#include <array>
+#include <cstdio>
 #include <fstream>
 #include <limits>
 #include <memory>
@@ -28,6 +30,29 @@
 namespace {
 
 #ifdef _WIN32
+#ifdef GNEISS_ENABLE_PROFILING
+struct thread_execution_sample {
+  ULONGLONG cpu_ticks{};
+  ULONG64 cycles{};
+  bool valid{};
+};
+thread_execution_sample sample_thread_execution() noexcept {
+  FILETIME created{};
+  FILETIME exited{};
+  FILETIME kernel{};
+  FILETIME user{};
+  thread_execution_sample sample;
+  sample.valid = GetThreadTimes(GetCurrentThread(), &created, &exited, &kernel, &user) != FALSE &&
+                 QueryThreadCycleTime(GetCurrentThread(), &sample.cycles) != FALSE;
+  if (sample.valid) {
+    const auto ticks = [](FILETIME value) {
+      return (static_cast<ULONGLONG>(value.dwHighDateTime) << 32U) | value.dwLowDateTime;
+    };
+    sample.cpu_ticks = ticks(kernel) + ticks(user);
+  }
+  return sample;
+}
+#endif
 struct native_async_file {
   explicit native_async_file(HANDLE value) : handle(value) {}
   ~native_async_file() { (void)CloseHandle(handle); }
@@ -294,7 +319,28 @@ gneiss_result native_file_system::open_read(std::string_view path,
       }();
       {
         GNEISS_PROFILE_SCOPE("asset.fs.canonical_call");
+#if defined(_WIN32) && defined(GNEISS_ENABLE_PROFILING)
+        // 仅连接采集时读取线程计数；墙钟包含观测开销，计数不能区分具体等待原因。
+        const bool sample = ZoneIsActive;
+        const auto before = sample ? sample_thread_execution() : thread_execution_sample{};
+        auto result = std::filesystem::canonical(input_path, error);
+        if (sample) {
+          const auto after = sample_thread_execution();
+          if (before.valid && after.valid) {
+            std::array<char, 160> text{};
+            std::snprintf(text.data(), text.size(), "os_tid=%lu cpu_100ns=%llu cycles=%llu",
+                          static_cast<unsigned long>(GetCurrentThreadId()),
+                          static_cast<unsigned long long>(after.cpu_ticks - before.cpu_ticks),
+                          static_cast<unsigned long long>(after.cycles - before.cycles));
+            GNEISS_PROFILE_TEXT(text.data());
+          } else {
+            GNEISS_PROFILE_TEXT("thread_counters_unavailable");
+          }
+        }
+        return result;
+#else
         return std::filesystem::canonical(input_path, error);
+#endif
       }
     }();
     if (error) {
