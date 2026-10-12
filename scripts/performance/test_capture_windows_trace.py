@@ -117,6 +117,32 @@ class CaptureTests(unittest.TestCase):
         self.assertEqual(self.record()["stop_command"][-1], self.record()["instance"])
         self.assertFalse(any("-cancel" in call.args[0] for call in command.call_args_list))
 
+    def run_without_tracy(self, write_loop):
+        self.args.no_tracy = True
+        fixture = self.process(3)
+
+        def start(arguments, stream, environment):
+            self.assertEqual(arguments[0], str(self.args.exe))
+            self.assertNotIn("GNEISS_RESPONSE_STACK_SAMPLE", environment)
+            if write_loop:
+                Path(environment["GNEISS_LOOP_TRACE"]).write_text("loop data")
+            (self.args.output / "response.json").write_text('{"passed":false}')
+            return fixture
+
+        with patch.object(capture, "command", side_effect=self.successful_command), patch.object(capture, "start_process", side_effect=start) as process:
+            result = capture.capture(self.args)
+        self.assertEqual(process.call_count, 1)
+        self.assertFalse(self.record()["tracy_enabled"])
+        self.assertNotIn("tracy_exit", self.record())
+        self.assertFalse((self.args.output / "tracy.log").exists())
+        return result
+
+    def test_no_tracy_preserves_fixture_failure_with_loop_artifact(self):
+        self.assertEqual(self.run_without_tracy(True), 3)
+
+    def test_no_tracy_missing_loop_artifact_is_incomplete(self):
+        self.assertEqual(self.run_without_tracy(False), 2)
+
 
 if __name__ == "__main__":
     unittest.main()

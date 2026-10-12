@@ -5,6 +5,7 @@
 
 import argparse
 import ctypes
+from contextlib import ExitStack
 from datetime import datetime, timezone
 import hashlib
 import json
@@ -35,6 +36,7 @@ def start_process(arguments, stream, environment):
 
 
 def capture(args):
+    no_tracy = getattr(args, "no_tracy", False)
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=False)
     instance = "Gneiss-" + uuid.uuid4().hex
@@ -45,6 +47,7 @@ def capture(args):
         "executable": str(args.exe), "assets": str(args.assets),
         "timeout_seconds": args.timeout, "diagnostic_only": True,
         "hashes": {},
+        "tracy_enabled": not no_tracy,
     }
     profile = Path(__file__).with_name("scheduler.wprp")
     profiles = (["-start", str(profile) + "!GneissScheduler"]
@@ -67,6 +70,8 @@ def capture(args):
     environment = os.environ.copy()
     environment.pop("GNEISS_LOOP_TRACE", None)
     environment.pop("GNEISS_RESPONSE_STACK_SAMPLE", None)
+    if no_tracy:
+        environment["GNEISS_LOOP_TRACE"] = str(output / "engine.csv")
     try:
         record["wpr_start_exit"] = command(
             [str(args.wpr), *profiles, "-filemode",
@@ -75,11 +80,14 @@ def capture(args):
             print(f"WPR 启动失败，未启动夹具；详见 {output / 'wpr-start.log'}。")
             return 2
         recording = True
-        with (output / "tracy.log").open("w") as trace_log, (output / "fixture.log").open("w") as fixture_log:
+        with ExitStack() as streams:
+            fixture_log = streams.enter_context((output / "fixture.log").open("w"))
             try:
-                collector = start_process(
-                    [str(args.tracy), "-a", "127.0.0.1", "-o", str(output / "application.tracy"),
-                     "-s", str(args.timeout + 60)], trace_log, environment)
+                if not no_tracy:
+                    trace_log = streams.enter_context((output / "tracy.log").open("w"))
+                    collector = start_process(
+                        [str(args.tracy), "-a", "127.0.0.1", "-o", str(output / "application.tracy"),
+                         "-s", str(args.timeout + 60)], trace_log, environment)
                 fixture = start_process(
                     [str(args.exe), str(output / "response.json"), "--assets", str(args.assets)],
                     fixture_log, environment)
@@ -112,11 +120,12 @@ def capture(args):
         record["finished_utc"] = utc_now()
         record["artifacts"] = {
             name: (output / name).stat().st_size if (output / name).is_file() else 0
-            for name in ("system.etl", "application.tracy", "response.json")
+            for name in ("system.etl", "engine.csv" if no_tracy else "application.tracy", "response.json")
         }
         save()
     if (record.get("error") or record.get("wpr_stop_exit") != 0
-            or record.get("tracy_exit") != 0 or not all(record["artifacts"].values())):
+            or (not no_tracy and record.get("tracy_exit") != 0)
+            or not all(record["artifacts"].values())):
         print(f"采集未完整完成，请检查 {output / 'run.json'}；WPR 恢复命令也记录于此。")
         return 2
     # 性能失败仍返回夹具的非零状态，已保存的采集文件不删除。
@@ -127,7 +136,8 @@ def main():
     root = Path(__file__).resolve().parents[2]
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--assets", type=Path, required=True)
-    parser.add_argument("--exe", type=Path, default=root / "build/windows-clang-profiling/bin/gneiss_main_loop_response.exe")
+    parser.add_argument("--exe", type=Path)
+    parser.add_argument("--no-tracy", action="store_true", help="不启动 Tracy；默认选 Release 夹具并保存主循环 engine.csv")
     parser.add_argument("--tracy", type=Path, default=root / "build/tracy-tools/unpacked/tracy-capture.exe")
     parser.add_argument("--output", type=Path, default=root / "build" / ("windows-trace-" + datetime.now().strftime("%Y%m%d-%H%M%S")))
     parser.add_argument("--timeout", type=int, default=900)
@@ -135,11 +145,14 @@ def main():
     parser.add_argument("--wpr", help="显式指定 WPR 路径；省略时从 PATH 查找")
     parser.add_argument("--scheduler-only", action="store_true", help="仅采线程调度、映像和调度栈，不采文件 I/O")
     args = parser.parse_args()
+    if args.exe is None:
+        preset = "windows-clang-release" if args.no_tracy else "windows-clang-profiling"
+        args.exe = root / "build" / preset / "bin/gneiss_main_loop_response.exe"
     args.exe, args.tracy, args.assets = args.exe.resolve(), args.tracy.resolve(), args.assets.resolve()
     args.wpr = shutil.which(args.wpr or "wpr")
     checks = {
         "windows": os.name == "nt", "executable": args.exe.is_file(),
-        "tracy": args.tracy.is_file(), "wpr": args.wpr is not None,
+        "tracy": args.no_tracy or args.tracy.is_file(), "wpr": args.wpr is not None,
         "scene": (args.assets / "scenes/scene.scene.json").is_file(),
         "new_output": not args.output.exists(), "positive_timeout": args.timeout > 0,
         "administrator": os.name == "nt" and bool(ctypes.windll.shell32.IsUserAnAdmin()),

@@ -133,6 +133,17 @@ build/windows-clang-profiling/bin/gneiss_filesystem_trace_probe.exe <Cook资产�
 
 ## Windows 系统事件联合采集
 
+排除 Tracy 采集线程影响时，组合 `--scheduler-only --no-tracy`。`--no-tracy` 默认改用
+`build/windows-clang-release/bin/gneiss_main_loop_response.exe`，不启动 collector，
+设置 GNEISS_LOOP_TRACE 输出有界 `engine.csv`；成功保存要求 ETL、响应报告和 CSV
+均存在且非空。显式 `--exe` 仍优先；该参数不会改变指定二进制的编译配置。
+此模式仍有 ETW 和有界计时开销，不是完全无观测运行。采集后先检查事件丢失，再关联
+CSV 时间线；不能直接相减 CSV 与 ETL 起点。
+
+```powershell
+python -X utf8 -B scripts/performance/capture_windows_trace.py --assets <Cook资产根> --scheduler-only --no-tracy --wpr "C:\Program Files (x86)\Windows Kits\10\Windows Performance Toolkit\wpr.exe"
+```
+
 若全量 ETL 过大、丢失事件或额外事件源导致解析失败，可针对主线程等待改用
 `--scheduler-only`：仅记录 ProcessThread、Loader、CSwitch、ReadyThread 及调度栈，
 不提供文件 I/O、缺页证据。配置为 `scripts/performance/scheduler.wprp`，缓冲配置
