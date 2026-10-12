@@ -133,6 +133,18 @@ build/windows-clang-profiling/bin/gneiss_filesystem_trace_probe.exe <Cook资产�
 
 ## Windows 系统事件联合采集
 
+若全量 ETL 过大、丢失事件或额外事件源导致解析失败，可针对主线程等待改用
+`--scheduler-only`：仅记录 ProcessThread、Loader、CSwitch、ReadyThread 及调度栈，
+不提供文件 I/O、缺页证据。配置为 `scripts/performance/scheduler.wprp`，缓冲配置
+256 KiB × 128；实际大小和丢失情况仍需检查，不能保证无丢失。
+`--wpr` 可显式指定 Windows Performance Toolkit 的 WPR，避免误用系统旧版：
+
+```powershell
+python -X utf8 -B scripts/performance/capture_windows_trace.py --assets <Cook资产根> --scheduler-only --wpr "C:\Program Files (x86)\Windows Kits\10\Windows Performance Toolkit\wpr.exe"
+```
+
+调度配置已通过本机 WPR 配置读取及模拟编排测试，真实管理员采集仍待验证。
+
 当长区间已经定位到文件系统或条件变量内部，使用 WPR 补充文件操作、硬缺页及线程
 切换事件。此步骤需要管理员终端；Tracy 本身不因此获得系统事件权限。脚本当前已验证
 预检查及模拟异常清理，真实管理员采集闭环仍待验证。

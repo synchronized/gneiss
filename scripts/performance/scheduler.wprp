@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: MIT -->
+<!-- Copyright (c) 2026 Gneiss contributors -->
+<!-- 仅记录调度和映像，不用于文件 I/O 或缺页归因；仍需检查事件丢失。 -->
+<WindowsPerformanceRecorder Version="1.0" Author="Gneiss">
+  <Profiles>
+    <SystemCollector Id="SchedulerCollector" Name="Gneiss Scheduler">
+      <BufferSize Value="256" />
+      <Buffers Value="128" />
+    </SystemCollector>
+    <SystemProvider Id="SchedulerProvider">
+      <Keywords>
+        <Keyword Value="ProcessThread" />
+        <Keyword Value="Loader" />
+        <Keyword Value="CSwitch" />
+        <Keyword Value="ReadyThread" />
+      </Keywords>
+      <Stacks>
+        <Stack Value="CSwitch" />
+        <Stack Value="ReadyThread" />
+      </Stacks>
+    </SystemProvider>
+    <Profile Id="GneissScheduler.Verbose.File" Name="GneissScheduler"
+             Description="Gneiss 线程等待与调度诊断" LoggingMode="File" DetailLevel="Verbose">
+      <Collectors>
+        <SystemCollectorId Value="SchedulerCollector">
+          <SystemProviderId Value="SchedulerProvider" />
+        </SystemCollectorId>
+      </Collectors>
+    </Profile>
+  </Profiles>
+</WindowsPerformanceRecorder>

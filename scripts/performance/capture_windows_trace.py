@@ -46,6 +46,11 @@ def capture(args):
         "timeout_seconds": args.timeout, "diagnostic_only": True,
         "hashes": {},
     }
+    profile = Path(__file__).with_name("scheduler.wprp")
+    profiles = (["-start", str(profile) + "!GneissScheduler"]
+                if getattr(args, "scheduler_only", False)
+                else ["-start", "GeneralProfile", "-start", "FileIO"])
+    record["wpr_profiles"] = profiles
     for path in (args.exe, args.exe.parent / "gneiss_engine.dll",
                  args.exe.parent / "gneiss_tracy.dll"):
         if path.is_file():
@@ -64,7 +69,7 @@ def capture(args):
     environment.pop("GNEISS_RESPONSE_STACK_SAMPLE", None)
     try:
         record["wpr_start_exit"] = command(
-            [str(args.wpr), "-start", "GeneralProfile", "-start", "FileIO", "-filemode",
+            [str(args.wpr), *profiles, "-filemode",
              "-instancename", instance], output / "wpr-start.log", timeout=30)
         if record["wpr_start_exit"] != 0:
             print(f"WPR 启动失败，未启动夹具；详见 {output / 'wpr-start.log'}。")
@@ -127,9 +132,11 @@ def main():
     parser.add_argument("--output", type=Path, default=root / "build" / ("windows-trace-" + datetime.now().strftime("%Y%m%d-%H%M%S")))
     parser.add_argument("--timeout", type=int, default=900)
     parser.add_argument("--check", action="store_true", help="仅验证路径、工具和管理员条件，不启动采集")
+    parser.add_argument("--wpr", help="显式指定 WPR 路径；省略时从 PATH 查找")
+    parser.add_argument("--scheduler-only", action="store_true", help="仅采线程调度、映像和调度栈，不采文件 I/O")
     args = parser.parse_args()
     args.exe, args.tracy, args.assets = args.exe.resolve(), args.tracy.resolve(), args.assets.resolve()
-    args.wpr = shutil.which("wpr")
+    args.wpr = shutil.which(args.wpr or "wpr")
     checks = {
         "windows": os.name == "nt", "executable": args.exe.is_file(),
         "tracy": args.tracy.is_file(), "wpr": args.wpr is not None,

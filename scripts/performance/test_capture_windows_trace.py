@@ -60,6 +60,16 @@ class CaptureTests(unittest.TestCase):
         command.assert_not_called()
         self.assertEqual(sentinel.read_text(), "existing")
 
+    def test_scheduler_profile_uses_only_owned_collector(self):
+        self.args.scheduler_only = True
+        with patch.object(capture, "command", return_value=5) as command:
+            self.assertEqual(capture.capture(self.args), 2)
+        arguments = command.call_args.args[0]
+        self.assertEqual(arguments.count("-start"), 1)
+        self.assertTrue(arguments[2].endswith("scheduler.wprp!GneissScheduler"))
+        self.assertNotIn("GeneralProfile", arguments)
+        self.assertEqual(arguments[-2], "-instancename")
+
     def test_process_start_failure_still_saves_owned_wpr(self):
         with patch.object(capture, "command", side_effect=self.successful_command) as command, patch.object(capture, "start_process", side_effect=OSError("start failed")):
             self.assertEqual(capture.capture(self.args), 2)
