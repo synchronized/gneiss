@@ -52,6 +52,19 @@ thread_execution_sample sample_thread_execution() noexcept {
   }
   return sample;
 }
+auto thread_execution_label(thread_execution_sample before,
+                            thread_execution_sample after) noexcept {
+  std::array<char, 160> text{};
+  if (before.valid && after.valid) {
+    std::snprintf(text.data(), text.size(), "os_tid=%lu cpu_100ns=%llu cycles=%llu",
+                  static_cast<unsigned long>(GetCurrentThreadId()),
+                  static_cast<unsigned long long>(after.cpu_ticks - before.cpu_ticks),
+                  static_cast<unsigned long long>(after.cycles - before.cycles));
+  } else {
+    std::snprintf(text.data(), text.size(), "thread_counters_unavailable");
+  }
+  return text;
+}
 #endif
 struct native_async_file {
   explicit native_async_file(HANDLE value) : handle(value) {}
@@ -153,9 +166,21 @@ public:
     GNEISS_PROFILE_SCOPE("asset.io.open");
     {
       GNEISS_PROFILE_SCOPE("asset.io.create_file");
+#ifdef GNEISS_ENABLE_PROFILING
+      const bool sample = ZoneIsActive;
+      const auto before = sample ? sample_thread_execution() : thread_execution_sample{};
+#endif
       handle_ = CreateFileW(path.c_str(), GENERIC_READ,
                             FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
                             OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+#ifdef GNEISS_ENABLE_PROFILING
+      // 与 canonical 使用相同口径；失败只标记不可用，不伪造零计数。
+      if (sample) {
+        const auto after = sample_thread_execution();
+        const auto text = thread_execution_label(before, after);
+        GNEISS_PROFILE_TEXT(text.data());
+      }
+#endif
     }
     if (handle_ == INVALID_HANDLE_VALUE) {
       return GNEISS_ERROR_IO;

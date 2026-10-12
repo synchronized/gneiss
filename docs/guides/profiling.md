@@ -90,7 +90,7 @@ task id。当前未绘制自动跨线程连线，也未接入 GPU、全量分配
 等待调用栈及缺页定位仍依赖平台能力和权限，接入 Tracy 不保证这些信息自动可用。
 RenderDoc 用于独立检查渲染帧状态，不能替代这条 CPU 时间线。
 
-Windows 连接采集时，`asset.fs.canonical_call` 文本额外记录 `os_tid`、`cpu_100ns`
+Windows 连接采集时，`asset.fs.canonical_call` 和 `asset.io.create_file` 文本额外记录 `os_tid`、`cpu_100ns`
 和 `cycles`，分别是系统线程 ID、调用前后内核与用户态 CPU 时间之和的增量、线程执行
 周期增量。计数读取失败记录 `thread_counters_unavailable`，不伪造零值。
 CPU 计数单位为 100 ns，但实际记账较粗，零增量不代表完全没有执行；周期不能直接换算

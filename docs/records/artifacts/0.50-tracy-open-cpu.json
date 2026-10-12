@@ -1,0 +1,280 @@
+{
+  "directory": "build\\0.50-tracy-open-cpu",
+  "run": {
+    "fixture_exit": 3,
+    "capture_exit": 0,
+    "hashes": {
+      "gneiss_main_loop_response.exe": "919acf15a676c92e1669585008690c47d10ea6da3fe33cb0f6d8dcdccc898ebe",
+      "gneiss_engine.dll": "cbdf5e8061e5e66589a1c494c1a385ab1b1b491997a349e00e72a6bd7eb20115",
+      "gneiss_tracy.dll": "124743793823423c5aee7fadc82f98e583c7a862a421eb2a4839fd50bd87052c"
+    }
+  },
+  "result": {
+    "passed": false,
+    "keys": 963,
+    "tasks": 962,
+    "key_p95_ms": 17.7198,
+    "key_max_ms": 22.725,
+    "task_p95_ms": 16.3831,
+    "task_max_ms": 20.7489,
+    "close_ms": 15.9654,
+    "nodes": 0,
+    "resources": 0,
+    "loaded_scene": true,
+    "injected_stall": false,
+    "scene_ready": false,
+    "probe_timed_out": true,
+    "timed_out_probe_ms": 2005.88
+  },
+  "summary": {
+    "application.events": {
+      "count": 7637,
+      "max_ms": 7.178252
+    },
+    "application.idle_condition": {
+      "count": 7636,
+      "max_ms": 20.625775
+    },
+    "application.idle_lock": {
+      "count": 7636,
+      "max_ms": 0.335689
+    },
+    "application.idle_wait": {
+      "count": 7636,
+      "max_ms": 20.627528
+    },
+    "application.loop": {
+      "count": 7637,
+      "max_ms": 20.667489
+    },
+    "application.render.submit": {
+      "count": 7636,
+      "max_ms": 0.600602
+    },
+    "application.update": {
+      "count": 7636,
+      "max_ms": 5.95292
+    },
+    "asset.advance": {
+      "count": 7606,
+      "max_ms": 5.940389
+    },
+    "asset.fs.canonical": {
+      "count": 113,
+      "max_ms": 5910.356992
+    },
+    "asset.fs.canonical_call": {
+      "count": 113,
+      "max_ms": 5910.35455
+    },
+    "asset.fs.file_type": {
+      "count": 113,
+      "max_ms": 5.822521
+    },
+    "asset.fs.open_read": {
+      "count": 113,
+      "max_ms": 5910.877387
+    },
+    "asset.fs.path_build": {
+      "count": 113,
+      "max_ms": 0.012211
+    },
+    "asset.fs.relative": {
+      "count": 113,
+      "max_ms": 1.088651
+    },
+    "asset.io.begin_read": {
+      "count": 397,
+      "max_ms": 10.713215
+    },
+    "asset.io.create_file": {
+      "count": 113,
+      "max_ms": 158.036934
+    },
+    "asset.io.file_size": {
+      "count": 113,
+      "max_ms": 0.044189
+    },
+    "asset.io.open": {
+      "count": 113,
+      "max_ms": 158.04317
+    },
+    "asset.io.reopen": {
+      "count": 113,
+      "max_ms": 0.457492
+    },
+    "asset.io.request.allocate": {
+      "count": 397,
+      "max_ms": 8.863901
+    },
+    "asset.io.request.destroy": {
+      "count": 397,
+      "max_ms": 0.017378
+    },
+    "asset.io.request.start": {
+      "count": 397,
+      "max_ms": 6.923442
+    },
+    "asset.prepare.cleanup": {
+      "count": 10,
+      "max_ms": 0.948598
+    },
+    "asset.prepare.copy": {
+      "count": 35,
+      "max_ms": 0.000365
+    },
+    "asset.prepare.decode": {
+      "count": 35,
+      "max_ms": 113.760535
+    },
+    "asset.prepare.destroy": {
+      "count": 10,
+      "max_ms": 0.004963
+    },
+    "asset.prepare.hash": {
+      "count": 203,
+      "max_ms": 97.771028
+    },
+    "asset.prepare.open": {
+      "count": 59,
+      "max_ms": 193.223291
+    },
+    "asset.prepare.prefetch": {
+      "count": 46,
+      "max_ms": 0.003406
+    },
+    "asset.prepare.publish": {
+      "count": 10,
+      "max_ms": 0.002211
+    },
+    "asset.prepare.read": {
+      "count": 1603,
+      "max_ms": 100.788404
+    },
+    "asset.prepare.read_slice": {
+      "count": 1603,
+      "max_ms": 24.533012
+    },
+    "asset.prepare.select": {
+      "count": 46,
+      "max_ms": 138.341788
+    },
+    "asset.prepare.step": {
+      "count": 1801,
+      "max_ms": 5983.356898
+    },
+    "asset.prepare.verify": {
+      "count": 151,
+      "max_ms": 5983.34469
+    },
+    "asset.verify.hash": {
+      "count": 194,
+      "max_ms": 77.123412
+    },
+    "asset.verify.open": {
+      "count": 54,
+      "max_ms": 5910.882231
+    },
+    "asset.verify.read_next": {
+      "count": 194,
+      "max_ms": 86.795398
+    },
+    "scene.advance": {
+      "count": 7636,
+      "max_ms": 5.947174
+    },
+    "task.complete": {
+      "count": 2765,
+      "max_ms": 0.45013
+    },
+    "task.execute": {
+      "count": 2765,
+      "max_ms": 5983.369353
+    },
+    "task.receive": {
+      "count": 2763,
+      "max_ms": 0.286267
+    },
+    "task.submit": {
+      "count": 2765,
+      "max_ms": 0.361205
+    }
+  },
+  "calls": [
+    {
+      "name": "asset.io.create_file",
+      "count": 113,
+      "valid_counters": 113,
+      "slowest": {
+        "name": "asset.io.create_file",
+        "start_ns": 10483543678,
+        "duration_ns": 158036934,
+        "thread": 2,
+        "text": "os_tid=104328 cpu_100ns=0 cycles=655868",
+        "path": "textures/image-5-linear.gneiss-texture",
+        "counters": {
+          "os_tid": 104328,
+          "cpu_100ns": 0,
+          "cycles": 655868
+        },
+        "loops_during_call": 16
+      },
+      "fastest": {
+        "name": "asset.io.create_file",
+        "start_ns": 43929880120,
+        "duration_ns": 62729,
+        "thread": 2,
+        "text": "os_tid=104328 cpu_100ns=0 cycles=214286",
+        "path": "textures/image-40.gneiss-texture",
+        "counters": {
+          "os_tid": 104328,
+          "cpu_100ns": 0,
+          "cycles": 214286
+        }
+      }
+    },
+    {
+      "name": "asset.fs.canonical_call",
+      "count": 113,
+      "valid_counters": 113,
+      "slowest": {
+        "name": "asset.fs.canonical_call",
+        "start_ns": 58335652234,
+        "duration_ns": 5910354550,
+        "thread": 2,
+        "text": "os_tid=104328 cpu_100ns=0 cycles=726970",
+        "path": "textures/image-45-normal.gneiss-texture",
+        "counters": {
+          "os_tid": 104328,
+          "cpu_100ns": 0,
+          "cycles": 726970
+        },
+        "loops_during_call": 215
+      },
+      "fastest": {
+        "name": "asset.fs.canonical_call",
+        "start_ns": 43929510074,
+        "duration_ns": 118209,
+        "thread": 2,
+        "text": "os_tid=104328 cpu_100ns=0 cycles=414026",
+        "path": "textures/image-40.gneiss-texture",
+        "counters": {
+          "os_tid": 104328,
+          "cpu_100ns": 0,
+          "cycles": 414026
+        }
+      }
+    }
+  ],
+  "sha256": {
+    "full.tracy": "98244dd44ead40b0683a10fc3a8e48af7b6bfea3ea5d72f484be21be29b27211",
+    "zones.csv": "46c54a7fbbcb8deb6fe8d264f31580874f6bea7dc41b9b44606f4b7b4551d6da",
+    "run.json": "ba968420bc39f82c556a58ac65c06c913df488185581fc973815c2150513fa42",
+    "result.json": "23ca00da93ea8aa822c9f48b820b39d25756e547bc2d40fbdcae196f26e58634"
+  },
+  "limits": [
+    "CPU 时间记账粗，零增量不表示完全没有执行；周期不换算成时间。",
+    "Tracy 区域含计数查询和观测开销，不能区分 I/O、缺页、锁与系统抢占。",
+    "场景未激活，未到达原始主线程超标的后续阶段。"
+  ]
+}
