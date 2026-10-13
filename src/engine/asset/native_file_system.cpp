@@ -4,6 +4,9 @@
 #include "engine/asset/native_file_system.hpp"
 
 #include "engine/asset/asset_uri.hpp"
+#ifdef GNEISS_ASSET_LIBUV
+#include "engine/platform/io/uv/uv_file_reader.hpp"
+#endif
 #include "engine/core/diagnostics/profiling.hpp"
 
 #include <algorithm>
@@ -465,6 +468,28 @@ gneiss_result native_file_system::read_bounded(std::string_view path, std::size_
     if (error || relative.empty() || relative.is_absolute() || *relative.begin() == "..") {
       return GNEISS_ERROR_INVALID_ARGUMENT;
     }
+#ifdef GNEISS_ASSET_LIBUV
+    const auto utf8_path = candidate.u8string();
+    std::unique_ptr<io_internal::uv_file_reader> reader;
+    const auto opened =
+        io_internal::uv_file_reader::open(std::string(utf8_path.begin(), utf8_path.end()), reader);
+    if (opened != result::success) {
+      return opened.native();
+    }
+    const auto size = reader->size();
+    if (size > limit || size > std::numeric_limits<std::size_t>::max()) {
+      return GNEISS_ERROR_INVALID_ARGUMENT;
+    }
+    std::vector<std::byte> bytes(static_cast<std::size_t>(size));
+    const auto read = reader->read_at(0U, bytes);
+    if (read != result::success) {
+      return read.native();
+    }
+    std::uint64_t final_size{};
+    if (reader->current_size(final_size) != result::success || final_size != size) {
+      return GNEISS_ERROR_IO;
+    }
+#else
     std::ifstream stream(candidate, std::ios::binary);
     if (!stream) {
       return GNEISS_ERROR_IO;
@@ -482,6 +507,7 @@ gneiss_result native_file_system::read_bounded(std::string_view path, std::size_
         stream.peek() != std::char_traits<char>::eof()) {
       return GNEISS_ERROR_IO;
     }
+#endif
     out_bytes = std::move(bytes);
     return GNEISS_SUCCESS;
   } catch (const std::bad_alloc&) {

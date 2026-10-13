@@ -1198,3 +1198,8 @@ target_compile_features(gneiss_native_property_access_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_native_property_access_test)
 gneiss_target_output_directories(gneiss_native_property_access_test)
 add_test(NAME gneiss.native-property-access COMMAND gneiss_native_property_access_test)
+
+if(COMMAND gneiss_enable_asset_libuv)
+  gneiss_enable_asset_libuv(gneiss_read_source_test)
+  gneiss_enable_asset_libuv(gneiss_resource_service_test)
+endif()

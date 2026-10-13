@@ -10,6 +10,7 @@ project(
   LANGUAGES C CXX
 )
 
+option(GNEISS_TASK_THREADS "启用任务工作线程后端" ON)
 option(BUILD_SHARED_LIBS "构建共享库" ON)
 option(GNEISS_BUILD_TESTING "构建 Gneiss 测试" ON)
 option(GNEISS_BUILD_EXAMPLES "构建 Gneiss 示例" ${PROJECT_IS_TOP_LEVEL})
@@ -40,7 +41,7 @@ endif()
 include(CTest)
 
 add_subdirectory(3rd)
-if(GNEISS_BUILD_EDITOR OR GNEISS_BUILD_RUNTIME)
+if(GNEISS_BUILD_EDITOR OR GNEISS_BUILD_RUNTIME OR (GNEISS_TASK_THREADS AND NOT EMSCRIPTEN))
   include(libuv)
   gneiss_resolve_libuv()
 endif()
