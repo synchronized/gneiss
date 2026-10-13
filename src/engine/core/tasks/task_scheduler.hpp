@@ -113,6 +113,8 @@ class task_executor {
 public:
   using task_function = std::function<task_outcome(const task_context&)>;
   virtual ~task_executor() = default;
+  /** 未声明线程能力的自定义执行器默认按协作模式处理。 */
+  [[nodiscard]] virtual execution_mode mode() const noexcept { return execution_mode::cooperative; }
   [[nodiscard]] virtual task_scope make_scope() = 0;
   [[nodiscard]] virtual submit_result submit(task_description description, task_function function,
                                              task_handle& output) = 0;
@@ -147,7 +149,7 @@ public:
                    std::size_t budget = 64U) override;
   [[nodiscard]] bool query(task_handle task, task_completion& output) const;
   [[nodiscard]] scheduler_stats stats() const;
-  [[nodiscard]] execution_mode mode() const noexcept;
+  [[nodiscard]] execution_mode mode() const noexcept override;
   /// 仅协作模式所属宿主线程调用，不允许嵌套驱动任何调度器。
   [[nodiscard]] drive_result run_ready(drive_budget budget = {});
   void request_stop();

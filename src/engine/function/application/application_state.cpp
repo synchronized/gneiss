@@ -9,6 +9,11 @@
 #include "engine/function/application/application_log_sink.hpp"
 
 #include "engine/asset/native_file_system.hpp"
+#ifdef GNEISS_ASSET_LIBUV
+#include "engine/platform/io/uv/uv_async_file.hpp"
+#include "engine/platform/io/uv/uv_loop_executor.hpp"
+#include "engine/platform/io/uv/uv_path_resolver.hpp"
+#endif
 #include "engine/core/diagnostics/loop_timing.hpp"
 #include "engine/function/world/render_snapshot.hpp"
 
@@ -103,6 +108,20 @@ gneiss_result application_state::attach_task_executor(tasks::task_executor& exec
     return GNEISS_ERROR_INVALID_STATE;
   }
   try {
+#ifdef GNEISS_ASSET_LIBUV
+    if (native_assets_ && !asset_io_executor_ &&
+        executor.mode() == tasks::execution_mode::thread_pool) {
+      auto loop = std::make_unique<io_internal::uv_loop_executor>();
+      auto files = std::make_shared<io_internal::uv_file_io>(*loop);
+      auto paths = std::make_shared<io_internal::uv_path_resolver>(*loop);
+      const auto started = loop->start();
+      if (started != result::success) {
+        return started.native();
+      }
+      native_assets_->set_async_io(std::move(files), std::move(paths));
+      asset_io_executor_ = std::move(loop);
+    }
+#endif
     render_internal::texture_upload_backend backend;
 #ifdef GNEISS_HAS_GRANIT_PLATFORM
     if (granit_render_service_) {
@@ -216,6 +235,9 @@ gneiss_result application_state::initialize() noexcept {
     }
     auto mount_result = native_file_system->initialize(config_.asset_root);
     if (mount_result == GNEISS_SUCCESS) {
+#ifdef GNEISS_ASSET_LIBUV
+      native_assets_ = native_file_system;
+#endif
       mount_result = asset_file_system_.mount("asset://", std::move(native_file_system));
     }
     if (mount_result != GNEISS_SUCCESS) {
@@ -694,6 +716,12 @@ gneiss_result application_state::shutdown(gneiss_application handle) noexcept {
   ui_draw_list_.clear();
   debug_draw_list_.clear();
   active_scene_.reset();
+#ifdef GNEISS_ASSET_LIBUV
+  if (native_assets_) {
+    native_assets_->set_async_io({}, {});
+  }
+  asset_io_executor_.reset();
+#endif
   if (platform_initialized_) {
     if (config_.callbacks.shutdown != nullptr) {
       config_.callbacks.shutdown(config_.callbacks.user_data);

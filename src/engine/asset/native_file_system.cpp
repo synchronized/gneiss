@@ -5,7 +5,9 @@
 
 #include "engine/asset/asset_uri.hpp"
 #ifdef GNEISS_ASSET_LIBUV
+#include "engine/platform/io/uv/uv_async_file.hpp"
 #include "engine/platform/io/uv/uv_file_reader.hpp"
+#include "engine/platform/io/uv/uv_path_resolver.hpp"
 #endif
 #include "engine/core/diagnostics/profiling.hpp"
 
@@ -332,6 +334,135 @@ private:
 } // namespace
 
 namespace gneiss::asset_internal {
+
+#ifdef GNEISS_ASSET_LIBUV
+namespace {
+class uv_asset_read final : public read_operation {
+public:
+  std::unique_ptr<io_internal::uv_file_read_operation> operation;
+  gneiss_result poll(std::span<const std::byte>& output) noexcept override {
+    return operation->poll(output).native();
+  }
+  gneiss_result wait_for(std::chrono::milliseconds timeout,
+                         std::span<const std::byte>& output) noexcept override {
+    return operation->wait_for(timeout, output).native();
+  }
+};
+class uv_asset_source final : public read_source {
+public:
+  std::shared_ptr<io_internal::uv_async_file> source;
+  [[nodiscard]] std::uint64_t size() const noexcept override { return source->size(); }
+  [[nodiscard]] gneiss_result read_at(std::uint64_t offset,
+                                      std::span<std::byte> output) const noexcept override {
+    return source->read_at(offset, output).native();
+  }
+  gneiss_result begin_read(std::uint64_t offset, std::size_t count,
+                           std::unique_ptr<read_operation>& output) const noexcept override {
+    output.reset();
+    try {
+      auto next = std::make_unique<uv_asset_read>();
+      const auto started = source->begin_read(offset, count, next->operation);
+      if (started == result::success) {
+        output = std::move(next);
+      }
+      return started.native();
+    } catch (...) {
+      return GNEISS_ERROR_OUT_OF_MEMORY;
+    }
+  }
+};
+class uv_asset_open final : public open_read_operation {
+public:
+  std::unique_ptr<io_internal::uv_path_operation> resolving;
+  std::shared_ptr<io_internal::uv_file_io> files;
+  std::filesystem::path root;
+  std::string candidate;
+  std::unique_ptr<io_internal::uv_file_open_operation> opening;
+  gneiss_result status = GNEISS_ERROR_NOT_READY;
+  bool delivered{};
+  gneiss_result poll(std::unique_ptr<read_source>& output) noexcept override {
+    output.reset();
+    if (delivered) {
+      return GNEISS_ERROR_INVALID_STATE;
+    }
+    if (status != GNEISS_ERROR_NOT_READY) {
+      return status;
+    }
+    try {
+      if (resolving) {
+        const auto resolved = resolving->poll(candidate);
+        if (resolved == result::not_ready) {
+          return GNEISS_ERROR_NOT_READY;
+        }
+        resolving.reset();
+        if (resolved != result::success) {
+          return status = resolved.native();
+        }
+        // 两端已规范化，此处仅做词法隔离检查，不再次触发文件系统查询。
+        const auto relative = path_from_utf8(candidate).lexically_relative(root);
+        if (relative.empty() || relative.is_absolute() || *relative.begin() == "..") {
+          return status = GNEISS_ERROR_INVALID_ARGUMENT;
+        }
+      }
+      if (!opening) {
+        const auto submitted = files->begin_open(candidate, opening);
+        if (submitted != result::success) {
+          return status = submitted.native();
+        }
+      }
+      auto source = std::make_unique<uv_asset_source>();
+      const auto received = opening->poll(source->source);
+      if (received != result::success) {
+        return status = received.native();
+      }
+      opening.reset();
+      delivered = true;
+      output = std::move(source);
+      return GNEISS_SUCCESS;
+    } catch (const std::bad_alloc&) {
+      return status = GNEISS_ERROR_OUT_OF_MEMORY;
+    } catch (...) {
+      return status = GNEISS_ERROR_INTERNAL;
+    }
+  }
+};
+} // namespace
+void native_file_system::set_async_io(
+    std::shared_ptr<io_internal::uv_file_io> files,
+    std::shared_ptr<io_internal::uv_path_resolver> paths) noexcept {
+  async_files_ = std::move(files);
+  async_paths_ = std::move(paths);
+}
+gneiss_result native_file_system::begin_open_read_for_validation(
+    std::string_view path, std::unique_ptr<open_read_operation>& output) const noexcept {
+  output.reset();
+  if (!async_files_ || !async_paths_) {
+    return GNEISS_ERROR_UNSUPPORTED;
+  }
+  if (root_.empty()) {
+    return GNEISS_ERROR_INVALID_STATE;
+  }
+  try {
+    if (validate_uri("asset://" + std::string(path)) != GNEISS_SUCCESS) {
+      return GNEISS_ERROR_INVALID_ARGUMENT;
+    }
+    auto operation = std::make_unique<uv_asset_open>();
+    operation->files = async_files_;
+    operation->root = root_;
+    const auto absolute = (root_ / path_from_utf8(path)).u8string();
+    const auto submitted =
+        async_paths_->begin(std::string(absolute.begin(), absolute.end()), operation->resolving);
+    if (submitted == result::success) {
+      output = std::move(operation);
+    }
+    return submitted.native();
+  } catch (const std::bad_alloc&) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+#endif
 
 gneiss_result native_file_system::open_read(std::string_view path,
                                             std::unique_ptr<read_source>& output) const noexcept {

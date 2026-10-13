@@ -4,6 +4,11 @@
 #include "engine/asset/native_file_system.hpp"
 #include "engine/asset/read_slice.hpp"
 #include "engine/asset/virtual_file_system.hpp"
+#ifdef GNEISS_ASSET_LIBUV
+#include "engine/platform/io/uv/uv_async_file.hpp"
+#include "engine/platform/io/uv/uv_loop_executor.hpp"
+#include "engine/platform/io/uv/uv_path_resolver.hpp"
+#endif
 
 #include <array>
 #include <chrono>
@@ -285,9 +290,58 @@ void run() {
   check(source->read_at(0U, std::span{bytes}.first(1)) == GNEISS_SUCCESS &&
         bytes[0] == std::byte{'a'});
 }
+#ifdef GNEISS_ASSET_LIBUV
+void libuv_native_reads() {
+  temporary_directory directory;
+  {
+    std::ofstream stream(directory.path / "data");
+    stream << "abcdefgh";
+  }
+  gneiss::io_internal::uv_loop_executor executor;
+  check(executor.start() == gneiss::result::success);
+  auto io = std::make_shared<gneiss::io_internal::uv_file_io>(executor);
+  auto paths = std::make_shared<gneiss::io_internal::uv_path_resolver>(executor);
+  std::unique_ptr<open_read_operation> pending;
+  {
+    auto backend = std::make_shared<native_file_system>();
+    check(backend->initialize(directory.path.string()) == GNEISS_SUCCESS);
+    backend->set_async_io(io, paths);
+    virtual_file_system files;
+    check(files.mount("asset://", backend) == GNEISS_SUCCESS);
+    check(files.begin_open_read_for_validation("asset://../data", pending) ==
+          GNEISS_ERROR_INVALID_ARGUMENT);
+    check(files.begin_open_read_for_validation("asset://data", pending) == GNEISS_SUCCESS);
+  }
+  // VFS 及后端销毁后，打开请求与读取来源仍有效。
+  std::unique_ptr<read_source> source;
+  const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+  auto status = GNEISS_ERROR_NOT_READY;
+  while (status == GNEISS_ERROR_NOT_READY && std::chrono::steady_clock::now() < deadline) {
+    status = pending->poll(source);
+    if (status == GNEISS_ERROR_NOT_READY) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+  }
+  check(status == GNEISS_SUCCESS && source && source->size() == 8U);
+  pending.reset();
+  std::array<std::byte, 3> copied{};
+  check(source->read_at(2U, copied) == GNEISS_SUCCESS && copied.front() == std::byte{'c'});
+  std::unique_ptr<read_operation> reading;
+  check(source->begin_read(5U, 3U, reading) == GNEISS_SUCCESS);
+  source.reset();
+  std::span<const std::byte> bytes;
+  check(reading->wait_for(std::chrono::seconds(5), bytes) == GNEISS_SUCCESS && bytes.size() == 3U &&
+        bytes.front() == std::byte{'f'} && bytes.back() == std::byte{'h'});
+  reading.reset();
+  check(executor.stop() == gneiss::result::success);
+}
+#endif
 } // namespace
 
 int main() try {
+#ifdef GNEISS_ASSET_LIBUV
+  libuv_native_reads();
+#endif
   deferred_reads();
 #ifdef _WIN32
   native_deferred_reads();
