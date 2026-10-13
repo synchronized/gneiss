@@ -81,6 +81,8 @@
 - [UPSTREAM-050：窗口事件等待与跨线程唤醒](plans/UPSTREAM-050-granit-window-wait.md)
 - [VER-050：0.50.0 后台加载主线程延迟](plans/VER-050-0.50.0-main-loop-latency.md)
 - [DEV-050：后台加载主线程延迟开发计划](plans/DEV-050-main-loop-latency.md)
+- [VER-051：0.51.0 大型场景视口性能](plans/VER-051-0.51.0-editor-render-performance.md)
+- [DEV-051：大型场景视口性能开发计划](plans/DEV-051-editor-render-performance.md)
 - [VER-049：0.49.0 大场景加载响应性与生命周期稳定性](plans/VER-049-0.49.0-loading-stability.md)
 - [DEV-049：大场景加载响应性与生命周期稳定性开发计划](plans/DEV-049-loading-stability.md)
 
