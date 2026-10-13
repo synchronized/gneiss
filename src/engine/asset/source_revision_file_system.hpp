@@ -41,6 +41,8 @@ public:
     explicit verification(std::unique_ptr<state> value);
     std::unique_ptr<state> state_;
   };
+  [[nodiscard]] gneiss_result begin_open_read_for_validation(
+      std::string_view path, std::unique_ptr<open_read_operation>& output) const noexcept override;
   explicit source_revision_file_system(virtual_file_system source,
                                        std::function<bool()> cancelled = {})
       : source_(std::move(source)), cancelled_(std::move(cancelled)) {}

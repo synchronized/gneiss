@@ -83,6 +83,152 @@ struct range_files final : file_system {
   }
 };
 
+struct opening_state {
+  std::shared_ptr<range_state> contents = std::make_shared<range_state>();
+  bool ready{};
+  bool fail{};
+  unsigned live{};
+  unsigned synchronous_reads{};
+  gneiss_result error{GNEISS_ERROR_IO};
+  std::string path;
+};
+struct opening_files final : file_system {
+  std::shared_ptr<opening_state> state = std::make_shared<opening_state>();
+  gneiss_result read(std::string_view, std::vector<std::byte>&) const noexcept override {
+    ++state->synchronous_reads;
+    return GNEISS_ERROR_UNSUPPORTED;
+  }
+  gneiss_result begin_open_read_for_validation(
+      std::string_view path, std::unique_ptr<open_read_operation>& output) const noexcept override {
+    output.reset();
+    try {
+      class request final : public open_read_operation {
+      public:
+        explicit request(std::shared_ptr<opening_state> state) : state_(std::move(state)) {
+          ++state_->live;
+        }
+        ~request() override { --state_->live; }
+        gneiss_result poll(std::unique_ptr<read_source>& source) noexcept override {
+          source.reset();
+          if (taken_) {
+            return GNEISS_ERROR_INVALID_STATE;
+          }
+          if (!state_->ready) {
+            return GNEISS_ERROR_NOT_READY;
+          }
+          if (state_->fail) {
+            return state_->error;
+          }
+          try {
+            source = std::make_unique<memory_source>(state_->contents);
+            taken_ = true;
+            return GNEISS_SUCCESS;
+          } catch (...) {
+            return GNEISS_ERROR_OUT_OF_MEMORY;
+          }
+        }
+
+      private:
+        std::shared_ptr<opening_state> state_;
+        bool taken_{};
+      };
+      state->path = path;
+      output = std::make_unique<request>(state);
+      return GNEISS_SUCCESS;
+    } catch (...) {
+      return GNEISS_ERROR_OUT_OF_MEMORY;
+    }
+  }
+};
+
+void run_async_open() {
+  auto backend = std::make_shared<opening_files>();
+  const auto state = backend->state;
+  std::unique_ptr<open_read_operation> request;
+  std::unique_ptr<open_read_operation> conflict;
+  std::unique_ptr<open_read_operation> failure;
+  std::unique_ptr<read_source> source;
+  {
+    virtual_file_system files;
+    check(files.begin_open_read_for_validation("asset://missing", request) ==
+          GNEISS_ERROR_NOT_FOUND);
+    check(files.mount("asset://", std::make_shared<range_files>()) == GNEISS_SUCCESS);
+    check(files.begin_open_read_for_validation("asset://legacy", request) ==
+          GNEISS_ERROR_UNSUPPORTED);
+    check(files.mount("asset://nested/", backend) == GNEISS_SUCCESS);
+    source_revision_file_system tracked(files);
+    check(tracked.begin_open_read_for_validation("nested/file", request) == GNEISS_SUCCESS);
+    check(state->path == "file" && state->contents->reads == 0U && tracked.source_count() == 0U);
+    check(request->poll(source) == GNEISS_ERROR_NOT_READY && !source);
+    check(tracked.begin_open_read_for_validation("nested/file", conflict) == GNEISS_SUCCESS);
+    check(tracked.begin_open_read_for_validation("nested/error", failure) == GNEISS_SUCCESS);
+    std::unique_ptr<open_read_operation> discarded;
+    check(tracked.begin_open_read_for_validation("nested/abandoned", discarded) == GNEISS_SUCCESS);
+    discarded.reset();
+    check(state->live == 3U);
+    check(files.begin_open_read_for_validation("asset://../invalid", discarded) ==
+          GNEISS_ERROR_INVALID_ARGUMENT);
+  }
+  backend.reset();
+  // 请求不借用已销毁的包装或挂载表；取得来源后仍共享原版本账本。
+  state->ready = true;
+  check(request->poll(source) == GNEISS_SUCCESS && source && state->live == 2U);
+  check(state->contents->reads == 0U);
+  const auto digest = gneiss::core::sha256(state->contents->bytes);
+  check(source->complete_validation(digest) == GNEISS_SUCCESS);
+  std::unique_ptr<read_source> second;
+  check(conflict->poll(second) == GNEISS_SUCCESS && second);
+  auto changed = digest;
+  changed[0] ^= std::byte{1};
+  check(second->complete_validation(changed) == GNEISS_ERROR_INVALID_STATE);
+  check(request->poll(second) == GNEISS_ERROR_INVALID_STATE && !second);
+  state->fail = true;
+  check(failure->poll(second) == GNEISS_ERROR_IO && !second);
+  state->fail = false;
+  check(failure->poll(second) == GNEISS_ERROR_IO && !second);
+  failure.reset();
+  check(state->live == 0U);
+}
+
+void run_async_verification() {
+  auto backend = std::make_shared<opening_files>();
+  auto state = backend->state;
+  virtual_file_system files;
+  check(files.mount("asset://", backend) == GNEISS_SUCCESS);
+  source_revision_file_system tracked(files);
+  std::unique_ptr<open_read_operation> opened;
+  std::unique_ptr<read_source> source;
+  check(tracked.begin_open_read_for_validation("item", opened) == GNEISS_SUCCESS);
+  state->ready = true;
+  check(opened->poll(source) == GNEISS_SUCCESS);
+  check(source->complete_validation(gneiss::core::sha256(state->contents->bytes)) ==
+        GNEISS_SUCCESS);
+  source.reset();
+  state->ready = false;
+  std::unique_ptr<source_revision_file_system::verification> cursor;
+  check(tracked.begin_verification(cursor) == GNEISS_SUCCESS);
+  bool complete = true;
+  check(cursor->advance(65536U, {}, complete) == GNEISS_SUCCESS && !complete);
+  check(cursor->advance(65536U, {}, complete) == GNEISS_SUCCESS && !complete);
+  check(state->live == 1U && state->contents->reads == 0U);
+  check(cursor->advance(65536U, [] { return true; }, complete) == GNEISS_ERROR_INVALID_STATE);
+  check(state->live == 0U);
+  state->ready = true; // 已取消请求不能在迟到后继续登记或读取。
+  check(cursor->advance(65536U, {}, complete) == GNEISS_ERROR_INVALID_STATE && !complete);
+  check(state->contents->reads == 0U);
+  check(tracked.begin_verification(cursor) == GNEISS_SUCCESS);
+  for (unsigned i = 0; i < 8U && !complete; ++i) {
+    check(cursor->advance(65536U, {}, complete) == GNEISS_SUCCESS);
+  }
+  check(complete && cursor->completed_sources() == 1U && state->live == 0U);
+  state->fail = true;
+  state->error = GNEISS_ERROR_UNSUPPORTED;
+  check(tracked.begin_verification(cursor) == GNEISS_SUCCESS);
+  check(cursor->advance(65536U, {}, complete) == GNEISS_ERROR_INVALID_STATE && !complete);
+  // 已接受请求的失败不能偷偷转为同步整文件读取。
+  check(state->synchronous_reads == 0U && state->live == 0U);
+}
+
 void run_ranges() {
   auto backend = std::make_shared<range_files>();
   virtual_file_system vfs;
@@ -235,6 +381,8 @@ int main() {
   try {
     run();
     run_ranges();
+    run_async_open();
+    run_async_verification();
     run_incremental();
     run_deferred_validation();
     return 0;

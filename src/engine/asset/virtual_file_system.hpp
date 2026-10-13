@@ -19,6 +19,9 @@ public:
   [[nodiscard]] gneiss_result
   open_read_for_validation(std::string_view uri,
                            std::unique_ptr<read_source>& output) const noexcept;
+  [[nodiscard]] gneiss_result
+  begin_open_read_for_validation(std::string_view uri,
+                                 std::unique_ptr<open_read_operation>& output) const noexcept;
   [[nodiscard]] gneiss_result mount(std::string_view mount_point,
                                     std::shared_ptr<file_system> backend) noexcept;
   [[nodiscard]] gneiss_result read(std::string_view uri,

@@ -70,4 +70,18 @@ protected:
   read_source() = default;
 };
 
+/** 可轮询的打开请求；提交不得同步执行路径查询或打开。
+ * poll 只接收结果，不执行 I/O；NOT_READY 时输出为空，成功仅转移一次来源所有权。
+ * 请求独立于 VFS 生命周期；销毁放弃接收，后端须保留在途资源至完成，不等待 I/O。 */
+class open_read_operation {
+public:
+  virtual ~open_read_operation() = default;
+  open_read_operation(const open_read_operation&) = delete;
+  open_read_operation& operator=(const open_read_operation&) = delete;
+  [[nodiscard]] virtual gneiss_result poll(std::unique_ptr<read_source>& output) noexcept = 0;
+
+protected:
+  open_read_operation() = default;
+};
+
 } // namespace gneiss::asset_internal
