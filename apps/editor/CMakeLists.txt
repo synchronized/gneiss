@@ -5,6 +5,8 @@ add_library(
   gneiss_editor_host STATIC
   runtime_log_adapter.hpp
   editor_project.hpp
+  editor_scene_loader.cpp
+  editor_scene_loader.hpp
   ipc/editor_ipc_event.hpp
   ipc/editor_ipc_router.cpp
   ipc/editor_ipc_router.hpp
@@ -46,6 +48,7 @@ target_include_directories(
   PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/ipc"
   PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/ipc/inbound"
           "${CMAKE_CURRENT_SOURCE_DIR}/ipc/outbound"
+  PUBLIC "${PROJECT_SOURCE_DIR}/src"
 )
 target_compile_features(gneiss_editor_host PUBLIC cxx_std_20)
 target_compile_definitions(
@@ -71,7 +74,7 @@ add_executable(
 )
 target_link_libraries(
   gneiss_editor
-  PRIVATE gneiss_editor_host gneiss_editor_ui gneiss_child_process
+  PRIVATE gneiss_editor_host gneiss_editor_ui gneiss_child_process gneiss_tasks
 )
 if((WIN32 OR UNIX) AND TARGET gneiss_runtime)
   target_compile_definitions(
@@ -107,6 +110,13 @@ gneiss_target_output_directories(gneiss_project)
 install(TARGETS gneiss_editor gneiss_project RUNTIME DESTINATION bin)
 
 if(BUILD_TESTING)
+  add_executable(gneiss_editor_scene_loader_test tests/editor_scene_loader_test.cpp)
+  target_link_libraries(gneiss_editor_scene_loader_test PRIVATE gneiss_editor_host gneiss_tasks)
+  target_compile_definitions(gneiss_editor_scene_loader_test PRIVATE
+    GNEISS_EDITOR_TEST_ASSET_ROOT="${PROJECT_SOURCE_DIR}/tests/data/assets")
+  gneiss_target_compile_warnings(gneiss_editor_scene_loader_test)
+  gneiss_target_output_directories(gneiss_editor_scene_loader_test)
+  add_test(NAME gneiss.editor.scene-loader COMMAND gneiss_editor_scene_loader_test)
   if(WIN32 AND GNEISS_ENABLE_GRANIT_PLATFORM)
     add_executable(gneiss_editor_native_window_interaction_test tests/native_window_interaction_test.cpp)
     target_link_libraries(gneiss_editor_native_window_interaction_test PRIVATE gneiss_editor_ui user32)

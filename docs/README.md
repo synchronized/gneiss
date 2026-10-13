@@ -451,6 +451,8 @@
 - [M-318：后台加载主循环观测](records/M-318-main-loop-observation.md)
 - [M-317：0.49.0 平台与发布验收](records/M-317-0.49.0-release-validation.md)
 
+- [M-323：编辑器异步场景加载接入](records/M-323-editor-async-scene-loading.md)
+
 ## 文档维护
 
 

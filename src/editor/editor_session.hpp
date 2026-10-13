@@ -75,6 +75,9 @@ struct scene_subtree_snapshot final {
 
 class editor_session final {
 public:
+  /** 接收已经激活的场景；成功后拥有句柄，所属线程调用。 */
+  [[nodiscard]] result adopt(gneiss_application application, gneiss_world world,
+                             gneiss_scene_instance scene, std::string_view uri) noexcept;
   [[nodiscard]] result open(gneiss_application application, gneiss_world world,
                             std::string_view uri) noexcept;
   [[nodiscard]] result create_empty(gneiss_application application, gneiss_world world,

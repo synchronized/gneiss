@@ -720,7 +720,6 @@ gneiss_result application_state::shutdown(gneiss_application handle) noexcept {
   if (native_assets_) {
     native_assets_->set_async_io({}, {});
   }
-  asset_io_executor_.reset();
 #endif
   if (platform_initialized_) {
     if (config_.callbacks.shutdown != nullptr) {
@@ -814,6 +813,11 @@ gneiss_result application_state::shutdown(gneiss_application handle) noexcept {
   granit_platform_.reset();
 #else
   (void)handle;
+#endif
+#ifdef GNEISS_ASSET_LIBUV
+  // 渲染镜像/已提交帧仍可能持有纹理容器的文件源。
+  // 必须先释放渲染端最后的快照，再关闭文件执行器；否则 join 等待仍被引用的 uv handle。
+  asset_io_executor_.reset();
 #endif
   return shutdown_result;
 }
