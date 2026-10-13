@@ -453,6 +453,8 @@
 
 - [M-323：编辑器异步场景加载接入](records/M-323-editor-async-scene-loading.md)
 
+- [M-324：Editor 持续渲染与排队延迟](records/M-324-editor-render-latency.md)
+
 ## 文档维护
 
 

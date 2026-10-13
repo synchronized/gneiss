@@ -48,6 +48,7 @@
 
 #include <algorithm>
 #include <array>
+#include <charconv>
 #include <chrono>
 #include <cmath>
 #include <cstdint>
@@ -134,6 +135,9 @@ struct editor_state {
   gneiss::editor::editor_scene_loader scene_loader;
   bool smoke{};
   std::uint32_t smoke_frames{};
+  std::uint32_t smoke_frame_limit{3U};
+  std::uint64_t smoke_presented_start{};
+  std::chrono::steady_clock::time_point smoke_scene_started{};
   std::chrono::steady_clock::time_point smoke_started{std::chrono::steady_clock::now()};
   gneiss::editor::editor_session session;
   gneiss::editor::editor_command_history history;
@@ -283,6 +287,7 @@ void draw_view_axis(const editor_state& state, const ImVec2& minimum, const ImVe
 
 struct launch_options {
   bool smoke = false;
+  std::uint32_t smoke_frames = 3U;
   bool cooperative_tasks = false;
   std::string project;
 };
@@ -291,6 +296,15 @@ bool parse_options(int argc, char** argv, launch_options& options) {
   for (int index = 1; index < argc; ++index) {
     const std::string_view argument = argv[index];
     if (argument == "--smoke") {
+      options.smoke = true;
+    } else if (argument == "--smoke-frames" && index + 1 < argc) {
+      const std::string_view count = argv[++index];
+      const auto parsed =
+          std::from_chars(count.data(), count.data() + count.size(), options.smoke_frames);
+      if (parsed.ec != std::errc{} || parsed.ptr != count.data() + count.size() ||
+          options.smoke_frames == 0U || options.smoke_frames > 100000U) {
+        return false;
+      }
       options.smoke = true;
     } else if (argument == "--cooperative-tasks") {
       options.cooperative_tasks = true;
@@ -1196,6 +1210,56 @@ gneiss_result update_editor_camera(editor_state& state, const gneiss_frame_time&
   return gneiss::to_native(state.camera.update(input));
 }
 
+// 仅冒烟模式采样；显示计数和 GPU 回执来自异步渲染器，不能当作主循环 FPS。
+gneiss_result advance_editor_smoke(editor_state& state, gneiss_application application) {
+  if (!state.smoke) {
+    return GNEISS_SUCCESS;
+  }
+  if (std::chrono::steady_clock::now() - state.smoke_started > std::chrono::minutes{5}) {
+    return GNEISS_ERROR_NOT_READY;
+  }
+  if (state.scene_loader.visible() && !state.scene_loader.active()) {
+    return gneiss::to_native(state.scene_loader.operation());
+  }
+  if (!state.scene_loader.visible()) {
+    ++state.smoke_frames;
+    if (state.smoke_frames == 1U || state.smoke_frames % 120U == 0U ||
+        state.smoke_frames == state.smoke_frame_limit) {
+      gneiss::render_internal::render_queue_stats stats;
+      const auto queried =
+          gneiss::application_internal::query_render_statistics(application, stats);
+      if (queried != GNEISS_SUCCESS) {
+        return queried;
+      }
+      const auto now = std::chrono::steady_clock::now();
+      if (state.smoke_frames == 1U) {
+        state.smoke_scene_started = now;
+        state.smoke_presented_start = stats.presented_frames;
+      }
+      std::fprintf(
+          stdout,
+          "Editor frame sample: frame=%u elapsed_ms=%.3f presented=%llu interval_ms=%.3f "
+          "capture_ms=%.3f queue_ms=%.3f pending=%zu gpu_valid=%u gpu_ms=%.3f "
+          "shadow_ms=%.3f opaque_ms=%.3f tone_ms=%.3f\n",
+          state.smoke_frames,
+          std::chrono::duration<double, std::milli>(now - state.smoke_scene_started).count(),
+          static_cast<unsigned long long>(stats.presented_frames - state.smoke_presented_start),
+          stats.latest_frame_interval_ms, static_cast<double>(stats.latest_frame_capture_ms),
+          static_cast<double>(stats.latest_frame_queue_wait_ms), stats.pending_frames,
+          static_cast<unsigned>(stats.latest_gpu_timing_valid),
+          static_cast<double>(stats.latest_gpu_frame_ms),
+          static_cast<double>(stats.latest_gpu_shadow_ms),
+          static_cast<double>(stats.latest_gpu_opaque_ms),
+          static_cast<double>(stats.latest_gpu_tone_mapping_ms));
+      std::fflush(stdout);
+    }
+    if (state.smoke_frames >= state.smoke_frame_limit) {
+      (void)gneiss_application_request_exit(application);
+    }
+  }
+  return GNEISS_SUCCESS;
+}
+
 void draw_scene_loading(editor_state& state, gneiss_application application) {
   using phase = gneiss::application_internal::scene_load_phase;
   const auto& progress = state.scene_loader.progress();
@@ -1307,16 +1371,9 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
         std::fflush(stdout);
       }
     }
-    if (state.smoke) {
-      if (std::chrono::steady_clock::now() - state.smoke_started > std::chrono::minutes{5}) {
-        return GNEISS_ERROR_NOT_READY;
-      }
-      if (state.scene_loader.visible() && !state.scene_loader.active()) {
-        return gneiss::to_native(state.scene_loader.operation());
-      }
-      if (!state.scene_loader.visible() && ++state.smoke_frames >= 3U) {
-        (void)gneiss_application_request_exit(application);
-      }
+    const auto smoke_result = advance_editor_smoke(state, application);
+    if (smoke_result != GNEISS_SUCCESS) {
+      return smoke_result;
     }
     if (state.scene_loader.visible()) {
       const auto begun = state.ui.begin_frame(application, *time);
@@ -2781,6 +2838,7 @@ int run_editor(int argc, char** argv) {
   editor_state state(options.cooperative_tasks);
   gneiss::application application;
   state.smoke = options.smoke;
+  state.smoke_frame_limit = options.smoke_frames;
   state.asset_root = project.asset_root;
   state.project_root = project.project_root;
 #if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)

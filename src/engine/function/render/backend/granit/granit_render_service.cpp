@@ -941,7 +941,9 @@ granit_render_service::prepare_frame_packet_storage(render_internal::render_fram
   if (completion_result != GNEISS_SUCCESS) {
     return completion_result;
   }
-  out_should_prepare = executor_.query_stats().pending_frames < 3U;
+  // 交互帧只预备一帧：低帧率时积压三份旧相机快照会把输入延迟放大到数百毫秒。
+  // 保留一份等待帧与正在执行的帧重叠；队列满时继续处理输入，空位出现后再捕获最新状态。
+  out_should_prepare = executor_.query_stats().pending_frames < 1U;
   if (!out_should_prepare) {
     executor_.record_skipped_frame_build();
     return GNEISS_SUCCESS;
