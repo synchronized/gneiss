@@ -720,7 +720,10 @@ struct asset_preparation::state {
   std::shared_ptr<prepared_input_files> input;
   std::unique_ptr<read_source> reader;
   read_slice slice;
+  std::unique_ptr<open_read_operation> opening;
+  std::size_t read_limit{};
   struct prefetched_input {
+    std::unique_ptr<open_read_operation> opening;
     std::unique_ptr<read_source> source;
     std::unique_ptr<read_operation> operation;
   };
@@ -753,6 +756,15 @@ struct asset_preparation::state {
         continue;
       }
       prefetched_input ahead;
+      const auto submitted = files.begin_open_read_for_validation(requested.uri, ahead.opening);
+      if (submitted == GNEISS_SUCCESS && ahead.opening) {
+        prefetched.emplace(requested.uri, std::move(ahead));
+        continue;
+      }
+      if (submitted != GNEISS_ERROR_UNSUPPORTED) {
+        // 预取失败留给正式读取报告；已接受的请求不回退同步打开。
+        continue;
+      }
       if (files.open_read_for_validation(requested.uri, ahead.source) != GNEISS_SUCCESS ||
           ahead.source->size() > std::size_t{1024U} * 1024U ||
           ahead.source->size() > maximum_bytes) {
@@ -773,6 +785,8 @@ struct asset_preparation::state {
     GNEISS_PROFILE_SCOPE("asset.prepare.open");
     slice = {};
     reader.reset();
+    opening.reset();
+    read_limit = limit;
     bytes = {};
     digest = {};
     offset = 0U;
@@ -781,8 +795,22 @@ struct asset_preparation::state {
     auto opened = GNEISS_SUCCESS;
     const auto found = prefetched.find(std::string(uri));
     if (found == prefetched.end()) {
+      if (deferred_reads) {
+        opened = files.begin_open_read_for_validation(uri, opening);
+        if (opened == GNEISS_SUCCESS) {
+          return opening ? GNEISS_SUCCESS : GNEISS_ERROR_INTERNAL;
+        }
+        if (opened != GNEISS_ERROR_UNSUPPORTED) {
+          return opened;
+        }
+      }
       opened = files.open_read_for_validation(uri, reader);
     } else {
+      opening = std::move(found->second.opening);
+      if (opening) {
+        prefetched.erase(found);
+        return GNEISS_SUCCESS;
+      }
       reader = std::move(found->second.source);
       slice.prime(std::move(found->second.operation),
                   {.offset = 0U, .size = static_cast<std::size_t>(reader->size())});
@@ -797,8 +825,14 @@ struct asset_preparation::state {
     if (opened != GNEISS_SUCCESS) {
       return opened;
     }
+    return allocate_read_buffer();
+  }
+  gneiss_result allocate_read_buffer() {
+    if (!reader) {
+      return GNEISS_ERROR_INTERNAL;
+    }
     if (retain) {
-      if (reader->size() > limit) {
+      if (reader->size() > read_limit) {
         return GNEISS_ERROR_INVALID_ARGUMENT;
       }
       bytes.resize(static_cast<std::size_t>(reader->size()));
@@ -809,6 +843,21 @@ struct asset_preparation::state {
     GNEISS_PROFILE_SCOPE("asset.prepare.read");
     if (read_complete) {
       return GNEISS_SUCCESS;
+    }
+    if (opening) {
+      const auto opened = opening->poll(reader);
+      if (opened == GNEISS_ERROR_NOT_READY) {
+        budget = 0U;
+        return GNEISS_SUCCESS;
+      }
+      opening.reset();
+      if (opened != GNEISS_SUCCESS) {
+        return opened;
+      }
+      const auto allocated = allocate_read_buffer();
+      if (allocated != GNEISS_SUCCESS) {
+        return allocated;
+      }
     }
     while (offset < reader->size() && budget != 0U) {
       if (cancelled && cancelled()) {
@@ -1060,6 +1109,7 @@ gneiss_result asset_preparation::advance(std::size_t byte_budget,
     value.batch = {};
     value.current = {};
     value.input.reset();
+    value.opening.reset();
     value.reader.reset();
     value.slice = {};
     value.prefetched.clear();

@@ -70,6 +70,9 @@ struct range_data {
   std::size_t read_bytes{};
   bool fail{};
   bool deferred{};
+  bool deferred_open{};
+  unsigned live_opens{};
+  unsigned synchronous_opens{};
   bool ready{};
   unsigned live_reads{};
   unsigned maximum_live_reads{};
@@ -151,9 +154,51 @@ public:
     return GNEISS_ERROR_UNSUPPORTED;
   }
   gneiss_result
+  begin_open_read_for_validation(std::string_view /*path*/,
+                                 std::unique_ptr<gneiss::asset_internal::open_read_operation>&
+                                     output) const noexcept override {
+    output.reset();
+    if (!data->deferred_open) {
+      return GNEISS_ERROR_UNSUPPORTED;
+    }
+    class operation final : public gneiss::asset_internal::open_read_operation {
+    public:
+      explicit operation(std::shared_ptr<range_data> data) : data_(std::move(data)) {
+        ++data_->live_opens;
+      }
+      ~operation() override { --data_->live_opens; }
+      gneiss_result
+      poll(std::unique_ptr<gneiss::asset_internal::read_source>& output) noexcept override {
+        output.reset();
+        if (!data_->ready) {
+          return GNEISS_ERROR_NOT_READY;
+        }
+        if (data_->fail) {
+          return GNEISS_ERROR_IO;
+        }
+        try {
+          output = std::make_unique<range_reader>(data_);
+          return GNEISS_SUCCESS;
+        } catch (...) {
+          return GNEISS_ERROR_OUT_OF_MEMORY;
+        }
+      }
+
+    private:
+      std::shared_ptr<range_data> data_;
+    };
+    try {
+      output = std::make_unique<operation>(data);
+      return GNEISS_SUCCESS;
+    } catch (...) {
+      return GNEISS_ERROR_OUT_OF_MEMORY;
+    }
+  }
+  gneiss_result
   open_read(std::string_view /*path*/,
             std::unique_ptr<gneiss::asset_internal::read_source>& output) const noexcept override
       try {
+    ++data->synchronous_opens;
     output = std::make_unique<range_reader>(data);
     return GNEISS_SUCCESS;
   } catch (...) {
@@ -224,7 +269,7 @@ bool incremental_preparation() {
          run_preparation_case(backend, files, requests, {});
 }
 
-bool prefetched_preparation() {
+bool prefetched_preparation(bool deferred_open = false) {
   using namespace gneiss::asset_internal;
   auto backend = std::make_shared<range_files>();
   mesh_source fixture;
@@ -232,6 +277,7 @@ bool prefetched_preparation() {
     return false;
   }
   backend->data->deferred = true;
+  backend->data->deferred_open = deferred_open;
   virtual_file_system files;
   if (files.mount("asset://", backend) != GNEISS_SUCCESS) {
     return false;
@@ -248,13 +294,14 @@ bool prefetched_preparation() {
     asset_preparation preparation(files, requested,
                                   {.maximum_assets = 16U, .maximum_bytes = 65536U}, {});
     if (preparation.advance(65536U, {}, output, diagnostic, complete) != GNEISS_SUCCESS ||
-        complete || backend->data->live_reads != 8U || !output.assets.empty()) {
+        complete || (deferred_open ? backend->data->live_opens : backend->data->live_reads) != 8U ||
+        !output.assets.empty()) {
       return false;
     }
     if (preparation.advance(
             65536U, [] { return true; }, output, diagnostic, complete) !=
             GNEISS_ERROR_INVALID_STATE ||
-        !complete || backend->data->live_reads != 0U) {
+        !complete || backend->data->live_reads != 0U || backend->data->live_opens != 0U) {
       return false;
     }
   }
@@ -269,13 +316,42 @@ bool prefetched_preparation() {
     }
   }
   return complete && output.assets.size() == requested.size() && backend->data->live_reads == 0U &&
-         backend->data->maximum_live_reads <= 9U;
+         backend->data->maximum_live_reads <= 9U && backend->data->live_opens == 0U &&
+         (!deferred_open || backend->data->synchronous_opens == 0U);
+}
+bool deferred_open_failure(bool oversized) {
+  using namespace gneiss::asset_internal;
+  auto backend = std::make_shared<range_files>();
+  backend->data->deferred_open = true;
+  backend->data->bytes.resize(128U);
+  virtual_file_system files;
+  if (files.mount("asset://", backend) != GNEISS_SUCCESS) {
+    return false;
+  }
+  const std::array requests{asset_request{.uri = "asset://mesh", .type = asset_type::mesh}};
+  asset_preparation preparation(files, requests, {.maximum_assets = 1U, .maximum_bytes = 64U}, {});
+  prepared_batch output;
+  asset_diagnostic diagnostic;
+  bool complete{};
+  if (preparation.advance(64U, {}, output, diagnostic, complete) != GNEISS_SUCCESS || complete ||
+      backend->data->read_bytes != 0U || backend->data->live_opens != 1U) {
+    return false;
+  }
+  backend->data->ready = true;
+  backend->data->fail = !oversized;
+  const auto expected = oversized ? GNEISS_ERROR_INVALID_ARGUMENT : GNEISS_ERROR_IO;
+  return preparation.advance(64U, {}, output, diagnostic, complete) == expected && complete &&
+         output.assets.empty() && backend->data->live_opens == 0U &&
+         backend->data->synchronous_opens == 0U && backend->data->read_bytes == 0U;
 }
 int verify_incremental_paths() {
   if (!incremental_preparation()) {
     return 12;
   }
-  return prefetched_preparation() ? 0 : 13;
+  return prefetched_preparation() && prefetched_preparation(true) && deferred_open_failure(false) &&
+                 deferred_open_failure(true)
+             ? 0
+             : 13;
 }
 } // namespace
 
