@@ -148,6 +148,7 @@ jobs:
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
           cmake --build --preset "${{ steps.preset.outputs.name }}"
       - name: 运行无头窗口测试
+        timeout-minutes: 30
         shell: bash
         run: |
           export XDG_RUNTIME_DIR="$RUNNER_TEMP/gneiss-wayland"
@@ -169,22 +170,31 @@ jobs:
             apt-get update && apt-get install -y vulkan-validationlayers
           fi
           test -f /usr/share/vulkan/explicit_layer.d/VkLayer_khronos_validation.json
-          if ! xvfb-run -a ctest --preset "${{ steps.preset.outputs.name }}"; then
+          # 未单独设置 TIMEOUT 的用例也必须有上限；超时仍按失败处理。
+          if ! xvfb-run -a ctest --preset "${{ steps.preset.outputs.name }}" --timeout 180; then
             # 保留测试失败，同时收集像素回归的原生崩溃栈。
             if ! command -v gdb >/dev/null; then
               apt-get update && apt-get install -y gdb
             fi
-            xvfb-run -a gdb --batch -ex run -ex 'thread apply all bt 20' --args \
+            timeout --signal=INT --kill-after=10s 90s xvfb-run -a gdb --batch -ex run -ex 'thread apply all bt 20' --args \
               "build/${{ steps.preset.outputs.name }}/bin/gneiss_asset_pixel_test" || true
             exit 1
           fi
           # 退出成功不代表 Vulkan 使用合法；完整像素回归还必须没有校验错误。
           validation_log="build/${{ steps.preset.outputs.name }}/pbr-validation.log"
-          VK_INSTANCE_LAYERS=VK_LAYER_KHRONOS_validation xvfb-run -a \
+          VK_INSTANCE_LAYERS=VK_LAYER_KHRONOS_validation timeout --kill-after=10s 90s xvfb-run -a \
             "build/${{ steps.preset.outputs.name }}/bin/gneiss_asset_pixel_test" \
             >"$validation_log" 2>&1
           cat "$validation_log"
           ! grep -E 'Validation Error|VUID-' "$validation_log"
+      - name: 保存窗口测试诊断
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: runtime-test-diagnostics-${{ matrix.linkage }}
+          path: |
+            build/${{ steps.preset.outputs.name }}/Testing/Temporary/
+            ${{ runner.temp }}/gneiss-weston.log
       - uses: actions/upload-artifact@v4
         if: always()
         with:
