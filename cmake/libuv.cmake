@@ -33,3 +33,44 @@ function(gneiss_resolve_libuv)
   target_link_libraries(gneiss_libuv INTERFACE uv_a)
   set(GNEISS_LIBUV_SOURCE_DIR "${gneiss_libuv_source_SOURCE_DIR}" PARENT_SCOPE)
 endfunction()
+
+# 核心静态安装包内嵌 libuv 对象，避免向消费者泄漏未安装的第三方目标。
+function(gneiss_enable_asset_libuv target)
+  if(NOT GNEISS_TASK_THREADS OR EMSCRIPTEN)
+    return()
+  endif()
+  if(NOT TARGET gneiss_libuv_objects)
+    get_target_property(uv_source_dir uv_a SOURCE_DIR)
+    get_target_property(uv_source_files uv_a SOURCES)
+    set(uv_absolute_sources)
+    foreach(uv_source IN LISTS uv_source_files)
+      if(IS_ABSOLUTE "${uv_source}")
+        list(APPEND uv_absolute_sources "${uv_source}")
+      else()
+        list(APPEND uv_absolute_sources "${uv_source_dir}/${uv_source}")
+      endif()
+    endforeach()
+    add_library(gneiss_libuv_objects OBJECT EXCLUDE_FROM_ALL ${uv_absolute_sources})
+    target_include_directories(gneiss_libuv_objects PRIVATE
+      $<TARGET_PROPERTY:uv_a,INCLUDE_DIRECTORIES>)
+    target_compile_definitions(gneiss_libuv_objects PRIVATE
+      $<TARGET_PROPERTY:uv_a,COMPILE_DEFINITIONS>)
+    target_compile_options(gneiss_libuv_objects PRIVATE
+      $<TARGET_PROPERTY:uv_a,COMPILE_OPTIONS>)
+    set_target_properties(gneiss_libuv_objects PROPERTIES POSITION_INDEPENDENT_CODE YES C_VISIBILITY_PRESET hidden)
+  endif()
+  get_target_property(uv_system_libraries uv_a LINK_LIBRARIES)
+  target_sources(${target} PRIVATE
+    "${PROJECT_SOURCE_DIR}/src/engine/platform/io/uv/uv_file_reader.cpp"
+    "${PROJECT_SOURCE_DIR}/src/engine/platform/io/uv/uv_async_file.cpp"
+    "${PROJECT_SOURCE_DIR}/src/engine/platform/io/uv/uv_path_resolver.cpp"
+    "${PROJECT_SOURCE_DIR}/src/engine/platform/io/uv/uv_loop_executor.cpp"
+    "${PROJECT_SOURCE_DIR}/src/engine/platform/io/uv/uv_result.cpp"
+    $<TARGET_OBJECTS:gneiss_libuv_objects>)
+  target_include_directories(${target} PRIVATE $<TARGET_PROPERTY:uv_a,INTERFACE_INCLUDE_DIRECTORIES>)
+  target_compile_definitions(${target} PRIVATE GNEISS_ASSET_LIBUV)
+  # 仅系统链接库保留在静态消费者的 link-only 闭包中。
+  if(uv_system_libraries)
+    target_link_libraries(${target} PRIVATE ${uv_system_libraries})
+  endif()
+endfunction()

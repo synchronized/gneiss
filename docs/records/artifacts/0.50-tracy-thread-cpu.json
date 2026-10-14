@@ -1,0 +1,317 @@
+{
+  "purpose": "仅用 Tracy 区域与线程计数区分计算和非执行时间；不宣称具体等待根因。",
+  "directory": "build/0.50-tracy-thread-cpu",
+  "run": {
+    "fixture_exit": 3,
+    "capture_exit": 0,
+    "hashes": {
+      "gneiss_main_loop_response.exe": "919acf15a676c92e1669585008690c47d10ea6da3fe33cb0f6d8dcdccc898ebe",
+      "gneiss_engine.dll": "c88e66a6af2bd0c940d00fcb472969b76606a64ef2f45609f8c1e2581b592774",
+      "gneiss_tracy.dll": "124743793823423c5aee7fadc82f98e583c7a862a421eb2a4839fd50bd87052c"
+    }
+  },
+  "result": {
+    "passed": false,
+    "keys": 75,
+    "tasks": 74,
+    "key_p95_ms": 17.394,
+    "key_max_ms": 18.5277,
+    "task_p95_ms": 15.5722,
+    "task_max_ms": 18.4955,
+    "close_ms": 0,
+    "nodes": 0,
+    "resources": 0,
+    "loaded_scene": true,
+    "injected_stall": false,
+    "scene_ready": false,
+    "probe_timed_out": true,
+    "timed_out_probe_ms": 2003.02
+  },
+  "summary": {
+    "application.events": {
+      "count": 837,
+      "max_ms": 2.60893
+    },
+    "application.idle_condition": {
+      "count": 836,
+      "max_ms": 19.264678
+    },
+    "application.idle_lock": {
+      "count": 836,
+      "max_ms": 0.023573
+    },
+    "application.idle_wait": {
+      "count": 836,
+      "max_ms": 19.265955
+    },
+    "application.loop": {
+      "count": 837,
+      "max_ms": 19.295683
+    },
+    "application.render.submit": {
+      "count": 837,
+      "max_ms": 0.168987
+    },
+    "application.update": {
+      "count": 837,
+      "max_ms": 0.646852
+    },
+    "asset.advance": {
+      "count": 820,
+      "max_ms": 0.638802
+    },
+    "asset.fs.canonical": {
+      "count": 9,
+      "max_ms": 2622.814259
+    },
+    "asset.fs.canonical_call": {
+      "count": 9,
+      "max_ms": 2622.811077
+    },
+    "asset.fs.file_type": {
+      "count": 9,
+      "max_ms": 0.132171
+    },
+    "asset.fs.open_read": {
+      "count": 9,
+      "max_ms": 2623.355023
+    },
+    "asset.fs.path_build": {
+      "count": 9,
+      "max_ms": 0.003097
+    },
+    "asset.fs.relative": {
+      "count": 9,
+      "max_ms": 0.309689
+    },
+    "asset.io.begin_read": {
+      "count": 27,
+      "max_ms": 10.044282
+    },
+    "asset.io.open": {
+      "count": 9,
+      "max_ms": 69.60755
+    },
+    "asset.io.reopen": {
+      "count": 9,
+      "max_ms": 0.141637
+    },
+    "asset.io.request.allocate": {
+      "count": 27,
+      "max_ms": 4.258856
+    },
+    "asset.io.request.destroy": {
+      "count": 27,
+      "max_ms": 0.009886
+    },
+    "asset.io.request.start": {
+      "count": 27,
+      "max_ms": 6.615589
+    },
+    "asset.prepare.copy": {
+      "count": 4,
+      "max_ms": 0.000388
+    },
+    "asset.prepare.decode": {
+      "count": 4,
+      "max_ms": 103.393534
+    },
+    "asset.prepare.hash": {
+      "count": 25,
+      "max_ms": 103.377669
+    },
+    "asset.prepare.open": {
+      "count": 7,
+      "max_ms": 70.041325
+    },
+    "asset.prepare.prefetch": {
+      "count": 5,
+      "max_ms": 0.000246
+    },
+    "asset.prepare.read": {
+      "count": 178,
+      "max_ms": 105.655819
+    },
+    "asset.prepare.read_slice": {
+      "count": 178,
+      "max_ms": 22.778582
+    },
+    "asset.prepare.select": {
+      "count": 5,
+      "max_ms": 22.212452
+    },
+    "asset.prepare.step": {
+      "count": 182,
+      "max_ms": 2704.724368
+    },
+    "asset.prepare.verify": {
+      "count": 1,
+      "max_ms": 2704.712961
+    },
+    "asset.verify.hash": {
+      "count": 2,
+      "max_ms": 70.483286
+    },
+    "asset.verify.open": {
+      "count": 2,
+      "max_ms": 2623.359428
+    },
+    "asset.verify.read_next": {
+      "count": 2,
+      "max_ms": 80.53214
+    },
+    "scene.advance": {
+      "count": 837,
+      "max_ms": 0.640912
+    },
+    "task.complete": {
+      "count": 258,
+      "max_ms": 0.112778
+    },
+    "task.execute": {
+      "count": 258,
+      "max_ms": 2704.737036
+    },
+    "task.receive": {
+      "count": 256,
+      "max_ms": 0.144499
+    },
+    "task.submit": {
+      "count": 258,
+      "max_ms": 0.238091
+    }
+  },
+  "canonical_calls": [
+    {
+      "name": "asset.fs.canonical_call",
+      "start_ns": 1109574791,
+      "duration_ns": 201929,
+      "thread": 2,
+      "text": "os_tid=163220 cpu_100ns=0 cycles=701476",
+      "path": "materials/material-0.material.json",
+      "counters": {
+        "os_tid": 163220,
+        "cpu_100ns": 0,
+        "cycles": 701476
+      }
+    },
+    {
+      "name": "asset.fs.canonical_call",
+      "start_ns": 1132059575,
+      "duration_ns": 170186,
+      "thread": 2,
+      "text": "os_tid=163220 cpu_100ns=0 cycles=597410",
+      "path": "textures/image-1.texture.json",
+      "counters": {
+        "os_tid": 163220,
+        "cpu_100ns": 0,
+        "cycles": 597410
+      }
+    },
+    {
+      "name": "asset.fs.canonical_call",
+      "start_ns": 1138703677,
+      "duration_ns": 162969,
+      "thread": 2,
+      "text": "os_tid=163220 cpu_100ns=0 cycles=563406",
+      "path": "textures/image-1.gneiss-texture",
+      "counters": {
+        "os_tid": 163220,
+        "cpu_100ns": 0,
+        "cycles": 563406
+      }
+    },
+    {
+      "name": "asset.fs.canonical_call",
+      "start_ns": 2705052402,
+      "duration_ns": 250822,
+      "thread": 2,
+      "text": "os_tid=163220 cpu_100ns=0 cycles=881842",
+      "path": "textures/image-2-linear.texture.json",
+      "counters": {
+        "os_tid": 163220,
+        "cpu_100ns": 0,
+        "cycles": 881842
+      }
+    },
+    {
+      "name": "asset.fs.canonical_call",
+      "start_ns": 2711162464,
+      "duration_ns": 141422,
+      "thread": 2,
+      "text": "os_tid=163220 cpu_100ns=0 cycles=490320",
+      "path": "textures/image-2-linear.gneiss-texture",
+      "counters": {
+        "os_tid": 163220,
+        "cpu_100ns": 0,
+        "cycles": 490320
+      }
+    },
+    {
+      "name": "asset.fs.canonical_call",
+      "start_ns": 4152722641,
+      "duration_ns": 218285,
+      "thread": 2,
+      "text": "os_tid=163220 cpu_100ns=0 cycles=767824",
+      "path": "textures/image-0-normal.texture.json",
+      "counters": {
+        "os_tid": 163220,
+        "cpu_100ns": 0,
+        "cycles": 767824
+      }
+    },
+    {
+      "name": "asset.fs.canonical_call",
+      "start_ns": 4159026824,
+      "duration_ns": 166905,
+      "thread": 2,
+      "text": "os_tid=163220 cpu_100ns=0 cycles=576716",
+      "path": "textures/image-0-normal.gneiss-texture",
+      "counters": {
+        "os_tid": 163220,
+        "cpu_100ns": 0,
+        "cycles": 576716
+      }
+    },
+    {
+      "name": "asset.fs.canonical_call",
+      "start_ns": 5608617253,
+      "duration_ns": 242717,
+      "thread": 2,
+      "text": "os_tid=163220 cpu_100ns=0 cycles=853300",
+      "path": "materials/material-0.material.json",
+      "counters": {
+        "os_tid": 163220,
+        "cpu_100ns": 0,
+        "cycles": 853300
+      }
+    },
+    {
+      "name": "asset.fs.canonical_call",
+      "start_ns": 5609434184,
+      "duration_ns": 2622811077,
+      "thread": 2,
+      "text": "os_tid=163220 cpu_100ns=0 cycles=755106",
+      "path": "textures/image-0-normal.gneiss-texture",
+      "counters": {
+        "os_tid": 163220,
+        "cpu_100ns": 0,
+        "cycles": 755106
+      }
+    }
+  ],
+  "main_loops_during_slow_call": 209,
+  "sha256": {
+    "full.tracy": "511e50fcd34d02934cde1f06529285ea10b78272965ec1abfc8e433874e7b67a",
+    "zones.csv": "c9a4c7972dfe46f0f2c67861ea8a4ce143c86acb60c06539013bd3a845501e41",
+    "result.json": "af2051302969d76787a0bc4b877d0482481ba3b836b614679cdfe504a57740ef",
+    "run.json": "f9b67a4a05a741e5767187aa4b2eb4ad59d6a123d4f8ec61e49a51be29e9c995"
+  },
+  "limits": [
+    "GetThreadTimes 为粗粒度 CPU 记账，0 增量不是零执行。",
+    "QueryThreadCycleTime 不换算为时间。",
+    "区域包含观测开销；仅 Windows profiling 且区域有效时查询。",
+    "未得到系统采样/上下文切换事件，未启动 WPR 或修改第三方代码。",
+    "未激活场景，探针超时失败保留；此前主线程失败未解释。"
+  ]
+}

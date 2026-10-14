@@ -65,3 +65,8 @@ Reference 和实现为准。
 - [ADR-056：SDK 接口组织与调用约定](ADR-056-cpp-sdk-interface-and-adaptation.md)
 
 - [ADR-057：资产准备的显式分步执行](ADR-057-incremental-asset-preparation.md)
+
+- [ADR-059：主循环进展通知与有限等待](ADR-059-main-loop-progress-wait.md)
+- [ADR-060：可选 CPU 性能采集](ADR-060-optional-cpu-profiler.md)
+
+- [ADR-061：资产文件 I/O 优先复用 libuv](ADR-061-libuv-asset-io.md)

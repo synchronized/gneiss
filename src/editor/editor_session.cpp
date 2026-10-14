@@ -119,6 +119,40 @@ result make_asset_uri(const std::filesystem::path& asset_root, const std::filesy
   }
 }
 
+result editor_session::adopt(gneiss_application application, gneiss_world world,
+                             gneiss_scene_instance scene, std::string_view uri) noexcept {
+  try {
+    std::string next_uri{uri};
+    gneiss_world active{};
+    const auto queried = gneiss_application_get_world(application, &active);
+    if (queried != GNEISS_SUCCESS) {
+      return from_native(queried);
+    }
+    if (world != active || uri.empty()) {
+      return result::invalid_argument;
+    }
+    editor_session pending;
+    pending.uri_ = std::move(next_uri);
+    pending.world_ = world;
+    const auto adopted = scene_instance::adopt_native(application, scene, pending.scene_);
+    if (adopted != result::success) {
+      return adopted;
+    }
+    const auto refreshed = pending.refresh_nodes();
+    if (refreshed != result::success) {
+      // 缓存建立失败时原句柄仍由调用方拥有，不改变当前编辑文档。
+      (void)pending.scene_.release();
+      return refreshed;
+    }
+    *this = std::move(pending);
+    return result::success;
+  } catch (const std::bad_alloc&) {
+    return result::out_of_memory;
+  } catch (...) {
+    return result::internal;
+  }
+}
+
 result editor_session::open(gneiss_application application, gneiss_world world,
                             std::string_view uri) noexcept {
   if (application == GNEISS_NULL_APPLICATION || world == GNEISS_NULL_WORLD || uri.empty()) {

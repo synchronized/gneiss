@@ -5,11 +5,12 @@ cmake_minimum_required(VERSION 3.23)
 
 project(
   gneiss
-  VERSION 0.49.0
+  VERSION 0.50.0
   DESCRIPTION "基于 Granit 构建的现代 C++20 游戏引擎"
   LANGUAGES C CXX
 )
 
+option(GNEISS_TASK_THREADS "启用任务工作线程后端" ON)
 option(BUILD_SHARED_LIBS "构建共享库" ON)
 option(GNEISS_BUILD_TESTING "构建 Gneiss 测试" ON)
 option(GNEISS_BUILD_EXAMPLES "构建 Gneiss 示例" ${PROJECT_IS_TOP_LEVEL})
@@ -27,6 +28,7 @@ endif()
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 include(gneiss_utility)
+include(profiling)
 if(GNEISS_ENABLE_GRANIT_PLATFORM OR GNEISS_BUILD_TOOLS OR GNEISS_BUILD_TESTING)
   include(granit)
 endif()
@@ -39,7 +41,7 @@ endif()
 include(CTest)
 
 add_subdirectory(3rd)
-if(GNEISS_BUILD_EDITOR OR GNEISS_BUILD_RUNTIME)
+if(GNEISS_BUILD_EDITOR OR GNEISS_BUILD_RUNTIME OR (GNEISS_TASK_THREADS AND NOT EMSCRIPTEN))
   include(libuv)
   gneiss_resolve_libuv()
 endif()

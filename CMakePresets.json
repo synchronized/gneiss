@@ -142,6 +142,15 @@
       "inherits": ["platform-windows", "toolchain-clang", "config-release", "linkage-shared"]
     },
     {
+      "name": "windows-clang-profiling",
+      "displayName": "Windows Clang Tracy CPU Profiling",
+      "inherits": "windows-clang-release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "GNEISS_ENABLE_PROFILING": true
+      }
+    },
+    {
       "name": "windows-clang-static-debug",
       "displayName": "Windows x64 Clang Static Debug",
       "inherits": ["platform-windows", "toolchain-clang", "config-debug", "linkage-static"]

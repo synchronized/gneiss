@@ -1,0 +1,968 @@
+{
+  "purpose": "资产准备分段 Tracy 诊断，非冻结性能验收。",
+  "captures": [
+    {
+      "directory": "build/0.50-tracy-asset-stages",
+      "run": {
+        "fixture_exit": 0,
+        "capture_exit": 0,
+        "hashes": {
+          "gneiss_main_loop_response.exe": "bad98dfe95d65b9807bafaee45b1b952c9e0f3ff424520c74e01ef58b0804060",
+          "gneiss_engine.dll": "a9b1b2278b29faaa6a4b2e30448aedfdb537a94ae1ec110a977e4ac3d533226f",
+          "gneiss_tracy.dll": "124743793823423c5aee7fadc82f98e583c7a862a421eb2a4839fd50bd87052c"
+        }
+      },
+      "result": {
+        "passed": true,
+        "keys": 4470,
+        "tasks": 4470,
+        "key_p95_ms": 17.3456,
+        "key_max_ms": 29.343,
+        "task_p95_ms": 16.3102,
+        "task_max_ms": 21.5492,
+        "close_ms": 14.2108,
+        "nodes": 553,
+        "resources": 505,
+        "loaded_scene": true,
+        "injected_stall": false,
+        "scene_ready": true,
+        "probe_timed_out": false,
+        "timed_out_probe_ms": 0
+      },
+      "summary": {
+        "application.events": {
+          "count": 33315,
+          "max_ms": 5.716852
+        },
+        "application.idle_wait": {
+          "count": 33314,
+          "max_ms": 41.982639
+        },
+        "application.loop": {
+          "count": 33315,
+          "max_ms": 41.986515
+        },
+        "application.render.submit": {
+          "count": 33314,
+          "max_ms": 2.130813
+        },
+        "application.update": {
+          "count": 33314,
+          "max_ms": 12.640213
+        },
+        "asset.advance": {
+          "count": 21254,
+          "max_ms": 6.875427
+        },
+        "asset.prepare.cleanup": {
+          "count": 54,
+          "max_ms": 0.98662
+        },
+        "asset.prepare.copy": {
+          "count": 506,
+          "max_ms": 0.899718
+        },
+        "asset.prepare.decode": {
+          "count": 506,
+          "max_ms": 112.14413
+        },
+        "asset.prepare.destroy": {
+          "count": 54,
+          "max_ms": 0.014372
+        },
+        "asset.prepare.hash": {
+          "count": 1063,
+          "max_ms": 130.724331
+        },
+        "asset.prepare.open": {
+          "count": 579,
+          "max_ms": 24.812798
+        },
+        "asset.prepare.prefetch": {
+          "count": 560,
+          "max_ms": 2007.001396
+        },
+        "asset.prepare.publish": {
+          "count": 54,
+          "max_ms": 0.004013
+        },
+        "asset.prepare.read": {
+          "count": 4084,
+          "max_ms": 132.360031
+        },
+        "asset.prepare.read_slice": {
+          "count": 4130,
+          "max_ms": 32.350704
+        },
+        "asset.prepare.select": {
+          "count": 560,
+          "max_ms": 2007.021841
+        },
+        "asset.prepare.step": {
+          "count": 4383,
+          "max_ms": 2035.916329
+        },
+        "asset.prepare.verify": {
+          "count": 541,
+          "max_ms": 2035.907561
+        },
+        "scene.advance": {
+          "count": 33313,
+          "max_ms": 12.6118
+        },
+        "scene.assets.reset": {
+          "count": 1,
+          "max_ms": 0.007513
+        },
+        "scene.build.step": {
+          "count": 554,
+          "max_ms": 0.365467
+        },
+        "scene.builder.create": {
+          "count": 1,
+          "max_ms": 11.698058
+        },
+        "scene.description.move": {
+          "count": 1,
+          "max_ms": 0.000111
+        },
+        "scene.instance.allocate": {
+          "count": 1,
+          "max_ms": 2.385956
+        },
+        "scene.instance.initialize": {
+          "count": 1,
+          "max_ms": 0.55632
+        },
+        "scene.verify.step": {
+          "count": 3736,
+          "max_ms": 124.286892
+        },
+        "scene.verify.submit": {
+          "count": 3736,
+          "max_ms": 0.365129
+        },
+        "task.complete": {
+          "count": 12590,
+          "max_ms": 4.22399
+        },
+        "task.execute": {
+          "count": 12590,
+          "max_ms": 2035.928224
+        },
+        "task.receive": {
+          "count": 12590,
+          "max_ms": 0.44957
+        },
+        "task.submit": {
+          "count": 12590,
+          "max_ms": 1.086404
+        }
+      },
+      "transition": [
+        {
+          "name": "scene.assets.reset",
+          "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/application/scene_load_service.cpp",
+          "line": 379,
+          "start": 255864589255,
+          "duration": 7513,
+          "thread": 1,
+          "text": ""
+        },
+        {
+          "name": "scene.builder.create",
+          "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/application/scene_load_service.cpp",
+          "line": 371,
+          "start": 255852891161,
+          "duration": 11698058,
+          "thread": 1,
+          "text": ""
+        },
+        {
+          "name": "scene.instance.initialize",
+          "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/scene/scene_load_builder.cpp",
+          "line": 26,
+          "start": 255864026883,
+          "duration": 556320,
+          "thread": 1,
+          "text": ""
+        },
+        {
+          "name": "scene.description.move",
+          "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/scene/scene_load_builder.cpp",
+          "line": 17,
+          "start": 255852891826,
+          "duration": 111,
+          "thread": 1,
+          "text": ""
+        },
+        {
+          "name": "scene.instance.allocate",
+          "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/scene/scene_load_builder.cpp",
+          "line": 21,
+          "start": 255861635470,
+          "duration": 2385956,
+          "thread": 1,
+          "text": ""
+        }
+      ],
+      "windows": [
+        {
+          "region": {
+            "name": "asset.prepare.prefetch",
+            "start_ns": 163960184603,
+            "duration_ns": 2007001396,
+            "thread": 2,
+            "text": ""
+          },
+          "main_loops_started": 229,
+          "children": [
+            {
+              "name": "asset.prepare.prefetch",
+              "start_ns": 163960184603,
+              "duration_ns": 2007001396,
+              "thread": 2,
+              "text": ""
+            }
+          ]
+        },
+        {
+          "region": {
+            "name": "asset.prepare.verify",
+            "start_ns": 55846099651,
+            "duration_ns": 2035907561,
+            "thread": 2,
+            "text": ""
+          },
+          "main_loops_started": 212,
+          "children": [
+            {
+              "name": "asset.prepare.verify",
+              "start_ns": 55846099651,
+              "duration_ns": 2035907561,
+              "thread": 2,
+              "text": ""
+            }
+          ]
+        },
+        {
+          "region": {
+            "name": "application.loop",
+            "start_ns": 31755981259,
+            "duration_ns": 41986515,
+            "thread": 1,
+            "text": ""
+          },
+          "main_loops_started": 1,
+          "children": [
+            {
+              "name": "application.update",
+              "start_ns": 31755981771,
+              "duration_ns": 1527,
+              "thread": 1,
+              "text": ""
+            },
+            {
+              "name": "application.events",
+              "start_ns": 31755981282,
+              "duration_ns": 425,
+              "thread": 1,
+              "text": ""
+            },
+            {
+              "name": "application.idle_wait",
+              "start_ns": 31755985034,
+              "duration_ns": 41982639,
+              "thread": 1,
+              "text": ""
+            },
+            {
+              "name": "asset.advance",
+              "start_ns": 31755981996,
+              "duration_ns": 127,
+              "thread": 1,
+              "text": ""
+            },
+            {
+              "name": "application.loop",
+              "start_ns": 31755981259,
+              "duration_ns": 41986515,
+              "thread": 1,
+              "text": ""
+            },
+            {
+              "name": "scene.advance",
+              "start_ns": 31755981967,
+              "duration_ns": 210,
+              "thread": 1,
+              "text": ""
+            },
+            {
+              "name": "application.render.submit",
+              "start_ns": 31755983365,
+              "duration_ns": 1657,
+              "thread": 1,
+              "text": ""
+            }
+          ]
+        }
+      ],
+      "sha256": {
+        "full.tracy": "4df135e629a169b32f4726f0abfdadf320d6ee7a620029f3ef240e0d82647b8f",
+        "zones.csv": "139464d5d6fde0647c988b6279f644cb8197374d205a0767d6d8d0aabb9e45f6",
+        "result.json": "327ba7a0e8d27a52b8f6550de32291df2993f25d83c32be606b25e81150cdcdd",
+        "run.json": "3f3ba5d38a1a909338efea220b7d670fafac3da0972161aaa54bc2a615b38ea1"
+      }
+    },
+    {
+      "directory": "build/0.50-tracy-io-stages",
+      "run": {
+        "fixture_exit": 0,
+        "capture_exit": 0,
+        "hashes": {
+          "gneiss_main_loop_response.exe": "bad98dfe95d65b9807bafaee45b1b952c9e0f3ff424520c74e01ef58b0804060",
+          "gneiss_engine.dll": "c564893122e0dba2b6fe135f13fa3b444b11e457f97937f7c43ca5a3fdc1bba9",
+          "gneiss_tracy.dll": "124743793823423c5aee7fadc82f98e583c7a862a421eb2a4839fd50bd87052c"
+        }
+      },
+      "result": {
+        "passed": true,
+        "keys": 3960,
+        "tasks": 3960,
+        "key_p95_ms": 17.2409,
+        "key_max_ms": 62.7053,
+        "task_p95_ms": 16.3563,
+        "task_max_ms": 28.1609,
+        "close_ms": 14.7695,
+        "nodes": 553,
+        "resources": 505,
+        "loaded_scene": true,
+        "injected_stall": false,
+        "scene_ready": true,
+        "probe_timed_out": false,
+        "timed_out_probe_ms": 0
+      },
+      "summary": {
+        "application.events": {
+          "count": 29143,
+          "max_ms": 7.234781
+        },
+        "application.idle_wait": {
+          "count": 29142,
+          "max_ms": 84.529504
+        },
+        "application.loop": {
+          "count": 29143,
+          "max_ms": 84.566853
+        },
+        "application.render.submit": {
+          "count": 29142,
+          "max_ms": 1.136584
+        },
+        "application.update": {
+          "count": 29142,
+          "max_ms": 39.119753
+        },
+        "asset.advance": {
+          "count": 17431,
+          "max_ms": 6.561153
+        },
+        "asset.io.begin_read": {
+          "count": 3194,
+          "max_ms": 19.416029
+        },
+        "asset.io.open": {
+          "count": 2188,
+          "max_ms": 0.456226
+        },
+        "asset.io.reopen": {
+          "count": 1736,
+          "max_ms": 0.667793
+        },
+        "asset.io.request.allocate": {
+          "count": 3194,
+          "max_ms": 14.560264
+        },
+        "asset.io.request.destroy": {
+          "count": 3194,
+          "max_ms": 0.09996
+        },
+        "asset.io.request.start": {
+          "count": 3194,
+          "max_ms": 8.501134
+        },
+        "asset.prepare.cleanup": {
+          "count": 54,
+          "max_ms": 1.132909
+        },
+        "asset.prepare.copy": {
+          "count": 506,
+          "max_ms": 0.603924
+        },
+        "asset.prepare.decode": {
+          "count": 506,
+          "max_ms": 135.443516
+        },
+        "asset.prepare.destroy": {
+          "count": 54,
+          "max_ms": 0.02233
+        },
+        "asset.prepare.hash": {
+          "count": 1037,
+          "max_ms": 116.497564
+        },
+        "asset.prepare.open": {
+          "count": 579,
+          "max_ms": 4.14781
+        },
+        "asset.prepare.prefetch": {
+          "count": 560,
+          "max_ms": 123.027809
+        },
+        "asset.prepare.publish": {
+          "count": 54,
+          "max_ms": 0.003183
+        },
+        "asset.prepare.read": {
+          "count": 2656,
+          "max_ms": 124.758059
+        },
+        "asset.prepare.read_slice": {
+          "count": 2676,
+          "max_ms": 41.450267
+        },
+        "asset.prepare.select": {
+          "count": 560,
+          "max_ms": 123.048952
+        },
+        "asset.prepare.step": {
+          "count": 2944,
+          "max_ms": 145.245903
+        },
+        "asset.prepare.verify": {
+          "count": 541,
+          "max_ms": 127.196139
+        },
+        "asset.verify.hash": {
+          "count": 2157,
+          "max_ms": 118.661164
+        },
+        "asset.verify.open": {
+          "count": 1157,
+          "max_ms": 22.172761
+        },
+        "asset.verify.read_next": {
+          "count": 5279,
+          "max_ms": 127.19476
+        },
+        "scene.advance": {
+          "count": 29139,
+          "max_ms": 39.094689
+        },
+        "scene.assets.reset": {
+          "count": 1,
+          "max_ms": 0.007491
+        },
+        "scene.build.step": {
+          "count": 554,
+          "max_ms": 38.627595
+        },
+        "scene.builder.create": {
+          "count": 1,
+          "max_ms": 9.837816
+        },
+        "scene.description.move": {
+          "count": 1,
+          "max_ms": 0.000125
+        },
+        "scene.instance.allocate": {
+          "count": 1,
+          "max_ms": 9.266223
+        },
+        "scene.instance.initialize": {
+          "count": 1,
+          "max_ms": 0.287918
+        },
+        "scene.verify.step": {
+          "count": 3575,
+          "max_ms": 104.914749
+        },
+        "scene.verify.submit": {
+          "count": 3575,
+          "max_ms": 0.589629
+        },
+        "task.complete": {
+          "count": 10480,
+          "max_ms": 0.963342
+        },
+        "task.execute": {
+          "count": 10480,
+          "max_ms": 145.256137
+        },
+        "task.receive": {
+          "count": 10480,
+          "max_ms": 0.481635
+        },
+        "task.submit": {
+          "count": 10480,
+          "max_ms": 1.319047
+        }
+      },
+      "transition": [
+        {
+          "name": "scene.assets.reset",
+          "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/application/scene_load_service.cpp",
+          "line": 379,
+          "start": 225679533960,
+          "duration": 7491,
+          "thread": 1,
+          "text": ""
+        },
+        {
+          "name": "scene.description.move",
+          "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/scene/scene_load_builder.cpp",
+          "line": 17,
+          "start": 225669698145,
+          "duration": 125,
+          "thread": 1,
+          "text": ""
+        },
+        {
+          "name": "scene.instance.initialize",
+          "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/scene/scene_load_builder.cpp",
+          "line": 26,
+          "start": 225679242650,
+          "duration": 287918,
+          "thread": 1,
+          "text": ""
+        },
+        {
+          "name": "scene.builder.create",
+          "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/application/scene_load_service.cpp",
+          "line": 371,
+          "start": 225669696109,
+          "duration": 9837816,
+          "thread": 1,
+          "text": ""
+        },
+        {
+          "name": "scene.instance.allocate",
+          "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/scene/scene_load_builder.cpp",
+          "line": 21,
+          "start": 225669698317,
+          "duration": 9266223,
+          "thread": 1,
+          "text": ""
+        }
+      ],
+      "windows": [
+        {
+          "region": {
+            "name": "asset.prepare.prefetch",
+            "start_ns": 124657294325,
+            "duration_ns": 123027809,
+            "thread": 2,
+            "text": ""
+          },
+          "main_loops_started": 14,
+          "children": [
+            {
+              "name": "asset.prepare.prefetch",
+              "start_ns": 124657294325,
+              "duration_ns": 123027809,
+              "thread": 2,
+              "text": ""
+            },
+            {
+              "name": "asset.io.request.allocate",
+              "start_ns": 124658120884,
+              "duration_ns": 2820,
+              "thread": 2,
+              "text": ""
+            },
+            {
+              "name": "asset.io.request.allocate",
+              "start_ns": 124658784685,
+              "duration_ns": 11061,
+              "thread": 2,
+              "text": ""
+            },
+            {
+              "name": "asset.io.request.allocate",
+              "start_ns": 124699169367,
+              "duration_ns": 18384,
+              "thread": 2,
+              "text": ""
+            },
+            {
+              "name": "asset.io.request.allocate",
+              "start_ns": 124732238066,
+              "duration_ns": 733,
+              "thread": 2,
+              "text": ""
+            },
+            {
+              "name": "asset.io.request.allocate",
+              "start_ns": 124734188412,
+              "duration_ns": 14634,
+              "thread": 2,
+              "text": ""
+            },
+            {
+              "name": "asset.io.request.allocate",
+              "start_ns": 124760766288,
+              "duration_ns": 1341,
+              "thread": 2,
+              "text": ""
+            },
+            {
+              "name": "asset.io.request.allocate",
+              "start_ns": 124780277195,
+              "duration_ns": 18752,
+              "thread": 2,
+              "text": ""
+            },
+            {
+              "name": "asset.io.request.start",
+              "start_ns": 124658123739,
+              "duration_ns": 29159,
+              "thread": 2,
+              "text": ""
+            },
+            {
+              "name": "asset.io.request.start",
+              "start_ns": 124658795828,
+              "duration_ns": 28134,
+              "thread": 2,
+              "text": ""
+            },
+            {
+              "name": "asset.io.request.start",
+              "start_ns": 124699187795,
+              "duration_ns": 30586,
+              "thread": 2,
+              "text": ""
+            },
+            {
+              "name": "asset.io.request.start",
+              "start_ns": 124732238835,
+              "duration_ns": 26006,
+              "thread": 2,
+              "text": ""
+            },
+            {
+              "name": "asset.io.request.start",
+              "start_ns": 124734203085,
+              "duration_ns": 28859,
+              "thread": 2,
+              "text": ""
+            },
+            {
+              "name": "asset.io.request.start",
+              "start_ns": 124760767665,
+              "duration_ns": 24845,
+              "thread": 2,
+              "text": ""
+            },
+            {
+              "name": "asset.io.request.start",
+              "start_ns": 124780295981,
+              "duration_ns": 24408,
+              "thread": 2,
+              "text": ""
+            },
+            {
+              "name": "asset.io.begin_read",
+              "start_ns": 124658055860,
+              "duration_ns": 97090,
+              "thread": 2,
+              "text": ""
+            },
+            {
+              "name": "asset.io.begin_read",
+              "start_ns": 124658725743,
+              "duration_ns": 98237,
+              "thread": 2,
+              "text": ""
+            },
+            {
+              "name": "asset.io.begin_read",
+              "start_ns": 124699106733,
+              "duration_ns": 111672,
+              "thread": 2,
+              "text": ""
+            },
+            {
+              "name": "asset.io.begin_read",
+              "start_ns": 124732175851,
+              "duration_ns": 89015,
+              "thread": 2,
+              "text": ""
+            },
+            {
+              "name": "asset.io.begin_read",
+              "start_ns": 124734127226,
+              "duration_ns": 104768,
+              "thread": 2,
+              "text": ""
+            },
+            {
+              "name": "asset.io.begin_read",
+              "start_ns": 124760704776,
+              "duration_ns": 87758,
+              "thread": 2,
+              "text": ""
+            },
+            {
+              "name": "asset.io.begin_read",
+              "start_ns": 124780213630,
+              "duration_ns": 106802,
+              "thread": 2,
+              "text": ""
+            },
+            {
+              "name": "asset.io.reopen",
+              "start_ns": 124658056165,
+              "duration_ns": 64525,
+              "thread": 2,
+              "text": ""
+            },
+            {
+              "name": "asset.io.reopen",
+              "start_ns": 124658726027,
+              "duration_ns": 58463,
+              "thread": 2,
+              "text": ""
+            },
+            {
+              "name": "asset.io.reopen",
+              "start_ns": 124699107682,
+              "duration_ns": 61511,
+              "thread": 2,
+              "text": ""
+            },
+            {
+              "name": "asset.io.reopen",
+              "start_ns": 124732176256,
+              "duration_ns": 61629,
+              "thread": 2,
+              "text": ""
+            },
+            {
+              "name": "asset.io.reopen",
+              "start_ns": 124734127510,
+              "duration_ns": 60767,
+              "thread": 2,
+              "text": ""
+            },
+            {
+              "name": "asset.io.reopen",
+              "start_ns": 124760705528,
+              "duration_ns": 60607,
+              "thread": 2,
+              "text": ""
+            },
+            {
+              "name": "asset.io.reopen",
+              "start_ns": 124780214205,
+              "duration_ns": 62799,
+              "thread": 2,
+              "text": ""
+            },
+            {
+              "name": "asset.io.open",
+              "start_ns": 124657979789,
+              "duration_ns": 74049,
+              "thread": 2,
+              "text": ""
+            },
+            {
+              "name": "asset.io.open",
+              "start_ns": 124658657437,
+              "duration_ns": 66272,
+              "thread": 2,
+              "text": ""
+            },
+            {
+              "name": "asset.io.open",
+              "start_ns": 124699030141,
+              "duration_ns": 73562,
+              "thread": 2,
+              "text": ""
+            },
+            {
+              "name": "asset.io.open",
+              "start_ns": 124729182570,
+              "duration_ns": 70570,
+              "thread": 2,
+              "text": ""
+            },
+            {
+              "name": "asset.io.open",
+              "start_ns": 124732100309,
+              "duration_ns": 72465,
+              "thread": 2,
+              "text": ""
+            },
+            {
+              "name": "asset.io.open",
+              "start_ns": 124734051075,
+              "duration_ns": 74056,
+              "thread": 2,
+              "text": ""
+            },
+            {
+              "name": "asset.io.open",
+              "start_ns": 124760626487,
+              "duration_ns": 75401,
+              "thread": 2,
+              "text": ""
+            },
+            {
+              "name": "asset.io.open",
+              "start_ns": 124780132961,
+              "duration_ns": 77861,
+              "thread": 2,
+              "text": ""
+            }
+          ]
+        },
+        {
+          "region": {
+            "name": "asset.prepare.verify",
+            "start_ns": 17357497279,
+            "duration_ns": 127196139,
+            "thread": 2,
+            "text": ""
+          },
+          "main_loops_started": 13,
+          "children": [
+            {
+              "name": "asset.io.request.allocate",
+              "start_ns": 17359219820,
+              "duration_ns": 2405102,
+              "thread": 2,
+              "text": ""
+            },
+            {
+              "name": "asset.io.request.destroy",
+              "start_ns": 17357498402,
+              "duration_ns": 4654,
+              "thread": 2,
+              "text": ""
+            },
+            {
+              "name": "asset.prepare.verify",
+              "start_ns": 17357497279,
+              "duration_ns": 127196139,
+              "thread": 2,
+              "text": ""
+            },
+            {
+              "name": "asset.io.request.start",
+              "start_ns": 17361625393,
+              "duration_ns": 4402389,
+              "thread": 2,
+              "text": ""
+            },
+            {
+              "name": "asset.io.begin_read",
+              "start_ns": 17359219278,
+              "duration_ns": 6808649,
+              "thread": 2,
+              "text": ""
+            },
+            {
+              "name": "asset.verify.hash",
+              "start_ns": 17366030315,
+              "duration_ns": 118661164,
+              "thread": 2,
+              "text": ""
+            },
+            {
+              "name": "asset.verify.read_next",
+              "start_ns": 17357497958,
+              "duration_ns": 127194760,
+              "thread": 2,
+              "text": ""
+            }
+          ]
+        },
+        {
+          "region": {
+            "name": "application.loop",
+            "start_ns": 89052413433,
+            "duration_ns": 84566853,
+            "thread": 1,
+            "text": ""
+          },
+          "main_loops_started": 1,
+          "children": [
+            {
+              "name": "application.update",
+              "start_ns": 89052419142,
+              "duration_ns": 26046,
+              "thread": 1,
+              "text": ""
+            },
+            {
+              "name": "application.events",
+              "start_ns": 89052413700,
+              "duration_ns": 5064,
+              "thread": 1,
+              "text": ""
+            },
+            {
+              "name": "application.idle_wait",
+              "start_ns": 89052450590,
+              "duration_ns": 84529504,
+              "thread": 1,
+              "text": ""
+            },
+            {
+              "name": "application.loop",
+              "start_ns": 89052413433,
+              "duration_ns": 84566853,
+              "thread": 1,
+              "text": ""
+            },
+            {
+              "name": "asset.advance",
+              "start_ns": 89052433767,
+              "duration_ns": 1136,
+              "thread": 1,
+              "text": ""
+            },
+            {
+              "name": "scene.advance",
+              "start_ns": 89052433253,
+              "duration_ns": 2238,
+              "thread": 1,
+              "text": ""
+            },
+            {
+              "name": "application.render.submit",
+              "start_ns": 89052445298,
+              "duration_ns": 5222,
+              "thread": 1,
+              "text": ""
+            }
+          ]
+        }
+      ],
+      "sha256": {
+        "full.tracy": "a27f17bbadf30573442f5400dc87c69ed9737108f502c857cc5ac2d73781af72",
+        "zones.csv": "135f0e9e697b27be12fce8ac7403d4c660b9125d07abf86f7684e1941f1749b6",
+        "result.json": "92e1887bd09f8568092828116e7e3fc778897046021c3710d2ef1e8d6c75f77d",
+        "run.json": "91d4631430a0e670b0824253e3346342bb28a803df3421e35562bd23b66a9df4"
+      }
+    }
+  ],
+  "limits": [
+    "两轮只增加观测，无调度、读取或预算策略修改。",
+    "第一轮完整捕获在原生 I/O 细分之前，第二轮包含最终代码；二进制哈希分别保留。",
+    "区域为墙钟，不能区分 CPU 工作、等待、缺页与抢占。",
+    "第二轮未复现秒级后台停顿；两轮未复现此前 109 ms 主线程转换停顿。",
+    "原始 266/272 ms 超标和前两轮探针超时失败均保留，不解除发布阻塞。"
+  ]
+}

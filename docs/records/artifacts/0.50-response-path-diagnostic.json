@@ -1,0 +1,445 @@
+{
+  "status": "diagnostic_only",
+  "date": "2026-10-08",
+  "production_source": "77b8b3311cef8560ccaa62e733fb9a12763844a7",
+  "limits": "诊断通过不覆盖原始266.238ms失败；未将未复现等同于修复。关联探针为测试夹具修改，生产引擎不变。",
+  "engine": {
+    "path": "build/windows-clang-release/bin/gneiss_engine.dll",
+    "sha256": "e04587616a53a45ea940203b5e12124a0c6ed8eadb40de5c5ab93233513a3f08"
+  },
+  "fixture": {
+    "path": "build/windows-clang-release/bin/gneiss_main_loop_response.exe",
+    "sha256": "bbecc10b9b1286c270f67b192f143cd4c9ef4ad31bbab77f1b59e43bc9506e91"
+  },
+  "engine_only": {
+    "result": {
+      "passed": true,
+      "keys": 3910,
+      "tasks": 3910,
+      "key_p95_ms": 17.6919,
+      "key_max_ms": 28.0697,
+      "task_p95_ms": 16.7036,
+      "task_max_ms": 28.0649,
+      "close_ms": 8.3744,
+      "nodes": 553,
+      "resources": 505,
+      "loaded_scene": true,
+      "injected_stall": false
+    },
+    "engine_maxima": {
+      "kind": "maxima",
+      "frame": "26016",
+      "start_ms": "0",
+      "total_ms": "39.4882",
+      "gap_ms": "0",
+      "events_ms": "6.5724",
+      "update_ms": "18.2221",
+      "render_ms": "0.5081",
+      "draw_clear_ms": "0.202",
+      "scene_advance_ms": "18.1915",
+      "texture_advance_ms": "5.6321",
+      "asset_stage_ms": "0.0658",
+      "upload_poll_ms": "0.3",
+      "upload_submit_ms": "0.0222",
+      "asset_publish_ms": "0.3823",
+      "candidate_cleanup_ms": "5.5968",
+      "retirement_ms": "0",
+      "frame_storage_ms": "0.4858",
+      "render_snapshot_ms": "0.0149",
+      "frame_capture_ms": "0.0207",
+      "frame_submit_ms": "0.0633",
+      "window_pump_ms": "6.5597",
+      "window_events_ms": "0.3858",
+      "input_state_ms": "0.5934",
+      "input_events_ms": "0.3698",
+      "task_collect_ms": "0.8831",
+      "task_submit_ms": "0.7568",
+      "idle_wait_ms": "39.1092",
+      "task_submit_lock_ms": "0.0746",
+      "task_submit_work_ms": "0.7431",
+      "task_submit_allocate_ms": "0.1743",
+      "task_submit_insert_ms": "0.2696",
+      "task_submit_notify_ms": "0.7391",
+      "idle_lock_ms": "0.0744",
+      "idle_condition_ms": "39.1086"
+    },
+    "artifacts": [
+      {
+        "path": "build/0.50-response-path-diagnostic/engine.csv",
+        "sha256": "c2fefcc507ba7e4d95ac5fdfcf0d9011c2696a78b43d40cb421e7f3bb9f378bb"
+      },
+      {
+        "path": "build/0.50-response-path-diagnostic/result.json",
+        "sha256": "564bbd85426860e3b08c03f8a4a21d13490c94c5b19c1414f69e01c1c252b696"
+      }
+    ],
+    "longest_loop": {
+      "kind": "sample",
+      "frame": "18268",
+      "start_ms": "152981.1117",
+      "total_ms": "39.4882",
+      "gap_ms": "0.0005",
+      "events_ms": "0.005",
+      "update_ms": "0.3676",
+      "render_ms": "0.0052",
+      "draw_clear_ms": "0.0003",
+      "scene_advance_ms": "0.0022",
+      "texture_advance_ms": "0",
+      "asset_stage_ms": "0",
+      "upload_poll_ms": "0",
+      "upload_submit_ms": "0",
+      "asset_publish_ms": "0",
+      "candidate_cleanup_ms": "0",
+      "retirement_ms": "0",
+      "frame_storage_ms": "0.0022",
+      "render_snapshot_ms": "0",
+      "frame_capture_ms": "0",
+      "frame_submit_ms": "0",
+      "window_pump_ms": "0.0018",
+      "window_events_ms": "0.0003",
+      "input_state_ms": "0.0018",
+      "input_events_ms": "0.0005",
+      "task_collect_ms": "0.0013",
+      "task_submit_ms": "0",
+      "idle_wait_ms": "39.1092",
+      "task_submit_lock_ms": "0",
+      "task_submit_work_ms": "0",
+      "task_submit_allocate_ms": "0",
+      "task_submit_insert_ms": "0",
+      "task_submit_notify_ms": "0",
+      "idle_lock_ms": "0.0001",
+      "idle_condition_ms": "39.1086"
+    }
+  },
+  "correlated": {
+    "result": {
+      "passed": true,
+      "keys": 3974,
+      "tasks": 3974,
+      "key_p95_ms": 17.6711,
+      "key_max_ms": 22.8571,
+      "task_p95_ms": 16.5764,
+      "task_max_ms": 21.2394,
+      "close_ms": 13.5881,
+      "nodes": 553,
+      "resources": 505,
+      "loaded_scene": true,
+      "injected_stall": false
+    },
+    "engine_maxima": {
+      "kind": "maxima",
+      "frame": "26579",
+      "start_ms": "0",
+      "total_ms": "43.9377",
+      "gap_ms": "0",
+      "events_ms": "6.8543",
+      "update_ms": "23.531",
+      "render_ms": "1.1864",
+      "draw_clear_ms": "0.2858",
+      "scene_advance_ms": "23.5059",
+      "texture_advance_ms": "5.9838",
+      "asset_stage_ms": "0.0588",
+      "upload_poll_ms": "0.0676",
+      "upload_submit_ms": "0.0134",
+      "asset_publish_ms": "0.4995",
+      "candidate_cleanup_ms": "5.9482",
+      "retirement_ms": "0",
+      "frame_storage_ms": "0.3947",
+      "render_snapshot_ms": "0.1153",
+      "frame_capture_ms": "0.0805",
+      "frame_submit_ms": "0.0792",
+      "window_pump_ms": "6.8432",
+      "window_events_ms": "0.2834",
+      "input_state_ms": "0.69",
+      "input_events_ms": "0.8593",
+      "task_collect_ms": "0.3632",
+      "task_submit_ms": "0.3186",
+      "idle_wait_ms": "43.6068",
+      "task_submit_lock_ms": "0.1884",
+      "task_submit_work_ms": "0.2578",
+      "task_submit_allocate_ms": "0.2346",
+      "task_submit_insert_ms": "0.17",
+      "task_submit_notify_ms": "0.2504",
+      "idle_lock_ms": "0.1169",
+      "idle_condition_ms": "43.606"
+    },
+    "artifacts": [
+      {
+        "path": "build/0.50-response-correlated-diagnostic/engine.csv",
+        "sha256": "9a3714b57ecfd3682b1c0e0325f4d5420d615ce04ddc07c765b104145a38af21"
+      },
+      {
+        "path": "build/0.50-response-correlated-diagnostic/result.json",
+        "sha256": "65e5cfa3c2b25a0965ad01d8f64cb80c5e5a98ae5e39986aebdbab797d447d28"
+      },
+      {
+        "path": "build/0.50-response-correlated-diagnostic/result.json.probes.csv",
+        "sha256": "820ac4d2404885b0a4175b57deb8e51fb45bd6521ce96c1e3ff1f0f16618b74d"
+      }
+    ],
+    "longest_loop": {
+      "kind": "sample",
+      "frame": "12261",
+      "start_ms": "104846.4538",
+      "total_ms": "43.9377",
+      "gap_ms": "0.0008",
+      "events_ms": "0.0451",
+      "update_ms": "0.2752",
+      "render_ms": "0.0085",
+      "draw_clear_ms": "0.0004",
+      "scene_advance_ms": "0.0024",
+      "texture_advance_ms": "0.0014",
+      "asset_stage_ms": "0",
+      "upload_poll_ms": "0",
+      "upload_submit_ms": "0",
+      "asset_publish_ms": "0",
+      "candidate_cleanup_ms": "0",
+      "retirement_ms": "0",
+      "frame_storage_ms": "0.0052",
+      "render_snapshot_ms": "0",
+      "frame_capture_ms": "0",
+      "frame_submit_ms": "0",
+      "window_pump_ms": "0.0026",
+      "window_events_ms": "0.0004",
+      "input_state_ms": "0.0167",
+      "input_events_ms": "0.0245",
+      "task_collect_ms": "0.0006",
+      "task_submit_ms": "0",
+      "idle_wait_ms": "43.6068",
+      "task_submit_lock_ms": "0",
+      "task_submit_work_ms": "0",
+      "task_submit_allocate_ms": "0",
+      "task_submit_insert_ms": "0",
+      "task_submit_notify_ms": "0",
+      "idle_lock_ms": "0.0001",
+      "idle_condition_ms": "43.606"
+    },
+    "probes": [
+      {
+        "kind": "key",
+        "index": "2003",
+        "sent_ns": "2508543957340700",
+        "received_ns": "2508543978460800",
+        "latency_ms": "21.1201"
+      },
+      {
+        "kind": "key",
+        "index": "3627",
+        "sent_ns": "2508625113333700",
+        "received_ns": "2508625134029100",
+        "latency_ms": "20.6954"
+      },
+      {
+        "kind": "key",
+        "index": "595",
+        "sent_ns": "2508462566454100",
+        "received_ns": "2508462587683800",
+        "latency_ms": "21.2297"
+      },
+      {
+        "kind": "key",
+        "index": "3495",
+        "sent_ns": "2508618455945800",
+        "received_ns": "2508618476788100",
+        "latency_ms": "20.8423"
+      },
+      {
+        "kind": "key",
+        "index": "3070",
+        "sent_ns": "2508596817772700",
+        "received_ns": "2508596838684600",
+        "latency_ms": "20.9119"
+      },
+      {
+        "kind": "key",
+        "index": "2074",
+        "sent_ns": "2508546966648900",
+        "received_ns": "2508546987677500",
+        "latency_ms": "21.0286"
+      },
+      {
+        "kind": "key",
+        "index": "2285",
+        "sent_ns": "2508555546525300",
+        "received_ns": "2508555567509000",
+        "latency_ms": "20.9837"
+      },
+      {
+        "kind": "key",
+        "index": "1347",
+        "sent_ns": "2508509385786300",
+        "received_ns": "2508509407948600",
+        "latency_ms": "22.1623"
+      },
+      {
+        "kind": "key",
+        "index": "2948",
+        "sent_ns": "2508590538466300",
+        "received_ns": "2508590559484100",
+        "latency_ms": "21.0178"
+      },
+      {
+        "kind": "key",
+        "index": "2487",
+        "sent_ns": "2508564226473400",
+        "received_ns": "2508564247099000",
+        "latency_ms": "20.6256"
+      },
+      {
+        "kind": "key",
+        "index": "3663",
+        "sent_ns": "2508627077988600",
+        "received_ns": "2508627099549800",
+        "latency_ms": "21.5612"
+      },
+      {
+        "kind": "key",
+        "index": "2412",
+        "sent_ns": "2508560769570400",
+        "received_ns": "2508560790862900",
+        "latency_ms": "21.2925"
+      },
+      {
+        "kind": "key",
+        "index": "3305",
+        "sent_ns": "2508608838888200",
+        "received_ns": "2508608859617900",
+        "latency_ms": "20.7297"
+      },
+      {
+        "kind": "key",
+        "index": "266",
+        "sent_ns": "2508441233380200",
+        "received_ns": "2508441256237300",
+        "latency_ms": "22.8571"
+      },
+      {
+        "kind": "key",
+        "index": "3165",
+        "sent_ns": "2508601542284200",
+        "received_ns": "2508601563357600",
+        "latency_ms": "21.0734"
+      },
+      {
+        "kind": "key",
+        "index": "899",
+        "sent_ns": "2508482800940500",
+        "received_ns": "2508482822397900",
+        "latency_ms": "21.4574"
+      },
+      {
+        "kind": "task",
+        "index": "3165",
+        "sent_ns": "2508601542326100",
+        "received_ns": "2508601563365300",
+        "latency_ms": "21.0392"
+      },
+      {
+        "kind": "task",
+        "index": "595",
+        "sent_ns": "2508462566472200",
+        "received_ns": "2508462587711600",
+        "latency_ms": "21.2394"
+      },
+      {
+        "kind": "task",
+        "index": "1875",
+        "sent_ns": "2508538793151200",
+        "received_ns": "2508538813719600",
+        "latency_ms": "20.5684"
+      },
+      {
+        "kind": "task",
+        "index": "2003",
+        "sent_ns": "2508543957371900",
+        "received_ns": "2508543978488900",
+        "latency_ms": "21.117"
+      },
+      {
+        "kind": "task",
+        "index": "2487",
+        "sent_ns": "2508564226483700",
+        "received_ns": "2508564247125500",
+        "latency_ms": "20.6418"
+      },
+      {
+        "kind": "task",
+        "index": "2143",
+        "sent_ns": "2508549840188300",
+        "received_ns": "2508549860050400",
+        "latency_ms": "19.8621"
+      },
+      {
+        "kind": "task",
+        "index": "2074",
+        "sent_ns": "2508546966697400",
+        "received_ns": "2508546987704300",
+        "latency_ms": "21.0069"
+      },
+      {
+        "kind": "task",
+        "index": "842",
+        "sent_ns": "2508478988565500",
+        "received_ns": "2508479008973700",
+        "latency_ms": "20.4082"
+      },
+      {
+        "kind": "task",
+        "index": "2040",
+        "sent_ns": "2508545521515000",
+        "received_ns": "2508545542124800",
+        "latency_ms": "20.6098"
+      },
+      {
+        "kind": "task",
+        "index": "3931",
+        "sent_ns": "2508640859372900",
+        "received_ns": "2508640879172100",
+        "latency_ms": "19.7992"
+      },
+      {
+        "kind": "task",
+        "index": "3627",
+        "sent_ns": "2508625113359500",
+        "received_ns": "2508625134056800",
+        "latency_ms": "20.6973"
+      },
+      {
+        "kind": "task",
+        "index": "707",
+        "sent_ns": "2508470079615400",
+        "received_ns": "2508470099747800",
+        "latency_ms": "20.1324"
+      },
+      {
+        "kind": "task",
+        "index": "13",
+        "sent_ns": "2508425273101600",
+        "received_ns": "2508425293654000",
+        "latency_ms": "20.5524"
+      },
+      {
+        "kind": "task",
+        "index": "1992",
+        "sent_ns": "2508543506538000",
+        "received_ns": "2508543526699000",
+        "latency_ms": "20.161"
+      },
+      {
+        "kind": "task",
+        "index": "2066",
+        "sent_ns": "2508546640892600",
+        "received_ns": "2508546660737300",
+        "latency_ms": "19.8447"
+      },
+      {
+        "kind": "task",
+        "index": "735",
+        "sent_ns": "2508471747019400",
+        "received_ns": "2508471767278000",
+        "latency_ms": "20.2586"
+      }
+    ],
+    "origin_ns": 2508424679025100
+  }
+}

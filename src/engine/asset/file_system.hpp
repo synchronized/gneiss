@@ -33,6 +33,14 @@ public:
     return open_read(path, output);
   }
 
+  /** 可选异步打开；不支持时由调用方显式选择同步回退，禁止在本入口伪装异步。 */
+  [[nodiscard]] virtual gneiss_result
+  begin_open_read_for_validation(std::string_view,
+                                 std::unique_ptr<open_read_operation>& output) const noexcept {
+    output.reset();
+    return GNEISS_ERROR_UNSUPPORTED;
+  }
+
   file_system(const file_system&) = delete;
   file_system& operator=(const file_system&) = delete;
   file_system(file_system&&) = delete;

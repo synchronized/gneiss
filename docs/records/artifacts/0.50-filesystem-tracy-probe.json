@@ -1,0 +1,418 @@
+{
+  "purpose": "独立 Tracy 文件元数据对照，不链接引擎或调度器，不读取 payload。",
+  "checks": [
+    {
+      "case": "arguments",
+      "exit": 2,
+      "expected": 2
+    },
+    {
+      "case": "unknown",
+      "exit": 2,
+      "expected": 2
+    },
+    {
+      "case": "missing",
+      "exit": 1,
+      "expected": 1
+    },
+    {
+      "case": "empty",
+      "exit": 4,
+      "expected": 4
+    },
+    {
+      "case": "unicode",
+      "exit": 0,
+      "expected": 0
+    }
+  ],
+  "captures": [
+    {
+      "directory": "build\\0.50-filesystem-tracy-probe",
+      "run": {
+        "fixture_exit": 0,
+        "capture_exit": 0,
+        "binary_sha256": "936135d765413f7c16e80a10ee377bc2fb3078204a7a9fa43713da87d90e825f"
+      },
+      "fixture": "files=580 passes=2 failures=0\n",
+      "summary": {
+        "probe.enumerate": {
+          "count": 1,
+          "max_ms": 1.963746,
+          "longest": {
+            "start_ns": 1069018016,
+            "duration_ns": 1963746,
+            "path": ""
+          }
+        },
+        "probe.final_path": {
+          "count": 1160,
+          "max_ms": 0.727507,
+          "longest": {
+            "start_ns": 5654730393,
+            "duration_ns": 727507,
+            "path": "textures/image-1.texture.json"
+          }
+        },
+        "probe.close_handle": {
+          "count": 1160,
+          "max_ms": 0.154541,
+          "longest": {
+            "start_ns": 3600442094,
+            "duration_ns": 154541,
+            "path": ""
+          }
+        },
+        "probe.open_attributes": {
+          "count": 1160,
+          "max_ms": 1.202295,
+          "longest": {
+            "start_ns": 5492411338,
+            "duration_ns": 1202295,
+            "path": "textures/image-11-linear.texture.json"
+          }
+        },
+        "probe.canonical": {
+          "count": 1160,
+          "max_ms": 1874.125374,
+          "longest": {
+            "start_ns": 3617072642,
+            "duration_ns": 1874125374,
+            "path": "textures/image-1.gneiss-texture"
+          }
+        }
+      },
+      "sha256": {
+        "probe.tracy": "254ca0359b9f88727cdea9072fc244f4760f7632ba7e25cfe329093226532368",
+        "zones.csv": "2c965450163de1a55c714f9b9b81a1335385f2c69d987a004366bfc3e2e96752",
+        "run.json": "afad353ca05e0258858cff9bcd91d08d0fc5814cf7ea32fc60068a441b85aaf2"
+      },
+      "slow_canonical": [
+        {
+          "start_ns": 3617072642,
+          "duration_ns": 1874125374,
+          "path": "textures/image-1.gneiss-texture"
+        },
+        {
+          "start_ns": 1827425110,
+          "duration_ns": 326926534,
+          "path": "models/mesh-21-primitive-0.gneiss-mesh"
+        },
+        {
+          "start_ns": 2415659869,
+          "duration_ns": 288447855,
+          "path": "models/mesh-23-primitive-0.gneiss-mesh"
+        },
+        {
+          "start_ns": 1075948433,
+          "duration_ns": 254367329,
+          "path": "materials/material-19.material.json"
+        },
+        {
+          "start_ns": 2188121464,
+          "duration_ns": 170617734,
+          "path": "models/mesh-21-primitive-2.gneiss-mesh"
+        }
+      ]
+    },
+    {
+      "directory": "build\\0.50-filesystem-tracy-balanced",
+      "run": {
+        "fixture_exit": 0,
+        "capture_exit": 0,
+        "binary_sha256": "7eb056d982c15b1857197f273c0da5ab7bb39a83248ee129037f1bc58c08c142"
+      },
+      "fixture": "files=580 passes=2 failures=0\n",
+      "summary": {
+        "probe.open_attributes": {
+          "count": 1145,
+          "max_ms": 0.895865,
+          "longest": {
+            "start_ns": 860429279,
+            "duration_ns": 895865,
+            "path": "models/mesh-31-primitive-0.gneiss-mesh"
+          }
+        },
+        "probe.canonical": {
+          "count": 1146,
+          "max_ms": 5.196189,
+          "longest": {
+            "start_ns": 1005500566,
+            "duration_ns": 5196189,
+            "path": "models/mesh-35-primitive-2.gneiss-mesh"
+          }
+        },
+        "probe.enumerate": {
+          "count": 1,
+          "max_ms": 0.912934,
+          "longest": {
+            "start_ns": 817320424,
+            "duration_ns": 912934,
+            "path": ""
+          }
+        },
+        "probe.final_path": {
+          "count": 1145,
+          "max_ms": 1.57067,
+          "longest": {
+            "start_ns": 883431246,
+            "duration_ns": 1570670,
+            "path": "models/mesh-58-primitive-1.gneiss-mesh"
+          }
+        },
+        "probe.close_handle": {
+          "count": 1145,
+          "max_ms": 0.162224,
+          "longest": {
+            "start_ns": 1032724012,
+            "duration_ns": 162224,
+            "path": ""
+          }
+        },
+        "probe.file": {
+          "count": 1145,
+          "max_ms": 5.303746,
+          "longest": {
+            "start_ns": 1005393795,
+            "duration_ns": 5303746,
+            "path": "models/mesh-35-primitive-2.gneiss-mesh"
+          }
+        }
+      },
+      "sha256": {
+        "probe.tracy": "088e389ff29378afe34eeb3250202eb4e64ae972e74daf4507d6d5b7022ead18",
+        "zones.csv": "819620c39459eba8832b7de10699a6f79c49fa2ecba2d8da0b47e65522d7664c",
+        "run.json": "c69237afe16b8165096a43ee24c6e583484082c225d6f9eb491ee9878b4ad6be"
+      },
+      "slow_canonical": [
+        {
+          "start_ns": 1005500566,
+          "duration_ns": 5196189,
+          "path": "models/mesh-35-primitive-2.gneiss-mesh"
+        },
+        {
+          "start_ns": 1001750202,
+          "duration_ns": 2366017,
+          "path": "models/mesh-34-primitive-2.gneiss-mesh"
+        },
+        {
+          "start_ns": 1030420332,
+          "duration_ns": 910048,
+          "path": "models/mesh-62-primitive-0.gneiss-mesh"
+        },
+        {
+          "start_ns": 909572113,
+          "duration_ns": 836716,
+          "path": "models/mesh-82-primitive-0.gneiss-mesh"
+        },
+        {
+          "start_ns": 981684478,
+          "duration_ns": 740412,
+          "path": "models/mesh-114-primitive-26.gneiss-mesh"
+        }
+      ]
+    },
+    {
+      "directory": "build\\0.50-filesystem-tracy-final",
+      "run": {
+        "fixture_exit": 0,
+        "capture_exit": 0,
+        "binary_sha256": "1ee52e772758e85c53cb51a2a80ec272c8b711e652894fbe8255300a7bc08533"
+      },
+      "fixture": "files=580 passes=2 failures=0\n",
+      "summary": {
+        "probe.open_attributes": {
+          "count": 1160,
+          "max_ms": 1.096708,
+          "longest": {
+            "start_ns": 546111141,
+            "duration_ns": 1096708,
+            "path": "models/mesh-50-primitive-4.gneiss-mesh"
+          }
+        },
+        "probe.canonical": {
+          "count": 1160,
+          "max_ms": 2.738544,
+          "longest": {
+            "start_ns": 641319027,
+            "duration_ns": 2738544,
+            "path": "models/mesh-105-primitive-0.gneiss-mesh"
+          }
+        },
+        "probe.enumerate": {
+          "count": 1,
+          "max_ms": 1.555655,
+          "longest": {
+            "start_ns": 485170928,
+            "duration_ns": 1555655,
+            "path": ""
+          }
+        },
+        "probe.final_path": {
+          "count": 1160,
+          "max_ms": 1.356161,
+          "longest": {
+            "start_ns": 625132832,
+            "duration_ns": 1356161,
+            "path": "materials/material-11.material.json"
+          }
+        },
+        "probe.close_handle": {
+          "count": 1160,
+          "max_ms": 0.260565,
+          "longest": {
+            "start_ns": 539000179,
+            "duration_ns": 260565,
+            "path": ""
+          }
+        },
+        "probe.file": {
+          "count": 1160,
+          "max_ms": 2.847447,
+          "longest": {
+            "start_ns": 641210963,
+            "duration_ns": 2847447,
+            "path": "models/mesh-105-primitive-0.gneiss-mesh"
+          }
+        }
+      },
+      "sha256": {
+        "probe.tracy": "e43cbc60be17fc02487b0e621561602f0f0fd688adad63542a7fde1a07b63883",
+        "zones.csv": "9c32d28a45f8236e432e070e2cfe2360a72a682014e1c7bad4d4da1582ad37cc",
+        "run.json": "5ecb393c4056608ab0d2a50e79a39bdea8856294240b02d20d35bbd4f4dfe91e"
+      },
+      "slow_canonical": [
+        {
+          "start_ns": 641319027,
+          "duration_ns": 2738544,
+          "path": "models/mesh-105-primitive-0.gneiss-mesh"
+        },
+        {
+          "start_ns": 630747988,
+          "duration_ns": 2291435,
+          "path": "materials/material-3.material.json"
+        },
+        {
+          "start_ns": 500270915,
+          "duration_ns": 593612,
+          "path": "models/mesh-105-primitive-3.gneiss-mesh"
+        },
+        {
+          "start_ns": 550849886,
+          "duration_ns": 476111,
+          "path": "models/mesh-56-primitive-1.gneiss-mesh"
+        },
+        {
+          "start_ns": 609079377,
+          "duration_ns": 441311,
+          "path": "textures/image-44-linear.gneiss-texture"
+        }
+      ]
+    },
+    {
+      "directory": "build\\0.50-filesystem-tracy-unicode-final",
+      "run": {
+        "fixture_exit": 0,
+        "capture_exit": 0,
+        "binary_sha256": "c0df4199272d94ff15dc22315d2eadc8ba01d97556ed0139ebfa8224ef27a515"
+      },
+      "fixture": "files=580 passes=2 failures=0\n",
+      "summary": {
+        "probe.open_attributes": {
+          "count": 1160,
+          "max_ms": 1.106958,
+          "longest": {
+            "start_ns": 1071815500,
+            "duration_ns": 1106958,
+            "path": "models/mesh-58-primitive-1.gneiss-mesh"
+          }
+        },
+        "probe.canonical": {
+          "count": 1160,
+          "max_ms": 0.662629,
+          "longest": {
+            "start_ns": 1242793091,
+            "duration_ns": 662629,
+            "path": "textures/image-21-normal.gneiss-texture"
+          }
+        },
+        "probe.enumerate": {
+          "count": 1,
+          "max_ms": 1.661153,
+          "longest": {
+            "start_ns": 1009279000,
+            "duration_ns": 1661153,
+            "path": ""
+          }
+        },
+        "probe.final_path": {
+          "count": 1160,
+          "max_ms": 0.222356,
+          "longest": {
+            "start_ns": 1182007370,
+            "duration_ns": 222356,
+            "path": "models/mesh-3-primitive-2.gneiss-mesh"
+          }
+        },
+        "probe.close_handle": {
+          "count": 1160,
+          "max_ms": 0.24999,
+          "longest": {
+            "start_ns": 1117902997,
+            "duration_ns": 249990,
+            "path": ""
+          }
+        },
+        "probe.file": {
+          "count": 1160,
+          "max_ms": 1.293968,
+          "longest": {
+            "start_ns": 1071704389,
+            "duration_ns": 1293968,
+            "path": "models/mesh-58-primitive-1.gneiss-mesh"
+          }
+        }
+      },
+      "sha256": {
+        "probe.tracy": "4895902ffcc063313163cdb2182deea70661c2ad19e60f5389c4f0cf67379039",
+        "zones.csv": "7ef5c933b94df18a2878a8a3614c127f50743162921acab3e63e8208daa6ec4e",
+        "run.json": "ee84a98295a48d746ba48aa7547da8c9358b4451c43c71973bb86ade4640cf06"
+      },
+      "slow_canonical": [
+        {
+          "start_ns": 1242793091,
+          "duration_ns": 662629,
+          "path": "textures/image-21-normal.gneiss-texture"
+        },
+        {
+          "start_ns": 1087771306,
+          "duration_ns": 529405,
+          "path": "models/mesh-75-primitive-3.gneiss-mesh"
+        },
+        {
+          "start_ns": 1212792944,
+          "duration_ns": 446552,
+          "path": "models/mesh-72-primitive-4.gneiss-mesh"
+        },
+        {
+          "start_ns": 1164791933,
+          "duration_ns": 444425,
+          "path": "models/mesh-114-primitive-19.gneiss-mesh"
+        },
+        {
+          "start_ns": 1040812522,
+          "duration_ns": 431275,
+          "path": "models/mesh-17-primitive-2.gneiss-mesh"
+        }
+      ]
+    }
+  ],
+  "limits": [
+    "首轮 canonical 总在第一遍先执行，原生步骤可能受预热影响。",
+    "后续改为相邻文件交替顺序、第二遍反转；balanced 捕获尾部缺失，不能补造事件。",
+    "final 为加入 200 ms 夹具发送收尾后但 Unicode 入口修正前；unicode-final 为最终源码。",
+    "尾部等待不保证送达，仍以导出事件数核实完整性。",
+    "独立对照不等同于引擎负载，不宣称已定位具体系统调用或修复主线程问题。"
+  ]
+}

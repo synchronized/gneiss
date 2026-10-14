@@ -1,0 +1,187 @@
+{
+  "status": "diagnostic-complete",
+  "scope": "协作失败加载主循环，旧16MiB批次；后续重试与独立Debug构建并行，仅用于功能检查，不采用重试时长及进程累计性能。",
+  "raw": "build\\0.50-cooperative-failure-trace\\sample.loop.csv",
+  "raw_sha256": "7e4cb7d40c38b1049d941d51d505d12abb7969461e0722245b8ec55904f96d72",
+  "samples": 4145,
+  "maximum_interval_ms": 233.7671,
+  "longest": [
+    {
+      "start_ms": 60478.399,
+      "phase": 1.0,
+      "callback_ms": 213.5165,
+      "scheduler_ms": 181.6669,
+      "scene_poll_ms": 0.0099,
+      "sleep_ms": 31.6499,
+      "outside_callback_ms": 20.2506
+    },
+    {
+      "start_ms": 18856.3027,
+      "phase": 1.0,
+      "callback_ms": 154.3121,
+      "scheduler_ms": 141.9139,
+      "scene_poll_ms": 0.0111,
+      "sleep_ms": 12.2683,
+      "outside_callback_ms": 0.315
+    },
+    {
+      "start_ms": 123704.5122,
+      "phase": 1.0,
+      "callback_ms": 134.8819,
+      "scheduler_ms": 104.1498,
+      "scene_poll_ms": 0.0107,
+      "sleep_ms": 30.6406,
+      "outside_callback_ms": 0.5224
+    },
+    {
+      "start_ms": 13766.137,
+      "phase": 1.0,
+      "callback_ms": 133.2342,
+      "scheduler_ms": 101.9105,
+      "scene_poll_ms": 0.0104,
+      "sleep_ms": 31.2449,
+      "outside_callback_ms": 0.2436
+    },
+    {
+      "start_ms": 139061.2407,
+      "phase": 1.0,
+      "callback_ms": 126.2021,
+      "scheduler_ms": 117.9022,
+      "scene_poll_ms": 0.0127,
+      "sleep_ms": 8.2011,
+      "outside_callback_ms": 0.4329
+    },
+    {
+      "start_ms": 13546.7878,
+      "phase": 1.0,
+      "callback_ms": 125.7178,
+      "scheduler_ms": 108.8401,
+      "scene_poll_ms": 0.0129,
+      "sleep_ms": 16.7802,
+      "outside_callback_ms": 0.3047
+    },
+    {
+      "start_ms": 70518.0108,
+      "phase": 1.0,
+      "callback_ms": 125.4148,
+      "scheduler_ms": 108.6079,
+      "scene_poll_ms": 0.018,
+      "sleep_ms": 16.5763,
+      "outside_callback_ms": 0.4509
+    },
+    {
+      "start_ms": 89579.5438,
+      "phase": 1.0,
+      "callback_ms": 125.1234,
+      "scheduler_ms": 112.449,
+      "scene_poll_ms": 0.0089,
+      "sleep_ms": 12.5324,
+      "outside_callback_ms": 0.2906
+    }
+  ],
+  "maxima": {
+    "callback_ms": 213.5165,
+    "scheduler_ms": 181.6669,
+    "scene_poll_ms": 6.8504,
+    "sleep_ms": 42.051,
+    "outside_callback_ms": 22.7225
+  },
+  "binary_sha256": {
+    "gneiss_engine.dll": "0a3359c4ff8d85f7f584560d2cdb9da0f12fb3529f1322f47ba7ebff3b1b7e15",
+    "gneiss_scene_load_baseline.exe": "371c9cab1f64fc73981f5ca250c2271eff2d778f85b83519e2b11c056285ae86"
+  },
+  "archived_at": "2026-10-08T03:14:46.239450+08:00",
+  "timing_window_closed_before_debug_build": true,
+  "exit": 0,
+  "functional_failures": [],
+  "legacy_event_interval_max_ms": 233.6493,
+  "result": {
+    "loop_trace_enabled": true,
+    "event_interval_count": 4145,
+    "event_interval_p50_ms": 28.0136,
+    "event_interval_p99_ms": 109.8239,
+    "event_interval_exceedances": [
+      {
+        "threshold_ms": 16.7,
+        "count": 2279,
+        "ratio": 0.5498190591
+      },
+      {
+        "threshold_ms": 33.3,
+        "count": 1077,
+        "ratio": 0.2598311218
+      },
+      {
+        "threshold_ms": 50,
+        "count": 1062,
+        "ratio": 0.256212304
+      },
+      {
+        "threshold_ms": 100,
+        "count": 105,
+        "ratio": 0.02533172497
+      }
+    ],
+    "load_ms": 151979.6495,
+    "mode": "cooperative",
+    "scenario": "failure",
+    "load_and_drain_ms": 152432.3922,
+    "verified_capture_ms": 153400.2389,
+    "completed_switches": 0,
+    "maximum_activation_ms": 0,
+    "maximum_retirement_ms": 0,
+    "retirement_ms": 22.2868,
+    "live_resources": 505,
+    "old_resources": 505,
+    "cancel_ms": 0,
+    "cancel_cleanup_ms": 0,
+    "observed_cleanup_pending": false,
+    "retried": true,
+    "retry_ms": 629893.3916,
+    "resizes": 0,
+    "restored": 0,
+    "minimized": 0,
+    "minimized_at_ms": 0,
+    "prepare_ms": 19.3535,
+    "asset_prepare_ms": 81935.3429,
+    "verify_ms": 0,
+    "verify_maximum_step_ms": 0,
+    "verify_maximum_open_ms": 0,
+    "verify_maximum_read_ms": 0,
+    "verify_maximum_hash_ms": 0,
+    "upload_ms": 16873.9779,
+    "maximum_advance_ms": 6.849,
+    "activation_ms": 0,
+    "cleanup_ms": 0.1588,
+    "cleanup_complete": true,
+    "upload_reserved_bytes": 0,
+    "candidate_resident_bytes": 1610711712,
+    "candidate_cpu_data_bytes": 188064,
+    "candidate_texture_payload_bytes": 1610614656,
+    "peak_upload_bytes": 22369648,
+    "application_logical_bytes": 3406252232,
+    "application_cpu_data_bytes": 162836552,
+    "available_bytes": 888715064,
+    "event_interval_p95_ms": 93.4683,
+    "event_interval_max_ms": 233.6493,
+    "minimized_event_count": 0,
+    "minimized_event_max_ms": 0,
+    "phase_maximum_event_interval_ms": {
+      "preparing": 26.13,
+      "assets": 233.6493,
+      "verifying": 0,
+      "instantiating": 0,
+      "ready": 0,
+      "applied": 0,
+      "failed": 0,
+      "cancelled": 0
+    },
+    "render_60_ticks_ms": 866.6008,
+    "capture_ms": 101.2459,
+    "nodes": 553,
+    "presented_frames": 8139,
+    "peak_resident_bytes": 4818223104
+  },
+  "result_sha256": "755b30c2c596f44043793114590c78735ea1b70cf6ab0ca3074f3f948a11ec42",
+  "image_sha256": "09a457af28cab10a77d1f42c964bc4434a0b178e495629d045c8e6bcceeb01fd"
+}

@@ -1,0 +1,172 @@
+{
+  "directory": "build\\windows-trace-20261012-120234",
+  "run": {
+    "started_utc": "2026-10-12T04:02:34.011210+00:00",
+    "instance": "Gneiss-be308a0c8e844fa9a5b88e07e08ce3d9",
+    "stop_command": [
+      "C:\\Program Files (x86)\\Windows Kits\\10\\Windows Performance Toolkit\\wpr.exe",
+      "-stop",
+      "D:\\sunday\\workspace\\build\\github\\synchronized\\gneiss\\build\\windows-trace-20261012-120234\\system.etl",
+      "-skipPdbGen",
+      "-instancename",
+      "Gneiss-be308a0c8e844fa9a5b88e07e08ce3d9"
+    ],
+    "executable": "D:\\sunday\\workspace\\build\\github\\synchronized\\gneiss\\build\\windows-clang-profiling\\bin\\gneiss_main_loop_response.exe",
+    "assets": "D:\\sunday\\workspace\\asset-cache\\intel-sponza\\0.44-full-cooked",
+    "timeout_seconds": 900,
+    "diagnostic_only": true,
+    "hashes": {
+      "gneiss_main_loop_response.exe": "919acf15a676c92e1669585008690c47d10ea6da3fe33cb0f6d8dcdccc898ebe",
+      "gneiss_engine.dll": "c6ba62f7be137944051f4b44d9436566525c84226c4754ac9adc2fd2ff6f98c7",
+      "gneiss_tracy.dll": "124743793823423c5aee7fadc82f98e583c7a862a421eb2a4839fd50bd87052c"
+    },
+    "wpr_profiles": [
+      "-start",
+      "D:\\sunday\\workspace\\build\\github\\synchronized\\gneiss\\scripts\\performance\\scheduler.wprp!GneissScheduler"
+    ],
+    "wpr_start_exit": 0,
+    "fixture_pid": 22112,
+    "fixture_started_utc": "2026-10-12T04:02:34.465016+00:00",
+    "fixture_exit": 0,
+    "fixture_finished_utc": "2026-10-12T04:05:57.673357+00:00",
+    "tracy_exit": 0,
+    "wpr_stop_exit": 0,
+    "finished_utc": "2026-10-12T04:06:57.169803+00:00",
+    "artifacts": {
+      "system.etl": 2055733248,
+      "application.tracy": 64767602,
+      "response.json": 283
+    }
+  },
+  "response": {
+    "passed": true,
+    "keys": 3277,
+    "tasks": 3277,
+    "key_p95_ms": 16.5001,
+    "key_max_ms": 46.3543,
+    "task_p95_ms": 14.5504,
+    "task_max_ms": 28.4994,
+    "close_ms": 3.1788,
+    "nodes": 553,
+    "resources": 505,
+    "loaded_scene": true,
+    "injected_stall": false,
+    "scene_ready": true,
+    "probe_timed_out": false,
+    "timed_out_probe_ms": 0
+  },
+  "etl_lost_events": 0,
+  "etl_lost_buffers": 0,
+  "main_os_tid": 21584,
+  "main_thread_evidence": "Process/thread report: earliest thread created at 216046 us, process created at 212386 us; executable entry start address.",
+  "tracy_frame": {
+    "name": "application.loop",
+    "file": "D:/sunday/workspace/build/github/synchronized/gneiss/src/engine/function/application/application_state.cpp",
+    "line": 595,
+    "start": 120317277709,
+    "duration": 49153686,
+    "thread": 2,
+    "text": ""
+  },
+  "slow_interval": {
+    "out_us": 121337259,
+    "in_us": 121386382,
+    "off_us": 49123,
+    "ready_us": 121355872,
+    "reason": "WrAlertByThreadId",
+    "state": "Waiting",
+    "ready_delay_us": 30510,
+    "blocked_us": 18613
+  },
+  "raw_scheduler_events": [
+    "CSwitch,  121337259,             Idle (   0),          0,    0,   -1,           0,        0, gneiss_main_loop_response.exe (22112),      21584,    9,   -1,         Waiting, WrAlertByThreadId, Swapable,     62,   0,   1,   48713728,    0,    0,   Important,   Important",
+    "ReadyThread,  121355872,           System (   4),       2244, gneiss_main_loop_response.exe (22112),      21584,       Unwait,               0,   0, InDPC",
+    "CSwitch,  121386382, gneiss_main_loop_response.exe (22112),      21584,    8,   -1,       49122,        1,  wpscloudsvr.exe (2708),      22664,    8,   -1,         Waiting,   DelayExecution, Swapable,     27,   1,   2,  112441344,    0,    0,   Important,   Important"
+  ],
+  "clock_pairs": [
+    {
+      "etl_out": 121337259,
+      "tracy_start": 120317282.955,
+      "offset_us": 1019976.0450000018,
+      "tracy_us": 49146.143,
+      "etl_us": 49123
+    },
+    {
+      "etl_out": 119120140,
+      "tracy_start": 118100163.683,
+      "offset_us": 1019976.3170000017,
+      "tracy_us": 24179.095,
+      "etl_us": 24140
+    },
+    {
+      "etl_out": 119423323,
+      "tracy_start": 118403342.777,
+      "offset_us": 1019980.2230000049,
+      "tracy_us": 23092.668,
+      "etl_us": 23066
+    },
+    {
+      "etl_out": 119551457,
+      "tracy_start": 118531478.405,
+      "offset_us": 1019978.5949999988,
+      "tracy_us": 19107.941,
+      "etl_us": 18885
+    },
+    {
+      "etl_out": 119879185,
+      "tracy_start": 118859205.83,
+      "offset_us": 1019979.1700000018,
+      "tracy_us": 18055.122,
+      "etl_us": 17861
+    },
+    {
+      "etl_out": 119333913,
+      "tracy_start": 118313936.208,
+      "offset_us": 1019976.7919999957,
+      "tracy_us": 17565.433,
+      "etl_us": 17541
+    },
+    {
+      "etl_out": 119767100,
+      "tracy_start": 118747123.168,
+      "offset_us": 1019976.8320000023,
+      "tracy_us": 17089.297,
+      "etl_us": 17067
+    },
+    {
+      "etl_out": 119850069,
+      "tracy_start": 118830084.212,
+      "offset_us": 1019984.7880000025,
+      "tracy_us": 17067.47,
+      "etl_us": 17024
+    },
+    {
+      "etl_out": 120992222,
+      "tracy_start": 119972241.967,
+      "offset_us": 1019980.0330000073,
+      "tracy_us": 16953.003,
+      "etl_us": 16711
+    },
+    {
+      "etl_out": 119897268,
+      "tracy_start": 118877287.811,
+      "offset_us": 1019980.1889999956,
+      "tracy_us": 16568.377,
+      "etl_us": 16504
+    }
+  ],
+  "clock_alignment": "Empirical correspondence from ten long waits, not direct clock-origin subtraction; start offsets span 1019976.045 to 1019984.788 us.",
+  "sha256": {
+    "run.json": "0986b160e553ed348fb322bc9e03e2daa8fd3d098e9243e378389743ddbd5700",
+    "response.json": "70a60796ea4cbc06956c0bf37b01459a71e87fbf59db3a99b3d837ecca21c686",
+    "etl-stats.txt": "f6e4f0e4af462312768e74e76d66ad43ab5ac532a187d15bfbe85c8ff093cc50",
+    "main-thread-gaps.json": "e98e36c6d745e7c4b9239537f12d4cdd69b5f2eeaf51888e278afd4f2005b1ae",
+    "clock-pairs.json": "8242e06cb2e4ab2529aa7688b537a7408c79150ad95784fa8be849f654433639"
+  },
+  "limits": [
+    "No >100ms loop in this capture; prior failures remain unresolved.",
+    "ReadyThread to next CSwitch-in is ready delay, not continuous execution or lock hold.",
+    "No file I/O or hard fault evidence in scheduler-only profile.",
+    "CPU contention source and initial 18.613ms wait trigger have not been attributed."
+  ]
+}

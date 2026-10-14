@@ -1,0 +1,27 @@
+{
+  "status": "failed",
+  "source_commit": "77b8b3311cef8560ccaa62e733fb9a12763844a7",
+  "date": "2026-10-08",
+  "raw": "build\\0.50-response-final-candidate.json",
+  "raw_sha256": "bb9179f306fd05c298b5651e4ef1e90fa2e9ab3dcc71c9f54fe56c71f43cabad",
+  "result": {
+    "passed": false,
+    "keys": 4006,
+    "tasks": 4006,
+    "key_p95_ms": 17.7028,
+    "key_max_ms": 266.238,
+    "task_p95_ms": 16.883,
+    "task_max_ms": 266.23,
+    "close_ms": 0.3873,
+    "nodes": 553,
+    "resources": 505,
+    "loaded_scene": true,
+    "injected_stall": false
+  },
+  "failure": "输入及任务接收最大延迟超过冻结100ms门槛；原始进程退出3，串行验收停止，协作矩阵与Vulkan收尾未运行。",
+  "limits": "该次没有开启引擎循环诊断，不能用其他Runtime样本的条件等待占比替代此次归因。",
+  "binary_sha256": {
+    "gneiss_engine.dll": "e04587616a53a45ea940203b5e12124a0c6ed8eadb40de5c5ab93233513a3f08",
+    "gneiss_main_loop_response.exe": "13efe7fb82b1f8acce23a8ca648ce6dad03ee3cb52de70bbc68b700b5aeb9f2a"
+  }
+}

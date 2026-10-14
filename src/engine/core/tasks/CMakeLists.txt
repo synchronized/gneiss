@@ -3,6 +3,9 @@
 
 option(GNEISS_TASK_THREADS "启用任务工作线程后端" ON)
 add_library(gneiss_tasks STATIC task_scheduler.cpp task_scheduler.hpp task_platform.hpp)
+if(COMMAND gneiss_target_profiling)
+  gneiss_target_profiling(gneiss_tasks)
+endif()
 target_include_directories(gneiss_tasks PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/../../..")
 target_compile_features(gneiss_tasks PUBLIC cxx_std_20)
 target_compile_definitions(gneiss_tasks PRIVATE GNEISS_TASK_THREADS=$<BOOL:${GNEISS_TASK_THREADS}>)

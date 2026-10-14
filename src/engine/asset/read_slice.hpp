@@ -27,7 +27,8 @@ public:
     consumed_ = 0U;
   }
   [[nodiscard]] gneiss_result take(const read_source& source, range request,
-                                   std::span<const std::byte>& output, bool deferred = true) {
+                                   std::span<const std::byte>& output, bool deferred = true,
+                                   std::chrono::milliseconds wait_budget = {}) {
     const auto offset = request.offset;
     const auto limit = request.size;
     output = {};
@@ -59,7 +60,10 @@ public:
       return GNEISS_ERROR_INVALID_STATE;
     }
     std::span<const std::byte> ready;
-    const auto polled = operation_->poll(ready);
+    auto polled = operation_->poll(ready);
+    if (polled == GNEISS_ERROR_NOT_READY && wait_budget > std::chrono::milliseconds::zero()) {
+      polled = operation_->wait_for(wait_budget, ready);
+    }
     if (polled != GNEISS_SUCCESS) {
       return polled;
     }

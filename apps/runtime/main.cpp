@@ -818,6 +818,11 @@ void write_application_log(gneiss_application, const gneiss_log_event* event, vo
   if (native_result != GNEISS_SUCCESS)
     return 4;
   operation = application.run();
+  const auto task_stats = task_scheduler.stats();
+  log.write("INFO", "task_statistics", GNEISS_SUCCESS,
+            "submitted=" + std::to_string(task_stats.submitted) +
+                " completed=" + std::to_string(task_stats.completed) +
+                " retained=" + std::to_string(task_stats.retained));
   if (context.ipc_session != nullptr && context.ipc_failure == gneiss::result::success) {
     (void)context.ipc_session->notify_shutdown(
         operation == gneiss::result::success ? 0 : static_cast<std::int32_t>(operation));

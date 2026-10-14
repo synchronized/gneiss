@@ -13,7 +13,8 @@ function(gneiss_resolve_imguizmo)
     GIT_REPOSITORY https://github.com/CedricGuillemet/ImGuizmo.git
     # ImGuizmo；MIT 许可。固定提交保证 Editor 构建可复现。
     GIT_TAG 18cef5e031d8c6973d80284c67f60549fafd78c1
-    GIT_SHALLOW TRUE
+    # 固定 SHA 可能不在上游最新浅克隆中，必须允许取得历史提交。
+    GIT_SHALLOW FALSE
     SOURCE_SUBDIR gneiss-no-cmake
   )
   FetchContent_MakeAvailable(gneiss_imguizmo_source)

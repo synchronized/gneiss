@@ -3,6 +3,8 @@
 
 # 构建与测试 Gneiss
 
+可选 CPU 与任务时间线采集见 [Tracy 性能采集](profiling.md)。
+
 ## 适用场景
 
 本指南用于配置、构建并验证当前 Gneiss 工程、version、属性检查、Granit 图形示例、Runtime 宿主和
@@ -355,7 +357,7 @@ Scene View、右侧 Inspector 和底部 Console 的确定性默认工作区。�
 示例输出当前项目版本：
 
 ```text
-gneiss 0.48.0
+gneiss 0.50.0
 ```
 
 开发 preset 默认启用编译警告并将警告视为错误。
@@ -408,9 +410,133 @@ Sponza 是显式下载的外部测试资产，不随仓库和源码 Release 分�
 Release 路径、可选 Debug 功能矩阵与输出目录参数；工具顺序运行两种模式，每配置三次，保存 JSON、呈现观测 CSV
 和 GPU 回读 PPM。输出目录必须不存在，资产缺失直接报错，不把缺少外部数据记为通过。
 性能门槛只检查 Release，两种执行模式均检查响应性。`--daily-assets`、`--full-assets`
-可指定现有 Cook 目录；五贴图夹具使用 `--expected-resources 505`，旧夹具默认 458。
+可指定现有 Cook 目录；默认资源数为 505，旧夹具需显式使用 `--expected-resources 458`。
 `--baseline docs/records/artifacts/0.49-baseline-release.json` 还会比较加载中位数、进程峰值与图像。
 资产身份和门槛见 [0.49 基线记录](../records/M-312-loading-stability-baseline.md)。
+
+诊断后台加载的长间隔时，可单独运行测量程序并追加 `trace`：
+
+```powershell
+./build/windows-clang-release/bin/gneiss_scene_load_baseline.exe <资产目录> <输出前缀> thread initial trace
+```
+
+输出前缀的父目录须存在。常规 JSON 额外记录样本数、P50/P99 和超过
+16.7/33.3/50/100 ms 的次数及比例；旧 P95/最大值定义保持。
+可选 `.loop.csv` 保存每次更新回调的起点、此前已观测场景阶段、回调总耗时、
+协作调度、场景推进及实际睡眠耗时。后三项嵌套于回调总耗时，不能相加后再加总耗时。
+`outside_callback_ms` 是直到下一回调的剩余时间，含渲染、下一轮事件处理和观测开销，
+尚不能归因于某个引擎调用；最后一行未闭合，使用 -1。墙钟耗时包含线程失去调度的时间。
+详细记录在测量完成后批量写出，默认关闭；开启时会增加内存与计时开销，须另作开关对照。
+宿主原有 `sleep_for(1 ms)` 保持，不能将移除等待导致的数字下降宣称为引擎优化。
+
+要同时观测引擎内部，可在单个进程启动前设置 `GNEISS_LOOP_TRACE` 为可写的 CSV 路径，
+父目录须存在；诊断同样适用于实际 `gneiss_runtime --smoke --project <工程目录>`。
+
+```powershell
+$gneissPreviousTrace = $env:GNEISS_LOOP_TRACE
+try {
+  $env:GNEISS_LOOP_TRACE = Join-Path (Get-Location) 'build/runtime-loop.csv'
+  ./build/windows-clang-release/bin/gneiss_runtime.exe --smoke --project <工程目录>
+} finally {
+  $env:GNEISS_LOOP_TRACE = $gneissPreviousTrace
+}
+```
+
+每次 Application::run 结束后追加一个 CSV 表，开头记录单调时钟 origin_ns，
+最多保留最长 128 个循环及一行 maxima；maxima 的 frame 列表示该轮 run 的总循环数，
+各阶段最大值独立统计，不能相加。末尾注释统计循环累计时间及阈值超限次数。
+多个 run 的预热、加载和回读不能混作同一组；诊断路径应为本次进程单独指定。
+
+`total_ms` 为本次循环体加前一循环结束后的间隔，`gap_ms` 单列循环簿记与调度间隔。
+它与测量宿主旧 event_interval 的边界不同。事件、更新、渲染与绘制列表清理为顶层阶段；
+场景推进、资产接收/发布、上传回执/提交、候选收尾与帧快照等为嵌套阶段。
+window_pump/window_events 区分平台事件泵与窗口队列接收，input_state/input_events 区分
+输入状态读取与事件转换；task_collect/task_submit 记录加载服务的任务结果接收与续步提交。
+task_submit_lock 与 task_submit_work 区分提交取锁和锁内工作；allocate/insert/notify 子项
+嵌套于 work。idle_lock 是等待前初次取锁，idle_condition 包含条件等待及其内部重新取锁。
+这些子项仍包含线程失去调度的时间，不把它们直接解释成 CPU 执行，也不重复加总。
+`task_submit_dispatch` 覆盖观测包装内的 executor.submit 调用，包含其参数迁移与返回，
+不包含进入包装前的参数构造。场景来源复验另记录 `scene_verify_submit_body` 函数体
+和其中的 `task_callback_create` 回调构造；函数入口执行前的等待仍只落在外层 `task_submit`。
+这些阶段相互嵌套，外层减去内层的差额不能直接视为锁等待或缺页耗时。
+清理计时不等同于 GPU 驱动资源已经释放；run 返回前的 finish_frames 等待及关闭不在循环体内。
+最长样本不能用于推算全量 P95。详细计时默认关闭，关闭时不读取时钟或分配每帧诊断记录；
+开启时保留固定容量数据，文件写入在循环结束后完成。应对照插桩开销，不把诊断耗时计作产品优化。
+输出失败向 stderr 报告，不改变 Application 的运行结果。
+
+启用工作线程的原生 Granit Application 在循环末尾使用进展通知和最多请求 4 ms 的有限等待，
+避免无进展时持续轮询。任务终态及渲染回执可提前结束等待；未接入原生窗口等待接口时，
+输入与 IPC 依靠截止期限重新轮询。实际唤醒可能受 OS 调度推迟，不能把 4 ms 当作实测上限。
+诊断新增 idle_wait_ms，属于完整循环时间的一部分；Headless、Web 和无线程配置不启用该等待。
+资产工作线程在异步区间读取未完成时，每次推进可在原生 I/O 完成事件上最多请求 4 ms 等待；
+协作模式不使用该等待，read_operation.poll 仍保持非阻塞。Runtime 的 task_statistics 日志记录
+主循环结束时的任务提交、完成与保留数，可用于区分有意义的工作和频繁续步。
+Windows 的 gneiss_main_loop_response 测试通过独立线程发送按键与任务；可指定 JSON 输出路径，
+再加参数 stall 注入一次 50 ms 主线程停顿，用于验证测量夹具自身。可再加 `--assets <Cook资产根>`，在完整场景加载期间持续投递直到激活，并记录节点与资源数；
+它使用隐藏 320×240 窗口和单工作线程，不将耗时与 Runtime 吞吐对照混比，也不代替像素或窗口恢复验收。
+指定输出路径并加 `--trace` 可额外生成 `<输出路径>.probes.csv`，分别保留最慢的 16 个输入和任务探针。
+序号用于关联两种接收，绝对 steady_clock 纳秒时间戳可与 `GNEISS_LOOP_TRACE` 的 `origin_ns`
+对齐；输入起点在提交任务及 PostMessage 之前，任务起点在工作函数结束、终态发布之前。
+此诊断默认关闭，不改变响应门槛；未复现的超限样本不能被诊断通过覆盖。
+
+用同一进程的两份 CSV 离线关联探针与保留的循环：
+
+```powershell
+python -X utf8 -B scripts/performance/correlate_loop_response.py `
+  <引擎循环.csv> <输出.json.probes.csv> --output <关联报告.json>
+```
+
+输出区分循环前空档、循环内部重叠与未保留时间。`total_ms` 包含 `gap_ms`，
+循环内部的结束时刻为 `start_ms + total_ms - gap_ms`。阶段耗时是整轮累计且可能嵌套，
+不能直接相加或视作探针窗口内的耗时；关联报告不代替原始门槛验收。
+场景收尾额外记录 `scene_verify`、`scene_builder_create`、`scene_asset_service_reset`
+与 `scene_build`，分别覆盖复验推进、构建器创建、资产服务切换和节点分批构建。
+其中构建器创建与资产服务切换包含在复验推进内，不重复累加。
+构建器内部还记录 `scene_description_move`、`scene_instance_allocate`、
+`scene_instance_initialize` 和 `scene_node_index_reserve`；未覆盖的外层分配、形参构造及其他
+成员初始化仍包含在 `scene_builder_create` 内，不能把子项之和当作构建器总耗时。
+
+Windows 响应夹具的 `--trace` 还保留最慢 16 次 `scene` 推进回调及 `cpu_ns`。
+`scene` 序号是回调序号，与 `key`/`task` 探针对编号独立；按绝对时间窗关联。
+CPU 值来自同线程内核态和用户态计数增量，`-1` 表示未采集或查询失败。
+计数粒度和查询边界会带来误差，零增量不代表没有执行，也不能将墙钟减去 CPU 值
+直接解释为精确的锁等待或系统调度时间。诊断关闭时不查询线程 CPU 计数。
+辅助字段 `cpu_cycles` 是线程用户态与内核态执行周期增量，`-1` 同样表示不可用；
+根据 [Windows QueryThreadCycleTime 文档](https://learn.microsoft.com/en-us/windows/win32/api/realtimeapiset/nf-realtimeapiset-querythreadcycletime)，
+不能将它直接换算为经过时间。
+循环 CSV 的 `peak:<阶段>` 行保留各阶段最大耗时所在的完整循环，不受最长 128 轮筛选影响；
+同一轮可能被多个阶段保留，关联工具按 frame 去重，且检查重复上下文一致。
+
+
+Windows 下可使用下列工具顺序测量实际 Runtime 的进程/主线程 CPU 时间，并交替运行诊断开关：
+
+```powershell
+python -X utf8 -B scripts/performance/measure_runtime_loop.py `
+  --runtime build/windows-clang-release/bin/gneiss_runtime.exe `
+  --daily-project <日常工程目录> --full-project <完整工程目录> `
+  --output build/runtime-cpu-baseline --repeat 3
+```
+
+0.50 候选采样完成后，用冻结基线检查 CPU、吞吐、工作集和循环最大间隔；输出文件须尚不存在：
+
+```powershell
+python -X utf8 -B scripts/performance/validate_runtime_loop.py `
+  docs/records/artifacts/0.50-runtime-cpu-baseline.json `
+  build/runtime-cpu-baseline/summary.json --output build/runtime-cpu-gates.json
+```
+
+该检查不代替资产身份、窗口输入、生命周期与图像验收；缺少三次独立样本或报告未完成即失败。
+
+两个工程须已准备好 gneiss.project.json 与工程内资产；输出目录必须尚不存在。
+工具不生成或修改资产，不清理系统缓存，每组启动独立进程；测试期间不要并行构建或运行其他 GPU 测试。
+每次保存日志、退出状态和可选循环 CSV，summary.json 持续保存已完成样本，失败不丢弃此前结果。
+成功须同时有场景激活和正常退出日志。默认每次期限 900 秒，超时只结束工具自己启动的子进程。
+
+CPU 数据包含启动与退出；主线程取进程中最早创建的线程，并保留句柄读取最终 user + kernel 时间。
+main_thread_core_equivalent 为主线程 CPU 时间 / 进程墙钟时间，1 表示约一个核心，
+不是整机 CPU 百分比。退出通过 250 ms 轮询发现，墙钟时间可能包含末尾轮询延迟与测量开销，
+不能用微小开关差异推断精确插桩成本。内存每 250 ms 查询历史工作集峰值，可能漏掉末次采样后的峰值；
+它不是 GPU 显存，也不是资产候选预算。Runtime smoke 没有测量交互输入延迟或捕获验收图像。
 
 普通 CI 使用原创小夹具进行 GPU 像素、候选原子性与 IPC 生命周期回归，不下载数 GiB 的 Sponza。
 大场景结果与测量边界见 [0.42 验收记录](../records/M-273-278-0.42.0-validation.md)。

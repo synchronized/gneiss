@@ -8,6 +8,7 @@
 #include <gneiss/engine/input.h>
 
 #include "engine/asset/virtual_file_system.hpp"
+#include "engine/core/diagnostics/loop_timing.hpp"
 #include "engine/core/log/log_dispatcher.hpp"
 #include "engine/function/application/application_configuration.hpp"
 #include "engine/function/application/application_scene_state.hpp"
@@ -35,6 +36,13 @@ namespace gneiss::platform {
 class granit_platform;
 }
 
+namespace gneiss::io_internal {
+class uv_loop_executor;
+}
+namespace gneiss::asset_internal {
+class native_file_system;
+}
+
 namespace gneiss::application_internal {
 
 class application_state final {
@@ -57,6 +65,7 @@ public:
   void advance_scene_load() {
     if (retired_scene_) {
       const auto start = std::chrono::steady_clock::now();
+      const diagnostics::loop_span span(diagnostics::loop_stage::retirement);
       retired_scene_.reset();
       retirement_.last_ms =
           std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start)
@@ -138,10 +147,15 @@ private:
 #ifdef GNEISS_HAS_GRANIT_PLATFORM
   [[nodiscard]] gneiss_result render_frame() noexcept;
 #endif
+  std::shared_ptr<core::progress_notification> loop_notification_;
   application_configuration config_;
   render_internal::render_resource_service resources_;
   render_internal::ui_draw_list ui_draw_list_;
   render_internal::debug_draw_list debug_draw_list_;
+#ifdef GNEISS_ASSET_LIBUV
+  std::unique_ptr<io_internal::uv_loop_executor> asset_io_executor_;
+  std::shared_ptr<asset_internal::native_file_system> native_assets_;
+#endif
   asset_internal::virtual_file_system asset_file_system_;
   std::unique_ptr<application_scene_state> active_scene_;
   std::unique_ptr<application_scene_state> retired_scene_;

@@ -1,0 +1,473 @@
+{
+  "purpose": "路径规范化区域与后台探针超时的同轮证据，不作为主线程根因或修复证明。",
+  "directory": "build/0.50-tracy-path-stages",
+  "run": {
+    "fixture_exit": 3,
+    "capture_exit": 0,
+    "hashes": {
+      "gneiss_main_loop_response.exe": "bad98dfe95d65b9807bafaee45b1b952c9e0f3ff424520c74e01ef58b0804060",
+      "gneiss_engine.dll": "03ed7bc4f0db51b9b369abae905b51c43224208dff443544b66fa2efccbc841a",
+      "gneiss_tracy.dll": "124743793823423c5aee7fadc82f98e583c7a862a421eb2a4839fd50bd87052c"
+    }
+  },
+  "result": {
+    "passed": false,
+    "keys": 905,
+    "tasks": 904,
+    "key_p95_ms": 17.3848,
+    "key_max_ms": 21.6619,
+    "task_p95_ms": 16.2323,
+    "task_max_ms": 21.6622,
+    "close_ms": 0,
+    "nodes": 0,
+    "resources": 0,
+    "loaded_scene": true,
+    "injected_stall": false,
+    "scene_ready": false,
+    "probe_timed_out": true,
+    "timed_out_probe_ms": 2007.3
+  },
+  "summary": {
+    "application.events": {
+      "count": 7126,
+      "max_ms": 6.214361
+    },
+    "application.idle_condition": {
+      "count": 7125,
+      "max_ms": 25.243276
+    },
+    "application.idle_lock": {
+      "count": 7125,
+      "max_ms": 0.123316
+    },
+    "application.idle_wait": {
+      "count": 7125,
+      "max_ms": 25.244507
+    },
+    "application.loop": {
+      "count": 7126,
+      "max_ms": 25.669025
+    },
+    "application.render.submit": {
+      "count": 7126,
+      "max_ms": 1.130668
+    },
+    "application.update": {
+      "count": 7126,
+      "max_ms": 6.055915
+    },
+    "asset.advance": {
+      "count": 7116,
+      "max_ms": 6.040371
+    },
+    "asset.fs.canonical": {
+      "count": 112,
+      "max_ms": 2410.871276
+    },
+    "asset.fs.file_type": {
+      "count": 112,
+      "max_ms": 0.462416
+    },
+    "asset.fs.open_read": {
+      "count": 112,
+      "max_ms": 2411.395524
+    },
+    "asset.fs.relative": {
+      "count": 112,
+      "max_ms": 2.246271
+    },
+    "asset.io.begin_read": {
+      "count": 423,
+      "max_ms": 14.765613
+    },
+    "asset.io.open": {
+      "count": 112,
+      "max_ms": 0.400844
+    },
+    "asset.io.reopen": {
+      "count": 112,
+      "max_ms": 0.343852
+    },
+    "asset.io.request.allocate": {
+      "count": 423,
+      "max_ms": 11.494018
+    },
+    "asset.io.request.destroy": {
+      "count": 424,
+      "max_ms": 0.016843
+    },
+    "asset.io.request.start": {
+      "count": 423,
+      "max_ms": 10.451091
+    },
+    "asset.prepare.cleanup": {
+      "count": 10,
+      "max_ms": 1.038327
+    },
+    "asset.prepare.copy": {
+      "count": 33,
+      "max_ms": 0.001153
+    },
+    "asset.prepare.decode": {
+      "count": 34,
+      "max_ms": 106.642004
+    },
+    "asset.prepare.destroy": {
+      "count": 10,
+      "max_ms": 0.015561
+    },
+    "asset.prepare.hash": {
+      "count": 221,
+      "max_ms": 104.839244
+    },
+    "asset.prepare.open": {
+      "count": 56,
+      "max_ms": 2.504271
+    },
+    "asset.prepare.prefetch": {
+      "count": 44,
+      "max_ms": 0.000642
+    },
+    "asset.prepare.publish": {
+      "count": 10,
+      "max_ms": 0.002052
+    },
+    "asset.prepare.read": {
+      "count": 1563,
+      "max_ms": 111.830024
+    },
+    "asset.prepare.read_slice": {
+      "count": 1584,
+      "max_ms": 43.030123
+    },
+    "asset.prepare.select": {
+      "count": 44,
+      "max_ms": 2.445033
+    },
+    "asset.prepare.step": {
+      "count": 1714,
+      "max_ms": 2486.611931
+    },
+    "asset.prepare.verify": {
+      "count": 157,
+      "max_ms": 2486.609539
+    },
+    "asset.verify.hash": {
+      "count": 202,
+      "max_ms": 102.468429
+    },
+    "asset.verify.open": {
+      "count": 56,
+      "max_ms": 2411.399718
+    },
+    "asset.verify.read_next": {
+      "count": 202,
+      "max_ms": 115.050894
+    },
+    "scene.advance": {
+      "count": 7126,
+      "max_ms": 6.049543
+    },
+    "task.complete": {
+      "count": 2620,
+      "max_ms": 7.656857
+    },
+    "task.execute": {
+      "count": 2619,
+      "max_ms": 2486.623069
+    },
+    "task.receive": {
+      "count": 2618,
+      "max_ms": 0.270895
+    },
+    "task.submit": {
+      "count": 2619,
+      "max_ms": 0.689372
+    }
+  },
+  "long_task": {
+    "name": "task.execute",
+    "start_ns": 55240553972,
+    "duration_ns": 2486623069,
+    "thread": 3,
+    "text": "scheduler=1 task=2624"
+  },
+  "children": [
+    {
+      "name": "task.complete",
+      "start_ns": 57727168272,
+      "duration_ns": 8678,
+      "thread": 3,
+      "text": "scheduler=1 task=2624"
+    },
+    {
+      "name": "asset.io.reopen",
+      "start_ns": 55290052116,
+      "duration_ns": 64296,
+      "thread": 3,
+      "text": ""
+    },
+    {
+      "name": "asset.io.reopen",
+      "start_ns": 57701565383,
+      "duration_ns": 68052,
+      "thread": 3,
+      "text": ""
+    },
+    {
+      "name": "asset.prepare.verify",
+      "start_ns": 55240555708,
+      "duration_ns": 2486609539,
+      "thread": 3,
+      "text": ""
+    },
+    {
+      "name": "task.execute",
+      "start_ns": 55240553972,
+      "duration_ns": 2486623069,
+      "thread": 3,
+      "text": "scheduler=1 task=2624"
+    },
+    {
+      "name": "asset.verify.read_next",
+      "start_ns": 55240556119,
+      "duration_ns": 48121460,
+      "thread": 3,
+      "text": ""
+    },
+    {
+      "name": "asset.verify.read_next",
+      "start_ns": 55290051625,
+      "duration_ns": 90618,
+      "thread": 3,
+      "text": ""
+    },
+    {
+      "name": "asset.verify.read_next",
+      "start_ns": 57701564823,
+      "duration_ns": 25599810,
+      "thread": 3,
+      "text": ""
+    },
+    {
+      "name": "asset.io.request.allocate",
+      "start_ns": 55241688207,
+      "duration_ns": 1514847,
+      "thread": 3,
+      "text": ""
+    },
+    {
+      "name": "asset.io.request.allocate",
+      "start_ns": 55290116616,
+      "duration_ns": 626,
+      "thread": 3,
+      "text": ""
+    },
+    {
+      "name": "asset.io.request.allocate",
+      "start_ns": 57701633674,
+      "duration_ns": 967787,
+      "thread": 3,
+      "text": ""
+    },
+    {
+      "name": "asset.fs.canonical",
+      "start_ns": 55289498424,
+      "duration_ns": 186941,
+      "thread": 3,
+      "text": ""
+    },
+    {
+      "name": "asset.fs.canonical",
+      "start_ns": 55290165824,
+      "duration_ns": 2410871276,
+      "thread": 3,
+      "text": ""
+    },
+    {
+      "name": "asset.io.request.start",
+      "start_ns": 55243203185,
+      "duration_ns": 2349961,
+      "thread": 3,
+      "text": ""
+    },
+    {
+      "name": "asset.io.request.start",
+      "start_ns": 55290117280,
+      "duration_ns": 23375,
+      "thread": 3,
+      "text": ""
+    },
+    {
+      "name": "asset.io.request.start",
+      "start_ns": 57702601603,
+      "duration_ns": 1718751,
+      "thread": 3,
+      "text": ""
+    },
+    {
+      "name": "asset.io.request.destroy",
+      "start_ns": 55240556696,
+      "duration_ns": 4289,
+      "thread": 3,
+      "text": ""
+    },
+    {
+      "name": "asset.io.request.destroy",
+      "start_ns": 55288714581,
+      "duration_ns": 1838,
+      "thread": 3,
+      "text": ""
+    },
+    {
+      "name": "asset.io.request.destroy",
+      "start_ns": 55290154786,
+      "duration_ns": 1251,
+      "thread": 3,
+      "text": ""
+    },
+    {
+      "name": "asset.io.open",
+      "start_ns": 55289978165,
+      "duration_ns": 70898,
+      "thread": 3,
+      "text": ""
+    },
+    {
+      "name": "asset.io.open",
+      "start_ns": 57701485570,
+      "duration_ns": 74907,
+      "thread": 3,
+      "text": ""
+    },
+    {
+      "name": "asset.fs.file_type",
+      "start_ns": 55289685408,
+      "duration_ns": 72316,
+      "thread": 3,
+      "text": ""
+    },
+    {
+      "name": "asset.fs.file_type",
+      "start_ns": 57701037247,
+      "duration_ns": 115339,
+      "thread": 3,
+      "text": ""
+    },
+    {
+      "name": "asset.verify.open",
+      "start_ns": 55289494656,
+      "duration_ns": 556661,
+      "thread": 3,
+      "text": ""
+    },
+    {
+      "name": "asset.verify.open",
+      "start_ns": 55290164482,
+      "duration_ns": 2411399718,
+      "thread": 3,
+      "text": ""
+    },
+    {
+      "name": "asset.io.begin_read",
+      "start_ns": 55241687832,
+      "duration_ns": 3866262,
+      "thread": 3,
+      "text": ""
+    },
+    {
+      "name": "asset.io.begin_read",
+      "start_ns": 55290051786,
+      "duration_ns": 88974,
+      "thread": 3,
+      "text": ""
+    },
+    {
+      "name": "asset.io.begin_read",
+      "start_ns": 57701565066,
+      "duration_ns": 2755477,
+      "thread": 3,
+      "text": ""
+    },
+    {
+      "name": "asset.fs.relative",
+      "start_ns": 55289757766,
+      "duration_ns": 217282,
+      "thread": 3,
+      "text": ""
+    },
+    {
+      "name": "asset.fs.relative",
+      "start_ns": 57701152636,
+      "duration_ns": 330019,
+      "thread": 3,
+      "text": ""
+    },
+    {
+      "name": "asset.fs.open_read",
+      "start_ns": 55289498069,
+      "duration_ns": 551401,
+      "thread": 3,
+      "text": ""
+    },
+    {
+      "name": "asset.fs.open_read",
+      "start_ns": 55290165545,
+      "duration_ns": 2411395524,
+      "thread": 3,
+      "text": ""
+    },
+    {
+      "name": "asset.verify.hash",
+      "start_ns": 55245555605,
+      "duration_ns": 43121159,
+      "thread": 3,
+      "text": ""
+    },
+    {
+      "name": "asset.verify.hash",
+      "start_ns": 55290141442,
+      "duration_ns": 755,
+      "thread": 3,
+      "text": ""
+    },
+    {
+      "name": "asset.verify.hash",
+      "start_ns": 57704322723,
+      "duration_ns": 22840592,
+      "thread": 3,
+      "text": ""
+    },
+    {
+      "name": "asset.prepare.step",
+      "start_ns": 55240555020,
+      "duration_ns": 2486611931,
+      "thread": 3,
+      "text": ""
+    }
+  ],
+  "main_loop_count": 213,
+  "main_loop_max_ms": 16.605165,
+  "submissions": [
+    {
+      "name": "task.submit",
+      "start_ns": 55261700742,
+      "duration_ns": 7270,
+      "thread": 2,
+      "text": "scheduler=1 task=2625"
+    }
+  ],
+  "sha256": {
+    "full.tracy": "3e05500ae1dd62fd7d686f3671a4cf21f1a2948aea8cfb21208d2f1135997b23",
+    "zones.csv": "ec61b41224334c77d8f55fd7eb05d0f86d403f94c712b674522bcbd059b9616f",
+    "result.json": "9a6a6fd957e728d7151d5a21260e7f9a1d5944ce2aa9f87858f3d66543413b3b",
+    "run.json": "43b92a09126bcc15e516020f731133f54dc0a2e274e017b6c6fd22fda4f5ee86"
+  },
+  "limits": [
+    "canonical 区域包含 UTF-8 转换、路径拼接和标准库调用。",
+    "区域墙钟不区分运算、系统调用、抢占与缺页，尚无系统级证据。",
+    "场景未激活；不声称完成整个加载流程。",
+    "idle_condition 包含条件变量唤醒后的重新取锁，不单独归因于调度器。",
+    "未修改路径隔离检查、任务策略或超时门槛。"
+  ]
+}

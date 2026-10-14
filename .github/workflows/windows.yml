@@ -48,6 +48,7 @@ jobs:
             -R '^gneiss\.installed_consumer$'
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -B scripts/performance/test_prepare_sponza.py
+          python -B scripts/performance/test_validate_runtime_loop.py
 
   msvc-runtime:
     runs-on: windows-2022
@@ -83,4 +84,4 @@ jobs:
           # 托管 Windows Runner 没有 Vulkan ICD；Linux 矩阵负责真实窗口与图形示例 smoke test。
           # Editor 全量编译；仅排除创建真实图形设备的工作流，CPU 模型与 ImGui 交互仍执行。
           ctest --preset '${{ steps.preset.outputs.name }}' `
-            -E '^gneiss\.(asset-pixel|pbr-negative-scale|granit_platform_smoke|stable_runtime_example|temple_example|lantern_gallery_example|installed_stable_runtime_consumer|editor\.(native-window-interaction|runtime-process|runtime-scene-loading|asset-workflow|smoke|project-manager-smoke|lantern-gallery-project|lantern-runtime-workflow)|runtime\.(project-game-module|smoke|installed-smoke|stop-protocol|lantern-gallery|lantern-cooked-textures))$'
+            -E '^gneiss\.(asset-pixel|pbr-negative-scale|main-loop-response|granit_platform_smoke|stable_runtime_example|temple_example|lantern_gallery_example|installed_stable_runtime_consumer|editor\.(native-window-interaction|runtime-process|runtime-scene-loading|asset-workflow|smoke|project-manager-smoke|lantern-gallery-project|lantern-runtime-workflow)|runtime\.(project-game-module|smoke|installed-smoke|stop-protocol|lantern-gallery|lantern-cooked-textures))$'

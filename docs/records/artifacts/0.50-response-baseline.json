@@ -1,0 +1,62 @@
+{
+  "status": "passed",
+  "date": "2026-10-07",
+  "engine_source": "6c370f5a1b2a79c535cc230efc39c04dd1cc16f5",
+  "scope": "Windows 隐藏无相机场景，后台线程独立投递 64 次按键和任务；未覆盖大资产或跨屏 DPI。",
+  "samples": [
+    {
+      "passed": true,
+      "keys": 64,
+      "tasks": 64,
+      "key_p95_ms": 2.1554,
+      "key_max_ms": 22.7236,
+      "task_p95_ms": 1.6931,
+      "task_max_ms": 22.5802,
+      "close_ms": 0.0126,
+      "injected_stall": false,
+      "name": "plain-1",
+      "raw_sha256": "1b8cc3f9e7a5bf2ac89b7412b5b87fe8309c230cea7a7afdfcc22765acf70142"
+    },
+    {
+      "passed": true,
+      "keys": 64,
+      "tasks": 64,
+      "key_p95_ms": 1.6472,
+      "key_max_ms": 2.6666,
+      "task_p95_ms": 0.4547,
+      "task_max_ms": 1.5536,
+      "close_ms": 0.0114,
+      "injected_stall": false,
+      "name": "plain-2",
+      "raw_sha256": "da1ea634db062b30796d623ebee2a1fb598e8ba92a3f13409445f4d624629a38"
+    },
+    {
+      "passed": true,
+      "keys": 64,
+      "tasks": 64,
+      "key_p95_ms": 1.5796,
+      "key_max_ms": 3.257,
+      "task_p95_ms": 0.4208,
+      "task_max_ms": 1.0856,
+      "close_ms": 0.0102,
+      "injected_stall": false,
+      "name": "plain-3",
+      "raw_sha256": "a7b623c56ce6f3f8a95d75fe8ebfec741735288065a3275bfbb42c5812465162"
+    },
+    {
+      "passed": true,
+      "keys": 64,
+      "tasks": 64,
+      "key_p95_ms": 1.8136,
+      "key_max_ms": 71.465,
+      "task_p95_ms": 1.6583,
+      "task_max_ms": 61.9738,
+      "close_ms": 0.4981,
+      "injected_stall": true,
+      "name": "stall",
+      "raw_sha256": "e78ebb99cd699d0850bb0a376baa97a79f48bcf4d250ecc1fd73a82ae831998f"
+    }
+  ],
+  "binary_sha256": "a832c56fe7674a79ad684ae848db1250f5906a0a0e0d2bae160e81e9e3bff4b4",
+  "fixture_sha256": "d7827d6e6e42e528ff6d39a373225f9e29d3cfaa429d774692f46ccc6a183b78"
+}

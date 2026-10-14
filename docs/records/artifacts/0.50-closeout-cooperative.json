@@ -1,0 +1,134 @@
+{
+  "started": "2026-10-14T00:24:02+0800",
+  "executable": "D:\\sunday\\workspace\\build\\github\\synchronized\\gneiss\\build\\windows-clang-release\\bin\\gneiss_scene_load_baseline.exe",
+  "executable_sha256": "5c48500104564a7a1f8a49c2e6281c7b57147fc590eb804b74159c3f1aacb6e8",
+  "assets": "D:\\sunday\\workspace\\asset-cache\\intel-sponza\\0.44-full-cooked",
+  "functional_only": false,
+  "status": "failed",
+  "samples": [
+    {
+      "name": "cooperative-failure",
+      "exit": 0,
+      "result": {
+        "loop_trace_enabled": false,
+        "event_interval_count": 5107,
+        "event_interval_p50_ms": 31.8586,
+        "event_interval_p99_ms": 111.2634,
+        "event_interval_exceedances": [
+          {
+            "threshold_ms": 16.7,
+            "count": 4849,
+            "ratio": 0.9494811044
+          },
+          {
+            "threshold_ms": 33.3,
+            "count": 1531,
+            "ratio": 0.2997846094
+          },
+          {
+            "threshold_ms": 50,
+            "count": 725,
+            "ratio": 0.1419620129
+          },
+          {
+            "threshold_ms": 100,
+            "count": 98,
+            "ratio": 0.01918934795
+          }
+        ],
+        "load_ms": 193939.2358,
+        "mode": "cooperative",
+        "scenario": "failure",
+        "load_and_drain_ms": 194289.3338,
+        "verified_capture_ms": 195362.757,
+        "completed_switches": 0,
+        "maximum_activation_ms": 0,
+        "maximum_retirement_ms": 0,
+        "retirement_ms": 0.5428,
+        "live_resources": 505,
+        "old_resources": 505,
+        "cancel_ms": 0,
+        "cancel_cleanup_ms": 0,
+        "observed_cleanup_pending": false,
+        "retried": true,
+        "retry_ms": 809360.4072,
+        "resizes": 0,
+        "restored": 0,
+        "minimized": 0,
+        "minimized_at_ms": 0,
+        "prepare_ms": 18.4168,
+        "asset_prepare_ms": 99312.387,
+        "verify_ms": 0,
+        "verify_maximum_step_ms": 0,
+        "verify_maximum_open_ms": 0,
+        "verify_maximum_read_ms": 0,
+        "verify_maximum_hash_ms": 0,
+        "upload_ms": 14294.2216,
+        "maximum_advance_ms": 28.6884,
+        "activation_ms": 0,
+        "cleanup_ms": 0.2194,
+        "cleanup_complete": true,
+        "upload_reserved_bytes": 0,
+        "candidate_resident_bytes": 1610711712,
+        "candidate_cpu_data_bytes": 188064,
+        "candidate_texture_payload_bytes": 1610614656,
+        "peak_upload_bytes": 22369648,
+        "application_logical_bytes": 3406252232,
+        "application_cpu_data_bytes": 162836552,
+        "available_bytes": 888715064,
+        "event_interval_p95_ms": 73.5486,
+        "event_interval_max_ms": 257.5536,
+        "minimized_event_count": 0,
+        "minimized_event_max_ms": 0,
+        "phase_maximum_event_interval_ms": {
+          "preparing": 29.3025,
+          "assets": 257.5536,
+          "verifying": 0,
+          "instantiating": 0,
+          "ready": 0,
+          "applied": 0,
+          "failed": 0,
+          "cancelled": 0
+        },
+        "render_60_ticks_ms": 924.3672,
+        "capture_ms": 149.056,
+        "nodes": 553,
+        "presented_frames": 9254,
+        "peak_resident_bytes": 4847087616
+      },
+      "image_sha256": "09a457af28cab10a77d1f42c964bc4434a0b178e495629d045c8e6bcceeb01fd"
+    }
+  ],
+  "failures": [
+    "cooperative-failure: 主循环响应超过冻结门槛"
+  ],
+  "engine_sha256": "ff46af5317fedbca0180f77e55a005601e4f122258329f90a9f5b378e7cbb728",
+  "source_commit": "79a6b12",
+  "artifacts": [
+    {
+      "path": "build\\0.50-closeout-cooperative-20261014\\cooperative-failure.csv",
+      "sha256": "461ca9422110a146d1fe1b5073a429d8fe50aad11ce44159e280e5e898d19f82"
+    },
+    {
+      "path": "build\\0.50-closeout-cooperative-20261014\\cooperative-failure.json",
+      "sha256": "d734158434f7aa8fac53c3aa486da7f69b026d5f6258a78d78f65771ef11cb06"
+    },
+    {
+      "path": "build\\0.50-closeout-cooperative-20261014\\cooperative-failure.log",
+      "sha256": "89342cd452c9bf3e378a05e493cf8d152cd37628d7324a67ba392a00ea8ac4f9"
+    },
+    {
+      "path": "build\\0.50-closeout-cooperative-20261014\\cooperative-failure.ppm",
+      "sha256": "09a457af28cab10a77d1f42c964bc4434a0b178e495629d045c8e6bcceeb01fd"
+    },
+    {
+      "path": "build\\0.50-closeout-cooperative-20261014\\summary.json",
+      "sha256": "59d07d192dcad3132d0d3417fd8cc044fa6c4ebfd5fffbbcce9748f91673346b"
+    }
+  ],
+  "limitations": [
+    "未控制系统后台负载，未启用详细循环诊断；不能将资产阶段墙钟间隔全部解释为资产计算。",
+    "脚本在失败项停止，interact 和 close 未运行。",
+    "重试功能通过，不代表其耗时或完整主线程性能验收通过。"
+  ]
+}

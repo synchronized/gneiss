@@ -258,9 +258,34 @@ void fair_priority_and_scope_isolation() {
   await([&] { return scheduler.idle(other); });
   require(background_order < 12U && count == 12U, "后台饥饿或关闭影响其他作用域");
 }
+void submission_observation() {
+  task_scheduler scheduler({.mode = execution_mode::cooperative});
+  task_submission_timings timing{.allocate_ms = 100.0};
+  task_handle handle;
+  const auto good = [](const task_context&) { return task_outcome{}; };
+  require(scheduler.submit({.submission_timings = &timing}, good, handle) ==
+                  submit_result::invalid_argument &&
+              timing.measured && timing.allocate_ms == 0.0,
+          "失败提交未覆盖观测或错误语义改变");
+  const auto scope = scheduler.make_scope();
+  require(scheduler.submit({.scope = scope, .submission_timings = &timing}, good, handle) ==
+                  submit_result::success &&
+              timing.measured && timing.lock_ms >= 0.0 &&
+              timing.work_ms >= timing.allocate_ms + timing.insert_ms + timing.notify_ms,
+          "成功提交未提供同次调用的嵌套观测");
+  const auto recorded = timing;
+  require(scheduler.run_ready().executed == 1U && timing.measured == recorded.measured &&
+              timing.lock_ms == recorded.lock_ms && timing.work_ms == recorded.work_ms &&
+              timing.allocate_ms == recorded.allocate_ms &&
+              timing.insert_ms == recorded.insert_ms && timing.notify_ms == recorded.notify_ms &&
+              scheduler.close_scope(scope),
+          "任务执行或回收继续修改已经返回的提交观测");
+}
+
 }
 int main() try {
   cooperative_scheduler_contract();
+  submission_observation();
   {
     task_scheduler scheduler({.mode = execution_mode::cooperative});
     std::jthread other([&] {

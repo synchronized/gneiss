@@ -16,7 +16,7 @@
 解析或资产阶段不会修改 World。提交阶段任一步失败都会逆序销毁本次创建的实体、节点和资产引用，
 因此失败前后 World 实体数量与资源存活状态一致。当前加载只允许 Application 创建线程调用。
 
-Runtime 宿主的启动与完整场景切换使用内部异步协调器，行为见
+Runtime 宿主的启动与完整场景切换、Editor 的启动与显式打开场景使用内部异步协调器，行为见
 [调度指南](../guides/task-scheduling.md#runtime-完整场景加载)。它不会改变上述公共同步接口；
 异步候选加载期间，宿主的结构/资产替换返回 `GNEISS_ERROR_NOT_READY`，调用方应等待当前事务结束。
 完整切换后应重新查询活动 World 与 Scene，不继续使用旧场景借出的节点、Entity 或字符串视图。
@@ -35,6 +35,9 @@ C++ `gneiss::scene_instance` 提供移动专属的 RAII 包装，不延长 Appli
 场景再关闭 Application；父对象已销毁时 `reset()` 安全清空失效句柄。关闭失败时保留句柄，析构
 和移动覆盖失败的规则见 [Application C++ 契约](application.md#生命周期)。`owner()` 返回父句柄，
 `release()` 转移场景所有权；调用前须保存 `owner()`，由接收者在所属线程手动卸载。
+`scene_instance::adopt_native(application, handle, output)` 将无其他所有者的原始实例接入 RAII；
+要求 output 为空，并验证所属 Application、句柄及线程。失败不接管，成功后原始句柄只作借用。
+调用方须保证没有第二个拥有者，接管不会复制场景或延长 Application 寿命。
 场景中的 Mesh Renderer 只借用 RID，资源生命周期由场景实例持有的租约保证。
 
 ## UUID 查询

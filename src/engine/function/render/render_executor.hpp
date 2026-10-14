@@ -4,6 +4,7 @@
 #ifndef GNEISS_RENDER_RENDER_EXECUTOR_HPP_
 #define GNEISS_RENDER_RENDER_EXECUTOR_HPP_
 
+#include "engine/core/progress_notification.hpp"
 #include "engine/function/render/render_frame_packet.hpp"
 
 #include <cstddef>
@@ -153,6 +154,8 @@ public:
   [[nodiscard]] bool query_command_status(render_command_status& output) const noexcept;
   [[nodiscard]] render_queue_stats query_stats() const noexcept;
   void record_skipped_frame_build() noexcept;
+  void
+  set_completion_notification(std::shared_ptr<core::progress_notification> notification) noexcept;
   [[nodiscard]] gneiss_result flush() noexcept;
   void stop() noexcept;
   [[nodiscard]] bool is_running() const noexcept;

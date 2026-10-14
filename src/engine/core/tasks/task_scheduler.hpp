@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include "engine/core/progress_notification.hpp"
+
 #include <atomic>
 #include <chrono>
 #include <cstddef>
@@ -43,11 +45,19 @@ struct task_outcome {
 };
 class task_context final {
 public:
-  explicit task_context(const std::atomic_bool& cancelled) noexcept : cancelled_(cancelled) {}
+  explicit task_context(const std::atomic_bool& cancelled, bool worker_thread = false) noexcept
+      : cancelled_(cancelled), worker_thread_(worker_thread) {}
   [[nodiscard]] bool stop_requested() const noexcept { return cancelled_.load(); }
+  [[nodiscard]] bool allows_blocking_wait() const noexcept { return worker_thread_; }
 
 private:
   const std::atomic_bool& cancelled_;
+  bool worker_thread_;
+};
+/** 可选的同步提交观测；仅由 submit 调用线程写入，每次覆盖，不可并发复用。 */
+struct task_submission_timings {
+  bool measured{};
+  double lock_ms{}, work_ms{}, allocate_ms{}, insert_ms{}, notify_ms{};
 };
 struct task_description {
   std::string name{};
@@ -56,6 +66,9 @@ struct task_description {
   std::vector<task_handle> prerequisites{};
   task_priority priority{task_priority::background};
   std::chrono::steady_clock::time_point not_before{};
+  std::shared_ptr<core::progress_notification> notification{};
+  // 仅借用到 submit 返回；调度器不得将此指针留给任务或后台线程。
+  task_submission_timings* submission_timings{};
 };
 struct task_completion {
   task_handle task;
@@ -100,6 +113,8 @@ class task_executor {
 public:
   using task_function = std::function<task_outcome(const task_context&)>;
   virtual ~task_executor() = default;
+  /** 未声明线程能力的自定义执行器默认按协作模式处理。 */
+  [[nodiscard]] virtual execution_mode mode() const noexcept { return execution_mode::cooperative; }
   [[nodiscard]] virtual task_scope make_scope() = 0;
   [[nodiscard]] virtual submit_result submit(task_description description, task_function function,
                                              task_handle& output) = 0;
@@ -134,7 +149,7 @@ public:
                    std::size_t budget = 64U) override;
   [[nodiscard]] bool query(task_handle task, task_completion& output) const;
   [[nodiscard]] scheduler_stats stats() const;
-  [[nodiscard]] execution_mode mode() const noexcept;
+  [[nodiscard]] execution_mode mode() const noexcept override;
   /// 仅协作模式所属宿主线程调用，不允许嵌套驱动任何调度器。
   [[nodiscard]] drive_result run_ready(drive_budget budget = {});
   void request_stop();

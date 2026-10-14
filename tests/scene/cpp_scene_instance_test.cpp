@@ -53,6 +53,31 @@ int main() try {
     return 1;
   }
   const auto original_scene = scene.get();
+  if (gneiss::scene_instance::adopt_native(app.get(), original_scene, scene) !=
+      result::invalid_state) {
+    return 21;
+  }
+  gneiss::scene_instance adopted;
+  gneiss::application other;
+  if (gneiss::application::create(desc, other).failed() ||
+      gneiss::scene_instance::adopt_native(other.get(), original_scene, adopted).ok() ||
+      adopted.is_valid()) {
+    return 22;
+  }
+  result wrong_adopt_thread;
+  std::thread adoption_worker([&] {
+    wrong_adopt_thread = gneiss::scene_instance::adopt_native(app.get(), original_scene, adopted);
+  });
+  adoption_worker.join();
+  if (wrong_adopt_thread != result::invalid_state || adopted.is_valid()) {
+    return 23;
+  }
+  const auto released = scene.release();
+  if (gneiss::scene_instance::adopt_native(app.get(), released, adopted).failed() ||
+      adopted.get() != original_scene || scene.is_valid()) {
+    return 24;
+  }
+  scene = std::move(adopted);
   if (gneiss::scene_instance::load(app.get(), "asset://scenes/missing.scene.json", scene) !=
           result::not_found ||
       scene.get() != original_scene) {

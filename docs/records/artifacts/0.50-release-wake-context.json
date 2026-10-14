@@ -1,0 +1,578 @@
+{
+  "source": "windows-trace-20261013-100658/window-events.csv",
+  "requested_wait_ms_from_source": 4,
+  "ready_events": [
+    [
+      "ReadyThread",
+      "139178389",
+      "Feishu.exe (25488)",
+      "17784",
+      "gneiss_main_loop_response.exe (10144)",
+      "6592",
+      "Unwait",
+      "0",
+      "1",
+      "InDPC"
+    ],
+    [
+      "ReadyThread",
+      "139194459",
+      "wezterm-gui.exe (12564)",
+      "20832",
+      "gneiss_main_loop_response.exe (10144)",
+      "6592",
+      "Unwait",
+      "0",
+      "1",
+      "InDPC"
+    ],
+    [
+      "ReadyThread",
+      "139258469",
+      "git.exe (20192)",
+      "26264",
+      "gneiss_main_loop_response.exe (10144)",
+      "6592",
+      "Unwait",
+      "0",
+      "1",
+      "InDPC"
+    ],
+    [
+      "ReadyThread",
+      "139680082",
+      "Feishu.exe (20680)",
+      "17036",
+      "gneiss_main_loop_response.exe (10144)",
+      "6592",
+      "Unwait",
+      "0",
+      "1",
+      "InDPC"
+    ]
+  ],
+  "ready_stacks_unresolved": [
+    [
+      "Stack",
+      "139178389",
+      "17784",
+      "1",
+      "0xfffff8012d431d3d",
+      "ntoskrnl.exe!0xfffff8012d431d3d"
+    ],
+    [
+      "Stack",
+      "139178389",
+      "17784",
+      "2",
+      "0xfffff8012d24772d",
+      "ntoskrnl.exe!0xfffff8012d24772d"
+    ],
+    [
+      "Stack",
+      "139178389",
+      "17784",
+      "3",
+      "0xfffff8012d2465fd",
+      "ntoskrnl.exe!0xfffff8012d2465fd"
+    ],
+    [
+      "Stack",
+      "139178389",
+      "17784",
+      "4",
+      "0xfffff8012d405e75",
+      "ntoskrnl.exe!0xfffff8012d405e75"
+    ],
+    [
+      "Stack",
+      "139178389",
+      "17784",
+      "5",
+      "0xfffff8012d405c60",
+      "ntoskrnl.exe!0xfffff8012d405c60"
+    ],
+    [
+      "Stack",
+      "139178389",
+      "17784",
+      "6",
+      "0xfffff8012d4053a5",
+      "ntoskrnl.exe!0xfffff8012d4053a5"
+    ],
+    [
+      "Stack",
+      "139178389",
+      "17784",
+      "7",
+      "0xfffff8012d3ffea1",
+      "ntoskrnl.exe!0xfffff8012d3ffea1"
+    ],
+    [
+      "Stack",
+      "139194459",
+      "20832",
+      "1",
+      "0xfffff8012d42fced",
+      "ntoskrnl.exe!0xfffff8012d42fced"
+    ],
+    [
+      "Stack",
+      "139194459",
+      "20832",
+      "2",
+      "0xfffff8012d2465fd",
+      "ntoskrnl.exe!0xfffff8012d2465fd"
+    ],
+    [
+      "Stack",
+      "139194459",
+      "20832",
+      "3",
+      "0xfffff8012d405e75",
+      "ntoskrnl.exe!0xfffff8012d405e75"
+    ],
+    [
+      "Stack",
+      "139194459",
+      "20832",
+      "4",
+      "0xfffff8012d405c60",
+      "ntoskrnl.exe!0xfffff8012d405c60"
+    ],
+    [
+      "Stack",
+      "139194459",
+      "20832",
+      "5",
+      "0xfffff8012d4053a5",
+      "ntoskrnl.exe!0xfffff8012d4053a5"
+    ],
+    [
+      "Stack",
+      "139194459",
+      "20832",
+      "6",
+      "0xfffff8012d3ffea1",
+      "ntoskrnl.exe!0xfffff8012d3ffea1"
+    ],
+    [
+      "Stack",
+      "139194459",
+      "20832",
+      "7",
+      "0xfffff8012d2f2bd7",
+      "ntoskrnl.exe!0xfffff8012d2f2bd7"
+    ],
+    [
+      "Stack",
+      "139194459",
+      "20832",
+      "8",
+      "0xffffced1c446b0f0",
+      "win32kfull.sys!0xffffced1c446b0f0"
+    ],
+    [
+      "Stack",
+      "139194459",
+      "20832",
+      "9",
+      "0xffffced1c446ad91",
+      "win32kfull.sys!0xffffced1c446ad91"
+    ],
+    [
+      "Stack",
+      "139194459",
+      "20832",
+      "10",
+      "0xffffced1c42954ba",
+      "win32k.sys!0xffffced1c42954ba"
+    ],
+    [
+      "Stack",
+      "139194459",
+      "20832",
+      "11",
+      "0xfffff8012d411505",
+      "ntoskrnl.exe!0xfffff8012d411505"
+    ],
+    [
+      "Stack",
+      "139258469",
+      "26264",
+      "1",
+      "0xfffff8012d42fced",
+      "ntoskrnl.exe!0xfffff8012d42fced"
+    ],
+    [
+      "Stack",
+      "139258469",
+      "26264",
+      "2",
+      "0xfffff8012d2465fd",
+      "ntoskrnl.exe!0xfffff8012d2465fd"
+    ],
+    [
+      "Stack",
+      "139258469",
+      "26264",
+      "3",
+      "0xfffff8012d405e75",
+      "ntoskrnl.exe!0xfffff8012d405e75"
+    ],
+    [
+      "Stack",
+      "139258469",
+      "26264",
+      "4",
+      "0xfffff8012d405c60",
+      "ntoskrnl.exe!0xfffff8012d405c60"
+    ],
+    [
+      "Stack",
+      "139258469",
+      "26264",
+      "5",
+      "0xfffff8012d4053a5",
+      "ntoskrnl.exe!0xfffff8012d4053a5"
+    ],
+    [
+      "Stack",
+      "139258469",
+      "26264",
+      "6",
+      "0xfffff8012d3ffea1",
+      "ntoskrnl.exe!0xfffff8012d3ffea1"
+    ],
+    [
+      "Stack",
+      "139258469",
+      "26264",
+      "7",
+      "0xfffff8012d2c234e",
+      "ntoskrnl.exe!0xfffff8012d2c234e"
+    ],
+    [
+      "Stack",
+      "139258469",
+      "26264",
+      "8",
+      "0xfffff8012d9b4149",
+      "ntoskrnl.exe!0xfffff8012d9b4149"
+    ],
+    [
+      "Stack",
+      "139258469",
+      "26264",
+      "9",
+      "0xfffff8012d650fa3",
+      "ntoskrnl.exe!0xfffff8012d650fa3"
+    ],
+    [
+      "Stack",
+      "139258469",
+      "26264",
+      "10",
+      "0xfffff8012d63dbe0",
+      "ntoskrnl.exe!0xfffff8012d63dbe0"
+    ],
+    [
+      "Stack",
+      "139258469",
+      "26264",
+      "11",
+      "0xfffff8012d2cb917",
+      "ntoskrnl.exe!0xfffff8012d2cb917"
+    ],
+    [
+      "Stack",
+      "139258469",
+      "26264",
+      "12",
+      "0xfffff8012d643449",
+      "ntoskrnl.exe!0xfffff8012d643449"
+    ],
+    [
+      "Stack",
+      "139258469",
+      "26264",
+      "13",
+      "0xfffff8012d63e18c",
+      "ntoskrnl.exe!0xfffff8012d63e18c"
+    ],
+    [
+      "Stack",
+      "139258469",
+      "26264",
+      "14",
+      "0xfffff8012d411505",
+      "ntoskrnl.exe!0xfffff8012d411505"
+    ],
+    [
+      "Stack",
+      "139680082",
+      "17036",
+      "1",
+      "0xfffff8012d431d3d",
+      "ntoskrnl.exe!0xfffff8012d431d3d"
+    ],
+    [
+      "Stack",
+      "139680082",
+      "17036",
+      "2",
+      "0xfffff8012d24772d",
+      "ntoskrnl.exe!0xfffff8012d24772d"
+    ],
+    [
+      "Stack",
+      "139680082",
+      "17036",
+      "3",
+      "0xfffff8012d2465fd",
+      "ntoskrnl.exe!0xfffff8012d2465fd"
+    ],
+    [
+      "Stack",
+      "139680082",
+      "17036",
+      "4",
+      "0xfffff8012d405e75",
+      "ntoskrnl.exe!0xfffff8012d405e75"
+    ],
+    [
+      "Stack",
+      "139680082",
+      "17036",
+      "5",
+      "0xfffff8012d405c60",
+      "ntoskrnl.exe!0xfffff8012d405c60"
+    ],
+    [
+      "Stack",
+      "139680082",
+      "17036",
+      "6",
+      "0xfffff8012d4053a5",
+      "ntoskrnl.exe!0xfffff8012d4053a5"
+    ],
+    [
+      "Stack",
+      "139680082",
+      "17036",
+      "7",
+      "0xfffff8012d3ffea1",
+      "ntoskrnl.exe!0xfffff8012d3ffea1"
+    ]
+  ],
+  "nearby_ready_batch": [
+    [
+      "ReadyThread",
+      "139194451",
+      "wezterm-gui.exe (12564)",
+      "20832",
+      "redis-server.exe (24168)",
+      "10528",
+      "Unwait",
+      "0",
+      "1",
+      "InDPC"
+    ],
+    [
+      "ReadyThread",
+      "139194453",
+      "wezterm-gui.exe (12564)",
+      "20832",
+      "wpscloudsvr.exe (21696)",
+      "13348",
+      "Unwait",
+      "0",
+      "1",
+      "InDPC"
+    ],
+    [
+      "ReadyThread",
+      "139194455",
+      "wezterm-gui.exe (12564)",
+      "20832",
+      "wpscloudsvr.exe (21696)",
+      "25868",
+      "Unwait",
+      "0",
+      "1",
+      "InDPC"
+    ],
+    [
+      "ReadyThread",
+      "139194457",
+      "wezterm-gui.exe (12564)",
+      "20832",
+      "wpscloudsvr.exe (21696)",
+      "25780",
+      "Unwait",
+      "0",
+      "1",
+      "InDPC"
+    ],
+    [
+      "ReadyThread",
+      "139194459",
+      "wezterm-gui.exe (12564)",
+      "20832",
+      "gneiss_main_loop_response.exe (10144)",
+      "6592",
+      "Unwait",
+      "0",
+      "1",
+      "InDPC"
+    ],
+    [
+      "ReadyThread",
+      "139194462",
+      "wezterm-gui.exe (12564)",
+      "20832",
+      "redis-server.exe (24168)",
+      "20128",
+      "Unwait",
+      "0",
+      "1",
+      "InDPC"
+    ],
+    [
+      "ReadyThread",
+      "139194464",
+      "wezterm-gui.exe (12564)",
+      "20832",
+      "redis-server.exe (4932)",
+      "8164",
+      "Unwait",
+      "0",
+      "1",
+      "InDPC"
+    ]
+  ],
+  "main_switches_during_longest_wait": [
+    [
+      "CSwitch",
+      "139182487",
+      "wpscloudsvr.exe (21696)",
+      "25896",
+      "8",
+      "-1",
+      "19389",
+      "0",
+      "gneiss_main_loop_response.exe (10144)",
+      "6592",
+      "8",
+      "-1",
+      "Waiting",
+      "WrAlertByThreadId",
+      "Swapable",
+      "57",
+      "2",
+      "1",
+      "112291840",
+      "0",
+      "0",
+      "Important",
+      "Important"
+    ],
+    [
+      "CSwitch",
+      "139239245",
+      "gneiss_main_loop_response.exe (10144)",
+      "6592",
+      "8",
+      "-1",
+      "56758",
+      "2",
+      "Feishu.exe (25488)",
+      "4796",
+      "9",
+      "-1",
+      "Waiting",
+      "WrAlertByThreadId",
+      "Swapable",
+      "15",
+      "5",
+      "0",
+      "112242688",
+      "0",
+      "0",
+      "Important",
+      "Important"
+    ]
+  ],
+  "limits": [
+    "请求时长来自代码固定参数，原 CSV 未记录等待返回值。",
+    "InDPC 表示内核 DPC 上下文，事件进程名不是用户态通知者证据。",
+    "定时器到期处理栈支持超时唤醒路径，但不能拆分计时粒度、到期处理延迟，也未记录条件变量返回值。"
+  ],
+  "longest_wake_kernel_symbols": [
+    {
+      "address": "0xfffff8012d42fced",
+      "rva": "0x42fced",
+      "function": "KiProcessExpiredTimerList",
+      "mapping": "S_SEPCODE",
+      "section": 8,
+      "section_rva": "0x200000",
+      "separated_offset": "0x22fbf2",
+      "separated_size": 257,
+      "offset_in_separated_code": "0xfb",
+      "parent_code_offset": 291856
+    },
+    {
+      "address": "0xfffff8012d2465fd",
+      "rva": "0x2465fd",
+      "nearest_public": "KiRetireDpcList",
+      "offset": "0x5dd"
+    },
+    {
+      "address": "0xfffff8012d405e75",
+      "rva": "0x405e75",
+      "nearest_public": "KyRetireDpcList",
+      "offset": "0x5"
+    },
+    {
+      "address": "0xfffff8012d405c60",
+      "rva": "0x405c60",
+      "nearest_public": "KiDispatchInterruptContinue",
+      "offset": "0x0"
+    },
+    {
+      "address": "0xfffff8012d4053a5",
+      "rva": "0x4053a5",
+      "nearest_public": "KiDpcInterruptBypass",
+      "offset": "0x25"
+    },
+    {
+      "address": "0xfffff8012d3ffea1",
+      "rva": "0x3ffea1",
+      "nearest_public": "KiInterruptDispatchNoLockNoEtw",
+      "offset": "0xb1"
+    },
+    {
+      "address": "0xfffff8012d2f2bd7",
+      "rva": "0x2f2bd7",
+      "nearest_public": "PsGetThreadWin32Thread",
+      "offset": "0x7"
+    },
+    {
+      "address": "0xfffff8012d411505",
+      "rva": "0x411505",
+      "nearest_public": "KiSystemServiceCopyEnd",
+      "offset": "0x25"
+    }
+  ],
+  "symbol_method": {
+    "pdb": "ntkrnlmp.pdb/F57E740B088E5056E8AF0772F1CC5BEB1",
+    "image_base": "0xfffff8012d000000",
+    "method": "ETL image base and timestamp; matching local image CodeView GUID; Microsoft symbol server GUID/age1 URL; PDB section + S_SEPCODE range and parent offset for top frame, nearest public symbols for remaining frames",
+    "pdb_guid": "F57E740B-088E-5056-E8AF-0772F1CC5BEB",
+    "image_codeview_age": 1,
+    "downloaded_pdb_age": 5,
+    "pdb_sha256": "b06e15ab4cbcb75bc5f85880b0554a0978b58cae521f6f8f2847ead8fc2e87f8",
+    "image_timestamp": "0x1c62bee3"
+  },
+  "conclusion": "四组 ReadyThread 均为 InDPC；最长等待栈顶部位于 KiProcessExpiredTimerList 分离代码区间，支持定时器到期处理唤醒，未证明具体计时延迟机制。"
+}

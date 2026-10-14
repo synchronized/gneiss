@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <granit/asset_tools/texture_builder.hpp>
 
+#include <atomic>
 #include <cstdio>
 #include <map>
 #include <source_location>
@@ -24,6 +25,7 @@ void check(bool value, std::source_location at = std::source_location::current()
 struct memory_files final : file_system {
   std::map<std::string, std::vector<std::byte>> files;
   mutable std::thread::id reader;
+  std::shared_ptr<std::atomic_size_t> bytes_read = std::make_shared<std::atomic_size_t>();
   gneiss_result open_read(std::string_view path,
                           std::unique_ptr<read_source>& output) const noexcept override {
     reader = std::this_thread::get_id();
@@ -34,7 +36,9 @@ struct memory_files final : file_system {
     }
     class memory_source final : public read_source {
     public:
-      explicit memory_source(std::vector<std::byte> bytes) : bytes_(std::move(bytes)) {}
+      explicit memory_source(std::vector<std::byte> bytes,
+                             std::shared_ptr<std::atomic_size_t> bytes_read)
+          : bytes_(std::move(bytes)), bytes_read_(std::move(bytes_read)) {}
       std::uint64_t size() const noexcept override { return bytes_.size(); }
       gneiss_result read_at(std::uint64_t offset,
                             std::span<std::byte> output) const noexcept override {
@@ -44,14 +48,16 @@ struct memory_files final : file_system {
         std::ranges::copy(
             std::span{bytes_}.subspan(static_cast<std::size_t>(offset), output.size()),
             output.begin());
+        bytes_read_->fetch_add(output.size(), std::memory_order_relaxed);
         return GNEISS_SUCCESS;
       }
 
     private:
       std::vector<std::byte> bytes_;
+      std::shared_ptr<std::atomic_size_t> bytes_read_;
     };
     try {
-      output = std::make_unique<memory_source>(found->second);
+      output = std::make_unique<memory_source>(found->second, bytes_read);
     } catch (...) {
       return GNEISS_ERROR_OUT_OF_MEMORY;
     }
@@ -90,6 +96,76 @@ struct memory_files final : file_system {
               files["image.ktx2"], diagnostic) == texture_ktx2_result::success);
   }
 };
+void cooperative_read_slices() {
+  tasks::task_scheduler scheduler({.mode = tasks::execution_mode::cooperative});
+  auto files = std::make_shared<memory_files>();
+  files->text(
+      "large.texture.json",
+      R"({"format":"gneiss.texture","version":1,"source":"asset://image.ktx2","color_space":"srgb"})");
+  std::string diagnostic;
+  texture_ktx2 input{.transfer = texture_transfer::srgb, .levels = {}};
+  for (std::uint32_t dimension = 1024U; dimension != 0U; dimension /= 2U) {
+    input.levels.push_back({
+        .width = dimension,
+        .height = dimension,
+        .pixels = std::vector<std::byte>(std::size_t{4U} * dimension * dimension, std::byte{127}),
+    });
+  }
+  check(encode_texture_ktx2(input, files->files["image.ktx2"], diagnostic) ==
+        texture_ktx2_result::success);
+  virtual_file_system vfs;
+  check(vfs.mount("asset://", files) == GNEISS_SUCCESS);
+  render_resource_service resources;
+  resource_cache cache;
+  render_asset_loader loader(vfs, cache, resources);
+  texture_upload_backend backend{
+      .begin =
+          [](const auto&, auto& sequence) {
+            sequence = 1U;
+            return GNEISS_SUCCESS;
+          },
+      .poll =
+          [](auto, auto& result) {
+            result = GNEISS_SUCCESS;
+            return true;
+          },
+      .discard =
+          [](const auto&, auto& sequence) {
+            sequence = 2U;
+            return GNEISS_SUCCESS;
+          },
+      .flush = [] {},
+  };
+  texture_load_service service(scheduler, vfs, loader, std::move(backend));
+  const std::vector<std::string> uris{"asset://large.texture.json"};
+  std::uint64_t request{};
+  check(service.submit(uris, 1U, 1U, request) == GNEISS_SUCCESS);
+  texture_load_completion completion;
+  const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+  std::size_t reading_tasks{};
+  while (!service.take(completion)) {
+    check(std::chrono::steady_clock::now() < deadline);
+    const auto before = files->bytes_read->load();
+    (void)scheduler.run_ready({.max_tasks = 1U});
+    const auto consumed = files->bytes_read->load() - before;
+    // 验证服务真实消费量，而不是只检查预算常量；大载荷仍须完整分段准备和复验。
+    check(consumed <= std::size_t{4U} * 1024U * 1024U);
+    reading_tasks += consumed != 0U ? 1U : 0U;
+    service.advance();
+  }
+  // 两遍约 5.3 MiB 的载荷至少需要三块；相邻阶段允许共用剩余预算。
+  if (reading_tasks < 3U || completion.state != texture_load_state::applied) {
+    throw std::runtime_error("大纹理分片失败：读取任务=" + std::to_string(reading_tasks) +
+                             "，结果=" + std::to_string(completion.result) +
+                             "，消息=" + completion.message);
+  }
+  check(files->bytes_read->load() >= 2U * files->files["image.ktx2"].size());
+  check(completion.textures.size() == 1U && cache.size() == 1U);
+  const auto texture = resources.share_texture(completion.textures.front().get());
+  check(texture && texture->levels.front().pixels.size() == std::size_t{4U} * 1024U * 1024U &&
+        texture->levels.front().pixels.back() == std::byte{127});
+}
+
 void run(tasks::execution_mode mode) {
   tasks::task_scheduler scheduler({.workers = 2U, .mode = mode});
   auto files = std::make_shared<memory_files>();
@@ -591,6 +667,7 @@ void cancel_unpublished_upload(tasks::execution_mode mode) {
 } // namespace
 
 int main() try {
+  cooperative_read_slices();
   cancel_unpublished_upload(tasks::execution_mode::cooperative);
   cancel_unpublished_upload(tasks::execution_mode::thread_pool);
   packaged_lifetime(tasks::execution_mode::cooperative);

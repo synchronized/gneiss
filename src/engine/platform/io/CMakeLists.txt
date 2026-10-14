@@ -3,6 +3,12 @@
 
 add_library(
   gneiss_io_uv STATIC
+  uv/uv_async_file.cpp
+  uv/uv_async_file.hpp
+  uv/uv_path_resolver.cpp
+  uv/uv_path_resolver.hpp
+  uv/uv_file_reader.cpp
+  uv/uv_file_reader.hpp
   uv/uv_loop_access.hpp
   uv/uv_loop_executor.cpp
   uv/uv_loop_executor.hpp
@@ -20,6 +26,29 @@ gneiss_target_compile_warnings(gneiss_io_uv)
 gneiss_target_output_directories(gneiss_io_uv)
 
 if(GNEISS_BUILD_TESTING)
+  add_executable(gneiss_uv_async_file_test uv/tests/uv_async_file_test.cpp)
+  target_link_libraries(gneiss_uv_async_file_test PRIVATE gneiss_io_uv)
+  target_compile_features(gneiss_uv_async_file_test PRIVATE cxx_std_20)
+  gneiss_target_compile_warnings(gneiss_uv_async_file_test)
+  gneiss_target_output_directories(gneiss_uv_async_file_test)
+  add_test(NAME gneiss.io.uv-async-file COMMAND gneiss_uv_async_file_test)
+  set_tests_properties(gneiss.io.uv-async-file PROPERTIES TIMEOUT 20)
+
+  add_executable(gneiss_uv_path_resolver_test uv/tests/uv_path_resolver_test.cpp)
+  target_link_libraries(gneiss_uv_path_resolver_test PRIVATE gneiss_io_uv)
+  target_compile_features(gneiss_uv_path_resolver_test PRIVATE cxx_std_20)
+  gneiss_target_compile_warnings(gneiss_uv_path_resolver_test)
+  gneiss_target_output_directories(gneiss_uv_path_resolver_test)
+  add_test(NAME gneiss.io.uv-path-resolver COMMAND gneiss_uv_path_resolver_test)
+  set_tests_properties(gneiss.io.uv-path-resolver PROPERTIES TIMEOUT 20)
+
+  add_executable(gneiss_uv_file_reader_test uv/tests/uv_file_reader_test.cpp)
+  target_link_libraries(gneiss_uv_file_reader_test PRIVATE gneiss_io_uv)
+  target_compile_features(gneiss_uv_file_reader_test PRIVATE cxx_std_20)
+  gneiss_target_compile_warnings(gneiss_uv_file_reader_test)
+  gneiss_target_output_directories(gneiss_uv_file_reader_test)
+  add_test(NAME gneiss.io.uv-file-reader COMMAND gneiss_uv_file_reader_test)
+
   add_executable(gneiss_uv_loop_executor_test uv/tests/uv_loop_executor_test.cpp)
   target_link_libraries(gneiss_uv_loop_executor_test PRIVATE gneiss_io_uv)
   target_compile_features(gneiss_uv_loop_executor_test PRIVATE cxx_std_20)

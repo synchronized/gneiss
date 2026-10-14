@@ -225,6 +225,24 @@ public:
     return *this;
   }
 
+  /** 接管同一 Application 中尚无其他所有者的场景；所属线程调用。
+   * output 必须为空；失败不接管，成功后原始句柄只能作为借用使用。 */
+  [[nodiscard]] static result adopt_native(gneiss_application application,
+                                           gneiss_scene_instance handle,
+                                           scene_instance& output) noexcept {
+    if (output.is_valid()) {
+      return result::invalid_state;
+    }
+    std::uint64_t count{};
+    const auto operation = gneiss_scene_instance_get_node_count(application, handle, &count);
+    if (operation != GNEISS_SUCCESS) {
+      return from_native(operation);
+    }
+    output.application_ = application;
+    output.handle_ = handle;
+    return result::success;
+  }
+
   [[nodiscard]] static result load(gneiss_application application, std::string_view uri,
                                    scene_instance& out_instance) noexcept;
 

@@ -1,0 +1,490 @@
+{
+  "before_split": {
+    "directory": "build\\0.50-tracy-main-recheck",
+    "run": {
+      "fixture_exit": 3,
+      "capture_exit": 0,
+      "hashes": {
+        "gneiss_main_loop_response.exe": "919acf15a676c92e1669585008690c47d10ea6da3fe33cb0f6d8dcdccc898ebe",
+        "gneiss_engine.dll": "373bd803713e3e71214f81a05c091687dd643ac7a99c1a6bd43b88fd7705aa01",
+        "gneiss_tracy.dll": "124743793823423c5aee7fadc82f98e583c7a862a421eb2a4839fd50bd87052c"
+      }
+    },
+    "result": {
+      "passed": false,
+      "keys": 57,
+      "tasks": 56,
+      "key_p95_ms": 16.381,
+      "key_max_ms": 17.5748,
+      "task_p95_ms": 15.7967,
+      "task_max_ms": 17.5633,
+      "close_ms": 16.1189,
+      "nodes": 0,
+      "resources": 0,
+      "loaded_scene": true,
+      "injected_stall": false,
+      "scene_ready": false,
+      "probe_timed_out": true,
+      "timed_out_probe_ms": 2014.69
+    },
+    "summary": {
+      "application.events": {
+        "count": 700,
+        "max_ms": 2.049917
+      },
+      "application.idle_condition": {
+        "count": 699,
+        "max_ms": 22.138977
+      },
+      "application.idle_lock": {
+        "count": 699,
+        "max_ms": 0.004856
+      },
+      "application.idle_wait": {
+        "count": 699,
+        "max_ms": 22.139735
+      },
+      "application.loop": {
+        "count": 700,
+        "max_ms": 22.154863
+      },
+      "application.render.submit": {
+        "count": 699,
+        "max_ms": 0.480384
+      },
+      "application.update": {
+        "count": 699,
+        "max_ms": 5.899705
+      },
+      "asset.advance": {
+        "count": 685,
+        "max_ms": 5.887443
+      },
+      "asset.fs.canonical": {
+        "count": 15,
+        "max_ms": 0.283569
+      },
+      "asset.fs.canonical_call": {
+        "count": 15,
+        "max_ms": 0.278921
+      },
+      "asset.fs.file_type": {
+        "count": 15,
+        "max_ms": 0.083031
+      },
+      "asset.fs.open_read": {
+        "count": 15,
+        "max_ms": 3426.604478
+      },
+      "asset.fs.path_build": {
+        "count": 15,
+        "max_ms": 0.004153
+      },
+      "asset.fs.relative": {
+        "count": 15,
+        "max_ms": 0.242065
+      },
+      "asset.io.begin_read": {
+        "count": 52,
+        "max_ms": 28.677174
+      },
+      "asset.io.open": {
+        "count": 15,
+        "max_ms": 3426.007307
+      },
+      "asset.io.reopen": {
+        "count": 14,
+        "max_ms": 0.074421
+      },
+      "asset.io.request.allocate": {
+        "count": 52,
+        "max_ms": 4.087776
+      },
+      "asset.io.request.destroy": {
+        "count": 52,
+        "max_ms": 0.006489
+      },
+      "asset.io.request.start": {
+        "count": 52,
+        "max_ms": 25.612662
+      },
+      "asset.prepare.cleanup": {
+        "count": 1,
+        "max_ms": 0.897463
+      },
+      "asset.prepare.copy": {
+        "count": 4,
+        "max_ms": 0.000195
+      },
+      "asset.prepare.decode": {
+        "count": 4,
+        "max_ms": 148.034975
+      },
+      "asset.prepare.destroy": {
+        "count": 1,
+        "max_ms": 0.004335
+      },
+      "asset.prepare.hash": {
+        "count": 25,
+        "max_ms": 86.497756
+      },
+      "asset.prepare.open": {
+        "count": 8,
+        "max_ms": 3426.618127
+      },
+      "asset.prepare.prefetch": {
+        "count": 6,
+        "max_ms": 0.000386
+      },
+      "asset.prepare.publish": {
+        "count": 1,
+        "max_ms": 0.002403
+      },
+      "asset.prepare.read": {
+        "count": 25,
+        "max_ms": 117.369793
+      },
+      "asset.prepare.read_slice": {
+        "count": 25,
+        "max_ms": 30.869493
+      },
+      "asset.prepare.select": {
+        "count": 6,
+        "max_ms": 3426.621961
+      },
+      "asset.prepare.step": {
+        "count": 46,
+        "max_ms": 3426.625475
+      },
+      "asset.prepare.verify": {
+        "count": 21,
+        "max_ms": 83.73632
+      },
+      "asset.verify.hash": {
+        "count": 27,
+        "max_ms": 71.89108
+      },
+      "asset.verify.open": {
+        "count": 7,
+        "max_ms": 0.691919
+      },
+      "asset.verify.read_next": {
+        "count": 27,
+        "max_ms": 83.107499
+      },
+      "scene.advance": {
+        "count": 699,
+        "max_ms": 5.895057
+      },
+      "task.complete": {
+        "count": 104,
+        "max_ms": 0.018617
+      },
+      "task.execute": {
+        "count": 104,
+        "max_ms": 3426.639676
+      },
+      "task.receive": {
+        "count": 102,
+        "max_ms": 0.020545
+      },
+      "task.submit": {
+        "count": 104,
+        "max_ms": 0.117666
+      }
+    },
+    "slow_open": {
+      "name": "asset.io.open",
+      "start_ns": 4576706266,
+      "duration_ns": 3426007307,
+      "thread": 2,
+      "text": ""
+    },
+    "parents": [
+      {
+        "name": "asset.prepare.step",
+        "start_ns": 4576101971,
+        "duration_ns": 3426625475,
+        "thread": 2,
+        "text": ""
+      },
+      {
+        "name": "asset.prepare.open",
+        "start_ns": 4576106284,
+        "duration_ns": 3426618127,
+        "thread": 2,
+        "text": ""
+      },
+      {
+        "name": "task.execute",
+        "start_ns": 4576099784,
+        "duration_ns": 3426639676,
+        "thread": 2,
+        "text": "scheduler=1 task=107"
+      },
+      {
+        "name": "asset.fs.open_read",
+        "start_ns": 4576111421,
+        "duration_ns": 3426604478,
+        "thread": 2,
+        "text": "materials/material-1.material.json"
+      },
+      {
+        "name": "asset.prepare.select",
+        "start_ns": 4576102749,
+        "duration_ns": 3426621961,
+        "thread": 2,
+        "text": ""
+      },
+      {
+        "name": "asset.io.open",
+        "start_ns": 4576706266,
+        "duration_ns": 3426007307,
+        "thread": 2,
+        "text": ""
+      }
+    ],
+    "loops_during_open": 213,
+    "sha256": {
+      "full.tracy": "0e455c463d1be9e40f28455a454759e0b831ae31485bfef948ce74768d15626a",
+      "zones.csv": "e380d5f2369dc5d13740290635508a6e192bd1c8bedecfa21b2f7a1e53f06b36",
+      "run.json": "8fdd73cef316c20d8397b26a616ac6b84da1927238969aec2d4180100ca5dc28",
+      "result.json": "87615474ecc0df446450eb3d86231b43888a64f1640da760227c37f574ce91b8"
+    }
+  },
+  "after_split": {
+    "directory": "build\\0.50-tracy-open-split",
+    "run": {
+      "fixture_exit": 3,
+      "capture_exit": 0,
+      "hashes": {
+        "gneiss_main_loop_response.exe": "919acf15a676c92e1669585008690c47d10ea6da3fe33cb0f6d8dcdccc898ebe",
+        "gneiss_engine.dll": "7bd461b77da5e1d0ec2abfc76f4a58c77cd11c9960d7e43a1b8ddf382e5595ac",
+        "gneiss_tracy.dll": "124743793823423c5aee7fadc82f98e583c7a862a421eb2a4839fd50bd87052c"
+      }
+    },
+    "result": {
+      "passed": false,
+      "keys": 174,
+      "tasks": 173,
+      "key_p95_ms": 17.2766,
+      "key_max_ms": 17.975,
+      "task_p95_ms": 15.4932,
+      "task_max_ms": 17.9411,
+      "close_ms": 15.7507,
+      "nodes": 0,
+      "resources": 0,
+      "loaded_scene": true,
+      "injected_stall": false,
+      "scene_ready": false,
+      "probe_timed_out": true,
+      "timed_out_probe_ms": 2004.66
+    },
+    "summary": {
+      "application.events": {
+        "count": 1565,
+        "max_ms": 3.261631
+      },
+      "application.idle_condition": {
+        "count": 1564,
+        "max_ms": 19.931407
+      },
+      "application.idle_lock": {
+        "count": 1564,
+        "max_ms": 0.005312
+      },
+      "application.idle_wait": {
+        "count": 1564,
+        "max_ms": 19.932219
+      },
+      "application.loop": {
+        "count": 1565,
+        "max_ms": 19.963855
+      },
+      "application.render.submit": {
+        "count": 1564,
+        "max_ms": 0.621466
+      },
+      "application.update": {
+        "count": 1564,
+        "max_ms": 4.811003
+      },
+      "asset.advance": {
+        "count": 1550,
+        "max_ms": 4.801783
+      },
+      "asset.fs.canonical": {
+        "count": 27,
+        "max_ms": 4962.587948
+      },
+      "asset.fs.canonical_call": {
+        "count": 27,
+        "max_ms": 4962.584521
+      },
+      "asset.fs.file_type": {
+        "count": 27,
+        "max_ms": 0.116513
+      },
+      "asset.fs.open_read": {
+        "count": 27,
+        "max_ms": 4963.077185
+      },
+      "asset.fs.path_build": {
+        "count": 27,
+        "max_ms": 0.018803
+      },
+      "asset.fs.relative": {
+        "count": 27,
+        "max_ms": 0.579911
+      },
+      "asset.io.begin_read": {
+        "count": 95,
+        "max_ms": 10.553641
+      },
+      "asset.io.create_file": {
+        "count": 27,
+        "max_ms": 633.415008
+      },
+      "asset.io.file_size": {
+        "count": 27,
+        "max_ms": 0.01112
+      },
+      "asset.io.open": {
+        "count": 27,
+        "max_ms": 633.421252
+      },
+      "asset.io.reopen": {
+        "count": 26,
+        "max_ms": 0.219397
+      },
+      "asset.io.request.allocate": {
+        "count": 95,
+        "max_ms": 4.684716
+      },
+      "asset.io.request.destroy": {
+        "count": 95,
+        "max_ms": 0.006478
+      },
+      "asset.io.request.start": {
+        "count": 95,
+        "max_ms": 7.777211
+      },
+      "asset.prepare.cleanup": {
+        "count": 2,
+        "max_ms": 18.86272
+      },
+      "asset.prepare.copy": {
+        "count": 8,
+        "max_ms": 0.000405
+      },
+      "asset.prepare.decode": {
+        "count": 8,
+        "max_ms": 98.76403
+      },
+      "asset.prepare.destroy": {
+        "count": 2,
+        "max_ms": 0.007639
+      },
+      "asset.prepare.hash": {
+        "count": 50,
+        "max_ms": 74.565668
+      },
+      "asset.prepare.open": {
+        "count": 14,
+        "max_ms": 634.046392
+      },
+      "asset.prepare.prefetch": {
+        "count": 10,
+        "max_ms": 0.00048
+      },
+      "asset.prepare.publish": {
+        "count": 1,
+        "max_ms": 0.001462
+      },
+      "asset.prepare.read": {
+        "count": 251,
+        "max_ms": 82.689544
+      },
+      "asset.prepare.read_slice": {
+        "count": 251,
+        "max_ms": 21.048936
+      },
+      "asset.prepare.select": {
+        "count": 10,
+        "max_ms": 8.259548
+      },
+      "asset.prepare.step": {
+        "count": 288,
+        "max_ms": 5007.807669
+      },
+      "asset.prepare.verify": {
+        "count": 35,
+        "max_ms": 4988.934316
+      },
+      "asset.verify.hash": {
+        "count": 45,
+        "max_ms": 69.989107
+      },
+      "asset.verify.open": {
+        "count": 13,
+        "max_ms": 4963.08137
+      },
+      "asset.verify.read_next": {
+        "count": 45,
+        "max_ms": 79.19109
+      },
+      "scene.advance": {
+        "count": 1564,
+        "max_ms": 4.807589
+      },
+      "task.complete": {
+        "count": 463,
+        "max_ms": 0.602714
+      },
+      "task.execute": {
+        "count": 463,
+        "max_ms": 5007.963353
+      },
+      "task.receive": {
+        "count": 461,
+        "max_ms": 0.106798
+      },
+      "task.submit": {
+        "count": 463,
+        "max_ms": 1.250032
+      }
+    },
+    "slow_calls": [
+      {
+        "name": "asset.io.create_file",
+        "start_ns": 5037603309,
+        "duration_ns": 633415008,
+        "thread": 2,
+        "text": "",
+        "path": "textures/image-4.gneiss-texture",
+        "loops_during_call": 71
+      },
+      {
+        "name": "asset.fs.canonical_call",
+        "start_ns": 11698407772,
+        "duration_ns": 4962584521,
+        "thread": 2,
+        "text": "os_tid=84676 cpu_100ns=0 cycles=642994",
+        "path": "textures/image-5-linear.gneiss-texture",
+        "loops_during_call": 231
+      }
+    ],
+    "sha256": {
+      "full.tracy": "ac26244d3c86c2535a22a8e9884160d0d5b2c772537914061f4748be1a3da381",
+      "zones.csv": "b9e232c87148abc0d77782d6d8995f170bf5680c1638f5794f858435f3b27239",
+      "run.json": "f114f0086a2f91272e72a505637d2cda9375109f880d5137688ffbbc9c2b3d2b",
+      "result.json": "27457839137e2ce7cfff0fbe8fc4d0b04fd4ea6a7cfa372517c5f1022943fc9b"
+    }
+  },
+  "limits": [
+    "两轮都因探针排队超时而提前失败，场景未激活，不能验证后续主线程转换阶段。",
+    "墙钟包含抢占、等待和观测开销，不能指认具体系统组件。",
+    "分段前后的二进制不同，不计算优化收益。",
+    "原始 266/272 ms 主线程失败未解释，未放宽门槛。"
+  ]
+}

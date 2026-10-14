@@ -2,6 +2,8 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/function/scene/scene_load_builder.hpp"
+#include "engine/core/diagnostics/loop_timing.hpp"
+#include "engine/core/diagnostics/profiling.hpp"
 
 #include <algorithm>
 
@@ -9,11 +11,23 @@ namespace gneiss::scene_internal {
 
 scene_load_builder::scene_load_builder(scene_instance_service& service,
                                        prepared_scene_description prepared)
-    : service_(service), prepared_(std::move(prepared)),
-      instance_(std::make_unique<scene_instance>(service.world_, service.loader_,
-                                                 service.prefab_loader_, service.registry_)) {
-  instance_->initialize_staged(std::move(prepared_.description));
-  nodes_.reserve(instance_->description.objects.size());
+    : service_(service),
+      prepared_(diagnostics::measure(diagnostics::loop_stage::scene_description_move,
+                                     [&] {
+                                       GNEISS_PROFILE_SCOPE("scene.description.move");
+                                       return std::move(prepared);
+                                     })),
+      instance_(diagnostics::measure(diagnostics::loop_stage::scene_instance_allocate, [&] {
+        GNEISS_PROFILE_SCOPE("scene.instance.allocate");
+        return std::make_unique<scene_instance>(service.world_, service.loader_,
+                                                service.prefab_loader_, service.registry_);
+      })) {
+  diagnostics::measure(diagnostics::loop_stage::scene_instance_initialize, [&] {
+    GNEISS_PROFILE_SCOPE("scene.instance.initialize");
+    instance_->initialize_staged(std::move(prepared_.description));
+  });
+  diagnostics::measure(diagnostics::loop_stage::scene_node_index_reserve,
+                       [&] { nodes_.reserve(instance_->description.objects.size()); });
 }
 
 gneiss_result scene_load_builder::step_prefab() {
@@ -64,6 +78,7 @@ gneiss_result scene_load_builder::step_prefab() {
 }
 
 gneiss_result scene_load_builder::step() {
+  GNEISS_PROFILE_SCOPE("scene.build.step");
   if (prefabs_.size() < prepared_.prefabs.size()) {
     // map 的稳定键顺序与安装顺序一致；每次最多安装一份已经解析的描述。
     auto source = prepared_.prefabs.begin();
