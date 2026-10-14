@@ -81,8 +81,10 @@
 - [UPSTREAM-050：窗口事件等待与跨线程唤醒](plans/UPSTREAM-050-granit-window-wait.md)
 - [VER-050：0.50.0 后台加载主线程延迟](plans/VER-050-0.50.0-main-loop-latency.md)
 - [DEV-050：后台加载主线程延迟开发计划](plans/DEV-050-main-loop-latency.md)
-- [VER-051：0.51.0 大型场景视口性能](plans/VER-051-0.51.0-editor-render-performance.md)
-- [DEV-051：大型场景视口性能开发计划](plans/DEV-051-editor-render-performance.md)
+- [VER-051：0.51.0 源码架构与模块边界收敛](plans/VER-051-0.51.0-architecture-boundaries.md)
+- [DEV-051：源码架构与模块边界开发计划](plans/DEV-051-architecture-boundaries.md)
+- [VER-052：0.52.0 大型场景视口性能候选](plans/VER-052-0.52.0-editor-render-performance.md)
+- [DEV-052：大型场景视口性能开发计划](plans/DEV-052-editor-render-performance.md)
 - [VER-049：0.49.0 大场景加载响应性与生命周期稳定性](plans/VER-049-0.49.0-loading-stability.md)
 - [DEV-049：大场景加载响应性与生命周期稳定性开发计划](plans/DEV-049-loading-stability.md)
 
@@ -224,6 +226,7 @@
 - [ADR-053：内部 C++ 实现与 C ABI、C++ SDK 分层](decisions/ADR-053-cpp-core-and-c-abi.md)
 - [ADR-054：精简源码布局与宿主边界](decisions/ADR-054-source-layout-and-host-boundaries.md)
 - [ADR-052：纹理驻留与加载预算](decisions/ADR-052-texture-residency-and-budgets.md)
+- [ADR-062：内部 C++ 与外部 SDK 边界](decisions/ADR-062-internal-cpp-and-sdk-boundaries.md)
 
 ## 实施与验收记录
 
