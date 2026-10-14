@@ -83,8 +83,8 @@
 - [DEV-050：后台加载主线程延迟开发计划](plans/DEV-050-main-loop-latency.md)
 - [VER-051：0.51.0 源码架构与模块边界收敛](plans/VER-051-0.51.0-architecture-boundaries.md)
 - [DEV-051：源码架构与模块边界开发计划](plans/DEV-051-architecture-boundaries.md)
-- [VER-052：0.52.0 大型场景视口性能候选](plans/VER-052-0.52.0-editor-render-performance.md)
-- [DEV-052：大型场景视口性能开发计划](plans/DEV-052-editor-render-performance.md)
+- [大型场景视口性能：未排期事项](plans/editor-render-performance-backlog.md)
+- [大型场景视口性能：候选调查步骤](plans/editor-render-performance-investigation.md)
 - [VER-049：0.49.0 大场景加载响应性与生命周期稳定性](plans/VER-049-0.49.0-loading-stability.md)
 - [DEV-049：大场景加载响应性与生命周期稳定性开发计划](plans/DEV-049-loading-stability.md)
 
