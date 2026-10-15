@@ -171,6 +171,10 @@ void run(tasks::execution_mode mode) {
   check(gneiss_application_get_world(app.get(), &observed) == GNEISS_SUCCESS &&
         observed != old_world);
   check(cancel_scene_load(app.get(), first) == GNEISS_ERROR_NOT_READY);
+  // 激活后的旧域由 session 延迟退役，期间不能接收下一次打开。
+  check(gneiss_world_entity_count(old_world, &count) == GNEISS_SUCCESS && count == 1U);
+  check(request_scene_load(app.get(), uri, 1U, 2U, rejected) == GNEISS_ERROR_NOT_READY &&
+        rejected == 0U);
   (void)drive();
   check(gneiss_world_entity_count(old_world, &count) == GNEISS_ERROR_INVALID_HANDLE);
 
@@ -249,6 +253,7 @@ void run(tasks::execution_mode mode) {
   check(request_scene_load(app.get(), uri, 1U, 5U, request) == GNEISS_SUCCESS);
   app = application{};
   check(scheduler.stats().retained == 0U);
+  check(gneiss_world_entity_count(observed, &count) == GNEISS_ERROR_INVALID_HANDLE);
 }
 } // namespace
 int main() try {

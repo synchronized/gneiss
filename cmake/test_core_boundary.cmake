@@ -3,6 +3,8 @@
 
 cmake_minimum_required(VERSION 3.23)
 set(fixture "${GNEISS_BINARY_DIR}/api-boundary-fixture")
+file(MAKE_DIRECTORY "${fixture}/src/engine/function/application")
+file(WRITE "${fixture}/src/engine/function/application/scene_session.cpp" "")
 file(MAKE_DIRECTORY "${fixture}/src/engine/platform")
 file(MAKE_DIRECTORY "${fixture}/src/editor")
 file(WRITE "${fixture}/src/editor/probe.cpp" "")
@@ -318,3 +320,24 @@ foreach(module IN ITEMS application game)
   endif()
   file(WRITE "${fixture}/src/engine/function/${module}/probe.cpp" "")
 endforeach()
+
+# 协调层只接收上传接口，不能自行装配平台和 GPU 后端。
+foreach(header IN ITEMS engine/platform/granit/granit_platform.hpp
+                        engine/function/render/backend/granit/granit_render_service.hpp
+                        granit/granit.hpp)
+  file(WRITE "${fixture}/src/engine/function/application/scene_session.cpp"
+    "#include <${header}>\n")
+  execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
+    -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
+    RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
+  if(status EQUAL 0)
+    message(FATAL_ERROR "边界检查未拒绝协调层直接依赖后端：${header}")
+  endif()
+endforeach()
+file(WRITE "${fixture}/src/engine/function/application/scene_session.cpp"
+  "#include <engine/function/render/texture_load_service.hpp>\n")
+execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
+  -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake" RESULT_VARIABLE status)
+if(NOT status EQUAL 0)
+  message(FATAL_ERROR "边界检查错误拒绝协调层依赖上传服务接口")
+endif()

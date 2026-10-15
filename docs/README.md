@@ -461,6 +461,7 @@
 
 - [M-324：Editor 持续渲染与排队延迟](records/M-324-editor-render-latency.md)
 - [M-329：架构审计记录](records/M-329-architecture-audit.md)
+- [M-331：场景生命周期协调首批迁移](records/M-331-scene-session-extraction.md)
 
 ## 文档维护
 

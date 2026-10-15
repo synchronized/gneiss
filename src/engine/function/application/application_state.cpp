@@ -104,7 +104,7 @@ render_internal::render_queue_stats application_state::render_statistics() const
 }
 
 gneiss_result application_state::attach_task_executor(tasks::task_executor& executor) noexcept {
-  if (texture_service_) {
+  if (scene_session_.textures()) {
     return GNEISS_ERROR_INVALID_STATE;
   }
   try {
@@ -153,12 +153,8 @@ gneiss_result application_state::attach_task_executor(tasks::task_executor& exec
       backend.discard = backend.begin;
       backend.flush = [] {};
     }
-    scene_service_ = std::make_unique<scene_load_service>(executor, asset_file_system_, resources_,
-                                                          backend, loop_notification_);
-    texture_service_ = std::make_unique<render_internal::texture_load_service>(
-        executor, asset_file_system_, active_scene_->assets, std::move(backend),
-        loop_notification_);
-    return GNEISS_SUCCESS;
+    return scene_session_.attach_executor(executor, asset_file_system_, resources_,
+                                          std::move(backend), loop_notification_);
   } catch (const std::bad_alloc&) {
     return GNEISS_ERROR_OUT_OF_MEMORY;
   } catch (...) {
@@ -168,21 +164,7 @@ gneiss_result application_state::attach_task_executor(tasks::task_executor& exec
 
 gneiss_result application_state::activate_scene(std::uint64_t request,
                                                 scene_load_completion& completion) {
-  if (!scene_service_ || retired_scene_ || (texture_service_ && texture_service_->busy())) {
-    return GNEISS_ERROR_NOT_READY;
-  }
-  const auto start = std::chrono::steady_clock::now();
-  std::unique_ptr<render_internal::texture_load_service> next_assets;
-  auto next = scene_service_->take_candidate(request, completion, next_assets);
-  if (!next) {
-    return GNEISS_ERROR_NOT_READY;
-  }
-  retired_scene_ = std::move(active_scene_);
-  active_scene_ = std::move(next);
-  texture_service_ = std::move(next_assets);
-  completion.activation_ms =
-      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
-  return GNEISS_SUCCESS;
+  return scene_session_.activate(request, completion);
 }
 
 gneiss_result application_state::reload_render_assets(
@@ -191,7 +173,7 @@ gneiss_result application_state::reload_render_assets(
     return GNEISS_ERROR_NOT_READY;
   }
   render_internal::asset_diagnostic diagnostic;
-  return active_scene_->assets.reload_assets(assets, diagnostic);
+  return scene_session_.assets().reload_assets(assets, diagnostic);
 }
 
 gneiss_result application_state::reload_scene(gneiss_scene_instance instance,
@@ -317,8 +299,7 @@ gneiss_result application_state::initialize() noexcept {
   platform_initialized_ = true;
 
   try {
-    active_scene_ = std::make_unique<application_scene_state>(asset_file_system_, resources_);
-    const auto result = active_scene_->initialize();
+    const auto result = scene_session_.initialize(asset_file_system_, resources_);
     if (result != GNEISS_SUCCESS) {
       report(GNEISS_NULL_APPLICATION, GNEISS_DIAGNOSTIC_ERROR,
              GNEISS_DIAGNOSTIC_CATEGORY_APPLICATION, result, "scene", "场景域创建失败");
@@ -709,13 +690,10 @@ bool application_state::is_owner_thread() const noexcept {
 
 gneiss_result application_state::shutdown(gneiss_application handle) noexcept {
   auto shutdown_result = GNEISS_SUCCESS;
-  scene_service_.reset();
-  texture_service_.reset();
-  retired_scene_.reset();
+  scene_session_.shutdown();
   is_updating_ = false;
   ui_draw_list_.clear();
   debug_draw_list_.clear();
-  active_scene_.reset();
 #ifdef GNEISS_ASSET_LIBUV
   if (native_assets_) {
     native_assets_->set_async_io({}, {});

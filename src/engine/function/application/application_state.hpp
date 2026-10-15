@@ -11,8 +11,8 @@
 #include "engine/core/diagnostics/loop_timing.hpp"
 #include "engine/core/log/log_dispatcher.hpp"
 #include "engine/function/application/application_configuration.hpp"
-#include "engine/function/application/application_scene_state.hpp"
 #include "engine/function/application/scene_load_service.hpp"
+#include "engine/function/application/scene_session.hpp"
 #include "engine/function/input/input_service.hpp"
 #include "engine/function/render/debug_draw_list.hpp"
 #include "engine/function/render/render_asset_loader.hpp"
@@ -52,34 +52,17 @@ public:
   [[nodiscard]] render_internal::render_queue_stats render_statistics() const noexcept;
   [[nodiscard]] gneiss_result attach_task_executor(tasks::task_executor& executor) noexcept;
   [[nodiscard]] render_internal::texture_load_service* texture_service() noexcept {
-    return texture_service_.get();
+    return scene_session_.textures();
   }
-
-  [[nodiscard]] scene_load_service* scene_service() noexcept { return scene_service_.get(); }
+  [[nodiscard]] scene_load_service* scene_service() noexcept { return scene_session_.loader(); }
   [[nodiscard]] bool can_start_scene_load() const noexcept {
-    return !retired_scene_ && texture_service_ && !texture_service_->busy();
+    return scene_session_.can_start_load();
   }
-  [[nodiscard]] bool scene_loading() const noexcept {
-    return scene_service_ && scene_service_->busy();
-  }
-  void advance_scene_load() {
-    if (retired_scene_) {
-      const auto start = std::chrono::steady_clock::now();
-      const diagnostics::loop_span span(diagnostics::loop_stage::retirement);
-      retired_scene_.reset();
-      retirement_.last_ms =
-          std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start)
-              .count();
-      ++retirement_.retired_domains;
-    }
-    if (scene_service_) {
-      scene_service_->advance();
-    }
-  }
+  [[nodiscard]] bool scene_loading() const noexcept { return scene_session_.loading(); }
+  void advance_scene_load() { scene_session_.advance(); }
   [[nodiscard]] scene_retirement_statistics scene_retirement() const noexcept {
-    auto value = retirement_;
+    auto value = scene_session_.retirement();
     value.live_resources = resources_.live_resource_count();
-    value.pending = retired_scene_ != nullptr;
     return value;
   }
   [[nodiscard]] gneiss_result activate_scene(std::uint64_t request,
@@ -98,14 +81,12 @@ public:
   [[nodiscard]] gneiss_result run(gneiss_application handle,
                                   std::uint64_t max_frame_count) noexcept;
   [[nodiscard]] bool is_owner_thread() const noexcept;
-  [[nodiscard]] gneiss_world world() const noexcept {
-    return active_scene_ ? active_scene_->world : GNEISS_NULL_WORLD;
-  }
+  [[nodiscard]] gneiss_world world() const noexcept { return scene_session_.world(); }
   [[nodiscard]] render_internal::render_resource_service& resources() noexcept {
     return resources_;
   }
   [[nodiscard]] render_internal::render_asset_loader& asset_loader() noexcept {
-    return active_scene_->assets;
+    return scene_session_.assets();
   }
   [[nodiscard]] gneiss_result
   reload_render_assets(std::span<const render_internal::render_asset_reload> assets) noexcept;
@@ -114,7 +95,7 @@ public:
   [[nodiscard]] gneiss_result reload_prefab(gneiss_scene_instance instance,
                                             std::string_view uri) noexcept;
   [[nodiscard]] scene_internal::scene_instance_service* scenes() noexcept {
-    return active_scene_ ? active_scene_->scenes.get() : nullptr;
+    return scene_session_.scenes();
   }
   [[nodiscard]] const gneiss_keyboard_state& keyboard_state() const noexcept {
     return input_.keyboard();
@@ -157,11 +138,7 @@ private:
   std::shared_ptr<asset_internal::native_file_system> native_assets_;
 #endif
   asset_internal::virtual_file_system asset_file_system_;
-  std::unique_ptr<application_scene_state> active_scene_;
-  std::unique_ptr<application_scene_state> retired_scene_;
-  scene_retirement_statistics retirement_;
-  std::unique_ptr<scene_load_service> scene_service_;
-  std::unique_ptr<render_internal::texture_load_service> texture_service_;
+  scene_session scene_session_;
   std::thread::id owner_thread_;
   std::uint64_t frame_index_ = 0;
   std::uint64_t elapsed_ns_ = 0;

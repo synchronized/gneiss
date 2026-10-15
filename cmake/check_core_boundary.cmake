@@ -14,6 +14,10 @@ if(NOT sources)
 endif()
 foreach(source IN LISTS sources)
   file(READ "${source}" content)
+  if(source MATCHES "/src/engine/function/application/scene_session\\.(cpp|hpp)$" AND
+      content MATCHES "#[ \t]*include[ \t]*[<\"](engine/platform/|engine/function/render/backend/|granit/)")
+    message(FATAL_ERROR "场景生命周期协调不得直接依赖平台或渲染后端：${source}")
+  endif()
   if(source MATCHES "/src/engine/" AND
       content MATCHES "#[ \t]*include[ \t]*[<\"](apps|editor|tooling)/")
     message(FATAL_ERROR "Engine 不得反向包含宿主、编辑器或离线工具：${source}")
