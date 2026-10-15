@@ -485,6 +485,7 @@
 - [M-331：Editor 模态资产替换](records/M-331-editor-modal-asset-edit.md)
 - [M-331：Editor 模态网格节点创建](records/M-331-editor-modal-mesh-create.md)
 - [M-331：Prefab 候选分步清理](records/M-331-prefab-staged-cancel.md)
+- [M-331：分帧历史操作基础](records/M-331-history-operation.md)
 
 ## 文档维护
 

@@ -55,6 +55,9 @@ std::uint64_t editor_command_history::allocate_state() noexcept {
 }
 
 result editor_command_history::record_impl(std::unique_ptr<editor_command>& value) noexcept {
+  if (is_pending()) {
+    return result::not_ready;
+  }
   if (value == nullptr || capacity_ == 0U) {
     return result::invalid_argument;
   }
@@ -106,6 +109,9 @@ result editor_command_history::record(command value) noexcept {
 }
 
 result editor_command_history::execute(std::unique_ptr<editor_command> value) noexcept {
+  if (is_pending()) {
+    return result::not_ready;
+  }
   if (value == nullptr || capacity_ == 0U) {
     return result::invalid_argument;
   }
@@ -146,6 +152,15 @@ result editor_command_history::undo() noexcept {
     return result::not_ready;
   }
   auto& target = entries_[cursor_ - 1U];
+  const auto prepared = target.value->begin_history_operation(true, pending_);
+  if (prepared.failed()) {
+    pending_.reset();
+    return prepared;
+  }
+  if (pending_) {
+    pending_undo_ = true;
+    return result::not_ready;
+  }
   const auto operation_result = target.value->undo();
   if (operation_result == result::success) {
     --cursor_;
@@ -159,6 +174,15 @@ result editor_command_history::redo() noexcept {
     return result::not_ready;
   }
   auto& target = entries_[cursor_];
+  const auto prepared = target.value->begin_history_operation(false, pending_);
+  if (prepared.failed()) {
+    pending_.reset();
+    return prepared;
+  }
+  if (pending_) {
+    pending_undo_ = false;
+    return result::not_ready;
+  }
   const auto operation_result = target.value->redo();
   if (operation_result == result::success) {
     ++cursor_;
@@ -167,11 +191,43 @@ result editor_command_history::redo() noexcept {
   return operation_result;
 }
 
-void editor_command_history::clear() noexcept {
+result editor_command_history::advance_pending() noexcept {
+  if (!pending_) {
+    return result::invalid_state;
+  }
+  bool complete = false;
+  const auto operation = pending_->advance(complete);
+  if (operation.failed() || complete) {
+    if (operation.ok()) {
+      if (pending_undo_) {
+        --cursor_;
+        current_state_ = entries_[cursor_].before_state;
+      } else {
+        current_state_ = entries_[cursor_].after_state;
+        ++cursor_;
+      }
+    }
+    pending_.reset();
+    return operation;
+  }
+  return result::not_ready;
+}
+
+void editor_command_history::cancel_pending() noexcept {
+  if (pending_) {
+    pending_->cancel();
+  }
+}
+
+result editor_command_history::clear() noexcept {
+  if (is_pending()) {
+    return result::not_ready;
+  }
   entries_.clear();
   cursor_ = 0U;
   current_state_ = allocate_state();
   saved_state_ = current_state_;
+  return result::success;
 }
 
 std::string_view editor_command_history::undo_label() const noexcept {

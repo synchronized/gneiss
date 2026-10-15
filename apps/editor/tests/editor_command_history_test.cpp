@@ -8,6 +8,50 @@
 
 namespace {
 
+class delayed_operation final : public gneiss::editor::editor_history_operation {
+public:
+  delayed_operation(int& value, int next) : value_(value), next_(next) {}
+  gneiss::result advance(bool& complete) noexcept override {
+    complete = ++steps_ == 2;
+    if (!complete) {
+      return gneiss::result::success;
+    }
+    if (cancelled_) {
+      return gneiss::result::invalid_state;
+    }
+    value_ = next_;
+    return gneiss::result::success;
+  }
+  void cancel() noexcept override { cancelled_ = true; }
+
+private:
+  int& value_;
+  int next_;
+  int steps_{};
+  bool cancelled_{};
+};
+
+class delayed_command final : public gneiss::editor::editor_command {
+public:
+  explicit delayed_command(int& value) : value_(value) {}
+  std::string_view label() const noexcept override { return "分帧命令"; }
+  gneiss::result undo() noexcept override { return gneiss::result::invalid_state; }
+  gneiss::result redo() noexcept override { return gneiss::result::invalid_state; }
+  gneiss::result begin_history_operation(
+      bool undo,
+      std::unique_ptr<gneiss::editor::editor_history_operation>& output) noexcept override {
+    try {
+      output = std::make_unique<delayed_operation>(value_, undo ? 0 : 1);
+    } catch (...) {
+      return gneiss::result::out_of_memory;
+    }
+    return gneiss::result::success;
+  }
+
+private:
+  int& value_;
+};
+
 gneiss::editor::editor_command_history::command
 set_value_command(int& value, int previous, int next, std::string merge_key = {}) {
   return {.label = "设置值",
@@ -27,6 +71,31 @@ set_value_command(int& value, int previous, int next, std::string merge_key = {}
 } // namespace
 
 int main() {
+  {
+    using gneiss::result;
+    int value = 1;
+    gneiss::editor::editor_command_history pending;
+    if (pending.record(std::make_unique<delayed_command>(value)) != result::success ||
+        pending.mark_saved() != result::success || pending.undo() != result::not_ready ||
+        !pending.is_pending() || pending.can_undo() || pending.can_redo() ||
+        pending.clear() != result::not_ready || pending.mark_saved() != result::not_ready ||
+        pending.execute(set_value_command(value, 1, 9)) != result::not_ready || value != 1 ||
+        pending.record(set_value_command(value, 1, 9)) != result::not_ready ||
+        pending.advance_pending() != result::not_ready || pending.is_dirty() ||
+        pending.advance_pending() != result::success || value != 0 || !pending.can_redo() ||
+        pending.redo() != result::not_ready) {
+      return 21;
+    }
+    pending.cancel_pending();
+    if (pending.advance_pending() != result::not_ready ||
+        pending.advance_pending() != result::invalid_state || pending.is_pending() || value != 0 ||
+        !pending.can_redo() || pending.redo() != result::not_ready ||
+        pending.advance_pending() != result::not_ready ||
+        pending.advance_pending() != result::success || value != 1 || pending.is_dirty() ||
+        pending.advance_pending() != result::invalid_state) {
+      return 22;
+    }
+  }
   int untouched = 0;
   gneiss::editor::editor_command_history disabled{0U};
   if (disabled.execute(set_value_command(untouched, 0, 1)) != gneiss::result::invalid_argument ||

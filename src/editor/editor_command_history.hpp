@@ -16,6 +16,17 @@
 
 namespace gneiss::editor {
 
+/** 所属线程推进的历史事务；失败或取消完成前必须恢复原文档，终态后才允许销毁。
+ * 未完成返回 success 并设置 complete=false；失败仅表示已完成回滚的终态。
+ * 取消须继续推进清理，以非 success 终态结束，不得留下待清理工作。
+ */
+class editor_history_operation {
+public:
+  virtual ~editor_history_operation() noexcept = default;
+  [[nodiscard]] virtual result advance(bool& complete) noexcept = 0;
+  virtual void cancel() noexcept = 0;
+};
+
 /** 可逆 Editor 命令；实现只保存稳定作者值，不得保存 Runtime 对象地址。 */
 class editor_command {
 public:
@@ -23,6 +34,13 @@ public:
   [[nodiscard]] virtual std::string_view label() const noexcept = 0;
   [[nodiscard]] virtual result undo() noexcept = 0;
   [[nodiscard]] virtual result redo() noexcept = 0;
+  /** 创建分帧撤销/重做事务；空输出沿用同步入口。准备失败不得修改文档。 */
+  [[nodiscard]] virtual result
+  begin_history_operation(bool undo, std::unique_ptr<editor_history_operation>& output) noexcept {
+    (void)undo;
+    output.reset();
+    return result::success;
+  }
   /** 合并已执行的后继命令；成功时保留本命令的初始 Undo 状态。 */
   [[nodiscard]] virtual bool merge_with(const editor_command& next) noexcept {
     (void)next;
@@ -55,7 +73,9 @@ private:
   std::string merge_key_;
 };
 
-/** 保存可逆命令、保存点及有限历史；命令失败时保持当前位置。 */
+/** 保存可逆命令、保存点及有限历史；命令失败时保持当前位置。
+ * 所属线程使用；销毁前必须取消并推进在途操作至终态，不在析构中阻塞等待。
+ */
 class editor_command_history final {
 public:
   using command = functional_editor_command::desc;
@@ -70,11 +90,23 @@ public:
   [[nodiscard]] result execute(command value) noexcept;
   [[nodiscard]] result undo() noexcept;
   [[nodiscard]] result redo() noexcept;
-  void clear() noexcept;
-  void mark_saved() noexcept { saved_state_ = current_state_; }
+  /** 在途操作完成清理前拒绝清空或改变保存点。 */
+  result clear() noexcept;
+  result mark_saved() noexcept {
+    if (is_pending()) {
+      return result::not_ready;
+    }
+    saved_state_ = current_state_;
+    return result::success;
+  }
+  [[nodiscard]] bool is_pending() const noexcept { return pending_ != nullptr; }
+  [[nodiscard]] result advance_pending() noexcept;
+  void cancel_pending() noexcept;
 
-  [[nodiscard]] bool can_undo() const noexcept { return cursor_ != 0U; }
-  [[nodiscard]] bool can_redo() const noexcept { return cursor_ < entries_.size(); }
+  [[nodiscard]] bool can_undo() const noexcept { return !is_pending() && cursor_ != 0U; }
+  [[nodiscard]] bool can_redo() const noexcept {
+    return !is_pending() && cursor_ < entries_.size();
+  }
   [[nodiscard]] bool is_dirty() const noexcept { return current_state_ != saved_state_; }
   [[nodiscard]] std::size_t size() const noexcept { return entries_.size(); }
   [[nodiscard]] std::size_t capacity() const noexcept { return capacity_; }
@@ -92,6 +124,8 @@ private:
   [[nodiscard]] std::uint64_t allocate_state() noexcept;
 
   std::vector<entry> entries_;
+  std::unique_ptr<editor_history_operation> pending_;
+  bool pending_undo_{};
   std::size_t cursor_ = 0U;
   std::size_t capacity_ = default_capacity;
   std::uint64_t next_state_ = 1U;
