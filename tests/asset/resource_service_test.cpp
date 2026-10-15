@@ -16,6 +16,87 @@
 
 namespace {
 
+bool version_cache_contract() {
+  using namespace gneiss::asset_internal;
+  resource_cache cache;
+  resource_cache::version_key key{.identity = {.source = std::make_shared<asset_source_domain>(),
+                                               .uri = "asset://shared.mesh",
+                                               .type = 1U},
+                                  .version = "v1"};
+  std::shared_ptr<const resource_cache::entry> first;
+  std::shared_ptr<const resource_cache::entry> second;
+  int loads = 0;
+  const auto load = [&](std::shared_ptr<void>& output) {
+    output = std::make_shared<int>(++loads);
+    return GNEISS_SUCCESS;
+  };
+  if (cache.acquire(key, load, first) != GNEISS_SUCCESS ||
+      cache.acquire(key, load, second) != GNEISS_SUCCESS || first != second || loads != 1) {
+    return false;
+  }
+  auto next = key;
+  next.version = "v2";
+  const auto fail = [](std::shared_ptr<void>&) { return GNEISS_ERROR_IO; };
+  if (cache.acquire(next, fail, second) != GNEISS_ERROR_IO || second ||
+      cache.observe(next).lock() || cache.observe(key).lock() != first || cache.size() != 1U) {
+    return false;
+  }
+  const auto throwing = [](std::shared_ptr<void>&) -> gneiss_result { throw 1; };
+  if (cache.acquire(next, throwing, second) != GNEISS_ERROR_INTERNAL || cache.size() != 1U ||
+      cache.acquire(next, load, second) != GNEISS_SUCCESS || second == first || loads != 2 ||
+      *static_cast<const int*>(first->resource.get()) != 1) {
+    return false;
+  }
+  const auto old = cache.observe(key);
+  first.reset();
+  cache.release_unused();
+  if (!old.expired() || cache.observe(next).lock() != second || cache.size() != 1U) {
+    return false;
+  }
+  auto foreign = next;
+  foreign.identity.source = std::make_shared<asset_source_domain>();
+  if (cache.acquire(foreign, load, first) != GNEISS_SUCCESS || first == second || loads != 3) {
+    return false;
+  }
+  auto typed = next;
+  typed.identity.type = 2U;
+  if (cache.acquire(typed, load, first) != GNEISS_SUCCESS || first == second || loads != 4) {
+    return false;
+  }
+  // 旧 URI 热重载不得覆盖固定版本条目。
+  if (cache.reload(next.identity.uri, 1U, load, first) != GNEISS_SUCCESS ||
+      cache.observe(next).lock() != second ||
+      *static_cast<const int*>(second->resource.get()) != 2) {
+    return false;
+  }
+  auto invalid = key;
+  invalid.version.clear();
+  if (cache.acquire(invalid, load, first) != GNEISS_ERROR_INVALID_ARGUMENT || first) {
+    return false;
+  }
+  invalid = key;
+  invalid.identity.source.reset();
+  if (cache.acquire(invalid, load, first) != GNEISS_ERROR_INVALID_ARGUMENT || first) {
+    return false;
+  }
+  auto recursive_key = key;
+  recursive_key.version = "recursive";
+  const auto recursive = [&](std::shared_ptr<void>& output) {
+    std::shared_ptr<const resource_cache::entry> nested;
+    if (cache.acquire(recursive_key, load, nested) != GNEISS_ERROR_INVALID_STATE || nested) {
+      return GNEISS_ERROR_INTERNAL;
+    }
+    return load(output);
+  };
+  if (cache.acquire(recursive_key, recursive, first) != GNEISS_SUCCESS) {
+    return false;
+  }
+  first.reset();
+  second.reset();
+  cache.release_unused();
+  return cache.size() == 0U;
+}
+
 bool source_identity_contract() {
   using namespace gneiss::asset_internal;
   auto backend = std::make_shared<native_file_system>();
@@ -90,7 +171,7 @@ struct temporary_directory final {
 } // namespace
 
 int main() try {
-  if (!source_identity_contract()) {
+  if (!source_identity_contract() || !version_cache_contract()) {
     return 30;
   }
   temporary_directory directory;

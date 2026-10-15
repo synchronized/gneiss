@@ -10,6 +10,69 @@
 
 namespace gneiss::asset_internal {
 
+resource_cache::version_key resource_cache::legacy_key(std::string_view uri) {
+  return {.identity = {.source = {}, .uri = std::string(uri), .type = 0U}, .version = {}};
+}
+
+std::size_t resource_cache::key_hash::operator()(const version_key& key) const noexcept {
+  auto value = std::hash<const asset_source_domain*>{}(key.identity.source.get());
+  const auto combine = [&](std::size_t part) { value ^= part + (value << 6U) + (value >> 2U); };
+  combine(std::hash<std::string>{}(key.identity.uri));
+  combine(std::hash<std::uint32_t>{}(key.identity.type));
+  combine(std::hash<std::string>{}(key.version));
+  return value;
+}
+
+gneiss_result resource_cache::acquire(const version_key& key, const loader& load,
+                                      std::shared_ptr<const entry>& out_entry) noexcept {
+  out_entry.reset();
+  if (!key.identity.source || key.identity.type == 0U || key.version.empty() || !load ||
+      validate_uri(key.identity.uri) != GNEISS_SUCCESS) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  try {
+    const auto found = entries_.find(key);
+    if (found != entries_.end()) {
+      if (found->second->state != resource_state::ready) {
+        return GNEISS_ERROR_INVALID_STATE;
+      }
+      out_entry = found->second;
+      return GNEISS_SUCCESS;
+    }
+    auto value = std::make_shared<entry>();
+    value->uri = key.identity.uri;
+    value->type = key.identity.type;
+    value->state = resource_state::loading;
+    entries_.emplace(key, value);
+    ++revision_;
+    // 失败或异常必须撤回占位，允许之后重试；不得覆盖其他版本。
+    try {
+      std::shared_ptr<void> resource;
+      const auto result = load(resource);
+      if (result != GNEISS_SUCCESS || !resource) {
+        entries_.erase(key);
+        return result == GNEISS_SUCCESS ? GNEISS_ERROR_INTERNAL : result;
+      }
+      value->resource = std::move(resource);
+      value->state = resource_state::ready;
+      out_entry = std::move(value);
+      return GNEISS_SUCCESS;
+    } catch (...) {
+      entries_.erase(key);
+      throw;
+    }
+  } catch (const std::bad_alloc&) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
+std::weak_ptr<const resource_cache::entry> resource_cache::observe(const version_key& key) const {
+  const auto found = entries_.find(key);
+  return found == entries_.end() ? std::weak_ptr<const entry>{} : found->second;
+}
+
 gneiss_result resource_cache::acquire(std::string_view uri, std::uint32_t type, const loader& load,
                                       std::shared_ptr<const entry>& out_entry) noexcept {
   out_entry.reset();
@@ -17,7 +80,7 @@ gneiss_result resource_cache::acquire(std::string_view uri, std::uint32_t type, 
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
   try {
-    const auto found = entries_.find(std::string(uri));
+    const auto found = entries_.find(legacy_key(uri));
     if (found != entries_.end()) {
       if (found->second->type != type) {
         return GNEISS_ERROR_INVALID_ARGUMENT;
@@ -36,7 +99,7 @@ gneiss_result resource_cache::acquire(std::string_view uri, std::uint32_t type, 
     value->uri = uri;
     value->type = type;
     value->state = resource_state::loading;
-    entries_.emplace(value->uri, value);
+    entries_.emplace(legacy_key(value->uri), value);
     ++revision_;
 
     std::shared_ptr<void> resource;
@@ -44,7 +107,7 @@ gneiss_result resource_cache::acquire(std::string_view uri, std::uint32_t type, 
     if (result != GNEISS_SUCCESS || resource == nullptr) {
       value->state = resource_state::failed;
       value->failure = result == GNEISS_SUCCESS ? GNEISS_ERROR_INTERNAL : result;
-      entries_.erase(value->uri);
+      entries_.erase(legacy_key(value->uri));
       return value->failure;
     }
     value->resource = std::move(resource);
@@ -65,7 +128,7 @@ gneiss_result resource_cache::reload(std::string_view uri, std::uint32_t type, c
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
   try {
-    const auto found = entries_.find(std::string(uri));
+    const auto found = entries_.find(legacy_key(uri));
     if (found != entries_.end() && found->second->type != type) {
       return GNEISS_ERROR_INVALID_ARGUMENT;
     }
@@ -80,7 +143,7 @@ gneiss_result resource_cache::reload(std::string_view uri, std::uint32_t type, c
     }
     value->resource = std::move(resource);
     value->state = resource_state::ready;
-    entries_.insert_or_assign(value->uri, value);
+    entries_.insert_or_assign(legacy_key(value->uri), value);
     ++revision_;
     out_entry = std::move(value);
     return GNEISS_SUCCESS;
@@ -109,11 +172,11 @@ gneiss_result resource_cache::reload_transaction(
           !uris.insert(request.uri).second) {
         return GNEISS_ERROR_INVALID_ARGUMENT;
       }
-      const auto found = staging.entries_.find(request.uri);
+      const auto found = staging.entries_.find(legacy_key(request.uri));
       if (found != staging.entries_.end() && found->second->type != request.type) {
         return GNEISS_ERROR_INVALID_ARGUMENT;
       }
-      staging.entries_.erase(request.uri);
+      staging.entries_.erase(legacy_key(request.uri));
       auto candidate = std::make_shared<entry>();
       candidate->uri = request.uri;
       candidate->type = request.type;
@@ -125,7 +188,7 @@ gneiss_result resource_cache::reload_transaction(
       }
       candidate->resource = std::move(resource);
       candidate->state = resource_state::ready;
-      staging.entries_.insert_or_assign(candidate->uri, candidate);
+      staging.entries_.insert_or_assign(legacy_key(candidate->uri), candidate);
       committed.push_back(candidate);
     }
     entries_.swap(staging.entries_);
@@ -158,7 +221,7 @@ void resource_cache::release_unused() noexcept {
 }
 
 std::weak_ptr<const resource_cache::entry> resource_cache::observe(std::string_view uri) const {
-  const auto found = entries_.find(std::string(uri));
+  const auto found = entries_.find(legacy_key(uri));
   return found == entries_.end() ? std::weak_ptr<const entry>{} : found->second;
 }
 

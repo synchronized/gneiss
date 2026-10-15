@@ -9,6 +9,8 @@
 [DEV-051 的 M-329～M-333](DEV-051-architecture-boundaries.md)，决策依据为
 [ADR-064](../decisions/ADR-064-shared-assets-and-scene-instances.md)。本轮只整理文档。
 当前已实现的协调拆分见 [M-331 记录](../records/M-331-scene-session-extraction.md)。
+缓存层已增加来源身份与固定版本入口，验证见 [版本缓存记录](../records/M-331-version-cache.md)；
+场景加载器尚未接入，跨场景共享与固定版本发布仍未完成。
 
 ## 当前与目标
 
