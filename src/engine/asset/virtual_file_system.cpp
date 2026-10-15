@@ -29,6 +29,33 @@ constexpr std::string_view root_mount = "asset://";
 
 namespace gneiss::asset_internal {
 
+gneiss_result virtual_file_system::identify(std::string_view uri, std::uint32_t type,
+                                            asset_identity& output) const noexcept {
+  output = {};
+  if (type == 0U || validate_uri(uri) != GNEISS_SUCCESS) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  const mount_entry* selected = nullptr;
+  for (const auto& entry : mounts_) {
+    if (uri.starts_with(entry.point) &&
+        (selected == nullptr || entry.point.size() > selected->point.size())) {
+      selected = &entry;
+    }
+  }
+  if (selected == nullptr) {
+    return GNEISS_ERROR_NOT_FOUND;
+  }
+  try {
+    asset_identity identity{.source = selected->source, .uri = std::string(uri), .type = type};
+    output = std::move(identity);
+    return GNEISS_SUCCESS;
+  } catch (const std::bad_alloc&) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
 gneiss_result virtual_file_system::open_read(std::string_view uri,
                                              std::unique_ptr<read_source>& output) const noexcept {
   return open_impl(uri, output, false);
@@ -95,7 +122,11 @@ gneiss_result virtual_file_system::mount(std::string_view mount_point,
         })) {
       return GNEISS_ERROR_INVALID_STATE;
     }
-    mounts_.push_back({.point = std::string(mount_point), .backend = std::move(backend)});
+    mounts_.push_back({
+        .point = std::string(mount_point),
+        .backend = std::move(backend),
+        .source = std::make_shared<const asset_source_domain>(),
+    });
     return GNEISS_SUCCESS;
   } catch (const std::bad_alloc&) {
     return GNEISS_ERROR_OUT_OF_MEMORY;

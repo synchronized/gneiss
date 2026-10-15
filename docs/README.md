@@ -465,6 +465,7 @@
 - [M-329：架构审计记录](records/M-329-architecture-audit.md)
 - [M-329：资产身份、版本与租约审计](records/M-329-asset-identity-audit.md)
 - [M-331：场景生命周期协调首批迁移](records/M-331-scene-session-extraction.md)
+- [M-331：资产运行期来源身份](records/M-331-asset-source-identity.md)
 
 ## 文档维护
 

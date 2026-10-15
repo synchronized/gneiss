@@ -57,6 +57,7 @@ target_sources(
     engine/asset/source_revision_file_system.hpp
     engine/asset/asset_uri.cpp
     engine/asset/asset_uri.hpp
+    engine/asset/asset_identity.hpp
     engine/asset/file_system.hpp
     engine/asset/mesh_binary.cpp
     engine/asset/mesh_binary.hpp

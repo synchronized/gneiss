@@ -16,6 +16,59 @@
 
 namespace {
 
+bool source_identity_contract() {
+  using namespace gneiss::asset_internal;
+  auto backend = std::make_shared<native_file_system>();
+  virtual_file_system first;
+  asset_identity original;
+  if (first.identify("asset://model.mesh", 1U, original) != GNEISS_ERROR_NOT_FOUND ||
+      first.mount("asset://", backend) != GNEISS_SUCCESS ||
+      first.identify("asset://model.mesh", 1U, original) != GNEISS_SUCCESS) {
+    return false;
+  }
+  // 未初始化文件后端仍能解析身份：本接口不应引入同步 I/O。
+  auto copied = first;
+  asset_identity observed;
+  if (copied.identify(original.uri, original.type, observed) != GNEISS_SUCCESS ||
+      observed != original) {
+    return false;
+  }
+  virtual_file_system independent;
+  if (independent.mount("asset://", backend) != GNEISS_SUCCESS ||
+      independent.identify(original.uri, original.type, observed) != GNEISS_SUCCESS ||
+      observed == original || observed.source == original.source) {
+    return false;
+  }
+  if (first.identify(original.uri, 2U, observed) != GNEISS_SUCCESS || observed == original ||
+      first.identify("asset://Model.mesh", 1U, observed) != GNEISS_SUCCESS ||
+      observed == original) {
+    return false;
+  }
+  asset_identity before_overlay;
+  if (copied.identify("asset://nested/model.mesh", 1U, before_overlay) != GNEISS_SUCCESS ||
+      copied.mount("asset://nested/", backend) != GNEISS_SUCCESS ||
+      copied.identify(before_overlay.uri, 1U, observed) != GNEISS_SUCCESS ||
+      observed.source == before_overlay.source ||
+      first.identify(before_overlay.uri, 1U, observed) != GNEISS_SUCCESS ||
+      observed != before_overlay) {
+    return false;
+  }
+  if (first.identify("asset://../bad", 1U, observed) != GNEISS_ERROR_INVALID_ARGUMENT ||
+      observed.source || !observed.uri.empty() || observed.type != 0U ||
+      first.identify(original.uri, 0U, observed) != GNEISS_ERROR_INVALID_ARGUMENT) {
+    return false;
+  }
+  const std::weak_ptr<const asset_source_domain> source = original.source;
+  first = {};
+  copied = {};
+  before_overlay = {};
+  if (source.expired()) {
+    return false;
+  }
+  original = {};
+  return source.expired();
+}
+
 struct temporary_directory final {
   std::filesystem::path path =
       std::filesystem::temp_directory_path() /
@@ -37,6 +90,9 @@ struct temporary_directory final {
 } // namespace
 
 int main() try {
+  if (!source_identity_contract()) {
+    return 30;
+  }
   temporary_directory directory;
   {
     std::ofstream stream(directory.path / "models" / "triangle.mesh", std::ios::binary);

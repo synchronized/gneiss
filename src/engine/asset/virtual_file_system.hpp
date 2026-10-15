@@ -4,6 +4,7 @@
 #ifndef GNEISS_ASSET_VIRTUAL_FILE_SYSTEM_HPP_
 #define GNEISS_ASSET_VIRTUAL_FILE_SYSTEM_HPP_
 
+#include "engine/asset/asset_identity.hpp"
 #include "engine/asset/file_system.hpp"
 
 #include <memory>
@@ -14,6 +15,12 @@ namespace gneiss::asset_internal {
 
 class virtual_file_system final {
 public:
+  /** 仅解析挂载身份，不读取文件或验证存在性；失败清空 output。
+   * VFS 副本共享已有挂载身份，新挂载使用新身份；挂载后的后端不得重新指向其他来源。
+   * 无并发挂载时允许并发查询。类型零无效，URI 保留大小写。
+   */
+  [[nodiscard]] gneiss_result identify(std::string_view uri, std::uint32_t type,
+                                       asset_identity& output) const noexcept;
   [[nodiscard]] gneiss_result open_read(std::string_view uri,
                                         std::unique_ptr<read_source>& output) const noexcept;
   [[nodiscard]] gneiss_result
@@ -36,6 +43,7 @@ private:
   struct mount_entry final {
     std::string point;
     std::shared_ptr<file_system> backend;
+    std::shared_ptr<const asset_source_domain> source;
   };
 
   std::vector<mount_entry> mounts_;
