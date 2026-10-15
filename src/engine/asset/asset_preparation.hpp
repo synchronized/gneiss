@@ -59,6 +59,8 @@ struct prepared_asset {
   asset_request source;
   /** 描述在首位，纹理负载在其后；材质的资产依赖仍由 texture_uris 表示。 */
   std::vector<prepared_source> sources;
+  /** 全部来源复验后生成；包含依赖版本和纹理准备配置，可直接用于固定版本缓存。 */
+  asset_version_key version;
   asset_internal::mesh_data mesh;
   asset_internal::prepared_texture_data texture{};
   asset_internal::material_parameters material{};

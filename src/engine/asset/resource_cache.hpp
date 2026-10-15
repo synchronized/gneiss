@@ -35,11 +35,7 @@ public:
   /** 已验证产物的完整版本标识；由调用方包含来源、依赖及准备配置的变化。
    * 本缓存不解释编码、不读取来源，空版本无效；不能用缓存变更序号代替它。
    */
-  struct version_key final {
-    asset_identity identity;
-    std::string version;
-    bool operator==(const version_key&) const = default;
-  };
+  using version_key = asset_version_key;
   /** 同键只发布一次；不同版本共存。发布后调用方不得原地修改资源。
    * 仅所属线程调用；递归获取正在加载的同键返回 INVALID_STATE，不是异步任务合并接口。
    */

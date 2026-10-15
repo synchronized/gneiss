@@ -20,6 +20,11 @@ std::size_t resource_cache::key_hash::operator()(const version_key& key) const n
   combine(std::hash<std::string>{}(key.identity.uri));
   combine(std::hash<std::uint32_t>{}(key.identity.type));
   combine(std::hash<std::string>{}(key.version));
+  for (const auto& input : key.inputs) {
+    combine(std::hash<const asset_source_domain*>{}(input.source.get()));
+    combine(std::hash<std::string>{}(input.uri));
+    combine(std::hash<std::uint32_t>{}(input.type));
+  }
   return value;
 }
 
@@ -29,6 +34,11 @@ gneiss_result resource_cache::acquire(const version_key& key, const loader& load
   if (!key.identity.source || key.identity.type == 0U || key.version.empty() || !load ||
       validate_uri(key.identity.uri) != GNEISS_SUCCESS) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  for (const auto& input : key.inputs) {
+    if (!input.source || input.type == 0U || validate_uri(input.uri) != GNEISS_SUCCESS) {
+      return GNEISS_ERROR_INVALID_ARGUMENT;
+    }
   }
   try {
     const auto found = entries_.find(key);

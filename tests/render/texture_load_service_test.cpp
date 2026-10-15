@@ -99,9 +99,10 @@ struct memory_files final : file_system {
 void prepared_source_revisions() {
   auto source = std::make_shared<memory_files>();
   source->pixel(std::byte{10});
+  source->files["payload/image.ktx2"] = source->files.at("image.ktx2");
   source->text(
       "texture",
-      R"({"format":"gneiss.texture","version":1,"source":"asset://image.ktx2","color_space":"srgb"})");
+      R"({"format":"gneiss.texture","version":1,"source":"asset://payload/image.ktx2","color_space":"srgb"})");
   source->text(
       "material",
       R"({"format":"gneiss.material","version":2,"color":[1,1,1,1],"base_color_texture":"asset://texture"})");
@@ -112,20 +113,26 @@ void prepared_source_revisions() {
   prepared_batch after;
   asset_diagnostic diagnostic;
   check(prepare_assets(files, requests, before, diagnostic, {}, 128U) == GNEISS_SUCCESS);
+  prepared_batch repeated;
+  check(prepare_assets(files, requests, repeated, diagnostic, {}, 128U) == GNEISS_SUCCESS);
   source->pixel(std::byte{20});
+  source->files["payload/image.ktx2"] = source->files.at("image.ktx2");
   check(prepare_assets(files, requests, after, diagnostic, {}, 128U) == GNEISS_SUCCESS);
   check(before.assets.size() == 2U && after.assets.size() == 2U);
   for (std::size_t index = 0; index < before.assets.size(); ++index) {
     const auto& old_asset = before.assets[index];
     const auto& new_asset = after.assets[index];
     check(old_asset.source.uri == new_asset.source.uri && !old_asset.sources.empty());
+    check(old_asset.version == repeated.assets[index].version);
+    check(old_asset.version != new_asset.version);
     check(old_asset.sources.front().identity == new_asset.sources.front().identity);
     check(old_asset.sources.front().digest == new_asset.sources.front().digest);
     if (old_asset.source.type == asset_type::texture) {
       check(old_asset.sources.size() == 2U && new_asset.sources.size() == 2U);
       const auto& payload = new_asset.sources.back();
       asset_identity expected;
-      check(files.identify("asset://image.ktx2", static_cast<std::uint32_t>(asset_type::texture),
+      check(files.identify("asset://payload/image.ktx2",
+                           static_cast<std::uint32_t>(asset_type::texture),
                            expected) == GNEISS_SUCCESS);
       check(payload.identity == expected && payload.identity == old_asset.sources.back().identity);
       check(payload.bytes == source->files.at("image.ktx2").size());
@@ -136,6 +143,48 @@ void prepared_source_revisions() {
       check(new_asset.texture_uris[0] == "asset://texture");
     }
   }
+  resource_cache cache;
+  unsigned loads{};
+  const auto load = [&](std::shared_ptr<void>& output) {
+    ++loads;
+    output = std::make_shared<int>(42);
+    return GNEISS_SUCCESS;
+  };
+  std::shared_ptr<const resource_cache::entry> first;
+  std::shared_ptr<const resource_cache::entry> same;
+  std::shared_ptr<const resource_cache::entry> changed;
+  check(cache.acquire(before.assets.back().version, load, first) == GNEISS_SUCCESS);
+  check(cache.acquire(repeated.assets.back().version, load, same) == GNEISS_SUCCESS);
+  check(cache.acquire(after.assets.back().version, load, changed) == GNEISS_SUCCESS);
+  check(first == same && first != changed && loads == 2U);
+
+  prepared_batch configured;
+  check(prepare_assets(files, requests, configured, diagnostic, {}, 128U, 256U,
+                       256U * 1024U * 1024U,
+                       {.generation = 7U, .sampled_transfer_formats = {true, true, true, true}}) ==
+        GNEISS_SUCCESS);
+  for (std::size_t index = 0; index < after.assets.size(); ++index) {
+    check(configured.assets[index].version != after.assets[index].version);
+  }
+  // 仅负载改用新挂载，内容和描述来源不变，材质的传递来源仍须隔离。
+  virtual_file_system overlay = files;
+  check(overlay.mount("asset://payload/", source) == GNEISS_SUCCESS);
+  prepared_batch overlaid;
+  check(prepare_assets(overlay, requests, overlaid, diagnostic, {}, 128U) == GNEISS_SUCCESS);
+  check(overlaid.assets.back().version.identity == after.assets.back().version.identity);
+  check(overlaid.assets.back().version.version == after.assets.back().version.version);
+  check(overlaid.assets.back().version != after.assets.back().version);
+  check(cache.acquire(overlaid.assets.back().version, load, same) == GNEISS_SUCCESS &&
+        same != changed && loads == 3U);
+  // 字节完全相同的独立来源不复用。
+  virtual_file_system independent;
+  check(independent.mount("asset://", source) == GNEISS_SUCCESS);
+  prepared_batch isolated;
+  check(prepare_assets(independent, requests, isolated, diagnostic, {}, 128U) == GNEISS_SUCCESS);
+  check(isolated.assets.back().version != after.assets.back().version);
+  auto other_input = after.assets.back().version;
+  other_input.inputs.back().source.reset();
+  check(cache.acquire(other_input, load, same) == GNEISS_ERROR_INVALID_ARGUMENT && !same);
 }
 void cooperative_read_slices() {
   tasks::task_scheduler scheduler({.mode = tasks::execution_mode::cooperative});

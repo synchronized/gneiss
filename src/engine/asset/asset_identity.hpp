@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <vector>
 
 namespace gneiss::asset_internal {
 
@@ -20,6 +21,16 @@ struct asset_identity final {
   std::string uri;
   std::uint32_t type{};
   bool operator==(const asset_identity&) const = default;
+};
+
+/** 运行期产物版本；version 编码内容、依赖与准备配置，不是持久资产 ID。
+ * inputs 按编码顺序保留直接和传递输入的来源身份，防止来源标记地址复用。
+ * 相同摘要但输入来源不同仍是不同版本。 */
+struct asset_version_key final {
+  asset_identity identity;
+  std::string version;
+  std::vector<asset_identity> inputs{};
+  bool operator==(const asset_version_key&) const = default;
 };
 
 } // namespace gneiss::asset_internal

@@ -14,7 +14,8 @@
 来源复验包装已补充身份转交与已观察摘要查询，见
 [接入记录](../records/M-331-source-revision-identity.md)；查询摘要不能代替最终复验。
 准备结果已携带描述及纹理负载的来源摘要，见
-[准备结果记录](../records/M-331-prepared-source-revisions.md)，完整产物版本组合尚未接入。
+[准备结果记录](../records/M-331-prepared-source-revisions.md)。准备阶段已生成版本键并验证缓存复用，
+见 [版本键记录](../records/M-331-prepared-version-keys.md)；渲染加载器发布路径尚未切换。
 
 ## 当前与目标
 
