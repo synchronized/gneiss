@@ -476,6 +476,7 @@
 - [M-331：场景资源引用批量切换](records/M-331-scene-version-switch.md)
 - [M-331：宿主异步重载切换场景版本](records/M-331-host-version-reload.md)
 - [M-331：异步新场景启用固定版本](records/M-331-scene-fixed-loading.md)
+- [M-331：节点编辑保留未改变的资产版本](records/M-331-scene-edit-version.md)
 
 ## 文档维护
 

@@ -25,6 +25,8 @@ URI 查询仍走旧路径。
 场景服务已具备普通节点与 Prefab 的批量版本切换事务，见
 [切换记录](../records/M-331-scene-version-switch.md)。宿主异步重载已接入活动 World 引用切换，
 验证与旧 URI 路径的迁移限制见[宿主接入记录](../records/M-331-host-version-reload.md)。
+节点编辑已保留未改变 URI 的原有版本，见[编辑修复记录](../records/M-331-scene-edit-version.md)；
+新 URI 获取及同步创建仍待迁移。
 
 ## 当前与目标
 

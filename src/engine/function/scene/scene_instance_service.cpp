@@ -1381,11 +1381,20 @@ gneiss_result scene_instance::set_mesh_renderer(gneiss_scene_node_id node,
   try {
     mesh_renderer_description author{.mesh_uri = std::string(mesh_uri),
                                      .material_uri = std::string(material_uri)};
-    render_internal::mesh_asset_lease mesh;
-    render_internal::material_asset_lease material;
+    // 编辑资产选择不等于重载；未改变的 URI 继续使用节点选定的版本。
+    using asset_loader = render_internal::render_asset_loader;
+    auto mesh = asset_loader::asset_lease(found->mesh).uri() == mesh_uri
+                    ? found->mesh
+                    : render_internal::mesh_asset_lease{};
+    auto material = asset_loader::asset_lease(found->material).uri() == material_uri
+                        ? found->material
+                        : render_internal::material_asset_lease{};
     render_internal::asset_diagnostic diagnostic;
-    auto result = loader_.acquire_mesh(mesh_uri, mesh, diagnostic);
-    if (result == GNEISS_SUCCESS) {
+    auto result = GNEISS_SUCCESS;
+    if (!mesh) {
+      result = loader_.acquire_mesh(mesh_uri, mesh, diagnostic);
+    }
+    if (result == GNEISS_SUCCESS && !material) {
       result = loader_.acquire_material(material_uri, material, diagnostic);
     }
     if (result != GNEISS_SUCCESS) {

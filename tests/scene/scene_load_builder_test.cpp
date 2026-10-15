@@ -201,13 +201,21 @@ void run() {
   check(candidate->scenes->get_node_info(new_scene, 0U, ordinary) == GNEISS_SUCCESS);
   check(candidate->scenes->get_prefab_node_info(new_scene, 1U, prefab_node) == GNEISS_SUCCESS);
   const gneiss_mesh_renderer expected{.mesh = mesh_rid, .material = selected_material};
+  const std::array unchanged{world_internal::mesh_renderer_replacement{
+      .entity = ordinary.entity, .expected = expected, .replacement = expected}};
+  const auto edit_reads = files->reads;
+  check(candidate->scenes->set_mesh_renderer(new_scene, ordinary.node, "asset://m.mesh",
+                                             "asset://m.material") == GNEISS_SUCCESS);
+  check(files->reads == edit_reads);
+  check(world_internal::replace_mesh_renderers(candidate->world, unchanged) == GNEISS_SUCCESS);
+  check(candidate->scenes->set_mesh_renderer(new_scene, ordinary.node, "asset://m.mesh",
+                                             "asset://missing.material") == GNEISS_ERROR_NOT_FOUND);
+  check(world_internal::replace_mesh_renderers(candidate->world, unchanged) == GNEISS_SUCCESS);
   // 第二个使用者已被外部改动时，第一个也不能先切换。
   check(world_internal::entity_set_mesh_renderer(candidate->world, prefab_node.entity,
                                                  {.mesh = mesh_rid, .material = unrelated.get()}) ==
         GNEISS_SUCCESS);
   check(candidate->scenes->replace_render_assets(updates) == GNEISS_ERROR_INVALID_STATE);
-  const std::array unchanged{world_internal::mesh_renderer_replacement{
-      .entity = ordinary.entity, .expected = expected, .replacement = expected}};
   check(world_internal::replace_mesh_renderers(candidate->world, unchanged) == GNEISS_SUCCESS);
   check(world_internal::entity_set_mesh_renderer(candidate->world, prefab_node.entity, expected) ==
         GNEISS_SUCCESS);
@@ -219,6 +227,16 @@ void run() {
       world_internal::mesh_renderer_replacement{
           .entity = prefab_node.entity, .expected = updated, .replacement = updated}};
   check(world_internal::replace_mesh_renderers(candidate->world, committed) == GNEISS_SUCCESS);
+  files->files["other.material"] = files->files["m.material"];
+  check(candidate->scenes->set_mesh_renderer(new_scene, ordinary.node, "asset://m.mesh",
+                                             "asset://other.material") == GNEISS_SUCCESS);
+  render_internal::material_asset_lease edited_material;
+  check(candidate->assets.acquire_material("asset://other.material", edited_material, diagnostic) ==
+        GNEISS_SUCCESS);
+  const gneiss_mesh_renderer edited{.mesh = mesh_rid, .material = edited_material.get()};
+  const std::array material_only{world_internal::mesh_renderer_replacement{
+      .entity = ordinary.entity, .expected = edited, .replacement = edited}};
+  check(world_internal::replace_mesh_renderers(candidate->world, material_only) == GNEISS_SUCCESS);
   check(resources.get_material(old_material.get())->red == 1.0F);
   duplicate = {};
   updates = {};
