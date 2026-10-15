@@ -8,6 +8,7 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <functional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -86,6 +87,11 @@ public:
   void close() noexcept;
 
   [[nodiscard]] bool is_open() const noexcept { return scene_.is_valid(); }
+  [[nodiscard]] gneiss_scene_instance scene_handle() const noexcept { return scene_.get(); }
+  /** 预分配作者值后调用提交；回调失败不改编辑器镜像，不执行资产加载。 */
+  [[nodiscard]] result commit_mesh_renderer(scene_node_id node, std::string_view mesh_uri,
+                                            std::string_view material_uri,
+                                            const std::function<result()>& commit) noexcept;
   [[nodiscard]] bool is_dirty() const noexcept { return is_dirty_; }
   [[nodiscard]] std::string_view uri() const noexcept { return uri_; }
   [[nodiscard]] const std::vector<scene_node_record>& nodes() const noexcept { return nodes_; }

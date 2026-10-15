@@ -7,6 +7,7 @@
 #include "engine/function/render/render_asset_loader.hpp"
 #include "engine/function/render/render_executor.hpp"
 #include "engine/function/render/texture_load_service.hpp"
+#include "engine/function/scene/scene_instance_service.hpp"
 
 #include <gneiss/engine/application.h>
 #include <gneiss/engine/scene.h>
@@ -15,6 +16,30 @@
 #include <string_view>
 
 namespace gneiss::application_internal {
+using mesh_binding = scene_internal::scene_instance_service::mesh_binding;
+/** 所属线程释放无使用者候选；调用前先释放完成回执和临时租约。 */
+GNEISS_API gneiss_result collect_unused_edit_assets(gneiss_application application) noexcept;
+/** 同步调用 accept 提交编辑；回调失败不采用候选版本，不得重入资产服务。 */
+GNEISS_API gneiss_result accept_edit_assets(
+    gneiss_application application, const render_internal::texture_load_completion& completion,
+    const std::function<gneiss_result()>& accept) noexcept;
+/** 内部编辑接口：只读就绪选择、捕获及提交实际租约；不加载文件。 */
+GNEISS_API gneiss_result query_ready_asset(gneiss_application application,
+                                           const render_internal::render_asset_reload& source,
+                                           render_internal::render_asset_lease& output) noexcept;
+GNEISS_API gneiss_result capture_mesh_binding(gneiss_application application,
+                                              gneiss_scene_instance scene,
+                                              gneiss_scene_node_id node,
+                                              mesh_binding& output) noexcept;
+GNEISS_API gneiss_result replace_mesh_binding(gneiss_application application,
+                                              gneiss_scene_instance scene,
+                                              gneiss_scene_node_id node,
+                                              const mesh_binding& expected,
+                                              const mesh_binding& replacement) noexcept;
+/** 只准备固定版本候选，不修改使用者或默认选择；回执通过 poll_textures 取得。 */
+GNEISS_API gneiss_result prepare_edit_assets(
+    gneiss_application application, std::span<const render_internal::render_asset_reload> sources,
+    std::uint64_t revision, std::uint64_t& request) noexcept;
 
 /** 内部同步诊断入口：通过相同场景管线离屏渲染并回读 GPU；不是逐帧截图接口。
  * 仅所属线程，宽高 1..1024，等待渲染完成；不用于性能采样。 */

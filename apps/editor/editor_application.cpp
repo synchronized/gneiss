@@ -9,6 +9,7 @@
 #include "author_property_panel.hpp"
 #include "child_process.hpp"
 #include "console_panel.hpp"
+#include "editor_asset_edit.hpp"
 #include "editor_camera.hpp"
 #include "editor_command_history.hpp"
 #include "editor_grid.hpp"
@@ -133,6 +134,7 @@ struct editor_state {
   gneiss::editor::editor_camera camera;
   gneiss::tasks::task_scheduler task_scheduler;
   gneiss::editor::editor_scene_loader scene_loader;
+  gneiss::editor::editor_asset_edit asset_edit;
   bool smoke{};
   std::uint32_t smoke_frames{};
   std::uint32_t smoke_frame_limit{3U};
@@ -916,7 +918,7 @@ void draw_reflected_properties(editor_state& state) {
 }
 
 #if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
-void execute_asset_browser_request(editor_state& state,
+void execute_asset_browser_request(editor_state& state, gneiss_application application,
                                    const gneiss::editor::asset_browser_request& request) {
   using namespace gneiss::editor;
   using action = asset_browser_action;
@@ -1031,10 +1033,10 @@ void execute_asset_browser_request(editor_state& state,
       const auto mesh = is_mesh_asset(*entry) && !node->material_uri.empty();
       const auto material = is_material_asset(*entry) && !node->mesh_uri.empty();
       if (mesh || material) {
-        state.asset_scene_result =
-            replace_mesh_assets(state.session, state.history, node->uuid,
-                                {.mesh_uri = mesh ? entry->asset_uri : node->mesh_uri,
-                                 .material_uri = material ? entry->asset_uri : node->material_uri});
+        state.asset_scene_result = state.asset_edit.request(
+            application, state.session, state.history, node->uuid,
+            {.mesh_uri = mesh ? entry->asset_uri : node->mesh_uri,
+             .material_uri = material ? entry->asset_uri : node->material_uri});
         state.asset_scene_attempted = true;
       }
     }
@@ -1043,7 +1045,7 @@ void execute_asset_browser_request(editor_state& state,
   }
 }
 
-void draw_asset_browser(editor_state& state) {
+void draw_asset_browser(editor_state& state, gneiss_application application) {
   using namespace gneiss::editor;
   const auto background = state.asset_reimports.status();
   const auto source_root = path_utf8(state.project_root / "sources");
@@ -1152,7 +1154,7 @@ void draw_asset_browser(editor_state& state) {
   view.scene_edit_result = state.asset_scene_result;
   const auto request = draw_asset_browser_panel(state.assets, state.asset_filter,
                                                 state.panel_visibility.asset_browser, view);
-  execute_asset_browser_request(state, request);
+  execute_asset_browser_request(state, application, request);
 }
 
 #endif
@@ -1374,6 +1376,41 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
     const auto smoke_result = advance_editor_smoke(state, application);
     if (smoke_result != GNEISS_SUCCESS) {
       return smoke_result;
+    }
+    state.asset_edit.advance(application, state.session, state.history);
+    if (state.asset_edit.visible()) {
+      const auto begun = state.ui.begin_frame(application, *time);
+      if (begun != GNEISS_SUCCESS)
+        return begun;
+      const auto* viewport = ImGui::GetMainViewport();
+      ImGui::SetNextWindowPos(viewport->GetCenter(), ImGuiCond_Always, {0.5F, 0.5F});
+      ImGui::SetNextWindowSize({520.0F, 0.0F});
+      ImGui::Begin("Loading Assets", nullptr,
+                   ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
+                       ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoCollapse);
+      const auto& progress = state.asset_edit.progress();
+      if (state.asset_edit.active()) {
+        ImGui::TextUnformatted(progress.state ==
+                                       gneiss::render_internal::texture_load_state::uploading
+                                   ? "Uploading assets"
+                                   : "Preparing assets");
+        if (progress.total_assets != 0U) {
+          ImGui::ProgressBar(static_cast<float>(progress.completed_assets) /
+                                 static_cast<float>(progress.total_assets),
+                             {-1.0F, 0.0F});
+        } else {
+          ImGui::ProgressBar(-static_cast<float>(ImGui::GetTime()), {-1.0F, 0.0F}, "Working...");
+        }
+        if (ImGui::Button("Cancel"))
+          state.asset_edit.cancel(application);
+      } else {
+        const auto message = state.asset_edit.operation().message();
+        ImGui::TextWrapped("%.*s", static_cast<int>(message.size()), message.data());
+        if (ImGui::Button("Back to Editor"))
+          state.asset_edit.dismiss();
+      }
+      ImGui::End();
+      return state.ui.submit(application);
     }
     if (state.scene_loader.visible()) {
       const auto begun = state.ui.begin_frame(application, *time);
@@ -2751,7 +2788,7 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
     }
     ImGui::End();
 #if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
-    draw_asset_browser(state);
+    draw_asset_browser(state, application);
 #endif
     if (state.show_imgui_demo) {
       ImGui::ShowDemoWindow(&state.show_imgui_demo);
@@ -2781,6 +2818,12 @@ uint8_t handle_close_requested(gneiss_application application, void* user_data) 
     // Application 析构负责在执行器存活时回收在途工作。
     return 1U;
   }
+  if (state.asset_edit.active()) {
+    state.asset_edit.cancel(application);
+    state.pending_document_action = document_action::exit_editor;
+    return 0U;
+  }
+  state.asset_edit.dismiss();
   state.scene_loader.dismiss();
   if (!state.session.is_dirty()) {
 #if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
@@ -2936,6 +2979,14 @@ int run_editor(int argc, char** argv) {
   state.history.clear();
   (void)state.scene_loader.request(application.get(), project.startup_scene);
   const auto run_result = application.run();
+  state.asset_edit.cancel(application.get());
+  while (state.asset_edit.active()) {
+    if (state.task_scheduler.mode() == gneiss::tasks::execution_mode::cooperative) {
+      (void)state.task_scheduler.run_ready();
+    }
+    state.asset_edit.advance(application.get(), state.session, state.history);
+    std::this_thread::yield();
+  }
   if (!options.smoke) {
     const auto save_layout_result = gneiss::editor::save_editor_layout(state.panel_visibility);
     if (save_layout_result != gneiss::result::success) {

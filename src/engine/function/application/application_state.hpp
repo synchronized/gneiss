@@ -54,6 +54,11 @@ public:
   [[nodiscard]] render_internal::texture_load_service* texture_service() noexcept {
     return scene_session_.textures();
   }
+  [[nodiscard]] gneiss_result
+  accept_edit_assets(const render_internal::texture_load_completion& completion,
+                     const std::function<gneiss_result()>& accept) {
+    return scene_session_.accept_edit_assets(completion, accept);
+  }
   [[nodiscard]] gneiss_result request_scene(std::string_view uri, std::uint64_t session,
                                             std::uint64_t revision, std::uint64_t& request) {
     return scene_session_.request_scene(uri, session, revision, request);

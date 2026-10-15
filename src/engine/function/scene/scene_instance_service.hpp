@@ -118,6 +118,19 @@ private:
 
 class scene_instance_service final {
 public:
+  struct mesh_binding {
+    render_internal::render_asset_lease mesh;
+    render_internal::render_asset_lease material;
+  };
+  /** 捕获实际版本租约；所属线程，不读文件。租约须早于渲染服务释放。 */
+  [[nodiscard]] gneiss_result capture_mesh_binding(gneiss_scene_instance instance,
+                                                   gneiss_scene_node_id node,
+                                                   mesh_binding& output) const noexcept;
+  /** 仅提交就绪租约；校验旧租约及 ECS，失败保留原描述和资源，不加载资产。 */
+  [[nodiscard]] gneiss_result replace_mesh_binding(gneiss_scene_instance instance,
+                                                   gneiss_scene_node_id node,
+                                                   const mesh_binding& expected,
+                                                   const mesh_binding& replacement) noexcept;
   /** 所属线程采集此 World 普通节点和 Prefab 实际持有的网格、材质租约。
    * 按 RID 去重，同 URI 的不同版本分别保留；不读文件、不查询最新缓存。
    * 成功替换 output，失败保持 output；快照延长资源寿命，须早于渲染服务释放。

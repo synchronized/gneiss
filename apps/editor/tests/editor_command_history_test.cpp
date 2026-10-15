@@ -27,6 +27,12 @@ set_value_command(int& value, int previous, int next, std::string merge_key = {}
 } // namespace
 
 int main() {
+  int untouched = 0;
+  gneiss::editor::editor_command_history disabled{0U};
+  if (disabled.execute(set_value_command(untouched, 0, 1)) != gneiss::result::invalid_argument ||
+      untouched != 0 || disabled.size() != 0U) {
+    return 20;
+  }
   gneiss::editor::editor_command_history history;
   int value = 1;
   if (history.record(set_value_command(value, 0, 1)) != gneiss::result::success ||

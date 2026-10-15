@@ -54,6 +54,9 @@ public:
   /** 所属线程、渲染快照捕获之前调用；返回成功回执前完成场景引用切换。 */
   [[nodiscard]] gneiss_result poll_assets(render_internal::texture_load_completion& completion,
                                           bool& ready);
+  [[nodiscard]] gneiss_result
+  accept_edit_assets(const render_internal::texture_load_completion& completion,
+                     const std::function<gneiss_result()>& accept);
 
 private:
   std::unique_ptr<application_scene_state> active_;

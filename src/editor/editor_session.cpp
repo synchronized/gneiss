@@ -927,6 +927,32 @@ result editor_session::set_mesh_renderer(scene_node_id node, std::string_view me
   }
 }
 
+result editor_session::commit_mesh_renderer(scene_node_id node, std::string_view mesh_uri,
+                                            std::string_view material_uri,
+                                            const std::function<result()>& commit) noexcept try {
+  if (!is_open() || !commit || mesh_uri.empty() || material_uri.empty()) {
+    return result::invalid_argument;
+  }
+  const auto found = std::ranges::find(nodes_, node, &scene_node_record::node);
+  if (found == nodes_.end()) {
+    return result::not_found;
+  }
+  std::string mesh{mesh_uri};
+  std::string material{material_uri};
+  const auto operation = commit();
+  if (operation.failed()) {
+    return operation;
+  }
+  found->mesh_uri.swap(mesh);
+  found->material_uri.swap(material);
+  is_dirty_ = true;
+  return result::success;
+} catch (const std::bad_alloc&) {
+  return result::out_of_memory;
+} catch (...) {
+  return result::internal;
+}
+
 result editor_session::save(const std::filesystem::path& asset_root,
                             std::string* saved_content) noexcept {
   return save_to(asset_root, uri_, true, saved_content);

@@ -106,8 +106,16 @@ result editor_command_history::record(command value) noexcept {
 }
 
 result editor_command_history::execute(std::unique_ptr<editor_command> value) noexcept {
-  if (value == nullptr) {
+  if (value == nullptr || capacity_ == 0U) {
     return result::invalid_argument;
+  }
+  try {
+    // 在修改文档前准备历史空间，避免成功提交后才因分配失败请求回滚。
+    entries_.reserve(entries_.size() + 1U);
+  } catch (const std::bad_alloc&) {
+    return result::out_of_memory;
+  } catch (...) {
+    return result::internal;
   }
   const auto operation_result = value->redo();
   if (operation_result != result::success) {

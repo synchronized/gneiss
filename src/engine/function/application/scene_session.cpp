@@ -254,6 +254,22 @@ gneiss_result scene_session::poll_assets(render_internal::texture_load_completio
   return GNEISS_SUCCESS;
 }
 
+gneiss_result
+scene_session::accept_edit_assets(const render_internal::texture_load_completion& completion,
+                                  const std::function<gneiss_result()>& accept) {
+  if (!active_ || completion.result != GNEISS_SUCCESS || completion.versions.empty() ||
+      completion.versions.size() != completion.assets.size())
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  std::vector<asset_internal::resource_cache::version_selection> selections;
+  selections.reserve(completion.versions.size());
+  for (const auto& version : completion.versions) {
+    selections.push_back({.selection = render_internal::render_asset_loader::selection_key(
+                              version.identity, completion.profile),
+                          .version = version});
+  }
+  return active_->cache.adopt_versions(selections, accept);
+}
+
 gneiss_result scene_session::cancel_scene(std::uint64_t request) {
   return loader_ && loader_->cancel(request) ? GNEISS_SUCCESS : GNEISS_ERROR_NOT_READY;
 }

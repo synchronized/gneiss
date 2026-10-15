@@ -246,6 +246,32 @@ void run() {
   captured.clear();
   candidate->assets.release_unused();
   check(resources.get_material(selected_material) == nullptr);
+  {
+    using binding = scene_internal::scene_instance_service::mesh_binding;
+    binding before;
+    const auto reads = files->reads;
+    check(candidate->scenes->capture_mesh_binding(new_scene, ordinary.node, before) ==
+          GNEISS_SUCCESS);
+    binding after{.mesh = before.mesh, .material = next_version};
+    auto invalid = after;
+    invalid.material = after.mesh;
+    check(candidate->scenes->replace_mesh_binding(new_scene, ordinary.node, before, invalid) ==
+          GNEISS_ERROR_INVALID_ARGUMENT);
+    gneiss_result worker_result{};
+    std::thread edit_worker([&] {
+      worker_result =
+          candidate->scenes->replace_mesh_binding(new_scene, ordinary.node, before, after);
+    });
+    edit_worker.join();
+    check(worker_result == GNEISS_ERROR_INVALID_STATE);
+    check(candidate->scenes->replace_mesh_binding(new_scene, ordinary.node, before, after) ==
+          GNEISS_SUCCESS);
+    check(candidate->scenes->replace_mesh_binding(new_scene, ordinary.node, before, after) ==
+          GNEISS_ERROR_INVALID_STATE);
+    check(candidate->scenes->replace_mesh_binding(new_scene, ordinary.node, after, before) ==
+          GNEISS_SUCCESS);
+    check(files->reads == reads);
+  }
   check(candidate->scenes->remove_mesh_renderer(new_scene, ordinary.node) == GNEISS_SUCCESS);
   const auto snapshot_reads = files->reads;
   check(candidate->scenes->capture_render_assets(captured) == GNEISS_SUCCESS);

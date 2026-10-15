@@ -27,7 +27,9 @@ class render_resource_service;
 class render_asset_lease {
 public:
   [[nodiscard]] std::uint64_t get() const noexcept;
-  [[nodiscard]] render_asset_type type() const noexcept;
+  [[nodiscard]] render_asset_type type() const noexcept {
+    return entry_ ? static_cast<render_asset_type>(entry_->type) : render_asset_type::invalid;
+  }
   [[nodiscard]] std::string_view uri() const noexcept {
     return entry_ ? entry_->uri : std::string_view{};
   }
@@ -104,6 +106,9 @@ public:
   selection_key(const asset_internal::asset_identity& identity, texture_prepare_profile profile);
   /** 仅取得已采用且就绪的租约；缺失返回 NOT_READY，不加载或等待。 */
   [[nodiscard]] gneiss_result acquire_selected(const asset_internal::asset_identity& identity,
+                                               texture_prepare_profile profile,
+                                               render_asset_lease& output) const noexcept;
+  [[nodiscard]] gneiss_result acquire_selected(const render_asset_reload& source,
                                                texture_prepare_profile profile,
                                                render_asset_lease& output) const noexcept;
   /** profile 非零时校验纹理及材质纹理依赖的设备身份；零值供逻辑层读取已发布 RID。 */

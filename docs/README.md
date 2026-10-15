@@ -482,6 +482,7 @@
 - [M-331：版本采用的使用者提交边界](records/M-331-adoption-transaction.md)
 - [M-331：宿主重载采用与就绪查询](records/M-331-host-adoption.md)
 - [M-331：新场景初始版本采用](records/M-331-scene-initial-adoption.md)
+- [M-331：Editor 模态资产替换](records/M-331-editor-modal-asset-edit.md)
 
 ## 文档维护
 

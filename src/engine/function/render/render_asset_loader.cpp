@@ -159,9 +159,6 @@ std::uint64_t render_asset_lease::get() const noexcept {
   }
   return 0U;
 }
-render_asset_type render_asset_lease::type() const noexcept {
-  return entry_ ? static_cast<render_asset_type>(entry_->type) : render_asset_type::invalid;
-}
 texture_asset_lease
 render_asset_loader::texture_lease(const render_asset_lease& lease) const noexcept {
   texture_asset_lease result;
@@ -261,6 +258,16 @@ gneiss_result render_asset_loader::acquire_selected(const asset_internal::asset_
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;
   }
+}
+
+gneiss_result render_asset_loader::acquire_selected(const render_asset_reload& source,
+                                                    texture_prepare_profile profile,
+                                                    render_asset_lease& output) const noexcept {
+  output = {};
+  asset_internal::asset_identity identity;
+  const auto result =
+      file_system_.identify(source.uri, static_cast<std::uint32_t>(source.type), identity);
+  return result == GNEISS_SUCCESS ? acquire_selected(identity, profile, output) : result;
 }
 
 gneiss_result render_asset_loader::acquire_cached(const render_asset_reload& source,

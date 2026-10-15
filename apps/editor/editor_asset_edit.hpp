@@ -1,0 +1,41 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Gneiss contributors
+#pragma once
+#include "asset_scene_commands.hpp"
+#include "editor_command_history.hpp"
+#include "editor_session.hpp"
+#include "engine/function/application/application_asset_reload_internal.hpp"
+
+namespace gneiss::editor {
+/** 所属线程的一次模态资产替换；命令租约须在 Application 销毁前释放。 */
+class editor_asset_edit final {
+public:
+  result request(gneiss_application application, editor_session& session,
+                 editor_command_history& history, std::string_view uuid,
+                 mesh_asset_reference assets);
+  void advance(gneiss_application application, editor_session& session,
+               editor_command_history& history);
+  void cancel(gneiss_application application);
+  void dismiss() noexcept {
+    if (!active_) {
+      visible_ = false;
+    }
+  }
+  bool active() const noexcept { return active_; }
+  bool visible() const noexcept { return visible_; }
+  result operation() const noexcept { return operation_; }
+  const render_internal::asset_load_progress& progress() const noexcept { return progress_; }
+
+private:
+  result commit(gneiss_application application, editor_session& session,
+                editor_command_history& history);
+  application_internal::mesh_binding previous_, next_;
+  gneiss_scene_instance scene_{};
+  scene_node_id node_;
+  std::string mesh_, material_;
+  std::uint64_t revision_{}, request_{};
+  render_internal::asset_load_progress progress_;
+  result operation_{result::success};
+  bool active_{}, visible_{}, cancelled_{};
+};
+}

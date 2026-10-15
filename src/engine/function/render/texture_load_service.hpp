@@ -86,6 +86,7 @@ public:
       render_asset_loader::publication_mode mode = render_asset_loader::publication_mode::reload);
   [[nodiscard]] bool progress(asset_load_progress& output) const;
   [[nodiscard]] bool busy() const noexcept { return pending_ != nullptr || completed_.has_value(); }
+  [[nodiscard]] texture_prepare_profile profile() const noexcept { return backend_.profile; }
   void advance();
   [[nodiscard]] bool take(texture_load_completion& output);
   /** 提交许可前取消；已进入 GPU 阶段的批次完成或回滚。 */

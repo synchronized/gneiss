@@ -2091,6 +2091,75 @@ scene_instance_service::create_mesh_renderer_node(gneiss_scene_instance instance
   }
 }
 
+gneiss_result scene_instance_service::capture_mesh_binding(gneiss_scene_instance instance,
+                                                           gneiss_scene_node_id node,
+                                                           mesh_binding& output) const noexcept {
+  output = {};
+  const auto owner = world_internal::replace_mesh_renderers(world_, {});
+  if (owner != GNEISS_SUCCESS) {
+    return owner;
+  }
+  const auto* value = instances_.get(instance, core::resource_type::scene_instance);
+  if (value == nullptr || *value == nullptr) {
+    return GNEISS_ERROR_INVALID_HANDLE;
+  }
+  const auto found = std::ranges::find((*value)->objects, node, &scene_instance::object::node);
+  if (found == (*value)->objects.end()) {
+    return GNEISS_ERROR_INVALID_HANDLE;
+  }
+  output = {.mesh = render_internal::render_asset_loader::asset_lease(found->mesh),
+            .material = render_internal::render_asset_loader::asset_lease(found->material)};
+  return GNEISS_SUCCESS;
+}
+
+gneiss_result scene_instance_service::replace_mesh_binding(gneiss_scene_instance instance,
+                                                           gneiss_scene_node_id node,
+                                                           const mesh_binding& expected,
+                                                           const mesh_binding& replacement) noexcept
+    try {
+  const auto owner = world_internal::replace_mesh_renderers(world_, {});
+  if (owner != GNEISS_SUCCESS) {
+    return owner;
+  }
+  using loader = render_internal::render_asset_loader;
+  using type = render_internal::render_asset_type;
+  if (replacement.mesh.type() != type::mesh || replacement.material.type() != type::material ||
+      !loader_.owns(replacement.mesh) || !loader_.owns(replacement.material)) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  mesh_binding current;
+  const auto captured = capture_mesh_binding(instance, node, current);
+  if (captured != GNEISS_SUCCESS) {
+    return captured;
+  }
+  if (current.mesh.get() != expected.mesh.get() ||
+      current.material.get() != expected.material.get()) {
+    return GNEISS_ERROR_INVALID_STATE;
+  }
+  auto& value = **instances_.get(instance, core::resource_type::scene_instance);
+  const auto found = std::ranges::find(value.objects, node, &scene_instance::object::node);
+  mesh_renderer_description author{.mesh_uri = std::string(replacement.mesh.uri()),
+                                   .material_uri = std::string(replacement.material.uri())};
+  const std::array changes{world_internal::mesh_renderer_replacement{
+      .entity = found->entity,
+      .expected = {expected.mesh.get(), expected.material.get()},
+      .replacement = {replacement.mesh.get(), replacement.material.get()},
+  }};
+  const auto changed = world_internal::replace_mesh_renderers(world_, changes);
+  if (changed != GNEISS_SUCCESS) {
+    return changed;
+  }
+  const auto index = static_cast<std::size_t>(std::distance(value.objects.begin(), found));
+  value.description.objects[index].mesh_renderer = std::move(author);
+  found->mesh = loader::mesh_lease(replacement.mesh);
+  found->material = loader::material_lease(replacement.material);
+  return GNEISS_SUCCESS;
+} catch (const std::bad_alloc&) {
+  return GNEISS_ERROR_OUT_OF_MEMORY;
+} catch (...) {
+  return GNEISS_ERROR_INTERNAL;
+}
+
 gneiss_result scene_instance_service::set_mesh_renderer(gneiss_scene_instance instance,
                                                         gneiss_scene_node_id node,
                                                         std::string_view mesh_uri,
