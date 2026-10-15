@@ -47,7 +47,9 @@ public:
   void rollback() noexcept;
   /** 仅用于不可见候选 World，分阶段入口不执行文件读取。 */
   void initialize_staged(scene_description candidate);
-  [[nodiscard]] gneiss_result create_staged_node(std::size_t index, gneiss_scene_node_id parent);
+  [[nodiscard]] gneiss_result create_staged_node(std::size_t index, gneiss_scene_node_id parent,
+                                                 render_internal::mesh_asset_lease mesh,
+                                                 render_internal::material_asset_lease material);
 
   [[nodiscard]] gneiss_scene_node_id find_node(std::string_view uuid) const noexcept;
   [[nodiscard]] gneiss_result serialize(std::string& out_json) const;

@@ -71,6 +71,7 @@ struct scene_load_service::pending {
   std::unique_ptr<application_scene_state> candidate;
   std::unique_ptr<render_internal::texture_load_service> assets;
   std::unique_ptr<scene_internal::scene_load_builder> builder;
+  scene_internal::scene_load_builder::asset_bindings bindings;
   std::map<std::uint64_t, resource_usage> resident;
   std::vector<render_internal::render_asset_reload> requested;
   std::size_t cursor{};
@@ -371,7 +372,7 @@ void scene_load_service::advance_verification(pending& value) {
     GNEISS_PROFILE_SCOPE("scene.builder.create");
     diagnostics::measure(diagnostics::loop_stage::scene_builder_create, [&] {
       value.builder = std::make_unique<scene_internal::scene_load_builder>(
-          *value.candidate->scenes, std::move(value.cpu->description));
+          *value.candidate->scenes, std::move(value.cpu->description), std::move(value.bindings));
     });
   }
   // 激活后的热重载必须回到宿主原始 VFS，不能继承一次性加载会话的内容固定规则。
@@ -439,6 +440,13 @@ void scene_load_service::advance_impl() {
       return;
     }
     for (const auto& lease : completion.assets) {
+      const auto [binding, inserted] = value.bindings.emplace(std::string(lease.uri()), lease);
+      if (!inserted &&
+          (binding->second.type() != lease.type() || binding->second.get() != lease.get())) {
+        finish(GNEISS_ERROR_INVALID_STATE, scene_load_phase::failed,
+               "同一场景请求的资产绑定不一致");
+        return;
+      }
       auto& previous = value.resident[lease.get()];
       progress.resident_bytes -= previous.logical;
       progress.cpu_data_bytes -= previous.cpu;

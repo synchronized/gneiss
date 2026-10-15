@@ -171,6 +171,21 @@ render_asset_loader::texture_lease(const render_asset_lease& lease) const noexce
   return result;
 }
 
+mesh_asset_lease render_asset_loader::mesh_lease(const render_asset_lease& lease) noexcept {
+  mesh_asset_lease result;
+  if (lease.type() == render_asset_type::mesh) {
+    result.entry_ = lease.entry_;
+  }
+  return result;
+}
+material_asset_lease render_asset_loader::material_lease(const render_asset_lease& lease) noexcept {
+  material_asset_lease result;
+  if (lease.type() == render_asset_type::material) {
+    result.entry_ = lease.entry_;
+  }
+  return result;
+}
+
 gneiss_result render_asset_loader::acquire_cached(const render_asset_reload& source,
                                                   render_asset_lease& output,
                                                   texture_prepare_profile profile) const noexcept {

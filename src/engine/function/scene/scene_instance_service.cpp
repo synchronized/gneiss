@@ -243,7 +243,9 @@ void scene_instance::initialize_staged(scene_description candidate) {
   prefab_instances.reserve(description.prefab_instances.size());
 }
 
-gneiss_result scene_instance::create_staged_node(std::size_t index, gneiss_scene_node_id parent) {
+gneiss_result scene_instance::create_staged_node(std::size_t index, gneiss_scene_node_id parent,
+                                                 render_internal::mesh_asset_lease mesh,
+                                                 render_internal::material_asset_lease material) {
   if (index >= objects.size() || objects[index].entity != GNEISS_NULL_ENTITY_ID) {
     return GNEISS_ERROR_INVALID_STATE;
   }
@@ -252,24 +254,11 @@ gneiss_result scene_instance::create_staged_node(std::size_t index, gneiss_scene
   target.uuid = source.uuid;
   target.name = source.name;
   if (source.mesh_renderer) {
-    render_internal::render_asset_lease cached;
-    if (loader_.acquire_cached(
-            {source.mesh_renderer->mesh_uri, render_internal::render_asset_type::mesh}, cached) !=
-            GNEISS_SUCCESS ||
-        loader_.acquire_cached(
-            {source.mesh_renderer->material_uri, render_internal::render_asset_type::material},
-            cached) != GNEISS_SUCCESS) {
+    if (!mesh || !material) {
       return GNEISS_ERROR_NOT_READY;
     }
-    render_internal::asset_diagnostic diagnostic;
-    auto result = loader_.acquire_mesh(source.mesh_renderer->mesh_uri, target.mesh, diagnostic);
-    if (result == GNEISS_SUCCESS) {
-      result =
-          loader_.acquire_material(source.mesh_renderer->material_uri, target.material, diagnostic);
-    }
-    if (result != GNEISS_SUCCESS) {
-      return result;
-    }
+    target.mesh = std::move(mesh);
+    target.material = std::move(material);
   }
   return commit_object(world_, source, target, parent);
 }

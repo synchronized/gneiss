@@ -10,8 +10,8 @@
 namespace gneiss::scene_internal {
 
 scene_load_builder::scene_load_builder(scene_instance_service& service,
-                                       prepared_scene_description prepared)
-    : service_(service),
+                                       prepared_scene_description prepared, asset_bindings assets)
+    : assets_(std::move(assets)), service_(service),
       prepared_(diagnostics::measure(diagnostics::loop_stage::scene_description_move,
                                      [&] {
                                        GNEISS_PROFILE_SCOPE("scene.description.move");
@@ -28,6 +28,11 @@ scene_load_builder::scene_load_builder(scene_instance_service& service,
   });
   diagnostics::measure(diagnostics::loop_stage::scene_node_index_reserve,
                        [&] { nodes_.reserve(instance_->description.objects.size()); });
+}
+
+render_internal::render_asset_lease scene_load_builder::find_asset(std::string_view uri) const {
+  const auto found = assets_.find(uri);
+  return found == assets_.end() ? render_internal::render_asset_lease{} : found->second;
 }
 
 gneiss_result scene_load_builder::step_prefab() {
@@ -55,7 +60,13 @@ gneiss_result scene_load_builder::step_prefab() {
     const auto index = prepared.parent_first[prefab_node_cursor_];
     const auto& node = prefab_->prefab_lease().get()->objects[index];
     const auto result = prefab_->create_staged_node(
-        index, node.parent_uuid ? prefab_nodes_.at(*node.parent_uuid) : prefab_->root());
+        index, node.parent_uuid ? prefab_nodes_.at(*node.parent_uuid) : prefab_->root(),
+        render_internal::render_asset_loader::mesh_lease(
+            node.mesh_renderer ? find_asset(node.mesh_renderer->mesh_uri)
+                               : render_internal::render_asset_lease{}),
+        render_internal::render_asset_loader::material_lease(
+            node.mesh_renderer ? find_asset(node.mesh_renderer->material_uri)
+                               : render_internal::render_asset_lease{}));
     if (result != GNEISS_SUCCESS) {
       return result;
     }
@@ -95,7 +106,13 @@ gneiss_result scene_load_builder::step() {
     const auto index = prepared_.parent_first[object_cursor_];
     const auto& source = instance_->description.objects[index];
     const auto result = instance_->create_staged_node(
-        index, source.parent_uuid ? nodes_.at(*source.parent_uuid) : GNEISS_NULL_SCENE_NODE_ID);
+        index, source.parent_uuid ? nodes_.at(*source.parent_uuid) : GNEISS_NULL_SCENE_NODE_ID,
+        render_internal::render_asset_loader::mesh_lease(
+            source.mesh_renderer ? find_asset(source.mesh_renderer->mesh_uri)
+                                 : render_internal::render_asset_lease{}),
+        render_internal::render_asset_loader::material_lease(
+            source.mesh_renderer ? find_asset(source.mesh_renderer->material_uri)
+                                 : render_internal::render_asset_lease{}));
     if (result == GNEISS_SUCCESS) {
       nodes_.emplace(source.uuid, instance_->objects[index].node);
       ++object_cursor_;

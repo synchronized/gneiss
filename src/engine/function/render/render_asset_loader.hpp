@@ -28,6 +28,9 @@ class render_asset_lease {
 public:
   [[nodiscard]] std::uint64_t get() const noexcept;
   [[nodiscard]] render_asset_type type() const noexcept;
+  [[nodiscard]] std::string_view uri() const noexcept {
+    return entry_ ? entry_->uri : std::string_view{};
+  }
   [[nodiscard]] explicit operator bool() const noexcept { return entry_ != nullptr; }
 
 private:
@@ -109,6 +112,9 @@ public:
               asset_candidate& output, publication_mode mode = publication_mode::reload) noexcept;
   [[nodiscard]] gneiss_result publish_assets(std::span<asset_candidate> candidates) noexcept;
   [[nodiscard]] texture_asset_lease texture_lease(const render_asset_lease& lease) const noexcept;
+  [[nodiscard]] static mesh_asset_lease mesh_lease(const render_asset_lease& lease) noexcept;
+  [[nodiscard]] static material_asset_lease
+  material_lease(const render_asset_lease& lease) noexcept;
   struct texture_target {
     std::string uri;
     std::weak_ptr<const asset_internal::resource_cache::entry> expected;

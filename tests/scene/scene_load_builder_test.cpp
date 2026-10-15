@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "engine/asset/virtual_file_system.hpp"
 #include "engine/function/application/application_scene_state.hpp"
 #include "engine/function/render/render_resource_service.hpp"
-#include "engine/asset/virtual_file_system.hpp"
 #include "engine/function/scene/scene_load_builder.hpp"
 
 #include <cstdio>
@@ -42,7 +42,8 @@ struct memory_files final : asset_internal::file_system {
     return GNEISS_ERROR_OUT_OF_MEMORY;
   }
 };
-constexpr std::string_view object = R"({"uuid":"00000000-0000-4000-8000-000000000002","parent":null,
+constexpr std::string_view object =
+    R"({"uuid":"00000000-0000-4000-8000-000000000002","parent":null,
 "transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},
 "components":{"mesh_renderer":{"mesh":"asset://m.mesh","material":"asset://m.material"}}})";
 
@@ -83,17 +84,48 @@ void run() {
                                                   scene_diagnostic, {}) == GNEISS_SUCCESS);
   auto candidate = std::make_unique<application_internal::application_scene_state>(vfs, resources);
   check(candidate->initialize() == GNEISS_SUCCESS);
-  render_internal::mesh_asset_lease mesh;
-  render_internal::material_asset_lease material;
-  check(candidate->assets.acquire_mesh("asset://m.mesh", mesh, diagnostic) == GNEISS_SUCCESS);
-  check(candidate->assets.acquire_material("asset://m.material", material, diagnostic) ==
+  const std::array requests{
+      render_internal::render_asset_reload{"asset://m.mesh",
+                                           render_internal::render_asset_type::mesh},
+      render_internal::render_asset_reload{"asset://m.material",
+                                           render_internal::render_asset_type::material}};
+  render_internal::prepared_render_batch batch;
+  check(render_internal::prepare_render_assets(vfs, requests, batch, diagnostic, {}) ==
         GNEISS_SUCCESS);
-  check(material.get() != old_material.get() &&
-        resources.get_material(material.get())->green == 1.0F);
+  std::vector<render_internal::render_asset_loader::asset_candidate> staged;
+  for (auto& asset : batch.assets) {
+    render_internal::render_asset_loader::asset_candidate value;
+    check(candidate->assets.stage_asset(
+              std::move(asset), staged, value,
+              render_internal::render_asset_loader::publication_mode::fixed_version) ==
+          GNEISS_SUCCESS);
+    staged.push_back(std::move(value));
+  }
+  check(candidate->assets.publish_assets(staged) == GNEISS_SUCCESS);
+  scene_internal::scene_load_builder::asset_bindings bindings;
+  for (const auto& value : staged) {
+    bindings.emplace(value.source.uri, value.lease);
+  }
+  auto material =
+      render_internal::render_asset_loader::material_lease(bindings.at("asset://m.material"));
+  check(material && material.get() != old_material.get());
+  check(resources.get_material(material.get())->green == 1.0F);
+  check(!render_internal::render_asset_loader::mesh_lease(bindings.at("asset://m.material")));
+  check(!render_internal::render_asset_loader::material_lease(bindings.at("asset://m.mesh")));
+  render_internal::render_asset_lease uncached;
+  check(candidate->assets.acquire_cached(requests.front(), uncached) == GNEISS_ERROR_NOT_FOUND);
+  // 在绑定选定后改变同 URI 的旧缓存；构建必须继续使用选定的绿色版本。
+  files->files["m.material"] = R"({"format":"gneiss.material","version":1,"color":[0,0,1,1]})";
+  render_internal::material_asset_lease unrelated;
+  check(candidate->assets.acquire_material("asset://m.material", unrelated, diagnostic) ==
+        GNEISS_SUCCESS);
+  check(unrelated.get() != material.get());
+  staged.clear();
   const auto reads = files->reads;
   gneiss_scene_instance new_scene{};
   {
-    scene_internal::scene_load_builder builder(*candidate->scenes, std::move(prepared));
+    scene_internal::scene_load_builder builder(*candidate->scenes, std::move(prepared),
+                                               std::move(bindings));
     bool complete = false;
     unsigned steps = 0;
     while (!complete && steps++ < 20U) {
@@ -106,6 +138,11 @@ void run() {
     check(complete && steps > 3U && builder.completed_nodes() == 3U);
     new_scene = builder.instance();
   }
+  const auto selected_material = material.get();
+  material = {};
+  candidate->assets.release_unused();
+  check(resources.get_material(selected_material) != nullptr &&
+        resources.get_material(selected_material)->green == 1.0F);
   const auto old_world = active->world;
   active.swap(candidate);
   std::uint64_t count{};

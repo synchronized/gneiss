@@ -472,6 +472,7 @@
 - [M-331：准备产物版本键](records/M-331-prepared-version-keys.md)
 - [M-331：固定版本候选 RID 与原子发布](records/M-331-fixed-version-publication.md)
 - [M-331：异步资产固定版本模式](records/M-331-fixed-version-async.md)
+- [M-331：场景构建消费选定租约](records/M-331-scene-lease-bindings.md)
 
 ## 文档维护
 
