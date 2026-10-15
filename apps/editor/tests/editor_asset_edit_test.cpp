@@ -92,13 +92,38 @@ void run(tasks::execution_mode mode) {
   edit.cancel(app.get());
   drive();
   check(!edit.visible() && history.size() == count);
+  // 创建同样先准备，成功才产生节点；命令持有版本，坏文件不影响重做。
+  const editor::mesh_asset_reference new_assets{.mesh_uri = "asset://mesh.json",
+                                                .material_uri = "asset://b.json"};
+  check(edit.request_add(app.get(), session, history, "new node", new_assets) == result::success);
+  check(edit.active() && session.nodes().size() == 1U && history.size() == count);
+  drive();
+  check(edit.operation() == result::success && session.nodes().size() == 2U);
+  const auto created_uuid = session.nodes().back().uuid;
+  std::ofstream(files.root / "mesh.json") << "broken";
+  check(history.undo() == result::success && session.find_node(created_uuid) == nullptr);
+  check(history.redo() == result::success && session.find_node(created_uuid) != nullptr);
+  editor::editor_command_history disabled{0U};
+  check(edit.request_add(app.get(), session, disabled, "rejected", new_assets) ==
+        result::invalid_argument);
+  check(!edit.active() && session.nodes().size() == 2U);
+  check(edit.request_add(app.get(), session, history, "ready node", new_assets) == result::success);
+  check(!edit.active() && !edit.visible() && session.nodes().size() == 3U);
+  const auto creation_count = history.size();
+  check(edit.request_add(app.get(), session, history, "missing",
+                         {.mesh_uri = "asset://mesh.json",
+                          .material_uri = "asset://missing.json"}) == result::success);
+  drive();
+  check(edit.operation().failed() && session.nodes().size() == 3U &&
+        history.size() == creation_count);
+  edit.dismiss();
   // 文档已经关闭的迟到成功回执不能提交历史或采用新版本。
   std::ofstream(files.root / "c.json")
       << R"({"format":"gneiss.material","version":1,"color":[0,0,1,1]})";
   check(request("asset://c.json") == result::success);
   session.close();
   drive();
-  check(edit.operation() == result::invalid_state && history.size() == count);
+  check(edit.operation() == result::invalid_state && history.size() == creation_count);
   render_internal::render_asset_lease unused;
   check(application_internal::query_ready_asset(
             app.get(),

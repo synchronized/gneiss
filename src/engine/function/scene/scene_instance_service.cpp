@@ -1309,7 +1309,16 @@ gneiss_result scene_instance::destroy_subtree(gneiss_scene_node_id root) {
 }
 
 gneiss_result scene_instance::create_mesh_renderer_node(const mesh_renderer_node_creation& desc,
-                                                        gneiss_scene_node_id* out_node) {
+                                                        gneiss_scene_node_id* out_node,
+                                                        const scene_mesh_binding* prepared) {
+  using asset_loader = render_internal::render_asset_loader;
+  if (prepared &&
+      (prepared->mesh.type() != render_internal::render_asset_type::mesh ||
+       prepared->material.type() != render_internal::render_asset_type::material ||
+       !loader_.owns(prepared->mesh) || !loader_.owns(prepared->material) ||
+       prepared->mesh.uri() != desc.mesh_uri || prepared->material.uri() != desc.material_uri)) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
   const auto uuid = desc.uuid;
   const auto name = desc.name;
   const auto mesh_uri = desc.mesh_uri;
@@ -1343,9 +1352,15 @@ gneiss_result scene_instance::create_mesh_renderer_node(const mesh_renderer_node
     target.uuid = author.uuid;
     target.name = author.name;
     render_internal::asset_diagnostic diagnostic;
-    auto result = loader_.acquire_mesh(mesh_uri, target.mesh, diagnostic);
-    if (result == GNEISS_SUCCESS) {
-      result = loader_.acquire_material(material_uri, target.material, diagnostic);
+    auto result = GNEISS_SUCCESS;
+    if (prepared) {
+      target.mesh = asset_loader::mesh_lease(prepared->mesh);
+      target.material = asset_loader::material_lease(prepared->material);
+    } else {
+      result = loader_.acquire_mesh(mesh_uri, target.mesh, diagnostic);
+      if (result == GNEISS_SUCCESS) {
+        result = loader_.acquire_material(material_uri, target.material, diagnostic);
+      }
     }
     if (result != GNEISS_SUCCESS) {
       return result;
@@ -2089,6 +2104,24 @@ scene_instance_service::create_mesh_renderer_node(gneiss_scene_instance instance
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;
   }
+}
+
+gneiss_result scene_instance_service::create_mesh_renderer_node_ready(
+    gneiss_scene_instance instance, const mesh_renderer_node_creation& desc,
+    const mesh_binding& prepared, gneiss_scene_node_id& output) noexcept try {
+  output = GNEISS_NULL_SCENE_NODE_ID;
+  const auto owner = world_internal::replace_mesh_renderers(world_, {});
+  if (owner != GNEISS_SUCCESS) {
+    return owner;
+  }
+  auto* value = instances_.get(instance, core::resource_type::scene_instance);
+  return value == nullptr || *value == nullptr
+             ? GNEISS_ERROR_INVALID_HANDLE
+             : (*value)->create_mesh_renderer_node(desc, &output, &prepared);
+} catch (const std::bad_alloc&) {
+  return GNEISS_ERROR_OUT_OF_MEMORY;
+} catch (...) {
+  return GNEISS_ERROR_INTERNAL;
 }
 
 gneiss_result scene_instance_service::capture_mesh_binding(gneiss_scene_instance instance,

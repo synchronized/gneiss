@@ -135,7 +135,8 @@ A 不暂停主线程或渲染；取消先完成候选清理再解除互斥。文
 不阻塞 UI。具体失败、取消和保存交互测试随所选方案补齐。
 
 不预建排队命令系统，也不更改已确认的版本/加载策略。首批资产替换接入见
-[模态资产替换记录](../records/M-331-editor-modal-asset-edit.md)，节点创建与 Prefab 等入口继续迁移。
+[模态资产替换记录](../records/M-331-editor-modal-asset-edit.md)与
+[网格节点创建记录](../records/M-331-editor-modal-mesh-create.md)；Prefab、子树恢复等入口继续迁移。
 
 ## M-332：内部接口与对外适配
 

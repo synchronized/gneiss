@@ -87,6 +87,11 @@ public:
   void close() noexcept;
 
   [[nodiscard]] bool is_open() const noexcept { return scene_.is_valid(); }
+  /** 预分配镜像后调用就绪创建；成功后发布节点记录，不加载资产。 */
+  [[nodiscard]] result
+  commit_mesh_node(const scene_node_snapshot& snapshot,
+                   const std::function<result(scene_node_id, scene_node_id&)>& create,
+                   scene_node_id& output) noexcept;
   [[nodiscard]] gneiss_scene_instance scene_handle() const noexcept { return scene_.get(); }
   /** 预分配作者值后调用提交；回调失败不改编辑器镜像，不执行资产加载。 */
   [[nodiscard]] result commit_mesh_renderer(scene_node_id node, std::string_view mesh_uri,

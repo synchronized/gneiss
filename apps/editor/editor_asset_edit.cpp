@@ -3,10 +3,58 @@
 #include "editor_asset_edit.hpp"
 
 namespace gneiss::editor {
+result editor_asset_edit::commit_add(gneiss_application application, editor_session& session,
+                                     editor_command_history& history) {
+  return history.execute({
+      .label = "创建 Mesh Renderer 节点",
+      .undo =
+          [&session, scene = scene_, uuid = snapshot_.uuid] {
+            if (session.scene_handle() != scene) {
+              return result{result::invalid_state};
+            }
+            const auto* node = session.find_node(uuid);
+            if (node == nullptr) {
+              return result{result::not_found};
+            }
+            scene_node_snapshot discarded;
+            return session.destroy_node(node->node, discarded);
+          },
+      .redo =
+          [application, &session, scene = scene_, snapshot = snapshot_, leases = next_] {
+            if (session.scene_handle() != scene) {
+              return result{result::invalid_state};
+            }
+            scene_node_id output;
+            return session.commit_mesh_node(
+                snapshot,
+                [&](scene_node_id parent, scene_node_id& node) {
+                  gneiss_scene_node_id created{};
+                  const auto operation = application_internal::create_mesh_node_ready(
+                      application, scene,
+                      {
+                          .uuid = snapshot.uuid,
+                          .name = snapshot.display_name,
+                          .parent = parent.get(),
+                          .mesh_uri = snapshot.mesh_uri,
+                          .material_uri = snapshot.material_uri,
+                      },
+                      leases, created);
+                  node = scene_node_id{created};
+                  return from_native(operation);
+                },
+                output);
+          },
+      .merge_key = {},
+  });
+}
+
 result editor_asset_edit::commit(gneiss_application application, editor_session& session,
                                  editor_command_history& history) {
   if (session.scene_handle() != scene_) {
     return result::invalid_state;
+  }
+  if (creating_) {
+    return commit_add(application, session, history);
   }
   const auto apply = [application, &session, scene = scene_,
                       node = node_](const auto& expected, const auto& replacement) -> result {
@@ -34,16 +82,42 @@ result editor_asset_edit::commit(gneiss_application application, editor_session&
 
 result editor_asset_edit::request(gneiss_application application, editor_session& session,
                                   editor_command_history& history, std::string_view uuid,
-                                  mesh_asset_reference assets) try {
+                                  mesh_asset_reference assets) {
+  return request_impl(application, session, history, uuid, assets, false);
+}
+result editor_asset_edit::request_add(gneiss_application application, editor_session& session,
+                                      editor_command_history& history, std::string_view name,
+                                      mesh_asset_reference assets) {
+  return request_impl(application, session, history, name, assets, true);
+}
+result editor_asset_edit::request_impl(gneiss_application application, editor_session& session,
+                                       editor_command_history& history, std::string_view target,
+                                       mesh_asset_reference assets, bool creating) try {
   if (active_) {
     return result::not_ready;
   }
-  const auto* node = session.find_node(uuid);
-  if (node == nullptr) {
-    return result::not_found;
+  if (!session.is_open()) {
+    return result::invalid_state;
   }
+  creating_ = creating;
+  snapshot_ = {};
   scene_ = session.scene_handle();
-  node_ = node->node;
+  node_ = {};
+  if (creating_) {
+    const auto generated = make_editor_uuid(snapshot_.uuid);
+    if (generated.failed()) {
+      return generated;
+    }
+    snapshot_.display_name = target.empty() ? snapshot_.uuid : std::string{target};
+    snapshot_.mesh_uri = assets.mesh_uri;
+    snapshot_.material_uri = assets.material_uri;
+  } else {
+    const auto* node = session.find_node(target);
+    if (node == nullptr) {
+      return result::not_found;
+    }
+    node_ = node->node;
+  }
   mesh_ = assets.mesh_uri;
   material_ = assets.material_uri;
   previous_ = {};
@@ -51,12 +125,13 @@ result editor_asset_edit::request(gneiss_application application, editor_session
   progress_ = {};
   cancelled_ = false;
   visible_ = false;
-  operation_ = from_native(
-      application_internal::capture_mesh_binding(application, scene_, node_.get(), previous_));
+  operation_ = creating_ ? result::success
+                         : from_native(application_internal::capture_mesh_binding(
+                               application, scene_, node_.get(), previous_));
   if (operation_.failed()) {
     return operation_;
   }
-  if (!previous_.mesh || !previous_.material) {
+  if (!creating_ && (!previous_.mesh || !previous_.material)) {
     previous_ = {};
     return operation_ = result::invalid_state;
   }

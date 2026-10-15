@@ -844,6 +844,55 @@ result editor_session::create_mesh_renderer_node(const scene_node_snapshot& snap
   }
 }
 
+result
+editor_session::commit_mesh_node(const scene_node_snapshot& snapshot,
+                                 const std::function<result(scene_node_id, scene_node_id&)>& create,
+                                 scene_node_id& output) noexcept try {
+  output = {};
+  if (!is_open() || !create || snapshot.uuid.empty() || find_node(snapshot.uuid) != nullptr) {
+    return result::invalid_argument;
+  }
+  scene_node_id parent;
+  if (!snapshot.parent_uuid.empty()) {
+    const auto* record = find_node(snapshot.parent_uuid);
+    if (record == nullptr) {
+      return result::not_found;
+    }
+    parent = record->node;
+  }
+  scene_node_record record{
+      .node = {},
+      .parent = parent,
+      .entity = {},
+      .uuid = snapshot.uuid,
+      .display_name = snapshot.display_name.empty() ? snapshot.uuid : snapshot.display_name,
+      .mesh_uri = snapshot.mesh_uri,
+      .material_uri = snapshot.material_uri,
+  };
+  nodes_.reserve(nodes_.size() + 1U);
+  auto operation = create(parent, output);
+  if (operation.failed()) {
+    return operation;
+  }
+  gneiss_entity_id entity{};
+  operation = from_native(gneiss_scene_node_get_entity(world_, output.get(), &entity));
+  if (operation.failed()) {
+    (void)scene_.destroy_node(output);
+    output = {};
+    return operation;
+  }
+  record.node = output;
+  record.entity = entity_id{entity};
+  nodes_.push_back(std::move(record));
+  selection_ = output;
+  is_dirty_ = true;
+  return result::success;
+} catch (const std::bad_alloc&) {
+  return result::out_of_memory;
+} catch (...) {
+  return result::internal;
+}
+
 result editor_session::restore_mesh_renderer_node(const scene_node_snapshot& snapshot,
                                                   scene_node_id& out_node) noexcept {
   return create_mesh_renderer_node(snapshot, out_node);

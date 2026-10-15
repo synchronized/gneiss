@@ -25,6 +25,10 @@ class virtual_file_system;
 }
 
 namespace gneiss::scene_internal {
+struct scene_mesh_binding {
+  render_internal::render_asset_lease mesh;
+  render_internal::render_asset_lease material;
+};
 
 class scene_instance final {
 public:
@@ -83,8 +87,9 @@ public:
                                               std::span<const uuid_mapping> mappings,
                                               gneiss_scene_node_id* out_root);
   [[nodiscard]] gneiss_result destroy_subtree(gneiss_scene_node_id root);
-  [[nodiscard]] gneiss_result create_mesh_renderer_node(const mesh_renderer_node_creation& desc,
-                                                        gneiss_scene_node_id* out_node);
+  [[nodiscard]] gneiss_result
+  create_mesh_renderer_node(const mesh_renderer_node_creation& desc, gneiss_scene_node_id* out_node,
+                            const scene_mesh_binding* prepared = nullptr);
   [[nodiscard]] gneiss_result set_mesh_renderer(gneiss_scene_node_id node,
                                                 std::string_view mesh_uri,
                                                 std::string_view material_uri);
@@ -118,10 +123,11 @@ private:
 
 class scene_instance_service final {
 public:
-  struct mesh_binding {
-    render_internal::render_asset_lease mesh;
-    render_internal::render_asset_lease material;
-  };
+  using mesh_binding = scene_mesh_binding;
+  /** 创建仅消费已就绪租约，不加载；失败不留下节点。 */
+  [[nodiscard]] gneiss_result create_mesh_renderer_node_ready(
+      gneiss_scene_instance instance, const mesh_renderer_node_creation& desc,
+      const mesh_binding& prepared, gneiss_scene_node_id& output) noexcept;
   /** 捕获实际版本租约；所属线程，不读文件。租约须早于渲染服务释放。 */
   [[nodiscard]] gneiss_result capture_mesh_binding(gneiss_scene_instance instance,
                                                    gneiss_scene_node_id node,

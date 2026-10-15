@@ -270,6 +270,24 @@ void run() {
           GNEISS_ERROR_INVALID_STATE);
     check(candidate->scenes->replace_mesh_binding(new_scene, ordinary.node, after, before) ==
           GNEISS_SUCCESS);
+    const scene_internal::mesh_renderer_node_creation creation{
+        .uuid = "00000000-0000-4000-8000-000000000099",
+        .name = "prepared",
+        .parent = {},
+        .mesh_uri = before.mesh.uri(),
+        .material_uri = before.material.uri(),
+    };
+    gneiss_scene_node_id created{};
+    check(candidate->scenes->create_mesh_renderer_node_ready(
+              new_scene, creation, invalid, created) == GNEISS_ERROR_INVALID_ARGUMENT &&
+          created == GNEISS_NULL_SCENE_NODE_ID);
+    check(candidate->scenes->create_mesh_renderer_node_ready(new_scene, creation, before,
+                                                             created) == GNEISS_SUCCESS);
+    const auto created_node = created;
+    check(candidate->scenes->create_mesh_renderer_node_ready(
+              new_scene, creation, before, created) == GNEISS_ERROR_INVALID_ARGUMENT &&
+          created == GNEISS_NULL_SCENE_NODE_ID);
+    check(candidate->scenes->destroy_node(new_scene, created_node) == GNEISS_SUCCESS);
     check(files->reads == reads);
   }
   check(candidate->scenes->remove_mesh_renderer(new_scene, ordinary.node) == GNEISS_SUCCESS);

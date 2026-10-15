@@ -10,6 +10,9 @@ namespace gneiss::editor {
 /** 所属线程的一次模态资产替换；命令租约须在 Application 销毁前释放。 */
 class editor_asset_edit final {
 public:
+  result request_add(gneiss_application application, editor_session& session,
+                     editor_command_history& history, std::string_view name,
+                     mesh_asset_reference assets);
   result request(gneiss_application application, editor_session& session,
                  editor_command_history& history, std::string_view uuid,
                  mesh_asset_reference assets);
@@ -27,6 +30,13 @@ public:
   const render_internal::asset_load_progress& progress() const noexcept { return progress_; }
 
 private:
+  result request_impl(gneiss_application application, editor_session& session,
+                      editor_command_history& history, std::string_view target,
+                      mesh_asset_reference assets, bool creating);
+  result commit_add(gneiss_application application, editor_session& session,
+                    editor_command_history& history);
+  scene_node_snapshot snapshot_;
+  bool creating_{};
   result commit(gneiss_application application, editor_session& session,
                 editor_command_history& history);
   application_internal::mesh_binding previous_, next_;

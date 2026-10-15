@@ -1011,9 +1011,9 @@ void execute_asset_browser_request(editor_state& state, gneiss_application appli
     if (entry != state.assets.entries().end() && is_mesh_asset(*entry)) {
       const auto* material = find_material_for_mesh(state.assets.entries(), *entry);
       if (material != nullptr) {
-        state.asset_scene_result =
-            add_mesh_asset(state.session, state.history, entry->display_name,
-                           {.mesh_uri = entry->asset_uri, .material_uri = material->asset_uri});
+        state.asset_scene_result = state.asset_edit.request_add(
+            application, state.session, state.history, entry->display_name,
+            {.mesh_uri = entry->asset_uri, .material_uri = material->asset_uri});
         state.asset_scene_attempted = true;
       }
     }

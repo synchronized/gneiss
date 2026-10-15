@@ -17,6 +17,11 @@
 
 namespace gneiss::application_internal {
 using mesh_binding = scene_internal::scene_instance_service::mesh_binding;
+/** 所属线程从就绪租约创建节点；失败输出无效句柄，不读取文件。 */
+GNEISS_API gneiss_result
+create_mesh_node_ready(gneiss_application application, gneiss_scene_instance scene,
+                       const scene_internal::mesh_renderer_node_creation& desc,
+                       const mesh_binding& prepared, gneiss_scene_node_id& output) noexcept;
 /** 所属线程释放无使用者候选；调用前先释放完成回执和临时租约。 */
 GNEISS_API gneiss_result collect_unused_edit_assets(gneiss_application application) noexcept;
 /** 同步调用 accept 提交编辑；回调失败不采用候选版本，不得重入资产服务。 */

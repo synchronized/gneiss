@@ -10,6 +10,18 @@
 #include <new>
 #include <string_view>
 
+gneiss_result gneiss::application_internal::create_mesh_node_ready(
+    gneiss_application application, gneiss_scene_instance scene,
+    const scene_internal::mesh_renderer_node_creation& desc, const mesh_binding& prepared,
+    gneiss_scene_node_id& output) noexcept {
+  output = GNEISS_NULL_SCENE_NODE_ID;
+  auto state = find_application(application);
+  const auto valid = validate_application(state);
+  return valid == GNEISS_SUCCESS
+             ? state->scenes()->create_mesh_renderer_node_ready(scene, desc, prepared, output)
+             : valid;
+}
+
 gneiss_result
 gneiss::application_internal::collect_unused_edit_assets(gneiss_application application) noexcept {
   auto state = find_application(application);
