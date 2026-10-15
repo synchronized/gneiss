@@ -83,6 +83,7 @@
 - [DEV-050：后台加载主线程延迟开发计划](plans/DEV-050-main-loop-latency.md)
 - [VER-051：0.51.0 源码架构与模块边界收敛](plans/VER-051-0.51.0-architecture-boundaries.md)
 - [DEV-051：源码架构与模块边界开发计划](plans/DEV-051-architecture-boundaries.md)
+- [共享资产与场景实例实施设计](plans/asset-scene-ownership.md)
 - [大型场景视口性能：未排期事项](plans/editor-render-performance-backlog.md)
 - [大型场景视口性能：候选调查步骤](plans/editor-render-performance-investigation.md)
 - [VER-049：0.49.0 大场景加载响应性与生命周期稳定性](plans/VER-049-0.49.0-loading-stability.md)
@@ -228,6 +229,7 @@
 - [ADR-052：纹理驻留与加载预算](decisions/ADR-052-texture-residency-and-budgets.md)
 - [ADR-062：内部 C++ 与外部 SDK 边界](decisions/ADR-062-internal-cpp-and-sdk-boundaries.md)
 - [ADR-063：场景生命周期协调归属](decisions/ADR-063-scene-lifecycle-coordination.md)
+- [ADR-064：共享资产与场景实例分离](decisions/ADR-064-shared-assets-and-scene-instances.md)
 
 ## 实施与验收记录
 

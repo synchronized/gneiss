@@ -6,6 +6,10 @@
 - 状态：已接受，实施待完成
 - 日期：2026-10-15
 
+后续调整：[ADR-064](ADR-064-shared-assets-and-scene-instances.md) 将目标名称调整为
+`scene_controller`，并明确共享资产归属。下文保留首批拆分决策，协调层仍归 application；
+当前代码的 `scene_session` 命名和服务持有是迁移状态，不是最终资产架构。
+
 ## 背景
 
 [M-329 审计](../records/M-329-architecture-audit.md) 确认加载事务与活动域切换分散在
