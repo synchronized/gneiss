@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/asset/source_revision_file_system.hpp"
+#include "engine/asset/asset_uri.hpp"
 #include "engine/asset/read_slice.hpp"
 #include "engine/core/diagnostics/profiling.hpp"
 
@@ -42,6 +43,41 @@ gneiss_result hash_source(const read_source& source, core::sha256_digest& digest
   return GNEISS_SUCCESS;
 }
 } // namespace
+
+gneiss_result source_revision_file_system::identify_source(std::string_view path,
+                                                           std::uint32_t type,
+                                                           asset_identity& output) const noexcept {
+  output = {};
+  try {
+    return source_.identify("asset://" + std::string(path), type, output);
+  } catch (const std::bad_alloc&) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
+gneiss_result
+source_revision_file_system::observed_revision(std::string_view path,
+                                               source_revision& output) const noexcept {
+  output = {};
+  try {
+    if (validate_uri("asset://" + std::string(path)) != GNEISS_SUCCESS) {
+      return GNEISS_ERROR_INVALID_ARGUMENT;
+    }
+    const std::scoped_lock lock(versions_->mutex);
+    const auto found = versions_->identities.find(std::string(path));
+    if (found == versions_->identities.end()) {
+      return GNEISS_ERROR_NOT_READY;
+    }
+    output = found->second;
+    return GNEISS_SUCCESS;
+  } catch (const std::bad_alloc&) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
 
 gneiss_result source_revision_file_system::remember(const std::shared_ptr<ledger>& versions,
                                                     std::string_view path,

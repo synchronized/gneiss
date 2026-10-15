@@ -18,6 +18,7 @@ public:
   /** 仅解析挂载身份，不读取文件或验证存在性；失败清空 output。
    * VFS 副本共享已有挂载身份，新挂载使用新身份；挂载后的后端不得重新指向其他来源。
    * 无并发挂载时允许并发查询。类型零无效，URI 保留大小写。
+   * 透明后端可转交原始来源身份；其查询失败不会回退到包装挂载身份。
    */
   [[nodiscard]] gneiss_result identify(std::string_view uri, std::uint32_t type,
                                        asset_identity& output) const noexcept;

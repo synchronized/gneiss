@@ -18,6 +18,17 @@ namespace gneiss::asset_internal {
  * 最终复读是变化检测，不提供跨进程文件系统的原子快照。 */
 class source_revision_file_system final : public file_system {
 public:
+  [[nodiscard]] gneiss_result identify_source(std::string_view path, std::uint32_t type,
+                                              asset_identity& output) const noexcept override;
+  struct source_revision {
+    std::uint64_t bytes{};
+    core::sha256_digest digest{};
+  };
+  /** 读取已观察的摘要，不触发 I/O；未建账返回 NOT_READY。
+   * 仅是内容版本输入，发布前仍须完成 verify；不包含依赖版本或设备配置。
+   */
+  [[nodiscard]] gneiss_result observed_revision(std::string_view path,
+                                                source_revision& output) const noexcept;
   /** 固定本次待复验的身份清单；由同一任务串行推进，游标独立持有 VFS 和读取来源。 */
   class verification final {
   public:
@@ -61,10 +72,7 @@ public:
   [[nodiscard]] std::size_t source_count() const;
 
 private:
-  struct identity {
-    std::uint64_t bytes{};
-    core::sha256_digest digest{};
-  };
+  using identity = source_revision;
   struct ledger {
     std::mutex mutex;
     std::map<std::string, identity> identities;

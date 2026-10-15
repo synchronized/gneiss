@@ -11,6 +11,8 @@
 当前已实现的协调拆分见 [M-331 记录](../records/M-331-scene-session-extraction.md)。
 缓存层已增加来源身份与固定版本入口，验证见 [版本缓存记录](../records/M-331-version-cache.md)；
 场景加载器尚未接入，跨场景共享与固定版本发布仍未完成。
+来源复验包装已补充身份转交与已观察摘要查询，见
+[接入记录](../records/M-331-source-revision-identity.md)；查询摘要不能代替最终复验。
 
 ## 当前与目标
 

@@ -46,6 +46,20 @@ gneiss_result virtual_file_system::identify(std::string_view uri, std::uint32_t 
     return GNEISS_ERROR_NOT_FOUND;
   }
   try {
+    asset_identity delegated;
+    const auto result =
+        selected->backend->identify_source(uri.substr(selected->point.size()), type, delegated);
+    if (result != GNEISS_ERROR_UNSUPPORTED) {
+      if (result != GNEISS_SUCCESS) {
+        return result;
+      }
+      if (!delegated.source || delegated.type != type ||
+          validate_uri(delegated.uri) != GNEISS_SUCCESS) {
+        return GNEISS_ERROR_INVALID_STATE;
+      }
+      output = std::move(delegated);
+      return GNEISS_SUCCESS;
+    }
     asset_identity identity{.source = selected->source, .uri = std::string(uri), .type = type};
     output = std::move(identity);
     return GNEISS_SUCCESS;

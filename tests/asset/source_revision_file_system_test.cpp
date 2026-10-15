@@ -376,9 +376,51 @@ void run() {
   check(retry.read_bounded("other", 2U, bytes) == GNEISS_ERROR_INVALID_ARGUMENT);
   check(retry.source_count() == 1U);
 }
+void run_identity_and_revision() {
+  auto memory = std::make_shared<memory_files>();
+  virtual_file_system files;
+  check(files.mount("asset://", memory) == GNEISS_SUCCESS);
+  auto overlay = std::make_shared<memory_files>();
+  overlay->text = "override";
+  check(files.mount("asset://nested/", overlay) == GNEISS_SUCCESS);
+  auto tracked = std::make_shared<source_revision_file_system>(files);
+  virtual_file_system wrapped;
+  check(wrapped.mount("asset://", tracked) == GNEISS_SUCCESS);
+  auto nested = std::make_shared<source_revision_file_system>(wrapped);
+  virtual_file_system twice;
+  check(twice.mount("asset://", nested) == GNEISS_SUCCESS);
+  for (const auto uri : {"asset://scene.json", "asset://nested/scene.json"}) {
+    asset_identity original;
+    asset_identity forwarded;
+    check(files.identify(uri, 1U, original) == GNEISS_SUCCESS);
+    check(twice.identify(uri, 1U, forwarded) == GNEISS_SUCCESS && original == forwarded);
+  }
+  check(tracked->source_count() == 0U && nested->source_count() == 0U);
+  source_revision_file_system::source_revision revision;
+  check(tracked->observed_revision("scene.json", revision) == GNEISS_ERROR_NOT_READY);
+  std::vector<std::byte> bytes;
+  check(wrapped.read("asset://scene.json", bytes) == GNEISS_SUCCESS);
+  check(tracked->observed_revision("scene.json", revision) == GNEISS_SUCCESS);
+  check(revision.bytes == 3U && revision.digest == gneiss::core::sha256(bytes));
+  const auto old = revision;
+  memory->text = "changed";
+  // 查询只读账本，不能把旧摘要当作文件尚未改变的证明。
+  check(tracked->observed_revision("scene.json", revision) == GNEISS_SUCCESS &&
+        revision.digest == old.digest);
+  check(tracked->verify({}) == GNEISS_ERROR_INVALID_STATE);
+  check(tracked->observed_revision("../bad", revision) == GNEISS_ERROR_INVALID_ARGUMENT &&
+        revision.bytes == 0U && revision.digest == gneiss::core::sha256_digest{});
+  auto missing = std::make_shared<source_revision_file_system>(virtual_file_system{});
+  virtual_file_system missing_wrapper;
+  check(missing_wrapper.mount("asset://", missing) == GNEISS_SUCCESS);
+  asset_identity output;
+  check(missing_wrapper.identify("asset://scene.json", 1U, output) == GNEISS_ERROR_NOT_FOUND &&
+        !output.source);
+}
 } // namespace
 int main() {
   try {
+    run_identity_and_revision();
     run();
     run_ranges();
     run_async_open();
