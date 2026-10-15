@@ -46,6 +46,14 @@ public:
   [[nodiscard]] bool scene_progress(scene_load_progress& progress) const;
   [[nodiscard]] gneiss_result poll_scene(scene_load_completion& completion, bool& ready);
   [[nodiscard]] gneiss_result cancel_scene(std::uint64_t request);
+  /** 重载固定版本并更新活动 World 的现有使用者；加载模式保留旧缓存行为。 */
+  [[nodiscard]] gneiss_result
+  request_assets(std::span<const render_internal::render_asset_reload> sources,
+                 std::uint64_t session, std::uint64_t revision, std::uint64_t& request,
+                 bool reload);
+  /** 所属线程、渲染快照捕获之前调用；返回成功回执前完成场景引用切换。 */
+  [[nodiscard]] gneiss_result poll_assets(render_internal::texture_load_completion& completion,
+                                          bool& ready);
 
 private:
   std::unique_ptr<application_scene_state> active_;
@@ -53,6 +61,8 @@ private:
   scene_retirement_statistics retirement_;
   std::unique_ptr<scene_load_service> loader_;
   std::unique_ptr<render_internal::texture_load_service> textures_;
+  std::uint64_t asset_request_{};
+  std::vector<render_internal::render_asset_lease> previous_assets_;
 };
 
 } // namespace gneiss::application_internal

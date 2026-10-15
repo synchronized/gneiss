@@ -10,19 +10,20 @@
 [ADR-064](../decisions/ADR-064-shared-assets-and-scene-instances.md)。
 当前已实现的协调拆分见 [M-331 记录](../records/M-331-scene-session-extraction.md)。
 缓存层已增加来源身份与固定版本入口，验证见 [版本缓存记录](../records/M-331-version-cache.md)；
-场景加载器尚未接入，跨场景共享与固定版本发布仍未完成。
+场景加载器尚未接入，跨场景共享仍未完成。
 来源复验包装已补充身份转交与已观察摘要查询，见
 [接入记录](../records/M-331-source-revision-identity.md)；查询摘要不能代替最终复验。
 准备结果已携带描述及纹理负载的来源摘要，见
 [准备结果记录](../records/M-331-prepared-source-revisions.md)。准备阶段已生成版本键并验证缓存复用，
 见 [版本键记录](../records/M-331-prepared-version-keys.md)。加载器已增加显式固定版本候选和
 原子发布模式，见 [发布边界记录](../records/M-331-fixed-version-publication.md)；场景加载调用方
-尚未切换，当前默认热重载和 URI 查询行为保持不变。
+尚未切换，同步热重载和 URI 查询仍走旧路径。
 资产异步服务已提供显式固定版本模式并跳过复用上传，见
 [异步接入记录](../records/M-331-fixed-version-async.md)。场景构建已直接消费请求选定的租约，
-见 [绑定记录](../records/M-331-scene-lease-bindings.md)；活动场景热重载更新及固定模式启用尚未完成。
+见 [绑定记录](../records/M-331-scene-lease-bindings.md)；新场景固定模式启用尚未完成。
 场景服务已具备普通节点与 Prefab 的批量版本切换事务，见
-[切换记录](../records/M-331-scene-version-switch.md)；宿主上传完成后的调用尚未接入。
+[切换记录](../records/M-331-scene-version-switch.md)。宿主异步重载已接入活动 World 引用切换，
+验证与旧 URI 路径的迁移限制见[宿主接入记录](../records/M-331-host-version-reload.md)。
 
 ## 当前与目标
 

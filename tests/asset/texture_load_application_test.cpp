@@ -1,20 +1,22 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/function/application/application_asset_reload_internal.hpp"
 #include "engine/asset/texture_ktx2.hpp"
+#include "engine/function/application/application_asset_reload_internal.hpp"
+#include "engine/function/world/world_service.hpp"
 
 #include <gneiss/engine/application.hpp>
 
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
+#include <source_location>
 #include <stdexcept>
 
 namespace {
-void check(bool value) {
+void check(bool value, std::source_location where = std::source_location::current()) {
   if (!value) {
-    throw std::runtime_error("Application 纹理注入失败");
+    throw std::runtime_error("Application 纹理注入失败，行=" + std::to_string(where.line()));
   }
 }
 struct fixture {
@@ -73,6 +75,77 @@ void run(gneiss::tasks::execution_mode mode) {
   }
   check(completion.result == GNEISS_SUCCESS && completion.request == request &&
         completion.textures.size() == 1U);
+  const auto wait = [&] {
+    bool completed = false;
+    const auto limit = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+    while (!completed) {
+      if (mode == tasks::execution_mode::cooperative) {
+        (void)scheduler.run_ready();
+      }
+      check(application_internal::poll_textures(app.get(), completion, completed) ==
+            GNEISS_SUCCESS);
+      check(std::chrono::steady_clock::now() < limit);
+      std::this_thread::yield();
+    }
+  };
+  std::ofstream(files.root / "m.mesh")
+      << R"({"format":"gneiss.mesh","version":1,"topology":"triangle_list","vertices":[[0,0,0],[1,0,0],[0,1,0]]})";
+  const auto write_material = [&](bool green) {
+    std::ofstream(files.root / "m.material")
+        << R"({"format":"gneiss.material","version":2,"color":)"
+        << (green ? "[0,1,0,1]" : "[1,0,0,1]")
+        << R"(,"base_color_texture":"asset://a.texture.json"})";
+  };
+  write_material(false);
+  std::ofstream(files.root / "s.scene")
+      << R"({"format":"gneiss.scene","version":4,"scene_uuid":"00000000-0000-4000-8000-000000000001","objects":[{"uuid":"00000000-0000-4000-8000-000000000002","parent":null,"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":{"mesh_renderer":{"mesh":"asset://m.mesh","material":"asset://m.material"}}}],"prefab_instances":[]})";
+  constexpr std::string_view scene_uri = "asset://s.scene";
+  gneiss_scene_instance scene{};
+  check(gneiss_scene_instance_load(app.get(), scene_uri.data(), scene_uri.size(), &scene) ==
+        GNEISS_SUCCESS);
+  write_material(true);
+  check(application_internal::request_textures(app.get(), uris, 2U, 3U, request) == GNEISS_SUCCESS);
+  wait();
+  // 仅请求纹理也必须重新准备引用它的材质，并返回固定版本回执。
+  check(completion.result == GNEISS_SUCCESS && completion.assets.size() == 2U &&
+        completion.versions.size() == 2U);
+  const auto versions = completion.versions;
+  check(application_internal::request_textures(app.get(), uris, 2U, 4U, request) == GNEISS_SUCCESS);
+  wait();
+  check(completion.result == GNEISS_SUCCESS && completion.versions == versions);
+  std::ofstream(files.root / "m.material") << "broken";
+  check(application_internal::request_textures(app.get(), uris, 2U, 5U, request) == GNEISS_SUCCESS);
+  wait();
+  check(completion.result != GNEISS_SUCCESS && completion.assets.empty() &&
+        completion.versions.empty());
+  write_material(false);
+  check(application_internal::request_textures(app.get(), uris, 2U, 6U, request) == GNEISS_SUCCESS);
+  check(application_internal::cancel_render_assets(app.get()) == GNEISS_SUCCESS);
+  wait();
+  check(completion.state == render_internal::texture_load_state::cancelled &&
+        completion.assets.empty());
+  // 上传期间裸 ECS 使用者改变组件，整批场景切换须拒绝，不能覆盖该修改。
+  gneiss_scene_instance_node_info node = GNEISS_SCENE_INSTANCE_NODE_INFO_INIT;
+  check(gneiss_scene_instance_get_node_info(app.get(), scene, 0U, &node) == GNEISS_SUCCESS);
+  gneiss_world world{};
+  check(gneiss_application_get_world(app.get(), &world) == GNEISS_SUCCESS);
+  check(application_internal::request_textures(app.get(), uris, 2U, 7U, request) == GNEISS_SUCCESS);
+  const gneiss_mesh_renderer external{UINT64_MAX, UINT64_MAX};
+  check(gneiss_world_entity_set_mesh_renderer(world, node.entity, &external) == GNEISS_SUCCESS);
+  wait();
+  check(completion.result == GNEISS_ERROR_INVALID_STATE &&
+        completion.state == render_internal::texture_load_state::failed &&
+        completion.assets.empty() && completion.textures.empty() && completion.versions.empty());
+  const std::array unchanged{world_internal::mesh_renderer_replacement{
+      .entity = node.entity, .expected = external, .replacement = external}};
+  check(world_internal::replace_mesh_renderers(world, unchanged) == GNEISS_SUCCESS);
+  // 卸载冲突使用者后可重试；完成后释放租约，Application 仍可正常关闭。
+  check(gneiss_scene_instance_unload(app.get(), scene) == GNEISS_SUCCESS);
+  check(gneiss_scene_instance_load(app.get(), scene_uri.data(), scene_uri.size(), &scene) ==
+        GNEISS_SUCCESS);
+  check(application_internal::request_textures(app.get(), uris, 2U, 8U, request) == GNEISS_SUCCESS);
+  wait();
+  check(completion.result == GNEISS_SUCCESS && completion.versions.size() == 2U);
   completion = {}; // 所有租约必须先于 Application 销毁。
   check(application_internal::request_textures(app.get(), uris, 2U, 2U, request) == GNEISS_SUCCESS);
   check(application_internal::cancel_textures(app.get()) == GNEISS_SUCCESS);

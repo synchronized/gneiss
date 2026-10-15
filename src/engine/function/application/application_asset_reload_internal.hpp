@@ -4,9 +4,9 @@
 #ifndef GNEISS_SRC_APPLICATION_APPLICATION_ASSET_RELOAD_INTERNAL_HPP_
 #define GNEISS_SRC_APPLICATION_APPLICATION_ASSET_RELOAD_INTERNAL_HPP_
 
-#include "engine/function/render/texture_load_service.hpp"
 #include "engine/function/render/render_asset_loader.hpp"
 #include "engine/function/render/render_executor.hpp"
+#include "engine/function/render/texture_load_service.hpp"
 
 #include <gneiss/engine/application.h>
 #include <gneiss/engine/scene.h>
@@ -29,7 +29,10 @@ GNEISS_API gneiss_result query_render_statistics(
 /** 借用宿主执行入口直到 Application 关闭；同一宿主不再创建第二个池。 */
 GNEISS_API gneiss_result attach_task_executor(gneiss_application application,
                                               tasks::task_executor& executor) noexcept;
-/** 所属线程接受混合资产批次；CPU 解析交给宿主执行器，GPU 确认后整批发布。 */
+/** 所属线程接受混合资产批次；CPU 解析交给宿主执行器。
+ * reload=true 使用固定版本，自动扩展活动 World 中引用请求纹理的材质；上传确认后
+ * poll_textures 在帧快照捕获前批量切换场景租约和 ECS。失败保留原引用。
+ * 裸 RID 不跟随更新；reload=false 保留 URI 缓存加载行为，不切换现有场景。 */
 GNEISS_API gneiss_result request_render_assets(
     gneiss_application application, std::span<const render_internal::render_asset_reload> assets,
     std::uint64_t session, std::uint64_t revision, std::uint64_t& request,
@@ -43,6 +46,8 @@ GNEISS_API gneiss_result request_textures(gneiss_application application,
                                           std::span<const std::string> uris, std::uint64_t session,
                                           std::uint64_t revision, std::uint64_t& request,
                                           bool reload = true) noexcept;
+/** 所属线程在 update 或运行循环外调用；成功回执表示场景引用切换已完成。
+ * 回执租约须早于 Application 释放；纹理请求可能附带受影响材质的完成结果。 */
 GNEISS_API gneiss_result poll_textures(gneiss_application application,
                                        render_internal::texture_load_completion& completion,
                                        bool& ready) noexcept;

@@ -144,7 +144,7 @@ gneiss_result gneiss::application_internal::request_render_assets(
   if (!state->texture_service() || state->scene_loading())
     return GNEISS_ERROR_NOT_READY;
   try {
-    return state->texture_service()->submit_assets(assets, session, revision, request, reload);
+    return state->request_assets(assets, session, revision, request, reload);
   } catch (const std::bad_alloc&) {
     return GNEISS_ERROR_OUT_OF_MEMORY;
   } catch (...) {
@@ -189,7 +189,15 @@ gneiss_result gneiss::application_internal::request_textures(
     return GNEISS_ERROR_NOT_READY;
   }
   try {
-    return state->texture_service()->submit(uris, session, revision, request, reload);
+    if (uris.size() > render_internal::texture_load_service::maximum_batch) {
+      return GNEISS_ERROR_INVALID_ARGUMENT;
+    }
+    std::vector<render_internal::render_asset_reload> sources;
+    sources.reserve(uris.size());
+    for (const auto& uri : uris) {
+      sources.push_back({.uri = uri, .type = render_internal::render_asset_type::texture});
+    }
+    return state->request_assets(sources, session, revision, request, reload);
   } catch (const std::bad_alloc&) {
     return GNEISS_ERROR_OUT_OF_MEMORY;
   } catch (...) {
@@ -211,9 +219,7 @@ gneiss::application_internal::poll_textures(gneiss_application application,
     return GNEISS_ERROR_NOT_READY;
   }
   try {
-    state->texture_service()->advance();
-    ready = state->texture_service()->take(completion);
-    return GNEISS_SUCCESS;
+    return state->poll_assets(completion, ready);
   } catch (const std::bad_alloc&) {
     return GNEISS_ERROR_OUT_OF_MEMORY;
   } catch (...) {

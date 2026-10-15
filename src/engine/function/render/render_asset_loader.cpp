@@ -192,6 +192,19 @@ bool render_asset_loader::owns(const render_asset_lease& lease) const noexcept {
   }
 }
 
+std::array<render_asset_lease, 5>
+render_asset_loader::texture_dependencies(const render_asset_lease& material) noexcept {
+  std::array<render_asset_lease, 5> result;
+  if (material.type() == render_asset_type::material && material.entry_->resource) {
+    const auto& dependencies =
+        std::static_pointer_cast<material_asset>(material.entry_->resource)->textures;
+    for (std::size_t slot = 0; slot < result.size(); ++slot) {
+      result[slot].entry_ = dependencies[slot];
+    }
+  }
+  return result;
+}
+
 render_asset_lease render_asset_loader::asset_lease(const mesh_asset_lease& lease) noexcept {
   render_asset_lease result;
   result.entry_ = lease.entry_;

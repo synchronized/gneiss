@@ -119,6 +119,9 @@ public:
   /** 保留场景实际持有的版本，不查询 URI 缓存；空租约仍为空。 */
   [[nodiscard]] static render_asset_lease asset_lease(const mesh_asset_lease& lease) noexcept;
   [[nodiscard]] static render_asset_lease asset_lease(const material_asset_lease& lease) noexcept;
+  /** 返回指定材质版本持有的纹理租约；非材质返回空数组，不读取来源或缓存。 */
+  [[nodiscard]] static std::array<render_asset_lease, 5>
+  texture_dependencies(const render_asset_lease& material) noexcept;
   struct texture_target {
     std::string uri;
     std::weak_ptr<const asset_internal::resource_cache::entry> expected;

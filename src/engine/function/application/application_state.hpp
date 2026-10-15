@@ -68,6 +68,16 @@ public:
     return scene_session_.cancel_scene(request);
   }
   [[nodiscard]] bool scene_loading() const noexcept { return scene_session_.loading(); }
+  [[nodiscard]] gneiss_result
+  request_assets(std::span<const render_internal::render_asset_reload> sources,
+                 std::uint64_t session, std::uint64_t revision, std::uint64_t& request,
+                 bool reload) {
+    return scene_session_.request_assets(sources, session, revision, request, reload);
+  }
+  [[nodiscard]] gneiss_result poll_assets(render_internal::texture_load_completion& completion,
+                                          bool& ready) {
+    return scene_session_.poll_assets(completion, ready);
+  }
   void advance_scene_load() { scene_session_.advance(); }
   [[nodiscard]] scene_retirement_statistics scene_retirement() const noexcept {
     auto value = scene_session_.retirement();

@@ -10,7 +10,8 @@
 首批实施记录见 [M-331](../records/M-331-scene-session-extraction.md)。公共版本号和已发布版本归档不变。
 
 共享资产与场景实例分离已补入本版架构方向，详细对象、所有权、目录和分阶段验收统一见
-[共享资产与场景实例实施设计](asset-scene-ownership.md)。本轮只更新文档，相关源码尚未迁移。
+[共享资产与场景实例实施设计](asset-scene-ownership.md)。固定版本及宿主使用者更新已局部落地，
+见[宿主接入记录](../records/M-331-host-version-reload.md)；Application 级共享资产所有权尚未迁移。
 其中运行上下文明确为一个 World 与其场景实例服务的生命周期边界，不等同单个场景实例；
 资产迁出后再评估 world_context 命名，沿用现有上下文，不增加平行状态。
 

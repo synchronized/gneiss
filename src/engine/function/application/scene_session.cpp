@@ -4,7 +4,9 @@
 #include "engine/function/application/scene_session.hpp"
 #include "engine/core/diagnostics/loop_timing.hpp"
 
+#include <algorithm>
 #include <chrono>
+#include <map>
 #include <utility>
 
 namespace gneiss::application_internal {
@@ -74,6 +76,8 @@ gneiss_result scene_session::activate(std::uint64_t request, scene_load_completi
 void scene_session::shutdown() noexcept {
   loader_.reset();
   textures_.reset();
+  previous_assets_.clear();
+  asset_request_ = 0U;
   retired_.reset();
   active_.reset();
 }
@@ -117,6 +121,127 @@ gneiss_result scene_session::poll_scene(scene_load_completion& completion, bool&
   ready = loader_->take(completion);
   return GNEISS_SUCCESS;
 }
+gneiss_result
+scene_session::request_assets(std::span<const render_internal::render_asset_reload> sources,
+                              std::uint64_t session, std::uint64_t revision, std::uint64_t& request,
+                              bool reload) {
+  request = 0U;
+  if (!textures_ || loading() || textures_->busy()) {
+    return GNEISS_ERROR_NOT_READY;
+  }
+  if (!reload) {
+    return textures_->submit_assets(sources, session, revision, request, false);
+  }
+  using type = render_internal::render_asset_type;
+  using loader = render_internal::render_asset_loader;
+  std::map<std::string, type, std::less<>> requested;
+  if (sources.empty() || sources.size() > render_internal::texture_load_service::maximum_assets) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  for (const auto& source : sources) {
+    if (!requested.emplace(source.uri, source.type).second) {
+      return GNEISS_ERROR_INVALID_ARGUMENT;
+    }
+  }
+  std::vector<render_internal::render_asset_lease> previous;
+  const auto captured = active_->scenes->capture_render_assets(previous);
+  if (captured != GNEISS_SUCCESS) {
+    return captured;
+  }
+  // 纹理更新必须重建实际引用它的材质，不能只发布一个无人使用的新纹理。
+  for (const auto& lease : previous) {
+    if (lease.type() != type::material) {
+      continue;
+    }
+    const auto dependencies = loader::texture_dependencies(lease);
+    const auto affected = std::ranges::any_of(dependencies, [&](const auto& dependency) {
+      const auto found = requested.find(dependency.uri());
+      return dependency && found != requested.end() && found->second == type::texture;
+    });
+    if (!affected) {
+      continue;
+    }
+    const auto [material, inserted] = requested.emplace(lease.uri(), type::material);
+    if (!inserted && material->second != type::material) {
+      return GNEISS_ERROR_INVALID_ARGUMENT;
+    }
+  }
+  std::erase_if(previous, [&](const auto& lease) {
+    const auto found = requested.find(lease.uri());
+    return found == requested.end() || found->second != lease.type();
+  });
+  std::vector<render_internal::render_asset_reload> expanded;
+  expanded.reserve(requested.size());
+  for (const auto& [uri, asset_type] : requested) {
+    expanded.push_back({.uri = uri, .type = asset_type});
+  }
+  const auto result =
+      textures_->submit_assets(expanded, session, revision, request, true,
+                               render_internal::texture_load_service::maximum_candidate_bytes,
+                               loader::publication_mode::fixed_version);
+  if (result == GNEISS_SUCCESS) {
+    previous_assets_ = std::move(previous);
+    asset_request_ = request;
+  }
+  return result;
+}
+
+gneiss_result scene_session::poll_assets(render_internal::texture_load_completion& completion,
+                                         bool& ready) {
+  ready = false;
+  if (!textures_) {
+    return GNEISS_ERROR_NOT_READY;
+  }
+  textures_->advance();
+  ready = textures_->take(completion);
+  if (!ready || asset_request_ == 0U) {
+    return GNEISS_SUCCESS;
+  }
+  const auto commit_started = std::chrono::steady_clock::now();
+  if (completion.result == GNEISS_SUCCESS) {
+    try {
+      std::vector<scene_internal::scene_instance_service::asset_replacement> changes;
+      if (completion.request != asset_request_) {
+        completion.result = GNEISS_ERROR_INVALID_STATE;
+      } else {
+        changes.reserve(previous_assets_.size());
+        for (const auto& previous : previous_assets_) {
+          const auto next = std::ranges::find_if(completion.assets, [&](const auto& lease) {
+            return lease.type() == previous.type() && lease.uri() == previous.uri();
+          });
+          if (next == completion.assets.end()) {
+            completion.result = GNEISS_ERROR_INVALID_STATE;
+            break;
+          }
+          changes.push_back({.previous = previous, .replacement = *next});
+        }
+        if (completion.result == GNEISS_SUCCESS) {
+          completion.result = active_->scenes->replace_render_assets(changes);
+        }
+      }
+    } catch (const std::bad_alloc&) {
+      completion.result = GNEISS_ERROR_OUT_OF_MEMORY;
+    } catch (...) {
+      completion.result = GNEISS_ERROR_INTERNAL;
+    }
+  }
+  if (completion.result != GNEISS_SUCCESS) {
+    if (completion.state != render_internal::texture_load_state::cancelled) {
+      completion.state = render_internal::texture_load_state::failed;
+    }
+    completion.assets.clear();
+    completion.textures.clear();
+    completion.versions.clear();
+  }
+  previous_assets_.clear();
+  asset_request_ = 0U;
+  active_->assets.release_unused();
+  completion.commit_ms +=
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - commit_started)
+          .count();
+  return GNEISS_SUCCESS;
+}
+
 gneiss_result scene_session::cancel_scene(std::uint64_t request) {
   return loader_ && loader_->cancel(request) ? GNEISS_SUCCESS : GNEISS_ERROR_NOT_READY;
 }
