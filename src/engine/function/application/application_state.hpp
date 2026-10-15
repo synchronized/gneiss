@@ -54,9 +54,18 @@ public:
   [[nodiscard]] render_internal::texture_load_service* texture_service() noexcept {
     return scene_session_.textures();
   }
-  [[nodiscard]] scene_load_service* scene_service() noexcept { return scene_session_.loader(); }
-  [[nodiscard]] bool can_start_scene_load() const noexcept {
-    return scene_session_.can_start_load();
+  [[nodiscard]] gneiss_result request_scene(std::string_view uri, std::uint64_t session,
+                                            std::uint64_t revision, std::uint64_t& request) {
+    return scene_session_.request_scene(uri, session, revision, request);
+  }
+  [[nodiscard]] bool scene_progress(scene_load_progress& progress) const {
+    return scene_session_.scene_progress(progress);
+  }
+  [[nodiscard]] gneiss_result poll_scene(scene_load_completion& completion, bool& ready) {
+    return scene_session_.poll_scene(completion, ready);
+  }
+  [[nodiscard]] gneiss_result cancel_scene(std::uint64_t request) {
+    return scene_session_.cancel_scene(request);
   }
   [[nodiscard]] bool scene_loading() const noexcept { return scene_session_.loading(); }
   void advance_scene_load() { scene_session_.advance(); }

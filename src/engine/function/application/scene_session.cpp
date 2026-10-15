@@ -97,6 +97,28 @@ render_internal::render_asset_loader& scene_session::assets() noexcept { return 
 render_internal::texture_load_service* scene_session::textures() noexcept {
   return textures_.get();
 }
-scene_load_service* scene_session::loader() noexcept { return loader_.get(); }
+gneiss_result scene_session::request_scene(std::string_view uri, std::uint64_t session,
+                                           std::uint64_t revision, std::uint64_t& request) {
+  request = 0U;
+  if (!loader_ || !can_start_load()) {
+    return GNEISS_ERROR_NOT_READY;
+  }
+  return loader_->submit(uri, session, revision, request);
+}
+bool scene_session::scene_progress(scene_load_progress& progress) const {
+  return loader_ && loader_->progress(progress);
+}
+gneiss_result scene_session::poll_scene(scene_load_completion& completion, bool& ready) {
+  ready = false;
+  if (!loader_) {
+    return GNEISS_ERROR_NOT_READY;
+  }
+  advance();
+  ready = loader_->take(completion);
+  return GNEISS_SUCCESS;
+}
+gneiss_result scene_session::cancel_scene(std::uint64_t request) {
+  return loader_ && loader_->cancel(request) ? GNEISS_SUCCESS : GNEISS_ERROR_NOT_READY;
+}
 
 } // namespace gneiss::application_internal

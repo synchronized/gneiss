@@ -112,6 +112,20 @@ void run(tasks::execution_mode mode) {
   desc.asset_root = root.data();
   desc.asset_root_length = static_cast<std::uint32_t>(root.size());
   check(application::create_native(desc, app) == result::success);
+  // 未装配执行器时，宿主入口应保留空闲查询与未就绪操作的不同语义。
+  std::uint64_t unattached_request = 99U;
+  check(request_scene_load(app.get(), "asset://scene.json", 1U, 1U, unattached_request) ==
+            GNEISS_ERROR_NOT_READY &&
+        unattached_request == 0U);
+  scene_load_progress idle_progress;
+  bool idle_active = true;
+  check(query_scene_load_progress(app.get(), idle_progress, idle_active) == GNEISS_SUCCESS &&
+        !idle_active);
+  scene_load_completion idle_completion;
+  bool idle_ready = true;
+  check(poll_scene_load(app.get(), idle_completion, idle_ready) == GNEISS_ERROR_NOT_READY &&
+        !idle_ready);
+  check(cancel_scene_load(app.get(), 99U) == GNEISS_ERROR_NOT_READY);
   check(attach_task_executor(app.get(), scheduler) == GNEISS_SUCCESS);
   gneiss_world old_world{};
   check(gneiss_application_get_world(app.get(), &old_world) == GNEISS_SUCCESS);

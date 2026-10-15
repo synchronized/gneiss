@@ -40,7 +40,12 @@ public:
   [[nodiscard]] render_internal::render_asset_loader& assets() noexcept;
   /** 内部适配借用；纹理服务在场景激活时替换，不得跨激活缓存。 */
   [[nodiscard]] render_internal::texture_load_service* textures() noexcept;
-  [[nodiscard]] scene_load_service* loader() noexcept;
+  /** 请求、进度和完成值不暴露候选域；激活仍由宿主在安全点显式调用。 */
+  [[nodiscard]] gneiss_result request_scene(std::string_view uri, std::uint64_t session,
+                                            std::uint64_t revision, std::uint64_t& request);
+  [[nodiscard]] bool scene_progress(scene_load_progress& progress) const;
+  [[nodiscard]] gneiss_result poll_scene(scene_load_completion& completion, bool& ready);
+  [[nodiscard]] gneiss_result cancel_scene(std::uint64_t request);
 
 private:
   std::unique_ptr<application_scene_state> active_;

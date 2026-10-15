@@ -49,11 +49,8 @@ gneiss_result gneiss::application_internal::request_scene_load(gneiss_applicatio
   if (valid != GNEISS_SUCCESS) {
     return valid;
   }
-  if (!state->scene_service() || !state->can_start_scene_load()) {
-    return GNEISS_ERROR_NOT_READY;
-  }
   try {
-    return state->scene_service()->submit(uri, session, revision, request);
+    return state->request_scene(uri, session, revision, request);
   } catch (const std::bad_alloc&) {
     return GNEISS_ERROR_OUT_OF_MEMORY;
   } catch (...) {
@@ -80,9 +77,7 @@ gneiss_result gneiss::application_internal::query_scene_load_progress(
   if (valid != GNEISS_SUCCESS) {
     return valid;
   }
-  if (state->scene_service()) {
-    active = state->scene_service()->progress(progress);
-  }
+  active = state->scene_progress(progress);
   return GNEISS_SUCCESS;
 }
 
@@ -95,13 +90,8 @@ gneiss_result gneiss::application_internal::poll_scene_load(gneiss_application a
   if (valid != GNEISS_SUCCESS) {
     return valid;
   }
-  if (!state->scene_service()) {
-    return GNEISS_ERROR_NOT_READY;
-  }
   try {
-    state->advance_scene_load();
-    ready = state->scene_service()->take(completion);
-    return GNEISS_SUCCESS;
+    return state->poll_scene(completion, ready);
   } catch (const std::bad_alloc&) {
     return GNEISS_ERROR_OUT_OF_MEMORY;
   } catch (...) {
@@ -117,9 +107,7 @@ gneiss_result gneiss::application_internal::cancel_scene_load(gneiss_application
     return valid;
   }
   try {
-    return state->scene_service() && state->scene_service()->cancel(request)
-               ? GNEISS_SUCCESS
-               : GNEISS_ERROR_NOT_READY;
+    return state->cancel_scene(request);
   } catch (const std::bad_alloc&) {
     return GNEISS_ERROR_OUT_OF_MEMORY;
   } catch (...) {
