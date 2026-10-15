@@ -479,6 +479,7 @@
 - [M-331：节点编辑保留未改变的资产版本](records/M-331-scene-edit-version.md)
 - [M-331：已采用版本选择索引](records/M-331-adopted-version-index.md)
 - [M-331：同步入口审计与 Runtime 回退移除](records/M-331-sync-entry-audit.md)
+- [M-331：版本采用的使用者提交边界](records/M-331-adoption-transaction.md)
 
 ## 文档维护
 

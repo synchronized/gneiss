@@ -56,6 +56,18 @@ bool selection_contract() {
   const std::array adopt_b{
       resource_cache::version_selection{.selection = selection, .version = second},
   };
+  unsigned accepted = 0U;
+  const auto reject = [&] {
+    ++accepted;
+    return GNEISS_ERROR_IO;
+  };
+  if (cache.adopt_versions(adopt_b, reject) != GNEISS_ERROR_IO || accepted != 1U ||
+      cache.revision() != revision || cache.observe_selected(selection).lock() != a ||
+      cache.adopt_versions(adopt_b, {}) != GNEISS_ERROR_INVALID_ARGUMENT ||
+      cache.adopt_versions(adopt_b, []() -> gneiss_result { throw 42; }) != GNEISS_ERROR_INTERNAL ||
+      cache.revision() != revision || cache.observe_selected(selection).lock() != a) {
+    return false;
+  }
   auto missing = first;
   missing.version = "missing";
   const std::array invalid_batch{
@@ -65,6 +77,9 @@ bool selection_contract() {
   if (cache.adopt_versions(invalid_batch) != GNEISS_ERROR_NOT_READY ||
       cache.revision() != revision || cache.observe_selected(selection).lock() != a ||
       !cache.observe_selected(another_profile).expired()) {
+    return false;
+  }
+  if (cache.adopt_versions(invalid_batch, reject) != GNEISS_ERROR_NOT_READY || accepted != 1U) {
     return false;
   }
   const std::array duplicate{adopt_b.front(), adopt_b.front()};
@@ -86,9 +101,25 @@ bool selection_contract() {
           .version = first,
       },
   };
-  if (cache.adopt_versions(both) != GNEISS_SUCCESS ||
+  const auto accept = [&] {
+    ++accepted;
+    // 使用者提交时默认选择仍是旧版本，候选映射尚未发布。
+    return cache.observe_selected(selection).lock() == a ? GNEISS_SUCCESS
+                                                         : GNEISS_ERROR_INVALID_STATE;
+  };
+  if (cache.adopt_versions(both, accept) != GNEISS_SUCCESS || accepted != 2U ||
       cache.observe_selected(selection).lock() != b ||
       cache.observe_selected(another_profile).lock() != a || cache.observe(first).lock() != a) {
+    return false;
+  }
+  const auto adopted_revision = cache.revision();
+  // 映射相同也必须提交使用者，例如新实例获取已采用版本。
+  if (cache.adopt_versions(both,
+                           [&] {
+                             ++accepted;
+                             return GNEISS_SUCCESS;
+                           }) != GNEISS_SUCCESS ||
+      accepted != 3U || cache.revision() != adopted_revision) {
     return false;
   }
   b.reset();

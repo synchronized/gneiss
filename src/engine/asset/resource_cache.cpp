@@ -40,7 +40,13 @@ std::size_t resource_cache::selection_hash::operator()(const selection_key& key)
 }
 
 gneiss_result resource_cache::adopt_versions(std::span<const version_selection> values) noexcept {
-  if (values.empty()) {
+  return adopt_versions(values, [] { return GNEISS_SUCCESS; });
+}
+
+gneiss_result
+resource_cache::adopt_versions(std::span<const version_selection> values,
+                               const std::function<gneiss_result()>& accept) noexcept {
+  if (values.empty() || !accept) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
   try {
@@ -62,6 +68,10 @@ gneiss_result resource_cache::adopt_versions(std::span<const version_selection> 
         staged.insert_or_assign(value.selection, value.version);
         changed = true;
       }
+    }
+    const auto accepted = accept();
+    if (accepted != GNEISS_SUCCESS) {
+      return accepted;
     }
     if (changed) {
       selections_.swap(staged);

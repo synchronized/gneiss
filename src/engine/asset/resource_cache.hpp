@@ -65,6 +65,11 @@ public:
   /** 所属线程显式采用已发布版本；整批校验成功才改变选择，重复选择域拒绝。
    * 发布版本本身不会采用；调用方负责只在加载事务接受后调用。 */
   [[nodiscard]] gneiss_result adopt_versions(std::span<const version_selection> values) noexcept;
+  /** 先准备选择映射，再调用 accept 提交使用者，成功后无分配交换映射。
+   * accept 失败或抛出异常必须保持使用者原状态；回调不得修改本缓存或递归采用。
+   * 仅所属线程调用，回调期间候选资源由缓存持有；不允许异步保留回调。 */
+  [[nodiscard]] gneiss_result adopt_versions(std::span<const version_selection> values,
+                                             const std::function<gneiss_result()>& accept) noexcept;
   /** 不读文件、不按版本排序；未采用或资源已回收时返回空弱引用。 */
   [[nodiscard]] std::weak_ptr<const entry> observe_selected(const selection_key& key) const;
 
