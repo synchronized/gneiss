@@ -16,6 +16,7 @@
 #include <mutex>
 #include <new>
 #include <numbers>
+#include <unordered_set>
 
 namespace {
 
@@ -282,6 +283,43 @@ gneiss_result get_active_camera(gneiss_world world, gneiss_entity_id& out_entity
     }
     out_entity = state->active_camera();
     return out_entity == GNEISS_NULL_ENTITY_ID ? GNEISS_ERROR_NOT_READY : GNEISS_SUCCESS;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
+gneiss_result
+replace_mesh_renderers(gneiss_world world,
+                       std::span<const mesh_renderer_replacement> replacements) noexcept {
+  try {
+    auto& registry = get_world_registry();
+    const std::scoped_lock lock{registry.mutex};
+    auto* state = find_world(registry, world);
+    const auto validated = validate_world_thread(state);
+    if (validated != GNEISS_SUCCESS) {
+      return validated;
+    }
+    std::unordered_set<gneiss_entity_id> entities;
+    for (const auto& change : replacements) {
+      if (!entities.insert(change.entity).second || change.replacement.mesh == GNEISS_NULL_MESH ||
+          change.replacement.material == GNEISS_NULL_MATERIAL) {
+        return GNEISS_ERROR_INVALID_ARGUMENT;
+      }
+      if (!state->is_alive(change.entity)) {
+        return GNEISS_ERROR_INVALID_HANDLE;
+      }
+      const auto* current = state->get<mesh_renderer_component>(change.entity);
+      if (current == nullptr || current->value.mesh != change.expected.mesh ||
+          current->value.material != change.expected.material) {
+        return GNEISS_ERROR_INVALID_STATE;
+      }
+    }
+    for (const auto& change : replacements) {
+      state->get<mesh_renderer_component>(change.entity)->value = change.replacement;
+    }
+    return GNEISS_SUCCESS;
+  } catch (const std::bad_alloc&) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;
   }

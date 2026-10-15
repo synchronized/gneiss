@@ -15,6 +15,7 @@
 #include <atomic>
 #include <cstdint>
 #include <limits>
+#include <map>
 #include <new>
 #include <unordered_map>
 #include <unordered_set>
@@ -1553,6 +1554,85 @@ gneiss_result scene_instance::serialize(std::string& out_json) const {
     std::ranges::copy(transform.scale, author.scale.begin());
   }
   return serialize_scene_description(current, out_json);
+}
+
+gneiss_result
+scene_instance_service::replace_render_assets(std::span<const asset_replacement> changes) noexcept {
+  try {
+    const auto owner = world_internal::replace_mesh_renderers(world_, {});
+    if (owner != GNEISS_SUCCESS) {
+      return owner;
+    }
+    std::map<std::uint64_t, const asset_replacement*> replacements;
+    for (const auto& change : changes) {
+      const auto type = change.previous.type();
+      if ((type != render_internal::render_asset_type::mesh &&
+           type != render_internal::render_asset_type::material) ||
+          change.replacement.type() != type || change.previous.uri() != change.replacement.uri() ||
+          !loader_.owns(change.previous) || !loader_.owns(change.replacement) ||
+          !replacements.emplace(change.previous.get(), &change).second) {
+        return GNEISS_ERROR_INVALID_ARGUMENT;
+      }
+    }
+    struct binding_update {
+      render_internal::mesh_asset_lease* mesh;
+      render_internal::material_asset_lease* material;
+      render_internal::mesh_asset_lease next_mesh;
+      render_internal::material_asset_lease next_material;
+    };
+    std::vector<binding_update> bindings;
+    std::vector<world_internal::mesh_renderer_replacement> renderers;
+    const auto collect = [&](auto& node) {
+      const auto mesh = replacements.find(node.mesh.get());
+      const auto material = replacements.find(node.material.get());
+      if (mesh == replacements.end() && material == replacements.end()) {
+        return;
+      }
+      auto next_mesh =
+          mesh == replacements.end()
+              ? node.mesh
+              : render_internal::render_asset_loader::mesh_lease(mesh->second->replacement);
+      auto next_material =
+          material == replacements.end()
+              ? node.material
+              : render_internal::render_asset_loader::material_lease(material->second->replacement);
+      renderers.push_back({
+          .entity = node.entity,
+          .expected = {.mesh = node.mesh.get(), .material = node.material.get()},
+          .replacement = {.mesh = next_mesh.get(), .material = next_material.get()},
+      });
+      bindings.push_back({
+          .mesh = &node.mesh,
+          .material = &node.material,
+          .next_mesh = std::move(next_mesh),
+          .next_material = std::move(next_material),
+      });
+    };
+    instances_.for_each(core::resource_type::scene_instance, [&](auto& instance) {
+      for (auto& node : instance->objects) {
+        collect(node);
+      }
+      for (auto& prefab : instance->prefab_instances) {
+        for (auto& node : prefab->nodes_) {
+          collect(node);
+        }
+      }
+    });
+    const auto result = world_internal::replace_mesh_renderers(world_, renderers);
+    if (result != GNEISS_SUCCESS) {
+      return result;
+    }
+    // ECS 已统一切换；租约移动不分配且不抛异常，旧帧的数据引用仍由渲染服务持有。
+    for (auto& binding : bindings) {
+      *binding.mesh = std::move(binding.next_mesh);
+      *binding.material = std::move(binding.next_material);
+    }
+    return GNEISS_SUCCESS;
+  } catch (const std::bad_alloc&) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
 }
 
 scene_instance_service::scene_instance_service(

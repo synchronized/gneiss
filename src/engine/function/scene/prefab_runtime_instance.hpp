@@ -69,6 +69,7 @@ public:
                                                     const prefab_property_override& value) noexcept;
 
 private:
+  friend class scene_instance_service;
   [[nodiscard]] gneiss_result commit_node(std::size_t index, gneiss_scene_node_id parent);
   struct runtime_node final {
     prefab_author_address address;

@@ -5,6 +5,8 @@
 #include "engine/function/application/application_scene_state.hpp"
 #include "engine/function/render/render_resource_service.hpp"
 #include "engine/function/scene/scene_load_builder.hpp"
+#include "engine/function/world/world_service.hpp"
+#include <thread>
 
 #include <cstdio>
 #include <source_location>
@@ -108,6 +110,8 @@ void run() {
   }
   auto material =
       render_internal::render_asset_loader::material_lease(bindings.at("asset://m.material"));
+  auto previous_version = bindings.at("asset://m.material");
+  const auto mesh_rid = bindings.at("asset://m.mesh").get();
   check(material && material.get() != old_material.get());
   check(resources.get_material(material.get())->green == 1.0F);
   check(!render_internal::render_asset_loader::mesh_lease(bindings.at("asset://m.material")));
@@ -143,6 +147,58 @@ void run() {
   candidate->assets.release_unused();
   check(resources.get_material(selected_material) != nullptr &&
         resources.get_material(selected_material)->green == 1.0F);
+  render_internal::render_asset_lease next_version;
+  check(candidate->assets.acquire_cached(requests.back(), next_version) == GNEISS_SUCCESS);
+  std::array updates{scene_internal::scene_instance_service::asset_replacement{
+      .previous = previous_version, .replacement = next_version}};
+  gneiss_result other_thread = GNEISS_SUCCESS;
+  std::thread worker([&] { other_thread = candidate->scenes->replace_render_assets(updates); });
+  worker.join();
+  check(other_thread == GNEISS_ERROR_INVALID_STATE);
+  auto duplicate = std::array{updates.front(), updates.front()};
+  check(candidate->scenes->replace_render_assets(duplicate) == GNEISS_ERROR_INVALID_ARGUMENT);
+  {
+    render_internal::render_resource_service foreign_resources;
+    asset_internal::resource_cache foreign_cache;
+    render_internal::render_asset_loader foreign_loader(vfs, foreign_cache, foreign_resources);
+    render_internal::material_asset_lease foreign_material;
+    check(foreign_loader.acquire_material("asset://m.material", foreign_material, diagnostic) ==
+          GNEISS_SUCCESS);
+    render_internal::render_asset_lease foreign_lease;
+    check(foreign_loader.acquire_cached(requests.back(), foreign_lease) == GNEISS_SUCCESS);
+    const std::array invalid{scene_internal::scene_instance_service::asset_replacement{
+        .previous = previous_version, .replacement = foreign_lease}};
+    check(candidate->scenes->replace_render_assets(invalid) == GNEISS_ERROR_INVALID_ARGUMENT);
+  }
+  scene_internal::scene_node_view ordinary;
+  scene_internal::prefab_node_view prefab_node;
+  check(candidate->scenes->get_node_info(new_scene, 0U, ordinary) == GNEISS_SUCCESS);
+  check(candidate->scenes->get_prefab_node_info(new_scene, 1U, prefab_node) == GNEISS_SUCCESS);
+  const gneiss_mesh_renderer expected{.mesh = mesh_rid, .material = selected_material};
+  // 第二个使用者已被外部改动时，第一个也不能先切换。
+  check(world_internal::entity_set_mesh_renderer(candidate->world, prefab_node.entity,
+                                                 {.mesh = mesh_rid, .material = unrelated.get()}) ==
+        GNEISS_SUCCESS);
+  check(candidate->scenes->replace_render_assets(updates) == GNEISS_ERROR_INVALID_STATE);
+  const std::array unchanged{world_internal::mesh_renderer_replacement{
+      .entity = ordinary.entity, .expected = expected, .replacement = expected}};
+  check(world_internal::replace_mesh_renderers(candidate->world, unchanged) == GNEISS_SUCCESS);
+  check(world_internal::entity_set_mesh_renderer(candidate->world, prefab_node.entity, expected) ==
+        GNEISS_SUCCESS);
+  check(candidate->scenes->replace_render_assets(updates) == GNEISS_SUCCESS);
+  const gneiss_mesh_renderer updated{.mesh = mesh_rid, .material = next_version.get()};
+  const std::array committed{
+      world_internal::mesh_renderer_replacement{
+          .entity = ordinary.entity, .expected = updated, .replacement = updated},
+      world_internal::mesh_renderer_replacement{
+          .entity = prefab_node.entity, .expected = updated, .replacement = updated}};
+  check(world_internal::replace_mesh_renderers(candidate->world, committed) == GNEISS_SUCCESS);
+  check(resources.get_material(old_material.get())->red == 1.0F);
+  duplicate = {};
+  updates = {};
+  previous_version = {};
+  candidate->assets.release_unused();
+  check(resources.get_material(selected_material) == nullptr);
   const auto old_world = active->world;
   active.swap(candidate);
   std::uint64_t count{};

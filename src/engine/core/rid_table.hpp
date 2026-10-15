@@ -144,6 +144,15 @@ public:
     return GNEISS_SUCCESS;
   }
 
+  /** 仅遍历存活且类型匹配的值；回调不得创建或销毁本表槽位。 */
+  template <typename Visitor> void for_each(resource_type type, Visitor&& visitor) {
+    for (auto& slot : slots_) {
+      if (slot.type == type && slot.value) {
+        visitor(*slot.value);
+      }
+    }
+  }
+
   [[nodiscard]] std::size_t live_count() const noexcept {
     std::size_t count = 0;
     for (const auto& slot : slots_) {

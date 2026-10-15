@@ -5,6 +5,7 @@
 #define GNEISS_WORLD_WORLD_SERVICE_HPP_
 #include <gneiss/engine/scene.h>
 #include <gneiss/engine/world.h>
+#include <span>
 
 namespace gneiss::world_internal {
 /** 私有同版本宿主接口，不安装；唯一注册表负责线程和 generation 校验。 */
@@ -13,6 +14,15 @@ struct camera_settings {
   float near_plane{};
   float far_plane{};
 };
+struct mesh_renderer_replacement {
+  gneiss_entity_id entity{};
+  gneiss_mesh_renderer expected{};
+  gneiss_mesh_renderer replacement{};
+};
+/** 所属线程批量替换已有组件：先验证全部实体及旧 RID，再无分配提交。
+ * 不验证渲染服务 RID，调用方必须持有有效资源租约；重复实体拒绝。 */
+[[nodiscard]] GNEISS_API gneiss_result replace_mesh_renderers(
+    gneiss_world world, std::span<const mesh_renderer_replacement> replacements) noexcept;
 [[nodiscard]] GNEISS_API gneiss_result create(gneiss_world& out_world) noexcept;
 [[nodiscard]] GNEISS_API gneiss_result destroy(gneiss_world world) noexcept;
 [[nodiscard]] GNEISS_API gneiss_result entity_create(gneiss_world world,

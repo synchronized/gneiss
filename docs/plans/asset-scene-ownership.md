@@ -21,6 +21,8 @@
 资产异步服务已提供显式固定版本模式并跳过复用上传，见
 [异步接入记录](../records/M-331-fixed-version-async.md)。场景构建已直接消费请求选定的租约，
 见 [绑定记录](../records/M-331-scene-lease-bindings.md)；活动场景热重载更新及固定模式启用尚未完成。
+场景服务已具备普通节点与 Prefab 的批量版本切换事务，见
+[切换记录](../records/M-331-scene-version-switch.md)；宿主上传完成后的调用尚未接入。
 
 ## 当前与目标
 

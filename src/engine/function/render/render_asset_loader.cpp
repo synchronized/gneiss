@@ -171,6 +171,27 @@ render_asset_loader::texture_lease(const render_asset_lease& lease) const noexce
   return result;
 }
 
+bool render_asset_loader::owns(const render_asset_lease& lease) const noexcept {
+  if (!lease.entry_ || !lease.entry_->resource) {
+    return false;
+  }
+  switch (lease.type()) {
+  case render_asset_type::mesh:
+    return std::static_pointer_cast<mesh_asset>(lease.entry_->resource)->resources == &resources_ &&
+           resources_.get_mesh(lease.get()) != nullptr;
+  case render_asset_type::material:
+    return std::static_pointer_cast<material_asset>(lease.entry_->resource)->resources ==
+               &resources_ &&
+           resources_.get_material(lease.get()) != nullptr;
+  case render_asset_type::texture:
+    return std::static_pointer_cast<texture_asset>(lease.entry_->resource)->resources ==
+               &resources_ &&
+           resources_.get_texture(lease.get()) != nullptr;
+  default:
+    return false;
+  }
+}
+
 mesh_asset_lease render_asset_loader::mesh_lease(const render_asset_lease& lease) noexcept {
   mesh_asset_lease result;
   if (lease.type() == render_asset_type::mesh) {

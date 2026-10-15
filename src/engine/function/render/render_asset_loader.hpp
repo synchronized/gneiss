@@ -115,6 +115,7 @@ public:
   [[nodiscard]] static mesh_asset_lease mesh_lease(const render_asset_lease& lease) noexcept;
   [[nodiscard]] static material_asset_lease
   material_lease(const render_asset_lease& lease) noexcept;
+  [[nodiscard]] bool owns(const render_asset_lease& lease) const noexcept;
   struct texture_target {
     std::string uri;
     std::weak_ptr<const asset_internal::resource_cache::entry> expected;

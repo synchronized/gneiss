@@ -118,6 +118,15 @@ private:
 
 class scene_instance_service final {
 public:
+  struct asset_replacement {
+    render_internal::render_asset_lease previous;
+    render_internal::render_asset_lease replacement;
+  };
+  /** 更新此 World 所有场景和 Prefab 中仍使用 previous RID 的节点。
+   * 仅所属线程安全帧边界调用，调用前新资源须已上传；失败不切换租约或 ECS。
+   * 原始 RID 使用者不隐式跟随，不改变源描述或实例局部资产选择。 */
+  [[nodiscard]] gneiss_result
+  replace_render_assets(std::span<const asset_replacement> changes) noexcept;
   /** 验证普通作者节点归属，不接受 Prefab 的只读来源节点。 */
   [[nodiscard]] gneiss_result validate_editable_node(gneiss_scene_instance instance,
                                                      gneiss_scene_node_id node) const noexcept;
