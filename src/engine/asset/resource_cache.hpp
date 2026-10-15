@@ -42,6 +42,14 @@ public:
   [[nodiscard]] gneiss_result acquire(const version_key& key, const loader& load,
                                       std::shared_ptr<const entry>& out_entry) noexcept;
   [[nodiscard]] std::weak_ptr<const entry> observe(const version_key& key) const;
+  struct version_publication {
+    version_key key;
+    std::shared_ptr<const entry> value;
+  };
+  /** 原子发布已确认的固定版本候选；同键仅接受同一条目，冲突不覆盖。
+   * 失败不改变缓存；调用方继续持有候选，负责上传撤回及资源释放。 */
+  [[nodiscard]] gneiss_result
+  publish_versions(std::span<const version_publication> values) noexcept;
 
   struct reload_request final {
     std::string uri;
@@ -71,7 +79,7 @@ private:
   // 旧 URI 接口使用空来源、零类型与空版本的保留键，保留原来的类型冲突和热重载语义。
   [[nodiscard]] static version_key legacy_key(std::string_view uri);
   std::uint64_t revision_{};
-  std::unordered_map<version_key, std::shared_ptr<entry>, key_hash> entries_;
+  std::unordered_map<version_key, std::shared_ptr<const entry>, key_hash> entries_;
 };
 
 } // namespace gneiss::asset_internal

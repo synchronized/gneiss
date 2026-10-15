@@ -78,7 +78,10 @@ private:
 /** resources 必须晚于缓存及其所有资产租约销毁；租约析构会释放对应 RID。 */
 class render_asset_loader final {
 public:
+  enum class publication_mode { reload, fixed_version };
   struct asset_candidate {
+    publication_mode mode{publication_mode::reload};
+    asset_internal::asset_version_key version;
     render_asset_reload source;
     render_asset_lease lease;
     bool existed{};
@@ -98,9 +101,12 @@ public:
                                              render_asset_lease& output,
                                              texture_prepare_profile profile = {}) const noexcept;
   [[nodiscard]] revision_stamp revision() const noexcept { return {cache_.revision(), revision_}; }
-  [[nodiscard]] gneiss_result stage_asset(prepared_render_asset prepared,
-                                          std::span<const asset_candidate> staged,
-                                          asset_candidate& output) noexcept;
+  /** 固定版本模式要求已复验的版本键；existed 表示已发布复用，调用方应跳过上传。
+   * 新候选拥有独立 RID，未发布前销毁即撤回；GPU 上传须先确认或撤回再释放候选。
+   * 不可混合两种发布模式；材质依赖须先以确切版本准备并置于 staged。 */
+  [[nodiscard]] gneiss_result
+  stage_asset(prepared_render_asset prepared, std::span<const asset_candidate> staged,
+              asset_candidate& output, publication_mode mode = publication_mode::reload) noexcept;
   [[nodiscard]] gneiss_result publish_assets(std::span<asset_candidate> candidates) noexcept;
   [[nodiscard]] texture_asset_lease texture_lease(const render_asset_lease& lease) const noexcept;
   struct texture_target {

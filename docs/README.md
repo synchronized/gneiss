@@ -470,6 +470,7 @@
 - [M-331：来源复验身份传递与摘要查询](records/M-331-source-revision-identity.md)
 - [M-331：准备结果携带来源摘要](records/M-331-prepared-source-revisions.md)
 - [M-331：准备产物版本键](records/M-331-prepared-version-keys.md)
+- [M-331：固定版本候选 RID 与原子发布](records/M-331-fixed-version-publication.md)
 
 ## 文档维护
 

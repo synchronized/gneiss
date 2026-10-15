@@ -83,6 +83,46 @@ std::weak_ptr<const resource_cache::entry> resource_cache::observe(const version
   return found == entries_.end() ? std::weak_ptr<const entry>{} : found->second;
 }
 
+gneiss_result
+resource_cache::publish_versions(std::span<const version_publication> values) noexcept {
+  if (values.empty()) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  try {
+    auto staged = entries_;
+    bool changed = false;
+    for (const auto& publication : values) {
+      const auto& key = publication.key;
+      const auto& value = publication.value;
+      if (!key.identity.source || key.identity.type == 0U || key.version.empty() ||
+          validate_uri(key.identity.uri) != GNEISS_SUCCESS || !value || !value->resource ||
+          value->state != resource_state::ready || value->uri != key.identity.uri ||
+          value->type != key.identity.type) {
+        return GNEISS_ERROR_INVALID_ARGUMENT;
+      }
+      for (const auto& input : key.inputs) {
+        if (!input.source || input.type == 0U || validate_uri(input.uri) != GNEISS_SUCCESS) {
+          return GNEISS_ERROR_INVALID_ARGUMENT;
+        }
+      }
+      const auto [found, inserted] = staged.emplace(key, value);
+      if (!inserted && found->second != value) {
+        return GNEISS_ERROR_INVALID_STATE;
+      }
+      changed = changed || inserted;
+    }
+    if (changed) {
+      entries_.swap(staged);
+      ++revision_;
+    }
+    return GNEISS_SUCCESS;
+  } catch (const std::bad_alloc&) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
 gneiss_result resource_cache::acquire(std::string_view uri, std::uint32_t type, const loader& load,
                                       std::shared_ptr<const entry>& out_entry) noexcept {
   out_entry.reset();

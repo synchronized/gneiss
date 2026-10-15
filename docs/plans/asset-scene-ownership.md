@@ -15,7 +15,9 @@
 [接入记录](../records/M-331-source-revision-identity.md)；查询摘要不能代替最终复验。
 准备结果已携带描述及纹理负载的来源摘要，见
 [准备结果记录](../records/M-331-prepared-source-revisions.md)。准备阶段已生成版本键并验证缓存复用，
-见 [版本键记录](../records/M-331-prepared-version-keys.md)；渲染加载器发布路径尚未切换。
+见 [版本键记录](../records/M-331-prepared-version-keys.md)。加载器已增加显式固定版本候选和
+原子发布模式，见 [发布边界记录](../records/M-331-fixed-version-publication.md)；场景加载调用方
+尚未切换，当前默认热重载和 URI 查询行为保持不变。
 
 ## 当前与目标
 

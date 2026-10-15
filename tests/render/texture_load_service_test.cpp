@@ -186,6 +186,82 @@ void prepared_source_revisions() {
   other_input.inputs.back().source.reset();
   check(cache.acquire(other_input, load, same) == GNEISS_ERROR_INVALID_ARGUMENT && !same);
 }
+void fixed_version_publication() {
+  auto source = std::make_shared<memory_files>();
+  source->pixel(std::byte{10});
+  source->text(
+      "texture",
+      R"({"format":"gneiss.texture","version":1,"source":"asset://image.ktx2","color_space":"srgb"})");
+  source->text(
+      "material",
+      R"({"format":"gneiss.material","version":2,"color":[1,1,1,1],"base_color_texture":"asset://texture"})");
+  virtual_file_system files;
+  check(files.mount("asset://", source) == GNEISS_SUCCESS);
+  render_resource_service resources;
+  resource_cache cache;
+  render_asset_loader loader(files, cache, resources);
+  using candidate = render_asset_loader::asset_candidate;
+  constexpr auto fixed = render_asset_loader::publication_mode::fixed_version;
+  const std::array requests{asset_request{"asset://material", asset_type::material}};
+  const auto prepare = [&] {
+    prepared_batch batch;
+    asset_diagnostic diagnostic;
+    check(prepare_assets(files, requests, batch, diagnostic, {}, 128U) == GNEISS_SUCCESS);
+    return batch;
+  };
+  const auto stage = [&](prepared_batch batch) {
+    std::vector<candidate> result;
+    for (auto& asset : batch.assets) {
+      candidate value;
+      check(loader.stage_asset(std::move(asset), result, value, fixed) == GNEISS_SUCCESS);
+      result.push_back(std::move(value));
+    }
+    return result;
+  };
+  auto original = stage(prepare());
+  auto competing = stage(prepare());
+  check(original.front().lease.get() != competing.front().lease.get());
+  check(loader.publish_assets(original) == GNEISS_SUCCESS);
+  check(loader.publish_assets(competing) == GNEISS_ERROR_INVALID_STATE);
+  competing.clear();
+  auto reused = stage(prepare());
+  check(reused.front().lease.get() == original.front().lease.get() && reused.front().existed);
+  check(reused.back().lease.get() == original.back().lease.get());
+  check(loader.publish_assets(reused) == GNEISS_SUCCESS && resources.live_resource_count() == 2U);
+  reused.clear();
+  const auto old_texture = resources.share_texture(original.front().lease.get());
+  const auto old_material = resources.share_material(original.back().lease.get());
+  source->pixel(std::byte{20});
+  auto replacement = prepare();
+  candidate invalid;
+  check(loader.stage_asset(replacement.assets.back(), original, invalid, fixed) ==
+        GNEISS_ERROR_INVALID_STATE);
+  auto cancelled = stage(replacement);
+  const auto cancelled_rid = cancelled.front().lease.get();
+  cancelled.clear();
+  check(resources.get_texture(cancelled_rid) == nullptr && cache.size() == 2U);
+  auto next = stage(std::move(replacement));
+  check(next.front().lease.get() != original.front().lease.get());
+  check(next.back().lease.get() != original.back().lease.get());
+  const auto material_version = next.back().version.version;
+  next.back().version.version.clear();
+  check(loader.publish_assets(next) == GNEISS_ERROR_INVALID_ARGUMENT && cache.size() == 2U);
+  check(cache.observe(next.front().version).expired());
+  next.back().version.version = material_version;
+  check(loader.publish_assets(next) == GNEISS_SUCCESS && cache.size() == 4U);
+  check(resources.share_texture(original.front().lease.get()) == old_texture);
+  check(resources.share_material(original.back().lease.get()) == old_material);
+  check(next.back().material->base_color_texture == next.front().lease.get());
+  auto material_lease = next.back().lease;
+  const auto texture_rid = next.front().lease.get();
+  original.clear();
+  next.clear();
+  cache.release_unused();
+  check(resources.live_resource_count() == 2U && resources.get_texture(texture_rid) != nullptr);
+  material_lease = {};
+  cache.release_unused();
+  check(resources.live_resource_count() == 0U && cache.size() == 0U);
+}
 void cooperative_read_slices() {
   tasks::task_scheduler scheduler({.mode = tasks::execution_mode::cooperative});
   auto files = std::make_shared<memory_files>();
@@ -757,6 +833,7 @@ void cancel_unpublished_upload(tasks::execution_mode mode) {
 } // namespace
 
 int main() try {
+  fixed_version_publication();
   prepared_source_revisions();
   cooperative_read_slices();
   cancel_unpublished_upload(tasks::execution_mode::cooperative);

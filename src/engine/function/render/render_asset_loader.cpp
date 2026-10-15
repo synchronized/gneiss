@@ -3,10 +3,10 @@
 
 #include "engine/function/render/render_asset_loader.hpp"
 
+#include "engine/asset/asset_parsing.hpp"
 #include "engine/asset/mesh_binary.hpp"
 #include "engine/asset/texture_container.hpp"
 #include "engine/asset/virtual_file_system.hpp"
-#include "engine/asset/asset_parsing.hpp"
 #include "engine/function/render/render_resource_service.hpp"
 
 #include <algorithm>
@@ -217,19 +217,55 @@ gneiss_result render_asset_loader::acquire_cached(const render_asset_reload& sou
 
 gneiss_result render_asset_loader::stage_asset(prepared_render_asset prepared,
                                                std::span<const asset_candidate> staged,
-                                               asset_candidate& output) noexcept {
+                                               asset_candidate& output,
+                                               publication_mode mode) noexcept {
   output = {};
   try {
     asset_candidate candidate;
+    candidate.mode = mode;
     candidate.source = prepared.source;
     candidate.bytes = prepared.bytes;
-    const auto current = cache_.observe(prepared.source.uri).lock();
+    const bool fixed = mode == publication_mode::fixed_version;
+    if (fixed) {
+      candidate.version = std::move(prepared.version);
+      if (!candidate.version.identity.source || candidate.version.version.empty() ||
+          candidate.version.identity.uri != prepared.source.uri ||
+          candidate.version.identity.type != static_cast<std::uint32_t>(prepared.source.type)) {
+        return GNEISS_ERROR_INVALID_ARGUMENT;
+      }
+    }
+    const auto current = fixed ? cache_.observe(candidate.version).lock()
+                               : cache_.observe(prepared.source.uri).lock();
     if (current && (current->type != static_cast<std::uint32_t>(prepared.source.type) ||
                     current->state != asset_internal::resource_state::ready)) {
       return GNEISS_ERROR_INVALID_ARGUMENT;
     }
     candidate.existed = static_cast<bool>(current);
     candidate.expected = current;
+    if (fixed && current) {
+      candidate.lease.entry_ = current;
+      const auto existing = candidate.lease.get();
+      switch (prepared.source.type) {
+      case render_asset_type::mesh:
+        candidate.mesh = resources_.share_mesh(existing);
+        break;
+      case render_asset_type::texture:
+        candidate.texture = resources_.share_texture(existing);
+        break;
+      case render_asset_type::material:
+        candidate.material = resources_.share_material(existing);
+        candidate.dependencies =
+            std::static_pointer_cast<material_asset>(current->resource)->textures;
+        break;
+      default:
+        return GNEISS_ERROR_INVALID_ARGUMENT;
+      }
+      if (!candidate.mesh && !candidate.texture && !candidate.material) {
+        return GNEISS_ERROR_INVALID_HANDLE;
+      }
+      output = std::move(candidate);
+      return GNEISS_SUCCESS;
+    }
     std::shared_ptr<void> owned;
     std::uint64_t rid{};
     auto created = GNEISS_ERROR_INVALID_ARGUMENT;
@@ -280,6 +316,10 @@ gneiss_result render_asset_loader::stage_asset(prepared_render_asset prepared,
           return other.source.uri == uri && other.source.type == render_asset_type::texture;
         });
         if (found == staged.end()) {
+          return GNEISS_ERROR_INVALID_STATE;
+        }
+        if (fixed && (found->mode != publication_mode::fixed_version ||
+                      found->version != prepared.texture_versions[slot])) {
           return GNEISS_ERROR_INVALID_STATE;
         }
         material.set_texture(slot, found->lease.get());
@@ -338,6 +378,28 @@ gneiss_result render_asset_loader::stage_asset(prepared_render_asset prepared,
 
 gneiss_result render_asset_loader::publish_assets(std::span<asset_candidate> candidates) noexcept {
   try {
+    const bool fixed =
+        !candidates.empty() && candidates.front().mode == publication_mode::fixed_version;
+    if (std::ranges::any_of(candidates, [&](const auto& candidate) {
+          return (candidate.mode == publication_mode::fixed_version) != fixed;
+        })) {
+      return GNEISS_ERROR_INVALID_ARGUMENT;
+    }
+    if (fixed) {
+      std::vector<asset_internal::resource_cache::version_publication> versions;
+      versions.reserve(candidates.size());
+      for (const auto& candidate : candidates) {
+        const auto rid = candidate.lease.get();
+        if (!candidate.lease ||
+            (candidate.texture && resources_.share_texture(rid) != candidate.texture) ||
+            (candidate.mesh && resources_.share_mesh(rid) != candidate.mesh) ||
+            (candidate.material && resources_.share_material(rid) != candidate.material)) {
+          return GNEISS_ERROR_INVALID_STATE;
+        }
+        versions.push_back({.key = candidate.version, .value = candidate.lease.entry_});
+      }
+      return cache_.publish_versions(versions);
+    }
     std::vector<asset_internal::resource_cache::reload_request> requests;
     for (const auto& candidate : candidates) {
       const auto current = cache_.observe(candidate.source.uri).lock();

@@ -61,6 +61,8 @@ struct prepared_asset {
   std::vector<prepared_source> sources;
   /** 全部来源复验后生成；包含依赖版本和纹理准备配置，可直接用于固定版本缓存。 */
   asset_version_key version;
+  /** 材质各槽位的确切依赖版本；空槽保留空键，发布时不得按 URI 替换依赖。 */
+  std::array<asset_version_key, 5> texture_versions;
   asset_internal::mesh_data mesh;
   asset_internal::prepared_texture_data texture{};
   asset_internal::material_parameters material{};

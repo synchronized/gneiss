@@ -738,7 +738,8 @@ gneiss_result
 append_texture_versions(prepared_asset& asset, version_digest& digest,
                         const std::map<std::string, const asset_version_key*>& textures) {
   // 保留槽位顺序及空槽，重复引用也不能改变材质语义。
-  for (const auto& uri : asset.texture_uris) {
+  for (std::size_t slot = 0; slot < asset.texture_uris.size(); ++slot) {
+    const auto& uri = asset.texture_uris[slot];
     digest.text(uri);
     if (uri.empty()) {
       continue;
@@ -748,6 +749,7 @@ append_texture_versions(prepared_asset& asset, version_digest& digest,
       return GNEISS_ERROR_INVALID_STATE;
     }
     digest.text(dependency->second->version);
+    asset.texture_versions[slot] = *dependency->second;
     const auto& inputs = dependency->second->inputs;
     asset.version.inputs.insert(asset.version.inputs.end(), inputs.begin(), inputs.end());
   }
