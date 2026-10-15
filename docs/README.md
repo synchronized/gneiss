@@ -227,6 +227,7 @@
 - [ADR-054：精简源码布局与宿主边界](decisions/ADR-054-source-layout-and-host-boundaries.md)
 - [ADR-052：纹理驻留与加载预算](decisions/ADR-052-texture-residency-and-budgets.md)
 - [ADR-062：内部 C++ 与外部 SDK 边界](decisions/ADR-062-internal-cpp-and-sdk-boundaries.md)
+- [ADR-063：场景生命周期协调归属](decisions/ADR-063-scene-lifecycle-coordination.md)
 
 ## 实施与验收记录
 

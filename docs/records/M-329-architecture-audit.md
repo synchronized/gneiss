@@ -36,6 +36,9 @@ asset、render 等层的若干越界包含和 C API 使用。`cmake/test_core_bo
 
 ## 待讨论的方案
 
+后续状态：用户已确认方案 A，正式决策见
+[ADR-063](../decisions/ADR-063-scene-lifecycle-coordination.md)。下文保留首次审计时的备选分析。
+
 加载服务直接包含 `application_scene_state.hpp`，候选域又组合资产、场景和渲染能力。
 把现有加载服务原样下移到 scene 会把上层装配依赖一起带入。
 
@@ -49,6 +52,12 @@ asset、render 等层的若干越界包含和 C API 使用。`cmake/test_core_bo
 其余架构工作保留待办，不指定 0.52；此范围仍待用户确认，不是已实施决策。
 
 ## 验证与未完成项
+
+确认方案 A 后继续核对：`render_frame_packet.hpp/.cpp` 的帧资源快照通过
+`share_mesh`、`share_material`、`share_texture` 获取共享持有，未直接借用场景域内对象地址。
+这支持场景域与提交帧分离的方向，但尚需完成后端帧完成与 GPU 资源释放路径核对。
+`attach_task_executor` 还装配 libuv I/O 与 Granit 上传回调；这些后端装配应留在 Application，
+只将加载服务创建和所属场景状态移入 session，避免新组件重新变成平台入口。
 
 本轮内部边界检查及负向夹具通过。首次以相对源码根运行检查被空源码保护拒绝，改为绝对源码根
 后通过；未绕过检查。仅修改文档，未运行完整构建或 Sponza。
