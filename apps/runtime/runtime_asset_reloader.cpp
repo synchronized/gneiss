@@ -44,10 +44,14 @@ result runtime_asset_reloader::execute(const ipc_asset_reload_request& request,
     return result::success;
   }
   auto applied = result::success;
-  if (begin_ && poll_ && std::ranges::all_of(request.assets, [](const auto& item) {
+  if (std::ranges::all_of(request.assets, [](const auto& item) {
         return item.type == ipc_asset_type::texture || item.type == ipc_asset_type::material ||
                item.type == ipc_asset_type::static_mesh;
       })) {
+    if (!begin_ || !poll_) {
+      response.message = "渲染资产重载需要异步服务，不能回退到主线程加载";
+      return result::success;
+    }
     try {
       pending_ = request;
       applied = begin_(request);
@@ -59,8 +63,13 @@ result runtime_asset_reloader::execute(const ipc_asset_reload_request& request,
       pending_.reset();
       applied = result::out_of_memory;
     }
-  } else {
+  } else if (request.assets.size() == 1U &&
+             (request.assets.front().type == ipc_asset_type::scene ||
+              request.assets.front().type == ipc_asset_type::prefab)) {
     applied = apply_(request.assets);
+  } else {
+    response.message = "不支持混合场景结构与渲染资产的重载批次";
+    return result::invalid_argument;
   }
   if (applied == result::success) {
     applied_revision_ = request.revision;

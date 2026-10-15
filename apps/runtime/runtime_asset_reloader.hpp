@@ -22,7 +22,9 @@ public:
 
   explicit runtime_asset_reloader(apply_function apply, begin_function begin = {},
                                   poll_function poll = {});
-  /** 接受异步纹理请求后 execute 返回 not_ready；只有 advance 才生成终态。 */
+  /** 渲染资产只经 begin/poll 处理，缺少任一回调时失败，不调用同步 apply。
+   * apply 暂时只处理单个 Scene/Prefab 结构重载，仍待迁移。
+   * 接受异步请求后 execute 返回 not_ready；只有 advance 才生成终态。 */
   [[nodiscard]] result advance(ipc_asset_reload_result& response, bool& ready) noexcept;
 
   /** 应用新修订并生成权威结果；旧修订不会再次调用底层资源事务。 */

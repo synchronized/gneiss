@@ -14,10 +14,10 @@ int main() {
     ++calls;
     return assets.empty() ? result::invalid_argument : next_result;
   });
-  ipc_asset_reload_request request{.session_id = 3U,
-                                   .revision = 1U,
-                                   .assets = {{.uri = "asset://imported/a/mesh-0.gneiss-mesh",
-                                               .type = ipc_asset_type::static_mesh}}};
+  ipc_asset_reload_request request{
+      .session_id = 3U,
+      .revision = 1U,
+      .assets = {{.uri = "asset://main.scene", .type = ipc_asset_type::scene}}};
   ipc_asset_reload_result response;
   if (reloader.execute(request, response) != result::success ||
       response.status != ipc_asset_apply_status::applied || calls != 1U ||
@@ -57,6 +57,7 @@ int main() {
   bool completed{};
   unsigned accepted{};
   result async_result = result::success;
+  result begin_result = result::success;
   runtime_asset_reloader asynchronous(
       [&](auto) {
         ++calls;
@@ -64,7 +65,7 @@ int main() {
       },
       [&](const auto&) {
         ++accepted;
-        return result::success;
+        return begin_result;
       },
       [&](result& output, bool& ready) {
         ready = completed;
@@ -106,6 +107,63 @@ int main() {
   if (asynchronous.advance(response, ready) != result::success || !ready ||
       response.status != ipc_asset_apply_status::failed || asynchronous.applied_revision() != 1U) {
     return 12;
+  }
+  const auto synchronous_calls = calls;
+  begin_result = result::io;
+  if (asynchronous.execute(request, response) != result::success ||
+      response.status != ipc_asset_apply_status::failed || calls != synchronous_calls ||
+      asynchronous.applied_revision() != 1U) {
+    return 14;
+  }
+  begin_result = result::success;
+  async_result = result::success;
+  if (asynchronous.execute(request, response) != result::not_ready ||
+      asynchronous.advance(response, ready) != result::success || !ready ||
+      response.status != ipc_asset_apply_status::applied || calls != synchronous_calls) {
+    return 15;
+  }
+  request.revision = 3U;
+  request.assets.push_back({.uri = "asset://main.scene", .type = ipc_asset_type::scene});
+  const auto previous_accepted = accepted;
+  if (asynchronous.execute(request, response) != result::invalid_argument ||
+      response.status != ipc_asset_apply_status::failed || accepted != previous_accepted ||
+      calls != synchronous_calls || asynchronous.applied_revision() != 2U) {
+    return 16;
+  }
+  // 未装配或仅装配一个异步回调时，三类渲染资产都不能进入同步 apply。
+  for (unsigned wiring = 0U; wiring < 3U; ++wiring) {
+    runtime_asset_reloader::begin_function begin;
+    runtime_asset_reloader::poll_function poll;
+    if (wiring == 1U) {
+      begin = [&](const auto&) {
+        ++accepted;
+        return result::success;
+      };
+    }
+    if (wiring == 2U) {
+      poll = [&](result&, bool&) {
+        ++accepted;
+        return result::success;
+      };
+    }
+    runtime_asset_reloader incomplete(
+        [&](auto) {
+          ++calls;
+          return result::success;
+        },
+        begin, poll);
+    for (const auto type :
+         {ipc_asset_type::texture, ipc_asset_type::material, ipc_asset_type::static_mesh}) {
+      request.assets = {{.uri = "asset://asset.json", .type = type}};
+      if (incomplete.execute(request, response) != result::success ||
+          response.status != ipc_asset_apply_status::failed || calls != synchronous_calls ||
+          accepted != previous_accepted || incomplete.applied_revision() != 0U) {
+        return 17;
+      }
+      if (incomplete.advance(response, ready) != result::success || ready) {
+        return 18;
+      }
+    }
   }
   return 0;
 }
