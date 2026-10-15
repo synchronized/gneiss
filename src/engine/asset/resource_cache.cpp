@@ -5,8 +5,10 @@
 
 #include "engine/asset/asset_uri.hpp"
 
+#include <algorithm>
 #include <new>
 #include <set>
+#include <unordered_set>
 
 namespace gneiss::asset_internal {
 
@@ -26,6 +28,57 @@ std::size_t resource_cache::key_hash::operator()(const version_key& key) const n
     combine(std::hash<std::uint32_t>{}(input.type));
   }
   return value;
+}
+
+std::size_t resource_cache::selection_hash::operator()(const selection_key& key) const noexcept {
+  auto value = std::hash<const asset_source_domain*>{}(key.identity.source.get());
+  const auto combine = [&](std::size_t part) { value ^= part + (value << 6U) + (value >> 2U); };
+  combine(std::hash<std::string>{}(key.identity.uri));
+  combine(std::hash<std::uint32_t>{}(key.identity.type));
+  combine(std::hash<std::string>{}(key.configuration));
+  return value;
+}
+
+gneiss_result resource_cache::adopt_versions(std::span<const version_selection> values) noexcept {
+  if (values.empty()) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  try {
+    auto staged = selections_;
+    std::unordered_set<selection_key, selection_hash> unique;
+    bool changed = false;
+    for (const auto& value : values) {
+      if (!value.selection.identity.source || value.selection.identity.type == 0U ||
+          value.selection.identity != value.version.identity || value.version.version.empty() ||
+          !unique.insert(value.selection).second) {
+        return GNEISS_ERROR_INVALID_ARGUMENT;
+      }
+      const auto published = entries_.find(value.version);
+      if (published == entries_.end() || published->second->state != resource_state::ready) {
+        return GNEISS_ERROR_NOT_READY;
+      }
+      const auto previous = staged.find(value.selection);
+      if (previous == staged.end() || previous->second != value.version) {
+        staged.insert_or_assign(value.selection, value.version);
+        changed = true;
+      }
+    }
+    if (changed) {
+      selections_.swap(staged);
+      ++revision_;
+    }
+    return GNEISS_SUCCESS;
+  } catch (const std::bad_alloc&) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
+std::weak_ptr<const resource_cache::entry>
+resource_cache::observe_selected(const selection_key& key) const {
+  const auto selected = selections_.find(key);
+  return selected == selections_.end() ? std::weak_ptr<const entry>{} : observe(selected->second);
 }
 
 gneiss_result resource_cache::acquire(const version_key& key, const loader& load,
@@ -268,6 +321,8 @@ void resource_cache::release_unused() noexcept {
       }
     }
   } while (removed);
+  std::erase_if(selections_,
+                [&](const auto& selected) { return !entries_.contains(selected.second); });
 }
 
 std::weak_ptr<const resource_cache::entry> resource_cache::observe(std::string_view uri) const {

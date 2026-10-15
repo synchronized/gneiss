@@ -7,6 +7,7 @@
 
 #include <gneiss/engine/core/result.h>
 
+#include <array>
 #include <cstddef>
 #include <filesystem>
 #include <fstream>
@@ -15,6 +16,91 @@
 #include <vector>
 
 namespace {
+
+bool selection_contract() {
+  using namespace gneiss::asset_internal;
+  resource_cache cache;
+  const asset_identity identity{
+      .source = std::make_shared<asset_source_domain>(),
+      .uri = "asset://selected.mesh",
+      .type = 1U,
+  };
+  const resource_cache::selection_key selection{.identity = identity, .configuration = "profile-a"};
+  const resource_cache::version_key first{.identity = identity, .version = "a"};
+  const resource_cache::version_key second{.identity = identity, .version = "b"};
+  const auto load = [](std::shared_ptr<void>& value) {
+    value = std::make_shared<int>(42);
+    return GNEISS_SUCCESS;
+  };
+  std::shared_ptr<const resource_cache::entry> a;
+  std::shared_ptr<const resource_cache::entry> b;
+  if (cache.acquire(first, load, a) != GNEISS_SUCCESS ||
+      !cache.observe_selected(selection).expired()) {
+    return false;
+  }
+  const std::array adopt_a{
+      resource_cache::version_selection{.selection = selection, .version = first},
+  };
+  if (cache.adopt_versions(adopt_a) != GNEISS_SUCCESS ||
+      cache.observe_selected(selection).lock() != a ||
+      cache.acquire(second, load, b) != GNEISS_SUCCESS ||
+      cache.observe_selected(selection).lock() != a) {
+    return false;
+  }
+  const auto revision = cache.revision();
+  if (cache.adopt_versions(adopt_a) != GNEISS_SUCCESS || cache.revision() != revision) {
+    return false;
+  }
+  auto another_profile = selection;
+  another_profile.configuration = "profile-b";
+  const std::array adopt_b{
+      resource_cache::version_selection{.selection = selection, .version = second},
+  };
+  auto missing = first;
+  missing.version = "missing";
+  const std::array invalid_batch{
+      adopt_b.front(),
+      resource_cache::version_selection{.selection = another_profile, .version = missing},
+  };
+  if (cache.adopt_versions(invalid_batch) != GNEISS_ERROR_NOT_READY ||
+      cache.revision() != revision || cache.observe_selected(selection).lock() != a ||
+      !cache.observe_selected(another_profile).expired()) {
+    return false;
+  }
+  const std::array duplicate{adopt_b.front(), adopt_b.front()};
+  auto foreign = selection;
+  foreign.identity.source = std::make_shared<asset_source_domain>();
+  const std::array wrong_source{
+      resource_cache::version_selection{.selection = foreign, .version = first},
+  };
+  if (cache.adopt_versions(duplicate) != GNEISS_ERROR_INVALID_ARGUMENT ||
+      cache.adopt_versions(wrong_source) != GNEISS_ERROR_INVALID_ARGUMENT ||
+      cache.adopt_versions({}) != GNEISS_ERROR_INVALID_ARGUMENT ||
+      cache.observe_selected(selection).lock() != a || !cache.observe_selected(foreign).expired()) {
+    return false;
+  }
+  const std::array both{
+      adopt_b.front(),
+      resource_cache::version_selection{
+          .selection = another_profile,
+          .version = first,
+      },
+  };
+  if (cache.adopt_versions(both) != GNEISS_SUCCESS ||
+      cache.observe_selected(selection).lock() != b ||
+      cache.observe_selected(another_profile).lock() != a || cache.observe(first).lock() != a) {
+    return false;
+  }
+  b.reset();
+  cache.release_unused();
+  if (!cache.observe_selected(selection).expired() ||
+      cache.observe_selected(another_profile).lock() != a) {
+    return false;
+  }
+  a.reset();
+  cache.release_unused();
+  return cache.size() == 0U && cache.observe_selected(another_profile).expired();
+}
 
 bool version_cache_contract() {
   using namespace gneiss::asset_internal;
@@ -171,7 +257,7 @@ struct temporary_directory final {
 } // namespace
 
 int main() try {
-  if (!source_identity_contract() || !version_cache_contract()) {
+  if (!source_identity_contract() || !version_cache_contract() || !selection_contract()) {
     return 30;
   }
   temporary_directory directory;

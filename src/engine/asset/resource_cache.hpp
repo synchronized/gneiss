@@ -51,6 +51,23 @@ public:
   [[nodiscard]] gneiss_result
   publish_versions(std::span<const version_publication> values) noexcept;
 
+  /** 普通获取的选择域；configuration 由调用方完整编码兼容准备配置，空串表示默认域。
+   * 不包含内容版本，不允许跨来源或不兼容配置复用选择。 */
+  struct selection_key {
+    asset_identity identity;
+    std::string configuration;
+    bool operator==(const selection_key&) const = default;
+  };
+  struct version_selection {
+    selection_key selection;
+    version_key version;
+  };
+  /** 所属线程显式采用已发布版本；整批校验成功才改变选择，重复选择域拒绝。
+   * 发布版本本身不会采用；调用方负责只在加载事务接受后调用。 */
+  [[nodiscard]] gneiss_result adopt_versions(std::span<const version_selection> values) noexcept;
+  /** 不读文件、不按版本排序；未采用或资源已回收时返回空弱引用。 */
+  [[nodiscard]] std::weak_ptr<const entry> observe_selected(const selection_key& key) const;
+
   struct reload_request final {
     std::string uri;
     std::uint32_t type = 0U;
@@ -76,10 +93,15 @@ private:
   struct key_hash {
     std::size_t operator()(const version_key& key) const noexcept;
   };
+  struct selection_hash {
+    std::size_t operator()(const selection_key& key) const noexcept;
+  };
   // 旧 URI 接口使用空来源、零类型与空版本的保留键，保留原来的类型冲突和热重载语义。
   [[nodiscard]] static version_key legacy_key(std::string_view uri);
   std::uint64_t revision_{};
   std::unordered_map<version_key, std::shared_ptr<const entry>, key_hash> entries_;
+  // 仅保存选择元数据，资源仍由 entries_ 和租约拥有；不阻止无使用者回收。
+  std::unordered_map<selection_key, version_key, selection_hash> selections_;
 };
 
 } // namespace gneiss::asset_internal
