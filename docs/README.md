@@ -484,6 +484,7 @@
 - [M-331：新场景初始版本采用](records/M-331-scene-initial-adoption.md)
 - [M-331：Editor 模态资产替换](records/M-331-editor-modal-asset-edit.md)
 - [M-331：Editor 模态网格节点创建](records/M-331-editor-modal-mesh-create.md)
+- [M-331：Prefab 候选分步清理](records/M-331-prefab-staged-cancel.md)
 
 ## 文档维护
 

@@ -547,6 +547,8 @@ gneiss_result prefab_runtime_instance::begin_staged(gneiss_scene_node_id parent,
     return GNEISS_ERROR_INVALID_STATE;
   }
   nodes_.resize(prefab_.get()->objects.size());
+  staged_order_.reserve(nodes_.size());
+  staged_ = true;
   auto result = gneiss::world_internal::entity_create(world_, root_entity_);
   if (result == GNEISS_SUCCESS) {
     result = gneiss::world_internal::node_create(world_, parent, root_entity_, root_node_);
@@ -561,7 +563,8 @@ gneiss_result
 prefab_runtime_instance::create_staged_node(std::size_t index, gneiss_scene_node_id parent,
                                             render_internal::mesh_asset_lease mesh,
                                             render_internal::material_asset_lease material) {
-  if (!prefab_ || index >= nodes_.size() || nodes_[index].entity != GNEISS_NULL_ENTITY_ID) {
+  if (!staged_ || cancelling_ || !prefab_ || index >= nodes_.size() ||
+      nodes_[index].entity != GNEISS_NULL_ENTITY_ID || nodes_[index].staged_attempted) {
     return GNEISS_ERROR_INVALID_STATE;
   }
   const auto& source = prefab_.get()->objects[index];
@@ -575,13 +578,58 @@ prefab_runtime_instance::create_staged_node(std::size_t index, gneiss_scene_node
     target.mesh = std::move(mesh);
     target.material = std::move(material);
   }
+  // 创建前记录，以便节点创建中途失败也能按实际拓扑逆序清理。
+  target.staged_attempted = true;
+  staged_order_.push_back(index);
   return commit_node(index, parent);
 }
 
 gneiss_result
 prefab_runtime_instance::apply_staged_override(gneiss_type_registry registry,
                                                const prefab_property_override& value) noexcept {
+  if (cancelling_) {
+    return GNEISS_ERROR_INVALID_STATE;
+  }
   return apply_overrides(registry, std::span(&value, 1U));
+}
+
+bool prefab_runtime_instance::cancel_staged_step(std::size_t budget) noexcept {
+  if (!staged_) {
+    return false;
+  }
+  cancelling_ = true;
+  while (budget != 0U && !staged_order_.empty()) {
+    auto& target = nodes_[staged_order_.back()];
+    if (target.entity != GNEISS_NULL_ENTITY_ID) {
+      (void)world_internal::entity_destroy(world_, target.entity);
+      target.entity = GNEISS_NULL_ENTITY_ID;
+    }
+    if (target.node != GNEISS_NULL_SCENE_NODE_ID) {
+      (void)world_internal::node_destroy(world_, target.node);
+      target.node = GNEISS_NULL_SCENE_NODE_ID;
+    }
+    target.mesh = {};
+    target.material = {};
+    staged_order_.pop_back();
+    --budget;
+  }
+  while (budget != 0U && staged_order_.empty() && !nodes_.empty()) {
+    nodes_.pop_back();
+    --budget;
+  }
+  if (budget == 0U || !nodes_.empty()) {
+    return false;
+  }
+  if (root_entity_ != GNEISS_NULL_ENTITY_ID) {
+    (void)world_internal::entity_destroy(world_, root_entity_);
+    root_entity_ = GNEISS_NULL_ENTITY_ID;
+  }
+  if (root_node_ != GNEISS_NULL_SCENE_NODE_ID) {
+    (void)world_internal::node_destroy(world_, root_node_);
+    root_node_ = GNEISS_NULL_SCENE_NODE_ID;
+  }
+  prefab_ = {};
+  return true;
 }
 
 void prefab_runtime_instance::rollback() noexcept {

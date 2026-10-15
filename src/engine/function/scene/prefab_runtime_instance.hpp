@@ -67,6 +67,10 @@ public:
                                                  render_internal::material_asset_lease material);
   [[nodiscard]] gneiss_result apply_staged_override(gneiss_type_registry registry,
                                                     const prefab_property_override& value) noexcept;
+  /** 候选构造取消：每次最多处理 budget 个节点/记录；完成前须继续推进，禁止继续构造。
+   * 不回收共享资产缓存；返回 true 表示候选节点、记录和来源租约均已释放。
+   */
+  [[nodiscard]] bool cancel_staged_step(std::size_t budget) noexcept;
 
 private:
   friend class scene_instance_service;
@@ -78,6 +82,7 @@ private:
     gneiss_scene_node_id node = GNEISS_NULL_SCENE_NODE_ID;
     render_internal::mesh_asset_lease mesh;
     render_internal::material_asset_lease material;
+    bool staged_attempted{};
   };
 
   void rollback() noexcept;
@@ -96,6 +101,9 @@ private:
   gneiss_entity_id root_entity_ = GNEISS_NULL_ENTITY_ID;
   gneiss_scene_node_id root_node_ = GNEISS_NULL_SCENE_NODE_ID;
   std::vector<runtime_node> nodes_;
+  std::vector<std::size_t> staged_order_;
+  bool staged_{};
+  bool cancelling_{};
 };
 
 } // namespace gneiss::scene_internal
