@@ -31,6 +31,7 @@ World 和场景实例服务；Application 级渲染资源服务由各域共享�
 | `scene_asset`、`prefab_asset` | `engine/function/scene/` | 资产系统管理，通过引用共享；保存层级、组件初始数据和依赖 | 复用现有 scene/prefab 描述与解析 |
 | `scene_instance` | `engine/function/scene/` | 实例服务拥有；记录本次实例化的实体、节点映射与资产引用 | 整理现有实例记录，不再造实例表 |
 | `scene_instance_service` | `engine/function/scene/` | 场景运行环境拥有；在指定 World 创建、查询、销毁实例 | 保留现有服务并调整资产依赖 |
+| `world_state` | `engine/function/world/` | 存放 ECS 实体与组件、Scene Tree、活动相机及身份域/线程校验信息 | 复用现有 World，不新建另一份运行数据 |
 | `application_scene_state` | `engine/function/application/` | 协调对象拥有；保留 World 与实例服务，退出共享缓存的所有权 | 从当前场景域逐步迁移 |
 | `scene_controller` | `engine/function/application/` | Application 拥有；管理候选请求、当前域、旧域及安全切换 | 由当前 scene_session 演进并更名 |
 | `render_resource_service` | `engine/function/render/` | Application 拥有；管理 RID 与渲染资源数据，后端 GPU 操作仍交渲染后端 | 复用现有资源服务与帧持有 |
@@ -40,6 +41,36 @@ World 和场景实例服务；Application 级渲染资源服务由各域共享�
 具体场景、Mesh、Material、Texture 的解析及加载实现留在所属模块；在 Application 装配时注册
 到资产系统定义的接口。Asset 不包含上层具体资产头；注册机制不扩展为动态插件系统。
 内部对象不自动安装到 `include/`，不要求每个方法再包装 C ABI。
+
+## World 与运行上下文
+
+当前源码依据：`engine/function/world/world_state.hpp` 持有 ECS registry、Scene Tree、活动相机、
+实体身份域和 owner thread；`engine/function/application/application_scene_state.cpp` 创建 World，
+并在析构时先销毁场景实例服务、再销毁 World。上下文保存 World 句柄但承担其生命周期责任。
+
+`scene_instance_service` 的实例表允许多个实例归属同一 World；`scene_instance` 记录其创建的
+实体和节点 ID，以及资产租约。实体与组件实际存储在 World 中，不由每个实例另建 registry。
+服务可持有多个实例不代表 Editor 已实现完整的多场景编辑或任意多世界管理。
+
+目标区分如下：
+
+| 概念 | 含义 | 生命周期责任 |
+| --- | --- | --- |
+| 场景资产 | 可共享的对象与组件描述 | 资产系统管理，使用引用保持版本存活 |
+| 场景实例 | 一次实例化的对象集合及资源使用记录 | 实例服务销毁它创建的对象并释放其引用 |
+| World | 实体、组件与节点树的实际存储 | 运行上下文创建和销毁；身份不能跨 World 混用 |
+| 运行上下文 | 一个 World 与配套实例管理的生命周期边界 | 协调对象持有当前、候选和待退役上下文 |
+
+application_scene_state 是运行上下文，不是单个 scene 的实例 context。
+目标在同一 World 中允许多个实例；删除一个实例不得清空 World 或删除另一个实例的对象。
+销毁上下文必须先清理其全部实例，再销毁 World。资产引用释放仍受共享使用者和在途帧约束。
+
+当前完整打开流程用新 World 隔离候选，激活时替换整个上下文；继续保留这条失败隔离策略。
+这不是“一份场景资产必须拥有一个 World”的约束，也不要求本版新增增量场景加载接口。
+
+资产缓存及其加载职责迁出后，评估将 application_scene_state 更名为 `world_context`，位置先保持
+`engine/function/application/`。仅在它确实收敛为 World 与实例生命周期时更名；不先增加同名包装，
+不把该对象改为可随意访问所有服务的万能 context。World 的内部句柄表示不在本项机械替换。
 
 ## 所有权与依赖概念示意
 
@@ -95,6 +126,7 @@ RID 是服务资源身份，不替代资产身份或资产使用引用。
 | 职责复核 | 核对缓存键、租约、来源版本、实例与帧引用；明确候选发布 | 有实际调用与销毁关系证据，列明身份和版本未决项 |
 | 共享资产最小闭环 | 演进缓存及租约，跨两个场景域请求相同兼容资产 | 复用一次加载；不同来源/版本不错误合并；释放一个使用者不影响另一个 |
 | 场景资产与实例分离 | 复用描述解析，明确资产引用和实例资源记录 | 同一场景资产实例化两次；实体独立且共享依赖；销毁其中一个后另一个有效 |
+| 运行上下文收敛 | 缓存迁出后明确 World 与实例服务的唯一拥有者，评估 world_context 命名 | 同 World 两实例独立销毁；跨 World ID 拒绝；退出先实例后 World，候选失败不影响当前域 |
 | 请求与候选隔离 | 分离请求订阅与底层工作，保留失败/取消隔离 | 取消一个请求不取消其他使用者；失败不污染旧版本；迟到回执可清理；可重试 |
 | 接入协调与关闭 | controller 更名，迁出场景域缓存，收紧内部接口 | 无双份状态、无后端反向依赖；切换及在途退出无泄漏、悬空 RID 或死锁 |
 | 整体验证 | 沿用 DEV-051 的线程、消费者、平台及性能矩阵 | 小夹具后再完整 Sponza；共享数据按实际持有计量，不重复统计或隐藏峰值 |
