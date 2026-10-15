@@ -512,7 +512,8 @@ void scene_load_service::advance_impl() {
     const auto submitted = value.assets->submit_assets(
         std::span(value.requested).subspan(value.cursor, value.batch_count), progress.session,
         progress.revision, child, false,
-        std::min(remaining, render_internal::texture_load_service::maximum_candidate_bytes));
+        std::min(remaining, render_internal::texture_load_service::maximum_candidate_bytes),
+        render_internal::render_asset_loader::publication_mode::fixed_version);
     if (submitted == GNEISS_ERROR_NOT_READY) {
       return;
     }

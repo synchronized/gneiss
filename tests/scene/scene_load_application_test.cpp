@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/asset/mesh_binary.hpp"
+#include "engine/asset/texture_ktx2.hpp"
 #include "engine/function/application/application_asset_reload_internal.hpp"
 #include "engine/function/application/application_scene_load_internal.hpp"
 
@@ -269,12 +270,127 @@ void run(tasks::execution_mode mode) {
   check(scheduler.stats().retained == 0U);
   check(gneiss_world_entity_count(observed, &count) == GNEISS_ERROR_INVALID_HANDLE);
 }
+void shared_texture_versions(tasks::execution_mode mode) {
+  fixture files;
+  std::vector<std::byte> bytes;
+  std::string diagnostic;
+  check(asset_internal::encode_texture_ktx2(
+            {
+                .transfer = asset_internal::texture_transfer::srgb,
+                .levels =
+                    {
+                        {
+                            .width = 1U,
+                            .height = 1U,
+                            .pixels = std::vector<std::byte>(4U, std::byte{255}),
+                        },
+                    },
+            },
+            bytes, diagnostic) == asset_internal::texture_ktx2_result::success);
+  {
+    std::ofstream output(files.root / "image.ktx2", std::ios::binary);
+    output.write(reinterpret_cast<const char*>(bytes.data()),
+                 static_cast<std::streamsize>(bytes.size()));
+  }
+  std::ofstream(files.root / "texture.json")
+      << R"({"format":"gneiss.texture","version":1,"source":"asset://image.ktx2","color_space":"srgb"})";
+  for (const auto* name : {"material.json", "other.json"}) {
+    std::ofstream(files.root / name)
+        << R"({"format":"gneiss.material","version":2,"color":[1,1,1,1],"base_color_texture":"asset://texture.json"})";
+  }
+  std::ofstream(files.root / "scene.json")
+      << R"({"format":"gneiss.scene","version":4,"scene_uuid":"00000000-0000-4000-8000-000000000001","objects":[)"
+      << R"({"uuid":"00000000-0000-4000-8000-000000000002","parent":null,"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":{"mesh_renderer":{"mesh":"asset://mesh.json","material":"asset://material.json"}}},)"
+      << R"({"uuid":"00000000-0000-4000-8000-000000000003","parent":null,"transform":{"translation":[1,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":{"mesh_renderer":{"mesh":"asset://mesh.json","material":"asset://other.json"}}}],"prefab_instances":[]})";
+  tasks::task_scheduler scheduler({.workers = 1U, .mode = mode});
+  application app;
+  auto desc = gneiss_application_desc GNEISS_APPLICATION_DESC_INIT;
+  const auto root = files.root.string();
+  desc.asset_root = root.data();
+  desc.asset_root_length = static_cast<std::uint32_t>(root.size());
+  check(application::create_native(desc, app) == result::success);
+  check(attach_task_executor(app.get(), scheduler) == GNEISS_SUCCESS);
+  std::uint64_t request{};
+  check(request_scene_load(app.get(), "asset://scene.json", 1U, 1U, request) == GNEISS_SUCCESS);
+  scene_load_completion scene_completion;
+  scene_load_progress progress;
+  const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+  do {
+    check(std::chrono::steady_clock::now() < deadline);
+    if (mode == tasks::execution_mode::cooperative) {
+      (void)scheduler.run_ready();
+    }
+    bool terminal{};
+    bool active{};
+    check(poll_scene_load(app.get(), scene_completion, terminal) == GNEISS_SUCCESS && !terminal);
+    check(query_scene_load_progress(app.get(), progress, active) == GNEISS_SUCCESS && active);
+    std::this_thread::yield();
+  } while (progress.phase != scene_load_phase::ready);
+  // 材质各自一批准备，共享纹理必须复用同一 RID，绑定检查及预算去重均应成功。
+  check(progress.texture_payload_bytes == 4U);
+  check(activate_scene_load(app.get(), request, scene_completion) == GNEISS_SUCCESS);
+  std::uint64_t count{};
+  check(gneiss_scene_instance_get_node_count(app.get(), scene_completion.scene, &count) ==
+            GNEISS_SUCCESS &&
+        count == 2U);
+  const std::array<std::string, 1> textures{"asset://texture.json"};
+  check(request_textures(app.get(), textures, 1U, 2U, request) == GNEISS_SUCCESS);
+  render_internal::texture_load_completion assets;
+  bool ready{};
+  while (!ready) {
+    check(std::chrono::steady_clock::now() < deadline);
+    if (mode == tasks::execution_mode::cooperative) {
+      (void)scheduler.run_ready();
+    }
+    check(poll_textures(app.get(), assets, ready) == GNEISS_SUCCESS);
+    std::this_thread::yield();
+  }
+  // 激活后的原始 VFS 必须与候选包装转交同一来源身份，否则会重复创建并上传版本。
+  check(assets.result == GNEISS_SUCCESS && assets.assets.size() == 3U &&
+        assets.versions.size() == 3U && assets.peak_upload_bytes == 0U);
+  // 第一批材质准备后修改共享纹理；后续批次不能与旧批次混合激活。
+  bool ignored{};
+  check(poll_scene_load(app.get(), scene_completion, ignored) == GNEISS_SUCCESS && !ignored);
+  gneiss_world active_world{};
+  check(gneiss_application_get_world(app.get(), &active_world) == GNEISS_SUCCESS);
+  check(request_scene_load(app.get(), "asset://scene.json", 1U, 3U, request) == GNEISS_SUCCESS);
+  bool changed = false;
+  const auto failure_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+  while (true) {
+    check(std::chrono::steady_clock::now() < failure_deadline);
+    if (mode == tasks::execution_mode::cooperative) {
+      (void)scheduler.run_ready();
+    }
+    bool terminal{};
+    bool active{};
+    check(poll_scene_load(app.get(), scene_completion, terminal) == GNEISS_SUCCESS);
+    if (terminal) {
+      check(changed && scene_completion.result == GNEISS_ERROR_INVALID_STATE &&
+            scene_completion.progress.phase == scene_load_phase::failed &&
+            scene_completion.progress.cleanup_complete);
+      break;
+    }
+    check(query_scene_load_progress(app.get(), progress, active) == GNEISS_SUCCESS && active);
+    if (!changed && progress.phase == scene_load_phase::assets &&
+        progress.texture_payload_bytes != 0U && progress.completed < progress.total) {
+      std::ofstream(files.root / "image.ktx2", std::ios::app).put('\0');
+      changed = true;
+    }
+    std::this_thread::yield();
+  }
+  gneiss_world preserved{};
+  check(gneiss_application_get_world(app.get(), &preserved) == GNEISS_SUCCESS &&
+        preserved == active_world);
+  check(gneiss_world_entity_count(preserved, &count) == GNEISS_SUCCESS && count == 2U);
+}
 } // namespace
 int main() try {
   cancel_drain(tasks::execution_mode::thread_pool);
   cancel_drain(tasks::execution_mode::cooperative);
   run(tasks::execution_mode::thread_pool);
   run(tasks::execution_mode::cooperative);
+  shared_texture_versions(tasks::execution_mode::thread_pool);
+  shared_texture_versions(tasks::execution_mode::cooperative);
   return 0;
 } catch (const std::exception& error) {
   std::fprintf(stderr, "%s\n", error.what());

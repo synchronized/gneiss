@@ -475,6 +475,7 @@
 - [M-331：场景构建消费选定租约](records/M-331-scene-lease-bindings.md)
 - [M-331：场景资源引用批量切换](records/M-331-scene-version-switch.md)
 - [M-331：宿主异步重载切换场景版本](records/M-331-host-version-reload.md)
+- [M-331：异步新场景启用固定版本](records/M-331-scene-fixed-loading.md)
 
 ## 文档维护
 
