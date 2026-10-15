@@ -186,7 +186,7 @@ void prepared_source_revisions() {
   other_input.inputs.back().source.reset();
   check(cache.acquire(other_input, load, same) == GNEISS_ERROR_INVALID_ARGUMENT && !same);
 }
-void fixed_version_publication() {
+void fixed_version_publication(tasks::execution_mode mode) {
   auto source = std::make_shared<memory_files>();
   source->pixel(std::byte{10});
   source->text(
@@ -261,6 +261,81 @@ void fixed_version_publication() {
   material_lease = {};
   cache.release_unused();
   check(resources.live_resource_count() == 0U && cache.size() == 0U);
+  tasks::task_scheduler scheduler({.mode = mode});
+  unsigned uploads{};
+  unsigned discards{};
+  bool acknowledge = true;
+  gneiss_result upload_result = GNEISS_SUCCESS;
+  texture_upload_backend backend;
+  backend.begin = [&](auto data, std::uint64_t& id) {
+    uploads += static_cast<unsigned>(data.size());
+    id = 1U;
+    return GNEISS_SUCCESS;
+  };
+  backend.poll = [&](std::uint64_t, gneiss_result& result) {
+    result = upload_result;
+    return acknowledge;
+  };
+  backend.discard = [&](auto data, std::uint64_t& id) {
+    check(data.size() == 1U && data.front().material && !data.front().texture);
+    ++discards;
+    id = 2U;
+    return GNEISS_SUCCESS;
+  };
+  backend.flush = [] {};
+  texture_load_service service(scheduler, files, loader, std::move(backend));
+  const auto until = [&](auto predicate) {
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+    while (!predicate()) {
+      check(std::chrono::steady_clock::now() < deadline);
+      (void)scheduler.run_ready({.max_tasks = 8U});
+      service.advance();
+      std::this_thread::yield();
+    }
+  };
+  std::uint64_t request{};
+  texture_load_completion first_load;
+  check(service.submit_assets(requests, 1U, 1U, request, false,
+                              texture_load_service::maximum_candidate_bytes,
+                              fixed) == GNEISS_SUCCESS);
+  until([&] { return service.take(first_load); });
+  check(first_load.result == GNEISS_SUCCESS && first_load.versions.size() == 2U && uploads == 2U);
+  texture_load_completion second_load;
+  check(service.submit_assets(requests, 1U, 2U, request, false,
+                              texture_load_service::maximum_candidate_bytes,
+                              fixed) == GNEISS_SUCCESS);
+  until([&] { return service.take(second_load); });
+  check(second_load.result == GNEISS_SUCCESS && uploads == 2U);
+  check(first_load.versions == second_load.versions);
+  check(first_load.assets.back().get() == second_load.assets.back().get());
+  source->text(
+      "material",
+      R"({"format":"gneiss.material","version":2,"color":[0.5,1,1,1],"base_color_texture":"asset://texture"})");
+  acknowledge = false;
+  check(service.submit_assets(requests, 1U, 3U, request, false,
+                              texture_load_service::maximum_candidate_bytes,
+                              fixed) == GNEISS_SUCCESS);
+  until([&] { return uploads == 3U; });
+  check(service.cancel_unpublished());
+  acknowledge = true;
+  texture_load_completion cancelled_load;
+  until([&] { return service.take(cancelled_load); });
+  check(cancelled_load.state == texture_load_state::cancelled && cancelled_load.versions.empty());
+  check(discards == 1U && resources.get_texture(first_load.assets.front().get()) != nullptr);
+  upload_result = GNEISS_ERROR_IO;
+  check(service.submit_assets(requests, 1U, 4U, request, false,
+                              texture_load_service::maximum_candidate_bytes,
+                              fixed) == GNEISS_SUCCESS);
+  until([&] { return service.take(cancelled_load); });
+  check(cancelled_load.result == GNEISS_ERROR_IO && cancelled_load.versions.empty());
+  upload_result = GNEISS_SUCCESS;
+  check(service.submit_assets(requests, 1U, 5U, request, false,
+                              texture_load_service::maximum_candidate_bytes,
+                              fixed) == GNEISS_SUCCESS);
+  until([&] { return service.take(second_load); });
+  check(second_load.result == GNEISS_SUCCESS && second_load.assets.size() == 2U);
+  check(first_load.assets.front().get() == second_load.assets.front().get());
+  check(first_load.assets.back().get() != second_load.assets.back().get());
 }
 void cooperative_read_slices() {
   tasks::task_scheduler scheduler({.mode = tasks::execution_mode::cooperative});
@@ -833,7 +908,8 @@ void cancel_unpublished_upload(tasks::execution_mode mode) {
 } // namespace
 
 int main() try {
-  fixed_version_publication();
+  fixed_version_publication(tasks::execution_mode::cooperative);
+  fixed_version_publication(tasks::execution_mode::thread_pool);
   prepared_source_revisions();
   cooperative_read_slices();
   cancel_unpublished_upload(tasks::execution_mode::cooperative);

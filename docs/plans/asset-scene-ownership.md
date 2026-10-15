@@ -18,6 +18,8 @@
 见 [版本键记录](../records/M-331-prepared-version-keys.md)。加载器已增加显式固定版本候选和
 原子发布模式，见 [发布边界记录](../records/M-331-fixed-version-publication.md)；场景加载调用方
 尚未切换，当前默认热重载和 URI 查询行为保持不变。
+资产异步服务已提供显式固定版本模式并跳过复用上传，见
+[异步接入记录](../records/M-331-fixed-version-async.md)；场景构建尚未消费其确切版本租约。
 
 ## 当前与目标
 

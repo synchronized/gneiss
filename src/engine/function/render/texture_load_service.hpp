@@ -23,6 +23,8 @@ struct texture_load_completion {
   std::string message{};
   std::vector<render_internal::texture_asset_lease> textures;
   std::vector<render_internal::render_asset_lease> assets;
+  /** 固定版本模式下与 assets 一一对应；旧 URI 模式为空。失败不返回部分版本。 */
+  std::vector<asset_internal::asset_version_key> versions;
   double prepare_ms{};
   double queue_ms{};
   double upload_ms{};
@@ -73,10 +75,13 @@ public:
   [[nodiscard]] gneiss_result submit(std::span<const std::string> uris, std::uint64_t session,
                                      std::uint64_t revision, std::uint64_t& request,
                                      bool reload = true);
-  [[nodiscard]] gneiss_result
-  submit_assets(std::span<const render_internal::render_asset_reload> sources,
-                std::uint64_t session, std::uint64_t revision, std::uint64_t& request,
-                bool reload = true, std::size_t prepare_limit = maximum_candidate_bytes);
+  /** fixed_version 始终准备并复验来源，不使用 URI 快捷命中；仅上传未发布的版本。
+   * reload 仅控制旧模式的 URI 缓存策略，固定版本完成结果携带对应 versions。 */
+  [[nodiscard]] gneiss_result submit_assets(
+      std::span<const render_internal::render_asset_reload> sources, std::uint64_t session,
+      std::uint64_t revision, std::uint64_t& request, bool reload = true,
+      std::size_t prepare_limit = maximum_candidate_bytes,
+      render_asset_loader::publication_mode mode = render_asset_loader::publication_mode::reload);
   [[nodiscard]] bool progress(asset_load_progress& output) const;
   [[nodiscard]] bool busy() const noexcept { return pending_ != nullptr || completed_.has_value(); }
   void advance();

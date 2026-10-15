@@ -471,6 +471,7 @@
 - [M-331：准备结果携带来源摘要](records/M-331-prepared-source-revisions.md)
 - [M-331：准备产物版本键](records/M-331-prepared-version-keys.md)
 - [M-331：固定版本候选 RID 与原子发布](records/M-331-fixed-version-publication.md)
+- [M-331：异步资产固定版本模式](records/M-331-fixed-version-async.md)
 
 ## 文档维护
 

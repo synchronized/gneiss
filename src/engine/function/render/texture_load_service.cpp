@@ -11,6 +11,8 @@
 
 namespace gneiss::render_internal {
 struct texture_load_service::pending {
+  render_asset_loader::publication_mode mode{render_asset_loader::publication_mode::reload};
+  std::size_t reused_assets{};
   struct cpu_result {
     prepared_render_batch batch;
     std::unique_ptr<asset_internal::asset_preparation> preparation;
@@ -82,7 +84,8 @@ gneiss_result texture_load_service::submit(std::span<const std::string> uris, st
 gneiss_result texture_load_service::submit_assets(std::span<const render_asset_reload> sources,
                                                   std::uint64_t session, std::uint64_t revision,
                                                   std::uint64_t& request, bool reload,
-                                                  std::size_t prepare_limit) {
+                                                  std::size_t prepare_limit,
+                                                  render_asset_loader::publication_mode mode) {
   request = 0U;
   if (std::this_thread::get_id() != owner_ || stopping_) {
     return GNEISS_ERROR_INVALID_STATE;
@@ -104,6 +107,7 @@ gneiss_result texture_load_service::submit_assets(std::span<const render_asset_r
     }
   }
   auto value = std::make_unique<pending>();
+  value->mode = mode;
   value->observed = loader_.revision();
   value->completion.request = ++sequence_;
   value->completion.session = session;
@@ -112,7 +116,8 @@ gneiss_result texture_load_service::submit_assets(std::span<const render_asset_r
   value->data.reserve(maximum_assets);
   value->completion.textures.reserve(maximum_assets);
   value->completion.assets.reserve(maximum_assets);
-  if (!reload) {
+  value->completion.versions.reserve(maximum_assets);
+  if (!reload && mode == render_asset_loader::publication_mode::reload) {
     bool cached = true;
     for (const auto& source : sources) {
       render_asset_lease lease;
@@ -191,6 +196,9 @@ void texture_load_service::finish(gneiss_result result, texture_load_state state
   pending_->completion.state = state;
   pending_->completion.prepare_ms = pending_->cpu->milliseconds;
   pending_->completion.candidate_bytes = pending_->cpu->batch.bytes;
+  if (result != GNEISS_SUCCESS) {
+    pending_->completion.versions.clear();
+  }
   completed_ = std::move(pending_->completion);
   if (notification_) {
     notification_->notify();
@@ -288,19 +296,33 @@ void texture_load_service::advance_impl() {
       render_asset_loader::asset_candidate candidate;
       const auto result = diagnostics::measure(diagnostics::loop_stage::asset_stage, [&] {
         return loader_.stage_asset(std::move(value.cpu->batch.assets[value.candidates.size()]),
-                                   value.candidates, candidate);
+                                   value.candidates, candidate, value.mode);
       });
       if (result != GNEISS_SUCCESS) {
         finish(result, texture_load_state::failed);
         return;
       }
-      render_upload_item upload{candidate.mesh,    candidate.material,
-                                candidate.texture, candidate.dependency_textures,
-                                candidate.bytes,   candidate.texture_payload};
-      if (backend_.estimate_bytes) {
-        upload.bytes = backend_.estimate_bytes(upload);
+      const bool reused =
+          value.mode == render_asset_loader::publication_mode::fixed_version && candidate.existed;
+      if (value.mode == render_asset_loader::publication_mode::fixed_version) {
+        value.completion.versions.push_back(candidate.version);
       }
-      value.data.push_back(std::move(upload));
+      if (reused) {
+        ++value.reused_assets;
+      } else {
+        render_upload_item upload{
+            .mesh = candidate.mesh,
+            .material = candidate.material,
+            .texture = candidate.texture,
+            .dependency_textures = candidate.dependency_textures,
+            .bytes = candidate.bytes,
+            .texture_payload = candidate.texture_payload,
+        };
+        if (backend_.estimate_bytes) {
+          upload.bytes = backend_.estimate_bytes(upload);
+        }
+        value.data.push_back(std::move(upload));
+      }
       value.candidates.push_back(std::move(candidate));
       if (notification_) {
         notification_->notify();
@@ -344,6 +366,11 @@ void texture_load_service::advance_impl() {
     value.failure = GNEISS_ERROR_INVALID_STATE;
   }
   if (value.failure != GNEISS_SUCCESS) {
+    if (value.data.empty()) {
+      finish(value.failure,
+             value.cancelled ? texture_load_state::cancelled : texture_load_state::failed);
+      return;
+    }
     const auto result = backend_.discard(value.data, value.upload);
     if (result == GNEISS_ERROR_NOT_READY) {
       return;
@@ -463,7 +490,7 @@ bool texture_load_service::progress(asset_load_progress& output) const {
       pending_->completion.session,
       pending_->completion.revision,
       pending_->uploading ? texture_load_state::uploading : texture_load_state::preparing,
-      pending_->completed_uploads,
+      pending_->completed_uploads + pending_->reused_assets,
       pending_->prepared ? pending_->cpu->batch.assets.size() : 0U,
       !pending_->uploading,
       pending_->upload_reserved_bytes,
