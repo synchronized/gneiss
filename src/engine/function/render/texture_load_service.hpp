@@ -25,6 +25,8 @@ struct texture_load_completion {
   std::vector<render_internal::render_asset_lease> assets;
   /** 固定版本模式下与 assets 一一对应；旧 URI 模式为空。失败不返回部分版本。 */
   std::vector<asset_internal::asset_version_key> versions;
+  /** 本次准备实际使用的能力快照，用于已采用版本的兼容选择域。 */
+  texture_prepare_profile profile{};
   double prepare_ms{};
   double queue_ms{};
   double upload_ms{};

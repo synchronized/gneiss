@@ -231,6 +231,38 @@ material_asset_lease render_asset_loader::material_lease(const render_asset_leas
   return result;
 }
 
+asset_internal::resource_cache::selection_key
+render_asset_loader::selection_key(const asset_internal::asset_identity& identity,
+                                   texture_prepare_profile profile) {
+  auto configuration = std::string{"render-prepare-v1:"} + std::to_string(profile.generation) + ":";
+  for (const auto supported : profile.sampled_transfer_formats) {
+    configuration.push_back(supported ? '1' : '0');
+  }
+  return {.identity = identity, .configuration = std::move(configuration)};
+}
+
+gneiss_result render_asset_loader::acquire_selected(const asset_internal::asset_identity& identity,
+                                                    texture_prepare_profile profile,
+                                                    render_asset_lease& output) const noexcept {
+  output = {};
+  try {
+    render_asset_lease selected;
+    selected.entry_ = cache_.observe_selected(selection_key(identity, profile)).lock();
+    if (!selected.entry_ || selected.entry_->state != asset_internal::resource_state::ready) {
+      return GNEISS_ERROR_NOT_READY;
+    }
+    if (!owns(selected)) {
+      return GNEISS_ERROR_INVALID_HANDLE;
+    }
+    output = std::move(selected);
+    return GNEISS_SUCCESS;
+  } catch (const std::bad_alloc&) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
 gneiss_result render_asset_loader::acquire_cached(const render_asset_reload& source,
                                                   render_asset_lease& output,
                                                   texture_prepare_profile profile) const noexcept {

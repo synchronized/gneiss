@@ -99,6 +99,13 @@ public:
     std::shared_ptr<const std::vector<std::byte>> texture_payload{};
   };
   using revision_stamp = std::pair<std::uint64_t, std::uint64_t>;
+  /** 完整编码当前准备配置；保守隔离不同设备代次及格式能力，不读取来源。 */
+  [[nodiscard]] static asset_internal::resource_cache::selection_key
+  selection_key(const asset_internal::asset_identity& identity, texture_prepare_profile profile);
+  /** 仅取得已采用且就绪的租约；缺失返回 NOT_READY，不加载或等待。 */
+  [[nodiscard]] gneiss_result acquire_selected(const asset_internal::asset_identity& identity,
+                                               texture_prepare_profile profile,
+                                               render_asset_lease& output) const noexcept;
   /** profile 非零时校验纹理及材质纹理依赖的设备身份；零值供逻辑层读取已发布 RID。 */
   [[nodiscard]] gneiss_result acquire_cached(const render_asset_reload& source,
                                              render_asset_lease& output,

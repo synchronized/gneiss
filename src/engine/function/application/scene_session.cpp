@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <iterator>
 #include <map>
 #include <utility>
 
@@ -216,7 +217,18 @@ gneiss_result scene_session::poll_assets(render_internal::texture_load_completio
           changes.push_back({.previous = previous, .replacement = *next});
         }
         if (completion.result == GNEISS_SUCCESS) {
-          completion.result = active_->scenes->replace_render_assets(changes);
+          std::vector<asset_internal::resource_cache::version_selection> selections;
+          selections.reserve(completion.versions.size());
+          std::ranges::transform(
+              completion.versions, std::back_inserter(selections), [&](const auto& version) {
+                return asset_internal::resource_cache::version_selection{
+                    .selection = render_internal::render_asset_loader::selection_key(
+                        version.identity, completion.profile),
+                    .version = version,
+                };
+              });
+          completion.result = active_->cache.adopt_versions(
+              selections, [&] { return active_->scenes->replace_render_assets(changes); });
         }
       }
     } catch (const std::bad_alloc&) {

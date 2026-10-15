@@ -112,6 +112,7 @@ gneiss_result texture_load_service::submit_assets(std::span<const render_asset_r
   value->completion.request = ++sequence_;
   value->completion.session = session;
   value->completion.revision = revision;
+  value->completion.profile = backend_.profile;
   value->candidates.reserve(maximum_assets);
   value->data.reserve(maximum_assets);
   value->completion.textures.reserve(maximum_assets);
