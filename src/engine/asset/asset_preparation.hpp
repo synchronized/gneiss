@@ -3,9 +3,11 @@
 
 #pragma once
 
+#include "engine/asset/asset_identity.hpp"
 #include "engine/asset/material_parameters.hpp"
 #include "engine/asset/mesh_data.hpp"
 #include "engine/asset/texture_preparation_data.hpp"
+#include "engine/core/sha256.hpp"
 
 #include <chrono>
 #include <functional>
@@ -44,9 +46,19 @@ struct asset_request final {
   asset_type type = asset_type::mesh;
 };
 
+/** 准备实际读取的输入；identity.type 使用所属资产类型，区分描述与负载的 URI。
+ * 仅随整批复验成功的结果发布；不是包含依赖及准备配置的完整缓存版本。 */
+struct prepared_source final {
+  asset_identity identity;
+  std::uint64_t bytes{};
+  core::sha256_digest digest{};
+};
+
 /** 后台解析后的自有 CPU 数据；不持有缓存或后端对象，材质依赖仅使用 URI。 */
 struct prepared_asset {
   asset_request source;
+  /** 描述在首位，纹理负载在其后；材质的资产依赖仍由 texture_uris 表示。 */
+  std::vector<prepared_source> sources;
   asset_internal::mesh_data mesh;
   asset_internal::prepared_texture_data texture{};
   asset_internal::material_parameters material{};

@@ -241,7 +241,10 @@ bool run_preparation_case(const std::shared_ptr<range_files>& backend,
                output.assets.empty();
       }
       return result == GNEISS_SUCCESS && output.assets.size() == 1U &&
-             output.assets.front().mesh.vertices.size() == 3U;
+             output.assets.front().mesh.vertices.size() == 3U &&
+             output.assets.front().sources.size() == 1U &&
+             output.assets.front().sources.front().digest ==
+                 gneiss::core::sha256(backend->data->bytes);
     }
     if (result != GNEISS_SUCCESS || !output.assets.empty()) {
       return false;
@@ -382,7 +385,9 @@ int main() try {
   });
   worker.join();
   if (result != GNEISS_SUCCESS || output.assets.size() != 1U ||
-      output.assets[0].mesh.vertices.size() != 3U || output.bytes == 0U) {
+      output.assets[0].mesh.vertices.size() != 3U || output.bytes == 0U ||
+      output.assets[0].sources.size() != 1U || !output.assets[0].sources[0].identity.source ||
+      output.assets[0].sources[0].identity.uri != "asset://mesh") {
     return 1;
   }
 

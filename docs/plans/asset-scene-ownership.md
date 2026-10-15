@@ -7,12 +7,14 @@
 
 2026-10-15，目标设计已记录，资产共享迁移尚未实施。属于
 [DEV-051 的 M-329～M-333](DEV-051-architecture-boundaries.md)，决策依据为
-[ADR-064](../decisions/ADR-064-shared-assets-and-scene-instances.md)。本轮只整理文档。
+[ADR-064](../decisions/ADR-064-shared-assets-and-scene-instances.md)。
 当前已实现的协调拆分见 [M-331 记录](../records/M-331-scene-session-extraction.md)。
 缓存层已增加来源身份与固定版本入口，验证见 [版本缓存记录](../records/M-331-version-cache.md)；
 场景加载器尚未接入，跨场景共享与固定版本发布仍未完成。
 来源复验包装已补充身份转交与已观察摘要查询，见
 [接入记录](../records/M-331-source-revision-identity.md)；查询摘要不能代替最终复验。
+准备结果已携带描述及纹理负载的来源摘要，见
+[准备结果记录](../records/M-331-prepared-source-revisions.md)，完整产物版本组合尚未接入。
 
 ## 当前与目标
 

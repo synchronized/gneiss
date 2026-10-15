@@ -967,6 +967,24 @@ struct asset_preparation::state {
     step = phase::decode;
     return GNEISS_SUCCESS;
   }
+  gneiss_result record_source(std::string_view uri) {
+    prepared_source source;
+    const auto identified =
+        files.identify(uri, static_cast<std::uint32_t>(current.source.type), source.identity);
+    if (identified != GNEISS_SUCCESS) {
+      return identified;
+    }
+    source_revision_file_system::source_revision revision;
+    const auto observed =
+        versions->observed_revision(uri.substr(std::string_view("asset://").size()), revision);
+    if (observed != GNEISS_SUCCESS) {
+      return observed;
+    }
+    source.bytes = revision.bytes;
+    source.digest = revision.digest;
+    current.sources.push_back(std::move(source));
+    return GNEISS_SUCCESS;
+  }
   gneiss_result decode() {
     GNEISS_PROFILE_SCOPE("asset.prepare.decode");
     auto decoded = GNEISS_SUCCESS;
@@ -989,6 +1007,16 @@ struct asset_preparation::state {
     }
     if (decoded != GNEISS_SUCCESS) {
       return decoded;
+    }
+    const auto description_recorded = record_source(current.source.uri);
+    if (description_recorded != GNEISS_SUCCESS) {
+      return description_recorded;
+    }
+    if (current.source.type == asset_type::texture) {
+      const auto payload_recorded = record_source(input->image_uri);
+      if (payload_recorded != GNEISS_SUCCESS) {
+        return payload_recorded;
+      }
     }
     if (current.bytes > maximum_bytes - batch.bytes) {
       fail(diagnostic, GNEISS_ERROR_OUT_OF_MEMORY, current.source.uri,

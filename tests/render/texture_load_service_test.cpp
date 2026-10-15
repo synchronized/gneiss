@@ -96,6 +96,47 @@ struct memory_files final : file_system {
               files["image.ktx2"], diagnostic) == texture_ktx2_result::success);
   }
 };
+void prepared_source_revisions() {
+  auto source = std::make_shared<memory_files>();
+  source->pixel(std::byte{10});
+  source->text(
+      "texture",
+      R"({"format":"gneiss.texture","version":1,"source":"asset://image.ktx2","color_space":"srgb"})");
+  source->text(
+      "material",
+      R"({"format":"gneiss.material","version":2,"color":[1,1,1,1],"base_color_texture":"asset://texture"})");
+  virtual_file_system files;
+  check(files.mount("asset://", source) == GNEISS_SUCCESS);
+  const std::array requests{asset_request{"asset://material", asset_type::material}};
+  prepared_batch before;
+  prepared_batch after;
+  asset_diagnostic diagnostic;
+  check(prepare_assets(files, requests, before, diagnostic, {}, 128U) == GNEISS_SUCCESS);
+  source->pixel(std::byte{20});
+  check(prepare_assets(files, requests, after, diagnostic, {}, 128U) == GNEISS_SUCCESS);
+  check(before.assets.size() == 2U && after.assets.size() == 2U);
+  for (std::size_t index = 0; index < before.assets.size(); ++index) {
+    const auto& old_asset = before.assets[index];
+    const auto& new_asset = after.assets[index];
+    check(old_asset.source.uri == new_asset.source.uri && !old_asset.sources.empty());
+    check(old_asset.sources.front().identity == new_asset.sources.front().identity);
+    check(old_asset.sources.front().digest == new_asset.sources.front().digest);
+    if (old_asset.source.type == asset_type::texture) {
+      check(old_asset.sources.size() == 2U && new_asset.sources.size() == 2U);
+      const auto& payload = new_asset.sources.back();
+      asset_identity expected;
+      check(files.identify("asset://image.ktx2", static_cast<std::uint32_t>(asset_type::texture),
+                           expected) == GNEISS_SUCCESS);
+      check(payload.identity == expected && payload.identity == old_asset.sources.back().identity);
+      check(payload.bytes == source->files.at("image.ktx2").size());
+      check(payload.digest == core::sha256(source->files.at("image.ktx2")));
+      check(payload.digest != old_asset.sources.back().digest);
+    } else {
+      check(old_asset.sources.size() == 1U && new_asset.sources.size() == 1U);
+      check(new_asset.texture_uris[0] == "asset://texture");
+    }
+  }
+}
 void cooperative_read_slices() {
   tasks::task_scheduler scheduler({.mode = tasks::execution_mode::cooperative});
   auto files = std::make_shared<memory_files>();
@@ -667,6 +708,7 @@ void cancel_unpublished_upload(tasks::execution_mode mode) {
 } // namespace
 
 int main() try {
+  prepared_source_revisions();
   cooperative_read_slices();
   cancel_unpublished_upload(tasks::execution_mode::cooperative);
   cancel_unpublished_upload(tasks::execution_mode::thread_pool);

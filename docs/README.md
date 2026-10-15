@@ -468,6 +468,7 @@
 - [M-331：资产运行期来源身份](records/M-331-asset-source-identity.md)
 - [M-331：来源身份与固定版本缓存条目](records/M-331-version-cache.md)
 - [M-331：来源复验身份传递与摘要查询](records/M-331-source-revision-identity.md)
+- [M-331：准备结果携带来源摘要](records/M-331-prepared-source-revisions.md)
 
 ## 文档维护
 
