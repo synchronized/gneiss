@@ -6,6 +6,7 @@
 #include "engine/function/render/render_resource_service.hpp"
 #include "engine/function/scene/scene_load_builder.hpp"
 #include "engine/function/world/world_service.hpp"
+#include <algorithm>
 #include <thread>
 
 #include <cstdio>
@@ -86,6 +87,11 @@ void run() {
                                                   scene_diagnostic, {}) == GNEISS_SUCCESS);
   auto candidate = std::make_unique<application_internal::application_scene_state>(vfs, resources);
   check(candidate->initialize() == GNEISS_SUCCESS);
+  std::vector<render_internal::render_asset_lease> captured{render_internal::render_asset_lease{}};
+  check(candidate->scenes->capture_render_assets(captured) == GNEISS_SUCCESS && captured.empty());
+  check(!render_internal::render_asset_loader::asset_lease(render_internal::mesh_asset_lease{}));
+  check(
+      !render_internal::render_asset_loader::asset_lease(render_internal::material_asset_lease{}));
   const std::array requests{
       render_internal::render_asset_reload{"asset://m.mesh",
                                            render_internal::render_asset_type::mesh},
@@ -143,6 +149,26 @@ void run() {
     new_scene = builder.instance();
   }
   const auto selected_material = material.get();
+  check(candidate->scenes->capture_render_assets(captured) == GNEISS_SUCCESS);
+  check(captured.size() == 2U && files->reads == reads);
+  const auto has_rid = [&](std::uint64_t rid) {
+    return std::ranges::any_of(captured, [rid](const auto& lease) { return lease.get() == rid; });
+  };
+  check(has_rid(mesh_rid) && has_rid(selected_material) && !has_rid(unrelated.get()));
+  // 同 URI 的蓝色和绿色版本同时被场景使用时，不得按 URI 合并。
+  gneiss_scene_instance additional{};
+  check(candidate->scenes->load("asset://s.scene", &additional) == GNEISS_SUCCESS);
+  check(candidate->scenes->capture_render_assets(captured) == GNEISS_SUCCESS);
+  check(captured.size() == 4U && has_rid(selected_material) && has_rid(unrelated.get()));
+  check(candidate->scenes->unload(additional) == GNEISS_SUCCESS);
+  check(candidate->scenes->capture_render_assets(captured) == GNEISS_SUCCESS);
+  check(captured.size() == 2U && !has_rid(unrelated.get()));
+  gneiss_result snapshot_thread = GNEISS_SUCCESS;
+  std::thread snapshot_worker(
+      [&] { snapshot_thread = candidate->scenes->capture_render_assets(captured); });
+  snapshot_worker.join();
+  check(snapshot_thread == GNEISS_ERROR_INVALID_STATE && captured.size() == 2U &&
+        has_rid(selected_material));
   material = {};
   candidate->assets.release_unused();
   check(resources.get_material(selected_material) != nullptr &&
@@ -198,7 +224,16 @@ void run() {
   updates = {};
   previous_version = {};
   candidate->assets.release_unused();
+  check(resources.get_material(selected_material) != nullptr);
+  captured.clear();
+  candidate->assets.release_unused();
   check(resources.get_material(selected_material) == nullptr);
+  check(candidate->scenes->remove_mesh_renderer(new_scene, ordinary.node) == GNEISS_SUCCESS);
+  const auto snapshot_reads = files->reads;
+  check(candidate->scenes->capture_render_assets(captured) == GNEISS_SUCCESS);
+  check(captured.size() == 2U && has_rid(mesh_rid) && has_rid(next_version.get()));
+  check(files->reads == snapshot_reads);
+  captured.clear();
   const auto old_world = active->world;
   active.swap(candidate);
   std::uint64_t count{};

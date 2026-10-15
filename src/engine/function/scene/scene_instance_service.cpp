@@ -1556,6 +1556,41 @@ gneiss_result scene_instance::serialize(std::string& out_json) const {
   return serialize_scene_description(current, out_json);
 }
 
+gneiss_result scene_instance_service::capture_render_assets(
+    std::vector<render_internal::render_asset_lease>& output) noexcept {
+  try {
+    const auto owner = world_internal::replace_mesh_renderers(world_, {});
+    if (owner != GNEISS_SUCCESS) {
+      return owner;
+    }
+    std::vector<render_internal::render_asset_lease> captured;
+    std::unordered_set<std::uint64_t> seen;
+    const auto append = [&](const auto& lease) {
+      if (lease && seen.insert(lease.get()).second) {
+        captured.push_back(render_internal::render_asset_loader::asset_lease(lease));
+      }
+    };
+    instances_.for_each(core::resource_type::scene_instance, [&](const auto& instance) {
+      for (const auto& node : instance->objects) {
+        append(node.mesh);
+        append(node.material);
+      }
+      for (const auto& prefab : instance->prefab_instances) {
+        for (const auto& node : prefab->nodes_) {
+          append(node.mesh);
+          append(node.material);
+        }
+      }
+    });
+    output = std::move(captured);
+    return GNEISS_SUCCESS;
+  } catch (const std::bad_alloc&) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
 gneiss_result
 scene_instance_service::replace_render_assets(std::span<const asset_replacement> changes) noexcept {
   try {

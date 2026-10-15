@@ -116,6 +116,9 @@ public:
   [[nodiscard]] static material_asset_lease
   material_lease(const render_asset_lease& lease) noexcept;
   [[nodiscard]] bool owns(const render_asset_lease& lease) const noexcept;
+  /** 保留场景实际持有的版本，不查询 URI 缓存；空租约仍为空。 */
+  [[nodiscard]] static render_asset_lease asset_lease(const mesh_asset_lease& lease) noexcept;
+  [[nodiscard]] static render_asset_lease asset_lease(const material_asset_lease& lease) noexcept;
   struct texture_target {
     std::string uri;
     std::weak_ptr<const asset_internal::resource_cache::entry> expected;

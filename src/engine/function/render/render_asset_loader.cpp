@@ -192,6 +192,17 @@ bool render_asset_loader::owns(const render_asset_lease& lease) const noexcept {
   }
 }
 
+render_asset_lease render_asset_loader::asset_lease(const mesh_asset_lease& lease) noexcept {
+  render_asset_lease result;
+  result.entry_ = lease.entry_;
+  return result;
+}
+render_asset_lease render_asset_loader::asset_lease(const material_asset_lease& lease) noexcept {
+  render_asset_lease result;
+  result.entry_ = lease.entry_;
+  return result;
+}
+
 mesh_asset_lease render_asset_loader::mesh_lease(const render_asset_lease& lease) noexcept {
   mesh_asset_lease result;
   if (lease.type() == render_asset_type::mesh) {

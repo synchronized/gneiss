@@ -33,6 +33,21 @@ prefab_structural_reload、core-boundary、core-boundary-negative。
 World 和场景服务执行 clang-tidy，新增初始化告警已修正，文件原有复杂度和参数可互换等
 告警仍存在。格式与 diff 检查通过。未执行跨平台、安装消费者及完整 Sponza 矩阵。
 
+## 后续实施：旧版本租约快照
+
+同日补充 `capture_render_assets`，从此 World 各场景普通节点与 Prefab 的实际租约
+采集网格和材质，按 RID 去重。同 URI 的多个版本分别保留，不通过 URI 缓存猜测旧版本，
+不执行文件读取。快照持有资源至调用方释放；失败不覆盖调用方原有输出，跨线程调用拒绝。
+它不采集裸 ECS RID 使用者，也不保证采集后使用者未变化；提交仍走上述事务验证。
+
+补充测试覆盖空场景、空租约转换、不同版本共存、实例卸载后的重新采集、仅 Prefab 使用、
+无文件 I/O、跨线程拒绝保持原输出，以及切换后快照维持旧资源寿命。
+重新构建相关目标后，Windows Clang Debug 定向 CTest 8/8 通过：render_asset_loader、
+scene-load-builder、scene_instance、scene_prefab_instance、scene_structural_reload、
+prefab_structural_reload、core-boundary、core-boundary-negative。
+对渲染资产加载器和场景服务执行 clang-tidy，现有复杂度等告警仍存在，新增方法无告警。
+没有执行真实 GPU、跨平台或完整 Sponza 验证，没有改变宿主当前重载入口。
+
 ## 剩余工作
 
 宿主须把上传完成结果转成旧、新租约对，在安全边界提交更新，并处理失败/取消与回收。

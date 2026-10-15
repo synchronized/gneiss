@@ -118,6 +118,12 @@ private:
 
 class scene_instance_service final {
 public:
+  /** 所属线程采集此 World 普通节点和 Prefab 实际持有的网格、材质租约。
+   * 按 RID 去重，同 URI 的不同版本分别保留；不读文件、不查询最新缓存。
+   * 成功替换 output，失败保持 output；快照延长资源寿命，须早于渲染服务释放。
+   * 不包含裸 ECS RID 使用者；后续切换仍需验证使用者当前状态。 */
+  [[nodiscard]] gneiss_result
+  capture_render_assets(std::vector<render_internal::render_asset_lease>& output) noexcept;
   struct asset_replacement {
     render_internal::render_asset_lease previous;
     render_internal::render_asset_lease replacement;
