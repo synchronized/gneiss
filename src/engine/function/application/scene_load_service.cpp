@@ -72,6 +72,7 @@ struct scene_load_service::pending {
   std::unique_ptr<render_internal::texture_load_service> assets;
   std::unique_ptr<scene_internal::scene_load_builder> builder;
   scene_internal::scene_load_builder::asset_bindings bindings;
+  std::vector<asset_internal::resource_cache::version_selection> selections;
   std::map<std::uint64_t, resource_usage> resident;
   std::vector<render_internal::render_asset_reload> requested;
   std::size_t cursor{};
@@ -439,13 +440,26 @@ void scene_load_service::advance_impl() {
       finish(completion.result, scene_load_phase::failed, completion.message);
       return;
     }
-    for (const auto& lease : completion.assets) {
+    if (completion.versions.size() != completion.assets.size()) {
+      finish(GNEISS_ERROR_INVALID_STATE, scene_load_phase::failed, "场景资产版本回执不完整");
+      return;
+    }
+    for (std::size_t index = 0U; index < completion.assets.size(); ++index) {
+      const auto& lease = completion.assets[index];
       const auto [binding, inserted] = value.bindings.emplace(std::string(lease.uri()), lease);
       if (!inserted &&
           (binding->second.type() != lease.type() || binding->second.get() != lease.get())) {
         finish(GNEISS_ERROR_INVALID_STATE, scene_load_phase::failed,
                "同一场景请求的资产绑定不一致");
         return;
+      }
+      if (inserted) {
+        const auto& version = completion.versions[index];
+        value.selections.push_back({
+            .selection = render_internal::render_asset_loader::selection_key(version.identity,
+                                                                             completion.profile),
+            .version = version,
+        });
       }
       auto& previous = value.resident[lease.get()];
       progress.resident_bytes -= previous.logical;
@@ -534,6 +548,15 @@ void scene_load_service::advance_impl() {
       return;
     }
     if (complete) {
+      // 此时缓存仍完全属于候选域；取消或失败会随整个域丢弃选择。
+      // 提前完成全部分配，take_candidate 与宿主激活继续只做不可失败的所有权交换。
+      const auto adopted = value.selections.empty()
+                               ? GNEISS_SUCCESS
+                               : value.candidate->cache.adopt_versions(value.selections);
+      if (adopted != GNEISS_SUCCESS) {
+        finish(adopted, scene_load_phase::failed);
+        return;
+      }
       progress.phase = scene_load_phase::ready;
     }
   }

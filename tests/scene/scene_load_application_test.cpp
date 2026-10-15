@@ -244,9 +244,10 @@ void run(tasks::execution_mode mode) {
   (void)await_phase(scene_load_phase::ready);
   check(activate_scene_load(app.get(), request, completion) == GNEISS_SUCCESS);
   (void)drive();
-  // 描述准备和实例化边界取消都必须保留已经激活的 World。
+  // ready 的候选已准备默认版本选择，取消仍必须保留已经激活的 World。
   check(gneiss_application_get_world(app.get(), &observed) == GNEISS_SUCCESS);
-  for (const auto phase : {scene_load_phase::preparing, scene_load_phase::instantiating}) {
+  for (const auto phase :
+       {scene_load_phase::preparing, scene_load_phase::instantiating, scene_load_phase::ready}) {
     check(request_scene_load(app.get(), uri, 1U, 5U, request) == GNEISS_SUCCESS);
     if (phase != scene_load_phase::preparing) {
       (void)await_phase(phase);
@@ -265,7 +266,16 @@ void run(tasks::execution_mode mode) {
     }
     check(stopped && gneiss_world_entity_count(observed, &count) == GNEISS_SUCCESS && count == 1U);
   }
-  check(request_scene_load(app.get(), uri, 1U, 5U, request) == GNEISS_SUCCESS);
+  // 无渲染依赖的空场景不需要采用批次，也必须正常激活。
+  std::ofstream(files.root / "empty.scene")
+      << R"({"format":"gneiss.scene","version":4,"scene_uuid":"00000000-0000-4000-8000-000000000003","objects":[],"prefab_instances":[]})";
+  check(request_scene_load(app.get(), "asset://empty.scene", 1U, 6U, request) == GNEISS_SUCCESS);
+  (void)await_phase(scene_load_phase::ready);
+  check(activate_scene_load(app.get(), request, completion) == GNEISS_SUCCESS);
+  (void)drive();
+  check(gneiss_application_get_world(app.get(), &observed) == GNEISS_SUCCESS);
+  check(gneiss_world_entity_count(observed, &count) == GNEISS_SUCCESS && count == 0U);
+  check(request_scene_load(app.get(), uri, 1U, 7U, request) == GNEISS_SUCCESS);
   app = application{};
   check(scheduler.stats().retained == 0U);
   check(gneiss_world_entity_count(observed, &count) == GNEISS_ERROR_INVALID_HANDLE);

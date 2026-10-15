@@ -196,4 +196,6 @@ set_mesh_renderer，以及 prefab_runtime_instance 的实例化/刷新仍调用 
 缓存层首先提供显式采用已发布版本的原子操作及只读选择查询；实现验证见
 [版本选择记录](../records/M-331-adopted-version-index.md)。活动 World 的异步资产重载已接入
 兼容配置选择域及使用者提交边界，见 [宿主采用记录](../records/M-331-host-adoption.md)。
-新场景激活的初始选择和 Editor 消费者仍待迁移，不代表所有同步入口已收敛。
+新场景的初始选择在私有候选进入 ready 前准备，随域交换一起生效，见
+[新场景采用记录](../records/M-331-scene-initial-adoption.md)。Editor 消费者仍待迁移，
+不代表所有同步入口已收敛。

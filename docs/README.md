@@ -481,6 +481,7 @@
 - [M-331：同步入口审计与 Runtime 回退移除](records/M-331-sync-entry-audit.md)
 - [M-331：版本采用的使用者提交边界](records/M-331-adoption-transaction.md)
 - [M-331：宿主重载采用与就绪查询](records/M-331-host-adoption.md)
+- [M-331：新场景初始版本采用](records/M-331-scene-initial-adoption.md)
 
 ## 文档维护
 
