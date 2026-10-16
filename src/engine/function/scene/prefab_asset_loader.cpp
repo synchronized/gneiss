@@ -42,8 +42,8 @@ std::string description_version(const gneiss::scene_internal::prefab_description
   for (const auto& object : description.objects) {
     text(object.uuid);
     text(object.name);
-    number(object.parent_uuid.has_value() ? 1U : 0U);
-    if (object.parent_uuid) {
+    number(static_cast<std::uint64_t>(object.parent_uuid.has_value()));
+    if (object.parent_uuid.has_value()) {
       text(*object.parent_uuid);
     }
     for (const auto value : object.translation) {
@@ -55,19 +55,23 @@ std::string description_version(const gneiss::scene_internal::prefab_description
     for (const auto value : object.scale) {
       real(value);
     }
-    number(object.camera.has_value() ? 1U : 0U);
-    if (object.camera) {
-      const auto& camera = *object.camera;
+    const auto camera_value = object.camera;
+    number(static_cast<std::uint64_t>(camera_value.has_value()));
+    if (camera_value.has_value()) {
+      const auto& camera = *camera_value;
       real(camera.vertical_field_of_view_radians);
       real(camera.near_plane);
       real(camera.far_plane);
-      number(camera.is_primary ? 1U : 0U);
+      number(static_cast<std::uint64_t>(camera.is_primary));
     }
-    number(object.mesh_renderer.has_value() ? 1U : 0U);
-    if (object.mesh_renderer) {
-      const auto& renderer = *object.mesh_renderer;
+    const auto renderer_value = object.mesh_renderer;
+    if (renderer_value.has_value()) {
+      const auto& renderer = *renderer_value;
+      number(1U);
       text(renderer.mesh_uri);
       text(renderer.material_uri);
+    } else {
+      number(0U);
     }
   }
   std::string version = "prefab-description-v1:";
