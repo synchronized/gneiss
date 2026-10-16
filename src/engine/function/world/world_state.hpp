@@ -14,7 +14,11 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <functional>
+#include <memory>
+#include <stdexcept>
 #include <thread>
+#include <type_traits>
 #include <utility>
 
 namespace gneiss::world_internal {
@@ -29,6 +33,60 @@ struct mesh_renderer_component {
 
 class world_state final {
 public:
+  class publication_group final {
+    friend class world_state;
+    explicit publication_group(std::uint32_t domain) : domain_(domain) {}
+    std::uint32_t domain_;
+    std::size_t count_{};
+    bool published_{};
+  };
+  using publication = std::shared_ptr<publication_group>;
+
+  /** 所属线程创建候选组；令牌只供内部构造使用，不得跨 World。 */
+  [[nodiscard]] publication begin_publication() const {
+    return is_owner_thread() ? publication{new publication_group{domain_}} : publication{};
+  }
+  [[nodiscard]] gneiss_entity_id create_staged_entity(const publication& group) {
+    if (!valid_group(group) || group->published_) {
+      return GNEISS_NULL_ENTITY_ID;
+    }
+    const auto entity = registry_.create();
+    try {
+      registry_.emplace<publication_member>(entity, group);
+    } catch (...) {
+      registry_.destroy(entity);
+      throw;
+    }
+    ++group->count_;
+    return encode(entity);
+  }
+  template <typename Component, typename... Args>
+  [[nodiscard]] bool emplace_staged(const publication& group, gneiss_entity_id entity,
+                                    Args&&... args) {
+    if (!staged_member(group, entity)) {
+      return false;
+    }
+    registry_.emplace_or_replace<Component>(decode(entity), std::forward<Args>(args)...);
+    return true;
+  }
+  [[nodiscard]] bool destroy_staged_entity(const publication& group, gneiss_entity_id entity) {
+    if (!staged_member(group, entity)) {
+      return false;
+    }
+    scene_.detach_entity(entity);
+    registry_.destroy(decode(entity));
+    --group->count_;
+    return true;
+  }
+  /** 全部可失败准备完成后调用；不分配，不遍历成员。 */
+  [[nodiscard]] gneiss_result publish(const publication& group) noexcept {
+    if (!valid_group(group) || group->published_) {
+      return GNEISS_ERROR_INVALID_STATE;
+    }
+    entity_count_ += group->count_;
+    group->published_ = true;
+    return GNEISS_SUCCESS;
+  }
   explicit world_state(std::uint32_t domain) noexcept
       : scene_(domain), domain_(domain), owner_thread_(std::this_thread::get_id()) {}
 
@@ -48,6 +106,9 @@ public:
   }
 
   [[nodiscard]] bool destroy_entity(gneiss_entity_id entity) {
+    if (!is_alive(entity)) {
+      return false;
+    }
     const auto native = decode(entity);
     if (native == entt::null || !registry_.valid(native)) {
       return false;
@@ -63,24 +124,34 @@ public:
 
   [[nodiscard]] bool is_alive(gneiss_entity_id entity) const noexcept {
     const auto native = decode(entity);
-    return native != entt::null && registry_.valid(native);
+    if (native == entt::null || !registry_.valid(native)) {
+      return false;
+    }
+    const auto* member = registry_.try_get<publication_member>(native);
+    return member == nullptr || member->group->published_;
   }
 
   [[nodiscard]] std::size_t entity_count() const noexcept { return entity_count_; }
 
   template <typename Component, typename... Args>
   Component& emplace(gneiss_entity_id entity, Args&&... args) {
+    if (!is_alive(entity)) {
+      throw std::invalid_argument{"实体未发布或已失效"};
+    }
     return registry_.emplace<Component>(decode(entity), std::forward<Args>(args)...);
   }
 
   template <typename Component, typename... Args>
   Component& emplace_or_replace(gneiss_entity_id entity, Args&&... args) {
+    if (!is_alive(entity)) {
+      throw std::invalid_argument{"实体未发布或已失效"};
+    }
     return registry_.emplace_or_replace<Component>(decode(entity), std::forward<Args>(args)...);
   }
 
   template <typename Component> [[nodiscard]] Component* get(gneiss_entity_id entity) noexcept {
     const auto native = decode(entity);
-    return native == entt::null ? nullptr : registry_.try_get<Component>(native);
+    return !is_alive(entity) ? nullptr : registry_.try_get<Component>(native);
   }
 
   [[nodiscard]] gneiss_result set_active_camera(gneiss_entity_id entity) noexcept {
@@ -98,6 +169,9 @@ public:
   }
 
   [[nodiscard]] gneiss_result clear_camera(gneiss_entity_id entity) noexcept {
+    if (!is_alive(entity)) {
+      return GNEISS_ERROR_INVALID_HANDLE;
+    }
     const auto native = decode(entity);
     if (native == entt::null || !registry_.valid(native)) {
       return GNEISS_ERROR_INVALID_HANDLE;
@@ -112,6 +186,9 @@ public:
   }
 
   [[nodiscard]] gneiss_result clear_mesh_renderer(gneiss_entity_id entity) noexcept {
+    if (!is_alive(entity)) {
+      return GNEISS_ERROR_INVALID_HANDLE;
+    }
     const auto native = decode(entity);
     if (native == entt::null || !registry_.valid(native)) {
       return GNEISS_ERROR_INVALID_HANDLE;
@@ -133,7 +210,16 @@ public:
   [[nodiscard]] gneiss_entity_id active_camera() const noexcept { return active_camera_; }
 
   template <typename... Component, typename Function> void each(Function&& function) {
-    registry_.view<Component...>().each(std::forward<Function>(function));
+    registry_.view<Component...>().each([&](entt::entity entity, auto&... components) {
+      if (!is_alive(encode(entity))) {
+        return;
+      }
+      if constexpr (std::is_invocable_v<Function&, entt::entity, decltype(components)...>) {
+        std::invoke(function, entity, components...);
+      } else {
+        std::invoke(function, components...);
+      }
+    });
   }
 
   [[nodiscard]] scene_internal::scene_tree& scene() noexcept { return scene_; }
@@ -143,6 +229,24 @@ public:
   }
 
 private:
+  struct publication_member {
+    publication group;
+  };
+  [[nodiscard]] bool valid_group(const publication& group) const noexcept {
+    return is_owner_thread() && group && group->domain_ == domain_;
+  }
+  [[nodiscard]] bool staged_member(const publication& group,
+                                   gneiss_entity_id entity) const noexcept {
+    if (!valid_group(group) || group->published_) {
+      return false;
+    }
+    const auto native = decode(entity);
+    if (native == entt::null || !registry_.valid(native)) {
+      return false;
+    }
+    const auto* member = registry_.try_get<publication_member>(native);
+    return member != nullptr && member->group == group;
+  }
   [[nodiscard]] gneiss_entity_id encode(entt::entity entity) const noexcept {
     const auto native = static_cast<std::uint32_t>(entt::to_integral(entity));
     return (static_cast<gneiss_entity_id>(domain_) << 32U) |

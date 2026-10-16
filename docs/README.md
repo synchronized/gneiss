@@ -230,6 +230,7 @@
 - [ADR-062：内部 C++ 与外部 SDK 边界](decisions/ADR-062-internal-cpp-and-sdk-boundaries.md)
 - [ADR-063：场景生命周期协调归属](decisions/ADR-063-scene-lifecycle-coordination.md)
 - [ADR-064：共享资产与场景实例分离](decisions/ADR-064-shared-assets-and-scene-instances.md)
+- [ADR-065：分帧结构事务使用 World 发布组](decisions/ADR-065-world-publication-groups.md)
 
 ## 实施与验收记录
 
@@ -486,6 +487,7 @@
 - [M-331：Editor 模态网格节点创建](records/M-331-editor-modal-mesh-create.md)
 - [M-331：Prefab 候选分步清理](records/M-331-prefab-staged-cancel.md)
 - [M-331：分帧历史操作基础](records/M-331-history-operation.md)
+- [M-331：World 候选实体可见性](records/M-331-world-publication.md)
 
 ## 文档维护
 

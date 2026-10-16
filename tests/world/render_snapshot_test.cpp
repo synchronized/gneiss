@@ -38,6 +38,26 @@ int run_tests() {
       snapshot.instances.front().transform.translation[0] != 2.0F) {
     return 3;
   }
+  const auto group = world.begin_publication();
+  const auto pending_mesh = world.create_staged_entity(group);
+  const auto pending_camera = world.create_staged_entity(group);
+  gneiss_scene_node_id pending_node = GNEISS_NULL_SCENE_NODE_ID;
+  if (!world.emplace_staged<gneiss::world_internal::mesh_renderer_component>(group, pending_mesh,
+                                                                             renderer) ||
+      !world.emplace_staged<gneiss::world_internal::camera_component>(group, pending_camera,
+                                                                      camera) ||
+      world.scene().create(GNEISS_NULL_SCENE_NODE_ID, pending_mesh, &pending_node) !=
+          GNEISS_SUCCESS ||
+      world.set_active_camera(pending_camera) != GNEISS_ERROR_INVALID_HANDLE ||
+      world.active_camera() != camera_entity ||
+      gneiss::world_internal::build_render_snapshot(world, 1280U, 720U, snapshot) !=
+          GNEISS_SUCCESS ||
+      snapshot.instances.size() != 1U || world.publish(group) != GNEISS_SUCCESS ||
+      gneiss::world_internal::build_render_snapshot(world, 1280U, 720U, snapshot) !=
+          GNEISS_SUCCESS ||
+      snapshot.instances.size() != 2U || world.active_camera() != camera_entity) {
+    return 5;
+  }
   if (!world.destroy_entity(camera_entity) ||
       gneiss::world_internal::build_render_snapshot(world, 1280U, 720U, snapshot) !=
           GNEISS_SUCCESS ||

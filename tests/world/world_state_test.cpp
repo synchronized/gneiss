@@ -81,6 +81,44 @@ int run_tests() {
   if (replacement == entity || first.is_alive(entity) || !first.is_alive(replacement)) {
     return 5;
   }
+  const auto group = first.begin_publication();
+  const auto candidate = first.create_staged_entity(group);
+  const auto cancelled = first.create_staged_entity(group);
+  gneiss_result other_thread_result = GNEISS_SUCCESS;
+  std::thread worker([&] { other_thread_result = first.publish(group); });
+  worker.join();
+  if (other_thread_result != GNEISS_ERROR_INVALID_STATE) {
+    return 10;
+  }
+  if (candidate == GNEISS_NULL_ENTITY_ID || !first.emplace_staged<position>(group, candidate, 40) ||
+      first.is_alive(candidate) || first.get<position>(candidate) != nullptr ||
+      first.entity_count() != 1U || first.destroy_entity(candidate) ||
+      second.create_staged_entity(group) != GNEISS_NULL_ENTITY_ID ||
+      second.publish(group) != GNEISS_ERROR_INVALID_STATE) {
+    return 6;
+  }
+  int visited = 0;
+  first.each<position>([&](const position&) { ++visited; });
+  if (visited != 0 || !first.destroy_staged_entity(group, cancelled) ||
+      first.destroy_staged_entity(group, cancelled) || first.publish(group) != GNEISS_SUCCESS ||
+      first.entity_count() != 2U || !first.is_alive(candidate) ||
+      first.get<position>(candidate)->value != 40 ||
+      first.publish(group) != GNEISS_ERROR_INVALID_STATE ||
+      first.emplace_staged<position>(group, candidate, 41) ||
+      first.create_staged_entity(group) != GNEISS_NULL_ENTITY_ID) {
+    return 7;
+  }
+  first.each<position>([&](entt::entity, const position&) { ++visited; });
+  if (visited != 1 || !first.destroy_entity(candidate) || first.is_alive(candidate) ||
+      first.entity_count() != 1U) {
+    return 8;
+  }
+  const auto other = first.begin_publication();
+  const auto hidden = first.create_staged_entity(other);
+  if (first.destroy_staged_entity(group, hidden) || !first.destroy_staged_entity(other, hidden) ||
+      first.entity_count() != 1U) {
+    return 9;
+  }
   return 0;
 }
 
