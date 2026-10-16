@@ -40,3 +40,18 @@ Windows Clang Debug 相关目标构建通过，15 项日志、Application、IPC 
 
 剩余：update、diagnostic、close_requested、时钟与主循环的句柄参数仍是兼容路径，
 Application 整体迁移尚未完成。本轮未验证 Linux 或静态安装矩阵。
+
+## 主循环回调与时间视图
+
+2026-10-16，update、diagnostic、close_requested 和时钟改为原生 callable，配置移除 void*。
+主循环、Editor/ImGui 与 Runtime 固定更新调度器使用内部 frame_time；诊断使用枚举及借用文本。
+C/SDK 回调的原布局在 API 入口逐字段构造，原生宿主通过捕获保存既有上下文。
+回调中的关联 ID 暂供尚未迁移的宿主调用借用桥，未新增拥有权；不是句柄桥整体移除。
+
+时钟、更新及关闭请求抛异常时，run 清理更新状态与临时绘制列表，释放运行标志后返回结果码；
+诊断接收方异常不会打断初始化/关闭及日志投递。原生测试验证时钟失败后再次运行、更新/关闭
+请求失败后正常关闭、诊断异常不覆盖原始初始化结果。
+完整 Windows Debug 构建及 11 项 Application、日志、Runtime 调度、宿主和窗口回归通过；
+诊断枚举进一步收敛后，4 项 C/SDK/原生 Application 与 C Scene 回归通过。
+
+剩余：宿主借用桥、UI 输入和字体资源链、场景/资产调用仍需继续迁移。未执行最终安装与跨平台矩阵。

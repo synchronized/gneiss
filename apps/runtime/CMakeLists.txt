@@ -11,8 +11,7 @@ add_library(
 target_link_libraries(gneiss_game_module_session PUBLIC gneiss::engine gneiss_dynamic_library)
 target_include_directories(
   gneiss_game_module_session
-  PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}"
-  PRIVATE "${PROJECT_SOURCE_DIR}/src"
+  PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}" "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>"
 )
 target_compile_features(gneiss_game_module_session PUBLIC cxx_std_20)
 gneiss_target_compile_warnings(gneiss_game_module_session)

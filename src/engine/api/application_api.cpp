@@ -86,14 +86,13 @@ extern "C" gneiss_result gneiss_application_create(const gneiss_application_desc
     gneiss::application_internal::application_configuration config{
         .callbacks =
             {
-                .user_data = normalized_desc.user_data,
                 .initialize = {},
                 .poll_events = {},
-                .now_ns = normalized_desc.now_ns,
-                .update = normalized_desc.update,
+                .now_ns = {},
+                .update = {},
                 .shutdown = {},
-                .diagnostic = normalized_desc.diagnostic,
-                .close_requested = normalized_desc.close_requested,
+                .diagnostic = {},
+                .close_requested = {},
                 .log = normalized_desc.log == nullptr
                            ? gneiss::log_internal::event_sink{}
                            : gneiss::api_internal::make_application_log_sink(
@@ -128,6 +127,41 @@ extern "C" gneiss_result gneiss_application_create(const gneiss_application_desc
     };
     // C 回调只在 ABI 边界适配；不捕获描述结构或调用方输出地址。
     auto* const user_data = normalized_desc.user_data;
+    if (const auto callback = normalized_desc.now_ns) {
+      config.callbacks.now_ns = [callback, user_data] { return callback(user_data); };
+    }
+    if (const auto callback = normalized_desc.update) {
+      config.callbacks.update = [callback, user_data](gneiss::core::rid context,
+                                                      const gneiss::engine::frame_time& time) {
+        const gneiss_frame_time abi_time{time.frame_index,
+                                         time.delta_ns,
+                                         time.elapsed_ns,
+                                         static_cast<std::uint8_t>(time.is_paused),
+                                         {}};
+        return gneiss::from_native(callback(context, &abi_time, user_data));
+      };
+    }
+    if (const auto callback = normalized_desc.close_requested) {
+      config.callbacks.close_requested = [callback, user_data](gneiss::core::rid context) {
+        return callback(context, user_data) != 0U;
+      };
+    }
+    if (const auto callback = normalized_desc.diagnostic) {
+      config.callbacks.diagnostic = [callback,
+                                     user_data](gneiss::core::rid context,
+                                                const gneiss::diagnostics::diagnostic_view& event) {
+        const gneiss_diagnostic abi_event{sizeof(gneiss_diagnostic),
+                                          static_cast<std::uint32_t>(event.level),
+                                          static_cast<std::uint32_t>(event.source),
+                                          gneiss::to_native(event.result),
+                                          event.module.data(),
+                                          event.module.size(),
+                                          event.message.data(),
+                                          event.message.size(),
+                                          {}};
+        callback(context, &abi_event, user_data);
+      };
+    }
     if (const auto callback = normalized_desc.initialize) {
       config.callbacks.initialize = [callback, user_data] {
         return gneiss::from_native(callback(user_data));
@@ -166,8 +200,9 @@ extern "C" gneiss_result gneiss_application_run(gneiss_application application,
     }
     const auto result = state->run(application, max_frame_count);
     if (result != GNEISS_SUCCESS) {
-      state->report(application, GNEISS_DIAGNOSTIC_ERROR, GNEISS_DIAGNOSTIC_CATEGORY_BACKEND,
-                    result, "application", "主循环因运行时错误终止");
+      state->report(application, gneiss::diagnostics::severity::error,
+                    gneiss::diagnostics::category::backend, result, "application",
+                    "主循环因运行时错误终止");
     }
     return result;
   } catch (...) {

@@ -69,8 +69,8 @@ gneiss_result select_project(project_manager_state& state, gneiss_application ap
   return gneiss_application_request_exit(application);
 }
 
-gneiss_result update_project_manager(gneiss_application application, const gneiss_frame_time* time,
-                                     void* user_data) {
+gneiss_result update_project_manager(gneiss_application application,
+                                     const gneiss::engine::frame_time* time, void* user_data) {
   try {
     if (time == nullptr || user_data == nullptr) {
       return GNEISS_ERROR_INVALID_ARGUMENT;
@@ -204,8 +204,10 @@ result run_project_manager(bool smoke, editor_project& output) noexcept {
     gneiss::application_internal::application_bridge bridge;
     constexpr std::string_view title = "Gneiss Project Manager";
     gneiss::application_internal::application_configuration desc;
-    desc.callbacks.user_data = &state;
-    desc.callbacks.update = update_project_manager;
+    desc.callbacks.update = [&state](gneiss::core::rid handle,
+                                     const gneiss::engine::frame_time& time) {
+      return gneiss::from_native(update_project_manager(handle, &time, &state));
+    };
     desc.use_granit_window = true;
     desc.window.title = title;
 

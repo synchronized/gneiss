@@ -22,6 +22,58 @@ struct context {
 }
 
 namespace {
+void test_loop_callback_exceptions() {
+  using namespace gneiss;
+  application_internal::application_configuration config;
+  std::shared_ptr<engine::application> app;
+  bool fail = true;
+  unsigned updates{};
+  config.callbacks.now_ns = [&]() -> std::uint64_t {
+    if (fail)
+      throw std::bad_alloc{};
+    return 12U;
+  };
+  config.callbacks.update = [&](core::rid, const engine::frame_time& time) {
+    check(time.delta_ns == 0U);
+    ++updates;
+    return result::success;
+  };
+  check(engine::application::create(config, app) == GNEISS_SUCCESS);
+  check(app->run(0, 1) == GNEISS_ERROR_OUT_OF_MEMORY);
+  fail = false;
+  check(app->run(0, 1) == GNEISS_SUCCESS && updates == 1U);
+  app.reset();
+  config.callbacks.now_ns = {};
+  config.callbacks.update = [](core::rid, const engine::frame_time&) -> result {
+    throw std::runtime_error("更新失败");
+  };
+  check(engine::application::create(config, app) == GNEISS_SUCCESS);
+  check(app->run(0, 1) == GNEISS_ERROR_INTERNAL);
+  check(app->shutdown(0) == GNEISS_SUCCESS);
+  app.reset();
+  config.callbacks.update = {};
+  config.callbacks.poll_events = [](bool& close) {
+    close = true;
+    return result::success;
+  };
+  config.callbacks.close_requested = [](core::rid) -> bool { throw std::bad_alloc{}; };
+  check(engine::application::create(config, app) == GNEISS_SUCCESS);
+  check(app->run(0, 1) == GNEISS_ERROR_OUT_OF_MEMORY);
+  check(app->shutdown(0) == GNEISS_SUCCESS);
+  app.reset();
+  unsigned delivered_diagnostics{};
+  bool valid_diagnostic{};
+  config = {};
+  config.callbacks.initialize = [] { return result::initialization_failed; };
+  config.callbacks.diagnostic = [&](core::rid, const diagnostics::diagnostic_view& event) {
+    ++delivered_diagnostics;
+    valid_diagnostic = event.result == result::initialization_failed && !event.message.empty();
+    throw std::runtime_error("诊断失败");
+  };
+  check(engine::application::create(config, app) == GNEISS_ERROR_INITIALIZATION_FAILED);
+  check(delivered_diagnostics == 1U && valid_diagnostic && !app);
+}
+
 void test_platform_callbacks() {
   std::shared_ptr<gneiss::engine::application> app;
   // 原生平台回调使用强类型结果和 bool；异常不能跳过配对关闭。
@@ -61,19 +113,18 @@ void test_platform_callbacks() {
 int main() try {
   context state;
   gneiss::application_internal::application_configuration config;
-  config.callbacks.user_data = &state;
   config.callbacks.initialize = [&state] {
     ++state.initializations;
     return state.fail ? gneiss::result::initialization_failed : gneiss::result::success;
   };
   config.callbacks.shutdown = [&state] { ++state.shutdowns; };
-  config.callbacks.update = [](gneiss_application handle, const gneiss_frame_time*,
-                               void* data) -> gneiss_result {
+  config.callbacks.update = [&state](gneiss::core::rid handle,
+                                     const gneiss::engine::frame_time&) -> gneiss::result {
     if (handle != GNEISS_NULL_APPLICATION) {
-      return GNEISS_ERROR_INVALID_HANDLE;
+      return gneiss::result::invalid_handle;
     }
-    ++static_cast<context*>(data)->frames;
-    return GNEISS_SUCCESS;
+    ++state.frames;
+    return gneiss::result::success;
   };
   std::atomic<unsigned> delivered{};
   std::atomic<bool> valid_log{true};
@@ -152,6 +203,7 @@ int main() try {
   check(gneiss_application_get_world(expired, &world) == GNEISS_ERROR_INVALID_HANDLE);
   check(bridge.reset() == GNEISS_SUCCESS);
   test_platform_callbacks();
+  test_loop_callback_exceptions();
   return 0;
 } catch (const std::exception& error) {
   std::fprintf(stderr, "%s\n", error.what());

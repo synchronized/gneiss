@@ -40,8 +40,8 @@ extern "C" gneiss_result gneiss_scene_instance_load(gneiss_application applicati
     if (result != GNEISS_SUCCESS) {
       auto message = std::string{"场景加载失败："};
       message.append(uri_view);
-      state->report(application, GNEISS_DIAGNOSTIC_ERROR, GNEISS_DIAGNOSTIC_CATEGORY_ASSET, result,
-                    "scene.load", message);
+      state->report(application, gneiss::diagnostics::severity::error,
+                    gneiss::diagnostics::category::asset, result, "scene.load", message);
     }
     return result;
   } catch (...) {

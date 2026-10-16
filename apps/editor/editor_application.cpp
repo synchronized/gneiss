@@ -1158,7 +1158,7 @@ bool draw_transform_gizmo(editor_state& state, const ImVec2& minimum, const ImVe
       minimum, size);
 }
 
-gneiss_result update_editor_camera(editor_state& state, const gneiss_frame_time& time) {
+gneiss_result update_editor_camera(editor_state& state, const gneiss::engine::frame_time& time) {
   auto& io = ImGui::GetIO();
   gneiss::editor::editor_camera_input input;
   constexpr double nanoseconds_per_second = 1'000'000'000.0;
@@ -1320,7 +1320,7 @@ void draw_scene_loading(editor_state& state, gneiss_application application) {
   ImGui::End();
 }
 
-gneiss_result update_editor(gneiss_application application, const gneiss_frame_time* time,
+gneiss_result update_editor(gneiss_application application, const gneiss::engine::frame_time* time,
                             void* user_data) {
   try {
     if (time == nullptr || user_data == nullptr) {
@@ -2911,9 +2911,13 @@ int run_editor(int argc, char** argv) {
 #endif
   const auto title = project.name + " - Gneiss Editor";
   gneiss::application_internal::application_configuration desc;
-  desc.callbacks.user_data = &state;
-  desc.callbacks.update = update_editor;
-  desc.callbacks.close_requested = handle_close_requested;
+  desc.callbacks.update = [&state](gneiss::core::rid handle,
+                                   const gneiss::engine::frame_time& time) {
+    return gneiss::from_native(update_editor(handle, &time, &state));
+  };
+  desc.callbacks.close_requested = [&state](gneiss::core::rid handle) {
+    return handle_close_requested(handle, &state) != 0U;
+  };
   desc.use_granit_window = true;
   desc.window.title = title;
 

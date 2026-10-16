@@ -21,7 +21,7 @@ namespace gneiss::runtime_internal {
 game_update_scheduler::game_update_scheduler(game_update_scheduler_config config) noexcept
     : config_(config) {}
 
-result game_update_scheduler::advance(const gneiss_frame_time& frame,
+result game_update_scheduler::advance(const gneiss::engine::frame_time& frame,
                                       const game_update_callbacks& callbacks,
                                       game_update_report& out_report) noexcept {
   out_report = {};

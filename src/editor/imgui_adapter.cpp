@@ -259,7 +259,7 @@ void imgui_adapter::shutdown(gneiss_application application) noexcept {
 }
 
 gneiss_result imgui_adapter::begin_frame(gneiss_application application,
-                                         const gneiss_frame_time& time) {
+                                         const gneiss::engine::frame_time& time) {
   if (context_ == nullptr) {
     return GNEISS_ERROR_INVALID_STATE;
   }
@@ -398,7 +398,8 @@ gneiss_result imgui_adapter::submit(engine::application& application) {
   desc.vertices = vertices_;
   desc.indices = indices_;
   desc.commands = commands_;
-  if (!application.is_owner_thread()) return GNEISS_ERROR_INVALID_STATE;
+  if (!application.is_owner_thread())
+    return GNEISS_ERROR_INVALID_STATE;
   return application.submit_ui_draw_list(desc);
 }
 

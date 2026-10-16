@@ -38,27 +38,27 @@ int main() {
   const game_update_callbacks callbacks{&calls, fixed_update, update};
   game_update_report report;
 
-  gneiss_frame_time frame{0U, 5U, 5U, 0U, {}};
+  gneiss::engine::frame_time frame{0U, 5U, 5U, false};
   if (scheduler.advance(frame, callbacks, report) != gneiss::result::success ||
       report.fixed_step_count != 0U || calls.variable_count != 1U ||
       calls.variable[0].delta_ns != 5U) {
     return 1;
   }
-  frame = {1U, 25U, 30U, 0U, {}};
+  frame = {1U, 25U, 30U, false};
   if (scheduler.advance(frame, callbacks, report) != gneiss::result::success ||
       report.fixed_step_count != 3U || report.dropped_ns != 0U || calls.fixed_count != 3U ||
       calls.fixed[0].update_index != 0U || calls.fixed[2].elapsed_ns != 30U ||
       calls.variable_count != 2U || calls.variable[1].update_index != 1U) {
     return 2;
   }
-  frame = {2U, 100U, 130U, 0U, {}};
+  frame = {2U, 100U, 130U, false};
   if (scheduler.advance(frame, callbacks, report) != gneiss::result::success ||
       !report.was_frame_clamped || report.accepted_delta_ns != 50U ||
       report.fixed_step_count != 3U || report.dropped_ns != 20U || calls.fixed_count != 6U ||
       calls.variable_count != 3U || calls.variable[2].elapsed_ns != 80U) {
     return 3;
   }
-  frame = {3U, 0U, 130U, 1U, {}};
+  frame = {3U, 0U, 130U, true};
   if (scheduler.advance(frame, callbacks, report) != gneiss::result::success ||
       report.fixed_step_count != 0U || calls.variable_count != 4U ||
       calls.variable[3].delta_ns != 0U) {
@@ -66,7 +66,7 @@ int main() {
   }
 
   calls.fixed_result = gneiss::result::internal;
-  frame = {4U, 10U, 140U, 0U, {}};
+  frame = {4U, 10U, 140U, false};
   if (scheduler.advance(frame, callbacks, report) != gneiss::result::internal ||
       calls.variable_count != 4U) {
     return 5;
@@ -74,7 +74,7 @@ int main() {
   scheduler.reset();
   calls.fixed_result = gneiss::result::success;
   calls.variable_result = gneiss::result::dependency_failed;
-  frame = {0U, 0U, 0U, 0U, {}};
+  frame = {0U, 0U, 0U, false};
   if (scheduler.advance(frame, callbacks, report) != gneiss::result::dependency_failed ||
       calls.variable_count != 5U || calls.variable[4].update_index != 0U) {
     return 6;

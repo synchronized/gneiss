@@ -5,6 +5,7 @@
 #define GNEISS_APPS_EDITOR_IMGUI_ADAPTER_H_
 
 #include "../engine/function/render/draw_types.hpp"
+#include "engine/core/frame_time.hpp"
 #include <gneiss/engine/application.h>
 #include <gneiss/engine/input.h>
 #include <gneiss/engine/render.h>
@@ -31,7 +32,7 @@ public:
   [[nodiscard]] gneiss_result initialize(gneiss_application application);
   void shutdown(gneiss_application application) noexcept;
   [[nodiscard]] gneiss_result begin_frame(gneiss_application application,
-                                          const gneiss_frame_time& time);
+                                          const gneiss::engine::frame_time& time);
   [[nodiscard]] gneiss_result submit(engine::application& application);
 
 private:

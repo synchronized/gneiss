@@ -47,7 +47,8 @@ BOOL CALLBACK find_window(HWND window, LPARAM data) {
   return TRUE;
 }
 
-gneiss_result update(gneiss_application application, const gneiss_frame_time* time, void* data) {
+gneiss_result update(gneiss_application application, const gneiss::engine::frame_time* time,
+                     void* data) {
   auto& value = *static_cast<state*>(data);
 #if defined(GNEISS_TEST_BACKGROUND_ASSETS)
   if (!value.assets->status().active ||
@@ -136,8 +137,10 @@ int main() {
   config.window.width = 640U;
   config.window.height = 480U;
   config.window.title = "Gneiss 0.37 interaction probe";
-  config.callbacks.user_data = &value;
-  config.callbacks.update = update;
+  config.callbacks.update = [&value](gneiss::core::rid handle,
+                                     const gneiss::engine::frame_time& time) {
+    return gneiss::from_native(update(handle, &time, &value));
+  };
   std::shared_ptr<gneiss::engine::application> application;
   gneiss::application_internal::application_bridge bridge;
   if (gneiss::engine::application::create(config, application) != GNEISS_SUCCESS ||

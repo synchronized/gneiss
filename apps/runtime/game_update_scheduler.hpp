@@ -4,6 +4,7 @@
 #ifndef GNEISS_APPS_RUNTIME_GAME_UPDATE_SCHEDULER_H_
 #define GNEISS_APPS_RUNTIME_GAME_UPDATE_SCHEDULER_H_
 
+#include "engine/core/frame_time.hpp"
 #include <gneiss/engine/application.h>
 #include <gneiss/engine/core/result.hpp>
 #include <gneiss/engine/game_module.h>
@@ -36,7 +37,7 @@ class game_update_scheduler final {
 public:
   explicit game_update_scheduler(game_update_scheduler_config config = {}) noexcept;
 
-  [[nodiscard]] result advance(const gneiss_frame_time& frame,
+  [[nodiscard]] result advance(const gneiss::engine::frame_time& frame,
                                const game_update_callbacks& callbacks,
                                game_update_report& out_report) noexcept;
   void reset() noexcept;

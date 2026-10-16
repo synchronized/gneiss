@@ -4,8 +4,8 @@
 #ifndef GNEISS_ENGINE_APPLICATION_HPP_
 #define GNEISS_ENGINE_APPLICATION_HPP_
 
-#include <gneiss/engine/application.h>
 #include "engine/core/input/input_types.hpp"
+#include <gneiss/engine/application.h>
 
 #include "engine/asset/virtual_file_system.hpp"
 #include "engine/core/diagnostics/loop_timing.hpp"
@@ -120,21 +120,23 @@ public:
   [[nodiscard]] gneiss_result load_action_map(std::string_view uri) noexcept;
   [[nodiscard]] gneiss_result find_action(std::string_view name,
                                           input_internal::action_id& out_action) const noexcept;
-  [[nodiscard]] gneiss_result get_action_state(input_internal::action_id action,
-                                               input_internal::action_state& out_state) const noexcept;
+  [[nodiscard]] gneiss_result
+  get_action_state(input_internal::action_id action,
+                   input_internal::action_state& out_state) const noexcept;
   [[nodiscard]] bool can_submit_draw_lists() const noexcept;
   [[nodiscard]] gneiss_result
   submit_ui_draw_list(const render_internal::ui_draw_view& desc) noexcept;
   [[nodiscard]] gneiss_result
   submit_debug_draw_list(std::span<const render_internal::debug_line> lines) noexcept;
-  void report(gneiss_application handle, std::uint32_t severity, std::uint32_t category,
-              gneiss_result result, std::string_view module, std::string_view message) noexcept;
+  void report(gneiss_application handle, diagnostics::severity severity,
+              diagnostics::category category, gneiss_result result, std::string_view module,
+              std::string_view message) noexcept;
   [[nodiscard]] gneiss_result submit_log(const log_internal::message_view& message) noexcept;
   void request_exit() noexcept;
   void set_paused(bool value) noexcept;
 
 private:
-  [[nodiscard]] std::uint64_t now_ns() const noexcept;
+  [[nodiscard]] std::uint64_t now_ns() const;
   [[nodiscard]] gneiss_result poll_events(bool& out_should_close) noexcept;
   [[nodiscard]] gneiss_result render_frame() noexcept;
   struct storage;

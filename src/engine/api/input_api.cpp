@@ -84,8 +84,8 @@ extern "C" gneiss_result gneiss_application_load_action_map(gneiss_application a
     }
     const auto result = state->load_action_map({uri, static_cast<std::size_t>(uri_length)});
     if (result != GNEISS_SUCCESS) {
-      state->report(application, GNEISS_DIAGNOSTIC_ERROR, GNEISS_DIAGNOSTIC_CATEGORY_INPUT, result,
-                    "input", "动作映射加载失败");
+      state->report(application, gneiss::diagnostics::severity::error,
+                    gneiss::diagnostics::category::input, result, "input", "动作映射加载失败");
     }
     return result;
   } catch (...) {

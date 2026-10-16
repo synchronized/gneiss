@@ -6,24 +6,25 @@
 #include "engine/core/log/log_dispatcher.hpp"
 #include "engine/platform/window_configuration.hpp"
 
+#include "engine/core/diagnostics/diagnostic.hpp"
+#include "engine/core/frame_time.hpp"
+#include "engine/core/rid.hpp"
 #include <functional>
-#include <gneiss/engine/application.h>
 #include <gneiss/engine/core/result.hpp>
 #include <string_view>
 
 namespace gneiss::application_internal {
 
 /** 原生平台和日志回调由配置复制；捕获的借用对象须存活至关闭结束。
- * update/diagnostic/close 与时钟暂保留兼容回调，后续单独迁移。 */
+ * context 是兼容宿主的借用关联标识；不拥有 Application，不授予销毁权。 */
 struct application_callbacks final {
-  void* user_data = nullptr;
   std::function<result()> initialize;
   std::function<result(bool&)> poll_events;
-  gneiss_application_now_ns_fn now_ns = nullptr;
-  gneiss_application_update_fn update = nullptr;
+  std::function<std::uint64_t()> now_ns;
+  std::function<result(core::rid, const engine::frame_time&)> update;
   std::function<void()> shutdown;
-  gneiss_application_diagnostic_fn diagnostic = nullptr;
-  gneiss_application_close_requested_fn close_requested = nullptr;
+  std::function<void(core::rid, const diagnostics::diagnostic_view&)> diagnostic;
+  std::function<bool(core::rid)> close_requested;
   log_internal::event_sink log;
 };
 
