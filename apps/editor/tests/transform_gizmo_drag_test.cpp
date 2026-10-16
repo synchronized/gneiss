@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "engine/function/application/application_registry.hpp"
 #include "transform_gizmo_drag.hpp"
 
 #include <gneiss/engine/application.hpp>
@@ -38,8 +39,8 @@ int main() try {
   gneiss::editor::editor_session session;
   if (gneiss::sdk::application::create_native(desc, application) != result::success ||
       application.get_world(world) != result::success ||
-      session.open(application.get(), world, "asset://scenes/triangle.scene.json") !=
-          result::success) {
+      session.open(*gneiss::application_internal::find_application(application.get()), world,
+                   "asset://scenes/triangle.scene.json") != result::success) {
     return 1;
   }
   const auto parent = session.nodes()[0].node;
@@ -141,8 +142,8 @@ int main() try {
       history.size() != 0U) {
     return 12;
   }
-  if (session.open(application.get(), world, "asset://scenes/prefab.scene.json") !=
-          result::success ||
+  if (session.open(*gneiss::application_internal::find_application(application.get()), world,
+                   "asset://scenes/prefab.scene.json") != result::success ||
       session.select(session.prefab_nodes()[1].node) != result::success) {
     return 13;
   }
@@ -166,8 +167,8 @@ int main() try {
     return 15;
   }
   history.clear();
-  if (session.open(application.get(), world, "asset://scenes/triangle.scene.json") !=
-          result::success ||
+  if (session.open(*gneiss::application_internal::find_application(application.get()), world,
+                   "asset://scenes/triangle.scene.json") != result::success ||
       session.select(session.nodes()[1].node) != result::success) {
     return 16;
   }

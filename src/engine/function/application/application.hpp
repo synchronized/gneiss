@@ -104,6 +104,7 @@ public:
   [[nodiscard]] bool is_owner_thread() const noexcept;
   [[nodiscard]] bool accepts_requests() const noexcept;
   [[nodiscard]] gneiss_world world() const noexcept;
+  [[nodiscard]] engine::world* native_world() const noexcept;
   [[nodiscard]] render_internal::render_resource_service& resources() noexcept;
   [[nodiscard]] render_internal::render_asset_loader& asset_loader() noexcept;
   [[nodiscard]] scene_internal::prefab_asset_loader& prefab_loader() noexcept;

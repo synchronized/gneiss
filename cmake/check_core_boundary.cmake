@@ -53,7 +53,11 @@ foreach(source IN LISTS sources)
       content MATCHES "#[ \t]*include[ \t]*[<\"](apps|editor|tooling)/")
     message(FATAL_ERROR "Engine 不得反向包含宿主、编辑器或离线工具：${source}")
   endif()
-  # Editor 是 Engine SDK 的消费者，允许公共接口调用，但不得反向依赖 Apps。
+  if(source MATCHES "/src/editor/editor_session[.](cpp|hpp)$" AND
+      content MATCHES "gneiss_(application|scene_instance|scene_node|world)_[a-z_]+[(]|(^|[ ;])scene_instance scene_")
+    message(FATAL_ERROR "原生编辑会话不得绕行场景 ABI 或 SDK 拥有包装：${source}")
+  endif()
+  # Editor 使用内部模块接口；尚未迁移的值包装不改变对 Apps 的禁止依赖。
   if(source MATCHES "/src/editor/")
     if(content MATCHES "#[ \t]*include[ \t]*[<\"](\\.\\./)*apps/")
       message(FATAL_ERROR "Editor 实现不得反向包含 Apps：${source}")

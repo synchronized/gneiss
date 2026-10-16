@@ -442,3 +442,15 @@ foreach(name IN ITEMS scene_query.hpp scene_creation.hpp scene_instance_service.
   endif()
   file(WRITE "${fixture}/src/engine/function/scene/${name}" "")
 endforeach()
+
+file(MAKE_DIRECTORY "${fixture}/src/editor")
+foreach(content IN ITEMS "gneiss_scene_instance_load();" "scene_instance scene_;" "gneiss_world_entity_create();")
+  file(WRITE "${fixture}/src/editor/editor_session.cpp" "${content}\n")
+  execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
+    -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
+    RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
+  if(status EQUAL 0)
+    message(FATAL_ERROR "编辑会话边界未拒绝 ABI 回退：${content}")
+  endif()
+endforeach()
+file(WRITE "${fixture}/src/editor/editor_session.cpp" "")

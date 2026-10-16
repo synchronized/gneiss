@@ -172,3 +172,18 @@ World 必须比所有场景和 Prefab 投影活得更久；Application 场景域
 Windows Clang Debug 完整构建及 21 项相关回归通过，覆盖 C/C++ Scene、World、候选构造、
 取消、结构重载、编辑器 Prefab 操作及反射。Editor 编辑会话仍使用 SDK 场景包装，继续迁移；
 最终安装和跨平台矩阵尚未执行。
+
+## Editor 原生编辑会话与异步场景加载
+
+editor_session 接收原生 Application，保存场景标识并通过当前场景服务执行编辑，不再持有 SDK
+scene_instance 或调用 World/Scene C 入口。查询缓存仍使用现有编辑器值类型，尚未将这些值包装
+全部移出 SDK。会话只借用 Application，宿主须先关闭会话和历史命令再关闭 Application。
+
+会话通过 World 域标识检查是否仍属于活动域，不跨激活缓存服务指针。移动会话转移唯一卸载责任；
+接管失败保留原文档和调用方场景；关闭时已经退休的旧域由 Application 回收。异步场景加载器的
+请求、进度、取消和激活直接调用原生 Application；宿主接入同步更新。
+
+测试中的 C Application fixture 通过私有注册表借用同一个原生对象，以保留 C/原生互操作覆盖；
+该解析符号仅供同源码构建，不进入安装公共头。Editor 目标的内部包含路径只对构建树开放。
+Windows Debug 完整构建与 13 项编辑器行为回归通过；新增会话移动、外线程拒绝、无效接管保留
+文档测试及边界正反例共 4 项通过。资产编辑和 Prefab 放置事务的 Application 兼容入口仍待迁移。

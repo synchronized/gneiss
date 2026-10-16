@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "editor_prefab_edit.hpp"
 #include "engine/function/application/application_asset_reload_internal.hpp"
+#include "engine/function/application/application_registry.hpp"
 #include <chrono>
 #include <cstdio>
 #include <filesystem>
@@ -67,7 +68,8 @@ void run_refresh(tasks::execution_mode mode) {
   editor::editor_session session;
   editor::editor_command_history history;
   editor::editor_prefab_edit edit;
-  check(session.open(app.get(), world, "asset://scene.json") == result::success);
+  check(session.open(*gneiss::application_internal::find_application(app.get()), world,
+                     "asset://scene.json") == result::success);
   scene_node_id first, second;
   check(session.create_prefab_instance("First", "asset://prefab.json", {}, first) ==
         result::success);
@@ -229,7 +231,8 @@ void run(tasks::execution_mode mode) {
   editor::editor_session session;
   editor::editor_command_history history;
   editor::editor_prefab_edit edit;
-  check(session.open(app.get(), world, "asset://scene.json") == result::success);
+  check(session.open(*gneiss::application_internal::find_application(app.get()), world,
+                     "asset://scene.json") == result::success);
   const auto request = [&](std::string_view uri = "asset://prefab.json") {
     return edit.request(app.get(), scheduler, session, history, "Placed", uri, {});
   };

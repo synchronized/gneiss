@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "editor_session.hpp"
+#include "engine/function/application/application_registry.hpp"
 
 #include <gneiss/engine/application.hpp>
 
@@ -65,7 +66,8 @@ int main() try {
   gneiss::editor::editor_session session;
   if (create_application(root, application) != gneiss::result::success ||
       application.get_world(world) != gneiss::result::success ||
-      session.open(application.get(), world, scene_uri) != gneiss::result::success ||
+      session.open(*gneiss::application_internal::find_application(application.get()), world,
+                   scene_uri) != gneiss::result::success ||
       session.select(session.nodes()[0].node) != gneiss::result::success) {
     return 3;
   }
@@ -161,7 +163,8 @@ int main() try {
     return 18;
   }
   gneiss::scene_node_id new_node;
-  if (session.create_empty(application.get(), world, new_scene_uuid) != gneiss::result::success ||
+  if (session.create_empty(*gneiss::application_internal::find_application(application.get()),
+                           world, new_scene_uuid) != gneiss::result::success ||
       !session.is_open() || !session.is_dirty() || !session.uri().empty() ||
       session.create_node("Root", {}, new_node) != gneiss::result::success ||
       session.save(root) != gneiss::result::invalid_argument ||

@@ -5,6 +5,9 @@
 #define GNEISS_APPS_EDITOR_EDITOR_SESSION_H_
 
 #include <gneiss/engine/scene.hpp>
+namespace gneiss::engine {
+class application;
+}
 
 #include <cstdint>
 #include <filesystem>
@@ -76,23 +79,29 @@ struct scene_subtree_snapshot final {
 
 class editor_session final {
 public:
+  editor_session() noexcept = default;
+  ~editor_session() noexcept { close(); }
+  editor_session(const editor_session&) = delete;
+  editor_session& operator=(const editor_session&) = delete;
+  editor_session(editor_session&& other) noexcept;
+  editor_session& operator=(editor_session&& other) noexcept;
   /** 接收已经激活的场景；成功后拥有句柄，所属线程调用。 */
-  [[nodiscard]] result adopt(gneiss_application application, gneiss_world world,
+  [[nodiscard]] result adopt(engine::application& application, gneiss_world world,
                              gneiss_scene_instance scene, std::string_view uri) noexcept;
-  [[nodiscard]] result open(gneiss_application application, gneiss_world world,
+  [[nodiscard]] result open(engine::application& application, gneiss_world world,
                             std::string_view uri) noexcept;
-  [[nodiscard]] result create_empty(gneiss_application application, gneiss_world world,
+  [[nodiscard]] result create_empty(engine::application& application, gneiss_world world,
                                     std::string_view scene_uuid) noexcept;
-  [[nodiscard]] result create_empty(gneiss_application application, gneiss_world world) noexcept;
+  [[nodiscard]] result create_empty(engine::application& application, gneiss_world world) noexcept;
   void close() noexcept;
 
-  [[nodiscard]] bool is_open() const noexcept { return scene_.is_valid(); }
+  [[nodiscard]] bool is_open() const noexcept;
   /** 预分配镜像后调用就绪创建；成功后发布节点记录，不加载资产。 */
   [[nodiscard]] result
   commit_mesh_node(const scene_node_snapshot& snapshot,
                    const std::function<result(scene_node_id, scene_node_id&)>& create,
                    scene_node_id& output) noexcept;
-  [[nodiscard]] gneiss_scene_instance scene_handle() const noexcept { return scene_.get(); }
+  [[nodiscard]] gneiss_scene_instance scene_handle() const noexcept { return scene_; }
   /** 预分配作者值后调用提交；回调失败不改编辑器镜像，不执行资产加载。 */
   [[nodiscard]] result commit_mesh_renderer(scene_node_id node, std::string_view mesh_uri,
                                             std::string_view material_uri,
@@ -174,13 +183,17 @@ public:
   void clear_dirty() noexcept { is_dirty_ = false; }
 
 private:
+  template <class F> result with_scene(F&& action) const noexcept;
+  template <class F> result with_node(scene_node_id& output, F&& action) const noexcept;
   [[nodiscard]] result refresh_nodes() noexcept;
   [[nodiscard]] result save_to(const std::filesystem::path& asset_root, std::string_view uri,
                                bool require_existing, std::string* saved_content) noexcept;
   [[nodiscard]] result create_mesh_renderer_node(const scene_node_snapshot& snapshot,
                                                  scene_node_id& out_node) noexcept;
   gneiss_world world_ = GNEISS_NULL_WORLD;
-  scene_instance scene_;
+  // 借用宿主；宿主必须在关闭/销毁 Application 前关闭编辑会话。
+  engine::application* application_{};
+  gneiss_scene_instance scene_{};
   std::vector<scene_node_record> nodes_;
   std::vector<prefab_node_record> prefab_nodes_;
   scene_node_id selection_;

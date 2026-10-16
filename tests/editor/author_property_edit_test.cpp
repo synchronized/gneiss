@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "author_property_edit.hpp"
+#include "engine/function/application/application_registry.hpp"
 
 #include <gneiss/engine/application.hpp>
 #include <gneiss/engine/world.hpp>
@@ -21,7 +22,8 @@ int main() try {
   scene_node_id second;
   const gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
   if (sdk::application::create_native(desc, app).failed() || app.get_world(world_handle).failed() ||
-      session.create_empty(app.get(), world_handle).failed() ||
+      session.create_empty(*gneiss::application_internal::find_application(app.get()), world_handle)
+          .failed() ||
       session.create_node("first", {}, first).failed() ||
       session.create_node("second", {}, second).failed() || session.select(first).failed() ||
       inspector.initialize().failed()) {

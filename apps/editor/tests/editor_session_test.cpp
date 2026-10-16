@@ -2,12 +2,14 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "editor_session.hpp"
+#include "engine/function/application/application_registry.hpp"
 #include "runtime_author_apply.hpp"
 
 #include <gneiss/engine/application.hpp>
 
 #include <string>
 #include <string_view>
+#include <thread>
 
 // 临时输入在返回后销毁；后续 Undo/Redo 必须使用命令持有的身份副本。
 static gneiss::result
@@ -33,20 +35,40 @@ int main() try {
   gneiss::editor::editor_session session;
   if (gneiss::sdk::application::create_native(desc, application) != gneiss::result::success ||
       application.get_world(world) != gneiss::result::success ||
-      session.open(application.get(), world, scene_uri) != gneiss::result::success ||
+      session.open(*gneiss::application_internal::find_application(application.get()), world,
+                   scene_uri) != gneiss::result::success ||
       !session.is_open() || session.is_dirty() || session.uri() != scene_uri ||
       session.nodes().size() != 2U || session.nodes()[0].display_name != "Camera" ||
       session.nodes()[1].display_name != session.nodes()[1].uuid ||
       session.nodes()[1].parent != session.nodes()[0].node) {
     return 1;
   }
+  // 原生会话移动只转移一次释放责任；外线程编辑不得改变文档。
+  const auto original_scene = session.scene_handle();
+  gneiss::editor::editor_session moved_session{std::move(session)};
+  if (session.is_open() || !moved_session.is_open() || moved_session.scene_handle() != original_scene)
+    return 20;
+  session = std::move(moved_session);
+  if (moved_session.is_open() || !session.is_open())
+    return 21;
+  auto foreign = gneiss::result::success;
+  std::thread worker([&] { foreign = session.rename_node(session.nodes()[1].node, "Rejected"); });
+  worker.join();
+  if (foreign != gneiss::result::invalid_state || session.is_dirty())
+    return 22;
+  auto native = gneiss::application_internal::find_application(application.get());
+  if (session.adopt(*native, world, GNEISS_NULL_SCENE_INSTANCE, scene_uri) !=
+          gneiss::result::invalid_argument ||
+      session.scene_handle() != original_scene)
+    return 23;
   if (session.select(session.nodes()[1].node) != gneiss::result::success ||
       session.selected_node() == nullptr) {
     return 2;
   }
   session.mark_dirty();
   if (!session.is_dirty() ||
-      session.open(application.get(), world, missing_uri) != gneiss::result::not_found ||
+      session.open(*gneiss::application_internal::find_application(application.get()), world,
+                   missing_uri) != gneiss::result::not_found ||
       !session.is_open() || !session.is_dirty() || session.uri() != scene_uri ||
       session.selected_node() == nullptr) {
     return 3;
@@ -64,7 +86,8 @@ int main() try {
   }
   constexpr std::string_view prefab_scene_uri = "asset://scenes/prefab.scene.json";
   constexpr std::string_view prefab_uri = "asset://prefabs/test.prefab.json";
-  if (session.open(application.get(), world, prefab_scene_uri) != gneiss::result::success ||
+  if (session.open(*gneiss::application_internal::find_application(application.get()), world,
+                   prefab_scene_uri) != gneiss::result::success ||
       session.nodes().size() != 1U || session.prefab_nodes().size() != 2U ||
       !session.prefab_nodes()[0].is_instance_root || session.prefab_nodes()[0].is_read_only ||
       session.prefab_nodes()[1].is_instance_root || !session.prefab_nodes()[1].is_read_only ||

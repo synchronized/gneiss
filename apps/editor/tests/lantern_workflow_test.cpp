@@ -6,6 +6,7 @@
 #include "editor_command_history.hpp"
 #include "editor_project.hpp"
 #include "editor_session.hpp"
+#include "engine/function/application/application_registry.hpp"
 
 #include <gneiss/engine/application.hpp>
 
@@ -131,7 +132,8 @@ int main() try { // NOLINT(bugprone-exception-escape): 测试入口统一返回�
   gneiss::editor::editor_session session;
   if (create_application(project.asset_root, application) != gneiss::result::success ||
       application.get_world(world) != gneiss::result::success ||
-      session.open(application.get(), world, project.startup_scene) != gneiss::result::success) {
+      session.open(*gneiss::application_internal::find_application(application.get()), world,
+                   project.startup_scene) != gneiss::result::success) {
     return 8;
   }
   constexpr std::string_view prefab_uri = "asset://prefabs/lantern.prefab.json";
@@ -235,7 +237,8 @@ int main() try { // NOLINT(bugprone-exception-escape): 测试入口统一返回�
   session.close();
 
   gneiss::editor::editor_session reloaded;
-  if (reloaded.open(application.get(), world, project.startup_scene) != gneiss::result::success ||
+  if (reloaded.open(*gneiss::application_internal::find_application(application.get()), world,
+                    project.startup_scene) != gneiss::result::success ||
       reloaded.find_node(snapshot.uuid) == nullptr || reloaded.prefab_nodes().size() != 15U ||
       count_prefab_name(reloaded, "Lantern Glass Updated") != 3U) {
     return 12;

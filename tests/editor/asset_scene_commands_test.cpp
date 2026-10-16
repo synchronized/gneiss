@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "asset_scene_commands.hpp"
+#include "engine/function/application/application_registry.hpp"
 
 #include <gneiss/engine/application.hpp>
 
@@ -19,7 +20,10 @@ int main() try {
   editor_session session;
   editor_command_history history;
   if (sdk::application::create_native(desc, app).failed() || app.get_world(world).failed() ||
-      session.open(app.get(), world, "asset://scenes/triangle.scene.json").failed()) {
+      session
+          .open(*gneiss::application_internal::find_application(app.get()), world,
+                "asset://scenes/triangle.scene.json")
+          .failed()) {
     return 1;
   }
   const auto initial_count = session.nodes().size();

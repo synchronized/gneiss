@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "engine/function/application/application_registry.hpp"
 #include "project_workspace.hpp"
 #include "runtime_author_apply.hpp"
 #include "runtime_launch.hpp"
@@ -40,8 +41,8 @@ int main() try {
   gneiss::editor::editor_session author_session;
   if (create_application(project.asset_root, author_application) != gneiss::result::success ||
       author_application.get_world(author_world) != gneiss::result::success ||
-      author_session.open(author_application.get(), author_world, project.startup_scene) !=
-          gneiss::result::success) {
+      author_session.open(*gneiss::application_internal::find_application(author_application.get()),
+                          author_world, project.startup_scene) != gneiss::result::success) {
     return 2;
   }
 
@@ -105,8 +106,9 @@ int main() try {
   gneiss::editor::editor_session runtime_session;
   if (create_application(project.asset_root, runtime_application) != gneiss::result::success ||
       runtime_application.get_world(runtime_world) != gneiss::result::success ||
-      runtime_session.open(runtime_application.get(), runtime_world, project.startup_scene) !=
-          gneiss::result::success) {
+      runtime_session.open(
+          *gneiss::application_internal::find_application(runtime_application.get()), runtime_world,
+          project.startup_scene) != gneiss::result::success) {
     return 6;
   }
   gneiss::scene_node_id runtime_node;

@@ -1072,6 +1072,9 @@ bool application::accepts_requests() const noexcept {
 }
 
 gneiss_world application::world() const noexcept { return storage_->scene_session_.world(); }
+engine::world* application::native_world() const noexcept {
+  return storage_->scene_session_.native_world();
+}
 
 render_internal::render_resource_service& application::resources() noexcept {
   return storage_->resources_;

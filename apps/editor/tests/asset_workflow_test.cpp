@@ -3,6 +3,7 @@
 
 #include "asset_reimport_queue.hpp"
 #include "editor_session.hpp"
+#include "engine/function/application/application_registry.hpp"
 #include "package_archive.hpp"
 #include "project_workspace.hpp"
 #include "runtime_process.hpp"
@@ -93,7 +94,8 @@ int main() try {
   scene_node_id node;
   if (sdk::application::create_native(desc, app) != result::success ||
       app.get_world(world) != result::success ||
-      session.open(app.get(), world, project.startup_scene) != result::success ||
+      session.open(*gneiss::application_internal::find_application(app.get()), world,
+                   project.startup_scene) != result::success ||
       session.create_mesh_renderer_node("Imported", *mesh, *material, node) != result::success ||
       session.save(project.asset_root) != result::success) {
     return 5;

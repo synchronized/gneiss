@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "editor_session.hpp"
+#include "engine/function/application/application.hpp"
 
 #include <gneiss/engine/world.hpp>
 
@@ -27,6 +28,15 @@
 
 namespace gneiss::editor {
 namespace {
+gneiss_camera_desc camera_abi(const std::optional<scene_internal::camera_description>& camera) {
+  gneiss_camera_desc value = GNEISS_CAMERA_DESC_INIT;
+  if (camera) {
+    value.vertical_field_of_view_radians = camera->vertical_field_of_view_radians;
+    value.near_plane = camera->near_plane;
+    value.far_plane = camera->far_plane;
+  }
+  return value;
+}
 
 [[nodiscard]] bool is_within(const std::filesystem::path& root,
                              const std::filesystem::path& path) noexcept {
@@ -119,29 +129,56 @@ result make_asset_uri(const std::filesystem::path& asset_root, const std::filesy
   }
 }
 
-result editor_session::adopt(gneiss_application application, gneiss_world world,
+bool editor_session::is_open() const noexcept {
+  return application_ && scene_ && application_->accepts_requests() &&
+         application_->world() == world_;
+}
+template <class F> result editor_session::with_scene(F&& action) const noexcept {
+  if (!application_ || !application_->is_owner_thread() || !is_open())
+    return result::invalid_state;
+  auto* service = application_->scenes();
+  return service ? from_native(action(*service)) : result::invalid_state;
+}
+template <class F>
+result editor_session::with_node(scene_node_id& output, F&& action) const noexcept {
+  gneiss_scene_node_id node{};
+  const auto operation = with_scene([&](auto& service) { return action(service, &node); });
+  output = scene_node_id{node};
+  return operation;
+}
+
+editor_session::editor_session(editor_session&& other) noexcept { *this = std::move(other); }
+editor_session& editor_session::operator=(editor_session&& other) noexcept {
+  if (this != &other) {
+    close();
+    application_ = std::exchange(other.application_, nullptr);
+    world_ = std::exchange(other.world_, GNEISS_NULL_WORLD);
+    scene_ = std::exchange(other.scene_, GNEISS_NULL_SCENE_INSTANCE);
+    nodes_ = std::move(other.nodes_);
+    prefab_nodes_ = std::move(other.prefab_nodes_);
+    selection_ = std::exchange(other.selection_, {});
+    uri_ = std::move(other.uri_);
+    is_dirty_ = std::exchange(other.is_dirty_, false);
+  }
+  return *this;
+}
+
+result editor_session::adopt(engine::application& application, gneiss_world world,
                              gneiss_scene_instance scene, std::string_view uri) noexcept {
+  if (!application.is_owner_thread() || !application.accepts_requests())
+    return result::invalid_state;
+  if (world != application.world() || uri.empty() || !scene)
+    return result::invalid_argument;
   try {
-    std::string next_uri{uri};
-    gneiss_world active{};
-    const auto queried = gneiss_application_get_world(application, &active);
-    if (queried != GNEISS_SUCCESS) {
-      return from_native(queried);
-    }
-    if (world != active || uri.empty()) {
-      return result::invalid_argument;
-    }
     editor_session pending;
-    pending.uri_ = std::move(next_uri);
+    pending.uri_ = uri;
+    pending.application_ = &application;
     pending.world_ = world;
-    const auto adopted = scene_instance::adopt_native(application, scene, pending.scene_);
-    if (adopted != result::success) {
-      return adopted;
-    }
+    pending.scene_ = scene;
     const auto refreshed = pending.refresh_nodes();
     if (refreshed != result::success) {
-      // 缓存建立失败时原句柄仍由调用方拥有，不改变当前编辑文档。
-      (void)pending.scene_.release();
+      // 失败时仍由调用方持有场景，不改变当前文档。
+      pending.scene_ = GNEISS_NULL_SCENE_INSTANCE;
       return refreshed;
     }
     *this = std::move(pending);
@@ -153,51 +190,41 @@ result editor_session::adopt(gneiss_application application, gneiss_world world,
   }
 }
 
-result editor_session::open(gneiss_application application, gneiss_world world,
+result editor_session::open(engine::application& application, gneiss_world world,
                             std::string_view uri) noexcept {
-  if (application == GNEISS_NULL_APPLICATION || world == GNEISS_NULL_WORLD || uri.empty()) {
+  if (!application.is_owner_thread() || !application.accepts_requests())
+    return result::invalid_state;
+  if (world != application.world() || uri.empty())
     return result::invalid_argument;
-  }
-  try {
-    scene_instance pending;
-    auto operation = scene_instance::load(application, uri, pending);
-    if (operation != result::success) {
-      return operation;
-    }
-    scene_ = std::move(pending);
-    world_ = world;
-    selection_ = {};
-    uri_ = uri;
-    is_dirty_ = false;
-    return refresh_nodes();
-  } catch (const std::bad_alloc&) {
-    return result::out_of_memory;
-  } catch (...) {
-    return result::internal;
-  }
+  gneiss_scene_instance pending{};
+  const auto loaded = application.scenes()->load(uri, &pending);
+  if (loaded != GNEISS_SUCCESS)
+    return from_native(loaded);
+  const auto adopted = adopt(application, world, pending, uri);
+  if (adopted != result::success)
+    (void)application.scenes()->unload(pending);
+  return adopted;
 }
 
-result editor_session::create_empty(gneiss_application application, gneiss_world world,
+result editor_session::create_empty(engine::application& application, gneiss_world world,
                                     std::string_view scene_uuid) noexcept {
-  if (application == GNEISS_NULL_APPLICATION || world == GNEISS_NULL_WORLD || scene_uuid.empty()) {
+  if (!application.is_owner_thread() || !application.accepts_requests())
+    return result::invalid_state;
+  if (world != application.world() || scene_uuid.empty())
     return result::invalid_argument;
-  }
-  scene_instance pending;
-  const auto operation = scene_instance::create_empty(application, scene_uuid, pending);
-  if (operation != result::success) {
-    return operation;
-  }
-  scene_ = std::move(pending);
+  gneiss_scene_instance pending{};
+  const auto created = application.scenes()->create_empty(scene_uuid, &pending);
+  if (created != GNEISS_SUCCESS)
+    return from_native(created);
+  close();
+  application_ = &application;
+  scene_ = pending;
   world_ = world;
-  nodes_.clear();
-  prefab_nodes_.clear();
-  selection_ = {};
-  uri_.clear();
   is_dirty_ = true;
   return result::success;
 }
 
-result editor_session::create_empty(gneiss_application application, gneiss_world world) noexcept {
+result editor_session::create_empty(engine::application& application, gneiss_world world) noexcept {
   try {
     return create_empty(application, world, make_uuid_value());
   } catch (const std::bad_alloc&) {
@@ -210,15 +237,17 @@ result editor_session::create_empty(gneiss_application application, gneiss_world
 result editor_session::refresh_nodes() noexcept {
   try {
     std::uint64_t count = 0;
-    auto operation = scene_.get_node_count(count);
+    auto operation =
+        with_scene([&](auto& service) { return service.get_node_count(scene_, &count); });
     if (operation != result::success) {
       return operation;
     }
     std::vector<scene_node_record> records;
     records.reserve(static_cast<std::size_t>(count));
     for (std::uint64_t index = 0; index < count; ++index) {
-      scene_instance_node_info info{};
-      operation = scene_.get_node_info(index, info);
+      scene_internal::scene_node_view info{};
+      operation =
+          with_scene([&](auto& service) { return service.get_node_info(scene_, index, info); });
       if (operation != result::success) {
         return operation;
       }
@@ -232,29 +261,32 @@ result editor_session::refresh_nodes() noexcept {
            .mesh_uri = info.mesh_uri.empty() ? std::string{} : std::string{info.mesh_uri},
            .material_uri =
                info.material_uri.empty() ? std::string{} : std::string{info.material_uri},
-           .local_transform = info.local_transform,
+           .local_transform = {info.local_transform.translation, info.local_transform.rotation,
+                               info.local_transform.scale},
            .component_flags = static_cast<std::uint32_t>(info.component_flags),
-           .camera = to_native(info.camera),
+           .camera = camera_abi(info.camera),
            .is_primary_camera =
-               has_flags(info.component_flags, scene_node_components::primary_camera)});
+               (info.component_flags & GNEISS_SCENE_NODE_COMPONENT_PRIMARY_CAMERA) != 0U});
     }
     std::uint64_t prefab_count = 0;
-    operation = scene_.get_prefab_node_count(prefab_count);
+    operation = with_scene(
+        [&](auto& service) { return service.get_prefab_node_count(scene_, &prefab_count); });
     if (operation != result::success) {
       return operation;
     }
     std::vector<prefab_node_record> prefab_records;
     prefab_records.reserve(static_cast<std::size_t>(prefab_count));
     for (std::uint64_t index = 0; index < prefab_count; ++index) {
-      scene_prefab_node_info info{};
-      operation = scene_.get_prefab_node_info(index, info);
+      scene_internal::prefab_node_view info{};
+      operation = with_scene(
+          [&](auto& service) { return service.get_prefab_node_info(scene_, index, info); });
       if (operation != result::success) {
         return operation;
       }
       const std::string instance_uuid{info.instance_uuid};
       const std::string source_uuid =
           info.source_node_uuid.empty() ? std::string{} : std::string{info.source_node_uuid};
-      const bool is_root = has_flags(info.flags, scene_prefab_flags::instance_root);
+      const bool is_root = (info.flags & GNEISS_SCENE_PREFAB_NODE_INSTANCE_ROOT) != 0U;
       prefab_records.push_back(
           {.node = scene_node_id{info.node},
            .parent = scene_node_id{info.parent},
@@ -264,14 +296,17 @@ result editor_session::refresh_nodes() noexcept {
            .display_name =
                info.name.empty() ? (is_root ? instance_uuid : source_uuid) : std::string{info.name},
            .prefab_uri = std::string{info.prefab_uri},
-           .local_transform = info.local_transform,
-           .source_local_transform = info.source_local_transform,
+           .local_transform = {info.local_transform.translation, info.local_transform.rotation,
+                               info.local_transform.scale},
+           .source_local_transform = {info.source_local_transform.translation,
+                                      info.source_local_transform.rotation,
+                                      info.source_local_transform.scale},
            .override_flags = static_cast<std::uint32_t>(info.flags) &
                              (GNEISS_SCENE_PREFAB_NODE_TRANSLATION_OVERRIDDEN |
                               GNEISS_SCENE_PREFAB_NODE_ROTATION_OVERRIDDEN |
                               GNEISS_SCENE_PREFAB_NODE_SCALE_OVERRIDDEN),
            .is_instance_root = is_root,
-           .is_read_only = has_flags(info.flags, scene_prefab_flags::source_read_only)});
+           .is_read_only = (info.flags & GNEISS_SCENE_PREFAB_NODE_SOURCE_READ_ONLY) != 0U});
     }
     nodes_.swap(records);
     prefab_nodes_.swap(prefab_records);
@@ -292,9 +327,14 @@ result editor_session::set_local_transform(scene_node_id node, const transform& 
   if (found == nodes_.end() && prefab == prefab_nodes_.end()) {
     return result::invalid_argument;
   }
-  const auto operation = prefab != prefab_nodes_.end() && !prefab->is_instance_root
-                             ? scene_.set_prefab_source_transform(node, value)
-                             : world_ref{world_}.set_local_transform(node, value);
+  const auto operation =
+      prefab != prefab_nodes_.end() && !prefab->is_instance_root
+          ? with_scene([&](auto& service) {
+              return service.set_prefab_source_transform(
+                  scene_, node.get(), {value.translation, value.rotation, value.scale});
+            })
+          : from_native(application_->native_world()->node_set_local_transform(
+                node.get(), {value.translation, value.rotation, value.scale}));
   if (operation != result::success) {
     return operation;
   }
@@ -371,11 +411,13 @@ result editor_session::create_node(std::string_view name, scene_node_id parent,
   }
   try {
     const auto uuid = make_uuid_value();
-    scene_node_desc desc{};
+    scene_internal::node_creation desc{};
     desc.uuid = uuid;
     desc.name = name;
-    desc.parent = parent;
-    auto operation = scene_.create_node(desc, out_node);
+    desc.parent = parent.get();
+    auto operation = with_node(out_node, [&](auto& service, auto* output) {
+      return service.create_node(scene_, desc, output);
+    });
     if (operation == result::success) {
       selection_ = out_node;
       operation = refresh_nodes();
@@ -399,13 +441,15 @@ result editor_session::create_prefab_instance(std::string_view name, std::string
   }
   try {
     const auto uuid = make_uuid_value();
-    scene_prefab_instance_desc desc{};
-    desc.parent = parent;
+    scene_internal::prefab_creation desc{};
+    desc.parent = parent.get();
     desc.instance_uuid = uuid;
     desc.name = name;
     desc.prefab_uri = prefab_uri;
 
-    auto operation = scene_.create_prefab_instance(desc, out_root);
+    auto operation = with_node(out_root, [&](auto& service, auto* output) {
+      return service.create_prefab_instance(scene_, desc, output);
+    });
     if (operation == result::success) {
       selection_ = out_root;
       operation = refresh_nodes();
@@ -422,7 +466,8 @@ result editor_session::create_prefab_instance(std::string_view name, std::string
 }
 
 result editor_session::rename_prefab_instance(scene_node_id root, std::string_view name) noexcept {
-  const auto operation = scene_.set_prefab_instance_name(root, name);
+  const auto operation = with_scene(
+      [&](auto& service) { return service.set_prefab_instance_name(scene_, root.get(), name); });
   if (operation != result::success) {
     return operation;
   }
@@ -452,7 +497,8 @@ result editor_session::destroy_prefab_instance(scene_node_id root,
       }
       snapshot.parent_uuid = parent->uuid;
     }
-    auto operation = scene_.destroy_prefab_instance(root);
+    auto operation = with_scene(
+        [&](auto& service) { return service.destroy_prefab_instance(scene_, root.get()); });
     if (operation == result::success) {
       selection_ = {};
       operation = refresh_nodes();
@@ -475,13 +521,16 @@ result editor_session::restore_prefab_instance(const prefab_instance_snapshot& s
   if (!snapshot.parent_uuid.empty() && parent == nullptr) {
     return result::not_found;
   }
-  scene_prefab_instance_desc desc{};
-  desc.parent = parent == nullptr ? scene_node_id{} : parent->node;
+  scene_internal::prefab_creation desc{};
+  desc.parent = parent == nullptr ? GNEISS_NULL_SCENE_NODE_ID : parent->node.get();
   desc.instance_uuid = snapshot.instance_uuid;
   desc.name = snapshot.display_name;
   desc.prefab_uri = snapshot.prefab_uri;
-  desc.local_transform = snapshot.local_transform;
-  auto operation = scene_.create_prefab_instance(desc, out_root);
+  desc.local_transform = {snapshot.local_transform.translation, snapshot.local_transform.rotation,
+                          snapshot.local_transform.scale};
+  auto operation = with_node(out_root, [&](auto& service, auto* output) {
+    return service.create_prefab_instance(scene_, desc, output);
+  });
   if (operation == result::success) {
     selection_ = out_root;
     operation = refresh_nodes();
@@ -495,7 +544,9 @@ result editor_session::restore_prefab_instance(const prefab_instance_snapshot& s
 result
 editor_session::refresh_prefab_instance(scene_node_id root, scene_node_id& out_new_root,
                                         gneiss_scene_prefab_refresh_token& out_token) noexcept {
-  const auto operation = scene_.refresh_prefab_instance_native(root, out_new_root, out_token);
+  const auto operation = with_node(out_new_root, [&](auto& service, auto* output) {
+    return service.refresh_prefab_instance(scene_, root.get(), output, &out_token);
+  });
   if (operation != result::success) {
     return operation;
   }
@@ -509,7 +560,9 @@ editor_session::refresh_prefab_instance(scene_node_id root, scene_node_id& out_n
 
 result editor_session::toggle_prefab_refresh(gneiss_scene_prefab_refresh_token token,
                                              scene_node_id& out_new_root) noexcept {
-  const auto operation = scene_.toggle_prefab_refresh_native(token, out_new_root);
+  const auto operation = with_node(out_new_root, [&](auto& service, auto* output) {
+    return service.toggle_prefab_refresh(scene_, token, output);
+  });
   if (operation != result::success) {
     return operation;
   }
@@ -522,8 +575,8 @@ result editor_session::toggle_prefab_refresh(gneiss_scene_prefab_refresh_token t
 }
 
 void editor_session::release_prefab_refresh(gneiss_scene_prefab_refresh_token token) noexcept {
-  if (scene_.is_valid() && token != GNEISS_NULL_SCENE_PREFAB_REFRESH_TOKEN) {
-    (void)scene_.release_prefab_refresh_native(token);
+  if (is_open() && token != GNEISS_NULL_SCENE_PREFAB_REFRESH_TOKEN) {
+    (void)with_scene([&](auto& service) { return service.release_prefab_refresh(scene_, token); });
   }
 }
 
@@ -531,7 +584,8 @@ result editor_session::rename_node(scene_node_id node, std::string_view name) no
   if (!is_open() || !node.is_valid()) {
     return result::invalid_argument;
   }
-  const auto operation = scene_.set_node_name(node, name);
+  const auto operation =
+      with_scene([&](auto& service) { return service.set_node_name(scene_, node.get(), name); });
   if (operation != result::success) {
     return operation;
   }
@@ -546,7 +600,8 @@ result editor_session::reparent_node(scene_node_id node, scene_node_id parent) n
   if (!is_open() || !node.is_valid() || node == parent) {
     return result::invalid_argument;
   }
-  const auto operation = scene_.reparent_node(node, parent);
+  const auto operation = with_scene(
+      [&](auto& service) { return service.reparent_node(scene_, node.get(), parent.get()); });
   if (operation != result::success) {
     return operation;
   }
@@ -575,11 +630,13 @@ result editor_session::destroy_subtree(scene_node_id node,
       }
       snapshot.parent_uuid = parent->uuid;
     }
-    auto operation = scene_.capture_subtree(node, snapshot.json);
+    auto operation = with_scene(
+        [&](auto& service) { return service.capture_subtree(scene_, node.get(), snapshot.json); });
     if (operation != result::success) {
       return operation;
     }
-    operation = scene_.destroy_subtree(node);
+    operation =
+        with_scene([&](auto& service) { return service.destroy_subtree(scene_, node.get()); });
     if (operation == result::success) {
       selection_ = {};
       operation = refresh_nodes();
@@ -606,7 +663,9 @@ result editor_session::restore_subtree(const scene_subtree_snapshot& snapshot,
     }
     parent = record->node;
   }
-  const auto operation = scene_.restore_subtree(snapshot.json, parent, {}, out_node);
+  const auto operation = with_node(out_node, [&](auto& service, auto* output) {
+    return service.restore_subtree(scene_, snapshot.json, parent.get(), {}, output);
+  });
   if (operation != result::success) {
     return operation;
   }
@@ -625,7 +684,8 @@ result editor_session::duplicate_subtree(scene_node_id node, scene_node_id paren
   }
   try {
     std::string snapshot;
-    auto operation = scene_.capture_subtree(node, snapshot);
+    auto operation = with_scene(
+        [&](auto& service) { return service.capture_subtree(scene_, node.get(), snapshot); });
     if (operation != result::success) {
       return operation;
     }
@@ -643,12 +703,14 @@ result editor_session::duplicate_subtree(scene_node_id node, scene_node_id paren
         current = ancestor == nodes_.end() ? scene_node_id{} : ancestor->parent;
       }
     }
-    std::vector<scene_uuid_mapping> mappings;
+    std::vector<scene_internal::uuid_mapping> mappings;
     mappings.reserve(sources.size());
     for (std::size_t index = 0; index < sources.size(); ++index) {
       mappings.push_back({.source_uuid = sources[index], .target_uuid = targets[index]});
     }
-    operation = scene_.restore_subtree(snapshot, parent, mappings, out_node);
+    operation = with_node(out_node, [&](auto& service, auto* output) {
+      return service.restore_subtree(scene_, snapshot, parent.get(), mappings, output);
+    });
     if (operation == result::success) {
       selection_ = out_node;
       operation = refresh_nodes();
@@ -665,7 +727,11 @@ result editor_session::duplicate_subtree(scene_node_id node, scene_node_id paren
 }
 
 result editor_session::set_camera(scene_node_id node, const scene_camera_desc& desc) noexcept {
-  const auto operation = scene_.set_camera(node, desc);
+  const auto operation = with_scene([&](auto& service) {
+    return service.set_camera(scene_, node.get(),
+                              {desc.camera.vertical_field_of_view_radians, desc.camera.near_plane,
+                               desc.camera.far_plane, desc.is_primary});
+  });
   if (operation != result::success) {
     return operation;
   }
@@ -677,7 +743,8 @@ result editor_session::set_camera(scene_node_id node, const scene_camera_desc& d
 }
 
 result editor_session::remove_camera(scene_node_id node) noexcept {
-  const auto operation = scene_.remove_camera(node);
+  const auto operation =
+      with_scene([&](auto& service) { return service.remove_camera(scene_, node.get()); });
   if (operation != result::success) {
     return operation;
   }
@@ -689,7 +756,8 @@ result editor_session::remove_camera(scene_node_id node) noexcept {
 }
 
 result editor_session::remove_mesh_renderer(scene_node_id node) noexcept {
-  const auto operation = scene_.remove_mesh_renderer(node);
+  const auto operation =
+      with_scene([&](auto& service) { return service.remove_mesh_renderer(scene_, node.get()); });
   if (operation != result::success) {
     return operation;
   }
@@ -706,7 +774,10 @@ void editor_session::close() noexcept {
   prefab_nodes_.clear();
   uri_.clear();
   is_dirty_ = false;
-  scene_.reset();
+  if (is_open())
+    (void)with_scene([&](auto& service) { return service.unload(scene_); });
+  scene_ = GNEISS_NULL_SCENE_INSTANCE;
+  application_ = nullptr;
   world_ = GNEISS_NULL_WORLD;
 }
 
@@ -744,6 +815,8 @@ const scene_node_record* editor_session::find_node(std::string_view uuid) const 
 }
 
 result editor_session::select(scene_node_id node) noexcept {
+  if (!is_open() || !application_->is_owner_thread())
+    return result::invalid_state;
   if (!node.is_valid()) {
     selection_ = {};
     return result::success;
@@ -754,7 +827,8 @@ result editor_session::select(scene_node_id node) noexcept {
     return result::not_found;
   }
   gneiss_entity_id entity = GNEISS_NULL_ENTITY_ID;
-  const auto operation = from_native(gneiss_scene_node_get_entity(world_, node.get(), &entity));
+  const auto operation =
+      from_native(application_->native_world()->node_get_entity(node.get(), entity));
   const auto expected = found != nodes_.end() ? found->entity.get()
                                               : static_cast<gneiss_entity_id>(prefab->entity.get());
   if (operation != result::success || entity != expected) {
@@ -806,22 +880,25 @@ result editor_session::create_mesh_renderer_node(const scene_node_snapshot& snap
       parent = parent_record->node;
     }
     nodes_.reserve(nodes_.size() + 1U);
-    scene_mesh_renderer_node_desc desc{};
+    scene_internal::mesh_renderer_node_creation desc{};
     desc.uuid = snapshot.uuid;
     desc.name = snapshot.display_name.empty() ? std::string_view{}
                                               : std::string_view{snapshot.display_name};
-    desc.parent = parent;
-    desc.renderer.mesh_uri = snapshot.mesh_uri;
-    desc.renderer.material_uri = snapshot.material_uri;
-    auto operation = scene_.create_mesh_renderer_node(desc, out_node);
+    desc.parent = parent.get();
+    desc.mesh_uri = snapshot.mesh_uri;
+    desc.material_uri = snapshot.material_uri;
+    auto operation = with_node(out_node, [&](auto& service, auto* output) {
+      return service.create_mesh_renderer_node(scene_, desc, output);
+    });
     if (operation != result::success) {
       return operation;
     }
     std::uint64_t count = 0;
-    scene_instance_node_info info{};
-    operation = scene_.get_node_count(count);
+    scene_internal::scene_node_view info{};
+    operation = with_scene([&](auto& service) { return service.get_node_count(scene_, &count); });
     if (operation == result::success && count > 0U) {
-      operation = scene_.get_node_info(count - 1U, info);
+      operation = with_scene(
+          [&](auto& service) { return service.get_node_info(scene_, count - 1U, info); });
     }
     if (operation != result::success) {
       return operation;
@@ -875,9 +952,9 @@ editor_session::commit_mesh_node(const scene_node_snapshot& snapshot,
     return operation;
   }
   gneiss_entity_id entity{};
-  operation = from_native(gneiss_scene_node_get_entity(world_, output.get(), &entity));
+  operation = from_native(application_->native_world()->node_get_entity(output.get(), entity));
   if (operation.failed()) {
-    (void)scene_.destroy_node(output);
+    (void)with_scene([&](auto& service) { return service.destroy_node(scene_, output.get()); });
     output = {};
     return operation;
   }
@@ -927,7 +1004,8 @@ result editor_session::destroy_node(scene_node_id node,
       }
       snapshot.parent_uuid = parent->uuid;
     }
-    const auto operation = scene_.destroy_node(node);
+    const auto operation =
+        with_scene([&](auto& service) { return service.destroy_node(scene_, node.get()); });
     if (operation != result::success) {
       return operation;
     }
@@ -961,7 +1039,9 @@ result editor_session::set_mesh_renderer(scene_node_id node, std::string_view me
     desc.mesh_uri = mesh;
     desc.material_uri = material;
 
-    const auto operation = scene_.set_mesh_renderer(node, desc);
+    const auto operation = with_scene([&](auto& service) {
+      return service.set_mesh_renderer(scene_, node.get(), desc.mesh_uri, desc.material_uri);
+    });
     if (operation != result::success) {
       return operation;
     }
@@ -1042,7 +1122,7 @@ result editor_session::save_to(const std::filesystem::path& asset_root, std::str
     }
 
     std::string json;
-    auto operation = scene_.serialize(json);
+    auto operation = with_scene([&](auto& service) { return service.serialize(scene_, json); });
     if (operation != result::success) {
       return operation;
     }

@@ -127,7 +127,7 @@ private:
   gneiss_scene_prefab_refresh_token next_prefab_refresh_token_ = 1U;
 };
 
-class scene_instance_service final {
+class GNEISS_API scene_instance_service final {
 public:
   using mesh_binding = scene_mesh_binding;
   /** 所属线程预留作者容器并验证身份；不读取资产，不发布候选。 */

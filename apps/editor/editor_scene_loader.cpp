@@ -2,14 +2,15 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "editor_scene_loader.hpp"
+#include "engine/function/application/application.hpp"
 
 namespace gneiss::editor {
 
-result editor_scene_loader::request(gneiss_application application, std::string_view uri) {
+result editor_scene_loader::request(engine::application& application, std::string_view uri) {
   if (active_) {
     return result::not_ready;
   }
-  if (application == GNEISS_NULL_APPLICATION || uri.empty()) {
+  if (!application.accepts_requests() || !application.is_owner_thread() || uri.empty()) {
     return result::invalid_argument;
   }
   uri_ = uri;
@@ -21,7 +22,7 @@ result editor_scene_loader::request(gneiss_application application, std::string_
   return result::success;
 }
 
-result editor_scene_loader::cancel(gneiss_application application) {
+result editor_scene_loader::cancel(engine::application& application) {
   if (!active_) {
     return result::not_ready;
   }
@@ -33,15 +34,14 @@ result editor_scene_loader::cancel(gneiss_application application) {
     progress_.cleanup_complete = true;
     return result::success;
   }
-  const auto operation =
-      from_native(application_internal::cancel_scene_load(application, request_));
+  const auto operation = from_native(application.cancel_scene(request_));
   if (operation == result::success) {
     progress_.can_cancel = false;
   }
   return operation;
 }
 
-result editor_scene_loader::advance(gneiss_application application, editor_session& session,
+result editor_scene_loader::advance(engine::application& application, editor_session& session,
                                     gneiss_world& world, editor_camera& camera,
                                     editor_command_history& history, bool& changed) {
   using namespace application_internal;
@@ -49,7 +49,7 @@ result editor_scene_loader::advance(gneiss_application application, editor_sessi
   // 即使界面已收起也推进旧域回收，下一次打开不能被退休域永久阻塞。
   scene_load_completion completion;
   bool finished{};
-  const auto polled = from_native(poll_scene_load(application, completion, finished));
+  const auto polled = from_native(application.poll_scene(completion, finished));
   if (polled != result::success) {
     return polled;
   }
@@ -59,7 +59,7 @@ result editor_scene_loader::advance(gneiss_application application, editor_sessi
   if (queued_) {
     // 先回收旧域再提交，菜单回调本身不做加载工作。
     queued_ = false;
-    operation_ = from_native(request_scene_load(application, uri_, 1U, ++revision_, request_));
+    operation_ = from_native(application.request_scene(uri_, 1U, ++revision_, request_));
     active_ = operation_ == result::success;
     if (!active_) {
       progress_.phase = scene_load_phase::failed;
@@ -75,7 +75,8 @@ result editor_scene_loader::advance(gneiss_application application, editor_sessi
     return result::success;
   }
   bool available{};
-  const auto queried = from_native(query_scene_load_progress(application, progress_, available));
+  available = application.scene_progress(progress_);
+  const auto queried = result::success;
   if (queried != result::success) {
     return queried;
   }
@@ -89,7 +90,7 @@ result editor_scene_loader::advance(gneiss_application application, editor_sessi
   if (progress_.phase != scene_load_phase::ready) {
     return result::success;
   }
-  const auto activated = from_native(activate_scene_load(application, request_, completion));
+  const auto activated = from_native(application.activate_scene(request_, completion));
   if (activated == result::not_ready) {
     return result::success;
   }
@@ -101,7 +102,8 @@ result editor_scene_loader::advance(gneiss_application application, editor_sessi
   history.clear();
   camera.shutdown();
   session.close();
-  auto operation = from_native(gneiss_application_get_world(application, &world));
+  world = application.world();
+  auto operation = result::success;
   if (operation == result::success) {
     operation = session.adopt(application, world, completion.scene, uri_);
   }

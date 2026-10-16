@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "editor_asset_edit.hpp"
+#include "engine/function/application/application_registry.hpp"
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
@@ -51,7 +52,8 @@ void run(tasks::execution_mode mode) {
   editor::editor_session session;
   editor::editor_command_history history;
   editor::editor_asset_edit edit;
-  check(session.open(app.get(), world, "asset://scene.json") == result::success);
+  check(session.open(*gneiss::application_internal::find_application(app.get()), world,
+                     "asset://scene.json") == result::success);
   const auto uuid = session.nodes().front().uuid;
   const auto drive = [&] {
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
