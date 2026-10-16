@@ -119,12 +119,15 @@ granit::result append_mesh_geometry(const render_internal::mesh_resource& source
   range.index_count = static_cast<std::uint32_t>(source_index_count);
   for (std::size_t index = 0; index < source.vertices.size(); ++index) {
     const auto& vertex = source.vertices[index];
-    const auto normal =
-        source.normals.empty() ? gneiss_mesh_normal{0.0F, 1.0F, 0.0F} : source.normals[index];
-    const auto tangent = source.tangents.empty() ? gneiss_mesh_tangent{1.0F, 0.0F, 0.0F, 1.0F}
-                                                 : source.tangents[index];
-    const auto uv1 = source.uv1.empty() ? gneiss_mesh_uv{0, 0} : source.uv1[index];
-    const auto color = source.colors.empty() ? gneiss_mesh_color{1, 1, 1, 1} : source.colors[index];
+    const auto normal = source.normals.empty()
+                            ? gneiss::asset_internal::mesh_normal{0.0F, 1.0F, 0.0F}
+                            : source.normals[index];
+    const auto tangent = source.tangents.empty()
+                             ? gneiss::asset_internal::mesh_tangent{1.0F, 0.0F, 0.0F, 1.0F}
+                             : source.tangents[index];
+    const auto uv1 = source.uv1.empty() ? gneiss::asset_internal::mesh_uv{0, 0} : source.uv1[index];
+    const auto color = source.colors.empty() ? gneiss::asset_internal::mesh_color{1, 1, 1, 1}
+                                             : source.colors[index];
     vertices.push_back({.position = {vertex.x, vertex.y, vertex.z},
                         .normal = {normal.x, normal.y, normal.z},
                         .tangent = {tangent.x, tangent.y, tangent.z, tangent.w},

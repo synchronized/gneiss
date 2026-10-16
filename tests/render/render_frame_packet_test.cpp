@@ -24,9 +24,9 @@ int main() {
   }
 
   constexpr std::array vertices{
-      gneiss_mesh_vertex{.x = 0.0F, .y = 0.0F, .z = 0.0F, .u = 0.0F, .v = 0.0F},
-      gneiss_mesh_vertex{.x = 1.0F, .y = 0.0F, .z = 0.0F, .u = 1.0F, .v = 0.0F},
-      gneiss_mesh_vertex{.x = 0.0F, .y = 1.0F, .z = 0.0F, .u = 0.0F, .v = 1.0F}};
+      gneiss::asset_internal::mesh_vertex{.x = 0.0F, .y = 0.0F, .z = 0.0F, .u = 0.0F, .v = 0.0F},
+      gneiss::asset_internal::mesh_vertex{.x = 1.0F, .y = 0.0F, .z = 0.0F, .u = 1.0F, .v = 0.0F},
+      gneiss::asset_internal::mesh_vertex{.x = 0.0F, .y = 1.0F, .z = 0.0F, .u = 0.0F, .v = 1.0F}};
   gneiss::asset_internal::mesh_view mesh_desc;
   mesh_desc.vertices = vertices;
   gneiss_mesh mesh = GNEISS_NULL_MESH;

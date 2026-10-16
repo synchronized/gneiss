@@ -30,9 +30,9 @@ extern "C" gneiss_result gneiss_mesh_create(gneiss_application application,
     if (validation_result != GNEISS_SUCCESS) {
       return validation_result;
     }
-    gneiss::asset_internal::mesh_view value;
+    gneiss::asset_internal::mesh_data value;
     const auto converted = gneiss::api::read_mesh_description(*desc, value);
-    return converted == GNEISS_SUCCESS ? state->resources().create_mesh(value, out_mesh)
+    return converted == GNEISS_SUCCESS ? state->resources().create_mesh(std::move(value), out_mesh)
                                        : converted;
   } catch (const std::bad_alloc&) {
     return GNEISS_ERROR_OUT_OF_MEMORY;

@@ -15,6 +15,7 @@
 #include "engine/asset/virtual_file_system.hpp"
 #include "engine/core/diagnostics/profiling.hpp"
 
+#include <gneiss/engine/render.h>
 #include <yyjson.h>
 
 #if defined(GNEISS_HAS_GRANIT_PLATFORM)
@@ -134,10 +135,11 @@ using document_ptr = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;
 }
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): 保持 Mesh Schema 诊断顺序。
-[[nodiscard]] gneiss_result parse_mesh(const std::vector<std::byte>& bytes,
-                                       std::vector<gneiss_mesh_vertex>& out_vertices,
-                                       std::vector<gneiss_mesh_normal>& out_normals,
-                                       asset_diagnostic& diagnostic) {
+[[nodiscard]] gneiss_result
+parse_mesh(const std::vector<std::byte>& bytes,
+           std::vector<gneiss::asset_internal::mesh_vertex>& out_vertices,
+           std::vector<gneiss::asset_internal::mesh_normal>& out_normals,
+           asset_diagnostic& diagnostic) {
   auto document = parse_document(bytes, diagnostic);
   if (!document) {
     return diagnostic.result;
@@ -197,7 +199,7 @@ using document_ptr = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;
            "顶点必须包含三个数值");
       return diagnostic.result;
     }
-    gneiss_mesh_vertex parsed{};
+    gneiss::asset_internal::mesh_vertex parsed{};
     if (!read_float(yyjson_arr_get(vertex, 0), parsed.x) ||
         !read_float(yyjson_arr_get(vertex, 1), parsed.y) ||
         !read_float(yyjson_arr_get(vertex, 2), parsed.z)) {
@@ -218,7 +220,7 @@ using document_ptr = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;
     out_vertices.push_back(parsed);
     if (version >= 3U) {
       yyjson_val* normal = yyjson_arr_get(normals, index);
-      gneiss_mesh_normal parsed_normal{};
+      gneiss::asset_internal::mesh_normal parsed_normal{};
       if (!yyjson_is_arr(normal) || yyjson_arr_size(normal) != 3U ||
           !read_float(yyjson_arr_get(normal, 0), parsed_normal.x) ||
           !read_float(yyjson_arr_get(normal, 1), parsed_normal.y) ||
@@ -241,11 +243,15 @@ using document_ptr = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;
   return GNEISS_SUCCESS;
 }
 
-[[nodiscard]] gneiss_result parse_binary_mesh(
-    const std::vector<std::byte>& bytes, std::vector<gneiss_mesh_vertex>& out_vertices,
-    std::vector<gneiss_mesh_normal>& out_normals, std::vector<std::uint32_t>& out_indices,
-    std::vector<gneiss_mesh_tangent>& out_tangents, std::vector<gneiss_mesh_uv>& out_uv1,
-    std::vector<gneiss_mesh_color>& out_colors, asset_diagnostic& diagnostic) {
+[[nodiscard]] gneiss_result
+parse_binary_mesh(const std::vector<std::byte>& bytes,
+                  std::vector<gneiss::asset_internal::mesh_vertex>& out_vertices,
+                  std::vector<gneiss::asset_internal::mesh_normal>& out_normals,
+                  std::vector<std::uint32_t>& out_indices,
+                  std::vector<gneiss::asset_internal::mesh_tangent>& out_tangents,
+                  std::vector<gneiss::asset_internal::mesh_uv>& out_uv1,
+                  std::vector<gneiss::asset_internal::mesh_color>& out_colors,
+                  asset_diagnostic& diagnostic) {
   gneiss::asset_internal::mesh_binary_data data;
   gneiss::asset_internal::mesh_binary_diagnostic binary_diagnostic;
   const auto result = gneiss::asset_internal::decode_mesh_binary(bytes, data, binary_diagnostic);

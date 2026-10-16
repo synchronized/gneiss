@@ -603,12 +603,12 @@ gneiss_result render_asset_loader::acquire_mesh(std::string_view uri, mesh_asset
           fail(out_diagnostic, result, "", "无法通过 VFS 读取 Mesh");
           return result;
         }
-        std::vector<gneiss_mesh_vertex> vertices;
-        std::vector<gneiss_mesh_normal> normals;
+        std::vector<gneiss::asset_internal::mesh_vertex> vertices;
+        std::vector<gneiss::asset_internal::mesh_normal> normals;
         std::vector<std::uint32_t> indices;
-        std::vector<gneiss_mesh_tangent> tangents;
-        std::vector<gneiss_mesh_uv> uv1;
-        std::vector<gneiss_mesh_color> colors;
+        std::vector<gneiss::asset_internal::mesh_tangent> tangents;
+        std::vector<gneiss::asset_internal::mesh_uv> uv1;
+        std::vector<gneiss::asset_internal::mesh_color> colors;
         result = gneiss::asset_internal::is_mesh_binary(bytes)
                      ? parse_binary_mesh(bytes, vertices, normals, indices, tangents, uv1, colors,
                                          out_diagnostic)

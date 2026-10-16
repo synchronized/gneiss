@@ -99,9 +99,9 @@ render_resource_service::track(std::shared_ptr<const Resource> resource,
   return resource;
 }
 
-gneiss_result render_resource_service::create_mesh(const asset_internal::mesh_view& desc,
-                                                   core::rid* out_mesh) noexcept {
-  if (out_mesh == nullptr || !is_valid() || desc.vertices.size() < 3U) {
+namespace {
+gneiss_result validate_mesh(const asset_internal::mesh_view& desc) noexcept {
+  if (desc.vertices.size() < 3U) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
   const auto vertices = desc.vertices;
@@ -147,14 +147,35 @@ gneiss_result render_resource_service::create_mesh(const asset_internal::mesh_vi
       return GNEISS_ERROR_INVALID_ARGUMENT;
     }
   }
+  return GNEISS_SUCCESS;
+}
+} // namespace
+
+gneiss_result render_resource_service::create_mesh(const asset_internal::mesh_view& desc,
+                                                   core::rid* out_mesh) noexcept {
+  if (out_mesh == nullptr || !is_valid() || desc.vertices.size() < 3U) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  const auto validated = validate_mesh(desc);
+  if (validated != GNEISS_SUCCESS) {
+    return validated;
+  }
+  const auto vertices = desc.vertices;
+  const auto normals = desc.normals;
+  const auto indices = desc.indices;
+  const auto tangents = desc.tangents;
+  const auto uv1 = desc.uv1;
+  const auto colors = desc.colors;
   *out_mesh = 0U;
   try {
-    mesh_resource resource{.vertices = {vertices.begin(), vertices.end()},
-                           .normals = {normals.begin(), normals.end()},
-                           .indices = {indices.begin(), indices.end()},
-                           .tangents = {tangents.begin(), tangents.end()},
-                           .uv1 = {uv1.begin(), uv1.end()},
-                           .colors = {colors.begin(), colors.end()}};
+    mesh_resource resource{
+        .vertices = {vertices.begin(), vertices.end()},
+        .normals = {normals.begin(), normals.end()},
+        .indices = {indices.begin(), indices.end()},
+        .tangents = {tangents.begin(), tangents.end()},
+        .uv1 = {uv1.begin(), uv1.end()},
+        .colors = {colors.begin(), colors.end()},
+    };
     return meshes_.create(
         core::resource_type::mesh,
         track(std::make_shared<const mesh_resource>(std::move(resource)), mesh_history_), out_mesh);
@@ -163,6 +184,24 @@ gneiss_result render_resource_service::create_mesh(const asset_internal::mesh_vi
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;
   }
+}
+
+gneiss_result render_resource_service::create_mesh(mesh_resource resource,
+                                                   core::rid* output) noexcept {
+  if (output == nullptr || !is_valid()) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  const asset_internal::mesh_view view{
+      .vertices = resource.vertices,
+      .normals = resource.normals,
+      .indices = resource.indices,
+      .tangents = resource.tangents,
+      .uv1 = resource.uv1,
+      .colors = resource.colors,
+  };
+  const auto validated = validate_mesh(view);
+  return validated == GNEISS_SUCCESS ? create_prepared_mesh(std::move(resource), output)
+                                     : validated;
 }
 
 gneiss_result render_resource_service::create_prepared_mesh(mesh_resource resource,

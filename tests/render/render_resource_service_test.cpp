@@ -15,9 +15,9 @@ namespace {
 // ABI 版本兼容和服务校验合并验证，内部调用本身只使用借用视图。
 gneiss_result create_mesh(gneiss::render_internal::render_resource_service& resources,
                           const gneiss_mesh_desc& desc, gneiss_mesh* output) {
-  gneiss::asset_internal::mesh_view value;
+  gneiss::asset_internal::mesh_data value;
   const auto converted = gneiss::api::read_mesh_description(desc, value);
-  return converted == GNEISS_SUCCESS ? resources.create_mesh(value, output) : converted;
+  return converted == GNEISS_SUCCESS ? resources.create_mesh(std::move(value), output) : converted;
 }
 gneiss_result create_texture(gneiss::render_internal::render_resource_service& resources,
                              const gneiss_texture_desc& desc, gneiss_texture* output) {
@@ -28,7 +28,7 @@ gneiss_result create_texture(gneiss::render_internal::render_resource_service& r
 bool verify_borrowed_inputs() {
   using namespace gneiss::render_internal;
   render_resource_service resources;
-  std::array<gneiss_mesh_vertex, 3> vertices{};
+  std::array<gneiss::asset_internal::mesh_vertex, 3> vertices{};
   gneiss::asset_internal::mesh_view mesh_source;
   mesh_source.vertices = vertices;
   gneiss_mesh mesh{};
@@ -41,6 +41,18 @@ bool verify_borrowed_inputs() {
       retained_mesh->vertices.size() != 3U) {
     return false;
   }
+  // 拥有型提交转交原数组；校验与借用路径一致。
+  gneiss::asset_internal::mesh_data owned;
+  owned.vertices.resize(3);
+  const auto* storage = owned.vertices.data();
+  if (resources.create_mesh(std::move(owned), &mesh) != GNEISS_SUCCESS ||
+      resources.get_mesh(mesh)->vertices.data() != storage ||
+      resources.destroy_mesh(mesh) != GNEISS_SUCCESS)
+    return false;
+  owned.vertices.resize(3);
+  owned.vertices[0].x = std::numeric_limits<float>::infinity();
+  if (resources.create_mesh(std::move(owned), &mesh) != GNEISS_ERROR_INVALID_ARGUMENT)
+    return false;
   std::array<std::uint8_t, 4> pixels{1U, 2U, 3U, 4U};
   texture_view texture_source;
   texture_source.width = 1U;
@@ -59,15 +71,18 @@ bool verify_borrowed_inputs() {
     return false;
   }
   gneiss_mesh_desc invalid_mesh = GNEISS_MESH_DESC_INIT;
-  invalid_mesh.vertices = vertices.data();
+  const std::array<gneiss_mesh_vertex, 3> abi_vertices{};
+  invalid_mesh.vertices = abi_vertices.data();
   invalid_mesh.vertex_count = 3U;
   invalid_mesh.normal_count = 1U;
   gneiss_texture_desc invalid_texture = GNEISS_TEXTURE_DESC_INIT;
   invalid_texture.pixels = pixels.data();
   invalid_texture.reserved[0] = 1U;
-  return gneiss::api::read_mesh_description(invalid_mesh, mesh_source) ==
+  gneiss::asset_internal::mesh_data converted;
+  converted.vertices.push_back({.x = 17.0F});
+  return gneiss::api::read_mesh_description(invalid_mesh, converted) ==
              GNEISS_ERROR_INVALID_ARGUMENT &&
-         mesh_source.vertices.data() == vertices.data() && mesh_source.vertices.size() == 3U &&
+         converted.vertices.size() == 1U && converted.vertices.front().x == 17.0F &&
          gneiss::api::read_texture_description(invalid_texture, texture_source) ==
              GNEISS_ERROR_INVALID_ARGUMENT &&
          texture_source.width == 1U && texture_source.pixels.data() == pixels.data();

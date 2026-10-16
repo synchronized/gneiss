@@ -37,6 +37,8 @@ public:
   [[nodiscard]] bool is_valid() const noexcept { return domain_ != 0U; }
   [[nodiscard]] gneiss_result create_mesh(const asset_internal::mesh_view& desc,
                                           core::rid* out_mesh) noexcept;
+  /** 校验并接收拥有型网格，成功路径不再复制数组。 */
+  [[nodiscard]] gneiss_result create_mesh(mesh_resource resource, core::rid* output) noexcept;
   /** 内部 CPU 候选已经校验，移动所有权避免主线程复制大数组。 */
   [[nodiscard]] gneiss_result create_prepared_mesh(mesh_resource resource,
                                                    core::rid* output) noexcept;

@@ -11,6 +11,7 @@
 
 #include <chrono>
 #include <functional>
+#include <gneiss/engine/core/result.h>
 #include <limits>
 #include <memory>
 #include <span>

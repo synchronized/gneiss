@@ -4,12 +4,13 @@
 #pragma once
 
 #include "engine/asset/mesh_data.hpp"
+#include <gneiss/engine/render.h>
 
 namespace gneiss::api {
 
-/** 只解析 ABI 布局与借用范围；拓扑和数值校验留在资源服务。失败保留输出。 */
-[[nodiscard]] inline gneiss_result
-read_mesh_description(const gneiss_mesh_desc& desc, asset_internal::mesh_view& output) noexcept {
+/** 解析 ABI 布局并逐字段复制；拓扑和数值校验留在资源服务。失败保留输出。 */
+[[nodiscard]] inline gneiss_result read_mesh_description(const gneiss_mesh_desc& desc,
+                                                         asset_internal::mesh_data& output) {
   if ((desc.struct_size != GNEISS_MESH_DESC_VERSION_1_SIZE &&
        desc.struct_size != GNEISS_MESH_DESC_VERSION_2_SIZE &&
        desc.struct_size < sizeof(gneiss_mesh_desc)) ||
@@ -18,19 +19,10 @@ read_mesh_description(const gneiss_mesh_desc& desc, asset_internal::mesh_view& o
       ((desc.index_count == 0U) != (desc.indices == nullptr))) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
-  asset_internal::mesh_view value{
-      .vertices = {desc.vertices, desc.vertex_count},
-      .normals = {desc.normals, desc.normal_count},
-      .indices = {desc.indices, desc.index_count},
-      .tangents = {},
-      .uv1 = {},
-      .colors = {},
-  };
   if (desc.struct_size >= GNEISS_MESH_DESC_VERSION_2_SIZE) {
     if (desc.reserved_4 != 0U || ((desc.tangent_count == 0U) != (desc.tangents == nullptr))) {
       return GNEISS_ERROR_INVALID_ARGUMENT;
     }
-    value.tangents = {desc.tangents, desc.tangent_count};
   }
   if (desc.struct_size >= sizeof(gneiss_mesh_desc)) {
     if (desc.reserved_5 != 0U || desc.reserved_6 != 0U ||
@@ -38,10 +30,40 @@ read_mesh_description(const gneiss_mesh_desc& desc, asset_internal::mesh_view& o
         ((desc.color_count == 0U) != (desc.colors == nullptr))) {
       return GNEISS_ERROR_INVALID_ARGUMENT;
     }
-    value.uv1 = {desc.uv1, desc.uv1_count};
-    value.colors = {desc.colors, desc.color_count};
   }
-  output = value;
+  asset_internal::mesh_data value;
+  value.vertices.reserve(desc.vertex_count);
+  for (std::uint32_t index = 0; index < desc.vertex_count; ++index) {
+    const auto& item = desc.vertices[index];
+    value.vertices.push_back({item.x, item.y, item.z, item.u, item.v});
+  }
+  value.normals.reserve(desc.normal_count);
+  for (std::uint32_t index = 0; index < desc.normal_count; ++index) {
+    const auto& item = desc.normals[index];
+    value.normals.push_back({item.x, item.y, item.z});
+  }
+  if (desc.index_count != 0U)
+    value.indices.assign(desc.indices, desc.indices + desc.index_count);
+  if (desc.struct_size >= GNEISS_MESH_DESC_VERSION_2_SIZE) {
+    value.tangents.reserve(desc.tangent_count);
+    for (std::uint32_t index = 0; index < desc.tangent_count; ++index) {
+      const auto& item = desc.tangents[index];
+      value.tangents.push_back({item.x, item.y, item.z, item.w});
+    }
+  }
+  if (desc.struct_size >= sizeof(gneiss_mesh_desc)) {
+    value.uv1.reserve(desc.uv1_count);
+    for (std::uint32_t index = 0; index < desc.uv1_count; ++index) {
+      const auto& item = desc.uv1[index];
+      value.uv1.push_back({item.u, item.v});
+    }
+    value.colors.reserve(desc.color_count);
+    for (std::uint32_t index = 0; index < desc.color_count; ++index) {
+      const auto& item = desc.colors[index];
+      value.colors.push_back({item.r, item.g, item.b, item.a});
+    }
+  }
+  output = std::move(value);
   return GNEISS_SUCCESS;
 }
 
