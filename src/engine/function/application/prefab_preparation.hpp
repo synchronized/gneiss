@@ -7,13 +7,16 @@
 #include <gneiss/engine/application.h>
 #include <memory>
 
+namespace gneiss::engine {
+class application;
+}
 namespace gneiss::application_internal {
 /** 单个 Prefab 纯描述准备；任务只持有 VFS 副本与结果，不访问活动 World。
  * 所属线程操作。取消后仍须 poll 至完成；Application 的文件后端与执行器须晚于该对象销毁。
  */
 class GNEISS_API prefab_preparation final {
 public:
-  static gneiss_result create(gneiss_application application, tasks::task_executor& executor,
+  static gneiss_result create(engine::application& application, tasks::task_executor& executor,
                               std::string_view uri,
                               std::unique_ptr<prefab_preparation>& output) noexcept;
   ~prefab_preparation();

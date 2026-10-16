@@ -268,7 +268,8 @@ Render 绘制列表及 Editor 原生提交已验证，见 [Render 记录](../rec
 Application 回调与宿主已完成首批原生接入；World 已有原生拥有对象与操作入口，渲染快照直接
 调用活动 World，见 [宿主迁移记录](../records/M-332-native-host-ownership.md)。
 Scene/Prefab 普通操作与 Transform 已直接接入原生 World；Editor 编辑会话和场景加载已使用
-原生 Application。继续迁移资产编辑与 Prefab 事务中的兼容入口；完整真实图像、
+原生 Application；资产编辑与 Prefab 事务已接入，Editor 主程序已移除兼容桥。
+继续清理 Runtime 检查/统计入口并收敛 SDK；完整真实图像、
 跨平台与安装矩阵仍待执行。
 
 ### 已确认：Render 快照表示与矩阵准备职责

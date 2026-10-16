@@ -26,19 +26,15 @@ gneiss_result gneiss::application_internal::create_mesh_node_ready(
   output = GNEISS_NULL_SCENE_NODE_ID;
   auto state = find_application(application);
   const auto valid = validate_application(state);
-  return valid == GNEISS_SUCCESS
-             ? state->scenes()->create_mesh_renderer_node_ready(scene, desc, prepared, output)
-             : valid;
+  return valid == GNEISS_SUCCESS ? state->create_mesh_node_ready(scene, desc, prepared, output)
+                                 : valid;
 }
 
 gneiss_result
 gneiss::application_internal::collect_unused_edit_assets(gneiss_application application) noexcept {
   auto state = find_application(application);
   const auto valid = validate_application(state);
-  if (valid == GNEISS_SUCCESS) {
-    state->asset_loader().release_unused();
-  }
-  return valid;
+  return valid == GNEISS_SUCCESS ? state->collect_unused_edit_assets() : valid;
 }
 
 gneiss_result gneiss::application_internal::accept_edit_assets(
@@ -59,13 +55,9 @@ gneiss_result gneiss::application_internal::query_ready_asset(
   output = {};
   auto state = find_application(application);
   const auto valid = validate_application(state);
-  if (valid != GNEISS_SUCCESS) {
-    return valid;
-  }
-  auto* service = state->texture_service();
-  return service ? state->asset_loader().acquire_selected(source, service->profile(), output)
-                 : GNEISS_ERROR_NOT_READY;
+  return valid == GNEISS_SUCCESS ? state->query_ready_asset(source, output) : valid;
 }
+
 gneiss_result gneiss::application_internal::capture_mesh_binding(gneiss_application application,
                                                                  gneiss_scene_instance scene,
                                                                  gneiss_scene_node_id node,
@@ -73,39 +65,25 @@ gneiss_result gneiss::application_internal::capture_mesh_binding(gneiss_applicat
   output = {};
   auto state = find_application(application);
   const auto valid = validate_application(state);
-  return valid == GNEISS_SUCCESS ? state->scenes()->capture_mesh_binding(scene, node, output)
-                                 : valid;
+  return valid == GNEISS_SUCCESS ? state->capture_mesh_binding(scene, node, output) : valid;
 }
+
 gneiss_result gneiss::application_internal::replace_mesh_binding(
     gneiss_application application, gneiss_scene_instance scene, gneiss_scene_node_id node,
     const mesh_binding& expected, const mesh_binding& replacement) noexcept {
   auto state = find_application(application);
   const auto valid = validate_application(state);
-  return valid == GNEISS_SUCCESS
-             ? state->scenes()->replace_mesh_binding(scene, node, expected, replacement)
-             : valid;
+  return valid == GNEISS_SUCCESS ? state->replace_mesh_binding(scene, node, expected, replacement)
+                                 : valid;
 }
+
 gneiss_result gneiss::application_internal::prepare_edit_assets(
     gneiss_application application, std::span<const render_internal::render_asset_reload> sources,
-    std::uint64_t revision, std::uint64_t& request) noexcept try {
+    std::uint64_t revision, std::uint64_t& request) noexcept {
   request = 0U;
   auto state = find_application(application);
   const auto valid = validate_application(state);
-  if (valid != GNEISS_SUCCESS) {
-    return valid;
-  }
-  auto* service = state->texture_service();
-  if (!service || state->scene_loading() || service->busy()) {
-    return GNEISS_ERROR_NOT_READY;
-  }
-  return service->submit_assets(
-      sources, 1U, revision, request, true,
-      render_internal::texture_load_service::maximum_candidate_bytes,
-      render_internal::render_asset_loader::publication_mode::fixed_version);
-} catch (const std::bad_alloc&) {
-  return GNEISS_ERROR_OUT_OF_MEMORY;
-} catch (...) {
-  return GNEISS_ERROR_INTERNAL;
+  return valid == GNEISS_SUCCESS ? state->prepare_edit_assets(sources, revision, request) : valid;
 }
 
 gneiss_result

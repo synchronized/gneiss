@@ -6,6 +6,9 @@
 #include <gneiss/engine/application.h>
 #include <map>
 
+namespace gneiss::engine {
+class application;
+}
 namespace gneiss::application_internal {
 /** 历史持有的不可变来源与实际资产租约，不保存隐藏实例。 */
 struct prefab_placement_snapshot {
@@ -18,16 +21,16 @@ struct prefab_placement_snapshot {
 class GNEISS_API prefab_placement final {
 public:
   /** 每次捕获最多 64 个节点；完整之前不得用于构造或删除提交。 */
-  static gneiss_result capture_step(gneiss_application application, std::string_view uuid,
+  static gneiss_result capture_step(engine::application& application, std::string_view uuid,
                                     gneiss_scene_instance scene,
                                     std::shared_ptr<prefab_placement_snapshot>& snapshot,
                                     bool& complete) noexcept;
-  static gneiss_result freeze(gneiss_application application,
+  static gneiss_result freeze(engine::application& application,
                               scene_internal::prepared_prefab_description prepared,
                               scene_internal::prefab_instance_description author,
                               std::vector<render_internal::render_asset_lease> assets,
                               std::shared_ptr<const prefab_placement_snapshot>& output) noexcept;
-  static gneiss_result begin(gneiss_application application, gneiss_scene_instance scene,
+  static gneiss_result begin(engine::application& application, gneiss_scene_instance scene,
                              std::shared_ptr<const prefab_placement_snapshot> snapshot,
                              bool removing, std::unique_ptr<prefab_placement>& output,
                              bool replacing = false) noexcept;
@@ -43,10 +46,10 @@ public:
 
 private:
   gneiss_result create_next_node();
-  prefab_placement(gneiss_application application,
+  prefab_placement(engine::application& application,
                    std::shared_ptr<const prefab_placement_snapshot> snapshot,
                    gneiss_scene_instance scene, bool removing);
-  gneiss_application application_{};
+  engine::application& application_;
   gneiss_scene_instance scene_{};
   std::shared_ptr<const prefab_placement_snapshot> snapshot_;
   scene_internal::prefab_instance_description author_;

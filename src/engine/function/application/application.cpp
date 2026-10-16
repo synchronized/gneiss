@@ -959,8 +959,91 @@ render_internal::texture_load_service* application::texture_service() noexcept {
 
 gneiss_result
 application::accept_edit_assets(const render_internal::texture_load_completion& completion,
-                                const std::function<gneiss_result()>& accept) {
+                                const std::function<gneiss_result()>& accept) try {
+  if (!is_owner_thread() || !accepts_requests())
+    return GNEISS_ERROR_INVALID_STATE;
   return storage_->scene_session_.accept_edit_assets(completion, accept);
+} catch (const std::bad_alloc&) {
+  return GNEISS_ERROR_OUT_OF_MEMORY;
+} catch (...) {
+  return GNEISS_ERROR_INTERNAL;
+}
+
+gneiss_result application::create_mesh_node_ready(
+    gneiss_scene_instance scene, const scene_internal::mesh_renderer_node_creation& desc,
+    const scene_internal::scene_instance_service::mesh_binding& prepared,
+    gneiss_scene_node_id& output) noexcept {
+  output = GNEISS_NULL_SCENE_NODE_ID;
+  const auto valid =
+      is_owner_thread() && accepts_requests() ? GNEISS_SUCCESS : GNEISS_ERROR_INVALID_STATE;
+  return valid == GNEISS_SUCCESS
+             ? scenes()->create_mesh_renderer_node_ready(scene, desc, prepared, output)
+             : valid;
+}
+
+gneiss_result application::collect_unused_edit_assets() noexcept {
+  const auto valid =
+      is_owner_thread() && accepts_requests() ? GNEISS_SUCCESS : GNEISS_ERROR_INVALID_STATE;
+  if (valid == GNEISS_SUCCESS) {
+    asset_loader().release_unused();
+  }
+  return valid;
+}
+
+gneiss_result application::query_ready_asset(const render_internal::render_asset_reload& source,
+                                             render_internal::render_asset_lease& output) noexcept {
+  output = {};
+  const auto valid =
+      is_owner_thread() && accepts_requests() ? GNEISS_SUCCESS : GNEISS_ERROR_INVALID_STATE;
+  if (valid != GNEISS_SUCCESS) {
+    return valid;
+  }
+  auto* service = texture_service();
+  return service ? asset_loader().acquire_selected(source, service->profile(), output)
+                 : GNEISS_ERROR_NOT_READY;
+}
+
+gneiss_result application::capture_mesh_binding(
+    gneiss_scene_instance scene, gneiss_scene_node_id node,
+    scene_internal::scene_instance_service::mesh_binding& output) noexcept {
+  output = {};
+  const auto valid =
+      is_owner_thread() && accepts_requests() ? GNEISS_SUCCESS : GNEISS_ERROR_INVALID_STATE;
+  return valid == GNEISS_SUCCESS ? scenes()->capture_mesh_binding(scene, node, output) : valid;
+}
+
+gneiss_result application::replace_mesh_binding(
+    gneiss_scene_instance scene, gneiss_scene_node_id node,
+    const scene_internal::scene_instance_service::mesh_binding& expected,
+    const scene_internal::scene_instance_service::mesh_binding& replacement) noexcept {
+  const auto valid =
+      is_owner_thread() && accepts_requests() ? GNEISS_SUCCESS : GNEISS_ERROR_INVALID_STATE;
+  return valid == GNEISS_SUCCESS
+             ? scenes()->replace_mesh_binding(scene, node, expected, replacement)
+             : valid;
+}
+
+gneiss_result
+application::prepare_edit_assets(std::span<const render_internal::render_asset_reload> sources,
+                                 std::uint64_t revision, std::uint64_t& request) noexcept try {
+  request = 0U;
+  const auto valid =
+      is_owner_thread() && accepts_requests() ? GNEISS_SUCCESS : GNEISS_ERROR_INVALID_STATE;
+  if (valid != GNEISS_SUCCESS) {
+    return valid;
+  }
+  auto* service = texture_service();
+  if (!service || scene_loading() || service->busy()) {
+    return GNEISS_ERROR_NOT_READY;
+  }
+  return service->submit_assets(
+      sources, 1U, revision, request, true,
+      render_internal::texture_load_service::maximum_candidate_bytes,
+      render_internal::render_asset_loader::publication_mode::fixed_version);
+} catch (const std::bad_alloc&) {
+  return GNEISS_ERROR_OUT_OF_MEMORY;
+} catch (...) {
+  return GNEISS_ERROR_INTERNAL;
 }
 
 gneiss_result application::request_scene(std::string_view uri, std::uint64_t session,

@@ -2,7 +2,6 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "engine/function/application/prefab_preparation.hpp"
 #include "engine/function/application/application.hpp"
-#include "engine/function/application/application_registry.hpp"
 
 namespace gneiss::application_internal {
 struct prefab_preparation::state {
@@ -16,12 +15,14 @@ prefab_preparation::~prefab_preparation() {
   executor_.cancel_scope(scope_);
   (void)executor_.close_scope(scope_);
 }
-gneiss_result prefab_preparation::create(gneiss_application application,
+gneiss_result prefab_preparation::create(engine::application& application,
                                          tasks::task_executor& executor, std::string_view uri,
                                          std::unique_ptr<prefab_preparation>& output) noexcept try {
   output.reset();
-  auto host = find_application(application);
-  const auto validation = validate_application(host);
+  auto* host = &application;
+  const auto validation = host->is_owner_thread() && host->accepts_requests()
+                              ? GNEISS_SUCCESS
+                              : GNEISS_ERROR_INVALID_STATE;
   if (validation != GNEISS_SUCCESS) {
     return validation;
   }

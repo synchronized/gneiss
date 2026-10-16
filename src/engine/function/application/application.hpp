@@ -66,6 +66,25 @@ public:
   [[nodiscard]] gneiss_result
   accept_edit_assets(const render_internal::texture_load_completion& completion,
                      const std::function<gneiss_result()>& accept);
+  [[nodiscard]] gneiss_result
+  create_mesh_node_ready(gneiss_scene_instance scene,
+                         const scene_internal::mesh_renderer_node_creation& desc,
+                         const scene_internal::scene_instance_service::mesh_binding& prepared,
+                         gneiss_scene_node_id& output) noexcept;
+  [[nodiscard]] gneiss_result collect_unused_edit_assets() noexcept;
+  [[nodiscard]] gneiss_result
+  query_ready_asset(const render_internal::render_asset_reload& source,
+                    render_internal::render_asset_lease& output) noexcept;
+  [[nodiscard]] gneiss_result
+  capture_mesh_binding(gneiss_scene_instance scene, gneiss_scene_node_id node,
+                       scene_internal::scene_instance_service::mesh_binding& output) noexcept;
+  [[nodiscard]] gneiss_result replace_mesh_binding(
+      gneiss_scene_instance scene, gneiss_scene_node_id node,
+      const scene_internal::scene_instance_service::mesh_binding& expected,
+      const scene_internal::scene_instance_service::mesh_binding& replacement) noexcept;
+  [[nodiscard]] gneiss_result
+  prepare_edit_assets(std::span<const render_internal::render_asset_reload> sources,
+                      std::uint64_t revision, std::uint64_t& request) noexcept;
   [[nodiscard]] gneiss_result request_scene(std::string_view uri, std::uint64_t session,
                                             std::uint64_t revision, std::uint64_t& request);
   [[nodiscard]] bool scene_progress(application_internal::scene_load_progress& progress) const;

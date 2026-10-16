@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
+#include "engine/function/application/application_registry.hpp"
 #include "engine/function/application/prefab_preparation.hpp"
 #include <chrono>
 #include <thread>
@@ -18,8 +19,9 @@ bool run(gneiss::tasks::execution_mode mode) {
     std::unique_ptr<gneiss::application_internal::prefab_preparation> request;
     const auto uri =
         attempt == 2 ? "asset://prefabs/missing.prefab.json" : "asset://prefabs/test.prefab.json";
-    if (gneiss::application_internal::prefab_preparation::create(application, executor, uri,
-                                                                 request) != GNEISS_SUCCESS) {
+    if (gneiss::application_internal::prefab_preparation::create(
+            *gneiss::application_internal::find_application(application), executor, uri, request) !=
+        GNEISS_SUCCESS) {
       return false;
     }
     if (attempt == 1) {

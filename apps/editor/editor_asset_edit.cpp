@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "editor_asset_edit.hpp"
+#include "engine/function/application/application.hpp"
 
 namespace gneiss::editor {
-result editor_asset_edit::commit_add(gneiss_application application, editor_session& session,
+result editor_asset_edit::commit_add(engine::application& application, editor_session& session,
                                      editor_command_history& history) {
   return history.execute({
       .label = "创建 Mesh Renderer 节点",
@@ -20,7 +21,7 @@ result editor_asset_edit::commit_add(gneiss_application application, editor_sess
             return session.destroy_node(node->node, discarded);
           },
       .redo =
-          [application, &session, scene = scene_, snapshot = snapshot_, leases = next_] {
+          [&application, &session, scene = scene_, snapshot = snapshot_, leases = next_] {
             if (session.scene_handle() != scene) {
               return result{result::invalid_state};
             }
@@ -29,16 +30,16 @@ result editor_asset_edit::commit_add(gneiss_application application, editor_sess
                 snapshot,
                 [&](scene_node_id parent, scene_node_id& node) {
                   gneiss_scene_node_id created{};
-                  const auto operation = application_internal::create_mesh_node_ready(
-                      application, scene,
-                      {
-                          .uuid = snapshot.uuid,
-                          .name = snapshot.display_name,
-                          .parent = parent.get(),
-                          .mesh_uri = snapshot.mesh_uri,
-                          .material_uri = snapshot.material_uri,
-                      },
-                      leases, created);
+                  const auto operation =
+                      application.create_mesh_node_ready(scene,
+                                                         {
+                                                             .uuid = snapshot.uuid,
+                                                             .name = snapshot.display_name,
+                                                             .parent = parent.get(),
+                                                             .mesh_uri = snapshot.mesh_uri,
+                                                             .material_uri = snapshot.material_uri,
+                                                         },
+                                                         leases, created);
                   node = scene_node_id{created};
                   return from_native(operation);
                 },
@@ -48,7 +49,7 @@ result editor_asset_edit::commit_add(gneiss_application application, editor_sess
   });
 }
 
-result editor_asset_edit::commit(gneiss_application application, editor_session& session,
+result editor_asset_edit::commit(engine::application& application, editor_session& session,
                                  editor_command_history& history) {
   if (session.scene_handle() != scene_) {
     return result::invalid_state;
@@ -56,15 +57,15 @@ result editor_asset_edit::commit(gneiss_application application, editor_session&
   if (creating_) {
     return commit_add(application, session, history);
   }
-  const auto apply = [application, &session, scene = scene_,
+  const auto apply = [&application, &session, scene = scene_,
                       node = node_](const auto& expected, const auto& replacement) -> result {
     if (session.scene_handle() != scene) {
       return result::invalid_state;
     }
     return session.commit_mesh_renderer(
         node, replacement.mesh.uri(), replacement.material.uri(), [&] {
-          return from_native(application_internal::replace_mesh_binding(
-              application, scene, node.get(), expected, replacement));
+          return from_native(
+              application.replace_mesh_binding(scene, node.get(), expected, replacement));
         });
   };
   const auto was_dirty = session.is_dirty();
@@ -80,17 +81,17 @@ result editor_asset_edit::commit(gneiss_application application, editor_session&
   return operation;
 }
 
-result editor_asset_edit::request(gneiss_application application, editor_session& session,
+result editor_asset_edit::request(engine::application& application, editor_session& session,
                                   editor_command_history& history, std::string_view uuid,
                                   mesh_asset_reference assets) {
   return request_impl(application, session, history, uuid, assets, false);
 }
-result editor_asset_edit::request_add(gneiss_application application, editor_session& session,
+result editor_asset_edit::request_add(engine::application& application, editor_session& session,
                                       editor_command_history& history, std::string_view name,
                                       mesh_asset_reference assets) {
   return request_impl(application, session, history, name, assets, true);
 }
-result editor_asset_edit::request_impl(gneiss_application application, editor_session& session,
+result editor_asset_edit::request_impl(engine::application& application, editor_session& session,
                                        editor_command_history& history, std::string_view target,
                                        mesh_asset_reference assets, bool creating) try {
   if (active_) {
@@ -125,9 +126,9 @@ result editor_asset_edit::request_impl(gneiss_application application, editor_se
   progress_ = {};
   cancelled_ = false;
   visible_ = false;
-  operation_ = creating_ ? result::success
-                         : from_native(application_internal::capture_mesh_binding(
-                               application, scene_, node_.get(), previous_));
+  operation_ = creating_
+                   ? result::success
+                   : from_native(application.capture_mesh_binding(scene_, node_.get(), previous_));
   if (operation_.failed()) {
     return operation_;
   }
@@ -143,7 +144,7 @@ result editor_asset_edit::request_impl(gneiss_application application, editor_se
       return;
     }
     render_internal::render_asset_reload source{.uri = std::string(uri), .type = type};
-    const auto ready = application_internal::query_ready_asset(application, source, next);
+    const auto ready = application.query_ready_asset(source, next);
     if (ready == GNEISS_ERROR_NOT_READY) {
       missing.push_back(std::move(source));
     } else if (ready != GNEISS_SUCCESS) {
@@ -164,8 +165,7 @@ result editor_asset_edit::request_impl(gneiss_application application, editor_se
     next_ = {};
     return operation_;
   }
-  operation_ = from_native(
-      application_internal::prepare_edit_assets(application, missing, ++revision_, request_));
+  operation_ = from_native(application.prepare_edit_assets(missing, ++revision_, request_));
   active_ = operation_.ok();
   visible_ = active_;
   if (!active_) {
@@ -183,16 +183,15 @@ result editor_asset_edit::request_impl(gneiss_application application, editor_se
   return operation_ = result::internal;
 }
 
-void editor_asset_edit::advance(gneiss_application application, editor_session& session,
+void editor_asset_edit::advance(engine::application& application, editor_session& session,
                                 editor_command_history& history) {
   if (!active_) {
     return;
   }
-  bool available{};
-  (void)application_internal::query_asset_load_progress(application, progress_, available);
+  (void)application.asset_progress(progress_);
   render_internal::texture_load_completion completion;
   bool ready{};
-  const auto polled = application_internal::poll_textures(application, completion, ready);
+  const auto polled = application.poll_assets(completion, ready);
   if (polled == GNEISS_SUCCESS && !ready) {
     return;
   }
@@ -214,25 +213,25 @@ void editor_asset_edit::advance(gneiss_application application, editor_session& 
         next_.material = lease;
       }
     }
-    operation_ = next_.mesh && next_.material
-                     ? from_native(application_internal::accept_edit_assets(
-                           application, completion,
-                           [&] { return to_native(commit(application, session, history)); }))
-                     : result::invalid_state;
+    operation_ =
+        next_.mesh && next_.material
+            ? from_native(application.accept_edit_assets(
+                  completion, [&] { return to_native(commit(application, session, history)); }))
+            : result::invalid_state;
   }
   active_ = false;
   visible_ = operation_.failed() && !cancelled_;
   previous_ = {};
   next_ = {};
   completion = {};
-  (void)application_internal::collect_unused_edit_assets(application);
+  (void)application.collect_unused_edit_assets();
 }
-void editor_asset_edit::cancel(gneiss_application application) {
+void editor_asset_edit::cancel(engine::application& application) {
   if (!active_) {
     return;
   }
   cancelled_ = true;
   // 上传已开始时继续推进至安全终态，回执到达后丢弃候选，不提交编辑。
-  (void)application_internal::cancel_render_assets(application);
+  (void)application.cancel_assets();
 }
 }

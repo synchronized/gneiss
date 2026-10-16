@@ -98,6 +98,24 @@ void test_asset_request_boundaries() {
     check(!app->scene_progress(scene_progress) && scene_completion.scene == 29);
     render_internal::texture_load_completion completion;
     completion.request = 23;
+    render_internal::render_asset_lease lease;
+    scene_internal::scene_instance_service::mesh_binding binding;
+    gneiss_scene_node_id created = 19;
+    check(app->create_mesh_node_ready(0, {}, {}, created) == GNEISS_ERROR_INVALID_STATE &&
+          created == 0);
+    check(app->collect_unused_edit_assets() == GNEISS_ERROR_INVALID_STATE);
+    check(app->query_ready_asset({}, lease) == GNEISS_ERROR_INVALID_STATE && !lease);
+    check(app->capture_mesh_binding(0, 0, binding) == GNEISS_ERROR_INVALID_STATE);
+    check(app->replace_mesh_binding(0, 0, binding, binding) == GNEISS_ERROR_INVALID_STATE);
+    check(app->prepare_edit_assets({}, 1, request) == GNEISS_ERROR_INVALID_STATE && request == 0);
+    bool accepted = false;
+    check(app->accept_edit_assets(completion,
+                                  [&] {
+                                    accepted = true;
+                                    return GNEISS_SUCCESS;
+                                  }) == GNEISS_ERROR_INVALID_STATE &&
+          !accepted);
+
     return app->request_assets({}, 1, 1, request, true) == GNEISS_ERROR_INVALID_STATE &&
            request == 0 && app->poll_assets(completion, ready) == GNEISS_ERROR_INVALID_STATE &&
            !ready && completion.request == 23 && !app->asset_progress(progress) &&

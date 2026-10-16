@@ -61,14 +61,14 @@ void run(tasks::execution_mode mode) {
       if (mode == tasks::execution_mode::cooperative) {
         (void)scheduler.run_ready();
       }
-      edit.advance(app.get(), session, history);
+      edit.advance(*gneiss::application_internal::find_application(app.get()), session, history);
       check(std::chrono::steady_clock::now() < deadline);
       std::this_thread::yield();
     }
   };
   const auto request = [&](std::string_view material) {
-    return edit.request(app.get(), session, history, uuid,
-                        {.mesh_uri = "asset://mesh.json", .material_uri = material});
+    return edit.request(*gneiss::application_internal::find_application(app.get()), session,
+                        history, uuid, {.mesh_uri = "asset://mesh.json", .material_uri = material});
   };
   check(request("asset://b.json") == result::success && edit.active() && edit.visible());
   check(history.size() == 0U && session.nodes().front().material_uri == "asset://a.json");
@@ -91,13 +91,14 @@ void run(tasks::execution_mode mode) {
         session.nodes().front().material_uri == "asset://b.json");
   edit.dismiss();
   check(request("asset://missing.json") == result::success);
-  edit.cancel(app.get());
+  edit.cancel(*gneiss::application_internal::find_application(app.get()));
   drive();
   check(!edit.visible() && history.size() == count);
   // 创建同样先准备，成功才产生节点；命令持有版本，坏文件不影响重做。
   const editor::mesh_asset_reference new_assets{.mesh_uri = "asset://mesh.json",
                                                 .material_uri = "asset://b.json"};
-  check(edit.request_add(app.get(), session, history, "new node", new_assets) == result::success);
+  check(edit.request_add(*gneiss::application_internal::find_application(app.get()), session,
+                         history, "new node", new_assets) == result::success);
   check(edit.active() && session.nodes().size() == 1U && history.size() == count);
   drive();
   check(edit.operation() == result::success && session.nodes().size() == 2U);
@@ -106,13 +107,15 @@ void run(tasks::execution_mode mode) {
   check(history.undo() == result::success && session.find_node(created_uuid) == nullptr);
   check(history.redo() == result::success && session.find_node(created_uuid) != nullptr);
   editor::editor_command_history disabled{0U};
-  check(edit.request_add(app.get(), session, disabled, "rejected", new_assets) ==
-        result::invalid_argument);
+  check(edit.request_add(*gneiss::application_internal::find_application(app.get()), session,
+                         disabled, "rejected", new_assets) == result::invalid_argument);
   check(!edit.active() && session.nodes().size() == 2U);
-  check(edit.request_add(app.get(), session, history, "ready node", new_assets) == result::success);
+  check(edit.request_add(*gneiss::application_internal::find_application(app.get()), session,
+                         history, "ready node", new_assets) == result::success);
   check(!edit.active() && !edit.visible() && session.nodes().size() == 3U);
   const auto creation_count = history.size();
-  check(edit.request_add(app.get(), session, history, "missing",
+  check(edit.request_add(*gneiss::application_internal::find_application(app.get()), session,
+                         history, "missing",
                          {.mesh_uri = "asset://mesh.json",
                           .material_uri = "asset://missing.json"}) == result::success);
   drive();

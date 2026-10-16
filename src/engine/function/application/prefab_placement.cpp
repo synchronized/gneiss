@@ -2,7 +2,6 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "engine/function/application/prefab_placement.hpp"
 #include "engine/function/application/application.hpp"
-#include "engine/function/application/application_registry.hpp"
 #include "engine/function/scene/structural_diff.hpp"
 #include "engine/function/world/world_service.hpp"
 #include <algorithm>
@@ -17,13 +16,15 @@ engine::transform transform_of(const scene_internal::object_description& object)
   return value;
 }
 }
-gneiss_result prefab_placement::capture_step(gneiss_application application, std::string_view uuid,
-                                             gneiss_scene_instance scene,
+gneiss_result prefab_placement::capture_step(engine::application& application,
+                                             std::string_view uuid, gneiss_scene_instance scene,
                                              std::shared_ptr<prefab_placement_snapshot>& snapshot,
                                              bool& complete) noexcept try {
   complete = false;
-  auto host = find_application(application);
-  const auto validation = validate_application(host);
+  auto* host = &application;
+  const auto validation = host->is_owner_thread() && host->accepts_requests()
+                              ? GNEISS_SUCCESS
+                              : GNEISS_ERROR_INVALID_STATE;
   if (validation != GNEISS_SUCCESS) {
     return validation;
   }
@@ -65,13 +66,15 @@ gneiss_result prefab_placement::capture_step(gneiss_application application, std
 }
 
 gneiss_result
-prefab_placement::freeze(gneiss_application application,
+prefab_placement::freeze(engine::application& application,
                          scene_internal::prepared_prefab_description prepared,
                          scene_internal::prefab_instance_description author,
                          std::vector<render_internal::render_asset_lease> assets,
                          std::shared_ptr<const prefab_placement_snapshot>& output) noexcept try {
-  auto host = find_application(application);
-  const auto validation = validate_application(host);
+  auto* host = &application;
+  const auto validation = host->is_owner_thread() && host->accepts_requests()
+                              ? GNEISS_SUCCESS
+                              : GNEISS_ERROR_INVALID_STATE;
   if (validation != GNEISS_SUCCESS) {
     return validation;
   }
@@ -94,19 +97,21 @@ prefab_placement::freeze(gneiss_application application,
 } catch (...) {
   return GNEISS_ERROR_INTERNAL;
 }
-prefab_placement::prefab_placement(gneiss_application application,
+prefab_placement::prefab_placement(engine::application& application,
                                    std::shared_ptr<const prefab_placement_snapshot> snapshot,
                                    gneiss_scene_instance scene, bool removing)
     : application_(application), scene_(scene), snapshot_(std::move(snapshot)),
       author_(snapshot_->author), removing_(removing) {}
 prefab_placement::~prefab_placement() = default;
-gneiss_result prefab_placement::begin(gneiss_application application, gneiss_scene_instance scene,
+gneiss_result prefab_placement::begin(engine::application& application, gneiss_scene_instance scene,
                                       std::shared_ptr<const prefab_placement_snapshot> snapshot,
                                       bool removing, std::unique_ptr<prefab_placement>& output,
                                       bool replacing) noexcept try {
   output.reset();
-  auto host = find_application(application);
-  const auto validation = validate_application(host);
+  auto* host = &application;
+  const auto validation = host->is_owner_thread() && host->accepts_requests()
+                              ? GNEISS_SUCCESS
+                              : GNEISS_ERROR_INVALID_STATE;
   if (validation != GNEISS_SUCCESS || !snapshot) {
     return validation == GNEISS_SUCCESS ? GNEISS_ERROR_INVALID_ARGUMENT : validation;
   }
@@ -167,8 +172,10 @@ gneiss_result prefab_placement::create_next_node() {
 }
 gneiss_result prefab_placement::advance(bool& ready) noexcept try {
   ready = false;
-  auto host = find_application(application_);
-  const auto validation = validate_application(host);
+  auto* host = &application_;
+  const auto validation = host->is_owner_thread() && host->accepts_requests()
+                              ? GNEISS_SUCCESS
+                              : GNEISS_ERROR_INVALID_STATE;
   if (validation != GNEISS_SUCCESS || committed_) {
     return validation == GNEISS_SUCCESS ? GNEISS_ERROR_INVALID_STATE : validation;
   }
@@ -258,8 +265,10 @@ gneiss_result prefab_placement::preview(std::size_t index,
   return GNEISS_SUCCESS;
 }
 gneiss_result prefab_placement::commit() noexcept {
-  auto host = find_application(application_);
-  const auto validation = validate_application(host);
+  auto* host = &application_;
+  const auto validation = host->is_owner_thread() && host->accepts_requests()
+                              ? GNEISS_SUCCESS
+                              : GNEISS_ERROR_INVALID_STATE;
   if (validation != GNEISS_SUCCESS || !ready_ || committed_ || replacing_) {
     return validation == GNEISS_SUCCESS ? GNEISS_ERROR_INVALID_STATE : validation;
   }
@@ -274,17 +283,19 @@ prefab_placement::commit_replacements(std::span<prefab_placement* const> entries
   if (entries.empty() || entries.front() == nullptr) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
-  const auto application = entries.front()->application_;
+  auto& application = entries.front()->application_;
   const auto scene = entries.front()->scene_;
-  auto host = find_application(application);
-  const auto validation = validate_application(host);
+  auto* host = &application;
+  const auto validation = host->is_owner_thread() && host->accepts_requests()
+                              ? GNEISS_SUCCESS
+                              : GNEISS_ERROR_INVALID_STATE;
   if (validation != GNEISS_SUCCESS) {
     return validation;
   }
   std::vector<scene_internal::scene_instance_service::prefab_replacement> replacements;
   replacements.reserve(entries.size());
   for (auto* entry : entries) {
-    if (entry == nullptr || entry->application_ != application || entry->scene_ != scene ||
+    if (entry == nullptr || &entry->application_ != &application || entry->scene_ != scene ||
         !entry->replacing_ || !entry->ready_ || entry->committed_) {
       return GNEISS_ERROR_INVALID_STATE;
     }
