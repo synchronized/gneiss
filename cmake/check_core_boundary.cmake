@@ -14,6 +14,12 @@ if(NOT sources)
 endif()
 foreach(source IN LISTS sources)
   file(READ "${source}" content)
+  if(source MATCHES "/src/engine/(core|function)/input/" AND
+      (content MATCHES "gneiss_(input_event|keyboard_state|pointer_state|action_state)" OR
+       content MATCHES "gneiss/(engine/)?input[.]h" OR
+       content MATCHES "engine/api/"))
+    message(FATAL_ERROR "原生输入模块不得反向依赖输入 ABI：${source}")
+  endif()
   if(source MATCHES "/src/engine/core/log/" AND
       (content MATCHES "gneiss_log_|GNEISS_LOG_" OR
        content MATCHES "gneiss/(engine/)?log[.]h" OR

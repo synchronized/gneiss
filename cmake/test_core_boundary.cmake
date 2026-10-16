@@ -361,3 +361,21 @@ execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
 if(NOT status EQUAL 0)
   message(FATAL_ERROR "日志边界检查错误拒绝基础值类型")
 endif()
+
+file(MAKE_DIRECTORY "${fixture}/src/engine/function/input")
+foreach(content IN ITEMS "#include <gneiss/engine/input.h>" "gneiss_input_event event;"
+    "gneiss_action_state state;" "#include <engine/api/input_conversion.hpp>")
+  file(WRITE "${fixture}/src/engine/function/input/probe.cpp" "${content}\n")
+  execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
+    -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
+    RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
+  if(status EQUAL 0)
+    message(FATAL_ERROR "输入边界检查未拒绝违规输入：${content}")
+  endif()
+endforeach()
+file(WRITE "${fixture}/src/engine/function/input/probe.cpp" "#include <engine/core/input/input_types.hpp>\n")
+execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
+  -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake" RESULT_VARIABLE status)
+if(NOT status EQUAL 0)
+  message(FATAL_ERROR "输入边界检查错误拒绝原生值类型")
+endif()

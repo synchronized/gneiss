@@ -4,7 +4,7 @@
 #ifndef GNEISS_INPUT_INPUT_SERVICE_HPP_
 #define GNEISS_INPUT_INPUT_SERVICE_HPP_
 
-#include <gneiss/engine/input.h>
+#include "engine/core/input/input_types.hpp"
 
 #include "engine/function/input/action_map.hpp"
 
@@ -18,26 +18,26 @@ public:
   static constexpr std::size_t event_capacity = 256;
 
   void begin_frame() noexcept;
-  [[nodiscard]] bool push(const gneiss_input_event& event) noexcept;
-  [[nodiscard]] gneiss_result poll(gneiss_input_event& out_event) noexcept;
-  void set_keyboard(const gneiss_keyboard_state& state) noexcept { keyboard_ = state; }
-  void set_pointer(const gneiss_pointer_state& state) noexcept { pointer_ = state; }
+  [[nodiscard]] bool push(const input_event& event) noexcept;
+  [[nodiscard]] result poll(input_event& out_event) noexcept;
+  void set_keyboard(const keyboard_state& state) noexcept { keyboard_ = state; }
+  void set_pointer(const pointer_state& state) noexcept { pointer_ = state; }
   void clear_focus() noexcept;
   [[nodiscard]] result replace_action_map(action_map map) noexcept;
   [[nodiscard]] result find_action(std::string_view name, action_id& out_action) const noexcept;
   [[nodiscard]] result get_action_state(action_id action, action_state& out_state) const noexcept;
-  [[nodiscard]] const gneiss_keyboard_state& keyboard() const noexcept { return keyboard_; }
-  [[nodiscard]] const gneiss_pointer_state& pointer() const noexcept { return pointer_; }
+  [[nodiscard]] const keyboard_state& keyboard() const noexcept { return keyboard_; }
+  [[nodiscard]] const pointer_state& pointer() const noexcept { return pointer_; }
 
 private:
-  void apply(const gneiss_input_event& event) noexcept;
+  void apply(const input_event& event) noexcept;
   void update_actions() noexcept;
 
-  std::array<gneiss_input_event, event_capacity> events_{};
+  std::array<input_event, event_capacity> events_{};
   std::size_t read_index_{};
   std::size_t event_count_{};
-  gneiss_keyboard_state keyboard_ = GNEISS_KEYBOARD_STATE_INIT;
-  gneiss_pointer_state pointer_ = GNEISS_POINTER_STATE_INIT;
+  keyboard_state keyboard_ = {};
+  pointer_state pointer_ = {};
   action_map action_map_;
   std::vector<action_state> action_states_;
   std::uint32_t action_generation_{};

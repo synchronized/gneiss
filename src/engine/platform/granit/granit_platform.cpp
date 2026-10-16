@@ -84,14 +84,14 @@ gneiss_result granit_platform::initialize(const window_configuration& config) no
   return map_result(result);
 }
 
-gneiss_result granit_platform::poll_input(gneiss_input_event& out_event) noexcept {
+gneiss_result granit_platform::poll_input(input_internal::input_event& out_event) noexcept {
   granit::input_event source{};
   const auto result = window_system_.poll(source);
   if (result.failed()) {
     return map_result(result);
   }
-  out_event = GNEISS_INPUT_EVENT_INIT;
-  out_event.type = static_cast<std::uint32_t>(source.type);
+  out_event = {};
+  out_event.type = static_cast<input_internal::event_type>(source.type);
   out_event.window_id = UINT64_C(1);
   out_event.timestamp_ns = source.timestamp_ns;
   switch (source.type) {
@@ -99,9 +99,13 @@ gneiss_result granit_platform::poll_input(gneiss_input_event& out_event) noexcep
     out_event.data.key.physical_key = static_cast<std::uint32_t>(source.data.key.physical);
     out_event.data.key.logical_key = static_cast<std::uint32_t>(source.data.key.logical);
     out_event.data.key.modifiers = source.data.key.modifiers;
-    out_event.data.key.action = static_cast<std::uint32_t>(source.data.key.action);
+    out_event.data.key.action = static_cast<input_internal::key_action>(source.data.key.action);
     break;
   case granit::input_event_type::text:
+    static_assert(sizeof(out_event.data.text.utf8) == sizeof(source.data.text.utf8));
+    if (source.data.text.length > sizeof(out_event.data.text.utf8)) {
+      return GNEISS_ERROR_INVALID_ARGUMENT;
+    }
     out_event.data.text.length = source.data.text.length;
     std::memcpy(out_event.data.text.utf8, source.data.text.utf8, sizeof(out_event.data.text.utf8));
     break;
@@ -116,7 +120,7 @@ gneiss_result granit_platform::poll_input(gneiss_input_event& out_event) noexcep
     out_event.data.pointer_button.x = source.data.pointer_button.x;
     out_event.data.pointer_button.y = source.data.pointer_button.y;
     out_event.data.pointer_button.button = source.data.pointer_button.button;
-    out_event.data.pointer_button.pressed = source.data.pointer_button.pressed;
+    out_event.data.pointer_button.pressed = source.data.pointer_button.pressed != 0;
     out_event.data.pointer_button.buttons = source.data.pointer_button.buttons;
     break;
   case granit::input_event_type::pointer_wheel:
@@ -130,44 +134,44 @@ gneiss_result granit_platform::poll_input(gneiss_input_event& out_event) noexcep
   case granit::input_event_type::pointer_left:
     break;
   default:
-    out_event.type = 0;
+    out_event.type = input_internal::event_type::none;
     break;
   }
   return GNEISS_SUCCESS;
 }
 
-gneiss_result granit_platform::keyboard(gneiss_keyboard_state& out_state) const noexcept {
+gneiss_result granit_platform::keyboard(input_internal::keyboard_state& out_state) const noexcept {
   granit::keyboard_state source{};
   const auto result = window_system_.keyboard(window_.ref(), source);
   if (result == granit::result::invalid_handle) {
-    out_state = GNEISS_KEYBOARD_STATE_INIT;
+    out_state = {};
     return GNEISS_SUCCESS;
   }
   if (result.failed()) {
     return map_result(result);
   }
   static_assert(sizeof(out_state.pressed_keys) == sizeof(source.pressed_keys));
-  out_state = GNEISS_KEYBOARD_STATE_INIT;
+  out_state = {};
   out_state.modifiers = source.modifiers;
-  std::memcpy(out_state.pressed_keys, source.pressed_keys.data(), sizeof(out_state.pressed_keys));
+  std::memcpy(out_state.pressed_keys.data(), source.pressed_keys.data(), sizeof(out_state.pressed_keys));
   return GNEISS_SUCCESS;
 }
 
-gneiss_result granit_platform::pointer(gneiss_pointer_state& out_state) const noexcept {
+gneiss_result granit_platform::pointer(input_internal::pointer_state& out_state) const noexcept {
   granit::pointer_state source{};
   const auto result = window_system_.pointer(window_.ref(), source);
   if (result == granit::result::invalid_handle) {
-    out_state = GNEISS_POINTER_STATE_INIT;
+    out_state = {};
     return GNEISS_SUCCESS;
   }
   if (result.failed()) {
     return map_result(result);
   }
-  out_state = GNEISS_POINTER_STATE_INIT;
+  out_state = {};
   out_state.buttons = source.buttons;
   out_state.x = source.x;
   out_state.y = source.y;
-  out_state.is_inside = source.inside ? 1U : 0U;
+  out_state.is_inside = source.inside;
   return GNEISS_SUCCESS;
 }
 

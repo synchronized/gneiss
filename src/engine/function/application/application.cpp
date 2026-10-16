@@ -412,14 +412,14 @@ gneiss_result application::poll_events(bool& out_should_close) noexcept {
     if (platform_result != GNEISS_SUCCESS) {
       return platform_result;
     }
-    gneiss_keyboard_state keyboard = GNEISS_KEYBOARD_STATE_INIT;
+    input_internal::keyboard_state keyboard = {};
     auto input_result = diagnostics::measure(diagnostics::loop_stage::input_state, [&]() noexcept {
       return storage_->granit_platform_->keyboard(keyboard);
     });
     if (input_result != GNEISS_SUCCESS) {
       return input_result;
     }
-    gneiss_pointer_state pointer = GNEISS_POINTER_STATE_INIT;
+    input_internal::pointer_state pointer = {};
     input_result = diagnostics::measure(diagnostics::loop_stage::input_state, [&]() noexcept {
       return storage_->granit_platform_->pointer(pointer);
     });
@@ -428,7 +428,7 @@ gneiss_result application::poll_events(bool& out_should_close) noexcept {
     }
     storage_->input_.set_keyboard(keyboard);
     storage_->input_.set_pointer(pointer);
-    gneiss_input_event event = GNEISS_INPUT_EVENT_INIT;
+    input_internal::input_event event = {};
     input_result = diagnostics::measure(diagnostics::loop_stage::input_events, [&]() noexcept {
       return storage_->granit_platform_->poll_input(event);
     });
@@ -437,7 +437,7 @@ gneiss_result application::poll_events(bool& out_should_close) noexcept {
         storage_->input_.clear_focus();
         return GNEISS_ERROR_INVALID_STATE;
       }
-      event = GNEISS_INPUT_EVENT_INIT;
+      event = {};
       input_result = diagnostics::measure(diagnostics::loop_stage::input_events, [&]() noexcept {
         return storage_->granit_platform_->poll_input(event);
       });
@@ -460,8 +460,8 @@ gneiss_result application::poll_events(bool& out_should_close) noexcept {
   }
 }
 
-gneiss_result application::poll_input(gneiss_input_event& out_event) noexcept {
-  return storage_->input_.poll(out_event);
+gneiss_result application::poll_input(input_internal::input_event& out_event) noexcept {
+  return to_native(storage_->input_.poll(out_event));
 }
 
 gneiss_result application::load_action_map(std::string_view uri) noexcept {
@@ -1001,11 +1001,11 @@ scene_internal::scene_instance_service* application::scenes() noexcept {
   return storage_->scene_session_.scenes();
 }
 
-const gneiss_keyboard_state& application::keyboard_state() const noexcept {
+const input_internal::keyboard_state& application::keyboard_state() const noexcept {
   return storage_->input_.keyboard();
 }
 
-const gneiss_pointer_state& application::pointer_state() const noexcept {
+const input_internal::pointer_state& application::pointer_state() const noexcept {
   return storage_->input_.pointer();
 }
 

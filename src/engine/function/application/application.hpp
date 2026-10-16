@@ -5,7 +5,7 @@
 #define GNEISS_ENGINE_APPLICATION_HPP_
 
 #include <gneiss/engine/application.h>
-#include <gneiss/engine/input.h>
+#include "engine/core/input/input_types.hpp"
 
 #include "engine/asset/virtual_file_system.hpp"
 #include "engine/core/diagnostics/loop_timing.hpp"
@@ -112,9 +112,9 @@ public:
   [[nodiscard]] gneiss_result reload_prefab(gneiss_scene_instance instance,
                                             std::string_view uri) noexcept;
   [[nodiscard]] scene_internal::scene_instance_service* scenes() noexcept;
-  [[nodiscard]] const gneiss_keyboard_state& keyboard_state() const noexcept;
-  [[nodiscard]] const gneiss_pointer_state& pointer_state() const noexcept;
-  [[nodiscard]] gneiss_result poll_input(gneiss_input_event& out_event) noexcept;
+  [[nodiscard]] const input_internal::keyboard_state& keyboard_state() const noexcept;
+  [[nodiscard]] const input_internal::pointer_state& pointer_state() const noexcept;
+  [[nodiscard]] gneiss_result poll_input(input_internal::input_event& out_event) noexcept;
   [[nodiscard]] gneiss_result get_window_size(std::uint32_t& out_width,
                                               std::uint32_t& out_height) const noexcept;
   [[nodiscard]] gneiss_result load_action_map(std::string_view uri) noexcept;

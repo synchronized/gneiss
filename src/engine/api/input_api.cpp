@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "engine/api/input_conversion.hpp"
 #include "engine/function/application/application.hpp"
 #include "engine/function/application/application_registry.hpp"
 
@@ -25,7 +26,10 @@ extern "C" gneiss_result gneiss_application_poll_input(gneiss_application applic
     if (validation_result != GNEISS_SUCCESS) {
       return validation_result;
     }
-    return state->poll_input(*out_event);
+    gneiss::input_internal::input_event event;
+    const auto operation = state->poll_input(event);
+    *out_event = gneiss::abi_internal::input_event_to_abi(event);
+    return operation;
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;
   }
@@ -42,7 +46,7 @@ extern "C" gneiss_result gneiss_application_get_keyboard_state(gneiss_applicatio
     if (validation_result != GNEISS_SUCCESS) {
       return validation_result;
     }
-    *out_state = state->keyboard_state();
+    *out_state = gneiss::abi_internal::input_state_to_abi(state->keyboard_state());
     return GNEISS_SUCCESS;
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;
@@ -60,7 +64,7 @@ extern "C" gneiss_result gneiss_application_get_pointer_state(gneiss_application
     if (validation_result != GNEISS_SUCCESS) {
       return validation_result;
     }
-    *out_state = state->pointer_state();
+    *out_state = gneiss::abi_internal::input_state_to_abi(state->pointer_state());
     return GNEISS_SUCCESS;
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;

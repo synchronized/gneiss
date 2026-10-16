@@ -22,8 +22,11 @@ void input_service::begin_frame() noexcept {
   }
 }
 
-bool input_service::push(const gneiss_input_event& event) noexcept {
-  if (event_count_ == event_capacity) {
+bool input_service::push(const input_event& event) noexcept {
+  if (event.type > event_type::pointer_left ||
+      (event.type == event_type::text && event.data.text.length > sizeof(event.data.text.utf8)) ||
+      (event.type == event_type::key && event.data.key.action > key_action::repeated) ||
+      event_count_ == event_capacity) {
     return false;
   }
   events_[event_count_++] = event;
@@ -32,19 +35,19 @@ bool input_service::push(const gneiss_input_event& event) noexcept {
   return true;
 }
 
-gneiss_result input_service::poll(gneiss_input_event& out_event) noexcept {
-  out_event = GNEISS_INPUT_EVENT_INIT;
+result input_service::poll(input_event& out_event) noexcept {
+  out_event = {};
   if (read_index_ == event_count_) {
-    return GNEISS_ERROR_NOT_READY;
+    return result::not_ready;
   }
   out_event = events_[read_index_++];
-  return GNEISS_SUCCESS;
+  return result::success;
 }
 
 void input_service::clear_focus() noexcept {
-  keyboard_ = GNEISS_KEYBOARD_STATE_INIT;
+  keyboard_ = {};
   pointer_.buttons = 0;
-  pointer_.is_inside = 0;
+  pointer_.is_inside = false;
   update_actions();
 }
 
@@ -114,29 +117,29 @@ void input_service::update_actions() noexcept {
   }
 }
 
-void input_service::apply(const gneiss_input_event& event) noexcept {
-  if (event.type == GNEISS_INPUT_EVENT_KEY && event.data.key.physical_key < 256U) {
+void input_service::apply(const input_event& event) noexcept {
+  if (event.type == event_type::key && event.data.key.physical_key < 256U) {
     const auto key = event.data.key.physical_key;
     const auto mask = UINT64_C(1) << (key % 64U);
     auto& word = keyboard_.pressed_keys[key / 64U];
-    if (event.data.key.action == GNEISS_KEY_RELEASED) {
+    if (event.data.key.action == key_action::released) {
       word &= ~mask;
     } else {
       word |= mask;
     }
     keyboard_.modifiers = event.data.key.modifiers;
-  } else if (event.type == GNEISS_INPUT_EVENT_POINTER_MOVED) {
+  } else if (event.type == event_type::pointer_moved) {
     pointer_.x = event.data.pointer_moved.x;
     pointer_.y = event.data.pointer_moved.y;
     pointer_.buttons = event.data.pointer_moved.buttons;
-  } else if (event.type == GNEISS_INPUT_EVENT_POINTER_BUTTON) {
+  } else if (event.type == event_type::pointer_button) {
     pointer_.x = event.data.pointer_button.x;
     pointer_.y = event.data.pointer_button.y;
     pointer_.buttons = event.data.pointer_button.buttons;
-  } else if (event.type == GNEISS_INPUT_EVENT_POINTER_ENTERED) {
-    pointer_.is_inside = 1;
-  } else if (event.type == GNEISS_INPUT_EVENT_POINTER_LEFT) {
-    pointer_.is_inside = 0;
+  } else if (event.type == event_type::pointer_entered) {
+    pointer_.is_inside = true;
+  } else if (event.type == event_type::pointer_left) {
+    pointer_.is_inside = false;
   }
 }
 
