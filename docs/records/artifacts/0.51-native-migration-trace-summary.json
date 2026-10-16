@@ -1,0 +1,276 @@
+{
+  "before": {
+    "trace_sha256": "3492bb44d84cf27a39e8a7f7f6e7fd8b8da9776b9871842732c39b01508dc407",
+    "largest_intervals": [
+      {
+        "start_ms": 9486.1914,
+        "phase": 1.0,
+        "callback_ms": 15.4072,
+        "scheduler_ms": 0.0,
+        "scene_poll_ms": 0.0023,
+        "sleep_ms": 15.3991,
+        "outside_callback_ms": 20.8569
+      },
+      {
+        "start_ms": 154215.1091,
+        "phase": 2.0,
+        "callback_ms": 34.6723,
+        "scheduler_ms": 0.0,
+        "scene_poll_ms": 0.0355,
+        "sleep_ms": 34.4592,
+        "outside_callback_ms": 0.011
+      },
+      {
+        "start_ms": 145417.2094,
+        "phase": 2.0,
+        "callback_ms": 33.59,
+        "scheduler_ms": 0.0,
+        "scene_poll_ms": 0.0128,
+        "sleep_ms": 33.5303,
+        "outside_callback_ms": 0.02310000002
+      },
+      {
+        "start_ms": 153573.239,
+        "phase": 2.0,
+        "callback_ms": 33.5081,
+        "scheduler_ms": 0.0,
+        "scene_poll_ms": 0.037,
+        "sleep_ms": 33.3837,
+        "outside_callback_ms": 0.01179999998
+      },
+      {
+        "start_ms": 92566.102,
+        "phase": 1.0,
+        "callback_ms": 16.2192,
+        "scheduler_ms": 0.0,
+        "scene_poll_ms": 0.002,
+        "sleep_ms": 16.0684,
+        "outside_callback_ms": 16.1248
+      }
+    ],
+    "metrics": {
+      "loop_trace_enabled": true,
+      "event_interval_count": 12421,
+      "event_interval_p50_ms": 15.72,
+      "event_interval_p99_ms": 31.5924,
+      "event_interval_exceedances": [
+        {
+          "threshold_ms": 16.7,
+          "count": 987,
+          "ratio": 0.07946220111
+        },
+        {
+          "threshold_ms": 33.3,
+          "count": 4,
+          "ratio": 0.0003220352629
+        },
+        {
+          "threshold_ms": 50,
+          "count": 0,
+          "ratio": 0
+        },
+        {
+          "threshold_ms": 100,
+          "count": 0,
+          "ratio": 0
+        }
+      ],
+      "load_ms": 200356.6654,
+      "mode": "thread",
+      "scenario": "initial",
+      "load_and_drain_ms": 200487.7544,
+      "verified_capture_ms": 201891.124,
+      "completed_switches": 1,
+      "maximum_activation_ms": 0.2101,
+      "maximum_retirement_ms": 0.0132,
+      "retirement_ms": 0.0132,
+      "live_resources": 505,
+      "old_resources": 0,
+      "cancel_ms": 0,
+      "cancel_cleanup_ms": 0,
+      "observed_cleanup_pending": false,
+      "retried": false,
+      "retry_ms": 0,
+      "resizes": 0,
+      "restored": 0,
+      "minimized": 0,
+      "minimized_at_ms": 0,
+      "prepare_ms": 10.5209,
+      "asset_prepare_ms": 83838.4027,
+      "verify_ms": 37760.4649,
+      "verify_maximum_step_ms": 130.3204,
+      "verify_maximum_open_ms": 0.2085,
+      "verify_maximum_read_ms": 26.0947,
+      "verify_maximum_hash_ms": 104.8971,
+      "upload_ms": 16761.4941,
+      "maximum_advance_ms": 15.4844,
+      "activation_ms": 0.2101,
+      "cleanup_ms": 0.0,
+      "cleanup_complete": false,
+      "upload_reserved_bytes": 0,
+      "candidate_resident_bytes": 1773169608,
+      "candidate_cpu_data_bytes": 162645960,
+      "candidate_texture_payload_bytes": 1610614656,
+      "peak_upload_bytes": 22369648,
+      "application_logical_bytes": 1795540520,
+      "application_cpu_data_bytes": 162648488,
+      "available_bytes": 2499426776,
+      "event_interval_p95_ms": 19.9546,
+      "event_interval_max_ms": 36.2604,
+      "minimized_event_count": 0,
+      "minimized_event_max_ms": 0,
+      "phase_maximum_event_interval_ms": {
+        "preparing": 15.6045,
+        "assets": 36.2604,
+        "verifying": 34.5352,
+        "instantiating": 16.1119,
+        "ready": 0,
+        "applied": 0,
+        "failed": 0,
+        "cancelled": 0
+      },
+      "render_60_ticks_ms": 794.4284,
+      "capture_ms": 608.9412,
+      "nodes": 553,
+      "presented_frames": 11168,
+      "peak_resident_bytes": 2508193792
+    }
+  },
+  "after": {
+    "trace_sha256": "f97694b31d8ff96908051d3f977bd477acdf27650eaad388ff2c5b004dd637de",
+    "largest_intervals": [
+      {
+        "start_ms": 178988.6792,
+        "phase": 2.0,
+        "callback_ms": 53.4968,
+        "scheduler_ms": 0.0,
+        "scene_poll_ms": 0.0021,
+        "sleep_ms": 53.4572,
+        "outside_callback_ms": 0.01939999998
+      },
+      {
+        "start_ms": 100536.8808,
+        "phase": 1.0,
+        "callback_ms": 15.1836,
+        "scheduler_ms": 0.0,
+        "scene_poll_ms": 0.0021,
+        "sleep_ms": 15.1644,
+        "outside_callback_ms": 36.6362
+      },
+      {
+        "start_ms": 105149.2087,
+        "phase": 1.0,
+        "callback_ms": 35.7477,
+        "scheduler_ms": 0.0,
+        "scene_poll_ms": 0.0018,
+        "sleep_ms": 35.7311,
+        "outside_callback_ms": 11.9144
+      },
+      {
+        "start_ms": 105196.8708,
+        "phase": 1.0,
+        "callback_ms": 27.6765,
+        "scheduler_ms": 0.0,
+        "scene_poll_ms": 0.0018,
+        "sleep_ms": 27.6443,
+        "outside_callback_ms": 18.5054
+      },
+      {
+        "start_ms": 87580.9953,
+        "phase": 1.0,
+        "callback_ms": 19.2285,
+        "scheduler_ms": 0.0,
+        "scene_poll_ms": 0.0029,
+        "sleep_ms": 19.2119,
+        "outside_callback_ms": 19.1373
+      }
+    ],
+    "metrics": {
+      "loop_trace_enabled": true,
+      "event_interval_count": 12292,
+      "event_interval_p50_ms": 15.6891,
+      "event_interval_p99_ms": 31.2185,
+      "event_interval_exceedances": [
+        {
+          "threshold_ms": 16.7,
+          "count": 920,
+          "ratio": 0.07484542792
+        },
+        {
+          "threshold_ms": 33.3,
+          "count": 6,
+          "ratio": 0.000488122356
+        },
+        {
+          "threshold_ms": 50,
+          "count": 2,
+          "ratio": 0.000162707452
+        },
+        {
+          "threshold_ms": 100,
+          "count": 0,
+          "ratio": 0
+        }
+      ],
+      "load_ms": 197470.8353,
+      "mode": "thread",
+      "scenario": "initial",
+      "load_and_drain_ms": 197504.522,
+      "verified_capture_ms": 198360.0447,
+      "completed_switches": 1,
+      "maximum_activation_ms": 0.5686,
+      "maximum_retirement_ms": 0.5222,
+      "retirement_ms": 0.5222,
+      "live_resources": 505,
+      "old_resources": 0,
+      "cancel_ms": 0,
+      "cancel_cleanup_ms": 0,
+      "observed_cleanup_pending": false,
+      "retried": false,
+      "retry_ms": 0,
+      "resizes": 0,
+      "restored": 0,
+      "minimized": 0,
+      "minimized_at_ms": 0,
+      "prepare_ms": 6.6986,
+      "asset_prepare_ms": 83126.0065,
+      "verify_ms": 37542.1404,
+      "verify_maximum_step_ms": 97.7262,
+      "verify_maximum_open_ms": 0.1272,
+      "verify_maximum_read_ms": 22.1703,
+      "verify_maximum_hash_ms": 87.7985,
+      "upload_ms": 14968.2927,
+      "maximum_advance_ms": 17.0093,
+      "activation_ms": 0.5686,
+      "cleanup_ms": 0.0,
+      "cleanup_complete": false,
+      "upload_reserved_bytes": 0,
+      "candidate_resident_bytes": 1773169608,
+      "candidate_cpu_data_bytes": 162645960,
+      "candidate_texture_payload_bytes": 1610614656,
+      "peak_upload_bytes": 22369648,
+      "application_logical_bytes": 1773169608,
+      "application_cpu_data_bytes": 162645960,
+      "available_bytes": 2521797688,
+      "event_interval_p95_ms": 19.8123,
+      "event_interval_max_ms": 53.4923,
+      "minimized_event_count": 0,
+      "minimized_event_max_ms": 0,
+      "phase_maximum_event_interval_ms": {
+        "preparing": 15.8562,
+        "assets": 51.807,
+        "verifying": 53.4923,
+        "instantiating": 16.2221,
+        "ready": 0,
+        "applied": 0,
+        "failed": 0,
+        "cancelled": 0
+      },
+      "render_60_ticks_ms": 751.1588,
+      "capture_ms": 104.3639,
+      "nodes": 553,
+      "presented_frames": 11092,
+      "peak_resident_bytes": 2543407104
+    }
+  }
+}
