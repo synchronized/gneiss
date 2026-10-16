@@ -214,6 +214,13 @@ bool scene_tree::has_unpublished_descendant(gneiss_scene_node_id id) const noexc
                              [this](auto child) { return has_unpublished_descendant(child); });
 }
 
+gneiss_entity_id scene_tree::get_staged_entity(const core::publication& group,
+    gneiss_scene_node_id id) const noexcept {
+  const auto* value = find_raw(id);
+  return group && group->domain_ == domain_ && !group->published_ && value != nullptr &&
+         value->value->publication == group ? value->value->entity : GNEISS_NULL_ENTITY_ID;
+}
+
 gneiss_result scene_tree::set_staged_local(const core::publication& group, gneiss_scene_node_id id,
                                            const gneiss_transform& transform) noexcept {
   auto* value = find_raw(id);

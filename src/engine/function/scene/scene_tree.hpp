@@ -46,6 +46,8 @@ public:
   /** 只删除候选叶节点，调用方按拓扑逆序推进，避免递归清理。 */
   [[nodiscard]] gneiss_result destroy_staged_leaf(const core::publication& group,
                                                   gneiss_scene_node_id id) noexcept;
+  [[nodiscard]] gneiss_entity_id get_staged_entity(const core::publication& group,
+                                                   gneiss_scene_node_id id) const noexcept;
 
 private:
   struct node {

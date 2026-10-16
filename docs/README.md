@@ -489,6 +489,7 @@
 - [M-331：分帧历史操作基础](records/M-331-history-operation.md)
 - [M-331：World 候选实体可见性](records/M-331-world-publication.md)
 - [M-331：Scene Tree 与 ECS 共用发布门](records/M-331-scene-publication.md)
+- [M-331：World 候选对象服务入口](records/M-331-world-staged-service.md)
 
 ## 文档维护
 

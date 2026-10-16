@@ -37,6 +37,42 @@ int main() {
     return 6;
   }
   gneiss_result wrong_thread{};
+  gneiss::core::publication group;
+  service::staged_object root, child, failed;
+  service::staged_object_description object;
+  object.camera = &settings;
+  settings.far_plane = 100.0F;
+  if (service::begin_publication(world, group) != GNEISS_SUCCESS ||
+      service::create_staged_object(world, group, object, root) != GNEISS_SUCCESS ||
+      service::entity_count(world, count) != GNEISS_SUCCESS || count != 1U) {
+    return 10;
+  }
+  object.parent = root.node;
+  if (service::create_staged_object(world, group, object, child) != GNEISS_SUCCESS ||
+      service::destroy_staged_object(world, group, root) != GNEISS_ERROR_NOT_READY ||
+      service::destroy_staged_object(world, group, {root.entity, child.node}) !=
+          GNEISS_ERROR_INVALID_HANDLE ||
+      service::destroy_staged_object(world, group, child) != GNEISS_SUCCESS ||
+      service::destroy_staged_object(world, group, child) != GNEISS_ERROR_INVALID_HANDLE) {
+    return 11;
+  }
+  object.transform.scale[0] = 0;
+  if (service::create_staged_object(world, group, object, failed) !=
+          GNEISS_ERROR_INVALID_ARGUMENT ||
+      failed.entity != 0 || failed.node != 0) {
+    return 12;
+  }
+  std::thread staging_worker([&] { wrong_thread = service::publish(world, group); });
+  staging_worker.join();
+  if (wrong_thread != GNEISS_ERROR_INVALID_STATE ||
+      service::publish(world, group) != GNEISS_SUCCESS ||
+      service::entity_count(world, count) != GNEISS_SUCCESS || count != 2U ||
+      service::publish(world, group) != GNEISS_ERROR_INVALID_STATE ||
+      service::destroy_staged_object(world, group, root) != GNEISS_ERROR_INVALID_HANDLE ||
+      service::node_destroy(world, root.node) != GNEISS_SUCCESS ||
+      service::entity_destroy(world, root.entity) != GNEISS_SUCCESS) {
+    return 13;
+  }
   std::thread worker([&] { wrong_thread = service::destroy(world); });
   worker.join();
   if (wrong_thread != GNEISS_ERROR_INVALID_STATE || service::destroy(world) != GNEISS_SUCCESS ||

@@ -59,6 +59,108 @@ bool is_valid_camera(float vertical_field_of_view_radians, float near_plane,
 
 namespace gneiss::world_internal {
 
+namespace {
+template <typename Function>
+gneiss_result with_owned_world(gneiss_world world, Function&& function) noexcept {
+  try {
+    auto& registry = get_world_registry();
+    const std::scoped_lock lock{registry.mutex};
+    auto* state = find_world(registry, world);
+    const auto validation = validate_world_thread(state);
+    return validation == GNEISS_SUCCESS ? function(*state) : validation;
+  } catch (const std::bad_alloc&) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+}
+
+gneiss_result begin_publication(gneiss_world world, core::publication& output) noexcept {
+  output.reset();
+  return with_owned_world(world, [&](world_state& state) {
+    output = state.begin_publication();
+    return GNEISS_SUCCESS;
+  });
+}
+
+gneiss_result publish(gneiss_world world, const core::publication& group) noexcept {
+  return with_owned_world(world, [&](world_state& state) { return state.publish(group); });
+}
+
+gneiss_result create_staged_object(gneiss_world world, const core::publication& group,
+                                   const staged_object_description& description,
+                                   staged_object& output) noexcept {
+  output = {};
+  if (description.camera != nullptr &&
+      !is_valid_camera(description.camera->vertical_field_of_view_radians,
+                       description.camera->near_plane, description.camera->far_plane)) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  if (description.renderer != nullptr && (description.renderer->mesh == GNEISS_NULL_MESH ||
+                                          description.renderer->material == GNEISS_NULL_MATERIAL)) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  return with_owned_world(world, [&](world_state& state) {
+    staged_object candidate;
+    auto operation = GNEISS_SUCCESS;
+    try {
+      candidate.entity = state.create_staged_entity(group);
+      if (candidate.entity == GNEISS_NULL_ENTITY_ID) {
+        return GNEISS_ERROR_INVALID_STATE;
+      }
+      if (description.camera != nullptr) {
+        gneiss_camera camera = GNEISS_CAMERA_INIT;
+        camera.vertical_field_of_view_radians = description.camera->vertical_field_of_view_radians;
+        camera.near_plane = description.camera->near_plane;
+        camera.far_plane = description.camera->far_plane;
+        camera.is_primary = 0;
+        (void)state.emplace_staged<camera_component>(group, candidate.entity, camera);
+      }
+      if (description.renderer != nullptr) {
+        (void)state.emplace_staged<mesh_renderer_component>(group, candidate.entity,
+                                                            *description.renderer);
+      }
+      operation =
+          state.scene().create_staged(group, description.parent, candidate.entity, &candidate.node);
+      if (operation == GNEISS_SUCCESS) {
+        operation = state.scene().set_staged_local(group, candidate.node, description.transform);
+      }
+    } catch (const std::bad_alloc&) {
+      operation = GNEISS_ERROR_OUT_OF_MEMORY;
+    } catch (...) {
+      operation = GNEISS_ERROR_INTERNAL;
+    }
+    if (operation == GNEISS_SUCCESS) {
+      output = candidate;
+      return operation;
+    }
+    if (candidate.node != GNEISS_NULL_SCENE_NODE_ID) {
+      (void)state.scene().destroy_staged_leaf(group, candidate.node);
+    }
+    if (candidate.entity != GNEISS_NULL_ENTITY_ID) {
+      (void)state.destroy_staged_entity(group, candidate.entity);
+    }
+    return operation;
+  });
+}
+
+gneiss_result destroy_staged_object(gneiss_world world, const core::publication& group,
+                                    staged_object object) noexcept {
+  return with_owned_world(world, [&](world_state& state) {
+    if (object.entity == GNEISS_NULL_ENTITY_ID ||
+        state.scene().get_staged_entity(group, object.node) != object.entity) {
+      return GNEISS_ERROR_INVALID_HANDLE;
+    }
+    const auto operation = state.scene().destroy_staged_leaf(group, object.node);
+    if (operation != GNEISS_SUCCESS) {
+      return operation;
+    }
+    return state.destroy_staged_entity(group, object.entity) ? GNEISS_SUCCESS
+                                                             : GNEISS_ERROR_INTERNAL;
+  });
+}
+
 gneiss_result create(gneiss_world& out_world) noexcept {
   out_world = GNEISS_NULL_WORLD;
   try {
