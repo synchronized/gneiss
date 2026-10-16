@@ -36,8 +36,8 @@ int main() {
     return 6;
   }
 
-  gneiss::scene_instance scene;
-  if (gneiss::scene_instance::load(application.get(), scene_uri, scene) !=
+  gneiss::sdk::scene_instance scene;
+  if (gneiss::sdk::scene_instance::load(application.get(), scene_uri, scene) !=
       gneiss::result::success) {
     return 2;
   }
@@ -52,10 +52,11 @@ int main() {
     return 4;
   }
   scene.reset();
-  gneiss::scene_prefab_refresh refresh;
+  gneiss::sdk::scene_prefab_refresh refresh;
   gneiss::scene_prefab_node_info prefab{};
   gneiss::scene_node_id root;
-  if (gneiss::scene_instance::load(application.get(), "asset://scenes/prefab.scene.json", scene)
+  if (gneiss::sdk::scene_instance::load(application.get(), "asset://scenes/prefab.scene.json",
+                                        scene)
           .failed() ||
       scene.get_prefab_node_info(0U, prefab).failed() ||
       scene.refresh_prefab_instance(gneiss::scene_node_id{prefab.node}, root, refresh).failed() ||

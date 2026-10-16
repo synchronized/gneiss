@@ -6,7 +6,7 @@
 
 #include <gneiss/engine/game_module.hpp>
 
-namespace gneiss {
+namespace gneiss::sdk {
 
 template <game_module_callbacks Callbacks>
 gneiss_game_module_desc game_module<Callbacks>::to_native(game_module_desc desc) noexcept {
@@ -109,6 +109,6 @@ gneiss_result game_module<Callbacks>::shutdown(gneiss_game_context context, void
   return Callbacks.shutdown(game_context{context}, state).native();
 }
 
-} // namespace gneiss
+} // namespace gneiss::sdk
 
 #endif

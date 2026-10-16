@@ -76,7 +76,7 @@ bool verify_material_values(gneiss::sdk::application& app) {
                 gneiss::texture_mip_filter::linear);
   const std::array<std::uint8_t, 4> pixels{128, 128, 255, 255};
   gneiss::texture_desc source{.width = 1, .height = 1, .row_stride_bytes = 4, .pixels = pixels};
-  gneiss::texture texture;
+  gneiss::sdk::texture texture;
   if (app.create_texture(source, texture).failed()) {
     return false;
   }
@@ -112,7 +112,7 @@ bool verify_material_values(gneiss::sdk::application& app) {
       native.emissive_texture != texture.get()) {
     return false;
   }
-  gneiss::material material;
+  gneiss::sdk::material material;
   if (app.create_material(desc, material).failed()) {
     return false;
   }
@@ -124,7 +124,7 @@ bool verify_material_values(gneiss::sdk::application& app) {
   }
   desc.sampling[4].address_u = gneiss::texture_address::repeat;
   gneiss::sdk::application other;
-  gneiss::material foreign;
+  gneiss::sdk::material foreign;
   const gneiss::sdk::application_desc other_desc{};
   return gneiss::sdk::application::create(other_desc, other).ok() &&
          other.create_material(desc, foreign) == gneiss::result::invalid_argument && !foreign;
@@ -170,17 +170,17 @@ int main() {
   texture_desc.height = 1U;
   texture_desc.row_stride_bytes = 4U;
   texture_desc.pixels = pixels;
-  if (!verify_owner<gneiss::mesh, gneiss::mesh_desc, gneiss_mesh_destroy>(app, mesh_desc) ||
-      !verify_owner<gneiss::material, gneiss::material_desc, gneiss_material_destroy>(
+  if (!verify_owner<gneiss::sdk::mesh, gneiss::mesh_desc, gneiss_mesh_destroy>(app, mesh_desc) ||
+      !verify_owner<gneiss::sdk::material, gneiss::material_desc, gneiss_material_destroy>(
           app, material_desc) ||
-      !verify_owner<gneiss::texture, gneiss::texture_desc, gneiss_texture_destroy>(app,
-                                                                                   texture_desc)) {
+      !verify_owner<gneiss::sdk::texture, gneiss::texture_desc, gneiss_texture_destroy>(
+          app, texture_desc)) {
     return 2;
   }
   if (!verify_material_values(app)) {
     return 13;
   }
-  gneiss::world_ref borrowed;
+  gneiss::sdk::world_ref borrowed;
   if (app.get_world(borrowed).failed()) {
     return 3;
   }
@@ -194,9 +194,9 @@ int main() {
   if (borrowed.entity_count(count).failed()) {
     return 5;
   }
-  gneiss::mesh mesh;
-  gneiss::material material;
-  gneiss::texture texture;
+  gneiss::sdk::mesh mesh;
+  gneiss::sdk::material material;
+  gneiss::sdk::texture texture;
   if (app.create_mesh(mesh_desc, mesh).failed() ||
       app.create_material(material_desc, material).failed() ||
       app.create_texture(texture_desc, texture).failed()) {
@@ -227,13 +227,13 @@ int main() {
       material.reset().failed() || texture.reset().failed() || mesh || material || texture) {
     return 7;
   }
-  static_assert(!std::is_convertible_v<gneiss::world*, gneiss::world_ref*>);
-  gneiss::world world;
-  if (gneiss::world::create(world).failed()) {
+  static_assert(!std::is_convertible_v<gneiss::sdk::world*, gneiss::sdk::world_ref*>);
+  gneiss::sdk::world world;
+  if (gneiss::sdk::world::create(world).failed()) {
     return 8;
   }
   const auto view = world.ref();
-  gneiss::world moved{std::move(world)};
+  gneiss::sdk::world moved{std::move(world)};
   if (view.entity_count(count).failed()) {
     return 9;
   }

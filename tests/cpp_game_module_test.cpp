@@ -15,12 +15,12 @@ struct module_state final {
 };
 module_state test_state;
 
-gneiss::result initialize(gneiss::game_context context, void*& output) noexcept {
+gneiss::result initialize(gneiss::sdk::game_context context, void*& output) noexcept {
   output = &test_state;
   return context.is_valid() ? gneiss::result::success : gneiss::result::invalid_handle;
 }
-gneiss::result fixed_update(gneiss::game_context context, void* value,
-                            const gneiss::game_update_time& time) noexcept {
+gneiss::result fixed_update(gneiss::sdk::game_context context, void* value,
+                            const gneiss::sdk::game_update_time& time) noexcept {
   if (value != &test_state || context.get() != 42 || time.update_index != 7 ||
       time.delta_ns != 16 || time.elapsed_ns != 112) {
     return gneiss::result::invalid_argument;
@@ -28,37 +28,37 @@ gneiss::result fixed_update(gneiss::game_context context, void* value,
   ++test_state.fixed_ticks;
   return gneiss::result::success;
 }
-gneiss::result update(gneiss::game_context context, void* value,
-                      const gneiss::game_update_time& time) noexcept {
+gneiss::result update(gneiss::sdk::game_context context, void* value,
+                      const gneiss::sdk::game_update_time& time) noexcept {
   const auto status = fixed_update(context, value, time);
   if (status.ok()) {
     ++test_state.ticks;
   }
   return status;
 }
-gneiss::result shutdown(gneiss::game_context /*context*/, void* value) noexcept {
+gneiss::result shutdown(gneiss::sdk::game_context /*context*/, void* value) noexcept {
   if (value != &test_state) {
     return gneiss::result::invalid_argument;
   }
   test_state.stopped = true;
   return gneiss::result::success;
 }
-constexpr gneiss::game_module_callbacks callbacks{
+constexpr gneiss::sdk::game_module_callbacks callbacks{
     .initialize = initialize,
     .fixed_update = fixed_update,
     .update = update,
     .shutdown = shutdown,
 };
-using module = gneiss::game_module<callbacks>;
+using module = gneiss::sdk::game_module<callbacks>;
 
 bool check_query() {
-  static_assert(gneiss::game_module_abi_version == gneiss::game_module_abi_version_1);
-  static_assert(gneiss::game_module_query_symbol == "gneiss_game_module_query");
-  static_assert(std::is_trivially_copyable_v<gneiss::game_context>);
-  constexpr gneiss::game_module_desc description{.module_id = "test.native"};
+  static_assert(gneiss::sdk::game_module_abi_version == gneiss::sdk::game_module_abi_version_1);
+  static_assert(gneiss::sdk::game_module_query_symbol == "gneiss_game_module_query");
+  static_assert(std::is_trivially_copyable_v<gneiss::sdk::game_context>);
+  constexpr gneiss::sdk::game_module_desc description{.module_id = "test.native"};
   if (module::validate(description).failed() ||
       module::validate({}) != gneiss::result::invalid_argument ||
-      gneiss::game_module<gneiss::game_module_callbacks{}>::validate(description) !=
+      gneiss::sdk::game_module<gneiss::sdk::game_module_callbacks{}>::validate(description) !=
           gneiss::result::invalid_argument) {
     return false;
   }
@@ -70,24 +70,25 @@ bool check_query() {
   output.value.module_id_length = 99;
   if (module::export_query(99, &output.value, description) != gneiss::result::unsupported ||
       output.value.module_id_length != 99 ||
-      module::export_query(gneiss::game_module_abi_version, nullptr, description) !=
+      module::export_query(gneiss::sdk::game_module_abi_version, nullptr, description) !=
           gneiss::result::invalid_argument ||
-      module::export_query(gneiss::game_module_abi_version, &output.value, {}) !=
+      module::export_query(gneiss::sdk::game_module_abi_version, &output.value, {}) !=
           gneiss::result::invalid_argument ||
       output.value.module_id_length != 99) {
     return false;
   }
   output.value.struct_size = 4;
-  if (module::export_query(gneiss::game_module_abi_version, &output.value, description) !=
+  if (module::export_query(gneiss::sdk::game_module_abi_version, &output.value, description) !=
           gneiss::result::unsupported ||
       output.value.module_id_length != 99) {
     return false;
   }
   output.value.struct_size = sizeof(output);
-  return module::export_query(gneiss::game_module_abi_version, &output.value, description).ok() &&
+  return module::export_query(gneiss::sdk::game_module_abi_version, &output.value, description)
+             .ok() &&
          output.value.struct_size == sizeof(output) && output.value.module_id_length == 11 &&
          output.tail[0] == 123 && output.tail[1] == 456 &&
-         gneiss::validate_game_module_native(output.value).ok();
+         gneiss::sdk::validate_game_module_native(output.value).ok();
 }
 
 bool check_lifecycle() {
@@ -125,9 +126,9 @@ bool check_lifecycle() {
 } // namespace
 
 int main() {
-  const gneiss::game_context context{42U};
+  const gneiss::sdk::game_context context{42U};
   const auto message = gneiss::make_log_message(gneiss::log_severity::info, "test", "message");
-  if (!context.is_valid() || gneiss::null_game_context.is_valid() ||
+  if (!context.is_valid() || gneiss::sdk::null_game_context.is_valid() ||
       context.log(message) != gneiss::result::invalid_handle) {
     return 1;
   }

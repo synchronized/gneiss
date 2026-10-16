@@ -76,13 +76,13 @@ World、实体和动作均为借用值，不得在 Context 销毁后继续使用
 
 `<gneiss/engine/game_module.hpp>` 提供：
 
-- `gneiss::game_context`：不拥有底层句柄的强类型包装，并转发上述受控访问能力。
-- `gneiss::game_module_abi_version` 与 `gneiss::game_module_query_symbol`：编译期常量。
-- `gneiss::game_update_time`、`game_module_desc`：原生值与借用文本，无需填写 C 布局大小。
-- `gneiss::game_module_callbacks`：原生 noexcept 生命周期回调。
-- `gneiss::game_module<Callbacks>`：由编译期回调表生成静态 C 桥接，`validate` 校验原生描述，
+- `gneiss::sdk::game_context`：不拥有底层句柄的强类型包装，并转发上述受控访问能力。
+- `gneiss::sdk::game_module_abi_version` 与 `gneiss::sdk::game_module_query_symbol`：编译期常量。
+- `gneiss::sdk::game_update_time`、`game_module_desc`：原生值与借用文本，无需填写 C 布局大小。
+- `gneiss::sdk::game_module_callbacks`：原生 noexcept 生命周期回调。
+- `gneiss::sdk::game_module<Callbacks>`：由编译期回调表生成静态 C 桥接，`validate` 校验原生描述，
   `export_query` 实现真实导出边界，`to_native` 为显式互操作。
-- `gneiss::validate_game_module_native`：显式校验 C ABI 描述。
+- `gneiss::sdk::validate_game_module_native`：显式校验 C ABI 描述。
 
 C++ 包装不建立第二套模块状态，也不改变 C ABI 的所有权和线程规则。C ABI 没有回调 user_data，
 故回调表固定在编译期，不建立全局闭包注册表。initialize 成功时交出私有状态；失败时自行回收，

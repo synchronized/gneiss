@@ -73,7 +73,7 @@ int main() try {
   }
   gneiss::transform transform{};
   transform.translation[0] = 7.0F;
-  if (gneiss::world_ref{world}
+  if (gneiss::sdk::world_ref{world}
           .set_local_transform(gneiss::entity_id{session.selected_node()->entity.get()}, transform)
           .native() != GNEISS_SUCCESS) {
     return 4;
@@ -141,7 +141,7 @@ int main() try {
   }
 
   transform.translation[0] = 9.0F;
-  if (gneiss::world_ref{world}
+  if (gneiss::sdk::world_ref{world}
           .set_local_transform(gneiss::entity_id{session.selected_node()->entity.get()}, transform)
           .native() != GNEISS_SUCCESS) {
     return 9;
@@ -178,9 +178,9 @@ int main() try {
   application.reset();
 
   gneiss::sdk::application reloaded_application;
-  gneiss::scene_instance reloaded_scene;
+  gneiss::sdk::scene_instance reloaded_scene;
   if (create_application(root, reloaded_application) != gneiss::result::success ||
-      gneiss::scene_instance::load(reloaded_application.get(), scene_uri, reloaded_scene) !=
+      gneiss::sdk::scene_instance::load(reloaded_application.get(), scene_uri, reloaded_scene) !=
           gneiss::result::success) {
     return 11;
   }
@@ -194,7 +194,7 @@ int main() try {
       reloaded_scene.find_node(created_uuid, reloaded_created_node) != gneiss::result::success ||
       gneiss_scene_node_get_entity(reloaded_world, camera_node.get(), &camera_entity) !=
           GNEISS_SUCCESS ||
-      gneiss::world_ref{reloaded_world}
+      gneiss::sdk::world_ref{reloaded_world}
               .get_local_transform(gneiss::entity_id{camera_entity}, reloaded_transform)
               .native() != GNEISS_SUCCESS ||
       std::abs(reloaded_transform.translation[0] - 7.0F) > 0.0001F) {

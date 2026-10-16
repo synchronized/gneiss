@@ -3,6 +3,7 @@
 
 #include <gneiss/engine/application.hpp>
 
+#include "../support/terminate_process.hpp"
 #include <cstdlib>
 #include <exception>
 #include <string_view>
@@ -12,7 +13,7 @@
 
 int main(int argc, [[maybe_unused]] char** argv) {
   using gneiss::result;
-  using gneiss::scene_prefab_refresh;
+  using gneiss::sdk::scene_prefab_refresh;
   static_assert(!std::is_copy_constructible_v<scene_prefab_refresh>);
   static_assert(std::is_nothrow_move_constructible_v<scene_prefab_refresh>);
   static_assert(std::is_nothrow_move_assignable_v<scene_prefab_refresh>);
@@ -21,9 +22,9 @@ int main(int argc, [[maybe_unused]] char** argv) {
   gneiss::sdk::application_desc desc{};
   desc.asset_root = asset_root;
   gneiss::sdk::application app;
-  gneiss::scene_instance scene;
+  gneiss::sdk::scene_instance scene;
   if (gneiss::sdk::application::create(desc, app).failed() ||
-      gneiss::scene_instance::load(app.get(), uri, scene).failed()) {
+      gneiss::sdk::scene_instance::load(app.get(), uri, scene).failed()) {
     return 1;
   }
   gneiss::scene_prefab_node_info info{};
@@ -32,7 +33,7 @@ int main(int argc, [[maybe_unused]] char** argv) {
   }
   gneiss::scene_node_id root{info.node};
   const auto initial_root = root;
-  scene_prefab_refresh first;
+  gneiss::sdk::scene_prefab_refresh first;
   if (first.reset().failed() ||
       scene.refresh_prefab_instance({}, root, first) != result::invalid_handle ||
       root != initial_root || first || scene.refresh_prefab_instance(root, root, first).failed() ||
@@ -42,8 +43,8 @@ int main(int argc, [[maybe_unused]] char** argv) {
   }
   if (argc > 1) {
     std::thread worker([resource = std::move(first)]() mutable {
-      std::set_terminate([] { std::_Exit(73); });
-      scene_prefab_refresh local{std::move(resource)};
+      std::set_terminate([] { gneiss::test::terminate_test_process(73); });
+      gneiss::sdk::scene_prefab_refresh local{std::move(resource)};
     });
     worker.join();
     return 4;
@@ -59,7 +60,7 @@ int main(int argc, [[maybe_unused]] char** argv) {
   result reset_status;
   result toggle_status;
   result refresh_status;
-  scene_prefab_refresh wrong_thread_output;
+  gneiss::sdk::scene_prefab_refresh wrong_thread_output;
   std::thread worker([&] {
     reset_status = first.reset();
     toggle_status = first.toggle(root);
@@ -72,12 +73,12 @@ int main(int argc, [[maybe_unused]] char** argv) {
       first.toggle(root).failed()) {
     return 6;
   }
-  scene_prefab_refresh second{std::move(first)};
+  gneiss::sdk::scene_prefab_refresh second{std::move(first)};
   // NOLINTNEXTLINE(bugprone-use-after-move): 移动源必须清空所有父句柄。
   if (first || first.owner() != 0U || first.scene() != 0U || second.get() != original_token) {
     return 7;
   }
-  scene_prefab_refresh third;
+  gneiss::sdk::scene_prefab_refresh third;
   if (scene.refresh_prefab_instance(root, root, third).failed()) {
     return 8;
   }
@@ -99,7 +100,7 @@ int main(int argc, [[maybe_unused]] char** argv) {
   }
   gneiss_scene_prefab_refresh_token scoped_token{};
   {
-    scene_prefab_refresh scoped;
+    gneiss::sdk::scene_prefab_refresh scoped;
     if (scene.refresh_prefab_instance(root, root, scoped).failed()) {
       return 11;
     }
@@ -113,13 +114,13 @@ int main(int argc, [[maybe_unused]] char** argv) {
     return 12;
   }
   // 场景移动不改变令牌所属句柄；场景卸载使令牌失效，但 reset 可安全完成。
-  gneiss::scene_instance moved_scene{std::move(scene)};
+  gneiss::sdk::scene_instance moved_scene{std::move(scene)};
   if (third.toggle(root).failed() || moved_scene.reset().failed() ||
       third.toggle(root) != result::invalid_handle || third.reset().failed() || third ||
       third.reset().failed()) {
     return 13;
   }
-  if (gneiss::scene_instance::load(app.get(), uri, scene).failed() ||
+  if (gneiss::sdk::scene_instance::load(app.get(), uri, scene).failed() ||
       scene.get_prefab_node_info(0U, info).failed() ||
       scene.refresh_prefab_instance(gneiss::scene_node_id{info.node}, root, third).failed() ||
       app.reset().failed() || third.toggle(root) != result::invalid_handle ||

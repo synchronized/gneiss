@@ -50,7 +50,7 @@ gneiss::result get_label(void* data, gneiss::property_target /*object*/,
   value.payload = std::string_view{static_cast<state*>(data)->text};
   return gneiss::result::success;
 }
-bool configure(gneiss::type_registry& registry, state& data) {
+bool configure(gneiss::sdk::type_registry& registry, state& data) {
   // 描述、文本和回调表均在返回前离开作用域，Registry 必须复制必要存储。
   std::string name = "NativeType";
   std::string field_name = "Value";
@@ -89,7 +89,7 @@ bool configure(gneiss::type_registry& registry, state& data) {
   // 冻结后的重复绑定不能由包装缓存绕过底层状态检查。
   return registry.bind_property(type, number, accessor) == gneiss::result::invalid_state;
 }
-bool verify_metadata(const gneiss::type_registry& registry) {
+bool verify_metadata(const gneiss::sdk::type_registry& registry) {
   gneiss::type_info info;
   if (registry.find_type(type, info).failed() || info.name != "NativeType" ||
       info.fields.size() != 2 || info.fields[0].name != "Value" ||
@@ -104,7 +104,7 @@ bool verify_metadata(const gneiss::type_registry& registry) {
   return status.failed() && info.id == type && info.fields.size() == 2 &&
          copy.fields[0].name == "Value";
 }
-bool verify_values(gneiss::type_registry& registry, state& data) {
+bool verify_values(gneiss::sdk::type_registry& registry, state& data) {
   gneiss::property_value value{.payload = 0.0F};
   if (registry.get_property(type, number, target, value).failed() ||
       std::get<float>(value.payload) != 10) {
@@ -132,8 +132,8 @@ bool verify_values(gneiss::type_registry& registry, state& data) {
   }
   return registry.set_property(type, label, target, value) == gneiss::result::unsupported;
 }
-bool verify_transfer(gneiss::type_registry&& registry, state& data) {
-  gneiss::type_registry moved{std::move(registry)};
+bool verify_transfer(gneiss::sdk::type_registry&& registry, state& data) {
+  gneiss::sdk::type_registry moved{std::move(registry)};
   auto released = moved.release();
   if (moved || !released) {
     return false;
@@ -144,9 +144,9 @@ bool verify_transfer(gneiss::type_registry&& registry, state& data) {
       native.payload.float32_value != data.value) {
     return false;
   }
-  gneiss::type_registry adopted;
-  if (gneiss::type_registry::create(adopted).failed() ||
-      gneiss::type_registry::adopt(std::move(released), adopted).failed()) {
+  gneiss::sdk::type_registry adopted;
+  if (gneiss::sdk::type_registry::create(adopted).failed() ||
+      gneiss::sdk::type_registry::adopt(std::move(released), adopted).failed()) {
     return false;
   }
   gneiss::property_value value;
@@ -190,15 +190,15 @@ bool verify_payload_conversion() {
 } // namespace
 
 int main() try {
-  static_assert(!std::is_copy_constructible_v<gneiss::released_type_registry>);
-  static_assert(std::is_nothrow_move_constructible_v<gneiss::released_type_registry>);
+  static_assert(!std::is_copy_constructible_v<gneiss::sdk::released_type_registry>);
+  static_assert(std::is_nothrow_move_constructible_v<gneiss::sdk::released_type_registry>);
   static_assert(!std::is_same_v<gneiss::property_value, gneiss_property_value>);
   if (!verify_payload_conversion()) {
     return 5;
   }
   state data;
-  gneiss::type_registry registry;
-  if (gneiss::type_registry::create(registry).failed() || !configure(registry, data)) {
+  gneiss::sdk::type_registry registry;
+  if (gneiss::sdk::type_registry::create(registry).failed() || !configure(registry, data)) {
     return 1;
   }
   if (!verify_metadata(registry)) {

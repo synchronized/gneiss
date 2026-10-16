@@ -19,10 +19,10 @@ namespace {
 } // namespace
 
 result property_inspector_model::initialize() noexcept {
-  type_registry pending;
-  auto operation = type_registry::create(pending);
+  sdk::type_registry pending;
+  auto operation = sdk::type_registry::create(pending);
   if (operation == result::success) {
-    operation = world::register_reflection(pending);
+    operation = sdk::world::register_reflection(pending);
   }
   if (operation == result::success) {
     operation = pending.freeze();

@@ -8,7 +8,7 @@
 #include <thread>
 
 namespace {
-bool verify_mapping(gneiss::scene_instance& scene, std::string_view snapshot,
+bool verify_mapping(gneiss::sdk::scene_instance& scene, std::string_view snapshot,
                     gneiss::scene_node_id parent, std::string_view source,
                     std::string_view target) {
   gneiss::scene_uuid_mapping mapping{.source_uuid = source, .target_uuid = "invalid"};
@@ -26,7 +26,7 @@ bool verify_mapping(gneiss::scene_instance& scene, std::string_view snapshot,
   }
   return scene.destroy_subtree(restored).ok();
 }
-bool verify_failed_query(gneiss::scene_instance& scene,
+bool verify_failed_query(gneiss::sdk::scene_instance& scene,
                          const gneiss::scene_instance_node_info& source) {
   auto output = source;
   const auto status = scene.get_node_info(9999, output);
@@ -47,38 +47,39 @@ int main() try {
   gneiss::sdk::application_desc desc{};
   desc.asset_root = asset_root;
   gneiss::sdk::application app;
-  gneiss::scene_instance scene;
+  gneiss::sdk::scene_instance scene;
   if (gneiss::sdk::application::create(desc, app).failed() ||
-      gneiss::scene_instance::load(app.get(), scene_uri, scene).failed()) {
+      gneiss::sdk::scene_instance::load(app.get(), scene_uri, scene).failed()) {
     return 1;
   }
   const auto original_scene = scene.get();
-  if (gneiss::scene_instance::adopt_native(app.get(), original_scene, scene) !=
+  if (gneiss::sdk::scene_instance::adopt_native(app.get(), original_scene, scene) !=
       result::invalid_state) {
     return 21;
   }
-  gneiss::scene_instance adopted;
+  gneiss::sdk::scene_instance adopted;
   gneiss::sdk::application other;
   if (gneiss::sdk::application::create(desc, other).failed() ||
-      gneiss::scene_instance::adopt_native(other.get(), original_scene, adopted).ok() ||
+      gneiss::sdk::scene_instance::adopt_native(other.get(), original_scene, adopted).ok() ||
       adopted.is_valid()) {
     return 22;
   }
   result wrong_adopt_thread;
   std::thread adoption_worker([&] {
-    wrong_adopt_thread = gneiss::scene_instance::adopt_native(app.get(), original_scene, adopted);
+    wrong_adopt_thread =
+        gneiss::sdk::scene_instance::adopt_native(app.get(), original_scene, adopted);
   });
   adoption_worker.join();
   if (wrong_adopt_thread != result::invalid_state || adopted.is_valid()) {
     return 23;
   }
   const auto released = scene.release();
-  if (gneiss::scene_instance::adopt_native(app.get(), released, adopted).failed() ||
+  if (gneiss::sdk::scene_instance::adopt_native(app.get(), released, adopted).failed() ||
       adopted.get() != original_scene || scene.is_valid()) {
     return 24;
   }
   scene = std::move(adopted);
-  if (gneiss::scene_instance::load(app.get(), "asset://scenes/missing.scene.json", scene) !=
+  if (gneiss::sdk::scene_instance::load(app.get(), "asset://scenes/missing.scene.json", scene) !=
           result::not_found ||
       scene.get() != original_scene) {
     return 2;

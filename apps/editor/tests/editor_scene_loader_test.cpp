@@ -108,8 +108,8 @@ void run(tasks::execution_mode mode) {
   check(loader.operation() == result::success && session.nodes().size() == 1U &&
         session.prefab_nodes().size() == 2U && camera.is_valid());
   // 接管包装拒绝无效句柄，失败不污染输出。
-  scene_instance invalid;
-  check(scene_instance::adopt_native(app.get(), GNEISS_NULL_SCENE_INSTANCE, invalid) !=
+  gneiss::sdk::scene_instance invalid;
+  check(gneiss::sdk::scene_instance::adopt_native(app.get(), GNEISS_NULL_SCENE_INSTANCE, invalid) !=
             result::success &&
         !invalid.is_valid());
   camera.shutdown();

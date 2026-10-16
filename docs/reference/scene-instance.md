@@ -31,7 +31,7 @@ Runtime 宿主的启动与完整场景切换、Editor 的启动与显式打开�
 实体、节点和资产租约，句柄立即失效；重复卸载返回句柄错误。Application 销毁时会先卸载仍存活的
 场景，再销毁 World 和 Render Resource Service。
 
-C++ `gneiss::scene_instance` 提供移动专属的 RAII 包装，不延长 Application 寿命。正常使用先关闭
+C++ `gneiss::sdk::scene_instance` 提供移动专属的 RAII 包装，不延长 Application 寿命。正常使用先关闭
 场景再关闭 Application；父对象已销毁时 `reset()` 安全清空失效句柄。关闭失败时保留句柄，析构
 和移动覆盖失败的规则见 [Application C++ 契约](application.md#生命周期)。`owner()` 返回父句柄，
 `release()` 转移场景所有权；调用前须保存 `owner()`，由接收者在所属线程手动卸载。
@@ -147,7 +147,7 @@ ID 和实例不能跨 Application 使用。这两项操作仅限 Application 创
 ID 和 Scene Node ID 全部失效；调用方应在删除前保存快照和根节点原父 UUID，供 Undo 使用。C++
 包装分别使用 `std::string` 和 `std::span<scene_uuid_mapping>` 承载值快照与 UUID 映射。
 
-C++ `gneiss::scene_instance` 提供对应强类型包装。创建、重命名、重挂接、替换与删除会进入后续
+C++ `gneiss::sdk::scene_instance` 提供对应强类型包装。创建、重命名、重挂接、替换与删除会进入后续
 序列化结果，但不会自行写入来源文件；Editor 仍负责脏状态和原子保存。
 
 ## 运行时属性序列化
@@ -160,7 +160,7 @@ Mesh Renderer 引用以及 Prefab 实例根 Transform 合并回加载时的作�
 
 C 接口使用两次调用：先以空 `buffer` 和零 `capacity` 查询不含字符串终止符的字节数，再提供足够
 容量的缓冲区。容量不足返回 `GNEISS_ERROR_INVALID_ARGUMENT`，同时通过 `out_length` 返回所需长度。
-C++ `gneiss::scene_instance::serialize` 直接输出到调用方提供的 `std::string`。
+C++ `gneiss::sdk::scene_instance::serialize` 直接输出到调用方提供的 `std::string`。
 
 序列化只允许在所属 Application 创建线程执行。实例中的实体、节点或原有 Camera 已被调用方删除
 时返回对应错误且不产生部分输出。输出文本如何落盘由工具或宿主负责；只读 VFS 不会被保存操作

@@ -29,7 +29,7 @@ World 及其实体只能在创建 World 的线程访问。跨线程调用返回 
 
 ## C++ 包装
 
-`gneiss::world` 独占 World，默认不可复制但可以移动，析构时自动销毁。`gneiss::entity_id` 只包装
+`gneiss::sdk::world` 独占 World，默认不可复制但可以移动，析构时自动销毁。`gneiss::entity_id` 只包装
 运行时标识，不拥有实体；World 销毁后所有关联实体 ID 都失效。
 
 `world::ref()` 和 `application::get_world(world_ref&)` 返回可复制的借用视图，不负责销毁 World。

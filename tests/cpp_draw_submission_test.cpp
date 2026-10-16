@@ -95,7 +95,7 @@ int main() {
       .row_stride_bytes = 4,
       .pixels = pixels,
   };
-  gneiss::texture texture;
+  gneiss::sdk::texture texture;
   if (app.create_texture(texture_desc, texture).failed()) {
     return 2;
   }

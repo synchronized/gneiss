@@ -157,6 +157,8 @@ from_native(const gneiss_scene_instance_node_info& value) noexcept;
 /** 从有效 C 查询值借用文本；不复制文本内容。 */
 [[nodiscard]] inline scene_prefab_node_info
 from_native(const gneiss_scene_prefab_node_info& value) noexcept;
+namespace sdk {
+
 /** 独占 Prefab 刷新的撤销令牌，不延长 Application 或场景寿命。
  * 操作、析构及移动覆盖限所属 Application 线程；释放只丢弃历史，不撤销当前投影。 */
 class scene_prefab_refresh final {
@@ -315,6 +317,7 @@ private:
   gneiss_scene_instance handle_ = GNEISS_NULL_SCENE_INSTANCE;
 };
 
+} // namespace sdk
 } // namespace gneiss
 
 #include <gneiss/engine/detail/scene.inl>

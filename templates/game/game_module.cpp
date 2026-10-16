@@ -14,11 +14,11 @@ struct game_state final {
   std::uint64_t update_count{};
 };
 
-gneiss::result write_log(gneiss::game_context context, std::string_view message) noexcept {
+gneiss::result write_log(gneiss::sdk::game_context context, std::string_view message) noexcept {
   return context.log(gneiss::make_log_message(gneiss::log_severity::info, "lifecycle", message));
 }
 
-gneiss::result initialize(gneiss::game_context context, void*& output) noexcept {
+gneiss::result initialize(gneiss::sdk::game_context context, void*& output) noexcept {
   std::unique_ptr<game_state> state{new (std::nothrow) game_state};
   if (!state) {
     return gneiss::result::out_of_memory;
@@ -30,12 +30,13 @@ gneiss::result initialize(gneiss::game_context context, void*& output) noexcept 
   return status;
 }
 
-gneiss::result fixed_update(gneiss::game_context, void*, const gneiss::game_update_time&) noexcept {
+gneiss::result fixed_update(gneiss::sdk::game_context, void*,
+                            const gneiss::sdk::game_update_time&) noexcept {
   return gneiss::result::success;
 }
 
-gneiss::result update(gneiss::game_context, void* module_state,
-                      const gneiss::game_update_time&) noexcept {
+gneiss::result update(gneiss::sdk::game_context, void* module_state,
+                      const gneiss::sdk::game_update_time&) noexcept {
   if (module_state == nullptr) {
     return gneiss::result::invalid_argument;
   }
@@ -43,13 +44,13 @@ gneiss::result update(gneiss::game_context, void* module_state,
   return gneiss::result::success;
 }
 
-gneiss::result shutdown(gneiss::game_context context, void* module_state) noexcept {
+gneiss::result shutdown(gneiss::sdk::game_context context, void* module_state) noexcept {
   const auto status = write_log(context, "游戏模块关闭");
   delete static_cast<game_state*>(module_state);
   return status;
 }
 
-using module = gneiss::game_module<gneiss::game_module_callbacks{
+using module = gneiss::sdk::game_module<gneiss::sdk::game_module_callbacks{
     .initialize = initialize,
     .fixed_update = fixed_update,
     .update = update,

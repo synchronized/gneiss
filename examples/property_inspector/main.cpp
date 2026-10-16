@@ -23,7 +23,7 @@ constexpr std::string_view camera_uuid = "37cff772-2e8d-4bc7-9ed2-f94435926d4e";
   return gneiss::sdk::application::create(desc, output);
 }
 
-[[nodiscard]] bool inspect_registry(const gneiss::type_registry& registry) {
+[[nodiscard]] bool inspect_registry(const gneiss::sdk::type_registry& registry) {
   std::uint32_t type_count = 0;
   if (registry.type_count(type_count) != gneiss::result::success) {
     return false;
@@ -47,16 +47,16 @@ constexpr std::string_view camera_uuid = "37cff772-2e8d-4bc7-9ed2-f94435926d4e";
 }
 
 [[nodiscard]] bool find_camera(gneiss::sdk::application& application,
-                               const gneiss::scene_instance& scene, gneiss::world_ref& out_world,
-                               gneiss::entity_id& out_entity) {
+                               const gneiss::sdk::scene_instance& scene,
+                               gneiss::sdk::world_ref& out_world, gneiss::entity_id& out_entity) {
   gneiss::scene_node_id node;
   return application.get_world(out_world) == gneiss::result::success &&
          scene.find_node(camera_uuid, node) == gneiss::result::success &&
          out_world.get_entity(node, out_entity).ok();
 }
 
-[[nodiscard]] bool set_properties(const gneiss::type_registry& registry, gneiss::world_ref world,
-                                  gneiss::entity_id entity) {
+[[nodiscard]] bool set_properties(const gneiss::sdk::type_registry& registry,
+                                  gneiss::sdk::world_ref world, gneiss::entity_id entity) {
   const gneiss::property_target target{.context = world.get(), .object = entity.get()};
   gneiss::property_value value{};
   value.payload = gneiss::property_vec3{.x = 2.0F, .y = 1.0F, .z = 4.0F};
@@ -69,8 +69,8 @@ constexpr std::string_view camera_uuid = "37cff772-2e8d-4bc7-9ed2-f94435926d4e";
                                value) == gneiss::result::success;
 }
 
-[[nodiscard]] bool verify_properties(const gneiss::type_registry& registry, gneiss::world_ref world,
-                                     gneiss::entity_id entity) {
+[[nodiscard]] bool verify_properties(const gneiss::sdk::type_registry& registry,
+                                     gneiss::sdk::world_ref world, gneiss::entity_id entity) {
   const gneiss::property_target target{.context = world.get(), .object = entity.get()};
   gneiss::property_value value{};
   if (registry.get_property(gneiss::transform_type_id(), gneiss::transform_fields::translation,
@@ -94,22 +94,22 @@ constexpr std::string_view camera_uuid = "37cff772-2e8d-4bc7-9ed2-f94435926d4e";
 } // namespace
 
 int main() try {
-  gneiss::type_registry registry;
-  if (gneiss::type_registry::create(registry) != gneiss::result::success ||
-      gneiss::world::register_reflection(registry) != gneiss::result::success ||
+  gneiss::sdk::type_registry registry;
+  if (gneiss::sdk::type_registry::create(registry) != gneiss::result::success ||
+      gneiss::sdk::world::register_reflection(registry) != gneiss::result::success ||
       registry.freeze() != gneiss::result::success || !inspect_registry(registry)) {
     return 1;
   }
 
   gneiss::sdk::application application;
-  gneiss::scene_instance scene;
+  gneiss::sdk::scene_instance scene;
   constexpr std::string_view source_root = GNEISS_PROPERTY_INSPECTOR_ASSET_ROOT;
   if (create_application(source_root, application) != gneiss::result::success ||
-      gneiss::scene_instance::load(application.get(), scene_uri, scene) !=
+      gneiss::sdk::scene_instance::load(application.get(), scene_uri, scene) !=
           gneiss::result::success) {
     return 2;
   }
-  gneiss::world_ref world;
+  gneiss::sdk::world_ref world;
   gneiss::entity_id entity;
   if (!find_camera(application, scene, world, entity) || !set_properties(registry, world, entity)) {
     return 3;
@@ -135,9 +135,9 @@ int main() try {
 
   const auto output_root_text = output_root.generic_string();
   gneiss::sdk::application reloaded_application;
-  gneiss::scene_instance reloaded_scene;
+  gneiss::sdk::scene_instance reloaded_scene;
   if (create_application(output_root_text, reloaded_application) != gneiss::result::success ||
-      gneiss::scene_instance::load(reloaded_application.get(), scene_uri, reloaded_scene) !=
+      gneiss::sdk::scene_instance::load(reloaded_application.get(), scene_uri, reloaded_scene) !=
           gneiss::result::success ||
       !find_camera(reloaded_application, reloaded_scene, world, entity) ||
       !verify_properties(registry, world, entity)) {

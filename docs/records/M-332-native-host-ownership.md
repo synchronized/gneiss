@@ -215,3 +215,16 @@ Runtime smoke、场景切换和灯笼运行流程。
 
 Gizmo 显示与拖动的 World 查询也已归入原生编辑会话，不再传入 SDK world_ref 或独立 World
 句柄。Windows Debug 构建及会话、Gizmo 拖动/显示 3 项回归通过。
+
+## SDK 名称与安装消费验证
+
+World、Scene、Reflection、Render 资源所有者及 Game Module 包装统一进入 `gneiss::sdk`，
+公共值类型保持原命名空间；不提供旧所有者别名。示例、测试、模板和 Reference 同步更新，
+迁移方法见 [0.50 → 0.51 指南](../guides/migrating-0.50-to-0.51.md)。
+
+Windows Clang Debug 共享与静态配置完整构建通过。共享库 20 项普通 SDK/ABI 回归、
+两项终止行为测试、独立安装的 4 个 C/C++ 消费者及 stable runtime 消费者通过。
+终止测试已确认进入 terminate handler；Windows 测试改用 TerminateProcess 保持退出码断言，
+避免进程卸载 DLL 时再清理仍存活的资源干扰此断言；非 Windows 保持 _Exit。
+该调整只涉及死亡测试，不代表生产关闭路径问题已被修复或豁免。
+静态安装、最终平台矩阵及完整场景仍待验收。

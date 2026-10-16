@@ -3,6 +3,7 @@
 
 #include <gneiss/engine/application.hpp>
 
+#include "support/terminate_process.hpp"
 #include <cstdlib>
 #include <exception>
 #include <string_view>
@@ -45,7 +46,7 @@ template <typename Owner, auto Create, auto Destroy> bool verify_standalone() {
   }
   auto transferred = third.release();
   if constexpr (std::is_same_v<Owner, gneiss::sdk::application> ||
-                std::is_same_v<Owner, gneiss::type_registry>) {
+                std::is_same_v<Owner, gneiss::sdk::type_registry>) {
     if (third.get() != 0U || transferred.get() == 0U || transferred.reset().failed())
       return false;
   } else {
@@ -114,15 +115,15 @@ bool verify_application_rollback() {
 
 bool verify_scene() {
   gneiss::sdk::application app;
-  gneiss::scene_instance first;
+  gneiss::sdk::scene_instance first;
   if (create_application(app).failed() ||
-      gneiss::scene_instance::create_empty(app.get(), scene_uuid, first).failed()) {
+      gneiss::sdk::scene_instance::create_empty(app.get(), scene_uuid, first).failed()) {
     return false;
   }
   const auto original = first.get();
-  if (gneiss::scene_instance::create_empty(app.get(), "invalid", first) !=
+  if (gneiss::sdk::scene_instance::create_empty(app.get(), "invalid", first) !=
           gneiss::result::invalid_argument ||
-      gneiss::scene_instance::load(app.get(), "", first) != gneiss::result::invalid_argument ||
+      gneiss::sdk::scene_instance::load(app.get(), "", first) != gneiss::result::invalid_argument ||
       first.get() != original) {
     return false;
   }
@@ -133,7 +134,8 @@ bool verify_scene() {
     gneiss::sdk::application worker_app;
     replace_result = create_application(worker_app);
     if (replace_result.ok()) {
-      replace_result = gneiss::scene_instance::create_empty(worker_app.get(), scene_uuid, first);
+      replace_result =
+          gneiss::sdk::scene_instance::create_empty(worker_app.get(), scene_uuid, first);
     }
   });
   worker.join();
@@ -142,10 +144,10 @@ bool verify_scene() {
       first.owner() != app.get()) {
     return false;
   }
-  gneiss::scene_instance second{std::move(first)};
+  gneiss::sdk::scene_instance second{std::move(first)};
   // NOLINTNEXTLINE(bugprone-use-after-move): 移动同时清空父句柄和场景句柄。
   if (first.is_valid() || first.owner() != 0U || second.get() != original ||
-      gneiss::scene_instance::create_empty(app.get(), scene_uuid, first).failed()) {
+      gneiss::sdk::scene_instance::create_empty(app.get(), scene_uuid, first).failed()) {
     return false;
   }
   const auto replaced = first.get();
@@ -157,24 +159,24 @@ bool verify_scene() {
   const auto released = first.release();
   return !first.is_valid() && first.owner() == 0U && released == original &&
          gneiss_scene_instance_unload(owner, released) == GNEISS_SUCCESS && first.reset().ok() &&
-         gneiss::scene_instance::create_empty(app.get(), scene_uuid, first).ok() &&
+         gneiss::sdk::scene_instance::create_empty(app.get(), scene_uuid, first).ok() &&
          app.reset().ok() && first.reset().ok() && !first.is_valid();
 }
 
 void install_termination_handler() {
   // 在发生析构的线程安装处理器，避免依赖 CRT 的跨线程 handler 传播。
-  std::set_terminate([] { std::_Exit(73); });
+  std::set_terminate([] { gneiss::test::terminate_test_process(73); });
 }
 
 int verify_termination(std::string_view mode) {
   if (mode == "world") {
-    gneiss::world resource;
-    if (gneiss::world::create(resource).failed()) {
+    gneiss::sdk::world resource;
+    if (gneiss::sdk::world::create(resource).failed()) {
       return 1;
     }
     std::thread worker([resource = std::move(resource)]() mutable {
       install_termination_handler();
-      gneiss::world local{std::move(resource)};
+      gneiss::sdk::world local{std::move(resource)};
     });
     worker.join();
   } else if (mode == "application") {
@@ -189,14 +191,14 @@ int verify_termination(std::string_view mode) {
     worker.join();
   } else if (mode == "scene") {
     gneiss::sdk::application app;
-    gneiss::scene_instance resource;
+    gneiss::sdk::scene_instance resource;
     if (create_application(app).failed() ||
-        gneiss::scene_instance::create_empty(app.get(), scene_uuid, resource).failed()) {
+        gneiss::sdk::scene_instance::create_empty(app.get(), scene_uuid, resource).failed()) {
       return 1;
     }
     std::thread worker([resource = std::move(resource)]() mutable {
       install_termination_handler();
-      gneiss::scene_instance local{std::move(resource)};
+      gneiss::sdk::scene_instance local{std::move(resource)};
     });
     worker.join();
   }
@@ -208,21 +210,21 @@ int main(int argc, char** argv) {
   if (argc == 2) {
     return verify_termination(argv[1]);
   }
-  if (!verify_standalone<gneiss::world, gneiss::world::create, gneiss_world_destroy>() ||
+  if (!verify_standalone<gneiss::sdk::world, gneiss::sdk::world::create, gneiss_world_destroy>() ||
       !verify_standalone<gneiss::sdk::application, create_application,
                          gneiss_application_destroy>() ||
-      !verify_standalone<gneiss::type_registry, gneiss::type_registry::create,
+      !verify_standalone<gneiss::sdk::type_registry, gneiss::sdk::type_registry::create,
                          gneiss_type_registry_destroy>()) {
     return 1;
   }
-  if (!verify_thread_failure<gneiss::world, gneiss::world::create>() ||
+  if (!verify_thread_failure<gneiss::sdk::world, gneiss::sdk::world::create>() ||
       !verify_thread_failure<gneiss::sdk::application, create_application>() ||
       !verify_application_rollback() || !verify_scene()) {
     return 2;
   }
   // Registry 没有线程亲和约束；外部同步后可在其他线程销毁，不能误套 World 的规则。
-  gneiss::type_registry registry;
-  if (gneiss::type_registry::create(registry).failed()) {
+  gneiss::sdk::type_registry registry;
+  if (gneiss::sdk::type_registry::create(registry).failed()) {
     return 3;
   }
   gneiss::result status;

@@ -37,6 +37,8 @@ inline constexpr field_id far_plane{3};
 inline constexpr field_id is_primary{4};
 } // namespace camera_fields
 
+namespace sdk {
+
 /** 非拥有 World 视图；销毁视图不销毁 World，父对象失效后操作返回无效句柄。
  * const 只约束借用视图本身，不表示 World 只读。
  * 仅在 World 所属线程调用；is_valid() 只检查本地非零值，不探测存活状态。 */
@@ -165,6 +167,7 @@ private:
   void reset_or_terminate() noexcept;
 };
 
+} // namespace sdk
 } // namespace gneiss
 
 // 实现随 SDK 安装；使用者只需包含本模块头。

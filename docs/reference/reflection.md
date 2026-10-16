@@ -88,7 +88,7 @@ Registry 查询和访问器查找支持并发调用。目标对象是否支持�
 
 ## C++20 包装
 
-`gneiss::type_registry` 独占 C 句柄，不可复制、可以移动，析构时自动销毁。`create`、`register_type`、
+`gneiss::sdk::type_registry` 独占 C 句柄，不可复制、可以移动，析构时自动销毁。`create`、`register_type`、
 `bind_property`、`freeze`、查询、`get_property` 和 `set_property` 直接返回 `gneiss::result`，不建立
 第二套元数据或属性状态。
 

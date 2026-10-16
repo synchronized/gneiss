@@ -67,7 +67,7 @@ int main() try {
         return 4;
       }
       gneiss::transform desired{};
-      if (gneiss::world_ref{world}
+      if (gneiss::sdk::world_ref{world}
               .get_world_transform(gneiss::scene_node_id{target.get()}, desired)
               .native() != GNEISS_SUCCESS) {
         return 5;
@@ -88,7 +88,7 @@ int main() try {
         gneiss::transform actual{};
         if (gneiss::editor::transform_to_gizmo_matrix(desired, matrix) != result::success ||
             drag.preview(session, matrix) != result::success ||
-            gneiss::world_ref{world}
+            gneiss::sdk::world_ref{world}
                     .get_world_transform(gneiss::scene_node_id{target.get()}, actual)
                     .native() != GNEISS_SUCCESS ||
             !near(actual, desired) || history.size() != 0U) {
@@ -148,7 +148,7 @@ int main() try {
   }
   const auto prefab_id = session.selection();
   const auto prefab_before = session.selected_prefab_node()->local_transform;
-  if (gneiss::world_ref{world}
+  if (gneiss::sdk::world_ref{world}
           .get_world_transform(gneiss::scene_node_id{prefab_id.get()}, desired)
           .native() != GNEISS_SUCCESS) {
     return 14;
@@ -173,7 +173,7 @@ int main() try {
   }
   const auto uuid = session.selected_node()->uuid;
   const auto deletion_before = session.selected_node()->local_transform;
-  if (gneiss::world_ref{world}
+  if (gneiss::sdk::world_ref{world}
           .get_world_transform(gneiss::scene_node_id{session.selection().get()}, desired)
           .native() != GNEISS_SUCCESS) {
     return 17;

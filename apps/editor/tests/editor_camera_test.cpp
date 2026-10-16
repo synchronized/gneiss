@@ -14,10 +14,10 @@ bool near(float lhs, float rhs) { return std::abs(lhs - rhs) < 1.0e-4F; }
 } // namespace
 
 int main() {
-  gneiss::world world;
+  gneiss::sdk::world world;
   gneiss::editor::editor_camera camera;
   gneiss_entity_id active_camera = GNEISS_NULL_ENTITY_ID;
-  if (gneiss::world::create(world) != gneiss::result::success ||
+  if (gneiss::sdk::world::create(world) != gneiss::result::success ||
       camera.initialize() != gneiss::result::success || !camera.is_valid() ||
       gneiss_world_get_active_camera(world.get(), &active_camera) != GNEISS_ERROR_NOT_READY ||
       active_camera != GNEISS_NULL_ENTITY_ID) {

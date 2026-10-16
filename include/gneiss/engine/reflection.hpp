@@ -178,6 +178,8 @@ struct property_binding {
 };
 } // namespace detail
 
+namespace sdk {
+
 class released_type_registry;
 
 /** Type Registry 的独占 RAII 包装。查询名称借用 Registry；冻结前修改及关闭需外部同步。
@@ -255,7 +257,7 @@ public:
 private:
   void reset_or_terminate() noexcept;
   gneiss_type_registry handle_ = GNEISS_NULL_TYPE_REGISTRY;
-  std::vector<std::unique_ptr<detail::property_binding>> bindings_;
+  std::vector<std::unique_ptr<gneiss::detail::property_binding>> bindings_;
 };
 
 /** 独占释放载体，不隐式转为 C 句柄；get 只借用，禁止提前销毁仍在使用的 Registry。 */
@@ -276,6 +278,7 @@ private:
   type_registry owner_;
 };
 
+} // namespace sdk
 } // namespace gneiss
 
 #include <gneiss/engine/detail/reflection.inl>

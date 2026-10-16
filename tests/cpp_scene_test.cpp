@@ -12,8 +12,8 @@ static_assert(gneiss::transform{}.rotation[3] == 1.0F);
 static_assert(gneiss::transform{}.scale[2] == 1.0F);
 
 // const 不改变场景/令牌的拥有关系；仅表示包装身份不变。
-static_assert(requires(const gneiss::scene_instance& scene, gneiss::scene_node_id node,
-                       const gneiss::scene_prefab_refresh& refresh) {
+static_assert(requires(const gneiss::sdk::scene_instance& scene, gneiss::scene_node_id node,
+                       const gneiss::sdk::scene_prefab_refresh& refresh) {
   scene.set_node_name(node, "name");
   scene.reparent_node(node, {});
   scene.destroy_node(node);
@@ -21,11 +21,11 @@ static_assert(requires(const gneiss::scene_instance& scene, gneiss::scene_node_i
 });
 
 int main() {
-  gneiss::world world;
+  gneiss::sdk::world world;
   gneiss::entity_id entity;
   gneiss::scene_node_id root;
   gneiss::scene_node_id child;
-  if (gneiss::world::create(world) != gneiss::result::success ||
+  if (gneiss::sdk::world::create(world) != gneiss::result::success ||
       world.create_entity(entity) != gneiss::result::success ||
       world.create_scene_node(gneiss::null_scene_node_id, gneiss::null_entity_id, root) !=
           gneiss::result::success ||

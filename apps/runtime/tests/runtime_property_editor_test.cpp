@@ -21,8 +21,8 @@ namespace {
   } while (false)
 
 bool test_write_and_revision() {
-  gneiss::world world;
-  GNEISS_TEST_CHECK(gneiss::world::create(world) == gneiss::result::success);
+  gneiss::sdk::world world;
+  GNEISS_TEST_CHECK(gneiss::sdk::world::create(world) == gneiss::result::success);
   gneiss::entity_id entity;
   GNEISS_TEST_CHECK(world.create_entity(entity) == gneiss::result::success);
   gneiss::scene_node_id scene_node;
@@ -82,8 +82,8 @@ bool test_write_and_revision() {
 }
 
 bool test_rejections() {
-  gneiss::world world;
-  GNEISS_TEST_CHECK(gneiss::world::create(world) == gneiss::result::success);
+  gneiss::sdk::world world;
+  GNEISS_TEST_CHECK(gneiss::sdk::world::create(world) == gneiss::result::success);
   gneiss::runtime_internal::runtime_scene_inspection inspection(9U);
   gneiss::runtime_internal::runtime_property_editor editor;
   GNEISS_TEST_CHECK(editor.initialize(world.get(), inspection, 9U) == gneiss::result::success);

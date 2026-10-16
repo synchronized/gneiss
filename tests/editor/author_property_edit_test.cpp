@@ -35,7 +35,8 @@ int main() try {
   }
   const auto is_x = [&](float expected) {
     transform local{};
-    return world_ref{world_handle}.get_local_transform(entity, local) == result::success &&
+    return gneiss::sdk::world_ref{world_handle}.get_local_transform(entity, local) ==
+               result::success &&
            std::abs(local.translation[0] - expected) < 0.0001F;
   };
   const auto edit_x = [&](float next, editor_command_history& target, std::uint64_t serial) {

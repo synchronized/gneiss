@@ -74,8 +74,8 @@ int main() {
   }
 
   gneiss_world actual_world = GNEISS_NULL_WORLD;
-  const gneiss::game_context borrowed{context};
-  gneiss::world_ref typed_world;
+  const gneiss::sdk::game_context borrowed{context};
+  gneiss::sdk::world_ref typed_world;
   gneiss::entity_id typed_root;
   gneiss::action_id typed_action;
   gneiss::action_state typed_state{};

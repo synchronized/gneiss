@@ -72,7 +72,7 @@ gneiss_result get_malformed(void* /*user_data*/, gneiss_property_target /*target
   return GNEISS_SUCCESS;
 }
 
-int verify_callback_contract(gneiss::type_registry& registry, camera_fixture& fixture,
+int verify_callback_contract(gneiss::sdk::type_registry& registry, camera_fixture& fixture,
                              gneiss_property_target target) {
   gneiss_property_value value = GNEISS_PROPERTY_VALUE_INIT;
   // 不合约的 C++ 回调异常必须在适配器处转换；getter 失败清空输出。
@@ -142,8 +142,8 @@ int main() try {
                               .name_length = 6U,
                               .fields = fields.data(),
                               .field_count = static_cast<std::uint32_t>(fields.size())};
-  gneiss::type_registry registry;
-  if (gneiss::type_registry::create(registry) != gneiss::result::success ||
+  gneiss::sdk::type_registry registry;
+  if (gneiss::sdk::type_registry::create(registry) != gneiss::result::success ||
       registry.register_type_native(type) != gneiss::result::success) {
     return 1;
   }

@@ -20,7 +20,7 @@ gneiss::result run_example() {
     return status;
   }
 
-  gneiss::world_ref world;
+  gneiss::sdk::world_ref world;
   if (const auto status = app.get_world(world); status.failed()) {
     return status;
   }

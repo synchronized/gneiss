@@ -140,12 +140,12 @@ verify_documents(const std::vector<gneiss::editor::author_document_change>& chan
   desc.asset_root = root_text.data();
   desc.asset_root_length = static_cast<std::uint32_t>(root_text.size());
   gneiss::sdk::application application;
-  gneiss::scene_instance scene;
+  gneiss::sdk::scene_instance scene;
   std::uint64_t object_count = 0U;
   std::uint64_t prefab_node_count = 0U;
   return gneiss::sdk::application::create_native(desc, application) == gneiss::result::success &&
-         gneiss::scene_instance::load(application.get(), "asset://scenes/main.scene.json", scene) ==
-             gneiss::result::success &&
+         gneiss::sdk::scene_instance::load(application.get(), "asset://scenes/main.scene.json",
+                                           scene) == gneiss::result::success &&
          scene.get_node_count(object_count) == gneiss::result::success &&
          object_count == expected_objects &&
          scene.get_prefab_node_count(prefab_node_count) == gneiss::result::success &&

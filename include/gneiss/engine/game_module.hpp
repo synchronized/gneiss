@@ -13,7 +13,7 @@
 #include <cstdint>
 #include <string_view>
 
-namespace gneiss {
+namespace gneiss::sdk {
 
 inline constexpr std::uint32_t game_module_abi_version_1 = GNEISS_GAME_MODULE_ABI_VERSION_1;
 inline constexpr std::uint32_t game_module_abi_version = GNEISS_GAME_MODULE_ABI_VERSION_CURRENT;
@@ -124,7 +124,7 @@ private:
   static gneiss_result shutdown(gneiss_game_context context, void* state) noexcept;
 };
 
-} // namespace gneiss
+} // namespace gneiss::sdk
 
 #include <gneiss/engine/detail/game_context.inl>
 

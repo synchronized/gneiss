@@ -14,18 +14,18 @@ namespace {
 } // namespace
 
 int main() {
-  gneiss::type_registry registry;
-  gneiss::world first;
-  gneiss::world second;
+  gneiss::sdk::type_registry registry;
+  gneiss::sdk::world first;
+  gneiss::sdk::world second;
   gneiss::entity_id entity;
   gneiss::entity_id missing_component;
   gneiss::scene_node_id node;
-  if (gneiss::type_registry::create(registry) != gneiss::result::success ||
-      gneiss::world::register_reflection(registry) != gneiss::result::success ||
-      gneiss::world::register_reflection(registry) != gneiss::result::success ||
+  if (gneiss::sdk::type_registry::create(registry) != gneiss::result::success ||
+      gneiss::sdk::world::register_reflection(registry) != gneiss::result::success ||
+      gneiss::sdk::world::register_reflection(registry) != gneiss::result::success ||
       registry.freeze() != gneiss::result::success ||
-      gneiss::world::create(first) != gneiss::result::success ||
-      gneiss::world::create(second) != gneiss::result::success ||
+      gneiss::sdk::world::create(first) != gneiss::result::success ||
+      gneiss::sdk::world::create(second) != gneiss::result::success ||
       first.create_entity(entity) != gneiss::result::success ||
       first.create_entity(missing_component) != gneiss::result::success ||
       first.create_scene_node({}, entity, node) != gneiss::result::success) {

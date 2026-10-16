@@ -6,7 +6,7 @@
 
 #include <gneiss/engine/game_module.hpp>
 
-namespace gneiss {
+namespace gneiss::sdk {
 
 inline result game_context::get_world_native(gneiss_world& out_world) const noexcept {
   return from_native(gneiss_game_context_get_world(value_, &out_world));
@@ -59,7 +59,7 @@ inline result game_context::get_action_state(action_id id, action_state& output)
   gneiss_action_state native = GNEISS_ACTION_STATE_INIT;
   const auto status = get_action_state_native(id.get(), native);
   if (status.ok()) {
-    output = detail::from_action_state(native);
+    output = gneiss::detail::from_action_state(native);
   }
   return status;
 }
@@ -73,6 +73,6 @@ inline result game_context::log(const log_message& message) const noexcept {
   return from_native(gneiss_game_context_log(value_, &native));
 }
 
-} // namespace gneiss
+} // namespace gneiss::sdk
 
 #endif

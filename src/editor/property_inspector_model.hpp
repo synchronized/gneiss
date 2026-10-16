@@ -49,7 +49,7 @@ public:
   }
 
 private:
-  type_registry registry_;
+  sdk::type_registry registry_;
   gneiss_property_target target_{};
   std::vector<inspector_component> components_;
 };

@@ -284,16 +284,20 @@ private:
 };
 } // namespace detail
 
+namespace sdk {
 /** Mesh 独占所有权；操作和销毁须在所属 Application 线程。 */
-using mesh =
-    detail::render_resource_owner<mesh_id, mesh_desc, gneiss_mesh_create, gneiss_mesh_destroy>;
+using mesh = gneiss::detail::render_resource_owner<mesh_id, mesh_desc, gneiss_mesh_create,
+                                                   gneiss_mesh_destroy>;
 /** Material 独占所有权；不延长父 Application 或引用纹理的生命周期。 */
-using material = detail::render_resource_owner<material_id, material_desc, gneiss_material_create,
-                                               gneiss_material_destroy>;
+using material =
+    gneiss::detail::render_resource_owner<material_id, material_desc, gneiss_material_create,
+                                          gneiss_material_destroy>;
 /** Texture 独占所有权；操作和销毁须在所属 Application 线程。 */
-using texture = detail::render_resource_owner<texture_id, texture_desc, gneiss_texture_create,
-                                              gneiss_texture_destroy>;
+using texture =
+    gneiss::detail::render_resource_owner<texture_id, texture_desc, gneiss_texture_create,
+                                          gneiss_texture_destroy>;
 
+} // namespace sdk
 } // namespace gneiss
 
 #include <gneiss/engine/detail/render.inl>

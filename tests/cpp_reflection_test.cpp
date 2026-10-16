@@ -16,7 +16,7 @@ namespace {
 constexpr gneiss::type_id camera_type{{0x30, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1}};
 constexpr gneiss::type_id float_type{{0x10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2}};
 
-bool verify_registry_queries(const gneiss::type_registry& registry) {
+bool verify_registry_queries(const gneiss::sdk::type_registry& registry) {
   bool frozen{};
   gneiss::type_info info{};
   if (registry.is_frozen(frozen) != gneiss::result::success || !frozen ||
@@ -24,14 +24,14 @@ bool verify_registry_queries(const gneiss::type_registry& registry) {
       registry.type_at(1U, info) != gneiss::result::not_found) {
     return false;
   }
-  gneiss::type_registry empty;
+  gneiss::sdk::type_registry empty;
   return empty.is_frozen(frozen) == gneiss::result::invalid_handle && frozen &&
          empty.type_at(0U, info) == gneiss::result::invalid_handle;
 }
 
 int run_tests() {
-  gneiss::type_registry registry;
-  if (gneiss::type_registry::create(registry) != gneiss::result::success || !registry) {
+  gneiss::sdk::type_registry registry;
+  if (gneiss::sdk::type_registry::create(registry) != gneiss::result::success || !registry) {
     return 1;
   }
 
@@ -103,15 +103,15 @@ int run_tests() {
     return 4;
   }
 
-  gneiss::type_registry isolated;
+  gneiss::sdk::type_registry isolated;
   gneiss::type_info isolated_info{};
-  if (gneiss::type_registry::create(isolated) != gneiss::result::success ||
+  if (gneiss::sdk::type_registry::create(isolated) != gneiss::result::success ||
       isolated.freeze() != gneiss::result::success ||
       isolated.find_type(camera_type, isolated_info) != gneiss::result::not_found) {
     return 5;
   }
 
-  gneiss::type_registry moved = std::move(registry);
+  gneiss::sdk::type_registry moved = std::move(registry);
   if (!moved) {
     return 6;
   }

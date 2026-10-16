@@ -14,13 +14,13 @@ namespace {
 } // namespace
 
 int main() {
-  gneiss::world world;
+  gneiss::sdk::world world;
   gneiss::entity_id entity;
   gneiss::entity_id transform_only;
   gneiss::scene_node_id entity_node;
   gneiss::scene_node_id transform_only_node;
   gneiss::editor::property_inspector_model inspector;
-  if (gneiss::world::create(world) != gneiss::result::success ||
+  if (gneiss::sdk::world::create(world) != gneiss::result::success ||
       world.create_entity(entity) != gneiss::result::success ||
       world.create_entity(transform_only) != gneiss::result::success ||
       inspector.initialize() != gneiss::result::success) {

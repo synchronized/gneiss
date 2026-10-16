@@ -22,7 +22,7 @@ constexpr std::uint64_t measure_warmup_frames = 60U;
 constexpr std::uint64_t measure_sample_frames = 300U;
 
 struct sample_state {
-  gneiss::world_ref world;
+  gneiss::sdk::world_ref world;
   gneiss::scene_node_id camera_node;
   gneiss::action_id orbit;
   gneiss::action_id quit;
@@ -142,8 +142,8 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure) {
     return 2;
   }
 
-  gneiss::scene_instance scene;
-  auto result = gneiss::scene_instance::load(application.get(), scene_uri, scene);
+  gneiss::sdk::scene_instance scene;
+  auto result = gneiss::sdk::scene_instance::load(application.get(), scene_uri, scene);
   if (result != gneiss::result::success) {
     report_failure("加载场景", result);
     return 3;

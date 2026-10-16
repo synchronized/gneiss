@@ -32,7 +32,7 @@ domain。销毁、跨 Application 使用、类型混用或重复销毁均返回
 
 ## C++ 资源所有权
 
-`gneiss::mesh`、`material`、`texture` 是不可复制、可移动的拥有型包装，保存父 Application
+`gneiss::sdk::mesh`、`material`、`texture` 是不可复制、可移动的拥有型包装，保存父 Application
 句柄和资源 RID，析构自动销毁资源。Application 的 `create_mesh`、`create_material`、
 `create_texture` 接受对应拥有型输出；旧的 ID 输出和显式销毁入口继续可用。
 

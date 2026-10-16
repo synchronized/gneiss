@@ -6,7 +6,7 @@
 
 #include <gneiss/engine/world.hpp>
 
-namespace gneiss {
+namespace gneiss::sdk {
 
 inline result world_ref::register_reflection(type_registry& registry) noexcept {
   return from_native(gneiss_world_register_reflection(registry.get()));
@@ -198,6 +198,6 @@ inline void world::reset_or_terminate() noexcept {
   }
 }
 
-} // namespace gneiss
+} // namespace gneiss::sdk
 
 #endif

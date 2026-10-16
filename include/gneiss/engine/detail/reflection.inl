@@ -186,6 +186,8 @@ inline gneiss_property_accessor_desc reflection_accessor(property_binding& bindi
 }
 } // namespace detail
 
+namespace sdk {
+
 inline result type_registry::create(type_registry& output) noexcept {
   gneiss_type_registry handle = GNEISS_NULL_TYPE_REGISTRY;
   const auto status = from_native(gneiss_type_registry_create(&handle));
@@ -245,15 +247,15 @@ inline result type_registry::bind_property(type_id type, field_id field,
                                            const property_accessor_desc& desc) noexcept {
   for (const auto& binding : bindings_) {
     if (binding->type == type && binding->field == field && binding->callbacks == desc) {
-      const auto native = detail::reflection_accessor(*binding);
+      const auto native = gneiss::detail::reflection_accessor(*binding);
       return bind_property_native(to_native(type), field.get(), native);
     }
   }
   try {
-    auto candidate = std::make_unique<detail::property_binding>(
-        detail::property_binding{.type = type, .field = field, .callbacks = desc});
+    auto candidate = std::make_unique<gneiss::detail::property_binding>(
+        gneiss::detail::property_binding{.type = type, .field = field, .callbacks = desc});
     bindings_.reserve(bindings_.size() + 1);
-    const auto native = detail::reflection_accessor(*candidate);
+    const auto native = gneiss::detail::reflection_accessor(*candidate);
     const auto status = bind_property_native(to_native(type), field.get(), native);
     if (status.ok()) {
       bindings_.push_back(std::move(candidate));
@@ -269,13 +271,13 @@ inline result type_registry::bind_property(type_id type, field_id field,
 inline result type_registry::type_at(std::uint32_t index, type_info& output) const noexcept {
   gneiss_type_info value = GNEISS_TYPE_INFO_INIT;
   const auto status = type_at_native(index, value);
-  return status.failed() ? status : detail::reflection_type(value, output);
+  return status.failed() ? status : gneiss::detail::reflection_type(value, output);
 }
 
 inline result type_registry::find_type(type_id id, type_info& output) const noexcept {
   gneiss_type_info value = GNEISS_TYPE_INFO_INIT;
   const auto status = find_type_native(to_native(id), value);
-  return status.failed() ? status : detail::reflection_type(value, output);
+  return status.failed() ? status : gneiss::detail::reflection_type(value, output);
 }
 
 inline result type_registry::find_field(type_id type, field_id field,
@@ -283,7 +285,7 @@ inline result type_registry::find_field(type_id type, field_id field,
   gneiss_field_info value = GNEISS_FIELD_INFO_INIT;
   const auto status = find_field_native(to_native(type), field.get(), value);
   if (status.ok()) {
-    output = detail::reflection_field(value);
+    output = gneiss::detail::reflection_field(value);
   }
   return status;
 }
@@ -397,6 +399,7 @@ inline result type_registry::adopt(released_type_registry&& source,
   return result::success;
 }
 
+} // namespace sdk
 } // namespace gneiss
 
 #endif

@@ -136,6 +136,8 @@ from_native(const gneiss_scene_prefab_node_info& value) noexcept {
   };
 }
 
+namespace sdk {
+
 inline result scene_prefab_refresh::toggle(scene_node_id& out_new_root) const noexcept {
   gneiss_scene_node_id root = GNEISS_NULL_SCENE_NODE_ID;
   const auto status =
@@ -481,6 +483,7 @@ inline void scene_instance::reset_or_terminate() noexcept {
   }
 }
 
+} // namespace sdk
 } // namespace gneiss
 
 #endif

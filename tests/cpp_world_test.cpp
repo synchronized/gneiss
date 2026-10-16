@@ -13,7 +13,7 @@ static_assert(gneiss::camera{}.is_primary);
 static_assert(!gneiss::mesh_renderer{}.mesh.is_valid());
 
 // 借用视图自身为 const 时仍可修改所属 World；不改变线程或生命周期约束。
-static_assert(requires(const gneiss::world_ref& view, gneiss::entity_id entity,
+static_assert(requires(const gneiss::sdk::world_ref& view, gneiss::entity_id entity,
                        gneiss::scene_node_id node, const gneiss::camera_desc& camera) {
   view.create_entity(entity);
   view.destroy_entity(entity);
@@ -23,7 +23,7 @@ static_assert(requires(const gneiss::world_ref& view, gneiss::entity_id entity,
 });
 
 namespace {
-bool verify_camera(gneiss::world& world, gneiss::entity_id entity) {
+bool verify_camera(gneiss::sdk::world& world, gneiss::entity_id entity) {
   gneiss::camera_desc expected{
       .vertical_field_of_view_radians = 0.8F,
       .near_plane = 0.5F,
@@ -53,8 +53,8 @@ bool verify_camera(gneiss::world& world, gneiss::entity_id entity) {
 } // namespace
 
 int main() {
-  gneiss::world first;
-  if (gneiss::world::create(first) != gneiss::result::success) {
+  gneiss::sdk::world first;
+  if (gneiss::sdk::world::create(first) != gneiss::result::success) {
     return 1;
   }
   gneiss::entity_id entity;
@@ -113,16 +113,16 @@ int main() {
       first.get_parent(root, parent) != gneiss::result::success || parent.is_valid()) {
     return 6;
   }
-  gneiss::type_registry registry;
+  gneiss::sdk::type_registry registry;
   gneiss::type_info info{};
-  if (gneiss::type_registry::create(registry) != gneiss::result::success ||
-      gneiss::world::register_reflection(registry) != gneiss::result::success ||
+  if (gneiss::sdk::type_registry::create(registry) != gneiss::result::success ||
+      gneiss::sdk::world::register_reflection(registry) != gneiss::result::success ||
       registry.freeze() != gneiss::result::success ||
       registry.find_type(gneiss::transform_type_id(), info) != gneiss::result::success ||
       registry.find_type(gneiss::camera_type_id(), info) != gneiss::result::success) {
     return 7;
   }
-  gneiss::world second{std::move(first)};
+  gneiss::sdk::world second{std::move(first)};
   // NOLINTNEXTLINE(bugprone-use-after-move): world 明确定义了可查询的移动后状态。
   if (first.is_valid() || !second.is_valid() ||
       second.destroy_entity(entity) != gneiss::result::success) {
