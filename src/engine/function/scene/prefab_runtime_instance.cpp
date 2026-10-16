@@ -657,7 +657,7 @@ gneiss_result prefab_runtime_instance::commit_node(std::size_t index, gneiss_sce
     const auto result = world_internal::create_staged_object(
         world_, publication_,
         {.parent = parent,
-         .transform = to_transform(source),
+         .transform = {source.translation, source.rotation, source.scale},
          .camera = source.camera ? &camera : nullptr,
          .renderer = source.mesh_renderer ? &renderer : nullptr},
         object);
@@ -707,8 +707,14 @@ gneiss_result prefab_runtime_instance::begin_hidden(gneiss_scene_node_id parent,
     return result;
   }
   world_internal::staged_object root;
-  result = world_internal::create_staged_object(world_, publication_,
-                                                {.parent = parent, .transform = transform}, root);
+  result = world_internal::create_staged_object(
+      world_, publication_,
+      {.parent = parent,
+       .transform = {{transform.translation[0], transform.translation[1], transform.translation[2]},
+                     {transform.rotation[0], transform.rotation[1], transform.rotation[2],
+                      transform.rotation[3]},
+                     {transform.scale[0], transform.scale[1], transform.scale[2]}}},
+      root);
   root_node_ = root.node;
   root_entity_ = root.entity;
   return result;

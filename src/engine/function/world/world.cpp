@@ -8,12 +8,6 @@
 #include <numbers>
 #include <unordered_set>
 namespace {
-// 兼容 World 服务仍接收旧场景值；转换只在进入原生场景树时发生。
-gneiss::engine::transform native_transform(const gneiss_transform& value) noexcept {
-  return {{value.translation[0], value.translation[1], value.translation[2]},
-          {value.rotation[0], value.rotation[1], value.rotation[2], value.rotation[3]},
-          {value.scale[0], value.scale[1], value.scale[2]}};
-}
 bool is_valid_camera(float vertical_field_of_view_radians, float near_plane,
                      float far_plane) noexcept {
   return std::isfinite(vertical_field_of_view_radians) && std::isfinite(near_plane) &&
@@ -97,8 +91,7 @@ gneiss_result world::create_staged_object(const core::publication& group,
       operation =
           state.scene().create_staged(group, description.parent, candidate.entity, &candidate.node);
       if (operation == GNEISS_SUCCESS) {
-        operation = state.scene().set_staged_local(group, candidate.node,
-                                                   native_transform(description.transform));
+        operation = state.scene().set_staged_local(group, candidate.node, description.transform);
       }
     } catch (const std::bad_alloc&) {
       operation = GNEISS_ERROR_OUT_OF_MEMORY;

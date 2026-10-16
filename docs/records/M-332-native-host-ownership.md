@@ -149,3 +149,12 @@ World 操作实现迁入 engine::world，内部独占 ECS/场景树实现，宿�
 完整 Windows Debug 构建及 19 项 World、Scene、Application、窗口交互、反射和边界回归通过。
 新增测试直接调用原生对象，验证实体、节点、变换、跨线程拒绝、候选发布和 C 查询共享同一状态。
 兼容解析集中化后，7 项受影响回归再次通过。最终跨平台与安装矩阵尚未执行。
+
+## World 候选构造值边界
+
+候选节点构造描述改用原生 TRS，World 类内部不再转换 C Transform。Prefab 的现有描述在
+进入该原生入口前逐字段适配。边界检查扩展到 world.hpp/cpp 与 world_types.hpp。
+完整 Windows Debug 构建及 7 项候选构造、场景加载、Prefab 与边界回归通过。
+
+反射路径核对 ADR-066 后继续保留旧运行时 setter 的渐进适配与唯一注册表，不另起反射事务协议。
+这不是新增待批准决策，也不表示 Scene/Prefab 的其余句柄调用已经清除。

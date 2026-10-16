@@ -265,7 +265,10 @@ Input 动作映射首批已迁移，见 [Input 记录](../records/M-332-native-i
 键鼠事件、状态快照与平台适配已贯通原生数据链路并通过本地回归；
 Render 绘制列表及 Editor 原生提交已验证，见 [Render 记录](../records/M-332-native-render.md)。
 相机/实例、材质/采样、网格、纹理描述和资源 RID 已贯通原生值；后端日志仅接收关联 ID。
-继续迁移 Application 回调与宿主，完整真实图像、跨平台与安装矩阵仍待执行。
+Application 回调与宿主已完成首批原生接入；World 已有原生拥有对象与操作入口，渲染快照直接
+调用活动 World，见 [宿主迁移记录](../records/M-332-native-host-ownership.md)。
+继续迁移 Scene/Prefab 与 Editor 编辑会话消费者，清除剩余兼容操作入口；完整真实图像、
+跨平台与安装矩阵仍待执行。
 
 ### 已确认：Render 快照表示与矩阵准备职责
 

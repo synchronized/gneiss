@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #pragma once
+#include "engine/core/math/transform.hpp"
 #include "engine/function/world/world_components.hpp"
 #include <gneiss/engine/scene.h>
 
@@ -15,7 +16,7 @@ struct mesh_renderer_replacement {
 /** 不持有资源；调用方保留 renderer 对应租约，候选相机不自动成为活动相机。 */
 struct staged_object_description {
   gneiss_scene_node_id parent{};
-  gneiss_transform transform = GNEISS_TRANSFORM_IDENTITY;
+  engine::transform transform;
   const camera_settings* camera{};
   const mesh_renderer* renderer{};
 };
