@@ -280,6 +280,114 @@ void run(tasks::execution_mode mode) {
   check(scheduler.stats().retained == 0U);
   check(gneiss_world_entity_count(observed, &count) == GNEISS_ERROR_INVALID_HANDLE);
 }
+
+void shared_scene_assets(tasks::execution_mode mode) {
+  fixture files;
+  tasks::task_scheduler scheduler({.workers = 1U, .mode = mode});
+  application app;
+  auto desc = gneiss_application_desc GNEISS_APPLICATION_DESC_INIT;
+  const auto root = files.root.string();
+  desc.asset_root = root.data();
+  desc.asset_root_length = static_cast<std::uint32_t>(root.size());
+  check(application::create_native(desc, app) == result::success);
+  check(attach_task_executor(app.get(), scheduler) == GNEISS_SUCCESS);
+  scene_load_completion completion;
+  std::uint64_t request{};
+  auto poll = [&] {
+    if (mode == tasks::execution_mode::cooperative) {
+      (void)scheduler.run_ready();
+    }
+    bool terminal{};
+    check(poll_scene_load(app.get(), completion, terminal) == GNEISS_SUCCESS);
+    std::this_thread::yield();
+    return terminal;
+  };
+  auto prepare = [&] {
+    check(request_scene_load(app.get(), "asset://scene.json", 1U, 1U, request) == GNEISS_SUCCESS);
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+    scene_load_progress progress;
+    do {
+      check(std::chrono::steady_clock::now() < deadline && !poll());
+      bool active{};
+      check(query_scene_load_progress(app.get(), progress, active) == GNEISS_SUCCESS && active);
+    } while (progress.phase != scene_load_phase::ready);
+    return progress;
+  };
+  auto selected = [&](render_internal::render_asset_type type, const char* uri) {
+    render_internal::render_asset_lease lease;
+    check(query_ready_asset(app.get(), {.uri = uri, .type = type}, lease) == GNEISS_SUCCESS);
+    return lease;
+  };
+  auto binding = [&] {
+    constexpr std::string_view uuid = "00000000-0000-4000-8000-000000000002";
+    gneiss_scene_node_id node{};
+    check(gneiss_scene_instance_find_node(app.get(), completion.scene, uuid.data(), uuid.size(),
+                                          &node) == GNEISS_SUCCESS);
+    mesh_binding value;
+    check(capture_mesh_binding(app.get(), completion.scene, node, value) == GNEISS_SUCCESS);
+    return value;
+  };
+  const auto first = prepare();
+  check(activate_scene_load(app.get(), request, completion) == GNEISS_SUCCESS);
+  auto original = binding();
+  auto mesh = selected(render_internal::render_asset_type::mesh, "asset://mesh.json");
+  auto material = selected(render_internal::render_asset_type::material, "asset://material.json");
+  gneiss_world old_world{};
+  check(gneiss_application_get_world(app.get(), &old_world) == GNEISS_SUCCESS);
+  check(!poll());
+  // 两个 World 同时持有相同版本，不重复计量或创建后端资源。
+  const auto second = prepare();
+  check(second.application_logical_bytes == first.application_logical_bytes);
+  check(activate_scene_load(app.get(), request, completion) == GNEISS_SUCCESS);
+  auto reused = binding();
+  check(reused.mesh == mesh && reused.material == material);
+  gneiss_world new_world{};
+  check(gneiss_application_get_world(app.get(), &new_world) == GNEISS_SUCCESS &&
+        old_world != new_world);
+  std::uint64_t count{};
+  check(gneiss_world_entity_count(old_world, &count) == GNEISS_SUCCESS);
+  check(!poll());
+  check(gneiss_world_entity_count(old_world, &count) == GNEISS_ERROR_INVALID_HANDLE);
+  check(gneiss_world_entity_count(new_world, &count) == GNEISS_SUCCESS && count == 1U);
+  // 新版本 ready 不改变默认选择；取消也不得改变活动实例的固定租约。
+  std::ofstream(files.root / "material.json")
+      << R"({"format":"gneiss.material","version":1,"color":[0,1,0,1]})";
+  (void)prepare();
+  check(selected(render_internal::render_asset_type::material, "asset://material.json") ==
+        material);
+  check(cancel_scene_load(app.get(), request) == GNEISS_SUCCESS);
+  const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+  while (!poll()) {
+    check(std::chrono::steady_clock::now() < deadline);
+  }
+  check(completion.progress.phase == scene_load_phase::cancelled &&
+        completion.progress.cleanup_complete);
+  check(selected(render_internal::render_asset_type::material, "asset://material.json") ==
+        material);
+  // 重试成功后才采用 B；旧租约 A 与未变化的网格依旧有效。
+  (void)prepare();
+  check(activate_scene_load(app.get(), request, completion) == GNEISS_SUCCESS);
+  auto changed = binding();
+  check(changed.mesh == mesh && changed.material != material);
+  check(selected(render_internal::render_asset_type::material, "asset://material.json") ==
+        changed.material);
+  check(!poll());
+  check(original.mesh == mesh && original.material == material);
+  // 损坏的新来源失败后，B 的默认选择与活动 World 保持不变。
+  check(gneiss_application_get_world(app.get(), &new_world) == GNEISS_SUCCESS);
+  std::ofstream(files.root / "material.json") << "broken";
+  check(request_scene_load(app.get(), "asset://scene.json", 1U, 2U, request) == GNEISS_SUCCESS);
+  const auto failure_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+  while (!poll()) {
+    check(std::chrono::steady_clock::now() < failure_deadline);
+  }
+  check(completion.progress.phase == scene_load_phase::failed &&
+        completion.progress.cleanup_complete);
+  check(selected(render_internal::render_asset_type::material, "asset://material.json") ==
+        changed.material);
+  check(gneiss_world_entity_count(new_world, &count) == GNEISS_SUCCESS && count == 1U);
+}
+
 void shared_texture_versions(tasks::execution_mode mode) {
   fixture files;
   std::vector<std::byte> bytes;
@@ -399,6 +507,8 @@ int main() try {
   cancel_drain(tasks::execution_mode::cooperative);
   run(tasks::execution_mode::thread_pool);
   run(tasks::execution_mode::cooperative);
+  shared_scene_assets(tasks::execution_mode::thread_pool);
+  shared_scene_assets(tasks::execution_mode::cooperative);
   shared_texture_versions(tasks::execution_mode::thread_pool);
   shared_texture_versions(tasks::execution_mode::cooperative);
   return 0;

@@ -64,7 +64,9 @@ void run() {
   asset_internal::virtual_file_system vfs;
   check(vfs.mount("asset://", files) == GNEISS_SUCCESS);
   render_internal::render_resource_service resources;
-  auto active = std::make_unique<application_internal::application_scene_state>(vfs, resources);
+  application_internal::application_asset_state active_assets(vfs, resources);
+  application_internal::application_asset_state candidate_assets(vfs, resources);
+  auto active = std::make_unique<application_internal::application_scene_state>(active_assets);
   check(active->initialize() == GNEISS_SUCCESS);
   gneiss_scene_instance old_scene{};
   check(active->scenes->load("asset://s.scene", &old_scene) == GNEISS_SUCCESS);
@@ -85,7 +87,8 @@ void run() {
   scene_internal::scene_diagnostic scene_diagnostic;
   check(scene_internal::prepare_scene_description(vfs, "asset://s.scene", prepared,
                                                   scene_diagnostic, {}) == GNEISS_SUCCESS);
-  auto candidate = std::make_unique<application_internal::application_scene_state>(vfs, resources);
+  auto candidate =
+      std::make_unique<application_internal::application_scene_state>(candidate_assets);
   check(candidate->initialize() == GNEISS_SUCCESS);
   std::vector<render_internal::render_asset_lease> captured{render_internal::render_asset_lease{}};
   check(candidate->scenes->capture_render_assets(captured) == GNEISS_SUCCESS && captured.empty());
@@ -310,7 +313,7 @@ void run() {
   // 构造失败时仅回收候选节点；即使依赖缺失也不能退回主线程文件读取。
   check(scene_internal::prepare_scene_description(vfs, "asset://s.scene", prepared,
                                                   scene_diagnostic, {}) == GNEISS_SUCCESS);
-  candidate = std::make_unique<application_internal::application_scene_state>(vfs, resources);
+  candidate = std::make_unique<application_internal::application_scene_state>(candidate_assets);
   check(candidate->initialize() == GNEISS_SUCCESS);
   const auto failure_reads = files->reads;
   {

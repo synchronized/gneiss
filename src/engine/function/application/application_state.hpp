@@ -118,6 +118,9 @@ public:
   [[nodiscard]] render_internal::render_asset_loader& asset_loader() noexcept {
     return scene_session_.assets();
   }
+  [[nodiscard]] scene_internal::prefab_asset_loader& prefab_loader() noexcept {
+    return asset_state_->prefabs;
+  }
   [[nodiscard]] gneiss_result
   reload_render_assets(std::span<const render_internal::render_asset_reload> assets) noexcept;
   [[nodiscard]] gneiss_result reload_scene(gneiss_scene_instance instance,
@@ -169,6 +172,7 @@ private:
   std::shared_ptr<asset_internal::native_file_system> native_assets_;
 #endif
   asset_internal::virtual_file_system asset_file_system_;
+  std::unique_ptr<application_asset_state> asset_state_;
   scene_session scene_session_;
   std::thread::id owner_thread_;
   std::uint64_t frame_index_ = 0;

@@ -5,12 +5,12 @@
 
 ## 状态与范围
 
-2026-10-15，目标设计已记录，资产共享迁移尚未实施。属于
+2026-10-16，Application 级共享资产所有权已迁移；完整方案仍在实施。属于
 [DEV-051 的 M-329～M-333](DEV-051-architecture-boundaries.md)，决策依据为
 [ADR-064](../decisions/ADR-064-shared-assets-and-scene-instances.md)。
 当前已实现的协调拆分见 [M-331 记录](../records/M-331-scene-session-extraction.md)。
 缓存层已增加来源身份与固定版本入口，验证见 [版本缓存记录](../records/M-331-version-cache.md)；
-异步场景加载已接入，跨场景域共享仍未完成。
+异步场景加载已接入，跨域共享验收见 [所有权迁移记录](../records/M-331-application-asset-ownership.md)。
 来源复验包装已补充身份转交与已观察摘要查询，见
 [接入记录](../records/M-331-source-revision-identity.md)；查询摘要不能代替最终复验。
 准备结果已携带描述及纹理负载的来源摘要，见
@@ -30,9 +30,9 @@ URI 查询仍走旧路径。
 
 ## 当前与目标
 
-当前每个 `application_scene_state` 拥有 resource_cache、render_asset_loader、prefab_asset_loader、
-World 和场景实例服务；Application 级渲染资源服务由各域共享。缓存项和资产租约通过共享引用
-持有资产，帧快照另有数据持有；不能据此宣称已经实现跨域资产加载去重。
+当前资产所有权与场景域的关系见 [总体架构](../concepts/architecture.md#资产与场景域所有权)。
+活动、候选和待退役场景域已共享 Application 的缓存与类型加载器；固定版本复用不代表
+并发 CPU 准备任务已经合并，也不代表所有同步兼容入口已经迁移。
 
 目标是资产系统统一管理共享资产，运行场景持有使用引用，场景协调只管理实例切换事务。
 场景资产可多次实例化，各实例共享适合共享的资源，但实体、变换和运行状态独立。
@@ -50,7 +50,7 @@ World 和场景实例服务；Application 级渲染资源服务由各域共享�
 | `scene_instance` | `engine/function/scene/` | 实例服务拥有；记录本次实例化的实体、节点映射与资产引用 | 整理现有实例记录，不再造实例表 |
 | `scene_instance_service` | `engine/function/scene/` | 场景运行环境拥有；在指定 World 创建、查询、销毁实例 | 保留现有服务并调整资产依赖 |
 | `world_state` | `engine/function/world/` | 存放 ECS 实体与组件、Scene Tree、活动相机及身份域/线程校验信息 | 复用现有 World，不新建另一份运行数据 |
-| `application_scene_state` | `engine/function/application/` | 协调对象拥有；保留 World 与实例服务，退出共享缓存的所有权 | 从当前场景域逐步迁移 |
+| `application_scene_state` | `engine/function/application/` | 协调对象拥有；保留 World 与实例服务，退出共享缓存的所有权 | 已迁移缓存所有权，命名收敛待评估 |
 | `scene_controller` | `engine/function/application/` | Application 拥有；管理候选请求、当前域、旧域及安全切换 | 由当前 scene_session 演进并更名 |
 | `render_resource_service` | `engine/function/render/` | Application 拥有；管理 RID 与渲染资源数据，后端 GPU 操作仍交渲染后端 | 复用现有资源服务与帧持有 |
 | `application_state` | `engine/function/application/` | 宿主拥有；装配资产、场景与后端系统，推进主循环和整体启停 | 继续收敛现有实现 |
@@ -197,9 +197,9 @@ set_mesh_renderer，以及 prefab_runtime_instance 的实例化/刷新仍调用 
 [版本选择记录](../records/M-331-adopted-version-index.md)。活动 World 的异步资产重载已接入
 兼容配置选择域及使用者提交边界，见 [宿主采用记录](../records/M-331-host-adoption.md)。
 新场景的初始选择在 ready 阶段仅准备，激活时才无分配提交；取消释放采用权而不改变默认选择，见
-[延迟采用记录](../records/M-331-deferred-version-adoption.md)。缓存所有权迁移仍未完成。Editor 消费者仍待迁移，
+[延迟采用记录](../records/M-331-deferred-version-adoption.md)。缓存所有权迁移已完成，见所有权迁移记录。剩余同步消费者仍待收敛，
 不代表所有同步入口已收敛。
 
 Prefab 准备描述已改为带来源身份的不可变版本，同 URI 新旧版本可并存，见
-[描述版本记录](../records/M-331-prefab-description-versions.md)。旧同步 URI 入口、默认选择接入
-和 Application 级缓存所有权仍待迁移；不能直接将剩余可变缓存全局共享。
+[描述版本记录](../records/M-331-prefab-description-versions.md)。Application 级缓存所有权与渲染普通获取的已采用版本查询已接入。旧同步 URI 入口仍保留兼容路径；
+Prefab 描述默认选择及统一阻塞适配尚未完成，不能将其描述为全部接口收敛。

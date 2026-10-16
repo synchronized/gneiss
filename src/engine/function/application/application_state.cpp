@@ -299,7 +299,8 @@ gneiss_result application_state::initialize() noexcept {
   platform_initialized_ = true;
 
   try {
-    const auto result = scene_session_.initialize(asset_file_system_, resources_);
+    asset_state_ = std::make_unique<application_asset_state>(asset_file_system_, resources_);
+    const auto result = scene_session_.initialize(*asset_state_);
     if (result != GNEISS_SUCCESS) {
       report(GNEISS_NULL_APPLICATION, GNEISS_DIAGNOSTIC_ERROR,
              GNEISS_DIAGNOSTIC_CATEGORY_APPLICATION, result, "scene", "场景域创建失败");
@@ -710,6 +711,7 @@ bool application_state::is_owner_thread() const noexcept {
 gneiss_result application_state::shutdown(gneiss_application handle) noexcept {
   auto shutdown_result = GNEISS_SUCCESS;
   scene_session_.shutdown();
+  asset_state_.reset();
   is_updating_ = false;
   ui_draw_list_.clear();
   debug_draw_list_.clear();

@@ -14,12 +14,12 @@ namespace gneiss::application_internal {
 
 scene_session::~scene_session() noexcept { shutdown(); }
 
-gneiss_result scene_session::initialize(const asset_internal::virtual_file_system& files,
-                                        render_internal::render_resource_service& resources) {
+gneiss_result scene_session::initialize(application_asset_state& assets) {
   if (active_) {
     return GNEISS_ERROR_INVALID_STATE;
   }
-  active_ = std::make_unique<application_scene_state>(files, resources);
+  asset_owner_ = &assets;
+  active_ = std::make_unique<application_scene_state>(assets);
   return active_->initialize();
 }
 
@@ -33,10 +33,12 @@ scene_session::attach_executor(tasks::task_executor& executor,
     return GNEISS_ERROR_INVALID_STATE;
   }
   // 两个服务都成功构造后才发布，异常不留下半装配状态。
-  auto loader =
-      std::make_unique<scene_load_service>(executor, files, resources, backend, notification);
+  auto loader = std::make_unique<scene_load_service>(executor, files, resources, *asset_owner_,
+                                                     backend, notification);
+  const auto profile = backend.profile;
   auto textures = std::make_unique<render_internal::texture_load_service>(
       executor, files, active_->assets, std::move(backend), std::move(notification));
+  asset_owner_->assets.set_default_profile(profile);
   loader_ = std::move(loader);
   textures_ = std::move(textures);
   return GNEISS_SUCCESS;
@@ -47,6 +49,7 @@ void scene_session::advance() {
     const auto start = std::chrono::steady_clock::now();
     const diagnostics::loop_span span(diagnostics::loop_stage::retirement);
     retired_.reset();
+    asset_owner_->cache.release_unused();
     retirement_.last_ms =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
     ++retirement_.retired_domains;
@@ -81,6 +84,10 @@ void scene_session::shutdown() noexcept {
   asset_request_ = 0U;
   retired_.reset();
   active_.reset();
+  if (asset_owner_ != nullptr) {
+    asset_owner_->cache.release_unused();
+  }
+  asset_owner_ = nullptr;
 }
 
 bool scene_session::can_start_load() const noexcept {

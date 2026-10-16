@@ -580,6 +580,19 @@ gneiss_result render_asset_loader::acquire_mesh(std::string_view uri, mesh_asset
                                                 asset_diagnostic& out_diagnostic) noexcept {
   out_lease = {};
   out_diagnostic = {};
+  asset_internal::asset_identity identity;
+  render_asset_lease selected;
+  const auto identified = file_system_.identify(uri, mesh_type, identity);
+  const auto ready = identified == GNEISS_SUCCESS
+                         ? acquire_selected(identity, default_profile_, selected)
+                         : identified;
+  if (ready == GNEISS_SUCCESS) {
+    out_lease.entry_ = std::move(selected.entry_);
+    return GNEISS_SUCCESS;
+  }
+  if (identified == GNEISS_SUCCESS && ready != GNEISS_ERROR_NOT_READY) {
+    return ready;
+  }
   const auto result = cache_.acquire(
       uri, mesh_type,
       [this, uri, &out_diagnostic](std::shared_ptr<void>& output) -> gneiss_result {
@@ -634,6 +647,19 @@ gneiss_result render_asset_loader::acquire_material(std::string_view uri,
                                                     asset_diagnostic& out_diagnostic) noexcept {
   out_lease = {};
   out_diagnostic = {};
+  asset_internal::asset_identity identity;
+  render_asset_lease selected;
+  const auto identified = file_system_.identify(uri, material_type, identity);
+  const auto ready = identified == GNEISS_SUCCESS
+                         ? acquire_selected(identity, default_profile_, selected)
+                         : identified;
+  if (ready == GNEISS_SUCCESS) {
+    out_lease.entry_ = std::move(selected.entry_);
+    return GNEISS_SUCCESS;
+  }
+  if (identified == GNEISS_SUCCESS && ready != GNEISS_ERROR_NOT_READY) {
+    return ready;
+  }
   const auto result = cache_.acquire(
       uri, material_type,
       [this, uri, &out_diagnostic](std::shared_ptr<void>& output) -> gneiss_result {
@@ -696,6 +722,19 @@ gneiss_result render_asset_loader::acquire_texture(std::string_view uri,
                                                    asset_diagnostic& out_diagnostic) noexcept {
   out_lease = {};
   out_diagnostic = {};
+  asset_internal::asset_identity identity;
+  render_asset_lease selected;
+  const auto identified = file_system_.identify(uri, texture_type, identity);
+  const auto ready = identified == GNEISS_SUCCESS
+                         ? acquire_selected(identity, default_profile_, selected)
+                         : identified;
+  if (ready == GNEISS_SUCCESS) {
+    out_lease.entry_ = std::move(selected.entry_);
+    return GNEISS_SUCCESS;
+  }
+  if (identified == GNEISS_SUCCESS && ready != GNEISS_ERROR_NOT_READY) {
+    return ready;
+  }
   const auto result = cache_.acquire(
       uri, texture_type,
       [this, uri, &out_diagnostic](std::shared_ptr<void>& output) -> gneiss_result {

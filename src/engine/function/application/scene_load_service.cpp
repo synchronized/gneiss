@@ -87,10 +87,12 @@ struct scene_load_service::pending {
 scene_load_service::scene_load_service(tasks::task_executor& executor,
                                        asset_internal::virtual_file_system files,
                                        render_internal::render_resource_service& resources,
+                                       application_asset_state& asset_owner,
                                        render_internal::texture_upload_backend backend,
                                        std::shared_ptr<core::progress_notification> notification)
     : executor_(executor), scope_(executor.make_scope()), files_(std::move(files)),
-      resources_(resources), backend_(std::move(backend)), notification_(std::move(notification)) {
+      resources_(resources), asset_owner_(asset_owner), backend_(std::move(backend)),
+      notification_(std::move(notification)) {
   if (scope_.id == 0U) {
     throw std::invalid_argument("无法创建场景任务作用域");
   }
@@ -227,6 +229,7 @@ void scene_load_service::finish(gneiss_result result, scene_load_phase phase, st
   auto completion = std::move(pending_->result);
   const auto cleanup_started = clock_type::now();
   pending_.reset();
+  asset_owner_.cache.release_unused();
   // 候选分项保留结束前的诊断值，Application/上传账本必须在请求销毁后采样。
   sample_budget(completion.progress);
   completion.progress.gpu_in_flight = false;
@@ -409,7 +412,7 @@ void scene_load_service::advance_impl() {
       finish(value.cpu->result, scene_load_phase::failed, value.cpu->diagnostic.message);
       return;
     }
-    value.candidate = std::make_unique<application_scene_state>(files_, resources_);
+    value.candidate = std::make_unique<application_scene_state>(asset_owner_);
     const auto initialized = value.candidate->initialize();
     if (initialized != GNEISS_SUCCESS) {
       finish(initialized, scene_load_phase::failed);

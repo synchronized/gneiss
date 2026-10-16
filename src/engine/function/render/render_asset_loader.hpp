@@ -26,6 +26,8 @@ class render_resource_service;
 
 class render_asset_lease {
 public:
+  /** 比较是否持有同一个已发布版本，不读取或刷新来源。 */
+  [[nodiscard]] bool operator==(const render_asset_lease&) const noexcept = default;
   [[nodiscard]] std::uint64_t get() const noexcept;
   [[nodiscard]] render_asset_type type() const noexcept {
     return entry_ ? static_cast<render_asset_type>(entry_->type) : render_asset_type::invalid;
@@ -156,6 +158,8 @@ public:
                       asset_internal::resource_cache& cache,
                       render_resource_service& resources) noexcept;
 
+  /** 宿主装配设备后设置兼容选择域；旧阻塞入口优先复用已采用版本。 */
+  void set_default_profile(texture_prepare_profile profile) noexcept { default_profile_ = profile; }
   [[nodiscard]] gneiss_result acquire_mesh(std::string_view uri, mesh_asset_lease& out_lease,
                                            asset_diagnostic& out_diagnostic) noexcept;
   [[nodiscard]] gneiss_result acquire_material(std::string_view uri,
@@ -169,6 +173,7 @@ public:
   void release_unused() noexcept { cache_.release_unused(); }
 
 private:
+  texture_prepare_profile default_profile_{};
   std::uint64_t revision_{};
   const asset_internal::virtual_file_system& file_system_;
   asset_internal::resource_cache& cache_;

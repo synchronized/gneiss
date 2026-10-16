@@ -20,8 +20,7 @@ public:
   scene_session(const scene_session&) = delete;
   scene_session& operator=(const scene_session&) = delete;
 
-  [[nodiscard]] gneiss_result initialize(const asset_internal::virtual_file_system& files,
-                                         render_internal::render_resource_service& resources);
+  [[nodiscard]] gneiss_result initialize(application_asset_state& assets);
   [[nodiscard]] gneiss_result
   attach_executor(tasks::task_executor& executor, const asset_internal::virtual_file_system& files,
                   render_internal::render_resource_service& resources,
@@ -59,6 +58,7 @@ public:
                      const std::function<gneiss_result()>& accept);
 
 private:
+  application_asset_state* asset_owner_{};
   std::unique_ptr<application_scene_state> active_;
   std::unique_ptr<application_scene_state> retired_;
   scene_retirement_statistics retirement_;
