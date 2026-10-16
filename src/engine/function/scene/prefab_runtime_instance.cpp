@@ -16,6 +16,18 @@
 
 namespace {
 
+// 必须先于候选实例构造，保证候选释放后再恢复原相机；异常路径同样适用。
+struct camera_restore_guard {
+  gneiss_world world;
+  gneiss_entity_id previous;
+  bool committed{};
+  ~camera_restore_guard() {
+    if (!committed && previous != GNEISS_NULL_ENTITY_ID) {
+      (void)gneiss::world_internal::set_active_camera(world, previous);
+    }
+  }
+};
+
 gneiss_transform to_transform(const gneiss::scene_internal::object_description& object) noexcept {
   gneiss_transform value{};
   std::ranges::copy(object.translation, value.translation);
@@ -386,6 +398,12 @@ gneiss_result prefab_runtime_instance::create(
             {std::string(instance_uuid), prefab.get()->objects[0].uuid})) {
       return GNEISS_ERROR_INVALID_ARGUMENT;
     }
+    gneiss_entity_id previous_camera = GNEISS_NULL_ENTITY_ID;
+    const auto camera_query = world_internal::get_active_camera(world, previous_camera);
+    if (camera_query != GNEISS_SUCCESS && camera_query != GNEISS_ERROR_NOT_READY) {
+      return camera_query;
+    }
+    camera_restore_guard camera_guard{.world = world, .previous = previous_camera};
     auto instance = std::make_unique<prefab_runtime_instance>(world, loader, std::move(prefab),
                                                               std::string(instance_uuid));
     auto result = instance->stage_assets(*instance->prefab_.get());
@@ -399,6 +417,7 @@ gneiss_result prefab_runtime_instance::create(
       return result;
     }
     out_instance = std::move(instance);
+    camera_guard.committed = true;
     return GNEISS_SUCCESS;
   } catch (const std::bad_alloc&) {
     return GNEISS_ERROR_OUT_OF_MEMORY;

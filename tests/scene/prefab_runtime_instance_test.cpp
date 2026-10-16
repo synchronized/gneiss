@@ -75,6 +75,52 @@ public:
   }
 };
 
+bool check_failed_camera_prefab(
+    gneiss_world world, gneiss_type_registry registry,
+    gneiss::render_internal::render_asset_loader& render_loader,
+    gneiss::scene_internal::prefab_asset_loader& prefab_loader,
+    const gneiss::scene_internal::prefab_description& source,
+    const std::vector<gneiss::scene_internal::prefab_property_override>& invalid_overrides) {
+  auto description = source;
+  description.objects[0].camera = {.vertical_field_of_view_radians = 1.0F,
+                                   .near_plane = 0.1F,
+                                   .far_plane = 100.0F,
+                                   .is_primary = true};
+  gneiss::scene_internal::prefab_asset_lease lease;
+  if (prefab_loader.install_prepared("asset://prefabs/camera.prefab.json", std::move(description),
+                                     lease) != GNEISS_SUCCESS) {
+    return false;
+  }
+  gneiss_entity_id previous{};
+  const gneiss_camera_desc camera = GNEISS_CAMERA_DESC_INIT;
+  if (gneiss_world_entity_create(world, &previous) != GNEISS_SUCCESS ||
+      gneiss_world_entity_configure_camera(world, previous, &camera) != GNEISS_SUCCESS ||
+      gneiss_world_set_active_camera(world, previous) != GNEISS_SUCCESS) {
+    return false;
+  }
+  const gneiss_transform transform = GNEISS_TRANSFORM_IDENTITY;
+  std::unique_ptr<gneiss::scene_internal::prefab_runtime_instance> candidate;
+  const auto operation = gneiss::scene_internal::prefab_runtime_instance::create(
+      world, render_loader, lease, registry, "20000000-0000-4000-8000-000000000005",
+      GNEISS_NULL_SCENE_NODE_ID, transform, invalid_overrides, candidate);
+  gneiss_entity_id active{};
+  std::uint64_t count{};
+  const bool preserved = operation == GNEISS_ERROR_NOT_FOUND && !candidate &&
+                         gneiss_world_get_active_camera(world, &active) == GNEISS_SUCCESS &&
+                         active == previous &&
+                         gneiss_world_entity_count(world, &count) == GNEISS_SUCCESS && count == 7U;
+  if (gneiss_world_entity_destroy(world, previous) != GNEISS_SUCCESS || !preserved) {
+    return false;
+  }
+  // 原本没有相机时，失败候选也不能留下活动相机或实体。
+  return gneiss::scene_internal::prefab_runtime_instance::create(
+             world, render_loader, lease, registry, "20000000-0000-4000-8000-000000000005",
+             GNEISS_NULL_SCENE_NODE_ID, transform, invalid_overrides,
+             candidate) == GNEISS_ERROR_NOT_FOUND &&
+         !candidate && gneiss_world_get_active_camera(world, &active) == GNEISS_ERROR_NOT_READY &&
+         gneiss_world_entity_count(world, &count) == GNEISS_SUCCESS && count == 6U;
+}
+
 } // namespace
 
 int main() try {
@@ -173,6 +219,10 @@ int main() try {
       .value = {.payload = std::array{3.0F, 0.0F, 0.0F}},
   }};
   std::unique_ptr<gneiss::scene_internal::prefab_runtime_instance> failed;
+  if (!check_failed_camera_prefab(world, registry, render_loader, prefab_loader,
+                                  *first->prefab_lease().get(), invalid_overrides)) {
+    return 16;
+  }
   if (gneiss::scene_internal::prefab_runtime_instance::create(
           world, render_loader, std::move(invalid_override_lease), registry,
           "20000000-0000-4000-8000-000000000005", GNEISS_NULL_SCENE_NODE_ID, first_transform,
