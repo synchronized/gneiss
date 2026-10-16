@@ -468,6 +468,22 @@ target_compile_definitions(
 gneiss_target_output_directories(gneiss_c_application_test)
 add_test(NAME gneiss.c_application COMMAND gneiss_c_application_test)
 
+# 原生对象测试与 Engine 使用相同的私有布局开关，不向安装消费者传播。
+if(GNEISS_TASK_THREADS AND NOT EMSCRIPTEN)
+  add_executable(gneiss_native_application_test native_application_test.cpp)
+  target_include_directories(gneiss_native_application_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+  target_link_libraries(gneiss_native_application_test PRIVATE gneiss::engine Threads::Threads)
+  get_target_property(gneiss_native_engine_definitions gneiss_engine COMPILE_DEFINITIONS)
+  foreach(definition IN LISTS gneiss_native_engine_definitions)
+    if(definition MATCHES "^GNEISS_(HAS_GRANIT_PLATFORM|ASSET_LIBUV)$")
+      target_compile_definitions(gneiss_native_application_test PRIVATE "${definition}")
+    endif()
+  endforeach()
+  gneiss_target_compile_warnings(gneiss_native_application_test)
+  gneiss_target_output_directories(gneiss_native_application_test)
+  add_test(NAME gneiss.native-application COMMAND gneiss_native_application_test)
+endif()
+
 add_executable(gneiss_cpp_application_test cpp_application_test.cpp)
 target_link_libraries(gneiss_cpp_application_test PRIVATE gneiss::engine)
 target_compile_features(gneiss_cpp_application_test PRIVATE cxx_std_20)

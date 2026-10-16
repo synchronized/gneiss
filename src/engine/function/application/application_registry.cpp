@@ -3,8 +3,8 @@
 
 #include "engine/function/application/application_registry.hpp"
 
-#include "engine/function/application/application_state.hpp"
 #include "engine/core/rid_table.hpp"
+#include "engine/function/application/application.hpp"
 #include <mutex>
 #include <new>
 #include <utility>
@@ -44,8 +44,8 @@ gneiss_result create_application(const application_configuration& config,
                                  gneiss_application& output) noexcept {
   output = GNEISS_NULL_APPLICATION;
   try {
-    auto state = std::make_shared<gneiss::application_internal::application_state>(config);
-    const auto initialize_result = state->initialize();
+    application_resource state;
+    const auto initialize_result = engine::Application::create(config, state);
     if (initialize_result != GNEISS_SUCCESS) {
       return initialize_result;
     }

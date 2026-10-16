@@ -6,10 +6,12 @@
 #include <gneiss/engine/application.h>
 #include <memory>
 
+namespace gneiss::engine {
+class Application;
+}
 namespace gneiss::application_internal {
-class application_state;
 struct application_configuration;
-using application_resource = std::shared_ptr<application_state>;
+using application_resource = std::shared_ptr<engine::Application>;
 /** 私有借用解析；共享指针只保护当前调用，不延长已关闭服务的有效性。 */
 [[nodiscard]] application_resource find_application(gneiss_application application) noexcept;
 [[nodiscard]] gneiss_result validate_application(const application_resource& application) noexcept;

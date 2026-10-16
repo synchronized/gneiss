@@ -3,11 +3,11 @@
 
 #include "engine/function/game/game_context_internal.hpp"
 
+#include "engine/function/application/application.hpp"
 #include "engine/function/application/application_registry.hpp"
-#include "engine/function/application/application_state.hpp"
 
-#include "engine/function/application/application_log_internal.hpp"
 #include "engine/core/rid_table.hpp"
+#include "engine/function/application/application_log_internal.hpp"
 
 #include <mutex>
 #include <new>

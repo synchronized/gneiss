@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "engine/function/application/prefab_placement.hpp"
+#include "engine/function/application/application.hpp"
 #include "engine/function/application/application_registry.hpp"
-#include "engine/function/application/application_state.hpp"
 #include "engine/function/scene/structural_diff.hpp"
 #include "engine/function/world/world_service.hpp"
 #include <algorithm>

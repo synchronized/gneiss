@@ -52,8 +52,8 @@ target_sources(
     engine/function/application/scene_session.hpp
     engine/function/application/application_scene_state.cpp
     engine/function/application/application_scene_state.hpp
-    engine/function/application/application_state.cpp
-    engine/function/application/application_state.hpp
+    engine/function/application/application.cpp
+    engine/function/application/application.hpp
     engine/function/application/application_configuration.hpp
     engine/asset/source_revision_file_system.cpp
     engine/asset/source_revision_file_system.hpp

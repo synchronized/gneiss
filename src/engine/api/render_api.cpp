@@ -5,8 +5,8 @@
 #include "engine/api/material_description.hpp"
 #include "engine/api/mesh_description.hpp"
 #include "engine/api/texture_description.hpp"
+#include "engine/function/application/application.hpp"
 #include "engine/function/application/application_registry.hpp"
-#include "engine/function/application/application_state.hpp"
 
 #include <gneiss/engine/render.h>
 

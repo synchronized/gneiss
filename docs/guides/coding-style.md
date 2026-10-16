@@ -10,7 +10,8 @@
 项目采用以下语言分层：
 
 - `.h` 提供稳定的 C ABI，必须能被 C11 编译器独立包含。
-- `.hpp` 提供 C++20 包装，基于 C API 提供强类型、移动语义和 RAII。
+- `include/` 下 `.hpp` 提供外部 C++20 包装，基于 C API 提供强类型、移动语义和 RAII。
+- `src/` 下 `.hpp` 声明内部原生 C++ 接口与类型，由 `.cpp` 实现；不要求经过 C ABI。
 - `.c` 使用 C11；`.cpp`、`.cc` 和 `.cxx` 使用 C++20。
 - C++ 包装层不得建立与 C API 平行的第二套运行时状态。
 
@@ -60,6 +61,10 @@ clang-format -i <files...>
 | 枚举值 | C 使用大写前缀；C++ 使用小写 | `GNEISS_RESULT_OK`、`result::ok` |
 | 私有数据成员 | 小写下划线并带末尾下划线 | `world_id_` |
 | 模板参数 | 描述性 PascalCase | `ResourceType` |
+
+按 [ADR-062](../decisions/ADR-062-internal-cpp-and-sdk-boundaries.md) 迁移的原生对象与 SDK 类型
+采用 PascalCase。当前首个原生类型为 `gneiss::engine::Application`；未迁移类型仍遵循上表，
+不为此次调整全仓库批量改名。文件名与函数名规则不变。
 
 缩写视为普通单词，例如使用 `entity_id`、`resource_id`，不使用 `entityID` 或 `resourceID`。RID 作为项目术语可以出现在文档中，代码标识符使用 `rid`。
 

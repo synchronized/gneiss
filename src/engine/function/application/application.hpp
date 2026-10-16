@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#ifndef GNEISS_APPLICATION_APPLICATION_STATE_HPP_
-#define GNEISS_APPLICATION_APPLICATION_STATE_HPP_
+#ifndef GNEISS_ENGINE_APPLICATION_HPP_
+#define GNEISS_ENGINE_APPLICATION_HPP_
 
 #include <gneiss/engine/application.h>
 #include <gneiss/engine/input.h>
@@ -45,10 +45,16 @@ namespace gneiss::asset_internal {
 class native_file_system;
 }
 
-namespace gneiss::application_internal {
+namespace gneiss::engine {
 
-class application_state final {
+/** 内部真实运行对象；仅所属线程操作和释放最后一个持有引用。
+ * 当前头仍含私有装配布局，不能作为已稳定的宿主接口或安装 SDK。 */
+class Application final {
 public:
+  /** 从已校验配置创建已初始化的真实业务对象；失败不改变 output，不创建对外句柄。 */
+  [[nodiscard]] GNEISS_API static gneiss_result
+  create(const application_internal::application_configuration& config,
+         std::shared_ptr<Application>& output) noexcept;
   [[nodiscard]] const asset_internal::virtual_file_system& asset_files() const noexcept {
     return asset_file_system_;
   }
@@ -69,10 +75,11 @@ public:
                                             std::uint64_t revision, std::uint64_t& request) {
     return scene_session_.request_scene(uri, session, revision, request);
   }
-  [[nodiscard]] bool scene_progress(scene_load_progress& progress) const {
+  [[nodiscard]] bool scene_progress(application_internal::scene_load_progress& progress) const {
     return scene_session_.scene_progress(progress);
   }
-  [[nodiscard]] gneiss_result poll_scene(scene_load_completion& completion, bool& ready) {
+  [[nodiscard]] gneiss_result poll_scene(application_internal::scene_load_completion& completion,
+                                         bool& ready) {
     return scene_session_.poll_scene(completion, ready);
   }
   [[nodiscard]] gneiss_result cancel_scene(std::uint64_t request) {
@@ -90,26 +97,30 @@ public:
     return scene_session_.poll_assets(completion, ready);
   }
   void advance_scene_load() { scene_session_.advance(); }
-  [[nodiscard]] scene_retirement_statistics scene_retirement() const noexcept {
+  [[nodiscard]] application_internal::scene_retirement_statistics
+  scene_retirement() const noexcept {
     auto value = scene_session_.retirement();
     value.live_resources = resources_.live_resource_count();
     return value;
   }
-  [[nodiscard]] gneiss_result activate_scene(std::uint64_t request,
-                                             scene_load_completion& completion);
+  [[nodiscard]] gneiss_result
+  activate_scene(std::uint64_t request, application_internal::scene_load_completion& completion);
 
-  explicit application_state(const application_configuration& config) noexcept;
-  ~application_state() noexcept;
-
-  application_state(const application_state&) = delete;
-  application_state& operator=(const application_state&) = delete;
-  application_state(application_state&&) = delete;
-  application_state& operator=(application_state&&) = delete;
-
+private:
+  explicit Application(const application_internal::application_configuration& config) noexcept;
   [[nodiscard]] gneiss_result initialize() noexcept;
+
+public:
+  ~Application() noexcept;
+
+  Application(const Application&) = delete;
+  Application& operator=(const Application&) = delete;
+  Application(Application&&) = delete;
+  Application& operator=(Application&&) = delete;
+
   [[nodiscard]] gneiss_result shutdown(gneiss_application handle) noexcept;
-  [[nodiscard]] gneiss_result run(gneiss_application handle,
-                                  std::uint64_t max_frame_count) noexcept;
+  [[nodiscard]] GNEISS_API gneiss_result run(gneiss_application handle,
+                                             std::uint64_t max_frame_count) noexcept;
   [[nodiscard]] bool is_owner_thread() const noexcept;
   [[nodiscard]] gneiss_world world() const noexcept { return scene_session_.world(); }
   [[nodiscard]] render_internal::render_resource_service& resources() noexcept {
@@ -162,7 +173,7 @@ private:
   [[nodiscard]] gneiss_result render_frame() noexcept;
 #endif
   std::shared_ptr<core::progress_notification> loop_notification_;
-  application_configuration config_;
+  application_internal::application_configuration config_;
   render_internal::render_resource_service resources_;
   render_internal::ui_draw_list ui_draw_list_;
   render_internal::debug_draw_list debug_draw_list_;
@@ -172,8 +183,8 @@ private:
   std::shared_ptr<asset_internal::native_file_system> native_assets_;
 #endif
   asset_internal::virtual_file_system asset_file_system_;
-  std::unique_ptr<application_asset_state> asset_state_;
-  scene_session scene_session_;
+  std::unique_ptr<application_internal::application_asset_state> asset_state_;
+  application_internal::scene_session scene_session_;
   std::thread::id owner_thread_;
   std::uint64_t frame_index_ = 0;
   std::uint64_t elapsed_ns_ = 0;
@@ -191,6 +202,6 @@ private:
 #endif
 };
 
-} // namespace gneiss::application_internal
+} // namespace gneiss::engine
 
 #endif

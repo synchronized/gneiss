@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/function/application/application_state.hpp"
+#include "engine/function/application/application.hpp"
 #include "engine/core/diagnostics/profiling.hpp"
 #ifdef GNEISS_NATIVE_LOOP_WAIT
 #include "engine/core/loop_progress.hpp"
@@ -30,7 +30,7 @@
 #include <new>
 #include <vector>
 
-namespace gneiss::application_internal {
+namespace gneiss::engine {
 namespace {
 class loop_trace_file final {
 public:
@@ -87,14 +87,29 @@ private:
 };
 } // namespace
 
-application_state::application_state(const application_configuration& config) noexcept
-    : config_(config), owner_thread_(std::this_thread::get_id()) {}
-
-application_state::~application_state() noexcept {
-  static_cast<void>(shutdown(GNEISS_NULL_APPLICATION));
+gneiss_result Application::create(const application_internal::application_configuration& config,
+                                  std::shared_ptr<Application>& output) noexcept {
+  try {
+    auto instance = std::shared_ptr<Application>(new Application(config));
+    const auto result = instance->initialize();
+    if (result != GNEISS_SUCCESS) {
+      return result;
+    }
+    output = std::move(instance);
+    return GNEISS_SUCCESS;
+  } catch (const std::bad_alloc&) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
 }
 
-render_internal::render_queue_stats application_state::render_statistics() const noexcept {
+Application::Application(const application_internal::application_configuration& config) noexcept
+    : config_(config), owner_thread_(std::this_thread::get_id()) {}
+
+Application::~Application() noexcept { static_cast<void>(shutdown(GNEISS_NULL_APPLICATION)); }
+
+render_internal::render_queue_stats Application::render_statistics() const noexcept {
 #ifdef GNEISS_HAS_GRANIT_PLATFORM
   if (granit_render_service_) {
     return granit_render_service_->query_performance_stats();
@@ -103,7 +118,7 @@ render_internal::render_queue_stats application_state::render_statistics() const
   return {};
 }
 
-gneiss_result application_state::attach_task_executor(tasks::task_executor& executor) noexcept {
+gneiss_result Application::attach_task_executor(tasks::task_executor& executor) noexcept {
   if (scene_session_.textures()) {
     return GNEISS_ERROR_INVALID_STATE;
   }
@@ -162,12 +177,12 @@ gneiss_result application_state::attach_task_executor(tasks::task_executor& exec
   }
 }
 
-gneiss_result application_state::activate_scene(std::uint64_t request,
-                                                scene_load_completion& completion) {
+gneiss_result Application::activate_scene(std::uint64_t request,
+                                          application_internal::scene_load_completion& completion) {
   return scene_session_.activate(request, completion);
 }
 
-gneiss_result application_state::reload_render_assets(
+gneiss_result Application::reload_render_assets(
     std::span<const render_internal::render_asset_reload> assets) noexcept {
   if (scene_loading()) {
     return GNEISS_ERROR_NOT_READY;
@@ -176,27 +191,28 @@ gneiss_result application_state::reload_render_assets(
   return scene_session_.assets().reload_assets(assets, diagnostic);
 }
 
-gneiss_result application_state::reload_scene(gneiss_scene_instance instance,
-                                              std::string_view uri) noexcept {
+gneiss_result Application::reload_scene(gneiss_scene_instance instance,
+                                        std::string_view uri) noexcept {
   if (scene_loading()) {
     return GNEISS_ERROR_NOT_READY;
   }
   return scenes() == nullptr ? GNEISS_ERROR_INVALID_STATE : scenes()->reload(instance, uri);
 }
 
-gneiss_result application_state::reload_prefab(gneiss_scene_instance instance,
-                                               std::string_view uri) noexcept {
+gneiss_result Application::reload_prefab(gneiss_scene_instance instance,
+                                         std::string_view uri) noexcept {
   if (scene_loading()) {
     return GNEISS_ERROR_NOT_READY;
   }
   return scenes() == nullptr ? GNEISS_ERROR_INVALID_STATE : scenes()->reload_prefab(instance, uri);
 }
 
-gneiss_result application_state::initialize() noexcept {
+gneiss_result Application::initialize() noexcept {
   if (config_.callbacks.log != nullptr) {
     try {
       log_dispatcher_ = std::make_unique<log_internal::log_dispatcher>(
-          make_application_log_sink(config_.callbacks.log, config_.callbacks.user_data));
+          application_internal::make_application_log_sink(config_.callbacks.log,
+                                                          config_.callbacks.user_data));
     } catch (const std::bad_alloc&) {
       return GNEISS_ERROR_OUT_OF_MEMORY;
     } catch (...) {
@@ -299,7 +315,8 @@ gneiss_result application_state::initialize() noexcept {
   platform_initialized_ = true;
 
   try {
-    asset_state_ = std::make_unique<application_asset_state>(asset_file_system_, resources_);
+    asset_state_ = std::make_unique<application_internal::application_asset_state>(
+        asset_file_system_, resources_);
     const auto result = scene_session_.initialize(*asset_state_);
     if (result != GNEISS_SUCCESS) {
       report(GNEISS_NULL_APPLICATION, GNEISS_DIAGNOSTIC_ERROR,
@@ -317,7 +334,7 @@ gneiss_result application_state::initialize() noexcept {
   return GNEISS_SUCCESS;
 }
 
-std::uint64_t application_state::now_ns() const noexcept {
+std::uint64_t Application::now_ns() const noexcept {
   if (config_.callbacks.now_ns != nullptr) {
     return config_.callbacks.now_ns(config_.callbacks.user_data);
   }
@@ -326,7 +343,7 @@ std::uint64_t application_state::now_ns() const noexcept {
       std::chrono::duration_cast<std::chrono::nanoseconds>(now).count());
 }
 
-gneiss_result application_state::poll_events(bool& out_should_close) noexcept {
+gneiss_result Application::poll_events(bool& out_should_close) noexcept {
   GNEISS_PROFILE_SCOPE("application.events");
   out_should_close = false;
 #ifdef GNEISS_HAS_GRANIT_PLATFORM
@@ -382,39 +399,38 @@ gneiss_result application_state::poll_events(bool& out_should_close) noexcept {
   return result;
 }
 
-gneiss_result application_state::poll_input(gneiss_input_event& out_event) noexcept {
+gneiss_result Application::poll_input(gneiss_input_event& out_event) noexcept {
   return input_.poll(out_event);
 }
 
-gneiss_result application_state::load_action_map(std::string_view uri) noexcept {
+gneiss_result Application::load_action_map(std::string_view uri) noexcept {
   input_internal::action_map map;
   const auto result = input_internal::load_action_map(asset_file_system_, uri, map);
   return result == GNEISS_SUCCESS ? input_.replace_action_map(std::move(map)) : result;
 }
 
-gneiss_result application_state::find_action(std::string_view name,
-                                             gneiss_action& out_action) const noexcept {
+gneiss_result Application::find_action(std::string_view name,
+                                       gneiss_action& out_action) const noexcept {
   return input_.find_action(name, out_action);
 }
 
-gneiss_result application_state::get_action_state(gneiss_action action,
-                                                  gneiss_action_state& out_state) const noexcept {
+gneiss_result Application::get_action_state(gneiss_action action,
+                                            gneiss_action_state& out_state) const noexcept {
   return input_.get_action_state(action, out_state);
 }
 
-gneiss_result
-application_state::submit_ui_draw_list(const render_internal::ui_draw_view& desc) noexcept {
+gneiss_result Application::submit_ui_draw_list(const render_internal::ui_draw_view& desc) noexcept {
   return is_updating_ ? ui_draw_list_.replace(desc, resources_) : GNEISS_ERROR_INVALID_STATE;
 }
 
 gneiss_result
-application_state::submit_debug_draw_list(std::span<const gneiss_debug_line> lines) noexcept {
+Application::submit_debug_draw_list(std::span<const gneiss_debug_line> lines) noexcept {
   return is_updating_ ? debug_draw_list_.replace(lines) : GNEISS_ERROR_INVALID_STATE;
 }
 
-void application_state::report(gneiss_application handle, std::uint32_t severity,
-                               std::uint32_t category, gneiss_result result,
-                               std::string_view module, std::string_view message) noexcept {
+void Application::report(gneiss_application handle, std::uint32_t severity, std::uint32_t category,
+                         gneiss_result result, std::string_view module,
+                         std::string_view message) noexcept {
   if (config_.callbacks.diagnostic != nullptr) {
     const gneiss_diagnostic diagnostic = {
         .struct_size = sizeof(gneiss_diagnostic),
@@ -447,12 +463,11 @@ void application_state::report(gneiss_application handle, std::uint32_t severity
   }));
 }
 
-gneiss_result application_state::submit_log(const log_internal::message_view& message) noexcept {
+gneiss_result Application::submit_log(const log_internal::message_view& message) noexcept {
   return log_dispatcher_ == nullptr ? GNEISS_SUCCESS : log_dispatcher_->submit(message);
 }
 
-gneiss_result
-application_state::set_view_camera(const render_internal::view_camera* camera) noexcept {
+gneiss_result Application::set_view_camera(const render_internal::view_camera* camera) noexcept {
   if (camera == nullptr) {
     view_camera_.reset();
     return GNEISS_SUCCESS;
@@ -468,8 +483,8 @@ application_state::set_view_camera(const render_internal::view_camera* camera) n
   return result;
 }
 
-gneiss_result application_state::capture_frame(std::uint32_t width, std::uint32_t height,
-                                               render_internal::frame_image& output) noexcept {
+gneiss_result Application::capture_frame(std::uint32_t width, std::uint32_t height,
+                                         render_internal::frame_image& output) noexcept {
   output = {};
   if (width == 0U || height == 0U || width > 1024U || height > 1024U) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
@@ -525,7 +540,7 @@ gneiss_result application_state::capture_frame(std::uint32_t width, std::uint32_
 }
 
 #ifdef GNEISS_HAS_GRANIT_PLATFORM
-gneiss_result application_state::render_frame() noexcept {
+gneiss_result Application::render_frame() noexcept {
   GNEISS_PROFILE_SCOPE("application.render.submit");
   if (granit_render_service_ == nullptr) {
     return GNEISS_SUCCESS;
@@ -577,8 +592,8 @@ gneiss_result application_state::render_frame() noexcept {
 }
 #endif
 
-gneiss_result application_state::get_window_size(std::uint32_t& out_width,
-                                                 std::uint32_t& out_height) const noexcept {
+gneiss_result Application::get_window_size(std::uint32_t& out_width,
+                                           std::uint32_t& out_height) const noexcept {
 #ifdef GNEISS_HAS_GRANIT_PLATFORM
   if (granit_platform_ != nullptr) {
     const auto& window = granit_platform_->native_window();
@@ -593,9 +608,8 @@ gneiss_result application_state::get_window_size(std::uint32_t& out_width,
 }
 
 // NOLINTNEXTLINE(bugprone-easily-swappable-parameters): 句柄与帧数虽同宽但语义明确。
-gneiss_result application_state::run(gneiss_application handle,
-                                     std::uint64_t max_frame_count) noexcept {
-  if (is_running_) {
+gneiss_result Application::run(gneiss_application handle, std::uint64_t max_frame_count) noexcept {
+  if (!is_owner_thread() || !platform_initialized_ || is_running_) {
     return GNEISS_ERROR_INVALID_STATE;
   }
   is_running_ = true;
@@ -704,11 +718,11 @@ gneiss_result application_state::run(gneiss_application handle,
   return GNEISS_SUCCESS;
 }
 
-bool application_state::is_owner_thread() const noexcept {
+bool Application::is_owner_thread() const noexcept {
   return owner_thread_ == std::this_thread::get_id();
 }
 
-gneiss_result application_state::shutdown(gneiss_application handle) noexcept {
+gneiss_result Application::shutdown(gneiss_application handle) noexcept {
   auto shutdown_result = GNEISS_SUCCESS;
   scene_session_.shutdown();
   asset_state_.reset();
@@ -821,4 +835,4 @@ gneiss_result application_state::shutdown(gneiss_application handle) noexcept {
   return shutdown_result;
 }
 
-} // namespace gneiss::application_internal
+} // namespace gneiss::engine

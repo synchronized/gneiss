@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "engine/function/application/application.hpp"
 #include "engine/function/application/application_registry.hpp"
-#include "engine/function/application/application_state.hpp"
 
 #include <gneiss/engine/input.h>
 

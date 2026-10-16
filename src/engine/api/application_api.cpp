@@ -2,9 +2,9 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/api/log_validation.hpp"
+#include "engine/function/application/application.hpp"
 #include "engine/function/application/application_log_internal.hpp"
 #include "engine/function/application/application_registry.hpp"
-#include "engine/function/application/application_state.hpp"
 
 #include <gneiss/engine/application.h>
 #include <gneiss/engine/asset.h>

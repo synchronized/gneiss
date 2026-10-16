@@ -3,10 +3,10 @@
 
 #include "engine/function/application/application_registry.hpp"
 
+#include "engine/function/application/application.hpp"
 #include "engine/function/application/application_asset_reload_internal.hpp"
 #include "engine/function/application/application_log_internal.hpp"
 #include "engine/function/application/application_scene_load_internal.hpp"
-#include "engine/function/application/application_state.hpp"
 #include "engine/function/application/application_view_internal.hpp"
 #include <new>
 #include <string_view>
