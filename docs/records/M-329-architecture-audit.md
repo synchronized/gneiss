@@ -68,3 +68,24 @@ asset、render 等层的若干越界包含和 C API 使用。`cmake/test_core_bo
 0.50 基线和已接受限制仍以 [0.50.0 归档](../versions/0.50.0.md) 为准。
 M-329 尚缺：全模块依赖与接口清单、快照/回执所有权核对、逐文件迁移表，以及实施前固定的
 同设备性能对照方法、重复次数和回归判定。完成这些项目之前不标记审计完成。
+
+## 2026-10-17 原生拥有链复核
+
+当前入口和职责清单已汇总到 [源码目录](../concepts/repository-layout.md#原生-c-c-abi-与-sdk-的阅读顺序)，
+不以首次审计时的 World RID 所有权作为现状。逐批迁移和验证见
+[宿主记录](M-332-native-host-ownership.md)。
+
+关闭与已提交帧的源码证据：
+
+- `application::shutdown` 先关闭 scene_session，再释放 application_asset_state；渲染服务晚于场景资产。
+- `scene_session::shutdown` 先销毁加载/上传服务，再清理旧资产租约、退役域和活动域，最后回收缓存。
+- `scene_load_service` 析构先请求取消并关闭任务 scope，再释放 pending；候选资产服务先等待 GPU
+  命令，候选 World 后销毁。`texture_load_service` 对已接受的上传调用 flush/advance 直到回执排空。
+- `application_scene_state` 先销毁场景实例服务；随后 world_owner 撤销借用 RID 并销毁原生 World。
+- `capture_render_frame_packet` 复制实例值，分别 share_mesh/share_material/share_texture，帧包
+  强持有实际不可变资源数据。World 退役不使在途帧持有悬空场景指针。
+- Editor 文档、历史和 Prefab 事务借用 Application，必须按宿主顺序先清理；这一约束并未被
+  shared_ptr 自动代替。Runtime 动态模块仍通过可撤销的真实 ABI 桥接访问。
+
+边界测试、安装消费者和生命周期回归覆盖这些迁移；但静态调用核对不能替代完整 Sponza、
+同设备重构前后性能对照或 Linux 实测。上述最终验收尚未全部完成。
