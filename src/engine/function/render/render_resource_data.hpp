@@ -6,6 +6,7 @@
 #include "engine/asset/material_types.hpp"
 #include "engine/asset/mesh_data.hpp"
 #include "engine/asset/texture_preparation_data.hpp"
+#include "engine/asset/texture_types.hpp"
 #include "engine/core/rid.hpp"
 
 #include <array>
@@ -66,8 +67,8 @@ using texture_prepare_profile = asset_internal::texture_prepare_profile;
 struct texture_resource {
   std::uint32_t width;
   std::uint32_t height;
-  std::uint32_t format;
-  std::uint32_t color_space;
+  asset_internal::texture_format format;
+  asset_internal::texture_color_space color_space;
   std::vector<asset_internal::texture_mip> levels;
   std::vector<std::byte> manifest;
   std::vector<std::byte> payload;

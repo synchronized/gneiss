@@ -9,7 +9,7 @@
 #include "engine/function/render/render_asset_preparation.hpp"
 #include "engine/function/render/render_resource_data.hpp"
 
-#include <gneiss/engine/render.h>
+#include <gneiss/engine/core/result.h>
 
 #include <cstddef>
 #include <memory>

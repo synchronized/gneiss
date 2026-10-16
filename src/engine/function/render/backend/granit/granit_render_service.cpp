@@ -198,7 +198,7 @@ void granit_render_service::log_texture(core::rid rid, const char* stage, granit
   }
   constexpr std::string_view category = "render.texture";
   static_cast<void>(log_->submit({
-      .context = log_application_.load(std::memory_order_relaxed),
+      .context = log_context_.load(std::memory_order_relaxed),
       .severity = result.ok() ? log_internal::level::info : log_internal::level::error,
       .source = "granit.render.texture",
       .category = category,
@@ -322,7 +322,7 @@ granit_render_service::create_texture_mirror(const render_internal::texture_reso
                 info.mip_levels, variant.payload_size);
     return result;
   }
-  const auto format = source.color_space == GNEISS_TEXTURE_COLOR_SPACE_SRGB
+  const auto format = source.color_space == gneiss::asset_internal::texture_color_space::srgb
                           ? granit::texture_format::rgba8_srgb
                           : granit::texture_format::rgba8_unorm;
   auto result = output.texture.initialize(
@@ -581,8 +581,8 @@ granit::result granit_render_service::ensure_default_textures() noexcept {
     render_internal::texture_resource white_srgb{
         .width = 1,
         .height = 1,
-        .format = GNEISS_TEXTURE_FORMAT_RGBA8_UNORM,
-        .color_space = GNEISS_TEXTURE_COLOR_SPACE_SRGB,
+        .format = gneiss::asset_internal::texture_format::rgba8_unorm,
+        .color_space = gneiss::asset_internal::texture_color_space::srgb,
         .levels = {{.width = 1U,
                     .height = 1U,
                     .pixels = {std::byte{0xff}, std::byte{0xff}, std::byte{0xff},
@@ -590,7 +590,7 @@ granit::result granit_render_service::ensure_default_textures() noexcept {
         .manifest = {},
         .payload = {}};
     render_internal::texture_resource white_linear = white_srgb;
-    white_linear.color_space = GNEISS_TEXTURE_COLOR_SPACE_LINEAR;
+    white_linear.color_space = gneiss::asset_internal::texture_color_space::linear;
     render_internal::texture_resource normal_linear = white_linear;
     normal_linear.levels.front().pixels = {std::byte{0x80}, std::byte{0x80}, std::byte{0xff},
                                            std::byte{0xff}};

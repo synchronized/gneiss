@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include <gneiss/engine/render.h>
+#include "engine/asset/texture_types.hpp"
 
 #include <cstdint>
 #include <span>
@@ -14,8 +14,8 @@ namespace gneiss::render_internal {
 struct texture_view {
   std::uint32_t width{};
   std::uint32_t height{};
-  gneiss_texture_format format{GNEISS_TEXTURE_FORMAT_RGBA8_UNORM};
-  gneiss_texture_color_space color_space{GNEISS_TEXTURE_COLOR_SPACE_SRGB};
+  asset_internal::texture_format format{asset_internal::texture_format::rgba8_unorm};
+  asset_internal::texture_color_space color_space{asset_internal::texture_color_space::srgb};
   std::uint32_t row_stride_bytes{};
   std::span<const std::uint8_t> pixels;
 };

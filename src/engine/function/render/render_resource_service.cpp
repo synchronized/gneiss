@@ -291,9 +291,10 @@ gneiss_result render_resource_service::destroy_material(core::rid material) noex
 
 gneiss_result render_resource_service::create_texture(const texture_view& desc,
                                                       core::rid* out_texture) noexcept {
-  if (out_texture == nullptr || !is_valid() || desc.format != GNEISS_TEXTURE_FORMAT_RGBA8_UNORM ||
-      (desc.color_space != GNEISS_TEXTURE_COLOR_SPACE_LINEAR &&
-       desc.color_space != GNEISS_TEXTURE_COLOR_SPACE_SRGB) ||
+  if (out_texture == nullptr || !is_valid() ||
+      desc.format != gneiss::asset_internal::texture_format::rgba8_unorm ||
+      (desc.color_space != gneiss::asset_internal::texture_color_space::linear &&
+       desc.color_space != gneiss::asset_internal::texture_color_space::srgb) ||
       desc.width == 0U || desc.height == 0U || desc.width > maximum_texture_dimension ||
       desc.height > maximum_texture_dimension || desc.pixels.empty()) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
@@ -334,8 +335,8 @@ gneiss_result render_resource_service::create_texture(const texture_view& desc,
 gneiss_result render_resource_service::create_texture(texture_resource resource,
                                                       core::rid* out_texture) noexcept {
   if (out_texture == nullptr || !is_valid() || resource.width == 0U || resource.height == 0U ||
-      resource.format != GNEISS_TEXTURE_FORMAT_RGBA8_UNORM || resource.levels.empty() ||
-      !resource.manifest.empty() || !resource.payload.empty() ||
+      resource.format != gneiss::asset_internal::texture_format::rgba8_unorm ||
+      resource.levels.empty() || !resource.manifest.empty() || !resource.payload.empty() ||
       resource.levels.front().width != resource.width ||
       resource.levels.front().height != resource.height) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
@@ -369,9 +370,9 @@ gneiss_result render_resource_service::create_texture(texture_resource resource,
 gneiss_result render_resource_service::create_packaged_texture(texture_resource resource,
                                                                core::rid* out_texture) noexcept {
   if (out_texture == nullptr || !is_valid() || resource.width == 0U || resource.height == 0U ||
-      resource.format != GNEISS_TEXTURE_FORMAT_RGBA8_UNORM ||
-      (resource.color_space != GNEISS_TEXTURE_COLOR_SPACE_LINEAR &&
-       resource.color_space != GNEISS_TEXTURE_COLOR_SPACE_SRGB) ||
+      resource.format != gneiss::asset_internal::texture_format::rgba8_unorm ||
+      (resource.color_space != gneiss::asset_internal::texture_color_space::linear &&
+       resource.color_space != gneiss::asset_internal::texture_color_space::srgb) ||
       !resource.levels.empty() || resource.manifest.empty() ||
       (resource.payload.empty() &&
        (!resource.payload_source || resource.upload_payload.expired()))) {

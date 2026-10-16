@@ -5,6 +5,7 @@ cmake_minimum_required(VERSION 3.23)
 set(fixture "${GNEISS_BINARY_DIR}/api-boundary-fixture")
 file(MAKE_DIRECTORY "${fixture}/src/engine/function/render")
 file(WRITE "${fixture}/src/engine/function/render/camera_math.hpp" "")
+file(WRITE "${fixture}/src/engine/function/render/render_resource_data.hpp" "")
 file(MAKE_DIRECTORY "${fixture}/src/engine/function/application")
 file(WRITE "${fixture}/src/engine/function/application/scene_session.cpp" "")
 file(MAKE_DIRECTORY "${fixture}/src/engine/platform")
@@ -394,3 +395,15 @@ foreach(content IN ITEMS "gneiss_transform transform;" "gneiss_camera camera;"
   endif()
 endforeach()
 file(WRITE "${fixture}/src/engine/function/render/camera_math.hpp" "")
+
+foreach(content IN ITEMS "gneiss_texture texture;" "gneiss_mesh_vertex vertex;"
+    "#include <gneiss/engine/render.h>" "auto mode = GNEISS_MATERIAL_ALPHA_BLEND;")
+  file(WRITE "${fixture}/src/engine/function/render/render_resource_data.hpp" "${content}\n")
+  execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
+    -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
+    RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
+  if(status EQUAL 0)
+    message(FATAL_ERROR "原生资源边界未拒绝违规输入：${content}")
+  endif()
+endforeach()
+file(WRITE "${fixture}/src/engine/function/render/render_resource_data.hpp" "")

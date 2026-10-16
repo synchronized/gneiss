@@ -687,7 +687,7 @@ gneiss_result application::run(gneiss_application handle, std::uint64_t max_fram
   storage_->is_running_ = true;
 #ifdef GNEISS_HAS_GRANIT_PLATFORM
   if (storage_->granit_render_service_ != nullptr) {
-    storage_->granit_render_service_->set_log_application(handle);
+    storage_->granit_render_service_->set_log_context(handle);
   }
 #endif
   storage_->should_exit_ = false;

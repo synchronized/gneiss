@@ -15,7 +15,6 @@
 #include "engine/asset/virtual_file_system.hpp"
 #include "engine/core/diagnostics/profiling.hpp"
 
-#include <gneiss/engine/render.h>
 #include <yyjson.h>
 
 #if defined(GNEISS_HAS_GRANIT_PLATFORM)
@@ -38,7 +37,7 @@ namespace gneiss::asset_internal::asset_parsing {
 
 struct texture_source final {
   std::string uri;
-  std::uint32_t color_space{};
+  asset_internal::texture_color_space color_space{};
 };
 
 void fail(asset_diagnostic& diagnostic, gneiss_result result, std::string_view path,
@@ -539,9 +538,9 @@ parse_binary_mesh(const std::vector<std::byte>& bytes,
   }
   const auto color_space_name = json_string(color_space);
   if (color_space_name == "srgb") {
-    out_source.color_space = GNEISS_TEXTURE_COLOR_SPACE_SRGB;
+    out_source.color_space = gneiss::asset_internal::texture_color_space::srgb;
   } else if (color_space_name == "linear") {
-    out_source.color_space = GNEISS_TEXTURE_COLOR_SPACE_LINEAR;
+    out_source.color_space = gneiss::asset_internal::texture_color_space::linear;
   } else {
     fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/color_space", "只支持 srgb 或 linear");
     return diagnostic.result;
@@ -549,7 +548,7 @@ parse_binary_mesh(const std::vector<std::byte>& bytes,
   if (version == 2U) {
     auto* const usage = yyjson_obj_get(root, "usage");
     if (!yyjson_is_str(usage) || json_string(usage) != "normal" ||
-        out_source.color_space != GNEISS_TEXTURE_COLOR_SPACE_LINEAR) {
+        out_source.color_space != gneiss::asset_internal::texture_color_space::linear) {
       fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/usage",
            "Texture v2 当前只支持 linear 法线用途");
       return diagnostic.result;
@@ -1361,7 +1360,7 @@ gneiss_result prepare_texture(const asset_internal::virtual_file_system& file_sy
              "Granit Texture Asset Manifest 无效或不是二维单层纹理");
         return GNEISS_ERROR_INVALID_ARGUMENT;
       }
-      const auto srgb = source.color_space == GNEISS_TEXTURE_COLOR_SPACE_SRGB;
+      const auto srgb = source.color_space == gneiss::asset_internal::texture_color_space::srgb;
       const auto matches_color_space = [srgb](const auto& variant) {
         return srgb ? variant.format == granit::texture_format::bc7_rgba_srgb ||
                           variant.format == granit::texture_format::rgba8_srgb
@@ -1388,7 +1387,7 @@ gneiss_result prepare_texture(const asset_internal::virtual_file_system& file_sy
       output = {
           .width = info.width,
           .height = info.height,
-          .format = GNEISS_TEXTURE_FORMAT_RGBA8_UNORM,
+          .format = gneiss::asset_internal::texture_format::rgba8_unorm,
           .color_space = source.color_space,
           .levels = {},
           .manifest = std::vector<std::byte>(binary.manifest.begin(), binary.manifest.end()),
@@ -1458,9 +1457,10 @@ gneiss_result prepare_texture(const asset_internal::virtual_file_system& file_sy
              decode_message.empty() ? "KTX2 解码失败" : decode_message);
         return GNEISS_ERROR_INVALID_ARGUMENT;
       }
-      const auto expected_transfer = source.color_space == GNEISS_TEXTURE_COLOR_SPACE_SRGB
-                                         ? asset_internal::texture_transfer::srgb
-                                         : asset_internal::texture_transfer::linear;
+      const auto expected_transfer =
+          source.color_space == gneiss::asset_internal::texture_color_space::srgb
+              ? asset_internal::texture_transfer::srgb
+              : asset_internal::texture_transfer::linear;
       if (texture.transfer != expected_transfer) {
         fail(out_diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/color_space",
              "Texture 描述与 KTX2 传递函数不一致");
@@ -1471,7 +1471,7 @@ gneiss_result prepare_texture(const asset_internal::virtual_file_system& file_sy
       const auto height = levels.front().height;
       output = {.width = width,
                 .height = height,
-                .format = GNEISS_TEXTURE_FORMAT_RGBA8_UNORM,
+                .format = gneiss::asset_internal::texture_format::rgba8_unorm,
                 .color_space = source.color_space,
                 .levels = std::move(levels),
                 .manifest = {},
@@ -1487,7 +1487,7 @@ gneiss_result prepare_texture(const asset_internal::virtual_file_system& file_sy
       }
       output = {.width = image.width,
                 .height = image.height,
-                .format = GNEISS_TEXTURE_FORMAT_RGBA8_UNORM,
+                .format = gneiss::asset_internal::texture_format::rgba8_unorm,
                 .color_space = source.color_space,
                 .levels = {},
                 .manifest = {},

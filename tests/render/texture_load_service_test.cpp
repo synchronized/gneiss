@@ -675,7 +675,7 @@ void mixed(tasks::execution_mode mode, bool pbr = false) {
   if (pbr) {
     check(material->emissive[2] == 0.4F);
     for (const auto texture : material->texture_handles()) {
-      check(texture != GNEISS_NULL_TEXTURE && resources.get_texture(texture) != nullptr);
+      check(texture != gneiss::core::null_rid && resources.get_texture(texture) != nullptr);
     }
     // 丢失附加纹理时不得发布部分材质，也不能替换已有版本。
     const auto retained = resources.share_material(material_lease.get());

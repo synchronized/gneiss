@@ -4,6 +4,7 @@
 #pragma once
 
 #include "engine/asset/texture_ktx2.hpp"
+#include "engine/asset/texture_types.hpp"
 
 #include <array>
 #include <cstddef>
@@ -26,8 +27,8 @@ struct texture_prepare_profile {
 struct prepared_texture_data {
   std::uint32_t width;
   std::uint32_t height;
-  std::uint32_t format;
-  std::uint32_t color_space;
+  asset_internal::texture_format format;
+  asset_internal::texture_color_space color_space;
   std::vector<texture_mip> levels;
   std::vector<std::byte> manifest;
   std::vector<std::byte> payload;

@@ -285,9 +285,9 @@ int main() {
       std::byte{7},  std::byte{8},  std::byte{9},  std::byte{10}, std::byte{11}, std::byte{12},
       std::byte{13}, std::byte{14}, std::byte{15}, std::byte{16}};
   if (stored == nullptr || stored->width != 2U || stored->height != 2U ||
-      stored->format != GNEISS_TEXTURE_FORMAT_RGBA8_UNORM ||
-      stored->color_space != GNEISS_TEXTURE_COLOR_SPACE_SRGB || stored->levels.size() != 1U ||
-      !std::ranges::equal(stored->levels.front().pixels, expected)) {
+      stored->format != gneiss::asset_internal::texture_format::rgba8_unorm ||
+      stored->color_space != gneiss::asset_internal::texture_color_space::srgb ||
+      stored->levels.size() != 1U || !std::ranges::equal(stored->levels.front().pixels, expected)) {
     return 2;
   }
   if (resources.destroy_texture(texture) != GNEISS_SUCCESS ||
