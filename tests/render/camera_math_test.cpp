@@ -22,7 +22,7 @@ int main() {
   using gneiss::render_internal::transform_vector;
 
   matrix4 view;
-  gneiss_transform transform = GNEISS_TRANSFORM_IDENTITY;
+  gneiss::engine::transform transform = {};
   transform.translation[2] = 2.0F;
   if (build_view_matrix(transform, view) != GNEISS_SUCCESS) {
     return 1;
@@ -33,7 +33,7 @@ int main() {
   }
 
   constexpr float half_sqrt_two = 0.70710678F;
-  transform = GNEISS_TRANSFORM_IDENTITY;
+  transform = {};
   transform.rotation[1] = half_sqrt_two;
   transform.rotation[3] = half_sqrt_two;
   transform.scale[0] = 8.0F;
@@ -48,7 +48,7 @@ int main() {
     return 4;
   }
 
-  gneiss_camera camera = GNEISS_CAMERA_INIT;
+  gneiss::render_internal::camera_settings camera;
   camera.vertical_field_of_view_radians = 1.57079633F;
   camera.near_plane = 0.1F;
   camera.far_plane = 100.0F;

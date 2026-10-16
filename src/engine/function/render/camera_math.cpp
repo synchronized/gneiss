@@ -15,7 +15,7 @@ constexpr std::size_t matrix_index(std::size_t row, std::size_t column) noexcept
 
 } // namespace
 
-gneiss_result build_view_matrix(const gneiss_transform& transform, matrix4& out_matrix) noexcept {
+gneiss_result build_view_matrix(const engine::transform& transform, matrix4& out_matrix) noexcept {
   const auto x = transform.rotation[0];
   const auto y = transform.rotation[1];
   const auto z = transform.rotation[2];
@@ -64,7 +64,7 @@ gneiss_result build_view_matrix(const gneiss_transform& transform, matrix4& out_
   return GNEISS_SUCCESS;
 }
 
-gneiss_result build_perspective_matrix(const gneiss_camera& camera, float aspect,
+gneiss_result build_perspective_matrix(const camera_settings& camera, float aspect,
                                        matrix4& out_matrix) noexcept {
   if (!std::isfinite(aspect) || aspect <= 0.0F ||
       !std::isfinite(camera.vertical_field_of_view_radians) || !std::isfinite(camera.near_plane) ||

@@ -93,7 +93,7 @@ granit_matrix4 to_granit_matrix(const render_internal::matrix4& source) noexcept
 }
 
 float mesh_bounds_radius(const render_internal::mesh_resource& mesh,
-                         const gneiss_transform& transform) noexcept {
+                         const engine::transform& transform) noexcept {
   float radius_squared = 0.0F;
   for (const auto& vertex : mesh.vertices) {
     radius_squared =

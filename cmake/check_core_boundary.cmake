@@ -14,6 +14,11 @@ if(NOT sources)
 endif()
 foreach(source IN LISTS sources)
   file(READ "${source}" content)
+  if(source MATCHES "/src/engine/function/render/(camera_math|scene_projection_math|camera_settings|render_snapshot)[.](cpp|hpp)$" AND
+      (content MATCHES "gneiss_(transform|camera)|GNEISS_(TRANSFORM|CAMERA)_" OR
+       content MATCHES "engine/function/render/backend/|granit/"))
+    message(FATAL_ERROR "通用渲染快照与数学不得依赖 C 场景值或后端：${source}")
+  endif()
   if(source MATCHES "/src/engine/(core|function)/input/" AND
       (content MATCHES "gneiss_(input_event|keyboard_state|pointer_state|action_state)" OR
        content MATCHES "gneiss/(engine/)?input[.]h" OR

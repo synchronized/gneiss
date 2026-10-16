@@ -8,6 +8,13 @@
 #include <new>
 
 namespace gneiss::world_internal {
+namespace {
+engine::transform snapshot_transform(const gneiss_transform& value) noexcept {
+  return {{value.translation[0], value.translation[1], value.translation[2]},
+          {value.rotation[0], value.rotation[1], value.rotation[2], value.rotation[3]},
+          {value.scale[0], value.scale[1], value.scale[2]}};
+}
+} // namespace
 
 gneiss_result build_render_snapshot(world_state& world, std::uint32_t viewport_width,
                                     std::uint32_t viewport_height,
@@ -26,9 +33,12 @@ gneiss_result build_render_snapshot(world_state& world, std::uint32_t viewport_w
       const auto active_camera = world.active_camera();
       if (const auto* component = world.get<camera_component>(active_camera);
           component != nullptr) {
-        selected.camera = component->value;
-        has_camera = world.scene().get_world_for_entity(active_camera, &selected.transform) ==
-                     GNEISS_SUCCESS;
+        selected.camera = {component->value.vertical_field_of_view_radians,
+                           component->value.near_plane, component->value.far_plane};
+        gneiss_transform transform = GNEISS_TRANSFORM_IDENTITY;
+        has_camera =
+            world.scene().get_world_for_entity(active_camera, &transform) == GNEISS_SUCCESS;
+        selected.transform = snapshot_transform(transform);
       }
     }
     if (has_camera) {
@@ -59,7 +69,7 @@ gneiss_result build_render_snapshot(world_state& world, std::uint32_t viewport_w
           if (world.scene().get_world_for_entity(entity, &transform) == GNEISS_SUCCESS) {
             snapshot.instances.push_back({.mesh = component.value.mesh,
                                           .material = component.value.material,
-                                          .transform = transform});
+                                          .transform = snapshot_transform(transform)});
           }
         });
     out_snapshot = std::move(snapshot);

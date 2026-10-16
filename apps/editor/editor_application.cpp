@@ -213,9 +213,11 @@ constexpr std::size_t matrix_index(std::size_t row, std::size_t column) noexcept
 }
 
 gneiss_result submit_editor_ui(gneiss_application application, editor_state& state) {
+  const auto& settings = state.camera.settings();
+  const auto& transform = state.camera.current_transform();
   const gneiss::render_internal::view_camera view{
-      .camera = gneiss::to_native(state.camera.settings()),
-      .transform = gneiss::to_native(state.camera.current_transform())};
+      .camera = {settings.vertical_field_of_view_radians, settings.near_plane, settings.far_plane},
+      .transform = {transform.translation, transform.rotation, transform.scale}};
   const auto operation = gneiss::application_internal::set_view_camera(application, &view);
   return operation == GNEISS_SUCCESS ? state.ui.submit(*state.application) : operation;
 }

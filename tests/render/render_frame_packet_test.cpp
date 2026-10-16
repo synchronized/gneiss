@@ -52,8 +52,7 @@ int main() {
 
   gneiss::render_internal::render_snapshot scene;
   scene.has_camera = true;
-  scene.instances.push_back(
-      {.mesh = mesh, .material = material, .transform = GNEISS_TRANSFORM_IDENTITY});
+  scene.instances.push_back({.mesh = mesh, .material = material, .transform = {}});
   debug_draw_list debug;
   const std::array lines{gneiss::render_internal::debug_line{.start = {0.0F, 0.0F, 0.0F},
                                                              .end = {1.0F, 0.0F, 0.0F},

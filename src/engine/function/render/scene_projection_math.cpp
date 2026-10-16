@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/function/render/backend/granit/scene_projection_math.hpp"
+#include "engine/function/render/scene_projection_math.hpp"
 
 #include <array>
 #include <cmath>
@@ -15,7 +15,7 @@ constexpr std::size_t matrix_index(std::size_t row, std::size_t column) noexcept
 
 } // namespace
 
-bool build_model_matrices(const gneiss_transform& transform, render_internal::matrix4& model,
+bool build_model_matrices(const engine::transform& transform, render_internal::matrix4& model,
                           render_internal::matrix4& normal) noexcept {
   const auto x = transform.rotation[0];
   const auto y = transform.rotation[1];
@@ -36,6 +36,8 @@ bool build_model_matrices(const gneiss_transform& transform, render_internal::ma
     }
   }
 
+  model = {};
+  normal = {};
   const auto inverse_length = 1.0F / std::sqrt(length_squared);
   const auto qx = x * inverse_length;
   const auto qy = y * inverse_length;
@@ -53,7 +55,8 @@ bool build_model_matrices(const gneiss_transform& transform, render_internal::ma
   const std::array rotation{
       1.0F - (2.0F * (yy + zz)), 2.0F * (xy + wz),          2.0F * (xz - wy),
       2.0F * (xy - wz),          1.0F - (2.0F * (xx + zz)), 2.0F * (yz + wx),
-      2.0F * (xz + wy),          2.0F * (yz - wx),          1.0F - (2.0F * (xx + yy))};
+      2.0F * (xz + wy),          2.0F * (yz - wx),          1.0F - (2.0F * (xx + yy)),
+  };
   for (std::size_t column = 0; column < 3U; ++column) {
     for (std::size_t row = 0; row < 3U; ++row) {
       const auto rotation_value = rotation[(column * 3U) + row];

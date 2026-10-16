@@ -4,17 +4,14 @@
 #ifndef GNEISS_WORLD_WORLD_SERVICE_HPP_
 #define GNEISS_WORLD_WORLD_SERVICE_HPP_
 #include "engine/core/publication_group.hpp"
+#include "engine/function/render/camera_settings.hpp"
 #include <gneiss/engine/scene.h>
 #include <gneiss/engine/world.h>
 #include <span>
 
 namespace gneiss::world_internal {
 /** 私有同版本宿主接口，不安装；唯一注册表负责线程和 generation 校验。 */
-struct camera_settings {
-  float vertical_field_of_view_radians{};
-  float near_plane{};
-  float far_plane{};
-};
+using camera_settings = render_internal::camera_settings;
 struct mesh_renderer_replacement {
   gneiss_entity_id entity{};
   gneiss_mesh_renderer expected{};

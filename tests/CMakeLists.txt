@@ -797,21 +797,18 @@ gneiss_target_compile_warnings(gneiss_texture_container_test)
 gneiss_target_output_directories(gneiss_texture_container_test)
 add_test(NAME gneiss.texture_container COMMAND gneiss_texture_container_test)
 
-if(GNEISS_ENABLE_GRANIT_PLATFORM)
-  add_executable(
-    gneiss_scene_projection_math_test
-    render/scene_projection_math_test.cpp
-    "${PROJECT_SOURCE_DIR}/src/engine/function/render/backend/granit/scene_projection_math.cpp"
-  )
-  target_include_directories(
-    gneiss_scene_projection_math_test PRIVATE "${PROJECT_SOURCE_DIR}/include" "${PROJECT_SOURCE_DIR}/src"
-  )
-  target_link_libraries(gneiss_scene_projection_math_test PRIVATE granit::granit)
-  target_compile_features(gneiss_scene_projection_math_test PRIVATE cxx_std_20)
-  gneiss_target_compile_warnings(gneiss_scene_projection_math_test)
-  gneiss_target_output_directories(gneiss_scene_projection_math_test)
-  add_test(NAME gneiss.scene_projection_math COMMAND gneiss_scene_projection_math_test)
-endif()
+add_executable(
+  gneiss_scene_projection_math_test
+  render/scene_projection_math_test.cpp
+  "${PROJECT_SOURCE_DIR}/src/engine/function/render/scene_projection_math.cpp"
+)
+target_include_directories(
+  gneiss_scene_projection_math_test PRIVATE "${PROJECT_SOURCE_DIR}/include" "${PROJECT_SOURCE_DIR}/src"
+)
+target_compile_features(gneiss_scene_projection_math_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_scene_projection_math_test)
+gneiss_target_output_directories(gneiss_scene_projection_math_test)
+add_test(NAME gneiss.scene_projection_math COMMAND gneiss_scene_projection_math_test)
 
 # CPU 准备单独链接：不得通过 Engine 或资源服务补齐依赖。
 add_executable(gneiss_render_asset_preparation_test

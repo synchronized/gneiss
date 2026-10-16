@@ -5,12 +5,12 @@
 #define GNEISS_RENDER_BACKEND_GRANIT_GRANIT_RENDER_SERVICE_HPP_
 
 #include "engine/function/render/backend/granit/pbr_shader_resolver.hpp"
-#include "engine/function/render/backend/granit/scene_projection_math.hpp"
 #include "engine/function/render/debug_draw_list.hpp"
 #include "engine/function/render/render_asset_loader.hpp"
 #include "engine/function/render/render_executor.hpp"
 #include "engine/function/render/render_frame_packet.hpp"
 #include "engine/function/render/render_resource_service.hpp"
+#include "engine/function/render/scene_projection_math.hpp"
 #include "engine/function/render/ui_draw_list.hpp"
 #include "engine/platform/native_window_info.hpp"
 

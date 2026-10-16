@@ -3,6 +3,8 @@
 
 cmake_minimum_required(VERSION 3.23)
 set(fixture "${GNEISS_BINARY_DIR}/api-boundary-fixture")
+file(MAKE_DIRECTORY "${fixture}/src/engine/function/render")
+file(WRITE "${fixture}/src/engine/function/render/camera_math.hpp" "")
 file(MAKE_DIRECTORY "${fixture}/src/engine/function/application")
 file(WRITE "${fixture}/src/engine/function/application/scene_session.cpp" "")
 file(MAKE_DIRECTORY "${fixture}/src/engine/platform")
@@ -379,3 +381,16 @@ execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
 if(NOT status EQUAL 0)
   message(FATAL_ERROR "输入边界检查错误拒绝原生值类型")
 endif()
+
+# 原生快照不能重新引入场景 ABI 值或 Granit 数学依赖。
+foreach(content IN ITEMS "gneiss_transform transform;" "gneiss_camera camera;"
+    "#include <granit/render.h>" "#include \"engine/function/render/backend/granit/probe.hpp\"")
+  file(WRITE "${fixture}/src/engine/function/render/camera_math.hpp" "${content}\n")
+  execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
+    -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
+    RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
+  if(status EQUAL 0)
+    message(FATAL_ERROR "原生快照边界未拒绝违规输入：${content}")
+  endif()
+endforeach()
+file(WRITE "${fixture}/src/engine/function/render/camera_math.hpp" "")

@@ -115,6 +115,8 @@ target_sources(
     engine/function/render/render_asset_loader.hpp
     engine/asset/png_decoder.cpp
     engine/asset/png_decoder.hpp
+    engine/function/render/scene_projection_math.cpp
+    engine/function/render/scene_projection_math.hpp
     engine/function/render/camera_math.cpp
     engine/function/render/camera_math.hpp
     engine/function/render/render_snapshot.hpp
@@ -264,8 +266,6 @@ if(GNEISS_ENABLE_GRANIT_PLATFORM)
       engine/platform/window_configuration.hpp
       engine/function/render/backend/granit/granit_render_service.cpp
       engine/function/render/backend/granit/granit_render_service.hpp
-      engine/function/render/backend/granit/scene_projection_math.cpp
-      engine/function/render/backend/granit/scene_projection_math.hpp
       engine/function/render/backend/granit/pbr_shader_resolver.cpp
       engine/function/render/backend/granit/pbr_shader_resolver.hpp
       ${gneiss_pbr_embedded_sources}

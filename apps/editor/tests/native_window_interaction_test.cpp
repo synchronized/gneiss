@@ -11,7 +11,8 @@
 #include <thread>
 #endif
 
-#include <gneiss/engine/application.hpp>
+#include "engine/function/application/application.hpp"
+#include "engine/function/application/application_registry.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -24,6 +25,7 @@
 namespace {
 
 struct state final {
+  gneiss::engine::application* application{};
   gneiss::editor::imgui_adapter ui;
 #if defined(GNEISS_TEST_BACKGROUND_ASSETS)
   gneiss::editor::asset_background_worker* assets{};
@@ -88,7 +90,7 @@ gneiss_result update(gneiss_application application, const gneiss_frame_time* ti
   ImGui::Begin("Native interaction probe");
   ImGui::Text("Frame %u: %u x %u", value.frames, width, height);
   ImGui::End();
-  operation = value.ui.submit(application);
+  operation = value.ui.submit(*value.application);
   ++value.frames;
   return aligned ? operation : GNEISS_ERROR_INVALID_STATE;
 }
@@ -129,32 +131,34 @@ int main() {
 #if defined(GNEISS_TEST_BACKGROUND_ASSETS)
   value.assets = &worker;
 #endif
-  gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
-  desc.platform = GNEISS_APPLICATION_PLATFORM_GRANIT;
-  desc.window_width = 640U;
-  desc.window_height = 480U;
-  desc.window_title = "Gneiss 0.37 interaction probe";
-  desc.window_title_length = 27U;
-  desc.user_data = &value;
-  desc.update = update;
-  gneiss::sdk::application application;
-  if (gneiss::sdk::application::create_native(desc, application) != gneiss::result::success) {
+  gneiss::application_internal::application_configuration config;
+  config.use_granit_window = true;
+  config.window.width = 640U;
+  config.window.height = 480U;
+  config.window.title = "Gneiss 0.37 interaction probe";
+  config.callbacks.user_data = &value;
+  config.callbacks.update = update;
+  std::shared_ptr<gneiss::engine::application> application;
+  gneiss::application_internal::application_bridge bridge;
+  if (gneiss::engine::application::create(config, application) != GNEISS_SUCCESS ||
+      bridge.bind(application) != GNEISS_SUCCESS) {
     return 1;
   }
+  value.application = application.get();
   (void)EnumWindows(find_window, reinterpret_cast<LPARAM>(&value.window));
-  if (value.window == nullptr || value.ui.initialize(application.get()) != GNEISS_SUCCESS) {
+  if (value.window == nullptr || value.ui.initialize(bridge.get()) != GNEISS_SUCCESS) {
     return 2;
   }
 #if defined(GNEISS_TEST_BACKGROUND_ASSETS)
   gneiss_world world{};
-  if (application.get_world(world) != gneiss::result::success ||
+  if (gneiss_application_get_world(bridge.get(), &world) != GNEISS_SUCCESS ||
       value.camera.initialize() != gneiss::result::success) {
     return 5;
   }
 #endif
   // 使用窗口自己的 DPI 上下文查询物理客户区，避免测试进程受到 DPI 虚拟化影响。
   const auto previous = SetThreadDpiAwarenessContext(GetWindowDpiAwarenessContext(value.window));
-  const auto run = [&] { return application.run(3U) == gneiss::result::success; };
+  const auto run = [&] { return application->run(bridge.get(), 3U) == GNEISS_SUCCESS; };
   bool success = run();
   for (int index = 0; index < 18 && success; ++index) {
     success = SetWindowPos(value.window, nullptr, -3000, -3000, 640 + (index * 19),
@@ -188,7 +192,7 @@ int main() {
   value.camera.shutdown();
   worker.request_stop();
 #endif
-  value.ui.shutdown(application.get());
+  value.ui.shutdown(bridge.get());
   if (previous != nullptr) {
     (void)SetThreadDpiAwarenessContext(previous);
   }
