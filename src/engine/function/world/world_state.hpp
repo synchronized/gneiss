@@ -4,8 +4,8 @@
 #ifndef GNEISS_WORLD_WORLD_STATE_HPP_
 #define GNEISS_WORLD_WORLD_STATE_HPP_
 
+#include "engine/function/world/world_components.hpp"
 #include <gneiss/engine/core/entity.h>
-#include <gneiss/engine/render.h>
 
 #include "engine/function/scene/scene_tree.hpp"
 
@@ -23,14 +23,6 @@
 #include <utility>
 
 namespace gneiss::world_internal {
-
-struct camera_component {
-  gneiss_camera value;
-};
-
-struct mesh_renderer_component {
-  gneiss_mesh_renderer value;
-};
 
 class world_state final {
 public:
@@ -216,9 +208,6 @@ public:
     if (get<camera_component>(entity) == nullptr) {
       return GNEISS_ERROR_NOT_READY;
     }
-    each<camera_component>(
-        [](camera_component& component) { component.value.is_primary = UINT8_C(0); });
-    get<camera_component>(entity)->value.is_primary = UINT8_C(1);
     active_camera_ = entity;
     return GNEISS_SUCCESS;
   }
@@ -255,9 +244,6 @@ public:
   void clear_active_camera(gneiss_entity_id entity) noexcept {
     if (active_camera_ != entity) {
       return;
-    }
-    if (auto* component = get<camera_component>(entity); component != nullptr) {
-      component->value.is_primary = UINT8_C(0);
     }
     active_camera_ = GNEISS_NULL_ENTITY_ID;
   }

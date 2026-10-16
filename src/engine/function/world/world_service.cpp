@@ -131,16 +131,12 @@ gneiss_result create_staged_object(gneiss_world world, const core::publication& 
         return GNEISS_ERROR_INVALID_STATE;
       }
       if (description.camera != nullptr) {
-        gneiss_camera camera = GNEISS_CAMERA_INIT;
-        camera.vertical_field_of_view_radians = description.camera->vertical_field_of_view_radians;
-        camera.near_plane = description.camera->near_plane;
-        camera.far_plane = description.camera->far_plane;
-        camera.is_primary = 0;
-        (void)state.emplace_staged<camera_component>(group, candidate.entity, camera);
+        (void)state.emplace_staged<camera_component>(group, candidate.entity, *description.camera);
       }
       if (description.renderer != nullptr) {
-        (void)state.emplace_staged<mesh_renderer_component>(group, candidate.entity,
-                                                            *description.renderer);
+        (void)state.emplace_staged<mesh_renderer_component>(
+            group, candidate.entity,
+            mesh_renderer{description.renderer->mesh, description.renderer->material});
       }
       operation =
           state.scene().create_staged(group, description.parent, candidate.entity, &candidate.node);
@@ -326,7 +322,7 @@ gneiss_result entity_count(gneiss_world world, uint64_t& out_count) noexcept {
 }
 
 gneiss_result entity_set_camera(gneiss_world world, gneiss_entity_id entity,
-                                const gneiss_camera& camera) noexcept {
+                                const camera_settings& camera, bool primary) noexcept {
   if (!is_valid_camera(camera.vertical_field_of_view_radians, camera.near_plane,
                        camera.far_plane)) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
@@ -342,8 +338,10 @@ gneiss_result entity_set_camera(gneiss_world world, gneiss_entity_id entity,
     if (!state->is_alive(entity)) {
       return GNEISS_ERROR_INVALID_HANDLE;
     }
-    state->emplace_or_replace<gneiss::world_internal::camera_component>(entity, camera);
-    if (camera.is_primary != 0U) {
+    state->emplace_or_replace<camera_component>(
+        entity, camera_settings{camera.vertical_field_of_view_radians, camera.near_plane,
+                                camera.far_plane});
+    if (primary) {
       return state->set_active_camera(entity);
     }
     state->clear_active_camera(entity);
@@ -371,13 +369,7 @@ gneiss_result entity_configure_camera(gneiss_world world, gneiss_entity_id entit
     if (!state->is_alive(entity)) {
       return GNEISS_ERROR_INVALID_HANDLE;
     }
-    const gneiss_camera camera{
-        .vertical_field_of_view_radians = desc.vertical_field_of_view_radians,
-        .near_plane = desc.near_plane,
-        .far_plane = desc.far_plane,
-        .is_primary = static_cast<std::uint8_t>(state->active_camera() == entity ? 1U : 0U),
-        .reserved = {0, 0, 0}};
-    state->emplace_or_replace<gneiss::world_internal::camera_component>(entity, camera);
+    state->emplace_or_replace<camera_component>(entity, desc);
     return GNEISS_SUCCESS;
   } catch (const std::bad_alloc&) {
     return GNEISS_ERROR_OUT_OF_MEMORY;
@@ -480,7 +472,8 @@ replace_mesh_renderers(gneiss_world world,
       }
     }
     for (const auto& change : replacements) {
-      state->get<mesh_renderer_component>(change.entity)->value = change.replacement;
+      state->get<mesh_renderer_component>(change.entity)->value = {change.replacement.mesh,
+                                                                   change.replacement.material};
     }
     return GNEISS_SUCCESS;
   } catch (const std::bad_alloc&) {
@@ -491,7 +484,7 @@ replace_mesh_renderers(gneiss_world world,
 }
 
 gneiss_result entity_set_mesh_renderer(gneiss_world world, gneiss_entity_id entity,
-                                       const gneiss_mesh_renderer& renderer) noexcept {
+                                       const mesh_renderer& renderer) noexcept {
   if (renderer.mesh == GNEISS_NULL_MESH || renderer.material == GNEISS_NULL_MATERIAL) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
@@ -507,7 +500,8 @@ gneiss_result entity_set_mesh_renderer(gneiss_world world, gneiss_entity_id enti
     if (!state->is_alive(entity)) {
       return GNEISS_ERROR_INVALID_HANDLE;
     }
-    state->emplace_or_replace<gneiss::world_internal::mesh_renderer_component>(entity, renderer);
+    state->emplace_or_replace<mesh_renderer_component>(
+        entity, mesh_renderer{renderer.mesh, renderer.material});
     return GNEISS_SUCCESS;
   } catch (const std::bad_alloc&) {
     return GNEISS_ERROR_OUT_OF_MEMORY;

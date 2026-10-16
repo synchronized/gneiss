@@ -88,13 +88,9 @@ apply_camera(gneiss_world world, gneiss_entity_id entity,
     const auto result = gneiss::world_internal::entity_remove_camera(world, entity);
     return result == GNEISS_ERROR_NOT_FOUND ? GNEISS_SUCCESS : result;
   }
-  const gneiss_camera value{.vertical_field_of_view_radians =
-                                camera->vertical_field_of_view_radians,
-                            .near_plane = camera->near_plane,
-                            .far_plane = camera->far_plane,
-                            .is_primary = static_cast<std::uint8_t>(camera->is_primary ? 1U : 0U),
-                            .reserved = {0U, 0U, 0U}};
-  return gneiss::world_internal::entity_set_camera(world, entity, value);
+  const gneiss::world_internal::camera_settings value{camera->vertical_field_of_view_radians,
+                                                      camera->near_plane, camera->far_plane};
+  return gneiss::world_internal::entity_set_camera(world, entity, value, camera->is_primary);
 }
 
 } // namespace
@@ -260,8 +256,8 @@ prefab_runtime_instance::reload(prefab_asset_lease candidate, gneiss_type_regist
       result = apply_camera(world_, target.entity, source.camera);
     }
     if (result == GNEISS_SUCCESS && source.mesh_renderer) {
-      const gneiss_mesh_renderer renderer{.mesh = target.mesh.get(),
-                                          .material = target.material.get()};
+      const gneiss::world_internal::mesh_renderer renderer{.mesh = target.mesh.get(),
+                                                           .material = target.material.get()};
       result = gneiss::world_internal::entity_set_mesh_renderer(world_, target.entity, renderer);
     }
     if (result == GNEISS_SUCCESS && publication_) {
@@ -309,9 +305,9 @@ prefab_runtime_instance::reload(prefab_asset_lease candidate, gneiss_type_regist
       if (has_change(snapshot.changes, structural_change::mesh_renderer)) {
         const auto& old_source = prefab_.get()->objects[snapshot.old_index];
         if (old_source.mesh_renderer) {
-          const gneiss_mesh_renderer renderer{.mesh = nodes_[snapshot.old_index].mesh.get(),
-                                              .material =
-                                                  nodes_[snapshot.old_index].material.get()};
+          const gneiss::world_internal::mesh_renderer renderer{
+              .mesh = nodes_[snapshot.old_index].mesh.get(),
+              .material = nodes_[snapshot.old_index].material.get()};
           (void)gneiss::world_internal::entity_set_mesh_renderer(world_, target.entity, renderer);
         } else {
           (void)gneiss::world_internal::entity_remove_mesh_renderer(world_, target.entity);
@@ -368,8 +364,8 @@ prefab_runtime_instance::reload(prefab_asset_lease candidate, gneiss_type_regist
     }
     if (result == GNEISS_SUCCESS && has_change(update.changes, structural_change::mesh_renderer)) {
       if (source.mesh_renderer) {
-        const gneiss_mesh_renderer renderer{.mesh = target.mesh.get(),
-                                            .material = target.material.get()};
+        const gneiss::world_internal::mesh_renderer renderer{.mesh = target.mesh.get(),
+                                                             .material = target.material.get()};
         result = gneiss::world_internal::entity_set_mesh_renderer(world_, target.entity, renderer);
       } else {
         result = gneiss::world_internal::entity_remove_mesh_renderer(world_, target.entity);
@@ -655,8 +651,8 @@ gneiss_result prefab_runtime_instance::commit_node(std::size_t index, gneiss_sce
                 .near_plane = source.camera->near_plane,
                 .far_plane = source.camera->far_plane};
     }
-    const gneiss_mesh_renderer renderer{.mesh = target.mesh.get(),
-                                        .material = target.material.get()};
+    const gneiss::world_internal::mesh_renderer renderer{.mesh = target.mesh.get(),
+                                                         .material = target.material.get()};
     world_internal::staged_object object;
     const auto result = world_internal::create_staged_object(
         world_, publication_,
@@ -688,8 +684,8 @@ gneiss_result prefab_runtime_instance::commit_node(std::size_t index, gneiss_sce
     }
   }
   if (result == GNEISS_SUCCESS && source.mesh_renderer) {
-    const gneiss_mesh_renderer renderer{.mesh = target.mesh.get(),
-                                        .material = target.material.get()};
+    const gneiss::world_internal::mesh_renderer renderer{.mesh = target.mesh.get(),
+                                                         .material = target.material.get()};
     result = gneiss::world_internal::entity_set_mesh_renderer(world_, target.entity, renderer);
   }
   return result;

@@ -107,8 +107,8 @@ gneiss_result commit_object(gneiss_world world, const object_description& source
     }
   }
   if (result == GNEISS_SUCCESS && source.mesh_renderer) {
-    const gneiss_mesh_renderer renderer{.mesh = target.mesh.get(),
-                                        .material = target.material.get()};
+    const gneiss::world_internal::mesh_renderer renderer{.mesh = target.mesh.get(),
+                                                         .material = target.material.get()};
     result = gneiss::world_internal::entity_set_mesh_renderer(world, target.entity, renderer);
   }
   return result;
@@ -210,13 +210,9 @@ gneiss_result apply_camera(gneiss_world world, gneiss_entity_id entity,
     const auto result = gneiss::world_internal::entity_remove_camera(world, entity);
     return result == GNEISS_ERROR_NOT_FOUND ? GNEISS_SUCCESS : result;
   }
-  const gneiss_camera value{.vertical_field_of_view_radians =
-                                camera->vertical_field_of_view_radians,
-                            .near_plane = camera->near_plane,
-                            .far_plane = camera->far_plane,
-                            .is_primary = static_cast<std::uint8_t>(camera->is_primary ? 1U : 0U),
-                            .reserved = {0U, 0U, 0U}};
-  return gneiss::world_internal::entity_set_camera(world, entity, value);
+  const gneiss::world_internal::camera_settings value{camera->vertical_field_of_view_radians,
+                                                      camera->near_plane, camera->far_plane};
+  return gneiss::world_internal::entity_set_camera(world, entity, value, camera->is_primary);
 }
 
 gneiss_result apply_mesh_renderer(gneiss_world world, scene_instance::object& object,
@@ -225,7 +221,8 @@ gneiss_result apply_mesh_renderer(gneiss_world world, scene_instance::object& ob
     const auto result = gneiss::world_internal::entity_remove_mesh_renderer(world, object.entity);
     return result == GNEISS_ERROR_NOT_FOUND ? GNEISS_SUCCESS : result;
   }
-  const gneiss_mesh_renderer renderer{.mesh = object.mesh.get(), .material = object.material.get()};
+  const gneiss::world_internal::mesh_renderer renderer{.mesh = object.mesh.get(),
+                                                       .material = object.material.get()};
   return gneiss::world_internal::entity_set_mesh_renderer(world, object.entity, renderer);
 }
 
@@ -1696,7 +1693,8 @@ gneiss_result scene_instance::set_mesh_renderer(gneiss_scene_node_id node,
     if (result != GNEISS_SUCCESS) {
       return result;
     }
-    const gneiss_mesh_renderer renderer{.mesh = mesh.get(), .material = material.get()};
+    const gneiss::world_internal::mesh_renderer renderer{.mesh = mesh.get(),
+                                                         .material = material.get()};
     result = gneiss::world_internal::entity_set_mesh_renderer(world_, found->entity, renderer);
     if (result != GNEISS_SUCCESS) {
       return result;

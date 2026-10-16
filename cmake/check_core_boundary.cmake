@@ -14,6 +14,11 @@ if(NOT sources)
 endif()
 foreach(source IN LISTS sources)
   file(READ "${source}" content)
+  if(source MATCHES "/src/engine/function/world/(world_components|world_state)[.]hpp$" AND
+      (content MATCHES "gneiss_(camera|mesh_renderer)|GNEISS_CAMERA_" OR
+       content MATCHES "gneiss/engine/render[.]h"))
+    message(FATAL_ERROR "原生 World 组件不得存储 C 渲染布局：${source}")
+  endif()
   if(source MATCHES "/src/engine/(asset/(mesh_data|material_types|material_parameters|texture_types|texture_preparation_data)|function/render/(render_resource_data|render_resource_service|render_snapshot|render_asset_loader|texture_view))[.](hpp|cpp)$" AND
       (content MATCHES "gneiss_(mesh|material|texture)([^a-z_]|$)|gneiss_(mesh_vertex|mesh_normal|mesh_tangent|mesh_uv|mesh_color|texture_sampling)|GNEISS_(MATERIAL_ALPHA|TEXTURE_FILTER|TEXTURE_ADDRESS|TEXTURE_MIP|TEXTURE_FORMAT|TEXTURE_COLOR)_" OR
        content MATCHES "gneiss/engine/render[.]h"))

@@ -39,8 +39,9 @@ int run_tests() {
   const auto mesh_entity = world.create_entity();
   gneiss_scene_node_id camera_node = GNEISS_NULL_SCENE_NODE_ID;
   gneiss_scene_node_id mesh_node = GNEISS_NULL_SCENE_NODE_ID;
-  const gneiss_camera camera = GNEISS_CAMERA_INIT;
-  const gneiss_mesh_renderer renderer{.mesh = UINT64_C(0x1001), .material = UINT64_C(0x2001)};
+  const gneiss::render_internal::camera_settings camera{1.04719755F, 0.1F, 1000.0F};
+  const gneiss::world_internal::mesh_renderer renderer{.mesh = UINT64_C(0x1001),
+                                                       .material = UINT64_C(0x2001)};
   gneiss_transform mesh_transform = GNEISS_TRANSFORM_IDENTITY;
   mesh_transform.translation[0] = 2.0F;
 

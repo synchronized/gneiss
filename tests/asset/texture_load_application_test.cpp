@@ -136,8 +136,10 @@ void run(gneiss::tasks::execution_mode mode) {
   check(completion.result == GNEISS_ERROR_INVALID_STATE &&
         completion.state == render_internal::texture_load_state::failed &&
         completion.assets.empty() && completion.textures.empty() && completion.versions.empty());
-  const std::array unchanged{world_internal::mesh_renderer_replacement{
-      .entity = node.entity, .expected = external, .replacement = external}};
+  const std::array unchanged{
+      world_internal::mesh_renderer_replacement{.entity = node.entity,
+                                                .expected = {external.mesh, external.material},
+                                                .replacement = {external.mesh, external.material}}};
   check(world_internal::replace_mesh_renderers(world, unchanged) == GNEISS_SUCCESS);
   // 卸载冲突使用者后可重试；完成后释放租约，Application 仍可正常关闭。
   check(gneiss_scene_instance_unload(app.get(), scene) == GNEISS_SUCCESS);

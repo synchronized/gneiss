@@ -115,3 +115,13 @@ Application、Runtime 启动及远端场景加载回归通过。
 完整 Windows Clang Debug 构建及 12 项 World、Scene、Application、SDK 生命周期、场景构造和
 编辑器/Runtime 场景工作流通过。新增测试覆盖移动、失败创建保持拥有者、借用误销毁、错误线程、
 析构后失效及槽位复用；World 的操作接口和组件值仍待继续迁移。
+
+## 原生 World 渲染组件
+
+ECS 相机组件复用原生 camera_settings；网格渲染组件只保存原生资源 RID。活动相机仅维护
+World 的实体 ID，移除每个相机组件重复存储的 is_primary 位。Scene/Prefab 的相机与网格绑定
+也改用原生值，C 布局只在 world_api 转换。保留原有参数校验及主相机选择语义。
+
+完整 Windows Debug 构建和 13 项 World、Scene/Prefab 热重载、纹理重载、快照及正反向边界
+测试通过。新增边界规则拒绝 World 原生组件重新依赖 C 渲染结构。此前组件首批的 11 项回归
+包含反射、属性访问和编辑器相机，也已通过。

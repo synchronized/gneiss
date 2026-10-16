@@ -407,3 +407,15 @@ foreach(content IN ITEMS "gneiss_texture texture;" "gneiss_mesh_vertex vertex;"
   endif()
 endforeach()
 file(WRITE "${fixture}/src/engine/function/render/render_resource_data.hpp" "")
+
+foreach(content IN ITEMS "gneiss_camera value;" "gneiss_mesh_renderer value;"
+    "#include <gneiss/engine/render.h>")
+  file(WRITE "${fixture}/src/engine/function/world/world_components.hpp" "${content}\n")
+  execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
+    -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
+    RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
+  if(status EQUAL 0)
+    message(FATAL_ERROR "原生组件边界未拒绝违规输入：${content}")
+  endif()
+endforeach()
+file(WRITE "${fixture}/src/engine/function/world/world_components.hpp" "")

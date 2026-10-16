@@ -61,7 +61,10 @@ extern "C" gneiss_result gneiss_world_entity_set_camera(gneiss_world world, gnei
       camera->reserved[1] != 0U || camera->reserved[2] != 0U) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
-  return gneiss::world_internal::entity_set_camera(world, entity, *camera);
+  return gneiss::world_internal::entity_set_camera(
+      world, entity,
+      {camera->vertical_field_of_view_radians, camera->near_plane, camera->far_plane},
+      camera->is_primary != 0);
 }
 
 extern "C" gneiss_result gneiss_world_entity_configure_camera(gneiss_world world,
@@ -119,7 +122,8 @@ gneiss_world_entity_set_mesh_renderer(gneiss_world world, gneiss_entity_id entit
       renderer->material == GNEISS_NULL_MATERIAL) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
-  return gneiss::world_internal::entity_set_mesh_renderer(world, entity, *renderer);
+  return gneiss::world_internal::entity_set_mesh_renderer(world, entity,
+                                                          {renderer->mesh, renderer->material});
 }
 
 extern "C" gneiss_result gneiss_world_entity_remove_mesh_renderer(gneiss_world world,

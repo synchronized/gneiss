@@ -5,6 +5,7 @@
 #define GNEISS_WORLD_WORLD_SERVICE_HPP_
 #include "engine/core/publication_group.hpp"
 #include "engine/function/render/camera_settings.hpp"
+#include "engine/function/world/world_components.hpp"
 #include <gneiss/engine/scene.h>
 #include <gneiss/engine/world.h>
 #include <memory>
@@ -27,15 +28,15 @@ using world_owner = std::unique_ptr<world_state, world_deleter>;
 using camera_settings = render_internal::camera_settings;
 struct mesh_renderer_replacement {
   gneiss_entity_id entity{};
-  gneiss_mesh_renderer expected{};
-  gneiss_mesh_renderer replacement{};
+  mesh_renderer expected{};
+  mesh_renderer replacement{};
 };
 /** 不持有资源；调用方保留 renderer 对应租约，候选相机不自动成为活动相机。 */
 struct staged_object_description {
   gneiss_scene_node_id parent{};
   gneiss_transform transform = GNEISS_TRANSFORM_IDENTITY;
   const camera_settings* camera{};
-  const gneiss_mesh_renderer* renderer{};
+  const mesh_renderer* renderer{};
 };
 struct staged_object {
   gneiss_entity_id entity{};
@@ -79,7 +80,8 @@ replace_publications(gneiss_world world, std::span<const core::publication> prev
                                                     uint64_t& out_count) noexcept;
 [[nodiscard]] GNEISS_API gneiss_result entity_set_camera(gneiss_world world,
                                                          gneiss_entity_id entity,
-                                                         const gneiss_camera& camera) noexcept;
+                                                         const camera_settings& camera,
+                                                         bool primary) noexcept;
 [[nodiscard]] GNEISS_API gneiss_result entity_configure_camera(
     gneiss_world world, gneiss_entity_id entity, const camera_settings& desc) noexcept;
 [[nodiscard]] GNEISS_API gneiss_result entity_get_camera(gneiss_world world,
@@ -92,7 +94,7 @@ replace_publications(gneiss_world world, std::span<const core::publication> prev
 [[nodiscard]] GNEISS_API gneiss_result get_active_camera(gneiss_world world,
                                                          gneiss_entity_id& out_entity) noexcept;
 [[nodiscard]] GNEISS_API gneiss_result entity_set_mesh_renderer(
-    gneiss_world world, gneiss_entity_id entity, const gneiss_mesh_renderer& renderer) noexcept;
+    gneiss_world world, gneiss_entity_id entity, const mesh_renderer& renderer) noexcept;
 [[nodiscard]] GNEISS_API gneiss_result
 entity_remove_mesh_renderer(gneiss_world world, gneiss_entity_id entity) noexcept;
 [[nodiscard]] GNEISS_API gneiss_result node_create(gneiss_world world, gneiss_scene_node_id parent,

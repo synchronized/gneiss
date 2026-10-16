@@ -203,7 +203,8 @@ void run() {
   scene_internal::prefab_node_view prefab_node;
   check(candidate->scenes->get_node_info(new_scene, 0U, ordinary) == GNEISS_SUCCESS);
   check(candidate->scenes->get_prefab_node_info(new_scene, 1U, prefab_node) == GNEISS_SUCCESS);
-  const gneiss_mesh_renderer expected{.mesh = mesh_rid, .material = selected_material};
+  const gneiss::world_internal::mesh_renderer expected{.mesh = mesh_rid,
+                                                       .material = selected_material};
   const std::array unchanged{world_internal::mesh_renderer_replacement{
       .entity = ordinary.entity, .expected = expected, .replacement = expected}};
   const auto edit_reads = files->reads;
@@ -223,7 +224,8 @@ void run() {
   check(world_internal::entity_set_mesh_renderer(candidate->world, prefab_node.entity, expected) ==
         GNEISS_SUCCESS);
   check(candidate->scenes->replace_render_assets(updates) == GNEISS_SUCCESS);
-  const gneiss_mesh_renderer updated{.mesh = mesh_rid, .material = next_version.get()};
+  const gneiss::world_internal::mesh_renderer updated{.mesh = mesh_rid,
+                                                      .material = next_version.get()};
   const std::array committed{
       world_internal::mesh_renderer_replacement{
           .entity = ordinary.entity, .expected = updated, .replacement = updated},
@@ -236,7 +238,8 @@ void run() {
   render_internal::material_asset_lease edited_material;
   check(candidate->assets.acquire_material("asset://other.material", edited_material, diagnostic) ==
         GNEISS_SUCCESS);
-  const gneiss_mesh_renderer edited{.mesh = mesh_rid, .material = edited_material.get()};
+  const gneiss::world_internal::mesh_renderer edited{.mesh = mesh_rid,
+                                                     .material = edited_material.get()};
   const std::array material_only{world_internal::mesh_renderer_replacement{
       .entity = ordinary.entity, .expected = edited, .replacement = edited}};
   check(world_internal::replace_mesh_renderers(candidate->world, material_only) == GNEISS_SUCCESS);
