@@ -288,6 +288,7 @@ void texture_load_service::advance_impl() {
       return;
     }
     if (value.observed != loader_.revision()) {
+      value.cpu->message = "资产准备期间发布版本发生变化";
       finish(GNEISS_ERROR_INVALID_STATE, texture_load_state::failed);
       return;
     }
@@ -300,6 +301,7 @@ void texture_load_service::advance_impl() {
                                    value.candidates, candidate, value.mode);
       });
       if (result != GNEISS_SUCCESS) {
+        value.cpu->message = "资产候选暂存失败";
         finish(result, texture_load_state::failed);
         return;
       }
@@ -351,6 +353,7 @@ void texture_load_service::advance_impl() {
     }
     if (result != GNEISS_SUCCESS) {
       if (value.completed_uploads == 0U) {
+        value.cpu->message = "资产上传回执失败";
         finish(result,
                value.cancelled ? texture_load_state::cancelled : texture_load_state::failed);
         return;
@@ -415,6 +418,7 @@ void texture_load_service::advance_impl() {
       return;
     }
     if (result != GNEISS_SUCCESS) {
+      value.cpu->message = "资产上传提交失败";
       if (value.uploading) {
         value.failure = result;
       } else {
@@ -434,6 +438,7 @@ void texture_load_service::advance_impl() {
                                            [&] { return loader_.publish_assets(value.candidates); })
                     : GNEISS_ERROR_INVALID_STATE;
   if (result != GNEISS_SUCCESS) {
+    value.cpu->message = "资产候选发布失败";
     value.failure = result;
     return;
   }

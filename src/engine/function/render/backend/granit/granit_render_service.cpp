@@ -794,11 +794,19 @@ granit_render_service::prepare_textures(std::vector<render_internal::render_uplo
                   if (!item.dependency_textures[slot])
                     continue;
                   const auto found = prepared_textures_.find(item.dependency_textures[slot].get());
-                  if (found == prepared_textures_.end()) {
+                  if (found != prepared_textures_.end()) {
+                    textures[slot] = found->second.mirror.view.native_handle();
+                    continue;
+                  }
+                  // 固定版本复用不重复上传；首帧后镜像已从准备表移入活动表。
+                  // 同时核对 RID 和数据身份，不能把旧版本镜像绑定给新材质。
+                  const auto active = texture_mirrors_.find(item.material->texture_handles()[slot]);
+                  if (active == texture_mirrors_.end() ||
+                      active->second.source != item.dependency_textures[slot].get()) {
                     discard_candidates(data);
                     return GNEISS_ERROR_INVALID_STATE;
                   }
-                  textures[slot] = found->second.mirror.view.native_handle();
+                  textures[slot] = active->second.view.native_handle();
                 }
                 prepared_material value{
                     .data = item.material, .mirror = {}, .dependencies = item.dependency_textures};
