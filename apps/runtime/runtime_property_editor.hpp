@@ -4,6 +4,7 @@
 #ifndef GNEISS_APPS_RUNTIME_RUNTIME_PROPERTY_EDITOR_H_
 #define GNEISS_APPS_RUNTIME_RUNTIME_PROPERTY_EDITOR_H_
 
+#include "engine/core/reflection/type_registry.hpp"
 #include "ipc_property_protocol.hpp"
 #include "runtime_scene_inspection.hpp"
 
@@ -46,7 +47,7 @@ private:
   gneiss_world world_ = GNEISS_NULL_WORLD;
   runtime_scene_inspection* inspection_ = nullptr;
   std::uint64_t session_id_ = 0U;
-  gneiss_type_registry registry_ = GNEISS_NULL_TYPE_REGISTRY;
+  reflection_internal::registry_ref registry_;
   std::map<property_key, std::uint64_t> revisions_;
 };
 

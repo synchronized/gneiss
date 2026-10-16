@@ -4,8 +4,10 @@
 #ifndef GNEISS_APPS_EDITOR_PROPERTY_INSPECTOR_MODEL_H_
 #define GNEISS_APPS_EDITOR_PROPERTY_INSPECTOR_MODEL_H_
 
-#include <gneiss/engine/reflection.hpp>
-#include <gneiss/engine/world.hpp>
+#include "engine/core/reflection/type_registry.hpp"
+#include <gneiss/engine/core/entity.hpp>
+#include <gneiss/engine/core/result.hpp>
+#include <gneiss/engine/world.h>
 
 #include <string>
 #include <vector>
@@ -29,6 +31,12 @@ struct inspector_component final {
 /** 为编辑器提供与 UI 框架无关的反射属性快照和写入入口。 */
 class property_inspector_model final {
 public:
+  property_inspector_model() = default;
+  property_inspector_model(const property_inspector_model&) = delete;
+  property_inspector_model& operator=(const property_inspector_model&) = delete;
+  property_inspector_model(property_inspector_model&&) noexcept = default;
+  property_inspector_model& operator=(property_inspector_model&&) noexcept = default;
+
   [[nodiscard]] result initialize() noexcept;
   void clear() noexcept;
 
@@ -49,7 +57,7 @@ public:
   }
 
 private:
-  sdk::type_registry registry_;
+  reflection_internal::registry_ref registry_;
   gneiss_property_target target_{};
   std::vector<inspector_component> components_;
 };

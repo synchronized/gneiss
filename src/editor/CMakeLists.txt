@@ -20,7 +20,7 @@ add_library(
   imgui_adapter.cpp
   imgui_adapter.hpp
 )
-target_link_libraries(gneiss_editor_ui PUBLIC gneiss::engine gneiss_imgui PRIVATE gneiss_editor_model gneiss_editor_session gneiss_imguizmo)
+target_link_libraries(gneiss_editor_ui PUBLIC gneiss::engine gneiss_imgui gneiss_editor_model PRIVATE gneiss_editor_session gneiss_imguizmo)
 target_include_directories(gneiss_editor_ui PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}"
   PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_features(gneiss_editor_ui PUBLIC cxx_std_20)
@@ -94,7 +94,8 @@ add_library(
   transform_gizmo_math.hpp
 )
 target_link_libraries(gneiss_editor_model PUBLIC gneiss::engine PRIVATE gneiss_yyjson)
-target_include_directories(gneiss_editor_model PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
+target_include_directories(gneiss_editor_model PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}"
+  "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>")
 target_compile_features(gneiss_editor_model PUBLIC cxx_std_20)
 gneiss_target_compile_warnings(gneiss_editor_model)
 gneiss_target_output_directories(gneiss_editor_model)

@@ -35,11 +35,13 @@ struct property_binding {
   candidate_property_setter candidate_setter{};
 };
 class type_registry_state;
-/** 仅保护当前操作；销毁句柄后不得将此内部租约用作新的公共句柄。 */
+/** 原生所有者或当前操作租约；销毁句柄后不得将租约用作新的公共句柄。 */
 using registry_ref = std::shared_ptr<type_registry_state>;
 [[nodiscard]] inline bool valid_type_id(gneiss_type_id id) noexcept {
   return std::ranges::any_of(id.bytes, [](std::uint8_t byte) { return byte != 0U; });
 }
+/** 创建同一实现的原生对象，不注册公共 RID；失败保持原输出。 */
+[[nodiscard]] GNEISS_API gneiss_result create_native(registry_ref& output) noexcept;
 [[nodiscard]] GNEISS_API registry_ref resolve(gneiss_type_registry registry);
 [[nodiscard]] GNEISS_API gneiss_result create(gneiss_type_registry& output) noexcept;
 [[nodiscard]] GNEISS_API gneiss_result destroy(gneiss_type_registry registry) noexcept;

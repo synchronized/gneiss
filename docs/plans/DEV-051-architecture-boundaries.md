@@ -269,8 +269,9 @@ Application 回调与宿主已完成首批原生接入；World 已有原生拥�
 调用活动 World，见 [宿主迁移记录](../records/M-332-native-host-ownership.md)。
 Scene/Prefab 普通操作与 Transform 已直接接入原生 World；Editor 编辑会话和场景加载已使用
 原生 Application；资产编辑与 Prefab 事务已接入，Editor 主程序已移除兼容桥。
-继续清理 Runtime 检查/统计入口并收敛 SDK；完整真实图像、
-跨平台与安装矩阵仍待执行。
+Runtime 检查/统计及两端属性注册表已直接消费原生实现；SDK 所有者命名已收敛，
+共享/静态安装消费者已验证。完整真实图像、跨平台与最终候选回归仍待执行；
+各批次测试口径以宿主迁移记录为准。
 
 ### 已确认：Render 快照表示与矩阵准备职责
 

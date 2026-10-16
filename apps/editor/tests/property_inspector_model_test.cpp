@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "property_inspector_model.hpp"
+#include <gneiss/engine/world.hpp>
 
 #include <cmath>
 

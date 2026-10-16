@@ -32,6 +32,22 @@ gneiss_result throwing_getter(void* /*context*/, gneiss_property_target /*target
 
 int main() try {
   namespace reflection = gneiss::reflection_internal;
+  // 原生对象不依赖公共句柄表；最后一个内部所有者释放后必须销毁。
+  reflection::registry_ref native;
+  if (reflection::create_native(native) != GNEISS_SUCCESS || !native) {
+    return 20;
+  }
+  const std::weak_ptr native_lifetime = native;
+  std::uint32_t native_count = 99;
+  if (reflection::type_count(native, native_count) != GNEISS_ERROR_NOT_READY ||
+      native_count != 99 || reflection::freeze(native) != GNEISS_SUCCESS ||
+      reflection::type_count(native, native_count) != GNEISS_SUCCESS || native_count != 0) {
+    return 21;
+  }
+  native.reset();
+  if (!native_lifetime.expired() || reflection::freeze(native) != GNEISS_ERROR_INVALID_HANDLE) {
+    return 22;
+  }
   gneiss_type_registry registry{};
   if (gneiss_type_registry_create(&registry) != GNEISS_SUCCESS) {
     return 1;

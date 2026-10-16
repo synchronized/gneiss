@@ -3,6 +3,8 @@
 
 #ifndef GNEISS_WORLD_WORLD_SERVICE_HPP_
 #define GNEISS_WORLD_WORLD_SERVICE_HPP_
+#include "engine/core/reflection/type_registry.hpp"
+
 #include "engine/core/publication_group.hpp"
 #include "engine/function/render/camera_settings.hpp"
 #include "engine/function/world/world_types.hpp"
@@ -109,5 +111,7 @@ entity_remove_mesh_renderer(gneiss_world world, gneiss_entity_id entity) noexcep
 [[nodiscard]] GNEISS_API gneiss_type_id transform_type_id() noexcept;
 [[nodiscard]] GNEISS_API gneiss_type_id camera_type_id() noexcept;
 [[nodiscard]] GNEISS_API gneiss_result register_reflection(gneiss_type_registry registry);
+[[nodiscard]] GNEISS_API gneiss_result
+register_reflection(const reflection_internal::registry_ref& registry);
 } // namespace gneiss::world_internal
 #endif

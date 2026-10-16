@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "runtime_property_editor.hpp"
+#include "engine/function/world/world_service.hpp"
 
 #include <algorithm>
 #include <limits>
@@ -120,35 +121,29 @@ runtime_property_editor::~runtime_property_editor() { reset(); }
 
 result runtime_property_editor::initialize(gneiss_world world, runtime_scene_inspection& inspection,
                                            std::uint64_t session_id) noexcept {
-  if (world == GNEISS_NULL_WORLD || session_id == 0U || registry_ != GNEISS_NULL_TYPE_REGISTRY) {
+  if (world == GNEISS_NULL_WORLD || session_id == 0U || registry_ != nullptr) {
     return result::invalid_argument;
   }
-  gneiss_type_registry registry = GNEISS_NULL_TYPE_REGISTRY;
-  auto operation = gneiss_type_registry_create(&registry);
+  reflection_internal::registry_ref registry;
+  auto operation = reflection_internal::create_native(registry);
   if (operation == GNEISS_SUCCESS) {
-    operation = gneiss_world_register_reflection(registry);
+    operation = world_internal::register_reflection(registry);
   }
   if (operation == GNEISS_SUCCESS) {
-    operation = gneiss_type_registry_freeze(registry);
+    operation = reflection_internal::freeze(registry);
   }
   if (operation != GNEISS_SUCCESS) {
-    if (registry != GNEISS_NULL_TYPE_REGISTRY) {
-      (void)gneiss_type_registry_destroy(registry);
-    }
     return from_native(operation);
   }
   world_ = world;
   inspection_ = &inspection;
   session_id_ = session_id;
-  registry_ = registry;
+  registry_ = std::move(registry);
   return result::success;
 }
 
 void runtime_property_editor::reset() noexcept {
-  if (registry_ != GNEISS_NULL_TYPE_REGISTRY) {
-    (void)gneiss_type_registry_destroy(registry_);
-  }
-  registry_ = GNEISS_NULL_TYPE_REGISTRY;
+  registry_.reset();
   world_ = GNEISS_NULL_WORLD;
   inspection_ = nullptr;
   session_id_ = 0U;
@@ -157,8 +152,7 @@ void runtime_property_editor::reset() noexcept {
 
 result runtime_property_editor::execute(const ipc_property_write& command,
                                         ipc_property_write_result& output) noexcept {
-  if (registry_ == GNEISS_NULL_TYPE_REGISTRY || inspection_ == nullptr ||
-      command.command_id == 0U) {
+  if (!registry_ || inspection_ == nullptr || command.command_id == 0U) {
     return result::invalid_state;
   }
   ipc_property_write_result response{.session_id = session_id_,
@@ -196,7 +190,7 @@ result runtime_property_editor::execute(const ipc_property_write& command,
 
   gneiss_field_info field = GNEISS_FIELD_INFO_INIT;
   auto native =
-      gneiss_type_registry_find_field(registry_, command.type_id, command.field_id, &field);
+      reflection_internal::find_field(registry_, command.type_id, command.field_id, field);
   if (native != GNEISS_SUCCESS ||
       (field.property_capabilities & GNEISS_PROPERTY_CAPABILITY_WRITABLE) == 0U) {
     response.code = native == GNEISS_SUCCESS ? GNEISS_ERROR_UNSUPPORTED : native;
@@ -214,12 +208,12 @@ result runtime_property_editor::execute(const ipc_property_write& command,
   operation = to_native_value(command.value, value);
   if (operation == result::success) {
     const gneiss_property_target target{world_, entity};
-    native = gneiss_type_registry_set_property(registry_, command.type_id, command.field_id, target,
-                                               &value);
+    native = reflection_internal::set_property(registry_, command.type_id, command.field_id, target,
+                                               value);
     if (native == GNEISS_SUCCESS) {
       gneiss_property_value canonical = GNEISS_PROPERTY_VALUE_INIT;
-      native = gneiss_type_registry_get_property(registry_, command.type_id, command.field_id,
-                                                 target, &canonical);
+      native = reflection_internal::get_property(registry_, command.type_id, command.field_id,
+                                                 target, canonical);
       if (native == GNEISS_SUCCESS) {
         operation = from_native_value(canonical, response.canonical_value);
       }

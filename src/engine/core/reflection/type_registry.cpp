@@ -374,16 +374,23 @@ public:
     }
   }
 
-  [[nodiscard]] gneiss_result set_candidate_property(gneiss_type_id type_id,
-      gneiss_field_id field_id, void* candidate, const gneiss_property_value& value) const noexcept {
+  [[nodiscard]] gneiss_result
+  set_candidate_property(gneiss_type_id type_id, gneiss_field_id field_id, void* candidate,
+                         const gneiss_property_value& value) const noexcept {
     if (candidate == nullptr || !is_valid_property_value(value)) {
       return GNEISS_ERROR_INVALID_ARGUMENT;
     }
     property_accessor accessor;
     const auto lookup = find_accessor(type_id, field_id, accessor);
-    if (lookup != GNEISS_SUCCESS) { return lookup; }
-    if (accessor.candidate_setter == nullptr) { return GNEISS_ERROR_UNSUPPORTED; }
-    if (value.kind != accessor.kind) { return GNEISS_ERROR_INVALID_ARGUMENT; }
+    if (lookup != GNEISS_SUCCESS) {
+      return lookup;
+    }
+    if (accessor.candidate_setter == nullptr) {
+      return GNEISS_ERROR_UNSUPPORTED;
+    }
+    if (value.kind != accessor.kind) {
+      return GNEISS_ERROR_INVALID_ARGUMENT;
+    }
     try {
       return accessor.candidate_setter(accessor.user_data, candidate, value);
     } catch (...) {
@@ -532,10 +539,24 @@ gneiss::core::rid_table<registry_pointer> registry_table(UINT16_C(0x5459));
 } // namespace
 
 registry_ref resolve(gneiss_type_registry registry) { return get_registry(registry); }
+gneiss_result create_native(registry_ref& output) noexcept {
+  try {
+    output = std::make_shared<type_registry_state>();
+    return GNEISS_SUCCESS;
+  } catch (const std::bad_alloc&) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
 gneiss_result create(gneiss_type_registry& output) noexcept {
   output = GNEISS_NULL_TYPE_REGISTRY;
   try {
-    auto registry = std::make_shared<type_registry_state>();
+    registry_ref registry;
+    const auto status = create_native(registry);
+    if (status != GNEISS_SUCCESS) {
+      return status;
+    }
     std::scoped_lock lock(registry_table_mutex);
     return registry_table.create(gneiss::core::resource_type::type_registry, std::move(registry),
                                  &output);

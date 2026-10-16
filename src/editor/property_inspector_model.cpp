@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "property_inspector_model.hpp"
+#include "engine/function/world/world_service.hpp"
 
 #include <algorithm>
 #include <array>
@@ -19,13 +20,13 @@ namespace {
 } // namespace
 
 result property_inspector_model::initialize() noexcept {
-  sdk::type_registry pending;
-  auto operation = sdk::type_registry::create(pending);
+  reflection_internal::registry_ref pending;
+  auto operation = from_native(reflection_internal::create_native(pending));
   if (operation == result::success) {
-    operation = sdk::world::register_reflection(pending);
+    operation = from_native(world_internal::register_reflection(pending));
   }
   if (operation == result::success) {
-    operation = pending.freeze();
+    operation = from_native(reflection_internal::freeze(pending));
   }
   if (operation == result::success) {
     registry_ = std::move(pending);
@@ -46,10 +47,11 @@ result property_inspector_model::refresh(gneiss_world world_handle, entity_id en
   try {
     const gneiss_property_target target{.context = world_handle, .object = entity.get()};
     std::vector<inspector_component> pending;
-    const std::array reflected_component_types{gneiss_transform_type_id(), gneiss_camera_type_id()};
+    const std::array reflected_component_types{world_internal::transform_type_id(),
+                                               world_internal::camera_type_id()};
     for (const auto type_id : reflected_component_types) {
       gneiss_type_info type{};
-      auto operation = registry_.find_type_native(type_id, type);
+      auto operation = from_native(reflection_internal::find_type(registry_, type_id, type));
       if (operation != result::success) {
         clear();
         return operation;
@@ -61,7 +63,8 @@ result property_inspector_model::refresh(gneiss_world world_handle, entity_id en
       for (std::uint32_t index = 0; index < type.field_count; ++index) {
         const auto& field = type.fields[index];
         gneiss_property_value value = GNEISS_PROPERTY_VALUE_INIT;
-        operation = registry_.get_property_native(type.id, field.id, target, value);
+        operation = from_native(
+            reflection_internal::get_property(registry_, type.id, field.id, target, value));
         if (operation == result::not_found) {
           component_missing = true;
           break;
@@ -109,11 +112,12 @@ result property_inspector_model::set_value(gneiss_type_id type_id, gneiss_field_
   if ((property->capabilities & GNEISS_PROPERTY_CAPABILITY_WRITABLE) == 0U) {
     return result::unsupported;
   }
-  const auto operation = registry_.set_property_native(type_id, field_id, target_, value);
+  const auto operation =
+      from_native(reflection_internal::set_property(registry_, type_id, field_id, target_, value));
   if (operation == result::success) {
     gneiss_property_value refreshed = GNEISS_PROPERTY_VALUE_INIT;
-    const auto read_operation =
-        registry_.get_property_native(type_id, field_id, target_, refreshed);
+    const auto read_operation = from_native(
+        reflection_internal::get_property(registry_, type_id, field_id, target_, refreshed));
     if (read_operation != result::success) {
       return read_operation;
     }
@@ -129,7 +133,8 @@ result property_inspector_model::set_value(gneiss_world world_handle, entity_id 
     return result::invalid_argument;
   }
   const gneiss_property_target target{.context = world_handle, .object = entity.get()};
-  const auto operation = registry_.set_property_native(type_id, field_id, target, value);
+  const auto operation =
+      from_native(reflection_internal::set_property(registry_, type_id, field_id, target, value));
   if (operation != result::success || target.context != target_.context ||
       target.object != target_.object) {
     return operation;
