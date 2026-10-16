@@ -3,6 +3,7 @@
 
 #include "engine/function/application/application.hpp"
 #include "engine/function/application/application_registry.hpp"
+#include "engine/function/render/texture_load_service.hpp"
 
 #include <atomic>
 #include <cstdio>
@@ -72,6 +73,32 @@ void test_loop_callback_exceptions() {
   };
   check(engine::application::create(config, app) == GNEISS_ERROR_INITIALIZATION_FAILED);
   check(delivered_diagnostics == 1U && valid_diagnostic && !app);
+}
+
+void test_asset_request_boundaries() {
+  using namespace gneiss;
+  application_internal::application_configuration config;
+  std::shared_ptr<engine::application> app;
+  check(engine::application::create(config, app) == GNEISS_SUCCESS);
+  render_internal::asset_load_progress progress;
+  check(!app->asset_progress(progress));
+  check(app->cancel_assets() == GNEISS_ERROR_NOT_READY);
+  const auto rejected = [&] {
+    std::uint64_t request = 17;
+    bool ready = true;
+    render_internal::texture_load_completion completion;
+    completion.request = 23;
+    return app->request_assets({}, 1, 1, request, true) == GNEISS_ERROR_INVALID_STATE &&
+           request == 0 && app->poll_assets(completion, ready) == GNEISS_ERROR_INVALID_STATE &&
+           !ready && completion.request == 23 && !app->asset_progress(progress) &&
+           app->cancel_assets() == GNEISS_ERROR_INVALID_STATE;
+  };
+  bool rejected_on_worker{};
+  std::thread worker([&] { rejected_on_worker = rejected(); });
+  worker.join();
+  check(rejected_on_worker);
+  check(app->shutdown(0) == GNEISS_SUCCESS);
+  check(rejected());
 }
 
 void test_platform_callbacks() {
@@ -202,6 +229,7 @@ int main() try {
   check(state.shutdowns == 3U);
   check(gneiss_application_get_world(expired, &world) == GNEISS_ERROR_INVALID_HANDLE);
   check(bridge.reset() == GNEISS_SUCCESS);
+  test_asset_request_boundaries();
   test_platform_callbacks();
   test_loop_callback_exceptions();
   return 0;

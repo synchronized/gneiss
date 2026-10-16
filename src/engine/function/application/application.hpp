@@ -79,6 +79,8 @@ public:
                  bool reload);
   [[nodiscard]] gneiss_result poll_assets(render_internal::texture_load_completion& completion,
                                           bool& ready);
+  [[nodiscard]] bool asset_progress(render_internal::asset_load_progress& progress) const noexcept;
+  [[nodiscard]] gneiss_result cancel_assets() noexcept;
   void advance_scene_load();
   [[nodiscard]] application_internal::scene_retirement_statistics scene_retirement() const noexcept;
   [[nodiscard]] gneiss_result

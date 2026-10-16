@@ -259,8 +259,7 @@ gneiss_result gneiss::application_internal::query_asset_load_progress(
   const auto valid = validate_application(state);
   if (valid != GNEISS_SUCCESS)
     return valid;
-  if (state->texture_service())
-    active = state->texture_service()->progress(progress);
+  active = state->asset_progress(progress);
   return GNEISS_SUCCESS;
 }
 
@@ -270,8 +269,7 @@ gneiss::application_internal::cancel_render_assets(gneiss_application applicatio
   const auto valid = validate_application(state);
   if (valid != GNEISS_SUCCESS)
     return valid;
-  return state->texture_service() && state->texture_service()->cancel() ? GNEISS_SUCCESS
-                                                                        : GNEISS_ERROR_NOT_READY;
+  return state->cancel_assets();
 }
 
 gneiss_result gneiss::application_internal::request_textures(

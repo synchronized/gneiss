@@ -975,12 +975,35 @@ gneiss_result
 application::request_assets(std::span<const render_internal::render_asset_reload> sources,
                             std::uint64_t session, std::uint64_t revision, std::uint64_t& request,
                             bool reload) {
+  request = 0;
+  if (!is_owner_thread() || !accepts_requests())
+    return GNEISS_ERROR_INVALID_STATE;
+  if (!texture_service() || scene_loading())
+    return GNEISS_ERROR_NOT_READY;
   return storage_->scene_session_.request_assets(sources, session, revision, request, reload);
 }
 
 gneiss_result application::poll_assets(render_internal::texture_load_completion& completion,
                                        bool& ready) {
+  ready = false;
+  if (!is_owner_thread() || !accepts_requests())
+    return GNEISS_ERROR_INVALID_STATE;
   return storage_->scene_session_.poll_assets(completion, ready);
+}
+
+bool application::asset_progress(render_internal::asset_load_progress& progress) const noexcept {
+  progress = {};
+  if (!is_owner_thread() || !accepts_requests())
+    return false;
+  auto* service = storage_->scene_session_.textures();
+  return service && service->progress(progress);
+}
+
+gneiss_result application::cancel_assets() noexcept {
+  if (!is_owner_thread() || !accepts_requests())
+    return GNEISS_ERROR_INVALID_STATE;
+  auto* service = texture_service();
+  return service && service->cancel() ? GNEISS_SUCCESS : GNEISS_ERROR_NOT_READY;
 }
 
 void application::advance_scene_load() { storage_->scene_session_.advance(); }

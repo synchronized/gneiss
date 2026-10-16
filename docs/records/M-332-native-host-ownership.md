@@ -66,3 +66,13 @@ Editor 主窗口仍为场景/资产等剩余链路保留桥接。
 
 完整 Windows Debug 构建及 7 项 UI、资源、窗口交互、宿主冒烟和边界回归通过。
 追加窗口测试的跨线程 begin_frame 拒绝验证；最终安装、Linux 和真实跨屏验证仍待执行。
+
+## 宿主资产请求与退出链
+
+Editor 的视口提交、冒烟统计和退出，Runtime 的资产请求、完成轮询、取消、进度和首帧日志
+直接调用借用的原生 Application。动态模块及剩余场景接口仍保留必要的兼容句柄。
+原生资产入口拒绝跨线程和关闭后请求；失败时清零请求/ready，不改写未返回的完成对象。
+
+完整 Windows Clang Debug 构建通过，9 项原生/C/SDK Application、纹理加载、Runtime 资产/IPC
+及 Editor/Runtime 启动回归通过。新增原生测试覆盖空闲取消、跨线程及关闭后的资产入口。
+此项不代表 Scene/World 和最终安装矩阵已完成。

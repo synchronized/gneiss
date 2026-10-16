@@ -212,13 +212,13 @@ constexpr std::size_t matrix_index(std::size_t row, std::size_t column) noexcept
   return (column * 4U) + row;
 }
 
-gneiss_result submit_editor_ui(gneiss_application application, editor_state& state) {
+gneiss_result submit_editor_ui(editor_state& state) {
   const auto& settings = state.camera.settings();
   const auto& transform = state.camera.current_transform();
   const gneiss::render_internal::view_camera view{
       .camera = {settings.vertical_field_of_view_radians, settings.near_plane, settings.far_plane},
       .transform = {transform.translation, transform.rotation, transform.scale}};
-  const auto operation = gneiss::application_internal::set_view_camera(application, &view);
+  const auto operation = state.application->set_view_camera(&view);
   return operation == GNEISS_SUCCESS ? state.ui.submit(*state.application) : operation;
 }
 
@@ -761,7 +761,8 @@ gneiss::result perform_document_action(editor_state& state, gneiss_application a
     state.asset_reimports.request_stop();
     state.author_assets.request_stop();
 #else
-    operation = gneiss::from_native(gneiss_application_request_exit(application));
+    state.application->request_exit();
+    operation = gneiss::result::success;
 #endif
     break;
   case document_action::none:
@@ -1197,7 +1198,7 @@ gneiss_result update_editor_camera(editor_state& state, const gneiss::engine::fr
 }
 
 // 仅冒烟模式采样；显示计数和 GPU 回执来自异步渲染器，不能当作主循环 FPS。
-gneiss_result advance_editor_smoke(editor_state& state, gneiss_application application) {
+gneiss_result advance_editor_smoke(editor_state& state) {
   if (!state.smoke) {
     return GNEISS_SUCCESS;
   }
@@ -1211,12 +1212,7 @@ gneiss_result advance_editor_smoke(editor_state& state, gneiss_application appli
     ++state.smoke_frames;
     if (state.smoke_frames == 1U || state.smoke_frames % 120U == 0U ||
         state.smoke_frames == state.smoke_frame_limit) {
-      gneiss::render_internal::render_queue_stats stats;
-      const auto queried =
-          gneiss::application_internal::query_render_statistics(application, stats);
-      if (queried != GNEISS_SUCCESS) {
-        return queried;
-      }
+      const auto stats = state.application->render_statistics();
       const auto now = std::chrono::steady_clock::now();
       if (state.smoke_frames == 1U) {
         state.smoke_scene_started = now;
@@ -1240,7 +1236,7 @@ gneiss_result advance_editor_smoke(editor_state& state, gneiss_application appli
       std::fflush(stdout);
     }
     if (state.smoke_frames >= state.smoke_frame_limit) {
-      (void)gneiss_application_request_exit(application);
+      state.application->request_exit();
     }
   }
   return GNEISS_SUCCESS;
@@ -1357,7 +1353,7 @@ gneiss_result update_editor(gneiss_application application, const gneiss::engine
         std::fflush(stdout);
       }
     }
-    const auto smoke_result = advance_editor_smoke(state, application);
+    const auto smoke_result = advance_editor_smoke(state);
     if (smoke_result != GNEISS_SUCCESS) {
       return smoke_result;
     }
@@ -1419,7 +1415,7 @@ gneiss_result update_editor(gneiss_application application, const gneiss::engine
         }
       }
       ImGui::End();
-      return submit_editor_ui(application, state);
+      return submit_editor_ui(state);
     }
     state.asset_edit.advance(application, state.session, state.history);
     if (state.asset_edit.visible()) {
@@ -1454,7 +1450,7 @@ gneiss_result update_editor(gneiss_application application, const gneiss::engine
           state.asset_edit.dismiss();
       }
       ImGui::End();
-      return submit_editor_ui(application, state);
+      return submit_editor_ui(state);
     }
     if (state.scene_loader.visible()) {
       const auto begun = state.ui.begin_frame(*state.application, *time);
@@ -1462,7 +1458,7 @@ gneiss_result update_editor(gneiss_application application, const gneiss::engine
         return begun;
       }
       draw_scene_loading(state, application);
-      return submit_editor_ui(application, state);
+      return submit_editor_ui(state);
     }
 #if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
     start_source_asset_watch(state);
@@ -1551,7 +1547,7 @@ gneiss_result update_editor(gneiss_application application, const gneiss::engine
                                      state.package_process.is_running());
     if (state.asset_shutdown_pending && state.asset_reimports.status().stopped &&
         state.author_assets.stopped()) {
-      (void)gneiss_application_request_exit(application);
+      state.application->request_exit();
     }
     std::vector<gneiss::editor::asset_reimport_event> reimport_events;
     (void)state.asset_reimports.poll_events(reimport_events);
@@ -1586,7 +1582,7 @@ gneiss_result update_editor(gneiss_application application, const gneiss::engine
       ImGui::Begin("Closing Editor");
       ImGui::TextUnformatted("Waiting for the current asset stage to finish...");
       ImGui::End();
-      return submit_editor_ui(application, state);
+      return submit_editor_ui(state);
     }
 #endif
     gneiss::editor::begin_transform_gizmo_frame();
@@ -1751,7 +1747,7 @@ gneiss_result update_editor(gneiss_application application, const gneiss::engine
       ImGui::EndMainMenuBar();
     }
     if (state.history.is_pending()) {
-      return submit_editor_ui(application, state);
+      return submit_editor_ui(state);
     }
     gneiss::editor::begin_editor_workspace();
     const auto& io = ImGui::GetIO();
@@ -1898,7 +1894,7 @@ gneiss_result update_editor(gneiss_application application, const gneiss::engine
       state.history_error = io.KeyShift ? redo_editor_command(state) : undo_editor_command(state);
     }
     if (state.history.is_pending()) {
-      return submit_editor_ui(application, state);
+      return submit_editor_ui(state);
     }
 
     const auto log_path = state.runtime.log_file().generic_string();
@@ -2275,7 +2271,7 @@ gneiss_result update_editor(gneiss_application application, const gneiss::engine
     }
     ImGui::End();
     if (state.prefab_edit.active()) {
-      return submit_editor_ui(application, state);
+      return submit_editor_ui(state);
     }
 
     if (state.history_error != gneiss::result::success &&
@@ -2794,7 +2790,7 @@ gneiss_result update_editor(gneiss_application application, const gneiss::engine
     if (grid_result != gneiss::result::success) {
       return gneiss::to_native(grid_result);
     }
-    return submit_editor_ui(application, state);
+    return submit_editor_ui(state);
   } catch (const std::bad_alloc&) {
     // C++ 异常不得越过 C ABI 回调边界。
     return GNEISS_ERROR_OUT_OF_MEMORY;
