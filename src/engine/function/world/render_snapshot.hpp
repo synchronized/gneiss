@@ -5,6 +5,7 @@
 #define GNEISS_WORLD_RENDER_SNAPSHOT_HPP_
 
 #include "engine/function/render/render_snapshot.hpp"
+#include <gneiss/engine/world.h>
 
 #include <cstdint>
 

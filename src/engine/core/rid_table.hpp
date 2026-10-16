@@ -4,8 +4,8 @@
 #ifndef GNEISS_CORE_RID_TABLE_HPP_
 #define GNEISS_CORE_RID_TABLE_HPP_
 
+#include "engine/core/rid.hpp"
 #include <gneiss/engine/core/result.h>
-#include <gneiss/engine/core/rid.h>
 
 #include <cstddef>
 #include <cstdint>
@@ -46,14 +46,14 @@ struct rid_parts {
   std::uint16_t domain;
 };
 
-[[nodiscard]] constexpr gneiss_rid encode_rid(rid_parts parts) noexcept {
-  return static_cast<gneiss_rid>(parts.slot + 1U) |
-         (static_cast<gneiss_rid>(parts.generation) << generation_shift) |
-         (static_cast<gneiss_rid>(parts.type) << type_shift) |
-         (static_cast<gneiss_rid>(parts.domain) << domain_shift);
+[[nodiscard]] constexpr rid encode_rid(rid_parts parts) noexcept {
+  return static_cast<rid>(parts.slot + 1U) |
+         (static_cast<rid>(parts.generation) << generation_shift) |
+         (static_cast<rid>(parts.type) << type_shift) |
+         (static_cast<rid>(parts.domain) << domain_shift);
 }
 
-[[nodiscard]] constexpr rid_parts decode_rid(gneiss_rid value) noexcept {
+[[nodiscard]] constexpr rid_parts decode_rid(rid value) noexcept {
   const auto encoded_slot = static_cast<std::uint32_t>(value & slot_mask);
   return {
       encoded_slot == 0U ? std::numeric_limits<std::uint32_t>::max() : encoded_slot - 1U,
@@ -76,12 +76,11 @@ public:
   rid_table& operator=(rid_table&&) = delete;
 
   template <typename Value>
-  [[nodiscard]] gneiss_result create(resource_type type, Value&& value,
-                                     gneiss_rid* out_rid) noexcept {
+  [[nodiscard]] gneiss_result create(resource_type type, Value&& value, rid* out_rid) noexcept {
     if (out_rid == nullptr || domain_ == 0U || type == resource_type::invalid) {
       return GNEISS_ERROR_INVALID_ARGUMENT;
     }
-    *out_rid = GNEISS_NULL_RID;
+    *out_rid = null_rid;
 
     try {
       std::size_t index = 0;
@@ -110,7 +109,7 @@ public:
     }
   }
 
-  [[nodiscard]] Resource* get(gneiss_rid value, resource_type expected_type) noexcept {
+  [[nodiscard]] Resource* get(rid value, resource_type expected_type) noexcept {
     const auto parts = detail::decode_rid(value);
     if (!is_valid(parts, expected_type)) {
       return nullptr;
@@ -118,7 +117,7 @@ public:
     return &*slots_[parts.slot].value;
   }
 
-  [[nodiscard]] const Resource* get(gneiss_rid value, resource_type expected_type) const noexcept {
+  [[nodiscard]] const Resource* get(rid value, resource_type expected_type) const noexcept {
     const auto parts = detail::decode_rid(value);
     if (!is_valid(parts, expected_type)) {
       return nullptr;
@@ -126,7 +125,7 @@ public:
     return &*slots_[parts.slot].value;
   }
 
-  [[nodiscard]] gneiss_result destroy(gneiss_rid value, resource_type expected_type) noexcept {
+  [[nodiscard]] gneiss_result destroy(rid value, resource_type expected_type) noexcept {
     const auto parts = detail::decode_rid(value);
     if (!is_valid(parts, expected_type)) {
       return GNEISS_ERROR_INVALID_HANDLE;

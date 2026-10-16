@@ -27,19 +27,17 @@ gneiss_result capture_resource(Handle handle,
 
 } // namespace
 
-const mesh_resource* render_resource_snapshot::get_mesh(gneiss_mesh mesh) const noexcept {
+const mesh_resource* render_resource_snapshot::get_mesh(core::rid mesh) const noexcept {
   const auto found = meshes_.find(mesh);
   return found == meshes_.end() ? nullptr : found->second.get();
 }
 
-const material_resource*
-render_resource_snapshot::get_material(gneiss_material material) const noexcept {
+const material_resource* render_resource_snapshot::get_material(core::rid material) const noexcept {
   const auto found = materials_.find(material);
   return found == materials_.end() ? nullptr : found->second.get();
 }
 
-const texture_resource*
-render_resource_snapshot::get_texture(gneiss_texture texture) const noexcept {
+const texture_resource* render_resource_snapshot::get_texture(core::rid texture) const noexcept {
   const auto found = textures_.find(texture);
   return found == textures_.end() ? nullptr : found->second.get();
 }
@@ -75,7 +73,7 @@ gneiss_result capture_render_frame_packet(const platform::native_window_info& wi
       }
       const auto& material = *candidate.resources.materials_.at(instance.material);
       for (const auto texture : material.texture_handles()) {
-        if (texture == GNEISS_NULL_TEXTURE)
+        if (texture == core::null_rid)
           continue;
         result = capture_resource(texture, candidate.resources.textures_, [&](const auto handle) {
           return resources.share_texture(handle);

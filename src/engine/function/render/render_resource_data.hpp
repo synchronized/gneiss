@@ -6,7 +6,7 @@
 #include "engine/asset/material_types.hpp"
 #include "engine/asset/mesh_data.hpp"
 #include "engine/asset/texture_preparation_data.hpp"
-#include <gneiss/engine/render.h>
+#include "engine/core/rid.hpp"
 
 #include <array>
 #include <cstddef>
@@ -27,13 +27,13 @@ struct material_resource {
   float green{1.0F};
   float blue{1.0F};
   float alpha{1.0F};
-  gneiss_texture base_color_texture{};
+  core::rid base_color_texture{};
   float metallic{0.0F};
   float roughness{1.0F};
-  gneiss_texture metallic_roughness_texture{};
-  gneiss_texture normal_texture{};
-  gneiss_texture occlusion_texture{};
-  gneiss_texture emissive_texture{};
+  core::rid metallic_roughness_texture{};
+  core::rid normal_texture{};
+  core::rid occlusion_texture{};
+  core::rid emissive_texture{};
   float normal_scale{1.0F};
   float occlusion_strength{1.0F};
   std::array<float, 3> emissive{};
@@ -42,7 +42,7 @@ struct material_resource {
   float alpha_cutoff{0.5F};
   std::array<asset_internal::texture_sampling, 5> sampling{};
 
-  [[nodiscard]] std::array<gneiss_texture, 5> texture_handles() const noexcept {
+  [[nodiscard]] std::array<core::rid, 5> texture_handles() const noexcept {
     return {base_color_texture, metallic_roughness_texture, normal_texture, occlusion_texture,
             emissive_texture};
   }
@@ -50,11 +50,11 @@ struct material_resource {
     std::uint32_t mask{};
     const auto handles = texture_handles();
     for (std::size_t slot = 0; slot < handles.size(); ++slot)
-      if (handles[slot] != GNEISS_NULL_TEXTURE && sampling[slot].uv_set == 1U)
+      if (handles[slot] != core::null_rid && sampling[slot].uv_set == 1U)
         mask |= (1U << slot);
     return mask;
   }
-  void set_texture(std::size_t slot, gneiss_texture texture) noexcept {
+  void set_texture(std::size_t slot, core::rid texture) noexcept {
     const std::array slots{&base_color_texture, &metallic_roughness_texture, &normal_texture,
                            &occlusion_texture, &emissive_texture};
     *slots[slot] = texture;

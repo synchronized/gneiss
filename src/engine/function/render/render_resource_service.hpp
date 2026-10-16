@@ -4,11 +4,10 @@
 #ifndef GNEISS_RENDER_RENDER_RESOURCE_SERVICE_HPP_
 #define GNEISS_RENDER_RENDER_RESOURCE_SERVICE_HPP_
 
+#include "engine/core/rid.hpp"
 #include "engine/core/rid_table.hpp"
 #include "engine/function/render/render_resource_data.hpp"
 #include "engine/function/render/texture_view.hpp"
-
-#include <gneiss/engine/render.h>
 
 #include <array>
 #include <cstddef>
@@ -37,38 +36,38 @@ public:
 
   [[nodiscard]] bool is_valid() const noexcept { return domain_ != 0U; }
   [[nodiscard]] gneiss_result create_mesh(const asset_internal::mesh_view& desc,
-                                          gneiss_mesh* out_mesh) noexcept;
+                                          core::rid* out_mesh) noexcept;
   /** 内部 CPU 候选已经校验，移动所有权避免主线程复制大数组。 */
   [[nodiscard]] gneiss_result create_prepared_mesh(mesh_resource resource,
-                                                   gneiss_mesh* output) noexcept;
-  [[nodiscard]] bool replace_mesh(gneiss_mesh rid,
+                                                   core::rid* output) noexcept;
+  [[nodiscard]] bool replace_mesh(core::rid rid,
                                   std::shared_ptr<const mesh_resource> data) noexcept;
-  [[nodiscard]] bool replace_material(gneiss_material rid,
+  [[nodiscard]] bool replace_material(core::rid rid,
                                       std::shared_ptr<const material_resource> data) noexcept;
-  [[nodiscard]] gneiss_result destroy_mesh(gneiss_mesh mesh) noexcept;
+  [[nodiscard]] gneiss_result destroy_mesh(core::rid mesh) noexcept;
   [[nodiscard]] gneiss_result create_material(const material_resource& value,
-                                              gneiss_material* out_material) noexcept;
-  [[nodiscard]] gneiss_result destroy_material(gneiss_material material) noexcept;
+                                              core::rid* out_material) noexcept;
+  [[nodiscard]] gneiss_result destroy_material(core::rid material) noexcept;
   [[nodiscard]] gneiss_result create_texture(const texture_view& desc,
-                                             gneiss_texture* out_texture) noexcept;
+                                             core::rid* out_texture) noexcept;
   /** 创建已经过容器校验的内部多 Mip Texture。 */
   [[nodiscard]] gneiss_result create_texture(texture_resource resource,
-                                             gneiss_texture* out_texture) noexcept;
+                                             core::rid* out_texture) noexcept;
   /** 保存已经过外层容器与 Granit Manifest 检查的运行纹理。 */
   [[nodiscard]] gneiss_result create_packaged_texture(texture_resource resource,
-                                                      gneiss_texture* out_texture) noexcept;
-  [[nodiscard]] gneiss_result destroy_texture(gneiss_texture texture) noexcept;
+                                                      core::rid* out_texture) noexcept;
+  [[nodiscard]] gneiss_result destroy_texture(core::rid texture) noexcept;
   /** 主线程提交已验证候选；保持 RID generation，既有帧仍拥有旧数据快照。 */
-  [[nodiscard]] bool replace_texture(gneiss_texture texture,
+  [[nodiscard]] bool replace_texture(core::rid texture,
                                      std::shared_ptr<const texture_resource> prepared) noexcept;
-  [[nodiscard]] const mesh_resource* get_mesh(gneiss_mesh mesh) const noexcept;
-  [[nodiscard]] const material_resource* get_material(gneiss_material material) const noexcept;
-  [[nodiscard]] const texture_resource* get_texture(gneiss_texture texture) const noexcept;
-  [[nodiscard]] std::shared_ptr<const mesh_resource> share_mesh(gneiss_mesh mesh) const noexcept;
+  [[nodiscard]] const mesh_resource* get_mesh(core::rid mesh) const noexcept;
+  [[nodiscard]] const material_resource* get_material(core::rid material) const noexcept;
+  [[nodiscard]] const texture_resource* get_texture(core::rid texture) const noexcept;
+  [[nodiscard]] std::shared_ptr<const mesh_resource> share_mesh(core::rid mesh) const noexcept;
   [[nodiscard]] std::shared_ptr<const material_resource>
-  share_material(gneiss_material material) const noexcept;
+  share_material(core::rid material) const noexcept;
   [[nodiscard]] std::shared_ptr<const texture_resource>
-  share_texture(gneiss_texture texture) const noexcept;
+  share_texture(core::rid texture) const noexcept;
   [[nodiscard]] std::size_t live_resource_count() const noexcept;
 
 private:

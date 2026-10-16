@@ -32,7 +32,7 @@ material_for_publication(const gneiss::asset_internal::material_parameters& para
       .green = parameters.color[1],
       .blue = parameters.color[2],
       .alpha = parameters.color[3],
-      .base_color_texture = GNEISS_NULL_TEXTURE,
+      .base_color_texture = gneiss::core::null_rid,
       .metallic = parameters.metallic,
       .roughness = parameters.roughness,
   };
@@ -68,31 +68,32 @@ constexpr std::uint32_t material_type = 2;
 constexpr std::uint32_t texture_type = 3;
 
 struct mesh_asset final {
-  mesh_asset(gneiss::render_internal::render_resource_service& owner, gneiss_mesh value) noexcept
+  mesh_asset(gneiss::render_internal::render_resource_service& owner,
+             gneiss::core::rid value) noexcept
       : resources(&owner), rid(value) {}
   mesh_asset(const mesh_asset&) = delete;
   mesh_asset& operator=(const mesh_asset&) = delete;
   gneiss::render_internal::render_resource_service* resources;
-  gneiss_mesh rid;
+  gneiss::core::rid rid;
   ~mesh_asset() {
-    if (resources != nullptr && rid != GNEISS_NULL_MESH) {
+    if (resources != nullptr && rid != gneiss::core::null_rid) {
       (void)resources->destroy_mesh(rid);
     }
   }
 };
 
 struct material_asset final {
-  material_asset(gneiss::render_internal::render_resource_service& owner, gneiss_material value,
+  material_asset(gneiss::render_internal::render_resource_service& owner, gneiss::core::rid value,
                  std::array<std::shared_ptr<const gneiss::asset_internal::resource_cache::entry>, 5>
                      texture_dependencies = {}) noexcept
       : resources(&owner), rid(value), textures(std::move(texture_dependencies)) {}
   material_asset(const material_asset&) = delete;
   material_asset& operator=(const material_asset&) = delete;
   gneiss::render_internal::render_resource_service* resources;
-  gneiss_material rid;
+  gneiss::core::rid rid;
   std::array<std::shared_ptr<const gneiss::asset_internal::resource_cache::entry>, 5> textures;
   ~material_asset() {
-    if (resources != nullptr && rid != GNEISS_NULL_MATERIAL) {
+    if (resources != nullptr && rid != gneiss::core::null_rid) {
       (void)resources->destroy_material(rid);
     }
   }
@@ -100,14 +101,14 @@ struct material_asset final {
 
 struct texture_asset final {
   texture_asset(gneiss::render_internal::render_resource_service& owner,
-                gneiss_texture value) noexcept
+                gneiss::core::rid value) noexcept
       : resources(&owner), rid(value) {}
   texture_asset(const texture_asset&) = delete;
   texture_asset& operator=(const texture_asset&) = delete;
   gneiss::render_internal::render_resource_service* resources;
-  gneiss_texture rid;
+  gneiss::core::rid rid;
   ~texture_asset() {
-    if (resources != nullptr && rid != GNEISS_NULL_TEXTURE) {
+    if (resources != nullptr && rid != gneiss::core::null_rid) {
       (void)resources->destroy_texture(rid);
     }
   }
@@ -117,23 +118,23 @@ struct texture_asset final {
 
 namespace gneiss::render_internal {
 
-gneiss_mesh mesh_asset_lease::get() const noexcept {
+gneiss::core::rid mesh_asset_lease::get() const noexcept {
   if (entry_ == nullptr || entry_->resource == nullptr) {
-    return GNEISS_NULL_MESH;
+    return gneiss::core::null_rid;
   }
   return std::static_pointer_cast<mesh_asset>(entry_->resource)->rid;
 }
 
-gneiss_material material_asset_lease::get() const noexcept {
+gneiss::core::rid material_asset_lease::get() const noexcept {
   if (entry_ == nullptr || entry_->resource == nullptr) {
-    return GNEISS_NULL_MATERIAL;
+    return gneiss::core::null_rid;
   }
   return std::static_pointer_cast<material_asset>(entry_->resource)->rid;
 }
 
-gneiss_texture texture_asset_lease::get() const noexcept {
+gneiss::core::rid texture_asset_lease::get() const noexcept {
   if (entry_ == nullptr || entry_->resource == nullptr) {
-    return GNEISS_NULL_TEXTURE;
+    return gneiss::core::null_rid;
   }
   return std::static_pointer_cast<texture_asset>(entry_->resource)->rid;
 }
@@ -621,7 +622,7 @@ gneiss_result render_asset_loader::acquire_mesh(std::string_view uri, mesh_asset
                                              .tangents = tangents,
                                              .uv1 = uv1,
                                              .colors = colors};
-        gneiss_mesh rid = GNEISS_NULL_MESH;
+        gneiss::core::rid rid = gneiss::core::null_rid;
         result = resources_.create_mesh(desc, &rid);
         if (result != GNEISS_SUCCESS) {
           fail(out_diagnostic, result, "", "创建 Mesh RID 失败");
@@ -696,7 +697,7 @@ gneiss_result render_asset_loader::acquire_material(std::string_view uri,
           material.set_texture(slot, texture.get());
           dependencies[slot] = texture.entry_;
         }
-        gneiss_material rid = GNEISS_NULL_MATERIAL;
+        gneiss::core::rid rid = gneiss::core::null_rid;
         result = resources_.create_material(material, &rid);
         if (result != GNEISS_SUCCESS) {
           fail(out_diagnostic, result, "", "创建 Material RID 失败");
@@ -743,7 +744,7 @@ gneiss_result render_asset_loader::acquire_texture(std::string_view uri,
         if (result != GNEISS_SUCCESS) {
           return result;
         }
-        gneiss_texture rid = GNEISS_NULL_TEXTURE;
+        gneiss::core::rid rid = gneiss::core::null_rid;
         auto texture = texture_for_publication(std::move(prepared));
         result = texture.manifest.empty()
                      ? resources_.create_texture(std::move(texture), &rid)
@@ -796,7 +797,7 @@ gneiss_result render_asset_loader::stage_texture(const texture_target& target,
     }
     texture_candidate candidate;
     candidate.target = target;
-    gneiss_texture staged = GNEISS_NULL_TEXTURE;
+    gneiss::core::rid staged = gneiss::core::null_rid;
     auto texture = texture_for_publication(std::move(prepared));
     const auto created = texture.manifest.empty()
                              ? resources_.create_texture(std::move(texture), &staged)

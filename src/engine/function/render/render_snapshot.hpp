@@ -4,9 +4,9 @@
 #ifndef GNEISS_RENDER_RENDER_SNAPSHOT_HPP_
 #define GNEISS_RENDER_RENDER_SNAPSHOT_HPP_
 
+#include "engine/core/rid.hpp"
 #include "engine/function/render/camera_math.hpp"
 #include <cstdint>
-#include <gneiss/engine/render.h>
 
 #include <vector>
 
@@ -29,8 +29,8 @@ struct render_camera_snapshot {
 };
 
 struct render_instance_snapshot {
-  gneiss_mesh mesh;
-  gneiss_material material;
+  core::rid mesh;
+  core::rid material;
   engine::transform transform;
 };
 

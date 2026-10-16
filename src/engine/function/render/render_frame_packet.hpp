@@ -4,11 +4,12 @@
 #ifndef GNEISS_RENDER_RENDER_FRAME_PACKET_HPP_
 #define GNEISS_RENDER_RENDER_FRAME_PACKET_HPP_
 
-#include "engine/platform/native_window_info.hpp"
+#include "engine/core/rid.hpp"
 #include "engine/function/render/debug_draw_list.hpp"
 #include "engine/function/render/render_resource_service.hpp"
 #include "engine/function/render/render_snapshot.hpp"
 #include "engine/function/render/ui_draw_list.hpp"
+#include "engine/platform/native_window_info.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -18,9 +19,9 @@ namespace gneiss::render_internal {
 
 class render_resource_snapshot final {
 public:
-  [[nodiscard]] const mesh_resource* get_mesh(gneiss_mesh mesh) const noexcept;
-  [[nodiscard]] const material_resource* get_material(gneiss_material material) const noexcept;
-  [[nodiscard]] const texture_resource* get_texture(gneiss_texture texture) const noexcept;
+  [[nodiscard]] const mesh_resource* get_mesh(core::rid mesh) const noexcept;
+  [[nodiscard]] const material_resource* get_material(core::rid material) const noexcept;
+  [[nodiscard]] const texture_resource* get_texture(core::rid texture) const noexcept;
 
 private:
   friend gneiss_result capture_render_frame_packet(const platform::native_window_info&,
@@ -29,9 +30,9 @@ private:
                                                    const ui_draw_list&, const debug_draw_list&,
                                                    struct render_frame_packet&) noexcept;
 
-  std::unordered_map<gneiss_mesh, std::shared_ptr<const mesh_resource>> meshes_;
-  std::unordered_map<gneiss_material, std::shared_ptr<const material_resource>> materials_;
-  std::unordered_map<gneiss_texture, std::shared_ptr<const texture_resource>> textures_;
+  std::unordered_map<core::rid, std::shared_ptr<const mesh_resource>> meshes_;
+  std::unordered_map<core::rid, std::shared_ptr<const material_resource>> materials_;
+  std::unordered_map<core::rid, std::shared_ptr<const texture_resource>> textures_;
 };
 
 struct render_frame_capture_metrics final {

@@ -162,10 +162,9 @@ granit::result granit_render_service::initialize_pipeline() noexcept {
   return result;
 }
 
-void granit_render_service::log_texture(gneiss_texture rid, const char* stage,
-                                        granit::result result, std::uint32_t variant,
-                                        granit::texture_format format, std::uint32_t mips,
-                                        std::uint64_t bytes) noexcept {
+void granit_render_service::log_texture(core::rid rid, const char* stage, granit::result result,
+                                        std::uint32_t variant, granit::texture_format format,
+                                        std::uint32_t mips, std::uint64_t bytes) noexcept {
   if (log_ == nullptr) {
     return;
   }
@@ -207,7 +206,7 @@ void granit_render_service::log_texture(gneiss_texture rid, const char* stage,
 
 granit::result
 granit_render_service::create_texture_mirror(const render_internal::texture_resource& source,
-                                             texture_mirror& output, gneiss_texture rid) noexcept {
+                                             texture_mirror& output, core::rid rid) noexcept {
   if (source.profile.generation != 0U && source.profile != texture_profile_) {
     return granit::result::invalid_argument;
   }
@@ -1240,7 +1239,7 @@ granit_render_service::execute_frame(render_internal::render_frame_packet& packe
       const auto handles = material->texture_handles();
       for (std::size_t slot = 0; slot < handles.size(); ++slot) {
         const auto handle = handles[slot];
-        if (handle == GNEISS_NULL_TEXTURE)
+        if (handle == core::null_rid)
           continue;
         const auto* texture = resources.get_texture(handle);
         if (texture == nullptr)

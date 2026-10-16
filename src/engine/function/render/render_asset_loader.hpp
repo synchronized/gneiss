@@ -5,6 +5,7 @@
 #define GNEISS_RENDER_RENDER_ASSET_LOADER_HPP_
 
 #include "engine/asset/resource_cache.hpp"
+#include "engine/core/rid.hpp"
 #include "engine/function/render/render_asset_preparation.hpp"
 #include "engine/function/render/render_resource_data.hpp"
 
@@ -54,7 +55,7 @@ struct render_upload_item {
 
 class mesh_asset_lease final {
 public:
-  [[nodiscard]] gneiss_mesh get() const noexcept;
+  [[nodiscard]] core::rid get() const noexcept;
   [[nodiscard]] explicit operator bool() const noexcept { return entry_ != nullptr; }
 
 private:
@@ -64,7 +65,7 @@ private:
 
 class material_asset_lease final {
 public:
-  [[nodiscard]] gneiss_material get() const noexcept;
+  [[nodiscard]] core::rid get() const noexcept;
   [[nodiscard]] explicit operator bool() const noexcept { return entry_ != nullptr; }
 
 private:
@@ -74,7 +75,7 @@ private:
 
 class texture_asset_lease final {
 public:
-  [[nodiscard]] gneiss_texture get() const noexcept;
+  [[nodiscard]] core::rid get() const noexcept;
   [[nodiscard]] explicit operator bool() const noexcept { return entry_ != nullptr; }
 
 private:

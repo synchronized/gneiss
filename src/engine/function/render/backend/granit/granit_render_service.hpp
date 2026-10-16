@@ -4,6 +4,7 @@
 #ifndef GNEISS_RENDER_BACKEND_GRANIT_GRANIT_RENDER_SERVICE_HPP_
 #define GNEISS_RENDER_BACKEND_GRANIT_GRANIT_RENDER_SERVICE_HPP_
 
+#include "engine/core/rid.hpp"
 #include "engine/function/render/backend/granit/pbr_shader_resolver.hpp"
 #include "engine/function/render/debug_draw_list.hpp"
 #include "engine/function/render/render_asset_loader.hpp"
@@ -142,10 +143,9 @@ private:
   [[nodiscard]] granit::result initialize_pipeline() noexcept;
   [[nodiscard]] granit::result
   create_texture_mirror(const render_internal::texture_resource& source, texture_mirror& output,
-                        gneiss_texture rid = GNEISS_NULL_TEXTURE) noexcept;
-  void log_texture(gneiss_texture rid, const char* stage, granit::result result,
-                   std::uint32_t variant, granit::texture_format format, std::uint32_t mips,
-                   std::uint64_t bytes) noexcept;
+                        core::rid rid = core::null_rid) noexcept;
+  void log_texture(core::rid rid, const char* stage, granit::result result, std::uint32_t variant,
+                   granit::texture_format format, std::uint32_t mips, std::uint64_t bytes) noexcept;
   [[nodiscard]] granit::result
   create_material_mirror(const render_internal::material_resource& source,
                          const std::array<granit_texture_view, 5>& textures,
@@ -176,9 +176,9 @@ private:
   texture_mirror default_white_srgb_;
   texture_mirror default_white_linear_;
   texture_mirror default_normal_linear_;
-  std::unordered_map<gneiss_texture, texture_mirror> texture_mirrors_;
-  std::unordered_map<gneiss_mesh, mesh_mirror> mesh_mirrors_;
-  std::unordered_map<gneiss_material, material_mirror> material_mirrors_;
+  std::unordered_map<core::rid, texture_mirror> texture_mirrors_;
+  std::unordered_map<core::rid, mesh_mirror> mesh_mirrors_;
+  std::unordered_map<core::rid, material_mirror> material_mirrors_;
   granit::texture_format swapchain_format_{granit::texture_format::undefined};
   std::uint64_t last_pipeline_metric_sequence_{};
   bool gpu_timing_supported_{};
