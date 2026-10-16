@@ -251,11 +251,12 @@ Runtime 宿主。先核对构建和导出，不能直接将所有宿主指向私
 
 ### 已确认：原生宿主与 C 句柄的关闭权
 
-2026-10-16，用户确认方案 A，决策已补入 ADR-062。以下保留方案对照；借用桥接首批已实现，宿主接入仍在推进。
+2026-10-16，用户确认方案 A，决策已补入 ADR-062。以下保留方案对照；借用桥接及三个原生宿主拥有链路已实现，回调边界仍在迁移；详见
+[原生宿主接入记录](../records/M-332-native-host-ownership.md)。
 
-源码证据：`application_registry.cpp` 的表项持有 `shared_ptr<Application>`，
+决策时源码证据：`application_registry.cpp` 的表项持有原生对象共享引用，
 `destroy_application` 会先调用对象 shutdown，再移除 RID；共享引用只保活内存，不阻止关闭。
-`apps/runtime/main.cpp` 当前由 SDK 包装拥有 Application，并把句柄传给资产、场景和
+`apps/runtime/main.cpp` 当时由 SDK 包装拥有 Application，并把句柄传给资产、场景和
 `create_game_context`；后者在 `game_context.cpp` 解析 Application 并保存句柄。
 动态游戏模块公开的是 Game Context，不是因此就必须公开原始 Application 指针。
 

@@ -15,28 +15,64 @@ void check(bool condition) {
     throw std::runtime_error("原生 Application 生命周期验收失败");
   }
 }
-struct Context {
+struct context {
   std::uint64_t frames{}, shutdowns{}, initializations{};
   bool fail{};
 };
 }
 
+namespace {
+void test_platform_callbacks() {
+  std::shared_ptr<gneiss::engine::application> app;
+  // 原生平台回调使用强类型结果和 bool；异常不能跳过配对关闭。
+  gneiss::application_internal::application_configuration platform_config;
+  unsigned shutdowns{};
+  platform_config.callbacks.initialize = []() -> gneiss::result {
+    throw std::runtime_error("初始化失败");
+  };
+  platform_config.callbacks.shutdown = [&] { ++shutdowns; };
+  check(gneiss::engine::application::create(platform_config, app) == GNEISS_ERROR_INTERNAL);
+  check(!app && shutdowns == 1U);
+  platform_config.callbacks.initialize = [] { return gneiss::result::success; };
+  unsigned polls{};
+  platform_config.callbacks.poll_events = [&](bool& close) {
+    ++polls;
+    close = true;
+    return gneiss::result::success;
+  };
+  check(gneiss::engine::application::create(platform_config, app) == GNEISS_SUCCESS);
+  check(app->run(GNEISS_NULL_APPLICATION, 3U) == GNEISS_SUCCESS && polls == 1U);
+  app.reset();
+  check(shutdowns == 2U);
+  platform_config.callbacks.poll_events = [](bool&) -> gneiss::result { throw std::bad_alloc{}; };
+  platform_config.callbacks.shutdown = [&] {
+    ++shutdowns;
+    throw std::runtime_error("关闭失败");
+  };
+  check(gneiss::engine::application::create(platform_config, app) == GNEISS_SUCCESS);
+  check(app->run(GNEISS_NULL_APPLICATION, 1U) == GNEISS_ERROR_OUT_OF_MEMORY);
+  check(app->shutdown(GNEISS_NULL_APPLICATION) == GNEISS_ERROR_INTERNAL);
+  check(!app->accepts_requests());
+  app.reset();
+  check(shutdowns == 3U);
+}
+} // namespace
+
 int main() try {
-  Context state;
+  context state;
   gneiss::application_internal::application_configuration config;
   config.callbacks.user_data = &state;
-  config.callbacks.initialize = [](void* data) -> gneiss_result {
-    auto& value = *static_cast<Context*>(data);
-    ++value.initializations;
-    return value.fail ? GNEISS_ERROR_INITIALIZATION_FAILED : GNEISS_SUCCESS;
+  config.callbacks.initialize = [&state] {
+    ++state.initializations;
+    return state.fail ? gneiss::result::initialization_failed : gneiss::result::success;
   };
-  config.callbacks.shutdown = [](void* data) { ++static_cast<Context*>(data)->shutdowns; };
+  config.callbacks.shutdown = [&state] { ++state.shutdowns; };
   config.callbacks.update = [](gneiss_application handle, const gneiss_frame_time*,
                                void* data) -> gneiss_result {
     if (handle != GNEISS_NULL_APPLICATION) {
       return GNEISS_ERROR_INVALID_HANDLE;
     }
-    ++static_cast<Context*>(data)->frames;
+    ++static_cast<context*>(data)->frames;
     return GNEISS_SUCCESS;
   };
   std::atomic<unsigned> delivered{};
@@ -115,6 +151,7 @@ int main() try {
   check(state.shutdowns == 3U);
   check(gneiss_application_get_world(expired, &world) == GNEISS_ERROR_INVALID_HANDLE);
   check(bridge.reset() == GNEISS_SUCCESS);
+  test_platform_callbacks();
   return 0;
 } catch (const std::exception& error) {
   std::fprintf(stderr, "%s\n", error.what());

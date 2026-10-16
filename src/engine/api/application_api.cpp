@@ -83,15 +83,15 @@ extern "C" gneiss_result gneiss_application_create(const gneiss_application_desc
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
   try {
-    const gneiss::application_internal::application_configuration config{
+    gneiss::application_internal::application_configuration config{
         .callbacks =
             {
                 .user_data = normalized_desc.user_data,
-                .initialize = normalized_desc.initialize,
-                .poll_events = normalized_desc.poll_events,
+                .initialize = {},
+                .poll_events = {},
                 .now_ns = normalized_desc.now_ns,
                 .update = normalized_desc.update,
-                .shutdown = normalized_desc.shutdown,
+                .shutdown = {},
                 .diagnostic = normalized_desc.diagnostic,
                 .close_requested = normalized_desc.close_requested,
                 .log = normalized_desc.log == nullptr
@@ -126,6 +126,24 @@ extern "C" gneiss_result gneiss_application_create(const gneiss_application_desc
         .environment_intensity = normalized_desc.environment_intensity,
         .environment_rotation_radians = normalized_desc.environment_rotation_radians,
     };
+    // C 回调只在 ABI 边界适配；不捕获描述结构或调用方输出地址。
+    auto* const user_data = normalized_desc.user_data;
+    if (const auto callback = normalized_desc.initialize) {
+      config.callbacks.initialize = [callback, user_data] {
+        return gneiss::from_native(callback(user_data));
+      };
+    }
+    if (const auto callback = normalized_desc.poll_events) {
+      config.callbacks.poll_events = [callback, user_data](bool& should_close) {
+        std::uint8_t close{};
+        const auto operation = callback(user_data, &close);
+        should_close = close != 0U;
+        return gneiss::from_native(operation);
+      };
+    }
+    if (const auto callback = normalized_desc.shutdown) {
+      config.callbacks.shutdown = [callback, user_data] { callback(user_data); };
+    }
     return gneiss::application_internal::create_application(config, *out_application);
   } catch (const std::bad_alloc&) {
     return GNEISS_ERROR_OUT_OF_MEMORY;

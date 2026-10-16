@@ -352,8 +352,14 @@ gneiss_result application::initialize() noexcept {
 #endif
   }
   if (storage_->config_.callbacks.initialize != nullptr) {
-    const auto result =
-        storage_->config_.callbacks.initialize(storage_->config_.callbacks.user_data);
+    auto result = GNEISS_SUCCESS;
+    try {
+      result = to_native(storage_->config_.callbacks.initialize());
+    } catch (const std::bad_alloc&) {
+      result = GNEISS_ERROR_OUT_OF_MEMORY;
+    } catch (...) {
+      result = GNEISS_ERROR_INTERNAL;
+    }
     if (result != GNEISS_SUCCESS) {
       report(GNEISS_NULL_APPLICATION, GNEISS_DIAGNOSTIC_ERROR,
              GNEISS_DIAGNOSTIC_CATEGORY_APPLICATION, result, "application.initialize",
@@ -445,11 +451,13 @@ gneiss_result application::poll_events(bool& out_should_close) noexcept {
   if (storage_->config_.callbacks.poll_events == nullptr) {
     return GNEISS_SUCCESS;
   }
-  uint8_t should_close = 0;
-  const auto result =
-      storage_->config_.callbacks.poll_events(storage_->config_.callbacks.user_data, &should_close);
-  out_should_close = should_close != 0U;
-  return result;
+  try {
+    return to_native(storage_->config_.callbacks.poll_events(out_should_close));
+  } catch (const std::bad_alloc&) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
 }
 
 gneiss_result application::poll_input(gneiss_input_event& out_event) noexcept {
@@ -808,7 +816,13 @@ gneiss_result application::shutdown(gneiss_application handle) noexcept {
 #endif
   if (storage_->platform_initialized_) {
     if (storage_->config_.callbacks.shutdown != nullptr) {
-      storage_->config_.callbacks.shutdown(storage_->config_.callbacks.user_data);
+      try {
+        storage_->config_.callbacks.shutdown();
+      } catch (const std::bad_alloc&) {
+        shutdown_result = GNEISS_ERROR_OUT_OF_MEMORY;
+      } catch (...) {
+        shutdown_result = GNEISS_ERROR_INTERNAL;
+      }
     }
     storage_->platform_initialized_ = false;
   }
@@ -816,7 +830,10 @@ gneiss_result application::shutdown(gneiss_application handle) noexcept {
   if (storage_->granit_render_service_ != nullptr) {
     const auto render_stats = storage_->granit_render_service_->query_performance_stats();
     granit::renderer_resource_stats stats;
-    shutdown_result = storage_->granit_render_service_->shutdown(stats);
+    const auto render_shutdown_result = storage_->granit_render_service_->shutdown(stats);
+    if (shutdown_result == GNEISS_SUCCESS) {
+      shutdown_result = render_shutdown_result;
+    }
     std::array<char, 768> performance_message{};
     const auto performance_written = std::snprintf(
         performance_message.data(), performance_message.size(),
