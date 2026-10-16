@@ -16,6 +16,8 @@ public:
   result request(gneiss_application application, tasks::task_executor& executor,
                  editor_session& session, editor_command_history& history, std::string_view name,
                  std::string_view uri, scene_node_id parent);
+  result request_remove(gneiss_application application, editor_session& session,
+                        editor_command_history& history, scene_node_id root);
   void advance();
   void cancel();
   bool active() const noexcept;

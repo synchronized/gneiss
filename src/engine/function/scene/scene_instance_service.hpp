@@ -200,6 +200,15 @@ public:
   [[nodiscard]] gneiss_result get_prefab_node_info(gneiss_scene_instance instance,
                                                    std::uint64_t index,
                                                    prefab_node_view& out_info) const noexcept;
+  /** 捕获实际实例版本与作者覆盖，不读文件；所有输出仅在成功时替换。 */
+  [[nodiscard]] gneiss_result capture_prefab_header(gneiss_scene_instance instance,
+                                                    std::string_view uuid,
+                                                    prefab_instance_description& author,
+                                                    prefab_asset_lease& source) const noexcept;
+  /** 按来源索引捕获实际资源租约，允许调用方分帧构建历史快照。 */
+  [[nodiscard]] gneiss_result capture_prefab_binding(gneiss_scene_instance instance,
+                                                     std::string_view uuid, std::size_t index,
+                                                     mesh_binding& output) const noexcept;
   [[nodiscard]] gneiss_result create_prefab_instance(gneiss_scene_instance instance,
                                                      const prefab_creation& desc,
                                                      gneiss_scene_node_id* out_root) noexcept;

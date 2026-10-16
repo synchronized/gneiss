@@ -669,6 +669,72 @@ gneiss_result scene_instance::get_prefab_node_info(std::uint64_t index,
   return GNEISS_ERROR_NOT_FOUND;
 }
 
+gneiss_result
+scene_instance_service::capture_prefab_header(gneiss_scene_instance instance, std::string_view uuid,
+                                              prefab_instance_description& author,
+                                              prefab_asset_lease& source) const noexcept try {
+  std::uint64_t count{};
+  const auto thread = world_internal::entity_count(world_, count);
+  if (thread != GNEISS_SUCCESS) {
+    return thread;
+  }
+  const auto* slot = instances_.get(instance, core::resource_type::scene_instance);
+  if (slot == nullptr) {
+    return GNEISS_ERROR_INVALID_HANDLE;
+  }
+  const auto& scene = **slot;
+  const auto found = std::ranges::find(scene.description.prefab_instances, uuid,
+                                       &prefab_instance_description::instance_uuid);
+  if (found == scene.description.prefab_instances.end()) {
+    return GNEISS_ERROR_NOT_FOUND;
+  }
+  const auto index = static_cast<std::size_t>(found - scene.description.prefab_instances.begin());
+  auto copy = *found;
+  gneiss_transform transform{};
+  const auto queried = world_internal::node_get_local_transform(
+      world_, scene.prefab_instances[index]->root(), transform);
+  if (queried != GNEISS_SUCCESS) {
+    return queried;
+  }
+  std::ranges::copy(transform.translation, copy.translation.begin());
+  std::ranges::copy(transform.rotation, copy.rotation.begin());
+  std::ranges::copy(transform.scale, copy.scale.begin());
+  source = scene.prefab_instances[index]->prefab_lease();
+  author = std::move(copy);
+  return GNEISS_SUCCESS;
+} catch (const std::bad_alloc&) {
+  return GNEISS_ERROR_OUT_OF_MEMORY;
+} catch (...) {
+  return GNEISS_ERROR_INTERNAL;
+}
+
+gneiss_result scene_instance_service::capture_prefab_binding(gneiss_scene_instance instance,
+                                                             std::string_view uuid,
+                                                             std::size_t index,
+                                                             mesh_binding& output) const noexcept {
+  std::uint64_t count{};
+  const auto thread = world_internal::entity_count(world_, count);
+  if (thread != GNEISS_SUCCESS) {
+    return thread;
+  }
+  const auto* slot = instances_.get(instance, core::resource_type::scene_instance);
+  if (slot == nullptr) {
+    return GNEISS_ERROR_INVALID_HANDLE;
+  }
+  const auto found = std::ranges::find_if(
+      (*slot)->prefab_instances, [&](const auto& value) { return value->instance_uuid_ == uuid; });
+  if (found == (*slot)->prefab_instances.end()) {
+    return GNEISS_ERROR_NOT_FOUND;
+  }
+  if (index >= (*found)->nodes_.size()) {
+    return GNEISS_ERROR_NOT_FOUND;
+  }
+  const auto& node = (*found)->nodes_[index];
+  output = {.mesh = render_internal::render_asset_loader::asset_lease(node.mesh),
+            .material = render_internal::render_asset_loader::asset_lease(node.material)};
+  return GNEISS_SUCCESS;
+}
+
 gneiss_result scene_instance_service::begin_prefab_candidate(
     gneiss_scene_instance instance, const prefab_instance_description& author,
     prefab_asset_lease prefab, prefab_description prepared,

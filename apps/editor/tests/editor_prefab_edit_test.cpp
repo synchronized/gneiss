@@ -97,6 +97,20 @@ void run(tasks::execution_mode mode) {
     }
     check(outcome == expected);
   };
+  // 旧场景加载/同步实例没有发布组，也必须支持分步退出与历史恢复。
+  scene_node_id legacy;
+  check(session.create_prefab_instance("Legacy", "asset://prefab.json", {}, legacy) ==
+        result::success);
+  check(edit.request_remove(app.get(), session, history, legacy) == result::success);
+  drive();
+  check(edit.operation() == result::success && session.prefab_nodes().empty());
+  check(history.undo() == result::not_ready);
+  drive_history();
+  check(session.prefab_nodes().size() == 151U);
+  check(history.redo() == result::not_ready);
+  drive_history();
+  check(session.prefab_nodes().empty());
+  history.clear();
   check(request() == result::success);
   const auto preparation_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(15);
   while (edit.active() && edit.phase() != editor::prefab_edit_phase::constructing) {
@@ -144,6 +158,50 @@ void run(tasks::execution_mode mode) {
   drive_history();
   check(session.prefab_nodes().size() == 151U &&
         session.prefab_nodes().front().instance_uuid == uuid);
+  // 删除保存实际版本和覆盖；恢复不依赖来源文件或旧节点 ID。
+  editor::editor_command_history deletion_history;
+  auto root_node = session.find_prefab_root(uuid)->node;
+  const auto source_uuid = session.prefab_nodes()[1U].source_node_uuid;
+  auto local = session.find_prefab_source(uuid, source_uuid)->local_transform;
+  local.translation[0] = 17.0F;
+  check(session.set_local_transform(session.find_prefab_source(uuid, source_uuid)->node, local) ==
+        result::success);
+  auto root_local = session.find_prefab_root(uuid)->local_transform;
+  root_local.translation[1] = 7.0F;
+  check(session.set_local_transform(root_node, root_local) == result::success);
+  check(session.rename_prefab_instance(root_node, "Renamed") == result::success);
+  check(edit.request_remove(app.get(), session, deletion_history, root_node) == result::success);
+  step();
+  edit.cancel();
+  drive();
+  check(deletion_history.size() == 0U && session.prefab_nodes().size() == 151U);
+  check(edit.request_remove(app.get(), session, deletion_history, root_node) == result::success);
+  drive();
+  check(edit.operation() == result::success && session.prefab_nodes().empty() &&
+        deletion_history.size() == 1U);
+  const auto restore_deleted = [&] {
+    check(deletion_history.undo() == result::not_ready);
+    result restored = result::not_ready;
+    unsigned turns{};
+    while (deletion_history.is_pending()) {
+      restored = deletion_history.advance_pending();
+      check(++turns < 1000U);
+    }
+    check(restored == result::success);
+    check(session.find_prefab_root(uuid)->display_name == "Renamed");
+    check(session.find_prefab_root(uuid)->local_transform.translation[1] == 7.0F);
+    check(session.find_prefab_source(uuid, source_uuid)->local_transform.translation[0] == 17.0F);
+    check(session.find_prefab_source(uuid, source_uuid)->override_flags != 0U);
+  };
+  restore_deleted();
+  check(session.find_prefab_root(uuid)->node != root_node);
+  check(deletion_history.redo() == result::not_ready);
+  while (deletion_history.is_pending()) {
+    (void)deletion_history.advance_pending();
+  }
+  check(session.prefab_nodes().empty());
+  restore_deleted();
+  deletion_history.clear();
   check(request() == result::success);
   drive();
   check(edit.operation().failed() && history.size() == 1U && session.prefab_nodes().size() == 151U);

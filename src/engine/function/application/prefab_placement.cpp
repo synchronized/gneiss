@@ -3,6 +3,7 @@
 #include "engine/function/application/prefab_placement.hpp"
 #include "engine/function/application/application_registry.hpp"
 #include "engine/function/application/application_state.hpp"
+#include "engine/function/scene/structural_diff.hpp"
 #include "engine/function/world/world_service.hpp"
 #include <algorithm>
 
@@ -16,6 +17,53 @@ gneiss_transform transform_of(const scene_internal::object_description& object) 
   return value;
 }
 }
+gneiss_result prefab_placement::capture_step(gneiss_application application, std::string_view uuid,
+                                             gneiss_scene_instance scene,
+                                             std::shared_ptr<prefab_placement_snapshot>& snapshot,
+                                             bool& complete) noexcept try {
+  complete = false;
+  auto host = find_application(application);
+  const auto validation = validate_application(host);
+  if (validation != GNEISS_SUCCESS) {
+    return validation;
+  }
+  if (!snapshot) {
+    auto candidate = std::make_shared<prefab_placement_snapshot>();
+    auto result =
+        host->scenes()->capture_prefab_header(scene, uuid, candidate->author, candidate->prefab);
+    if (result != GNEISS_SUCCESS) {
+      return result;
+    }
+    scene_internal::structural_diff order;
+    result = scene_internal::build_structural_diff({}, candidate->prefab.get()->objects, order);
+    if (result != GNEISS_SUCCESS) {
+      return result;
+    }
+    candidate->order.reserve(order.added.size());
+    for (const auto& entry : order.added) {
+      candidate->order.push_back(entry.new_index);
+    }
+    candidate->bindings.reserve(candidate->order.size());
+    snapshot = std::move(candidate);
+  }
+  for (unsigned step = 0; step < 64U && snapshot->bindings.size() < snapshot->order.size();
+       ++step) {
+    scene_internal::scene_mesh_binding binding;
+    const auto result =
+        host->scenes()->capture_prefab_binding(scene, uuid, snapshot->bindings.size(), binding);
+    if (result != GNEISS_SUCCESS) {
+      return result;
+    }
+    snapshot->bindings.push_back(std::move(binding));
+  }
+  complete = snapshot->bindings.size() == snapshot->order.size();
+  return GNEISS_SUCCESS;
+} catch (const std::bad_alloc&) {
+  return GNEISS_ERROR_OUT_OF_MEMORY;
+} catch (...) {
+  return GNEISS_ERROR_INTERNAL;
+}
+
 gneiss_result
 prefab_placement::freeze(scene_internal::prepared_prefab_description prepared,
                          scene_internal::prefab_instance_description author,
@@ -83,14 +131,19 @@ gneiss_result prefab_placement::create_next_node() {
     const auto found = snapshot_->assets.find(uri);
     return found == snapshot_->assets.end() ? render_internal::render_asset_lease{} : found->second;
   };
+  scene_internal::scene_mesh_binding binding;
+  if (!snapshot_->bindings.empty()) {
+    binding = snapshot_->bindings.at(index);
+  } else if (source.mesh_renderer) {
+    binding = {
+        .mesh = find(source.mesh_renderer->mesh_uri),
+        .material = find(source.mesh_renderer->material_uri),
+    };
+  }
   const auto result = runtime_->create_staged_node(
       index, source.parent_uuid ? nodes_.at(*source.parent_uuid) : runtime_->root(),
-      render_internal::render_asset_loader::mesh_lease(source.mesh_renderer
-                                                           ? find(source.mesh_renderer->mesh_uri)
-                                                           : render_internal::render_asset_lease{}),
-      render_internal::render_asset_loader::material_lease(
-          source.mesh_renderer ? find(source.mesh_renderer->material_uri)
-                               : render_internal::render_asset_lease{}));
+      render_internal::render_asset_loader::mesh_lease(binding.mesh),
+      render_internal::render_asset_loader::material_lease(binding.material));
   if (result != GNEISS_SUCCESS) {
     return result;
   }

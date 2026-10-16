@@ -2185,35 +2185,11 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
         }
         ImGui::SameLine();
         if (ImGui::Button("Delete Prefab")) {
-          gneiss::editor::prefab_instance_snapshot snapshot;
-          state.history_error =
-              state.session.destroy_prefab_instance(prefab_selected->node, snapshot);
-          if (state.history_error == gneiss::result::success) {
-            state.history_error = state.history.record(
-                {.label = "删除 Prefab 实例",
-                 .undo =
-                     [&state, snapshot] {
-                       gneiss::scene_node_id restored;
-                       return state.session.restore_prefab_instance(snapshot, restored);
-                     },
-                 .redo =
-                     [&state, uuid = snapshot.instance_uuid] {
-                       const auto* current = state.session.find_prefab_root(uuid);
-                       if (current == nullptr) {
-                         return gneiss::result::not_found;
-                       }
-                       gneiss::editor::prefab_instance_snapshot discarded;
-                       return state.session.destroy_prefab_instance(current->node, discarded);
-                     },
-                 .merge_key = {}});
-            if (state.history_error != gneiss::result::success) {
-              gneiss::scene_node_id restored;
-              (void)state.session.restore_prefab_instance(snapshot, restored);
-            }
-          }
+          state.history_error = state.prefab_edit.request_remove(
+              application, state.session, state.history, prefab_selected->node);
         }
         ImGui::SameLine();
-        if (ImGui::Button("Refresh Prefab")) {
+        if (ImGui::Button("Refresh Prefab") && !state.prefab_edit.active()) {
           const auto prefab_uri = prefab_selected->prefab_uri;
           std::vector<std::string> instance_uuids;
           for (const auto& node : state.session.prefab_nodes()) {
@@ -2358,6 +2334,9 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
       }
     }
     ImGui::End();
+    if (state.prefab_edit.active()) {
+      return submit_editor_ui(application, state);
+    }
 
     if (state.history_error != gneiss::result::success &&
         state.history_error != gneiss::result::not_ready) {
