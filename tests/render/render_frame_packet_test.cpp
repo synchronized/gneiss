@@ -55,12 +55,11 @@ int main() {
   scene.instances.push_back(
       {.mesh = mesh, .material = material, .transform = GNEISS_TRANSFORM_IDENTITY});
   debug_draw_list debug;
-  const std::array lines{gneiss_debug_line{.start = {0.0F, 0.0F, 0.0F},
-                                           .end = {1.0F, 0.0F, 0.0F},
-                                           .color_rgba8 = UINT32_C(0xffffffff),
-                                           .width = 1.0F,
-                                           .depth_test = 1U,
-                                           .reserved = {}}};
+  const std::array lines{gneiss::render_internal::debug_line{.start = {0.0F, 0.0F, 0.0F},
+                                                             .end = {1.0F, 0.0F, 0.0F},
+                                                             .color_rgba8 = UINT32_C(0xffffffff),
+                                                             .width = 1.0F,
+                                                             .depth_test = true}};
   if (debug.replace(lines) != GNEISS_SUCCESS) {
     return 4;
   }

@@ -29,6 +29,7 @@ namespace gneiss::editor {
 namespace {
 
 struct project_manager_state final {
+  engine::application* application{};
   imgui_adapter ui;
   editor_project* output = nullptr;
   std::array<char, 2048> project_path{};
@@ -180,7 +181,7 @@ gneiss_result update_project_manager(gneiss_application application, const gneis
     }
     ImGui::EndChild();
     ImGui::End();
-    return state.ui.submit(application);
+    return state.ui.submit(*state.application);
   } catch (const std::bad_alloc&) {
     return GNEISS_ERROR_OUT_OF_MEMORY;
   } catch (...) {
@@ -224,6 +225,7 @@ result run_project_manager(bool smoke, editor_project& output) noexcept {
           to_native(operation), static_cast<int>(message.size()), message.data());
       return operation;
     }
+    state.application = application.get();
     operation = from_native(state.ui.initialize(bridge.get()));
     if (operation != result::success) {
       const auto message = operation.message();

@@ -263,7 +263,23 @@ Application/Render 日志生产者与 Runtime 消费边界；沿用现有队列�
 日志首批原生闭环已完成本地验证，见 [日志迁移记录](../records/M-332-native-log.md)；
 Input 动作映射首批已迁移，见 [Input 记录](../records/M-332-native-input.md)；
 键鼠事件、状态快照与平台适配已贯通原生数据链路并通过本地回归；
-接下来审计 Render 服务接口。真实交互、跨平台与安装矩阵仍待执行。
+Render 绘制列表及 Editor 原生提交已验证，见 [Render 记录](../records/M-332-native-render.md)。
+相机/实例快照表示待下述决策，真实交互、跨平台与安装矩阵仍待执行。
+
+### 待决：Render 快照表示与矩阵准备职责
+
+当前 `render_snapshot.hpp` 保存相机参数、相机 TRS、view/projection 矩阵及实例 TRS。
+World 准备相机矩阵；Granit 渲染线程通过 scene_projection_math 计算实例 model/normal。
+后端实际使用相机矩阵和位置，没有读取完整相机参数。因此不能简单复制一套 C++ 名称就视为边界收敛。
+
+| 方案 | 数据与职责 | 影响 |
+| --- | --- | --- |
+| A：原生 TRS 快照，Render 准备矩阵（建议） | 共享基础变换值不属于场景对象；Render 接收相机/实例原生数据，通用 Render 准备逻辑负责矩阵，后端消费准备结果 | 保持实例准备在线程内，避免把已有工作搬回主线程；需要将通用数学从 Granit 后端移出 |
+| B：Render 接收矩阵快照 | World/视口提交 model、normal、view/projection、相机位置等准备结果，Render 不理解 TRS | 接口更接近绘制；矩阵准备归上游，必须同时明确在哪个线程执行，不能默认在主线程增加全场景准备工作 |
+
+两者都保留服务资源所有权、RID 校验及独立编辑器相机，不修改 C ABI 或 Granit。
+建议 A，先保持线程分工与行为，再考虑缓存/任务调度；选定后写入 ADR-062 并继续实施。
+此项未确认，不将任一方案作为当前架构事实；已完成的绘制列表无需回退。
 
 ### 已确认：原生宿主与 C 句柄的关闭权
 

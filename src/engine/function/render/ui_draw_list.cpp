@@ -36,7 +36,7 @@ gneiss_result ui_draw_list::replace(const ui_draw_view& desc,
     }
   }
   for (const auto& command : desc.commands) {
-    if (command.reserved != 0U || command.texture == GNEISS_NULL_TEXTURE ||
+    if (command.texture == GNEISS_NULL_TEXTURE ||
         resources.get_texture(command.texture) == nullptr || !is_finite(command.clip_min[0]) ||
         !is_finite(command.clip_min[1]) || !is_finite(command.clip_max[0]) ||
         !is_finite(command.clip_max[1]) || command.clip_min[0] >= command.clip_max[0] ||
@@ -57,9 +57,9 @@ gneiss_result ui_draw_list::replace(const ui_draw_view& desc,
     }
   }
   try {
-    std::vector<gneiss_ui_vertex> vertices;
+    std::vector<ui_vertex> vertices;
     std::vector<std::uint32_t> indices;
-    std::vector<gneiss_ui_draw_command> commands;
+    std::vector<ui_draw_command> commands;
     if (!desc.vertices.empty()) {
       vertices.assign(desc.vertices.begin(), desc.vertices.end());
     }

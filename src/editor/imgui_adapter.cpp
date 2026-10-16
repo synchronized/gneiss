@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "imgui_adapter.hpp"
+#include "engine/function/application/application.hpp"
 
 #include "editor_theme.hpp"
 
@@ -339,7 +340,7 @@ void imgui_adapter::process_input(const gneiss_input_event& event) {
   }
 }
 
-gneiss_result imgui_adapter::submit(gneiss_application application) {
+gneiss_result imgui_adapter::submit(engine::application& application) {
   if (context_ == nullptr) {
     return GNEISS_ERROR_INVALID_STATE;
   }
@@ -374,7 +375,7 @@ gneiss_result imgui_adapter::submit(gneiss_application application) {
         continue;
       }
       const auto texture = static_cast<gneiss_texture>(command.GetTexID());
-      gneiss_ui_draw_command converted{};
+      render_internal::ui_draw_command converted{};
       converted.texture = texture;
       converted.clip_min[0] = command.ClipRect.x - draw_data->DisplayPos.x;
       converted.clip_min[1] = command.ClipRect.y - draw_data->DisplayPos.y;
@@ -389,18 +390,16 @@ gneiss_result imgui_adapter::submit(gneiss_application application) {
     index_base += static_cast<std::uint32_t>(source->IdxBuffer.Size);
   }
 
-  gneiss_ui_draw_list_desc desc = GNEISS_UI_DRAW_LIST_DESC_INIT;
+  render_internal::ui_draw_view desc;
   desc.display_width = draw_data->DisplaySize.x;
   desc.display_height = draw_data->DisplaySize.y;
   desc.framebuffer_scale_x = draw_data->FramebufferScale.x;
   desc.framebuffer_scale_y = draw_data->FramebufferScale.y;
-  desc.vertex_count = static_cast<std::uint32_t>(vertices_.size());
-  desc.vertices = vertices_.data();
-  desc.index_count = static_cast<std::uint32_t>(indices_.size());
-  desc.indices = indices_.data();
-  desc.command_count = static_cast<std::uint32_t>(commands_.size());
-  desc.commands = commands_.data();
-  return gneiss_application_submit_ui_draw_list(application, &desc);
+  desc.vertices = vertices_;
+  desc.indices = indices_;
+  desc.commands = commands_;
+  if (!application.is_owner_thread()) return GNEISS_ERROR_INVALID_STATE;
+  return application.submit_ui_draw_list(desc);
 }
 
 } // namespace gneiss::editor

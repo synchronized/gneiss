@@ -6,7 +6,8 @@
 
 #include "engine/function/render/render_resource_service.hpp"
 
-#include <gneiss/engine/render.h>
+#include "engine/function/render/draw_types.hpp"
+#include <gneiss/engine/core/result.h>
 
 #include <span>
 #include <vector>
@@ -19,9 +20,9 @@ struct ui_draw_view {
   float display_height{};
   float framebuffer_scale_x{1.0F};
   float framebuffer_scale_y{1.0F};
-  std::span<const gneiss_ui_vertex> vertices;
+  std::span<const ui_vertex> vertices;
   std::span<const std::uint32_t> indices;
-  std::span<const gneiss_ui_draw_command> commands;
+  std::span<const ui_draw_command> commands;
 };
 
 class ui_draw_list final {
@@ -34,20 +35,18 @@ public:
   [[nodiscard]] float display_height() const noexcept { return display_height_; }
   [[nodiscard]] float framebuffer_scale_x() const noexcept { return framebuffer_scale_x_; }
   [[nodiscard]] float framebuffer_scale_y() const noexcept { return framebuffer_scale_y_; }
-  [[nodiscard]] const std::vector<gneiss_ui_vertex>& vertices() const noexcept { return vertices_; }
+  [[nodiscard]] const std::vector<ui_vertex>& vertices() const noexcept { return vertices_; }
   [[nodiscard]] const std::vector<std::uint32_t>& indices() const noexcept { return indices_; }
-  [[nodiscard]] const std::vector<gneiss_ui_draw_command>& commands() const noexcept {
-    return commands_;
-  }
+  [[nodiscard]] const std::vector<ui_draw_command>& commands() const noexcept { return commands_; }
 
 private:
   float display_width_{};
   float display_height_{};
   float framebuffer_scale_x_{1.0F};
   float framebuffer_scale_y_{1.0F};
-  std::vector<gneiss_ui_vertex> vertices_;
+  std::vector<ui_vertex> vertices_;
   std::vector<std::uint32_t> indices_;
-  std::vector<gneiss_ui_draw_command> commands_;
+  std::vector<ui_draw_command> commands_;
 };
 
 } // namespace gneiss::render_internal

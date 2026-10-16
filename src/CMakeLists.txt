@@ -106,6 +106,7 @@ target_sources(
     engine/function/render/render_resource_service.hpp
     engine/function/render/texture_view.hpp
     engine/function/render/debug_draw_list.cpp
+    engine/function/render/draw_types.hpp
     engine/function/render/debug_draw_list.hpp
     engine/function/render/ui_draw_list.cpp
     engine/function/render/ui_draw_list.hpp

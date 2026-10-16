@@ -126,7 +126,7 @@ public:
   [[nodiscard]] gneiss_result
   submit_ui_draw_list(const render_internal::ui_draw_view& desc) noexcept;
   [[nodiscard]] gneiss_result
-  submit_debug_draw_list(std::span<const gneiss_debug_line> lines) noexcept;
+  submit_debug_draw_list(std::span<const render_internal::debug_line> lines) noexcept;
   void report(gneiss_application handle, std::uint32_t severity, std::uint32_t category,
               gneiss_result result, std::string_view module, std::string_view message) noexcept;
   [[nodiscard]] gneiss_result submit_log(const log_internal::message_view& message) noexcept;

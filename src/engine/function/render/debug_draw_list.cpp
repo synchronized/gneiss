@@ -10,21 +10,20 @@
 
 namespace gneiss::render_internal {
 
-gneiss_result debug_draw_list::replace(std::span<const gneiss_debug_line> lines) noexcept {
+gneiss_result debug_draw_list::replace(std::span<const debug_line> lines) noexcept {
   constexpr std::uint32_t maximum_lines = 1024U * 1024U;
   if (lines.size() > maximum_lines) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
   for (const auto& line : lines) {
-    if (line.depth_test > 1U || line.reserved[0] != 0U || line.reserved[1] != 0U ||
-        line.reserved[2] != 0U || !std::isfinite(line.width) || line.width <= 0.0F ||
+    if (!std::isfinite(line.width) || line.width <= 0.0F ||
         !std::ranges::all_of(line.start, [](float value) { return std::isfinite(value); }) ||
         !std::ranges::all_of(line.end, [](float value) { return std::isfinite(value); })) {
       return GNEISS_ERROR_INVALID_ARGUMENT;
     }
   }
   try {
-    std::vector<gneiss_debug_line> pending;
+    std::vector<debug_line> pending;
     if (!lines.empty()) {
       pending.assign(lines.begin(), lines.end());
     }

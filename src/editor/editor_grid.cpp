@@ -24,9 +24,9 @@ float density_scale(bool major, bool next_major, float detail) noexcept {
 
 } // namespace
 
-std::vector<debug_line> build_editor_grid(const transform& camera, const gizmo_matrix& view,
+std::vector<render_internal::debug_line> build_editor_grid(const transform& camera, const gizmo_matrix& view,
                                           float viewport_height) {
-  std::vector<debug_line> lines;
+  std::vector<render_internal::debug_line> lines;
   if (!std::isfinite(viewport_height) || viewport_height <= 0.0F ||
       !std::ranges::all_of(camera.translation, [](float value) { return std::isfinite(value); }) ||
       !std::ranges::all_of(view, [](float value) { return std::isfinite(value); })) {
@@ -80,7 +80,7 @@ std::vector<debug_line> build_editor_grid(const transform& camera, const gizmo_m
         if (alpha == 0U) {
           continue;
         }
-        debug_line line{};
+        render_internal::debug_line line{};
         const auto fixed_axis = (axis * 2);
         const auto varying_axis = ((1 - axis) * 2);
         line.start[fixed_axis] = fixed;

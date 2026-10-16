@@ -47,7 +47,6 @@
 
 #include "engine/function/application/application.hpp"
 #include "engine/function/application/application_registry.hpp"
-#include <gneiss/engine/application.hpp>
 #include <gneiss/engine/core/result.hpp>
 
 #include <imgui.h>
@@ -100,6 +99,8 @@ struct author_document_operation final {
 };
 
 struct editor_state {
+  // 宿主拥有对象；只在其 run 回调期间借用。
+  gneiss::engine::application* application{};
   explicit editor_state(bool cooperative = false)
       : task_scheduler({.mode = cooperative ? gneiss::tasks::execution_mode::cooperative
                                             : gneiss::tasks::execution_mode::thread_pool}) {}
@@ -216,10 +217,10 @@ gneiss_result submit_editor_ui(gneiss_application application, editor_state& sta
       .camera = gneiss::to_native(state.camera.settings()),
       .transform = gneiss::to_native(state.camera.current_transform())};
   const auto operation = gneiss::application_internal::set_view_camera(application, &view);
-  return operation == GNEISS_SUCCESS ? state.ui.submit(application) : operation;
+  return operation == GNEISS_SUCCESS ? state.ui.submit(*state.application) : operation;
 }
 
-gneiss::result submit_editor_grid(gneiss_application application, const editor_state& state) {
+gneiss::result submit_editor_grid(const editor_state& state) {
   const auto* viewport = ImGui::GetMainViewport();
   const auto& camera = state.camera.current_transform();
   auto lines =
@@ -240,8 +241,7 @@ gneiss::result submit_editor_grid(gneiss_application application, const editor_s
                    .color_rgba8 = IM_COL32(137, 180, 250, 255),
                    .width = 2.0F,
                    .depth_test = true});
-  const gneiss::debug_draw_list_desc desc{.lines = lines};
-  return gneiss::sdk::application_ref{application}.submit_debug_draw_list(desc);
+  return gneiss::from_native(state.application->submit_debug_draw_list(lines));
 }
 
 void draw_view_axis(const editor_state& state, const ImVec2& minimum, const ImVec2& size) noexcept {
@@ -2788,7 +2788,7 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
       ImGui::ShowDemoWindow(&state.show_imgui_demo);
     }
     // 相机可能被本帧滚轮、聚焦或场景操作更新；网格必须使用最终相机状态。
-    const auto grid_result = submit_editor_grid(application, state);
+    const auto grid_result = submit_editor_grid(state);
     if (grid_result != gneiss::result::success) {
       return gneiss::to_native(grid_result);
     }
@@ -2937,6 +2937,7 @@ int run_editor(int argc, char** argv) {
   if (operation != gneiss::result::success) {
     return 2;
   }
+  state.application = application.get();
   operation = gneiss::from_native(state.ui.initialize(bridge.get()));
   if (operation != gneiss::result::success) {
     report_startup_failure("Editor UI 初始化", operation);

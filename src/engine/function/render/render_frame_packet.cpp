@@ -95,10 +95,10 @@ gneiss_result capture_render_frame_packet(const platform::native_window_info& wi
     }
     std::size_t copied_payload_bytes =
         candidate.scene.instances.size() * sizeof(render_internal::render_instance_snapshot) +
-        candidate.ui.vertices().size() * sizeof(gneiss_ui_vertex) +
+        candidate.ui.vertices().size() * sizeof(ui_vertex) +
         candidate.ui.indices().size() * sizeof(std::uint32_t) +
-        candidate.ui.commands().size() * sizeof(gneiss_ui_draw_command) +
-        candidate.debug.lines().size() * sizeof(gneiss_debug_line);
+        candidate.ui.commands().size() * sizeof(ui_draw_command) +
+        candidate.debug.lines().size() * sizeof(debug_line);
     copied_payload_bytes +=
         candidate.resources.meshes_.size() * sizeof(std::shared_ptr<const mesh_resource>) +
         candidate.resources.materials_.size() * sizeof(std::shared_ptr<const material_resource>) +

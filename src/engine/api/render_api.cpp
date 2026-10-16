@@ -34,6 +34,8 @@ extern "C" gneiss_result gneiss_mesh_create(gneiss_application application,
     const auto converted = gneiss::api::read_mesh_description(*desc, value);
     return converted == GNEISS_SUCCESS ? state->resources().create_mesh(value, out_mesh)
                                        : converted;
+  } catch (const std::bad_alloc&) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;
   }
@@ -46,6 +48,8 @@ extern "C" gneiss_result gneiss_mesh_destroy(gneiss_application application, gne
     const auto validation_result = validate_application(state);
     return validation_result == GNEISS_SUCCESS ? state->resources().destroy_mesh(mesh)
                                                : validation_result;
+  } catch (const std::bad_alloc&) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;
   }
@@ -71,6 +75,8 @@ extern "C" gneiss_result gneiss_material_create(gneiss_application application,
     const auto converted = gneiss::api::read_material_description(*desc, value);
     return converted == GNEISS_SUCCESS ? state->resources().create_material(value, out_material)
                                        : converted;
+  } catch (const std::bad_alloc&) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;
   }
@@ -84,6 +90,8 @@ extern "C" gneiss_result gneiss_material_destroy(gneiss_application application,
     const auto validation_result = validate_application(state);
     return validation_result == GNEISS_SUCCESS ? state->resources().destroy_material(material)
                                                : validation_result;
+  } catch (const std::bad_alloc&) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;
   }
@@ -109,6 +117,8 @@ extern "C" gneiss_result gneiss_texture_create(gneiss_application application,
     const auto converted = gneiss::api::read_texture_description(*desc, value);
     return converted == GNEISS_SUCCESS ? state->resources().create_texture(value, out_texture)
                                        : converted;
+  } catch (const std::bad_alloc&) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;
   }
@@ -122,6 +132,8 @@ extern "C" gneiss_result gneiss_texture_destroy(gneiss_application application,
     const auto validation_result = validate_application(state);
     return validation_result == GNEISS_SUCCESS ? state->resources().destroy_texture(texture)
                                                : validation_result;
+  } catch (const std::bad_alloc&) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;
   }
@@ -142,9 +154,11 @@ gneiss_application_submit_ui_draw_list(gneiss_application application,
     if (!state->can_submit_draw_lists()) {
       return GNEISS_ERROR_INVALID_STATE;
     }
-    gneiss::render_internal::ui_draw_view value;
+    gneiss::api::converted_ui_draw value;
     const auto converted = gneiss::api::read_ui_draw_description(*desc, value);
-    return converted == GNEISS_SUCCESS ? state->submit_ui_draw_list(value) : converted;
+    return converted == GNEISS_SUCCESS ? state->submit_ui_draw_list(value.view) : converted;
+  } catch (const std::bad_alloc&) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;
   }
@@ -165,9 +179,11 @@ gneiss_application_submit_debug_draw_list(gneiss_application application,
     if (!state->can_submit_draw_lists()) {
       return GNEISS_ERROR_INVALID_STATE;
     }
-    std::span<const gneiss_debug_line> value;
+    std::vector<gneiss::render_internal::debug_line> value;
     const auto converted = gneiss::api::read_debug_draw_description(*desc, value);
     return converted == GNEISS_SUCCESS ? state->submit_debug_draw_list(value) : converted;
+  } catch (const std::bad_alloc&) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;
   }

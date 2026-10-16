@@ -1,18 +1,18 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "engine/api/draw_description.hpp"
 #include "engine/function/render/debug_draw_list.hpp"
 
 #include <limits>
 
 int main() {
   gneiss::render_internal::debug_draw_list list;
-  gneiss_debug_line line{.start = {0.0F, 0.0F, 0.0F},
-                         .end = {1.0F, 0.0F, 0.0F},
-                         .color_rgba8 = UINT32_C(0xffffffff),
-                         .width = 1.0F,
-                         .depth_test = 1U,
-                         .reserved = {}};
+  gneiss::render_internal::debug_line line{.start = {0.0F, 0.0F, 0.0F},
+                                           .end = {1.0F, 0.0F, 0.0F},
+                                           .color_rgba8 = UINT32_C(0xffffffff),
+                                           .width = 1.0F,
+                                           .depth_test = true};
   if (list.replace({&line, 1U}) != GNEISS_SUCCESS || list.lines().size() != 1U) {
     return 1;
   }
@@ -24,6 +24,24 @@ int main() {
   if (list.replace({}) != GNEISS_SUCCESS || !list.lines().empty()) {
     return 4;
   }
+  gneiss_debug_line abi_line{};
+  abi_line.width = 2.0F;
+  abi_line.depth_test = 1;
+  gneiss_debug_draw_list_desc desc = GNEISS_DEBUG_DRAW_LIST_DESC_INIT;
+  desc.lines = &abi_line;
+  desc.line_count = 1;
+  std::vector<gneiss::render_internal::debug_line> converted;
+  if (gneiss::api::read_debug_draw_description(desc, converted) != GNEISS_SUCCESS ||
+      converted.size() != 1 || !converted[0].depth_test || converted[0].width != 2.0F)
+    return 5;
+  abi_line.reserved[0] = 1;
+  if (gneiss::api::read_debug_draw_description(desc, converted) != GNEISS_ERROR_INVALID_ARGUMENT ||
+      converted[0].width != 2.0F)
+    return 6;
+  abi_line.reserved[0] = 0;
+  abi_line.depth_test = 2;
+  if (gneiss::api::read_debug_draw_description(desc, converted) != GNEISS_ERROR_INVALID_ARGUMENT)
+    return 7;
   list.clear();
   return list.lines().empty() ? 0 : 3;
 }

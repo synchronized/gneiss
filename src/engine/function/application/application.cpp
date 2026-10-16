@@ -486,7 +486,7 @@ gneiss_result application::submit_ui_draw_list(const render_internal::ui_draw_vi
 }
 
 gneiss_result
-application::submit_debug_draw_list(std::span<const gneiss_debug_line> lines) noexcept {
+application::submit_debug_draw_list(std::span<const render_internal::debug_line> lines) noexcept {
   return storage_->is_updating_ ? storage_->debug_draw_list_.replace(lines)
                                 : GNEISS_ERROR_INVALID_STATE;
 }

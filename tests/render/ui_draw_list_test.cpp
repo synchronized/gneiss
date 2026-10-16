@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "engine/api/draw_description.hpp"
 #include "engine/function/render/ui_draw_list.hpp"
 
 #include <array>
@@ -19,17 +20,17 @@ int main() {
     return 1;
   }
 
-  std::array vertices{gneiss_ui_vertex{{0.0F, 0.0F}, {0.0F, 0.0F}, UINT32_C(0xffffffff)},
-                      gneiss_ui_vertex{{1.0F, 0.0F}, {1.0F, 0.0F}, UINT32_C(0xffffffff)},
-                      gneiss_ui_vertex{{0.0F, 1.0F}, {0.0F, 1.0F}, UINT32_C(0xffffffff)}};
+  std::array vertices{
+      gneiss::render_internal::ui_vertex{{0.0F, 0.0F}, {0.0F, 0.0F}, UINT32_C(0xffffffff)},
+      gneiss::render_internal::ui_vertex{{1.0F, 0.0F}, {1.0F, 0.0F}, UINT32_C(0xffffffff)},
+      gneiss::render_internal::ui_vertex{{0.0F, 1.0F}, {0.0F, 1.0F}, UINT32_C(0xffffffff)}};
   std::array<std::uint32_t, 3> indices{0U, 1U, 2U};
-  std::array commands{gneiss_ui_draw_command{.texture = texture,
-                                             .clip_min = {0.0F, 0.0F},
-                                             .clip_max = {640.0F, 480.0F},
-                                             .first_index = 0U,
-                                             .index_count = 3U,
-                                             .vertex_offset = 0U,
-                                             .reserved = 0U}};
+  std::array commands{gneiss::render_internal::ui_draw_command{.texture = texture,
+                                                               .clip_min = {0.0F, 0.0F},
+                                                               .clip_max = {640.0F, 480.0F},
+                                                               .first_index = 0U,
+                                                               .index_count = 3U,
+                                                               .vertex_offset = 0U}};
   gneiss::render_internal::ui_draw_view desc;
   desc.display_width = 640.0F;
   desc.display_height = 480.0F;
@@ -76,5 +77,22 @@ int main() {
       !draw_list.commands().empty() || draw_list.display_width() != 0.0F) {
     return 7;
   }
+  gneiss_ui_vertex abi_vertex{{1.0F, 2.0F}, {0.0F, 1.0F}, 42U};
+  gneiss_ui_draw_command abi_command{};
+  gneiss_ui_draw_list_desc abi_desc = GNEISS_UI_DRAW_LIST_DESC_INIT;
+  abi_desc.vertices = &abi_vertex;
+  abi_desc.vertex_count = 1;
+  abi_desc.commands = &abi_command;
+  abi_desc.command_count = 1;
+  gneiss::api::converted_ui_draw converted;
+  if (gneiss::api::read_ui_draw_description(abi_desc, converted) != GNEISS_SUCCESS ||
+      converted.view.vertices.data() != converted.vertices.data() ||
+      converted.view.vertices[0].color_rgba8 != 42U)
+    return 8;
+  abi_vertex.color_rgba8 = 0;
+  abi_command.reserved = 1;
+  if (gneiss::api::read_ui_draw_description(abi_desc, converted) != GNEISS_ERROR_INVALID_ARGUMENT ||
+      converted.view.vertices[0].color_rgba8 != 42U)
+    return 9;
   return 0;
 }
