@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "engine/function/application/application_registry.hpp"
 #include "runtime_scene_inspection.hpp"
 
 #include <string_view>
+#include <thread>
 #include <vector>
 
 namespace {
@@ -142,13 +144,21 @@ bool test_capture_prefab_scene() {
   }
   gneiss::runtime_internal::runtime_scene_inspection inspection(5U);
   gneiss::runtime_internal::runtime_scene_snapshot snapshot;
-  const auto capture = inspection.capture_scene(application, scene, false, snapshot);
+  const auto capture = inspection.capture_scene(
+      *gneiss::application_internal::find_application(application), scene, false, snapshot);
   const bool valid =
       capture == gneiss::result::success && snapshot.changes.size() == 3U &&
       snapshot.changes[1].node.prefab_instance_uuid == "30000000-0000-4000-8000-000000000012" &&
       snapshot.changes[1].node.prefab_source_node_uuid.empty() &&
       snapshot.changes[2].node.prefab_source_node_uuid == "30000000-0000-4000-8000-000000000002" &&
       snapshot.changes[2].node.parent == snapshot.changes[1].node.id;
+  auto native = gneiss::application_internal::find_application(application);
+  auto foreign = gneiss::result::success;
+  const auto changes = snapshot.changes.size();
+  std::thread worker([&] { foreign = inspection.capture_scene(*native, scene, true, snapshot); });
+  worker.join();
+  if (foreign != gneiss::result::invalid_state || snapshot.changes.size() != changes)
+    return false;
   const bool unloaded = gneiss_scene_instance_unload(application, scene) == GNEISS_SUCCESS;
   const bool destroyed = gneiss_application_destroy(application) == GNEISS_SUCCESS;
   return valid && unloaded && destroyed;

@@ -85,8 +85,8 @@ struct runtime_context final {
   return path.generic_string();
 }
 
-gneiss::result apply_asset_revision(gneiss_application application, gneiss_scene_instance scene,
-                                    std::string_view startup_scene,
+gneiss::result apply_asset_revision(gneiss::engine::application& application,
+                                    gneiss_scene_instance scene, std::string_view startup_scene,
                                     std::span<const gneiss::ipc_asset_revision> assets) noexcept {
   try {
     if (assets.empty()) {
@@ -99,15 +99,13 @@ gneiss::result apply_asset_revision(gneiss_application application, gneiss_scene
       if (assets.front().uri != startup_scene) {
         return gneiss::result::success;
       }
-      return gneiss::from_native(
-          gneiss::application_internal::reload_scene(application, scene, assets.front().uri));
+      return gneiss::from_native(application.reload_scene(scene, assets.front().uri));
     }
     if (assets.front().type == gneiss::ipc_asset_type::prefab) {
       if (assets.size() != 1U) {
         return gneiss::result::invalid_argument;
       }
-      const auto reloaded =
-          gneiss::application_internal::reload_prefab(application, scene, assets.front().uri);
+      const auto reloaded = application.reload_prefab(scene, assets.front().uri);
       return reloaded == GNEISS_ERROR_NOT_FOUND ? gneiss::result::success
                                                 : gneiss::from_native(reloaded);
     }
@@ -416,7 +414,7 @@ gneiss_result update_runtime(gneiss_application application, const gneiss::engin
     context.next_inspection_ns = time->elapsed_ns + UINT64_C(100000000);
     gneiss::runtime_internal::runtime_scene_snapshot snapshot;
     const auto captured = context.scene_inspection->capture_scene(
-        application, context.scene, context.force_full_inspection, snapshot);
+        *context.application, context.scene, context.force_full_inspection, snapshot);
     if (captured == gneiss::result::success) {
       const auto sent = context.ipc_session->notify_scene_snapshot(snapshot);
       if (sent == gneiss::result::success) {
@@ -437,14 +435,10 @@ gneiss_result update_runtime(gneiss_application application, const gneiss::engin
     context.next_statistics_ns = time->elapsed_ns + UINT64_C(250000000);
     std::uint64_t scene_node_count = 0U;
     std::uint64_t entity_count = 0U;
-    gneiss_world world = GNEISS_NULL_WORLD;
     auto operation =
-        gneiss_scene_instance_get_node_count(application, context.scene, &scene_node_count);
+        context.application->scenes()->get_node_count(context.scene, &scene_node_count);
     if (operation == GNEISS_SUCCESS) {
-      world = context.application->world();
-    }
-    if (operation == GNEISS_SUCCESS) {
-      operation = gneiss_world_entity_count(world, &entity_count);
+      operation = context.application->native_world()->entity_count(entity_count);
     }
     if (operation != GNEISS_SUCCESS) {
       context.ipc_failure = gneiss::from_native(operation);
@@ -613,9 +607,9 @@ void write_application_log(const gneiss::log_internal::event_view& source,
   context.inspection_session_id = inspection_serial == 0U ? 1U : inspection_serial;
   context.scene = scene;
   gneiss::runtime_internal::runtime_asset_reloader asset_reloader(
-      [application_handle = bridge.get(), &scene,
+      [native_application = application.get(), &scene,
        &active_scene_uri](std::span<const gneiss::ipc_asset_revision> assets) {
-        return apply_asset_revision(application_handle, scene, active_scene_uri, assets);
+        return apply_asset_revision(*native_application, scene, active_scene_uri, assets);
       },
       [native_application = application.get()](const gneiss::ipc_asset_reload_request& request) {
         std::vector<gneiss::render_internal::render_asset_reload> assets;
@@ -660,7 +654,7 @@ void write_application_log(const gneiss::log_internal::event_view& source,
   if (operation != gneiss::result::success) {
     log.write("ERROR", "property_edit", gneiss::to_native(operation),
               "Runtime 属性写入执行器初始化失败");
-    (void)gneiss_scene_instance_unload(bridge.get(), scene);
+    (void)application->scenes()->unload(scene);
     return 5;
   }
   context.property_editor = &property_editor;
@@ -718,10 +712,10 @@ void write_application_log(const gneiss::log_internal::event_view& source,
     }
     gneiss_entity_id root_entity = GNEISS_NULL_ENTITY_ID;
     std::uint64_t count{};
-    applied = gneiss_scene_instance_get_node_count(bridge.get(), scene, &count);
+    applied = application->scenes()->get_node_count(scene, &count);
     for (std::uint64_t index = 0U; applied == GNEISS_SUCCESS && index < count; ++index) {
-      gneiss_scene_instance_node_info info = GNEISS_SCENE_INSTANCE_NODE_INFO_INIT;
-      applied = gneiss_scene_instance_get_node_info(bridge.get(), scene, index, &info);
+      gneiss::scene_internal::scene_node_view info;
+      applied = application->scenes()->get_node_info(scene, index, info);
       if (applied == GNEISS_SUCCESS && info.parent == GNEISS_NULL_SCENE_NODE_ID) {
         root_entity = info.entity;
         break;
@@ -783,7 +777,7 @@ void write_application_log(const gneiss::log_internal::event_view& source,
         (void)game_module.shutdown();
       }
       (void)gneiss::game_internal::destroy_game_context(game_context);
-      (void)gneiss_scene_instance_unload(bridge.get(), scene);
+      (void)application->scenes()->unload(scene);
       return 11;
     }
     context.ipc_session = ipc_session.get();
@@ -820,7 +814,7 @@ void write_application_log(const gneiss::log_internal::event_view& source,
       (void)game_module.shutdown();
     }
     (void)gneiss::game_internal::destroy_game_context(game_context);
-    (void)gneiss_scene_instance_unload(bridge.get(), scene);
+    (void)application->scenes()->unload(scene);
     return 7;
   }
   if (context.ipc_failure != gneiss::result::success) {
@@ -830,7 +824,7 @@ void write_application_log(const gneiss::log_internal::event_view& source,
       (void)game_module.shutdown();
     }
     (void)gneiss::game_internal::destroy_game_context(game_context);
-    (void)gneiss_scene_instance_unload(bridge.get(), scene);
+    (void)application->scenes()->unload(scene);
     return 11;
   }
   if (game_module.is_initialized()) {
@@ -838,7 +832,7 @@ void write_application_log(const gneiss::log_internal::event_view& source,
     if (operation != gneiss::result::success) {
       log.write("ERROR", "game_module", static_cast<gneiss_result>(operation), "游戏模块关闭失败");
       (void)gneiss::game_internal::destroy_game_context(game_context);
-      (void)gneiss_scene_instance_unload(bridge.get(), scene);
+      (void)application->scenes()->unload(scene);
       return 8;
     }
   }
@@ -847,12 +841,11 @@ void write_application_log(const gneiss::log_internal::event_view& source,
                       : gneiss::game_internal::destroy_game_context(game_context);
   if (native_result != GNEISS_SUCCESS) {
     log.write("ERROR", "game_context", native_result, "Game Context 销毁失败");
-    (void)gneiss_scene_instance_unload(bridge.get(), scene);
+    (void)application->scenes()->unload(scene);
     return 9;
   }
-  native_result = scene == GNEISS_NULL_SCENE_INSTANCE
-                      ? GNEISS_SUCCESS
-                      : gneiss_scene_instance_unload(bridge.get(), scene);
+  native_result =
+      scene == GNEISS_NULL_SCENE_INSTANCE ? GNEISS_SUCCESS : application->scenes()->unload(scene);
   if (native_result != GNEISS_SUCCESS) {
     log.write("ERROR", "scene_unload", native_result, "启动场景卸载失败");
     return 10;

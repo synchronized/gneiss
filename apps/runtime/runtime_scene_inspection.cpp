@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "runtime_scene_inspection.hpp"
+#include "engine/function/application/application.hpp"
 
 #include <algorithm>
 #include <array>
@@ -33,8 +34,21 @@ bool equal_node(const gneiss::runtime_internal::runtime_scene_snapshot_node& lef
          left.material_uri == right.material_uri;
 }
 
-std::string borrowed_string(const char* value, std::uint64_t length) {
-  return length == 0U ? std::string{} : std::string(value, static_cast<std::size_t>(length));
+// IPC 使用既有协议布局；转换只发生在快照输出边界。
+gneiss_transform wire_transform(const gneiss::engine::transform& value) noexcept {
+  return {{value.translation[0], value.translation[1], value.translation[2]},
+          {value.rotation[0], value.rotation[1], value.rotation[2], value.rotation[3]},
+          {value.scale[0], value.scale[1], value.scale[2]}};
+}
+gneiss_camera_desc
+wire_camera(const std::optional<gneiss::scene_internal::camera_description>& camera) noexcept {
+  gneiss_camera_desc output = GNEISS_CAMERA_DESC_INIT;
+  if (camera) {
+    output.vertical_field_of_view_radians = camera->vertical_field_of_view_radians;
+    output.near_plane = camera->near_plane;
+    output.far_plane = camera->far_plane;
+  }
+  return output;
 }
 
 std::string author_key(const gneiss::runtime_internal::runtime_scene_source_node& node) {
@@ -203,14 +217,16 @@ result runtime_scene_inspection::capture(std::span<const runtime_scene_source_no
   }
 }
 
-result runtime_scene_inspection::capture_scene(gneiss_application application,
+result runtime_scene_inspection::capture_scene(engine::application& application,
                                                gneiss_scene_instance scene, bool force_full,
                                                runtime_scene_snapshot& output) noexcept {
-  if (application == GNEISS_NULL_APPLICATION || scene == GNEISS_NULL_SCENE_INSTANCE) {
+  if (!application.is_owner_thread() || !application.accepts_requests())
+    return result::invalid_state;
+  if (scene == GNEISS_NULL_SCENE_INSTANCE) {
     return result::invalid_argument;
   }
   std::uint64_t count = 0U;
-  auto operation = gneiss_scene_instance_get_node_count(application, scene, &count);
+  auto operation = application.scenes()->get_node_count(scene, &count);
   if (operation != GNEISS_SUCCESS) {
     return from_native(operation);
   }
@@ -218,74 +234,61 @@ result runtime_scene_inspection::capture_scene(gneiss_application application,
     return result::out_of_memory;
   }
   std::uint64_t prefab_count = 0U;
-  operation = gneiss_scene_instance_get_prefab_node_count(application, scene, &prefab_count);
+  operation = application.scenes()->get_prefab_node_count(scene, &prefab_count);
   if (operation != GNEISS_SUCCESS) {
     return from_native(operation);
   }
   if (prefab_count > runtime_inspection_max_nodes - count) {
     return result::out_of_memory;
   }
-  gneiss_world world = GNEISS_NULL_WORLD;
-  operation = gneiss_application_get_world(application, &world);
-  if (operation != GNEISS_SUCCESS) {
-    return from_native(operation);
-  }
+  auto& world = *application.native_world();
   try {
     std::vector<runtime_scene_source_node> nodes;
     nodes.reserve(static_cast<std::size_t>(count + prefab_count));
     for (std::uint64_t index = 0U; index < count; ++index) {
-      gneiss_scene_instance_node_info info = GNEISS_SCENE_INSTANCE_NODE_INFO_INIT;
-      operation = gneiss_scene_instance_get_node_info(application, scene, index, &info);
+      scene_internal::scene_node_view info;
+      operation = application.scenes()->get_node_info(scene, index, info);
       if (operation != GNEISS_SUCCESS) {
         return from_native(operation);
       }
-      if ((info.uuid_length != 0U && info.uuid == nullptr) ||
-          (info.name_length != 0U && info.name == nullptr) ||
-          (info.mesh_uri_length != 0U && info.mesh_uri == nullptr) ||
-          (info.material_uri_length != 0U && info.material_uri == nullptr) ||
-          info.uuid_length > runtime_inspection_max_string_size ||
-          info.name_length > runtime_inspection_max_string_size ||
-          info.mesh_uri_length > runtime_inspection_max_string_size ||
-          info.material_uri_length > runtime_inspection_max_string_size) {
+      if (info.uuid.size() > runtime_inspection_max_string_size ||
+          info.name.size() > runtime_inspection_max_string_size ||
+          info.mesh_uri.size() > runtime_inspection_max_string_size ||
+          info.material_uri.size() > runtime_inspection_max_string_size)
         return result::invalid_argument;
-      }
       auto runtime_transform = info.local_transform;
-      operation = gneiss_world_entity_get_local_transform(world, info.entity, &runtime_transform);
+      operation = world.entity_get_local_transform(info.entity, runtime_transform);
       if (operation != GNEISS_SUCCESS) {
         return from_native(operation);
       }
-      nodes.push_back(
-          {.native_node = info.node,
-           .native_parent = info.parent,
-           .native_entity = info.entity,
-           .uuid = borrowed_string(info.uuid, info.uuid_length),
-           .prefab_instance_uuid = {},
-           .prefab_source_node_uuid = {},
-           .name = borrowed_string(info.name, info.name_length),
-           .local_transform = runtime_transform,
-           .component_flags = info.component_flags,
-           .camera = info.camera,
-           .mesh_uri = borrowed_string(info.mesh_uri, info.mesh_uri_length),
-           .material_uri = borrowed_string(info.material_uri, info.material_uri_length)});
+      nodes.push_back({.native_node = info.node,
+                       .native_parent = info.parent,
+                       .native_entity = info.entity,
+                       .uuid = std::string{info.uuid},
+                       .prefab_instance_uuid = {},
+                       .prefab_source_node_uuid = {},
+                       .name = std::string{info.name},
+                       .local_transform = wire_transform(runtime_transform),
+                       .component_flags = info.component_flags,
+                       .camera = wire_camera(info.camera),
+                       .mesh_uri = std::string{info.mesh_uri},
+                       .material_uri = std::string{info.material_uri}});
     }
     for (std::uint64_t index = 0U; index < prefab_count; ++index) {
-      gneiss_scene_prefab_node_info info = GNEISS_SCENE_PREFAB_NODE_INFO_INIT;
-      operation = gneiss_scene_instance_get_prefab_node_info(application, scene, index, &info);
+      scene_internal::prefab_node_view info;
+      operation = application.scenes()->get_prefab_node_info(scene, index, info);
       if (operation != GNEISS_SUCCESS) {
         return from_native(operation);
       }
-      if (info.instance_uuid == nullptr || info.instance_uuid_length == 0U ||
-          (info.source_node_uuid_length != 0U && info.source_node_uuid == nullptr) ||
-          (info.name_length != 0U && info.name == nullptr) ||
-          info.instance_uuid_length > runtime_inspection_max_string_size ||
-          info.source_node_uuid_length > runtime_inspection_max_string_size ||
-          info.name_length > runtime_inspection_max_string_size) {
+      if (info.instance_uuid.empty() ||
+          info.instance_uuid.size() > runtime_inspection_max_string_size ||
+          info.source_node_uuid.size() > runtime_inspection_max_string_size ||
+          info.name.size() > runtime_inspection_max_string_size)
         return result::invalid_argument;
-      }
-      const auto instance_uuid = borrowed_string(info.instance_uuid, info.instance_uuid_length);
-      const auto source_uuid = borrowed_string(info.source_node_uuid, info.source_node_uuid_length);
+      const auto instance_uuid = std::string{info.instance_uuid};
+      const auto source_uuid = std::string{info.source_node_uuid};
       auto runtime_transform = info.local_transform;
-      operation = gneiss_world_entity_get_local_transform(world, info.entity, &runtime_transform);
+      operation = world.entity_get_local_transform(info.entity, runtime_transform);
       if (operation != GNEISS_SUCCESS) {
         return from_native(operation);
       }
@@ -295,8 +298,8 @@ result runtime_scene_inspection::capture_scene(gneiss_application application,
                        .uuid = source_uuid.empty() ? instance_uuid : source_uuid,
                        .prefab_instance_uuid = instance_uuid,
                        .prefab_source_node_uuid = source_uuid,
-                       .name = borrowed_string(info.name, info.name_length),
-                       .local_transform = runtime_transform,
+                       .name = std::string{info.name},
+                       .local_transform = wire_transform(runtime_transform),
                        .component_flags = 0U,
                        .camera = GNEISS_CAMERA_DESC_INIT,
                        .mesh_uri = {},
