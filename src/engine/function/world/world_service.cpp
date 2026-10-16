@@ -92,6 +92,12 @@ gneiss_result retire_publication(gneiss_world world, const core::publication& gr
   return with_owned_world(world, [&](world_state& state) { return state.retire(group); });
 }
 
+gneiss_result replace_publications(gneiss_world world, std::span<const core::publication> previous,
+                                   std::span<const core::publication> candidates) noexcept {
+  return with_owned_world(
+      world, [&](world_state& state) { return state.replace_publications(previous, candidates); });
+}
+
 gneiss_result bind_publication(gneiss_world world, const core::publication& group,
                                staged_object object) noexcept {
   return with_owned_world(world, [&](world_state& state) {

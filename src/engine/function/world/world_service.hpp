@@ -45,6 +45,11 @@ create_staged_object(gneiss_world world, const core::publication& group,
                                                const core::publication& group) noexcept;
 [[nodiscard]] GNEISS_API gneiss_result retire_publication(gneiss_world world,
                                                           const core::publication& group) noexcept;
+/** 原子替换等长非空发布组列表；拒绝重复、跨 World、非封闭旧组。
+ * 失败保持所有组可见性和主相机；成功后旧组只能逐步销毁，新主相机由调用方选择。 */
+[[nodiscard]] GNEISS_API gneiss_result
+replace_publications(gneiss_world world, std::span<const core::publication> previous,
+                     std::span<const core::publication> candidates) noexcept;
 [[nodiscard]] GNEISS_API gneiss_result bind_publication(gneiss_world world,
                                                         const core::publication& group,
                                                         staged_object object) noexcept;

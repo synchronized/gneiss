@@ -128,11 +128,20 @@ public:
   [[nodiscard]] gneiss_result
   begin_prefab_candidate(gneiss_scene_instance instance, const prefab_instance_description& author,
                          prefab_asset_lease prefab, prefab_description prepared,
-                         std::unique_ptr<prefab_runtime_instance>& output) noexcept;
+                         std::unique_ptr<prefab_runtime_instance>& output,
+                         bool replacing = false) noexcept;
   /** 已预留容量、调用方已准备镜像和历史后提交。成功接管 runtime。 */
   [[nodiscard]] gneiss_result
   commit_prefab_candidate(gneiss_scene_instance instance, prefab_instance_description& author,
                           std::unique_ptr<prefab_runtime_instance>& runtime) noexcept;
+  struct prefab_replacement {
+    prefab_instance_description* author{};
+    std::unique_ptr<prefab_runtime_instance>* runtime{};
+  };
+  /** 整批失败不修改场景；成功后 runtime 接收已退休旧实例，由调用方分步清理。 */
+  [[nodiscard]] gneiss_result
+  commit_prefab_replacements(gneiss_scene_instance instance,
+                             std::span<const prefab_replacement> replacements) noexcept;
   [[nodiscard]] gneiss_result prepare_prefab_removal(gneiss_scene_instance instance,
                                                      std::string_view uuid,
                                                      bool& complete) noexcept;

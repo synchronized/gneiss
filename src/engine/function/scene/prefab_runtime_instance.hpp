@@ -128,6 +128,7 @@ private:
   std::optional<prefab_description> prepared_;
   bool published_{};
   gneiss_scene_instance candidate_scene_{};
+  gneiss_scene_node_id candidate_previous_root_{};
   std::size_t retirement_cursor_{};
 };
 

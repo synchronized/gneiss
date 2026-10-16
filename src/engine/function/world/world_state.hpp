@@ -16,6 +16,7 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <span>
 #include <stdexcept>
 #include <thread>
 #include <type_traits>
@@ -87,15 +88,36 @@ public:
         !scene_.publication_closed(group)) {
       return GNEISS_ERROR_INVALID_STATE;
     }
-    if (is_alive(active_camera_)) {
-      const auto* member = registry_.try_get<publication_member>(decode(active_camera_));
-      if (member && member->group == group) {
-        active_camera_ = GNEISS_NULL_ENTITY_ID;
+    retire_validated(group);
+    return GNEISS_SUCCESS;
+  }
+  /** 整批校验后再切换可见性；所属线程执行，提交阶段不分配或调用外部回调。 */
+  [[nodiscard]] gneiss_result
+  replace_publications(std::span<const publication> previous,
+                       std::span<const publication> candidates) noexcept {
+    if (previous.empty() || previous.size() != candidates.size()) {
+      return GNEISS_ERROR_INVALID_ARGUMENT;
+    }
+    for (std::size_t index = 0; index < previous.size(); ++index) {
+      const auto& old = previous[index];
+      const auto& next = candidates[index];
+      if (!valid_group(old) || !old->published_ || old->retired_ || !valid_group(next) ||
+          next->published_ || next->retired_ || !scene_.publication_closed(old)) {
+        return GNEISS_ERROR_INVALID_STATE;
+      }
+      for (std::size_t other = 0; other < index; ++other) {
+        if (previous[other] == old || candidates[other] == next) {
+          return GNEISS_ERROR_INVALID_ARGUMENT;
+        }
       }
     }
-    entity_count_ -= group->count_;
-    group->published_ = false;
-    group->retired_ = true;
+    for (const auto& group : previous) {
+      retire_validated(group);
+    }
+    for (const auto& group : candidates) {
+      entity_count_ += group->count_;
+      group->published_ = true;
+    }
     return GNEISS_SUCCESS;
   }
   /** 结构重载中新创建的可见对象加入原发布组；保持可见，不改变实体总数。 */
@@ -262,6 +284,18 @@ public:
   }
 
 private:
+  void retire_validated(const publication& group) noexcept {
+    if (is_alive(active_camera_)) {
+      const auto* member = registry_.try_get<publication_member>(decode(active_camera_));
+      if (member && member->group == group) {
+        active_camera_ = GNEISS_NULL_ENTITY_ID;
+      }
+    }
+    entity_count_ -= group->count_;
+    group->published_ = false;
+    group->retired_ = true;
+  }
+
   struct publication_member {
     publication group;
   };

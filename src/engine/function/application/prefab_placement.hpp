@@ -28,11 +28,14 @@ public:
                               std::shared_ptr<const prefab_placement_snapshot>& output) noexcept;
   static gneiss_result begin(gneiss_application application, gneiss_scene_instance scene,
                              std::shared_ptr<const prefab_placement_snapshot> snapshot,
-                             bool removing, std::unique_ptr<prefab_placement>& output) noexcept;
+                             bool removing, std::unique_ptr<prefab_placement>& output,
+                             bool replacing = false) noexcept;
   ~prefab_placement();
   gneiss_result advance(bool& ready) noexcept;
   gneiss_result preview(std::size_t index, scene_internal::prefab_node_view& output) const noexcept;
   gneiss_result commit() noexcept;
+  /** 仅接受同一场景的就绪替换事务；全部成功或全部保持原状。 */
+  static gneiss_result commit_replacements(std::span<prefab_placement* const> entries) noexcept;
   bool cleanup_step(std::size_t budget = 64U) noexcept;
   std::size_t node_count() const noexcept;
   gneiss_scene_node_id root() const noexcept;
@@ -49,7 +52,7 @@ private:
   std::unique_ptr<scene_internal::prefab_runtime_instance> runtime_;
   std::map<std::string_view, gneiss_scene_node_id, std::less<>> nodes_;
   std::size_t cursor_{};
-  bool removing_{}, ready_{}, committed_{};
+  bool removing_{}, replacing_{}, retirement_ready_{}, ready_{}, committed_{};
   gneiss_scene_node_id root_{};
 };
 }

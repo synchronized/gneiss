@@ -98,8 +98,8 @@ prefab_placement::prefab_placement(gneiss_application application,
 prefab_placement::~prefab_placement() = default;
 gneiss_result prefab_placement::begin(gneiss_application application, gneiss_scene_instance scene,
                                       std::shared_ptr<const prefab_placement_snapshot> snapshot,
-                                      bool removing,
-                                      std::unique_ptr<prefab_placement>& output) noexcept try {
+                                      bool removing, std::unique_ptr<prefab_placement>& output,
+                                      bool replacing) noexcept try {
   output.reset();
   auto host = find_application(application);
   const auto validation = validate_application(host);
@@ -108,11 +108,15 @@ gneiss_result prefab_placement::begin(gneiss_application application, gneiss_sce
   }
   auto value = std::unique_ptr<prefab_placement>(
       new prefab_placement(application, std::move(snapshot), scene, removing));
+  if (removing && replacing) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  value->replacing_ = replacing;
   auto result = GNEISS_SUCCESS;
   if (!removing) {
-    result =
-        host->scenes()->begin_prefab_candidate(scene, value->author_, value->snapshot_->prefab,
-                                               *value->snapshot_->prefab.get(), value->runtime_);
+    result = host->scenes()->begin_prefab_candidate(scene, value->author_, value->snapshot_->prefab,
+                                                    *value->snapshot_->prefab.get(),
+                                                    value->runtime_, replacing);
     if (value->runtime_) {
       value->root_ = value->runtime_->root();
     }
@@ -175,6 +179,12 @@ gneiss_result prefab_placement::advance(bool& ready) noexcept try {
       const auto created = create_next_node();
       if (created != GNEISS_SUCCESS) {
         return created;
+      }
+    } else if (replacing_ && !retirement_ready_) {
+      const auto result =
+          host->scenes()->prepare_prefab_removal(scene_, author_.instance_uuid, retirement_ready_);
+      if (result != GNEISS_SUCCESS) {
+        return result;
       }
     } else {
       ready_ = true;
@@ -246,7 +256,7 @@ gneiss_result prefab_placement::preview(std::size_t index,
 gneiss_result prefab_placement::commit() noexcept {
   auto host = find_application(application_);
   const auto validation = validate_application(host);
-  if (validation != GNEISS_SUCCESS || !ready_ || committed_) {
+  if (validation != GNEISS_SUCCESS || !ready_ || committed_ || replacing_) {
     return validation == GNEISS_SUCCESS ? GNEISS_ERROR_INVALID_STATE : validation;
   }
   const auto result =
@@ -255,6 +265,40 @@ gneiss_result prefab_placement::commit() noexcept {
   committed_ = result == GNEISS_SUCCESS;
   return result;
 }
+gneiss_result
+prefab_placement::commit_replacements(std::span<prefab_placement* const> entries) noexcept try {
+  if (entries.empty() || entries.front() == nullptr) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  const auto application = entries.front()->application_;
+  const auto scene = entries.front()->scene_;
+  auto host = find_application(application);
+  const auto validation = validate_application(host);
+  if (validation != GNEISS_SUCCESS) {
+    return validation;
+  }
+  std::vector<scene_internal::scene_instance_service::prefab_replacement> replacements;
+  replacements.reserve(entries.size());
+  for (auto* entry : entries) {
+    if (entry == nullptr || entry->application_ != application || entry->scene_ != scene ||
+        !entry->replacing_ || !entry->ready_ || entry->committed_) {
+      return GNEISS_ERROR_INVALID_STATE;
+    }
+    replacements.push_back({.author = &entry->author_, .runtime = &entry->runtime_});
+  }
+  const auto result = host->scenes()->commit_prefab_replacements(scene, replacements);
+  if (result == GNEISS_SUCCESS) {
+    for (auto* entry : entries) {
+      entry->committed_ = true;
+    }
+  }
+  return result;
+} catch (const std::bad_alloc&) {
+  return GNEISS_ERROR_OUT_OF_MEMORY;
+} catch (...) {
+  return GNEISS_ERROR_INTERNAL;
+}
+
 bool prefab_placement::cleanup_step(std::size_t budget) noexcept {
   if (!runtime_) {
     return true;

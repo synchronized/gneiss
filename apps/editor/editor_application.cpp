@@ -96,38 +96,6 @@ struct author_document_operation final {
   const std::vector<gneiss::editor::author_document_change>* rollback = nullptr;
 };
 
-struct prefab_refresh_guard final {
-  gneiss::editor::editor_session* session = nullptr;
-  std::vector<gneiss_scene_prefab_refresh_token> tokens;
-
-  ~prefab_refresh_guard() noexcept {
-    if (session != nullptr) {
-      for (const auto token : tokens) {
-        session->release_prefab_refresh(token);
-      }
-    }
-  }
-};
-
-gneiss::result
-toggle_prefab_refreshes(gneiss::editor::editor_session& session,
-                        const std::vector<gneiss_scene_prefab_refresh_token>& tokens) noexcept {
-  std::size_t toggled_count = 0U;
-  for (const auto token : tokens) {
-    gneiss::scene_node_id root;
-    const auto operation = session.toggle_prefab_refresh(token, root);
-    if (operation != gneiss::result::success) {
-      while (toggled_count > 0U) {
-        --toggled_count;
-        (void)session.toggle_prefab_refresh(tokens[toggled_count], root);
-      }
-      return operation;
-    }
-    ++toggled_count;
-  }
-  return gneiss::result::success;
-}
-
 struct editor_state {
   explicit editor_state(bool cooperative = false)
       : task_scheduler({.mode = cooperative ? gneiss::tasks::execution_mode::cooperative
@@ -2190,42 +2158,9 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
         }
         ImGui::SameLine();
         if (ImGui::Button("Refresh Prefab") && !state.prefab_edit.active()) {
-          const auto prefab_uri = prefab_selected->prefab_uri;
-          std::vector<std::string> instance_uuids;
-          for (const auto& node : state.session.prefab_nodes()) {
-            if (node.is_instance_root && node.prefab_uri == prefab_uri) {
-              instance_uuids.push_back(node.instance_uuid);
-            }
-          }
-          auto guard = std::make_shared<prefab_refresh_guard>();
-          guard->session = &state.session;
-          state.history_error = gneiss::result::success;
-          for (const auto& instance_uuid : instance_uuids) {
-            const auto* current = state.session.find_prefab_root(instance_uuid);
-            gneiss::scene_node_id refreshed;
-            gneiss_scene_prefab_refresh_token token = GNEISS_NULL_SCENE_PREFAB_REFRESH_TOKEN;
-            state.history_error =
-                current == nullptr
-                    ? gneiss::result::not_found
-                    : state.session.refresh_prefab_instance(current->node, refreshed, token);
-            if (state.history_error != gneiss::result::success) {
-              (void)toggle_prefab_refreshes(state.session, guard->tokens);
-              break;
-            }
-            guard->tokens.push_back(token);
-          }
-          if (state.history_error == gneiss::result::success) {
-            state.history_error = state.history.record(
-                {.label = "刷新同源 Prefab 实例",
-                 .undo = [&state,
-                          guard] { return toggle_prefab_refreshes(state.session, guard->tokens); },
-                 .redo = [&state,
-                          guard] { return toggle_prefab_refreshes(state.session, guard->tokens); },
-                 .merge_key = {}});
-            if (state.history_error != gneiss::result::success) {
-              (void)toggle_prefab_refreshes(state.session, guard->tokens);
-            }
-          }
+          state.history_error =
+              state.prefab_edit.request_refresh(application, state.task_scheduler, state.session,
+                                                state.history, prefab_selected->node);
         }
         ImGui::SameLine();
         ImGui::BeginDisabled(state.session.is_dirty() || state.runtime.is_busy());

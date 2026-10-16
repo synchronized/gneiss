@@ -4,10 +4,132 @@
 #include "engine/core/reflection/type_registry.hpp"
 #include "engine/function/world/world_service.hpp"
 
+#include <array>
 #include <cstdint>
 #include <thread>
 
+namespace {
+bool original_groups_visible(
+    gneiss_world world, const std::array<gneiss::world_internal::staged_object, 2>& old_objects,
+    const std::array<gneiss::world_internal::staged_object, 2>& new_objects) {
+  namespace service = gneiss::world_internal;
+
+  std::uint64_t count{};
+  gneiss_entity_id active{};
+  if (service::entity_count(world, count) != GNEISS_SUCCESS || count != 2U ||
+      service::get_active_camera(world, active) != GNEISS_SUCCESS ||
+      active != old_objects[0].entity) {
+    return false;
+  }
+  for (std::size_t index = 0; index < old_objects.size(); ++index) {
+    std::uint8_t alive{};
+    if (service::entity_is_alive(world, old_objects[index].entity, alive) != GNEISS_SUCCESS ||
+        alive == 0U ||
+        service::entity_is_alive(world, new_objects[index].entity, alive) != GNEISS_SUCCESS ||
+        alive != 0U) {
+      return false;
+    }
+  }
+  return true;
+}
+bool batch_publication_test() {
+  namespace service = gneiss::world_internal;
+  gneiss_world world{};
+  gneiss_world other{};
+  if (service::create(world) != GNEISS_SUCCESS || service::create(other) != GNEISS_SUCCESS) {
+    return false;
+  }
+  std::array<gneiss::core::publication, 2> previous;
+  std::array<gneiss::core::publication, 2> candidates;
+  std::array<service::staged_object, 2> old_objects;
+  std::array<service::staged_object, 2> new_objects;
+  const service::camera_settings camera{
+      .vertical_field_of_view_radians = 1.0F,
+      .near_plane = 0.1F,
+      .far_plane = 100.0F,
+  };
+  service::staged_object_description description;
+  description.camera = &camera;
+  for (std::size_t index = 0; index < previous.size(); ++index) {
+    if (service::begin_publication(world, previous[index]) != GNEISS_SUCCESS ||
+        service::begin_publication(world, candidates[index]) != GNEISS_SUCCESS ||
+        service::create_staged_object(world, previous[index], description, old_objects[index]) !=
+            GNEISS_SUCCESS ||
+        service::create_staged_object(world, candidates[index], description, new_objects[index]) !=
+            GNEISS_SUCCESS ||
+        service::publish(world, previous[index]) != GNEISS_SUCCESS) {
+      return false;
+    }
+  }
+  if (service::set_active_camera(world, old_objects[0].entity) != GNEISS_SUCCESS) {
+    return false;
+  }
+  const auto unchanged = [&] { return original_groups_visible(world, old_objects, new_objects); };
+  // 后一个候选非法不得提前退休第一个旧组；同时验证空列表、重复和跨域。
+  const std::array<gneiss::core::publication, 2> invalid{candidates[0], {}};
+  const std::array duplicates{candidates[0], candidates[0]};
+  const std::array duplicate_previous{previous[0], previous[0]};
+  gneiss::core::publication foreign;
+  if (service::begin_publication(other, foreign) != GNEISS_SUCCESS) {
+    return false;
+  }
+  const std::array mixed{candidates[0], foreign};
+  if (service::replace_publications(world, {}, {}) != GNEISS_ERROR_INVALID_ARGUMENT ||
+      service::replace_publications(world, previous, invalid) != GNEISS_ERROR_INVALID_STATE ||
+      service::replace_publications(world, previous, duplicates) != GNEISS_ERROR_INVALID_ARGUMENT ||
+      service::replace_publications(world, duplicate_previous, candidates) !=
+          GNEISS_ERROR_INVALID_ARGUMENT ||
+      service::replace_publications(world, previous, mixed) != GNEISS_ERROR_INVALID_STATE ||
+      !unchanged()) {
+    return false;
+  }
+  gneiss_result wrong_thread{};
+  std::thread worker(
+      [&] { wrong_thread = service::replace_publications(world, previous, candidates); });
+  worker.join();
+  if (wrong_thread != GNEISS_ERROR_INVALID_STATE || !unchanged()) {
+    return false;
+  }
+  // 旧组下存在其他组的隐藏孩子时拒绝整批替换，避免留下悬空父关系。
+  gneiss::core::publication external;
+  service::staged_object child;
+  description.parent = old_objects[1].node;
+  if (service::begin_publication(world, external) != GNEISS_SUCCESS ||
+      service::create_staged_object(world, external, description, child) != GNEISS_SUCCESS ||
+      service::replace_publications(world, previous, candidates) != GNEISS_ERROR_INVALID_STATE ||
+      !unchanged() || service::destroy_staged_object(world, external, child) != GNEISS_SUCCESS ||
+      service::replace_publications(world, previous, candidates) != GNEISS_SUCCESS) {
+    return false;
+  }
+  std::uint64_t count{};
+  gneiss_entity_id active{};
+  if (service::entity_count(world, count) != GNEISS_SUCCESS || count != 2U ||
+      service::get_active_camera(world, active) != GNEISS_ERROR_NOT_READY || active != 0U ||
+      service::replace_publications(world, previous, candidates) != GNEISS_ERROR_INVALID_STATE ||
+      service::replace_publications(world, candidates, previous) != GNEISS_ERROR_INVALID_STATE) {
+    return false;
+  }
+  for (std::size_t index = 0; index < previous.size(); ++index) {
+    std::uint8_t alive{};
+    if (service::entity_is_alive(world, old_objects[index].entity, alive) != GNEISS_SUCCESS ||
+        alive != 0U ||
+        service::entity_is_alive(world, new_objects[index].entity, alive) != GNEISS_SUCCESS ||
+        alive == 0U ||
+        service::destroy_staged_object(world, previous[index], old_objects[index]) !=
+            GNEISS_SUCCESS ||
+        service::destroy_staged_object(world, previous[index], old_objects[index]) !=
+            GNEISS_ERROR_INVALID_HANDLE) {
+      return false;
+    }
+  }
+  return service::destroy(world) == GNEISS_SUCCESS && service::destroy(other) == GNEISS_SUCCESS;
+}
+}
+
 int main() {
+  if (!batch_publication_test()) {
+    return 19;
+  }
   namespace service = gneiss::world_internal;
   gneiss_world world{};
   const gneiss_world_desc desc = GNEISS_WORLD_DESC_INIT;

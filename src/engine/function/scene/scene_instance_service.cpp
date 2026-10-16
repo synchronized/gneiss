@@ -738,7 +738,7 @@ gneiss_result scene_instance_service::capture_prefab_binding(gneiss_scene_instan
 gneiss_result scene_instance_service::begin_prefab_candidate(
     gneiss_scene_instance instance, const prefab_instance_description& author,
     prefab_asset_lease prefab, prefab_description prepared,
-    std::unique_ptr<prefab_runtime_instance>& output) noexcept try {
+    std::unique_ptr<prefab_runtime_instance>& output, bool replacing) noexcept try {
   output.reset();
   std::uint64_t count{};
   const auto thread = world_internal::entity_count(world_, count);
@@ -750,11 +750,13 @@ gneiss_result scene_instance_service::begin_prefab_candidate(
     return GNEISS_ERROR_INVALID_HANDLE;
   }
   auto& scene = **slot;
+  const auto previous = std::ranges::find_if(scene.prefab_instances, [&](const auto& value) {
+    return value->instance_uuid_ == author.instance_uuid;
+  });
   if (!is_canonical_uuid(author.instance_uuid) ||
       scene.find_node(author.instance_uuid) != GNEISS_NULL_SCENE_NODE_ID ||
-      std::ranges::any_of(scene.description.prefab_instances, [&](const auto& existing) {
-        return existing.instance_uuid == author.instance_uuid;
-      })) {
+      (replacing ? previous == scene.prefab_instances.end()
+                 : previous != scene.prefab_instances.end())) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
   const auto parent =
@@ -768,6 +770,7 @@ gneiss_result scene_instance_service::begin_prefab_candidate(
   if (validation != GNEISS_SUCCESS) {
     return validation;
   }
+  const auto previous_root = replacing ? (*previous)->root() : 0U;
   scene.description.prefab_instances.reserve(scene.description.prefab_instances.size() + 1U);
   scene.prefab_instances.reserve(scene.prefab_instances.size() + 1U);
   auto candidate = std::make_unique<prefab_runtime_instance>(world_, loader_, std::move(prefab),
@@ -778,6 +781,7 @@ gneiss_result scene_instance_service::begin_prefab_candidate(
   std::ranges::copy(author.scale, transform.scale);
   const auto result = candidate->begin_hidden(parent, transform, std::move(effective));
   candidate->candidate_scene_ = instance;
+  candidate->candidate_previous_root_ = previous_root;
   // 即使根创建失败也交还候选，由协调者分步清理已分配的记录。
   output = std::move(candidate);
   return result;
@@ -816,6 +820,78 @@ gneiss_result scene_instance_service::commit_prefab_candidate(
   scene.description.prefab_instances.push_back(std::move(author));
   scene.prefab_instances.push_back(std::move(runtime));
   return GNEISS_SUCCESS;
+}
+
+gneiss_result scene_instance_service::commit_prefab_replacements(
+    gneiss_scene_instance instance, std::span<const prefab_replacement> replacements) noexcept try {
+  std::uint64_t count{};
+  const auto thread = world_internal::entity_count(world_, count);
+  if (thread != GNEISS_SUCCESS) {
+    return thread;
+  }
+  auto* slot = instances_.get(instance, core::resource_type::scene_instance);
+  if (slot == nullptr) {
+    return GNEISS_ERROR_INVALID_HANDLE;
+  }
+  if (replacements.empty()) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  auto& scene = **slot;
+  std::vector<std::size_t> indices;
+  std::vector<core::publication> previous;
+  std::vector<core::publication> candidates;
+  indices.reserve(replacements.size());
+  previous.reserve(replacements.size());
+  candidates.reserve(replacements.size());
+  for (const auto& entry : replacements) {
+    if (entry.author == nullptr || entry.runtime == nullptr || !*entry.runtime) {
+      return GNEISS_ERROR_INVALID_ARGUMENT;
+    }
+    const auto& candidate = **entry.runtime;
+    if (candidate.world_ != world_ || candidate.candidate_scene_ != instance ||
+        candidate.instance_uuid_ != entry.author->instance_uuid || !candidate.prepared_ ||
+        candidate.root_node_ == GNEISS_NULL_SCENE_NODE_ID || candidate.published_ ||
+        candidate.cancelling_ ||
+        std::ranges::any_of(candidate.nodes_, [](const auto& node) { return node.node == 0U; })) {
+      return GNEISS_ERROR_INVALID_STATE;
+    }
+    const auto found = std::ranges::find_if(scene.prefab_instances, [&](const auto& value) {
+      return value->instance_uuid_ == candidate.instance_uuid_;
+    });
+    if (found == scene.prefab_instances.end() ||
+        (*found)->root() != candidate.candidate_previous_root_) {
+      return GNEISS_ERROR_INVALID_STATE;
+    }
+    indices.push_back(static_cast<std::size_t>(found - scene.prefab_instances.begin()));
+    previous.push_back((*found)->publication_);
+    candidates.push_back(candidate.publication_);
+  }
+  const auto result = world_internal::replace_publications(world_, previous, candidates);
+  if (result != GNEISS_SUCCESS) {
+    return result;
+  }
+  // 可失败操作全部在上面结束；交换作者记录与独占所有权，不分配、不派发外部回调。
+  for (std::size_t index = 0; index < replacements.size(); ++index) {
+    const auto& entry = replacements[index];
+    auto& old = scene.prefab_instances[indices[index]];
+    old->published_ = false;
+    old->cancelling_ = true;
+    auto& candidate = **entry.runtime;
+    candidate.published_ = true;
+    for (std::size_t node = 0; node < candidate.nodes_.size(); ++node) {
+      const auto& camera = candidate.candidate_description().objects[node].camera;
+      if (camera && camera->is_primary) {
+        (void)world_internal::set_active_camera(world_, candidate.nodes_[node].entity);
+      }
+    }
+    std::swap(scene.description.prefab_instances[indices[index]], *entry.author);
+    old.swap(*entry.runtime);
+  }
+  return GNEISS_SUCCESS;
+} catch (const std::bad_alloc&) {
+  return GNEISS_ERROR_OUT_OF_MEMORY;
+} catch (...) {
+  return GNEISS_ERROR_INTERNAL;
 }
 
 gneiss_result scene_instance_service::prepare_prefab_removal(gneiss_scene_instance instance,

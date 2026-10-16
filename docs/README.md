@@ -497,6 +497,7 @@
 - [M-331：编辑器视口相机分离](records/M-331-editor-viewport-camera.md)
 - [M-331：Prefab 异步放置与历史恢复](records/M-331-prefab-async-placement.md)
 - [M-331：独立 Prefab 删除与历史快照](records/M-331-prefab-async-removal.md)
+- [M-331：同源 Prefab 异步刷新与历史恢复](records/M-331-prefab-async-refresh.md)
 
 ## 文档维护
 

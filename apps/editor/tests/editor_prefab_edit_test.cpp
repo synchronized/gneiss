@@ -52,6 +52,165 @@ struct fixture {
     std::filesystem::remove_all(root, ignored);
   }
 };
+void run_refresh(tasks::execution_mode mode) {
+  fixture files;
+  tasks::task_scheduler scheduler({.workers = 1U, .mode = mode});
+  application app;
+  auto desc = gneiss_application_desc GNEISS_APPLICATION_DESC_INIT;
+  const auto path = files.root.string();
+  desc.asset_root = path.data();
+  desc.asset_root_length = static_cast<std::uint32_t>(path.size());
+  check(application::create_native(desc, app) == result::success);
+  check(application_internal::attach_task_executor(app.get(), scheduler) == GNEISS_SUCCESS);
+  gneiss_world world{};
+  check(gneiss_application_get_world(app.get(), &world) == GNEISS_SUCCESS);
+  editor::editor_session session;
+  editor::editor_command_history history;
+  editor::editor_prefab_edit edit;
+  check(session.open(app.get(), world, "asset://scene.json") == result::success);
+  scene_node_id first, second;
+  check(session.create_prefab_instance("First", "asset://prefab.json", {}, first) ==
+        result::success);
+  check(session.create_prefab_instance("Second", "asset://prefab.json", {}, second) ==
+        result::success);
+  const auto first_uuid = session.prefab_nodes()[0].instance_uuid;
+  const auto second_uuid = session.prefab_nodes()[151].instance_uuid;
+  const auto source_uuid = session.prefab_nodes()[1].source_node_uuid;
+  const auto old_selected = session.find_prefab_source(first_uuid, source_uuid)->node;
+  auto transform = session.find_prefab_source(first_uuid, source_uuid)->local_transform;
+  transform.translation[0] = 17.0F;
+  check(session.set_local_transform(old_selected, transform) == result::success);
+  check(session.select(old_selected) == result::success);
+  const auto step = [&] {
+    if (mode == tasks::execution_mode::cooperative) {
+      (void)scheduler.run_ready();
+    }
+    edit.advance();
+    std::this_thread::yield();
+  };
+  const auto drive = [&] {
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(15);
+    while (edit.active()) {
+      step();
+      check(std::chrono::steady_clock::now() < deadline);
+    }
+  };
+  const auto drive_history = [&](result expected = result::success) {
+    result outcome = result::not_ready;
+    unsigned turns{};
+    while (history.is_pending()) {
+      outcome = history.advance_pending();
+      check(++turns < 1000U);
+    }
+    check(outcome == expected);
+  };
+  std::ifstream input(files.root / "prefab.json");
+  std::string updated{std::istreambuf_iterator<char>{input}, std::istreambuf_iterator<char>{}};
+  input.close();
+  for (std::size_t position{};
+       (position = updated.find("Source", position)) != std::string::npos;) {
+    updated.replace(position, 6U, "Updated");
+    position += 7U;
+  }
+  std::ofstream(files.root / "prefab.json") << updated;
+  check(edit.request_refresh(app.get(), scheduler, session, history, first) == result::success);
+  const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(15);
+  while (edit.active() && edit.phase() != editor::prefab_edit_phase::constructing) {
+    step();
+    check(std::chrono::steady_clock::now() < deadline);
+  }
+  // 取消候选准备不得改变旧实例、选择或历史。
+  for (unsigned i = 0; i < 12U; ++i) {
+    step();
+  }
+  check(edit.active() && edit.can_cancel());
+  edit.cancel();
+  drive();
+  check(history.size() == 0U && session.selection() == old_selected);
+  check(session.find_prefab_root(first_uuid)->node == first &&
+        session.find_prefab_root(second_uuid)->node == second);
+  check(edit.request_refresh(app.get(), scheduler, session, history, first) == result::success);
+  drive();
+  check(edit.operation() == result::success && history.size() == 1U &&
+        session.prefab_nodes().size() == 302U);
+  check(session.find_prefab_root(first_uuid)->node != first &&
+        session.find_prefab_root(second_uuid)->node != second);
+  check(session.find_prefab_source(first_uuid, source_uuid)->local_transform.translation[0] ==
+        17.0F);
+  check(session.find_prefab_source(second_uuid, source_uuid)->local_transform.translation[0] ==
+        1.0F);
+  check(session.find_prefab_source(first_uuid, source_uuid)->display_name == "Updated");
+  check(session.find_prefab_source(second_uuid, source_uuid)->display_name == "Updated");
+  check(session.selection() == session.find_prefab_source(first_uuid, source_uuid)->node);
+  // 历史保留真实资源版本；即使所有源文件失效也能撤销和重做。
+  std::ofstream(files.root / "prefab.json") << "broken";
+  std::ofstream(files.root / "mesh.json") << "broken";
+  std::ofstream(files.root / "material.json") << "broken";
+  check(history.undo() == result::not_ready);
+  drive_history();
+  check(session.find_prefab_source(first_uuid, source_uuid)->display_name == "Source");
+  check(session.find_prefab_source(second_uuid, source_uuid)->display_name == "Source");
+  check(session.selection() == session.find_prefab_source(first_uuid, source_uuid)->node);
+  check(history.redo() == result::not_ready);
+  drive_history();
+  check(session.find_prefab_source(first_uuid, source_uuid)->display_name == "Updated");
+  check(session.find_prefab_source(first_uuid, source_uuid)->local_transform.translation[0] ==
+        17.0F);
+  const auto preserved = session.selection();
+  check(history.undo() == result::not_ready);
+  (void)history.advance_pending();
+  history.cancel_pending();
+  drive_history(result::invalid_state);
+  check(session.selection() == preserved && !history.can_redo());
+  check(edit.request_refresh(app.get(), scheduler, session, history,
+                             session.find_prefab_root(first_uuid)->node) == result::success);
+  drive();
+  check(edit.operation().failed() && history.size() == 1U && session.selection() == preserved);
+  history.clear();
+  std::ofstream(files.root / "mesh.json")
+      << R"({"format":"gneiss.mesh","version":1,"topology":"triangle_list","vertices":[[0,0,0],[1,0,0],[0,1,0]]})";
+  std::ofstream(files.root / "material.json")
+      << R"({"format":"gneiss.material","version":1,"color":[1,0,0,1]})";
+  // 第二个实例的覆盖引用将被删除的节点，第一候选已准备也不得部分提交。
+  const auto removed_uuid = session.prefab_nodes()[2U].source_node_uuid;
+  const auto second_node = session.find_prefab_source(second_uuid, removed_uuid)->node;
+  const auto original = session.find_prefab_source(second_uuid, removed_uuid)->local_transform;
+  auto changed = original;
+  changed.translation[1] = 29.0F;
+  check(session.set_local_transform(second_node, changed) == result::success);
+  const auto first_root = session.find_prefab_root(first_uuid)->node;
+  const auto second_root = session.find_prefab_root(second_uuid)->node;
+  const auto removed_start = updated.find(R"(,{"uuid":")");
+  const auto removed_end = updated.find(R"(,{"uuid":")", removed_start + 1U);
+  check(removed_start != std::string::npos && removed_end != std::string::npos);
+  updated.erase(removed_start, removed_end - removed_start);
+  std::ofstream(files.root / "prefab.json") << updated;
+  check(edit.request_refresh(app.get(), scheduler, session, history, first_root) ==
+        result::success);
+  drive();
+  check(edit.operation() == result::not_found && history.size() == 0U);
+  check(session.find_prefab_root(first_uuid)->node == first_root);
+  check(session.find_prefab_root(second_uuid)->node == second_root);
+  std::uint64_t count{};
+  check(gneiss_world_entity_count(world, &count) == GNEISS_SUCCESS && count == 302U);
+  check(session.set_local_transform(second_node, original) == result::success);
+  check(session.select(session.find_prefab_source(first_uuid, removed_uuid)->node) ==
+        result::success);
+  check(edit.request_refresh(app.get(), scheduler, session, history, first_root) ==
+        result::success);
+  drive();
+  check(edit.operation() == result::success && session.prefab_nodes().size() == 300U);
+  check(session.selection() == session.find_prefab_root(first_uuid)->node);
+  check(history.undo() == result::not_ready);
+  drive_history();
+  check(session.prefab_nodes().size() == 302U);
+  history.clear();
+  check(edit.request_refresh(app.get(), scheduler, session, history,
+                             session.find_prefab_root(first_uuid)->node) == result::success);
+  session.close();
+  drive();
+  check(edit.operation() == result::invalid_state && history.size() == 0U);
+}
 void run(tasks::execution_mode mode) {
   fixture files;
   std::ifstream input(files.root / "prefab.json");
@@ -241,6 +400,8 @@ void run(tasks::execution_mode mode) {
 }
 }
 int main() try {
+  run_refresh(gneiss::tasks::execution_mode::cooperative);
+  run_refresh(gneiss::tasks::execution_mode::thread_pool);
   run(gneiss::tasks::execution_mode::cooperative);
   run(gneiss::tasks::execution_mode::thread_pool);
   return 0;
