@@ -488,6 +488,7 @@
 - [M-331：Prefab 候选分步清理](records/M-331-prefab-staged-cancel.md)
 - [M-331：分帧历史操作基础](records/M-331-history-operation.md)
 - [M-331：World 候选实体可见性](records/M-331-world-publication.md)
+- [M-331：Scene Tree 与 ECS 共用发布门](records/M-331-scene-publication.md)
 
 ## 文档维护
 

@@ -33,14 +33,8 @@ struct mesh_renderer_component {
 
 class world_state final {
 public:
-  class publication_group final {
-    friend class world_state;
-    explicit publication_group(std::uint32_t domain) : domain_(domain) {}
-    std::uint32_t domain_;
-    std::size_t count_{};
-    bool published_{};
-  };
-  using publication = std::shared_ptr<publication_group>;
+  using publication_group = core::publication_group;
+  using publication = core::publication;
 
   /** 所属线程创建候选组；令牌只供内部构造使用，不得跨 World。 */
   [[nodiscard]] publication begin_publication() const {

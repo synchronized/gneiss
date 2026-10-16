@@ -46,8 +46,11 @@ int run_tests() {
                                                                              renderer) ||
       !world.emplace_staged<gneiss::world_internal::camera_component>(group, pending_camera,
                                                                       camera) ||
-      world.scene().create(GNEISS_NULL_SCENE_NODE_ID, pending_mesh, &pending_node) !=
+      world.scene().create_staged(group, GNEISS_NULL_SCENE_NODE_ID, pending_mesh, &pending_node) !=
           GNEISS_SUCCESS ||
+      world.scene().get_local(pending_node) != nullptr ||
+      world.scene().get_local_for_entity(pending_mesh) != nullptr ||
+      world.scene().get_entity(pending_node) != GNEISS_NULL_ENTITY_ID ||
       world.set_active_camera(pending_camera) != GNEISS_ERROR_INVALID_HANDLE ||
       world.active_camera() != camera_entity ||
       gneiss::world_internal::build_render_snapshot(world, 1280U, 720U, snapshot) !=
@@ -55,7 +58,8 @@ int run_tests() {
       snapshot.instances.size() != 1U || world.publish(group) != GNEISS_SUCCESS ||
       gneiss::world_internal::build_render_snapshot(world, 1280U, 720U, snapshot) !=
           GNEISS_SUCCESS ||
-      snapshot.instances.size() != 2U || world.active_camera() != camera_entity) {
+      snapshot.instances.size() != 2U || world.active_camera() != camera_entity ||
+      world.scene().get_entity(pending_node) != pending_mesh) {
     return 5;
   }
   if (!world.destroy_entity(camera_entity) ||

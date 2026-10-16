@@ -4,6 +4,7 @@
 #ifndef GNEISS_SCENE_SCENE_TREE_HPP_
 #define GNEISS_SCENE_SCENE_TREE_HPP_
 
+#include "engine/core/publication_group.hpp"
 #include <gneiss/engine/scene.h>
 
 #include <cstdint>
@@ -35,6 +36,16 @@ public:
   [[nodiscard]] gneiss_entity_id get_entity(gneiss_scene_node_id node) const noexcept;
   [[nodiscard]] gneiss_scene_node_id get_parent(gneiss_scene_node_id node) const noexcept;
   void detach_entity(gneiss_entity_id entity) noexcept;
+  /** 候选节点只允许同组或已发布父节点；普通查询不可见。 */
+  [[nodiscard]] gneiss_result create_staged(const core::publication& group,
+                                            gneiss_scene_node_id parent, gneiss_entity_id entity,
+                                            gneiss_scene_node_id* output) noexcept;
+  [[nodiscard]] gneiss_result set_staged_local(const core::publication& group,
+                                               gneiss_scene_node_id id,
+                                               const gneiss_transform& transform) noexcept;
+  /** 只删除候选叶节点，调用方按拓扑逆序推进，避免递归清理。 */
+  [[nodiscard]] gneiss_result destroy_staged_leaf(const core::publication& group,
+                                                  gneiss_scene_node_id id) noexcept;
 
 private:
   struct node {
@@ -42,6 +53,7 @@ private:
     std::vector<gneiss_scene_node_id> children;
     gneiss_entity_id entity = GNEISS_NULL_ENTITY_ID;
     gneiss_transform local = GNEISS_TRANSFORM_IDENTITY;
+    core::publication publication;
   };
   struct slot {
     std::unique_ptr<node> value;
@@ -53,6 +65,12 @@ private:
                                             std::uint16_t generation) const noexcept;
   [[nodiscard]] slot* find(gneiss_scene_node_id id) noexcept;
   [[nodiscard]] const slot* find(gneiss_scene_node_id id) const noexcept;
+  [[nodiscard]] slot* find_raw(gneiss_scene_node_id id) noexcept;
+  [[nodiscard]] const slot* find_raw(gneiss_scene_node_id id) const noexcept;
+  [[nodiscard]] bool has_unpublished_descendant(gneiss_scene_node_id id) const noexcept;
+  [[nodiscard]] gneiss_result create_impl(const core::publication& group,
+                                          gneiss_scene_node_id parent, gneiss_entity_id entity,
+                                          gneiss_scene_node_id* out_node) noexcept;
   [[nodiscard]] bool is_descendant(gneiss_scene_node_id ancestor,
                                    gneiss_scene_node_id candidate) const noexcept;
   void remove_child(gneiss_scene_node_id parent, gneiss_scene_node_id child) noexcept;

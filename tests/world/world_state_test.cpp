@@ -115,6 +115,27 @@ int run_tests() {
   }
   const auto other = first.begin_publication();
   const auto hidden = first.create_staged_entity(other);
+  gneiss_scene_node_id parent{}, child{}, leaf{}, rejected{};
+  const auto nested = first.begin_publication();
+  auto& tree = first.scene();
+  const gneiss_transform identity = GNEISS_TRANSFORM_IDENTITY;
+  if (tree.create(0, replacement, &parent) != GNEISS_SUCCESS ||
+      tree.create_staged(other, parent, hidden, &child) != GNEISS_SUCCESS ||
+      tree.create_staged(other, child, 0, &leaf) != GNEISS_SUCCESS ||
+      tree.create_staged(nested, child, 0, &rejected) != GNEISS_ERROR_INVALID_HANDLE ||
+      tree.create(child, 0, &rejected) != GNEISS_ERROR_INVALID_HANDLE ||
+      tree.set_local(child, identity) != GNEISS_ERROR_INVALID_HANDLE ||
+      tree.set_staged_local(nested, child, identity) != GNEISS_ERROR_INVALID_HANDLE ||
+      tree.set_staged_local(other, child, identity) != GNEISS_SUCCESS ||
+      tree.destroy(child) != GNEISS_ERROR_INVALID_HANDLE ||
+      tree.destroy(parent) != GNEISS_ERROR_NOT_READY ||
+      tree.destroy_staged_leaf(other, child) != GNEISS_ERROR_NOT_READY ||
+      tree.destroy_staged_leaf(other, leaf) != GNEISS_SUCCESS ||
+      tree.destroy_staged_leaf(other, leaf) != GNEISS_ERROR_INVALID_HANDLE ||
+      tree.destroy_staged_leaf(other, child) != GNEISS_SUCCESS ||
+      tree.destroy(parent) != GNEISS_SUCCESS) {
+    return 11;
+  }
   if (first.destroy_staged_entity(group, hidden) || !first.destroy_staged_entity(other, hidden) ||
       first.entity_count() != 1U) {
     return 9;
