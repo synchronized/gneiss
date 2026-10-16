@@ -125,3 +125,13 @@ World 的实体 ID，移除每个相机组件重复存储的 is_primary 位。Sc
 完整 Windows Debug 构建和 13 项 World、Scene/Prefab 热重载、纹理重载、快照及正反向边界
 测试通过。新增边界规则拒绝 World 原生组件重新依赖 C 渲染结构。此前组件首批的 11 项回归
 包含反射、属性访问和编辑器相机，也已通过。
+
+## 场景树原生 TRS
+
+场景树的节点存储、局部/全局变换及父子组合统一使用 engine::transform。World 到 Render
+快照直接复制同一原生值，移除快照生产端的 C TRS 转换。旧 World 服务的兼容入口暂保留
+逐字段转换，失败查询仍保持原有输出约定；这些兼容入口尚未视为原生 World 操作 API 完成。
+
+完整 Windows Debug 构建及 13 项变换、World、快照、Prefab、Scene 热重载和边界回归通过；
+新增场景树 C TRS 反例后，两项正反向边界测试再次通过。迁移仍未覆盖 Editor 编辑会话、
+全部 World/Scene 操作入口和最终跨平台安装矩阵。

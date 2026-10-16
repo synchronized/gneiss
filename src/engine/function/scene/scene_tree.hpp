@@ -4,6 +4,7 @@
 #ifndef GNEISS_SCENE_SCENE_TREE_HPP_
 #define GNEISS_SCENE_SCENE_TREE_HPP_
 
+#include "engine/core/math/transform.hpp"
 #include "engine/core/publication_group.hpp"
 #include <gneiss/engine/scene.h>
 
@@ -27,16 +28,16 @@ public:
   [[nodiscard]] gneiss_result reparent(gneiss_scene_node_id node,
                                        gneiss_scene_node_id parent) noexcept;
   [[nodiscard]] gneiss_result set_local(gneiss_scene_node_id node,
-                                        const gneiss_transform& transform) noexcept;
-  [[nodiscard]] const gneiss_transform* get_local(gneiss_scene_node_id node) const noexcept;
+                                        const engine::transform& transform) noexcept;
+  [[nodiscard]] const engine::transform* get_local(gneiss_scene_node_id node) const noexcept;
   [[nodiscard]] gneiss_result get_world(gneiss_scene_node_id node,
-                                        gneiss_transform* out_transform) const noexcept;
+                                        engine::transform* out_transform) const noexcept;
   [[nodiscard]] gneiss_result get_world_for_entity(gneiss_entity_id entity,
-                                                   gneiss_transform* out_transform) const noexcept;
-  [[nodiscard]] const gneiss_transform*
+                                                   engine::transform* out_transform) const noexcept;
+  [[nodiscard]] const engine::transform*
   get_local_for_entity(gneiss_entity_id entity) const noexcept;
   [[nodiscard]] gneiss_result set_local_for_entity(gneiss_entity_id entity,
-                                                   const gneiss_transform& transform) noexcept;
+                                                   const engine::transform& transform) noexcept;
   [[nodiscard]] gneiss_entity_id get_entity(gneiss_scene_node_id node) const noexcept;
   [[nodiscard]] gneiss_scene_node_id get_parent(gneiss_scene_node_id node) const noexcept;
   void detach_entity(gneiss_entity_id entity) noexcept;
@@ -46,7 +47,7 @@ public:
                                             gneiss_scene_node_id* output) noexcept;
   [[nodiscard]] gneiss_result set_staged_local(const core::publication& group,
                                                gneiss_scene_node_id id,
-                                               const gneiss_transform& transform) noexcept;
+                                               const engine::transform& transform) noexcept;
   /** 只删除候选叶节点，调用方按拓扑逆序推进，避免递归清理。 */
   [[nodiscard]] gneiss_result destroy_staged_leaf(const core::publication& group,
                                                   gneiss_scene_node_id id) noexcept;
@@ -58,7 +59,7 @@ private:
     gneiss_scene_node_id parent = GNEISS_NULL_SCENE_NODE_ID;
     std::vector<gneiss_scene_node_id> children;
     gneiss_entity_id entity = GNEISS_NULL_ENTITY_ID;
-    gneiss_transform local = GNEISS_TRANSFORM_IDENTITY;
+    engine::transform local = engine::transform{};
     core::publication publication;
   };
   struct slot {

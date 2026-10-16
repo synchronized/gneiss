@@ -20,6 +20,18 @@
 
 namespace {
 
+// 兼容 World 服务仍接收旧场景值；转换只在进入原生场景树时发生。
+gneiss::engine::transform native_transform(const gneiss_transform& value) noexcept {
+  return {{value.translation[0], value.translation[1], value.translation[2]},
+          {value.rotation[0], value.rotation[1], value.rotation[2], value.rotation[3]},
+          {value.scale[0], value.scale[1], value.scale[2]}};
+}
+gneiss_transform boundary_transform(const gneiss::engine::transform& value) noexcept {
+  return {{value.translation[0], value.translation[1], value.translation[2]},
+          {value.rotation[0], value.rotation[1], value.rotation[2], value.rotation[3]},
+          {value.scale[0], value.scale[1], value.scale[2]}};
+}
+
 struct world_resource {
   std::unique_ptr<gneiss::world_internal::world_state> owned;
   gneiss::world_internal::world_state* borrowed{};
@@ -141,7 +153,8 @@ gneiss_result create_staged_object(gneiss_world world, const core::publication& 
       operation =
           state.scene().create_staged(group, description.parent, candidate.entity, &candidate.node);
       if (operation == GNEISS_SUCCESS) {
-        operation = state.scene().set_staged_local(group, candidate.node, description.transform);
+        operation = state.scene().set_staged_local(group, candidate.node,
+                                                   native_transform(description.transform));
       }
     } catch (const std::bad_alloc&) {
       operation = GNEISS_ERROR_OUT_OF_MEMORY;
@@ -574,8 +587,9 @@ gneiss_result node_set_local_transform(gneiss_world world, gneiss_scene_node_id 
     const std::scoped_lock lock{registry.mutex};
     auto* state = find_world(registry, world);
     const auto thread_result = validate_world_thread(state);
-    return thread_result == GNEISS_SUCCESS ? state->scene().set_local(node, transform)
-                                           : thread_result;
+    return thread_result == GNEISS_SUCCESS
+               ? state->scene().set_local(node, native_transform(transform))
+               : thread_result;
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;
   }
@@ -595,7 +609,7 @@ gneiss_result node_get_local_transform(gneiss_world world, gneiss_scene_node_id 
     if (transform == nullptr) {
       return GNEISS_ERROR_INVALID_HANDLE;
     }
-    out_transform = *transform;
+    out_transform = boundary_transform(*transform);
     return GNEISS_SUCCESS;
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;
@@ -609,8 +623,13 @@ gneiss_result node_get_world_transform(gneiss_world world, gneiss_scene_node_id 
     const std::scoped_lock lock{registry.mutex};
     auto* state = find_world(registry, world);
     const auto thread_result = validate_world_thread(state);
-    return thread_result == GNEISS_SUCCESS ? state->scene().get_world(node, &out_transform)
-                                           : thread_result;
+    if (thread_result != GNEISS_SUCCESS)
+      return thread_result;
+    engine::transform value;
+    const auto result = state->scene().get_world(node, &value);
+    if (result == GNEISS_SUCCESS)
+      out_transform = boundary_transform(value);
+    return result;
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;
   }
@@ -677,7 +696,7 @@ gneiss_result entity_get_local_transform(gneiss_world world, gneiss_entity_id en
     if (transform == nullptr) {
       return GNEISS_ERROR_NOT_FOUND;
     }
-    out_transform = *transform;
+    out_transform = boundary_transform(*transform);
     return GNEISS_SUCCESS;
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;
@@ -697,7 +716,7 @@ gneiss_result entity_set_local_transform(gneiss_world world, gneiss_entity_id en
     if (!state->is_alive(entity)) {
       return GNEISS_ERROR_INVALID_HANDLE;
     }
-    return state->scene().set_local_for_entity(entity, transform);
+    return state->scene().set_local_for_entity(entity, native_transform(transform));
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;
   }

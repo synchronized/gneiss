@@ -14,6 +14,10 @@ if(NOT sources)
 endif()
 foreach(source IN LISTS sources)
   file(READ "${source}" content)
+  if(source MATCHES "/src/engine/function/(scene/scene_tree|world/render_snapshot)[.](hpp|cpp)$" AND
+      content MATCHES "gneiss_transform|GNEISS_TRANSFORM_")
+    message(FATAL_ERROR "原生场景树与快照不得使用 C TRS 布局：${source}")
+  endif()
   if(source MATCHES "/src/engine/function/world/(world_components|world_state)[.]hpp$" AND
       (content MATCHES "gneiss_(camera|mesh_renderer)|GNEISS_CAMERA_" OR
        content MATCHES "gneiss/engine/render[.]h"))

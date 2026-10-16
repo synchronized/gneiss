@@ -14,7 +14,8 @@
 namespace gneiss::scene_internal {
 namespace {
 
-gneiss_transform combine(const gneiss_transform& parent, const gneiss_transform& local) noexcept {
+engine::transform combine(const engine::transform& parent,
+                          const engine::transform& local) noexcept {
   const auto px = parent.rotation[0];
   const auto py = parent.rotation[1];
   const auto pz = parent.rotation[2];
@@ -27,7 +28,7 @@ gneiss_transform combine(const gneiss_transform& parent, const gneiss_transform&
   const std::array uuv = {(py * uv[2]) - (pz * uv[1]), (pz * uv[0]) - (px * uv[2]),
                           (px * uv[1]) - (py * uv[0])};
 
-  gneiss_transform result = GNEISS_TRANSFORM_IDENTITY;
+  engine::transform result = engine::transform{};
   for (std::size_t index = 0; index < 3; ++index) {
     result.translation[index] =
         parent.translation[index] + scaled[index] + (2.0F * ((pw * uv[index]) + uuv[index]));
@@ -44,7 +45,7 @@ gneiss_transform combine(const gneiss_transform& parent, const gneiss_transform&
   return result;
 }
 
-bool is_valid(const gneiss_transform& value) noexcept {
+bool is_valid(const engine::transform& value) noexcept {
   const auto finite = [](float component) { return std::isfinite(component); };
   if (!std::ranges::all_of(value.translation, finite) ||
       !std::ranges::all_of(value.rotation, finite) || !std::ranges::all_of(value.scale, finite)) {
@@ -250,7 +251,7 @@ gneiss_entity_id scene_tree::get_staged_entity(const core::publication& group,
 }
 
 gneiss_result scene_tree::set_staged_local(const core::publication& group, gneiss_scene_node_id id,
-                                           const gneiss_transform& transform) noexcept {
+                                           const engine::transform& transform) noexcept {
   auto* value = find_raw(id);
   if (!group || group->domain_ != domain_ || group->published_ || group->retired_ ||
       value == nullptr || value->value->publication != group) {
@@ -319,7 +320,7 @@ gneiss_result scene_tree::reparent(gneiss_scene_node_id node_id,
 }
 
 gneiss_result scene_tree::set_local(gneiss_scene_node_id node_id,
-                                    const gneiss_transform& transform) noexcept {
+                                    const engine::transform& transform) noexcept {
   auto* target = find(node_id);
   if (target == nullptr) {
     return GNEISS_ERROR_INVALID_HANDLE;
@@ -331,13 +332,13 @@ gneiss_result scene_tree::set_local(gneiss_scene_node_id node_id,
   return GNEISS_SUCCESS;
 }
 
-const gneiss_transform* scene_tree::get_local(gneiss_scene_node_id node_id) const noexcept {
+const engine::transform* scene_tree::get_local(gneiss_scene_node_id node_id) const noexcept {
   const auto* target = find(node_id);
   return target == nullptr ? nullptr : &target->value->local;
 }
 
 gneiss_result scene_tree::get_world(gneiss_scene_node_id node_id,
-                                    gneiss_transform* out_transform) const noexcept {
+                                    engine::transform* out_transform) const noexcept {
   const auto* target = find(node_id);
   if (target == nullptr || out_transform == nullptr) {
     return GNEISS_ERROR_INVALID_HANDLE;
@@ -354,7 +355,7 @@ gneiss_result scene_tree::get_world(gneiss_scene_node_id node_id,
 }
 
 gneiss_result scene_tree::get_world_for_entity(gneiss_entity_id entity,
-                                               gneiss_transform* out_transform) const noexcept {
+                                               engine::transform* out_transform) const noexcept {
   if (entity == GNEISS_NULL_ENTITY_ID || out_transform == nullptr) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
@@ -368,7 +369,7 @@ gneiss_result scene_tree::get_world_for_entity(gneiss_entity_id entity,
   return GNEISS_ERROR_NOT_READY;
 }
 
-const gneiss_transform* scene_tree::get_local_for_entity(gneiss_entity_id entity) const noexcept {
+const engine::transform* scene_tree::get_local_for_entity(gneiss_entity_id entity) const noexcept {
   if (entity == GNEISS_NULL_ENTITY_ID) {
     return nullptr;
   }
@@ -382,7 +383,7 @@ const gneiss_transform* scene_tree::get_local_for_entity(gneiss_entity_id entity
 }
 
 gneiss_result scene_tree::set_local_for_entity(gneiss_entity_id entity,
-                                               const gneiss_transform& transform) noexcept {
+                                               const engine::transform& transform) noexcept {
   if (entity == GNEISS_NULL_ENTITY_ID) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }

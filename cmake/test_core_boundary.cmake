@@ -419,3 +419,15 @@ foreach(content IN ITEMS "gneiss_camera value;" "gneiss_mesh_renderer value;"
   endif()
 endforeach()
 file(WRITE "${fixture}/src/engine/function/world/world_components.hpp" "")
+
+file(MAKE_DIRECTORY "${fixture}/src/engine/function/scene")
+foreach(content IN ITEMS "gneiss_transform value;" "auto value = GNEISS_TRANSFORM_IDENTITY;")
+  file(WRITE "${fixture}/src/engine/function/scene/scene_tree.hpp" "${content}\n")
+  execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
+    -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
+    RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
+  if(status EQUAL 0)
+    message(FATAL_ERROR "原生场景树边界未拒绝违规输入：${content}")
+  endif()
+endforeach()
+file(WRITE "${fixture}/src/engine/function/scene/scene_tree.hpp" "")
