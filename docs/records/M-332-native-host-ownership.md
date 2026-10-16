@@ -86,3 +86,21 @@ Runtime 场景加载协调器改为借用 Application 引用，直接请求、�
 完整 Windows Clang Debug 构建通过，8 项 Application、场景加载、Runtime 启动、Editor 远端场景
 加载及灯笼场景 Runtime 工作流通过。原生入口增加错误线程和关闭后场景操作拒绝测试。
 Editor 的编辑会话、场景实例操作和游戏模块 Context 仍含兼容调用，尚未整体移除宿主桥。
+
+## 后续拥有链审计与异常边界补齐
+
+直接调用原生资产请求/轮询后，原有兼容函数中的异常转换不会再被执行；已将对应转换补入
+原生入口，避免分配异常越过 Runtime 的资产请求结果协议。完整 Debug 构建和 5 项资产、原生
+Application、Runtime 启动及远端场景加载回归通过。
+
+下一步的具体入口：
+
+- `src/editor/editor_session.hpp` 仍通过 SDK scene_instance 拥有编辑场景；须将编辑会话改为
+  对原生场景域的受控借用，并保留关闭、场景切换及失败采用时的有效期语义。
+- `application_scene_state` 当前保存 World RID；`world_service.cpp` 的全局表实际拥有
+  unique_ptr<world_state>。原生拥有链迁移需一起调整注册表与 C 创建/销毁适配，不能仅替换类型名。
+- Application 返回的 World 已明确为借用句柄，迁移不得赋予调用方销毁场景域的权限。
+- Editor 的场景加载协调器须随编辑会话迁移；Runtime 的模块 Context 仍是独立动态模块的真实
+  ABI 边界，不能因去除内部兼容调用而删除该边界。
+
+以上仍为未完成项；本次未执行最终静态安装、Linux 或完整 Sponza 验收。

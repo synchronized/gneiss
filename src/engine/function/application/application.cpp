@@ -1017,7 +1017,13 @@ application::request_assets(std::span<const render_internal::render_asset_reload
     return GNEISS_ERROR_INVALID_STATE;
   if (!texture_service() || scene_loading())
     return GNEISS_ERROR_NOT_READY;
-  return storage_->scene_session_.request_assets(sources, session, revision, request, reload);
+  try {
+    return storage_->scene_session_.request_assets(sources, session, revision, request, reload);
+  } catch (const std::bad_alloc&) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
 }
 
 gneiss_result application::poll_assets(render_internal::texture_load_completion& completion,
@@ -1025,7 +1031,13 @@ gneiss_result application::poll_assets(render_internal::texture_load_completion&
   ready = false;
   if (!is_owner_thread() || !accepts_requests())
     return GNEISS_ERROR_INVALID_STATE;
-  return storage_->scene_session_.poll_assets(completion, ready);
+  try {
+    return storage_->scene_session_.poll_assets(completion, ready);
+  } catch (const std::bad_alloc&) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
 }
 
 bool application::asset_progress(render_internal::asset_load_progress& progress) const noexcept {
