@@ -5,13 +5,80 @@
 
 #include "engine/asset/asset_uri.hpp"
 #include "engine/asset/virtual_file_system.hpp"
+#include "engine/core/sha256.hpp"
 
+#include <bit>
 #include <memory>
 #include <new>
 
 namespace {
 
 constexpr std::uint32_t prefab_resource_type = 4U;
+
+// 按字段编码，不摘要结构体填充或机器字节序；新增描述字段时须同时更新版本编码。
+std::string description_version(const gneiss::scene_internal::prefab_description& description) {
+  gneiss::core::sha256_builder hash;
+  const auto number = [&](std::uint64_t value) {
+    std::array<std::byte, 8> bytes{};
+    for (auto& byte : bytes) {
+      byte = static_cast<std::byte>(value & 255U);
+      value >>= 8U;
+    }
+    hash.update(bytes);
+  };
+  const auto text = [&](std::string_view value) {
+    number(value.size());
+    hash.update(std::as_bytes(std::span(value.data(), value.size())));
+  };
+  const auto real = [&](float value) { number(std::bit_cast<std::uint32_t>(value)); };
+  number(description.source_schema_version);
+  text(description.uuid);
+  text(description.author_json);
+  number(description.dependencies.size());
+  for (const auto& dependency : description.dependencies) {
+    text(dependency);
+  }
+  number(description.objects.size());
+  for (const auto& object : description.objects) {
+    text(object.uuid);
+    text(object.name);
+    number(object.parent_uuid.has_value() ? 1U : 0U);
+    if (object.parent_uuid) {
+      text(*object.parent_uuid);
+    }
+    for (const auto value : object.translation) {
+      real(value);
+    }
+    for (const auto value : object.rotation) {
+      real(value);
+    }
+    for (const auto value : object.scale) {
+      real(value);
+    }
+    number(object.camera.has_value() ? 1U : 0U);
+    if (object.camera) {
+      const auto& camera = *object.camera;
+      real(camera.vertical_field_of_view_radians);
+      real(camera.near_plane);
+      real(camera.far_plane);
+      number(camera.is_primary ? 1U : 0U);
+    }
+    number(object.mesh_renderer.has_value() ? 1U : 0U);
+    if (object.mesh_renderer) {
+      const auto& renderer = *object.mesh_renderer;
+      text(renderer.mesh_uri);
+      text(renderer.material_uri);
+    }
+  }
+  std::string version = "prefab-description-v1:";
+  constexpr std::string_view digits = "0123456789abcdef";
+  for (const auto byte : hash.digest()) {
+    const auto value = std::to_integer<unsigned>(byte);
+    version.push_back(digits[value >> 4U]);
+    version.push_back(digits[value & 15U]);
+  }
+  return version;
+}
 
 void fail(gneiss::scene_internal::scene_diagnostic& diagnostic, gneiss_result result,
           std::string_view path, std::string_view message) noexcept {
@@ -41,13 +108,17 @@ gneiss_result prefab_asset_loader::install_prepared(std::string_view uri,
   if (asset_internal::validate_uri(uri) != GNEISS_SUCCESS || description.objects.empty()) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
-  if (!cache_.observe(uri).expired()) {
-    return GNEISS_ERROR_INVALID_STATE;
-  }
   try {
+    asset_internal::resource_cache::version_key key;
+    auto result = file_system_.identify(uri, prefab_resource_type, key.identity);
+    if (result != GNEISS_SUCCESS) {
+      return result;
+    }
+    // 描述只保存依赖 URI；渲染资产版本由实例独立持有的租约固定。
+    key.version = description_version(description);
     std::shared_ptr<const asset_internal::resource_cache::entry> entry;
-    const auto result = cache_.acquire(
-        uri, prefab_resource_type,
+    result = cache_.acquire(
+        key,
         [&description](std::shared_ptr<void>& resource) {
           resource = std::make_shared<prefab_description>(std::move(description));
           return GNEISS_SUCCESS;

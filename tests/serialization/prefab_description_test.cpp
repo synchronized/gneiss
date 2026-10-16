@@ -78,7 +78,78 @@ private:
 
 } // namespace
 
+bool prepared_versions_contract() {
+  using namespace gneiss::asset_internal;
+  using namespace gneiss::scene_internal;
+  resource_cache cache;
+  virtual_file_system files;
+  auto backend = std::make_shared<memory_file_system>(std::string(valid_prefab));
+  if (files.mount("asset://prefabs/", backend) != GNEISS_SUCCESS) {
+    return false;
+  }
+  const auto same_source = files;
+  virtual_file_system different_source;
+  if (different_source.mount("asset://prefabs/", backend) != GNEISS_SUCCESS) {
+    return false;
+  }
+  prefab_asset_loader loader(files, cache);
+  prefab_asset_loader copied(same_source, cache);
+  prefab_asset_loader other(different_source, cache);
+  constexpr std::string_view uri = "asset://prefabs/lamp.prefab.json";
+  prefab_description description;
+  scene_diagnostic diagnostic;
+  if (parse_prefab_description(valid_prefab, description, diagnostic) != GNEISS_SUCCESS) {
+    return false;
+  }
+  prefab_asset_lease legacy;
+  if (loader.acquire(uri, legacy, diagnostic) != GNEISS_SUCCESS) {
+    return false;
+  }
+  prefab_asset_lease first, reused, changed, foreign;
+  if (loader.install_prepared(uri, description, first) != GNEISS_SUCCESS ||
+      copied.install_prepared(uri, description, reused) != GNEISS_SUCCESS ||
+      first.get() != reused.get() || first.get() == legacy.get() || backend->read_count != 1U) {
+    return false;
+  }
+  // author_json 未变但结构已变时必须产生新版本，不能只摘要原始 JSON。
+  description.objects[0].translation[0] = 37.0F;
+  if (loader.install_prepared(uri, description, changed) != GNEISS_SUCCESS ||
+      changed.get() == first.get() || changed.get()->objects[0].translation[0] != 37.0F ||
+      first.get()->objects[0].translation[0] != 1.0F ||
+      other.install_prepared(uri, description, foreign) != GNEISS_SUCCESS ||
+      foreign.get() == changed.get() || backend->read_count != 1U) {
+    return false;
+  }
+  prefab_asset_lease ordinary;
+  if (loader.acquire(uri, ordinary, diagnostic) != GNEISS_SUCCESS ||
+      ordinary.get() != legacy.get()) {
+    return false;
+  }
+  prefab_asset_lease failed = first;
+  if (loader.install_prepared("asset://unmounted/lamp.prefab.json", description, failed) !=
+          GNEISS_ERROR_NOT_FOUND ||
+      failed) {
+    return false;
+  }
+  description.objects.clear();
+  if (loader.install_prepared(uri, description, failed) != GNEISS_ERROR_INVALID_ARGUMENT ||
+      failed) {
+    return false;
+  }
+  // 候选租约释放后可回收，不影响仍被场景/历史持有的旧版本。
+  changed = {};
+  foreign = {};
+  reused = {};
+  ordinary = {};
+  legacy = {};
+  cache.release_unused();
+  return cache.size() == 1U && first.get()->objects[0].translation[0] == 1.0F;
+}
+
 int main() try {
+  if (!prepared_versions_contract()) {
+    return 9;
+  }
   gneiss::scene_internal::prefab_description prefab;
   gneiss::scene_internal::scene_diagnostic diagnostic;
   if (gneiss::scene_internal::parse_prefab_description(valid_prefab, prefab, diagnostic) !=

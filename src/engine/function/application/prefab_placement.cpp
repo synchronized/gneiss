@@ -65,14 +65,19 @@ gneiss_result prefab_placement::capture_step(gneiss_application application, std
 }
 
 gneiss_result
-prefab_placement::freeze(scene_internal::prepared_prefab_description prepared,
+prefab_placement::freeze(gneiss_application application,
+                         scene_internal::prepared_prefab_description prepared,
                          scene_internal::prefab_instance_description author,
                          std::vector<render_internal::render_asset_lease> assets,
                          std::shared_ptr<const prefab_placement_snapshot>& output) noexcept try {
+  auto host = find_application(application);
+  const auto validation = validate_application(host);
+  if (validation != GNEISS_SUCCESS) {
+    return validation;
+  }
   auto value = std::make_shared<prefab_placement_snapshot>();
   asset_internal::resource_cache temporary;
-  asset_internal::virtual_file_system files;
-  scene_internal::prefab_asset_loader loader(files, temporary);
+  scene_internal::prefab_asset_loader loader(host->asset_files(), temporary);
   const auto result =
       loader.install_prepared(author.prefab_uri, std::move(prepared.description), value->prefab);
   if (result != GNEISS_SUCCESS) {

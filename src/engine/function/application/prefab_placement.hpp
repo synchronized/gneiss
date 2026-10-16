@@ -22,7 +22,8 @@ public:
                                     gneiss_scene_instance scene,
                                     std::shared_ptr<prefab_placement_snapshot>& snapshot,
                                     bool& complete) noexcept;
-  static gneiss_result freeze(scene_internal::prepared_prefab_description prepared,
+  static gneiss_result freeze(gneiss_application application,
+                              scene_internal::prepared_prefab_description prepared,
                               scene_internal::prefab_instance_description author,
                               std::vector<render_internal::render_asset_lease> assets,
                               std::shared_ptr<const prefab_placement_snapshot>& output) noexcept;

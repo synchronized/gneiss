@@ -199,3 +199,7 @@ set_mesh_renderer，以及 prefab_runtime_instance 的实例化/刷新仍调用 
 新场景的初始选择在 ready 阶段仅准备，激活时才无分配提交；取消释放采用权而不改变默认选择，见
 [延迟采用记录](../records/M-331-deferred-version-adoption.md)。缓存所有权迁移仍未完成。Editor 消费者仍待迁移，
 不代表所有同步入口已收敛。
+
+Prefab 准备描述已改为带来源身份的不可变版本，同 URI 新旧版本可并存，见
+[描述版本记录](../records/M-331-prefab-description-versions.md)。旧同步 URI 入口、默认选择接入
+和 Application 级缓存所有权仍待迁移；不能直接将剩余可变缓存全局共享。

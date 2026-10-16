@@ -669,6 +669,7 @@ add_executable(
   "${PROJECT_SOURCE_DIR}/src/engine/asset/resource_cache.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/asset/virtual_file_system.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/scene/prefab_asset_loader.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/core/sha256.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/scene/prefab_description.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/scene/prefab_property_override.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/scene/scene_description.cpp"

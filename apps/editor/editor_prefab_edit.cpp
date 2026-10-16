@@ -430,8 +430,9 @@ struct editor_prefab_edit::state {
     }
     if (after.size() < before.size()) {
       std::shared_ptr<const prefab_placement_snapshot> snapshot;
-      status = from_native(prefab_placement::freeze(
-          prepared.prefabs.at(author.prefab_uri), before[after.size()]->author, assets, snapshot));
+      status =
+          from_native(prefab_placement::freeze(application, prepared.prefabs.at(author.prefab_uri),
+                                               before[after.size()]->author, assets, snapshot));
       if (status.failed()) {
         finish();
         return;
@@ -701,9 +702,9 @@ void editor_prefab_edit::advance() {
       }
       snapshot = value.captured;
     } else {
-      value.status = from_native(
-          prefab_placement::freeze(std::move(value.prepared.prefabs.at(value.author.prefab_uri)),
-                                   value.author, std::move(value.assets), snapshot));
+      value.status = from_native(prefab_placement::freeze(
+          value.application, std::move(value.prepared.prefabs.at(value.author.prefab_uri)),
+          value.author, std::move(value.assets), snapshot));
     }
     if (value.status.ok()) {
       value.status = value.history->prepare_record();
