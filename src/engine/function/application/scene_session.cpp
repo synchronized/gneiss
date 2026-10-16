@@ -99,6 +99,10 @@ scene_retirement_statistics scene_session::retirement() const noexcept {
   value.pending = retired_ != nullptr;
   return value;
 }
+engine::world* scene_session::native_world() const noexcept {
+  return active_ ? active_->native_world() : nullptr;
+}
+
 gneiss_world scene_session::world() const noexcept {
   return active_ ? active_->world : GNEISS_NULL_WORLD;
 }

@@ -5,7 +5,7 @@
 
 #include "engine/core/rid_table.hpp"
 #include "engine/function/world/render_snapshot.hpp"
-#include "engine/function/world/world_state.hpp"
+#include "engine/function/world/world.hpp"
 
 #include <gneiss/engine/scene.h>
 #include <gneiss/engine/world.h>
@@ -18,9 +18,16 @@
 #include <numbers>
 #include <unordered_set>
 
+namespace gneiss::world_internal {
+struct world_factory {
+  static std::unique_ptr<engine::world> make(std::uint32_t domain) {
+    return std::unique_ptr<engine::world>(new engine::world(domain));
+  }
+};
+}
+
 namespace {
 
-// 兼容 World 服务仍接收旧场景值；转换只在进入原生场景树时发生。
 gneiss::engine::transform native_transform(const gneiss_transform& value) noexcept {
   return {{value.translation[0], value.translation[1], value.translation[2]},
           {value.rotation[0], value.rotation[1], value.rotation[2], value.rotation[3]},
@@ -33,8 +40,8 @@ gneiss_transform boundary_transform(const gneiss::engine::transform& value) noex
 }
 
 struct world_resource {
-  std::unique_ptr<gneiss::world_internal::world_state> owned;
-  gneiss::world_internal::world_state* borrowed{};
+  std::unique_ptr<gneiss::engine::world> owned;
+  gneiss::engine::world* borrowed{};
   [[nodiscard]] auto* get() const noexcept { return owned ? owned.get() : borrowed; }
 };
 using world_table = gneiss::core::rid_table<world_resource>;
@@ -50,17 +57,31 @@ world_registry& get_world_registry() {
   return registry;
 }
 
-gneiss::world_internal::world_state* find_world(world_registry& registry,
-                                                gneiss_world world) noexcept {
+gneiss::engine::world* find_world(world_registry& registry, gneiss_world world) noexcept {
   auto* resource = registry.worlds.get(world, gneiss::core::resource_type::world);
   return resource == nullptr ? nullptr : resource->get();
 }
 
-gneiss_result validate_world_thread(gneiss::world_internal::world_state* world) noexcept {
+gneiss_result validate_world_thread(gneiss::engine::world* world) noexcept {
   if (world == nullptr) {
     return GNEISS_ERROR_INVALID_HANDLE;
   }
   return world->is_owner_thread() ? GNEISS_SUCCESS : GNEISS_ERROR_INVALID_STATE;
+}
+
+template <typename Function>
+gneiss_result with_world(gneiss_world handle, Function&& function) noexcept {
+  try {
+    auto& registry = get_world_registry();
+    const std::scoped_lock lock{registry.mutex};
+    auto* object = find_world(registry, handle);
+    const auto valid = validate_world_thread(object);
+    return valid == GNEISS_SUCCESS ? function(*object) : valid;
+  } catch (const std::bad_alloc&) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
 }
 
 bool is_valid_camera(float vertical_field_of_view_radians, float near_plane,
@@ -75,49 +96,33 @@ bool is_valid_camera(float vertical_field_of_view_radians, float near_plane,
 
 namespace gneiss::world_internal {
 
-namespace {
-template <typename Function>
-gneiss_result with_owned_world(gneiss_world world, Function&& function) noexcept {
-  try {
-    auto& registry = get_world_registry();
-    const std::scoped_lock lock{registry.mutex};
-    auto* state = find_world(registry, world);
-    const auto validation = validate_world_thread(state);
-    return validation == GNEISS_SUCCESS ? function(*state) : validation;
-  } catch (const std::bad_alloc&) {
-    return GNEISS_ERROR_OUT_OF_MEMORY;
-  } catch (...) {
-    return GNEISS_ERROR_INTERNAL;
-  }
-}
-}
-
 gneiss_result begin_publication(gneiss_world world, core::publication& output) noexcept {
   output.reset();
-  return with_owned_world(world, [&](world_state& state) {
-    output = state.begin_publication();
-    return GNEISS_SUCCESS;
-  });
+  return with_world(
+      world, [&](engine::world& native_world) { return native_world.begin_publication(output); });
 }
 
 gneiss_result publish(gneiss_world world, const core::publication& group) noexcept {
-  return with_owned_world(world, [&](world_state& state) { return state.publish(group); });
+  return with_world(world,
+                    [&](engine::world& native_world) { return native_world.publish(group); });
 }
 
 gneiss_result retire_publication(gneiss_world world, const core::publication& group) noexcept {
-  return with_owned_world(world, [&](world_state& state) { return state.retire(group); });
+  return with_world(
+      world, [&](engine::world& native_world) { return native_world.retire_publication(group); });
 }
 
 gneiss_result replace_publications(gneiss_world world, std::span<const core::publication> previous,
                                    std::span<const core::publication> candidates) noexcept {
-  return with_owned_world(
-      world, [&](world_state& state) { return state.replace_publications(previous, candidates); });
+  return with_world(world, [&](engine::world& native_world) {
+    return native_world.replace_publications(previous, candidates);
+  });
 }
 
 gneiss_result bind_publication(gneiss_world world, const core::publication& group,
                                staged_object object) noexcept {
-  return with_owned_world(world, [&](world_state& state) {
-    return state.bind_publication(group, object.entity, object.node);
+  return with_world(world, [&](engine::world& native_world) {
+    return native_world.bind_publication(group, object);
   });
 }
 
@@ -134,60 +139,15 @@ gneiss_result create_staged_object(gneiss_world world, const core::publication& 
                                           description.renderer->material == GNEISS_NULL_MATERIAL)) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
-  return with_owned_world(world, [&](world_state& state) {
-    staged_object candidate;
-    auto operation = GNEISS_SUCCESS;
-    try {
-      candidate.entity = state.create_staged_entity(group);
-      if (candidate.entity == GNEISS_NULL_ENTITY_ID) {
-        return GNEISS_ERROR_INVALID_STATE;
-      }
-      if (description.camera != nullptr) {
-        (void)state.emplace_staged<camera_component>(group, candidate.entity, *description.camera);
-      }
-      if (description.renderer != nullptr) {
-        (void)state.emplace_staged<mesh_renderer_component>(
-            group, candidate.entity,
-            mesh_renderer{description.renderer->mesh, description.renderer->material});
-      }
-      operation =
-          state.scene().create_staged(group, description.parent, candidate.entity, &candidate.node);
-      if (operation == GNEISS_SUCCESS) {
-        operation = state.scene().set_staged_local(group, candidate.node,
-                                                   native_transform(description.transform));
-      }
-    } catch (const std::bad_alloc&) {
-      operation = GNEISS_ERROR_OUT_OF_MEMORY;
-    } catch (...) {
-      operation = GNEISS_ERROR_INTERNAL;
-    }
-    if (operation == GNEISS_SUCCESS) {
-      output = candidate;
-      return operation;
-    }
-    if (candidate.node != GNEISS_NULL_SCENE_NODE_ID) {
-      (void)state.scene().destroy_staged_leaf(group, candidate.node);
-    }
-    if (candidate.entity != GNEISS_NULL_ENTITY_ID) {
-      (void)state.destroy_staged_entity(group, candidate.entity);
-    }
-    return operation;
+  return with_world(world, [&](engine::world& native_world) {
+    return native_world.create_staged_object(group, description, output);
   });
 }
 
 gneiss_result destroy_staged_object(gneiss_world world, const core::publication& group,
                                     staged_object object) noexcept {
-  return with_owned_world(world, [&](world_state& state) {
-    if (object.entity == GNEISS_NULL_ENTITY_ID ||
-        state.scene().get_staged_entity(group, object.node) != object.entity) {
-      return GNEISS_ERROR_INVALID_HANDLE;
-    }
-    const auto operation = state.scene().destroy_staged_leaf(group, object.node);
-    if (operation != GNEISS_SUCCESS) {
-      return operation;
-    }
-    return state.destroy_staged_entity(group, object.entity) ? GNEISS_SUCCESS
-                                                             : GNEISS_ERROR_INTERNAL;
+  return with_world(world, [&](engine::world& native_world) {
+    return native_world.destroy_staged_object(group, object);
   });
 }
 
@@ -200,7 +160,7 @@ gneiss_result create(gneiss_world& out_world) noexcept {
         registry.next_domain == std::numeric_limits<std::uint32_t>::max()) {
       return GNEISS_ERROR_OUT_OF_MEMORY;
     }
-    auto state = std::make_unique<gneiss::world_internal::world_state>(registry.next_domain++);
+    auto state = gneiss::world_internal::world_factory::make(registry.next_domain++);
     return registry.worlds.create(gneiss::core::resource_type::world,
                                   world_resource{std::move(state), nullptr}, &out_world);
   } catch (const std::bad_alloc&) {
@@ -210,7 +170,7 @@ gneiss_result create(gneiss_world& out_world) noexcept {
   }
 }
 
-void world_deleter::operator()(world_state* state) const noexcept {
+void world_deleter::operator()(engine::world* state) const noexcept {
   if (!state->is_owner_thread())
     std::terminate();
   {
@@ -234,7 +194,7 @@ gneiss_result create_native(world_owner& owner, gneiss_world& borrowed) noexcept
     if (registry.next_domain == 0U ||
         registry.next_domain == std::numeric_limits<std::uint32_t>::max())
       return GNEISS_ERROR_OUT_OF_MEMORY;
-    auto candidate = std::make_unique<world_state>(registry.next_domain++);
+    auto candidate = world_factory::make(registry.next_domain++);
     const auto result = registry.worlds.create(core::resource_type::world,
                                                world_resource{nullptr, candidate.get()}, &borrowed);
     if (result == GNEISS_SUCCESS)
@@ -267,71 +227,31 @@ gneiss_result destroy(gneiss_world world) noexcept {
 
 gneiss_result entity_create(gneiss_world world, gneiss_entity_id& out_entity) noexcept {
   out_entity = GNEISS_NULL_ENTITY_ID;
-  try {
-    auto& registry = get_world_registry();
-    const std::scoped_lock lock{registry.mutex};
-    auto* state = find_world(registry, world);
-    const auto thread_result = validate_world_thread(state);
-    if (thread_result != GNEISS_SUCCESS) {
-      return thread_result;
-    }
-    out_entity = state->create_entity();
-    return GNEISS_SUCCESS;
-  } catch (const std::bad_alloc&) {
-    return GNEISS_ERROR_OUT_OF_MEMORY;
-  } catch (...) {
-    return GNEISS_ERROR_INTERNAL;
-  }
+  return with_world(
+      world, [&](engine::world& native_world) { return native_world.entity_create(out_entity); });
 }
 
 gneiss_result entity_destroy(gneiss_world world, gneiss_entity_id entity) noexcept {
-  try {
-    auto& registry = get_world_registry();
-    const std::scoped_lock lock{registry.mutex};
-    auto* state = find_world(registry, world);
-    const auto thread_result = validate_world_thread(state);
-    if (thread_result != GNEISS_SUCCESS) {
-      return thread_result;
-    }
-    return state->destroy_entity(entity) ? GNEISS_SUCCESS : GNEISS_ERROR_INVALID_HANDLE;
-  } catch (...) {
-    return GNEISS_ERROR_INTERNAL;
-  }
+  return with_world(
+      world, [&](engine::world& native_world) { return native_world.entity_destroy(entity); });
 }
 
 gneiss_result entity_is_alive(gneiss_world world, gneiss_entity_id entity,
                               uint8_t& out_is_alive) noexcept {
   out_is_alive = 0;
-  try {
-    auto& registry = get_world_registry();
-    const std::scoped_lock lock{registry.mutex};
-    auto* state = find_world(registry, world);
-    const auto thread_result = validate_world_thread(state);
-    if (thread_result != GNEISS_SUCCESS) {
-      return thread_result;
-    }
-    out_is_alive = state->is_alive(entity) ? UINT8_C(1) : UINT8_C(0);
-    return GNEISS_SUCCESS;
-  } catch (...) {
-    return GNEISS_ERROR_INTERNAL;
-  }
+  return with_world(world, [&](engine::world& native_world) {
+    bool value{};
+    const auto result = native_world.entity_is_alive(entity, value);
+    if (result == GNEISS_SUCCESS)
+      out_is_alive = value ? UINT8_C(1) : UINT8_C(0);
+    return result;
+  });
 }
 
 gneiss_result entity_count(gneiss_world world, uint64_t& out_count) noexcept {
   out_count = 0;
-  try {
-    auto& registry = get_world_registry();
-    const std::scoped_lock lock{registry.mutex};
-    auto* state = find_world(registry, world);
-    const auto thread_result = validate_world_thread(state);
-    if (thread_result != GNEISS_SUCCESS) {
-      return thread_result;
-    }
-    out_count = static_cast<uint64_t>(state->entity_count());
-    return GNEISS_SUCCESS;
-  } catch (...) {
-    return GNEISS_ERROR_INTERNAL;
-  }
+  return with_world(
+      world, [&](engine::world& native_world) { return native_world.entity_count(out_count); });
 }
 
 gneiss_result entity_set_camera(gneiss_world world, gneiss_entity_id entity,
@@ -340,30 +260,9 @@ gneiss_result entity_set_camera(gneiss_world world, gneiss_entity_id entity,
                        camera.far_plane)) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
-  try {
-    auto& registry = get_world_registry();
-    const std::scoped_lock lock{registry.mutex};
-    auto* state = find_world(registry, world);
-    const auto thread_result = validate_world_thread(state);
-    if (thread_result != GNEISS_SUCCESS) {
-      return thread_result;
-    }
-    if (!state->is_alive(entity)) {
-      return GNEISS_ERROR_INVALID_HANDLE;
-    }
-    state->emplace_or_replace<camera_component>(
-        entity, camera_settings{camera.vertical_field_of_view_radians, camera.near_plane,
-                                camera.far_plane});
-    if (primary) {
-      return state->set_active_camera(entity);
-    }
-    state->clear_active_camera(entity);
-    return GNEISS_SUCCESS;
-  } catch (const std::bad_alloc&) {
-    return GNEISS_ERROR_OUT_OF_MEMORY;
-  } catch (...) {
-    return GNEISS_ERROR_INTERNAL;
-  }
+  return with_world(world, [&](engine::world& native_world) {
+    return native_world.entity_set_camera(entity, camera, primary);
+  });
 }
 
 gneiss_result entity_configure_camera(gneiss_world world, gneiss_entity_id entity,
@@ -371,129 +270,42 @@ gneiss_result entity_configure_camera(gneiss_world world, gneiss_entity_id entit
   if (!is_valid_camera(desc.vertical_field_of_view_radians, desc.near_plane, desc.far_plane)) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
-  try {
-    auto& registry = get_world_registry();
-    const std::scoped_lock lock{registry.mutex};
-    auto* state = find_world(registry, world);
-    const auto thread_result = validate_world_thread(state);
-    if (thread_result != GNEISS_SUCCESS) {
-      return thread_result;
-    }
-    if (!state->is_alive(entity)) {
-      return GNEISS_ERROR_INVALID_HANDLE;
-    }
-    state->emplace_or_replace<camera_component>(entity, desc);
-    return GNEISS_SUCCESS;
-  } catch (const std::bad_alloc&) {
-    return GNEISS_ERROR_OUT_OF_MEMORY;
-  } catch (...) {
-    return GNEISS_ERROR_INTERNAL;
-  }
+  return with_world(world, [&](engine::world& native_world) {
+    return native_world.entity_configure_camera(entity, desc);
+  });
 }
 
 gneiss_result entity_get_camera(gneiss_world world, gneiss_entity_id entity,
                                 camera_settings& out_camera) noexcept {
-  try {
-    auto& registry = get_world_registry();
-    const std::scoped_lock lock{registry.mutex};
-    auto* state = find_world(registry, world);
-    const auto thread_result = validate_world_thread(state);
-    if (thread_result != GNEISS_SUCCESS) {
-      return thread_result;
-    }
-    if (!state->is_alive(entity)) {
-      return GNEISS_ERROR_INVALID_HANDLE;
-    }
-    const auto* component = state->get<gneiss::world_internal::camera_component>(entity);
-    if (component == nullptr) {
-      return GNEISS_ERROR_NOT_FOUND;
-    }
-    out_camera = {.vertical_field_of_view_radians = component->value.vertical_field_of_view_radians,
-                  .near_plane = component->value.near_plane,
-                  .far_plane = component->value.far_plane};
-    return GNEISS_SUCCESS;
-  } catch (...) {
-    return GNEISS_ERROR_INTERNAL;
-  }
+  return with_world(world, [&](engine::world& native_world) {
+    return native_world.entity_get_camera(entity, out_camera);
+  });
 }
 
 gneiss_result entity_remove_camera(gneiss_world world, gneiss_entity_id entity) noexcept {
-  try {
-    auto& registry = get_world_registry();
-    const std::scoped_lock lock{registry.mutex};
-    auto* state = find_world(registry, world);
-    const auto thread_result = validate_world_thread(state);
-    return thread_result == GNEISS_SUCCESS ? state->clear_camera(entity) : thread_result;
-  } catch (...) {
-    return GNEISS_ERROR_INTERNAL;
-  }
+  return with_world(world, [&](engine::world& native_world) {
+    return native_world.entity_remove_camera(entity);
+  });
 }
 
 gneiss_result set_active_camera(gneiss_world world, gneiss_entity_id entity) noexcept {
-  try {
-    auto& registry = get_world_registry();
-    const std::scoped_lock lock{registry.mutex};
-    auto* state = find_world(registry, world);
-    const auto thread_result = validate_world_thread(state);
-    return thread_result == GNEISS_SUCCESS ? state->set_active_camera(entity) : thread_result;
-  } catch (...) {
-    return GNEISS_ERROR_INTERNAL;
-  }
+  return with_world(
+      world, [&](engine::world& native_world) { return native_world.set_active_camera(entity); });
 }
 
 gneiss_result get_active_camera(gneiss_world world, gneiss_entity_id& out_entity) noexcept {
   out_entity = GNEISS_NULL_ENTITY_ID;
-  try {
-    auto& registry = get_world_registry();
-    const std::scoped_lock lock{registry.mutex};
-    auto* state = find_world(registry, world);
-    const auto thread_result = validate_world_thread(state);
-    if (thread_result != GNEISS_SUCCESS) {
-      return thread_result;
-    }
-    out_entity = state->active_camera();
-    return out_entity == GNEISS_NULL_ENTITY_ID ? GNEISS_ERROR_NOT_READY : GNEISS_SUCCESS;
-  } catch (...) {
-    return GNEISS_ERROR_INTERNAL;
-  }
+  return with_world(world, [&](engine::world& native_world) {
+    return native_world.get_active_camera(out_entity);
+  });
 }
 
 gneiss_result
 replace_mesh_renderers(gneiss_world world,
                        std::span<const mesh_renderer_replacement> replacements) noexcept {
-  try {
-    auto& registry = get_world_registry();
-    const std::scoped_lock lock{registry.mutex};
-    auto* state = find_world(registry, world);
-    const auto validated = validate_world_thread(state);
-    if (validated != GNEISS_SUCCESS) {
-      return validated;
-    }
-    std::unordered_set<gneiss_entity_id> entities;
-    for (const auto& change : replacements) {
-      if (!entities.insert(change.entity).second || change.replacement.mesh == GNEISS_NULL_MESH ||
-          change.replacement.material == GNEISS_NULL_MATERIAL) {
-        return GNEISS_ERROR_INVALID_ARGUMENT;
-      }
-      if (!state->is_alive(change.entity)) {
-        return GNEISS_ERROR_INVALID_HANDLE;
-      }
-      const auto* current = state->get<mesh_renderer_component>(change.entity);
-      if (current == nullptr || current->value.mesh != change.expected.mesh ||
-          current->value.material != change.expected.material) {
-        return GNEISS_ERROR_INVALID_STATE;
-      }
-    }
-    for (const auto& change : replacements) {
-      state->get<mesh_renderer_component>(change.entity)->value = {change.replacement.mesh,
-                                                                   change.replacement.material};
-    }
-    return GNEISS_SUCCESS;
-  } catch (const std::bad_alloc&) {
-    return GNEISS_ERROR_OUT_OF_MEMORY;
-  } catch (...) {
-    return GNEISS_ERROR_INTERNAL;
-  }
+  return with_world(world, [&](engine::world& native_world) {
+    return native_world.replace_mesh_renderers(replacements);
+  });
 }
 
 gneiss_result entity_set_mesh_renderer(gneiss_world world, gneiss_entity_id entity,
@@ -502,242 +314,107 @@ gneiss_result entity_set_mesh_renderer(gneiss_world world, gneiss_entity_id enti
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
 
-  try {
-    auto& registry = get_world_registry();
-    const std::scoped_lock lock{registry.mutex};
-    auto* state = find_world(registry, world);
-    const auto thread_result = validate_world_thread(state);
-    if (thread_result != GNEISS_SUCCESS) {
-      return thread_result;
-    }
-    if (!state->is_alive(entity)) {
-      return GNEISS_ERROR_INVALID_HANDLE;
-    }
-    state->emplace_or_replace<mesh_renderer_component>(
-        entity, mesh_renderer{renderer.mesh, renderer.material});
-    return GNEISS_SUCCESS;
-  } catch (const std::bad_alloc&) {
-    return GNEISS_ERROR_OUT_OF_MEMORY;
-  } catch (...) {
-    return GNEISS_ERROR_INTERNAL;
-  }
+  return with_world(world, [&](engine::world& native_world) {
+    return native_world.entity_set_mesh_renderer(entity, renderer);
+  });
 }
 
 gneiss_result entity_remove_mesh_renderer(gneiss_world world, gneiss_entity_id entity) noexcept {
-  try {
-    auto& registry = get_world_registry();
-    const std::scoped_lock lock{registry.mutex};
-    auto* state = find_world(registry, world);
-    const auto thread_result = validate_world_thread(state);
-    return thread_result == GNEISS_SUCCESS ? state->clear_mesh_renderer(entity) : thread_result;
-  } catch (...) {
-    return GNEISS_ERROR_INTERNAL;
-  }
+  return with_world(world, [&](engine::world& native_world) {
+    return native_world.entity_remove_mesh_renderer(entity);
+  });
 }
 
 gneiss_result node_create(gneiss_world world, gneiss_scene_node_id parent, gneiss_entity_id entity,
                           gneiss_scene_node_id& out_node) noexcept {
   out_node = GNEISS_NULL_SCENE_NODE_ID;
-  try {
-    auto& registry = get_world_registry();
-    const std::scoped_lock lock{registry.mutex};
-    auto* state = find_world(registry, world);
-    const auto thread_result = validate_world_thread(state);
-    if (thread_result != GNEISS_SUCCESS) {
-      return thread_result;
-    }
-    if (entity != GNEISS_NULL_ENTITY_ID && !state->is_alive(entity)) {
-      return GNEISS_ERROR_INVALID_HANDLE;
-    }
-    return state->scene().create(parent, entity, &out_node);
-  } catch (...) {
-    return GNEISS_ERROR_INTERNAL;
-  }
+  return with_world(world, [&](engine::world& native_world) {
+    return native_world.node_create(parent, entity, out_node);
+  });
 }
 
 gneiss_result node_destroy(gneiss_world world, gneiss_scene_node_id node) noexcept {
-  try {
-    auto& registry = get_world_registry();
-    const std::scoped_lock lock{registry.mutex};
-    auto* state = find_world(registry, world);
-    const auto thread_result = validate_world_thread(state);
-    return thread_result == GNEISS_SUCCESS ? state->scene().destroy(node) : thread_result;
-  } catch (...) {
-    return GNEISS_ERROR_INTERNAL;
-  }
+  return with_world(world,
+                    [&](engine::world& native_world) { return native_world.node_destroy(node); });
 }
 
 gneiss_result node_reparent(gneiss_world world, gneiss_scene_node_id node,
                             gneiss_scene_node_id parent) noexcept {
-  try {
-    auto& registry = get_world_registry();
-    const std::scoped_lock lock{registry.mutex};
-    auto* state = find_world(registry, world);
-    const auto thread_result = validate_world_thread(state);
-    return thread_result == GNEISS_SUCCESS ? state->scene().reparent(node, parent) : thread_result;
-  } catch (...) {
-    return GNEISS_ERROR_INTERNAL;
-  }
+  return with_world(
+      world, [&](engine::world& native_world) { return native_world.node_reparent(node, parent); });
 }
 
 gneiss_result node_set_local_transform(gneiss_world world, gneiss_scene_node_id node,
                                        const gneiss_transform& transform) noexcept {
-  try {
-    auto& registry = get_world_registry();
-    const std::scoped_lock lock{registry.mutex};
-    auto* state = find_world(registry, world);
-    const auto thread_result = validate_world_thread(state);
-    return thread_result == GNEISS_SUCCESS
-               ? state->scene().set_local(node, native_transform(transform))
-               : thread_result;
-  } catch (...) {
-    return GNEISS_ERROR_INTERNAL;
-  }
+  return with_world(world, [&](engine::world& native_world) {
+    return native_world.node_set_local_transform(node, native_transform(transform));
+  });
 }
 
 gneiss_result node_get_local_transform(gneiss_world world, gneiss_scene_node_id node,
                                        gneiss_transform& out_transform) noexcept {
-  try {
-    auto& registry = get_world_registry();
-    const std::scoped_lock lock{registry.mutex};
-    auto* state = find_world(registry, world);
-    const auto thread_result = validate_world_thread(state);
-    if (thread_result != GNEISS_SUCCESS) {
-      return thread_result;
-    }
-    const auto* transform = state->scene().get_local(node);
-    if (transform == nullptr) {
-      return GNEISS_ERROR_INVALID_HANDLE;
-    }
-    out_transform = boundary_transform(*transform);
-    return GNEISS_SUCCESS;
-  } catch (...) {
-    return GNEISS_ERROR_INTERNAL;
-  }
+  return with_world(world, [&](engine::world& native_world) {
+    engine::transform value;
+    const auto result = native_world.node_get_local_transform(node, value);
+    if (result == GNEISS_SUCCESS)
+      out_transform = boundary_transform(value);
+    return result;
+  });
 }
 
 gneiss_result node_get_world_transform(gneiss_world world, gneiss_scene_node_id node,
                                        gneiss_transform& out_transform) noexcept {
-  try {
-    auto& registry = get_world_registry();
-    const std::scoped_lock lock{registry.mutex};
-    auto* state = find_world(registry, world);
-    const auto thread_result = validate_world_thread(state);
-    if (thread_result != GNEISS_SUCCESS)
-      return thread_result;
+  return with_world(world, [&](engine::world& native_world) {
     engine::transform value;
-    const auto result = state->scene().get_world(node, &value);
+    const auto result = native_world.node_get_world_transform(node, value);
     if (result == GNEISS_SUCCESS)
       out_transform = boundary_transform(value);
     return result;
-  } catch (...) {
-    return GNEISS_ERROR_INTERNAL;
-  }
+  });
 }
 
 gneiss_result node_get_entity(gneiss_world world, gneiss_scene_node_id node,
                               gneiss_entity_id& out_entity) noexcept {
   out_entity = GNEISS_NULL_ENTITY_ID;
-  try {
-    auto& registry = get_world_registry();
-    const std::scoped_lock lock{registry.mutex};
-    auto* state = find_world(registry, world);
-    const auto thread_result = validate_world_thread(state);
-    if (thread_result != GNEISS_SUCCESS) {
-      return thread_result;
-    }
-    const auto* transform = state->scene().get_local(node);
-    if (transform == nullptr) {
-      return GNEISS_ERROR_INVALID_HANDLE;
-    }
-    out_entity = state->scene().get_entity(node);
-    return GNEISS_SUCCESS;
-  } catch (...) {
-    return GNEISS_ERROR_INTERNAL;
-  }
+  return with_world(world, [&](engine::world& native_world) {
+    return native_world.node_get_entity(node, out_entity);
+  });
 }
 
 gneiss_result node_get_parent(gneiss_world world, gneiss_scene_node_id node,
                               gneiss_scene_node_id& out_parent) noexcept {
   out_parent = GNEISS_NULL_SCENE_NODE_ID;
-  try {
-    auto& registry = get_world_registry();
-    const std::scoped_lock lock{registry.mutex};
-    auto* state = find_world(registry, world);
-    const auto thread_result = validate_world_thread(state);
-    if (thread_result != GNEISS_SUCCESS) {
-      return thread_result;
-    }
-    if (state->scene().get_local(node) == nullptr) {
-      return GNEISS_ERROR_INVALID_HANDLE;
-    }
-    out_parent = state->scene().get_parent(node);
-    return GNEISS_SUCCESS;
-  } catch (...) {
-    return GNEISS_ERROR_INTERNAL;
-  }
+  return with_world(world, [&](engine::world& native_world) {
+    return native_world.node_get_parent(node, out_parent);
+  });
 }
 
 gneiss_result entity_get_local_transform(gneiss_world world, gneiss_entity_id entity,
                                          gneiss_transform& out_transform) noexcept {
   out_transform = GNEISS_TRANSFORM_IDENTITY;
-  try {
-    auto& registry = get_world_registry();
-    const std::scoped_lock lock{registry.mutex};
-    auto* state = find_world(registry, world);
-    const auto thread_result = validate_world_thread(state);
-    if (thread_result != GNEISS_SUCCESS) {
-      return thread_result;
-    }
-    if (!state->is_alive(entity)) {
-      return GNEISS_ERROR_INVALID_HANDLE;
-    }
-    const auto* transform = state->scene().get_local_for_entity(entity);
-    if (transform == nullptr) {
-      return GNEISS_ERROR_NOT_FOUND;
-    }
-    out_transform = boundary_transform(*transform);
-    return GNEISS_SUCCESS;
-  } catch (...) {
-    return GNEISS_ERROR_INTERNAL;
-  }
+  return with_world(world, [&](engine::world& native_world) {
+    engine::transform value;
+    const auto result = native_world.entity_get_local_transform(entity, value);
+    if (result == GNEISS_SUCCESS)
+      out_transform = boundary_transform(value);
+    return result;
+  });
 }
 
 gneiss_result entity_set_local_transform(gneiss_world world, gneiss_entity_id entity,
                                          const gneiss_transform& transform) noexcept {
-  try {
-    auto& registry = get_world_registry();
-    const std::scoped_lock lock{registry.mutex};
-    auto* state = find_world(registry, world);
-    const auto thread_result = validate_world_thread(state);
-    if (thread_result != GNEISS_SUCCESS) {
-      return thread_result;
-    }
-    if (!state->is_alive(entity)) {
-      return GNEISS_ERROR_INVALID_HANDLE;
-    }
-    return state->scene().set_local_for_entity(entity, native_transform(transform));
-  } catch (...) {
-    return GNEISS_ERROR_INTERNAL;
-  }
+  return with_world(world, [&](engine::world& native_world) {
+    return native_world.entity_set_local_transform(entity, native_transform(transform));
+  });
 }
 
 gneiss_result get_render_snapshot(gneiss_world world, std::uint32_t viewport_width,
                                   std::uint32_t viewport_height,
                                   render_internal::render_snapshot& out_snapshot,
                                   const render_internal::view_camera* camera) noexcept {
-  try {
-    auto& registry = get_world_registry();
-    const std::scoped_lock lock{registry.mutex};
-    auto* state = find_world(registry, world);
-    const auto thread_result = validate_world_thread(state);
-    if (thread_result != GNEISS_SUCCESS) {
-      return thread_result;
-    }
-    return build_render_snapshot(*state, viewport_width, viewport_height, out_snapshot, camera);
-  } catch (...) {
-    return GNEISS_ERROR_INTERNAL;
-  }
+  return with_world(world, [&](engine::world& native_world) {
+    return native_world.get_render_snapshot(viewport_width, viewport_height, out_snapshot, camera);
+  });
 }
 
 } // namespace gneiss::world_internal

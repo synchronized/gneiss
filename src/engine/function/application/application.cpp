@@ -3,6 +3,7 @@
 
 #include "engine/function/application/application.hpp"
 #include "engine/core/diagnostics/profiling.hpp"
+#include "engine/function/world/world.hpp"
 #ifdef GNEISS_NATIVE_LOOP_WAIT
 #include "engine/core/loop_progress.hpp"
 #endif
@@ -543,6 +544,8 @@ gneiss_result application::submit_log(const log_internal::message_view& message)
 }
 
 gneiss_result application::set_view_camera(const render_internal::view_camera* camera) noexcept {
+  if (!is_owner_thread() || !accepts_requests())
+    return GNEISS_ERROR_INVALID_STATE;
   if (camera == nullptr) {
     storage_->view_camera_.reset();
     return GNEISS_SUCCESS;
@@ -561,6 +564,8 @@ gneiss_result application::set_view_camera(const render_internal::view_camera* c
 gneiss_result application::capture_frame(std::uint32_t width, std::uint32_t height,
                                          render_internal::frame_image& output) noexcept {
   output = {};
+  if (!is_owner_thread() || !accepts_requests())
+    return GNEISS_ERROR_INVALID_STATE;
   if (width == 0U || height == 0U || width > 1024U || height > 1024U) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
@@ -574,9 +579,8 @@ gneiss_result application::capture_frame(std::uint32_t width, std::uint32_t heig
     window.height = height;
     window.needs_recreate = false;
     render_internal::render_snapshot snapshot;
-    auto result = world_internal::get_render_snapshot(
-        world(), width, height, snapshot,
-        storage_->view_camera_ ? &*storage_->view_camera_ : nullptr);
+    auto result = storage_->scene_session_.native_world()->get_render_snapshot(
+        width, height, snapshot, storage_->view_camera_ ? &*storage_->view_camera_ : nullptr);
     if (result != GNEISS_SUCCESS) {
       return result;
     }
@@ -639,9 +643,9 @@ gneiss_result application::render_frame() noexcept {
   render_internal::render_snapshot snapshot;
   const auto snapshot_result =
       diagnostics::measure(diagnostics::loop_stage::render_snapshot, [&]() noexcept {
-        return world_internal::get_render_snapshot(world(), window.width, window.height, snapshot,
-                                                   storage_->view_camera_ ? &*storage_->view_camera_
-                                                                          : nullptr);
+        return storage_->scene_session_.native_world()->get_render_snapshot(
+            window.width, window.height, snapshot,
+            storage_->view_camera_ ? &*storage_->view_camera_ : nullptr);
       });
   if (snapshot_result != GNEISS_SUCCESS) {
     return snapshot_result;

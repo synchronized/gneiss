@@ -152,6 +152,9 @@ target_sources(
     engine/function/world/render_snapshot.cpp
     engine/function/world/render_snapshot.hpp
     engine/api/world_api.cpp
+    engine/function/world/world.cpp
+    engine/function/world/world.hpp
+    engine/function/world/world_types.hpp
     engine/function/world/world_service.cpp
     engine/function/world/world_service.hpp
     engine/function/world/component_reflection.cpp

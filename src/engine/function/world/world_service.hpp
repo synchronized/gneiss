@@ -5,43 +5,29 @@
 #define GNEISS_WORLD_WORLD_SERVICE_HPP_
 #include "engine/core/publication_group.hpp"
 #include "engine/function/render/camera_settings.hpp"
-#include "engine/function/world/world_components.hpp"
+#include "engine/function/world/world_types.hpp"
 #include <gneiss/engine/scene.h>
 #include <gneiss/engine/world.h>
 #include <memory>
 #include <span>
 
+namespace gneiss::engine {
+class world;
+}
+
 namespace gneiss::world_internal {
-class world_state;
 /** 将实现类型的析构留在 World 模块，不向场景域传播 ECS 后端头。 */
 struct GNEISS_API world_deleter {
   gneiss_world borrowed{};
-  void operator()(world_state* state) const noexcept;
+  void operator()(engine::world* state) const noexcept;
 };
-using world_owner = std::unique_ptr<world_state, world_deleter>;
+using world_owner = std::unique_ptr<engine::world, world_deleter>;
 /** 场景域拥有真实 World；返回的 RID 仅借用，owner 所属线程析构时自动撤销。失败不替换 owner，输出
  * RID 置零。 */
 [[nodiscard]] GNEISS_API gneiss_result create_native(world_owner& owner,
                                                      gneiss_world& borrowed) noexcept;
 
 /** 私有同版本宿主接口，不安装；唯一注册表负责线程和 generation 校验。 */
-using camera_settings = render_internal::camera_settings;
-struct mesh_renderer_replacement {
-  gneiss_entity_id entity{};
-  mesh_renderer expected{};
-  mesh_renderer replacement{};
-};
-/** 不持有资源；调用方保留 renderer 对应租约，候选相机不自动成为活动相机。 */
-struct staged_object_description {
-  gneiss_scene_node_id parent{};
-  gneiss_transform transform = GNEISS_TRANSFORM_IDENTITY;
-  const camera_settings* camera{};
-  const mesh_renderer* renderer{};
-};
-struct staged_object {
-  gneiss_entity_id entity{};
-  gneiss_scene_node_id node{};
-};
 /** 私有所属线程事务入口；失败输出为空；World 必须存活至候选全部清理。 */
 [[nodiscard]] GNEISS_API gneiss_result begin_publication(gneiss_world world,
                                                          core::publication& output) noexcept;

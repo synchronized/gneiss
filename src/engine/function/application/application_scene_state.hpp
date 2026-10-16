@@ -26,6 +26,7 @@ public:
   application_scene_state(const application_scene_state&) = delete;
   application_scene_state& operator=(const application_scene_state&) = delete;
   [[nodiscard]] gneiss_result initialize() noexcept;
+  [[nodiscard]] engine::world* native_world() const noexcept { return world_owner_.get(); }
 
   asset_internal::resource_cache& cache;
   render_internal::render_asset_loader& assets;

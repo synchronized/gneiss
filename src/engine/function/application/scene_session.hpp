@@ -34,6 +34,7 @@ public:
   [[nodiscard]] bool loading() const noexcept;
   [[nodiscard]] scene_retirement_statistics retirement() const noexcept;
   [[nodiscard]] gneiss_world world() const noexcept;
+  [[nodiscard]] engine::world* native_world() const noexcept;
   [[nodiscard]] scene_internal::scene_instance_service* scenes() noexcept;
   /** 要求 initialize 成功，借用至切换或 shutdown；不得跨帧缓存。 */
   [[nodiscard]] render_internal::render_asset_loader& assets() noexcept;

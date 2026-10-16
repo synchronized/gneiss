@@ -135,3 +135,17 @@ World 的实体 ID，移除每个相机组件重复存储的 is_primary 位。Sc
 完整 Windows Debug 构建及 13 项变换、World、快照、Prefab、Scene 热重载和边界回归通过；
 新增场景树 C TRS 反例后，两项正反向边界测试再次通过。迁移仍未覆盖 Editor 编辑会话、
 全部 World/Scene 操作入口和最终跨平台安装矩阵。
+
+## World 原生操作对象
+
+World 操作实现迁入 engine::world，内部独占 ECS/场景树实现，宿主头不包含 EnTT。
+创建仍由统一工厂分配域；构造函数不对内部任意调用方开放。兼容 World 服务集中做句柄解析、
+校验与边界值转换，再调用同一对象，未新增业务状态。
+
+原生变换操作使用 engine::transform，存活查询使用 bool；Application 每帧及截图快照直接
+调用活动域的 World，不经过全局句柄表。场景切换前后的借用不得跨激活保存。
+候选构造描述和 Scene/Prefab 消费者仍需继续迁移，不能据此宣布整个 World/Scene 链完成。
+
+完整 Windows Debug 构建及 19 项 World、Scene、Application、窗口交互、反射和边界回归通过。
+新增测试直接调用原生对象，验证实体、节点、变换、跨线程拒绝、候选发布和 C 查询共享同一状态。
+兼容解析集中化后，7 项受影响回归再次通过。最终跨平台与安装矩阵尚未执行。
