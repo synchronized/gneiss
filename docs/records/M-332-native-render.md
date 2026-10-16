@@ -44,7 +44,15 @@ model/normal 数学由 Granit 目录移至通用 Render，测试不再要求 Gra
 camera_math、scene_projection_math 的 clang-tidy 无项目诊断。此次未做 Sponza 图像对比、
 性能测量、Linux 与静态安装矩阵，不将迁移描述为渲染性能改善。
 
+## 材质与采样原生值
+
+2026-10-16，资产解析和 Render 共用内部材质枚举与逐槽采样类型；double_sided 使用 bool。
+C 入口逐字段转换并拒绝非法布尔值，原生服务独立拒绝未知枚举，旧版本材质描述的缺省行为保持。
+Granit 的数值转换只在后端适配处发生。normal_math 也已使用原生 TRS 与数组法线。
+完整 Windows Debug 构建通过，11 项资源、材质、资产准备、加载、帧包、SDK 所有权、法线与
+边界回归通过。新增原生路径未知枚举拒绝测试；未重复运行完整图像或跨平台矩阵。
+
 ## 剩余
 
-资源 RID、材质采样等接口尚未原生化，旧 normal_math 独立辅助函数仍接收 C 值。
+资源 RID、网格顶点与纹理格式等接口尚未原生化。
 Render 尚未完成，Application 回调与上层调用链也未完成。

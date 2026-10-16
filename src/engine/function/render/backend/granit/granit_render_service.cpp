@@ -381,18 +381,20 @@ granit_render_service::create_material_mirror(const render_internal::material_re
   for (std::size_t slot = 0; slot < source.sampling.size(); ++slot) {
     const auto& sampling = source.sampling[slot];
     const auto initialized = output.samplers[slot].initialize(
-        renderer_, {.mag_filter = sampling.mag_filter == GNEISS_TEXTURE_FILTER_LINEAR
-                                      ? granit::filter::linear
-                                      : granit::filter::nearest,
-                    .min_filter = sampling.min_filter == GNEISS_TEXTURE_FILTER_LINEAR
-                                      ? granit::filter::linear
-                                      : granit::filter::nearest,
-                    .mip_filter = sampling.mip_filter == GNEISS_TEXTURE_MIP_LINEAR
-                                      ? granit::mipmap_filter::linear
-                                      : granit::mipmap_filter::nearest,
-                    .address_u = addresses[sampling.address_u],
-                    .address_v = addresses[sampling.address_v],
-                    .max_lod = sampling.mip_filter == GNEISS_TEXTURE_MIP_NONE ? 0.0F : 14.0F});
+        renderer_,
+        {.mag_filter = sampling.mag_filter == asset_internal::texture_filter::linear
+                           ? granit::filter::linear
+                           : granit::filter::nearest,
+         .min_filter = sampling.min_filter == asset_internal::texture_filter::linear
+                           ? granit::filter::linear
+                           : granit::filter::nearest,
+         .mip_filter = sampling.mip_filter == asset_internal::texture_mip_filter::linear
+                           ? granit::mipmap_filter::linear
+                           : granit::mipmap_filter::nearest,
+         .address_u = addresses[static_cast<std::size_t>(sampling.address_u)],
+         .address_v = addresses[static_cast<std::size_t>(sampling.address_v)],
+         .max_lod =
+             sampling.mip_filter == asset_internal::texture_mip_filter::none ? 0.0F : 14.0F});
     if (initialized.failed())
       return initialized;
   }
@@ -1339,7 +1341,8 @@ granit_render_service::execute_frame(render_internal::render_frame_packet& packe
           return GNEISS_ERROR_INVALID_ARGUMENT;
         // GPU 布局统一包含 UV1 与颜色；缺失属性填零 UV / 白色，变体必须匹配 72 字节步长。
         const auto variant = granit_pbr_material_variant_key(
-            GRANIT_PBR_TEXTURE_ALL, material->alpha_mode, material->double_sided, 1U, 1U);
+            GRANIT_PBR_TEXTURE_ALL, static_cast<std::uint32_t>(material->alpha_mode),
+            material->double_sided, 1U, 1U);
         renderables.push_back(
             {.model = to_granit_matrix(model),
              .normal_matrix = to_granit_matrix(normal),

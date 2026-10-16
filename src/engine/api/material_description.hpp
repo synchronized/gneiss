@@ -6,6 +6,7 @@
 #include "engine/function/render/render_resource_data.hpp"
 
 #include <algorithm>
+#include <gneiss/engine/render.h>
 
 namespace gneiss::api {
 
@@ -41,13 +42,21 @@ read_material_description(const gneiss_material_desc& desc,
     std::ranges::copy(desc.emissive, value.emissive.begin());
   }
   if (desc.struct_size >= sizeof(gneiss_material_desc)) {
-    if (desc.reserved_3 != 0U) {
+    if (desc.reserved_3 != 0U || desc.double_sided > 1U) {
       return GNEISS_ERROR_INVALID_ARGUMENT;
     }
-    value.alpha_mode = desc.alpha_mode;
-    value.double_sided = desc.double_sided;
+    value.alpha_mode = static_cast<asset_internal::material_alpha_mode>(desc.alpha_mode);
+    value.double_sided = desc.double_sided != 0U;
     value.alpha_cutoff = desc.alpha_cutoff;
-    std::ranges::copy(desc.sampling, value.sampling.begin());
+    for (std::size_t slot = 0; slot < value.sampling.size(); ++slot) {
+      const auto& sample = desc.sampling[slot];
+      value.sampling[slot] = {sample.uv_set,
+                              static_cast<asset_internal::texture_filter>(sample.mag_filter),
+                              static_cast<asset_internal::texture_filter>(sample.min_filter),
+                              static_cast<asset_internal::texture_mip_filter>(sample.mip_filter),
+                              static_cast<asset_internal::texture_address>(sample.address_u),
+                              static_cast<asset_internal::texture_address>(sample.address_v)};
+    }
   }
   output = value;
   return GNEISS_SUCCESS;

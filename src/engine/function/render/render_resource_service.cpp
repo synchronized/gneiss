@@ -222,7 +222,7 @@ gneiss_result render_resource_service::create_material(const material_resource& 
   *out_material = 0U;
   if (!std::isfinite(value.normal_scale) || !valid_color(value.occlusion_strength) ||
       !std::ranges::all_of(value.emissive, valid_color) ||
-      value.alpha_mode > GNEISS_MATERIAL_ALPHA_BLEND || value.double_sided > 1U ||
+      value.alpha_mode > asset_internal::material_alpha_mode::blend ||
       !std::isfinite(value.alpha_cutoff) || value.alpha_cutoff < 0.0F) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
@@ -232,11 +232,7 @@ gneiss_result render_resource_service::create_material(const material_resource& 
     }
   }
   for (const auto& sample : value.sampling) {
-    if (sample.uv_set > 1U || sample.mag_filter > GNEISS_TEXTURE_FILTER_LINEAR ||
-        sample.min_filter > GNEISS_TEXTURE_FILTER_LINEAR ||
-        sample.mip_filter > GNEISS_TEXTURE_MIP_LINEAR ||
-        sample.address_u > GNEISS_TEXTURE_ADDRESS_MIRROR ||
-        sample.address_v > GNEISS_TEXTURE_ADDRESS_MIRROR) {
+    if (!asset_internal::valid_sampling(sample)) {
       return GNEISS_ERROR_INVALID_ARGUMENT;
     }
   }

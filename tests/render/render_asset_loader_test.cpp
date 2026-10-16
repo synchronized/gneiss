@@ -356,16 +356,19 @@ bool material_parameter_roundtrip(gneiss::asset_internal::virtual_file_system& f
         value->alpha != 0.5F || value->metallic != 0.25F || value->roughness != 0.75F ||
         value->normal_scale != 0.5F || value->occlusion_strength != 0.25F ||
         value->emissive != std::array{0.25F, 0.5F, 0.75F} ||
-        value->alpha_mode != GNEISS_MATERIAL_ALPHA_MASK || value->alpha_cutoff != 0.25F ||
-        value->double_sided != 1U) {
+        value->alpha_mode != gneiss::asset_internal::material_alpha_mode::mask ||
+        value->alpha_cutoff != 0.25F || value->double_sided != 1U) {
       return false;
     }
     const auto handles = value->texture_handles();
     for (std::size_t slot = 0; slot < handles.size(); ++slot) {
       const auto& sample = value->sampling[slot];
       if (handles[slot] == GNEISS_NULL_TEXTURE || sample.uv_set != slot % 2U ||
-          sample.mag_filter != 0U || sample.min_filter != 1U || sample.mip_filter != 2U ||
-          sample.address_u != slot % 3U || sample.address_v != 1U) {
+          static_cast<std::uint32_t>(sample.mag_filter) != 0U ||
+          static_cast<std::uint32_t>(sample.min_filter) != 1U ||
+          static_cast<std::uint32_t>(sample.mip_filter) != 2U ||
+          static_cast<std::uint32_t>(sample.address_u) != slot % 3U ||
+          static_cast<std::uint32_t>(sample.address_v) != 1U) {
         return false;
       }
     }

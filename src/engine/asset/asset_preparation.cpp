@@ -341,17 +341,20 @@ using document_ptr = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;
         return false;
       }
       auto& sample = state.sampling[slot];
-      const std::array destinations{
-          &sample.uv_set,     &sample.mag_filter, &sample.min_filter,
-          &sample.mip_filter, &sample.address_u,  &sample.address_v,
-      };
+      std::array<std::uint32_t, 6> fields{};
       for (std::size_t field = 0; field < names.size(); ++field) {
         auto* value = yyjson_obj_get(item, names[field]);
         if (!yyjson_is_uint(value) || yyjson_get_uint(value) > limits[field]) {
           return false;
         }
-        *destinations[field] = static_cast<std::uint32_t>(yyjson_get_uint(value));
+        fields[field] = static_cast<std::uint32_t>(yyjson_get_uint(value));
       }
+      sample = {fields[0],
+                static_cast<asset_internal::texture_filter>(fields[1]),
+                static_cast<asset_internal::texture_filter>(fields[2]),
+                static_cast<asset_internal::texture_mip_filter>(fields[3]),
+                static_cast<asset_internal::texture_address>(fields[4]),
+                static_cast<asset_internal::texture_address>(fields[5])};
     }
   }
   return true;
@@ -365,11 +368,11 @@ using document_ptr = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;
     }
     const auto name = json_string(mode);
     if (name == "OPAQUE") {
-      state.alpha_mode = GNEISS_MATERIAL_ALPHA_OPAQUE;
+      state.alpha_mode = asset_internal::material_alpha_mode::opaque;
     } else if (name == "MASK") {
-      state.alpha_mode = GNEISS_MATERIAL_ALPHA_MASK;
+      state.alpha_mode = asset_internal::material_alpha_mode::mask;
     } else if (name == "BLEND") {
-      state.alpha_mode = GNEISS_MATERIAL_ALPHA_BLEND;
+      state.alpha_mode = asset_internal::material_alpha_mode::blend;
     } else {
       return false;
     }
@@ -378,7 +381,7 @@ using document_ptr = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;
     if (!yyjson_is_bool(sided)) {
       return false;
     }
-    state.double_sided = yyjson_get_bool(sided) ? 1U : 0U;
+    state.double_sided = yyjson_get_bool(sided);
   }
   if (auto* cutoff = yyjson_obj_get(root, "alpha_cutoff");
       cutoff && (!read_float(cutoff, state.alpha_cutoff) || state.alpha_cutoff < 0.0F)) {

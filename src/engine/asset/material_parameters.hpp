@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include <gneiss/engine/render.h>
+#include "engine/asset/material_types.hpp"
 
 #include <array>
 #include <cstdint>
@@ -18,12 +18,10 @@ struct material_parameters {
   float normal_scale{1.0F};
   float occlusion_strength{1.0F};
   std::array<float, 3> emissive{};
-  gneiss_material_alpha_mode alpha_mode{GNEISS_MATERIAL_ALPHA_OPAQUE};
-  std::uint32_t double_sided{};
+  asset_internal::material_alpha_mode alpha_mode{asset_internal::material_alpha_mode::opaque};
+  bool double_sided{};
   float alpha_cutoff{0.5F};
-  std::array<gneiss_texture_sampling, 5> sampling{
-      {GNEISS_TEXTURE_SAMPLING_INIT, GNEISS_TEXTURE_SAMPLING_INIT, GNEISS_TEXTURE_SAMPLING_INIT,
-       GNEISS_TEXTURE_SAMPLING_INIT, GNEISS_TEXTURE_SAMPLING_INIT}};
+  std::array<asset_internal::texture_sampling, 5> sampling{};
 };
 
 } // namespace gneiss::asset_internal

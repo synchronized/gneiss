@@ -7,10 +7,10 @@
 
 namespace gneiss::render_internal {
 
-std::array<float, 3> transform_normal(const gneiss_mesh_normal& normal,
-                                      const gneiss_transform& transform) noexcept {
-  std::array value{normal.x / transform.scale[0], normal.y / transform.scale[1],
-                   normal.z / transform.scale[2]};
+std::array<float, 3> transform_normal(const std::array<float, 3>& normal,
+                                      const engine::transform& transform) noexcept {
+  std::array value{normal[0] / transform.scale[0], normal[1] / transform.scale[1],
+                   normal[2] / transform.scale[2]};
   const std::array vector{transform.rotation[0], transform.rotation[1], transform.rotation[2]};
   const std::array first_cross{(vector[1] * value[2]) - (vector[2] * value[1]),
                                (vector[2] * value[0]) - (vector[0] * value[2]),

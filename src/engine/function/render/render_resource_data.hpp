@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "engine/asset/material_types.hpp"
 #include "engine/asset/mesh_data.hpp"
 #include "engine/asset/texture_preparation_data.hpp"
 #include <gneiss/engine/render.h>
@@ -36,12 +37,10 @@ struct material_resource {
   float normal_scale{1.0F};
   float occlusion_strength{1.0F};
   std::array<float, 3> emissive{};
-  gneiss_material_alpha_mode alpha_mode{GNEISS_MATERIAL_ALPHA_OPAQUE};
-  std::uint32_t double_sided{};
+  asset_internal::material_alpha_mode alpha_mode{asset_internal::material_alpha_mode::opaque};
+  bool double_sided{};
   float alpha_cutoff{0.5F};
-  std::array<gneiss_texture_sampling, 5> sampling{
-      {GNEISS_TEXTURE_SAMPLING_INIT, GNEISS_TEXTURE_SAMPLING_INIT, GNEISS_TEXTURE_SAMPLING_INIT,
-       GNEISS_TEXTURE_SAMPLING_INIT, GNEISS_TEXTURE_SAMPLING_INIT}};
+  std::array<asset_internal::texture_sampling, 5> sampling{};
 
   [[nodiscard]] std::array<gneiss_texture, 5> texture_handles() const noexcept {
     return {base_color_texture, metallic_roughness_texture, normal_texture, occlusion_texture,

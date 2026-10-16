@@ -23,6 +23,20 @@ int main() {
   using gneiss::render_internal::render_resource_service;
   render_resource_service resources;
   render_resource_service other;
+  // 原生路径同样拒绝非法枚举，不能依赖 C 入口代替服务校验。
+  gneiss::render_internal::material_resource native;
+  gneiss_material native_handle{};
+  native.alpha_mode = static_cast<gneiss::asset_internal::material_alpha_mode>(UINT32_MAX);
+  if (resources.create_material(native, &native_handle) != GNEISS_ERROR_INVALID_ARGUMENT)
+    return 30;
+  native.alpha_mode = gneiss::asset_internal::material_alpha_mode::opaque;
+  native.sampling[2].address_v = static_cast<gneiss::asset_internal::texture_address>(UINT32_MAX);
+  if (resources.create_material(native, &native_handle) != GNEISS_ERROR_INVALID_ARGUMENT)
+    return 31;
+  native.sampling[2] = {};
+  if (resources.create_material(native, &native_handle) != GNEISS_SUCCESS ||
+      resources.destroy_material(native_handle) != GNEISS_SUCCESS)
+    return 32;
   constexpr std::array<std::uint8_t, 4> pixel{128U, 128U, 255U, 255U};
   gneiss::render_internal::texture_view texture_desc;
   texture_desc.width = 1U;
@@ -132,9 +146,9 @@ int main() {
   if (create_material(resources, desc, &material) != GNEISS_SUCCESS)
     return 16;
   value = resources.get_material(material);
-  if (value->alpha_mode != GNEISS_MATERIAL_ALPHA_BLEND || value->double_sided != 1U ||
-      value->alpha_cutoff != 1.5F || value->uv1_mask() != 1U ||
-      value->sampling[0].address_u != GNEISS_TEXTURE_ADDRESS_MIRROR)
+  if (value->alpha_mode != gneiss::asset_internal::material_alpha_mode::blend ||
+      value->double_sided != 1U || value->alpha_cutoff != 1.5F || value->uv1_mask() != 1U ||
+      value->sampling[0].address_u != gneiss::asset_internal::texture_address::mirror)
     return 17;
   if (resources.destroy_material(material) != GNEISS_SUCCESS)
     return 18;
@@ -153,7 +167,8 @@ int main() {
     return 20;
   desc.struct_size = GNEISS_MATERIAL_DESC_VERSION_2_SIZE;
   if (create_material(resources, desc, &material) != GNEISS_SUCCESS ||
-      resources.get_material(material)->alpha_mode != GNEISS_MATERIAL_ALPHA_OPAQUE ||
+      resources.get_material(material)->alpha_mode !=
+          gneiss::asset_internal::material_alpha_mode::opaque ||
       resources.get_material(material)->uv1_mask() != 0U ||
       resources.destroy_material(material) != GNEISS_SUCCESS)
     return 21;
