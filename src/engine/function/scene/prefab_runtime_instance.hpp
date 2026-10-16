@@ -4,6 +4,7 @@
 #ifndef GNEISS_SCENE_PREFAB_RUNTIME_INSTANCE_HPP_
 #define GNEISS_SCENE_PREFAB_RUNTIME_INSTANCE_HPP_
 
+#include "engine/core/publication_group.hpp"
 #include "engine/function/render/render_asset_loader.hpp"
 #include "engine/function/scene/prefab_asset_loader.hpp"
 #include "engine/function/scene/prefab_description.hpp"
@@ -21,10 +22,11 @@ namespace gneiss::scene_internal {
 class prefab_runtime_instance final {
 public:
   /** 只修改私有描述，失败保持 output 不变；不读文件、不创建实体、不发送通知。 */
-  [[nodiscard]] static gneiss_result prepare_candidate_description(
-      const prefab_description& source, gneiss_type_registry registry,
-      std::string_view instance_uuid, std::span<const prefab_property_override> overrides,
-      prefab_description& output) noexcept;
+  [[nodiscard]] static gneiss_result
+  prepare_candidate_description(const prefab_description& source, gneiss_type_registry registry,
+                                std::string_view instance_uuid,
+                                std::span<const prefab_property_override> overrides,
+                                prefab_description& output) noexcept;
   struct node_info final {
     const prefab_author_address* address = nullptr;
     std::string_view name;
@@ -50,6 +52,10 @@ public:
   [[nodiscard]] gneiss_scene_node_id root() const noexcept { return root_node_; }
   [[nodiscard]] gneiss_entity_id root_entity() const noexcept { return root_entity_; }
   [[nodiscard]] prefab_asset_lease prefab_lease() const noexcept { return prefab_; }
+  /** 仅供未发布候选的镜像准备；返回值有效期不超过实例或下一次重载。 */
+  [[nodiscard]] const prefab_description& candidate_description() const noexcept {
+    return prepared_ ? *prepared_ : *prefab_.get();
+  }
   [[nodiscard]] gneiss_scene_node_id find_node(std::string_view source_node_uuid) const noexcept;
   [[nodiscard]] gneiss_entity_id find_entity(std::string_view source_node_uuid) const noexcept;
   [[nodiscard]] const object_description*
@@ -67,6 +73,14 @@ public:
   /** 候选 World 专用的分阶段构造；每次只创建一个节点，渲染资源由调用方传入租约。 */
   [[nodiscard]] gneiss_result begin_staged(gneiss_scene_node_id parent,
                                            const gneiss_transform& transform);
+  /** 活动 World 内隐藏构造；描述已完成覆盖验证，发布前不激活相机。 */
+  [[nodiscard]] gneiss_result begin_hidden(gneiss_scene_node_id parent,
+                                           const gneiss_transform& transform,
+                                           prefab_description prepared);
+  [[nodiscard]] gneiss_result publish_hidden() noexcept;
+  [[nodiscard]] gneiss_result retire_hidden() noexcept;
+  /** 旧同步实例也可加入退休组；逐项准备不改变可见性，取消可保留这些内部关联。 */
+  [[nodiscard]] gneiss_result prepare_retirement_step(bool& complete);
   [[nodiscard]] gneiss_result create_staged_node(std::size_t index, gneiss_scene_node_id parent,
                                                  render_internal::mesh_asset_lease mesh,
                                                  render_internal::material_asset_lease material);
@@ -85,6 +99,7 @@ private:
     std::string name;
     gneiss_entity_id entity = GNEISS_NULL_ENTITY_ID;
     gneiss_scene_node_id node = GNEISS_NULL_SCENE_NODE_ID;
+    gneiss_scene_node_id parent = GNEISS_NULL_SCENE_NODE_ID;
     render_internal::mesh_asset_lease mesh;
     render_internal::material_asset_lease material;
     bool staged_attempted{};
@@ -109,6 +124,11 @@ private:
   std::vector<std::size_t> staged_order_;
   bool staged_{};
   bool cancelling_{};
+  core::publication publication_;
+  std::optional<prefab_description> prepared_;
+  bool published_{};
+  gneiss_scene_instance candidate_scene_{};
+  std::size_t retirement_cursor_{};
 };
 
 } // namespace gneiss::scene_internal

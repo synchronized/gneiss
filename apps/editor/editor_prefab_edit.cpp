@@ -1,0 +1,409 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 Gneiss contributors
+#include "editor_prefab_edit.hpp"
+#include "engine/function/application/application_asset_reload_internal.hpp"
+#include "engine/function/application/prefab_placement.hpp"
+#include "engine/function/application/prefab_preparation.hpp"
+#include <algorithm>
+
+namespace gneiss::editor {
+namespace {
+using application_internal::prefab_placement;
+using application_internal::prefab_placement_snapshot;
+class prefab_history_operation final : public editor_history_operation {
+public:
+  prefab_history_operation(
+      gneiss_application application, editor_session& session, gneiss_scene_instance scene,
+      std::shared_ptr<const prefab_placement_snapshot> snapshot, bool removing,
+      std::function<gneiss_result(const std::function<gneiss_result()>&)> accept = {})
+      : application_(application), scene_(scene), session_(session), snapshot_(std::move(snapshot)),
+        removing_(removing), accept_(std::move(accept)) {}
+  result advance(bool& complete) noexcept override try {
+    complete = false;
+    if (committed_ || cancelled_ || status_.failed()) {
+      return cleanup(complete);
+    }
+    if (session_.scene_handle() != scene_) {
+      status_ = result::invalid_state;
+      return result::success;
+    }
+    if (!transaction_) {
+      status_ = from_native(
+          prefab_placement::begin(application_, scene_, snapshot_, removing_, transaction_));
+      if (status_.failed()) {
+        return result::success;
+      }
+      records_.reserve(session_.prefab_nodes().size() +
+                       (removing_ ? 0U : transaction_->node_count()));
+    }
+    bool ready{};
+    status_ = from_native(transaction_->advance(ready));
+    if (status_.failed() || !ready) {
+      return result::success;
+    }
+    return prepare_mirror();
+  } catch (const std::bad_alloc&) {
+    status_ = result::out_of_memory;
+    return result::success;
+  } catch (...) {
+    status_ = result::internal;
+    return result::success;
+  }
+  void cancel() noexcept override {
+    if (!committed_) {
+      cancelled_ = true;
+    }
+  }
+  [[nodiscard]] bool can_cancel() const noexcept override { return !committed_; }
+
+private:
+  result cleanup(bool& complete) {
+    if (transaction_ && !transaction_->cleanup_step()) {
+      return result::success;
+    }
+    for (unsigned i = 0; i < 64U && !records_.empty(); ++i) {
+      records_.pop_back();
+    }
+    complete = records_.empty();
+    if (!complete || committed_) {
+      return result::success;
+    }
+    return cancelled_ ? result::invalid_state : status_;
+  }
+  result append_record() {
+    scene_internal::prefab_node_view info;
+    const auto previewed = from_native(transaction_->preview(new_cursor_++, info));
+    if (previewed.failed()) {
+      return previewed;
+    }
+    prefab_node_record record;
+    record.node = scene_node_id{info.node};
+    record.parent = scene_node_id{info.parent};
+    record.entity = entity_id{info.entity};
+    record.instance_uuid = info.instance_uuid;
+    record.source_node_uuid = info.source_node_uuid;
+    record.display_name = info.name;
+    record.prefab_uri = info.prefab_uri;
+    record.local_transform = from_native(info.local_transform);
+    record.source_local_transform = from_native(info.source_local_transform);
+    record.is_instance_root = (info.flags & GNEISS_SCENE_PREFAB_NODE_INSTANCE_ROOT) != 0U;
+    record.is_read_only = !record.is_instance_root;
+    record.override_flags = info.flags & (GNEISS_SCENE_PREFAB_NODE_TRANSLATION_OVERRIDDEN |
+                                          GNEISS_SCENE_PREFAB_NODE_ROTATION_OVERRIDDEN |
+                                          GNEISS_SCENE_PREFAB_NODE_SCALE_OVERRIDDEN);
+    if (record.is_instance_root && snapshot_->author.parent_uuid) {
+      const auto* parent = session_.find_node(*snapshot_->author.parent_uuid);
+      if (parent == nullptr) {
+        return result::invalid_handle;
+      }
+      record.parent = parent->node;
+    }
+    records_.push_back(std::move(record));
+    return result::success;
+  }
+  result prepare_mirror() {
+    for (unsigned step = 0; step < 64U; ++step) {
+      if (old_cursor_ < session_.prefab_nodes().size()) {
+        const auto& record = session_.prefab_nodes()[old_cursor_++];
+        if (!removing_ || record.instance_uuid != snapshot_->author.instance_uuid) {
+          records_.push_back(record);
+        }
+      } else if (!removing_ && new_cursor_ < transaction_->node_count()) {
+        const auto added = append_record();
+        if (added.failed()) {
+          status_ = added;
+          return result::success;
+        }
+      } else {
+        const auto commit = [&] { return transaction_->commit(); };
+        status_ = from_native(accept_ ? accept_(commit) : commit());
+        if (status_.failed()) {
+          return result::success;
+        }
+        session_.publish_prefab_records(records_, removing_ ? scene_node_id{}
+                                                            : scene_node_id{transaction_->root()});
+        committed_ = true;
+        return result::success;
+      }
+    }
+    return result::success;
+  }
+  gneiss_application application_{};
+  gneiss_scene_instance scene_{};
+  editor_session& session_;
+  std::shared_ptr<const prefab_placement_snapshot> snapshot_;
+  std::unique_ptr<prefab_placement> transaction_;
+  std::vector<prefab_node_record> records_;
+  std::size_t old_cursor_{}, new_cursor_{};
+  bool removing_{}, committed_{}, cancelled_{};
+  result status_{result::success};
+  std::function<gneiss_result(const std::function<gneiss_result()>&)> accept_;
+};
+class prefab_command final : public editor_command {
+public:
+  prefab_command(gneiss_application application, editor_session& session,
+                 gneiss_scene_instance scene,
+                 std::shared_ptr<const prefab_placement_snapshot> snapshot)
+      : application_(application), scene_(scene), session_(session),
+        snapshot_(std::move(snapshot)) {}
+  [[nodiscard]] std::string_view label() const noexcept override { return "放置 Prefab 实例"; }
+  result undo() noexcept override { return result::not_ready; }
+  result redo() noexcept override { return result::not_ready; }
+  result
+  begin_history_operation(bool undo,
+                          std::unique_ptr<editor_history_operation>& output) noexcept override try {
+    if (session_.scene_handle() != scene_) {
+      return result::invalid_state;
+    }
+    output =
+        std::make_unique<prefab_history_operation>(application_, session_, scene_, snapshot_, undo);
+    return result::success;
+  } catch (const std::bad_alloc&) {
+    return result::out_of_memory;
+  } catch (...) {
+    return result::internal;
+  }
+
+private:
+  gneiss_application application_{};
+  gneiss_scene_instance scene_{};
+  editor_session& session_;
+  std::shared_ptr<const prefab_placement_snapshot> snapshot_;
+};
+}
+struct editor_prefab_edit::state {
+  gneiss_application application{};
+  gneiss_scene_instance scene{};
+  editor_session* session{};
+  editor_command_history* history{};
+  std::unique_ptr<application_internal::prefab_preparation> preparation;
+  scene_internal::prefab_instance_description author;
+  scene_internal::prepared_scene_description prepared;
+  std::vector<render_internal::render_asset_lease> assets;
+  render_internal::texture_load_completion completion;
+  std::unique_ptr<editor_command> command;
+  std::unique_ptr<editor_history_operation> operation;
+  std::uint64_t request{};
+  bool asset_pending{}, cancelled{}, active{}, visible{};
+  result status{result::success};
+  result failure{result::success};
+  void finish() noexcept {
+    active = false;
+    if (failure.failed()) {
+      status = failure;
+    }
+    visible = status.failed() && (!cancelled || failure.failed());
+    operation.reset();
+    command.reset();
+    completion = {};
+    prepared.prefabs.clear();
+    prepared.assets.clear();
+    prepared.parent_first.clear();
+    assets.clear();
+    (void)application_internal::collect_unused_edit_assets(application);
+  }
+
+  bool poll_preparation() {
+
+    bool complete{};
+    status = from_native(preparation->poll(prepared, complete));
+    if (!complete) {
+      return false;
+    }
+    preparation.reset();
+    if (status.ok() && !cancelled) {
+      std::vector<render_internal::render_asset_reload> missing;
+      for (const auto& asset : prepared.assets) {
+        render_internal::render_asset_lease lease;
+        const auto ready = application_internal::query_ready_asset(application, asset, lease);
+        if (ready == GNEISS_SUCCESS) {
+          assets.push_back(std::move(lease));
+        } else if (ready == GNEISS_ERROR_NOT_READY) {
+          missing.push_back(asset);
+        } else {
+          status = from_native(ready);
+          break;
+        }
+      }
+      if (status.ok() && !missing.empty()) {
+        status = from_native(
+            application_internal::prepare_edit_assets(application, missing, 1U, request));
+        asset_pending = status.ok();
+        if (asset_pending) {
+          return false;
+        }
+      }
+    }
+
+    return true;
+  }
+  bool poll_assets() {
+
+    bool ready{};
+    status = from_native(application_internal::poll_textures(application, completion, ready));
+    if (status.ok() && !ready) {
+      return false;
+    }
+    asset_pending = false;
+    if (status.ok()) {
+      status = from_native(completion.result);
+    }
+    if (status.ok() && completion.request != request) {
+      status = result::invalid_state;
+    }
+    if (status.ok()) {
+      assets.insert(assets.end(), completion.assets.begin(), completion.assets.end());
+    }
+
+    return true;
+  }
+};
+editor_prefab_edit::editor_prefab_edit() = default;
+editor_prefab_edit::~editor_prefab_edit() = default;
+bool editor_prefab_edit::active() const noexcept { return state_ && state_->active; }
+bool editor_prefab_edit::visible() const noexcept { return state_ && state_->visible; }
+bool editor_prefab_edit::can_cancel() const noexcept {
+  return active() && (!state_->operation || state_->operation->can_cancel());
+}
+prefab_edit_phase editor_prefab_edit::phase() const noexcept {
+  if (!active()) {
+    return prefab_edit_phase::finished;
+  }
+  if (state_->cancelled || (state_->operation && !state_->operation->can_cancel())) {
+    return prefab_edit_phase::cleanup;
+  }
+  if (state_->preparation) {
+    return prefab_edit_phase::preparing;
+  }
+  if (state_->asset_pending) {
+    return prefab_edit_phase::assets;
+  }
+  return prefab_edit_phase::constructing;
+}
+result editor_prefab_edit::operation() const noexcept {
+  return state_ ? state_->status : result::success;
+}
+void editor_prefab_edit::dismiss() noexcept {
+  if (!active()) {
+    state_.reset();
+  }
+}
+result editor_prefab_edit::request(gneiss_application application, tasks::task_executor& executor,
+                                   editor_session& session, editor_command_history& history,
+                                   std::string_view name, std::string_view uri,
+                                   scene_node_id parent) try {
+  if (active() || history.is_pending() || !session.is_open()) {
+    return result::not_ready;
+  }
+  auto next = std::make_unique<state>();
+  next->application = application;
+  next->scene = session.scene_handle();
+  next->session = &session;
+  next->history = &history;
+  auto status = make_editor_uuid(next->author.instance_uuid);
+  if (status.failed()) {
+    return status;
+  }
+  next->author.name = name;
+  next->author.prefab_uri = uri;
+  next->author.rotation[3] = 1.0F;
+  next->author.scale = {1.0F, 1.0F, 1.0F};
+  if (parent.is_valid()) {
+    const auto found = std::ranges::find(session.nodes(), parent, &scene_node_record::node);
+    if (found == session.nodes().end()) {
+      return result::invalid_handle;
+    }
+    next->author.parent_uuid = found->uuid;
+  }
+  status = from_native(application_internal::prefab_preparation::create(application, executor, uri,
+                                                                        next->preparation));
+  if (status.failed()) {
+    return status;
+  }
+  next->active = next->visible = true;
+  state_ = std::move(next);
+  return result::success;
+} catch (const std::bad_alloc&) {
+  return result::out_of_memory;
+} catch (...) {
+  return result::internal;
+}
+void editor_prefab_edit::cancel() {
+  if (!can_cancel()) {
+    return;
+  }
+  auto& value = *state_;
+  value.cancelled = true;
+  if (value.preparation) {
+    value.preparation->cancel();
+  }
+  if (value.asset_pending) {
+    (void)application_internal::cancel_render_assets(value.application);
+  }
+  if (value.operation) {
+    value.operation->cancel();
+  }
+}
+void editor_prefab_edit::advance() {
+  if (!active()) {
+    return;
+  }
+  auto& value = *state_;
+  try {
+    if (value.operation) {
+      bool complete{};
+      value.status = value.operation->advance(complete);
+      if (!complete) {
+        return;
+      }
+      if (value.status.ok()) {
+        value.status = value.history->record(std::move(value.command));
+      }
+      value.finish();
+      return;
+    }
+    if (value.preparation && !value.poll_preparation()) {
+      return;
+    }
+    if (value.asset_pending && !value.poll_assets()) {
+      return;
+    }
+    if (value.cancelled || value.session->scene_handle() != value.scene) {
+      value.status = result::invalid_state;
+    }
+    if (value.status.failed()) {
+      value.finish();
+      return;
+    }
+    std::shared_ptr<const prefab_placement_snapshot> snapshot;
+    value.status = from_native(
+        prefab_placement::freeze(std::move(value.prepared.prefabs.at(value.author.prefab_uri)),
+                                 value.author, std::move(value.assets), snapshot));
+    if (value.status.ok()) {
+      value.status = value.history->prepare_record();
+    }
+    if (value.status.failed()) {
+      value.finish();
+      return;
+    }
+    value.command =
+        std::make_unique<prefab_command>(value.application, *value.session, value.scene, snapshot);
+    value.operation = std::make_unique<prefab_history_operation>(
+        value.application, *value.session, value.scene, std::move(snapshot), false,
+        [&value](const std::function<gneiss_result()>& commit) {
+          return value.completion.versions.empty()
+                     ? commit()
+                     : application_internal::accept_edit_assets(value.application, value.completion,
+                                                                commit);
+        });
+  } catch (const std::bad_alloc&) {
+    value.failure = result::out_of_memory;
+    value.status = value.failure;
+    cancel();
+  } catch (...) {
+    value.failure = result::internal;
+    value.status = value.failure;
+    cancel();
+  }
+}
+}

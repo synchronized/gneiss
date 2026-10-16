@@ -70,6 +70,32 @@ scene_tree::slot* scene_tree::find(gneiss_scene_node_id id) noexcept {
   return const_cast<slot*>(std::as_const(*this).find(id));
 }
 
+gneiss_result scene_tree::bind_publication(gneiss_scene_node_id id,
+                                           const core::publication& group) noexcept {
+  auto* node = find(id);
+  if (!node || node->value->publication || !group || group->domain_ != domain_ ||
+      !group->published_ || group->retired_) {
+    return GNEISS_ERROR_INVALID_STATE;
+  }
+  node->value->publication = group;
+  return GNEISS_SUCCESS;
+}
+
+bool scene_tree::publication_closed(const core::publication& group) const noexcept {
+  for (const auto& slot : slots_) {
+    if (!slot.value || slot.value->publication != group) {
+      continue;
+    }
+    for (const auto child : slot.value->children) {
+      const auto* value = find_raw(child);
+      if (!value || value->value->publication != group) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
 const scene_tree::slot* scene_tree::find(gneiss_scene_node_id id) const noexcept {
   const auto* value = find_raw(id);
   return value != nullptr && (!value->value->publication || value->value->publication->published_)
@@ -109,7 +135,7 @@ gneiss_result scene_tree::create_staged(const core::publication& group, gneiss_s
   if (output != nullptr) {
     *output = GNEISS_NULL_SCENE_NODE_ID;
   }
-  if (!group || group->domain_ != domain_ || group->published_) {
+  if (!group || group->domain_ != domain_ || group->published_ || group->retired_) {
     return GNEISS_ERROR_INVALID_STATE;
   }
   return create_impl(group, parent, entity, output);
@@ -215,17 +241,19 @@ bool scene_tree::has_unpublished_descendant(gneiss_scene_node_id id) const noexc
 }
 
 gneiss_entity_id scene_tree::get_staged_entity(const core::publication& group,
-    gneiss_scene_node_id id) const noexcept {
+                                               gneiss_scene_node_id id) const noexcept {
   const auto* value = find_raw(id);
   return group && group->domain_ == domain_ && !group->published_ && value != nullptr &&
-         value->value->publication == group ? value->value->entity : GNEISS_NULL_ENTITY_ID;
+                 value->value->publication == group
+             ? value->value->entity
+             : GNEISS_NULL_ENTITY_ID;
 }
 
 gneiss_result scene_tree::set_staged_local(const core::publication& group, gneiss_scene_node_id id,
                                            const gneiss_transform& transform) noexcept {
   auto* value = find_raw(id);
-  if (!group || group->domain_ != domain_ || group->published_ || value == nullptr ||
-      value->value->publication != group) {
+  if (!group || group->domain_ != domain_ || group->published_ || group->retired_ ||
+      value == nullptr || value->value->publication != group) {
     return GNEISS_ERROR_INVALID_HANDLE;
   }
   if (!is_valid(transform)) {
@@ -347,8 +375,10 @@ const gneiss_transform* scene_tree::get_local_for_entity(gneiss_entity_id entity
   const auto found = std::ranges::find_if(slots_, [entity](const slot& candidate) {
     return candidate.value && candidate.value->entity == entity;
   });
-  return found == slots_.end() || (found->value->publication && !found->value->publication->published_)
-      ? nullptr : &found->value->local;
+  return found == slots_.end() ||
+                 (found->value->publication && !found->value->publication->published_)
+             ? nullptr
+             : &found->value->local;
 }
 
 gneiss_result scene_tree::set_local_for_entity(gneiss_entity_id entity,

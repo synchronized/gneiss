@@ -25,6 +25,7 @@ public:
   virtual ~editor_history_operation() noexcept = default;
   [[nodiscard]] virtual result advance(bool& complete) noexcept = 0;
   virtual void cancel() noexcept = 0;
+  [[nodiscard]] virtual bool can_cancel() const noexcept { return true; }
 };
 
 /** 可逆 Editor 命令；实现只保存稳定作者值，不得保存 Runtime 对象地址。 */
@@ -84,6 +85,8 @@ public:
   explicit editor_command_history(std::size_t capacity = default_capacity) noexcept;
   /** 记录已经成功执行的命令；新命令清空 redo。 */
   [[nodiscard]] result record(std::unique_ptr<editor_command> value) noexcept;
+  /** 异步初次执行前预留记录空间；调用方期间禁止其他历史修改。 */
+  [[nodiscard]] result prepare_record() noexcept;
   [[nodiscard]] result record(command value) noexcept;
   /** 执行 redo 后记录；记录失败时自动调用 undo 回滚。 */
   [[nodiscard]] result execute(std::unique_ptr<editor_command> value) noexcept;
@@ -102,6 +105,9 @@ public:
   [[nodiscard]] bool is_pending() const noexcept { return pending_ != nullptr; }
   [[nodiscard]] result advance_pending() noexcept;
   void cancel_pending() noexcept;
+  [[nodiscard]] bool can_cancel_pending() const noexcept {
+    return pending_ && pending_->can_cancel();
+  }
 
   [[nodiscard]] bool can_undo() const noexcept { return !is_pending() && cursor_ != 0U; }
   [[nodiscard]] bool can_redo() const noexcept {

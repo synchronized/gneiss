@@ -21,6 +21,7 @@ class publication_group final {
   std::uint32_t domain_;
   std::size_t count_{};
   bool published_{};
+  bool retired_{};
 };
 using publication = std::shared_ptr<publication_group>;
 }

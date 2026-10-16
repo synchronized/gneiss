@@ -637,6 +637,15 @@ gneiss_target_compile_warnings(gneiss_scene_load_preparation_test)
 gneiss_target_output_directories(gneiss_scene_load_preparation_test)
 add_test(NAME gneiss.scene-load-preparation COMMAND gneiss_scene_load_preparation_test)
 
+add_executable(gneiss_prefab_preparation_test scene/prefab_preparation_test.cpp)
+target_include_directories(gneiss_prefab_preparation_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_compile_definitions(gneiss_prefab_preparation_test PRIVATE GNEISS_TEST_ASSET_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/data/assets")
+target_link_libraries(gneiss_prefab_preparation_test PRIVATE gneiss::engine gneiss_tasks)
+target_compile_features(gneiss_prefab_preparation_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_prefab_preparation_test)
+gneiss_target_output_directories(gneiss_prefab_preparation_test)
+add_test(NAME gneiss.prefab-preparation COMMAND gneiss_prefab_preparation_test)
+
 add_executable(
   gneiss_scene_description_test
   serialization/scene_description_test.cpp

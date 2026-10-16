@@ -45,4 +45,11 @@ prepare_scene_description(const asset_internal::virtual_file_system& files, std:
                           const std::function<bool()>& cancelled,
                           scene_prepare_limits limits = {}) noexcept;
 
+/** 单个 Prefab 的异步 CPU 准备入口；输出只包含一个 Prefab 及其渲染依赖。 */
+[[nodiscard]] gneiss_result
+prepare_prefab_description(const asset_internal::virtual_file_system& files, std::string_view uri,
+                           prepared_scene_description& output, scene_diagnostic& diagnostic,
+                           const std::function<bool()>& cancelled,
+                           scene_prepare_limits limits = {}) noexcept;
+
 } // namespace gneiss::scene_internal

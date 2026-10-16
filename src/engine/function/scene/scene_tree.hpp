@@ -15,6 +15,10 @@ namespace gneiss::scene_internal {
 
 class scene_tree final {
 public:
+  [[nodiscard]] bool publication_closed(const core::publication& group) const noexcept;
+  /** 给已发布的新节点关联同样已发布的组；不改变可见性。 */
+  [[nodiscard]] gneiss_result bind_publication(gneiss_scene_node_id node,
+                                               const core::publication& group) noexcept;
   explicit scene_tree(std::uint32_t domain) noexcept : domain_(domain) {}
 
   [[nodiscard]] gneiss_result create(gneiss_scene_node_id parent, gneiss_entity_id entity,

@@ -185,6 +185,10 @@ public:
         return result;
       }
     }
+    return finish();
+  }
+
+  gneiss_result finish() {
     for (const auto& [source_uri, expected] : sources) {
       if (cancelled && cancelled()) {
         return GNEISS_ERROR_INVALID_STATE;
@@ -205,6 +209,40 @@ public:
 };
 
 } // namespace
+
+gneiss_result prepare_prefab_description(const asset_internal::virtual_file_system& files,
+                                         std::string_view uri, prepared_scene_description& output,
+                                         scene_diagnostic& diagnostic,
+                                         const std::function<bool()>& cancelled,
+                                         scene_prepare_limits limits) noexcept {
+  output = {};
+  diagnostic = {};
+  try {
+    preparation work{.files = files,
+                     .cancelled = cancelled,
+                     .limits = limits,
+                     .candidate = {},
+                     .diagnostic = diagnostic,
+                     .sources = {},
+                     .dependencies = {},
+                     .scene_depths = {}};
+    prefab_instance_description instance;
+    instance.prefab_uri = uri;
+    auto result = work.add_prefab(instance);
+    if (result == GNEISS_SUCCESS) {
+      result = work.finish();
+    }
+    if (result == GNEISS_SUCCESS) {
+      output = std::move(work.candidate);
+    }
+    diagnostic.result = result;
+  } catch (const std::bad_alloc&) {
+    diagnostic.result = GNEISS_ERROR_OUT_OF_MEMORY;
+  } catch (...) {
+    diagnostic.result = GNEISS_ERROR_INTERNAL;
+  }
+  return diagnostic.result;
+}
 
 gneiss_result prepare_scene_description(const asset_internal::virtual_file_system& files,
                                         std::string_view uri, prepared_scene_description& output,

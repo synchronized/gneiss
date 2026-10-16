@@ -124,6 +124,21 @@ private:
 class scene_instance_service final {
 public:
   using mesh_binding = scene_mesh_binding;
+  /** 所属线程预留作者容器并验证身份；不读取资产，不发布候选。 */
+  [[nodiscard]] gneiss_result
+  begin_prefab_candidate(gneiss_scene_instance instance, const prefab_instance_description& author,
+                         prefab_asset_lease prefab, prefab_description prepared,
+                         std::unique_ptr<prefab_runtime_instance>& output) noexcept;
+  /** 已预留容量、调用方已准备镜像和历史后提交。成功接管 runtime。 */
+  [[nodiscard]] gneiss_result
+  commit_prefab_candidate(gneiss_scene_instance instance, prefab_instance_description& author,
+                          std::unique_ptr<prefab_runtime_instance>& runtime) noexcept;
+  [[nodiscard]] gneiss_result prepare_prefab_removal(gneiss_scene_instance instance,
+                                                     std::string_view uuid,
+                                                     bool& complete) noexcept;
+  [[nodiscard]] gneiss_result
+  commit_prefab_removal(gneiss_scene_instance instance, std::string_view uuid,
+                        std::unique_ptr<prefab_runtime_instance>& retired) noexcept;
   /** 创建仅消费已就绪租约，不加载；失败不留下节点。 */
   [[nodiscard]] gneiss_result create_mesh_renderer_node_ready(
       gneiss_scene_instance instance, const mesh_renderer_node_creation& desc,

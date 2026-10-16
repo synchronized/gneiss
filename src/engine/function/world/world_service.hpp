@@ -43,6 +43,11 @@ create_staged_object(gneiss_world world, const core::publication& group,
                                                              staged_object object) noexcept;
 [[nodiscard]] GNEISS_API gneiss_result publish(gneiss_world world,
                                                const core::publication& group) noexcept;
+[[nodiscard]] GNEISS_API gneiss_result retire_publication(gneiss_world world,
+                                                          const core::publication& group) noexcept;
+[[nodiscard]] GNEISS_API gneiss_result bind_publication(gneiss_world world,
+                                                        const core::publication& group,
+                                                        staged_object object) noexcept;
 /** 所属线程批量替换已有组件：先验证全部实体及旧 RID，再无分配提交。
  * 不验证渲染服务 RID，调用方必须持有有效资源租约；重复实体拒绝。 */
 [[nodiscard]] GNEISS_API gneiss_result replace_mesh_renderers(

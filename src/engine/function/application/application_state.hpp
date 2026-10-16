@@ -17,8 +17,8 @@
 #include "engine/function/render/debug_draw_list.hpp"
 #include "engine/function/render/render_asset_loader.hpp"
 #include "engine/function/render/render_executor.hpp"
-#include "engine/function/render/render_snapshot.hpp"
 #include "engine/function/render/render_resource_service.hpp"
+#include "engine/function/render/render_snapshot.hpp"
 #include "engine/function/render/texture_load_service.hpp"
 #include "engine/function/render/ui_draw_list.hpp"
 #include "engine/function/scene/prefab_asset_loader.hpp"
@@ -49,6 +49,9 @@ namespace gneiss::application_internal {
 
 class application_state final {
 public:
+  [[nodiscard]] const asset_internal::virtual_file_system& asset_files() const noexcept {
+    return asset_file_system_;
+  }
   [[nodiscard]] gneiss_result set_view_camera(const render_internal::view_camera* camera) noexcept;
   [[nodiscard]] gneiss_result capture_frame(std::uint32_t width, std::uint32_t height,
                                             render_internal::frame_image& output) noexcept;

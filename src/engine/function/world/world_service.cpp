@@ -88,6 +88,17 @@ gneiss_result publish(gneiss_world world, const core::publication& group) noexce
   return with_owned_world(world, [&](world_state& state) { return state.publish(group); });
 }
 
+gneiss_result retire_publication(gneiss_world world, const core::publication& group) noexcept {
+  return with_owned_world(world, [&](world_state& state) { return state.retire(group); });
+}
+
+gneiss_result bind_publication(gneiss_world world, const core::publication& group,
+                               staged_object object) noexcept {
+  return with_owned_world(world, [&](world_state& state) {
+    return state.bind_publication(group, object.entity, object.node);
+  });
+}
+
 gneiss_result create_staged_object(gneiss_world world, const core::publication& group,
                                    const staged_object_description& description,
                                    staged_object& output) noexcept {

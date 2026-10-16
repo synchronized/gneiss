@@ -82,6 +82,13 @@ void run() {
   check(memory->reads["p.prefab"] == 2U && output.parent_first == std::vector<std::size_t>{0U});
   const auto bytes = memory->files["main.scene"].size() + memory->files["p.prefab"].size();
   check(output.source_bytes == bytes);
+  check(prepare_prefab_description(files, "asset://p.prefab", output, diagnostic, {}) ==
+        GNEISS_SUCCESS);
+  check(output.prefabs.size() == 1U && output.instance_nodes == 2U && output.assets.size() == 2U);
+  check(output.description.objects.empty());
+  check(prepare_prefab_description(files, "asset://p.prefab", output, diagnostic,
+                                   [] { return true; }) == GNEISS_ERROR_INVALID_STATE);
+  check(output.prefabs.empty() && output.assets.empty());
   check(prepare({.source_bytes = bytes, .nodes = 5U}) == GNEISS_SUCCESS);
   check(prepare({.source_bytes = bytes - 1U}) == GNEISS_ERROR_INVALID_ARGUMENT);
   check(output.description.objects.empty() && output.prefabs.empty() && output.assets.empty());

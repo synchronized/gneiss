@@ -103,6 +103,13 @@ public:
   [[nodiscard]] const std::vector<prefab_node_record>& prefab_nodes() const noexcept {
     return prefab_nodes_;
   }
+  /** 宿主事务已提交后无分配交换预构造镜像；旧镜像交还调用方分步释放。 */
+  void publish_prefab_records(std::vector<prefab_node_record>& prepared,
+                              scene_node_id selection) noexcept {
+    prefab_nodes_.swap(prepared);
+    selection_ = selection;
+    is_dirty_ = true;
+  }
   [[nodiscard]] scene_node_id selection() const noexcept { return selection_; }
   [[nodiscard]] const scene_node_record* selected_node() const noexcept;
   [[nodiscard]] const prefab_node_record* selected_prefab_node() const noexcept;

@@ -93,6 +93,18 @@ result editor_command_history::record(std::unique_ptr<editor_command> value) noe
   return record_impl(value);
 }
 
+result editor_command_history::prepare_record() noexcept try {
+  if (is_pending() || capacity_ == 0U) {
+    return result::not_ready;
+  }
+  entries_.reserve(entries_.size() + 1U);
+  return result::success;
+} catch (const std::bad_alloc&) {
+  return result::out_of_memory;
+} catch (...) {
+  return result::internal;
+}
+
 result editor_command_history::record(command value) noexcept {
   if (!value.undo || !value.redo) {
     return result::invalid_argument;

@@ -40,6 +40,8 @@ target_sources(
     engine/function/application/application_registry.cpp
     engine/function/application/application_registry.hpp
     engine/function/application/application_host.cpp
+    engine/function/application/prefab_preparation.cpp
+    engine/function/application/prefab_placement.cpp
     engine/function/application/application_asset_reload_internal.hpp
     engine/function/application/application_log_internal.hpp
     engine/function/application/application_log_sink.hpp

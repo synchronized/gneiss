@@ -495,6 +495,7 @@
 - [M-331：候选属性写入边界](records/M-331-candidate-properties.md)
 - [M-331：内置组件与 Prefab 候选属性覆盖](records/M-331-prefab-candidate-overrides.md)
 - [M-331：编辑器视口相机分离](records/M-331-editor-viewport-camera.md)
+- [M-331：Prefab 异步放置与历史恢复](records/M-331-prefab-async-placement.md)
 
 ## 文档维护
 

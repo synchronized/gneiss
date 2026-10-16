@@ -41,7 +41,7 @@ public:
     return is_owner_thread() ? publication{new publication_group{domain_}} : publication{};
   }
   [[nodiscard]] gneiss_entity_id create_staged_entity(const publication& group) {
-    if (!valid_group(group) || group->published_) {
+    if (!valid_group(group) || group->published_ || group->retired_) {
       return GNEISS_NULL_ENTITY_ID;
     }
     const auto entity = registry_.create();
@@ -57,7 +57,7 @@ public:
   template <typename Component, typename... Args>
   [[nodiscard]] bool emplace_staged(const publication& group, gneiss_entity_id entity,
                                     Args&&... args) {
-    if (!staged_member(group, entity)) {
+    if (!staged_member(group, entity) || group->retired_) {
       return false;
     }
     registry_.emplace_or_replace<Component>(decode(entity), std::forward<Args>(args)...);
@@ -74,11 +74,47 @@ public:
   }
   /** 全部可失败准备完成后调用；不分配，不遍历成员。 */
   [[nodiscard]] gneiss_result publish(const publication& group) noexcept {
-    if (!valid_group(group) || group->published_) {
+    if (!valid_group(group) || group->published_ || group->retired_) {
       return GNEISS_ERROR_INVALID_STATE;
     }
     entity_count_ += group->count_;
     group->published_ = true;
+    return GNEISS_SUCCESS;
+  }
+  /** 提交删除后整组不可见；仅可逐步释放，不可再次发布或构造。 */
+  [[nodiscard]] gneiss_result retire(const publication& group) noexcept {
+    if (!valid_group(group) || !group->published_ || group->retired_ ||
+        !scene_.publication_closed(group)) {
+      return GNEISS_ERROR_INVALID_STATE;
+    }
+    if (is_alive(active_camera_)) {
+      const auto* member = registry_.try_get<publication_member>(decode(active_camera_));
+      if (member && member->group == group) {
+        active_camera_ = GNEISS_NULL_ENTITY_ID;
+      }
+    }
+    entity_count_ -= group->count_;
+    group->published_ = false;
+    group->retired_ = true;
+    return GNEISS_SUCCESS;
+  }
+  /** 结构重载中新创建的可见对象加入原发布组；保持可见，不改变实体总数。 */
+  [[nodiscard]] gneiss_result bind_publication(const publication& group, gneiss_entity_id entity,
+                                               gneiss_scene_node_id node) {
+    if (!valid_group(group) || !group->published_ || group->retired_ || !is_alive(entity) ||
+        scene_.get_entity(node) != entity) {
+      return GNEISS_ERROR_INVALID_STATE;
+    }
+    if (const auto* member = registry_.try_get<publication_member>(decode(entity))) {
+      return member->group == group ? GNEISS_SUCCESS : GNEISS_ERROR_INVALID_STATE;
+    }
+    registry_.emplace<publication_member>(decode(entity), group);
+    const auto result = scene_.bind_publication(node, group);
+    if (result != GNEISS_SUCCESS) {
+      registry_.remove<publication_member>(decode(entity));
+      return result;
+    }
+    ++group->count_;
     return GNEISS_SUCCESS;
   }
   explicit world_state(std::uint32_t domain) noexcept
@@ -108,6 +144,9 @@ public:
       return false;
     }
     scene_.detach_entity(entity);
+    if (const auto* member = registry_.try_get<publication_member>(native); member != nullptr) {
+      --member->group->count_;
+    }
     registry_.destroy(native);
     if (active_camera_ == entity) {
       active_camera_ = GNEISS_NULL_ENTITY_ID;

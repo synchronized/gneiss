@@ -13,6 +13,7 @@
 #include "editor_camera.hpp"
 #include "editor_command_history.hpp"
 #include "editor_grid.hpp"
+#include "editor_prefab_edit.hpp"
 #include "editor_project.hpp"
 #include "editor_rotation_math.hpp"
 #include "editor_scene_loader.hpp"
@@ -136,6 +137,7 @@ struct editor_state {
   gneiss::tasks::task_scheduler task_scheduler;
   gneiss::editor::editor_scene_loader scene_loader;
   gneiss::editor::editor_asset_edit asset_edit;
+  gneiss::editor::editor_prefab_edit prefab_edit;
   bool smoke{};
   std::uint32_t smoke_frames{};
   std::uint32_t smoke_frame_limit{3U};
@@ -1030,9 +1032,9 @@ void execute_asset_browser_request(editor_state& state, gneiss_application appli
   case action::add_prefab:
     if (entry != state.assets.entries().end() && is_prefab_asset(*entry)) {
       const auto* node = state.session.selected_node();
-      state.asset_scene_result =
-          add_prefab_asset(state.session, state.history, entry->display_name, entry->asset_uri,
-                           node == nullptr ? gneiss::scene_node_id{} : node->node);
+      state.asset_scene_result = state.prefab_edit.request(
+          application, state.task_scheduler, state.session, state.history, entry->display_name,
+          entry->asset_uri, node == nullptr ? gneiss::scene_node_id{} : node->node);
       state.asset_scene_attempted = true;
     }
     break;
@@ -1386,6 +1388,66 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
     if (smoke_result != GNEISS_SUCCESS) {
       return smoke_result;
     }
+    state.prefab_edit.advance();
+    if (state.history.is_pending()) {
+      const auto operation = state.history.advance_pending();
+      if (!state.history.is_pending()) {
+        state.asset_scene_result = operation;
+        synchronize_history_dirty(state);
+      }
+    }
+    if (state.prefab_edit.visible() || state.history.is_pending()) {
+      const auto begun = state.ui.begin_frame(application, *time);
+      if (begun != GNEISS_SUCCESS) {
+        return begun;
+      }
+      const auto* viewport = ImGui::GetMainViewport();
+      ImGui::SetNextWindowPos(viewport->GetCenter(), ImGuiCond_Always, {0.5F, 0.5F});
+      ImGui::SetNextWindowSize({520.0F, 0.0F});
+      ImGui::Begin("Prefab Operation", nullptr,
+                   ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
+                       ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoCollapse);
+      if (state.prefab_edit.active() || state.history.is_pending()) {
+        const char* stage = "Updating scene";
+        if (state.prefab_edit.active()) {
+          using phase = gneiss::editor::prefab_edit_phase;
+          switch (state.prefab_edit.phase()) {
+          case phase::preparing:
+            stage = "Reading Prefab";
+            break;
+          case phase::assets:
+            stage = "Preparing assets";
+            break;
+          case phase::constructing:
+            stage = "Building Prefab";
+            break;
+          case phase::cleanup:
+            stage = "Finishing cleanup";
+            break;
+          case phase::finished:
+            break;
+          }
+        } else if (!state.history.can_cancel_pending()) {
+          stage = "Finishing cleanup";
+        }
+        ImGui::TextUnformatted(stage);
+        ImGui::ProgressBar(-static_cast<float>(ImGui::GetTime()), {-1.0F, 0.0F}, "Working...");
+        const bool can_cancel = state.history.is_pending() ? state.history.can_cancel_pending()
+                                                           : state.prefab_edit.can_cancel();
+        if (can_cancel && ImGui::Button("Cancel")) {
+          state.prefab_edit.cancel();
+          state.history.cancel_pending();
+        }
+      } else {
+        const auto message = state.prefab_edit.operation().message();
+        ImGui::TextWrapped("%.*s", static_cast<int>(message.size()), message.data());
+        if (ImGui::Button("Back to Editor")) {
+          state.prefab_edit.dismiss();
+        }
+      }
+      ImGui::End();
+      return submit_editor_ui(application, state);
+    }
     state.asset_edit.advance(application, state.session, state.history);
     if (state.asset_edit.visible()) {
       const auto begun = state.ui.begin_frame(application, *time);
@@ -1715,6 +1777,9 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
       }
       ImGui::EndMainMenuBar();
     }
+    if (state.history.is_pending()) {
+      return submit_editor_ui(application, state);
+    }
     gneiss::editor::begin_editor_workspace();
     const auto& io = ImGui::GetIO();
     if (io.KeyCtrl && !io.KeyShift && ImGui::IsKeyPressed(ImGuiKey_N, false)) {
@@ -1858,6 +1923,9 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
     }
     if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_Z, false)) {
       state.history_error = io.KeyShift ? redo_editor_command(state) : undo_editor_command(state);
+    }
+    if (state.history.is_pending()) {
+      return submit_editor_ui(application, state);
     }
 
     const auto log_path = state.runtime.log_file().generic_string();
@@ -2827,6 +2895,13 @@ uint8_t handle_close_requested(gneiss_application application, void* user_data) 
     // Application 析构负责在执行器存活时回收在途工作。
     return 1U;
   }
+  if (state.prefab_edit.active() || state.history.is_pending()) {
+    state.prefab_edit.cancel();
+    state.history.cancel_pending();
+    state.pending_document_action = document_action::exit_editor;
+    return 0U;
+  }
+  state.prefab_edit.dismiss();
   if (state.asset_edit.active()) {
     state.asset_edit.cancel(application);
     state.pending_document_action = document_action::exit_editor;
@@ -2988,10 +3063,16 @@ int run_editor(int argc, char** argv) {
   state.history.clear();
   (void)state.scene_loader.request(application.get(), project.startup_scene);
   const auto run_result = application.run();
+  state.prefab_edit.cancel();
+  state.history.cancel_pending();
   state.asset_edit.cancel(application.get());
-  while (state.asset_edit.active()) {
+  while (state.asset_edit.active() || state.prefab_edit.active() || state.history.is_pending()) {
     if (state.task_scheduler.mode() == gneiss::tasks::execution_mode::cooperative) {
       (void)state.task_scheduler.run_ready();
+    }
+    state.prefab_edit.advance();
+    if (state.history.is_pending()) {
+      (void)state.history.advance_pending();
     }
     state.asset_edit.advance(application.get(), state.session, state.history);
     std::this_thread::yield();
@@ -3014,6 +3095,7 @@ int run_editor(int argc, char** argv) {
     (void)state.author_asset_watcher.stop();
   }
 #endif
+  state.prefab_edit.dismiss();
   state.camera.shutdown();
   state.history.clear();
   state.session.close();
