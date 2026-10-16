@@ -24,6 +24,7 @@
 #include "engine/function/scene/prefab_asset_loader.hpp"
 #include "engine/function/scene/scene_instance_service.hpp"
 
+#include <atomic>
 #include <cstdint>
 #include <memory>
 #include <optional>
@@ -118,10 +119,13 @@ public:
   Application(Application&&) = delete;
   Application& operator=(Application&&) = delete;
 
-  [[nodiscard]] gneiss_result shutdown(gneiss_application handle) noexcept;
+  [[nodiscard]] GNEISS_API gneiss_result shutdown(gneiss_application handle) noexcept;
   [[nodiscard]] GNEISS_API gneiss_result run(gneiss_application handle,
                                              std::uint64_t max_frame_count) noexcept;
   [[nodiscard]] bool is_owner_thread() const noexcept;
+  [[nodiscard]] bool accepts_requests() const noexcept {
+    return accepts_requests_.load(std::memory_order_acquire);
+  }
   [[nodiscard]] gneiss_world world() const noexcept { return scene_session_.world(); }
   [[nodiscard]] render_internal::render_resource_service& resources() noexcept {
     return resources_;
@@ -189,6 +193,8 @@ private:
   std::uint64_t frame_index_ = 0;
   std::uint64_t elapsed_ns_ = 0;
   std::uint64_t previous_time_ns_ = 0;
+  std::atomic<bool> accepts_requests_{false};
+  bool shutting_down_ = false;
   bool platform_initialized_ = false;
   bool is_running_ = false;
   bool is_paused_ = false;

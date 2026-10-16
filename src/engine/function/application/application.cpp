@@ -95,6 +95,7 @@ gneiss_result Application::create(const application_internal::application_config
     if (result != GNEISS_SUCCESS) {
       return result;
     }
+    instance->accepts_requests_.store(true, std::memory_order_release);
     output = std::move(instance);
     return GNEISS_SUCCESS;
   } catch (const std::bad_alloc&) {
@@ -723,6 +724,11 @@ bool Application::is_owner_thread() const noexcept {
 }
 
 gneiss_result Application::shutdown(gneiss_application handle) noexcept {
+  if (!is_owner_thread() || is_running_ || shutting_down_) {
+    return GNEISS_ERROR_INVALID_STATE;
+  }
+  shutting_down_ = true;
+  accepts_requests_.store(false, std::memory_order_release);
   auto shutdown_result = GNEISS_SUCCESS;
   scene_session_.shutdown();
   asset_state_.reset();
@@ -832,6 +838,7 @@ gneiss_result Application::shutdown(gneiss_application handle) noexcept {
   // 必须先释放渲染端最后的快照，再关闭文件执行器；否则 join 等待仍被引用的 uv handle。
   asset_io_executor_.reset();
 #endif
+  shutting_down_ = false;
   return shutdown_result;
 }
 
