@@ -20,6 +20,11 @@ namespace gneiss::scene_internal {
 /** 一份已提交到 World 的 Prefab Runtime 投影；析构时释放全部节点、实体和资产租约。 */
 class prefab_runtime_instance final {
 public:
+  /** 只修改私有描述，失败保持 output 不变；不读文件、不创建实体、不发送通知。 */
+  [[nodiscard]] static gneiss_result prepare_candidate_description(
+      const prefab_description& source, gneiss_type_registry registry,
+      std::string_view instance_uuid, std::span<const prefab_property_override> overrides,
+      prefab_description& output) noexcept;
   struct node_info final {
     const prefab_author_address* address = nullptr;
     std::string_view name;

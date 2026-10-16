@@ -11,6 +11,8 @@
 
 #include <array>
 #include <cstdint>
+#include <cmath>
+#include <numbers>
 
 namespace {
 
@@ -69,14 +71,10 @@ gneiss_result get_transform(void* user_data, gneiss_property_target target,
   return GNEISS_SUCCESS;
 }
 
-gneiss_result set_transform(void* user_data, gneiss_property_target target,
-                            const gneiss_property_value* value) {
-  gneiss_transform transform = GNEISS_TRANSFORM_IDENTITY;
-  auto result = gneiss::world_internal::entity_get_local_transform(
-      target_world(target), target_entity(target), transform);
-  if (result != GNEISS_SUCCESS) {
-    return result;
-  }
+gneiss_result set_candidate_transform(void* user_data, void* candidate,
+                                      const gneiss_property_value& input) {
+  auto transform = *static_cast<gneiss_transform*>(candidate);
+  const auto* value = &input;
   switch (*static_cast<const transform_field*>(user_data)) {
   case transform_field::translation:
     transform.translation[0] = value->payload.vec3_value.x;
@@ -95,8 +93,32 @@ gneiss_result set_transform(void* user_data, gneiss_property_target target,
     transform.scale[2] = value->payload.vec3_value.z;
     break;
   }
-  return gneiss::world_internal::entity_set_local_transform(target_world(target),
-                                                            target_entity(target), transform);
+  float norm = 0;
+  for (const auto item : transform.rotation) {
+    norm += item * item;
+  }
+  if (!std::isfinite(norm) || std::abs(std::sqrt(norm) - 1.0F) > 1.0e-4F ||
+      !std::ranges::all_of(transform.translation, [](float item) { return std::isfinite(item); }) ||
+      !std::ranges::all_of(transform.scale, [](float item) {
+        return std::isfinite(item) && std::abs(item) >= 1.0e-6F;
+      })) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  *static_cast<gneiss_transform*>(candidate) = transform;
+  return GNEISS_SUCCESS;
+}
+
+gneiss_result set_transform(void* user_data, gneiss_property_target target,
+                            const gneiss_property_value* value) {
+  gneiss_transform transform = GNEISS_TRANSFORM_IDENTITY;
+  auto result = gneiss::world_internal::entity_get_local_transform(
+      target_world(target), target_entity(target), transform);
+  if (result == GNEISS_SUCCESS) {
+    result = set_candidate_transform(user_data, &transform, *value);
+  }
+  return result == GNEISS_SUCCESS ? gneiss::world_internal::entity_set_local_transform(
+                                        target_world(target), target_entity(target), transform)
+                                  : result;
 }
 
 gneiss_result get_camera(void* user_data, gneiss_property_target target,
@@ -122,14 +144,14 @@ gneiss_result get_camera(void* user_data, gneiss_property_target target,
   return GNEISS_SUCCESS;
 }
 
-gneiss_result set_camera(void* user_data, gneiss_property_target target,
-                         const gneiss_property_value* value) {
-  gneiss::world_internal::camera_settings camera;
-  auto result = gneiss::world_internal::entity_get_camera(target_world(target),
-                                                          target_entity(target), camera);
-  if (result != GNEISS_SUCCESS) {
-    return result;
-  }
+gneiss_result set_candidate_camera(void* user_data, void* candidate,
+                                   const gneiss_property_value& input) {
+  auto camera = *static_cast<gneiss::world_internal::camera_settings*>(candidate);
+  const auto* value = &input;
+  const auto scalar = value->payload.float32_value;
+  if (!std::isfinite(scalar) || scalar <= 0 ||
+      (*static_cast<const camera_field*>(user_data) == camera_field::field_of_view &&
+       scalar >= std::numbers::pi_v<float>)) { return GNEISS_ERROR_INVALID_ARGUMENT; }
   switch (*static_cast<const camera_field*>(user_data)) {
   case camera_field::field_of_view:
     camera.vertical_field_of_view_radians = value->payload.float32_value;
@@ -141,8 +163,22 @@ gneiss_result set_camera(void* user_data, gneiss_property_target target,
     camera.far_plane = value->payload.float32_value;
     break;
   }
-  return gneiss::world_internal::entity_configure_camera(target_world(target),
-                                                         target_entity(target), camera);
+  // near/far 的联合约束在全部覆盖应用后由候选对象构造校验，避免依赖字段写入顺序。
+  *static_cast<gneiss::world_internal::camera_settings*>(candidate) = camera;
+  return GNEISS_SUCCESS;
+}
+
+gneiss_result set_camera(void* user_data, gneiss_property_target target,
+                         const gneiss_property_value* value) {
+  gneiss::world_internal::camera_settings camera;
+  auto result = gneiss::world_internal::entity_get_camera(target_world(target),
+                                                          target_entity(target), camera);
+  if (result == GNEISS_SUCCESS) {
+    result = set_candidate_camera(user_data, &camera, *value);
+  }
+  return result == GNEISS_SUCCESS ? gneiss::world_internal::entity_configure_camera(
+                                        target_world(target), target_entity(target), camera)
+                                  : result;
 }
 
 gneiss_result get_is_primary(void* /*user_data*/, gneiss_property_target target,
@@ -183,7 +219,10 @@ make_field(gneiss_field_id id, gneiss_type_id value_type_id, std::uint32_t flags
                                  gneiss_property_getter getter, gneiss_property_setter setter,
                                  const void* field) {
   const gneiss::reflection_internal::property_binding accessor{
-      .kind = kind, .getter = getter, .setter = setter, .user_data = const_cast<void*>(field)};
+      .kind = kind, .getter = getter, .setter = setter, .user_data = const_cast<void*>(field),
+      .candidate_setter = setter == set_transform ? set_candidate_transform :
+                          setter == set_camera ? set_candidate_camera : nullptr,
+  };
   return gneiss::reflection_internal::bind_property(gneiss::reflection_internal::resolve(registry),
                                                     type_id, field_id, accessor);
 }

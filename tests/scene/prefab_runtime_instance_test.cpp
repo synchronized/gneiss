@@ -134,6 +134,15 @@ int main() try {
       first->node_count() != 2U || second->node_count() != 2U) {
     return 5;
   }
+  gneiss::scene_internal::prefab_description projected;
+  if (gneiss::scene_internal::prefab_runtime_instance::prepare_candidate_description(
+      *first->prefab_lease().get(), registry, "20000000-0000-4000-8000-000000000001",
+      first_overrides, projected) != GNEISS_SUCCESS || projected.objects[0].translation[0] != 3 ||
+      first->prefab_lease().get()->objects[0].translation[0] != 1) { return 14; }
+  if (gneiss::scene_internal::prefab_runtime_instance::prepare_candidate_description(
+      *first->prefab_lease().get(), registry, "20000000-0000-4000-8000-000000000002",
+      first_overrides, projected) != GNEISS_ERROR_INVALID_ARGUMENT ||
+      projected.objects[0].translation[0] != 3) { return 15; }
 
   const auto first_source_root = first->find_node("10000000-0000-4000-8000-000000000002");
   const auto second_source_root = second->find_node("10000000-0000-4000-8000-000000000002");

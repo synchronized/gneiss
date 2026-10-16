@@ -492,6 +492,7 @@
 - [M-331：Scene Tree 与 ECS 共用发布门](records/M-331-scene-publication.md)
 - [M-331：World 候选对象服务入口](records/M-331-world-staged-service.md)
 - [M-331：候选属性写入边界](records/M-331-candidate-properties.md)
+- [M-331：内置组件与 Prefab 候选属性覆盖](records/M-331-prefab-candidate-overrides.md)
 
 ## 文档维护
 

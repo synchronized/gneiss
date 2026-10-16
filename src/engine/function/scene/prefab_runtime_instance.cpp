@@ -407,6 +407,95 @@ gneiss_result prefab_runtime_instance::create(
   }
 }
 
+namespace {
+gneiss_result apply_candidate_object(const reflection_internal::registry_ref& state,
+                                     const prefab_property_override& value,
+                                     const gneiss_property_value& native,
+                                     object_description& object) {
+  auto result = GNEISS_SUCCESS;
+  const auto is_type = [&](gneiss_type_id type) {
+    return std::ranges::equal(value.key.type_id.bytes, type.bytes);
+  };
+  if (is_type(world_internal::transform_type_id())) {
+    auto transform = to_transform(object);
+    result = reflection_internal::set_candidate_property(state, value.key.type_id,
+                                                         value.key.field_id, &transform, native);
+    if (result != GNEISS_SUCCESS) {
+      return result;
+    }
+    std::ranges::copy(transform.translation, object.translation.begin());
+    std::ranges::copy(transform.rotation, object.rotation.begin());
+    std::ranges::copy(transform.scale, object.scale.begin());
+  } else if (is_type(world_internal::camera_type_id())) {
+    if (!object.camera) {
+      return GNEISS_ERROR_NOT_FOUND;
+    }
+    auto& camera = *object.camera;
+    world_internal::camera_settings settings{
+        .vertical_field_of_view_radians = camera.vertical_field_of_view_radians,
+        .near_plane = camera.near_plane,
+        .far_plane = camera.far_plane,
+    };
+    result = reflection_internal::set_candidate_property(state, value.key.type_id,
+                                                         value.key.field_id, &settings, native);
+    if (result != GNEISS_SUCCESS) {
+      return result;
+    }
+    camera.vertical_field_of_view_radians = settings.vertical_field_of_view_radians;
+    camera.near_plane = settings.near_plane;
+    camera.far_plane = settings.far_plane;
+  } else {
+    // 当前对象格式只存储这些组件，不能将其他类型解释为同一候选内存布局。
+    return GNEISS_ERROR_UNSUPPORTED;
+  }
+  return GNEISS_SUCCESS;
+}
+}
+
+gneiss_result prefab_runtime_instance::prepare_candidate_description(
+    const prefab_description& source, gneiss_type_registry registry, std::string_view instance_uuid,
+    std::span<const prefab_property_override> overrides, prefab_description& output) noexcept try {
+  auto candidate = source;
+  const auto state = reflection_internal::resolve(registry);
+  if (!state) {
+    return GNEISS_ERROR_INVALID_HANDLE;
+  }
+  for (const auto& value : overrides) {
+    if (value.key.node.instance_uuid != instance_uuid) {
+      return GNEISS_ERROR_INVALID_ARGUMENT;
+    }
+    const auto validation = validate_prefab_property_override(registry, value);
+    if (validation != GNEISS_SUCCESS) {
+      return validation;
+    }
+    auto found = std::ranges::find(candidate.objects, value.key.node.source_node_uuid,
+                                   &object_description::uuid);
+    if (found == candidate.objects.end()) {
+      return GNEISS_ERROR_NOT_FOUND;
+    }
+    gneiss_property_value native = GNEISS_PROPERTY_VALUE_INIT;
+    auto result = to_native_value(value.value, native);
+    if (result != GNEISS_SUCCESS) {
+      return result;
+    }
+    result = apply_candidate_object(state, value, native, *found);
+    if (result != GNEISS_SUCCESS) {
+      return result;
+    }
+  }
+  for (const auto& object : candidate.objects) {
+    if (object.camera && object.camera->near_plane >= object.camera->far_plane) {
+      return GNEISS_ERROR_INVALID_ARGUMENT;
+    }
+  }
+  output = std::move(candidate);
+  return GNEISS_SUCCESS;
+} catch (const std::bad_alloc&) {
+  return GNEISS_ERROR_OUT_OF_MEMORY;
+} catch (...) {
+  return GNEISS_ERROR_INTERNAL;
+}
+
 gneiss_result prefab_runtime_instance::apply_overrides(
     gneiss_type_registry registry, std::span<const prefab_property_override> overrides) noexcept
     try {

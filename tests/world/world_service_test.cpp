@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "engine/core/reflection/type_registry.hpp"
 #include "engine/function/world/world_service.hpp"
 
 #include <cstdint>
@@ -37,6 +38,46 @@ int main() {
     return 6;
   }
   gneiss_result wrong_thread{};
+  gneiss_type_registry registry{};
+  if (gneiss_type_registry_create(&registry) != GNEISS_SUCCESS ||
+      service::register_reflection(registry) != GNEISS_SUCCESS ||
+      gneiss_type_registry_freeze(registry) != GNEISS_SUCCESS) {
+    return 14;
+  }
+  auto reflection = gneiss::reflection_internal::resolve(registry);
+  gneiss_transform candidate_transform = GNEISS_TRANSFORM_IDENTITY;
+  gneiss_property_value proposed = GNEISS_PROPERTY_VALUE_INIT;
+  proposed.kind = GNEISS_PROPERTY_KIND_VEC3;
+  proposed.payload.vec3_value = {2, 3, 4};
+  if (gneiss::reflection_internal::set_candidate_property(
+          reflection, service::transform_type_id(), GNEISS_TRANSFORM_FIELD_TRANSLATION,
+          &candidate_transform, proposed) != GNEISS_SUCCESS ||
+      candidate_transform.translation[0] != 2) {
+    return 15;
+  }
+  proposed.payload.vec3_value = {0, 1, 1};
+  if (gneiss::reflection_internal::set_candidate_property(
+          reflection, service::transform_type_id(), GNEISS_TRANSFORM_FIELD_SCALE,
+          &candidate_transform, proposed) != GNEISS_ERROR_INVALID_ARGUMENT ||
+      candidate_transform.scale[0] != 1) {
+    return 16;
+  }
+  service::camera_settings candidate_camera{1, 10, 20};
+  proposed.kind = GNEISS_PROPERTY_KIND_FLOAT32;
+  proposed.payload.float32_value = 30;
+  if (gneiss::reflection_internal::set_candidate_property(
+          reflection, service::camera_type_id(), GNEISS_CAMERA_FIELD_NEAR_PLANE, &candidate_camera,
+          proposed) != GNEISS_SUCCESS) {
+    return 17;
+  }
+  proposed.payload.float32_value = 40;
+  if (gneiss::reflection_internal::set_candidate_property(
+          reflection, service::camera_type_id(), GNEISS_CAMERA_FIELD_FAR_PLANE, &candidate_camera,
+          proposed) != GNEISS_SUCCESS ||
+      candidate_camera.near_plane != 30 || candidate_camera.far_plane != 40 ||
+      gneiss_type_registry_destroy(registry) != GNEISS_SUCCESS) {
+    return 18;
+  }
   gneiss::core::publication group;
   service::staged_object root, child, failed;
   service::staged_object_description object;
