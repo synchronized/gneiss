@@ -401,6 +401,7 @@ gneiss_result update_runtime(gneiss_application application, const gneiss::engin
     const auto log_result =
         context.application->submit_log({.context = application,
                                          .severity = gneiss::log_internal::level::info,
+                                         .source = "application",
                                          .category = category,
                                          .message = message});
     if (log_result != GNEISS_SUCCESS) {
