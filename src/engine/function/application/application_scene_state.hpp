@@ -8,6 +8,7 @@
 #include "engine/function/render/render_asset_loader.hpp"
 #include "engine/function/scene/prefab_asset_loader.hpp"
 #include "engine/function/scene/scene_instance_service.hpp"
+#include "engine/function/world/world_service.hpp"
 
 namespace gneiss::application_internal {
 
@@ -17,6 +18,7 @@ namespace gneiss::application_internal {
 class application_scene_state final {
 private:
   const asset_internal::virtual_file_system& files_;
+  world_internal::world_owner world_owner_;
 
 public:
   explicit application_scene_state(application_asset_state& owner);

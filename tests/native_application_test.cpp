@@ -204,6 +204,10 @@ int main() try {
   gneiss_world world{};
   check(gneiss_application_get_world(old_handle, &world) == GNEISS_SUCCESS);
   check(gneiss_application_destroy(old_handle) == GNEISS_ERROR_INVALID_STATE);
+  const auto borrowed_world = world;
+  check(gneiss_world_destroy(borrowed_world) == GNEISS_ERROR_INVALID_STATE);
+  gneiss_entity_id owned_entity{};
+  check(gneiss_world_entity_create(borrowed_world, &owned_entity) == GNEISS_SUCCESS);
   check(state.shutdowns == 0U);
   std::thread reset_worker([&] { other_thread = bridge.reset(); });
   reset_worker.join();
@@ -225,6 +229,9 @@ int main() try {
   check(app->shutdown(GNEISS_NULL_APPLICATION) == GNEISS_SUCCESS);
   check(gneiss_application_get_world(moved.get(), &world) == GNEISS_ERROR_INVALID_HANDLE);
   check(bridge.bind(app) == GNEISS_ERROR_INVALID_STATE);
+  std::uint64_t count{};
+  check(gneiss_world_entity_count(borrowed_world, &count) == GNEISS_ERROR_INVALID_HANDLE);
+  check(gneiss_world_destroy(borrowed_world) == GNEISS_ERROR_INVALID_HANDLE);
   check(app->run(GNEISS_NULL_APPLICATION, 1U) == GNEISS_ERROR_INVALID_STATE);
   app.reset();
   check(state.shutdowns == 2U);

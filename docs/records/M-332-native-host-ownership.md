@@ -104,3 +104,14 @@ Application、Runtime 启动及远端场景加载回归通过。
   ABI 边界，不能因去除内部兼容调用而删除该边界。
 
 以上仍为未完成项；本次未执行最终静态安装、Linux 或完整 Sponza 验收。
+
+## 场景域直接拥有 World
+
+场景域改为持有原生 World 的唯一拥有指针，C 注册表对该对象仅保存借用入口。
+自定义删除器留在 World 模块，自动撤销 RID 后释放对象，不向 Application 传播 EnTT 头。
+独立 C/SDK World 仍由注册表拥有；对 Application 借用 World 调用 destroy 拒绝并保留对象。
+这落实既有独占拥有契约，不改变 C ABI 布局、符号和场景切换时的退休回收顺序。
+
+完整 Windows Clang Debug 构建及 12 项 World、Scene、Application、SDK 生命周期、场景构造和
+编辑器/Runtime 场景工作流通过。新增测试覆盖移动、失败创建保持拥有者、借用误销毁、错误线程、
+析构后失效及槽位复用；World 的操作接口和组件值仍待继续迁移。

@@ -12,16 +12,14 @@ application_scene_state::application_scene_state(application_asset_state& owner)
 
 application_scene_state::~application_scene_state() noexcept {
   scenes.reset();
-  if (world != GNEISS_NULL_WORLD) {
-    (void)gneiss::world_internal::destroy(world);
-  }
+  // world_owner_ 在场景实例清理后自动撤销借用 RID 并释放真实 World。
 }
 
 gneiss_result application_scene_state::initialize() noexcept {
   if (world != GNEISS_NULL_WORLD) {
     return GNEISS_ERROR_INVALID_STATE;
   }
-  const auto result = gneiss::world_internal::create(world);
+  const auto result = gneiss::world_internal::create_native(world_owner_, world);
   if (result != GNEISS_SUCCESS) {
     return result;
   }

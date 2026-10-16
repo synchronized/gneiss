@@ -20,7 +20,11 @@
 
 namespace {
 
-using world_resource = std::unique_ptr<gneiss::world_internal::world_state>;
+struct world_resource {
+  std::unique_ptr<gneiss::world_internal::world_state> owned;
+  gneiss::world_internal::world_state* borrowed{};
+  [[nodiscard]] auto* get() const noexcept { return owned ? owned.get() : borrowed; }
+};
 using world_table = gneiss::core::rid_table<world_resource>;
 
 struct world_registry {
@@ -188,7 +192,45 @@ gneiss_result create(gneiss_world& out_world) noexcept {
       return GNEISS_ERROR_OUT_OF_MEMORY;
     }
     auto state = std::make_unique<gneiss::world_internal::world_state>(registry.next_domain++);
-    return registry.worlds.create(gneiss::core::resource_type::world, std::move(state), &out_world);
+    return registry.worlds.create(gneiss::core::resource_type::world,
+                                  world_resource{std::move(state), nullptr}, &out_world);
+  } catch (const std::bad_alloc&) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
+void world_deleter::operator()(world_state* state) const noexcept {
+  if (!state->is_owner_thread())
+    std::terminate();
+  {
+    auto& registry = get_world_registry();
+    const std::scoped_lock lock{registry.mutex};
+    const auto* entry = registry.worlds.get(borrowed, core::resource_type::world);
+    if (!entry || entry->owned || entry->borrowed != state)
+      std::terminate();
+    (void)registry.worlds.destroy(borrowed, core::resource_type::world);
+  }
+  delete state;
+}
+
+gneiss_result create_native(world_owner& owner, gneiss_world& borrowed) noexcept {
+  borrowed = GNEISS_NULL_WORLD;
+  if (owner)
+    return GNEISS_ERROR_INVALID_STATE;
+  try {
+    auto& registry = get_world_registry();
+    const std::scoped_lock lock{registry.mutex};
+    if (registry.next_domain == 0U ||
+        registry.next_domain == std::numeric_limits<std::uint32_t>::max())
+      return GNEISS_ERROR_OUT_OF_MEMORY;
+    auto candidate = std::make_unique<world_state>(registry.next_domain++);
+    const auto result = registry.worlds.create(core::resource_type::world,
+                                               world_resource{nullptr, candidate.get()}, &borrowed);
+    if (result == GNEISS_SUCCESS)
+      owner = world_owner(candidate.release(), world_deleter{borrowed});
+    return result;
   } catch (const std::bad_alloc&) {
     return GNEISS_ERROR_OUT_OF_MEMORY;
   } catch (...) {
@@ -203,6 +245,10 @@ gneiss_result destroy(gneiss_world world) noexcept {
     const auto thread_result = validate_world_thread(find_world(registry, world));
     if (thread_result != GNEISS_SUCCESS) {
       return thread_result;
+    }
+    const auto* entry = registry.worlds.get(world, core::resource_type::world);
+    if (!entry->owned) {
+      return GNEISS_ERROR_INVALID_STATE;
     }
     return registry.worlds.destroy(world, gneiss::core::resource_type::world);
   } catch (...) {

@@ -7,9 +7,22 @@
 #include "engine/function/render/camera_settings.hpp"
 #include <gneiss/engine/scene.h>
 #include <gneiss/engine/world.h>
+#include <memory>
 #include <span>
 
 namespace gneiss::world_internal {
+class world_state;
+/** 将实现类型的析构留在 World 模块，不向场景域传播 ECS 后端头。 */
+struct GNEISS_API world_deleter {
+  gneiss_world borrowed{};
+  void operator()(world_state* state) const noexcept;
+};
+using world_owner = std::unique_ptr<world_state, world_deleter>;
+/** 场景域拥有真实 World；返回的 RID 仅借用，owner 所属线程析构时自动撤销。失败不替换 owner，输出
+ * RID 置零。 */
+[[nodiscard]] GNEISS_API gneiss_result create_native(world_owner& owner,
+                                                     gneiss_world& borrowed) noexcept;
+
 /** 私有同版本宿主接口，不安装；唯一注册表负责线程和 generation 校验。 */
 using camera_settings = render_internal::camera_settings;
 struct mesh_renderer_replacement {

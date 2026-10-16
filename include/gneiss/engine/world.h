@@ -39,7 +39,7 @@ extern "C" {
 GNEISS_API gneiss_result gneiss_world_create(const gneiss_world_desc* desc,
                                              gneiss_world* out_world);
 
-/** 销毁 World 及其全部实体和组件。 */
+/** 销毁独立创建的 World 及其全部实体和组件。Application 借用 World 返回 invalid_state。 */
 GNEISS_API gneiss_result gneiss_world_destroy(gneiss_world world);
 
 /** 在 World 中创建实体。 */

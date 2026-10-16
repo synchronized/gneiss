@@ -249,6 +249,32 @@ int main() {
       gneiss_world_destroy(world) != GNEISS_SUCCESS) {
     return 8;
   }
+  // 原生拥有者析构自动撤销借用；移动不会使 RID 提前失效，也不授予 C 销毁权。
+  service::world_owner native;
+  gneiss_world borrowed{};
+  if (service::create_native(native, borrowed) != GNEISS_SUCCESS || !native ||
+      gneiss_world_destroy(borrowed) != GNEISS_ERROR_INVALID_STATE)
+    return 14;
+  const auto* original = native.get();
+  gneiss_world rejected = borrowed;
+  if (service::create_native(native, rejected) != GNEISS_ERROR_INVALID_STATE || rejected != 0 ||
+      native.get() != original)
+    return 15;
+  service::world_owner moved = std::move(native);
+  if (service::entity_count(borrowed, count) != GNEISS_SUCCESS || count != 0)
+    return 16;
+  std::thread borrowed_worker([&] { wrong_thread = gneiss_world_destroy(borrowed); });
+  borrowed_worker.join();
+  if (wrong_thread != GNEISS_ERROR_INVALID_STATE)
+    return 17;
+  moved.reset();
+  if (service::entity_count(borrowed, count) != GNEISS_ERROR_INVALID_HANDLE ||
+      gneiss_world_destroy(borrowed) != GNEISS_ERROR_INVALID_HANDLE)
+    return 18;
+  if (service::create_native(native, rejected) != GNEISS_SUCCESS || rejected == borrowed ||
+      service::entity_count(borrowed, count) != GNEISS_ERROR_INVALID_HANDLE)
+    return 19;
+  native.reset();
   // 即使句柄无效，相机参数错误仍优先报告；失败查询不改写输出。
   camera.far_plane = camera.near_plane;
   if (gneiss_world_entity_configure_camera(stale, entity, &camera) !=
