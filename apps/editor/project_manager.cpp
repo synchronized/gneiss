@@ -9,7 +9,6 @@
 #include "project_workspace.hpp"
 
 #include "engine/function/application/application.hpp"
-#include "engine/function/application/application_registry.hpp"
 #include <gneiss/engine/core/result.hpp>
 
 #include <imgui.h>
@@ -61,22 +60,18 @@ void set_create_path(project_manager_state& state, const std::filesystem::path& 
   state.create_path[length] = '\0';
 }
 
-gneiss_result select_project(project_manager_state& state, gneiss_application application,
-                             editor_project project) {
+gneiss_result select_project(project_manager_state& state, editor_project project) {
   (void)remember_recent_project(state.state_file, project);
   *state.output = std::move(project);
   state.selected = true;
-  return gneiss_application_request_exit(application);
+  state.application->request_exit();
+  return GNEISS_SUCCESS;
 }
 
-gneiss_result update_project_manager(gneiss_application application,
-                                     const gneiss::engine::frame_time* time, void* user_data) {
+gneiss_result update_project_manager(project_manager_state& state,
+                                     const gneiss::engine::frame_time& time) {
   try {
-    if (time == nullptr || user_data == nullptr) {
-      return GNEISS_ERROR_INVALID_ARGUMENT;
-    }
-    auto& state = *static_cast<project_manager_state*>(user_data);
-    auto operation = state.ui.begin_frame(application, *time);
+    auto operation = state.ui.begin_frame(*state.application, time);
     if (operation != GNEISS_SUCCESS) {
       return operation;
     }
@@ -104,7 +99,7 @@ gneiss_result update_project_manager(gneiss_application application,
             editor_project pending;
             state.operation = load_editor_project(project.project_root, pending);
             if (state.operation == result::success) {
-              operation = select_project(state, application, std::move(pending));
+              operation = select_project(state, std::move(pending));
             }
           }
           ImGui::SameLine(190.0F);
@@ -133,7 +128,7 @@ gneiss_result update_project_manager(gneiss_application application,
           editor_project pending;
           state.operation = load_editor_project(utf8_path(state.project_path.data()), pending);
           if (state.operation == result::success) {
-            operation = select_project(state, application, std::move(pending));
+            operation = select_project(state, std::move(pending));
           }
         }
         ImGui::EndTabItem();
@@ -162,7 +157,7 @@ gneiss_result update_project_manager(gneiss_application application,
           state.operation = create_editor_project(utf8_path(state.create_path.data()),
                                                   state.create_name.data(), pending);
           if (state.operation == result::success) {
-            operation = select_project(state, application, std::move(pending));
+            operation = select_project(state, std::move(pending));
           }
         }
         ImGui::EndTabItem();
@@ -201,12 +196,10 @@ result run_project_manager(bool smoke, editor_project& output) noexcept {
       state.operation = recent_result;
     }
     std::shared_ptr<gneiss::engine::application> application;
-    gneiss::application_internal::application_bridge bridge;
     constexpr std::string_view title = "Gneiss Project Manager";
     gneiss::application_internal::application_configuration desc;
-    desc.callbacks.update = [&state](gneiss::core::rid handle,
-                                     const gneiss::engine::frame_time& time) {
-      return gneiss::from_native(update_project_manager(handle, &time, &state));
+    desc.callbacks.update = [&state](gneiss::core::rid, const gneiss::engine::frame_time& time) {
+      return gneiss::from_native(update_project_manager(state, time));
     };
     desc.use_granit_window = true;
     desc.window.title = title;
@@ -216,9 +209,6 @@ result run_project_manager(bool smoke, editor_project& output) noexcept {
     desc.window.resizable = false;
     desc.window.high_dpi = false;
     auto operation = gneiss::from_native(gneiss::engine::application::create(desc, application));
-    if (operation == gneiss::result::success) {
-      operation = gneiss::from_native(bridge.bind(application));
-    }
     if (operation != result::success) {
       const auto message = operation.message();
       std::fprintf(
@@ -228,7 +218,7 @@ result run_project_manager(bool smoke, editor_project& output) noexcept {
       return operation;
     }
     state.application = application.get();
-    operation = from_native(state.ui.initialize(bridge.get()));
+    operation = from_native(state.ui.initialize(*application));
     if (operation != result::success) {
       const auto message = operation.message();
       std::fprintf(stderr,
@@ -236,7 +226,7 @@ result run_project_manager(bool smoke, editor_project& output) noexcept {
                    to_native(operation), static_cast<int>(message.size()), message.data());
     }
     if (operation == result::success) {
-      operation = gneiss::from_native(application->run(bridge.get(), smoke ? 3U : 0U));
+      operation = gneiss::from_native(application->run(gneiss::core::null_rid, smoke ? 3U : 0U));
       if (operation != result::success) {
         const auto message = operation.message();
         std::fprintf(stderr,
@@ -244,7 +234,7 @@ result run_project_manager(bool smoke, editor_project& output) noexcept {
                      to_native(operation), static_cast<int>(message.size()), message.data());
       }
     }
-    state.ui.shutdown(bridge.get());
+    state.ui.shutdown(*application);
     application.reset();
     if (operation != result::success) {
       return operation;

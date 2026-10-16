@@ -1370,7 +1370,7 @@ gneiss_result update_editor(gneiss_application application, const gneiss::engine
       }
     }
     if (state.prefab_edit.visible() || state.history.is_pending()) {
-      const auto begun = state.ui.begin_frame(application, *time);
+      const auto begun = state.ui.begin_frame(*state.application, *time);
       if (begun != GNEISS_SUCCESS) {
         return begun;
       }
@@ -1423,7 +1423,7 @@ gneiss_result update_editor(gneiss_application application, const gneiss::engine
     }
     state.asset_edit.advance(application, state.session, state.history);
     if (state.asset_edit.visible()) {
-      const auto begun = state.ui.begin_frame(application, *time);
+      const auto begun = state.ui.begin_frame(*state.application, *time);
       if (begun != GNEISS_SUCCESS)
         return begun;
       const auto* viewport = ImGui::GetMainViewport();
@@ -1457,7 +1457,7 @@ gneiss_result update_editor(gneiss_application application, const gneiss::engine
       return submit_editor_ui(application, state);
     }
     if (state.scene_loader.visible()) {
-      const auto begun = state.ui.begin_frame(application, *time);
+      const auto begun = state.ui.begin_frame(*state.application, *time);
       if (begun != GNEISS_SUCCESS) {
         return begun;
       }
@@ -1577,7 +1577,7 @@ gneiss_result update_editor(gneiss_application application, const gneiss::engine
                                    : gneiss::result::dependency_failed;
       }
     }
-    auto result = state.ui.begin_frame(application, *time);
+    auto result = state.ui.begin_frame(*state.application, *time);
     if (result != GNEISS_SUCCESS) {
       return result;
     }
@@ -2944,7 +2944,7 @@ int run_editor(int argc, char** argv) {
     return 2;
   }
   state.application = application.get();
-  operation = gneiss::from_native(state.ui.initialize(bridge.get()));
+  operation = gneiss::from_native(state.ui.initialize(*application));
   if (operation != gneiss::result::success) {
     report_startup_failure("Editor UI 初始化", operation);
     return 2;
@@ -2979,7 +2979,7 @@ int run_editor(int argc, char** argv) {
     }
   }
   if (operation != gneiss::result::success) {
-    state.ui.shutdown(bridge.get());
+    state.ui.shutdown(*application);
     state.session.close();
     return 3;
   }
@@ -3009,7 +3009,7 @@ int run_editor(int argc, char** argv) {
                    message.data());
     }
   }
-  state.ui.shutdown(bridge.get());
+  state.ui.shutdown(*application);
 #if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
   if (state.asset_watcher.is_running()) {
     (void)state.asset_watcher.stop();

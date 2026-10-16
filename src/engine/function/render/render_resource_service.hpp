@@ -12,6 +12,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <gneiss/engine/core/export.h>
 #include <memory>
 #include <vector>
 
@@ -50,15 +51,15 @@ public:
   [[nodiscard]] gneiss_result create_material(const material_resource& value,
                                               core::rid* out_material) noexcept;
   [[nodiscard]] gneiss_result destroy_material(core::rid material) noexcept;
-  [[nodiscard]] gneiss_result create_texture(const texture_view& desc,
-                                             core::rid* out_texture) noexcept;
+  [[nodiscard]] GNEISS_API gneiss_result create_texture(const texture_view& desc,
+                                                        core::rid* out_texture) noexcept;
   /** 创建已经过容器校验的内部多 Mip Texture。 */
   [[nodiscard]] gneiss_result create_texture(texture_resource resource,
                                              core::rid* out_texture) noexcept;
   /** 保存已经过外层容器与 Granit Manifest 检查的运行纹理。 */
   [[nodiscard]] gneiss_result create_packaged_texture(texture_resource resource,
                                                       core::rid* out_texture) noexcept;
-  [[nodiscard]] gneiss_result destroy_texture(core::rid texture) noexcept;
+  [[nodiscard]] GNEISS_API gneiss_result destroy_texture(core::rid texture) noexcept;
   /** 主线程提交已验证候选；保持 RID generation，既有帧仍拥有旧数据快照。 */
   [[nodiscard]] bool replace_texture(core::rid texture,
                                      std::shared_ptr<const texture_resource> prepared) noexcept;

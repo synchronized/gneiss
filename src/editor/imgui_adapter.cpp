@@ -117,13 +117,9 @@ int map_mouse_button(std::uint32_t button) noexcept {
   }
 }
 
-gneiss_result synchronize_input_state(gneiss_application application) noexcept {
+gneiss_result synchronize_input_state(engine::application& application) noexcept {
   auto& io = ImGui::GetIO();
-  gneiss_keyboard_state keyboard = GNEISS_KEYBOARD_STATE_INIT;
-  auto result = gneiss_application_get_keyboard_state(application, &keyboard);
-  if (result != GNEISS_SUCCESS) {
-    return result;
-  }
+  const auto& keyboard = application.keyboard_state();
   update_modifiers(io, keyboard.modifiers);
   for (std::uint32_t physical_key = 0U; physical_key < 256U; ++physical_key) {
     const auto key = map_key(physical_key);
@@ -135,11 +131,7 @@ gneiss_result synchronize_input_state(gneiss_application application) noexcept {
     io.AddKeyEvent(key, is_down);
   }
 
-  gneiss_pointer_state pointer = GNEISS_POINTER_STATE_INIT;
-  result = gneiss_application_get_pointer_state(application, &pointer);
-  if (result != GNEISS_SUCCESS) {
-    return result;
-  }
+  const auto& pointer = application.pointer_state();
   if (pointer.is_inside != 0U) {
     io.AddMousePosEvent(pointer.x, pointer.y);
   } else {
@@ -163,8 +155,11 @@ imgui_adapter::~imgui_adapter() noexcept {
   }
 }
 
-gneiss_result imgui_adapter::initialize(gneiss_application application) {
-  if (application == GNEISS_NULL_APPLICATION || context_ != nullptr) {
+gneiss_result imgui_adapter::initialize(engine::application& application) {
+  if (!application.is_owner_thread() || !application.accepts_requests()) {
+    return GNEISS_ERROR_INVALID_STATE;
+  }
+  if (context_ != nullptr) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
   context_ = ImGui::CreateContext();
@@ -230,14 +225,13 @@ gneiss_result imgui_adapter::initialize(gneiss_application application) {
       value = static_cast<std::uint8_t>((static_cast<std::uint32_t>(value) * alpha + 127U) / 255U);
     }
   }
-  gneiss_texture_desc texture_desc = GNEISS_TEXTURE_DESC_INIT;
-  texture_desc.color_space = GNEISS_TEXTURE_COLOR_SPACE_LINEAR;
+  render_internal::texture_view texture_desc;
+  texture_desc.color_space = asset_internal::texture_color_space::linear;
   texture_desc.width = static_cast<std::uint32_t>(atlas_width);
   texture_desc.height = static_cast<std::uint32_t>(atlas_height);
   texture_desc.row_stride_bytes = texture_desc.width * 4U;
-  texture_desc.pixel_data_size = static_cast<std::uint64_t>(premultiplied.size());
-  texture_desc.pixels = premultiplied.data();
-  const auto result = gneiss_texture_create(application, &texture_desc, &font_texture_);
+  texture_desc.pixels = premultiplied;
+  const auto result = application.resources().create_texture(texture_desc, &font_texture_);
   if (result != GNEISS_SUCCESS) {
     return result;
   }
@@ -246,11 +240,14 @@ gneiss_result imgui_adapter::initialize(gneiss_application application) {
   return GNEISS_SUCCESS;
 }
 
-void imgui_adapter::shutdown(gneiss_application application) noexcept {
+void imgui_adapter::shutdown(engine::application& application) noexcept {
+  if (!application.is_owner_thread() || !application.accepts_requests()) {
+    return;
+  }
   ImGui::SetCurrentContext(context_);
-  if (font_texture_ != GNEISS_NULL_TEXTURE && application != GNEISS_NULL_APPLICATION) {
-    (void)gneiss_texture_destroy(application, font_texture_);
-    font_texture_ = GNEISS_NULL_TEXTURE;
+  if (font_texture_ != core::null_rid) {
+    (void)application.resources().destroy_texture(font_texture_);
+    font_texture_ = core::null_rid;
   }
   if (context_ != nullptr) {
     ImGui::DestroyContext(context_);
@@ -258,18 +255,21 @@ void imgui_adapter::shutdown(gneiss_application application) noexcept {
   }
 }
 
-gneiss_result imgui_adapter::begin_frame(gneiss_application application,
+gneiss_result imgui_adapter::begin_frame(engine::application& application,
                                          const gneiss::engine::frame_time& time) {
+  if (!application.is_owner_thread() || !application.accepts_requests()) {
+    return GNEISS_ERROR_INVALID_STATE;
+  }
   if (context_ == nullptr) {
     return GNEISS_ERROR_INVALID_STATE;
   }
   ImGui::SetCurrentContext(context_);
-  gneiss_input_event event = GNEISS_INPUT_EVENT_INIT;
-  auto poll_result = gneiss_application_poll_input(application, &event);
+  input_internal::input_event event;
+  auto poll_result = application.poll_input(event);
   while (poll_result == GNEISS_SUCCESS) {
     process_input(event);
-    event = GNEISS_INPUT_EVENT_INIT;
-    poll_result = gneiss_application_poll_input(application, &event);
+    event = {};
+    poll_result = application.poll_input(event);
   }
   if (poll_result != GNEISS_ERROR_NOT_READY) {
     return poll_result;
@@ -281,8 +281,7 @@ gneiss_result imgui_adapter::begin_frame(gneiss_application application,
   auto& io = ImGui::GetIO();
   std::uint32_t window_width = 0U;
   std::uint32_t window_height = 0U;
-  const auto window_result =
-      gneiss_application_get_window_size(application, &window_width, &window_height);
+  const auto window_result = application.get_window_size(window_width, window_height);
   if (window_result != GNEISS_SUCCESS) {
     return window_result;
   }
@@ -300,27 +299,27 @@ gneiss_result imgui_adapter::begin_frame(gneiss_application application,
   return GNEISS_SUCCESS;
 }
 
-void imgui_adapter::process_input(const gneiss_input_event& event) {
+void imgui_adapter::process_input(const input_internal::input_event& event) {
   auto& io = ImGui::GetIO();
   switch (event.type) {
-  case GNEISS_INPUT_EVENT_KEY: {
+  case input_internal::event_type::key: {
     update_modifiers(io, event.data.key.modifiers);
     const auto key = map_key(event.data.key.physical_key);
-    if (key != ImGuiKey_None && event.data.key.action != GNEISS_KEY_REPEATED) {
-      io.AddKeyEvent(key, event.data.key.action == GNEISS_KEY_PRESSED);
+    if (key != ImGuiKey_None && event.data.key.action != input_internal::key_action::repeated) {
+      io.AddKeyEvent(key, event.data.key.action == input_internal::key_action::pressed);
     }
     break;
   }
-  case GNEISS_INPUT_EVENT_TEXT: {
-    const auto length = std::min<std::size_t>(event.data.text.length, GNEISS_INPUT_TEXT_CAPACITY);
+  case input_internal::event_type::text: {
+    const auto length = std::min<std::size_t>(event.data.text.length, sizeof(event.data.text.utf8));
     const std::string utf8{event.data.text.utf8, length};
     io.AddInputCharactersUTF8(utf8.c_str());
     break;
   }
-  case GNEISS_INPUT_EVENT_POINTER_MOVED:
+  case input_internal::event_type::pointer_moved:
     io.AddMousePosEvent(event.data.pointer_moved.x, event.data.pointer_moved.y);
     break;
-  case GNEISS_INPUT_EVENT_POINTER_BUTTON: {
+  case input_internal::event_type::pointer_button: {
     io.AddMousePosEvent(event.data.pointer_button.x, event.data.pointer_button.y);
     const auto button = map_mouse_button(event.data.pointer_button.button);
     if (button >= 0) {
@@ -328,11 +327,11 @@ void imgui_adapter::process_input(const gneiss_input_event& event) {
     }
     break;
   }
-  case GNEISS_INPUT_EVENT_POINTER_WHEEL:
+  case input_internal::event_type::pointer_wheel:
     io.AddMousePosEvent(event.data.pointer_wheel.x, event.data.pointer_wheel.y);
     io.AddMouseWheelEvent(event.data.pointer_wheel.delta_x, event.data.pointer_wheel.delta_y);
     break;
-  case GNEISS_INPUT_EVENT_POINTER_LEFT:
+  case input_internal::event_type::pointer_left:
     io.AddMousePosEvent(-FLT_MAX, -FLT_MAX);
     break;
   default:
@@ -374,7 +373,7 @@ gneiss_result imgui_adapter::submit(engine::application& application) {
           command.ClipRect.x >= command.ClipRect.z || command.ClipRect.y >= command.ClipRect.w) {
         continue;
       }
-      const auto texture = static_cast<gneiss_texture>(command.GetTexID());
+      const auto texture = static_cast<core::rid>(command.GetTexID());
       render_internal::ui_draw_command converted{};
       converted.texture = texture;
       converted.clip_min[0] = command.ClipRect.x - draw_data->DisplayPos.x;

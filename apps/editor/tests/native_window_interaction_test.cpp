@@ -12,11 +12,11 @@
 #endif
 
 #include "engine/function/application/application.hpp"
-#include "engine/function/application/application_registry.hpp"
 
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <thread>
 
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
@@ -47,8 +47,7 @@ BOOL CALLBACK find_window(HWND window, LPARAM data) {
   return TRUE;
 }
 
-gneiss_result update(gneiss_application application, const gneiss::engine::frame_time* time,
-                     void* data) {
+gneiss_result update(gneiss::core::rid, const gneiss::engine::frame_time* time, void* data) {
   auto& value = *static_cast<state*>(data);
 #if defined(GNEISS_TEST_BACKGROUND_ASSETS)
   if (!value.assets->status().active ||
@@ -62,24 +61,23 @@ gneiss_result update(gneiss_application application, const gneiss::engine::frame
   }
   std::uint32_t width = 0U;
   std::uint32_t height = 0U;
-  auto operation = gneiss_application_get_window_size(application, &width, &height);
+  auto operation = value.application->get_window_size(width, height);
   if (operation != GNEISS_SUCCESS || width != static_cast<std::uint32_t>(client.right) ||
       height != static_cast<std::uint32_t>(client.bottom)) {
     return GNEISS_ERROR_INVALID_STATE;
   }
-  operation = value.ui.begin_frame(application, *time);
+  operation = value.ui.begin_frame(*value.application, *time);
   if (operation != GNEISS_SUCCESS) {
     return operation;
   }
   const auto& io = ImGui::GetIO();
-  gneiss_pointer_state pointer = GNEISS_POINTER_STATE_INIT;
-  const auto pointer_result = gneiss_application_get_pointer_state(application, &pointer);
+  const auto& pointer = value.application->pointer_state();
   const auto aligned =
       io.DisplaySize.x == static_cast<float>(std::max(width, 1U)) &&
       io.DisplaySize.y == static_cast<float>(std::max(height, 1U)) &&
       io.DisplayFramebufferScale.x == 1.0F && io.DisplayFramebufferScale.y == 1.0F &&
       (!value.check_pointer || value.frames < value.pointer_check_frame ||
-       (pointer_result == GNEISS_SUCCESS && pointer.x == 123.0F && pointer.y == 87.0F &&
+       (pointer.x == 123.0F && pointer.y == 87.0F &&
         (pointer.is_inside == 0U ? !ImGui::IsMousePosValid()
                                  : (io.MousePos.x == pointer.x && io.MousePos.y == pointer.y))));
   if (!aligned) {
@@ -142,26 +140,27 @@ int main() {
     return gneiss::from_native(update(handle, &time, &value));
   };
   std::shared_ptr<gneiss::engine::application> application;
-  gneiss::application_internal::application_bridge bridge;
-  if (gneiss::engine::application::create(config, application) != GNEISS_SUCCESS ||
-      bridge.bind(application) != GNEISS_SUCCESS) {
+  if (gneiss::engine::application::create(config, application) != GNEISS_SUCCESS) {
     return 1;
   }
   value.application = application.get();
   (void)EnumWindows(find_window, reinterpret_cast<LPARAM>(&value.window));
-  if (value.window == nullptr || value.ui.initialize(bridge.get()) != GNEISS_SUCCESS) {
+  if (value.window == nullptr || value.ui.initialize(*application) != GNEISS_SUCCESS) {
     return 2;
   }
 #if defined(GNEISS_TEST_BACKGROUND_ASSETS)
-  gneiss_world world{};
-  if (gneiss_application_get_world(bridge.get(), &world) != GNEISS_SUCCESS ||
-      value.camera.initialize() != gneiss::result::success) {
+  if (value.camera.initialize() != gneiss::result::success) {
     return 5;
   }
 #endif
+  gneiss_result foreign_result{};
+  std::thread foreign([&] { foreign_result = value.ui.begin_frame(*application, {}); });
+  foreign.join();
+  if (foreign_result != GNEISS_ERROR_INVALID_STATE)
+    return 6;
   // 使用窗口自己的 DPI 上下文查询物理客户区，避免测试进程受到 DPI 虚拟化影响。
   const auto previous = SetThreadDpiAwarenessContext(GetWindowDpiAwarenessContext(value.window));
-  const auto run = [&] { return application->run(bridge.get(), 3U) == GNEISS_SUCCESS; };
+  const auto run = [&] { return application->run(gneiss::core::null_rid, 3U) == GNEISS_SUCCESS; };
   bool success = run();
   for (int index = 0; index < 18 && success; ++index) {
     success = SetWindowPos(value.window, nullptr, -3000, -3000, 640 + (index * 19),
@@ -195,7 +194,7 @@ int main() {
   value.camera.shutdown();
   worker.request_stop();
 #endif
-  value.ui.shutdown(bridge.get());
+  value.ui.shutdown(*application);
   if (previous != nullptr) {
     (void)SetThreadDpiAwarenessContext(previous);
   }
