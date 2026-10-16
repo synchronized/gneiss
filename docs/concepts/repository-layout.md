@@ -144,3 +144,33 @@ Engine 公共接口统一位于 `include/gneiss/engine/`，基础类型位于其
 
 本次只整理已有 Engine SDK 目录；不建立 Runtime、Editor、Tooling 或插件公共 API，
 不改变内部模块边界。现有 `apps/runtime` 仍是宿主，而非第二套引擎库。
+
+## 原生 C++、C ABI 与 SDK 的阅读顺序
+
+同源码宿主从内部模块接口进入，外部使用者从公共接口进入；两条路径操作同一份状态。
+`include/gneiss/engine/*.hpp` 中的所有者包装位于 `gneiss::sdk`，不会占用内部对象的命名。
+公共值类型仍位于 `gneiss`；内部模块命名空间与文件路径一起标识职责，不能仅凭同名判断所有权。
+
+| 要了解的行为 | 入口 | 拥有或借用关系 |
+| --- | --- | --- |
+| 程序启动与关闭 | `apps/editor/editor_application.cpp`、`apps/runtime/main.cpp` | 宿主拥有原生 Application，先清理依赖它的会话、命令与任务 |
+| Application 装配 | `src/engine/function/application/application.hpp` | 拥有平台、服务与场景协调组件；普通内部操作不解析自身 C 句柄 |
+| 场景切换 | `src/engine/function/application/scene_session.hpp` | 管理活动、候选与退役域，协调准备、验证与激活 |
+| 场景域 | `src/engine/function/application/application_scene_state.hpp` | 拥有原生 World 与场景实例服务，借用共享资产状态 |
+| World 数据和操作 | `src/engine/function/world/world.hpp` | 原生对象拥有 ECS/树状态；`world_service.hpp` 管理 C 兼容句柄与反射接入 |
+| Scene/Prefab 实例 | `src/engine/function/scene/scene_instance_service.hpp` | 借用所属 World；实例持有所使用资源版本的租约 |
+| 作者文档 | `src/editor/editor_session.hpp` | 借用 Application、拥有文档的场景实例 ID；关闭时卸载，不能晚于 Application 销毁 |
+| 反射属性编辑 | `src/editor/property_inspector_model.hpp`、`apps/runtime/runtime_property_editor.hpp` | 直接持有同一内部 Registry 实现；字段回调仍使用已定义的目标协议 |
+| 外部调用 | `src/engine/api/`、`include/gneiss/engine/` | C 适配转换参数并委托，SDK 提供强类型和 RAII |
+
+Editor 无需 Application 兼容桥；Runtime 仅在动态游戏模块这一真实 ABI 边界保留借用桥。
+借用桥不授予关闭权，Application 返回的 World 句柄也不能由外部销毁。场景域退役后其旧句柄失效。
+内部会话和事务的借用有效期由宿主销毁顺序保证，不把普通引用宣传成可跨 Application 存活的句柄。
+
+加载链路按 Application → scene_session → 候选场景域 → Scene/World → 渲染快照阅读；
+共享资产状态与场景域生命周期不同，详见 [资产与场景域所有权](architecture.md#资产与场景域所有权)。
+原生渲染值、输入状态和日志事件均在各自模块定义，C 布局转换归边界。无状态解析、哈希与数学
+仍使用自由函数；有状态对象持有实际状态，不为消除自由函数增加转发 Manager。
+
+上述是当前实现入口，不代表 0.51 的大型场景与平台验收已经完成。
+外部源码迁移见 [0.50 → 0.51 指南](../guides/migrating-0.50-to-0.51.md)。

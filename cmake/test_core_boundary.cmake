@@ -454,3 +454,14 @@ foreach(content IN ITEMS "gneiss_scene_instance_load();" "scene_instance scene_;
   endif()
 endforeach()
 file(WRITE "${fixture}/src/editor/editor_session.cpp" "")
+
+foreach(content IN ITEMS "gneiss::sdk::world owner;" "gneiss_type_registry_create();")
+  file(WRITE "${fixture}/src/editor/property_inspector_model.cpp" "${content}\n")
+  execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
+    -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
+    RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
+  if(status EQUAL 0)
+    message(FATAL_ERROR "编辑模型边界未拒绝 SDK/Registry 回退：${content}")
+  endif()
+endforeach()
+file(WRITE "${fixture}/src/editor/property_inspector_model.cpp" "")

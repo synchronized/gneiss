@@ -57,7 +57,11 @@ foreach(source IN LISTS sources)
       content MATCHES "gneiss_(application|scene_instance|scene_node|world)_[a-z_]+[(]|(^|[ ;])scene_instance scene_")
     message(FATAL_ERROR "原生编辑会话不得绕行场景 ABI 或 SDK 拥有包装：${source}")
   endif()
-  # Editor 使用内部模块接口；尚未迁移的值包装不改变对 Apps 的禁止依赖。
+  if(source MATCHES "/src/editor/" AND
+      content MATCHES "sdk::|gneiss_type_registry_[a-z_]+[(]")
+    message(FATAL_ERROR "编辑器内部不得使用 SDK 所有者或绕回 Registry C ABI：${source}")
+  endif()
+  # Editor 使用内部模块接口；值类型仍允许使用公开定义。
   if(source MATCHES "/src/editor/")
     if(content MATCHES "#[ \t]*include[ \t]*[<\"](\\.\\./)*apps/")
       message(FATAL_ERROR "Editor 实现不得反向包含 Apps：${source}")
