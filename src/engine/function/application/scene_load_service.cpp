@@ -73,6 +73,7 @@ struct scene_load_service::pending {
   std::unique_ptr<scene_internal::scene_load_builder> builder;
   scene_internal::scene_load_builder::asset_bindings bindings;
   std::vector<asset_internal::resource_cache::version_selection> selections;
+  std::unique_ptr<asset_internal::resource_cache::prepared_adoption> adoption;
   std::map<std::uint64_t, resource_usage> resident;
   std::vector<render_internal::render_asset_reload> requested;
   std::size_t cursor{};
@@ -263,6 +264,9 @@ scene_load_service::take_candidate(std::uint64_t request, scene_load_completion&
   result.result = GNEISS_SUCCESS;
   result.progress.phase = scene_load_phase::applied;
   result.progress.can_cancel = false;
+  if (pending_->adoption) {
+    pending_->adoption->commit();
+  }
   auto candidate = std::move(pending_->candidate);
   assets = std::move(pending_->assets);
   pending_.reset();
@@ -548,11 +552,12 @@ void scene_load_service::advance_impl() {
       return;
     }
     if (complete) {
-      // 此时缓存仍完全属于候选域；取消或失败会随整个域丢弃选择。
-      // 提前完成全部分配，take_candidate 与宿主激活继续只做不可失败的所有权交换。
-      const auto adopted = value.selections.empty()
-                               ? GNEISS_SUCCESS
-                               : value.candidate->cache.adopt_versions(value.selections);
+      // ready 只准备选择映射；取消不会采用候选版本。
+      // 提前完成全部分配，take_candidate 才提交选择并交还域所有权。
+      const auto adopted =
+          value.selections.empty()
+              ? GNEISS_SUCCESS
+              : value.candidate->cache.prepare_adoption(value.selections, value.adoption);
       if (adopted != GNEISS_SUCCESS) {
         finish(adopted, scene_load_phase::failed);
         return;

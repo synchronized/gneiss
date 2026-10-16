@@ -39,50 +39,96 @@ std::size_t resource_cache::selection_hash::operator()(const selection_key& key)
   return value;
 }
 
+struct resource_cache::prepared_adoption::state {
+  resource_cache* owner{};
+  std::unordered_map<selection_key, version_key, selection_hash> selections;
+  std::vector<std::shared_ptr<const entry>> leases;
+  bool changed{};
+};
+resource_cache::prepared_adoption::prepared_adoption(std::unique_ptr<state> value) noexcept
+    : state_(std::move(value)) {}
+resource_cache::prepared_adoption::~prepared_adoption() {
+  if (state_->owner != nullptr) {
+    state_->owner->adoption_reserved_ = false;
+  }
+}
+void resource_cache::prepared_adoption::commit() noexcept {
+  if (state_->owner == nullptr) {
+    return;
+  }
+  auto& owner = *state_->owner;
+  if (state_->changed) {
+    owner.selections_.swap(state_->selections);
+    ++owner.revision_;
+  }
+  owner.adoption_reserved_ = false;
+  state_->owner = nullptr;
+}
+gneiss_result resource_cache::prepare_adoption(std::span<const version_selection> values,
+                                               std::unique_ptr<prepared_adoption>& output) noexcept
+    try {
+  if (values.empty() || output) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  if (adoption_reserved_) {
+    return GNEISS_ERROR_NOT_READY;
+  }
+  auto staged = std::make_unique<prepared_adoption::state>();
+  staged->selections = selections_;
+  staged->leases.reserve(values.size());
+  std::unordered_set<selection_key, selection_hash> unique;
+  for (const auto& value : values) {
+    if (!value.selection.identity.source || value.selection.identity.type == 0U ||
+        value.selection.identity != value.version.identity || value.version.version.empty() ||
+        !unique.insert(value.selection).second) {
+      return GNEISS_ERROR_INVALID_ARGUMENT;
+    }
+    const auto published = entries_.find(value.version);
+    if (published == entries_.end() || published->second->state != resource_state::ready) {
+      return GNEISS_ERROR_NOT_READY;
+    }
+    staged->leases.push_back(published->second);
+    const auto previous = staged->selections.find(value.selection);
+    if (previous == staged->selections.end() || previous->second != value.version) {
+      staged->selections.insert_or_assign(value.selection, value.version);
+      staged->changed = true;
+    }
+  }
+  // 最后一次分配成功后才保留采用权；任何准备失败都不影响其他请求。
+  auto candidate = std::unique_ptr<prepared_adoption>(new prepared_adoption(std::move(staged)));
+  candidate->state_->owner = this;
+  adoption_reserved_ = true;
+  output = std::move(candidate);
+  return GNEISS_SUCCESS;
+} catch (const std::bad_alloc&) {
+  return GNEISS_ERROR_OUT_OF_MEMORY;
+} catch (...) {
+  return GNEISS_ERROR_INTERNAL;
+}
+
 gneiss_result resource_cache::adopt_versions(std::span<const version_selection> values) noexcept {
   return adopt_versions(values, [] { return GNEISS_SUCCESS; });
 }
-
-gneiss_result
-resource_cache::adopt_versions(std::span<const version_selection> values,
-                               const std::function<gneiss_result()>& accept) noexcept {
-  if (values.empty() || !accept) {
+gneiss_result resource_cache::adopt_versions(std::span<const version_selection> values,
+                                             const std::function<gneiss_result()>& accept) noexcept
+    try {
+  if (!accept) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
-  try {
-    auto staged = selections_;
-    std::unordered_set<selection_key, selection_hash> unique;
-    bool changed = false;
-    for (const auto& value : values) {
-      if (!value.selection.identity.source || value.selection.identity.type == 0U ||
-          value.selection.identity != value.version.identity || value.version.version.empty() ||
-          !unique.insert(value.selection).second) {
-        return GNEISS_ERROR_INVALID_ARGUMENT;
-      }
-      const auto published = entries_.find(value.version);
-      if (published == entries_.end() || published->second->state != resource_state::ready) {
-        return GNEISS_ERROR_NOT_READY;
-      }
-      const auto previous = staged.find(value.selection);
-      if (previous == staged.end() || previous->second != value.version) {
-        staged.insert_or_assign(value.selection, value.version);
-        changed = true;
-      }
-    }
-    const auto accepted = accept();
-    if (accepted != GNEISS_SUCCESS) {
-      return accepted;
-    }
-    if (changed) {
-      selections_.swap(staged);
-      ++revision_;
-    }
-    return GNEISS_SUCCESS;
-  } catch (const std::bad_alloc&) {
-    return GNEISS_ERROR_OUT_OF_MEMORY;
-  } catch (...) {
-    return GNEISS_ERROR_INTERNAL;
+  std::unique_ptr<prepared_adoption> prepared;
+  const auto result = prepare_adoption(values, prepared);
+  if (result != GNEISS_SUCCESS) {
+    return result;
   }
+  const auto accepted = accept();
+  if (accepted == GNEISS_SUCCESS) {
+    prepared->commit();
+  }
+  return accepted;
+} catch (const std::bad_alloc&) {
+  return GNEISS_ERROR_OUT_OF_MEMORY;
+} catch (...) {
+  return GNEISS_ERROR_INTERNAL;
 }
 
 std::weak_ptr<const resource_cache::entry>

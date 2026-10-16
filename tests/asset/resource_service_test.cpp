@@ -17,7 +17,76 @@
 
 namespace {
 
+bool deferred_adoption_contract() {
+  using namespace gneiss::asset_internal;
+  resource_cache cache;
+  const asset_identity identity{.source = std::make_shared<asset_source_domain>(),
+                                .uri = "asset://deferred.mesh",
+                                .type = 1U};
+  const resource_cache::selection_key selection{.identity = identity, .configuration = "profile"};
+  const resource_cache::version_key first{.identity = identity, .version = "a"};
+  const resource_cache::version_key second{.identity = identity, .version = "b"};
+  const auto load = [](std::shared_ptr<void>& value) {
+    value = std::make_shared<int>(42);
+    return GNEISS_SUCCESS;
+  };
+  std::shared_ptr<const resource_cache::entry> a;
+  std::shared_ptr<const resource_cache::entry> b;
+  const std::array adopt_a{
+      resource_cache::version_selection{.selection = selection, .version = first}};
+  const std::array adopt_b{
+      resource_cache::version_selection{.selection = selection, .version = second}};
+  if (cache.acquire(first, load, a) != GNEISS_SUCCESS ||
+      cache.acquire(second, load, b) != GNEISS_SUCCESS ||
+      cache.adopt_versions(adopt_a) != GNEISS_SUCCESS) {
+    return false;
+  }
+  std::unique_ptr<resource_cache::prepared_adoption> pending;
+  std::unique_ptr<resource_cache::prepared_adoption> competing;
+  const auto revision = cache.revision();
+  if (cache.prepare_adoption(adopt_b, pending) != GNEISS_SUCCESS ||
+      cache.observe_selected(selection).lock() != a || cache.revision() != revision ||
+      cache.prepare_adoption(adopt_a, competing) != GNEISS_ERROR_NOT_READY || competing ||
+      cache.adopt_versions(adopt_a) != GNEISS_ERROR_NOT_READY ||
+      cache.prepare_adoption(adopt_a, pending) != GNEISS_ERROR_INVALID_ARGUMENT) {
+    return false;
+  }
+  pending.reset();
+  if (cache.observe_selected(selection).lock() != a || cache.revision() != revision ||
+      cache.prepare_adoption(adopt_b, pending) != GNEISS_SUCCESS) {
+    return false;
+  }
+  const std::weak_ptr<const resource_cache::entry> retained = b;
+  b.reset();
+  cache.release_unused();
+  if (retained.expired() || cache.observe_selected(selection).lock() != a) {
+    return false;
+  }
+  pending->commit();
+  if (cache.observe_selected(selection).lock() != retained.lock()) {
+    return false;
+  }
+  const auto committed = cache.revision();
+  pending->commit();
+  if (cache.revision() != committed || cache.adopt_versions(adopt_a) != GNEISS_SUCCESS) {
+    return false;
+  }
+  pending.reset();
+  cache.release_unused();
+  if (!retained.expired() || cache.observe_selected(selection).lock() != a) {
+    return false;
+  }
+  // 回调递归采用不能抢走外层事务的采用权。
+  return cache.adopt_versions(adopt_a, [&] {
+    return cache.adopt_versions(adopt_a) == GNEISS_ERROR_NOT_READY ? GNEISS_SUCCESS
+                                                                   : GNEISS_ERROR_INTERNAL;
+  }) == GNEISS_SUCCESS;
+}
+
 bool selection_contract() {
+  if (!deferred_adoption_contract()) {
+    return false;
+  }
   using namespace gneiss::asset_internal;
   resource_cache cache;
   const asset_identity identity{
