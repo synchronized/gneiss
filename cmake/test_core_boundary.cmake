@@ -431,3 +431,14 @@ foreach(content IN ITEMS "gneiss_transform value;" "auto value = GNEISS_TRANSFOR
   endif()
 endforeach()
 file(WRITE "${fixture}/src/engine/function/scene/scene_tree.hpp" "")
+
+foreach(name IN ITEMS scene_query.hpp scene_creation.hpp scene_instance_service.cpp prefab_runtime_instance.cpp)
+  file(WRITE "${fixture}/src/engine/function/scene/${name}" "gneiss_transform value;\n")
+  execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
+    -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
+    RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
+  if(status EQUAL 0)
+    message(FATAL_ERROR "原生场景消费者未拒绝 C TRS：${name}")
+  endif()
+  file(WRITE "${fixture}/src/engine/function/scene/${name}" "")
+endforeach()

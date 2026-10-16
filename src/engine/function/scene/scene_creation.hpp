@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #pragma once
+#include "engine/core/math/transform.hpp"
 
 #include <gneiss/engine/scene.h>
 
@@ -14,7 +15,7 @@ struct node_creation {
   std::string_view uuid;
   std::string_view name;
   gneiss_scene_node_id parent{};
-  gneiss_transform local_transform = GNEISS_TRANSFORM_IDENTITY;
+  gneiss::engine::transform local_transform = {};
 };
 
 struct mesh_renderer_node_creation {
@@ -30,7 +31,7 @@ struct prefab_creation {
   std::string_view name;
   std::string_view prefab_uri;
   gneiss_scene_node_id parent{};
-  gneiss_transform local_transform = GNEISS_TRANSFORM_IDENTITY;
+  gneiss::engine::transform local_transform = {};
 };
 
 /** 子树恢复期间借用；UUID 重写规则与唯一性仍由 Scene 校验。 */

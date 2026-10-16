@@ -20,8 +20,11 @@ result make_prefab_record(const scene_internal::prefab_node_view& info,
   record.source_node_uuid = info.source_node_uuid;
   record.display_name = info.name;
   record.prefab_uri = info.prefab_uri;
-  record.local_transform = from_native(info.local_transform);
-  record.source_local_transform = from_native(info.source_local_transform);
+  record.local_transform = {info.local_transform.translation, info.local_transform.rotation,
+                            info.local_transform.scale};
+  record.source_local_transform = {info.source_local_transform.translation,
+                                   info.source_local_transform.rotation,
+                                   info.source_local_transform.scale};
   record.is_instance_root = (info.flags & GNEISS_SCENE_PREFAB_NODE_INSTANCE_ROOT) != 0U;
   record.is_read_only = !record.is_instance_root;
   record.override_flags = info.flags & (GNEISS_SCENE_PREFAB_NODE_TRANSLATION_OVERRIDDEN |

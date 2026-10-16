@@ -24,8 +24,8 @@ gneiss_result application_scene_state::initialize() noexcept {
     return result;
   }
   try {
-    scenes =
-        std::make_unique<scene_internal::scene_instance_service>(world, files_, assets, prefabs);
+    scenes = std::make_unique<scene_internal::scene_instance_service>(*world_owner_, world, files_,
+                                                                      assets, prefabs);
     return scenes->is_valid() ? GNEISS_SUCCESS : GNEISS_ERROR_OUT_OF_MEMORY;
   } catch (const std::bad_alloc&) {
     return GNEISS_ERROR_OUT_OF_MEMORY;

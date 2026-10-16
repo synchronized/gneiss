@@ -12,6 +12,8 @@
 #include "engine/function/scene/scene_description.hpp"
 #include "engine/function/scene/scene_query.hpp"
 
+#include "engine/function/world/world.hpp"
+
 #include <gneiss/engine/scene.h>
 
 #include <memory>
@@ -32,8 +34,9 @@ struct scene_mesh_binding {
 
 class scene_instance final {
 public:
-  scene_instance(gneiss_world world, render_internal::render_asset_loader& loader,
-                 prefab_asset_loader& prefab_loader, gneiss_type_registry registry) noexcept;
+  scene_instance(engine::world& native_world, gneiss_world world,
+                 render_internal::render_asset_loader& loader, prefab_asset_loader& prefab_loader,
+                 gneiss_type_registry registry) noexcept;
   ~scene_instance() noexcept;
 
   scene_instance(const scene_instance&) = delete;
@@ -66,8 +69,9 @@ public:
                                                      gneiss_scene_node_id* out_root);
   [[nodiscard]] gneiss_result set_prefab_instance_name(gneiss_scene_node_id root,
                                                        std::string_view name);
-  [[nodiscard]] gneiss_result set_prefab_source_transform(gneiss_scene_node_id node,
-                                                          const gneiss_transform& transform);
+  [[nodiscard]] gneiss_result
+  set_prefab_source_transform(gneiss_scene_node_id node,
+                              const gneiss::engine::transform& transform);
   [[nodiscard]] gneiss_result destroy_prefab_instance(gneiss_scene_node_id root) noexcept;
   [[nodiscard]] gneiss_result refresh_prefab_instance(gneiss_scene_node_id root,
                                                       gneiss_scene_node_id* out_new_root,
@@ -113,7 +117,9 @@ private:
     prefab_asset_lease alternate;
   };
 
-  gneiss_world world_;
+  engine::world& native_world_;
+  // 仅供 ABI 反射回调定位；不拥有 World，不用于普通场景操作。
+  gneiss_world reflection_context_;
   render_internal::render_asset_loader& loader_;
   prefab_asset_loader& prefab_loader_;
   gneiss_type_registry registry_;
@@ -179,7 +185,8 @@ public:
   /** 验证普通作者节点归属，不接受 Prefab 的只读来源节点。 */
   [[nodiscard]] gneiss_result validate_editable_node(gneiss_scene_instance instance,
                                                      gneiss_scene_node_id node) const noexcept;
-  scene_instance_service(gneiss_world world, const asset_internal::virtual_file_system& file_system,
+  scene_instance_service(engine::world& native_world, gneiss_world world,
+                         const asset_internal::virtual_file_system& file_system,
                          render_internal::render_asset_loader& loader,
                          prefab_asset_loader& prefab_loader) noexcept;
   ~scene_instance_service() noexcept;
@@ -226,7 +233,7 @@ public:
                                                        std::string_view name) noexcept;
   [[nodiscard]] gneiss_result
   set_prefab_source_transform(gneiss_scene_instance instance, gneiss_scene_node_id node,
-                              const gneiss_transform& transform) noexcept;
+                              const gneiss::engine::transform& transform) noexcept;
   [[nodiscard]] gneiss_result destroy_prefab_instance(gneiss_scene_instance instance,
                                                       gneiss_scene_node_id root) noexcept;
   [[nodiscard]] gneiss_result
@@ -276,7 +283,9 @@ public:
 private:
   friend class scene_load_builder;
   using instance_ptr = std::unique_ptr<scene_instance>;
-  gneiss_world world_;
+  engine::world& native_world_;
+  // 仅供 ABI 反射回调定位；不拥有 World，不用于普通场景操作。
+  gneiss_world reflection_context_;
   const asset_internal::virtual_file_system& file_system_;
   render_internal::render_asset_loader& loader_;
   prefab_asset_loader& prefab_loader_;

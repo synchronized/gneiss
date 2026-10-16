@@ -19,8 +19,9 @@ scene_load_builder::scene_load_builder(scene_instance_service& service,
                                      })),
       instance_(diagnostics::measure(diagnostics::loop_stage::scene_instance_allocate, [&] {
         GNEISS_PROFILE_SCOPE("scene.instance.allocate");
-        return std::make_unique<scene_instance>(service.world_, service.loader_,
-                                                service.prefab_loader_, service.registry_);
+        return std::make_unique<scene_instance>(service.native_world_, service.reflection_context_,
+                                                service.loader_, service.prefab_loader_,
+                                                service.registry_);
       })) {
   diagnostics::measure(diagnostics::loop_stage::scene_instance_initialize, [&] {
     GNEISS_PROFILE_SCOPE("scene.instance.initialize");
@@ -40,12 +41,13 @@ gneiss_result scene_load_builder::step_prefab() {
   const auto& prepared = prepared_.prefabs.at(source.prefab_uri);
   if (!prefab_) {
     const auto lease = prefabs_.at(source.prefab_uri);
-    prefab_ = std::make_unique<prefab_runtime_instance>(service_.world_, service_.loader_, lease,
-                                                        source.instance_uuid);
-    gneiss_transform transform = GNEISS_TRANSFORM_IDENTITY;
-    std::ranges::copy(source.translation, transform.translation);
-    std::ranges::copy(source.rotation, transform.rotation);
-    std::ranges::copy(source.scale, transform.scale);
+    prefab_ = std::make_unique<prefab_runtime_instance>(
+        service_.native_world_, service_.reflection_context_, service_.loader_, lease,
+        source.instance_uuid);
+    gneiss::engine::transform transform = {};
+    std::ranges::copy(source.translation, transform.translation.begin());
+    std::ranges::copy(source.rotation, transform.rotation.begin());
+    std::ranges::copy(source.scale, transform.scale.begin());
     prefab_node_cursor_ = override_cursor_ = 0U;
     prefab_nodes_.clear();
     prefab_nodes_.reserve(lease.get()->objects.size());

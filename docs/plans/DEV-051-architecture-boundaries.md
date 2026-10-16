@@ -267,7 +267,8 @@ Render 绘制列表及 Editor 原生提交已验证，见 [Render 记录](../rec
 相机/实例、材质/采样、网格、纹理描述和资源 RID 已贯通原生值；后端日志仅接收关联 ID。
 Application 回调与宿主已完成首批原生接入；World 已有原生拥有对象与操作入口，渲染快照直接
 调用活动 World，见 [宿主迁移记录](../records/M-332-native-host-ownership.md)。
-继续迁移 Scene/Prefab 与 Editor 编辑会话消费者，清除剩余兼容操作入口；完整真实图像、
+Scene/Prefab 普通操作与 Transform 已直接接入原生 World；继续迁移 Editor 编辑会话消费者，
+清除剩余兼容操作入口；完整真实图像、
 跨平台与安装矩阵仍待执行。
 
 ### 已确认：Render 快照表示与矩阵准备职责

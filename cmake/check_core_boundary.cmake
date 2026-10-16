@@ -14,8 +14,8 @@ if(NOT sources)
 endif()
 foreach(source IN LISTS sources)
   file(READ "${source}" content)
-  if(source MATCHES "/src/engine/function/(scene/scene_tree|world/(render_snapshot|world|world_types))[.](hpp|cpp)$" AND
-      content MATCHES "gneiss_transform|GNEISS_TRANSFORM_")
+  if(source MATCHES "/src/engine/function/(scene/(scene_tree|scene_query|scene_creation|scene_instance_service|prefab_runtime_instance|scene_load_builder)|world/(render_snapshot|world|world_types))[.](hpp|cpp)$" AND
+      content MATCHES "gneiss_transform|GNEISS_TRANSFORM_IDENTITY")
     message(FATAL_ERROR "原生场景树与快照不得使用 C TRS 布局：${source}")
   endif()
   if(source MATCHES "/src/engine/function/world/(world_components|world_state)[.]hpp$" AND

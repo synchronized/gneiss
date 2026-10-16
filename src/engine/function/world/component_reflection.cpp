@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "engine/core/math/transform.hpp"
 #include "engine/core/reflection/type_registry.hpp"
 #include "engine/function/world/world_service.hpp"
 
@@ -10,8 +11,8 @@
 #include <gneiss/engine/scene.h>
 
 #include <array>
-#include <cstdint>
 #include <cmath>
+#include <cstdint>
 #include <numbers>
 
 namespace {
@@ -73,7 +74,7 @@ gneiss_result get_transform(void* user_data, gneiss_property_target target,
 
 gneiss_result set_candidate_transform(void* user_data, void* candidate,
                                       const gneiss_property_value& input) {
-  auto transform = *static_cast<gneiss_transform*>(candidate);
+  auto transform = *static_cast<gneiss::engine::transform*>(candidate);
   const auto* value = &input;
   switch (*static_cast<const transform_field*>(user_data)) {
   case transform_field::translation:
@@ -104,7 +105,7 @@ gneiss_result set_candidate_transform(void* user_data, void* candidate,
       })) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
-  *static_cast<gneiss_transform*>(candidate) = transform;
+  *static_cast<gneiss::engine::transform*>(candidate) = transform;
   return GNEISS_SUCCESS;
 }
 
@@ -114,7 +115,16 @@ gneiss_result set_transform(void* user_data, gneiss_property_target target,
   auto result = gneiss::world_internal::entity_get_local_transform(
       target_world(target), target_entity(target), transform);
   if (result == GNEISS_SUCCESS) {
-    result = set_candidate_transform(user_data, &transform, *value);
+    gneiss::engine::transform candidate;
+    std::ranges::copy(transform.translation, candidate.translation.begin());
+    std::ranges::copy(transform.rotation, candidate.rotation.begin());
+    std::ranges::copy(transform.scale, candidate.scale.begin());
+    result = set_candidate_transform(user_data, &candidate, *value);
+    if (result == GNEISS_SUCCESS) {
+      std::ranges::copy(candidate.translation, transform.translation);
+      std::ranges::copy(candidate.rotation, transform.rotation);
+      std::ranges::copy(candidate.scale, transform.scale);
+    }
   }
   return result == GNEISS_SUCCESS ? gneiss::world_internal::entity_set_local_transform(
                                         target_world(target), target_entity(target), transform)
@@ -151,7 +161,9 @@ gneiss_result set_candidate_camera(void* user_data, void* candidate,
   const auto scalar = value->payload.float32_value;
   if (!std::isfinite(scalar) || scalar <= 0 ||
       (*static_cast<const camera_field*>(user_data) == camera_field::field_of_view &&
-       scalar >= std::numbers::pi_v<float>)) { return GNEISS_ERROR_INVALID_ARGUMENT; }
+       scalar >= std::numbers::pi_v<float>)) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
   switch (*static_cast<const camera_field*>(user_data)) {
   case camera_field::field_of_view:
     camera.vertical_field_of_view_radians = value->payload.float32_value;
@@ -219,9 +231,13 @@ make_field(gneiss_field_id id, gneiss_type_id value_type_id, std::uint32_t flags
                                  gneiss_property_getter getter, gneiss_property_setter setter,
                                  const void* field) {
   const gneiss::reflection_internal::property_binding accessor{
-      .kind = kind, .getter = getter, .setter = setter, .user_data = const_cast<void*>(field),
-      .candidate_setter = setter == set_transform ? set_candidate_transform :
-                          setter == set_camera ? set_candidate_camera : nullptr,
+      .kind = kind,
+      .getter = getter,
+      .setter = setter,
+      .user_data = const_cast<void*>(field),
+      .candidate_setter = setter == set_transform ? set_candidate_transform
+                          : setter == set_camera  ? set_candidate_camera
+                                                  : nullptr,
   };
   return gneiss::reflection_internal::bind_property(gneiss::reflection_internal::resolve(registry),
                                                     type_id, field_id, accessor);

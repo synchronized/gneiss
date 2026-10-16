@@ -9,6 +9,8 @@
 #include "engine/function/scene/prefab_asset_loader.hpp"
 #include "engine/function/scene/prefab_description.hpp"
 
+#include "engine/function/world/world.hpp"
+
 #include <gneiss/engine/scene.h>
 
 #include <memory>
@@ -35,17 +37,19 @@ public:
     gneiss_scene_node_id parent = GNEISS_NULL_SCENE_NODE_ID;
   };
 
-  prefab_runtime_instance(gneiss_world world, render_internal::render_asset_loader& loader,
-                          prefab_asset_lease prefab, std::string instance_uuid) noexcept;
+  prefab_runtime_instance(engine::world& native_world, gneiss_world world,
+                          render_internal::render_asset_loader& loader, prefab_asset_lease prefab,
+                          std::string instance_uuid) noexcept;
   ~prefab_runtime_instance() noexcept;
 
   prefab_runtime_instance(const prefab_runtime_instance&) = delete;
   prefab_runtime_instance& operator=(const prefab_runtime_instance&) = delete;
 
   [[nodiscard]] static gneiss_result
-  create(gneiss_world world, render_internal::render_asset_loader& loader,
-         prefab_asset_lease prefab, gneiss_type_registry registry, std::string_view instance_uuid,
-         gneiss_scene_node_id parent, const gneiss_transform& root_transform,
+  create(engine::world& native_world, gneiss_world world,
+         render_internal::render_asset_loader& loader, prefab_asset_lease prefab,
+         gneiss_type_registry registry, std::string_view instance_uuid, gneiss_scene_node_id parent,
+         const gneiss::engine::transform& root_transform,
          const std::vector<prefab_property_override>& overrides,
          std::unique_ptr<prefab_runtime_instance>& out_instance) noexcept;
 
@@ -72,10 +76,10 @@ public:
 
   /** 候选 World 专用的分阶段构造；每次只创建一个节点，渲染资源由调用方传入租约。 */
   [[nodiscard]] gneiss_result begin_staged(gneiss_scene_node_id parent,
-                                           const gneiss_transform& transform);
+                                           const gneiss::engine::transform& transform);
   /** 活动 World 内隐藏构造；描述已完成覆盖验证，发布前不激活相机。 */
   [[nodiscard]] gneiss_result begin_hidden(gneiss_scene_node_id parent,
-                                           const gneiss_transform& transform,
+                                           const gneiss::engine::transform& transform,
                                            prefab_description prepared);
   [[nodiscard]] gneiss_result publish_hidden() noexcept;
   [[nodiscard]] gneiss_result retire_hidden() noexcept;
@@ -109,12 +113,14 @@ private:
   [[nodiscard]] gneiss_result stage_assets(const prefab_description& description);
   [[nodiscard]] gneiss_result commit(const prefab_description& description,
                                      gneiss_scene_node_id parent,
-                                     const gneiss_transform& root_transform);
+                                     const gneiss::engine::transform& root_transform);
   [[nodiscard]] gneiss_result
   apply_overrides(gneiss_type_registry registry,
                   std::span<const prefab_property_override> overrides) noexcept;
 
-  gneiss_world world_;
+  engine::world& native_world_;
+  // 仅供 ABI 反射回调定位；不拥有 World，不用于普通场景操作。
+  gneiss_world reflection_context_;
   render_internal::render_asset_loader& loader_;
   prefab_asset_lease prefab_;
   std::string instance_uuid_;

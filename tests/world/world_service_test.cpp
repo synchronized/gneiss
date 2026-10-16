@@ -219,7 +219,7 @@ int main() {
     return 14;
   }
   auto reflection = gneiss::reflection_internal::resolve(registry);
-  gneiss_transform candidate_transform = GNEISS_TRANSFORM_IDENTITY;
+  gneiss::engine::transform candidate_transform;
   gneiss_property_value proposed = GNEISS_PROPERTY_VALUE_INIT;
   proposed.kind = GNEISS_PROPERTY_KIND_VEC3;
   proposed.payload.vec3_value = {2, 3, 4};

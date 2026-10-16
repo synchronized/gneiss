@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #pragma once
+#include "engine/core/math/transform.hpp"
 
 #include "engine/function/scene/scene_description.hpp"
 
@@ -23,7 +24,7 @@ struct scene_node_view {
   std::string_view name;
   std::string_view mesh_uri;
   std::string_view material_uri;
-  gneiss_transform local_transform = GNEISS_TRANSFORM_IDENTITY;
+  gneiss::engine::transform local_transform = {};
   std::uint32_t component_flags{};
   std::optional<camera_description> camera;
 };
@@ -37,8 +38,8 @@ struct prefab_node_view {
   std::string_view source_node_uuid;
   std::string_view name;
   std::string_view prefab_uri;
-  gneiss_transform local_transform = GNEISS_TRANSFORM_IDENTITY;
-  gneiss_transform source_local_transform = GNEISS_TRANSFORM_IDENTITY;
+  gneiss::engine::transform local_transform = {};
+  gneiss::engine::transform source_local_transform = {};
 };
 
 } // namespace gneiss::scene_internal

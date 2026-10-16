@@ -233,7 +233,7 @@ extern "C" gneiss_result gneiss_scene_instance_create_prefab_instance(
                 static_cast<std::size_t>(desc->prefab_uri_length),
             },
         .parent = desc->parent,
-        .local_transform = desc->local_transform,
+        .local_transform = gneiss::api::read_transform(desc->local_transform),
     };
     return state->scenes()->create_prefab_instance(instance, value, out_root);
   } catch (...) {
@@ -272,7 +272,8 @@ extern "C" gneiss_result gneiss_scene_instance_set_prefab_source_transform(
     auto state = find_application(application);
     const auto validation_result = validate_application(state);
     return validation_result == GNEISS_SUCCESS
-               ? state->scenes()->set_prefab_source_transform(instance, node, *transform)
+               ? state->scenes()->set_prefab_source_transform(
+                     instance, node, gneiss::api::read_transform(*transform))
                : validation_result;
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;
@@ -374,7 +375,7 @@ extern "C" gneiss_result gneiss_scene_instance_create_node(gneiss_application ap
                 static_cast<std::size_t>(desc->name_length),
             },
         .parent = desc->parent,
-        .local_transform = desc->local_transform,
+        .local_transform = gneiss::api::read_transform(desc->local_transform),
     };
     return state->scenes()->create_node(instance, value, out_node);
   } catch (...) {

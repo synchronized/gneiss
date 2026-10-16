@@ -6,6 +6,16 @@
 #include "engine/function/scene/scene_query.hpp"
 
 namespace gneiss::api {
+inline engine::transform read_transform(const gneiss_transform& value) noexcept {
+  return {{value.translation[0], value.translation[1], value.translation[2]},
+          {value.rotation[0], value.rotation[1], value.rotation[2], value.rotation[3]},
+          {value.scale[0], value.scale[1], value.scale[2]}};
+}
+inline gneiss_transform write_transform(const engine::transform& value) noexcept {
+  return {{value.translation[0], value.translation[1], value.translation[2]},
+          {value.rotation[0], value.rotation[1], value.rotation[2], value.rotation[3]},
+          {value.scale[0], value.scale[1], value.scale[2]}};
+}
 
 /** 调用方已验证最小尺寸；仅写入其声明版本内的字段。 */
 inline void write_scene_node(const scene_internal::scene_node_view& value,
@@ -27,7 +37,7 @@ inline void write_scene_node(const scene_internal::scene_node_view& value,
     output.material_uri_length = value.material_uri.size();
   }
   if (output.struct_size >= GNEISS_SCENE_INSTANCE_NODE_INFO_VERSION_3_SIZE) {
-    output.local_transform = value.local_transform;
+    output.local_transform = write_transform(value.local_transform);
     output.component_flags = value.component_flags;
     output.reserved_3 = 0U;
     output.camera = GNEISS_CAMERA_DESC_INIT;
@@ -57,8 +67,8 @@ inline void write_prefab_node(const scene_internal::prefab_node_view& value,
   output.name_length = value.name.size();
   output.prefab_uri = value.prefab_uri.empty() ? nullptr : value.prefab_uri.data();
   output.prefab_uri_length = value.prefab_uri.size();
-  output.local_transform = value.local_transform;
-  output.source_local_transform = value.source_local_transform;
+  output.local_transform = write_transform(value.local_transform);
+  output.source_local_transform = write_transform(value.source_local_transform);
 }
 
 } // namespace gneiss::api

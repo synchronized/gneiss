@@ -158,3 +158,17 @@ World 操作实现迁入 engine::world，内部独占 ECS/场景树实现，宿�
 
 反射路径核对 ADR-066 后继续保留旧运行时 setter 的渐进适配与唯一注册表，不另起反射事务协议。
 这不是新增待批准决策，也不表示 Scene/Prefab 的其余句柄调用已经清除。
+
+## Scene/Prefab 直接借用原生 World
+
+Scene 服务、场景实例和 Prefab 投影借用场景域拥有的 engine::world；普通实体、节点、相机、
+渲染组件和候选发布操作直接调用对象，不再进入 World 全局句柄表。保留的 reflection_context
+仅供既有 ABI 反射回调定位，不负责所有权；跨实例候选校验使用原生 World 身份。
+
+场景创建描述、查询结果、Prefab 构造与回滚快照统一使用 engine::transform。C API 在边界逐字段
+转换；原生反射候选 Transform setter 同步迁移，旧运行时反射 setter 保留显式转换。
+World 必须比所有场景和 Prefab 投影活得更久；Application 场景域保持先释放场景再释放 World。
+
+Windows Clang Debug 完整构建及 21 项相关回归通过，覆盖 C/C++ Scene、World、候选构造、
+取消、结构重载、编辑器 Prefab 操作及反射。Editor 编辑会话仍使用 SDK 场景包装，继续迁移；
+最终安装和跨平台矩阵尚未执行。

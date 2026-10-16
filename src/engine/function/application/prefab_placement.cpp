@@ -9,11 +9,11 @@
 
 namespace gneiss::application_internal {
 namespace {
-gneiss_transform transform_of(const scene_internal::object_description& object) {
-  gneiss_transform value{};
-  std::ranges::copy(object.translation, value.translation);
-  std::ranges::copy(object.rotation, value.rotation);
-  std::ranges::copy(object.scale, value.scale);
+engine::transform transform_of(const scene_internal::object_description& object) {
+  engine::transform value{};
+  std::ranges::copy(object.translation, value.translation.begin());
+  std::ranges::copy(object.rotation, value.rotation.begin());
+  std::ranges::copy(object.scale, value.scale.begin());
   return value;
 }
 }
@@ -216,9 +216,9 @@ gneiss_result prefab_placement::preview(std::size_t index,
     output.node = runtime_->root();
     output.entity = runtime_->root_entity();
     output.name = author_.name;
-    std::ranges::copy(author_.translation, output.local_transform.translation);
-    std::ranges::copy(author_.rotation, output.local_transform.rotation);
-    std::ranges::copy(author_.scale, output.local_transform.scale);
+    std::ranges::copy(author_.translation, output.local_transform.translation.begin());
+    std::ranges::copy(author_.rotation, output.local_transform.rotation.begin());
+    std::ranges::copy(author_.scale, output.local_transform.scale.begin());
     return GNEISS_SUCCESS;
   }
   scene_internal::prefab_runtime_instance::node_info info;
