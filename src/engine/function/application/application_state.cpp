@@ -450,6 +450,23 @@ gneiss_result application_state::submit_log(const log_internal::message_view& me
   return log_dispatcher_ == nullptr ? GNEISS_SUCCESS : log_dispatcher_->submit(message);
 }
 
+gneiss_result
+application_state::set_view_camera(const render_internal::view_camera* camera) noexcept {
+  if (camera == nullptr) {
+    view_camera_.reset();
+    return GNEISS_SUCCESS;
+  }
+  render_internal::matrix4 matrix;
+  auto result = render_internal::build_view_matrix(camera->transform, matrix);
+  if (result == GNEISS_SUCCESS) {
+    result = render_internal::build_perspective_matrix(camera->camera, 1.0F, matrix);
+  }
+  if (result == GNEISS_SUCCESS) {
+    view_camera_ = *camera;
+  }
+  return result;
+}
+
 gneiss_result application_state::capture_frame(std::uint32_t width, std::uint32_t height,
                                                render_internal::frame_image& output) noexcept {
   output = {};
@@ -466,7 +483,8 @@ gneiss_result application_state::capture_frame(std::uint32_t width, std::uint32_
     window.height = height;
     window.needs_recreate = false;
     render_internal::render_snapshot snapshot;
-    auto result = world_internal::get_render_snapshot(world(), width, height, snapshot);
+    auto result = world_internal::get_render_snapshot(world(), width, height, snapshot,
+                                                      view_camera_ ? &*view_camera_ : nullptr);
     if (result != GNEISS_SUCCESS) {
       return result;
     }
@@ -527,7 +545,8 @@ gneiss_result application_state::render_frame() noexcept {
   render_internal::render_snapshot snapshot;
   const auto snapshot_result =
       diagnostics::measure(diagnostics::loop_stage::render_snapshot, [&]() noexcept {
-        return world_internal::get_render_snapshot(world(), window.width, window.height, snapshot);
+        return world_internal::get_render_snapshot(world(), window.width, window.height, snapshot,
+                                                   view_camera_ ? &*view_camera_ : nullptr);
       });
   if (snapshot_result != GNEISS_SUCCESS) {
     return snapshot_result;

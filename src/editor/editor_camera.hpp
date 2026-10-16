@@ -4,6 +4,7 @@
 #ifndef GNEISS_APPS_EDITOR_EDITOR_CAMERA_H_
 #define GNEISS_APPS_EDITOR_EDITOR_CAMERA_H_
 
+#include <gneiss/engine/render.hpp>
 #include <gneiss/engine/scene.hpp>
 
 namespace gneiss::editor {
@@ -26,21 +27,20 @@ public:
   editor_camera(const editor_camera&) = delete;
   editor_camera& operator=(const editor_camera&) = delete;
 
-  [[nodiscard]] result initialize(gneiss_world world) noexcept;
+  [[nodiscard]] result initialize() noexcept;
   void shutdown() noexcept;
 
-  [[nodiscard]] bool is_valid() const noexcept { return entity_.is_valid(); }
+  [[nodiscard]] bool is_valid() const noexcept { return initialized_; }
   [[nodiscard]] result update(const editor_camera_input& input) noexcept;
   [[nodiscard]] result focus(const transform& target, float distance = 5.0F) noexcept;
   [[nodiscard]] const transform& current_transform() const noexcept { return transform_; }
 
+  [[nodiscard]] gneiss::camera settings() const noexcept;
+
 private:
-  [[nodiscard]] result commit_transform() noexcept;
   void update_rotation() noexcept;
 
-  gneiss_world world_ = GNEISS_NULL_WORLD;
-  entity_id entity_;
-  scene_node_id node_;
+  bool initialized_{};
   transform transform_ = GNEISS_TRANSFORM_IDENTITY;
   float yaw_ = 0.0F;
   float pitch_ = -0.3F;

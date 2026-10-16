@@ -36,7 +36,7 @@ void run(tasks::execution_mode mode) {
   gneiss_world world{};
   check(app.get_world(world) == result::success);
   check(session.create_empty(app.get(), world) == result::success);
-  check(camera.initialize(world) == result::success);
+  check(camera.initialize() == result::success);
   const auto original = world;
   constexpr std::string_view uri = "asset://scenes/triangle.scene.json";
   auto tick = [&] {

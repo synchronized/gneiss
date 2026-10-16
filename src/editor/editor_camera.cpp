@@ -3,9 +3,6 @@
 
 #include "editor_camera.hpp"
 
-#include <gneiss/engine/render.h>
-#include <gneiss/engine/world.h>
-
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
@@ -20,57 +17,30 @@ constexpr float maximum_delta_seconds = 0.1F;
 
 } // namespace
 
-result editor_camera::initialize(gneiss_world world) noexcept {
-  if (world == GNEISS_NULL_WORLD || is_valid()) {
-    return result::invalid_argument;
+result editor_camera::initialize() noexcept {
+  if (initialized_) {
+    return result::invalid_state;
   }
-  world_ = world;
-  gneiss_entity_id entity = GNEISS_NULL_ENTITY_ID;
-  auto operation = gneiss_world_entity_create(world_, &entity);
-  if (operation != GNEISS_SUCCESS) {
-    world_ = GNEISS_NULL_WORLD;
-    return from_native(operation);
-  }
-  entity_ = entity_id{entity};
-  gneiss_scene_node_id node = GNEISS_NULL_SCENE_NODE_ID;
-  operation = gneiss_scene_node_create(world_, GNEISS_NULL_SCENE_NODE_ID, entity, &node);
-  if (operation == GNEISS_SUCCESS) {
-    node_ = scene_node_id{node};
-    gneiss_camera_desc camera = GNEISS_CAMERA_DESC_INIT;
-    camera.near_plane = 0.05F;
-    camera.far_plane = 2000.0F;
-    operation = gneiss_world_entity_configure_camera(world_, entity, &camera);
-  }
-  if (operation == GNEISS_SUCCESS) {
-    transform_.translation[1] = 2.0F;
-    transform_.translation[2] = 6.0F;
-    update_rotation();
-    operation = to_native(commit_transform());
-  }
-  if (operation == GNEISS_SUCCESS) {
-    operation = gneiss_world_set_active_camera(world_, entity);
-  }
-  if (operation != GNEISS_SUCCESS) {
-    shutdown();
-  }
-  return from_native(operation);
+  initialized_ = true;
+  transform_ = GNEISS_TRANSFORM_IDENTITY;
+  transform_.translation[1] = 2.0F;
+  transform_.translation[2] = 6.0F;
+  update_rotation();
+  return result::success;
 }
 
 void editor_camera::shutdown() noexcept {
-  if (world_ != GNEISS_NULL_WORLD) {
-    if (entity_.is_valid()) {
-      (void)gneiss_world_entity_destroy(world_, entity_.get());
-    }
-    if (node_.is_valid()) {
-      (void)gneiss_scene_node_destroy(world_, node_.get());
-    }
-  }
-  world_ = GNEISS_NULL_WORLD;
-  entity_ = {};
-  node_ = {};
+  initialized_ = false;
   transform_ = GNEISS_TRANSFORM_IDENTITY;
   yaw_ = 0.0F;
   pitch_ = -0.3F;
+}
+
+gneiss::camera editor_camera::settings() const noexcept {
+  gneiss::camera output;
+  output.near_plane = 0.05F;
+  output.far_plane = 2000.0F;
+  return output;
 }
 
 void editor_camera::update_rotation() noexcept {
@@ -80,14 +50,6 @@ void editor_camera::update_rotation() noexcept {
   transform_.rotation[1] = std::sin(yaw_half) * std::cos(pitch_half);
   transform_.rotation[2] = -std::sin(yaw_half) * std::sin(pitch_half);
   transform_.rotation[3] = std::cos(yaw_half) * std::cos(pitch_half);
-}
-
-result editor_camera::commit_transform() noexcept {
-  if (!is_valid()) {
-    return result::invalid_state;
-  }
-  const auto native = to_native(transform_);
-  return from_native(gneiss_scene_node_set_local_transform(world_, node_.get(), &native));
 }
 
 result editor_camera::update(const editor_camera_input& input) noexcept {
@@ -112,7 +74,7 @@ result editor_camera::update(const editor_camera_input& input) noexcept {
         (forward[index] * forward_distance) + (right[index] * right_distance);
   }
   transform_.translation[1] += up_distance;
-  return commit_transform();
+  return result::success;
 }
 
 result editor_camera::focus(const transform& target, float distance) noexcept {
@@ -125,7 +87,7 @@ result editor_camera::focus(const transform& target, float distance) noexcept {
   for (std::size_t index = 0; index < 3U; ++index) {
     transform_.translation[index] = target.translation[index] - (forward[index] * distance);
   }
-  return commit_transform();
+  return result::success;
 }
 
 } // namespace gneiss::editor

@@ -1,8 +1,37 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "engine/function/application/application_view_internal.hpp"
 #include "engine/function/world/render_snapshot.hpp"
 #include "engine/function/world/world_state.hpp"
+#include <thread>
+
+int run_host_tests() {
+  using gneiss::application_internal::set_view_camera;
+  gneiss_application application{};
+  const gneiss_application_desc description = GNEISS_APPLICATION_DESC_INIT;
+  if (gneiss_application_create(&description, &application) != GNEISS_SUCCESS) {
+    return 20;
+  }
+  gneiss::render_internal::view_camera view;
+  if (set_view_camera(application, &view) != GNEISS_SUCCESS) {
+    return 21;
+  }
+  view.camera.near_plane = -1.0F;
+  if (set_view_camera(application, &view) != GNEISS_ERROR_INVALID_ARGUMENT) {
+    return 22;
+  }
+  gneiss_result foreign_result = GNEISS_SUCCESS;
+  std::thread foreign([&] { foreign_result = set_view_camera(application, nullptr); });
+  foreign.join();
+  if (foreign_result != GNEISS_ERROR_INVALID_STATE ||
+      set_view_camera(application, nullptr) != GNEISS_SUCCESS ||
+      gneiss_application_destroy(application) != GNEISS_SUCCESS ||
+      set_view_camera(application, nullptr) != GNEISS_ERROR_INVALID_HANDLE) {
+    return 23;
+  }
+  return 0;
+}
 
 int run_tests() {
   gneiss::world_internal::world_state world{1};
@@ -39,6 +68,22 @@ int run_tests() {
     return 3;
   }
   const auto group = world.begin_publication();
+  gneiss::render_internal::view_camera editor_view;
+  editor_view.transform.translation[0] = 17.0F;
+  if (gneiss::world_internal::build_render_snapshot(world, 800U, 600U, snapshot, &editor_view) !=
+          GNEISS_SUCCESS ||
+      !snapshot.has_camera || snapshot.camera.transform.translation[0] != 17.0F ||
+      world.active_camera() != camera_entity || snapshot.instances.size() != 1U) {
+    return 6;
+  }
+  // 无效视口输入不能回退到运行时相机，也不能覆盖上一份有效快照。
+  auto invalid_view = editor_view;
+  invalid_view.camera.near_plane = -1.0F;
+  if (gneiss::world_internal::build_render_snapshot(world, 800U, 600U, snapshot, &invalid_view) !=
+          GNEISS_ERROR_INVALID_ARGUMENT ||
+      snapshot.camera.transform.translation[0] != 17.0F) {
+    return 7;
+  }
   const auto pending_mesh = world.create_staged_entity(group);
   const auto pending_camera = world.create_staged_entity(group);
   gneiss_scene_node_id pending_node = GNEISS_NULL_SCENE_NODE_ID;
@@ -68,12 +113,19 @@ int run_tests() {
       snapshot.has_camera || world.active_camera() != GNEISS_NULL_ENTITY_ID) {
     return 4;
   }
+  if (gneiss::world_internal::build_render_snapshot(world, 640U, 480U, snapshot, &editor_view) !=
+          GNEISS_SUCCESS ||
+      !snapshot.has_camera || snapshot.camera.transform.translation[0] != 17.0F ||
+      snapshot.camera.viewport_width != 640U || world.active_camera() != GNEISS_NULL_ENTITY_ID) {
+    return 8;
+  }
   return 0;
 }
 
 int main() {
   try {
-    return run_tests();
+    const auto result = run_tests();
+    return result == 0 ? run_host_tests() : result;
   } catch (...) {
     return 99;
   }

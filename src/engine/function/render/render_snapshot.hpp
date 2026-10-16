@@ -12,6 +12,12 @@
 
 namespace gneiss::render_internal {
 
+/** 由视口持有的相机输入；不引用 World 或场景实体。 */
+struct view_camera {
+  gneiss_camera camera = GNEISS_CAMERA_INIT;
+  gneiss_transform transform = GNEISS_TRANSFORM_IDENTITY;
+};
+
 /** Render 输入快照；只含值与 RID，不依赖 World、ECS 或场景节点状态。 */
 struct render_camera_snapshot {
   gneiss_camera camera;

@@ -7,8 +7,17 @@
 #include "engine/function/application/application_log_internal.hpp"
 #include "engine/function/application/application_scene_load_internal.hpp"
 #include "engine/function/application/application_state.hpp"
+#include "engine/function/application/application_view_internal.hpp"
 #include <new>
 #include <string_view>
+
+gneiss_result
+gneiss::application_internal::set_view_camera(gneiss_application application,
+                                              const render_internal::view_camera* camera) noexcept {
+  auto state = find_application(application);
+  const auto valid = validate_application(state);
+  return valid == GNEISS_SUCCESS ? state->set_view_camera(camera) : valid;
+}
 
 gneiss_result gneiss::application_internal::create_mesh_node_ready(
     gneiss_application application, gneiss_scene_instance scene,

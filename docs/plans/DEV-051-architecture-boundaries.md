@@ -195,24 +195,13 @@ World 与 Scene Tree 的共同发布门已具备内部基础，见[隔离记录]
 目前没有证据表明用户项目实际使用了自定义覆盖；上述为接口能力分析，不是已发现的资产故障。
 用户提出并确认采用数据写入/校验与激活通知分离，见 [ADR-066](../decisions/ADR-066-candidate-properties-and-notifications.md)。内部字段注册候选写入能力，旧运行时 setter 不用于候选准备；发布后通知另行接入。当前仍不启用新的 Prefab 生产路径。
 
-### 待确认：Prefab 成功发布时的活动相机策略
+### 已确认：编辑器视口相机独立
 
-2026-10-16 接入审计发现：旧 `prefab_runtime_instance::commit_node` 遇到来源相机
-`is_primary` 时立即切换 World 活动相机。Editor 漫游相机也使用这个槽位，放置相机 Prefab
-可能替换编辑器视角。失败候选清理后未恢复原活动相机的问题已修复，并补充有/无原相机的
-回归测试；这不改变成功创建行为，也不代表隐藏 Prefab 编辑流程已接通。
-
-候选准备不能切换相机已经确认；尚需确定成功提交语义：
-
-- 建议 A：Editor 放置、恢复及重做 Prefab 保持当前视口相机；完整场景加载仍处理场景主相机。
-  来源的 `is_primary` 保留，不能为保留视口而重写资产。运行时显式激活与 Editor 视口策略分开。
-- B：保留旧创建行为，Prefab 主相机在成功提交时接管 World；撤销必须记录并恢复原相机，
-  Editor 如需保持漫游视角，还需单独引入视口相机覆盖。
-
-该选择影响成功操作的可见行为及历史恢复契约，确认前不启用新的 Prefab 生产路径。
-本轮 Windows Clang Debug 构建及 Prefab Runtime、World 服务边界、Core 正反向边界共 4 项测试
-通过；未进行交互式相机 Prefab 验收。相机恢复修复覆盖正常错误返回和异常展开的清理顺序，
-本轮未注入内存分配异常。
+用户确认按 [ADR-067](../decisions/ADR-067-editor-viewport-camera.md) 分离 Editor 观察视角与
+World 运行时主相机。先前仅限制 Prefab 自动切换的 A/B 选项不作为最终方案；Prefab 运行时
+主相机行为不再决定 Editor 视角。候选提交前仍不得改变运行时主相机。
+实现及测试见 [视口相机记录](../records/M-331-editor-viewport-camera.md)。
+完整 Prefab 异步放置、发布与历史闭环仍待接通。
 
 ## M-332：内部接口与对外适配
 

@@ -648,7 +648,8 @@ gneiss_result entity_set_local_transform(gneiss_world world, gneiss_entity_id en
 
 gneiss_result get_render_snapshot(gneiss_world world, std::uint32_t viewport_width,
                                   std::uint32_t viewport_height,
-                                  render_internal::render_snapshot& out_snapshot) noexcept {
+                                  render_internal::render_snapshot& out_snapshot,
+                                  const render_internal::view_camera* camera) noexcept {
   try {
     auto& registry = get_world_registry();
     const std::scoped_lock lock{registry.mutex};
@@ -657,7 +658,7 @@ gneiss_result get_render_snapshot(gneiss_world world, std::uint32_t viewport_wid
     if (thread_result != GNEISS_SUCCESS) {
       return thread_result;
     }
-    return build_render_snapshot(*state, viewport_width, viewport_height, out_snapshot);
+    return build_render_snapshot(*state, viewport_width, viewport_height, out_snapshot, camera);
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;
   }

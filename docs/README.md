@@ -232,6 +232,7 @@
 - [ADR-064：共享资产与场景实例分离](decisions/ADR-064-shared-assets-and-scene-instances.md)
 - [ADR-065：分帧结构事务使用 World 发布组](decisions/ADR-065-world-publication-groups.md)
 - [ADR-066：候选属性写入与发布后通知分离](decisions/ADR-066-candidate-properties-and-notifications.md)
+- [ADR-067：编辑器视口相机与运行时主相机分离](decisions/ADR-067-editor-viewport-camera.md)
 
 ## 实施与验收记录
 
@@ -493,6 +494,7 @@
 - [M-331：World 候选对象服务入口](records/M-331-world-staged-service.md)
 - [M-331：候选属性写入边界](records/M-331-candidate-properties.md)
 - [M-331：内置组件与 Prefab 候选属性覆盖](records/M-331-prefab-candidate-overrides.md)
+- [M-331：编辑器视口相机分离](records/M-331-editor-viewport-camera.md)
 
 ## 文档维护
 

@@ -106,7 +106,7 @@ result editor_scene_loader::advance(gneiss_application application, editor_sessi
     operation = session.adopt(application, world, completion.scene, uri_);
   }
   if (operation == result::success) {
-    operation = camera.initialize(world);
+    operation = camera.initialize();
   }
   progress_ = completion.progress;
   operation_ = operation;

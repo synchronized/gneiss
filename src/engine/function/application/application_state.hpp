@@ -17,6 +17,7 @@
 #include "engine/function/render/debug_draw_list.hpp"
 #include "engine/function/render/render_asset_loader.hpp"
 #include "engine/function/render/render_executor.hpp"
+#include "engine/function/render/render_snapshot.hpp"
 #include "engine/function/render/render_resource_service.hpp"
 #include "engine/function/render/texture_load_service.hpp"
 #include "engine/function/render/ui_draw_list.hpp"
@@ -25,6 +26,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <span>
 #include <thread>
 
@@ -47,6 +49,7 @@ namespace gneiss::application_internal {
 
 class application_state final {
 public:
+  [[nodiscard]] gneiss_result set_view_camera(const render_internal::view_camera* camera) noexcept;
   [[nodiscard]] gneiss_result capture_frame(std::uint32_t width, std::uint32_t height,
                                             render_internal::frame_image& output) noexcept;
   [[nodiscard]] render_internal::render_queue_stats render_statistics() const noexcept;
@@ -157,6 +160,7 @@ private:
   render_internal::render_resource_service resources_;
   render_internal::ui_draw_list ui_draw_list_;
   render_internal::debug_draw_list debug_draw_list_;
+  std::optional<render_internal::view_camera> view_camera_;
 #ifdef GNEISS_ASSET_LIBUV
   std::unique_ptr<io_internal::uv_loop_executor> asset_io_executor_;
   std::shared_ptr<asset_internal::native_file_system> native_assets_;

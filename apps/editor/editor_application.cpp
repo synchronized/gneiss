@@ -20,6 +20,7 @@
 #include "editor_theme.hpp"
 #include "editor_ui.hpp"
 #include "engine/function/application/application_asset_reload_internal.hpp"
+#include "engine/function/application/application_view_internal.hpp"
 #include "imgui_adapter.hpp"
 #include "native_author_transaction.hpp"
 #include "native_dialog.hpp"
@@ -235,6 +236,14 @@ void start_source_asset_watch(editor_state& state) {
 
 constexpr std::size_t matrix_index(std::size_t row, std::size_t column) noexcept {
   return (column * 4U) + row;
+}
+
+gneiss_result submit_editor_ui(gneiss_application application, editor_state& state) {
+  const gneiss::render_internal::view_camera view{
+      .camera = gneiss::to_native(state.camera.settings()),
+      .transform = gneiss::to_native(state.camera.current_transform())};
+  const auto operation = gneiss::application_internal::set_view_camera(application, &view);
+  return operation == GNEISS_SUCCESS ? state.ui.submit(application) : operation;
 }
 
 gneiss::result submit_editor_grid(gneiss_application application, const editor_state& state) {
@@ -1410,7 +1419,7 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
           state.asset_edit.dismiss();
       }
       ImGui::End();
-      return state.ui.submit(application);
+      return submit_editor_ui(application, state);
     }
     if (state.scene_loader.visible()) {
       const auto begun = state.ui.begin_frame(application, *time);
@@ -1418,7 +1427,7 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
         return begun;
       }
       draw_scene_loading(state, application);
-      return state.ui.submit(application);
+      return submit_editor_ui(application, state);
     }
 #if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
     start_source_asset_watch(state);
@@ -1542,7 +1551,7 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
       ImGui::Begin("Closing Editor");
       ImGui::TextUnformatted("Waiting for the current asset stage to finish...");
       ImGui::End();
-      return state.ui.submit(application);
+      return submit_editor_ui(application, state);
     }
 #endif
     gneiss::editor::begin_transform_gizmo_frame();
@@ -2798,7 +2807,7 @@ gneiss_result update_editor(gneiss_application application, const gneiss_frame_t
     if (grid_result != gneiss::result::success) {
       return gneiss::to_native(grid_result);
     }
-    return state.ui.submit(application);
+    return submit_editor_ui(application, state);
   } catch (const std::bad_alloc&) {
     // C++ 异常不得越过 C ABI 回调边界。
     return GNEISS_ERROR_OUT_OF_MEMORY;
@@ -2966,7 +2975,7 @@ int run_editor(int argc, char** argv) {
     }
   }
   if (operation == gneiss::result::success) {
-    operation = state.camera.initialize(state.world);
+    operation = state.camera.initialize();
     if (operation != gneiss::result::success) {
       report_startup_failure("Editor Camera 初始化", operation);
     }

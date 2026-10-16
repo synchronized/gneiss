@@ -18,10 +18,23 @@ int main() {
   gneiss::editor::editor_camera camera;
   gneiss_entity_id active_camera = GNEISS_NULL_ENTITY_ID;
   if (gneiss::world::create(world) != gneiss::result::success ||
-      camera.initialize(world.get()) != gneiss::result::success || !camera.is_valid() ||
-      gneiss_world_get_active_camera(world.get(), &active_camera) != GNEISS_SUCCESS ||
-      active_camera == GNEISS_NULL_ENTITY_ID) {
+      camera.initialize() != gneiss::result::success || !camera.is_valid() ||
+      gneiss_world_get_active_camera(world.get(), &active_camera) != GNEISS_ERROR_NOT_READY ||
+      active_camera != GNEISS_NULL_ENTITY_ID) {
     return 1;
+  }
+  std::uint64_t entity_count{};
+  if (gneiss_world_entity_count(world.get(), &entity_count) != GNEISS_SUCCESS ||
+      entity_count != 0U) {
+    return 8;
+  }
+  gneiss_entity_id scene_camera{};
+  const gneiss_camera_desc settings = GNEISS_CAMERA_DESC_INIT;
+  if (gneiss_world_entity_create(world.get(), &scene_camera) != GNEISS_SUCCESS ||
+      gneiss_world_entity_configure_camera(world.get(), scene_camera, &settings) !=
+          GNEISS_SUCCESS ||
+      gneiss_world_set_active_camera(world.get(), scene_camera) != GNEISS_SUCCESS) {
+    return 9;
   }
   const auto initial = camera.current_transform();
   gneiss::editor::editor_camera_input input;
@@ -65,8 +78,9 @@ int main() {
     }
   }
   camera.shutdown();
-  return camera.is_valid() || gneiss_world_get_active_camera(world.get(), &active_camera) !=
-                                  GNEISS_ERROR_NOT_READY
+  return camera.is_valid() ||
+                 gneiss_world_get_active_camera(world.get(), &active_camera) != GNEISS_SUCCESS ||
+                 active_camera != scene_camera
              ? 5
              : 0;
 }

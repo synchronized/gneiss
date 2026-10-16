@@ -148,7 +148,7 @@ int main() {
 #if defined(GNEISS_TEST_BACKGROUND_ASSETS)
   gneiss_world world{};
   if (application.get_world(world) != gneiss::result::success ||
-      value.camera.initialize(world) != gneiss::result::success) {
+      value.camera.initialize() != gneiss::result::success) {
     return 5;
   }
 #endif
