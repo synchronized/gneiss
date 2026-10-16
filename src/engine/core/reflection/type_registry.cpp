@@ -127,6 +127,7 @@ struct property_accessor {
   gneiss_property_getter getter = nullptr;
   gneiss_property_setter setter = nullptr;
   void* user_data = nullptr;
+  candidate_property_setter candidate_setter = nullptr;
 };
 
 struct field_record {
@@ -230,7 +231,8 @@ public:
 
   [[nodiscard]] gneiss_result bind_property(gneiss_type_id type_id, gneiss_field_id field_id,
                                             const property_binding& desc) noexcept {
-    if (!is_valid_property_kind(desc.kind) || (desc.getter == nullptr && desc.setter == nullptr)) {
+    if (!is_valid_property_kind(desc.kind) ||
+        (desc.getter == nullptr && desc.setter == nullptr && desc.candidate_setter == nullptr)) {
       return GNEISS_ERROR_INVALID_ARGUMENT;
     }
     try {
@@ -247,18 +249,23 @@ public:
       if (found == type->fields.end()) {
         return GNEISS_ERROR_NOT_FOUND;
       }
-      if ((found->flags & GNEISS_FIELD_FLAG_READ_ONLY) != 0U && desc.setter != nullptr) {
+      if ((found->flags & GNEISS_FIELD_FLAG_READ_ONLY) != 0U &&
+          (desc.setter != nullptr || desc.candidate_setter != nullptr)) {
         return GNEISS_ERROR_INVALID_ARGUMENT;
       }
-      const property_accessor requested{.kind = desc.kind,
-                                        .getter = desc.getter,
-                                        .setter = desc.setter,
-                                        .user_data = desc.user_data};
+      const property_accessor requested{
+          .kind = desc.kind,
+          .getter = desc.getter,
+          .setter = desc.setter,
+          .user_data = desc.user_data,
+          .candidate_setter = desc.candidate_setter,
+      };
       if (found->accessor.kind != GNEISS_PROPERTY_KIND_INVALID) {
         const auto& current = found->accessor;
         return current.kind == requested.kind && current.getter == requested.getter &&
                        current.setter == requested.setter &&
-                       current.user_data == requested.user_data
+                       current.user_data == requested.user_data &&
+                       current.candidate_setter == requested.candidate_setter
                    ? GNEISS_SUCCESS
                    : GNEISS_ERROR_INVALID_ARGUMENT;
       }
@@ -362,6 +369,23 @@ public:
     }
     try {
       return accessor.setter(accessor.user_data, target, &value);
+    } catch (...) {
+      return GNEISS_ERROR_INTERNAL;
+    }
+  }
+
+  [[nodiscard]] gneiss_result set_candidate_property(gneiss_type_id type_id,
+      gneiss_field_id field_id, void* candidate, const gneiss_property_value& value) const noexcept {
+    if (candidate == nullptr || !is_valid_property_value(value)) {
+      return GNEISS_ERROR_INVALID_ARGUMENT;
+    }
+    property_accessor accessor;
+    const auto lookup = find_accessor(type_id, field_id, accessor);
+    if (lookup != GNEISS_SUCCESS) { return lookup; }
+    if (accessor.candidate_setter == nullptr) { return GNEISS_ERROR_UNSUPPORTED; }
+    if (value.kind != accessor.kind) { return GNEISS_ERROR_INVALID_ARGUMENT; }
+    try {
+      return accessor.candidate_setter(accessor.user_data, candidate, value);
     } catch (...) {
       return GNEISS_ERROR_INTERNAL;
     }
@@ -567,6 +591,13 @@ gneiss_result set_property(const registry_ref& state, gneiss_type_id type_id,
                            gneiss_field_id field_id, gneiss_property_target target,
                            const gneiss_property_value& value) noexcept {
   return state ? state->set_property(type_id, field_id, target, value)
+               : GNEISS_ERROR_INVALID_HANDLE;
+}
+
+gneiss_result set_candidate_property(const registry_ref& state, gneiss_type_id type_id,
+                                     gneiss_field_id field_id, void* candidate,
+                                     const gneiss_property_value& value) noexcept {
+  return state ? state->set_candidate_property(type_id, field_id, candidate, value)
                : GNEISS_ERROR_INVALID_HANDLE;
 }
 } // namespace gneiss::reflection_internal

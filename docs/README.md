@@ -231,6 +231,7 @@
 - [ADR-063：场景生命周期协调归属](decisions/ADR-063-scene-lifecycle-coordination.md)
 - [ADR-064：共享资产与场景实例分离](decisions/ADR-064-shared-assets-and-scene-instances.md)
 - [ADR-065：分帧结构事务使用 World 发布组](decisions/ADR-065-world-publication-groups.md)
+- [ADR-066：候选属性写入与发布后通知分离](decisions/ADR-066-candidate-properties-and-notifications.md)
 
 ## 实施与验收记录
 
@@ -490,6 +491,7 @@
 - [M-331：World 候选实体可见性](records/M-331-world-publication.md)
 - [M-331：Scene Tree 与 ECS 共用发布门](records/M-331-scene-publication.md)
 - [M-331：World 候选对象服务入口](records/M-331-world-staged-service.md)
+- [M-331：候选属性写入边界](records/M-331-candidate-properties.md)
 
 ## 文档维护
 

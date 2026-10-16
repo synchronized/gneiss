@@ -9,6 +9,21 @@
 #include <thread>
 
 namespace {
+int runtime_writes = 0;
+gneiss_result set_runtime(void*, gneiss_property_target, const gneiss_property_value*) {
+  ++runtime_writes;
+  return GNEISS_SUCCESS;
+}
+gneiss_result set_candidate(void*, void* target, const gneiss_property_value& value) {
+  if (value.payload.float32_value < 0) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  if (value.payload.float32_value == 99) {
+    throw std::runtime_error("候选校验异常");
+  }
+  *static_cast<float*>(target) = value.payload.float32_value;
+  return GNEISS_SUCCESS;
+}
 gneiss_result throwing_getter(void* /*context*/, gneiss_property_target /*target*/,
                               gneiss_property_value* /*output*/) {
   throw std::runtime_error("test callback failure");
@@ -31,6 +46,8 @@ int main() try {
           .flags = 0U,
           .name = "value",
       },
+      reflection::field_definition{
+          .id = 2U, .value_type_id = type_id, .flags = 0U, .name = "candidate"},
   };
   const reflection::type_definition definition{
       .id = type_id,
@@ -39,10 +56,23 @@ int main() try {
       .fields = fields,
   };
   if (reflection::register_type(state, definition) != GNEISS_SUCCESS ||
-      reflection::bind_property(
-          state, type_id, 1U, {.kind = GNEISS_PROPERTY_KIND_FLOAT32, .getter = throwing_getter}) !=
-          GNEISS_SUCCESS) {
+      reflection::bind_property(state, type_id, 1U,
+                                {.kind = GNEISS_PROPERTY_KIND_FLOAT32,
+                                 .getter = throwing_getter,
+                                 .setter = set_runtime}) != GNEISS_SUCCESS) {
     return 2;
+  }
+  const reflection::property_binding candidate_binding{.kind = GNEISS_PROPERTY_KIND_FLOAT32,
+                                                       .candidate_setter = set_candidate};
+  float candidate = 1;
+  gneiss_property_value proposed = GNEISS_PROPERTY_VALUE_INIT;
+  proposed.kind = GNEISS_PROPERTY_KIND_FLOAT32;
+  proposed.payload.float32_value = 2;
+  if (reflection::bind_property(state, type_id, 2U, candidate_binding) != GNEISS_SUCCESS ||
+      reflection::bind_property(state, type_id, 2U, candidate_binding) != GNEISS_SUCCESS ||
+      reflection::set_candidate_property(state, type_id, 2U, &candidate, proposed) !=
+          GNEISS_ERROR_NOT_READY) {
+    return 11;
   }
   name.assign("changed");
   if (gneiss_type_registry_freeze(registry) != GNEISS_SUCCESS) {
@@ -50,8 +80,39 @@ int main() try {
   }
   gneiss_type_info info = GNEISS_TYPE_INFO_INIT;
   if (gneiss_type_registry_find_type(registry, type_id, &info) != GNEISS_SUCCESS ||
-      std::string_view(info.name, info.name_length) != "sample" || info.field_count != 1U) {
+      std::string_view(info.name, info.name_length) != "sample" || info.field_count != 2U) {
     return 4;
+  }
+  if (reflection::set_candidate_property(state, type_id, 1U, &candidate, proposed) !=
+          GNEISS_ERROR_UNSUPPORTED ||
+      reflection::set_candidate_property(state, type_id, 2U, nullptr, proposed) !=
+          GNEISS_ERROR_INVALID_ARGUMENT ||
+      reflection::set_candidate_property(state, type_id, 2U, &candidate, proposed) !=
+          GNEISS_SUCCESS ||
+      candidate != 2 ||
+      reflection::set_property(state, type_id, 2U, {}, proposed) != GNEISS_ERROR_UNSUPPORTED ||
+      reflection::bind_property(state, type_id, 2U, candidate_binding) !=
+          GNEISS_ERROR_INVALID_STATE) {
+    return 12;
+  }
+  proposed.payload.float32_value = -1;
+  if (reflection::set_candidate_property(state, type_id, 2U, &candidate, proposed) !=
+          GNEISS_ERROR_INVALID_ARGUMENT ||
+      candidate != 2) {
+    return 13;
+  }
+  proposed.payload.float32_value = 99;
+  if (reflection::set_candidate_property(state, type_id, 2U, &candidate, proposed) !=
+          GNEISS_ERROR_INTERNAL ||
+      candidate != 2) {
+    return 14;
+  }
+  proposed.kind = GNEISS_PROPERTY_KIND_BOOL;
+  proposed.payload.bool_value = 1;
+  if (reflection::set_candidate_property(state, type_id, 2U, &candidate, proposed) !=
+          GNEISS_ERROR_INVALID_ARGUMENT ||
+      runtime_writes != 0 || candidate != 2) {
+    return 15;
   }
   gneiss_property_value value = GNEISS_PROPERTY_VALUE_INIT;
   if (gneiss_type_registry_get_property(registry, type_id, 1U, {}, &value) !=
