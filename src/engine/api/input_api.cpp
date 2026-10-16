@@ -100,9 +100,14 @@ extern "C" gneiss_result gneiss_application_find_action(gneiss_application appli
   try {
     auto state = find_application(application);
     const auto validation = validate_application(state);
-    return validation == GNEISS_SUCCESS
-               ? state->find_action({name, static_cast<std::size_t>(name_length)}, *out_action)
-               : validation;
+    if (validation != GNEISS_SUCCESS) {
+      return validation;
+    }
+    gneiss::input_internal::action_id action;
+    const auto operation =
+        state->find_action({name, static_cast<std::size_t>(name_length)}, action);
+    *out_action = action.value;
+    return operation;
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;
   }
@@ -117,7 +122,17 @@ extern "C" gneiss_result gneiss_application_get_action_state(gneiss_application 
   try {
     auto state = find_application(application);
     const auto validation = validate_application(state);
-    return validation == GNEISS_SUCCESS ? state->get_action_state(action, *out_state) : validation;
+    if (validation != GNEISS_SUCCESS) {
+      return validation;
+    }
+    gneiss::input_internal::action_state native;
+    const auto operation = state->get_action_state({action}, native);
+    *out_state = GNEISS_ACTION_STATE_INIT;
+    out_state->pressed = static_cast<std::uint8_t>(native.pressed);
+    out_state->held = static_cast<std::uint8_t>(native.held);
+    out_state->released = static_cast<std::uint8_t>(native.released);
+    out_state->value = native.value;
+    return operation;
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;
   }

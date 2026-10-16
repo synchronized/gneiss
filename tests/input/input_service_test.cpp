@@ -4,6 +4,7 @@
 #include "engine/function/input/input_service.hpp"
 
 #include <gneiss/engine/input.h>
+#include <limits>
 
 int main() {
   gneiss::input_internal::input_service input;
@@ -56,22 +57,69 @@ int main() {
   gneiss::input_internal::action_map map;
   map.actions.push_back({.name = "move", .bindings = {{GNEISS_PHYSICAL_KEY_W, 1.0F}}});
   input.clear_focus();
-  if (input.replace_action_map(std::move(map)) != GNEISS_SUCCESS) {
+  if (input.replace_action_map(std::move(map)) != gneiss::result::success) {
     return 7;
   }
-  gneiss_action action = GNEISS_NULL_ACTION;
-  gneiss_action_state state = GNEISS_ACTION_STATE_INIT;
+  gneiss::input_internal::action_id action;
+  gneiss::input_internal::action_state state;
   input.begin_frame();
   key.data.key.action = GNEISS_KEY_PRESSED;
-  if (input.find_action("move", action) != GNEISS_SUCCESS || !input.push(key) ||
-      input.get_action_state(action, state) != GNEISS_SUCCESS || state.pressed == 0U ||
+  if (input.find_action("move", action) != gneiss::result::success || !input.push(key) ||
+      input.get_action_state(action, state) != gneiss::result::success || state.pressed == 0U ||
       state.held == 0U || state.value != 1.0F) {
     return 7;
   }
   key.data.key.action = GNEISS_KEY_RELEASED;
-  if (!input.push(key) || input.get_action_state(action, state) != GNEISS_SUCCESS ||
+  if (!input.push(key) || input.get_action_state(action, state) != gneiss::result::success ||
       state.pressed == 0U || state.released == 0U || state.held != 0U) {
     return 8;
+  }
+  using gneiss::result;
+  using namespace gneiss::input_internal;
+  const auto original = action;
+  action_map candidate{{{"move", {{GNEISS_PHYSICAL_KEY_W, 1.0F}}}}};
+  auto invalid = candidate;
+  invalid.actions[0].bindings[0].physical_key = 256U;
+  if (input.replace_action_map(invalid) != result::invalid_argument ||
+      input.get_action_state(original, state) != result::success) {
+    return 9;
+  }
+  invalid = candidate;
+  invalid.actions[0].bindings[0].scale = std::numeric_limits<float>::quiet_NaN();
+  if (input.replace_action_map(invalid) != result::invalid_argument) {
+    return 10;
+  }
+  invalid = candidate;
+  invalid.actions.push_back(invalid.actions.front());
+  if (input.replace_action_map(invalid) != result::invalid_argument ||
+      input.replace_action_map({}) != result::invalid_argument ||
+      input.find_action("move", action) != result::success || action != original) {
+    return 11;
+  }
+  input_service other;
+  if (other.replace_action_map(candidate) != result::success ||
+      other.get_action_state(original, state) != result::invalid_handle ||
+      input.get_action_state({}, state) != result::invalid_handle ||
+      input.replace_action_map(candidate) != result::success ||
+      input.get_action_state(original, state) != result::invalid_handle || state.pressed ||
+      state.held || state.released || state.value != 0.0F) {
+    return 12;
+  }
+  input.begin_frame();
+  if (input.find_action("move", action) != result::success) {
+    return 13;
+  }
+  key.data.key.action = GNEISS_KEY_PRESSED;
+  if (!input.push(key)) {
+    return 14;
+  }
+  input.begin_frame();
+  if (input.get_action_state(action, state) != result::success || state.pressed || !state.held) {
+    return 15;
+  }
+  input.clear_focus();
+  if (input.get_action_state(action, state) != result::success || state.held || !state.released) {
+    return 16;
   }
   return 0;
 }

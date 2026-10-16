@@ -17,8 +17,8 @@ void input_service::begin_frame() noexcept {
   read_index_ = 0;
   event_count_ = 0;
   for (auto& state : action_states_) {
-    state.pressed = 0;
-    state.released = 0;
+    state.pressed = false;
+    state.released = false;
   }
 }
 
@@ -48,14 +48,17 @@ void input_service::clear_focus() noexcept {
   update_actions();
 }
 
-gneiss_result input_service::replace_action_map(action_map map) noexcept {
-  std::vector<gneiss_action_state> states;
+result input_service::replace_action_map(action_map map) noexcept {
+  if (const auto valid = validate_action_map(map); valid.failed()) {
+    return valid;
+  }
+  std::vector<action_state> states;
   try {
-    states.assign(map.actions.size(), GNEISS_ACTION_STATE_INIT);
+    states.assign(map.actions.size(), action_state{});
   } catch (const std::bad_alloc&) {
-    return GNEISS_ERROR_OUT_OF_MEMORY;
+    return result::out_of_memory;
   } catch (...) {
-    return GNEISS_ERROR_INTERNAL;
+    return result::internal;
   }
   action_map_ = std::move(map);
   action_states_ = std::move(states);
@@ -64,38 +67,36 @@ gneiss_result input_service::replace_action_map(action_map map) noexcept {
     action_generation_ = next_action_generation.fetch_add(1, std::memory_order_relaxed);
   }
   update_actions();
-  return GNEISS_SUCCESS;
+  return result::success;
 }
 
-gneiss_result input_service::find_action(std::string_view name,
-                                         gneiss_action& out_action) const noexcept {
-  out_action = GNEISS_NULL_ACTION;
+result input_service::find_action(std::string_view name, action_id& out_action) const noexcept {
+  out_action = action_id{};
   for (std::size_t index = 0; index < action_map_.actions.size(); ++index) {
     if (action_map_.actions[index].name == name) {
-      out_action = (static_cast<std::uint64_t>(action_generation_) << 32U) | (index + 1U);
-      return GNEISS_SUCCESS;
+      out_action = {(static_cast<std::uint64_t>(action_generation_) << 32U) | (index + 1U)};
+      return result::success;
     }
   }
-  return GNEISS_ERROR_NOT_FOUND;
+  return result::not_found;
 }
 
-gneiss_result input_service::get_action_state(gneiss_action action,
-                                              gneiss_action_state& out_state) const noexcept {
-  out_state = GNEISS_ACTION_STATE_INIT;
-  const auto generation = static_cast<std::uint32_t>(action >> 32U);
-  const auto slot = static_cast<std::uint32_t>(action);
+result input_service::get_action_state(action_id action, action_state& out_state) const noexcept {
+  out_state = action_state{};
+  const auto generation = static_cast<std::uint32_t>(action.value >> 32U);
+  const auto slot = static_cast<std::uint32_t>(action.value);
   if (generation == 0U || generation != action_generation_ || slot == 0U ||
       slot > action_states_.size()) {
-    return GNEISS_ERROR_INVALID_HANDLE;
+    return result::invalid_handle;
   }
   out_state = action_states_[slot - 1U];
-  return GNEISS_SUCCESS;
+  return result::success;
 }
 
 void input_service::update_actions() noexcept {
   for (std::size_t index = 0; index < action_map_.actions.size(); ++index) {
     auto& state = action_states_[index];
-    const bool was_held = state.held != 0U;
+    const bool was_held = state.held;
     float value = 0.0F;
     for (const auto& binding : action_map_.actions[index].bindings) {
       const bool down = (keyboard_.pressed_keys[binding.physical_key / 64U] &
@@ -106,9 +107,9 @@ void input_service::update_actions() noexcept {
       }
     }
     const bool is_held = value != 0.0F;
-    state.pressed = static_cast<std::uint8_t>(state.pressed != 0U || (!was_held && is_held));
-    state.released = static_cast<std::uint8_t>(state.released != 0U || (was_held && !is_held));
-    state.held = static_cast<std::uint8_t>(is_held);
+    state.pressed = state.pressed || (!was_held && is_held);
+    state.released = state.released || (was_held && !is_held);
+    state.held = is_held;
     state.value = std::clamp(value, -1.0F, 1.0F);
   }
 }

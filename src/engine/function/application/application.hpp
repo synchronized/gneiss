@@ -119,9 +119,9 @@ public:
                                               std::uint32_t& out_height) const noexcept;
   [[nodiscard]] gneiss_result load_action_map(std::string_view uri) noexcept;
   [[nodiscard]] gneiss_result find_action(std::string_view name,
-                                          gneiss_action& out_action) const noexcept;
-  [[nodiscard]] gneiss_result get_action_state(gneiss_action action,
-                                               gneiss_action_state& out_state) const noexcept;
+                                          input_internal::action_id& out_action) const noexcept;
+  [[nodiscard]] gneiss_result get_action_state(input_internal::action_id action,
+                                               input_internal::action_state& out_state) const noexcept;
   [[nodiscard]] bool can_submit_draw_lists() const noexcept;
   [[nodiscard]] gneiss_result
   submit_ui_draw_list(const render_internal::ui_draw_view& desc) noexcept;

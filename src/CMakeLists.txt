@@ -91,6 +91,7 @@ target_sources(
     engine/function/game/game_context_internal.hpp
     engine/function/input/input_service.cpp
     engine/function/input/input_service.hpp
+    engine/function/input/action_map_validation.cpp
     engine/function/input/action_map.cpp
     engine/function/input/action_map.hpp
     engine/api/log_api.cpp

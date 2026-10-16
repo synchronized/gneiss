@@ -7,7 +7,7 @@ int main() {
   gneiss::input_internal::action_map map;
   constexpr auto valid =
       R"({"format":"gneiss.input-map","version":1,"actions":[{"name":"move","bindings":[{"key":4,"scale":-1.0},{"key":7,"scale":1.0}]}]})";
-  if (gneiss::input_internal::parse_action_map(valid, map) != GNEISS_SUCCESS ||
+  if (gneiss::input_internal::parse_action_map(valid, map) != gneiss::result::success ||
       map.actions.size() != 1U || map.actions[0].bindings.size() != 2U) {
     return 1;
   }
@@ -18,10 +18,12 @@ int main() {
       R"({"format":"gneiss.input-map","version":1,"actions":[{"name":"move","bindings":[{"key":256,"scale":1}]}]})";
   constexpr auto invalid_scale =
       R"({"format":"gneiss.input-map","version":1,"actions":[{"name":"move","bindings":[{"key":4,"scale":0}]}]})";
-  if (gneiss::input_internal::parse_action_map(duplicate, map) != GNEISS_ERROR_INVALID_ARGUMENT ||
-      gneiss::input_internal::parse_action_map(unknown_key, map) != GNEISS_ERROR_INVALID_ARGUMENT ||
+  if (gneiss::input_internal::parse_action_map(duplicate, map) !=
+          gneiss::result::invalid_argument ||
+      gneiss::input_internal::parse_action_map(unknown_key, map) !=
+          gneiss::result::invalid_argument ||
       gneiss::input_internal::parse_action_map(invalid_scale, map) !=
-          GNEISS_ERROR_INVALID_ARGUMENT ||
+          gneiss::result::invalid_argument ||
       map.actions[0].bindings.size() != original_size) {
     return 2;
   }

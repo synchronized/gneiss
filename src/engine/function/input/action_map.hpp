@@ -4,7 +4,7 @@
 #ifndef GNEISS_INPUT_ACTION_MAP_HPP_
 #define GNEISS_INPUT_ACTION_MAP_HPP_
 
-#include <gneiss/engine/core/result.h>
+#include <gneiss/engine/core/result.hpp>
 
 #include <cstdint>
 #include <string>
@@ -16,6 +16,19 @@ class virtual_file_system;
 }
 
 namespace gneiss::input_internal {
+
+/** 只在所属输入服务及映射代次内有效；零值无效。 */
+struct action_id final {
+  std::uint64_t value{};
+  friend bool operator==(action_id, action_id) = default;
+};
+
+struct action_state final {
+  bool pressed{};
+  bool held{};
+  bool released{};
+  float value{};
+};
 
 struct action_binding final {
   std::uint32_t physical_key{};
@@ -31,9 +44,12 @@ struct action_map final {
   std::vector<action_definition> actions;
 };
 
-[[nodiscard]] gneiss_result parse_action_map(std::string_view json, action_map& out_map) noexcept;
-[[nodiscard]] gneiss_result load_action_map(const asset_internal::virtual_file_system& file_system,
-                                            std::string_view uri, action_map& out_map) noexcept;
+/** 原生构造与 JSON 加载共享语义约束；不改变输入映射。 */
+[[nodiscard]] result validate_action_map(const action_map& map) noexcept;
+
+[[nodiscard]] result parse_action_map(std::string_view json, action_map& out_map) noexcept;
+[[nodiscard]] result load_action_map(const asset_internal::virtual_file_system& file_system,
+                                     std::string_view uri, action_map& out_map) noexcept;
 
 } // namespace gneiss::input_internal
 

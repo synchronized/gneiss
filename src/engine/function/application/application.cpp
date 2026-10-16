@@ -467,17 +467,17 @@ gneiss_result application::poll_input(gneiss_input_event& out_event) noexcept {
 gneiss_result application::load_action_map(std::string_view uri) noexcept {
   input_internal::action_map map;
   const auto result = input_internal::load_action_map(storage_->asset_file_system_, uri, map);
-  return result == GNEISS_SUCCESS ? storage_->input_.replace_action_map(std::move(map)) : result;
+  return to_native(result == gneiss::result::success ? storage_->input_.replace_action_map(std::move(map)) : result);
 }
 
 gneiss_result application::find_action(std::string_view name,
-                                       gneiss_action& out_action) const noexcept {
-  return storage_->input_.find_action(name, out_action);
+                                       input_internal::action_id& out_action) const noexcept {
+  return to_native(storage_->input_.find_action(name, out_action));
 }
 
-gneiss_result application::get_action_state(gneiss_action action,
-                                            gneiss_action_state& out_state) const noexcept {
-  return storage_->input_.get_action_state(action, out_state);
+gneiss_result application::get_action_state(input_internal::action_id action,
+                                            input_internal::action_state& out_state) const noexcept {
+  return to_native(storage_->input_.get_action_state(action, out_state));
 }
 
 gneiss_result application::submit_ui_draw_list(const render_internal::ui_draw_view& desc) noexcept {
