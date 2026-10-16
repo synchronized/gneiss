@@ -11,12 +11,12 @@ namespace {
 gneiss::result run_example() {
   // user_data 必须比 Application 活得久，因此先声明状态，再声明拥有者。
   example::scene_state state;
-  gneiss::application app;
-  const gneiss::application_desc desc{
+  gneiss::sdk::Application app;
+  const gneiss::sdk::ApplicationDesc desc{
       .callbacks = {.user_data = &state, .update = example::update},
-      .platform = gneiss::application_platform::callback,
+      .platform = gneiss::sdk::ApplicationPlatform::callback,
   };
-  if (const auto status = gneiss::application::create(desc, app); status.failed()) {
+  if (const auto status = gneiss::sdk::Application::create(desc, app); status.failed()) {
     return status;
   }
 

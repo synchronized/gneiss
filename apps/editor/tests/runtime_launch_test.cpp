@@ -14,12 +14,12 @@
 namespace {
 
 [[nodiscard]] gneiss::result create_application(const std::filesystem::path& asset_root,
-                                                gneiss::application& output) {
+                                                gneiss::sdk::Application& output) {
   const auto root = asset_root.generic_string();
   gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
   desc.asset_root = root.data();
   desc.asset_root_length = static_cast<std::uint32_t>(root.size());
-  return gneiss::application::create_native(desc, output);
+  return gneiss::sdk::Application::create_native(desc, output);
 }
 
 } // namespace
@@ -35,7 +35,7 @@ int main() try {
     return 1;
   }
 
-  gneiss::application author_application;
+  gneiss::sdk::Application author_application;
   gneiss_world author_world = GNEISS_NULL_WORLD;
   gneiss::editor::editor_session author_session;
   if (create_application(project.asset_root, author_application) != gneiss::result::success ||
@@ -100,7 +100,7 @@ int main() try {
     return 6;
   }
 
-  gneiss::application runtime_application;
+  gneiss::sdk::Application runtime_application;
   gneiss_world runtime_world = GNEISS_NULL_WORLD;
   gneiss::editor::editor_session runtime_session;
   if (create_application(project.asset_root, runtime_application) != gneiss::result::success ||

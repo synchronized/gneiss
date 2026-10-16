@@ -33,10 +33,10 @@ int main() try {
   const std::string root = GNEISS_EDITOR_TEST_ASSET_ROOT;
   desc.asset_root = root.c_str();
   desc.asset_root_length = static_cast<std::uint32_t>(root.size());
-  gneiss::application application;
+  gneiss::sdk::Application application;
   gneiss_world world = GNEISS_NULL_WORLD;
   gneiss::editor::editor_session session;
-  if (gneiss::application::create_native(desc, application) != result::success ||
+  if (gneiss::sdk::Application::create_native(desc, application) != result::success ||
       application.get_world(world) != result::success ||
       session.open(application.get(), world, "asset://scenes/triangle.scene.json") !=
           result::success) {

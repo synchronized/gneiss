@@ -13,7 +13,7 @@ struct context {
   std::uint64_t frame_count{}, shutdown_count{}, initialize_count{}, polls{}, clock{};
   std::atomic<std::uint64_t> logs;
 };
-gneiss::result update(gneiss::application_ref application, const gneiss::frame_time& time,
+gneiss::result update(gneiss::sdk::ApplicationRef application, const gneiss::sdk::FrameTime& time,
                       void* user_data) noexcept {
   auto& state = *static_cast<context*>(user_data);
   ++state.frame_count;
@@ -26,24 +26,24 @@ gneiss::result update(gneiss::application_ref application, const gneiss::frame_t
 namespace {
 int verify_failed_initialization() {
   using gneiss::result;
-  gneiss::application application;
+  gneiss::sdk::Application application;
   struct failure_context {
     int diagnostics{}, shutdowns{};
   } failure;
-  gneiss::application_desc failed;
+  gneiss::sdk::ApplicationDesc failed;
   failed.callbacks.user_data = &failure;
   failed.callbacks.initialize = [](void*) noexcept { return result::dependency_failed; };
   failed.callbacks.shutdown = [](void* data) noexcept {
     ++static_cast<failure_context*>(data)->shutdowns;
   };
-  failed.callbacks.diagnostic = [](gneiss::application_ref app, const gneiss::diagnostic& event,
-                                   void* data) noexcept {
+  failed.callbacks.diagnostic = [](gneiss::sdk::ApplicationRef app,
+                                   const gneiss::sdk::Diagnostic& event, void* data) noexcept {
     if (!app.is_valid() && event.operation == result::dependency_failed &&
-        event.severity == gneiss::diagnostic_severity::error && !event.module.empty()) {
+        event.severity == gneiss::sdk::DiagnosticSeverity::error && !event.module.empty()) {
       ++static_cast<failure_context*>(data)->diagnostics;
     }
   };
-  if (gneiss::application::create(failed, application) != result::dependency_failed ||
+  if (gneiss::sdk::Application::create(failed, application) != result::dependency_failed ||
       application.is_valid() || failure.diagnostics != 1 || failure.shutdowns != 1) {
     return 12;
   }
@@ -52,16 +52,17 @@ int verify_failed_initialization() {
 }
 int main() {
   using gneiss::result;
-  constexpr gneiss::application_desc defaults{.platform = gneiss::application_platform::callback};
+  constexpr gneiss::sdk::ApplicationDesc defaults{.platform =
+                                                      gneiss::sdk::ApplicationPlatform::callback};
   static_assert(defaults.asset_root.empty() && defaults.window_title.empty());
   constexpr gneiss::log_message empty_message{.category = "defaults"};
   static_assert(empty_message.message.empty());
-  static_assert(!std::is_convertible_v<gneiss::released_application, gneiss_application>);
-  static_assert(!std::is_copy_constructible_v<gneiss::released_application>);
+  static_assert(!std::is_convertible_v<gneiss::sdk::ReleasedApplication, gneiss_application>);
+  static_assert(!std::is_copy_constructible_v<gneiss::sdk::ReleasedApplication>);
   context state;
-  gneiss::application application;
+  gneiss::sdk::Application application;
   {
-    gneiss::application_desc desc;
+    gneiss::sdk::ApplicationDesc desc;
     desc.callbacks.user_data = &state;
     desc.callbacks.update = update;
     desc.callbacks.initialize = [](void* data) noexcept {
@@ -79,14 +80,14 @@ int main() {
     desc.callbacks.now_ns = [](void* data) noexcept {
       return ++static_cast<context*>(data)->clock;
     };
-    desc.callbacks.log = [](gneiss::application_ref, const gneiss::log_event& event,
+    desc.callbacks.log = [](gneiss::sdk::ApplicationRef, const gneiss::log_event& event,
                             void* data) noexcept {
       if (event.category == "cpp" && event.message == "moved" &&
           event.operation == result::success) {
         ++static_cast<context*>(data)->logs;
       }
     };
-    if (gneiss::application::create(desc, application).failed()) {
+    if (gneiss::sdk::Application::create(desc, application).failed()) {
       return 1;
     }
   } // 描述已离开作用域，回调表不能借用它。
@@ -111,21 +112,21 @@ int main() {
       gneiss_application_run(released.get(), 1) != GNEISS_SUCCESS) {
     return 5;
   }
-  if (gneiss::application::adopt(std::move(released), application).failed() ||
+  if (gneiss::sdk::Application::adopt(std::move(released), application).failed() ||
       // NOLINTNEXTLINE(bugprone-use-after-move): adopt 成功后载体必须可查询为空。
       released.get() != 0 || application.log({.category = "cpp", .message = "moved"}).failed()) {
     return 6;
   }
   const auto original = application.get();
-  gneiss::application_desc invalid;
-  invalid.platform = static_cast<gneiss::application_platform>(42);
-  if (gneiss::application::create(invalid, application) != result::invalid_argument ||
+  gneiss::sdk::ApplicationDesc invalid;
+  invalid.platform = static_cast<gneiss::sdk::ApplicationPlatform>(42);
+  if (gneiss::sdk::Application::create(invalid, application) != result::invalid_argument ||
       application.get() != original) {
     return 7;
   }
-  invalid.platform = gneiss::application_platform::callback;
-  invalid.window_flags = static_cast<gneiss::application_window_flags>(8);
-  if (gneiss::application::create(invalid, application) != result::invalid_argument) {
+  invalid.platform = gneiss::sdk::ApplicationPlatform::callback;
+  invalid.window_flags = static_cast<gneiss::sdk::ApplicationWindowFlags>(8);
+  if (gneiss::sdk::Application::create(invalid, application) != result::invalid_argument) {
     return 8;
   }
   if (application.reset().failed() || state.initialize_count != 1 || state.shutdown_count != 1 ||
@@ -133,12 +134,12 @@ int main() {
     return 9;
   }
   {
-    gneiss::application_desc desc;
+    gneiss::sdk::ApplicationDesc desc;
     desc.callbacks.user_data = &state;
     desc.callbacks.shutdown = [](void* data) noexcept {
       ++static_cast<context*>(data)->shutdown_count;
     };
-    if (gneiss::application::create(desc, application).failed()) {
+    if (gneiss::sdk::Application::create(desc, application).failed()) {
       return 10;
     }
     auto token = application.release();

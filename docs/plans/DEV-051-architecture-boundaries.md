@@ -232,7 +232,8 @@ apps 保留入口和宿主接线；Editor 模型、会话、命令、面板与�
 
 2026-10-16 用户确认。沿用 0.51 和当前分支，不预先规划 0.52。
 目标命名、依赖方向、兼容策略以 ADR-062 为唯一决策来源。原生真实对象与创建职责已首批落地，
-见 [M-332 记录](../records/M-332-native-application.md)；SDK、宿主及原生类型边界尚未完成。
+见 [M-332 记录](../records/M-332-native-application.md)；Application SDK 命名已迁移，见[SDK 记录](../records/M-332-application-sdk-names.md)；
+宿主及原生类型边界尚未完成。
 以下为完整实施计划，不因首批实现而视为全部完成。
 
 | 阶段 | 工作 | 完成条件 |

@@ -62,6 +62,7 @@ int main() try {
   check(gneiss_application_get_world(old_handle, &world) == GNEISS_ERROR_INVALID_HANDLE);
   check(bridge.bind(app) == GNEISS_SUCCESS && bridge.get() != old_handle);
   gneiss::application_internal::ApplicationBridge moved(std::move(bridge));
+  // NOLINTNEXTLINE(bugprone-use-after-move): 验证自定义移动构造保证源桥接为空。
   check(bridge.get() == GNEISS_NULL_APPLICATION);
   check(gneiss_application_get_world(moved.get(), &world) == GNEISS_SUCCESS);
   // 失败创建不替换原对象；失败初始化的部分资源必须恰好清理一次。

@@ -306,8 +306,8 @@ int main(int argc, char** argv) try {
   desc.user_data = &state;
   desc.update = update;
   desc.close_requested = close_requested;
-  gneiss::application app;
-  if (gneiss::application::create_native(desc, app).failed() ||
+  gneiss::sdk::Application app;
+  if (gneiss::sdk::Application::create_native(desc, app).failed() ||
       gneiss::application_internal::attach_task_executor(app.get(), state.scheduler) !=
           GNEISS_SUCCESS) {
     return 1;

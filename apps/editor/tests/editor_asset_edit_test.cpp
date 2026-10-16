@@ -39,12 +39,12 @@ struct fixture {
 void run(tasks::execution_mode mode) {
   fixture files;
   tasks::task_scheduler scheduler({.workers = 1U, .mode = mode});
-  application app;
+  sdk::Application app;
   auto desc = gneiss_application_desc GNEISS_APPLICATION_DESC_INIT;
   const auto root = files.root.string();
   desc.asset_root = root.data();
   desc.asset_root_length = static_cast<std::uint32_t>(root.size());
-  check(application::create_native(desc, app) == result::success);
+  check(sdk::Application::create_native(desc, app) == result::success);
   check(application_internal::attach_task_executor(app.get(), scheduler) == GNEISS_SUCCESS);
   gneiss_world world{};
   check(gneiss_application_get_world(app.get(), &world) == GNEISS_SUCCESS);

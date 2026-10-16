@@ -58,12 +58,12 @@ struct fixture {
 void cancel_drain(tasks::execution_mode mode) {
   fixture files;
   tasks::task_scheduler scheduler({.workers = 1U, .mode = mode});
-  application app;
+  sdk::Application app;
   auto desc = gneiss_application_desc GNEISS_APPLICATION_DESC_INIT;
   const auto root = files.root.string();
   desc.asset_root = root.data();
   desc.asset_root_length = static_cast<std::uint32_t>(root.size());
-  check(application::create_native(desc, app) == result::success);
+  check(sdk::Application::create_native(desc, app) == result::success);
   check(attach_task_executor(app.get(), scheduler) == GNEISS_SUCCESS);
   constexpr std::string_view uri = "asset://scene.json";
   std::uint64_t request{};
@@ -107,12 +107,12 @@ void cancel_drain(tasks::execution_mode mode) {
 void run(tasks::execution_mode mode) {
   fixture files;
   tasks::task_scheduler scheduler({.workers = 1U, .mode = mode});
-  application app;
+  sdk::Application app;
   auto desc = gneiss_application_desc GNEISS_APPLICATION_DESC_INIT;
   const auto root = files.root.string();
   desc.asset_root = root.data();
   desc.asset_root_length = static_cast<std::uint32_t>(root.size());
-  check(application::create_native(desc, app) == result::success);
+  check(sdk::Application::create_native(desc, app) == result::success);
   // 未装配执行器时，宿主入口应保留空闲查询与未就绪操作的不同语义。
   std::uint64_t unattached_request = 99U;
   check(request_scene_load(app.get(), "asset://scene.json", 1U, 1U, unattached_request) ==
@@ -276,7 +276,7 @@ void run(tasks::execution_mode mode) {
   check(gneiss_application_get_world(app.get(), &observed) == GNEISS_SUCCESS);
   check(gneiss_world_entity_count(observed, &count) == GNEISS_SUCCESS && count == 0U);
   check(request_scene_load(app.get(), uri, 1U, 7U, request) == GNEISS_SUCCESS);
-  app = application{};
+  app = sdk::Application{};
   check(scheduler.stats().retained == 0U);
   check(gneiss_world_entity_count(observed, &count) == GNEISS_ERROR_INVALID_HANDLE);
 }
@@ -284,12 +284,12 @@ void run(tasks::execution_mode mode) {
 void shared_scene_assets(tasks::execution_mode mode) {
   fixture files;
   tasks::task_scheduler scheduler({.workers = 1U, .mode = mode});
-  application app;
+  sdk::Application app;
   auto desc = gneiss_application_desc GNEISS_APPLICATION_DESC_INIT;
   const auto root = files.root.string();
   desc.asset_root = root.data();
   desc.asset_root_length = static_cast<std::uint32_t>(root.size());
-  check(application::create_native(desc, app) == result::success);
+  check(sdk::Application::create_native(desc, app) == result::success);
   check(attach_task_executor(app.get(), scheduler) == GNEISS_SUCCESS);
   scene_load_completion completion;
   std::uint64_t request{};
@@ -421,12 +421,12 @@ void shared_texture_versions(tasks::execution_mode mode) {
       << R"({"uuid":"00000000-0000-4000-8000-000000000002","parent":null,"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":{"mesh_renderer":{"mesh":"asset://mesh.json","material":"asset://material.json"}}},)"
       << R"({"uuid":"00000000-0000-4000-8000-000000000003","parent":null,"transform":{"translation":[1,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":{"mesh_renderer":{"mesh":"asset://mesh.json","material":"asset://other.json"}}}],"prefab_instances":[]})";
   tasks::task_scheduler scheduler({.workers = 1U, .mode = mode});
-  application app;
+  sdk::Application app;
   auto desc = gneiss_application_desc GNEISS_APPLICATION_DESC_INIT;
   const auto root = files.root.string();
   desc.asset_root = root.data();
   desc.asset_root_length = static_cast<std::uint32_t>(root.size());
-  check(application::create_native(desc, app) == result::success);
+  check(sdk::Application::create_native(desc, app) == result::success);
   check(attach_task_executor(app.get(), scheduler) == GNEISS_SUCCESS);
   std::uint64_t request{};
   check(request_scene_load(app.get(), "asset://scene.json", 1U, 1U, request) == GNEISS_SUCCESS);

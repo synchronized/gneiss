@@ -19,7 +19,7 @@ struct context {
   gneiss::tasks::task_scope scope = scheduler.make_scope();
   std::size_t received{};
 };
-gneiss::result update(gneiss::application_ref /*unused*/, const gneiss::frame_time& time,
+gneiss::result update(gneiss::sdk::ApplicationRef /*unused*/, const gneiss::sdk::FrameTime& time,
                       void* opaque) noexcept {
   auto& state = *static_cast<context*>(opaque);
   try {
@@ -56,11 +56,11 @@ int main(int argc, char** argv) try {
     }
   }
   context state;
-  gneiss::application_desc description{.platform = gneiss::application_platform::callback};
+  gneiss::sdk::ApplicationDesc description{.platform = gneiss::sdk::ApplicationPlatform::callback};
   description.callbacks.user_data = &state;
   description.callbacks.update = update;
-  gneiss::application application;
-  if (gneiss::application::create(description, application).failed() ||
+  gneiss::sdk::Application application;
+  if (gneiss::sdk::Application::create(description, application).failed() ||
       application.run(128).failed()) {
     return 3;
   }

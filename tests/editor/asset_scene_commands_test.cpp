@@ -14,11 +14,11 @@ int main() try {
   gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
   desc.asset_root = assets.data();
   desc.asset_root_length = static_cast<std::uint32_t>(assets.size());
-  application app;
+  sdk::Application app;
   gneiss_world world = GNEISS_NULL_WORLD;
   editor_session session;
   editor_command_history history;
-  if (application::create_native(desc, app).failed() || app.get_world(world).failed() ||
+  if (sdk::Application::create_native(desc, app).failed() || app.get_world(world).failed() ||
       session.open(app.get(), world, "asset://scenes/triangle.scene.json").failed()) {
     return 1;
   }

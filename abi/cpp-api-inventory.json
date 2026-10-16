@@ -15,7 +15,7 @@
         "gneiss.cpp-owner-lifecycle",
         "gneiss.cpp-owner-termination"
       ],
-      "cpp_entry": "gneiss::application::create",
+      "cpp_entry": "gneiss::sdk::Application::create",
       "native_review": "implemented"
     },
     {
@@ -31,7 +31,7 @@
         "gneiss.cpp-owner-lifecycle",
         "gneiss.cpp-owner-termination"
       ],
-      "cpp_entry": "gneiss::application::reset / release",
+      "cpp_entry": "gneiss::sdk::Application::reset / release",
       "native_review": "implemented"
     },
     {
@@ -47,7 +47,7 @@
         "gneiss.cpp_application",
         "gneiss.c_application"
       ],
-      "cpp_entry": "gneiss::application::run",
+      "cpp_entry": "gneiss::sdk::Application::run",
       "native_review": "implemented"
     },
     {
@@ -64,7 +64,7 @@
         "gneiss.c_application",
         "gneiss.editor.native-window-interaction"
       ],
-      "cpp_entry": "gneiss::application::get_window_size",
+      "cpp_entry": "gneiss::sdk::Application::get_window_size",
       "native_review": "implemented"
     },
     {
@@ -80,7 +80,7 @@
         "gneiss.cpp_application",
         "gneiss.c_application"
       ],
-      "cpp_entry": "gneiss::application::request_exit",
+      "cpp_entry": "gneiss::sdk::Application::request_exit",
       "native_review": "implemented"
     },
     {
@@ -96,7 +96,7 @@
         "gneiss.cpp_application",
         "gneiss.c_application"
       ],
-      "cpp_entry": "gneiss::application::set_paused",
+      "cpp_entry": "gneiss::sdk::Application::set_paused",
       "native_review": "implemented"
     },
     {
@@ -111,7 +111,7 @@
       "tests": [
         "gneiss.application_log"
       ],
-      "cpp_entry": "gneiss::application::log",
+      "cpp_entry": "gneiss::sdk::Application::log",
       "native_review": "implemented"
     },
     {
@@ -127,7 +127,7 @@
         "gneiss.cpp-resource-ownership",
         "gneiss.cpp_application"
       ],
-      "cpp_entry": "gneiss::application::get_world(world_ref&)",
+      "cpp_entry": "gneiss::sdk::Application::get_world(world_ref&)",
       "native_review": "implemented"
     },
     {
@@ -337,7 +337,7 @@
         "gneiss.cpp_input",
         "gneiss.c_application"
       ],
-      "cpp_entry": "gneiss::application::poll_input / gneiss::poll_input",
+      "cpp_entry": "gneiss::sdk::Application::poll_input / gneiss::poll_input",
       "native_review": "implemented"
     },
     {
@@ -355,7 +355,7 @@
         "gneiss.cpp_input",
         "gneiss.c_application"
       ],
-      "cpp_entry": "gneiss::application::get_keyboard_state / gneiss::get_keyboard_state",
+      "cpp_entry": "gneiss::sdk::Application::get_keyboard_state / gneiss::get_keyboard_state",
       "native_review": "implemented"
     },
     {
@@ -373,7 +373,7 @@
         "gneiss.cpp_input",
         "gneiss.c_application"
       ],
-      "cpp_entry": "gneiss::application::get_pointer_state / gneiss::get_pointer_state",
+      "cpp_entry": "gneiss::sdk::Application::get_pointer_state / gneiss::get_pointer_state",
       "native_review": "implemented"
     },
     {
@@ -391,7 +391,7 @@
         "gneiss.cpp_input",
         "gneiss.c_application"
       ],
-      "cpp_entry": "gneiss::application::load_action_map / gneiss::load_action_map",
+      "cpp_entry": "gneiss::sdk::Application::load_action_map / gneiss::load_action_map",
       "native_review": "implemented"
     },
     {
@@ -409,7 +409,7 @@
         "gneiss.cpp_input",
         "gneiss.c_application"
       ],
-      "cpp_entry": "gneiss::application::find_action / gneiss::find_action",
+      "cpp_entry": "gneiss::sdk::Application::find_action / gneiss::find_action",
       "native_review": "implemented"
     },
     {
@@ -427,7 +427,7 @@
         "gneiss.cpp_input",
         "gneiss.c_application"
       ],
-      "cpp_entry": "gneiss::application::get_action_state / gneiss::get_action_state",
+      "cpp_entry": "gneiss::sdk::Application::get_action_state / gneiss::get_action_state",
       "native_review": "implemented"
     },
     {
@@ -750,7 +750,7 @@
         "gneiss.granit_platform",
         "gneiss.cpp-draw-submission"
       ],
-      "cpp_entry": "gneiss::application::submit_ui_draw_list",
+      "cpp_entry": "gneiss::sdk::Application::submit_ui_draw_list",
       "native_review": "implemented"
     },
     {
@@ -766,7 +766,7 @@
         "gneiss.granit_platform",
         "gneiss.cpp-draw-submission"
       ],
-      "cpp_entry": "gneiss::application::submit_debug_draw_list",
+      "cpp_entry": "gneiss::sdk::Application::submit_debug_draw_list",
       "native_review": "implemented"
     },
     {

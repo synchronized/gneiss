@@ -18,11 +18,11 @@ int main(int argc, [[maybe_unused]] char** argv) {
   static_assert(std::is_nothrow_move_assignable_v<scene_prefab_refresh>);
   constexpr std::string_view asset_root = GNEISS_TEST_ASSET_ROOT;
   constexpr std::string_view uri = "asset://scenes/prefab.scene.json";
-  gneiss::application_desc desc{};
+  gneiss::sdk::ApplicationDesc desc{};
   desc.asset_root = asset_root;
-  gneiss::application app;
+  gneiss::sdk::Application app;
   gneiss::scene_instance scene;
-  if (gneiss::application::create(desc, app).failed() ||
+  if (gneiss::sdk::Application::create(desc, app).failed() ||
       gneiss::scene_instance::load(app.get(), uri, scene).failed()) {
     return 1;
   }

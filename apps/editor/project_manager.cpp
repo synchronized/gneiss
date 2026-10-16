@@ -197,7 +197,7 @@ result run_project_manager(bool smoke, editor_project& output) noexcept {
     if (recent_result != result::success && recent_result != result::invalid_argument) {
       state.operation = recent_result;
     }
-    gneiss::application application;
+    gneiss::sdk::Application application;
     constexpr std::string_view title = "Gneiss Project Manager";
     gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
     desc.user_data = &state;
@@ -208,7 +208,7 @@ result run_project_manager(bool smoke, editor_project& output) noexcept {
     desc.window_width = 720U;
     desc.window_height = 420U;
     desc.window_flags = GNEISS_APPLICATION_WINDOW_VISIBLE_BIT;
-    auto operation = gneiss::application::create_native(desc, application);
+    auto operation = gneiss::sdk::Application::create_native(desc, application);
     if (operation != result::success) {
       const auto message = operation.message();
       std::fprintf(

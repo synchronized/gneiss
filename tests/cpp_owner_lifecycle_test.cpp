@@ -13,9 +13,9 @@
 namespace {
 constexpr std::string_view scene_uuid = "12345678-1234-4234-8234-123456789abc";
 
-gneiss::result create_application(gneiss::application& output) {
+gneiss::result create_application(gneiss::sdk::Application& output) {
   const gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
-  return gneiss::application::create_native(desc, output);
+  return gneiss::sdk::Application::create_native(desc, output);
 }
 
 template <typename Owner, auto Create, auto Destroy> bool verify_standalone() {
@@ -44,7 +44,7 @@ template <typename Owner, auto Create, auto Destroy> bool verify_standalone() {
     return false;
   }
   auto transferred = third.release();
-  if constexpr (std::is_same_v<Owner, gneiss::application> ||
+  if constexpr (std::is_same_v<Owner, gneiss::sdk::Application> ||
                 std::is_same_v<Owner, gneiss::type_registry>) {
     if (third.get() != 0U || transferred.get() == 0U || transferred.reset().failed())
       return false;
@@ -93,19 +93,19 @@ bool verify_application_rollback() {
   gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
   desc.user_data = &shutdown_count;
   desc.shutdown = [](void* user_data) { ++*static_cast<std::uint64_t*>(user_data); };
-  gneiss::application app;
-  if (gneiss::application::create_native(desc, app).failed()) {
+  gneiss::sdk::Application app;
+  if (gneiss::sdk::Application::create_native(desc, app).failed()) {
     return false;
   }
   const auto original = app.get();
   auto invalid = desc;
   invalid.struct_size = 0U;
-  if (gneiss::application::create_native(invalid, app) != gneiss::result::invalid_argument ||
+  if (gneiss::sdk::Application::create_native(invalid, app) != gneiss::result::invalid_argument ||
       app.get() != original || shutdown_count != 0U) {
     return false;
   }
   gneiss::result status;
-  std::thread worker([&] { status = gneiss::application::create_native(desc, app); });
+  std::thread worker([&] { status = gneiss::sdk::Application::create_native(desc, app); });
   worker.join();
   // 替换失败时新候选已执行 shutdown，原 Application 的所有权和回调上下文仍有效。
   return status == gneiss::result::invalid_state && app.get() == original && shutdown_count == 1U &&
@@ -113,7 +113,7 @@ bool verify_application_rollback() {
 }
 
 bool verify_scene() {
-  gneiss::application app;
+  gneiss::sdk::Application app;
   gneiss::scene_instance first;
   if (create_application(app).failed() ||
       gneiss::scene_instance::create_empty(app.get(), scene_uuid, first).failed()) {
@@ -130,7 +130,7 @@ bool verify_scene() {
   gneiss::result replace_result;
   std::thread worker([&] {
     close_result = first.reset();
-    gneiss::application worker_app;
+    gneiss::sdk::Application worker_app;
     replace_result = create_application(worker_app);
     if (replace_result.ok()) {
       replace_result = gneiss::scene_instance::create_empty(worker_app.get(), scene_uuid, first);
@@ -178,17 +178,17 @@ int verify_termination(std::string_view mode) {
     });
     worker.join();
   } else if (mode == "application") {
-    gneiss::application resource;
+    gneiss::sdk::Application resource;
     if (create_application(resource).failed()) {
       return 1;
     }
     std::thread worker([resource = std::move(resource)]() mutable {
       install_termination_handler();
-      gneiss::application local{std::move(resource)};
+      gneiss::sdk::Application local{std::move(resource)};
     });
     worker.join();
   } else if (mode == "scene") {
-    gneiss::application app;
+    gneiss::sdk::Application app;
     gneiss::scene_instance resource;
     if (create_application(app).failed() ||
         gneiss::scene_instance::create_empty(app.get(), scene_uuid, resource).failed()) {
@@ -209,13 +209,14 @@ int main(int argc, char** argv) {
     return verify_termination(argv[1]);
   }
   if (!verify_standalone<gneiss::world, gneiss::world::create, gneiss_world_destroy>() ||
-      !verify_standalone<gneiss::application, create_application, gneiss_application_destroy>() ||
+      !verify_standalone<gneiss::sdk::Application, create_application,
+                         gneiss_application_destroy>() ||
       !verify_standalone<gneiss::type_registry, gneiss::type_registry::create,
                          gneiss_type_registry_destroy>()) {
     return 1;
   }
   if (!verify_thread_failure<gneiss::world, gneiss::world::create>() ||
-      !verify_thread_failure<gneiss::application, create_application>() ||
+      !verify_thread_failure<gneiss::sdk::Application, create_application>() ||
       !verify_application_rollback() || !verify_scene()) {
     return 2;
   }

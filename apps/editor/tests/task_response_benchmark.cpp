@@ -79,10 +79,10 @@ void run(const std::filesystem::path& root, const std::filesystem::path& source)
   gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
   desc.asset_root = asset_text.c_str();
   desc.asset_root_length = static_cast<std::uint32_t>(asset_text.size());
-  application app;
+  sdk::Application app;
   gneiss_world world{};
   editor_session session;
-  require(application::create_native(desc, app) == result::success &&
+  require(sdk::Application::create_native(desc, app) == result::success &&
               app.get_world(world) == result::success,
           "基准应用创建失败");
   const auto open_ms = measure([&] {

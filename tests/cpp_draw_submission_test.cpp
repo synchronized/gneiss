@@ -13,7 +13,7 @@ struct draw_context {
   unsigned failure = 0;
 };
 
-gneiss::result update(gneiss::application_ref app, const gneiss::frame_time& /*unused*/,
+gneiss::result update(gneiss::sdk::ApplicationRef app, const gneiss::sdk::FrameTime& /*unused*/,
                       void* data) noexcept {
   auto& context = *static_cast<draw_context*>(data);
   ++context.updates;
@@ -81,11 +81,11 @@ int main() {
   static_assert(!std::is_same_v<gneiss::ui_vertex, gneiss_ui_vertex>);
   static_assert(!std::is_same_v<gneiss::debug_line, gneiss_debug_line>);
   draw_context context;
-  gneiss::application_desc desc{};
+  gneiss::sdk::ApplicationDesc desc{};
   desc.callbacks.user_data = &context;
   desc.callbacks.update = update;
-  gneiss::application app;
-  if (gneiss::application::create(desc, app).failed()) {
+  gneiss::sdk::Application app;
+  if (gneiss::sdk::Application::create(desc, app).failed()) {
     return 1;
   }
   const std::array<std::uint8_t, 4> pixels{255, 255, 255, 255};

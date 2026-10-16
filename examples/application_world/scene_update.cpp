@@ -5,7 +5,7 @@
 
 namespace example {
 
-gneiss::result update(gneiss::application_ref app, const gneiss::frame_time& /*time*/,
+gneiss::result update(gneiss::sdk::ApplicationRef app, const gneiss::sdk::FrameTime& /*time*/,
                       void* user_data) noexcept {
   auto& state = *static_cast<scene_state*>(user_data);
   gneiss::world_ref world;

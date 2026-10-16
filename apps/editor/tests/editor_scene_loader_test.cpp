@@ -22,12 +22,12 @@ void check(bool value, std::source_location where = std::source_location::curren
 
 void run(tasks::execution_mode mode) {
   tasks::task_scheduler scheduler({.workers = 1U, .mode = mode});
-  application app;
+  sdk::Application app;
   auto desc = gneiss_application_desc GNEISS_APPLICATION_DESC_INIT;
   const std::string root = GNEISS_EDITOR_TEST_ASSET_ROOT;
   desc.asset_root = root.data();
   desc.asset_root_length = static_cast<std::uint32_t>(root.size());
-  check(application::create_native(desc, app) == result::success);
+  check(sdk::Application::create_native(desc, app) == result::success);
   check(application_internal::attach_task_executor(app.get(), scheduler) == GNEISS_SUCCESS);
   editor::editor_session session;
   editor::editor_camera camera;

@@ -139,11 +139,11 @@ verify_documents(const std::vector<gneiss::editor::author_document_change>& chan
   gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
   desc.asset_root = root_text.data();
   desc.asset_root_length = static_cast<std::uint32_t>(root_text.size());
-  gneiss::application application;
+  gneiss::sdk::Application application;
   gneiss::scene_instance scene;
   std::uint64_t object_count = 0U;
   std::uint64_t prefab_node_count = 0U;
-  return gneiss::application::create_native(desc, application) == gneiss::result::success &&
+  return gneiss::sdk::Application::create_native(desc, application) == gneiss::result::success &&
          gneiss::scene_instance::load(application.get(), "asset://scenes/main.scene.json", scene) ==
              gneiss::result::success &&
          scene.get_node_count(object_count) == gneiss::result::success &&
@@ -208,9 +208,9 @@ verify_unpack_change(const std::vector<gneiss::editor::author_document_change>& 
          yyjson_obj_get(root, "unknown_scene") != nullptr;
 }
 
-[[nodiscard]] bool create_rejections_are_valid(
-    const gneiss::editor::create_prefab_author_request& request,
-    std::vector<gneiss::editor::author_document_change>& changes) {
+[[nodiscard]] bool
+create_rejections_are_valid(const gneiss::editor::create_prefab_author_request& request,
+                            std::vector<gneiss::editor::author_document_change>& changes) {
   auto nested_scene = std::string(scene_json);
   nested_scene.replace(
       nested_scene.rfind("[]"), 2U,

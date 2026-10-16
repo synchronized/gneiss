@@ -93,8 +93,8 @@ int run_example(int argc, char** argv) {
   desc.asset_root = asset_root.c_str();
   desc.asset_root_length = static_cast<std::uint32_t>(asset_root.size());
 
-  gneiss::application application;
-  if (gneiss::application::create_native(desc, application) != gneiss::result::success ||
+  gneiss::sdk::Application application;
+  if (gneiss::sdk::Application::create_native(desc, application) != gneiss::result::success ||
       application.get_world(state.world) != gneiss::result::success) {
     return 1;
   }

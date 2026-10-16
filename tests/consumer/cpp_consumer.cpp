@@ -18,11 +18,11 @@ int main() {
     return 8;
   }
 
-  gneiss::application_desc desc{};
+  gneiss::sdk::ApplicationDesc desc{};
   desc.asset_root = asset_root;
 
-  gneiss::application application;
-  if (gneiss::application::create(desc, application) != gneiss::result::success) {
+  gneiss::sdk::Application application;
+  if (gneiss::sdk::Application::create(desc, application) != gneiss::result::success) {
     return 1;
   }
   if (application.log({.category = "consumer", .message = "native C++ log"}).failed()) {

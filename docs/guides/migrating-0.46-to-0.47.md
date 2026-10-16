@@ -23,10 +23,10 @@
 普通 `.hpp` 接口使用 `gneiss::` 自有类型，不再接受旧 C 描述或初始化宏：
 
 ```cpp
-gneiss::application_desc desc{};
+gneiss::sdk::ApplicationDesc desc{};
 desc.asset_root = "assets";
-gneiss::application app;
-const auto created = gneiss::application::create(desc, app);
+gneiss::sdk::Application app;
+const auto created = gneiss::sdk::Application::create(desc, app);
 if (created.failed()) {
   return 1;
 }
@@ -55,8 +55,8 @@ Application 和 Registry 的 `release()` 分别返回 `released_application`、`
 
 ```cpp
 auto transferred = app.release();
-gneiss::application destination;
-const auto adopted = gneiss::application::adopt(std::move(transferred), destination);
+gneiss::sdk::Application destination;
+const auto adopted = gneiss::sdk::Application::adopt(std::move(transferred), destination);
 ```
 
 接管失败保留源与目标；载体析构会关闭对象。`get()` 仍只借用句柄，不转移所有权。
