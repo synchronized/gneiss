@@ -122,16 +122,16 @@ int main() {
   static_assert(!std::is_convertible_v<gneiss_action, gneiss::action_id>);
   constexpr std::string_view asset_root = GNEISS_TEST_ASSET_ROOT;
   constexpr std::string_view uri = "asset://input/default.input-map.json";
-  gneiss::sdk::ApplicationDesc desc{};
+  gneiss::sdk::application_desc desc{};
   desc.asset_root = asset_root;
-  gneiss::sdk::Application app;
-  gneiss::sdk::Application other;
+  gneiss::sdk::application app;
+  gneiss::sdk::application other;
   gneiss::action_id action;
   gneiss::action_state state{};
   gneiss::keyboard_state keyboard{};
   gneiss::pointer_state pointer{};
   gneiss::input_event event{};
-  if (gneiss::sdk::Application::create(desc, app).failed() || action.is_valid() ||
+  if (gneiss::sdk::application::create(desc, app).failed() || action.is_valid() ||
       app.get_action_state(action, state) != result::invalid_handle ||
       app.poll_input(event) != result::not_ready || app.get_keyboard_state(keyboard).failed() ||
       app.get_pointer_state(pointer).failed() ||
@@ -145,7 +145,7 @@ int main() {
   if (app.find_action("missing", action) != result::not_found || action != original ||
       app.load_action_map("asset://input/missing.input-map.json") != result::not_found ||
       app.get_action_state(action, state).failed() ||
-      gneiss::sdk::Application::create(desc, other).failed() ||
+      gneiss::sdk::application::create(desc, other).failed() ||
       other.load_action_map(uri).failed() ||
       other.get_action_state(action, state) != result::invalid_handle) {
     return 2;

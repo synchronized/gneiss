@@ -10,7 +10,7 @@
 
 namespace {
 template <typename Resource, typename Desc, auto Destroy>
-bool verify_owner(gneiss::sdk::Application& app, const Desc& desc) {
+bool verify_owner(gneiss::sdk::application& app, const Desc& desc) {
   static_assert(!std::is_copy_constructible_v<Resource>);
   static_assert(std::is_nothrow_move_constructible_v<Resource>);
   Resource first;
@@ -69,7 +69,7 @@ bool verify_owner(gneiss::sdk::Application& app, const Desc& desc) {
   return Destroy(app.get(), scoped) == GNEISS_ERROR_INVALID_HANDLE;
 }
 
-bool verify_material_values(gneiss::sdk::Application& app) {
+bool verify_material_values(gneiss::sdk::application& app) {
   static_assert(!std::is_same_v<gneiss::material_desc, gneiss_material_desc>);
   static_assert(!std::is_same_v<gneiss::texture_desc, gneiss_texture_desc>);
   static_assert(gneiss::material_desc{}.sampling[4].mip_filter ==
@@ -123,18 +123,18 @@ bool verify_material_values(gneiss::sdk::Application& app) {
     return false;
   }
   desc.sampling[4].address_u = gneiss::texture_address::repeat;
-  gneiss::sdk::Application other;
+  gneiss::sdk::application other;
   gneiss::material foreign;
-  const gneiss::sdk::ApplicationDesc other_desc{};
-  return gneiss::sdk::Application::create(other_desc, other).ok() &&
+  const gneiss::sdk::application_desc other_desc{};
+  return gneiss::sdk::application::create(other_desc, other).ok() &&
          other.create_material(desc, foreign) == gneiss::result::invalid_argument && !foreign;
 }
 } // namespace
 
 int main() {
-  gneiss::sdk::Application app;
-  const gneiss::sdk::ApplicationDesc app_desc{};
-  if (gneiss::sdk::Application::create(app_desc, app).failed()) {
+  gneiss::sdk::application app;
+  const gneiss::sdk::application_desc app_desc{};
+  if (gneiss::sdk::application::create(app_desc, app).failed()) {
     return 1;
   }
   const std::array vertices{

@@ -84,8 +84,8 @@ int main() {
   desc.window_width = 320;
   desc.window_height = 240;
 
-  gneiss::sdk::Application application;
-  const auto create_result = gneiss::sdk::Application::create_native(desc, application);
+  gneiss::sdk::application application;
+  const auto create_result = gneiss::sdk::application::create_native(desc, application);
   if (create_result != gneiss::result::success) {
     std::fprintf(stderr, "Application 创建失败：%d\n", gneiss::to_native(create_result));
     return 1;

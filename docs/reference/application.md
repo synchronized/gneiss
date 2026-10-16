@@ -12,7 +12,7 @@
 立即失效。
 
 除[日志提交](logging.md)外，Application 及其 World 只能在创建线程访问。重复运行、跨线程调用、无效句柄和重复销毁均返回
-明确错误。C++ 的 `gneiss::sdk::Application` 提供不可复制、可移动的 RAII 包装。
+明确错误。C++ 的 `gneiss::sdk::application` 提供不可复制、可移动的 RAII 包装。
 
 `reset()` 返回关闭结果：成功或句柄已失效时清空所有权，其他失败保留句柄供重试。直接调用
 `reset();` 的既有源码继续可用；依赖原 `void` 返回类型的成员函数指针需要更新。

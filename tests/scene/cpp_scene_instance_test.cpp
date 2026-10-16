@@ -44,11 +44,11 @@ int main() try {
   constexpr std::string_view prefab_uri = "asset://prefabs/test.prefab.json";
   constexpr std::string_view mesh_uri = "asset://models/triangle.mesh.json";
   constexpr std::string_view material_uri = "asset://materials/triangle.material.json";
-  gneiss::sdk::ApplicationDesc desc{};
+  gneiss::sdk::application_desc desc{};
   desc.asset_root = asset_root;
-  gneiss::sdk::Application app;
+  gneiss::sdk::application app;
   gneiss::scene_instance scene;
-  if (gneiss::sdk::Application::create(desc, app).failed() ||
+  if (gneiss::sdk::application::create(desc, app).failed() ||
       gneiss::scene_instance::load(app.get(), scene_uri, scene).failed()) {
     return 1;
   }
@@ -58,8 +58,8 @@ int main() try {
     return 21;
   }
   gneiss::scene_instance adopted;
-  gneiss::sdk::Application other;
-  if (gneiss::sdk::Application::create(desc, other).failed() ||
+  gneiss::sdk::application other;
+  if (gneiss::sdk::application::create(desc, other).failed() ||
       gneiss::scene_instance::adopt_native(other.get(), original_scene, adopted).ok() ||
       adopted.is_valid()) {
     return 22;

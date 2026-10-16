@@ -17,10 +17,10 @@ constexpr std::string_view scene_uri = "asset://scenes/property.scene.json";
 constexpr std::string_view camera_uuid = "37cff772-2e8d-4bc7-9ed2-f94435926d4e";
 
 [[nodiscard]] gneiss::result create_application(std::string_view root,
-                                                gneiss::sdk::Application& output) noexcept {
-  gneiss::sdk::ApplicationDesc desc{};
+                                                gneiss::sdk::application& output) noexcept {
+  gneiss::sdk::application_desc desc{};
   desc.asset_root = root;
-  return gneiss::sdk::Application::create(desc, output);
+  return gneiss::sdk::application::create(desc, output);
 }
 
 [[nodiscard]] bool inspect_registry(const gneiss::type_registry& registry) {
@@ -46,7 +46,7 @@ constexpr std::string_view camera_uuid = "37cff772-2e8d-4bc7-9ed2-f94435926d4e";
   return true;
 }
 
-[[nodiscard]] bool find_camera(gneiss::sdk::Application& application,
+[[nodiscard]] bool find_camera(gneiss::sdk::application& application,
                                const gneiss::scene_instance& scene, gneiss::world_ref& out_world,
                                gneiss::entity_id& out_entity) {
   gneiss::scene_node_id node;
@@ -101,7 +101,7 @@ int main() try {
     return 1;
   }
 
-  gneiss::sdk::Application application;
+  gneiss::sdk::application application;
   gneiss::scene_instance scene;
   constexpr std::string_view source_root = GNEISS_PROPERTY_INSPECTOR_ASSET_ROOT;
   if (create_application(source_root, application) != gneiss::result::success ||
@@ -134,7 +134,7 @@ int main() try {
   }
 
   const auto output_root_text = output_root.generic_string();
-  gneiss::sdk::Application reloaded_application;
+  gneiss::sdk::application reloaded_application;
   gneiss::scene_instance reloaded_scene;
   if (create_application(output_root_text, reloaded_application) != gneiss::result::success ||
       gneiss::scene_instance::load(reloaded_application.get(), scene_uri, reloaded_scene) !=

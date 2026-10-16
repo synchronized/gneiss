@@ -13,7 +13,7 @@ struct scene_state {
   std::uint64_t updates{};
 };
 
-gneiss::result update(gneiss::sdk::ApplicationRef app, const gneiss::sdk::FrameTime& time,
+gneiss::result update(gneiss::sdk::application_ref app, const gneiss::sdk::frame_time& time,
                       void* user_data) noexcept;
 
 } // namespace example

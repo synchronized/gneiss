@@ -136,14 +136,14 @@ void run_mip_sampling(bool packaged = false, bool async = false) {
                  static_cast<std::streamsize>(bytes.size()));
   }
   tasks::task_scheduler scheduler({.workers = 1U});
-  sdk::Application app;
+  sdk::application app;
   const auto root = files.root.string();
   auto desc = gneiss_application_desc GNEISS_APPLICATION_DESC_INIT;
   desc.platform = GNEISS_APPLICATION_PLATFORM_GRANIT;
   desc.window_flags &= ~GNEISS_APPLICATION_WINDOW_VISIBLE_BIT;
   desc.asset_root = root.data();
   desc.asset_root_length = static_cast<std::uint32_t>(root.size());
-  check(sdk::Application::create_native(desc, app) == result::success);
+  check(sdk::application::create_native(desc, app) == result::success);
   constexpr std::string_view uri = "asset://s.scene.json";
   gneiss_scene_instance scene{};
   if (async) {
@@ -237,14 +237,14 @@ std::array<unsigned, 3> material_pixel(std::string_view slot, std::array<std::by
     stream.write(reinterpret_cast<const char*>(bytes.data()),
                  static_cast<std::streamsize>(bytes.size()));
   }
-  sdk::Application app;
+  sdk::application app;
   const auto root = files.root.string();
   auto desc = gneiss_application_desc GNEISS_APPLICATION_DESC_INIT;
   desc.platform = GNEISS_APPLICATION_PLATFORM_GRANIT;
   desc.window_flags &= ~GNEISS_APPLICATION_WINDOW_VISIBLE_BIT;
   desc.asset_root = root.data();
   desc.asset_root_length = static_cast<std::uint32_t>(root.size());
-  check(sdk::Application::create_native(desc, app) == result::success);
+  check(sdk::application::create_native(desc, app) == result::success);
   constexpr std::string_view uri = "asset://s.scene.json";
   gneiss_scene_instance scene{};
   check(gneiss_scene_instance_load(app.get(), uri.data(), uri.size(), &scene) == GNEISS_SUCCESS);
@@ -351,14 +351,14 @@ std::array<unsigned, 3> state_pixel(const state_case& test,
       scene_text.insert(scene_text.rfind("],\"prefab_instances\""), ',' + object);
     std::ofstream(files.root / "s.scene.json") << scene_text;
   }
-  sdk::Application app;
+  sdk::application app;
   const auto root = files.root.string();
   auto desc = gneiss_application_desc GNEISS_APPLICATION_DESC_INIT;
   desc.platform = GNEISS_APPLICATION_PLATFORM_GRANIT;
   desc.window_flags &= ~GNEISS_APPLICATION_WINDOW_VISIBLE_BIT;
   desc.asset_root = root.data();
   desc.asset_root_length = static_cast<std::uint32_t>(root.size());
-  check(sdk::Application::create_native(desc, app) == result::success);
+  check(sdk::application::create_native(desc, app) == result::success);
   constexpr std::string_view uri = "asset://s.scene.json";
   gneiss_scene_instance scene{};
   check(gneiss_scene_instance_load(app.get(), uri.data(), uri.size(), &scene) == GNEISS_SUCCESS);
@@ -427,14 +427,14 @@ void run(tasks::execution_mode mode, bool pbr = false) {
   fixture files(pbr);
   files.color(std::byte{20}, std::byte{240});
   tasks::task_scheduler scheduler({.workers = 1U, .mode = mode});
-  sdk::Application app;
+  sdk::application app;
   const auto root = files.root.string();
   gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
   desc.platform = GNEISS_APPLICATION_PLATFORM_GRANIT;
   desc.window_flags &= ~GNEISS_APPLICATION_WINDOW_VISIBLE_BIT;
   desc.asset_root = root.data();
   desc.asset_root_length = static_cast<std::uint32_t>(root.size());
-  check(sdk::Application::create_native(desc, app) == result::success);
+  check(sdk::application::create_native(desc, app) == result::success);
   check(application_internal::attach_task_executor(app.get(), scheduler) == GNEISS_SUCCESS);
   gneiss_scene_instance scene{};
   constexpr std::string_view uri = "asset://s.scene.json";
@@ -531,14 +531,14 @@ void run_scene(tasks::execution_mode mode, bool pbr = false) {
   fixture files(pbr);
   files.color(std::byte{20}, std::byte{240});
   tasks::task_scheduler scheduler({.workers = 1U, .mode = mode});
-  sdk::Application app;
+  sdk::application app;
   const auto root = files.root.string();
   auto desc = gneiss_application_desc GNEISS_APPLICATION_DESC_INIT;
   desc.platform = GNEISS_APPLICATION_PLATFORM_GRANIT;
   desc.window_flags &= ~GNEISS_APPLICATION_WINDOW_VISIBLE_BIT;
   desc.asset_root = root.data();
   desc.asset_root_length = static_cast<std::uint32_t>(root.size());
-  check(sdk::Application::create_native(desc, app) == result::success);
+  check(sdk::application::create_native(desc, app) == result::success);
   check(attach_task_executor(app.get(), scheduler) == GNEISS_SUCCESS);
   constexpr std::string_view uri = "asset://s.scene.json";
   gneiss_scene_instance scene{};

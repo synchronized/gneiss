@@ -238,7 +238,7 @@ gneiss::result submit_editor_grid(gneiss_application application, const editor_s
                    .width = 2.0F,
                    .depth_test = true});
   const gneiss::debug_draw_list_desc desc{.lines = lines};
-  return gneiss::sdk::ApplicationRef{application}.submit_debug_draw_list(desc);
+  return gneiss::sdk::application_ref{application}.submit_debug_draw_list(desc);
 }
 
 void draw_view_axis(const editor_state& state, const ImVec2& minimum, const ImVec2& size) noexcept {
@@ -2877,7 +2877,7 @@ int run_editor(int argc, char** argv) {
     return 64;
   }
   editor_state state(options.cooperative_tasks);
-  gneiss::sdk::Application application;
+  gneiss::sdk::application application;
   state.smoke = options.smoke;
   state.smoke_frame_limit = options.smoke_frames;
   state.asset_root = project.asset_root;
@@ -2925,7 +2925,7 @@ int run_editor(int argc, char** argv) {
   desc.environment_rotation_radians =
       project.environment.rotation_degrees * 0.01745329251994329577F;
 
-  auto operation = gneiss::sdk::Application::create_native(desc, application);
+  auto operation = gneiss::sdk::application::create_native(desc, application);
   if (operation != gneiss::result::success) {
     report_startup_failure("Editor Application 创建", operation, path_utf8(project.project_root));
     return 1;

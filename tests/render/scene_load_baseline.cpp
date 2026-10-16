@@ -65,7 +65,7 @@ std::uint64_t peak_resident_bytes() {
 #endif
 }
 // 场景切换的预载也走设备变体选择和有界上传，不能用同步预载阻断被测异步路径。
-gneiss_result preload_scene(gneiss::sdk::Application& app, gneiss::tasks::task_scheduler& scheduler,
+gneiss_result preload_scene(gneiss::sdk::application& app, gneiss::tasks::task_scheduler& scheduler,
                             bool cooperative, std::string_view uri, gneiss_scene_instance& scene) {
   using namespace gneiss::application_internal;
   std::uint64_t request{};
@@ -139,7 +139,7 @@ int main(int argc, char** argv) try {
        .mode = mode == "cooperative" ? gneiss::tasks::execution_mode::cooperative
                                      : gneiss::tasks::execution_mode::thread_pool});
   std::function<gneiss_result(gneiss_application)> update;
-  gneiss::sdk::Application app;
+  gneiss::sdk::application app;
   auto desc = gneiss_application_desc GNEISS_APPLICATION_DESC_INIT;
   desc.user_data = &update;
   desc.update = [](gneiss_application handle, const gneiss_frame_time*, void* data) {
@@ -157,7 +157,7 @@ int main(int argc, char** argv) try {
   if (scenario == "interact") {
     desc.window_flags |= GNEISS_APPLICATION_WINDOW_VISIBLE_BIT;
   }
-  if (gneiss::sdk::Application::create_native(desc, app) != gneiss::result::success ||
+  if (gneiss::sdk::application::create_native(desc, app) != gneiss::result::success ||
       app.run(3U) != gneiss::result::success) {
     return 3;
   }
@@ -498,7 +498,7 @@ int main(int argc, char** argv) try {
   }
   if (closed) {
     const auto closing_start = clock_type::now();
-    app = gneiss::sdk::Application{};
+    app = gneiss::sdk::application{};
     shutdown_ms = milliseconds(closing_start);
     std::ofstream report(prefix.string() + ".json");
     report << "{\"closed\":true,\"shutdown_ms\":" << shutdown_ms
@@ -514,7 +514,7 @@ int main(int argc, char** argv) try {
   if (result != GNEISS_SUCCESS) {
     (void)gneiss::application_internal::query_scene_retirement(app.get(), retirement);
     const auto peak = peak_resident_bytes();
-    app = gneiss::sdk::Application{};
+    app = gneiss::sdk::application{};
     std::ofstream report(prefix.string() + ".json");
     report << "{\"result\":" << result << ",\"load_ms\":" << load_ms
            << ",\"candidate_resident_bytes\":" << completion.progress.resident_bytes

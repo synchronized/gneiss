@@ -41,12 +41,12 @@ struct temporary_project final {
 }
 
 [[nodiscard]] gneiss::result create_application(const std::filesystem::path& asset_root,
-                                                gneiss::sdk::Application& output) {
+                                                gneiss::sdk::application& output) {
   const auto root = asset_root.generic_string();
   gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
   desc.asset_root = root.data();
   desc.asset_root_length = static_cast<std::uint32_t>(root.size());
-  return gneiss::sdk::Application::create_native(desc, output);
+  return gneiss::sdk::application::create_native(desc, output);
 }
 
 [[nodiscard]] std::string read_text(const std::filesystem::path& path) {
@@ -126,7 +126,7 @@ int main() try { // NOLINT(bugprone-exception-escape): 测试入口统一返回�
     return 7;
   }
 
-  gneiss::sdk::Application application;
+  gneiss::sdk::application application;
   gneiss_world world = GNEISS_NULL_WORLD;
   gneiss::editor::editor_session session;
   if (create_application(project.asset_root, application) != gneiss::result::success ||

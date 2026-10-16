@@ -12,7 +12,7 @@
 int main() try {
   using namespace gneiss;
   using namespace gneiss::editor;
-  sdk::Application app;
+  sdk::application app;
   gneiss_world world_handle = GNEISS_NULL_WORLD;
   editor_session session;
   editor_command_history history;
@@ -20,7 +20,7 @@ int main() try {
   scene_node_id first;
   scene_node_id second;
   const gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
-  if (sdk::Application::create_native(desc, app).failed() || app.get_world(world_handle).failed() ||
+  if (sdk::application::create_native(desc, app).failed() || app.get_world(world_handle).failed() ||
       session.create_empty(app.get(), world_handle).failed() ||
       session.create_node("First", {}, first).failed() ||
       session.create_node("Second", {}, second).failed() || session.select(first).failed()) {

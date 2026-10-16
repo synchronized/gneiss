@@ -137,8 +137,8 @@ int main() {
   desc.window_title_length = 27U;
   desc.user_data = &value;
   desc.update = update;
-  gneiss::sdk::Application application;
-  if (gneiss::sdk::Application::create_native(desc, application) != gneiss::result::success) {
+  gneiss::sdk::application application;
+  if (gneiss::sdk::application::create_native(desc, application) != gneiss::result::success) {
     return 1;
   }
   (void)EnumWindows(find_window, reinterpret_cast<LPARAM>(&value.window));

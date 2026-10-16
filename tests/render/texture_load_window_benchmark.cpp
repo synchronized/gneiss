@@ -197,7 +197,7 @@ int main(int argc, char** argv) try {
   }
   state.synchronous = mode == "sync";
   state.close_during_load = mode == "close";
-  sdk::Application app;
+  sdk::application app;
   gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
   const auto root = state.root.string();
   desc.platform = GNEISS_APPLICATION_PLATFORM_GRANIT;
@@ -209,7 +209,7 @@ int main(int argc, char** argv) try {
       GNEISS_APPLICATION_WINDOW_VISIBLE_BIT | GNEISS_APPLICATION_WINDOW_RESIZABLE_BIT;
   desc.update = update;
   desc.user_data = &state;
-  if (sdk::Application::create_native(desc, app) != result::success ||
+  if (sdk::application::create_native(desc, app) != result::success ||
       application_internal::attach_task_executor(app.get(), scheduler) != GNEISS_SUCCESS) {
     return 1;
   }
@@ -230,7 +230,7 @@ int main(int argc, char** argv) try {
   state.mesh = info.node;
   state.start = state.previous = std::chrono::steady_clock::now();
   const auto result = app.run();
-  app = sdk::Application{};
+  app = sdk::application{};
   const auto lifetime =
       std::chrono::duration<double>(std::chrono::steady_clock::now() - state.start).count();
   std::ofstream output(argv[3]);

@@ -50,12 +50,12 @@ namespace gneiss::engine {
 
 /** 内部真实运行对象；仅所属线程操作和释放最后一个持有引用。
  * 私有装配存储位于实现文件；此内部模块接口随源码构建，不属于安装 SDK。 */
-class GNEISS_API Application final {
+class GNEISS_API application final {
 public:
   /** 从已校验配置创建已初始化的真实业务对象；失败不改变 output，不创建对外句柄。 */
   [[nodiscard]] static gneiss_result
   create(const application_internal::application_configuration& config,
-         std::shared_ptr<Application>& output) noexcept;
+         std::shared_ptr<application>& output) noexcept;
   [[nodiscard]] const asset_internal::virtual_file_system& asset_files() const noexcept;
   [[nodiscard]] gneiss_result set_view_camera(const render_internal::view_camera* camera) noexcept;
   [[nodiscard]] gneiss_result capture_frame(std::uint32_t width, std::uint32_t height,
@@ -85,16 +85,16 @@ public:
   activate_scene(std::uint64_t request, application_internal::scene_load_completion& completion);
 
 private:
-  explicit Application(const application_internal::application_configuration& config);
+  explicit application(const application_internal::application_configuration& config);
   [[nodiscard]] gneiss_result initialize() noexcept;
 
 public:
-  ~Application() noexcept;
+  ~application() noexcept;
 
-  Application(const Application&) = delete;
-  Application& operator=(const Application&) = delete;
-  Application(Application&&) = delete;
-  Application& operator=(Application&&) = delete;
+  application(const application&) = delete;
+  application& operator=(const application&) = delete;
+  application(application&&) = delete;
+  application& operator=(application&&) = delete;
 
   [[nodiscard]] gneiss_result shutdown(gneiss_application handle) noexcept;
   [[nodiscard]] gneiss_result run(gneiss_application handle,

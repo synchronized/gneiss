@@ -11,12 +11,12 @@
 
 namespace gneiss::application_internal {
 namespace {
-struct ApplicationEntry {
+struct application_entry {
   application_resource owner;
-  std::weak_ptr<engine::Application> borrowed;
+  std::weak_ptr<engine::application> borrowed;
   std::thread::id thread;
 };
-using application_table = gneiss::core::rid_table<ApplicationEntry>;
+using application_table = gneiss::core::rid_table<application_entry>;
 
 struct application_registry {
   std::mutex mutex;
@@ -57,16 +57,16 @@ gneiss_result create_application(const application_configuration& config,
   output = GNEISS_NULL_APPLICATION;
   try {
     application_resource state;
-    const auto initialize_result = engine::Application::create(config, state);
+    const auto initialize_result = engine::application::create(config, state);
     if (initialize_result != GNEISS_SUCCESS) {
       return initialize_result;
     }
     auto& registry = get_application_registry();
     const std::scoped_lock lock{registry.mutex};
     return registry.applications.create(gneiss::core::resource_type::application,
-                                        ApplicationEntry{.owner = std::move(state),
-                                                         .borrowed = {},
-                                                         .thread = std::this_thread::get_id()},
+                                        application_entry{.owner = std::move(state),
+                                                          .borrowed = {},
+                                                          .thread = std::this_thread::get_id()},
                                         &output);
   } catch (const std::bad_alloc&) {
     return GNEISS_ERROR_OUT_OF_MEMORY;
@@ -107,7 +107,7 @@ gneiss_result destroy_application(gneiss_application application) noexcept {
   }
 }
 
-gneiss_result ApplicationBridge::bind(const application_resource& application) noexcept {
+gneiss_result application_bridge::bind(const application_resource& application) noexcept {
   if (handle_ != GNEISS_NULL_APPLICATION) {
     return GNEISS_ERROR_INVALID_STATE;
   }
@@ -122,11 +122,11 @@ gneiss_result ApplicationBridge::bind(const application_resource& application) n
   const std::scoped_lock lock{registry.mutex};
   return registry.applications.create(
       core::resource_type::application,
-      ApplicationEntry{.owner = {}, .borrowed = application, .thread = std::this_thread::get_id()},
+      application_entry{.owner = {}, .borrowed = application, .thread = std::this_thread::get_id()},
       &handle_);
 }
 
-gneiss_result ApplicationBridge::reset() noexcept {
+gneiss_result application_bridge::reset() noexcept {
   if (handle_ == GNEISS_NULL_APPLICATION) {
     return GNEISS_SUCCESS;
   }

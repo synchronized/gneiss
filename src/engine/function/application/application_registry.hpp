@@ -9,11 +9,11 @@
 #include <utility>
 
 namespace gneiss::engine {
-class Application;
+class application;
 }
 namespace gneiss::application_internal {
 struct application_configuration;
-using application_resource = std::shared_ptr<engine::Application>;
+using application_resource = std::shared_ptr<engine::application>;
 /** 私有借用解析；共享指针只保护当前调用，不延长已关闭服务的有效性。 */
 [[nodiscard]] application_resource find_application(gneiss_application application) noexcept;
 [[nodiscard]] gneiss_result validate_application(const application_resource& application) noexcept;
@@ -21,21 +21,21 @@ using application_resource = std::shared_ptr<engine::Application>;
 [[nodiscard]] gneiss_result create_application(const application_configuration& config,
                                                gneiss_application& output) noexcept;
 [[nodiscard]] gneiss_result destroy_application(gneiss_application application) noexcept;
-/** 内部兼容桥；不持有 Application，不授予关闭权。绑定、移动和撤销限所属线程。
+/** 内部兼容桥；不持有 application，不授予关闭权。绑定、移动和撤销限所属线程。
  * 必须在最后一次兼容调用后销毁；对象先关闭时旧句柄立即不能再解析。 */
-class ApplicationBridge final {
+class application_bridge final {
 public:
-  ApplicationBridge() noexcept = default;
-  ~ApplicationBridge() noexcept {
+  application_bridge() noexcept = default;
+  ~application_bridge() noexcept {
     if (reset() != GNEISS_SUCCESS) {
       std::terminate();
     }
   }
-  ApplicationBridge(const ApplicationBridge&) = delete;
-  ApplicationBridge& operator=(const ApplicationBridge&) = delete;
-  ApplicationBridge(ApplicationBridge&& other) noexcept
+  application_bridge(const application_bridge&) = delete;
+  application_bridge& operator=(const application_bridge&) = delete;
+  application_bridge(application_bridge&& other) noexcept
       : handle_(std::exchange(other.handle_, GNEISS_NULL_APPLICATION)) {}
-  ApplicationBridge& operator=(ApplicationBridge&&) = delete;
+  application_bridge& operator=(application_bridge&&) = delete;
   [[nodiscard]] GNEISS_API gneiss_result bind(const application_resource& application) noexcept;
   [[nodiscard]] GNEISS_API gneiss_result reset() noexcept;
   [[nodiscard]] gneiss_application get() const noexcept { return handle_; }

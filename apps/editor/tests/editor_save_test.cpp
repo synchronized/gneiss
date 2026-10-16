@@ -32,12 +32,12 @@ constexpr std::string_view material_uri = "asset://materials/triangle.material.j
 }
 
 [[nodiscard]] gneiss::result create_application(const std::filesystem::path& root,
-                                                gneiss::sdk::Application& output) {
+                                                gneiss::sdk::application& output) {
   const auto root_text = root.generic_string();
   gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
   desc.asset_root = root_text.data();
   desc.asset_root_length = static_cast<std::uint32_t>(root_text.size());
-  return gneiss::sdk::Application::create_native(desc, output);
+  return gneiss::sdk::application::create_native(desc, output);
 }
 
 } // namespace
@@ -60,7 +60,7 @@ int main() try {
     return 2;
   }
 
-  gneiss::sdk::Application application;
+  gneiss::sdk::application application;
   gneiss_world world = GNEISS_NULL_WORLD;
   gneiss::editor::editor_session session;
   if (create_application(root, application) != gneiss::result::success ||
@@ -174,7 +174,7 @@ int main() try {
   session.close();
   application.reset();
 
-  gneiss::sdk::Application reloaded_application;
+  gneiss::sdk::application reloaded_application;
   gneiss::scene_instance reloaded_scene;
   if (create_application(root, reloaded_application) != gneiss::result::success ||
       gneiss::scene_instance::load(reloaded_application.get(), scene_uri, reloaded_scene) !=

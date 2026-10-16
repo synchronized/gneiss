@@ -152,8 +152,8 @@ int main() {
   owned_capture.check_reentrancy = false;
   desc.log = capture;
   desc.user_data = &owned_capture;
-  gneiss::sdk::Application owned;
-  if (gneiss::sdk::Application::create_native(desc, owned).failed()) {
+  gneiss::sdk::application owned;
+  if (gneiss::sdk::application::create_native(desc, owned).failed()) {
     return 10;
   }
   gneiss::result submitted;
@@ -177,7 +177,7 @@ int main() {
   capture_state empty_capture;
   empty_capture.check_reentrancy = false;
   desc.user_data = &empty_capture;
-  if (gneiss::sdk::Application::create_native(desc, owned).failed() ||
+  if (gneiss::sdk::application::create_native(desc, owned).failed() ||
       owned.log(gneiss::make_log_message(gneiss::log_severity::info, "empty", {})).failed() ||
       owned.reset().failed()) {
     return 13;

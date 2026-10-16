@@ -28,10 +28,10 @@ int main() try {
   gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
   desc.asset_root = asset_root.c_str();
   desc.asset_root_length = static_cast<std::uint32_t>(asset_root.size());
-  gneiss::sdk::Application application;
+  gneiss::sdk::application application;
   gneiss_world world = GNEISS_NULL_WORLD;
   gneiss::editor::editor_session session;
-  if (gneiss::sdk::Application::create_native(desc, application) != gneiss::result::success ||
+  if (gneiss::sdk::application::create_native(desc, application) != gneiss::result::success ||
       application.get_world(world) != gneiss::result::success ||
       session.open(application.get(), world, scene_uri) != gneiss::result::success ||
       !session.is_open() || session.is_dirty() || session.uri() != scene_uri ||

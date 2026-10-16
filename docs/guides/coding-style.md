@@ -15,6 +15,12 @@
 - `.c` 使用 C11；`.cpp`、`.cc` 和 `.cxx` 使用 C++20。
 - C++ 包装层不得建立与 C API 平行的第二套运行时状态。
 
+## 文本换行
+
+自有文本统一使用 UTF-8 和 LF，Git 工作区规则见 `.gitattributes`，编辑器规则见
+`.editorconfig`；clang-format 也显式输出 LF。第三方源码保持上游格式。
+Windows 脚本或生成工具写自有文本时须显式选择 LF，不能依赖系统默认换行。
+
 ## 自动格式化基线
 
 代码排版以仓库根目录的 [`.clang-format`](../../.clang-format) 为唯一标准：
@@ -62,9 +68,8 @@ clang-format -i <files...>
 | 私有数据成员 | 小写下划线并带末尾下划线 | `world_id_` |
 | 模板参数 | 描述性 PascalCase | `ResourceType` |
 
-按 [ADR-062](../decisions/ADR-062-internal-cpp-and-sdk-boundaries.md) 迁移的原生对象与 SDK 类型
-采用 PascalCase。当前首个原生类型为 `gneiss::engine::Application`；未迁移类型仍遵循上表，
-不为此次调整全仓库批量改名。文件名与函数名规则不变。
+内部原生类型与外部 SDK 包装均保持小写下划线，通过 `gneiss::engine` 和 `gneiss::sdk`
+区分职责。命名空间迁移不改变类型大小写规范，见 ADR-062 的后续澄清。
 
 缩写视为普通单词，例如使用 `entity_id`、`resource_id`，不使用 `entityID` 或 `resourceID`。RID 作为项目术语可以出现在文档中，代码标识符使用 `rid`。
 

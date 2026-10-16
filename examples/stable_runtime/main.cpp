@@ -39,8 +39,8 @@ void report_failure(std::string_view stage, gneiss::result result) {
                static_cast<int>(result.message().size()), result.message().data());
 }
 
-gneiss::result update_sample(gneiss::sdk::ApplicationRef application,
-                             const gneiss::sdk::FrameTime& time, void* user_data) noexcept {
+gneiss::result update_sample(gneiss::sdk::application_ref application,
+                             const gneiss::sdk::frame_time& time, void* user_data) noexcept {
   if (user_data == nullptr) {
     return gneiss::result::invalid_argument;
   }
@@ -122,15 +122,15 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure) {
   const auto started = clock::now();
   sample_state state;
   state.measure = measure;
-  const gneiss::sdk::ApplicationDesc desc{
+  const gneiss::sdk::application_desc desc{
       .callbacks = {.user_data = &state, .update = update_sample},
-      .platform = gneiss::sdk::ApplicationPlatform::granit,
+      .platform = gneiss::sdk::application_platform::granit,
       .window_title = title,
       .asset_root = asset_root,
   };
 
-  gneiss::sdk::Application application;
-  const auto create_result = gneiss::sdk::Application::create(desc, application);
+  gneiss::sdk::application application;
+  const auto create_result = gneiss::sdk::application::create(desc, application);
   if (create_result != gneiss::result::success) {
     report_failure("创建 Application", create_result);
     return 1;

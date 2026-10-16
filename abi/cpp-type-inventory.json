@@ -8,91 +8,91 @@
         {
           "symbol": "gneiss_application",
           "kind": "owner",
-          "cpp_mapping": "gneiss::sdk::Application / application_ref / released_application",
+          "cpp_mapping": "gneiss::sdk::application / application_ref / released_application",
           "native_review": "implemented"
         },
         {
           "symbol": "gneiss_application_close_requested_fn",
           "kind": "callback",
-          "cpp_mapping": "decltype(gneiss::sdk::ApplicationCallbacks::close_requested)",
+          "cpp_mapping": "decltype(gneiss::sdk::application_callbacks::close_requested)",
           "native_review": "implemented"
         },
         {
           "symbol": "gneiss_application_desc",
           "kind": "struct",
-          "cpp_mapping": "gneiss::sdk::ApplicationDesc",
+          "cpp_mapping": "gneiss::sdk::application_desc",
           "native_review": "implemented"
         },
         {
           "symbol": "gneiss_application_diagnostic_fn",
           "kind": "callback",
-          "cpp_mapping": "decltype(gneiss::sdk::ApplicationCallbacks::diagnostic)",
+          "cpp_mapping": "decltype(gneiss::sdk::application_callbacks::diagnostic)",
           "native_review": "implemented"
         },
         {
           "symbol": "gneiss_application_initialize_fn",
           "kind": "callback",
-          "cpp_mapping": "decltype(gneiss::sdk::ApplicationCallbacks::initialize)",
+          "cpp_mapping": "decltype(gneiss::sdk::application_callbacks::initialize)",
           "native_review": "implemented"
         },
         {
           "symbol": "gneiss_application_log_fn",
           "kind": "callback",
-          "cpp_mapping": "decltype(gneiss::sdk::ApplicationCallbacks::log)",
+          "cpp_mapping": "decltype(gneiss::sdk::application_callbacks::log)",
           "native_review": "implemented"
         },
         {
           "symbol": "gneiss_application_now_ns_fn",
           "kind": "callback",
-          "cpp_mapping": "decltype(gneiss::sdk::ApplicationCallbacks::now_ns)",
+          "cpp_mapping": "decltype(gneiss::sdk::application_callbacks::now_ns)",
           "native_review": "implemented"
         },
         {
           "symbol": "gneiss_application_platform",
           "kind": "scalar",
-          "cpp_mapping": "gneiss::sdk::ApplicationPlatform",
+          "cpp_mapping": "gneiss::sdk::application_platform",
           "native_review": "implemented"
         },
         {
           "symbol": "gneiss_application_poll_events_fn",
           "kind": "callback",
-          "cpp_mapping": "decltype(gneiss::sdk::ApplicationCallbacks::poll_events)",
+          "cpp_mapping": "decltype(gneiss::sdk::application_callbacks::poll_events)",
           "native_review": "implemented"
         },
         {
           "symbol": "gneiss_application_shutdown_fn",
           "kind": "callback",
-          "cpp_mapping": "decltype(gneiss::sdk::ApplicationCallbacks::shutdown)",
+          "cpp_mapping": "decltype(gneiss::sdk::application_callbacks::shutdown)",
           "native_review": "implemented"
         },
         {
           "symbol": "gneiss_application_update_fn",
           "kind": "callback",
-          "cpp_mapping": "decltype(gneiss::sdk::ApplicationCallbacks::update)",
+          "cpp_mapping": "decltype(gneiss::sdk::application_callbacks::update)",
           "native_review": "implemented"
         },
         {
           "symbol": "gneiss_diagnostic",
           "kind": "struct",
-          "cpp_mapping": "gneiss::sdk::Diagnostic",
+          "cpp_mapping": "gneiss::sdk::diagnostic",
           "native_review": "implemented"
         },
         {
           "symbol": "gneiss_diagnostic_category",
           "kind": "scalar",
-          "cpp_mapping": "gneiss::sdk::DiagnosticCategory",
+          "cpp_mapping": "gneiss::sdk::diagnostic_category",
           "native_review": "implemented"
         },
         {
           "symbol": "gneiss_diagnostic_severity",
           "kind": "scalar",
-          "cpp_mapping": "gneiss::sdk::DiagnosticSeverity",
+          "cpp_mapping": "gneiss::sdk::diagnostic_severity",
           "native_review": "implemented"
         },
         {
           "symbol": "gneiss_frame_time",
           "kind": "struct",
-          "cpp_mapping": "gneiss::sdk::FrameTime",
+          "cpp_mapping": "gneiss::sdk::frame_time",
           "native_review": "implemented"
         }
       ],
@@ -100,7 +100,7 @@
         {
           "symbol": "GNEISS_APPLICATION_DESC_INIT",
           "native_review": "implemented",
-          "cpp_mapping": "gneiss::sdk::ApplicationDesc{}"
+          "cpp_mapping": "gneiss::sdk::application_desc{}"
         },
         {
           "symbol": "GNEISS_APPLICATION_DESC_VERSION_1_SIZE",
@@ -135,57 +135,57 @@
         {
           "symbol": "GNEISS_APPLICATION_PLATFORM_CALLBACK",
           "native_review": "implemented",
-          "cpp_mapping": "gneiss::sdk::ApplicationPlatform::callback"
+          "cpp_mapping": "gneiss::sdk::application_platform::callback"
         },
         {
           "symbol": "GNEISS_APPLICATION_PLATFORM_GRANIT",
           "native_review": "implemented",
-          "cpp_mapping": "gneiss::sdk::ApplicationPlatform::granit"
+          "cpp_mapping": "gneiss::sdk::application_platform::granit"
         },
         {
           "symbol": "GNEISS_APPLICATION_WINDOW_HIGH_DPI_BIT",
           "native_review": "implemented",
-          "cpp_mapping": "gneiss::sdk::ApplicationWindowFlags::high_dpi"
+          "cpp_mapping": "gneiss::sdk::application_window_flags::high_dpi"
         },
         {
           "symbol": "GNEISS_APPLICATION_WINDOW_RESIZABLE_BIT",
           "native_review": "implemented",
-          "cpp_mapping": "gneiss::sdk::ApplicationWindowFlags::resizable"
+          "cpp_mapping": "gneiss::sdk::application_window_flags::resizable"
         },
         {
           "symbol": "GNEISS_APPLICATION_WINDOW_VISIBLE_BIT",
           "native_review": "implemented",
-          "cpp_mapping": "gneiss::sdk::ApplicationWindowFlags::visible"
+          "cpp_mapping": "gneiss::sdk::application_window_flags::visible"
         },
         {
           "symbol": "GNEISS_DIAGNOSTIC_CATEGORY_APPLICATION",
           "native_review": "implemented",
-          "cpp_mapping": "gneiss::sdk::DiagnosticCategory::application"
+          "cpp_mapping": "gneiss::sdk::diagnostic_category::application"
         },
         {
           "symbol": "GNEISS_DIAGNOSTIC_CATEGORY_ASSET",
           "native_review": "implemented",
-          "cpp_mapping": "gneiss::sdk::DiagnosticCategory::asset"
+          "cpp_mapping": "gneiss::sdk::diagnostic_category::asset"
         },
         {
           "symbol": "GNEISS_DIAGNOSTIC_CATEGORY_BACKEND",
           "native_review": "implemented",
-          "cpp_mapping": "gneiss::sdk::DiagnosticCategory::backend"
+          "cpp_mapping": "gneiss::sdk::diagnostic_category::backend"
         },
         {
           "symbol": "GNEISS_DIAGNOSTIC_CATEGORY_INPUT",
           "native_review": "implemented",
-          "cpp_mapping": "gneiss::sdk::DiagnosticCategory::input"
+          "cpp_mapping": "gneiss::sdk::diagnostic_category::input"
         },
         {
           "symbol": "GNEISS_DIAGNOSTIC_ERROR",
           "native_review": "implemented",
-          "cpp_mapping": "gneiss::sdk::DiagnosticSeverity::error"
+          "cpp_mapping": "gneiss::sdk::diagnostic_severity::error"
         },
         {
           "symbol": "GNEISS_DIAGNOSTIC_INFO",
           "native_review": "implemented",
-          "cpp_mapping": "gneiss::sdk::DiagnosticSeverity::info"
+          "cpp_mapping": "gneiss::sdk::diagnostic_severity::info"
         },
         {
           "symbol": "GNEISS_DIAGNOSTIC_VERSION_1_SIZE",
@@ -195,12 +195,12 @@
         {
           "symbol": "GNEISS_DIAGNOSTIC_WARNING",
           "native_review": "implemented",
-          "cpp_mapping": "gneiss::sdk::DiagnosticSeverity::warning"
+          "cpp_mapping": "gneiss::sdk::diagnostic_severity::warning"
         },
         {
           "symbol": "GNEISS_NULL_APPLICATION",
           "native_review": "implemented",
-          "cpp_mapping": "gneiss::sdk::ApplicationRef{} / application{}"
+          "cpp_mapping": "gneiss::sdk::application_ref{} / application{}"
         }
       ]
     },
