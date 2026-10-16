@@ -148,6 +148,7 @@ public:
   void release_prefab_refresh(gneiss_scene_prefab_refresh_token token) noexcept;
   [[nodiscard]] result rename_node(scene_node_id node, std::string_view name) noexcept;
   [[nodiscard]] result reparent_node(scene_node_id node, scene_node_id parent) noexcept;
+  [[nodiscard]] result get_world_transform(scene_node_id node, transform& output) const noexcept;
   /** 设置节点局部 TRS；成功后刷新缓存并标记场景已修改。 */
   [[nodiscard]] result set_local_transform(scene_node_id node, const transform& value) noexcept;
   /** 恢复 Prefab 来源节点的单个 Transform 字段；返回操作前的有效值。 */

@@ -212,3 +212,6 @@ Runtime 的结构重载、节点统计、实体统计、场景卸载及检查快
 
 Windows Debug 构建及 7 项 Runtime/Editor 联调回归通过，包括检查、属性编辑、资产重载、IPC、
 Runtime smoke、场景切换和灯笼运行流程。
+
+Gizmo 显示与拖动的 World 查询也已归入原生编辑会话，不再传入 SDK world_ref 或独立 World
+句柄。Windows Debug 构建及会话、Gizmo 拖动/显示 3 项回归通过。

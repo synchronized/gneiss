@@ -3,8 +3,6 @@
 
 #include "transform_gizmo_drag.hpp"
 
-#include <gneiss/engine/world.hpp>
-
 #include <algorithm>
 #include <iterator>
 #include <new>
@@ -42,8 +40,7 @@ result transform_gizmo_drag::begin(editor_session& session) noexcept {
   }
 }
 
-result transform_gizmo_drag::preview(editor_session& session, gneiss_world world,
-                                     const gizmo_matrix& matrix) noexcept {
+result transform_gizmo_drag::preview(editor_session& session, const gizmo_matrix& matrix) noexcept {
   if (!matches_selection(session)) {
     return result::invalid_state;
   }
@@ -51,7 +48,7 @@ result transform_gizmo_drag::preview(editor_session& session, gneiss_world world
   auto operation = gizmo_matrix_to_transform(matrix, target);
   transform parent = GNEISS_TRANSFORM_IDENTITY;
   if (operation == result::success && parent_.is_valid()) {
-    operation = world_ref{world}.get_world_transform(parent_, parent);
+    operation = session.get_world_transform(parent_, parent);
   }
   transform local = GNEISS_TRANSFORM_IDENTITY;
   if (operation == result::success) {

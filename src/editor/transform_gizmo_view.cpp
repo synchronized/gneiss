@@ -58,7 +58,7 @@ bool draw_transform_gizmo(const transform_gizmo_context& context, const ImVec2& 
   const auto node = selected != nullptr ? selected->node : prefab->node;
 
   gneiss::transform world{};
-  auto operation = context.world.get_world_transform(node, world);
+  auto operation = context.session.get_world_transform(node, world);
   gneiss::editor::gizmo_matrix model{};
   if (operation == gneiss::result::success) {
     operation = gneiss::editor::transform_to_gizmo_matrix(world, model);
@@ -89,7 +89,7 @@ bool draw_transform_gizmo(const transform_gizmo_context& context, const ImVec2& 
     context.error = context.drag.begin(context.session);
   }
   if (manipulated && context.drag.matches_selection(context.session)) {
-    context.error = context.drag.preview(context.session, context.world.get(), model);
+    context.error = context.drag.preview(context.session, model);
   }
   if (!using_now && context.drag.is_active()) {
     context.error = context.drag.finish(context.session, context.history);

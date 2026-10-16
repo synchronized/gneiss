@@ -318,6 +318,16 @@ result editor_session::refresh_nodes() noexcept {
   }
 }
 
+result editor_session::get_world_transform(scene_node_id node, transform& output) const noexcept {
+  engine::transform value;
+  const auto operation = with_scene([&](auto&) {
+    return application_->native_world()->node_get_world_transform(node.get(), value);
+  });
+  if (operation.ok())
+    output = {value.translation, value.rotation, value.scale};
+  return operation;
+}
+
 result editor_session::set_local_transform(scene_node_id node, const transform& value) noexcept {
   if (!is_open() || !node.is_valid()) {
     return result::invalid_argument;

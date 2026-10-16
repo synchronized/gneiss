@@ -1140,7 +1140,6 @@ bool draw_transform_gizmo(editor_state& state, const ImVec2& minimum, const ImVe
           .session = state.session,
           .history = state.history,
           .drag = state.gizmo_drag,
-          .world = gneiss::world_ref{state.world},
           .camera = state.camera.current_transform(),
           .operation = state.gizmo_mode,
           .wait_release = state.gizmo_wait_release,
@@ -1181,7 +1180,8 @@ gneiss_result update_editor_camera(editor_state& state, const gneiss::engine::fr
       if (result != GNEISS_SUCCESS) {
         return result;
       }
-      return gneiss::to_native(state.camera.focus({target.translation, target.rotation, target.scale}));
+      return gneiss::to_native(
+          state.camera.focus({target.translation, target.rotation, target.scale}));
     }
   }
   return gneiss::to_native(state.camera.update(input));
@@ -1306,8 +1306,7 @@ void draw_scene_loading(editor_state& state) {
   ImGui::End();
 }
 
-gneiss_result update_editor(const gneiss::engine::frame_time* time,
-                            void* user_data) {
+gneiss_result update_editor(const gneiss::engine::frame_time* time, void* user_data) {
   try {
     if (time == nullptr || user_data == nullptr) {
       return GNEISS_ERROR_INVALID_ARGUMENT;
@@ -2892,8 +2891,7 @@ int run_editor(int argc, char** argv) {
 #endif
   const auto title = project.name + " - Gneiss Editor";
   gneiss::application_internal::application_configuration desc;
-  desc.callbacks.update = [&state](gneiss::core::rid,
-                                   const gneiss::engine::frame_time& time) {
+  desc.callbacks.update = [&state](gneiss::core::rid, const gneiss::engine::frame_time& time) {
     return gneiss::from_native(update_editor(&time, &state));
   };
   desc.callbacks.close_requested = [&state](gneiss::core::rid) {

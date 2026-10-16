@@ -36,7 +36,6 @@ int main() try {
       .session = session,
       .history = history,
       .drag = drag,
-      .world = world_ref{world_handle},
       .camera = camera,
       .operation = transform_gizmo_operation::translate,
       .wait_release = wait_release,
@@ -70,7 +69,7 @@ int main() try {
   moved.translation[0] = 2.0F;
   gizmo_matrix matrix{};
   if (transform_to_gizmo_matrix(moved, matrix).failed() || drag.begin(session).failed() ||
-      drag.preview(session, world_handle, matrix).failed() || session.select(second).failed()) {
+      drag.preview(session, matrix).failed() || session.select(second).failed()) {
     ImGui::DestroyContext();
     return 3;
   }
@@ -81,9 +80,9 @@ int main() try {
     return 4;
   }
   transform actual = GNEISS_TRANSFORM_IDENTITY;
-  if (context.world.get_world_transform(first, actual).failed() ||
+  if (session.get_world_transform(first, actual).failed() ||
       std::abs(actual.translation[0]) > 0.0001F || session.select(first).failed() ||
-      drag.begin(session).failed() || drag.preview(session, world_handle, matrix).failed()) {
+      drag.begin(session).failed() || drag.preview(session, matrix).failed()) {
     ImGui::DestroyContext();
     return 5;
   }

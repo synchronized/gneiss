@@ -87,7 +87,7 @@ int main() try {
         gneiss::editor::gizmo_matrix matrix{};
         gneiss::transform actual{};
         if (gneiss::editor::transform_to_gizmo_matrix(desired, matrix) != result::success ||
-            drag.preview(session, world, matrix) != result::success ||
+            drag.preview(session, matrix) != result::success ||
             gneiss::world_ref{world}
                     .get_world_transform(gneiss::scene_node_id{target.get()}, actual)
                     .native() != GNEISS_SUCCESS ||
@@ -98,8 +98,7 @@ int main() try {
       const auto after = session.selected_node()->local_transform;
       // 选择变化后预览必须被拒绝，但收尾仍记录原目标而非新选择。
       if (session.select(target == child ? parent : child) != result::success ||
-          drag.matches_selection(session) ||
-          drag.preview(session, world, {}) != result::invalid_state ||
+          drag.matches_selection(session) || drag.preview(session, {}) != result::invalid_state ||
           drag.finish(session, history) != result::success || history.size() != 1U ||
           drag.finish(session, history) != result::success || history.size() != 1U ||
           history.undo() != result::success || session.select(target) != result::success ||
@@ -119,7 +118,7 @@ int main() try {
   gneiss::editor::gizmo_matrix matrix{};
   if (drag.begin(session) != result::success ||
       gneiss::editor::transform_to_gizmo_matrix(desired, matrix) != result::success ||
-      drag.preview(session, world, matrix) != result::success ||
+      drag.preview(session, matrix) != result::success ||
       drag.finish(session, unavailable_history) != result::invalid_argument ||
       !near(session.selected_node()->local_transform, before) || session.is_dirty()) {
     return 8;
@@ -129,7 +128,7 @@ int main() try {
   }
   matrix[0] = std::numeric_limits<float>::quiet_NaN();
   gneiss::editor::editor_command_history history;
-  if (drag.preview(session, world, matrix) != result::invalid_argument ||
+  if (drag.preview(session, matrix) != result::invalid_argument ||
       drag.finish(session, history) != result::success || history.size() != 0U ||
       session.is_dirty()) {
     return 10;
@@ -157,10 +156,10 @@ int main() try {
   desired.translation[0] += 3.0F;
   if (drag.begin(session) != result::success ||
       gneiss::editor::transform_to_gizmo_matrix(desired, matrix) != result::success ||
-      drag.preview(session, world, matrix) != result::success ||
-      session.select({}) != result::success || drag.matches_selection(session) ||
-      drag.finish(session, history) != result::success || history.size() != 1U ||
-      history.undo() != result::success || session.select(prefab_id) != result::success ||
+      drag.preview(session, matrix) != result::success || session.select({}) != result::success ||
+      drag.matches_selection(session) || drag.finish(session, history) != result::success ||
+      history.size() != 1U || history.undo() != result::success ||
+      session.select(prefab_id) != result::success ||
       !near(session.selected_prefab_node()->local_transform, prefab_before) ||
       history.redo() != result::success ||
       near(session.selected_prefab_node()->local_transform, prefab_before)) {
@@ -182,7 +181,7 @@ int main() try {
   desired.translation[0] += 2.0F;
   if (drag.begin(session) != result::success ||
       gneiss::editor::transform_to_gizmo_matrix(desired, matrix) != result::success ||
-      drag.preview(session, world, matrix) != result::success ||
+      drag.preview(session, matrix) != result::success ||
       drag.finish(session, history) != result::success) {
     return 18;
   }

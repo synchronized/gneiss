@@ -5,8 +5,6 @@
 
 #include "transform_gizmo_drag.hpp"
 
-#include <gneiss/engine/world.hpp>
-
 struct ImVec2;
 
 namespace gneiss::editor {
@@ -18,7 +16,6 @@ struct transform_gizmo_context final {
   editor_session& session;
   editor_command_history& history;
   transform_gizmo_drag& drag;
-  world_ref world;
   transform camera = GNEISS_TRANSFORM_IDENTITY;
   transform_gizmo_operation operation = transform_gizmo_operation::translate;
   bool& wait_release;
