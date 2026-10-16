@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "runtime_scene_loader.hpp"
+#include "engine/function/application/application.hpp"
 
 namespace gneiss::runtime_internal {
 namespace {
@@ -58,8 +59,8 @@ gneiss_result runtime_scene_loader::request(ipc_scene_request source, std::uint3
     return GNEISS_ERROR_INVALID_STATE;
   }
   std::uint64_t accepted{};
-  const auto result = application_internal::request_scene_load(
-      application_, source.uri, source.session, source.revision, accepted);
+  const auto result =
+      application_.request_scene(source.uri, source.session, source.revision, accepted);
   if (result != GNEISS_SUCCESS) {
     return result;
   }
@@ -75,7 +76,7 @@ gneiss_result runtime_scene_loader::cancel(const ipc_scene_request& source) {
       source.revision != progress_.source.revision || source.uri != progress_.source.uri) {
     return GNEISS_ERROR_NOT_READY;
   }
-  const auto result = application_internal::cancel_scene_load(application_, request_);
+  const auto result = application_.cancel_scene(request_);
   if (result == GNEISS_SUCCESS) {
     progress_.can_cancel = false;
     progress_.message = "正在安全回收加载候选";
@@ -90,7 +91,7 @@ runtime_scene_loader::activate(application_internal::scene_load_completion& comp
       return stopped;
     }
   }
-  const auto result = application_internal::activate_scene_load(application_, request_, completion);
+  const auto result = application_.activate_scene(request_, completion);
   if (result != GNEISS_SUCCESS) {
     return result;
   }
@@ -116,16 +117,14 @@ gneiss_result runtime_scene_loader::advance() {
   using namespace application_internal;
   scene_load_completion completion;
   bool finished{};
-  auto result = poll_scene_load(application_, completion, finished);
+  auto result = application_.poll_scene(completion, finished);
   if (result != GNEISS_SUCCESS || !active_) {
     return result;
   }
   if (!finished) {
     scene_load_progress current;
-    bool available{};
-    result = query_scene_load_progress(application_, current, available);
-    if (result != GNEISS_SUCCESS || !available) {
-      return result;
+    if (!application_.scene_progress(current)) {
+      return GNEISS_SUCCESS;
     }
     const auto phase = convert(current.phase);
     if (progress_.phase != phase) {

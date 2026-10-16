@@ -76,3 +76,13 @@ Editor 的视口提交、冒烟统计和退出，Runtime 的资产请求、完�
 完整 Windows Clang Debug 构建通过，9 项原生/C/SDK Application、纹理加载、Runtime 资产/IPC
 及 Editor/Runtime 启动回归通过。新增原生测试覆盖空闲取消、跨线程及关闭后的资产入口。
 此项不代表 Scene/World 和最终安装矩阵已完成。
+
+## Runtime 原生场景协调
+
+Runtime 场景加载协调器改为借用 Application 引用，直接请求、取消、轮询和激活场景，
+不再通过注册表调用场景加载兼容函数。宿主先销毁协调器，再销毁 Application；模块激活前后的
+安全点回调保持原有顺序。原生场景入口补齐所属线程、关闭状态及异常到结果码的转换。
+
+完整 Windows Clang Debug 构建通过，8 项 Application、场景加载、Runtime 启动、Editor 远端场景
+加载及灯笼场景 Runtime 工作流通过。原生入口增加错误线程和关闭后场景操作拒绝测试。
+Editor 的编辑会话、场景实例操作和游戏模块 Context 仍含兼容调用，尚未整体移除宿主桥。

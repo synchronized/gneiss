@@ -230,7 +230,15 @@ gneiss_result application::attach_task_executor(tasks::task_executor& executor) 
 
 gneiss_result application::activate_scene(std::uint64_t request,
                                           application_internal::scene_load_completion& completion) {
-  return storage_->scene_session_.activate(request, completion);
+  if (!is_owner_thread() || !accepts_requests())
+    return GNEISS_ERROR_INVALID_STATE;
+  try {
+    return storage_->scene_session_.activate(request, completion);
+  } catch (const std::bad_alloc&) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
 }
 
 gneiss_result application::reload_render_assets(
@@ -953,20 +961,49 @@ application::accept_edit_assets(const render_internal::texture_load_completion& 
 
 gneiss_result application::request_scene(std::string_view uri, std::uint64_t session,
                                          std::uint64_t revision, std::uint64_t& request) {
-  return storage_->scene_session_.request_scene(uri, session, revision, request);
+  request = 0;
+  if (!is_owner_thread() || !accepts_requests())
+    return GNEISS_ERROR_INVALID_STATE;
+  try {
+    return storage_->scene_session_.request_scene(uri, session, revision, request);
+  } catch (const std::bad_alloc&) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
 }
 
 bool application::scene_progress(application_internal::scene_load_progress& progress) const {
+  progress = {};
+  if (!is_owner_thread() || !accepts_requests())
+    return false;
   return storage_->scene_session_.scene_progress(progress);
 }
 
 gneiss_result application::poll_scene(application_internal::scene_load_completion& completion,
                                       bool& ready) {
-  return storage_->scene_session_.poll_scene(completion, ready);
+  ready = false;
+  if (!is_owner_thread() || !accepts_requests())
+    return GNEISS_ERROR_INVALID_STATE;
+  try {
+    return storage_->scene_session_.poll_scene(completion, ready);
+  } catch (const std::bad_alloc&) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
 }
 
 gneiss_result application::cancel_scene(std::uint64_t request) {
-  return storage_->scene_session_.cancel_scene(request);
+  if (!is_owner_thread() || !accepts_requests())
+    return GNEISS_ERROR_INVALID_STATE;
+  try {
+    return storage_->scene_session_.cancel_scene(request);
+  } catch (const std::bad_alloc&) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
 }
 
 bool application::scene_loading() const noexcept { return storage_->scene_session_.loading(); }

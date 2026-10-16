@@ -668,7 +668,7 @@ void write_application_log(const gneiss::log_internal::event_view& source,
   gneiss_game_context game_context = GNEISS_NULL_GAME_CONTEXT;
   gneiss::game_module_session game_module;
   gneiss::runtime_internal::game_update_scheduler game_scheduler;
-  gneiss::runtime_internal::runtime_scene_loader scene_loader(bridge.get());
+  gneiss::runtime_internal::runtime_scene_loader scene_loader(*application);
   context.scene_loader = &scene_loader;
   context.smoke = options.smoke;
   scene_loader.before_activate = [&]() -> gneiss_result {

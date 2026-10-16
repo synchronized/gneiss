@@ -86,6 +86,16 @@ void test_asset_request_boundaries() {
   const auto rejected = [&] {
     std::uint64_t request = 17;
     bool ready = true;
+    application_internal::scene_load_completion scene_completion;
+    scene_completion.scene = 29;
+    application_internal::scene_load_progress scene_progress;
+    check(app->request_scene("project://missing.scene", 1, 1, request) ==
+              GNEISS_ERROR_INVALID_STATE &&
+          request == 0);
+    check(app->poll_scene(scene_completion, ready) == GNEISS_ERROR_INVALID_STATE && !ready);
+    check(app->cancel_scene(1) == GNEISS_ERROR_INVALID_STATE);
+    check(app->activate_scene(1, scene_completion) == GNEISS_ERROR_INVALID_STATE);
+    check(!app->scene_progress(scene_progress) && scene_completion.scene == 29);
     render_internal::texture_load_completion completion;
     completion.request = 23;
     return app->request_assets({}, 1, 1, request, true) == GNEISS_ERROR_INVALID_STATE &&
