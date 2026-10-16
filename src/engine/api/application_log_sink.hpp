@@ -14,7 +14,7 @@ inline log_internal::event_sink make_application_log_sink(gneiss_application_log
     const auto& message = event.message;
     const gneiss_log_event borrowed{
         .struct_size = sizeof(gneiss_log_event),
-        .severity = message.severity,
+        .severity = static_cast<std::uint32_t>(message.severity),
         .sequence = event.sequence,
         .timestamp_ns = event.timestamp_ns,
         .thread_id = event.thread_id,
@@ -24,7 +24,7 @@ inline log_internal::event_sink make_application_log_sink(gneiss_application_log
         .category_length = message.category.size(),
         .message = message.message.data(),
         .message_length = message.message.size(),
-        .result = message.result,
+        .result = to_native(message.result),
         .flags = 0U,
         .reserved = {},
     };

@@ -14,18 +14,24 @@
 #include <string_view>
 
 namespace gneiss::abi_internal {
+static_assert(static_cast<std::uint32_t>(log_internal::level::trace) == GNEISS_LOG_TRACE);
+static_assert(static_cast<std::uint32_t>(log_internal::level::debug) == GNEISS_LOG_DEBUG);
+static_assert(static_cast<std::uint32_t>(log_internal::level::info) == GNEISS_LOG_INFO);
+static_assert(static_cast<std::uint32_t>(log_internal::level::warning) == GNEISS_LOG_WARNING);
+static_assert(static_cast<std::uint32_t>(log_internal::level::error) == GNEISS_LOG_ERROR);
+static_assert(static_cast<std::uint32_t>(log_internal::level::fatal) == GNEISS_LOG_FATAL);
 /** 仅用于通过布局校验后的描述；文本借用到同步提交返回。 */
 [[nodiscard]] inline log_internal::message_view
 log_message_view(const gneiss_log_message& message) noexcept {
   return {
-      .severity = message.severity,
+      .severity = static_cast<log_internal::level>(message.severity),
       .category =
           std::string_view(message.category, static_cast<std::size_t>(message.category_length)),
       .message =
           message.message_length == 0U
               ? std::string_view{}
               : std::string_view(message.message, static_cast<std::size_t>(message.message_length)),
-      .result = message.result,
+      .result = from_native(message.result),
   };
 }
 

@@ -197,11 +197,11 @@ void granit_render_service::log_texture(gneiss_texture rid, const char* stage,
   constexpr std::string_view category = "render.texture";
   static_cast<void>(log_->submit({
       .context = log_application_.load(std::memory_order_relaxed),
-      .severity = result.ok() ? GNEISS_LOG_INFO : GNEISS_LOG_ERROR,
+      .severity = result.ok() ? log_internal::level::info : log_internal::level::error,
       .source = "granit.render.texture",
       .category = category,
       .message = {buffer.data(), std::min(static_cast<std::size_t>(length), buffer.size() - 1U)},
-      .result = map_result(result),
+      .result = from_native(map_result(result)),
   }));
 }
 

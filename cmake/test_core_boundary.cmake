@@ -341,3 +341,23 @@ execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
 if(NOT status EQUAL 0)
   message(FATAL_ERROR "边界检查错误拒绝协调层依赖上传服务接口")
 endif()
+
+# 日志模块只允许原生接口及基础值类型。
+file(MAKE_DIRECTORY "${fixture}/src/engine/core/log")
+foreach(content IN ITEMS "#include <gneiss/engine/log.h>"
+    "#include <gneiss/engine/log.hpp>" "auto level = GNEISS_LOG_INFO;"
+    "gneiss_log_message value;" "#include \"engine/api/log_validation.hpp\"")
+  file(WRITE "${fixture}/src/engine/core/log/probe.cpp" "${content}\n")
+  execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
+    -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
+    RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
+  if(status EQUAL 0)
+    message(FATAL_ERROR "日志边界检查未拒绝违规输入：${content}")
+  endif()
+endforeach()
+file(WRITE "${fixture}/src/engine/core/log/probe.cpp" "#include <gneiss/engine/core/result.hpp>\n")
+execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
+  -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake" RESULT_VARIABLE status)
+if(NOT status EQUAL 0)
+  message(FATAL_ERROR "日志边界检查错误拒绝基础值类型")
+endif()

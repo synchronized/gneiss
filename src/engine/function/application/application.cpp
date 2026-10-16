@@ -509,9 +509,9 @@ void application::report(gneiss_application handle, std::uint32_t severity, std:
     storage_->config_.callbacks.diagnostic(handle, &diagnostic,
                                            storage_->config_.callbacks.user_data);
   }
-  const auto log_severity = severity == GNEISS_DIAGNOSTIC_INFO      ? GNEISS_LOG_INFO
-                            : severity == GNEISS_DIAGNOSTIC_WARNING ? GNEISS_LOG_WARNING
-                                                                    : GNEISS_LOG_ERROR;
+  const auto log_severity = severity == GNEISS_DIAGNOSTIC_INFO      ? log_internal::level::info
+                            : severity == GNEISS_DIAGNOSTIC_WARNING ? log_internal::level::warning
+                                                                    : log_internal::level::error;
   const std::string_view log_category = category == GNEISS_DIAGNOSTIC_CATEGORY_ASSET   ? "asset"
                                         : category == GNEISS_DIAGNOSTIC_CATEGORY_INPUT ? "input"
                                         : category == GNEISS_DIAGNOSTIC_CATEGORY_BACKEND
@@ -523,13 +523,13 @@ void application::report(gneiss_application handle, std::uint32_t severity, std:
       .source = module,
       .category = log_category,
       .message = message,
-      .result = result,
+      .result = from_native(result),
   }));
 }
 
 gneiss_result application::submit_log(const log_internal::message_view& message) noexcept {
   return storage_->log_dispatcher_ == nullptr ? GNEISS_SUCCESS
-                                              : storage_->log_dispatcher_->submit(message);
+                                              : to_native(storage_->log_dispatcher_->submit(message));
 }
 
 gneiss_result application::set_view_camera(const render_internal::view_camera* camera) noexcept {

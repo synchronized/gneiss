@@ -511,7 +511,7 @@ void write_application_log(const gneiss::log_internal::event_view& source,
   const auto& message = source.message;
   const gneiss_log_event event{
       .struct_size = sizeof(gneiss_log_event),
-      .severity = message.severity,
+      .severity = static_cast<std::uint32_t>(message.severity),
       .sequence = source.sequence,
       .timestamp_ns = source.timestamp_ns,
       .thread_id = source.thread_id,
@@ -521,7 +521,7 @@ void write_application_log(const gneiss::log_internal::event_view& source,
       .category_length = message.category.size(),
       .message = message.message.data(),
       .message_length = message.message.size(),
-      .result = message.result,
+      .result = to_native(message.result),
       .flags = 0U,
       .reserved = {},
   };

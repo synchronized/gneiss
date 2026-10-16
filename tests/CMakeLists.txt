@@ -178,6 +178,7 @@ add_test(NAME gneiss.diagnostic_log COMMAND gneiss_diagnostic_log_test)
 add_executable(
   gneiss_log_dispatcher_test
   log/log_dispatcher_test.cpp
+  "${PROJECT_SOURCE_DIR}/src/engine/core/log/log.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/core/log/log_dispatcher.cpp"
 )
 target_include_directories(gneiss_log_dispatcher_test PRIVATE "${PROJECT_SOURCE_DIR}/src")

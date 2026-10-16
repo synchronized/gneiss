@@ -4,7 +4,7 @@
 #ifndef GNEISS_SRC_LOG_LOG_DISPATCHER_HPP_
 #define GNEISS_SRC_LOG_LOG_DISPATCHER_HPP_
 
-#include <gneiss/engine/log.h>
+#include <gneiss/engine/core/result.hpp>
 
 #include <condition_variable>
 #include <cstddef>
@@ -18,14 +18,17 @@
 
 namespace gneiss::log_internal {
 
+/** 原生日志级别；ABI 数值映射由接口层校验。 */
+enum class level : std::uint32_t { trace = 1, debug, info, warning, error, fatal };
+
 /** 提交期间借用文本；context 由调用方解释，零表示无关联上下文。 */
 struct message_view final {
   std::uint64_t context{};
-  std::uint32_t severity{GNEISS_LOG_INFO};
+  level severity{level::info};
   std::string_view source{};
   std::string_view category{};
   std::string_view message{};
-  gneiss_result result{GNEISS_SUCCESS};
+  gneiss::result result{gneiss::result::success};
 };
 
 /** 所有文本只在回调期间有效，接收方不得保留视图。 */
@@ -46,20 +49,20 @@ public:
   log_dispatcher(const log_dispatcher&) = delete;
   log_dispatcher& operator=(const log_dispatcher&) = delete;
 
-  [[nodiscard]] gneiss_result submit(const message_view& message) noexcept;
+  [[nodiscard]] gneiss::result submit(const message_view& message) noexcept;
   void flush() noexcept;
 
 private:
   struct owned_event final {
     std::uint64_t context{};
-    std::uint32_t severity = GNEISS_LOG_INFO;
+    level severity = level::info;
     std::uint64_t sequence = 0U;
     std::uint64_t timestamp_ns = 0U;
     std::uint64_t thread_id = 0U;
     std::string source;
     std::string category;
     std::string message;
-    gneiss_result result = GNEISS_SUCCESS;
+    gneiss::result result = gneiss::result::success;
   };
 
   void run() noexcept;

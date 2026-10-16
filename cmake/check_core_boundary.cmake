@@ -14,6 +14,12 @@ if(NOT sources)
 endif()
 foreach(source IN LISTS sources)
   file(READ "${source}" content)
+  if(source MATCHES "/src/engine/core/log/" AND
+      (content MATCHES "gneiss_log_|GNEISS_LOG_" OR
+       content MATCHES "gneiss/(engine/)?log[.]h" OR
+       content MATCHES "engine/(api|function|platform)/"))
+    message(FATAL_ERROR "原生日志模块不得依赖日志 ABI 或上层模块：${source}")
+  endif()
   if(source MATCHES "/src/engine/function/application/scene_session\\.(cpp|hpp)$" AND
       content MATCHES "#[ \t]*include[ \t]*[<\"](engine/platform/|engine/function/render/backend/|granit/)")
     message(FATAL_ERROR "场景生命周期协调不得直接依赖平台或渲染后端：${source}")
