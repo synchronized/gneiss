@@ -41,6 +41,16 @@ int main() try {
   // 不经 C API 和句柄注册表，真实对象仍使用同一创建、主循环及析构实现。
   std::shared_ptr<gneiss::engine::application> app;
   check(gneiss::engine::application::create(config, app) == GNEISS_SUCCESS && app != nullptr);
+  auto invalid = config;
+  invalid.environment_intensity = -1.0F;
+  auto retained = app;
+  check(gneiss::engine::application::create(invalid, app) == GNEISS_ERROR_INVALID_ARGUMENT);
+  check(app == retained && state.initializations == 1U);
+  invalid = config;
+  invalid.environment_asset = "invalid-uri";
+  check(gneiss::engine::application::create(invalid, app) == GNEISS_ERROR_INVALID_ARGUMENT);
+  check(app == retained && state.initializations == 1U);
+  retained.reset();
   check(app->run(GNEISS_NULL_APPLICATION, 3U) == GNEISS_SUCCESS && state.frames == 3U);
   gneiss_result other_thread{};
   std::thread worker([&] { other_thread = app->run(GNEISS_NULL_APPLICATION, 1U); });

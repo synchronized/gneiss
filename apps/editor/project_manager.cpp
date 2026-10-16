@@ -8,7 +8,9 @@
 #include "native_dialog.hpp"
 #include "project_workspace.hpp"
 
-#include <gneiss/engine/application.hpp>
+#include "engine/function/application/application.hpp"
+#include "engine/function/application/application_registry.hpp"
+#include <gneiss/engine/core/result.hpp>
 
 #include <imgui.h>
 
@@ -197,18 +199,23 @@ result run_project_manager(bool smoke, editor_project& output) noexcept {
     if (recent_result != result::success && recent_result != result::invalid_argument) {
       state.operation = recent_result;
     }
-    gneiss::sdk::application application;
+    std::shared_ptr<gneiss::engine::application> application;
+    gneiss::application_internal::application_bridge bridge;
     constexpr std::string_view title = "Gneiss Project Manager";
-    gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
-    desc.user_data = &state;
-    desc.update = update_project_manager;
-    desc.platform = GNEISS_APPLICATION_PLATFORM_GRANIT;
-    desc.window_title = title.data();
-    desc.window_title_length = static_cast<std::uint32_t>(title.size());
-    desc.window_width = 720U;
-    desc.window_height = 420U;
-    desc.window_flags = GNEISS_APPLICATION_WINDOW_VISIBLE_BIT;
-    auto operation = gneiss::sdk::application::create_native(desc, application);
+    gneiss::application_internal::application_configuration desc;
+    desc.callbacks.user_data = &state;
+    desc.callbacks.update = update_project_manager;
+    desc.use_granit_window = true;
+    desc.window.title = title;
+
+    desc.window.width = 720U;
+    desc.window.height = 420U;
+    desc.window.resizable = false;
+    desc.window.high_dpi = false;
+    auto operation = gneiss::from_native(gneiss::engine::application::create(desc, application));
+    if (operation == gneiss::result::success) {
+      operation = gneiss::from_native(bridge.bind(application));
+    }
     if (operation != result::success) {
       const auto message = operation.message();
       std::fprintf(
@@ -217,7 +224,7 @@ result run_project_manager(bool smoke, editor_project& output) noexcept {
           to_native(operation), static_cast<int>(message.size()), message.data());
       return operation;
     }
-    operation = from_native(state.ui.initialize(application.get()));
+    operation = from_native(state.ui.initialize(bridge.get()));
     if (operation != result::success) {
       const auto message = operation.message();
       std::fprintf(stderr,
@@ -225,7 +232,7 @@ result run_project_manager(bool smoke, editor_project& output) noexcept {
                    to_native(operation), static_cast<int>(message.size()), message.data());
     }
     if (operation == result::success) {
-      operation = application.run(smoke ? 3U : 0U);
+      operation = gneiss::from_native(application->run(bridge.get(), smoke ? 3U : 0U));
       if (operation != result::success) {
         const auto message = operation.message();
         std::fprintf(stderr,
@@ -233,7 +240,7 @@ result run_project_manager(bool smoke, editor_project& output) noexcept {
                      to_native(operation), static_cast<int>(message.size()), message.data());
       }
     }
-    state.ui.shutdown(application.get());
+    state.ui.shutdown(bridge.get());
     application.reset();
     if (operation != result::success) {
       return operation;

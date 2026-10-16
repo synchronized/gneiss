@@ -45,7 +45,10 @@
 #include "author_asset_service.hpp"
 #endif
 
+#include "engine/function/application/application.hpp"
+#include "engine/function/application/application_registry.hpp"
 #include <gneiss/engine/application.hpp>
+#include <gneiss/engine/core/result.hpp>
 
 #include <imgui.h>
 
@@ -2877,7 +2880,8 @@ int run_editor(int argc, char** argv) {
     return 64;
   }
   editor_state state(options.cooperative_tasks);
-  gneiss::sdk::application application;
+  std::shared_ptr<gneiss::engine::application> application;
+  gneiss::application_internal::application_bridge bridge;
   state.smoke = options.smoke;
   state.smoke_frame_limit = options.smoke_frames;
   state.asset_root = project.asset_root;
@@ -2904,38 +2908,36 @@ int run_editor(int argc, char** argv) {
   }
 #endif
   const auto title = project.name + " - Gneiss Editor";
-  gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
-  desc.user_data = &state;
-  desc.update = update_editor;
-  desc.close_requested = handle_close_requested;
-  desc.platform = GNEISS_APPLICATION_PLATFORM_GRANIT;
-  desc.window_title = title.data();
-  desc.window_title_length = static_cast<std::uint32_t>(title.size());
-  desc.window_width = 1280;
-  desc.window_height = 720;
-  desc.window_flags = GNEISS_APPLICATION_WINDOW_VISIBLE_BIT |
-                      GNEISS_APPLICATION_WINDOW_RESIZABLE_BIT |
-                      GNEISS_APPLICATION_WINDOW_HIGH_DPI_BIT;
-  desc.asset_root = asset_root_text.c_str();
-  desc.asset_root_length = static_cast<std::uint32_t>(asset_root_text.size());
-  desc.environment_asset =
-      project.environment.asset.empty() ? nullptr : project.environment.asset.data();
-  desc.environment_asset_length = static_cast<std::uint32_t>(project.environment.asset.size());
+  gneiss::application_internal::application_configuration desc;
+  desc.callbacks.user_data = &state;
+  desc.callbacks.update = update_editor;
+  desc.callbacks.close_requested = handle_close_requested;
+  desc.use_granit_window = true;
+  desc.window.title = title;
+
+  desc.window.width = 1280;
+  desc.window.height = 720;
+  desc.asset_root = asset_root_text;
+
+  desc.environment_asset = project.environment.asset;
+
   desc.environment_intensity = project.environment.intensity;
   desc.environment_rotation_radians =
       project.environment.rotation_degrees * 0.01745329251994329577F;
 
-  auto operation = gneiss::sdk::application::create_native(desc, application);
+  auto operation = gneiss::from_native(gneiss::engine::application::create(desc, application));
+  if (operation == gneiss::result::success) {
+    operation = gneiss::from_native(bridge.bind(application));
+  }
   if (operation != gneiss::result::success) {
     report_startup_failure("Editor Application 创建", operation, path_utf8(project.project_root));
     return 1;
   }
-  operation = gneiss::from_native(
-      gneiss::application_internal::attach_task_executor(application.get(), state.task_scheduler));
+  operation = gneiss::from_native(application->attach_task_executor(state.task_scheduler));
   if (operation != gneiss::result::success) {
     return 2;
   }
-  operation = gneiss::from_native(state.ui.initialize(application.get()));
+  operation = gneiss::from_native(state.ui.initialize(bridge.get()));
   if (operation != gneiss::result::success) {
     report_startup_failure("Editor UI 初始化", operation);
     return 2;
@@ -2953,12 +2955,12 @@ int run_editor(int argc, char** argv) {
   }
   operation = state.inspector.initialize();
   if (operation == gneiss::result::success) {
-    operation = application.get_world(state.world);
+    state.world = application->world();
   }
   if (operation != gneiss::result::success) {
     report_startup_failure("Editor World/Inspector 初始化", operation);
   } else {
-    operation = state.session.create_empty(application.get(), state.world);
+    operation = state.session.create_empty(bridge.get(), state.world);
     if (operation != gneiss::result::success) {
       report_startup_failure("启动场景打开", operation, project.startup_scene);
     }
@@ -2970,16 +2972,16 @@ int run_editor(int argc, char** argv) {
     }
   }
   if (operation != gneiss::result::success) {
-    state.ui.shutdown(application.get());
+    state.ui.shutdown(bridge.get());
     state.session.close();
     return 3;
   }
   state.history.clear();
-  (void)state.scene_loader.request(application.get(), project.startup_scene);
-  const auto run_result = application.run();
+  (void)state.scene_loader.request(bridge.get(), project.startup_scene);
+  const auto run_result = gneiss::from_native(application->run(bridge.get(), 0U));
   state.prefab_edit.cancel();
   state.history.cancel_pending();
-  state.asset_edit.cancel(application.get());
+  state.asset_edit.cancel(bridge.get());
   while (state.asset_edit.active() || state.prefab_edit.active() || state.history.is_pending()) {
     if (state.task_scheduler.mode() == gneiss::tasks::execution_mode::cooperative) {
       (void)state.task_scheduler.run_ready();
@@ -2988,7 +2990,7 @@ int run_editor(int argc, char** argv) {
     if (state.history.is_pending()) {
       (void)state.history.advance_pending();
     }
-    state.asset_edit.advance(application.get(), state.session, state.history);
+    state.asset_edit.advance(bridge.get(), state.session, state.history);
     std::this_thread::yield();
   }
   if (!options.smoke) {
@@ -3000,7 +3002,7 @@ int run_editor(int argc, char** argv) {
                    message.data());
     }
   }
-  state.ui.shutdown(application.get());
+  state.ui.shutdown(bridge.get());
 #if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
   if (state.asset_watcher.is_running()) {
     (void)state.asset_watcher.stop();

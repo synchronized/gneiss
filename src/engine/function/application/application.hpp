@@ -52,7 +52,7 @@ namespace gneiss::engine {
  * 私有装配存储位于实现文件；此内部模块接口随源码构建，不属于安装 SDK。 */
 class GNEISS_API application final {
 public:
-  /** 从已校验配置创建已初始化的真实业务对象；失败不改变 output，不创建对外句柄。 */
+  /** 校验原生配置并创建已初始化的真实业务对象；失败不改变 output，不创建对外句柄。 */
   [[nodiscard]] static gneiss_result
   create(const application_internal::application_configuration& config,
          std::shared_ptr<application>& output) noexcept;

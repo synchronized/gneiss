@@ -8,7 +8,9 @@
 #endif
 #include "engine/function/application/application_log_sink.hpp"
 
+#include "engine/asset/asset_uri.hpp"
 #include "engine/asset/native_file_system.hpp"
+#include <cmath>
 #ifdef GNEISS_ASSET_LIBUV
 #include "engine/platform/io/uv/uv_async_file.hpp"
 #include "engine/platform/io/uv/uv_loop_executor.hpp"
@@ -124,6 +126,16 @@ private:
 
 gneiss_result application::create(const application_internal::application_configuration& config,
                                   std::shared_ptr<application>& output) noexcept {
+  if ((config.use_granit_window &&
+       (config.window.width == 0U || config.window.height == 0U ||
+        config.callbacks.initialize != nullptr || config.callbacks.poll_events != nullptr ||
+        config.callbacks.shutdown != nullptr)) ||
+      !std::isfinite(config.environment_intensity) || config.environment_intensity < 0.0F ||
+      !std::isfinite(config.environment_rotation_radians) ||
+      (!config.environment_asset.empty() &&
+       asset_internal::validate_uri(config.environment_asset) != GNEISS_SUCCESS)) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
   try {
     auto instance = std::shared_ptr<application>(new application(config));
     const auto result = instance->initialize();
