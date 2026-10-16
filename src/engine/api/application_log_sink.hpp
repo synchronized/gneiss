@@ -6,7 +6,7 @@
 #include "engine/core/log/log_dispatcher.hpp"
 #include <gneiss/engine/application.h>
 
-namespace gneiss::application_internal {
+namespace gneiss::api_internal {
 /** callback 须非空；复制回调配置，user_data 须由调用方保持至投递器关闭完成。 */
 inline log_internal::event_sink make_application_log_sink(gneiss_application_log_fn callback,
                                                           void* user_data) {
@@ -32,4 +32,4 @@ inline log_internal::event_sink make_application_log_sink(gneiss_application_log
     callback(message.context, &borrowed, user_data);
   };
 }
-} // namespace gneiss::application_internal
+} // namespace gneiss::api_internal

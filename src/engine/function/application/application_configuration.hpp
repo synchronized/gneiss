@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "engine/core/log/log_dispatcher.hpp"
 #include "engine/platform/window_configuration.hpp"
 
 #include <gneiss/engine/application.h>
@@ -20,7 +21,7 @@ struct application_callbacks final {
   gneiss_application_shutdown_fn shutdown = nullptr;
   gneiss_application_diagnostic_fn diagnostic = nullptr;
   gneiss_application_close_requested_fn close_requested = nullptr;
-  gneiss_application_log_fn log = nullptr;
+  log_internal::event_sink log;
 };
 
 /** ABI 入口完成版本补齐和校验后的配置；字符串仅在 initialize 期间使用。 */

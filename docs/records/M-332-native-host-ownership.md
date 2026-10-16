@@ -17,3 +17,13 @@ Editor 调试绘制仍使用 SDK 借用操作，但不参与 Application 的创�
 cpp_application、runtime.smoke、runtime.startup-diagnostic、editor.smoke、
 editor.project-manager-smoke。原生测试额外覆盖无效环境参数失败不替换输出。
 未执行 Linux、静态安装矩阵或完整 Sponza，不将启动测试等同大型场景验收。
+
+## 原生日志回调边界
+
+Application 配置现在直接持有已有的 `log_internal::event_sink`，投递器消费原生事件。
+C 日志布局转换移至 `engine/api/application_log_sink.hpp`；ABI 配置适配分配失败转换为结果码。
+Runtime 使用捕获上下文的原生订阅，现有日志/IPC 消费接口的 C 值结构转换暂留在 Runtime 边界。
+未新增日志队列、线程或第二套运行时状态。
+
+Windows Clang Debug 相关目标构建通过，15 项日志、Application、IPC 和启动回归通过。
+原生测试覆盖投递内容、序号、回调异常隔离及关闭前排空。其他生命周期回调尚待迁移。

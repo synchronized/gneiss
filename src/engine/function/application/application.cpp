@@ -6,7 +6,6 @@
 #ifdef GNEISS_NATIVE_LOOP_WAIT
 #include "engine/core/loop_progress.hpp"
 #endif
-#include "engine/function/application/application_log_sink.hpp"
 
 #include "engine/asset/asset_uri.hpp"
 #include "engine/asset/native_file_system.hpp"
@@ -263,8 +262,7 @@ gneiss_result application::initialize() noexcept {
   if (storage_->config_.callbacks.log != nullptr) {
     try {
       storage_->log_dispatcher_ = std::make_unique<log_internal::log_dispatcher>(
-          application_internal::make_application_log_sink(storage_->config_.callbacks.log,
-                                                          storage_->config_.callbacks.user_data));
+          storage_->config_.callbacks.log);
     } catch (const std::bad_alloc&) {
       return GNEISS_ERROR_OUT_OF_MEMORY;
     } catch (...) {

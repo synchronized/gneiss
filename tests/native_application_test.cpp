@@ -4,6 +4,7 @@
 #include "engine/function/application/application.hpp"
 #include "engine/function/application/application_registry.hpp"
 
+#include <atomic>
 #include <cstdio>
 #include <stdexcept>
 #include <thread>
@@ -38,9 +39,24 @@ int main() try {
     ++static_cast<Context*>(data)->frames;
     return GNEISS_SUCCESS;
   };
+  std::atomic<unsigned> delivered{};
+  std::atomic<bool> valid_log{true};
+  config.callbacks.log = [&](const gneiss::log_internal::event_view& event) {
+    if (event.message.category == "native-test") {
+      if (event.message.message != "原生日志" || event.sequence == 0U) {
+        valid_log.store(false);
+      }
+      ++delivered;
+      // 投递器必须隔离用户回调异常，随后仍能投递和正常关闭。
+      throw std::runtime_error("日志接收方失败");
+    }
+  };
   // 不经 C API 和句柄注册表，真实对象仍使用同一创建、主循环及析构实现。
   std::shared_ptr<gneiss::engine::application> app;
   check(gneiss::engine::application::create(config, app) == GNEISS_SUCCESS && app != nullptr);
+  for (unsigned index = 0; index < 2U; ++index) {
+    check(app->submit_log({.category = "native-test", .message = "原生日志"}) == GNEISS_SUCCESS);
+  }
   auto invalid = config;
   invalid.environment_intensity = -1.0F;
   auto retained = app;
@@ -88,6 +104,7 @@ int main() try {
   check(app->run(GNEISS_NULL_APPLICATION, 1U) == GNEISS_ERROR_INVALID_STATE);
   app.reset();
   check(state.shutdowns == 2U);
+  check(delivered.load() == 2U && valid_log.load());
   check(moved.reset() == GNEISS_SUCCESS);
   // 桥接不延长宿主寿命；宿主先析构，晚到的兼容访问仍必须失效。
   state.fail = false;

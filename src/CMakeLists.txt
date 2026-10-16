@@ -44,7 +44,7 @@ target_sources(
     engine/function/application/prefab_placement.cpp
     engine/function/application/application_asset_reload_internal.hpp
     engine/function/application/application_log_internal.hpp
-    engine/function/application/application_log_sink.hpp
+    engine/api/application_log_sink.hpp
     engine/function/application/scene_load_service.cpp
     engine/function/application/scene_load_service.hpp
     engine/function/application/application_scene_load_internal.hpp
