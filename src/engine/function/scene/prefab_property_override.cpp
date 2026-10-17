@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/core/reflection/type_registry.hpp"
-
 #include "engine/function/scene/prefab_property_override.hpp"
 
 #include <algorithm>
@@ -14,10 +12,6 @@
 namespace {
 
 using namespace gneiss::scene_internal;
-
-[[nodiscard]] bool is_zero_type_id(gneiss_type_id value) noexcept {
-  return std::ranges::all_of(value.bytes, [](std::uint8_t byte) { return byte == 0U; });
-}
 
 [[nodiscard]] bool is_canonical_uuid_impl(std::string_view value) noexcept {
   if (value.size() != 36U) {
@@ -82,6 +76,9 @@ using namespace gneiss::scene_internal;
 }
 
 [[nodiscard]] bool valid_value(const prefab_property_value& value) noexcept {
+  if (value.payload.valueless_by_exception()) {
+    return false;
+  }
   return std::visit(
       [](const auto& payload) noexcept {
         using value_type = std::decay_t<decltype(payload)>;
@@ -150,7 +147,7 @@ bool prefab_property_override_key_less(const prefab_property_override_key& left,
         std::begin(left.type_id.bytes), std::end(left.type_id.bytes),
         std::begin(right.type_id.bytes), std::end(right.type_id.bytes));
   }
-  return left.field_id < right.field_id;
+  return left.field_id.get() < right.field_id.get();
 }
 
 bool prefab_property_override_key::operator==(
@@ -159,50 +156,26 @@ bool prefab_property_override_key::operator==(
          std::ranges::equal(type_id.bytes, other.type_id.bytes);
 }
 
-gneiss_property_kind prefab_property_value_kind(const prefab_property_value& value) noexcept {
-  return std::visit(
-      [](const auto& payload) noexcept -> gneiss_property_kind {
-        using value_type = std::decay_t<decltype(payload)>;
-        if constexpr (std::is_same_v<value_type, bool>) {
-          return GNEISS_PROPERTY_KIND_BOOL;
-        } else if constexpr (std::is_same_v<value_type, std::int64_t>) {
-          return GNEISS_PROPERTY_KIND_INT64;
-        } else if constexpr (std::is_same_v<value_type, std::uint64_t>) {
-          return GNEISS_PROPERTY_KIND_UINT64;
-        } else if constexpr (std::is_same_v<value_type, float>) {
-          return GNEISS_PROPERTY_KIND_FLOAT32;
-        } else if constexpr (std::is_same_v<value_type, double>) {
-          return GNEISS_PROPERTY_KIND_FLOAT64;
-        } else if constexpr (std::is_same_v<value_type, std::string>) {
-          return GNEISS_PROPERTY_KIND_STRING;
-        } else if constexpr (std::is_same_v<value_type, std::array<std::uint8_t, 16>>) {
-          return GNEISS_PROPERTY_KIND_TYPE_ID;
-        } else if constexpr (std::is_same_v<value_type, std::array<float, 3>>) {
-          return GNEISS_PROPERTY_KIND_VEC3;
-        } else if constexpr (std::is_same_v<value_type, std::array<float, 4>>) {
-          return GNEISS_PROPERTY_KIND_QUATERNION;
-        } else {
-          return GNEISS_PROPERTY_KIND_INVALID;
-        }
-      },
-      value.payload);
+property_kind prefab_property_value_kind(const prefab_property_value& value) noexcept {
+  return value.payload.valueless_by_exception() ? property_kind::invalid
+                                                : static_cast<property_kind>(value.payload.index());
 }
 
-gneiss_result validate_prefab_property_override(gneiss_type_registry registry,
+gneiss_result validate_prefab_property_override(const reflection_internal::registry_ref& registry,
                                                 const prefab_property_override& value) noexcept
     try {
-  if (!is_valid_prefab_author_address(value.key.node) || is_zero_type_id(value.key.type_id) ||
-      value.key.field_id == GNEISS_NULL_FIELD_ID || !valid_value(value.value)) {
+  if (!is_valid_prefab_author_address(value.key.node) || !value.key.type_id.is_valid() ||
+      !value.key.field_id.is_valid() || !valid_value(value.value)) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
-  gneiss_field_info field = GNEISS_FIELD_INFO_INIT;
-  const auto found = gneiss::reflection_internal::find_field(
-      gneiss::reflection_internal::resolve(registry), value.key.type_id, value.key.field_id, field);
-  if (found != GNEISS_SUCCESS) {
-    return found;
+  field_info field;
+  const auto found =
+      reflection_internal::describe_field(registry, value.key.type_id, value.key.field_id, field);
+  if (found.failed()) {
+    return static_cast<gneiss_result>(found);
   }
-  if (field.property_kind != prefab_property_value_kind(value.value) ||
-      (field.property_capabilities & GNEISS_PROPERTY_CAPABILITY_WRITABLE) == 0U) {
+  if (field.kind != prefab_property_value_kind(value.value) ||
+      !has_flags(field.capabilities, property_capabilities::writable)) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
   return GNEISS_SUCCESS;
@@ -210,7 +183,7 @@ gneiss_result validate_prefab_property_override(gneiss_type_registry registry,
   return GNEISS_ERROR_INTERNAL;
 }
 
-gneiss_result set_prefab_property_override(gneiss_type_registry registry,
+gneiss_result set_prefab_property_override(const reflection_internal::registry_ref& registry,
                                            std::vector<prefab_property_override>& overrides,
                                            prefab_property_override candidate,
                                            prefab_property_value source_value) noexcept {

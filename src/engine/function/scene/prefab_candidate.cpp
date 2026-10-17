@@ -83,7 +83,7 @@ gneiss_result prefab_candidate::preview(std::size_t index,
         !std::ranges::equal(value.key.type_id.bytes, transform_type.bytes)) {
       continue;
     }
-    switch (value.key.field_id) {
+    switch (value.key.field_id.get()) {
     case GNEISS_TRANSFORM_FIELD_TRANSLATION:
       output.flags |= scene_prefab_flags::translation_overridden;
       break;

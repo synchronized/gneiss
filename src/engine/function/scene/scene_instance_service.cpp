@@ -1,13 +1,15 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "engine/function/scene/scene_instance_service.hpp"
+
 #include "engine/core/identifier_conversion.hpp"
 #include "engine/core/reflection/type_registry.hpp"
+#include <gneiss/engine/detail/reflection_values.hpp>
 
 #include "engine/function/world/world_service.hpp"
 
 #include "engine/function/scene/scene_instance.hpp"
-#include "engine/function/scene/scene_instance_service.hpp"
 
 #include "engine/asset/virtual_file_system.hpp"
 #include "engine/function/scene/scene_description.hpp"
@@ -683,7 +685,7 @@ gneiss_result scene_instance::get_prefab_node_info(std::uint64_t index,
             !std::ranges::equal(override_value.key.type_id.bytes, transform_type.bytes)) {
           continue;
         }
-        switch (override_value.key.field_id) {
+        switch (override_value.key.field_id.get()) {
         case GNEISS_TRANSFORM_FIELD_TRANSLATION:
           out_info.flags |= scene_prefab_flags::translation_overridden;
           break;
@@ -1009,8 +1011,8 @@ gneiss_result scene_instance::create_prefab_instance(const prefab_creation& desc
   }
   try {
     std::optional<std::string> parent_uuid;
-    if (desc.parent != GNEISS_NULL_SCENE_NODE_ID) {
-      const auto found = std::ranges::find(objects_, desc.parent, &object::node);
+    if (desc.parent.get() != GNEISS_NULL_SCENE_NODE_ID) {
+      const auto found = std::ranges::find(objects_, desc.parent.get(), &object::node);
       if (found == objects_.end()) {
         return GNEISS_ERROR_INVALID_HANDLE;
       }
@@ -1035,7 +1037,7 @@ gneiss_result scene_instance::create_prefab_instance(const prefab_creation& desc
     std::unique_ptr<prefab_runtime_instance> runtime;
     result = prefab_runtime_instance::create(
         native_world_, reflection_context_, loader_, std::move(lease), registry_, instance_uuid,
-        desc.parent, desc.local_transform, author.overrides, runtime);
+        desc.parent.get(), desc.local_transform, author.overrides, runtime);
     if (result != GNEISS_SUCCESS) {
       return result;
     }
@@ -1084,26 +1086,30 @@ scene_instance::set_prefab_source_transform(gneiss_scene_node_id node,
         return GNEISS_ERROR_INVALID_STATE;
       }
       auto pending = description_.prefab_instances[index].overrides;
-      const auto type_id = gneiss::world_internal::transform_type_id();
+      const auto type_id = gneiss::from_native(gneiss::world_internal::transform_type_id());
       const std::array candidates{
-          prefab_property_override{.key = {.node = *info.address,
-                                           .type_id = type_id,
-                                           .field_id = GNEISS_TRANSFORM_FIELD_TRANSLATION},
-                                   .value = {.payload = transform.translation}},
-          prefab_property_override{.key = {.node = *info.address,
-                                           .type_id = type_id,
-                                           .field_id = GNEISS_TRANSFORM_FIELD_ROTATION},
-                                   .value = {.payload = transform.rotation}},
-          prefab_property_override{.key = {.node = *info.address,
-                                           .type_id = type_id,
-                                           .field_id = GNEISS_TRANSFORM_FIELD_SCALE},
-                                   .value = {.payload = transform.scale}}};
+          prefab_property_override{
+              .key = {.node = *info.address,
+                      .type_id = type_id,
+                      .field_id = gneiss::field_id{GNEISS_TRANSFORM_FIELD_TRANSLATION}},
+              .value = {.payload = transform.translation}},
+          prefab_property_override{
+              .key = {.node = *info.address,
+                      .type_id = type_id,
+                      .field_id = gneiss::field_id{GNEISS_TRANSFORM_FIELD_ROTATION}},
+              .value = {.payload = transform.rotation}},
+          prefab_property_override{
+              .key = {.node = *info.address,
+                      .type_id = type_id,
+                      .field_id = gneiss::field_id{GNEISS_TRANSFORM_FIELD_SCALE}},
+              .value = {.payload = transform.scale}}};
       const std::array source_values{prefab_property_value{.payload = source->translation},
                                      prefab_property_value{.payload = source->rotation},
                                      prefab_property_value{.payload = source->scale}};
       for (std::size_t field_index = 0U; field_index < candidates.size(); ++field_index) {
-        const auto result = set_prefab_property_override(
-            registry_, pending, candidates[field_index], source_values[field_index]);
+        const auto result =
+            set_prefab_property_override(reflection_internal::resolve(registry_), pending,
+                                         candidates[field_index], source_values[field_index]);
         if (result != GNEISS_SUCCESS) {
           return result;
         }
@@ -1247,8 +1253,8 @@ gneiss_result scene_instance::create_node(const node_creation& desc,
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
   std::optional<std::string> parent_uuid;
-  if (desc.parent != GNEISS_NULL_SCENE_NODE_ID) {
-    const auto parent = std::ranges::find(objects_, desc.parent, &object::node);
+  if (desc.parent.get() != GNEISS_NULL_SCENE_NODE_ID) {
+    const auto parent = std::ranges::find(objects_, desc.parent.get(), &object::node);
     if (parent == objects_.end()) {
       return GNEISS_ERROR_INVALID_HANDLE;
     }
@@ -1274,7 +1280,7 @@ gneiss_result scene_instance::create_node(const node_creation& desc,
                   .node = GNEISS_NULL_SCENE_NODE_ID,
                   .mesh = {},
                   .material = {}};
-    const auto result = commit_object(native_world_, author, target, desc.parent);
+    const auto result = commit_object(native_world_, author, target, desc.parent.get());
     if (result != GNEISS_SUCCESS) {
       if (target.entity != GNEISS_NULL_ENTITY_ID) {
         (void)native_world_.entity_destroy(gneiss::entity_id{target.entity});
@@ -1660,8 +1666,8 @@ gneiss_result scene_instance::create_mesh_renderer_node(const mesh_renderer_node
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
   std::optional<std::string> parent_uuid;
-  if (desc.parent != GNEISS_NULL_SCENE_NODE_ID) {
-    const auto parent = std::ranges::find(objects_, desc.parent, &object::node);
+  if (desc.parent.get() != GNEISS_NULL_SCENE_NODE_ID) {
+    const auto parent = std::ranges::find(objects_, desc.parent.get(), &object::node);
     if (parent == objects_.end()) {
       return GNEISS_ERROR_INVALID_HANDLE;
     }
@@ -1698,7 +1704,7 @@ gneiss_result scene_instance::create_mesh_renderer_node(const mesh_renderer_node
     if (result != GNEISS_SUCCESS) {
       return result;
     }
-    result = commit_object(native_world_, author, target, desc.parent);
+    result = commit_object(native_world_, author, target, desc.parent.get());
     if (result != GNEISS_SUCCESS) {
       if (target.entity != GNEISS_NULL_ENTITY_ID) {
         (void)native_world_.entity_destroy(gneiss::entity_id{target.entity});
@@ -1993,7 +1999,7 @@ scene_instance_service::replace_render_assets(std::span<const asset_replacement>
               ? node.material
               : render_internal::render_asset_loader::material_lease(material->second->replacement);
       renderers.push_back({
-          .entity = node.entity,
+          .entity = entity_id{node.entity},
           .expected = {.mesh = node.mesh.get(), .material = node.material.get()},
           .replacement = {.mesh = next_mesh.get(), .material = next_material.get()},
       });
@@ -2566,7 +2572,7 @@ gneiss_result scene_instance_service::replace_mesh_binding(gneiss_scene_instance
   mesh_renderer_description author{.mesh_uri = std::string(replacement.mesh.uri()),
                                    .material_uri = std::string(replacement.material.uri())};
   const std::array changes{world_internal::mesh_renderer_replacement{
-      .entity = found->entity,
+      .entity = entity_id{found->entity},
       .expected = {expected.mesh.get(), expected.material.get()},
       .replacement = {replacement.mesh.get(), replacement.material.get()},
   }};

@@ -23,6 +23,9 @@ struct property_value {
 /** 元数据名称借用已冻结 Registry；失败保持输出。 */
 [[nodiscard]] GNEISS_API result describe_type(const registry_ref& registry, type_id type,
                                               type_info& output) noexcept;
+/** 字段名称借用已冻结 Registry；失败保持输出。 */
+[[nodiscard]] GNEISS_API result describe_field(const registry_ref& registry, type_id type,
+                                               field_id field, field_info& output) noexcept;
 /** 读取自有快照；失败保持输出。冻结后的 Registry 可共享，目标线程规则由访问器校验。 */
 [[nodiscard]] GNEISS_API result read_property(const registry_ref& registry, type_id type,
                                               field_id field, property_target target,

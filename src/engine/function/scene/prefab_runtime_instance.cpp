@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "engine/function/scene/prefab_runtime_instance.hpp"
+
 #include "engine/core/identifier_conversion.hpp"
 #include "engine/core/reflection/type_registry.hpp"
+#include <gneiss/engine/detail/reflection_values.hpp>
 
 #include "engine/function/world/world_service.hpp"
 
-#include "engine/function/scene/prefab_runtime_instance.hpp"
 
 #include "engine/function/scene/structural_diff.hpp"
 
@@ -145,7 +147,8 @@ prefab_runtime_instance::validate_reload(const prefab_asset_lease& candidate,
     if (override_value.key.node.instance_uuid != instance_uuid_) {
       return GNEISS_ERROR_INVALID_ARGUMENT;
     }
-    result = validate_prefab_property_override(registry, override_value);
+    result = validate_prefab_property_override(gneiss::reflection_internal::resolve(registry),
+                                               override_value);
     const auto source =
         std::ranges::find(candidate.get()->objects, override_value.key.node.source_node_uuid,
                           &object_description::uuid);
@@ -271,8 +274,8 @@ prefab_runtime_instance::reload(prefab_asset_lease candidate, gneiss_type_regist
       result = native_world_.entity_set_mesh_renderer(gneiss::entity_id{target.entity}, renderer);
     }
     if (result == GNEISS_SUCCESS && publication_) {
-      result = native_world_.bind_publication(publication_,
-                                              {.entity = target.entity, .node = target.node});
+      result = native_world_.bind_publication(
+          publication_, {.entity = entity_id{target.entity}, .node = scene_node_id{target.node}});
     }
     if (result != GNEISS_SUCCESS) {
       if (target.entity != GNEISS_NULL_ENTITY_ID) {
@@ -479,8 +482,8 @@ gneiss_result apply_candidate_object(const reflection_internal::registry_ref& st
   };
   if (is_type(world_internal::transform_type_id())) {
     auto transform = to_transform(object);
-    result = reflection_internal::set_candidate_property(state, value.key.type_id,
-                                                         value.key.field_id, &transform, native);
+    result = reflection_internal::set_candidate_property(
+        state, gneiss::to_native(value.key.type_id), value.key.field_id.get(), &transform, native);
     if (result != GNEISS_SUCCESS) {
       return result;
     }
@@ -497,8 +500,8 @@ gneiss_result apply_candidate_object(const reflection_internal::registry_ref& st
         .near_plane = camera.near_plane,
         .far_plane = camera.far_plane,
     };
-    result = reflection_internal::set_candidate_property(state, value.key.type_id,
-                                                         value.key.field_id, &settings, native);
+    result = reflection_internal::set_candidate_property(
+        state, gneiss::to_native(value.key.type_id), value.key.field_id.get(), &settings, native);
     if (result != GNEISS_SUCCESS) {
       return result;
     }
@@ -525,7 +528,8 @@ gneiss_result prefab_runtime_instance::prepare_candidate_description(
     if (value.key.node.instance_uuid != instance_uuid) {
       return GNEISS_ERROR_INVALID_ARGUMENT;
     }
-    const auto validation = validate_prefab_property_override(registry, value);
+    const auto validation =
+        validate_prefab_property_override(gneiss::reflection_internal::resolve(registry), value);
     if (validation != GNEISS_SUCCESS) {
       return validation;
     }
@@ -564,7 +568,8 @@ gneiss_result prefab_runtime_instance::apply_overrides(
     if (override_value.key.node.instance_uuid != instance_uuid_) {
       return GNEISS_ERROR_INVALID_ARGUMENT;
     }
-    const auto validation = validate_prefab_property_override(registry, override_value);
+    const auto validation = validate_prefab_property_override(
+        gneiss::reflection_internal::resolve(registry), override_value);
     if (validation != GNEISS_SUCCESS) {
       return validation;
     }
@@ -579,8 +584,9 @@ gneiss_result prefab_runtime_instance::apply_overrides(
     if (result == GNEISS_SUCCESS) {
       const gneiss_property_target target{.context = reflection_context_, .object = found->entity};
       result = gneiss::reflection_internal::set_property(
-          gneiss::reflection_internal::resolve(registry), override_value.key.type_id,
-          override_value.key.field_id, target, native_value);
+          gneiss::reflection_internal::resolve(registry),
+          gneiss::to_native(override_value.key.type_id), override_value.key.field_id.get(), target,
+          native_value);
     }
     if (result != GNEISS_SUCCESS) {
       return result;
@@ -684,13 +690,13 @@ gneiss_result prefab_runtime_instance::commit_node(std::size_t index, gneiss_sce
     world_internal::staged_object object;
     const auto result = native_world_.create_staged_object(
         publication_,
-        {.parent = parent,
+        {.parent = scene_node_id{parent},
          .transform = {source.translation, source.rotation, source.scale},
          .camera = source.camera ? &camera : nullptr,
          .renderer = source.mesh_renderer ? &renderer : nullptr},
         object);
-    target.entity = object.entity;
-    target.node = object.node;
+    target.entity = object.entity.get();
+    target.node = object.node.get();
     return result;
   }
   auto result = core::write_identifier<entity_id>(target.entity, [&](auto& native_output) {
@@ -742,14 +748,14 @@ gneiss_result prefab_runtime_instance::begin_hidden(gneiss_scene_node_id parent,
   world_internal::staged_object root;
   result = native_world_.create_staged_object(
       publication_,
-      {.parent = parent,
+      {.parent = scene_node_id{parent},
        .transform = {{transform.translation[0], transform.translation[1], transform.translation[2]},
                      {transform.rotation[0], transform.rotation[1], transform.rotation[2],
                       transform.rotation[3]},
                      {transform.scale[0], transform.scale[1], transform.scale[2]}}},
       root);
-  root_node_ = root.node;
-  root_entity_ = root.entity;
+  root_node_ = root.node.get();
+  root_entity_ = root.entity.get();
   return result;
 }
 
@@ -802,11 +808,12 @@ gneiss_result prefab_runtime_instance::prepare_retirement_step(bool& complete) {
     return GNEISS_ERROR_INVALID_STATE;
   }
   if (retirement_cursor_ <= nodes_.size()) {
-    const auto object =
-        retirement_cursor_ == 0U
-            ? world_internal::staged_object{.entity = root_entity_, .node = root_node_}
-            : world_internal::staged_object{.entity = nodes_[retirement_cursor_ - 1U].entity,
-                                            .node = nodes_[retirement_cursor_ - 1U].node};
+    const auto object = retirement_cursor_ == 0U
+                            ? world_internal::staged_object{.entity = entity_id{root_entity_},
+                                                            .node = scene_node_id{root_node_}}
+                            : world_internal::staged_object{
+                                  .entity = entity_id{nodes_[retirement_cursor_ - 1U].entity},
+                                  .node = scene_node_id{nodes_[retirement_cursor_ - 1U].node}};
     const auto result = native_world_.bind_publication(publication_, object);
     if (result != GNEISS_SUCCESS) {
       return result;
@@ -894,8 +901,9 @@ bool prefab_runtime_instance::cancel_staged_step(std::size_t budget) noexcept {
   while (budget != 0U && !staged_order_.empty()) {
     auto& target = nodes_[staged_order_.back()];
     if (publication_ && target.node != GNEISS_NULL_SCENE_NODE_ID) {
-      if (native_world_.destroy_staged_object(
-              publication_, {.entity = target.entity, .node = target.node}) != GNEISS_SUCCESS) {
+      if (native_world_.destroy_staged_object(publication_, {.entity = entity_id{target.entity},
+                                                             .node = scene_node_id{target.node}}) !=
+          GNEISS_SUCCESS) {
         return false;
       }
       target.entity = GNEISS_NULL_ENTITY_ID;
@@ -922,7 +930,8 @@ bool prefab_runtime_instance::cancel_staged_step(std::size_t budget) noexcept {
   }
   if (publication_ && root_node_ != GNEISS_NULL_SCENE_NODE_ID) {
     if (native_world_.destroy_staged_object(
-            publication_, {.entity = root_entity_, .node = root_node_}) != GNEISS_SUCCESS) {
+            publication_, {.entity = entity_id{root_entity_}, .node = scene_node_id{root_node_}}) !=
+        GNEISS_SUCCESS) {
       return false;
     }
     root_entity_ = GNEISS_NULL_ENTITY_ID;

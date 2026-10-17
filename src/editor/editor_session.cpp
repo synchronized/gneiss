@@ -423,7 +423,7 @@ result editor_session::create_node(std::string_view name, scene_node_id parent,
     scene_internal::node_creation desc{};
     desc.uuid = uuid;
     desc.name = name;
-    desc.parent = parent.get();
+    desc.parent = parent;
     auto operation = with_node(out_node, [&](auto& service, auto& output) {
       return service.create_node(scene_, desc, output);
     });
@@ -451,7 +451,7 @@ result editor_session::create_prefab_instance(std::string_view name, std::string
   try {
     const auto uuid = make_uuid_value();
     scene_internal::prefab_creation desc{};
-    desc.parent = parent.get();
+    desc.parent = parent;
     desc.instance_uuid = uuid;
     desc.name = name;
     desc.prefab_uri = prefab_uri;
@@ -533,7 +533,7 @@ result editor_session::restore_prefab_instance(const prefab_instance_snapshot& s
     return result::not_found;
   }
   scene_internal::prefab_creation desc{};
-  desc.parent = parent == nullptr ? GNEISS_NULL_SCENE_NODE_ID : parent->node.get();
+  desc.parent = parent == nullptr ? scene_node_id{} : parent->node;
   desc.instance_uuid = snapshot.instance_uuid;
   desc.name = snapshot.display_name;
   desc.prefab_uri = snapshot.prefab_uri;
@@ -902,7 +902,7 @@ result editor_session::create_mesh_renderer_node(const scene_node_snapshot& snap
     desc.uuid = snapshot.uuid;
     desc.name = snapshot.display_name.empty() ? std::string_view{}
                                               : std::string_view{snapshot.display_name};
-    desc.parent = parent.get();
+    desc.parent = parent;
     desc.mesh_uri = snapshot.mesh_uri;
     desc.material_uri = snapshot.material_uri;
     auto operation = with_node(out_node, [&](auto& service, auto& output) {

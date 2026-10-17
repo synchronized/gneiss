@@ -63,6 +63,12 @@ bool native_values() {
       reflection::bind_property(registry, id, 1, binding) != GNEISS_SUCCESS) {
     return false;
   }
+  gneiss::field_info field{.id = gneiss::field_id{99}, .name = "旧字段"};
+  if (reflection::describe_field(registry, native_id, gneiss::field_id{1}, field) !=
+          gneiss::result::not_ready ||
+      field.name != "旧字段") {
+    return false;
+  }
   reflection::property_value snapshot{.payload = std::string{"旧输出"}};
   if (reflection::read_property(registry, native_id, gneiss::field_id{1}, {}, snapshot) !=
           gneiss::result::not_ready ||
@@ -71,6 +77,27 @@ bool native_values() {
     return false;
   }
   if (reflection::read_property(registry, native_id, gneiss::field_id{1}, {}, snapshot).failed()) {
+    return false;
+  }
+  if (reflection::describe_field(registry, native_id, gneiss::field_id{1}, field).failed() ||
+      field.name != "text" || field.id != gneiss::field_id{1} ||
+      field.kind != gneiss::property_kind::string ||
+      !gneiss::has_flags(field.capabilities, gneiss::property_capabilities::writable) ||
+      reflection::describe_field(registry, native_id, gneiss::field_id{99}, field) !=
+          gneiss::result::not_found ||
+      field.name != "text" ||
+      reflection::describe_field({}, native_id, gneiss::field_id{1}, field) !=
+          gneiss::result::invalid_handle ||
+      field.name != "text") {
+    return false;
+  }
+  gneiss::result foreign;
+  std::thread reader([&] {
+    gneiss::field_info borrowed;
+    foreign = reflection::describe_field(registry, native_id, gneiss::field_id{1}, borrowed);
+  });
+  reader.join();
+  if (foreign.failed()) {
     return false;
   }
   text.assign(2000, 'x');

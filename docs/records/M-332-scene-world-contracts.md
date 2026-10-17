@@ -36,3 +36,24 @@
 内部整数表存储、场景实例/刷新令牌 RID、结果码及真正反射回调仍保留原语义；不是全引擎
 所有 C 风格类型清零。没有新插件 API、第二套运行时状态、Granit 修改或性能优化。
 未运行 Linux 或完整 Sponza 对照；[M-333 剩余验收](M-333-native-migration-verification.md) 继续有效。
+
+## 复合值类型补充迁移（2026-10-17）
+
+上一批强类型迁移覆盖主要方法签名及查询，未覆盖全部描述结构。本批补齐：
+
+- Scene 的三种创建描述与 World 候选对象、批量渲染器替换描述采用强类型实体/节点 ID。
+  编辑器直接传递这些值；整数拆装仅保留在现有私有存储及适配处。
+- Prefab 覆盖键采用 `type_id` / `field_id`，属性类别采用 `property_kind`；
+  属性校验通过原生 `registry_ref` 与 `describe_field` 查询，不再接收公共 Registry 句柄。
+- 作者属性仍拥有文本与数组，排序、零值规范化、稀疏覆盖、保存恢复规则不变。
+  反射回调适配继续显式转换，未更改 C ABI 或场景 JSON。
+- 增加描述字段类型编译断言，以及字段查询未冻结、缺失、无效 Registry、成功与跨线程读取验证；
+  查询失败保留输出，字段名称仍借用冻结 Registry。
+
+本批 Windows Clang Debug 共享/静态完整构建通过（含公共 C11/C++20 独立头）；
+两种配置各 39 项相关回归及 1 项安装 stable runtime 消费者检查通过，共各 40 项。
+4 个核心实现的 clang-tidy 修改行无报告告警；修改行格式、UTF-8/LF、`git diff --check` 通过。
+静态检查发现属性类别查询的 `std::visit` 异常风险，改为按活动类型返回类别，异常失值返回无效；
+属性校验也拒绝该状态。未重跑 Linux、完整 Sponza 或版本级性能验收。
+本地日志使用 `build/value-migration-*` 与 `build/value-tidy-*`。
+Scene 实例职责进一步内聚及 Application 接口收窄尚未实施。

@@ -48,4 +48,25 @@ static_assert(std::is_invocable_v<decltype(&gneiss::engine::world::entity_destro
                                   gneiss::engine::world&, gneiss::entity_id>);
 static_assert(!std::is_invocable_v<decltype(&gneiss::engine::world::entity_destroy),
                                    gneiss::engine::world&, gneiss::scene_node_id>);
+// 原生描述结构不能退回裸 ID，否则方法签名的类型约束会被绕过。
+static_assert(
+    std::is_same_v<decltype(gneiss::scene_internal::node_creation::parent), gneiss::scene_node_id>);
+static_assert(std::is_same_v<decltype(gneiss::scene_internal::prefab_creation::parent),
+                             gneiss::scene_node_id>);
+static_assert(std::is_same_v<decltype(gneiss::scene_internal::mesh_renderer_node_creation::parent),
+                             gneiss::scene_node_id>);
+static_assert(
+    std::is_same_v<decltype(gneiss::world_internal::staged_object::entity), gneiss::entity_id>);
+static_assert(
+    std::is_same_v<decltype(gneiss::world_internal::staged_object::node), gneiss::scene_node_id>);
+static_assert(std::is_same_v<decltype(gneiss::world_internal::staged_object_description::parent),
+                             gneiss::scene_node_id>);
+static_assert(std::is_same_v<decltype(gneiss::world_internal::mesh_renderer_replacement::entity),
+                             gneiss::entity_id>);
+static_assert(
+    std::is_same_v<decltype(gneiss::scene_internal::prefab_property_override_key::type_id),
+                   gneiss::type_id>);
+static_assert(
+    std::is_same_v<decltype(gneiss::scene_internal::prefab_property_override_key::field_id),
+                   gneiss::field_id>);
 int main() { return 0; }

@@ -4,7 +4,7 @@
 #ifndef GNEISS_SCENE_PREFAB_PROPERTY_OVERRIDE_HPP_
 #define GNEISS_SCENE_PREFAB_PROPERTY_OVERRIDE_HPP_
 
-#include <gneiss/engine/reflection.h>
+#include "engine/core/reflection/property_registry.hpp"
 
 #include <array>
 #include <cstdint>
@@ -42,8 +42,8 @@ struct prefab_property_value final {
 /** 单个 Prefab 实例字段覆盖的稳定作者键。 */
 struct prefab_property_override_key final {
   prefab_author_address node;
-  gneiss_type_id type_id{};
-  gneiss_field_id field_id = GNEISS_NULL_FIELD_ID;
+  gneiss::type_id type_id{};
+  gneiss::field_id field_id{};
 
   [[nodiscard]] bool operator==(const prefab_property_override_key& other) const noexcept;
 };
@@ -53,13 +53,12 @@ struct prefab_property_override final {
   prefab_property_value value;
 };
 
-/** 返回 owning 值对应的公共属性类别；无值返回 INVALID。 */
-[[nodiscard]] gneiss_property_kind
-prefab_property_value_kind(const prefab_property_value& value) noexcept;
+/** 返回作者属性值的类别；无值或异常失值返回 invalid。 */
+[[nodiscard]] property_kind prefab_property_value_kind(const prefab_property_value& value) noexcept;
 
 /** 验证作者键、值、字段存在性、类型和可写能力。Registry 必须已经冻结。 */
 [[nodiscard]] gneiss_result
-validate_prefab_property_override(gneiss_type_registry registry,
+validate_prefab_property_override(const reflection_internal::registry_ref& registry,
                                   const prefab_property_override& value) noexcept;
 
 /**
@@ -67,9 +66,11 @@ validate_prefab_property_override(gneiss_type_registry registry,
  *
  * candidate 与 source_value 规范化后相等时删除对应记录，否则按稳定键更新并确定性排序。
  */
-[[nodiscard]] gneiss_result set_prefab_property_override(
-    gneiss_type_registry registry, std::vector<prefab_property_override>& overrides,
-    prefab_property_override candidate, prefab_property_value source_value) noexcept;
+[[nodiscard]] gneiss_result
+set_prefab_property_override(const reflection_internal::registry_ref& registry,
+                             std::vector<prefab_property_override>& overrides,
+                             prefab_property_override candidate,
+                             prefab_property_value source_value) noexcept;
 
 /** 按稳定作者键比较，用于确定性排序。 */
 [[nodiscard]] bool

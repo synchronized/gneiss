@@ -56,7 +56,7 @@ gneiss_result world::replace_publications(std::span<const core::publication> pre
 gneiss_result world::bind_publication(const core::publication& group,
                                       staged_object object) noexcept {
   return with_state(*state_, [&](world_state& state) {
-    return state.bind_publication(group, object.entity, object.node);
+    return state.bind_publication(group, object.entity.get(), object.node.get());
   });
 }
 gneiss_result world::create_staged_object(const core::publication& group,
@@ -73,25 +73,26 @@ gneiss_result world::create_staged_object(const core::publication& group,
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
   return with_state(*state_, [&](world_state& state) {
-    staged_object candidate;
+    gneiss_entity_id candidate_entity{};
+    gneiss_scene_node_id candidate_node{};
     auto operation = GNEISS_SUCCESS;
     try {
-      candidate.entity = state.create_staged_entity(group);
-      if (candidate.entity == GNEISS_NULL_ENTITY_ID) {
+      candidate_entity = state.create_staged_entity(group);
+      if (candidate_entity == GNEISS_NULL_ENTITY_ID) {
         return GNEISS_ERROR_INVALID_STATE;
       }
       if (description.camera != nullptr) {
-        (void)state.emplace_staged<camera_component>(group, candidate.entity, *description.camera);
+        (void)state.emplace_staged<camera_component>(group, candidate_entity, *description.camera);
       }
       if (description.renderer != nullptr) {
         (void)state.emplace_staged<mesh_renderer_component>(
-            group, candidate.entity,
+            group, candidate_entity,
             mesh_renderer{description.renderer->mesh, description.renderer->material});
       }
-      operation =
-          state.scene().create_staged(group, description.parent, candidate.entity, &candidate.node);
+      operation = state.scene().create_staged(group, description.parent.get(), candidate_entity,
+                                              &candidate_node);
       if (operation == GNEISS_SUCCESS) {
-        operation = state.scene().set_staged_local(group, candidate.node, description.transform);
+        operation = state.scene().set_staged_local(group, candidate_node, description.transform);
       }
     } catch (const std::bad_alloc&) {
       operation = GNEISS_ERROR_OUT_OF_MEMORY;
@@ -99,14 +100,14 @@ gneiss_result world::create_staged_object(const core::publication& group,
       operation = GNEISS_ERROR_INTERNAL;
     }
     if (operation == GNEISS_SUCCESS) {
-      output = candidate;
+      output = {.entity = entity_id{candidate_entity}, .node = scene_node_id{candidate_node}};
       return operation;
     }
-    if (candidate.node != GNEISS_NULL_SCENE_NODE_ID) {
-      (void)state.scene().destroy_staged_leaf(group, candidate.node);
+    if (candidate_node != GNEISS_NULL_SCENE_NODE_ID) {
+      (void)state.scene().destroy_staged_leaf(group, candidate_node);
     }
-    if (candidate.entity != GNEISS_NULL_ENTITY_ID) {
-      (void)state.destroy_staged_entity(group, candidate.entity);
+    if (candidate_entity != GNEISS_NULL_ENTITY_ID) {
+      (void)state.destroy_staged_entity(group, candidate_entity);
     }
     return operation;
   });
@@ -114,16 +115,16 @@ gneiss_result world::create_staged_object(const core::publication& group,
 gneiss_result world::destroy_staged_object(const core::publication& group,
                                            staged_object object) noexcept {
   return with_state(*state_, [&](world_state& state) {
-    if (object.entity == GNEISS_NULL_ENTITY_ID ||
-        state.scene().get_staged_entity(group, object.node) != object.entity) {
+    if (object.entity.get() == GNEISS_NULL_ENTITY_ID ||
+        state.scene().get_staged_entity(group, object.node.get()) != object.entity.get()) {
       return GNEISS_ERROR_INVALID_HANDLE;
     }
-    const auto operation = state.scene().destroy_staged_leaf(group, object.node);
+    const auto operation = state.scene().destroy_staged_leaf(group, object.node.get());
     if (operation != GNEISS_SUCCESS) {
       return operation;
     }
-    return state.destroy_staged_entity(group, object.entity) ? GNEISS_SUCCESS
-                                                             : GNEISS_ERROR_INTERNAL;
+    return state.destroy_staged_entity(group, object.entity.get()) ? GNEISS_SUCCESS
+                                                                   : GNEISS_ERROR_INTERNAL;
   });
 }
 gneiss_result world::entity_create(entity_id& out_entity_value) noexcept {
@@ -315,22 +316,25 @@ world::replace_mesh_renderers(std::span<const mesh_renderer_replacement> replace
     }
     std::unordered_set<gneiss_entity_id> entities;
     for (const auto& change : replacements) {
-      if (!entities.insert(change.entity).second || change.replacement.mesh == GNEISS_NULL_MESH ||
+      if (!entities.insert(change.entity.get()).second ||
+          change.replacement.mesh == GNEISS_NULL_MESH ||
           change.replacement.material == GNEISS_NULL_MATERIAL) {
         return GNEISS_ERROR_INVALID_ARGUMENT;
       }
-      if (!state->is_alive(change.entity)) {
+      if (!state->is_alive(change.entity.get())) {
         return GNEISS_ERROR_INVALID_HANDLE;
       }
-      const auto* current = state->get<mesh_renderer_component>(change.entity);
+      const auto* current = state->get<mesh_renderer_component>(change.entity.get());
       if (current == nullptr || current->value.mesh != change.expected.mesh ||
           current->value.material != change.expected.material) {
         return GNEISS_ERROR_INVALID_STATE;
       }
     }
     for (const auto& change : replacements) {
-      state->get<mesh_renderer_component>(change.entity)->value = {change.replacement.mesh,
-                                                                   change.replacement.material};
+      state->get<mesh_renderer_component>(change.entity.get())->value = {
+          .mesh = change.replacement.mesh,
+          .material = change.replacement.material,
+      };
     }
     return GNEISS_SUCCESS;
   } catch (const std::bad_alloc&) {

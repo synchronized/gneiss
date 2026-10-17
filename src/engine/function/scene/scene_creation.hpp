@@ -4,7 +4,7 @@
 #pragma once
 #include "engine/core/math/transform.hpp"
 
-#include <gneiss/engine/scene.h>
+#include <gneiss/engine/core/scene_types.hpp>
 
 #include <string_view>
 
@@ -14,14 +14,14 @@ namespace gneiss::scene_internal {
 struct node_creation {
   std::string_view uuid;
   std::string_view name;
-  gneiss_scene_node_id parent{};
+  scene_node_id parent{};
   gneiss::engine::transform local_transform = {};
 };
 
 struct mesh_renderer_node_creation {
   std::string_view uuid;
   std::string_view name;
-  gneiss_scene_node_id parent{};
+  scene_node_id parent{};
   std::string_view mesh_uri;
   std::string_view material_uri;
 };
@@ -30,7 +30,7 @@ struct prefab_creation {
   std::string_view instance_uuid;
   std::string_view name;
   std::string_view prefab_uri;
-  gneiss_scene_node_id parent{};
+  scene_node_id parent{};
   gneiss::engine::transform local_transform = {};
 };
 

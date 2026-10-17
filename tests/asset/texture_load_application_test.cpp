@@ -137,7 +137,7 @@ void run(gneiss::tasks::execution_mode mode) {
         completion.state == render_internal::texture_load_state::failed &&
         completion.assets.empty() && completion.textures.empty() && completion.versions.empty());
   const std::array unchanged{
-      world_internal::mesh_renderer_replacement{.entity = node.entity,
+      world_internal::mesh_renderer_replacement{.entity = gneiss::entity_id{node.entity},
                                                 .expected = {external.mesh, external.material},
                                                 .replacement = {external.mesh, external.material}}};
   check(world_internal::replace_mesh_renderers(world, unchanged) == GNEISS_SUCCESS);

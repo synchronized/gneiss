@@ -252,7 +252,7 @@ void run() {
   const gneiss::world_internal::mesh_renderer expected{.mesh = mesh_rid,
                                                        .material = selected_material};
   const std::array unchanged{world_internal::mesh_renderer_replacement{
-      .entity = ordinary.entity.get(), .expected = expected, .replacement = expected}};
+      .entity = ordinary.entity, .expected = expected, .replacement = expected}};
   const auto edit_reads = files->reads;
   check(candidate->scenes->set_mesh_renderer(new_scene, ordinary.node, "asset://m.mesh",
                                              "asset://m.material") == GNEISS_SUCCESS);
@@ -274,9 +274,9 @@ void run() {
                                                       .material = next_version.get()};
   const std::array committed{
       world_internal::mesh_renderer_replacement{
-          .entity = ordinary.entity.get(), .expected = updated, .replacement = updated},
+          .entity = ordinary.entity, .expected = updated, .replacement = updated},
       world_internal::mesh_renderer_replacement{
-          .entity = prefab_node.entity.get(), .expected = updated, .replacement = updated}};
+          .entity = prefab_node.entity, .expected = updated, .replacement = updated}};
   check(world_internal::replace_mesh_renderers(candidate->world, committed) == GNEISS_SUCCESS);
   files->files["other.material"] = files->files["m.material"];
   check(candidate->scenes->set_mesh_renderer(new_scene, ordinary.node, "asset://m.mesh",
@@ -287,7 +287,7 @@ void run() {
   const gneiss::world_internal::mesh_renderer edited{.mesh = mesh_rid,
                                                      .material = edited_material.get()};
   const std::array material_only{world_internal::mesh_renderer_replacement{
-      .entity = ordinary.entity.get(), .expected = edited, .replacement = edited}};
+      .entity = ordinary.entity, .expected = edited, .replacement = edited}};
   check(world_internal::replace_mesh_renderers(candidate->world, material_only) == GNEISS_SUCCESS);
   check(resources.get_material(old_material.get())->red == 1.0F);
   duplicate = {};

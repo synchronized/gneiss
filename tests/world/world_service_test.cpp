@@ -72,14 +72,14 @@ bool original_groups_visible(
   gneiss_entity_id active{};
   if (service::entity_count(world, count) != GNEISS_SUCCESS || count != 2U ||
       service::get_active_camera(world, active) != GNEISS_SUCCESS ||
-      active != old_objects[0].entity) {
+      active != old_objects[0].entity.get()) {
     return false;
   }
   for (std::size_t index = 0; index < old_objects.size(); ++index) {
     std::uint8_t alive{};
-    if (service::entity_is_alive(world, old_objects[index].entity, alive) != GNEISS_SUCCESS ||
+    if (service::entity_is_alive(world, old_objects[index].entity.get(), alive) != GNEISS_SUCCESS ||
         alive == 0U ||
-        service::entity_is_alive(world, new_objects[index].entity, alive) != GNEISS_SUCCESS ||
+        service::entity_is_alive(world, new_objects[index].entity.get(), alive) != GNEISS_SUCCESS ||
         alive != 0U) {
       return false;
     }
@@ -115,7 +115,7 @@ bool batch_publication_test() {
       return false;
     }
   }
-  if (service::set_active_camera(world, old_objects[0].entity) != GNEISS_SUCCESS) {
+  if (service::set_active_camera(world, old_objects[0].entity.get()) != GNEISS_SUCCESS) {
     return false;
   }
   const auto unchanged = [&] { return original_groups_visible(world, old_objects, new_objects); };
@@ -165,9 +165,9 @@ bool batch_publication_test() {
   }
   for (std::size_t index = 0; index < previous.size(); ++index) {
     std::uint8_t alive{};
-    if (service::entity_is_alive(world, old_objects[index].entity, alive) != GNEISS_SUCCESS ||
+    if (service::entity_is_alive(world, old_objects[index].entity.get(), alive) != GNEISS_SUCCESS ||
         alive != 0U ||
-        service::entity_is_alive(world, new_objects[index].entity, alive) != GNEISS_SUCCESS ||
+        service::entity_is_alive(world, new_objects[index].entity.get(), alive) != GNEISS_SUCCESS ||
         alive == 0U ||
         service::destroy_staged_object(world, previous[index], old_objects[index]) !=
             GNEISS_SUCCESS ||
@@ -278,7 +278,7 @@ int main() {
   object.transform.scale[0] = 0;
   if (service::create_staged_object(world, group, object, failed) !=
           GNEISS_ERROR_INVALID_ARGUMENT ||
-      failed.entity != 0 || failed.node != 0) {
+      failed.entity.is_valid() || failed.node.is_valid()) {
     return 12;
   }
   std::thread staging_worker([&] { wrong_thread = service::publish(world, group); });
@@ -288,8 +288,8 @@ int main() {
       service::entity_count(world, count) != GNEISS_SUCCESS || count != 2U ||
       service::publish(world, group) != GNEISS_ERROR_INVALID_STATE ||
       service::destroy_staged_object(world, group, root) != GNEISS_ERROR_INVALID_HANDLE ||
-      service::node_destroy(world, root.node) != GNEISS_SUCCESS ||
-      service::entity_destroy(world, root.entity) != GNEISS_SUCCESS) {
+      service::node_destroy(world, root.node.get()) != GNEISS_SUCCESS ||
+      service::entity_destroy(world, root.entity.get()) != GNEISS_SUCCESS) {
     return 13;
   }
   std::thread worker([&] { wrong_thread = service::destroy(world); });

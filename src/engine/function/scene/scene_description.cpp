@@ -261,11 +261,11 @@ template <std::size_t Size>
   return -1;
 }
 
-[[nodiscard]] bool parse_type_id(yyjson_val* value, gneiss_type_id& output) noexcept {
+[[nodiscard]] bool parse_type_id(yyjson_val* value, gneiss::type_id& output) noexcept {
   if (!yyjson_is_str(value) || yyjson_get_len(value) != 32U) {
     return false;
   }
-  gneiss_type_id parsed{};
+  gneiss::type_id parsed{};
   const auto* text = yyjson_get_str(value);
   for (std::size_t index = 0U; index < 16U; ++index) {
     const auto high = hex_value(text[index * 2U]);
@@ -326,7 +326,7 @@ template <std::size_t Size>
   } else if (kind == "string" && yyjson_is_str(value)) {
     parsed.payload = std::string(json_string(value));
   } else if (kind == "type_id") {
-    gneiss_type_id id{};
+    gneiss::type_id id{};
     if (!parse_type_id(value, id)) {
       return false;
     }
@@ -371,7 +371,7 @@ template <std::size_t Size>
     }
     return false;
   }
-  gneiss_type_id type_id{};
+  gneiss::type_id type_id{};
   if (!parse_type_id(yyjson_obj_get(value, "type_id"), type_id)) {
     fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, path + "/type_id",
          "Type ID 必须是非零的 32 位小写十六进制");
@@ -379,7 +379,7 @@ template <std::size_t Size>
   }
   auto* field = yyjson_obj_get(value, "field_id");
   if (!yyjson_is_uint(field) || yyjson_get_uint(field) == 0U ||
-      yyjson_get_uint(field) > std::numeric_limits<gneiss_field_id>::max()) {
+      yyjson_get_uint(field) > std::numeric_limits<std::uint32_t>::max()) {
     fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, path + "/field_id",
          "Field ID 必须是非零 uint32");
     return false;
@@ -389,11 +389,19 @@ template <std::size_t Size>
     fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, path + "/value", "覆盖属性值无效");
     return false;
   }
-  output = {.key = {.node = {.instance_uuid = std::string(instance_uuid),
-                             .source_node_uuid = std::move(source_node_uuid)},
-                    .type_id = type_id,
-                    .field_id = static_cast<gneiss_field_id>(yyjson_get_uint(field))},
-            .value = std::move(property_value)};
+  output = {
+      .key =
+          {
+              .node =
+                  {
+                      .instance_uuid = std::string(instance_uuid),
+                      .source_node_uuid = std::move(source_node_uuid),
+                  },
+              .type_id = type_id,
+              .field_id = gneiss::field_id{static_cast<std::uint32_t>(yyjson_get_uint(field))},
+          },
+      .value = std::move(property_value),
+  };
   return true;
 }
 
@@ -624,7 +632,7 @@ make_author_object(yyjson_mut_doc* document,
   return put_value(document, object, "components", components) ? object : nullptr;
 }
 
-[[nodiscard]] std::string type_id_text(gneiss_type_id id) {
+[[nodiscard]] std::string type_id_text(gneiss::type_id id) {
   std::string text(32U, '0');
   for (std::size_t index = 0U; index < 16U; ++index) {
     text[index * 2U] = hex_digits[id.bytes[index] >> 4U];
@@ -665,8 +673,8 @@ make_override_value(yyjson_mut_doc* document,
                  yyjson_mut_obj_add_strncpy(document, object, "value", payload.data(),
                                             payload.size());
         } else if constexpr (std::is_same_v<value_type, std::array<std::uint8_t, 16>>) {
-          gneiss_type_id id{};
-          std::ranges::copy(payload, id.bytes);
+          gneiss::type_id id{};
+          std::ranges::copy(payload, id.bytes.begin());
           const auto text = type_id_text(id);
           return yyjson_mut_obj_add_str(document, object, "kind", "type_id") &&
                  yyjson_mut_obj_add_strncpy(document, object, "value", text.data(), text.size());
@@ -699,7 +707,7 @@ make_override_value(yyjson_mut_doc* document,
                                     source.key.node.source_node_uuid.size()) ||
         !yyjson_mut_obj_add_strncpy(document, object, "type_id", type_text.data(),
                                     type_text.size()) ||
-        !yyjson_mut_obj_add_uint(document, object, "field_id", source.key.field_id) ||
+        !yyjson_mut_obj_add_uint(document, object, "field_id", source.key.field_id.get()) ||
         !yyjson_mut_obj_add_val(document, object, "value", value) ||
         !yyjson_mut_arr_add_val(array, object)) {
       return nullptr;

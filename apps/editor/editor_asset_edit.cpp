@@ -35,7 +35,7 @@ result editor_asset_edit::commit_add(engine::application& application, editor_se
                                                          {
                                                              .uuid = snapshot.uuid,
                                                              .name = snapshot.display_name,
-                                                             .parent = parent.get(),
+                                                             .parent = parent,
                                                              .mesh_uri = snapshot.mesh_uri,
                                                              .material_uri = snapshot.material_uri,
                                                          },

@@ -656,6 +656,23 @@ result describe_type(const registry_ref& registry, type_id id, type_info& output
 } catch (...) {
   return result::internal;
 }
+result describe_field(const registry_ref& registry, type_id type, field_id field,
+                      field_info& output) noexcept {
+  gneiss_field_info source{};
+  const auto operation = from_native(find_field(registry, to_native(type), field.get(), source));
+  if (operation.failed()) {
+    return operation;
+  }
+  output = {
+      .id = field_id{source.id},
+      .value_type_id = from_native(source.value_type_id),
+      .flags = static_cast<field_flags>(source.flags),
+      .name = {source.name, source.name_length},
+      .kind = static_cast<property_kind>(source.property_kind),
+      .capabilities = static_cast<property_capabilities>(source.property_capabilities),
+  };
+  return result::success;
+}
 result read_property(const registry_ref& registry, type_id type, field_id field,
                      property_target target, property_value& output) noexcept try {
   gneiss_property_value raw = GNEISS_PROPERTY_VALUE_INIT;

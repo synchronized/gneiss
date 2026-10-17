@@ -237,7 +237,7 @@ extern "C" gneiss_result gneiss_scene_instance_create_prefab_instance(
                 desc->prefab_uri,
                 static_cast<std::size_t>(desc->prefab_uri_length),
             },
-        .parent = desc->parent,
+        .parent = gneiss::scene_node_id{desc->parent},
         .local_transform = gneiss::api::read_transform(desc->local_transform),
     };
     return gneiss::core::write_identifier<gneiss::scene_node_id>(
@@ -392,7 +392,7 @@ extern "C" gneiss_result gneiss_scene_instance_create_node(gneiss_application ap
                 desc->name == nullptr ? "" : desc->name,
                 static_cast<std::size_t>(desc->name_length),
             },
-        .parent = desc->parent,
+        .parent = gneiss::scene_node_id{desc->parent},
         .local_transform = gneiss::api::read_transform(desc->local_transform),
     };
     return gneiss::core::write_identifier<gneiss::scene_node_id>(
@@ -585,7 +585,7 @@ extern "C" gneiss_result gneiss_scene_instance_create_mesh_renderer_node(
                 desc->name == nullptr ? "" : desc->name,
                 static_cast<std::size_t>(desc->name_length),
             },
-        .parent = desc->parent,
+        .parent = gneiss::scene_node_id{desc->parent},
         .mesh_uri =
             {
                 desc->renderer.mesh_uri,

@@ -9,6 +9,7 @@
 #include "engine/function/scene/prefab_asset_loader.hpp"
 #include "engine/function/scene/prefab_runtime_instance.hpp"
 #include "engine/function/world/world_service.hpp"
+#include <gneiss/engine/detail/reflection_values.hpp>
 
 #include <gneiss/engine/world.h>
 
@@ -238,8 +239,8 @@ int main() try {
   const std::vector<gneiss::scene_internal::prefab_property_override> first_overrides{{
       .key = {.node = {.instance_uuid = "20000000-0000-4000-8000-000000000001",
                        .source_node_uuid = "10000000-0000-4000-8000-000000000002"},
-              .type_id = gneiss_transform_type_id(),
-              .field_id = GNEISS_TRANSFORM_FIELD_TRANSLATION},
+              .type_id = gneiss::from_native(gneiss_transform_type_id()),
+              .field_id = gneiss::field_id{GNEISS_TRANSFORM_FIELD_TRANSLATION}},
       .value = {.payload = std::array{3.0F, 0.0F, 0.0F}},
   }};
   if (gneiss::scene_internal::prefab_runtime_instance::create(
@@ -292,8 +293,8 @@ int main() try {
   const std::vector<gneiss::scene_internal::prefab_property_override> invalid_overrides{{
       .key = {.node = {.instance_uuid = "20000000-0000-4000-8000-000000000005",
                        .source_node_uuid = "10000000-0000-4000-8000-000000000099"},
-              .type_id = gneiss_transform_type_id(),
-              .field_id = GNEISS_TRANSFORM_FIELD_TRANSLATION},
+              .type_id = gneiss::from_native(gneiss_transform_type_id()),
+              .field_id = gneiss::field_id{GNEISS_TRANSFORM_FIELD_TRANSLATION}},
       .value = {.payload = std::array{3.0F, 0.0F, 0.0F}},
   }};
   std::unique_ptr<gneiss::scene_internal::prefab_runtime_instance> failed;
