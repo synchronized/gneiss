@@ -4,7 +4,8 @@
 #include "asset_scene_commands.hpp"
 #include "editor_command_history.hpp"
 #include "editor_session.hpp"
-#include "engine/function/application/application_asset_reload_internal.hpp"
+#include "engine/function/render/texture_load_service.hpp"
+#include "engine/function/scene/scene_instance_service.hpp"
 
 namespace gneiss::editor {
 /** 所属线程的一次模态资产替换；命令租约须在 Application 销毁前释放。 */
@@ -39,7 +40,7 @@ private:
   bool creating_{};
   result commit(engine::application& application, editor_session& session,
                 editor_command_history& history);
-  application_internal::mesh_binding previous_, next_;
+  scene_internal::scene_mesh_binding previous_, next_;
   gneiss_scene_instance scene_{};
   scene_node_id node_;
   std::string mesh_, material_;

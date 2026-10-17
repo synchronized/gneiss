@@ -3,7 +3,9 @@
 
 #include "engine/core/math/transform.hpp"
 #include "engine/core/reflection/type_registry.hpp"
+#include "engine/function/world/world_reflection.hpp"
 #include "engine/function/world/world_service.hpp"
+#include <gneiss/engine/detail/reflection_values.hpp>
 
 #include <gneiss/engine/world.h>
 
@@ -304,3 +306,22 @@ gneiss_result gneiss::world_internal::register_reflection(
   }
   return result;
 }
+
+namespace gneiss::world_internal {
+result create_property_registry(reflection_internal::registry_ref& output) noexcept {
+  reflection_internal::registry_ref pending;
+  auto operation = reflection_internal::create_native(pending);
+  if (operation == GNEISS_SUCCESS) {
+    operation = register_reflection(pending);
+  }
+  if (operation == GNEISS_SUCCESS) {
+    operation = reflection_internal::freeze(pending);
+  }
+  if (operation == GNEISS_SUCCESS) {
+    output = std::move(pending);
+  }
+  return from_native(operation);
+}
+type_id transform_property_type() noexcept { return from_native(transform_type_id()); }
+type_id camera_property_type() noexcept { return from_native(camera_type_id()); }
+} // namespace gneiss::world_internal

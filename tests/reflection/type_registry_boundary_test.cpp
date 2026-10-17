@@ -30,7 +30,78 @@ gneiss_result throwing_getter(void* /*context*/, gneiss_property_target /*target
 }
 } // namespace
 
+namespace {
+bool native_values() {
+  namespace reflection = gneiss::reflection_internal;
+  reflection::registry_ref registry;
+  const gneiss_type_id id{{7}};
+  const gneiss::type_id native_id{{7}};
+  const std::array fields{
+      reflection::field_definition{.id = 1, .value_type_id = id, .flags = 0, .name = "text"}};
+  std::string text = "初始文本";
+  const reflection::property_binding binding{
+      .kind = GNEISS_PROPERTY_KIND_STRING,
+      .getter =
+          [](void* context, gneiss_property_target, gneiss_property_value* output) {
+            const auto& value = *static_cast<std::string*>(context);
+            *output = GNEISS_PROPERTY_VALUE_INIT;
+            output->kind = GNEISS_PROPERTY_KIND_STRING;
+            output->payload.string_value = {value.data(), static_cast<std::uint32_t>(value.size())};
+            return GNEISS_SUCCESS;
+          },
+      .setter =
+          [](void* context, gneiss_property_target, const gneiss_property_value* value) {
+            static_cast<std::string*>(context)->assign(value->payload.string_value.data,
+                                                       value->payload.string_value.length);
+            return GNEISS_SUCCESS;
+          },
+      .user_data = &text};
+  if (reflection::create_native(registry) != GNEISS_SUCCESS ||
+      reflection::register_type(
+          registry, {.id = id, .schema_version = 1, .name = "sample", .fields = fields}) !=
+          GNEISS_SUCCESS ||
+      reflection::bind_property(registry, id, 1, binding) != GNEISS_SUCCESS) {
+    return false;
+  }
+  reflection::property_value snapshot{.payload = std::string{"旧输出"}};
+  if (reflection::read_property(registry, native_id, gneiss::field_id{1}, {}, snapshot) !=
+          gneiss::result::not_ready ||
+      std::get<std::string>(snapshot.payload) != "旧输出" ||
+      reflection::freeze(registry) != GNEISS_SUCCESS) {
+    return false;
+  }
+  if (reflection::read_property(registry, native_id, gneiss::field_id{1}, {}, snapshot).failed()) {
+    return false;
+  }
+  text.assign(2000, 'x');
+  auto copy = snapshot;
+  if (std::get<std::string>(copy.payload) != "初始文本") {
+    return false;
+  }
+  const reflection::property_value invalid{.payload = 1.0F};
+  if (reflection::write_property(registry, native_id, gneiss::field_id{1}, {}, invalid) !=
+          gneiss::result::invalid_argument ||
+      text.size() != 2000 ||
+      reflection::write_property(registry, native_id, gneiss::field_id{1}, {}, copy).failed() ||
+      text != "初始文本") {
+    return false;
+  }
+  gneiss::type_info metadata;
+  if (reflection::describe_type(registry, native_id, metadata).failed() ||
+      metadata.fields.size() != 1 || metadata.fields[0].kind != gneiss::property_kind::string) {
+    return false;
+  }
+  registry.reset();
+  return reflection::read_property(registry, native_id, gneiss::field_id{1}, {}, snapshot) ==
+             gneiss::result::invalid_handle &&
+         std::get<std::string>(snapshot.payload) == "初始文本";
+}
+} // namespace
+
 int main() try {
+  if (!native_values()) {
+    return 30;
+  }
   namespace reflection = gneiss::reflection_internal;
   // 原生对象不依赖公共句柄表；最后一个内部所有者释放后必须销毁。
   reflection::registry_ref native;

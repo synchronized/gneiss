@@ -11,8 +11,9 @@ add_library(
 target_link_libraries(gneiss_game_module_session PUBLIC gneiss::engine gneiss_dynamic_library)
 target_include_directories(
   gneiss_game_module_session
-  PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}" "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>"
+  PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}"
 )
+target_link_libraries(gneiss_game_module_session PUBLIC gneiss_native_interface)
 target_compile_features(gneiss_game_module_session PUBLIC cxx_std_20)
 gneiss_target_compile_warnings(gneiss_game_module_session)
 gneiss_target_output_directories(gneiss_game_module_session)
@@ -56,7 +57,7 @@ target_link_libraries(
   gneiss_runtime_ipc PUBLIC gneiss_app_ipc_protocol PRIVATE gneiss_app_project gneiss::engine
 )
 target_include_directories(gneiss_runtime_ipc PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
-target_include_directories(gneiss_runtime_ipc PUBLIC "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>")
+target_link_libraries(gneiss_runtime_ipc PUBLIC gneiss_native_interface)
 target_compile_features(gneiss_runtime_ipc PUBLIC cxx_std_20)
 gneiss_target_compile_warnings(gneiss_runtime_ipc)
 gneiss_target_output_directories(gneiss_runtime_ipc)
@@ -66,7 +67,7 @@ target_link_libraries(
   gneiss_runtime
   PRIVATE gneiss_app_project gneiss::engine gneiss_game_module_session gneiss_runtime_ipc gneiss_tasks
 )
-target_include_directories(gneiss_runtime PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_link_libraries(gneiss_runtime PRIVATE gneiss_native_interface)
 target_compile_features(gneiss_runtime PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_runtime)
 gneiss_target_output_directories(gneiss_runtime)

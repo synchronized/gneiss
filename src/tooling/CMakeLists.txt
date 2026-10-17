@@ -38,10 +38,12 @@ add_library(
   "${PROJECT_SOURCE_DIR}/src/tooling/asset_build/sha256.hpp"
 )
 target_include_directories(
-  gneiss_asset_import_sdk PUBLIC "${PROJECT_SOURCE_DIR}/src" "${PROJECT_SOURCE_DIR}/include"
+  gneiss_asset_import_sdk PRIVATE "${PROJECT_SOURCE_DIR}/src"
+  PUBLIC "${PROJECT_SOURCE_DIR}/include"
 )
 target_link_libraries(
   gneiss_asset_import_sdk
+  PUBLIC gneiss_tooling_interface
   PRIVATE fastgltf::fastgltf gneiss_mikktspace gneiss_bc7enc gneiss_yyjson gneiss_png granit::granit granit::asset_tools
 )
 target_compile_features(gneiss_asset_import_sdk PRIVATE cxx_std_20)

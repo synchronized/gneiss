@@ -174,3 +174,20 @@ Editor 无需 Application 兼容桥；Runtime 仅在动态游戏模块这一真�
 
 上述是当前实现入口，不代表 0.51 的大型场景与平台验收已经完成。
 外部源码迁移见 [0.50 → 0.51 指南](../guides/migrating-0.50-to-0.51.md)。
+
+## 同源码内部接口的可见范围
+
+- `cmake/internal_interfaces.cmake` 是宿主与离线工具获准头文件清单的权威来源；
+  `gneiss_native_interface`、`gneiss_tooling_interface` 只提供构建期契约，不属于安装 SDK。
+- Task 目标独立导出 `task_scheduler.hpp` 与进度通知，不能通过其依赖获取 Engine 功能层。
+- `cmake/internal_headers.cmake` 在构建树生成清单限定的包含目录；消费者通过 target 依赖获得它。
+  新增跨模块头依赖时须更新清单并审查方向，不能恢复 PUBLIC `src` 或相对路径越过模块根。
+- Engine 与资产工具编译自身实现时保留 PRIVATE 源码路径。白盒测试显式申请私有路径；
+  普通宿主的可见性测试不获得此权限。
+- `scene_load_types.hpp` 仅包含加载进度与完成信息；`scene_load_service.hpp`、场景域状态及
+  注册表实现不向宿主导出。动态游戏模块所需桥接通过 `application_bridge.hpp` 提供。
+
+属性面板和撤销历史使用 `reflection_internal::property_value`，其中字符串为自有文本；
+`property_registry.hpp` 提供同一 Registry 的原生查询和写入。内置组件注册入口是
+`world_reflection.hpp`，无需包含 World 句柄表。公共 SDK 值适配位于 `detail/reflection_values.hpp`，
+不携带 SDK 所有者；外部借用文本与内部自有快照的生命周期分别遵循各自接口约定。

@@ -2,12 +2,11 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/function/application/application.hpp"
-#include "engine/function/application/application_registry.hpp"
+#include "engine/function/application/application_bridge.hpp"
 #include <gneiss/app/project_description.hpp>
 #include <gneiss/engine/core/result.hpp>
 #include <gneiss/engine/scene.h>
 
-#include "engine/function/application/application_asset_reload_internal.hpp"
 #include "engine/function/game/game_context_internal.hpp"
 #include "game_module_session.hpp"
 #include "game_update_scheduler.hpp"

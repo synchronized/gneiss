@@ -465,3 +465,23 @@ foreach(content IN ITEMS "gneiss::sdk::world owner;" "gneiss_type_registry_creat
   endif()
 endforeach()
 file(WRITE "${fixture}/src/editor/property_inspector_model.cpp" "")
+
+foreach(content IN ITEMS "gneiss_property_value value;" "auto kind = GNEISS_PROPERTY_KIND_VEC3;")
+  file(WRITE "${fixture}/src/editor/property_inspector_model.cpp" "${content}\n")
+  execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
+    -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
+    RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
+  if(status EQUAL 0)
+    message(FATAL_ERROR "原生属性边界未拒绝 C 布局：${content}")
+  endif()
+endforeach()
+file(WRITE "${fixture}/src/editor/property_inspector_model.cpp" "")
+
+file(WRITE "${fixture}/src/editor/editor_grid.hpp" "#include \"../engine/function/render/draw_types.hpp\"\n")
+execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
+  -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
+  RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
+if(status EQUAL 0)
+  message(FATAL_ERROR "Editor 父目录越界未被拒绝")
+endif()
+file(WRITE "${fixture}/src/editor/editor_grid.hpp" "")

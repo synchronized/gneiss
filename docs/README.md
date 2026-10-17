@@ -503,6 +503,8 @@
 - [M-331：场景激活时提交版本选择](records/M-331-deferred-version-adoption.md)
 - [M-331：准备好的 Prefab 描述使用不可变版本](records/M-331-prefab-description-versions.md)
 
+- [M-332：属性与头文件边界收尾](records/M-332-property-header-boundaries.md)
+
 ## 文档维护
 
 

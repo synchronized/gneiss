@@ -207,6 +207,7 @@ if(GNEISS_ENABLE_GRANIT_PLATFORM AND TARGET gneiss_assetc)
           GNEISS_EDITOR_LANTERN_PROJECT="${lantern_gallery_project_root}"
           GNEISS_EDITOR_LANTERN_SOURCE="${lantern_gallery_source_root}/source/Lantern.glb"
       )
+      target_include_directories(gneiss_editor_lantern_workflow_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
       add_dependencies(gneiss_editor_lantern_workflow_test gneiss_lantern_gallery_assets)
       gneiss_target_compile_warnings(gneiss_editor_lantern_workflow_test)
       gneiss_target_output_directories(gneiss_editor_lantern_workflow_test)

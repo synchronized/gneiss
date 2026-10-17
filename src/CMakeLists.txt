@@ -39,6 +39,7 @@ target_sources(
     engine/api/input_api.cpp
     engine/function/application/application_registry.cpp
     engine/function/application/application_registry.hpp
+    engine/function/application/application_bridge.hpp
     engine/function/application/application_host.cpp
     engine/function/application/prefab_preparation.cpp
     engine/function/application/prefab_placement.cpp
@@ -47,6 +48,7 @@ target_sources(
     engine/api/application_log_sink.hpp
     engine/function/application/scene_load_service.cpp
     engine/function/application/scene_load_service.hpp
+    engine/function/application/scene_load_types.hpp
     engine/function/application/application_scene_load_internal.hpp
     engine/function/application/scene_session.cpp
     engine/function/application/scene_session.hpp
@@ -124,6 +126,7 @@ target_sources(
     engine/function/render/normal_math.hpp
     engine/core/reflection/type_registry.cpp
     engine/core/reflection/type_registry.hpp
+    engine/core/reflection/property_registry.hpp
     engine/api/reflection_api.cpp
     engine/function/scene/scene_tree.cpp
     engine/function/scene/scene_tree.hpp
@@ -157,6 +160,7 @@ target_sources(
     engine/function/world/world_types.hpp
     engine/function/world/world_service.cpp
     engine/function/world/world_service.hpp
+    engine/function/world/world_reflection.hpp
     engine/function/world/component_reflection.cpp
     engine/function/world/world_state.hpp
   PUBLIC
@@ -175,6 +179,8 @@ target_sources(
       "${PROJECT_SOURCE_DIR}/include/gneiss/engine/detail/scene.inl"
       "${PROJECT_SOURCE_DIR}/include/gneiss/engine/detail/render.inl"
       "${PROJECT_SOURCE_DIR}/include/gneiss/engine/detail/reflection.inl"
+      "${PROJECT_SOURCE_DIR}/include/gneiss/engine/detail/reflection_values.hpp"
+      "${PROJECT_SOURCE_DIR}/include/gneiss/engine/core/reflection_types.hpp"
       "${PROJECT_SOURCE_DIR}/include/gneiss/engine/detail/game_module.inl"
       "${PROJECT_SOURCE_DIR}/include/gneiss/engine/detail/game_context.inl"
       "${PROJECT_SOURCE_DIR}/include/gneiss/engine/asset.h"

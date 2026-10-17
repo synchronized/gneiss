@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/core/reflection/type_registry.hpp"
+#include <gneiss/engine/detail/reflection_values.hpp>
 
 #include "engine/core/rid_table.hpp"
 
@@ -620,5 +621,95 @@ gneiss_result set_candidate_property(const registry_ref& state, gneiss_type_id t
                                      const gneiss_property_value& value) noexcept {
   return state ? state->set_candidate_property(type_id, field_id, candidate, value)
                : GNEISS_ERROR_INVALID_HANDLE;
+}
+} // namespace gneiss::reflection_internal
+
+namespace gneiss::reflection_internal {
+result describe_type(const registry_ref& registry, type_id id, type_info& output) noexcept try {
+  gneiss_type_info source{};
+  const auto operation = from_native(find_type(registry, to_native(id), source));
+  if (operation.failed()) {
+    return operation;
+  }
+  type_info pending{
+      .id = from_native(source.id),
+      .schema_version = source.schema_version,
+      .name = {source.name, source.name_length},
+      .fields = {},
+  };
+  pending.fields.reserve(source.field_count);
+  for (std::uint32_t index = 0; index < source.field_count; ++index) {
+    const auto& field = source.fields[index];
+    pending.fields.push_back({
+        .id = field_id{field.id},
+        .value_type_id = from_native(field.value_type_id),
+        .flags = static_cast<field_flags>(field.flags),
+        .name = {field.name, field.name_length},
+        .kind = static_cast<property_kind>(field.property_kind),
+        .capabilities = static_cast<property_capabilities>(field.property_capabilities),
+    });
+  }
+  output = std::move(pending);
+  return result::success;
+} catch (const std::bad_alloc&) {
+  return result::out_of_memory;
+} catch (...) {
+  return result::internal;
+}
+result read_property(const registry_ref& registry, type_id type, field_id field,
+                     property_target target, property_value& output) noexcept try {
+  gneiss_property_value raw = GNEISS_PROPERTY_VALUE_INIT;
+  auto operation =
+      from_native(get_property(registry, to_native(type), field.get(), to_native(target), raw));
+  if (operation.failed()) {
+    return operation;
+  }
+  gneiss::property_value borrowed;
+  operation = from_native(raw, borrowed);
+  if (operation.failed()) {
+    return operation;
+  }
+  property_value pending;
+  std::visit(
+      [&](const auto& value) {
+        if constexpr (std::same_as<std::decay_t<decltype(value)>, std::string_view>) {
+          pending.payload = std::string{value};
+        } else {
+          pending.payload = value;
+        }
+      },
+      borrowed.payload);
+  output = std::move(pending);
+  return result::success;
+} catch (const std::bad_alloc&) {
+  return result::out_of_memory;
+} catch (...) {
+  return result::internal;
+}
+result write_property(const registry_ref& registry, type_id type, field_id field,
+                      property_target target, const property_value& value) noexcept try {
+  if (value.payload.valueless_by_exception()) {
+    return result::invalid_argument;
+  }
+  gneiss::property_value borrowed;
+  std::visit(
+      [&](const auto& item) {
+        if constexpr (std::same_as<std::decay_t<decltype(item)>, std::string>) {
+          borrowed.payload = std::string_view{item};
+        } else {
+          borrowed.payload = item;
+        }
+      },
+      value.payload);
+  gneiss_property_value raw = GNEISS_PROPERTY_VALUE_INIT;
+  const auto operation = to_native(borrowed, raw);
+  if (operation.failed()) {
+    return operation;
+  }
+  return from_native(set_property(registry, to_native(type), field.get(), to_native(target), raw));
+} catch (const std::bad_alloc&) {
+  return result::out_of_memory;
+} catch (...) {
+  return result::internal;
 }
 } // namespace gneiss::reflection_internal

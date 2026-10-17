@@ -12,14 +12,14 @@ namespace {
 
 constexpr float normalization_tolerance = 1.0e-3F;
 
-bool is_finite(const gneiss_property_quaternion& value) noexcept {
+bool is_finite(const gneiss::property_quaternion& value) noexcept {
   return std::isfinite(value.x) && std::isfinite(value.y) && std::isfinite(value.z) &&
          std::isfinite(value.w);
 }
 
 } // namespace
 
-result quaternion_to_euler_degrees(const gneiss_property_quaternion& quaternion,
+result quaternion_to_euler_degrees(const gneiss::property_quaternion& quaternion,
                                    std::array<float, 3>& output) noexcept {
   if (!is_finite(quaternion)) {
     return result::invalid_argument;
@@ -46,7 +46,7 @@ result quaternion_to_euler_degrees(const gneiss_property_quaternion& quaternion,
 }
 
 result euler_degrees_to_quaternion(const std::array<float, 3>& euler,
-                                   gneiss_property_quaternion& output) noexcept {
+                                   gneiss::property_quaternion& output) noexcept {
   if (!std::ranges::all_of(euler, [](float value) { return std::isfinite(value); })) {
     return result::invalid_argument;
   }

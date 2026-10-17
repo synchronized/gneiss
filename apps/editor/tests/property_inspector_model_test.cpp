@@ -5,6 +5,7 @@
 #include <gneiss/engine/world.hpp>
 
 #include <cmath>
+#include <thread>
 
 namespace {
 
@@ -45,11 +46,11 @@ int main() {
     return 22;
   }
 
-  gneiss_property_value value = GNEISS_PROPERTY_VALUE_INIT;
-  value.kind = GNEISS_PROPERTY_KIND_VEC3;
-  value.payload.vec3_value = {.x = 2.0F, .y = 3.0F, .z = 4.0F};
-  if (inspector.set_value(gneiss_transform_type_id(), GNEISS_TRANSFORM_FIELD_TRANSLATION, value) !=
-      gneiss::result::success) {
+  gneiss::reflection_internal::property_value value;
+  value.payload = gneiss::property_vec3{.x = 2.0F, .y = 3.0F, .z = 4.0F};
+  if (inspector.set_value(gneiss::from_native(gneiss_transform_type_id()),
+                          gneiss::field_id{GNEISS_TRANSFORM_FIELD_TRANSLATION},
+                          value) != gneiss::result::success) {
     return 3;
   }
   gneiss::transform transform{};
@@ -58,19 +59,22 @@ int main() {
     return 4;
   }
 
-  value.payload.vec3_value = {.x = 0.0F, .y = 1.0F, .z = 1.0F};
-  if (inspector.set_value(gneiss_transform_type_id(), GNEISS_TRANSFORM_FIELD_SCALE, value) !=
-          gneiss::result::invalid_argument ||
+  value.payload = gneiss::property_vec3{.x = 0.0F, .y = 1.0F, .z = 1.0F};
+  if (inspector.set_value(gneiss::from_native(gneiss_transform_type_id()),
+                          gneiss::field_id{GNEISS_TRANSFORM_FIELD_SCALE},
+                          value) != gneiss::result::invalid_argument ||
       world.get_local_transform(entity, transform) != gneiss::result::success ||
       !nearly_equal(transform.scale[0], 1.0F) ||
-      !nearly_equal(inspector.components()[0].properties[2].value.payload.vec3_value.x, 1.0F)) {
+      !nearly_equal(
+          std::get<gneiss::property_vec3>(inspector.components()[0].properties[2].value.payload).x,
+          1.0F)) {
     return 5;
   }
 
-  value.kind = GNEISS_PROPERTY_KIND_BOOL;
-  value.payload.bool_value = 1U;
-  if (inspector.set_value(gneiss_camera_type_id(), GNEISS_CAMERA_FIELD_IS_PRIMARY, value) !=
-      gneiss::result::unsupported) {
+  value.payload = true;
+  if (inspector.set_value(gneiss::from_native(gneiss_camera_type_id()),
+                          gneiss::field_id{GNEISS_CAMERA_FIELD_IS_PRIMARY},
+                          value) != gneiss::result::unsupported) {
     return 6;
   }
   if (inspector.refresh(world.get(), transform_only) != gneiss::result::success ||
@@ -81,6 +85,14 @@ int main() {
       inspector.refresh(world.get(), transform_only) != gneiss::result::invalid_handle ||
       !inspector.components().empty()) {
     return 8;
+  }
+  // 冻结元数据可读不代表 World 可跨线程写入；不并发访问模型本身。
+  auto cross_thread = gneiss::result{gneiss::result::success};
+  std::thread worker([&] { cross_thread = inspector.refresh(world.get(), entity); });
+  worker.join();
+  if (cross_thread != gneiss::result::invalid_state || !inspector.components().empty() ||
+      inspector.refresh(world.get(), entity).failed()) {
+    return 9;
   }
   return 0;
 }

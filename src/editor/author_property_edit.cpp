@@ -12,9 +12,9 @@ namespace gneiss::editor {
 
 namespace {
 result write_author_property(editor_session& session, property_inspector_model& inspector,
-                             gneiss_world world, std::string_view uuid, gneiss_type_id type_id,
-                             gneiss_field_id field_id,
-                             const gneiss_property_value& value) noexcept {
+                             gneiss_world world, std::string_view uuid, type_id type_id,
+                             field_id field_id,
+                             const reflection_internal::property_value& value) noexcept {
   const auto* current = session.find_node(uuid);
   if (current == nullptr) {
     return result::not_found;
@@ -30,7 +30,8 @@ result write_author_property(editor_session& session, property_inspector_model& 
 result edit_author_property(editor_session& session, editor_command_history& history,
                             property_inspector_model& inspector, gneiss_world world,
                             const inspector_component& component,
-                            const inspector_property& property, const gneiss_property_value& value,
+                            const inspector_property& property,
+                            const reflection_internal::property_value& value,
                             std::uint64_t edit_serial) noexcept try {
   const auto* selected = session.selected_node();
   if (selected == nullptr) {
@@ -41,8 +42,9 @@ result edit_author_property(editor_session& session, editor_command_history& his
   const auto field_id = property.id;
   const auto previous = property.value;
   std::string merge_key = "property:" + uuid;
-  merge_key.append(reinterpret_cast<const char*>(type_id.bytes), sizeof(type_id.bytes));
-  merge_key.append(reinterpret_cast<const char*>(&field_id), sizeof(field_id));
+  merge_key.append(reinterpret_cast<const char*>(type_id.bytes.data()), sizeof(type_id.bytes));
+  const auto field_number = field_id.get();
+  merge_key.append(reinterpret_cast<const char*>(&field_number), sizeof(field_number));
   merge_key.append(reinterpret_cast<const char*>(&edit_serial), sizeof(edit_serial));
   // 命令对象分配先于写入，避免分配失败留下未记录的属性变更。
   auto command = std::make_unique<functional_editor_command>(editor_command_history::command{

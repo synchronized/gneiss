@@ -4,7 +4,7 @@
 #ifndef GNEISS_APPS_EDITOR_PROPERTY_INSPECTOR_MODEL_H_
 #define GNEISS_APPS_EDITOR_PROPERTY_INSPECTOR_MODEL_H_
 
-#include "engine/core/reflection/type_registry.hpp"
+#include "engine/core/reflection/property_registry.hpp"
 #include <gneiss/engine/core/entity.hpp>
 #include <gneiss/engine/core/result.hpp>
 #include <gneiss/engine/world.h>
@@ -15,15 +15,15 @@
 namespace gneiss::editor {
 
 struct inspector_property final {
-  gneiss_field_id id = GNEISS_NULL_FIELD_ID;
+  field_id id{};
   std::string name;
-  std::uint32_t kind = GNEISS_PROPERTY_KIND_INVALID;
-  std::uint32_t capabilities = 0;
-  gneiss_property_value value = GNEISS_PROPERTY_VALUE_INIT;
+  property_kind kind = property_kind::invalid;
+  property_capabilities capabilities = property_capabilities::none;
+  reflection_internal::property_value value{};
 };
 
 struct inspector_component final {
-  gneiss_type_id type_id{};
+  gneiss::type_id type_id{};
   std::string name;
   std::vector<inspector_property> properties;
 };
@@ -44,13 +44,13 @@ public:
   [[nodiscard]] result refresh(gneiss_world world, entity_id entity) noexcept;
 
   /** 通过 Registry 写入属性；失败时保留运行时值和当前快照。 */
-  [[nodiscard]] result set_value(gneiss_type_id type_id, gneiss_field_id field_id,
-                                 const gneiss_property_value& value) noexcept;
+  [[nodiscard]] result set_value(type_id type_id, field_id field_id,
+                                 const reflection_internal::property_value& value) noexcept;
 
   /** 按稳定实体 ID 写入属性，供撤销/重做在选择变化后复用。 */
-  [[nodiscard]] result set_value(gneiss_world world, entity_id entity, gneiss_type_id type_id,
-                                 gneiss_field_id field_id,
-                                 const gneiss_property_value& value) noexcept;
+  [[nodiscard]] result set_value(gneiss_world world, entity_id entity, type_id type_id,
+                                 field_id field_id,
+                                 const reflection_internal::property_value& value) noexcept;
 
   [[nodiscard]] const std::vector<inspector_component>& components() const noexcept {
     return components_;
@@ -58,7 +58,7 @@ public:
 
 private:
   reflection_internal::registry_ref registry_;
-  gneiss_property_target target_{};
+  property_target target_{};
   std::vector<inspector_component> components_;
 };
 

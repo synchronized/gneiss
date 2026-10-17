@@ -12,12 +12,11 @@ int main() try {
   inspector_component component;
   component.name = "Transform";
   inspector_property property;
-  property.id = 1U;
+  property.id = gneiss::field_id{1U};
   property.name = "Rotation";
-  property.kind = GNEISS_PROPERTY_KIND_QUATERNION;
-  property.capabilities = GNEISS_PROPERTY_CAPABILITY_WRITABLE;
-  property.value.kind = property.kind;
-  property.value.payload.quaternion_value = {.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
+  property.kind = gneiss::property_kind::quaternion;
+  property.capabilities = gneiss::property_capabilities::writable;
+  property.value.payload = gneiss::property_quaternion{.x = 0.0F, .y = 0.0F, .z = 0.0F, .w = 1.0F};
   component.properties.push_back(property);
   std::array components{component};
   unsigned writes = 0U;
@@ -27,7 +26,7 @@ int main() try {
       .context = &writes,
       .write =
           [](void* context, const inspector_component&, const inspector_property&,
-             const gneiss_property_value&, std::uint64_t) {
+             const gneiss::reflection_internal::property_value&, std::uint64_t) {
             ++*static_cast<unsigned*>(context);
             return gneiss::result{gneiss::result::success};
           },
@@ -52,7 +51,7 @@ int main() try {
   draw();
   const bool valid = error.ok() && ImGui::GetDrawData()->TotalVtxCount > 0;
   // 非法四元数只报告错误，不调用写入或变更模型；不需要原生窗口。
-  components[0].properties[0].value.payload.quaternion_value.w = 0.0F;
+  std::get<gneiss::property_quaternion>(components[0].properties[0].value.payload).w = 0.0F;
   draw();
   const bool invalid = error == gneiss::result::invalid_argument;
   ImGui::DestroyContext();

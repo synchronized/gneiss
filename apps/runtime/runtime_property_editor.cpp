@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "runtime_property_editor.hpp"
-#include "engine/function/world/world_service.hpp"
+#include "engine/function/world/world_reflection.hpp"
 
 #include <algorithm>
 #include <limits>
@@ -14,103 +14,54 @@
 namespace {
 
 gneiss::result to_native_value(const gneiss::ipc_property_value& source,
-                               gneiss_property_value& output) noexcept {
-  output = GNEISS_PROPERTY_VALUE_INIT;
+                               gneiss::reflection_internal::property_value& output) noexcept try {
   return std::visit(
       [&](const auto& payload) -> gneiss::result {
-        using Payload = std::decay_t<decltype(payload)>;
-        if constexpr (std::is_same_v<Payload, std::monostate>) {
+        using T = std::decay_t<decltype(payload)>;
+        if constexpr (std::is_same_v<T, std::monostate>) {
           return gneiss::result::invalid_argument;
-        } else if constexpr (std::is_same_v<Payload, bool>) {
-          output.kind = GNEISS_PROPERTY_KIND_BOOL;
-          output.payload.bool_value = payload ? UINT8_C(1) : UINT8_C(0);
-        } else if constexpr (std::is_same_v<Payload, std::int64_t>) {
-          output.kind = GNEISS_PROPERTY_KIND_INT64;
-          output.payload.int64_value = payload;
-        } else if constexpr (std::is_same_v<Payload, std::uint64_t>) {
-          output.kind = GNEISS_PROPERTY_KIND_UINT64;
-          output.payload.uint64_value = payload;
-        } else if constexpr (std::is_same_v<Payload, float>) {
-          output.kind = GNEISS_PROPERTY_KIND_FLOAT32;
-          output.payload.float32_value = payload;
-        } else if constexpr (std::is_same_v<Payload, double>) {
-          output.kind = GNEISS_PROPERTY_KIND_FLOAT64;
-          output.payload.float64_value = payload;
-        } else if constexpr (std::is_same_v<Payload, std::string>) {
-          output.kind = GNEISS_PROPERTY_KIND_STRING;
-          output.payload.string_value = {payload.data(),
-                                         static_cast<std::uint32_t>(payload.size())};
-        } else if constexpr (std::is_same_v<Payload, std::array<std::uint8_t, 16>>) {
-          output.kind = GNEISS_PROPERTY_KIND_TYPE_ID;
-          std::ranges::copy(payload, output.payload.type_id_value.bytes);
-        } else if constexpr (std::is_same_v<Payload, std::array<float, 3>>) {
-          output.kind = GNEISS_PROPERTY_KIND_VEC3;
-          output.payload.vec3_value = {payload[0], payload[1], payload[2]};
+        } else if constexpr (std::is_same_v<T, std::array<std::uint8_t, 16>>) {
+          output.payload = gneiss::type_id{payload};
+        } else if constexpr (std::is_same_v<T, std::array<float, 3>>) {
+          output.payload = gneiss::property_vec3{payload[0], payload[1], payload[2]};
+        } else if constexpr (std::is_same_v<T, std::array<float, 4>>) {
+          output.payload =
+              gneiss::property_quaternion{payload[0], payload[1], payload[2], payload[3]};
         } else {
-          output.kind = GNEISS_PROPERTY_KIND_QUATERNION;
-          output.payload.quaternion_value = {payload[0], payload[1], payload[2], payload[3]};
+          output.payload = payload;
         }
-        if constexpr (!std::is_same_v<Payload, std::monostate>) {
-          return gneiss::result::success;
-        }
+        return gneiss::result::success;
       },
       source.payload);
+} catch (const std::bad_alloc&) {
+  return gneiss::result::out_of_memory;
+} catch (...) {
+  return gneiss::result::internal;
 }
 
-gneiss::result from_native_value(const gneiss_property_value& source,
-                                 gneiss::ipc_property_value& output) noexcept {
-  try {
-    gneiss::ipc_property_value converted;
-    switch (source.kind) {
-    case GNEISS_PROPERTY_KIND_BOOL:
-      converted.payload = source.payload.bool_value != 0U;
-      break;
-    case GNEISS_PROPERTY_KIND_INT64:
-      converted.payload = source.payload.int64_value;
-      break;
-    case GNEISS_PROPERTY_KIND_UINT64:
-      converted.payload = source.payload.uint64_value;
-      break;
-    case GNEISS_PROPERTY_KIND_FLOAT32:
-      converted.payload = source.payload.float32_value;
-      break;
-    case GNEISS_PROPERTY_KIND_FLOAT64:
-      converted.payload = source.payload.float64_value;
-      break;
-    case GNEISS_PROPERTY_KIND_STRING:
-      if (source.payload.string_value.length != 0U && source.payload.string_value.data == nullptr) {
-        return gneiss::result::invalid_argument;
-      }
-      converted.payload =
-          source.payload.string_value.length == 0U
-              ? std::string{}
-              : std::string(source.payload.string_value.data, source.payload.string_value.length);
-      break;
-    case GNEISS_PROPERTY_KIND_TYPE_ID: {
-      std::array<std::uint8_t, 16> bytes{};
-      std::ranges::copy(source.payload.type_id_value.bytes, bytes.begin());
-      converted.payload = bytes;
-      break;
-    }
-    case GNEISS_PROPERTY_KIND_VEC3:
-      converted.payload = std::array{source.payload.vec3_value.x, source.payload.vec3_value.y,
-                                     source.payload.vec3_value.z};
-      break;
-    case GNEISS_PROPERTY_KIND_QUATERNION:
-      converted.payload =
-          std::array{source.payload.quaternion_value.x, source.payload.quaternion_value.y,
-                     source.payload.quaternion_value.z, source.payload.quaternion_value.w};
-      break;
-    default:
-      return gneiss::result::unsupported;
-    }
-    output = std::move(converted);
-    return gneiss::result::success;
-  } catch (const std::bad_alloc&) {
-    return gneiss::result::out_of_memory;
-  } catch (...) {
-    return gneiss::result::internal;
-  }
+gneiss::result from_native_value(const gneiss::reflection_internal::property_value& source,
+                                 gneiss::ipc_property_value& output) noexcept try {
+  return std::visit(
+      [&](const auto& payload) -> gneiss::result {
+        using T = std::decay_t<decltype(payload)>;
+        if constexpr (std::is_same_v<T, std::monostate>) {
+          return gneiss::result::unsupported;
+        } else if constexpr (std::is_same_v<T, gneiss::type_id>) {
+          output.payload = payload.bytes;
+        } else if constexpr (std::is_same_v<T, gneiss::property_vec3>) {
+          output.payload = std::array{payload.x, payload.y, payload.z};
+        } else if constexpr (std::is_same_v<T, gneiss::property_quaternion>) {
+          output.payload = std::array{payload.x, payload.y, payload.z, payload.w};
+        } else {
+          output.payload = payload;
+        }
+        return gneiss::result::success;
+      },
+      source.payload);
+} catch (const std::bad_alloc&) {
+  return gneiss::result::out_of_memory;
+} catch (...) {
+  return gneiss::result::internal;
 }
 
 } // namespace
@@ -125,15 +76,9 @@ result runtime_property_editor::initialize(gneiss_world world, runtime_scene_ins
     return result::invalid_argument;
   }
   reflection_internal::registry_ref registry;
-  auto operation = reflection_internal::create_native(registry);
-  if (operation == GNEISS_SUCCESS) {
-    operation = world_internal::register_reflection(registry);
-  }
-  if (operation == GNEISS_SUCCESS) {
-    operation = reflection_internal::freeze(registry);
-  }
-  if (operation != GNEISS_SUCCESS) {
-    return from_native(operation);
+  const auto operation = world_internal::create_property_registry(registry);
+  if (operation.failed()) {
+    return operation;
   }
   world_ = world;
   inspection_ = &inspection;
@@ -188,13 +133,20 @@ result runtime_property_editor::execute(const ipc_property_write& command,
     return result::success;
   }
 
-  gneiss_field_info field = GNEISS_FIELD_INFO_INIT;
-  auto native =
-      reflection_internal::find_field(registry_, command.type_id, command.field_id, field);
-  if (native != GNEISS_SUCCESS ||
-      (field.property_capabilities & GNEISS_PROPERTY_CAPABILITY_WRITABLE) == 0U) {
-    response.code = native == GNEISS_SUCCESS ? GNEISS_ERROR_UNSUPPORTED : native;
-    response.message = native == GNEISS_SUCCESS ? "属性不可写" : "属性不存在";
+  type_id property_type;
+  std::ranges::copy(command.type_id.bytes, property_type.bytes.begin());
+  const field_id property_field{command.field_id};
+  type_info description;
+  operation = reflection_internal::describe_type(registry_, property_type, description);
+  const auto field = std::ranges::find(description.fields, property_field, &field_info::id);
+  if (operation.failed() || field == description.fields.end() ||
+      !has_flags(field->capabilities, property_capabilities::writable)) {
+    response.code =
+        field == description.fields.end() ? GNEISS_ERROR_NOT_FOUND : GNEISS_ERROR_UNSUPPORTED;
+    if (operation.failed()) {
+      response.code = to_native(operation);
+    }
+    response.message = "属性不存在或不可写";
     output = std::move(response);
     return result::success;
   }
@@ -204,23 +156,23 @@ result runtime_property_editor::execute(const ipc_property_write& command,
     output = std::move(response);
     return result::success;
   }
-  gneiss_property_value value = GNEISS_PROPERTY_VALUE_INIT;
+  reflection_internal::property_value value;
   operation = to_native_value(command.value, value);
-  if (operation == result::success) {
-    const gneiss_property_target target{world_, entity};
-    native = reflection_internal::set_property(registry_, command.type_id, command.field_id, target,
-                                               value);
-    if (native == GNEISS_SUCCESS) {
-      gneiss_property_value canonical = GNEISS_PROPERTY_VALUE_INIT;
-      native = reflection_internal::get_property(registry_, command.type_id, command.field_id,
-                                                 target, canonical);
-      if (native == GNEISS_SUCCESS) {
+  if (operation.ok()) {
+    const property_target target{.context = world_, .object = entity};
+    operation = reflection_internal::write_property(registry_, property_type, property_field,
+                                                    target, value);
+    if (operation.ok()) {
+      reflection_internal::property_value canonical;
+      operation = reflection_internal::read_property(registry_, property_type, property_field,
+                                                     target, canonical);
+      if (operation.ok()) {
         operation = from_native_value(canonical, response.canonical_value);
       }
     }
   }
-  if (operation != result::success || native != GNEISS_SUCCESS) {
-    response.code = operation != result::success ? to_native(operation) : native;
+  if (operation.failed()) {
+    response.code = to_native(operation);
     response.message = "属性写入被拒绝";
     output = std::move(response);
     return result::success;

@@ -177,3 +177,10 @@ if(GNEISS_BUILD_TESTING AND BUILD_TESTING)
       -P "${PROJECT_SOURCE_DIR}/cmake/check_lantern_import.cmake"
   )
 endif()
+
+# 白盒夹具显式申请私有头，不让生产资产 SDK 传播 src 根。
+foreach(test IN ITEMS gneiss_texture_mip_generator_test gneiss_tangent_generation_test gneiss_corrupt_texture_fixture)
+  if(TARGET ${test})
+    target_include_directories(${test} PRIVATE "${PROJECT_SOURCE_DIR}/src")
+  endif()
+endforeach()

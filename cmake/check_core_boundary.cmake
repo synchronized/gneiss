@@ -61,6 +61,13 @@ foreach(source IN LISTS sources)
       content MATCHES "sdk::|gneiss_type_registry_[a-z_]+[(]")
     message(FATAL_ERROR "编辑器内部不得使用 SDK 所有者或绕回 Registry C ABI：${source}")
   endif()
+  if(source MATCHES "/src/editor/(property_inspector_model|author_property_edit|author_property_panel|editor_rotation_math)[.](cpp|hpp)$" AND
+      content MATCHES "gneiss_property_|GNEISS_PROPERTY_|engine/core/reflection/type_registry[.]hpp|[.][.]/engine/")
+    message(FATAL_ERROR "编辑属性链不得泄漏 C 属性布局或绕过模块契约：${source}")
+  endif()
+  if(source MATCHES "/src/editor/" AND content MATCHES "[.][.]/engine/")
+    message(FATAL_ERROR "Editor 不得以父目录路径绕过模块接口：${source}")
+  endif()
   # Editor 使用内部模块接口；值类型仍允许使用公开定义。
   if(source MATCHES "/src/editor/")
     if(content MATCHES "#[ \t]*include[ \t]*[<\"](\\.\\./)*apps/")

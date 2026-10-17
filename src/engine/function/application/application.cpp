@@ -3,6 +3,7 @@
 
 #include "engine/function/application/application.hpp"
 #include "engine/core/diagnostics/profiling.hpp"
+#include "engine/function/application/scene_session.hpp"
 #include "engine/function/world/world.hpp"
 #ifdef GNEISS_NATIVE_LOOP_WAIT
 #include "engine/core/loop_progress.hpp"

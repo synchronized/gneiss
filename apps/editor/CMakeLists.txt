@@ -52,8 +52,8 @@ target_include_directories(
   PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_SOURCE_DIR}/ipc"
   PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/ipc/inbound"
           "${CMAKE_CURRENT_SOURCE_DIR}/ipc/outbound"
-  PUBLIC "${PROJECT_SOURCE_DIR}/src"
 )
+target_link_libraries(gneiss_editor_host PUBLIC gneiss_native_interface)
 target_compile_features(gneiss_editor_host PUBLIC cxx_std_20)
 target_compile_definitions(
   gneiss_editor_host
@@ -417,3 +417,14 @@ if(BUILD_TESTING)
   set_tests_properties(gneiss.editor.project-manager-smoke PROPERTIES TIMEOUT 30)
   set_tests_properties(gneiss.editor.startup-diagnostic PROPERTIES TIMEOUT 30)
 endif()
+
+# 以下白盒夹具仍验证兼容句柄和内部事务；权限不传回生产宿主。
+foreach(test IN ITEMS
+    gneiss_editor_scene_loader_test gneiss_editor_prefab_edit_test gneiss_editor_asset_edit_test
+    gneiss_editor_session_test gneiss_editor_save_test gneiss_editor_transform_gizmo_drag_test
+    gneiss_editor_runtime_launch_test gneiss_editor_task_response_benchmark
+    gneiss_editor_asset_workflow_test)
+  if(TARGET ${test})
+    target_include_directories(${test} PRIVATE "${PROJECT_SOURCE_DIR}/src")
+  endif()
+endforeach()

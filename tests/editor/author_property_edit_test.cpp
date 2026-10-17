@@ -41,13 +41,14 @@ int main() try {
   };
   const auto edit_x = [&](float next, editor_command_history& target, std::uint64_t serial) {
     const auto& component = inspector.components().front();
-    const auto found = std::ranges::find(component.properties, GNEISS_TRANSFORM_FIELD_TRANSLATION,
-                                         &inspector_property::id);
+    const auto found =
+        std::ranges::find(component.properties, field_id{GNEISS_TRANSFORM_FIELD_TRANSLATION},
+                          &inspector_property::id);
     if (found == component.properties.end()) {
       return result{result::not_found};
     }
     auto value = found->value;
-    value.payload.vec3_value.x = next;
+    std::get<property_vec3>(value.payload).x = next;
     return edit_author_property(session, target, inspector, world_handle, component, *found, value,
                                 serial);
   };
@@ -73,13 +74,13 @@ int main() try {
     return 6;
   }
   const auto& component = inspector.components().front();
-  const auto scale = std::ranges::find(component.properties, GNEISS_TRANSFORM_FIELD_SCALE,
+  const auto scale = std::ranges::find(component.properties, field_id{GNEISS_TRANSFORM_FIELD_SCALE},
                                        &inspector_property::id);
   if (scale == component.properties.end()) {
     return 7;
   }
   auto invalid = scale->value;
-  invalid.payload.vec3_value.x = 0.0F;
+  std::get<property_vec3>(invalid.payload).x = 0.0F;
   if (edit_author_property(session, history, inspector, world_handle, component, *scale, invalid,
                            4U) != result::invalid_argument ||
       history.size() != 2U) {

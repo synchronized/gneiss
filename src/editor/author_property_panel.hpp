@@ -14,7 +14,7 @@ namespace gneiss::editor {
 struct author_property_actions final {
   void* context = nullptr;
   result (*write)(void*, const inspector_component&, const inspector_property&,
-                  const gneiss_property_value&, std::uint64_t) = nullptr;
+                  const reflection_internal::property_value&, std::uint64_t) = nullptr;
 };
 
 void draw_author_properties(std::span<const inspector_component> components,

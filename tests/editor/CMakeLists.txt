@@ -62,3 +62,18 @@ target_compile_features(gneiss_editor_transform_gizmo_view_test PRIVATE cxx_std_
 gneiss_target_compile_warnings(gneiss_editor_transform_gizmo_view_test)
 gneiss_target_output_directories(gneiss_editor_transform_gizmo_view_test)
 add_test(NAME gneiss.editor.transform-gizmo-view COMMAND gneiss_editor_transform_gizmo_view_test)
+
+# 白盒测试验证兼容句柄桥；普通 Editor 消费者不能访问注册表。
+target_include_directories(gneiss_editor_author_property_edit_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+
+add_executable(gneiss_internal_header_visibility_test internal_header_visibility_test.cpp)
+target_link_libraries(gneiss_internal_header_visibility_test PRIVATE gneiss_editor_host gneiss_editor_ui)
+gneiss_target_compile_warnings(gneiss_internal_header_visibility_test)
+gneiss_target_output_directories(gneiss_internal_header_visibility_test)
+add_test(NAME gneiss.internal-header-visibility COMMAND gneiss_internal_header_visibility_test)
+
+foreach(test IN ITEMS gneiss_editor_asset_scene_commands_test gneiss_editor_transform_gizmo_view_test)
+  if(TARGET ${test})
+    target_include_directories(${test} PRIVATE "${PROJECT_SOURCE_DIR}/src")
+  endif()
+endforeach()

@@ -3,6 +3,7 @@
 
 #ifndef GNEISS_REFLECTION_TYPE_REGISTRY_HPP_
 #define GNEISS_REFLECTION_TYPE_REGISTRY_HPP_
+#include "property_registry.hpp"
 #include <algorithm>
 #include <cstdint>
 #include <gneiss/engine/reflection.h>
@@ -34,9 +35,6 @@ struct property_binding {
   void* user_data{};
   candidate_property_setter candidate_setter{};
 };
-class type_registry_state;
-/** 原生所有者或当前操作租约；销毁句柄后不得将租约用作新的公共句柄。 */
-using registry_ref = std::shared_ptr<type_registry_state>;
 [[nodiscard]] inline bool valid_type_id(gneiss_type_id id) noexcept {
   return std::ranges::any_of(id.bytes, [](std::uint8_t byte) { return byte != 0U; });
 }

@@ -45,6 +45,7 @@ if(GNEISS_BUILD_EDITOR OR GNEISS_BUILD_RUNTIME OR (GNEISS_TASK_THREADS AND NOT E
   include(libuv)
   gneiss_resolve_libuv()
 endif()
+include(internal_interfaces)
 add_subdirectory(src)
 if(GNEISS_BUILD_TOOLS)
   include(bc7enc)

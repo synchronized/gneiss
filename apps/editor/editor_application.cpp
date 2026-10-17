@@ -20,8 +20,6 @@
 #include "editor_session.hpp"
 #include "editor_theme.hpp"
 #include "editor_ui.hpp"
-#include "engine/function/application/application_asset_reload_internal.hpp"
-#include "engine/function/application/application_view_internal.hpp"
 #include "imgui_adapter.hpp"
 #include "native_author_transaction.hpp"
 #include "native_dialog.hpp"
@@ -882,7 +880,7 @@ void draw_reflected_properties(editor_state& state) {
           .write =
               [](void* context, const gneiss::editor::inspector_component& component,
                  const gneiss::editor::inspector_property& property,
-                 const gneiss_property_value& value, std::uint64_t serial) {
+                 const gneiss::reflection_internal::property_value& value, std::uint64_t serial) {
                 auto& editor = *static_cast<editor_state*>(context);
                 return gneiss::editor::edit_author_property(editor.session, editor.history,
                                                             editor.inspector, editor.world,
@@ -2420,12 +2418,12 @@ gneiss_result update_editor(const gneiss::engine::frame_time* time, void* user_d
         auto edited = prefab->local_transform;
         const auto previous = prefab->local_transform;
         std::array<float, 3> rotation{};
-        const gneiss_property_quaternion quaternion{edited.rotation[0], edited.rotation[1],
-                                                    edited.rotation[2], edited.rotation[3]};
+        const gneiss::property_quaternion quaternion{edited.rotation[0], edited.rotation[1],
+                                                     edited.rotation[2], edited.rotation[3]};
         (void)gneiss::editor::quaternion_to_euler_degrees(quaternion, rotation);
         bool changed = ImGui::DragFloat3("Translation", edited.translation.data(), 0.05F);
         if (ImGui::DragFloat3("Rotation (degrees)", rotation.data(), 0.25F, 0.0F, 0.0F, "%.1f°")) {
-          gneiss_property_quaternion converted{};
+          gneiss::property_quaternion converted{};
           if (gneiss::editor::euler_degrees_to_quaternion(rotation, converted) ==
               gneiss::result::success) {
             edited.rotation[0] = converted.x;
@@ -2600,13 +2598,13 @@ gneiss_result update_editor(const gneiss::engine::frame_time* time, void* user_d
         }
         auto edited = prefab->local_transform;
         std::array<float, 3> rotation{};
-        const gneiss_property_quaternion quaternion{edited.rotation[0], edited.rotation[1],
-                                                    edited.rotation[2], edited.rotation[3]};
+        const gneiss::property_quaternion quaternion{edited.rotation[0], edited.rotation[1],
+                                                     edited.rotation[2], edited.rotation[3]};
         (void)gneiss::editor::quaternion_to_euler_degrees(quaternion, rotation);
         const auto previous = prefab->local_transform;
         bool changed = ImGui::DragFloat3("Translation", edited.translation.data(), 0.05F);
         if (ImGui::DragFloat3("Rotation (degrees)", rotation.data(), 0.25F, 0.0F, 0.0F, "%.1f°")) {
-          gneiss_property_quaternion converted{};
+          gneiss::property_quaternion converted{};
           if (gneiss::editor::euler_degrees_to_quaternion(rotation, converted) ==
               gneiss::result::success) {
             edited.rotation[0] = converted.x;

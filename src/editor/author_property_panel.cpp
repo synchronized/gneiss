@@ -17,32 +17,39 @@ bool draw_property(const inspector_component& component, const inspector_propert
                    std::uint64_t& edit_serial, result& error,
                    const author_property_actions& actions) {
   auto value = property.value;
-  const auto writable = (property.capabilities & GNEISS_PROPERTY_CAPABILITY_WRITABLE) != 0U;
+  if (value.kind() != property.kind) {
+    error = result::invalid_argument;
+    return false;
+  }
+  const auto writable = has_flags(property.capabilities, property_capabilities::writable);
   bool changed = false;
-  ImGui::PushID(static_cast<int>(property.id));
+  ImGui::PushID(static_cast<int>(property.id.get()));
   ImGui::BeginDisabled(!writable);
   switch (property.kind) {
-  case GNEISS_PROPERTY_KIND_BOOL: {
-    auto checked = value.payload.bool_value != 0U;
+  case property_kind::boolean: {
+    auto checked = std::get<bool>(value.payload);
     changed = ImGui::Checkbox(property.name.c_str(), &checked);
-    value.payload.bool_value = checked ? 1U : 0U;
+    value.payload = checked;
     break;
   }
-  case GNEISS_PROPERTY_KIND_FLOAT32:
-    changed = ImGui::DragFloat(property.name.c_str(), &value.payload.float32_value, 0.01F);
+  case property_kind::float32:
+    changed = ImGui::DragFloat(property.name.c_str(), &std::get<float>(value.payload), 0.01F);
     break;
-  case GNEISS_PROPERTY_KIND_VEC3:
-    changed = ImGui::DragFloat3(property.name.c_str(), &value.payload.vec3_value.x, 0.05F);
+  case property_kind::vec3:
+    changed =
+        ImGui::DragFloat3(property.name.c_str(), &std::get<property_vec3>(value.payload).x, 0.05F);
     break;
-  case GNEISS_PROPERTY_KIND_QUATERNION: {
+  case property_kind::quaternion: {
     std::array<float, 3> euler{};
-    error = gneiss::editor::quaternion_to_euler_degrees(value.payload.quaternion_value, euler);
+    error = gneiss::editor::quaternion_to_euler_degrees(
+        std::get<property_quaternion>(value.payload), euler);
     if (error != gneiss::result::success) {
       break;
     }
     changed = ImGui::DragFloat3(property.name.c_str(), euler.data(), 0.25F, 0.0F, 0.0F, "%.1f°");
     if (changed) {
-      error = gneiss::editor::euler_degrees_to_quaternion(euler, value.payload.quaternion_value);
+      error = gneiss::editor::euler_degrees_to_quaternion(
+          euler, std::get<property_quaternion>(value.payload));
     }
     break;
   }

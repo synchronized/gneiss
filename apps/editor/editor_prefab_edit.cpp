@@ -2,7 +2,6 @@
 // Copyright (c) 2026 Gneiss contributors
 #include "editor_prefab_edit.hpp"
 #include "engine/function/application/application.hpp"
-#include "engine/function/application/application_asset_reload_internal.hpp"
 #include "engine/function/application/prefab_placement.hpp"
 #include "engine/function/application/prefab_preparation.hpp"
 #include <algorithm>

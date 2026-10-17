@@ -4,8 +4,8 @@
 #ifndef GNEISS_APPS_EDITOR_EDITOR_GRID_H_
 #define GNEISS_APPS_EDITOR_EDITOR_GRID_H_
 
+#include "engine/function/render/draw_types.hpp"
 #include "transform_gizmo_math.hpp"
-#include "../engine/function/render/draw_types.hpp"
 #include <vector>
 
 namespace gneiss::editor {
