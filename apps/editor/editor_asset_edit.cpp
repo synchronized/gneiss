@@ -29,7 +29,7 @@ result editor_asset_edit::commit_add(engine::application& application, editor_se
             return session.commit_mesh_node(
                 snapshot,
                 [&](scene_node_id parent, scene_node_id& node) {
-                  gneiss_scene_node_id created{};
+                  scene_node_id created{};
                   const auto operation =
                       application.create_mesh_node_ready(scene,
                                                          {
@@ -64,8 +64,7 @@ result editor_asset_edit::commit(engine::application& application, editor_sessio
     }
     return session.commit_mesh_renderer(
         node, replacement.mesh.uri(), replacement.material.uri(), [&] {
-          return from_native(
-              application.replace_mesh_binding(scene, node.get(), expected, replacement));
+          return from_native(application.replace_mesh_binding(scene, node, expected, replacement));
         });
   };
   const auto was_dirty = session.is_dirty();
@@ -126,9 +125,8 @@ result editor_asset_edit::request_impl(engine::application& application, editor_
   progress_ = {};
   cancelled_ = false;
   visible_ = false;
-  operation_ = creating_
-                   ? result::success
-                   : from_native(application.capture_mesh_binding(scene_, node_.get(), previous_));
+  operation_ = creating_ ? result::success
+                         : from_native(application.capture_mesh_binding(scene_, node_, previous_));
   if (operation_.failed()) {
     return operation_;
   }

@@ -158,7 +158,9 @@ Engine 公共接口统一位于 `include/gneiss/engine/`，基础类型位于其
 | 场景切换 | `src/engine/function/application/scene_session.hpp` | 管理活动、候选与退役域，协调准备、验证与激活 |
 | 场景域 | `src/engine/function/application/application_scene_state.hpp` | 拥有原生 World 与场景实例服务，借用共享资产状态 |
 | World 数据和操作 | `src/engine/function/world/world.hpp` | 原生对象拥有 ECS/树状态；`world_service.hpp` 管理 C 兼容句柄与反射接入 |
-| Scene/Prefab 实例 | `src/engine/function/scene/scene_instance_service.hpp` | 借用所属 World；实例持有所使用资源版本的租约 |
+| Scene 服务契约 | `src/engine/function/scene/scene_instance_service.hpp` | 通过强类型节点 ID 操作实例；借用所属 World |
+| Scene 私有实例 | `src/engine/function/scene/scene_instance.hpp` | 维护节点、作者描述及所使用资源版本的租约，不向宿主提供头文件 |
+| Prefab 候选事务 | `src/engine/function/scene/prefab_candidate.hpp` | 独占未发布候选或退休实例；支持移动与分步清理，不暴露运行时实现 |
 | 作者文档 | `src/editor/editor_session.hpp` | 借用 Application、拥有文档的场景实例 ID；关闭时卸载，不能晚于 Application 销毁 |
 | 反射属性编辑 | `src/editor/property_inspector_model.hpp`、`apps/runtime/runtime_property_editor.hpp` | 直接持有同一内部 Registry 实现；字段回调仍使用已定义的目标协议 |
 | 外部调用 | `src/engine/api/`、`include/gneiss/engine/` | C 适配转换参数并委托，SDK 提供强类型和 RAII |

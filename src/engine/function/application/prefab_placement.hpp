@@ -42,7 +42,7 @@ public:
   static gneiss_result commit_replacements(std::span<prefab_placement* const> entries) noexcept;
   bool cleanup_step(std::size_t budget = 64U) noexcept;
   std::size_t node_count() const noexcept;
-  gneiss_scene_node_id root() const noexcept;
+  scene_node_id root() const noexcept;
 
 private:
   gneiss_result create_next_node();
@@ -52,11 +52,10 @@ private:
   engine::application& application_;
   gneiss_scene_instance scene_{};
   std::shared_ptr<const prefab_placement_snapshot> snapshot_;
-  scene_internal::prefab_instance_description author_;
-  std::unique_ptr<scene_internal::prefab_runtime_instance> runtime_;
-  std::map<std::string_view, gneiss_scene_node_id, std::less<>> nodes_;
+  scene_internal::prefab_candidate candidate_;
+  std::map<std::string_view, scene_node_id, std::less<>> nodes_;
   std::size_t cursor_{};
   bool removing_{}, replacing_{}, retirement_ready_{}, ready_{}, committed_{};
-  gneiss_scene_node_id root_{};
+  scene_node_id root_{};
 };
 }

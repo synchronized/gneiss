@@ -82,6 +82,7 @@ target_sources(
     engine/core/service_registry.cpp
     engine/core/service_registry.hpp
     engine/core/rid_table.hpp
+    engine/core/identifier_conversion.hpp
     engine/api/core_api.cpp
     engine/core/result.hpp
     engine/core/version.hpp
@@ -146,6 +147,9 @@ target_sources(
     engine/function/scene/prefab_property_override.hpp
     engine/function/scene/prefab_runtime_instance.cpp
     engine/function/scene/prefab_runtime_instance.hpp
+    engine/function/scene/prefab_candidate.cpp
+    engine/function/scene/prefab_candidate.hpp
+    engine/function/scene/scene_instance.hpp
     engine/function/scene/scene_instance_service.cpp
     engine/function/scene/scene_instance_service.hpp
     engine/function/scene/structural_diff.cpp
@@ -201,6 +205,7 @@ target_sources(
       "${PROJECT_SOURCE_DIR}/include/gneiss/engine/world.hpp"
       "${PROJECT_SOURCE_DIR}/include/gneiss/engine/core/entity.h"
       "${PROJECT_SOURCE_DIR}/include/gneiss/engine/core/entity.hpp"
+      "${PROJECT_SOURCE_DIR}/include/gneiss/engine/core/scene_types.hpp"
       "${PROJECT_SOURCE_DIR}/include/gneiss/engine/core/export.h"
       "${PROJECT_SOURCE_DIR}/include/gneiss/engine/core/result.h"
       "${PROJECT_SOURCE_DIR}/include/gneiss/engine/core/result.hpp"

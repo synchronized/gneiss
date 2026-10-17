@@ -34,4 +34,18 @@
 #if __has_include("engine/platform/io/uv/uv_file_system.hpp")
 #error "宿主获得了未授权的内部实现头"
 #endif
+#if __has_include("engine/function/scene/scene_instance.hpp") ||                                   \
+                  __has_include("engine/function/scene/prefab_runtime_instance.hpp")
+#error "宿主获得了场景实例的私有实现头"
+#endif
+#include "engine/function/scene/prefab_candidate.hpp"
+#include <type_traits>
+static_assert(!std::is_copy_constructible_v<gneiss::scene_internal::prefab_candidate>);
+static_assert(std::is_nothrow_move_constructible_v<gneiss::scene_internal::prefab_candidate>);
+static_assert(!std::is_convertible_v<gneiss::entity_id, gneiss::scene_node_id>);
+static_assert(!std::is_convertible_v<std::uint64_t, gneiss::scene_node_id>);
+static_assert(std::is_invocable_v<decltype(&gneiss::engine::world::entity_destroy),
+                                  gneiss::engine::world&, gneiss::entity_id>);
+static_assert(!std::is_invocable_v<decltype(&gneiss::engine::world::entity_destroy),
+                                   gneiss::engine::world&, gneiss::scene_node_id>);
 int main() { return 0; }

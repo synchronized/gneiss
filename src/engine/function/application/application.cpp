@@ -973,8 +973,8 @@ application::accept_edit_assets(const render_internal::texture_load_completion& 
 gneiss_result application::create_mesh_node_ready(
     gneiss_scene_instance scene, const scene_internal::mesh_renderer_node_creation& desc,
     const scene_internal::scene_instance_service::mesh_binding& prepared,
-    gneiss_scene_node_id& output) noexcept {
-  output = GNEISS_NULL_SCENE_NODE_ID;
+    scene_node_id& output) noexcept {
+  output = {};
   const auto valid =
       is_owner_thread() && accepts_requests() ? GNEISS_SUCCESS : GNEISS_ERROR_INVALID_STATE;
   return valid == GNEISS_SUCCESS
@@ -1005,7 +1005,7 @@ gneiss_result application::query_ready_asset(const render_internal::render_asset
 }
 
 gneiss_result application::capture_mesh_binding(
-    gneiss_scene_instance scene, gneiss_scene_node_id node,
+    gneiss_scene_instance scene, scene_node_id node,
     scene_internal::scene_instance_service::mesh_binding& output) noexcept {
   output = {};
   const auto valid =
@@ -1014,7 +1014,7 @@ gneiss_result application::capture_mesh_binding(
 }
 
 gneiss_result application::replace_mesh_binding(
-    gneiss_scene_instance scene, gneiss_scene_node_id node,
+    gneiss_scene_instance scene, scene_node_id node,
     const scene_internal::scene_instance_service::mesh_binding& expected,
     const scene_internal::scene_instance_service::mesh_binding& replacement) noexcept {
   const auto valid =

@@ -69,16 +69,16 @@ public:
   create_mesh_node_ready(gneiss_scene_instance scene,
                          const scene_internal::mesh_renderer_node_creation& desc,
                          const scene_internal::scene_instance_service::mesh_binding& prepared,
-                         gneiss_scene_node_id& output) noexcept;
+                         scene_node_id& output) noexcept;
   [[nodiscard]] gneiss_result collect_unused_edit_assets() noexcept;
   [[nodiscard]] gneiss_result
   query_ready_asset(const render_internal::render_asset_reload& source,
                     render_internal::render_asset_lease& output) noexcept;
   [[nodiscard]] gneiss_result
-  capture_mesh_binding(gneiss_scene_instance scene, gneiss_scene_node_id node,
+  capture_mesh_binding(gneiss_scene_instance scene, scene_node_id node,
                        scene_internal::scene_instance_service::mesh_binding& output) noexcept;
   [[nodiscard]] gneiss_result replace_mesh_binding(
-      gneiss_scene_instance scene, gneiss_scene_node_id node,
+      gneiss_scene_instance scene, scene_node_id node,
       const scene_internal::scene_instance_service::mesh_binding& expected,
       const scene_internal::scene_instance_service::mesh_binding& replacement) noexcept;
   [[nodiscard]] gneiss_result

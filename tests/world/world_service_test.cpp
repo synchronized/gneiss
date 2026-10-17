@@ -16,36 +16,40 @@ bool native_operations() {
   gneiss_world borrowed{};
   if (world_internal::create_native(owner, borrowed) != GNEISS_SUCCESS)
     return false;
-  gneiss_entity_id entity{};
-  gneiss_scene_node_id node{};
+  entity_id entity{};
+  scene_node_id node{};
   bool alive{};
   std::uint64_t count{};
   if (owner->entity_create(entity) != GNEISS_SUCCESS ||
-      owner->node_create(0, entity, node) != GNEISS_SUCCESS ||
-      owner->entity_is_alive(entity, alive) != GNEISS_SUCCESS || !alive ||
+      owner->node_create(gneiss::scene_node_id{0}, gneiss::entity_id{entity}, node) !=
+          GNEISS_SUCCESS ||
+      owner->entity_is_alive(gneiss::entity_id{entity}, alive) != GNEISS_SUCCESS || !alive ||
       gneiss_world_entity_count(borrowed, &count) != GNEISS_SUCCESS || count != 1)
     return false;
   engine::transform local;
   local.translation = {2, 3, 4};
   engine::transform actual;
-  if (owner->node_set_local_transform(node, local) != GNEISS_SUCCESS ||
-      owner->node_get_world_transform(node, actual) != GNEISS_SUCCESS ||
+  if (owner->node_set_local_transform(gneiss::scene_node_id{node}, local) != GNEISS_SUCCESS ||
+      owner->node_get_world_transform(gneiss::scene_node_id{node}, actual) != GNEISS_SUCCESS ||
       actual.translation != local.translation)
     return false;
   auto invalid = local;
   invalid.scale[0] = 0;
-  if (owner->node_set_local_transform(node, invalid) != GNEISS_ERROR_INVALID_ARGUMENT ||
-      owner->node_get_local_transform(node, actual) != GNEISS_SUCCESS || actual.scale[0] != 1)
+  if (owner->node_set_local_transform(gneiss::scene_node_id{node}, invalid) !=
+          GNEISS_ERROR_INVALID_ARGUMENT ||
+      owner->node_get_local_transform(gneiss::scene_node_id{node}, actual) != GNEISS_SUCCESS ||
+      actual.scale[0] != 1)
     return false;
   actual.translation[0] = 42;
-  if (owner->node_get_local_transform(0, actual) != GNEISS_ERROR_INVALID_HANDLE ||
+  if (owner->node_get_local_transform(gneiss::scene_node_id{0}, actual) !=
+          GNEISS_ERROR_INVALID_HANDLE ||
       actual.translation[0] != 42)
     return false;
   gneiss_result foreign{};
-  std::thread worker([&] { foreign = owner->entity_destroy(entity); });
+  std::thread worker([&] { foreign = owner->entity_destroy(gneiss::entity_id{entity}); });
   worker.join();
   if (foreign != GNEISS_ERROR_INVALID_STATE ||
-      owner->entity_is_alive(entity, alive) != GNEISS_SUCCESS || !alive)
+      owner->entity_is_alive(gneiss::entity_id{entity}, alive) != GNEISS_SUCCESS || !alive)
     return false;
   core::publication group;
   world_internal::staged_object candidate;

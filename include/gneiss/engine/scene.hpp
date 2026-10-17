@@ -6,6 +6,7 @@
 
 #include <gneiss/engine/core/entity.hpp>
 #include <gneiss/engine/core/result.hpp>
+#include <gneiss/engine/core/scene_types.hpp>
 #include <gneiss/engine/render.hpp>
 #include <gneiss/engine/scene.h>
 
@@ -20,22 +21,6 @@
 
 namespace gneiss {
 
-/** 不拥有 Scene Node 的强类型运行时标识。 */
-class scene_node_id final {
-public:
-  constexpr scene_node_id() noexcept = default;
-  explicit constexpr scene_node_id(gneiss_scene_node_id value) noexcept : value_(value) {}
-  [[nodiscard]] constexpr bool is_valid() const noexcept {
-    return value_ != GNEISS_NULL_SCENE_NODE_ID;
-  }
-  [[nodiscard]] constexpr gneiss_scene_node_id get() const noexcept { return value_; }
-  friend constexpr bool operator==(scene_node_id, scene_node_id) noexcept = default;
-
-private:
-  gneiss_scene_node_id value_ = GNEISS_NULL_SCENE_NODE_ID;
-};
-
-inline constexpr scene_node_id null_scene_node_id{};
 /** 右手系变换值；默认零平移、单位四元数与单位缩放，不持有场景资源。 */
 struct transform {
   std::array<float, 3> translation{0.0F, 0.0F, 0.0F};
@@ -46,33 +31,6 @@ struct transform {
 [[nodiscard]] constexpr gneiss_transform to_native(const transform& value) noexcept;
 /** 从 C ABI 值逐字段复制；几何有效性在设置到场景时校验。 */
 [[nodiscard]] constexpr transform from_native(const gneiss_transform& value) noexcept;
-// NOLINTNEXTLINE(performance-enum-size): 保留完整标志位宽度。
-enum class scene_node_components : std::uint32_t {
-  none = 0,
-  camera = 1,
-  mesh_renderer = 2,
-  primary_camera = 4,
-};
-// NOLINTNEXTLINE(performance-enum-size): 保留完整标志位宽度。
-enum class scene_prefab_flags : std::uint32_t {
-  none = 0,
-  instance_root = 1,
-  source_read_only = 2,
-  translation_overridden = 4,
-  rotation_overridden = 8,
-  scale_overridden = 16,
-};
-template <typename T>
-concept scene_flags = std::same_as<T, scene_node_components> || std::same_as<T, scene_prefab_flags>;
-template <scene_flags T> [[nodiscard]] constexpr T operator|(T left, T right) noexcept {
-  return static_cast<T>(static_cast<std::uint32_t>(left) | static_cast<std::uint32_t>(right));
-}
-template <scene_flags T> [[nodiscard]] constexpr T operator&(T left, T right) noexcept {
-  return static_cast<T>(static_cast<std::uint32_t>(left) & static_cast<std::uint32_t>(right));
-}
-template <scene_flags T> [[nodiscard]] constexpr bool has_flags(T value, T flags) noexcept {
-  return (value & flags) == flags;
-}
 inline constexpr std::uint64_t scene_subtree_max_nodes = 4096;
 // 描述默认值允许 designated 初始化省略字段，避免消费者的缺省字段告警。
 // NOLINTBEGIN(readability-redundant-member-init)

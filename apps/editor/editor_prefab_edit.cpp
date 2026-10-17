@@ -25,11 +25,12 @@ result make_prefab_record(const scene_internal::prefab_node_view& info,
   record.source_local_transform = {info.source_local_transform.translation,
                                    info.source_local_transform.rotation,
                                    info.source_local_transform.scale};
-  record.is_instance_root = (info.flags & GNEISS_SCENE_PREFAB_NODE_INSTANCE_ROOT) != 0U;
+  record.is_instance_root = has_flags(info.flags, scene_prefab_flags::instance_root);
   record.is_read_only = !record.is_instance_root;
-  record.override_flags = info.flags & (GNEISS_SCENE_PREFAB_NODE_TRANSLATION_OVERRIDDEN |
-                                        GNEISS_SCENE_PREFAB_NODE_ROTATION_OVERRIDDEN |
-                                        GNEISS_SCENE_PREFAB_NODE_SCALE_OVERRIDDEN);
+  record.override_flags =
+      static_cast<std::uint32_t>(info.flags) &
+      (GNEISS_SCENE_PREFAB_NODE_TRANSLATION_OVERRIDDEN |
+       GNEISS_SCENE_PREFAB_NODE_ROTATION_OVERRIDDEN | GNEISS_SCENE_PREFAB_NODE_SCALE_OVERRIDDEN);
   if (record.is_instance_root && author.parent_uuid) {
     const auto* parent = session.find_node(*author.parent_uuid);
     if (parent == nullptr) {

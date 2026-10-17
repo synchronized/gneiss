@@ -126,23 +126,29 @@ gneiss_result world::destroy_staged_object(const core::publication& group,
                                                              : GNEISS_ERROR_INTERNAL;
   });
 }
-gneiss_result world::entity_create(gneiss_entity_id& out_entity) noexcept {
-  out_entity = GNEISS_NULL_ENTITY_ID;
-  try {
-    auto* state = state_.get();
-    const auto thread_result = (is_owner_thread() ? GNEISS_SUCCESS : GNEISS_ERROR_INVALID_STATE);
-    if (thread_result != GNEISS_SUCCESS) {
-      return thread_result;
+gneiss_result world::entity_create(entity_id& out_entity_value) noexcept {
+  gneiss_entity_id out_entity = out_entity_value.get();
+  const auto operation_result = [&]() -> gneiss_result {
+    out_entity = GNEISS_NULL_ENTITY_ID;
+    try {
+      auto* state = state_.get();
+      const auto thread_result = (is_owner_thread() ? GNEISS_SUCCESS : GNEISS_ERROR_INVALID_STATE);
+      if (thread_result != GNEISS_SUCCESS) {
+        return thread_result;
+      }
+      out_entity = state->create_entity();
+      return GNEISS_SUCCESS;
+    } catch (const std::bad_alloc&) {
+      return GNEISS_ERROR_OUT_OF_MEMORY;
+    } catch (...) {
+      return GNEISS_ERROR_INTERNAL;
     }
-    out_entity = state->create_entity();
-    return GNEISS_SUCCESS;
-  } catch (const std::bad_alloc&) {
-    return GNEISS_ERROR_OUT_OF_MEMORY;
-  } catch (...) {
-    return GNEISS_ERROR_INTERNAL;
-  }
+  }();
+  out_entity_value = entity_id{out_entity};
+  return operation_result;
 }
-gneiss_result world::entity_destroy(gneiss_entity_id entity) noexcept {
+gneiss_result world::entity_destroy(entity_id entity_value) noexcept {
+  gneiss_entity_id entity = entity_value.get();
   try {
     auto* state = state_.get();
     const auto thread_result = (is_owner_thread() ? GNEISS_SUCCESS : GNEISS_ERROR_INVALID_STATE);
@@ -154,7 +160,8 @@ gneiss_result world::entity_destroy(gneiss_entity_id entity) noexcept {
     return GNEISS_ERROR_INTERNAL;
   }
 }
-gneiss_result world::entity_is_alive(gneiss_entity_id entity, bool& out_is_alive) noexcept {
+gneiss_result world::entity_is_alive(entity_id entity_value, bool& out_is_alive) noexcept {
+  gneiss_entity_id entity = entity_value.get();
   out_is_alive = false;
   try {
     auto* state = state_.get();
@@ -182,8 +189,9 @@ gneiss_result world::entity_count(uint64_t& out_count) noexcept {
     return GNEISS_ERROR_INTERNAL;
   }
 }
-gneiss_result world::entity_set_camera(gneiss_entity_id entity, const camera_settings& camera,
+gneiss_result world::entity_set_camera(entity_id entity_value, const camera_settings& camera,
                                        bool primary) noexcept {
+  gneiss_entity_id entity = entity_value.get();
   if (!is_valid_camera(camera.vertical_field_of_view_radians, camera.near_plane,
                        camera.far_plane)) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
@@ -211,8 +219,9 @@ gneiss_result world::entity_set_camera(gneiss_entity_id entity, const camera_set
     return GNEISS_ERROR_INTERNAL;
   }
 }
-gneiss_result world::entity_configure_camera(gneiss_entity_id entity,
+gneiss_result world::entity_configure_camera(entity_id entity_value,
                                              const camera_settings& desc) noexcept {
+  gneiss_entity_id entity = entity_value.get();
   if (!is_valid_camera(desc.vertical_field_of_view_radians, desc.near_plane, desc.far_plane)) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
@@ -233,8 +242,9 @@ gneiss_result world::entity_configure_camera(gneiss_entity_id entity,
     return GNEISS_ERROR_INTERNAL;
   }
 }
-gneiss_result world::entity_get_camera(gneiss_entity_id entity,
+gneiss_result world::entity_get_camera(entity_id entity_value,
                                        camera_settings& out_camera) noexcept {
+  gneiss_entity_id entity = entity_value.get();
   try {
     auto* state = state_.get();
     const auto thread_result = (is_owner_thread() ? GNEISS_SUCCESS : GNEISS_ERROR_INVALID_STATE);
@@ -256,7 +266,8 @@ gneiss_result world::entity_get_camera(gneiss_entity_id entity,
     return GNEISS_ERROR_INTERNAL;
   }
 }
-gneiss_result world::entity_remove_camera(gneiss_entity_id entity) noexcept {
+gneiss_result world::entity_remove_camera(entity_id entity_value) noexcept {
+  gneiss_entity_id entity = entity_value.get();
   try {
     auto* state = state_.get();
     const auto thread_result = (is_owner_thread() ? GNEISS_SUCCESS : GNEISS_ERROR_INVALID_STATE);
@@ -265,7 +276,8 @@ gneiss_result world::entity_remove_camera(gneiss_entity_id entity) noexcept {
     return GNEISS_ERROR_INTERNAL;
   }
 }
-gneiss_result world::set_active_camera(gneiss_entity_id entity) noexcept {
+gneiss_result world::set_active_camera(entity_id entity_value) noexcept {
+  gneiss_entity_id entity = entity_value.get();
   try {
     auto* state = state_.get();
     const auto thread_result = (is_owner_thread() ? GNEISS_SUCCESS : GNEISS_ERROR_INVALID_STATE);
@@ -274,19 +286,24 @@ gneiss_result world::set_active_camera(gneiss_entity_id entity) noexcept {
     return GNEISS_ERROR_INTERNAL;
   }
 }
-gneiss_result world::get_active_camera(gneiss_entity_id& out_entity) noexcept {
-  out_entity = GNEISS_NULL_ENTITY_ID;
-  try {
-    auto* state = state_.get();
-    const auto thread_result = (is_owner_thread() ? GNEISS_SUCCESS : GNEISS_ERROR_INVALID_STATE);
-    if (thread_result != GNEISS_SUCCESS) {
-      return thread_result;
+gneiss_result world::get_active_camera(entity_id& out_entity_value) noexcept {
+  gneiss_entity_id out_entity = out_entity_value.get();
+  const auto operation_result = [&]() -> gneiss_result {
+    out_entity = GNEISS_NULL_ENTITY_ID;
+    try {
+      auto* state = state_.get();
+      const auto thread_result = (is_owner_thread() ? GNEISS_SUCCESS : GNEISS_ERROR_INVALID_STATE);
+      if (thread_result != GNEISS_SUCCESS) {
+        return thread_result;
+      }
+      out_entity = state->active_camera();
+      return out_entity == GNEISS_NULL_ENTITY_ID ? GNEISS_ERROR_NOT_READY : GNEISS_SUCCESS;
+    } catch (...) {
+      return GNEISS_ERROR_INTERNAL;
     }
-    out_entity = state->active_camera();
-    return out_entity == GNEISS_NULL_ENTITY_ID ? GNEISS_ERROR_NOT_READY : GNEISS_SUCCESS;
-  } catch (...) {
-    return GNEISS_ERROR_INTERNAL;
-  }
+  }();
+  out_entity_value = entity_id{out_entity};
+  return operation_result;
 }
 gneiss_result
 world::replace_mesh_renderers(std::span<const mesh_renderer_replacement> replacements) noexcept {
@@ -322,8 +339,9 @@ world::replace_mesh_renderers(std::span<const mesh_renderer_replacement> replace
     return GNEISS_ERROR_INTERNAL;
   }
 }
-gneiss_result world::entity_set_mesh_renderer(gneiss_entity_id entity,
+gneiss_result world::entity_set_mesh_renderer(entity_id entity_value,
                                               const mesh_renderer& renderer) noexcept {
+  gneiss_entity_id entity = entity_value.get();
   if (renderer.mesh == GNEISS_NULL_MESH || renderer.material == GNEISS_NULL_MATERIAL) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
@@ -346,7 +364,8 @@ gneiss_result world::entity_set_mesh_renderer(gneiss_entity_id entity,
     return GNEISS_ERROR_INTERNAL;
   }
 }
-gneiss_result world::entity_remove_mesh_renderer(gneiss_entity_id entity) noexcept {
+gneiss_result world::entity_remove_mesh_renderer(entity_id entity_value) noexcept {
+  gneiss_entity_id entity = entity_value.get();
   try {
     auto* state = state_.get();
     const auto thread_result = (is_owner_thread() ? GNEISS_SUCCESS : GNEISS_ERROR_INVALID_STATE);
@@ -355,24 +374,32 @@ gneiss_result world::entity_remove_mesh_renderer(gneiss_entity_id entity) noexce
     return GNEISS_ERROR_INTERNAL;
   }
 }
-gneiss_result world::node_create(gneiss_scene_node_id parent, gneiss_entity_id entity,
-                                 gneiss_scene_node_id& out_node) noexcept {
-  out_node = GNEISS_NULL_SCENE_NODE_ID;
-  try {
-    auto* state = state_.get();
-    const auto thread_result = (is_owner_thread() ? GNEISS_SUCCESS : GNEISS_ERROR_INVALID_STATE);
-    if (thread_result != GNEISS_SUCCESS) {
-      return thread_result;
+gneiss_result world::node_create(scene_node_id parent_value, entity_id entity_value,
+                                 scene_node_id& out_node_value) noexcept {
+  gneiss_scene_node_id parent = parent_value.get();
+  gneiss_entity_id entity = entity_value.get();
+  gneiss_scene_node_id out_node = out_node_value.get();
+  const auto operation_result = [&]() -> gneiss_result {
+    out_node = GNEISS_NULL_SCENE_NODE_ID;
+    try {
+      auto* state = state_.get();
+      const auto thread_result = (is_owner_thread() ? GNEISS_SUCCESS : GNEISS_ERROR_INVALID_STATE);
+      if (thread_result != GNEISS_SUCCESS) {
+        return thread_result;
+      }
+      if (entity != GNEISS_NULL_ENTITY_ID && !state->is_alive(entity)) {
+        return GNEISS_ERROR_INVALID_HANDLE;
+      }
+      return state->scene().create(parent, entity, &out_node);
+    } catch (...) {
+      return GNEISS_ERROR_INTERNAL;
     }
-    if (entity != GNEISS_NULL_ENTITY_ID && !state->is_alive(entity)) {
-      return GNEISS_ERROR_INVALID_HANDLE;
-    }
-    return state->scene().create(parent, entity, &out_node);
-  } catch (...) {
-    return GNEISS_ERROR_INTERNAL;
-  }
+  }();
+  out_node_value = scene_node_id{out_node};
+  return operation_result;
 }
-gneiss_result world::node_destroy(gneiss_scene_node_id node) noexcept {
+gneiss_result world::node_destroy(scene_node_id node_value) noexcept {
+  gneiss_scene_node_id node = node_value.get();
   try {
     auto* state = state_.get();
     const auto thread_result = (is_owner_thread() ? GNEISS_SUCCESS : GNEISS_ERROR_INVALID_STATE);
@@ -381,8 +408,9 @@ gneiss_result world::node_destroy(gneiss_scene_node_id node) noexcept {
     return GNEISS_ERROR_INTERNAL;
   }
 }
-gneiss_result world::node_reparent(gneiss_scene_node_id node,
-                                   gneiss_scene_node_id parent) noexcept {
+gneiss_result world::node_reparent(scene_node_id node_value, scene_node_id parent_value) noexcept {
+  gneiss_scene_node_id node = node_value.get();
+  gneiss_scene_node_id parent = parent_value.get();
   try {
     auto* state = state_.get();
     const auto thread_result = (is_owner_thread() ? GNEISS_SUCCESS : GNEISS_ERROR_INVALID_STATE);
@@ -391,8 +419,9 @@ gneiss_result world::node_reparent(gneiss_scene_node_id node,
     return GNEISS_ERROR_INTERNAL;
   }
 }
-gneiss_result world::node_set_local_transform(gneiss_scene_node_id node,
+gneiss_result world::node_set_local_transform(scene_node_id node_value,
                                               const engine::transform& transform) noexcept {
+  gneiss_scene_node_id node = node_value.get();
   try {
     auto* state = state_.get();
     const auto thread_result = (is_owner_thread() ? GNEISS_SUCCESS : GNEISS_ERROR_INVALID_STATE);
@@ -402,8 +431,9 @@ gneiss_result world::node_set_local_transform(gneiss_scene_node_id node,
     return GNEISS_ERROR_INTERNAL;
   }
 }
-gneiss_result world::node_get_local_transform(gneiss_scene_node_id node,
+gneiss_result world::node_get_local_transform(scene_node_id node_value,
                                               engine::transform& out_transform) noexcept {
+  gneiss_scene_node_id node = node_value.get();
   try {
     auto* state = state_.get();
     const auto thread_result = (is_owner_thread() ? GNEISS_SUCCESS : GNEISS_ERROR_INVALID_STATE);
@@ -420,8 +450,9 @@ gneiss_result world::node_get_local_transform(gneiss_scene_node_id node,
     return GNEISS_ERROR_INTERNAL;
   }
 }
-gneiss_result world::node_get_world_transform(gneiss_scene_node_id node,
+gneiss_result world::node_get_world_transform(scene_node_id node_value,
                                               engine::transform& out_transform) noexcept {
+  gneiss_scene_node_id node = node_value.get();
   try {
     auto* state = state_.get();
     const auto thread_result = (is_owner_thread() ? GNEISS_SUCCESS : GNEISS_ERROR_INVALID_STATE);
@@ -436,45 +467,58 @@ gneiss_result world::node_get_world_transform(gneiss_scene_node_id node,
     return GNEISS_ERROR_INTERNAL;
   }
 }
-gneiss_result world::node_get_entity(gneiss_scene_node_id node,
-                                     gneiss_entity_id& out_entity) noexcept {
-  out_entity = GNEISS_NULL_ENTITY_ID;
-  try {
-    auto* state = state_.get();
-    const auto thread_result = (is_owner_thread() ? GNEISS_SUCCESS : GNEISS_ERROR_INVALID_STATE);
-    if (thread_result != GNEISS_SUCCESS) {
-      return thread_result;
+gneiss_result world::node_get_entity(scene_node_id node_value,
+                                     entity_id& out_entity_value) noexcept {
+  gneiss_scene_node_id node = node_value.get();
+  gneiss_entity_id out_entity = out_entity_value.get();
+  const auto operation_result = [&]() -> gneiss_result {
+    out_entity = GNEISS_NULL_ENTITY_ID;
+    try {
+      auto* state = state_.get();
+      const auto thread_result = (is_owner_thread() ? GNEISS_SUCCESS : GNEISS_ERROR_INVALID_STATE);
+      if (thread_result != GNEISS_SUCCESS) {
+        return thread_result;
+      }
+      const auto* transform = state->scene().get_local(node);
+      if (transform == nullptr) {
+        return GNEISS_ERROR_INVALID_HANDLE;
+      }
+      out_entity = state->scene().get_entity(node);
+      return GNEISS_SUCCESS;
+    } catch (...) {
+      return GNEISS_ERROR_INTERNAL;
     }
-    const auto* transform = state->scene().get_local(node);
-    if (transform == nullptr) {
-      return GNEISS_ERROR_INVALID_HANDLE;
-    }
-    out_entity = state->scene().get_entity(node);
-    return GNEISS_SUCCESS;
-  } catch (...) {
-    return GNEISS_ERROR_INTERNAL;
-  }
+  }();
+  out_entity_value = entity_id{out_entity};
+  return operation_result;
 }
-gneiss_result world::node_get_parent(gneiss_scene_node_id node,
-                                     gneiss_scene_node_id& out_parent) noexcept {
-  out_parent = GNEISS_NULL_SCENE_NODE_ID;
-  try {
-    auto* state = state_.get();
-    const auto thread_result = (is_owner_thread() ? GNEISS_SUCCESS : GNEISS_ERROR_INVALID_STATE);
-    if (thread_result != GNEISS_SUCCESS) {
-      return thread_result;
+gneiss_result world::node_get_parent(scene_node_id node_value,
+                                     scene_node_id& out_parent_value) noexcept {
+  gneiss_scene_node_id node = node_value.get();
+  gneiss_scene_node_id out_parent = out_parent_value.get();
+  const auto operation_result = [&]() -> gneiss_result {
+    out_parent = GNEISS_NULL_SCENE_NODE_ID;
+    try {
+      auto* state = state_.get();
+      const auto thread_result = (is_owner_thread() ? GNEISS_SUCCESS : GNEISS_ERROR_INVALID_STATE);
+      if (thread_result != GNEISS_SUCCESS) {
+        return thread_result;
+      }
+      if (state->scene().get_local(node) == nullptr) {
+        return GNEISS_ERROR_INVALID_HANDLE;
+      }
+      out_parent = state->scene().get_parent(node);
+      return GNEISS_SUCCESS;
+    } catch (...) {
+      return GNEISS_ERROR_INTERNAL;
     }
-    if (state->scene().get_local(node) == nullptr) {
-      return GNEISS_ERROR_INVALID_HANDLE;
-    }
-    out_parent = state->scene().get_parent(node);
-    return GNEISS_SUCCESS;
-  } catch (...) {
-    return GNEISS_ERROR_INTERNAL;
-  }
+  }();
+  out_parent_value = scene_node_id{out_parent};
+  return operation_result;
 }
-gneiss_result world::entity_get_local_transform(gneiss_entity_id entity,
+gneiss_result world::entity_get_local_transform(entity_id entity_value,
                                                 engine::transform& out_transform) noexcept {
+  gneiss_entity_id entity = entity_value.get();
   out_transform = {};
   try {
     auto* state = state_.get();
@@ -495,8 +539,9 @@ gneiss_result world::entity_get_local_transform(gneiss_entity_id entity,
     return GNEISS_ERROR_INTERNAL;
   }
 }
-gneiss_result world::entity_set_local_transform(gneiss_entity_id entity,
+gneiss_result world::entity_set_local_transform(entity_id entity_value,
                                                 const engine::transform& transform) noexcept {
+  gneiss_entity_id entity = entity_value.get();
   try {
     auto* state = state_.get();
     const auto thread_result = (is_owner_thread() ? GNEISS_SUCCESS : GNEISS_ERROR_INVALID_STATE);

@@ -28,7 +28,7 @@ scene_load_builder::scene_load_builder(scene_instance_service& service,
     instance_->initialize_staged(std::move(prepared_.description));
   });
   diagnostics::measure(diagnostics::loop_stage::scene_node_index_reserve,
-                       [&] { nodes_.reserve(instance_->description.objects.size()); });
+                       [&] { nodes_.reserve(instance_->source().objects.size()); });
 }
 
 render_internal::render_asset_lease scene_load_builder::find_asset(std::string_view uri) const {
@@ -37,7 +37,7 @@ render_internal::render_asset_lease scene_load_builder::find_asset(std::string_v
 }
 
 gneiss_result scene_load_builder::step_prefab() {
-  const auto& source = instance_->description.prefab_instances[prefab_cursor_];
+  const auto& source = instance_->source().prefab_instances[prefab_cursor_];
   const auto& prepared = prepared_.prefabs.at(source.prefab_uri);
   if (!prefab_) {
     const auto lease = prefabs_.at(source.prefab_uri);
@@ -85,7 +85,7 @@ gneiss_result scene_load_builder::step_prefab() {
   if (override_cursor_ < source.overrides.size()) {
     return prefab_->apply_staged_override(service_.registry_, source.overrides[override_cursor_++]);
   }
-  instance_->prefab_instances.push_back(std::move(prefab_));
+  instance_->append_staged_prefab(std::move(prefab_));
   ++prefab_cursor_;
   return GNEISS_SUCCESS;
 }
@@ -106,7 +106,7 @@ gneiss_result scene_load_builder::step() {
   }
   if (object_cursor_ < prepared_.parent_first.size()) {
     const auto index = prepared_.parent_first[object_cursor_];
-    const auto& source = instance_->description.objects[index];
+    const auto& source = instance_->source().objects[index];
     const auto result = instance_->create_staged_node(
         index, source.parent_uuid ? nodes_.at(*source.parent_uuid) : GNEISS_NULL_SCENE_NODE_ID,
         render_internal::render_asset_loader::mesh_lease(
@@ -116,13 +116,13 @@ gneiss_result scene_load_builder::step() {
             source.mesh_renderer ? find_asset(source.mesh_renderer->material_uri)
                                  : render_internal::render_asset_lease{}));
     if (result == GNEISS_SUCCESS) {
-      nodes_.emplace(source.uuid, instance_->objects[index].node);
+      nodes_.emplace(source.uuid, instance_->staged_node(index));
       ++object_cursor_;
       ++completed_nodes_;
     }
     return result;
   }
-  if (prefab_cursor_ < instance_->description.prefab_instances.size()) {
+  if (prefab_cursor_ < instance_->source().prefab_instances.size()) {
     return step_prefab();
   }
   return service_.instances_.create(core::resource_type::scene_instance, std::move(instance_),

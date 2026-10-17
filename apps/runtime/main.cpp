@@ -716,8 +716,8 @@ void write_application_log(const gneiss::log_internal::event_view& source,
     for (std::uint64_t index = 0U; applied == GNEISS_SUCCESS && index < count; ++index) {
       gneiss::scene_internal::scene_node_view info;
       applied = application->scenes()->get_node_info(scene, index, info);
-      if (applied == GNEISS_SUCCESS && info.parent == GNEISS_NULL_SCENE_NODE_ID) {
-        root_entity = info.entity;
+      if (applied == GNEISS_SUCCESS && !info.parent.is_valid()) {
+        root_entity = info.entity.get();
         break;
       }
     }

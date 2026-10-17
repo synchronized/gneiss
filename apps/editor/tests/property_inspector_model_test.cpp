@@ -32,7 +32,7 @@ int main() {
   if (world.create_scene_node({}, entity, entity_node) != gneiss::result::success ||
       world.create_scene_node({}, transform_only, transform_only_node) != gneiss::result::success ||
       world.configure_camera(entity, camera) != gneiss::result::success ||
-      world.set_active_camera(entity) != gneiss::result::success) {
+      world.set_active_camera(gneiss::entity_id{entity}) != gneiss::result::success) {
     return 2;
   }
   if (inspector.refresh(world.get(), entity) != gneiss::result::success) {

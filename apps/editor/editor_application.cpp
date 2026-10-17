@@ -1174,7 +1174,7 @@ gneiss_result update_editor_camera(editor_state& state, const gneiss::engine::fr
     if (selected_node.is_valid()) {
       gneiss::engine::transform target;
       const auto result =
-          state.application->native_world()->node_get_world_transform(selected_node.get(), target);
+          state.application->native_world()->node_get_world_transform(selected_node, target);
       if (result != GNEISS_SUCCESS) {
         return result;
       }

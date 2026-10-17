@@ -21,9 +21,9 @@ inline gneiss_transform write_transform(const engine::transform& value) noexcept
 inline void write_scene_node(const scene_internal::scene_node_view& value,
                              gneiss_scene_instance_node_info& output) noexcept {
   output.reserved = 0U;
-  output.node = value.node;
-  output.parent = value.parent;
-  output.entity = value.entity;
+  output.node = value.node.get();
+  output.parent = value.parent.get();
+  output.entity = value.entity.get();
   output.uuid = value.uuid.empty() ? nullptr : value.uuid.data();
   output.uuid_length = value.uuid.size();
   output.name = value.name.empty() ? nullptr : value.name.data();
@@ -38,7 +38,7 @@ inline void write_scene_node(const scene_internal::scene_node_view& value,
   }
   if (output.struct_size >= GNEISS_SCENE_INSTANCE_NODE_INFO_VERSION_3_SIZE) {
     output.local_transform = write_transform(value.local_transform);
-    output.component_flags = value.component_flags;
+    output.component_flags = static_cast<std::uint32_t>(value.component_flags);
     output.reserved_3 = 0U;
     output.camera = GNEISS_CAMERA_DESC_INIT;
     if (value.camera) {
@@ -54,10 +54,10 @@ inline void write_prefab_node(const scene_internal::prefab_node_view& value,
   const auto size = output.struct_size;
   output = GNEISS_SCENE_PREFAB_NODE_INFO_INIT;
   output.struct_size = size;
-  output.flags = value.flags;
-  output.node = value.node;
-  output.parent = value.parent;
-  output.entity = value.entity;
+  output.flags = static_cast<std::uint32_t>(value.flags);
+  output.node = value.node.get();
+  output.parent = value.parent.get();
+  output.entity = value.entity.get();
   output.instance_uuid = value.instance_uuid.empty() ? nullptr : value.instance_uuid.data();
   output.instance_uuid_length = value.instance_uuid.size();
   output.source_node_uuid =

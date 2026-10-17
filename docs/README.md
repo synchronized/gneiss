@@ -504,6 +504,7 @@
 - [M-331：准备好的 Prefab 描述使用不可变版本](records/M-331-prefab-description-versions.md)
 
 - [M-332：属性与头文件边界收尾](records/M-332-property-header-boundaries.md)
+- [M-332：Scene / World 契约收敛](records/M-332-scene-world-contracts.md)
 
 ## 文档维护
 

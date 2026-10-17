@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/function/world/world_service.hpp"
+#include "engine/core/identifier_conversion.hpp"
 
 #include "engine/core/rid_table.hpp"
 #include "engine/function/world/render_snapshot.hpp"
@@ -227,13 +228,16 @@ gneiss_result destroy(gneiss_world world) noexcept {
 
 gneiss_result entity_create(gneiss_world world, gneiss_entity_id& out_entity) noexcept {
   out_entity = GNEISS_NULL_ENTITY_ID;
-  return with_world(
-      world, [&](engine::world& native_world) { return native_world.entity_create(out_entity); });
+  return with_world(world, [&](engine::world& native_world) {
+    return core::write_identifier<entity_id>(
+        out_entity, [&](auto& native_output) { return native_world.entity_create(native_output); });
+  });
 }
 
 gneiss_result entity_destroy(gneiss_world world, gneiss_entity_id entity) noexcept {
-  return with_world(
-      world, [&](engine::world& native_world) { return native_world.entity_destroy(entity); });
+  return with_world(world, [&](engine::world& native_world) {
+    return native_world.entity_destroy(gneiss::entity_id{entity});
+  });
 }
 
 gneiss_result entity_is_alive(gneiss_world world, gneiss_entity_id entity,
@@ -241,7 +245,7 @@ gneiss_result entity_is_alive(gneiss_world world, gneiss_entity_id entity,
   out_is_alive = 0;
   return with_world(world, [&](engine::world& native_world) {
     bool value{};
-    const auto result = native_world.entity_is_alive(entity, value);
+    const auto result = native_world.entity_is_alive(gneiss::entity_id{entity}, value);
     if (result == GNEISS_SUCCESS)
       out_is_alive = value ? UINT8_C(1) : UINT8_C(0);
     return result;
@@ -261,7 +265,7 @@ gneiss_result entity_set_camera(gneiss_world world, gneiss_entity_id entity,
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
   return with_world(world, [&](engine::world& native_world) {
-    return native_world.entity_set_camera(entity, camera, primary);
+    return native_world.entity_set_camera(gneiss::entity_id{entity}, camera, primary);
   });
 }
 
@@ -271,32 +275,35 @@ gneiss_result entity_configure_camera(gneiss_world world, gneiss_entity_id entit
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
   return with_world(world, [&](engine::world& native_world) {
-    return native_world.entity_configure_camera(entity, desc);
+    return native_world.entity_configure_camera(gneiss::entity_id{entity}, desc);
   });
 }
 
 gneiss_result entity_get_camera(gneiss_world world, gneiss_entity_id entity,
                                 camera_settings& out_camera) noexcept {
   return with_world(world, [&](engine::world& native_world) {
-    return native_world.entity_get_camera(entity, out_camera);
+    return native_world.entity_get_camera(gneiss::entity_id{entity}, out_camera);
   });
 }
 
 gneiss_result entity_remove_camera(gneiss_world world, gneiss_entity_id entity) noexcept {
   return with_world(world, [&](engine::world& native_world) {
-    return native_world.entity_remove_camera(entity);
+    return native_world.entity_remove_camera(gneiss::entity_id{entity});
   });
 }
 
 gneiss_result set_active_camera(gneiss_world world, gneiss_entity_id entity) noexcept {
-  return with_world(
-      world, [&](engine::world& native_world) { return native_world.set_active_camera(entity); });
+  return with_world(world, [&](engine::world& native_world) {
+    return native_world.set_active_camera(gneiss::entity_id{entity});
+  });
 }
 
 gneiss_result get_active_camera(gneiss_world world, gneiss_entity_id& out_entity) noexcept {
   out_entity = GNEISS_NULL_ENTITY_ID;
   return with_world(world, [&](engine::world& native_world) {
-    return native_world.get_active_camera(out_entity);
+    return core::write_identifier<entity_id>(out_entity, [&](auto& native_output) {
+      return native_world.get_active_camera(native_output);
+    });
   });
 }
 
@@ -315,13 +322,13 @@ gneiss_result entity_set_mesh_renderer(gneiss_world world, gneiss_entity_id enti
   }
 
   return with_world(world, [&](engine::world& native_world) {
-    return native_world.entity_set_mesh_renderer(entity, renderer);
+    return native_world.entity_set_mesh_renderer(gneiss::entity_id{entity}, renderer);
   });
 }
 
 gneiss_result entity_remove_mesh_renderer(gneiss_world world, gneiss_entity_id entity) noexcept {
   return with_world(world, [&](engine::world& native_world) {
-    return native_world.entity_remove_mesh_renderer(entity);
+    return native_world.entity_remove_mesh_renderer(gneiss::entity_id{entity});
   });
 }
 
@@ -329,25 +336,31 @@ gneiss_result node_create(gneiss_world world, gneiss_scene_node_id parent, gneis
                           gneiss_scene_node_id& out_node) noexcept {
   out_node = GNEISS_NULL_SCENE_NODE_ID;
   return with_world(world, [&](engine::world& native_world) {
-    return native_world.node_create(parent, entity, out_node);
+    return core::write_identifier<scene_node_id>(out_node, [&](auto& native_output) {
+      return native_world.node_create(gneiss::scene_node_id{parent}, gneiss::entity_id{entity},
+                                      native_output);
+    });
   });
 }
 
 gneiss_result node_destroy(gneiss_world world, gneiss_scene_node_id node) noexcept {
-  return with_world(world,
-                    [&](engine::world& native_world) { return native_world.node_destroy(node); });
+  return with_world(world, [&](engine::world& native_world) {
+    return native_world.node_destroy(gneiss::scene_node_id{node});
+  });
 }
 
 gneiss_result node_reparent(gneiss_world world, gneiss_scene_node_id node,
                             gneiss_scene_node_id parent) noexcept {
-  return with_world(
-      world, [&](engine::world& native_world) { return native_world.node_reparent(node, parent); });
+  return with_world(world, [&](engine::world& native_world) {
+    return native_world.node_reparent(gneiss::scene_node_id{node}, gneiss::scene_node_id{parent});
+  });
 }
 
 gneiss_result node_set_local_transform(gneiss_world world, gneiss_scene_node_id node,
                                        const gneiss_transform& transform) noexcept {
   return with_world(world, [&](engine::world& native_world) {
-    return native_world.node_set_local_transform(node, native_transform(transform));
+    return native_world.node_set_local_transform(gneiss::scene_node_id{node},
+                                                 native_transform(transform));
   });
 }
 
@@ -355,7 +368,7 @@ gneiss_result node_get_local_transform(gneiss_world world, gneiss_scene_node_id 
                                        gneiss_transform& out_transform) noexcept {
   return with_world(world, [&](engine::world& native_world) {
     engine::transform value;
-    const auto result = native_world.node_get_local_transform(node, value);
+    const auto result = native_world.node_get_local_transform(gneiss::scene_node_id{node}, value);
     if (result == GNEISS_SUCCESS)
       out_transform = boundary_transform(value);
     return result;
@@ -366,7 +379,7 @@ gneiss_result node_get_world_transform(gneiss_world world, gneiss_scene_node_id 
                                        gneiss_transform& out_transform) noexcept {
   return with_world(world, [&](engine::world& native_world) {
     engine::transform value;
-    const auto result = native_world.node_get_world_transform(node, value);
+    const auto result = native_world.node_get_world_transform(gneiss::scene_node_id{node}, value);
     if (result == GNEISS_SUCCESS)
       out_transform = boundary_transform(value);
     return result;
@@ -377,7 +390,9 @@ gneiss_result node_get_entity(gneiss_world world, gneiss_scene_node_id node,
                               gneiss_entity_id& out_entity) noexcept {
   out_entity = GNEISS_NULL_ENTITY_ID;
   return with_world(world, [&](engine::world& native_world) {
-    return native_world.node_get_entity(node, out_entity);
+    return core::write_identifier<entity_id>(out_entity, [&](auto& native_output) {
+      return native_world.node_get_entity(gneiss::scene_node_id{node}, native_output);
+    });
   });
 }
 
@@ -385,7 +400,9 @@ gneiss_result node_get_parent(gneiss_world world, gneiss_scene_node_id node,
                               gneiss_scene_node_id& out_parent) noexcept {
   out_parent = GNEISS_NULL_SCENE_NODE_ID;
   return with_world(world, [&](engine::world& native_world) {
-    return native_world.node_get_parent(node, out_parent);
+    return core::write_identifier<scene_node_id>(out_parent, [&](auto& native_output) {
+      return native_world.node_get_parent(gneiss::scene_node_id{node}, native_output);
+    });
   });
 }
 
@@ -394,7 +411,7 @@ gneiss_result entity_get_local_transform(gneiss_world world, gneiss_entity_id en
   out_transform = GNEISS_TRANSFORM_IDENTITY;
   return with_world(world, [&](engine::world& native_world) {
     engine::transform value;
-    const auto result = native_world.entity_get_local_transform(entity, value);
+    const auto result = native_world.entity_get_local_transform(gneiss::entity_id{entity}, value);
     if (result == GNEISS_SUCCESS)
       out_transform = boundary_transform(value);
     return result;
@@ -404,7 +421,8 @@ gneiss_result entity_get_local_transform(gneiss_world world, gneiss_entity_id en
 gneiss_result entity_set_local_transform(gneiss_world world, gneiss_entity_id entity,
                                          const gneiss_transform& transform) noexcept {
   return with_world(world, [&](engine::world& native_world) {
-    return native_world.entity_set_local_transform(entity, native_transform(transform));
+    return native_world.entity_set_local_transform(gneiss::entity_id{entity},
+                                                   native_transform(transform));
   });
 }
 

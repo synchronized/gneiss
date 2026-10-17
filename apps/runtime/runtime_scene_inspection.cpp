@@ -257,19 +257,20 @@ result runtime_scene_inspection::capture_scene(engine::application& application,
           info.material_uri.size() > runtime_inspection_max_string_size)
         return result::invalid_argument;
       auto runtime_transform = info.local_transform;
-      operation = world.entity_get_local_transform(info.entity, runtime_transform);
+      operation =
+          world.entity_get_local_transform(gneiss::entity_id{info.entity.get()}, runtime_transform);
       if (operation != GNEISS_SUCCESS) {
         return from_native(operation);
       }
-      nodes.push_back({.native_node = info.node,
-                       .native_parent = info.parent,
-                       .native_entity = info.entity,
+      nodes.push_back({.native_node = info.node.get(),
+                       .native_parent = info.parent.get(),
+                       .native_entity = info.entity.get(),
                        .uuid = std::string{info.uuid},
                        .prefab_instance_uuid = {},
                        .prefab_source_node_uuid = {},
                        .name = std::string{info.name},
                        .local_transform = wire_transform(runtime_transform),
-                       .component_flags = info.component_flags,
+                       .component_flags = static_cast<std::uint32_t>(info.component_flags),
                        .camera = wire_camera(info.camera),
                        .mesh_uri = std::string{info.mesh_uri},
                        .material_uri = std::string{info.material_uri}});
@@ -288,13 +289,14 @@ result runtime_scene_inspection::capture_scene(engine::application& application,
       const auto instance_uuid = std::string{info.instance_uuid};
       const auto source_uuid = std::string{info.source_node_uuid};
       auto runtime_transform = info.local_transform;
-      operation = world.entity_get_local_transform(info.entity, runtime_transform);
+      operation =
+          world.entity_get_local_transform(gneiss::entity_id{info.entity.get()}, runtime_transform);
       if (operation != GNEISS_SUCCESS) {
         return from_native(operation);
       }
-      nodes.push_back({.native_node = info.node,
-                       .native_parent = info.parent,
-                       .native_entity = info.entity,
+      nodes.push_back({.native_node = info.node.get(),
+                       .native_parent = info.parent.get(),
+                       .native_entity = info.entity.get(),
                        .uuid = source_uuid.empty() ? instance_uuid : source_uuid,
                        .prefab_instance_uuid = instance_uuid,
                        .prefab_source_node_uuid = source_uuid,

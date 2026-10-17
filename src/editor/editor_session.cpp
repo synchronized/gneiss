@@ -141,8 +141,8 @@ template <class F> result editor_session::with_scene(F&& action) const noexcept 
 }
 template <class F>
 result editor_session::with_node(scene_node_id& output, F&& action) const noexcept {
-  gneiss_scene_node_id node{};
-  const auto operation = with_scene([&](auto& service) { return action(service, &node); });
+  scene_node_id node{};
+  const auto operation = with_scene([&](auto& service) { return action(service, node); });
   output = scene_node_id{node};
   return operation;
 }
@@ -266,7 +266,7 @@ result editor_session::refresh_nodes() noexcept {
            .component_flags = static_cast<std::uint32_t>(info.component_flags),
            .camera = camera_abi(info.camera),
            .is_primary_camera =
-               (info.component_flags & GNEISS_SCENE_NODE_COMPONENT_PRIMARY_CAMERA) != 0U});
+               has_flags(info.component_flags, scene_node_components::primary_camera)});
     }
     std::uint64_t prefab_count = 0;
     operation = with_scene(
@@ -286,7 +286,7 @@ result editor_session::refresh_nodes() noexcept {
       const std::string instance_uuid{info.instance_uuid};
       const std::string source_uuid =
           info.source_node_uuid.empty() ? std::string{} : std::string{info.source_node_uuid};
-      const bool is_root = (info.flags & GNEISS_SCENE_PREFAB_NODE_INSTANCE_ROOT) != 0U;
+      const bool is_root = has_flags(info.flags, scene_prefab_flags::instance_root);
       prefab_records.push_back(
           {.node = scene_node_id{info.node},
            .parent = scene_node_id{info.parent},
@@ -306,7 +306,7 @@ result editor_session::refresh_nodes() noexcept {
                               GNEISS_SCENE_PREFAB_NODE_ROTATION_OVERRIDDEN |
                               GNEISS_SCENE_PREFAB_NODE_SCALE_OVERRIDDEN),
            .is_instance_root = is_root,
-           .is_read_only = (info.flags & GNEISS_SCENE_PREFAB_NODE_SOURCE_READ_ONLY) != 0U});
+           .is_read_only = has_flags(info.flags, scene_prefab_flags::source_read_only)});
     }
     nodes_.swap(records);
     prefab_nodes_.swap(prefab_records);
@@ -320,9 +320,8 @@ result editor_session::refresh_nodes() noexcept {
 
 result editor_session::get_world_transform(scene_node_id node, transform& output) const noexcept {
   engine::transform value;
-  const auto operation = with_scene([&](auto&) {
-    return application_->native_world()->node_get_world_transform(node.get(), value);
-  });
+  const auto operation = with_scene(
+      [&](auto&) { return application_->native_world()->node_get_world_transform(node, value); });
   if (operation.ok())
     output = {value.translation, value.rotation, value.scale};
   return operation;
@@ -337,14 +336,14 @@ result editor_session::set_local_transform(scene_node_id node, const transform& 
   if (found == nodes_.end() && prefab == prefab_nodes_.end()) {
     return result::invalid_argument;
   }
-  const auto operation =
-      prefab != prefab_nodes_.end() && !prefab->is_instance_root
-          ? with_scene([&](auto& service) {
-              return service.set_prefab_source_transform(
-                  scene_, node.get(), {value.translation, value.rotation, value.scale});
-            })
-          : from_native(application_->native_world()->node_set_local_transform(
-                node.get(), {value.translation, value.rotation, value.scale}));
+  const auto operation = prefab != prefab_nodes_.end() && !prefab->is_instance_root
+                             ? with_scene([&](auto& service) {
+                                 return service.set_prefab_source_transform(
+                                     scene_, gneiss::scene_node_id{node},
+                                     {value.translation, value.rotation, value.scale});
+                               })
+                             : from_native(application_->native_world()->node_set_local_transform(
+                                   node, {value.translation, value.rotation, value.scale}));
   if (operation != result::success) {
     return operation;
   }
@@ -425,7 +424,7 @@ result editor_session::create_node(std::string_view name, scene_node_id parent,
     desc.uuid = uuid;
     desc.name = name;
     desc.parent = parent.get();
-    auto operation = with_node(out_node, [&](auto& service, auto* output) {
+    auto operation = with_node(out_node, [&](auto& service, auto& output) {
       return service.create_node(scene_, desc, output);
     });
     if (operation == result::success) {
@@ -457,7 +456,7 @@ result editor_session::create_prefab_instance(std::string_view name, std::string
     desc.name = name;
     desc.prefab_uri = prefab_uri;
 
-    auto operation = with_node(out_root, [&](auto& service, auto* output) {
+    auto operation = with_node(out_root, [&](auto& service, auto& output) {
       return service.create_prefab_instance(scene_, desc, output);
     });
     if (operation == result::success) {
@@ -476,8 +475,9 @@ result editor_session::create_prefab_instance(std::string_view name, std::string
 }
 
 result editor_session::rename_prefab_instance(scene_node_id root, std::string_view name) noexcept {
-  const auto operation = with_scene(
-      [&](auto& service) { return service.set_prefab_instance_name(scene_, root.get(), name); });
+  const auto operation = with_scene([&](auto& service) {
+    return service.set_prefab_instance_name(scene_, gneiss::scene_node_id{root}, name);
+  });
   if (operation != result::success) {
     return operation;
   }
@@ -507,8 +507,9 @@ result editor_session::destroy_prefab_instance(scene_node_id root,
       }
       snapshot.parent_uuid = parent->uuid;
     }
-    auto operation = with_scene(
-        [&](auto& service) { return service.destroy_prefab_instance(scene_, root.get()); });
+    auto operation = with_scene([&](auto& service) {
+      return service.destroy_prefab_instance(scene_, gneiss::scene_node_id{root});
+    });
     if (operation == result::success) {
       selection_ = {};
       operation = refresh_nodes();
@@ -538,7 +539,7 @@ result editor_session::restore_prefab_instance(const prefab_instance_snapshot& s
   desc.prefab_uri = snapshot.prefab_uri;
   desc.local_transform = {snapshot.local_transform.translation, snapshot.local_transform.rotation,
                           snapshot.local_transform.scale};
-  auto operation = with_node(out_root, [&](auto& service, auto* output) {
+  auto operation = with_node(out_root, [&](auto& service, auto& output) {
     return service.create_prefab_instance(scene_, desc, output);
   });
   if (operation == result::success) {
@@ -554,8 +555,8 @@ result editor_session::restore_prefab_instance(const prefab_instance_snapshot& s
 result
 editor_session::refresh_prefab_instance(scene_node_id root, scene_node_id& out_new_root,
                                         gneiss_scene_prefab_refresh_token& out_token) noexcept {
-  const auto operation = with_node(out_new_root, [&](auto& service, auto* output) {
-    return service.refresh_prefab_instance(scene_, root.get(), output, &out_token);
+  const auto operation = with_node(out_new_root, [&](auto& service, auto& output) {
+    return service.refresh_prefab_instance(scene_, gneiss::scene_node_id{root}, output, &out_token);
   });
   if (operation != result::success) {
     return operation;
@@ -570,7 +571,7 @@ editor_session::refresh_prefab_instance(scene_node_id root, scene_node_id& out_n
 
 result editor_session::toggle_prefab_refresh(gneiss_scene_prefab_refresh_token token,
                                              scene_node_id& out_new_root) noexcept {
-  const auto operation = with_node(out_new_root, [&](auto& service, auto* output) {
+  const auto operation = with_node(out_new_root, [&](auto& service, auto& output) {
     return service.toggle_prefab_refresh(scene_, token, output);
   });
   if (operation != result::success) {
@@ -594,8 +595,9 @@ result editor_session::rename_node(scene_node_id node, std::string_view name) no
   if (!is_open() || !node.is_valid()) {
     return result::invalid_argument;
   }
-  const auto operation =
-      with_scene([&](auto& service) { return service.set_node_name(scene_, node.get(), name); });
+  const auto operation = with_scene([&](auto& service) {
+    return service.set_node_name(scene_, gneiss::scene_node_id{node}, name);
+  });
   if (operation != result::success) {
     return operation;
   }
@@ -610,8 +612,10 @@ result editor_session::reparent_node(scene_node_id node, scene_node_id parent) n
   if (!is_open() || !node.is_valid() || node == parent) {
     return result::invalid_argument;
   }
-  const auto operation = with_scene(
-      [&](auto& service) { return service.reparent_node(scene_, node.get(), parent.get()); });
+  const auto operation = with_scene([&](auto& service) {
+    return service.reparent_node(scene_, gneiss::scene_node_id{node},
+                                 gneiss::scene_node_id{parent});
+  });
   if (operation != result::success) {
     return operation;
   }
@@ -640,13 +644,15 @@ result editor_session::destroy_subtree(scene_node_id node,
       }
       snapshot.parent_uuid = parent->uuid;
     }
-    auto operation = with_scene(
-        [&](auto& service) { return service.capture_subtree(scene_, node.get(), snapshot.json); });
+    auto operation = with_scene([&](auto& service) {
+      return service.capture_subtree(scene_, gneiss::scene_node_id{node}, snapshot.json);
+    });
     if (operation != result::success) {
       return operation;
     }
-    operation =
-        with_scene([&](auto& service) { return service.destroy_subtree(scene_, node.get()); });
+    operation = with_scene([&](auto& service) {
+      return service.destroy_subtree(scene_, gneiss::scene_node_id{node});
+    });
     if (operation == result::success) {
       selection_ = {};
       operation = refresh_nodes();
@@ -673,8 +679,9 @@ result editor_session::restore_subtree(const scene_subtree_snapshot& snapshot,
     }
     parent = record->node;
   }
-  const auto operation = with_node(out_node, [&](auto& service, auto* output) {
-    return service.restore_subtree(scene_, snapshot.json, parent.get(), {}, output);
+  const auto operation = with_node(out_node, [&](auto& service, auto& output) {
+    return service.restore_subtree(scene_, snapshot.json, gneiss::scene_node_id{parent}, {},
+                                   output);
   });
   if (operation != result::success) {
     return operation;
@@ -694,8 +701,9 @@ result editor_session::duplicate_subtree(scene_node_id node, scene_node_id paren
   }
   try {
     std::string snapshot;
-    auto operation = with_scene(
-        [&](auto& service) { return service.capture_subtree(scene_, node.get(), snapshot); });
+    auto operation = with_scene([&](auto& service) {
+      return service.capture_subtree(scene_, gneiss::scene_node_id{node}, snapshot);
+    });
     if (operation != result::success) {
       return operation;
     }
@@ -718,8 +726,9 @@ result editor_session::duplicate_subtree(scene_node_id node, scene_node_id paren
     for (std::size_t index = 0; index < sources.size(); ++index) {
       mappings.push_back({.source_uuid = sources[index], .target_uuid = targets[index]});
     }
-    operation = with_node(out_node, [&](auto& service, auto* output) {
-      return service.restore_subtree(scene_, snapshot, parent.get(), mappings, output);
+    operation = with_node(out_node, [&](auto& service, auto& output) {
+      return service.restore_subtree(scene_, snapshot, gneiss::scene_node_id{parent}, mappings,
+                                     output);
     });
     if (operation == result::success) {
       selection_ = out_node;
@@ -738,7 +747,7 @@ result editor_session::duplicate_subtree(scene_node_id node, scene_node_id paren
 
 result editor_session::set_camera(scene_node_id node, const scene_camera_desc& desc) noexcept {
   const auto operation = with_scene([&](auto& service) {
-    return service.set_camera(scene_, node.get(),
+    return service.set_camera(scene_, gneiss::scene_node_id{node},
                               {desc.camera.vertical_field_of_view_radians, desc.camera.near_plane,
                                desc.camera.far_plane, desc.is_primary});
   });
@@ -753,8 +762,8 @@ result editor_session::set_camera(scene_node_id node, const scene_camera_desc& d
 }
 
 result editor_session::remove_camera(scene_node_id node) noexcept {
-  const auto operation =
-      with_scene([&](auto& service) { return service.remove_camera(scene_, node.get()); });
+  const auto operation = with_scene(
+      [&](auto& service) { return service.remove_camera(scene_, gneiss::scene_node_id{node}); });
   if (operation != result::success) {
     return operation;
   }
@@ -766,8 +775,9 @@ result editor_session::remove_camera(scene_node_id node) noexcept {
 }
 
 result editor_session::remove_mesh_renderer(scene_node_id node) noexcept {
-  const auto operation =
-      with_scene([&](auto& service) { return service.remove_mesh_renderer(scene_, node.get()); });
+  const auto operation = with_scene([&](auto& service) {
+    return service.remove_mesh_renderer(scene_, gneiss::scene_node_id{node});
+  });
   if (operation != result::success) {
     return operation;
   }
@@ -836,11 +846,9 @@ result editor_session::select(scene_node_id node) noexcept {
   if (found == nodes_.end() && prefab == prefab_nodes_.end()) {
     return result::not_found;
   }
-  gneiss_entity_id entity = GNEISS_NULL_ENTITY_ID;
-  const auto operation =
-      from_native(application_->native_world()->node_get_entity(node.get(), entity));
-  const auto expected = found != nodes_.end() ? found->entity.get()
-                                              : static_cast<gneiss_entity_id>(prefab->entity.get());
+  entity_id entity{};
+  const auto operation = from_native(application_->native_world()->node_get_entity(node, entity));
+  const auto expected = found != nodes_.end() ? found->entity : prefab->entity;
   if (operation != result::success || entity != expected) {
     selection_ = {};
     return operation == result::success ? result::invalid_handle : operation;
@@ -897,7 +905,7 @@ result editor_session::create_mesh_renderer_node(const scene_node_snapshot& snap
     desc.parent = parent.get();
     desc.mesh_uri = snapshot.mesh_uri;
     desc.material_uri = snapshot.material_uri;
-    auto operation = with_node(out_node, [&](auto& service, auto* output) {
+    auto operation = with_node(out_node, [&](auto& service, auto& output) {
       return service.create_mesh_renderer_node(scene_, desc, output);
     });
     if (operation != result::success) {
@@ -961,10 +969,11 @@ editor_session::commit_mesh_node(const scene_node_snapshot& snapshot,
   if (operation.failed()) {
     return operation;
   }
-  gneiss_entity_id entity{};
-  operation = from_native(application_->native_world()->node_get_entity(output.get(), entity));
+  entity_id entity{};
+  operation = from_native(application_->native_world()->node_get_entity(output, entity));
   if (operation.failed()) {
-    (void)with_scene([&](auto& service) { return service.destroy_node(scene_, output.get()); });
+    (void)with_scene(
+        [&](auto& service) { return service.destroy_node(scene_, gneiss::scene_node_id{output}); });
     output = {};
     return operation;
   }
@@ -1014,8 +1023,8 @@ result editor_session::destroy_node(scene_node_id node,
       }
       snapshot.parent_uuid = parent->uuid;
     }
-    const auto operation =
-        with_scene([&](auto& service) { return service.destroy_node(scene_, node.get()); });
+    const auto operation = with_scene(
+        [&](auto& service) { return service.destroy_node(scene_, gneiss::scene_node_id{node}); });
     if (operation != result::success) {
       return operation;
     }
@@ -1050,7 +1059,7 @@ result editor_session::set_mesh_renderer(scene_node_id node, std::string_view me
     desc.material_uri = material;
 
     const auto operation = with_scene([&](auto& service) {
-      return service.set_mesh_renderer(scene_, node.get(), desc.mesh_uri, desc.material_uri);
+      return service.set_mesh_renderer(scene_, node, desc.mesh_uri, desc.material_uri);
     });
     if (operation != result::success) {
       return operation;

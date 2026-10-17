@@ -151,6 +151,52 @@ void run() {
     check(complete && steps > 3U && builder.completed_nodes() == 3U);
     new_scene = builder.instance();
   }
+  // 候选仅持有一份运行时；移动、失败和取消不得泄漏或提前发布。
+  {
+    scene_internal::prefab_asset_lease source;
+    scene_internal::prefab_instance_description author;
+    check(candidate->scenes->capture_prefab_header(
+              new_scene, "00000000-0000-4000-8000-000000000004", author, source) == GNEISS_SUCCESS);
+    author.instance_uuid = "00000000-0000-4000-8000-000000000077";
+    author.prefab_uri = "asset://p.prefab";
+    author.rotation = {0, 0, 0, 1};
+    author.scale = {1, 1, 1};
+    scene_internal::prefab_candidate pending;
+    const auto transaction_reads = files->reads;
+    check(candidate->scenes->begin_prefab_candidate(new_scene, author, source, *source.get(),
+                                                    pending) == GNEISS_SUCCESS);
+    const auto hidden_root = pending.root();
+    check(candidate->scenes->begin_prefab_candidate(new_scene, author, source, *source.get(),
+                                                    pending) == GNEISS_ERROR_INVALID_STATE);
+    check(pending.root() == hidden_root);
+    scene_internal::prefab_candidate moved{std::move(pending)};
+    check(!pending.is_valid() && moved.is_valid());
+    check(candidate->scenes->commit_prefab_candidate(old_scene, moved) ==
+          GNEISS_ERROR_INVALID_HANDLE);
+    check(candidate->scenes->commit_prefab_candidate(new_scene, moved) ==
+          GNEISS_ERROR_INVALID_STATE);
+    gneiss_result foreign{};
+    bool cleaned_on_worker = true;
+    std::thread worker([&] {
+      scene_internal::prefab_node_view preview;
+      foreign = moved.preview(0, preview);
+      cleaned_on_worker = moved.cleanup_step(1);
+    });
+    worker.join();
+    check(foreign == GNEISS_ERROR_INVALID_STATE && !cleaned_on_worker);
+    scene_internal::prefab_candidate assigned;
+    assigned = std::move(moved);
+    check(!moved.is_valid() && assigned.is_valid());
+    for (unsigned step = 0; step < 8 && assigned.is_valid(); ++step)
+      (void)assigned.cleanup_step(1);
+    check(!assigned.is_valid() && assigned.cleanup_step(1));
+    engine::transform hidden;
+    check(candidate->native_world()->node_get_local_transform(scene_node_id{hidden_root}, hidden) ==
+          GNEISS_ERROR_INVALID_HANDLE);
+    std::uint64_t count{};
+    check(candidate->native_world()->entity_count(count) == GNEISS_SUCCESS && count == 3);
+    check(files->reads == transaction_reads);
+  }
   const auto selected_material = material.get();
   check(candidate->scenes->capture_render_assets(captured) == GNEISS_SUCCESS);
   check(captured.size() == 2U && files->reads == reads);
@@ -206,7 +252,7 @@ void run() {
   const gneiss::world_internal::mesh_renderer expected{.mesh = mesh_rid,
                                                        .material = selected_material};
   const std::array unchanged{world_internal::mesh_renderer_replacement{
-      .entity = ordinary.entity, .expected = expected, .replacement = expected}};
+      .entity = ordinary.entity.get(), .expected = expected, .replacement = expected}};
   const auto edit_reads = files->reads;
   check(candidate->scenes->set_mesh_renderer(new_scene, ordinary.node, "asset://m.mesh",
                                              "asset://m.material") == GNEISS_SUCCESS);
@@ -216,21 +262,21 @@ void run() {
                                              "asset://missing.material") == GNEISS_ERROR_NOT_FOUND);
   check(world_internal::replace_mesh_renderers(candidate->world, unchanged) == GNEISS_SUCCESS);
   // 第二个使用者已被外部改动时，第一个也不能先切换。
-  check(world_internal::entity_set_mesh_renderer(candidate->world, prefab_node.entity,
+  check(world_internal::entity_set_mesh_renderer(candidate->world, prefab_node.entity.get(),
                                                  {.mesh = mesh_rid, .material = unrelated.get()}) ==
         GNEISS_SUCCESS);
   check(candidate->scenes->replace_render_assets(updates) == GNEISS_ERROR_INVALID_STATE);
   check(world_internal::replace_mesh_renderers(candidate->world, unchanged) == GNEISS_SUCCESS);
-  check(world_internal::entity_set_mesh_renderer(candidate->world, prefab_node.entity, expected) ==
-        GNEISS_SUCCESS);
+  check(world_internal::entity_set_mesh_renderer(candidate->world, prefab_node.entity.get(),
+                                                 expected) == GNEISS_SUCCESS);
   check(candidate->scenes->replace_render_assets(updates) == GNEISS_SUCCESS);
   const gneiss::world_internal::mesh_renderer updated{.mesh = mesh_rid,
                                                       .material = next_version.get()};
   const std::array committed{
       world_internal::mesh_renderer_replacement{
-          .entity = ordinary.entity, .expected = updated, .replacement = updated},
+          .entity = ordinary.entity.get(), .expected = updated, .replacement = updated},
       world_internal::mesh_renderer_replacement{
-          .entity = prefab_node.entity, .expected = updated, .replacement = updated}};
+          .entity = prefab_node.entity.get(), .expected = updated, .replacement = updated}};
   check(world_internal::replace_mesh_renderers(candidate->world, committed) == GNEISS_SUCCESS);
   files->files["other.material"] = files->files["m.material"];
   check(candidate->scenes->set_mesh_renderer(new_scene, ordinary.node, "asset://m.mesh",
@@ -241,7 +287,7 @@ void run() {
   const gneiss::world_internal::mesh_renderer edited{.mesh = mesh_rid,
                                                      .material = edited_material.get()};
   const std::array material_only{world_internal::mesh_renderer_replacement{
-      .entity = ordinary.entity, .expected = edited, .replacement = edited}};
+      .entity = ordinary.entity.get(), .expected = edited, .replacement = edited}};
   check(world_internal::replace_mesh_renderers(candidate->world, material_only) == GNEISS_SUCCESS);
   check(resources.get_material(old_material.get())->red == 1.0F);
   duplicate = {};
@@ -283,17 +329,18 @@ void run() {
         .mesh_uri = before.mesh.uri(),
         .material_uri = before.material.uri(),
     };
-    gneiss_scene_node_id created{};
+    gneiss::scene_node_id created{};
     check(candidate->scenes->create_mesh_renderer_node_ready(
               new_scene, creation, invalid, created) == GNEISS_ERROR_INVALID_ARGUMENT &&
-          created == GNEISS_NULL_SCENE_NODE_ID);
+          !created.is_valid());
     check(candidate->scenes->create_mesh_renderer_node_ready(new_scene, creation, before,
                                                              created) == GNEISS_SUCCESS);
     const auto created_node = created;
     check(candidate->scenes->create_mesh_renderer_node_ready(
               new_scene, creation, before, created) == GNEISS_ERROR_INVALID_ARGUMENT &&
-          created == GNEISS_NULL_SCENE_NODE_ID);
-    check(candidate->scenes->destroy_node(new_scene, created_node) == GNEISS_SUCCESS);
+          !created.is_valid());
+    check(candidate->scenes->destroy_node(new_scene, gneiss::scene_node_id{created_node}) ==
+          GNEISS_SUCCESS);
     check(files->reads == reads);
   }
   check(candidate->scenes->remove_mesh_renderer(new_scene, ordinary.node) == GNEISS_SUCCESS);

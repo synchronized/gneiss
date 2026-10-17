@@ -55,7 +55,7 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   engine/function/scene/prefab_asset_loader.hpp
   engine/function/scene/prefab_description.hpp
   engine/function/scene/prefab_property_override.hpp
-  engine/function/scene/prefab_runtime_instance.hpp
+  engine/function/scene/prefab_candidate.hpp
   engine/function/scene/scene_creation.hpp
   engine/function/scene/scene_description.hpp
   engine/function/scene/scene_instance_service.hpp

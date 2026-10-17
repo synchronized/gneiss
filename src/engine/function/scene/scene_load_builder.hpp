@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "engine/function/scene/scene_instance.hpp"
 #include "engine/function/scene/scene_instance_service.hpp"
 #include "engine/function/scene/scene_load_preparation.hpp"
 

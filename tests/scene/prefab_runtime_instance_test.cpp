@@ -143,13 +143,15 @@ bool check_hidden_prefab(gneiss::engine::world& native_world, gneiss_world world
   prefab_runtime_instance::node_info info;
   gneiss::engine::transform queried{};
   if (candidate.get_node_info(0U, info) != GNEISS_SUCCESS || info.parent != candidate.root() ||
-      native_world.node_get_local_transform(info.node, queried) != GNEISS_ERROR_INVALID_HANDLE ||
+      native_world.node_get_local_transform(gneiss::scene_node_id{info.node}, queried) !=
+          GNEISS_ERROR_INVALID_HANDLE ||
       gneiss_world_entity_count(world, &count) != GNEISS_SUCCESS || count != 6U ||
       candidate.create_staged_node(1U, info.node, {}, {}) != GNEISS_SUCCESS ||
       candidate.publish_hidden() != GNEISS_SUCCESS ||
       candidate.publish_hidden() != GNEISS_ERROR_INVALID_STATE ||
       candidate.cancel_staged_step(10U) ||
-      native_world.node_get_local_transform(info.node, queried) != GNEISS_SUCCESS ||
+      native_world.node_get_local_transform(gneiss::scene_node_id{info.node}, queried) !=
+          GNEISS_SUCCESS ||
       queried.translation[0] != 19.0F || lease.get()->objects[0].translation[0] != 1.0F ||
       gneiss_world_entity_count(world, &count) != GNEISS_SUCCESS || count != 9U) {
     return false;
@@ -167,7 +169,8 @@ bool check_hidden_prefab(gneiss::engine::world& native_world, gneiss_world world
     return false;
   }
   if (candidate.retire_hidden() != GNEISS_SUCCESS ||
-      native_world.node_get_local_transform(info.node, queried) != GNEISS_ERROR_INVALID_HANDLE ||
+      native_world.node_get_local_transform(gneiss::scene_node_id{info.node}, queried) !=
+          GNEISS_ERROR_INVALID_HANDLE ||
       gneiss_world_entity_count(world, &count) != GNEISS_SUCCESS || count != 6U ||
       candidate.cancel_staged_step(1U) || candidate.cancel_staged_step(1U) ||
       !candidate.cancel_staged_step(5U) ||
@@ -185,7 +188,8 @@ bool check_hidden_prefab(gneiss::engine::world& native_world, gneiss_world world
       return false;
     }
   }
-  return native_world.node_get_local_transform(parent, queried) == GNEISS_SUCCESS &&
+  return native_world.node_get_local_transform(gneiss::scene_node_id{parent}, queried) ==
+             GNEISS_SUCCESS &&
          gneiss_world_entity_count(world, &count) == GNEISS_SUCCESS && count == 6U;
 }
 
@@ -271,8 +275,10 @@ int main() try {
   std::uint64_t entity_count = 0;
   if (first_source_root == GNEISS_NULL_SCENE_NODE_ID ||
       second_source_root == GNEISS_NULL_SCENE_NODE_ID || first_source_root == second_source_root ||
-      native_world.node_get_world_transform(first_source_root, first_world) != GNEISS_SUCCESS ||
-      native_world.node_get_world_transform(second_source_root, second_world) != GNEISS_SUCCESS ||
+      native_world.node_get_world_transform(gneiss::scene_node_id{first_source_root},
+                                            first_world) != GNEISS_SUCCESS ||
+      native_world.node_get_world_transform(gneiss::scene_node_id{second_source_root},
+                                            second_world) != GNEISS_SUCCESS ||
       first_world.translation[0] != 13.0F || second_world.translation[0] != -4.0F ||
       gneiss_world_entity_count(world, &entity_count) != GNEISS_SUCCESS || entity_count != 6U) {
     return 6;
@@ -361,9 +367,10 @@ int main() try {
   }
   first.reset();
   if (gneiss_world_entity_count(world, &entity_count) != GNEISS_SUCCESS || entity_count != 3U ||
-      native_world.node_get_world_transform(first_source_root, first_world) !=
-          GNEISS_ERROR_INVALID_HANDLE ||
-      native_world.node_get_world_transform(second_source_root, second_world) != GNEISS_SUCCESS) {
+      native_world.node_get_world_transform(gneiss::scene_node_id{first_source_root},
+                                            first_world) != GNEISS_ERROR_INVALID_HANDLE ||
+      native_world.node_get_world_transform(gneiss::scene_node_id{second_source_root},
+                                            second_world) != GNEISS_SUCCESS) {
     return 11;
   }
   second.reset();

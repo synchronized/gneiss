@@ -7,15 +7,6 @@
 #include <algorithm>
 
 namespace gneiss::application_internal {
-namespace {
-engine::transform transform_of(const scene_internal::object_description& object) {
-  engine::transform value{};
-  std::ranges::copy(object.translation, value.translation.begin());
-  std::ranges::copy(object.rotation, value.rotation.begin());
-  std::ranges::copy(object.scale, value.scale.begin());
-  return value;
-}
-}
 gneiss_result prefab_placement::capture_step(engine::application& application,
                                              std::string_view uuid, gneiss_scene_instance scene,
                                              std::shared_ptr<prefab_placement_snapshot>& snapshot,
@@ -101,7 +92,7 @@ prefab_placement::prefab_placement(engine::application& application,
                                    std::shared_ptr<const prefab_placement_snapshot> snapshot,
                                    gneiss_scene_instance scene, bool removing)
     : application_(application), scene_(scene), snapshot_(std::move(snapshot)),
-      author_(snapshot_->author), removing_(removing) {}
+      removing_(removing) {}
 prefab_placement::~prefab_placement() = default;
 gneiss_result prefab_placement::begin(engine::application& application, gneiss_scene_instance scene,
                                       std::shared_ptr<const prefab_placement_snapshot> snapshot,
@@ -123,11 +114,11 @@ gneiss_result prefab_placement::begin(engine::application& application, gneiss_s
   value->replacing_ = replacing;
   auto result = GNEISS_SUCCESS;
   if (!removing) {
-    result = host->scenes()->begin_prefab_candidate(scene, value->author_, value->snapshot_->prefab,
-                                                    *value->snapshot_->prefab.get(),
-                                                    value->runtime_, replacing);
-    if (value->runtime_) {
-      value->root_ = value->runtime_->root();
+    result = host->scenes()->begin_prefab_candidate(
+        scene, value->snapshot_->author, value->snapshot_->prefab, *value->snapshot_->prefab.get(),
+        value->candidate_, replacing);
+    if (value->candidate_.is_valid()) {
+      value->root_ = value->candidate_.root();
     }
   }
   output = std::move(value);
@@ -153,19 +144,14 @@ gneiss_result prefab_placement::create_next_node() {
         .material = find(source.mesh_renderer->material_uri),
     };
   }
-  const auto result = runtime_->create_staged_node(
-      index, source.parent_uuid ? nodes_.at(*source.parent_uuid) : runtime_->root(),
+  scene_node_id node{};
+  const auto result = candidate_.create_node(
+      index, source.parent_uuid ? nodes_.at(*source.parent_uuid) : candidate_.root(),
       render_internal::render_asset_loader::mesh_lease(binding.mesh),
-      render_internal::render_asset_loader::material_lease(binding.material));
-  if (result != GNEISS_SUCCESS) {
+      render_internal::render_asset_loader::material_lease(binding.material), node);
+  if (result != GNEISS_SUCCESS)
     return result;
-  }
-  scene_internal::prefab_runtime_instance::node_info info;
-  const auto queried = runtime_->get_node_info(index, info);
-  if (queried != GNEISS_SUCCESS) {
-    return queried;
-  }
-  nodes_.emplace(source.uuid, info.node);
+  nodes_.emplace(source.uuid, node);
   ++cursor_;
 
   return GNEISS_SUCCESS;
@@ -182,7 +168,7 @@ gneiss_result prefab_placement::advance(bool& ready) noexcept try {
   for (unsigned step = 0; step < 64U && !ready_; ++step) {
     if (removing_) {
       const auto result =
-          host->scenes()->prepare_prefab_removal(scene_, author_.instance_uuid, ready_);
+          host->scenes()->prepare_prefab_removal(scene_, snapshot_->author.instance_uuid, ready_);
       if (result != GNEISS_SUCCESS) {
         return result;
       }
@@ -192,8 +178,8 @@ gneiss_result prefab_placement::advance(bool& ready) noexcept try {
         return created;
       }
     } else if (replacing_ && !retirement_ready_) {
-      const auto result =
-          host->scenes()->prepare_prefab_removal(scene_, author_.instance_uuid, retirement_ready_);
+      const auto result = host->scenes()->prepare_prefab_removal(
+          scene_, snapshot_->author.instance_uuid, retirement_ready_);
       if (result != GNEISS_SUCCESS) {
         return result;
       }
@@ -209,61 +195,16 @@ gneiss_result prefab_placement::advance(bool& ready) noexcept try {
   return GNEISS_ERROR_INTERNAL;
 }
 std::size_t prefab_placement::node_count() const noexcept { return snapshot_->order.size() + 1U; }
-gneiss_scene_node_id prefab_placement::root() const noexcept { return root_; }
+scene_node_id prefab_placement::root() const noexcept { return root_; }
 gneiss_result prefab_placement::preview(std::size_t index,
                                         scene_internal::prefab_node_view& output) const noexcept {
   output = {};
-  if (!ready_ || removing_ || !runtime_ || index >= node_count()) {
+  if (!ready_ || removing_ || !candidate_.is_valid() || index >= node_count()) {
     return GNEISS_ERROR_INVALID_STATE;
   }
-  output.instance_uuid = author_.instance_uuid;
-  output.prefab_uri = author_.prefab_uri;
-  if (index == 0U) {
-    output.flags = GNEISS_SCENE_PREFAB_NODE_INSTANCE_ROOT;
-    output.node = runtime_->root();
-    output.entity = runtime_->root_entity();
-    output.name = author_.name;
-    std::ranges::copy(author_.translation, output.local_transform.translation.begin());
-    std::ranges::copy(author_.rotation, output.local_transform.rotation.begin());
-    std::ranges::copy(author_.scale, output.local_transform.scale.begin());
-    return GNEISS_SUCCESS;
-  }
-  scene_internal::prefab_runtime_instance::node_info info;
-  const auto result = runtime_->get_node_info(index - 1U, info);
-  if (result != GNEISS_SUCCESS) {
-    return result;
-  }
-  output.flags = GNEISS_SCENE_PREFAB_NODE_SOURCE_READ_ONLY;
-  output.node = info.node;
-  output.entity = info.entity;
-  output.parent = info.parent;
-  output.source_node_uuid = info.address->source_node_uuid;
-  output.name = info.name;
-  output.local_transform = transform_of(snapshot_->prefab.get()->objects[index - 1U]);
-  output.source_local_transform = output.local_transform;
-  output.local_transform = transform_of(runtime_->candidate_description().objects[index - 1U]);
-  const auto transform_type = world_internal::transform_type_id();
-  for (const auto& value : author_.overrides) {
-    if (value.key.node.source_node_uuid != output.source_node_uuid ||
-        !std::ranges::equal(value.key.type_id.bytes, transform_type.bytes)) {
-      continue;
-    }
-    switch (value.key.field_id) {
-    case GNEISS_TRANSFORM_FIELD_TRANSLATION:
-      output.flags |= GNEISS_SCENE_PREFAB_NODE_TRANSLATION_OVERRIDDEN;
-      break;
-    case GNEISS_TRANSFORM_FIELD_ROTATION:
-      output.flags |= GNEISS_SCENE_PREFAB_NODE_ROTATION_OVERRIDDEN;
-      break;
-    case GNEISS_TRANSFORM_FIELD_SCALE:
-      output.flags |= GNEISS_SCENE_PREFAB_NODE_SCALE_OVERRIDDEN;
-      break;
-    default:
-      break;
-    }
-  }
-  return GNEISS_SUCCESS;
+  return candidate_.preview(index, output);
 }
+
 gneiss_result prefab_placement::commit() noexcept {
   auto* host = &application_;
   const auto validation = host->is_owner_thread() && host->accepts_requests()
@@ -272,9 +213,9 @@ gneiss_result prefab_placement::commit() noexcept {
   if (validation != GNEISS_SUCCESS || !ready_ || committed_ || replacing_) {
     return validation == GNEISS_SUCCESS ? GNEISS_ERROR_INVALID_STATE : validation;
   }
-  const auto result =
-      removing_ ? host->scenes()->commit_prefab_removal(scene_, author_.instance_uuid, runtime_)
-                : host->scenes()->commit_prefab_candidate(scene_, author_, runtime_);
+  const auto result = removing_ ? host->scenes()->commit_prefab_removal(
+                                      scene_, snapshot_->author.instance_uuid, candidate_)
+                                : host->scenes()->commit_prefab_candidate(scene_, candidate_);
   committed_ = result == GNEISS_SUCCESS;
   return result;
 }
@@ -292,14 +233,14 @@ prefab_placement::commit_replacements(std::span<prefab_placement* const> entries
   if (validation != GNEISS_SUCCESS) {
     return validation;
   }
-  std::vector<scene_internal::scene_instance_service::prefab_replacement> replacements;
+  std::vector<scene_internal::prefab_candidate*> replacements;
   replacements.reserve(entries.size());
   for (auto* entry : entries) {
     if (entry == nullptr || &entry->application_ != &application || entry->scene_ != scene ||
         !entry->replacing_ || !entry->ready_ || entry->committed_) {
       return GNEISS_ERROR_INVALID_STATE;
     }
-    replacements.push_back({.author = &entry->author_, .runtime = &entry->runtime_});
+    replacements.push_back(&entry->candidate_);
   }
   const auto result = host->scenes()->commit_prefab_replacements(scene, replacements);
   if (result == GNEISS_SUCCESS) {
@@ -315,13 +256,6 @@ prefab_placement::commit_replacements(std::span<prefab_placement* const> entries
 }
 
 bool prefab_placement::cleanup_step(std::size_t budget) noexcept {
-  if (!runtime_) {
-    return true;
-  }
-  if (!runtime_->cancel_staged_step(budget)) {
-    return false;
-  }
-  runtime_.reset();
-  return true;
+  return candidate_.cleanup_step(budget);
 }
 }

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "engine/core/identifier_conversion.hpp"
 #include "engine/function/application/application_registry.hpp"
 
 #include "engine/function/application/application.hpp"
@@ -26,8 +27,13 @@ gneiss_result gneiss::application_internal::create_mesh_node_ready(
   output = GNEISS_NULL_SCENE_NODE_ID;
   auto state = find_application(application);
   const auto valid = validate_application(state);
-  return valid == GNEISS_SUCCESS ? state->create_mesh_node_ready(scene, desc, prepared, output)
-                                 : valid;
+  return valid == GNEISS_SUCCESS
+             ? core::write_identifier<scene_node_id>(output,
+                                                     [&](auto& native_output) {
+                                                       return state->create_mesh_node_ready(
+                                                           scene, desc, prepared, native_output);
+                                                     })
+             : valid;
 }
 
 gneiss_result
@@ -65,7 +71,8 @@ gneiss_result gneiss::application_internal::capture_mesh_binding(gneiss_applicat
   output = {};
   auto state = find_application(application);
   const auto valid = validate_application(state);
-  return valid == GNEISS_SUCCESS ? state->capture_mesh_binding(scene, node, output) : valid;
+  return valid == GNEISS_SUCCESS ? state->capture_mesh_binding(scene, scene_node_id{node}, output)
+                                 : valid;
 }
 
 gneiss_result gneiss::application_internal::replace_mesh_binding(
@@ -73,8 +80,9 @@ gneiss_result gneiss::application_internal::replace_mesh_binding(
     const mesh_binding& expected, const mesh_binding& replacement) noexcept {
   auto state = find_application(application);
   const auto valid = validate_application(state);
-  return valid == GNEISS_SUCCESS ? state->replace_mesh_binding(scene, node, expected, replacement)
-                                 : valid;
+  return valid == GNEISS_SUCCESS
+             ? state->replace_mesh_binding(scene, scene_node_id{node}, expected, replacement)
+             : valid;
 }
 
 gneiss_result gneiss::application_internal::prepare_edit_assets(

@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/api/scene_query_conversion.hpp"
+#include "engine/core/identifier_conversion.hpp"
 #include "engine/function/application/application.hpp"
 #include "engine/function/application/application_registry.hpp"
 
@@ -100,8 +101,12 @@ extern "C" gneiss_result gneiss_scene_instance_find_node(gneiss_application appl
     if (validation_result != GNEISS_SUCCESS) {
       return validation_result;
     }
-    return state->scenes()->find_node(
-        instance, std::string_view(uuid, static_cast<std::size_t>(uuid_length)), out_node);
+    return gneiss::core::write_identifier<gneiss::scene_node_id>(
+        *out_node, [&](auto& native_output) {
+          return state->scenes()->find_node(
+              instance, std::string_view(uuid, static_cast<std::size_t>(uuid_length)),
+              native_output);
+        });
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;
   }
@@ -235,7 +240,10 @@ extern "C" gneiss_result gneiss_scene_instance_create_prefab_instance(
         .parent = desc->parent,
         .local_transform = gneiss::api::read_transform(desc->local_transform),
     };
-    return state->scenes()->create_prefab_instance(instance, value, out_root);
+    return gneiss::core::write_identifier<gneiss::scene_node_id>(
+        *out_root, [&](auto& native_output) {
+          return state->scenes()->create_prefab_instance(instance, value, native_output);
+        });
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;
   }
@@ -253,7 +261,7 @@ extern "C" gneiss_result gneiss_scene_instance_set_prefab_instance_name(
     const auto validation_result = validate_application(state);
     return validation_result == GNEISS_SUCCESS
                ? state->scenes()->set_prefab_instance_name(
-                     instance, root,
+                     instance, gneiss::scene_node_id{root},
                      std::string_view{name == nullptr ? "" : name,
                                       static_cast<std::size_t>(name_length)})
                : validation_result;
@@ -273,7 +281,7 @@ extern "C" gneiss_result gneiss_scene_instance_set_prefab_source_transform(
     const auto validation_result = validate_application(state);
     return validation_result == GNEISS_SUCCESS
                ? state->scenes()->set_prefab_source_transform(
-                     instance, node, gneiss::api::read_transform(*transform))
+                     instance, gneiss::scene_node_id{node}, gneiss::api::read_transform(*transform))
                : validation_result;
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;
@@ -286,7 +294,7 @@ extern "C" gneiss_result gneiss_scene_instance_destroy_prefab_instance(
     auto state = find_application(application);
     const auto validation_result = validate_application(state);
     return validation_result == GNEISS_SUCCESS
-               ? state->scenes()->destroy_prefab_instance(instance, root)
+               ? state->scenes()->destroy_prefab_instance(instance, gneiss::scene_node_id{root})
                : validation_result;
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;
@@ -305,7 +313,12 @@ extern "C" gneiss_result gneiss_scene_instance_refresh_prefab_instance(
     auto state = find_application(application);
     const auto validation_result = validate_application(state);
     return validation_result == GNEISS_SUCCESS
-               ? state->scenes()->refresh_prefab_instance(instance, root, out_new_root, out_token)
+               ? gneiss::core::write_identifier<gneiss::scene_node_id>(
+                     *out_new_root,
+                     [&](auto& native_output) {
+                       return state->scenes()->refresh_prefab_instance(
+                           instance, gneiss::scene_node_id{root}, native_output, out_token);
+                     })
                : validation_result;
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;
@@ -323,7 +336,12 @@ extern "C" gneiss_result gneiss_scene_instance_toggle_prefab_refresh(
     auto state = find_application(application);
     const auto validation_result = validate_application(state);
     return validation_result == GNEISS_SUCCESS
-               ? state->scenes()->toggle_prefab_refresh(instance, token, out_new_root)
+               ? gneiss::core::write_identifier<gneiss::scene_node_id>(
+                     *out_new_root,
+                     [&](auto& native_output) {
+                       return state->scenes()->toggle_prefab_refresh(instance, token,
+                                                                     native_output);
+                     })
                : validation_result;
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;
@@ -377,7 +395,10 @@ extern "C" gneiss_result gneiss_scene_instance_create_node(gneiss_application ap
         .parent = desc->parent,
         .local_transform = gneiss::api::read_transform(desc->local_transform),
     };
-    return state->scenes()->create_node(instance, value, out_node);
+    return gneiss::core::write_identifier<gneiss::scene_node_id>(
+        *out_node, [&](auto& native_output) {
+          return state->scenes()->create_node(instance, value, native_output);
+        });
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;
   }
@@ -397,7 +418,7 @@ extern "C" gneiss_result gneiss_scene_instance_set_node_name(gneiss_application 
     const auto validation_result = validate_application(state);
     return validation_result == GNEISS_SUCCESS
                ? state->scenes()->set_node_name(
-                     instance, node,
+                     instance, gneiss::scene_node_id{node},
                      std::string_view(name == nullptr ? "" : name,
                                       static_cast<std::size_t>(name_length)))
                : validation_result;
@@ -417,7 +438,8 @@ extern "C" gneiss_result gneiss_scene_instance_reparent_node(gneiss_application 
     auto state = find_application(application);
     const auto validation_result = validate_application(state);
     return validation_result == GNEISS_SUCCESS
-               ? state->scenes()->reparent_node(instance, node, parent)
+               ? state->scenes()->reparent_node(instance, gneiss::scene_node_id{node},
+                                                gneiss::scene_node_id{parent})
                : validation_result;
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;
@@ -441,7 +463,8 @@ extern "C" gneiss_result gneiss_scene_instance_capture_subtree(gneiss_applicatio
       return validation_result;
     }
     std::string snapshot;
-    const auto result = state->scenes()->capture_subtree(instance, root, snapshot);
+    const auto result =
+        state->scenes()->capture_subtree(instance, gneiss::scene_node_id{root}, snapshot);
     if (result != GNEISS_SUCCESS) {
       return result;
     }
@@ -498,9 +521,12 @@ gneiss_scene_instance_restore_subtree(gneiss_application application,
                                           static_cast<std::size_t>(mapping.target_uuid_length)),
       });
     }
-    return state->scenes()->restore_subtree(
-        instance, std::string_view(snapshot, static_cast<std::size_t>(snapshot_length)), parent,
-        values, out_root);
+    return gneiss::core::write_identifier<gneiss::scene_node_id>(
+        *out_root, [&](auto& native_output) {
+          return state->scenes()->restore_subtree(
+              instance, std::string_view(snapshot, static_cast<std::size_t>(snapshot_length)),
+              gneiss::scene_node_id{parent}, values, native_output);
+        });
   } catch (const std::bad_alloc&) {
     return GNEISS_ERROR_OUT_OF_MEMORY;
   } catch (...) {
@@ -517,8 +543,9 @@ extern "C" gneiss_result gneiss_scene_instance_destroy_subtree(gneiss_applicatio
   try {
     auto state = find_application(application);
     const auto validation_result = validate_application(state);
-    return validation_result == GNEISS_SUCCESS ? state->scenes()->destroy_subtree(instance, root)
-                                               : validation_result;
+    return validation_result == GNEISS_SUCCESS
+               ? state->scenes()->destroy_subtree(instance, gneiss::scene_node_id{root})
+               : validation_result;
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;
   }
@@ -570,7 +597,10 @@ extern "C" gneiss_result gneiss_scene_instance_create_mesh_renderer_node(
                 static_cast<std::size_t>(desc->renderer.material_uri_length),
             },
     };
-    return state->scenes()->create_mesh_renderer_node(instance, value, out_node);
+    return gneiss::core::write_identifier<gneiss::scene_node_id>(
+        *out_node, [&](auto& native_output) {
+          return state->scenes()->create_mesh_renderer_node(instance, value, native_output);
+        });
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;
   }
@@ -593,7 +623,7 @@ gneiss_scene_instance_set_mesh_renderer(gneiss_application application,
     const auto validation_result = validate_application(state);
     return validation_result == GNEISS_SUCCESS
                ? state->scenes()->set_mesh_renderer(
-                     instance, node,
+                     instance, gneiss::scene_node_id{node},
                      std::string_view(desc->mesh_uri,
                                       static_cast<std::size_t>(desc->mesh_uri_length)),
                      std::string_view(desc->material_uri,
@@ -621,11 +651,12 @@ extern "C" gneiss_result gneiss_scene_instance_set_camera(gneiss_application app
     }
     if (desc->camera.reserved != 0U) {
       // 保留既有错误顺序：场景/作者节点无效时优先报告句柄错误。
-      const auto node_result = state->scenes()->validate_editable_node(instance, node);
+      const auto node_result =
+          state->scenes()->validate_editable_node(instance, gneiss::scene_node_id{node});
       return node_result == GNEISS_SUCCESS ? GNEISS_ERROR_INVALID_ARGUMENT : node_result;
     }
     return state->scenes()->set_camera(
-        instance, node,
+        instance, gneiss::scene_node_id{node},
         {
             .vertical_field_of_view_radians = desc->camera.vertical_field_of_view_radians,
             .near_plane = desc->camera.near_plane,
@@ -646,8 +677,9 @@ extern "C" gneiss_result gneiss_scene_instance_remove_camera(gneiss_application 
   try {
     auto state = find_application(application);
     const auto validation_result = validate_application(state);
-    return validation_result == GNEISS_SUCCESS ? state->scenes()->remove_camera(instance, node)
-                                               : validation_result;
+    return validation_result == GNEISS_SUCCESS
+               ? state->scenes()->remove_camera(instance, gneiss::scene_node_id{node})
+               : validation_result;
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;
   }
@@ -663,7 +695,7 @@ extern "C" gneiss_result gneiss_scene_instance_remove_mesh_renderer(gneiss_appli
     auto state = find_application(application);
     const auto validation_result = validate_application(state);
     return validation_result == GNEISS_SUCCESS
-               ? state->scenes()->remove_mesh_renderer(instance, node)
+               ? state->scenes()->remove_mesh_renderer(instance, gneiss::scene_node_id{node})
                : validation_result;
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;
@@ -679,8 +711,9 @@ extern "C" gneiss_result gneiss_scene_instance_destroy_node(gneiss_application a
   try {
     auto state = find_application(application);
     const auto validation_result = validate_application(state);
-    return validation_result == GNEISS_SUCCESS ? state->scenes()->destroy_node(instance, node)
-                                               : validation_result;
+    return validation_result == GNEISS_SUCCESS
+               ? state->scenes()->destroy_node(instance, gneiss::scene_node_id{node})
+               : validation_result;
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;
   }
