@@ -3,6 +3,8 @@
 
 #include "runtime_scene_inspection.hpp"
 #include "engine/function/application/application.hpp"
+#include "engine/function/scene/scene_instance_service.hpp"
+#include "engine/function/world/world.hpp"
 
 #include <algorithm>
 #include <array>

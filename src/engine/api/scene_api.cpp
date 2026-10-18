@@ -5,6 +5,7 @@
 #include "engine/core/identifier_conversion.hpp"
 #include "engine/function/application/application.hpp"
 #include "engine/function/application/application_registry.hpp"
+#include "engine/function/scene/scene_instance_service.hpp"
 
 #include <gneiss/engine/scene.h>
 

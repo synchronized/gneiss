@@ -4,6 +4,7 @@
 #include "engine/function/application/application.hpp"
 #include "engine/function/application/application_registry.hpp"
 #include "engine/function/render/texture_load_service.hpp"
+#include "engine/function/scene/scene_instance_service.hpp"
 
 #include <atomic>
 #include <cstdio>

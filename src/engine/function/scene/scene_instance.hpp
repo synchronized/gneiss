@@ -80,6 +80,15 @@ public:
   /** 将指定 Prefab URI 的新修订应用到当前 Scene 内全部同源实例。 */
   [[nodiscard]] gneiss_result reload_prefab(std::string_view uri);
 
+  /** 调用方服务已验证所属线程和租约归属；实例负责作者数据与 ECS 同步提交。 */
+  [[nodiscard]] gneiss_result capture_mesh_binding(scene_node_id node,
+                                                   scene_mesh_binding& output) const noexcept;
+  [[nodiscard]] gneiss_result replace_mesh_binding(scene_node_id node,
+                                                   const scene_mesh_binding& expected,
+                                                   const scene_mesh_binding& replacement) noexcept;
+  [[nodiscard]] bool contains_editable_node(scene_node_id node) const noexcept;
+  [[nodiscard]] std::uint64_t node_count() const noexcept { return objects_.size(); }
+
   [[nodiscard]] const scene_description& source() const noexcept { return description_; }
   [[nodiscard]] gneiss_scene_node_id staged_node(std::size_t index) const {
     return objects_.at(index).node;

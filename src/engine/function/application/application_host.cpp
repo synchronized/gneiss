@@ -225,8 +225,9 @@ gneiss_result gneiss::application_internal::request_render_assets(
   const auto valid = validate_application(state);
   if (valid != GNEISS_SUCCESS)
     return valid;
-  if (!state->texture_service() || state->scene_loading())
+  if (!state->has_asset_loading_service() || state->scene_loading()) {
     return GNEISS_ERROR_NOT_READY;
+  }
   try {
     return state->request_assets(assets, session, revision, request, reload);
   } catch (const std::bad_alloc&) {
@@ -267,7 +268,7 @@ gneiss_result gneiss::application_internal::request_textures(
   if (valid != GNEISS_SUCCESS) {
     return valid;
   }
-  if (!state->texture_service() || state->scene_loading()) {
+  if (!state->has_asset_loading_service() || state->scene_loading()) {
     return GNEISS_ERROR_NOT_READY;
   }
   try {
@@ -297,7 +298,7 @@ gneiss::application_internal::poll_textures(gneiss_application application,
   if (valid != GNEISS_SUCCESS) {
     return valid;
   }
-  if (!state->texture_service()) {
+  if (!state->has_asset_loading_service()) {
     return GNEISS_ERROR_NOT_READY;
   }
   try {
@@ -316,10 +317,11 @@ gneiss::application_internal::cancel_textures(gneiss_application application) no
   if (valid != GNEISS_SUCCESS) {
     return valid;
   }
-  if (state->texture_service()) {
-    state->texture_service()->cancel();
+  if (!state->has_asset_loading_service()) {
+    return GNEISS_SUCCESS;
   }
-  return GNEISS_SUCCESS;
+  const auto cancelled = state->cancel_assets();
+  return cancelled == GNEISS_ERROR_NOT_READY ? GNEISS_SUCCESS : cancelled;
 }
 
 gneiss_result gneiss::application_internal::reload_render_assets(

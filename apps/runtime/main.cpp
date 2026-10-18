@@ -3,6 +3,8 @@
 
 #include "engine/function/application/application.hpp"
 #include "engine/function/application/application_bridge.hpp"
+#include "engine/function/scene/scene_instance_service.hpp"
+#include "engine/function/world/world.hpp"
 #include <gneiss/app/project_description.hpp>
 #include <gneiss/engine/core/result.hpp>
 #include <gneiss/engine/scene.h>

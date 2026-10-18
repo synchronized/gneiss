@@ -55,7 +55,10 @@ void run(gneiss::tasks::execution_mode mode) {
   desc.asset_root = root.data();
   desc.asset_root_length = static_cast<std::uint32_t>(root.size());
   check(sdk::application::create_native(desc, app) == result::success);
+  // 旧取消入口在无服务和无在途请求时保持幂等成功。
+  check(application_internal::cancel_textures(app.get()) == GNEISS_SUCCESS);
   check(application_internal::attach_task_executor(app.get(), scheduler) == GNEISS_SUCCESS);
+  check(application_internal::cancel_textures(app.get()) == GNEISS_SUCCESS);
   check(application_internal::attach_task_executor(app.get(), scheduler) ==
         GNEISS_ERROR_INVALID_STATE);
   const std::vector<std::string> uris{"asset://a.texture.json"};

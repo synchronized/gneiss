@@ -2,9 +2,16 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/function/application/application.hpp"
+#include "engine/core/diagnostics/loop_timing.hpp"
 #include "engine/core/diagnostics/profiling.hpp"
 #include "engine/function/application/scene_session.hpp"
+#include "engine/function/input/input_service.hpp"
+#include "engine/function/render/render_executor.hpp"
+#include "engine/function/render/render_resource_service.hpp"
 #include "engine/function/world/world.hpp"
+#include <atomic>
+#include <optional>
+#include <thread>
 #ifdef GNEISS_NATIVE_LOOP_WAIT
 #include "engine/core/loop_progress.hpp"
 #endif
@@ -952,6 +959,10 @@ gneiss_result application::shutdown(gneiss_application handle) noexcept {
 
 const asset_internal::virtual_file_system& application::asset_files() const noexcept {
   return storage_->asset_file_system_;
+}
+
+bool application::has_asset_loading_service() const noexcept {
+  return storage_->scene_session_.textures() != nullptr;
 }
 
 render_internal::texture_load_service* application::texture_service() noexcept {

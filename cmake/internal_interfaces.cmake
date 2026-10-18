@@ -49,6 +49,7 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   engine/function/render/render_resource_data.hpp
   engine/function/render/render_resource_service.hpp
   engine/function/render/render_snapshot.hpp
+  engine/function/render/render_statistics.hpp
   engine/function/render/texture_load_service.hpp
   engine/function/render/texture_view.hpp
   engine/function/render/ui_draw_list.hpp
@@ -57,6 +58,7 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   engine/function/scene/prefab_property_override.hpp
   engine/function/scene/prefab_candidate.hpp
   engine/function/scene/scene_creation.hpp
+  engine/function/scene/scene_mesh_binding.hpp
   engine/function/scene/scene_description.hpp
   engine/function/scene/scene_instance_service.hpp
   engine/function/scene/scene_load_preparation.hpp

@@ -2,7 +2,13 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/function/application/application.hpp"
+// 只包含 Application 不应引入具体 Scene 服务或输入服务。
+#if defined(GNEISS_SCENE_SCENE_INSTANCE_SERVICE_HPP_) ||                                           \
+    defined(GNEISS_INPUT_INPUT_SERVICE_HPP_) || defined(GNEISS_RENDER_RENDER_EXECUTOR_HPP_)
+#error "Application 重新传递包含了具体服务"
+#endif
 #include "engine/function/application/application_bridge.hpp"
+#include "engine/function/world/world.hpp"
 #include "engine/function/world/world_reflection.hpp"
 #include "property_inspector_model.hpp"
 
@@ -69,4 +75,10 @@ static_assert(
 static_assert(
     std::is_same_v<decltype(gneiss::scene_internal::prefab_property_override_key::field_id),
                    gneiss::field_id>);
+template <typename T>
+concept exposes_texture_service = requires(T& value) { value.texture_service(); };
+template <typename T>
+concept exposes_asset_loader = requires(T& value) { value.asset_loader(); };
+static_assert(!exposes_texture_service<gneiss::engine::application>);
+static_assert(!exposes_asset_loader<gneiss::engine::application>);
 int main() { return 0; }

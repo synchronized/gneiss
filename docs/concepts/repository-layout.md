@@ -193,3 +193,9 @@ Editor 无需 Application 兼容桥；Runtime 仅在动态游戏模块这一真�
 `property_registry.hpp` 提供同一 Registry 的原生查询和写入。内置组件注册入口是
 `world_reflection.hpp`，无需包含 World 句柄表。公共 SDK 值适配位于 `detail/reflection_values.hpp`，
 不携带 SDK 所有者；外部借用文本与内部自有快照的生命周期分别遵循各自接口约定。
+
+`scene_instance_edit.cpp` 实现单实例的已就绪材质绑定提交；Scene 服务校验入口，实例同步
+更新 ECS、作者描述和资源租约。`scene_mesh_binding.hpp` 与 `render_statistics.hpp` 分别提供
+绑定租约值及渲染统计快照，Application 不通过它们传递包含 Scene 服务或渲染执行器定义。
+需要调用 Scene/World 服务的宿主源码显式包含对应契约；Application 的纹理加载器和内部
+资产加载器访问方法为私有，兼容入口通过 Application 请求/取消方法进入。

@@ -57,3 +57,25 @@
 属性校验也拒绝该状态。未重跑 Linux、完整 Sponza 或版本级性能验收。
 本地日志使用 `build/value-migration-*` 与 `build/value-tidy-*`。
 Scene 实例职责进一步内聚及 Application 接口收窄尚未实施。
+
+## 单实例编辑与 Application 依赖（2026-10-18）
+
+- 新增私有 `scene_instance_edit.cpp`，实例维护就绪 Mesh/Material 绑定的捕获、旧版本校验、
+  ECS 提交、作者描述和租约更新；服务保留线程、Scene RID 和资产归属校验。
+  节点数量与可编辑归属也通过实例查询，不由服务直接检查该容器。
+- `scene_mesh_binding.hpp` 和 `render_statistics.hpp` 是独立内部值契约。
+  Application 不再为这些签名包含整个 Scene 服务、World、Input 服务或渲染执行器；
+  真实使用它们的宿主、ABI 实现和测试显式包含对应接口。
+- 纹理服务和内部资产加载器访问方法收为 Application 私有。
+  兼容资产入口通过 Application 状态查询、请求及取消进入；旧纹理取消在无服务/无请求时
+  保持幂等成功，新测试覆盖线程池及协作模式。
+- 头可见性测试同时检查 Application 不间接包含上述具体服务，并拒绝直接访问两个私有加载器入口。
+
+本批 Windows Clang Debug 共享/静态完整构建通过（含公共独立头编译），各 45 项相关检查通过，
+包括安装 stable runtime 消费者、Scene/Prefab/编辑器事务、Input、渲染执行器与纹理加载。
+4 个核心实现的 clang-tidy 修改行无报告告警；新实例编辑文件全文件检查无报告告警。
+修改行格式、UTF-8/LF 和 `git diff --check` 通过。
+日志为 `build/ownership-boundary-*` 与 `build/ownership-tidy-*`。
+这不是全部 Scene 职责迁移结束：Prefab 批量发布、跨实例资产替换以及其友元访问仍由服务协调；
+Application 的资源服务和 Prefab 装配借用入口尚未收窄。本批未执行 Linux、完整 Sponza 或性能对照，
+不替代 M-333 的未完成验收。

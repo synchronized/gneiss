@@ -10,6 +10,7 @@
 #include "engine/function/scene/prefab_candidate.hpp"
 #include "engine/function/scene/scene_creation.hpp"
 #include "engine/function/scene/scene_description.hpp"
+#include "engine/function/scene/scene_mesh_binding.hpp"
 #include "engine/function/scene/scene_query.hpp"
 
 #include "engine/function/world/world.hpp"
@@ -27,10 +28,6 @@ class virtual_file_system;
 }
 
 namespace gneiss::scene_internal {
-struct scene_mesh_binding {
-  render_internal::render_asset_lease mesh;
-  render_internal::render_asset_lease material;
-};
 
 class scene_instance;
 

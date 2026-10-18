@@ -5,47 +5,37 @@
 #define GNEISS_ENGINE_APPLICATION_HPP_
 
 #include "engine/core/input/input_types.hpp"
+#include "engine/function/input/action_map.hpp"
 #include <gneiss/engine/application.h>
 
 #include "engine/asset/virtual_file_system.hpp"
-#include "engine/core/diagnostics/loop_timing.hpp"
 #include "engine/core/log/log_dispatcher.hpp"
 #include "engine/function/application/application_configuration.hpp"
 #include "engine/function/application/scene_load_types.hpp"
-#include "engine/function/input/input_service.hpp"
 #include "engine/function/render/debug_draw_list.hpp"
 #include "engine/function/render/render_asset_loader.hpp"
-#include "engine/function/render/render_executor.hpp"
-#include "engine/function/render/render_resource_service.hpp"
 #include "engine/function/render/render_snapshot.hpp"
+#include "engine/function/render/render_statistics.hpp"
 #include "engine/function/render/texture_load_service.hpp"
 #include "engine/function/render/ui_draw_list.hpp"
 #include "engine/function/scene/prefab_asset_loader.hpp"
-#include "engine/function/scene/scene_instance_service.hpp"
+#include "engine/function/scene/scene_creation.hpp"
+#include "engine/function/scene/scene_mesh_binding.hpp"
 
-#include <atomic>
 #include <cstdint>
 #include <memory>
-#include <optional>
 #include <span>
-#include <thread>
 
 namespace gneiss::render_internal {
-class granit_render_service;
+class render_resource_service;
+struct frame_image;
 }
 
-namespace gneiss::platform {
-class granit_platform;
+namespace gneiss::scene_internal {
+class scene_instance_service;
 }
-
-namespace gneiss::io_internal {
-class uv_loop_executor;
-}
-namespace gneiss::asset_internal {
-class native_file_system;
-}
-
 namespace gneiss::engine {
+class world;
 
 /** 内部真实运行对象；仅所属线程操作和释放最后一个持有引用。
  * 私有装配存储位于实现文件；此内部模块接口随源码构建，不属于安装 SDK。 */
@@ -61,26 +51,24 @@ public:
                                             render_internal::frame_image& output) noexcept;
   [[nodiscard]] render_internal::render_queue_stats render_statistics() const noexcept;
   [[nodiscard]] gneiss_result attach_task_executor(tasks::task_executor& executor) noexcept;
-  [[nodiscard]] render_internal::texture_load_service* texture_service() noexcept;
+  [[nodiscard]] bool has_asset_loading_service() const noexcept;
   [[nodiscard]] gneiss_result
   accept_edit_assets(const render_internal::texture_load_completion& completion,
                      const std::function<gneiss_result()>& accept);
-  [[nodiscard]] gneiss_result
-  create_mesh_node_ready(gneiss_scene_instance scene,
-                         const scene_internal::mesh_renderer_node_creation& desc,
-                         const scene_internal::scene_instance_service::mesh_binding& prepared,
-                         scene_node_id& output) noexcept;
+  [[nodiscard]] gneiss_result create_mesh_node_ready(
+      gneiss_scene_instance scene, const scene_internal::mesh_renderer_node_creation& desc,
+      const scene_internal::scene_mesh_binding& prepared, scene_node_id& output) noexcept;
   [[nodiscard]] gneiss_result collect_unused_edit_assets() noexcept;
   [[nodiscard]] gneiss_result
   query_ready_asset(const render_internal::render_asset_reload& source,
                     render_internal::render_asset_lease& output) noexcept;
   [[nodiscard]] gneiss_result
   capture_mesh_binding(gneiss_scene_instance scene, scene_node_id node,
-                       scene_internal::scene_instance_service::mesh_binding& output) noexcept;
-  [[nodiscard]] gneiss_result replace_mesh_binding(
-      gneiss_scene_instance scene, scene_node_id node,
-      const scene_internal::scene_instance_service::mesh_binding& expected,
-      const scene_internal::scene_instance_service::mesh_binding& replacement) noexcept;
+                       scene_internal::scene_mesh_binding& output) noexcept;
+  [[nodiscard]] gneiss_result
+  replace_mesh_binding(gneiss_scene_instance scene, scene_node_id node,
+                       const scene_internal::scene_mesh_binding& expected,
+                       const scene_internal::scene_mesh_binding& replacement) noexcept;
   [[nodiscard]] gneiss_result
   prepare_edit_assets(std::span<const render_internal::render_asset_reload> sources,
                       std::uint64_t revision, std::uint64_t& request) noexcept;
@@ -124,7 +112,6 @@ public:
   [[nodiscard]] gneiss_world world() const noexcept;
   [[nodiscard]] engine::world* native_world() const noexcept;
   [[nodiscard]] render_internal::render_resource_service& resources() noexcept;
-  [[nodiscard]] render_internal::render_asset_loader& asset_loader() noexcept;
   [[nodiscard]] scene_internal::prefab_asset_loader& prefab_loader() noexcept;
   [[nodiscard]] gneiss_result
   reload_render_assets(std::span<const render_internal::render_asset_reload> assets) noexcept;
@@ -160,6 +147,8 @@ private:
   [[nodiscard]] std::uint64_t now_ns() const;
   [[nodiscard]] gneiss_result poll_events(bool& out_should_close) noexcept;
   [[nodiscard]] gneiss_result render_frame() noexcept;
+  [[nodiscard]] render_internal::texture_load_service* texture_service() noexcept;
+  [[nodiscard]] render_internal::render_asset_loader& asset_loader() noexcept;
   struct storage;
   std::unique_ptr<storage> storage_;
 };
