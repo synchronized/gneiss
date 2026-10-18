@@ -152,6 +152,7 @@ target_sources(
     engine/function/scene/scene_instance.hpp
     engine/function/scene/scene_instance_service.cpp
     engine/function/scene/scene_instance_edit.cpp
+    engine/function/scene/scene_instance_prefab.cpp
     engine/function/scene/scene_instance_service.hpp
     engine/function/scene/structural_diff.cpp
     engine/function/scene/structural_diff.hpp

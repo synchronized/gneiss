@@ -1033,6 +1033,7 @@ add_executable(gneiss_scene_load_builder_test scene/scene_load_builder_test.cpp
   "${PROJECT_SOURCE_DIR}/src/engine/function/application/application_scene_state.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/scene/scene_instance_service.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/scene/scene_instance_edit.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/function/scene/scene_instance_prefab.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/scene/scene_load_builder.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/scene/scene_load_preparation.cpp")
 target_include_directories(gneiss_scene_load_builder_test PRIVATE "${PROJECT_SOURCE_DIR}/src")

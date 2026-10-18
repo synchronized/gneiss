@@ -199,3 +199,7 @@ Editor 无需 Application 兼容桥；Runtime 仅在动态游戏模块这一真�
 绑定租约值及渲染统计快照，Application 不通过它们传递包含 Scene 服务或渲染执行器定义。
 需要调用 Scene/World 服务的宿主源码显式包含对应契约；Application 的纹理加载器和内部
 资产加载器访问方法为私有，兼容入口通过 Application 请求/取消方法进入。
+
+`scene_instance_prefab.cpp` 实现本场景 Prefab 实例候选的准备、发布、版本替换、移除及绑定查询。
+Scene 服务完成入口校验后转交实例，不直接修改这些事务的内部容器；Prefab 源资源编辑仍属于
+资产流程。跨场景资产替换继续由 Scene 服务协调，与单场景实例事务的职责不同。

@@ -157,6 +157,15 @@ void run() {
     scene_internal::prefab_instance_description author;
     check(candidate->scenes->capture_prefab_header(
               new_scene, "00000000-0000-4000-8000-000000000004", author, source) == GNEISS_SUCCESS);
+    const auto original_uuid = author.instance_uuid;
+    const auto* original_source = source.get();
+    check(candidate->scenes->capture_prefab_header(new_scene, "missing", author, source) ==
+          GNEISS_ERROR_NOT_FOUND);
+    check(author.instance_uuid == original_uuid && source.get() == original_source);
+    bool removal_complete = true;
+    check(candidate->scenes->prepare_prefab_removal(new_scene, "missing", removal_complete) ==
+              GNEISS_ERROR_NOT_FOUND &&
+          !removal_complete);
     author.instance_uuid = "00000000-0000-4000-8000-000000000077";
     author.prefab_uri = "asset://p.prefab";
     author.rotation = {0, 0, 0, 1};
@@ -169,6 +178,9 @@ void run() {
     check(candidate->scenes->begin_prefab_candidate(new_scene, author, source, *source.get(),
                                                     pending) == GNEISS_ERROR_INVALID_STATE);
     check(pending.root() == hidden_root);
+    check(candidate->scenes->commit_prefab_removal(new_scene, original_uuid, pending) ==
+          GNEISS_ERROR_INVALID_STATE);
+    check(pending.root() == hidden_root);
     scene_internal::prefab_candidate moved{std::move(pending)};
     check(!pending.is_valid() && moved.is_valid());
     check(candidate->scenes->commit_prefab_candidate(old_scene, moved) ==
@@ -177,13 +189,16 @@ void run() {
           GNEISS_ERROR_INVALID_STATE);
     gneiss_result foreign{};
     bool cleaned_on_worker = true;
+    gneiss_result foreign_commit{};
     std::thread worker([&] {
       scene_internal::prefab_node_view preview;
       foreign = moved.preview(0, preview);
+      foreign_commit = candidate->scenes->commit_prefab_candidate(new_scene, moved);
       cleaned_on_worker = moved.cleanup_step(1);
     });
     worker.join();
-    check(foreign == GNEISS_ERROR_INVALID_STATE && !cleaned_on_worker);
+    check(foreign == GNEISS_ERROR_INVALID_STATE && !cleaned_on_worker &&
+          foreign_commit == GNEISS_ERROR_INVALID_STATE);
     scene_internal::prefab_candidate assigned;
     assigned = std::move(moved);
     check(!moved.is_valid() && assigned.is_valid());

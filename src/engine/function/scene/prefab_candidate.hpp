@@ -28,7 +28,7 @@ public:
   [[nodiscard]] bool cleanup_step(std::size_t budget) noexcept;
 
 private:
-  friend class scene_instance_service;
+  friend class scene_instance;
   prefab_instance_description author_;
   std::unique_ptr<prefab_runtime_instance> runtime_;
 };

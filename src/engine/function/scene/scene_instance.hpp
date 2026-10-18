@@ -80,6 +80,30 @@ public:
   /** 将指定 Prefab URI 的新修订应用到当前 Scene 内全部同源实例。 */
   [[nodiscard]] gneiss_result reload_prefab(std::string_view uri);
 
+  /** 单场景 Prefab 实例事务；服务已校验线程与句柄，不修改 Prefab 源资源。
+   * instance 参数仅用于候选所属场景校验，不拥有或重新解析公共句柄。 */
+  [[nodiscard]] gneiss_result
+  capture_prefab_instance_header(std::string_view uuid, prefab_instance_description& author,
+                                 prefab_asset_lease& source) const noexcept;
+  [[nodiscard]] gneiss_result
+  capture_prefab_instance_binding(std::string_view uuid, std::size_t index,
+                                  scene_mesh_binding& output) const noexcept;
+  [[nodiscard]] gneiss_result
+  prepare_prefab_instance_candidate(gneiss_scene_instance instance,
+                                    const prefab_instance_description& author,
+                                    prefab_asset_lease prefab, const prefab_description& prepared,
+                                    prefab_candidate& output, bool replacing) noexcept;
+  [[nodiscard]] gneiss_result
+  publish_prefab_instance_candidate(gneiss_scene_instance instance,
+                                    prefab_candidate& candidate) noexcept;
+  [[nodiscard]] gneiss_result
+  replace_prefab_instance_versions(gneiss_scene_instance instance,
+                                   std::span<prefab_candidate* const> replacements) noexcept;
+  [[nodiscard]] gneiss_result prepare_prefab_instance_removal(std::string_view uuid,
+                                                              bool& complete) noexcept;
+  [[nodiscard]] gneiss_result remove_prefab_instance(std::string_view uuid,
+                                                     prefab_candidate& candidate) noexcept;
+
   /** 调用方服务已验证所属线程和租约归属；实例负责作者数据与 ECS 同步提交。 */
   [[nodiscard]] gneiss_result capture_mesh_binding(scene_node_id node,
                                                    scene_mesh_binding& output) const noexcept;
