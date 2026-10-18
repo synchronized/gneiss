@@ -5,6 +5,10 @@
 
 ## 状态与工作方式
 
+2026-10-19 新确认：优先简化为统一资产管理、运行 Scene 独占 World、编辑状态独立。
+实施顺序以 [所有权简化批次](asset-scene-ownership.md#所有权简化实施批次2026-10-19) 为准；
+此前继续收敛共享 World 服务和纯文件拆分的安排让位于本项。当前为契约审计阶段，尚未实现新拥有链。
+
 2026-10-17，原生 Application、World、Scene/Prefab 与宿主调用链已迁移，SDK 所有者命名已收敛；
 共享/静态本地回归与安装消费已验证，M-333 正在执行完整场景及重构前后对照。范围以 [VER-051](VER-051-0.51.0-architecture-boundaries.md)
 为准；在 feature/0.51-architecture-boundaries 分支持续推进，设计、实现与验证复用同一分支。

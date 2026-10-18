@@ -15,6 +15,9 @@
 
 ## 决策
 
+2026-10-19 所有权简化决策见文末；其中 Scene 独占 World 的目标取代下述原运行上下文方案，
+其他资产身份、版本隔离与依赖方向决策继续有效。原方案保留用于解释已有实现。
+
 - 场景资产是可共享、可多次实例化的描述；场景实例是实体、节点映射和运行状态，二者分离。
 - World 是 ECS 与 Scene Tree 的运行数据容器；运行上下文拥有一个 World 及其场景实例服务，
   不等同单个场景实例。当前 application_scene_state 按这个职责演进；资产缓存迁出后再评估
@@ -110,3 +113,23 @@ Editor 和 Runtime 的交互路径采用异步准备、主线程提交，失败�
 - [Godot Resource](https://docs.godotengine.org/en/stable/classes/class_resource.html)：资源与实例分离、引用共享。
 - [O3DE 运行时资产系统](https://docs.o3de.org/docs/user-guide/assets/runtime/)：统一加载与 Asset 引用。
 - [Unity Addressables 内存管理](https://docs.unity3d.com/Packages/com.unity.addressables@1.21/manual/MemoryManagement.html)：加载引用与实际释放分离。
+
+## 所有权简化补充决策（2026-10-19）
+
+用户确认将运行时与编辑职责分开，采用统一资产管理和运行 Scene 独占 World 的方向。
+本节是已接受的目标，尚未表示源码迁移完成；取代原多个 Scene 实例共享一个 World 的目标。
+
+- Application 拥有应用级 `asset_manager`；整合现有缓存与类型加载器，禁止增加平行权威索引。
+  具体 Loader 保持所属模块，通过装配接入；通用资产层不反向依赖 Scene 或渲染实现。
+- `scene_asset` 是可共享描述；每次实例化得到独立运行 Scene，拥有自己的 World、Scene Tree、
+  ECS 数据及资源使用引用。Scene Tree 可继续物理存于 World，不复制节点数据。
+- Prefab 是 Scene 内实例化的对象集合，使用该 Scene 的 World，不为每个 Prefab 创建 World。
+- 编辑文档借用运行 Scene，独立维护选择、保存位置、历史及 UI；基础 Scene 不依赖 Editor。
+- 资源引用保持具体版本存活；缓存必须明确持有/淘汰政策。引用计数不替代 GPU 完成等待、
+  在途任务取消或后端销毁顺序；这些属于对应服务的内部机制。
+- 请求、候选、激活、退役仍需保证失败隔离，但作为 Application 的私有协调实现，
+  不要求使用者组合多层 Session/State。迁移复用现有机制，不新建同义控制器。
+- 多 Scene 不共享实体/节点身份域；跨 Scene 父子关系拒绝。多场景同时渲染、物理交互、
+  跨 World 原子更新不在本次默认新增范围；发现实际依赖时先记录并讨论，不静默降级。
+
+实施分批及验收以 [实施设计](../plans/asset-scene-ownership.md) 为唯一来源。
