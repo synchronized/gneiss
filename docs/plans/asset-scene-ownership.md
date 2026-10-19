@@ -250,3 +250,30 @@ Prefab 描述默认选择及统一阻塞适配尚未完成，不能将其描述�
 
 若必须保留跨多个 World 的一次性原子资产替换，或宿主确需共享 ECS，先列出调用场景和方案，
 由用户决定是否扩大范围；不在迁移中默默改成部分成功。
+
+### 第一批调用审计与待确认接口（2026-10-19）
+
+已核对以下真实路径，尚未改动运行行为：
+
+| 入口/对象 | 当前行为 | 独立 Scene 所需迁移 |
+| --- | --- | --- |
+| application_scene_state::initialize | 创建 World，再创建借用该 World 的实例服务 | 将真实 World 所有权收进运行 Scene |
+| scene_instance_service::load/create_empty | 在固定 World 创建新实例，加入服务 RID 表 | 创建独立 Scene，不能继续使用服务唯一 World |
+| scene_load_builder | 从服务直接借用 World、反射上下文与 Loader | 从本次候选 Scene 获取 World；资产依赖共享 |
+| gneiss_scene_instance_load | 通过 Application 当前服务同步加载 | 必须明确加载是否改变活动 Scene |
+| gneiss_application_get_world | 返回 Application 独占的借用 World | 修改契约为当前活动 Scene 的借用 World，补充按 Scene 查询 |
+| scene_session::activate | 替换整个活动域，旧域进入退役流程 | 区分活动选择与显式释放；保留安全点和异步失败回退 |
+| Editor/Runtime 节点操作 | 通过当前 World 使用节点 ID | 随编辑/运行 Scene 取对应 World，禁止缓存过期借用 |
+
+**待用户确认：加载与激活是否显式分离。** 此项改变公共调用语义，确认前不修改实现。
+
+推荐 A：加载/创建仅返回独立 Scene；宿主显式激活。按 Scene 查询 World；Application 的
+World 查询仅指活动 Scene，无活动场景时返回明确错误并清空输出。切换活动 Scene 不隐式
+销毁其他已加载 Scene；卸载负责释放。Editor“打开场景”仍封装加载、激活和旧场景清理，
+用户操作无需增加步骤。必须将候选/已加载 Scene 的拥有关系统一，不新增平行 RID 表。
+
+备选 B：加载成功立即替换活动 Scene 并退役旧场景；调用简单，但加载不能用于后台预备或
+保留多个独立 Scene，且现有 load 调用会获得隐式切换副作用。
+
+A 的具体接口名及无活动场景的结果码在实现时与现有 API 约定统一；不在设计记录中宣称
+接口已存在。需要同步修改 C 文档、C++ 包装、示例、消费者与生命周期测试。
