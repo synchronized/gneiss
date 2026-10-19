@@ -109,3 +109,17 @@ Mesh/Material 绑定复用；重复创建拒绝覆盖；跨 World 实体不存�
 Windows Clang Debug 共享/静态相关目标构建及该测试均通过；实现修改行 clang-tidy 无报告告警，
 修改行格式和 git diff --check 通过。日志为 build/scene-owned-*。
 未执行完整矩阵、Linux 或 Sponza；公共入口、候选构建及统一资产入口仍待迁移。
+
+## 共享 World 方向修正与资源收集封装（2026-10-19）
+
+用户澄清后确认保留一个 World 多个 Scene。移除上一批仅供测试的 create_owned 入口、
+World 所有者成员及其专用测试；原生产加载、异步切换、共享 World 验证保持。
+计划和 ADR 同步修正，不再迁移为每 Scene 独占 World。
+
+普通对象及 Prefab 绑定收集收回 Scene 实例；服务只汇总、去重，并在全部成功后替换输出。
+跨实例资产替换原子提交尚未进一步封装，不宣称服务私有访问已经全部消除。
+新增同 World 重复加载同一 Scene 的回归，验证资源快照去重及分别卸载；既有错误线程
+输出保留、跨实例资产版本和 Prefab 覆盖继续通过。
+共享/静态相关目标构建及 scene-load-builder 测试各通过；实例资源收集所在文件
+clang-tidy 无报告告警，git diff --check 通过。日志为 build/scene-shared-*。
+未执行完整矩阵、Linux 和 Sponza；当前收集使用临时引用数组再去重，峰值临时空间随绑定数增长。

@@ -66,52 +66,6 @@ void run() {
   render_internal::render_resource_service resources;
   application_internal::application_asset_state active_assets(vfs, resources);
   application_internal::application_asset_state candidate_assets(vfs, resources);
-  {
-    // 两个独立运行 Scene 共享加载器，但实体及 World 生命周期互不影响。
-    std::unique_ptr<scene_internal::scene_instance> first;
-    std::unique_ptr<scene_internal::scene_instance> second;
-    check(scene_internal::scene_instance::create_owned(active_assets.assets, active_assets.prefabs,
-                                                       GNEISS_NULL_TYPE_REGISTRY,
-                                                       first) == GNEISS_SUCCESS);
-    check(scene_internal::scene_instance::create_owned(active_assets.assets, active_assets.prefabs,
-                                                       GNEISS_NULL_TYPE_REGISTRY,
-                                                       second) == GNEISS_SUCCESS);
-    scene_internal::scene_description description;
-    scene_internal::scene_diagnostic scene_diagnostic;
-    check(scene_internal::parse_scene_description(files->files.at("s.scene"), description,
-                                                  scene_diagnostic) == GNEISS_SUCCESS);
-    check(first->initialize(description) == GNEISS_SUCCESS);
-    check(second->initialize(description) == GNEISS_SUCCESS);
-    const auto first_node = first->find_node("00000000-0000-4000-8000-000000000002");
-    const auto second_node = second->find_node("00000000-0000-4000-8000-000000000002");
-    check(first_node != GNEISS_NULL_SCENE_NODE_ID && first_node != second_node);
-    scene_internal::scene_mesh_binding first_binding, second_binding;
-    check(first->capture_mesh_binding(scene_node_id{first_node}, first_binding) == GNEISS_SUCCESS);
-    check(second->capture_mesh_binding(scene_node_id{second_node}, second_binding) ==
-          GNEISS_SUCCESS);
-    check(first_binding.mesh.get() == second_binding.mesh.get());
-    check(first_binding.material.get() == second_binding.material.get());
-    const auto first_world = first->borrowed_world();
-    const auto second_world = second->borrowed_world();
-    check(first_world != second_world);
-    check(scene_internal::scene_instance::create_owned(active_assets.assets, active_assets.prefabs,
-                                                       GNEISS_NULL_TYPE_REGISTRY,
-                                                       first) == GNEISS_ERROR_INVALID_STATE);
-    check(first->borrowed_world() == first_world);
-    gneiss_entity_id first_entity{}, second_entity{};
-    check(world_internal::entity_create(first_world, first_entity) == GNEISS_SUCCESS);
-    check(world_internal::entity_create(second_world, second_entity) == GNEISS_SUCCESS);
-    uint8_t alive{};
-    check(world_internal::entity_is_alive(second_world, first_entity, alive) == GNEISS_SUCCESS &&
-          alive == 0U);
-    first.reset();
-    std::uint64_t count{};
-    check(world_internal::entity_count(first_world, count) == GNEISS_ERROR_INVALID_HANDLE);
-    check(world_internal::entity_is_alive(second_world, second_entity, alive) == GNEISS_SUCCESS &&
-          alive != 0U);
-    second.reset();
-    check(world_internal::entity_count(second_world, count) == GNEISS_ERROR_INVALID_HANDLE);
-  }
   auto active = std::make_unique<application_internal::application_scene_state>(active_assets);
   check(active->initialize() == GNEISS_SUCCESS);
   gneiss_scene_instance old_scene{};
@@ -270,6 +224,11 @@ void run() {
   check(candidate->scenes->load("asset://s.scene", &additional) == GNEISS_SUCCESS);
   check(candidate->scenes->capture_render_assets(captured) == GNEISS_SUCCESS);
   check(captured.size() == 4U && has_rid(selected_material) && has_rid(unrelated.get()));
+  gneiss_scene_instance duplicate_scene{};
+  check(candidate->scenes->load("asset://s.scene", &duplicate_scene) == GNEISS_SUCCESS);
+  check(candidate->scenes->capture_render_assets(captured) == GNEISS_SUCCESS);
+  check(captured.size() == 4U && has_rid(selected_material) && has_rid(unrelated.get()));
+  check(candidate->scenes->unload(duplicate_scene) == GNEISS_SUCCESS);
   check(candidate->scenes->unload(additional) == GNEISS_SUCCESS);
   check(candidate->scenes->capture_render_assets(captured) == GNEISS_SUCCESS);
   check(captured.size() == 2U && !has_rid(unrelated.get()));

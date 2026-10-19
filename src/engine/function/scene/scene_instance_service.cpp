@@ -239,29 +239,6 @@ scene_instance::scene_instance(engine::world& native_world, gneiss_world world,
     : native_world_(native_world), reflection_context_(world), loader_(loader),
       prefab_loader_(prefab_loader), registry_(registry) {}
 
-gneiss_result scene_instance::create_owned(render_internal::render_asset_loader& loader,
-                                           prefab_asset_loader& prefabs,
-                                           gneiss_type_registry registry,
-                                           std::unique_ptr<scene_instance>& output) noexcept try {
-  if (output) {
-    return GNEISS_ERROR_INVALID_STATE;
-  }
-  world_internal::world_owner owner;
-  gneiss_world borrowed{};
-  const auto result = world_internal::create_native(owner, borrowed);
-  if (result != GNEISS_SUCCESS) {
-    return result;
-  }
-  auto candidate = std::make_unique<scene_instance>(*owner, borrowed, loader, prefabs, registry);
-  candidate->owned_world_ = std::move(owner);
-  output = std::move(candidate);
-  return GNEISS_SUCCESS;
-} catch (const std::bad_alloc&) {
-  return GNEISS_ERROR_OUT_OF_MEMORY;
-} catch (...) {
-  return GNEISS_ERROR_INTERNAL;
-}
-
 scene_instance::~scene_instance() noexcept { rollback(); }
 
 gneiss_result scene_instance::initialize(scene_description candidate) {
@@ -1769,23 +1746,9 @@ gneiss_result scene_instance_service::capture_render_assets(
     }
     std::vector<render_internal::render_asset_lease> captured;
     std::unordered_set<std::uint64_t> seen;
-    const auto append = [&](const auto& lease) {
-      if (lease && seen.insert(lease.get()).second) {
-        captured.push_back(render_internal::render_asset_loader::asset_lease(lease));
-      }
-    };
-    instances_.for_each(core::resource_type::scene_instance, [&](const auto& instance) {
-      for (const auto& node : instance->objects_) {
-        append(node.mesh);
-        append(node.material);
-      }
-      for (const auto& prefab : instance->prefab_instances_) {
-        for (const auto& node : prefab->nodes_) {
-          append(node.mesh);
-          append(node.material);
-        }
-      }
-    });
+    instances_.for_each(core::resource_type::scene_instance,
+                        [&](const auto& instance) { instance->append_render_assets(captured); });
+    std::erase_if(captured, [&](const auto& lease) { return !seen.insert(lease.get()).second; });
     output = std::move(captured);
     return GNEISS_SUCCESS;
   } catch (const std::bad_alloc&) {
