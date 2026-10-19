@@ -26,6 +26,7 @@ configure_file(
 target_sources(
   gneiss_engine
   PRIVATE
+    engine/function/asset/asset_manager.hpp
     engine/core/sha256.cpp
     engine/core/sha256.hpp
     engine/api/application_api.cpp

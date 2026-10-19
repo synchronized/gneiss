@@ -148,7 +148,6 @@ private:
   [[nodiscard]] gneiss_result poll_events(bool& out_should_close) noexcept;
   [[nodiscard]] gneiss_result render_frame() noexcept;
   [[nodiscard]] render_internal::texture_load_service* texture_service() noexcept;
-  [[nodiscard]] render_internal::render_asset_loader& asset_loader() noexcept;
   struct storage;
   std::unique_ptr<storage> storage_;
 };

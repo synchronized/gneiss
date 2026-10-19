@@ -14,7 +14,7 @@ namespace gneiss::application_internal {
 
 scene_session::~scene_session() noexcept { shutdown(); }
 
-gneiss_result scene_session::initialize(application_asset_state& assets) {
+gneiss_result scene_session::initialize(engine::asset_manager& assets) {
   if (active_) {
     return GNEISS_ERROR_INVALID_STATE;
   }
@@ -36,9 +36,9 @@ scene_session::attach_executor(tasks::task_executor& executor,
   auto loader = std::make_unique<scene_load_service>(executor, files, resources, *asset_owner_,
                                                      backend, notification);
   const auto profile = backend.profile;
-  auto textures = std::make_unique<render_internal::texture_load_service>(
-      executor, files, active_->assets, std::move(backend), std::move(notification));
-  asset_owner_->assets.set_default_profile(profile);
+  auto textures =
+      asset_owner_->create_channel(executor, files, std::move(backend), std::move(notification));
+  asset_owner_->set_profile(profile);
   loader_ = std::move(loader);
   textures_ = std::move(textures);
   return GNEISS_SUCCESS;
@@ -49,7 +49,7 @@ void scene_session::advance() {
     const auto start = std::chrono::steady_clock::now();
     const diagnostics::loop_span span(diagnostics::loop_stage::retirement);
     retired_.reset();
-    asset_owner_->cache.release_unused();
+    asset_owner_->collect_unused();
     retirement_.last_ms =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
     ++retirement_.retired_domains;
@@ -85,7 +85,7 @@ void scene_session::shutdown() noexcept {
   retired_.reset();
   active_.reset();
   if (asset_owner_ != nullptr) {
-    asset_owner_->cache.release_unused();
+    asset_owner_->collect_unused();
   }
   asset_owner_ = nullptr;
 }
@@ -109,7 +109,6 @@ gneiss_world scene_session::world() const noexcept {
 scene_internal::scene_instance_service* scene_session::scenes() noexcept {
   return active_ ? active_->scenes.get() : nullptr;
 }
-render_internal::render_asset_loader& scene_session::assets() noexcept { return active_->assets; }
 render_internal::texture_load_service* scene_session::textures() noexcept {
   return textures_.get();
 }
@@ -228,18 +227,8 @@ gneiss_result scene_session::poll_assets(render_internal::texture_load_completio
           changes.push_back({.previous = previous, .replacement = *next});
         }
         if (completion.result == GNEISS_SUCCESS) {
-          std::vector<asset_internal::resource_cache::version_selection> selections;
-          selections.reserve(completion.versions.size());
-          std::ranges::transform(
-              completion.versions, std::back_inserter(selections), [&](const auto& version) {
-                return asset_internal::resource_cache::version_selection{
-                    .selection = render_internal::render_asset_loader::selection_key(
-                        version.identity, completion.profile),
-                    .version = version,
-                };
-              });
-          completion.result = active_->cache.adopt_versions(
-              selections, [&] { return active_->scenes->replace_render_assets(changes); });
+          completion.result = asset_owner_->accept(
+              completion, [&] { return active_->scenes->replace_render_assets(changes); });
         }
       }
     } catch (const std::bad_alloc&) {
@@ -258,7 +247,7 @@ gneiss_result scene_session::poll_assets(render_internal::texture_load_completio
   }
   previous_assets_.clear();
   asset_request_ = 0U;
-  active_->assets.release_unused();
+  asset_owner_->collect_unused();
   completion.commit_ms +=
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - commit_started)
           .count();
@@ -268,17 +257,7 @@ gneiss_result scene_session::poll_assets(render_internal::texture_load_completio
 gneiss_result
 scene_session::accept_edit_assets(const render_internal::texture_load_completion& completion,
                                   const std::function<gneiss_result()>& accept) {
-  if (!active_ || completion.result != GNEISS_SUCCESS || completion.versions.empty() ||
-      completion.versions.size() != completion.assets.size())
-    return GNEISS_ERROR_INVALID_ARGUMENT;
-  std::vector<asset_internal::resource_cache::version_selection> selections;
-  selections.reserve(completion.versions.size());
-  for (const auto& version : completion.versions) {
-    selections.push_back({.selection = render_internal::render_asset_loader::selection_key(
-                              version.identity, completion.profile),
-                          .version = version});
-  }
-  return active_->cache.adopt_versions(selections, accept);
+  return active_ ? asset_owner_->accept(completion, accept) : GNEISS_ERROR_INVALID_STATE;
 }
 
 gneiss_result scene_session::cancel_scene(std::uint64_t request) {

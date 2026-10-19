@@ -64,8 +64,28 @@ void run() {
   asset_internal::virtual_file_system vfs;
   check(vfs.mount("asset://", files) == GNEISS_SUCCESS);
   render_internal::render_resource_service resources;
-  application_internal::application_asset_state active_assets(vfs, resources);
-  application_internal::application_asset_state candidate_assets(vfs, resources);
+  engine::asset_manager active_assets(vfs, resources);
+  engine::asset_manager candidate_assets(vfs, resources);
+  {
+    render_internal::mesh_asset_lease first, second;
+    render_internal::asset_diagnostic diagnostic;
+    check(active_assets.acquire("asset://m.mesh", first, diagnostic) == GNEISS_SUCCESS);
+    check(active_assets.acquire("asset://m.mesh", second, diagnostic) == GNEISS_SUCCESS);
+    check(first.get() == second.get());
+    active_assets.collect_unused();
+    check(resources.get_mesh(first.get()) != nullptr);
+    scene_internal::prefab_asset_lease prefab;
+    scene_internal::scene_diagnostic prefab_diagnostic;
+    check(active_assets.acquire("asset://p.prefab", prefab, prefab_diagnostic) == GNEISS_SUCCESS);
+    check(prefab.get() != nullptr);
+    render_internal::texture_load_completion invalid;
+    bool applied = false;
+    check(active_assets.accept(invalid, [&] {
+      applied = true;
+      return GNEISS_SUCCESS;
+    }) == GNEISS_ERROR_INVALID_ARGUMENT);
+    check(!applied);
+  }
   auto active = std::make_unique<application_internal::application_scene_state>(active_assets);
   check(active->initialize() == GNEISS_SUCCESS);
   gneiss_scene_instance old_scene{};

@@ -203,3 +203,7 @@ Editor 无需 Application 兼容桥；Runtime 仅在动态游戏模块这一真�
 `scene_instance_prefab.cpp` 实现本场景 Prefab 实例候选的准备、发布、版本替换、移除及绑定查询。
 Scene 服务完成入口校验后转交实例，不直接修改这些事务的内部容器；Prefab 源资源编辑仍属于
 资产流程。跨场景资产替换继续由 Scene 服务协调，与单场景实例事务的职责不同。
+
+应用级资源装配位于 `src/engine/function/asset/asset_manager.hpp`，由 Application 拥有，
+统一现有类型获取、请求通道创建、版本采用和回收。底层 `engine/asset` 保持文件、身份、
+缓存通用机制；具体格式解析仍位于 Scene/Render 模块。管理器不进入安装 SDK，也不拥有编辑状态。

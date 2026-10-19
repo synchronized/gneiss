@@ -19,7 +19,7 @@
 #if __has_include("engine/function/application/application_scene_state.hpp")
 #error "宿主获得了未授权的内部实现头"
 #endif
-#if __has_include("engine/function/application/application_asset_state.hpp")
+#if __has_include("engine/function/asset/asset_manager.hpp")
 #error "宿主获得了未授权的内部实现头"
 #endif
 #if __has_include("engine/function/application/scene_load_service.hpp")

@@ -87,7 +87,7 @@ struct scene_load_service::pending {
 scene_load_service::scene_load_service(tasks::task_executor& executor,
                                        asset_internal::virtual_file_system files,
                                        render_internal::render_resource_service& resources,
-                                       application_asset_state& asset_owner,
+                                       engine::asset_manager& asset_owner,
                                        render_internal::texture_upload_backend backend,
                                        std::shared_ptr<core::progress_notification> notification)
     : executor_(executor), scope_(executor.make_scope()), files_(std::move(files)),
@@ -229,7 +229,7 @@ void scene_load_service::finish(gneiss_result result, scene_load_phase phase, st
   auto completion = std::move(pending_->result);
   const auto cleanup_started = clock_type::now();
   pending_.reset();
-  asset_owner_.cache.release_unused();
+  asset_owner_.collect_unused();
   // 候选分项保留结束前的诊断值，Application/上传账本必须在请求销毁后采样。
   sample_budget(completion.progress);
   completion.progress.gpu_in_flight = false;
@@ -387,8 +387,7 @@ void scene_load_service::advance_verification(pending& value) {
   {
     GNEISS_PROFILE_SCOPE("scene.assets.reset");
     diagnostics::measure(diagnostics::loop_stage::scene_asset_service_reset, [&] {
-      value.assets = std::make_unique<render_internal::texture_load_service>(
-          executor_, files_, value.candidate->assets, backend_, notification_);
+      value.assets = asset_owner_.create_channel(executor_, files_, backend_, notification_);
     });
   }
 }
@@ -418,8 +417,7 @@ void scene_load_service::advance_impl() {
       finish(initialized, scene_load_phase::failed);
       return;
     }
-    value.assets = std::make_unique<render_internal::texture_load_service>(
-        executor_, value.snapshot, value.candidate->assets, backend_, notification_);
+    value.assets = asset_owner_.create_channel(executor_, value.snapshot, backend_, notification_);
     value.requested = std::move(value.cpu->description.assets);
     progress.phase = scene_load_phase::assets;
     progress.total = value.requested.size();
@@ -557,10 +555,9 @@ void scene_load_service::advance_impl() {
     if (complete) {
       // ready 只准备选择映射；取消不会采用候选版本。
       // 提前完成全部分配，take_candidate 才提交选择并交还域所有权。
-      const auto adopted =
-          value.selections.empty()
-              ? GNEISS_SUCCESS
-              : value.candidate->cache.prepare_adoption(value.selections, value.adoption);
+      const auto adopted = value.selections.empty()
+                               ? GNEISS_SUCCESS
+                               : asset_owner_.prepare_adoption(value.selections, value.adoption);
       if (adopted != GNEISS_SUCCESS) {
         finish(adopted, scene_load_phase::failed);
         return;

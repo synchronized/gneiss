@@ -46,7 +46,7 @@ URI 查询仍走旧路径。
 
 | C++ 对象 | 目标目录 | 职责与拥有关系 | 迁移起点 |
 | --- | --- | --- | --- |
-| `asset_manager` | `engine/asset/` | Application 拥有；管理资产身份、依赖、加载去重和缓存记录 | 整合现有缓存与准备流程 |
+| `asset_manager` | `engine/function/asset/` | Application 拥有；统一现有缓存、Loader、请求通道构造与版本采用 | 已替代 application_asset_state；在途准备合并未实现 |
 | `asset_ref<T>` | `engine/asset/` | 使用者持有；保持一个资产版本存活，不直接拥有后端设备 | 从既有资产租约演进 |
 | `asset_load_request` | `engine/asset/` | 发起者持有；表示一次请求的进度、取消与结果，不等同共享任务 | 整理现有异步请求状态 |
 | `scene_asset`、`prefab_asset` | `engine/function/scene/` | 资产系统管理，通过引用共享；保存层级、组件初始数据和依赖 | 复用现有 scene/prefab 描述与解析 |
@@ -234,3 +234,11 @@ Prefab 描述默认选择及统一阻塞适配尚未完成，不能将其描述�
 - 候选加载失败和取消保留旧运行域；异步请求、激活、退役顺序保持。
 - 移除独占 World 试验不删除原有共享 World 回归；纯运行时不依赖 Editor。
 - 共享/静态相关回归及接口影响检查；M-333 的 Linux、完整场景与性能验收保持未完成。
+
+### 当前资产管理器范围
+
+已将现有应用资产拥有对象替换为 engine::asset_manager，缓存不再由场景域公开借用。
+活动编辑与候选场景的异步资源通道均由管理器构造；资源采用与回收统一进入管理器。
+现有 Mesh/Material/Texture/Prefab 有类型化 acquire；不为统一名称另造租约类型。
+Prefab 后台准备、Scene 资源化、跨请求去重和动态 Loader 注册仍是独立未完成能力，
+不能将此次统一入口描述为全部资产路线图完成。当前行为见总体架构。

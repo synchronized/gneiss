@@ -80,11 +80,10 @@ ECS 核心层负责实体、组件和系统的数据组织与调度。场景节�
 
 ## 资产与场景域所有权
 
-Application 的 `application_asset_state` 拥有 VFS 装配副本、`resource_cache`、渲染资产加载器和
-Prefab 描述加载器。资产缓存本身位于 asset 层，不反向依赖场景或渲染；具体类型在 Application
-层装配。不同 Application 不共享这份状态。
+Application 的 `engine::asset_manager` 拥有 VFS 装配副本、`resource_cache`、渲染资产加载器和
+Prefab 描述加载器。资产缓存本身位于 asset 层，不反向依赖场景或渲染；具体类型在功能层 `engine/function/asset` 装配。不同 Application 不共享这份状态。
 
-`application_scene_state` 拥有 World 和场景实例服务，借用上述资产对象。活动、候选和待退役域
+`application_scene_state` 拥有 World 和场景实例服务，借用管理器及其模块内加载器。活动、候选和待退役域
 使用同一缓存；各场景实例持有实际版本租约。兼容固定版本可跨域复用，World、实体和节点仍独立。
 候选 ready 只准备默认选择事务，成功激活才提交选择；失败或取消释放候选引用，不覆盖旧使用者。
 
@@ -96,3 +95,9 @@ Prefab 描述加载器。资产缓存本身位于 asset 层，不反向依赖场
 Prefab 准备描述按固定版本共享，但旧 URI 获取仍未完全收敛。共享缓存不等于共享在途准备任务，
 也不代表所有描述解析和来源复验都被省略。验收及限制见
 [所有权迁移记录](../records/M-331-application-asset-ownership.md)。
+
+资产管理器统一提供类型化 acquire（Mesh、Material、Texture、Prefab）、渲染资产就绪查询、
+异步请求通道创建、版本采用及回收。缓存为私有唯一索引；Scene 不再直接操作缓存。
+请求通道复用现有渲染资产异步服务，操作拥有通道并先于管理器销毁；场景实例化和编辑提交仍
+属于对应协调者。Prefab 的后台描述准备仍由现有准备服务执行，最终版本进入共享 Loader/cache。
+当前不是任意类型动态注册的插件系统，也没有新增跨请求准备合并或统一 Scene 资源租约。

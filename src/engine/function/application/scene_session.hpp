@@ -20,7 +20,7 @@ public:
   scene_session(const scene_session&) = delete;
   scene_session& operator=(const scene_session&) = delete;
 
-  [[nodiscard]] gneiss_result initialize(application_asset_state& assets);
+  [[nodiscard]] gneiss_result initialize(engine::asset_manager& assets);
   [[nodiscard]] gneiss_result
   attach_executor(tasks::task_executor& executor, const asset_internal::virtual_file_system& files,
                   render_internal::render_resource_service& resources,
@@ -36,8 +36,6 @@ public:
   [[nodiscard]] gneiss_world world() const noexcept;
   [[nodiscard]] engine::world* native_world() const noexcept;
   [[nodiscard]] scene_internal::scene_instance_service* scenes() noexcept;
-  /** 要求 initialize 成功，借用至切换或 shutdown；不得跨帧缓存。 */
-  [[nodiscard]] render_internal::render_asset_loader& assets() noexcept;
   /** 内部适配借用；纹理服务在场景激活时替换，不得跨激活缓存。 */
   [[nodiscard]] render_internal::texture_load_service* textures() noexcept;
   /** 请求、进度和完成值不暴露候选域；激活仍由宿主在安全点显式调用。 */
@@ -59,7 +57,7 @@ public:
                      const std::function<gneiss_result()>& accept);
 
 private:
-  application_asset_state* asset_owner_{};
+  engine::asset_manager* asset_owner_{};
   std::unique_ptr<application_scene_state> active_;
   std::unique_ptr<application_scene_state> retired_;
   scene_retirement_statistics retirement_;

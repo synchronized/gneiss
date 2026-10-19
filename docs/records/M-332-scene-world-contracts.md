@@ -138,3 +138,22 @@ Windows Clang Debug 共享/静态相关目标构建及 scene-load-builder 回归
 外来租约、重复项、普通节点与 Prefab 批量成功及第二个使用者状态不符时第一个不先切换。
 实例事务所在文件 clang-tidy 无报告告警，格式及 git diff --check 通过。
 日志为 build/scene-update-*；未运行完整版本矩阵、Linux 或 Sponza。
+
+## 统一应用级资产管理（2026-10-19）
+
+engine::asset_manager 替代 application_asset_state，位于功能层资产模块，唯一拥有
+VFS、resource_cache、Render/Prefab Loader。缓存不再由场景域公开借用。
+类型化 acquire 复用已有 Mesh/Material/Texture/Prefab 租约；管理器承担就绪查询、
+渲染重载、请求通道构造、准备采用、接受完成结果及无使用者回收。
+活动编辑和候选场景的请求通道均由管理器构造，使用者更新与编辑历史仍由调用者提交。
+删除已无调用的 Application::asset_loader 和 scene_session::assets；没有第二份缓存。
+
+新增测试覆盖类型化 Mesh/Prefab 获取、重复获取复用、仍持有租约时回收不销毁资源，以及
+无效完成结果不调用应用函数。既有异步成功/失败/取消、场景版本切换、资产编辑与历史回归继续通过。
+Windows Clang Debug 共享/静态完整构建、各 40 项相关回归（含安装消费者）通过；
+新管理器经头文件过滤的 clang-tidy 无报告告警，UTF-8/LF、修改行格式和 git diff --check 通过。
+日志为 build/asset-manager-*。
+
+本批未运行 Linux、完整 Sponza 或性能对照；请求通道仍采用现有单在途批次限制。
+类型 Loader 保留模块内装配借用；Prefab 后台描述准备、Scene 资源租约、动态类型注册和
+跨请求准备合并不因本批自动实现。统一的是现有资产拥有、访问及采用机制，不是完整未来资产路线图。

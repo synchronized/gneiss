@@ -4,7 +4,7 @@
 #pragma once
 
 #include "engine/asset/virtual_file_system.hpp"
-#include "engine/function/application/application_asset_state.hpp"
+#include "engine/function/asset/asset_manager.hpp"
 #include "engine/function/render/render_asset_loader.hpp"
 #include "engine/function/scene/prefab_asset_loader.hpp"
 #include "engine/function/scene/scene_instance_service.hpp"
@@ -21,14 +21,13 @@ private:
   world_internal::world_owner world_owner_;
 
 public:
-  explicit application_scene_state(application_asset_state& owner);
+  explicit application_scene_state(engine::asset_manager& owner);
   ~application_scene_state() noexcept;
   application_scene_state(const application_scene_state&) = delete;
   application_scene_state& operator=(const application_scene_state&) = delete;
   [[nodiscard]] gneiss_result initialize() noexcept;
   [[nodiscard]] engine::world* native_world() const noexcept { return world_owner_.get(); }
 
-  asset_internal::resource_cache& cache;
   render_internal::render_asset_loader& assets;
   scene_internal::prefab_asset_loader& prefabs;
   gneiss_world world{};

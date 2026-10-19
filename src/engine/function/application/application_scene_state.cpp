@@ -7,8 +7,8 @@
 
 namespace gneiss::application_internal {
 
-application_scene_state::application_scene_state(application_asset_state& owner)
-    : files_(owner.files), cache(owner.cache), assets(owner.assets), prefabs(owner.prefabs) {}
+application_scene_state::application_scene_state(engine::asset_manager& owner)
+    : files_(owner.files()), assets(owner.render_loader()), prefabs(owner.prefab_loader()) {}
 
 application_scene_state::~application_scene_state() noexcept {
   scenes.reset();
