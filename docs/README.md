@@ -239,6 +239,7 @@
 
 ## 实施与验收记录
 
+- [Granit 0.67.0 升级验收](records/2026-10-19-granit-0.67-upgrade.md)
 - [M-306：0.47.0 原生 C++ SDK 验收](records/M-306-native-cpp-sdk-validation.md)
 - [M-305：旧转发头移除](records/M-305-remove-forwarding-headers.md)
 
