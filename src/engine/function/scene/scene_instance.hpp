@@ -4,6 +4,7 @@
 #pragma once
 #include "engine/function/scene/prefab_runtime_instance.hpp"
 #include "engine/function/scene/scene_instance_service.hpp"
+#include <map>
 
 namespace gneiss::scene_internal {
 class scene_instance final {
@@ -103,6 +104,34 @@ public:
                                                               bool& complete) noexcept;
   [[nodiscard]] gneiss_result remove_prefab_instance(std::string_view uuid,
                                                      prefab_candidate& candidate) noexcept;
+
+  /** 私有批量替换事务，只能在所属线程同一次无重入调用内准备和提交。
+   * Scene 和节点存储必须存活且保持稳定；放弃事务不修改绑定。 */
+  class asset_update final {
+  public:
+    asset_update() = default;
+    asset_update(const asset_update&) = delete;
+    asset_update& operator=(const asset_update&) = delete;
+    asset_update(asset_update&&) noexcept = default;
+    asset_update& operator=(asset_update&&) noexcept = default;
+    /** 仅在服务完成整批 World 提交后调用；不分配，不调用外部回调。 */
+    void commit() noexcept;
+
+  private:
+    friend class scene_instance;
+    struct binding {
+      render_internal::mesh_asset_lease* mesh;
+      render_internal::material_asset_lease* material;
+      render_internal::mesh_asset_lease next_mesh;
+      render_internal::material_asset_lease next_material;
+    };
+    std::vector<binding> bindings_;
+  };
+  /** changes 已由服务校验类型、归属及重复项；仅准备，不改变 Scene 或 World。
+   * 追加整批 ECS 描述，分配失败向协调者传播；协调者丢弃所有准备结果。 */
+  [[nodiscard]] asset_update prepare_asset_update(
+      const std::map<std::uint64_t, const scene_instance_service::asset_replacement*>& changes,
+      std::vector<world_internal::mesh_renderer_replacement>& renderers);
 
   /** 所属线程收集普通节点与 Prefab 的资源引用；追加至事务临时数组，分配失败向调用者传播。
    * 不去重、不发布资源，也不改变场景；服务负责跨实例去重和失败输出保留。 */

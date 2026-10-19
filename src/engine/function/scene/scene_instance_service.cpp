@@ -1776,58 +1776,18 @@ scene_instance_service::replace_render_assets(std::span<const asset_replacement>
         return GNEISS_ERROR_INVALID_ARGUMENT;
       }
     }
-    struct binding_update {
-      render_internal::mesh_asset_lease* mesh;
-      render_internal::material_asset_lease* material;
-      render_internal::mesh_asset_lease next_mesh;
-      render_internal::material_asset_lease next_material;
-    };
-    std::vector<binding_update> bindings;
+    std::vector<scene_instance::asset_update> updates;
     std::vector<world_internal::mesh_renderer_replacement> renderers;
-    const auto collect = [&](auto& node) {
-      const auto mesh = replacements.find(node.mesh.get());
-      const auto material = replacements.find(node.material.get());
-      if (mesh == replacements.end() && material == replacements.end()) {
-        return;
-      }
-      auto next_mesh =
-          mesh == replacements.end()
-              ? node.mesh
-              : render_internal::render_asset_loader::mesh_lease(mesh->second->replacement);
-      auto next_material =
-          material == replacements.end()
-              ? node.material
-              : render_internal::render_asset_loader::material_lease(material->second->replacement);
-      renderers.push_back({
-          .entity = entity_id{node.entity},
-          .expected = {.mesh = node.mesh.get(), .material = node.material.get()},
-          .replacement = {.mesh = next_mesh.get(), .material = next_material.get()},
-      });
-      bindings.push_back({
-          .mesh = &node.mesh,
-          .material = &node.material,
-          .next_mesh = std::move(next_mesh),
-          .next_material = std::move(next_material),
-      });
-    };
     instances_.for_each(core::resource_type::scene_instance, [&](auto& instance) {
-      for (auto& node : instance->objects_) {
-        collect(node);
-      }
-      for (auto& prefab : instance->prefab_instances_) {
-        for (auto& node : prefab->nodes_) {
-          collect(node);
-        }
-      }
+      updates.push_back(instance->prepare_asset_update(replacements, renderers));
     });
     const auto result = native_world_.replace_mesh_renderers(renderers);
     if (result != GNEISS_SUCCESS) {
       return result;
     }
     // ECS 已统一切换；租约移动不分配且不抛异常，旧帧的数据引用仍由渲染服务持有。
-    for (auto& binding : bindings) {
-      *binding.mesh = std::move(binding.next_mesh);
-      *binding.material = std::move(binding.next_material);
+    for (auto& update : updates) {
+      update.commit();
     }
     return GNEISS_SUCCESS;
   } catch (const std::bad_alloc&) {

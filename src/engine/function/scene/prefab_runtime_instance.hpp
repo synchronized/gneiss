@@ -96,7 +96,6 @@ public:
   [[nodiscard]] bool cancel_staged_step(std::size_t budget) noexcept;
 
 private:
-  friend class scene_instance_service;
   friend class scene_instance;
   friend class prefab_candidate;
   [[nodiscard]] gneiss_result commit_node(std::size_t index, gneiss_scene_node_id parent);

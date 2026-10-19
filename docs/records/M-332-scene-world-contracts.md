@@ -123,3 +123,18 @@ World 所有者成员及其专用测试；原生产加载、异步切换、共�
 共享/静态相关目标构建及 scene-load-builder 测试各通过；实例资源收集所在文件
 clang-tidy 无报告告警，git diff --check 通过。日志为 build/scene-shared-*。
 未执行完整矩阵、Linux 和 Sponza；当前收集使用临时引用数组再去重，峰值临时空间随绑定数增长。
+
+## 跨实例资源替换事务封装（2026-10-19）
+
+Scene 实例准备可移动、不可复制的 asset_update，私有记录旧绑定地址和新租约；
+服务负责资产类型/归属/重复校验，汇总 ECS 替换描述后只调用一次 World 批量替换。
+准备或 World 校验失败时丢弃所有事务，不修改绑定。World 成功后租约移动提交不分配，
+用编译断言保证移动赋值不抛出；事务只允许在所属线程同次无重入调用中使用，不跨帧持有。
+
+服务不再遍历普通对象或 Prefab 的私有绑定；移除 prefab_runtime_instance 对服务的友元。
+World 共享、固定版本选择、源描述及租约寿命规则不变，Scene 对服务的其他友元尚未清除。
+
+Windows Clang Debug 共享/静态相关目标构建及 scene-load-builder 回归各通过，覆盖错误线程、
+外来租约、重复项、普通节点与 Prefab 批量成功及第二个使用者状态不符时第一个不先切换。
+实例事务所在文件 clang-tidy 无报告告警，格式及 git diff --check 通过。
+日志为 build/scene-update-*；未运行完整版本矩阵、Linux 或 Sponza。
