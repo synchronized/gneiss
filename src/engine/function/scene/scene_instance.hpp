@@ -4,10 +4,22 @@
 #pragma once
 #include "engine/function/scene/prefab_runtime_instance.hpp"
 #include "engine/function/scene/scene_instance_service.hpp"
+#include "engine/function/world/world_service.hpp"
 
 namespace gneiss::scene_internal {
 class scene_instance final {
 public:
+  /** 创建拥有独立 World 的场景；失败不改变 output，非空 output 拒绝覆盖。
+   * Loader 和 Registry 借用至场景销毁；所属线程调用、使用和销毁。
+   * 仅创建运行容器，不加载资产、不激活 Application。 */
+  [[nodiscard]] static gneiss_result create_owned(render_internal::render_asset_loader& loader,
+                                                  prefab_asset_loader& prefabs,
+                                                  gneiss_type_registry registry,
+                                                  std::unique_ptr<scene_instance>& output) noexcept;
+  [[nodiscard]] engine::world& native_world() const noexcept { return native_world_; }
+  [[nodiscard]] gneiss_world borrowed_world() const noexcept { return reflection_context_; }
+
+  // 迁移期间保留：旧服务借用 World 的构造路径。
   scene_instance(engine::world& native_world, gneiss_world world,
                  render_internal::render_asset_loader& loader, prefab_asset_loader& prefab_loader,
                  gneiss_type_registry registry) noexcept;
@@ -125,6 +137,8 @@ private:
   [[nodiscard]] gneiss_result stage_assets(const scene_description& source);
   [[nodiscard]] gneiss_result commit_scene(const scene_description& source);
   [[nodiscard]] gneiss_result commit_prefabs(const scene_description& source);
+  // 声明在所有使用者之前，确保实例记录和租约先销毁，World 最后撤销借用 RID。
+  world_internal::world_owner owned_world_;
   std::vector<object> objects_;
   std::vector<std::unique_ptr<prefab_runtime_instance>> prefab_instances_;
   scene_description description_;

@@ -96,3 +96,16 @@ Windows Clang Debug 共享/静态完整构建通过，含公共独立头编译�
 修改行格式、UTF-8/LF 和 `git diff --check` 通过。
 日志为本地 `build/prefab-instance-*.log`。
 本批未运行 Linux、完整 Sponza 或性能对照；跨场景协调和 M-333 剩余验收未完成。
+
+## Scene 独占 World 基础拥有链（2026-10-19）
+
+用户确认加载与激活分离。首个代码增量增加私有 scene_instance::create_owned，
+由实例独占 World，析构先清理场景对象，再释放 World 并撤销借用 RID；非空输出拒绝覆盖。
+原借用构造仅为尚未迁移的服务路径保留，公共加载与 Application 活动域行为本批没有改变。
+
+扩展 scene-load-builder 回归：同一描述创建两个独立 Scene，节点和 World 身份隔离，
+Mesh/Material 绑定复用；重复创建拒绝覆盖；跨 World 实体不存活；销毁一份后其 World
+句柄失效，另一份仍可访问，最后一份销毁后对应句柄同样失效。
+Windows Clang Debug 共享/静态相关目标构建及该测试均通过；实现修改行 clang-tidy 无报告告警，
+修改行格式和 git diff --check 通过。日志为 build/scene-owned-*。
+未执行完整矩阵、Linux 或 Sponza；公共入口、候选构建及统一资产入口仍待迁移。

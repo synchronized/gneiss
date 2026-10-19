@@ -239,6 +239,29 @@ scene_instance::scene_instance(engine::world& native_world, gneiss_world world,
     : native_world_(native_world), reflection_context_(world), loader_(loader),
       prefab_loader_(prefab_loader), registry_(registry) {}
 
+gneiss_result scene_instance::create_owned(render_internal::render_asset_loader& loader,
+                                           prefab_asset_loader& prefabs,
+                                           gneiss_type_registry registry,
+                                           std::unique_ptr<scene_instance>& output) noexcept try {
+  if (output) {
+    return GNEISS_ERROR_INVALID_STATE;
+  }
+  world_internal::world_owner owner;
+  gneiss_world borrowed{};
+  const auto result = world_internal::create_native(owner, borrowed);
+  if (result != GNEISS_SUCCESS) {
+    return result;
+  }
+  auto candidate = std::make_unique<scene_instance>(*owner, borrowed, loader, prefabs, registry);
+  candidate->owned_world_ = std::move(owner);
+  output = std::move(candidate);
+  return GNEISS_SUCCESS;
+} catch (const std::bad_alloc&) {
+  return GNEISS_ERROR_OUT_OF_MEMORY;
+} catch (...) {
+  return GNEISS_ERROR_INTERNAL;
+}
+
 scene_instance::~scene_instance() noexcept { rollback(); }
 
 gneiss_result scene_instance::initialize(scene_description candidate) {
