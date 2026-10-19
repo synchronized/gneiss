@@ -80,6 +80,7 @@
 
 ## 路线图与开发计划
 
+- [C51-07：CAORS 统一 VFS 与异步读取实施方案](plans/UPSTREAM-051-caors-async-vfs.md)
 - [UPSTREAM-051：CAORS 接入约束与上游改进建议](plans/UPSTREAM-051-caors-integration-contracts.md)
 - [UPSTREAM-050：窗口事件等待与跨线程唤醒](plans/UPSTREAM-050-granit-window-wait.md)
 - [VER-050：0.50.0 后台加载主线程延迟](plans/VER-050-0.50.0-main-loop-latency.md)
