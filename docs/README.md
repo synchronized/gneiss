@@ -81,6 +81,7 @@
 ## 路线图与开发计划
 
 - [Application 接入 CAORS 输入资源：边界与实施方案](plans/PLAN-051-caors-application-integration.md)
+- [第三方源码获取与共享缓存实施计划](plans/PLAN-051-dependency-source-cache.md)
 - [CAORS 共享材质接入：边界与实施方案](plans/PLAN-051-caors-shared-material.md)
 
 - [C51-08～10：CAORS VFS 缓存一致性、分块读取与快照成本研究](plans/UPSTREAM-051-caors-vfs-followups.md)

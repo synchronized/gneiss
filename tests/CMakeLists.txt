@@ -1242,3 +1242,9 @@ target_link_libraries(gneiss_task_header_visibility_test PRIVATE gneiss_tasks)
 gneiss_target_compile_warnings(gneiss_task_header_visibility_test)
 gneiss_target_output_directories(gneiss_task_header_visibility_test)
 add_test(NAME gneiss.task-header-visibility COMMAND gneiss_task_header_visibility_test)
+
+add_test(NAME gneiss.cmake.dependency-source-cache
+  COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
+    "-DGNEISS_BINARY_DIR=${PROJECT_BINARY_DIR}"
+    -P "${PROJECT_SOURCE_DIR}/cmake/check_dependency_source_cache.cmake")
+set_tests_properties(gneiss.cmake.dependency-source-cache PROPERTIES TIMEOUT 60)
