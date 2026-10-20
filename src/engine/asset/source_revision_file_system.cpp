@@ -131,6 +131,8 @@ public:
   using commit_function = std::function<gneiss_result(const core::sha256_digest&)>;
   tracked_read_source(std::unique_ptr<read_source> source, commit_function commit)
       : source_(std::move(source)), commit_(std::move(commit)) {}
+  gneiss_result begin_close() const noexcept override { return source_->begin_close(); }
+  gneiss_result poll_close() const noexcept override { return source_->poll_close(); }
   [[nodiscard]] gneiss_result
   begin_read(std::uint64_t offset, std::size_t size,
              std::unique_ptr<read_operation>& output) const noexcept override {

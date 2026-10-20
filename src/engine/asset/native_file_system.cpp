@@ -351,6 +351,11 @@ public:
 class uv_asset_source final : public read_source {
 public:
   std::shared_ptr<io_internal::uv_async_file> source;
+  gneiss_result begin_close() const noexcept override {
+    source->begin_close();
+    return GNEISS_SUCCESS;
+  }
+  gneiss_result poll_close() const noexcept override { return source->poll_close().native(); }
   [[nodiscard]] std::uint64_t size() const noexcept override { return source->size(); }
   [[nodiscard]] gneiss_result read_at(std::uint64_t offset,
                                       std::span<std::byte> output) const noexcept override {

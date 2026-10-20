@@ -47,6 +47,11 @@ public:
 
   /** 打开时的长度；不随外部文件增长而扩大可读范围。 */
   [[nodiscard]] virtual std::uint64_t size() const noexcept = 0;
+  /** 可选的显式关闭；成功表示已接受关闭，拒绝新读，在途读仍完成。
+   * 不支持的后端必须返回 UNSUPPORTED，不能把释放引用当作实际关闭。 */
+  [[nodiscard]] virtual gneiss_result begin_close() const noexcept { return GNEISS_ERROR_UNSUPPORTED; }
+  /** NOT_READY 表示未完成；成功表示底层关闭完成，重复查询保持同一终态。 */
+  [[nodiscard]] virtual gneiss_result poll_close() const noexcept { return GNEISS_ERROR_UNSUPPORTED; }
   /** 精确读取指定范围，不分配负载缓冲。空范围允许位于 EOF。
    * 越界返回 INVALID_ARGUMENT；短读返回 IO。失败后目标缓冲内容未定义。 */
   [[nodiscard]] virtual gneiss_result read_at(std::uint64_t offset,
