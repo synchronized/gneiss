@@ -24,3 +24,9 @@ Granit 是 Gneiss 的外部运行时依赖，由父工程、已安装 package �
 libuv 在核心原生线程构建中私有内嵌，不向普通公共头或安装 package 暴露其类型和目标。
 无线程/Web 核心构建保留标准库文件回退；无需自行维护平台 I/O 是采用 libuv 的主要原因，
 原生 API 后端仅作为明确能力缺口的后续备选。本版逐步迁移，异步区间读取仍有既有平台实现。
+
+启用 CAORS 输入或材质选项时，安装包含 CAORS 0.4.0（锁定提交
+`cbe41b75223f52bec746cc23346b28eba90fa693`）共享库和开发包，按 MIT 许可证使用，
+许可证另存为 `share/doc/gneiss/licenses/caors-LICENSE`。CAORS 提供资源持有、缓存及异步请求
+协议；Gneiss 保留 libuv I/O、场景采用和渲染资源服务。普通公共接口不暴露 CAORS 类型。
+未启用生产选项时可继续使用 Gneiss 原加载路径；共享库接入不改变公共 C ABI。

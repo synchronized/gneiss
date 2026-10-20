@@ -81,3 +81,12 @@ URI 映射及在途订阅）由 asset_manager 的私有输入状态拥有。更�
 采用回调，资源宿主不直接引用 InputService；回调成功后才报告输入就绪，失败仍保留旧映射。
 关闭继续先取消并排空输入 scope，再关闭场景通道、资产管理器和 I/O 后端，借用的执行器不关闭。
 本轮统一所有权，不把输入的可变 URI reload 与材质的不可变内容版本索引强行合成同一协议。
+
+## CAORS 共享运行时
+
+后续接入统一构建 CAORS 共享库，取代此前 Engine 内静态链接方式，避免 Engine、工具与探针
+各自静态复制全局状态。Engine 静态/共享构建均使用同一选择，不扩张公共接口或插件 ABI。
+Windows 构建输出统一到 bin，安装由 CAORS 自身规则提供 DLL/导入库及 package；
+静态 Engine 的 consumer 仍通过 find_dependency 解析链接依赖。Unix 共享 Engine 的安装
+搜索路径增加同目录，以匹配两个库同在 lib 的部署布局；平台行为须分别验收。
+仍不承诺跨编译器 C++ ABI 兼容：CAORS 与宿主须使用一致工具链和运行库。

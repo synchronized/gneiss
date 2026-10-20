@@ -82,7 +82,21 @@ asset_manager 拥有唯一 CPU 材质文档索引；通过 create_channel 注入
 默认仍关闭 GNEISS_ENABLE_CAORS_MATERIAL；此步不代表全部资源已统一管理。
 日常 Sponza 首次异步加载开关对照已完成，见下方测量记录；完整大型场景交互、
 完整编辑器撤销/重做手动验收、Linux、Emscripten 与重复加载收益验收尚未完成。
-输入宿主归属已在后续架构收敛中完成；CAORS 共享库切换、Mesh/纹理资源迁移仍未完成。
+输入宿主归属已在后续架构收敛中完成；共享运行时接入见下节，Mesh/纹理资源迁移仍未完成。
+
+## 共享运行时接入
+
+资源类型继续扩展前，先将 Engine、工具与探针统一到 CAORS 共享库，避免静态复制运行时状态。
+采用现有 CAORS_LIBRARY_TYPE=SHARED，不修改上游源码，不新增第二套资源接口。
+构建目录统一运行时输出，安装保留 CAORS 自身 package 和动态库，并补充许可证副本。
+静态 Engine 仍需 CAORS 动态库；普通公共头与 C ABI 不变。
+
+验收范围：现有输入/材质及 Editor 链路；静态和共享 Engine 安装后的 C/C++ consumer；
+Windows 二进制导入表确认实际使用 caors.dll。Unix 同目录搜索路径已配置，
+Linux/macOS/Emscripten 不在本轮本地验收范围。共享库切换不代表 Mesh/纹理已迁移，
+也不保证不同编译器或运行库之间的 C++ ABI 兼容。
+
+Windows 本地上述验证已通过，结果见[共享运行时验收](../records/2026-10-20-caors-shared-runtime.md)。
 
 ## 本地阶段验收
 
