@@ -181,6 +181,8 @@
 
 ## 架构决策
 
+- [CAORS 单资源接入验证边界](decisions/ADR-068-caors-resource-probe.md)
+
 - [ADR-057：资产准备的显式分步执行](decisions/ADR-057-incremental-asset-preparation.md)
 - [ADR-058：场景取消终态与资源清理](decisions/ADR-058-scene-cancellation-cleanup.md)
 
@@ -240,6 +242,8 @@
 - [ADR-067：编辑器视口相机与运行时主相机分离](decisions/ADR-067-editor-viewport-camera.md)
 
 ## 实施与验收记录
+
+- [CAORS 单资源加载接入验证](records/2026-10-20-caors-resource-probe.md)
 
 - [Granit 0.67.0 升级验收](records/2026-10-19-granit-0.67-upgrade.md)
 - [M-306：0.47.0 原生 C++ SDK 验收](records/M-306-native-cpp-sdk-validation.md)
@@ -511,6 +515,7 @@
 - [M-332：Scene / World 契约收敛](records/M-332-scene-world-contracts.md)
 
 ## 文档维护
+
 
 
 - [项目文档规范](../DOCUMENTATION_GUIDE.md)
