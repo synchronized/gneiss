@@ -3,6 +3,7 @@
 
 #include "engine/function/render/texture_load_service.hpp"
 #include "engine/asset/asset_uri.hpp"
+#include "engine/asset/material_document_cache.hpp"
 #include "engine/core/diagnostics/profiling.hpp"
 #include "engine/core/diagnostics/task_submission.hpp"
 #include <algorithm>
@@ -15,6 +16,7 @@ struct texture_load_service::pending {
   std::size_t reused_assets{};
   struct cpu_result {
     prepared_render_batch batch;
+    std::shared_ptr<asset_internal::material_document_batch> documents;
     std::unique_ptr<asset_internal::asset_preparation> preparation;
     bool complete{};
     gneiss_result result{GNEISS_ERROR_INTERNAL};
@@ -42,9 +44,11 @@ struct texture_load_service::pending {
 texture_load_service::texture_load_service(
     tasks::task_executor& executor, asset_internal::virtual_file_system file_system,
     render_asset_loader& loader, texture_upload_backend backend,
-    std::shared_ptr<core::progress_notification> notification)
+    std::shared_ptr<core::progress_notification> notification,
+    std::shared_ptr<asset_internal::material_document_cache> documents)
     : executor_(executor), scope_(executor.make_scope()), file_system_(std::move(file_system)),
-      loader_(loader), backend_(std::move(backend)), notification_(std::move(notification)) {
+      loader_(loader), backend_(std::move(backend)), notification_(std::move(notification)),
+      documents_(std::move(documents)) {
   if (scope_.id == 0U || !backend_.begin || !backend_.poll || !backend_.discard ||
       !backend_.flush) {
     if (scope_.id != 0U) {
@@ -141,6 +145,14 @@ gneiss_result texture_load_service::submit_assets(std::span<const render_asset_r
     value->completion.assets.clear();
     value->completion.textures.clear();
   }
+  asset_internal::material_document_decoder decode;
+  if (documents_) {
+    value->cpu->documents = documents_->begin();
+    decode = [documents = value->cpu->documents](const auto& bytes, auto& parameters, auto& uris,
+                                                 auto& diagnostic) {
+      return documents->decode(bytes, parameters, uris, diagnostic);
+    };
+  }
   value->cpu->preparation = std::make_unique<asset_internal::asset_preparation>(
       file_system_, sources,
       asset_internal::asset_preparation::limits{
@@ -148,7 +160,7 @@ gneiss_result texture_load_service::submit_assets(std::span<const render_asset_r
           .maximum_assets = maximum_assets,
           .maximum_bytes = prepare_limit,
       },
-      backend_.profile);
+      backend_.profile, std::move(decode));
   const auto accepted = diagnostics::measure(diagnostics::loop_stage::task_submit,
                                              [&] { return submit_preparation(*value); });
   if (accepted != tasks::submit_result::success) {
@@ -266,6 +278,14 @@ bool texture_load_service::advance_preparation(pending& value) {
       finish(GNEISS_ERROR_INVALID_STATE, texture_load_state::failed);
     }
     return false;
+  }
+  if (value.cpu->documents) {
+    const auto retained = value.cpu->documents->retain_verified(value.cpu->batch);
+    if (retained != GNEISS_SUCCESS) {
+      finish(retained, texture_load_state::failed);
+      return false;
+    }
+    value.cpu->documents.reset();
   }
   value.prepared = true;
   if (notification_) {

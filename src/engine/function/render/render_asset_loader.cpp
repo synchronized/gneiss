@@ -92,6 +92,7 @@ struct material_asset final {
   gneiss::render_internal::render_resource_service* resources;
   gneiss::core::rid rid;
   std::array<std::shared_ptr<const gneiss::asset_internal::resource_cache::entry>, 5> textures;
+  std::shared_ptr<const gneiss::asset_internal::material_document_reference> document;
   ~material_asset() {
     if (resources != nullptr && rid != gneiss::core::null_rid) {
       (void)resources->destroy_material(rid);
@@ -431,7 +432,9 @@ gneiss_result render_asset_loader::stage_asset(prepared_render_asset prepared,
         return created;
       }
       try {
-        owned = std::make_shared<material_asset>(resources_, rid, candidate.dependencies);
+        auto asset = std::make_shared<material_asset>(resources_, rid, candidate.dependencies);
+        asset->document = std::move(prepared.material_document);
+        owned = std::move(asset);
       } catch (...) {
         (void)resources_.destroy_material(rid);
         throw;

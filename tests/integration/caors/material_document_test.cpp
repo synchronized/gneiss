@@ -4,6 +4,7 @@
 #include "engine/asset/caors_material_document.hpp"
 #include "engine/asset/caors_material_versions.hpp"
 #include "engine/asset/caors_vfs_bridge.hpp"
+#include "engine/asset/material_document_cache.hpp"
 #include "engine/asset/native_file_system.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "uv_async_file.hpp"
@@ -218,7 +219,10 @@ void run(std::size_t document_limit) {
   wait([&] { return !manager.database().has_active_operations() && loader->empty(); });
   check(cache.find_handle(id).get() == current.get(), "cancel preserves current");
   // 直接走生产使用的分步准备：复用已读取字节，不再从 Loader 启动第二次读取。
+  auto shared_documents = make_material_document_cache();
+  check(shared_documents != nullptr, "material cache enabled");
   auto prepare = [&](bool change_source, bool dependency_missing) {
+    auto documents = shared_documents->begin();
     write(
         dependency_missing
             ? R"({"format":"gneiss.material","version":2,"color":[1,0,0,1],"base_color_texture":"asset://missing"})"
@@ -235,7 +239,8 @@ void run(std::size_t document_limit) {
           candidate = caors::resources::make_handle<material_document>(nullptr, id);
           if (!candidate)
             return GNEISS_ERROR_OUT_OF_MEMORY;
-          const auto decoded = decode_material_document(bytes, *candidate, diagnostic);
+          const auto decoded = documents->decode(bytes, parameters, uris, diagnostic);
+          check(decode_material_document(bytes, *candidate, diagnostic) == decoded, "same decoder");
           if (decoded == GNEISS_SUCCESS) {
             parameters = candidate->source.parameters;
             uris = candidate->source.texture_uris;
@@ -265,6 +270,26 @@ void run(std::size_t document_limit) {
       check(cache.find_handle(id).get() == current.get(), "failed batch keeps old document");
     } else {
       check(status == GNEISS_SUCCESS && batch.assets.size() == 1, "verified material batch");
+      check(documents->retain_verified(batch) == GNEISS_SUCCESS, "retain verified documents");
+      const auto* retained = dynamic_cast<const material_document_lease*>(
+          batch.assets.front().material_document.get());
+      check(retained && *retained, "typed retained document");
+      auto second = shared_documents->begin();
+      std::vector<std::byte> bytes;
+      check(files.read("asset://material.json", bytes) == GNEISS_SUCCESS, "read second document");
+      material_parameters parameters;
+      std::array<std::string, 5> uris;
+      check(second->decode(bytes, parameters, uris, diagnostic) == GNEISS_SUCCESS, "decode second");
+      auto second_batch = batch;
+      second_batch.assets.front().material_document.reset();
+      check(second->retain_verified(second_batch) == GNEISS_SUCCESS, "retain second");
+      const auto* reused = dynamic_cast<const material_document_lease*>(
+          second_batch.assets.front().material_document.get());
+      check(reused && reused->get() == retained->get(), "cross batch document shared");
+      second_batch = {};
+      shared_documents->collect();
+      check(retained->get()->source.parameters.color[0] == 1,
+            "first lease survives second release");
       const auto& prepared = batch.assets.front();
       check(!prepared.version.version.empty() && prepared.material.color[0] == 1,
             "batch version and data");

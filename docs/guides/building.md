@@ -606,3 +606,12 @@ Granit 附属依赖缓存默认放在当前构建目录 `_deps/granit-cache`，�
 `GRANIT_DEPENDENCY_SOURCE_CACHE_DIR` 保持优先；当前关闭其 SDL3/ImGui 获取。
 Shader 工具链仍使用 Granit 自身机制，不受 Gneiss 源码离线开关控制。
 CAORS 仍为原有静态链接，本次仅迁移源码获取方式；已有四项 Git submodule 保持不变。
+
+## 可选 CAORS 材质文档接入
+
+`-DGNEISS_ENABLE_CAORS_MATERIAL=ON` 为 asset_manager 创建的异步资产通道启用 CPU 材质文档共享，
+默认关闭，可独立于 CAORS 输入选项启用。要求原生线程与 libuv；当前不支持 Emscripten。
+批次仍使用既有读取预算、来源复验、纹理依赖及渲染采用事务；同步 acquire 不切换。
+开启时安装固定 CAORS 依赖，静态 consumer 自动解析链接依赖；普通头文件不含 CAORS 类型。
+文档共享不意味着跳过后续批次的文件读取或解析，也不表示全部资产已由 CAORS 管理。
+方案、阶段验收与限制见[共享材质计划](../plans/PLAN-051-caors-shared-material.md)。

@@ -3,6 +3,7 @@
 #ifndef GNEISS_ENGINE_ASSET_MANAGER_HPP_
 #define GNEISS_ENGINE_ASSET_MANAGER_HPP_
 
+#include "engine/asset/material_document_cache.hpp"
 #include "engine/asset/resource_cache.hpp"
 #include "engine/asset/virtual_file_system.hpp"
 #include "engine/function/render/texture_load_service.hpp"
@@ -22,7 +23,12 @@ public:
   asset_manager(const asset_manager&) = delete;
   asset_manager& operator=(const asset_manager&) = delete;
   [[nodiscard]] const asset_internal::virtual_file_system& files() const noexcept { return files_; }
-  void collect_unused() noexcept { cache_.release_unused(); }
+  void collect_unused() noexcept {
+    cache_.release_unused();
+    if (documents_) {
+      documents_->collect();
+    }
+  }
   void set_profile(render_internal::texture_prepare_profile profile) noexcept {
     render_.set_default_profile(profile);
   }
@@ -64,7 +70,8 @@ public:
                  render_internal::texture_upload_backend backend,
                  std::shared_ptr<core::progress_notification> notification = {}) {
     return std::make_unique<render_internal::texture_load_service>(
-        executor, std::move(files), render_, std::move(backend), std::move(notification));
+        executor, std::move(files), render_, std::move(backend), std::move(notification),
+        documents_);
   }
   [[nodiscard]] gneiss_result prepare_adoption(
       std::span<const asset_internal::resource_cache::version_selection> selections,
@@ -104,6 +111,8 @@ public:
 private:
   asset_internal::virtual_file_system files_;
   asset_internal::resource_cache cache_;
+  std::shared_ptr<asset_internal::material_document_cache> documents_{
+      asset_internal::make_material_document_cache()};
   render_internal::render_asset_loader render_;
   scene_internal::prefab_asset_loader prefabs_;
 };

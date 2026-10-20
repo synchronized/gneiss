@@ -5,7 +5,8 @@
 
 ## 状态与目标
 
-2026-10-20，用户已确认方案 A，实施中；生产材质入口尚未切换。
+2026-10-20，用户已确认方案 A。asset_manager 的异步材质通道已提供默认关闭的 CAORS 接入；
+同步 acquire 保持原路径，尚未将该选项作为默认配置。
 承接[Application 输入接入](PLAN-051-caors-application-integration.md)，下一项建议选择
 CPU 材质文档，验证共享资源、多版本及依赖处理，再扩大到 Mesh、纹理。
 不另立 0.52，不修改上游仓库，不将本项作为性能改善的既成结论。
@@ -13,7 +14,7 @@ CPU 材质文档，验证共享资源、多版本及依赖处理，再扩大到 
 ## 源码核对
 
 - [asset_manager](../../src/engine/function/asset/asset_manager.hpp)当前拥有 Gneiss
-  resource_cache、渲染加载器和 Prefab 加载器；CAORS 输入宿主尚未收敛到这里。
+  resource_cache、CPU 材质文档索引、渲染加载器和 Prefab 加载器；CAORS 输入宿主尚未收敛到这里。
 - [材质解析](../../src/engine/asset/asset_parsing.hpp)输出纯 CPU 参数和五个纹理 URI，
   不创建 RID。同步加载与后台准备共用解析器。
 - [后台准备](../../src/engine/asset/asset_preparation.hpp)输出包含来源、摘要、准备配置、
@@ -70,16 +71,17 @@ CAORS 同时承担共享资源持有，Gneiss 将现有缓存职责拆为版本�
 - 真实异步准备入口通过；独立 Loader 测试不替代端到端验收。
 - 不向普通公共接口暴露 CAORS 类型；不新增主线程文件等待或独立线程池。
 
-## 当前未完成
+## 当前边界与剩余验收
 
-已抽出输入与材质共用的有界文档 Loader，并增加 CPU 材质文档独立验证入口。
-已增加来源域、URI、类型、内容摘要及字节数到文档的弱引用索引，复用 CAORS handle，
-不增加第二份强缓存。索引只能登记已复验回执，租约同时保活来源标记与文档。
-CAORS 当前不支持 handle<const T>，Gneiss 租约私有持有 handle 并仅提供 const 访问；
-加载方在发布后不得修改对象。尚未修改 asset_manager 的缓存归属或切换生产入口。
-桥与 Loader 支持宿主显式传入单文档上限，默认及输入资源仍为 1 MiB；
-这不是整批内存预算，不改变现有材质加载契约。
-若固定版本映射或上游接口不满足后续要求，先列出证据与最小需求。
+asset_manager 拥有唯一 CPU 材质文档索引；通过 create_channel 注入批次候选工厂。
+整批复验成功且未取消后在所属线程登记，材质缓存项持有 CAORS 文档租约；
+取消、来源变化或依赖失败不会登记未验证候选，也不改变原有渲染采用协议。
+同步 acquire、直接手工构造而未注入文档缓存的通道仍使用原解析器。
+索引为弱引用，CAORS handle 持有实际对象；不另建 CAORS URI reload 缓存或独立线程池。
+
+默认仍关闭 GNEISS_ENABLE_CAORS_MATERIAL；此步不代表全部资源已统一管理。
+真实大型场景交互、完整编辑器撤销/重做手动验收、Linux、Emscripten 与性能对比尚未完成。
+输入宿主汇入 asset_manager、CAORS 共享库切换、Mesh/纹理资源迁移不属于本次接线。
 
 ## 本地阶段验收
 
@@ -123,3 +125,18 @@ CAORS 文档可直接解码批次已经读取的字节，避免在批次内部�
 
 本地 Windows Clang Debug：Engine 及相关调用方重建通过；4 项 CAORS 测试和原 CPU 准备
 测试共 5 项通过。未重跑安装消费者、跨平台及性能验收。
+
+### 可选生产通道接线
+
+新增 Gneiss 自有 material_document_cache/material_document_batch 内部协议，具体 CAORS
+实现只在 .cpp 内装配；创建批次不启动线程、不重新读取文件。所有批次仍受既有准备预算约束，
+不引入独立 Loader 默认的 1 MiB 限制。每个成功批次依然读取、解码、复验，之后才共享文档。
+prepared_asset 仅携带文档生命周期接口，发布的材质缓存项继承该租约；确切纹理版本不变。
+
+本地 Windows Clang Debug 启用选项：Editor 重建、隐藏冒烟、异步资产通道和 CPU 文档测试通过。
+通道测试覆盖 cooperative/thread_pool、固定版本、仅纹理变化、失败回滚、取消与停止；
+新增跨批次文档共享、单租约释放与材质缓存销毁后的文档释放验证。
+独立静态与共享 Engine 均构建并安装，隔离安装前缀中的 C/C++ 等 4 项 consumer 各自通过。
+关闭选项的静态 Engine 重建及安装 consumer 另行验证，配置不再解析 CAORS 依赖。
+上述安装矩阵不启用 Granit 窗口；真实编辑器路径另由主开发配置的隐藏冒烟验证。
+未把文档共享描述为解析加速或 GPU/大场景性能改善。

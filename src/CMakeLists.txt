@@ -27,6 +27,7 @@ target_sources(
   gneiss_engine
   PRIVATE
     engine/function/asset/asset_manager.hpp
+    engine/asset/material_document_cache.cpp
     engine/core/sha256.cpp
     engine/core/sha256.hpp
     engine/api/application_api.cpp

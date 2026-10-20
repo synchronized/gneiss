@@ -8,7 +8,7 @@
 
 namespace gneiss::asset_internal {
 /** 版本租约同时保活来源身份与只读 CPU 文档；不表示场景已采用该版本。 */
-class material_document_lease final {
+class material_document_lease final : public material_document_reference {
 public:
   material_document_lease() = default;
   [[nodiscard]] const material_document* get() const noexcept { return document_.get(); }

@@ -8,7 +8,7 @@ if(@GNEISS_ENABLE_GRANIT_PLATFORM@)
   find_dependency(granit 0.67.0 CONFIG COMPONENTS Window RenderPipeline)
 endif()
 
-if(@GNEISS_ENABLE_CAORS_INPUT@ AND NOT @BUILD_SHARED_LIBS@)
+if((@GNEISS_ENABLE_CAORS_INPUT@ OR @GNEISS_ENABLE_CAORS_MATERIAL@) AND NOT @BUILD_SHARED_LIBS@)
   include(CMakeFindDependencyMacro)
   find_dependency(caors 0.4 CONFIG)
 endif()

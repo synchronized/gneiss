@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "engine/asset/material_document_cache.hpp"
 #include "engine/asset/texture_container.hpp"
 #include "engine/asset/texture_ktx2.hpp"
 #include "engine/function/render/render_resource_service.hpp"
@@ -218,7 +219,13 @@ void fixed_version_publication(tasks::execution_mode mode) {
     }
     return result;
   };
-  auto original = stage(prepare());
+  auto first_batch = prepare();
+  auto document = std::make_shared<material_document_reference>();
+  std::weak_ptr<const material_document_reference> document_lifetime = document;
+  first_batch.assets.back().material_document = document;
+  auto original = stage(std::move(first_batch));
+  document.reset();
+  check(!document_lifetime.expired());
   auto competing = stage(prepare());
   check(original.front().lease.get() != competing.front().lease.get());
   check(loader.publish_assets(original) == GNEISS_SUCCESS);
@@ -258,6 +265,7 @@ void fixed_version_publication(tasks::execution_mode mode) {
   next.clear();
   cache.release_unused();
   check(resources.live_resource_count() == 2U && resources.get_texture(texture_rid) != nullptr);
+  check(document_lifetime.expired());
   material_lease = {};
   cache.release_unused();
   check(resources.live_resource_count() == 0U && cache.size() == 0U);
@@ -283,7 +291,8 @@ void fixed_version_publication(tasks::execution_mode mode) {
     return GNEISS_SUCCESS;
   };
   backend.flush = [] {};
-  texture_load_service service(scheduler, files, loader, std::move(backend));
+  texture_load_service service(scheduler, files, loader, std::move(backend), {},
+                               make_material_document_cache());
   const auto until = [&](auto predicate) {
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
     while (!predicate()) {
@@ -377,7 +386,8 @@ void cooperative_read_slices() {
           },
       .flush = [] {},
   };
-  texture_load_service service(scheduler, vfs, loader, std::move(backend));
+  texture_load_service service(scheduler, vfs, loader, std::move(backend), {},
+                               make_material_document_cache());
   const std::vector<std::string> uris{"asset://large.texture.json"};
   std::uint64_t request{};
   check(service.submit(uris, 1U, 1U, request) == GNEISS_SUCCESS);
@@ -444,7 +454,8 @@ void run(tasks::execution_mode mode) {
                                        return GNEISS_SUCCESS;
                                      },
                                  .flush = [&] { ready = true; }};
-  texture_load_service service(scheduler, vfs, loader, std::move(backend));
+  texture_load_service service(scheduler, vfs, loader, std::move(backend), {},
+                               make_material_document_cache());
   const auto advance = [&] {
     if (mode == tasks::execution_mode::cooperative) {
       (void)scheduler.run_ready();
@@ -606,7 +617,8 @@ void mixed(tasks::execution_mode mode, bool pbr = false) {
       .estimate_bytes = [](const auto& item) -> std::size_t {
         return item.mesh ? 5U * 1024U * 1024U : 1U * 1024U * 1024U;
       }};
-  texture_load_service service(scheduler, vfs, loader, std::move(backend));
+  texture_load_service service(scheduler, vfs, loader, std::move(backend), {},
+                               make_material_document_cache());
   const auto advance = [&] {
     if (mode == tasks::execution_mode::cooperative) {
       (void)scheduler.run_ready();
@@ -765,7 +777,9 @@ void packaged_lifetime(tasks::execution_mode mode) {
             return oversized ? texture_load_service::maximum_upload_bytes + 1U : payload.size();
           },
       .profile = {.generation = 1U, .sampled_transfer_formats = {true, true, false, false}}};
-  auto service = std::make_unique<texture_load_service>(scheduler, vfs, loader, std::move(backend));
+  auto service = std::make_unique<texture_load_service>(
+      scheduler, vfs, loader, std::move(backend), std::shared_ptr<core::progress_notification>{},
+      make_material_document_cache());
   const auto until = [&](auto predicate) {
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
     while (!predicate()) {
@@ -869,7 +883,8 @@ void cancel_unpublished_upload(tasks::execution_mode mode) {
       .flush = [&] { upload_ack = discard_ack = true; },
       .estimate_bytes = [](const auto&) { return texture_load_service::upload_budget_bytes; },
   };
-  texture_load_service service(scheduler, vfs, loader, std::move(backend));
+  texture_load_service service(scheduler, vfs, loader, std::move(backend), {},
+                               make_material_document_cache());
   const auto advance = [&] {
     if (mode == tasks::execution_mode::cooperative) {
       (void)scheduler.run_ready();

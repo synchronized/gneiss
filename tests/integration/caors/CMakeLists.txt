@@ -52,13 +52,14 @@ endif()
 add_executable(gneiss_caors_material_document_test material_document_test.cpp
   "${PROJECT_SOURCE_DIR}/src/engine/asset/native_file_system.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/asset/asset_preparation.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/asset/material_document_cache.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/asset/mesh_binary.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/asset/texture_binary.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/asset/texture_ktx2.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/asset/texture_container.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/asset/source_revision_file_system.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/asset/png_decoder.cpp")
-target_compile_definitions(gneiss_caors_material_document_test PRIVATE GNEISS_ASSET_LIBUV GNEISS_BUILDING_LIBRARY)
+target_compile_definitions(gneiss_caors_material_document_test PRIVATE GNEISS_ASSET_LIBUV GNEISS_BUILDING_LIBRARY GNEISS_ENABLE_CAORS_MATERIAL)
 target_include_directories(gneiss_caors_material_document_test PRIVATE "${PROJECT_SOURCE_DIR}/src" "${PROJECT_SOURCE_DIR}/include")
 target_link_libraries(gneiss_caors_material_document_test PRIVATE
   gneiss_caors_vfs_bridge gneiss_tasks gneiss_io_uv gneiss_core_values gneiss_yyjson gneiss_png granit::granit)
