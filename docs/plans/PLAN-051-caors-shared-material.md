@@ -82,7 +82,21 @@ asset_manager 拥有唯一 CPU 材质文档索引；通过 create_channel 注入
 默认仍关闭 GNEISS_ENABLE_CAORS_MATERIAL；此步不代表全部资源已统一管理。
 日常 Sponza 首次异步加载开关对照已完成，见下方测量记录；完整大型场景交互、
 完整编辑器撤销/重做手动验收、Linux、Emscripten 与重复加载收益验收尚未完成。
-输入宿主归属已在后续架构收敛中完成；共享运行时接入见下节，Mesh/纹理资源迁移仍未完成。
+输入宿主归属已在后续架构收敛中完成；共享运行时和 Mesh CPU 接入见下节，
+纹理资源迁移仍未完成。
+
+## Mesh CPU 接入
+
+已沿用原批次准备与复验协议接入不可变 Mesh，采用独立且默认关闭的
+GNEISS_ENABLE_CAORS_MESH。CPU 缓存入口提升为 cpu_document_cache，不复制输入宿主，
+不新增线程、I/O、当前版本选择或发布事务。
+原解析器完成 JSON/二进制格式解码；复验后按来源域、URI、摘要与大小共享数组，
+通过 Gneiss 自有 shared_ptr<const mesh_data> 交给渲染服务，CAORS handle 只在资产实现内。
+同版本共享不跳过下一批次读取和解析；同步入口及无缓存注入的通道仍使用原路径。
+具体决策见 [ADR-068](../decisions/ADR-068-caors-resource-probe.md#mesh-cpu-资源接入)。
+
+验收结果见 [Mesh CPU 接入记录](../records/2026-10-20-caors-mesh.md)。
+后续仍需纹理载荷方案、大场景内存测量和跨平台验收；不据此默认启用功能。
 
 ## 共享运行时接入
 
@@ -143,7 +157,7 @@ CAORS 文档可直接解码批次已经读取的字节，避免在批次内部�
 
 ### 可选生产通道接线
 
-新增 Gneiss 自有 material_document_cache/material_document_batch 内部协议，具体 CAORS
+新增 Gneiss 自有 cpu_document_cache/cpu_document_batch 内部协议，具体 CAORS
 实现只在 .cpp 内装配；创建批次不启动线程、不重新读取文件。所有批次仍受既有准备预算约束，
 不引入独立 Loader 默认的 1 MiB 限制。每个成功批次依然读取、解码、复验，之后才共享文档。
 prepared_asset 仅携带文档生命周期接口，发布的材质缓存项继承该租约；确切纹理版本不变。

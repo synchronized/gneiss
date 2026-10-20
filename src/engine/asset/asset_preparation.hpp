@@ -71,6 +71,8 @@ struct prepared_asset {
   /** 材质各槽位的确切依赖版本；空槽保留空键，发布时不得按 URI 替换依赖。 */
   std::array<asset_version_key, 5> texture_versions;
   asset_internal::mesh_data mesh;
+  /** 复验后可由 CPU 资源缓存接管数组；只读共享，不复制顶点或泄漏第三方句柄。 */
+  std::shared_ptr<const mesh_data> shared_mesh;
   asset_internal::prepared_texture_data texture{};
   asset_internal::material_parameters material{};
   std::array<std::string, 5> texture_uris;

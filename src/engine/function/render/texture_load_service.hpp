@@ -12,7 +12,7 @@
 #include <thread>
 
 namespace gneiss::asset_internal {
-class material_document_cache;
+class cpu_document_cache;
 }
 
 namespace gneiss::render_internal {
@@ -77,7 +77,7 @@ public:
                        asset_internal::virtual_file_system file_system,
                        render_internal::render_asset_loader& loader, texture_upload_backend backend,
                        std::shared_ptr<core::progress_notification> notification = {},
-                       std::shared_ptr<asset_internal::material_document_cache> documents = {});
+                       std::shared_ptr<asset_internal::cpu_document_cache> documents = {});
   ~texture_load_service();
   [[nodiscard]] gneiss_result submit(std::span<const std::string> uris, std::uint64_t session,
                                      std::uint64_t revision, std::uint64_t& request,
@@ -114,7 +114,7 @@ private:
   render_internal::render_asset_loader& loader_;
   texture_upload_backend backend_;
   std::shared_ptr<core::progress_notification> notification_;
-  std::shared_ptr<asset_internal::material_document_cache> documents_;
+  std::shared_ptr<asset_internal::cpu_document_cache> documents_;
   std::unique_ptr<pending> pending_;
   std::optional<texture_load_completion> completed_;
   std::uint64_t sequence_{};

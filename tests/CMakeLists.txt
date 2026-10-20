@@ -870,7 +870,7 @@ add_test(NAME gneiss.render_asset_loader COMMAND gneiss_render_asset_loader_test
 add_executable(
   gneiss_texture_load_service_test
   render/texture_load_service_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/engine/asset/material_document_cache.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/asset/cpu_document_cache.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/render/texture_load_service.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/asset/asset_uri.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/asset/mesh_binary.cpp"
@@ -897,6 +897,10 @@ target_link_libraries(
 target_compile_features(gneiss_texture_load_service_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_texture_load_service_test)
 gneiss_target_output_directories(gneiss_texture_load_service_test)
+if(GNEISS_ENABLE_CAORS_MESH)
+  target_compile_definitions(gneiss_texture_load_service_test PRIVATE GNEISS_ENABLE_CAORS_MESH)
+  target_link_libraries(gneiss_texture_load_service_test PRIVATE caors::caors)
+endif()
 if(GNEISS_ENABLE_CAORS_MATERIAL)
   target_compile_definitions(gneiss_texture_load_service_test PRIVATE GNEISS_ENABLE_CAORS_MATERIAL)
   target_link_libraries(gneiss_texture_load_service_test PRIVATE caors::caors)

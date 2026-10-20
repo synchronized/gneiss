@@ -13,7 +13,7 @@ set(CAORS_BUILD_BENCHMARKS OFF CACHE BOOL "" FORCE)
 # Engine、独立工具与探针共用一个动态运行时，避免各 DLL 内静态复制 CAORS 全局状态。
 set(CAORS_LIBRARY_TYPE SHARED CACHE STRING "" FORCE)
 set(gneiss_caors_fetch_options EXCLUDE_FROM_ALL)
-if(GNEISS_ENABLE_CAORS_INPUT OR GNEISS_ENABLE_CAORS_MATERIAL)
+if(GNEISS_ENABLE_CAORS_INPUT OR GNEISS_ENABLE_CAORS_MATERIAL OR GNEISS_ENABLE_CAORS_MESH)
   set(gneiss_caors_fetch_options)
 endif()
 if(FETCHCONTENT_SOURCE_DIR_GNEISS_CAORS)
@@ -29,7 +29,7 @@ endif()
 FetchContent_MakeAvailable(gneiss_caors)
 # Windows 的程序与 DLL 放在同一运行目录；安装仍由 CAORS 自身的 package 规则负责。
 gneiss_target_output_directories(caors)
-if(GNEISS_ENABLE_CAORS_INPUT OR GNEISS_ENABLE_CAORS_MATERIAL)
+if(GNEISS_ENABLE_CAORS_INPUT OR GNEISS_ENABLE_CAORS_MATERIAL OR GNEISS_ENABLE_CAORS_MESH)
   include(GNUInstallDirs)
   install(FILES "${gneiss_caors_SOURCE_DIR}/LICENSE"
     DESTINATION "${CMAKE_INSTALL_DATADIR}/doc/gneiss/licenses" RENAME caors-LICENSE)

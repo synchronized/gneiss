@@ -3,7 +3,7 @@
 
 #include "engine/function/render/texture_load_service.hpp"
 #include "engine/asset/asset_uri.hpp"
-#include "engine/asset/material_document_cache.hpp"
+#include "engine/asset/cpu_document_cache.hpp"
 #include "engine/core/diagnostics/profiling.hpp"
 #include "engine/core/diagnostics/task_submission.hpp"
 #include <algorithm>
@@ -16,7 +16,7 @@ struct texture_load_service::pending {
   std::size_t reused_assets{};
   struct cpu_result {
     prepared_render_batch batch;
-    std::shared_ptr<asset_internal::material_document_batch> documents;
+    std::shared_ptr<asset_internal::cpu_document_batch> documents;
     std::unique_ptr<asset_internal::asset_preparation> preparation;
     bool complete{};
     gneiss_result result{GNEISS_ERROR_INTERNAL};
@@ -45,7 +45,7 @@ texture_load_service::texture_load_service(
     tasks::task_executor& executor, asset_internal::virtual_file_system file_system,
     render_asset_loader& loader, texture_upload_backend backend,
     std::shared_ptr<core::progress_notification> notification,
-    std::shared_ptr<asset_internal::material_document_cache> documents)
+    std::shared_ptr<asset_internal::cpu_document_cache> documents)
     : executor_(executor), scope_(executor.make_scope()), file_system_(std::move(file_system)),
       loader_(loader), backend_(std::move(backend)), notification_(std::move(notification)),
       documents_(std::move(documents)) {

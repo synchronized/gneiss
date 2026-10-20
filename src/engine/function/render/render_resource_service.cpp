@@ -220,6 +220,22 @@ gneiss_result render_resource_service::create_prepared_mesh(mesh_resource resour
     return GNEISS_ERROR_INTERNAL;
   }
 }
+gneiss_result
+render_resource_service::create_prepared_mesh(std::shared_ptr<const mesh_resource> resource,
+                                              core::rid* output) noexcept {
+  if (output == nullptr || !is_valid() || !resource) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  *output = 0U;
+  try {
+    return meshes_.create(core::resource_type::mesh, track(std::move(resource), mesh_history_),
+                          output);
+  } catch (const std::bad_alloc&) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
 bool render_resource_service::replace_mesh(core::rid rid,
                                            std::shared_ptr<const mesh_resource> data) noexcept {
   auto* slot = meshes_.get(rid, core::resource_type::mesh);

@@ -395,7 +395,9 @@ gneiss_result render_asset_loader::stage_asset(prepared_render_asset prepared,
       }
       candidate.texture = resources_.share_texture(rid);
     } else if (prepared.source.type == render_asset_type::mesh) {
-      created = resources_.create_prepared_mesh(std::move(prepared.mesh), &rid);
+      created = prepared.shared_mesh
+                    ? resources_.create_prepared_mesh(std::move(prepared.shared_mesh), &rid)
+                    : resources_.create_prepared_mesh(std::move(prepared.mesh), &rid);
       if (created != GNEISS_SUCCESS) {
         return created;
       }

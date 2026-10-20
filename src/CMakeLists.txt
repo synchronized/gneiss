@@ -28,7 +28,7 @@ target_sources(
   PRIVATE
     engine/function/asset/asset_manager.hpp
     engine/function/asset/asset_manager.cpp
-    engine/asset/material_document_cache.cpp
+    engine/asset/cpu_document_cache.cpp
     engine/core/sha256.cpp
     engine/core/sha256.hpp
     engine/api/application_api.cpp

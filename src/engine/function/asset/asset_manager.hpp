@@ -3,7 +3,7 @@
 #ifndef GNEISS_ENGINE_ASSET_MANAGER_HPP_
 #define GNEISS_ENGINE_ASSET_MANAGER_HPP_
 
-#include "engine/asset/material_document_cache.hpp"
+#include "engine/asset/cpu_document_cache.hpp"
 #include "engine/asset/resource_cache.hpp"
 #include "engine/asset/virtual_file_system.hpp"
 #include "engine/function/input/action_map.hpp"
@@ -124,8 +124,8 @@ private:
   std::unique_ptr<input_state> input_;
   asset_internal::virtual_file_system files_;
   asset_internal::resource_cache cache_;
-  std::shared_ptr<asset_internal::material_document_cache> documents_{
-      asset_internal::make_material_document_cache()};
+  std::shared_ptr<asset_internal::cpu_document_cache> documents_{
+      asset_internal::make_cpu_document_cache()};
   render_internal::render_asset_loader render_;
   scene_internal::prefab_asset_loader prefabs_;
 };

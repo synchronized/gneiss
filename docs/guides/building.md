@@ -611,6 +611,12 @@ CAORS 使用共享库，源码缓存只共享源码、不共享构建产物；�
 
 ## 可选 CAORS 材质文档接入
 
+同一 CPU 资源入口还可用 `-DGNEISS_ENABLE_CAORS_MESH=ON` 启用不可变 Mesh 共享，
+默认关闭，可独立于输入/材质启用。Mesh 仍先由原准备器读取、解析和整批复验，
+随后移动数组到 CAORS 资源；渲染层共享只读数据，不额外复制整份网格。
+该选项同样需要原生线程、libuv 与 CAORS 共享运行时，不支持 Emscripten。
+同步加载及未注入 CPU 缓存的通道保持原路径；这不是 GPU 缓存或纹理流式加载开关。
+
 `-DGNEISS_ENABLE_CAORS_MATERIAL=ON` 为 asset_manager 创建的异步资产通道启用 CPU 材质文档共享，
 默认关闭，可独立于 CAORS 输入选项启用。要求原生线程与 libuv；当前不支持 Emscripten。
 批次仍使用既有读取预算、来源复验、纹理依赖及渲染采用事务；同步 acquire 不切换。

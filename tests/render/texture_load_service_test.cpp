@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/asset/material_document_cache.hpp"
+#include "engine/asset/cpu_document_cache.hpp"
 #include "engine/asset/texture_container.hpp"
 #include "engine/asset/texture_ktx2.hpp"
 #include "engine/function/render/render_resource_service.hpp"
@@ -187,6 +187,62 @@ void prepared_source_revisions() {
   other_input.inputs.back().source.reset();
   check(cache.acquire(other_input, load, same) == GNEISS_ERROR_INVALID_ARGUMENT && !same);
 }
+void shared_mesh_documents() {
+#ifdef GNEISS_ENABLE_CAORS_MESH
+  auto source = std::make_shared<memory_files>();
+  const std::string text =
+      R"({"format":"gneiss.mesh","version":3,"topology":"triangle_list","vertices":[[0,0,0],[1,0,0],[0,1,0]],"uvs":[[0,0],[1,0],[0,1]],"normals":[[0,0,1],[0,0,1],[0,0,1]]})";
+  source->text("mesh", text);
+  virtual_file_system files;
+  check(files.mount("asset://", source) == GNEISS_SUCCESS);
+  auto documents = make_cpu_document_cache();
+  const std::array requests{asset_request{"asset://mesh", asset_type::mesh}};
+  auto prepare = [&](const virtual_file_system& vfs) {
+    prepared_batch batch;
+    asset_diagnostic diagnostic;
+    check(prepare_assets(vfs, requests, batch, diagnostic, {}, 128U) == GNEISS_SUCCESS);
+    return batch;
+  };
+  auto first = prepare(files);
+  const auto* vertices = first.assets.front().mesh.vertices.data();
+  check(documents->begin()->retain_verified(first) == GNEISS_SUCCESS);
+  auto mesh = first.assets.front().shared_mesh;
+  check(mesh && mesh->vertices.data() == vertices && first.assets.front().mesh.vertices.empty());
+  auto second = prepare(files);
+  check(documents->begin()->retain_verified(second) == GNEISS_SUCCESS);
+  check(mesh == second.assets.front().shared_mesh);
+  virtual_file_system independent;
+  check(independent.mount("asset://", source) == GNEISS_SUCCESS);
+  auto isolated = prepare(independent);
+  check(documents->begin()->retain_verified(isolated) == GNEISS_SUCCESS);
+  check(mesh != isolated.assets.front().shared_mesh);
+  auto changed_text = text;
+  changed_text.replace(changed_text.find("[1,0,0]"), 7, "[2,0,0]");
+  source->text("mesh", changed_text);
+  auto changed = prepare(files);
+  check(documents->begin()->retain_verified(changed) == GNEISS_SUCCESS);
+  check(changed.assets.front().shared_mesh != mesh && mesh->vertices[1].x == 1.0F);
+  check(changed.assets.front().shared_mesh->vertices[1].x == 2.0F);
+  auto invalid = prepare(files);
+  invalid.assets.front().sources.front().identity.source.reset();
+  check(documents->begin()->retain_verified(invalid) == GNEISS_ERROR_INVALID_STATE);
+  render_resource_service resources;
+  core::rid rid{};
+  check(resources.create_prepared_mesh(mesh, &rid) == GNEISS_SUCCESS);
+  check(resources.share_mesh(rid) == mesh);
+  auto frame = resources.share_mesh(rid);
+  check(resources.destroy_mesh(rid) == GNEISS_SUCCESS && !resources.share_mesh(rid));
+  std::weak_ptr<const mesh_data> lifetime = mesh;
+  first = {};
+  second = {};
+  mesh.reset();
+  documents->collect();
+  documents.reset();
+  check(!lifetime.expired() && frame->vertices[1].x == 1.0F);
+  frame.reset();
+  check(lifetime.expired());
+#endif
+}
 void fixed_version_publication(tasks::execution_mode mode) {
   auto source = std::make_shared<memory_files>();
   source->pixel(std::byte{10});
@@ -292,7 +348,7 @@ void fixed_version_publication(tasks::execution_mode mode) {
   };
   backend.flush = [] {};
   texture_load_service service(scheduler, files, loader, std::move(backend), {},
-                               make_material_document_cache());
+                               make_cpu_document_cache());
   const auto until = [&](auto predicate) {
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
     while (!predicate()) {
@@ -387,7 +443,7 @@ void cooperative_read_slices() {
       .flush = [] {},
   };
   texture_load_service service(scheduler, vfs, loader, std::move(backend), {},
-                               make_material_document_cache());
+                               make_cpu_document_cache());
   const std::vector<std::string> uris{"asset://large.texture.json"};
   std::uint64_t request{};
   check(service.submit(uris, 1U, 1U, request) == GNEISS_SUCCESS);
@@ -455,7 +511,7 @@ void run(tasks::execution_mode mode) {
                                      },
                                  .flush = [&] { ready = true; }};
   texture_load_service service(scheduler, vfs, loader, std::move(backend), {},
-                               make_material_document_cache());
+                               make_cpu_document_cache());
   const auto advance = [&] {
     if (mode == tasks::execution_mode::cooperative) {
       (void)scheduler.run_ready();
@@ -618,7 +674,7 @@ void mixed(tasks::execution_mode mode, bool pbr = false) {
         return item.mesh ? 5U * 1024U * 1024U : 1U * 1024U * 1024U;
       }};
   texture_load_service service(scheduler, vfs, loader, std::move(backend), {},
-                               make_material_document_cache());
+                               make_cpu_document_cache());
   const auto advance = [&] {
     if (mode == tasks::execution_mode::cooperative) {
       (void)scheduler.run_ready();
@@ -660,6 +716,11 @@ void mixed(tasks::execution_mode mode, bool pbr = false) {
   check(loader.acquire_cached(requested[1], mesh_lease) == GNEISS_SUCCESS);
   check(loader.acquire_cached(requested[0], material_lease) == GNEISS_SUCCESS);
   const auto old_mesh = resources.share_mesh(mesh_lease.get());
+#ifdef GNEISS_ENABLE_CAORS_MESH
+  render_asset_lease unchanged_lease;
+  check(loader.acquire_cached(requested[2], unchanged_lease) == GNEISS_SUCCESS);
+  const auto unchanged_mesh = resources.share_mesh(unchanged_lease.get());
+#endif
   const auto old_material = resources.share_material(material_lease.get());
   auto changed = mesh;
   changed.replace(changed.find("[1,0,0]"), 7U, "[2,0,0]");
@@ -679,6 +740,11 @@ void mixed(tasks::execution_mode mode, bool pbr = false) {
   check(completion.state == texture_load_state::applied &&
         resources.share_mesh(mesh_lease.get()) != old_mesh && old_mesh->vertices[1].x == 1.0F &&
         resources.get_mesh(mesh_lease.get())->vertices[1].x == 2.0F);
+#ifdef GNEISS_ENABLE_CAORS_MESH
+  // 真实异步重载只改变第一个网格，其他网格继续复用同一 CPU 对象。
+  check(resources.share_mesh(unchanged_lease.get()) == unchanged_mesh);
+  unchanged_lease = {};
+#endif
   completion = {};
   leases.clear();
   cache.release_unused();
@@ -779,7 +845,7 @@ void packaged_lifetime(tasks::execution_mode mode) {
       .profile = {.generation = 1U, .sampled_transfer_formats = {true, true, false, false}}};
   auto service = std::make_unique<texture_load_service>(
       scheduler, vfs, loader, std::move(backend), std::shared_ptr<core::progress_notification>{},
-      make_material_document_cache());
+      make_cpu_document_cache());
   const auto until = [&](auto predicate) {
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
     while (!predicate()) {
@@ -884,7 +950,7 @@ void cancel_unpublished_upload(tasks::execution_mode mode) {
       .estimate_bytes = [](const auto&) { return texture_load_service::upload_budget_bytes; },
   };
   texture_load_service service(scheduler, vfs, loader, std::move(backend), {},
-                               make_material_document_cache());
+                               make_cpu_document_cache());
   const auto advance = [&] {
     if (mode == tasks::execution_mode::cooperative) {
       (void)scheduler.run_ready();
@@ -923,6 +989,7 @@ void cancel_unpublished_upload(tasks::execution_mode mode) {
 } // namespace
 
 int main() try {
+  shared_mesh_documents();
   fixed_version_publication(tasks::execution_mode::cooperative);
   fixed_version_publication(tasks::execution_mode::thread_pool);
   prepared_source_revisions();

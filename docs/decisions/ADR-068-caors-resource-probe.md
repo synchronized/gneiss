@@ -90,3 +90,14 @@ Windows 构建输出统一到 bin，安装由 CAORS 自身规则提供 DLL/导�
 静态 Engine 的 consumer 仍通过 find_dependency 解析链接依赖。Unix 共享 Engine 的安装
 搜索路径增加同目录，以匹配两个库同在 lib 的部署布局；平台行为须分别验收。
 仍不承诺跨编译器 C++ ABI 兼容：CAORS 与宿主须使用一致工具链和运行库。
+
+## Mesh CPU 资源接入
+
+将材质专用批次入口提升为 cpu_document_cache，仍由 asset_manager 唯一持有；
+通过独立且默认关闭的 GNEISS_ENABLE_CAORS_MESH 接入网格，不另建宿主、线程池或 VFS。
+Mesh 继续由原准备器读取、解析、校验和整批复验；成功后把数组移动到 CAORS 资源，
+按来源域、URI、摘要和输入大小共享同一不可变 CPU 数据。弱索引不选择当前渲染版本。
+渲染层接收不含第三方类型的 shared_ptr<const mesh_data>，别名所有者保活 CAORS handle；
+RID、上传候选及旧帧共享该对象，释放 RID 不提前释放旧帧数据。不复制整份 Mesh 数组。
+同内容的后续批次仍需读取、解析及复验，不将此项描述为加载加速。
+同步加载、未注入缓存的通道保留原路径；纹理载荷迁移不包含在本步中。

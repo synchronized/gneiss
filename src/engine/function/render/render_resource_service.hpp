@@ -43,6 +43,9 @@ public:
   /** 内部 CPU 候选已经校验，移动所有权避免主线程复制大数组。 */
   [[nodiscard]] gneiss_result create_prepared_mesh(mesh_resource resource,
                                                    core::rid* output) noexcept;
+  /** 已校验不可变 CPU 网格；RID 与旧帧共享同一对象，销毁 RID 不使外部引用失效。 */
+  [[nodiscard]] gneiss_result create_prepared_mesh(std::shared_ptr<const mesh_resource> resource,
+                                                   core::rid* output) noexcept;
   [[nodiscard]] bool replace_mesh(core::rid rid,
                                   std::shared_ptr<const mesh_resource> data) noexcept;
   [[nodiscard]] bool replace_material(core::rid rid,

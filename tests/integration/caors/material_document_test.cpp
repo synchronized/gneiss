@@ -4,7 +4,7 @@
 #include "engine/asset/caors_material_document.hpp"
 #include "engine/asset/caors_material_versions.hpp"
 #include "engine/asset/caors_vfs_bridge.hpp"
-#include "engine/asset/material_document_cache.hpp"
+#include "engine/asset/cpu_document_cache.hpp"
 #include "engine/asset/native_file_system.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "uv_async_file.hpp"
@@ -219,7 +219,7 @@ void run(std::size_t document_limit) {
   wait([&] { return !manager.database().has_active_operations() && loader->empty(); });
   check(cache.find_handle(id).get() == current.get(), "cancel preserves current");
   // 直接走生产使用的分步准备：复用已读取字节，不再从 Loader 启动第二次读取。
-  auto shared_documents = make_material_document_cache();
+  auto shared_documents = make_cpu_document_cache();
   check(shared_documents != nullptr, "material cache enabled");
   auto prepare = [&](bool change_source, bool dependency_missing) {
     auto documents = shared_documents->begin();

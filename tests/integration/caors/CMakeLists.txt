@@ -52,7 +52,7 @@ endif()
 add_executable(gneiss_caors_material_document_test material_document_test.cpp
   "${PROJECT_SOURCE_DIR}/src/engine/asset/native_file_system.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/asset/asset_preparation.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/asset/material_document_cache.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/asset/cpu_document_cache.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/asset/mesh_binary.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/asset/texture_binary.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/asset/texture_ktx2.cpp"
