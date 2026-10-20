@@ -561,8 +561,12 @@ main_thread_core_equivalent 为主线程 CPU 时间 / 进程墙钟时间，1 表
 ## 可选 CAORS 输入资源接入
 
 `-DGNEISS_ENABLE_CAORS_INPUT=ON` 在 Engine 内启用原生异步输入资源入口，默认关闭。
-依赖原生任务线程和 libuv，当前不支持 Emscripten。Runtime/Editor 调用点尚未自动切换。
+依赖原生任务线程和 libuv，当前不支持 Emscripten。启用后 Runtime 启动优先异步加载输入，
+映射应用成功后才激活场景和初始化游戏模块；Editor 尚未切换。显式 cooperative 模式保留同步启动。
 需要验证宿主时同时启用 `-DGNEISS_BUILD_CAORS_PROBE=ON`，运行 `gneiss.caors.application`。
 已接受请求通过主循环推进，须在 update 前观察 `action_map_status()`，不能把 begin 成功当加载完成。
 启用后的安装包含固定 CAORS 包；静态 Gneiss 包自动解析该依赖，公共头文件不包含 CAORS。
 方案与限制见[Application 接入计划](../plans/PLAN-051-caors-application-integration.md)。
+
+Runtime 集成回归可运行 `gneiss.runtime.async-input-startup`（同时启用 Runtime 和 CAORS 输入）。
+`gneiss_runtime --smoke` 创建真实隐藏窗口，完成后退出；正常启动仍显示窗口。

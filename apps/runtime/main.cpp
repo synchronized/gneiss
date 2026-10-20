@@ -51,6 +51,8 @@ struct runtime_context final {
   std::uint64_t next_stop_check_ns = 0U;
   gneiss::engine::application* application{};
   bool has_logged_first_frame = false;
+  bool input_pending = false;
+  std::string input_uri{};
   gneiss::game_module_session* game_module = nullptr;
   gneiss::runtime_internal::game_update_scheduler* game_scheduler = nullptr;
   gneiss::runtime_internal::runtime_ipc_session* ipc_session = nullptr;
@@ -357,7 +359,21 @@ gneiss_result update_runtime(gneiss_application application, const gneiss::engin
       }
     }
   }
-  if (context.scene_loader) {
+  // 等待输入映射时仍处理 IPC、停止文件和窗口事件；场景激活会初始化游戏，必须晚于输入就绪。
+  if (context.input_pending) {
+    const auto input_result = context.application->action_map_status();
+    if (input_result != GNEISS_ERROR_NOT_READY) {
+      context.input_pending = false;
+      if (context.log)
+        context.log->write(input_result == GNEISS_SUCCESS ? "INFO" : "ERROR", "input_map",
+                           input_result,
+                           input_result == GNEISS_SUCCESS ? "输入映射加载完成" : "输入映射加载失败",
+                           context.input_uri);
+      if (input_result != GNEISS_SUCCESS)
+        return input_result;
+    }
+  }
+  if (context.scene_loader && !context.input_pending) {
     const auto advanced = context.scene_loader->advance();
     if (advanced != GNEISS_SUCCESS)
       return advanced;
@@ -556,6 +572,7 @@ void write_application_log(const gneiss::log_internal::event_view& source,
   };
   desc.use_granit_window = true;
   desc.window.title = project.name;
+  desc.window.visible = !options.smoke; // 自动冒烟创建真实隐藏窗口，避免抢占桌面。
 
   desc.asset_root = asset_root;
 
@@ -590,12 +607,23 @@ void write_application_log(const gneiss::log_internal::event_view& source,
   }
 
   if (!project.input_map.empty()) {
-    const auto input_result = application->load_action_map(project.input_map);
+    auto input_result = application->begin_action_map(project.input_map);
+    if (input_result == GNEISS_ERROR_UNSUPPORTED ||
+        (options.cooperative_tasks && input_result == GNEISS_ERROR_NOT_READY)) {
+      // 默认未启用及显式 cooperative 模式保留同步启动，不掩盖其他异步失败。
+      input_result = application->load_action_map(project.input_map);
+      if (input_result == GNEISS_SUCCESS)
+        log.write("INFO", "input_map", GNEISS_SUCCESS, "输入映射加载完成", project.input_map);
+    } else if (input_result == GNEISS_SUCCESS) {
+      context.input_pending = true;
+      context.input_uri = project.input_map;
+      log.write("INFO", "input_map_pending", GNEISS_SUCCESS, "正在异步加载输入映射",
+                project.input_map);
+    }
     if (input_result != GNEISS_SUCCESS) {
       log.write("ERROR", "input_map", input_result, "输入映射加载失败", project.input_map);
       return 4;
     }
-    log.write("INFO", "input_map", GNEISS_SUCCESS, "输入映射加载完成", project.input_map);
   }
 
   gneiss_scene_instance scene = GNEISS_NULL_SCENE_INSTANCE;

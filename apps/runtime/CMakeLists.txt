@@ -213,3 +213,15 @@ if(BUILD_TESTING)
     set_tests_properties(gneiss.runtime.stop-protocol PROPERTIES TIMEOUT 50)
   endif()
 endif()
+
+if(BUILD_TESTING AND GNEISS_ENABLE_CAORS_INPUT)
+  add_test(NAME gneiss.runtime.async-input-startup
+    COMMAND "${CMAKE_COMMAND}"
+      -DGNEISS_RUNTIME=$<TARGET_FILE:gneiss_runtime>
+      -DGAME_MODULE=$<TARGET_FILE:gneiss_game_module_valid_fixture>
+      -DSOURCE_PROJECT=${PROJECT_SOURCE_DIR}/examples/editor_demo
+      -DINPUT_MAP=${PROJECT_SOURCE_DIR}/examples/temple/assets/input/default.input-map.json
+      -DTEST_PARENT=${PROJECT_BINARY_DIR}
+      -P "${CMAKE_CURRENT_SOURCE_DIR}/tests/async_input_startup_test.cmake")
+  set_tests_properties(gneiss.runtime.async-input-startup PROPERTIES TIMEOUT 60)
+endif()

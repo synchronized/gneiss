@@ -5,7 +5,7 @@
 
 ## 状态
 
-2026-10-20，用户已确认方案 A，已接入可选原生 Application 输入加载链路；默认构建、Runtime 和 Editor 调用点尚未切换。
+2026-10-20，用户已确认方案 A，已接入可选原生 Application 输入加载链路；默认构建保持关闭，Editor 调用点尚未切换。
 现有闭环见[输入资源应用记录](../records/2026-10-20-caors-input-application.md)。
 
 ## 已核实的接入边界
@@ -98,10 +98,15 @@ attach 后借用既有线程调度器和 I/O loop；主循环在 update 前推�
 最终复验在 worker 上通过既有 VFS 的有界同步 libuv 读取重新计算摘要，随后才发布 CAORS 缓存；
 上限 1 MiB，会占用一个工作线程，但不在主线程等 I/O。这是发布前的变化检测，
 不保证复验完成后到主线程应用之间文件系统具有跨进程原子快照。
-Runtime 和 Editor 调用点仍使用旧接口；窗口验收、真实项目切换尚未完成。
+Runtime 启动已优先调用异步入口；等待期间继续窗口事件、IPC 和停止文件检查，
+场景激活及游戏模块初始化延后至输入映射应用成功。异步失败终止启动，不进入游戏。
+后端未启用及显式 cooperative 模式保留同步启动；其他失败不静默回退。
+`--smoke` 使用真实隐藏窗口，正常启动仍显示窗口。Editor 调用点尚未切换。
 
 本地 Windows Clang Debug 验收：启用后的共享 Engine 与 13 项相关测试通过，真实 Application
 测试重复 10 次通过；启用后的静态 Engine、默认关闭的共享 Engine 均通过原生入口测试。
 静态启用包与共享关闭包分别安装到干净前缀，C/C++、application_world、property_inspector
 四项 consumer 全部通过。独立桥接测试另覆盖最终复验失败不替换缓存、复验在工作线程执行。
-未验证启用后的共享安装包、实际窗口、跨屏、Emscripten、Runtime/Editor 启动切换及性能改善。
+Runtime 已通过真实隐藏窗口冒烟：异步输入完成早于游戏初始化、cooperative 同步回退、
+无效输入阻止游戏初始化；既有无输入映射冒烟及启动诊断也通过（3 项 CTest）。
+未验证启用后的共享安装包、可见窗口交互关闭/resize/跨屏、Emscripten、Editor 切换及性能改善。
