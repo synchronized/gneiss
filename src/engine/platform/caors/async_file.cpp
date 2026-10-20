@@ -1,34 +1,14 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#pragma once
-#include "uv_async_file.hpp"
-#include <caors/io/async_file.h>
+#include "adapter.hpp"
+#include "result.hpp"
 #include <mutex>
 #include <vector>
-
-namespace gneiss::caors_probe {
-inline caors::io::io_error translate(result status) {
-  using caors::io::io_errc;
-
-  if (status == result::success)
-    return {};
-  if (status == result::not_found)
-    return {io_errc::not_found};
-  if (status == result::invalid_state)
-    return {io_errc::closed};
-  if (status == result::invalid_argument)
-    return {io_errc::invalid_argument};
-  if (status == result::out_of_memory)
-    return {io_errc::out_of_memory};
-  if (status == result::not_ready)
-    return {io_errc::pending};
-
-  return {io_errc::backend_failure, 1, static_cast<gneiss_result>(status)};
-}
-
+namespace gneiss::caors_internal {
+namespace {
 // 验证阶段由宿主 pump 推进；所有完成凭证在锁外交付，允许内联 completion。
-class async_file final : public caors::io::async_file {
+class async_file final : public file_adapter {
   struct read {
     std::unique_ptr<io_internal::uv_file_read_operation> operation;
     caors::memory_resource* resource{};
@@ -39,7 +19,7 @@ public:
   explicit async_file(std::shared_ptr<io_internal::uv_async_file> file) : file_(std::move(file)) {}
   ~async_file() override { file_->begin_close(); }
   // 宿主放弃 pump 前必须调用；解除凭证保活环，真实 I/O 仍由 libuv 排空。
-  void abandon() {
+  void abandon() override {
     std::vector<read> reads;
     std::vector<caors::io::io_completion<caors::io::close_result>> closes;
     {
@@ -83,7 +63,7 @@ public:
     file_->begin_close();
     return {};
   }
-  void pump() {
+  void pump() override {
     std::vector<read> ready;
     std::vector<caors::io::io_completion<caors::io::close_result>> closed;
     result close_status = result::not_ready;
@@ -130,4 +110,8 @@ private:
   std::vector<read> reads_;
   std::vector<caors::io::io_completion<caors::io::close_result>> closes_;
 };
-} // namespace gneiss::caors_probe
+}
+std::shared_ptr<file_adapter> make_file(std::shared_ptr<io_internal::uv_async_file> file) {
+  return std::make_shared<async_file>(std::move(file));
+}
+}

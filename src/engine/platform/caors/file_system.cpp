@@ -1,14 +1,16 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#pragma once
-#include "async_file.hpp"
+#include "adapter.hpp"
+#include "result.hpp"
 #include <caors/io/native_file_system.h>
-
-namespace gneiss::caors_probe {
+#include <mutex>
+#include <vector>
+namespace gneiss::caors_internal {
+namespace {
 // 验证用本地叶后端：空根路径，不另建挂载表。宿主借用的 io/loop 必须最后销毁。
 // start_open 可由 worker 调用；pump/abandon 由同一宿主线程串行、非重入调用。
-class file_system final : public caors::io::file_system {
+class file_system final : public file_system_adapter {
   struct opening {
     std::unique_ptr<io_internal::uv_file_open_operation> operation;
     caors::io::io_completion<std::shared_ptr<caors::io::async_file>> completion;
@@ -44,7 +46,7 @@ public:
     pending_.push_back(std::move(next));
     return {};
   }
-  void pump() {
+  void pump() override {
     std::vector<opening> ready;
     {
       const std::scoped_lock lock(mutex_);
@@ -68,7 +70,7 @@ public:
         continue;
       }
       try {
-        auto file = std::make_shared<async_file>(std::move(source));
+        auto file = make_file(std::move(source));
         files_.push_back(file);
         (void)next.completion.complete({{}, std::move(file)});
       } catch (const std::bad_alloc&) {
@@ -84,7 +86,7 @@ public:
     }
   }
   // 不再接收打开；释放所有未交付凭证，loop 继续排空真实操作。
-  void abandon() {
+  void abandon() override {
     std::vector<opening> pending;
     {
       const std::scoped_lock lock(mutex_);
@@ -103,6 +105,10 @@ private:
   std::mutex mutex_;
   bool stopped_{};
   std::vector<opening> pending_;
-  std::vector<std::weak_ptr<async_file>> files_;
+  std::vector<std::weak_ptr<file_adapter>> files_;
 };
-} // namespace gneiss::caors_probe
+}
+std::shared_ptr<file_system_adapter> make_file_system(io_internal::uv_file_io& io) {
+  return std::make_shared<file_system>(io);
+}
+}

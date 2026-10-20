@@ -1,0 +1,7 @@
+{
+  "format": "gneiss.input-map",
+  "version": 1,
+  "actions": [
+    { "name": "invalid", "bindings": [{ "key": 256, "scale": 1.0 }] }
+  ]
+}

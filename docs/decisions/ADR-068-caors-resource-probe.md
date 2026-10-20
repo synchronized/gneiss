@@ -12,11 +12,13 @@
 ## 决策
 
 - 新增默认关闭的 `GNEISS_BUILD_CAORS_PROBE`，CAORS 0.4.0 固定提交，MIT 许可。
-- CAORS 静态链接在单个验证 EXE 内；不链接 Engine DLL，不向 SDK 传播其头文件或对象。
+- CAORS 适配位于 `src/engine/platform/caors`，以内部静态库 `gneiss_caors_adapter` 编译，
+  目前仅验证 EXE 链接；不链接 Engine DLL，不向 SDK 传播其头文件或对象。
   不影响普通 Gneiss 安装包；完整引擎集成的动态/静态部署另行确认。
 - 唯一资源缓存由 CAORS cache 提供，交给 asset_manager 注册管理；不再创建平行缓存。
 - 用 Gneiss task_executor 的独立 scope 适配 external_executor；主线程 completion 队列不创建线程。
-- 首个资源为真实输入映射 JSON 的解析文档；yyjson 负责语法解析，不声称已经实例化输入映射或场景。
+- 首个资源使用既有 `parse_action_map` 解析为强类型 action_map，校验键值和绑定规则；
+  解析器与旧 VFS 的同步加载函数分离，共享相同实现，不自动应用到 InputService。
 - CAORS provider/路由快照负责来源解析；本阶段明确仅使用 root 为空的 native 后端，
   target_prefix 解析为本地路径。打开通过 CAORS request_open / VFS start_open，读取通过 async_file，
   libuv 回执封装于验证后端，宿主 pump 回执，
@@ -31,5 +33,7 @@ libuv 显式关闭拒绝新读并等待在途读结束，实际关闭回调结�
 不能声称强制中断了已提交的操作系统 I/O。
 异常退出也必须先关闭工作 scope、放弃回执并排空 loop，再销毁 Loader/manager。
 
-通过验证后将适配拆入私有实现模块，再迁移具体资源；不提前切换 Editor。
+平台适配以 `.cpp` 隐藏实现，仅内部头文件暴露宿主 pump/abandon/collect 与工厂；
+平台模块不依赖输入、场景或其他业务资源。强类型加载验证仍留在测试目标中。
+下一步迁移正式资源服务入口，明确生效与失败回滚；不提前切换 Editor。
 替代方案是一次替换所有资产路径，风险更大，且无法定位协议与生产迁移的问题边界。

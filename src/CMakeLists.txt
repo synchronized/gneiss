@@ -99,6 +99,7 @@ target_sources(
     engine/function/input/input_service.hpp
     engine/function/input/action_map_validation.cpp
     engine/function/input/action_map.cpp
+    engine/function/input/action_map_parser.cpp
     engine/function/input/action_map.hpp
     engine/api/log_api.cpp
     engine/api/log_validation.hpp

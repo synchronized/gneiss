@@ -3,13 +3,13 @@
 
 // 独立接入验证：不链接 Engine DLL，不将 CAORS 对象带入公共 SDK。
 #include "engine/core/tasks/task_scheduler.hpp"
-#include "file_system.hpp"
+#include "engine/function/input/action_map.hpp"
+#include "engine/platform/caors/adapter.hpp"
 #include "uv_async_file.hpp"
 #include "uv_loop_executor.hpp"
 #include <caors/assets.h>
 #include <caors/io.h>
 #include <caors/tasks.h>
-#include <yyjson.h>
 
 #include <algorithm>
 #include <atomic>
@@ -29,66 +29,26 @@ using gneiss::result;
 
 error failure(errc value) { return {error_domain::resources, value}; }
 
-// 每个适配器只占用宿主的一个 scope，不创建第二套线程池。
-class worker_context final : public caors::tasks::external_executor_context {
-public:
-  explicit worker_context(gneiss::tasks::task_executor& executor)
-      : executor_(executor), scope_(executor.make_scope()) {}
-  error post(caors::tasks::task task) override {
-    const std::scoped_lock lock(mutex_);
-    if (closed_)
-      return failure(errc::frozen);
-    auto owned = std::make_shared<caors::tasks::task>(std::move(task));
-    gneiss::tasks::task_handle handle;
-    const auto status = executor_.submit(
-        {.name = "caors", .scope = scope_},
-        [owned](const auto&) {
-          (void)(*owned)();
-          return gneiss::tasks::task_outcome{};
-        },
-        handle);
-    return status == gneiss::tasks::submit_result::success ? error{} : failure(errc::frozen);
-  }
-  // 只能由宿主线程调用；任务内关闭由宿主协议禁止。
-  void close() noexcept override {
-    {
-      const std::scoped_lock lock(mutex_);
-      closed_ = true;
-    }
-    (void)executor_.close_scope(scope_);
-  }
-  void collect() {
-    std::vector<gneiss::tasks::task_completion> values;
-    (void)executor_.poll(scope_, values);
-  }
-
-private:
-  gneiss::tasks::task_executor& executor_;
-  gneiss::tasks::task_scope scope_;
-  std::mutex mutex_;
-  bool closed_{};
-};
-
-struct json_asset final : caors::resource {
+struct action_map_asset final : caors::resource {
   using caors::resource::resource;
-  std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)> document{nullptr, yyjson_doc_free};
+  gneiss::input_internal::action_map map;
 };
 
 // CAORS 捕获来源并完成打开/读取；宿主推进后端与完成队列，worker 只负责解析。
 // 当前仍是单资源验证，未切换生产资产路径。
-class json_loader final : public caors::resources::async_loader<json_asset> {
+class action_map_loader final : public caors::resources::async_loader<action_map_asset> {
   struct operation {
     caors::resources::async_load_context context;
-    caors::resources::load_completion<json_asset> completion;
+    caors::resources::load_completion<action_map_asset> completion;
     caors::io::io_request<std::shared_ptr<caors::io::async_file>> opening;
     std::shared_ptr<caors::io::async_file> file;
     caors::io::io_request<caors::io::byte_buffer> reading;
   };
 
 public:
-  explicit json_loader(gneiss::caors_probe::file_system& files) : files_(files) {}
+  explicit action_map_loader(gneiss::caors_internal::file_system_adapter& files) : files_(files) {}
   error start(caors::resources::async_load_context context,
-              caors::resources::load_completion<json_asset> completion) override {
+              caors::resources::load_completion<action_map_asset> completion) override {
     if (!context.sources)
       return failure(errc::invalid_argument);
     auto resolved = context.sources->resolve(context.guid);
@@ -170,12 +130,15 @@ public:
             return;
           }
           try {
-            auto value = caors::memory::make_unique<json_asset>(owned->context.resource,
-                                                                owned->context.guid);
-            value->document.reset(
-                yyjson_read(reinterpret_cast<const char*>(bytes.data()), bytes.size(), 0));
-            if (!value->document || !yyjson_is_obj(yyjson_doc_get_root(value->document.get()))) {
-              (void)owned->completion.complete({failure(errc::invalid_argument), {}});
+            auto value = caors::memory::make_unique<action_map_asset>(owned->context.resource,
+                                                                      owned->context.guid);
+            const auto parsed = gneiss::input_internal::parse_action_map(
+                {reinterpret_cast<const char*>(bytes.data()), bytes.size()}, value->map);
+            if (parsed != result::success) {
+              (void)owned->completion.complete(
+                  {failure(parsed == result::out_of_memory ? errc::out_of_memory
+                                                           : errc::invalid_argument),
+                   {}});
               return;
             }
             (void)owned->completion.complete({{}, std::move(value)});
@@ -221,7 +184,7 @@ private:
     return failure(errc::backend_failure);
   }
   caors::tasks::execution_context io_completions_;
-  gneiss::caors_probe::file_system& files_;
+  gneiss::caors_internal::file_system_adapter& files_;
   std::mutex mutex_;
   std::vector<std::shared_ptr<operation>> pending_;
 };
@@ -242,7 +205,7 @@ void check_file_contract(gneiss::io_internal::uv_file_io& io, const char* path) 
     std::this_thread::sleep_for(1ms);
   }
   require(status == result::success && source->size() >= 8, "contract opened");
-  auto file = std::make_shared<gneiss::caors_probe::async_file>(std::move(source));
+  auto file = gneiss::caors_internal::make_file(std::move(source));
   caors::tasks::execution_context queue;
   auto first = caors::io::request_read(file, 0, 4, 4, queue.get_executor());
   auto second = caors::io::request_read(file, 4, 4, 4, queue.get_executor());
@@ -280,8 +243,8 @@ void check_file_contract(gneiss::io_internal::uv_file_io& io, const char* path) 
     std::this_thread::sleep_for(1ms);
   }
   require(status == result::success, "abandon opened");
-  auto abandoned_file = std::make_shared<gneiss::caors_probe::async_file>(std::move(source));
-  std::weak_ptr<gneiss::caors_probe::async_file> weak = abandoned_file;
+  auto abandoned_file = gneiss::caors_internal::make_file(std::move(source));
+  std::weak_ptr<gneiss::caors_internal::file_adapter> weak = abandoned_file;
   {
     auto abandoned_read = caors::io::request_read(abandoned_file, 0, 4, 4, queue.get_executor());
     require(static_cast<bool>(abandoned_read), "abandoned read accepted");
@@ -297,14 +260,14 @@ void check_file_contract(gneiss::io_internal::uv_file_io& io, const char* path) 
 
 void check_vfs_contract(gneiss::io_internal::uv_file_io& io, const char* path) {
   using namespace caors::io;
-  std::weak_ptr<gneiss::caors_probe::file_system> lifetime;
+  std::weak_ptr<gneiss::caors_internal::file_system_adapter> lifetime;
   std::shared_ptr<caors::io::async_file> pinned;
   {
-    auto files = std::make_shared<gneiss::caors_probe::file_system>(io);
+    auto files = gneiss::caors_internal::make_file_system(io);
     lifetime = files;
     caors::tasks::execution_context queue;
     struct cleanup {
-      gneiss::caors_probe::file_system& files;
+      gneiss::caors_internal::file_system_adapter& files;
       caors::tasks::execution_context& queue;
       ~cleanup() {
         files.abandon();
@@ -389,16 +352,16 @@ int run(const char* asset_path) {
   check_file_contract(io, asset_path);
   check_vfs_contract(io, asset_path);
   gneiss::tasks::task_scheduler scheduler({.workers = 1});
-  auto context = std::make_shared<worker_context>(scheduler);
+  auto context = gneiss::caors_internal::make_worker(scheduler);
   caors::tasks::external_executor worker(context);
   caors::tasks::execution_context completions; // 主线程队列，无新线程。
-  caors::resources::cache<json_asset> cache;
-  auto files = std::make_shared<gneiss::caors_probe::file_system>(io);
-  json_loader loader(*files);
+  caors::resources::cache<action_map_asset> cache;
+  auto files = gneiss::caors_internal::make_file_system(io);
+  action_map_loader loader(*files);
   caors::assets::asset_manager manager({worker.get_executor(), completions.get_executor()});
   struct cleanup {
     caors::tasks::external_executor& worker;
-    json_loader& loader;
+    action_map_loader& loader;
     caors::tasks::execution_context& completions;
     gneiss::io_internal::uv_loop_executor& loop;
     ~cleanup() {
@@ -418,7 +381,7 @@ int run(const char* asset_path) {
   // 使用 resolver 的 URI 转发，绝对目标由 target_prefix 指定。
   require(!router->mount("asset://document", files, path), "document mount");
   require(!manager.provider().bind(guid(1), source, "asset://document"), "bind");
-  require(!manager.register_type(cache, loader, caors::string_name{"gneiss.probe.json"}),
+  require(!manager.register_type(cache, loader, caors::string_name{"gneiss.input.action_map"}),
           "register");
   auto wait = [&](auto predicate) {
     const auto deadline = std::chrono::steady_clock::now() + 10s;
@@ -430,19 +393,23 @@ int run(const char* asset_path) {
       std::this_thread::sleep_for(1ms); // 仅测试宿主节拍，不是 worker 等待 I/O。
     }
   };
-  auto first = manager.request_load<json_asset>(guid(1));
-  auto second = manager.request_load<json_asset>(guid(1));
+  auto first = manager.request_load<action_map_asset>(guid(1));
+  auto second = manager.request_load<action_map_asset>(guid(1));
   require(first.cancel(), "cancel subscription");
   wait([&] { return second.done(); });
   require(first.cancelled() && second.loaded(), "independent cancellation");
   require(loader.starts == 1, "deduplicate loading");
-  require(yyjson_obj_size(yyjson_doc_get_root(second.try_get()->document.get())) > 0,
-          "parsed real JSON");
-  auto cached = manager.request_load<json_asset>(guid(1));
+  require(!second.try_get()->map.actions.empty(), "parsed typed action map");
+  const auto& map = second.try_get()->map;
+  require(map.actions.size() == 2 && map.actions[0].name == "move_horizontal" &&
+              map.actions[0].bindings.size() == 2 && map.actions[0].bindings[0].physical_key == 4 &&
+              map.actions[0].bindings[0].scale == -1.0F && map.actions[1].name == "quit",
+          "typed values preserved");
+  auto cached = manager.request_load<action_map_asset>(guid(1));
   require(cached.loaded() && cached.try_get().get() == second.try_get().get() && loader.starts == 1,
           "cache hit");
   require(!manager.provider().bind(guid(2), source, "asset://document/missing"), "missing bind");
-  auto missing = manager.request_load<json_asset>(guid(2));
+  auto missing = manager.request_load<action_map_asset>(guid(2));
   wait([&] { return missing.done(); });
   require(missing.failed(), "missing fails");
   // 源码文件可读但不是 JSON，区分 I/O 成功与解析失败。
@@ -450,18 +417,29 @@ int run(const char* asset_path) {
                          std::filesystem::absolute(__FILE__).generic_string()),
           "invalid mount");
   require(!manager.provider().rebind(guid(1), source, "asset://invalid"), "invalid rebind");
-  auto invalid = manager.request_reload<json_asset>(guid(1));
+  auto invalid = manager.request_reload<action_map_asset>(guid(1));
   wait([&] { return invalid.done(); });
   require(invalid.failed(), "invalid JSON fails");
-  require(manager.find<json_asset>(guid(1)) == second.try_get().get(),
+  require(manager.find<action_map_asset>(guid(1)) == second.try_get().get(),
           "failed reload keeps cached resource");
+  require(
+      !router->mount("asset://invalid-schema", files,
+                     (std::filesystem::absolute(__FILE__).parent_path() / "invalid.input-map.json")
+                         .generic_string()),
+      "invalid schema mount");
+  require(!manager.provider().rebind(guid(1), source, "asset://invalid-schema"), "schema rebind");
+  auto invalid_schema = manager.request_reload<action_map_asset>(guid(1));
+  wait([&] { return invalid_schema.done(); });
+  require(invalid_schema.failed() &&
+              manager.find<action_map_asset>(guid(1)) == second.try_get().get(),
+          "valid JSON with invalid binding rejected without replacing cache");
   require(!manager.provider().rebind(guid(1), source, "asset://document"), "restore source");
-  auto cancelled = manager.request_reload<json_asset>(guid(1));
+  auto cancelled = manager.request_reload<action_map_asset>(guid(1));
   require(cancelled.cancel(), "cancel reload");
   wait([&] { return !manager.database().has_active_operations() && loader.empty(); });
-  require(manager.find<json_asset>(guid(1)) == second.try_get().get(),
+  require(manager.find<action_map_asset>(guid(1)) == second.try_get().get(),
           "cancel keeps cached resource");
-  auto closing = manager.request_reload<json_asset>(guid(1));
+  auto closing = manager.request_reload<action_map_asset>(guid(1));
   // 不 pump，让请求停留在等待 I/O 回执的阶段，再排空工作 scope。
   const auto deadline = std::chrono::steady_clock::now() + 10s;
   while (loader.empty()) {

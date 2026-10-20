@@ -395,6 +395,7 @@ add_executable(
   input/action_map_test.cpp
   "${PROJECT_SOURCE_DIR}/src/engine/function/input/action_map_validation.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/input/action_map.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/function/input/action_map_parser.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/asset/asset_uri.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/asset/virtual_file_system.cpp"
 )
