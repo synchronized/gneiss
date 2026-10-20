@@ -243,6 +243,8 @@
 
 ## 实施与验收记录
 
+- [CAORS VFS 异步打开接入验证](records/2026-10-20-caors-vfs-open.md)
+
 - [CAORS async_file 与 libuv 范围读取、关闭验证](records/2026-10-20-caors-async-file.md)
 
 - [CAORS 单资源加载接入验证](records/2026-10-20-caors-resource-probe.md)
