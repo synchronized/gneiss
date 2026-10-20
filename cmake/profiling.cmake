@@ -9,11 +9,19 @@ if(GNEISS_ENABLE_PROFILING)
     message(FATAL_ERROR "Tracy profiling 配置当前仅用于原生宿主")
   endif()
   include(FetchContent)
-  FetchContent_Declare(gneiss_tracy_source
-    GIT_REPOSITORY https://github.com/wolfpld/tracy.git
-    GIT_TAG 05cceee0df3b8d7c6fa87e9638af311dbabc63cb
-    GIT_SHALLOW TRUE
-    SOURCE_SUBDIR gneiss-no-cmake)
+  include("${CMAKE_CURRENT_LIST_DIR}/dependency_source_cache.cmake")
+  if(NOT FETCHCONTENT_SOURCE_DIR_GNEISS_TRACY_SOURCE)
+    gneiss_cached_archive(tracy
+      "https://codeload.github.com/wolfpld/tracy/tar.gz/05cceee0df3b8d7c6fa87e9638af311dbabc63cb"
+      "9447edfc59838348e94f7057999b65612d6a9073020efa5a9bea75200377ee1d" CMakeLists.txt cached_source)
+    FetchContent_Declare(gneiss_tracy_source SOURCE_DIR "${cached_source}"
+      BINARY_DIR "${CMAKE_BINARY_DIR}/_deps/gneiss_tracy_source-build"
+      SOURCE_SUBDIR gneiss-no-cmake)
+  else()
+    FetchContent_Declare(gneiss_tracy_source
+      BINARY_DIR "${CMAKE_BINARY_DIR}/_deps/gneiss_tracy_source-build"
+      SOURCE_SUBDIR gneiss-no-cmake)
+  endif()
   FetchContent_MakeAvailable(gneiss_tracy_source)
   # 一个进程共用该共享 client，不能在每个静态模块里分别编译 TracyClient.cpp。
   add_library(gneiss_tracy SHARED "${gneiss_tracy_source_SOURCE_DIR}/public/TracyClient.cpp")

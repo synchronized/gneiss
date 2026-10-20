@@ -68,3 +68,20 @@ Application、材质文档、缓存脚本共 4 项 CTest 通过。另验证同�
 两个独立 Debug/Release 小型 consumer 在离线模式下解析到相同 libuv 源码和不同 binary dir；
 显式源码覆盖成功且没有创建指定缓存目录。这两项是 configure 验证，非完整 Release 构建。
 未跑完整安装矩阵、Linux 或其他八项下载依赖迁移。第三方 libuv 构建仍有上游警告，未关闭警告。
+
+### 第二批：工具与编辑器依赖
+
+ImGui、ImGuizmo、MikkTSpace、bc7enc_rdo 默认版本及 Tracy 已接入共享归档缓存。
+保持原提交，归档从对应提交的 codeload URL 获取并固定 SHA256；本地源码覆盖优先。
+这些接入使用项目自身定义的编译目标，不调用归档内上游 CMake，避免引入额外构建行为。
+bc7enc 的自定义仓库/提交继续走原 Git 获取，离线必须显式提供本地源码，不静默回到默认版本。
+四项原静态目标和 Tracy 共享目标的链接类型不变。Granit、CAORS、fastgltf 尚未迁移。
+
+第二批本地验收：Editor、assetc 重建成功；assetc inspect/cook、隐藏 Editor 冒烟、缓存脚本
+共 4 项 CTest 通过。另建立启用 Tracy 的独立 Debug consumer，五项依赖均构建通过，
+Tracy 保持共享库。Debug/Release 两次离线 configure 使用相同源码、不同 binary dir；
+五项显式源码覆盖均成功，未创建指定的备用缓存目录。Release 仅配置，未完成构建。
+自定义 bc7enc 离线且未提供本地源码时明确拒绝。未验证 Linux、完整安装与运行时性能。
+
+验证时过长的临时构建目录触发 Windows 260 字符限制（FetchContent 子构建），换用较短
+`build/sc-custom` 后完成自定义仓库拒绝测试；本轮不宣称解决所有 Windows 长路径限制。
