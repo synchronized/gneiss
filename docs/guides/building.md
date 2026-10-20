@@ -576,7 +576,7 @@ Runtime 集成回归可运行 `gneiss.runtime.async-input-startup`（同时启�
 
 ## 第三方源码缓存
 
-libuv、ImGui、ImGuizmo、MikkTSpace、bc7enc_rdo（默认锁定版本）和 Tracy 使用仓库级
+libuv、ImGui、ImGuizmo、MikkTSpace、bc7enc_rdo、fastgltf（默认锁定版本）、simdjson 和 Tracy 使用仓库级
 `vendor/cache` 保存已校验归档与源码，构建产物仍在当前 preset 的 `build/<preset>/_deps`。
 其余依赖的迁移见
 [源码缓存实施计划](../plans/PLAN-051-dependency-source-cache.md)。
@@ -585,11 +585,16 @@ libuv、ImGui、ImGuizmo、MikkTSpace、bc7enc_rdo（默认锁定版本）和 Tr
 - `GNEISS_DEPENDENCY_OFFLINE=ON`：缓存获取禁止下载；支持完整源码命中或从已有有效归档解压。
   此开关目前只约束接入缓存辅助函数的依赖，不保证整个工程离线。
 - `FETCHCONTENT_SOURCE_DIR_GNEISS_<NAME>_SOURCE`：显式本地源码覆盖，优先于缓存获取；
-  `<NAME>` 可为 `LIBUV`、`IMGUI`、`IMGUIZMO`、`MIKKTSPACE`、`BC7ENC`、`TRACY`。
-- 自定义 bc7enc 仓库或提交仍走原 Git 获取路径，不冒用默认归档摘要；离线时必须提供上述
+  `<NAME>` 可为 `LIBUV`、`IMGUI`、`IMGUIZMO`、`MIKKTSPACE`、`BC7ENC`、`TRACY`、`SIMDJSON`；
+  fastgltf 使用 `FETCHCONTENT_SOURCE_DIR_FASTGLTF`。
+- 自定义 bc7enc/fastgltf 仓库或提交仍走原 Git 获取路径，不冒用默认归档摘要；离线时必须提供上述
   本地源码覆盖。Tracy 仍按 `GNEISS_ENABLE_PROFILING` 启用，链接方式仍为共享库。
 
 缓存内容不提交 Git；不要在共享源码目录修改代码或生成编译产物。损坏归档、缺失完成标记会
 报告具体路径，工具不会自动删除用户目录。失败时 staging 可留下诊断材料，不会作为有效源码。
 首次下载校验 SHA256；完整源码缓存命中只检查完成标记和入口，不逐文件重算摘要。
 源码复用不意味着 Debug/Release、不同编译器或静态/共享模式共用库文件。
+
+fastgltf 的 simdjson 3.12.3 以独立源码缓存及私有静态目标提供，上游检测到 target 后跳过
+向自身 `deps/simdjson` 下载文件。Gneiss 不安装 fastgltf SDK；此私有链接只用于构建树。
+宿主若预先提供 `simdjson::simdjson`，沿用其 target，兼容性由宿主负责。

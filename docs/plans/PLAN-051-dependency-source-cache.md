@@ -85,3 +85,17 @@ Tracy 保持共享库。Debug/Release 两次离线 configure 使用相同源码�
 
 验证时过长的临时构建目录触发 Windows 260 字符限制（FetchContent 子构建），换用较短
 `build/sc-custom` 后完成自定义仓库拒绝测试；本轮不宣称解决所有 Windows 长路径限制。
+
+### 第三批：fastgltf 与 simdjson
+
+fastgltf 默认固定提交已接入归档缓存，自定义仓库保留 Git 路径，离线需显式源码覆盖。
+发现上游原配置会下载 simdjson 到源码树，故同步将其原有 3.12.3 版本纳入独立归档缓存，
+从 singleheader 源构建私有静态 target，提前提供 simdjson::simdjson 以跳过上游下载。
+保留宿主已提供 target 的行为，不修改上游源码。上游仍生成安装导出，因此私有 simdjson
+链接限定构建树；Gneiss 不安装 fastgltf SDK，不能将此配置作为独立 fastgltf SDK 发布。
+
+本地 Windows Clang Debug：assetc 与 glTF 导入测试重建成功；glTF importer、assetc
+inspect/cook、缓存脚本共 4 项测试通过。独立 Debug/Release 离线 configure 共用源码、
+隔离构建目录，本地源码覆盖不触碰缓存。逐文件比较两个源码缓存与下载归档，除缓存完成
+标记外没有新增或修改文件，未出现上游源码下载写入。Release 未构建，Linux、完整安装未验收。
+目前原九项直接下载依赖中已完成七项；额外处理一项传递依赖 simdjson。Granit 与 CAORS 尚未迁移。
