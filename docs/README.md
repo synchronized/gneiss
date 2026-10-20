@@ -80,6 +80,8 @@
 
 ## 路线图与开发计划
 
+- [Application 接入 CAORS 输入资源：边界与实施方案](plans/PLAN-051-caors-application-integration.md)
+
 - [C51-08～10：CAORS VFS 缓存一致性、分块读取与快照成本研究](plans/UPSTREAM-051-caors-vfs-followups.md)
 - [C51-07：CAORS 统一 VFS 与异步读取实施方案](plans/UPSTREAM-051-caors-async-vfs.md)
 - [UPSTREAM-051：CAORS 接入约束与上游改进建议](plans/UPSTREAM-051-caors-integration-contracts.md)
