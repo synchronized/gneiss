@@ -101,26 +101,57 @@ void run(gneiss::tasks::execution_mode mode) {
   };
   write_material(false);
   std::ofstream(files.root / "s.scene")
-      << R"({"format":"gneiss.scene","version":4,"scene_uuid":"00000000-0000-4000-8000-000000000001","objects":[{"uuid":"00000000-0000-4000-8000-000000000002","parent":null,"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":{"mesh_renderer":{"mesh":"asset://m.mesh","material":"asset://m.material"}}}],"prefab_instances":[]})";
+      << R"({"format":"gneiss.scene","version":4,"scene_uuid":"00000000-0000-4000-8000-000000000001","objects":[{"uuid":"00000000-0000-4000-8000-000000000002","parent":null,"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":{"mesh_renderer":{"mesh":"asset://m.mesh","material":"asset://m.material"}}},{"uuid":"00000000-0000-4000-8000-000000000003","parent":null,"transform":{"translation":[2,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":{"mesh_renderer":{"mesh":"asset://m.mesh","material":"asset://m.material"}}}],"prefab_instances":[]})";
   constexpr std::string_view scene_uri = "asset://s.scene";
   gneiss_scene_instance scene{};
   check(gneiss_scene_instance_load(app.get(), scene_uri.data(), scene_uri.size(), &scene) ==
         GNEISS_SUCCESS);
+  const auto capture = [&](std::uint64_t index) {
+    gneiss_scene_instance_node_info info = GNEISS_SCENE_INSTANCE_NODE_INFO_INIT;
+    check(gneiss_scene_instance_get_node_info(app.get(), scene, index, &info) == GNEISS_SUCCESS);
+    application_internal::mesh_binding value;
+    check(application_internal::capture_mesh_binding(app.get(), scene, info.node, value) ==
+          GNEISS_SUCCESS);
+    return value;
+  };
+  const auto initial = capture(0);
+  check(initial.material == capture(1).material);
   write_material(true);
   check(application_internal::request_textures(app.get(), uris, 2U, 3U, request) == GNEISS_SUCCESS);
   wait();
   // 仅请求纹理也必须重新准备引用它的材质，并返回固定版本回执。
   check(completion.result == GNEISS_SUCCESS && completion.assets.size() == 2U &&
         completion.versions.size() == 2U);
+  const auto updated = capture(0);
+  check(updated.material == capture(1).material && updated.material != initial.material);
   const auto versions = completion.versions;
   check(application_internal::request_textures(app.get(), uris, 2U, 4U, request) == GNEISS_SUCCESS);
   wait();
   check(completion.result == GNEISS_SUCCESS && completion.versions == versions);
+  // 只改变纹理负载，材质文档字节不变；两个使用者仍须切换到同一新材质产物。
+  check(asset_internal::encode_texture_ktx2(
+            {.transfer = asset_internal::texture_transfer::srgb,
+             .levels = {{.width = 1U,
+                         .height = 1U,
+                         .pixels = {std::byte{0}, std::byte{255}, std::byte{0}, std::byte{255}}}}},
+            bytes, diagnostic) == asset_internal::texture_ktx2_result::success);
+  {
+    std::ofstream stream(files.root / "image.ktx2", std::ios::binary | std::ios::trunc);
+    stream.write(reinterpret_cast<const char*>(bytes.data()),
+                 static_cast<std::streamsize>(bytes.size()));
+  }
+  check(application_internal::request_textures(app.get(), uris, 2U, 40U, request) ==
+        GNEISS_SUCCESS);
+  wait();
+  check(completion.result == GNEISS_SUCCESS && completion.versions != versions);
+  const auto textured = capture(0);
+  check(textured.material == capture(1).material && textured.material != updated.material);
   std::ofstream(files.root / "m.material") << "broken";
   check(application_internal::request_textures(app.get(), uris, 2U, 5U, request) == GNEISS_SUCCESS);
   wait();
   check(completion.result != GNEISS_SUCCESS && completion.assets.empty() &&
         completion.versions.empty());
+  check(capture(0).material == textured.material && capture(1).material == textured.material);
   write_material(false);
   check(application_internal::request_textures(app.get(), uris, 2U, 6U, request) == GNEISS_SUCCESS);
   check(application_internal::cancel_render_assets(app.get()) == GNEISS_SUCCESS);

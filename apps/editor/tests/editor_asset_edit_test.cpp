@@ -71,18 +71,40 @@ void run(tasks::execution_mode mode) {
     return edit.request(*gneiss::application_internal::find_application(app.get()), session,
                         history, uuid, {.mesh_uri = "asset://mesh.json", .material_uri = material});
   };
+  const auto binding = [&] {
+    application_internal::mesh_binding value;
+    check(application_internal::capture_mesh_binding(app.get(), session.scene_handle(),
+                                                     session.find_node(uuid)->node.get(),
+                                                     value) == GNEISS_SUCCESS);
+    return value;
+  };
+  const auto initial_binding = binding();
   check(request("asset://b.json") == result::success && edit.active() && edit.visible());
   check(history.size() == 0U && session.nodes().front().material_uri == "asset://a.json");
   check(request("asset://b.json") == result::not_ready);
   drive();
   check(edit.operation() == result::success && !edit.visible() && history.size() == 1U);
   check(session.nodes().front().material_uri == "asset://b.json");
+  const auto changed_binding = binding();
+  check(initial_binding.material != changed_binding.material);
   std::ofstream(files.root / "a.json") << "broken";
   std::ofstream(files.root / "b.json") << "broken";
   check(history.undo() == result::success &&
         session.nodes().front().material_uri == "asset://a.json");
+  check(binding().material == initial_binding.material);
   check(history.redo() == result::success &&
         session.nodes().front().material_uri == "asset://b.json");
+  check(binding().material == changed_binding.material);
+  // 新材质准备期间撤销前一次编辑；迟到结果不得覆盖撤销后的确切版本。
+  std::ofstream(files.root / "c.json")
+      << R"({"format":"gneiss.material","version":1,"color":[0,0,1,1]})";
+  check(request("asset://c.json") == result::success && edit.active());
+  check(history.undo() == result::success);
+  drive();
+  check(edit.operation() == result::invalid_state && history.size() == 1U &&
+        binding().material == initial_binding.material);
+  check(history.redo() == result::success && binding().material == changed_binding.material);
+  edit.dismiss();
   check(history.undo() == result::success);
   check(request("asset://b.json") == result::success && !edit.active() && !edit.visible());
   const auto count = history.size();
@@ -137,6 +159,28 @@ void run(tasks::execution_mode mode) {
             unused) == GNEISS_ERROR_NOT_READY &&
         !unused);
   history.clear();
+  // 旧请求还在准备时切换到另一个有效场景；不能污染新场景或采用旧候选。
+  check(session.create_empty(*application_internal::find_application(app.get()), world) ==
+        result::success);
+  std::ofstream(files.root / "d.json")
+      << R"({"format":"gneiss.material","version":1,"color":[1,1,0,1]})";
+  check(edit.request_add(*application_internal::find_application(app.get()), session, history,
+                         "stale",
+                         {.mesh_uri = "asset://mesh.json", .material_uri = "asset://d.json"}) ==
+        result::success);
+  check(edit.active());
+  const auto previous_scene = session.scene_handle();
+  check(session.create_empty(*application_internal::find_application(app.get()), world) ==
+        result::success);
+  const auto new_scene = session.scene_handle();
+  check(new_scene != previous_scene);
+  drive();
+  check(edit.operation() == result::invalid_state && session.scene_handle() == new_scene &&
+        session.nodes().empty() && history.size() == 0U);
+  check(application_internal::query_ready_asset(
+            app.get(),
+            {.uri = "asset://d.json", .type = render_internal::render_asset_type::material},
+            unused) == GNEISS_ERROR_NOT_READY);
   session.close();
 }
 }
