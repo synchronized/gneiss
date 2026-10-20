@@ -109,4 +109,21 @@ Runtime 启动已优先调用异步入口；等待期间继续窗口事件、IPC
 四项 consumer 全部通过。独立桥接测试另覆盖最终复验失败不替换缓存、复验在工作线程执行。
 Runtime 已通过真实隐藏窗口冒烟：异步输入完成早于游戏初始化、cooperative 同步回退、
 无效输入阻止游戏初始化；既有无输入映射冒烟及启动诊断也通过（3 项 CTest）。
-未验证启用后的共享安装包、可见窗口交互关闭/resize/跨屏、Emscripten、Editor 切换及性能改善。
+补充验收：真实隐藏窗口在输入请求被工作线程门闩保持 NOT_READY 时接收 WM_CLOSE，
+主循环在游戏 update 前退出；关闭后调度器 waiting/running/retained 均为零，重复 5 次通过。
+异步输入工程通过 Editor 所用停止文件协议；该进程测试不声称停止信号必然早于加载完成，
+未完成状态的确定性由上述门闩测试覆盖。停止脚本同时检查正常退出码。
+
+启用 CAORS 的共享安装包已验证：按当前 CMakeCache 指定的 `_deps/granit` 安装 Granit 0.67，
+再安装 Gneiss；安装后四项 C/C++ consumer 通过，安装后的 Runtime 也通过异步启动、
+cooperative 回退、失败输入和停止文件协议。不得误用遗留 `_deps/gneiss_granit-build` 目录。
+未验证可见窗口手动交互、resize/跨屏、Emscripten、Editor 切换及性能改善。
+
+## Editor 后续范围核对
+
+Editor 当前没有调用 load_action_map / begin_action_map；工程输入路径仅作为资产索引根依赖。
+[场景入口](../../apps/editor/editor_scene_loader.cpp)调用 Application.request_scene，
+[资产编辑](../../apps/editor/editor_asset_edit.cpp)调用 prepare_edit_assets，
+[Prefab 编辑](../../apps/editor/editor_prefab_edit.cpp)通过 prefab_placement 事务处理。
+这些链路尚未由 CAORS 输入宿主统一管理。下一阶段应先选择一种共享资源并明确缓存身份、
+依赖及发布规则，不新增一个仅为游戏输入映射存在的 Editor 加载器。

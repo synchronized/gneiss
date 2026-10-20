@@ -15,9 +15,11 @@ New-Item -ItemType Directory -Path $TestRoot -Force | Out-Null
 Remove-Item -LiteralPath $signal, $log, $stdout, $stderr -Force -ErrorAction SilentlyContinue
 
 $process = Start-Process -FilePath $Runtime `
-  -ArgumentList @("--project", ('"' + $Project + '"'), "--stop-file", ('"' + $signal + '"'),
+  -ArgumentList @("--hidden", "--project", ('"' + $Project + '"'), "--stop-file", ('"' + $signal + '"'),
                   "--log-file", ('"' + $log + '"')) `
   -RedirectStandardOutput $stdout -RedirectStandardError $stderr -WindowStyle Hidden -PassThru
+# 提前保留进程句柄，避免 Windows PowerShell 在进程退出后读到空 ExitCode。
+$processHandle = $process.Handle
 $startupDeadline = [DateTime]::UtcNow.AddSeconds(30)
 $startupObserved = $false
 while ([DateTime]::UtcNow -lt $startupDeadline) {
@@ -45,6 +47,9 @@ if (-not $process.WaitForExit($exitTimeoutMilliseconds)) {
   $capturedStdout = if (Test-Path -LiteralPath $stdout) { Get-Content -LiteralPath $stdout -Raw } else { "" }
   $capturedStderr = if (Test-Path -LiteralPath $stderr) { Get-Content -LiteralPath $stderr -Raw } else { "" }
   throw "Runtime did not exit within ${exitTimeoutMilliseconds} ms after the stop request.`nstdout:`n$capturedStdout`nstderr:`n$capturedStderr"
+}
+if ($process.ExitCode -ne 0) {
+  throw "Runtime stop failed with exit code $($process.ExitCode)"
 }
 if (-not (Test-Path -LiteralPath $log)) {
   throw "Runtime did not write the stop protocol log"

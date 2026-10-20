@@ -6,6 +6,12 @@
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
+#include <future>
+#ifdef GNEISS_TEST_NATIVE_WINDOW
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <windows.h>
+#endif
 #include <stdexcept>
 #include <thread>
 namespace {
@@ -13,6 +19,60 @@ void check(bool value, const char* message) {
   if (!value)
     throw std::runtime_error(message);
 }
+#ifdef GNEISS_TEST_NATIVE_WINDOW
+void close_pending_window(const char* assets) {
+  using namespace gneiss;
+  using namespace std::chrono_literals;
+  tasks::task_scheduler scheduler({.workers = 1});
+  application_internal::application_configuration config;
+  config.asset_root = assets;
+  config.use_granit_window = true;
+  config.window.visible = false;
+  config.window.title = "Gneiss CAORS pending close test";
+  unsigned updates = 0;
+  config.callbacks.update = [&](auto, const auto&) {
+    ++updates;
+    return result::success;
+  };
+  std::shared_ptr<engine::application> app;
+  check(engine::application::create(config, app) == GNEISS_SUCCESS, "window create");
+  check(app->attach_task_executor(scheduler) == GNEISS_SUCCESS, "window attach");
+  std::promise<void> release, entered;
+  auto future = release.get_future().share();
+  auto started = entered.get_future();
+  const auto scope = scheduler.make_scope();
+  // 异常时也先放行工作线程，再销毁 Application，避免测试自身制造关闭死锁。
+  struct unblock {
+    std::promise<void>& release;
+    ~unblock() { release.set_value(); }
+  };
+  {
+    unblock guard{release};
+    tasks::task_handle handle;
+    check(scheduler.submit(
+              {.name = "test-input-gate", .scope = scope},
+              [future, &entered](const auto&) {
+                entered.set_value();
+                future.wait();
+                return tasks::task_outcome{};
+              },
+              handle) == tasks::submit_result::success,
+          "gate submit");
+    check(started.wait_for(5s) == std::future_status::ready, "gate started");
+    check(app->begin_action_map("asset://input/default.input-map.json") == GNEISS_SUCCESS,
+          "pending window input");
+    check(app->action_map_status() == GNEISS_ERROR_NOT_READY, "input remains pending");
+    const auto window = FindWindowW(nullptr, L"Gneiss CAORS pending close test");
+    check(window != nullptr && PostMessageW(window, WM_CLOSE, 0, 0), "post native close");
+    check(app->run(0, 1) == GNEISS_SUCCESS && updates == 0, "close handled before game update");
+    check(app->action_map_status() == GNEISS_ERROR_NOT_READY, "close did not wait for input");
+  }
+  check(app->shutdown(0) == GNEISS_SUCCESS, "close drains input");
+  check(scheduler.close_scope(scope), "close test scope");
+  const auto stats = scheduler.stats();
+  check(stats.waiting == 0 && stats.running == 0 && stats.retained == 0, "no remaining tasks");
+}
+#endif
 void run(const char* assets) {
   using namespace gneiss;
 #ifdef GNEISS_TEST_CAORS_DISABLED
@@ -112,6 +172,9 @@ int main(int argc, char** argv) {
     if (argc != 2)
       return 2;
     run(argv[1]);
+#ifdef GNEISS_TEST_NATIVE_WINDOW
+    close_pending_window(argv[1]);
+#endif
     return 0;
   } catch (const std::exception& error) {
     std::fprintf(stderr, "%s\n", error.what());

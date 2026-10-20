@@ -570,3 +570,6 @@ main_thread_core_equivalent 为主线程 CPU 时间 / 进程墙钟时间，1 表
 
 Runtime 集成回归可运行 `gneiss.runtime.async-input-startup`（同时启用 Runtime 和 CAORS 输入）。
 `gneiss_runtime --smoke` 创建真实隐藏窗口，完成后退出；正常启动仍显示窗口。
+
+需要持续运行的自动化测试可使用 `gneiss_runtime --hidden --project <工程根>`，
+它保持真实窗口和事件处理，但不显示窗口；可配合 `--stop-file <路径>` 正常停止。

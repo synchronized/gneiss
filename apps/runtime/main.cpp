@@ -42,6 +42,7 @@ struct runtime_options final {
   std::uint16_t ipc_port = 0U;
   gneiss::app::game_build_profile profile = gneiss::app::game_build_profile::debug;
   bool smoke = false;
+  bool hidden = false;
   bool cooperative_tasks = false;
 };
 
@@ -135,6 +136,10 @@ gneiss::result update_game(void* user_data, const gneiss_game_update_time& time)
     const std::string_view argument = argv[index];
     if (argument == "--cooperative-tasks") {
       pending.cooperative_tasks = true;
+      continue;
+    }
+    if (argument == "--hidden") {
+      pending.hidden = true;
       continue;
     }
     if (argument == "--smoke") {
@@ -572,7 +577,7 @@ void write_application_log(const gneiss::log_internal::event_view& source,
   };
   desc.use_granit_window = true;
   desc.window.title = project.name;
-  desc.window.visible = !options.smoke; // 自动冒烟创建真实隐藏窗口，避免抢占桌面。
+  desc.window.visible = !options.smoke && !options.hidden; // 自动冒烟创建真实隐藏窗口，避免抢占桌面。
 
   desc.asset_root = asset_root;
 
@@ -902,7 +907,7 @@ int main(int argc, char** argv) {
     }
     if (!has_valid_options) {
       log.write("ERROR", "arguments", GNEISS_ERROR_INVALID_ARGUMENT,
-                "用法：gneiss_runtime --project <工程根> [--smoke] [--log-file <路径>] "
+                "用法：gneiss_runtime --project <工程根> [--smoke] [--hidden] [--log-file <路径>] "
                 "[--stop-file <路径>] [--ipc-address <地址> --ipc-port <端口> "
                 "--ipc-token <令牌>]");
       return 64;

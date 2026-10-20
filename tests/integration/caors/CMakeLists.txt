@@ -42,3 +42,8 @@ add_test(NAME gneiss.caors.application COMMAND gneiss_caors_application_test
 set_tests_properties(gneiss.caors.application PROPERTIES TIMEOUT 30)
 target_compile_definitions(gneiss_caors_application_test PRIVATE
   $<$<NOT:$<BOOL:${GNEISS_ENABLE_CAORS_INPUT}>>:GNEISS_TEST_CAORS_DISABLED>)
+
+if(GNEISS_ENABLE_CAORS_INPUT AND GNEISS_ENABLE_GRANIT_PLATFORM AND WIN32)
+  target_compile_definitions(gneiss_caors_application_test PRIVATE GNEISS_TEST_NATIVE_WINDOW)
+  target_link_libraries(gneiss_caors_application_test PRIVATE user32)
+endif()

@@ -45,3 +45,16 @@ foreach(mode IN ITEMS asynchronous cooperative failure)
     endif()
   endif()
 endforeach()
+
+if(WIN32)
+  # 恢复有效输入，验证 Editor 使用的正常停止文件协议；后台真实窗口不抢占桌面。
+  file(COPY "${INPUT_MAP}" DESTINATION "${root}/assets/input")
+  execute_process(COMMAND powershell -NoProfile -ExecutionPolicy Bypass
+    -File "${CMAKE_CURRENT_LIST_DIR}/stop_protocol_test.ps1"
+    -Runtime "${GNEISS_RUNTIME}" -Project "${root}" -TestRoot "${root}/stop"
+    RESULT_VARIABLE stop_result OUTPUT_VARIABLE stop_output ERROR_VARIABLE stop_error TIMEOUT 25
+    ENCODING UTF-8)
+  if(NOT stop_result EQUAL 0)
+    message(FATAL_ERROR "异步输入工程停止失败：${stop_output}\n${stop_error}")
+  endif()
+endif()
