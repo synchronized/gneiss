@@ -2,6 +2,7 @@
 # Copyright (c) 2026 Gneiss contributors
 
 include(FetchContent)
+include("${CMAKE_CURRENT_LIST_DIR}/dependency_source_cache.cmake")
 include("${CMAKE_CURRENT_LIST_DIR}/granit_version.cmake")
 
 set(
@@ -29,14 +30,33 @@ function(gneiss_fetch_granit)
   set(GRANIT_BUILD_INTEGRATION_IMGUI OFF CACHE BOOL "" FORCE)
   set(GRANIT_FETCH_INTEGRATION_DEPENDENCIES OFF CACHE BOOL "" FORCE)
 
+  # 上游附属缓存不写入共享源码；显式配置的缓存位置保持优先。
+  set(GRANIT_DEPENDENCY_SOURCE_CACHE_DIR "${CMAKE_BINARY_DIR}/_deps/granit-cache"
+    CACHE PATH "Granit 附属依赖缓存目录")
+  set(granit_source_options)
+  if(FETCHCONTENT_SOURCE_DIR_GNEISS_GRANIT)
+    # FetchContent 自行应用宿主提供的源码覆盖。
+  elseif(GNEISS_GRANIT_GIT_REPOSITORY STREQUAL "https://github.com/synchronized/granit.git"
+      AND GNEISS_GRANIT_GIT_TAG STREQUAL "c9803195cc81d2d1cef55e47f5bcff1c42884ccd")
+    gneiss_cached_archive(granit
+      "https://codeload.github.com/synchronized/granit/tar.gz/c9803195cc81d2d1cef55e47f5bcff1c42884ccd"
+      "4fd5d7d8625dbd6d08f8339ffd5d2867bbeb012ab0912091479007ab757938fc"
+      CMakeLists.txt cached_granit_source)
+    set(granit_source_options SOURCE_DIR "${cached_granit_source}")
+  else()
+    if(GNEISS_DEPENDENCY_OFFLINE)
+      message(FATAL_ERROR "自定义 Granit 离线构建需要 FETCHCONTENT_SOURCE_DIR_GNEISS_GRANIT")
+    endif()
+    set(granit_source_options GIT_REPOSITORY "${GNEISS_GRANIT_GIT_REPOSITORY}"
+      GIT_TAG "${GNEISS_GRANIT_GIT_TAG}" GIT_PROGRESS TRUE)
+  endif()
+
   if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.28)
     FetchContent_Declare(
       gneiss_granit
       # 缩短 MSBuild 中间文件路径，避免 AssetTools 长目标名触发 MAX_PATH。
       BINARY_DIR "${CMAKE_BINARY_DIR}/_deps/granit"
-      GIT_REPOSITORY "${GNEISS_GRANIT_GIT_REPOSITORY}"
-      GIT_TAG "${GNEISS_GRANIT_GIT_TAG}"
-      GIT_PROGRESS TRUE
+      ${granit_source_options}
       EXCLUDE_FROM_ALL
     )
     FetchContent_GetProperties(gneiss_granit)
@@ -49,9 +69,7 @@ function(gneiss_fetch_granit)
       gneiss_granit
       # 缩短 MSBuild 中间文件路径，避免 AssetTools 长目标名触发 MAX_PATH。
       BINARY_DIR "${CMAKE_BINARY_DIR}/_deps/granit"
-      GIT_REPOSITORY "${GNEISS_GRANIT_GIT_REPOSITORY}"
-      GIT_TAG "${GNEISS_GRANIT_GIT_TAG}"
-      GIT_PROGRESS TRUE
+      ${granit_source_options}
     )
     FetchContent_GetProperties(gneiss_granit)
     if(NOT gneiss_granit_POPULATED)

@@ -43,7 +43,7 @@ build/<preset>/_deps/          每个配置自己的构建目录
 | 1 | libuv | 已有发行归档及摘要，先验证基础设施与一个真实依赖 |
 | 2 | ImGui、ImGuizmo、MikkTSpace、bc7enc_rdo、Tracy | 将固定提交转换为已验证归档，保持目标与链接模式 |
 | 3 | fastgltf | 同时检查 simdjson 等传递获取行为和源码目录写入 |
-| 4 | Granit、CAORS | 保留 package/源码覆盖，核对递归子模块与安装；统一 Granit 缓存根目录 |
+| 4 | Granit、CAORS | 保留 package/源码覆盖，核对递归子模块与安装；隔离 Granit 附属缓存 |
 
 每阶段完成后检查源码不写入配置相关产物，两个独立构建目录共享源码但不共享 binary dir。
 不自动删除旧 build/_deps 或用户缓存；迁移不依赖删除用户构建目录。
@@ -59,7 +59,8 @@ build/<preset>/_deps/          每个配置自己的构建目录
 
 ## 实施记录
 
-已实现共享归档缓存基础设施及 libuv 首批接入；其余阶段尚未迁移。
+四批默认源码接入已完成（九项直接依赖及 simdjson 传递依赖）；以下按阶段记录验收。
+首批实现共享归档缓存基础设施及 libuv 接入。
 本地归档脚本已验证首次填充、复用、离线缺失/归档解压、损坏摘要拒绝和双进程并发。
 基础设施失败时保留 staging 诊断材料，不执行递归删除。
 
@@ -99,3 +100,25 @@ inspect/cook、缓存脚本共 4 项测试通过。独立 Debug/Release 离线 c
 隔离构建目录，本地源码覆盖不触碰缓存。逐文件比较两个源码缓存与下载归档，除缓存完成
 标记外没有新增或修改文件，未出现上游源码下载写入。Release 未构建，Linux、完整安装未验收。
 目前原九项直接下载依赖中已完成七项；额外处理一项传递依赖 simdjson。Granit 与 CAORS 尚未迁移。
+
+### 第四批：Granit 与 CAORS
+
+默认固定版本的 Granit 与 CAORS 已迁移到校验归档，版本和静态/共享链接模式均未变化。
+保留 Granit PACKAGE/AUTO 路径、自定义 Git 仓库路径和两个依赖的显式本地源码覆盖。
+当前归档不依赖递归子模块；CAORS 已启用功能没有额外下载。
+Granit 的 SDL3/ImGui 获取保持关闭，Shader 工具链仍独立管理。
+
+调整原“统一 Granit 缓存根目录”的实施方式：Granit 附属源码缓存默认放在各构建目录
+`_deps/granit-cache`，避免向只读共享源码写入，也不让未使用 Gneiss 并发锁的上游辅助函数
+共享写入目录。显式上游缓存配置保持优先；本轮未修改 Granit 源码。
+
+Windows Clang Debug 默认归档路径重建 Editor、assetc 及 CAORS 测试目标成功。
+CAORS VFS/Application/material、assetc inspect/cook、隐藏 Editor 冒烟、Granit 版本缓存、
+源码缓存测试共 8 项通过。两个独立 Debug/Release 全项目离线 configure 成功，共享源码，
+构建目录隔离；Release 仅配置。逐文件比较 Granit（1873 文件）与 CAORS（812 文件）源码
+缓存和归档，未发现改动或额外文件（缓存完成标记除外）。
+
+两个依赖的本地源码覆盖配置成功；自定义 Granit 提交在离线且无本地覆盖时按预期拒绝。
+主开发 preset 原有 CAORS 本地覆盖在默认归档测试后恢复。尚未验证 Linux、完整安装消费
+矩阵和完整 Release 构建；也不宣称整个工程已支持离线或所有 Windows 长路径场景。
+本任务完成源码获取迁移，不包含 CAORS 动态库切换与材质资源生产路径接入。
