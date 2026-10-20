@@ -14,7 +14,7 @@ CPU 材质文档，验证共享资源、多版本及依赖处理，再扩大到 
 ## 源码核对
 
 - [asset_manager](../../src/engine/function/asset/asset_manager.hpp)当前拥有 Gneiss
-  resource_cache、CPU 材质文档索引、渲染加载器和 Prefab 加载器；CAORS 输入宿主尚未收敛到这里。
+  resource_cache、CPU 材质文档索引、渲染加载器和 Prefab 加载器；CAORS 输入宿主也已归入其私有状态，采用仍由 Application 决定。
 - [材质解析](../../src/engine/asset/asset_parsing.hpp)输出纯 CPU 参数和五个纹理 URI，
   不创建 RID。同步加载与后台准备共用解析器。
 - [后台准备](../../src/engine/asset/asset_preparation.hpp)输出包含来源、摘要、准备配置、
@@ -82,7 +82,7 @@ asset_manager 拥有唯一 CPU 材质文档索引；通过 create_channel 注入
 默认仍关闭 GNEISS_ENABLE_CAORS_MATERIAL；此步不代表全部资源已统一管理。
 日常 Sponza 首次异步加载开关对照已完成，见下方测量记录；完整大型场景交互、
 完整编辑器撤销/重做手动验收、Linux、Emscripten 与重复加载收益验收尚未完成。
-输入宿主汇入 asset_manager、CAORS 共享库切换、Mesh/纹理资源迁移不属于本次接线。
+输入宿主归属已在后续架构收敛中完成；CAORS 共享库切换、Mesh/纹理资源迁移仍未完成。
 
 ## 本地阶段验收
 

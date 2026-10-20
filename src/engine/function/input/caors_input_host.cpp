@@ -85,12 +85,12 @@ void caors_input_host::cancel() noexcept {
   storage_->latest = result::invalid_state;
 }
 result caors_input_host::status() const noexcept { return storage_->latest; }
-void caors_input_host::advance(input_service& input) {
+void caors_input_host::advance(const std::function<result(action_map)>& apply) {
   auto& s = *storage_;
   s.loader->pump();
   (void)s.completions.drain();
   s.context->collect();
   if (s.latest == result::not_ready)
-    s.latest = s.application.poll(input);
+    s.latest = s.application.poll(apply);
 }
 }

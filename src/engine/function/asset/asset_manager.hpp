@@ -6,8 +6,11 @@
 #include "engine/asset/material_document_cache.hpp"
 #include "engine/asset/resource_cache.hpp"
 #include "engine/asset/virtual_file_system.hpp"
+#include "engine/function/input/action_map.hpp"
 #include "engine/function/render/texture_load_service.hpp"
 #include "engine/function/scene/prefab_asset_loader.hpp"
+#include <functional>
+#include <memory>
 #include <new>
 #include <utility>
 
@@ -18,8 +21,16 @@ namespace gneiss::engine {
 class asset_manager final {
 public:
   asset_manager(asset_internal::virtual_file_system files,
-                render_internal::render_resource_service& resources)
-      : files_(std::move(files)), render_(files_, cache_, resources), prefabs_(files_, cache_) {}
+                render_internal::render_resource_service& resources);
+  ~asset_manager();
+  /** 借用已启动 I/O 的 VFS 与宿主执行器；不创建独立线程池。 */
+  void attach_input_loader(tasks::task_executor& executor);
+  [[nodiscard]] result begin_input(std::string_view uri) noexcept;
+  [[nodiscard]] result input_status() const noexcept;
+  [[nodiscard]] result cancel_input() noexcept;
+  void advance_input(const std::function<result(input_internal::action_map)>& apply);
+  /** 先于场景、执行器与 I/O 后端关闭，取消并排空资源请求。 */
+  void stop_input() noexcept;
   asset_manager(const asset_manager&) = delete;
   asset_manager& operator=(const asset_manager&) = delete;
   [[nodiscard]] const asset_internal::virtual_file_system& files() const noexcept { return files_; }
@@ -109,6 +120,8 @@ public:
   [[nodiscard]] scene_internal::prefab_asset_loader& prefab_loader() noexcept { return prefabs_; }
 
 private:
+  struct input_state;
+  std::unique_ptr<input_state> input_;
   asset_internal::virtual_file_system files_;
   asset_internal::resource_cache cache_;
   std::shared_ptr<asset_internal::material_document_cache> documents_{

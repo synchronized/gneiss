@@ -73,3 +73,11 @@ CPU 文档。独立 Loader 与批次回调共用解析实现，不在已有批�
 跨层仅传递 Gneiss 自有的文档生命周期接口，CAORS handle 不进入渲染或普通公共接口。
 同一材质在两批中仍需各自读取、解码和复验，共享发生在复验后，不承诺消除解析开销。
 使用独立且默认关闭的 GNEISS_ENABLE_CAORS_MATERIAL 开关；同步 acquire 路径保留原解析行为。
+
+## 输入资源所有权收敛
+
+Application 只拥有 asset_manager 与 InputService；输入资源宿主（manager/cache/Loader、
+URI 映射及在途订阅）由 asset_manager 的私有输入状态拥有。更新阶段由 Application 提供
+采用回调，资源宿主不直接引用 InputService；回调成功后才报告输入就绪，失败仍保留旧映射。
+关闭继续先取消并排空输入 scope，再关闭场景通道、资产管理器和 I/O 后端，借用的执行器不关闭。
+本轮统一所有权，不把输入的可变 URI reload 与材质的不可变内容版本索引强行合成同一协议。

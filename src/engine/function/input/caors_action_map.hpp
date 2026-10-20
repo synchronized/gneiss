@@ -39,6 +39,8 @@ public:
   void cancel() noexcept;
   /** 不推进调度器或等待 I/O；加载完成后最多替换一次。失败保留原映射与 action_id。 */
   [[nodiscard]] result poll(input_service& target) noexcept;
+  /** 由 Application 提供采用回调；资源宿主不持有 InputService。 */
+  [[nodiscard]] result poll(const std::function<result(action_map)>& apply) noexcept;
   [[nodiscard]] action_map_apply_state state() const noexcept { return state_; }
 
 private:

@@ -32,6 +32,15 @@ result action_map_application::begin(caors::assets::asset_manager& manager,
   return result_;
 }
 result action_map_application::poll(input_service& target) noexcept {
+  try {
+    return poll([&target](action_map map) { return target.replace_action_map(std::move(map)); });
+  } catch (const std::bad_alloc&) {
+    return result::out_of_memory;
+  } catch (...) {
+    return result::internal;
+  }
+}
+result action_map_application::poll(const std::function<result(action_map)>& apply) noexcept {
   if (state_ != action_map_apply_state::loading || !request_.done())
     return result_;
   if (request_.cancelled()) {
@@ -48,7 +57,7 @@ result action_map_application::poll(input_service& target) noexcept {
     try {
       const auto asset = request_.try_get();
       // InputService 接收独立副本，不修改 CAORS 缓存中的资源。
-      result_ = asset ? target.replace_action_map(asset->map) : result::internal;
+      result_ = asset && apply ? apply(asset->map) : result::internal;
     } catch (const std::bad_alloc&) {
       result_ = result::out_of_memory;
     } catch (...) {

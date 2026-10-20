@@ -164,6 +164,15 @@ void run(const char* assets) {
   check(app->shutdown(0) == GNEISS_SUCCESS, "shutdown in flight");
   check(app->begin_action_map("asset://input/default.input-map.json") == GNEISS_ERROR_INVALID_STATE,
         "shutdown rejects requests");
+  // 资产管理器关闭只排空自身 scope，不能关闭借用的宿主调度器。
+  app.reset();
+  check(engine::application::create(config, app) == GNEISS_SUCCESS, "recreate application");
+  check(app->attach_task_executor(scheduler) == GNEISS_SUCCESS, "reuse executor");
+  check(app->begin_action_map("asset://input/default.input-map.json") == GNEISS_SUCCESS,
+        "new owner begins input");
+  wait();
+  check(app->action_map_status() == GNEISS_SUCCESS, "new owner independently applies input");
+  check(app->shutdown(0) == GNEISS_SUCCESS, "new owner shutdown");
 #endif
 }
 }

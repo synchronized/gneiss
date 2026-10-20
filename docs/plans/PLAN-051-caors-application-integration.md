@@ -129,3 +129,18 @@ Editor 当前没有调用 load_action_map / begin_action_map；工程输入路�
 依赖及发布规则，不新增一个仅为游戏输入映射存在的 Editor 加载器。
 
 下一阶段源码核对及待确认范围见[共享材质接入方案](PLAN-051-caors-shared-material.md)。
+
+## 架构收敛：输入资源宿主归属
+
+输入宿主已由 Application 独立成员迁入 asset_manager 私有状态。资产管理器拥有加载、缓存、
+身份映射及请求生命周期；Application 保留线程/运行状态检查、update 前推进和输入映射采用回调。
+同步 load_action_map 仍先取消旧异步请求，之后同步采用；未开启选项继续返回 unsupported，
+未接调度器继续返回 not_ready。不新增线程池或 VFS 挂载权威，不改变公共 API。
+关闭顺序与取舍见 [ADR-068](../decisions/ADR-068-caors-resource-probe.md#输入资源所有权收敛)。
+
+本地验收（2026-10-20）：Windows Clang Debug 同时启用 CAORS 输入与材质，
+asset-probe、application、editor.asset-edit、editor.smoke、texture-load-service 共 5 项通过。
+Application 新增关闭后复用同一调度器创建新实例并加载输入映射的测试，验证关闭仅排空自身请求。
+另验证关闭 CAORS 输入时的静态库（材质也关闭）和共享库（材质开启）构建，
+两组安装包各 4 项 C/C++ consumer 测试通过。未验证 Linux、Emscripten 和可见窗口手动交互；
+本次验收不证明性能改善。
