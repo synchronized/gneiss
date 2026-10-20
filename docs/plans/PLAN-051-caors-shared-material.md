@@ -80,7 +80,8 @@ asset_manager 拥有唯一 CPU 材质文档索引；通过 create_channel 注入
 索引为弱引用，CAORS handle 持有实际对象；不另建 CAORS URI reload 缓存或独立线程池。
 
 默认仍关闭 GNEISS_ENABLE_CAORS_MATERIAL；此步不代表全部资源已统一管理。
-真实大型场景交互、完整编辑器撤销/重做手动验收、Linux、Emscripten 与性能对比尚未完成。
+日常 Sponza 首次异步加载开关对照已完成，见下方测量记录；完整大型场景交互、
+完整编辑器撤销/重做手动验收、Linux、Emscripten 与重复加载收益验收尚未完成。
 输入宿主汇入 asset_manager、CAORS 共享库切换、Mesh/纹理资源迁移不属于本次接线。
 
 ## 本地阶段验收
@@ -156,3 +157,10 @@ prepared_asset 仅携带文档生命周期接口，发布的材质缓存项继�
 日志位于本地 build/caors-editor-validation-tests.log（不提交生成日志）。本轮只修改测试及记录，
 未发现需要修改生产代码的问题。自动化使用真实事务代码，但不是人工鼠标操作或 GPU 图像对比；
 大型 Sponza 场景、内存/耗时对比、跨平台及默认启用决策仍未完成。
+
+### 日常 Sponza 测量
+
+Release、日常配置、真实异步加载的开关对照已完成，结果与原始数据统一维护在
+[2026-10-20 Sponza 对照记录](../records/2026-10-20-caors-material-sponza.md)。
+未证明加载加速或整场景内存收益，保持默认关闭；完整配置、重复重载、跨场景文档复用量
+及人工交互仍未验收。本测量不作为调度或渲染性能问题已解决的依据。
