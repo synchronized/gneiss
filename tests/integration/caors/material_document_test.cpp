@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/asset/caors_material_document.hpp"
+#include "engine/asset/caors_material_versions.hpp"
 #include "engine/asset/caors_vfs_bridge.hpp"
 #include "engine/asset/native_file_system.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
@@ -15,6 +16,7 @@
 #include <fstream>
 #include <stdexcept>
 #include <thread>
+#include <type_traits>
 
 namespace {
 void check(bool ok, const char* message) {
@@ -116,6 +118,72 @@ void run() {
   check(current.get() != old.get() && current->digest != old->digest, "distinct version");
   check(old->source.parameters.color[0] == 1 && current->source.parameters.color[1] == 1,
         "old version retained");
+  // 来源回执来自同一个 VFS；索引只认确切版本，不用 GUID 推断来源。
+  asset_identity identity;
+  check(files.identify("asset://material.json", static_cast<std::uint32_t>(asset_type::material),
+                       identity) == GNEISS_SUCCESS,
+        "material identity");
+  const prepared_source old_source{identity, old->source_bytes, old->digest};
+  const prepared_source new_source{identity, current->source_bytes, current->digest};
+  material_document_lease old_lease, new_lease, found;
+  material_document_versions versions;
+  check(versions.remember(old_source, old, old_lease) == result::success &&
+            versions.remember(new_source, current, new_lease) == result::success,
+        "remember versions");
+  check(versions.find(old_source, found) == result::success && found.get() == old.get(),
+        "find old exact version");
+  check(versions.find(new_source, found) == result::success && found.get() == current.get(),
+        "find new exact version");
+  // 相同内容来自另一次加载，可复用已存活的解析结果。
+  auto duplicate = caors::resources::make_handle<material_document>(nullptr, id);
+  check(static_cast<bool>(duplicate), "duplicate allocation");
+  duplicate->source = old->source;
+  duplicate->digest = old->digest;
+  duplicate->source_bytes = old->source_bytes;
+  check(versions.remember(old_source, duplicate, found) == result::success &&
+            found.get() == old.get(),
+        "same version canonical document");
+  auto other_source = old_source;
+  other_source.identity.source = std::make_shared<asset_source_domain>();
+  check(versions.find(other_source, found) == result::not_ready && !found,
+        "same uri and bytes in other source cannot hit");
+  check(versions.remember(other_source, duplicate, found) == result::success &&
+            found.get() == duplicate.get(),
+        "different source remains separate");
+  material_document_lease detached;
+  {
+    material_document_versions temporary;
+    check(temporary.remember(old_source, old, detached) == result::success, "temporary index");
+  }
+  check(detached.get() == old.get() && detached.source().identity == identity,
+        "lease survives index destruction");
+  static_assert(std::is_same_v<decltype(detached.get()), const material_document*>);
+  check(versions.remember(old_source, {}, found) == result::invalid_argument && !found,
+        "null document rejected");
+  auto invalid_receipt = old_source;
+  invalid_receipt.digest = current->digest;
+  check(versions.remember(invalid_receipt, old, found) == result::invalid_argument && !found,
+        "digest mismatch rejected");
+  invalid_receipt = old_source;
+  ++invalid_receipt.bytes;
+  check(versions.remember(invalid_receipt, old, found) == result::invalid_argument,
+        "size mismatch rejected");
+  invalid_receipt = old_source;
+  invalid_receipt.identity.type = static_cast<std::uint32_t>(asset_type::texture);
+  check(versions.remember(invalid_receipt, old, found) == result::invalid_argument,
+        "wrong type rejected");
+  invalid_receipt = old_source;
+  invalid_receipt.identity.source.reset();
+  check(versions.remember(invalid_receipt, old, found) == result::invalid_argument,
+        "missing source rejected");
+  duplicate = {};
+  check(versions.find(other_source, found) == result::not_ready,
+        "weak index does not keep document alive");
+  std::weak_ptr<const asset_source_domain> expired_source = other_source.identity.source;
+  other_source = {};
+  versions.collect();
+  check(expired_source.expired(), "collect releases source marker");
+  check(versions.find(old_source, found) == result::success, "collect preserves live old version");
   reject_verification = true;
   auto rejected = manager.request_reload<material_document>(id);
   wait([&] { return rejected.done(); });

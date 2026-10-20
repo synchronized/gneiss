@@ -11,6 +11,7 @@ struct material_document final : caors::resource {
   using caors::resource::resource;
   asset_parsing::material_source source;
   core::sha256_digest digest{};
+  std::uint64_t source_bytes{};
 };
 using material_document_loader = caors_internal::document_loader<material_document>;
 /** 独立接入验证入口；最多 1 MiB，不替换生产材质接口的大小契约。 */
@@ -24,8 +25,10 @@ inline std::unique_ptr<material_document_loader> make_material_document_loader(
         std::vector<std::byte> owned(bytes.begin(), bytes.end());
         asset_diagnostic diagnostic;
         const auto parsed = asset_parsing::parse_material(owned, value.source, diagnostic);
-        if (parsed == GNEISS_SUCCESS)
+        if (parsed == GNEISS_SUCCESS) {
           value.digest = core::sha256(owned);
+          value.source_bytes = owned.size();
+        }
         return result{parsed};
       },
       std::move(verify));
