@@ -80,6 +80,7 @@
 
 ## 路线图与开发计划
 
+- [C51-08～10：CAORS VFS 缓存一致性、分块读取与快照成本研究](plans/UPSTREAM-051-caors-vfs-followups.md)
 - [C51-07：CAORS 统一 VFS 与异步读取实施方案](plans/UPSTREAM-051-caors-async-vfs.md)
 - [UPSTREAM-051：CAORS 接入约束与上游改进建议](plans/UPSTREAM-051-caors-integration-contracts.md)
 - [UPSTREAM-050：窗口事件等待与跨线程唤醒](plans/UPSTREAM-050-granit-window-wait.md)
