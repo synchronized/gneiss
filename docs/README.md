@@ -243,6 +243,8 @@
 
 ## 实施与验收记录
 
+- [CAORS 输入资源加载到 InputService 生效闭环](records/2026-10-20-caors-input-application.md)
+
 - [CAORS 私有适配模块与强类型输入映射验证](records/2026-10-20-caors-private-adapter.md)
 
 - [CAORS VFS 异步打开接入验证](records/2026-10-20-caors-vfs-open.md)

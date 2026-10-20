@@ -1,0 +1,7 @@
+{
+  "format": "gneiss.input-map",
+  "version": 1,
+  "actions": [
+    { "name": "alternate", "bindings": [{ "key": 7, "scale": 1.0 }] }
+  ]
+}
