@@ -13,6 +13,17 @@ struct material_document final : caors::resource {
   core::sha256_digest digest{};
   std::uint64_t source_bytes{};
 };
+/** 复用批次已经读取的字节；不进行 I/O、来源复验或共享版本登记。 */
+inline gneiss_result decode_material_document(const std::vector<std::byte>& bytes,
+                                              material_document& value,
+                                              asset_diagnostic& diagnostic) {
+  const auto parsed = asset_parsing::parse_material(bytes, value.source, diagnostic);
+  if (parsed == GNEISS_SUCCESS) {
+    value.digest = core::sha256(bytes);
+    value.source_bytes = bytes.size();
+  }
+  return parsed;
+}
 using material_document_loader = caors_internal::document_loader<material_document>;
 /** 独立接入验证入口；默认 1 MiB，宿主可传入单文档预算，须与 VFS 桥及复验一致。 */
 inline std::unique_ptr<material_document_loader> make_material_document_loader(
@@ -25,11 +36,7 @@ inline std::unique_ptr<material_document_loader> make_material_document_loader(
         // 复用现有解析器；复制和摘要都发生在 worker。
         std::vector<std::byte> owned(bytes.begin(), bytes.end());
         asset_diagnostic diagnostic;
-        const auto parsed = asset_parsing::parse_material(owned, value.source, diagnostic);
-        if (parsed == GNEISS_SUCCESS) {
-          value.digest = core::sha256(owned);
-          value.source_bytes = owned.size();
-        }
+        const auto parsed = decode_material_document(owned, value, diagnostic);
         return result{parsed};
       },
       std::move(verify), maximum_document_bytes);

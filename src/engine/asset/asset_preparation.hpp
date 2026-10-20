@@ -76,6 +76,12 @@ struct prepared_batch {
   /** 整文件快照持有的输入字节；区间读取没有源副本，不计入此值。 */
   std::size_t input_bytes{};
 };
+/** 可选 CPU 材质解码器；只消费本批次已读取的字节，不重新读取文件或发布资源。
+ * 在 advance 的执行线程调用；其捕获状态须存活至准备销毁。空函数使用既有解析器。
+ * 成功仅产生候选；必须等整批 advance 成功完成后才能登记共享版本。 */
+using material_document_decoder =
+    std::function<gneiss_result(const std::vector<std::byte>&, material_parameters&,
+                                std::array<std::string, 5>&, asset_diagnostic&)>;
 /** 资产层的分步 CPU 准备；同一实例须串行推进。候选仅在全部来源复验后输出。
  * 每步限制区间读取/摘要字节，解析仍是单项同步调用；旧整文件后端保留同步兼容行为。 */
 class asset_preparation final {
@@ -87,7 +93,8 @@ public:
     bool deferred_reads{true};
   };
   asset_preparation(const virtual_file_system& files, std::span<const asset_request> requested,
-                    limits budget, texture_prepare_profile profile);
+                    limits budget, texture_prepare_profile profile,
+                    material_document_decoder decode_material = {});
   ~asset_preparation();
   [[nodiscard]] gneiss_result advance(std::size_t byte_budget,
                                       const std::function<bool()>& cancelled,

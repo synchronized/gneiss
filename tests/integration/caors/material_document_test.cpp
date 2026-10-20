@@ -217,6 +217,67 @@ void run(std::size_t document_limit) {
   check(cancelled.cancel(), "cancel");
   wait([&] { return !manager.database().has_active_operations() && loader->empty(); });
   check(cache.find_handle(id).get() == current.get(), "cancel preserves current");
+  // 直接走生产使用的分步准备：复用已读取字节，不再从 Loader 启动第二次读取。
+  auto prepare = [&](bool change_source, bool dependency_missing) {
+    write(
+        dependency_missing
+            ? R"({"format":"gneiss.material","version":2,"color":[1,0,0,1],"base_color_texture":"asset://missing"})"
+            : R"({"format":"gneiss.material","version":1,"color":[1,0,0,1]})");
+    caors::resources::handle<material_document> candidate;
+    unsigned decodes = 0;
+    const std::array requested{asset_request{"asset://material.json", asset_type::material}};
+    asset_preparation preparation(
+        files, requested,
+        {.material_bytes = 256, .maximum_assets = 8, .maximum_bytes = document_limit}, {},
+        [&](const auto& bytes, auto& parameters, auto& uris, auto& diagnostic) {
+          check(std::this_thread::get_id() != host_thread, "batch decode runs off host");
+          ++decodes;
+          candidate = caors::resources::make_handle<material_document>(nullptr, id);
+          if (!candidate)
+            return GNEISS_ERROR_OUT_OF_MEMORY;
+          const auto decoded = decode_material_document(bytes, *candidate, diagnostic);
+          if (decoded == GNEISS_SUCCESS) {
+            parameters = candidate->source.parameters;
+            uris = candidate->source.texture_uris;
+            if (change_source)
+              write("{}");
+          }
+          return decoded;
+        });
+    prepared_batch batch;
+    asset_diagnostic diagnostic;
+    bool complete = false;
+    gneiss_result status = GNEISS_SUCCESS;
+    const auto deadline = std::chrono::steady_clock::now() + 10s;
+    while (!complete) {
+      std::thread background([&] {
+        status =
+            preparation.advance(document_limit, [] { return false; }, batch, diagnostic, complete);
+      });
+      background.join();
+      check(std::chrono::steady_clock::now() < deadline, "batch timeout");
+      if (!complete)
+        std::this_thread::sleep_for(1ms);
+    }
+    check(decodes == 1, "batch decodes once");
+    if (change_source || dependency_missing) {
+      check(status != GNEISS_SUCCESS && batch.assets.empty(), "unverified batch not published");
+      check(cache.find_handle(id).get() == current.get(), "failed batch keeps old document");
+    } else {
+      check(status == GNEISS_SUCCESS && batch.assets.size() == 1, "verified material batch");
+      const auto& prepared = batch.assets.front();
+      check(!prepared.version.version.empty() && prepared.material.color[0] == 1,
+            "batch version and data");
+      material_document_lease lease;
+      check(versions.remember(prepared.sources.front(), candidate, lease) == result::success,
+            "register only verified batch");
+      check(lease.get()->source.parameters.color[0] == prepared.material.color[0],
+            "lease matches batch");
+    }
+  };
+  prepare(false, false);
+  prepare(true, false);
+  prepare(false, true);
   write(std::string(document_limit + 1U, ' '));
   auto oversized = manager.request_reload<material_document>(id);
   wait([&] { return oversized.done(); });
