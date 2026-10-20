@@ -557,3 +557,12 @@ main_thread_core_equivalent 为主线程 CPU 时间 / 进程墙钟时间，1 表
 手动 Windows/Linux Actions 的 `scope` 默认为 `all`，运行完整发布矩阵。只修改 Editor/Runtime
 或其测试后可选 `editor` 补验宿主矩阵；该范围不能代替首次完整验收，未执行的核心、Web 和安装
 任务仍须单独完成。纯记录更新不重跑矩阵。
+
+## 可选 CAORS 输入资源接入
+
+`-DGNEISS_ENABLE_CAORS_INPUT=ON` 在 Engine 内启用原生异步输入资源入口，默认关闭。
+依赖原生任务线程和 libuv，当前不支持 Emscripten。Runtime/Editor 调用点尚未自动切换。
+需要验证宿主时同时启用 `-DGNEISS_BUILD_CAORS_PROBE=ON`，运行 `gneiss.caors.application`。
+已接受请求通过主循环推进，须在 update 前观察 `action_map_status()`，不能把 begin 成功当加载完成。
+启用后的安装包含固定 CAORS 包；静态 Gneiss 包自动解析该依赖，公共头文件不包含 CAORS。
+方案与限制见[Application 接入计划](../plans/PLAN-051-caors-application-integration.md)。

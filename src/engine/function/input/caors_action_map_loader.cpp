@@ -18,6 +18,7 @@ error failure(errc value) { return {error_domain::resources, value}; }
 // 当前仍是单资源验证，未切换生产资产路径。
 class loader final : public action_map_loader {
   struct operation {
+    std::string uri;
     caors::resources::async_load_context context;
     caors::resources::load_completion<action_map_asset> completion;
     caors::io::io_request<std::shared_ptr<caors::io::async_file>> opening;
@@ -26,7 +27,9 @@ class loader final : public action_map_loader {
   };
 
 public:
-  explicit loader(gneiss::caors_internal::file_system_adapter& files) : files_(files) {}
+  loader(gneiss::caors_internal::file_system_adapter& files,
+         std::function<result(std::string_view, std::span<const std::byte>)> verify)
+      : verify_(std::move(verify)), files_(files) {}
   error start(caors::resources::async_load_context context,
               caors::resources::load_completion<action_map_asset> completion) override {
     if (!context.sources)
@@ -36,6 +39,7 @@ public:
       return resolved.error();
     // provider 固定来源快照；路径语义由具体后端负责，可为完整资产 URI。
     auto op = std::make_shared<operation>();
+    op->uri = resolved.value.path.string_view();
     op->context = std::move(context);
     op->completion = std::move(completion);
     auto request =
@@ -104,30 +108,41 @@ public:
       } else {
         // 捕获回执保持借用字节有效；后台解析完成后才释放文件和缓冲。
         auto owned = op;
-        const auto posted = op->context.worker.post(caors::tasks::task{[owned, bytes] {
-          if (owned->context.stop.stop_requested()) {
-            (void)owned->completion.complete({failure(errc::cancelled), {}});
-            return;
-          }
-          try {
-            auto value = caors::memory::make_unique<action_map_asset>(owned->context.resource,
-                                                                      owned->context.guid);
-            const auto parsed = gneiss::input_internal::parse_action_map(
-                {reinterpret_cast<const char*>(bytes.data()), bytes.size()}, value->map);
-            if (parsed != result::success) {
-              (void)owned->completion.complete(
-                  {failure(parsed == result::out_of_memory ? errc::out_of_memory
-                                                           : errc::invalid_argument),
-                   {}});
-              return;
-            }
-            (void)owned->completion.complete({{}, std::move(value)});
-          } catch (const std::bad_alloc&) {
-            (void)owned->completion.complete({failure(errc::out_of_memory), {}});
-          } catch (...) {
-            (void)owned->completion.complete({failure(errc::backend_failure), {}});
-          }
-        }});
+        const auto posted =
+            op->context.worker.post(caors::tasks::task{[owned, bytes, verify = verify_] {
+              if (owned->context.stop.stop_requested()) {
+                (void)owned->completion.complete({failure(errc::cancelled), {}});
+                return;
+              }
+              try {
+                auto value = caors::memory::make_unique<action_map_asset>(owned->context.resource,
+                                                                          owned->context.guid);
+                const auto parsed = gneiss::input_internal::parse_action_map(
+                    {reinterpret_cast<const char*>(bytes.data()), bytes.size()}, value->map);
+                if (parsed != result::success) {
+                  (void)owned->completion.complete(
+                      {failure(parsed == result::out_of_memory ? errc::out_of_memory
+                                                               : errc::invalid_argument),
+                       {}});
+                  return;
+                }
+                // 发布缓存前在工作线程复验；禁止主线程执行文件复读。
+                const auto verified = verify ? verify(owned->uri, bytes) : result::success;
+                if (verified != result::success) {
+                  (void)owned->completion.complete({failure(errc::backend_failure), {}});
+                  return;
+                }
+                if (owned->context.stop.stop_requested()) {
+                  (void)owned->completion.complete({failure(errc::cancelled), {}});
+                  return;
+                }
+                (void)owned->completion.complete({{}, std::move(value)});
+              } catch (const std::bad_alloc&) {
+                (void)owned->completion.complete({failure(errc::out_of_memory), {}});
+              } catch (...) {
+                (void)owned->completion.complete({failure(errc::backend_failure), {}});
+              }
+            }});
         if (posted)
           (void)op->completion.complete({posted, {}});
       }
@@ -164,6 +179,7 @@ private:
       return failure(errc::invalid_argument);
     return failure(errc::backend_failure);
   }
+  std::function<result(std::string_view, std::span<const std::byte>)> verify_;
   caors::tasks::execution_context io_completions_;
   gneiss::caors_internal::file_system_adapter& files_;
   std::mutex mutex_;
@@ -172,7 +188,8 @@ private:
 
 }
 std::unique_ptr<action_map_loader>
-make_action_map_loader(caors_internal::file_system_adapter& files) {
-  return std::make_unique<loader>(files);
+make_action_map_loader(caors_internal::file_system_adapter& files,
+                       std::function<result(std::string_view, std::span<const std::byte>)> verify) {
+  return std::make_unique<loader>(files, std::move(verify));
 }
 }

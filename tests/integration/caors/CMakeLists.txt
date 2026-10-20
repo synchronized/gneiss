@@ -31,3 +31,14 @@ gneiss_target_output_directories(gneiss_caors_vfs_bridge_test)
 add_test(NAME gneiss.caors.vfs-bridge COMMAND gneiss_caors_vfs_bridge_test
   "${PROJECT_SOURCE_DIR}/examples/temple/assets")
 set_tests_properties(gneiss.caors.vfs-bridge PROPERTIES TIMEOUT 30)
+
+add_executable(gneiss_caors_application_test application_test.cpp)
+target_include_directories(gneiss_caors_application_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_link_libraries(gneiss_caors_application_test PRIVATE gneiss::engine gneiss_tasks)
+gneiss_target_compile_warnings(gneiss_caors_application_test)
+gneiss_target_output_directories(gneiss_caors_application_test)
+add_test(NAME gneiss.caors.application COMMAND gneiss_caors_application_test
+  "${PROJECT_SOURCE_DIR}/examples/temple/assets")
+set_tests_properties(gneiss.caors.application PROPERTIES TIMEOUT 30)
+target_compile_definitions(gneiss_caors_application_test PRIVATE
+  $<$<NOT:$<BOOL:${GNEISS_ENABLE_CAORS_INPUT}>>:GNEISS_TEST_CAORS_DISABLED>)

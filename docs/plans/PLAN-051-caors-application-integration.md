@@ -5,7 +5,7 @@
 
 ## 状态
 
-2026-10-20，用户已确认方案 A，正在实施 VFS 过渡桥；本文件不表示生产宿主已经切换。
+2026-10-20，用户已确认方案 A，已接入可选原生 Application 输入加载链路；默认构建、Runtime 和 Editor 调用点尚未切换。
 现有闭环见[输入资源应用记录](../records/2026-10-20-caors-input-application.md)。
 
 ## 已核实的接入边界
@@ -18,8 +18,8 @@
    因此不能把 asset_root 作为字符串前缀另挂一遍便宣布完成迁移。
 4. 已有 `read_source` 有异步范围读与验证回执，现已补充可观察的显式关闭协议（libuv 来源及修订包装支持，其他来源默认 unsupported）。
    CAORS async_file 的关闭结果不能直接以 read_source 析构替代。
-5. CAORS 当前仅由独立验证宿主链接。正式接入时，其 manager、资源、Loader、executor
-   必须在同一个引擎运行时内部建立和销毁，不能让 EXE 与 Engine DLL 各持一套 CAORS 状态。
+5. `GNEISS_ENABLE_CAORS_INPUT` 开启时，输入加载宿主、CAORS manager/cache/Loader
+   全部位于 Engine 内部；应用 EXE 不链接独立探针适配库。默认关闭，不改变 C ABI。
 
 源码入口：
 
@@ -89,9 +89,19 @@ VFS 基础迁移，必须先完成更广回归，不能只靠当前单资源测�
 该验证不建立额外 CAORS 挂载表。完成建账不等于发布复验，宿主仍须在应用前复验。
 本阶段不宣称解决编辑器卡顿；worker 的实际线程由宿主执行器决定。
 
-Application、Runtime 尚未切换。下一步按上述宿主步骤处理运行时唯一所有权、
-工作线程最终复验、取消与退出排空，再接入真实主循环。共享/静态 Engine 与窗口验收待实施。
+可选 Application 集成已实现 `begin_action_map` / `action_map_status` / `cancel_action_map`。
+attach 后借用既有线程调度器和 I/O loop；主循环在 update 前推进应用，失败保留旧映射。
+同步接口仍返回完成结果，同时取消旧异步待应用操作。关闭时先取消并排空专属工作 scope，
+再放弃 Loader 回执、销毁资源，最后由 Application 结束共享 I/O loop。
 
-本地验证：Windows Clang Debug 构建桥接测试、单资源探针、来源修订及 libuv 文件测试成功；
-`gneiss.caors.*`、`gneiss.source-revision`、`gneiss.io.uv-*` 共 9 项通过，桥接测试重复 10 次通过。
-未验证真实 Application、跨 DLL 部署及符号链接越界；不据此宣称宿主接入完成。
+显式请求首次使用 load，已有缓存时 reload，均重新验证来源，不直接应用旧缓存。
+最终复验在 worker 上通过既有 VFS 的有界同步 libuv 读取重新计算摘要，随后才发布 CAORS 缓存；
+上限 1 MiB，会占用一个工作线程，但不在主线程等 I/O。这是发布前的变化检测，
+不保证复验完成后到主线程应用之间文件系统具有跨进程原子快照。
+Runtime 和 Editor 调用点仍使用旧接口；窗口验收、真实项目切换尚未完成。
+
+本地 Windows Clang Debug 验收：启用后的共享 Engine 与 13 项相关测试通过，真实 Application
+测试重复 10 次通过；启用后的静态 Engine、默认关闭的共享 Engine 均通过原生入口测试。
+静态启用包与共享关闭包分别安装到干净前缀，C/C++、application_world、property_inspector
+四项 consumer 全部通过。独立桥接测试另覆盖最终复验失败不替换缓存、复验在工作线程执行。
+未验证启用后的共享安装包、实际窗口、跨屏、Emscripten、Runtime/Editor 启动切换及性能改善。

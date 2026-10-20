@@ -4,6 +4,7 @@
 #pragma once
 #include "action_map.hpp"
 #include <caors/assets.h>
+#include <functional>
 
 namespace gneiss::caors_internal {
 class file_system_adapter;
@@ -22,8 +23,11 @@ public:
   virtual void abandon() = 0;
   virtual std::size_t started_count() const noexcept = 0;
 };
-std::unique_ptr<action_map_loader>
-make_action_map_loader(caors_internal::file_system_adapter& files);
+/** verify 在 worker 中、解析完成且发布缓存之前调用；参数借用至回调返回。
+ * URI 是来源后端路径，回调须支持后台调用，不得访问 InputService。失败不替换缓存。 */
+std::unique_ptr<action_map_loader> make_action_map_loader(
+    caors_internal::file_system_adapter& files,
+    std::function<result(std::string_view, std::span<const std::byte>)> verify = {});
 
 enum class action_map_apply_state { idle, loading, applied, failed, cancelled };
 /** 每个宿主一个待应用槽，所有方法均在输入服务所属线程调用。

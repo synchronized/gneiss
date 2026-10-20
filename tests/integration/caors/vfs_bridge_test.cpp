@@ -138,7 +138,12 @@ void run(const char* root) {
   {
     using namespace gneiss::input_internal;
     caors::resources::cache<action_map_asset> cache;
-    auto loader = make_action_map_loader(*bridge);
+    bool reject_revision = false;
+    const auto host_thread = std::this_thread::get_id();
+    auto loader = make_action_map_loader(*bridge, [&](auto, auto) {
+      check(std::this_thread::get_id() != host_thread, "final verification runs on worker");
+      return reject_revision ? gneiss::result::invalid_state : gneiss::result::success;
+    });
     caors::tasks::execution_context completed;
     caors::assets::asset_manager manager({work.get_executor(), completed.get_executor()});
     caors::resources::file_source provider(bridge);
@@ -158,6 +163,19 @@ void run(const char* root) {
     }
     check(request.loaded(), "typed input loaded through bridge");
     check(revisions->verify({}) == GNEISS_SUCCESS, "verify before input application");
+    const auto previous_asset = request.try_get();
+    reject_revision = true;
+    auto rejected_reload = manager.request_reload<action_map_asset>(id);
+    while (!rejected_reload.done()) {
+      loader->pump();
+      std::thread worker([&] { (void)work.drain(); });
+      worker.join();
+      (void)completed.drain();
+      check(std::chrono::steady_clock::now() < input_deadline, "verification rejection timeout");
+      std::this_thread::sleep_for(1ms);
+    }
+    check(rejected_reload.failed() && cache.find(id) == previous_asset.get(),
+          "verification failure preserves cached version");
     input_service input;
     action_map_application application;
     check(application.begin(manager, id) == gneiss::result::success &&

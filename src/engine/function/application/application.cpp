@@ -9,6 +9,9 @@
 #include "engine/function/render/render_executor.hpp"
 #include "engine/function/render/render_resource_service.hpp"
 #include "engine/function/world/world.hpp"
+#ifdef GNEISS_ENABLE_CAORS_INPUT
+#include "engine/function/input/caors_input_host.hpp"
+#endif
 #include <atomic>
 #include <optional>
 #include <thread>
@@ -69,6 +72,9 @@ struct application::storage {
   bool should_exit_ = false;
   bool is_updating_ = false;
   input_internal::input_service input_;
+#ifdef GNEISS_ENABLE_CAORS_INPUT
+  std::unique_ptr<input_internal::caors_input_host> caors_input_;
+#endif
   std::unique_ptr<log_internal::log_dispatcher> log_dispatcher_;
 #ifdef GNEISS_HAS_GRANIT_PLATFORM
   std::unique_ptr<platform::granit_platform> granit_platform_;
@@ -175,6 +181,8 @@ render_internal::render_queue_stats application::render_statistics() const noexc
 }
 
 gneiss_result application::attach_task_executor(tasks::task_executor& executor) noexcept {
+  if (!is_owner_thread() || !accepts_requests())
+    return GNEISS_ERROR_INVALID_STATE;
   if (storage_->scene_session_.textures()) {
     return GNEISS_ERROR_INVALID_STATE;
   }
@@ -192,6 +200,11 @@ gneiss_result application::attach_task_executor(tasks::task_executor& executor) 
       storage_->native_assets_->set_async_io(std::move(files), std::move(paths));
       storage_->asset_io_executor_ = std::move(loop);
     }
+#endif
+#ifdef GNEISS_ENABLE_CAORS_INPUT
+    if (storage_->asset_io_executor_ && !storage_->caors_input_)
+      storage_->caors_input_ = std::make_unique<input_internal::caors_input_host>(
+          storage_->asset_file_system_, executor);
 #endif
     render_internal::texture_upload_backend backend;
 #ifdef GNEISS_HAS_GRANIT_PLATFORM
@@ -481,7 +494,46 @@ gneiss_result application::poll_input(input_internal::input_event& out_event) no
   return to_native(storage_->input_.poll(out_event));
 }
 
+gneiss_result application::begin_action_map(std::string_view uri) noexcept {
+  if (!is_owner_thread() || !accepts_requests())
+    return GNEISS_ERROR_INVALID_STATE;
+#ifdef GNEISS_ENABLE_CAORS_INPUT
+  return storage_->caors_input_ ? storage_->caors_input_->begin(uri).native()
+                                : GNEISS_ERROR_NOT_READY;
+#else
+  (void)uri;
+  return GNEISS_ERROR_UNSUPPORTED;
+#endif
+}
+gneiss_result application::action_map_status() const noexcept {
+  if (!is_owner_thread() || !accepts_requests())
+    return GNEISS_ERROR_INVALID_STATE;
+#ifdef GNEISS_ENABLE_CAORS_INPUT
+  return storage_->caors_input_ ? storage_->caors_input_->status().native()
+                                : GNEISS_ERROR_NOT_READY;
+#else
+  return GNEISS_ERROR_UNSUPPORTED;
+#endif
+}
+gneiss_result application::cancel_action_map() noexcept {
+  if (!is_owner_thread() || !accepts_requests())
+    return GNEISS_ERROR_INVALID_STATE;
+#ifdef GNEISS_ENABLE_CAORS_INPUT
+  if (!storage_->caors_input_)
+    return GNEISS_ERROR_NOT_READY;
+  storage_->caors_input_->cancel();
+  return GNEISS_SUCCESS;
+#else
+  return GNEISS_ERROR_UNSUPPORTED;
+#endif
+}
 gneiss_result application::load_action_map(std::string_view uri) noexcept {
+  if (!is_owner_thread() || !accepts_requests())
+    return GNEISS_ERROR_INVALID_STATE;
+#ifdef GNEISS_ENABLE_CAORS_INPUT
+  if (storage_->caors_input_)
+    storage_->caors_input_->cancel();
+#endif
   input_internal::action_map map;
   const auto result = input_internal::load_action_map(storage_->asset_file_system_, uri, map);
   return to_native(result == gneiss::result::success
@@ -744,6 +796,10 @@ gneiss_result application::run(gneiss_application handle, std::uint64_t max_fram
       }
     }
 
+#ifdef GNEISS_ENABLE_CAORS_INPUT
+    if (storage_->caors_input_)
+      storage_->caors_input_->advance(storage_->input_);
+#endif
     const auto current_time_ns = now_ns();
     const auto raw_delta = current_time_ns >= storage_->previous_time_ns_
                                ? current_time_ns - storage_->previous_time_ns_
@@ -836,6 +892,9 @@ gneiss_result application::shutdown(gneiss_application handle) noexcept {
   storage_->shutting_down_ = true;
   storage_->accepts_requests_.store(false, std::memory_order_release);
   auto shutdown_result = GNEISS_SUCCESS;
+#ifdef GNEISS_ENABLE_CAORS_INPUT
+  storage_->caors_input_.reset();
+#endif
   storage_->scene_session_.shutdown();
   storage_->asset_manager_.reset();
   storage_->is_updating_ = false;

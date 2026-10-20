@@ -126,6 +126,11 @@ public:
   [[nodiscard]] gneiss_result get_window_size(std::uint32_t& out_width,
                                               std::uint32_t& out_height) const noexcept;
   [[nodiscard]] gneiss_result load_action_map(std::string_view uri) noexcept;
+  /** 仅所属线程；成功只表示已接受，主循环在 update 前应用。未启用后端返回 UNSUPPORTED。 */
+  [[nodiscard]] gneiss_result begin_action_map(std::string_view uri) noexcept;
+  /** NOT_READY 表示在途；成功表示已应用。失败保留原映射。 */
+  [[nodiscard]] gneiss_result action_map_status() const noexcept;
+  [[nodiscard]] gneiss_result cancel_action_map() noexcept;
   [[nodiscard]] gneiss_result find_action(std::string_view name,
                                           input_internal::action_id& out_action) const noexcept;
   [[nodiscard]] gneiss_result
