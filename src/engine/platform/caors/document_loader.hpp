@@ -9,6 +9,7 @@
 #include <functional>
 #include <gneiss/engine/core/result.hpp>
 #include <mutex>
+#include <stdexcept>
 
 namespace gneiss::caors_internal {
 /** 有界 CPU 文档加载协议；宿主串行 pump，销毁前停止 worker 再 abandon。
@@ -37,8 +38,13 @@ public:
   bounded_document_loader(
       gneiss::caors_internal::file_system_adapter& files,
       std::function<result(std::span<const std::byte>, Asset&)> decode,
-      std::function<result(std::string_view, std::span<const std::byte>)> verify)
-      : decode_(std::move(decode)), verify_(std::move(verify)), files_(files) {}
+      std::function<result(std::string_view, std::span<const std::byte>)> verify,
+      std::size_t maximum_document_bytes = 1024U * 1024U)
+      : decode_(std::move(decode)), verify_(std::move(verify)), files_(files),
+        max_bytes_(maximum_document_bytes) {
+    if (max_bytes_ == 0U)
+      throw std::invalid_argument("文档读取上限不得为零");
+  }
   error start(caors::resources::async_load_context context,
               caors::resources::load_completion<Asset> completion) override {
     if (!context.sources)
@@ -89,7 +95,7 @@ public:
         if (status == result::success) {
           op->file = opened->value;
           auto request =
-              caors::io::read_all_bounded(op->file, max_bytes, io_completions_.get_executor());
+              caors::io::read_all_bounded(op->file, max_bytes_, io_completions_.get_executor());
           if (!request) {
             status = result::io;
             io_error = translate(request.error());
@@ -169,7 +175,6 @@ public:
   }
   std::size_t started_count() const noexcept override { return starts_.load(); }
   std::atomic_size_t starts_{};
-  static constexpr std::size_t max_bytes = 1024U * 1024U;
 
 private:
   static error translate(caors::io::io_error error) {
@@ -192,6 +197,7 @@ private:
   std::function<result(std::string_view, std::span<const std::byte>)> verify_;
   caors::tasks::execution_context io_completions_;
   gneiss::caors_internal::file_system_adapter& files_;
+  const std::size_t max_bytes_;
   std::mutex mutex_;
   std::vector<std::shared_ptr<operation>> pending_;
 };

@@ -14,10 +14,11 @@ struct material_document final : caors::resource {
   std::uint64_t source_bytes{};
 };
 using material_document_loader = caors_internal::document_loader<material_document>;
-/** 独立接入验证入口；最多 1 MiB，不替换生产材质接口的大小契约。 */
+/** 独立接入验证入口；默认 1 MiB，宿主可传入单文档预算，须与 VFS 桥及复验一致。 */
 inline std::unique_ptr<material_document_loader> make_material_document_loader(
     caors_internal::file_system_adapter& files,
-    std::function<result(std::string_view, std::span<const std::byte>)> verify = {}) {
+    std::function<result(std::string_view, std::span<const std::byte>)> verify = {},
+    std::size_t maximum_document_bytes = 1024U * 1024U) {
   return std::make_unique<caors_internal::bounded_document_loader<material_document>>(
       files,
       [](auto bytes, material_document& value) {
@@ -31,6 +32,6 @@ inline std::unique_ptr<material_document_loader> make_material_document_loader(
         }
         return result{parsed};
       },
-      std::move(verify));
+      std::move(verify), maximum_document_bytes);
 }
 } // namespace gneiss::asset_internal

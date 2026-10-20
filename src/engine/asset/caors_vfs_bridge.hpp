@@ -17,6 +17,8 @@ public:
   virtual gneiss_result identify(std::string_view uri, std::uint32_t type,
                                  asset_identity& output) const noexcept = 0;
 };
-std::shared_ptr<caors_vfs_bridge> make_caors_vfs_bridge(virtual_file_system snapshot,
-                                                        caors::tasks::executor worker);
+/** maximum_document_bytes 是单次完整读取上限，必须大于零；零值抛出 invalid_argument。 */
+std::shared_ptr<caors_vfs_bridge>
+make_caors_vfs_bridge(virtual_file_system snapshot, caors::tasks::executor worker,
+                      std::size_t maximum_document_bytes = 1024U * 1024U);
 } // namespace gneiss::asset_internal

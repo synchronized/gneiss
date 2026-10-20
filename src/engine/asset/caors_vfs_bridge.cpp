@@ -5,6 +5,7 @@
 #include <atomic>
 #include <gneiss/engine/core/result.hpp>
 #include <mutex>
+#include <stdexcept>
 #include <vector>
 namespace gneiss::asset_internal {
 namespace {
@@ -38,8 +39,8 @@ class async_file final : public caors_internal::file_adapter {
   };
 
 public:
-  async_file(std::shared_ptr<read_source> file, caors::tasks::executor worker)
-      : file_(std::move(file)), worker_(std::move(worker)) {}
+  async_file(std::shared_ptr<read_source> file, caors::tasks::executor worker, std::size_t limit)
+      : file_(std::move(file)), worker_(std::move(worker)), maximum_document_bytes_(limit) {}
   ~async_file() override { (void)file_->begin_close(); }
   // 宿主放弃 pump 前必须调用；解除凭证保活环，真实 I/O 仍由 libuv 排空。
   void abandon() override {
@@ -54,7 +55,7 @@ public:
     }
   }
   std::uint64_t size() const noexcept override { return file_->size(); }
-  std::uint64_t max_read_size() const noexcept override { return 1024U * 1024U; }
+  std::uint64_t max_read_size() const noexcept override { return maximum_document_bytes_; }
   caors::io::io_error
   start_read(std::uint64_t offset, std::uint64_t length, caors::memory_resource* resource,
              caors::io::io_completion<caors::io::byte_buffer> completion) override {
@@ -159,6 +160,7 @@ private:
   };
   std::shared_ptr<read_source> file_;
   caors::tasks::executor worker_;
+  std::size_t maximum_document_bytes_;
   std::shared_ptr<std::atomic_size_t> processing_{std::make_shared<std::atomic_size_t>(0)};
   std::mutex mutex_;
   bool closing_{};
@@ -172,8 +174,9 @@ class vfs_backend final : public caors_vfs_bridge {
   };
 
 public:
-  vfs_backend(virtual_file_system files, caors::tasks::executor worker)
-      : files_snapshot_(std::move(files)), worker_(std::move(worker)) {}
+  vfs_backend(virtual_file_system files, caors::tasks::executor worker, std::size_t limit)
+      : files_snapshot_(std::move(files)), worker_(std::move(worker)),
+        maximum_document_bytes_(limit) {}
   bool exists(caors::io::path_view) const override { return false; } // 不提供同步状态查询。
   gneiss_result identify(std::string_view uri, std::uint32_t type,
                          asset_identity& output) const noexcept override {
@@ -230,7 +233,8 @@ public:
         continue;
       }
       try {
-        auto file = std::make_shared<async_file>(std::move(source), worker_);
+        auto file =
+            std::make_shared<async_file>(std::move(source), worker_, maximum_document_bytes_);
         files_.push_back(file);
         (void)next.completion.complete({{}, std::move(file)});
       } catch (const std::bad_alloc&) {
@@ -262,6 +266,7 @@ public:
 private:
   virtual_file_system files_snapshot_;
   caors::tasks::executor worker_;
+  std::size_t maximum_document_bytes_;
   std::mutex mutex_;
   bool stopped_{};
   std::vector<opening> pending_;
@@ -269,7 +274,11 @@ private:
 };
 }
 std::shared_ptr<caors_vfs_bridge> make_caors_vfs_bridge(virtual_file_system snapshot,
-                                                        caors::tasks::executor worker) {
-  return std::make_shared<vfs_backend>(std::move(snapshot), std::move(worker));
+                                                        caors::tasks::executor worker,
+                                                        std::size_t maximum_document_bytes) {
+  if (maximum_document_bytes == 0U)
+    throw std::invalid_argument("文档读取上限不得为零");
+  return std::make_shared<vfs_backend>(std::move(snapshot), std::move(worker),
+                                       maximum_document_bytes);
 }
 }

@@ -23,7 +23,7 @@ void check(bool ok, const char* message) {
   if (!ok)
     throw std::runtime_error(message);
 }
-void run() {
+void run(std::size_t document_limit) {
   using namespace gneiss::asset_internal;
   using namespace std::chrono_literals;
   using gneiss::result;
@@ -45,7 +45,9 @@ void run() {
     out << text;
     check(out.good(), "write fixture");
   };
-  write(R"({"format":"gneiss.material","version":1,"color":[1,0,0,1]})");
+  std::string initial = R"({"format":"gneiss.material","version":1,"color":[1,0,0,1]})";
+  initial.resize(document_limit, ' ');
+  write(initial);
   gneiss::io_internal::uv_loop_executor loop;
   check(loop.start() == result::success, "loop");
   auto native = std::make_shared<native_file_system>();
@@ -58,22 +60,38 @@ void run() {
   auto context = gneiss::caors_internal::make_worker(scheduler);
   caors::tasks::external_executor worker(context);
   caors::tasks::execution_context completions;
-  auto bridge = make_caors_vfs_bridge(files, worker.get_executor());
+  auto bridge = make_caors_vfs_bridge(files, worker.get_executor(), document_limit);
+  bool rejected_zero_bridge = false;
+  try {
+    (void)make_caors_vfs_bridge(files, worker.get_executor(), 0);
+  } catch (const std::invalid_argument&) {
+    rejected_zero_bridge = true;
+  }
+  check(rejected_zero_bridge, "zero bridge budget rejected");
+  bool rejected_zero_loader = false;
+  try {
+    (void)make_material_document_loader(*bridge, {}, 0);
+  } catch (const std::invalid_argument&) {
+    rejected_zero_loader = true;
+  }
+  check(rejected_zero_loader, "zero loader budget rejected");
   std::atomic_bool reject_verification{false};
   const auto host_thread = std::this_thread::get_id();
   auto loader = make_material_document_loader(
-      *bridge, [files, host_thread, &reject_verification](auto uri, auto bytes) {
+      *bridge,
+      [files, host_thread, &reject_verification, document_limit](auto uri, auto bytes) {
         if (reject_verification.load())
           return result::invalid_state;
         if (std::this_thread::get_id() == host_thread)
           return result::internal;
         std::vector<std::byte> current;
-        const result read{files.read_bounded(uri, 1024U * 1024U, current)};
+        const result read{files.read_bounded(uri, document_limit, current)};
         if (read != result::success)
           return read;
         return gneiss::core::sha256(current) == gneiss::core::sha256(bytes) ? result::success
                                                                             : result::invalid_state;
-      });
+      },
+      document_limit);
   caors::resources::cache<material_document> cache;
   caors::assets::asset_manager manager({worker.get_executor(), completions.get_executor()});
   struct cleanup {
@@ -199,7 +217,7 @@ void run() {
   check(cancelled.cancel(), "cancel");
   wait([&] { return !manager.database().has_active_operations() && loader->empty(); });
   check(cache.find_handle(id).get() == current.get(), "cancel preserves current");
-  write(std::string(1024U * 1024U + 1U, ' '));
+  write(std::string(document_limit + 1U, ' '));
   auto oversized = manager.request_reload<material_document>(id);
   wait([&] { return oversized.done(); });
   check(oversized.failed() && cache.find_handle(id).get() == current.get(),
@@ -211,7 +229,8 @@ void run() {
 }
 int main() {
   try {
-    run();
+    run(1024U * 1024U);
+    run(2U * 1024U * 1024U);
     return 0;
   } catch (const std::exception& e) {
     std::fprintf(stderr, "%s\n", e.what());
