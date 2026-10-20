@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "caors_vfs_bridge.hpp"
+#include <atomic>
 #include <gneiss/engine/core/result.hpp>
 #include <mutex>
 #include <vector>
@@ -37,7 +38,8 @@ class async_file final : public caors_internal::file_adapter {
   };
 
 public:
-  explicit async_file(std::shared_ptr<read_source> file) : file_(std::move(file)) {}
+  async_file(std::shared_ptr<read_source> file, caors::tasks::executor worker)
+      : file_(std::move(file)), worker_(std::move(worker)) {}
   ~async_file() override { (void)file_->begin_close(); }
   // 宿主放弃 pump 前必须调用；解除凭证保活环，真实 I/O 仍由 libuv 排空。
   void abandon() override {
@@ -106,34 +108,58 @@ public:
         it = reads_.erase(it);
       }
       close_status = file_->poll_close();
-      if (closing_ && close_status != GNEISS_ERROR_NOT_READY && reads_.empty())
+      if (closing_ && close_status != GNEISS_ERROR_NOT_READY && reads_.empty() && ready.empty() &&
+          processing_->load(std::memory_order_acquire) == 0)
         closed.swap(closes_);
     }
     for (auto& pending : ready) {
-      using namespace caors::io;
-      std::span<const std::byte> bytes;
-      auto status = translate(pending.operation->poll(bytes));
-      auto output = make_byte_buffer(pending.resource);
-      if (pending.completion.stop_token().stop_requested())
-        status = {io_errc::cancelled};
-      if (!status) {
-        try {
-          const auto validated = file_->complete_validation(core::sha256(bytes));
-          status = translate(validated);
-          if (!status)
-            output.assign(bytes.begin(), bytes.end());
-        } catch (const std::bad_alloc&) {
-          status = {io_errc::out_of_memory};
+      // 移交读取回执而非复制负载；任务保活来源和回执，字节一直有效。
+      auto job = std::make_shared<processing_read>(std::move(pending), file_, processing_);
+      const auto posted = worker_.post(caors::tasks::task{[job] {
+        using namespace caors::io;
+        std::span<const std::byte> bytes;
+        auto status = translate(job->pending.operation->poll(bytes));
+        auto output = make_byte_buffer(job->pending.resource);
+        if (job->pending.completion.stop_token().stop_requested())
+          status = {io_errc::cancelled};
+        if (!status) {
+          try {
+            status = translate(job->source->complete_validation(core::sha256(bytes)));
+            if (!status)
+              output.assign(bytes.begin(), bytes.end());
+          } catch (const std::bad_alloc&) {
+            status = {io_errc::out_of_memory};
+          } catch (...) {
+            status = {io_errc::backend_failure};
+          }
         }
-      }
-      (void)pending.completion.complete({status, std::move(output)});
+        if (job->pending.completion.stop_token().stop_requested())
+          status = {io_errc::cancelled};
+        (void)job->pending.completion.complete({status, std::move(output)});
+      }});
+      if (posted)
+        (void)job->pending.completion.complete({{caors::io::io_errc::backend_failure}, {}});
     }
     for (auto& completion : closed)
       (void)completion.complete({translate(close_status), {}});
   }
 
 private:
+  // 任务执行、投递失败和队列丢弃都释放计数，关闭回执不会越过后台处理。
+  struct processing_read {
+    read pending;
+    std::shared_ptr<read_source> source;
+    std::shared_ptr<std::atomic_size_t> active;
+    processing_read(read value, std::shared_ptr<read_source> file,
+                    std::shared_ptr<std::atomic_size_t> count)
+        : pending(std::move(value)), source(std::move(file)), active(std::move(count)) {
+      active->fetch_add(1, std::memory_order_relaxed);
+    }
+    ~processing_read() { active->fetch_sub(1, std::memory_order_release); }
+  };
   std::shared_ptr<read_source> file_;
+  caors::tasks::executor worker_;
+  std::shared_ptr<std::atomic_size_t> processing_{std::make_shared<std::atomic_size_t>(0)};
   std::mutex mutex_;
   bool closing_{};
   std::vector<read> reads_;
@@ -146,7 +172,8 @@ class vfs_backend final : public caors_vfs_bridge {
   };
 
 public:
-  explicit vfs_backend(virtual_file_system files) : files_snapshot_(std::move(files)) {}
+  vfs_backend(virtual_file_system files, caors::tasks::executor worker)
+      : files_snapshot_(std::move(files)), worker_(std::move(worker)) {}
   bool exists(caors::io::path_view) const override { return false; } // 不提供同步状态查询。
   gneiss_result identify(std::string_view uri, std::uint32_t type,
                          asset_identity& output) const noexcept override {
@@ -203,7 +230,7 @@ public:
         continue;
       }
       try {
-        auto file = std::make_shared<async_file>(std::move(source));
+        auto file = std::make_shared<async_file>(std::move(source), worker_);
         files_.push_back(file);
         (void)next.completion.complete({{}, std::move(file)});
       } catch (const std::bad_alloc&) {
@@ -234,13 +261,15 @@ public:
 
 private:
   virtual_file_system files_snapshot_;
+  caors::tasks::executor worker_;
   std::mutex mutex_;
   bool stopped_{};
   std::vector<opening> pending_;
   std::vector<std::weak_ptr<caors_internal::file_adapter>> files_;
 };
 }
-std::shared_ptr<caors_vfs_bridge> make_caors_vfs_bridge(virtual_file_system snapshot) {
-  return std::make_shared<vfs_backend>(std::move(snapshot));
+std::shared_ptr<caors_vfs_bridge> make_caors_vfs_bridge(virtual_file_system snapshot,
+                                                        caors::tasks::executor worker) {
+  return std::make_shared<vfs_backend>(std::move(snapshot), std::move(worker));
 }
 }

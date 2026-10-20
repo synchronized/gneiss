@@ -25,7 +25,7 @@ add_executable(gneiss_caors_vfs_bridge_test vfs_bridge_test.cpp
   "${PROJECT_SOURCE_DIR}/src/engine/asset/source_revision_file_system.cpp")
 target_compile_definitions(gneiss_caors_vfs_bridge_test PRIVATE GNEISS_ASSET_LIBUV GNEISS_BUILDING_LIBRARY)
 target_include_directories(gneiss_caors_vfs_bridge_test PRIVATE "${PROJECT_SOURCE_DIR}/src" "${PROJECT_SOURCE_DIR}/include")
-target_link_libraries(gneiss_caors_vfs_bridge_test PRIVATE gneiss_caors_vfs_bridge gneiss_io_uv)
+target_link_libraries(gneiss_caors_vfs_bridge_test PRIVATE gneiss_caors_vfs_bridge gneiss_caors_input gneiss_io_uv)
 gneiss_target_compile_warnings(gneiss_caors_vfs_bridge_test)
 gneiss_target_output_directories(gneiss_caors_vfs_bridge_test)
 add_test(NAME gneiss.caors.vfs-bridge COMMAND gneiss_caors_vfs_bridge_test

@@ -4,6 +4,8 @@
 #include "engine/asset/caors_vfs_bridge.hpp"
 #include "engine/asset/native_file_system.hpp"
 #include "engine/asset/source_revision_file_system.hpp"
+#include "engine/function/input/caors_action_map.hpp"
+#include "engine/function/input/input_service.hpp"
 #include "uv_async_file.hpp"
 #include "uv_loop_executor.hpp"
 #include "uv_path_resolver.hpp"
@@ -51,7 +53,8 @@ void run(const char* root) {
   auto revisions = std::make_shared<source_revision_file_system>(source);
   virtual_file_system tracked;
   check(tracked.mount("asset://", revisions) == GNEISS_SUCCESS, "tracked mount");
-  auto bridge = make_caors_vfs_bridge(tracked);
+  caors::tasks::execution_context work;
+  auto bridge = make_caors_vfs_bridge(tracked, work.get_executor());
   caors::tasks::execution_context queue;
   struct cleanup {
     caors_vfs_bridge& bridge;
@@ -79,6 +82,9 @@ void run(const char* root) {
     const auto deadline = std::chrono::steady_clock::now() + 10s;
     while (!predicate()) {
       bridge->pump();
+      // 后台队列只在其他线程运行，不借用测试主线程执行摘要。
+      std::thread worker([&] { (void)work.drain(); });
+      worker.join();
       (void)queue.drain();
       check(std::chrono::steady_clock::now() < deadline, "timeout");
       std::this_thread::sleep_for(1ms);
@@ -98,6 +104,17 @@ void run(const char* root) {
   check(closing && again, "close accepted");
   auto late = request_read(file, 0, file->size(), 1024U * 1024U, queue.get_executor());
   check(!late && late.error().value == io_errc::closed, "closed rejects read");
+  const auto queued_deadline = std::chrono::steady_clock::now() + 10s;
+  while (work.pending() == 0) {
+    bridge->pump();
+    (void)queue.drain();
+    check(std::chrono::steady_clock::now() < queued_deadline, "worker dispatch timeout");
+    std::this_thread::sleep_for(1ms);
+  }
+  bridge->pump();
+  (void)queue.drain();
+  check(!reading.value.result() && !closing.value.result() && !again.value.result(),
+        "host pump neither hashes nor closes ahead of worker");
   wait([&] { return reading.value.result() && closing.value.result() && again.value.result(); });
   check(*reading.value.result() && *closing.value.result() && *again.value.result(),
         "read and close complete");
@@ -117,6 +134,61 @@ void run(const char* root) {
     wait([&] { return attempt.value.result(); });
     check(!*attempt.value.result(), "unsafe or missing source rejected");
   }
+  // 同一 VFS 桥交给真实输入 Loader，不另建 CAORS 路由表。
+  {
+    using namespace gneiss::input_internal;
+    caors::resources::cache<action_map_asset> cache;
+    auto loader = make_action_map_loader(*bridge);
+    caors::tasks::execution_context completed;
+    caors::assets::asset_manager manager({work.get_executor(), completed.get_executor()});
+    caors::resources::file_source provider(bridge);
+    const caors::resource_guid id{caors::guid::from_bytes(caors::guid::byte_array{1})};
+    check(!manager.provider().bind(id, provider, uri), "input provider");
+    check(!manager.register_type(cache, *loader, caors::string_name{"gneiss.input.action_map"}),
+          "input loader");
+    auto request = manager.request_load<action_map_asset>(id);
+    const auto input_deadline = std::chrono::steady_clock::now() + 10s;
+    while (!request.done()) {
+      loader->pump();
+      std::thread worker([&] { (void)work.drain(); });
+      worker.join();
+      (void)completed.drain();
+      check(std::chrono::steady_clock::now() < input_deadline, "input timeout");
+      std::this_thread::sleep_for(1ms);
+    }
+    check(request.loaded(), "typed input loaded through bridge");
+    check(revisions->verify({}) == GNEISS_SUCCESS, "verify before input application");
+    input_service input;
+    action_map_application application;
+    check(application.begin(manager, id) == gneiss::result::success &&
+              application.poll(input) == gneiss::result::success,
+          "apply verified input");
+    action_id action;
+    check(input.find_action("move_horizontal", action) == gneiss::result::success,
+          "real input action available");
+  }
+  // 已接受的工作被宿主丢弃，也必须释放关闭计数和读取凭证。
+  auto dropped_open = request_open(resolved.value, queue.get_executor());
+  check(static_cast<bool>(dropped_open), "drop open");
+  wait([&] { return dropped_open.value.result(); });
+  check(static_cast<bool>(*dropped_open.value.result()), "drop opened");
+  auto dropped_file = dropped_open.value.result()->value;
+  auto dropped_read =
+      request_read(dropped_file, 0, dropped_file->size(), 1024U * 1024U, queue.get_executor());
+  auto dropped_close = request_close(dropped_file, queue.get_executor());
+  check(dropped_read && dropped_close, "drop requests");
+  const auto drop_deadline = std::chrono::steady_clock::now() + 10s;
+  while (work.pending() == 0) {
+    bridge->pump();
+    (void)queue.drain();
+    check(std::chrono::steady_clock::now() < drop_deadline, "drop queue timeout");
+    std::this_thread::sleep_for(1ms);
+  }
+  work.clear();
+  wait([&] { return dropped_read.value.result() && dropped_close.value.result(); });
+  check(dropped_read.value.result()->error().value == io_errc::cancelled &&
+            static_cast<bool>(*dropped_close.value.result()),
+        "dropped worker releases close barrier");
   {
     std::ofstream changed(document, std::ios::binary | std::ios::app);
     changed << " ";

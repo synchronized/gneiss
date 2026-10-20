@@ -34,7 +34,7 @@ public:
     auto resolved = context.sources->resolve(context.guid);
     if (!resolved)
       return resolved.error();
-    // 此 probe 仅注册无根目录的 native 后端，目标路径已由 CAORS 路由为绝对路径。
+    // provider 固定来源快照；路径语义由具体后端负责，可为完整资产 URI。
     auto op = std::make_shared<operation>();
     op->context = std::move(context);
     op->completion = std::move(completion);
