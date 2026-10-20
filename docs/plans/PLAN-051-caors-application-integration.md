@@ -127,3 +127,5 @@ Editor 当前没有调用 load_action_map / begin_action_map；工程输入路�
 [Prefab 编辑](../../apps/editor/editor_prefab_edit.cpp)通过 prefab_placement 事务处理。
 这些链路尚未由 CAORS 输入宿主统一管理。下一阶段应先选择一种共享资源并明确缓存身份、
 依赖及发布规则，不新增一个仅为游戏输入映射存在的 Editor 加载器。
+
+下一阶段源码核对及待确认范围见[共享材质接入方案](PLAN-051-caors-shared-material.md)。
