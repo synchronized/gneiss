@@ -87,12 +87,25 @@ struct file {
   std::mutex mutex;
   std::vector<std::shared_ptr<reading>> queued;
   bool released{};
+  bool close_started{};
+  std::size_t active_reads{};
+  receipt close_receipt;
+  result close_status = result::success;
+  void read_finished() noexcept {
+    const std::scoped_lock lock(mutex);
+    --active_reads;
+    if (released && active_reads == 0)
+      (void)uv_async_send(&wakeup);
+  }
   static void dispatch(uv_async_t* handle) noexcept;
   static void closed(uv_fs_t* request) noexcept {
     auto* self = static_cast<file*>(request->data);
+    if (request->result < 0)
+      self->close_status = from_uv_status(static_cast<int>(request->result));
     uv_fs_req_cleanup(request);
     uv_close(reinterpret_cast<uv_handle_t*>(&self->wakeup), [](uv_handle_t* handle) {
       auto* state = static_cast<file*>(handle->data);
+      state->close_receipt.publish(state->close_status);
       auto lifetime = std::move(state->lifetime);
     });
   }
@@ -106,6 +119,7 @@ struct reading : receipt {
   std::uint64_t offset{};
   std::size_t consumed{};
   void finish(result value) noexcept {
+    source->state_->read_finished();
     source.reset();
     publish(value);
     lifetime.reset();
@@ -148,7 +162,9 @@ void file::dispatch(uv_async_t* handle) noexcept {
   {
     const std::scoped_lock lock(self->mutex);
     pending.swap(self->queued);
-    close = self->released;
+    close = self->released && self->active_reads == 0 && !self->close_started;
+    if (close)
+      self->close_started = true;
   }
   for (auto& read : pending) {
     read->lifetime = read;
@@ -162,6 +178,7 @@ void file::dispatch(uv_async_t* handle) noexcept {
     self->closing.data = self;
     const auto code = uv_fs_close(self->loop, &self->closing, self->descriptor, closed);
     if (code < 0) {
+      self->close_status = from_uv_status(code);
       close_after_submission_failure(self->descriptor);
       closed(&self->closing);
     }
@@ -302,15 +319,31 @@ result uv_file_read_operation::wait_for(std::chrono::milliseconds timeout,
 }
 uv_async_file::uv_async_file(std::shared_ptr<file_detail::file> state) noexcept
     : state_(std::move(state)) {}
-uv_async_file::~uv_async_file() {
-  if (state_->descriptor >= 0) {
-    const std::scoped_lock lock(state_->mutex);
+uv_async_file::~uv_async_file() { begin_close(); }
+void uv_async_file::begin_close() const noexcept {
+  const std::scoped_lock lock(state_->mutex);
+  if (state_->descriptor >= 0 && !state_->released) {
     state_->released = true;
     (void)uv_async_send(&state_->wakeup);
   }
 }
+result uv_async_file::poll_close() const noexcept {
+  return state_->close_receipt.ready.load(std::memory_order_acquire) ? state_->close_receipt.status
+                                                                     : result::not_ready;
+}
 std::uint64_t uv_async_file::size() const noexcept { return state_->size; }
 result uv_async_file::read_at(std::uint64_t offset, std::span<std::byte> output) const noexcept {
+  {
+    const std::scoped_lock lock(state_->mutex);
+    if (state_->released)
+      return result::invalid_state;
+    ++state_->active_reads;
+  }
+  // 关闭等待计数归零，不持锁等待同步系统调用，避免阻塞发起关闭的线程。
+  struct finish_read {
+    file_detail::file* state;
+    ~finish_read() { state->read_finished(); }
+  } finished{state_.get()};
   if (offset > size() || output.size() > size() - offset ||
       offset > static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max()) ||
       output.size() >
@@ -355,12 +388,15 @@ result uv_async_file::begin_read(std::uint64_t offset, std::size_t count,
     read->source = shared_from_this();
     auto operation = std::make_unique<uv_file_read_operation>(read);
     const std::scoped_lock lock(state_->mutex);
+    if (state_->released)
+      return result::invalid_state;
     state_->queued.push_back(read);
     const auto code = uv_async_send(&state_->wakeup);
     if (code < 0) {
       state_->queued.pop_back();
       return from_uv_status(code);
     }
+    ++state_->active_reads;
     output = std::move(operation);
     return result::success;
   } catch (const std::bad_alloc&) {

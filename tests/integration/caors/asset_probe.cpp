@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 // 独立接入验证：不链接 Engine DLL，不将 CAORS 对象带入公共 SDK。
+#include "async_file.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "uv_async_file.hpp"
 #include "uv_loop_executor.hpp"
@@ -74,14 +75,14 @@ struct json_asset final : caors::resource {
 
 // 过渡接法：CAORS 捕获并解析唯一来源；Loader 复用现有 libuv 回执。
 // pump 只轮询已提交的回执，不执行磁盘 I/O 或解析，不阻塞 worker 等待 I/O。
-// 完整 async_file 后端与显式关闭协议留待下一阶段，不伪装成已实现。
+// 文件打开暂用现有回执；读取已通过 CAORS async_file，VFS start_open 后续接入。
 class json_loader final : public caors::resources::async_loader<json_asset> {
   struct operation {
     caors::resources::async_load_context context;
     caors::resources::load_completion<json_asset> completion;
     std::unique_ptr<gneiss::io_internal::uv_file_open_operation> opening;
-    std::shared_ptr<gneiss::io_internal::uv_async_file> file;
-    std::unique_ptr<gneiss::io_internal::uv_file_read_operation> reading;
+    std::shared_ptr<gneiss::caors_probe::async_file> file;
+    caors::io::io_request<caors::io::byte_buffer> reading;
   };
 
 public:
@@ -112,29 +113,41 @@ public:
     for (auto it = pending_.begin(); it != pending_.end();) {
       const auto& op = *it;
       if (op->context.stop.stop_requested()) {
+        if (op->file)
+          op->file->abandon();
         (void)op->completion.complete({failure(errc::cancelled), {}});
         it = pending_.erase(it); // libuv 在途对象自行保活，宿主 loop 最后排空。
         continue;
       }
       result status = result::success;
       if (op->opening) {
-        status = op->opening->poll(op->file);
+        std::shared_ptr<gneiss::io_internal::uv_async_file> opened;
+        status = op->opening->poll(opened);
         if (status == result::not_ready) {
           ++it;
           continue;
         }
         op->opening.reset();
         if (status == result::success) {
-          if (op->file->size() > max_bytes)
-            status = result::invalid_argument;
+          op->file = std::make_shared<gneiss::caors_probe::async_file>(std::move(opened));
+          auto request =
+              caors::io::read_all_bounded(op->file, max_bytes, io_completions_.get_executor());
+          if (!request)
+            status = result::io;
           else
-            status =
-                op->file->begin_read(0, static_cast<std::size_t>(op->file->size()), op->reading);
+            op->reading = std::move(request.value);
         }
       }
+      std::shared_ptr<const caors::io::io_result<caors::io::byte_buffer>> read_result;
       std::span<const std::byte> bytes;
-      if (status == result::success)
-        status = op->reading->poll(bytes);
+      if (status == result::success) {
+        op->file->pump();
+        (void)io_completions_.drain();
+        read_result = op->reading.result();
+        status = !read_result ? result::not_ready : (*read_result ? result::success : result::io);
+        if (status == result::success)
+          bytes = {read_result->value.data(), read_result->value.size()};
+      }
       if (status == result::not_ready) {
         ++it;
         continue;
@@ -176,7 +189,13 @@ public:
     return pending_.empty();
   }
   // 调度器已排空后由宿主调用；回执释放不等待真实 I/O。
-  void abandon() { pending_.clear(); }
+  void abandon() {
+    for (auto& op : pending_)
+      if (op->file)
+        op->file->abandon();
+    pending_.clear();
+    (void)io_completions_.drain();
+  }
   std::atomic_size_t starts{};
   static constexpr std::size_t max_bytes = 1024U * 1024U;
 
@@ -190,6 +209,7 @@ private:
       return failure(errc::invalid_argument);
     return failure(errc::backend_failure);
   }
+  caors::tasks::execution_context io_completions_;
   gneiss::io_internal::uv_file_io& io_;
   std::mutex mutex_;
   std::vector<std::shared_ptr<operation>> pending_;
@@ -200,10 +220,75 @@ void require(bool condition, const char* message) {
     throw std::runtime_error(message);
 }
 
+void check_file_contract(gneiss::io_internal::uv_file_io& io, const char* path) {
+  std::unique_ptr<gneiss::io_internal::uv_file_open_operation> opening;
+  require(io.begin_open(path, opening) == result::success, "contract open");
+  std::shared_ptr<gneiss::io_internal::uv_async_file> source;
+  const auto deadline = std::chrono::steady_clock::now() + 10s;
+  result status;
+  while ((status = opening->poll(source)) == result::not_ready) {
+    require(std::chrono::steady_clock::now() < deadline, "contract open timeout");
+    std::this_thread::sleep_for(1ms);
+  }
+  require(status == result::success && source->size() >= 8, "contract opened");
+  auto file = std::make_shared<gneiss::caors_probe::async_file>(std::move(source));
+  caors::tasks::execution_context queue;
+  auto first = caors::io::request_read(file, 0, 4, 4, queue.get_executor());
+  auto second = caors::io::request_read(file, 4, 4, 4, queue.get_executor());
+  auto cancelled = caors::io::request_read(file, 0, 4, 4, queue.get_executor());
+  require(first && second && cancelled, "ranges accepted");
+  cancelled.value.cancel();
+  auto invalid = caors::io::request_read(file, file->size(), 1, 4, queue.get_executor());
+  require(!invalid, "invalid range rejected");
+  auto over_budget = caors::io::request_read(file, 0, 4, 3, queue.get_executor());
+  require(!over_budget, "budget enforced");
+  auto closing = caors::io::request_close(file, queue.get_executor());
+  auto closing_again = caors::io::request_close(file, queue.get_executor());
+  require(closing && closing_again, "close subscriptions accepted");
+  auto rejected = caors::io::request_read(file, 0, 1, 1, queue.get_executor());
+  require(!rejected && rejected.error().value == caors::io::io_errc::closed,
+          "read after close rejected");
+  while (!closing.value.result() || !closing_again.value.result() || !first.value.result() ||
+         !second.value.result() || !cancelled.value.result()) {
+    file->pump();
+    (void)queue.drain();
+    require(std::chrono::steady_clock::now() < deadline, "contract timeout");
+    std::this_thread::sleep_for(1ms);
+  }
+  require(static_cast<bool>(*closing.value.result()) &&
+              static_cast<bool>(*closing_again.value.result()),
+          "actual close completed");
+  require(static_cast<bool>(*first.value.result()) && first.value.result()->value.size() == 4 &&
+              static_cast<bool>(*second.value.result()) && second.value.result()->value.size() == 4,
+          "accepted ranges finish despite close");
+  require(cancelled.value.result()->error().value == caors::io::io_errc::cancelled,
+          "cancelled range settles");
+  require(io.begin_open(path, opening) == result::success, "abandon open");
+  while ((status = opening->poll(source)) == result::not_ready) {
+    require(std::chrono::steady_clock::now() < deadline, "abandon open timeout");
+    std::this_thread::sleep_for(1ms);
+  }
+  require(status == result::success, "abandon opened");
+  auto abandoned_file = std::make_shared<gneiss::caors_probe::async_file>(std::move(source));
+  std::weak_ptr<gneiss::caors_probe::async_file> weak = abandoned_file;
+  {
+    auto abandoned_read = caors::io::request_read(abandoned_file, 0, 4, 4, queue.get_executor());
+    require(static_cast<bool>(abandoned_read), "abandoned read accepted");
+    abandoned_file->abandon();
+    (void)queue.drain();
+    require(abandoned_read.value.result() &&
+                abandoned_read.value.result()->error().value == caors::io::io_errc::cancelled,
+            "abandon settles receipt");
+  }
+  abandoned_file.reset();
+  require(weak.expired(), "abandon releases ownership cycle");
+}
+
 int run(const char* asset_path) {
   gneiss::io_internal::uv_loop_executor loop;
   require(loop.start() == result::success, "loop start");
   gneiss::io_internal::uv_file_io io(loop);
+  check_file_contract(io, asset_path);
   gneiss::tasks::task_scheduler scheduler({.workers = 1});
   auto context = std::make_shared<worker_context>(scheduler);
   caors::tasks::external_executor worker(context);

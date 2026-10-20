@@ -104,6 +104,34 @@ void run() {
   first.reset();
   second.reset();
   check(open(io, moved, source) == result::success);
+  {
+    gate blocked;
+    std::binary_semaphore entered(0);
+    check(executor.post([signal = blocked.signal, &entered] {
+      entered.release();
+      signal->acquire();
+    }) == result::success);
+    entered.acquire();
+    check(source->begin_read(0U, 4U, first) == result::success);
+    source->begin_close();
+    source->begin_close();
+    check(source->poll_close() == result::not_ready);
+    check(source->begin_read(0U, 1U, second) == result::invalid_state);
+    std::byte buffer{};
+    check(source->read_at(0U, {&buffer, 1U}) == result::invalid_state);
+  }
+  check(first->wait_for(std::chrono::seconds(5), bytes) == result::success &&
+        bytes.front() == std::byte{'a'});
+  const auto close_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+  while (source->poll_close() == result::not_ready &&
+         std::chrono::steady_clock::now() < close_deadline)
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  check(source->poll_close() == result::success);
+  source->begin_close();
+  check(source->poll_close() == result::success);
+  first.reset();
+  source.reset();
+  check(open(io, moved, source) == result::success);
   std::filesystem::resize_file(moved, 2U);
   check(source->begin_read(0U, 8U, first) == result::success);
   check(first->wait_for(std::chrono::seconds(5), bytes) == result::io && bytes.empty());
