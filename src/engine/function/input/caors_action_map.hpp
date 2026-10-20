@@ -3,6 +3,7 @@
 
 #pragma once
 #include "action_map.hpp"
+#include "engine/platform/caors/document_loader.hpp"
 #include <caors/assets.h>
 #include <functional>
 
@@ -16,13 +17,7 @@ struct action_map_asset final : caors::resource {
   action_map map;
 };
 /** 宿主推进；销毁前排空工作 scope，abandon，再排空完成队列及 loop。 */
-class action_map_loader : public caors::resources::async_loader<action_map_asset> {
-public:
-  virtual void pump() = 0;
-  virtual bool empty() = 0;
-  virtual void abandon() = 0;
-  virtual std::size_t started_count() const noexcept = 0;
-};
+using action_map_loader = caors_internal::document_loader<action_map_asset>;
 /** verify 在 worker 中、解析完成且发布缓存之前调用；参数借用至回调返回。
  * URI 是来源后端路径，回调须支持后台调用，不得访问 InputService。失败不替换缓存。 */
 std::unique_ptr<action_map_loader> make_action_map_loader(
