@@ -70,10 +70,10 @@ static_assert(std::is_same_v<decltype(gneiss::world_internal::staged_object_desc
 static_assert(std::is_same_v<decltype(gneiss::world_internal::mesh_renderer_replacement::entity),
                              gneiss::entity_id>);
 static_assert(
-    std::is_same_v<decltype(gneiss::scene_internal::prefab_property_override_key::type_id),
+    std::is_same_v<decltype(gneiss::engine::resource::prefab_property_override_key::type_id),
                    gneiss::type_id>);
 static_assert(
-    std::is_same_v<decltype(gneiss::scene_internal::prefab_property_override_key::field_id),
+    std::is_same_v<decltype(gneiss::engine::resource::prefab_property_override_key::field_id),
                    gneiss::field_id>);
 template <typename T>
 concept exposes_texture_service = requires(T& value) { value.texture_service(); };

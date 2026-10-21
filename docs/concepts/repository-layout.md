@@ -246,5 +246,5 @@ Engine 的资源与功能模块仍有旧命名空间，按模块布局计划分�
 
 资源管理器为 `gneiss::engine::resource::asset_manager`，其输入请求、CPU 缓存、VFS、
 纹理/Mesh/材质描述与解码器使用 `gneiss::engine::resource`。原 asset_internal 已删除，
-不保留兼容别名。资源目录内的 Scene/Prefab 作者描述暂仍使用 scene_internal，
-后续与功能层 Scene 的命名交叉一起处理；CAORS 平台适配命名也尚未统一。
+不保留兼容别名。Scene/Prefab 作者描述、属性覆盖值、解析/序列化和 Prefab Loader 也归属资源命名空间。
+功能层 Scene 负责实例化及活动节点，不再提供这些资源类型的旧别名。CAORS 平台适配命名尚未统一。

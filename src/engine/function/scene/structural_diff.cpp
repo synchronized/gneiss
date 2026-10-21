@@ -12,13 +12,14 @@
 
 namespace {
 
-using gneiss::scene_internal::camera_description;
-using gneiss::scene_internal::mesh_renderer_description;
-using gneiss::scene_internal::object_description;
+using gneiss::engine::resource::camera_description;
+using gneiss::engine::resource::mesh_renderer_description;
+using gneiss::engine::resource::object_description;
 using object_index = std::unordered_map<std::string_view, std::size_t>;
 
-[[nodiscard]] bool equal_camera(const std::optional<camera_description>& left,
-                                const std::optional<camera_description>& right) noexcept {
+[[nodiscard]] bool
+equal_camera(const std::optional<gneiss::engine::resource::camera_description>& left,
+             const std::optional<gneiss::engine::resource::camera_description>& right) noexcept {
   if (left.has_value() != right.has_value()) {
     return false;
   }
@@ -27,17 +28,18 @@ using object_index = std::unordered_map<std::string_view, std::size_t>;
                    left->is_primary == right->is_primary);
 }
 
-[[nodiscard]] bool
-equal_mesh_renderer(const std::optional<mesh_renderer_description>& left,
-                    const std::optional<mesh_renderer_description>& right) noexcept {
+[[nodiscard]] bool equal_mesh_renderer(
+    const std::optional<gneiss::engine::resource::mesh_renderer_description>& left,
+    const std::optional<gneiss::engine::resource::mesh_renderer_description>& right) noexcept {
   if (left.has_value() != right.has_value()) {
     return false;
   }
   return !left || (left->mesh_uri == right->mesh_uri && left->material_uri == right->material_uri);
 }
 
-[[nodiscard]] gneiss_result build_index(const std::vector<object_description>& objects,
-                                        object_index& output, std::vector<std::size_t>& depths) {
+[[nodiscard]] gneiss_result
+build_index(const std::vector<gneiss::engine::resource::object_description>& objects,
+            object_index& output, std::vector<std::size_t>& depths) {
   output.reserve(objects.size());
   depths.assign(objects.size(), 0U);
   for (std::size_t index = 0U; index < objects.size(); ++index) {
@@ -80,7 +82,8 @@ equal_mesh_renderer(const std::optional<mesh_renderer_description>& left,
 }
 
 [[nodiscard]] gneiss::scene_internal::structural_change
-compare_objects(const object_description& old_object, const object_description& new_object) {
+compare_objects(const gneiss::engine::resource::object_description& old_object,
+                const gneiss::engine::resource::object_description& new_object) {
   using gneiss::scene_internal::structural_change;
   auto changes = structural_change::none;
   if (old_object.name != new_object.name) {
@@ -106,9 +109,10 @@ compare_objects(const object_description& old_object, const object_description& 
 
 namespace gneiss::scene_internal {
 
-gneiss_result build_structural_diff(const std::vector<object_description>& old_objects,
-                                    const std::vector<object_description>& new_objects,
-                                    structural_diff& output) noexcept {
+gneiss_result
+build_structural_diff(const std::vector<gneiss::engine::resource::object_description>& old_objects,
+                      const std::vector<gneiss::engine::resource::object_description>& new_objects,
+                      structural_diff& output) noexcept {
   output = {};
   try {
     object_index old_index;

@@ -79,12 +79,12 @@ void scene_instance::append_render_assets(
   }
 }
 
-gneiss_result
-scene_instance::capture_prefab_instance_header(std::string_view uuid,
-                                               prefab_instance_description& author,
-                                               prefab_asset_lease& source) const noexcept try {
-  const auto found = std::ranges::find(description_.prefab_instances, uuid,
-                                       &prefab_instance_description::instance_uuid);
+gneiss_result scene_instance::capture_prefab_instance_header(
+    std::string_view uuid, gneiss::engine::resource::prefab_instance_description& author,
+    gneiss::engine::resource::prefab_asset_lease& source) const noexcept try {
+  const auto found =
+      std::ranges::find(description_.prefab_instances, uuid,
+                        &gneiss::engine::resource::prefab_instance_description::instance_uuid);
   if (found == description_.prefab_instances.end()) {
     return GNEISS_ERROR_NOT_FOUND;
   }
@@ -128,8 +128,10 @@ scene_instance::capture_prefab_instance_binding(std::string_view uuid, std::size
 }
 
 gneiss_result scene_instance::prepare_prefab_instance_candidate(
-    gneiss_scene_instance instance, const prefab_instance_description& author,
-    prefab_asset_lease prefab, const prefab_description& prepared, prefab_candidate& output,
+    gneiss_scene_instance instance,
+    const gneiss::engine::resource::prefab_instance_description& author,
+    gneiss::engine::resource::prefab_asset_lease prefab,
+    const gneiss::engine::resource::prefab_description& prepared, prefab_candidate& output,
     bool replacing) noexcept try {
   if (output.is_valid()) {
     return GNEISS_ERROR_INVALID_STATE;
@@ -138,7 +140,7 @@ gneiss_result scene_instance::prepare_prefab_instance_candidate(
   const auto previous = std::ranges::find_if(prefab_instances_, [&](const auto& value) {
     return value->instance_uuid_ == author.instance_uuid;
   });
-  if (!is_canonical_prefab_uuid(author.instance_uuid) ||
+  if (!gneiss::engine::resource::is_canonical_prefab_uuid(author.instance_uuid) ||
       find_node(author.instance_uuid) != GNEISS_NULL_SCENE_NODE_ID ||
       (replacing ? previous == prefab_instances_.end() : previous != prefab_instances_.end())) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
@@ -148,7 +150,7 @@ gneiss_result scene_instance::prepare_prefab_instance_candidate(
   if (author.parent_uuid && parent == GNEISS_NULL_SCENE_NODE_ID) {
     return GNEISS_ERROR_INVALID_HANDLE;
   }
-  prefab_description effective;
+  gneiss::engine::resource::prefab_description effective;
   const auto validation = prefab_runtime_instance::prepare_candidate_description(
       prepared, registry_, author.instance_uuid, author.overrides, effective);
   if (validation != GNEISS_SUCCESS) {
@@ -194,7 +196,8 @@ scene_instance::publish_prefab_instance_candidate(gneiss_scene_instance instance
       })) {
     return GNEISS_ERROR_INVALID_STATE;
   }
-  static_assert(std::is_nothrow_move_constructible_v<prefab_instance_description>);
+  static_assert(
+      std::is_nothrow_move_constructible_v<gneiss::engine::resource::prefab_instance_description>);
   static_assert(std::is_nothrow_move_constructible_v<std::unique_ptr<prefab_runtime_instance>>);
   const auto result = runtime->publish_hidden();
   if (result != GNEISS_SUCCESS) {

@@ -37,8 +37,10 @@ public:
   /** 所属线程预留作者容器并验证身份；不读取资产，不发布候选。
    * output 非空时拒绝覆盖；构造失败仍可能交还待清理候选。 */
   [[nodiscard]] gneiss_result
-  begin_prefab_candidate(gneiss_scene_instance instance, const prefab_instance_description& author,
-                         prefab_asset_lease prefab, prefab_description prepared,
+  begin_prefab_candidate(gneiss_scene_instance instance,
+                         const gneiss::engine::resource::prefab_instance_description& author,
+                         gneiss::engine::resource::prefab_asset_lease prefab,
+                         gneiss::engine::resource::prefab_description prepared,
                          prefab_candidate& output, bool replacing = false) noexcept;
   /** 已预留容量、调用方已准备镜像和历史后提交。成功消耗候选，失败保留。 */
   [[nodiscard]] gneiss_result commit_prefab_candidate(gneiss_scene_instance instance,
@@ -87,7 +89,7 @@ public:
   scene_instance_service(engine::world& native_world, gneiss_world world,
                          const engine::resource::virtual_file_system& file_system,
                          render_internal::render_asset_loader& loader,
-                         prefab_asset_loader& prefab_loader) noexcept;
+                         gneiss::engine::resource::prefab_asset_loader& prefab_loader) noexcept;
   ~scene_instance_service() noexcept;
 
   [[nodiscard]] bool is_valid() const noexcept {
@@ -116,10 +118,10 @@ public:
                                                    std::uint64_t index,
                                                    prefab_node_view& out_info) const noexcept;
   /** 捕获实际实例版本与作者覆盖，不读文件；所有输出仅在成功时替换。 */
-  [[nodiscard]] gneiss_result capture_prefab_header(gneiss_scene_instance instance,
-                                                    std::string_view uuid,
-                                                    prefab_instance_description& author,
-                                                    prefab_asset_lease& source) const noexcept;
+  [[nodiscard]] gneiss_result
+  capture_prefab_header(gneiss_scene_instance instance, std::string_view uuid,
+                        gneiss::engine::resource::prefab_instance_description& author,
+                        gneiss::engine::resource::prefab_asset_lease& source) const noexcept;
   /** 按来源索引捕获实际资源租约，允许调用方分帧构建历史快照。 */
   [[nodiscard]] gneiss_result capture_prefab_binding(gneiss_scene_instance instance,
                                                      std::string_view uuid, std::size_t index,
@@ -165,8 +167,9 @@ public:
   [[nodiscard]] gneiss_result set_mesh_renderer(gneiss_scene_instance instance, scene_node_id node,
                                                 std::string_view mesh_uri,
                                                 std::string_view material_uri) noexcept;
-  [[nodiscard]] gneiss_result set_camera(gneiss_scene_instance instance, scene_node_id node,
-                                         const camera_description& desc) noexcept;
+  [[nodiscard]] gneiss_result
+  set_camera(gneiss_scene_instance instance, scene_node_id node,
+             const gneiss::engine::resource::camera_description& desc) noexcept;
   [[nodiscard]] gneiss_result remove_camera(gneiss_scene_instance instance,
                                             scene_node_id node) noexcept;
   [[nodiscard]] gneiss_result remove_mesh_renderer(gneiss_scene_instance instance,
@@ -182,7 +185,7 @@ private:
   gneiss_world reflection_context_;
   const engine::resource::virtual_file_system& file_system_;
   render_internal::render_asset_loader& loader_;
-  prefab_asset_loader& prefab_loader_;
+  gneiss::engine::resource::prefab_asset_loader& prefab_loader_;
   gneiss_type_registry registry_ = GNEISS_NULL_TYPE_REGISTRY;
   std::uint16_t domain_;
   core::rid_table<instance_ptr> instances_;

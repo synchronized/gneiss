@@ -27,7 +27,7 @@ struct scene_node_view {
   std::string_view material_uri;
   gneiss::engine::transform local_transform = {};
   scene_node_components component_flags{};
-  std::optional<camera_description> camera;
+  std::optional<gneiss::engine::resource::camera_description> camera;
 };
 
 struct prefab_node_view {

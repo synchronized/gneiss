@@ -46,15 +46,15 @@ public:
     }
   }
   [[nodiscard]] gneiss_result acquire(std::string_view uri,
-                                      scene_internal::prefab_asset_lease& output,
-                                      scene_internal::scene_diagnostic& diagnostic) noexcept {
+                                      engine::resource::prefab_asset_lease& output,
+                                      engine::resource::scene_diagnostic& diagnostic) noexcept {
     return prefabs_.acquire(uri, output, diagnostic);
   }
   /** 共享 CPU 文档缓存的所有权以装配请求服务；不提供上传或设备配置。 */
   [[nodiscard]] std::shared_ptr<engine::resource::cpu_document_cache> documents() const noexcept {
     return documents_;
   }
-  [[nodiscard]] scene_internal::prefab_asset_loader& prefab_loader() noexcept { return prefabs_; }
+  [[nodiscard]] engine::resource::prefab_asset_loader& prefab_loader() noexcept { return prefabs_; }
 
 private:
   struct resource_state;
@@ -63,7 +63,7 @@ private:
   engine::resource::resource_cache prefab_cache_;
   std::shared_ptr<engine::resource::cpu_document_cache> documents_{
       engine::resource::make_cpu_document_cache()};
-  scene_internal::prefab_asset_loader prefabs_;
+  engine::resource::prefab_asset_loader prefabs_;
 };
 }
 

@@ -67,8 +67,8 @@ struct structural_diff final {
 };
 
 [[nodiscard]] gneiss_result
-build_structural_diff(const std::vector<object_description>& old_objects,
-                      const std::vector<object_description>& new_objects,
+build_structural_diff(const std::vector<gneiss::engine::resource::object_description>& old_objects,
+                      const std::vector<gneiss::engine::resource::object_description>& new_objects,
                       structural_diff& output) noexcept;
 
 } // namespace gneiss::scene_internal

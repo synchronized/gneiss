@@ -34,7 +34,7 @@ private:
   scene_instance_service& service_;
   prepared_scene_description prepared_;
   std::unique_ptr<scene_instance> instance_;
-  std::map<std::string, prefab_asset_lease> prefabs_;
+  std::map<std::string, gneiss::engine::resource::prefab_asset_lease> prefabs_;
   std::unordered_map<std::string, gneiss_scene_node_id> nodes_;
   std::unordered_map<std::string, gneiss_scene_node_id> prefab_nodes_;
   std::unique_ptr<prefab_runtime_instance> prefab_;

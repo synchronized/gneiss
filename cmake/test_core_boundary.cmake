@@ -615,3 +615,19 @@ execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
 if(NOT status EQUAL 0)
   message(FATAL_ERROR "资源边界错误拒绝新命名空间")
 endif()
+
+foreach(content IN ITEMS "namespace gneiss::scene_internal {}" "gneiss::scene_internal::prefab_description* prefab;")
+  file(WRITE "${fixture}/src/engine/resource/scene_namespace_probe.cpp" "${content}\n")
+  execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
+    -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
+    RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
+  if(status EQUAL 0)
+    message(FATAL_ERROR "资源层未拒绝 Scene 命名空间：${content}")
+  endif()
+endforeach()
+file(WRITE "${fixture}/src/engine/resource/scene_namespace_probe.cpp" "namespace gneiss::engine::resource {}\n")
+execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
+  -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake" RESULT_VARIABLE status)
+if(NOT status EQUAL 0)
+  message(FATAL_ERROR "资源层错误拒绝资源描述命名空间")
+endif()

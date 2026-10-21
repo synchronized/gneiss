@@ -6,7 +6,7 @@
 namespace gneiss::runtime {
 struct prefab_preparation::state {
   scene_internal::prepared_scene_description prepared;
-  scene_internal::scene_diagnostic diagnostic;
+  engine::resource::scene_diagnostic diagnostic;
   gneiss_result result{GNEISS_ERROR_INVALID_STATE};
 };
 prefab_preparation::prefab_preparation(tasks::task_executor& executor)

@@ -19,7 +19,7 @@ constexpr auto instance_a = "20000000-0000-4000-8000-000000000001";
 constexpr auto instance_b = "20000000-0000-4000-8000-000000000002";
 constexpr auto source_node = "10000000-0000-4000-8000-000000000002";
 
-[[nodiscard]] gneiss::scene_internal::prefab_property_override
+[[nodiscard]] gneiss::engine::resource::prefab_property_override
 make_translation(const char* instance, std::array<float, 3> value) {
   return {.key = {.node = {.instance_uuid = instance, .source_node_uuid = source_node},
                   .type_id = gneiss::from_native(gneiss_transform_type_id()),
@@ -37,8 +37,8 @@ int main() {
     return 1;
   }
 
-  std::vector<gneiss::scene_internal::prefab_property_override> overrides;
-  const gneiss::scene_internal::prefab_property_value source{
+  std::vector<gneiss::engine::resource::prefab_property_override> overrides;
+  const gneiss::engine::resource::prefab_property_value source{
       .payload = std::array<float, 3>{0.0F, 0.0F, 0.0F}};
   auto second = make_translation(instance_b, {2.0F, 0.0F, 0.0F});
   auto first = make_translation(instance_a, {1.0F, 0.0F, 0.0F});
@@ -89,7 +89,7 @@ int main() {
     return 5;
   }
 
-  gneiss::scene_internal::prefab_property_override read_only{
+  gneiss::engine::resource::prefab_property_override read_only{
       .key = {.node = {.instance_uuid = instance_a, .source_node_uuid = source_node},
               .type_id = gneiss::from_native(gneiss_camera_type_id()),
               .field_id = gneiss::field_id{GNEISS_CAMERA_FIELD_IS_PRIMARY}},

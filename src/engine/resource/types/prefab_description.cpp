@@ -19,7 +19,7 @@ namespace {
 constexpr std::uint64_t prefab_schema_version = 1;
 constexpr std::string_view prefab_format = "gneiss.prefab";
 
-void fail(gneiss::scene_internal::scene_diagnostic& diagnostic, gneiss_result result,
+void fail(gneiss::engine::resource::scene_diagnostic& diagnostic, gneiss_result result,
           std::string_view path, std::string_view message, std::size_t byte_offset = 0) noexcept {
   diagnostic.result = result;
   diagnostic.byte_offset = byte_offset;
@@ -73,7 +73,7 @@ void fail(gneiss::scene_internal::scene_diagnostic& diagnostic, gneiss_result re
 
 } // namespace
 
-namespace gneiss::scene_internal {
+namespace gneiss::engine::resource {
 
 gneiss_result parse_prefab_description(std::string_view json, prefab_description& out_prefab,
                                        scene_diagnostic& out_diagnostic) noexcept {
@@ -220,4 +220,4 @@ gneiss_result serialize_prefab_description(const prefab_description& prefab,
   }
 }
 
-} // namespace gneiss::scene_internal
+} // namespace gneiss::engine::resource

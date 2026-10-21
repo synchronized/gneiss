@@ -10,9 +10,10 @@
 
 namespace {
 
-using gneiss::scene_internal::object_description;
+using gneiss::engine::resource::object_description;
 
-object_description object(std::string uuid, std::optional<std::string> parent = std::nullopt) {
+gneiss::engine::resource::object_description
+object(std::string uuid, std::optional<std::string> parent = std::nullopt) {
   return {.uuid = std::move(uuid),
           .name = "节点",
           .parent_uuid = std::move(parent),
@@ -39,17 +40,18 @@ bool test_updates() {
   using namespace gneiss::scene_internal;
   auto previous = object("node", "old-parent");
   previous.name = "旧名称";
-  previous.camera = camera_description{.vertical_field_of_view_radians = 1.0F,
-                                       .near_plane = 0.1F,
-                                       .far_plane = 10.0F,
-                                       .is_primary = false};
+  previous.camera =
+      gneiss::engine::resource::camera_description{.vertical_field_of_view_radians = 1.0F,
+                                                   .near_plane = 0.1F,
+                                                   .far_plane = 10.0F,
+                                                   .is_primary = false};
   auto current = previous;
   current.name = "新名称";
   current.parent_uuid = "new-parent";
   current.translation[0] = 2.0F;
   current.camera.reset();
-  current.mesh_renderer =
-      mesh_renderer_description{.mesh_uri = "asset://mesh", .material_uri = "asset://material"};
+  current.mesh_renderer = gneiss::engine::resource::mesh_renderer_description{
+      .mesh_uri = "asset://mesh", .material_uri = "asset://material"};
   const std::vector old_objects{object("old-parent"), object("new-parent"), previous};
   const std::vector new_objects{object("new-parent"), object("old-parent"), current};
   structural_diff difference;

@@ -11,7 +11,7 @@ namespace {
 using runtime::prefab_placement;
 using runtime::prefab_placement_snapshot;
 result make_prefab_record(const scene_internal::prefab_node_view& info,
-                          const scene_internal::prefab_instance_description& author,
+                          const engine::resource::prefab_instance_description& author,
                           const scene_document& session, prefab_node_record& record) {
   record.node = scene_node_id{info.node};
   record.parent = scene_node_id{info.parent};
@@ -384,7 +384,7 @@ struct editor_prefab_edit::state {
   scene_document* session{};
   editor_command_history* history{};
   std::unique_ptr<runtime::prefab_preparation> preparation;
-  scene_internal::prefab_instance_description author;
+  engine::resource::prefab_instance_description author;
   scene_internal::prepared_scene_description prepared;
   std::vector<render_internal::render_asset_lease> assets;
   render_internal::texture_load_completion completion;

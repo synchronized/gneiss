@@ -12,7 +12,7 @@
 #include <string_view>
 #include <vector>
 
-namespace gneiss::scene_internal {
+namespace gneiss::engine::resource {
 
 struct prefab_description final {
   std::uint32_t source_schema_version = 0;
@@ -36,6 +36,6 @@ load_prefab_description(const engine::resource::virtual_file_system& file_system
 [[nodiscard]] gneiss_result serialize_prefab_description(const prefab_description& prefab,
                                                          std::string& out_json) noexcept;
 
-} // namespace gneiss::scene_internal
+} // namespace gneiss::engine::resource
 
 #endif

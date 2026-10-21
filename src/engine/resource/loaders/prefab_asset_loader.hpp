@@ -14,7 +14,7 @@ namespace gneiss::engine::resource {
 class virtual_file_system;
 }
 
-namespace gneiss::scene_internal {
+namespace gneiss::engine::resource {
 
 class prefab_asset_lease final {
 public:
@@ -46,6 +46,6 @@ private:
   engine::resource::resource_cache& cache_;
 };
 
-} // namespace gneiss::scene_internal
+} // namespace gneiss::engine::resource
 
 #endif

@@ -1227,7 +1227,7 @@ render_internal::render_resource_service& application::resources() noexcept {
   return storage_->resources_;
 }
 
-scene_internal::prefab_asset_loader& application::prefab_loader() noexcept {
+engine::resource::prefab_asset_loader& application::prefab_loader() noexcept {
   return storage_->asset_manager_->prefab_loader();
 }
 

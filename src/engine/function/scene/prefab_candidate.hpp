@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include "engine/resource/types/prefab_description.hpp"
 #include "engine/function/render/render_asset_loader.hpp"
 #include "engine/function/scene/scene_query.hpp"
+#include "engine/resource/types/prefab_description.hpp"
 #include <memory>
 namespace gneiss::scene_internal {
 class prefab_runtime_instance;
@@ -29,7 +29,7 @@ public:
 
 private:
   friend class scene_instance;
-  prefab_instance_description author_;
+  gneiss::engine::resource::prefab_instance_description author_;
   std::unique_ptr<prefab_runtime_instance> runtime_;
 };
 }

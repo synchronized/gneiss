@@ -24,7 +24,7 @@ namespace {
 
 }
 
-namespace gneiss::scene_internal {
+namespace gneiss::engine::resource {
 bool is_canonical_prefab_uuid(std::string_view value) noexcept {
   return is_canonical_uuid_impl(value);
 }
@@ -61,4 +61,4 @@ property_kind prefab_property_value_kind(const prefab_property_value& value) noe
                                                 : static_cast<property_kind>(value.payload.index());
 }
 
-} // namespace gneiss::scene_internal
+} // namespace gneiss::engine::resource

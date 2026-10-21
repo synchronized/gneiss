@@ -59,7 +59,7 @@ gneiss_result prefab_placement::capture_step(runtime::application& application,
 gneiss_result
 prefab_placement::freeze(runtime::application& application,
                          scene_internal::prepared_prefab_description prepared,
-                         scene_internal::prefab_instance_description author,
+                         engine::resource::prefab_instance_description author,
                          std::vector<render_internal::render_asset_lease> assets,
                          std::shared_ptr<const prefab_placement_snapshot>& output) noexcept try {
   auto* host = &application;

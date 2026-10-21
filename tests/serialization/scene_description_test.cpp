@@ -56,9 +56,9 @@ constexpr std::string_view prefab_scene = R"({
 
 [[nodiscard]] bool fails_with(std::string_view json, gneiss_result expected,
                               std::string_view path) {
-  gneiss::scene_internal::scene_description scene;
-  gneiss::scene_internal::scene_diagnostic diagnostic;
-  return gneiss::scene_internal::parse_scene_description(json, scene, diagnostic) == expected &&
+  gneiss::engine::resource::scene_description scene;
+  gneiss::engine::resource::scene_diagnostic diagnostic;
+  return gneiss::engine::resource::parse_scene_description(json, scene, diagnostic) == expected &&
          diagnostic.result == expected && diagnostic.path == path && scene.objects.empty();
 }
 
@@ -89,14 +89,14 @@ private:
 } // namespace
 
 int main() try {
-  gneiss::scene_internal::scene_description scene;
-  gneiss::scene_internal::scene_diagnostic diagnostic;
+  gneiss::engine::resource::scene_description scene;
+  gneiss::engine::resource::scene_diagnostic diagnostic;
   std::string serialized;
-  if (gneiss::scene_internal::parse_scene_description(valid_scene, scene, diagnostic) !=
+  if (gneiss::engine::resource::parse_scene_description(valid_scene, scene, diagnostic) !=
           GNEISS_SUCCESS ||
       scene.source_schema_version != 4U || scene.objects.size() != 2U || !scene.objects[0].camera ||
       !scene.objects[1].mesh_renderer ||
-      gneiss::scene_internal::serialize_scene_description(scene, serialized) != GNEISS_SUCCESS ||
+      gneiss::engine::resource::serialize_scene_description(scene, serialized) != GNEISS_SUCCESS ||
       serialized.find(R"("unknown":true)") == std::string::npos) {
     return 1;
   }
@@ -129,14 +129,14 @@ int main() try {
     return 2;
   }
 
-  if (gneiss::scene_internal::parse_scene_description(prefab_scene, scene, diagnostic) !=
+  if (gneiss::engine::resource::parse_scene_description(prefab_scene, scene, diagnostic) !=
           GNEISS_SUCCESS ||
       scene.prefab_instances.size() != 1U || scene.prefab_instances[0].overrides.size() != 1U ||
       scene.prefab_instances[0].overrides[0].key.node.instance_uuid !=
           scene.prefab_instances[0].instance_uuid ||
       std::get<std::array<float, 3>>(scene.prefab_instances[0].overrides[0].value.payload)[0] !=
           4.0F ||
-      gneiss::scene_internal::serialize_scene_description(scene, serialized) != GNEISS_SUCCESS ||
+      gneiss::engine::resource::serialize_scene_description(scene, serialized) != GNEISS_SUCCESS ||
       serialized.find(R"("kind":"vec3")") == std::string::npos ||
       serialized.find(R"("unknown":true)") == std::string::npos) {
     return 3;
@@ -171,9 +171,10 @@ int main() try {
   for (const auto value : other_values) {
     const auto candidate =
         replace_once(std::string(prefab_scene), R"("kind":"vec3","value":[4,5,6])", value);
-    if (gneiss::scene_internal::parse_scene_description(candidate, scene, diagnostic) !=
+    if (gneiss::engine::resource::parse_scene_description(candidate, scene, diagnostic) !=
             GNEISS_SUCCESS ||
-        gneiss::scene_internal::serialize_scene_description(scene, serialized) != GNEISS_SUCCESS) {
+        gneiss::engine::resource::serialize_scene_description(scene, serialized) !=
+            GNEISS_SUCCESS) {
       return 5;
     }
   }
@@ -181,8 +182,8 @@ int main() try {
   gneiss::engine::resource::virtual_file_system file_system;
   if (file_system.mount("asset://scenes/", std::make_shared<memory_file_system>(
                                                std::string(valid_scene))) != GNEISS_SUCCESS ||
-      gneiss::scene_internal::load_scene_description(file_system, "asset://scenes/main.scene.json",
-                                                     scene, diagnostic) != GNEISS_SUCCESS) {
+      gneiss::engine::resource::load_scene_description(
+          file_system, "asset://scenes/main.scene.json", scene, diagnostic) != GNEISS_SUCCESS) {
     return 6;
   }
   return fails_with("{\"format\":", GNEISS_ERROR_INVALID_ARGUMENT, "") ? 0 : 7;

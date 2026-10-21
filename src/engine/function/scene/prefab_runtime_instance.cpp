@@ -32,7 +32,7 @@ struct camera_restore_guard {
 };
 
 gneiss::engine::transform
-to_transform(const gneiss::scene_internal::object_description& object) noexcept {
+to_transform(const gneiss::engine::resource::object_description& object) noexcept {
   gneiss::engine::transform value{};
   std::ranges::copy(object.translation, value.translation.begin());
   std::ranges::copy(object.rotation, value.rotation.begin());
@@ -41,7 +41,7 @@ to_transform(const gneiss::scene_internal::object_description& object) noexcept 
 }
 
 [[nodiscard]] gneiss_result
-to_native_value(const gneiss::scene_internal::prefab_property_value& source,
+to_native_value(const gneiss::engine::resource::prefab_property_value& source,
                 gneiss_property_value& output) noexcept {
   output = GNEISS_PROPERTY_VALUE_INIT;
   return std::visit(
@@ -87,7 +87,7 @@ to_native_value(const gneiss::scene_internal::prefab_property_value& source,
 
 gneiss_result
 apply_camera(gneiss::engine::world& native_world, gneiss_entity_id entity,
-             const std::optional<gneiss::scene_internal::camera_description>& camera) noexcept {
+             const std::optional<gneiss::engine::resource::camera_description>& camera) noexcept {
   if (!camera) {
     const auto result = native_world.entity_remove_camera(gneiss::entity_id{entity});
     return result == GNEISS_ERROR_NOT_FOUND ? GNEISS_SUCCESS : result;
@@ -101,19 +101,17 @@ apply_camera(gneiss::engine::world& native_world, gneiss_entity_id entity,
 
 namespace gneiss::scene_internal {
 
-prefab_runtime_instance::prefab_runtime_instance(engine::world& native_world, gneiss_world world,
-                                                 render_internal::render_asset_loader& loader,
-                                                 prefab_asset_lease prefab,
-                                                 std::string instance_uuid) noexcept
+prefab_runtime_instance::prefab_runtime_instance(
+    engine::world& native_world, gneiss_world world, render_internal::render_asset_loader& loader,
+    gneiss::engine::resource::prefab_asset_lease prefab, std::string instance_uuid) noexcept
     : native_world_(native_world), reflection_context_(world), loader_(loader),
       prefab_(std::move(prefab)), instance_uuid_(std::move(instance_uuid)) {}
 
 prefab_runtime_instance::~prefab_runtime_instance() noexcept { rollback(); }
 
-gneiss_result
-prefab_runtime_instance::validate_reload(const prefab_asset_lease& candidate,
-                                         gneiss_type_registry registry,
-                                         const std::vector<prefab_property_override>& overrides) {
+gneiss_result prefab_runtime_instance::validate_reload(
+    const gneiss::engine::resource::prefab_asset_lease& candidate, gneiss_type_registry registry,
+    const std::vector<gneiss::engine::resource::prefab_property_override>& overrides) {
   if (!candidate || !prefab_ || candidate.get()->uuid != prefab_.get()->uuid ||
       candidate.get()->objects.empty()) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
@@ -151,7 +149,7 @@ prefab_runtime_instance::validate_reload(const prefab_asset_lease& candidate,
                                                override_value);
     const auto source =
         std::ranges::find(candidate.get()->objects, override_value.key.node.source_node_uuid,
-                          &object_description::uuid);
+                          &gneiss::engine::resource::object_description::uuid);
     if (result != GNEISS_SUCCESS || source == candidate.get()->objects.end()) {
       return result == GNEISS_SUCCESS ? GNEISS_ERROR_NOT_FOUND : result;
     }
@@ -163,9 +161,9 @@ prefab_runtime_instance::validate_reload(const prefab_asset_lease& candidate,
   return GNEISS_SUCCESS;
 }
 
-gneiss_result
-prefab_runtime_instance::reload(prefab_asset_lease candidate, gneiss_type_registry registry,
-                                const std::vector<prefab_property_override>& overrides) {
+gneiss_result prefab_runtime_instance::reload(
+    gneiss::engine::resource::prefab_asset_lease candidate, gneiss_type_registry registry,
+    const std::vector<gneiss::engine::resource::prefab_property_override>& overrides) {
   if (publication_ && !published_) {
     return GNEISS_ERROR_INVALID_STATE;
   }
@@ -297,7 +295,7 @@ prefab_runtime_instance::reload(prefab_asset_lease candidate, gneiss_type_regist
     structural_change changes{};
     gneiss_scene_node_id parent = GNEISS_NULL_SCENE_NODE_ID;
     gneiss::engine::transform transform = {};
-    std::optional<camera_description> camera;
+    std::optional<gneiss::engine::resource::camera_description> camera;
   };
   std::vector<update_snapshot> applied;
   applied.reserve(diff.updated.size());
@@ -349,7 +347,7 @@ prefab_runtime_instance::reload(prefab_asset_lease candidate, gneiss_type_regist
           native_world_.entity_get_camera(gneiss::entity_id{target.entity}, camera);
       if (camera_result == GNEISS_SUCCESS) {
         gneiss_entity_id active = GNEISS_NULL_ENTITY_ID;
-        snapshot.camera = camera_description{
+        snapshot.camera = gneiss::engine::resource::camera_description{
             .vertical_field_of_view_radians = camera.vertical_field_of_view_radians,
             .near_plane = camera.near_plane,
             .far_plane = camera.far_plane,
@@ -426,9 +424,10 @@ prefab_runtime_instance::reload(prefab_asset_lease candidate, gneiss_type_regist
 
 gneiss_result prefab_runtime_instance::create(
     engine::world& native_world, gneiss_world world, render_internal::render_asset_loader& loader,
-    prefab_asset_lease prefab, gneiss_type_registry registry, std::string_view instance_uuid,
-    gneiss_scene_node_id parent, const gneiss::engine::transform& root_transform,
-    const std::vector<prefab_property_override>& overrides,
+    gneiss::engine::resource::prefab_asset_lease prefab, gneiss_type_registry registry,
+    std::string_view instance_uuid, gneiss_scene_node_id parent,
+    const gneiss::engine::transform& root_transform,
+    const std::vector<gneiss::engine::resource::prefab_property_override>& overrides,
     std::unique_ptr<prefab_runtime_instance>& out_instance) noexcept {
   out_instance.reset();
   if (world == GNEISS_NULL_WORLD || registry == GNEISS_NULL_TYPE_REGISTRY || !prefab ||
@@ -436,7 +435,7 @@ gneiss_result prefab_runtime_instance::create(
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
   try {
-    if (!is_valid_prefab_author_address(
+    if (!gneiss::engine::resource::is_valid_prefab_author_address(
             {std::string(instance_uuid), prefab.get()->objects[0].uuid})) {
       return GNEISS_ERROR_INVALID_ARGUMENT;
     }
@@ -472,10 +471,11 @@ gneiss_result prefab_runtime_instance::create(
 }
 
 namespace {
-gneiss_result apply_candidate_object(const reflection_internal::registry_ref& state,
-                                     const prefab_property_override& value,
-                                     const gneiss_property_value& native,
-                                     object_description& object) {
+gneiss_result
+apply_candidate_object(const reflection_internal::registry_ref& state,
+                       const gneiss::engine::resource::prefab_property_override& value,
+                       const gneiss_property_value& native,
+                       gneiss::engine::resource::object_description& object) {
   auto result = GNEISS_SUCCESS;
   const auto is_type = [&](gneiss_type_id type) {
     return std::ranges::equal(value.key.type_id.bytes, type.bytes);
@@ -517,8 +517,10 @@ gneiss_result apply_candidate_object(const reflection_internal::registry_ref& st
 }
 
 gneiss_result prefab_runtime_instance::prepare_candidate_description(
-    const prefab_description& source, gneiss_type_registry registry, std::string_view instance_uuid,
-    std::span<const prefab_property_override> overrides, prefab_description& output) noexcept try {
+    const gneiss::engine::resource::prefab_description& source, gneiss_type_registry registry,
+    std::string_view instance_uuid,
+    std::span<const gneiss::engine::resource::prefab_property_override> overrides,
+    gneiss::engine::resource::prefab_description& output) noexcept try {
   auto candidate = source;
   const auto state = reflection_internal::resolve(registry);
   if (!state) {
@@ -534,7 +536,7 @@ gneiss_result prefab_runtime_instance::prepare_candidate_description(
       return validation;
     }
     auto found = std::ranges::find(candidate.objects, value.key.node.source_node_uuid,
-                                   &object_description::uuid);
+                                   &gneiss::engine::resource::object_description::uuid);
     if (found == candidate.objects.end()) {
       return GNEISS_ERROR_NOT_FOUND;
     }
@@ -562,8 +564,8 @@ gneiss_result prefab_runtime_instance::prepare_candidate_description(
 }
 
 gneiss_result prefab_runtime_instance::apply_overrides(
-    gneiss_type_registry registry, std::span<const prefab_property_override> overrides) noexcept
-    try {
+    gneiss_type_registry registry,
+    std::span<const gneiss::engine::resource::prefab_property_override> overrides) noexcept try {
   for (const auto& override_value : overrides) {
     if (override_value.key.node.instance_uuid != instance_uuid_) {
       return GNEISS_ERROR_INVALID_ARGUMENT;
@@ -597,7 +599,8 @@ gneiss_result prefab_runtime_instance::apply_overrides(
   return GNEISS_ERROR_INTERNAL;
 }
 
-gneiss_result prefab_runtime_instance::stage_assets(const prefab_description& description) {
+gneiss_result prefab_runtime_instance::stage_assets(
+    const gneiss::engine::resource::prefab_description& description) {
   nodes_.reserve(description.objects.size());
   for (const auto& source : description.objects) {
     runtime_node target{};
@@ -619,9 +622,10 @@ gneiss_result prefab_runtime_instance::stage_assets(const prefab_description& de
   return GNEISS_SUCCESS;
 }
 
-gneiss_result prefab_runtime_instance::commit(const prefab_description& description,
-                                              gneiss_scene_node_id parent,
-                                              const gneiss::engine::transform& root_transform) {
+gneiss_result
+prefab_runtime_instance::commit(const gneiss::engine::resource::prefab_description& description,
+                                gneiss_scene_node_id parent,
+                                const gneiss::engine::transform& root_transform) {
   auto result = core::write_identifier<entity_id>(root_entity_, [&](auto& native_output) {
     return native_world_.entity_create(native_output);
   });
@@ -730,9 +734,10 @@ gneiss_result prefab_runtime_instance::commit_node(std::size_t index, gneiss_sce
   return result;
 }
 
-gneiss_result prefab_runtime_instance::begin_hidden(gneiss_scene_node_id parent,
-                                                    const gneiss::engine::transform& transform,
-                                                    prefab_description prepared) {
+gneiss_result
+prefab_runtime_instance::begin_hidden(gneiss_scene_node_id parent,
+                                      const gneiss::engine::transform& transform,
+                                      gneiss::engine::resource::prefab_description prepared) {
   if (staged_ || publication_ || !prefab_ || root_node_ || !nodes_.empty() ||
       prepared.objects.size() != prefab_.get()->objects.size()) {
     return GNEISS_ERROR_INVALID_STATE;
@@ -884,9 +889,9 @@ prefab_runtime_instance::create_staged_node(std::size_t index, gneiss_scene_node
   return commit_node(index, parent);
 }
 
-gneiss_result
-prefab_runtime_instance::apply_staged_override(gneiss_type_registry registry,
-                                               const prefab_property_override& value) noexcept {
+gneiss_result prefab_runtime_instance::apply_staged_override(
+    gneiss_type_registry registry,
+    const gneiss::engine::resource::prefab_property_override& value) noexcept {
   if (cancelling_ || publication_) {
     return GNEISS_ERROR_INVALID_STATE;
   }
@@ -994,10 +999,11 @@ prefab_runtime_instance::find_entity(std::string_view source_node_uuid) const no
   return found == nodes_.end() ? GNEISS_NULL_ENTITY_ID : found->entity;
 }
 
-const object_description*
+const gneiss::engine::resource::object_description*
 prefab_runtime_instance::find_source_object(std::string_view source_node_uuid) const noexcept {
   const auto& objects = prefab_.get()->objects;
-  const auto found = std::ranges::find(objects, source_node_uuid, &object_description::uuid);
+  const auto found = std::ranges::find(objects, source_node_uuid,
+                                       &gneiss::engine::resource::object_description::uuid);
   return found == objects.end() ? nullptr : &*found;
 }
 

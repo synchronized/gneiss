@@ -92,20 +92,21 @@ bool prepared_versions_contract() {
   if (different_source.mount("asset://prefabs/", backend) != GNEISS_SUCCESS) {
     return false;
   }
-  prefab_asset_loader loader(files, cache);
-  prefab_asset_loader copied(same_source, cache);
-  prefab_asset_loader other(different_source, cache);
+  gneiss::engine::resource::prefab_asset_loader loader(files, cache);
+  gneiss::engine::resource::prefab_asset_loader copied(same_source, cache);
+  gneiss::engine::resource::prefab_asset_loader other(different_source, cache);
   constexpr std::string_view uri = "asset://prefabs/lamp.prefab.json";
-  prefab_description description;
-  scene_diagnostic diagnostic;
-  if (parse_prefab_description(valid_prefab, description, diagnostic) != GNEISS_SUCCESS) {
+  gneiss::engine::resource::prefab_description description;
+  gneiss::engine::resource::scene_diagnostic diagnostic;
+  if (gneiss::engine::resource::parse_prefab_description(valid_prefab, description, diagnostic) !=
+      GNEISS_SUCCESS) {
     return false;
   }
-  prefab_asset_lease legacy;
+  gneiss::engine::resource::prefab_asset_lease legacy;
   if (loader.acquire(uri, legacy, diagnostic) != GNEISS_SUCCESS) {
     return false;
   }
-  prefab_asset_lease first, reused, changed, foreign;
+  gneiss::engine::resource::prefab_asset_lease first, reused, changed, foreign;
   if (loader.install_prepared(uri, description, first) != GNEISS_SUCCESS ||
       copied.install_prepared(uri, description, reused) != GNEISS_SUCCESS ||
       first.get() != reused.get() || first.get() == legacy.get() || backend->read_count != 1U) {
@@ -120,12 +121,12 @@ bool prepared_versions_contract() {
       foreign.get() == changed.get() || backend->read_count != 1U) {
     return false;
   }
-  prefab_asset_lease ordinary;
+  gneiss::engine::resource::prefab_asset_lease ordinary;
   if (loader.acquire(uri, ordinary, diagnostic) != GNEISS_SUCCESS ||
       ordinary.get() != legacy.get()) {
     return false;
   }
-  prefab_asset_lease failed = first;
+  gneiss::engine::resource::prefab_asset_lease failed = first;
   if (loader.install_prepared("asset://unmounted/lamp.prefab.json", description, failed) !=
           GNEISS_ERROR_NOT_FOUND ||
       failed) {
@@ -150,9 +151,9 @@ int main() try {
   if (!prepared_versions_contract()) {
     return 9;
   }
-  gneiss::scene_internal::prefab_description prefab;
-  gneiss::scene_internal::scene_diagnostic diagnostic;
-  if (gneiss::scene_internal::parse_prefab_description(valid_prefab, prefab, diagnostic) !=
+  gneiss::engine::resource::prefab_description prefab;
+  gneiss::engine::resource::scene_diagnostic diagnostic;
+  if (gneiss::engine::resource::parse_prefab_description(valid_prefab, prefab, diagnostic) !=
           GNEISS_SUCCESS ||
       prefab.source_schema_version != 1U || prefab.objects.size() != 2U ||
       prefab.objects[1].parent_uuid != prefab.objects[0].uuid || prefab.dependencies.size() != 2U ||
@@ -162,31 +163,32 @@ int main() try {
     return 1;
   }
   std::string serialized;
-  gneiss::scene_internal::prefab_description round_trip;
+  gneiss::engine::resource::prefab_description round_trip;
   const auto author_with_unknown = replace_once(std::string(valid_prefab), R"("version":1,)",
                                                 R"("version":1,"editor_unknown":{"kept":true},)");
-  if (gneiss::scene_internal::parse_prefab_description(author_with_unknown, prefab, diagnostic) !=
+  if (gneiss::engine::resource::parse_prefab_description(author_with_unknown, prefab, diagnostic) !=
       GNEISS_SUCCESS) {
     return 7;
   }
   prefab.objects[1].name = "Serialized Child";
-  if (gneiss::scene_internal::serialize_prefab_description(prefab, serialized) != GNEISS_SUCCESS ||
+  if (gneiss::engine::resource::serialize_prefab_description(prefab, serialized) !=
+          GNEISS_SUCCESS ||
       serialized.find("Serialized Child") == std::string::npos ||
       serialized.find("editor_unknown") == std::string::npos ||
       serialized.find("prefab_instances") != std::string::npos ||
-      gneiss::scene_internal::parse_prefab_description(serialized, round_trip, diagnostic) !=
+      gneiss::engine::resource::parse_prefab_description(serialized, round_trip, diagnostic) !=
           GNEISS_SUCCESS ||
       round_trip.objects[1].name != "Serialized Child") {
     return 8;
   }
 
-  const gneiss::scene_internal::prefab_author_address address{
+  const gneiss::engine::resource::prefab_author_address address{
       .instance_uuid = "20000000-0000-4000-8000-000000000001",
       .source_node_uuid = prefab.objects[1].uuid};
-  const gneiss::scene_internal::prefab_author_address different_instance{
+  const gneiss::engine::resource::prefab_author_address different_instance{
       .instance_uuid = "20000000-0000-4000-8000-000000000002",
       .source_node_uuid = prefab.objects[1].uuid};
-  if (!gneiss::scene_internal::is_valid_prefab_author_address(address) ||
+  if (!gneiss::engine::resource::is_valid_prefab_author_address(address) ||
       address == different_instance) {
     return 2;
   }
@@ -194,14 +196,14 @@ int main() try {
   const auto multiple_roots =
       replace_once(std::string(valid_prefab), R"("parent":"10000000-0000-4000-8000-000000000002")",
                    R"("parent":null)");
-  if (gneiss::scene_internal::parse_prefab_description(multiple_roots, prefab, diagnostic) !=
+  if (gneiss::engine::resource::parse_prefab_description(multiple_roots, prefab, diagnostic) !=
           GNEISS_ERROR_INVALID_ARGUMENT ||
       diagnostic.path != "/objects" || !prefab.objects.empty()) {
     return 3;
   }
 
   const auto future = replace_once(std::string(valid_prefab), "\"version\":1", "\"version\":2");
-  if (gneiss::scene_internal::parse_prefab_description(future, prefab, diagnostic) !=
+  if (gneiss::engine::resource::parse_prefab_description(future, prefab, diagnostic) !=
           GNEISS_ERROR_UNSUPPORTED ||
       diagnostic.path != "/version") {
     return 4;
@@ -232,9 +234,9 @@ int main() try {
   auto mounted = std::make_shared<memory_file_system>(std::string(valid_prefab));
   gneiss::engine::resource::virtual_file_system file_system;
   gneiss::engine::resource::resource_cache cache;
-  gneiss::scene_internal::prefab_asset_loader loader(file_system, cache);
-  gneiss::scene_internal::prefab_asset_lease first;
-  gneiss::scene_internal::prefab_asset_lease second;
+  gneiss::engine::resource::prefab_asset_loader loader(file_system, cache);
+  gneiss::engine::resource::prefab_asset_lease first;
+  gneiss::engine::resource::prefab_asset_lease second;
   if (file_system.mount("asset://prefabs/", mounted) != GNEISS_SUCCESS ||
       loader.acquire("asset://prefabs/lamp.prefab.json", first, diagnostic) != GNEISS_SUCCESS ||
       loader.acquire("asset://prefabs/lamp.prefab.json", second, diagnostic) != GNEISS_SUCCESS ||
@@ -242,13 +244,13 @@ int main() try {
       cache.size() != 1U) {
     return 7;
   }
-  gneiss::scene_internal::prefab_asset_lease reloaded;
+  gneiss::engine::resource::prefab_asset_lease reloaded;
   if (loader.reload("asset://prefabs/lamp.prefab.json", reloaded, diagnostic) != GNEISS_SUCCESS ||
       !reloaded || reloaded.get() == first.get() || mounted->read_count != 2U ||
       cache.size() != 1U) {
     return 7;
   }
-  gneiss::scene_internal::prefab_asset_lease invalid;
+  gneiss::engine::resource::prefab_asset_lease invalid;
   if (loader.acquire("asset://prefabs/../lamp.prefab.json", invalid, diagnostic) !=
           GNEISS_ERROR_INVALID_ARGUMENT ||
       invalid || diagnostic.message.empty()) {

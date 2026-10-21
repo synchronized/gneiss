@@ -30,7 +30,7 @@
 
 namespace gneiss::editor {
 namespace {
-gneiss_camera_desc camera_abi(const std::optional<scene_internal::camera_description>& camera) {
+gneiss_camera_desc camera_abi(const std::optional<engine::resource::camera_description>& camera) {
   gneiss_camera_desc value = GNEISS_CAMERA_DESC_INIT;
   if (camera) {
     value.vertical_field_of_view_radians = camera->vertical_field_of_view_radians;

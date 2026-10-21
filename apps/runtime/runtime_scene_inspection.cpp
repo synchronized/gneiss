@@ -43,7 +43,7 @@ gneiss_transform wire_transform(const gneiss::engine::transform& value) noexcept
           {value.scale[0], value.scale[1], value.scale[2]}};
 }
 gneiss_camera_desc
-wire_camera(const std::optional<gneiss::scene_internal::camera_description>& camera) noexcept {
+wire_camera(const std::optional<gneiss::engine::resource::camera_description>& camera) noexcept {
   gneiss_camera_desc output = GNEISS_CAMERA_DESC_INIT;
   if (camera) {
     output.vertical_field_of_view_radians = camera->vertical_field_of_view_radians;

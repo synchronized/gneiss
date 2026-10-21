@@ -11,7 +11,7 @@
 namespace gneiss::scene_internal {
 namespace {
 
-gneiss_result order_nodes(const std::vector<object_description>& objects,
+gneiss_result order_nodes(const std::vector<gneiss::engine::resource::object_description>& objects,
                           std::vector<std::size_t>& order, std::size_t maximum_depth,
                           const std::function<bool()>& cancelled,
                           std::size_t* out_depth = nullptr) {
@@ -63,7 +63,7 @@ public:
   const std::function<bool()>& cancelled;
   scene_prepare_limits limits;
   prepared_scene_description candidate;
-  scene_diagnostic& diagnostic;
+  gneiss::engine::resource::scene_diagnostic& diagnostic;
   std::map<std::string, std::vector<std::byte>> sources;
   std::map<std::string, render_internal::render_asset_type> dependencies;
   std::map<std::string, std::size_t> scene_depths;
@@ -83,7 +83,7 @@ public:
     return GNEISS_SUCCESS;
   }
 
-  gneiss_result collect(const std::vector<object_description>& objects) {
+  gneiss_result collect(const std::vector<gneiss::engine::resource::object_description>& objects) {
     using render_internal::render_asset_type;
     for (const auto& object : objects) {
       if (cancelled && cancelled()) {
@@ -111,7 +111,7 @@ public:
     return GNEISS_SUCCESS;
   }
 
-  gneiss_result add_prefab(const prefab_instance_description& instance) {
+  gneiss_result add_prefab(const gneiss::engine::resource::prefab_instance_description& instance) {
     std::string_view text;
     auto result = GNEISS_SUCCESS;
     auto found = candidate.prefabs.find(instance.prefab_uri);
@@ -122,7 +122,8 @@ public:
       result = read(instance.prefab_uri, text);
       prepared_prefab_description prefab;
       if (result == GNEISS_SUCCESS) {
-        result = parse_prefab_description(text, prefab.description, diagnostic);
+        result = gneiss::engine::resource::parse_prefab_description(text, prefab.description,
+                                                                    diagnostic);
       }
       if (result == GNEISS_SUCCESS && prefab.description.objects.size() > limits.nodes) {
         return GNEISS_ERROR_INVALID_ARGUMENT;
@@ -157,7 +158,8 @@ public:
     std::string_view text;
     auto result = read(uri, text);
     if (result == GNEISS_SUCCESS) {
-      result = parse_scene_description(text, candidate.description, diagnostic);
+      result = gneiss::engine::resource::parse_scene_description(text, candidate.description,
+                                                                 diagnostic);
     }
     if (result != GNEISS_SUCCESS) {
       return result;
@@ -212,7 +214,7 @@ public:
 
 gneiss_result prepare_prefab_description(const engine::resource::virtual_file_system& files,
                                          std::string_view uri, prepared_scene_description& output,
-                                         scene_diagnostic& diagnostic,
+                                         gneiss::engine::resource::scene_diagnostic& diagnostic,
                                          const std::function<bool()>& cancelled,
                                          scene_prepare_limits limits) noexcept {
   output = {};
@@ -226,7 +228,7 @@ gneiss_result prepare_prefab_description(const engine::resource::virtual_file_sy
                      .sources = {},
                      .dependencies = {},
                      .scene_depths = {}};
-    prefab_instance_description instance;
+    gneiss::engine::resource::prefab_instance_description instance;
     instance.prefab_uri = uri;
     auto result = work.add_prefab(instance);
     if (result == GNEISS_SUCCESS) {
@@ -246,7 +248,7 @@ gneiss_result prepare_prefab_description(const engine::resource::virtual_file_sy
 
 gneiss_result prepare_scene_description(const engine::resource::virtual_file_system& files,
                                         std::string_view uri, prepared_scene_description& output,
-                                        scene_diagnostic& diagnostic,
+                                        gneiss::engine::resource::scene_diagnostic& diagnostic,
                                         const std::function<bool()>& cancelled,
                                         scene_prepare_limits limits) noexcept {
   try {

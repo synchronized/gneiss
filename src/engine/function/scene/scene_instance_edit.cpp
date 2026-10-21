@@ -37,7 +37,7 @@ gneiss_result scene_instance::replace_mesh_binding(scene_node_id node_value,
     return GNEISS_ERROR_INVALID_STATE;
   }
   const auto found = std::ranges::find(objects_, node, &scene_instance::object::node);
-  mesh_renderer_description author{
+  gneiss::engine::resource::mesh_renderer_description author{
       .mesh_uri = std::string(replacement.mesh.uri()),
       .material_uri = std::string(replacement.material.uri()),
   };

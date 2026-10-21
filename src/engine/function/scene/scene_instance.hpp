@@ -10,7 +10,8 @@ namespace gneiss::scene_internal {
 class scene_instance final {
 public:
   scene_instance(engine::world& native_world, gneiss_world world,
-                 render_internal::render_asset_loader& loader, prefab_asset_loader& prefab_loader,
+                 render_internal::render_asset_loader& loader,
+                 gneiss::engine::resource::prefab_asset_loader& prefab_loader,
                  gneiss_type_registry registry) noexcept;
   ~scene_instance() noexcept;
 
@@ -28,7 +29,7 @@ public:
 
   void rollback() noexcept;
   /** 仅用于不可见候选 World，分阶段入口不执行文件读取。 */
-  void initialize_staged(scene_description candidate);
+  void initialize_staged(gneiss::engine::resource::scene_description candidate);
   [[nodiscard]] gneiss_result create_staged_node(std::size_t index, gneiss_scene_node_id parent,
                                                  render_internal::mesh_asset_lease mesh,
                                                  render_internal::material_asset_lease material);
@@ -72,28 +73,30 @@ public:
   [[nodiscard]] gneiss_result set_mesh_renderer(gneiss_scene_node_id node,
                                                 std::string_view mesh_uri,
                                                 std::string_view material_uri);
-  [[nodiscard]] gneiss_result set_camera(gneiss_scene_node_id node, const camera_description& desc);
+  [[nodiscard]] gneiss_result set_camera(gneiss_scene_node_id node,
+                                         const gneiss::engine::resource::camera_description& desc);
   [[nodiscard]] gneiss_result remove_camera(gneiss_scene_node_id node);
   [[nodiscard]] gneiss_result remove_mesh_renderer(gneiss_scene_node_id node);
   [[nodiscard]] gneiss_result destroy_node(gneiss_scene_node_id node);
   /** 事务式替换普通场景节点；当前不接受 Prefab 实例容器变化。 */
-  [[nodiscard]] gneiss_result reload(scene_description candidate);
+  [[nodiscard]] gneiss_result reload(gneiss::engine::resource::scene_description candidate);
   /** 将指定 Prefab URI 的新修订应用到当前 Scene 内全部同源实例。 */
   [[nodiscard]] gneiss_result reload_prefab(std::string_view uri);
 
   /** 单场景 Prefab 实例事务；服务已校验线程与句柄，不修改 Prefab 源资源。
    * instance 参数仅用于候选所属场景校验，不拥有或重新解析公共句柄。 */
-  [[nodiscard]] gneiss_result
-  capture_prefab_instance_header(std::string_view uuid, prefab_instance_description& author,
-                                 prefab_asset_lease& source) const noexcept;
+  [[nodiscard]] gneiss_result capture_prefab_instance_header(
+      std::string_view uuid, gneiss::engine::resource::prefab_instance_description& author,
+      gneiss::engine::resource::prefab_asset_lease& source) const noexcept;
   [[nodiscard]] gneiss_result
   capture_prefab_instance_binding(std::string_view uuid, std::size_t index,
                                   scene_mesh_binding& output) const noexcept;
-  [[nodiscard]] gneiss_result
-  prepare_prefab_instance_candidate(gneiss_scene_instance instance,
-                                    const prefab_instance_description& author,
-                                    prefab_asset_lease prefab, const prefab_description& prepared,
-                                    prefab_candidate& output, bool replacing) noexcept;
+  [[nodiscard]] gneiss_result prepare_prefab_instance_candidate(
+      gneiss_scene_instance instance,
+      const gneiss::engine::resource::prefab_instance_description& author,
+      gneiss::engine::resource::prefab_asset_lease prefab,
+      const gneiss::engine::resource::prefab_description& prepared, prefab_candidate& output,
+      bool replacing) noexcept;
   [[nodiscard]] gneiss_result
   publish_prefab_instance_candidate(gneiss_scene_instance instance,
                                     prefab_candidate& candidate) noexcept;
@@ -146,33 +149,38 @@ public:
   [[nodiscard]] bool contains_editable_node(scene_node_id node) const noexcept;
   [[nodiscard]] std::uint64_t node_count() const noexcept { return objects_.size(); }
 
-  [[nodiscard]] const scene_description& source() const noexcept { return description_; }
+  [[nodiscard]] const gneiss::engine::resource::scene_description& source() const noexcept {
+    return description_;
+  }
   [[nodiscard]] gneiss_scene_node_id staged_node(std::size_t index) const {
     return objects_.at(index).node;
   }
   void append_staged_prefab(std::unique_ptr<prefab_runtime_instance> candidate);
-  [[nodiscard]] gneiss_result initialize(scene_description candidate);
+  [[nodiscard]] gneiss_result initialize(gneiss::engine::resource::scene_description candidate);
 
 private:
   friend class scene_instance_service;
-  [[nodiscard]] gneiss_result stage_assets(const scene_description& source);
-  [[nodiscard]] gneiss_result commit_scene(const scene_description& source);
-  [[nodiscard]] gneiss_result commit_prefabs(const scene_description& source);
+  [[nodiscard]] gneiss_result
+  stage_assets(const gneiss::engine::resource::scene_description& source);
+  [[nodiscard]] gneiss_result
+  commit_scene(const gneiss::engine::resource::scene_description& source);
+  [[nodiscard]] gneiss_result
+  commit_prefabs(const gneiss::engine::resource::scene_description& source);
   std::vector<object> objects_;
   std::vector<std::unique_ptr<prefab_runtime_instance>> prefab_instances_;
-  scene_description description_;
+  gneiss::engine::resource::scene_description description_;
 
   struct prefab_refresh_transaction final {
     gneiss_scene_prefab_refresh_token token = GNEISS_NULL_SCENE_PREFAB_REFRESH_TOKEN;
     std::string instance_uuid;
-    prefab_asset_lease alternate;
+    gneiss::engine::resource::prefab_asset_lease alternate;
   };
 
   engine::world& native_world_;
   // 仅供 ABI 反射回调定位；不拥有 World，不用于普通场景操作。
   gneiss_world reflection_context_;
   render_internal::render_asset_loader& loader_;
-  prefab_asset_loader& prefab_loader_;
+  gneiss::engine::resource::prefab_asset_loader& prefab_loader_;
   gneiss_type_registry registry_;
   std::vector<prefab_refresh_transaction> prefab_refresh_transactions_;
   gneiss_scene_prefab_refresh_token next_prefab_refresh_token_ = 1U;

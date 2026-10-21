@@ -22,7 +22,7 @@
 
 namespace {
 
-using gneiss::scene_internal::scene_diagnostic;
+using gneiss::engine::resource::scene_diagnostic;
 
 constexpr std::uint64_t schema_version = 4;
 constexpr std::string_view scene_format = "gneiss.scene";
@@ -113,7 +113,7 @@ template <std::size_t Size>
 }
 
 [[nodiscard]] bool parse_transform(yyjson_val* value, std::string_view path,
-                                   gneiss::scene_internal::object_description& output,
+                                   gneiss::engine::resource::object_description& output,
                                    scene_diagnostic& diagnostic) {
   if (!yyjson_is_obj(value) ||
       !read_float_array(value, "translation", path, output.translation, diagnostic) ||
@@ -135,7 +135,7 @@ template <std::size_t Size>
 }
 
 [[nodiscard]] bool parse_camera(yyjson_val* value, std::string_view path,
-                                gneiss::scene_internal::camera_description& output,
+                                gneiss::engine::resource::camera_description& output,
                                 scene_diagnostic& diagnostic) {
   if (!yyjson_is_obj(value) ||
       !read_float(value, "vertical_field_of_view_radians", path,
@@ -164,7 +164,7 @@ template <std::size_t Size>
 }
 
 [[nodiscard]] bool parse_mesh_renderer(yyjson_val* value, std::string_view path,
-                                       gneiss::scene_internal::mesh_renderer_description& output,
+                                       gneiss::engine::resource::mesh_renderer_description& output,
                                        scene_diagnostic& diagnostic) {
   if (!yyjson_is_obj(value) ||
       !read_required_string(value, "mesh", path, output.mesh_uri, diagnostic) ||
@@ -183,7 +183,7 @@ template <std::size_t Size>
 }
 
 [[nodiscard]] bool parse_components(yyjson_val* value, std::string_view path,
-                                    gneiss::scene_internal::object_description& output,
+                                    gneiss::engine::resource::object_description& output,
                                     scene_diagnostic& diagnostic) {
   if (!yyjson_is_obj(value)) {
     if (diagnostic.result == GNEISS_SUCCESS) {
@@ -208,7 +208,7 @@ template <std::size_t Size>
 }
 
 [[nodiscard]] bool parse_object(yyjson_val* value, std::size_t index,
-                                gneiss::scene_internal::object_description& output,
+                                gneiss::engine::resource::object_description& output,
                                 scene_diagnostic& diagnostic) {
   const std::string path = "/objects/" + std::to_string(index);
   if (!yyjson_is_obj(value) ||
@@ -301,7 +301,7 @@ template <std::size_t Size>
 }
 
 [[nodiscard]] bool parse_override_value(yyjson_val* object,
-                                        gneiss::scene_internal::prefab_property_value& output) {
+                                        gneiss::engine::resource::prefab_property_value& output) {
   if (!yyjson_is_obj(object)) {
     return false;
   }
@@ -311,7 +311,7 @@ template <std::size_t Size>
     return false;
   }
   const auto kind = json_string(kind_value);
-  gneiss::scene_internal::prefab_property_value parsed;
+  gneiss::engine::resource::prefab_property_value parsed;
   if (kind == "bool" && yyjson_is_bool(value)) {
     parsed.payload = yyjson_get_bool(value);
   } else if (kind == "int64" && yyjson_is_sint(value)) {
@@ -354,7 +354,7 @@ template <std::size_t Size>
 
 [[nodiscard]] bool parse_prefab_override(yyjson_val* value, std::size_t instance_index,
                                          std::size_t override_index, std::string_view instance_uuid,
-                                         gneiss::scene_internal::prefab_property_override& output,
+                                         gneiss::engine::resource::prefab_property_override& output,
                                          scene_diagnostic& diagnostic) {
   const auto path = "/prefab_instances/" + std::to_string(instance_index) + "/overrides/" +
                     std::to_string(override_index);
@@ -384,7 +384,7 @@ template <std::size_t Size>
          "Field ID 必须是非零 uint32");
     return false;
   }
-  gneiss::scene_internal::prefab_property_value property_value;
+  gneiss::engine::resource::prefab_property_value property_value;
   if (!parse_override_value(yyjson_obj_get(value, "value"), property_value)) {
     fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, path + "/value", "覆盖属性值无效");
     return false;
@@ -407,7 +407,7 @@ template <std::size_t Size>
 
 [[nodiscard]] bool
 parse_prefab_instance(yyjson_val* value, std::size_t index,
-                      gneiss::scene_internal::prefab_instance_description& output,
+                      gneiss::engine::resource::prefab_instance_description& output,
                       scene_diagnostic& diagnostic) {
   const std::string path = "/prefab_instances/" + std::to_string(index);
   if (!yyjson_is_obj(value) ||
@@ -446,7 +446,7 @@ parse_prefab_instance(yyjson_val* value, std::size_t index,
          "parent 必须是普通对象 UUID 或 null");
     return false;
   }
-  gneiss::scene_internal::object_description transform;
+  gneiss::engine::resource::object_description transform;
   if (!parse_transform(yyjson_obj_get(value, "transform"), path + "/transform", transform,
                        diagnostic)) {
     return false;
@@ -471,7 +471,7 @@ parse_prefab_instance(yyjson_val* value, std::size_t index,
     }
   }
   std::ranges::sort(output.overrides, [](const auto& left, const auto& right) {
-    return gneiss::scene_internal::prefab_property_override_key_less(left.key, right.key);
+    return gneiss::engine::resource::prefab_property_override_key_less(left.key, right.key);
   });
   if (std::ranges::adjacent_find(output.overrides, [](const auto& left, const auto& right) {
         return left.key == right.key;
@@ -482,7 +482,7 @@ parse_prefab_instance(yyjson_val* value, std::size_t index,
   return true;
 }
 
-[[nodiscard]] bool validate_hierarchy(const gneiss::scene_internal::scene_description& scene,
+[[nodiscard]] bool validate_hierarchy(const gneiss::engine::resource::scene_description& scene,
                                       scene_diagnostic& diagnostic) {
   std::unordered_map<std::string_view, std::size_t> indexes;
   indexes.reserve(scene.objects.size());
@@ -583,7 +583,7 @@ template <std::size_t Size>
 
 [[nodiscard]] yyjson_mut_val*
 make_author_object(yyjson_mut_doc* document,
-                   const gneiss::scene_internal::object_description& source) {
+                   const gneiss::engine::resource::object_description& source) {
   auto* object = yyjson_mut_obj(document);
   auto* transform = yyjson_mut_obj(document);
   auto* components = yyjson_mut_obj(document);
@@ -643,7 +643,7 @@ make_author_object(yyjson_mut_doc* document,
 
 [[nodiscard]] yyjson_mut_val*
 make_override_value(yyjson_mut_doc* document,
-                    const gneiss::scene_internal::prefab_property_value& source) {
+                    const gneiss::engine::resource::prefab_property_value& source) {
   auto* object = yyjson_mut_obj(document);
   if (object == nullptr) {
     return nullptr;
@@ -692,7 +692,7 @@ make_override_value(yyjson_mut_doc* document,
 
 [[nodiscard]] yyjson_mut_val* make_prefab_overrides(
     yyjson_mut_doc* document,
-    const std::vector<gneiss::scene_internal::prefab_property_override>& overrides) {
+    const std::vector<gneiss::engine::resource::prefab_property_override>& overrides) {
   auto* array = yyjson_mut_arr(document);
   if (array == nullptr) {
     return nullptr;
@@ -718,7 +718,7 @@ make_override_value(yyjson_mut_doc* document,
 
 [[nodiscard]] yyjson_mut_val*
 make_author_prefab_instance(yyjson_mut_doc* document,
-                            const gneiss::scene_internal::prefab_instance_description& source) {
+                            const gneiss::engine::resource::prefab_instance_description& source) {
   auto* instance = yyjson_mut_obj(document);
   auto* transform = yyjson_mut_obj(document);
   if (instance == nullptr || transform == nullptr ||
@@ -747,7 +747,7 @@ make_author_prefab_instance(yyjson_mut_doc* document,
 
 } // namespace
 
-namespace gneiss::scene_internal {
+namespace gneiss::engine::resource {
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): 顺序校验保持 Schema 错误优先级明确。
 gneiss_result parse_current_scene_description(std::string_view json, scene_description& out_scene,
@@ -1117,4 +1117,4 @@ gneiss_result serialize_scene_description(const scene_description& scene,
   }
 }
 
-} // namespace gneiss::scene_internal
+} // namespace gneiss::engine::resource

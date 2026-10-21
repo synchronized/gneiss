@@ -72,7 +72,7 @@ void run() {
   engine::resource::virtual_file_system files;
   check(files.mount("asset://", memory) == GNEISS_SUCCESS);
   prepared_scene_description output;
-  scene_diagnostic diagnostic;
+  gneiss::engine::resource::scene_diagnostic diagnostic;
   auto prepare = [&](scene_prepare_limits limits = {}, const std::function<bool()>& cancel = {}) {
     return prepare_scene_description(files, "asset://main.scene", output, diagnostic, cancel,
                                      limits);

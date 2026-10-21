@@ -113,7 +113,7 @@ public:
   [[nodiscard]] gneiss_world world() const noexcept;
   [[nodiscard]] engine::world* native_world() const noexcept;
   [[nodiscard]] render_internal::render_resource_service& resources() noexcept;
-  [[nodiscard]] scene_internal::prefab_asset_loader& prefab_loader() noexcept;
+  [[nodiscard]] engine::resource::prefab_asset_loader& prefab_loader() noexcept;
   [[nodiscard]] gneiss_result
   reload_render_assets(std::span<const render_internal::render_asset_reload> assets) noexcept;
   [[nodiscard]] gneiss_result reload_scene(gneiss_scene_instance instance,

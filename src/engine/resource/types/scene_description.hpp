@@ -20,7 +20,7 @@ namespace gneiss::engine::resource {
 class virtual_file_system;
 }
 
-namespace gneiss::scene_internal {
+namespace gneiss::engine::resource {
 
 struct scene_diagnostic final {
   gneiss_result result = GNEISS_SUCCESS;
@@ -84,6 +84,6 @@ load_scene_description(const engine::resource::virtual_file_system& file_system,
 [[nodiscard]] gneiss_result serialize_scene_description(const scene_description& scene,
                                                         std::string& out_json) noexcept;
 
-} // namespace gneiss::scene_internal
+} // namespace gneiss::engine::resource
 
 #endif

@@ -80,8 +80,8 @@ void run() {
     active_render.release_unused();
     check(resources.get_mesh(first.get()) != nullptr);
     const auto render_revision = active_render.revision();
-    scene_internal::prefab_asset_lease prefab;
-    scene_internal::scene_diagnostic prefab_diagnostic;
+    engine::resource::prefab_asset_lease prefab;
+    engine::resource::scene_diagnostic prefab_diagnostic;
     check(active_assets.acquire("asset://p.prefab", prefab, prefab_diagnostic) == GNEISS_SUCCESS);
     check(prefab.get() != nullptr);
     check(active_render.revision() == render_revision);
@@ -133,9 +133,9 @@ void run() {
       empty_instances, 21U,
       R"("prefab_instances":[{"instance_uuid":"00000000-0000-4000-8000-000000000004","prefab":"asset://p.prefab","parent":null,"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"overrides":[]}])");
   scene_internal::prepared_scene_description prepared;
-  scene_internal::scene_diagnostic scene_diagnostic;
-  check(scene_internal::prepare_scene_description(vfs, "asset://s.scene", prepared,
-                                                  scene_diagnostic, {}) == GNEISS_SUCCESS);
+  engine::resource::scene_diagnostic scene_error;
+  check(scene_internal::prepare_scene_description(vfs, "asset://s.scene", prepared, scene_error,
+                                                  {}) == GNEISS_SUCCESS);
   auto candidate = std::make_unique<runtime::application_scene_state>();
   check(candidate->initialize(candidate_assets, candidate_render) == GNEISS_SUCCESS);
   std::vector<render_internal::render_asset_lease> captured{render_internal::render_asset_lease{}};
@@ -201,8 +201,8 @@ void run() {
   }
   // 候选仅持有一份运行时；移动、失败和取消不得泄漏或提前发布。
   {
-    scene_internal::prefab_asset_lease source;
-    scene_internal::prefab_instance_description author;
+    engine::resource::prefab_asset_lease source;
+    engine::resource::prefab_instance_description author;
     check(candidate->scenes()->capture_prefab_header(
               new_scene, "00000000-0000-4000-8000-000000000004", author, source) == GNEISS_SUCCESS);
     const auto original_uuid = author.instance_uuid;
@@ -431,8 +431,8 @@ void run() {
   check(old_pixels->red == 1.0F);
 
   // 构造失败时仅回收候选节点；即使依赖缺失也不能退回主线程文件读取。
-  check(scene_internal::prepare_scene_description(vfs, "asset://s.scene", prepared,
-                                                  scene_diagnostic, {}) == GNEISS_SUCCESS);
+  check(scene_internal::prepare_scene_description(vfs, "asset://s.scene", prepared, scene_error,
+                                                  {}) == GNEISS_SUCCESS);
   candidate = std::make_unique<runtime::application_scene_state>();
   check(candidate->initialize(candidate_assets, candidate_render) == GNEISS_SUCCESS);
   const auto failure_reads = files->reads;

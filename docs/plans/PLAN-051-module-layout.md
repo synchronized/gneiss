@@ -210,3 +210,8 @@ Runtime 首批命名迁移已验证，见[验收记录](../records/2026-10-21-ru
 scene_internal 整体替换到资源层。边界检查拒绝恢复旧资产命名，行为与所有权不变。
 
 资源首批验收见[实施记录](../records/2026-10-21-resource-namespace.md)。
+
+Scene/Prefab 作者描述、属性覆盖值、解析/序列化与 Prefab Loader 已迁入资源命名空间，
+功能层调用方显式引用资源类型。旧 scene_internal 仅保留功能层行为；没有兼容别名。
+资源目录不再出现 scene_internal，边界正反例检查防止回流。验收见
+[描述命名空间迁移](../records/2026-10-21-scene-resource-namespace.md)。

@@ -96,7 +96,7 @@ gneiss_result scene_load_builder::step() {
     // map 的稳定键顺序与安装顺序一致；每次最多安装一份已经解析的描述。
     auto source = prepared_.prefabs.begin();
     std::advance(source, static_cast<std::ptrdiff_t>(prefabs_.size()));
-    prefab_asset_lease lease;
+    gneiss::engine::resource::prefab_asset_lease lease;
     const auto result = service_.prefab_loader_.install_prepared(
         source->first, std::move(source->second.description), lease);
     if (result == GNEISS_SUCCESS) {

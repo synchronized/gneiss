@@ -16,7 +16,7 @@ namespace {
 constexpr std::uint32_t prefab_resource_type = 4U;
 
 // 按字段编码，不摘要结构体填充或机器字节序；新增描述字段时须同时更新版本编码。
-std::string description_version(const gneiss::scene_internal::prefab_description& description) {
+std::string description_version(const gneiss::engine::resource::prefab_description& description) {
   gneiss::core::sha256_builder hash;
   const auto number = [&](std::uint64_t value) {
     std::array<std::byte, 8> bytes{};
@@ -84,7 +84,7 @@ std::string description_version(const gneiss::scene_internal::prefab_description
   return version;
 }
 
-void fail(gneiss::scene_internal::scene_diagnostic& diagnostic, gneiss_result result,
+void fail(gneiss::engine::resource::scene_diagnostic& diagnostic, gneiss_result result,
           std::string_view path, std::string_view message) noexcept {
   diagnostic.result = result;
   try {
@@ -99,7 +99,7 @@ void fail(gneiss::scene_internal::scene_diagnostic& diagnostic, gneiss_result re
 
 } // namespace
 
-namespace gneiss::scene_internal {
+namespace gneiss::engine::resource {
 
 const prefab_description* prefab_asset_lease::get() const noexcept {
   return entry_ ? static_cast<const prefab_description*>(entry_->resource.get()) : nullptr;
@@ -218,4 +218,4 @@ gneiss_result prefab_asset_loader::reload(std::string_view uri, prefab_asset_lea
   return GNEISS_SUCCESS;
 }
 
-} // namespace gneiss::scene_internal
+} // namespace gneiss::engine::resource

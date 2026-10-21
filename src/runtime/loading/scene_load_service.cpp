@@ -57,7 +57,7 @@ resource_usage resource_bytes(const render_internal::render_resource_service& re
 struct scene_load_service::pending {
   struct cpu_result {
     scene_internal::prepared_scene_description description;
-    scene_internal::scene_diagnostic diagnostic;
+    engine::resource::scene_diagnostic diagnostic;
     gneiss_result result{GNEISS_ERROR_INTERNAL};
     std::unique_ptr<engine::resource::source_revision_file_system::verification> verification;
     bool verification_complete{};

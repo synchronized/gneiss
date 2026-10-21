@@ -10,7 +10,7 @@
 #include <variant>
 #include <vector>
 
-namespace gneiss::scene_internal {
+namespace gneiss::engine::resource {
 
 /** Prefab 实例中节点的稳定作者身份。 */
 struct prefab_author_address final {
@@ -59,4 +59,4 @@ struct prefab_property_override final {
 prefab_property_override_key_less(const prefab_property_override_key& left,
                                   const prefab_property_override_key& right) noexcept;
 
-} // namespace gneiss::scene_internal
+} // namespace gneiss::engine::resource
