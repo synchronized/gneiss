@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include "editor_asset_edit.hpp"
+#include "commands/editor_asset_edit.hpp"
 #include "runtime/application.hpp"
 
 namespace gneiss::editor {

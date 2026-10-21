@@ -185,3 +185,8 @@ Session 初始化成功后才发布活动域。
 中的文档、历史和异步编辑协作，再迁移 Editor Application；不直接移动进程/IPC 代码
 使 src/editor 反向依赖 Apps。验收见
 [Editor 布局记录](../records/2026-10-21-editor-document-layout.md)。
+
+场景加载、资产替换与 Prefab 异步控制器已从 apps/editor 移至 documents/commands，
+从宿主库移入编辑器库，三项流程测试直接链接编辑器库；没有新增协调器或重复状态。
+宿主仍负责模态 UI、请求互斥与关闭推进，下一步审查这部分编排的最小可抽取接口。
+见[控制器迁移验收](../records/2026-10-21-editor-async-controller-boundary.md)。

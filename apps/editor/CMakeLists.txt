@@ -5,12 +5,6 @@ add_library(
   gneiss_editor_host STATIC
   runtime_log_adapter.hpp
   editor_project.hpp
-  editor_scene_loader.cpp
-  editor_scene_loader.hpp
-  editor_asset_edit.cpp
-  editor_asset_edit.hpp
-  editor_prefab_edit.cpp
-  editor_prefab_edit.hpp
   ipc/editor_ipc_event.hpp
   ipc/editor_ipc_router.cpp
   ipc/editor_ipc_router.hpp
@@ -116,17 +110,17 @@ install(TARGETS gneiss_editor gneiss_project RUNTIME DESTINATION bin)
 if(BUILD_TESTING)
   add_executable(gneiss_editor_scene_loader_test tests/editor_scene_loader_test.cpp)
   add_executable(gneiss_editor_prefab_edit_test tests/editor_prefab_edit_test.cpp)
-  target_link_libraries(gneiss_editor_prefab_edit_test PRIVATE gneiss_editor_host gneiss_tasks)
+  target_link_libraries(gneiss_editor_prefab_edit_test PRIVATE gneiss_scene_document gneiss_tasks)
   gneiss_target_compile_warnings(gneiss_editor_prefab_edit_test)
   gneiss_target_output_directories(gneiss_editor_prefab_edit_test)
   add_test(NAME gneiss.editor.prefab-edit COMMAND gneiss_editor_prefab_edit_test)
   set_tests_properties(gneiss.editor.prefab-edit PROPERTIES TIMEOUT 45)
   add_executable(gneiss_editor_asset_edit_test tests/editor_asset_edit_test.cpp)
-  target_link_libraries(gneiss_editor_asset_edit_test PRIVATE gneiss_editor_host gneiss_tasks)
+  target_link_libraries(gneiss_editor_asset_edit_test PRIVATE gneiss_scene_document gneiss_tasks)
   gneiss_target_compile_warnings(gneiss_editor_asset_edit_test)
   gneiss_target_output_directories(gneiss_editor_asset_edit_test)
   add_test(NAME gneiss.editor.asset-edit COMMAND gneiss_editor_asset_edit_test)
-  target_link_libraries(gneiss_editor_scene_loader_test PRIVATE gneiss_editor_host gneiss_tasks)
+  target_link_libraries(gneiss_editor_scene_loader_test PRIVATE gneiss_scene_document gneiss_tasks)
   target_compile_definitions(gneiss_editor_scene_loader_test PRIVATE
     GNEISS_EDITOR_TEST_ASSET_ROOT="${PROJECT_SOURCE_DIR}/tests/data/assets")
   gneiss_target_compile_warnings(gneiss_editor_scene_loader_test)

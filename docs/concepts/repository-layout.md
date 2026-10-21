@@ -231,3 +231,8 @@ Scene 服务完成入口校验后转交实例，不直接修改这些事务的�
 层级、属性、资源、控制台与运行时面板位于 `panels/`。根目录暂保留 UI 装配、主题、
 资产监控及运行时通信模型；Apps 中的 Editor 装配尚未迁入本层。
 撤销历史目前由宿主持有并在文档切换时清理，不宣称已实现文档独占历史或多文档宿主。
+
+场景加载事务 `documents/editor_scene_loader`、资产替换事务
+`commands/editor_asset_edit`、Prefab 事务 `commands/editor_prefab_edit` 编译在编辑器模块内，
+不依赖 Apps、进程或 IPC。它们借用 Application、文档及历史，宿主负责在销毁这些对象前
+取消并排空在途操作；流程测试直接链接编辑器模块。窗口、进程及 IPC 仍归 Apps。

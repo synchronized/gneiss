@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include "editor_prefab_edit.hpp"
+#include "commands/editor_prefab_edit.hpp"
 #include "runtime/application.hpp"
 #include "runtime/loading/prefab_placement.hpp"
 #include "runtime/loading/prefab_preparation.hpp"

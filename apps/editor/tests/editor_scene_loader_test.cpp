@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "../../../tests/support/c_owner.hpp"
-#include "editor_scene_loader.hpp"
+#include "documents/editor_scene_loader.hpp"
 #include "runtime/application_asset_reload_internal.hpp"
 #include "runtime/application_registry.hpp"
 

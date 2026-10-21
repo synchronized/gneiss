@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "editor_scene_loader.hpp"
+#include "documents/editor_scene_loader.hpp"
 #include "runtime/application.hpp"
 
 namespace gneiss::editor {

@@ -103,6 +103,12 @@ gneiss_target_output_directories(gneiss_editor_model)
 # 场景编辑状态与 Gizmo 事务不依赖宿主工程、进程或 IPC。
 add_library(
   gneiss_scene_document STATIC
+  documents/editor_scene_loader.cpp
+  documents/editor_scene_loader.hpp
+  commands/editor_asset_edit.cpp
+  commands/editor_asset_edit.hpp
+  commands/editor_prefab_edit.cpp
+  commands/editor_prefab_edit.hpp
   runtime_launch.cpp
   runtime_launch.hpp
   commands/asset_scene_commands.cpp
@@ -116,7 +122,7 @@ add_library(
   viewport/transform_gizmo_drag.cpp
   viewport/transform_gizmo_drag.hpp
 )
-target_link_libraries(gneiss_scene_document PUBLIC gneiss_editor_model)
+target_link_libraries(gneiss_scene_document PUBLIC gneiss_editor_model gneiss_tasks)
 target_include_directories(gneiss_scene_document PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(gneiss_scene_document PUBLIC gneiss_native_interface)
 target_compile_features(gneiss_scene_document PUBLIC cxx_std_20)

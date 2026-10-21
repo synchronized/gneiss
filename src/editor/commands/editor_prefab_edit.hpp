@@ -8,7 +8,7 @@
 namespace gneiss::editor {
 enum class prefab_edit_phase { preparing, assets, constructing, cleanup, finished };
 
-/** 所属线程推进；宿主在销毁 Application、Session 或执行器前必须取消并排空。 */
+/** 所属线程推进；宿主在销毁 Application、文档、历史或执行器前必须取消并排空。 */
 class editor_prefab_edit final {
 public:
   editor_prefab_edit();
