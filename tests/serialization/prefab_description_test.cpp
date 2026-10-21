@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/resource/vfs/file_system.hpp"
-#include "engine/resource/types/prefab_description.hpp"
-#include "engine/resource/cache/resource_cache.hpp"
-#include "engine/resource/vfs/virtual_file_system.hpp"
-#include "engine/resource/loaders/prefab_asset_loader.hpp"
 #include "engine/function/scene/scene_tree.hpp"
+#include "engine/resource/cache/resource_cache.hpp"
+#include "engine/resource/loaders/prefab_asset_loader.hpp"
+#include "engine/resource/types/prefab_description.hpp"
+#include "engine/resource/vfs/file_system.hpp"
+#include "engine/resource/vfs/virtual_file_system.hpp"
 
 #include <gneiss/engine/core/result.h>
 
@@ -49,7 +49,7 @@ constexpr std::string_view valid_prefab = R"({
   return text;
 }
 
-class memory_file_system final : public gneiss::asset_internal::file_system {
+class memory_file_system final : public gneiss::engine::resource::file_system {
 public:
   explicit memory_file_system(std::string content) : content_(std::move(content)) {}
 
@@ -79,7 +79,7 @@ private:
 } // namespace
 
 bool prepared_versions_contract() {
-  using namespace gneiss::asset_internal;
+  using namespace gneiss::engine::resource;
   using namespace gneiss::scene_internal;
   resource_cache cache;
   virtual_file_system files;
@@ -230,8 +230,8 @@ int main() try {
   }
 
   auto mounted = std::make_shared<memory_file_system>(std::string(valid_prefab));
-  gneiss::asset_internal::virtual_file_system file_system;
-  gneiss::asset_internal::resource_cache cache;
+  gneiss::engine::resource::virtual_file_system file_system;
+  gneiss::engine::resource::resource_cache cache;
   gneiss::scene_internal::prefab_asset_loader loader(file_system, cache);
   gneiss::scene_internal::prefab_asset_lease first;
   gneiss::scene_internal::prefab_asset_lease second;

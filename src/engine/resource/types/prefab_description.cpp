@@ -177,7 +177,7 @@ gneiss_result parse_prefab_description(std::string_view json, prefab_description
   }
 }
 
-gneiss_result load_prefab_description(const asset_internal::virtual_file_system& file_system,
+gneiss_result load_prefab_description(const engine::resource::virtual_file_system& file_system,
                                       std::string_view uri, prefab_description& out_prefab,
                                       scene_diagnostic& out_diagnostic) noexcept {
   std::vector<std::byte> bytes;

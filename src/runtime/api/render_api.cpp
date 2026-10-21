@@ -30,7 +30,7 @@ extern "C" gneiss_result gneiss_mesh_create(gneiss_application application,
     if (validation_result != GNEISS_SUCCESS) {
       return validation_result;
     }
-    gneiss::asset_internal::mesh_data value;
+    gneiss::engine::resource::mesh_data value;
     const auto converted = gneiss::api::read_mesh_description(*desc, value);
     return converted == GNEISS_SUCCESS ? state->resources().create_mesh(std::move(value), out_mesh)
                                        : converted;

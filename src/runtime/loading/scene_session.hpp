@@ -20,10 +20,11 @@ public:
   scene_session(const scene_session&) = delete;
   scene_session& operator=(const scene_session&) = delete;
 
-  [[nodiscard]] gneiss_result initialize(engine::asset_manager& assets,
+  [[nodiscard]] gneiss_result initialize(engine::resource::asset_manager& assets,
                                          render_internal::render_asset_loader& render);
   [[nodiscard]] gneiss_result
-  attach_executor(tasks::task_executor& executor, const asset_internal::virtual_file_system& files,
+  attach_executor(tasks::task_executor& executor,
+                  const engine::resource::virtual_file_system& files,
                   render_internal::render_resource_service& resources,
                   render_internal::texture_upload_backend backend,
                   std::shared_ptr<core::progress_notification> notification);
@@ -58,7 +59,7 @@ public:
                      const std::function<gneiss_result()>& accept);
 
 private:
-  engine::asset_manager* asset_owner_{};
+  engine::resource::asset_manager* asset_owner_{};
   render_internal::render_asset_loader* render_assets_{};
   std::unique_ptr<application_scene_state> active_;
   std::unique_ptr<application_scene_state> retired_;

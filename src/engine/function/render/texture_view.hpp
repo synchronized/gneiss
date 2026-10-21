@@ -14,8 +14,8 @@ namespace gneiss::render_internal {
 struct texture_view {
   std::uint32_t width{};
   std::uint32_t height{};
-  asset_internal::texture_format format{asset_internal::texture_format::rgba8_unorm};
-  asset_internal::texture_color_space color_space{asset_internal::texture_color_space::srgb};
+  engine::resource::texture_format format{engine::resource::texture_format::rgba8_unorm};
+  engine::resource::texture_color_space color_space{engine::resource::texture_color_space::srgb};
   std::uint32_t row_stride_bytes{};
   std::span<const std::uint8_t> pixels;
 };

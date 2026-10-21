@@ -3,9 +3,9 @@
 
 #include "engine/resource/loaders/prefab_asset_loader.hpp"
 
+#include "engine/core/sha256.hpp"
 #include "engine/resource/vfs/asset_uri.hpp"
 #include "engine/resource/vfs/virtual_file_system.hpp"
-#include "engine/core/sha256.hpp"
 
 #include <bit>
 #include <memory>
@@ -109,18 +109,18 @@ gneiss_result prefab_asset_loader::install_prepared(std::string_view uri,
                                                     prefab_description description,
                                                     prefab_asset_lease& out_lease) noexcept {
   out_lease.entry_.reset();
-  if (asset_internal::validate_uri(uri) != GNEISS_SUCCESS || description.objects.empty()) {
+  if (engine::resource::validate_uri(uri) != GNEISS_SUCCESS || description.objects.empty()) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
   try {
-    asset_internal::resource_cache::version_key key;
+    engine::resource::resource_cache::version_key key;
     auto result = file_system_.identify(uri, prefab_resource_type, key.identity);
     if (result != GNEISS_SUCCESS) {
       return result;
     }
     // 描述只保存依赖 URI；渲染资产版本由实例独立持有的租约固定。
     key.version = description_version(description);
-    std::shared_ptr<const asset_internal::resource_cache::entry> entry;
+    std::shared_ptr<const engine::resource::resource_cache::entry> entry;
     result = cache_.acquire(
         key,
         [&description](std::shared_ptr<void>& resource) {
@@ -143,12 +143,12 @@ gneiss_result prefab_asset_loader::acquire(std::string_view uri, prefab_asset_le
                                            scene_diagnostic& out_diagnostic) noexcept {
   out_lease.entry_.reset();
   out_diagnostic = {};
-  if (asset_internal::validate_uri(uri) != GNEISS_SUCCESS) {
+  if (engine::resource::validate_uri(uri) != GNEISS_SUCCESS) {
     fail(out_diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "", "Prefab URI 无效");
     return out_diagnostic.result;
   }
 
-  std::shared_ptr<const asset_internal::resource_cache::entry> entry;
+  std::shared_ptr<const engine::resource::resource_cache::entry> entry;
   auto result = cache_.acquire(
       uri, prefab_resource_type,
       [this, uri, &out_diagnostic](std::shared_ptr<void>& out_resource) noexcept {
@@ -183,11 +183,11 @@ gneiss_result prefab_asset_loader::reload(std::string_view uri, prefab_asset_lea
                                           scene_diagnostic& out_diagnostic) noexcept {
   out_lease.entry_.reset();
   out_diagnostic = {};
-  if (asset_internal::validate_uri(uri) != GNEISS_SUCCESS) {
+  if (engine::resource::validate_uri(uri) != GNEISS_SUCCESS) {
     fail(out_diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "", "Prefab URI 无效");
     return out_diagnostic.result;
   }
-  std::shared_ptr<const asset_internal::resource_cache::entry> entry;
+  std::shared_ptr<const engine::resource::resource_cache::entry> entry;
   const auto result = cache_.reload(
       uri, prefab_resource_type,
       [this, uri, &out_diagnostic](std::shared_ptr<void>& out_resource) noexcept {

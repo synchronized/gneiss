@@ -3,8 +3,8 @@
 #pragma once
 #include "engine/resource/action_map_request.hpp"
 #include "engine/resource/backend/caors/caors_action_map.hpp"
-namespace gneiss::engine {
+namespace gneiss::engine::resource {
 /** 仅资产实现与接入测试使用；不进入 Application 或公共 SDK。 */
 std::unique_ptr<action_map_request>
-make_action_map_request(caors::resources::load_request<asset_internal::action_map_asset> request);
+make_action_map_request(caors::resources::load_request<engine::resource::action_map_asset> request);
 }

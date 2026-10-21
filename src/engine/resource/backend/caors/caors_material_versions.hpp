@@ -2,11 +2,11 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #pragma once
-#include "engine/resource/vfs/asset_uri.hpp"
 #include "engine/resource/backend/caors/caors_material_document.hpp"
+#include "engine/resource/vfs/asset_uri.hpp"
 #include <map>
 
-namespace gneiss::asset_internal {
+namespace gneiss::engine::resource {
 /** 版本租约同时保活来源身份与只读 CPU 文档；不表示场景已采用该版本。 */
 class material_document_lease final : public material_document_reference {
 public:
@@ -105,4 +105,4 @@ public:
 private:
   std::map<key, caors::resources::weak_handle<material_document>, less> versions_;
 };
-} // namespace gneiss::asset_internal
+} // namespace gneiss::engine::resource

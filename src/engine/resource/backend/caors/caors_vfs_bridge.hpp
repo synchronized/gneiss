@@ -5,7 +5,7 @@
 #include "engine/platform/caors/adapter.hpp"
 #include "engine/resource/vfs/virtual_file_system.hpp"
 
-namespace gneiss::asset_internal {
+namespace gneiss::engine::resource {
 /** 过渡桥：持有既有 VFS 的只读快照，后端路径为完整 URI，不另建挂载表。
  * 首阶段仅支持有界完整 CPU 文档；完整读取后登记来源摘要，最终发布复验仍由资产宿主负责。
  * worker 处理摘要和结果复制；宿主保持 io/loop 存活，串行 pump。
@@ -25,4 +25,4 @@ std::shared_ptr<caors_vfs_bridge>
 make_caors_vfs_bridge(virtual_file_system snapshot, caors::tasks::executor worker,
                       std::size_t maximum_document_bytes = 1024U * 1024U,
                       bool allow_scheduled_reads = false);
-} // namespace gneiss::asset_internal
+} // namespace gneiss::engine::resource

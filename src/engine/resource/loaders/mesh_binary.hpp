@@ -11,7 +11,7 @@
 #include <string>
 #include <vector>
 
-namespace gneiss::asset_internal {
+namespace gneiss::engine::resource {
 
 struct mesh_binary_vertex final {
   std::array<float, 3> position{};
@@ -47,6 +47,6 @@ struct mesh_binary_diagnostic final {
                                                     mesh_binary_diagnostic& diagnostic) noexcept;
 [[nodiscard]] std::string dump_mesh_binary_json(const mesh_binary_data& data);
 
-} // namespace gneiss::asset_internal
+} // namespace gneiss::engine::resource
 
 #endif

@@ -4,13 +4,13 @@
 #ifndef GNEISS_SCENE_PREFAB_ASSET_LOADER_HPP_
 #define GNEISS_SCENE_PREFAB_ASSET_LOADER_HPP_
 
-#include "engine/resource/types/prefab_description.hpp"
 #include "engine/resource/cache/resource_cache.hpp"
+#include "engine/resource/types/prefab_description.hpp"
 
 #include <memory>
 #include <string_view>
 
-namespace gneiss::asset_internal {
+namespace gneiss::engine::resource {
 class virtual_file_system;
 }
 
@@ -23,13 +23,13 @@ public:
 
 private:
   friend class prefab_asset_loader;
-  std::shared_ptr<const asset_internal::resource_cache::entry> entry_;
+  std::shared_ptr<const engine::resource::resource_cache::entry> entry_;
 };
 
 class prefab_asset_loader final {
 public:
-  prefab_asset_loader(const asset_internal::virtual_file_system& file_system,
-                      asset_internal::resource_cache& cache) noexcept
+  prefab_asset_loader(const engine::resource::virtual_file_system& file_system,
+                      engine::resource::resource_cache& cache) noexcept
       : file_system_(file_system), cache_(cache) {}
 
   [[nodiscard]] gneiss_result acquire(std::string_view uri, prefab_asset_lease& out_lease,
@@ -42,8 +42,8 @@ public:
                                                prefab_asset_lease& out_lease) noexcept;
 
 private:
-  const asset_internal::virtual_file_system& file_system_;
-  asset_internal::resource_cache& cache_;
+  const engine::resource::virtual_file_system& file_system_;
+  engine::resource::resource_cache& cache_;
 };
 
 } // namespace gneiss::scene_internal

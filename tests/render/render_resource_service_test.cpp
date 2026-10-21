@@ -15,7 +15,7 @@ namespace {
 // ABI 版本兼容和服务校验合并验证，内部调用本身只使用借用视图。
 gneiss_result create_mesh(gneiss::render_internal::render_resource_service& resources,
                           const gneiss_mesh_desc& desc, gneiss_mesh* output) {
-  gneiss::asset_internal::mesh_data value;
+  gneiss::engine::resource::mesh_data value;
   const auto converted = gneiss::api::read_mesh_description(desc, value);
   return converted == GNEISS_SUCCESS ? resources.create_mesh(std::move(value), output) : converted;
 }
@@ -28,8 +28,8 @@ gneiss_result create_texture(gneiss::render_internal::render_resource_service& r
 bool verify_borrowed_inputs() {
   using namespace gneiss::render_internal;
   render_resource_service resources;
-  std::array<gneiss::asset_internal::mesh_vertex, 3> vertices{};
-  gneiss::asset_internal::mesh_view mesh_source;
+  std::array<gneiss::engine::resource::mesh_vertex, 3> vertices{};
+  gneiss::engine::resource::mesh_view mesh_source;
   mesh_source.vertices = vertices;
   gneiss_mesh mesh{};
   if (resources.create_mesh(mesh_source, &mesh) != GNEISS_SUCCESS) {
@@ -42,7 +42,7 @@ bool verify_borrowed_inputs() {
     return false;
   }
   // 拥有型提交转交原数组；校验与借用路径一致。
-  gneiss::asset_internal::mesh_data owned;
+  gneiss::engine::resource::mesh_data owned;
   owned.vertices.resize(3);
   const auto* storage = owned.vertices.data();
   if (resources.create_mesh(std::move(owned), &mesh) != GNEISS_SUCCESS ||
@@ -78,7 +78,7 @@ bool verify_borrowed_inputs() {
   gneiss_texture_desc invalid_texture = GNEISS_TEXTURE_DESC_INIT;
   invalid_texture.pixels = pixels.data();
   invalid_texture.reserved[0] = 1U;
-  gneiss::asset_internal::mesh_data converted;
+  gneiss::engine::resource::mesh_data converted;
   converted.vertices.push_back({.x = 17.0F});
   return gneiss::api::read_mesh_description(invalid_mesh, converted) ==
              GNEISS_ERROR_INVALID_ARGUMENT &&
@@ -285,8 +285,8 @@ int main() {
       std::byte{7},  std::byte{8},  std::byte{9},  std::byte{10}, std::byte{11}, std::byte{12},
       std::byte{13}, std::byte{14}, std::byte{15}, std::byte{16}};
   if (stored == nullptr || stored->width != 2U || stored->height != 2U ||
-      stored->format != gneiss::asset_internal::texture_format::rgba8_unorm ||
-      stored->color_space != gneiss::asset_internal::texture_color_space::srgb ||
+      stored->format != gneiss::engine::resource::texture_format::rgba8_unorm ||
+      stored->color_space != gneiss::engine::resource::texture_color_space::srgb ||
       stored->levels.size() != 1U || !std::ranges::equal(stored->levels.front().pixels, expected)) {
     return 2;
   }

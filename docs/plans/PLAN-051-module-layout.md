@@ -204,3 +204,9 @@ World 类须随领域迁入 gneiss::engine::world::world，避免与领域命名
 不修改公共 C 符号及共享值类型，不增加运行时状态；内部 C++ 消费者需同源码重编译。
 
 Runtime 首批命名迁移已验证，见[验收记录](../records/2026-10-21-runtime-namespace.md)。Engine 各领域仍待迁移。
+
+资源命名首批范围：asset_internal、asset_manager、action_map_request 及其 CAORS 工厂
+统一为 gneiss::engine::resource。Scene/Prefab 作者描述保留为待迁移项，不能将功能层的
+scene_internal 整体替换到资源层。边界检查拒绝恢复旧资产命名，行为与所有权不变。
+
+资源首批验收见[实施记录](../records/2026-10-21-resource-namespace.md)。

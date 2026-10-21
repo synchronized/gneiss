@@ -54,12 +54,12 @@ struct application::storage {
   std::optional<render_internal::view_camera> view_camera_;
 #ifdef GNEISS_ASSET_LIBUV
   std::unique_ptr<io_internal::uv_loop_executor> asset_io_executor_;
-  std::shared_ptr<asset_internal::native_file_system> native_assets_;
+  std::shared_ptr<engine::resource::native_file_system> native_assets_;
 #endif
-  asset_internal::virtual_file_system asset_file_system_;
-  std::unique_ptr<engine::asset_manager> asset_manager_;
+  engine::resource::virtual_file_system asset_file_system_;
+  std::unique_ptr<engine::resource::asset_manager> asset_manager_;
   // 渲染租约缓存独立于 CPU/Prefab 缓存，先释放场景和加载器再销毁缓存。
-  std::unique_ptr<asset_internal::resource_cache> render_asset_cache_;
+  std::unique_ptr<engine::resource::resource_cache> render_asset_cache_;
   std::unique_ptr<render_internal::render_asset_loader> render_assets_;
   runtime::action_map_application input_application_;
   bool asset_executor_attached_ = false;
@@ -148,7 +148,7 @@ gneiss_result application::create(const runtime::application_configuration& conf
       !std::isfinite(config.environment_intensity) || config.environment_intensity < 0.0F ||
       !std::isfinite(config.environment_rotation_radians) ||
       (!config.environment_asset.empty() &&
-       asset_internal::validate_uri(config.environment_asset) != GNEISS_SUCCESS)) {
+       engine::resource::validate_uri(config.environment_asset) != GNEISS_SUCCESS)) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
   try {
@@ -301,9 +301,9 @@ gneiss_result application::initialize() noexcept {
     return GNEISS_ERROR_OUT_OF_MEMORY;
   }
   if (!storage_->config_.asset_root.empty()) {
-    std::shared_ptr<asset_internal::native_file_system> native_file_system;
+    std::shared_ptr<engine::resource::native_file_system> native_file_system;
     try {
-      native_file_system = std::make_shared<asset_internal::native_file_system>();
+      native_file_system = std::make_shared<engine::resource::native_file_system>();
     } catch (const std::bad_alloc&) {
       return GNEISS_ERROR_OUT_OF_MEMORY;
     } catch (...) {
@@ -402,8 +402,8 @@ gneiss_result application::initialize() noexcept {
 
   try {
     storage_->asset_manager_ =
-        std::make_unique<engine::asset_manager>(storage_->asset_file_system_);
-    storage_->render_asset_cache_ = std::make_unique<asset_internal::resource_cache>();
+        std::make_unique<engine::resource::asset_manager>(storage_->asset_file_system_);
+    storage_->render_asset_cache_ = std::make_unique<engine::resource::resource_cache>();
     storage_->render_assets_ = std::make_unique<render_internal::render_asset_loader>(
         storage_->asset_file_system_, *storage_->render_asset_cache_, storage_->resources_);
     const auto result =
@@ -502,7 +502,7 @@ gneiss_result application::begin_action_map(std::string_view uri) noexcept {
   if (!storage_->asset_executor_attached_)
     return GNEISS_ERROR_NOT_READY;
   storage_->input_application_.cancel();
-  std::unique_ptr<engine::action_map_request> request;
+  std::unique_ptr<engine::resource::action_map_request> request;
   const auto started = storage_->asset_manager_->request_input(uri, request);
   return started == result::success
              ? storage_->input_application_.begin(std::move(request)).native()
@@ -526,7 +526,7 @@ gneiss_result application::load_action_map(std::string_view uri) noexcept {
   if (!is_owner_thread() || !accepts_requests())
     return GNEISS_ERROR_INVALID_STATE;
   storage_->input_application_.cancel();
-  asset_internal::action_map map;
+  engine::resource::action_map map;
   const auto result = storage_->asset_manager_->load_input(uri, map);
   return to_native(result == gneiss::result::success
                        ? storage_->input_.replace_action_map(std::move(map))
@@ -1009,7 +1009,7 @@ gneiss_result application::shutdown(gneiss_application handle) noexcept {
   return shutdown_result;
 }
 
-const asset_internal::virtual_file_system& application::asset_files() const noexcept {
+const engine::resource::virtual_file_system& application::asset_files() const noexcept {
   return storage_->asset_file_system_;
 }
 

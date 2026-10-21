@@ -131,7 +131,7 @@ void run(const char* assets, bool cooperative) {
   check(app->action_map_status() == GNEISS_SUCCESS && frames > 0 && seen_ready, "applied");
   {
     std::ofstream oversized(root / "input/oversized.json", std::ios::binary);
-    oversized << std::string(asset_internal::maximum_action_map_bytes + 1, ' ');
+    oversized << std::string(engine::resource::maximum_action_map_bytes + 1, ' ');
   }
   check(app->load_action_map("asset://input/oversized.json") == GNEISS_ERROR_INVALID_ARGUMENT,
         "sync document limit");

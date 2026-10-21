@@ -12,7 +12,7 @@
 #include <memory>
 #include <vector>
 
-namespace gneiss::asset_internal {
+namespace gneiss::engine::resource {
 class texture_payload_source;
 
 /** 调用方提供的不可变设备能力快照；位顺序为 RGBA8 linear/sRGB、BC7 linear/sRGB。
@@ -27,8 +27,8 @@ struct texture_prepare_profile {
 struct prepared_texture_data {
   std::uint32_t width;
   std::uint32_t height;
-  asset_internal::texture_format format;
-  asset_internal::texture_color_space color_space;
+  engine::resource::texture_format format;
+  engine::resource::texture_color_space color_space;
   std::vector<texture_mip> levels;
   std::vector<std::byte> manifest;
   std::vector<std::byte> payload;
@@ -39,4 +39,4 @@ struct prepared_texture_data {
   std::shared_ptr<const texture_payload_source> payload_source{};
 };
 
-} // namespace gneiss::asset_internal
+} // namespace gneiss::engine::resource

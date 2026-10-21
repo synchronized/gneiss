@@ -16,15 +16,15 @@ template <typename T>
 concept has_texture_handle = requires(T value) { value.base_color_texture; };
 template <typename T>
 concept has_publication_description = requires(T value) { value.description(); };
-static_assert(!has_texture_handle<decltype(gneiss::asset_internal::prepared_asset::material)>);
+static_assert(!has_texture_handle<decltype(gneiss::engine::resource::prepared_asset::material)>);
 static_assert(
-    !has_publication_description<decltype(gneiss::asset_internal::prepared_asset::material)>);
+    !has_publication_description<decltype(gneiss::engine::resource::prepared_asset::material)>);
 
 template <typename T>
 concept has_upload_reference = requires(T value) { value.upload_payload; };
-static_assert(!has_upload_reference<decltype(gneiss::asset_internal::prepared_asset::texture)>);
+static_assert(!has_upload_reference<decltype(gneiss::engine::resource::prepared_asset::texture)>);
 
-class mesh_source final : public gneiss::asset_internal::file_system {
+class mesh_source final : public gneiss::engine::resource::file_system {
 public:
   mutable unsigned reads{};
   bool change_on_verify{};
@@ -77,18 +77,18 @@ struct range_data {
   unsigned live_reads{};
   unsigned maximum_live_reads{};
 };
-class range_reader final : public gneiss::asset_internal::read_source {
+class range_reader final : public gneiss::engine::resource::read_source {
 public:
   explicit range_reader(std::shared_ptr<range_data> data) : data_(std::move(data)) {}
   [[nodiscard]] std::uint64_t size() const noexcept override { return data_->bytes.size(); }
   [[nodiscard]] gneiss_result begin_read(
       std::uint64_t offset, std::size_t count,
-      std::unique_ptr<gneiss::asset_internal::read_operation>& output) const noexcept override {
+      std::unique_ptr<gneiss::engine::resource::read_operation>& output) const noexcept override {
     output.reset();
     if (!data_->deferred) {
       return GNEISS_ERROR_UNSUPPORTED;
     }
-    class operation final : public gneiss::asset_internal::read_operation {
+    class operation final : public gneiss::engine::resource::read_operation {
     public:
       operation(std::shared_ptr<range_data> data, std::span<const std::byte> bytes)
           : data_(std::move(data)), bytes_(bytes) {
@@ -146,7 +146,7 @@ public:
 private:
   std::shared_ptr<range_data> data_;
 };
-class range_files final : public gneiss::asset_internal::file_system {
+class range_files final : public gneiss::engine::resource::file_system {
 public:
   std::shared_ptr<range_data> data = std::make_shared<range_data>();
   gneiss_result read(std::string_view /*path*/,
@@ -155,20 +155,20 @@ public:
   }
   gneiss_result
   begin_open_read_for_validation(std::string_view /*path*/,
-                                 std::unique_ptr<gneiss::asset_internal::open_read_operation>&
+                                 std::unique_ptr<gneiss::engine::resource::open_read_operation>&
                                      output) const noexcept override {
     output.reset();
     if (!data->deferred_open) {
       return GNEISS_ERROR_UNSUPPORTED;
     }
-    class operation final : public gneiss::asset_internal::open_read_operation {
+    class operation final : public gneiss::engine::resource::open_read_operation {
     public:
       explicit operation(std::shared_ptr<range_data> data) : data_(std::move(data)) {
         ++data_->live_opens;
       }
       ~operation() override { --data_->live_opens; }
       gneiss_result
-      poll(std::unique_ptr<gneiss::asset_internal::read_source>& output) noexcept override {
+      poll(std::unique_ptr<gneiss::engine::resource::read_source>& output) noexcept override {
         output.reset();
         if (!data_->ready) {
           return GNEISS_ERROR_NOT_READY;
@@ -196,7 +196,7 @@ public:
   }
   gneiss_result
   open_read(std::string_view /*path*/,
-            std::unique_ptr<gneiss::asset_internal::read_source>& output) const noexcept override
+            std::unique_ptr<gneiss::engine::resource::read_source>& output) const noexcept override
       try {
     ++data->synchronous_opens;
     output = std::make_unique<range_reader>(data);
@@ -211,10 +211,10 @@ struct preparation_faults {
   bool fail{};
 };
 bool run_preparation_case(const std::shared_ptr<range_files>& backend,
-                          const gneiss::asset_internal::virtual_file_system& files,
-                          std::span<const gneiss::asset_internal::asset_request> requests,
+                          const gneiss::engine::resource::virtual_file_system& files,
+                          std::span<const gneiss::engine::resource::asset_request> requests,
                           preparation_faults faults) {
-  using namespace gneiss::asset_internal;
+  using namespace gneiss::engine::resource;
   const auto [cancel, change, fail] = faults;
   asset_preparation preparation(files, requests, {.maximum_assets = 1U, .maximum_bytes = 65536U},
                                 {});
@@ -253,7 +253,7 @@ bool run_preparation_case(const std::shared_ptr<range_files>& backend,
   return false;
 }
 bool incremental_preparation() {
-  using namespace gneiss::asset_internal;
+  using namespace gneiss::engine::resource;
   auto backend = std::make_shared<range_files>();
   mesh_source fixture;
   if (fixture.read("mesh", backend->data->bytes) != GNEISS_SUCCESS) {
@@ -273,7 +273,7 @@ bool incremental_preparation() {
 }
 
 bool prefetched_preparation(bool deferred_open = false) {
-  using namespace gneiss::asset_internal;
+  using namespace gneiss::engine::resource;
   auto backend = std::make_shared<range_files>();
   mesh_source fixture;
   if (fixture.read("mesh", backend->data->bytes) != GNEISS_SUCCESS) {
@@ -323,7 +323,7 @@ bool prefetched_preparation(bool deferred_open = false) {
          (!deferred_open || backend->data->synchronous_opens == 0U);
 }
 bool deferred_open_failure(bool oversized) {
-  using namespace gneiss::asset_internal;
+  using namespace gneiss::engine::resource;
   auto backend = std::make_shared<range_files>();
   backend->data->deferred_open = true;
   backend->data->bytes.resize(128U);
@@ -363,14 +363,14 @@ int main() try {
   if (incremental_result != 0) {
     return incremental_result;
   }
-  using namespace gneiss::asset_internal;
+  using namespace gneiss::engine::resource;
   prepared_batch output;
   asset_diagnostic diagnostic;
   gneiss_result result = GNEISS_ERROR_INTERNAL;
   // 不创建 Application、缓存或资源服务；后台输出在 VFS 销毁后仍拥有完整数组。
   std::thread worker([&] {
     try {
-      gneiss::asset_internal::virtual_file_system files;
+      gneiss::engine::resource::virtual_file_system files;
       auto source = std::make_shared<mesh_source>();
       if (files.mount("asset://", source) != GNEISS_SUCCESS) {
         return;
@@ -391,7 +391,7 @@ int main() try {
     return 1;
   }
 
-  gneiss::asset_internal::virtual_file_system files;
+  gneiss::engine::resource::virtual_file_system files;
   auto source = std::make_shared<mesh_source>();
   if (files.mount("asset://", source) != GNEISS_SUCCESS) {
     return 2;

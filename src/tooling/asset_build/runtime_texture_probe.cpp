@@ -39,9 +39,9 @@ bool inspect_runtime_texture(std::span<const std::byte> bytes, std::string& summ
   summary.clear();
   diagnostic.clear();
   try {
-    asset_internal::texture_binary_view binary;
-    if (asset_internal::decode_texture_binary(bytes, binary, diagnostic) !=
-        asset_internal::texture_binary_result::success) {
+    engine::resource::texture_binary_view binary;
+    if (engine::resource::decode_texture_binary(bytes, binary, diagnostic) !=
+        engine::resource::texture_binary_result::success) {
       return false;
     }
     granit::texture_asset_info info;

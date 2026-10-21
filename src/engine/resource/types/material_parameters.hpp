@@ -8,7 +8,7 @@
 #include <array>
 #include <cstdint>
 
-namespace gneiss::asset_internal {
+namespace gneiss::engine::resource {
 
 /** 资产解析得到的材质参数；不包含纹理 RID，纹理依赖单独用 URI 表达。 */
 struct material_parameters {
@@ -18,10 +18,10 @@ struct material_parameters {
   float normal_scale{1.0F};
   float occlusion_strength{1.0F};
   std::array<float, 3> emissive{};
-  asset_internal::material_alpha_mode alpha_mode{asset_internal::material_alpha_mode::opaque};
+  engine::resource::material_alpha_mode alpha_mode{engine::resource::material_alpha_mode::opaque};
   bool double_sided{};
   float alpha_cutoff{0.5F};
-  std::array<asset_internal::texture_sampling, 5> sampling{};
+  std::array<engine::resource::texture_sampling, 5> sampling{};
 };
 
-} // namespace gneiss::asset_internal
+} // namespace gneiss::engine::resource

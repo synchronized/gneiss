@@ -9,7 +9,7 @@
 #include <stdexcept>
 
 namespace {
-using namespace gneiss::asset_internal;
+using namespace gneiss::engine::resource;
 void check(bool value, std::source_location where = std::source_location::current()) {
   if (!value) {
     throw std::runtime_error("源版本契约失败，行=" + std::to_string(where.line()));

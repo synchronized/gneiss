@@ -2,14 +2,14 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #pragma once
-#include "engine/resource/types/action_map.hpp"
 #include "engine/platform/caors/document_loader.hpp"
+#include "engine/resource/types/action_map.hpp"
 #include <functional>
 
 namespace gneiss::caors_internal {
 class file_system_adapter;
 }
-namespace gneiss::asset_internal {
+namespace gneiss::engine::resource {
 struct action_map_asset final : caors::resource {
   using caors::resource::resource;
   action_map map;
@@ -22,4 +22,4 @@ std::unique_ptr<action_map_loader> make_action_map_loader(
     caors_internal::file_system_adapter& files,
     std::function<result(std::string_view, std::span<const std::byte>)> verify = {});
 
-} // namespace gneiss::asset_internal
+} // namespace gneiss::engine::resource

@@ -59,7 +59,7 @@ gneiss_result order_nodes(const std::vector<object_description>& objects,
 
 class preparation final {
 public:
-  const asset_internal::virtual_file_system& files;
+  const engine::resource::virtual_file_system& files;
   const std::function<bool()>& cancelled;
   scene_prepare_limits limits;
   prepared_scene_description candidate;
@@ -210,7 +210,7 @@ public:
 
 } // namespace
 
-gneiss_result prepare_prefab_description(const asset_internal::virtual_file_system& files,
+gneiss_result prepare_prefab_description(const engine::resource::virtual_file_system& files,
                                          std::string_view uri, prepared_scene_description& output,
                                          scene_diagnostic& diagnostic,
                                          const std::function<bool()>& cancelled,
@@ -244,7 +244,7 @@ gneiss_result prepare_prefab_description(const asset_internal::virtual_file_syst
   return diagnostic.result;
 }
 
-gneiss_result prepare_scene_description(const asset_internal::virtual_file_system& files,
+gneiss_result prepare_scene_description(const engine::resource::virtual_file_system& files,
                                         std::string_view uri, prepared_scene_description& output,
                                         scene_diagnostic& diagnostic,
                                         const std::function<bool()>& cancelled,

@@ -599,3 +599,19 @@ execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
 if(NOT status EQUAL 0)
   message(FATAL_ERROR "Runtime 边界错误拒绝新命名空间")
 endif()
+
+foreach(content IN ITEMS "namespace gneiss::asset_internal {}" "gneiss::asset_internal::virtual_file_system* files;" "gneiss::engine::asset_manager* assets;")
+  file(WRITE "${fixture}/src/engine/resource/namespace_probe.cpp" "${content}\n")
+  execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
+    -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
+    RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
+  if(status EQUAL 0)
+    message(FATAL_ERROR "资源边界未拒绝旧命名空间：${content}")
+  endif()
+endforeach()
+file(WRITE "${fixture}/src/engine/resource/namespace_probe.cpp" "namespace gneiss::engine::resource {}\n")
+execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
+  -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake" RESULT_VARIABLE status)
+if(NOT status EQUAL 0)
+  message(FATAL_ERROR "资源边界错误拒绝新命名空间")
+endif()

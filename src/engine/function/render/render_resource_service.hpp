@@ -16,7 +16,7 @@
 #include <memory>
 #include <vector>
 
-namespace gneiss::asset_internal {
+namespace gneiss::engine::resource {
 class texture_payload_source;
 }
 
@@ -36,7 +36,7 @@ public:
   [[nodiscard]] std::uint64_t available_memory_bytes() const noexcept;
 
   [[nodiscard]] bool is_valid() const noexcept { return domain_ != 0U; }
-  [[nodiscard]] gneiss_result create_mesh(const asset_internal::mesh_view& desc,
+  [[nodiscard]] gneiss_result create_mesh(const engine::resource::mesh_view& desc,
                                           core::rid* out_mesh) noexcept;
   /** 校验并接收拥有型网格，成功路径不再复制数组。 */
   [[nodiscard]] gneiss_result create_mesh(mesh_resource resource, core::rid* output) noexcept;

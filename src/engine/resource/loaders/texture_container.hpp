@@ -3,13 +3,13 @@
 
 #pragma once
 
-#include "engine/resource/vfs/read_source.hpp"
-#include "engine/resource/loaders/texture_binary.hpp"
 #include "engine/core/sha256.hpp"
+#include "engine/resource/loaders/texture_binary.hpp"
+#include "engine/resource/vfs/read_source.hpp"
 
 #include <memory>
 
-namespace gneiss::asset_internal {
+namespace gneiss::engine::resource {
 
 /** 封装读取器只驻留 Manifest，拥有读取来源；不提供内容快照或设备变体选择。
  * 打开后可并发只读；open 不得与其他调用并发。Manifest 语义由渲染资产适配层检查。 */
@@ -53,4 +53,4 @@ private:
   core::sha256_digest digest_{};
 };
 
-} // namespace gneiss::asset_internal
+} // namespace gneiss::engine::resource

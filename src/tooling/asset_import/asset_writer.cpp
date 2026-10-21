@@ -40,7 +40,7 @@ void configure(std::ostream& stream) {
 
 [[nodiscard]] bool write_mesh(const import_ir_primitive& primitive,
                               const std::filesystem::path& path) {
-  asset_internal::mesh_binary_data data;
+  engine::resource::mesh_binary_data data;
   data.vertices.reserve(primitive.vertices.size());
   data.tangents.reserve(primitive.vertices.size());
   data.indices = primitive.indices;
@@ -56,9 +56,9 @@ void configure(std::ostream& stream) {
          .normal = {source.normal[0], source.normal[1], source.normal[2]}});
   }
   std::vector<std::byte> bytes;
-  asset_internal::mesh_binary_diagnostic diagnostic;
-  if (asset_internal::encode_mesh_binary(data, bytes, diagnostic) !=
-      asset_internal::mesh_binary_result::success) {
+  engine::resource::mesh_binary_diagnostic diagnostic;
+  if (engine::resource::encode_mesh_binary(data, bytes, diagnostic) !=
+      engine::resource::mesh_binary_result::success) {
     return false;
   }
   std::ofstream stream(path, std::ios::binary | std::ios::trunc);

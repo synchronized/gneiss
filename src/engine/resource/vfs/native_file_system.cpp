@@ -79,7 +79,7 @@ struct native_async_file {
   HANDLE handle;
 };
 
-class native_read_operation final : public gneiss::asset_internal::read_operation {
+class native_read_operation final : public gneiss::engine::resource::read_operation {
 public:
   native_read_operation(std::shared_ptr<native_async_file> file, std::size_t size)
       : file_(std::move(file)), bytes_(size) {}
@@ -160,7 +160,7 @@ private:
   gneiss_result result_{GNEISS_SUCCESS};
 };
 
-class native_read_source final : public gneiss::asset_internal::read_source {
+class native_read_source final : public gneiss::engine::resource::read_source {
 public:
   ~native_read_source() override {
     if (handle_ != INVALID_HANDLE_VALUE) {
@@ -203,7 +203,7 @@ public:
   std::uint64_t size() const noexcept override { return length_; }
   [[nodiscard]] gneiss_result begin_read(
       std::uint64_t offset, std::size_t size,
-      std::unique_ptr<gneiss::asset_internal::read_operation>& output) const noexcept override {
+      std::unique_ptr<gneiss::engine::resource::read_operation>& output) const noexcept override {
     GNEISS_PROFILE_SCOPE("asset.io.begin_read");
     output.reset();
     if (offset > length_ || size > length_ - offset || size > std::numeric_limits<DWORD>::max()) {
@@ -284,7 +284,7 @@ private:
   mutable std::mutex async_mutex_;
 };
 #else
-class native_read_source final : public gneiss::asset_internal::read_source {
+class native_read_source final : public gneiss::engine::resource::read_source {
 public:
   native_read_source(std::ifstream stream, std::uint64_t length)
       : stream_(std::move(stream)), length_(length) {}
@@ -333,7 +333,7 @@ private:
 
 } // namespace
 
-namespace gneiss::asset_internal {
+namespace gneiss::engine::resource {
 
 #ifdef GNEISS_ASSET_LIBUV
 namespace {
@@ -653,4 +653,4 @@ gneiss_result native_file_system::read_bounded(std::string_view path, std::size_
   }
 }
 
-} // namespace gneiss::asset_internal
+} // namespace gneiss::engine::resource

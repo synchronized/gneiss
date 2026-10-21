@@ -56,12 +56,12 @@ struct fixture {
   void color(std::byte red, std::byte blue) {
     std::vector<std::byte> bytes;
     std::string message;
-    check(asset_internal::encode_texture_ktx2(
-              {.transfer = asset_internal::texture_transfer::srgb,
+    check(engine::resource::encode_texture_ktx2(
+              {.transfer = engine::resource::texture_transfer::srgb,
                .levels = {{.width = 1U,
                            .height = 1U,
                            .pixels = {red, std::byte{20}, blue, std::byte{255}}}}},
-              bytes, message) == asset_internal::texture_ktx2_result::success);
+              bytes, message) == engine::resource::texture_ktx2_result::success);
     std::ofstream stream(root / "image.ktx2", std::ios::binary);
     stream.write(reinterpret_cast<const char*>(bytes.data()),
                  static_cast<std::streamsize>(bytes.size()));
@@ -71,10 +71,10 @@ void run_mip_sampling(bool packaged = false, bool async = false) {
   fixture files(true);
   std::ofstream(files.root / "g.mesh.json")
       << R"({"format":"gneiss.mesh","version":3,"topology":"triangle_list","vertices":[[-0.8,-0.7,0],[0.8,-0.7,0],[0,0.8,0]],"uvs":[[0,0],[1024,0],[512,1024]],"normals":[[0,0,1],[0,0,1],[0,0,1]]})";
-  asset_internal::texture_ktx2 texture;
-  texture.transfer = asset_internal::texture_transfer::srgb;
+  engine::resource::texture_ktx2 texture;
+  texture.transfer = engine::resource::texture_transfer::srgb;
   for (std::uint32_t width = 8U; width > 0U; width /= 2U) {
-    asset_internal::texture_mip mip{.width = width, .height = width, .pixels = {}};
+    engine::resource::texture_mip mip{.width = width, .height = width, .pixels = {}};
     for (std::uint32_t pixel = 0; pixel < width * width; ++pixel) {
       mip.pixels.insert(mip.pixels.end(),
                         {width == 8U ? std::byte{0} : std::byte{255}, std::byte{0},
@@ -84,8 +84,8 @@ void run_mip_sampling(bool packaged = false, bool async = false) {
   }
   std::vector<std::byte> bytes;
   std::string diagnostic;
-  check(asset_internal::encode_texture_ktx2(texture, bytes, diagnostic) ==
-        asset_internal::texture_ktx2_result::success);
+  check(engine::resource::encode_texture_ktx2(texture, bytes, diagnostic) ==
+        engine::resource::texture_ktx2_result::success);
   if (packaged) {
     std::vector<std::byte> payload;
     std::vector<granit::asset_tools::texture::subresource_info> subresources;
@@ -128,9 +128,9 @@ void run_mip_sampling(bool packaged = false, bool async = false) {
     granit::texture_asset_info info;
     check(granit::inspect_texture_asset(built.manifest(), info) == granit::result::success);
     check(info.variants.size() == 2U && info.variants[1].payload_offset > 0U);
-    check(asset_internal::encode_texture_binary(built.manifest(), built.payload(), bytes,
-                                                diagnostic) ==
-          asset_internal::texture_binary_result::success);
+    check(engine::resource::encode_texture_binary(built.manifest(), built.payload(), bytes,
+                                                  diagnostic) ==
+          engine::resource::texture_binary_result::success);
     std::ofstream(files.root / "t.texture.json")
         << R"({"format":"gneiss.texture","version":1,"source":"asset://image.gneiss-texture","color_space":"srgb"})";
   }
@@ -175,10 +175,10 @@ void run_mip_sampling(bool packaged = false, bool async = false) {
         check(completion.progress.texture_payload_bytes > 0U);
         check(completion.progress.peak_upload_bytes > 0U);
         // 小纹理的 Manifest 可大于负载；分别核对逻辑负载与两个元数据副本。
-        asset_internal::texture_binary_view view;
+        engine::resource::texture_binary_view view;
         std::string message;
-        check(asset_internal::decode_texture_binary(bytes, view, message) ==
-              asset_internal::texture_binary_result::success);
+        check(engine::resource::decode_texture_binary(bytes, view, message) ==
+              engine::resource::texture_binary_result::success);
         check(completion.progress.texture_payload_bytes == 340U);
         check(completion.progress.resident_bytes + view.manifest.size() ==
               completion.progress.cpu_data_bytes + completion.progress.texture_payload_bytes);
@@ -207,15 +207,15 @@ std::array<unsigned, 3> material_pixel(std::string_view slot, std::array<std::by
       << R"({"format":"gneiss.material","version":4,"color":[0.5,0.5,0.5,1],"base_color_texture":null,"metallic":1,"roughness":1,")"
       << slot << R"(":"asset://t.texture.json","emissive":[)"
       << (slot == "emissive_texture" ? "1,1,1" : "0,0,0") << "]}";
-  asset_internal::mesh_binary_data mesh{.vertices = {{{-0.8F, -0.7F, 0.0F}, {0, 0}, {0, 0, 1}},
-                                                     {{0.8F, -0.7F, 0.0F}, {1, 0}, {0, 0, 1}},
-                                                     {{0.0F, 0.8F, 0.0F}, {0.5F, 1}, {0, 0, 1}}},
-                                        .indices = {0U, 1U, 2U},
-                                        .tangents = {{1, 0, 0, 1}, {1, 0, 0, 1}, {1, 0, 0, 1}}};
+  engine::resource::mesh_binary_data mesh{.vertices = {{{-0.8F, -0.7F, 0.0F}, {0, 0}, {0, 0, 1}},
+                                                       {{0.8F, -0.7F, 0.0F}, {1, 0}, {0, 0, 1}},
+                                                       {{0.0F, 0.8F, 0.0F}, {0.5F, 1}, {0, 0, 1}}},
+                                          .indices = {0U, 1U, 2U},
+                                          .tangents = {{1, 0, 0, 1}, {1, 0, 0, 1}, {1, 0, 0, 1}}};
   std::vector<std::byte> bytes;
-  asset_internal::mesh_binary_diagnostic mesh_diagnostic;
-  check(asset_internal::encode_mesh_binary(mesh, bytes, mesh_diagnostic) ==
-        asset_internal::mesh_binary_result::success);
+  engine::resource::mesh_binary_diagnostic mesh_diagnostic;
+  check(engine::resource::encode_mesh_binary(mesh, bytes, mesh_diagnostic) ==
+        engine::resource::mesh_binary_result::success);
   {
     std::ofstream stream(files.root / "g.gneiss-mesh", std::ios::binary);
     stream.write(reinterpret_cast<const char*>(bytes.data()),
@@ -233,10 +233,10 @@ std::array<unsigned, 3> material_pixel(std::string_view slot, std::array<std::by
     std::ofstream(files.root / "s.scene.json") << scene;
   }
   std::string diagnostic;
-  check(asset_internal::encode_texture_ktx2(
-            {.transfer = asset_internal::texture_transfer::linear,
+  check(engine::resource::encode_texture_ktx2(
+            {.transfer = engine::resource::texture_transfer::linear,
              .levels = {{.width = 1U, .height = 1U, .pixels = {pixel.begin(), pixel.end()}}}},
-            bytes, diagnostic) == asset_internal::texture_ktx2_result::success);
+            bytes, diagnostic) == engine::resource::texture_ktx2_result::success);
   {
     std::ofstream stream(files.root / "image.ktx2", std::ios::binary);
     stream.write(reinterpret_cast<const char*>(bytes.data()),
@@ -297,7 +297,7 @@ std::array<unsigned, 3> state_pixel(const state_case& test,
   }
   material << "]}";
   material.close();
-  asset_internal::mesh_binary_data mesh;
+  engine::resource::mesh_binary_data mesh;
   mesh.vertices = {{{-0.8F, -0.7F, 0}, {1.25F, 0.5F}, {0, 0, 1}},
                    {{0.8F, -0.7F, 0}, {1.25F, 0.5F}, {0, 0, 1}},
                    {{0, 0.8F, 0}, {1.25F, 0.5F}, {0, 0, 1}}};
@@ -307,9 +307,9 @@ std::array<unsigned, 3> state_pixel(const state_case& test,
   mesh.uv1.assign(3, {0.75F, 0.5F});
   mesh.colors.assign(3, test.color);
   std::vector<std::byte> bytes;
-  asset_internal::mesh_binary_diagnostic diagnostic;
-  check(asset_internal::encode_mesh_binary(mesh, bytes, diagnostic) ==
-        asset_internal::mesh_binary_result::success);
+  engine::resource::mesh_binary_diagnostic diagnostic;
+  check(engine::resource::encode_mesh_binary(mesh, bytes, diagnostic) ==
+        engine::resource::mesh_binary_result::success);
   {
     std::ofstream output(files.root / "g.mesh.json", std::ios::binary);
     output.write(reinterpret_cast<const char*>(bytes.data()),
@@ -317,8 +317,8 @@ std::array<unsigned, 3> state_pixel(const state_case& test,
   }
   std::string message;
   check(
-      asset_internal::encode_texture_ktx2(
-          {.transfer = asset_internal::texture_transfer::srgb,
+      engine::resource::encode_texture_ktx2(
+          {.transfer = engine::resource::texture_transfer::srgb,
            .levels = {{.width = 2,
                        .height = 1,
                        .pixels = {std::byte{255}, std::byte{0}, std::byte{0}, std::byte{255},
@@ -326,7 +326,7 @@ std::array<unsigned, 3> state_pixel(const state_case& test,
                       {.width = 1,
                        .height = 1,
                        .pixels = {std::byte{188}, std::byte{0}, std::byte{188}, std::byte{255}}}}},
-          bytes, message) == asset_internal::texture_ktx2_result::success);
+          bytes, message) == engine::resource::texture_ktx2_result::success);
   {
     std::ofstream output(files.root / "image.ktx2", std::ios::binary);
     output.write(reinterpret_cast<const char*>(bytes.data()),

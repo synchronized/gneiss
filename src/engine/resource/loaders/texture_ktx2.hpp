@@ -10,7 +10,7 @@
 #include <string>
 #include <vector>
 
-namespace gneiss::asset_internal {
+namespace gneiss::engine::resource {
 
 enum class texture_transfer : std::uint8_t { linear, srgb };
 
@@ -43,6 +43,6 @@ enum class texture_ktx2_result : std::uint8_t {
                                                       texture_ktx2& output,
                                                       std::string& diagnostic) noexcept;
 
-} // namespace gneiss::asset_internal
+} // namespace gneiss::engine::resource
 
 #endif

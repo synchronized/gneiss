@@ -5,7 +5,7 @@
 
 #include <cmath>
 
-namespace gneiss::asset_internal {
+namespace gneiss::engine::resource {
 result validate_action_map(const action_map& map) noexcept {
   if (map.actions.empty()) {
     return result::invalid_argument;
@@ -31,4 +31,4 @@ result validate_action_map(const action_map& map) noexcept {
   return result::success;
 }
 
-} // namespace gneiss::asset_internal
+} // namespace gneiss::engine::resource

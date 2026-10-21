@@ -47,10 +47,10 @@ void print_usage() {
 
 int process_binary_mesh(std::string_view command, const std::filesystem::path& path) {
   const auto bytes = read_file(path);
-  gneiss::asset_internal::mesh_binary_data data;
-  gneiss::asset_internal::mesh_binary_diagnostic diagnostic;
-  if (gneiss::asset_internal::decode_mesh_binary(bytes, data, diagnostic) !=
-      gneiss::asset_internal::mesh_binary_result::success) {
+  gneiss::engine::resource::mesh_binary_data data;
+  gneiss::engine::resource::mesh_binary_diagnostic diagnostic;
+  if (gneiss::engine::resource::decode_mesh_binary(bytes, data, diagnostic) !=
+      gneiss::engine::resource::mesh_binary_result::success) {
     std::cerr << diagnostic.message << "（字节 " << diagnostic.byte_offset << "）\n";
     return 1;
   }
@@ -58,7 +58,7 @@ int process_binary_mesh(std::string_view command, const std::filesystem::path& p
     std::cout << "Mesh Binary v1 顶点=" << data.vertices.size() << " 索引=" << data.indices.size()
               << " 三角形=" << data.indices.size() / 3U << " 字节=" << bytes.size() << '\n';
   } else if (command == "dump") {
-    std::cout << gneiss::asset_internal::dump_mesh_binary_json(data);
+    std::cout << gneiss::engine::resource::dump_mesh_binary_json(data);
   } else {
     std::cout << "Mesh Binary 有效\n";
   }

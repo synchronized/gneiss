@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/resource/backend/caors/caors_material_document.hpp"
 #include "engine/resource/backend/caors/caors_material_versions.hpp"
 #include "engine/resource/backend/caors/caors_vfs_bridge.hpp"
 #include "engine/resource/cache/cpu_document_cache.hpp"
 #include "engine/resource/vfs/native_file_system.hpp"
-#include "engine/core/tasks/task_scheduler.hpp"
 #include "uv_async_file.hpp"
 #include "uv_loop_executor.hpp"
 #include "uv_path_resolver.hpp"
@@ -25,7 +25,7 @@ void check(bool ok, const char* message) {
     throw std::runtime_error(message);
 }
 void run(std::size_t document_limit) {
-  using namespace gneiss::asset_internal;
+  using namespace gneiss::engine::resource;
   using namespace std::chrono_literals;
   using gneiss::result;
   const auto root = std::filesystem::temp_directory_path() /

@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "engine/function/render/render_resource_service.hpp"
+#include "engine/function/render/texture_load_service.hpp"
 #include "engine/resource/cache/cpu_document_cache.hpp"
 #include "engine/resource/loaders/texture_container.hpp"
 #include "engine/resource/loaders/texture_ktx2.hpp"
-#include "engine/function/render/render_resource_service.hpp"
-#include "engine/function/render/texture_load_service.hpp"
 #include <algorithm>
 #include <granit/asset_tools/texture_builder.hpp>
 
@@ -16,7 +16,7 @@
 
 namespace {
 using namespace gneiss;
-using namespace asset_internal;
+using namespace engine::resource;
 using namespace render_internal;
 void check(bool value, std::source_location at = std::source_location::current()) {
   if (!value) {

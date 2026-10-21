@@ -2,16 +2,16 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/resource/vfs/source_revision_file_system.hpp"
+#include "engine/core/diagnostics/profiling.hpp"
 #include "engine/resource/vfs/asset_uri.hpp"
 #include "engine/resource/vfs/read_slice.hpp"
-#include "engine/core/diagnostics/profiling.hpp"
 
 #include <algorithm>
 #include <array>
 #include <chrono>
 #include <limits>
 
-namespace gneiss::asset_internal {
+namespace gneiss::engine::resource {
 namespace {
 using clock_type = std::chrono::steady_clock;
 void record_duration(clock_type::time_point start, double& maximum) {
@@ -488,4 +488,4 @@ std::size_t source_revision_file_system::source_count() const {
   return versions_->identities.size();
 }
 
-} // namespace gneiss::asset_internal
+} // namespace gneiss::engine::resource

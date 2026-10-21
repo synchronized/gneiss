@@ -8,7 +8,7 @@
 #include <mutex>
 #include <stdexcept>
 #include <vector>
-namespace gneiss::asset_internal {
+namespace gneiss::engine::resource {
 namespace {
 inline caors::io::io_error translate(gneiss_result code) {
   const result status{code};

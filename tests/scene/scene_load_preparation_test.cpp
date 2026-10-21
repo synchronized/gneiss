@@ -20,7 +20,7 @@ void check(bool value, std::source_location where = std::source_location::curren
   }
 }
 
-struct memory_files final : asset_internal::file_system {
+struct memory_files final : engine::resource::file_system {
   std::map<std::string, std::string> files;
   mutable std::map<std::string, unsigned> reads;
   bool change_on_verify{};
@@ -69,7 +69,7 @@ void run() {
   memory->files["p.prefab"] =
       R"({"format":"gneiss.prefab","version":1,"prefab_uuid":"00000000-0000-4000-8000-000000000005","objects":[)" +
       std::string(object) + "]}";
-  asset_internal::virtual_file_system files;
+  engine::resource::virtual_file_system files;
   check(files.mount("asset://", memory) == GNEISS_SUCCESS);
   prepared_scene_description output;
   scene_diagnostic diagnostic;

@@ -16,7 +16,7 @@
 #include <unordered_map>
 #include <vector>
 
-namespace gneiss::asset_internal {
+namespace gneiss::engine::resource {
 
 enum class resource_state : std::uint8_t { unloaded, loading, ready, failed };
 
@@ -132,6 +132,6 @@ private:
   std::unordered_map<selection_key, version_key, selection_hash> selections_;
 };
 
-} // namespace gneiss::asset_internal
+} // namespace gneiss::engine::resource
 
 #endif

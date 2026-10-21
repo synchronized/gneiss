@@ -16,7 +16,8 @@ public:
   action_map_application() = default;
   action_map_application(const action_map_application&) = delete;
   action_map_application& operator=(const action_map_application&) = delete;
-  [[nodiscard]] result begin(std::unique_ptr<engine::action_map_request> request) noexcept;
+  [[nodiscard]] result
+  begin(std::unique_ptr<engine::resource::action_map_request> request) noexcept;
   void cancel() noexcept;
   [[nodiscard]] result status() const noexcept { return result_; }
   /** 不推进调度器或等待 I/O；加载完成后最多替换一次。失败保留原映射与 action_id。 */
@@ -24,7 +25,7 @@ public:
   [[nodiscard]] action_map_apply_state state() const noexcept { return state_; }
 
 private:
-  std::unique_ptr<engine::action_map_request> request_;
+  std::unique_ptr<engine::resource::action_map_request> request_;
   action_map_apply_state state_ = action_map_apply_state::idle;
   result result_ = result::invalid_state;
 };

@@ -2,10 +2,10 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/function/render/texture_load_service.hpp"
-#include "engine/resource/vfs/asset_uri.hpp"
-#include "engine/resource/cache/cpu_document_cache.hpp"
 #include "engine/core/diagnostics/profiling.hpp"
 #include "engine/core/diagnostics/task_submission.hpp"
+#include "engine/resource/cache/cpu_document_cache.hpp"
+#include "engine/resource/vfs/asset_uri.hpp"
 #include <algorithm>
 #include <set>
 #include <stdexcept>
@@ -16,8 +16,8 @@ struct texture_load_service::pending {
   std::size_t reused_assets{};
   struct cpu_result {
     prepared_render_batch batch;
-    std::shared_ptr<asset_internal::cpu_document_batch> documents;
-    std::unique_ptr<asset_internal::asset_preparation> preparation;
+    std::shared_ptr<engine::resource::cpu_document_batch> documents;
+    std::unique_ptr<engine::resource::asset_preparation> preparation;
     bool complete{};
     gneiss_result result{GNEISS_ERROR_INTERNAL};
     std::string message;
@@ -42,10 +42,10 @@ struct texture_load_service::pending {
   std::chrono::steady_clock::time_point commit_started;
 };
 texture_load_service::texture_load_service(
-    tasks::task_executor& executor, asset_internal::virtual_file_system file_system,
+    tasks::task_executor& executor, engine::resource::virtual_file_system file_system,
     render_asset_loader& loader, texture_upload_backend backend,
     std::shared_ptr<core::progress_notification> notification,
-    std::shared_ptr<asset_internal::cpu_document_cache> documents)
+    std::shared_ptr<engine::resource::cpu_document_cache> documents)
     : executor_(executor), scope_(executor.make_scope()), file_system_(std::move(file_system)),
       loader_(loader), backend_(std::move(backend)), notification_(std::move(notification)),
       documents_(std::move(documents)) {
@@ -103,7 +103,7 @@ gneiss_result texture_load_service::submit_assets(std::span<const render_asset_r
   }
   std::set<std::string> unique;
   for (const auto& source : sources) {
-    if (asset_internal::validate_uri(source.uri) != GNEISS_SUCCESS ||
+    if (engine::resource::validate_uri(source.uri) != GNEISS_SUCCESS ||
         !unique.insert(source.uri).second ||
         (source.type != render_asset_type::mesh && source.type != render_asset_type::material &&
          source.type != render_asset_type::texture)) {
@@ -145,7 +145,7 @@ gneiss_result texture_load_service::submit_assets(std::span<const render_asset_r
     value->completion.assets.clear();
     value->completion.textures.clear();
   }
-  asset_internal::material_document_decoder decode;
+  engine::resource::material_document_decoder decode;
   if (documents_) {
     value->cpu->documents = documents_->begin();
     decode = [documents = value->cpu->documents](const auto& bytes, auto& parameters, auto& uris,
@@ -153,9 +153,9 @@ gneiss_result texture_load_service::submit_assets(std::span<const render_asset_r
       return documents->decode(bytes, parameters, uris, diagnostic);
     };
   }
-  value->cpu->preparation = std::make_unique<asset_internal::asset_preparation>(
+  value->cpu->preparation = std::make_unique<engine::resource::asset_preparation>(
       file_system_, sources,
-      asset_internal::asset_preparation::limits{
+      engine::resource::asset_preparation::limits{
           .material_bytes = sizeof(material_resource),
           .maximum_assets = maximum_assets,
           .maximum_bytes = prepare_limit,

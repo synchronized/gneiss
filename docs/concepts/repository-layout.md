@@ -243,3 +243,8 @@ Application、配置、加载和场景切换对象统一位于 `gneiss::runtime`
 `gneiss::runtime::game`。内部应用对象为 `gneiss::runtime::application`，没有旧别名。
 Engine 的资源与功能模块仍有旧命名空间，按模块布局计划分批迁移；这不是已全面统一的声明。
 目录与头文件可见性仍决定依赖范围，命名变化不改变对象寿命或增加运行时状态。
+
+资源管理器为 `gneiss::engine::resource::asset_manager`，其输入请求、CPU 缓存、VFS、
+纹理/Mesh/材质描述与解码器使用 `gneiss::engine::resource`。原 asset_internal 已删除，
+不保留兼容别名。资源目录内的 Scene/Prefab 作者描述暂仍使用 scene_internal，
+后续与功能层 Scene 的命名交叉一起处理；CAORS 平台适配命名也尚未统一。

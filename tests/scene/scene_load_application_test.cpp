@@ -34,7 +34,7 @@ struct fixture {
        std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
   fixture() {
     std::filesystem::create_directories(root);
-    asset_internal::mesh_binary_data mesh;
+    engine::resource::mesh_binary_data mesh;
     mesh.vertices = {{{0, 0, 0}, {0, 0}, {0, 0, 1}},
                      {{1, 0, 0}, {1, 0}, {0, 0, 1}},
                      {{0, 1, 0}, {0, 1}, {0, 0, 1}}};
@@ -43,9 +43,9 @@ struct fixture {
     mesh.uv1.assign(3, {0.5F, 0.5F});
     mesh.colors.assign(3, {1, 1, 1, 1});
     std::vector<std::byte> bytes;
-    asset_internal::mesh_binary_diagnostic diagnostic;
-    check(asset_internal::encode_mesh_binary(mesh, bytes, diagnostic) ==
-          asset_internal::mesh_binary_result::success);
+    engine::resource::mesh_binary_diagnostic diagnostic;
+    check(engine::resource::encode_mesh_binary(mesh, bytes, diagnostic) ==
+          engine::resource::mesh_binary_result::success);
     std::ofstream output(root / "mesh.json", std::ios::binary);
     output.write(reinterpret_cast<const char*>(bytes.data()),
                  static_cast<std::streamsize>(bytes.size()));
@@ -397,9 +397,9 @@ void shared_texture_versions(tasks::execution_mode mode) {
   fixture files;
   std::vector<std::byte> bytes;
   std::string diagnostic;
-  check(asset_internal::encode_texture_ktx2(
+  check(engine::resource::encode_texture_ktx2(
             {
-                .transfer = asset_internal::texture_transfer::srgb,
+                .transfer = engine::resource::texture_transfer::srgb,
                 .levels =
                     {
                         {
@@ -409,7 +409,7 @@ void shared_texture_versions(tasks::execution_mode mode) {
                         },
                     },
             },
-            bytes, diagnostic) == asset_internal::texture_ktx2_result::success);
+            bytes, diagnostic) == engine::resource::texture_ktx2_result::success);
   {
     std::ofstream output(files.root / "image.ktx2", std::ios::binary);
     output.write(reinterpret_cast<const char*>(bytes.data()),

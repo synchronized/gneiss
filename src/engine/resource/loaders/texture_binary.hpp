@@ -10,7 +10,7 @@
 #include <string>
 #include <vector>
 
-namespace gneiss::asset_internal {
+namespace gneiss::engine::resource {
 
 struct texture_binary_view final {
   std::span<const std::byte> manifest;
@@ -47,6 +47,6 @@ enum class texture_binary_result : std::uint8_t {
                                                           texture_binary_view& output,
                                                           std::string& diagnostic) noexcept;
 
-} // namespace gneiss::asset_internal
+} // namespace gneiss::engine::resource
 
 #endif

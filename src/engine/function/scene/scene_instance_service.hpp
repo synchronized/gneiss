@@ -4,14 +4,14 @@
 #ifndef GNEISS_SCENE_SCENE_INSTANCE_SERVICE_HPP_
 #define GNEISS_SCENE_SCENE_INSTANCE_SERVICE_HPP_
 
-#include "engine/resource/types/scene_description.hpp"
 #include "engine/core/rid_table.hpp"
 #include "engine/function/render/render_asset_loader.hpp"
-#include "engine/resource/loaders/prefab_asset_loader.hpp"
 #include "engine/function/scene/prefab_candidate.hpp"
 #include "engine/function/scene/scene_creation.hpp"
 #include "engine/function/scene/scene_mesh_binding.hpp"
 #include "engine/function/scene/scene_query.hpp"
+#include "engine/resource/loaders/prefab_asset_loader.hpp"
+#include "engine/resource/types/scene_description.hpp"
 
 #include "engine/function/world/world.hpp"
 
@@ -23,7 +23,7 @@
 #include <string_view>
 #include <vector>
 
-namespace gneiss::asset_internal {
+namespace gneiss::engine::resource {
 class virtual_file_system;
 }
 
@@ -85,7 +85,7 @@ public:
   [[nodiscard]] gneiss_result validate_editable_node(gneiss_scene_instance instance,
                                                      scene_node_id node) const noexcept;
   scene_instance_service(engine::world& native_world, gneiss_world world,
-                         const asset_internal::virtual_file_system& file_system,
+                         const engine::resource::virtual_file_system& file_system,
                          render_internal::render_asset_loader& loader,
                          prefab_asset_loader& prefab_loader) noexcept;
   ~scene_instance_service() noexcept;
@@ -180,7 +180,7 @@ private:
   engine::world& native_world_;
   // 仅供 ABI 反射回调定位；不拥有 World，不用于普通场景操作。
   gneiss_world reflection_context_;
-  const asset_internal::virtual_file_system& file_system_;
+  const engine::resource::virtual_file_system& file_system_;
   render_internal::render_asset_loader& loader_;
   prefab_asset_loader& prefab_loader_;
   gneiss_type_registry registry_ = GNEISS_NULL_TYPE_REGISTRY;

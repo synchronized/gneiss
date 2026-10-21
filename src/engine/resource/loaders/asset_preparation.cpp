@@ -5,15 +5,15 @@
 
 #include "engine/resource/loaders/asset_parsing.hpp"
 
+#include "engine/core/diagnostics/profiling.hpp"
 #include "engine/resource/loaders/mesh_binary.hpp"
 #include "engine/resource/loaders/png_decoder.hpp"
-#include "engine/resource/vfs/read_slice.hpp"
-#include "engine/resource/vfs/source_revision_file_system.hpp"
 #include "engine/resource/loaders/texture_binary.hpp"
 #include "engine/resource/loaders/texture_container.hpp"
 #include "engine/resource/loaders/texture_ktx2.hpp"
+#include "engine/resource/vfs/read_slice.hpp"
+#include "engine/resource/vfs/source_revision_file_system.hpp"
 #include "engine/resource/vfs/virtual_file_system.hpp"
-#include "engine/core/diagnostics/profiling.hpp"
 
 #include <yyjson.h>
 
@@ -33,11 +33,11 @@
 #include <span>
 #include <vector>
 
-namespace gneiss::asset_internal::asset_parsing {
+namespace gneiss::engine::resource::asset_parsing {
 
 struct texture_source final {
   std::string uri;
-  asset_internal::texture_color_space color_space{};
+  engine::resource::texture_color_space color_space{};
 };
 
 void fail(asset_diagnostic& diagnostic, gneiss_result result, std::string_view path,
@@ -136,8 +136,8 @@ using document_ptr = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;
 // NOLINTNEXTLINE(readability-function-cognitive-complexity): 保持 Mesh Schema 诊断顺序。
 [[nodiscard]] gneiss_result
 parse_mesh(const std::vector<std::byte>& bytes,
-           std::vector<gneiss::asset_internal::mesh_vertex>& out_vertices,
-           std::vector<gneiss::asset_internal::mesh_normal>& out_normals,
+           std::vector<gneiss::engine::resource::mesh_vertex>& out_vertices,
+           std::vector<gneiss::engine::resource::mesh_normal>& out_normals,
            asset_diagnostic& diagnostic) {
   auto document = parse_document(bytes, diagnostic);
   if (!document) {
@@ -198,7 +198,7 @@ parse_mesh(const std::vector<std::byte>& bytes,
            "顶点必须包含三个数值");
       return diagnostic.result;
     }
-    gneiss::asset_internal::mesh_vertex parsed{};
+    gneiss::engine::resource::mesh_vertex parsed{};
     if (!read_float(yyjson_arr_get(vertex, 0), parsed.x) ||
         !read_float(yyjson_arr_get(vertex, 1), parsed.y) ||
         !read_float(yyjson_arr_get(vertex, 2), parsed.z)) {
@@ -219,7 +219,7 @@ parse_mesh(const std::vector<std::byte>& bytes,
     out_vertices.push_back(parsed);
     if (version >= 3U) {
       yyjson_val* normal = yyjson_arr_get(normals, index);
-      gneiss::asset_internal::mesh_normal parsed_normal{};
+      gneiss::engine::resource::mesh_normal parsed_normal{};
       if (!yyjson_is_arr(normal) || yyjson_arr_size(normal) != 3U ||
           !read_float(yyjson_arr_get(normal, 0), parsed_normal.x) ||
           !read_float(yyjson_arr_get(normal, 1), parsed_normal.y) ||
@@ -244,19 +244,19 @@ parse_mesh(const std::vector<std::byte>& bytes,
 
 [[nodiscard]] gneiss_result
 parse_binary_mesh(const std::vector<std::byte>& bytes,
-                  std::vector<gneiss::asset_internal::mesh_vertex>& out_vertices,
-                  std::vector<gneiss::asset_internal::mesh_normal>& out_normals,
+                  std::vector<gneiss::engine::resource::mesh_vertex>& out_vertices,
+                  std::vector<gneiss::engine::resource::mesh_normal>& out_normals,
                   std::vector<std::uint32_t>& out_indices,
-                  std::vector<gneiss::asset_internal::mesh_tangent>& out_tangents,
-                  std::vector<gneiss::asset_internal::mesh_uv>& out_uv1,
-                  std::vector<gneiss::asset_internal::mesh_color>& out_colors,
+                  std::vector<gneiss::engine::resource::mesh_tangent>& out_tangents,
+                  std::vector<gneiss::engine::resource::mesh_uv>& out_uv1,
+                  std::vector<gneiss::engine::resource::mesh_color>& out_colors,
                   asset_diagnostic& diagnostic) {
-  gneiss::asset_internal::mesh_binary_data data;
-  gneiss::asset_internal::mesh_binary_diagnostic binary_diagnostic;
-  const auto result = gneiss::asset_internal::decode_mesh_binary(bytes, data, binary_diagnostic);
-  if (result != gneiss::asset_internal::mesh_binary_result::success) {
+  gneiss::engine::resource::mesh_binary_data data;
+  gneiss::engine::resource::mesh_binary_diagnostic binary_diagnostic;
+  const auto result = gneiss::engine::resource::decode_mesh_binary(bytes, data, binary_diagnostic);
+  if (result != gneiss::engine::resource::mesh_binary_result::success) {
     fail(diagnostic,
-         result == gneiss::asset_internal::mesh_binary_result::unsupported_version
+         result == gneiss::engine::resource::mesh_binary_result::unsupported_version
              ? GNEISS_ERROR_UNSUPPORTED
              : GNEISS_ERROR_INVALID_ARGUMENT,
          "", binary_diagnostic.message, binary_diagnostic.byte_offset);
@@ -331,7 +331,7 @@ parse_binary_mesh(const std::vector<std::byte>& bytes,
 }
 
 [[nodiscard]] bool parse_material_sampling(yyjson_val* root,
-                                           asset_internal::material_parameters& state) {
+                                           engine::resource::material_parameters& state) {
   if (auto* sampling = yyjson_obj_get(root, "sampling")) {
     if (!yyjson_is_arr(sampling) || yyjson_arr_size(sampling) != 5U) {
       return false;
@@ -355,29 +355,29 @@ parse_binary_mesh(const std::vector<std::byte>& bytes,
         fields[field] = static_cast<std::uint32_t>(yyjson_get_uint(value));
       }
       sample = {fields[0],
-                static_cast<asset_internal::texture_filter>(fields[1]),
-                static_cast<asset_internal::texture_filter>(fields[2]),
-                static_cast<asset_internal::texture_mip_filter>(fields[3]),
-                static_cast<asset_internal::texture_address>(fields[4]),
-                static_cast<asset_internal::texture_address>(fields[5])};
+                static_cast<engine::resource::texture_filter>(fields[1]),
+                static_cast<engine::resource::texture_filter>(fields[2]),
+                static_cast<engine::resource::texture_mip_filter>(fields[3]),
+                static_cast<engine::resource::texture_address>(fields[4]),
+                static_cast<engine::resource::texture_address>(fields[5])};
     }
   }
   return true;
 }
 
 [[nodiscard]] bool parse_material_state(yyjson_val* root,
-                                        asset_internal::material_parameters& state) {
+                                        engine::resource::material_parameters& state) {
   if (auto* mode = yyjson_obj_get(root, "alpha_mode")) {
     if (!yyjson_is_str(mode)) {
       return false;
     }
     const auto name = json_string(mode);
     if (name == "OPAQUE") {
-      state.alpha_mode = asset_internal::material_alpha_mode::opaque;
+      state.alpha_mode = engine::resource::material_alpha_mode::opaque;
     } else if (name == "MASK") {
-      state.alpha_mode = asset_internal::material_alpha_mode::mask;
+      state.alpha_mode = engine::resource::material_alpha_mode::mask;
     } else if (name == "BLEND") {
-      state.alpha_mode = asset_internal::material_alpha_mode::blend;
+      state.alpha_mode = engine::resource::material_alpha_mode::blend;
     } else {
       return false;
     }
@@ -538,9 +538,9 @@ parse_binary_mesh(const std::vector<std::byte>& bytes,
   }
   const auto color_space_name = json_string(color_space);
   if (color_space_name == "srgb") {
-    out_source.color_space = gneiss::asset_internal::texture_color_space::srgb;
+    out_source.color_space = gneiss::engine::resource::texture_color_space::srgb;
   } else if (color_space_name == "linear") {
-    out_source.color_space = gneiss::asset_internal::texture_color_space::linear;
+    out_source.color_space = gneiss::engine::resource::texture_color_space::linear;
   } else {
     fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/color_space", "只支持 srgb 或 linear");
     return diagnostic.result;
@@ -548,7 +548,7 @@ parse_binary_mesh(const std::vector<std::byte>& bytes,
   if (version == 2U) {
     auto* const usage = yyjson_obj_get(root, "usage");
     if (!yyjson_is_str(usage) || json_string(usage) != "normal" ||
-        out_source.color_space != gneiss::asset_internal::texture_color_space::linear) {
+        out_source.color_space != gneiss::engine::resource::texture_color_space::linear) {
       fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/usage",
            "Texture v2 当前只支持 linear 法线用途");
       return diagnostic.result;
@@ -558,9 +558,9 @@ parse_binary_mesh(const std::vector<std::byte>& bytes,
   return GNEISS_SUCCESS;
 }
 
-} // namespace gneiss::asset_internal::asset_parsing
+} // namespace gneiss::engine::resource::asset_parsing
 
-namespace gneiss::asset_internal {
+namespace gneiss::engine::resource {
 using namespace asset_parsing;
 
 namespace {
@@ -590,7 +590,7 @@ gneiss_result decode_non_texture(const asset_request& source, const std::vector<
   auto result = GNEISS_SUCCESS;
   if (source.type == asset_type::mesh) {
     result =
-        asset_internal::is_mesh_binary(bytes)
+        engine::resource::is_mesh_binary(bytes)
             ? parse_binary_mesh(bytes, asset.mesh.vertices, asset.mesh.normals, asset.mesh.indices,
                                 asset.mesh.tangents, asset.mesh.uv1, asset.mesh.colors, diagnostic)
             : parse_mesh(bytes, asset.mesh.vertices, asset.mesh.normals, diagnostic);
@@ -1289,8 +1289,8 @@ gneiss_result prepare_assets(const virtual_file_system& files,
   }
 }
 
-gneiss_result prepare_texture(const asset_internal::virtual_file_system& file_system,
-                              std::string_view uri, asset_internal::prepared_texture_data& output,
+gneiss_result prepare_texture(const engine::resource::virtual_file_system& file_system,
+                              std::string_view uri, engine::resource::prepared_texture_data& output,
                               asset_diagnostic& out_diagnostic, std::size_t input_limit,
                               bool verify_source, std::size_t output_limit,
                               texture_prepare_profile profile) noexcept {
@@ -1309,16 +1309,16 @@ gneiss_result prepare_texture(const asset_internal::virtual_file_system& file_sy
       return result;
     }
     std::vector<std::byte> image_bytes;
-    std::shared_ptr<asset_internal::texture_container> container;
-    std::shared_ptr<asset_internal::source_revision_file_system> revisions;
+    std::shared_ptr<engine::resource::texture_container> container;
+    std::shared_ptr<engine::resource::source_revision_file_system> revisions;
     const bool selected =
         profile.generation != 0U && std::string_view(source.uri).ends_with(".gneiss-texture");
     if (selected) {
-      container = std::make_shared<asset_internal::texture_container>();
-      std::unique_ptr<asset_internal::read_source> reader;
+      container = std::make_shared<engine::resource::texture_container>();
+      std::unique_ptr<engine::resource::read_source> reader;
       if (verify_source) {
-        revisions = std::make_shared<asset_internal::source_revision_file_system>(file_system);
-        asset_internal::virtual_file_system checked;
+        revisions = std::make_shared<engine::resource::source_revision_file_system>(file_system);
+        engine::resource::virtual_file_system checked;
         result = checked.mount("asset://", revisions);
         if (result == GNEISS_SUCCESS) {
           result = checked.open_read(source.uri, reader);
@@ -1348,12 +1348,12 @@ gneiss_result prepare_texture(const asset_internal::virtual_file_system& file_sy
     }
     if (std::string_view(source.uri).ends_with(".gneiss-texture")) {
 #if defined(GNEISS_HAS_GRANIT_PLATFORM)
-      asset_internal::texture_binary_view binary;
+      engine::resource::texture_binary_view binary;
       std::string decode_message;
       if (selected) {
         binary.manifest = container->manifest();
-      } else if (asset_internal::decode_texture_binary(image_bytes, binary, decode_message) !=
-                 asset_internal::texture_binary_result::success) {
+      } else if (engine::resource::decode_texture_binary(image_bytes, binary, decode_message) !=
+                 engine::resource::texture_binary_result::success) {
         fail(out_diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/source",
              decode_message.empty() ? "运行纹理封装检查失败" : decode_message);
         return GNEISS_ERROR_INVALID_ARGUMENT;
@@ -1366,7 +1366,7 @@ gneiss_result prepare_texture(const asset_internal::virtual_file_system& file_sy
              "Granit Texture Asset Manifest 无效或不是二维单层纹理");
         return GNEISS_ERROR_INVALID_ARGUMENT;
       }
-      const auto srgb = source.color_space == gneiss::asset_internal::texture_color_space::srgb;
+      const auto srgb = source.color_space == gneiss::engine::resource::texture_color_space::srgb;
       const auto matches_color_space = [srgb](const auto& variant) {
         return srgb ? variant.format == granit::texture_format::bc7_rgba_srgb ||
                           variant.format == granit::texture_format::rgba8_srgb
@@ -1393,7 +1393,7 @@ gneiss_result prepare_texture(const asset_internal::virtual_file_system& file_sy
       output = {
           .width = info.width,
           .height = info.height,
-          .format = gneiss::asset_internal::texture_format::rgba8_unorm,
+          .format = gneiss::engine::resource::texture_format::rgba8_unorm,
           .color_space = source.color_space,
           .levels = {},
           .manifest = std::vector<std::byte>(binary.manifest.begin(), binary.manifest.end()),
@@ -1436,7 +1436,7 @@ gneiss_result prepare_texture(const asset_internal::virtual_file_system& file_sy
             fail(out_diagnostic, result, "/source", "选中纹理变体读取或摘要校验失败");
             return result;
           }
-          output.payload_source = std::make_shared<asset_internal::texture_payload_source>(
+          output.payload_source = std::make_shared<engine::resource::texture_payload_source>(
               container, variant.payload_offset, variant.payload_size, variant.payload_digest);
           output.profile = profile;
           output.selected_variant = static_cast<std::uint32_t>(index);
@@ -1454,19 +1454,19 @@ gneiss_result prepare_texture(const asset_internal::virtual_file_system& file_sy
       return GNEISS_ERROR_UNSUPPORTED;
 #endif
     } else if (std::string_view(source.uri).ends_with(".ktx2")) {
-      asset_internal::texture_ktx2 texture;
+      engine::resource::texture_ktx2 texture;
       std::string decode_message;
       const auto decoded =
-          asset_internal::decode_texture_ktx2(image_bytes, texture, decode_message);
-      if (decoded != asset_internal::texture_ktx2_result::success) {
+          engine::resource::decode_texture_ktx2(image_bytes, texture, decode_message);
+      if (decoded != engine::resource::texture_ktx2_result::success) {
         fail(out_diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/source",
              decode_message.empty() ? "KTX2 解码失败" : decode_message);
         return GNEISS_ERROR_INVALID_ARGUMENT;
       }
       const auto expected_transfer =
-          source.color_space == gneiss::asset_internal::texture_color_space::srgb
-              ? asset_internal::texture_transfer::srgb
-              : asset_internal::texture_transfer::linear;
+          source.color_space == gneiss::engine::resource::texture_color_space::srgb
+              ? engine::resource::texture_transfer::srgb
+              : engine::resource::texture_transfer::linear;
       if (texture.transfer != expected_transfer) {
         fail(out_diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "/color_space",
              "Texture 描述与 KTX2 传递函数不一致");
@@ -1477,15 +1477,15 @@ gneiss_result prepare_texture(const asset_internal::virtual_file_system& file_sy
       const auto height = levels.front().height;
       output = {.width = width,
                 .height = height,
-                .format = gneiss::asset_internal::texture_format::rgba8_unorm,
+                .format = gneiss::engine::resource::texture_format::rgba8_unorm,
                 .color_space = source.color_space,
                 .levels = std::move(levels),
                 .manifest = {},
                 .payload = {}};
     } else {
-      asset_internal::decoded_png image;
+      engine::resource::decoded_png image;
       std::string decode_message;
-      result = asset_internal::decode_png(image_bytes, image, decode_message, output_limit);
+      result = engine::resource::decode_png(image_bytes, image, decode_message, output_limit);
       if (result != GNEISS_SUCCESS) {
         fail(out_diagnostic, result, "/source",
              decode_message.empty() ? "PNG 解码失败" : decode_message);
@@ -1493,7 +1493,7 @@ gneiss_result prepare_texture(const asset_internal::virtual_file_system& file_sy
       }
       output = {.width = image.width,
                 .height = image.height,
-                .format = gneiss::asset_internal::texture_format::rgba8_unorm,
+                .format = gneiss::engine::resource::texture_format::rgba8_unorm,
                 .color_space = source.color_space,
                 .levels = {},
                 .manifest = {},
@@ -1524,4 +1524,4 @@ gneiss_result prepare_texture(const asset_internal::virtual_file_system& file_sy
   }
 }
 
-} // namespace gneiss::asset_internal
+} // namespace gneiss::engine::resource

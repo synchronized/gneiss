@@ -226,7 +226,7 @@ gneiss_result imgui_adapter::initialize(runtime::application& application) {
     }
   }
   render_internal::texture_view texture_desc;
-  texture_desc.color_space = asset_internal::texture_color_space::linear;
+  texture_desc.color_space = engine::resource::texture_color_space::linear;
   texture_desc.width = static_cast<std::uint32_t>(atlas_width);
   texture_desc.height = static_cast<std::uint32_t>(atlas_height);
   texture_desc.row_stride_bytes = texture_desc.width * 4U;

@@ -3,8 +3,8 @@
 
 #include "engine/function/render/backend/granit/granit_render_service.hpp"
 
-#include "engine/resource/loaders/texture_container.hpp"
 #include "engine/core/log/log_dispatcher.hpp"
+#include "engine/resource/loaders/texture_container.hpp"
 
 #include <granit/core/version.h>
 #include <granit/renderer/native_surface.hpp>
@@ -120,13 +120,14 @@ granit::result append_mesh_geometry(const render_internal::mesh_resource& source
   for (std::size_t index = 0; index < source.vertices.size(); ++index) {
     const auto& vertex = source.vertices[index];
     const auto normal = source.normals.empty()
-                            ? gneiss::asset_internal::mesh_normal{0.0F, 1.0F, 0.0F}
+                            ? gneiss::engine::resource::mesh_normal{0.0F, 1.0F, 0.0F}
                             : source.normals[index];
     const auto tangent = source.tangents.empty()
-                             ? gneiss::asset_internal::mesh_tangent{1.0F, 0.0F, 0.0F, 1.0F}
+                             ? gneiss::engine::resource::mesh_tangent{1.0F, 0.0F, 0.0F, 1.0F}
                              : source.tangents[index];
-    const auto uv1 = source.uv1.empty() ? gneiss::asset_internal::mesh_uv{0, 0} : source.uv1[index];
-    const auto color = source.colors.empty() ? gneiss::asset_internal::mesh_color{1, 1, 1, 1}
+    const auto uv1 =
+        source.uv1.empty() ? gneiss::engine::resource::mesh_uv{0, 0} : source.uv1[index];
+    const auto color = source.colors.empty() ? gneiss::engine::resource::mesh_color{1, 1, 1, 1}
                                              : source.colors[index];
     vertices.push_back({.position = {vertex.x, vertex.y, vertex.z},
                         .normal = {normal.x, normal.y, normal.z},
@@ -322,7 +323,7 @@ granit_render_service::create_texture_mirror(const render_internal::texture_reso
                 info.mip_levels, variant.payload_size);
     return result;
   }
-  const auto format = source.color_space == gneiss::asset_internal::texture_color_space::srgb
+  const auto format = source.color_space == gneiss::engine::resource::texture_color_space::srgb
                           ? granit::texture_format::rgba8_srgb
                           : granit::texture_format::rgba8_unorm;
   auto result = output.texture.initialize(
@@ -384,19 +385,19 @@ granit_render_service::create_material_mirror(const render_internal::material_re
     const auto& sampling = source.sampling[slot];
     const auto initialized = output.samplers[slot].initialize(
         renderer_,
-        {.mag_filter = sampling.mag_filter == asset_internal::texture_filter::linear
+        {.mag_filter = sampling.mag_filter == engine::resource::texture_filter::linear
                            ? granit::filter::linear
                            : granit::filter::nearest,
-         .min_filter = sampling.min_filter == asset_internal::texture_filter::linear
+         .min_filter = sampling.min_filter == engine::resource::texture_filter::linear
                            ? granit::filter::linear
                            : granit::filter::nearest,
-         .mip_filter = sampling.mip_filter == asset_internal::texture_mip_filter::linear
+         .mip_filter = sampling.mip_filter == engine::resource::texture_mip_filter::linear
                            ? granit::mipmap_filter::linear
                            : granit::mipmap_filter::nearest,
          .address_u = addresses[static_cast<std::size_t>(sampling.address_u)],
          .address_v = addresses[static_cast<std::size_t>(sampling.address_v)],
          .max_lod =
-             sampling.mip_filter == asset_internal::texture_mip_filter::none ? 0.0F : 14.0F});
+             sampling.mip_filter == engine::resource::texture_mip_filter::none ? 0.0F : 14.0F});
     if (initialized.failed())
       return initialized;
   }
@@ -581,8 +582,8 @@ granit::result granit_render_service::ensure_default_textures() noexcept {
     render_internal::texture_resource white_srgb{
         .width = 1,
         .height = 1,
-        .format = gneiss::asset_internal::texture_format::rgba8_unorm,
-        .color_space = gneiss::asset_internal::texture_color_space::srgb,
+        .format = gneiss::engine::resource::texture_format::rgba8_unorm,
+        .color_space = gneiss::engine::resource::texture_color_space::srgb,
         .levels = {{.width = 1U,
                     .height = 1U,
                     .pixels = {std::byte{0xff}, std::byte{0xff}, std::byte{0xff},
@@ -590,7 +591,7 @@ granit::result granit_render_service::ensure_default_textures() noexcept {
         .manifest = {},
         .payload = {}};
     render_internal::texture_resource white_linear = white_srgb;
-    white_linear.color_space = gneiss::asset_internal::texture_color_space::linear;
+    white_linear.color_space = gneiss::engine::resource::texture_color_space::linear;
     render_internal::texture_resource normal_linear = white_linear;
     normal_linear.levels.front().pixels = {std::byte{0x80}, std::byte{0x80}, std::byte{0xff},
                                            std::byte{0xff}};

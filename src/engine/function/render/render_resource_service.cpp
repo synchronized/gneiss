@@ -100,7 +100,7 @@ render_resource_service::track(std::shared_ptr<const Resource> resource,
 }
 
 namespace {
-gneiss_result validate_mesh(const asset_internal::mesh_view& desc) noexcept {
+gneiss_result validate_mesh(const engine::resource::mesh_view& desc) noexcept {
   if (desc.vertices.size() < 3U) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
@@ -142,8 +142,8 @@ gneiss_result validate_mesh(const asset_internal::mesh_view& desc) noexcept {
   for (std::size_t index = 0; index < tangents.size(); ++index) {
     const auto& tangent = tangents[index];
     const auto& normal = normals[index];
-    if (!asset_internal::valid_mesh_tangent({tangent.x, tangent.y, tangent.z, tangent.w},
-                                            {normal.x, normal.y, normal.z})) {
+    if (!engine::resource::valid_mesh_tangent({tangent.x, tangent.y, tangent.z, tangent.w},
+                                              {normal.x, normal.y, normal.z})) {
       return GNEISS_ERROR_INVALID_ARGUMENT;
     }
   }
@@ -151,7 +151,7 @@ gneiss_result validate_mesh(const asset_internal::mesh_view& desc) noexcept {
 }
 } // namespace
 
-gneiss_result render_resource_service::create_mesh(const asset_internal::mesh_view& desc,
+gneiss_result render_resource_service::create_mesh(const engine::resource::mesh_view& desc,
                                                    core::rid* out_mesh) noexcept {
   if (out_mesh == nullptr || !is_valid() || desc.vertices.size() < 3U) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
@@ -191,7 +191,7 @@ gneiss_result render_resource_service::create_mesh(mesh_resource resource,
   if (output == nullptr || !is_valid()) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
-  const asset_internal::mesh_view view{
+  const engine::resource::mesh_view view{
       .vertices = resource.vertices,
       .normals = resource.normals,
       .indices = resource.indices,
@@ -277,7 +277,7 @@ gneiss_result render_resource_service::create_material(const material_resource& 
   *out_material = 0U;
   if (!std::isfinite(value.normal_scale) || !valid_color(value.occlusion_strength) ||
       !std::ranges::all_of(value.emissive, valid_color) ||
-      value.alpha_mode > asset_internal::material_alpha_mode::blend ||
+      value.alpha_mode > engine::resource::material_alpha_mode::blend ||
       !std::isfinite(value.alpha_cutoff) || value.alpha_cutoff < 0.0F) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
@@ -287,7 +287,7 @@ gneiss_result render_resource_service::create_material(const material_resource& 
     }
   }
   for (const auto& sample : value.sampling) {
-    if (!asset_internal::valid_sampling(sample)) {
+    if (!engine::resource::valid_sampling(sample)) {
       return GNEISS_ERROR_INVALID_ARGUMENT;
     }
   }
@@ -308,9 +308,9 @@ gneiss_result render_resource_service::destroy_material(core::rid material) noex
 gneiss_result render_resource_service::create_texture(const texture_view& desc,
                                                       core::rid* out_texture) noexcept {
   if (out_texture == nullptr || !is_valid() ||
-      desc.format != gneiss::asset_internal::texture_format::rgba8_unorm ||
-      (desc.color_space != gneiss::asset_internal::texture_color_space::linear &&
-       desc.color_space != gneiss::asset_internal::texture_color_space::srgb) ||
+      desc.format != gneiss::engine::resource::texture_format::rgba8_unorm ||
+      (desc.color_space != gneiss::engine::resource::texture_color_space::linear &&
+       desc.color_space != gneiss::engine::resource::texture_color_space::srgb) ||
       desc.width == 0U || desc.height == 0U || desc.width > maximum_texture_dimension ||
       desc.height > maximum_texture_dimension || desc.pixels.empty()) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
@@ -351,7 +351,7 @@ gneiss_result render_resource_service::create_texture(const texture_view& desc,
 gneiss_result render_resource_service::create_texture(texture_resource resource,
                                                       core::rid* out_texture) noexcept {
   if (out_texture == nullptr || !is_valid() || resource.width == 0U || resource.height == 0U ||
-      resource.format != gneiss::asset_internal::texture_format::rgba8_unorm ||
+      resource.format != gneiss::engine::resource::texture_format::rgba8_unorm ||
       resource.levels.empty() || !resource.manifest.empty() || !resource.payload.empty() ||
       resource.levels.front().width != resource.width ||
       resource.levels.front().height != resource.height) {
@@ -386,9 +386,9 @@ gneiss_result render_resource_service::create_texture(texture_resource resource,
 gneiss_result render_resource_service::create_packaged_texture(texture_resource resource,
                                                                core::rid* out_texture) noexcept {
   if (out_texture == nullptr || !is_valid() || resource.width == 0U || resource.height == 0U ||
-      resource.format != gneiss::asset_internal::texture_format::rgba8_unorm ||
-      (resource.color_space != gneiss::asset_internal::texture_color_space::linear &&
-       resource.color_space != gneiss::asset_internal::texture_color_space::srgb) ||
+      resource.format != gneiss::engine::resource::texture_format::rgba8_unorm ||
+      (resource.color_space != gneiss::engine::resource::texture_color_space::linear &&
+       resource.color_space != gneiss::engine::resource::texture_color_space::srgb) ||
       !resource.levels.empty() || resource.manifest.empty() ||
       (resource.payload.empty() &&
        (!resource.payload_source || resource.upload_payload.expired()))) {

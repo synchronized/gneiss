@@ -11,7 +11,7 @@
 #include <string>
 #include <vector>
 
-namespace gneiss::asset_internal {
+namespace gneiss::engine::resource {
 
 class virtual_file_system final {
 public:
@@ -50,6 +50,6 @@ private:
   std::vector<mount_entry> mounts_;
 };
 
-} // namespace gneiss::asset_internal
+} // namespace gneiss::engine::resource
 
 #endif

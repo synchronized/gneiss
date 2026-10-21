@@ -13,7 +13,8 @@ void action_map_application::cancel() noexcept {
   state_ = action_map_apply_state::cancelled;
   result_ = result::invalid_state;
 }
-result action_map_application::begin(std::unique_ptr<engine::action_map_request> request) noexcept {
+result action_map_application::begin(
+    std::unique_ptr<engine::resource::action_map_request> request) noexcept {
   cancel();
   if (!request)
     return result::invalid_argument;
@@ -25,7 +26,7 @@ result action_map_application::begin(std::unique_ptr<engine::action_map_request>
 result action_map_application::poll(input_internal::input_service& target) noexcept {
   if (state_ != action_map_apply_state::loading)
     return result_;
-  asset_internal::action_map map;
+  engine::resource::action_map map;
   const auto loaded = request_ ? request_->take(map) : result::invalid_state;
   if (loaded == result::not_ready)
     return result::not_ready;

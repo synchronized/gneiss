@@ -7,7 +7,7 @@
 #include <array>
 #include <new>
 
-namespace gneiss::asset_internal {
+namespace gneiss::engine::resource {
 
 gneiss_result texture_container::open(std::unique_ptr<read_source> source,
                                       std::size_t manifest_limit,
@@ -110,4 +110,4 @@ gneiss_result texture_payload_source::read(std::vector<std::byte>& output,
   }
 }
 
-} // namespace gneiss::asset_internal
+} // namespace gneiss::engine::resource

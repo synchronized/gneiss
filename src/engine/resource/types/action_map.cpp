@@ -5,8 +5,8 @@
 #include "engine/resource/vfs/virtual_file_system.hpp"
 #include <algorithm>
 
-namespace gneiss::asset_internal {
-result verify_action_map_source(const asset_internal::virtual_file_system& files,
+namespace gneiss::engine::resource {
+result verify_action_map_source(const engine::resource::virtual_file_system& files,
                                 std::string_view uri,
                                 std::span<const std::byte> original) noexcept {
   if (original.size() > maximum_action_map_bytes)
@@ -18,8 +18,8 @@ result verify_action_map_source(const asset_internal::virtual_file_system& files
   return std::ranges::equal(current, original) ? result::success : result::invalid_state;
 }
 
-result load_action_map(const asset_internal::virtual_file_system& file_system, std::string_view uri,
-                       action_map& out_map) noexcept {
+result load_action_map(const engine::resource::virtual_file_system& file_system,
+                       std::string_view uri, action_map& out_map) noexcept {
   std::vector<std::byte> bytes;
   const auto operation =
       from_native(file_system.read_bounded(uri, maximum_action_map_bytes, bytes));
@@ -38,4 +38,4 @@ result load_action_map(const asset_internal::virtual_file_system& file_system, s
   return result::success;
 }
 
-} // namespace gneiss::asset_internal
+} // namespace gneiss::engine::resource

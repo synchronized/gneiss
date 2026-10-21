@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/resource/vfs/native_file_system.hpp"
 #include "engine/resource/cache/resource_cache.hpp"
+#include "engine/resource/vfs/native_file_system.hpp"
 #include "engine/resource/vfs/virtual_file_system.hpp"
 
 #include <gneiss/engine/core/result.h>
@@ -18,7 +18,7 @@
 namespace {
 
 bool deferred_adoption_contract() {
-  using namespace gneiss::asset_internal;
+  using namespace gneiss::engine::resource;
   resource_cache cache;
   const asset_identity identity{.source = std::make_shared<asset_source_domain>(),
                                 .uri = "asset://deferred.mesh",
@@ -87,7 +87,7 @@ bool selection_contract() {
   if (!deferred_adoption_contract()) {
     return false;
   }
-  using namespace gneiss::asset_internal;
+  using namespace gneiss::engine::resource;
   resource_cache cache;
   const asset_identity identity{
       .source = std::make_shared<asset_source_domain>(),
@@ -203,7 +203,7 @@ bool selection_contract() {
 }
 
 bool version_cache_contract() {
-  using namespace gneiss::asset_internal;
+  using namespace gneiss::engine::resource;
   resource_cache cache;
   resource_cache::version_key key{.identity = {.source = std::make_shared<asset_source_domain>(),
                                                .uri = "asset://shared.mesh",
@@ -284,7 +284,7 @@ bool version_cache_contract() {
 }
 
 bool source_identity_contract() {
-  using namespace gneiss::asset_internal;
+  using namespace gneiss::engine::resource;
   auto backend = std::make_shared<native_file_system>();
   virtual_file_system first;
   asset_identity original;
@@ -366,8 +366,8 @@ int main() try {
     stream << "mesh";
   }
 
-  auto provider = std::make_shared<gneiss::asset_internal::native_file_system>();
-  gneiss::asset_internal::virtual_file_system file_system;
+  auto provider = std::make_shared<gneiss::engine::resource::native_file_system>();
+  gneiss::engine::resource::virtual_file_system file_system;
   std::vector<std::byte> bytes;
   if (provider->read("models/triangle.mesh", bytes) != GNEISS_ERROR_INVALID_STATE ||
       provider->initialize(directory.path.string()) != GNEISS_SUCCESS ||
@@ -396,7 +396,7 @@ int main() try {
     std::ofstream stream(override_root / "special.mesh", std::ios::binary);
     stream << "override";
   }
-  auto override_provider = std::make_shared<gneiss::asset_internal::native_file_system>();
+  auto override_provider = std::make_shared<gneiss::engine::resource::native_file_system>();
   if (override_provider->initialize(override_root.string()) != GNEISS_SUCCESS ||
       file_system.mount("asset://models/", override_provider) != GNEISS_SUCCESS ||
       file_system.mount("asset://invalid", override_provider) != GNEISS_ERROR_INVALID_ARGUMENT ||
@@ -405,15 +405,15 @@ int main() try {
     return 2;
   }
 
-  gneiss::asset_internal::resource_cache cache;
+  gneiss::engine::resource::resource_cache cache;
   std::size_t load_count = 0;
   auto loader = [&load_count](std::shared_ptr<void>& resource) {
     ++load_count;
     resource = std::make_shared<int>(42);
     return GNEISS_SUCCESS;
   };
-  std::shared_ptr<const gneiss::asset_internal::resource_cache::entry> first;
-  std::shared_ptr<const gneiss::asset_internal::resource_cache::entry> second;
+  std::shared_ptr<const gneiss::engine::resource::resource_cache::entry> first;
+  std::shared_ptr<const gneiss::engine::resource::resource_cache::entry> second;
   if (cache.acquire("asset://models/triangle.mesh", 1U, loader, first) != GNEISS_SUCCESS ||
       cache.acquire("asset://models/triangle.mesh", 1U, loader, second) != GNEISS_SUCCESS ||
       load_count != 1U || first != second || cache.size() != 1U ||
@@ -432,7 +432,7 @@ int main() try {
       *static_cast<const int*>(second->resource.get()) != 84 || cache.size() != 1U) {
     return 3;
   }
-  std::shared_ptr<const gneiss::asset_internal::resource_cache::entry> failed_reload;
+  std::shared_ptr<const gneiss::engine::resource::resource_cache::entry> failed_reload;
   const auto failed_reloader = [](std::shared_ptr<void>&) { return GNEISS_ERROR_IO; };
   if (cache.reload("asset://models/triangle.mesh", 1U, failed_reloader, failed_reload) !=
           GNEISS_ERROR_IO ||
@@ -441,29 +441,29 @@ int main() try {
       failed_reload != second || load_count != 2U) {
     return 3;
   }
-  std::vector<gneiss::asset_internal::resource_cache::reload_request> transaction{
+  std::vector<gneiss::engine::resource::resource_cache::reload_request> transaction{
       {.uri = "asset://models/triangle.mesh",
        .type = 1U,
-       .load = [&](gneiss::asset_internal::resource_cache&,
+       .load = [&](gneiss::engine::resource::resource_cache&,
                    std::shared_ptr<void>& resource) { return loader(resource); }},
       {.uri = "asset://models/second.mesh",
        .type = 1U,
-       .load = [&](gneiss::asset_internal::resource_cache&, std::shared_ptr<void>& resource) {
+       .load = [&](gneiss::engine::resource::resource_cache&, std::shared_ptr<void>& resource) {
          return reloader(resource);
        }}};
-  std::vector<std::shared_ptr<const gneiss::asset_internal::resource_cache::entry>> committed;
+  std::vector<std::shared_ptr<const gneiss::engine::resource::resource_cache::entry>> committed;
   if (cache.reload_transaction(transaction, committed) != GNEISS_SUCCESS ||
       committed.size() != 2U || cache.size() != 2U) {
     return 4;
   }
   auto transaction_first = committed.front();
-  transaction[1].load = [&](gneiss::asset_internal::resource_cache&,
+  transaction[1].load = [&](gneiss::engine::resource::resource_cache&,
                             std::shared_ptr<void>& resource) { return failed_reloader(resource); };
   committed.clear();
   if (cache.reload_transaction(transaction, committed) != GNEISS_ERROR_IO || !committed.empty()) {
     return 4;
   }
-  std::shared_ptr<const gneiss::asset_internal::resource_cache::entry> after_failure;
+  std::shared_ptr<const gneiss::engine::resource::resource_cache::entry> after_failure;
   if (cache.acquire("asset://models/triangle.mesh", 1U, loader, after_failure) != GNEISS_SUCCESS ||
       after_failure != transaction_first || load_count != 5U) {
     return 4;
@@ -489,7 +489,7 @@ int main() try {
     return 5;
   }
 
-  gneiss::asset_internal::resource_cache other_cache;
+  gneiss::engine::resource::resource_cache other_cache;
   if (other_cache.acquire("asset://models/triangle.mesh", 1U, loader, first) != GNEISS_SUCCESS ||
       load_count != 6U) {
     return 6;

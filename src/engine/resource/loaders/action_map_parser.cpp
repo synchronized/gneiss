@@ -33,7 +33,7 @@ using document_ptr = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;
 
 } // namespace
 
-namespace gneiss::asset_internal {
+namespace gneiss::engine::resource {
 
 result parse_action_map(std::string_view json, action_map& out_map) noexcept {
   try {
@@ -111,4 +111,4 @@ result parse_action_map(std::string_view json, action_map& out_map) noexcept {
   }
 }
 
-} // namespace gneiss::asset_internal
+} // namespace gneiss::engine::resource

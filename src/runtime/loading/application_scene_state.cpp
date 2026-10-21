@@ -9,7 +9,7 @@ namespace gneiss::runtime {
 application_scene_state::~application_scene_state() noexcept = default;
 
 gneiss_result
-application_scene_state::initialize(engine::asset_manager& owner,
+application_scene_state::initialize(engine::resource::asset_manager& owner,
                                     render_internal::render_asset_loader& render) noexcept {
   if (world_owner_) {
     return GNEISS_ERROR_INVALID_STATE;

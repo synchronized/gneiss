@@ -11,7 +11,7 @@
 #include <string>
 #include <vector>
 
-namespace gneiss::asset_internal {
+namespace gneiss::engine::resource {
 
 struct decoded_png final {
   std::uint32_t width{};
@@ -25,6 +25,6 @@ struct decoded_png final {
                                        std::string& out_message,
                                        std::size_t byte_limit = 256U * 1024U * 1024U) noexcept;
 
-} // namespace gneiss::asset_internal
+} // namespace gneiss::engine::resource
 
 #endif

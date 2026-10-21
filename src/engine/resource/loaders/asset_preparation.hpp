@@ -3,11 +3,11 @@
 
 #pragma once
 
+#include "engine/core/sha256.hpp"
 #include "engine/resource/types/asset_identity.hpp"
 #include "engine/resource/types/material_parameters.hpp"
 #include "engine/resource/types/mesh_data.hpp"
 #include "engine/resource/types/texture_preparation_data.hpp"
-#include "engine/core/sha256.hpp"
 
 #include <chrono>
 #include <functional>
@@ -18,11 +18,11 @@
 #include <string>
 #include <string_view>
 
-namespace gneiss::asset_internal {
+namespace gneiss::engine::resource {
 class virtual_file_system;
 }
 
-namespace gneiss::asset_internal {
+namespace gneiss::engine::resource {
 
 struct asset_diagnostic final {
   gneiss_result result = GNEISS_SUCCESS;
@@ -34,8 +34,8 @@ struct asset_diagnostic final {
 /** 纯 CPU 准备：不访问缓存、RID 表或 GPU；调用方拥有只读 VFS 快照及输出。
  * 有界读取需要后端支持；verify_source 拒绝准备期间变化的描述或负载，不提供跨进程事务隔离。 */
 [[nodiscard]] gneiss_result
-prepare_texture(const asset_internal::virtual_file_system& file_system, std::string_view uri,
-                asset_internal::prepared_texture_data& output, asset_diagnostic& diagnostic,
+prepare_texture(const engine::resource::virtual_file_system& file_system, std::string_view uri,
+                engine::resource::prepared_texture_data& output, asset_diagnostic& diagnostic,
                 std::size_t input_limit = std::numeric_limits<std::size_t>::max(),
                 bool verify_source = false, std::size_t output_limit = 256U * 1024U * 1024U,
                 texture_prepare_profile profile = {}) noexcept;
@@ -70,11 +70,11 @@ struct prepared_asset {
   asset_version_key version;
   /** 材质各槽位的确切依赖版本；空槽保留空键，发布时不得按 URI 替换依赖。 */
   std::array<asset_version_key, 5> texture_versions;
-  asset_internal::mesh_data mesh;
+  engine::resource::mesh_data mesh;
   /** 复验后可由 CPU 资源缓存接管数组；只读共享，不复制顶点或泄漏第三方句柄。 */
   std::shared_ptr<const mesh_data> shared_mesh;
-  asset_internal::prepared_texture_data texture{};
-  asset_internal::material_parameters material{};
+  engine::resource::prepared_texture_data texture{};
+  engine::resource::material_parameters material{};
   std::array<std::string, 5> texture_uris;
   /** 仅保活已复验 CPU 文档，不参与渲染版本选择；内部类型不泄漏第三方句柄。 */
   std::shared_ptr<const material_document_reference> material_document;
@@ -118,7 +118,7 @@ private:
 };
 /** material_bytes 由调用方指定单个材质发布所需的字节估算；含材质时不得为零。
  * 该值与依赖 URI 共同计入 maximum_bytes，溢出或预算不足拒绝整批。 */
-[[nodiscard]] gneiss_result prepare_assets(const asset_internal::virtual_file_system& files,
+[[nodiscard]] gneiss_result prepare_assets(const engine::resource::virtual_file_system& files,
                                            std::span<const asset_request> requested,
                                            prepared_batch& output, asset_diagnostic& diagnostic,
                                            const std::function<bool()>& cancelled,
@@ -127,4 +127,4 @@ private:
                                            std::size_t maximum_bytes = 256U * 1024U * 1024U,
                                            texture_prepare_profile profile = {}) noexcept;
 
-} // namespace gneiss::asset_internal
+} // namespace gneiss::engine::resource

@@ -108,12 +108,12 @@ int main() {
     return 3;
   }
   const auto texture_bytes = read_bytes(development.output_root / "textures/a.gneiss-texture");
-  gneiss::asset_internal::texture_binary_view texture_binary;
+  gneiss::engine::resource::texture_binary_view texture_binary;
   std::string texture_diagnostic;
   granit::texture_asset_info texture_info;
-  if (gneiss::asset_internal::decode_texture_binary(texture_bytes, texture_binary,
-                                                    texture_diagnostic) !=
-          gneiss::asset_internal::texture_binary_result::success ||
+  if (gneiss::engine::resource::decode_texture_binary(texture_bytes, texture_binary,
+                                                      texture_diagnostic) !=
+          gneiss::engine::resource::texture_binary_result::success ||
       granit::inspect_texture_asset(texture_binary.manifest, texture_info) !=
           granit::result::success ||
       texture_info.variants.size() != 2U ||

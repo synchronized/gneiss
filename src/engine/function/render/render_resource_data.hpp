@@ -3,11 +3,11 @@
 
 #pragma once
 
+#include "engine/core/rid.hpp"
 #include "engine/resource/types/material_types.hpp"
 #include "engine/resource/types/mesh_data.hpp"
 #include "engine/resource/types/texture_preparation_data.hpp"
 #include "engine/resource/types/texture_types.hpp"
-#include "engine/core/rid.hpp"
 
 #include <array>
 #include <cstddef>
@@ -15,13 +15,13 @@
 #include <memory>
 #include <vector>
 
-namespace gneiss::asset_internal {
+namespace gneiss::engine::resource {
 class texture_payload_source;
 }
 
 namespace gneiss::render_internal {
 
-using mesh_resource = asset_internal::mesh_data;
+using mesh_resource = engine::resource::mesh_data;
 
 struct material_resource {
   float red{1.0F};
@@ -38,10 +38,10 @@ struct material_resource {
   float normal_scale{1.0F};
   float occlusion_strength{1.0F};
   std::array<float, 3> emissive{};
-  asset_internal::material_alpha_mode alpha_mode{asset_internal::material_alpha_mode::opaque};
+  engine::resource::material_alpha_mode alpha_mode{engine::resource::material_alpha_mode::opaque};
   bool double_sided{};
   float alpha_cutoff{0.5F};
-  std::array<asset_internal::texture_sampling, 5> sampling{};
+  std::array<engine::resource::texture_sampling, 5> sampling{};
 
   [[nodiscard]] std::array<core::rid, 5> texture_handles() const noexcept {
     return {base_color_texture, metallic_roughness_texture, normal_texture, occlusion_texture,
@@ -62,21 +62,21 @@ struct material_resource {
   }
 };
 
-using texture_prepare_profile = asset_internal::texture_prepare_profile;
+using texture_prepare_profile = engine::resource::texture_prepare_profile;
 
 struct texture_resource {
   std::uint32_t width;
   std::uint32_t height;
-  asset_internal::texture_format format;
-  asset_internal::texture_color_space color_space;
-  std::vector<asset_internal::texture_mip> levels;
+  engine::resource::texture_format format;
+  engine::resource::texture_color_space color_space;
+  std::vector<engine::resource::texture_mip> levels;
   std::vector<std::byte> manifest;
   std::vector<std::byte> payload;
   /** profile 非零时 payload 从选中变体起点开始，不含其他变体。 */
   texture_prepare_profile profile{};
   std::uint32_t selected_variant{UINT32_MAX};
   /** 仅文件选中变体可重建；长期资源不强持有上传负载。 */
-  std::shared_ptr<const asset_internal::texture_payload_source> payload_source{};
+  std::shared_ptr<const engine::resource::texture_payload_source> payload_source{};
   std::weak_ptr<const std::vector<std::byte>> upload_payload{};
 };
 

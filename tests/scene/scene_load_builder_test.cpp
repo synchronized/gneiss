@@ -21,7 +21,7 @@ void check(bool value, std::source_location where = std::source_location::curren
     throw std::runtime_error("场景候选隔离失败，行=" + std::to_string(where.line()));
   }
 }
-struct memory_files final : asset_internal::file_system {
+struct memory_files final : engine::resource::file_system {
   std::map<std::string, std::string> files;
   mutable unsigned reads{};
   gneiss_result read(std::string_view path, std::vector<std::byte>& bytes) const noexcept override {
@@ -62,14 +62,14 @@ void run() {
   files->files["m.mesh"] =
       R"({"format":"gneiss.mesh","version":1,"topology":"triangle_list","vertices":[[0,0,0],[1,0,0],[0,1,0]]})";
   files->files["m.material"] = R"({"format":"gneiss.material","version":1,"color":[1,0,0,1]})";
-  asset_internal::virtual_file_system vfs;
+  engine::resource::virtual_file_system vfs;
   check(vfs.mount("asset://", files) == GNEISS_SUCCESS);
   render_internal::render_resource_service resources;
-  engine::asset_manager active_assets(vfs);
-  asset_internal::resource_cache active_cache, candidate_cache;
+  engine::resource::asset_manager active_assets(vfs);
+  engine::resource::resource_cache active_cache, candidate_cache;
   render_internal::render_asset_loader active_render(vfs, active_cache, resources);
   render_internal::render_asset_loader candidate_render(vfs, candidate_cache, resources);
-  engine::asset_manager candidate_assets(vfs);
+  engine::resource::asset_manager candidate_assets(vfs);
   {
     render_internal::mesh_asset_lease first, second;
     render_internal::asset_diagnostic diagnostic;
@@ -87,17 +87,17 @@ void run() {
     check(active_render.revision() == render_revision);
     active_assets.collect_unused();
     check(resources.get_mesh(first.get()) != nullptr);
-    std::unique_ptr<asset_internal::resource_cache::prepared_adoption> prepared;
+    std::unique_ptr<engine::resource::resource_cache::prepared_adoption> prepared;
     check(active_render.prepare_adoption({}, {}, {}, prepared) == GNEISS_ERROR_INVALID_ARGUMENT);
     check(!prepared);
-    const std::array<asset_internal::asset_version_key, 1> versions{};
+    const std::array<engine::resource::asset_version_key, 1> versions{};
     check(active_render.prepare_adoption({}, versions, {}, prepared) ==
           GNEISS_ERROR_INVALID_ARGUMENT);
     const std::array<render_internal::render_asset_lease, 1> invalid_leases{};
     check(active_render.prepare_adoption(invalid_leases, versions, {}, prepared) ==
           GNEISS_ERROR_INVALID_ARGUMENT);
     render_internal::render_resource_service foreign_resources;
-    asset_internal::resource_cache foreign_cache;
+    engine::resource::resource_cache foreign_cache;
     render_internal::render_asset_loader foreign_assets(vfs, foreign_cache, foreign_resources);
     render_internal::mesh_asset_lease foreign_mesh;
     check(foreign_assets.acquire_mesh("asset://m.mesh", foreign_mesh, diagnostic) ==
@@ -302,7 +302,7 @@ void run() {
   check(candidate->scenes()->replace_render_assets(duplicate) == GNEISS_ERROR_INVALID_ARGUMENT);
   {
     render_internal::render_resource_service foreign_resources;
-    asset_internal::resource_cache foreign_cache;
+    engine::resource::resource_cache foreign_cache;
     render_internal::render_asset_loader foreign_loader(vfs, foreign_cache, foreign_resources);
     render_internal::material_asset_lease foreign_material;
     check(foreign_loader.acquire_material("asset://m.material", foreign_material, diagnostic) ==

@@ -4,10 +4,10 @@
 #ifndef GNEISS_RENDER_RENDER_ASSET_LOADER_HPP_
 #define GNEISS_RENDER_RENDER_ASSET_LOADER_HPP_
 
-#include "engine/resource/cache/resource_cache.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/render/render_asset_preparation.hpp"
 #include "engine/function/render/render_resource_data.hpp"
+#include "engine/resource/cache/resource_cache.hpp"
 
 #include <gneiss/engine/core/result.h>
 
@@ -17,7 +17,7 @@
 #include <string>
 #include <string_view>
 
-namespace gneiss::asset_internal {
+namespace gneiss::engine::resource {
 class virtual_file_system;
 }
 
@@ -40,7 +40,7 @@ public:
 
 private:
   friend class render_asset_loader;
-  std::shared_ptr<const asset_internal::resource_cache::entry> entry_;
+  std::shared_ptr<const engine::resource::resource_cache::entry> entry_;
 };
 
 /** 上传候选只携带不可变 CPU 数据；后端所有权留在渲染服务。 */
@@ -60,7 +60,7 @@ public:
 
 private:
   friend class render_asset_loader;
-  std::shared_ptr<const asset_internal::resource_cache::entry> entry_;
+  std::shared_ptr<const engine::resource::resource_cache::entry> entry_;
 };
 
 class material_asset_lease final {
@@ -70,7 +70,7 @@ public:
 
 private:
   friend class render_asset_loader;
-  std::shared_ptr<const asset_internal::resource_cache::entry> entry_;
+  std::shared_ptr<const engine::resource::resource_cache::entry> entry_;
 };
 
 class texture_asset_lease final {
@@ -80,7 +80,7 @@ public:
 
 private:
   friend class render_asset_loader;
-  std::shared_ptr<const asset_internal::resource_cache::entry> entry_;
+  std::shared_ptr<const engine::resource::resource_cache::entry> entry_;
 };
 
 /** resources 必须晚于缓存及其所有资产租约销毁；租约析构会释放对应 RID。 */
@@ -90,37 +90,38 @@ public:
    * 所属线程调用，准备对象须先于 Loader 借用的缓存销毁。 */
   [[nodiscard]] gneiss_result prepare_adoption(
       std::span<const render_asset_lease> assets,
-      std::span<const asset_internal::asset_version_key> versions, texture_prepare_profile profile,
-      std::unique_ptr<asset_internal::resource_cache::prepared_adoption>& output) noexcept;
+      std::span<const engine::resource::asset_version_key> versions,
+      texture_prepare_profile profile,
+      std::unique_ptr<engine::resource::resource_cache::prepared_adoption>& output) noexcept;
   /** 已完成场景来源复验后的整批渲染版本选择；不涉及 Prefab 缓存。 */
   [[nodiscard]] gneiss_result prepare_adoption(
-      std::span<const asset_internal::resource_cache::version_selection> selections,
-      std::unique_ptr<asset_internal::resource_cache::prepared_adoption>& output) noexcept {
+      std::span<const engine::resource::resource_cache::version_selection> selections,
+      std::unique_ptr<engine::resource::resource_cache::prepared_adoption>& output) noexcept {
     return cache_.prepare_adoption(selections, output);
   }
   enum class publication_mode { reload, fixed_version };
   struct asset_candidate {
     publication_mode mode{publication_mode::reload};
-    asset_internal::asset_version_key version;
+    engine::resource::asset_version_key version;
     render_asset_reload source;
     render_asset_lease lease;
     bool existed{};
-    std::weak_ptr<const asset_internal::resource_cache::entry> expected;
+    std::weak_ptr<const engine::resource::resource_cache::entry> expected;
     std::shared_ptr<const mesh_resource> mesh;
     std::shared_ptr<const material_resource> material;
     std::shared_ptr<const texture_resource> texture;
     std::shared_ptr<const void> previous;
-    std::array<std::shared_ptr<const asset_internal::resource_cache::entry>, 5> dependencies;
+    std::array<std::shared_ptr<const engine::resource::resource_cache::entry>, 5> dependencies;
     std::array<std::shared_ptr<const texture_resource>, 5> dependency_textures;
     std::size_t bytes{};
     std::shared_ptr<const std::vector<std::byte>> texture_payload{};
   };
   using revision_stamp = std::pair<std::uint64_t, std::uint64_t>;
   /** 完整编码当前准备配置；保守隔离不同设备代次及格式能力，不读取来源。 */
-  [[nodiscard]] static asset_internal::resource_cache::selection_key
-  selection_key(const asset_internal::asset_identity& identity, texture_prepare_profile profile);
+  [[nodiscard]] static engine::resource::resource_cache::selection_key
+  selection_key(const engine::resource::asset_identity& identity, texture_prepare_profile profile);
   /** 仅取得已采用且就绪的租约；缺失返回 NOT_READY，不加载或等待。 */
-  [[nodiscard]] gneiss_result acquire_selected(const asset_internal::asset_identity& identity,
+  [[nodiscard]] gneiss_result acquire_selected(const engine::resource::asset_identity& identity,
                                                texture_prepare_profile profile,
                                                render_asset_lease& output) const noexcept;
   [[nodiscard]] gneiss_result acquire_selected(const render_asset_reload& source,
@@ -151,7 +152,7 @@ public:
   texture_dependencies(const render_asset_lease& material) noexcept;
   struct texture_target {
     std::string uri;
-    std::weak_ptr<const asset_internal::resource_cache::entry> expected;
+    std::weak_ptr<const engine::resource::resource_cache::entry> expected;
     bool existed{};
   };
   struct texture_candidate {
@@ -163,12 +164,12 @@ public:
   [[nodiscard]] gneiss_result observe_texture(std::string_view uri,
                                               texture_target& output) const noexcept;
   [[nodiscard]] gneiss_result stage_texture(const texture_target& target,
-                                            asset_internal::prepared_texture_data prepared,
+                                            engine::resource::prepared_texture_data prepared,
                                             texture_candidate& output) noexcept;
   /** 全部身份仍有效才一次发布；调用方须先完成 GPU 候选确认，且不并发访问缓存。 */
   [[nodiscard]] gneiss_result publish_textures(std::span<texture_candidate> candidates) noexcept;
-  render_asset_loader(const asset_internal::virtual_file_system& file_system,
-                      asset_internal::resource_cache& cache,
+  render_asset_loader(const engine::resource::virtual_file_system& file_system,
+                      engine::resource::resource_cache& cache,
                       render_resource_service& resources) noexcept;
 
   /** 宿主装配设备后设置兼容选择域；旧阻塞入口优先复用已采用版本。 */
@@ -188,8 +189,8 @@ public:
 private:
   texture_prepare_profile default_profile_{};
   std::uint64_t revision_{};
-  const asset_internal::virtual_file_system& file_system_;
-  asset_internal::resource_cache& cache_;
+  const engine::resource::virtual_file_system& file_system_;
+  engine::resource::resource_cache& cache_;
   render_resource_service& resources_;
 };
 

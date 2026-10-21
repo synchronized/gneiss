@@ -21,8 +21,8 @@ read_texture_description(const gneiss_texture_desc& desc,
   }
   output = {.width = desc.width,
             .height = desc.height,
-            .format = static_cast<asset_internal::texture_format>(desc.format),
-            .color_space = static_cast<asset_internal::texture_color_space>(desc.color_space),
+            .format = static_cast<engine::resource::texture_format>(desc.format),
+            .color_space = static_cast<engine::resource::texture_color_space>(desc.color_space),
             .row_stride_bytes = desc.row_stride_bytes,
             .pixels = {desc.pixels, static_cast<std::size_t>(desc.pixel_data_size)}};
   return GNEISS_SUCCESS;

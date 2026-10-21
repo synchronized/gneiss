@@ -22,12 +22,12 @@ constexpr std::string_view root_mount = "asset://";
   }
   std::string probe(point);
   probe.push_back('_');
-  return gneiss::asset_internal::validate_uri(probe) == GNEISS_SUCCESS;
+  return gneiss::engine::resource::validate_uri(probe) == GNEISS_SUCCESS;
 }
 
 } // namespace
 
-namespace gneiss::asset_internal {
+namespace gneiss::engine::resource {
 
 gneiss_result virtual_file_system::identify(std::string_view uri, std::uint32_t type,
                                             asset_identity& output) const noexcept {
@@ -175,4 +175,4 @@ gneiss_result virtual_file_system::read_bounded(std::string_view uri, std::size_
              : selected->backend->read_bounded(path, limit, out_bytes);
 }
 
-} // namespace gneiss::asset_internal
+} // namespace gneiss::engine::resource

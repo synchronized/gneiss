@@ -12,9 +12,9 @@
 
 #include "engine/function/scene/scene_instance.hpp"
 
+#include "engine/function/scene/structural_diff.hpp"
 #include "engine/resource/types/scene_description.hpp"
 #include "engine/resource/vfs/virtual_file_system.hpp"
-#include "engine/function/scene/structural_diff.hpp"
 
 #include <algorithm>
 #include <atomic>
@@ -1799,7 +1799,7 @@ scene_instance_service::replace_render_assets(std::span<const asset_replacement>
 
 scene_instance_service::scene_instance_service(
     engine::world& native_world, gneiss_world world,
-    const asset_internal::virtual_file_system& file_system,
+    const engine::resource::virtual_file_system& file_system,
     render_internal::render_asset_loader& loader, prefab_asset_loader& prefab_loader) noexcept
     : native_world_(native_world), reflection_context_(world), file_system_(file_system),
       loader_(loader), prefab_loader_(prefab_loader), domain_(allocate_domain()),

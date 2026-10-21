@@ -15,7 +15,7 @@ namespace gneiss::runtime {
 
 scene_session::~scene_session() noexcept { shutdown(); }
 
-gneiss_result scene_session::initialize(engine::asset_manager& assets,
+gneiss_result scene_session::initialize(engine::resource::asset_manager& assets,
                                         render_internal::render_asset_loader& render) {
   if (active_) {
     return GNEISS_ERROR_INVALID_STATE;
@@ -33,7 +33,7 @@ gneiss_result scene_session::initialize(engine::asset_manager& assets,
 
 gneiss_result
 scene_session::attach_executor(tasks::task_executor& executor,
-                               const asset_internal::virtual_file_system& files,
+                               const engine::resource::virtual_file_system& files,
                                render_internal::render_resource_service& resources,
                                render_internal::texture_upload_backend backend,
                                std::shared_ptr<core::progress_notification> notification) {
@@ -277,7 +277,7 @@ scene_session::accept_edit_assets(const render_internal::texture_load_completion
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
   try {
-    std::unique_ptr<asset_internal::resource_cache::prepared_adoption> prepared;
+    std::unique_ptr<engine::resource::resource_cache::prepared_adoption> prepared;
     const auto result = render_assets_->prepare_adoption(completion.assets, completion.versions,
                                                          completion.profile, prepared);
     if (result != GNEISS_SUCCESS) {

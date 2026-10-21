@@ -14,7 +14,7 @@
 #include <string_view>
 #include <vector>
 
-namespace gneiss::asset_internal {
+namespace gneiss::engine::resource {
 
 /** VFS 后端的最小只读接口。路径相对于挂载点，且不包含 scheme。 */
 class file_system {
@@ -69,6 +69,6 @@ protected:
   file_system() = default;
 };
 
-} // namespace gneiss::asset_internal
+} // namespace gneiss::engine::resource
 
 #endif

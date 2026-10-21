@@ -8,11 +8,11 @@
 
 #include <string_view>
 
-namespace gneiss::asset_internal {
+namespace gneiss::engine::resource {
 
 [[nodiscard]] gneiss_result validate_uri(std::string_view uri) noexcept;
 [[nodiscard]] std::string_view uri_path(std::string_view uri) noexcept;
 
-} // namespace gneiss::asset_internal
+} // namespace gneiss::engine::resource
 
 #endif

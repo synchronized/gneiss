@@ -59,22 +59,22 @@ struct scene_load_service::pending {
     scene_internal::prepared_scene_description description;
     scene_internal::scene_diagnostic diagnostic;
     gneiss_result result{GNEISS_ERROR_INTERNAL};
-    std::unique_ptr<asset_internal::source_revision_file_system::verification> verification;
+    std::unique_ptr<engine::resource::source_revision_file_system::verification> verification;
     bool verification_complete{};
   };
   std::shared_ptr<cpu_result> cpu{std::make_shared<cpu_result>()};
   tasks::task_handle task;
   std::stop_source source_stop;
-  std::shared_ptr<asset_internal::source_revision_file_system> sources;
-  asset_internal::virtual_file_system snapshot;
+  std::shared_ptr<engine::resource::source_revision_file_system> sources;
+  engine::resource::virtual_file_system snapshot;
   bool verifying{};
   scene_load_completion result;
   std::unique_ptr<application_scene_state> candidate;
   std::unique_ptr<render_internal::texture_load_service> assets;
   std::unique_ptr<scene_internal::scene_load_builder> builder;
   scene_internal::scene_load_builder::asset_bindings bindings;
-  std::vector<asset_internal::resource_cache::version_selection> selections;
-  std::unique_ptr<asset_internal::resource_cache::prepared_adoption> adoption;
+  std::vector<engine::resource::resource_cache::version_selection> selections;
+  std::unique_ptr<engine::resource::resource_cache::prepared_adoption> adoption;
   std::map<std::uint64_t, resource_usage> resident;
   std::vector<render_internal::render_asset_reload> requested;
   std::size_t cursor{};
@@ -86,9 +86,9 @@ struct scene_load_service::pending {
 };
 
 scene_load_service::scene_load_service(tasks::task_executor& executor,
-                                       asset_internal::virtual_file_system files,
+                                       engine::resource::virtual_file_system files,
                                        render_internal::render_resource_service& resources,
-                                       engine::asset_manager& asset_owner,
+                                       engine::resource::asset_manager& asset_owner,
                                        render_internal::render_asset_loader& render_assets,
                                        render_internal::texture_upload_backend backend,
                                        std::shared_ptr<core::progress_notification> notification)
@@ -123,11 +123,11 @@ gneiss_result scene_load_service::submit(std::string_view uri, std::uint64_t ses
   if (busy()) {
     return GNEISS_ERROR_NOT_READY;
   }
-  if (asset_internal::validate_uri(uri) != GNEISS_SUCCESS || session == 0U || revision == 0U) {
+  if (engine::resource::validate_uri(uri) != GNEISS_SUCCESS || session == 0U || revision == 0U) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
   auto next = std::make_unique<pending>();
-  next->sources = std::make_shared<asset_internal::source_revision_file_system>(
+  next->sources = std::make_shared<engine::resource::source_revision_file_system>(
       files_, [token = next->source_stop.get_token()] { return token.stop_requested(); });
   const auto mounted = next->snapshot.mount("asset://", next->sources);
   if (mounted != GNEISS_SUCCESS) {

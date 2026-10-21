@@ -4,7 +4,7 @@
 #pragma once
 #include <cstdint>
 
-namespace gneiss::asset_internal {
+namespace gneiss::engine::resource {
 /** 材质纯值语义；资产与渲染共用，不持有资源或后端对象。 */
 enum class material_alpha_mode : std::uint32_t { opaque, mask, blend };
 enum class texture_filter : std::uint32_t { nearest, linear };
@@ -25,4 +25,4 @@ struct texture_sampling {
          value.mip_filter <= texture_mip_filter::linear &&
          value.address_u <= texture_address::mirror && value.address_v <= texture_address::mirror;
 }
-} // namespace gneiss::asset_internal
+} // namespace gneiss::engine::resource

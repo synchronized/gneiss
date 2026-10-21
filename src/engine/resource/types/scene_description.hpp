@@ -16,7 +16,7 @@
 #include <string_view>
 #include <vector>
 
-namespace gneiss::asset_internal {
+namespace gneiss::engine::resource {
 class virtual_file_system;
 }
 
@@ -76,8 +76,9 @@ struct scene_description final {
                                                     scene_diagnostic& out_diagnostic) noexcept;
 
 [[nodiscard]] gneiss_result
-load_scene_description(const asset_internal::virtual_file_system& file_system, std::string_view uri,
-                       scene_description& out_scene, scene_diagnostic& out_diagnostic) noexcept;
+load_scene_description(const engine::resource::virtual_file_system& file_system,
+                       std::string_view uri, scene_description& out_scene,
+                       scene_diagnostic& out_diagnostic) noexcept;
 
 /** 输出当前 Schema 作者 JSON；保留受支持文档中的未知字段。 */
 [[nodiscard]] gneiss_result serialize_scene_description(const scene_description& scene,

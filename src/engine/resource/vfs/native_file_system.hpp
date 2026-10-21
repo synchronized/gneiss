@@ -12,7 +12,7 @@ namespace gneiss::io_internal {
 class uv_file_io;
 class uv_path_resolver;
 }
-namespace gneiss::asset_internal {
+namespace gneiss::engine::resource {
 
 class native_file_system final : public file_system {
 public:
@@ -41,6 +41,6 @@ private:
 #endif
 };
 
-} // namespace gneiss::asset_internal
+} // namespace gneiss::engine::resource
 
 #endif

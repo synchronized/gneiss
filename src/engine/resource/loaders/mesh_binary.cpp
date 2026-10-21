@@ -14,7 +14,7 @@
 #include <sstream>
 #include <string_view>
 
-namespace gneiss::asset_internal {
+namespace gneiss::engine::resource {
 namespace {
 
 constexpr std::array<std::byte, 4> magic = {std::byte{'G'}, std::byte{'N'}, std::byte{'M'},
@@ -372,4 +372,4 @@ std::string dump_mesh_binary_json(const mesh_binary_data& data) {
   return stream.str();
 }
 
-} // namespace gneiss::asset_internal
+} // namespace gneiss::engine::resource

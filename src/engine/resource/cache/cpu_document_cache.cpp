@@ -6,7 +6,7 @@
 #include <map>
 #include <tuple>
 
-namespace gneiss::asset_internal {
+namespace gneiss::engine::resource {
 namespace {
 /** 数组只属于这个资源，别名 shared_ptr 通过 CAORS handle 保活。 */
 struct mesh_document final : caors::resource {

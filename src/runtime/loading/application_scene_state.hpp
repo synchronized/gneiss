@@ -6,7 +6,7 @@
 #include "engine/function/scene/scene_instance_service.hpp"
 #include "engine/function/world/world_service.hpp"
 
-namespace gneiss::engine {
+namespace gneiss::engine::resource {
 class asset_manager;
 }
 
@@ -22,7 +22,7 @@ public:
   application_scene_state(const application_scene_state&) = delete;
   application_scene_state& operator=(const application_scene_state&) = delete;
   /** 全部初始化成功后发布；失败保持空域，可重试。重复初始化拒绝且保持原状态。 */
-  [[nodiscard]] gneiss_result initialize(engine::asset_manager& owner,
+  [[nodiscard]] gneiss_result initialize(engine::resource::asset_manager& owner,
                                          render_internal::render_asset_loader& render) noexcept;
   [[nodiscard]] engine::world* native_world() const noexcept { return world_owner_.get(); }
   [[nodiscard]] gneiss_world world() const noexcept {

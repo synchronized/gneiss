@@ -3,7 +3,7 @@
 #pragma once
 #include "engine/resource/loaders/asset_preparation.hpp"
 
-namespace gneiss::asset_internal {
+namespace gneiss::engine::resource {
 /** 一批独占的文档候选；decode 在准备线程执行，retain_verified 在完成后由所属线程调用。 */
 class cpu_document_batch {
 public:

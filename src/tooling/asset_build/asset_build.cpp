@@ -37,7 +37,7 @@ struct source_node final {
   const processor_description* processor{};
   std::vector<std::string> dependencies;
   std::string cache_key;
-  std::optional<asset_internal::texture_transfer> texture_transfer;
+  std::optional<engine::resource::texture_transfer> texture_transfer;
   std::optional<bool> normal_map{};
 };
 
@@ -142,10 +142,10 @@ struct source_node final {
   }
   if (node.processor->id == "gneiss.mesh" && extension == ".gneiss-mesh") {
     const auto bytes = read_bytes(node.absolute_path);
-    asset_internal::mesh_binary_data output;
-    asset_internal::mesh_binary_diagnostic diagnostic;
-    return asset_internal::decode_mesh_binary(bytes, output, diagnostic) ==
-           asset_internal::mesh_binary_result::success;
+    engine::resource::mesh_binary_data output;
+    engine::resource::mesh_binary_diagnostic diagnostic;
+    return engine::resource::decode_mesh_binary(bytes, output, diagnostic) ==
+           engine::resource::mesh_binary_result::success;
   }
   if ((node.processor->id == "gneiss.mesh" || node.processor->id == "gneiss.material" ||
        node.processor->id == "gneiss.document") &&
@@ -190,8 +190,8 @@ void hash_bytes(std::uint64_t& hash, std::string_view bytes) noexcept {
   hash_bytes(hash, request.profile == build_profile::shipping ? "shipping" : "development");
   hash_bytes(hash, node.normal_map.value_or(false) ? "normal" : "color-or-data");
   if (node.texture_transfer) {
-    hash_bytes(hash, *node.texture_transfer == asset_internal::texture_transfer::srgb ? "srgb"
-                                                                                      : "linear");
+    hash_bytes(hash, *node.texture_transfer == engine::resource::texture_transfer::srgb ? "srgb"
+                                                                                        : "linear");
   }
   std::ostringstream text;
   text << std::hex << std::setfill('0') << std::setw(16) << hash;
@@ -230,12 +230,12 @@ void hash_bytes(std::uint64_t& hash, std::string_view bytes) noexcept {
 [[nodiscard]] bool cook_png(const source_node& node, std::vector<std::byte>& output,
                             std::string& diagnostic) {
   const auto bytes = read_bytes(node.absolute_path);
-  asset_internal::decoded_png decoded;
-  if (asset_internal::decode_png(bytes, decoded, diagnostic) != GNEISS_SUCCESS) {
+  engine::resource::decoded_png decoded;
+  if (engine::resource::decode_png(bytes, decoded, diagnostic) != GNEISS_SUCCESS) {
     return false;
   }
-  asset_internal::texture_ktx2 texture{
-      .transfer = node.texture_transfer.value_or(asset_internal::texture_transfer::srgb),
+  engine::resource::texture_ktx2 texture{
+      .transfer = node.texture_transfer.value_or(engine::resource::texture_transfer::srgb),
       .levels = {
           {.width = decoded.width, .height = decoded.height, .pixels = std::move(decoded.pixels)}}};
   while (texture.levels.back().width != 1U || texture.levels.back().height != 1U) {
@@ -298,7 +298,7 @@ void hash_bytes(std::uint64_t& hash, std::string_view bytes) noexcept {
 }
 
 [[nodiscard]] bool read_texture_settings(const source_node& node, std::string& source,
-                                         asset_internal::texture_transfer& transfer,
+                                         engine::resource::texture_transfer& transfer,
                                          bool& normal_map) {
   if (!std::string_view(node.relative_path).ends_with(".texture.json")) {
     return false;
@@ -331,8 +331,8 @@ void hash_bytes(std::uint64_t& hash, std::string_view bytes) noexcept {
     constexpr std::string_view prefix = "asset://";
     if (uri.starts_with(prefix)) {
       source.assign(uri.substr(prefix.size()));
-      transfer = color == "linear" ? asset_internal::texture_transfer::linear
-                                   : asset_internal::texture_transfer::srgb;
+      transfer = color == "linear" ? engine::resource::texture_transfer::linear
+                                   : engine::resource::texture_transfer::srgb;
     }
   }
   yyjson_doc_free(document);
@@ -445,7 +445,7 @@ build_report build_assets(const build_request& request, const processor_registry
     for (const auto& [relative, node] : nodes) {
       static_cast<void>(relative);
       std::string image_source;
-      asset_internal::texture_transfer transfer{};
+      engine::resource::texture_transfer transfer{};
       bool normal_map{};
       if (!read_texture_settings(node, image_source, transfer, normal_map)) {
         if (std::string_view(node.relative_path).ends_with(".texture.json")) {

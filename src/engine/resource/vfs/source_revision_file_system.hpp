@@ -3,15 +3,15 @@
 
 #pragma once
 
-#include "engine/resource/vfs/virtual_file_system.hpp"
 #include "engine/core/sha256.hpp"
+#include "engine/resource/vfs/virtual_file_system.hpp"
 
 #include <chrono>
 #include <functional>
 #include <map>
 #include <mutex>
 
-namespace gneiss::asset_internal {
+namespace gneiss::engine::resource {
 
 /** 场景会话的只读版本账本；保存摘要而非整份负载，允许准备任务跨批次保持同 URI 一致。
  * read_bounded 与 verify 可在工作线程调用；底层 VFS 后端须支持并发只读。
@@ -84,4 +84,4 @@ private:
   std::shared_ptr<ledger> versions_{std::make_shared<ledger>()};
 };
 
-} // namespace gneiss::asset_internal
+} // namespace gneiss::engine::resource

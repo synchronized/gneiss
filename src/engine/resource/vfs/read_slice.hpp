@@ -10,7 +10,7 @@
 #include <array>
 #include <utility>
 
-namespace gneiss::asset_internal {
+namespace gneiss::engine::resource {
 
 /** 顺序消费区间请求；返回视图只在下次 take 或销毁前有效。
  * 异步缓冲跨步骤拥有，调用方减小预算时只消费对应部分；同步回退每次最多 64 KiB。 */
@@ -83,6 +83,6 @@ private:
   std::size_t consumed_{};
 };
 
-} // namespace gneiss::asset_internal
+} // namespace gneiss::engine::resource
 
 #endif

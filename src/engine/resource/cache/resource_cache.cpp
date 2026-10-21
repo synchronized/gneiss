@@ -10,7 +10,7 @@
 #include <set>
 #include <unordered_set>
 
-namespace gneiss::asset_internal {
+namespace gneiss::engine::resource {
 
 resource_cache::version_key resource_cache::legacy_key(std::string_view uri) {
   return {.identity = {.source = {}, .uri = std::string(uri), .type = 0U}, .version = {}};
@@ -386,4 +386,4 @@ std::weak_ptr<const resource_cache::entry> resource_cache::observe(std::string_v
   return found == entries_.end() ? std::weak_ptr<const entry>{} : found->second;
 }
 
-} // namespace gneiss::asset_internal
+} // namespace gneiss::engine::resource

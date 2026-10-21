@@ -21,7 +21,7 @@
 #include <thread>
 
 namespace {
-using namespace gneiss::asset_internal;
+using namespace gneiss::engine::resource;
 
 void check(bool value, std::source_location where = std::source_location::current()) {
   if (!value) {

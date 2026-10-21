@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/resource/vfs/file_system.hpp"
-#include "engine/resource/cache/resource_cache.hpp"
-#include "engine/resource/vfs/virtual_file_system.hpp"
 #include "engine/function/render/render_asset_loader.hpp"
 #include "engine/function/render/render_resource_service.hpp"
-#include "engine/resource/loaders/prefab_asset_loader.hpp"
 #include "engine/function/scene/prefab_runtime_instance.hpp"
 #include "engine/function/world/world_service.hpp"
+#include "engine/resource/cache/resource_cache.hpp"
+#include "engine/resource/loaders/prefab_asset_loader.hpp"
+#include "engine/resource/vfs/file_system.hpp"
+#include "engine/resource/vfs/virtual_file_system.hpp"
 #include <gneiss/engine/detail/reflection_values.hpp>
 
 #include <gneiss/engine/world.h>
@@ -54,7 +54,7 @@ constexpr std::string_view broken_prefab_json = R"({
   }]
 })";
 
-class memory_file_system final : public gneiss::asset_internal::file_system {
+class memory_file_system final : public gneiss::engine::resource::file_system {
 public:
   [[nodiscard]] gneiss_result read(std::string_view path,
                                    std::vector<std::byte>& out_bytes) const noexcept override {
@@ -210,9 +210,9 @@ int main() try {
     return 2;
   }
 
-  gneiss::asset_internal::virtual_file_system file_system;
+  gneiss::engine::resource::virtual_file_system file_system;
   gneiss::render_internal::render_resource_service resources;
-  gneiss::asset_internal::resource_cache cache;
+  gneiss::engine::resource::resource_cache cache;
   gneiss::render_internal::render_asset_loader render_loader(file_system, cache, resources);
   gneiss::scene_internal::prefab_asset_loader prefab_loader(file_system, cache);
   if (file_system.mount("asset://prefabs/", std::make_shared<memory_file_system>()) !=

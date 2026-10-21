@@ -8,7 +8,7 @@
 #include <string>
 #include <vector>
 
-namespace gneiss::asset_internal {
+namespace gneiss::engine::resource {
 
 /** 一次挂载的运行期来源身份；不包含后端，不作为持久 AssetId 或内容版本。 */
 struct asset_source_domain final {};
@@ -33,4 +33,4 @@ struct asset_version_key final {
   bool operator==(const asset_version_key&) const = default;
 };
 
-} // namespace gneiss::asset_internal
+} // namespace gneiss::engine::resource

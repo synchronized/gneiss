@@ -26,7 +26,7 @@ void check(bool ok, const char* message) {
     throw std::runtime_error(message);
 }
 void run(const char* root, bool scheduled) {
-  using namespace gneiss::asset_internal;
+  using namespace gneiss::engine::resource;
   using namespace caors::io;
   using namespace std::chrono_literals;
   gneiss::io_internal::uv_loop_executor loop;
@@ -46,7 +46,7 @@ void run(const char* root, bool scheduled) {
       std::filesystem::remove_all(path, error);
     }
   } fixture_cleanup{fixture};
-  auto native = std::make_shared<gneiss::asset_internal::native_file_system>();
+  auto native = std::make_shared<gneiss::engine::resource::native_file_system>();
   check(native->initialize(fixture.generic_string()) == GNEISS_SUCCESS, "root");
   if (!scheduled)
     native->set_async_io(std::make_shared<gneiss::io_internal::uv_file_io>(loop),
@@ -208,7 +208,7 @@ void run(const char* root, bool scheduled) {
           "verification failure preserves cached version");
     input_service input;
     action_map_application application;
-    check(application.begin(gneiss::engine::make_action_map_request(
+    check(application.begin(gneiss::engine::resource::make_action_map_request(
               manager.request_load<action_map_asset>(id))) == gneiss::result::success &&
               application.poll(input) == gneiss::result::success,
           "apply verified input");

@@ -13,8 +13,8 @@
 #include <vector>
 
 int main() { // NOLINT(bugprone-exception-escape)
-  gneiss::asset_internal::texture_ktx2 source{
-      .transfer = gneiss::asset_internal::texture_transfer::srgb,
+  gneiss::engine::resource::texture_ktx2 source{
+      .transfer = gneiss::engine::resource::texture_transfer::srgb,
       .levels = {{.width = 2U,
                   .height = 2U,
                   .pixels = {std::byte{255U}, std::byte{}, std::byte{}, std::byte{255U},
@@ -30,9 +30,9 @@ int main() { // NOLINT(bugprone-exception-escape)
       gneiss::tooling::asset_build::runtime_texture_build_result::success) {
     return 1;
   }
-  gneiss::asset_internal::texture_binary_view binary;
-  if (gneiss::asset_internal::decode_texture_binary(encoded, binary, diagnostic) !=
-      gneiss::asset_internal::texture_binary_result::success) {
+  gneiss::engine::resource::texture_binary_view binary;
+  if (gneiss::engine::resource::decode_texture_binary(encoded, binary, diagnostic) !=
+      gneiss::engine::resource::texture_binary_result::success) {
     return 2;
   }
   granit::texture_asset_info info;

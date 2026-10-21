@@ -9,7 +9,7 @@
 #include <new>
 #include <utility>
 
-namespace gneiss::asset_internal {
+namespace gneiss::engine::resource {
 namespace {
 
 constexpr std::array<std::byte, 12U> identifier = {
@@ -227,4 +227,4 @@ texture_ktx2_result decode_texture_ktx2(std::span<const std::byte> bytes, textur
   }
 }
 
-} // namespace gneiss::asset_internal
+} // namespace gneiss::engine::resource

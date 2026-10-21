@@ -10,7 +10,7 @@ namespace gneiss::api {
 
 /** 解析 ABI 布局并逐字段复制；拓扑和数值校验留在资源服务。失败保留输出。 */
 [[nodiscard]] inline gneiss_result read_mesh_description(const gneiss_mesh_desc& desc,
-                                                         asset_internal::mesh_data& output) {
+                                                         engine::resource::mesh_data& output) {
   if ((desc.struct_size != GNEISS_MESH_DESC_VERSION_1_SIZE &&
        desc.struct_size != GNEISS_MESH_DESC_VERSION_2_SIZE &&
        desc.struct_size < sizeof(gneiss_mesh_desc)) ||
@@ -31,7 +31,7 @@ namespace gneiss::api {
       return GNEISS_ERROR_INVALID_ARGUMENT;
     }
   }
-  asset_internal::mesh_data value;
+  engine::resource::mesh_data value;
   value.vertices.reserve(desc.vertex_count);
   for (std::uint32_t index = 0; index < desc.vertex_count; ++index) {
     const auto& item = desc.vertices[index];

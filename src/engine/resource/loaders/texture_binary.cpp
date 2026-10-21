@@ -10,7 +10,7 @@
 #include <string_view>
 #include <utility>
 
-namespace gneiss::asset_internal {
+namespace gneiss::engine::resource {
 namespace {
 
 constexpr std::array<std::byte, 8U> magic = {
@@ -174,4 +174,4 @@ texture_binary_result decode_texture_binary(std::span<const std::byte> bytes,
   return texture_binary_result::success;
 }
 
-} // namespace gneiss::asset_internal
+} // namespace gneiss::engine::resource

@@ -6,10 +6,10 @@
 #include "engine/resource/loaders/asset_preparation.hpp"
 
 // 同步加载与后台准备共用解析契约；不接触缓存或资源服务。
-namespace gneiss::asset_internal::asset_parsing {
+namespace gneiss::engine::resource::asset_parsing {
 
 struct material_source final {
-  asset_internal::material_parameters parameters;
+  engine::resource::material_parameters parameters;
   std::array<std::string, 5> texture_uris;
 };
 
@@ -18,22 +18,22 @@ void fail(asset_diagnostic& diagnostic, gneiss_result result, std::string_view p
 
 [[nodiscard]] gneiss_result
 parse_mesh(const std::vector<std::byte>& bytes,
-           std::vector<gneiss::asset_internal::mesh_vertex>& out_vertices,
-           std::vector<gneiss::asset_internal::mesh_normal>& out_normals,
+           std::vector<gneiss::engine::resource::mesh_vertex>& out_vertices,
+           std::vector<gneiss::engine::resource::mesh_normal>& out_normals,
            asset_diagnostic& diagnostic);
 
 [[nodiscard]] gneiss_result
 parse_binary_mesh(const std::vector<std::byte>& bytes,
-                  std::vector<gneiss::asset_internal::mesh_vertex>& out_vertices,
-                  std::vector<gneiss::asset_internal::mesh_normal>& out_normals,
+                  std::vector<gneiss::engine::resource::mesh_vertex>& out_vertices,
+                  std::vector<gneiss::engine::resource::mesh_normal>& out_normals,
                   std::vector<std::uint32_t>& out_indices,
-                  std::vector<gneiss::asset_internal::mesh_tangent>& out_tangents,
-                  std::vector<gneiss::asset_internal::mesh_uv>& out_uv1,
-                  std::vector<gneiss::asset_internal::mesh_color>& out_colors,
+                  std::vector<gneiss::engine::resource::mesh_tangent>& out_tangents,
+                  std::vector<gneiss::engine::resource::mesh_uv>& out_uv1,
+                  std::vector<gneiss::engine::resource::mesh_color>& out_colors,
                   asset_diagnostic& diagnostic);
 
 [[nodiscard]] gneiss_result parse_material(const std::vector<std::byte>& bytes,
                                            material_source& out_source,
                                            asset_diagnostic& diagnostic);
 
-} // namespace gneiss::asset_internal::asset_parsing
+} // namespace gneiss::engine::resource::asset_parsing

@@ -174,8 +174,8 @@ template <std::size_t Size>
     }
     return false;
   }
-  if (gneiss::asset_internal::validate_uri(output.mesh_uri) != GNEISS_SUCCESS ||
-      gneiss::asset_internal::validate_uri(output.material_uri) != GNEISS_SUCCESS) {
+  if (gneiss::engine::resource::validate_uri(output.mesh_uri) != GNEISS_SUCCESS ||
+      gneiss::engine::resource::validate_uri(output.material_uri) != GNEISS_SUCCESS) {
     fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, path, "资源引用必须是规范 asset URI");
     return false;
   }
@@ -420,7 +420,7 @@ parse_prefab_instance(yyjson_val* value, std::size_t index,
     return false;
   }
   if (!read_required_string(value, "prefab", path, output.prefab_uri, diagnostic) ||
-      gneiss::asset_internal::validate_uri(output.prefab_uri) != GNEISS_SUCCESS) {
+      gneiss::engine::resource::validate_uri(output.prefab_uri) != GNEISS_SUCCESS) {
     if (diagnostic.result == GNEISS_SUCCESS) {
       fail(diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, path + "/prefab", "Prefab URI 无效");
     }
@@ -939,7 +939,7 @@ gneiss_result parse_scene_description(std::string_view json, scene_description& 
   }
 }
 
-gneiss_result load_scene_description(const asset_internal::virtual_file_system& file_system,
+gneiss_result load_scene_description(const engine::resource::virtual_file_system& file_system,
                                      std::string_view uri, scene_description& out_scene,
                                      scene_diagnostic& out_diagnostic) noexcept {
   std::vector<std::byte> bytes;

@@ -52,7 +52,7 @@ int main() {
     return 6;
   }
 
-  gneiss::asset_internal::action_map map;
+  gneiss::engine::resource::action_map map;
   map.actions.push_back({.name = "move", .bindings = {{26U, 1.0F}}});
   input.clear_focus();
   if (input.replace_action_map(std::move(map)) != gneiss::result::success) {
@@ -75,7 +75,7 @@ int main() {
   using gneiss::result;
   using namespace gneiss::input_internal;
   const auto original = action;
-  gneiss::asset_internal::action_map candidate{{{"move", {{26U, 1.0F}}}}};
+  gneiss::engine::resource::action_map candidate{{{"move", {{26U, 1.0F}}}}};
   auto invalid = candidate;
   invalid.actions[0].bindings[0].physical_key = 256U;
   if (input.replace_action_map(invalid) != result::invalid_argument ||

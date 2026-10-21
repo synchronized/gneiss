@@ -28,7 +28,7 @@ struct prefab_description final {
                                                      scene_diagnostic& out_diagnostic) noexcept;
 
 [[nodiscard]] gneiss_result
-load_prefab_description(const asset_internal::virtual_file_system& file_system,
+load_prefab_description(const engine::resource::virtual_file_system& file_system,
                         std::string_view uri, prefab_description& out_prefab,
                         scene_diagnostic& out_diagnostic) noexcept;
 

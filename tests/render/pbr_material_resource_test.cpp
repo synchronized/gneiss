@@ -26,11 +26,11 @@ int main() {
   // 原生路径同样拒绝非法枚举，不能依赖 C 入口代替服务校验。
   gneiss::render_internal::material_resource native;
   gneiss_material native_handle{};
-  native.alpha_mode = static_cast<gneiss::asset_internal::material_alpha_mode>(UINT32_MAX);
+  native.alpha_mode = static_cast<gneiss::engine::resource::material_alpha_mode>(UINT32_MAX);
   if (resources.create_material(native, &native_handle) != GNEISS_ERROR_INVALID_ARGUMENT)
     return 30;
-  native.alpha_mode = gneiss::asset_internal::material_alpha_mode::opaque;
-  native.sampling[2].address_v = static_cast<gneiss::asset_internal::texture_address>(UINT32_MAX);
+  native.alpha_mode = gneiss::engine::resource::material_alpha_mode::opaque;
+  native.sampling[2].address_v = static_cast<gneiss::engine::resource::texture_address>(UINT32_MAX);
   if (resources.create_material(native, &native_handle) != GNEISS_ERROR_INVALID_ARGUMENT)
     return 31;
   native.sampling[2] = {};
@@ -146,9 +146,9 @@ int main() {
   if (create_material(resources, desc, &material) != GNEISS_SUCCESS)
     return 16;
   value = resources.get_material(material);
-  if (value->alpha_mode != gneiss::asset_internal::material_alpha_mode::blend ||
+  if (value->alpha_mode != gneiss::engine::resource::material_alpha_mode::blend ||
       value->double_sided != 1U || value->alpha_cutoff != 1.5F || value->uv1_mask() != 1U ||
-      value->sampling[0].address_u != gneiss::asset_internal::texture_address::mirror)
+      value->sampling[0].address_u != gneiss::engine::resource::texture_address::mirror)
     return 17;
   if (resources.destroy_material(material) != GNEISS_SUCCESS)
     return 18;
@@ -168,7 +168,7 @@ int main() {
   desc.struct_size = GNEISS_MATERIAL_DESC_VERSION_2_SIZE;
   if (create_material(resources, desc, &material) != GNEISS_SUCCESS ||
       resources.get_material(material)->alpha_mode !=
-          gneiss::asset_internal::material_alpha_mode::opaque ||
+          gneiss::engine::resource::material_alpha_mode::opaque ||
       resources.get_material(material)->uv1_mask() != 0U ||
       resources.destroy_material(material) != GNEISS_SUCCESS)
     return 21;
