@@ -233,6 +233,8 @@ Scene 服务完成入口校验后转交实例，不直接修改这些事务的�
 `documents/document_editing` 由宿主持有，拥有单个文档、撤销历史及资产/Prefab 编辑控制器。
 关闭时拒绝未完成编辑；取消并排空后，先清理历史再关闭文档。它不拥有 Application、
 执行器或场景加载事务，也不承担保存提示和多文档管理。
+新建场景先准备候选，成功后清理旧历史并替换文档；场景加载事务接收这个所有者，
+在途编辑未结束时拒绝新请求并暂停场景域推进。
 
 场景加载事务 `documents/editor_scene_loader`、资产替换事务
 `commands/editor_asset_edit`、Prefab 事务 `commands/editor_prefab_edit` 编译在编辑器模块内，

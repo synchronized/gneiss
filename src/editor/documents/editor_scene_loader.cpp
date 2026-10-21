@@ -6,8 +6,9 @@
 
 namespace gneiss::editor {
 
-result editor_scene_loader::request(runtime::application& application, std::string_view uri) {
-  if (active_) {
+result editor_scene_loader::request(runtime::application& application,
+                                    const document_editing& editing, std::string_view uri) {
+  if (active_ || editing.active()) {
     return result::not_ready;
   }
   if (!application.accepts_requests() || !application.is_owner_thread() || uri.empty()) {
@@ -41,11 +42,13 @@ result editor_scene_loader::cancel(runtime::application& application) {
   return operation;
 }
 
-result editor_scene_loader::advance(runtime::application& application, scene_document& session,
-                                    gneiss_world& world, editor_camera& camera,
-                                    editor_command_history& history, bool& changed) {
+result editor_scene_loader::advance(runtime::application& application, document_editing& editing,
+                                    gneiss_world& world, editor_camera& camera, bool& changed) {
   using namespace runtime;
   changed = false;
+  // 防御非 UI 调用方：有编辑未结束时不推进场景域，避免切换或退休旧 World。
+  if (editing.active())
+    return result::success;
   // 即使界面已收起也推进旧域回收，下一次打开不能被退休域永久阻塞。
   scene_load_completion completion;
   bool finished{};
@@ -99,13 +102,14 @@ result editor_scene_loader::advance(runtime::application& application, scene_doc
   }
 
   // 激活后旧域仍存活至下一次推进；先释放依赖旧 World 的编辑器状态。
-  history.clear();
+  const auto closed = editing.close();
+  if (closed.failed())
+    return closed;
   camera.shutdown();
-  session.close();
   world = application.world();
   auto operation = result::success;
   if (operation == result::success) {
-    operation = session.adopt(application, world, completion.scene, uri_);
+    operation = editing.document().adopt(application, world, completion.scene, uri_);
   }
   if (operation == result::success) {
     operation = camera.initialize();

@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "documents/document_editing.hpp"
+#include "documents/editor_scene_loader.hpp"
 #include "runtime/application.hpp"
 
 namespace {
@@ -50,7 +51,7 @@ int main() try {
   bool cancelled = false;
   bool released_while_open = false;
   gneiss::editor::document_editing editing;
-  if (editing.document().create_empty(*application, application->world()).failed())
+  if (editing.create_empty(*application, application->world()).failed())
     return 2;
   const auto scene = editing.document().scene_handle();
   if (editing.history()
@@ -63,6 +64,15 @@ int main() try {
   if (editing.close() != result::not_ready || editing.document().scene_handle() != scene ||
       editing.history().size() != 1 || released_while_open)
     return 4;
+  gneiss::editor::editor_scene_loader loader;
+  gneiss::editor::editor_camera camera;
+  auto world = application->world();
+  bool changed = true;
+  if (editing.create_empty(*application, world) != result::not_ready ||
+      loader.request(*application, editing, "asset://scene.json") != result::not_ready ||
+      loader.active() || loader.advance(*application, editing, world, camera, changed).failed() ||
+      changed || editing.document().scene_handle() != scene)
+    return 8;
   editing.cancel(*application);
   editing.advance_cleanup(*application);
   if (!cancelled || !editing.active() || editing.close() != result::not_ready)
@@ -72,6 +82,23 @@ int main() try {
       editing.document().is_open() || editing.history().size() != 0 ||
       editing.close() != result::success)
     return 6;
+  // 新建失败不能丢失可撤销历史；成功后先释放旧命令，再替换文档。
+  if (editing.create_empty(*application, world).failed())
+    return 9;
+  const auto original = editing.document().scene_handle();
+  released_while_open = false;
+  if (editing.history()
+          .record(
+              std::make_unique<pending_command>(editing.document(), cancelled, released_while_open))
+          .failed() ||
+      editing.create_empty(*application, GNEISS_NULL_WORLD) != result::invalid_argument ||
+      editing.document().scene_handle() != original || !editing.history().can_undo() ||
+      released_while_open)
+    return 10;
+  if (editing.create_empty(*application, world).failed() || !released_while_open ||
+      editing.document().scene_handle() == original || editing.history().size() != 0 ||
+      !editing.document().is_dirty() || editing.close().failed())
+    return 11;
   return 0;
 } catch (...) {
   return 7;

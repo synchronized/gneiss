@@ -26,6 +26,8 @@ public:
   void advance_cleanup(runtime::application& application);
   /** 有在途操作时不修改任何状态；成功后历史先于文档释放，可重复调用。 */
   [[nodiscard]] result close() noexcept;
+  /** 先准备空场景；失败保留文档与历史，成功先释放旧历史再替换文档。 */
+  [[nodiscard]] result create_empty(runtime::application& application, gneiss_world world);
 
 private:
   scene_document document_;

@@ -3,8 +3,7 @@
 
 #pragma once
 
-#include "commands/editor_command_history.hpp"
-#include "documents/scene_document.hpp"
+#include "documents/document_editing.hpp"
 #include "runtime/loading/scene_load_types.hpp"
 #include "viewport/editor_camera.hpp"
 
@@ -13,9 +12,10 @@ namespace gneiss::editor {
 /** 编辑器所属线程的加载事务；执行器与 Application 由宿主拥有。 */
 class editor_scene_loader final {
 public:
-  result request(runtime::application& application, std::string_view uri);
-  result advance(runtime::application& application, scene_document& session, gneiss_world& world,
-                 editor_camera& camera, editor_command_history& history, bool& changed);
+  result request(runtime::application& application, const document_editing& editing,
+                 std::string_view uri);
+  result advance(runtime::application& application, document_editing& editing, gneiss_world& world,
+                 editor_camera& camera, bool& changed);
   result cancel(runtime::application& application);
   void dismiss() noexcept {
     if (!active_) {

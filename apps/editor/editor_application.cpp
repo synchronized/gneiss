@@ -730,7 +730,7 @@ gneiss::result perform_document_action(editor_state& state, document_action acti
   gneiss::result operation = gneiss::result::success;
   switch (action) {
   case document_action::new_scene:
-    operation = state.editing.document().create_empty(*state.application, state.world);
+    operation = state.editing.create_empty(*state.application, state.world);
     break;
   case document_action::open_scene: {
     std::filesystem::path path;
@@ -740,7 +740,7 @@ gneiss::result perform_document_action(editor_state& state, document_action acti
       operation = gneiss::editor::make_asset_uri(state.asset_root, path, uri);
     }
     if (operation == gneiss::result::success) {
-      operation = state.scene_loader.request(*state.application, uri);
+      operation = state.scene_loader.request(*state.application, state.editing, uri);
     }
     break;
   }
@@ -1301,7 +1301,7 @@ void draw_scene_loading(editor_state& state) {
     }
     if (ImGui::Button("Retry")) {
       const std::string retry_uri{uri};
-      (void)state.scene_loader.request(*state.application, retry_uri);
+      (void)state.scene_loader.request(*state.application, state.editing, retry_uri);
     }
     ImGui::SameLine();
     if (ImGui::Button("Back to Editor")) {
@@ -1322,9 +1322,8 @@ gneiss_result update_editor(const gneiss::engine::core::frame_time* time, void* 
       (void)state.task_scheduler.run_ready();
     }
     bool scene_changed{};
-    const auto loading =
-        state.scene_loader.advance(*state.application, state.editing.document(), state.world,
-                                   state.camera, state.editing.history(), scene_changed);
+    const auto loading = state.scene_loader.advance(*state.application, state.editing, state.world,
+                                                    state.camera, scene_changed);
     if (loading != gneiss::result::success) {
       return gneiss::to_native(loading);
     }
@@ -2979,7 +2978,7 @@ int run_editor(int argc, char** argv) {
   if (operation != gneiss::result::success) {
     report_startup_failure("Editor World/Inspector 初始化", operation);
   } else {
-    operation = state.editing.document().create_empty(*application, state.world);
+    operation = state.editing.create_empty(*application, state.world);
     if (operation != gneiss::result::success) {
       report_startup_failure("启动场景打开", operation, project.startup_scene);
     }
@@ -2996,7 +2995,7 @@ int run_editor(int argc, char** argv) {
     return 3;
   }
   state.editing.history().clear();
-  (void)state.scene_loader.request(*application, project.startup_scene);
+  (void)state.scene_loader.request(*application, state.editing, project.startup_scene);
   const auto run_result = gneiss::from_native(application->run(0, 0U));
   state.editing.cancel(*application);
   while (state.editing.active()) {

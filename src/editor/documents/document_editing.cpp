@@ -18,6 +18,19 @@ void document_editing::advance_cleanup(runtime::application& application) {
   }
   assets_.advance(application, document_, history_);
 }
+result document_editing::create_empty(runtime::application& application, gneiss_world world) {
+  if (active())
+    return result::not_ready;
+  scene_document candidate;
+  const auto prepared = candidate.create_empty(application, world);
+  if (prepared.failed())
+    return prepared;
+  const auto closed = close();
+  if (closed.failed())
+    return closed;
+  document_ = std::move(candidate);
+  return result::success;
+}
 result document_editing::close() noexcept {
   if (active())
     return result::not_ready;
