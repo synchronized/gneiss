@@ -5,10 +5,11 @@
 #include "engine/core/diagnostics/profiling.hpp"
 #include "engine/core/diagnostics/task_submission.hpp"
 #include "engine/function/render/render_resource_service.hpp"
+#include "engine/resource/asset_manager.hpp"
 
+#include "engine/resource/loaders/texture_container.hpp"
 #include "engine/resource/vfs/asset_uri.hpp"
 #include "engine/resource/vfs/source_revision_file_system.hpp"
-#include "engine/resource/loaders/texture_container.hpp"
 
 #include <algorithm>
 #include <stdexcept>
@@ -382,7 +383,7 @@ void scene_load_service::advance_verification(pending& value) {
     GNEISS_PROFILE_SCOPE("scene.builder.create");
     diagnostics::measure(diagnostics::loop_stage::scene_builder_create, [&] {
       value.builder = std::make_unique<scene_internal::scene_load_builder>(
-          *value.candidate->scenes, std::move(value.cpu->description), std::move(value.bindings));
+          *value.candidate->scenes(), std::move(value.cpu->description), std::move(value.bindings));
     });
   }
   // 激活后的热重载必须回到宿主原始 VFS，不能继承一次性加载会话的内容固定规则。
@@ -414,8 +415,8 @@ void scene_load_service::advance_impl() {
       finish(value.cpu->result, scene_load_phase::failed, value.cpu->diagnostic.message);
       return;
     }
-    value.candidate = std::make_unique<application_scene_state>(asset_owner_, render_assets_);
-    const auto initialized = value.candidate->initialize();
+    value.candidate = std::make_unique<application_scene_state>();
+    const auto initialized = value.candidate->initialize(asset_owner_, render_assets_);
     if (initialized != GNEISS_SUCCESS) {
       finish(initialized, scene_load_phase::failed);
       return;

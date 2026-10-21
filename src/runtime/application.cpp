@@ -4,12 +4,13 @@
 #include "runtime/application.hpp"
 #include "engine/core/diagnostics/loop_timing.hpp"
 #include "engine/core/diagnostics/profiling.hpp"
-#include "runtime/loading/action_map_application.hpp"
-#include "runtime/loading/scene_session.hpp"
 #include "engine/function/input/input_service.hpp"
 #include "engine/function/render/render_executor.hpp"
 #include "engine/function/render/render_resource_service.hpp"
 #include "engine/function/world/world.hpp"
+#include "engine/resource/asset_manager.hpp"
+#include "runtime/loading/action_map_application.hpp"
+#include "runtime/loading/scene_session.hpp"
 #include <atomic>
 #include <optional>
 #include <thread>

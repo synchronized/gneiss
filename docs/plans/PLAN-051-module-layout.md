@@ -165,3 +165,14 @@ Prefab/Scene 描述与作者属性值已迁入资产层，Registry 覆盖编辑�
 与应用相关 C 适配已迁入 src/runtime。批次 E 的源码目录迁移已落地；跨平台及安装消费
 验收仍待完成。现有对象和缓存实现保持不变，后续继续收敛重复状态。
 当前结构以[源码布局](../concepts/repository-layout.md)为准。
+
+## 场景对象收敛状态
+
+场景域已封装 World 与实例服务所有权，移除重复 World RID 以及 VFS、Render、Prefab
+加载器引用；使用者显式访问真正的资源所有者。初始化成功后才发布 World 与实例服务，
+Session 初始化成功后才发布活动域。
+
+暂保留三种对象：session 拥有活动/退役域，load_service 拥有在途候选，scene_state
+拥有一个 World 及其 Scene 实例。它们不是三份相同场景状态，不能为减少类数量合并
+而改变取消、旧状态保留和延迟清理。Session 中的资源重载编排仍待独立审查，批次 F
+尚未整体完成。

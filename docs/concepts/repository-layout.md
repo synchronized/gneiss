@@ -166,8 +166,9 @@ Engine 公共接口统一位于 `include/gneiss/engine/`，基础类型位于其
 | --- | --- | --- |
 | 程序启动与关闭 | `apps/editor/editor_application.cpp`、`apps/runtime/main.cpp` | 宿主拥有原生 Application，先清理依赖它的会话、命令与任务 |
 | Application 装配 | `src/runtime/application.hpp` | 拥有平台、服务与场景协调组件；普通内部操作不解析自身 C 句柄 |
-| 场景切换 | `src/runtime/loading/scene_session.hpp` | 管理活动、候选与退役域，协调准备、验证与激活 |
-| 场景域 | `src/runtime/loading/application_scene_state.hpp` | 拥有原生 World 与场景实例服务，借用共享资产状态 |
+| 场景切换 | `src/runtime/loading/scene_session.hpp` | 拥有活动与退役域及加载服务，协调激活 |
+| 候选加载 | `src/runtime/loading/scene_load_service.hpp` | 在途请求独占候选域；完成验证后转交 session |
+| 场景域 | `src/runtime/loading/application_scene_state.hpp` | 仅拥有 World 与场景实例服务；不重复存储资源加载器引用或 World RID，初始化成功才发布 |
 | World 数据和操作 | `src/engine/function/world/world.hpp` | 原生对象拥有 ECS/树状态；`world_service.hpp` 管理 C 兼容句柄与反射接入 |
 | Scene 服务契约 | `src/engine/function/scene/scene_instance_service.hpp` | 通过强类型节点 ID 操作实例；借用所属 World |
 | Scene 私有实例 | `src/engine/function/scene/scene_instance.hpp` | 维护节点、作者描述及所使用资源版本的租约，不向宿主提供头文件 |

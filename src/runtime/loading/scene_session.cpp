@@ -3,6 +3,7 @@
 
 #include "runtime/loading/scene_session.hpp"
 #include "engine/core/diagnostics/loop_timing.hpp"
+#include "engine/resource/asset_manager.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -19,10 +20,15 @@ gneiss_result scene_session::initialize(engine::asset_manager& assets,
   if (active_) {
     return GNEISS_ERROR_INVALID_STATE;
   }
+  auto next = std::make_unique<application_scene_state>();
+  const auto result = next->initialize(assets, render);
+  if (result != GNEISS_SUCCESS) {
+    return result;
+  }
   asset_owner_ = &assets;
   render_assets_ = &render;
-  active_ = std::make_unique<application_scene_state>(assets, render);
-  return active_->initialize();
+  active_ = std::move(next);
+  return GNEISS_SUCCESS;
 }
 
 gneiss_result
@@ -110,10 +116,10 @@ engine::world* scene_session::native_world() const noexcept {
 }
 
 gneiss_world scene_session::world() const noexcept {
-  return active_ ? active_->world : GNEISS_NULL_WORLD;
+  return active_ ? active_->world() : GNEISS_NULL_WORLD;
 }
 scene_internal::scene_instance_service* scene_session::scenes() noexcept {
-  return active_ ? active_->scenes.get() : nullptr;
+  return active_ ? active_->scenes() : nullptr;
 }
 render_internal::texture_load_service* scene_session::textures() noexcept {
   return textures_.get();
@@ -161,7 +167,7 @@ scene_session::request_assets(std::span<const render_internal::render_asset_relo
     }
   }
   std::vector<render_internal::render_asset_lease> previous;
-  const auto captured = active_->scenes->capture_render_assets(previous);
+  const auto captured = active_->scenes()->capture_render_assets(previous);
   if (captured != GNEISS_SUCCESS) {
     return captured;
   }
@@ -234,7 +240,7 @@ gneiss_result scene_session::poll_assets(render_internal::texture_load_completio
         }
         if (completion.result == GNEISS_SUCCESS) {
           completion.result = accept_edit_assets(
-              completion, [&] { return active_->scenes->replace_render_assets(changes); });
+              completion, [&] { return active_->scenes()->replace_render_assets(changes); });
         }
       }
     } catch (const std::bad_alloc&) {
