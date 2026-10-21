@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/function/application/application.hpp"
-#include "engine/function/application/application_bridge.hpp"
+#include "runtime/application.hpp"
+#include "runtime/application_bridge.hpp"
 #include "engine/function/scene/scene_instance_service.hpp"
 #include "engine/function/world/world.hpp"
 #include <gneiss/app/project_description.hpp>
 #include <gneiss/engine/core/result.hpp>
 #include <gneiss/engine/scene.h>
 
-#include "engine/function/game/game_context_internal.hpp"
+#include "runtime/game/game_context_internal.hpp"
 #include "game_module_session.hpp"
 #include "game_update_scheduler.hpp"
 #include "runtime_asset_reloader.hpp"

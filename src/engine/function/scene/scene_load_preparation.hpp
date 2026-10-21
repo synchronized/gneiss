@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "engine/resource/prefab_description.hpp"
+#include "engine/resource/types/prefab_description.hpp"
 #include "engine/function/render/render_asset_loader.hpp"
 
 #include <functional>

@@ -6,7 +6,7 @@
 #include "editor_camera.hpp"
 #include "editor_command_history.hpp"
 #include "editor_session.hpp"
-#include "engine/function/application/scene_load_types.hpp"
+#include "runtime/loading/scene_load_types.hpp"
 
 namespace gneiss::editor {
 

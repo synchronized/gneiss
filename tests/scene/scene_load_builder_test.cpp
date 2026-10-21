@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/resource/virtual_file_system.hpp"
-#include "engine/function/application/application_scene_state.hpp"
+#include "engine/resource/vfs/virtual_file_system.hpp"
+#include "runtime/loading/application_scene_state.hpp"
 #include "engine/function/render/render_resource_service.hpp"
 #include "engine/function/scene/scene_load_builder.hpp"
 #include "engine/function/world/world_service.hpp"

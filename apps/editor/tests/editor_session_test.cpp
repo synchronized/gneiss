@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "editor_session.hpp"
-#include "engine/function/application/application_registry.hpp"
+#include "runtime/application_registry.hpp"
 #include "runtime_author_apply.hpp"
 
 #include <gneiss/engine/application.hpp>

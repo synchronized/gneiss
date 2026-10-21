@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/function/application/application_registry.hpp"
+#include "runtime/application_registry.hpp"
 #include "runtime_scene_inspection.hpp"
 
 #include <string_view>

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "editor_prefab_edit.hpp"
-#include "engine/function/application/application_asset_reload_internal.hpp"
-#include "engine/function/application/application_registry.hpp"
+#include "runtime/application_asset_reload_internal.hpp"
+#include "runtime/application_registry.hpp"
 #include <chrono>
 #include <cstdio>
 #include <filesystem>

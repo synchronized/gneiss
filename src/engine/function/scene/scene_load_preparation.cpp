@@ -3,7 +3,7 @@
 
 #include "engine/function/scene/scene_load_preparation.hpp"
 
-#include "engine/resource/virtual_file_system.hpp"
+#include "engine/resource/vfs/virtual_file_system.hpp"
 
 #include <algorithm>
 #include <unordered_map>

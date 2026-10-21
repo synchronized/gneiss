@@ -41,16 +41,16 @@ set_tests_properties(gneiss.caors.asset-probe PROPERTIES TIMEOUT 30)
 
 # 资产层桥接只在独立宿主验证；不向平台适配层引入反向依赖。
 add_library(gneiss_caors_vfs_bridge STATIC
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/caors_vfs_bridge.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/virtual_file_system.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/asset_uri.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/resource/backend/caors/caors_vfs_bridge.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/resource/vfs/virtual_file_system.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/resource/vfs/asset_uri.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/core/sha256.cpp")
 target_include_directories(gneiss_caors_vfs_bridge PRIVATE "${PROJECT_SOURCE_DIR}/src" "${PROJECT_SOURCE_DIR}/include")
 target_link_libraries(gneiss_caors_vfs_bridge PUBLIC gneiss_caors_adapter)
 gneiss_target_compile_warnings(gneiss_caors_vfs_bridge)
 add_executable(gneiss_caors_vfs_bridge_test vfs_bridge_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/native_file_system.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/source_revision_file_system.cpp")
+  "${PROJECT_SOURCE_DIR}/src/engine/resource/vfs/native_file_system.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/resource/vfs/source_revision_file_system.cpp")
 target_compile_definitions(gneiss_caors_vfs_bridge_test PRIVATE GNEISS_ASSET_LIBUV GNEISS_BUILDING_LIBRARY)
 target_include_directories(gneiss_caors_vfs_bridge_test PRIVATE "${PROJECT_SOURCE_DIR}/src" "${PROJECT_SOURCE_DIR}/include")
 target_link_libraries(gneiss_caors_vfs_bridge_test PRIVATE gneiss_caors_vfs_bridge gneiss_caors_input gneiss_io_uv)
@@ -62,15 +62,15 @@ set_tests_properties(gneiss.caors.vfs-bridge PROPERTIES TIMEOUT 30)
 
 # 材质文档验证只链接 CPU 准备实现，不链接 Engine 或创建渲染资源。
 add_executable(gneiss_caors_material_document_test material_document_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/native_file_system.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/asset_preparation.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/cpu_document_cache.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/mesh_binary.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/texture_binary.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/texture_ktx2.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/texture_container.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/source_revision_file_system.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/png_decoder.cpp")
+  "${PROJECT_SOURCE_DIR}/src/engine/resource/vfs/native_file_system.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/asset_preparation.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/resource/cache/cpu_document_cache.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/mesh_binary.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/texture_binary.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/texture_ktx2.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/texture_container.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/resource/vfs/source_revision_file_system.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/png_decoder.cpp")
 target_compile_definitions(gneiss_caors_material_document_test PRIVATE GNEISS_ASSET_LIBUV GNEISS_BUILDING_LIBRARY)
 target_include_directories(gneiss_caors_material_document_test PRIVATE "${PROJECT_SOURCE_DIR}/src" "${PROJECT_SOURCE_DIR}/include")
 target_link_libraries(gneiss_caors_material_document_test PRIVATE

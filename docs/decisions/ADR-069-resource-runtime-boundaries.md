@@ -16,6 +16,9 @@ engine/asset 与 function/asset 分散资源能力，统一管理器仍混合缓
 - 合并为 engine/resource，负责 CPU 资源描述、加载、缓存和引用；CAORS 是内部实现。
 - function 保留 Input、Scene、World、Render 的运行时行为；GPU 生命周期归 Render。
 - Application 的系统组装与场景切换流程归 src/runtime，apps 保留薄入口。
+- 依赖 Application 的游戏上下文及 C 适配同属 Runtime；Engine 不反向包含 Runtime。
+  混合提供资源和 Application 入口的渲染、场景适配文件暂整体归 runtime/api，复用
+  engine/api 的值转换辅助；不为目录迁移修改公共符号，也不新增动态库边界。
 - Editor 文档管理编辑状态，不复制运行时场景树。保留一个 World 多个 Scene。
 - 资产管理器不执行场景或编辑回调；应用层在修改成功后提交已准备的资源版本选择。
 - 不新增全局 locator，不并行实现第二套资源状态机，不改变公共 SDK 命名规则。

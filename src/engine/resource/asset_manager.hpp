@@ -4,11 +4,11 @@
 #define GNEISS_ENGINE_ASSET_MANAGER_HPP_
 
 #include "action_map_request.hpp"
-#include "engine/resource/action_map.hpp"
-#include "engine/resource/cpu_document_cache.hpp"
-#include "engine/resource/resource_cache.hpp"
-#include "engine/resource/virtual_file_system.hpp"
-#include "engine/resource/prefab_asset_loader.hpp"
+#include "engine/resource/types/action_map.hpp"
+#include "engine/resource/cache/cpu_document_cache.hpp"
+#include "engine/resource/cache/resource_cache.hpp"
+#include "engine/resource/vfs/virtual_file_system.hpp"
+#include "engine/resource/loaders/prefab_asset_loader.hpp"
 #include <memory>
 #include <utility>
 

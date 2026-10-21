@@ -4,10 +4,10 @@
 #ifndef GNEISS_SCENE_PREFAB_RUNTIME_INSTANCE_HPP_
 #define GNEISS_SCENE_PREFAB_RUNTIME_INSTANCE_HPP_
 
-#include "engine/resource/prefab_description.hpp"
+#include "engine/resource/types/prefab_description.hpp"
 #include "engine/core/publication_group.hpp"
 #include "engine/function/render/render_asset_loader.hpp"
-#include "engine/resource/prefab_asset_loader.hpp"
+#include "engine/resource/loaders/prefab_asset_loader.hpp"
 
 #include "engine/function/world/world.hpp"
 

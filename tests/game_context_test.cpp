@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/function/game/game_context_internal.hpp"
+#include "runtime/game/game_context_internal.hpp"
 
 #include <gneiss/engine/application.h>
 #include <gneiss/engine/game_module.hpp>

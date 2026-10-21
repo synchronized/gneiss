@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "asset_manager.hpp"
-#include "caors_action_map_request.hpp"
-#include "engine/resource/asset_uri.hpp"
-#include "engine/resource/caors_action_map.hpp"
-#include "engine/resource/caors_vfs_bridge.hpp"
+#include "engine/resource/backend/caors/caors_action_map_request.hpp"
+#include "engine/resource/vfs/asset_uri.hpp"
+#include "engine/resource/backend/caors/caors_action_map.hpp"
+#include "engine/resource/backend/caors/caors_vfs_bridge.hpp"
 #include "engine/platform/caors/adapter.hpp"
 #include <map>
 #include <stdexcept>

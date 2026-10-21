@@ -40,6 +40,7 @@ src/
       asset_request.hpp             原生请求契约，按真实使用需要收敛
       types/                        mesh/material/texture/scene/prefab/input_map 描述
       loaders/                      解码、资源依赖声明
+      cache/                        现有 CPU 缓存实现，不新增平行缓存
       vfs/                          路径、挂载、容器访问
       backend/caors/                CAORS 注册、请求和缓存实现
     function/
@@ -51,8 +52,10 @@ src/
     api/                            C ABI 转发与类型转换
   runtime/
     application.*                   服务组装、运行循环与退出顺序
-    project_settings.*              项目配置读取与使用
-    scene_loading.*                 请求完成后的实例化与场景切换流程
+    configuration/                  项目与运行配置
+    loading/                        请求完成后的实例化与场景切换流程
+    game/                           游戏运行上下文
+    api/                            依赖 Application 的 C ABI 适配
   editor/
     editor_application.*
     documents/scene_document.*      文档、选择、撤销与保存状态
@@ -158,6 +161,7 @@ Prefab/Scene 描述与作者属性值已迁入资产层，Registry 覆盖编辑�
 
 已将 engine/asset、function/asset 与 Prefab 资源 Loader 合并为 `src/engine/resource/`，
 旧目录与旧头路径已删除，CMake、内部头清单、测试和边界规则使用新路径。
-这完成批次 E 的资源目录部分；尚未迁移 Application 到 src/runtime，也未将 resource
-内部拆成 types/loaders/vfs/backend 子目录。缓存实现继续渐进收敛，不以此阻塞目录归属。
+资源内部已按 types/loaders/vfs/cache/backend 分类，Application、加载流程、游戏上下文
+与应用相关 C 适配已迁入 src/runtime。批次 E 的源码目录迁移已落地；跨平台及安装消费
+验收仍待完成。现有对象和缓存实现保持不变，后续继续收敛重复状态。
 当前结构以[源码布局](../concepts/repository-layout.md)为准。

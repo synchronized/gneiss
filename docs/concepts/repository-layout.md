@@ -8,7 +8,7 @@
 本文描述当前实际源码布局，不把已批准的迁移目标当成已实现。0.45 的精简目标目录与宿主边界见
 [ADR-054](../decisions/ADR-054-source-layout-and-host-boundaries.md)，迁移映射与验收见
 [DEV-045](../plans/DEV-045-cpp-boundaries.md)。Core、Platform、Resource 与 Function 已迁入 `src/engine/`，
-C ABI 适配位于 `src/engine/api/`，`src/editor/` 管理 UI、资产服务、编辑模型、场景会话与创作事务；
+基础 C ABI 适配位于 `src/engine/api/`，应用相关适配位于 `src/runtime/api/`，`src/editor/` 管理 UI、资产服务、编辑模型、场景会话与创作事务；
 `apps/` 保持位于仓库根目录，负责程序入口及宿主装配。
 
 总体分层以[总体架构](architecture.md)为准，代码与文档规范分别以
@@ -19,8 +19,10 @@ C ABI 适配位于 `src/engine/api/`，`src/editor/` 管理 UI、资产服务、
 资产管理器、资源描述、解析、VFS、CPU 文档缓存及 Prefab Loader 已统一位于
 `src/engine/resource/`；旧 `src/engine/asset/`、`src/engine/function/asset/` 已删除，
 没有兼容转发头。渲染 Loader 与上传保留在 `function/render`，Prefab 实例化和编辑保留在
-`function/scene`。当前 resource 内部仍为平铺文件，尚未拆成目标中的 types/loaders/backend 子目录。
-Application 组装当前仍在 `function/application`；迁到 `src/runtime` 尚待执行。
+`function/scene`。资源代码已按 `types/`、`loaders/`、`vfs/`、`cache/` 和 `backend/caors/` 分类。
+Application 组装位于 `src/runtime/`，加载流程位于其 `loading/`，配置位于 `configuration/`。
+游戏上下文归 `runtime/game/`，依赖 Application 的 C 适配归 `runtime/api/`。
+Engine 源码不得反向包含 Runtime；当前仍一起编入 `gneiss_engine`，没有新增公共库目标。
 目标与剩余批次见[模块布局计划](../plans/PLAN-051-module-layout.md)。
 
 ## 当前顶层目录
@@ -37,7 +39,7 @@ Application 组装当前仍在 `function/application`；迁到 `src/runtime` 尚
 | `3rd/` | 锁定版本并与自有代码隔离的第三方依赖 |
 | `cmake/` | 项目构建策略和可复用的 CMake 模块 |
 
-当前 `gneiss_engine` 的四层实现已集中在 `src/engine/`，C ABI 适配位于 `src/engine/api/`。
+当前 `gneiss_engine` 的四层实现已集中在 `src/engine/`，基础 C ABI 适配位于 `src/engine/api/`，应用相关适配位于 `src/runtime/api/`。
 Runtime 宿主与 Editor 入口分别位于 `apps/runtime/` 和 `apps/editor/`；两者可以依赖 Engine Library，
 Engine Library 不得反向依赖它们。Editor 的 ImGui Context、字体、主题、DockSpace 和通用控件由
 `src/editor/` 中不安装、不导出的 `gneiss_editor_ui` 内部静态库统一管理，面板选择状态仍由 Editor 应用层持有。
@@ -95,15 +97,15 @@ assetc CLI 位于 `apps/assetc/`，工具测试由 `tests/tooling/` 组织，性
 | Core | `src/engine/core/` | 结果、RID、Service 注册等无领域倾向的基础设施 | 已存在 |
 | World | `src/engine/function/world/` | World、Entity、System 与 EnTT 适配 | 已存在 |
 | Scene | `src/engine/function/scene/` | Scene Tree、节点映射与层级 Transform | 已存在 |
-| Application | `src/engine/function/application/` | 顶层生命周期、初始化回滚和主循环编排 | 已存在 |
+| Application | `src/runtime/` | 顶层生命周期、初始化回滚和主循环编排 | 已存在 |
 | Platform | `src/engine/platform/` | 窗口、IO、IPC、子进程和动态库等平台能力的隔离 | 已存在 |
 | Asset | `src/engine/resource/` | VFS、格式、CPU 解码与缓存 | 已迁移 |
 | Render | `src/engine/function/render/` | 渲染输入快照、资源 RID、帧包与执行器 | 已存在 |
 | Input | `src/engine/function/input/` | 输入状态与动作映射 | 已迁移 |
-| Game | `src/engine/function/game/` | Game Module 上下文与宿主桥接 | 已迁移 |
+| Game | `src/runtime/game/` | Game Module 上下文与宿主桥接 | 已迁移 |
 | Reflection | `src/engine/core/reflection/` | 唯一类型注册表与属性访问 | 已存在 |
 | Log | `src/engine/core/log/` | 通用文本校验与异步事件投递；Application 独立适配公共回调 | 已迁移 |
-| C ABI | `src/engine/api/` | 公开描述适配、异常隔离及内部入口委托 | 已存在 |
+| C ABI | `src/engine/api/`、`src/runtime/api/` | 公开描述适配、异常隔离及内部入口委托 | 已存在 |
 | Tooling | `src/tooling/` | 离线资产处理实现 | 已存在 |
 | Granit 后端 | `src/engine/function/render/backend/granit/` | Granit 类型、调用和错误转换的隔离 | 已存在 |
 
@@ -112,7 +114,7 @@ Platform 的 Granit Window 适配位于 `src/engine/platform/granit/`；`src/eng
 Application 的 C 入口将版本化描述转换为内部 `application_configuration`，Platform 只接收
 `window_configuration`。用户回调仍是实际 ABI 边界，不将回调上下文复制成另一套状态。渲染快照的值类型位于 `src/engine/function/render/render_snapshot.hpp`，
 World 的提取函数位于 `src/engine/function/world/render_snapshot.hpp`，Render 不反向包含 World/Scene/Application。
-`src/engine/resource/png_decoder.hpp` 提供 CPU 解码，Cook 与运行时加载共用；解码不依赖渲染服务。
+`src/engine/resource/loaders/png_decoder.hpp` 提供 CPU 解码，Cook 与运行时加载共用；解码不依赖渲染服务。
 
 Scene 的节点创建使用内部借用参数，普通节点与 Prefab 查询返回内部视图。公共查询结构的版本写回
 归 `src/engine/api/scene_query_conversion.hpp`；核心查询不依据 ABI 尺寸分支。字符串寿命仍由 Scene 管理。
@@ -125,7 +127,7 @@ Render 的同步资源创建接收内部 `mesh_view`、`texture_view` 与 `mater
 继续负责数值、拓扑、RID 与预算校验，成功后拥有数据副本。资产加载器不生成版本化 C 描述。
 
 `render_asset_loader` 暂仍位于 Render，它连接 Asset 缓存租约与 Render 资源发布，并不只是格式
-解码器。CPU 准备和解析实现位于 `src/engine/resource/asset_preparation.hpp/.cpp`，
+解码器。CPU 准备和解析实现位于 `src/engine/resource/loaders/asset_preparation.hpp/.cpp`，
 Render 的准备适配只传入发布资源的预算。三类准备数据均使用 Asset 值类型，材质依赖仅用 URI，
 发布边界绑定纹理 RID 并移动纹理数组；上传弱引用仍由 Render 管理。Asset 不包含 Render 实现，
 独立准备测试不链接 Engine、缓存或资源服务。其余迁移见 [0.45 实施计划](../plans/DEV-045-cpp-boundaries.md)。
@@ -163,9 +165,9 @@ Engine 公共接口统一位于 `include/gneiss/engine/`，基础类型位于其
 | 要了解的行为 | 入口 | 拥有或借用关系 |
 | --- | --- | --- |
 | 程序启动与关闭 | `apps/editor/editor_application.cpp`、`apps/runtime/main.cpp` | 宿主拥有原生 Application，先清理依赖它的会话、命令与任务 |
-| Application 装配 | `src/engine/function/application/application.hpp` | 拥有平台、服务与场景协调组件；普通内部操作不解析自身 C 句柄 |
-| 场景切换 | `src/engine/function/application/scene_session.hpp` | 管理活动、候选与退役域，协调准备、验证与激活 |
-| 场景域 | `src/engine/function/application/application_scene_state.hpp` | 拥有原生 World 与场景实例服务，借用共享资产状态 |
+| Application 装配 | `src/runtime/application.hpp` | 拥有平台、服务与场景协调组件；普通内部操作不解析自身 C 句柄 |
+| 场景切换 | `src/runtime/loading/scene_session.hpp` | 管理活动、候选与退役域，协调准备、验证与激活 |
+| 场景域 | `src/runtime/loading/application_scene_state.hpp` | 拥有原生 World 与场景实例服务，借用共享资产状态 |
 | World 数据和操作 | `src/engine/function/world/world.hpp` | 原生对象拥有 ECS/树状态；`world_service.hpp` 管理 C 兼容句柄与反射接入 |
 | Scene 服务契约 | `src/engine/function/scene/scene_instance_service.hpp` | 通过强类型节点 ID 操作实例；借用所属 World |
 | Scene 私有实例 | `src/engine/function/scene/scene_instance.hpp` | 维护节点、作者描述及所使用资源版本的租约，不向宿主提供头文件 |

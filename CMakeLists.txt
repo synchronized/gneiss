@@ -64,10 +64,10 @@ if(GNEISS_BUILD_CAORS_PROBE)
 endif()
 target_sources(gneiss_engine PRIVATE
   src/engine/platform/caors/worker.cpp
-  src/engine/resource/caors_vfs_bridge.cpp
-  src/engine/resource/caors_action_map_loader.cpp
-  src/engine/resource/caors_action_map_request.cpp
-  src/engine/function/application/action_map_application.cpp)
+  src/engine/resource/backend/caors/caors_vfs_bridge.cpp
+  src/engine/resource/backend/caors/caors_action_map_loader.cpp
+  src/engine/resource/backend/caors/caors_action_map_request.cpp
+  src/runtime/loading/action_map_application.cpp)
 if(GNEISS_BUILD_TOOLS)
   include(bc7enc)
   gneiss_resolve_bc7enc()

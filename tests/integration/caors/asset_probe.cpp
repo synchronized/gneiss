@@ -2,10 +2,10 @@
 // Copyright (c) 2026 Gneiss contributors
 
 // 独立接入验证：不链接 Engine DLL，不将 CAORS 对象带入公共 SDK。
-#include "engine/resource/caors_action_map.hpp"
+#include "engine/resource/backend/caors/caors_action_map.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
-#include "engine/function/application/action_map_application.hpp"
-#include "engine/resource/caors_action_map_request.hpp"
+#include "runtime/loading/action_map_application.hpp"
+#include "engine/resource/backend/caors/caors_action_map_request.hpp"
 #include "engine/function/input/input_service.hpp"
 #include "engine/platform/caors/adapter.hpp"
 #include "uv_async_file.hpp"

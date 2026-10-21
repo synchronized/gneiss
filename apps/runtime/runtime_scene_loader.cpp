@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "runtime_scene_loader.hpp"
-#include "engine/function/application/application.hpp"
+#include "runtime/application.hpp"
 
 namespace gneiss::runtime_internal {
 namespace {

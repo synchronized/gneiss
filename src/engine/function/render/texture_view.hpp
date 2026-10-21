@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "engine/resource/texture_types.hpp"
+#include "engine/resource/types/texture_types.hpp"
 
 #include <cstdint>
 #include <span>

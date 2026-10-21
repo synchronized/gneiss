@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/function/application/application_view_internal.hpp"
+#include "runtime/application_view_internal.hpp"
 #include "engine/function/world/render_snapshot.hpp"
 #include "engine/function/world/world_state.hpp"
 #include <thread>

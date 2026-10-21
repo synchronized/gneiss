@@ -4,10 +4,10 @@
 #ifndef GNEISS_SCENE_SCENE_INSTANCE_SERVICE_HPP_
 #define GNEISS_SCENE_SCENE_INSTANCE_SERVICE_HPP_
 
-#include "engine/resource/scene_description.hpp"
+#include "engine/resource/types/scene_description.hpp"
 #include "engine/core/rid_table.hpp"
 #include "engine/function/render/render_asset_loader.hpp"
-#include "engine/resource/prefab_asset_loader.hpp"
+#include "engine/resource/loaders/prefab_asset_loader.hpp"
 #include "engine/function/scene/prefab_candidate.hpp"
 #include "engine/function/scene/scene_creation.hpp"
 #include "engine/function/scene/scene_mesh_binding.hpp"

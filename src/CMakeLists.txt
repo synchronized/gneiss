@@ -28,60 +28,60 @@ target_sources(
   PRIVATE
     engine/resource/asset_manager.hpp
     engine/resource/asset_manager.cpp
-    engine/resource/cpu_document_cache.cpp
+    engine/resource/cache/cpu_document_cache.cpp
     engine/core/sha256.cpp
     engine/core/sha256.hpp
-    engine/api/application_api.cpp
-    engine/api/render_api.cpp
+    runtime/api/application_api.cpp
+    runtime/api/render_api.cpp
     engine/api/draw_description.hpp
     engine/api/material_description.hpp
     engine/api/mesh_description.hpp
     engine/api/texture_description.hpp
-    engine/api/scene_api.cpp
+    runtime/api/scene_api.cpp
     engine/api/scene_query_conversion.hpp
-    engine/api/input_api.cpp
-    engine/function/application/application_registry.cpp
-    engine/function/application/application_registry.hpp
-    engine/function/application/application_bridge.hpp
-    engine/function/application/application_host.cpp
-    engine/function/application/prefab_preparation.cpp
-    engine/function/application/prefab_placement.cpp
-    engine/function/application/application_asset_reload_internal.hpp
-    engine/function/application/application_log_internal.hpp
-    engine/api/application_log_sink.hpp
-    engine/function/application/scene_load_service.cpp
-    engine/function/application/scene_load_service.hpp
-    engine/function/application/scene_load_types.hpp
-    engine/function/application/application_scene_load_internal.hpp
-    engine/function/application/scene_session.cpp
-    engine/function/application/scene_session.hpp
-    engine/function/application/application_scene_state.cpp
-    engine/function/application/application_scene_state.hpp
-    engine/function/application/application.cpp
-    engine/function/application/application.hpp
-    engine/function/application/application_configuration.hpp
-    engine/resource/source_revision_file_system.cpp
-    engine/resource/source_revision_file_system.hpp
-    engine/resource/asset_uri.cpp
-    engine/resource/asset_uri.hpp
-    engine/resource/asset_identity.hpp
-    engine/resource/file_system.hpp
-    engine/resource/mesh_binary.cpp
-    engine/resource/mesh_binary.hpp
-    engine/resource/texture_ktx2.cpp
-    engine/resource/texture_ktx2.hpp
-    engine/resource/texture_binary.cpp
-    engine/resource/texture_binary.hpp
-    engine/resource/texture_container.cpp
-    engine/resource/texture_container.hpp
+    runtime/api/input_api.cpp
+    runtime/application_registry.cpp
+    runtime/application_registry.hpp
+    runtime/application_bridge.hpp
+    runtime/application_host.cpp
+    runtime/loading/prefab_preparation.cpp
+    runtime/loading/prefab_placement.cpp
+    runtime/application_asset_reload_internal.hpp
+    runtime/application_log_internal.hpp
+    runtime/api/application_log_sink.hpp
+    runtime/loading/scene_load_service.cpp
+    runtime/loading/scene_load_service.hpp
+    runtime/loading/scene_load_types.hpp
+    runtime/application_scene_load_internal.hpp
+    runtime/loading/scene_session.cpp
+    runtime/loading/scene_session.hpp
+    runtime/loading/application_scene_state.cpp
+    runtime/loading/application_scene_state.hpp
+    runtime/application.cpp
+    runtime/application.hpp
+    runtime/configuration/application_configuration.hpp
+    engine/resource/vfs/source_revision_file_system.cpp
+    engine/resource/vfs/source_revision_file_system.hpp
+    engine/resource/vfs/asset_uri.cpp
+    engine/resource/vfs/asset_uri.hpp
+    engine/resource/types/asset_identity.hpp
+    engine/resource/vfs/file_system.hpp
+    engine/resource/loaders/mesh_binary.cpp
+    engine/resource/loaders/mesh_binary.hpp
+    engine/resource/loaders/texture_ktx2.cpp
+    engine/resource/loaders/texture_ktx2.hpp
+    engine/resource/loaders/texture_binary.cpp
+    engine/resource/loaders/texture_binary.hpp
+    engine/resource/loaders/texture_container.cpp
+    engine/resource/loaders/texture_container.hpp
     engine/function/render/texture_load_service.cpp
     engine/function/render/texture_load_service.hpp
-    engine/resource/native_file_system.cpp
-    engine/resource/native_file_system.hpp
-    engine/resource/resource_cache.cpp
-    engine/resource/resource_cache.hpp
-    engine/resource/virtual_file_system.cpp
-    engine/resource/virtual_file_system.hpp
+    engine/resource/vfs/native_file_system.cpp
+    engine/resource/vfs/native_file_system.hpp
+    engine/resource/cache/resource_cache.cpp
+    engine/resource/cache/resource_cache.hpp
+    engine/resource/vfs/virtual_file_system.cpp
+    engine/resource/vfs/virtual_file_system.hpp
     engine/core/service_registry.cpp
     engine/core/service_registry.hpp
     engine/core/rid_table.hpp
@@ -91,18 +91,18 @@ target_sources(
     engine/core/version.hpp
     engine/core/result.cpp
     engine/core/version.cpp
-    engine/api/game_module_api.cpp
+    runtime/api/game_module_api.cpp
     engine/api/asset_api.cpp
-    engine/function/game/game_context.cpp
-    engine/function/game/game_context_internal.hpp
+    runtime/game/game_context.cpp
+    runtime/game/game_context_internal.hpp
     engine/function/input/input_service.cpp
     engine/core/input/input_types.hpp
     engine/api/input_conversion.hpp
     engine/function/input/input_service.hpp
-    engine/resource/action_map_validation.cpp
-    engine/resource/action_map.cpp
-    engine/resource/action_map_parser.cpp
-    engine/resource/action_map.hpp
+    engine/resource/types/action_map_validation.cpp
+    engine/resource/types/action_map.cpp
+    engine/resource/loaders/action_map_parser.cpp
+    engine/resource/types/action_map.hpp
     engine/api/log_api.cpp
     engine/api/log_validation.hpp
     engine/core/log/log.hpp
@@ -118,10 +118,10 @@ target_sources(
     engine/function/render/ui_draw_list.cpp
     engine/function/render/ui_draw_list.hpp
     engine/function/render/render_asset_loader.cpp
-    engine/resource/asset_preparation.cpp
+    engine/resource/loaders/asset_preparation.cpp
     engine/function/render/render_asset_loader.hpp
-    engine/resource/png_decoder.cpp
-    engine/resource/png_decoder.hpp
+    engine/resource/loaders/png_decoder.cpp
+    engine/resource/loaders/png_decoder.hpp
     engine/function/render/scene_projection_math.cpp
     engine/function/render/scene_projection_math.hpp
     engine/function/render/camera_math.cpp
@@ -135,19 +135,19 @@ target_sources(
     engine/api/reflection_api.cpp
     engine/function/scene/scene_tree.cpp
     engine/function/scene/scene_tree.hpp
-    engine/resource/prefab_asset_loader.cpp
-    engine/resource/prefab_asset_loader.hpp
+    engine/resource/loaders/prefab_asset_loader.cpp
+    engine/resource/loaders/prefab_asset_loader.hpp
     engine/function/scene/scene_load_builder.cpp
     engine/function/scene/scene_load_builder.hpp
     engine/function/scene/scene_load_preparation.cpp
     engine/function/scene/scene_load_preparation.hpp
-    engine/resource/scene_description.cpp
-    engine/resource/scene_description.hpp
+    engine/resource/types/scene_description.cpp
+    engine/resource/types/scene_description.hpp
     engine/function/scene/scene_creation.hpp
     engine/function/scene/scene_query.hpp
-    engine/resource/prefab_description.cpp
-    engine/resource/prefab_description.hpp
-    engine/resource/prefab_property_data.cpp
+    engine/resource/types/prefab_description.cpp
+    engine/resource/types/prefab_description.hpp
+    engine/resource/types/prefab_property_data.cpp
     engine/function/scene/prefab_property_override.cpp
     engine/function/scene/prefab_property_override.hpp
     engine/function/scene/prefab_runtime_instance.cpp

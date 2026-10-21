@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "engine/resource/texture_ktx2.hpp"
+#include "engine/resource/loaders/texture_ktx2.hpp"
 
 namespace gneiss::tooling::asset_build {
 

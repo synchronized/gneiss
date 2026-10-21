@@ -3,7 +3,7 @@
 
 #include "tooling/asset_import/asset_writer.hpp"
 
-#include "engine/resource/mesh_binary.hpp"
+#include "engine/resource/loaders/mesh_binary.hpp"
 
 #include <fstream>
 #include <iomanip>

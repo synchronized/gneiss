@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/resource/png_decoder.hpp"
+#include "engine/resource/loaders/png_decoder.hpp"
 
 #include <array>
 #include <cstddef>

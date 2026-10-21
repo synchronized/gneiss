@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "engine/core/tasks/task_scheduler.hpp"
-#include "engine/function/application/application.hpp"
+#include "runtime/application.hpp"
 #include <chrono>
 #include <cstdio>
 #include <filesystem>

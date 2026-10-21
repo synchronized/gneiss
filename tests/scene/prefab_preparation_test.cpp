@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-#include "engine/function/application/application_registry.hpp"
-#include "engine/function/application/prefab_preparation.hpp"
+#include "runtime/application_registry.hpp"
+#include "runtime/loading/prefab_preparation.hpp"
 #include <chrono>
 #include <thread>
 

@@ -1,28 +1,28 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/function/application/application.hpp"
+#include "runtime/application.hpp"
 // 只包含 Application 不应引入具体 Scene 服务或输入服务。
 #if defined(GNEISS_SCENE_SCENE_INSTANCE_SERVICE_HPP_) ||                                           \
     defined(GNEISS_INPUT_INPUT_SERVICE_HPP_) || defined(GNEISS_RENDER_RENDER_EXECUTOR_HPP_)
 #error "Application 重新传递包含了具体服务"
 #endif
-#include "engine/function/application/application_bridge.hpp"
+#include "runtime/application_bridge.hpp"
 #include "engine/function/world/world.hpp"
 #include "engine/function/world/world_reflection.hpp"
 #include "property_inspector_model.hpp"
 
 // 与真实宿主使用相同传递依赖；私有头重新泄漏时编译必须失败。
-#if __has_include("engine/function/application/application_registry.hpp")
+#if __has_include("runtime/application_registry.hpp")
 #error "宿主获得了未授权的内部实现头"
 #endif
-#if __has_include("engine/function/application/application_scene_state.hpp")
+#if __has_include("runtime/loading/application_scene_state.hpp")
 #error "宿主获得了未授权的内部实现头"
 #endif
 #if __has_include("engine/resource/asset_manager.hpp")
 #error "宿主获得了未授权的内部实现头"
 #endif
-#if __has_include("engine/function/application/scene_load_service.hpp")
+#if __has_include("runtime/loading/scene_load_service.hpp")
 #error "宿主获得了未授权的内部实现头"
 #endif
 #if __has_include("engine/core/reflection/type_registry.hpp")

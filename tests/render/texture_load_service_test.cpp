@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/resource/cpu_document_cache.hpp"
-#include "engine/resource/texture_container.hpp"
-#include "engine/resource/texture_ktx2.hpp"
+#include "engine/resource/cache/cpu_document_cache.hpp"
+#include "engine/resource/loaders/texture_container.hpp"
+#include "engine/resource/loaders/texture_ktx2.hpp"
 #include "engine/function/render/render_resource_service.hpp"
 #include "engine/function/render/texture_load_service.hpp"
 #include <algorithm>

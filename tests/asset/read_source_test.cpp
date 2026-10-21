@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/resource/native_file_system.hpp"
-#include "engine/resource/read_slice.hpp"
-#include "engine/resource/virtual_file_system.hpp"
+#include "engine/resource/vfs/native_file_system.hpp"
+#include "engine/resource/vfs/read_slice.hpp"
+#include "engine/resource/vfs/virtual_file_system.hpp"
 #ifdef GNEISS_ASSET_LIBUV
 #include "engine/platform/io/uv/uv_async_file.hpp"
 #include "engine/platform/io/uv/uv_loop_executor.hpp"

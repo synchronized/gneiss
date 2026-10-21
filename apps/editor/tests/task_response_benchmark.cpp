@@ -4,7 +4,7 @@
 #include "asset_background_worker.hpp"
 #include "author_asset_service.hpp"
 #include "editor_session.hpp"
-#include "engine/function/application/application_registry.hpp"
+#include "runtime/application_registry.hpp"
 
 #include <gneiss/engine/application.hpp>
 

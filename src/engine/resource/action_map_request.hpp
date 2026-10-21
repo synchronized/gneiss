@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include "engine/resource/action_map.hpp"
+#include "engine/resource/types/action_map.hpp"
 #include <memory>
 namespace gneiss::engine {
 /** 单次资源订阅；不推进队列、不应用到 InputService。

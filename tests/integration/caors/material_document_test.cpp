@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/resource/caors_material_document.hpp"
-#include "engine/resource/caors_material_versions.hpp"
-#include "engine/resource/caors_vfs_bridge.hpp"
-#include "engine/resource/cpu_document_cache.hpp"
-#include "engine/resource/native_file_system.hpp"
+#include "engine/resource/backend/caors/caors_material_document.hpp"
+#include "engine/resource/backend/caors/caors_material_versions.hpp"
+#include "engine/resource/backend/caors/caors_vfs_bridge.hpp"
+#include "engine/resource/cache/cpu_document_cache.hpp"
+#include "engine/resource/vfs/native_file_system.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "uv_async_file.hpp"
 #include "uv_loop_executor.hpp"

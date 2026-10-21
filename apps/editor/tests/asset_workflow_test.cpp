@@ -3,7 +3,7 @@
 
 #include "asset_reimport_queue.hpp"
 #include "editor_session.hpp"
-#include "engine/function/application/application_registry.hpp"
+#include "runtime/application_registry.hpp"
 #include "package_archive.hpp"
 #include "project_workspace.hpp"
 #include "runtime_process.hpp"

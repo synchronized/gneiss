@@ -6,7 +6,7 @@
 #include "editor_command_history.hpp"
 #include "editor_project.hpp"
 #include "editor_session.hpp"
-#include "engine/function/application/application_registry.hpp"
+#include "runtime/application_registry.hpp"
 
 #include <gneiss/engine/application.hpp>
 

@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "author_property_edit.hpp"
-#include "engine/function/application/application_registry.hpp"
+#include "runtime/application_registry.hpp"
 
 #include <gneiss/engine/application.hpp>
 #include <gneiss/engine/world.hpp>

@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "engine/resource/virtual_file_system.hpp"
+#include "engine/resource/vfs/virtual_file_system.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/render/render_asset_loader.hpp"
 

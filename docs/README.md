@@ -111,6 +111,7 @@
 - [VER-045：0.45.0 内部 C++ 分层与完整 SDK 包装](plans/VER-045-0.45.0-cpp-boundaries.md)
 - [DEV-045：分层重构与包装实施计划](plans/DEV-045-cpp-boundaries.md)
 
+- [Resource 分类与 Runtime 迁移验收](records/2026-10-21-runtime-resource-layout.md)
 - [resource 目录合并验收](records/2026-10-21-resource-directory.md)
 - [渲染缓存与资产管理器所有权分离](records/2026-10-21-render-cache-ownership.md)
 - [渲染上传通道与资产管理器分离](records/2026-10-21-render-channel-boundary.md)

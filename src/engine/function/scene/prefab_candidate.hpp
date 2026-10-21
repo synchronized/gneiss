@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include "engine/resource/prefab_description.hpp"
+#include "engine/resource/types/prefab_description.hpp"
 #include "engine/function/render/render_asset_loader.hpp"
 #include "engine/function/scene/scene_query.hpp"
 #include <memory>
