@@ -103,6 +103,8 @@ gneiss_target_output_directories(gneiss_editor_model)
 # 场景编辑状态与 Gizmo 事务不依赖宿主工程、进程或 IPC。
 add_library(
   gneiss_scene_document STATIC
+  documents/document_editing.cpp
+  documents/document_editing.hpp
   documents/editor_scene_loader.cpp
   documents/editor_scene_loader.hpp
   commands/editor_asset_edit.cpp

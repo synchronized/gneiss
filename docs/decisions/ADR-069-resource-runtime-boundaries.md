@@ -46,3 +46,10 @@ ADR-064 的共享资产和一 World 多 Scene 决策保持有效。
 使用 gneiss::runtime，Editor 使用 gneiss::editor。去除业务模块的 xxx_internal 命名，
 不保留别名；内部 C++ 接口不承诺二进制兼容，须一起重编译。命名空间不替代依赖检查。
 分批迁移与冲突处理以[模块布局计划](../plans/PLAN-051-module-layout.md)为准。
+
+## 文档编辑生命周期收敛
+
+复用既有对象组成 document_editing：拥有 scene_document、撤销历史、资产编辑和 Prefab
+编辑控制器。它不拥有 Application/执行器，不增加操作状态机，不承接场景域切换或保存提示 UI。
+取消后必须继续推进至终态；关闭先确认无在途编辑，再释放历史、最后关闭文档。
+宿主负责驱动执行器并保证 Application 存活，不能在析构中隐藏阻塞等待。

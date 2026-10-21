@@ -77,3 +77,10 @@ foreach(test IN ITEMS gneiss_editor_asset_scene_commands_test gneiss_editor_tran
     target_include_directories(${test} PRIVATE "${PROJECT_SOURCE_DIR}/src")
   endif()
 endforeach()
+
+add_executable(gneiss_editor_document_editing_test document_editing_test.cpp)
+target_link_libraries(gneiss_editor_document_editing_test PRIVATE gneiss_scene_document)
+target_compile_features(gneiss_editor_document_editing_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_editor_document_editing_test)
+gneiss_target_output_directories(gneiss_editor_document_editing_test)
+add_test(NAME gneiss.editor.document-editing COMMAND gneiss_editor_document_editing_test)

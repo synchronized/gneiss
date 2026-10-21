@@ -181,14 +181,14 @@ Session 初始化成功后才发布活动域。
 
 已将 editor_session 改为 documents/scene_document，调用方和 CMake 使用新名称，
 不保留别名。已有命令、视口与面板分别归入 commands/viewport/panels；没有新增对象状态。
-文档暂维持现有 close 卸载场景契约，历史仍由宿主装配。后续先审查宿主 editor_state
-中的文档、历史和异步编辑协作，再迁移 Editor Application；不直接移动进程/IPC 代码
+文档维持现有 close 卸载场景契约；文档、历史和在途资产/Prefab 编辑已归入
+document_editing。后续继续审查场景切换与模态 UI 编排，再迁移 Editor Application；不直接移动进程/IPC 代码
 使 src/editor 反向依赖 Apps。验收见
 [Editor 布局记录](../records/2026-10-21-editor-document-layout.md)。
 
 场景加载、资产替换与 Prefab 异步控制器已从 apps/editor 移至 documents/commands，
 从宿主库移入编辑器库，三项流程测试直接链接编辑器库；没有新增协调器或重复状态。
-宿主仍负责模态 UI、请求互斥与关闭推进，下一步审查这部分编排的最小可抽取接口。
+宿主仍负责模态 UI、请求互斥与执行器驱动；取消及关闭顺序已由 document_editing 汇总。
 见[控制器迁移验收](../records/2026-10-21-editor-async-controller-boundary.md)。
 
 ## 命名空间统一（2026-10-21）
@@ -228,3 +228,6 @@ C 值转换集中在 engine::api，应用日志回调桥归 runtime::api；移�
 第三方 CAORS 使用 ::caors，避免适配子空间遮蔽。进程、IPC、动态库顶层对象仍待迁移。
 
 Core/平台适配首批验收见[记录](../records/2026-10-21-core-platform-namespace.md)。
+
+文档编辑所有权收敛验收见[记录](../records/2026-10-21-document-editing-ownership.md)。
+当前未迁移场景切换 UI 和宿主整体装配，不将本批视为 Editor 迁移完成。
