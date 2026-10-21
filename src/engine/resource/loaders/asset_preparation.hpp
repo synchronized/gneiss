@@ -55,11 +55,7 @@ struct prepared_source final {
   engine::core::sha256_digest digest{};
 };
 
-/** CPU 文档租约的类型擦除边界，仅保活不可变文档，不暴露第三方句柄。 */
-class material_document_reference {
-public:
-  virtual ~material_document_reference() = default;
-};
+class material_document_lease;
 
 /** 后台解析后的自有 CPU 数据；不持有缓存或后端对象，材质依赖仅使用 URI。 */
 struct prepared_asset {
@@ -77,7 +73,7 @@ struct prepared_asset {
   engine::resource::material_parameters material{};
   std::array<std::string, 5> texture_uris;
   /** 仅保活已复验 CPU 文档，不参与渲染版本选择；内部类型不泄漏第三方句柄。 */
-  std::shared_ptr<const material_document_reference> material_document;
+  std::shared_ptr<const material_document_lease> material_document;
   std::size_t bytes{};
 };
 struct prepared_batch {

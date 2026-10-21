@@ -2,28 +2,12 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #pragma once
-#include "engine/resource/backend/caors/caors_material_document.hpp"
+#include "engine/resource/cache/material_document_lease.hpp"
 #include "engine/resource/vfs/asset_uri.hpp"
+#include <gneiss/engine/core/result.hpp>
 #include <map>
 
 namespace gneiss::engine::resource {
-/** 版本租约同时保活来源身份与只读 CPU 文档；不表示场景已采用该版本。 */
-class material_document_lease final : public material_document_reference {
-public:
-  material_document_lease() = default;
-  [[nodiscard]] const material_document* get() const noexcept { return document_.get(); }
-  [[nodiscard]] const prepared_source& source() const noexcept { return source_; }
-  [[nodiscard]] explicit operator bool() const noexcept { return static_cast<bool>(document_); }
-
-private:
-  friend class material_document_versions;
-  material_document_lease(prepared_source source,
-                          ::caors::resources::handle<material_document> document)
-      : source_(std::move(source)), document_(std::move(document)) {}
-  prepared_source source_;
-  // CAORS 当前不支持 handle<const T>；只通过租约暴露 const 访问。
-  ::caors::resources::handle<material_document> document_;
-};
 /** 所属线程串行使用的非拥有索引，不创建 manager、线程或第二份强引用缓存。
  * 调用方只可在来源复验成功后登记；登记校验回执与文档一致，不自行进行文件复读。
  * GUID 仅由 CAORS 管理，不能替代来源身份或内容摘要。 */

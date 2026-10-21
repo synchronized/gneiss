@@ -3,9 +3,9 @@
 
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/resource/backend/caors/caors_material_document.hpp"
-#include "engine/resource/backend/caors/caors_material_versions.hpp"
 #include "engine/resource/backend/caors/caors_vfs_bridge.hpp"
 #include "engine/resource/cache/cpu_document_cache.hpp"
+#include "engine/resource/cache/material_document_versions.hpp"
 #include "engine/resource/vfs/native_file_system.hpp"
 #include "uv_async_file.hpp"
 #include "uv_loop_executor.hpp"
@@ -18,6 +18,8 @@
 #include <stdexcept>
 #include <thread>
 #include <type_traits>
+
+static_assert(!std::is_polymorphic_v<gneiss::engine::resource::material_document_lease>);
 
 namespace {
 void check(bool ok, const char* message) {
@@ -273,8 +275,7 @@ void run(std::size_t document_limit) {
     } else {
       check(status == GNEISS_SUCCESS && batch.assets.size() == 1, "verified material batch");
       check(documents->retain_verified(batch) == GNEISS_SUCCESS, "retain verified documents");
-      const auto* retained = dynamic_cast<const material_document_lease*>(
-          batch.assets.front().material_document.get());
+      const auto* retained = batch.assets.front().material_document.get();
       check(retained && *retained, "typed retained document");
       auto second = shared_documents->begin();
       std::vector<std::byte> bytes;
@@ -285,8 +286,7 @@ void run(std::size_t document_limit) {
       auto second_batch = batch;
       second_batch.assets.front().material_document.reset();
       check(second->retain_verified(second_batch) == GNEISS_SUCCESS, "retain second");
-      const auto* reused = dynamic_cast<const material_document_lease*>(
-          second_batch.assets.front().material_document.get());
+      const auto* reused = second_batch.assets.front().material_document.get();
       check(reused && reused->get() == retained->get(), "cross batch document shared");
       second_batch = {};
       shared_documents->collect();

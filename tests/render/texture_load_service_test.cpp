@@ -4,6 +4,7 @@
 #include "engine/function/render/render_resource_service.hpp"
 #include "engine/function/render/texture_load_service.hpp"
 #include "engine/resource/cache/cpu_document_cache.hpp"
+#include "engine/resource/cache/material_document_lease.hpp"
 #include "engine/resource/loaders/texture_container.hpp"
 #include "engine/resource/loaders/texture_ktx2.hpp"
 #include <algorithm>
@@ -274,8 +275,8 @@ void fixed_version_publication(engine::core::tasks::execution_mode mode) {
     return result;
   };
   auto first_batch = prepare();
-  auto document = std::make_shared<material_document_reference>();
-  std::weak_ptr<const material_document_reference> document_lifetime = document;
+  auto document = std::make_shared<material_document_lease>();
+  std::weak_ptr<const material_document_lease> document_lifetime = document;
   first_batch.assets.back().material_document = document;
   auto original = stage(std::move(first_batch));
   document.reset();

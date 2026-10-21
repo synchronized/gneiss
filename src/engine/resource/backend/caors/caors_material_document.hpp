@@ -3,27 +3,9 @@
 
 #pragma once
 #include "engine/platform/caors/document_loader.hpp"
-#include "engine/resource/loaders/asset_parsing.hpp"
+#include "engine/resource/loaders/material_document_decoder.hpp"
 
 namespace gneiss::engine::resource {
-/** CPU 文档，不持有纹理或 RID；发布后由宿主按不可变对象使用。 */
-struct material_document final : ::caors::resource {
-  using ::caors::resource::resource;
-  asset_parsing::material_source source;
-  engine::core::sha256_digest digest{};
-  std::uint64_t source_bytes{};
-};
-/** 复用批次已经读取的字节；不进行 I/O、来源复验或共享版本登记。 */
-inline gneiss_result decode_material_document(const std::vector<std::byte>& bytes,
-                                              material_document& value,
-                                              asset_diagnostic& diagnostic) {
-  const auto parsed = asset_parsing::parse_material(bytes, value.source, diagnostic);
-  if (parsed == GNEISS_SUCCESS) {
-    value.digest = engine::core::sha256(bytes);
-    value.source_bytes = bytes.size();
-  }
-  return parsed;
-}
 using material_document_loader = engine::platform::caors::document_loader<material_document>;
 /** 独立接入验证入口；默认 1 MiB，宿主可传入单文档预算，须与 VFS 桥及复验一致。 */
 inline std::unique_ptr<material_document_loader> make_material_document_loader(

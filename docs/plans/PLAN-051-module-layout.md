@@ -260,3 +260,16 @@ Host 目录和四个薄入口已落地，见[宿主布局验收](../records/2026
 已用薄的 asset_request<T> 替换输入专用虚接口与工厂，复用 CAORS 状态与强引用。
 Runtime 保留输入采用责任；同步缓存发布及其他资源路径的收敛仍待完成。
 验证见[迁移记录](../records/2026-10-21-generic-asset-request.md)。
+
+## 材质资源领域边界（本批完成）
+
+已将 material_source、material_document 与 mesh_document 放入 resource/types，
+材质纯字节解码归 loaders，已验证版本索引和具体只读租约归 cache。
+backend/caors 仅保留加载器适配，不再充当资源类型与版本策略入口。
+删除仅用于隐藏具体租约的空虚基类，准备结果与渲染保活字段使用明确的租约类型。
+
+保持整批来源复验、确切版本选择、旧租约存活及 GPU 资源生命周期不变。
+验收覆盖材质版本复用、失败不发布、跨批次保活、纹理准备/采用与模块边界。
+本批不合并同步缓存发布、不增加 I/O 或执行器，不宣称 CPU/GPU 全部拆分完成。
+
+本批验证见[材质领域迁移记录](../records/2026-10-21-material-resource-boundaries.md)。

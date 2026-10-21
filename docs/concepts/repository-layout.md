@@ -299,3 +299,14 @@ Host 可依赖 Engine、Runtime、Editor；后三者不得反向包含 Host。�
 `runtime/loading/action_map_application` 负责复制并应用输入映射，InputService 不负责加载。
 内部消费者可依赖 CAORS 类型，安装头文件与公共 C ABI 不暴露这些类型。
 边界决策见 [ADR-069](../decisions/ADR-069-resource-runtime-boundaries.md)。
+
+## CPU 文档归属
+
+- `resource/types/material_source.hpp`：材质参数与纹理 URI，独立于解析器。
+- `resource/types/material_document.hpp`、`mesh_document.hpp`：CAORS CPU 资源类型。
+- `resource/loaders/material_document_decoder.hpp`：从已有字节解码，不读文件、不发布版本。
+- `resource/cache/material_document_lease.hpp`、`material_document_versions.hpp`：只读租约与确切版本弱索引。
+- `resource/backend/caors/caors_material_document.hpp`：加载执行适配。
+
+准备结果和渲染对象通过具体材质租约保持 CPU 文档存活；租约不拥有 GPU RID。
+CPU 缓存不再通过加载后端取得资源类型，边界检查拒绝这种依赖。

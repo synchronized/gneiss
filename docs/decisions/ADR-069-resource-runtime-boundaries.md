@@ -69,3 +69,11 @@ src/host/common、src/host/editor、src/host/runtime。Host 依赖 Editor、Runt
 取资源与应用资源分离：Runtime 负责输入映射复制、验证和替换。删除专用 action_map_request
 虚接口及其工厂，不为每个资源类型新增请求实现。原 CPU 批次准备的 URI/type 描述改名
 asset_preparation_source，与异步订阅明确区分。
+
+## CPU 文档与加载适配分离（2026-10-21）
+
+资源类型属于 resource/types，即使继承 CAORS 原生 resource，也不因此归入 backend。
+材质来源描述不依赖解析器；纯字节解码属于 loaders；Gneiss 的来源身份、内容版本索引及
+只读租约属于 cache。backend/caors 只负责把加载执行协议接到这些类型和解码逻辑。
+准备结果与渲染保活字段使用具体 material_document_lease，不再通过空虚基类擦除类型。
+这不改变整批来源复验、固定版本选择和 GPU 服务销毁责任，也不增加缓存或异步状态。

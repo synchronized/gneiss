@@ -50,6 +50,15 @@ foreach(source IN LISTS sources)
     message(FATAL_ERROR "Runtime 不得反向依赖宿主：${source}")
   endif()
 
+  if(source MATCHES "/src/engine/resource/types/(material_source|material_document|mesh_document)[.]hpp$" AND
+      content MATCHES "#[ \t]*include[ \t]*[<\"]engine/(platform/|resource/(loaders/|cache/|backend/))")
+    message(FATAL_ERROR "CPU 资源类型不得依赖加载器、缓存或平台适配：${source}")
+  endif()
+  if(source MATCHES "/src/engine/resource/cache/" AND
+      content MATCHES "#[ \t]*include[ \t]*[<\"]engine/(platform/|resource/backend/)")
+    message(FATAL_ERROR "CPU 版本缓存不得依赖文件后端或加载器适配：${source}")
+  endif()
+
   if(source MATCHES "/src/engine/resource/asset_manager[.](cpp|hpp)$" AND
       content MATCHES "texture_load_service|texture_upload_backend|texture_load_completion|engine::render::|engine/function/render/")
     message(FATAL_ERROR "资产管理器不得依赖渲染模块、上传通道或完成协议：${source}")

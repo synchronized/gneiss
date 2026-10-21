@@ -93,7 +93,7 @@ struct material_asset final {
   gneiss::engine::render::render_resource_service* resources;
   gneiss::engine::core::rid rid;
   std::array<std::shared_ptr<const gneiss::engine::resource::resource_cache::entry>, 5> textures;
-  std::shared_ptr<const gneiss::engine::resource::material_document_reference> document;
+  std::shared_ptr<const gneiss::engine::resource::material_document_lease> document;
   ~material_asset() {
     if (resources != nullptr && rid != gneiss::engine::core::null_rid) {
       (void)resources->destroy_material(rid);
@@ -677,7 +677,7 @@ gneiss_result render_asset_loader::acquire_material(std::string_view uri,
           fail(out_diagnostic, result, "", "无法通过 VFS 读取 Material");
           return result;
         }
-        material_source source;
+        gneiss::engine::resource::material_source source;
         result = parse_material(bytes, source, out_diagnostic);
         if (result != GNEISS_SUCCESS) {
           return result;

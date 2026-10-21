@@ -4,14 +4,10 @@
 #pragma once
 
 #include "engine/resource/loaders/asset_preparation.hpp"
+#include "engine/resource/types/material_source.hpp"
 
 // 同步加载与后台准备共用解析契约；不接触缓存或资源服务。
 namespace gneiss::engine::resource::asset_parsing {
-
-struct material_source final {
-  engine::resource::material_parameters parameters;
-  std::array<std::string, 5> texture_uris;
-};
 
 void fail(asset_diagnostic& diagnostic, gneiss_result result, std::string_view path,
           std::string_view message, std::size_t offset = 0) noexcept;

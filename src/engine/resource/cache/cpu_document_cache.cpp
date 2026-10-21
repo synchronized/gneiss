@@ -1,18 +1,15 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "engine/resource/cache/cpu_document_cache.hpp"
-#include "engine/resource/backend/caors/caors_material_versions.hpp"
+#include "engine/resource/cache/material_document_versions.hpp"
+#include "engine/resource/loaders/material_document_decoder.hpp"
+#include "engine/resource/types/mesh_document.hpp"
 #include <algorithm>
 #include <map>
 #include <tuple>
 
 namespace gneiss::engine::resource {
 namespace {
-/** 数组只属于这个资源，别名 shared_ptr 通过 CAORS handle 保活。 */
-struct mesh_document final : ::caors::resource {
-  using ::caors::resource::resource;
-  mesh_data data;
-};
 class mesh_documents final {
   using key = std::tuple<std::shared_ptr<const asset_source_domain>, std::string,
                          engine::core::sha256_digest, std::uint64_t>;
