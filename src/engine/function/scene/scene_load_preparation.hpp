@@ -3,8 +3,8 @@
 
 #pragma once
 
+#include "engine/asset/prefab_description.hpp"
 #include "engine/function/render/render_asset_loader.hpp"
-#include "engine/function/scene/prefab_description.hpp"
 
 #include <functional>
 #include <map>

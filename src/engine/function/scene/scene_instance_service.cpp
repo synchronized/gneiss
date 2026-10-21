@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/function/scene/scene_instance_service.hpp"
+#include "engine/function/scene/prefab_property_override.hpp"
 
 #include "engine/core/identifier_conversion.hpp"
 #include "engine/core/reflection/type_registry.hpp"
@@ -11,8 +12,8 @@
 
 #include "engine/function/scene/scene_instance.hpp"
 
+#include "engine/asset/scene_description.hpp"
 #include "engine/asset/virtual_file_system.hpp"
-#include "engine/function/scene/scene_description.hpp"
 #include "engine/function/scene/structural_diff.hpp"
 
 #include <algorithm>
@@ -66,7 +67,6 @@ gneiss::engine::transform to_transform(const prefab_instance_description& instan
   }
   return true;
 }
-
 
 gneiss_result commit_object(engine::world& native_world, const object_description& source,
                             scene_instance::object& target, gneiss_scene_node_id parent) {

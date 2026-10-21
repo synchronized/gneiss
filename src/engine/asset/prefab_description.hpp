@@ -4,8 +4,8 @@
 #ifndef GNEISS_SCENE_PREFAB_DESCRIPTION_HPP_
 #define GNEISS_SCENE_PREFAB_DESCRIPTION_HPP_
 
-#include "engine/function/scene/prefab_property_override.hpp"
-#include "engine/function/scene/scene_description.hpp"
+#include "engine/asset/prefab_property_data.hpp"
+#include "engine/asset/scene_description.hpp"
 
 #include <cstdint>
 #include <string>

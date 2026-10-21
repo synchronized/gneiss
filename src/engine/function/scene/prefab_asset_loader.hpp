@@ -4,8 +4,8 @@
 #ifndef GNEISS_SCENE_PREFAB_ASSET_LOADER_HPP_
 #define GNEISS_SCENE_PREFAB_ASSET_LOADER_HPP_
 
+#include "engine/asset/prefab_description.hpp"
 #include "engine/asset/resource_cache.hpp"
-#include "engine/function/scene/prefab_description.hpp"
 
 #include <memory>
 #include <string_view>

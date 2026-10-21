@@ -141,12 +141,13 @@ target_sources(
     engine/function/scene/scene_load_builder.hpp
     engine/function/scene/scene_load_preparation.cpp
     engine/function/scene/scene_load_preparation.hpp
-    engine/function/scene/scene_description.cpp
-    engine/function/scene/scene_description.hpp
+    engine/asset/scene_description.cpp
+    engine/asset/scene_description.hpp
     engine/function/scene/scene_creation.hpp
     engine/function/scene/scene_query.hpp
-    engine/function/scene/prefab_description.cpp
-    engine/function/scene/prefab_description.hpp
+    engine/asset/prefab_description.cpp
+    engine/asset/prefab_description.hpp
+    engine/asset/prefab_property_data.cpp
     engine/function/scene/prefab_property_override.cpp
     engine/function/scene/prefab_property_override.hpp
     engine/function/scene/prefab_runtime_instance.cpp

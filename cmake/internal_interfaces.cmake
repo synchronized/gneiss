@@ -54,12 +54,13 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   engine/function/render/texture_view.hpp
   engine/function/render/ui_draw_list.hpp
   engine/function/scene/prefab_asset_loader.hpp
-  engine/function/scene/prefab_description.hpp
+  engine/asset/prefab_property_data.hpp
+  engine/asset/prefab_description.hpp
   engine/function/scene/prefab_property_override.hpp
   engine/function/scene/prefab_candidate.hpp
   engine/function/scene/scene_creation.hpp
   engine/function/scene/scene_mesh_binding.hpp
-  engine/function/scene/scene_description.hpp
+  engine/asset/scene_description.hpp
   engine/function/scene/scene_instance_service.hpp
   engine/function/scene/scene_load_preparation.hpp
   engine/function/scene/scene_query.hpp

@@ -6,7 +6,7 @@
 
 #include <gneiss/engine/core/result.h>
 
-#include "engine/function/scene/prefab_property_override.hpp"
+#include "engine/asset/prefab_property_data.hpp"
 
 #include <array>
 #include <cstddef>

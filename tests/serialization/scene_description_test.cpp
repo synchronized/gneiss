@@ -2,8 +2,8 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/asset/file_system.hpp"
+#include "engine/asset/scene_description.hpp"
 #include "engine/asset/virtual_file_system.hpp"
-#include "engine/function/scene/scene_description.hpp"
 
 #include <gneiss/engine/core/result.h>
 

@@ -639,8 +639,9 @@ add_test(NAME gneiss.scene-load-application COMMAND gneiss_scene_load_applicatio
 add_executable(gneiss_scene_load_preparation_test
   scene/scene_load_preparation_test.cpp
   "${PROJECT_SOURCE_DIR}/src/engine/function/scene/scene_load_preparation.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/scene/scene_description.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/scene/prefab_description.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/asset/scene_description.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/asset/prefab_description.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/asset/prefab_property_data.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/scene/prefab_property_override.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/asset/asset_uri.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/asset/virtual_file_system.cpp")
@@ -666,8 +667,8 @@ add_executable(
   serialization/scene_description_test.cpp
   "${PROJECT_SOURCE_DIR}/src/engine/asset/asset_uri.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/asset/virtual_file_system.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/scene/prefab_property_override.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/scene/scene_description.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/asset/prefab_property_data.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/asset/scene_description.cpp"
 )
 target_include_directories(gneiss_scene_description_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_definitions(gneiss_scene_description_test PRIVATE GNEISS_BUILDING_LIBRARY)
@@ -685,9 +686,9 @@ add_executable(
   "${PROJECT_SOURCE_DIR}/src/engine/asset/virtual_file_system.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/scene/prefab_asset_loader.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/core/sha256.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/scene/prefab_description.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/scene/prefab_property_override.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/scene/scene_description.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/asset/prefab_description.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/asset/prefab_property_data.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/asset/scene_description.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/scene/scene_tree.cpp"
 )
 target_include_directories(gneiss_prefab_description_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
@@ -703,9 +704,10 @@ add_executable(
   serialization/prefab_property_override_test.cpp
   "${PROJECT_SOURCE_DIR}/src/engine/asset/asset_uri.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/asset/virtual_file_system.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/scene/prefab_description.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/asset/prefab_description.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/asset/prefab_property_data.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/scene/prefab_property_override.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/scene/scene_description.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/asset/scene_description.cpp"
 )
 target_include_directories(gneiss_prefab_property_override_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_definitions(gneiss_prefab_property_override_test PRIVATE GNEISS_BUILDING_LIBRARY)
@@ -1012,10 +1014,11 @@ add_executable(
   "${PROJECT_SOURCE_DIR}/src/engine/core/sha256.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/render/render_resource_service.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/scene/prefab_asset_loader.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/scene/prefab_description.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/asset/prefab_description.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/asset/prefab_property_data.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/scene/prefab_property_override.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/scene/prefab_runtime_instance.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/scene/scene_description.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/asset/scene_description.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/scene/structural_diff.cpp"
 )
 target_include_directories(gneiss_prefab_runtime_instance_test PRIVATE "${PROJECT_SOURCE_DIR}/src")

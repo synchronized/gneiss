@@ -506,3 +506,22 @@ execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
 if(NOT status EQUAL 0)
   message(FATAL_ERROR "输入服务边界错误拒绝纯资源值")
 endif()
+
+file(MAKE_DIRECTORY "${fixture}/src/engine/asset")
+foreach(header IN ITEMS "engine/core/reflection/property_registry.hpp"
+    "engine/function/scene/prefab_property_override.hpp" "engine/function/world/world.hpp")
+  file(WRITE "${fixture}/src/engine/asset/scene_description.hpp" "#include <${header}>\n")
+  execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
+    -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
+    RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
+  if(status EQUAL 0)
+    message(FATAL_ERROR "场景描述边界未拒绝运行时依赖：${header}")
+  endif()
+endforeach()
+file(WRITE "${fixture}/src/engine/asset/scene_description.hpp" "#include <engine/asset/prefab_property_data.hpp>\n")
+execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
+  -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
+  RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
+if(NOT status EQUAL 0)
+  message(FATAL_ERROR "场景描述边界错误拒绝作者值")
+endif()

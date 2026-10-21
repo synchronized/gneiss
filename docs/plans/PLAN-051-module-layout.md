@@ -137,7 +137,9 @@ ECS 组件保存数据或 RID；资源引用由场景绑定集合或对应服务
 在替代机制通过测试前保留；不得为了简化接口取消失败原子性。
 批次 A 已通过本地验证，见[验收记录](../records/2026-10-21-resource-adoption-boundary.md)；
 批次 B 已完成资源盘点与输入资源职责迁移，见[记录](../records/2026-10-21-cpu-resource-boundaries.md)，
-Prefab/Scene 描述与其余职责拆分仍待完成。其他批次尚未完成。详细 CAORS 平台限制见
+Prefab/Scene 描述与作者属性值已迁入资产层，Registry 覆盖编辑留在功能层，见
+[描述分离记录](../records/2026-10-21-scene-resource-descriptions.md)。GPU 租约与其余职责仍待收敛，
+批次 B 尚未整体完成。其他批次尚未完成。详细 CAORS 平台限制见
 [资源路径收敛计划](PLAN-051-caors-convergence.md)。
 
 ## 总体验收与风险

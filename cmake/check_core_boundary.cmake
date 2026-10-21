@@ -14,6 +14,11 @@ if(NOT sources)
 endif()
 foreach(source IN LISTS sources)
   file(READ "${source}" content)
+  if(source MATCHES "/src/engine/asset/(scene_description|prefab_description|prefab_property_data)[.](cpp|hpp)$" AND
+      content MATCHES "#[ \t]*include[ \t]*[<\"]engine/core/reflection/(property_registry|type_registry|type_registry_state)[.]hpp")
+    message(FATAL_ERROR "场景资产描述不得依赖运行时 Registry：${source}")
+  endif()
+
   if(source MATCHES "/src/engine/function/input/" AND
       content MATCHES "#[ \t]*include[ \t]*[<\"](caors/|engine/platform/|engine/(asset/(caors_|virtual_file_system)|function/asset/))")
     message(FATAL_ERROR "输入服务不得依赖资源管理器、文件后端或 CAORS：${source}")

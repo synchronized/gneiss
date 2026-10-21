@@ -111,6 +111,7 @@
 - [VER-045：0.45.0 内部 C++ 分层与完整 SDK 包装](plans/VER-045-0.45.0-cpp-boundaries.md)
 - [DEV-045：分层重构与包装实施计划](plans/DEV-045-cpp-boundaries.md)
 
+- [Scene/Prefab 作者描述与运行时覆盖编辑分离](records/2026-10-21-scene-resource-descriptions.md)
 - [CPU 资源职责盘点与输入资源迁移](records/2026-10-21-cpu-resource-boundaries.md)
 - [资源版本准备与应用修改边界验收](records/2026-10-21-resource-adoption-boundary.md)
 - [0.51：模块职责、文件布局与对象所有权收敛](plans/PLAN-051-module-layout.md)
