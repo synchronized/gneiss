@@ -1,6 +1,34 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 Gneiss contributors
 
+add_executable(gneiss_caors_application_test application_test.cpp)
+target_include_directories(gneiss_caors_application_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_link_libraries(gneiss_caors_application_test PRIVATE gneiss::engine gneiss_tasks)
+gneiss_target_compile_warnings(gneiss_caors_application_test)
+gneiss_target_output_directories(gneiss_caors_application_test)
+set(input_test_root "${PROJECT_SOURCE_DIR}/examples/temple/assets")
+if(EMSCRIPTEN)
+  set(input_test_root "/gneiss-input")
+endif()
+add_test(NAME gneiss.caors.application COMMAND gneiss_caors_application_test "${input_test_root}")
+set_tests_properties(gneiss.caors.application PROPERTIES TIMEOUT 30)
+if(GNEISS_ENABLE_GRANIT_PLATFORM AND WIN32 AND GNEISS_TASK_THREADS)
+  target_compile_definitions(gneiss_caors_application_test PRIVATE GNEISS_TEST_NATIVE_WINDOW)
+  target_link_libraries(gneiss_caors_application_test PRIVATE user32)
+endif()
+
+target_compile_definitions(gneiss_caors_application_test PRIVATE
+  GNEISS_TEST_TASK_THREADS=$<BOOL:${GNEISS_TASK_THREADS}>)
+if(EMSCRIPTEN)
+  target_link_options(gneiss_caors_application_test PRIVATE
+    "--embed-file=${PROJECT_SOURCE_DIR}/examples/temple/assets/input@/gneiss-input/input")
+endif()
+
+# 直接 libuv I/O 和 Granit 材质探针只适用于原生线程平台。
+if(NOT GNEISS_TASK_THREADS OR EMSCRIPTEN)
+  return()
+endif()
+
 add_executable(gneiss_caors_asset_probe asset_probe.cpp)
 target_compile_features(gneiss_caors_asset_probe PRIVATE cxx_std_20)
 target_include_directories(gneiss_caors_asset_probe PRIVATE "${PROJECT_SOURCE_DIR}/src")
@@ -31,22 +59,6 @@ gneiss_target_output_directories(gneiss_caors_vfs_bridge_test)
 add_test(NAME gneiss.caors.vfs-bridge COMMAND gneiss_caors_vfs_bridge_test
   "${PROJECT_SOURCE_DIR}/examples/temple/assets")
 set_tests_properties(gneiss.caors.vfs-bridge PROPERTIES TIMEOUT 30)
-
-add_executable(gneiss_caors_application_test application_test.cpp)
-target_include_directories(gneiss_caors_application_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
-target_link_libraries(gneiss_caors_application_test PRIVATE gneiss::engine gneiss_tasks)
-gneiss_target_compile_warnings(gneiss_caors_application_test)
-gneiss_target_output_directories(gneiss_caors_application_test)
-add_test(NAME gneiss.caors.application COMMAND gneiss_caors_application_test
-  "${PROJECT_SOURCE_DIR}/examples/temple/assets")
-set_tests_properties(gneiss.caors.application PROPERTIES TIMEOUT 30)
-target_compile_definitions(gneiss_caors_application_test PRIVATE
-  $<$<NOT:$<BOOL:${GNEISS_ENABLE_CAORS_INPUT}>>:GNEISS_TEST_CAORS_DISABLED>)
-
-if(GNEISS_ENABLE_CAORS_INPUT AND GNEISS_ENABLE_GRANIT_PLATFORM AND WIN32)
-  target_compile_definitions(gneiss_caors_application_test PRIVATE GNEISS_TEST_NATIVE_WINDOW)
-  target_link_libraries(gneiss_caors_application_test PRIVATE user32)
-endif()
 
 # 材质文档验证只链接 CPU 准备实现，不链接 Engine 或创建渲染资源。
 add_executable(gneiss_caors_material_document_test material_document_test.cpp

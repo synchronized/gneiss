@@ -613,13 +613,7 @@ void write_application_log(const gneiss::log_internal::event_view& source,
 
   if (!project.input_map.empty()) {
     auto input_result = application->begin_action_map(project.input_map);
-    if (input_result == GNEISS_ERROR_UNSUPPORTED ||
-        (options.cooperative_tasks && input_result == GNEISS_ERROR_NOT_READY)) {
-      // 默认未启用及显式 cooperative 模式保留同步启动，不掩盖其他异步失败。
-      input_result = application->load_action_map(project.input_map);
-      if (input_result == GNEISS_SUCCESS)
-        log.write("INFO", "input_map", GNEISS_SUCCESS, "输入映射加载完成", project.input_map);
-    } else if (input_result == GNEISS_SUCCESS) {
+    if (input_result == GNEISS_SUCCESS) {
       context.input_pending = true;
       context.input_uri = project.input_map;
       log.write("INFO", "input_map_pending", GNEISS_SUCCESS, "正在异步加载输入映射",

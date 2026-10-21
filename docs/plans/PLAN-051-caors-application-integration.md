@@ -5,7 +5,8 @@
 
 ## 状态
 
-2026-10-20，用户已确认方案 A，已接入可选原生 Application 输入加载链路；默认构建保持关闭，Editor 调用点尚未切换。
+2026-10-21，方案 A 的输入加载链路已成为必选实现，支持线程池与协作调度。
+原生无线程和 Emscripten MEMFS 已通过输入测试；Editor 调用点及同步入口尚未合并。
 现有闭环见[输入资源应用记录](../records/2026-10-20-caors-input-application.md)。
 
 ## 已核实的接入边界
@@ -18,8 +19,8 @@
    因此不能把 asset_root 作为字符串前缀另挂一遍便宣布完成迁移。
 4. 已有 `read_source` 有异步范围读与验证回执，现已补充可观察的显式关闭协议（libuv 来源及修订包装支持，其他来源默认 unsupported）。
    CAORS async_file 的关闭结果不能直接以 read_source 析构替代。
-5. `GNEISS_ENABLE_CAORS_INPUT` 开启时，输入加载宿主、CAORS manager/cache/Loader
-   全部位于 Engine 内部；应用 EXE 不链接独立探针适配库。默认关闭，不改变 C ABI。
+5. 输入加载宿主、CAORS manager/cache/Loader 全部位于 Engine 内部；
+   应用 EXE 不链接独立探针适配库，不改变 C ABI。
 
 源码入口：
 
@@ -57,8 +58,8 @@ VFS 基础迁移，必须先完成更广回归，不能只靠当前单资源测�
 ## 两种方案共用的宿主接入步骤
 
 1. 保留同步 `load_action_map` 的完成语义；先新增原生 C++ 异步 begin/status/cancel 入口，
-   不在同一改动中扩张公共 C ABI。未启用可选后端时明确返回 unsupported。
-2. Application 在 attach_task_executor 后使用已有调度器及 I/O loop，创建专属任务 scope；
+   不在同一改动中扩张公共 C ABI。尚未绑定执行器时返回 not_ready。
+2. Application 在 attach_task_executor 后使用已有调度器及可用的 I/O loop，创建专属任务 scope；
    不另建线程池。资产来源可用前拒绝新请求；重复 attach 不重建在途状态。
 3. 将输入资源管理、Loader 与待应用对象作为同一内部子系统拥有，所有 CAORS 对象留在
    引擎模块内。CMake 拆分共享实现源，避免同时链接两个 input_service 实现或两个 CAORS runtime。

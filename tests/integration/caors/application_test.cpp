@@ -75,16 +75,6 @@ void close_pending_window(const char* assets) {
 #endif
 void run(const char* assets, bool cooperative) {
   using namespace gneiss;
-#ifdef GNEISS_TEST_CAORS_DISABLED
-  (void)assets;
-  (void)cooperative;
-  std::shared_ptr<engine::application> app;
-  check(engine::application::create({}, app) == GNEISS_SUCCESS, "create disabled");
-  check(app->begin_action_map("asset://input/default.input-map.json") == GNEISS_ERROR_UNSUPPORTED &&
-            app->action_map_status() == GNEISS_ERROR_UNSUPPORTED &&
-            app->cancel_action_map() == GNEISS_ERROR_UNSUPPORTED,
-        "disabled is explicit");
-#else
   using namespace std::chrono_literals;
   tasks::task_scheduler scheduler({.workers = 1,
                                    .mode = cooperative ? tasks::execution_mode::cooperative
@@ -128,7 +118,9 @@ void run(const char* assets, bool cooperative) {
         check(scheduler.run_ready().status == tasks::drive_status::success, "drive");
       check(app->run(0, 1) == GNEISS_SUCCESS, "run");
       check(std::chrono::steady_clock::now() < deadline, "timeout");
+#if GNEISS_TEST_TASK_THREADS
       std::this_thread::sleep_for(1ms);
+#endif
     } while (app->action_map_status() == GNEISS_ERROR_NOT_READY);
   };
   check(app->begin_action_map("asset://input/default.input-map.json") == GNEISS_SUCCESS, "begin");
@@ -159,11 +151,13 @@ void run(const char* assets, bool cooperative) {
         "sync unchanged");
   check(app->run(0, 2) == GNEISS_SUCCESS && app->action_map_status() == GNEISS_ERROR_INVALID_STATE,
         "sync cancels older async apply");
+#if GNEISS_TEST_TASK_THREADS
   gneiss_result cross_thread = GNEISS_SUCCESS;
   std::thread other(
       [&] { cross_thread = app->begin_action_map("asset://input/default.input-map.json"); });
   other.join();
   check(cross_thread == GNEISS_ERROR_INVALID_STATE, "owner thread enforced");
+#endif
   check(app->begin_action_map("asset://input/default.input-map.json") == GNEISS_SUCCESS,
         "shutdown begin");
   check(app->shutdown(0) == GNEISS_SUCCESS, "shutdown in flight");
@@ -178,15 +172,17 @@ void run(const char* assets, bool cooperative) {
   wait();
   check(app->action_map_status() == GNEISS_SUCCESS, "new owner independently applies input");
   check(app->shutdown(0) == GNEISS_SUCCESS, "new owner shutdown");
-#endif
 }
 }
 int main(int argc, char** argv) {
   try {
     if (argc != 2)
       return 2;
-    run(argv[1], false);
-    run(argv[1], true);
+    const auto* root = argv[1];
+#if GNEISS_TEST_TASK_THREADS
+    run(root, false);
+#endif
+    run(root, true);
 #ifdef GNEISS_TEST_NATIVE_WINDOW
     close_pending_window(argv[1]);
 #endif

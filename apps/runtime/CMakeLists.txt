@@ -214,7 +214,7 @@ if(BUILD_TESTING)
   endif()
 endif()
 
-if(BUILD_TESTING AND GNEISS_ENABLE_CAORS_INPUT)
+if(BUILD_TESTING)
   add_test(NAME gneiss.runtime.async-input-startup
     COMMAND "${CMAKE_COMMAND}"
       -DGNEISS_RUNTIME=$<TARGET_FILE:gneiss_runtime>
