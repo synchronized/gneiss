@@ -512,7 +512,7 @@ gneiss_result application::begin_action_map(std::string_view uri) noexcept {
   if (!storage_->asset_executor_attached_)
     return GNEISS_ERROR_NOT_READY;
   storage_->input_application_.cancel();
-  std::unique_ptr<engine::resource::action_map_request> request;
+  engine::resource::asset_request<engine::resource::action_map_asset> request;
   const auto started = storage_->asset_manager_->request_input(uri, request);
   return started == result::success
              ? storage_->input_application_.begin(std::move(request)).native()

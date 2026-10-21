@@ -66,7 +66,6 @@ target_sources(gneiss_engine PRIVATE
   src/engine/platform/caors/worker.cpp
   src/engine/resource/backend/caors/caors_vfs_bridge.cpp
   src/engine/resource/backend/caors/caors_action_map_loader.cpp
-  src/engine/resource/backend/caors/caors_action_map_request.cpp
   src/runtime/loading/action_map_application.cpp)
 if(GNEISS_BUILD_TOOLS)
   include(bc7enc)

@@ -10,7 +10,7 @@ namespace gneiss::engine::render {
 
 using asset_diagnostic = engine::resource::asset_diagnostic;
 using render_asset_type = engine::resource::asset_type;
-using render_asset_reload = engine::resource::asset_request;
+using render_asset_reload = engine::resource::asset_preparation_source;
 using prepared_render_asset = engine::resource::prepared_asset;
 using prepared_render_batch = engine::resource::prepared_batch;
 using engine::resource::prepare_texture;

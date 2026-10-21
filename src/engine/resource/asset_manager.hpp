@@ -3,12 +3,13 @@
 #ifndef GNEISS_ENGINE_ASSET_MANAGER_HPP_
 #define GNEISS_ENGINE_ASSET_MANAGER_HPP_
 
-#include "action_map_request.hpp"
+#include "asset_request.hpp"
 #include "engine/resource/cache/cpu_document_cache.hpp"
 #include "engine/resource/cache/resource_cache.hpp"
 #include "engine/resource/loaders/prefab_asset_loader.hpp"
 #include "engine/resource/types/action_map.hpp"
 #include "engine/resource/vfs/virtual_file_system.hpp"
+#include "types/action_map_asset.hpp"
 #include <memory>
 #include <utility>
 
@@ -30,7 +31,7 @@ public:
   [[nodiscard]] result load_input(std::string_view uri,
                                   engine::resource::action_map& output) noexcept;
   [[nodiscard]] result request_input(std::string_view uri,
-                                     std::unique_ptr<action_map_request>& output) noexcept;
+                                     asset_request<action_map_asset>& output) noexcept;
   void advance_resources();
   /** 调用者先取消并释放请求，再停止资源工作。 */
   void stop_resources() noexcept;

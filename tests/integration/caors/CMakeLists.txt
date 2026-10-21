@@ -24,6 +24,14 @@ if(EMSCRIPTEN)
     "--embed-file=${PROJECT_SOURCE_DIR}/examples/temple/assets/input@/gneiss-input/input")
 endif()
 
+add_executable(gneiss_asset_request_test asset_request_test.cpp)
+target_include_directories(gneiss_asset_request_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_link_libraries(gneiss_asset_request_test PRIVATE caors::caors gneiss_core_values)
+target_compile_features(gneiss_asset_request_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_asset_request_test)
+gneiss_target_output_directories(gneiss_asset_request_test)
+add_test(NAME gneiss.caors.asset-request COMMAND gneiss_asset_request_test)
+
 # 直接 libuv I/O 和 Granit 材质探针只适用于原生线程平台。
 if(NOT GNEISS_TASK_THREADS OR EMSCRIPTEN)
   return()

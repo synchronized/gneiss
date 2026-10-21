@@ -26,6 +26,8 @@ file(COPY "${GNEISS_SOURCE_DIR}/examples/application_world"
      DESTINATION "${consumer_source_dir}/examples"
 )
 
+file(COPY "${GNEISS_SOURCE_DIR}/examples/support" DESTINATION "${consumer_source_dir}/examples")
+
 set(install_command "${CMAKE_COMMAND}" --install "${GNEISS_BUILD_DIR}" --prefix "${install_dir}")
 set(build_command "${CMAKE_COMMAND}" --build "${consumer_build_dir}")
 set(test_command "${CMAKE_CTEST_COMMAND}" --test-dir "${consumer_build_dir}" --output-on-failure)

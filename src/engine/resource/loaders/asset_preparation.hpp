@@ -42,7 +42,7 @@ prepare_texture(const engine::resource::virtual_file_system& file_system, std::s
 
 enum class asset_type : std::uint32_t { invalid = 0U, mesh = 1U, material = 2U, texture = 3U };
 
-struct asset_request final {
+struct asset_preparation_source final {
   std::string uri;
   asset_type type = asset_type::mesh;
 };
@@ -63,7 +63,7 @@ public:
 
 /** 后台解析后的自有 CPU 数据；不持有缓存或后端对象，材质依赖仅使用 URI。 */
 struct prepared_asset {
-  asset_request source;
+  asset_preparation_source source;
   /** 描述在首位，纹理负载在其后；材质的资产依赖仍由 texture_uris 表示。 */
   std::vector<prepared_source> sources;
   /** 全部来源复验后生成；包含依赖版本和纹理准备配置，可直接用于固定版本缓存。 */
@@ -102,8 +102,9 @@ public:
     std::size_t maximum_bytes{};
     bool deferred_reads{true};
   };
-  asset_preparation(const virtual_file_system& files, std::span<const asset_request> requested,
-                    limits budget, texture_prepare_profile profile,
+  asset_preparation(const virtual_file_system& files,
+                    std::span<const asset_preparation_source> requested, limits budget,
+                    texture_prepare_profile profile,
                     material_document_decoder decode_material = {});
   ~asset_preparation();
   [[nodiscard]] gneiss_result advance(std::size_t byte_budget,
@@ -119,7 +120,7 @@ private:
 /** material_bytes 由调用方指定单个材质发布所需的字节估算；含材质时不得为零。
  * 该值与依赖 URI 共同计入 maximum_bytes，溢出或预算不足拒绝整批。 */
 [[nodiscard]] gneiss_result prepare_assets(const engine::resource::virtual_file_system& files,
-                                           std::span<const asset_request> requested,
+                                           std::span<const asset_preparation_source> requested,
                                            prepared_batch& output, asset_diagnostic& diagnostic,
                                            const std::function<bool()>& cancelled,
                                            std::size_t material_bytes,

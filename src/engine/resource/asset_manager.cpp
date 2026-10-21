@@ -3,7 +3,6 @@
 #include "asset_manager.hpp"
 #include "engine/platform/caors/adapter.hpp"
 #include "engine/resource/backend/caors/caors_action_map.hpp"
-#include "engine/resource/backend/caors/caors_action_map_request.hpp"
 #include "engine/resource/backend/caors/caors_vfs_bridge.hpp"
 #include "engine/resource/vfs/asset_uri.hpp"
 #include <map>
@@ -56,7 +55,7 @@ result asset_manager::load_input(std::string_view uri,
   return engine::resource::load_action_map(files_, uri, output);
 }
 result asset_manager::request_input(std::string_view uri,
-                                    std::unique_ptr<action_map_request>& output) noexcept {
+                                    asset_request<action_map_asset>& output) noexcept {
   if (!resource_state_)
     return result::not_ready;
   if (engine::resource::validate_uri(uri) != GNEISS_SUCCESS)
@@ -78,7 +77,7 @@ result asset_manager::request_input(std::string_view uri,
     auto request = s.input_cache.contains(found->second)
                        ? s.manager.request_reload<engine::resource::action_map_asset>(found->second)
                        : s.manager.request_load<engine::resource::action_map_asset>(found->second);
-    output = make_action_map_request(std::move(request));
+    output = asset_request<action_map_asset>{std::move(request)};
     return result::success;
   } catch (const std::bad_alloc&) {
     return result::out_of_memory;

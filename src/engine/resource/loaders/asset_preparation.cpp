@@ -582,10 +582,11 @@ bool invalid_prepared_mesh(const mesh_data& mesh) {
                                }) ||
           !std::ranges::all_of(mesh.indices, [&](auto i) { return i < mesh.vertices.size(); }));
 }
-gneiss_result decode_non_texture(const asset_request& source, const std::vector<std::byte>& bytes,
-                                 prepared_asset& asset, asset_diagnostic& diagnostic,
-                                 std::size_t material_bytes, std::size_t maximum_bytes,
-                                 std::vector<asset_request>& pending,
+gneiss_result decode_non_texture(const asset_preparation_source& source,
+                                 const std::vector<std::byte>& bytes, prepared_asset& asset,
+                                 asset_diagnostic& diagnostic, std::size_t material_bytes,
+                                 std::size_t maximum_bytes,
+                                 std::vector<asset_preparation_source>& pending,
                                  const material_document_decoder& decode_material) {
   auto result = GNEISS_SUCCESS;
   if (source.type == asset_type::mesh) {
@@ -813,7 +814,7 @@ struct asset_preparation::state {
   virtual_file_system files;
   std::shared_ptr<source_revision_file_system> versions;
   std::unique_ptr<source_revision_file_system::verification> verification;
-  std::vector<asset_request> pending;
+  std::vector<asset_preparation_source> pending;
   std::map<std::string, asset_type> seen;
   std::size_t index{};
   std::size_t material_bytes{};
@@ -1183,8 +1184,8 @@ struct asset_preparation::state {
   }
 };
 asset_preparation::asset_preparation(const virtual_file_system& files,
-                                     std::span<const asset_request> requested, limits budget,
-                                     texture_prepare_profile profile,
+                                     std::span<const asset_preparation_source> requested,
+                                     limits budget, texture_prepare_profile profile,
                                      material_document_decoder decode_material)
     : state_(std::make_unique<state>()) {
   auto& value = *state_;
@@ -1260,10 +1261,11 @@ gneiss_result asset_preparation::advance(std::size_t byte_budget,
   return value.result;
 }
 gneiss_result prepare_assets(const virtual_file_system& files,
-                             std::span<const asset_request> requested, prepared_batch& output,
-                             asset_diagnostic& diagnostic, const std::function<bool()>& cancelled,
-                             std::size_t material_bytes, std::size_t maximum_assets,
-                             std::size_t maximum_bytes, texture_prepare_profile profile) noexcept {
+                             std::span<const asset_preparation_source> requested,
+                             prepared_batch& output, asset_diagnostic& diagnostic,
+                             const std::function<bool()>& cancelled, std::size_t material_bytes,
+                             std::size_t maximum_assets, std::size_t maximum_bytes,
+                             texture_prepare_profile profile) noexcept {
   output = {};
   diagnostic = {};
   try {

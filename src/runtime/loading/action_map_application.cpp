@@ -8,13 +8,13 @@ namespace gneiss::runtime {
 action_map_application::~action_map_application() { cancel(); }
 void action_map_application::cancel() noexcept {
   if (request_)
-    request_->cancel();
+    request_.cancel();
   request_ = {};
   state_ = action_map_apply_state::cancelled;
   result_ = result::invalid_state;
 }
 result action_map_application::begin(
-    std::unique_ptr<engine::resource::action_map_request> request) noexcept {
+    engine::resource::asset_request<engine::resource::action_map_asset> request) noexcept {
   cancel();
   if (!request)
     return result::invalid_argument;
@@ -26,13 +26,14 @@ result action_map_application::begin(
 result action_map_application::poll(engine::input::input_service& target) noexcept {
   if (state_ != action_map_apply_state::loading)
     return result_;
-  engine::resource::action_map map;
-  const auto loaded = request_ ? request_->take(map) : result::invalid_state;
+  engine::resource::asset_request<engine::resource::action_map_asset>::reference asset;
+  const auto loaded = request_ ? request_.take(asset) : result::invalid_state;
   if (loaded == result::not_ready)
     return result::not_ready;
   result_ = loaded;
   if (loaded == result::success) {
     try {
+      auto map = asset->map;
       result_ = target.replace_action_map(std::move(map));
     } catch (const std::bad_alloc&) {
       result_ = result::out_of_memory;

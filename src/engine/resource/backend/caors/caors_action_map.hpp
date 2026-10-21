@@ -3,17 +3,13 @@
 
 #pragma once
 #include "engine/platform/caors/document_loader.hpp"
-#include "engine/resource/types/action_map.hpp"
+#include "engine/resource/types/action_map_asset.hpp"
 #include <functional>
 
 namespace gneiss::engine::platform::caors {
 class file_system_adapter;
 }
 namespace gneiss::engine::resource {
-struct action_map_asset final : ::caors::resource {
-  using ::caors::resource::resource;
-  action_map map;
-};
 /** 宿主推进；销毁前排空工作 scope，abandon，再排空完成队列及 loop。 */
 using action_map_loader = engine::platform::caors::document_loader<action_map_asset>;
 /** verify 在 worker 中、解析完成且发布缓存之前调用；参数借用至回调返回。

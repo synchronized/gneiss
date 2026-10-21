@@ -18,6 +18,8 @@ file(COPY "${GNEISS_SOURCE_DIR}/examples/stable_runtime"
 )
 file(COPY "${GNEISS_SOURCE_DIR}/examples/temple" DESTINATION "${consumer_source_dir}/examples")
 
+file(COPY "${GNEISS_SOURCE_DIR}/examples/support" DESTINATION "${consumer_source_dir}/examples")
+
 set(install_command "${CMAKE_COMMAND}" --install "${GNEISS_BUILD_DIR}" --prefix "${install_dir}")
 if(GNEISS_GRANIT_BUILD_DIR)
   set(granit_build_dir "${GNEISS_GRANIT_BUILD_DIR}")

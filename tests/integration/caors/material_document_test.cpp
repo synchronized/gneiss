@@ -230,7 +230,8 @@ void run(std::size_t document_limit) {
             : R"({"format":"gneiss.material","version":1,"color":[1,0,0,1]})");
     ::caors::resources::handle<material_document> candidate;
     unsigned decodes = 0;
-    const std::array requested{asset_request{"asset://material.json", asset_type::material}};
+    const std::array requested{
+        asset_preparation_source{"asset://material.json", asset_type::material}};
     asset_preparation preparation(
         files, requested,
         {.material_bytes = 256, .maximum_assets = 8, .maximum_bytes = document_limit}, {},

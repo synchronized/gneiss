@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include "engine/resource/action_map_request.hpp"
+#include "engine/resource/asset_request.hpp"
+#include "engine/resource/types/action_map_asset.hpp"
 namespace gneiss::engine::input {
 class input_service;
 }
@@ -17,7 +18,7 @@ public:
   action_map_application(const action_map_application&) = delete;
   action_map_application& operator=(const action_map_application&) = delete;
   [[nodiscard]] result
-  begin(std::unique_ptr<engine::resource::action_map_request> request) noexcept;
+  begin(engine::resource::asset_request<engine::resource::action_map_asset> request) noexcept;
   void cancel() noexcept;
   [[nodiscard]] result status() const noexcept { return result_; }
   /** 不推进调度器或等待 I/O；加载完成后最多替换一次。失败保留原映射与 action_id。 */
@@ -25,7 +26,7 @@ public:
   [[nodiscard]] action_map_apply_state state() const noexcept { return state_; }
 
 private:
-  std::unique_ptr<engine::resource::action_map_request> request_;
+  engine::resource::asset_request<engine::resource::action_map_asset> request_;
   action_map_apply_state state_ = action_map_apply_state::idle;
   result result_ = result::invalid_state;
 };

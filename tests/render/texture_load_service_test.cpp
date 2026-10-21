@@ -109,7 +109,7 @@ void prepared_source_revisions() {
       R"({"format":"gneiss.material","version":2,"color":[1,1,1,1],"base_color_texture":"asset://texture"})");
   virtual_file_system files;
   check(files.mount("asset://", source) == GNEISS_SUCCESS);
-  const std::array requests{asset_request{"asset://material", asset_type::material}};
+  const std::array requests{asset_preparation_source{"asset://material", asset_type::material}};
   prepared_batch before;
   prepared_batch after;
   asset_diagnostic diagnostic;
@@ -195,7 +195,7 @@ void shared_mesh_documents() {
   virtual_file_system files;
   check(files.mount("asset://", source) == GNEISS_SUCCESS);
   auto documents = make_cpu_document_cache();
-  const std::array requests{asset_request{"asset://mesh", asset_type::mesh}};
+  const std::array requests{asset_preparation_source{"asset://mesh", asset_type::mesh}};
   auto prepare = [&](const virtual_file_system& vfs) {
     prepared_batch batch;
     asset_diagnostic diagnostic;
@@ -257,7 +257,7 @@ void fixed_version_publication(engine::core::tasks::execution_mode mode) {
   render_asset_loader loader(files, cache, resources);
   using candidate = render_asset_loader::asset_candidate;
   constexpr auto fixed = render_asset_loader::publication_mode::fixed_version;
-  const std::array requests{asset_request{"asset://material", asset_type::material}};
+  const std::array requests{asset_preparation_source{"asset://material", asset_type::material}};
   const auto prepare = [&] {
     prepared_batch batch;
     asset_diagnostic diagnostic;

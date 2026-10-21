@@ -210,10 +210,11 @@ struct preparation_faults {
   bool change{};
   bool fail{};
 };
-bool run_preparation_case(const std::shared_ptr<range_files>& backend,
-                          const gneiss::engine::resource::virtual_file_system& files,
-                          std::span<const gneiss::engine::resource::asset_request> requests,
-                          preparation_faults faults) {
+bool run_preparation_case(
+    const std::shared_ptr<range_files>& backend,
+    const gneiss::engine::resource::virtual_file_system& files,
+    std::span<const gneiss::engine::resource::asset_preparation_source> requests,
+    preparation_faults faults) {
   using namespace gneiss::engine::resource;
   const auto [cancel, change, fail] = faults;
   asset_preparation preparation(files, requests, {.maximum_assets = 1U, .maximum_bytes = 65536U},
@@ -264,7 +265,8 @@ bool incremental_preparation() {
   if (files.mount("asset://", backend) != GNEISS_SUCCESS) {
     return false;
   }
-  const std::array requests{asset_request{.uri = "asset://mesh", .type = asset_type::mesh}};
+  const std::array requests{
+      asset_preparation_source{.uri = "asset://mesh", .type = asset_type::mesh}};
   return run_preparation_case(backend, files, requests, {}) &&
          run_preparation_case(backend, files, requests, {.cancel = true}) &&
          run_preparation_case(backend, files, requests, {.change = true}) &&
@@ -285,7 +287,7 @@ bool prefetched_preparation(bool deferred_open = false) {
   if (files.mount("asset://", backend) != GNEISS_SUCCESS) {
     return false;
   }
-  std::vector<asset_request> requested;
+  std::vector<asset_preparation_source> requested;
   requested.reserve(16U);
   for (unsigned i = 0U; i < 16U; ++i) {
     requested.push_back({.uri = "asset://mesh-" + std::to_string(i), .type = asset_type::mesh});
@@ -331,7 +333,8 @@ bool deferred_open_failure(bool oversized) {
   if (files.mount("asset://", backend) != GNEISS_SUCCESS) {
     return false;
   }
-  const std::array requests{asset_request{.uri = "asset://mesh", .type = asset_type::mesh}};
+  const std::array requests{
+      asset_preparation_source{.uri = "asset://mesh", .type = asset_type::mesh}};
   asset_preparation preparation(files, requests, {.maximum_assets = 1U, .maximum_bytes = 64U}, {});
   prepared_batch output;
   asset_diagnostic diagnostic;
@@ -376,7 +379,7 @@ int main() try {
         return;
       }
       const std::array requests{
-          asset_request{.uri = "asset://mesh", .type = asset_type::mesh},
+          asset_preparation_source{.uri = "asset://mesh", .type = asset_type::mesh},
       };
       result = prepare_assets(files, requests, output, diagnostic, {}, 0U);
     } catch (...) {
@@ -397,7 +400,7 @@ int main() try {
     return 2;
   }
   const std::array requests{
-      asset_request{.uri = "asset://mesh", .type = asset_type::mesh},
+      asset_preparation_source{.uri = "asset://mesh", .type = asset_type::mesh},
   };
   if (prepare_assets(
           files, requests, output, diagnostic, [] { return true; }, 0U) !=
@@ -415,7 +418,7 @@ int main() try {
     return 5;
   }
   const std::array missing{
-      asset_request{.uri = "asset://missing", .type = asset_type::mesh},
+      asset_preparation_source{.uri = "asset://missing", .type = asset_type::mesh},
   };
   if (prepare_assets(files, missing, output, diagnostic, {}, 0U) != GNEISS_ERROR_NOT_FOUND ||
       !output.assets.empty()) {
@@ -423,7 +426,7 @@ int main() try {
   }
   source->change_on_verify = false;
   const std::array material_request{
-      asset_request{.uri = "asset://material", .type = asset_type::material},
+      asset_preparation_source{.uri = "asset://material", .type = asset_type::material},
   };
   if (prepare_assets(files, material_request, output, diagnostic, {}, 1000U, 1U, 1000U) !=
           GNEISS_SUCCESS ||
@@ -441,7 +444,7 @@ int main() try {
     return 10;
   }
   const std::array linked_request{
-      asset_request{.uri = "asset://linked", .type = asset_type::material},
+      asset_preparation_source{.uri = "asset://linked", .type = asset_type::material},
   };
   constexpr auto maximum = std::numeric_limits<std::size_t>::max();
   if (prepare_assets(files, linked_request, output, diagnostic, {}, maximum, 2U, maximum) !=

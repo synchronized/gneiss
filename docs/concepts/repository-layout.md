@@ -291,3 +291,11 @@ Host 可依赖 Engine、Runtime、Editor；后三者不得反向包含 Host。�
 `panels/document_action_panel` 绘制未保存确认弹窗，通过本次绘制期间的同步回调请求
 保存与后续动作；Host 连接文件对话框、场景加载和退出。窗口关闭统一通过 document_editing
 取消在途资产、Prefab 与历史操作，排空职责不变。
+
+## 内部资源请求
+
+`engine/resource/asset_request.hpp` 提供移动所有的 `asset_request<T>`，直接复用 CAORS 请求，
+成功时取出资源强引用。`types/action_map_asset.hpp` 定义输入资源；
+`runtime/loading/action_map_application` 负责复制并应用输入映射，InputService 不负责加载。
+内部消费者可依赖 CAORS 类型，安装头文件与公共 C ABI 不暴露这些类型。
+边界决策见 [ADR-069](../decisions/ADR-069-resource-runtime-boundaries.md)。

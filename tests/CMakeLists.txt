@@ -1002,7 +1002,6 @@ add_executable(gneiss_scene_load_builder_test scene/scene_load_builder_test.cpp
 target_sources(gneiss_scene_load_builder_test PRIVATE
   "${PROJECT_SOURCE_DIR}/src/engine/resource/asset_manager.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/types/action_map.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/backend/caors/caors_action_map_request.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/backend/caors/caors_action_map_loader.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/action_map_parser.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/types/action_map_validation.cpp"

@@ -60,3 +60,12 @@ ADR-064 的共享资产和一 World 多 Scene 决策保持有效。
 src/host/common、src/host/editor、src/host/runtime。Host 依赖 Editor、Runtime、Platform，
 后三者不反向依赖 Host。Editor 业务与宿主装配必须区分，迁移文件不代表 UI 装配拆分完成。
 不新增 DLL，不改变既有进程协议；运行目标与命令行行为保持不变。
+
+## 原生资源请求依赖（2026-10-21）
+
+用户确认采用薄 asset_request<T>，允许内部 C++ 资源请求及其 Runtime 消费者依赖 CAORS。
+公共 C ABI、安装头和输入实时服务继续隔离第三方类型。请求只拥有 CAORS 订阅，复用其
+状态、强引用和取消，不重复创建任务、缓存或完成状态机；按移动语义转移取消责任。
+取资源与应用资源分离：Runtime 负责输入映射复制、验证和替换。删除专用 action_map_request
+虚接口及其工厂，不为每个资源类型新增请求实现。原 CPU 批次准备的 URI/type 描述改名
+asset_preparation_source，与异步订阅明确区分。

@@ -3,7 +3,7 @@
 
 include(FetchContent)
 include("${PROJECT_SOURCE_DIR}/cmake/dependency_source_cache.cmake")
-# MIT；固定已评审的 0.7.0 提交。Engine 内部集成只暴露 Gneiss 自身接口。
+# MIT；固定已评审的 0.7.0 提交。内部资源允许原生类型依赖，公共 ABI 不暴露 CAORS。
 set(CAORS_BUILD_TESTING OFF CACHE BOOL "" FORCE)
 set(CAORS_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(CAORS_BUILD_BENCHMARKS OFF CACHE BOOL "" FORCE)

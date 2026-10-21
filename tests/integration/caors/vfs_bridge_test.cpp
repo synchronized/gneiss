@@ -2,8 +2,8 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/function/input/input_service.hpp"
+#include "engine/resource/asset_request.hpp"
 #include "engine/resource/backend/caors/caors_action_map.hpp"
-#include "engine/resource/backend/caors/caors_action_map_request.hpp"
 #include "engine/resource/backend/caors/caors_vfs_bridge.hpp"
 #include "engine/resource/vfs/native_file_system.hpp"
 #include "engine/resource/vfs/source_revision_file_system.hpp"
@@ -209,8 +209,9 @@ void run(const char* root, bool scheduled) {
           "verification failure preserves cached version");
     input_service input;
     action_map_application application;
-    check(application.begin(gneiss::engine::resource::make_action_map_request(
-              manager.request_load<action_map_asset>(id))) == gneiss::result::success &&
+    check(application.begin(
+              gneiss::engine::resource::asset_request<gneiss::engine::resource::action_map_asset>(
+                  manager.request_load<action_map_asset>(id))) == gneiss::result::success &&
               application.poll(input) == gneiss::result::success,
           "apply verified input");
     action_id action;
