@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "caors_vfs_bridge.hpp"
+#include <algorithm>
 #include <atomic>
 #include <gneiss/engine/core/result.hpp>
 #include <mutex>
@@ -30,6 +31,103 @@ inline caors::io::io_error translate(gneiss_result code) {
 
   return {io_errc::backend_failure, 1, static_cast<gneiss_result>(status)};
 }
+
+// 调度式读取只产生内存快照；底层句柄生命周期仍由 read_bounded 的后端负责。
+// 关闭快照阻止新读，已接受的读请求独立保活字节，不冒充操作系统异步关闭。
+class snapshot_source final : public read_source {
+  class operation final : public read_operation {
+  public:
+    explicit operation(std::shared_ptr<const std::vector<std::byte>> bytes)
+        : bytes_(std::move(bytes)) {}
+    gneiss_result poll(std::span<const std::byte>& output) noexcept override {
+      output = *bytes_;
+      return GNEISS_SUCCESS;
+    }
+
+  private:
+    std::shared_ptr<const std::vector<std::byte>> bytes_;
+  };
+
+public:
+  explicit snapshot_source(std::vector<std::byte> bytes)
+      : size_(bytes.size()),
+        bytes_(std::make_shared<const std::vector<std::byte>>(std::move(bytes))) {}
+  std::uint64_t size() const noexcept override { return size_; }
+  gneiss_result begin_close() const noexcept override {
+    const std::scoped_lock lock(mutex_);
+    bytes_.reset();
+    return GNEISS_SUCCESS;
+  }
+  gneiss_result poll_close() const noexcept override {
+    const std::scoped_lock lock(mutex_);
+    return bytes_ ? GNEISS_ERROR_NOT_READY : GNEISS_SUCCESS;
+  }
+  gneiss_result read_at(std::uint64_t offset, std::span<std::byte> output) const noexcept override {
+    const std::scoped_lock lock(mutex_);
+    if (!bytes_)
+      return GNEISS_ERROR_INVALID_STATE;
+    if (offset > size_ || output.size() > size_ - offset)
+      return GNEISS_ERROR_INVALID_ARGUMENT;
+    std::copy_n(bytes_->begin() + static_cast<std::ptrdiff_t>(offset), output.size(),
+                output.begin());
+    return GNEISS_SUCCESS;
+  }
+  gneiss_result begin_read(std::uint64_t offset, std::size_t length,
+                           std::unique_ptr<read_operation>& output) const noexcept override {
+    output.reset();
+    const std::scoped_lock lock(mutex_);
+    if (!bytes_)
+      return GNEISS_ERROR_INVALID_STATE;
+    if (offset != 0 || length != size_)
+      return GNEISS_ERROR_UNSUPPORTED;
+    try {
+      output = std::make_unique<operation>(bytes_);
+    } catch (const std::bad_alloc&) {
+      return GNEISS_ERROR_OUT_OF_MEMORY;
+    }
+    return GNEISS_SUCCESS;
+  }
+
+private:
+  std::uint64_t size_;
+  mutable std::mutex mutex_;
+  mutable std::shared_ptr<const std::vector<std::byte>> bytes_;
+};
+
+class scheduled_open final : public open_read_operation {
+public:
+  struct state {
+    std::mutex mutex;
+    gneiss_result status = GNEISS_ERROR_NOT_READY;
+    std::unique_ptr<read_source> source;
+    bool cancelled = false;
+  };
+  // 排队任务被执行器丢弃也必须结束回执，不能永久停留在 NOT_READY。
+  struct settlement {
+    std::shared_ptr<state> value;
+    ~settlement() {
+      const std::scoped_lock lock(value->mutex);
+      if (value->status == GNEISS_ERROR_NOT_READY)
+        value->status = GNEISS_ERROR_INVALID_STATE;
+    }
+  };
+  explicit scheduled_open(std::shared_ptr<state> value) : state_(std::move(value)) {}
+  ~scheduled_open() override {
+    const std::scoped_lock lock(state_->mutex);
+    state_->cancelled = true;
+  }
+  gneiss_result poll(std::unique_ptr<read_source>& output) noexcept override {
+    output.reset();
+    const std::scoped_lock lock(state_->mutex);
+    if (state_->status != GNEISS_SUCCESS)
+      return state_->status;
+    output = std::move(state_->source);
+    return output ? GNEISS_SUCCESS : GNEISS_ERROR_INVALID_STATE;
+  }
+
+private:
+  std::shared_ptr<state> state_;
+};
 
 class async_file final : public caors_internal::file_adapter {
   struct read {
@@ -174,9 +272,10 @@ class vfs_backend final : public caors_vfs_bridge {
   };
 
 public:
-  vfs_backend(virtual_file_system files, caors::tasks::executor worker, std::size_t limit)
+  vfs_backend(virtual_file_system files, caors::tasks::executor worker, std::size_t limit,
+              bool scheduled)
       : files_snapshot_(std::move(files)), worker_(std::move(worker)),
-        maximum_document_bytes_(limit) {}
+        maximum_document_bytes_(limit), allow_scheduled_reads_(scheduled) {}
   bool exists(caors::io::path_view) const override { return false; } // 不提供同步状态查询。
   gneiss_result identify(std::string_view uri, std::uint32_t type,
                          asset_identity& output) const noexcept override {
@@ -201,8 +300,41 @@ public:
       return {caors::io::io_errc::invalid_argument};
     pending_.reserve(pending_.size() + 1);
     opening next;
-    const auto status =
+    auto status =
         files_snapshot_.begin_open_read_for_validation(location.path.string_view(), next.operation);
+    if (status == GNEISS_ERROR_UNSUPPORTED && allow_scheduled_reads_) {
+      auto state = std::make_shared<scheduled_open::state>();
+      next.operation = std::make_unique<scheduled_open>(state);
+      auto settlement = std::make_shared<scheduled_open::settlement>();
+      settlement->value = state;
+      const auto posted = worker_.post(caors::tasks::task{
+          [state, settlement, files = files_snapshot_,
+           path = std::string(location.path.string_view()), limit = maximum_document_bytes_] {
+            {
+              const std::scoped_lock guard(state->mutex);
+              if (state->cancelled)
+                return;
+            }
+            std::vector<std::byte> bytes;
+            auto result = files.read_bounded(path, limit, bytes);
+            std::unique_ptr<read_source> source;
+            if (result == GNEISS_SUCCESS) {
+              try {
+                source = std::make_unique<snapshot_source>(std::move(bytes));
+              } catch (const std::bad_alloc&) {
+                result = GNEISS_ERROR_OUT_OF_MEMORY;
+              }
+            }
+            const std::scoped_lock guard(state->mutex);
+            if (!state->cancelled) {
+              state->source = std::move(source);
+              state->status = result;
+            }
+          }});
+      if (posted)
+        return {caors::io::io_errc::backend_failure};
+      status = GNEISS_SUCCESS;
+    }
     if (status != GNEISS_SUCCESS)
       return translate(status);
     next.completion = std::move(completion);
@@ -269,16 +401,18 @@ private:
   std::size_t maximum_document_bytes_;
   std::mutex mutex_;
   bool stopped_{};
+  bool allow_scheduled_reads_{};
   std::vector<opening> pending_;
   std::vector<std::weak_ptr<caors_internal::file_adapter>> files_;
 };
 }
 std::shared_ptr<caors_vfs_bridge> make_caors_vfs_bridge(virtual_file_system snapshot,
                                                         caors::tasks::executor worker,
-                                                        std::size_t maximum_document_bytes) {
+                                                        std::size_t maximum_document_bytes,
+                                                        bool allow_scheduled_reads) {
   if (maximum_document_bytes == 0U)
     throw std::invalid_argument("文档读取上限不得为零");
   return std::make_shared<vfs_backend>(std::move(snapshot), std::move(worker),
-                                       maximum_document_bytes);
+                                       maximum_document_bytes, allow_scheduled_reads);
 }
 }

@@ -196,9 +196,7 @@ gneiss_result application::attach_task_executor(tasks::task_executor& executor) 
     }
 #endif
 #ifdef GNEISS_ENABLE_CAORS_INPUT
-    if (storage_->asset_io_executor_) {
-      storage_->asset_manager_->attach_input_loader(executor);
-    }
+    storage_->asset_manager_->attach_input_loader(executor);
 #endif
     render_internal::texture_upload_backend backend;
 #ifdef GNEISS_HAS_GRANIT_PLATFORM

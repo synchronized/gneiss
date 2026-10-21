@@ -24,7 +24,7 @@ struct caors_input_host::storage {
   result latest = result::invalid_state;
   storage(asset_internal::virtual_file_system files, tasks::task_executor& executor)
       : context(caors_internal::make_worker(executor)), worker(context),
-        bridge(asset_internal::make_caors_vfs_bridge(files, worker.get_executor())),
+        bridge(asset_internal::make_caors_vfs_bridge(files, worker.get_executor(), 1024U * 1024U, true)),
         loader(make_action_map_loader(
             *bridge,
             [files](auto uri, auto original) {

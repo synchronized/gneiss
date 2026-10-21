@@ -17,8 +17,12 @@ public:
   virtual gneiss_result identify(std::string_view uri, std::uint32_t type,
                                  asset_identity& output) const noexcept = 0;
 };
-/** maximum_document_bytes 是单次完整读取上限，必须大于零；零值抛出 invalid_argument。 */
+/** maximum_document_bytes 是单次完整读取上限，必须大于零；零值抛出 invalid_argument。
+ * allow_scheduled_reads 显式允许不支持异步打开的 VFS 在 worker 执行有界同步快照读取。
+ * 协作执行器将在推进队列的线程执行 I/O，不提供后台 I/O 或单步耗时保证。
+ */
 std::shared_ptr<caors_vfs_bridge>
 make_caors_vfs_bridge(virtual_file_system snapshot, caors::tasks::executor worker,
-                      std::size_t maximum_document_bytes = 1024U * 1024U);
+                      std::size_t maximum_document_bytes = 1024U * 1024U,
+                      bool allow_scheduled_reads = false);
 } // namespace gneiss::asset_internal

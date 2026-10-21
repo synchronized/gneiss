@@ -23,7 +23,7 @@ void check(bool ok, const char* message) {
   if (!ok)
     throw std::runtime_error(message);
 }
-void run(const char* root) {
+void run(const char* root, bool scheduled) {
   using namespace gneiss::asset_internal;
   using namespace caors::io;
   using namespace std::chrono_literals;
@@ -46,15 +46,16 @@ void run(const char* root) {
   } fixture_cleanup{fixture};
   auto native = std::make_shared<gneiss::asset_internal::native_file_system>();
   check(native->initialize(fixture.generic_string()) == GNEISS_SUCCESS, "root");
-  native->set_async_io(std::make_shared<gneiss::io_internal::uv_file_io>(loop),
-                       std::make_shared<gneiss::io_internal::uv_path_resolver>(loop));
+  if (!scheduled)
+    native->set_async_io(std::make_shared<gneiss::io_internal::uv_file_io>(loop),
+                         std::make_shared<gneiss::io_internal::uv_path_resolver>(loop));
   virtual_file_system source;
   check(source.mount("asset://", native) == GNEISS_SUCCESS, "mount");
   auto revisions = std::make_shared<source_revision_file_system>(source);
   virtual_file_system tracked;
   check(tracked.mount("asset://", revisions) == GNEISS_SUCCESS, "tracked mount");
   caors::tasks::execution_context work;
-  auto bridge = make_caors_vfs_bridge(tracked, work.get_executor());
+  auto bridge = make_caors_vfs_bridge(tracked, work.get_executor(), 1024U * 1024U, scheduled);
   caors::tasks::execution_context queue;
   struct cleanup {
     caors_vfs_bridge& bridge;
@@ -73,6 +74,28 @@ void run(const char* root) {
   check(static_cast<bool>(snapshot), "snapshot");
   auto resolved = snapshot.value.resolve(uri);
   check(static_cast<bool>(resolved), "resolve");
+  if (scheduled) {
+    auto discarded = request_open(resolved.value, queue.get_executor());
+    check(discarded && work.pending() == 1, "scheduled open is queued");
+    bridge->pump();
+    (void)queue.drain();
+    check(!discarded.value.result(), "pump does not execute synchronous I/O");
+    work.clear();
+    bridge->pump();
+    (void)queue.drain();
+    check(discarded.value.result() && !*discarded.value.result(), "discarded open settles");
+
+    auto limited = make_caors_vfs_bridge(tracked, work.get_executor(), 1, true);
+    auto route = route_snapshot::capture(limited);
+    auto location = route.value.resolve(uri);
+    auto request = request_open(location.value, queue.get_executor());
+    check(static_cast<bool>(request), "limited open admitted");
+    (void)work.drain();
+    limited->pump();
+    (void)queue.drain();
+    check(request.value.result() && !*request.value.result(), "snapshot limit enforced");
+    limited->abandon();
+  }
   auto cancelled = request_open(resolved.value, queue.get_executor());
   check(static_cast<bool>(cancelled), "cancelled open accepted");
   cancelled.value.cancel();
@@ -82,9 +105,13 @@ void run(const char* root) {
     const auto deadline = std::chrono::steady_clock::now() + 10s;
     while (!predicate()) {
       bridge->pump();
-      // 后台队列只在其他线程运行，不借用测试主线程执行摘要。
-      std::thread worker([&] { (void)work.drain(); });
-      worker.join();
+      // 同一桥分别验证显式协作推进与后台队列。
+      if (scheduled) {
+        (void)work.drain();
+      } else {
+        std::thread worker([&] { (void)work.drain(); });
+        worker.join();
+      }
       (void)queue.drain();
       check(std::chrono::steady_clock::now() < deadline, "timeout");
       std::this_thread::sleep_for(1ms);
@@ -222,7 +249,8 @@ int main(int argc, char** argv) {
   try {
     if (argc != 2)
       return 2;
-    run(argv[1]);
+    run(argv[1], false);
+    run(argv[1], true);
     return 0;
   } catch (const std::exception& error) {
     std::fprintf(stderr, "%s\n", error.what());

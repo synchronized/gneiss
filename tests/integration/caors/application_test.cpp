@@ -73,10 +73,11 @@ void close_pending_window(const char* assets) {
   check(stats.waiting == 0 && stats.running == 0 && stats.retained == 0, "no remaining tasks");
 }
 #endif
-void run(const char* assets) {
+void run(const char* assets, bool cooperative) {
   using namespace gneiss;
 #ifdef GNEISS_TEST_CAORS_DISABLED
   (void)assets;
+  (void)cooperative;
   std::shared_ptr<engine::application> app;
   check(engine::application::create({}, app) == GNEISS_SUCCESS, "create disabled");
   check(app->begin_action_map("asset://input/default.input-map.json") == GNEISS_ERROR_UNSUPPORTED &&
@@ -85,7 +86,9 @@ void run(const char* assets) {
         "disabled is explicit");
 #else
   using namespace std::chrono_literals;
-  tasks::task_scheduler scheduler({.workers = 1});
+  tasks::task_scheduler scheduler({.workers = 1,
+                                   .mode = cooperative ? tasks::execution_mode::cooperative
+                                                       : tasks::execution_mode::thread_pool});
   const auto root = std::filesystem::temp_directory_path() /
                     ("gneiss-caors-application-" +
                      std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
@@ -121,6 +124,8 @@ void run(const char* assets) {
   const auto wait = [&] {
     const auto deadline = std::chrono::steady_clock::now() + 10s;
     do {
+      if (cooperative)
+        check(scheduler.run_ready().status == tasks::drive_status::success, "drive");
       check(app->run(0, 1) == GNEISS_SUCCESS, "run");
       check(std::chrono::steady_clock::now() < deadline, "timeout");
       std::this_thread::sleep_for(1ms);
@@ -180,7 +185,8 @@ int main(int argc, char** argv) {
   try {
     if (argc != 2)
       return 2;
-    run(argv[1]);
+    run(argv[1], false);
+    run(argv[1], true);
 #ifdef GNEISS_TEST_NATIVE_WINDOW
     close_pending_window(argv[1]);
 #endif

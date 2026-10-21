@@ -32,15 +32,18 @@
 不是 Gneiss 的线程池或 libuv 链接错误。复现及上游验收见
 [CAORS 无线程/Web 兼容需求](UPSTREAM-051-caors-web-convergence.md)。
 
-Gneiss 输入宿主目前仍仅在启动后台 libuv I/O 时装配；VFS 桥要求可轮询读取和显式关闭，
-不能仅删除 CMake 的线程限制便认为协作执行器已接通。
+输入宿主已与后台 libuv loop 的存在条件解耦；协作请求使用同一 CAORS 加载流程，
+无异步打开能力的后端可显式选择在执行器中读取有界快照。仍需完成无线程/Web 构建验收，
+再删除输入开关及 CMake 限制。协作模式不提供后台 I/O 或单步耗时保证。
 
 ## 后续实施
 
 2026-10-21 上游已发布 0.7.0 Web 平台支持，Gneiss 更新依赖并复验原编译障碍。
 结果见[升级验收记录](../records/2026-10-21-caors-070.md)。继续保留 Web 目标，
 不再以旧版 CAORS 编译失败为理由缩减平台范围。
-下一步仍需分离 CAORS 核心与 libuv 适配的 CMake 装配、接入协作输入请求，
-再删除临时资源开关。上游修复不等于 Gneiss 浏览器 I/O 或完整 Web Editor 已落地。
+核心与 libuv 的装配分离、原生协作输入请求已接通；下一步完成输入平台矩阵，
+再删除输入临时开关。上游修复不等于 Gneiss 浏览器 I/O 或完整 Web Editor 已落地。
 
 CPU 核心分离阶段的构建、消费验证及剩余边界见[验收记录](../records/2026-10-21-caors-core-platform.md)。
+
+协作输入阶段的实现和验证见[验收记录](../records/2026-10-21-caors-cooperative-input.md)。
