@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "engine/asset/texture_ktx2.hpp"
+#include "engine/resource/texture_ktx2.hpp"
 
 #include <cstddef>
 #include <cstdint>

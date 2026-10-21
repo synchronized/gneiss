@@ -4,7 +4,7 @@
 #ifndef GNEISS_RENDER_RENDER_ASSET_LOADER_HPP_
 #define GNEISS_RENDER_RENDER_ASSET_LOADER_HPP_
 
-#include "engine/asset/resource_cache.hpp"
+#include "engine/resource/resource_cache.hpp"
 #include "engine/core/rid.hpp"
 #include "engine/function/render/render_asset_preparation.hpp"
 #include "engine/function/render/render_resource_data.hpp"

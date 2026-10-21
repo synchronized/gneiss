@@ -3,10 +3,10 @@
 
 #include "engine/function/render/render_asset_loader.hpp"
 
-#include "engine/asset/asset_parsing.hpp"
-#include "engine/asset/mesh_binary.hpp"
-#include "engine/asset/texture_container.hpp"
-#include "engine/asset/virtual_file_system.hpp"
+#include "engine/resource/asset_parsing.hpp"
+#include "engine/resource/mesh_binary.hpp"
+#include "engine/resource/texture_container.hpp"
+#include "engine/resource/virtual_file_system.hpp"
 #include "engine/function/render/render_resource_service.hpp"
 
 #include <algorithm>

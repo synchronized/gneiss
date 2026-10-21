@@ -3,10 +3,10 @@
 
 #pragma once
 
-#include "engine/asset/virtual_file_system.hpp"
-#include "engine/function/asset/asset_manager.hpp"
+#include "engine/resource/virtual_file_system.hpp"
+#include "engine/resource/asset_manager.hpp"
 #include "engine/function/render/render_asset_loader.hpp"
-#include "engine/function/scene/prefab_asset_loader.hpp"
+#include "engine/resource/prefab_asset_loader.hpp"
 #include "engine/function/scene/scene_instance_service.hpp"
 #include "engine/function/world/world_service.hpp"
 

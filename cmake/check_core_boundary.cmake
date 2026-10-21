@@ -13,19 +13,22 @@ if(NOT sources)
   message(FATAL_ERROR "内部模块 检查未找到源码，拒绝空检查")
 endif()
 foreach(source IN LISTS sources)
+  if(source MATCHES "/src/engine/(asset|function/asset)/")
+    message(FATAL_ERROR "旧资产目录已移除，请使用 engine/resource：${source}")
+  endif()
   file(READ "${source}" content)
-  if(source MATCHES "/src/engine/function/asset/asset_manager[.](cpp|hpp)$" AND
+  if(source MATCHES "/src/engine/resource/asset_manager[.](cpp|hpp)$" AND
       content MATCHES "texture_load_service|texture_upload_backend|texture_load_completion|render_internal::|engine/function/render/")
     message(FATAL_ERROR "资产管理器不得依赖渲染模块、上传通道或完成协议：${source}")
   endif()
 
-  if(source MATCHES "/src/engine/asset/(scene_description|prefab_description|prefab_property_data)[.](cpp|hpp)$" AND
+  if(source MATCHES "/src/engine/resource/(scene_description|prefab_description|prefab_property_data)[.](cpp|hpp)$" AND
       content MATCHES "#[ \t]*include[ \t]*[<\"]engine/core/reflection/(property_registry|type_registry|type_registry_state)[.]hpp")
     message(FATAL_ERROR "场景资产描述不得依赖运行时 Registry：${source}")
   endif()
 
   if(source MATCHES "/src/engine/function/input/" AND
-      content MATCHES "#[ \t]*include[ \t]*[<\"](caors/|engine/platform/|engine/(asset/(caors_|virtual_file_system)|function/asset/))")
+      content MATCHES "#[ \t]*include[ \t]*[<\"](caors/|engine/platform/|engine/resource/(caors_|virtual_file_system|asset_manager))")
     message(FATAL_ERROR "输入服务不得依赖资源管理器、文件后端或 CAORS：${source}")
   endif()
 
@@ -38,7 +41,7 @@ foreach(source IN LISTS sources)
        content MATCHES "gneiss/engine/render[.]h"))
     message(FATAL_ERROR "原生 World 组件不得存储 C 渲染布局：${source}")
   endif()
-  if(source MATCHES "/src/engine/(asset/(mesh_data|material_types|material_parameters|texture_types|texture_preparation_data)|function/render/(render_resource_data|render_resource_service|render_snapshot|render_asset_loader|texture_view))[.](hpp|cpp)$" AND
+  if(source MATCHES "/src/engine/(resource/(mesh_data|material_types|material_parameters|texture_types|texture_preparation_data)|function/render/(render_resource_data|render_resource_service|render_snapshot|render_asset_loader|texture_view))[.](hpp|cpp)$" AND
       (content MATCHES "gneiss_(mesh|material|texture)([^a-z_]|$)|gneiss_(mesh_vertex|mesh_normal|mesh_tangent|mesh_uv|mesh_color|texture_sampling)|GNEISS_(MATERIAL_ALPHA|TEXTURE_FILTER|TEXTURE_ADDRESS|TEXTURE_MIP|TEXTURE_FORMAT|TEXTURE_COLOR)_" OR
        content MATCHES "gneiss/engine/render[.]h"))
     message(FATAL_ERROR "原生资源接口不得依赖 Render C 值布局：${source}")
@@ -97,16 +100,16 @@ foreach(source IN LISTS sources)
   if(source MATCHES "/src/engine/api/")
     continue()
   endif()
-  if(source MATCHES "(/src/engine/asset/asset_(preparation|parsing)|/src/(engine/function/)?render/(render_asset_preparation|render_resource_data))\\.(cpp|hpp)$" AND
-      content MATCHES "#[ \t]*include[ \t]*[<\"]((engine/function/)?render/(render_asset_loader|render_resource_service)\\.(h|hpp)|engine/(asset/resource_cache|core/rid_table)\\.hpp)[>\"]")
+  if(source MATCHES "(/src/engine/resource/asset_(preparation|parsing)|/src/(engine/function/)?render/(render_asset_preparation|render_resource_data))\\.(cpp|hpp)$" AND
+      content MATCHES "#[ \t]*include[ \t]*[<\"]((engine/function/)?render/(render_asset_loader|render_resource_service)\\.(h|hpp)|engine/(resource/resource_cache|core/rid_table)\\.hpp)[>\"]")
     message(FATAL_ERROR "CPU 准备与值类型不得包含资源发布、缓存或 RID 表：${source}")
   endif()
   if(source MATCHES "/src/engine/core/" AND
-      content MATCHES "#[ \t]*include[ \t]*[<\"]((engine/)?(platform|function|application|world|scene|render|asset|editor|tooling|apps)/|gneiss/(engine/)?application\\.h[>\"])")
+      content MATCHES "#[ \t]*include[ \t]*[<\"]((engine/)?(platform|function|application|world|scene|render|resource|editor|tooling|apps)/|gneiss/(engine/)?application\\.h[>\"])")
     message(FATAL_ERROR "Core 不得依赖平台或上层实现及 Application 协议：${source}")
   endif()
   if(source MATCHES "/src/engine/platform/" AND
-      content MATCHES "#[ \t]*include[ \t]*[<\"]((engine/function/)?(application|world|scene|render|input|game)|engine/asset|asset|apps)/")
+      content MATCHES "#[ \t]*include[ \t]*[<\"]((engine/function/)?(application|world|scene|render|input|game)|engine/resource|resource|apps)/")
     message(FATAL_ERROR "Platform 不得反向包含上层实现：${source}")
   endif()
   if(source MATCHES "/src/engine/(platform|function/application)/" AND content MATCHES "gneiss_application_desc")
@@ -116,7 +119,7 @@ foreach(source IN LISTS sources)
       content MATCHES "#[ \t]*include[ \t]*[<\"](engine/function/)?(world|scene|application)/")
     message(FATAL_ERROR "Render 不得反向包含 World / Scene / Application：${source}")
   endif()
-  if(source MATCHES "/src/engine/asset/" AND
+  if(source MATCHES "/src/engine/resource/" AND
       content MATCHES "#[ \t]*include[ \t]*[<\"]((engine/)?(function|render|world|scene|application|editor|tooling|apps)/)")
     message(FATAL_ERROR "Asset 不得反向包含功能层或宿主实现：${source}")
   endif()
@@ -136,7 +139,7 @@ foreach(source IN LISTS sources)
   if(content MATCHES "extern[ \t]+\"C\"")
     message(FATAL_ERROR "内部模块 不得定义 C ABI 入口：${source}")
   endif()
-  if(content MATCHES "#[ \t]*include[ \t]*[<\"]gneiss/(engine/)?(application|world|scene|asset|render|reflection|game_module|gneiss)\\.hpp[>\"]")
+  if(content MATCHES "#[ \t]*include[ \t]*[<\"]gneiss/(engine/)?(application|world|scene|resource|render|reflection|game_module|gneiss)\\.hpp[>\"]")
     message(FATAL_ERROR "内部模块 不得依赖公共 SDK 包装：${source}")
   endif()
   if(content MATCHES "gneiss_(world|scene_node|application|type_registry|game_context|asset_uri)_[a-z_]+[ \t\r\n]*\\(")

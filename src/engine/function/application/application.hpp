@@ -4,11 +4,11 @@
 #ifndef GNEISS_ENGINE_APPLICATION_HPP_
 #define GNEISS_ENGINE_APPLICATION_HPP_
 
-#include "engine/asset/action_map.hpp"
+#include "engine/resource/action_map.hpp"
 #include "engine/core/input/input_types.hpp"
 #include <gneiss/engine/application.h>
 
-#include "engine/asset/virtual_file_system.hpp"
+#include "engine/resource/virtual_file_system.hpp"
 #include "engine/core/log/log_dispatcher.hpp"
 #include "engine/function/application/application_configuration.hpp"
 #include "engine/function/application/scene_load_types.hpp"
@@ -18,7 +18,7 @@
 #include "engine/function/render/render_statistics.hpp"
 #include "engine/function/render/texture_load_service.hpp"
 #include "engine/function/render/ui_draw_list.hpp"
-#include "engine/function/scene/prefab_asset_loader.hpp"
+#include "engine/resource/prefab_asset_loader.hpp"
 #include "engine/function/scene/scene_creation.hpp"
 #include "engine/function/scene/scene_mesh_binding.hpp"
 

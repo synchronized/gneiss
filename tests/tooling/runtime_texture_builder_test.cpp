@@ -4,7 +4,7 @@
 #include "tooling/asset_build/runtime_texture_builder.hpp"
 #include "tooling/asset_build/runtime_texture_probe.hpp"
 
-#include "engine/asset/texture_binary.hpp"
+#include "engine/resource/texture_binary.hpp"
 
 #include <granit/renderer/texture_asset.hpp>
 

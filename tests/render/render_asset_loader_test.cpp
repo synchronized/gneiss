@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/asset/file_system.hpp"
-#include "engine/asset/mesh_binary.hpp"
-#include "engine/asset/resource_cache.hpp"
-#include "engine/asset/texture_binary.hpp"
-#include "engine/asset/texture_container.hpp"
-#include "engine/asset/texture_ktx2.hpp"
-#include "engine/asset/virtual_file_system.hpp"
+#include "engine/resource/file_system.hpp"
+#include "engine/resource/mesh_binary.hpp"
+#include "engine/resource/resource_cache.hpp"
+#include "engine/resource/texture_binary.hpp"
+#include "engine/resource/texture_container.hpp"
+#include "engine/resource/texture_ktx2.hpp"
+#include "engine/resource/virtual_file_system.hpp"
 #include "engine/function/render/render_asset_loader.hpp"
 #include "engine/function/render/render_resource_service.hpp"
 

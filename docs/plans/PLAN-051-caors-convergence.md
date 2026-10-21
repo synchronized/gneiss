@@ -87,11 +87,11 @@ engine::asset_manager 直接负责；输入待采用对象只接收请求，不�
 
 | 位置 | 职责 |
 | --- | --- |
-| function/asset/asset_manager.* | 资源请求发起、缓存与调度 |
-| function/asset/action_map_request.hpp | 原生输入资源请求契约 |
-| function/asset/caors_action_map_request.* | CAORS 请求结果适配 |
+| resource/asset_manager.* | 资源请求发起、缓存与调度 |
+| resource/action_map_request.hpp | 原生输入资源请求契约 |
+| resource/caors_action_map_request.* | CAORS 请求结果适配 |
 | function/application/action_map_application.* | 请求替换、取消和一次采用 |
-| asset/caors_action_map_loader.cpp | 输入类型解析适配 |
+| resource/caors_action_map_loader.cpp | 输入类型解析适配 |
 | function/input/input_service.* | 输入运行时状态 |
 
 后续同步缓存发布在资产层完成；不得再把“应用到输入服务”的回调放回 asset_manager。

@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/asset/caors_action_map.hpp"
-#include "engine/asset/caors_vfs_bridge.hpp"
-#include "engine/asset/native_file_system.hpp"
-#include "engine/asset/source_revision_file_system.hpp"
+#include "engine/resource/caors_action_map.hpp"
+#include "engine/resource/caors_vfs_bridge.hpp"
+#include "engine/resource/native_file_system.hpp"
+#include "engine/resource/source_revision_file_system.hpp"
 #include "engine/function/application/action_map_application.hpp"
-#include "engine/function/asset/caors_action_map_request.hpp"
+#include "engine/resource/caors_action_map_request.hpp"
 #include "engine/function/input/input_service.hpp"
 #include "uv_async_file.hpp"
 #include "uv_loop_executor.hpp"

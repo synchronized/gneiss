@@ -2,8 +2,8 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/function/render/texture_load_service.hpp"
-#include "engine/asset/asset_uri.hpp"
-#include "engine/asset/cpu_document_cache.hpp"
+#include "engine/resource/asset_uri.hpp"
+#include "engine/resource/cpu_document_cache.hpp"
 #include "engine/core/diagnostics/profiling.hpp"
 #include "engine/core/diagnostics/task_submission.hpp"
 #include <algorithm>

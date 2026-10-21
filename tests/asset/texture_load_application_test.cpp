@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/asset/texture_ktx2.hpp"
+#include "engine/resource/texture_ktx2.hpp"
 #include "engine/function/application/application_asset_reload_internal.hpp"
 #include "engine/function/world/world_service.hpp"
 

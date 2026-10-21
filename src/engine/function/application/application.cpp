@@ -17,8 +17,8 @@
 #include "engine/core/loop_progress.hpp"
 #endif
 
-#include "engine/asset/asset_uri.hpp"
-#include "engine/asset/native_file_system.hpp"
+#include "engine/resource/asset_uri.hpp"
+#include "engine/resource/native_file_system.hpp"
 #include <cmath>
 #ifdef GNEISS_ASSET_LIBUV
 #include "engine/platform/io/uv/uv_async_file.hpp"

@@ -153,3 +153,11 @@ Prefab/Scene 描述与作者属性值已迁入资产层，Registry 覆盖编辑�
 - 保持原有 URI、错误、取消、失败保留原状态和关闭寿命契约；不新增临时功能开关。
 - 同步缓存发布代次、材质/Mesh 缓存合并、GPU 与 CPU 租约拆分仍需实现验证。
   遇到必须改变外部行为或资源寿命契约的取舍时，先列出方案交用户确认。
+
+## 目录落地状态（2026-10-21）
+
+已将 engine/asset、function/asset 与 Prefab 资源 Loader 合并为 `src/engine/resource/`，
+旧目录与旧头路径已删除，CMake、内部头清单、测试和边界规则使用新路径。
+这完成批次 E 的资源目录部分；尚未迁移 Application 到 src/runtime，也未将 resource
+内部拆成 types/loaders/vfs/backend 子目录。缓存实现继续渐进收敛，不以此阻塞目录归属。
+当前结构以[源码布局](../concepts/repository-layout.md)为准。

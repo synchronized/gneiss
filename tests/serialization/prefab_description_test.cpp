@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/asset/file_system.hpp"
-#include "engine/asset/prefab_description.hpp"
-#include "engine/asset/resource_cache.hpp"
-#include "engine/asset/virtual_file_system.hpp"
-#include "engine/function/scene/prefab_asset_loader.hpp"
+#include "engine/resource/file_system.hpp"
+#include "engine/resource/prefab_description.hpp"
+#include "engine/resource/resource_cache.hpp"
+#include "engine/resource/virtual_file_system.hpp"
+#include "engine/resource/prefab_asset_loader.hpp"
 #include "engine/function/scene/scene_tree.hpp"
 
 #include <gneiss/engine/core/result.h>

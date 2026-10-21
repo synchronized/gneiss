@@ -4,18 +4,18 @@ include(internal_headers)
 
 # 同源码宿主允许使用的引擎契约及其值类型闭包；不得添加后端、注册表实现或场景域存储。
 gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
-  engine/asset/asset_identity.hpp
-  engine/asset/asset_preparation.hpp
-  engine/asset/file_system.hpp
-  engine/asset/material_parameters.hpp
-  engine/asset/material_types.hpp
-  engine/asset/mesh_data.hpp
-  engine/asset/read_source.hpp
-  engine/asset/resource_cache.hpp
-  engine/asset/texture_ktx2.hpp
-  engine/asset/texture_preparation_data.hpp
-  engine/asset/texture_types.hpp
-  engine/asset/virtual_file_system.hpp
+  engine/resource/asset_identity.hpp
+  engine/resource/asset_preparation.hpp
+  engine/resource/file_system.hpp
+  engine/resource/material_parameters.hpp
+  engine/resource/material_types.hpp
+  engine/resource/mesh_data.hpp
+  engine/resource/read_source.hpp
+  engine/resource/resource_cache.hpp
+  engine/resource/texture_ktx2.hpp
+  engine/resource/texture_preparation_data.hpp
+  engine/resource/texture_types.hpp
+  engine/resource/virtual_file_system.hpp
   engine/core/diagnostics/diagnostic.hpp
   engine/core/diagnostics/loop_timing.hpp
   engine/core/frame_time.hpp
@@ -36,7 +36,7 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   engine/function/application/prefab_preparation.hpp
   engine/function/application/scene_load_types.hpp
   engine/function/game/game_context_internal.hpp
-  engine/asset/action_map.hpp
+  engine/resource/action_map.hpp
   engine/function/input/input_service.hpp
   engine/function/render/camera_math.hpp
   engine/function/render/camera_settings.hpp
@@ -53,14 +53,14 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   engine/function/render/texture_load_service.hpp
   engine/function/render/texture_view.hpp
   engine/function/render/ui_draw_list.hpp
-  engine/function/scene/prefab_asset_loader.hpp
-  engine/asset/prefab_property_data.hpp
-  engine/asset/prefab_description.hpp
+  engine/resource/prefab_asset_loader.hpp
+  engine/resource/prefab_property_data.hpp
+  engine/resource/prefab_description.hpp
   engine/function/scene/prefab_property_override.hpp
   engine/function/scene/prefab_candidate.hpp
   engine/function/scene/scene_creation.hpp
   engine/function/scene/scene_mesh_binding.hpp
-  engine/asset/scene_description.hpp
+  engine/resource/scene_description.hpp
   engine/function/scene/scene_instance_service.hpp
   engine/function/scene/scene_load_preparation.hpp
   engine/function/scene/scene_query.hpp
@@ -74,7 +74,7 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
 
 # 离线资产服务供 Editor 和命令行消费的契约。
 gneiss_internal_headers(gneiss_tooling_interface "${PROJECT_SOURCE_DIR}/src"
-  engine/asset/mesh_binary.hpp
+  engine/resource/mesh_binary.hpp
   tooling/asset_build/asset_build.hpp
   tooling/asset_build/ktx2_probe.hpp
   tooling/asset_build/runtime_texture_probe.hpp

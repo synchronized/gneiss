@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include "engine/function/asset/action_map_request.hpp"
+#include "engine/resource/action_map_request.hpp"
 namespace gneiss::input_internal {
 class input_service;
 }

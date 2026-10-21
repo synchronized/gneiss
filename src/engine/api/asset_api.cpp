@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/asset/asset_uri.hpp"
+#include "engine/resource/asset_uri.hpp"
 #include <cstddef>
 #include <gneiss/engine/asset.h>
 #include <limits>

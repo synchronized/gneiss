@@ -7,12 +7,21 @@
 
 本文描述当前实际源码布局，不把已批准的迁移目标当成已实现。0.45 的精简目标目录与宿主边界见
 [ADR-054](../decisions/ADR-054-source-layout-and-host-boundaries.md)，迁移映射与验收见
-[DEV-045](../plans/DEV-045-cpp-boundaries.md)。Core、Platform、Asset 与 Function 已迁入 `src/engine/`，
+[DEV-045](../plans/DEV-045-cpp-boundaries.md)。Core、Platform、Resource 与 Function 已迁入 `src/engine/`，
 C ABI 适配位于 `src/engine/api/`，`src/editor/` 管理 UI、资产服务、编辑模型、场景会话与创作事务；
 `apps/` 保持位于仓库根目录，负责程序入口及宿主装配。
 
 总体分层以[总体架构](architecture.md)为准，代码与文档规范分别以
 [C/C++ 代码风格](../guides/coding-style.md)和[项目文档规范](../../DOCUMENTATION_GUIDE.md)为准。
+
+## 当前资源模块
+
+资产管理器、资源描述、解析、VFS、CPU 文档缓存及 Prefab Loader 已统一位于
+`src/engine/resource/`；旧 `src/engine/asset/`、`src/engine/function/asset/` 已删除，
+没有兼容转发头。渲染 Loader 与上传保留在 `function/render`，Prefab 实例化和编辑保留在
+`function/scene`。当前 resource 内部仍为平铺文件，尚未拆成目标中的 types/loaders/backend 子目录。
+Application 组装当前仍在 `function/application`；迁到 `src/runtime` 尚待执行。
+目标与剩余批次见[模块布局计划](../plans/PLAN-051-module-layout.md)。
 
 ## 当前顶层目录
 
@@ -88,7 +97,7 @@ assetc CLI 位于 `apps/assetc/`，工具测试由 `tests/tooling/` 组织，性
 | Scene | `src/engine/function/scene/` | Scene Tree、节点映射与层级 Transform | 已存在 |
 | Application | `src/engine/function/application/` | 顶层生命周期、初始化回滚和主循环编排 | 已存在 |
 | Platform | `src/engine/platform/` | 窗口、IO、IPC、子进程和动态库等平台能力的隔离 | 已存在 |
-| Asset | `src/engine/asset/` | VFS、格式、CPU 解码与缓存 | 已迁移 |
+| Asset | `src/engine/resource/` | VFS、格式、CPU 解码与缓存 | 已迁移 |
 | Render | `src/engine/function/render/` | 渲染输入快照、资源 RID、帧包与执行器 | 已存在 |
 | Input | `src/engine/function/input/` | 输入状态与动作映射 | 已迁移 |
 | Game | `src/engine/function/game/` | Game Module 上下文与宿主桥接 | 已迁移 |
@@ -103,7 +112,7 @@ Platform 的 Granit Window 适配位于 `src/engine/platform/granit/`；`src/eng
 Application 的 C 入口将版本化描述转换为内部 `application_configuration`，Platform 只接收
 `window_configuration`。用户回调仍是实际 ABI 边界，不将回调上下文复制成另一套状态。渲染快照的值类型位于 `src/engine/function/render/render_snapshot.hpp`，
 World 的提取函数位于 `src/engine/function/world/render_snapshot.hpp`，Render 不反向包含 World/Scene/Application。
-`src/engine/asset/png_decoder.hpp` 提供 CPU 解码，Cook 与运行时加载共用；解码不依赖渲染服务。
+`src/engine/resource/png_decoder.hpp` 提供 CPU 解码，Cook 与运行时加载共用；解码不依赖渲染服务。
 
 Scene 的节点创建使用内部借用参数，普通节点与 Prefab 查询返回内部视图。公共查询结构的版本写回
 归 `src/engine/api/scene_query_conversion.hpp`；核心查询不依据 ABI 尺寸分支。字符串寿命仍由 Scene 管理。
@@ -116,7 +125,7 @@ Render 的同步资源创建接收内部 `mesh_view`、`texture_view` 与 `mater
 继续负责数值、拓扑、RID 与预算校验，成功后拥有数据副本。资产加载器不生成版本化 C 描述。
 
 `render_asset_loader` 暂仍位于 Render，它连接 Asset 缓存租约与 Render 资源发布，并不只是格式
-解码器。CPU 准备和解析实现位于 `src/engine/asset/asset_preparation.hpp/.cpp`，
+解码器。CPU 准备和解析实现位于 `src/engine/resource/asset_preparation.hpp/.cpp`，
 Render 的准备适配只传入发布资源的预算。三类准备数据均使用 Asset 值类型，材质依赖仅用 URI，
 发布边界绑定纹理 RID 并移动纹理数组；上传弱引用仍由 Render 管理。Asset 不包含 Render 实现，
 独立准备测试不链接 Engine、缓存或资源服务。其余迁移见 [0.45 实施计划](../plans/DEV-045-cpp-boundaries.md)。
@@ -204,6 +213,7 @@ Editor 无需 Application 兼容桥；Runtime 仅在动态游戏模块这一真�
 Scene 服务完成入口校验后转交实例，不直接修改这些事务的内部容器；Prefab 源资源编辑仍属于
 资产流程。跨场景资产替换继续由 Scene 服务协调，与单场景实例事务的职责不同。
 
-应用级资源装配位于 `src/engine/function/asset/asset_manager.hpp`，由 Application 拥有，
-统一现有类型获取、请求通道创建、版本采用和回收。底层 `engine/asset` 保持文件、身份、
-缓存通用机制；具体格式解析仍位于 Scene/Render 模块。管理器不进入安装 SDK，也不拥有编辑状态。
+应用级资源管理器位于 `src/engine/resource/asset_manager.hpp`，由 Application 拥有，
+管理 CPU 文档、输入资源请求与 Prefab 描述缓存。渲染租约缓存与 Loader 由 Application
+独立拥有，上传通道由应用加载流程装配。资源描述解析同在 resource，不依赖运行时实例化。
+管理器不进入安装 SDK，也不拥有编辑状态；缓存实现尚未全部统一到 CAORS。

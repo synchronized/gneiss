@@ -6,9 +6,9 @@
 #include "engine/core/diagnostics/task_submission.hpp"
 #include "engine/function/render/render_resource_service.hpp"
 
-#include "engine/asset/asset_uri.hpp"
-#include "engine/asset/source_revision_file_system.hpp"
-#include "engine/asset/texture_container.hpp"
+#include "engine/resource/asset_uri.hpp"
+#include "engine/resource/source_revision_file_system.hpp"
+#include "engine/resource/texture_container.hpp"
 
 #include <algorithm>
 #include <stdexcept>

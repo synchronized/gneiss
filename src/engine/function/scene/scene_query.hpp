@@ -4,7 +4,7 @@
 #pragma once
 #include "engine/core/math/transform.hpp"
 
-#include "engine/asset/scene_description.hpp"
+#include "engine/resource/scene_description.hpp"
 
 #include <gneiss/engine/core/entity.hpp>
 #include <gneiss/engine/core/scene_types.hpp>

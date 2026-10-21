@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "engine/asset/asset_preparation.hpp"
+#include "engine/resource/asset_preparation.hpp"
 #include "engine/function/render/render_resource_data.hpp"
 
 namespace gneiss::render_internal {

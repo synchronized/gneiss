@@ -12,8 +12,8 @@
 
 #include "engine/function/scene/scene_instance.hpp"
 
-#include "engine/asset/scene_description.hpp"
-#include "engine/asset/virtual_file_system.hpp"
+#include "engine/resource/scene_description.hpp"
+#include "engine/resource/virtual_file_system.hpp"
 #include "engine/function/scene/structural_diff.hpp"
 
 #include <algorithm>

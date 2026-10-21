@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/asset/action_map.hpp"
-#include "engine/asset/virtual_file_system.hpp"
+#include "engine/resource/action_map.hpp"
+#include "engine/resource/virtual_file_system.hpp"
 #include <cstring>
 
 namespace {

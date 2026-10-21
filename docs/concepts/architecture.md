@@ -80,11 +80,13 @@ ECS 核心层负责实体、组件和系统的数据组织与调度。场景节�
 
 ## 资产与场景域所有权
 
-Application 的 `engine::asset_manager` 拥有 VFS 装配副本、`resource_cache`、渲染资产加载器和
-Prefab 描述加载器。资产缓存本身位于 asset 层，不反向依赖场景或渲染；具体类型在功能层 `engine/function/asset` 装配。不同 Application 不共享这份状态。
+Application 的 `engine::asset_manager` 位于 `engine/resource`，拥有 VFS 装配副本、输入
+CAORS 状态、CPU 文档缓存和 Prefab 描述缓存/加载器，不依赖 Render。Application 另外拥有
+渲染租约缓存和 render_asset_loader；不同 Application 不共享这些状态。
 
-`application_scene_state` 拥有 World 和场景实例服务，借用管理器及其模块内加载器。活动、候选和待退役域
-使用同一缓存；各场景实例持有实际版本租约。兼容固定版本可跨域复用，World、实体和节点仍独立。
+`application_scene_state` 拥有 World 和场景实例服务，显式借用资产管理器与渲染加载器。
+活动、候选和待退役域共享各自对应的资源缓存；场景实例持有实际版本租约。
+兼容固定版本可跨域复用，World、实体和节点仍独立。
 候选 ready 只准备默认选择事务，成功激活才提交选择；失败或取消释放候选引用，不覆盖旧使用者。
 
 退出时先排空请求，再释放场景实例及 World，最后销毁共享资产状态。渲染资源服务晚于资产租约

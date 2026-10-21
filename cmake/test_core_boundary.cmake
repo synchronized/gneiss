@@ -2,7 +2,7 @@
 # Copyright (c) 2026 Gneiss contributors
 
 cmake_minimum_required(VERSION 3.23)
-set(fixture "${GNEISS_BINARY_DIR}/api-boundary-fixture")
+set(fixture "${GNEISS_BINARY_DIR}/resource-boundary-fixture")
 file(MAKE_DIRECTORY "${fixture}/src/engine/function/render")
 file(WRITE "${fixture}/src/engine/function/render/camera_math.hpp" "")
 file(WRITE "${fixture}/src/engine/function/render/render_resource_data.hpp" "")
@@ -15,13 +15,13 @@ file(MAKE_DIRECTORY "${fixture}/src/engine/api")
 file(WRITE "${fixture}/src/engine/api/probe.cpp" "")
 # 每次先恢复合法内容，避免上次中断的反例污染其他检查。
 file(WRITE "${fixture}/src/engine/platform/probe.cpp" "#include <gneiss/core/result.hpp>\n")
-file(MAKE_DIRECTORY "${fixture}/src/engine/core" "${fixture}/src/engine/function/world" "${fixture}/src/engine/function/application" "${fixture}/src/engine/core/reflection" "${fixture}/src/engine/function/render" "${fixture}/src/engine/asset")
+file(MAKE_DIRECTORY "${fixture}/src/engine/core" "${fixture}/src/engine/function/world" "${fixture}/src/engine/function/application" "${fixture}/src/engine/core/reflection" "${fixture}/src/engine/function/render" "${fixture}/src/engine/resource")
 # 清除上一次失败用例遗留的内容，保证反例可重复执行。
-file(WRITE "${fixture}/src/engine/asset/probe.cpp" "#include <gneiss/core/result.h>\n")
+file(WRITE "${fixture}/src/engine/resource/probe.cpp" "#include <gneiss/core/result.h>\n")
 file(WRITE "${fixture}/src/engine/function/render/probe.cpp" "#include <gneiss/render.h>\n")
-file(WRITE "${fixture}/src/engine/asset/asset_preparation.cpp" "#include <gneiss/core/result.h>\n")
-file(WRITE "${fixture}/src/engine/asset/asset_preparation.hpp" "#include <gneiss/core/result.h>\n")
-file(WRITE "${fixture}/src/engine/asset/png_decoder.cpp" "#include <gneiss/core/result.h>\n")
+file(WRITE "${fixture}/src/engine/resource/asset_preparation.cpp" "#include <gneiss/core/result.h>\n")
+file(WRITE "${fixture}/src/engine/resource/asset_preparation.hpp" "#include <gneiss/core/result.h>\n")
+file(WRITE "${fixture}/src/engine/resource/png_decoder.cpp" "#include <gneiss/core/result.h>\n")
 file(WRITE "${fixture}/src/engine/core/reflection/probe.cpp" "#include <gneiss/reflection.h>\n")
 file(WRITE "${fixture}/src/engine/function/world/probe.cpp" "#include <gneiss/render.h>\n")
 file(WRITE "${fixture}/src/engine/function/application/probe.cpp" "#include <gneiss/application.h>\n")
@@ -101,16 +101,16 @@ foreach(layer IN ITEMS world scene application)
   endif()
 endforeach()
 file(WRITE "${fixture}/src/engine/function/render/probe.cpp" "#include <gneiss/render.h>\n")
-file(WRITE "${fixture}/src/engine/asset/png_decoder.cpp" "#include \"render/resource.hpp\"\n")
+file(WRITE "${fixture}/src/engine/resource/png_decoder.cpp" "#include \"render/resource.hpp\"\n")
 execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
   -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
   RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
 if(status EQUAL 0)
   message(FATAL_ERROR "边界检查未拒绝 PNG 解码依赖 Render")
 endif()
-file(WRITE "${fixture}/src/engine/asset/png_decoder.cpp" "#include <gneiss/core/result.h>\n")
+file(WRITE "${fixture}/src/engine/resource/png_decoder.cpp" "#include <gneiss/core/result.h>\n")
 
-foreach(layer IN ITEMS application world scene render asset apps)
+foreach(layer IN ITEMS application world scene render resource apps)
   file(WRITE "${fixture}/src/engine/platform/probe.cpp" "#include \"${layer}/state.hpp\"\n")
   execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
     -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
@@ -127,7 +127,7 @@ if(NOT status EQUAL 0)
 endif()
 
 foreach(header IN ITEMS "application/state.hpp" "engine/platform/native_window_info.hpp"
-    "engine/function/world/state.hpp" "asset/cache.hpp" "apps/editor/session.hpp"
+    "engine/function/world/state.hpp" "resource/cache.hpp" "apps/editor/session.hpp"
     "gneiss/application.h" "gneiss/engine/application.h")
   file(WRITE "${fixture}/src/engine/core/probe.cpp" "#include <${header}>\n")
   execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
@@ -146,7 +146,7 @@ endif()
 
 foreach(header IN ITEMS "render/resource.hpp" "world/state.hpp" "scene/tree.hpp"
     "application/state.hpp" "engine/function/render/service.hpp" "apps/editor/session.hpp")
-  file(WRITE "${fixture}/src/engine/asset/probe.cpp" "#include <${header}>\n")
+  file(WRITE "${fixture}/src/engine/resource/probe.cpp" "#include <${header}>\n")
   execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
     -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
     RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
@@ -154,11 +154,11 @@ foreach(header IN ITEMS "render/resource.hpp" "world/state.hpp" "scene/tree.hpp"
     message(FATAL_ERROR "边界检查未拒绝 Asset 反向依赖 ${header}")
   endif()
 endforeach()
-file(WRITE "${fixture}/src/engine/asset/probe.cpp" "#include <gneiss/core/result.h>\n")
+file(WRITE "${fixture}/src/engine/resource/probe.cpp" "#include <gneiss/core/result.h>\n")
 
 foreach(header IN ITEMS "engine/function/render/render_asset_loader.hpp" "engine/function/render/render_resource_service.hpp"
-    "engine/asset/resource_cache.hpp" "engine/core/rid_table.hpp")
-  file(WRITE "${fixture}/src/engine/asset/asset_preparation.cpp" "#include <${header}>\n")
+    "engine/resource/resource_cache.hpp" "engine/core/rid_table.hpp")
+  file(WRITE "${fixture}/src/engine/resource/asset_preparation.cpp" "#include <${header}>\n")
   execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
     -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
     RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
@@ -166,16 +166,16 @@ foreach(header IN ITEMS "engine/function/render/render_asset_loader.hpp" "engine
     message(FATAL_ERROR "边界检查未拒绝 CPU 准备包含 ${header}")
   endif()
 endforeach()
-file(WRITE "${fixture}/src/engine/asset/asset_preparation.cpp" "#include <gneiss/core/result.h>\n")
+file(WRITE "${fixture}/src/engine/resource/asset_preparation.cpp" "#include <gneiss/core/result.h>\n")
 
-file(WRITE "${fixture}/src/engine/asset/asset_preparation.hpp" "#include <engine/function/render/render_resource_data.hpp>\n")
+file(WRITE "${fixture}/src/engine/resource/asset_preparation.hpp" "#include <engine/function/render/render_resource_data.hpp>\n")
 execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
   -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
   RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
 if(status EQUAL 0)
   message(FATAL_ERROR "边界检查未拒绝准备契约包含 Render 资源值")
 endif()
-file(WRITE "${fixture}/src/engine/asset/asset_preparation.hpp" "#include <gneiss/core/result.h>\n")
+file(WRITE "${fixture}/src/engine/resource/asset_preparation.hpp" "#include <gneiss/core/result.h>\n")
 
 # 新路径反例：避免目录迁移后检查只匹配旧路径而静默失效。
 foreach(header IN ITEMS "engine/function/world/state.hpp" "engine/function/scene/tree.hpp"
@@ -489,8 +489,8 @@ file(WRITE "${fixture}/src/editor/editor_grid.hpp" "")
 # 输入服务只使用资产值与运行时输入状态，不接管加载后端。
 file(MAKE_DIRECTORY "${fixture}/src/engine/function/input")
 foreach(header IN ITEMS "caors/assets/asset_manager.hpp" "engine/platform/caors/adapter.hpp"
-    "engine/asset/caors_action_map.hpp" "engine/asset/virtual_file_system.hpp"
-    "engine/function/asset/asset_manager.hpp")
+    "engine/resource/caors_action_map.hpp" "engine/resource/virtual_file_system.hpp"
+    "engine/resource/asset_manager.hpp")
   file(WRITE "${fixture}/src/engine/function/input/probe.cpp" "#include <${header}>\n")
   execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
     -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
@@ -499,7 +499,7 @@ foreach(header IN ITEMS "caors/assets/asset_manager.hpp" "engine/platform/caors/
     message(FATAL_ERROR "输入服务边界未拒绝资源后端：${header}")
   endif()
 endforeach()
-file(WRITE "${fixture}/src/engine/function/input/probe.cpp" "#include <engine/asset/action_map.hpp>\n")
+file(WRITE "${fixture}/src/engine/function/input/probe.cpp" "#include <engine/resource/action_map.hpp>\n")
 execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
   -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
   RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
@@ -507,10 +507,10 @@ if(NOT status EQUAL 0)
   message(FATAL_ERROR "输入服务边界错误拒绝纯资源值")
 endif()
 
-file(MAKE_DIRECTORY "${fixture}/src/engine/asset")
+file(MAKE_DIRECTORY "${fixture}/src/engine/resource")
 foreach(header IN ITEMS "engine/core/reflection/property_registry.hpp"
     "engine/function/scene/prefab_property_override.hpp" "engine/function/world/world.hpp")
-  file(WRITE "${fixture}/src/engine/asset/scene_description.hpp" "#include <${header}>\n")
+  file(WRITE "${fixture}/src/engine/resource/scene_description.hpp" "#include <${header}>\n")
   execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
     -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
     RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
@@ -518,7 +518,7 @@ foreach(header IN ITEMS "engine/core/reflection/property_registry.hpp"
     message(FATAL_ERROR "场景描述边界未拒绝运行时依赖：${header}")
   endif()
 endforeach()
-file(WRITE "${fixture}/src/engine/asset/scene_description.hpp" "#include <engine/asset/prefab_property_data.hpp>\n")
+file(WRITE "${fixture}/src/engine/resource/scene_description.hpp" "#include <engine/resource/prefab_property_data.hpp>\n")
 execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
   -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
   RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
@@ -526,10 +526,10 @@ if(NOT status EQUAL 0)
   message(FATAL_ERROR "场景描述边界错误拒绝作者值")
 endif()
 
-file(MAKE_DIRECTORY "${fixture}/src/engine/function/asset")
+file(MAKE_DIRECTORY "${fixture}/src/engine/resource")
 foreach(symbol IN ITEMS texture_load_service texture_upload_backend texture_load_completion
     "render_internal::render_asset_loader" "render_internal::render_asset_lease")
-  file(WRITE "${fixture}/src/engine/function/asset/asset_manager.hpp" "struct ${symbol};\n")
+  file(WRITE "${fixture}/src/engine/resource/asset_manager.hpp" "struct ${symbol};\n")
   execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
     -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
     RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
@@ -537,4 +537,17 @@ foreach(symbol IN ITEMS texture_load_service texture_upload_backend texture_load
     message(FATAL_ERROR "资产管理边界未拒绝渲染通道协议：${symbol}")
   endif()
 endforeach()
-file(WRITE "${fixture}/src/engine/function/asset/asset_manager.hpp" "")
+file(WRITE "${fixture}/src/engine/resource/asset_manager.hpp" "")
+
+# 旧目录即使没有反向 include，也不得重新出现源码。
+foreach(old_path IN ITEMS "engine/asset" "engine/function/asset")
+  file(MAKE_DIRECTORY "${fixture}/src/${old_path}")
+  file(WRITE "${fixture}/src/${old_path}/legacy.hpp" "// obsolete path\n")
+  execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
+    -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
+    RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
+  file(REMOVE "${fixture}/src/${old_path}/legacy.hpp")
+  if(status EQUAL 0)
+    message(FATAL_ERROR "边界检查未拒绝旧目录：${old_path}")
+  endif()
+endforeach()

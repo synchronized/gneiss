@@ -3,10 +3,10 @@
 
 #pragma once
 
-#include "engine/asset/material_types.hpp"
-#include "engine/asset/mesh_data.hpp"
-#include "engine/asset/texture_preparation_data.hpp"
-#include "engine/asset/texture_types.hpp"
+#include "engine/resource/material_types.hpp"
+#include "engine/resource/mesh_data.hpp"
+#include "engine/resource/texture_preparation_data.hpp"
+#include "engine/resource/texture_types.hpp"
 #include "engine/core/rid.hpp"
 
 #include <array>

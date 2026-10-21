@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "engine/asset/mesh_data.hpp"
+#include "engine/resource/mesh_data.hpp"
 #include <gneiss/engine/render.h>
 
 namespace gneiss::api {

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/asset/texture_container.hpp"
+#include "engine/resource/texture_container.hpp"
 
 #include <algorithm>
 #include <array>
