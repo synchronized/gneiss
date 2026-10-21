@@ -20,6 +20,6 @@ public:
   virtual std::shared_ptr<cpu_document_batch> begin() = 0;
   virtual void collect() = 0;
 };
-/** 未启用 CAORS 材质或网格时返回空，准备器继续原解析路径。 */
+/** 创建统一 CPU 材质与网格缓存，不要求线程池或 I/O 后端。 */
 std::shared_ptr<cpu_document_cache> make_cpu_document_cache();
 }

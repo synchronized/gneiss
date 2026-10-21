@@ -228,10 +228,11 @@ make_field(gneiss_field_id id, gneiss_type_id value_type_id, std::uint32_t flags
 
 // Field ID 与属性类别均为定宽整数，调用点使用命名常量明确区分。
 // NOLINTBEGIN(bugprone-easily-swappable-parameters)
-[[nodiscard]] gneiss_result bind(const gneiss::reflection_internal::registry_ref& registry,
-                                 gneiss_type_id type_id, gneiss_field_id field_id,
-                                 std::uint32_t kind, gneiss_property_getter getter,
-                                 gneiss_property_setter setter, const void* field) {
+[[nodiscard]] gneiss_result
+bind_component_field(const gneiss::reflection_internal::registry_ref& registry,
+                     gneiss_type_id type_id, gneiss_field_id field_id, std::uint32_t kind,
+                     gneiss_property_getter getter, gneiss_property_setter setter,
+                     const void* field) {
   const gneiss::reflection_internal::property_binding accessor{
       .kind = kind,
       .getter = getter,
@@ -277,32 +278,38 @@ gneiss_result gneiss::world_internal::register_reflection(
     result = gneiss::reflection_internal::register_type(registry, camera);
   }
   if (result == GNEISS_SUCCESS) {
-    result = bind(registry, transform_id, GNEISS_TRANSFORM_FIELD_TRANSLATION,
-                  GNEISS_PROPERTY_KIND_VEC3, get_transform, set_transform, &translation_field);
+    result = bind_component_field(registry, transform_id, GNEISS_TRANSFORM_FIELD_TRANSLATION,
+                                  GNEISS_PROPERTY_KIND_VEC3, get_transform, set_transform,
+                                  &translation_field);
   }
   if (result == GNEISS_SUCCESS) {
-    result = bind(registry, transform_id, GNEISS_TRANSFORM_FIELD_ROTATION,
-                  GNEISS_PROPERTY_KIND_QUATERNION, get_transform, set_transform, &rotation_field);
+    result = bind_component_field(registry, transform_id, GNEISS_TRANSFORM_FIELD_ROTATION,
+                                  GNEISS_PROPERTY_KIND_QUATERNION, get_transform, set_transform,
+                                  &rotation_field);
   }
   if (result == GNEISS_SUCCESS) {
-    result = bind(registry, transform_id, GNEISS_TRANSFORM_FIELD_SCALE, GNEISS_PROPERTY_KIND_VEC3,
-                  get_transform, set_transform, &scale_field);
+    result =
+        bind_component_field(registry, transform_id, GNEISS_TRANSFORM_FIELD_SCALE,
+                             GNEISS_PROPERTY_KIND_VEC3, get_transform, set_transform, &scale_field);
   }
   if (result == GNEISS_SUCCESS) {
-    result = bind(registry, camera_id, GNEISS_CAMERA_FIELD_VERTICAL_FIELD_OF_VIEW_RADIANS,
-                  GNEISS_PROPERTY_KIND_FLOAT32, get_camera, set_camera, &field_of_view_field);
+    result = bind_component_field(
+        registry, camera_id, GNEISS_CAMERA_FIELD_VERTICAL_FIELD_OF_VIEW_RADIANS,
+        GNEISS_PROPERTY_KIND_FLOAT32, get_camera, set_camera, &field_of_view_field);
   }
   if (result == GNEISS_SUCCESS) {
-    result = bind(registry, camera_id, GNEISS_CAMERA_FIELD_NEAR_PLANE, GNEISS_PROPERTY_KIND_FLOAT32,
-                  get_camera, set_camera, &near_plane_field);
+    result = bind_component_field(registry, camera_id, GNEISS_CAMERA_FIELD_NEAR_PLANE,
+                                  GNEISS_PROPERTY_KIND_FLOAT32, get_camera, set_camera,
+                                  &near_plane_field);
   }
   if (result == GNEISS_SUCCESS) {
-    result = bind(registry, camera_id, GNEISS_CAMERA_FIELD_FAR_PLANE, GNEISS_PROPERTY_KIND_FLOAT32,
-                  get_camera, set_camera, &far_plane_field);
+    result = bind_component_field(registry, camera_id, GNEISS_CAMERA_FIELD_FAR_PLANE,
+                                  GNEISS_PROPERTY_KIND_FLOAT32, get_camera, set_camera,
+                                  &far_plane_field);
   }
   if (result == GNEISS_SUCCESS) {
-    result = bind(registry, camera_id, GNEISS_CAMERA_FIELD_IS_PRIMARY, GNEISS_PROPERTY_KIND_BOOL,
-                  get_is_primary, nullptr, nullptr);
+    result = bind_component_field(registry, camera_id, GNEISS_CAMERA_FIELD_IS_PRIMARY,
+                                  GNEISS_PROPERTY_KIND_BOOL, get_is_primary, nullptr, nullptr);
   }
   return result;
 }

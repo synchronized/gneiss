@@ -565,9 +565,9 @@ main_thread_core_equivalent 为主线程 CPU 时间 / 进程墙钟时间，1 表
 映射应用成功后才激活场景和初始化游戏模块；Editor 尚未切换。显式 cooperative 模式保留同步启动。
 需要验证宿主时同时启用 `-DGNEISS_BUILD_CAORS_PROBE=ON`，运行 `gneiss.caors.application`。
 已接受请求通过主循环推进，须在 update 前观察 `action_map_status()`，不能把 begin 成功当加载完成。
-启用后的安装包含固定 CAORS 共享库与包；静态 Gneiss 包自动解析该链接依赖，公共头文件不包含 CAORS。
+核心安装包含固定 CAORS 运行库与包；静态 Gneiss 包自动解析该链接依赖，公共头文件不包含 CAORS。
 Windows 构建将 caors.dll 与程序置于同一 bin 目录；分发时须保留该 DLL。
-即使 Engine 自身为静态库，启用 CAORS 后仍需要 CAORS 动态运行时。
+原生平台即使 Engine 自身为静态库，仍需要 CAORS 动态运行时；Web 则采用静态库。
 方案与限制见[Application 接入计划](../plans/PLAN-051-caors-application-integration.md)。
 
 Runtime 集成回归可运行 `gneiss.runtime.async-input-startup`（同时启用 Runtime 和 CAORS 输入）。
@@ -607,19 +607,16 @@ Granit 的 PACKAGE/AUTO 查找优先级保持不变，仅 FETCH 默认版本使�
 Granit 附属依赖缓存默认放在当前构建目录 `_deps/granit-cache`，显式设置的
 `GRANIT_DEPENDENCY_SOURCE_CACHE_DIR` 保持优先；当前关闭其 SDL3/ImGui 获取。
 Shader 工具链仍使用 Granit 自身机制，不受 Gneiss 源码离线开关控制。
-CAORS 使用共享库，源码缓存只共享源码、不共享构建产物；已有四项 Git submodule 保持不变。
+CAORS 在原生平台使用共享库、Web 使用静态库，源码缓存只共享源码、不共享构建产物；已有四项 Git submodule 保持不变。
 
-## 可选 CAORS 材质文档接入
+## CAORS CPU 资源基础依赖
 
-同一 CPU 资源入口还可用 `-DGNEISS_ENABLE_CAORS_MESH=ON` 启用不可变 Mesh 共享，
-默认关闭，可独立于输入/材质启用。Mesh 仍先由原准备器读取、解析和整批复验，
-随后移动数组到 CAORS 资源；渲染层共享只读数据，不额外复制整份网格。
-该选项同样需要原生线程、libuv 与 CAORS 共享运行时，不支持 Emscripten。
-同步加载及未注入 CPU 缓存的通道保持原路径；这不是 GPU 缓存或纹理流式加载开关。
+CAORS 0.7 是核心依赖；材质和 Mesh 已不再提供独立启用开关。
+asset_manager 创建的资产通道统一使用 CPU 资源缓存，不要求线程池或 libuv。
+Mesh 仍先读取、解析和整批复验，再移动数组到 CAORS 资源，渲染层共享只读数据。
+原生平台链接 CAORS 共享库，Emscripten 链接静态库；静态 Gneiss consumer 自动解析依赖。
+普通公共头文件不暴露 CAORS 类型。旧的材质/Mesh 缓存选项不再控制行为，应从用户配置中移除。
 
-`-DGNEISS_ENABLE_CAORS_MATERIAL=ON` 为 asset_manager 创建的异步资产通道启用 CPU 材质文档共享，
-默认关闭，可独立于 CAORS 输入选项启用。要求原生线程与 libuv；当前不支持 Emscripten。
-批次仍使用既有读取预算、来源复验、纹理依赖及渲染采用事务；同步 acquire 不切换。
-开启时安装固定 CAORS 依赖，静态 consumer 自动解析链接依赖；普通头文件不含 CAORS 类型。
-文档共享不意味着跳过后续批次的文件读取或解析，也不表示全部资产已由 CAORS 管理。
-方案、阶段验收与限制见[共享材质计划](../plans/PLAN-051-caors-shared-material.md)。
+输入选项及直接 I/O 探针暂仍要求原生线程/libuv。同步 acquire 和手工未注入缓存的通道
+尚待合并；本步不意味着所有加载路径或 Web 浏览器 I/O 已完成。
+进度与剩余边界见[资源路径收敛计划](../plans/PLAN-051-caors-convergence.md)。

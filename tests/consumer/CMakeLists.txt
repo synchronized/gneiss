@@ -58,12 +58,20 @@ set_target_properties(
   PROPERTIES C_STANDARD 11 C_STANDARD_REQUIRED YES C_EXTENSIONS NO LINKER_LANGUAGE CXX
 )
 
+set(consumer_asset_root "${CMAKE_CURRENT_LIST_DIR}/../data/assets")
+set(inspector_asset_root "${CMAKE_CURRENT_LIST_DIR}/../../examples/property_inspector/assets")
+# Web 的文件路径属于虚拟文件系统，不能把 Windows 盘符当成 WASM 内的绝对路径。
+if(EMSCRIPTEN)
+  set(consumer_asset_root "/gneiss-consumer-assets")
+  set(inspector_asset_root "/gneiss-inspector-assets")
+endif()
+
 add_executable(gneiss_cpp_consumer cpp_consumer.cpp)
 target_link_libraries(gneiss_cpp_consumer PRIVATE gneiss::engine)
 target_compile_features(gneiss_cpp_consumer PRIVATE cxx_std_20)
 target_compile_definitions(
   gneiss_cpp_consumer
-  PRIVATE GNEISS_CONSUMER_ASSET_ROOT="${CMAKE_CURRENT_LIST_DIR}/../data/assets"
+  PRIVATE GNEISS_CONSUMER_ASSET_ROOT="${consumer_asset_root}"
 )
 
 add_executable(
@@ -75,8 +83,15 @@ target_compile_features(gneiss_property_inspector_consumer PRIVATE cxx_std_20)
 target_compile_definitions(
   gneiss_property_inspector_consumer
   PRIVATE
-    GNEISS_PROPERTY_INSPECTOR_ASSET_ROOT="${CMAKE_CURRENT_LIST_DIR}/../../examples/property_inspector/assets"
+    GNEISS_PROPERTY_INSPECTOR_ASSET_ROOT="${inspector_asset_root}"
 )
+
+if(EMSCRIPTEN)
+  target_link_options(gneiss_cpp_consumer PRIVATE --embed-file
+    "${CMAKE_CURRENT_LIST_DIR}/../data/assets@${consumer_asset_root}")
+  target_link_options(gneiss_property_inspector_consumer PRIVATE --embed-file
+    "${CMAKE_CURRENT_LIST_DIR}/../../examples/property_inspector/assets@${inspector_asset_root}")
+endif()
 
 add_test(NAME gneiss.consumer.c COMMAND gneiss_c_consumer)
 add_executable(gneiss_application_world_consumer

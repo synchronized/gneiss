@@ -897,14 +897,7 @@ target_link_libraries(
 target_compile_features(gneiss_texture_load_service_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_texture_load_service_test)
 gneiss_target_output_directories(gneiss_texture_load_service_test)
-if(GNEISS_ENABLE_CAORS_MESH)
-  target_compile_definitions(gneiss_texture_load_service_test PRIVATE GNEISS_ENABLE_CAORS_MESH)
-  target_link_libraries(gneiss_texture_load_service_test PRIVATE caors::caors)
-endif()
-if(GNEISS_ENABLE_CAORS_MATERIAL)
-  target_compile_definitions(gneiss_texture_load_service_test PRIVATE GNEISS_ENABLE_CAORS_MATERIAL)
-  target_link_libraries(gneiss_texture_load_service_test PRIVATE caors::caors)
-endif()
+target_link_libraries(gneiss_texture_load_service_test PRIVATE caors::caors)
 add_test(NAME gneiss.texture-load-service COMMAND gneiss_texture_load_service_test)
 
 add_executable(gneiss_texture_load_application_test asset/texture_load_application_test.cpp

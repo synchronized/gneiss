@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "engine/asset/cpu_document_cache.hpp"
-#if defined(GNEISS_ENABLE_CAORS_MATERIAL) || defined(GNEISS_ENABLE_CAORS_MESH)
 #include "engine/asset/caors_material_versions.hpp"
 #include <algorithm>
 #include <map>
@@ -9,7 +8,6 @@
 
 namespace gneiss::asset_internal {
 namespace {
-#ifdef GNEISS_ENABLE_CAORS_MESH
 /** 数组只属于这个资源，别名 shared_ptr 通过 CAORS handle 保活。 */
 struct mesh_document final : caors::resource {
   using caors::resource::resource;
@@ -52,12 +50,9 @@ public:
     std::erase_if(versions_, [](const auto& item) { return item.second.expired(); });
   }
 };
-#endif
 struct document_versions {
   material_document_versions materials;
-#ifdef GNEISS_ENABLE_CAORS_MESH
   mesh_documents meshes;
-#endif
 };
 class document_batch final : public cpu_document_batch {
 public:
@@ -65,7 +60,6 @@ public:
       : versions_(std::move(versions)) {}
   gneiss_result decode(const std::vector<std::byte>& bytes, material_parameters& parameters,
                        std::array<std::string, 5>& uris, asset_diagnostic& diagnostic) override {
-#ifdef GNEISS_ENABLE_CAORS_MATERIAL
     // GUID 不参与版本选择；候选不注册到按 URI reload 的可变槽位。
     auto document =
         caors::resources::make_handle<material_document>(nullptr, caors::resource_guid{});
@@ -80,26 +74,16 @@ public:
     uris = document->source.texture_uris;
     candidates_.push_back(std::move(document));
     return GNEISS_SUCCESS;
-#else
-    asset_parsing::material_source source;
-    const auto result = asset_parsing::parse_material(bytes, source, diagnostic);
-    parameters = source.parameters;
-    uris = std::move(source.texture_uris);
-    return result;
-#endif
   }
   gneiss_result retain_verified(prepared_batch& batch) override {
     std::size_t index = 0;
     for (auto& asset : batch.assets) {
-#ifdef GNEISS_ENABLE_CAORS_MESH
       if (asset.source.type == asset_type::mesh) {
         const auto result = versions_->meshes.retain(asset);
         if (result != GNEISS_SUCCESS)
           return result;
         continue;
       }
-#endif
-#ifdef GNEISS_ENABLE_CAORS_MATERIAL
       if (asset.source.type != asset_type::material) {
         continue;
       }
@@ -113,9 +97,6 @@ public:
         return static_cast<gneiss_result>(result);
       }
       asset.material_document = std::move(lease);
-#else
-      (void)asset;
-#endif
     }
     return index == candidates_.size() ? GNEISS_SUCCESS : GNEISS_ERROR_INVALID_STATE;
   }
@@ -131,9 +112,7 @@ public:
   }
   void collect() override {
     versions_->materials.collect();
-#ifdef GNEISS_ENABLE_CAORS_MESH
     versions_->meshes.collect();
-#endif
   }
 
 private:
@@ -144,8 +123,3 @@ std::shared_ptr<cpu_document_cache> make_cpu_document_cache() {
   return std::make_shared<document_cache>();
 }
 }
-#else
-namespace gneiss::asset_internal {
-std::shared_ptr<cpu_document_cache> make_cpu_document_cache() { return {}; }
-}
-#endif

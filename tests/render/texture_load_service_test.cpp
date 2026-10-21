@@ -188,7 +188,6 @@ void prepared_source_revisions() {
   check(cache.acquire(other_input, load, same) == GNEISS_ERROR_INVALID_ARGUMENT && !same);
 }
 void shared_mesh_documents() {
-#ifdef GNEISS_ENABLE_CAORS_MESH
   auto source = std::make_shared<memory_files>();
   const std::string text =
       R"({"format":"gneiss.mesh","version":3,"topology":"triangle_list","vertices":[[0,0,0],[1,0,0],[0,1,0]],"uvs":[[0,0],[1,0],[0,1]],"normals":[[0,0,1],[0,0,1],[0,0,1]]})";
@@ -241,7 +240,6 @@ void shared_mesh_documents() {
   check(!lifetime.expired() && frame->vertices[1].x == 1.0F);
   frame.reset();
   check(lifetime.expired());
-#endif
 }
 void fixed_version_publication(tasks::execution_mode mode) {
   auto source = std::make_shared<memory_files>();
@@ -716,11 +714,9 @@ void mixed(tasks::execution_mode mode, bool pbr = false) {
   check(loader.acquire_cached(requested[1], mesh_lease) == GNEISS_SUCCESS);
   check(loader.acquire_cached(requested[0], material_lease) == GNEISS_SUCCESS);
   const auto old_mesh = resources.share_mesh(mesh_lease.get());
-#ifdef GNEISS_ENABLE_CAORS_MESH
   render_asset_lease unchanged_lease;
   check(loader.acquire_cached(requested[2], unchanged_lease) == GNEISS_SUCCESS);
   const auto unchanged_mesh = resources.share_mesh(unchanged_lease.get());
-#endif
   const auto old_material = resources.share_material(material_lease.get());
   auto changed = mesh;
   changed.replace(changed.find("[1,0,0]"), 7U, "[2,0,0]");
@@ -740,11 +736,9 @@ void mixed(tasks::execution_mode mode, bool pbr = false) {
   check(completion.state == texture_load_state::applied &&
         resources.share_mesh(mesh_lease.get()) != old_mesh && old_mesh->vertices[1].x == 1.0F &&
         resources.get_mesh(mesh_lease.get())->vertices[1].x == 2.0F);
-#ifdef GNEISS_ENABLE_CAORS_MESH
   // 真实异步重载只改变第一个网格，其他网格继续复用同一 CPU 对象。
   check(resources.share_mesh(unchanged_lease.get()) == unchanged_mesh);
   unchanged_lease = {};
-#endif
   completion = {};
   leases.clear();
   cache.release_unused();
