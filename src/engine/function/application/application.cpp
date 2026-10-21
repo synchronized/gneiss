@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/function/application/application.hpp"
+#include "engine/function/application/action_map_application.hpp"
 #include "engine/core/diagnostics/loop_timing.hpp"
 #include "engine/core/diagnostics/profiling.hpp"
 #include "engine/function/application/scene_session.hpp"
@@ -56,6 +57,8 @@ struct application::storage {
 #endif
   asset_internal::virtual_file_system asset_file_system_;
   std::unique_ptr<engine::asset_manager> asset_manager_;
+  application_internal::action_map_application input_application_;
+  bool asset_executor_attached_ = false;
   application_internal::scene_session scene_session_;
   std::thread::id owner_thread_;
   std::uint64_t frame_index_ = 0;
@@ -195,7 +198,8 @@ gneiss_result application::attach_task_executor(tasks::task_executor& executor) 
       storage_->asset_io_executor_ = std::move(loop);
     }
 #endif
-    storage_->asset_manager_->attach_input_loader(executor);
+    storage_->asset_manager_->attach_task_executor(executor);
+    storage_->asset_executor_attached_ = true;
     render_internal::texture_upload_backend backend;
 #ifdef GNEISS_HAS_GRANIT_PLATFORM
     if (storage_->granit_render_service_) {
@@ -487,21 +491,33 @@ gneiss_result application::poll_input(input_internal::input_event& out_event) no
 gneiss_result application::begin_action_map(std::string_view uri) noexcept {
   if (!is_owner_thread() || !accepts_requests())
     return GNEISS_ERROR_INVALID_STATE;
-  return storage_->asset_manager_->begin_input(uri).native();
+  if (!storage_->asset_executor_attached_)
+    return GNEISS_ERROR_NOT_READY;
+  storage_->input_application_.cancel();
+  std::unique_ptr<action_map_request> request;
+  const auto started = storage_->asset_manager_->request_input(uri, request);
+  return started == result::success
+             ? storage_->input_application_.begin(std::move(request)).native()
+             : started.native();
 }
 gneiss_result application::action_map_status() const noexcept {
   if (!is_owner_thread() || !accepts_requests())
     return GNEISS_ERROR_INVALID_STATE;
-  return storage_->asset_manager_->input_status().native();
+  return storage_->asset_executor_attached_ ? storage_->input_application_.status().native()
+                                            : GNEISS_ERROR_NOT_READY;
 }
 gneiss_result application::cancel_action_map() noexcept {
   if (!is_owner_thread() || !accepts_requests())
     return GNEISS_ERROR_INVALID_STATE;
-  return storage_->asset_manager_->cancel_input().native();
+  if (!storage_->asset_executor_attached_)
+    return GNEISS_ERROR_NOT_READY;
+  storage_->input_application_.cancel();
+  return GNEISS_SUCCESS;
 }
 gneiss_result application::load_action_map(std::string_view uri) noexcept {
   if (!is_owner_thread() || !accepts_requests())
     return GNEISS_ERROR_INVALID_STATE;
+  storage_->input_application_.cancel();
   input_internal::action_map map;
   const auto result = storage_->asset_manager_->load_input(uri, map);
   return to_native(result == gneiss::result::success
@@ -764,9 +780,8 @@ gneiss_result application::run(gneiss_application handle, std::uint64_t max_fram
       }
     }
 
-    storage_->asset_manager_->advance_input([this](input_internal::action_map map) {
-      return storage_->input_.replace_action_map(std::move(map));
-    });
+    storage_->asset_manager_->advance_resources();
+    (void)storage_->input_application_.poll(storage_->input_);
     const auto current_time_ns = now_ns();
     const auto raw_delta = current_time_ns >= storage_->previous_time_ns_
                                ? current_time_ns - storage_->previous_time_ns_
@@ -859,8 +874,9 @@ gneiss_result application::shutdown(gneiss_application handle) noexcept {
   storage_->shutting_down_ = true;
   storage_->accepts_requests_.store(false, std::memory_order_release);
   auto shutdown_result = GNEISS_SUCCESS;
+  storage_->input_application_.cancel();
   if (storage_->asset_manager_) {
-    storage_->asset_manager_->stop_input();
+    storage_->asset_manager_->stop_resources();
   }
   storage_->scene_session_.shutdown();
   storage_->asset_manager_.reset();

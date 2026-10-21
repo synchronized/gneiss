@@ -3,6 +3,8 @@
 
 // 独立接入验证：不链接 Engine DLL，不将 CAORS 对象带入公共 SDK。
 #include "engine/core/tasks/task_scheduler.hpp"
+#include "engine/function/application/action_map_application.hpp"
+#include "engine/function/asset/caors_action_map_request.hpp"
 #include "engine/function/input/caors_action_map.hpp"
 #include "engine/function/input/input_service.hpp"
 #include "engine/platform/caors/adapter.hpp"
@@ -283,13 +285,28 @@ int run(const char* asset_path) {
   require(manager.find<action_map_asset>(guid(1)) == second.try_get().get(),
           "cancel keeps cached resource");
   using namespace gneiss::input_internal;
+  using namespace gneiss::application_internal;
   input_service input;
   require(input.replace_action_map({{{"old", {{4, 1.0F}}}}}) == result::success,
           "initial input map");
   action_id old_action;
   require(input.find_action("old", old_action) == result::success, "initial action");
+  {
+    auto request =
+        gneiss::engine::make_action_map_request(manager.request_load<action_map_asset>(guid(1)));
+    action_map output;
+    require(request->take(output) == result::success && !output.actions.empty(),
+            "native request result");
+    const auto count = output.actions.size();
+    require(request->take(output) == result::invalid_state && output.actions.size() == count,
+            "native request transfers only once");
+    request->cancel();
+    require(request->take(output) == result::invalid_state,
+            "native request cancellation is terminal");
+  }
   action_map_application application;
-  require(application.begin(manager.request_load<action_map_asset>(guid(1))) == result::success,
+  require(application.begin(gneiss::engine::make_action_map_request(
+              manager.request_load<action_map_asset>(guid(1)))) == result::success,
           "begin input apply");
   action_state state;
   require(input.get_action_state(old_action, state) == result::success,
@@ -314,13 +331,15 @@ int run(const char* asset_path) {
           "poll does not apply twice");
   require(!manager.provider().bind(guid(3), source, "asset://invalid-schema"),
           "invalid apply bind");
-  require(application.begin(manager.request_load<action_map_asset>(guid(3))) == result::success,
+  require(application.begin(gneiss::engine::make_action_map_request(
+              manager.request_load<action_map_asset>(guid(3)))) == result::success,
           "begin invalid apply");
   wait([&] { return application.poll(input) != result::not_ready; });
   require(application.state() == action_map_apply_state::failed &&
               input.get_action_state(movement, state) == result::success && state.value == -1.0F,
           "failed load retains active mapping");
-  require(application.begin(manager.request_reload<action_map_asset>(guid(1))) == result::success,
+  require(application.begin(gneiss::engine::make_action_map_request(
+              manager.request_reload<action_map_asset>(guid(1)))) == result::success,
           "begin cancelled apply");
   application.cancel();
   require(application.poll(input) == result::invalid_state &&
@@ -335,9 +354,11 @@ int run(const char* asset_path) {
           "alternate mount");
   require(!manager.provider().bind(guid(4), source, "asset://alternate"), "alternate bind");
   auto shared_earlier = manager.request_load<action_map_asset>(guid(4));
-  require(application.begin(manager.request_load<action_map_asset>(guid(4))) == result::success,
+  require(application.begin(gneiss::engine::make_action_map_request(
+              manager.request_load<action_map_asset>(guid(4)))) == result::success,
           "begin earlier apply");
-  require(application.begin(manager.request_load<action_map_asset>(guid(1))) == result::success,
+  require(application.begin(gneiss::engine::make_action_map_request(
+              manager.request_load<action_map_asset>(guid(1)))) == result::success,
           "replace earlier apply");
   require(application.poll(input) == result::success, "latest cached apply");
   require(input.find_action("move_horizontal", movement) == result::success, "latest movement");
@@ -350,7 +371,8 @@ int run(const char* asset_path) {
           "superseded map not applied");
   require(!manager.provider().bind(guid(5), source, "asset://alternate"),
           "uncached alternate bind");
-  require(application.begin(manager.request_load<action_map_asset>(guid(5))) == result::success &&
+  require(application.begin(gneiss::engine::make_action_map_request(
+              manager.request_load<action_map_asset>(guid(5)))) == result::success &&
               application.poll(input) == result::not_ready &&
               input.get_action_state(movement, state) == result::success,
           "pending asynchronous apply preserves current map");
@@ -364,7 +386,8 @@ int run(const char* asset_path) {
           "alternate binding responds");
   {
     action_map_application abandoned;
-    require(abandoned.begin(manager.request_reload<action_map_asset>(guid(1))) == result::success,
+    require(abandoned.begin(gneiss::engine::make_action_map_request(
+                manager.request_reload<action_map_asset>(guid(1)))) == result::success,
             "begin abandoned apply");
   }
   wait([&] { return !manager.database().has_active_operations() && loader.empty(); });

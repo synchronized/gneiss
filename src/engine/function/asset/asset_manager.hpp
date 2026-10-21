@@ -3,6 +3,7 @@
 #ifndef GNEISS_ENGINE_ASSET_MANAGER_HPP_
 #define GNEISS_ENGINE_ASSET_MANAGER_HPP_
 
+#include "action_map_request.hpp"
 #include "engine/asset/cpu_document_cache.hpp"
 #include "engine/asset/resource_cache.hpp"
 #include "engine/asset/virtual_file_system.hpp"
@@ -24,15 +25,14 @@ public:
                 render_internal::render_resource_service& resources);
   ~asset_manager();
   /** 借用 VFS 与宿主执行器；不创建独立线程池。 */
-  void attach_input_loader(tasks::task_executor& executor);
-  /** 同步准备会取消旧异步采用；失败不改输出，也不驱动宿主任务队列。 */
+  void attach_task_executor(tasks::task_executor& executor);
+  /** 同步准备失败不改输出，不驱动宿主任务队列；采用与取消由调用者负责。 */
   [[nodiscard]] result load_input(std::string_view uri, input_internal::action_map& output) noexcept;
-  [[nodiscard]] result begin_input(std::string_view uri) noexcept;
-  [[nodiscard]] result input_status() const noexcept;
-  [[nodiscard]] result cancel_input() noexcept;
-  void advance_input(const std::function<result(input_internal::action_map)>& apply);
-  /** 先于场景、执行器与 I/O 后端关闭，取消并排空资源请求。 */
-  void stop_input() noexcept;
+  [[nodiscard]] result request_input(std::string_view uri,
+      std::unique_ptr<action_map_request>& output) noexcept;
+  void advance_resources();
+  /** 调用者先取消并释放请求，再停止资源工作。 */
+  void stop_resources() noexcept;
   asset_manager(const asset_manager&) = delete;
   asset_manager& operator=(const asset_manager&) = delete;
   [[nodiscard]] const asset_internal::virtual_file_system& files() const noexcept { return files_; }

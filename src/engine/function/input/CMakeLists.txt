@@ -3,7 +3,8 @@
 
 # 可选私有集成目标；暂由独立宿主链接，不同时链接 Engine DLL。
 add_library(gneiss_caors_input STATIC
-  caors_action_map_loader.cpp caors_action_map_application.cpp
+  caors_action_map_loader.cpp
+  ../asset/caors_action_map_request.cpp ../application/action_map_application.cpp
   action_map_parser.cpp action_map_validation.cpp input_service.cpp)
 target_compile_features(gneiss_caors_input PUBLIC cxx_std_20)
 target_include_directories(gneiss_caors_input PRIVATE "${PROJECT_SOURCE_DIR}/src")

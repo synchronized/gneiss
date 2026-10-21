@@ -70,3 +70,25 @@ engine::asset_manager 直接负责；输入待采用对象只接收请求，不�
 
 后续在资产管理层完成同步缓存发布及旧请求顺序协调，不再给输入模块扩充资源管理能力。
 材质/Mesh 的 CPU 文档缓存仍需进一步整合，不能把输入状态迁移等同于全部资源统一。
+
+## 已确认的服务与输入配置边界
+
+- Application 拥有资产管理器、输入服务及输入待采用状态，不通过全局 locator 查找它们。
+- 项目沿用 input_map URI 引用独立文件；本轮不新增 project.setting.json。
+- asset_manager 创建资源请求、维护缓存与来源、推进完成队列，不保存输入采用状态。
+- action_map_request 是资产层原生结果接口；CAORS 只出现在资产实现和类型 Loader 中。
+- application/action_map_application 消费原生请求，成功后调用 InputService，不解析文件。
+- input_service 只管理映射和输入状态。
+
+当前代码入口：
+
+| 位置 | 职责 |
+| --- | --- |
+| function/asset/asset_manager.* | 资源请求发起、缓存与调度 |
+| function/asset/action_map_request.hpp | 原生输入资源请求契约 |
+| function/asset/caors_action_map_request.* | CAORS 请求结果适配 |
+| function/application/action_map_application.* | 请求替换、取消和一次采用 |
+| function/input/caors_action_map_loader.cpp | 输入类型解析适配 |
+| function/input/input_service.* | 输入运行时状态 |
+
+后续同步缓存发布在资产层完成；不得再把“应用到输入服务”的回调放回 asset_manager。

@@ -141,3 +141,17 @@ Application 继续决定采用时机与游戏启动顺序。
 销毁顺序保持为取消采用、关闭并排空专属工作 scope、放弃 Loader 回执、排空完成队列，
 然后释放资源状态；不关闭借用的整个宿主执行器。当前该状态注册输入类型，其他 CPU 缓存
 仍按既有协议持有；本决策不宣称所有资源类型已统一到一个 CAORS database。
+
+## 2026-10-21：Application 采用资源，项目设置引用配置
+
+不引入进程全局 locator<asset_manager>；Application 保持服务所有权，内部依赖显式传递。
+继续使用现有项目 input_map 字段引用独立输入文件，不新增第二份项目设置文件或内嵌配置分支。
+输入服务不定位资产管理器、不发起加载。
+
+资产层提供最小强类型 action_map_request，隐藏 CAORS 请求；take 只返回映射副本，
+不调用 InputService，也不决定游戏启动。当前只实现输入这一实际用途，不提前推广类型擦除框架。
+请求由 Application 的 action_map_application 持有，负责替换、取消、一次采用和采用状态。
+它不持有 CAORS 类型；资产层只负责请求、缓存、来源和队列推进。
+
+Application 退出先释放待采用请求，再停止资产工作；同步加载取消当前采用由 Application
+完成。同一进程不同 Application 继续拥有各自服务，不依赖可切换的全局默认对象。

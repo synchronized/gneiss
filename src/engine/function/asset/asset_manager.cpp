@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "asset_manager.hpp"
+#include "caors_action_map_request.hpp"
 #include "engine/asset/asset_uri.hpp"
 #include "engine/asset/caors_vfs_bridge.hpp"
 #include "engine/function/input/caors_action_map.hpp"
@@ -9,7 +10,7 @@
 #include <stdexcept>
 
 namespace gneiss::engine {
-// CAORS 管理、来源身份及调度生命周期归资产层；输入模块只提供类型 Loader 和采用状态。
+// CAORS 管理、来源身份及调度生命周期归资产层；输入模块提供类型 Loader，Application 独立负责采用。
 struct asset_manager::resource_state {
   std::shared_ptr<caors_internal::worker_adapter> context;
   caors::tasks::external_executor worker;
@@ -19,10 +20,8 @@ struct asset_manager::resource_state {
   caors::resources::cache<input_internal::action_map_asset> input_cache;
   caors::assets::asset_manager manager;
   caors::resources::file_source source;
-  input_internal::action_map_application input_application;
   std::map<std::string, caors::resource_guid, std::less<>> identities;
   std::uint64_t next_id = 1;
-  result input_status = result::invalid_state;
   resource_state(asset_internal::virtual_file_system files, tasks::task_executor& executor)
       : context(caors_internal::make_worker(executor)), worker(context),
         bridge(asset_internal::make_caors_vfs_bridge(
@@ -38,7 +37,6 @@ struct asset_manager::resource_state {
       throw std::runtime_error("注册输入资源类型失败");
   }
   ~resource_state() {
-    input_application.cancel();
     worker.close();
     input_loader->abandon();
     (void)completions.drain();
@@ -47,18 +45,18 @@ struct asset_manager::resource_state {
 asset_manager::asset_manager(asset_internal::virtual_file_system files,
                              render_internal::render_resource_service& resources)
     : files_(std::move(files)), render_(files_, cache_, resources), prefabs_(files_, cache_) {}
-asset_manager::~asset_manager() { stop_input(); }
-void asset_manager::attach_input_loader(tasks::task_executor& executor) {
+asset_manager::~asset_manager() { stop_resources(); }
+void asset_manager::attach_task_executor(tasks::task_executor& executor) {
   if (!resource_state_) {
     resource_state_ = std::make_unique<resource_state>(files_, executor);
   }
 }
 result asset_manager::load_input(std::string_view uri,
                                  input_internal::action_map& output) noexcept {
-  (void)cancel_input();
   return input_internal::load_action_map(files_, uri, output);
 }
-result asset_manager::begin_input(std::string_view uri) noexcept {
+result asset_manager::request_input(std::string_view uri,
+                                    std::unique_ptr<action_map_request>& output) noexcept {
   if (!resource_state_)
     return result::not_ready;
   if (asset_internal::validate_uri(uri) != GNEISS_SUCCESS)
@@ -77,38 +75,24 @@ result asset_manager::begin_input(std::string_view uri) noexcept {
       found = s.identities.emplace(std::string(uri), id).first;
     }
     // 显式打开每次重新读取/复验，不能把上次缓存命中误当当前来源仍有效。
-    s.input_application.cancel();
     auto request = s.input_cache.contains(found->second)
                        ? s.manager.request_reload<input_internal::action_map_asset>(found->second)
                        : s.manager.request_load<input_internal::action_map_asset>(found->second);
-    const auto started = s.input_application.begin(std::move(request));
-    s.input_status = started == result::success ? result::not_ready : started;
-    return started;
+    output = make_action_map_request(std::move(request));
+    return result::success;
   } catch (const std::bad_alloc&) {
     return result::out_of_memory;
   } catch (...) {
     return result::internal;
   }
 }
-result asset_manager::input_status() const noexcept {
-  return resource_state_ ? resource_state_->input_status : result::not_ready;
-}
-result asset_manager::cancel_input() noexcept {
-  if (!resource_state_)
-    return result::not_ready;
-  resource_state_->input_application.cancel();
-  resource_state_->input_status = result::invalid_state;
-  return result::success;
-}
-void asset_manager::advance_input(const std::function<result(input_internal::action_map)>& apply) {
+void asset_manager::advance_resources() {
   if (!resource_state_)
     return;
   auto& s = *resource_state_;
   s.input_loader->pump();
   (void)s.completions.drain();
   s.context->collect();
-  if (s.input_status == result::not_ready)
-    s.input_status = s.input_application.poll(apply);
 }
-void asset_manager::stop_input() noexcept { resource_state_.reset(); }
+void asset_manager::stop_resources() noexcept { resource_state_.reset(); }
 }
