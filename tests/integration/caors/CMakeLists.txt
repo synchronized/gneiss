@@ -32,6 +32,13 @@ gneiss_target_compile_warnings(gneiss_asset_request_test)
 gneiss_target_output_directories(gneiss_asset_request_test)
 add_test(NAME gneiss.caors.asset-request COMMAND gneiss_asset_request_test)
 
+# 上游发布顺序诊断工具；只报告能力，不将当前缺陷定义为通过条件。
+add_executable(gneiss_caors_sync_publication_probe sync_publication_probe.cpp)
+target_link_libraries(gneiss_caors_sync_publication_probe PRIVATE caors::caors)
+target_compile_features(gneiss_caors_sync_publication_probe PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_caors_sync_publication_probe)
+gneiss_target_output_directories(gneiss_caors_sync_publication_probe)
+
 # 直接 libuv I/O 和 Granit 材质探针只适用于原生线程平台。
 if(NOT GNEISS_TASK_THREADS OR EMSCRIPTEN)
   return()
