@@ -15,8 +15,8 @@ endif()
 foreach(source IN LISTS sources)
   file(READ "${source}" content)
   if(source MATCHES "/src/engine/function/asset/asset_manager[.](cpp|hpp)$" AND
-      content MATCHES "texture_load_service|texture_upload_backend|texture_load_completion")
-    message(FATAL_ERROR "资产管理器不得依赖渲染上传通道或完成协议：${source}")
+      content MATCHES "texture_load_service|texture_upload_backend|texture_load_completion|render_internal::|engine/function/render/")
+    message(FATAL_ERROR "资产管理器不得依赖渲染模块、上传通道或完成协议：${source}")
   endif()
 
   if(source MATCHES "/src/engine/asset/(scene_description|prefab_description|prefab_property_data)[.](cpp|hpp)$" AND

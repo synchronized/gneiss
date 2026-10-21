@@ -21,7 +21,8 @@ private:
   world_internal::world_owner world_owner_;
 
 public:
-  explicit application_scene_state(engine::asset_manager& owner);
+  application_scene_state(engine::asset_manager& owner,
+                          render_internal::render_asset_loader& render);
   ~application_scene_state() noexcept;
   application_scene_state(const application_scene_state&) = delete;
   application_scene_state& operator=(const application_scene_state&) = delete;

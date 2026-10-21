@@ -111,6 +111,7 @@
 - [VER-045：0.45.0 内部 C++ 分层与完整 SDK 包装](plans/VER-045-0.45.0-cpp-boundaries.md)
 - [DEV-045：分层重构与包装实施计划](plans/DEV-045-cpp-boundaries.md)
 
+- [渲染缓存与资产管理器所有权分离](records/2026-10-21-render-cache-ownership.md)
 - [渲染上传通道与资产管理器分离](records/2026-10-21-render-channel-boundary.md)
 - [Scene/Prefab 作者描述与运行时覆盖编辑分离](records/2026-10-21-scene-resource-descriptions.md)
 - [CPU 资源职责盘点与输入资源迁移](records/2026-10-21-cpu-resource-boundaries.md)

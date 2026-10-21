@@ -14,12 +14,14 @@ namespace gneiss::application_internal {
 
 scene_session::~scene_session() noexcept { shutdown(); }
 
-gneiss_result scene_session::initialize(engine::asset_manager& assets) {
+gneiss_result scene_session::initialize(engine::asset_manager& assets,
+                                        render_internal::render_asset_loader& render) {
   if (active_) {
     return GNEISS_ERROR_INVALID_STATE;
   }
   asset_owner_ = &assets;
-  active_ = std::make_unique<application_scene_state>(assets);
+  render_assets_ = &render;
+  active_ = std::make_unique<application_scene_state>(assets, render);
   return active_->initialize();
 }
 
@@ -34,12 +36,12 @@ scene_session::attach_executor(tasks::task_executor& executor,
   }
   // 两个服务都成功构造后才发布，异常不留下半装配状态。
   auto loader = std::make_unique<scene_load_service>(executor, files, resources, *asset_owner_,
-                                                     backend, notification);
+                                                     *render_assets_, backend, notification);
   const auto profile = backend.profile;
   auto textures = std::make_unique<render_internal::texture_load_service>(
-      executor, files, asset_owner_->render_loader(), std::move(backend), std::move(notification),
+      executor, files, *render_assets_, std::move(backend), std::move(notification),
       asset_owner_->documents());
-  asset_owner_->render_loader().set_default_profile(profile);
+  render_assets_->set_default_profile(profile);
   loader_ = std::move(loader);
   textures_ = std::move(textures);
   return GNEISS_SUCCESS;
@@ -50,6 +52,7 @@ void scene_session::advance() {
     const auto start = std::chrono::steady_clock::now();
     const diagnostics::loop_span span(diagnostics::loop_stage::retirement);
     retired_.reset();
+    render_assets_->release_unused();
     asset_owner_->collect_unused();
     retirement_.last_ms =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
@@ -86,9 +89,11 @@ void scene_session::shutdown() noexcept {
   retired_.reset();
   active_.reset();
   if (asset_owner_ != nullptr) {
+    render_assets_->release_unused();
     asset_owner_->collect_unused();
   }
   asset_owner_ = nullptr;
+  render_assets_ = nullptr;
 }
 
 bool scene_session::can_start_load() const noexcept {
@@ -248,6 +253,7 @@ gneiss_result scene_session::poll_assets(render_internal::texture_load_completio
   }
   previous_assets_.clear();
   asset_request_ = 0U;
+  render_assets_->release_unused();
   asset_owner_->collect_unused();
   completion.commit_ms +=
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - commit_started)
@@ -266,8 +272,8 @@ scene_session::accept_edit_assets(const render_internal::texture_load_completion
   }
   try {
     std::unique_ptr<asset_internal::resource_cache::prepared_adoption> prepared;
-    const auto result = asset_owner_->render_loader().prepare_adoption(
-        completion.assets, completion.versions, completion.profile, prepared);
+    const auto result = render_assets_->prepare_adoption(completion.assets, completion.versions,
+                                                         completion.profile, prepared);
     if (result != GNEISS_SUCCESS) {
       return result;
     }

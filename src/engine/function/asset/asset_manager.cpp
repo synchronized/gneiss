@@ -42,9 +42,8 @@ struct asset_manager::resource_state {
     (void)completions.drain();
   }
 };
-asset_manager::asset_manager(asset_internal::virtual_file_system files,
-                             render_internal::render_resource_service& resources)
-    : files_(std::move(files)), render_(files_, cache_, resources), prefabs_(files_, cache_) {}
+asset_manager::asset_manager(asset_internal::virtual_file_system files)
+    : files_(std::move(files)), prefabs_(files_, prefab_cache_) {}
 asset_manager::~asset_manager() { stop_resources(); }
 void asset_manager::attach_task_executor(tasks::task_executor& executor) {
   if (!resource_state_) {

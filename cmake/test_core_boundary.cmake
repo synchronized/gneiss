@@ -527,7 +527,8 @@ if(NOT status EQUAL 0)
 endif()
 
 file(MAKE_DIRECTORY "${fixture}/src/engine/function/asset")
-foreach(symbol IN ITEMS texture_load_service texture_upload_backend texture_load_completion)
+foreach(symbol IN ITEMS texture_load_service texture_upload_backend texture_load_completion
+    "render_internal::render_asset_loader" "render_internal::render_asset_lease")
   file(WRITE "${fixture}/src/engine/function/asset/asset_manager.hpp" "struct ${symbol};\n")
   execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
     -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"

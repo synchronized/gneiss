@@ -18,6 +18,7 @@ public:
   scene_load_service(tasks::task_executor& executor, asset_internal::virtual_file_system files,
                      render_internal::render_resource_service& resources,
                      engine::asset_manager& asset_owner,
+                     render_internal::render_asset_loader& render_assets,
                      render_internal::texture_upload_backend backend,
                      std::shared_ptr<core::progress_notification> notification = {});
   ~scene_load_service();
@@ -46,6 +47,7 @@ private:
   asset_internal::virtual_file_system files_;
   render_internal::render_resource_service& resources_;
   engine::asset_manager& asset_owner_;
+  render_internal::render_asset_loader& render_assets_;
   render_internal::texture_upload_backend backend_;
   std::shared_ptr<core::progress_notification> notification_;
   std::unique_ptr<pending> pending_;

@@ -92,6 +92,12 @@ public:
       std::span<const render_asset_lease> assets,
       std::span<const asset_internal::asset_version_key> versions, texture_prepare_profile profile,
       std::unique_ptr<asset_internal::resource_cache::prepared_adoption>& output) noexcept;
+  /** 已完成场景来源复验后的整批渲染版本选择；不涉及 Prefab 缓存。 */
+  [[nodiscard]] gneiss_result prepare_adoption(
+      std::span<const asset_internal::resource_cache::version_selection> selections,
+      std::unique_ptr<asset_internal::resource_cache::prepared_adoption>& output) noexcept {
+    return cache_.prepare_adoption(selections, output);
+  }
   enum class publication_mode { reload, fixed_version };
   struct asset_candidate {
     publication_mode mode{publication_mode::reload};

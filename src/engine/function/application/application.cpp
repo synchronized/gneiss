@@ -57,6 +57,9 @@ struct application::storage {
 #endif
   asset_internal::virtual_file_system asset_file_system_;
   std::unique_ptr<engine::asset_manager> asset_manager_;
+  // 渲染租约缓存独立于 CPU/Prefab 缓存，先释放场景和加载器再销毁缓存。
+  std::unique_ptr<asset_internal::resource_cache> render_asset_cache_;
+  std::unique_ptr<render_internal::render_asset_loader> render_assets_;
   application_internal::action_map_application input_application_;
   bool asset_executor_attached_ = false;
   application_internal::scene_session scene_session_;
@@ -263,7 +266,7 @@ gneiss_result application::reload_render_assets(
     return GNEISS_ERROR_NOT_READY;
   }
   render_internal::asset_diagnostic diagnostic;
-  return storage_->asset_manager_->reload(assets, diagnostic);
+  return storage_->render_assets_->reload_assets(assets, diagnostic);
 }
 
 gneiss_result application::reload_scene(gneiss_scene_instance instance,
@@ -398,8 +401,12 @@ gneiss_result application::initialize() noexcept {
 
   try {
     storage_->asset_manager_ =
-        std::make_unique<engine::asset_manager>(storage_->asset_file_system_, storage_->resources_);
-    const auto result = storage_->scene_session_.initialize(*storage_->asset_manager_);
+        std::make_unique<engine::asset_manager>(storage_->asset_file_system_);
+    storage_->render_asset_cache_ = std::make_unique<asset_internal::resource_cache>();
+    storage_->render_assets_ = std::make_unique<render_internal::render_asset_loader>(
+        storage_->asset_file_system_, *storage_->render_asset_cache_, storage_->resources_);
+    const auto result =
+        storage_->scene_session_.initialize(*storage_->asset_manager_, *storage_->render_assets_);
     if (result != GNEISS_SUCCESS) {
       report(GNEISS_NULL_APPLICATION, diagnostics::severity::error,
              diagnostics::category::application, result, "scene", "场景域创建失败");
@@ -879,6 +886,8 @@ gneiss_result application::shutdown(gneiss_application handle) noexcept {
     storage_->asset_manager_->stop_resources();
   }
   storage_->scene_session_.shutdown();
+  storage_->render_assets_.reset();
+  storage_->render_asset_cache_.reset();
   storage_->asset_manager_.reset();
   storage_->is_updating_ = false;
   storage_->ui_draw_list_.clear();
@@ -1039,6 +1048,7 @@ gneiss_result application::collect_unused_edit_assets() noexcept {
   const auto valid =
       is_owner_thread() && accepts_requests() ? GNEISS_SUCCESS : GNEISS_ERROR_INVALID_STATE;
   if (valid == GNEISS_SUCCESS) {
+    storage_->render_assets_->release_unused();
     storage_->asset_manager_->collect_unused();
   }
   return valid;
@@ -1053,8 +1063,7 @@ gneiss_result application::query_ready_asset(const render_internal::render_asset
     return valid;
   }
   auto* service = texture_service();
-  return service ? storage_->asset_manager_->render_loader().acquire_selected(
-                       source, service->profile(), output)
+  return service ? storage_->render_assets_->acquire_selected(source, service->profile(), output)
                  : GNEISS_ERROR_NOT_READY;
 }
 

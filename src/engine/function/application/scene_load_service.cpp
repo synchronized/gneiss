@@ -88,11 +88,12 @@ scene_load_service::scene_load_service(tasks::task_executor& executor,
                                        asset_internal::virtual_file_system files,
                                        render_internal::render_resource_service& resources,
                                        engine::asset_manager& asset_owner,
+                                       render_internal::render_asset_loader& render_assets,
                                        render_internal::texture_upload_backend backend,
                                        std::shared_ptr<core::progress_notification> notification)
     : executor_(executor), scope_(executor.make_scope()), files_(std::move(files)),
-      resources_(resources), asset_owner_(asset_owner), backend_(std::move(backend)),
-      notification_(std::move(notification)) {
+      resources_(resources), asset_owner_(asset_owner), render_assets_(render_assets),
+      backend_(std::move(backend)), notification_(std::move(notification)) {
   if (scope_.id == 0U) {
     throw std::invalid_argument("无法创建场景任务作用域");
   }
@@ -229,6 +230,7 @@ void scene_load_service::finish(gneiss_result result, scene_load_phase phase, st
   auto completion = std::move(pending_->result);
   const auto cleanup_started = clock_type::now();
   pending_.reset();
+  render_assets_.release_unused();
   asset_owner_.collect_unused();
   // 候选分项保留结束前的诊断值，Application/上传账本必须在请求销毁后采样。
   sample_budget(completion.progress);
@@ -388,8 +390,7 @@ void scene_load_service::advance_verification(pending& value) {
     GNEISS_PROFILE_SCOPE("scene.assets.reset");
     diagnostics::measure(diagnostics::loop_stage::scene_asset_service_reset, [&] {
       value.assets = std::make_unique<render_internal::texture_load_service>(
-          executor_, files_, asset_owner_.render_loader(), backend_, notification_,
-          asset_owner_.documents());
+          executor_, files_, render_assets_, backend_, notification_, asset_owner_.documents());
     });
   }
 }
@@ -413,14 +414,14 @@ void scene_load_service::advance_impl() {
       finish(value.cpu->result, scene_load_phase::failed, value.cpu->diagnostic.message);
       return;
     }
-    value.candidate = std::make_unique<application_scene_state>(asset_owner_);
+    value.candidate = std::make_unique<application_scene_state>(asset_owner_, render_assets_);
     const auto initialized = value.candidate->initialize();
     if (initialized != GNEISS_SUCCESS) {
       finish(initialized, scene_load_phase::failed);
       return;
     }
     value.assets = std::make_unique<render_internal::texture_load_service>(
-        executor_, value.snapshot, asset_owner_.render_loader(), backend_, notification_,
+        executor_, value.snapshot, render_assets_, backend_, notification_,
         asset_owner_.documents());
     value.requested = std::move(value.cpu->description.assets);
     progress.phase = scene_load_phase::assets;
@@ -561,7 +562,7 @@ void scene_load_service::advance_impl() {
       // 提前完成全部分配，take_candidate 才提交选择并交还域所有权。
       const auto adopted = value.selections.empty()
                                ? GNEISS_SUCCESS
-                               : asset_owner_.prepare_adoption(value.selections, value.adoption);
+                               : render_assets_.prepare_adoption(value.selections, value.adoption);
       if (adopted != GNEISS_SUCCESS) {
         finish(adopted, scene_load_phase::failed);
         return;

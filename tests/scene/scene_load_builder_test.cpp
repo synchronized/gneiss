@@ -64,41 +64,51 @@ void run() {
   asset_internal::virtual_file_system vfs;
   check(vfs.mount("asset://", files) == GNEISS_SUCCESS);
   render_internal::render_resource_service resources;
-  engine::asset_manager active_assets(vfs, resources);
-  engine::asset_manager candidate_assets(vfs, resources);
+  engine::asset_manager active_assets(vfs);
+  asset_internal::resource_cache active_cache, candidate_cache;
+  render_internal::render_asset_loader active_render(vfs, active_cache, resources);
+  render_internal::render_asset_loader candidate_render(vfs, candidate_cache, resources);
+  engine::asset_manager candidate_assets(vfs);
   {
     render_internal::mesh_asset_lease first, second;
     render_internal::asset_diagnostic diagnostic;
-    check(active_assets.acquire("asset://m.mesh", first, diagnostic) == GNEISS_SUCCESS);
-    check(active_assets.acquire("asset://m.mesh", second, diagnostic) == GNEISS_SUCCESS);
+    check(active_render.acquire_mesh("asset://m.mesh", first, diagnostic) == GNEISS_SUCCESS);
+    check(active_render.acquire_mesh("asset://m.mesh", second, diagnostic) == GNEISS_SUCCESS);
     check(first.get() == second.get());
     active_assets.collect_unused();
+    active_render.release_unused();
     check(resources.get_mesh(first.get()) != nullptr);
+    const auto render_revision = active_render.revision();
     scene_internal::prefab_asset_lease prefab;
     scene_internal::scene_diagnostic prefab_diagnostic;
     check(active_assets.acquire("asset://p.prefab", prefab, prefab_diagnostic) == GNEISS_SUCCESS);
     check(prefab.get() != nullptr);
+    check(active_render.revision() == render_revision);
+    active_assets.collect_unused();
+    check(resources.get_mesh(first.get()) != nullptr);
     std::unique_ptr<asset_internal::resource_cache::prepared_adoption> prepared;
-    check(active_assets.render_loader().prepare_adoption({}, {}, {}, prepared) ==
-          GNEISS_ERROR_INVALID_ARGUMENT);
+    check(active_render.prepare_adoption({}, {}, {}, prepared) == GNEISS_ERROR_INVALID_ARGUMENT);
     check(!prepared);
     const std::array<asset_internal::asset_version_key, 1> versions{};
-    check(active_assets.render_loader().prepare_adoption({}, versions, {}, prepared) ==
+    check(active_render.prepare_adoption({}, versions, {}, prepared) ==
           GNEISS_ERROR_INVALID_ARGUMENT);
     const std::array<render_internal::render_asset_lease, 1> invalid_leases{};
-    check(active_assets.render_loader().prepare_adoption(invalid_leases, versions, {}, prepared) ==
+    check(active_render.prepare_adoption(invalid_leases, versions, {}, prepared) ==
           GNEISS_ERROR_INVALID_ARGUMENT);
     render_internal::render_resource_service foreign_resources;
-    engine::asset_manager foreign_assets(vfs, foreign_resources);
+    asset_internal::resource_cache foreign_cache;
+    render_internal::render_asset_loader foreign_assets(vfs, foreign_cache, foreign_resources);
     render_internal::mesh_asset_lease foreign_mesh;
-    check(foreign_assets.acquire("asset://m.mesh", foreign_mesh, diagnostic) == GNEISS_SUCCESS);
+    check(foreign_assets.acquire_mesh("asset://m.mesh", foreign_mesh, diagnostic) ==
+          GNEISS_SUCCESS);
     const std::array foreign_leases{
         render_internal::render_asset_loader::asset_lease(foreign_mesh)};
-    check(active_assets.render_loader().prepare_adoption(foreign_leases, versions, {}, prepared) ==
+    check(active_render.prepare_adoption(foreign_leases, versions, {}, prepared) ==
           GNEISS_ERROR_INVALID_ARGUMENT);
     check(!prepared);
   }
-  auto active = std::make_unique<application_internal::application_scene_state>(active_assets);
+  auto active =
+      std::make_unique<application_internal::application_scene_state>(active_assets, active_render);
   check(active->initialize() == GNEISS_SUCCESS);
   gneiss_scene_instance old_scene{};
   check(active->scenes->load("asset://s.scene", &old_scene) == GNEISS_SUCCESS);
@@ -119,8 +129,8 @@ void run() {
   scene_internal::scene_diagnostic scene_diagnostic;
   check(scene_internal::prepare_scene_description(vfs, "asset://s.scene", prepared,
                                                   scene_diagnostic, {}) == GNEISS_SUCCESS);
-  auto candidate =
-      std::make_unique<application_internal::application_scene_state>(candidate_assets);
+  auto candidate = std::make_unique<application_internal::application_scene_state>(
+      candidate_assets, candidate_render);
   check(candidate->initialize() == GNEISS_SUCCESS);
   std::vector<render_internal::render_asset_lease> captured{render_internal::render_asset_lease{}};
   check(candidate->scenes->capture_render_assets(captured) == GNEISS_SUCCESS && captured.empty());
@@ -415,7 +425,8 @@ void run() {
   // 构造失败时仅回收候选节点；即使依赖缺失也不能退回主线程文件读取。
   check(scene_internal::prepare_scene_description(vfs, "asset://s.scene", prepared,
                                                   scene_diagnostic, {}) == GNEISS_SUCCESS);
-  candidate = std::make_unique<application_internal::application_scene_state>(candidate_assets);
+  candidate = std::make_unique<application_internal::application_scene_state>(candidate_assets,
+                                                                              candidate_render);
   check(candidate->initialize() == GNEISS_SUCCESS);
   const auto failure_reads = files->reads;
   {
