@@ -240,7 +240,7 @@ Core/平台适配首批验收见[记录](../records/2026-10-21-core-platform-nam
 ## 本轮剩余迁移与宿主边界
 
 - 文档新建和加载切换入口已接收 document_editing，在途编辑阻止场景域切换。
-  场景切换 UI、保存提示、操作互斥和 Editor Application 装配仍待迁移。
+  未保存确认状态和弹窗已迁入 Editor；其余场景切换 UI、操作互斥和 Editor Application 装配仍待迁移。
 - 平台进程、IPC 基础设施和动态库命名已统一，验收见
   [记录](../records/2026-10-21-platform-object-namespace.md)。
 - CPU 缓存共享发布代次、材质/Mesh 缓存与 CPU/GPU 引用拆分仍未完成，按批次 B/C 推进。
@@ -252,3 +252,5 @@ Editor/Runtime/Platform，业务模块不得反向包含 Host。先迁移宿主�
 
 Host 目录和四个薄入口已落地，见[宿主布局验收](../records/2026-10-21-host-layout.md)。
 迁移保留原 target 和协议，不新增动态库；业务/UI 拆分与资源批次仍按上述剩余项继续。
+
+未保存确认流程拆分验收见[记录](../records/2026-10-21-editor-document-actions.md)。

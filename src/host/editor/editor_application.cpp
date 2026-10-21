@@ -22,6 +22,7 @@
 #include "panels/author_hierarchy_panel.hpp"
 #include "panels/author_property_panel.hpp"
 #include "panels/console_panel.hpp"
+#include "panels/document_action_panel.hpp"
 #include "panels/property_inspector_model.hpp"
 #include "panels/runtime_panels.hpp"
 #include "project_manager.hpp"
@@ -69,7 +70,7 @@
 namespace {
 
 enum class hierarchy_action { none, rename, duplicate, remove };
-enum class document_action { none, new_scene, open_scene, exit_editor };
+using document_action = gneiss::editor::document_action;
 using gizmo_operation = gneiss::editor::transform_gizmo_operation;
 enum class author_selection_kind : std::uint8_t { none, scene_node, prefab_root, prefab_source };
 enum class prefab_author_action : std::uint8_t { none, create, apply, unpack };
@@ -154,7 +155,7 @@ struct editor_state {
   std::string rename_previous;
   hierarchy_action pending_hierarchy_action = hierarchy_action::none;
   std::string pending_hierarchy_uuid;
-  document_action pending_document_action = document_action::none;
+  gneiss::editor::document_actions document_actions;
 #if defined(GNEISS_EDITOR_HAS_ASSET_BROWSER)
   gneiss::editor::asset_browser_model assets;
   gneiss::editor::asset_file_watcher asset_watcher;
@@ -766,11 +767,9 @@ gneiss::result perform_document_action(editor_state& state, document_action acti
 }
 
 void request_document_action(editor_state& state, document_action action) {
-  if (state.editing.document().is_dirty()) {
-    state.pending_document_action = action;
-    ImGui::OpenPopup("Unsaved Changes");
-  } else {
-    state.history_error = perform_document_action(state, action);
+  const auto ready = state.document_actions.request(action, state.editing.document().is_dirty());
+  if (ready != document_action::none) {
+    state.history_error = perform_document_action(state, ready);
   }
 }
 
@@ -1857,35 +1856,23 @@ gneiss_result update_editor(const gneiss::engine::core::frame_time* time, void* 
       }
       ImGui::EndPopup();
     }
-    if (state.pending_document_action != document_action::none &&
-        !ImGui::IsPopupOpen("Unsaved Changes")) {
-      ImGui::OpenPopup("Unsaved Changes");
-    }
-    if (state.pending_document_action != document_action::none &&
-        ImGui::BeginPopupModal("Unsaved Changes", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-      ImGui::TextUnformatted("The current scene has unsaved changes.");
-      if (ImGui::Button("Save")) {
-        state.save_result = save_document(state);
-        state.save_attempted = state.save_result != gneiss::result::not_ready;
-        if (state.save_result == gneiss::result::success) {
-          state.history_error = perform_document_action(state, state.pending_document_action);
-          state.pending_document_action = document_action::none;
-          ImGui::CloseCurrentPopup();
-        }
-      }
-      ImGui::SameLine();
-      if (ImGui::Button("Discard")) {
-        state.history_error = perform_document_action(state, state.pending_document_action);
-        state.pending_document_action = document_action::none;
-        ImGui::CloseCurrentPopup();
-      }
-      ImGui::SameLine();
-      if (ImGui::Button("Cancel")) {
-        state.pending_document_action = document_action::none;
-        ImGui::CloseCurrentPopup();
-      }
-      ImGui::EndPopup();
-    }
+    gneiss::editor::draw_document_action_panel(
+        state.document_actions,
+        {
+            .context = &state,
+            .save =
+                [](void* context) {
+                  auto& editor = *static_cast<editor_state*>(context);
+                  editor.save_result = save_document(editor);
+                  editor.save_attempted = editor.save_result != gneiss::result::not_ready;
+                  return editor.save_result;
+                },
+            .perform =
+                [](void* context, document_action action) {
+                  auto& editor = *static_cast<editor_state*>(context);
+                  editor.history_error = perform_document_action(editor, action);
+                },
+        });
     if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_Z, false)) {
       state.history_error = io.KeyShift ? redo_editor_command(state) : undo_editor_command(state);
     }
@@ -2829,18 +2816,12 @@ uint8_t handle_close_requested(void* user_data) noexcept {
     // Application 析构负责在执行器存活时回收在途工作。
     return 1U;
   }
-  if (state.editing.prefabs().active() || state.editing.history().is_pending()) {
-    state.editing.prefabs().cancel();
-    state.editing.history().cancel_pending();
-    state.pending_document_action = document_action::exit_editor;
+  if (state.editing.active()) {
+    state.editing.cancel(*state.application);
+    state.document_actions.defer(document_action::exit_editor);
     return 0U;
   }
   state.editing.prefabs().dismiss();
-  if (state.editing.assets().active()) {
-    state.editing.assets().cancel(*state.application);
-    state.pending_document_action = document_action::exit_editor;
-    return 0U;
-  }
   state.editing.assets().dismiss();
   state.scene_loader.dismiss();
   if (!state.editing.document().is_dirty()) {
@@ -2853,7 +2834,7 @@ uint8_t handle_close_requested(void* user_data) noexcept {
     return 1U;
 #endif
   }
-  state.pending_document_action = document_action::exit_editor;
+  state.document_actions.defer(document_action::exit_editor);
   return 0U;
 }
 

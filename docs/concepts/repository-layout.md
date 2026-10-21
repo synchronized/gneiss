@@ -282,3 +282,12 @@ Host 的域协议与负载仍属于宿主，未随平台类型迁入 Engine。
 Host 可依赖 Engine、Runtime、Editor；后三者不得反向包含 Host。宿主测试暂保留在
 各 host 子模块的 tests 目录。Editor Application 中混合的编辑业务/UI 装配尚未全部拆出，
 本次宿主目录迁移不表示全部对象职责收敛完成。
+
+## 未保存文档确认
+
+`documents/document_actions` 保存单个待确认的新建、打开或退出动作，取代宿主的 pending 枚举。
+它不复制文档脏状态，不拥有文档，不执行文件或进程操作。保存失败/尚未完成时保留请求，
+保存成功或放弃时取走一次动作，取消时清空请求。
+`panels/document_action_panel` 绘制未保存确认弹窗，通过本次绘制期间的同步回调请求
+保存与后续动作；Host 连接文件对话框、场景加载和退出。窗口关闭统一通过 document_editing
+取消在途资产、Prefab 与历史操作，排空职责不变。

@@ -9,6 +9,8 @@ add_library(
   panels/author_hierarchy_panel.hpp
   panels/author_property_panel.cpp
   panels/author_property_panel.hpp
+  panels/document_action_panel.cpp
+  panels/document_action_panel.hpp
   panels/console_panel.cpp
   panels/console_panel.hpp
   panels/runtime_panels.cpp
@@ -103,6 +105,8 @@ gneiss_target_output_directories(gneiss_editor_model)
 # 场景编辑状态与 Gizmo 事务不依赖宿主工程、进程或 IPC。
 add_library(
   gneiss_scene_document STATIC
+  documents/document_actions.cpp
+  documents/document_actions.hpp
   documents/document_editing.cpp
   documents/document_editing.hpp
   documents/editor_scene_loader.cpp
