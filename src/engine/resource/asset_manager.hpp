@@ -63,7 +63,7 @@ private:
   engine::resource::virtual_file_system files_;
   engine::resource::resource_cache prefab_cache_;
   std::shared_ptr<engine::resource::cpu_document_cache> documents_{
-      engine::resource::make_cpu_document_cache()};
+      std::make_shared<engine::resource::cpu_document_cache>()};
   engine::resource::prefab_asset_loader prefabs_;
 };
 }

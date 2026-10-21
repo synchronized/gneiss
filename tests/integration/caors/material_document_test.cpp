@@ -222,7 +222,7 @@ void run(std::size_t document_limit) {
   wait([&] { return !manager.database().has_active_operations() && loader->empty(); });
   check(cache.find_handle(id).get() == current.get(), "cancel preserves current");
   // 直接走生产使用的分步准备：复用已读取字节，不再从 Loader 启动第二次读取。
-  auto shared_documents = make_cpu_document_cache();
+  auto shared_documents = std::make_shared<cpu_document_cache>();
   check(shared_documents != nullptr, "material cache enabled");
   auto prepare = [&](bool change_source, bool dependency_missing) {
     auto documents = shared_documents->begin();
@@ -292,6 +292,28 @@ void run(std::size_t document_limit) {
       shared_documents->collect();
       check(retained->get()->source.parameters.color[0] == 1,
             "first lease survives second release");
+      // 外壳先释放，两个在途批次仍共享版本索引；租约可再晚于批次释放。
+      auto temporary_cache = std::make_shared<cpu_document_cache>();
+      auto detached_first = temporary_cache->begin();
+      auto detached_second = temporary_cache->begin();
+      temporary_cache.reset();
+      auto detached_batch = batch;
+      detached_batch.assets.front().material_document.reset();
+      check(detached_first->decode(bytes, parameters, uris, diagnostic) == GNEISS_SUCCESS,
+            "decode after cache shell destruction");
+      check(detached_first->retain_verified(detached_batch) == GNEISS_SUCCESS,
+            "retain after cache shell destruction");
+      auto kept = detached_batch.assets.front().material_document;
+      detached_batch.assets.front().material_document.reset();
+      detached_first.reset();
+      check(detached_second->decode(bytes, parameters, uris, diagnostic) == GNEISS_SUCCESS,
+            "second detached batch decode");
+      check(detached_second->retain_verified(detached_batch) == GNEISS_SUCCESS &&
+                detached_batch.assets.front().material_document->get() == kept->get(),
+            "detached batches share version index");
+      detached_second.reset();
+      detached_batch = {};
+      check(kept->get()->source.parameters.color[0] == 1, "lease survives cache and all batches");
       const auto& prepared = batch.assets.front();
       check(!prepared.version.version.empty() && prepared.material.color[0] == 1,
             "batch version and data");

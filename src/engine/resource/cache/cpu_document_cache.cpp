@@ -48,76 +48,66 @@ public:
     std::erase_if(versions_, [](const auto& item) { return item.second.expired(); });
   }
 };
-struct document_versions {
+}
+struct cpu_document_cache::state {
   material_document_versions materials;
   mesh_documents meshes;
 };
-class document_batch final : public cpu_document_batch {
-public:
-  explicit document_batch(std::shared_ptr<document_versions> versions)
-      : versions_(std::move(versions)) {}
-  gneiss_result decode(const std::vector<std::byte>& bytes, material_parameters& parameters,
-                       std::array<std::string, 5>& uris, asset_diagnostic& diagnostic) override {
-    // GUID 不参与版本选择；候选不注册到按 URI reload 的可变槽位。
-    auto document =
-        ::caors::resources::make_handle<material_document>(nullptr, ::caors::resource_guid{});
-    if (!document) {
-      return GNEISS_ERROR_OUT_OF_MEMORY;
-    }
-    const auto result = decode_material_document(bytes, *document, diagnostic);
-    if (result != GNEISS_SUCCESS) {
-      return result;
-    }
-    parameters = document->source.parameters;
-    uris = document->source.texture_uris;
-    candidates_.push_back(std::move(document));
-    return GNEISS_SUCCESS;
-  }
-  gneiss_result retain_verified(prepared_batch& batch) override {
-    std::size_t index = 0;
-    for (auto& asset : batch.assets) {
-      if (asset.source.type == asset_type::mesh) {
-        const auto result = versions_->meshes.retain(asset);
-        if (result != GNEISS_SUCCESS)
-          return result;
-        continue;
-      }
-      if (asset.source.type != asset_type::material) {
-        continue;
-      }
-      if (index >= candidates_.size() || asset.sources.empty()) {
-        return GNEISS_ERROR_INVALID_STATE;
-      }
-      auto lease = std::make_shared<material_document_lease>();
-      const auto result =
-          versions_->materials.remember(asset.sources.front(), candidates_[index++], *lease);
-      if (result != result::success) {
-        return static_cast<gneiss_result>(result);
-      }
-      asset.material_document = std::move(lease);
-    }
-    return index == candidates_.size() ? GNEISS_SUCCESS : GNEISS_ERROR_INVALID_STATE;
-  }
-
-private:
-  std::shared_ptr<document_versions> versions_;
-  std::vector<::caors::resources::handle<material_document>> candidates_;
-};
-class document_cache final : public cpu_document_cache {
-public:
-  std::shared_ptr<cpu_document_batch> begin() override {
-    return std::make_shared<document_batch>(versions_);
-  }
-  void collect() override {
-    versions_->materials.collect();
-    versions_->meshes.collect();
-  }
-
-private:
-  std::shared_ptr<document_versions> versions_ = std::make_shared<document_versions>();
-};
+cpu_document_cache::cpu_document_cache() : versions_(std::make_shared<state>()) {}
+cpu_document_cache::~cpu_document_cache() = default;
+std::shared_ptr<cpu_document_batch> cpu_document_cache::begin() {
+  return std::shared_ptr<cpu_document_batch>(new cpu_document_batch(versions_));
 }
-std::shared_ptr<cpu_document_cache> make_cpu_document_cache() {
-  return std::make_shared<document_cache>();
+void cpu_document_cache::collect() {
+  versions_->materials.collect();
+  versions_->meshes.collect();
 }
+cpu_document_batch::cpu_document_batch(std::shared_ptr<cpu_document_cache::state> versions)
+    : versions_(std::move(versions)) {}
+cpu_document_batch::~cpu_document_batch() = default;
+gneiss_result cpu_document_batch::decode(const std::vector<std::byte>& bytes,
+                                         material_parameters& parameters,
+                                         std::array<std::string, 5>& uris,
+                                         asset_diagnostic& diagnostic) {
+  // GUID 不参与版本选择；候选不注册到按 URI reload 的可变槽位。
+  auto document =
+      ::caors::resources::make_handle<material_document>(nullptr, ::caors::resource_guid{});
+  if (!document) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
+  }
+  const auto result = decode_material_document(bytes, *document, diagnostic);
+  if (result != GNEISS_SUCCESS) {
+    return result;
+  }
+  parameters = document->source.parameters;
+  uris = document->source.texture_uris;
+  candidates_.push_back(std::move(document));
+  return GNEISS_SUCCESS;
+}
+gneiss_result cpu_document_batch::retain_verified(prepared_batch& batch) {
+  std::size_t index = 0;
+  for (auto& asset : batch.assets) {
+    if (asset.source.type == asset_type::mesh) {
+      const auto result = versions_->meshes.retain(asset);
+      if (result != GNEISS_SUCCESS)
+        return result;
+      continue;
+    }
+    if (asset.source.type != asset_type::material) {
+      continue;
+    }
+    if (index >= candidates_.size() || asset.sources.empty()) {
+      return GNEISS_ERROR_INVALID_STATE;
+    }
+    auto lease = std::make_shared<material_document_lease>();
+    const auto result =
+        versions_->materials.remember(asset.sources.front(), candidates_[index++], *lease);
+    if (result != result::success) {
+      return static_cast<gneiss_result>(result);
+    }
+    asset.material_document = std::move(lease);
+  }
+  return index == candidates_.size() ? GNEISS_SUCCESS : GNEISS_ERROR_INVALID_STATE;
+}
+
 }

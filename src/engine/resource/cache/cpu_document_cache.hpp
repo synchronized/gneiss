@@ -2,24 +2,43 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include "engine/resource/loaders/asset_preparation.hpp"
+#include "engine/resource/types/material_document.hpp"
+#include <caors/resources/handle.h>
 
 namespace gneiss::engine::resource {
-/** 一批独占的文档候选；decode 在准备线程执行，retain_verified 在完成后由所属线程调用。 */
-class cpu_document_batch {
+class cpu_document_batch;
+/** 所属线程使用的 CPU 文档共享入口，不拥有执行器、VFS 或渲染资源。
+ * 批次共享版本索引，可晚于缓存外壳释放；索引访问仍须串行。 */
+class cpu_document_cache final {
 public:
-  virtual ~cpu_document_batch() = default;
-  virtual gneiss_result decode(const std::vector<std::byte>& bytes, material_parameters& parameters,
-                               std::array<std::string, 5>& uris, asset_diagnostic& diagnostic) = 0;
+  cpu_document_cache();
+  ~cpu_document_cache();
+  cpu_document_cache(const cpu_document_cache&) = delete;
+  cpu_document_cache& operator=(const cpu_document_cache&) = delete;
+  [[nodiscard]] std::shared_ptr<cpu_document_batch> begin();
+  void collect();
+
+private:
+  friend class cpu_document_batch;
+  struct state;
+  std::shared_ptr<state> versions_;
+};
+/** 一批独占的文档候选；decode 在准备线程执行，retain_verified 在完成后由所属线程调用。
+ * 两阶段不可并发；未发布候选随批次释放，不能复制批次所有者。 */
+class cpu_document_batch final {
+public:
+  ~cpu_document_batch();
+  cpu_document_batch(const cpu_document_batch&) = delete;
+  cpu_document_batch& operator=(const cpu_document_batch&) = delete;
+  gneiss_result decode(const std::vector<std::byte>& bytes, material_parameters& parameters,
+                       std::array<std::string, 5>& uris, asset_diagnostic& diagnostic);
   /** 仅接收整批来源复验成功的输出；不改变渲染版本选择或场景。 */
-  virtual gneiss_result retain_verified(prepared_batch& batch) = 0;
+  gneiss_result retain_verified(prepared_batch& batch);
+
+private:
+  friend class cpu_document_cache;
+  explicit cpu_document_batch(std::shared_ptr<cpu_document_cache::state> versions);
+  std::shared_ptr<cpu_document_cache::state> versions_;
+  std::vector<::caors::resources::handle<material_document>> candidates_;
 };
-/** 所属线程使用的 CPU 文档共享入口，不拥有执行器、VFS 或渲染资源。 */
-class cpu_document_cache {
-public:
-  virtual ~cpu_document_cache() = default;
-  virtual std::shared_ptr<cpu_document_batch> begin() = 0;
-  virtual void collect() = 0;
-};
-/** 创建统一 CPU 材质与网格缓存，不要求线程池或 I/O 后端。 */
-std::shared_ptr<cpu_document_cache> make_cpu_document_cache();
 }

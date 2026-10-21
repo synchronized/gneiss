@@ -310,3 +310,8 @@ Host 可依赖 Engine、Runtime、Editor；后三者不得反向包含 Host。�
 
 准备结果和渲染对象通过具体材质租约保持 CPU 文档存活；租约不拥有 GPU RID。
 CPU 缓存不再通过加载后端取得资源类型，边界检查拒绝这种依赖。
+
+CPU 文档缓存与批次是具体类 `cpu_document_cache`、`cpu_document_batch`，不经过单实现虚接口
+或工厂函数。asset_manager 直接创建缓存，批次通过 begin 创建并共享版本索引，独占解析候选。
+缓存外壳可以先释放；仍存活的批次保活索引，已发布租约保活 CPU 文档。
+decode 与 retain_verified 两阶段不可并发，索引登记/回收仍在所属线程串行执行。
