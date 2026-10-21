@@ -50,7 +50,7 @@ bool parse_profile(std::string_view text, gneiss::app::game_build_profile& outpu
 gneiss::result run_process(const std::filesystem::path& executable,
                            const std::filesystem::path& working_directory,
                            std::vector<std::filesystem::path> arguments) {
-  gneiss::child_process process;
+  gneiss::engine::platform::child_process process;
   auto operation = process.start({executable, std::move(arguments), working_directory});
   while (operation && process.is_running()) {
     process.update();

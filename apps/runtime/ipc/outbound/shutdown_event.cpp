@@ -7,7 +7,8 @@
 
 namespace gneiss::runtime_internal {
 
-result make_shutdown_event(std::int32_t exit_code, ipc_envelope& output) noexcept {
+result make_shutdown_event(std::int32_t exit_code,
+                           gneiss::engine::platform::ipc_envelope& output) noexcept {
   return encode_ipc_session_shutdown({.exit_code = exit_code}, output);
 }
 

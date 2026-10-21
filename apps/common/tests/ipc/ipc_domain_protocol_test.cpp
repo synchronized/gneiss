@@ -20,7 +20,7 @@ namespace {
 }
 
 [[nodiscard]] bool test_log_and_statistics() {
-  gneiss::ipc_envelope envelope;
+  gneiss::engine::platform::ipc_envelope envelope;
   const std::string event = R"({"level":"INFO","message":"运行中"})";
   std::string decoded_event;
   if (gneiss::encode_ipc_log_event(event, envelope) != gneiss::result::success ||
@@ -52,7 +52,7 @@ namespace {
       .changes = {{.type = gneiss::ipc_inspection_change_type::remove,
                    .id = {.value = 7U, .generation = 1U},
                    .node = {}}}};
-  std::vector<gneiss::ipc_envelope> envelopes;
+  std::vector<gneiss::engine::platform::ipc_envelope> envelopes;
   if (gneiss::encode_ipc_inspection_batch_v2(batch, envelopes) != gneiss::result::success ||
       envelopes.size() != 1U) {
     return false;
@@ -63,10 +63,11 @@ namespace {
       decoded.stamp.sequence != batch.stamp.sequence || decoded.changes.size() != 1U) {
     return false;
   }
-  gneiss::ipc_envelope resync;
+  gneiss::engine::platform::ipc_envelope resync;
   return gneiss::encode_ipc_inspection_resync(9U, resync) == gneiss::result::success &&
          gneiss::decode_ipc_inspection_resync(resync) == gneiss::result::success &&
-         resync.request_id == 9U && resync.kind == gneiss::ipc_message_kind::request;
+         resync.request_id == 9U &&
+         resync.kind == gneiss::engine::platform::ipc_message_kind::request;
 }
 
 [[nodiscard]] bool test_property_request_and_response() {
@@ -77,7 +78,7 @@ namespace {
                                            .field_id = 7U,
                                            .expected_revision = 11U,
                                            .value = {std::array<float, 3>{1.0F, 2.0F, 3.0F}}};
-  gneiss::ipc_envelope envelope;
+  gneiss::engine::platform::ipc_envelope envelope;
   gneiss::ipc_property_write decoded_command;
   if (gneiss::encode_ipc_property_write_v2(command, 21U, envelope) != gneiss::result::success ||
       gneiss::decode_ipc_property_write_v2(envelope, decoded_command) != gneiss::result::success ||
@@ -108,7 +109,7 @@ namespace {
 }
 
 [[nodiscard]] bool test_rules_and_rejections() {
-  gneiss::ipc_envelope envelope;
+  gneiss::engine::platform::ipc_envelope envelope;
   gneiss::ipc_property_write command;
   command.session_id = 1U;
   command.command_id = 2U;

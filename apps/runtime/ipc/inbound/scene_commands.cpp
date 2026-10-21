@@ -5,8 +5,8 @@
 
 namespace gneiss::runtime_internal {
 namespace {
-result handle_scene_command(const ipc_envelope& envelope, runtime_command_context& context) noexcept
-    try {
+result handle_scene_command(const gneiss::engine::platform::ipc_envelope& envelope,
+                            runtime_command_context& context) noexcept try {
   ipc_scene_request request;
   const auto decoded = decode_ipc_scene_request(envelope, request);
   if (decoded != result::success) {
@@ -26,9 +26,10 @@ result handle_scene_command(const ipc_envelope& envelope, runtime_command_contex
 }
 }
 result register_runtime_scene_commands(runtime_command_router& router) noexcept {
-  auto operation = router.bind(ipc_domain::scene, 1U, handle_scene_command);
+  auto operation =
+      router.bind(gneiss::engine::platform::ipc_domain::scene, 1U, handle_scene_command);
   if (operation == result::success) {
-    operation = router.bind(ipc_domain::scene, 2U, handle_scene_command);
+    operation = router.bind(gneiss::engine::platform::ipc_domain::scene, 2U, handle_scene_command);
   }
   return operation;
 }

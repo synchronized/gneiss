@@ -7,7 +7,8 @@
 
 namespace gneiss::editor {
 
-result decode_runtime_log_event(const ipc_envelope& envelope, runtime_ipc_event& output) noexcept {
+result decode_runtime_log_event(const gneiss::engine::platform::ipc_envelope& envelope,
+                                runtime_ipc_event& output) noexcept {
   return ipc_internal::decode_value<runtime_log_event>(
       envelope, output, [&](auto& value) { return decode_ipc_log_event(envelope, value); });
 }

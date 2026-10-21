@@ -7,7 +7,8 @@
 
 namespace gneiss::editor {
 
-result make_stop_command(std::uint32_t request_id, ipc_envelope& output) noexcept {
+result make_stop_command(std::uint32_t request_id,
+                         gneiss::engine::platform::ipc_envelope& output) noexcept {
   return encode_ipc_control_request(ipc_control_operation::stop, request_id, output);
 }
 

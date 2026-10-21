@@ -3,7 +3,7 @@
 
 #include "child_process.hpp"
 
-namespace gneiss {
+namespace gneiss::engine::platform {
 
 struct child_process::implementation final {
   std::string output;
@@ -38,4 +38,4 @@ void child_process::append_output(std::string_view text) noexcept {
   }
 }
 
-} // namespace gneiss
+} // namespace gneiss::engine::platform

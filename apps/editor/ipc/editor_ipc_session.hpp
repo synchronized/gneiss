@@ -44,7 +44,7 @@ public:
   [[nodiscard]] bool is_authenticated() const noexcept;
   [[nodiscard]] bool supports_property_editing() const noexcept;
   [[nodiscard]] bool supports_asset_reload() const noexcept;
-  [[nodiscard]] ipc_endpoint endpoint() const noexcept;
+  [[nodiscard]] gneiss::engine::platform::ipc_endpoint endpoint() const noexcept;
   [[nodiscard]] const std::string& token() const noexcept;
 
 private:

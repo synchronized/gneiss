@@ -13,7 +13,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-namespace gneiss {
+namespace gneiss::engine::platform {
 namespace {
 
 constexpr std::size_t maximum_output_size = 256U * 1024U;
@@ -224,4 +224,4 @@ void child_process::append_output(std::string_view text) noexcept {
   }
 }
 
-} // namespace gneiss
+} // namespace gneiss::engine::platform

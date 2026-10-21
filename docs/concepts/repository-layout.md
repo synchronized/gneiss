@@ -246,7 +246,7 @@ Scene 服务完成入口校验后转交实例，不直接修改这些事务的�
 
 Application、配置、加载和场景切换对象统一位于 `gneiss::runtime`，游戏上下文位于
 `gneiss::runtime::game`。内部应用对象为 `gneiss::runtime::application`，没有旧别名。
-平台顶层对象仍有遗留命名，按模块布局计划分批迁移。
+平台进程、IPC 基础设施与动态库对象统一位于 gneiss::engine::platform。
 目录与头文件可见性仍决定依赖范围，命名变化不改变对象寿命或增加运行时状态。
 
 资源管理器为 `gneiss::engine::resource::asset_manager`，其输入请求、CPU 缓存、VFS、
@@ -259,7 +259,7 @@ Application、配置、加载和场景切换对象统一位于 `gneiss::runtime`
 World、Scene、Render、Input 统一使用 `gneiss::engine::world/scene/render/input`，
 World 对象为 `gneiss::engine::world::world`。旧 xxx_internal 领域名不保留别名。
 资源描述使用 `gneiss::engine::resource`，Runtime 组装仍归 `gneiss::runtime`；
-该命名调整不改变所有权。平台顶层对象的遗留命名另行处理，公共值类型保持原接口。
+该命名调整不改变所有权，公共值类型保持原接口。
 
 ## Core 与平台适配命名
 
@@ -268,4 +268,5 @@ core 的 tasks/log/reflection/diagnostics/math/input。输入服务仍属于 eng
 窗口适配使用 engine::platform，libuv I/O 使用 engine::platform::io，CAORS 适配使用
 engine::platform::caors；第三方 CAORS 以 ::caors 明确引用。
 C 转换辅助属于 engine::api，应用日志回调桥属于 runtime::api。
-进程、IPC 和动态库对象仍在 gneiss 顶层，尚未完成平台全部对象的命名统一。
+进程、IPC 传输/信封/分发与动态库对象使用 engine::platform；旧顶层名称已删除。
+Apps 的域协议与负载仍属于宿主，未随平台类型迁入 Engine。

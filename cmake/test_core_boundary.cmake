@@ -663,3 +663,19 @@ execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
 if(NOT status EQUAL 0)
   message(FATAL_ERROR "基础模块边界错误拒绝新命名空间")
 endif()
+
+foreach(type IN ITEMS child_process dynamic_library ipc_transport ipc_envelope ipc_dispatcher ipc_domain_registry)
+  file(WRITE "${fixture}/src/runtime/platform_object_probe.cpp" "gneiss::${type}* value;\n")
+  execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
+    -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
+    RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
+  if(status EQUAL 0)
+    message(FATAL_ERROR "平台对象边界未拒绝旧名称：${type}")
+  endif()
+endforeach()
+file(WRITE "${fixture}/src/runtime/platform_object_probe.cpp" "gneiss::engine::platform::ipc_transport* value;\n")
+execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
+  -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake" RESULT_VARIABLE status)
+if(NOT status EQUAL 0)
+  message(FATAL_ERROR "平台对象边界错误拒绝新名称")
+endif()

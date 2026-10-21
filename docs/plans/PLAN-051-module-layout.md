@@ -225,9 +225,23 @@ World 类使用 gneiss::engine::world::world；不保留旧名称，资源描述
 Core/Platform 命名首批：基础工具为 engine::core，任务/诊断/日志/反射/数学/输入值
 使用其领域子空间；窗口、I/O 和 CAORS 适配为 engine::platform 及其 io/caors 子空间。
 C 值转换集中在 engine::api，应用日志回调桥归 runtime::api；移除旧别名。
-第三方 CAORS 使用 ::caors，避免适配子空间遮蔽。进程、IPC、动态库顶层对象仍待迁移。
+第三方 CAORS 使用 ::caors，避免适配子空间遮蔽。进程、IPC 基础设施与动态库对象也已迁入 engine::platform，宿主域协议保持原归属。
 
 Core/平台适配首批验收见[记录](../records/2026-10-21-core-platform-namespace.md)。
 
 文档编辑所有权收敛验收见[记录](../records/2026-10-21-document-editing-ownership.md)。
 当前未迁移场景切换 UI 和宿主整体装配，不将本批视为 Editor 迁移完成。
+
+## 本轮剩余迁移与待确认边界
+
+- 文档新建和加载切换入口已接收 document_editing，在途编辑阻止场景域切换。
+  场景切换 UI、保存提示、操作互斥和 Editor Application 装配仍待迁移。
+- 平台进程、IPC 基础设施和动态库命名已统一，验收见
+  [记录](../records/2026-10-21-platform-object-namespace.md)。
+- CPU 缓存共享发布代次、材质/Mesh 缓存与 CPU/GPU 引用拆分仍未完成，按批次 B/C 推进。
+- Runtime 场景重载编排及完整平台验收仍待完成。
+
+待用户确认：目标示意中 apps 只列 main，但已有规则要求进程/IPC 宿主适配不进入 Editor。
+建议 apps 保留启动、子进程、IPC 与项目工具适配，src/editor 承接编辑流程和 UI 装配，
+通过明确的宿主接口依赖注入；另一方案是 apps 严格只留 main，把宿主适配迁入 src 独立模块。
+这是模块职责选择，不应通过放宽 Editor 反向包含 Apps 的检查来绕过。确认前不执行依赖该选择的搬迁。

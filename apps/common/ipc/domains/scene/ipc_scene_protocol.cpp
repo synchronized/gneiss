@@ -78,20 +78,23 @@ bool valid_progress(const ipc_scene_progress& value) {
          (!value.can_cancel || !scene_phase_terminal(value.phase)) &&
          (!value.budget || !value.budget->cleanup_pending || !value.budget->cleanup_complete);
 }
-constexpr auto request_kind = ipc_kind_mask(ipc_message_kind::request);
-constexpr auto event_kind = ipc_kind_mask(ipc_message_kind::event);
+constexpr auto request_kind =
+    gneiss::engine::platform::ipc_kind_mask(gneiss::engine::platform::ipc_message_kind::request);
+constexpr auto event_kind =
+    gneiss::engine::platform::ipc_kind_mask(gneiss::engine::platform::ipc_message_kind::event);
 constexpr std::array operations{
-    ipc_operation_descriptor{
+    gneiss::engine::platform::ipc_operation_descriptor{
         .operation = 1U,
         .editor_to_runtime_kinds = request_kind,
-        .runtime_to_editor_kinds = ipc_kind_mask(ipc_message_kind::response),
+        .runtime_to_editor_kinds = gneiss::engine::platform::ipc_kind_mask(
+            gneiss::engine::platform::ipc_message_kind::response),
     },
-    ipc_operation_descriptor{
+    gneiss::engine::platform::ipc_operation_descriptor{
         .operation = 2U,
         .editor_to_runtime_kinds = event_kind,
         .runtime_to_editor_kinds = 0U,
     },
-    ipc_operation_descriptor{
+    gneiss::engine::platform::ipc_operation_descriptor{
         .operation = 3U,
         .editor_to_runtime_kinds = 0U,
         .runtime_to_editor_kinds = event_kind,
@@ -115,19 +118,24 @@ bool scene_phase_terminal(ipc_scene_phase phase) noexcept {
   return phase == ipc_scene_phase::applied || phase == ipc_scene_phase::failed ||
          phase == ipc_scene_phase::cancelled;
 }
-std::span<const ipc_operation_descriptor> ipc_scene_operations() noexcept { return operations; }
+std::span<const gneiss::engine::platform::ipc_operation_descriptor>
+ipc_scene_operations() noexcept {
+  return operations;
+}
 result encode_ipc_scene_request(const ipc_scene_request& value, ipc_scene_operation operation,
-                                std::uint32_t request_id, ipc_envelope& output) noexcept try {
+                                std::uint32_t request_id,
+                                gneiss::engine::platform::ipc_envelope& output) noexcept try {
   if (!valid_source(value) ||
       (operation != ipc_scene_operation::load && operation != ipc_scene_operation::cancel) ||
       (operation == ipc_scene_operation::load ? request_id == 0U : request_id != 0U)) {
     return result::invalid_argument;
   }
-  ipc_envelope envelope{
-      .domain = ipc_domain::scene,
+  gneiss::engine::platform::ipc_envelope envelope{
+      .domain = gneiss::engine::platform::ipc_domain::scene,
       .operation = static_cast<std::uint16_t>(operation),
-      .kind = operation == ipc_scene_operation::load ? ipc_message_kind::request
-                                                     : ipc_message_kind::event,
+      .kind = operation == ipc_scene_operation::load
+                  ? gneiss::engine::platform::ipc_message_kind::request
+                  : gneiss::engine::platform::ipc_message_kind::event,
       .request_id = request_id,
       .payload = {},
   };
@@ -145,15 +153,16 @@ result encode_ipc_scene_request(const ipc_scene_request& value, ipc_scene_operat
 } catch (...) {
   return result::out_of_memory;
 }
-result decode_ipc_scene_request(const ipc_envelope& envelope, ipc_scene_request& output) noexcept
-    try {
+result decode_ipc_scene_request(const gneiss::engine::platform::ipc_envelope& envelope,
+                                ipc_scene_request& output) noexcept try {
   const auto operation = static_cast<ipc_scene_operation>(envelope.operation);
-  if (envelope.domain != ipc_domain::scene ||
+  if (envelope.domain != gneiss::engine::platform::ipc_domain::scene ||
       envelope.payload.size() > ipc_scene_max_payload_size ||
-      validate_ipc_envelope(envelope) != result::success ||
-      (operation == ipc_scene_operation::load ? envelope.kind != ipc_message_kind::request
-                                              : operation != ipc_scene_operation::cancel ||
-                                                    envelope.kind != ipc_message_kind::event)) {
+      gneiss::engine::platform::validate_ipc_envelope(envelope) != result::success ||
+      (operation == ipc_scene_operation::load
+           ? envelope.kind != gneiss::engine::platform::ipc_message_kind::request
+           : operation != ipc_scene_operation::cancel ||
+                 envelope.kind != gneiss::engine::platform::ipc_message_kind::event)) {
     return result::invalid_argument;
   }
   ipc_asset_reload_request value;
@@ -178,7 +187,7 @@ result decode_ipc_scene_request(const ipc_envelope& envelope, ipc_scene_request&
   return result::out_of_memory;
 }
 result encode_ipc_scene_progress(const ipc_scene_progress& value, std::uint32_t request_id,
-                                 ipc_envelope& output) noexcept try {
+                                 gneiss::engine::platform::ipc_envelope& output) noexcept try {
   if (!valid_progress(value)) {
     return result::invalid_argument;
   }
@@ -234,11 +243,12 @@ result encode_ipc_scene_progress(const ipc_scene_progress& value, std::uint32_t 
     return result::invalid_argument;
   }
   const bool response = request_id != 0U && scene_phase_terminal(value.phase);
-  ipc_envelope envelope{
-      .domain = ipc_domain::scene,
+  gneiss::engine::platform::ipc_envelope envelope{
+      .domain = gneiss::engine::platform::ipc_domain::scene,
       .operation = static_cast<std::uint16_t>(response ? ipc_scene_operation::load
                                                        : ipc_scene_operation::progress),
-      .kind = response ? ipc_message_kind::response : ipc_message_kind::event,
+      .kind = response ? gneiss::engine::platform::ipc_message_kind::response
+                       : gneiss::engine::platform::ipc_message_kind::event,
       .request_id = response ? request_id : 0U,
       .payload = {},
   };
@@ -249,13 +259,15 @@ result encode_ipc_scene_progress(const ipc_scene_progress& value, std::uint32_t 
 } catch (...) {
   return result::out_of_memory;
 }
-result decode_ipc_scene_progress(const ipc_envelope& envelope, ipc_scene_progress& output) noexcept
-    try {
-  const bool response = envelope.operation == 1U && envelope.kind == ipc_message_kind::response;
-  if (envelope.domain != ipc_domain::scene ||
+result decode_ipc_scene_progress(const gneiss::engine::platform::ipc_envelope& envelope,
+                                 ipc_scene_progress& output) noexcept try {
+  const bool response = envelope.operation == 1U &&
+                        envelope.kind == gneiss::engine::platform::ipc_message_kind::response;
+  if (envelope.domain != gneiss::engine::platform::ipc_domain::scene ||
       envelope.payload.size() > ipc_scene_max_payload_size ||
-      validate_ipc_envelope(envelope) != result::success ||
-      (!response && (envelope.operation != 3U || envelope.kind != ipc_message_kind::event))) {
+      gneiss::engine::platform::validate_ipc_envelope(envelope) != result::success ||
+      (!response && (envelope.operation != 3U ||
+                     envelope.kind != gneiss::engine::platform::ipc_message_kind::event))) {
     return result::invalid_argument;
   }
   std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)> doc(

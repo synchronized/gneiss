@@ -13,10 +13,11 @@
 namespace {
 
 struct sent_envelopes final {
-  std::vector<gneiss::ipc_envelope> values;
+  std::vector<gneiss::engine::platform::ipc_envelope> values;
 };
 
-gneiss::result capture_send(void* context, gneiss::ipc_envelope envelope) noexcept {
+gneiss::result capture_send(void* context,
+                            gneiss::engine::platform::ipc_envelope envelope) noexcept {
   try {
     static_cast<sent_envelopes*>(context)->values.push_back(std::move(envelope));
     return gneiss::result::success;
@@ -36,20 +37,27 @@ int main() {
     return 1;
   }
   constexpr std::array domains{
-      ipc_domain_capability{.domain = ipc_domain::session, .version = 1U},
-      ipc_domain_capability{.domain = ipc_domain::control, .version = 1U},
-      ipc_domain_capability{.domain = ipc_domain::inspection, .version = 1U},
-      ipc_domain_capability{.domain = ipc_domain::property, .version = 1U},
-      ipc_domain_capability{.domain = ipc_domain::asset, .version = ipc_asset_domain_version}};
-  const ipc_dispatch_context dispatch_context{.remote_role = ipc_peer_role::editor,
-                                              .handshake_complete = true,
-                                              .negotiated_domains = domains};
+      gneiss::engine::platform::ipc_domain_capability{
+          .domain = gneiss::engine::platform::ipc_domain::session, .version = 1U},
+      gneiss::engine::platform::ipc_domain_capability{
+          .domain = gneiss::engine::platform::ipc_domain::control, .version = 1U},
+      gneiss::engine::platform::ipc_domain_capability{
+          .domain = gneiss::engine::platform::ipc_domain::inspection, .version = 1U},
+      gneiss::engine::platform::ipc_domain_capability{
+          .domain = gneiss::engine::platform::ipc_domain::property, .version = 1U},
+      gneiss::engine::platform::ipc_domain_capability{
+          .domain = gneiss::engine::platform::ipc_domain::asset,
+          .version = ipc_asset_domain_version}};
+  const gneiss::engine::platform::ipc_dispatch_context dispatch_context{
+      .remote_role = gneiss::engine::platform::ipc_peer_role::editor,
+      .handshake_complete = true,
+      .negotiated_domains = domains};
   runtime_ipc_state state = runtime_ipc_state::running;
   runtime_ipc_actions actions;
   sent_envelopes sent;
   runtime_command_context context(state, actions, &sent, capture_send);
 
-  gneiss::ipc_envelope envelope;
+  gneiss::engine::platform::ipc_envelope envelope;
   if (encode_ipc_control_request(ipc_control_operation::pause, 7U, envelope) != result::success ||
       !router.dispatch(envelope, dispatch_context, context).accepted() || !actions.pause_game ||
       state != runtime_ipc_state::paused || sent.values.empty()) {
@@ -82,17 +90,17 @@ int main() {
       actions.asset_cancels.size() != 1U || actions.asset_cancels.front().session_id != 3U ||
       actions.asset_cancels.front().revision != 4U)
     return 5;
-  envelope.kind = ipc_message_kind::request;
+  envelope.kind = gneiss::engine::platform::ipc_message_kind::request;
   if (router.dispatch(envelope, dispatch_context, context).accepted())
     return 6;
   const ipc_scene_request scene{3U, 5U, "asset://scenes/main.scene.json"};
   if (encode_ipc_scene_request(scene, ipc_scene_operation::load, 11U, envelope) !=
           result::success ||
       router.dispatch(envelope, dispatch_context, context).rejection !=
-          ipc_dispatch_rejection::domain_not_negotiated)
+          gneiss::engine::platform::ipc_dispatch_rejection::domain_not_negotiated)
     return 7;
-  std::array scene_domains{
-      ipc_domain_capability{.domain = ipc_domain::scene, .version = ipc_scene_domain_version}};
+  std::array scene_domains{gneiss::engine::platform::ipc_domain_capability{
+      .domain = gneiss::engine::platform::ipc_domain::scene, .version = ipc_scene_domain_version}};
   auto scene_dispatch = dispatch_context;
   scene_dispatch.negotiated_domains = scene_domains;
   if (!router.dispatch(envelope, scene_dispatch, context).accepted() ||
@@ -111,7 +119,7 @@ int main() {
     return 10;
   scene_domains.front().version = 0U;
   if (router.dispatch(envelope, scene_dispatch, context).rejection !=
-      ipc_dispatch_rejection::unsupported_domain_version)
+      gneiss::engine::platform::ipc_dispatch_rejection::unsupported_domain_version)
     return 11;
   return 0;
 }

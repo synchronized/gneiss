@@ -33,7 +33,7 @@ public:
   [[nodiscard]] std::string_view module_id() const noexcept;
 
 private:
-  dynamic_library library_;
+  gneiss::engine::platform::dynamic_library library_;
   gneiss_game_module_desc desc_{};
   gneiss_game_context context_{};
   void* module_state_{};

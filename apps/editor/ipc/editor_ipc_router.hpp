@@ -21,9 +21,10 @@ public:
   editor_ipc_router(const editor_ipc_router&) = delete;
   editor_ipc_router& operator=(const editor_ipc_router&) = delete;
 
-  [[nodiscard]] result dispatch(const ipc_envelope& envelope, bool is_authenticated,
-                                const std::vector<ipc_domain_capability>& negotiated_domains,
-                                runtime_ipc_event& output) noexcept;
+  [[nodiscard]] result
+  dispatch(const gneiss::engine::platform::ipc_envelope& envelope, bool is_authenticated,
+           const std::vector<gneiss::engine::platform::ipc_domain_capability>& negotiated_domains,
+           runtime_ipc_event& output) noexcept;
   [[nodiscard]] bool is_ready() const noexcept;
 
 private:

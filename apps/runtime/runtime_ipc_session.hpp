@@ -23,7 +23,7 @@
 namespace gneiss::runtime_internal {
 
 struct runtime_ipc_config final {
-  ipc_endpoint endpoint;
+  gneiss::engine::platform::ipc_endpoint endpoint;
   std::string session_token;
   std::chrono::milliseconds handshake_timeout{5000};
   std::chrono::milliseconds heartbeat_timeout{10000};
@@ -61,7 +61,7 @@ public:
 
   [[nodiscard]] runtime_ipc_state state() const noexcept;
   [[nodiscard]] bool game_updates_enabled() const noexcept;
-  [[nodiscard]] bool supports_domain(ipc_domain domain) const noexcept;
+  [[nodiscard]] bool supports_domain(gneiss::engine::platform::ipc_domain domain) const noexcept;
 
 private:
   struct implementation;

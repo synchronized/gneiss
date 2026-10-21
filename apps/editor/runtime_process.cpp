@@ -27,8 +27,8 @@
 namespace gneiss::editor {
 
 struct runtime_process::implementation final {
-  child_process process;
-  child_process build_process;
+  gneiss::engine::platform::child_process process;
+  gneiss::engine::platform::child_process build_process;
   console_model console;
   runtime_scene_mirror scene_mirror;
   runtime_property_edits property_edits;
@@ -517,7 +517,7 @@ result runtime_process::start(const std::filesystem::path& executable,
       return started;
     }
     const auto endpoint = implementation_->ipc_session.endpoint();
-    child_process_start_info info;
+    gneiss::engine::platform::child_process_start_info info;
     info.executable = executable;
     info.arguments = {"--project",     request.project_root,
                       "--stop-file",   implementation_->stop_file,
@@ -552,7 +552,7 @@ result runtime_process::build_and_start(const std::filesystem::path& cmake_execu
     return result::invalid_state;
   }
   try {
-    child_process_start_info info;
+    gneiss::engine::platform::child_process_start_info info;
     info.executable = cmake_executable;
     info.working_directory = project.project_root;
     const auto& profile = app::game_build_profile_description_for(project.game_module,
@@ -835,7 +835,7 @@ void runtime_process::update() noexcept {
     }
     if (implementation_->is_configuring) {
       implementation_->is_configuring = false;
-      child_process_start_info info;
+      gneiss::engine::platform::child_process_start_info info;
       info.executable = implementation_->pending_cmake;
       info.working_directory = implementation_->pending_project.project_root;
       const auto& profile = app::game_build_profile_description_for(

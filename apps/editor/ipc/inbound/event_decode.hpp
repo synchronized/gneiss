@@ -11,8 +11,8 @@
 namespace gneiss::editor::ipc_internal {
 
 template <typename Event, typename Decode>
-result decode_value(const ipc_envelope& envelope, runtime_ipc_event& output,
-                    Decode&& decode) noexcept {
+result decode_value(const gneiss::engine::platform::ipc_envelope& envelope,
+                    runtime_ipc_event& output, Decode&& decode) noexcept {
   Event event;
   event.request_id = envelope.request_id;
   const auto operation = decode(event.value);

@@ -12,7 +12,7 @@ namespace {
 
 constexpr std::size_t runtime_property_write_budget = 32U;
 
-result handle_property_write(const ipc_envelope& envelope,
+result handle_property_write(const gneiss::engine::platform::ipc_envelope& envelope,
                              runtime_command_context& context) noexcept {
   ipc_property_write command;
   const auto decoded = decode_ipc_property_write_v2(envelope, command);
@@ -26,7 +26,7 @@ result handle_property_write(const ipc_envelope& envelope,
                                              .revision = 0U,
                                              .message = "本帧属性写入队列已满",
                                              .canonical_value = {}};
-    ipc_envelope response_envelope;
+    gneiss::engine::platform::ipc_envelope response_envelope;
     const auto encoded =
         make_property_write_result_event(response, envelope.request_id, response_envelope);
     return encoded == result::success ? context.send(std::move(response_envelope)) : encoded;
@@ -38,7 +38,7 @@ result handle_property_write(const ipc_envelope& envelope,
 } // namespace
 
 result register_runtime_property_commands(runtime_command_router& router) noexcept {
-  return router.bind(ipc_domain::property,
+  return router.bind(gneiss::engine::platform::ipc_domain::property,
                      static_cast<std::uint16_t>(ipc_property_operation::write),
                      handle_property_write);
 }

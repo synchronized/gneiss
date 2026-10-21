@@ -44,22 +44,30 @@ using runtime_ipc_event =
                  runtime_property_result_event, runtime_asset_result_event,
                  runtime_scene_progress_event>;
 
-[[nodiscard]] result decode_runtime_session_event(const ipc_envelope& envelope,
-                                                  runtime_ipc_event& output) noexcept;
-[[nodiscard]] result decode_runtime_control_event(const ipc_envelope& envelope,
-                                                  runtime_ipc_event& output) noexcept;
-[[nodiscard]] result decode_runtime_log_event(const ipc_envelope& envelope,
-                                              runtime_ipc_event& output) noexcept;
-[[nodiscard]] result decode_runtime_inspection_event(const ipc_envelope& envelope,
-                                                     runtime_ipc_event& output) noexcept;
-[[nodiscard]] result decode_runtime_statistics_event(const ipc_envelope& envelope,
-                                                     runtime_ipc_event& output) noexcept;
-[[nodiscard]] result decode_runtime_property_event(const ipc_envelope& envelope,
-                                                   runtime_ipc_event& output) noexcept;
-[[nodiscard]] result decode_runtime_asset_event(const ipc_envelope& envelope,
-                                                runtime_ipc_event& output) noexcept;
-[[nodiscard]] result decode_runtime_scene_event(const ipc_envelope& envelope,
-                                                runtime_ipc_event& output) noexcept;
+[[nodiscard]] result
+decode_runtime_session_event(const gneiss::engine::platform::ipc_envelope& envelope,
+                             runtime_ipc_event& output) noexcept;
+[[nodiscard]] result
+decode_runtime_control_event(const gneiss::engine::platform::ipc_envelope& envelope,
+                             runtime_ipc_event& output) noexcept;
+[[nodiscard]] result
+decode_runtime_log_event(const gneiss::engine::platform::ipc_envelope& envelope,
+                         runtime_ipc_event& output) noexcept;
+[[nodiscard]] result
+decode_runtime_inspection_event(const gneiss::engine::platform::ipc_envelope& envelope,
+                                runtime_ipc_event& output) noexcept;
+[[nodiscard]] result
+decode_runtime_statistics_event(const gneiss::engine::platform::ipc_envelope& envelope,
+                                runtime_ipc_event& output) noexcept;
+[[nodiscard]] result
+decode_runtime_property_event(const gneiss::engine::platform::ipc_envelope& envelope,
+                              runtime_ipc_event& output) noexcept;
+[[nodiscard]] result
+decode_runtime_asset_event(const gneiss::engine::platform::ipc_envelope& envelope,
+                           runtime_ipc_event& output) noexcept;
+[[nodiscard]] result
+decode_runtime_scene_event(const gneiss::engine::platform::ipc_envelope& envelope,
+                           runtime_ipc_event& output) noexcept;
 
 } // namespace gneiss::editor
 

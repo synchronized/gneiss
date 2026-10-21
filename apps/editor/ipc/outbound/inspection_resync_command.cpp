@@ -7,7 +7,8 @@
 
 namespace gneiss::editor {
 
-result make_inspection_resync_command(std::uint32_t request_id, ipc_envelope& output) noexcept {
+result make_inspection_resync_command(std::uint32_t request_id,
+                                      gneiss::engine::platform::ipc_envelope& output) noexcept {
   return encode_ipc_inspection_resync(request_id, output);
 }
 

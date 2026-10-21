@@ -7,7 +7,7 @@ int main(int argc, char** argv) try {
   if (argc != 2) {
     return 1;
   }
-  gneiss::dynamic_library library;
+  gneiss::engine::platform::dynamic_library library;
   void* symbol = nullptr;
   if (library.is_open() ||
       library.find_symbol("gneiss_test_library_value", &symbol) !=

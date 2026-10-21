@@ -12,7 +12,8 @@
 
 namespace gneiss::runtime_internal {
 
-result make_log_event(const gneiss_log_event& event, ipc_envelope& output) noexcept {
+result make_log_event(const gneiss_log_event& event,
+                      gneiss::engine::platform::ipc_envelope& output) noexcept {
   try {
     std::string encoded_event;
     const auto operation = app::encode_runtime_log_event(event, encoded_event);

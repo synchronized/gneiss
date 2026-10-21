@@ -8,7 +8,7 @@
 namespace gneiss::runtime_internal {
 
 result make_statistics_event(const ipc_runtime_statistics& statistics,
-                             ipc_envelope& output) noexcept {
+                             gneiss::engine::platform::ipc_envelope& output) noexcept {
   return encode_ipc_statistics_v2(statistics, output);
 }
 

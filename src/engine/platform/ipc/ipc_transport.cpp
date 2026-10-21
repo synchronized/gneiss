@@ -22,7 +22,7 @@
 #include <span>
 #include <utility>
 
-namespace gneiss {
+namespace gneiss::engine::platform {
 
 struct ipc_transport::implementation final {
   enum class mode : std::uint8_t { none, server, client };
@@ -536,4 +536,4 @@ std::size_t ipc_transport::dropped_event_count() const noexcept {
   return implementation_ ? implementation_->dropped_events.load(std::memory_order_relaxed) : 0U;
 }
 
-} // namespace gneiss
+} // namespace gneiss::engine::platform

@@ -10,7 +10,7 @@ namespace {
 
 constexpr std::size_t asset_reload_budget = 8U;
 
-result handle_asset_cancel(const ipc_envelope& envelope,
+result handle_asset_cancel(const gneiss::engine::platform::ipc_envelope& envelope,
                            runtime_command_context& context) noexcept {
   ipc_asset_reload_request request;
   const auto decoded = decode_ipc_asset_cancel(envelope, request);
@@ -22,7 +22,7 @@ result handle_asset_cancel(const ipc_envelope& envelope,
   return result::success;
 }
 
-result handle_asset_reload(const ipc_envelope& envelope,
+result handle_asset_reload(const gneiss::engine::platform::ipc_envelope& envelope,
                            runtime_command_context& context) noexcept {
   ipc_asset_reload_request request;
   const auto decoded = decode_ipc_asset_request_v2(envelope, request);
@@ -43,17 +43,17 @@ result handle_asset_reload(const ipc_envelope& envelope,
 
 result register_runtime_asset_commands(runtime_command_router& router) noexcept {
   auto operation =
-      router.bind(ipc_domain::asset, static_cast<std::uint16_t>(ipc_asset_operation::reload),
-                  handle_asset_reload);
+      router.bind(gneiss::engine::platform::ipc_domain::asset,
+                  static_cast<std::uint16_t>(ipc_asset_operation::reload), handle_asset_reload);
   if (operation == result::success) {
     operation =
-        router.bind(ipc_domain::asset, static_cast<std::uint16_t>(ipc_asset_operation::resync),
-                    handle_asset_reload);
+        router.bind(gneiss::engine::platform::ipc_domain::asset,
+                    static_cast<std::uint16_t>(ipc_asset_operation::resync), handle_asset_reload);
   }
   if (operation == result::success)
     operation =
-        router.bind(ipc_domain::asset, static_cast<std::uint16_t>(ipc_asset_operation::cancel),
-                    handle_asset_cancel);
+        router.bind(gneiss::engine::platform::ipc_domain::asset,
+                    static_cast<std::uint16_t>(ipc_asset_operation::cancel), handle_asset_cancel);
   return operation;
 }
 

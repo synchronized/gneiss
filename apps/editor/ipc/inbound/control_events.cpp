@@ -7,11 +7,11 @@
 
 namespace gneiss::editor {
 
-result decode_runtime_control_event(const ipc_envelope& envelope,
+result decode_runtime_control_event(const gneiss::engine::platform::ipc_envelope& envelope,
                                     runtime_ipc_event& output) noexcept {
   if (envelope.operation == static_cast<std::uint16_t>(ipc_control_operation::ready) &&
-      envelope.kind == ipc_message_kind::event && envelope.request_id == 0U &&
-      envelope.payload.empty()) {
+      envelope.kind == gneiss::engine::platform::ipc_message_kind::event &&
+      envelope.request_id == 0U && envelope.payload.empty()) {
     output = runtime_ready_event{};
     return result::success;
   }

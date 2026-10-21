@@ -77,14 +77,19 @@ encode_ipc_inspection_batch_chunks(const ipc_inspection_batch& batch,
 [[nodiscard]] result decode_ipc_inspection_batch(std::span<const std::uint8_t> payload,
                                                  ipc_inspection_batch& output) noexcept;
 
-[[nodiscard]] result encode_ipc_inspection_batch_v2(const ipc_inspection_batch& batch,
-                                                    std::vector<ipc_envelope>& output) noexcept;
-[[nodiscard]] result decode_ipc_inspection_batch_v2(const ipc_envelope& envelope,
-                                                    ipc_inspection_batch& output) noexcept;
-[[nodiscard]] result encode_ipc_inspection_resync(std::uint32_t request_id,
-                                                  ipc_envelope& output) noexcept;
-[[nodiscard]] result decode_ipc_inspection_resync(const ipc_envelope& envelope) noexcept;
-[[nodiscard]] std::span<const ipc_operation_descriptor> ipc_inspection_operations() noexcept;
+[[nodiscard]] result encode_ipc_inspection_batch_v2(
+    const ipc_inspection_batch& batch,
+    std::vector<gneiss::engine::platform::ipc_envelope>& output) noexcept;
+[[nodiscard]] result
+decode_ipc_inspection_batch_v2(const gneiss::engine::platform::ipc_envelope& envelope,
+                               ipc_inspection_batch& output) noexcept;
+[[nodiscard]] result
+encode_ipc_inspection_resync(std::uint32_t request_id,
+                             gneiss::engine::platform::ipc_envelope& output) noexcept;
+[[nodiscard]] result
+decode_ipc_inspection_resync(const gneiss::engine::platform::ipc_envelope& envelope) noexcept;
+[[nodiscard]] std::span<const gneiss::engine::platform::ipc_operation_descriptor>
+ipc_inspection_operations() noexcept;
 
 } // namespace gneiss
 

@@ -314,26 +314,34 @@ result decode_ipc_asset_result(std::span<const std::uint8_t> payload,
 
 namespace {
 
-constexpr auto request_kind = ipc_kind_mask(ipc_message_kind::request);
-constexpr auto response_kind = ipc_kind_mask(ipc_message_kind::response);
+constexpr auto request_kind =
+    gneiss::engine::platform::ipc_kind_mask(gneiss::engine::platform::ipc_message_kind::request);
+constexpr auto response_kind =
+    gneiss::engine::platform::ipc_kind_mask(gneiss::engine::platform::ipc_message_kind::response);
 constexpr std::array asset_operations{
-    ipc_operation_descriptor{.operation = static_cast<std::uint16_t>(ipc_asset_operation::progress),
-                             .editor_to_runtime_kinds = 0U,
-                             .runtime_to_editor_kinds = ipc_kind_mask(ipc_message_kind::event)},
-    ipc_operation_descriptor{.operation = static_cast<std::uint16_t>(ipc_asset_operation::cancel),
-                             .editor_to_runtime_kinds = ipc_kind_mask(ipc_message_kind::event),
-                             .runtime_to_editor_kinds = 0U},
-    ipc_operation_descriptor{.operation = static_cast<std::uint16_t>(ipc_asset_operation::reload),
-                             .editor_to_runtime_kinds = request_kind,
-                             .runtime_to_editor_kinds = response_kind},
-    ipc_operation_descriptor{.operation = static_cast<std::uint16_t>(ipc_asset_operation::resync),
-                             .editor_to_runtime_kinds = request_kind,
-                             .runtime_to_editor_kinds = response_kind}};
+    gneiss::engine::platform::ipc_operation_descriptor{
+        .operation = static_cast<std::uint16_t>(ipc_asset_operation::progress),
+        .editor_to_runtime_kinds = 0U,
+        .runtime_to_editor_kinds = gneiss::engine::platform::ipc_kind_mask(
+            gneiss::engine::platform::ipc_message_kind::event)},
+    gneiss::engine::platform::ipc_operation_descriptor{
+        .operation = static_cast<std::uint16_t>(ipc_asset_operation::cancel),
+        .editor_to_runtime_kinds = gneiss::engine::platform::ipc_kind_mask(
+            gneiss::engine::platform::ipc_message_kind::event),
+        .runtime_to_editor_kinds = 0U},
+    gneiss::engine::platform::ipc_operation_descriptor{
+        .operation = static_cast<std::uint16_t>(ipc_asset_operation::reload),
+        .editor_to_runtime_kinds = request_kind,
+        .runtime_to_editor_kinds = response_kind},
+    gneiss::engine::platform::ipc_operation_descriptor{
+        .operation = static_cast<std::uint16_t>(ipc_asset_operation::resync),
+        .editor_to_runtime_kinds = request_kind,
+        .runtime_to_editor_kinds = response_kind}};
 
 } // namespace
 
 result encode_ipc_asset_cancel(std::uint64_t session, std::uint64_t revision,
-                               ipc_envelope& output) noexcept try {
+                               gneiss::engine::platform::ipc_envelope& output) noexcept try {
   if (session == 0U || revision == 0U)
     return result::invalid_argument;
   mutable_document_ptr document(yyjson_mut_doc_new(nullptr), &yyjson_mut_doc_free);
@@ -345,9 +353,9 @@ result encode_ipc_asset_cancel(std::uint64_t session, std::uint64_t revision,
   auto result = write_document(document.get(), root, payload);
   if (result != result::success)
     return result;
-  output = {.domain = ipc_domain::asset,
+  output = {.domain = gneiss::engine::platform::ipc_domain::asset,
             .operation = static_cast<std::uint16_t>(ipc_asset_operation::cancel),
-            .kind = ipc_message_kind::event,
+            .kind = gneiss::engine::platform::ipc_message_kind::event,
             .request_id = 0U,
             .payload = std::move(payload)};
   return result::success;
@@ -356,12 +364,12 @@ result encode_ipc_asset_cancel(std::uint64_t session, std::uint64_t revision,
 } catch (...) {
   return result::internal;
 }
-result decode_ipc_asset_cancel(const ipc_envelope& envelope,
+result decode_ipc_asset_cancel(const gneiss::engine::platform::ipc_envelope& envelope,
                                ipc_asset_reload_request& output) noexcept {
-  if (envelope.domain != ipc_domain::asset ||
+  if (envelope.domain != gneiss::engine::platform::ipc_domain::asset ||
       envelope.operation != static_cast<std::uint16_t>(ipc_asset_operation::cancel) ||
-      envelope.kind != ipc_message_kind::event || envelope.request_id != 0U ||
-      envelope.payload.size() > 256U)
+      envelope.kind != gneiss::engine::platform::ipc_message_kind::event ||
+      envelope.request_id != 0U || envelope.payload.size() > 256U)
     return result::invalid_argument;
   document_ptr document(yyjson_read(reinterpret_cast<const char*>(envelope.payload.data()),
                                     envelope.payload.size(), YYJSON_READ_NOFLAG),
@@ -376,7 +384,7 @@ result decode_ipc_asset_cancel(const ipc_envelope& envelope,
 
 result encode_ipc_asset_request_v2(const ipc_asset_reload_request& request,
                                    ipc_asset_operation operation, std::uint32_t request_id,
-                                   ipc_envelope& output) noexcept {
+                                   gneiss::engine::platform::ipc_envelope& output) noexcept {
   if (request_id == 0U || !known_operation(static_cast<std::uint16_t>(operation))) {
     return result::invalid_argument;
   }
@@ -385,18 +393,20 @@ result encode_ipc_asset_request_v2(const ipc_asset_reload_request& request,
   if (encoded != result::success) {
     return encoded;
   }
-  output = {.domain = ipc_domain::asset,
+  output = {.domain = gneiss::engine::platform::ipc_domain::asset,
             .operation = static_cast<std::uint16_t>(operation),
-            .kind = ipc_message_kind::request,
+            .kind = gneiss::engine::platform::ipc_message_kind::request,
             .request_id = request_id,
             .payload = std::move(payload)};
   return result::success;
 }
 
-result decode_ipc_asset_request_v2(const ipc_envelope& envelope,
+result decode_ipc_asset_request_v2(const gneiss::engine::platform::ipc_envelope& envelope,
                                    ipc_asset_reload_request& output) noexcept {
-  if (envelope.domain != ipc_domain::asset || !known_operation(envelope.operation) ||
-      envelope.kind != ipc_message_kind::request || envelope.request_id == 0U) {
+  if (envelope.domain != gneiss::engine::platform::ipc_domain::asset ||
+      !known_operation(envelope.operation) ||
+      envelope.kind != gneiss::engine::platform::ipc_message_kind::request ||
+      envelope.request_id == 0U) {
     return result::invalid_argument;
   }
   return decode_ipc_asset_request(envelope.payload, output);
@@ -404,7 +414,7 @@ result decode_ipc_asset_request_v2(const ipc_envelope& envelope,
 
 result encode_ipc_asset_result_v2(const ipc_asset_reload_result& response,
                                   ipc_asset_operation operation, std::uint32_t request_id,
-                                  ipc_envelope& output) noexcept {
+                                  gneiss::engine::platform::ipc_envelope& output) noexcept {
   const bool progress = operation == ipc_asset_operation::progress;
   if (progress ? (request_id != 0U || (response.status != ipc_asset_apply_status::preparing &&
                                        response.status != ipc_asset_apply_status::uploading))
@@ -418,22 +428,25 @@ result encode_ipc_asset_result_v2(const ipc_asset_reload_result& response,
   if (encoded != result::success) {
     return encoded;
   }
-  output = {.domain = ipc_domain::asset,
+  output = {.domain = gneiss::engine::platform::ipc_domain::asset,
             .operation = static_cast<std::uint16_t>(operation),
-            .kind = progress ? ipc_message_kind::event : ipc_message_kind::response,
+            .kind = progress ? gneiss::engine::platform::ipc_message_kind::event
+                             : gneiss::engine::platform::ipc_message_kind::response,
             .request_id = request_id,
             .payload = std::move(payload)};
   return result::success;
 }
 
-result decode_ipc_asset_result_v2(const ipc_envelope& envelope,
+result decode_ipc_asset_result_v2(const gneiss::engine::platform::ipc_envelope& envelope,
                                   ipc_asset_reload_result& output) noexcept {
   const bool progress =
       envelope.operation == static_cast<std::uint16_t>(ipc_asset_operation::progress);
-  if (envelope.domain != ipc_domain::asset ||
-      (progress ? envelope.kind != ipc_message_kind::event || envelope.request_id != 0U
+  if (envelope.domain != gneiss::engine::platform::ipc_domain::asset ||
+      (progress ? envelope.kind != gneiss::engine::platform::ipc_message_kind::event ||
+                      envelope.request_id != 0U
                 : !known_operation(envelope.operation) ||
-                      envelope.kind != ipc_message_kind::response || envelope.request_id == 0U))
+                      envelope.kind != gneiss::engine::platform::ipc_message_kind::response ||
+                      envelope.request_id == 0U))
     return result::invalid_argument;
   ipc_asset_reload_result parsed;
   const auto decoded = decode_ipc_asset_result(envelope.payload, parsed);
@@ -446,7 +459,8 @@ result decode_ipc_asset_result_v2(const ipc_envelope& envelope,
   return result::success;
 }
 
-std::span<const ipc_operation_descriptor> ipc_asset_operations() noexcept {
+std::span<const gneiss::engine::platform::ipc_operation_descriptor>
+ipc_asset_operations() noexcept {
   return asset_operations;
 }
 

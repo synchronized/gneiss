@@ -15,7 +15,7 @@
 namespace gneiss {
 
 template <typename Message> struct ipc_route_result final {
-  ipc_dispatch_outcome outcome;
+  gneiss::engine::platform::ipc_dispatch_outcome outcome;
   std::optional<Message> message;
 
   [[nodiscard]] bool accepted() const noexcept { return outcome.accepted() && message.has_value(); }
@@ -24,18 +24,18 @@ template <typename Message> struct ipc_route_result final {
 /** 将通用协议校验、域路由和强类型消息输出组合为单一入口。 */
 template <typename Message> class ipc_router final {
 public:
-  using decoder = result (*)(const ipc_envelope&, Message&) noexcept;
+  using decoder = result (*)(const gneiss::engine::platform::ipc_envelope&, Message&) noexcept;
 
   ipc_router() noexcept {
     if (register_ipc_v2_domains(accept, this, registry_) == result::success) {
-      dispatcher_ = std::make_unique<ipc_dispatcher>(registry_);
+      dispatcher_ = std::make_unique<gneiss::engine::platform::ipc_dispatcher>(registry_);
     }
   }
 
   ipc_router(const ipc_router&) = delete;
   ipc_router& operator=(const ipc_router&) = delete;
 
-  [[nodiscard]] result bind(ipc_domain domain, decoder decode) noexcept {
+  [[nodiscard]] result bind(gneiss::engine::platform::ipc_domain domain, decoder decode) noexcept {
     if (!dispatcher_ || decode == nullptr ||
         std::ranges::find(bindings_, domain, &binding::domain) != bindings_.end()) {
       return result::invalid_argument;
@@ -50,11 +50,13 @@ public:
     }
   }
 
-  [[nodiscard]] ipc_route_result<Message> dispatch(const ipc_envelope& envelope,
-                                                   const ipc_dispatch_context& context) noexcept {
+  [[nodiscard]] ipc_route_result<Message>
+  dispatch(const gneiss::engine::platform::ipc_envelope& envelope,
+           const gneiss::engine::platform::ipc_dispatch_context& context) noexcept {
     ipc_route_result<Message> routed;
     if (!dispatcher_) {
-      routed.outcome = {.rejection = ipc_dispatch_rejection::handler_failed,
+      routed.outcome = {.rejection =
+                            gneiss::engine::platform::ipc_dispatch_rejection::handler_failed,
                         .handler_result = result::invalid_state};
       return routed;
     }
@@ -63,7 +65,8 @@ public:
     if (routed.outcome.accepted()) {
       routed.message = std::move(pending_);
       if (!routed.message) {
-        routed.outcome = {.rejection = ipc_dispatch_rejection::handler_failed,
+        routed.outcome = {.rejection =
+                              gneiss::engine::platform::ipc_dispatch_rejection::handler_failed,
                           .handler_result = result::internal};
       }
     }
@@ -73,11 +76,12 @@ public:
 
 private:
   struct binding final {
-    ipc_domain domain = ipc_domain::session;
+    gneiss::engine::platform::ipc_domain domain = gneiss::engine::platform::ipc_domain::session;
     decoder decode = nullptr;
   };
 
-  static result accept(void* context, const ipc_envelope& envelope) noexcept {
+  static result accept(void* context,
+                       const gneiss::engine::platform::ipc_envelope& envelope) noexcept {
     auto& self = *static_cast<ipc_router*>(context);
     const auto match = std::ranges::find(self.bindings_, envelope.domain, &binding::domain);
     if (match == self.bindings_.end()) {
@@ -91,8 +95,8 @@ private:
     return operation;
   }
 
-  ipc_domain_registry registry_;
-  std::unique_ptr<ipc_dispatcher> dispatcher_;
+  gneiss::engine::platform::ipc_domain_registry registry_;
+  std::unique_ptr<gneiss::engine::platform::ipc_dispatcher> dispatcher_;
   std::vector<binding> bindings_;
   std::optional<Message> pending_;
 };
@@ -104,18 +108,19 @@ private:
  */
 template <typename Context> class ipc_operation_router final {
 public:
-  using handler = result (*)(const ipc_envelope&, Context&) noexcept;
+  using handler = result (*)(const gneiss::engine::platform::ipc_envelope&, Context&) noexcept;
 
   ipc_operation_router() noexcept {
     if (register_ipc_v2_domains(accept, this, registry_) == result::success) {
-      dispatcher_ = std::make_unique<ipc_dispatcher>(registry_);
+      dispatcher_ = std::make_unique<gneiss::engine::platform::ipc_dispatcher>(registry_);
     }
   }
 
   ipc_operation_router(const ipc_operation_router&) = delete;
   ipc_operation_router& operator=(const ipc_operation_router&) = delete;
 
-  [[nodiscard]] result bind(ipc_domain domain, std::uint16_t operation, handler handle) noexcept {
+  [[nodiscard]] result bind(gneiss::engine::platform::ipc_domain domain, std::uint16_t operation,
+                            handler handle) noexcept {
     const auto duplicate = std::ranges::find_if(bindings_, [&](const binding& value) {
       return value.domain == domain && value.operation == operation;
     });
@@ -132,11 +137,12 @@ public:
     }
   }
 
-  [[nodiscard]] ipc_dispatch_outcome dispatch(const ipc_envelope& envelope,
-                                              const ipc_dispatch_context& dispatch_context,
-                                              Context& handler_context) noexcept {
+  [[nodiscard]] gneiss::engine::platform::ipc_dispatch_outcome
+  dispatch(const gneiss::engine::platform::ipc_envelope& envelope,
+           const gneiss::engine::platform::ipc_dispatch_context& dispatch_context,
+           Context& handler_context) noexcept {
     if (!dispatcher_ || pending_context_ != nullptr) {
-      return {.rejection = ipc_dispatch_rejection::handler_failed,
+      return {.rejection = gneiss::engine::platform::ipc_dispatch_rejection::handler_failed,
               .handler_result = result::invalid_state};
     }
     pending_context_ = &handler_context;
@@ -147,12 +153,13 @@ public:
 
 private:
   struct binding final {
-    ipc_domain domain = ipc_domain::session;
+    gneiss::engine::platform::ipc_domain domain = gneiss::engine::platform::ipc_domain::session;
     std::uint16_t operation = 0U;
     handler handle = nullptr;
   };
 
-  static result accept(void* context, const ipc_envelope& envelope) noexcept {
+  static result accept(void* context,
+                       const gneiss::engine::platform::ipc_envelope& envelope) noexcept {
     auto& self = *static_cast<ipc_operation_router*>(context);
     if (self.pending_context_ == nullptr) {
       return result::invalid_state;
@@ -164,8 +171,8 @@ private:
                                          : match->handle(envelope, *self.pending_context_);
   }
 
-  ipc_domain_registry registry_;
-  std::unique_ptr<ipc_dispatcher> dispatcher_;
+  gneiss::engine::platform::ipc_domain_registry registry_;
+  std::unique_ptr<gneiss::engine::platform::ipc_dispatcher> dispatcher_;
   std::vector<binding> bindings_;
   Context* pending_context_ = nullptr;
 };

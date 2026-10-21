@@ -10,18 +10,20 @@
 namespace gneiss::runtime_internal {
 namespace {
 
-result handle_heartbeat(const ipc_envelope& envelope, runtime_command_context& context) noexcept {
+result handle_heartbeat(const gneiss::engine::platform::ipc_envelope& envelope,
+                        runtime_command_context& context) noexcept {
   ipc_session_heartbeat heartbeat;
   const auto operation = decode_ipc_session_heartbeat(envelope, heartbeat);
   if (operation != result::success) {
     return operation;
   }
-  ipc_envelope response;
+  gneiss::engine::platform::ipc_envelope response;
   const auto encoded = make_heartbeat_response(heartbeat, envelope.request_id, response);
   return encoded == result::success ? context.send(std::move(response)) : encoded;
 }
 
-result handle_protocol_error(const ipc_envelope& envelope, runtime_command_context&) noexcept {
+result handle_protocol_error(const gneiss::engine::platform::ipc_envelope& envelope,
+                             runtime_command_context&) noexcept {
   ipc_session_error error;
   const auto operation = decode_ipc_session_error(envelope, error);
   return operation == result::success ? from_native(error.code) : operation;
@@ -31,10 +33,10 @@ result handle_protocol_error(const ipc_envelope& envelope, runtime_command_conte
 
 result register_runtime_session_commands(runtime_command_router& router) noexcept {
   auto operation =
-      router.bind(ipc_domain::session, static_cast<std::uint16_t>(ipc_session_operation::heartbeat),
-                  handle_heartbeat);
+      router.bind(gneiss::engine::platform::ipc_domain::session,
+                  static_cast<std::uint16_t>(ipc_session_operation::heartbeat), handle_heartbeat);
   if (operation == result::success) {
-    operation = router.bind(ipc_domain::session,
+    operation = router.bind(gneiss::engine::platform::ipc_domain::session,
                             static_cast<std::uint16_t>(ipc_session_operation::protocol_error),
                             handle_protocol_error);
   }

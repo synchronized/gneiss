@@ -12,7 +12,7 @@ int main() {
                   .type = gneiss::ipc_asset_type::texture},
                  {.uri = "asset://imported/a/mesh-0.gneiss-mesh",
                   .type = gneiss::ipc_asset_type::static_mesh}}};
-  gneiss::ipc_envelope envelope;
+  gneiss::engine::platform::ipc_envelope envelope;
   gneiss::ipc_asset_reload_request decoded_request;
   if (gneiss::encode_ipc_asset_request_v2(request, gneiss::ipc_asset_operation::reload, 19U,
                                           envelope) != gneiss::result::success ||
@@ -92,7 +92,7 @@ int main() {
   if (gneiss::encode_ipc_asset_result_v2(response, gneiss::ipc_asset_operation::reload, 19U,
                                          envelope) != gneiss::result::success)
     return 11;
-  envelope.kind = gneiss::ipc_message_kind::event;
+  envelope.kind = gneiss::engine::platform::ipc_message_kind::event;
   return gneiss::decode_ipc_asset_result_v2(envelope, decoded_response) ==
                      gneiss::result::invalid_argument &&
                  gneiss::ipc_asset_operations().size() == 4U

@@ -7,7 +7,7 @@
 
 namespace gneiss::editor {
 
-result decode_runtime_session_event(const ipc_envelope& envelope,
+result decode_runtime_session_event(const gneiss::engine::platform::ipc_envelope& envelope,
                                     runtime_ipc_event& output) noexcept {
   if (envelope.operation == static_cast<std::uint16_t>(ipc_session_operation::hello)) {
     return ipc_internal::decode_value<runtime_hello_event>(

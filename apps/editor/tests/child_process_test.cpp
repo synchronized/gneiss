@@ -9,15 +9,15 @@
 #include <thread>
 
 int main() try {
-  gneiss::child_process process;
-  gneiss::child_process_start_info missing;
+  gneiss::engine::platform::child_process process;
+  gneiss::engine::platform::child_process_start_info missing;
   missing.executable =
       std::filesystem::path{GNEISS_TEST_CHILD_PROCESS}.parent_path() / "missing-process";
   if (process.start(missing) != gneiss::result::not_found || process.is_running()) {
     return 1;
   }
 
-  gneiss::child_process_start_info info;
+  gneiss::engine::platform::child_process_start_info info;
   info.executable = GNEISS_TEST_CHILD_PROCESS;
   info.arguments = {"exit"};
   if (process.start(info) != gneiss::result::success || !process.has_started() ||
@@ -80,7 +80,7 @@ int main() try {
 
   const auto cleanup_started = std::chrono::steady_clock::now();
   {
-    gneiss::child_process abandoned;
+    gneiss::engine::platform::child_process abandoned;
     info.arguments = {"wait"};
     if (abandoned.start(info) != gneiss::result::success) {
       return 9;

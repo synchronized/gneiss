@@ -41,7 +41,7 @@ private:
 
 struct ipc_session_hello final {
   std::string token;
-  std::vector<ipc_domain_capability> domains;
+  std::vector<gneiss::engine::platform::ipc_domain_capability> domains;
 };
 
 struct ipc_session_heartbeat final {
@@ -57,37 +57,44 @@ struct ipc_session_shutdown final {
   std::int32_t exit_code = 0;
 };
 
-[[nodiscard]] result encode_ipc_session_hello(const ipc_session_hello& message, bool response,
-                                              std::uint32_t request_id,
-                                              ipc_envelope& output) noexcept;
-[[nodiscard]] result decode_ipc_session_hello(const ipc_envelope& envelope,
-                                              ipc_session_hello& output) noexcept;
+[[nodiscard]] result
+encode_ipc_session_hello(const ipc_session_hello& message, bool response, std::uint32_t request_id,
+                         gneiss::engine::platform::ipc_envelope& output) noexcept;
+[[nodiscard]] result
+decode_ipc_session_hello(const gneiss::engine::platform::ipc_envelope& envelope,
+                         ipc_session_hello& output) noexcept;
 
-[[nodiscard]] result encode_ipc_session_heartbeat(const ipc_session_heartbeat& message,
-                                                  bool response, std::uint32_t request_id,
-                                                  ipc_envelope& output) noexcept;
-[[nodiscard]] result decode_ipc_session_heartbeat(const ipc_envelope& envelope,
-                                                  ipc_session_heartbeat& output) noexcept;
+[[nodiscard]] result
+encode_ipc_session_heartbeat(const ipc_session_heartbeat& message, bool response,
+                             std::uint32_t request_id,
+                             gneiss::engine::platform::ipc_envelope& output) noexcept;
+[[nodiscard]] result
+decode_ipc_session_heartbeat(const gneiss::engine::platform::ipc_envelope& envelope,
+                             ipc_session_heartbeat& output) noexcept;
 
-[[nodiscard]] result encode_ipc_session_error(const ipc_session_error& message,
-                                              std::uint32_t request_id,
-                                              ipc_envelope& output) noexcept;
-[[nodiscard]] result decode_ipc_session_error(const ipc_envelope& envelope,
-                                              ipc_session_error& output) noexcept;
+[[nodiscard]] result
+encode_ipc_session_error(const ipc_session_error& message, std::uint32_t request_id,
+                         gneiss::engine::platform::ipc_envelope& output) noexcept;
+[[nodiscard]] result
+decode_ipc_session_error(const gneiss::engine::platform::ipc_envelope& envelope,
+                         ipc_session_error& output) noexcept;
 
-[[nodiscard]] result encode_ipc_session_shutdown(const ipc_session_shutdown& message,
-                                                 ipc_envelope& output) noexcept;
-[[nodiscard]] result decode_ipc_session_shutdown(const ipc_envelope& envelope,
-                                                 ipc_session_shutdown& output) noexcept;
+[[nodiscard]] result
+encode_ipc_session_shutdown(const ipc_session_shutdown& message,
+                            gneiss::engine::platform::ipc_envelope& output) noexcept;
+[[nodiscard]] result
+decode_ipc_session_shutdown(const gneiss::engine::platform::ipc_envelope& envelope,
+                            ipc_session_shutdown& output) noexcept;
 
 /** 校验 Hello 令牌并按请求顺序协商双方均支持的域版本。 */
-[[nodiscard]] result
-negotiate_ipc_session_hello(const ipc_session_hello& request, std::string_view expected_token,
-                            std::span<const ipc_domain_capability> supported_domains,
-                            ipc_session_hello& acknowledgment) noexcept;
+[[nodiscard]] result negotiate_ipc_session_hello(
+    const ipc_session_hello& request, std::string_view expected_token,
+    std::span<const gneiss::engine::platform::ipc_domain_capability> supported_domains,
+    ipc_session_hello& acknowledgment) noexcept;
 
 /** 返回 Session 域的固定方向与消息语义规则。 */
-[[nodiscard]] std::span<const ipc_operation_descriptor> ipc_session_operations() noexcept;
+[[nodiscard]] std::span<const gneiss::engine::platform::ipc_operation_descriptor>
+ipc_session_operations() noexcept;
 
 } // namespace gneiss
 

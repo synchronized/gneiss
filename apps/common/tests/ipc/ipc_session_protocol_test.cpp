@@ -10,9 +10,9 @@ namespace {
 [[nodiscard]] bool test_hello_and_negotiation() {
   const gneiss::ipc_session_hello request{
       .token = "secret",
-      .domains = {{.domain = gneiss::ipc_domain::control, .version = 2U},
-                  {.domain = gneiss::ipc_domain::property, .version = 1U}}};
-  gneiss::ipc_envelope envelope;
+      .domains = {{.domain = gneiss::engine::platform::ipc_domain::control, .version = 2U},
+                  {.domain = gneiss::engine::platform::ipc_domain::property, .version = 1U}}};
+  gneiss::engine::platform::ipc_envelope envelope;
   if (gneiss::encode_ipc_session_hello(request, false, 7U, envelope) != gneiss::result::success) {
     return false;
   }
@@ -22,8 +22,10 @@ namespace {
     return false;
   }
   constexpr std::array supported{
-      gneiss::ipc_domain_capability{.domain = gneiss::ipc_domain::control, .version = 1U},
-      gneiss::ipc_domain_capability{.domain = gneiss::ipc_domain::log, .version = 1U}};
+      gneiss::engine::platform::ipc_domain_capability{
+          .domain = gneiss::engine::platform::ipc_domain::control, .version = 1U},
+      gneiss::engine::platform::ipc_domain_capability{
+          .domain = gneiss::engine::platform::ipc_domain::log, .version = 1U}};
   gneiss::ipc_session_hello acknowledgment;
   if (gneiss::negotiate_ipc_session_hello(decoded, "secret", supported, acknowledgment) !=
           gneiss::result::success ||
@@ -38,7 +40,7 @@ namespace {
 }
 
 [[nodiscard]] bool test_session_messages() {
-  gneiss::ipc_envelope envelope;
+  gneiss::engine::platform::ipc_envelope envelope;
   const gneiss::ipc_session_heartbeat heartbeat{.nonce = 42U};
   if (gneiss::encode_ipc_session_heartbeat(heartbeat, false, 8U, envelope) !=
       gneiss::result::success) {
@@ -71,10 +73,11 @@ namespace {
 
 [[nodiscard]] bool test_rejections() {
   gneiss::ipc_session_hello request{
-      .token = "secret", .domains = {{.domain = gneiss::ipc_domain::control, .version = 1U}}};
+      .token = "secret",
+      .domains = {{.domain = gneiss::engine::platform::ipc_domain::control, .version = 1U}}};
   gneiss::ipc_session_hello output;
-  constexpr std::array supported{
-      gneiss::ipc_domain_capability{.domain = gneiss::ipc_domain::control, .version = 1U}};
+  constexpr std::array supported{gneiss::engine::platform::ipc_domain_capability{
+      .domain = gneiss::engine::platform::ipc_domain::control, .version = 1U}};
   if (gneiss::negotiate_ipc_session_hello(request, "wrong", supported, output) !=
       gneiss::result::invalid_argument) {
     return false;
@@ -84,7 +87,7 @@ namespace {
       gneiss::result::invalid_argument) {
     return false;
   }
-  gneiss::ipc_envelope envelope;
+  gneiss::engine::platform::ipc_envelope envelope;
   return gneiss::encode_ipc_session_hello(request, false, 0U, envelope) ==
          gneiss::result::invalid_argument;
 }
@@ -93,9 +96,11 @@ namespace {
   const auto operations = gneiss::ipc_session_operations();
   return operations.size() == 4U &&
          operations[0].runtime_to_editor_kinds ==
-             gneiss::ipc_kind_mask(gneiss::ipc_message_kind::request) &&
+             gneiss::engine::platform::ipc_kind_mask(
+                 gneiss::engine::platform::ipc_message_kind::request) &&
          operations[0].editor_to_runtime_kinds ==
-             gneiss::ipc_kind_mask(gneiss::ipc_message_kind::response) &&
+             gneiss::engine::platform::ipc_kind_mask(
+                 gneiss::engine::platform::ipc_message_kind::response) &&
          operations[3].editor_to_runtime_kinds == 0U;
 }
 

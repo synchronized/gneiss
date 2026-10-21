@@ -7,6 +7,8 @@
 
 namespace gneiss::runtime_internal {
 
-result make_ready_event(ipc_envelope& output) noexcept { return encode_ipc_control_ready(output); }
+result make_ready_event(gneiss::engine::platform::ipc_envelope& output) noexcept {
+  return encode_ipc_control_ready(output);
+}
 
 } // namespace gneiss::runtime_internal

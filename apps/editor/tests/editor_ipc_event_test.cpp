@@ -4,7 +4,7 @@
 #include "editor_ipc_event.hpp"
 
 int main() {
-  gneiss::ipc_envelope envelope;
+  gneiss::engine::platform::ipc_envelope envelope;
   if (gneiss::encode_ipc_control_state(gneiss::ipc_control_state::paused, envelope) !=
       gneiss::result::success) {
     return 1;
@@ -34,7 +34,7 @@ int main() {
       std::get<gneiss::editor::runtime_asset_result_event>(event).value.revision != 4U) {
     return 4;
   }
-  envelope.domain = gneiss::ipc_domain::property;
+  envelope.domain = gneiss::engine::platform::ipc_domain::property;
   return gneiss::editor::decode_runtime_property_event(envelope, event) != gneiss::result::success
              ? 0
              : 5;

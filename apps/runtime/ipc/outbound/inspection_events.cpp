@@ -7,8 +7,9 @@
 
 namespace gneiss::runtime_internal {
 
-result make_scene_snapshot_events(const ipc_inspection_batch& batch,
-                                  std::vector<ipc_envelope>& output) noexcept {
+result
+make_scene_snapshot_events(const ipc_inspection_batch& batch,
+                           std::vector<gneiss::engine::platform::ipc_envelope>& output) noexcept {
   return encode_ipc_inspection_batch_v2(batch, output);
 }
 

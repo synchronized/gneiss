@@ -11,7 +11,9 @@ namespace {
 
 constexpr std::uint32_t envelope_magic = UINT32_C(0x474E4932);
 constexpr std::size_t max_decoder_buffer_size =
-    (gneiss::ipc_envelope_header_size + gneiss::ipc_envelope_max_payload_size) * 2U;
+    (gneiss::engine::platform::ipc_envelope_header_size +
+     gneiss::engine::platform::ipc_envelope_max_payload_size) *
+    2U;
 
 void write_u16(std::uint8_t* destination, std::uint16_t value) noexcept {
   destination[0] = static_cast<std::uint8_t>(value >> 8U);
@@ -36,12 +38,12 @@ void write_u32(std::uint8_t* destination, std::uint32_t value) noexcept {
          (static_cast<std::uint32_t>(source[2]) << 8U) | static_cast<std::uint32_t>(source[3]);
 }
 
-[[nodiscard]] bool is_known_kind(gneiss::ipc_message_kind kind) noexcept {
+[[nodiscard]] bool is_known_kind(gneiss::engine::platform::ipc_message_kind kind) noexcept {
   switch (kind) {
-  case gneiss::ipc_message_kind::event:
-  case gneiss::ipc_message_kind::request:
-  case gneiss::ipc_message_kind::response:
-  case gneiss::ipc_message_kind::error:
+  case gneiss::engine::platform::ipc_message_kind::event:
+  case gneiss::engine::platform::ipc_message_kind::request:
+  case gneiss::engine::platform::ipc_message_kind::response:
+  case gneiss::engine::platform::ipc_message_kind::error:
     return true;
   }
   return false;
@@ -49,7 +51,7 @@ void write_u32(std::uint8_t* destination, std::uint32_t value) noexcept {
 
 } // namespace
 
-namespace gneiss {
+namespace gneiss::engine::platform {
 
 result validate_ipc_envelope(const ipc_envelope& envelope) noexcept {
   if (envelope.protocol_major != ipc_v2_protocol_major ||
@@ -167,4 +169,4 @@ bool ipc_envelope_decoder::has_failed() const noexcept { return has_failed_; }
 
 std::size_t ipc_envelope_decoder::buffered_size() const noexcept { return buffer_.size(); }
 
-} // namespace gneiss
+} // namespace gneiss::engine::platform

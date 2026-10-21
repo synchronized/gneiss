@@ -8,13 +8,15 @@
 namespace gneiss::runtime_internal {
 namespace {
 
-result validate(const ipc_envelope& envelope, ipc_control_operation expected) noexcept {
+result validate(const gneiss::engine::platform::ipc_envelope& envelope,
+                ipc_control_operation expected) noexcept {
   ipc_control_operation decoded = ipc_control_operation::invalid;
   const auto operation = decode_ipc_control_request(envelope, decoded);
   return operation == result::success && decoded != expected ? result::invalid_argument : operation;
 }
 
-result handle_pause(const ipc_envelope& envelope, runtime_command_context& context) noexcept {
+result handle_pause(const gneiss::engine::platform::ipc_envelope& envelope,
+                    runtime_command_context& context) noexcept {
   const auto decoded = validate(envelope, ipc_control_operation::pause);
   if (decoded != result::success) {
     return decoded;
@@ -29,7 +31,8 @@ result handle_pause(const ipc_envelope& envelope, runtime_command_context& conte
   return context.send_state(ipc_control_state::paused);
 }
 
-result handle_resume(const ipc_envelope& envelope, runtime_command_context& context) noexcept {
+result handle_resume(const gneiss::engine::platform::ipc_envelope& envelope,
+                     runtime_command_context& context) noexcept {
   const auto decoded = validate(envelope, ipc_control_operation::resume);
   if (decoded != result::success) {
     return decoded;
@@ -44,7 +47,8 @@ result handle_resume(const ipc_envelope& envelope, runtime_command_context& cont
   return context.send_state(ipc_control_state::running);
 }
 
-result handle_stop(const ipc_envelope& envelope, runtime_command_context& context) noexcept {
+result handle_stop(const gneiss::engine::platform::ipc_envelope& envelope,
+                   runtime_command_context& context) noexcept {
   const auto decoded = validate(envelope, ipc_control_operation::stop);
   if (decoded != result::success || context.state() == runtime_ipc_state::stopping) {
     return decoded;
@@ -57,15 +61,16 @@ result handle_stop(const ipc_envelope& envelope, runtime_command_context& contex
 } // namespace
 
 result register_runtime_control_commands(runtime_command_router& router) noexcept {
-  auto operation = router.bind(
-      ipc_domain::control, static_cast<std::uint16_t>(ipc_control_operation::pause), handle_pause);
+  auto operation =
+      router.bind(gneiss::engine::platform::ipc_domain::control,
+                  static_cast<std::uint16_t>(ipc_control_operation::pause), handle_pause);
   if (operation == result::success) {
     operation =
-        router.bind(ipc_domain::control, static_cast<std::uint16_t>(ipc_control_operation::resume),
-                    handle_resume);
+        router.bind(gneiss::engine::platform::ipc_domain::control,
+                    static_cast<std::uint16_t>(ipc_control_operation::resume), handle_resume);
   }
   if (operation == result::success) {
-    operation = router.bind(ipc_domain::control,
+    operation = router.bind(gneiss::engine::platform::ipc_domain::control,
                             static_cast<std::uint16_t>(ipc_control_operation::stop), handle_stop);
   }
   return operation;

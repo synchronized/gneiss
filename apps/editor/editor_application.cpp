@@ -134,7 +134,7 @@ struct editor_state {
   gneiss::editor::runtime_process runtime;
   gneiss::result runtime_result = gneiss::result::success;
   bool runtime_attempted = false;
-  gneiss::child_process package_process;
+  gneiss::engine::platform::child_process package_process;
   gneiss::result package_result = gneiss::result::success;
   bool package_attempted = false;
   bool show_package_dialog = false;
@@ -1805,7 +1805,7 @@ gneiss_result update_editor(const gneiss::engine::core::frame_time* time, void* 
         if (ImGui::Button("Export")) {
           static constexpr std::array<std::string_view, 3U> profile_names = {"debug", "development",
                                                                              "shipping"};
-          gneiss::child_process_start_info info;
+          gneiss::engine::platform::child_process_start_info info;
           info.executable = GNEISS_EDITOR_PROJECT_PATH;
           info.working_directory = state.project_root;
           info.arguments = {"package", state.project_root, GNEISS_EDITOR_RUNTIME_PATH,

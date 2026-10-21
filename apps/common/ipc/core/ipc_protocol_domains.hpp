@@ -11,11 +11,13 @@
 namespace gneiss {
 
 /** 当前 v2 标准域能力；顺序同时作为握手请求的稳定优先级。 */
-[[nodiscard]] std::span<const ipc_domain_capability> ipc_v2_domain_capabilities() noexcept;
+[[nodiscard]] std::span<const gneiss::engine::platform::ipc_domain_capability>
+ipc_v2_domain_capabilities() noexcept;
 
 /** 使用统一入口原子建立当前 v2 标准域注册表。 */
-[[nodiscard]] result register_ipc_v2_domains(ipc_domain_handler handler, void* handler_context,
-                                             ipc_domain_registry& output) noexcept;
+[[nodiscard]] result
+register_ipc_v2_domains(gneiss::engine::platform::ipc_domain_handler handler, void* handler_context,
+                        gneiss::engine::platform::ipc_domain_registry& output) noexcept;
 
 } // namespace gneiss
 

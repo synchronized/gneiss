@@ -18,12 +18,13 @@ namespace {
 
 using namespace std::chrono_literals;
 
-bool poll_envelope(gneiss::ipc_transport& transport, gneiss::ipc_envelope& output) {
-  std::vector<gneiss::ipc_transport_event> events;
+bool poll_envelope(gneiss::engine::platform::ipc_transport& transport,
+                   gneiss::engine::platform::ipc_envelope& output) {
+  std::vector<gneiss::engine::platform::ipc_transport_event> events;
   // 每次只取一条，避免返回首个 Envelope 时丢弃同批次中的 Ready 或属性响应。
   (void)transport.poll_events(events, 1U);
   for (auto& event : events) {
-    if (event.type == gneiss::ipc_transport_event_type::envelope_received) {
+    if (event.type == gneiss::engine::platform::ipc_transport_event_type::envelope_received) {
       output = std::move(event.envelope);
       return true;
     }
@@ -31,9 +32,9 @@ bool poll_envelope(gneiss::ipc_transport& transport, gneiss::ipc_envelope& outpu
   return false;
 }
 
-bool send_control(gneiss::ipc_transport& transport, gneiss::ipc_control_operation operation,
-                  std::uint32_t request_id) {
-  gneiss::ipc_envelope envelope;
+bool send_control(gneiss::engine::platform::ipc_transport& transport,
+                  gneiss::ipc_control_operation operation, std::uint32_t request_id) {
+  gneiss::engine::platform::ipc_envelope envelope;
   return gneiss::encode_ipc_control_request(operation, request_id, envelope) ==
              gneiss::result::success &&
          transport.send(envelope) == gneiss::result::success;
@@ -55,12 +56,12 @@ bool wait_for_action(gneiss::runtime_internal::runtime_ipc_session& session,
   return false;
 }
 
-bool complete_handshake(gneiss::ipc_transport& server,
+bool complete_handshake(gneiss::engine::platform::ipc_transport& server,
                         gneiss::runtime_internal::runtime_ipc_session& session,
-                        std::span<const gneiss::ipc_domain_capability> supported =
+                        std::span<const gneiss::engine::platform::ipc_domain_capability> supported =
                             gneiss::ipc_v2_domain_capabilities()) {
   gneiss::runtime_internal::runtime_ipc_actions actions;
-  gneiss::ipc_envelope hello;
+  gneiss::engine::platform::ipc_envelope hello;
   const auto deadline = std::chrono::steady_clock::now() + 3s;
   while (std::chrono::steady_clock::now() < deadline && !poll_envelope(server, hello)) {
     if (session.pump(std::chrono::steady_clock::now(), actions) != gneiss::result::success) {
@@ -70,7 +71,7 @@ bool complete_handshake(gneiss::ipc_transport& server,
   }
   gneiss::ipc_session_hello request;
   gneiss::ipc_session_hello acknowledgment_message;
-  gneiss::ipc_envelope acknowledgment;
+  gneiss::engine::platform::ipc_envelope acknowledgment;
   if (gneiss::decode_ipc_session_hello(hello, request) != gneiss::result::success ||
       gneiss::negotiate_ipc_session_hello(request, "secret", supported, acknowledgment_message) !=
           gneiss::result::success ||
@@ -93,7 +94,7 @@ bool complete_handshake(gneiss::ipc_transport& server,
 }
 
 bool test_property_write_round_trip() {
-  gneiss::ipc_transport server;
+  gneiss::engine::platform::ipc_transport server;
   if (server.start_server() != gneiss::result::success) {
     return false;
   }
@@ -113,7 +114,7 @@ bool test_property_write_round_trip() {
                                      .field_id = 4U,
                                      .expected_revision = 1U,
                                      .value = {std::array<float, 3>{1.0F, 2.0F, 3.0F}}};
-  gneiss::ipc_envelope frame;
+  gneiss::engine::platform::ipc_envelope frame;
   if (gneiss::encode_ipc_property_write_v2(command, 11U, frame) != gneiss::result::success ||
       server.send(frame) != gneiss::result::success) {
     return false;
@@ -156,7 +157,7 @@ bool test_property_write_round_trip() {
 }
 
 bool test_property_flood_does_not_block_stop() {
-  gneiss::ipc_transport server;
+  gneiss::engine::platform::ipc_transport server;
   if (server.start_server() != gneiss::result::success) {
     return false;
   }
@@ -176,7 +177,7 @@ bool test_property_flood_does_not_block_stop() {
                                              .field_id = 4U,
                                              .expected_revision = 1U,
                                              .value = {true}};
-    gneiss::ipc_envelope frame;
+    gneiss::engine::platform::ipc_envelope frame;
     if (gneiss::encode_ipc_property_write_v2(command, static_cast<std::uint32_t>(index), frame) !=
             gneiss::result::success ||
         server.send(frame) != gneiss::result::success) {
@@ -201,7 +202,7 @@ bool test_property_flood_does_not_block_stop() {
 }
 
 bool test_control_lifecycle() {
-  gneiss::ipc_transport server;
+  gneiss::engine::platform::ipc_transport server;
   if (server.start_server() != gneiss::result::success) {
     return false;
   }
@@ -238,7 +239,7 @@ bool test_control_lifecycle() {
   }
 
   gneiss::runtime_internal::runtime_ipc_actions actions;
-  gneiss::ipc_envelope resync;
+  gneiss::engine::platform::ipc_envelope resync;
   if (gneiss::encode_ipc_inspection_resync(10U, resync) != gneiss::result::success ||
       server.send(resync) != gneiss::result::success ||
       !wait_for_action(session, actions,
@@ -254,7 +255,7 @@ bool test_control_lifecycle() {
     return false;
   }
 
-  gneiss::ipc_envelope heartbeat;
+  gneiss::engine::platform::ipc_envelope heartbeat;
   if (gneiss::encode_ipc_session_heartbeat({.nonce = 42U}, false, 12U, heartbeat) !=
           gneiss::result::success ||
       server.send(heartbeat) != gneiss::result::success) {
@@ -267,14 +268,14 @@ bool test_control_lifecycle() {
     if (session.pump(std::chrono::steady_clock::now(), actions) != gneiss::result::success) {
       return false;
     }
-    std::vector<gneiss::ipc_transport_event> events;
+    std::vector<gneiss::engine::platform::ipc_transport_event> events;
     (void)server.poll_events(events);
     for (const auto& event : events) {
-      if (event.type == gneiss::ipc_transport_event_type::envelope_received) {
+      if (event.type == gneiss::engine::platform::ipc_transport_event_type::envelope_received) {
         gneiss::ipc_session_heartbeat decoded_heartbeat;
         if (gneiss::decode_ipc_session_heartbeat(event.envelope, decoded_heartbeat) ==
                 gneiss::result::success &&
-            event.envelope.kind == gneiss::ipc_message_kind::response &&
+            event.envelope.kind == gneiss::engine::platform::ipc_message_kind::response &&
             decoded_heartbeat.nonce == 42U) {
           received_pong = true;
         }
@@ -306,7 +307,7 @@ bool test_control_lifecycle() {
 }
 
 bool test_handshake_timeout() {
-  gneiss::ipc_transport server;
+  gneiss::engine::platform::ipc_transport server;
   if (server.start_server() != gneiss::result::success) {
     return false;
   }
@@ -324,7 +325,7 @@ bool test_handshake_timeout() {
 }
 
 bool test_heartbeat_timeout() {
-  gneiss::ipc_transport server;
+  gneiss::engine::platform::ipc_transport server;
   if (server.start_server() != gneiss::result::success) {
     return false;
   }
@@ -343,7 +344,7 @@ bool test_heartbeat_timeout() {
 }
 
 bool test_disconnect() {
-  gneiss::ipc_transport server;
+  gneiss::engine::platform::ipc_transport server;
   if (server.start_server() != gneiss::result::success) {
     return false;
   }

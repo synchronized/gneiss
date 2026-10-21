@@ -61,17 +61,20 @@ struct ipc_property_write_result final {
 [[nodiscard]] result decode_ipc_property_write_result(std::span<const std::uint8_t> payload,
                                                       ipc_property_write_result& output) noexcept;
 
-[[nodiscard]] result encode_ipc_property_write_v2(const ipc_property_write& command,
-                                                  std::uint32_t request_id,
-                                                  ipc_envelope& output) noexcept;
-[[nodiscard]] result decode_ipc_property_write_v2(const ipc_envelope& envelope,
-                                                  ipc_property_write& output) noexcept;
-[[nodiscard]] result encode_ipc_property_result_v2(const ipc_property_write_result& response,
-                                                   std::uint32_t request_id,
-                                                   ipc_envelope& output) noexcept;
-[[nodiscard]] result decode_ipc_property_result_v2(const ipc_envelope& envelope,
-                                                   ipc_property_write_result& output) noexcept;
-[[nodiscard]] std::span<const ipc_operation_descriptor> ipc_property_operations() noexcept;
+[[nodiscard]] result
+encode_ipc_property_write_v2(const ipc_property_write& command, std::uint32_t request_id,
+                             gneiss::engine::platform::ipc_envelope& output) noexcept;
+[[nodiscard]] result
+decode_ipc_property_write_v2(const gneiss::engine::platform::ipc_envelope& envelope,
+                             ipc_property_write& output) noexcept;
+[[nodiscard]] result
+encode_ipc_property_result_v2(const ipc_property_write_result& response, std::uint32_t request_id,
+                              gneiss::engine::platform::ipc_envelope& output) noexcept;
+[[nodiscard]] result
+decode_ipc_property_result_v2(const gneiss::engine::platform::ipc_envelope& envelope,
+                              ipc_property_write_result& output) noexcept;
+[[nodiscard]] std::span<const gneiss::engine::platform::ipc_operation_descriptor>
+ipc_property_operations() noexcept;
 
 } // namespace gneiss
 

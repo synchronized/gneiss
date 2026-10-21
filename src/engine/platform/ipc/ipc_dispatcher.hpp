@@ -13,7 +13,7 @@
 #include <string_view>
 #include <vector>
 
-namespace gneiss {
+namespace gneiss::engine::platform {
 
 enum class ipc_peer_role : std::uint8_t {
   editor,
@@ -116,6 +116,6 @@ private:
   const ipc_domain_registry* registry_;
 };
 
-} // namespace gneiss
+} // namespace gneiss::engine::platform
 
 #endif

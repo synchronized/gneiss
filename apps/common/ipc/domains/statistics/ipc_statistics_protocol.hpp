@@ -34,11 +34,14 @@ struct ipc_runtime_statistics final {
 [[nodiscard]] result decode_ipc_runtime_statistics(std::span<const std::uint8_t> payload,
                                                    ipc_runtime_statistics& output) noexcept;
 
-[[nodiscard]] result encode_ipc_statistics_v2(const ipc_runtime_statistics& statistics,
-                                              ipc_envelope& output) noexcept;
-[[nodiscard]] result decode_ipc_statistics_v2(const ipc_envelope& envelope,
-                                              ipc_runtime_statistics& output) noexcept;
-[[nodiscard]] std::span<const ipc_operation_descriptor> ipc_statistics_operations() noexcept;
+[[nodiscard]] result
+encode_ipc_statistics_v2(const ipc_runtime_statistics& statistics,
+                         gneiss::engine::platform::ipc_envelope& output) noexcept;
+[[nodiscard]] result
+decode_ipc_statistics_v2(const gneiss::engine::platform::ipc_envelope& envelope,
+                         ipc_runtime_statistics& output) noexcept;
+[[nodiscard]] std::span<const gneiss::engine::platform::ipc_operation_descriptor>
+ipc_statistics_operations() noexcept;
 
 } // namespace gneiss
 
