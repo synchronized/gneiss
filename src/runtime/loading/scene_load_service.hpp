@@ -4,11 +4,11 @@
 #pragma once
 #include "runtime/loading/scene_load_types.hpp"
 
-#include "runtime/loading/application_scene_state.hpp"
 #include "engine/function/render/texture_load_service.hpp"
 #include "engine/function/scene/scene_load_builder.hpp"
+#include "runtime/loading/application_scene_state.hpp"
 
-namespace gneiss::application_internal {
+namespace gneiss::runtime {
 
 /** 仅所属线程操作；使用宿主执行器，不新建线程。一个未消费请求占一个槽位。
  * ready 仍是私有域，宿主显式取得候选后才可在模块生命周期安全点切换。 */
@@ -57,4 +57,4 @@ private:
   const std::thread::id owner_{std::this_thread::get_id()};
 };
 
-} // namespace gneiss::application_internal
+} // namespace gneiss::runtime

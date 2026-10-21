@@ -61,15 +61,13 @@ void run(gneiss::tasks::execution_mode mode) {
   desc.asset_root_length = static_cast<std::uint32_t>(root.size());
   check(gneiss::result{gneiss_application_create(&desc, app.put())} == result::success);
   // 旧取消入口在无服务和无在途请求时保持幂等成功。
-  check(application_internal::cancel_textures(app.get()) == GNEISS_SUCCESS);
-  check(application_internal::attach_task_executor(app.get(), scheduler) == GNEISS_SUCCESS);
-  check(application_internal::cancel_textures(app.get()) == GNEISS_SUCCESS);
-  check(application_internal::attach_task_executor(app.get(), scheduler) ==
-        GNEISS_ERROR_INVALID_STATE);
+  check(runtime::cancel_textures(app.get()) == GNEISS_SUCCESS);
+  check(runtime::attach_task_executor(app.get(), scheduler) == GNEISS_SUCCESS);
+  check(runtime::cancel_textures(app.get()) == GNEISS_SUCCESS);
+  check(runtime::attach_task_executor(app.get(), scheduler) == GNEISS_ERROR_INVALID_STATE);
   const std::vector<std::string> uris{"asset://a.texture.json"};
   std::uint64_t request{};
-  check(application_internal::request_textures(app.get(), uris, 2U, 1U, request, false) ==
-        GNEISS_SUCCESS);
+  check(runtime::request_textures(app.get(), uris, 2U, 1U, request, false) == GNEISS_SUCCESS);
   render_internal::texture_load_completion completion;
   bool ready{};
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
@@ -77,7 +75,7 @@ void run(gneiss::tasks::execution_mode mode) {
     if (mode == tasks::execution_mode::cooperative) {
       (void)scheduler.run_ready();
     }
-    check(application_internal::poll_textures(app.get(), completion, ready) == GNEISS_SUCCESS);
+    check(runtime::poll_textures(app.get(), completion, ready) == GNEISS_SUCCESS);
     check(std::chrono::steady_clock::now() < deadline);
     std::this_thread::yield();
   }
@@ -90,8 +88,7 @@ void run(gneiss::tasks::execution_mode mode) {
       if (mode == tasks::execution_mode::cooperative) {
         (void)scheduler.run_ready();
       }
-      check(application_internal::poll_textures(app.get(), completion, completed) ==
-            GNEISS_SUCCESS);
+      check(runtime::poll_textures(app.get(), completion, completed) == GNEISS_SUCCESS);
       check(std::chrono::steady_clock::now() < limit);
       std::this_thread::yield();
     }
@@ -114,15 +111,14 @@ void run(gneiss::tasks::execution_mode mode) {
   const auto capture = [&](std::uint64_t index) {
     gneiss_scene_instance_node_info info = GNEISS_SCENE_INSTANCE_NODE_INFO_INIT;
     check(gneiss_scene_instance_get_node_info(app.get(), scene, index, &info) == GNEISS_SUCCESS);
-    application_internal::mesh_binding value;
-    check(application_internal::capture_mesh_binding(app.get(), scene, info.node, value) ==
-          GNEISS_SUCCESS);
+    runtime::mesh_binding value;
+    check(runtime::capture_mesh_binding(app.get(), scene, info.node, value) == GNEISS_SUCCESS);
     return value;
   };
   const auto initial = capture(0);
   check(initial.material == capture(1).material);
   write_material(true);
-  check(application_internal::request_textures(app.get(), uris, 2U, 3U, request) == GNEISS_SUCCESS);
+  check(runtime::request_textures(app.get(), uris, 2U, 3U, request) == GNEISS_SUCCESS);
   wait();
   // 仅请求纹理也必须重新准备引用它的材质，并返回固定版本回执。
   check(completion.result == GNEISS_SUCCESS && completion.assets.size() == 2U &&
@@ -131,16 +127,15 @@ void run(gneiss::tasks::execution_mode mode) {
   const render_internal::render_asset_reload material_source{
       .uri = "asset://m.material", .type = render_internal::render_asset_type::material};
   render_internal::render_asset_lease selected_before;
-  check(application_internal::query_ready_asset(app.get(), material_source, selected_before) ==
-        GNEISS_SUCCESS);
+  check(runtime::query_ready_asset(app.get(), material_source, selected_before) == GNEISS_SUCCESS);
   write_material(false);
-  check(application_internal::prepare_edit_assets(app.get(), {&material_source, 1}, 31U, request) ==
+  check(runtime::prepare_edit_assets(app.get(), {&material_source, 1}, 31U, request) ==
         GNEISS_SUCCESS);
   wait();
   check(completion.result == GNEISS_SUCCESS);
   unsigned applied{};
   const auto accept = [&](const std::function<gneiss_result()>& apply) {
-    return application_internal::accept_edit_assets(app.get(), completion, apply);
+    return runtime::accept_edit_assets(app.get(), completion, apply);
   };
   check(accept({}) == GNEISS_ERROR_INVALID_ARGUMENT);
   check(accept([&] {
@@ -151,22 +146,20 @@ void run(gneiss::tasks::execution_mode mode) {
   check(accept([]() -> gneiss_result { throw std::runtime_error("应用失败"); }) ==
         GNEISS_ERROR_INTERNAL);
   render_internal::render_asset_lease selected_after;
-  check(application_internal::query_ready_asset(app.get(), material_source, selected_after) ==
-            GNEISS_SUCCESS &&
+  check(runtime::query_ready_asset(app.get(), material_source, selected_after) == GNEISS_SUCCESS &&
         selected_before == selected_after);
   check(accept([&] {
           ++applied;
           return GNEISS_SUCCESS;
         }) == GNEISS_SUCCESS &&
         applied == 2U);
-  check(application_internal::query_ready_asset(app.get(), material_source, selected_after) ==
-            GNEISS_SUCCESS &&
+  check(runtime::query_ready_asset(app.get(), material_source, selected_after) == GNEISS_SUCCESS &&
         selected_before != selected_after);
   // 恢复后续重载用例的输入；这里不修改场景使用者。
   write_material(true);
   const auto updated = capture(0);
   check(updated.material == capture(1).material && updated.material != initial.material);
-  check(application_internal::request_textures(app.get(), uris, 2U, 4U, request) == GNEISS_SUCCESS);
+  check(runtime::request_textures(app.get(), uris, 2U, 4U, request) == GNEISS_SUCCESS);
   wait();
   check(completion.result == GNEISS_SUCCESS && completion.versions == versions);
   // 只改变纹理负载，材质文档字节不变；两个使用者仍须切换到同一新材质产物。
@@ -181,21 +174,20 @@ void run(gneiss::tasks::execution_mode mode) {
     stream.write(reinterpret_cast<const char*>(bytes.data()),
                  static_cast<std::streamsize>(bytes.size()));
   }
-  check(application_internal::request_textures(app.get(), uris, 2U, 40U, request) ==
-        GNEISS_SUCCESS);
+  check(runtime::request_textures(app.get(), uris, 2U, 40U, request) == GNEISS_SUCCESS);
   wait();
   check(completion.result == GNEISS_SUCCESS && completion.versions != versions);
   const auto textured = capture(0);
   check(textured.material == capture(1).material && textured.material != updated.material);
   std::ofstream(files.root / "m.material") << "broken";
-  check(application_internal::request_textures(app.get(), uris, 2U, 5U, request) == GNEISS_SUCCESS);
+  check(runtime::request_textures(app.get(), uris, 2U, 5U, request) == GNEISS_SUCCESS);
   wait();
   check(completion.result != GNEISS_SUCCESS && completion.assets.empty() &&
         completion.versions.empty());
   check(capture(0).material == textured.material && capture(1).material == textured.material);
   write_material(false);
-  check(application_internal::request_textures(app.get(), uris, 2U, 6U, request) == GNEISS_SUCCESS);
-  check(application_internal::cancel_render_assets(app.get()) == GNEISS_SUCCESS);
+  check(runtime::request_textures(app.get(), uris, 2U, 6U, request) == GNEISS_SUCCESS);
+  check(runtime::cancel_render_assets(app.get()) == GNEISS_SUCCESS);
   wait();
   check(completion.state == render_internal::texture_load_state::cancelled &&
         completion.assets.empty());
@@ -204,7 +196,7 @@ void run(gneiss::tasks::execution_mode mode) {
   check(gneiss_scene_instance_get_node_info(app.get(), scene, 0U, &node) == GNEISS_SUCCESS);
   gneiss_world world{};
   check(gneiss_application_get_world(app.get(), &world) == GNEISS_SUCCESS);
-  check(application_internal::request_textures(app.get(), uris, 2U, 7U, request) == GNEISS_SUCCESS);
+  check(runtime::request_textures(app.get(), uris, 2U, 7U, request) == GNEISS_SUCCESS);
   const gneiss_mesh_renderer external{UINT64_MAX, UINT64_MAX};
   check(gneiss_world_entity_set_mesh_renderer(world, node.entity, &external) == GNEISS_SUCCESS);
   wait();
@@ -220,12 +212,12 @@ void run(gneiss::tasks::execution_mode mode) {
   check(gneiss_scene_instance_unload(app.get(), scene) == GNEISS_SUCCESS);
   check(gneiss_scene_instance_load(app.get(), scene_uri.data(), scene_uri.size(), &scene) ==
         GNEISS_SUCCESS);
-  check(application_internal::request_textures(app.get(), uris, 2U, 8U, request) == GNEISS_SUCCESS);
+  check(runtime::request_textures(app.get(), uris, 2U, 8U, request) == GNEISS_SUCCESS);
   wait();
   check(completion.result == GNEISS_SUCCESS && completion.versions.size() == 2U);
   completion = {}; // 所有租约必须先于 Application 销毁。
-  check(application_internal::request_textures(app.get(), uris, 2U, 2U, request) == GNEISS_SUCCESS);
-  check(application_internal::cancel_textures(app.get()) == GNEISS_SUCCESS);
+  check(runtime::request_textures(app.get(), uris, 2U, 2U, request) == GNEISS_SUCCESS);
+  check(runtime::cancel_textures(app.get()) == GNEISS_SUCCESS);
   // app 析构完成取消与作用域回收；注入的宿主池仍然有效。
 }
 }

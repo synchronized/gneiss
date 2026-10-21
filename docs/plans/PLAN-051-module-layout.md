@@ -190,3 +190,17 @@ Session 初始化成功后才发布活动域。
 从宿主库移入编辑器库，三项流程测试直接链接编辑器库；没有新增协调器或重复状态。
 宿主仍负责模态 UI、请求互斥与关闭推进，下一步审查这部分编排的最小可抽取接口。
 见[控制器迁移验收](../records/2026-10-21-editor-async-controller-boundary.md)。
+
+## 命名空间统一（2026-10-21）
+
+按已确认目录职责统一，不再以 xxx_internal 作为模块名称。目标：Engine 的 core/platform/
+resource 及 function 下 world/scene/render/input 分别使用 gneiss::engine 对应子命名空间；
+function 不进入命名空间。Runtime 使用 gneiss::runtime，Editor 使用 gneiss::editor。
+模块内部辅助实现采用 detail 或匿名命名空间。私有性仍由安装和 target 可见性控制。
+
+分批顺序：Runtime 的 Application/加载/游戏上下文；Engine resource；各 function 领域；
+core/platform 及剩余边界辅助。每批移除旧声明与引用，不使用兼容别名。
+World 类须随领域迁入 gneiss::engine::world::world，避免与领域命名空间冲突。
+不修改公共 C 符号及共享值类型，不增加运行时状态；内部 C++ 消费者需同源码重编译。
+
+Runtime 首批命名迁移已验证，见[验收记录](../records/2026-10-21-runtime-namespace.md)。Engine 各领域仍待迁移。

@@ -7,7 +7,7 @@
 #include "runtime/loading/application_scene_state.hpp"
 #include "runtime/loading/scene_load_service.hpp"
 
-namespace gneiss::application_internal {
+namespace gneiss::runtime {
 
 /** 场景生命周期的唯一拥有者；全部调用限宿主线程。
  * 借用的文件系统、渲染服务与执行器必须存活至 shutdown 返回。
@@ -69,6 +69,6 @@ private:
   std::vector<render_internal::render_asset_lease> previous_assets_;
 };
 
-} // namespace gneiss::application_internal
+} // namespace gneiss::runtime
 
 #endif

@@ -46,7 +46,7 @@ int main() try {
   gneiss::editor::scene_document session;
   if (gneiss::result{gneiss_application_create(&desc, application.put())} != result::success ||
       gneiss::result{gneiss_application_get_world(application.get(), &world)} != result::success ||
-      session.open(*gneiss::application_internal::find_application(application.get()), world,
+      session.open(*gneiss::runtime::find_application(application.get()), world,
                    "asset://scenes/triangle.scene.json") != result::success) {
     return 1;
   }
@@ -162,7 +162,7 @@ int main() try {
       history.size() != 0U) {
     return 12;
   }
-  if (session.open(*gneiss::application_internal::find_application(application.get()), world,
+  if (session.open(*gneiss::runtime::find_application(application.get()), world,
                    "asset://scenes/prefab.scene.json") != result::success ||
       session.select(session.prefab_nodes()[1].node) != result::success) {
     return 13;
@@ -194,7 +194,7 @@ int main() try {
     return 15;
   }
   history.clear();
-  if (session.open(*gneiss::application_internal::find_application(application.get()), world,
+  if (session.open(*gneiss::runtime::find_application(application.get()), world,
                    "asset://scenes/triangle.scene.json") != result::success ||
       session.select(session.nodes()[1].node) != result::success) {
     return 16;

@@ -63,7 +63,7 @@ int main() try {
   }
 
   write_scene(scene_path, "{}");
-  if (gneiss::application_internal::reload_scene(application, scene, uri) != GNEISS_SUCCESS) {
+  if (gneiss::runtime::reload_scene(application, scene, uri) != GNEISS_SUCCESS) {
     return 2;
   }
   gneiss_scene_node_id camera_after = GNEISS_NULL_SCENE_NODE_ID;
@@ -90,8 +90,7 @@ int main() try {
   write_scene(
       scene_path,
       R"({"mesh_renderer":{"mesh":"asset://models/missing.mesh.json","material":"asset://materials/triangle.material.json"}})");
-  if (gneiss::application_internal::reload_scene(application, scene, uri) !=
-          GNEISS_ERROR_NOT_FOUND ||
+  if (gneiss::runtime::reload_scene(application, scene, uri) != GNEISS_ERROR_NOT_FOUND ||
       gneiss_scene_instance_find_node(application, scene, camera_uuid.data(), camera_uuid.size(),
                                       &camera_after) != GNEISS_SUCCESS ||
       camera_after != camera_before ||

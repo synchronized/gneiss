@@ -12,12 +12,12 @@ namespace gneiss::log_internal {
 struct message_view;
 }
 
-namespace gneiss::application_internal {
+namespace gneiss::runtime {
 
 [[nodiscard]] gneiss_result submit_application_log(gneiss_application application,
                                                    const log_internal::message_view& message,
                                                    std::string_view source) noexcept;
 
-} // namespace gneiss::application_internal
+} // namespace gneiss::runtime
 
 #endif

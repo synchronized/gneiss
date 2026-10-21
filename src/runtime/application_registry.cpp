@@ -9,11 +9,11 @@
 #include <new>
 #include <utility>
 
-namespace gneiss::application_internal {
+namespace gneiss::runtime {
 namespace {
 struct application_entry {
   application_resource owner;
-  std::weak_ptr<engine::application> borrowed;
+  std::weak_ptr<runtime::application> borrowed;
   std::thread::id thread;
 };
 using application_table = gneiss::core::rid_table<application_entry>;
@@ -57,7 +57,7 @@ gneiss_result create_application(const application_configuration& config,
   output = GNEISS_NULL_APPLICATION;
   try {
     application_resource state;
-    const auto initialize_result = engine::application::create(config, state);
+    const auto initialize_result = runtime::application::create(config, state);
     if (initialize_result != GNEISS_SUCCESS) {
       return initialize_result;
     }
@@ -146,4 +146,4 @@ gneiss_result application_bridge::reset() noexcept {
   return result;
 }
 
-} // namespace gneiss::application_internal
+} // namespace gneiss::runtime

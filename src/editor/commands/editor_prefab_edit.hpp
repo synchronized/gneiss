@@ -13,12 +13,12 @@ class editor_prefab_edit final {
 public:
   editor_prefab_edit();
   ~editor_prefab_edit();
-  result request(engine::application& application, tasks::task_executor& executor,
+  result request(runtime::application& application, tasks::task_executor& executor,
                  scene_document& session, editor_command_history& history, std::string_view name,
                  std::string_view uri, scene_node_id parent);
-  result request_remove(engine::application& application, scene_document& session,
+  result request_remove(runtime::application& application, scene_document& session,
                         editor_command_history& history, scene_node_id root);
-  result request_refresh(engine::application& application, tasks::task_executor& executor,
+  result request_refresh(runtime::application& application, tasks::task_executor& executor,
                          scene_document& session, editor_command_history& history,
                          scene_node_id root);
   void advance();

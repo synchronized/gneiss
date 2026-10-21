@@ -5,7 +5,7 @@
 namespace gneiss::input_internal {
 class input_service;
 }
-namespace gneiss::application_internal {
+namespace gneiss::runtime {
 enum class action_map_apply_state { idle, loading, applied, failed, cancelled };
 /** 每个宿主一个待应用槽，所有方法均在输入服务所属线程调用。
  * 只接收资产层创建的请求，不访问 manager、不建缓存；后台不持有本对象或 InputService。
@@ -28,4 +28,4 @@ private:
   action_map_apply_state state_ = action_map_apply_state::idle;
   result result_ = result::invalid_state;
 };
-} // namespace gneiss::application_internal
+} // namespace gneiss::runtime

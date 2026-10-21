@@ -95,8 +95,7 @@ int main() try {
 
   const auto prefab_path = root / "prefabs" / "test.prefab.json";
   write_prefab(prefab_path, source_root_uuid, true);
-  if (gneiss::application_internal::reload_prefab(application, scene, prefab_uri) !=
-      GNEISS_SUCCESS) {
+  if (gneiss::runtime::reload_prefab(application, scene, prefab_uri) != GNEISS_SUCCESS) {
     return 4;
   }
   gneiss_scene_prefab_node_info first_after = GNEISS_SCENE_PREFAB_NODE_INFO_INIT;
@@ -124,8 +123,7 @@ int main() try {
 
   constexpr std::string_view replacement_root_uuid = "30000000-0000-4000-8000-000000000099";
   write_prefab(prefab_path, replacement_root_uuid, false);
-  if (gneiss::application_internal::reload_prefab(application, scene, prefab_uri) !=
-          GNEISS_ERROR_NOT_FOUND ||
+  if (gneiss::runtime::reload_prefab(application, scene, prefab_uri) != GNEISS_ERROR_NOT_FOUND ||
       find_source(application, scene, first_instance_uuid, source_root_uuid, first_after) !=
           GNEISS_SUCCESS ||
       first_after.node != first_before.node ||

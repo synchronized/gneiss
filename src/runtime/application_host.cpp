@@ -13,17 +13,18 @@
 #include <string_view>
 
 gneiss_result
-gneiss::application_internal::set_view_camera(gneiss_application application,
-                                              const render_internal::view_camera* camera) noexcept {
+gneiss::runtime::set_view_camera(gneiss_application application,
+                                 const render_internal::view_camera* camera) noexcept {
   auto state = find_application(application);
   const auto valid = validate_application(state);
   return valid == GNEISS_SUCCESS ? state->set_view_camera(camera) : valid;
 }
 
-gneiss_result gneiss::application_internal::create_mesh_node_ready(
-    gneiss_application application, gneiss_scene_instance scene,
-    const scene_internal::mesh_renderer_node_creation& desc, const mesh_binding& prepared,
-    gneiss_scene_node_id& output) noexcept {
+gneiss_result
+gneiss::runtime::create_mesh_node_ready(gneiss_application application, gneiss_scene_instance scene,
+                                        const scene_internal::mesh_renderer_node_creation& desc,
+                                        const mesh_binding& prepared,
+                                        gneiss_scene_node_id& output) noexcept {
   output = GNEISS_NULL_SCENE_NODE_ID;
   auto state = find_application(application);
   const auto valid = validate_application(state);
@@ -36,16 +37,16 @@ gneiss_result gneiss::application_internal::create_mesh_node_ready(
              : valid;
 }
 
-gneiss_result
-gneiss::application_internal::collect_unused_edit_assets(gneiss_application application) noexcept {
+gneiss_result gneiss::runtime::collect_unused_edit_assets(gneiss_application application) noexcept {
   auto state = find_application(application);
   const auto valid = validate_application(state);
   return valid == GNEISS_SUCCESS ? state->collect_unused_edit_assets() : valid;
 }
 
-gneiss_result gneiss::application_internal::accept_edit_assets(
-    gneiss_application application, const render_internal::texture_load_completion& completion,
-    const std::function<gneiss_result()>& accept) noexcept try {
+gneiss_result
+gneiss::runtime::accept_edit_assets(gneiss_application application,
+                                    const render_internal::texture_load_completion& completion,
+                                    const std::function<gneiss_result()>& accept) noexcept try {
   auto state = find_application(application);
   const auto valid = validate_application(state);
   return valid == GNEISS_SUCCESS ? state->accept_edit_assets(completion, accept) : valid;
@@ -55,19 +56,20 @@ gneiss_result gneiss::application_internal::accept_edit_assets(
   return GNEISS_ERROR_INTERNAL;
 }
 
-gneiss_result gneiss::application_internal::query_ready_asset(
-    gneiss_application application, const render_internal::render_asset_reload& source,
-    render_internal::render_asset_lease& output) noexcept {
+gneiss_result
+gneiss::runtime::query_ready_asset(gneiss_application application,
+                                   const render_internal::render_asset_reload& source,
+                                   render_internal::render_asset_lease& output) noexcept {
   output = {};
   auto state = find_application(application);
   const auto valid = validate_application(state);
   return valid == GNEISS_SUCCESS ? state->query_ready_asset(source, output) : valid;
 }
 
-gneiss_result gneiss::application_internal::capture_mesh_binding(gneiss_application application,
-                                                                 gneiss_scene_instance scene,
-                                                                 gneiss_scene_node_id node,
-                                                                 mesh_binding& output) noexcept {
+gneiss_result gneiss::runtime::capture_mesh_binding(gneiss_application application,
+                                                    gneiss_scene_instance scene,
+                                                    gneiss_scene_node_id node,
+                                                    mesh_binding& output) noexcept {
   output = {};
   auto state = find_application(application);
   const auto valid = validate_application(state);
@@ -75,9 +77,11 @@ gneiss_result gneiss::application_internal::capture_mesh_binding(gneiss_applicat
                                  : valid;
 }
 
-gneiss_result gneiss::application_internal::replace_mesh_binding(
-    gneiss_application application, gneiss_scene_instance scene, gneiss_scene_node_id node,
-    const mesh_binding& expected, const mesh_binding& replacement) noexcept {
+gneiss_result gneiss::runtime::replace_mesh_binding(gneiss_application application,
+                                                    gneiss_scene_instance scene,
+                                                    gneiss_scene_node_id node,
+                                                    const mesh_binding& expected,
+                                                    const mesh_binding& replacement) noexcept {
   auto state = find_application(application);
   const auto valid = validate_application(state);
   return valid == GNEISS_SUCCESS
@@ -85,27 +89,28 @@ gneiss_result gneiss::application_internal::replace_mesh_binding(
              : valid;
 }
 
-gneiss_result gneiss::application_internal::prepare_edit_assets(
-    gneiss_application application, std::span<const render_internal::render_asset_reload> sources,
-    std::uint64_t revision, std::uint64_t& request) noexcept {
+gneiss_result
+gneiss::runtime::prepare_edit_assets(gneiss_application application,
+                                     std::span<const render_internal::render_asset_reload> sources,
+                                     std::uint64_t revision, std::uint64_t& request) noexcept {
   request = 0U;
   auto state = find_application(application);
   const auto valid = validate_application(state);
   return valid == GNEISS_SUCCESS ? state->prepare_edit_assets(sources, revision, request) : valid;
 }
 
-gneiss_result
-gneiss::application_internal::capture_frame(gneiss_application application, std::uint32_t width,
-                                            std::uint32_t height,
-                                            render_internal::frame_image& output) noexcept {
+gneiss_result gneiss::runtime::capture_frame(gneiss_application application, std::uint32_t width,
+                                             std::uint32_t height,
+                                             render_internal::frame_image& output) noexcept {
   output = {};
   auto state = find_application(application);
   const auto valid = validate_application(state);
   return valid == GNEISS_SUCCESS ? state->capture_frame(width, height, output) : valid;
 }
 
-gneiss_result gneiss::application_internal::query_render_statistics(
-    gneiss_application application, render_internal::render_queue_stats& output) noexcept {
+gneiss_result
+gneiss::runtime::query_render_statistics(gneiss_application application,
+                                         render_internal::render_queue_stats& output) noexcept {
   auto state = find_application(application);
   const auto valid = validate_application(state);
   if (valid == GNEISS_SUCCESS) {
@@ -114,19 +119,17 @@ gneiss_result gneiss::application_internal::query_render_statistics(
   return valid;
 }
 
-gneiss_result
-gneiss::application_internal::attach_task_executor(gneiss_application application,
-                                                   tasks::task_executor& executor) noexcept {
+gneiss_result gneiss::runtime::attach_task_executor(gneiss_application application,
+                                                    tasks::task_executor& executor) noexcept {
   auto state = find_application(application);
   const auto valid = validate_application(state);
   return valid == GNEISS_SUCCESS ? state->attach_task_executor(executor) : valid;
 }
 
-gneiss_result gneiss::application_internal::request_scene_load(gneiss_application application,
-                                                               std::string_view uri,
-                                                               std::uint64_t session,
-                                                               std::uint64_t revision,
-                                                               std::uint64_t& request) noexcept {
+gneiss_result gneiss::runtime::request_scene_load(gneiss_application application,
+                                                  std::string_view uri, std::uint64_t session,
+                                                  std::uint64_t revision,
+                                                  std::uint64_t& request) noexcept {
   request = 0U;
   auto state = find_application(application);
   const auto valid = validate_application(state);
@@ -143,8 +146,8 @@ gneiss_result gneiss::application_internal::request_scene_load(gneiss_applicatio
 }
 
 gneiss_result
-gneiss::application_internal::query_scene_retirement(gneiss_application application,
-                                                     scene_retirement_statistics& output) noexcept {
+gneiss::runtime::query_scene_retirement(gneiss_application application,
+                                        scene_retirement_statistics& output) noexcept {
   auto state = find_application(application);
   const auto valid = validate_application(state);
   if (valid != GNEISS_SUCCESS)
@@ -153,8 +156,9 @@ gneiss::application_internal::query_scene_retirement(gneiss_application applicat
   return GNEISS_SUCCESS;
 }
 
-gneiss_result gneiss::application_internal::query_scene_load_progress(
-    gneiss_application application, scene_load_progress& progress, bool& active) noexcept {
+gneiss_result gneiss::runtime::query_scene_load_progress(gneiss_application application,
+                                                         scene_load_progress& progress,
+                                                         bool& active) noexcept {
   active = false;
   auto state = find_application(application);
   const auto valid = validate_application(state);
@@ -165,9 +169,9 @@ gneiss_result gneiss::application_internal::query_scene_load_progress(
   return GNEISS_SUCCESS;
 }
 
-gneiss_result gneiss::application_internal::poll_scene_load(gneiss_application application,
-                                                            scene_load_completion& completion,
-                                                            bool& ready) noexcept {
+gneiss_result gneiss::runtime::poll_scene_load(gneiss_application application,
+                                               scene_load_completion& completion,
+                                               bool& ready) noexcept {
   ready = false;
   auto state = find_application(application);
   const auto valid = validate_application(state);
@@ -183,8 +187,8 @@ gneiss_result gneiss::application_internal::poll_scene_load(gneiss_application a
   }
 }
 
-gneiss_result gneiss::application_internal::cancel_scene_load(gneiss_application application,
-                                                              std::uint64_t request) noexcept {
+gneiss_result gneiss::runtime::cancel_scene_load(gneiss_application application,
+                                                 std::uint64_t request) noexcept {
   auto state = find_application(application);
   const auto valid = validate_application(state);
   if (valid != GNEISS_SUCCESS) {
@@ -199,10 +203,9 @@ gneiss_result gneiss::application_internal::cancel_scene_load(gneiss_application
   }
 }
 
-gneiss_result
-gneiss::application_internal::activate_scene_load(gneiss_application application,
-                                                  std::uint64_t request,
-                                                  scene_load_completion& completion) noexcept {
+gneiss_result gneiss::runtime::activate_scene_load(gneiss_application application,
+                                                   std::uint64_t request,
+                                                   scene_load_completion& completion) noexcept {
   auto state = find_application(application);
   const auto valid = validate_application(state);
   if (valid != GNEISS_SUCCESS) {
@@ -217,7 +220,7 @@ gneiss::application_internal::activate_scene_load(gneiss_application application
   }
 }
 
-gneiss_result gneiss::application_internal::request_render_assets(
+gneiss_result gneiss::runtime::request_render_assets(
     gneiss_application application, std::span<const render_internal::render_asset_reload> assets,
     std::uint64_t session, std::uint64_t revision, std::uint64_t& request, bool reload) noexcept {
   request = 0U;
@@ -237,9 +240,10 @@ gneiss_result gneiss::application_internal::request_render_assets(
   }
 }
 
-gneiss_result gneiss::application_internal::query_asset_load_progress(
-    gneiss_application application, render_internal::asset_load_progress& progress,
-    bool& active) noexcept {
+gneiss_result
+gneiss::runtime::query_asset_load_progress(gneiss_application application,
+                                           render_internal::asset_load_progress& progress,
+                                           bool& active) noexcept {
   active = false;
   progress = {};
   auto state = find_application(application);
@@ -250,8 +254,7 @@ gneiss_result gneiss::application_internal::query_asset_load_progress(
   return GNEISS_SUCCESS;
 }
 
-gneiss_result
-gneiss::application_internal::cancel_render_assets(gneiss_application application) noexcept {
+gneiss_result gneiss::runtime::cancel_render_assets(gneiss_application application) noexcept {
   auto state = find_application(application);
   const auto valid = validate_application(state);
   if (valid != GNEISS_SUCCESS)
@@ -259,9 +262,10 @@ gneiss::application_internal::cancel_render_assets(gneiss_application applicatio
   return state->cancel_assets();
 }
 
-gneiss_result gneiss::application_internal::request_textures(
-    gneiss_application application, std::span<const std::string> uris, std::uint64_t session,
-    std::uint64_t revision, std::uint64_t& request, bool reload) noexcept {
+gneiss_result gneiss::runtime::request_textures(gneiss_application application,
+                                                std::span<const std::string> uris,
+                                                std::uint64_t session, std::uint64_t revision,
+                                                std::uint64_t& request, bool reload) noexcept {
   request = 0U;
   auto state = find_application(application);
   const auto valid = validate_application(state);
@@ -288,10 +292,9 @@ gneiss_result gneiss::application_internal::request_textures(
   }
 }
 
-gneiss_result
-gneiss::application_internal::poll_textures(gneiss_application application,
-                                            render_internal::texture_load_completion& completion,
-                                            bool& ready) noexcept {
+gneiss_result gneiss::runtime::poll_textures(gneiss_application application,
+                                             render_internal::texture_load_completion& completion,
+                                             bool& ready) noexcept {
   ready = false;
   auto state = find_application(application);
   const auto valid = validate_application(state);
@@ -310,8 +313,7 @@ gneiss::application_internal::poll_textures(gneiss_application application,
   }
 }
 
-gneiss_result
-gneiss::application_internal::cancel_textures(gneiss_application application) noexcept {
+gneiss_result gneiss::runtime::cancel_textures(gneiss_application application) noexcept {
   auto state = find_application(application);
   const auto valid = validate_application(state);
   if (valid != GNEISS_SUCCESS) {
@@ -324,7 +326,7 @@ gneiss::application_internal::cancel_textures(gneiss_application application) no
   return cancelled == GNEISS_ERROR_NOT_READY ? GNEISS_SUCCESS : cancelled;
 }
 
-gneiss_result gneiss::application_internal::reload_render_assets(
+gneiss_result gneiss::runtime::reload_render_assets(
     gneiss_application application,
     std::span<const render_internal::render_asset_reload> assets) noexcept {
   auto state = find_application(application);
@@ -332,26 +334,25 @@ gneiss_result gneiss::application_internal::reload_render_assets(
   return valid == GNEISS_SUCCESS ? state->reload_render_assets(assets) : valid;
 }
 
-gneiss_result gneiss::application_internal::reload_scene(gneiss_application application,
-                                                         gneiss_scene_instance instance,
-                                                         std::string_view uri) noexcept {
+gneiss_result gneiss::runtime::reload_scene(gneiss_application application,
+                                            gneiss_scene_instance instance,
+                                            std::string_view uri) noexcept {
   auto state = find_application(application);
   const auto valid = validate_application(state);
   return valid == GNEISS_SUCCESS ? state->reload_scene(instance, uri) : valid;
 }
 
-gneiss_result gneiss::application_internal::reload_prefab(gneiss_application application,
-                                                          gneiss_scene_instance instance,
-                                                          std::string_view uri) noexcept {
+gneiss_result gneiss::runtime::reload_prefab(gneiss_application application,
+                                             gneiss_scene_instance instance,
+                                             std::string_view uri) noexcept {
   auto state = find_application(application);
   const auto valid = validate_application(state);
   return valid == GNEISS_SUCCESS ? state->reload_prefab(instance, uri) : valid;
 }
 
-gneiss_result
-gneiss::application_internal::submit_application_log(gneiss_application application,
-                                                     const log_internal::message_view& message,
-                                                     std::string_view source) noexcept {
+gneiss_result gneiss::runtime::submit_application_log(gneiss_application application,
+                                                      const log_internal::message_view& message,
+                                                      std::string_view source) noexcept {
   try {
     auto state = find_application(application);
     if (state == nullptr) {

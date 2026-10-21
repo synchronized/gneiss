@@ -3,7 +3,7 @@
 #include "runtime/loading/prefab_preparation.hpp"
 #include "runtime/application.hpp"
 
-namespace gneiss::application_internal {
+namespace gneiss::runtime {
 struct prefab_preparation::state {
   scene_internal::prepared_scene_description prepared;
   scene_internal::scene_diagnostic diagnostic;
@@ -15,7 +15,7 @@ prefab_preparation::~prefab_preparation() {
   executor_.cancel_scope(scope_);
   (void)executor_.close_scope(scope_);
 }
-gneiss_result prefab_preparation::create(engine::application& application,
+gneiss_result prefab_preparation::create(runtime::application& application,
                                          tasks::task_executor& executor, std::string_view uri,
                                          std::unique_ptr<prefab_preparation>& output) noexcept try {
   output.reset();

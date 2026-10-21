@@ -21,7 +21,7 @@
 
 namespace {
 using namespace gneiss;
-using namespace application_internal;
+using namespace runtime;
 void check(bool condition, std::source_location where = std::source_location::current()) {
   if (!condition) {
     throw std::runtime_error("场景 Application 契约失败，行=" + std::to_string(where.line()));

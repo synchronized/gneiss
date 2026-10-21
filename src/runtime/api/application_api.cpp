@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "runtime/api/application_log_sink.hpp"
 #include "engine/api/log_validation.hpp"
+#include "runtime/api/application_log_sink.hpp"
 #include "runtime/application.hpp"
 #include "runtime/application_log_internal.hpp"
 #include "runtime/application_registry.hpp"
@@ -17,8 +17,8 @@
 
 namespace {
 
-using gneiss::application_internal::find_application;
-using gneiss::application_internal::validate_application;
+using gneiss::runtime::find_application;
+using gneiss::runtime::validate_application;
 
 void report_create_failure(const gneiss_application_desc& desc, gneiss_result result,
                            std::string_view module, std::string_view message) noexcept {
@@ -83,7 +83,7 @@ extern "C" gneiss_result gneiss_application_create(const gneiss_application_desc
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
   try {
-    gneiss::application_internal::application_configuration config{
+    gneiss::runtime::application_configuration config{
         .callbacks =
             {
                 .initialize = {},
@@ -178,7 +178,7 @@ extern "C" gneiss_result gneiss_application_create(const gneiss_application_desc
     if (const auto callback = normalized_desc.shutdown) {
       config.callbacks.shutdown = [callback, user_data] { callback(user_data); };
     }
-    return gneiss::application_internal::create_application(config, *out_application);
+    return gneiss::runtime::create_application(config, *out_application);
   } catch (const std::bad_alloc&) {
     return GNEISS_ERROR_OUT_OF_MEMORY;
   } catch (...) {
@@ -187,7 +187,7 @@ extern "C" gneiss_result gneiss_application_create(const gneiss_application_desc
 }
 
 extern "C" gneiss_result gneiss_application_destroy(gneiss_application application) {
-  return gneiss::application_internal::destroy_application(application);
+  return gneiss::runtime::destroy_application(application);
 }
 
 extern "C" gneiss_result gneiss_application_run(gneiss_application application,
@@ -267,7 +267,7 @@ extern "C" gneiss_result gneiss_application_log(gneiss_application application,
   if (message_result != GNEISS_SUCCESS) {
     return message_result;
   }
-  return gneiss::application_internal::submit_application_log(
+  return gneiss::runtime::submit_application_log(
       application, gneiss::abi_internal::log_message_view(*message), "application");
 }
 

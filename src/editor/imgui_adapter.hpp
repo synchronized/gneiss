@@ -16,7 +16,7 @@
 #include <cstdint>
 #include <vector>
 
-namespace gneiss::engine {
+namespace gneiss::runtime {
 class application;
 }
 
@@ -30,11 +30,11 @@ public:
   imgui_adapter(const imgui_adapter&) = delete;
   imgui_adapter& operator=(const imgui_adapter&) = delete;
 
-  [[nodiscard]] gneiss_result initialize(engine::application& application);
-  void shutdown(engine::application& application) noexcept;
-  [[nodiscard]] gneiss_result begin_frame(engine::application& application,
+  [[nodiscard]] gneiss_result initialize(runtime::application& application);
+  void shutdown(runtime::application& application) noexcept;
+  [[nodiscard]] gneiss_result begin_frame(runtime::application& application,
                                           const gneiss::engine::frame_time& time);
-  [[nodiscard]] gneiss_result submit(engine::application& application);
+  [[nodiscard]] gneiss_result submit(runtime::application& application);
 
 private:
   void process_input(const input_internal::input_event& event);

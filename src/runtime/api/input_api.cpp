@@ -11,8 +11,8 @@
 #include <limits>
 
 namespace {
-using gneiss::application_internal::find_application;
-using gneiss::application_internal::validate_application;
+using gneiss::runtime::find_application;
+using gneiss::runtime::validate_application;
 } // namespace
 
 extern "C" gneiss_result gneiss_application_poll_input(gneiss_application application,

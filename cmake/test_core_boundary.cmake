@@ -582,3 +582,20 @@ execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
 if(NOT status EQUAL 0)
   message(FATAL_ERROR "错误拒绝 Runtime 正向组装或 C ABI 适配")
 endif()
+
+# Runtime 目录及对象须保持同一命名，不允许恢复旧别名或引用。
+foreach(content IN ITEMS "namespace gneiss::application_internal {}" "namespace gneiss::game_internal {}" "gneiss::engine::application* app;")
+  file(WRITE "${fixture}/src/runtime/namespace_probe.cpp" "${content}\n")
+  execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
+    -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
+    RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
+  if(status EQUAL 0)
+    message(FATAL_ERROR "Runtime 边界未拒绝旧命名空间：${content}")
+  endif()
+endforeach()
+file(WRITE "${fixture}/src/runtime/namespace_probe.cpp" "namespace gneiss::runtime {}\n")
+execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
+  -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake" RESULT_VARIABLE status)
+if(NOT status EQUAL 0)
+  message(FATAL_ERROR "Runtime 边界错误拒绝新命名空间")
+endif()

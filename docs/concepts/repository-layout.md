@@ -236,3 +236,10 @@ Scene 服务完成入口校验后转交实例，不直接修改这些事务的�
 `commands/editor_asset_edit`、Prefab 事务 `commands/editor_prefab_edit` 编译在编辑器模块内，
 不依赖 Apps、进程或 IPC。它们借用 Application、文档及历史，宿主负责在销毁这些对象前
 取消并排空在途操作；流程测试直接链接编辑器模块。窗口、进程及 IPC 仍归 Apps。
+
+## Runtime 命名空间
+
+Application、配置、加载和场景切换对象统一位于 `gneiss::runtime`，游戏上下文位于
+`gneiss::runtime::game`。内部应用对象为 `gneiss::runtime::application`，没有旧别名。
+Engine 的资源与功能模块仍有旧命名空间，按模块布局计划分批迁移；这不是已全面统一的声明。
+目录与头文件可见性仍决定依赖范围，命名变化不改变对象寿命或增加运行时状态。

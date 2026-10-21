@@ -73,7 +73,7 @@ std::uint64_t peak_resident_bytes() {
 gneiss_result preload_scene(gneiss::test_support::application_owner& app,
                             gneiss::tasks::task_scheduler& scheduler, bool cooperative,
                             std::string_view uri, gneiss_scene_instance& scene) {
-  using namespace gneiss::application_internal;
+  using namespace gneiss::runtime;
   std::uint64_t request{};
   auto result = request_scene_load(app.get(), uri, 1U, 1U, request);
   const auto deadline = clock_type::now() + std::chrono::minutes(15);
@@ -168,7 +168,7 @@ int main(int argc, char** argv) try {
     return 3;
   }
   if (mode != "sync" &&
-      gneiss::application_internal::attach_task_executor(app.get(), scheduler) != GNEISS_SUCCESS) {
+      gneiss::runtime::attach_task_executor(app.get(), scheduler) != GNEISS_SUCCESS) {
     return 3;
   }
   gneiss_scene_instance scene{};
@@ -205,14 +205,13 @@ int main(int argc, char** argv) try {
         break;
       }
     }
-    gneiss::application_internal::scene_retirement_statistics measured;
-    if (gneiss::application_internal::query_scene_retirement(app.get(), measured) !=
-        GNEISS_SUCCESS) {
+    gneiss::runtime::scene_retirement_statistics measured;
+    if (gneiss::runtime::query_scene_retirement(app.get(), measured) != GNEISS_SUCCESS) {
       return 11;
     }
     previous_resources = measured.live_resources;
-    if (preserve && gneiss::application_internal::capture_frame(app.get(), 1024U, 768U,
-                                                                previous_image) != GNEISS_SUCCESS) {
+    if (preserve &&
+        gneiss::runtime::capture_frame(app.get(), 1024U, 768U, previous_image) != GNEISS_SUCCESS) {
       return 11;
     }
   }
@@ -255,7 +254,7 @@ int main(int argc, char** argv) try {
   double minimized_at_ms{};
   double cancel_ms{}, shutdown_ms{};
   auto cancel_start = clock_type::now();
-  gneiss::application_internal::scene_retirement_statistics retirement;
+  gneiss::runtime::scene_retirement_statistics retirement;
   std::uint64_t sampled_frame{};
   struct render_sample {
     double elapsed;
@@ -266,7 +265,7 @@ int main(int argc, char** argv) try {
   std::vector<render_sample> render_samples;
   const auto start = clock_type::now();
   auto result = GNEISS_SUCCESS;
-  gneiss::application_internal::scene_load_completion completion;
+  gneiss::runtime::scene_load_completion completion;
   std::vector<loop_sample> loop_samples;
   if (trace_loop) {
     loop_samples.reserve(65536U);
@@ -274,12 +273,12 @@ int main(int argc, char** argv) try {
   std::vector<double> event_intervals;
   std::vector<double> minimized_event_intervals;
   std::array<double, 8> phase_maximum_intervals{};
-  auto previous_phase = gneiss::application_internal::scene_load_phase::preparing;
+  auto previous_phase = gneiss::runtime::scene_load_phase::preparing;
   double activation_elapsed_ms{};
   if (mode == "sync") {
     result = gneiss_scene_instance_load(app.get(), uri.data(), uri.size(), &scene);
   } else {
-    using namespace gneiss::application_internal;
+    using namespace gneiss::runtime;
     std::uint64_t request{};
     if (result == GNEISS_SUCCESS) {
       result = request_scene_load(app.get(), source_uri, 1U, 1U, request);
@@ -519,7 +518,7 @@ int main(int argc, char** argv) try {
   }
   std::fflush(stdout);
   if (result != GNEISS_SUCCESS) {
-    (void)gneiss::application_internal::query_scene_retirement(app.get(), retirement);
+    (void)gneiss::runtime::query_scene_retirement(app.get(), retirement);
     const auto peak = peak_resident_bytes();
     app = gneiss::test_support::application_owner{};
     std::ofstream report(prefix.string() + ".json");
@@ -550,17 +549,16 @@ int main(int argc, char** argv) try {
   }
   const auto render_ms = milliseconds(rendering_start);
   gneiss::render_internal::render_queue_stats stats;
-  if (gneiss::application_internal::query_render_statistics(app.get(), stats) != GNEISS_SUCCESS) {
+  if (gneiss::runtime::query_render_statistics(app.get(), stats) != GNEISS_SUCCESS) {
     return 7;
   }
   const auto capture_start = clock_type::now();
   gneiss::render_internal::frame_image image;
-  if (gneiss::application_internal::capture_frame(app.get(), 1024U, 768U, image) !=
-      GNEISS_SUCCESS) {
+  if (gneiss::runtime::capture_frame(app.get(), 1024U, 768U, image) != GNEISS_SUCCESS) {
     return 8;
   }
   const auto capture_ms = milliseconds(capture_start);
-  (void)gneiss::application_internal::query_scene_retirement(app.get(), retirement);
+  (void)gneiss::runtime::query_scene_retirement(app.get(), retirement);
   if (preserve &&
       (image.pixels != previous_image.pixels || retirement.live_resources != previous_resources)) {
     return 14;
@@ -580,11 +578,9 @@ int main(int argc, char** argv) try {
     }
     retry_ms = milliseconds(retry_start);
     gneiss::render_internal::frame_image retried_image;
-    if (gneiss::application_internal::capture_frame(app.get(), 1024U, 768U, retried_image) !=
-            GNEISS_SUCCESS ||
+    if (gneiss::runtime::capture_frame(app.get(), 1024U, 768U, retried_image) != GNEISS_SUCCESS ||
         retried_image.pixels != previous_image.pixels ||
-        gneiss::application_internal::query_scene_retirement(app.get(), retirement) !=
-            GNEISS_SUCCESS ||
+        gneiss::runtime::query_scene_retirement(app.get(), retirement) != GNEISS_SUCCESS ||
         retirement.live_resources != previous_resources || retirement.pending) {
       return 17;
     }

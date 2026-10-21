@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "runtime/application.hpp"
-#include "runtime/application_bridge.hpp"
 #include "engine/function/scene/scene_instance_service.hpp"
 #include "engine/function/world/world.hpp"
+#include "runtime/application.hpp"
+#include "runtime/application_bridge.hpp"
 #include <gneiss/app/project_description.hpp>
 #include <gneiss/engine/core/result.hpp>
 #include <gneiss/engine/scene.h>
 
-#include "runtime/game/game_context_internal.hpp"
 #include "game_module_session.hpp"
 #include "game_update_scheduler.hpp"
+#include "runtime/game/game_context_internal.hpp"
 #include "runtime_asset_reloader.hpp"
 #include "runtime_ipc_session.hpp"
 #include "runtime_log.hpp"
@@ -50,7 +50,7 @@ struct runtime_context final {
   gneiss::runtime_internal::runtime_log* log = nullptr;
   std::filesystem::path stop_file;
   std::uint64_t next_stop_check_ns = 0U;
-  gneiss::engine::application* application{};
+  gneiss::runtime::application* application{};
   bool has_logged_first_frame = false;
   bool input_pending = false;
   std::string input_uri{};
@@ -89,7 +89,7 @@ struct runtime_context final {
   return path.generic_string();
 }
 
-gneiss::result apply_asset_revision(gneiss::engine::application& application,
+gneiss::result apply_asset_revision(gneiss::runtime::application& application,
                                     gneiss_scene_instance scene, std::string_view startup_scene,
                                     std::span<const gneiss::ipc_asset_revision> assets) noexcept {
   try {
@@ -570,14 +570,15 @@ void write_application_log(const gneiss::log_internal::event_view& source,
     std::error_code error;
     std::filesystem::remove(context.stop_file, error);
   }
-  gneiss::application_internal::application_configuration desc;
+  gneiss::runtime::application_configuration desc;
   desc.callbacks.update = [&context](gneiss::core::rid handle,
                                      const gneiss::engine::frame_time& time) {
     return gneiss::from_native(update_runtime(handle, &time, &context));
   };
   desc.use_granit_window = true;
   desc.window.title = project.name;
-  desc.window.visible = !options.smoke && !options.hidden; // 自动冒烟创建真实隐藏窗口，避免抢占桌面。
+  desc.window.visible =
+      !options.smoke && !options.hidden; // 自动冒烟创建真实隐藏窗口，避免抢占桌面。
 
   desc.asset_root = asset_root;
 
@@ -594,9 +595,9 @@ void write_application_log(const gneiss::log_internal::event_view& source,
       {.mode = options.cooperative_tasks ? gneiss::tasks::execution_mode::cooperative
                                          : gneiss::tasks::execution_mode::thread_pool});
   context.tasks = &task_scheduler;
-  std::shared_ptr<gneiss::engine::application> application;
-  gneiss::application_internal::application_bridge bridge;
-  auto operation = gneiss::from_native(gneiss::engine::application::create(desc, application));
+  std::shared_ptr<gneiss::runtime::application> application;
+  gneiss::runtime::application_bridge bridge;
+  auto operation = gneiss::from_native(gneiss::runtime::application::create(desc, application));
   if (operation == gneiss::result::success) {
     operation = gneiss::from_native(bridge.bind(application));
   }
@@ -711,7 +712,7 @@ void write_application_log(const gneiss::log_internal::event_view& source,
     return GNEISS_SUCCESS;
   };
   scene_loader.after_activate =
-      [&](const gneiss::application_internal::scene_load_completion& loaded) -> gneiss_result {
+      [&](const gneiss::runtime::scene_load_completion& loaded) -> gneiss_result {
     const auto started = std::chrono::steady_clock::now();
     scene = loaded.scene;
     context.scene = scene;
@@ -734,7 +735,7 @@ void write_application_log(const gneiss::log_internal::event_view& source,
     if (initialized != gneiss::result::success)
       return gneiss::to_native(initialized);
     if (game_context != GNEISS_NULL_GAME_CONTEXT) {
-      applied = gneiss::game_internal::destroy_game_context(game_context);
+      applied = gneiss::runtime::game::destroy_game_context(game_context);
       game_context = GNEISS_NULL_GAME_CONTEXT;
       if (applied != GNEISS_SUCCESS)
         return applied;
@@ -752,7 +753,7 @@ void write_application_log(const gneiss::log_internal::event_view& source,
     }
     if (applied != GNEISS_SUCCESS)
       return applied;
-    applied = gneiss::game_internal::create_game_context(bridge.get(), root_entity, &game_context);
+    applied = gneiss::runtime::game::create_game_context(bridge.get(), root_entity, &game_context);
     if (applied != GNEISS_SUCCESS)
       return applied;
     if (!project.game_module.name.empty()) {
@@ -766,7 +767,7 @@ void write_application_log(const gneiss::log_internal::event_view& source,
           return gneiss::to_native(module_result);
       }
       applied =
-          gneiss::game_internal::set_game_context_log_source(game_context, game_module.module_id());
+          gneiss::runtime::game::set_game_context_log_source(game_context, game_module.module_id());
       if (applied != GNEISS_SUCCESS)
         return applied;
       const auto initialized_game = game_module.initialize(game_context);
@@ -805,7 +806,7 @@ void write_application_log(const gneiss::log_internal::event_view& source,
       if (game_module.is_initialized()) {
         (void)game_module.shutdown();
       }
-      (void)gneiss::game_internal::destroy_game_context(game_context);
+      (void)gneiss::runtime::game::destroy_game_context(game_context);
       (void)application->scenes()->unload(scene);
       return 11;
     }
@@ -842,7 +843,7 @@ void write_application_log(const gneiss::log_internal::event_view& source,
     if (game_module.is_initialized()) {
       (void)game_module.shutdown();
     }
-    (void)gneiss::game_internal::destroy_game_context(game_context);
+    (void)gneiss::runtime::game::destroy_game_context(game_context);
     (void)application->scenes()->unload(scene);
     return 7;
   }
@@ -852,7 +853,7 @@ void write_application_log(const gneiss::log_internal::event_view& source,
     if (game_module.is_initialized()) {
       (void)game_module.shutdown();
     }
-    (void)gneiss::game_internal::destroy_game_context(game_context);
+    (void)gneiss::runtime::game::destroy_game_context(game_context);
     (void)application->scenes()->unload(scene);
     return 11;
   }
@@ -860,14 +861,14 @@ void write_application_log(const gneiss::log_internal::event_view& source,
     operation = game_module.shutdown();
     if (operation != gneiss::result::success) {
       log.write("ERROR", "game_module", static_cast<gneiss_result>(operation), "游戏模块关闭失败");
-      (void)gneiss::game_internal::destroy_game_context(game_context);
+      (void)gneiss::runtime::game::destroy_game_context(game_context);
       (void)application->scenes()->unload(scene);
       return 8;
     }
   }
   native_result = game_context == GNEISS_NULL_GAME_CONTEXT
                       ? GNEISS_SUCCESS
-                      : gneiss::game_internal::destroy_game_context(game_context);
+                      : gneiss::runtime::game::destroy_game_context(game_context);
   if (native_result != GNEISS_SUCCESS) {
     log.write("ERROR", "game_context", native_result, "Game Context 销毁失败");
     (void)application->scenes()->unload(scene);

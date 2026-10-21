@@ -15,7 +15,7 @@
 #include <stdexcept>
 #include <stop_token>
 
-namespace gneiss::application_internal {
+namespace gneiss::runtime {
 namespace {
 using clock_type = std::chrono::steady_clock;
 double elapsed(clock_type::time_point start) {
@@ -573,4 +573,4 @@ void scene_load_service::advance_impl() {
   }
 }
 
-} // namespace gneiss::application_internal
+} // namespace gneiss::runtime

@@ -79,6 +79,6 @@ template <typename T>
 concept exposes_texture_service = requires(T& value) { value.texture_service(); };
 template <typename T>
 concept exposes_asset_loader = requires(T& value) { value.asset_loader(); };
-static_assert(!exposes_texture_service<gneiss::engine::application>);
-static_assert(!exposes_asset_loader<gneiss::engine::application>);
+static_assert(!exposes_texture_service<gneiss::runtime::application>);
+static_assert(!exposes_asset_loader<gneiss::runtime::application>);
 int main() { return 0; }

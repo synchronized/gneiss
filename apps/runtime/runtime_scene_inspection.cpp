@@ -2,9 +2,9 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "runtime_scene_inspection.hpp"
-#include "runtime/application.hpp"
 #include "engine/function/scene/scene_instance_service.hpp"
 #include "engine/function/world/world.hpp"
+#include "runtime/application.hpp"
 
 #include <algorithm>
 #include <array>
@@ -219,7 +219,7 @@ result runtime_scene_inspection::capture(std::span<const runtime_scene_source_no
   }
 }
 
-result runtime_scene_inspection::capture_scene(engine::application& application,
+result runtime_scene_inspection::capture_scene(runtime::application& application,
                                                gneiss_scene_instance scene, bool force_full,
                                                runtime_scene_snapshot& output) noexcept {
   if (!application.is_owner_thread() || !application.accepts_requests())

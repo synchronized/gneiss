@@ -2,12 +2,12 @@
 // Copyright (c) 2026 Gneiss contributors
 
 // 独立接入验证：不链接 Engine DLL，不将 CAORS 对象带入公共 SDK。
-#include "engine/resource/backend/caors/caors_action_map.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
-#include "runtime/loading/action_map_application.hpp"
-#include "engine/resource/backend/caors/caors_action_map_request.hpp"
 #include "engine/function/input/input_service.hpp"
 #include "engine/platform/caors/adapter.hpp"
+#include "engine/resource/backend/caors/caors_action_map.hpp"
+#include "engine/resource/backend/caors/caors_action_map_request.hpp"
+#include "runtime/loading/action_map_application.hpp"
 #include "uv_async_file.hpp"
 #include "uv_loop_executor.hpp"
 #include <caors/assets.h>
@@ -286,7 +286,7 @@ int run(const char* asset_path) {
           "cancel keeps cached resource");
   using namespace gneiss::input_internal;
   using namespace gneiss::asset_internal;
-  using namespace gneiss::application_internal;
+  using namespace gneiss::runtime;
   input_service input;
   require(input.replace_action_map({{{"old", {{4, 1.0F}}}}}) == result::success,
           "initial input map");

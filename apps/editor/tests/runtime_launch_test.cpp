@@ -47,7 +47,7 @@ int main() try {
   if (create_application(project.asset_root, author_application) != gneiss::result::success ||
       gneiss::result{gneiss_application_get_world(author_application.get(), &author_world)} !=
           gneiss::result::success ||
-      author_session.open(*gneiss::application_internal::find_application(author_application.get()),
+      author_session.open(*gneiss::runtime::find_application(author_application.get()),
                           author_world, project.startup_scene) != gneiss::result::success) {
     return 2;
   }
@@ -113,9 +113,8 @@ int main() try {
   if (create_application(project.asset_root, runtime_application) != gneiss::result::success ||
       gneiss::result{gneiss_application_get_world(runtime_application.get(), &runtime_world)} !=
           gneiss::result::success ||
-      runtime_session.open(
-          *gneiss::application_internal::find_application(runtime_application.get()), runtime_world,
-          project.startup_scene) != gneiss::result::success) {
+      runtime_session.open(*gneiss::runtime::find_application(runtime_application.get()),
+                           runtime_world, project.startup_scene) != gneiss::result::success) {
     return 6;
   }
   gneiss::scene_node_id runtime_node;

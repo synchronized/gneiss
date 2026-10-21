@@ -11,15 +11,15 @@ namespace gneiss::editor {
 /** 所属线程的一次模态资产替换；命令租约须在 Application 销毁前释放。 */
 class editor_asset_edit final {
 public:
-  result request_add(engine::application& application, scene_document& session,
+  result request_add(runtime::application& application, scene_document& session,
                      editor_command_history& history, std::string_view name,
                      mesh_asset_reference assets);
-  result request(engine::application& application, scene_document& session,
+  result request(runtime::application& application, scene_document& session,
                  editor_command_history& history, std::string_view uuid,
                  mesh_asset_reference assets);
-  void advance(engine::application& application, scene_document& session,
+  void advance(runtime::application& application, scene_document& session,
                editor_command_history& history);
-  void cancel(engine::application& application);
+  void cancel(runtime::application& application);
   void dismiss() noexcept {
     if (!active_) {
       visible_ = false;
@@ -31,14 +31,14 @@ public:
   const render_internal::asset_load_progress& progress() const noexcept { return progress_; }
 
 private:
-  result request_impl(engine::application& application, scene_document& session,
+  result request_impl(runtime::application& application, scene_document& session,
                       editor_command_history& history, std::string_view target,
                       mesh_asset_reference assets, bool creating);
-  result commit_add(engine::application& application, scene_document& session,
+  result commit_add(runtime::application& application, scene_document& session,
                     editor_command_history& history);
   scene_node_snapshot snapshot_;
   bool creating_{};
-  result commit(engine::application& application, scene_document& session,
+  result commit(runtime::application& application, scene_document& session,
                 editor_command_history& history);
   scene_internal::scene_mesh_binding previous_, next_;
   gneiss_scene_instance scene_{};

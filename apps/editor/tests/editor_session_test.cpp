@@ -42,8 +42,8 @@ int main() try {
           gneiss::result::success ||
       gneiss::result{gneiss_application_get_world(application.get(), &world)} !=
           gneiss::result::success ||
-      session.open(*gneiss::application_internal::find_application(application.get()), world,
-                   scene_uri) != gneiss::result::success ||
+      session.open(*gneiss::runtime::find_application(application.get()), world, scene_uri) !=
+          gneiss::result::success ||
       !session.is_open() || session.is_dirty() || session.uri() != scene_uri ||
       session.nodes().size() != 2U || session.nodes()[0].display_name != "Camera" ||
       session.nodes()[1].display_name != session.nodes()[1].uuid ||
@@ -64,7 +64,7 @@ int main() try {
   worker.join();
   if (foreign != gneiss::result::invalid_state || session.is_dirty())
     return 22;
-  auto native = gneiss::application_internal::find_application(application.get());
+  auto native = gneiss::runtime::find_application(application.get());
   if (session.adopt(*native, world, GNEISS_NULL_SCENE_INSTANCE, scene_uri) !=
           gneiss::result::invalid_argument ||
       session.scene_handle() != original_scene)
@@ -75,8 +75,8 @@ int main() try {
   }
   session.mark_dirty();
   if (!session.is_dirty() ||
-      session.open(*gneiss::application_internal::find_application(application.get()), world,
-                   missing_uri) != gneiss::result::not_found ||
+      session.open(*gneiss::runtime::find_application(application.get()), world, missing_uri) !=
+          gneiss::result::not_found ||
       !session.is_open() || !session.is_dirty() || session.uri() != scene_uri ||
       session.selected_node() == nullptr) {
     return 3;
@@ -94,7 +94,7 @@ int main() try {
   }
   constexpr std::string_view prefab_scene_uri = "asset://scenes/prefab.scene.json";
   constexpr std::string_view prefab_uri = "asset://prefabs/test.prefab.json";
-  if (session.open(*gneiss::application_internal::find_application(application.get()), world,
+  if (session.open(*gneiss::runtime::find_application(application.get()), world,
                    prefab_scene_uri) != gneiss::result::success ||
       session.nodes().size() != 1U || session.prefab_nodes().size() != 2U ||
       !session.prefab_nodes()[0].is_instance_root || session.prefab_nodes()[0].is_read_only ||

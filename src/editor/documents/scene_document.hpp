@@ -5,7 +5,7 @@
 #define GNEISS_EDITOR_DOCUMENTS_SCENE_DOCUMENT_HPP_
 
 #include <gneiss/engine/scene.hpp>
-namespace gneiss::engine {
+namespace gneiss::runtime {
 class application;
 }
 
@@ -91,13 +91,13 @@ public:
   scene_document(scene_document&& other) noexcept;
   scene_document& operator=(scene_document&& other) noexcept;
   /** 接收已经激活的场景；成功后拥有句柄，所属线程调用。 */
-  [[nodiscard]] result adopt(engine::application& application, gneiss_world world,
+  [[nodiscard]] result adopt(runtime::application& application, gneiss_world world,
                              gneiss_scene_instance scene, std::string_view uri) noexcept;
-  [[nodiscard]] result open(engine::application& application, gneiss_world world,
+  [[nodiscard]] result open(runtime::application& application, gneiss_world world,
                             std::string_view uri) noexcept;
-  [[nodiscard]] result create_empty(engine::application& application, gneiss_world world,
+  [[nodiscard]] result create_empty(runtime::application& application, gneiss_world world,
                                     std::string_view scene_uuid) noexcept;
-  [[nodiscard]] result create_empty(engine::application& application, gneiss_world world) noexcept;
+  [[nodiscard]] result create_empty(runtime::application& application, gneiss_world world) noexcept;
   void close() noexcept;
 
   [[nodiscard]] bool is_open() const noexcept;
@@ -198,7 +198,7 @@ private:
                                                  scene_node_id& out_node) noexcept;
   gneiss_world world_ = GNEISS_NULL_WORLD;
   // 借用宿主；宿主必须在关闭/销毁 Application 前关闭编辑文档。
-  engine::application* application_{};
+  runtime::application* application_{};
   gneiss_scene_instance scene_{};
   std::vector<scene_node_record> nodes_;
   std::vector<prefab_node_record> prefab_nodes_;

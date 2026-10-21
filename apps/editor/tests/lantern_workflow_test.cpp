@@ -138,7 +138,7 @@ int main() try { // NOLINT(bugprone-exception-escape): 测试入口统一返回�
   if (create_application(project.asset_root, application) != gneiss::result::success ||
       gneiss::result{gneiss_application_get_world(application.get(), &world)} !=
           gneiss::result::success ||
-      session.open(*gneiss::application_internal::find_application(application.get()), world,
+      session.open(*gneiss::runtime::find_application(application.get()), world,
                    project.startup_scene) != gneiss::result::success) {
     return 8;
   }
@@ -243,7 +243,7 @@ int main() try { // NOLINT(bugprone-exception-escape): 测试入口统一返回�
   session.close();
 
   gneiss::editor::scene_document reloaded;
-  if (reloaded.open(*gneiss::application_internal::find_application(application.get()), world,
+  if (reloaded.open(*gneiss::runtime::find_application(application.get()), world,
                     project.startup_scene) != gneiss::result::success ||
       reloaded.find_node(snapshot.uuid) == nullptr || reloaded.prefab_nodes().size() != 15U ||
       count_prefab_name(reloaded, "Lantern Glass Updated") != 3U) {

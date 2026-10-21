@@ -36,14 +36,14 @@ void run(tasks::execution_mode mode) {
   desc.asset_root = root.data();
   desc.asset_root_length = static_cast<std::uint32_t>(root.size());
   check(gneiss::result{gneiss_application_create(&desc, app.put())} == result::success);
-  check(application_internal::attach_task_executor(app.get(), scheduler) == GNEISS_SUCCESS);
+  check(runtime::attach_task_executor(app.get(), scheduler) == GNEISS_SUCCESS);
   editor::scene_document session;
   editor::editor_camera camera;
   editor::editor_command_history history;
   editor::editor_scene_loader loader;
   gneiss_world world{};
   check(gneiss::result{gneiss_application_get_world(app.get(), &world)} == result::success);
-  check(session.create_empty(*gneiss::application_internal::find_application(app.get()), world) ==
+  check(session.create_empty(*gneiss::runtime::find_application(app.get()), world) ==
         result::success);
   check(camera.initialize() == result::success);
   const auto original = world;
@@ -53,8 +53,8 @@ void run(tasks::execution_mode mode) {
       (void)scheduler.run_ready();
     check(gneiss::result{gneiss_application_run(app.get(), 1U)} == result::success);
     bool changed{};
-    check(loader.advance(*gneiss::application_internal::find_application(app.get()), session, world,
-                         camera, history, changed) == result::success);
+    check(loader.advance(*gneiss::runtime::find_application(app.get()), session, world, camera,
+                         history, changed) == result::success);
     std::this_thread::yield();
   };
   auto drain = [&] {
@@ -64,11 +64,9 @@ void run(tasks::execution_mode mode) {
       tick();
     }
   };
-  check(loader.request(*gneiss::application_internal::find_application(app.get()), uri) ==
-        result::success);
+  check(loader.request(*gneiss::runtime::find_application(app.get()), uri) == result::success);
   check(loader.active() && loader.visible() && world == original);
-  check(loader.request(*gneiss::application_internal::find_application(app.get()), uri) ==
-        result::not_ready);
+  check(loader.request(*gneiss::runtime::find_application(app.get()), uri) == result::not_ready);
   drain();
   check(!loader.visible() && loader.operation() == result::success && world != original);
   check(session.is_open() && !session.is_dirty() && session.uri() == uri);
@@ -85,7 +83,7 @@ void run(tasks::execution_mode mode) {
           .merge_key = {}});
   check(history.record(std::move(command)) == result::success);
   check(history.undo() == result::success && history.redo() == result::success);
-  check(loader.request(*gneiss::application_internal::find_application(app.get()),
+  check(loader.request(*gneiss::runtime::find_application(app.get()),
                        "asset://missing.scene.json") == result::success);
   drain();
   check(loader.visible() && loader.operation() != result::success);
@@ -93,23 +91,20 @@ void run(tasks::execution_mode mode) {
   check(session.selected_node()->display_name == "Edited" && history.can_undo());
   loader.dismiss();
   check(!loader.visible());
-  check(loader.request(*gneiss::application_internal::find_application(app.get()), uri) ==
-        result::success);
+  check(loader.request(*gneiss::runtime::find_application(app.get()), uri) == result::success);
   tick();
-  check(loader.cancel(*gneiss::application_internal::find_application(app.get())) ==
-        result::success);
+  check(loader.cancel(*gneiss::runtime::find_application(app.get())) == result::success);
   drain();
   check(world == current && session.selection() == node && history.can_undo());
-  check(loader.progress().phase == application_internal::scene_load_phase::cancelled);
-  check(loader.request(*gneiss::application_internal::find_application(app.get()), uri) ==
-        result::success);
+  check(loader.progress().phase == runtime::scene_load_phase::cancelled);
+  check(loader.request(*gneiss::runtime::find_application(app.get()), uri) == result::success);
   drain();
   check(world != current && !session.selection().is_valid() && !history.can_undo());
   check(camera.is_valid() && session.nodes().size() == 2U);
   tick();
   std::uint64_t count{};
   check(gneiss_world_entity_count(current, &count) == GNEISS_ERROR_INVALID_HANDLE);
-  check(loader.request(*gneiss::application_internal::find_application(app.get()),
+  check(loader.request(*gneiss::runtime::find_application(app.get()),
                        "asset://scenes/prefab.scene.json") == result::success);
   drain();
   check(loader.operation() == result::success && session.nodes().size() == 1U &&
@@ -120,8 +115,7 @@ void run(tasks::execution_mode mode) {
   camera.shutdown();
   session.close();
   // 在途任务随 Application 关闭；执行器必须最后销毁。
-  check(loader.request(*gneiss::application_internal::find_application(app.get()), uri) ==
-        result::success);
+  check(loader.request(*gneiss::runtime::find_application(app.get()), uri) == result::success);
   tick();
 }
 } // namespace

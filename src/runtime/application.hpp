@@ -1,26 +1,26 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#ifndef GNEISS_ENGINE_APPLICATION_HPP_
-#define GNEISS_ENGINE_APPLICATION_HPP_
+#ifndef GNEISS_RUNTIME_APPLICATION_HPP_
+#define GNEISS_RUNTIME_APPLICATION_HPP_
 
-#include "engine/resource/types/action_map.hpp"
 #include "engine/core/input/input_types.hpp"
+#include "engine/resource/types/action_map.hpp"
 #include <gneiss/engine/application.h>
 
-#include "engine/resource/vfs/virtual_file_system.hpp"
 #include "engine/core/log/log_dispatcher.hpp"
-#include "runtime/configuration/application_configuration.hpp"
-#include "runtime/loading/scene_load_types.hpp"
 #include "engine/function/render/debug_draw_list.hpp"
 #include "engine/function/render/render_asset_loader.hpp"
 #include "engine/function/render/render_snapshot.hpp"
 #include "engine/function/render/render_statistics.hpp"
 #include "engine/function/render/texture_load_service.hpp"
 #include "engine/function/render/ui_draw_list.hpp"
-#include "engine/resource/loaders/prefab_asset_loader.hpp"
 #include "engine/function/scene/scene_creation.hpp"
 #include "engine/function/scene/scene_mesh_binding.hpp"
+#include "engine/resource/loaders/prefab_asset_loader.hpp"
+#include "engine/resource/vfs/virtual_file_system.hpp"
+#include "runtime/configuration/application_configuration.hpp"
+#include "runtime/loading/scene_load_types.hpp"
 
 #include <cstdint>
 #include <memory>
@@ -36,15 +36,17 @@ class scene_instance_service;
 }
 namespace gneiss::engine {
 class world;
+}
+
+namespace gneiss::runtime {
 
 /** 内部真实运行对象；仅所属线程操作和释放最后一个持有引用。
  * 私有装配存储位于实现文件；此内部模块接口随源码构建，不属于安装 SDK。 */
 class GNEISS_API application final {
 public:
   /** 校验原生配置并创建已初始化的真实业务对象；失败不改变 output，不创建对外句柄。 */
-  [[nodiscard]] static gneiss_result
-  create(const application_internal::application_configuration& config,
-         std::shared_ptr<application>& output) noexcept;
+  [[nodiscard]] static gneiss_result create(const runtime::application_configuration& config,
+                                            std::shared_ptr<application>& output) noexcept;
   [[nodiscard]] const asset_internal::virtual_file_system& asset_files() const noexcept;
   [[nodiscard]] gneiss_result set_view_camera(const render_internal::view_camera* camera) noexcept;
   [[nodiscard]] gneiss_result capture_frame(std::uint32_t width, std::uint32_t height,
@@ -74,9 +76,8 @@ public:
                       std::uint64_t revision, std::uint64_t& request) noexcept;
   [[nodiscard]] gneiss_result request_scene(std::string_view uri, std::uint64_t session,
                                             std::uint64_t revision, std::uint64_t& request);
-  [[nodiscard]] bool scene_progress(application_internal::scene_load_progress& progress) const;
-  [[nodiscard]] gneiss_result poll_scene(application_internal::scene_load_completion& completion,
-                                         bool& ready);
+  [[nodiscard]] bool scene_progress(runtime::scene_load_progress& progress) const;
+  [[nodiscard]] gneiss_result poll_scene(runtime::scene_load_completion& completion, bool& ready);
   [[nodiscard]] gneiss_result cancel_scene(std::uint64_t request);
   [[nodiscard]] bool scene_loading() const noexcept;
   [[nodiscard]] gneiss_result
@@ -88,12 +89,12 @@ public:
   [[nodiscard]] bool asset_progress(render_internal::asset_load_progress& progress) const noexcept;
   [[nodiscard]] gneiss_result cancel_assets() noexcept;
   void advance_scene_load();
-  [[nodiscard]] application_internal::scene_retirement_statistics scene_retirement() const noexcept;
-  [[nodiscard]] gneiss_result
-  activate_scene(std::uint64_t request, application_internal::scene_load_completion& completion);
+  [[nodiscard]] runtime::scene_retirement_statistics scene_retirement() const noexcept;
+  [[nodiscard]] gneiss_result activate_scene(std::uint64_t request,
+                                             runtime::scene_load_completion& completion);
 
 private:
-  explicit application(const application_internal::application_configuration& config);
+  explicit application(const runtime::application_configuration& config);
   [[nodiscard]] gneiss_result initialize() noexcept;
 
 public:
@@ -157,6 +158,6 @@ private:
   std::unique_ptr<storage> storage_;
 };
 
-} // namespace gneiss::engine
+} // namespace gneiss::runtime
 
 #endif

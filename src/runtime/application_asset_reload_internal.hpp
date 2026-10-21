@@ -15,7 +15,7 @@
 #include <span>
 #include <string_view>
 
-namespace gneiss::application_internal {
+namespace gneiss::runtime {
 using mesh_binding = scene_internal::scene_instance_service::mesh_binding;
 /** 所属线程从就绪租约创建节点；失败输出无效句柄，不读取文件。 */
 GNEISS_API gneiss_result
@@ -98,6 +98,6 @@ GNEISS_API gneiss_result reload_prefab(gneiss_application application,
                                        gneiss_scene_instance instance,
                                        std::string_view uri) noexcept;
 
-} // namespace gneiss::application_internal
+} // namespace gneiss::runtime
 
 #endif

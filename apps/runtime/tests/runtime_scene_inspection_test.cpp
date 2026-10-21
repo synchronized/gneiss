@@ -144,15 +144,15 @@ bool test_capture_prefab_scene() {
   }
   gneiss::runtime_internal::runtime_scene_inspection inspection(5U);
   gneiss::runtime_internal::runtime_scene_snapshot snapshot;
-  const auto capture = inspection.capture_scene(
-      *gneiss::application_internal::find_application(application), scene, false, snapshot);
+  const auto capture = inspection.capture_scene(*gneiss::runtime::find_application(application),
+                                                scene, false, snapshot);
   const bool valid =
       capture == gneiss::result::success && snapshot.changes.size() == 3U &&
       snapshot.changes[1].node.prefab_instance_uuid == "30000000-0000-4000-8000-000000000012" &&
       snapshot.changes[1].node.prefab_source_node_uuid.empty() &&
       snapshot.changes[2].node.prefab_source_node_uuid == "30000000-0000-4000-8000-000000000002" &&
       snapshot.changes[2].node.parent == snapshot.changes[1].node.id;
-  auto native = gneiss::application_internal::find_application(application);
+  auto native = gneiss::runtime::find_application(application);
   auto foreign = gneiss::result::success;
   const auto changes = snapshot.changes.size();
   std::thread worker([&] { foreign = inspection.capture_scene(*native, scene, true, snapshot); });

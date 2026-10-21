@@ -117,7 +117,7 @@ int map_mouse_button(std::uint32_t button) noexcept {
   }
 }
 
-gneiss_result synchronize_input_state(engine::application& application) noexcept {
+gneiss_result synchronize_input_state(runtime::application& application) noexcept {
   auto& io = ImGui::GetIO();
   const auto& keyboard = application.keyboard_state();
   update_modifiers(io, keyboard.modifiers);
@@ -155,7 +155,7 @@ imgui_adapter::~imgui_adapter() noexcept {
   }
 }
 
-gneiss_result imgui_adapter::initialize(engine::application& application) {
+gneiss_result imgui_adapter::initialize(runtime::application& application) {
   if (!application.is_owner_thread() || !application.accepts_requests()) {
     return GNEISS_ERROR_INVALID_STATE;
   }
@@ -240,7 +240,7 @@ gneiss_result imgui_adapter::initialize(engine::application& application) {
   return GNEISS_SUCCESS;
 }
 
-void imgui_adapter::shutdown(engine::application& application) noexcept {
+void imgui_adapter::shutdown(runtime::application& application) noexcept {
   if (!application.is_owner_thread() || !application.accepts_requests()) {
     return;
   }
@@ -255,7 +255,7 @@ void imgui_adapter::shutdown(engine::application& application) noexcept {
   }
 }
 
-gneiss_result imgui_adapter::begin_frame(engine::application& application,
+gneiss_result imgui_adapter::begin_frame(runtime::application& application,
                                          const gneiss::engine::frame_time& time) {
   if (!application.is_owner_thread() || !application.accepts_requests()) {
     return GNEISS_ERROR_INVALID_STATE;
@@ -339,7 +339,7 @@ void imgui_adapter::process_input(const input_internal::input_event& event) {
   }
 }
 
-gneiss_result imgui_adapter::submit(engine::application& application) {
+gneiss_result imgui_adapter::submit(runtime::application& application) {
   if (context_ == nullptr) {
     return GNEISS_ERROR_INVALID_STATE;
   }

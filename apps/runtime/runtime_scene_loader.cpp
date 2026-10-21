@@ -6,8 +6,8 @@
 
 namespace gneiss::runtime_internal {
 namespace {
-ipc_scene_phase convert(application_internal::scene_load_phase phase) {
-  using source = application_internal::scene_load_phase;
+ipc_scene_phase convert(runtime::scene_load_phase phase) {
+  using source = runtime::scene_load_phase;
   switch (phase) {
   case source::preparing:
     return ipc_scene_phase::preparing;
@@ -83,8 +83,7 @@ gneiss_result runtime_scene_loader::cancel(const ipc_scene_request& source) {
   }
   return result;
 }
-gneiss_result
-runtime_scene_loader::activate(application_internal::scene_load_completion& completion) {
+gneiss_result runtime_scene_loader::activate(runtime::scene_load_completion& completion) {
   if (before_activate) {
     const auto stopped = before_activate();
     if (stopped != GNEISS_SUCCESS) {
@@ -99,7 +98,7 @@ runtime_scene_loader::activate(application_internal::scene_load_completion& comp
   return after_activate ? after_activate(completion) : GNEISS_SUCCESS;
 }
 namespace {
-ipc_scene_budget budget_snapshot(const application_internal::scene_load_progress& value) {
+ipc_scene_budget budget_snapshot(const runtime::scene_load_progress& value) {
   return {
       .candidate_logical_bytes = value.resident_bytes,
       .candidate_cpu_data_bytes = value.cpu_data_bytes,
@@ -114,7 +113,7 @@ ipc_scene_budget budget_snapshot(const application_internal::scene_load_progress
 }
 } // namespace
 gneiss_result runtime_scene_loader::advance() {
-  using namespace application_internal;
+  using namespace runtime;
   scene_load_completion completion;
   bool finished{};
   auto result = application_.poll_scene(completion, finished);

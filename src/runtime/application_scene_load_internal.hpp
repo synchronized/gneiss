@@ -7,7 +7,7 @@
 
 #include <gneiss/engine/application.h>
 
-namespace gneiss::application_internal {
+namespace gneiss::runtime {
 
 /** 旧域回收独立计时；live_resources 为 CPU Service RID 数量，不等于 GPU 驱动驻留量。 */
 GNEISS_API gneiss_result query_scene_retirement(gneiss_application application,
@@ -30,4 +30,4 @@ GNEISS_API gneiss_result cancel_scene_load(gneiss_application application,
 GNEISS_API gneiss_result activate_scene_load(gneiss_application application, std::uint64_t request,
                                              scene_load_completion& completion) noexcept;
 
-} // namespace gneiss::application_internal
+} // namespace gneiss::runtime

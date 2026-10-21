@@ -11,7 +11,7 @@
 #include <map>
 #include <utility>
 
-namespace gneiss::application_internal {
+namespace gneiss::runtime {
 
 scene_session::~scene_session() noexcept { shutdown(); }
 
@@ -300,4 +300,4 @@ gneiss_result scene_session::cancel_scene(std::uint64_t request) {
   return loader_ && loader_->cancel(request) ? GNEISS_SUCCESS : GNEISS_ERROR_NOT_READY;
 }
 
-} // namespace gneiss::application_internal
+} // namespace gneiss::runtime

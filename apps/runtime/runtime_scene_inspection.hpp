@@ -15,7 +15,7 @@
 #include <string>
 #include <vector>
 
-namespace gneiss::engine {
+namespace gneiss::runtime {
 class application;
 }
 namespace gneiss::runtime_internal {
@@ -51,7 +51,7 @@ public:
 
   [[nodiscard]] result capture(std::span<const runtime_scene_source_node> nodes, bool force_full,
                                runtime_scene_snapshot& output) noexcept;
-  [[nodiscard]] result capture_scene(engine::application& application, gneiss_scene_instance scene,
+  [[nodiscard]] result capture_scene(runtime::application& application, gneiss_scene_instance scene,
                                      bool force_full, runtime_scene_snapshot& output) noexcept;
   [[nodiscard]] result resolve_entity(ipc_runtime_object_id object,
                                       gneiss_entity_id& output) const noexcept;

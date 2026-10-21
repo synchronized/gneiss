@@ -152,7 +152,7 @@ void run_mip_sampling(bool packaged = false, bool async = false) {
   constexpr std::string_view uri = "asset://s.scene.json";
   gneiss_scene_instance scene{};
   if (async) {
-    using namespace application_internal;
+    using namespace runtime;
     check(attach_task_executor(app.get(), scheduler) == GNEISS_SUCCESS);
     std::uint64_t request{};
     check(request_scene_load(app.get(), uri, 1U, 1U, request) == GNEISS_SUCCESS);
@@ -191,7 +191,7 @@ void run_mip_sampling(bool packaged = false, bool async = false) {
   }
   check(gneiss::result{gneiss_application_run(app.get(), 3U)} == result::success);
   render_internal::frame_image image;
-  check(application_internal::capture_frame(app.get(), 128U, 128U, image) == GNEISS_SUCCESS);
+  check(runtime::capture_frame(app.get(), 128U, 128U, image) == GNEISS_SUCCESS);
   const auto offset = (64U * 128U + 64U) * 4U;
   // LOD0 全蓝，缩小时应采样全红的较低分辨率层；阈值不依赖具体色调映射曲线。
   check(std::to_integer<unsigned>(image.pixels[offset]) >
@@ -255,7 +255,7 @@ std::array<unsigned, 3> material_pixel(std::string_view slot, std::array<std::by
   check(gneiss_scene_instance_load(app.get(), uri.data(), uri.size(), &scene) == GNEISS_SUCCESS);
   check(gneiss::result{gneiss_application_run(app.get(), 3U)} == result::success);
   render_internal::frame_image image;
-  check(application_internal::capture_frame(app.get(), 128U, 128U, image) == GNEISS_SUCCESS);
+  check(runtime::capture_frame(app.get(), 128U, 128U, image) == GNEISS_SUCCESS);
   const auto offset = (64U * 128U + 64U) * 4U;
   return {std::to_integer<unsigned>(image.pixels[offset]),
           std::to_integer<unsigned>(image.pixels[offset + 1U]),
@@ -369,7 +369,7 @@ std::array<unsigned, 3> state_pixel(const state_case& test,
   check(gneiss_scene_instance_load(app.get(), uri.data(), uri.size(), &scene) == GNEISS_SUCCESS);
   check(gneiss::result{gneiss_application_run(app.get(), 3U)} == result::success);
   render_internal::frame_image image;
-  check(application_internal::capture_frame(app.get(), 128U, 128U, image) == GNEISS_SUCCESS);
+  check(runtime::capture_frame(app.get(), 128U, 128U, image) == GNEISS_SUCCESS);
   if (frame != nullptr)
     *frame = image.pixels;
   constexpr auto offset = (64U * 128U + 64U) * 4U;
@@ -440,14 +440,14 @@ void run(tasks::execution_mode mode, bool pbr = false) {
   desc.asset_root = root.data();
   desc.asset_root_length = static_cast<std::uint32_t>(root.size());
   check(gneiss::result{gneiss_application_create(&desc, app.put())} == result::success);
-  check(application_internal::attach_task_executor(app.get(), scheduler) == GNEISS_SUCCESS);
+  check(runtime::attach_task_executor(app.get(), scheduler) == GNEISS_SUCCESS);
   gneiss_scene_instance scene{};
   constexpr std::string_view uri = "asset://s.scene.json";
   check(gneiss_scene_instance_load(app.get(), uri.data(), uri.size(), &scene) == GNEISS_SUCCESS);
   check(gneiss::result{gneiss_application_run(app.get(), 3U)} == result::success);
   const auto capture = [&](unsigned width = 128U) {
     render_internal::frame_image image;
-    const auto result = application_internal::capture_frame(app.get(), width, 128U, image);
+    const auto result = runtime::capture_frame(app.get(), width, 128U, image);
     if (result != GNEISS_SUCCESS) {
       std::fprintf(stderr, "capture=%d\n", result);
     }
@@ -474,8 +474,7 @@ void run(tasks::execution_mode mode, bool pbr = false) {
             : std::vector<render_internal::render_asset_reload>{
                   {"asset://t.texture.json", type::texture}};
     std::uint64_t request{};
-    check(application_internal::request_render_assets(app.get(), assets, 1U, 1U, request) ==
-          GNEISS_SUCCESS);
+    check(runtime::request_render_assets(app.get(), assets, 1U, 1U, request) == GNEISS_SUCCESS);
     render_internal::texture_load_completion completed;
     bool ready{};
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
@@ -484,7 +483,7 @@ void run(tasks::execution_mode mode, bool pbr = false) {
       if (mode == tasks::execution_mode::cooperative) {
         (void)scheduler.run_ready();
       }
-      check(application_internal::poll_textures(app.get(), completed, ready) == GNEISS_SUCCESS);
+      check(runtime::poll_textures(app.get(), completed, ready) == GNEISS_SUCCESS);
       std::this_thread::yield();
     }
     return completed.result;
@@ -532,7 +531,7 @@ void run(tasks::execution_mode mode, bool pbr = false) {
   check(center(capture(192U))[2] > center(capture(192U))[0] + 30U);
 }
 void run_scene(tasks::execution_mode mode, bool pbr = false) {
-  using namespace application_internal;
+  using namespace runtime;
   fixture files(pbr);
   files.color(std::byte{20}, std::byte{240});
   tasks::task_scheduler scheduler({.workers = 1U, .mode = mode});

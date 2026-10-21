@@ -38,7 +38,7 @@ gneiss::core::rid_table<context_state> contexts(context_domain);
 
 } // namespace
 
-namespace gneiss::game_internal {
+namespace gneiss::runtime::game {
 
 gneiss_result create_game_context(gneiss_application application,
                                   gneiss_entity_id startup_root_entity,
@@ -48,8 +48,8 @@ gneiss_result create_game_context(gneiss_application application,
   }
   *out_context = GNEISS_NULL_GAME_CONTEXT;
   gneiss_world world = GNEISS_NULL_WORLD;
-  const auto parent = application_internal::find_application(application);
-  const auto world_result = application_internal::validate_application(parent);
+  const auto parent = runtime::find_application(application);
+  const auto world_result = runtime::validate_application(parent);
   if (world_result != GNEISS_SUCCESS) {
     return world_result;
   }
@@ -103,9 +103,9 @@ gneiss_result set_game_context_log_source(gneiss_game_context context,
   }
 }
 
-} // namespace gneiss::game_internal
+} // namespace gneiss::runtime::game
 
-namespace gneiss::game_internal {
+namespace gneiss::runtime::game {
 gneiss_result query_context(gneiss_game_context context, context_view& output) noexcept {
   output = {};
   try {
@@ -127,11 +127,11 @@ gneiss_result submit_context_log(gneiss_game_context context,
   try {
     const std::scoped_lock lock(context_mutex);
     const auto* state = contexts.get(context, core::resource_type::game_context);
-    return state == nullptr ? GNEISS_ERROR_INVALID_HANDLE
-                            : application_internal::submit_application_log(
-                                  state->application, message, state->log_source);
+    return state == nullptr
+               ? GNEISS_ERROR_INVALID_HANDLE
+               : runtime::submit_application_log(state->application, message, state->log_source);
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;
   }
 }
-} // namespace gneiss::game_internal
+} // namespace gneiss::runtime::game

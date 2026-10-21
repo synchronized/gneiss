@@ -104,7 +104,7 @@ struct response_context {
   gneiss::tasks::task_scope scope = scheduler.make_scope();
 };
 gneiss_result advance_scene(gneiss_application app, response_context& state) {
-  using namespace gneiss::application_internal;
+  using namespace gneiss::runtime;
   if (state.scene_ready) {
     return GNEISS_SUCCESS;
   }
@@ -313,13 +313,12 @@ int main(int argc, char** argv) try {
   desc.close_requested = close_requested;
   gneiss::test_support::application_owner app;
   if (gneiss::result{gneiss_application_create(&desc, app.put())}.failed() ||
-      gneiss::application_internal::attach_task_executor(app.get(), state.scheduler) !=
-          GNEISS_SUCCESS) {
+      gneiss::runtime::attach_task_executor(app.get(), state.scheduler) != GNEISS_SUCCESS) {
     return 1;
   }
-  if (!asset_root.empty() && gneiss::application_internal::request_scene_load(
-                                 app.get(), "asset://scenes/scene.scene.json", 1U, 1U,
-                                 state.scene_request) != GNEISS_SUCCESS) {
+  if (!asset_root.empty() &&
+      gneiss::runtime::request_scene_load(app.get(), "asset://scenes/scene.scene.json", 1U, 1U,
+                                          state.scene_request) != GNEISS_SUCCESS) {
     return 1;
   }
   auto* const window = FindWindowA(nullptr, title.c_str());

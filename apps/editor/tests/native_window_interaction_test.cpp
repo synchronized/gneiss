@@ -25,7 +25,7 @@
 namespace {
 
 struct state final {
-  gneiss::engine::application* application{};
+  gneiss::runtime::application* application{};
   gneiss::editor::imgui_adapter ui;
 #if defined(GNEISS_TEST_BACKGROUND_ASSETS)
   gneiss::editor::asset_background_worker* assets{};
@@ -130,7 +130,7 @@ int main() {
 #if defined(GNEISS_TEST_BACKGROUND_ASSETS)
   value.assets = &worker;
 #endif
-  gneiss::application_internal::application_configuration config;
+  gneiss::runtime::application_configuration config;
   config.use_granit_window = true;
   config.window.width = 640U;
   config.window.height = 480U;
@@ -139,8 +139,8 @@ int main() {
                                      const gneiss::engine::frame_time& time) {
     return gneiss::from_native(update(handle, &time, &value));
   };
-  std::shared_ptr<gneiss::engine::application> application;
-  if (gneiss::engine::application::create(config, application) != GNEISS_SUCCESS) {
+  std::shared_ptr<gneiss::runtime::application> application;
+  if (gneiss::runtime::application::create(config, application) != GNEISS_SUCCESS) {
     return 1;
   }
   value.application = application.get();

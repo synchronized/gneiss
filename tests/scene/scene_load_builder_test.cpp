@@ -108,7 +108,7 @@ void run() {
           GNEISS_ERROR_INVALID_ARGUMENT);
     check(!prepared);
   }
-  auto active = std::make_unique<application_internal::application_scene_state>();
+  auto active = std::make_unique<runtime::application_scene_state>();
   check(active->native_world() == nullptr && active->world() == GNEISS_NULL_WORLD &&
         active->scenes() == nullptr);
   check(active->initialize(active_assets, active_render) == GNEISS_SUCCESS);
@@ -136,7 +136,7 @@ void run() {
   scene_internal::scene_diagnostic scene_diagnostic;
   check(scene_internal::prepare_scene_description(vfs, "asset://s.scene", prepared,
                                                   scene_diagnostic, {}) == GNEISS_SUCCESS);
-  auto candidate = std::make_unique<application_internal::application_scene_state>();
+  auto candidate = std::make_unique<runtime::application_scene_state>();
   check(candidate->initialize(candidate_assets, candidate_render) == GNEISS_SUCCESS);
   std::vector<render_internal::render_asset_lease> captured{render_internal::render_asset_lease{}};
   check(candidate->scenes()->capture_render_assets(captured) == GNEISS_SUCCESS && captured.empty());
@@ -433,7 +433,7 @@ void run() {
   // 构造失败时仅回收候选节点；即使依赖缺失也不能退回主线程文件读取。
   check(scene_internal::prepare_scene_description(vfs, "asset://s.scene", prepared,
                                                   scene_diagnostic, {}) == GNEISS_SUCCESS);
-  candidate = std::make_unique<application_internal::application_scene_state>();
+  candidate = std::make_unique<runtime::application_scene_state>();
   check(candidate->initialize(candidate_assets, candidate_render) == GNEISS_SUCCESS);
   const auto failure_reads = files->reads;
   {

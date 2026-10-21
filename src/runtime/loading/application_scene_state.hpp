@@ -10,7 +10,7 @@ namespace gneiss::engine {
 class asset_manager;
 }
 
-namespace gneiss::application_internal {
+namespace gneiss::runtime {
 
 /** 一个完整场景域，拥有 World 和场景实例服务；可容纳多个 Scene。
  * 仅所属线程操作。实例服务借用的资源管理器与渲染加载器必须比域更晚销毁。
@@ -39,4 +39,4 @@ private:
   std::unique_ptr<scene_internal::scene_instance_service> scenes_;
 };
 
-} // namespace gneiss::application_internal
+} // namespace gneiss::runtime

@@ -52,14 +52,14 @@ void run(tasks::execution_mode mode) {
   desc.asset_root = root.data();
   desc.asset_root_length = static_cast<std::uint32_t>(root.size());
   check(gneiss::result{gneiss_application_create(&desc, app.put())} == result::success);
-  check(application_internal::attach_task_executor(app.get(), scheduler) == GNEISS_SUCCESS);
+  check(runtime::attach_task_executor(app.get(), scheduler) == GNEISS_SUCCESS);
   gneiss_world world{};
   check(gneiss_application_get_world(app.get(), &world) == GNEISS_SUCCESS);
   editor::scene_document session;
   editor::editor_command_history history;
   editor::editor_asset_edit edit;
-  check(session.open(*gneiss::application_internal::find_application(app.get()), world,
-                     "asset://scene.json") == result::success);
+  check(session.open(*gneiss::runtime::find_application(app.get()), world, "asset://scene.json") ==
+        result::success);
   const auto uuid = session.nodes().front().uuid;
   const auto drive = [&] {
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
@@ -67,20 +67,20 @@ void run(tasks::execution_mode mode) {
       if (mode == tasks::execution_mode::cooperative) {
         (void)scheduler.run_ready();
       }
-      edit.advance(*gneiss::application_internal::find_application(app.get()), session, history);
+      edit.advance(*gneiss::runtime::find_application(app.get()), session, history);
       check(std::chrono::steady_clock::now() < deadline);
       std::this_thread::yield();
     }
   };
   const auto request = [&](std::string_view material) {
-    return edit.request(*gneiss::application_internal::find_application(app.get()), session,
-                        history, uuid, {.mesh_uri = "asset://mesh.json", .material_uri = material});
+    return edit.request(*gneiss::runtime::find_application(app.get()), session, history, uuid,
+                        {.mesh_uri = "asset://mesh.json", .material_uri = material});
   };
   const auto binding = [&] {
-    application_internal::mesh_binding value;
-    check(application_internal::capture_mesh_binding(app.get(), session.scene_handle(),
-                                                     session.find_node(uuid)->node.get(),
-                                                     value) == GNEISS_SUCCESS);
+    runtime::mesh_binding value;
+    check(runtime::capture_mesh_binding(app.get(), session.scene_handle(),
+                                        session.find_node(uuid)->node.get(),
+                                        value) == GNEISS_SUCCESS);
     return value;
   };
   const auto initial_binding = binding();
@@ -119,14 +119,14 @@ void run(tasks::execution_mode mode) {
         session.nodes().front().material_uri == "asset://b.json");
   edit.dismiss();
   check(request("asset://missing.json") == result::success);
-  edit.cancel(*gneiss::application_internal::find_application(app.get()));
+  edit.cancel(*gneiss::runtime::find_application(app.get()));
   drive();
   check(!edit.visible() && history.size() == count);
   // 创建同样先准备，成功才产生节点；命令持有版本，坏文件不影响重做。
   const editor::mesh_asset_reference new_assets{.mesh_uri = "asset://mesh.json",
                                                 .material_uri = "asset://b.json"};
-  check(edit.request_add(*gneiss::application_internal::find_application(app.get()), session,
-                         history, "new node", new_assets) == result::success);
+  check(edit.request_add(*gneiss::runtime::find_application(app.get()), session, history,
+                         "new node", new_assets) == result::success);
   check(edit.active() && session.nodes().size() == 1U && history.size() == count);
   drive();
   check(edit.operation() == result::success && session.nodes().size() == 2U);
@@ -135,15 +135,14 @@ void run(tasks::execution_mode mode) {
   check(history.undo() == result::success && session.find_node(created_uuid) == nullptr);
   check(history.redo() == result::success && session.find_node(created_uuid) != nullptr);
   editor::editor_command_history disabled{0U};
-  check(edit.request_add(*gneiss::application_internal::find_application(app.get()), session,
-                         disabled, "rejected", new_assets) == result::invalid_argument);
+  check(edit.request_add(*gneiss::runtime::find_application(app.get()), session, disabled,
+                         "rejected", new_assets) == result::invalid_argument);
   check(!edit.active() && session.nodes().size() == 2U);
-  check(edit.request_add(*gneiss::application_internal::find_application(app.get()), session,
-                         history, "ready node", new_assets) == result::success);
+  check(edit.request_add(*gneiss::runtime::find_application(app.get()), session, history,
+                         "ready node", new_assets) == result::success);
   check(!edit.active() && !edit.visible() && session.nodes().size() == 3U);
   const auto creation_count = history.size();
-  check(edit.request_add(*gneiss::application_internal::find_application(app.get()), session,
-                         history, "missing",
+  check(edit.request_add(*gneiss::runtime::find_application(app.get()), session, history, "missing",
                          {.mesh_uri = "asset://mesh.json",
                           .material_uri = "asset://missing.json"}) == result::success);
   drive();
@@ -158,31 +157,28 @@ void run(tasks::execution_mode mode) {
   drive();
   check(edit.operation() == result::invalid_state && history.size() == creation_count);
   render_internal::render_asset_lease unused;
-  check(application_internal::query_ready_asset(
+  check(runtime::query_ready_asset(
             app.get(),
             {.uri = "asset://c.json", .type = render_internal::render_asset_type::material},
             unused) == GNEISS_ERROR_NOT_READY &&
         !unused);
   history.clear();
   // 旧请求还在准备时切换到另一个有效场景；不能污染新场景或采用旧候选。
-  check(session.create_empty(*application_internal::find_application(app.get()), world) ==
-        result::success);
+  check(session.create_empty(*runtime::find_application(app.get()), world) == result::success);
   std::ofstream(files.root / "d.json")
       << R"({"format":"gneiss.material","version":1,"color":[1,1,0,1]})";
-  check(edit.request_add(*application_internal::find_application(app.get()), session, history,
-                         "stale",
+  check(edit.request_add(*runtime::find_application(app.get()), session, history, "stale",
                          {.mesh_uri = "asset://mesh.json", .material_uri = "asset://d.json"}) ==
         result::success);
   check(edit.active());
   const auto previous_scene = session.scene_handle();
-  check(session.create_empty(*application_internal::find_application(app.get()), world) ==
-        result::success);
+  check(session.create_empty(*runtime::find_application(app.get()), world) == result::success);
   const auto new_scene = session.scene_handle();
   check(new_scene != previous_scene);
   drive();
   check(edit.operation() == result::invalid_state && session.scene_handle() == new_scene &&
         session.nodes().empty() && history.size() == 0U);
-  check(application_internal::query_ready_asset(
+  check(runtime::query_ready_asset(
             app.get(),
             {.uri = "asset://d.json", .type = render_internal::render_asset_type::material},
             unused) == GNEISS_ERROR_NOT_READY);

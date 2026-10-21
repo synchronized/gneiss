@@ -24,7 +24,7 @@ void close_pending_window(const char* assets) {
   using namespace gneiss;
   using namespace std::chrono_literals;
   tasks::task_scheduler scheduler({.workers = 1});
-  application_internal::application_configuration config;
+  runtime::application_configuration config;
   config.asset_root = assets;
   config.use_granit_window = true;
   config.window.visible = false;
@@ -34,8 +34,8 @@ void close_pending_window(const char* assets) {
     ++updates;
     return result::success;
   };
-  std::shared_ptr<engine::application> app;
-  check(engine::application::create(config, app) == GNEISS_SUCCESS, "window create");
+  std::shared_ptr<runtime::application> app;
+  check(runtime::application::create(config, app) == GNEISS_SUCCESS, "window create");
   check(app->attach_task_executor(scheduler) == GNEISS_SUCCESS, "window attach");
   std::promise<void> release, entered;
   auto future = release.get_future().share();
@@ -93,9 +93,9 @@ void run(const char* assets, bool cooperative) {
     }
   } guard{root};
   const auto root_text = root.generic_string();
-  application_internal::application_configuration config;
+  runtime::application_configuration config;
   config.asset_root = root_text;
-  std::shared_ptr<engine::application> app;
+  std::shared_ptr<runtime::application> app;
   unsigned frames = 0;
   bool seen_ready = false;
   config.callbacks.update = [&](auto, const auto&) {
@@ -107,7 +107,7 @@ void run(const char* assets, bool cooperative) {
     }
     return result::success;
   };
-  check(engine::application::create(config, app) == GNEISS_SUCCESS, "create");
+  check(runtime::application::create(config, app) == GNEISS_SUCCESS, "create");
   check(app->begin_action_map("asset://input/default.input-map.json") == GNEISS_ERROR_NOT_READY,
         "requires executor");
   check(app->load_action_map("asset://input/default.input-map.json") == GNEISS_SUCCESS,
@@ -177,7 +177,7 @@ void run(const char* assets, bool cooperative) {
         "shutdown rejects requests");
   // 资产管理器关闭只排空自身 scope，不能关闭借用的宿主调度器。
   app.reset();
-  check(engine::application::create(config, app) == GNEISS_SUCCESS, "recreate application");
+  check(runtime::application::create(config, app) == GNEISS_SUCCESS, "recreate application");
   check(app->attach_task_executor(scheduler) == GNEISS_SUCCESS, "reuse executor");
   check(app->begin_action_map("asset://input/default.input-map.json") == GNEISS_SUCCESS,
         "new owner begins input");

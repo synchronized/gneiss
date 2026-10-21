@@ -11,8 +11,8 @@
 #include <gneiss/engine/render.h>
 
 namespace {
-using gneiss::application_internal::find_application;
-using gneiss::application_internal::validate_application;
+using gneiss::runtime::find_application;
+using gneiss::runtime::validate_application;
 } // namespace
 
 extern "C" gneiss_result gneiss_mesh_create(gneiss_application application,

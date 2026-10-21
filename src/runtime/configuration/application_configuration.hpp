@@ -13,7 +13,7 @@
 #include <gneiss/engine/core/result.hpp>
 #include <string_view>
 
-namespace gneiss::application_internal {
+namespace gneiss::runtime {
 
 /** 原生平台和日志回调由配置复制；捕获的借用对象须存活至关闭结束。
  * context 是兼容宿主的借用关联标识；不拥有 Application，不授予销毁权。 */
@@ -39,4 +39,4 @@ struct application_configuration final {
   float environment_rotation_radians = 0.0F;
 };
 
-} // namespace gneiss::application_internal
+} // namespace gneiss::runtime

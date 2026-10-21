@@ -9,12 +9,12 @@
 #include <memory>
 #include <utility>
 
-namespace gneiss::engine {
+namespace gneiss::runtime {
 class application;
 }
-namespace gneiss::application_internal {
+namespace gneiss::runtime {
 struct application_configuration;
-using application_resource = std::shared_ptr<engine::application>;
+using application_resource = std::shared_ptr<runtime::application>;
 /** 私有借用解析；共享指针只保护当前调用，不延长已关闭服务的有效性。 */
 [[nodiscard]] GNEISS_API application_resource
 find_application(gneiss_application application) noexcept;
@@ -23,5 +23,5 @@ find_application(gneiss_application application) noexcept;
 [[nodiscard]] gneiss_result create_application(const application_configuration& config,
                                                gneiss_application& output) noexcept;
 [[nodiscard]] gneiss_result destroy_application(gneiss_application application) noexcept;
-} // namespace gneiss::application_internal
+} // namespace gneiss::runtime
 #endif

@@ -165,7 +165,7 @@ scene_document& scene_document::operator=(scene_document&& other) noexcept {
   return *this;
 }
 
-result scene_document::adopt(engine::application& application, gneiss_world world,
+result scene_document::adopt(runtime::application& application, gneiss_world world,
                              gneiss_scene_instance scene, std::string_view uri) noexcept {
   if (!application.is_owner_thread() || !application.accepts_requests())
     return result::invalid_state;
@@ -192,7 +192,7 @@ result scene_document::adopt(engine::application& application, gneiss_world worl
   }
 }
 
-result scene_document::open(engine::application& application, gneiss_world world,
+result scene_document::open(runtime::application& application, gneiss_world world,
                             std::string_view uri) noexcept {
   if (!application.is_owner_thread() || !application.accepts_requests())
     return result::invalid_state;
@@ -208,7 +208,7 @@ result scene_document::open(engine::application& application, gneiss_world world
   return adopted;
 }
 
-result scene_document::create_empty(engine::application& application, gneiss_world world,
+result scene_document::create_empty(runtime::application& application, gneiss_world world,
                                     std::string_view scene_uuid) noexcept {
   if (!application.is_owner_thread() || !application.accepts_requests())
     return result::invalid_state;
@@ -226,7 +226,8 @@ result scene_document::create_empty(engine::application& application, gneiss_wor
   return result::success;
 }
 
-result scene_document::create_empty(engine::application& application, gneiss_world world) noexcept {
+result scene_document::create_empty(runtime::application& application,
+                                    gneiss_world world) noexcept {
   try {
     return create_empty(application, world, make_uuid_value());
   } catch (const std::bad_alloc&) {

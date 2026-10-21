@@ -6,7 +6,7 @@
 
 namespace gneiss::editor {
 
-result editor_scene_loader::request(engine::application& application, std::string_view uri) {
+result editor_scene_loader::request(runtime::application& application, std::string_view uri) {
   if (active_) {
     return result::not_ready;
   }
@@ -22,7 +22,7 @@ result editor_scene_loader::request(engine::application& application, std::strin
   return result::success;
 }
 
-result editor_scene_loader::cancel(engine::application& application) {
+result editor_scene_loader::cancel(runtime::application& application) {
   if (!active_) {
     return result::not_ready;
   }
@@ -30,7 +30,7 @@ result editor_scene_loader::cancel(engine::application& application) {
     queued_ = false;
     active_ = false;
     operation_ = result::invalid_state;
-    progress_.phase = application_internal::scene_load_phase::cancelled;
+    progress_.phase = runtime::scene_load_phase::cancelled;
     progress_.cleanup_complete = true;
     return result::success;
   }
@@ -41,10 +41,10 @@ result editor_scene_loader::cancel(engine::application& application) {
   return operation;
 }
 
-result editor_scene_loader::advance(engine::application& application, scene_document& session,
+result editor_scene_loader::advance(runtime::application& application, scene_document& session,
                                     gneiss_world& world, editor_camera& camera,
                                     editor_command_history& history, bool& changed) {
-  using namespace application_internal;
+  using namespace runtime;
   changed = false;
   // 即使界面已收起也推进旧域回收，下一次打开不能被退休域永久阻塞。
   scene_load_completion completion;

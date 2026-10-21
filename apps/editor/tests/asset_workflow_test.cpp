@@ -99,8 +99,8 @@ int main() try {
   scene_node_id node;
   if (gneiss::result{gneiss_application_create(&desc, app.put())} != result::success ||
       gneiss::result{gneiss_application_get_world(app.get(), &world)} != result::success ||
-      session.open(*gneiss::application_internal::find_application(app.get()), world,
-                   project.startup_scene) != result::success ||
+      session.open(*gneiss::runtime::find_application(app.get()), world, project.startup_scene) !=
+          result::success ||
       session.create_mesh_renderer_node("Imported", *mesh, *material, node) != result::success ||
       session.save(project.asset_root) != result::success) {
     return 5;

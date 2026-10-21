@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "runtime/loading/prefab_placement.hpp"
-#include "runtime/application.hpp"
 #include "engine/function/scene/structural_diff.hpp"
 #include "engine/function/world/world_service.hpp"
+#include "runtime/application.hpp"
 #include <algorithm>
 
-namespace gneiss::application_internal {
-gneiss_result prefab_placement::capture_step(engine::application& application,
+namespace gneiss::runtime {
+gneiss_result prefab_placement::capture_step(runtime::application& application,
                                              std::string_view uuid, gneiss_scene_instance scene,
                                              std::shared_ptr<prefab_placement_snapshot>& snapshot,
                                              bool& complete) noexcept try {
@@ -57,7 +57,7 @@ gneiss_result prefab_placement::capture_step(engine::application& application,
 }
 
 gneiss_result
-prefab_placement::freeze(engine::application& application,
+prefab_placement::freeze(runtime::application& application,
                          scene_internal::prepared_prefab_description prepared,
                          scene_internal::prefab_instance_description author,
                          std::vector<render_internal::render_asset_lease> assets,
@@ -88,13 +88,14 @@ prefab_placement::freeze(engine::application& application,
 } catch (...) {
   return GNEISS_ERROR_INTERNAL;
 }
-prefab_placement::prefab_placement(engine::application& application,
+prefab_placement::prefab_placement(runtime::application& application,
                                    std::shared_ptr<const prefab_placement_snapshot> snapshot,
                                    gneiss_scene_instance scene, bool removing)
     : application_(application), scene_(scene), snapshot_(std::move(snapshot)),
       removing_(removing) {}
 prefab_placement::~prefab_placement() = default;
-gneiss_result prefab_placement::begin(engine::application& application, gneiss_scene_instance scene,
+gneiss_result prefab_placement::begin(runtime::application& application,
+                                      gneiss_scene_instance scene,
                                       std::shared_ptr<const prefab_placement_snapshot> snapshot,
                                       bool removing, std::unique_ptr<prefab_placement>& output,
                                       bool replacing) noexcept try {

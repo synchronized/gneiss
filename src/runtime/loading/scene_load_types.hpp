@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <gneiss/engine/scene.h>
 #include <string>
-namespace gneiss::application_internal {
+namespace gneiss::runtime {
 enum class scene_load_phase : std::uint8_t {
   preparing,
   assets,
@@ -66,4 +66,4 @@ struct scene_retirement_statistics {
   bool pending{};
 };
 
-} // namespace gneiss::application_internal
+} // namespace gneiss::runtime

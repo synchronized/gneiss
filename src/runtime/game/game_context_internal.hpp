@@ -13,7 +13,7 @@ namespace gneiss::log_internal {
 struct message_view;
 }
 
-namespace gneiss::game_internal {
+namespace gneiss::runtime::game {
 
 [[nodiscard]] GNEISS_API gneiss_result
 create_game_context(gneiss_application application, gneiss_entity_id startup_root_entity,
@@ -33,6 +33,6 @@ struct context_view {
 /** message 已经过 ABI 校验；此入口允许跨线程，日志来源在锁内借用。 */
 [[nodiscard]] gneiss_result submit_context_log(gneiss_game_context context,
                                                const log_internal::message_view& message) noexcept;
-} // namespace gneiss::game_internal
+} // namespace gneiss::runtime::game
 
 #endif

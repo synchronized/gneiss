@@ -97,7 +97,7 @@ struct author_document_operation final {
 
 struct editor_state {
   // 宿主拥有对象；只在其 run 回调期间借用。
-  gneiss::engine::application* application{};
+  gneiss::runtime::application* application{};
   explicit editor_state(bool cooperative = false)
       : task_scheduler({.mode = cooperative ? gneiss::tasks::execution_mode::cooperative
                                             : gneiss::tasks::execution_mode::thread_pool}) {}
@@ -1231,7 +1231,7 @@ gneiss_result advance_editor_smoke(editor_state& state) {
 }
 
 void draw_scene_loading(editor_state& state) {
-  using phase = gneiss::application_internal::scene_load_phase;
+  using phase = gneiss::runtime::scene_load_phase;
   const auto& progress = state.scene_loader.progress();
   const char* stage = "Preparing scene";
   switch (progress.phase) {
@@ -2863,7 +2863,7 @@ int run_editor(int argc, char** argv) {
     return 64;
   }
   editor_state state(options.cooperative_tasks);
-  std::shared_ptr<gneiss::engine::application> application;
+  std::shared_ptr<gneiss::runtime::application> application;
   state.smoke = options.smoke;
   state.smoke_frame_limit = options.smoke_frames;
   state.asset_root = project.asset_root;
@@ -2890,7 +2890,7 @@ int run_editor(int argc, char** argv) {
   }
 #endif
   const auto title = project.name + " - Gneiss Editor";
-  gneiss::application_internal::application_configuration desc;
+  gneiss::runtime::application_configuration desc;
   desc.callbacks.update = [&state](gneiss::core::rid, const gneiss::engine::frame_time& time) {
     return gneiss::from_native(update_editor(&time, &state));
   };
@@ -2910,7 +2910,7 @@ int run_editor(int argc, char** argv) {
   desc.environment_rotation_radians =
       project.environment.rotation_degrees * 0.01745329251994329577F;
 
-  auto operation = gneiss::from_native(gneiss::engine::application::create(desc, application));
+  auto operation = gneiss::from_native(gneiss::runtime::application::create(desc, application));
   if (operation != gneiss::result::success) {
     report_startup_failure("Editor Application 创建", operation, path_utf8(project.project_root));
     return 1;

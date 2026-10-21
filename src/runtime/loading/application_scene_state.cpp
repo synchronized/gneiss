@@ -4,7 +4,7 @@
 #include "runtime/loading/application_scene_state.hpp"
 #include "engine/resource/asset_manager.hpp"
 
-namespace gneiss::application_internal {
+namespace gneiss::runtime {
 
 application_scene_state::~application_scene_state() noexcept = default;
 
@@ -36,4 +36,4 @@ application_scene_state::initialize(engine::asset_manager& owner,
   }
 }
 
-} // namespace gneiss::application_internal
+} // namespace gneiss::runtime

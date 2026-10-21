@@ -42,12 +42,12 @@
 #include <new>
 #include <vector>
 
-namespace gneiss::engine {
+namespace gneiss::runtime {
 struct application::storage {
-  explicit storage(const application_internal::application_configuration& config)
+  explicit storage(const runtime::application_configuration& config)
       : config_(config), owner_thread_(std::this_thread::get_id()) {}
   std::shared_ptr<core::progress_notification> loop_notification_;
-  application_internal::application_configuration config_;
+  runtime::application_configuration config_;
   render_internal::render_resource_service resources_;
   render_internal::ui_draw_list ui_draw_list_;
   render_internal::debug_draw_list debug_draw_list_;
@@ -61,9 +61,9 @@ struct application::storage {
   // 渲染租约缓存独立于 CPU/Prefab 缓存，先释放场景和加载器再销毁缓存。
   std::unique_ptr<asset_internal::resource_cache> render_asset_cache_;
   std::unique_ptr<render_internal::render_asset_loader> render_assets_;
-  application_internal::action_map_application input_application_;
+  runtime::action_map_application input_application_;
   bool asset_executor_attached_ = false;
-  application_internal::scene_session scene_session_;
+  runtime::scene_session scene_session_;
   std::thread::id owner_thread_;
   std::uint64_t frame_index_ = 0;
   std::uint64_t elapsed_ns_ = 0;
@@ -139,7 +139,7 @@ private:
 };
 } // namespace
 
-gneiss_result application::create(const application_internal::application_configuration& config,
+gneiss_result application::create(const runtime::application_configuration& config,
                                   std::shared_ptr<application>& output) noexcept {
   if ((config.use_granit_window &&
        (config.window.width == 0U || config.window.height == 0U ||
@@ -167,7 +167,7 @@ gneiss_result application::create(const application_internal::application_config
   }
 }
 
-application::application(const application_internal::application_configuration& config)
+application::application(const runtime::application_configuration& config)
     : storage_(std::make_unique<storage>(config)) {}
 
 application::~application() noexcept { static_cast<void>(shutdown(GNEISS_NULL_APPLICATION)); }
@@ -249,7 +249,7 @@ gneiss_result application::attach_task_executor(tasks::task_executor& executor) 
 }
 
 gneiss_result application::activate_scene(std::uint64_t request,
-                                          application_internal::scene_load_completion& completion) {
+                                          runtime::scene_load_completion& completion) {
   if (!is_owner_thread() || !accepts_requests())
     return GNEISS_ERROR_INVALID_STATE;
   try {
@@ -502,7 +502,7 @@ gneiss_result application::begin_action_map(std::string_view uri) noexcept {
   if (!storage_->asset_executor_attached_)
     return GNEISS_ERROR_NOT_READY;
   storage_->input_application_.cancel();
-  std::unique_ptr<action_map_request> request;
+  std::unique_ptr<engine::action_map_request> request;
   const auto started = storage_->asset_manager_->request_input(uri, request);
   return started == result::success
              ? storage_->input_application_.begin(std::move(request)).native()
@@ -1125,15 +1125,14 @@ gneiss_result application::request_scene(std::string_view uri, std::uint64_t ses
   }
 }
 
-bool application::scene_progress(application_internal::scene_load_progress& progress) const {
+bool application::scene_progress(runtime::scene_load_progress& progress) const {
   progress = {};
   if (!is_owner_thread() || !accepts_requests())
     return false;
   return storage_->scene_session_.scene_progress(progress);
 }
 
-gneiss_result application::poll_scene(application_internal::scene_load_completion& completion,
-                                      bool& ready) {
+gneiss_result application::poll_scene(runtime::scene_load_completion& completion, bool& ready) {
   ready = false;
   if (!is_owner_thread() || !accepts_requests())
     return GNEISS_ERROR_INVALID_STATE;
@@ -1209,7 +1208,7 @@ gneiss_result application::cancel_assets() noexcept {
 
 void application::advance_scene_load() { storage_->scene_session_.advance(); }
 
-application_internal::scene_retirement_statistics application::scene_retirement() const noexcept {
+runtime::scene_retirement_statistics application::scene_retirement() const noexcept {
   auto value = storage_->scene_session_.retirement();
   value.live_resources = storage_->resources_.live_resource_count();
   return value;
@@ -1250,4 +1249,4 @@ void application::request_exit() noexcept { storage_->should_exit_ = true; }
 
 void application::set_paused(bool value) noexcept { storage_->is_paused_ = value; }
 
-} // namespace gneiss::engine
+} // namespace gneiss::runtime

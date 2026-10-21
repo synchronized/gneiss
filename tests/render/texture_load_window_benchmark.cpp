@@ -71,7 +71,7 @@ gneiss_result update(gneiss_application app, const gneiss_frame_time*, void* opa
     (void)state.scheduler->run_ready();
   }
   render_internal::render_queue_stats stats;
-  if (application_internal::query_render_statistics(app, stats) != GNEISS_SUCCESS) {
+  if (runtime::query_render_statistics(app, stats) != GNEISS_SUCCESS) {
     return GNEISS_ERROR_INTERNAL;
   }
   if (stats.presented_frames != state.stats.presented_frames) {
@@ -115,7 +115,7 @@ gneiss_result update(gneiss_application app, const gneiss_frame_time*, void* opa
           {"asset://textures/test.texture.json", render_internal::render_asset_type::texture},
           {"asset://materials/test.material.json", render_internal::render_asset_type::material}};
       const auto start = std::chrono::steady_clock::now();
-      auto result = application_internal::reload_render_assets(app, reloads);
+      auto result = runtime::reload_render_assets(app, reloads);
       if (result != GNEISS_SUCCESS) {
         return result;
       }
@@ -139,10 +139,9 @@ gneiss_result update(gneiss_application app, const gneiss_frame_time*, void* opa
     } else {
       const std::vector<std::string> uris{"asset://textures/test.texture.json"};
       std::uint64_t request{};
-      const auto result =
-          state.model
-              ? application_internal::request_render_assets(app, state.assets, 1U, 1U, request)
-              : application_internal::request_textures(app, uris, 1U, 1U, request);
+      const auto result = state.model
+                              ? runtime::request_render_assets(app, state.assets, 1U, 1U, request)
+                              : runtime::request_textures(app, uris, 1U, 1U, request);
       if (result != GNEISS_SUCCESS) {
         return result;
       }
@@ -151,7 +150,7 @@ gneiss_result update(gneiss_application app, const gneiss_frame_time*, void* opa
   if (state.requested && !state.completed) {
     render_internal::texture_load_completion completion;
     bool ready{};
-    const auto result = application_internal::poll_textures(app, completion, ready);
+    const auto result = runtime::poll_textures(app, completion, ready);
     if (result != GNEISS_SUCCESS) {
       return result;
     }
@@ -215,7 +214,7 @@ int main(int argc, char** argv) try {
   desc.update = update;
   desc.user_data = &state;
   if (gneiss::result{gneiss_application_create(&desc, app.put())} != result::success ||
-      application_internal::attach_task_executor(app.get(), scheduler) != GNEISS_SUCCESS) {
+      runtime::attach_task_executor(app.get(), scheduler) != GNEISS_SUCCESS) {
     return 1;
   }
   constexpr std::string_view scene = "asset://scenes/test.scene.json";

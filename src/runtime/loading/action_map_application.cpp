@@ -4,7 +4,7 @@
 #include "runtime/loading/action_map_application.hpp"
 #include "engine/function/input/input_service.hpp"
 
-namespace gneiss::application_internal {
+namespace gneiss::runtime {
 action_map_application::~action_map_application() { cancel(); }
 void action_map_application::cancel() noexcept {
   if (request_)
@@ -44,4 +44,4 @@ result action_map_application::poll(input_internal::input_service& target) noexc
       result_ == result::success ? action_map_apply_state::applied : action_map_apply_state::failed;
   return result_;
 }
-} // namespace gneiss::application_internal
+} // namespace gneiss::runtime

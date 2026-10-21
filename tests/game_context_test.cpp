@@ -66,9 +66,9 @@ int main() {
   gneiss_game_context context = GNEISS_NULL_GAME_CONTEXT;
   if (gneiss_application_get_world(application, &expected_world) != GNEISS_SUCCESS ||
       gneiss_world_entity_create(expected_world, &expected_root) != GNEISS_SUCCESS ||
-      gneiss::game_internal::create_game_context(application, expected_root, &context) !=
+      gneiss::runtime::game::create_game_context(application, expected_root, &context) !=
           GNEISS_SUCCESS ||
-      gneiss::game_internal::set_game_context_log_source(context, "gneiss.test.module") !=
+      gneiss::runtime::game::set_game_context_log_source(context, "gneiss.test.module") !=
           GNEISS_SUCCESS ||
       context == GNEISS_NULL_GAME_CONTEXT) {
     return 2;
@@ -125,10 +125,10 @@ int main() {
   other.join();
   if (cross_thread_result != GNEISS_ERROR_INVALID_HANDLE ||
       cross_thread_log_result != GNEISS_SUCCESS ||
-      gneiss::game_internal::destroy_game_context(context) != GNEISS_SUCCESS ||
+      gneiss::runtime::game::destroy_game_context(context) != GNEISS_SUCCESS ||
       gneiss_game_context_get_world(context, &actual_world) != GNEISS_ERROR_INVALID_HANDLE ||
       gneiss_game_context_log(context, &native_message) != GNEISS_ERROR_INVALID_HANDLE ||
-      gneiss::game_internal::destroy_game_context(context) != GNEISS_ERROR_INVALID_HANDLE ||
+      gneiss::runtime::game::destroy_game_context(context) != GNEISS_ERROR_INVALID_HANDLE ||
       gneiss_application_destroy(application) != GNEISS_SUCCESS) {
     return 4;
   }

@@ -28,7 +28,7 @@ namespace gneiss::editor {
 namespace {
 
 struct project_manager_state final {
-  engine::application* application{};
+  runtime::application* application{};
   imgui_adapter ui;
   editor_project* output = nullptr;
   std::array<char, 2048> project_path{};
@@ -195,9 +195,9 @@ result run_project_manager(bool smoke, editor_project& output) noexcept {
     if (recent_result != result::success && recent_result != result::invalid_argument) {
       state.operation = recent_result;
     }
-    std::shared_ptr<gneiss::engine::application> application;
+    std::shared_ptr<gneiss::runtime::application> application;
     constexpr std::string_view title = "Gneiss Project Manager";
-    gneiss::application_internal::application_configuration desc;
+    gneiss::runtime::application_configuration desc;
     desc.callbacks.update = [&state](gneiss::core::rid, const gneiss::engine::frame_time& time) {
       return gneiss::from_native(update_project_manager(state, time));
     };
@@ -208,7 +208,7 @@ result run_project_manager(bool smoke, editor_project& output) noexcept {
     desc.window.height = 420U;
     desc.window.resizable = false;
     desc.window.high_dpi = false;
-    auto operation = gneiss::from_native(gneiss::engine::application::create(desc, application));
+    auto operation = gneiss::from_native(gneiss::runtime::application::create(desc, application));
     if (operation != result::success) {
       const auto message = operation.message();
       std::fprintf(

@@ -27,7 +27,7 @@ int main() try {
   if (gneiss::result{gneiss_application_create(&desc, app.put())}.failed() ||
       gneiss::result{gneiss_application_get_world(app.get(), &world)}.failed() ||
       session
-          .open(*gneiss::application_internal::find_application(app.get()), world,
+          .open(*gneiss::runtime::find_application(app.get()), world,
                 "asset://scenes/triangle.scene.json")
           .failed()) {
     return 1;

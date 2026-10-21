@@ -3,9 +3,9 @@
 
 #include "engine/api/scene_query_conversion.hpp"
 #include "engine/core/identifier_conversion.hpp"
+#include "engine/function/scene/scene_instance_service.hpp"
 #include "runtime/application.hpp"
 #include "runtime/application_registry.hpp"
-#include "engine/function/scene/scene_instance_service.hpp"
 
 #include <gneiss/engine/scene.h>
 
@@ -19,8 +19,8 @@
 #include <vector>
 
 namespace {
-using gneiss::application_internal::find_application;
-using gneiss::application_internal::validate_application;
+using gneiss::runtime::find_application;
+using gneiss::runtime::validate_application;
 } // namespace
 
 extern "C" gneiss_result gneiss_scene_instance_load(gneiss_application application, const char* uri,

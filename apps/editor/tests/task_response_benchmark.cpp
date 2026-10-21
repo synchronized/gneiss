@@ -92,7 +92,7 @@ void run(const std::filesystem::path& root, const std::filesystem::path& source)
               gneiss::result{gneiss_application_get_world(app.get(), &world)} == result::success,
           "基准应用创建失败");
   const auto open_ms = measure([&] {
-    require(session.open(*gneiss::application_internal::find_application(app.get()), world,
+    require(session.open(*gneiss::runtime::find_application(app.get()), world,
                          "asset://main.scene.json") == result::success,
             "多 Prefab 场景加载失败");
   });
@@ -136,12 +136,12 @@ void run(const std::filesystem::path& root, const std::filesystem::path& source)
       if (change.state == author_asset_change_state::changed &&
           change.uri.ends_with(".prefab.json")) {
         require(change.operation == result::success, "Prefab 读取失败");
-        max_apply = std::max(
-            max_apply, measure([&] {
-              require(session.open(*gneiss::application_internal::find_application(app.get()),
-                                   world, "asset://main.scene.json") == result::success,
-                      "主线程应用失败");
-            }));
+        max_apply =
+            std::max(max_apply, measure([&] {
+                       require(session.open(*gneiss::runtime::find_application(app.get()), world,
+                                            "asset://main.scene.json") == result::success,
+                               "主线程应用失败");
+                     }));
         authors.mark_applied(change.uri);
         ++applied;
       }

@@ -16,12 +16,11 @@ bool run(gneiss::tasks::execution_mode mode) {
     return false;
   }
   for (int attempt = 0; attempt < 3; ++attempt) {
-    std::unique_ptr<gneiss::application_internal::prefab_preparation> request;
+    std::unique_ptr<gneiss::runtime::prefab_preparation> request;
     const auto uri =
         attempt == 2 ? "asset://prefabs/missing.prefab.json" : "asset://prefabs/test.prefab.json";
-    if (gneiss::application_internal::prefab_preparation::create(
-            *gneiss::application_internal::find_application(application), executor, uri, request) !=
-        GNEISS_SUCCESS) {
+    if (gneiss::runtime::prefab_preparation::create(*gneiss::runtime::find_application(application),
+                                                    executor, uri, request) != GNEISS_SUCCESS) {
       return false;
     }
     if (attempt == 1) {

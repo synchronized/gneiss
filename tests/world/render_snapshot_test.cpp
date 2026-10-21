@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "runtime/application_view_internal.hpp"
 #include "engine/function/world/render_snapshot.hpp"
 #include "engine/function/world/world_state.hpp"
+#include "runtime/application_view_internal.hpp"
 #include <thread>
 
 int run_host_tests() {
-  using gneiss::application_internal::set_view_camera;
+  using gneiss::runtime::set_view_camera;
   gneiss_application application{};
   const gneiss_application_desc description = GNEISS_APPLICATION_DESC_INIT;
   if (gneiss_application_create(&description, &application) != GNEISS_SUCCESS) {

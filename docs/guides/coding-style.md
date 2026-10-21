@@ -222,3 +222,10 @@ docs/                   项目文档
 6. 运行 `git diff --check`，确认没有无关格式化或尾随空白。
 
 具体构建、测试和示例运行命令由[构建与测试指南](building.md)统一维护。
+
+## 模块命名空间迁移
+
+新内部代码按所属模块使用 `gneiss::engine` 领域子空间、`gneiss::runtime` 或
+`gneiss::editor`，不新增业务模块的 `xxx_internal` 命名。辅助实现使用 `detail`
+或匿名命名空间。现有 Engine 遗留命名按模块逐批迁移，避免仅为风格做无关全局替换。
+Runtime 已使用 `gneiss::runtime`，游戏上下文使用其 `game` 子空间；不提供旧名兼容别名。
