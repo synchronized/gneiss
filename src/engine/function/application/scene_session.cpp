@@ -227,7 +227,7 @@ gneiss_result scene_session::poll_assets(render_internal::texture_load_completio
           changes.push_back({.previous = previous, .replacement = *next});
         }
         if (completion.result == GNEISS_SUCCESS) {
-          completion.result = asset_owner_->accept(
+          completion.result = accept_edit_assets(
               completion, [&] { return active_->scenes->replace_render_assets(changes); });
         }
       }
@@ -257,7 +257,29 @@ gneiss_result scene_session::poll_assets(render_internal::texture_load_completio
 gneiss_result
 scene_session::accept_edit_assets(const render_internal::texture_load_completion& completion,
                                   const std::function<gneiss_result()>& accept) {
-  return active_ ? asset_owner_->accept(completion, accept) : GNEISS_ERROR_INVALID_STATE;
+  if (!active_) {
+    return GNEISS_ERROR_INVALID_STATE;
+  }
+  if (!accept) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  try {
+    std::unique_ptr<asset_internal::resource_cache::prepared_adoption> prepared;
+    const auto result = asset_owner_->prepare_adoption(completion, prepared);
+    if (result != GNEISS_SUCCESS) {
+      return result;
+    }
+    // 场景修改属于应用流程；失败或异常时释放准备状态，保留默认版本。
+    const auto applied = accept();
+    if (applied == GNEISS_SUCCESS) {
+      prepared->commit();
+    }
+    return applied;
+  } catch (const std::bad_alloc&) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
 }
 
 gneiss_result scene_session::cancel_scene(std::uint64_t request) {

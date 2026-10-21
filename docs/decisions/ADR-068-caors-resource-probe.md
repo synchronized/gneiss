@@ -3,6 +3,9 @@
 
 # ADR-068：CAORS 单资源接入验证边界
 
+目录与组装职责后续以 [ADR-069](ADR-069-resource-runtime-boundaries.md) 为准；
+本记录已有接入及平台契约保留，function/asset 不是最终目录。
+
 ## 状态与背景
 
 2026-10-20，采用；已从独立验证扩展至默认关闭的 Application 输入接入。用户要求先接通一个真实 CPU 资源，

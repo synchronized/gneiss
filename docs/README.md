@@ -111,6 +111,8 @@
 - [VER-045：0.45.0 内部 C++ 分层与完整 SDK 包装](plans/VER-045-0.45.0-cpp-boundaries.md)
 - [DEV-045：分层重构与包装实施计划](plans/DEV-045-cpp-boundaries.md)
 
+- [资源版本准备与应用修改边界验收](records/2026-10-21-resource-adoption-boundary.md)
+- [0.51：模块职责、文件布局与对象所有权收敛](plans/PLAN-051-module-layout.md)
 - [Gneiss 开发路线图](roadmap.md)
 - [VER-001：0.1.0 最小运行时闭环](plans/VER-001-0.1.0-runtime-slice.md)
 - [VER-002：0.2.0 资源与场景闭环](plans/VER-002-0.2.0-resource-scene-slice.md)
@@ -184,6 +186,8 @@
 - [TOOL-003：索引渲染最小闭环](plans/TOOL-003-indexed-rendering.md)
 
 ## 架构决策
+
+- [ADR-069：资源模块与运行时组装边界](decisions/ADR-069-resource-runtime-boundaries.md)
 
 - [CAORS 单资源接入验证边界](decisions/ADR-068-caors-resource-probe.md)
 

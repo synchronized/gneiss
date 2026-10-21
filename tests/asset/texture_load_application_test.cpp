@@ -122,9 +122,45 @@ void run(gneiss::tasks::execution_mode mode) {
   // 仅请求纹理也必须重新准备引用它的材质，并返回固定版本回执。
   check(completion.result == GNEISS_SUCCESS && completion.assets.size() == 2U &&
         completion.versions.size() == 2U);
+  const auto versions = completion.versions;
+  const render_internal::render_asset_reload material_source{
+      .uri = "asset://m.material", .type = render_internal::render_asset_type::material};
+  render_internal::render_asset_lease selected_before;
+  check(application_internal::query_ready_asset(app.get(), material_source, selected_before) ==
+        GNEISS_SUCCESS);
+  write_material(false);
+  check(application_internal::prepare_edit_assets(app.get(), {&material_source, 1}, 31U, request) ==
+        GNEISS_SUCCESS);
+  wait();
+  check(completion.result == GNEISS_SUCCESS);
+  unsigned applied{};
+  const auto accept = [&](const std::function<gneiss_result()>& apply) {
+    return application_internal::accept_edit_assets(app.get(), completion, apply);
+  };
+  check(accept({}) == GNEISS_ERROR_INVALID_ARGUMENT);
+  check(accept([&] {
+          ++applied;
+          return GNEISS_ERROR_INVALID_STATE;
+        }) == GNEISS_ERROR_INVALID_STATE);
+  check(accept([]() -> gneiss_result { throw std::bad_alloc{}; }) == GNEISS_ERROR_OUT_OF_MEMORY);
+  check(accept([]() -> gneiss_result { throw std::runtime_error("应用失败"); }) ==
+        GNEISS_ERROR_INTERNAL);
+  render_internal::render_asset_lease selected_after;
+  check(application_internal::query_ready_asset(app.get(), material_source, selected_after) ==
+            GNEISS_SUCCESS &&
+        selected_before == selected_after);
+  check(accept([&] {
+          ++applied;
+          return GNEISS_SUCCESS;
+        }) == GNEISS_SUCCESS &&
+        applied == 2U);
+  check(application_internal::query_ready_asset(app.get(), material_source, selected_after) ==
+            GNEISS_SUCCESS &&
+        selected_before != selected_after);
+  // 恢复后续重载用例的输入；这里不修改场景使用者。
+  write_material(true);
   const auto updated = capture(0);
   check(updated.material == capture(1).material && updated.material != initial.material);
-  const auto versions = completion.versions;
   check(application_internal::request_textures(app.get(), uris, 2U, 4U, request) == GNEISS_SUCCESS);
   wait();
   check(completion.result == GNEISS_SUCCESS && completion.versions == versions);

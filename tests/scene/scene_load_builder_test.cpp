@@ -79,12 +79,9 @@ void run() {
     check(active_assets.acquire("asset://p.prefab", prefab, prefab_diagnostic) == GNEISS_SUCCESS);
     check(prefab.get() != nullptr);
     render_internal::texture_load_completion invalid;
-    bool applied = false;
-    check(active_assets.accept(invalid, [&] {
-      applied = true;
-      return GNEISS_SUCCESS;
-    }) == GNEISS_ERROR_INVALID_ARGUMENT);
-    check(!applied);
+    std::unique_ptr<asset_internal::resource_cache::prepared_adoption> prepared;
+    check(active_assets.prepare_adoption(invalid, prepared) == GNEISS_ERROR_INVALID_ARGUMENT);
+    check(!prepared);
   }
   auto active = std::make_unique<application_internal::application_scene_state>(active_assets);
   check(active->initialize() == GNEISS_SUCCESS);

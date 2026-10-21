@@ -1039,6 +1039,18 @@ add_executable(gneiss_scene_load_builder_test scene/scene_load_builder_test.cpp
   "${PROJECT_SOURCE_DIR}/src/engine/function/scene/scene_instance_prefab.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/scene/scene_load_builder.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/scene/scene_load_preparation.cpp")
+# 测试直接构造私有 manager，编译其实现而不向 DLL 公共 ABI 导出内部类型。
+target_sources(gneiss_scene_load_builder_test PRIVATE
+  "${PROJECT_SOURCE_DIR}/src/engine/function/asset/asset_manager.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/function/input/action_map.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/function/asset/caors_action_map_request.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/function/input/caors_action_map_loader.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/function/input/action_map_parser.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/function/input/action_map_validation.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/asset/cpu_document_cache.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/asset/caors_vfs_bridge.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/platform/caors/worker.cpp")
+target_link_libraries(gneiss_scene_load_builder_test PRIVATE caors::caors)
 target_include_directories(gneiss_scene_load_builder_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_definitions(gneiss_scene_load_builder_test PRIVATE GNEISS_BUILDING_LIBRARY)
 target_link_libraries(gneiss_scene_load_builder_test PRIVATE gneiss::engine gneiss_yyjson gneiss_png granit::granit)

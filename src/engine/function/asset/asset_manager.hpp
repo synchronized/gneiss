@@ -10,7 +10,6 @@
 #include "engine/function/input/action_map.hpp"
 #include "engine/function/render/texture_load_service.hpp"
 #include "engine/function/scene/prefab_asset_loader.hpp"
-#include <functional>
 #include <memory>
 #include <new>
 #include <utility>
@@ -27,9 +26,10 @@ public:
   /** 借用 VFS 与宿主执行器；不创建独立线程池。 */
   void attach_task_executor(tasks::task_executor& executor);
   /** 同步准备失败不改输出，不驱动宿主任务队列；采用与取消由调用者负责。 */
-  [[nodiscard]] result load_input(std::string_view uri, input_internal::action_map& output) noexcept;
+  [[nodiscard]] result load_input(std::string_view uri,
+                                  input_internal::action_map& output) noexcept;
   [[nodiscard]] result request_input(std::string_view uri,
-      std::unique_ptr<action_map_request>& output) noexcept;
+                                     std::unique_ptr<action_map_request>& output) noexcept;
   void advance_resources();
   /** 调用者先取消并释放请求，再停止资源工作。 */
   void stop_resources() noexcept;
@@ -91,9 +91,10 @@ public:
       std::unique_ptr<asset_internal::resource_cache::prepared_adoption>& output) noexcept {
     return cache_.prepare_adoption(selections, output);
   }
-  /** 采用加载结果时才改变默认版本；接受者失败必须保持使用者原状态。 */
-  [[nodiscard]] gneiss_result accept(const render_internal::texture_load_completion& completion,
-                                     const std::function<gneiss_result()>& apply) noexcept try {
+  /** 只准备默认版本切换，不执行场景修改。调用者应用成功后 commit，失败直接释放。 */
+  [[nodiscard]] gneiss_result prepare_adoption(
+      const render_internal::texture_load_completion& completion,
+      std::unique_ptr<asset_internal::resource_cache::prepared_adoption>& output) noexcept try {
     if (completion.result != GNEISS_SUCCESS || completion.versions.empty() ||
         completion.versions.size() != completion.assets.size()) {
       return GNEISS_ERROR_INVALID_ARGUMENT;
@@ -111,7 +112,7 @@ public:
           .version = version,
       });
     }
-    return cache_.adopt_versions(selections, apply);
+    return cache_.prepare_adoption(selections, output);
   } catch (const std::bad_alloc&) {
     return GNEISS_ERROR_OUT_OF_MEMORY;
   } catch (...) {
