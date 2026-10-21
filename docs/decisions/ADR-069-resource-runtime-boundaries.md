@@ -53,3 +53,10 @@ ADR-064 的共享资产和一 World 多 Scene 决策保持有效。
 编辑控制器。它不拥有 Application/执行器，不增加操作状态机，不承接场景域切换或保存提示 UI。
 取消后必须继续推进至终态；关闭先确认无在途编辑，再释放历史、最后关闭文档。
 宿主负责驱动执行器并保证 Application 存活，不能在析构中隐藏阻塞等待。
+
+## 宿主模块决策（方案 B）
+
+用户确认 Apps 只保留可执行入口；宿主启动、项目工具、子进程和 IPC 适配迁入
+src/host/common、src/host/editor、src/host/runtime。Host 依赖 Editor、Runtime、Platform，
+后三者不反向依赖 Host。Editor 业务与宿主装配必须区分，迁移文件不代表 UI 装配拆分完成。
+不新增 DLL，不改变既有进程协议；运行目标与命令行行为保持不变。

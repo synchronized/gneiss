@@ -138,7 +138,7 @@ Application 负责组装和推进上述能力，业务细节归其生命周期�
 ### 已确认：异步编辑采用模态进度界面
 
 2026-10-15 审计 `src/editor/asset_scene_commands.cpp`、`editor_command_history.cpp` 和
-`apps/editor/editor_application.cpp`：资产命令通过同步 execute 执行并记入历史，撤销重做
+`src/host/editor/editor_application.cpp`：资产命令通过同步 execute 执行并记入历史，撤销重做
 只在回调成功后移动游标；当前无待完成命令的历史位置或冲突策略。整场景加载显示独立加载界面，
 但局部资产替换不能据此推定应屏蔽整个编辑器。
 
@@ -320,7 +320,7 @@ World 准备相机矩阵；Granit 渲染线程通过 scene_projection_math 计�
 
 决策时源码证据：`application_registry.cpp` 的表项持有原生对象共享引用，
 `destroy_application` 会先调用对象 shutdown，再移除 RID；共享引用只保活内存，不阻止关闭。
-`apps/runtime/main.cpp` 当时由 SDK 包装拥有 Application，并把句柄传给资产、场景和
+`src/host/runtime/runtime_application.cpp` 当时由 SDK 包装拥有 Application，并把句柄传给资产、场景和
 `create_game_context`；后者在 `game_context.cpp` 解析 Application 并保存句柄。
 动态游戏模块公开的是 Game Context，不是因此就必须公开原始 Application 指针。
 

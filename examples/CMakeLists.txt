@@ -195,7 +195,7 @@ if(GNEISS_ENABLE_GRANIT_PLATFORM AND TARGET gneiss_assetc)
       )
       add_executable(
         gneiss_editor_lantern_workflow_test
-        "${PROJECT_SOURCE_DIR}/apps/editor/tests/lantern_workflow_test.cpp"
+        "${PROJECT_SOURCE_DIR}/src/host/editor/tests/lantern_workflow_test.cpp"
       )
       target_link_libraries(
         gneiss_editor_lantern_workflow_test
@@ -214,7 +214,7 @@ if(GNEISS_ENABLE_GRANIT_PLATFORM AND TARGET gneiss_assetc)
       add_test(NAME gneiss.editor.lantern-workflow COMMAND gneiss_editor_lantern_workflow_test)
       add_executable(
         gneiss_editor_lantern_prefab_authoring_workflow_test
-        "${PROJECT_SOURCE_DIR}/apps/editor/tests/lantern_prefab_authoring_workflow_test.cpp"
+        "${PROJECT_SOURCE_DIR}/src/host/editor/tests/lantern_prefab_authoring_workflow_test.cpp"
       )
       target_link_libraries(
         gneiss_editor_lantern_prefab_authoring_workflow_test PRIVATE gneiss_editor_host

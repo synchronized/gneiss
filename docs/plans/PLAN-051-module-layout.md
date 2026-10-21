@@ -28,6 +28,7 @@
 apps/
   editor/main.cpp                    可执行程序入口
   runtime/main.cpp
+  project/main.cpp
 include/gneiss/                      公共 C ABI 与共享 C++ 值类型，不提供对象 SDK
 src/
   engine/
@@ -62,6 +63,10 @@ src/
     commands/                       编辑操作及撤销重做
     viewport/                      独立编辑器相机、拾取与 Gizmo
     panels/
+  host/
+    common/                         项目描述与两端宿主协议
+    editor/                         Editor 启动、项目工具与子进程/IPC 适配
+    runtime/                        Runtime 启动、游戏模块与 IPC 适配
   tooling/                          离线导入、构建与打包
 tests/                              对应模块行为与依赖边界验收
 vendor/                             第三方源码，继续遵守已有缓存策略
@@ -232,7 +237,7 @@ Core/平台适配首批验收见[记录](../records/2026-10-21-core-platform-nam
 文档编辑所有权收敛验收见[记录](../records/2026-10-21-document-editing-ownership.md)。
 当前未迁移场景切换 UI 和宿主整体装配，不将本批视为 Editor 迁移完成。
 
-## 本轮剩余迁移与待确认边界
+## 本轮剩余迁移与宿主边界
 
 - 文档新建和加载切换入口已接收 document_editing，在途编辑阻止场景域切换。
   场景切换 UI、保存提示、操作互斥和 Editor Application 装配仍待迁移。
@@ -241,7 +246,9 @@ Core/平台适配首批验收见[记录](../records/2026-10-21-core-platform-nam
 - CPU 缓存共享发布代次、材质/Mesh 缓存与 CPU/GPU 引用拆分仍未完成，按批次 B/C 推进。
 - Runtime 场景重载编排及完整平台验收仍待完成。
 
-待用户确认：目标示意中 apps 只列 main，但已有规则要求进程/IPC 宿主适配不进入 Editor。
-建议 apps 保留启动、子进程、IPC 与项目工具适配，src/editor 承接编辑流程和 UI 装配，
-通过明确的宿主接口依赖注入；另一方案是 apps 严格只留 main，把宿主适配迁入 src 独立模块。
-这是模块职责选择，不应通过放宽 Editor 反向包含 Apps 的检查来绕过。确认前不执行依赖该选择的搬迁。
+用户已确认方案 B：Apps 只留入口，宿主适配迁入 src/host 独立模块；Host 使用
+Editor/Runtime/Platform，业务模块不得反向包含 Host。先迁移宿主代码和构建，再拆分
+宿主中的编辑业务/UI 装配；不把仅移动文件视为整个架构迁移完成。
+
+Host 目录和四个薄入口已落地，见[宿主布局验收](../records/2026-10-21-host-layout.md)。
+迁移保留原 target 和协议，不新增动态库；业务/UI 拆分与资源批次仍按上述剩余项继续。

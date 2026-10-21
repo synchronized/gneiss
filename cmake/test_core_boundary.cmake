@@ -222,7 +222,7 @@ endforeach()
 
 file(WRITE "${fixture}/src/engine/api/probe.cpp" "")
 # 编辑器允许消费 SDK；源码迁入 src 不意味着成为 Engine 内部模块。
-foreach(header IN ITEMS "gneiss/application.hpp" "apps/editor/main.hpp" "../../apps/editor/main.hpp"
+foreach(header IN ITEMS "gneiss/application.hpp" "apps/editor/main.hpp" "../../apps/editor/main.hpp" "host/editor/application.hpp" "../../host/editor/application.hpp"
     "gneiss/app/runtime_log_protocol.h" "ipc_inspection_protocol.h"
     "gneiss/app/runtime_log_protocol.hpp" "ipc_inspection_protocol.hpp")
   file(WRITE "${fixture}/src/editor/probe.cpp" "#include <${header}>\n")
@@ -564,7 +564,7 @@ foreach(layer IN ITEMS core platform resource function/scene api)
     message(FATAL_ERROR "未拒绝 Engine ${layer} 反向依赖 Runtime")
   endif()
 endforeach()
-foreach(header IN ITEMS editor/documents/scene_document.hpp apps/editor/main.hpp tooling/asset_build.hpp)
+foreach(header IN ITEMS editor/documents/scene_document.hpp apps/editor/main.hpp host/runtime/application.hpp tooling/asset_build.hpp)
   file(WRITE "${fixture}/src/runtime/probe.cpp" "#include <${header}>\n")
   execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
     -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
@@ -678,4 +678,31 @@ execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
   -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake" RESULT_VARIABLE status)
 if(NOT status EQUAL 0)
   message(FATAL_ERROR "平台对象边界错误拒绝新名称")
+endif()
+
+# 宿主是装配层；不能让业务层反向依赖它，也不能反向包含薄入口。
+foreach(location IN ITEMS engine/core engine/platform engine/function/world engine/resource)
+  file(MAKE_DIRECTORY "${fixture}/src/${location}")
+  file(WRITE "${fixture}/src/${location}/host_probe.hpp" "#include <host/common/protocol.hpp>\n")
+  execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
+    -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
+    RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
+  file(REMOVE "${fixture}/src/${location}/host_probe.hpp")
+  if(status EQUAL 0)
+    message(FATAL_ERROR "未拒绝 ${location} 反向依赖 Host")
+  endif()
+endforeach()
+file(MAKE_DIRECTORY "${fixture}/src/host/editor")
+file(WRITE "${fixture}/src/host/editor/probe.cpp" "#include <apps/editor/main.hpp>\n")
+execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
+  -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
+  RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
+if(status EQUAL 0)
+  message(FATAL_ERROR "未拒绝 Host 反向依赖 Apps")
+endif()
+file(WRITE "${fixture}/src/host/editor/probe.cpp" "#include <editor/documents/document_editing.hpp>\n#include <runtime/application.hpp>\n")
+execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
+  -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake" RESULT_VARIABLE status)
+if(NOT status EQUAL 0)
+  message(FATAL_ERROR "错误拒绝 Host 正向装配业务模块")
 endif()

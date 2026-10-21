@@ -9,7 +9,7 @@
 [ADR-054](../decisions/ADR-054-source-layout-and-host-boundaries.md)，迁移映射与验收见
 [DEV-045](../plans/DEV-045-cpp-boundaries.md)。Core、Platform、Resource 与 Function 已迁入 `src/engine/`，
 基础 C ABI 适配位于 `src/engine/api/`，应用相关适配位于 `src/runtime/api/`，`src/editor/` 管理 UI、资产服务、编辑模型、场景会话与创作事务；
-`apps/` 保持位于仓库根目录，负责程序入口及宿主装配。
+`apps/` 保持位于仓库根目录，仅保留可执行入口；宿主装配与协议适配位于 `src/host/`。
 
 总体分层以[总体架构](architecture.md)为准，代码与文档规范分别以
 [C/C++ 代码风格](../guides/coding-style.md)和[项目文档规范](../../DOCUMENTATION_GUIDE.md)为准。
@@ -31,7 +31,8 @@ Engine 源码不得反向包含 Runtime；当前仍一起编入 `gneiss_engine`�
 | --- | --- |
 | `include/gneiss/` | 仅根总入口；Engine 公共声明和包装位于 `engine/` |
 | `src/` | 内部运行时实现、第三方适配及离线处理 |
-| `apps/` | Editor、Runtime、assetc 程序入口及宿主共用代码 |
+| `apps/` | Editor、Runtime、project、assetc 的薄程序入口 |
+| `src/host/` | 宿主启动、项目工具、进程与 IPC 协议适配 |
 | `scripts/` | 仓库维护与性能测量脚本 |
 | `tests/` | 公共接口、内部行为、生命周期与集成验证 |
 | `examples/` | 使用公共接口构建的独立最小示例 |
@@ -40,50 +41,50 @@ Engine 源码不得反向包含 Runtime；当前仍一起编入 `gneiss_engine`�
 | `cmake/` | 项目构建策略和可复用的 CMake 模块 |
 
 当前 `gneiss_engine` 的四层实现已集中在 `src/engine/`，基础 C ABI 适配位于 `src/engine/api/`，应用相关适配位于 `src/runtime/api/`。
-Runtime 宿主与 Editor 入口分别位于 `apps/runtime/` 和 `apps/editor/`；两者可以依赖 Engine Library，
+Runtime 与 Editor 宿主分别位于 `src/host/runtime/` 和 `src/host/editor/`；两者可以依赖 Engine Library，
 Engine Library 不得反向依赖它们。Editor 的 ImGui Context、字体、主题、DockSpace 和通用控件由
 `src/editor/` 中不安装、不导出的 `gneiss_editor_ui` 内部静态库统一管理，面板选择状态仍由 Editor 应用层持有。
 控制台面板由 `console_panel.hpp/.cpp` 绘制，借用日志模型及进程展示值；清空请求通过宿主同步回调执行。
 作者层级树由 `author_hierarchy_panel.hpp/.cpp` 读取节点快照，拖拽和菜单请求在整棵树绘制后处理，
 避免递归期间刷新节点数组。
 作者属性 Inspector 由 `author_property_panel.hpp/.cpp` 绘制，属性写入与撤销事务归
-`author_property_edit.hpp/.cpp` 所在的会话目标；Apps 只提供同步连接，不把应用状态交给 UI 实现。
+`author_property_edit.hpp/.cpp` 所在的会话目标；Host 只提供同步连接，不把应用状态交给 UI 实现。
 Runtime 层级树和属性面板由 `runtime_panels.hpp/.cpp` 绘制，只读取 Editor 模型；
-Apps 在每次绘制时提供同步属性提交、回写作者场景与结果报告回调，协议值只在宿主边界适配。
+Host 在每次绘制时提供同步属性提交、回写作者场景与结果报告回调，协议值只在宿主边界适配。
 
 编辑器资产浏览、监听、导入控制、重导入队列与后台服务也位于 `src/editor/`，
 由 `gneiss_editor_assets` 内部静态库组织，依赖 Engine、Tooling、任务调度和平台 IO。
-该目标不依赖 Apps 或编辑会话；入口仍在 Apps 装配服务并轮询结果。
-资产面板位于 UI 目标，仅借用资产模型和单帧显示值；Apps 适配协议与进程状态。面板返回拥有
+该目标不依赖 Host 或编辑会话；入口仍在 Host 装配服务并轮询结果。
+资产面板位于 UI 目标，仅借用资产模型和单帧显示值；Host 适配协议与进程状态。面板返回拥有
 选择身份的请求，宿主在绘制结束后执行，避免绘制期间的服务变化使借用输入失效。
 
 `gneiss_editor_model` 位于 `src/editor/`，管理相机、网格、旋转/Gizmo 数学、命令历史、属性检查
-及创作事务、控制台模型，不依赖 Apps 工程、IPC 或会话。场景会话与 Gizmo 拖拽由同目录的
-`gneiss_editor_session` 管理，只依赖该模型库与 Engine。`apps/editor/` 的 `gneiss_editor_host`
+及创作事务、控制台模型，不依赖 Host 工程、IPC 或会话。场景会话与 Gizmo 拖拽由同目录的
+`gneiss_scene_document` 管理，只依赖该模型库与 Engine。`src/host/editor/` 的 `gneiss_editor_host`
 负责工程、子进程、IPC 与运行时同步装配。
 Gizmo 绘制和 ImGuizmo 适配归 `transform_gizmo_view.hpp/.cpp`，只借用会话、历史与拖拽状态。
 `apps/editor/main.cpp` 仅转交 `run_editor_application`；`editor_application.cpp` 拥有窗口与程序状态，
 组合项目菜单、文件对话框、服务轮询和面板请求。退出时先清理命令历史，再关闭其借用的会话。
 
-`apps/common/` 保留两个宿主私有目标：`gneiss_app_project` 管理构建/启动工程描述及启动日志协议，
+`src/host/common/` 保留两个宿主私有目标：`gneiss_app_project` 管理构建/启动工程描述及启动日志协议，
 `gneiss_app_ipc_protocol` 管理 Editor/Runtime 进程通信协议。它们不安装、不导出为 Engine SDK；
 Runtime 直接使用这些共用契约，不链接 Editor。通用 IPC 传输和子进程机制由 Engine Platform 提供，
-工程格式、消息领域与启动约定继续归 Apps。Apps 私有 C++ 头统一使用 `.hpp`，不属于公共 C ABI。
+工程格式、消息领域与启动约定继续归 Host。Host 私有 C++ 头统一使用 `.hpp`，不属于公共 C ABI。
 
 `asset_scene_commands.hpp/.cpp` 属于 Editor 会话目标，统一添加 Mesh/Prefab 与替换资源的撤销事务；
 它只接收作者身份和资产 URI，不依赖资产面板、导入服务或宿主协议。
 
 `src/editor/runtime_author_apply.hpp` 接收 UUID 与局部变换视图，负责变换回写和撤销命令。
-Apps 从 IPC 节点提取输入；Editor 命令复制身份字符串，不保留协议对象或借用字符串。
-控制台接收拥有字符串的 `console_event`；Apps 的日志适配负责从已解析协议记录移动字段，
-控制台不保存协议版本。属性编辑状态也已归入独立模型，使用 Editor 自有请求、结果与类型化属性值；Apps 适配 IPC，
+Host 从 IPC 节点提取输入；Editor 命令复制身份字符串，不保留协议对象或借用字符串。
+控制台接收拥有字符串的 `console_event`；Host 的日志适配负责从已解析协议记录移动字段，
+控制台不保存协议版本。属性编辑状态也已归入独立模型，使用 Editor 自有请求、结果与类型化属性值；Host 适配 IPC，
 模型继续唯一管理 pending、乱序响应、超时和断连。场景镜像同样位于独立模型库，
 使用 `runtime_scene_data.hpp` 的节点批次，唯一管理分块、顺序与图校验。宿主只适配解码结果，
 镜像与属性模型共用 `runtime_object_id.hpp`；不向 Runtime 传播 Editor 库依赖。
-运行前的场景保存与启动条件判断由 `src/editor/runtime_launch.hpp` 提供；进程启动仍归 Apps。
+运行前的场景保存与启动条件判断由 `src/editor/runtime_launch.hpp` 提供；进程启动仍归 Host。
 
 离线导入库的构建定义与 C++ 实现集中于 `src/tooling/`，内部头使用 `.hpp`。
-assetc CLI 位于 `apps/assetc/`，工具测试由 `tests/tooling/` 组织，性能脚本位于 `scripts/performance/`。
+assetc CLI 实现位于 `src/host/assetc/`，入口位于 `apps/assetc/`，工具测试由 `tests/tooling/` 组织，性能脚本位于 `scripts/performance/`。
 
 公共头目录按能力组织，`.h` 提供 C ABI，部分 `.hpp` 提供共享值类型与无状态转换。内部源码目录按拥有运行时状态的模块组织，
 不机械复制公共头目录。
@@ -164,7 +165,7 @@ Engine 公共接口统一位于 `include/gneiss/engine/`，基础类型位于其
 
 | 要了解的行为 | 入口 | 拥有或借用关系 |
 | --- | --- | --- |
-| 程序启动与关闭 | `apps/editor/editor_application.cpp`、`apps/runtime/main.cpp` | 宿主拥有原生 Application，先清理依赖它的会话、命令与任务 |
+| 程序启动与关闭 | `src/host/editor/editor_application.cpp`、`src/host/runtime/runtime_application.cpp` | 宿主拥有原生 Application，先清理依赖它的会话、命令与任务 |
 | Application 装配 | `src/runtime/application.hpp` | 拥有平台、服务与场景协调组件；普通内部操作不解析自身 C 句柄 |
 | 场景切换 | `src/runtime/loading/scene_session.hpp` | 拥有活动与退役域及加载服务，协调激活 |
 | 候选加载 | `src/runtime/loading/scene_load_service.hpp` | 在途请求独占候选域；完成验证后转交 session |
@@ -174,7 +175,7 @@ Engine 公共接口统一位于 `include/gneiss/engine/`，基础类型位于其
 | Scene 私有实例 | `src/engine/function/scene/scene_instance.hpp` | 维护节点、作者描述及所使用资源版本的租约，不向宿主提供头文件 |
 | Prefab 候选事务 | `src/engine/function/scene/prefab_candidate.hpp` | 独占未发布候选或退休实例；支持移动与分步清理，不暴露运行时实现 |
 | 作者文档 | `src/editor/documents/scene_document.hpp` | 借用 Application、拥有文档的场景实例 ID；关闭时卸载，不能晚于 Application 销毁 |
-| 反射属性编辑 | `src/editor/panels/property_inspector_model.hpp`、`apps/runtime/runtime_property_editor.hpp` | 直接持有同一内部 Registry 实现；字段回调仍使用已定义的目标协议 |
+| 反射属性编辑 | `src/editor/panels/property_inspector_model.hpp`、`src/host/runtime/runtime_property_editor.hpp` | 直接持有同一内部 Registry 实现；字段回调仍使用已定义的目标协议 |
 | 外部调用 | `src/engine/api/`、`include/gneiss/engine/` | C 适配转换参数并委托，公共 C++ 头仅提供值类型与转换 |
 
 Editor 无需 Application 兼容桥；Runtime 仅在动态游戏模块这一真实 ABI 边界保留借用桥。
@@ -229,7 +230,7 @@ Scene 服务完成入口校验后转交实例，不直接修改这些事务的�
 
 已有编辑操作与历史实现位于 `commands/`，相机、网格与 Gizmo 位于 `viewport/`，
 层级、属性、资源、控制台与运行时面板位于 `panels/`。根目录暂保留 UI 装配、主题、
-资产监控及运行时通信模型；Apps 中的 Editor 装配尚未迁入本层。
+资产监控及运行时通信模型；Host 中的 Editor 装配尚未迁入本层。
 `documents/document_editing` 由宿主持有，拥有单个文档、撤销历史及资产/Prefab 编辑控制器。
 关闭时拒绝未完成编辑；取消并排空后，先清理历史再关闭文档。它不拥有 Application、
 执行器或场景加载事务，也不承担保存提示和多文档管理。
@@ -238,9 +239,9 @@ Scene 服务完成入口校验后转交实例，不直接修改这些事务的�
 
 场景加载事务 `documents/editor_scene_loader`、资产替换事务
 `commands/editor_asset_edit`、Prefab 事务 `commands/editor_prefab_edit` 编译在编辑器模块内，
-不依赖 Apps、进程或 IPC。它们借用 Application、文档及历史；资产/Prefab 编辑的取消与
+不依赖 Host、进程或 IPC。它们借用 Application、文档及历史；资产/Prefab 编辑的取消与
 退出清理由 document_editing 汇总，宿主驱动执行器直至清理结束。场景加载切换独立维护，
-流程测试直接链接编辑器模块。窗口、进程及 IPC 仍归 Apps。
+流程测试直接链接编辑器模块。窗口、进程及 IPC 仍归 Host。
 
 ## Runtime 命名空间
 
@@ -269,4 +270,15 @@ core 的 tasks/log/reflection/diagnostics/math/input。输入服务仍属于 eng
 engine::platform::caors；第三方 CAORS 以 ::caors 明确引用。
 C 转换辅助属于 engine::api，应用日志回调桥属于 runtime::api。
 进程、IPC 传输/信封/分发与动态库对象使用 engine::platform；旧顶层名称已删除。
-Apps 的域协议与负载仍属于宿主，未随平台类型迁入 Engine。
+Host 的域协议与负载仍属于宿主，未随平台类型迁入 Engine。
+
+## 宿主独立模块
+
+`src/host/common` 保存项目描述和宿主域协议；`src/host/editor` 装配编辑器、项目工具、
+子进程和 IPC；`src/host/runtime` 装配运行进程、游戏模块和 IPC；`src/host/assetc` 保存
+资产命令行适配。Apps 只转发至宿主入口。Runtime 宿主使用 gneiss::host::runtime，
+与 gneiss::runtime 的运行时业务对象区分。
+
+Host 可依赖 Engine、Runtime、Editor；后三者不得反向包含 Host。宿主测试暂保留在
+各 host 子模块的 tests 目录。Editor Application 中混合的编辑业务/UI 装配尚未全部拆出，
+本次宿主目录迁移不表示全部对象职责收敛完成。

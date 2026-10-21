@@ -26,7 +26,7 @@
 源码入口：
 
 - [application](../../src/engine/function/application/application.cpp)
-- [Runtime 启动](../../apps/runtime/main.cpp)
+- [Runtime 启动](../../src/host/runtime/runtime_application.cpp)
 - [VFS](../../src/engine/asset/virtual_file_system.hpp)
 - [本地后端](../../src/engine/asset/native_file_system.cpp)
 - [读取与验证契约](../../src/engine/asset/read_source.hpp)
@@ -124,9 +124,9 @@ cooperative 回退、失败输入和停止文件协议。不得误用遗留 `_de
 ## Editor 后续范围核对
 
 Editor 当前没有调用 load_action_map / begin_action_map；工程输入路径仅作为资产索引根依赖。
-[场景入口](../../apps/editor/editor_scene_loader.cpp)调用 Application.request_scene，
-[资产编辑](../../apps/editor/editor_asset_edit.cpp)调用 prepare_edit_assets，
-[Prefab 编辑](../../apps/editor/editor_prefab_edit.cpp)通过 prefab_placement 事务处理。
+[场景入口](../../src/host/editor/editor_scene_loader.cpp)调用 Application.request_scene，
+[资产编辑](../../src/host/editor/editor_asset_edit.cpp)调用 prepare_edit_assets，
+[Prefab 编辑](../../src/host/editor/editor_prefab_edit.cpp)通过 prefab_placement 事务处理。
 这些链路尚未由 CAORS 输入宿主统一管理。下一阶段应先选择一种共享资源并明确缓存身份、
 依赖及发布规则，不新增一个仅为游戏输入映射存在的 Editor 加载器。
 
