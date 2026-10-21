@@ -19,7 +19,8 @@
    因此不能把 asset_root 作为字符串前缀另挂一遍便宣布完成迁移。
 4. 已有 `read_source` 有异步范围读与验证回执，现已补充可观察的显式关闭协议（libuv 来源及修订包装支持，其他来源默认 unsupported）。
    CAORS async_file 的关闭结果不能直接以 read_source 析构替代。
-5. 输入加载宿主、CAORS manager/cache/Loader 全部位于 Engine 内部；
+5. CAORS manager/cache、来源绑定和请求发起归 engine::asset_manager；
+   输入模块仅提供类型 Loader 和待采用状态。全部对象位于 Engine 内部；
    应用 EXE 不链接独立探针适配库，不改变 C ABI。
 
 源码入口：

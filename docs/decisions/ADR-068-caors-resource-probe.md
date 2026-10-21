@@ -127,3 +127,17 @@ unsupported 且调用者明确允许时，将有界完整文档读取投递到�
 Engine 始终构建输入宿主。Runtime 线程池与协作调度均走请求、完成、采用流程，
 不再因协作模式或旧开关关闭而回退到同步启动。直接 libuv 探针仍受平台能力限制，
 Application 输入测试则独立运行于无线程平台。浏览器网络 I/O 不包含在此次决策中。
+
+## 2026-10-21：资源管理归资产层
+
+用户确认输入模块不应拥有 CAORS asset_manager。删除 function/input/caors_input_host，
+将 manager、类型缓存、来源绑定、GUID 分配、执行器适配和完成队列直接收归
+engine::asset_manager 的私有 resource_state。该状态不向公共 SDK 泄漏第三方类型。
+
+输入模块提供 action_map_asset、格式 Loader 和待采用状态；待采用状态只接收资产层创建的
+load_request，不再接收 manager，也不决定 load/reload 策略。InputService 仍只接收映射副本。
+Application 继续决定采用时机与游戏启动顺序。
+
+销毁顺序保持为取消采用、关闭并排空专属工作 scope、放弃 Loader 回执、排空完成队列，
+然后释放资源状态；不关闭借用的整个宿主执行器。当前该状态注册输入类型，其他 CPU 缓存
+仍按既有协议持有；本决策不宣称所有资源类型已统一到一个 CAORS database。

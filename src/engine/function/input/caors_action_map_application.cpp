@@ -14,12 +14,11 @@ void action_map_application::cancel() noexcept {
   state_ = action_map_apply_state::cancelled;
   result_ = result::invalid_state;
 }
-result action_map_application::begin(caors::assets::asset_manager& manager,
-                                     caors::resource_guid guid, bool reload) noexcept {
+result
+action_map_application::begin(caors::resources::load_request<action_map_asset> request) noexcept {
   cancel();
   try {
-    request_ = reload ? manager.request_reload<action_map_asset>(guid)
-                      : manager.request_load<action_map_asset>(guid);
+    request_ = std::move(request);
     state_ = action_map_apply_state::loading;
     result_ = result::not_ready;
     return result::success;

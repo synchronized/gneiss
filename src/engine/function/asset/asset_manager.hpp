@@ -122,8 +122,8 @@ public:
   [[nodiscard]] scene_internal::prefab_asset_loader& prefab_loader() noexcept { return prefabs_; }
 
 private:
-  struct input_state;
-  std::unique_ptr<input_state> input_;
+  struct resource_state;
+  std::unique_ptr<resource_state> resource_state_;
   asset_internal::virtual_file_system files_;
   asset_internal::resource_cache cache_;
   std::shared_ptr<asset_internal::cpu_document_cache> documents_{

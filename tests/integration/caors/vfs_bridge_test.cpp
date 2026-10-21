@@ -205,7 +205,8 @@ void run(const char* root, bool scheduled) {
           "verification failure preserves cached version");
     input_service input;
     action_map_application application;
-    check(application.begin(manager, id) == gneiss::result::success &&
+    check(application.begin(manager.request_load<action_map_asset>(id)) ==
+                  gneiss::result::success &&
               application.poll(input) == gneiss::result::success,
           "apply verified input");
     action_id action;

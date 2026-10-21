@@ -289,7 +289,8 @@ int run(const char* asset_path) {
   action_id old_action;
   require(input.find_action("old", old_action) == result::success, "initial action");
   action_map_application application;
-  require(application.begin(manager, guid(1)) == result::success, "begin input apply");
+  require(application.begin(manager.request_load<action_map_asset>(guid(1))) == result::success,
+          "begin input apply");
   action_state state;
   require(input.get_action_state(old_action, state) == result::success,
           "begin does not mutate input");
@@ -313,12 +314,14 @@ int run(const char* asset_path) {
           "poll does not apply twice");
   require(!manager.provider().bind(guid(3), source, "asset://invalid-schema"),
           "invalid apply bind");
-  require(application.begin(manager, guid(3)) == result::success, "begin invalid apply");
+  require(application.begin(manager.request_load<action_map_asset>(guid(3))) == result::success,
+          "begin invalid apply");
   wait([&] { return application.poll(input) != result::not_ready; });
   require(application.state() == action_map_apply_state::failed &&
               input.get_action_state(movement, state) == result::success && state.value == -1.0F,
           "failed load retains active mapping");
-  require(application.begin(manager, guid(1), true) == result::success, "begin cancelled apply");
+  require(application.begin(manager.request_reload<action_map_asset>(guid(1))) == result::success,
+          "begin cancelled apply");
   application.cancel();
   require(application.poll(input) == result::invalid_state &&
               application.state() == action_map_apply_state::cancelled &&
@@ -332,8 +335,10 @@ int run(const char* asset_path) {
           "alternate mount");
   require(!manager.provider().bind(guid(4), source, "asset://alternate"), "alternate bind");
   auto shared_earlier = manager.request_load<action_map_asset>(guid(4));
-  require(application.begin(manager, guid(4)) == result::success, "begin earlier apply");
-  require(application.begin(manager, guid(1)) == result::success, "replace earlier apply");
+  require(application.begin(manager.request_load<action_map_asset>(guid(4))) == result::success,
+          "begin earlier apply");
+  require(application.begin(manager.request_load<action_map_asset>(guid(1))) == result::success,
+          "replace earlier apply");
   require(application.poll(input) == result::success, "latest cached apply");
   require(input.find_action("move_horizontal", movement) == result::success, "latest movement");
   wait([&] { return shared_earlier.done(); });
@@ -345,7 +350,7 @@ int run(const char* asset_path) {
           "superseded map not applied");
   require(!manager.provider().bind(guid(5), source, "asset://alternate"),
           "uncached alternate bind");
-  require(application.begin(manager, guid(5)) == result::success &&
+  require(application.begin(manager.request_load<action_map_asset>(guid(5))) == result::success &&
               application.poll(input) == result::not_ready &&
               input.get_action_state(movement, state) == result::success,
           "pending asynchronous apply preserves current map");
@@ -359,7 +364,8 @@ int run(const char* asset_path) {
           "alternate binding responds");
   {
     action_map_application abandoned;
-    require(abandoned.begin(manager, guid(1), true) == result::success, "begin abandoned apply");
+    require(abandoned.begin(manager.request_reload<action_map_asset>(guid(1))) == result::success,
+            "begin abandoned apply");
   }
   wait([&] { return !manager.database().has_active_operations() && loader.empty(); });
   require(input.get_action_state(alternate, state) == result::success,
