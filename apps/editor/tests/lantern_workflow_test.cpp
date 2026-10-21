@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../../../tests/support/c_owner.hpp"
 #include "asset_browser_model.hpp"
 #include "asset_import_controller.hpp"
 #include "editor_command_history.hpp"
@@ -8,7 +9,11 @@
 #include "editor_session.hpp"
 #include "runtime/application_registry.hpp"
 
-#include <gneiss/engine/application.hpp>
+#include <gneiss/engine/application.h>
+#include <gneiss/engine/input.hpp>
+#include <gneiss/engine/log.hpp>
+#include <gneiss/engine/render.hpp>
+#include <gneiss/engine/scene.hpp>
 
 #include <algorithm>
 #include <array>
@@ -42,12 +47,12 @@ struct temporary_project final {
 }
 
 [[nodiscard]] gneiss::result create_application(const std::filesystem::path& asset_root,
-                                                gneiss::sdk::application& output) {
+                                                gneiss::test_support::application_owner& output) {
   const auto root = asset_root.generic_string();
   gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
   desc.asset_root = root.data();
   desc.asset_root_length = static_cast<std::uint32_t>(root.size());
-  return gneiss::sdk::application::create_native(desc, output);
+  return gneiss::result{gneiss_application_create(&desc, output.put())};
 }
 
 [[nodiscard]] std::string read_text(const std::filesystem::path& path) {
@@ -127,11 +132,12 @@ int main() try { // NOLINT(bugprone-exception-escape): 测试入口统一返回�
     return 7;
   }
 
-  gneiss::sdk::application application;
+  gneiss::test_support::application_owner application;
   gneiss_world world = GNEISS_NULL_WORLD;
   gneiss::editor::editor_session session;
   if (create_application(project.asset_root, application) != gneiss::result::success ||
-      application.get_world(world) != gneiss::result::success ||
+      gneiss::result{gneiss_application_get_world(application.get(), &world)} !=
+          gneiss::result::success ||
       session.open(*gneiss::application_internal::find_application(application.get()), world,
                    project.startup_scene) != gneiss::result::success) {
     return 8;

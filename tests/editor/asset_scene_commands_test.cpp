@@ -1,10 +1,15 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../support/c_owner.hpp"
 #include "asset_scene_commands.hpp"
 #include "runtime/application_registry.hpp"
 
-#include <gneiss/engine/application.hpp>
+#include <gneiss/engine/application.h>
+#include <gneiss/engine/input.hpp>
+#include <gneiss/engine/log.hpp>
+#include <gneiss/engine/render.hpp>
+#include <gneiss/engine/scene.hpp>
 
 #include <string>
 
@@ -15,11 +20,12 @@ int main() try {
   gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
   desc.asset_root = assets.data();
   desc.asset_root_length = static_cast<std::uint32_t>(assets.size());
-  sdk::application app;
+  gneiss::test_support::application_owner app;
   gneiss_world world = GNEISS_NULL_WORLD;
   editor_session session;
   editor_command_history history;
-  if (sdk::application::create_native(desc, app).failed() || app.get_world(world).failed() ||
+  if (gneiss::result{gneiss_application_create(&desc, app.put())}.failed() ||
+      gneiss::result{gneiss_application_get_world(app.get(), &world)}.failed() ||
       session
           .open(*gneiss::application_internal::find_application(app.get()), world,
                 "asset://scenes/triangle.scene.json")

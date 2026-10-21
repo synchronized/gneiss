@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include <gneiss/gneiss.hpp>
+#include <gneiss/gneiss.h>
 
 #include <cstdio>
 
 int main() {
-  const auto version = gneiss::library_version();
-  std::printf("gneiss %u.%u.%u\n", version.major, version.minor, version.patch);
+  std::printf("gneiss %u.%u.%u\n", gneiss_version_major(), gneiss_version_minor(),
+              gneiss_version_patch());
 }

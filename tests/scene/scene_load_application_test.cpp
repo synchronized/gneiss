@@ -1,12 +1,17 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../support/c_owner.hpp"
 #include "engine/resource/loaders/mesh_binary.hpp"
 #include "engine/resource/loaders/texture_ktx2.hpp"
 #include "runtime/application_asset_reload_internal.hpp"
 #include "runtime/application_scene_load_internal.hpp"
 
-#include <gneiss/engine/application.hpp>
+#include <gneiss/engine/application.h>
+#include <gneiss/engine/input.hpp>
+#include <gneiss/engine/log.hpp>
+#include <gneiss/engine/render.hpp>
+#include <gneiss/engine/scene.hpp>
 
 #include <cstdio>
 #include <filesystem>
@@ -58,12 +63,12 @@ struct fixture {
 void cancel_drain(tasks::execution_mode mode) {
   fixture files;
   tasks::task_scheduler scheduler({.workers = 1U, .mode = mode});
-  sdk::application app;
+  gneiss::test_support::application_owner app;
   auto desc = gneiss_application_desc GNEISS_APPLICATION_DESC_INIT;
   const auto root = files.root.string();
   desc.asset_root = root.data();
   desc.asset_root_length = static_cast<std::uint32_t>(root.size());
-  check(sdk::application::create_native(desc, app) == result::success);
+  check(gneiss::result{gneiss_application_create(&desc, app.put())} == result::success);
   check(attach_task_executor(app.get(), scheduler) == GNEISS_SUCCESS);
   constexpr std::string_view uri = "asset://scene.json";
   std::uint64_t request{};
@@ -76,7 +81,7 @@ void cancel_drain(tasks::execution_mode mode) {
     if (mode == tasks::execution_mode::cooperative) {
       (void)scheduler.run_ready();
     }
-    check(app.run(1U) == result::success);
+    check(gneiss::result{gneiss_application_run(app.get(), 1U)} == result::success);
     scene_load_completion interim;
     bool terminal{};
     check(poll_scene_load(app.get(), interim, terminal) == GNEISS_SUCCESS && !terminal);
@@ -93,7 +98,7 @@ void cancel_drain(tasks::execution_mode mode) {
   check(request_scene_load(app.get(), uri, 1U, 2U, rejected) == GNEISS_ERROR_NOT_READY);
   do {
     check(std::chrono::steady_clock::now() < deadline);
-    check(app.run(1U) == result::success);
+    check(gneiss::result{gneiss_application_run(app.get(), 1U)} == result::success);
     check(poll_scene_load(app.get(), completion, finished) == GNEISS_SUCCESS && !finished);
     check(query_scene_load_progress(app.get(), progress, available) == GNEISS_SUCCESS && available);
   } while (!progress.cleanup_complete);
@@ -107,12 +112,12 @@ void cancel_drain(tasks::execution_mode mode) {
 void run(tasks::execution_mode mode) {
   fixture files;
   tasks::task_scheduler scheduler({.workers = 1U, .mode = mode});
-  sdk::application app;
+  gneiss::test_support::application_owner app;
   auto desc = gneiss_application_desc GNEISS_APPLICATION_DESC_INIT;
   const auto root = files.root.string();
   desc.asset_root = root.data();
   desc.asset_root_length = static_cast<std::uint32_t>(root.size());
-  check(sdk::application::create_native(desc, app) == result::success);
+  check(gneiss::result{gneiss_application_create(&desc, app.put())} == result::success);
   // 未装配执行器时，宿主入口应保留空闲查询与未就绪操作的不同语义。
   std::uint64_t unattached_request = 99U;
   check(request_scene_load(app.get(), "asset://scene.json", 1U, 1U, unattached_request) ==
@@ -276,7 +281,7 @@ void run(tasks::execution_mode mode) {
   check(gneiss_application_get_world(app.get(), &observed) == GNEISS_SUCCESS);
   check(gneiss_world_entity_count(observed, &count) == GNEISS_SUCCESS && count == 0U);
   check(request_scene_load(app.get(), uri, 1U, 7U, request) == GNEISS_SUCCESS);
-  app = sdk::application{};
+  app = gneiss::test_support::application_owner{};
   check(scheduler.stats().retained == 0U);
   check(gneiss_world_entity_count(observed, &count) == GNEISS_ERROR_INVALID_HANDLE);
 }
@@ -284,12 +289,12 @@ void run(tasks::execution_mode mode) {
 void shared_scene_assets(tasks::execution_mode mode) {
   fixture files;
   tasks::task_scheduler scheduler({.workers = 1U, .mode = mode});
-  sdk::application app;
+  gneiss::test_support::application_owner app;
   auto desc = gneiss_application_desc GNEISS_APPLICATION_DESC_INIT;
   const auto root = files.root.string();
   desc.asset_root = root.data();
   desc.asset_root_length = static_cast<std::uint32_t>(root.size());
-  check(sdk::application::create_native(desc, app) == result::success);
+  check(gneiss::result{gneiss_application_create(&desc, app.put())} == result::success);
   check(attach_task_executor(app.get(), scheduler) == GNEISS_SUCCESS);
   scene_load_completion completion;
   std::uint64_t request{};
@@ -421,12 +426,12 @@ void shared_texture_versions(tasks::execution_mode mode) {
       << R"({"uuid":"00000000-0000-4000-8000-000000000002","parent":null,"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":{"mesh_renderer":{"mesh":"asset://mesh.json","material":"asset://material.json"}}},)"
       << R"({"uuid":"00000000-0000-4000-8000-000000000003","parent":null,"transform":{"translation":[1,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":{"mesh_renderer":{"mesh":"asset://mesh.json","material":"asset://other.json"}}}],"prefab_instances":[]})";
   tasks::task_scheduler scheduler({.workers = 1U, .mode = mode});
-  sdk::application app;
+  gneiss::test_support::application_owner app;
   auto desc = gneiss_application_desc GNEISS_APPLICATION_DESC_INIT;
   const auto root = files.root.string();
   desc.asset_root = root.data();
   desc.asset_root_length = static_cast<std::uint32_t>(root.size());
-  check(sdk::application::create_native(desc, app) == result::success);
+  check(gneiss::result{gneiss_application_create(&desc, app.put())} == result::success);
   check(attach_task_executor(app.get(), scheduler) == GNEISS_SUCCESS);
   std::uint64_t request{};
   check(request_scene_load(app.get(), "asset://scene.json", 1U, 1U, request) == GNEISS_SUCCESS);

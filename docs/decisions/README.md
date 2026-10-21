@@ -70,3 +70,5 @@ Reference 和实现为准。
 - [ADR-060：可选 CPU 性能采集](ADR-060-optional-cpu-profiler.md)
 
 - [ADR-061：资产文件 I/O 优先复用 libuv](ADR-061-libuv-asset-io.md)
+
+- [ADR-070：删除公共 C++ 对象 SDK](ADR-070-remove-public-object-sdk.md)

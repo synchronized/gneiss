@@ -26,7 +26,7 @@ Gneiss 分为逻辑层、ECS 数据层、服务层与后端层。场景树通过
 
 ## 开始使用
 
-当前工程提供 C11 公共接口、C++20 包装、Application、World、Scene Tree、最小 Render Service、
+当前工程提供 C11 公共接口、C++20 共享值类型、Application、World、Scene Tree、最小 Render Service、
 输入与动作映射、统一诊断、离线 glTF 资产编译器，以及 version、交互纹理神殿和 Lantern 灯廊
 示例。选择与平台匹配的 preset，例如：
 

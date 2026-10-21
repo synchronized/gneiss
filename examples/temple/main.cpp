@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include <gneiss/engine/application.hpp>
+#include "../support/scope_exit.hpp"
+#include <gneiss/engine/application.h>
 #include <gneiss/engine/input.hpp>
 #include <gneiss/engine/scene.h>
+#include <gneiss/engine/world.h>
 
 #include <cmath>
 #include <cstdint>
@@ -81,25 +83,31 @@ int run_example(int argc, char** argv) {
   desc.asset_root = asset_root.c_str();
   desc.asset_root_length = static_cast<std::uint32_t>(asset_root.size());
 
-  gneiss::sdk::application application;
-  if (gneiss::sdk::application::create_native(desc, application) != gneiss::result::success ||
-      application.get_world(state.world) != gneiss::result::success) {
+  gneiss_application application{};
+  example::scope_exit close{[&] {
+    if (application)
+      (void)gneiss_application_destroy(application);
+  }};
+  if (gneiss::result{gneiss_application_create(&desc, &application)} != gneiss::result::success ||
+      gneiss::result{gneiss_application_get_world(application, &state.world)} !=
+          gneiss::result::success) {
     return 1;
   }
   gneiss_scene_instance scene = GNEISS_NULL_SCENE_INSTANCE;
-  if (gneiss_scene_instance_load(application.get(), scene_uri.data(), scene_uri.size(), &scene) !=
+  if (gneiss_scene_instance_load(application, scene_uri.data(), scene_uri.size(), &scene) !=
           GNEISS_SUCCESS ||
-      gneiss::load_action_map(application.get(), input_map_uri) != gneiss::result::success ||
-      application.find_action("move_horizontal", state.orbit) != gneiss::result::success ||
-      application.find_action("quit", state.quit) != gneiss::result::success ||
-      gneiss_scene_instance_find_node(application.get(), scene, camera_uuid.data(),
-                                      camera_uuid.size(), &state.camera_node) != GNEISS_SUCCESS) {
+      gneiss::load_action_map(application, input_map_uri) != gneiss::result::success ||
+      gneiss::find_action(application, "move_horizontal", state.orbit) != gneiss::result::success ||
+      gneiss::find_action(application, "quit", state.quit) != gneiss::result::success ||
+      gneiss_scene_instance_find_node(application, scene, camera_uuid.data(), camera_uuid.size(),
+                                      &state.camera_node) != GNEISS_SUCCESS) {
     return 2;
   }
-  if (application.run(smoke ? 3U : 0U) != gneiss::result::success) {
+  if (gneiss::result{gneiss_application_run(application, smoke ? 3U : 0U)} !=
+      gneiss::result::success) {
     return 3;
   }
-  return gneiss_scene_instance_unload(application.get(), scene) == GNEISS_SUCCESS ? 0 : 4;
+  return gneiss_scene_instance_unload(application, scene) == GNEISS_SUCCESS ? 0 : 4;
 }
 
 int main(int argc, char** argv) {

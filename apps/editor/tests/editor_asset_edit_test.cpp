@@ -1,12 +1,17 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
+#include "../../../tests/support/c_owner.hpp"
 #include "editor_asset_edit.hpp"
 #include "runtime/application_asset_reload_internal.hpp"
 #include "runtime/application_registry.hpp"
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
-#include <gneiss/engine/application.hpp>
+#include <gneiss/engine/application.h>
+#include <gneiss/engine/input.hpp>
+#include <gneiss/engine/log.hpp>
+#include <gneiss/engine/render.hpp>
+#include <gneiss/engine/scene.hpp>
 #include <source_location>
 #include <stdexcept>
 
@@ -41,12 +46,12 @@ struct fixture {
 void run(tasks::execution_mode mode) {
   fixture files;
   tasks::task_scheduler scheduler({.workers = 1U, .mode = mode});
-  sdk::application app;
+  gneiss::test_support::application_owner app;
   auto desc = gneiss_application_desc GNEISS_APPLICATION_DESC_INIT;
   const auto root = files.root.string();
   desc.asset_root = root.data();
   desc.asset_root_length = static_cast<std::uint32_t>(root.size());
-  check(sdk::application::create_native(desc, app) == result::success);
+  check(gneiss::result{gneiss_application_create(&desc, app.put())} == result::success);
   check(application_internal::attach_task_executor(app.get(), scheduler) == GNEISS_SUCCESS);
   gneiss_world world{};
   check(gneiss_application_get_world(app.get(), &world) == GNEISS_SUCCESS);

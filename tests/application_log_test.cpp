@@ -1,8 +1,12 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include <gneiss/engine/application.hpp>
+#include "support/c_owner.hpp"
+#include <gneiss/engine/application.h>
+#include <gneiss/engine/input.hpp>
 #include <gneiss/engine/log.hpp>
+#include <gneiss/engine/render.hpp>
+#include <gneiss/engine/scene.hpp>
 
 #include <atomic>
 #include <chrono>
@@ -12,6 +16,8 @@
 #include <string>
 #include <thread>
 #include <vector>
+
+using namespace gneiss;
 
 namespace {
 
@@ -152,17 +158,20 @@ int main() {
   owned_capture.check_reentrancy = false;
   desc.log = capture;
   desc.user_data = &owned_capture;
-  gneiss::sdk::application owned;
-  if (gneiss::sdk::application::create_native(desc, owned).failed()) {
+  gneiss::test_support::application_owner owned;
+  if (gneiss::result{gneiss_application_create(&desc, owned.put())}.failed()) {
     return 10;
   }
   gneiss::result submitted;
   std::thread worker([&] {
     const std::string transient = "owned worker";
-    submitted = owned.log({.severity = gneiss::log_severity::warning,
-                           .category = "cpp",
-                           .message = transient,
-                           .operation = gneiss::result::not_ready});
+    submitted = ([&](const log_message& message) {
+      const auto native = to_native(message);
+      return from_native(gneiss_application_log(owned.get(), &native));
+    })({.severity = gneiss::log_severity::warning,
+        .category = "cpp",
+        .message = transient,
+        .operation = gneiss::result::not_ready});
   });
   worker.join();
   if (submitted.failed() || owned.reset().failed()) {
@@ -177,8 +186,12 @@ int main() {
   capture_state empty_capture;
   empty_capture.check_reentrancy = false;
   desc.user_data = &empty_capture;
-  if (gneiss::sdk::application::create_native(desc, owned).failed() ||
-      owned.log(gneiss::make_log_message(gneiss::log_severity::info, "empty", {})).failed() ||
+  if (gneiss::result{gneiss_application_create(&desc, owned.put())}.failed() ||
+      ([&](const log_message& message) {
+        const auto native = to_native(message);
+        return from_native(gneiss_application_log(owned.get(), &native));
+      })(gneiss::make_log_message(gneiss::log_severity::info, "empty", {}))
+          .failed() ||
       owned.reset().failed()) {
     return 13;
   }

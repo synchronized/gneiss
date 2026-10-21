@@ -4,7 +4,8 @@
 #include "runtime/game/game_context_internal.hpp"
 
 #include <gneiss/engine/application.h>
-#include <gneiss/engine/game_module.hpp>
+#include <gneiss/engine/game_module.h>
+#include <gneiss/engine/input.hpp>
 #include <gneiss/engine/log.hpp>
 
 #include <mutex>
@@ -74,22 +75,8 @@ int main() {
   }
 
   gneiss_world actual_world = GNEISS_NULL_WORLD;
-  const gneiss::sdk::game_context borrowed{context};
-  gneiss::sdk::world_ref typed_world;
-  gneiss::entity_id typed_root;
-  gneiss::action_id typed_action;
-  gneiss::action_state typed_state{};
-  if (borrowed.get_world(typed_world).failed() || typed_world.get() != expected_world ||
-      borrowed.get_startup_root_entity(typed_root).failed() || typed_root.get() != expected_root ||
-      gneiss::load_action_map(application, "asset://input/default.input-map.json").failed() ||
-      borrowed.find_action("move_horizontal", typed_action).failed() || !typed_action.is_valid() ||
-      borrowed.get_action_state(typed_action, typed_state).failed() || typed_state.held) {
+  if (gneiss::load_action_map(application, "asset://input/default.input-map.json").failed()) {
     return 7;
-  }
-  const auto original_action = typed_action;
-  if (borrowed.find_action("missing", typed_action) != gneiss::result::not_found ||
-      typed_action != original_action) {
-    return 8;
   }
   gneiss_entity_id actual_root = GNEISS_NULL_ENTITY_ID;
   gneiss_action action = GNEISS_NULL_ACTION;
@@ -99,8 +86,16 @@ int main() {
       actual_root != expected_root ||
       gneiss_game_context_find_action(context, "missing", UINT64_C(7), &action) !=
           GNEISS_ERROR_NOT_FOUND ||
-      borrowed.request_exit().failed()) {
+      gneiss_game_context_request_exit(context) != GNEISS_SUCCESS) {
     return 3;
+  }
+
+  gneiss_action_state action_state = GNEISS_ACTION_STATE_INIT;
+  if (gneiss_game_context_find_action(context, "move_horizontal", 15U, &action) != GNEISS_SUCCESS ||
+      action == GNEISS_NULL_ACTION ||
+      gneiss_game_context_get_action_state(context, action, &action_state) != GNEISS_SUCCESS ||
+      action_state.held != 0U) {
+    return 8;
   }
 
   // 上下文身份先于动作参数校验；普通 World 查询则先检查输出指针。
@@ -120,26 +115,17 @@ int main() {
   }
 
   gneiss_result cross_thread_result = GNEISS_SUCCESS;
-  gneiss::result typed_thread_result;
   gneiss_result cross_thread_log_result = GNEISS_ERROR_INTERNAL;
   const auto message = gneiss::make_log_message(gneiss::log_severity::info, "test", "worker ready");
   const auto native_message = gneiss::to_native(message);
   std::thread other([&] {
     cross_thread_result = gneiss_game_context_get_world(context, &actual_world);
-    typed_thread_result = borrowed.get_world(typed_world);
-    cross_thread_log_result = borrowed.log(message).native();
+    cross_thread_log_result = gneiss_game_context_log(context, &native_message);
   });
   other.join();
   if (cross_thread_result != GNEISS_ERROR_INVALID_HANDLE ||
-      typed_thread_result != gneiss::result::invalid_handle ||
-      typed_world.get() != expected_world || cross_thread_log_result != GNEISS_SUCCESS ||
+      cross_thread_log_result != GNEISS_SUCCESS ||
       gneiss::game_internal::destroy_game_context(context) != GNEISS_SUCCESS ||
-      borrowed.get_world(typed_world) != gneiss::result::invalid_handle ||
-      typed_world.get() != expected_world ||
-      borrowed.get_startup_root_entity(typed_root) != gneiss::result::invalid_handle ||
-      typed_root.get() != expected_root ||
-      borrowed.find_action("move_horizontal", typed_action) != gneiss::result::invalid_handle ||
-      typed_action != original_action ||
       gneiss_game_context_get_world(context, &actual_world) != GNEISS_ERROR_INVALID_HANDLE ||
       gneiss_game_context_log(context, &native_message) != GNEISS_ERROR_INVALID_HANDLE ||
       gneiss::game_internal::destroy_game_context(context) != GNEISS_ERROR_INVALID_HANDLE ||

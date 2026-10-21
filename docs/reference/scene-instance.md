@@ -31,13 +31,6 @@ Runtime 宿主的启动与完整场景切换、Editor 的启动与显式打开�
 实体、节点和资产租约，句柄立即失效；重复卸载返回句柄错误。Application 销毁时会先卸载仍存活的
 场景，再销毁 World 和 Render Resource Service。
 
-C++ `gneiss::sdk::scene_instance` 提供移动专属的 RAII 包装，不延长 Application 寿命。正常使用先关闭
-场景再关闭 Application；父对象已销毁时 `reset()` 安全清空失效句柄。关闭失败时保留句柄，析构
-和移动覆盖失败的规则见 [Application C++ 契约](application.md#生命周期)。`owner()` 返回父句柄，
-`release()` 转移场景所有权；调用前须保存 `owner()`，由接收者在所属线程手动卸载。
-`scene_instance::adopt_native(application, handle, output)` 将无其他所有者的原始实例接入 RAII；
-要求 output 为空，并验证所属 Application、句柄及线程。失败不接管，成功后原始句柄只作借用。
-调用方须保证没有第二个拥有者，接管不会复制场景或延长 Application 寿命。
 场景中的 Mesh Renderer 只借用 RID，资源生命周期由场景实例持有的租约保证。
 
 ## UUID 查询
@@ -59,7 +52,7 @@ JSON 可为对象增加可选字符串 `name`；旧场景无需迁移，名称�
 销毁后也立即失效。需要跨编辑保存名称、UUID 或 URI 时，必须在修改前复制字符串，不能只复制
 包含指针的描述结构。`out_info` 必须以
 `GNEISS_SCENE_INSTANCE_NODE_INFO_INIT` 初始化。索引越界返回 `GNEISS_ERROR_NOT_FOUND`；节点或实体
-已被外部销毁时返回句柄错误。C++ 包装提供对应的 `get_node_count` 和 `get_node_info`。
+已被外部销毁时返回句柄错误。调用方使用相应 C 查询函数。
 
 Prefab 使用独立的实验性枚举接口 `gneiss_scene_instance_get_prefab_node_count` 与
 `gneiss_scene_instance_get_prefab_node_info`，不改变普通 `objects` 的数量和顺序。枚举顺序为每个实例
@@ -147,7 +140,7 @@ ID 和实例不能跨 Application 使用。这两项操作仅限 Application 创
 ID 和 Scene Node ID 全部失效；调用方应在删除前保存快照和根节点原父 UUID，供 Undo 使用。C++
 包装分别使用 `std::string` 和 `std::span<scene_uuid_mapping>` 承载值快照与 UUID 映射。
 
-C++ `gneiss::sdk::scene_instance` 提供对应强类型包装。创建、重命名、重挂接、替换与删除会进入后续
+创建、重命名、重挂接、替换与删除会进入后续
 序列化结果，但不会自行写入来源文件；Editor 仍负责脏状态和原子保存。
 
 ## 运行时属性序列化
@@ -160,7 +153,7 @@ Mesh Renderer 引用以及 Prefab 实例根 Transform 合并回加载时的作�
 
 C 接口使用两次调用：先以空 `buffer` 和零 `capacity` 查询不含字符串终止符的字节数，再提供足够
 容量的缓冲区。容量不足返回 `GNEISS_ERROR_INVALID_ARGUMENT`，同时通过 `out_length` 返回所需长度。
-C++ `gneiss::sdk::scene_instance::serialize` 直接输出到调用方提供的 `std::string`。
+C++ 调用者先查询序列化长度，再分配缓冲区并调用 C 序列化函数。
 
 序列化只允许在所属 Application 创建线程执行。实例中的实体、节点或原有 Camera 已被调用方删除
 时返回对应错误且不产生部分输出。输出文本如何落盘由工具或宿主负责；只读 VFS 不会被保存操作

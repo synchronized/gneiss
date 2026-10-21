@@ -230,48 +230,6 @@ result with_render_desc(const debug_draw_list_desc& desc, Call&& call) noexcept 
 }
 } // namespace detail
 
-namespace detail {
-template <typename Id, typename Desc, auto Create, auto Destroy>
-result render_resource_owner<Id, Desc, Create, Destroy>::create(
-    gneiss_application application, const Desc& desc, render_resource_owner& output) noexcept {
-  std::uint64_t handle{};
-  const auto status = with_render_desc(
-      desc, [&](const auto& native) { return Create(application, &native, &handle); });
-  if (status.failed()) {
-    return status;
-  }
-  const auto closed = output.reset();
-  if (closed.failed()) {
-    (void)Destroy(application, handle);
-    return closed;
-  }
-  output.application_ = application;
-  output.handle_ = handle;
-  return result::success;
-}
-
-template <typename Id, typename Desc, auto Create, auto Destroy>
-result render_resource_owner<Id, Desc, Create, Destroy>::reset() noexcept {
-  if (handle_ == 0U) {
-    return result::success;
-  }
-  const auto status = from_native(Destroy(application_, handle_));
-  if (status.failed() && status != result::invalid_handle) {
-    return status;
-  }
-  handle_ = 0U;
-  application_ = GNEISS_NULL_APPLICATION;
-  return result::success;
-}
-
-template <typename Id, typename Desc, auto Create, auto Destroy>
-void render_resource_owner<Id, Desc, Create, Destroy>::reset_or_terminate() noexcept {
-  if (reset().failed()) {
-    std::terminate();
-  }
-}
-} // namespace detail
-
 } // namespace gneiss
 
 #endif

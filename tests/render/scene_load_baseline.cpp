@@ -1,11 +1,16 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../support/c_owner.hpp"
 #include "runtime/application_asset_reload_internal.hpp"
 #include "runtime/application_scene_load_internal.hpp"
 
-#include <gneiss/engine/application.hpp>
+#include <gneiss/engine/application.h>
+#include <gneiss/engine/input.hpp>
+#include <gneiss/engine/log.hpp>
+#include <gneiss/engine/render.hpp>
 #include <gneiss/engine/scene.h>
+#include <gneiss/engine/scene.hpp>
 
 #include <algorithm>
 #include <array>
@@ -65,8 +70,9 @@ std::uint64_t peak_resident_bytes() {
 #endif
 }
 // 场景切换的预载也走设备变体选择和有界上传，不能用同步预载阻断被测异步路径。
-gneiss_result preload_scene(gneiss::sdk::application& app, gneiss::tasks::task_scheduler& scheduler,
-                            bool cooperative, std::string_view uri, gneiss_scene_instance& scene) {
+gneiss_result preload_scene(gneiss::test_support::application_owner& app,
+                            gneiss::tasks::task_scheduler& scheduler, bool cooperative,
+                            std::string_view uri, gneiss_scene_instance& scene) {
   using namespace gneiss::application_internal;
   std::uint64_t request{};
   auto result = request_scene_load(app.get(), uri, 1U, 1U, request);
@@ -75,7 +81,7 @@ gneiss_result preload_scene(gneiss::sdk::application& app, gneiss::tasks::task_s
     if (cooperative) {
       (void)scheduler.run_ready();
     }
-    result = static_cast<gneiss_result>(app.run(1U));
+    result = static_cast<gneiss_result>(gneiss::result{gneiss_application_run(app.get(), 1U)});
     if (result != GNEISS_SUCCESS) {
       break;
     }
@@ -139,7 +145,7 @@ int main(int argc, char** argv) try {
        .mode = mode == "cooperative" ? gneiss::tasks::execution_mode::cooperative
                                      : gneiss::tasks::execution_mode::thread_pool});
   std::function<gneiss_result(gneiss_application)> update;
-  gneiss::sdk::application app;
+  gneiss::test_support::application_owner app;
   auto desc = gneiss_application_desc GNEISS_APPLICATION_DESC_INIT;
   desc.user_data = &update;
   desc.update = [](gneiss_application handle, const gneiss_frame_time*, void* data) {
@@ -157,8 +163,8 @@ int main(int argc, char** argv) try {
   if (scenario == "interact") {
     desc.window_flags |= GNEISS_APPLICATION_WINDOW_VISIBLE_BIT;
   }
-  if (gneiss::sdk::application::create_native(desc, app) != gneiss::result::success ||
-      app.run(3U) != gneiss::result::success) {
+  if (gneiss::result{gneiss_application_create(&desc, app.put())} != gneiss::result::success ||
+      gneiss::result{gneiss_application_run(app.get(), 3U)} != gneiss::result::success) {
     return 3;
   }
   if (mode != "sync" &&
@@ -181,7 +187,7 @@ int main(int argc, char** argv) try {
     }
     if (previous_scene == GNEISS_NULL_SCENE_INSTANCE ||
         gneiss_application_get_world(app.get(), &previous_world) != GNEISS_SUCCESS ||
-        app.run(10U) != gneiss::result::success) {
+        gneiss::result{gneiss_application_run(app.get(), 10U)} != gneiss::result::success) {
       return 11;
     }
     std::uint64_t count{};
@@ -470,7 +476,8 @@ int main(int argc, char** argv) try {
       return GNEISS_SUCCESS;
     };
     if (result == GNEISS_SUCCESS) {
-      const auto run_result = static_cast<gneiss_result>(app.run());
+      const auto run_result =
+          static_cast<gneiss_result>(gneiss::result{gneiss_application_run(app.get(), 0U)});
       if (run_result != GNEISS_SUCCESS) {
         result = run_result;
       }
@@ -498,7 +505,7 @@ int main(int argc, char** argv) try {
   }
   if (closed) {
     const auto closing_start = clock_type::now();
-    app = gneiss::sdk::application{};
+    app = gneiss::test_support::application_owner{};
     shutdown_ms = milliseconds(closing_start);
     std::ofstream report(prefix.string() + ".json");
     report << "{\"closed\":true,\"shutdown_ms\":" << shutdown_ms
@@ -514,7 +521,7 @@ int main(int argc, char** argv) try {
   if (result != GNEISS_SUCCESS) {
     (void)gneiss::application_internal::query_scene_retirement(app.get(), retirement);
     const auto peak = peak_resident_bytes();
-    app = gneiss::sdk::application{};
+    app = gneiss::test_support::application_owner{};
     std::ofstream report(prefix.string() + ".json");
     report << "{\"result\":" << result << ",\"load_ms\":" << load_ms
            << ",\"candidate_resident_bytes\":" << completion.progress.resident_bytes
@@ -538,7 +545,7 @@ int main(int argc, char** argv) try {
     return 5;
   }
   const auto rendering_start = clock_type::now();
-  if (app.run(60U) != gneiss::result::success) {
+  if (gneiss::result{gneiss_application_run(app.get(), 60U)} != gneiss::result::success) {
     return 6;
   }
   const auto render_ms = milliseconds(rendering_start);
@@ -568,7 +575,7 @@ int main(int argc, char** argv) try {
   if (scenario == "failure") {
     const auto retry_start = clock_type::now();
     if (preload_scene(app, scheduler, mode == "cooperative", uri, scene) != GNEISS_SUCCESS ||
-        app.run(60U) != gneiss::result::success) {
+        gneiss::result{gneiss_application_run(app.get(), 60U)} != gneiss::result::success) {
       return 16;
     }
     retry_ms = milliseconds(retry_start);

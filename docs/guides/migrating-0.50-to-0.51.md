@@ -5,39 +5,15 @@
 
 本指南描述当前开发分支的源码变化，不表示 0.51 已发布。
 
-## 外部 C++ SDK
+## 外部 C++ 调用
 
-头文件路径不变。拥有或借用运行时对象的包装移入 `gneiss::sdk`，不提供旧顶层别名。
-C ABI 函数、结构布局和动态模块协议保持不变。类型名继续使用小写下划线。
+公共 `gneiss::sdk` 对象包装已删除，不提供兼容转发。C ABI 函数、结构布局和动态模块协议保持不变。
+删除 `gneiss/gneiss.hpp`、`gneiss/engine/application.hpp` 与 `gneiss/engine/game_module.hpp`，
+调用方改用对应 `.h` 的创建、操作及销毁接口；销毁前清理依赖该对象的资源，并处理返回码。
+World、Scene、Render 和 Reflection 的 `.hpp` 仅保留值类型及无状态转换，不再包含所有者。
 
-| 原名称 | 当前名称 |
-| --- | --- |
-| gneiss::application / application_ref / released_application | gneiss::sdk 下的同名类型 |
-| gneiss::world / world_ref | gneiss::sdk 下的同名类型 |
-| gneiss::scene_instance / scene_prefab_refresh | gneiss::sdk 下的同名类型 |
-| gneiss::mesh / material / texture | gneiss::sdk 下的同名类型 |
-| gneiss::type_registry / released_type_registry | gneiss::sdk 下的同名类型 |
-| gneiss::game_context / game_module 及游戏模块描述、回调、更新时间 | gneiss::sdk 下的同名类型 |
-
-Application 配置及回调类型也在 `gneiss::sdk`。通用结果、实体/节点/资源标识、Transform、
-渲染描述和反射属性值仍在 `gneiss`；它们是值类型，不拥有另一套运行时。不要仅凭命名空间
-判断所有权，应查看具体类型的生命周期说明。
-
-```cpp
-#include <gneiss/engine/application.hpp>
-
-int main() {
-  gneiss::sdk::application app;
-  if (gneiss::sdk::application::create({}, app).failed()) return 1;
-  gneiss::sdk::world_ref world;
-  if (app.get_world(world).failed()) return 2;
-  gneiss::entity_id entity;
-  return world.create_entity(entity).ok() ? 0 : 3;
-}
-```
-
-`world_ref` 不延长 Application 寿命。场景、资源和历史令牌须先于父对象释放；错误线程析构
-仍按原契约终止进程。需要处理关闭错误时显式调用 `reset()`。
+完整范围及调用示例见 [C++ 调用边界](../reference/cpp-sdk.md)。安装请使用干净前缀，
+避免旧 SDK 头文件残留。内部原生对象不搬到公共头，也不为替代包装而新增平行对象。
 
 ## 同源码宿主
 

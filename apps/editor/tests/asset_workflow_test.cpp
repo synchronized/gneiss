@@ -1,14 +1,19 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../../../tests/support/c_owner.hpp"
 #include "asset_reimport_queue.hpp"
 #include "editor_session.hpp"
-#include "runtime/application_registry.hpp"
 #include "package_archive.hpp"
 #include "project_workspace.hpp"
+#include "runtime/application_registry.hpp"
 #include "runtime_process.hpp"
 
-#include <gneiss/engine/application.hpp>
+#include <gneiss/engine/application.h>
+#include <gneiss/engine/input.hpp>
+#include <gneiss/engine/log.hpp>
+#include <gneiss/engine/render.hpp>
+#include <gneiss/engine/scene.hpp>
 
 #include <algorithm>
 #include <chrono>
@@ -84,7 +89,7 @@ int main() try {
   }
   const auto material_path = project.asset_root / std::filesystem::path(material->substr(8U));
   const auto previous_material = read_text(material_path);
-  sdk::application app;
+  gneiss::test_support::application_owner app;
   gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
   const auto asset_root = project.asset_root.generic_string();
   desc.asset_root = asset_root.data();
@@ -92,8 +97,8 @@ int main() try {
   gneiss_world world{};
   editor_session session;
   scene_node_id node;
-  if (sdk::application::create_native(desc, app) != result::success ||
-      app.get_world(world) != result::success ||
+  if (gneiss::result{gneiss_application_create(&desc, app.put())} != result::success ||
+      gneiss::result{gneiss_application_get_world(app.get(), &world)} != result::success ||
       session.open(*gneiss::application_internal::find_application(app.get()), world,
                    project.startup_scene) != result::success ||
       session.create_mesh_renderer_node("Imported", *mesh, *material, node) != result::success ||

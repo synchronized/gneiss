@@ -75,7 +75,7 @@ Registry 不由 World 持有，Scene Tree 节点也仍然只关联实体 ID。
 
 调用 C ABI 元数据查询前，输出结构必须分别使用 `GNEISS_TYPE_INFO_INIT` 或
 `GNEISS_FIELD_INFO_INIT` 初始化。实现通过首字段 `struct_size` 判断调用方可见版本；小于 v1 大小的
-结构返回 `GNEISS_ERROR_INVALID_ARGUMENT`。C++20 包装会自动完成初始化。
+结构返回 `GNEISS_ERROR_INVALID_ARGUMENT`。C++ 调用者也必须按 C 描述约定初始化。
 
 ## 所有权与线程安全
 
@@ -85,19 +85,3 @@ Registry 不由 World 持有，Scene Tree 节点也仍然只关联实体 ID。
 创建和销毁不同 Registry 可以并发进行。单个 Registry 的注册与绑定阶段由调用方串行化；冻结后
 Registry 查询和访问器查找支持并发调用。目标对象是否支持并发读写由具体适配器决定。首版不支持
 注销、解冻、替换描述和动态模块卸载。
-
-## C++20 包装
-
-`gneiss::sdk::type_registry` 独占 C 句柄，不可复制、可以移动，析构时自动销毁。`create`、`register_type`、
-`bind_property`、`freeze`、查询、`get_property` 和 `set_property` 直接返回 `gneiss::result`，不建立
-第二套元数据或属性状态。
-
-## C++ 原生值与访问器
-
-`type_registry` 的普通注册、查询和属性方法使用独立 C++ 描述、ID 和 variant 属性值。
-`type_info` 拥有字段数组，名称仍借用 Registry；失败查询保留输出，复制数组不延长文本寿命。
-`property_accessor_desc` 使用 noexcept 回调，Registry 复制稳定回调表，调用方持有 user_data 至关闭。
-重复绑定相同回调保持幂等，冻结后的绑定仍由底层拒绝；包装不提供不存在的注销能力。
-Registry 的 release 返回 `released_type_registry`，移动与 adopt 同时转移回调存储和句柄。
-显式 C 值调用使用 `_native` 方法，遵循原 C 错误和借用契约。
-完整普通使用示例见[属性检查示例](../../examples/property_inspector/main.cpp)。

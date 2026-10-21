@@ -1,19 +1,14 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-
 #pragma once
-
-#include <gneiss/engine/application.hpp>
-
+#include <gneiss/engine/application.h>
+#include <gneiss/engine/scene.h>
+#include <gneiss/engine/world.h>
 namespace example {
-
-// 只保存借用 ID；World 与实体由 Application 管理。
 struct scene_state {
-  gneiss::entity_id entity;
-  std::uint64_t updates{};
+  gneiss_entity_id entity{};
+  unsigned updates{};
 };
-
-gneiss::result update(gneiss::sdk::application_ref app, const gneiss::sdk::frame_time& time,
-                      void* user_data) noexcept;
-
-} // namespace example
+gneiss_result update(gneiss_application application, const gneiss_frame_time* time,
+                     void* user_data) noexcept;
+}

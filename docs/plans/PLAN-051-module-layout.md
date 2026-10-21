@@ -15,7 +15,7 @@
 
 ## 非目标
 
-- 不开发插件 API，不新增公共 Editor API，不改变公共 SDK 命名空间与 ABI。
+- 不开发插件 API，不新增公共 Editor API，不改变 C ABI；公共对象 SDK 按 [ADR-070](../decisions/ADR-070-remove-public-object-sdk.md) 删除。
 - 不引入全局 locator，不创建第二套 CAORS 缓存或请求状态机。
 - 不在本轮顺带实现 LOD、大场景性能优化或浏览器完整 Editor。
 - 不把所有场景强制绑定为独立 World；继续支持一个 World 多个 Scene。
@@ -28,7 +28,7 @@
 apps/
   editor/main.cpp                    可执行程序入口
   runtime/main.cpp
-include/gneiss/                      保留当前公共 C ABI 与 C++ SDK 组织
+include/gneiss/                      公共 C ABI 与共享 C++ 值类型，不提供对象 SDK
 src/
   engine/
     core/                           日志、数学、任务、诊断、反射基础

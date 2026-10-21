@@ -1,68 +1,42 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-
+#include "../support/scope_exit.hpp"
 #include "scene_update.hpp"
-
-#include <array>
-#include <iostream>
-
-namespace {
-
-gneiss::result run_example() {
-  // user_data 必须比 Application 活得久，因此先声明状态，再声明拥有者。
+#include <cstdio>
+#include <gneiss/engine/scene.h>
+int main() {
   example::scene_state state;
-  gneiss::sdk::application app;
-  const gneiss::sdk::application_desc desc{
-      .callbacks = {.user_data = &state, .update = example::update},
-      .platform = gneiss::sdk::application_platform::callback,
-  };
-  if (const auto status = gneiss::sdk::application::create(desc, app); status.failed()) {
-    return status;
-  }
-
-  gneiss::sdk::world_ref world;
-  if (const auto status = app.get_world(world); status.failed()) {
-    return status;
-  }
-  if (const auto status = world.create_entity(state.entity); status.failed()) {
-    return status;
-  }
-  // 实体身份不自带变换；先把实体关联到场景节点。
-  gneiss::scene_node_id node;
-  if (const auto status = world.create_scene_node({}, state.entity, node); status.failed()) {
-    return status;
-  }
-  const gneiss::transform initial{.translation = {1.0F, 2.0F, 3.0F}};
-  if (const auto status = world.set_local_transform(state.entity, initial); status.failed()) {
-    return status;
-  }
-
-  // 回调在第三帧请求退出；上限用于避免示例误改后无限运行。
-  if (const auto status = app.run(8); status.failed()) {
-    return status;
-  }
-  gneiss::transform final;
-  if (const auto status = world.get_local_transform(state.entity, final); status.failed()) {
-    return status;
-  }
-  if (state.updates != 3 || final.translation != std::array{4.0F, 2.0F, 3.0F}) {
-    return gneiss::result::internal;
-  }
-  std::cout << "updates=" << state.updates << ", x=" << final.translation[0] << '\n';
-  // 正常退出显式检查关闭结果；前面的失败路径仍由 RAII 收尾。
-  return app.reset();
-}
-
-} // namespace
-
-int main() try {
-  const auto status = run_example();
-  if (status.failed()) {
-    std::cerr << status.message() << '\n';
+  gneiss_application app{};
+  example::scope_exit close{[&] {
+    if (app)
+      (void)gneiss_application_destroy(app);
+  }};
+  gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
+  desc.user_data = &state;
+  desc.update = example::update;
+  if (gneiss_application_create(&desc, &app) != GNEISS_SUCCESS)
     return 1;
-  }
+  gneiss_world world{};
+  gneiss_scene_node_id node{};
+  if (gneiss_application_get_world(app, &world) != GNEISS_SUCCESS ||
+      gneiss_world_entity_create(world, &state.entity) != GNEISS_SUCCESS ||
+      gneiss_scene_node_create(world, 0, state.entity, &node) != GNEISS_SUCCESS)
+    return 2;
+  gneiss_transform initial = GNEISS_TRANSFORM_IDENTITY;
+  initial.translation[0] = 1;
+  initial.translation[1] = 2;
+  initial.translation[2] = 3;
+  if (gneiss_world_entity_set_local_transform(world, state.entity, &initial) != GNEISS_SUCCESS ||
+      gneiss_application_run(app, 8) != GNEISS_SUCCESS)
+    return 3;
+  gneiss_transform final = GNEISS_TRANSFORM_IDENTITY;
+  if (gneiss_world_entity_get_local_transform(world, state.entity, &final) != GNEISS_SUCCESS ||
+      state.updates != 3 || final.translation[0] != 4 || final.translation[1] != 2 ||
+      final.translation[2] != 3)
+    return 4;
+  std::printf("updates=%u, x=%g\n", state.updates, static_cast<double>(final.translation[0]));
+  if (gneiss_application_destroy(app) != GNEISS_SUCCESS)
+    return 5;
+  app = 0;
   return 0;
-} catch (...) {
-  // 控制台输出可能分配内存；资源已在栈展开时关闭。
-  return 2;
 }

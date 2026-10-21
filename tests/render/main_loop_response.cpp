@@ -1,12 +1,17 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../support/c_owner.hpp"
 #include "runtime/application_asset_reload_internal.hpp"
 #include "runtime/application_scene_load_internal.hpp"
 
-#include <gneiss/engine/application.hpp>
+#include <gneiss/engine/application.h>
 #include <gneiss/engine/input.h>
+#include <gneiss/engine/input.hpp>
+#include <gneiss/engine/log.hpp>
+#include <gneiss/engine/render.hpp>
 #include <gneiss/engine/scene.h>
+#include <gneiss/engine/scene.hpp>
 
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
@@ -306,8 +311,8 @@ int main(int argc, char** argv) try {
   desc.user_data = &state;
   desc.update = update;
   desc.close_requested = close_requested;
-  gneiss::sdk::application app;
-  if (gneiss::sdk::application::create_native(desc, app).failed() ||
+  gneiss::test_support::application_owner app;
+  if (gneiss::result{gneiss_application_create(&desc, app.put())}.failed() ||
       gneiss::application_internal::attach_task_executor(app.get(), state.scheduler) !=
           GNEISS_SUCCESS) {
     return 1;
@@ -322,7 +327,7 @@ int main(int argc, char** argv) try {
     return 2;
   }
   std::jthread sender([&] { send_probes(state, window); });
-  const auto result = app.run();
+  const auto result = gneiss::result{gneiss_application_run(app.get(), 0U)};
   {
     std::scoped_lock lock(state.mutex);
     state.stopped = true;

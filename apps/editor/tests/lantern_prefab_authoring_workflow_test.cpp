@@ -1,10 +1,14 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../../../tests/support/c_owner.hpp"
 #include "native_author_transaction.hpp"
 #include "prefab_authoring.hpp"
 
-#include <gneiss/engine/application.hpp>
+#include <gneiss/engine/application.h>
+#include <gneiss/engine/input.hpp>
+#include <gneiss/engine/log.hpp>
+#include <gneiss/engine/render.hpp>
 #include <gneiss/engine/scene.hpp>
 
 #include <array>
@@ -16,6 +20,8 @@
 #include <string_view>
 #include <system_error>
 #include <vector>
+
+using namespace gneiss;
 
 namespace {
 
@@ -49,15 +55,26 @@ struct temporary_project final {
   gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
   desc.asset_root = root.data();
   desc.asset_root_length = static_cast<std::uint32_t>(root.size());
-  gneiss::sdk::application application;
-  gneiss::sdk::scene_instance scene;
+  gneiss::test_support::application_owner application;
+  gneiss::test_support::scene_owner scene;
   std::uint64_t objects = 0U;
   std::uint64_t prefab_nodes = 0U;
-  return gneiss::sdk::application::create_native(desc, application) == gneiss::result::success &&
-         gneiss::sdk::scene_instance::load(application.get(), scene_uri, scene) ==
+  return gneiss::result{gneiss_application_create(&desc, application.put())} ==
              gneiss::result::success &&
-         scene.get_node_count(objects) == gneiss::result::success && objects == expected_objects &&
-         scene.get_prefab_node_count(prefab_nodes) == gneiss::result::success &&
+         ([&] {
+           const std::string_view uri = scene_uri;
+           return gneiss::result{gneiss_scene_instance_load(
+               application.get(), uri.data(), uri.size(), scene.put(application.get()))};
+         })() == gneiss::result::success &&
+         ([&](std::uint64_t& out_count) {
+           return from_native(
+               gneiss_scene_instance_get_node_count(scene.owner(), scene.get(), &out_count));
+         })(objects) == gneiss::result::success &&
+         objects == expected_objects &&
+         ([&](std::uint64_t& out_count) {
+           return from_native(
+               gneiss_scene_instance_get_prefab_node_count(scene.owner(), scene.get(), &out_count));
+         })(prefab_nodes) == gneiss::result::success &&
          prefab_nodes == expected_prefab_nodes;
 }
 

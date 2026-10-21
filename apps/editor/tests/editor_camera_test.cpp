@@ -1,11 +1,14 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../../../tests/support/c_owner.hpp"
 #include "editor_camera.hpp"
 
 #include <gneiss/engine/world.hpp>
 
 #include <cmath>
+
+using namespace gneiss;
 
 namespace {
 
@@ -14,10 +17,13 @@ bool near(float lhs, float rhs) { return std::abs(lhs - rhs) < 1.0e-4F; }
 } // namespace
 
 int main() {
-  gneiss::sdk::world world;
+  gneiss::test_support::world_owner world;
   gneiss::editor::editor_camera camera;
   gneiss_entity_id active_camera = GNEISS_NULL_ENTITY_ID;
-  if (gneiss::sdk::world::create(world) != gneiss::result::success ||
+  if (([&] {
+        const gneiss_world_desc desc = GNEISS_WORLD_DESC_INIT;
+        return gneiss::result{gneiss_world_create(&desc, world.put())};
+      })() != gneiss::result::success ||
       camera.initialize() != gneiss::result::success || !camera.is_valid() ||
       gneiss_world_get_active_camera(world.get(), &active_camera) != GNEISS_ERROR_NOT_READY ||
       active_camera != GNEISS_NULL_ENTITY_ID) {

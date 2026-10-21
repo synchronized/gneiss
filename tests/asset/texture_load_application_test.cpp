@@ -1,11 +1,16 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../support/c_owner.hpp"
+#include "engine/function/world/world_service.hpp"
 #include "engine/resource/loaders/texture_ktx2.hpp"
 #include "runtime/application_asset_reload_internal.hpp"
-#include "engine/function/world/world_service.hpp"
 
-#include <gneiss/engine/application.hpp>
+#include <gneiss/engine/application.h>
+#include <gneiss/engine/input.hpp>
+#include <gneiss/engine/log.hpp>
+#include <gneiss/engine/render.hpp>
+#include <gneiss/engine/scene.hpp>
 
 #include <cstdio>
 #include <filesystem>
@@ -49,12 +54,12 @@ void run(gneiss::tasks::execution_mode mode) {
                  static_cast<std::streamsize>(bytes.size()));
   }
   tasks::task_scheduler scheduler({.workers = 1U, .mode = mode});
-  sdk::application app;
+  gneiss::test_support::application_owner app;
   const auto root = files.root.string();
   gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
   desc.asset_root = root.data();
   desc.asset_root_length = static_cast<std::uint32_t>(root.size());
-  check(sdk::application::create_native(desc, app) == result::success);
+  check(gneiss::result{gneiss_application_create(&desc, app.put())} == result::success);
   // 旧取消入口在无服务和无在途请求时保持幂等成功。
   check(application_internal::cancel_textures(app.get()) == GNEISS_SUCCESS);
   check(application_internal::attach_task_executor(app.get(), scheduler) == GNEISS_SUCCESS);

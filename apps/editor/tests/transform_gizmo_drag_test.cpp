@@ -1,14 +1,21 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../../../tests/support/c_owner.hpp"
 #include "runtime/application_registry.hpp"
 #include "transform_gizmo_drag.hpp"
 
-#include <gneiss/engine/application.hpp>
+#include <gneiss/engine/application.h>
+#include <gneiss/engine/input.hpp>
+#include <gneiss/engine/log.hpp>
+#include <gneiss/engine/render.hpp>
+#include <gneiss/engine/scene.hpp>
 
 #include <cmath>
 #include <cstdio>
 #include <limits>
+
+using namespace gneiss;
 
 namespace {
 
@@ -34,11 +41,11 @@ int main() try {
   const std::string root = GNEISS_EDITOR_TEST_ASSET_ROOT;
   desc.asset_root = root.c_str();
   desc.asset_root_length = static_cast<std::uint32_t>(root.size());
-  gneiss::sdk::application application;
+  gneiss::test_support::application_owner application;
   gneiss_world world = GNEISS_NULL_WORLD;
   gneiss::editor::editor_session session;
-  if (gneiss::sdk::application::create_native(desc, application) != result::success ||
-      application.get_world(world) != result::success ||
+  if (gneiss::result{gneiss_application_create(&desc, application.put())} != result::success ||
+      gneiss::result{gneiss_application_get_world(application.get(), &world)} != result::success ||
       session.open(*gneiss::application_internal::find_application(application.get()), world,
                    "asset://scenes/triangle.scene.json") != result::success) {
     return 1;
@@ -67,8 +74,15 @@ int main() try {
         return 4;
       }
       gneiss::transform desired{};
-      if (gneiss::sdk::world_ref{world}
-              .get_world_transform(gneiss::scene_node_id{target.get()}, desired)
+      if (([&](scene_node_id node, gneiss::transform& out_transform) {
+            gneiss_transform native{};
+            const auto status =
+                from_native(gneiss_scene_node_get_world_transform(world, node.get(), &native));
+            if (status.ok()) {
+              out_transform = from_native(native);
+            }
+            return status;
+          })(gneiss::scene_node_id{target.get()}, desired)
               .native() != GNEISS_SUCCESS) {
         return 5;
       }
@@ -88,8 +102,15 @@ int main() try {
         gneiss::transform actual{};
         if (gneiss::editor::transform_to_gizmo_matrix(desired, matrix) != result::success ||
             drag.preview(session, matrix) != result::success ||
-            gneiss::sdk::world_ref{world}
-                    .get_world_transform(gneiss::scene_node_id{target.get()}, actual)
+            ([&](scene_node_id node, gneiss::transform& out_transform) {
+              gneiss_transform native{};
+              const auto status =
+                  from_native(gneiss_scene_node_get_world_transform(world, node.get(), &native));
+              if (status.ok()) {
+                out_transform = from_native(native);
+              }
+              return status;
+            })(gneiss::scene_node_id{target.get()}, actual)
                     .native() != GNEISS_SUCCESS ||
             !near(actual, desired) || history.size() != 0U) {
           return 6;
@@ -148,8 +169,15 @@ int main() try {
   }
   const auto prefab_id = session.selection();
   const auto prefab_before = session.selected_prefab_node()->local_transform;
-  if (gneiss::sdk::world_ref{world}
-          .get_world_transform(gneiss::scene_node_id{prefab_id.get()}, desired)
+  if (([&](scene_node_id node, gneiss::transform& out_transform) {
+        gneiss_transform native{};
+        const auto status =
+            from_native(gneiss_scene_node_get_world_transform(world, node.get(), &native));
+        if (status.ok()) {
+          out_transform = from_native(native);
+        }
+        return status;
+      })(gneiss::scene_node_id{prefab_id.get()}, desired)
           .native() != GNEISS_SUCCESS) {
     return 14;
   }
@@ -173,8 +201,15 @@ int main() try {
   }
   const auto uuid = session.selected_node()->uuid;
   const auto deletion_before = session.selected_node()->local_transform;
-  if (gneiss::sdk::world_ref{world}
-          .get_world_transform(gneiss::scene_node_id{session.selection().get()}, desired)
+  if (([&](scene_node_id node, gneiss::transform& out_transform) {
+        gneiss_transform native{};
+        const auto status =
+            from_native(gneiss_scene_node_get_world_transform(world, node.get(), &native));
+        if (status.ok()) {
+          out_transform = from_native(native);
+        }
+        return status;
+      })(gneiss::scene_node_id{session.selection().get()}, desired)
           .native() != GNEISS_SUCCESS) {
     return 17;
   }

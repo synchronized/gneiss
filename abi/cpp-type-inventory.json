@@ -8,99 +8,99 @@
         {
           "symbol": "gneiss_application",
           "kind": "owner",
-          "cpp_mapping": "gneiss::sdk::application / application_ref / released_application",
-          "native_review": "implemented"
+          "cpp_mapping": "仅 C ABI；公共 C++ 对象包装已移除",
+          "native_review": "abi_only"
         },
         {
           "symbol": "gneiss_application_close_requested_fn",
           "kind": "callback",
-          "cpp_mapping": "decltype(gneiss::sdk::application_callbacks::close_requested)",
-          "native_review": "implemented"
+          "cpp_mapping": "仅 C ABI；公共 C++ 对象包装已移除",
+          "native_review": "abi_only"
         },
         {
           "symbol": "gneiss_application_desc",
           "kind": "struct",
-          "cpp_mapping": "gneiss::sdk::application_desc",
-          "native_review": "implemented"
+          "cpp_mapping": "仅 C ABI；公共 C++ 对象包装已移除",
+          "native_review": "abi_only"
         },
         {
           "symbol": "gneiss_application_diagnostic_fn",
           "kind": "callback",
-          "cpp_mapping": "decltype(gneiss::sdk::application_callbacks::diagnostic)",
-          "native_review": "implemented"
+          "cpp_mapping": "仅 C ABI；公共 C++ 对象包装已移除",
+          "native_review": "abi_only"
         },
         {
           "symbol": "gneiss_application_initialize_fn",
           "kind": "callback",
-          "cpp_mapping": "decltype(gneiss::sdk::application_callbacks::initialize)",
-          "native_review": "implemented"
+          "cpp_mapping": "仅 C ABI；公共 C++ 对象包装已移除",
+          "native_review": "abi_only"
         },
         {
           "symbol": "gneiss_application_log_fn",
           "kind": "callback",
-          "cpp_mapping": "decltype(gneiss::sdk::application_callbacks::log)",
-          "native_review": "implemented"
+          "cpp_mapping": "仅 C ABI；公共 C++ 对象包装已移除",
+          "native_review": "abi_only"
         },
         {
           "symbol": "gneiss_application_now_ns_fn",
           "kind": "callback",
-          "cpp_mapping": "decltype(gneiss::sdk::application_callbacks::now_ns)",
-          "native_review": "implemented"
+          "cpp_mapping": "仅 C ABI；公共 C++ 对象包装已移除",
+          "native_review": "abi_only"
         },
         {
           "symbol": "gneiss_application_platform",
           "kind": "scalar",
-          "cpp_mapping": "gneiss::sdk::application_platform",
-          "native_review": "implemented"
+          "cpp_mapping": "仅 C ABI；公共 C++ 对象包装已移除",
+          "native_review": "abi_only"
         },
         {
           "symbol": "gneiss_application_poll_events_fn",
           "kind": "callback",
-          "cpp_mapping": "decltype(gneiss::sdk::application_callbacks::poll_events)",
-          "native_review": "implemented"
+          "cpp_mapping": "仅 C ABI；公共 C++ 对象包装已移除",
+          "native_review": "abi_only"
         },
         {
           "symbol": "gneiss_application_shutdown_fn",
           "kind": "callback",
-          "cpp_mapping": "decltype(gneiss::sdk::application_callbacks::shutdown)",
-          "native_review": "implemented"
+          "cpp_mapping": "仅 C ABI；公共 C++ 对象包装已移除",
+          "native_review": "abi_only"
         },
         {
           "symbol": "gneiss_application_update_fn",
           "kind": "callback",
-          "cpp_mapping": "decltype(gneiss::sdk::application_callbacks::update)",
-          "native_review": "implemented"
+          "cpp_mapping": "仅 C ABI；公共 C++ 对象包装已移除",
+          "native_review": "abi_only"
         },
         {
           "symbol": "gneiss_diagnostic",
           "kind": "struct",
-          "cpp_mapping": "gneiss::sdk::diagnostic",
-          "native_review": "implemented"
+          "cpp_mapping": "仅 C ABI；公共 C++ 对象包装已移除",
+          "native_review": "abi_only"
         },
         {
           "symbol": "gneiss_diagnostic_category",
           "kind": "scalar",
-          "cpp_mapping": "gneiss::sdk::diagnostic_category",
-          "native_review": "implemented"
+          "cpp_mapping": "仅 C ABI；公共 C++ 对象包装已移除",
+          "native_review": "abi_only"
         },
         {
           "symbol": "gneiss_diagnostic_severity",
           "kind": "scalar",
-          "cpp_mapping": "gneiss::sdk::diagnostic_severity",
-          "native_review": "implemented"
+          "cpp_mapping": "仅 C ABI；公共 C++ 对象包装已移除",
+          "native_review": "abi_only"
         },
         {
           "symbol": "gneiss_frame_time",
           "kind": "struct",
-          "cpp_mapping": "gneiss::sdk::frame_time",
-          "native_review": "implemented"
+          "cpp_mapping": "仅 C ABI；公共 C++ 对象包装已移除",
+          "native_review": "abi_only"
         }
       ],
       "constants": [
         {
           "symbol": "GNEISS_APPLICATION_DESC_INIT",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::sdk::application_desc{}"
+          "native_review": "abi_only",
+          "cpp_mapping": "仅 C ABI；公共 C++ 对象包装已移除"
         },
         {
           "symbol": "GNEISS_APPLICATION_DESC_VERSION_1_SIZE",
@@ -134,58 +134,58 @@
         },
         {
           "symbol": "GNEISS_APPLICATION_PLATFORM_CALLBACK",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::sdk::application_platform::callback"
+          "native_review": "abi_only",
+          "cpp_mapping": "仅 C ABI；公共 C++ 对象包装已移除"
         },
         {
           "symbol": "GNEISS_APPLICATION_PLATFORM_GRANIT",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::sdk::application_platform::granit"
+          "native_review": "abi_only",
+          "cpp_mapping": "仅 C ABI；公共 C++ 对象包装已移除"
         },
         {
           "symbol": "GNEISS_APPLICATION_WINDOW_HIGH_DPI_BIT",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::sdk::application_window_flags::high_dpi"
+          "native_review": "abi_only",
+          "cpp_mapping": "仅 C ABI；公共 C++ 对象包装已移除"
         },
         {
           "symbol": "GNEISS_APPLICATION_WINDOW_RESIZABLE_BIT",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::sdk::application_window_flags::resizable"
+          "native_review": "abi_only",
+          "cpp_mapping": "仅 C ABI；公共 C++ 对象包装已移除"
         },
         {
           "symbol": "GNEISS_APPLICATION_WINDOW_VISIBLE_BIT",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::sdk::application_window_flags::visible"
+          "native_review": "abi_only",
+          "cpp_mapping": "仅 C ABI；公共 C++ 对象包装已移除"
         },
         {
           "symbol": "GNEISS_DIAGNOSTIC_CATEGORY_APPLICATION",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::sdk::diagnostic_category::application"
+          "native_review": "abi_only",
+          "cpp_mapping": "仅 C ABI；公共 C++ 对象包装已移除"
         },
         {
           "symbol": "GNEISS_DIAGNOSTIC_CATEGORY_ASSET",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::sdk::diagnostic_category::asset"
+          "native_review": "abi_only",
+          "cpp_mapping": "仅 C ABI；公共 C++ 对象包装已移除"
         },
         {
           "symbol": "GNEISS_DIAGNOSTIC_CATEGORY_BACKEND",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::sdk::diagnostic_category::backend"
+          "native_review": "abi_only",
+          "cpp_mapping": "仅 C ABI；公共 C++ 对象包装已移除"
         },
         {
           "symbol": "GNEISS_DIAGNOSTIC_CATEGORY_INPUT",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::sdk::diagnostic_category::input"
+          "native_review": "abi_only",
+          "cpp_mapping": "仅 C ABI；公共 C++ 对象包装已移除"
         },
         {
           "symbol": "GNEISS_DIAGNOSTIC_ERROR",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::sdk::diagnostic_severity::error"
+          "native_review": "abi_only",
+          "cpp_mapping": "仅 C ABI；公共 C++ 对象包装已移除"
         },
         {
           "symbol": "GNEISS_DIAGNOSTIC_INFO",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::sdk::diagnostic_severity::info"
+          "native_review": "abi_only",
+          "cpp_mapping": "仅 C ABI；公共 C++ 对象包装已移除"
         },
         {
           "symbol": "GNEISS_DIAGNOSTIC_VERSION_1_SIZE",
@@ -194,13 +194,13 @@
         },
         {
           "symbol": "GNEISS_DIAGNOSTIC_WARNING",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::sdk::diagnostic_severity::warning"
+          "native_review": "abi_only",
+          "cpp_mapping": "仅 C ABI；公共 C++ 对象包装已移除"
         },
         {
           "symbol": "GNEISS_NULL_APPLICATION",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::sdk::application_ref{} / application{}"
+          "native_review": "abi_only",
+          "cpp_mapping": "仅 C ABI；公共 C++ 对象包装已移除"
         }
       ]
     },
@@ -377,87 +377,87 @@
         {
           "symbol": "gneiss_game_context",
           "kind": "borrowed_id",
-          "cpp_mapping": "gneiss::game_context",
-          "native_review": "implemented"
+          "cpp_mapping": "仅 C ABI；公共 C++ 对象包装已移除",
+          "native_review": "abi_only"
         },
         {
           "symbol": "gneiss_game_module_desc",
           "kind": "struct",
-          "cpp_mapping": "gneiss::game_module_desc / game_module<Callbacks>",
-          "native_review": "implemented"
+          "cpp_mapping": "仅 C ABI；公共 C++ 对象包装已移除",
+          "native_review": "abi_only"
         },
         {
           "symbol": "gneiss_game_module_fixed_update_fn",
           "kind": "callback",
-          "cpp_mapping": "decltype(gneiss::game_module_callbacks::fixed_update)",
-          "native_review": "implemented"
+          "cpp_mapping": "仅 C ABI；公共 C++ 对象包装已移除",
+          "native_review": "abi_only"
         },
         {
           "symbol": "gneiss_game_module_initialize_fn",
           "kind": "callback",
-          "cpp_mapping": "decltype(gneiss::game_module_callbacks::initialize)",
-          "native_review": "implemented"
+          "cpp_mapping": "仅 C ABI；公共 C++ 对象包装已移除",
+          "native_review": "abi_only"
         },
         {
           "symbol": "gneiss_game_module_query_fn",
           "kind": "callback",
-          "cpp_mapping": "动态库真实 C ABI 查询入口；game_module<Callbacks>::export_query 在边界适配",
+          "cpp_mapping": "仅 C ABI；公共 C++ 对象包装已移除",
           "native_review": "abi_only"
         },
         {
           "symbol": "gneiss_game_module_shutdown_fn",
           "kind": "callback",
-          "cpp_mapping": "decltype(gneiss::game_module_callbacks::shutdown)",
-          "native_review": "implemented"
+          "cpp_mapping": "仅 C ABI；公共 C++ 对象包装已移除",
+          "native_review": "abi_only"
         },
         {
           "symbol": "gneiss_game_module_update_fn",
           "kind": "callback",
-          "cpp_mapping": "decltype(gneiss::game_module_callbacks::update)",
-          "native_review": "implemented"
+          "cpp_mapping": "仅 C ABI；公共 C++ 对象包装已移除",
+          "native_review": "abi_only"
         },
         {
           "symbol": "gneiss_game_update_time",
           "kind": "struct",
-          "cpp_mapping": "gneiss::game_update_time",
-          "native_review": "implemented"
+          "cpp_mapping": "仅 C ABI；公共 C++ 对象包装已移除",
+          "native_review": "abi_only"
         }
       ],
       "constants": [
         {
           "symbol": "GNEISS_GAME_MODULE_ABI_VERSION_1",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::game_module_abi_version_1"
+          "native_review": "abi_only",
+          "cpp_mapping": "仅 C ABI；公共 C++ 对象包装已移除"
         },
         {
           "symbol": "GNEISS_GAME_MODULE_ABI_VERSION_CURRENT",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::game_module_abi_version"
+          "native_review": "abi_only",
+          "cpp_mapping": "仅 C ABI；公共 C++ 对象包装已移除"
         },
         {
           "symbol": "GNEISS_GAME_MODULE_DESC_VERSION_1_SIZE",
           "native_review": "abi_only",
-          "cpp_mapping": "C ABI 描述布局版本；原生 game_module_desc 不暴露结构大小"
+          "cpp_mapping": "仅 C ABI；公共 C++ 对象包装已移除"
         },
         {
           "symbol": "GNEISS_GAME_MODULE_EXPORT",
           "native_review": "abi_only",
-          "cpp_mapping": "动态库真实 C ABI 符号导出基础设施"
+          "cpp_mapping": "仅 C ABI；公共 C++ 对象包装已移除"
         },
         {
           "symbol": "GNEISS_GAME_MODULE_QUERY_SYMBOL",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::game_module_query_symbol"
+          "native_review": "abi_only",
+          "cpp_mapping": "仅 C ABI；公共 C++ 对象包装已移除"
         },
         {
           "symbol": "GNEISS_GAME_UPDATE_TIME_VERSION_1_SIZE",
           "native_review": "abi_only",
-          "cpp_mapping": "C ABI 时间布局版本；原生 game_update_time 不暴露结构大小"
+          "cpp_mapping": "仅 C ABI；公共 C++ 对象包装已移除"
         },
         {
           "symbol": "GNEISS_NULL_GAME_CONTEXT",
-          "native_review": "implemented",
-          "cpp_mapping": "gneiss::null_game_context"
+          "native_review": "abi_only",
+          "cpp_mapping": "仅 C ABI；公共 C++ 对象包装已移除"
         }
       ]
     },

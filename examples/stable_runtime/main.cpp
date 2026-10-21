@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include <gneiss/engine/application.hpp>
+#include "../support/scope_exit.hpp"
+#include <gneiss/engine/application.h>
 #include <gneiss/engine/input.hpp>
 #include <gneiss/engine/scene.hpp>
+#include <gneiss/engine/world.h>
 
 #include <algorithm>
 #include <array>
@@ -22,7 +24,7 @@ constexpr std::uint64_t measure_warmup_frames = 60U;
 constexpr std::uint64_t measure_sample_frames = 300U;
 
 struct sample_state {
-  gneiss::sdk::world_ref world;
+  gneiss_world world{};
   gneiss::scene_node_id camera_node;
   gneiss::action_id orbit;
   gneiss::action_id quit;
@@ -39,8 +41,8 @@ void report_failure(std::string_view stage, gneiss::result result) {
                static_cast<int>(result.message().size()), result.message().data());
 }
 
-gneiss::result update_sample(gneiss::sdk::application_ref application,
-                             const gneiss::sdk::frame_time& time, void* user_data) noexcept {
+gneiss::result update_sample(gneiss_application application, const gneiss_frame_time& time,
+                             void* user_data) noexcept {
   if (user_data == nullptr) {
     return gneiss::result::invalid_argument;
   }
@@ -59,16 +61,16 @@ gneiss::result update_sample(gneiss::sdk::application_ref application,
   }
   gneiss::action_state orbit{};
   gneiss::action_state quit{};
-  const auto orbit_result = application.get_action_state(state->orbit, orbit);
+  const auto orbit_result = gneiss::get_action_state(application, state->orbit, orbit);
   if (orbit_result.failed()) {
     return orbit_result;
   }
-  const auto quit_result = application.get_action_state(state->quit, quit);
+  const auto quit_result = gneiss::get_action_state(application, state->quit, quit);
   if (quit_result.failed()) {
     return quit_result;
   }
   if (quit.pressed) {
-    return application.request_exit();
+    return gneiss::result{gneiss_application_request_exit(application)};
   }
 
   constexpr double nanoseconds_per_second = 1'000'000'000.0;
@@ -86,7 +88,9 @@ gneiss::result update_sample(gneiss::sdk::application_ref application,
   transform.rotation[1] = static_cast<float>(std::sin(yaw_half) * std::cos(pitch_half));
   transform.rotation[2] = static_cast<float>(-std::sin(yaw_half) * std::sin(pitch_half));
   transform.rotation[3] = static_cast<float>(std::cos(yaw_half) * std::cos(pitch_half));
-  return state->world.set_local_transform(state->camera_node, transform);
+  const auto native = gneiss::to_native(transform);
+  return gneiss::result{
+      gneiss_scene_node_set_local_transform(state->world, state->camera_node.get(), &native)};
 }
 
 double milliseconds(std::chrono::steady_clock::time_point begin,
@@ -122,47 +126,67 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure) {
   const auto started = clock::now();
   sample_state state;
   state.measure = measure;
-  const gneiss::sdk::application_desc desc{
-      .callbacks = {.user_data = &state, .update = update_sample},
-      .platform = gneiss::sdk::application_platform::granit,
-      .window_title = title,
-      .asset_root = asset_root,
+  gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
+  desc.user_data = &state;
+  desc.update = [](gneiss_application app, const gneiss_frame_time* time, void* data) {
+    return update_sample(app, *time, data).native();
   };
+  desc.platform = GNEISS_APPLICATION_PLATFORM_GRANIT;
+  desc.window_title = title.data();
+  desc.window_title_length = static_cast<uint32_t>(title.size());
+  desc.asset_root = asset_root.data();
+  desc.asset_root_length = static_cast<uint32_t>(asset_root.size());
 
-  gneiss::sdk::application application;
-  const auto create_result = gneiss::sdk::application::create(desc, application);
+  gneiss_application application{};
+  example::scope_exit close{[&] {
+    if (application)
+      (void)gneiss_application_destroy(application);
+  }};
+  const auto create_result = gneiss::result{gneiss_application_create(&desc, &application)};
   if (create_result != gneiss::result::success) {
     report_failure("创建 Application", create_result);
     return 1;
   }
   const auto application_ready = clock::now();
-  const auto world_result = application.get_world(state.world);
+  const auto world_result = gneiss::result{gneiss_application_get_world(application, &state.world)};
   if (world_result != gneiss::result::success) {
     report_failure("获取 World", world_result);
     return 2;
   }
 
-  gneiss::sdk::scene_instance scene;
-  auto result = gneiss::sdk::scene_instance::load(application.get(), scene_uri, scene);
+  gneiss_scene_instance scene{};
+  example::scope_exit unload{[&] {
+    if (scene)
+      (void)gneiss_scene_instance_unload(application, scene);
+  }};
+  auto result = gneiss::result{
+      gneiss_scene_instance_load(application, scene_uri.data(), scene_uri.size(), &scene)};
   if (result != gneiss::result::success) {
     report_failure("加载场景", result);
     return 3;
   }
   const auto scene_ready = clock::now();
-  result = application.load_action_map(input_map_uri);
+  result = gneiss::load_action_map(application, input_map_uri);
   if (result != gneiss::result::success) {
     report_failure("加载输入映射", result);
     return 4;
   }
-  result = application.find_action("move_horizontal", state.orbit);
+  result = gneiss::find_action(application, "move_horizontal", state.orbit);
   if (result == gneiss::result::success) {
-    result = application.find_action("quit", state.quit);
+    result = gneiss::find_action(application, "quit", state.quit);
   }
   if (result != gneiss::result::success) {
     report_failure("查找输入动作", result);
     return 5;
   }
-  result = scene.find_node(camera_uuid, state.camera_node);
+  result = ([&] {
+    gneiss_scene_node_id node{};
+    auto status = gneiss_scene_instance_find_node(application, scene, camera_uuid.data(),
+                                                  camera_uuid.size(), &node);
+    if (status == GNEISS_SUCCESS)
+      state.camera_node = gneiss::scene_node_id{node};
+    return gneiss::result{status};
+  })();
   if (result != gneiss::result::success) {
     report_failure("查找 Camera", result);
     return 6;
@@ -174,19 +198,29 @@ int run_sample(std::string_view executable_path, bool smoke, bool measure) {
   if (measure) {
     frame_count = measure_warmup_frames + measure_sample_frames;
   }
-  result = application.run(frame_count);
+  result = gneiss::result{gneiss_application_run(application, frame_count)};
   if (result != gneiss::result::success) {
     report_failure("运行主循环", result);
     return 7;
   }
   const auto run_finished = clock::now();
-  result = scene.reset();
+  result = ([&] {
+    auto status = gneiss_scene_instance_unload(application, scene);
+    if (status == GNEISS_SUCCESS)
+      scene = 0;
+    return gneiss::result{status};
+  })();
   if (result != gneiss::result::success) {
     report_failure("卸载场景", result);
     return 8;
   }
   const auto scene_unloaded = clock::now();
-  result = application.reset();
+  result = ([&] {
+    auto status = gneiss_application_destroy(application);
+    if (status == GNEISS_SUCCESS)
+      application = 0;
+    return gneiss::result{status};
+  })();
   if (result.failed()) {
     report_failure("关闭 Application", result);
     return 10;

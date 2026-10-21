@@ -11,7 +11,7 @@ find_package(gneiss CONFIG REQUIRED)
 # 必须在干净前缀验证：旧转发路径不可编译，失败原因必须确为缺少头文件。
 function(gneiss_verify_removed_headers)
   set(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY)
-  set(removed_headers)
+  set(removed_headers gneiss/gneiss.hpp gneiss/engine/application.hpp gneiss/engine/game_module.hpp)
   foreach(module application asset game_module input log reflection render scene world)
     list(APPEND removed_headers "gneiss/${module}.h" "gneiss/${module}.hpp")
   endforeach()

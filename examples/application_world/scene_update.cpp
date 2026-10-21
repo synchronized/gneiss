@@ -1,28 +1,22 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-
 #include "scene_update.hpp"
-
 namespace example {
-
-gneiss::result update(gneiss::sdk::application_ref app, const gneiss::sdk::frame_time& /*time*/,
-                      void* user_data) noexcept {
+gneiss_result update(gneiss_application app, const gneiss_frame_time*, void* user_data) noexcept {
   auto& state = *static_cast<scene_state*>(user_data);
-  gneiss::sdk::world_ref world;
-  if (const auto status = app.get_world(world); status.failed()) {
+  gneiss_world world{};
+  auto status = gneiss_application_get_world(app, &world);
+  if (status != GNEISS_SUCCESS)
     return status;
-  }
-  gneiss::transform transform;
-  if (const auto status = world.get_local_transform(state.entity, transform); status.failed()) {
+  gneiss_transform transform = GNEISS_TRANSFORM_IDENTITY;
+  status = gneiss_world_entity_get_local_transform(world, state.entity, &transform);
+  if (status != GNEISS_SUCCESS)
     return status;
-  }
-  // 固定步长便于观察示例结果；真实动画通常应使用 frame_time 的 delta_ns。
   transform.translation[0] += 1.0F;
-  if (const auto status = world.set_local_transform(state.entity, transform); status.failed()) {
+  status = gneiss_world_entity_set_local_transform(world, state.entity, &transform);
+  if (status != GNEISS_SUCCESS)
     return status;
-  }
   ++state.updates;
-  return state.updates == 3 ? app.request_exit() : gneiss::result::success;
+  return state.updates == 3 ? gneiss_application_request_exit(app) : GNEISS_SUCCESS;
 }
-
-} // namespace example
+}

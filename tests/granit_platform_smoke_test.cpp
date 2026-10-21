@@ -1,9 +1,14 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include <gneiss/engine/application.hpp>
+#include "support/c_owner.hpp"
+#include <gneiss/engine/application.h>
 #include <gneiss/engine/input.h>
+#include <gneiss/engine/input.hpp>
+#include <gneiss/engine/log.hpp>
+#include <gneiss/engine/render.hpp>
 #include <gneiss/engine/scene.h>
+#include <gneiss/engine/scene.hpp>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -12,6 +17,8 @@
 #include <array>
 #include <cstdio>
 #include <string_view>
+
+using namespace gneiss;
 
 namespace {
 
@@ -84,8 +91,8 @@ int main() {
   desc.window_width = 320;
   desc.window_height = 240;
 
-  gneiss::sdk::application application;
-  const auto create_result = gneiss::sdk::application::create_native(desc, application);
+  gneiss::test_support::application_owner application;
+  const auto create_result = gneiss::result{gneiss_application_create(&desc, application.put())};
   if (create_result != gneiss::result::success) {
     std::fprintf(stderr, "Application 创建失败：%d\n", gneiss::to_native(create_result));
     return 1;
@@ -112,7 +119,15 @@ int main() {
   gneiss::material_id material;
   gneiss::material_id plain_material;
   gneiss::texture_id texture;
-  if (application.create_texture(texture_desc, texture) != gneiss::result::success) {
+  if (([&](const gneiss::texture_desc& desc, texture_id& out_texture) {
+        return gneiss::detail::with_render_desc(desc, [&](const auto& native) {
+          gneiss_texture handle{};
+          const auto status = gneiss_texture_create(application.get(), &native, &handle);
+          if (status == GNEISS_SUCCESS)
+            out_texture = gneiss::texture_id{handle};
+          return status;
+        });
+      })(texture_desc, texture) != gneiss::result::success) {
     std::fprintf(stderr, "测试 Texture 创建失败\n");
     return 2;
   }
@@ -126,7 +141,7 @@ int main() {
   }
 #endif
   // 先验证没有相机和场景物体的 UI 帧，再验证常规场景及资源更新。
-  if (application.run(2) != gneiss::result::success) {
+  if (gneiss::result{gneiss_application_run(application.get(), 2)} != gneiss::result::success) {
     std::fprintf(stderr, "纯 UI 帧运行失败\n");
     return 10;
   }
@@ -136,13 +151,37 @@ int main() {
     return 11;
   }
 #endif
-  if (application.create_mesh(mesh_desc, mesh) != gneiss::result::success ||
-      application.create_material(material_desc, plain_material) != gneiss::result::success) {
+  if (([&](const gneiss::mesh_desc& desc, mesh_id& out_mesh) {
+        return gneiss::detail::with_render_desc(desc, [&](const auto& native) {
+          gneiss_mesh handle{};
+          const auto status = gneiss_mesh_create(application.get(), &native, &handle);
+          if (status == GNEISS_SUCCESS)
+            out_mesh = gneiss::mesh_id{handle};
+          return status;
+        });
+      })(mesh_desc, mesh) != gneiss::result::success ||
+      ([&](const gneiss::material_desc& desc, material_id& out_material) {
+        return gneiss::detail::with_render_desc(desc, [&](const auto& native) {
+          gneiss_material handle{};
+          const auto status = gneiss_material_create(application.get(), &native, &handle);
+          if (status == GNEISS_SUCCESS)
+            out_material = gneiss::material_id{handle};
+          return status;
+        });
+      })(material_desc, plain_material) != gneiss::result::success) {
     std::fprintf(stderr, "测试基础资源创建失败\n");
     return 2;
   }
   material_desc.base_color_texture = texture;
-  if (application.create_material(material_desc, material) != gneiss::result::success) {
+  if (([&](const gneiss::material_desc& desc, material_id& out_material) {
+        return gneiss::detail::with_render_desc(desc, [&](const auto& native) {
+          gneiss_material handle{};
+          const auto status = gneiss_material_create(application.get(), &native, &handle);
+          if (status == GNEISS_SUCCESS)
+            out_material = gneiss::material_id{handle};
+          return status;
+        });
+      })(material_desc, material) != gneiss::result::success) {
     std::fprintf(stderr, "测试资源创建失败\n");
     return 2;
   }
@@ -165,7 +204,8 @@ int main() {
   gneiss_transform plain_transform = GNEISS_TRANSFORM_IDENTITY;
   plain_transform.translation[0] = 0.55F;
   plain_transform.translation[2] = 0.5F;
-  if (application.get_world(world) != gneiss::result::success ||
+  if (gneiss::result{gneiss_application_get_world(application.get(), &world)} !=
+          gneiss::result::success ||
       gneiss_world_entity_create(world, &camera_entity) != GNEISS_SUCCESS ||
       gneiss_world_entity_create(world, &mesh_entity) != GNEISS_SUCCESS ||
       gneiss_world_entity_create(world, &plain_mesh_entity) != GNEISS_SUCCESS ||
@@ -187,14 +227,24 @@ int main() {
     std::fprintf(stderr, "测试场景构造失败\n");
     return 3;
   }
-  auto run_result = application.run(2);
+  auto run_result = gneiss::result{gneiss_application_run(application.get(), 2)};
   if (run_result != gneiss::result::success) {
     std::fprintf(stderr, "Application 运行失败：%d\n", gneiss::to_native(run_result));
     return 4;
   }
   gneiss::mesh_id replacement_mesh;
-  if (application.destroy_mesh(mesh) != gneiss::result::success ||
-      application.create_mesh(mesh_desc, replacement_mesh) != gneiss::result::success) {
+  if (([&](mesh_id mesh) {
+        return from_native(gneiss_mesh_destroy(application.get(), mesh.get()));
+      })(mesh) != gneiss::result::success ||
+      ([&](const gneiss::mesh_desc& desc, mesh_id& out_mesh) {
+        return gneiss::detail::with_render_desc(desc, [&](const auto& native) {
+          gneiss_mesh handle{};
+          const auto status = gneiss_mesh_create(application.get(), &native, &handle);
+          if (status == GNEISS_SUCCESS)
+            out_mesh = gneiss::mesh_id{handle};
+          return status;
+        });
+      })(mesh_desc, replacement_mesh) != gneiss::result::success) {
     return 5;
   }
   mesh_renderer.mesh = replacement_mesh.get();
@@ -204,15 +254,23 @@ int main() {
           GNEISS_SUCCESS) {
     return 6;
   }
-  run_result = application.run(1);
+  run_result = gneiss::result{gneiss_application_run(application.get(), 1)};
   if (run_result != gneiss::result::success) {
     std::fprintf(stderr, "Mesh generation 更新后运行失败：%d\n", gneiss::to_native(run_result));
     return 7;
   }
-  if (application.destroy_mesh(replacement_mesh) != gneiss::result::success ||
-      application.destroy_material(material) != gneiss::result::success ||
-      application.destroy_material(plain_material) != gneiss::result::success ||
-      application.destroy_texture(texture) != gneiss::result::success) {
+  if (([&](mesh_id mesh) {
+        return from_native(gneiss_mesh_destroy(application.get(), mesh.get()));
+      })(replacement_mesh) != gneiss::result::success ||
+      ([&](material_id material) {
+        return from_native(gneiss_material_destroy(application.get(), material.get()));
+      })(material) != gneiss::result::success ||
+      ([&](material_id material) {
+        return from_native(gneiss_material_destroy(application.get(), material.get()));
+      })(plain_material) != gneiss::result::success ||
+      ([&](texture_id texture) {
+        return from_native(gneiss_texture_destroy(application.get(), texture.get()));
+      })(texture) != gneiss::result::success) {
     return 8;
   }
   return 0;

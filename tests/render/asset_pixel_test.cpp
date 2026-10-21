@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../support/c_owner.hpp"
 #include "engine/resource/loaders/mesh_binary.hpp"
 #include "engine/resource/loaders/texture_binary.hpp"
 #include "engine/resource/loaders/texture_ktx2.hpp"
@@ -10,8 +11,12 @@
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
-#include <gneiss/engine/application.hpp>
+#include <gneiss/engine/application.h>
+#include <gneiss/engine/input.hpp>
+#include <gneiss/engine/log.hpp>
+#include <gneiss/engine/render.hpp>
 #include <gneiss/engine/scene.h>
+#include <gneiss/engine/scene.hpp>
 #include <granit/asset_tools/texture_builder.hpp>
 #include <granit/renderer/texture_asset.hpp>
 #include <source_location>
@@ -136,14 +141,14 @@ void run_mip_sampling(bool packaged = false, bool async = false) {
                  static_cast<std::streamsize>(bytes.size()));
   }
   tasks::task_scheduler scheduler({.workers = 1U});
-  sdk::application app;
+  gneiss::test_support::application_owner app;
   const auto root = files.root.string();
   auto desc = gneiss_application_desc GNEISS_APPLICATION_DESC_INIT;
   desc.platform = GNEISS_APPLICATION_PLATFORM_GRANIT;
   desc.window_flags &= ~GNEISS_APPLICATION_WINDOW_VISIBLE_BIT;
   desc.asset_root = root.data();
   desc.asset_root_length = static_cast<std::uint32_t>(root.size());
-  check(sdk::application::create_native(desc, app) == result::success);
+  check(gneiss::result{gneiss_application_create(&desc, app.put())} == result::success);
   constexpr std::string_view uri = "asset://s.scene.json";
   gneiss_scene_instance scene{};
   if (async) {
@@ -184,7 +189,7 @@ void run_mip_sampling(bool packaged = false, bool async = false) {
   } else {
     check(gneiss_scene_instance_load(app.get(), uri.data(), uri.size(), &scene) == GNEISS_SUCCESS);
   }
-  check(app.run(3U) == result::success);
+  check(gneiss::result{gneiss_application_run(app.get(), 3U)} == result::success);
   render_internal::frame_image image;
   check(application_internal::capture_frame(app.get(), 128U, 128U, image) == GNEISS_SUCCESS);
   const auto offset = (64U * 128U + 64U) * 4U;
@@ -237,18 +242,18 @@ std::array<unsigned, 3> material_pixel(std::string_view slot, std::array<std::by
     stream.write(reinterpret_cast<const char*>(bytes.data()),
                  static_cast<std::streamsize>(bytes.size()));
   }
-  sdk::application app;
+  gneiss::test_support::application_owner app;
   const auto root = files.root.string();
   auto desc = gneiss_application_desc GNEISS_APPLICATION_DESC_INIT;
   desc.platform = GNEISS_APPLICATION_PLATFORM_GRANIT;
   desc.window_flags &= ~GNEISS_APPLICATION_WINDOW_VISIBLE_BIT;
   desc.asset_root = root.data();
   desc.asset_root_length = static_cast<std::uint32_t>(root.size());
-  check(sdk::application::create_native(desc, app) == result::success);
+  check(gneiss::result{gneiss_application_create(&desc, app.put())} == result::success);
   constexpr std::string_view uri = "asset://s.scene.json";
   gneiss_scene_instance scene{};
   check(gneiss_scene_instance_load(app.get(), uri.data(), uri.size(), &scene) == GNEISS_SUCCESS);
-  check(app.run(3U) == result::success);
+  check(gneiss::result{gneiss_application_run(app.get(), 3U)} == result::success);
   render_internal::frame_image image;
   check(application_internal::capture_frame(app.get(), 128U, 128U, image) == GNEISS_SUCCESS);
   const auto offset = (64U * 128U + 64U) * 4U;
@@ -351,18 +356,18 @@ std::array<unsigned, 3> state_pixel(const state_case& test,
       scene_text.insert(scene_text.rfind("],\"prefab_instances\""), ',' + object);
     std::ofstream(files.root / "s.scene.json") << scene_text;
   }
-  sdk::application app;
+  gneiss::test_support::application_owner app;
   const auto root = files.root.string();
   auto desc = gneiss_application_desc GNEISS_APPLICATION_DESC_INIT;
   desc.platform = GNEISS_APPLICATION_PLATFORM_GRANIT;
   desc.window_flags &= ~GNEISS_APPLICATION_WINDOW_VISIBLE_BIT;
   desc.asset_root = root.data();
   desc.asset_root_length = static_cast<std::uint32_t>(root.size());
-  check(sdk::application::create_native(desc, app) == result::success);
+  check(gneiss::result{gneiss_application_create(&desc, app.put())} == result::success);
   constexpr std::string_view uri = "asset://s.scene.json";
   gneiss_scene_instance scene{};
   check(gneiss_scene_instance_load(app.get(), uri.data(), uri.size(), &scene) == GNEISS_SUCCESS);
-  check(app.run(3U) == result::success);
+  check(gneiss::result{gneiss_application_run(app.get(), 3U)} == result::success);
   render_internal::frame_image image;
   check(application_internal::capture_frame(app.get(), 128U, 128U, image) == GNEISS_SUCCESS);
   if (frame != nullptr)
@@ -427,19 +432,19 @@ void run(tasks::execution_mode mode, bool pbr = false) {
   fixture files(pbr);
   files.color(std::byte{20}, std::byte{240});
   tasks::task_scheduler scheduler({.workers = 1U, .mode = mode});
-  sdk::application app;
+  gneiss::test_support::application_owner app;
   const auto root = files.root.string();
   gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
   desc.platform = GNEISS_APPLICATION_PLATFORM_GRANIT;
   desc.window_flags &= ~GNEISS_APPLICATION_WINDOW_VISIBLE_BIT;
   desc.asset_root = root.data();
   desc.asset_root_length = static_cast<std::uint32_t>(root.size());
-  check(sdk::application::create_native(desc, app) == result::success);
+  check(gneiss::result{gneiss_application_create(&desc, app.put())} == result::success);
   check(application_internal::attach_task_executor(app.get(), scheduler) == GNEISS_SUCCESS);
   gneiss_scene_instance scene{};
   constexpr std::string_view uri = "asset://s.scene.json";
   check(gneiss_scene_instance_load(app.get(), uri.data(), uri.size(), &scene) == GNEISS_SUCCESS);
-  check(app.run(3U) == result::success);
+  check(gneiss::result{gneiss_application_run(app.get(), 3U)} == result::success);
   const auto capture = [&](unsigned width = 128U) {
     render_internal::frame_image image;
     const auto result = application_internal::capture_frame(app.get(), width, 128U, image);
@@ -531,19 +536,19 @@ void run_scene(tasks::execution_mode mode, bool pbr = false) {
   fixture files(pbr);
   files.color(std::byte{20}, std::byte{240});
   tasks::task_scheduler scheduler({.workers = 1U, .mode = mode});
-  sdk::application app;
+  gneiss::test_support::application_owner app;
   const auto root = files.root.string();
   auto desc = gneiss_application_desc GNEISS_APPLICATION_DESC_INIT;
   desc.platform = GNEISS_APPLICATION_PLATFORM_GRANIT;
   desc.window_flags &= ~GNEISS_APPLICATION_WINDOW_VISIBLE_BIT;
   desc.asset_root = root.data();
   desc.asset_root_length = static_cast<std::uint32_t>(root.size());
-  check(sdk::application::create_native(desc, app) == result::success);
+  check(gneiss::result{gneiss_application_create(&desc, app.put())} == result::success);
   check(attach_task_executor(app.get(), scheduler) == GNEISS_SUCCESS);
   constexpr std::string_view uri = "asset://s.scene.json";
   gneiss_scene_instance scene{};
   check(gneiss_scene_instance_load(app.get(), uri.data(), uri.size(), &scene) == GNEISS_SUCCESS);
-  check(app.run(3U) == result::success);
+  check(gneiss::result{gneiss_application_run(app.get(), 3U)} == result::success);
   const auto capture = [&] {
     render_internal::frame_image image;
     check(capture_frame(app.get(), 128U, 128U, image) == GNEISS_SUCCESS);
@@ -583,7 +588,7 @@ void run_scene(tasks::execution_mode mode, bool pbr = false) {
           check(activate_scene_load(app.get(), request, completion) == GNEISS_SUCCESS);
           scene = completion.scene;
           check(poll_scene_load(app.get(), completion, terminal) == GNEISS_SUCCESS);
-          check(app.run(3U) == result::success);
+          check(gneiss::result{gneiss_application_run(app.get(), 3U)} == result::success);
           const auto changed = capture();
           check(changed != active_pixels);
           active_pixels = changed;

@@ -49,7 +49,7 @@ ctest --preset windows-clang-debug
 ./build/windows-clang-debug/bin/gneiss_property_inspector_example.exe
 ```
 
-该示例只使用公共 C11/C++20 SDK：枚举 Transform 与 Camera 元数据，通过稳定 Type ID 和 Field ID
+该示例使用公共 C ABI，可由 C++20 消费：枚举 Transform 与 Camera 元数据，通过稳定 Type ID 和 Field ID
 修改场景实体属性，将当前场景序列化到临时目录，再创建新的 Application 重新加载并校验。它不依赖
 EnTT、Granit 类型或私有组件头，运行完成后会清理自己创建的临时目录。
 

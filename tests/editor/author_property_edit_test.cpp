@@ -1,10 +1,15 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../support/c_owner.hpp"
 #include "author_property_edit.hpp"
 #include "runtime/application_registry.hpp"
 
-#include <gneiss/engine/application.hpp>
+#include <gneiss/engine/application.h>
+#include <gneiss/engine/input.hpp>
+#include <gneiss/engine/log.hpp>
+#include <gneiss/engine/render.hpp>
+#include <gneiss/engine/scene.hpp>
 #include <gneiss/engine/world.hpp>
 
 #include <algorithm>
@@ -13,7 +18,7 @@
 int main() try {
   using namespace gneiss;
   using namespace gneiss::editor;
-  sdk::application app;
+  gneiss::test_support::application_owner app;
   gneiss_world world_handle = GNEISS_NULL_WORLD;
   editor_session session;
   property_inspector_model inspector;
@@ -21,7 +26,8 @@ int main() try {
   scene_node_id first;
   scene_node_id second;
   const gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
-  if (sdk::application::create_native(desc, app).failed() || app.get_world(world_handle).failed() ||
+  if (gneiss::result{gneiss_application_create(&desc, app.put())}.failed() ||
+      gneiss::result{gneiss_application_get_world(app.get(), &world_handle)}.failed() ||
       session.create_empty(*gneiss::application_internal::find_application(app.get()), world_handle)
           .failed() ||
       session.create_node("first", {}, first).failed() ||
@@ -35,8 +41,15 @@ int main() try {
   }
   const auto is_x = [&](float expected) {
     transform local{};
-    return gneiss::sdk::world_ref{world_handle}.get_local_transform(entity, local) ==
-               result::success &&
+    return ([&](entity_id node, gneiss::transform& output) {
+             gneiss_transform native{};
+             const auto status = from_native(
+                 gneiss_world_entity_get_local_transform(world_handle, node.get(), &native));
+             if (status.ok()) {
+               output = from_native(native);
+             }
+             return status;
+           })(entity, local) == result::success &&
            std::abs(local.translation[0] - expected) < 0.0001F;
   };
   const auto edit_x = [&](float next, editor_command_history& target, std::uint64_t serial) {

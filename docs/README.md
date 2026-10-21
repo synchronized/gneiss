@@ -40,7 +40,7 @@
 ## API 参考
 
 - [API 稳定级别与兼容策略](reference/compatibility.md)
-- [C++ SDK 的类型与借用边界](reference/cpp-sdk.md)
+- [C++ 调用边界与共享值类型](reference/cpp-sdk.md)
 - [Core 版本与结果接口](reference/core.md)
 - [RID 有效性与 Service 生命周期](reference/rid.md)
 - [World、Entity 与内部 ECS 边界](reference/world.md)
@@ -544,3 +544,5 @@
 - [项目文档规范](../DOCUMENTATION_GUIDE.md)
 
 其他教程、API 参考、ADR 和实施记录将在出现真实内容后加入本页。尚未实现的设计不是当前公共能力。
+
+- [公共 C++ 对象 SDK 删除验收](records/M-332-public-object-sdk-removal.md)

@@ -1,10 +1,15 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../support/c_owner.hpp"
 #include "runtime/application_asset_reload_internal.hpp"
 
-#include <gneiss/engine/application.hpp>
+#include <gneiss/engine/application.h>
+#include <gneiss/engine/input.hpp>
+#include <gneiss/engine/log.hpp>
+#include <gneiss/engine/render.hpp>
 #include <gneiss/engine/scene.h>
+#include <gneiss/engine/scene.hpp>
 
 #include <cmath>
 #include <cstdio>
@@ -197,7 +202,7 @@ int main(int argc, char** argv) try {
   }
   state.synchronous = mode == "sync";
   state.close_during_load = mode == "close";
-  sdk::application app;
+  gneiss::test_support::application_owner app;
   gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
   const auto root = state.root.string();
   desc.platform = GNEISS_APPLICATION_PLATFORM_GRANIT;
@@ -209,7 +214,7 @@ int main(int argc, char** argv) try {
       GNEISS_APPLICATION_WINDOW_VISIBLE_BIT | GNEISS_APPLICATION_WINDOW_RESIZABLE_BIT;
   desc.update = update;
   desc.user_data = &state;
-  if (sdk::application::create_native(desc, app) != result::success ||
+  if (gneiss::result{gneiss_application_create(&desc, app.put())} != result::success ||
       application_internal::attach_task_executor(app.get(), scheduler) != GNEISS_SUCCESS) {
     return 1;
   }
@@ -229,8 +234,8 @@ int main(int argc, char** argv) try {
   }
   state.mesh = info.node;
   state.start = state.previous = std::chrono::steady_clock::now();
-  const auto result = app.run();
-  app = sdk::application{};
+  const auto result = gneiss::result{gneiss_application_run(app.get(), 0U)};
+  app = gneiss::test_support::application_owner{};
   const auto lifetime =
       std::chrono::duration<double>(std::chrono::steady_clock::now() - state.start).count();
   std::ofstream output(argv[3]);

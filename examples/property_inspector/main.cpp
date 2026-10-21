@@ -1,150 +1,128 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
-
-#include <gneiss/gneiss.hpp>
-
+#include "../support/scope_exit.hpp"
 #include <chrono>
 #include <cmath>
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
+#include <gneiss/gneiss.h>
 #include <string>
 #include <string_view>
-
 namespace {
-
 constexpr std::string_view scene_uri = "asset://scenes/property.scene.json";
 constexpr std::string_view camera_uuid = "37cff772-2e8d-4bc7-9ed2-f94435926d4e";
-
-[[nodiscard]] gneiss::result create_application(std::string_view root,
-                                                gneiss::sdk::application& output) noexcept {
-  gneiss::sdk::application_desc desc{};
-  desc.asset_root = root;
-  return gneiss::sdk::application::create(desc, output);
+bool open_scene(std::string_view root, gneiss_application& app, gneiss_scene_instance& scene) {
+  gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
+  desc.asset_root = root.data();
+  desc.asset_root_length = static_cast<uint32_t>(root.size());
+  return gneiss_application_create(&desc, &app) == GNEISS_SUCCESS &&
+         gneiss_scene_instance_load(app, scene_uri.data(), scene_uri.size(), &scene) ==
+             GNEISS_SUCCESS;
 }
-
-[[nodiscard]] bool inspect_registry(const gneiss::sdk::type_registry& registry) {
-  std::uint32_t type_count = 0;
-  if (registry.type_count(type_count) != gneiss::result::success) {
+bool target_for(gneiss_application app, gneiss_scene_instance scene,
+                gneiss_property_target& target) {
+  gneiss_world world{};
+  gneiss_scene_node_id node{};
+  gneiss_entity_id entity{};
+  if (gneiss_application_get_world(app, &world) != GNEISS_SUCCESS ||
+      gneiss_scene_instance_find_node(app, scene, camera_uuid.data(), camera_uuid.size(), &node) !=
+          GNEISS_SUCCESS ||
+      gneiss_scene_node_get_entity(world, node, &entity) != GNEISS_SUCCESS)
     return false;
-  }
-  for (std::uint32_t type_index = 0; type_index < type_count; ++type_index) {
-    gneiss::type_info type{};
-    if (registry.type_at(type_index, type).failed()) {
-      return false;
-    }
-    std::printf("类型 %.*s\n", static_cast<int>(type.name.size()), type.name.data());
-    for (std::uint32_t field_index = 0; field_index < type.fields.size(); ++field_index) {
-      const auto& field = type.fields[field_index];
-      std::printf("  字段 %u: %.*s%s\n", field.id.get(), static_cast<int>(field.name.size()),
-                  field.name.data(),
-                  gneiss::has_flags(field.capabilities, gneiss::property_capabilities::writable)
-                      ? "（可写）"
-                      : "（只读）");
-    }
-  }
+  target = {world, entity};
   return true;
 }
-
-[[nodiscard]] bool find_camera(gneiss::sdk::application& application,
-                               const gneiss::sdk::scene_instance& scene,
-                               gneiss::sdk::world_ref& out_world, gneiss::entity_id& out_entity) {
-  gneiss::scene_node_id node;
-  return application.get_world(out_world) == gneiss::result::success &&
-         scene.find_node(camera_uuid, node) == gneiss::result::success &&
-         out_world.get_entity(node, out_entity).ok();
 }
-
-[[nodiscard]] bool set_properties(const gneiss::sdk::type_registry& registry,
-                                  gneiss::sdk::world_ref world, gneiss::entity_id entity) {
-  const gneiss::property_target target{.context = world.get(), .object = entity.get()};
-  gneiss::property_value value{};
-  value.payload = gneiss::property_vec3{.x = 2.0F, .y = 1.0F, .z = 4.0F};
-  if (registry.set_property(gneiss::transform_type_id(), gneiss::transform_fields::translation,
-                            target, value) != gneiss::result::success) {
-    return false;
-  }
-  value.payload = 0.25F;
-  return registry.set_property(gneiss::camera_type_id(), gneiss::camera_fields::near_plane, target,
-                               value) == gneiss::result::success;
-}
-
-[[nodiscard]] bool verify_properties(const gneiss::sdk::type_registry& registry,
-                                     gneiss::sdk::world_ref world, gneiss::entity_id entity) {
-  const gneiss::property_target target{.context = world.get(), .object = entity.get()};
-  gneiss::property_value value{};
-  if (registry.get_property(gneiss::transform_type_id(), gneiss::transform_fields::translation,
-                            target, value) != gneiss::result::success ||
-      value.kind() != gneiss::property_kind::vec3 ||
-      std::abs(std::get<gneiss::property_vec3>(value.payload).x - 2.0F) > 0.0001F) {
-    return false;
-  }
-  return registry.get_property(gneiss::camera_type_id(), gneiss::camera_fields::near_plane, target,
-                               value) == gneiss::result::success &&
-         value.kind() == gneiss::property_kind::float32 &&
-         std::abs(std::get<float>(value.payload) - 0.25F) <= 0.0001F;
-}
-
-[[nodiscard]] std::filesystem::path make_output_root() {
-  const auto suffix = std::chrono::steady_clock::now().time_since_epoch().count();
-  return std::filesystem::temp_directory_path() /
-         ("gneiss-property-inspector-" + std::to_string(suffix));
-}
-
-} // namespace
-
 int main() try {
-  gneiss::sdk::type_registry registry;
-  if (gneiss::sdk::type_registry::create(registry) != gneiss::result::success ||
-      gneiss::sdk::world::register_reflection(registry) != gneiss::result::success ||
-      registry.freeze() != gneiss::result::success || !inspect_registry(registry)) {
+  gneiss_type_registry registry{};
+  example::scope_exit release_registry{[&] {
+    if (registry)
+      (void)gneiss_type_registry_destroy(registry);
+  }};
+  if (gneiss_type_registry_create(&registry) != GNEISS_SUCCESS ||
+      gneiss_world_register_reflection(registry) != GNEISS_SUCCESS ||
+      gneiss_type_registry_freeze(registry) != GNEISS_SUCCESS)
     return 1;
-  }
-
-  gneiss::sdk::application application;
-  gneiss::sdk::scene_instance scene;
-  constexpr std::string_view source_root = GNEISS_PROPERTY_INSPECTOR_ASSET_ROOT;
-  if (create_application(source_root, application) != gneiss::result::success ||
-      gneiss::sdk::scene_instance::load(application.get(), scene_uri, scene) !=
-          gneiss::result::success) {
-    return 2;
-  }
-  gneiss::sdk::world_ref world;
-  gneiss::entity_id entity;
-  if (!find_camera(application, scene, world, entity) || !set_properties(registry, world, entity)) {
-    return 3;
-  }
-
-  std::string json;
-  if (scene.serialize(json) != gneiss::result::success) {
-    return 4;
-  }
-  scene.reset();
-  application.reset();
-
-  const auto output_root = make_output_root();
-  const auto scene_path = output_root / "scenes" / "property.scene.json";
-  std::filesystem::create_directories(scene_path.parent_path());
-  {
-    std::ofstream stream(scene_path, std::ios::binary);
-    stream.write(json.data(), static_cast<std::streamsize>(json.size()));
-    if (!stream) {
-      return 5;
+  uint32_t count{};
+  if (gneiss_type_registry_type_count(registry, &count) != GNEISS_SUCCESS)
+    return 1;
+  for (uint32_t i = 0; i < count; ++i) {
+    gneiss_type_info type = GNEISS_TYPE_INFO_INIT;
+    if (gneiss_type_registry_type_at(registry, i, &type) != GNEISS_SUCCESS)
+      return 1;
+    std::printf("类型 %.*s\n", static_cast<int>(type.name_length), type.name);
+    for (uint32_t j = 0; j < type.field_count; ++j) {
+      const auto& field = type.fields[j];
+      std::printf("  字段 %u: %.*s\n", field.id, static_cast<int>(field.name_length), field.name);
     }
   }
-
-  const auto output_root_text = output_root.generic_string();
-  gneiss::sdk::application reloaded_application;
-  gneiss::sdk::scene_instance reloaded_scene;
-  if (create_application(output_root_text, reloaded_application) != gneiss::result::success ||
-      gneiss::sdk::scene_instance::load(reloaded_application.get(), scene_uri, reloaded_scene) !=
-          gneiss::result::success ||
-      !find_camera(reloaded_application, reloaded_scene, world, entity) ||
-      !verify_properties(registry, world, entity)) {
-    return 6;
+  gneiss_application app{};
+  gneiss_scene_instance scene{};
+  example::scope_exit close{[&] {
+    if (scene)
+      (void)gneiss_scene_instance_unload(app, scene);
+    if (app)
+      (void)gneiss_application_destroy(app);
+  }};
+  if (!open_scene(GNEISS_PROPERTY_INSPECTOR_ASSET_ROOT, app, scene))
+    return 2;
+  gneiss_property_target target{};
+  if (!target_for(app, scene, target))
+    return 3;
+  gneiss_property_value value = GNEISS_PROPERTY_VALUE_INIT;
+  value.kind = GNEISS_PROPERTY_KIND_VEC3;
+  value.payload.vec3_value = {2, 1, 4};
+  if (gneiss_type_registry_set_property(registry, gneiss_transform_type_id(), 1, target, &value) !=
+      GNEISS_SUCCESS)
+    return 3;
+  value.kind = GNEISS_PROPERTY_KIND_FLOAT32;
+  value.payload.float32_value = 0.25F;
+  if (gneiss_type_registry_set_property(registry, gneiss_camera_type_id(), 2, target, &value) !=
+      GNEISS_SUCCESS)
+    return 3;
+  uint64_t length{};
+  if (gneiss_scene_instance_serialize(app, scene, nullptr, 0, &length) != GNEISS_SUCCESS)
+    return 4;
+  std::string json(static_cast<size_t>(length), '\0');
+  if (gneiss_scene_instance_serialize(app, scene, json.data(), json.size(), &length) !=
+      GNEISS_SUCCESS)
+    return 4;
+  if (gneiss_scene_instance_unload(app, scene) != GNEISS_SUCCESS)
+    return 4;
+  scene = 0;
+  if (gneiss_application_destroy(app) != GNEISS_SUCCESS)
+    return 4;
+  app = 0;
+  const auto output_root =
+      std::filesystem::temp_directory_path() /
+      ("gneiss-property-inspector-" +
+       std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+  const auto path = output_root / "scenes/property.scene.json";
+  std::filesystem::create_directories(path.parent_path());
+  {
+    std::ofstream out(path, std::ios::binary);
+    out.write(json.data(), static_cast<std::streamsize>(json.size()));
+    if (!out)
+      return 5;
   }
-  reloaded_scene.reset();
-  reloaded_application.reset();
+  if (!open_scene(output_root.generic_string(), app, scene) || !target_for(app, scene, target))
+    return 6;
+  if (gneiss_type_registry_get_property(registry, gneiss_transform_type_id(), 1, target, &value) !=
+          GNEISS_SUCCESS ||
+      value.kind != GNEISS_PROPERTY_KIND_VEC3 || std::abs(value.payload.vec3_value.x - 2) > 0.0001F)
+    return 6;
+  if (gneiss_type_registry_get_property(registry, gneiss_camera_type_id(), 2, target, &value) !=
+          GNEISS_SUCCESS ||
+      value.kind != GNEISS_PROPERTY_KIND_FLOAT32 ||
+      std::abs(value.payload.float32_value - 0.25F) > 0.0001F)
+    return 6;
+  if (gneiss_scene_instance_unload(app, scene) != GNEISS_SUCCESS)
+    return 6;
+  scene = 0;
+  if (gneiss_application_destroy(app) != GNEISS_SUCCESS)
+    return 6;
+  app = 0;
   std::filesystem::remove_all(output_root);
   std::puts("属性修改、保存与重新加载成功");
   return 0;

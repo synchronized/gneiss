@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include <gneiss/engine/application.hpp>
+#include "support/c_owner.hpp"
+#include <gneiss/engine/application.h>
+#include <gneiss/engine/core/entity.hpp>
+#include <gneiss/engine/input.hpp>
 
 #include <string_view>
 #include <thread>
@@ -122,42 +125,49 @@ int main() {
   static_assert(!std::is_convertible_v<gneiss_action, gneiss::action_id>);
   constexpr std::string_view asset_root = GNEISS_TEST_ASSET_ROOT;
   constexpr std::string_view uri = "asset://input/default.input-map.json";
-  gneiss::sdk::application_desc desc{};
-  desc.asset_root = asset_root;
-  gneiss::sdk::application app;
-  gneiss::sdk::application other;
+  gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
+  desc.asset_root = asset_root.data();
+  desc.asset_root_length = static_cast<std::uint32_t>(asset_root.size());
+  gneiss::test_support::application_owner app;
+  gneiss::test_support::application_owner other;
   gneiss::action_id action;
   gneiss::action_state state{};
   gneiss::keyboard_state keyboard{};
   gneiss::pointer_state pointer{};
   gneiss::input_event event{};
-  if (gneiss::sdk::application::create(desc, app).failed() || action.is_valid() ||
-      app.get_action_state(action, state) != result::invalid_handle ||
-      app.poll_input(event) != result::not_ready || app.get_keyboard_state(keyboard).failed() ||
-      app.get_pointer_state(pointer).failed() ||
+  if (gneiss::result{gneiss_application_create(&desc, app.put())}.failed() || action.is_valid() ||
+      gneiss::get_action_state(app.get(), action, state) != result::invalid_handle ||
+      gneiss::poll_input(app.get(), event) != result::not_ready ||
+      gneiss::get_keyboard_state(app.get(), keyboard).failed() ||
+      gneiss::get_pointer_state(app.get(), pointer).failed() ||
       keyboard.modifiers != gneiss::input_modifier::none ||
-      pointer.buttons != gneiss::pointer_button::none || app.load_action_map(uri).failed() ||
-      app.find_action("move_horizontal", action).failed() || !action.is_valid() ||
-      app.get_action_state(action, state).failed() || state.held || state.value != 0.0F) {
+      pointer.buttons != gneiss::pointer_button::none ||
+      gneiss::load_action_map(app.get(), uri).failed() ||
+      gneiss::find_action(app.get(), "move_horizontal", action).failed() || !action.is_valid() ||
+      gneiss::get_action_state(app.get(), action, state).failed() || state.held ||
+      state.value != 0.0F) {
     return 1;
   }
   const auto original = action;
-  if (app.find_action("missing", action) != result::not_found || action != original ||
-      app.load_action_map("asset://input/missing.input-map.json") != result::not_found ||
-      app.get_action_state(action, state).failed() ||
-      gneiss::sdk::application::create(desc, other).failed() ||
-      other.load_action_map(uri).failed() ||
-      other.get_action_state(action, state) != result::invalid_handle) {
+  if (gneiss::find_action(app.get(), "missing", action) != result::not_found ||
+      action != original ||
+      gneiss::load_action_map(app.get(), "asset://input/missing.input-map.json") !=
+          result::not_found ||
+      gneiss::get_action_state(app.get(), action, state).failed() ||
+      gneiss::result{gneiss_application_create(&desc, other.put())}.failed() ||
+      gneiss::load_action_map(other.get(), uri).failed() ||
+      gneiss::get_action_state(other.get(), action, state) != result::invalid_handle) {
     return 2;
   }
   result thread_result;
-  std::thread worker([&] { thread_result = app.find_action("move_horizontal", action); });
+  std::thread worker(
+      [&] { thread_result = gneiss::find_action(app.get(), "move_horizontal", action); });
   worker.join();
   if (thread_result != result::invalid_state || action != original ||
-      app.load_action_map(uri).failed() ||
-      app.get_action_state(original, state) != result::invalid_handle ||
-      app.find_action("move_horizontal", action).failed() || action == original ||
-      app.get_action_state(action, state).failed()) {
+      gneiss::load_action_map(app.get(), uri).failed() ||
+      gneiss::get_action_state(app.get(), original, state) != result::invalid_handle ||
+      gneiss::find_action(app.get(), "move_horizontal", action).failed() || action == original ||
+      gneiss::get_action_state(app.get(), action, state).failed()) {
     return 3;
   }
   // 强类型入口共享同一动作状态；默认构造无需 ABI 结构尺寸。
@@ -166,11 +176,12 @@ int main() {
   }
   state.value = 7.0F;
   const auto before_failure = action;
-  if (app.find_action("move_horizontal", action) != result::invalid_handle ||
-      action != before_failure || app.get_action_state(action, state) != result::invalid_handle ||
-      app.get_keyboard_state(keyboard) != result::invalid_handle ||
-      app.get_pointer_state(pointer) != result::invalid_handle ||
-      app.poll_input(event) != result::invalid_handle || state.value != 7.0F) {
+  if (gneiss::find_action(app.get(), "move_horizontal", action) != result::invalid_handle ||
+      action != before_failure ||
+      gneiss::get_action_state(app.get(), action, state) != result::invalid_handle ||
+      gneiss::get_keyboard_state(app.get(), keyboard) != result::invalid_handle ||
+      gneiss::get_pointer_state(app.get(), pointer) != result::invalid_handle ||
+      gneiss::poll_input(app.get(), event) != result::invalid_handle || state.value != 7.0F) {
     return 6;
   }
   return 0;

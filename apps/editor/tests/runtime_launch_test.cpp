@@ -1,12 +1,17 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "runtime/application_registry.hpp"
+#include "../../../tests/support/c_owner.hpp"
 #include "project_workspace.hpp"
+#include "runtime/application_registry.hpp"
 #include "runtime_author_apply.hpp"
 #include "runtime_launch.hpp"
 
-#include <gneiss/engine/application.hpp>
+#include <gneiss/engine/application.h>
+#include <gneiss/engine/input.hpp>
+#include <gneiss/engine/log.hpp>
+#include <gneiss/engine/render.hpp>
+#include <gneiss/engine/scene.hpp>
 
 #include <chrono>
 #include <filesystem>
@@ -15,12 +20,12 @@
 namespace {
 
 [[nodiscard]] gneiss::result create_application(const std::filesystem::path& asset_root,
-                                                gneiss::sdk::application& output) {
+                                                gneiss::test_support::application_owner& output) {
   const auto root = asset_root.generic_string();
   gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
   desc.asset_root = root.data();
   desc.asset_root_length = static_cast<std::uint32_t>(root.size());
-  return gneiss::sdk::application::create_native(desc, output);
+  return gneiss::result{gneiss_application_create(&desc, output.put())};
 }
 
 } // namespace
@@ -36,11 +41,12 @@ int main() try {
     return 1;
   }
 
-  gneiss::sdk::application author_application;
+  gneiss::test_support::application_owner author_application;
   gneiss_world author_world = GNEISS_NULL_WORLD;
   gneiss::editor::editor_session author_session;
   if (create_application(project.asset_root, author_application) != gneiss::result::success ||
-      author_application.get_world(author_world) != gneiss::result::success ||
+      gneiss::result{gneiss_application_get_world(author_application.get(), &author_world)} !=
+          gneiss::result::success ||
       author_session.open(*gneiss::application_internal::find_application(author_application.get()),
                           author_world, project.startup_scene) != gneiss::result::success) {
     return 2;
@@ -101,11 +107,12 @@ int main() try {
     return 6;
   }
 
-  gneiss::sdk::application runtime_application;
+  gneiss::test_support::application_owner runtime_application;
   gneiss_world runtime_world = GNEISS_NULL_WORLD;
   gneiss::editor::editor_session runtime_session;
   if (create_application(project.asset_root, runtime_application) != gneiss::result::success ||
-      runtime_application.get_world(runtime_world) != gneiss::result::success ||
+      gneiss::result{gneiss_application_get_world(runtime_application.get(), &runtime_world)} !=
+          gneiss::result::success ||
       runtime_session.open(
           *gneiss::application_internal::find_application(runtime_application.get()), runtime_world,
           project.startup_scene) != gneiss::result::success) {

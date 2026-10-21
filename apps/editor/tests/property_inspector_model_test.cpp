@@ -1,11 +1,14 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../../../tests/support/c_owner.hpp"
 #include "property_inspector_model.hpp"
 #include <gneiss/engine/world.hpp>
 
 #include <cmath>
 #include <thread>
+
+using namespace gneiss;
 
 namespace {
 
@@ -16,23 +19,62 @@ namespace {
 } // namespace
 
 int main() {
-  gneiss::sdk::world world;
+  gneiss::test_support::world_owner world;
   gneiss::entity_id entity;
   gneiss::entity_id transform_only;
   gneiss::scene_node_id entity_node;
   gneiss::scene_node_id transform_only_node;
   gneiss::editor::property_inspector_model inspector;
-  if (gneiss::sdk::world::create(world) != gneiss::result::success ||
-      world.create_entity(entity) != gneiss::result::success ||
-      world.create_entity(transform_only) != gneiss::result::success ||
+  if (([&] {
+        const gneiss_world_desc desc = GNEISS_WORLD_DESC_INIT;
+        return gneiss::result{gneiss_world_create(&desc, world.put())};
+      })() != gneiss::result::success ||
+      ([&](entity_id& out_entity) {
+        gneiss_entity_id native_entity = GNEISS_NULL_ENTITY_ID;
+        const auto native_result = gneiss_world_entity_create(world.get(), &native_entity);
+        if (native_result == GNEISS_SUCCESS) {
+          out_entity = entity_id{native_entity};
+        }
+        return from_native(native_result);
+      })(entity) != gneiss::result::success ||
+      ([&](entity_id& out_entity) {
+        gneiss_entity_id native_entity = GNEISS_NULL_ENTITY_ID;
+        const auto native_result = gneiss_world_entity_create(world.get(), &native_entity);
+        if (native_result == GNEISS_SUCCESS) {
+          out_entity = entity_id{native_entity};
+        }
+        return from_native(native_result);
+      })(transform_only) != gneiss::result::success ||
       inspector.initialize() != gneiss::result::success) {
     return 1;
   }
   gneiss::camera_desc camera{};
-  if (world.create_scene_node({}, entity, entity_node) != gneiss::result::success ||
-      world.create_scene_node({}, transform_only, transform_only_node) != gneiss::result::success ||
-      world.configure_camera(entity, camera) != gneiss::result::success ||
-      world.set_active_camera(gneiss::entity_id{entity}) != gneiss::result::success) {
+  if (([&](scene_node_id parent, entity_id entity, scene_node_id& out_node) {
+        gneiss_scene_node_id native_node = GNEISS_NULL_SCENE_NODE_ID;
+        const auto native_result =
+            gneiss_scene_node_create(world.get(), parent.get(), entity.get(), &native_node);
+        if (native_result == GNEISS_SUCCESS) {
+          out_node = scene_node_id{native_node};
+        }
+        return from_native(native_result);
+      })({}, entity, entity_node) != gneiss::result::success ||
+      ([&](scene_node_id parent, entity_id entity, scene_node_id& out_node) {
+        gneiss_scene_node_id native_node = GNEISS_NULL_SCENE_NODE_ID;
+        const auto native_result =
+            gneiss_scene_node_create(world.get(), parent.get(), entity.get(), &native_node);
+        if (native_result == GNEISS_SUCCESS) {
+          out_node = scene_node_id{native_node};
+        }
+        return from_native(native_result);
+      })({}, transform_only, transform_only_node) != gneiss::result::success ||
+      ([&](entity_id entity, const camera_desc& value) {
+        const auto native = to_native(value);
+        return from_native(
+            gneiss_world_entity_configure_camera(world.get(), entity.get(), &native));
+      })(entity, camera) != gneiss::result::success ||
+      ([&](entity_id entity) {
+        return from_native(gneiss_world_set_active_camera(world.get(), entity.get()));
+      })(gneiss::entity_id{entity}) != gneiss::result::success) {
     return 2;
   }
   if (inspector.refresh(world.get(), entity) != gneiss::result::success) {
@@ -54,7 +96,15 @@ int main() {
     return 3;
   }
   gneiss::transform transform{};
-  if (world.get_local_transform(entity, transform) != gneiss::result::success ||
+  if (([&](entity_id entity, gneiss::transform& output) {
+        gneiss_transform native{};
+        const auto status = from_native(
+            gneiss_world_entity_get_local_transform(world.get(), entity.get(), &native));
+        if (status.ok()) {
+          output = from_native(native);
+        }
+        return status;
+      })(entity, transform) != gneiss::result::success ||
       !nearly_equal(transform.translation[0], 2.0F)) {
     return 4;
   }
@@ -63,7 +113,15 @@ int main() {
   if (inspector.set_value(gneiss::from_native(gneiss_transform_type_id()),
                           gneiss::field_id{GNEISS_TRANSFORM_FIELD_SCALE},
                           value) != gneiss::result::invalid_argument ||
-      world.get_local_transform(entity, transform) != gneiss::result::success ||
+      ([&](entity_id entity, gneiss::transform& output) {
+        gneiss_transform native{};
+        const auto status = from_native(
+            gneiss_world_entity_get_local_transform(world.get(), entity.get(), &native));
+        if (status.ok()) {
+          output = from_native(native);
+        }
+        return status;
+      })(entity, transform) != gneiss::result::success ||
       !nearly_equal(transform.scale[0], 1.0F) ||
       !nearly_equal(
           std::get<gneiss::property_vec3>(inspector.components()[0].properties[2].value.payload).x,
@@ -81,7 +139,9 @@ int main() {
       inspector.components().size() != 1U) {
     return 7;
   }
-  if (world.destroy_entity(transform_only) != gneiss::result::success ||
+  if (([&](entity_id entity) {
+        return from_native(gneiss_world_entity_destroy(world.get(), entity.get()));
+      })(transform_only) != gneiss::result::success ||
       inspector.refresh(world.get(), transform_only) != gneiss::result::invalid_handle ||
       !inspector.components().empty()) {
     return 8;

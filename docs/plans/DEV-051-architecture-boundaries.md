@@ -5,6 +5,10 @@
 
 ## 状态与工作方式
 
+2026-10-21 补充决策：移除公共对象 SDK，内部继续使用原生 C++。范围与验收见
+[ADR-070](../decisions/ADR-070-remove-public-object-sdk.md) 和
+[删除验收记录](../records/M-332-public-object-sdk-removal.md)。此前 SDK 命名收敛的阶段方案不再适用。
+
 2026-10-21：已确认资源、运行时组装与编辑状态收敛，最新目标布局与批次以
 [模块布局计划](PLAN-051-module-layout.md) 为准；不是现状说明。
 

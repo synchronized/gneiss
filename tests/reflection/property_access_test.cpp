@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../support/c_owner.hpp"
 #include <gneiss/engine/reflection.hpp>
 
 #include <array>
@@ -11,6 +12,8 @@
 #include <string>
 #include <string_view>
 #include <utility>
+
+using namespace gneiss;
 
 namespace {
 
@@ -72,12 +75,16 @@ gneiss_result get_malformed(void* /*user_data*/, gneiss_property_target /*target
   return GNEISS_SUCCESS;
 }
 
-int verify_callback_contract(gneiss::sdk::type_registry& registry, camera_fixture& fixture,
-                             gneiss_property_target target) {
+int verify_callback_contract(gneiss::test_support::registry_owner& registry,
+                             camera_fixture& fixture, gneiss_property_target target) {
   gneiss_property_value value = GNEISS_PROPERTY_VALUE_INIT;
   // 不合约的 C++ 回调异常必须在适配器处转换；getter 失败清空输出。
   fixture.fail_get = true;
-  if (registry.get_property_native(camera_type, 1U, target, value) != gneiss::result::internal ||
+  if (([&](gneiss_type_id type_id, gneiss_field_id field_id, gneiss_property_target target,
+           gneiss_property_value& output) {
+        return from_native(
+            gneiss_type_registry_get_property(registry.get(), type_id, field_id, target, &output));
+      })(camera_type, 1U, target, value) != gneiss::result::internal ||
       value.kind != GNEISS_PROPERTY_KIND_INVALID) {
     return 10;
   }
@@ -85,23 +92,32 @@ int verify_callback_contract(gneiss::sdk::type_registry& registry, camera_fixtur
   fixture.fail_set = true;
   value.kind = GNEISS_PROPERTY_KIND_FLOAT32;
   value.payload.float32_value = 100.0F;
-  if (registry.set_property_native(camera_type, 1U, target, value) != gneiss::result::internal ||
+  if (([&](gneiss_type_id type_id, gneiss_field_id field_id, gneiss_property_target target,
+           const gneiss_property_value& value) {
+        return from_native(
+            gneiss_type_registry_set_property(registry.get(), type_id, field_id, target, &value));
+      })(camera_type, 1U, target, value) != gneiss::result::internal ||
       std::abs(fixture.field_of_view - 90.0F) > 0.001F) {
     return 11;
   }
-  // Registry 移动不转移或复制调用方上下文；字符串需由调用方复制以便长期保存。
-  auto moved = std::move(registry);
-  if (moved.get_property_native(camera_type, 2U, target, value).failed()) {
+  // 字符串需由调用方复制以便长期保存。
+  if (gneiss::result{
+          gneiss_type_registry_get_property(registry.get(), camera_type, 2U, target, &value)}
+          .failed()) {
     return 12;
   }
   const std::string copied(value.payload.string_value.data, value.payload.string_value.length);
   fixture.label = "changed";
   fixture.label_length = 7U;
-  if (moved.get_property_native(camera_type, 2U, target, value).failed() || copied != "主相机" ||
+  if (gneiss::result{
+          gneiss_type_registry_get_property(registry.get(), camera_type, 2U, target, &value)}
+          .failed() ||
+      copied != "主相机" ||
       std::string_view(value.payload.string_value.data, value.payload.string_value.length) !=
           "changed" ||
-      moved.reset().failed() ||
-      moved.get_property_native(camera_type, 1U, target, value) != gneiss::result::invalid_handle) {
+      registry.reset().failed() ||
+      gneiss::result{gneiss_type_registry_get_property(registry.get(), camera_type, 1U, target,
+                                                       &value)} != gneiss::result::invalid_handle) {
     return 13;
   }
   return 0;
@@ -142,9 +158,11 @@ int main() try {
                               .name_length = 6U,
                               .fields = fields.data(),
                               .field_count = static_cast<std::uint32_t>(fields.size())};
-  gneiss::sdk::type_registry registry;
-  if (gneiss::sdk::type_registry::create(registry) != gneiss::result::success ||
-      registry.register_type_native(type) != gneiss::result::success) {
+  gneiss::test_support::registry_owner registry;
+  if (gneiss::result{gneiss_type_registry_create(registry.put())} != gneiss::result::success ||
+      ([&](const gneiss_type_desc& desc) {
+        return from_native(gneiss_type_registry_register(registry.get(), &desc));
+      })(type) != gneiss::result::success) {
     return 1;
   }
 
@@ -171,20 +189,47 @@ int main() try {
                                                 .getter = get_malformed,
                                                 .setter = nullptr,
                                                 .user_data = nullptr};
-  if (registry.bind_property_native(camera_type, 1U, field_of_view) != gneiss::result::success ||
-      registry.bind_property_native(camera_type, 1U, field_of_view) != gneiss::result::success ||
-      registry.bind_property_native(camera_type, 2U, invalid_read_only) !=
-          gneiss::result::invalid_argument ||
-      registry.bind_property_native(camera_type, 2U, label) != gneiss::result::success ||
-      registry.bind_property_native(camera_type, 4U, malformed) != gneiss::result::success ||
-      registry.freeze() != gneiss::result::success ||
-      registry.bind_property_native(camera_type, 3U, field_of_view) !=
-          gneiss::result::invalid_state) {
+  if (([&](gneiss_type_id type_id, gneiss_field_id field_id,
+           const gneiss_property_accessor_desc& desc) {
+        return from_native(
+            gneiss_type_registry_bind_property(registry.get(), type_id, field_id, &desc));
+      })(camera_type, 1U, field_of_view) != gneiss::result::success ||
+      ([&](gneiss_type_id type_id, gneiss_field_id field_id,
+           const gneiss_property_accessor_desc& desc) {
+        return from_native(
+            gneiss_type_registry_bind_property(registry.get(), type_id, field_id, &desc));
+      })(camera_type, 1U, field_of_view) != gneiss::result::success ||
+      ([&](gneiss_type_id type_id, gneiss_field_id field_id,
+           const gneiss_property_accessor_desc& desc) {
+        return from_native(
+            gneiss_type_registry_bind_property(registry.get(), type_id, field_id, &desc));
+      })(camera_type, 2U, invalid_read_only) != gneiss::result::invalid_argument ||
+      ([&](gneiss_type_id type_id, gneiss_field_id field_id,
+           const gneiss_property_accessor_desc& desc) {
+        return from_native(
+            gneiss_type_registry_bind_property(registry.get(), type_id, field_id, &desc));
+      })(camera_type, 2U, label) != gneiss::result::success ||
+      ([&](gneiss_type_id type_id, gneiss_field_id field_id,
+           const gneiss_property_accessor_desc& desc) {
+        return from_native(
+            gneiss_type_registry_bind_property(registry.get(), type_id, field_id, &desc));
+      })(camera_type, 4U, malformed) != gneiss::result::success ||
+      ([&]() { return from_native(gneiss_type_registry_freeze(registry.get())); })() !=
+          gneiss::result::success ||
+      ([&](gneiss_type_id type_id, gneiss_field_id field_id,
+           const gneiss_property_accessor_desc& desc) {
+        return from_native(
+            gneiss_type_registry_bind_property(registry.get(), type_id, field_id, &desc));
+      })(camera_type, 3U, field_of_view) != gneiss::result::invalid_state) {
     return 2;
   }
 
   gneiss_field_info info{};
-  if (registry.find_field_native(camera_type, 1U, info) != gneiss::result::success ||
+  if (([&](gneiss_type_id type_id, gneiss_field_id field_id, gneiss_field_info& output) {
+        output = GNEISS_FIELD_INFO_INIT;
+        return from_native(
+            gneiss_type_registry_find_field(registry.get(), type_id, field_id, &output));
+      })(camera_type, 1U, info) != gneiss::result::success ||
       info.property_kind != GNEISS_PROPERTY_KIND_FLOAT32 ||
       info.property_capabilities !=
           (GNEISS_PROPERTY_CAPABILITY_READABLE | GNEISS_PROPERTY_CAPABILITY_WRITABLE)) {
@@ -193,40 +238,73 @@ int main() try {
 
   constexpr gneiss_property_target target{.context = 7U, .object = 11U};
   gneiss_property_value value = GNEISS_PROPERTY_VALUE_INIT;
-  if (registry.get_property_native(camera_type, 1U, target, value) != gneiss::result::success ||
+  if (([&](gneiss_type_id type_id, gneiss_field_id field_id, gneiss_property_target target,
+           gneiss_property_value& output) {
+        return from_native(
+            gneiss_type_registry_get_property(registry.get(), type_id, field_id, target, &output));
+      })(camera_type, 1U, target, value) != gneiss::result::success ||
       value.kind != GNEISS_PROPERTY_KIND_FLOAT32 ||
       std::abs(value.payload.float32_value - 60.0F) > 0.001F) {
     return 4;
   }
   value.kind = GNEISS_PROPERTY_KIND_FLOAT32;
   value.payload.float32_value = 90.0F;
-  if (registry.set_property_native(camera_type, 1U, target, value) != gneiss::result::success ||
+  if (([&](gneiss_type_id type_id, gneiss_field_id field_id, gneiss_property_target target,
+           const gneiss_property_value& value) {
+        return from_native(
+            gneiss_type_registry_set_property(registry.get(), type_id, field_id, target, &value));
+      })(camera_type, 1U, target, value) != gneiss::result::success ||
       std::abs(fixture.field_of_view - 90.0F) > 0.001F) {
     return 5;
   }
   value.payload.float32_value = 200.0F;
-  if (registry.set_property_native(camera_type, 1U, target, value) !=
-          gneiss::result::invalid_argument ||
+  if (([&](gneiss_type_id type_id, gneiss_field_id field_id, gneiss_property_target target,
+           const gneiss_property_value& value) {
+        return from_native(
+            gneiss_type_registry_set_property(registry.get(), type_id, field_id, target, &value));
+      })(camera_type, 1U, target, value) != gneiss::result::invalid_argument ||
       std::abs(fixture.field_of_view - 90.0F) > 0.001F) {
     return 6;
   }
   value.payload.float32_value = std::numeric_limits<float>::quiet_NaN();
-  if (registry.set_property_native(camera_type, 1U, target, value) !=
-          gneiss::result::invalid_argument ||
+  if (([&](gneiss_type_id type_id, gneiss_field_id field_id, gneiss_property_target target,
+           const gneiss_property_value& value) {
+        return from_native(
+            gneiss_type_registry_set_property(registry.get(), type_id, field_id, target, &value));
+      })(camera_type, 1U, target, value) != gneiss::result::invalid_argument ||
       std::abs(fixture.field_of_view - 90.0F) > 0.001F) {
     return 7;
   }
   value.kind = GNEISS_PROPERTY_KIND_UINT64;
   value.payload.uint64_value = 90U;
-  if (registry.set_property_native(camera_type, 1U, target, value) !=
-      gneiss::result::invalid_argument) {
+  if (([&](gneiss_type_id type_id, gneiss_field_id field_id, gneiss_property_target target,
+           const gneiss_property_value& value) {
+        return from_native(
+            gneiss_type_registry_set_property(registry.get(), type_id, field_id, target, &value));
+      })(camera_type, 1U, target, value) != gneiss::result::invalid_argument) {
     return 8;
   }
-  if (registry.get_property_native(camera_type, 2U, target, value) != gneiss::result::success ||
+  if (([&](gneiss_type_id type_id, gneiss_field_id field_id, gneiss_property_target target,
+           gneiss_property_value& output) {
+        return from_native(
+            gneiss_type_registry_get_property(registry.get(), type_id, field_id, target, &output));
+      })(camera_type, 2U, target, value) != gneiss::result::success ||
       value.kind != GNEISS_PROPERTY_KIND_STRING || value.payload.string_value.length != 9U ||
-      registry.set_property_native(camera_type, 2U, target, value) != gneiss::result::unsupported ||
-      registry.get_property_native(camera_type, 3U, target, value) != gneiss::result::unsupported ||
-      registry.get_property_native(camera_type, 4U, target, value) != gneiss::result::internal ||
+      ([&](gneiss_type_id type_id, gneiss_field_id field_id, gneiss_property_target target,
+           const gneiss_property_value& value) {
+        return from_native(
+            gneiss_type_registry_set_property(registry.get(), type_id, field_id, target, &value));
+      })(camera_type, 2U, target, value) != gneiss::result::unsupported ||
+      ([&](gneiss_type_id type_id, gneiss_field_id field_id, gneiss_property_target target,
+           gneiss_property_value& output) {
+        return from_native(
+            gneiss_type_registry_get_property(registry.get(), type_id, field_id, target, &output));
+      })(camera_type, 3U, target, value) != gneiss::result::unsupported ||
+      ([&](gneiss_type_id type_id, gneiss_field_id field_id, gneiss_property_target target,
+           gneiss_property_value& output) {
+        return from_native(
+            gneiss_type_registry_get_property(registry.get(), type_id, field_id, target, &output));
+      })(camera_type, 4U, target, value) != gneiss::result::internal ||
       value.kind != GNEISS_PROPERTY_KIND_INVALID) {
     return 9;
   }

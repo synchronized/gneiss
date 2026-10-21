@@ -85,7 +85,7 @@ Apps 从 IPC 节点提取输入；Editor 命令复制身份字符串，不保留
 离线导入库的构建定义与 C++ 实现集中于 `src/tooling/`，内部头使用 `.hpp`。
 assetc CLI 位于 `apps/assetc/`，工具测试由 `tests/tooling/` 组织，性能脚本位于 `scripts/performance/`。
 
-公共头目录按能力组织，但 `.h` 与 `.hpp` 始终成对维护。内部源码目录按拥有运行时状态的模块组织，
+公共头目录按能力组织，`.h` 提供 C ABI，部分 `.hpp` 提供共享值类型与无状态转换。内部源码目录按拥有运行时状态的模块组织，
 不机械复制公共头目录。
 
 ## 运行时模块
@@ -149,17 +149,17 @@ CMake 脚本验证。尚未统一迁移到新的测试层级，不创建空的 i
 
 Engine 公共接口统一位于 `include/gneiss/engine/`，基础类型位于其 `core/` 子目录。
 例如使用 `<gneiss/engine/scene.h>` 或 `<gneiss/engine/scene.hpp>`；根总入口
-`<gneiss/gneiss.h>` / `<gneiss/gneiss.hpp>` 保留。旧功能头和 `gneiss/core/` 转发路径已删除，
-仅安装规范路径与两个总入口；C 符号和运行时状态不因此改变。升级时使用干净安装前缀，
+`<gneiss/gneiss.h>` 保留，C++ 对象总入口已删除。旧功能头和 `gneiss/core/` 转发路径已删除，
+仅安装规范路径与 C 总入口；C 符号和运行时状态不因此改变。升级时使用干净安装前缀，
 避免旧安装留下的转发头继续被编译器找到。
 
-本次只整理已有 Engine SDK 目录；不建立 Runtime、Editor、Tooling 或插件公共 API，
+公共目录提供 Engine C ABI 与共享值类型；不建立 Runtime、Editor、Tooling 或插件公共 API，
 不改变内部模块边界。现有 `apps/runtime` 仍是宿主，而非第二套引擎库。
 
 ## 原生 C++、C ABI 与 SDK 的阅读顺序
 
 同源码宿主从内部模块接口进入，外部使用者从公共接口进入；两条路径操作同一份状态。
-`include/gneiss/engine/*.hpp` 中的所有者包装位于 `gneiss::sdk`，不会占用内部对象的命名。
+公共对象 SDK 已删除，`include/gneiss/engine/*.hpp` 仅保留值类型和无状态辅助。
 公共值类型仍位于 `gneiss`；内部模块命名空间与文件路径一起标识职责，不能仅凭同名判断所有权。
 
 | 要了解的行为 | 入口 | 拥有或借用关系 |
@@ -175,7 +175,7 @@ Engine 公共接口统一位于 `include/gneiss/engine/`，基础类型位于其
 | Prefab 候选事务 | `src/engine/function/scene/prefab_candidate.hpp` | 独占未发布候选或退休实例；支持移动与分步清理，不暴露运行时实现 |
 | 作者文档 | `src/editor/editor_session.hpp` | 借用 Application、拥有文档的场景实例 ID；关闭时卸载，不能晚于 Application 销毁 |
 | 反射属性编辑 | `src/editor/property_inspector_model.hpp`、`apps/runtime/runtime_property_editor.hpp` | 直接持有同一内部 Registry 实现；字段回调仍使用已定义的目标协议 |
-| 外部调用 | `src/engine/api/`、`include/gneiss/engine/` | C 适配转换参数并委托，SDK 提供强类型和 RAII |
+| 外部调用 | `src/engine/api/`、`include/gneiss/engine/` | C 适配转换参数并委托，公共 C++ 头仅提供值类型与转换 |
 
 Editor 无需 Application 兼容桥；Runtime 仅在动态游戏模块这一真实 ABI 边界保留借用桥。
 借用桥不授予关闭权，Application 返回的 World 句柄也不能由外部销毁。场景域退役后其旧句柄失效。

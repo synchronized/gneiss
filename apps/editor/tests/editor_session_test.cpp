@@ -1,11 +1,16 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../../../tests/support/c_owner.hpp"
 #include "editor_session.hpp"
 #include "runtime/application_registry.hpp"
 #include "runtime_author_apply.hpp"
 
-#include <gneiss/engine/application.hpp>
+#include <gneiss/engine/application.h>
+#include <gneiss/engine/input.hpp>
+#include <gneiss/engine/log.hpp>
+#include <gneiss/engine/render.hpp>
+#include <gneiss/engine/scene.hpp>
 
 #include <string>
 #include <string_view>
@@ -30,11 +35,13 @@ int main() try {
   gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
   desc.asset_root = asset_root.c_str();
   desc.asset_root_length = static_cast<std::uint32_t>(asset_root.size());
-  gneiss::sdk::application application;
+  gneiss::test_support::application_owner application;
   gneiss_world world = GNEISS_NULL_WORLD;
   gneiss::editor::editor_session session;
-  if (gneiss::sdk::application::create_native(desc, application) != gneiss::result::success ||
-      application.get_world(world) != gneiss::result::success ||
+  if (gneiss::result{gneiss_application_create(&desc, application.put())} !=
+          gneiss::result::success ||
+      gneiss::result{gneiss_application_get_world(application.get(), &world)} !=
+          gneiss::result::success ||
       session.open(*gneiss::application_internal::find_application(application.get()), world,
                    scene_uri) != gneiss::result::success ||
       !session.is_open() || session.is_dirty() || session.uri() != scene_uri ||
@@ -46,7 +53,8 @@ int main() try {
   // 原生会话移动只转移一次释放责任；外线程编辑不得改变文档。
   const auto original_scene = session.scene_handle();
   gneiss::editor::editor_session moved_session{std::move(session)};
-  if (session.is_open() || !moved_session.is_open() || moved_session.scene_handle() != original_scene)
+  if (session.is_open() || !moved_session.is_open() ||
+      moved_session.scene_handle() != original_scene)
     return 20;
   session = std::move(moved_session);
   if (moved_session.is_open() || !session.is_open())

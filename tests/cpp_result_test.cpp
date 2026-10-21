@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include <gneiss/gneiss.hpp>
+#include <gneiss/engine/core/result.hpp>
 
 #include <cstdint>
 #include <type_traits>

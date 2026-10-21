@@ -1,11 +1,16 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "../../../tests/support/c_owner.hpp"
 #include "editor_scene_loader.hpp"
 #include "runtime/application_asset_reload_internal.hpp"
 #include "runtime/application_registry.hpp"
 
-#include <gneiss/engine/application.hpp>
+#include <gneiss/engine/application.h>
+#include <gneiss/engine/input.hpp>
+#include <gneiss/engine/log.hpp>
+#include <gneiss/engine/render.hpp>
+#include <gneiss/engine/scene.hpp>
 #include <gneiss/engine/world.h>
 
 #include <chrono>
@@ -13,6 +18,8 @@
 #include <source_location>
 #include <stdexcept>
 #include <thread>
+
+using namespace gneiss;
 
 namespace {
 using namespace gneiss;
@@ -23,19 +30,19 @@ void check(bool value, std::source_location where = std::source_location::curren
 
 void run(tasks::execution_mode mode) {
   tasks::task_scheduler scheduler({.workers = 1U, .mode = mode});
-  sdk::application app;
+  gneiss::test_support::application_owner app;
   auto desc = gneiss_application_desc GNEISS_APPLICATION_DESC_INIT;
   const std::string root = GNEISS_EDITOR_TEST_ASSET_ROOT;
   desc.asset_root = root.data();
   desc.asset_root_length = static_cast<std::uint32_t>(root.size());
-  check(sdk::application::create_native(desc, app) == result::success);
+  check(gneiss::result{gneiss_application_create(&desc, app.put())} == result::success);
   check(application_internal::attach_task_executor(app.get(), scheduler) == GNEISS_SUCCESS);
   editor::editor_session session;
   editor::editor_camera camera;
   editor::editor_command_history history;
   editor::editor_scene_loader loader;
   gneiss_world world{};
-  check(app.get_world(world) == result::success);
+  check(gneiss::result{gneiss_application_get_world(app.get(), &world)} == result::success);
   check(session.create_empty(*gneiss::application_internal::find_application(app.get()), world) ==
         result::success);
   check(camera.initialize() == result::success);
@@ -44,7 +51,7 @@ void run(tasks::execution_mode mode) {
   auto tick = [&] {
     if (mode == tasks::execution_mode::cooperative)
       (void)scheduler.run_ready();
-    check(app.run(1U) == result::success);
+    check(gneiss::result{gneiss_application_run(app.get(), 1U)} == result::success);
     bool changed{};
     check(loader.advance(*gneiss::application_internal::find_application(app.get()), session, world,
                          camera, history, changed) == result::success);
@@ -107,11 +114,9 @@ void run(tasks::execution_mode mode) {
   drain();
   check(loader.operation() == result::success && session.nodes().size() == 1U &&
         session.prefab_nodes().size() == 2U && camera.is_valid());
-  // 接管包装拒绝无效句柄，失败不污染输出。
-  gneiss::sdk::scene_instance invalid;
-  check(gneiss::sdk::scene_instance::adopt_native(app.get(), GNEISS_NULL_SCENE_INSTANCE, invalid) !=
-            result::success &&
-        !invalid.is_valid());
+  // 无效场景的 C 查询拒绝，不影响活动场景。
+  check(gneiss_scene_instance_get_node_count(app.get(), GNEISS_NULL_SCENE_INSTANCE, &count) ==
+        GNEISS_ERROR_INVALID_HANDLE);
   camera.shutdown();
   session.close();
   // 在途任务随 Application 关闭；执行器必须最后销毁。

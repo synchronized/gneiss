@@ -138,13 +138,6 @@ gneiss_target_compile_warnings(gneiss_c_game_module_test)
 gneiss_target_output_directories(gneiss_c_game_module_test)
 add_test(NAME gneiss.c_game_module COMMAND gneiss_c_game_module_test)
 
-add_executable(gneiss_cpp_game_module_test cpp_game_module_test.cpp)
-target_link_libraries(gneiss_cpp_game_module_test PRIVATE gneiss::engine)
-target_compile_features(gneiss_cpp_game_module_test PRIVATE cxx_std_20)
-gneiss_target_compile_warnings(gneiss_cpp_game_module_test)
-gneiss_target_output_directories(gneiss_cpp_game_module_test)
-add_test(NAME gneiss.cpp_game_module COMMAND gneiss_cpp_game_module_test)
-
 add_executable(gneiss_c_log_test c_log_test.c)
 target_link_libraries(gneiss_c_log_test PRIVATE gneiss::engine)
 set_target_properties(
@@ -208,13 +201,6 @@ set_target_properties(
 gneiss_target_compile_warnings(gneiss_c_reflection_test)
 gneiss_target_output_directories(gneiss_c_reflection_test)
 add_test(NAME gneiss.c_reflection COMMAND gneiss_c_reflection_test)
-
-add_executable(gneiss_cpp_reflection_test cpp_reflection_test.cpp)
-target_link_libraries(gneiss_cpp_reflection_test PRIVATE gneiss::engine)
-target_compile_features(gneiss_cpp_reflection_test PRIVATE cxx_std_20)
-gneiss_target_compile_warnings(gneiss_cpp_reflection_test)
-gneiss_target_output_directories(gneiss_cpp_reflection_test)
-add_test(NAME gneiss.cpp_reflection COMMAND gneiss_cpp_reflection_test)
 
 add_executable(gneiss_property_access_test reflection/property_access_test.cpp)
 target_link_libraries(gneiss_property_access_test PRIVATE gneiss::engine)
@@ -328,8 +314,8 @@ target_compile_features(gneiss_c_header_test PRIVATE c_std_11)
 gneiss_target_compile_warnings(gneiss_c_header_test)
 
 add_library(
-  gneiss_cpp_header_test OBJECT headers/application_hpp.cpp headers/asset_hpp.cpp headers/entity_hpp.cpp
-                                headers/game_module_hpp.cpp headers/gneiss_hpp.cpp headers/input_hpp.cpp headers/log_hpp.cpp
+  gneiss_cpp_header_test OBJECT  headers/asset_hpp.cpp headers/entity_hpp.cpp
+                                  headers/input_hpp.cpp headers/log_hpp.cpp
                                 headers/reflection_hpp.cpp headers/render_hpp.cpp headers/result_hpp.cpp headers/rid_hpp.cpp
                                 headers/scene_hpp.cpp headers/world_hpp.cpp
 )
@@ -421,13 +407,6 @@ gneiss_target_compile_warnings(gneiss_c_world_test)
 gneiss_target_output_directories(gneiss_c_world_test)
 add_test(NAME gneiss.c_world COMMAND gneiss_c_world_test)
 
-add_executable(gneiss_cpp_world_test cpp_world_test.cpp)
-target_link_libraries(gneiss_cpp_world_test PRIVATE gneiss::engine)
-target_compile_features(gneiss_cpp_world_test PRIVATE cxx_std_20)
-gneiss_target_compile_warnings(gneiss_cpp_world_test)
-gneiss_target_output_directories(gneiss_cpp_world_test)
-add_test(NAME gneiss.cpp_world COMMAND gneiss_cpp_world_test)
-
 add_executable(gneiss_c_scene_test c_scene_test.c)
 target_link_libraries(gneiss_c_scene_test PRIVATE gneiss::engine)
 set_target_properties(
@@ -437,13 +416,6 @@ set_target_properties(
 gneiss_target_compile_warnings(gneiss_c_scene_test)
 gneiss_target_output_directories(gneiss_c_scene_test)
 add_test(NAME gneiss.c_scene COMMAND gneiss_c_scene_test)
-
-add_executable(gneiss_cpp_scene_test cpp_scene_test.cpp)
-target_link_libraries(gneiss_cpp_scene_test PRIVATE gneiss::engine)
-target_compile_features(gneiss_cpp_scene_test PRIVATE cxx_std_20)
-gneiss_target_compile_warnings(gneiss_cpp_scene_test)
-gneiss_target_output_directories(gneiss_cpp_scene_test)
-add_test(NAME gneiss.cpp_scene COMMAND gneiss_cpp_scene_test)
 
 add_executable(
   gneiss_scene_tree_transform_test
@@ -482,13 +454,6 @@ if(GNEISS_TASK_THREADS AND NOT EMSCRIPTEN)
   gneiss_target_output_directories(gneiss_native_application_test)
   add_test(NAME gneiss.native-application COMMAND gneiss_native_application_test)
 endif()
-
-add_executable(gneiss_cpp_application_test cpp_application_test.cpp)
-target_link_libraries(gneiss_cpp_application_test PRIVATE gneiss::engine)
-target_compile_features(gneiss_cpp_application_test PRIVATE cxx_std_20)
-gneiss_target_compile_warnings(gneiss_cpp_application_test)
-gneiss_target_output_directories(gneiss_cpp_application_test)
-add_test(NAME gneiss.cpp_application COMMAND gneiss_cpp_application_test)
 
 add_executable(gneiss_cpp_input_test cpp_input_test.cpp)
 target_link_libraries(gneiss_cpp_input_test PRIVATE gneiss::engine)
@@ -963,15 +928,6 @@ gneiss_target_compile_warnings(gneiss_scene_instance_test)
 gneiss_target_output_directories(gneiss_scene_instance_test)
 add_test(NAME gneiss.scene_instance COMMAND gneiss_scene_instance_test)
 
-add_executable(gneiss_cpp_scene_instance_test scene/cpp_scene_instance_test.cpp)
-target_link_libraries(gneiss_cpp_scene_instance_test PRIVATE gneiss::engine)
-target_compile_definitions(gneiss_cpp_scene_instance_test
-  PRIVATE GNEISS_TEST_ASSET_ROOT="${PROJECT_SOURCE_DIR}/tests/data/assets")
-target_compile_features(gneiss_cpp_scene_instance_test PRIVATE cxx_std_20)
-gneiss_target_compile_warnings(gneiss_cpp_scene_instance_test)
-gneiss_target_output_directories(gneiss_cpp_scene_instance_test)
-add_test(NAME gneiss.cpp_scene_instance COMMAND gneiss_cpp_scene_instance_test)
-
 add_executable(gneiss_scene_structural_reload_test scene/scene_structural_reload_test.cpp)
 target_link_libraries(gneiss_scene_structural_reload_test PRIVATE gneiss::engine)
 target_include_directories(gneiss_scene_structural_reload_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
@@ -1073,20 +1029,6 @@ gneiss_target_compile_warnings(gneiss_scene_prefab_instance_test)
 gneiss_target_output_directories(gneiss_scene_prefab_instance_test)
 add_test(NAME gneiss.scene_prefab_instance COMMAND gneiss_scene_prefab_instance_test)
 
-add_executable(gneiss_cpp_prefab_refresh_test scene/cpp_prefab_refresh_test.cpp)
-target_link_libraries(gneiss_cpp_prefab_refresh_test PRIVATE gneiss::engine)
-target_compile_definitions(gneiss_cpp_prefab_refresh_test
-  PRIVATE GNEISS_TEST_ASSET_ROOT="${PROJECT_SOURCE_DIR}/tests/data/assets")
-target_compile_features(gneiss_cpp_prefab_refresh_test PRIVATE cxx_std_20)
-gneiss_target_compile_warnings(gneiss_cpp_prefab_refresh_test)
-gneiss_target_output_directories(gneiss_cpp_prefab_refresh_test)
-add_test(NAME gneiss.cpp-prefab-refresh COMMAND gneiss_cpp_prefab_refresh_test)
-add_test(NAME gneiss.cpp-prefab-refresh-termination
-  COMMAND ${CMAKE_COMMAND}
-    "-DGNEISS_TEST_EXECUTABLE=$<TARGET_FILE:gneiss_cpp_prefab_refresh_test>"
-    "-DGNEISS_OWNER_KINDS=prefab"
-    -P "${PROJECT_SOURCE_DIR}/cmake/test_owner_termination.cmake")
-
 add_executable(gneiss_prefab_structural_reload_test scene/prefab_structural_reload_test.cpp)
 target_link_libraries(gneiss_prefab_structural_reload_test PRIVATE gneiss::engine)
 target_include_directories(gneiss_prefab_structural_reload_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
@@ -1164,28 +1106,9 @@ add_test(NAME gneiss.core-boundary-negative
   COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
     "-DGNEISS_BINARY_DIR=${PROJECT_BINARY_DIR}"
     -P "${PROJECT_SOURCE_DIR}/cmake/test_core_boundary.cmake")
-add_test(NAME gneiss.cpp-api-inventory
+add_test(NAME gneiss.public-api
   COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
-    -DGNEISS_REQUIRE_NATIVE_CPP_SDK=ON
-    -P "${PROJECT_SOURCE_DIR}/cmake/check_cpp_inventory.cmake")
-
-add_executable(gneiss_cpp_resource_ownership_test cpp_resource_ownership_test.cpp)
-target_link_libraries(gneiss_cpp_resource_ownership_test PRIVATE gneiss::engine)
-target_compile_features(gneiss_cpp_resource_ownership_test PRIVATE cxx_std_20)
-gneiss_target_compile_warnings(gneiss_cpp_resource_ownership_test)
-gneiss_target_output_directories(gneiss_cpp_resource_ownership_test)
-add_test(NAME gneiss.cpp-resource-ownership COMMAND gneiss_cpp_resource_ownership_test)
-
-add_executable(gneiss_cpp_owner_lifecycle_test cpp_owner_lifecycle_test.cpp)
-target_link_libraries(gneiss_cpp_owner_lifecycle_test PRIVATE gneiss::engine)
-target_compile_features(gneiss_cpp_owner_lifecycle_test PRIVATE cxx_std_20)
-gneiss_target_compile_warnings(gneiss_cpp_owner_lifecycle_test)
-gneiss_target_output_directories(gneiss_cpp_owner_lifecycle_test)
-add_test(NAME gneiss.cpp-owner-lifecycle COMMAND gneiss_cpp_owner_lifecycle_test)
-add_test(NAME gneiss.cpp-owner-termination
-  COMMAND ${CMAKE_COMMAND}
-    "-DGNEISS_TEST_EXECUTABLE=$<TARGET_FILE:gneiss_cpp_owner_lifecycle_test>"
-    -P "${PROJECT_SOURCE_DIR}/cmake/test_owner_termination.cmake")
+    -P "${PROJECT_SOURCE_DIR}/cmake/check_public_api.cmake")
 
 add_executable(gneiss_world_service_test world/world_service_test.cpp)
 target_link_libraries(gneiss_world_service_test PRIVATE gneiss::engine)
@@ -1203,9 +1126,9 @@ gneiss_target_compile_warnings(gneiss_reflection_boundary_test)
 gneiss_target_output_directories(gneiss_reflection_boundary_test)
 add_test(NAME gneiss.reflection-boundary COMMAND gneiss_reflection_boundary_test)
 
-add_test(NAME gneiss.cpp-api-inventory-negative
+add_test(NAME gneiss.public-api-negative
   COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${PROJECT_SOURCE_DIR}"
-    "-DGNEISS_BINARY_DIR=${PROJECT_BINARY_DIR}" -P "${PROJECT_SOURCE_DIR}/cmake/test_cpp_inventory.cmake")
+    "-DGNEISS_BINARY_DIR=${PROJECT_BINARY_DIR}" -P "${PROJECT_SOURCE_DIR}/cmake/test_public_api.cmake")
 
 if(TARGET gneiss_dynamic_library AND (WIN32 OR UNIX) AND NOT EMSCRIPTEN)
   add_library(gneiss_dynamic_library_fixture SHARED platform/dynamic_library_fixture.c)
@@ -1226,20 +1149,13 @@ if(TARGET gneiss_editor_ui)
   add_subdirectory(editor)
 endif()
 
-# 原生 C++ 绘制描述、借用数组和提交阶段的端到端验证。
+# 共享 C++ 绘制描述的转换、借用数组及 C ABI 提交验证。
 add_executable(gneiss_cpp_draw_submission_test cpp_draw_submission_test.cpp)
 target_link_libraries(gneiss_cpp_draw_submission_test PRIVATE gneiss::engine)
 target_compile_features(gneiss_cpp_draw_submission_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_cpp_draw_submission_test)
 gneiss_target_output_directories(gneiss_cpp_draw_submission_test)
 add_test(NAME gneiss.cpp-draw-submission COMMAND gneiss_cpp_draw_submission_test)
-
-add_executable(gneiss_native_property_access_test reflection/native_property_access_test.cpp)
-target_link_libraries(gneiss_native_property_access_test PRIVATE gneiss::engine)
-target_compile_features(gneiss_native_property_access_test PRIVATE cxx_std_20)
-gneiss_target_compile_warnings(gneiss_native_property_access_test)
-gneiss_target_output_directories(gneiss_native_property_access_test)
-add_test(NAME gneiss.native-property-access COMMAND gneiss_native_property_access_test)
 
 if(COMMAND gneiss_enable_asset_libuv)
   gneiss_enable_asset_libuv(gneiss_read_source_test)
