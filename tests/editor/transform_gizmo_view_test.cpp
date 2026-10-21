@@ -3,7 +3,7 @@
 
 #include "../support/c_owner.hpp"
 #include "runtime/application_registry.hpp"
-#include "transform_gizmo_view.hpp"
+#include "viewport/transform_gizmo_view.hpp"
 
 #include <gneiss/engine/application.h>
 #include <gneiss/engine/input.hpp>
@@ -20,7 +20,7 @@ int main() try {
   using namespace gneiss::editor;
   gneiss::test_support::application_owner app;
   gneiss_world world_handle = GNEISS_NULL_WORLD;
-  editor_session session;
+  scene_document session;
   editor_command_history history;
   transform_gizmo_drag drag;
   scene_node_id first;

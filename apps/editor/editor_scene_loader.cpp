@@ -41,7 +41,7 @@ result editor_scene_loader::cancel(engine::application& application) {
   return operation;
 }
 
-result editor_scene_loader::advance(engine::application& application, editor_session& session,
+result editor_scene_loader::advance(engine::application& application, scene_document& session,
                                     gneiss_world& world, editor_camera& camera,
                                     editor_command_history& history, bool& changed) {
   using namespace application_internal;

@@ -78,15 +78,15 @@ foreach(source IN LISTS sources)
       content MATCHES "#[ \t]*include[ \t]*[<\"](apps|editor|tooling)/")
     message(FATAL_ERROR "Engine 不得反向包含宿主、编辑器或离线工具：${source}")
   endif()
-  if(source MATCHES "/src/editor/editor_session[.](cpp|hpp)$" AND
+  if(source MATCHES "/src/editor/documents/scene_document[.](cpp|hpp)$" AND
       content MATCHES "gneiss_(application|scene_instance|scene_node|world)_[a-z_]+[(]|(^|[ ;])scene_instance scene_")
-    message(FATAL_ERROR "原生编辑会话不得绕行场景 ABI 或 SDK 拥有包装：${source}")
+    message(FATAL_ERROR "原生场景文档不得绕行场景 ABI 或 SDK 拥有包装：${source}")
   endif()
   if(source MATCHES "/src/editor/" AND
       content MATCHES "sdk::|gneiss_type_registry_[a-z_]+[(]")
     message(FATAL_ERROR "编辑器内部不得使用 SDK 所有者或绕回 Registry C ABI：${source}")
   endif()
-  if(source MATCHES "/src/editor/(property_inspector_model|author_property_edit|author_property_panel|editor_rotation_math)[.](cpp|hpp)$" AND
+  if(source MATCHES "/src/editor/(panels/property_inspector_model|commands/author_property_edit|panels/author_property_panel|viewport/editor_rotation_math)[.](cpp|hpp)$" AND
       content MATCHES "gneiss_property_|GNEISS_PROPERTY_|engine/core/reflection/type_registry[.]hpp|[.][.]/engine/")
     message(FATAL_ERROR "编辑属性链不得泄漏 C 属性布局或绕过模块契约：${source}")
   endif()

@@ -70,7 +70,7 @@ void run_refresh(tasks::execution_mode mode) {
   check(application_internal::attach_task_executor(app.get(), scheduler) == GNEISS_SUCCESS);
   gneiss_world world{};
   check(gneiss_application_get_world(app.get(), &world) == GNEISS_SUCCESS);
-  editor::editor_session session;
+  editor::scene_document session;
   editor::editor_command_history history;
   editor::editor_prefab_edit edit;
   check(session.open(*gneiss::application_internal::find_application(app.get()), world,
@@ -237,7 +237,7 @@ void run(tasks::execution_mode mode) {
   check(application_internal::attach_task_executor(app.get(), scheduler) == GNEISS_SUCCESS);
   gneiss_world world{};
   check(gneiss_application_get_world(app.get(), &world) == GNEISS_SUCCESS);
-  editor::editor_session session;
+  editor::scene_document session;
   editor::editor_command_history history;
   editor::editor_prefab_edit edit;
   check(session.open(*gneiss::application_internal::find_application(app.get()), world,

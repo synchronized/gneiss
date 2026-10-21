@@ -2,9 +2,9 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "../../../tests/support/c_owner.hpp"
-#include "editor_session.hpp"
+#include "commands/runtime_author_apply.hpp"
+#include "documents/scene_document.hpp"
 #include "runtime/application_registry.hpp"
-#include "runtime_author_apply.hpp"
 
 #include <gneiss/engine/application.h>
 #include <gneiss/engine/input.hpp>
@@ -18,7 +18,7 @@
 
 // 临时输入在返回后销毁；后续 Undo/Redo 必须使用命令持有的身份副本。
 static gneiss::result
-apply_temporary_transform(gneiss::editor::editor_session& session,
+apply_temporary_transform(gneiss::editor::scene_document& session,
                           gneiss::editor::editor_command_history& history,
                           const gneiss::editor::runtime_author_transform& input) {
   const std::string uuid(input.uuid);
@@ -37,7 +37,7 @@ int main() try {
   desc.asset_root_length = static_cast<std::uint32_t>(asset_root.size());
   gneiss::test_support::application_owner application;
   gneiss_world world = GNEISS_NULL_WORLD;
-  gneiss::editor::editor_session session;
+  gneiss::editor::scene_document session;
   if (gneiss::result{gneiss_application_create(&desc, application.put())} !=
           gneiss::result::success ||
       gneiss::result{gneiss_application_get_world(application.get(), &world)} !=
@@ -52,7 +52,7 @@ int main() try {
   }
   // 原生会话移动只转移一次释放责任；外线程编辑不得改变文档。
   const auto original_scene = session.scene_handle();
-  gneiss::editor::editor_session moved_session{std::move(session)};
+  gneiss::editor::scene_document moved_session{std::move(session)};
   if (session.is_open() || !moved_session.is_open() ||
       moved_session.scene_handle() != original_scene)
     return 20;

@@ -12,7 +12,7 @@ using application_internal::prefab_placement;
 using application_internal::prefab_placement_snapshot;
 result make_prefab_record(const scene_internal::prefab_node_view& info,
                           const scene_internal::prefab_instance_description& author,
-                          const editor_session& session, prefab_node_record& record) {
+                          const scene_document& session, prefab_node_record& record) {
   record.node = scene_node_id{info.node};
   record.parent = scene_node_id{info.parent};
   record.entity = entity_id{info.entity};
@@ -43,7 +43,7 @@ result make_prefab_record(const scene_internal::prefab_node_view& info,
 class prefab_history_operation final : public editor_history_operation {
 public:
   prefab_history_operation(
-      engine::application& application, editor_session& session, gneiss_scene_instance scene,
+      engine::application& application, scene_document& session, gneiss_scene_instance scene,
       std::shared_ptr<const prefab_placement_snapshot> snapshot, bool removing,
       std::function<gneiss_result(const std::function<gneiss_result()>&)> accept = {})
       : application_(application), scene_(scene), session_(session), snapshot_(std::move(snapshot)),
@@ -143,7 +143,7 @@ private:
   }
   engine::application& application_;
   gneiss_scene_instance scene_{};
-  editor_session& session_;
+  scene_document& session_;
   std::shared_ptr<const prefab_placement_snapshot> snapshot_;
   std::unique_ptr<prefab_placement> transaction_;
   std::vector<prefab_node_record> records_;
@@ -156,7 +156,7 @@ using prefab_snapshots = std::vector<std::shared_ptr<const prefab_placement_snap
 class prefab_refresh_operation final : public editor_history_operation {
 public:
   using acceptance = std::function<gneiss_result(const std::function<gneiss_result()>&)>;
-  prefab_refresh_operation(engine::application& application, editor_session& session,
+  prefab_refresh_operation(engine::application& application, scene_document& session,
                            gneiss_scene_instance scene, prefab_snapshots snapshots,
                            acceptance accept = {})
       : application_(application), scene_(scene), session_(session),
@@ -297,7 +297,7 @@ private:
   }
   engine::application& application_;
   gneiss_scene_instance scene_{};
-  editor_session& session_;
+  scene_document& session_;
   prefab_snapshots snapshots_;
   acceptance accept_;
   scene_node_id selection_;
@@ -313,7 +313,7 @@ private:
 };
 class prefab_refresh_command final : public editor_command {
 public:
-  prefab_refresh_command(engine::application& application, editor_session& session,
+  prefab_refresh_command(engine::application& application, scene_document& session,
                          gneiss_scene_instance scene, prefab_snapshots before,
                          prefab_snapshots after)
       : application_(application), scene_(scene), session_(session), before_(std::move(before)),
@@ -339,12 +339,12 @@ public:
 private:
   engine::application& application_;
   gneiss_scene_instance scene_{};
-  editor_session& session_;
+  scene_document& session_;
   prefab_snapshots before_, after_;
 };
 class prefab_command final : public editor_command {
 public:
-  prefab_command(engine::application& application, editor_session& session,
+  prefab_command(engine::application& application, scene_document& session,
                  gneiss_scene_instance scene,
                  std::shared_ptr<const prefab_placement_snapshot> snapshot, bool removal = false)
       : application_(application), scene_(scene), session_(session), snapshot_(std::move(snapshot)),
@@ -372,7 +372,7 @@ public:
 private:
   engine::application& application_;
   gneiss_scene_instance scene_{};
-  editor_session& session_;
+  scene_document& session_;
   std::shared_ptr<const prefab_placement_snapshot> snapshot_;
   bool removal_{};
 };
@@ -381,7 +381,7 @@ struct editor_prefab_edit::state {
   explicit state(engine::application& host) : application(host) {}
   engine::application& application;
   gneiss_scene_instance scene{};
-  editor_session* session{};
+  scene_document* session{};
   editor_command_history* history{};
   std::unique_ptr<application_internal::prefab_preparation> preparation;
   scene_internal::prefab_instance_description author;
@@ -544,7 +544,7 @@ void editor_prefab_edit::dismiss() noexcept {
   }
 }
 result editor_prefab_edit::request(engine::application& application, tasks::task_executor& executor,
-                                   editor_session& session, editor_command_history& history,
+                                   scene_document& session, editor_command_history& history,
                                    std::string_view name, std::string_view uri,
                                    scene_node_id parent) try {
   if (active() || history.is_pending() || !session.is_open()) {
@@ -582,7 +582,7 @@ result editor_prefab_edit::request(engine::application& application, tasks::task
 } catch (...) {
   return result::internal;
 }
-result editor_prefab_edit::request_remove(engine::application& application, editor_session& session,
+result editor_prefab_edit::request_remove(engine::application& application, scene_document& session,
                                           editor_command_history& history, scene_node_id root) try {
   if (active() || history.is_pending() || !session.is_open()) {
     return result::not_ready;
@@ -606,7 +606,7 @@ result editor_prefab_edit::request_remove(engine::application& application, edit
 }
 
 result editor_prefab_edit::request_refresh(engine::application& application,
-                                           tasks::task_executor& executor, editor_session& session,
+                                           tasks::task_executor& executor, scene_document& session,
                                            editor_command_history& history,
                                            scene_node_id root) try {
   if (active() || history.is_pending() || !session.is_open()) {

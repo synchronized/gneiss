@@ -3,10 +3,10 @@
 
 #pragma once
 
-#include "editor_camera.hpp"
-#include "editor_command_history.hpp"
-#include "editor_session.hpp"
+#include "commands/editor_command_history.hpp"
+#include "documents/scene_document.hpp"
 #include "runtime/loading/scene_load_types.hpp"
+#include "viewport/editor_camera.hpp"
 
 namespace gneiss::editor {
 
@@ -14,7 +14,7 @@ namespace gneiss::editor {
 class editor_scene_loader final {
 public:
   result request(engine::application& application, std::string_view uri);
-  result advance(engine::application& application, editor_session& session, gneiss_world& world,
+  result advance(engine::application& application, scene_document& session, gneiss_world& world,
                  editor_camera& camera, editor_command_history& history, bool& changed);
   result cancel(engine::application& application);
   void dismiss() noexcept {

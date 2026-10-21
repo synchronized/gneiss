@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "../../../tests/support/c_owner.hpp"
-#include "editor_camera.hpp"
+#include "viewport/editor_camera.hpp"
 
 #include <gneiss/engine/world.hpp>
 

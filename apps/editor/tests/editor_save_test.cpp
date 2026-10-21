@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "../../../tests/support/c_owner.hpp"
-#include "editor_session.hpp"
+#include "documents/scene_document.hpp"
 #include "runtime/application_registry.hpp"
 
 #include <gneiss/engine/application.h>
@@ -70,7 +70,7 @@ int main() try {
 
   gneiss::test_support::application_owner application;
   gneiss_world world = GNEISS_NULL_WORLD;
-  gneiss::editor::editor_session session;
+  gneiss::editor::scene_document session;
   if (create_application(root, application) != gneiss::result::success ||
       gneiss::result{gneiss_application_get_world(application.get(), &world)} !=
           gneiss::result::success ||

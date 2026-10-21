@@ -3,16 +3,16 @@
 
 add_library(
   gneiss_editor_ui STATIC
-  transform_gizmo_view.cpp
-  transform_gizmo_view.hpp
-  author_hierarchy_panel.cpp
-  author_hierarchy_panel.hpp
-  author_property_panel.cpp
-  author_property_panel.hpp
-  console_panel.cpp
-  console_panel.hpp
-  runtime_panels.cpp
-  runtime_panels.hpp
+  viewport/transform_gizmo_view.cpp
+  viewport/transform_gizmo_view.hpp
+  panels/author_hierarchy_panel.cpp
+  panels/author_hierarchy_panel.hpp
+  panels/author_property_panel.cpp
+  panels/author_property_panel.hpp
+  panels/console_panel.cpp
+  panels/console_panel.hpp
+  panels/runtime_panels.cpp
+  panels/runtime_panels.hpp
   editor_ui.cpp
   editor_ui.hpp
   editor_theme.cpp
@@ -20,7 +20,7 @@ add_library(
   imgui_adapter.cpp
   imgui_adapter.hpp
 )
-target_link_libraries(gneiss_editor_ui PUBLIC gneiss::engine gneiss_imgui gneiss_editor_model PRIVATE gneiss_editor_session gneiss_imguizmo)
+target_link_libraries(gneiss_editor_ui PUBLIC gneiss::engine gneiss_imgui gneiss_editor_model PRIVATE gneiss_scene_document gneiss_imguizmo)
 target_include_directories(gneiss_editor_ui PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(gneiss_editor_ui PRIVATE gneiss_native_interface)
 target_compile_features(gneiss_editor_ui PUBLIC cxx_std_20)
@@ -59,7 +59,7 @@ if(TARGET gneiss_asset_import_sdk)
   target_compile_features(gneiss_editor_assets PUBLIC cxx_std_20)
   gneiss_target_compile_warnings(gneiss_editor_assets)
   gneiss_target_output_directories(gneiss_editor_assets)
-  target_sources(gneiss_editor_ui PRIVATE asset_browser_panel.cpp asset_browser_panel.hpp)
+  target_sources(gneiss_editor_ui PRIVATE panels/asset_browser_panel.cpp panels/asset_browser_panel.hpp)
   target_link_libraries(gneiss_editor_ui PRIVATE gneiss_editor_assets)
 endif()
 
@@ -74,24 +74,24 @@ add_library(
   runtime_property_edits.hpp
   console_model.cpp
   console_model.hpp
-  author_transaction.cpp
-  author_transaction.hpp
-  native_author_transaction.cpp
-  native_author_transaction.hpp
-  prefab_authoring.cpp
-  prefab_authoring.hpp
-  property_inspector_model.cpp
-  property_inspector_model.hpp
-  editor_command_history.cpp
-  editor_command_history.hpp
-  editor_camera.cpp
-  editor_camera.hpp
-  editor_grid.cpp
-  editor_grid.hpp
-  editor_rotation_math.cpp
-  editor_rotation_math.hpp
-  transform_gizmo_math.cpp
-  transform_gizmo_math.hpp
+  commands/author_transaction.cpp
+  commands/author_transaction.hpp
+  commands/native_author_transaction.cpp
+  commands/native_author_transaction.hpp
+  commands/prefab_authoring.cpp
+  commands/prefab_authoring.hpp
+  panels/property_inspector_model.cpp
+  panels/property_inspector_model.hpp
+  commands/editor_command_history.cpp
+  commands/editor_command_history.hpp
+  viewport/editor_camera.cpp
+  viewport/editor_camera.hpp
+  viewport/editor_grid.cpp
+  viewport/editor_grid.hpp
+  viewport/editor_rotation_math.cpp
+  viewport/editor_rotation_math.hpp
+  viewport/transform_gizmo_math.cpp
+  viewport/transform_gizmo_math.hpp
 )
 target_link_libraries(gneiss_editor_model PUBLIC gneiss::engine PRIVATE gneiss_yyjson)
 target_include_directories(gneiss_editor_model PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
@@ -102,23 +102,23 @@ gneiss_target_output_directories(gneiss_editor_model)
 
 # 场景编辑状态与 Gizmo 事务不依赖宿主工程、进程或 IPC。
 add_library(
-  gneiss_editor_session STATIC
+  gneiss_scene_document STATIC
   runtime_launch.cpp
   runtime_launch.hpp
-  asset_scene_commands.cpp
-  asset_scene_commands.hpp
-  author_property_edit.cpp
-  author_property_edit.hpp
-  runtime_author_apply.cpp
-  runtime_author_apply.hpp
-  editor_session.cpp
-  editor_session.hpp
-  transform_gizmo_drag.cpp
-  transform_gizmo_drag.hpp
+  commands/asset_scene_commands.cpp
+  commands/asset_scene_commands.hpp
+  commands/author_property_edit.cpp
+  commands/author_property_edit.hpp
+  commands/runtime_author_apply.cpp
+  commands/runtime_author_apply.hpp
+  documents/scene_document.cpp
+  documents/scene_document.hpp
+  viewport/transform_gizmo_drag.cpp
+  viewport/transform_gizmo_drag.hpp
 )
-target_link_libraries(gneiss_editor_session PUBLIC gneiss_editor_model)
-target_include_directories(gneiss_editor_session PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
-target_link_libraries(gneiss_editor_session PUBLIC gneiss_native_interface)
-target_compile_features(gneiss_editor_session PUBLIC cxx_std_20)
-gneiss_target_compile_warnings(gneiss_editor_session)
-gneiss_target_output_directories(gneiss_editor_session)
+target_link_libraries(gneiss_scene_document PUBLIC gneiss_editor_model)
+target_include_directories(gneiss_scene_document PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
+target_link_libraries(gneiss_scene_document PUBLIC gneiss_native_interface)
+target_compile_features(gneiss_scene_document PUBLIC cxx_std_20)
+gneiss_target_compile_warnings(gneiss_scene_document)
+gneiss_target_output_directories(gneiss_scene_document)

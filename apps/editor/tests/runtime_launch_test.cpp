@@ -2,9 +2,9 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "../../../tests/support/c_owner.hpp"
+#include "commands/runtime_author_apply.hpp"
 #include "project_workspace.hpp"
 #include "runtime/application_registry.hpp"
-#include "runtime_author_apply.hpp"
 #include "runtime_launch.hpp"
 
 #include <gneiss/engine/application.h>
@@ -43,7 +43,7 @@ int main() try {
 
   gneiss::test_support::application_owner author_application;
   gneiss_world author_world = GNEISS_NULL_WORLD;
-  gneiss::editor::editor_session author_session;
+  gneiss::editor::scene_document author_session;
   if (create_application(project.asset_root, author_application) != gneiss::result::success ||
       gneiss::result{gneiss_application_get_world(author_application.get(), &author_world)} !=
           gneiss::result::success ||
@@ -109,7 +109,7 @@ int main() try {
 
   gneiss::test_support::application_owner runtime_application;
   gneiss_world runtime_world = GNEISS_NULL_WORLD;
-  gneiss::editor::editor_session runtime_session;
+  gneiss::editor::scene_document runtime_session;
   if (create_application(project.asset_root, runtime_application) != gneiss::result::success ||
       gneiss::result{gneiss_application_get_world(runtime_application.get(), &runtime_world)} !=
           gneiss::result::success ||

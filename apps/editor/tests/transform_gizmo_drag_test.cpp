@@ -3,7 +3,7 @@
 
 #include "../../../tests/support/c_owner.hpp"
 #include "runtime/application_registry.hpp"
-#include "transform_gizmo_drag.hpp"
+#include "viewport/transform_gizmo_drag.hpp"
 
 #include <gneiss/engine/application.h>
 #include <gneiss/engine/input.hpp>
@@ -43,7 +43,7 @@ int main() try {
   desc.asset_root_length = static_cast<std::uint32_t>(root.size());
   gneiss::test_support::application_owner application;
   gneiss_world world = GNEISS_NULL_WORLD;
-  gneiss::editor::editor_session session;
+  gneiss::editor::scene_document session;
   if (gneiss::result{gneiss_application_create(&desc, application.put())} != result::success ||
       gneiss::result{gneiss_application_get_world(application.get(), &world)} != result::success ||
       session.open(*gneiss::application_internal::find_application(application.get()), world,

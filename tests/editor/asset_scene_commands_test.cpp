@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "../support/c_owner.hpp"
-#include "asset_scene_commands.hpp"
+#include "commands/asset_scene_commands.hpp"
 #include "runtime/application_registry.hpp"
 
 #include <gneiss/engine/application.h>
@@ -22,7 +22,7 @@ int main() try {
   desc.asset_root_length = static_cast<std::uint32_t>(assets.size());
   gneiss::test_support::application_owner app;
   gneiss_world world = GNEISS_NULL_WORLD;
-  editor_session session;
+  scene_document session;
   editor_command_history history;
   if (gneiss::result{gneiss_application_create(&desc, app.put())}.failed() ||
       gneiss::result{gneiss_application_get_world(app.get(), &world)}.failed() ||

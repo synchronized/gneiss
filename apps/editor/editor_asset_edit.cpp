@@ -4,7 +4,7 @@
 #include "runtime/application.hpp"
 
 namespace gneiss::editor {
-result editor_asset_edit::commit_add(engine::application& application, editor_session& session,
+result editor_asset_edit::commit_add(engine::application& application, scene_document& session,
                                      editor_command_history& history) {
   return history.execute({
       .label = "创建 Mesh Renderer 节点",
@@ -49,7 +49,7 @@ result editor_asset_edit::commit_add(engine::application& application, editor_se
   });
 }
 
-result editor_asset_edit::commit(engine::application& application, editor_session& session,
+result editor_asset_edit::commit(engine::application& application, scene_document& session,
                                  editor_command_history& history) {
   if (session.scene_handle() != scene_) {
     return result::invalid_state;
@@ -80,17 +80,17 @@ result editor_asset_edit::commit(engine::application& application, editor_sessio
   return operation;
 }
 
-result editor_asset_edit::request(engine::application& application, editor_session& session,
+result editor_asset_edit::request(engine::application& application, scene_document& session,
                                   editor_command_history& history, std::string_view uuid,
                                   mesh_asset_reference assets) {
   return request_impl(application, session, history, uuid, assets, false);
 }
-result editor_asset_edit::request_add(engine::application& application, editor_session& session,
+result editor_asset_edit::request_add(engine::application& application, scene_document& session,
                                       editor_command_history& history, std::string_view name,
                                       mesh_asset_reference assets) {
   return request_impl(application, session, history, name, assets, true);
 }
-result editor_asset_edit::request_impl(engine::application& application, editor_session& session,
+result editor_asset_edit::request_impl(engine::application& application, scene_document& session,
                                        editor_command_history& history, std::string_view target,
                                        mesh_asset_reference assets, bool creating) try {
   if (active_) {
@@ -181,7 +181,7 @@ result editor_asset_edit::request_impl(engine::application& application, editor_
   return operation_ = result::internal;
 }
 
-void editor_asset_edit::advance(engine::application& application, editor_session& session,
+void editor_asset_edit::advance(engine::application& application, scene_document& session,
                                 editor_command_history& history) {
   if (!active_) {
     return;

@@ -4,9 +4,9 @@
 #include "../../../tests/support/c_owner.hpp"
 #include "asset_browser_model.hpp"
 #include "asset_import_controller.hpp"
-#include "editor_command_history.hpp"
+#include "commands/editor_command_history.hpp"
+#include "documents/scene_document.hpp"
 #include "editor_project.hpp"
-#include "editor_session.hpp"
 #include "runtime/application_registry.hpp"
 
 #include <gneiss/engine/application.h>
@@ -65,7 +65,7 @@ void write_text(const std::filesystem::path& path, std::string_view text) {
   output.write(text.data(), static_cast<std::streamsize>(text.size()));
 }
 
-[[nodiscard]] std::size_t count_prefab_name(const gneiss::editor::editor_session& session,
+[[nodiscard]] std::size_t count_prefab_name(const gneiss::editor::scene_document& session,
                                             std::string_view name) {
   return static_cast<std::size_t>(std::ranges::count_if(
       session.prefab_nodes(), [name](const auto& node) { return node.display_name == name; }));
@@ -134,7 +134,7 @@ int main() try { // NOLINT(bugprone-exception-escape): 测试入口统一返回�
 
   gneiss::test_support::application_owner application;
   gneiss_world world = GNEISS_NULL_WORLD;
-  gneiss::editor::editor_session session;
+  gneiss::editor::scene_document session;
   if (create_application(project.asset_root, application) != gneiss::result::success ||
       gneiss::result{gneiss_application_get_world(application.get(), &world)} !=
           gneiss::result::success ||
@@ -242,7 +242,7 @@ int main() try { // NOLINT(bugprone-exception-escape): 测试入口统一返回�
   }
   session.close();
 
-  gneiss::editor::editor_session reloaded;
+  gneiss::editor::scene_document reloaded;
   if (reloaded.open(*gneiss::application_internal::find_application(application.get()), world,
                     project.startup_scene) != gneiss::result::success ||
       reloaded.find_node(snapshot.uuid) == nullptr || reloaded.prefab_nodes().size() != 15U ||

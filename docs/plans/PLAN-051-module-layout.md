@@ -176,3 +176,12 @@ Session 初始化成功后才发布活动域。
 拥有一个 World 及其 Scene 实例。它们不是三份相同场景状态，不能为减少类数量合并
 而改变取消、旧状态保留和延迟清理。Session 中的资源重载编排仍待独立审查，批次 F
 尚未整体完成。
+
+## Editor 目录与文档对象迁移
+
+已将 editor_session 改为 documents/scene_document，调用方和 CMake 使用新名称，
+不保留别名。已有命令、视口与面板分别归入 commands/viewport/panels；没有新增对象状态。
+文档暂维持现有 close 卸载场景契约，历史仍由宿主装配。后续先审查宿主 editor_state
+中的文档、历史和异步编辑协作，再迁移 Editor Application；不直接移动进程/IPC 代码
+使 src/editor 反向依赖 Apps。验收见
+[Editor 布局记录](../records/2026-10-21-editor-document-layout.md)。

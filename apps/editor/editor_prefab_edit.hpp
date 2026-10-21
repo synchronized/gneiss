@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include "editor_command_history.hpp"
-#include "editor_session.hpp"
+#include "commands/editor_command_history.hpp"
+#include "documents/scene_document.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include <memory>
 namespace gneiss::editor {
@@ -14,12 +14,12 @@ public:
   editor_prefab_edit();
   ~editor_prefab_edit();
   result request(engine::application& application, tasks::task_executor& executor,
-                 editor_session& session, editor_command_history& history, std::string_view name,
+                 scene_document& session, editor_command_history& history, std::string_view name,
                  std::string_view uri, scene_node_id parent);
-  result request_remove(engine::application& application, editor_session& session,
+  result request_remove(engine::application& application, scene_document& session,
                         editor_command_history& history, scene_node_id root);
   result request_refresh(engine::application& application, tasks::task_executor& executor,
-                         editor_session& session, editor_command_history& history,
+                         scene_document& session, editor_command_history& history,
                          scene_node_id root);
   void advance();
   void cancel();

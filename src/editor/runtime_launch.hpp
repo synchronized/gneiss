@@ -4,7 +4,7 @@
 #ifndef GNEISS_APPS_EDITOR_RUNTIME_LAUNCH_H_
 #define GNEISS_APPS_EDITOR_RUNTIME_LAUNCH_H_
 
-#include "editor_session.hpp"
+#include "documents/scene_document.hpp"
 
 #include <filesystem>
 
@@ -18,12 +18,12 @@ struct runtime_launch_request final {
 };
 
 /** 检查作者会话是否可以从磁盘启动；脏场景必须先显式保存。 */
-[[nodiscard]] runtime_launch_state inspect_runtime_launch(const editor_session& session,
+[[nodiscard]] runtime_launch_state inspect_runtime_launch(const scene_document& session,
                                                           const std::filesystem::path& project_root,
                                                           runtime_launch_request& output) noexcept;
 
 /** 保存脏场景并生成仅包含工程根的 Runtime 启动请求。 */
-[[nodiscard]] result save_and_prepare_runtime_launch(editor_session& session,
+[[nodiscard]] result save_and_prepare_runtime_launch(scene_document& session,
                                                      const std::filesystem::path& asset_root,
                                                      const std::filesystem::path& project_root,
                                                      runtime_launch_request& output) noexcept;

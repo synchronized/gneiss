@@ -37,7 +37,7 @@ void run(tasks::execution_mode mode) {
   desc.asset_root_length = static_cast<std::uint32_t>(root.size());
   check(gneiss::result{gneiss_application_create(&desc, app.put())} == result::success);
   check(application_internal::attach_task_executor(app.get(), scheduler) == GNEISS_SUCCESS);
-  editor::editor_session session;
+  editor::scene_document session;
   editor::editor_camera camera;
   editor::editor_command_history history;
   editor::editor_scene_loader loader;

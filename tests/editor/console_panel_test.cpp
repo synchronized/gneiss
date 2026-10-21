@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "console_panel.hpp"
+#include "panels/console_panel.hpp"
 
 #include <imgui.h>
 

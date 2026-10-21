@@ -68,8 +68,8 @@ clang-format -i <files...>
 | 私有数据成员 | 小写下划线并带末尾下划线 | `world_id_` |
 | 模板参数 | 描述性 PascalCase | `ResourceType` |
 
-内部原生类型与外部 SDK 包装均保持小写下划线，通过 `gneiss::engine` 和 `gneiss::sdk`
-区分职责。命名空间迁移不改变类型大小写规范，见 ADR-062 的后续澄清。
+内部原生类型与公共共享值类型保持小写下划线，通过模块命名空间区分职责。
+公共对象 SDK 已删除，见 ADR-070；不以类型名大小写区分内外接口。
 
 缩写视为普通单词，例如使用 `entity_id`、`resource_id`，不使用 `entityID` 或 `resourceID`。RID 作为项目术语可以出现在文档中，代码标识符使用 `rid`。
 

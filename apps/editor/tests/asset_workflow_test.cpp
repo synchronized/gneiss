@@ -3,7 +3,7 @@
 
 #include "../../../tests/support/c_owner.hpp"
 #include "asset_reimport_queue.hpp"
-#include "editor_session.hpp"
+#include "documents/scene_document.hpp"
 #include "package_archive.hpp"
 #include "project_workspace.hpp"
 #include "runtime/application_registry.hpp"
@@ -95,7 +95,7 @@ int main() try {
   desc.asset_root = asset_root.data();
   desc.asset_root_length = static_cast<std::uint32_t>(asset_root.size());
   gneiss_world world{};
-  editor_session session;
+  scene_document session;
   scene_node_id node;
   if (gneiss::result{gneiss_application_create(&desc, app.put())} != result::success ||
       gneiss::result{gneiss_application_get_world(app.get(), &world)} != result::success ||

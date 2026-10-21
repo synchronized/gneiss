@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "author_property_panel.hpp"
+#include "panels/author_property_panel.hpp"
 
 #include <imgui.h>
 

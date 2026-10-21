@@ -445,7 +445,7 @@ endforeach()
 
 file(MAKE_DIRECTORY "${fixture}/src/editor")
 foreach(content IN ITEMS "gneiss_scene_instance_load();" "scene_instance scene_;" "gneiss_world_entity_create();")
-  file(WRITE "${fixture}/src/editor/editor_session.cpp" "${content}\n")
+  file(WRITE "${fixture}/src/editor/documents/scene_document.cpp" "${content}\n")
   execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
     -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
     RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
@@ -453,10 +453,10 @@ foreach(content IN ITEMS "gneiss_scene_instance_load();" "scene_instance scene_;
     message(FATAL_ERROR "编辑会话边界未拒绝 ABI 回退：${content}")
   endif()
 endforeach()
-file(WRITE "${fixture}/src/editor/editor_session.cpp" "")
+file(WRITE "${fixture}/src/editor/documents/scene_document.cpp" "")
 
 foreach(content IN ITEMS "gneiss::sdk::world owner;" "gneiss_type_registry_create();")
-  file(WRITE "${fixture}/src/editor/property_inspector_model.cpp" "${content}\n")
+  file(WRITE "${fixture}/src/editor/panels/property_inspector_model.cpp" "${content}\n")
   execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
     -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
     RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
@@ -464,10 +464,10 @@ foreach(content IN ITEMS "gneiss::sdk::world owner;" "gneiss_type_registry_creat
     message(FATAL_ERROR "编辑模型边界未拒绝 SDK/Registry 回退：${content}")
   endif()
 endforeach()
-file(WRITE "${fixture}/src/editor/property_inspector_model.cpp" "")
+file(WRITE "${fixture}/src/editor/panels/property_inspector_model.cpp" "")
 
 foreach(content IN ITEMS "gneiss_property_value value;" "auto kind = GNEISS_PROPERTY_KIND_VEC3;")
-  file(WRITE "${fixture}/src/editor/property_inspector_model.cpp" "${content}\n")
+  file(WRITE "${fixture}/src/editor/panels/property_inspector_model.cpp" "${content}\n")
   execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
     -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
     RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
@@ -475,16 +475,16 @@ foreach(content IN ITEMS "gneiss_property_value value;" "auto kind = GNEISS_PROP
     message(FATAL_ERROR "原生属性边界未拒绝 C 布局：${content}")
   endif()
 endforeach()
-file(WRITE "${fixture}/src/editor/property_inspector_model.cpp" "")
+file(WRITE "${fixture}/src/editor/panels/property_inspector_model.cpp" "")
 
-file(WRITE "${fixture}/src/editor/editor_grid.hpp" "#include \"../engine/function/render/draw_types.hpp\"\n")
+file(WRITE "${fixture}/src/editor/viewport/editor_grid.hpp" "#include \"../engine/function/render/draw_types.hpp\"\n")
 execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
   -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
   RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
 if(status EQUAL 0)
   message(FATAL_ERROR "Editor 父目录越界未被拒绝")
 endif()
-file(WRITE "${fixture}/src/editor/editor_grid.hpp" "")
+file(WRITE "${fixture}/src/editor/viewport/editor_grid.hpp" "")
 
 # 输入服务只使用资产值与运行时输入状态，不接管加载后端。
 file(MAKE_DIRECTORY "${fixture}/src/engine/function/input")
@@ -564,7 +564,7 @@ foreach(layer IN ITEMS core platform resource function/scene api)
     message(FATAL_ERROR "未拒绝 Engine ${layer} 反向依赖 Runtime")
   endif()
 endforeach()
-foreach(header IN ITEMS editor/editor_session.hpp apps/editor/main.hpp tooling/asset_build.hpp)
+foreach(header IN ITEMS editor/documents/scene_document.hpp apps/editor/main.hpp tooling/asset_build.hpp)
   file(WRITE "${fixture}/src/runtime/probe.cpp" "#include <${header}>\n")
   execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
     -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"

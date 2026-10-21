@@ -45,7 +45,7 @@ add_library(
 target_link_libraries(
   gneiss_editor_host
   PRIVATE gneiss_yyjson gneiss_child_process
-  PUBLIC gneiss::engine gneiss_editor_session gneiss_app_project gneiss_app_ipc_protocol
+  PUBLIC gneiss::engine gneiss_scene_document gneiss_app_project gneiss_app_ipc_protocol
 )
 target_include_directories(
   gneiss_editor_host
@@ -150,7 +150,7 @@ if(BUILD_TESTING)
   gneiss_target_output_directories(gneiss_editor_gizmo_input_replay_test)
   add_test(NAME gneiss.editor.gizmo-input-replay COMMAND gneiss_editor_gizmo_input_replay_test)
   add_executable(gneiss_editor_transform_gizmo_drag_test tests/transform_gizmo_drag_test.cpp)
-  target_link_libraries(gneiss_editor_transform_gizmo_drag_test PRIVATE gneiss_editor_session)
+  target_link_libraries(gneiss_editor_transform_gizmo_drag_test PRIVATE gneiss_scene_document)
   target_compile_definitions(gneiss_editor_transform_gizmo_drag_test PRIVATE
     GNEISS_EDITOR_TEST_ASSET_ROOT="${PROJECT_SOURCE_DIR}/tests/data/assets")
   gneiss_target_compile_warnings(gneiss_editor_transform_gizmo_drag_test)
@@ -162,7 +162,7 @@ if(BUILD_TESTING)
   gneiss_target_output_directories(gneiss_editor_ui_layout_test)
   add_test(NAME gneiss.editor.ui-layout COMMAND gneiss_editor_ui_layout_test)
   add_executable(gneiss_editor_session_test tests/editor_session_test.cpp)
-  target_link_libraries(gneiss_editor_session_test PRIVATE gneiss_editor_session)
+  target_link_libraries(gneiss_editor_session_test PRIVATE gneiss_scene_document)
   target_compile_definitions(
     gneiss_editor_session_test
     PRIVATE GNEISS_EDITOR_TEST_ASSET_ROOT="${PROJECT_SOURCE_DIR}/tests/data/assets"
@@ -180,7 +180,7 @@ if(BUILD_TESTING)
   gneiss_target_output_directories(gneiss_editor_project_workspace_test)
   add_test(NAME gneiss.editor.project-workspace COMMAND gneiss_editor_project_workspace_test)
   add_executable(gneiss_editor_save_test tests/editor_save_test.cpp)
-  target_link_libraries(gneiss_editor_save_test PRIVATE gneiss_editor_session)
+  target_link_libraries(gneiss_editor_save_test PRIVATE gneiss_scene_document)
   target_compile_definitions(
     gneiss_editor_save_test
     PRIVATE GNEISS_EDITOR_TEST_ASSET_ROOT="${PROJECT_SOURCE_DIR}/tests/data/assets"

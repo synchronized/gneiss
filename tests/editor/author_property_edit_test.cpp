@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "../support/c_owner.hpp"
-#include "author_property_edit.hpp"
+#include "commands/author_property_edit.hpp"
 #include "runtime/application_registry.hpp"
 
 #include <gneiss/engine/application.h>
@@ -20,7 +20,7 @@ int main() try {
   using namespace gneiss::editor;
   gneiss::test_support::application_owner app;
   gneiss_world world_handle = GNEISS_NULL_WORLD;
-  editor_session session;
+  scene_document session;
   property_inspector_model inspector;
   editor_command_history history;
   scene_node_id first;

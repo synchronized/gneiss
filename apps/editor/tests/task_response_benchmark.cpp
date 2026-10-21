@@ -4,7 +4,7 @@
 #include "../../../tests/support/c_owner.hpp"
 #include "asset_background_worker.hpp"
 #include "author_asset_service.hpp"
-#include "editor_session.hpp"
+#include "documents/scene_document.hpp"
 #include "runtime/application_registry.hpp"
 
 #include <gneiss/engine/application.h>
@@ -87,7 +87,7 @@ void run(const std::filesystem::path& root, const std::filesystem::path& source)
   desc.asset_root_length = static_cast<std::uint32_t>(asset_text.size());
   gneiss::test_support::application_owner app;
   gneiss_world world{};
-  editor_session session;
+  scene_document session;
   require(gneiss::result{gneiss_application_create(&desc, app.put())} == result::success &&
               gneiss::result{gneiss_application_get_world(app.get(), &world)} == result::success,
           "基准应用创建失败");

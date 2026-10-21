@@ -2,8 +2,8 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "../../../tests/support/c_owner.hpp"
-#include "native_author_transaction.hpp"
-#include "prefab_authoring.hpp"
+#include "commands/native_author_transaction.hpp"
+#include "commands/prefab_authoring.hpp"
 
 #include <gneiss/engine/application.h>
 #include <gneiss/engine/input.hpp>

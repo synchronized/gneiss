@@ -173,8 +173,8 @@ Engine 公共接口统一位于 `include/gneiss/engine/`，基础类型位于其
 | Scene 服务契约 | `src/engine/function/scene/scene_instance_service.hpp` | 通过强类型节点 ID 操作实例；借用所属 World |
 | Scene 私有实例 | `src/engine/function/scene/scene_instance.hpp` | 维护节点、作者描述及所使用资源版本的租约，不向宿主提供头文件 |
 | Prefab 候选事务 | `src/engine/function/scene/prefab_candidate.hpp` | 独占未发布候选或退休实例；支持移动与分步清理，不暴露运行时实现 |
-| 作者文档 | `src/editor/editor_session.hpp` | 借用 Application、拥有文档的场景实例 ID；关闭时卸载，不能晚于 Application 销毁 |
-| 反射属性编辑 | `src/editor/property_inspector_model.hpp`、`apps/runtime/runtime_property_editor.hpp` | 直接持有同一内部 Registry 实现；字段回调仍使用已定义的目标协议 |
+| 作者文档 | `src/editor/documents/scene_document.hpp` | 借用 Application、拥有文档的场景实例 ID；关闭时卸载，不能晚于 Application 销毁 |
+| 反射属性编辑 | `src/editor/panels/property_inspector_model.hpp`、`apps/runtime/runtime_property_editor.hpp` | 直接持有同一内部 Registry 实现；字段回调仍使用已定义的目标协议 |
 | 外部调用 | `src/engine/api/`、`include/gneiss/engine/` | C 适配转换参数并委托，公共 C++ 头仅提供值类型与转换 |
 
 Editor 无需 Application 兼容桥；Runtime 仅在动态游戏模块这一真实 ABI 边界保留借用桥。
@@ -220,3 +220,14 @@ Scene 服务完成入口校验后转交实例，不直接修改这些事务的�
 管理 CPU 文档、输入资源请求与 Prefab 描述缓存。渲染租约缓存与 Loader 由 Application
 独立拥有，上传通道由应用加载流程装配。资源描述解析同在 resource，不依赖运行时实例化。
 管理器不进入安装 SDK，也不拥有编辑状态；缓存实现尚未全部统一到 CAORS。
+
+## Editor 的文档、命令与视口
+
+`src/editor/documents/scene_document.*` 是单个场景的编辑文档，绑定运行时场景，
+维护 URI、选择、脏状态和节点查询快照；close 卸载该实例，Application 必须比它长寿。
+它不拥有 World，也不负责运行时场景切换。Runtime 的 scene_session 继续管理活动与退役域。
+
+已有编辑操作与历史实现位于 `commands/`，相机、网格与 Gizmo 位于 `viewport/`，
+层级、属性、资源、控制台与运行时面板位于 `panels/`。根目录暂保留 UI 装配、主题、
+资产监控及运行时通信模型；Apps 中的 Editor 装配尚未迁入本层。
+撤销历史目前由宿主持有并在文档切换时清理，不宣称已实现文档独占历史或多文档宿主。

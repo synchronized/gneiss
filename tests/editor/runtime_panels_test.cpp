@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "runtime_panels.hpp"
+#include "panels/runtime_panels.hpp"
 
 #include <imgui.h>
 
