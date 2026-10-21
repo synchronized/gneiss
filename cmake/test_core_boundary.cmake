@@ -525,3 +525,15 @@ execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
 if(NOT status EQUAL 0)
   message(FATAL_ERROR "场景描述边界错误拒绝作者值")
 endif()
+
+file(MAKE_DIRECTORY "${fixture}/src/engine/function/asset")
+foreach(symbol IN ITEMS texture_load_service texture_upload_backend texture_load_completion)
+  file(WRITE "${fixture}/src/engine/function/asset/asset_manager.hpp" "struct ${symbol};\n")
+  execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
+    -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
+    RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
+  if(status EQUAL 0)
+    message(FATAL_ERROR "资产管理边界未拒绝渲染通道协议：${symbol}")
+  endif()
+endforeach()
+file(WRITE "${fixture}/src/engine/function/asset/asset_manager.hpp" "")

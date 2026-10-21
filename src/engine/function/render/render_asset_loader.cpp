@@ -964,3 +964,28 @@ gneiss_result render_asset_loader::reload_assets(std::span<const render_asset_re
 }
 
 } // namespace gneiss::render_internal
+
+namespace gneiss::render_internal {
+gneiss_result render_asset_loader::prepare_adoption(
+    std::span<const render_asset_lease> assets,
+    std::span<const asset_internal::asset_version_key> versions, texture_prepare_profile profile,
+    std::unique_ptr<asset_internal::resource_cache::prepared_adoption>& output) noexcept try {
+  if (versions.empty() || versions.size() != assets.size()) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  std::vector<asset_internal::resource_cache::version_selection> selections;
+  selections.reserve(versions.size());
+  for (std::size_t i = 0; i < versions.size(); ++i) {
+    if (!owns(assets[i])) {
+      return GNEISS_ERROR_INVALID_ARGUMENT;
+    }
+    selections.push_back(
+        {.selection = selection_key(versions[i].identity, profile), .version = versions[i]});
+  }
+  return cache_.prepare_adoption(selections, output);
+} catch (const std::bad_alloc&) {
+  return GNEISS_ERROR_OUT_OF_MEMORY;
+} catch (...) {
+  return GNEISS_ERROR_INTERNAL;
+}
+} // namespace gneiss::render_internal

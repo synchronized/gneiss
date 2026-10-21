@@ -139,7 +139,9 @@ ECS 组件保存数据或 RID；资源引用由场景绑定集合或对应服务
 批次 B 已完成资源盘点与输入资源职责迁移，见[记录](../records/2026-10-21-cpu-resource-boundaries.md)，
 Prefab/Scene 描述与作者属性值已迁入资产层，Registry 覆盖编辑留在功能层，见
 [描述分离记录](../records/2026-10-21-scene-resource-descriptions.md)。GPU 租约与其余职责仍待收敛，
-批次 B 尚未整体完成。其他批次尚未完成。详细 CAORS 平台限制见
+批次 B 尚未整体完成。批次 D 已先行移除管理器的上传通道工厂、设备配置和完成回执依赖，
+见[渲染通道分离记录](../records/2026-10-21-render-channel-boundary.md)；渲染租约所有权仍待拆分，
+不代表批次 D 或缓存合并完成。详细 CAORS 平台限制见
 [资源路径收敛计划](PLAN-051-caors-convergence.md)。
 
 ## 总体验收与风险

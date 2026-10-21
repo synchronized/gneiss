@@ -36,9 +36,10 @@ scene_session::attach_executor(tasks::task_executor& executor,
   auto loader = std::make_unique<scene_load_service>(executor, files, resources, *asset_owner_,
                                                      backend, notification);
   const auto profile = backend.profile;
-  auto textures =
-      asset_owner_->create_channel(executor, files, std::move(backend), std::move(notification));
-  asset_owner_->set_profile(profile);
+  auto textures = std::make_unique<render_internal::texture_load_service>(
+      executor, files, asset_owner_->render_loader(), std::move(backend), std::move(notification),
+      asset_owner_->documents());
+  asset_owner_->render_loader().set_default_profile(profile);
   loader_ = std::move(loader);
   textures_ = std::move(textures);
   return GNEISS_SUCCESS;
@@ -260,12 +261,13 @@ scene_session::accept_edit_assets(const render_internal::texture_load_completion
   if (!active_) {
     return GNEISS_ERROR_INVALID_STATE;
   }
-  if (!accept) {
+  if (!accept || completion.result != GNEISS_SUCCESS) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
   try {
     std::unique_ptr<asset_internal::resource_cache::prepared_adoption> prepared;
-    const auto result = asset_owner_->prepare_adoption(completion, prepared);
+    const auto result = asset_owner_->render_loader().prepare_adoption(
+        completion.assets, completion.versions, completion.profile, prepared);
     if (result != GNEISS_SUCCESS) {
       return result;
     }

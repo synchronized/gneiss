@@ -86,6 +86,12 @@ private:
 /** resources 必须晚于缓存及其所有资产租约销毁；租约析构会释放对应 RID。 */
 class render_asset_loader final {
 public:
+  /** 验证渲染租约并准备版本选择；调用者应用成功后提交，失败释放即可。
+   * 所属线程调用，准备对象须先于 Loader 借用的缓存销毁。 */
+  [[nodiscard]] gneiss_result prepare_adoption(
+      std::span<const render_asset_lease> assets,
+      std::span<const asset_internal::asset_version_key> versions, texture_prepare_profile profile,
+      std::unique_ptr<asset_internal::resource_cache::prepared_adoption>& output) noexcept;
   enum class publication_mode { reload, fixed_version };
   struct asset_candidate {
     publication_mode mode{publication_mode::reload};

@@ -1053,7 +1053,8 @@ gneiss_result application::query_ready_asset(const render_internal::render_asset
     return valid;
   }
   auto* service = texture_service();
-  return service ? storage_->asset_manager_->query_ready(source, service->profile(), output)
+  return service ? storage_->asset_manager_->render_loader().acquire_selected(
+                       source, service->profile(), output)
                  : GNEISS_ERROR_NOT_READY;
 }
 

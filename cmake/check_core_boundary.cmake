@@ -14,6 +14,11 @@ if(NOT sources)
 endif()
 foreach(source IN LISTS sources)
   file(READ "${source}" content)
+  if(source MATCHES "/src/engine/function/asset/asset_manager[.](cpp|hpp)$" AND
+      content MATCHES "texture_load_service|texture_upload_backend|texture_load_completion")
+    message(FATAL_ERROR "资产管理器不得依赖渲染上传通道或完成协议：${source}")
+  endif()
+
   if(source MATCHES "/src/engine/asset/(scene_description|prefab_description|prefab_property_data)[.](cpp|hpp)$" AND
       content MATCHES "#[ \t]*include[ \t]*[<\"]engine/core/reflection/(property_registry|type_registry|type_registry_state)[.]hpp")
     message(FATAL_ERROR "场景资产描述不得依赖运行时 Registry：${source}")

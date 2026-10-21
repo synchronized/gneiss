@@ -8,11 +8,14 @@
 #include "engine/asset/cpu_document_cache.hpp"
 #include "engine/asset/resource_cache.hpp"
 #include "engine/asset/virtual_file_system.hpp"
-#include "engine/function/render/texture_load_service.hpp"
+#include "engine/function/render/render_asset_loader.hpp"
 #include "engine/function/scene/prefab_asset_loader.hpp"
 #include <memory>
-#include <new>
 #include <utility>
+
+namespace gneiss::tasks {
+class task_executor;
+}
 
 namespace gneiss::engine {
 /** 应用级资产管理器。唯一拥有共享缓存和类型加载器，不拥有 World 或编辑状态。
@@ -42,15 +45,6 @@ public:
       documents_->collect();
     }
   }
-  void set_profile(render_internal::texture_prepare_profile profile) noexcept {
-    render_.set_default_profile(profile);
-  }
-  [[nodiscard]] gneiss_result
-  query_ready(const render_internal::render_asset_reload& source,
-              render_internal::texture_prepare_profile profile,
-              render_internal::render_asset_lease& output) const noexcept {
-    return render_.acquire_selected(source, profile, output);
-  }
   /** 阻塞加载入口，供离线/兼容调用；交互路径使用请求通道。
    * 输出类型决定 Loader，所有类型共用本管理器缓存及既有引用语义。 */
   [[nodiscard]] gneiss_result acquire(std::string_view uri,
@@ -77,46 +71,14 @@ public:
                                      render_internal::asset_diagnostic& diagnostic) noexcept {
     return render_.reload_assets(sources, diagnostic);
   }
-  /** 创建独立请求通道，供编辑或隔离候选使用；通道先于管理器销毁。 */
-  [[nodiscard]] std::unique_ptr<render_internal::texture_load_service>
-  create_channel(tasks::task_executor& executor, asset_internal::virtual_file_system files,
-                 render_internal::texture_upload_backend backend,
-                 std::shared_ptr<core::progress_notification> notification = {}) {
-    return std::make_unique<render_internal::texture_load_service>(
-        executor, std::move(files), render_, std::move(backend), std::move(notification),
-        documents_);
+  /** 共享 CPU 文档缓存的所有权以装配请求服务；不提供上传或设备配置。 */
+  [[nodiscard]] std::shared_ptr<asset_internal::cpu_document_cache> documents() const noexcept {
+    return documents_;
   }
   [[nodiscard]] gneiss_result prepare_adoption(
       std::span<const asset_internal::resource_cache::version_selection> selections,
       std::unique_ptr<asset_internal::resource_cache::prepared_adoption>& output) noexcept {
     return cache_.prepare_adoption(selections, output);
-  }
-  /** 只准备默认版本切换，不执行场景修改。调用者应用成功后 commit，失败直接释放。 */
-  [[nodiscard]] gneiss_result prepare_adoption(
-      const render_internal::texture_load_completion& completion,
-      std::unique_ptr<asset_internal::resource_cache::prepared_adoption>& output) noexcept try {
-    if (completion.result != GNEISS_SUCCESS || completion.versions.empty() ||
-        completion.versions.size() != completion.assets.size()) {
-      return GNEISS_ERROR_INVALID_ARGUMENT;
-    }
-    std::vector<asset_internal::resource_cache::version_selection> selections;
-    selections.reserve(completion.versions.size());
-    for (std::size_t i = 0; i < completion.versions.size(); ++i) {
-      if (!render_.owns(completion.assets[i])) {
-        return GNEISS_ERROR_INVALID_ARGUMENT;
-      }
-      const auto& version = completion.versions[i];
-      selections.push_back({
-          .selection = render_internal::render_asset_loader::selection_key(version.identity,
-                                                                           completion.profile),
-          .version = version,
-      });
-    }
-    return cache_.prepare_adoption(selections, output);
-  } catch (const std::bad_alloc&) {
-    return GNEISS_ERROR_OUT_OF_MEMORY;
-  } catch (...) {
-    return GNEISS_ERROR_INTERNAL;
   }
   /** 模块内装配借用；不暴露给安装 SDK。类型解析与候选构建仍由专用 Loader 执行。 */
   [[nodiscard]] render_internal::render_asset_loader& render_loader() noexcept { return render_; }

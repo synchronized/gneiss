@@ -78,9 +78,24 @@ void run() {
     scene_internal::scene_diagnostic prefab_diagnostic;
     check(active_assets.acquire("asset://p.prefab", prefab, prefab_diagnostic) == GNEISS_SUCCESS);
     check(prefab.get() != nullptr);
-    render_internal::texture_load_completion invalid;
     std::unique_ptr<asset_internal::resource_cache::prepared_adoption> prepared;
-    check(active_assets.prepare_adoption(invalid, prepared) == GNEISS_ERROR_INVALID_ARGUMENT);
+    check(active_assets.render_loader().prepare_adoption({}, {}, {}, prepared) ==
+          GNEISS_ERROR_INVALID_ARGUMENT);
+    check(!prepared);
+    const std::array<asset_internal::asset_version_key, 1> versions{};
+    check(active_assets.render_loader().prepare_adoption({}, versions, {}, prepared) ==
+          GNEISS_ERROR_INVALID_ARGUMENT);
+    const std::array<render_internal::render_asset_lease, 1> invalid_leases{};
+    check(active_assets.render_loader().prepare_adoption(invalid_leases, versions, {}, prepared) ==
+          GNEISS_ERROR_INVALID_ARGUMENT);
+    render_internal::render_resource_service foreign_resources;
+    engine::asset_manager foreign_assets(vfs, foreign_resources);
+    render_internal::mesh_asset_lease foreign_mesh;
+    check(foreign_assets.acquire("asset://m.mesh", foreign_mesh, diagnostic) == GNEISS_SUCCESS);
+    const std::array foreign_leases{
+        render_internal::render_asset_loader::asset_lease(foreign_mesh)};
+    check(active_assets.render_loader().prepare_adoption(foreign_leases, versions, {}, prepared) ==
+          GNEISS_ERROR_INVALID_ARGUMENT);
     check(!prepared);
   }
   auto active = std::make_unique<application_internal::application_scene_state>(active_assets);

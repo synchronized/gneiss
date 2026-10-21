@@ -387,7 +387,9 @@ void scene_load_service::advance_verification(pending& value) {
   {
     GNEISS_PROFILE_SCOPE("scene.assets.reset");
     diagnostics::measure(diagnostics::loop_stage::scene_asset_service_reset, [&] {
-      value.assets = asset_owner_.create_channel(executor_, files_, backend_, notification_);
+      value.assets = std::make_unique<render_internal::texture_load_service>(
+          executor_, files_, asset_owner_.render_loader(), backend_, notification_,
+          asset_owner_.documents());
     });
   }
 }
@@ -417,7 +419,9 @@ void scene_load_service::advance_impl() {
       finish(initialized, scene_load_phase::failed);
       return;
     }
-    value.assets = asset_owner_.create_channel(executor_, value.snapshot, backend_, notification_);
+    value.assets = std::make_unique<render_internal::texture_load_service>(
+        executor_, value.snapshot, asset_owner_.render_loader(), backend_, notification_,
+        asset_owner_.documents());
     value.requested = std::move(value.cpu->description.assets);
     progress.phase = scene_load_phase::assets;
     progress.total = value.requested.size();
