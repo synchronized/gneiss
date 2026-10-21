@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/function/input/action_map.hpp"
+#include "engine/asset/action_map.hpp"
 
 #include <yyjson.h>
 
@@ -33,7 +33,7 @@ using document_ptr = std::unique_ptr<yyjson_doc, decltype(&yyjson_doc_free)>;
 
 } // namespace
 
-namespace gneiss::input_internal {
+namespace gneiss::asset_internal {
 
 result parse_action_map(std::string_view json, action_map& out_map) noexcept {
   try {
@@ -111,4 +111,4 @@ result parse_action_map(std::string_view json, action_map& out_map) noexcept {
   }
 }
 
-} // namespace gneiss::input_internal
+} // namespace gneiss::asset_internal

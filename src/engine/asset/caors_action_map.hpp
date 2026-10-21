@@ -9,7 +9,7 @@
 namespace gneiss::caors_internal {
 class file_system_adapter;
 }
-namespace gneiss::input_internal {
+namespace gneiss::asset_internal {
 struct action_map_asset final : caors::resource {
   using caors::resource::resource;
   action_map map;
@@ -22,4 +22,4 @@ std::unique_ptr<action_map_loader> make_action_map_loader(
     caors_internal::file_system_adapter& files,
     std::function<result(std::string_view, std::span<const std::byte>)> verify = {});
 
-} // namespace gneiss::input_internal
+} // namespace gneiss::asset_internal

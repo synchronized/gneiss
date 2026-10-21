@@ -51,7 +51,7 @@ void input_service::clear_focus() noexcept {
   update_actions();
 }
 
-result input_service::replace_action_map(action_map map) noexcept {
+result input_service::replace_action_map(asset_internal::action_map map) noexcept {
   if (const auto valid = validate_action_map(map); valid.failed()) {
     return valid;
   }

@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#include "engine/function/input/action_map.hpp"
+#include "engine/asset/action_map.hpp"
 #include "engine/asset/virtual_file_system.hpp"
 #include <algorithm>
 
-namespace gneiss::input_internal {
+namespace gneiss::asset_internal {
 result verify_action_map_source(const asset_internal::virtual_file_system& files,
                                 std::string_view uri,
                                 std::span<const std::byte> original) noexcept {
@@ -38,4 +38,4 @@ result load_action_map(const asset_internal::virtual_file_system& file_system, s
   return result::success;
 }
 
-} // namespace gneiss::input_internal
+} // namespace gneiss::asset_internal

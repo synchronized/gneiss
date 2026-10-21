@@ -4,8 +4,8 @@
 #ifndef GNEISS_ENGINE_APPLICATION_HPP_
 #define GNEISS_ENGINE_APPLICATION_HPP_
 
+#include "engine/asset/action_map.hpp"
 #include "engine/core/input/input_types.hpp"
-#include "engine/function/input/action_map.hpp"
 #include <gneiss/engine/application.h>
 
 #include "engine/asset/virtual_file_system.hpp"

@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
+#include "engine/asset/caors_action_map.hpp"
 #include "engine/asset/caors_vfs_bridge.hpp"
 #include "engine/asset/native_file_system.hpp"
 #include "engine/asset/source_revision_file_system.hpp"
-#include "engine/function/input/caors_action_map.hpp"
-#include "engine/function/asset/caors_action_map_request.hpp"
 #include "engine/function/application/action_map_application.hpp"
+#include "engine/function/asset/caors_action_map_request.hpp"
 #include "engine/function/input/input_service.hpp"
 #include "uv_async_file.hpp"
 #include "uv_loop_executor.hpp"
@@ -166,7 +166,7 @@ void run(const char* root, bool scheduled) {
   // 同一 VFS 桥交给真实输入 Loader，不另建 CAORS 路由表。
   {
     using namespace gneiss::input_internal;
-  using namespace gneiss::application_internal;
+    using namespace gneiss::application_internal;
     caors::resources::cache<action_map_asset> cache;
     bool reject_revision = false;
     const auto host_thread = std::this_thread::get_id();
@@ -208,8 +208,8 @@ void run(const char* root, bool scheduled) {
           "verification failure preserves cached version");
     input_service input;
     action_map_application application;
-    check(application.begin(gneiss::engine::make_action_map_request(manager.request_load<action_map_asset>(id))) ==
-                  gneiss::result::success &&
+    check(application.begin(gneiss::engine::make_action_map_request(
+              manager.request_load<action_map_asset>(id))) == gneiss::result::success &&
               application.poll(input) == gneiss::result::success,
           "apply verified input");
     action_id action;

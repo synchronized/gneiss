@@ -25,7 +25,7 @@ result action_map_application::begin(std::unique_ptr<engine::action_map_request>
 result action_map_application::poll(input_internal::input_service& target) noexcept {
   if (state_ != action_map_apply_state::loading)
     return result_;
-  input_internal::action_map map;
+  asset_internal::action_map map;
   const auto loaded = request_ ? request_->take(map) : result::invalid_state;
   if (loaded == result::not_ready)
     return result::not_ready;

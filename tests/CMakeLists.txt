@@ -380,7 +380,7 @@ add_test(NAME gneiss.service_registry COMMAND gneiss_service_registry_test)
 add_executable(
   gneiss_input_service_test
   input/input_service_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/engine/function/input/action_map_validation.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/asset/action_map_validation.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/input/input_service.cpp"
 )
 target_include_directories(gneiss_input_service_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
@@ -393,9 +393,9 @@ add_test(NAME gneiss.input_service COMMAND gneiss_input_service_test)
 add_executable(
   gneiss_action_map_test
   input/action_map_test.cpp
-  "${PROJECT_SOURCE_DIR}/src/engine/function/input/action_map_validation.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/input/action_map.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/input/action_map_parser.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/asset/action_map_validation.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/asset/action_map.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/asset/action_map_parser.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/asset/asset_uri.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/asset/virtual_file_system.cpp"
 )
@@ -1042,11 +1042,11 @@ add_executable(gneiss_scene_load_builder_test scene/scene_load_builder_test.cpp
 # 测试直接构造私有 manager，编译其实现而不向 DLL 公共 ABI 导出内部类型。
 target_sources(gneiss_scene_load_builder_test PRIVATE
   "${PROJECT_SOURCE_DIR}/src/engine/function/asset/asset_manager.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/input/action_map.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/asset/action_map.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/asset/caors_action_map_request.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/input/caors_action_map_loader.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/input/action_map_parser.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/input/action_map_validation.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/asset/caors_action_map_loader.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/asset/action_map_parser.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/asset/action_map_validation.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/asset/cpu_document_cache.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/asset/caors_vfs_bridge.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/platform/caors/worker.cpp")

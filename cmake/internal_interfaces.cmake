@@ -36,7 +36,7 @@ gneiss_internal_headers(gneiss_native_interface "${PROJECT_SOURCE_DIR}/src"
   engine/function/application/prefab_preparation.hpp
   engine/function/application/scene_load_types.hpp
   engine/function/game/game_context_internal.hpp
-  engine/function/input/action_map.hpp
+  engine/asset/action_map.hpp
   engine/function/input/input_service.hpp
   engine/function/render/camera_math.hpp
   engine/function/render/camera_settings.hpp

@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "caors_action_map.hpp"
-namespace gneiss::input_internal {
+namespace gneiss::asset_internal {
 std::unique_ptr<action_map_loader>
 make_action_map_loader(caors_internal::file_system_adapter& files,
                        std::function<result(std::string_view, std::span<const std::byte>)> verify) {
@@ -14,4 +14,4 @@ make_action_map_loader(caors_internal::file_system_adapter& files,
       },
       std::move(verify), maximum_action_map_bytes);
 }
-} // namespace gneiss::input_internal
+} // namespace gneiss::asset_internal

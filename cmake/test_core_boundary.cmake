@@ -485,3 +485,24 @@ if(status EQUAL 0)
   message(FATAL_ERROR "Editor 父目录越界未被拒绝")
 endif()
 file(WRITE "${fixture}/src/editor/editor_grid.hpp" "")
+
+# 输入服务只使用资产值与运行时输入状态，不接管加载后端。
+file(MAKE_DIRECTORY "${fixture}/src/engine/function/input")
+foreach(header IN ITEMS "caors/assets/asset_manager.hpp" "engine/platform/caors/adapter.hpp"
+    "engine/asset/caors_action_map.hpp" "engine/asset/virtual_file_system.hpp"
+    "engine/function/asset/asset_manager.hpp")
+  file(WRITE "${fixture}/src/engine/function/input/probe.cpp" "#include <${header}>\n")
+  execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
+    -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
+    RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
+  if(status EQUAL 0)
+    message(FATAL_ERROR "输入服务边界未拒绝资源后端：${header}")
+  endif()
+endforeach()
+file(WRITE "${fixture}/src/engine/function/input/probe.cpp" "#include <engine/asset/action_map.hpp>\n")
+execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
+  -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
+  RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
+if(NOT status EQUAL 0)
+  message(FATAL_ERROR "输入服务边界错误拒绝纯资源值")
+endif()

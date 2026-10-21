@@ -4,10 +4,10 @@
 #define GNEISS_ENGINE_ASSET_MANAGER_HPP_
 
 #include "action_map_request.hpp"
+#include "engine/asset/action_map.hpp"
 #include "engine/asset/cpu_document_cache.hpp"
 #include "engine/asset/resource_cache.hpp"
 #include "engine/asset/virtual_file_system.hpp"
-#include "engine/function/input/action_map.hpp"
 #include "engine/function/render/texture_load_service.hpp"
 #include "engine/function/scene/prefab_asset_loader.hpp"
 #include <memory>
@@ -27,7 +27,7 @@ public:
   void attach_task_executor(tasks::task_executor& executor);
   /** 同步准备失败不改输出，不驱动宿主任务队列；采用与取消由调用者负责。 */
   [[nodiscard]] result load_input(std::string_view uri,
-                                  input_internal::action_map& output) noexcept;
+                                  asset_internal::action_map& output) noexcept;
   [[nodiscard]] result request_input(std::string_view uri,
                                      std::unique_ptr<action_map_request>& output) noexcept;
   void advance_resources();

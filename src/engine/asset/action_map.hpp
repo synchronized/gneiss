@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 
-#ifndef GNEISS_INPUT_ACTION_MAP_HPP_
-#define GNEISS_INPUT_ACTION_MAP_HPP_
+#ifndef GNEISS_ASSET_ACTION_MAP_HPP_
+#define GNEISS_ASSET_ACTION_MAP_HPP_
 
 #include <gneiss/engine/core/result.hpp>
 
@@ -16,20 +16,7 @@ namespace gneiss::asset_internal {
 class virtual_file_system;
 }
 
-namespace gneiss::input_internal {
-
-/** 只在所属输入服务及映射代次内有效；零值无效。 */
-struct action_id final {
-  std::uint64_t value{};
-  friend bool operator==(action_id, action_id) = default;
-};
-
-struct action_state final {
-  bool pressed{};
-  bool held{};
-  bool released{};
-  float value{};
-};
+namespace gneiss::asset_internal {
 
 struct action_binding final {
   std::uint32_t physical_key{};
@@ -59,6 +46,6 @@ inline constexpr std::size_t maximum_action_map_bytes = 1024U * 1024U;
 [[nodiscard]] result load_action_map(const asset_internal::virtual_file_system& file_system,
                                      std::string_view uri, action_map& out_map) noexcept;
 
-} // namespace gneiss::input_internal
+} // namespace gneiss::asset_internal
 
 #endif

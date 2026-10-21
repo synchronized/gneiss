@@ -91,7 +91,9 @@ engine::asset_manager 直接负责；输入待采用对象只接收请求，不�
 | function/asset/action_map_request.hpp | 原生输入资源请求契约 |
 | function/asset/caors_action_map_request.* | CAORS 请求结果适配 |
 | function/application/action_map_application.* | 请求替换、取消和一次采用 |
-| function/input/caors_action_map_loader.cpp | 输入类型解析适配 |
+| asset/caors_action_map_loader.cpp | 输入类型解析适配 |
 | function/input/input_service.* | 输入运行时状态 |
 
 后续同步缓存发布在资产层完成；不得再把“应用到输入服务”的回调放回 asset_manager。
+
+输入资源数据与 Loader 已迁出 Input 功能层，实时动作状态保持独立，见[职责盘点与迁移记录](../records/2026-10-21-cpu-resource-boundaries.md)。

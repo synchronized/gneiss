@@ -65,7 +65,7 @@ endif()
 target_sources(gneiss_engine PRIVATE
   src/engine/platform/caors/worker.cpp
   src/engine/asset/caors_vfs_bridge.cpp
-  src/engine/function/input/caors_action_map_loader.cpp
+  src/engine/asset/caors_action_map_loader.cpp
   src/engine/function/asset/caors_action_map_request.cpp
   src/engine/function/application/action_map_application.cpp)
 if(GNEISS_BUILD_TOOLS)

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
-#include "engine/function/input/action_map.hpp"
+#include "engine/asset/action_map.hpp"
 #include <memory>
 namespace gneiss::engine {
 /** 单次资源订阅；不推进队列、不应用到 InputService。
@@ -10,7 +10,7 @@ namespace gneiss::engine {
 class action_map_request {
 public:
   virtual ~action_map_request() = default;
-  virtual result take(input_internal::action_map& output) noexcept = 0;
+  virtual result take(asset_internal::action_map& output) noexcept = 0;
   virtual void cancel() noexcept = 0;
 };
 }

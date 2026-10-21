@@ -5,7 +5,7 @@ namespace gneiss::engine {
 namespace {
 class caors_request final : public action_map_request {
 public:
-  explicit caors_request(caors::resources::load_request<input_internal::action_map_asset> request)
+  explicit caors_request(caors::resources::load_request<asset_internal::action_map_asset> request)
       : request_(std::move(request)) {}
   ~caors_request() override { cancel(); }
   void cancel() noexcept override {
@@ -13,7 +13,7 @@ public:
     request_ = {};
     terminal_ = result::invalid_state;
   }
-  result take(input_internal::action_map& output) noexcept override {
+  result take(asset_internal::action_map& output) noexcept override {
     if (terminal_ != result::not_ready)
       return terminal_;
     if (!request_.done())
@@ -50,12 +50,12 @@ public:
   }
 
 private:
-  caors::resources::load_request<input_internal::action_map_asset> request_;
+  caors::resources::load_request<asset_internal::action_map_asset> request_;
   result terminal_ = result::not_ready;
 };
 }
 std::unique_ptr<action_map_request>
-make_action_map_request(caors::resources::load_request<input_internal::action_map_asset> request) {
+make_action_map_request(caors::resources::load_request<asset_internal::action_map_asset> request) {
   return std::make_unique<caors_request>(std::move(request));
 }
 }

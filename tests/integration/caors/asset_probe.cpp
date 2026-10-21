@@ -2,10 +2,10 @@
 // Copyright (c) 2026 Gneiss contributors
 
 // 独立接入验证：不链接 Engine DLL，不将 CAORS 对象带入公共 SDK。
+#include "engine/asset/caors_action_map.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/application/action_map_application.hpp"
 #include "engine/function/asset/caors_action_map_request.hpp"
-#include "engine/function/input/caors_action_map.hpp"
 #include "engine/function/input/input_service.hpp"
 #include "engine/platform/caors/adapter.hpp"
 #include "uv_async_file.hpp"
@@ -29,8 +29,8 @@ using caors::errc;
 using caors::error;
 using caors::error_domain;
 using gneiss::result;
-using gneiss::input_internal::action_map_asset;
-using gneiss::input_internal::action_map_loader;
+using gneiss::asset_internal::action_map_asset;
+using gneiss::asset_internal::action_map_loader;
 
 void require(bool condition, const char* message) {
   if (!condition)
@@ -200,7 +200,7 @@ int run(const char* asset_path) {
   caors::tasks::execution_context completions; // 主线程队列，无新线程。
   caors::resources::cache<action_map_asset> cache;
   auto files = gneiss::caors_internal::make_file_system(io);
-  auto loader_owner = gneiss::input_internal::make_action_map_loader(*files);
+  auto loader_owner = gneiss::asset_internal::make_action_map_loader(*files);
   auto& loader = *loader_owner;
   caors::assets::asset_manager manager({worker.get_executor(), completions.get_executor()});
   struct cleanup {
@@ -285,6 +285,7 @@ int run(const char* asset_path) {
   require(manager.find<action_map_asset>(guid(1)) == second.try_get().get(),
           "cancel keeps cached resource");
   using namespace gneiss::input_internal;
+  using namespace gneiss::asset_internal;
   using namespace gneiss::application_internal;
   input_service input;
   require(input.replace_action_map({{{"old", {{4, 1.0F}}}}}) == result::success,

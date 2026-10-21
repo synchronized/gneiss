@@ -8,6 +8,19 @@
 
 namespace gneiss::input_internal {
 
+/** 只在所属输入服务及映射代次内有效；零值无效。 */
+struct action_id final {
+  std::uint64_t value{};
+  friend bool operator==(action_id, action_id) = default;
+};
+
+struct action_state final {
+  bool pressed{};
+  bool held{};
+  bool released{};
+  float value{};
+};
+
 /** 平台与输入服务共享的值类型，不包含 ABI 布局或后端类型。 */
 enum class event_type : std::uint32_t {
   none,
