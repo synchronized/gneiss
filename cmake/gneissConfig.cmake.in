@@ -10,7 +10,7 @@ endif()
 
 if((@GNEISS_ENABLE_CAORS_INPUT@ OR @GNEISS_ENABLE_CAORS_MATERIAL@ OR @GNEISS_ENABLE_CAORS_MESH@) AND NOT @BUILD_SHARED_LIBS@)
   include(CMakeFindDependencyMacro)
-  find_dependency(caors 0.4 CONFIG)
+  find_dependency(caors 0.7 CONFIG)
 endif()
 
 set(GNEISS_RUNTIME_DIR "${PACKAGE_PREFIX_DIR}/@CMAKE_INSTALL_BINDIR@")

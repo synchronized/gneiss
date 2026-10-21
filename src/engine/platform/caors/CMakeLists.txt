@@ -6,7 +6,7 @@ if(NOT TARGET gneiss_io_uv)
 endif()
 include(FetchContent)
 include("${PROJECT_SOURCE_DIR}/cmake/dependency_source_cache.cmake")
-# MIT；固定已评审的 0.4.0 提交。Engine 可选集成只暴露 Gneiss 自身接口。
+# MIT；固定已评审的 0.7.0 提交。Engine 可选集成只暴露 Gneiss 自身接口。
 set(CAORS_BUILD_TESTING OFF CACHE BOOL "" FORCE)
 set(CAORS_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(CAORS_BUILD_BENCHMARKS OFF CACHE BOOL "" FORCE)
@@ -20,8 +20,8 @@ if(FETCHCONTENT_SOURCE_DIR_GNEISS_CAORS)
   FetchContent_Declare(gneiss_caors ${gneiss_caors_fetch_options})
 else()
   gneiss_cached_archive(caors
-    "https://codeload.github.com/synchronized/caors-core/tar.gz/cbe41b75223f52bec746cc23346b28eba90fa693"
-    "3eb5307c7fd9b978f228841a865c48222937e668c9b64b84eb7163af89ca1b09"
+    "https://codeload.github.com/synchronized/caors-core/tar.gz/3b543eb1549156a21e432af91da3abd98727fff8"
+    "0cdf9d9a585d6ceb4c49ff32eef585c8ceee26d4b09847519511d50b55f5c064"
     CMakeLists.txt cached_caors_source)
   FetchContent_Declare(gneiss_caors SOURCE_DIR "${cached_caors_source}"
     BINARY_DIR "${CMAKE_BINARY_DIR}/_deps/gneiss_caors-build" ${gneiss_caors_fetch_options})
