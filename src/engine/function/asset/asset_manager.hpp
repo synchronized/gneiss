@@ -23,8 +23,10 @@ public:
   asset_manager(asset_internal::virtual_file_system files,
                 render_internal::render_resource_service& resources);
   ~asset_manager();
-  /** 借用已启动 I/O 的 VFS 与宿主执行器；不创建独立线程池。 */
+  /** 借用 VFS 与宿主执行器；不创建独立线程池。 */
   void attach_input_loader(tasks::task_executor& executor);
+  /** 同步准备会取消旧异步采用；失败不改输出，也不驱动宿主任务队列。 */
+  [[nodiscard]] result load_input(std::string_view uri, input_internal::action_map& output) noexcept;
   [[nodiscard]] result begin_input(std::string_view uri) noexcept;
   [[nodiscard]] result input_status() const noexcept;
   [[nodiscard]] result cancel_input() noexcept;

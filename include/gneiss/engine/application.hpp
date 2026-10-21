@@ -36,7 +36,7 @@ public:
   [[nodiscard]] result get_keyboard_state(keyboard_state& output) const noexcept;
   /** 输出指针值快照；仅限创建线程。 */
   [[nodiscard]] result get_pointer_state(pointer_state& output) const noexcept;
-  /** 同步加载动作映射；成功使旧动作 ID 失效，失败保留原映射。 */
+  /** 同步加载并复验最多 1 MiB 的动作映射；成功使旧动作 ID 失效，失败保留原映射。 */
   [[nodiscard]] result load_action_map(std::string_view uri) const noexcept;
   /** 返回非拥有动作 ID；失败保留 output，仅限创建线程。 */
   [[nodiscard]] result find_action(std::string_view name, action_id& output) const noexcept;

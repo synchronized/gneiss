@@ -12,6 +12,6 @@ make_action_map_loader(caors_internal::file_system_adapter& files,
         return parse_action_map({reinterpret_cast<const char*>(bytes.data()), bytes.size()},
                                 value.map);
       },
-      std::move(verify));
+      std::move(verify), maximum_action_map_bytes);
 }
 } // namespace gneiss::input_internal

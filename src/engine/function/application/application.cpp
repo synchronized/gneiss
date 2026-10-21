@@ -502,9 +502,8 @@ gneiss_result application::cancel_action_map() noexcept {
 gneiss_result application::load_action_map(std::string_view uri) noexcept {
   if (!is_owner_thread() || !accepts_requests())
     return GNEISS_ERROR_INVALID_STATE;
-  (void)storage_->asset_manager_->cancel_input();
   input_internal::action_map map;
-  const auto result = input_internal::load_action_map(storage_->asset_file_system_, uri, map);
+  const auto result = storage_->asset_manager_->load_input(uri, map);
   return to_native(result == gneiss::result::success
                        ? storage_->input_.replace_action_map(std::move(map))
                        : result);

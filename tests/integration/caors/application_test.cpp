@@ -110,6 +110,8 @@ void run(const char* assets, bool cooperative) {
   check(engine::application::create(config, app) == GNEISS_SUCCESS, "create");
   check(app->begin_action_map("asset://input/default.input-map.json") == GNEISS_ERROR_NOT_READY,
         "requires executor");
+  check(app->load_action_map("asset://input/default.input-map.json") == GNEISS_SUCCESS,
+        "sync load does not require executor");
   check(app->attach_task_executor(scheduler) == GNEISS_SUCCESS, "attach");
   const auto wait = [&] {
     const auto deadline = std::chrono::steady_clock::now() + 10s;
@@ -127,6 +129,16 @@ void run(const char* assets, bool cooperative) {
   check(app->action_map_status() == GNEISS_ERROR_NOT_READY, "admission only");
   wait();
   check(app->action_map_status() == GNEISS_SUCCESS && frames > 0 && seen_ready, "applied");
+  {
+    std::ofstream oversized(root / "input/oversized.json", std::ios::binary);
+    oversized << std::string(input_internal::maximum_action_map_bytes + 1, ' ');
+  }
+  check(app->load_action_map("asset://input/oversized.json") == GNEISS_ERROR_INVALID_ARGUMENT,
+        "sync document limit");
+  check(app->begin_action_map("asset://input/oversized.json") == GNEISS_SUCCESS,
+        "async oversized request admitted");
+  wait();
+  check(app->action_map_status() == GNEISS_ERROR_INVALID_ARGUMENT, "async document limit");
   input_internal::action_id original;
   check(app->find_action("move_horizontal", original) == GNEISS_SUCCESS, "original action");
   {

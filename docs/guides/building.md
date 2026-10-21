@@ -568,6 +568,8 @@ Runtime 两种模式均提交输入请求，映射应用成功后才初始化游
 启用 `-DGNEISS_BUILD_CAORS_PROBE=ON` 可运行 `gneiss.caors.application`；直接 libuv/Granit 探针
 只在原生线程平台构建。原生探针仍需对应 Granit 工具依赖。
 已接受请求通过主循环推进，须在 update 前观察 `action_map_status()`，不能把 begin 成功当加载完成。
+同步与异步输入文档均限制为 1 MiB，并在采用前复读校验；同步入口不要求执行器，
+但仍在调用线程执行 I/O。同步结果发布到 CAORS 缓存尚未统一。
 核心安装包含固定 CAORS 运行库与包；静态 Gneiss 包自动解析该链接依赖，公共头文件不包含 CAORS。
 Windows 构建将 caors.dll 与程序置于同一 bin 目录；分发时须保留该 DLL。
 原生平台即使 Engine 自身为静态库，仍需要 CAORS 动态运行时；Web 则采用静态库。

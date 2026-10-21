@@ -262,6 +262,9 @@ GNEISS_API gneiss_result gneiss_application_get_keyboard_state(gneiss_applicatio
 /** 返回当前帧指针快照；仅允许在 Application 创建线程调用。 */
 GNEISS_API gneiss_result gneiss_application_get_pointer_state(gneiss_application application,
                                                               gneiss_pointer_state* out_state);
+/** 同步读取并复验不超过 1 MiB 的动作映射；仅创建线程调用。
+ * 成功后旧动作 ID 失效，失败保留旧映射；来源变化返回 INVALID_STATE，超限返回 INVALID_ARGUMENT。
+ * 不要求任务执行器，不推进外部任务队列；会取消尚未采用的异步输入请求。 */
 GNEISS_API gneiss_result gneiss_application_load_action_map(gneiss_application application,
                                                             const char* uri, uint64_t uri_length);
 GNEISS_API gneiss_result gneiss_application_find_action(gneiss_application application,

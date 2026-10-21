@@ -4,7 +4,6 @@
 #include "caors_action_map.hpp"
 #include "engine/asset/asset_uri.hpp"
 #include "engine/asset/caors_vfs_bridge.hpp"
-#include "engine/core/sha256.hpp"
 #include "engine/platform/caors/adapter.hpp"
 #include <map>
 #include <stdexcept>
@@ -24,20 +23,12 @@ struct caors_input_host::storage {
   result latest = result::invalid_state;
   storage(asset_internal::virtual_file_system files, tasks::task_executor& executor)
       : context(caors_internal::make_worker(executor)), worker(context),
-        bridge(asset_internal::make_caors_vfs_bridge(files, worker.get_executor(), 1024U * 1024U, true)),
-        loader(make_action_map_loader(
-            *bridge,
-            [files](auto uri, auto original) {
-              // 限额与 Loader 一致；在 worker 使用既有 VFS/libuv 路径复读，不建立新挂载。
-              std::vector<std::byte> current;
-              const result read{files.read_bounded(uri, 1024U * 1024U, current)};
-              if (read != result::success)
-                return read;
-              return current.size() == original.size() &&
-                             core::sha256(current) == core::sha256(original)
-                         ? result::success
-                         : result::invalid_state;
-            })),
+        bridge(asset_internal::make_caors_vfs_bridge(files, worker.get_executor(),
+                                                     maximum_action_map_bytes, true)),
+        loader(make_action_map_loader(*bridge,
+                                      [files](auto uri, auto original) {
+                                        return verify_action_map_source(files, uri, original);
+                                      })),
         manager({worker.get_executor(), completions.get_executor()}), source(bridge) {
     if (manager.register_type(cache, *loader, caors::string_name{"gneiss.input.action_map"}))
       throw std::runtime_error("注册输入资源类型失败");

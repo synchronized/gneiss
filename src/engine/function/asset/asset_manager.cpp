@@ -18,6 +18,11 @@ void asset_manager::attach_input_loader(tasks::task_executor& executor) {
     input_ = std::make_unique<input_state>(files_, executor);
   }
 }
+result asset_manager::load_input(std::string_view uri,
+                                 input_internal::action_map& output) noexcept {
+  (void)cancel_input();
+  return input_internal::load_action_map(files_, uri, output);
+}
 result asset_manager::begin_input(std::string_view uri) noexcept {
   return input_ ? input_->host.begin(uri) : result::not_ready;
 }
