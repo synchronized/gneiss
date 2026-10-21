@@ -16,7 +16,7 @@
 #include <string_view>
 #include <thread>
 
-namespace gneiss::log_internal {
+namespace gneiss::engine::core::log {
 
 /** 原生日志级别；ABI 数值映射由接口层校验。 */
 enum class level : std::uint32_t { trace = 1, debug, info, warning, error, fatal };
@@ -82,6 +82,6 @@ private:
   bool is_stopping_ = false;
 };
 
-} // namespace gneiss::log_internal
+} // namespace gneiss::engine::core::log
 
 #endif

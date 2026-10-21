@@ -99,11 +99,12 @@ struct editor_state {
   // 宿主拥有对象；只在其 run 回调期间借用。
   gneiss::runtime::application* application{};
   explicit editor_state(bool cooperative = false)
-      : task_scheduler({.mode = cooperative ? gneiss::tasks::execution_mode::cooperative
-                                            : gneiss::tasks::execution_mode::thread_pool}) {}
+      : task_scheduler({.mode = cooperative
+                                    ? gneiss::engine::core::tasks::execution_mode::cooperative
+                                    : gneiss::engine::core::tasks::execution_mode::thread_pool}) {}
   gneiss::editor::imgui_adapter ui;
   gneiss::editor::editor_camera camera;
-  gneiss::tasks::task_scheduler task_scheduler;
+  gneiss::engine::core::tasks::task_scheduler task_scheduler;
   gneiss::editor::editor_scene_loader scene_loader;
   gneiss::editor::editor_asset_edit asset_edit;
   gneiss::editor::editor_prefab_edit prefab_edit;
@@ -880,7 +881,8 @@ void draw_reflected_properties(editor_state& state) {
           .write =
               [](void* context, const gneiss::editor::inspector_component& component,
                  const gneiss::editor::inspector_property& property,
-                 const gneiss::reflection_internal::property_value& value, std::uint64_t serial) {
+                 const gneiss::engine::core::reflection::property_value& value,
+                 std::uint64_t serial) {
                 auto& editor = *static_cast<editor_state*>(context);
                 return gneiss::editor::edit_author_property(editor.document, editor.history,
                                                             editor.inspector, editor.world,
@@ -1146,7 +1148,8 @@ bool draw_transform_gizmo(editor_state& state, const ImVec2& minimum, const ImVe
       minimum, size);
 }
 
-gneiss_result update_editor_camera(editor_state& state, const gneiss::engine::frame_time& time) {
+gneiss_result update_editor_camera(editor_state& state,
+                                   const gneiss::engine::core::frame_time& time) {
   auto& io = ImGui::GetIO();
   gneiss::editor::editor_camera_input input;
   constexpr double nanoseconds_per_second = 1'000'000'000.0;
@@ -1172,7 +1175,7 @@ gneiss_result update_editor_camera(editor_state& state, const gneiss::engine::fr
       selected_node = prefab->node;
     }
     if (selected_node.is_valid()) {
-      gneiss::engine::transform target;
+      gneiss::engine::core::math::transform target;
       const auto result =
           state.application->native_world()->node_get_world_transform(selected_node, target);
       if (result != GNEISS_SUCCESS) {
@@ -1304,14 +1307,14 @@ void draw_scene_loading(editor_state& state) {
   ImGui::End();
 }
 
-gneiss_result update_editor(const gneiss::engine::frame_time* time, void* user_data) {
+gneiss_result update_editor(const gneiss::engine::core::frame_time* time, void* user_data) {
   try {
     if (time == nullptr || user_data == nullptr) {
       return GNEISS_ERROR_INVALID_ARGUMENT;
     }
     auto& state = *static_cast<editor_state*>(user_data);
     state.runtime.update();
-    if (state.task_scheduler.mode() == gneiss::tasks::execution_mode::cooperative) {
+    if (state.task_scheduler.mode() == gneiss::engine::core::tasks::execution_mode::cooperative) {
       (void)state.task_scheduler.run_ready();
     }
     bool scene_changed{};
@@ -2891,10 +2894,11 @@ int run_editor(int argc, char** argv) {
 #endif
   const auto title = project.name + " - Gneiss Editor";
   gneiss::runtime::application_configuration desc;
-  desc.callbacks.update = [&state](gneiss::core::rid, const gneiss::engine::frame_time& time) {
+  desc.callbacks.update = [&state](gneiss::engine::core::rid,
+                                   const gneiss::engine::core::frame_time& time) {
     return gneiss::from_native(update_editor(&time, &state));
   };
-  desc.callbacks.close_requested = [&state](gneiss::core::rid) {
+  desc.callbacks.close_requested = [&state](gneiss::engine::core::rid) {
     return handle_close_requested(&state) != 0U;
   };
   desc.use_granit_window = true;
@@ -2966,7 +2970,7 @@ int run_editor(int argc, char** argv) {
   state.history.cancel_pending();
   state.asset_edit.cancel(*application);
   while (state.asset_edit.active() || state.prefab_edit.active() || state.history.is_pending()) {
-    if (state.task_scheduler.mode() == gneiss::tasks::execution_mode::cooperative) {
+    if (state.task_scheduler.mode() == gneiss::engine::core::tasks::execution_mode::cooperative) {
       (void)state.task_scheduler.run_ready();
     }
     state.prefab_edit.advance();

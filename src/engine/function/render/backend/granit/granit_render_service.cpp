@@ -93,7 +93,7 @@ granit_matrix4 to_granit_matrix(const engine::render::matrix4& source) noexcept 
 }
 
 float mesh_bounds_radius(const engine::render::mesh_resource& mesh,
-                         const engine::transform& transform) noexcept {
+                         const engine::core::math::transform& transform) noexcept {
   float radius_squared = 0.0F;
   for (const auto& vertex : mesh.vertices) {
     radius_squared =
@@ -166,9 +166,10 @@ granit::result granit_render_service::initialize_pipeline() noexcept {
   return result;
 }
 
-void granit_render_service::log_texture(core::rid rid, const char* stage, granit::result result,
-                                        std::uint32_t variant, granit::texture_format format,
-                                        std::uint32_t mips, std::uint64_t bytes) noexcept {
+void granit_render_service::log_texture(engine::core::rid rid, const char* stage,
+                                        granit::result result, std::uint32_t variant,
+                                        granit::texture_format format, std::uint32_t mips,
+                                        std::uint64_t bytes) noexcept {
   if (log_ == nullptr) {
     return;
   }
@@ -200,7 +201,7 @@ void granit_render_service::log_texture(core::rid rid, const char* stage, granit
   constexpr std::string_view category = "render.texture";
   static_cast<void>(log_->submit({
       .context = log_context_.load(std::memory_order_relaxed),
-      .severity = result.ok() ? log_internal::level::info : log_internal::level::error,
+      .severity = result.ok() ? engine::core::log::level::info : engine::core::log::level::error,
       .source = "granit.render.texture",
       .category = category,
       .message = {buffer.data(), std::min(static_cast<std::size_t>(length), buffer.size() - 1U)},
@@ -210,7 +211,8 @@ void granit_render_service::log_texture(core::rid rid, const char* stage, granit
 
 granit::result
 granit_render_service::create_texture_mirror(const engine::render::texture_resource& source,
-                                             texture_mirror& output, core::rid rid) noexcept {
+                                             texture_mirror& output,
+                                             engine::core::rid rid) noexcept {
   if (source.profile.generation != 0U && source.profile != texture_profile_) {
     return granit::result::invalid_argument;
   }
@@ -868,11 +870,11 @@ gneiss_result granit_render_service::discard_prepared_textures(
   }
 }
 
-gneiss_result granit_render_service::initialize(const platform::native_window_info& window,
+gneiss_result granit_render_service::initialize(const engine::platform::native_window_info& window,
                                                 std::span<const std::byte> environment_asset,
                                                 float environment_intensity,
                                                 float environment_rotation_radians,
-                                                log_internal::log_dispatcher* log) noexcept {
+                                                engine::core::log::log_dispatcher* log) noexcept {
   log_ = log;
   const auto executor_result =
       executor_.initialize([this](engine::render::render_frame_packet& packet,
@@ -1050,10 +1052,11 @@ gneiss_result granit_render_service::shutdown(granit::renderer_resource_stats& s
   return completion.status;
 }
 
-gneiss_result granit_render_service::initialize_gpu(const platform::native_window_info& window,
-                                                    std::span<const std::byte> environment_asset,
-                                                    float environment_intensity,
-                                                    float environment_rotation_radians) noexcept {
+gneiss_result
+granit_render_service::initialize_gpu(const engine::platform::native_window_info& window,
+                                      std::span<const std::byte> environment_asset,
+                                      float environment_intensity,
+                                      float environment_rotation_radians) noexcept {
   auto result = renderer_.initialize({.application_name = "Gneiss",
                                       .enable_validation = false,
                                       .presentation = granit::presentation_mode::enabled});
@@ -1078,15 +1081,15 @@ gneiss_result granit_render_service::initialize_gpu(const platform::native_windo
   texture_profile_.generation = device_generation.fetch_add(1U, std::memory_order_relaxed) + 1U;
 
   switch (window.backend) {
-  case platform::native_window_backend::win32:
+  case engine::platform::native_window_backend::win32:
     result =
         surface_.initialize(renderer_, granit::surface_desc::win32(window.display, window.window));
     break;
-  case platform::native_window_backend::xcb:
+  case engine::platform::native_window_backend::xcb:
     result = surface_.initialize(renderer_,
                                  granit::surface_desc::xcb(window.display, window.xcb_window));
     break;
-  case platform::native_window_backend::wayland:
+  case engine::platform::native_window_backend::wayland:
     result = surface_.initialize(renderer_,
                                  granit::surface_desc::wayland(window.display, window.window));
     break;
@@ -1250,7 +1253,7 @@ granit_render_service::execute_frame(engine::render::render_frame_packet& packet
       const auto handles = material->texture_handles();
       for (std::size_t slot = 0; slot < handles.size(); ++slot) {
         const auto handle = handles[slot];
-        if (handle == core::null_rid)
+        if (handle == engine::core::null_rid)
           continue;
         const auto* texture = resources.get_texture(handle);
         if (texture == nullptr)

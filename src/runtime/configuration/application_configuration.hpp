@@ -21,18 +21,19 @@ struct application_callbacks final {
   std::function<result()> initialize;
   std::function<result(bool&)> poll_events;
   std::function<std::uint64_t()> now_ns;
-  std::function<result(core::rid, const engine::frame_time&)> update;
+  std::function<result(engine::core::rid, const engine::core::frame_time&)> update;
   std::function<void()> shutdown;
-  std::function<void(core::rid, const diagnostics::diagnostic_view&)> diagnostic;
-  std::function<bool(core::rid)> close_requested;
-  log_internal::event_sink log;
+  std::function<void(engine::core::rid, const engine::core::diagnostics::diagnostic_view&)>
+      diagnostic;
+  std::function<bool(engine::core::rid)> close_requested;
+  engine::core::log::event_sink log;
 };
 
 /** 原生创建配置；字符串仅在 initialize 期间借用，ABI 版本补齐由接口层负责。 */
 struct application_configuration final {
   application_callbacks callbacks;
   bool use_granit_window = false;
-  platform::window_configuration window;
+  engine::platform::window_configuration window;
   std::string_view asset_root;
   std::string_view environment_asset;
   float environment_intensity = 1.0F;

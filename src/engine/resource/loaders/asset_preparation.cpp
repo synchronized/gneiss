@@ -728,7 +728,7 @@ public:
     number(value.size());
     digest_.update(std::as_bytes(std::span(value.data(), value.size())));
   }
-  void content(const core::sha256_digest& value) { digest_.update(value); }
+  void content(const engine::core::sha256_digest& value) { digest_.update(value); }
   [[nodiscard]] std::string finish() const {
     constexpr std::string_view digits = "0123456789abcdef";
     std::string result;
@@ -742,7 +742,7 @@ public:
   }
 
 private:
-  core::sha256_builder digest_;
+  engine::core::sha256_builder digest_;
 };
 
 gneiss_result
@@ -836,7 +836,7 @@ struct asset_preparation::state {
   // 仅预读当前批次的短 Mesh 描述，最多 8 MiB；不提前解码或发布候选。
   std::map<std::string, prefetched_input> prefetched;
   std::vector<std::byte> bytes;
-  core::sha256_builder digest;
+  engine::core::sha256_builder digest;
   std::uint64_t offset{};
   bool retain{};
   bool read_complete{};
@@ -1428,7 +1428,8 @@ gneiss_result prepare_texture(const engine::resource::virtual_file_system& file_
           }
           output.payload.resize(static_cast<std::size_t>(variant.payload_size));
           result = container->read_payload(variant.payload_offset, output.payload);
-          if (result == GNEISS_SUCCESS && core::sha256(output.payload) != variant.payload_digest) {
+          if (result == GNEISS_SUCCESS &&
+              engine::core::sha256(output.payload) != variant.payload_digest) {
             result = GNEISS_ERROR_INVALID_ARGUMENT;
           }
           if (result != GNEISS_SUCCESS) {

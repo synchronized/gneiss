@@ -140,7 +140,7 @@ void run_mip_sampling(bool packaged = false, bool async = false) {
     stream.write(reinterpret_cast<const char*>(bytes.data()),
                  static_cast<std::streamsize>(bytes.size()));
   }
-  tasks::task_scheduler scheduler({.workers = 1U});
+  engine::core::tasks::task_scheduler scheduler({.workers = 1U});
   gneiss::test_support::application_owner app;
   const auto root = files.root.string();
   auto desc = gneiss_application_desc GNEISS_APPLICATION_DESC_INIT;
@@ -428,10 +428,10 @@ void run_material_channels() {
         material_pixel("normal_texture", {half, zero, half, full}));
 }
 
-void run(tasks::execution_mode mode, bool pbr = false) {
+void run(engine::core::tasks::execution_mode mode, bool pbr = false) {
   fixture files(pbr);
   files.color(std::byte{20}, std::byte{240});
-  tasks::task_scheduler scheduler({.workers = 1U, .mode = mode});
+  engine::core::tasks::task_scheduler scheduler({.workers = 1U, .mode = mode});
   gneiss::test_support::application_owner app;
   const auto root = files.root.string();
   gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
@@ -480,7 +480,7 @@ void run(tasks::execution_mode mode, bool pbr = false) {
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
     while (!ready) {
       check(std::chrono::steady_clock::now() < deadline);
-      if (mode == tasks::execution_mode::cooperative) {
+      if (mode == engine::core::tasks::execution_mode::cooperative) {
         (void)scheduler.run_ready();
       }
       check(runtime::poll_textures(app.get(), completed, ready) == GNEISS_SUCCESS);
@@ -530,11 +530,11 @@ void run(tasks::execution_mode mode, bool pbr = false) {
   check(capture().pixels == mixed.pixels);
   check(center(capture(192U))[2] > center(capture(192U))[0] + 30U);
 }
-void run_scene(tasks::execution_mode mode, bool pbr = false) {
+void run_scene(engine::core::tasks::execution_mode mode, bool pbr = false) {
   using namespace runtime;
   fixture files(pbr);
   files.color(std::byte{20}, std::byte{240});
-  tasks::task_scheduler scheduler({.workers = 1U, .mode = mode});
+  engine::core::tasks::task_scheduler scheduler({.workers = 1U, .mode = mode});
   gneiss::test_support::application_owner app;
   const auto root = files.root.string();
   auto desc = gneiss_application_desc GNEISS_APPLICATION_DESC_INIT;
@@ -564,7 +564,7 @@ void run_scene(tasks::execution_mode mode, bool pbr = false) {
     scene_load_completion completion;
     while (true) {
       check(std::chrono::steady_clock::now() < deadline);
-      if (mode == tasks::execution_mode::cooperative)
+      if (mode == engine::core::tasks::execution_mode::cooperative)
         (void)scheduler.run_ready();
       bool terminal{};
       check(poll_scene_load(app.get(), completion, terminal) == GNEISS_SUCCESS);
@@ -655,14 +655,14 @@ int main(int argc, char* argv[]) try {
   run_material_channels();
   std::fprintf(stderr, "asset-pixel: states\n");
   run_material_states();
-  run(gneiss::tasks::execution_mode::thread_pool, true);
-  run(gneiss::tasks::execution_mode::cooperative, true);
-  run_scene(gneiss::tasks::execution_mode::thread_pool, true);
-  run_scene(gneiss::tasks::execution_mode::cooperative, true);
-  run(gneiss::tasks::execution_mode::thread_pool);
-  run(gneiss::tasks::execution_mode::cooperative);
-  run_scene(gneiss::tasks::execution_mode::thread_pool);
-  run_scene(gneiss::tasks::execution_mode::cooperative);
+  run(gneiss::engine::core::tasks::execution_mode::thread_pool, true);
+  run(gneiss::engine::core::tasks::execution_mode::cooperative, true);
+  run_scene(gneiss::engine::core::tasks::execution_mode::thread_pool, true);
+  run_scene(gneiss::engine::core::tasks::execution_mode::cooperative, true);
+  run(gneiss::engine::core::tasks::execution_mode::thread_pool);
+  run(gneiss::engine::core::tasks::execution_mode::cooperative);
+  run_scene(gneiss::engine::core::tasks::execution_mode::thread_pool);
+  run_scene(gneiss::engine::core::tasks::execution_mode::cooperative);
   return 0;
 } catch (const std::exception& error) {
   std::fprintf(stderr, "%s\n", error.what());

@@ -43,12 +43,12 @@ int main() {
   auto second = make_translation(instance_b, {2.0F, 0.0F, 0.0F});
   auto first = make_translation(instance_a, {1.0F, 0.0F, 0.0F});
   if (gneiss::engine::scene::validate_prefab_property_override(
-          gneiss::reflection_internal::resolve(registry), first) != GNEISS_SUCCESS ||
+          gneiss::engine::core::reflection::resolve(registry), first) != GNEISS_SUCCESS ||
       gneiss::engine::scene::set_prefab_property_override(
-          gneiss::reflection_internal::resolve(registry), overrides, second, source) !=
+          gneiss::engine::core::reflection::resolve(registry), overrides, second, source) !=
           GNEISS_SUCCESS ||
       gneiss::engine::scene::set_prefab_property_override(
-          gneiss::reflection_internal::resolve(registry), overrides, first, source) !=
+          gneiss::engine::core::reflection::resolve(registry), overrides, first, source) !=
           GNEISS_SUCCESS ||
       overrides.size() != 2U || overrides[0].key.node.instance_uuid != instance_a ||
       overrides[1].key.node.instance_uuid != instance_b) {
@@ -57,7 +57,7 @@ int main() {
 
   auto updated = make_translation(instance_a, {3.0F, 0.0F, 0.0F});
   if (gneiss::engine::scene::set_prefab_property_override(
-          gneiss::reflection_internal::resolve(registry), overrides, updated, source) !=
+          gneiss::engine::core::reflection::resolve(registry), overrides, updated, source) !=
           GNEISS_SUCCESS ||
       overrides.size() != 2U ||
       std::get<std::array<float, 3>>(overrides[0].value.payload)[0] != 3.0F) {
@@ -66,7 +66,7 @@ int main() {
 
   auto restored = make_translation(instance_a, {-0.0F, 0.0F, 0.0F});
   if (gneiss::engine::scene::set_prefab_property_override(
-          gneiss::reflection_internal::resolve(registry), overrides, restored, source) !=
+          gneiss::engine::core::reflection::resolve(registry), overrides, restored, source) !=
           GNEISS_SUCCESS ||
       overrides.size() != 1U || overrides[0].key.node.instance_uuid != instance_b) {
     return 4;
@@ -78,13 +78,13 @@ int main() {
   auto non_finite =
       make_translation(instance_a, {std::numeric_limits<float>::quiet_NaN(), 0.0F, 0.0F});
   if (gneiss::engine::scene::validate_prefab_property_override(
-          gneiss::reflection_internal::resolve(registry), wrong_type) !=
+          gneiss::engine::core::reflection::resolve(registry), wrong_type) !=
           GNEISS_ERROR_INVALID_ARGUMENT ||
       gneiss::engine::scene::validate_prefab_property_override(
-          gneiss::reflection_internal::resolve(registry), invalid_address) !=
+          gneiss::engine::core::reflection::resolve(registry), invalid_address) !=
           GNEISS_ERROR_INVALID_ARGUMENT ||
       gneiss::engine::scene::validate_prefab_property_override(
-          gneiss::reflection_internal::resolve(registry), non_finite) !=
+          gneiss::engine::core::reflection::resolve(registry), non_finite) !=
           GNEISS_ERROR_INVALID_ARGUMENT) {
     return 5;
   }
@@ -95,7 +95,7 @@ int main() {
               .field_id = gneiss::field_id{GNEISS_CAMERA_FIELD_IS_PRIMARY}},
       .value = {.payload = true}};
   if (gneiss::engine::scene::validate_prefab_property_override(
-          gneiss::reflection_internal::resolve(registry), read_only) !=
+          gneiss::engine::core::reflection::resolve(registry), read_only) !=
       GNEISS_ERROR_INVALID_ARGUMENT) {
     return 6;
   }
@@ -103,7 +103,7 @@ int main() {
   auto missing = make_translation(instance_a, {1.0F, 0.0F, 0.0F});
   missing.key.field_id = gneiss::field_id{999};
   if (gneiss::engine::scene::validate_prefab_property_override(
-          gneiss::reflection_internal::resolve(registry), missing) != GNEISS_ERROR_NOT_FOUND) {
+          gneiss::engine::core::reflection::resolve(registry), missing) != GNEISS_ERROR_NOT_FOUND) {
     return 7;
   }
 

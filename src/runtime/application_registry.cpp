@@ -16,7 +16,7 @@ struct application_entry {
   std::weak_ptr<runtime::application> borrowed;
   std::thread::id thread;
 };
-using application_table = gneiss::core::rid_table<application_entry>;
+using application_table = gneiss::engine::core::rid_table<application_entry>;
 
 struct application_registry {
   std::mutex mutex;
@@ -34,7 +34,7 @@ application_resource find_application(gneiss_application application) noexcept {
   auto& registry = get_application_registry();
   const std::scoped_lock lock{registry.mutex};
   const auto* resource =
-      registry.applications.get(application, gneiss::core::resource_type::application);
+      registry.applications.get(application, gneiss::engine::core::resource_type::application);
   if (resource == nullptr) {
     return nullptr;
   }
@@ -63,7 +63,7 @@ gneiss_result create_application(const application_configuration& config,
     }
     auto& registry = get_application_registry();
     const std::scoped_lock lock{registry.mutex};
-    return registry.applications.create(gneiss::core::resource_type::application,
+    return registry.applications.create(gneiss::engine::core::resource_type::application,
                                         application_entry{.owner = std::move(state),
                                                           .borrowed = {},
                                                           .thread = std::this_thread::get_id()},
@@ -81,7 +81,8 @@ gneiss_result destroy_application(gneiss_application application) noexcept {
     auto& registry = get_application_registry();
     {
       const std::scoped_lock lock{registry.mutex};
-      const auto* entry = registry.applications.get(application, core::resource_type::application);
+      const auto* entry =
+          registry.applications.get(application, engine::core::resource_type::application);
       if (entry == nullptr) {
         return GNEISS_ERROR_INVALID_HANDLE;
       }
@@ -99,8 +100,8 @@ gneiss_result destroy_application(gneiss_application application) noexcept {
       return shutdown_result;
     }
     const std::scoped_lock lock{registry.mutex};
-    const auto destroy_result =
-        registry.applications.destroy(application, gneiss::core::resource_type::application);
+    const auto destroy_result = registry.applications.destroy(
+        application, gneiss::engine::core::resource_type::application);
     return shutdown_result == GNEISS_SUCCESS ? destroy_result : shutdown_result;
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;
@@ -121,7 +122,7 @@ gneiss_result application_bridge::bind(const application_resource& application) 
   auto& registry = get_application_registry();
   const std::scoped_lock lock{registry.mutex};
   return registry.applications.create(
-      core::resource_type::application,
+      engine::core::resource_type::application,
       application_entry{.owner = {}, .borrowed = application, .thread = std::this_thread::get_id()},
       &handle_);
 }
@@ -132,14 +133,15 @@ gneiss_result application_bridge::reset() noexcept {
   }
   auto& registry = get_application_registry();
   const std::scoped_lock lock{registry.mutex};
-  const auto* entry = registry.applications.get(handle_, core::resource_type::application);
+  const auto* entry = registry.applications.get(handle_, engine::core::resource_type::application);
   if (entry == nullptr || entry->owner) {
     return GNEISS_ERROR_INVALID_HANDLE;
   }
   if (entry->thread != std::this_thread::get_id()) {
     return GNEISS_ERROR_INVALID_STATE;
   }
-  const auto result = registry.applications.destroy(handle_, core::resource_type::application);
+  const auto result =
+      registry.applications.destroy(handle_, engine::core::resource_type::application);
   if (result == GNEISS_SUCCESS) {
     handle_ = GNEISS_NULL_APPLICATION;
   }

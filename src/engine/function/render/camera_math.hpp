@@ -18,7 +18,7 @@ struct matrix4 {
 };
 
 /** 使用 Camera 世界平移与旋转构造右手视图矩阵；Camera 缩放不参与观察变换。 */
-[[nodiscard]] gneiss_result build_view_matrix(const engine::transform& transform,
+[[nodiscard]] gneiss_result build_view_matrix(const engine::core::math::transform& transform,
                                               matrix4& out_matrix) noexcept;
 
 /** 构造右手透视投影矩阵，逻辑裁剪空间 Y 向上、深度范围为 0..1。 */

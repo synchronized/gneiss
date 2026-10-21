@@ -12,23 +12,27 @@ namespace gneiss::engine::scene {
 scene_load_builder::scene_load_builder(scene_instance_service& service,
                                        prepared_scene_description prepared, asset_bindings assets)
     : assets_(std::move(assets)), service_(service),
-      prepared_(diagnostics::measure(diagnostics::loop_stage::scene_description_move,
-                                     [&] {
-                                       GNEISS_PROFILE_SCOPE("scene.description.move");
-                                       return std::move(prepared);
-                                     })),
-      instance_(diagnostics::measure(diagnostics::loop_stage::scene_instance_allocate, [&] {
-        GNEISS_PROFILE_SCOPE("scene.instance.allocate");
-        return std::make_unique<scene_instance>(service.native_world_, service.reflection_context_,
-                                                service.loader_, service.prefab_loader_,
-                                                service.registry_);
-      })) {
-  diagnostics::measure(diagnostics::loop_stage::scene_instance_initialize, [&] {
-    GNEISS_PROFILE_SCOPE("scene.instance.initialize");
-    instance_->initialize_staged(std::move(prepared_.description));
-  });
-  diagnostics::measure(diagnostics::loop_stage::scene_node_index_reserve,
-                       [&] { nodes_.reserve(instance_->source().objects.size()); });
+      prepared_(engine::core::diagnostics::measure(
+          engine::core::diagnostics::loop_stage::scene_description_move,
+          [&] {
+            GNEISS_PROFILE_SCOPE("scene.description.move");
+            return std::move(prepared);
+          })),
+      instance_(engine::core::diagnostics::measure(
+          engine::core::diagnostics::loop_stage::scene_instance_allocate, [&] {
+            GNEISS_PROFILE_SCOPE("scene.instance.allocate");
+            return std::make_unique<scene_instance>(service.native_world_,
+                                                    service.reflection_context_, service.loader_,
+                                                    service.prefab_loader_, service.registry_);
+          })) {
+  engine::core::diagnostics::measure(
+      engine::core::diagnostics::loop_stage::scene_instance_initialize, [&] {
+        GNEISS_PROFILE_SCOPE("scene.instance.initialize");
+        instance_->initialize_staged(std::move(prepared_.description));
+      });
+  engine::core::diagnostics::measure(
+      engine::core::diagnostics::loop_stage::scene_node_index_reserve,
+      [&] { nodes_.reserve(instance_->source().objects.size()); });
 }
 
 engine::render::render_asset_lease scene_load_builder::find_asset(std::string_view uri) const {
@@ -44,7 +48,7 @@ gneiss_result scene_load_builder::step_prefab() {
     prefab_ = std::make_unique<prefab_runtime_instance>(
         service_.native_world_, service_.reflection_context_, service_.loader_, lease,
         source.instance_uuid);
-    gneiss::engine::transform transform = {};
+    gneiss::engine::core::math::transform transform = {};
     std::ranges::copy(source.translation, transform.translation.begin());
     std::ranges::copy(source.rotation, transform.rotation.begin());
     std::ranges::copy(source.scale, transform.scale.begin());
@@ -125,8 +129,8 @@ gneiss_result scene_load_builder::step() {
   if (prefab_cursor_ < instance_->source().prefab_instances.size()) {
     return step_prefab();
   }
-  return service_.instances_.create(core::resource_type::scene_instance, std::move(instance_),
-                                    &handle_);
+  return service_.instances_.create(engine::core::resource_type::scene_instance,
+                                    std::move(instance_), &handle_);
 }
 
 gneiss_result scene_load_builder::advance(bool& complete, std::size_t maximum_steps,

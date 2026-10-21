@@ -13,18 +13,18 @@
 #include <limits>
 #include <string_view>
 
-namespace gneiss::abi_internal {
-static_assert(static_cast<std::uint32_t>(log_internal::level::trace) == GNEISS_LOG_TRACE);
-static_assert(static_cast<std::uint32_t>(log_internal::level::debug) == GNEISS_LOG_DEBUG);
-static_assert(static_cast<std::uint32_t>(log_internal::level::info) == GNEISS_LOG_INFO);
-static_assert(static_cast<std::uint32_t>(log_internal::level::warning) == GNEISS_LOG_WARNING);
-static_assert(static_cast<std::uint32_t>(log_internal::level::error) == GNEISS_LOG_ERROR);
-static_assert(static_cast<std::uint32_t>(log_internal::level::fatal) == GNEISS_LOG_FATAL);
+namespace gneiss::engine::api {
+static_assert(static_cast<std::uint32_t>(engine::core::log::level::trace) == GNEISS_LOG_TRACE);
+static_assert(static_cast<std::uint32_t>(engine::core::log::level::debug) == GNEISS_LOG_DEBUG);
+static_assert(static_cast<std::uint32_t>(engine::core::log::level::info) == GNEISS_LOG_INFO);
+static_assert(static_cast<std::uint32_t>(engine::core::log::level::warning) == GNEISS_LOG_WARNING);
+static_assert(static_cast<std::uint32_t>(engine::core::log::level::error) == GNEISS_LOG_ERROR);
+static_assert(static_cast<std::uint32_t>(engine::core::log::level::fatal) == GNEISS_LOG_FATAL);
 /** 仅用于通过布局校验后的描述；文本借用到同步提交返回。 */
-[[nodiscard]] inline log_internal::message_view
+[[nodiscard]] inline engine::core::log::message_view
 log_message_view(const gneiss_log_message& message) noexcept {
   return {
-      .severity = static_cast<log_internal::level>(message.severity),
+      .severity = static_cast<engine::core::log::level>(message.severity),
       .category =
           std::string_view(message.category, static_cast<std::size_t>(message.category_length)),
       .message =
@@ -53,8 +53,9 @@ validate_log_message(const gneiss_log_message* message) noexcept {
       message->message_length == 0U
           ? std::string_view{}
           : std::string_view(message->message, static_cast<std::size_t>(message->message_length));
-  return log_internal::valid_text(category, text) ? GNEISS_SUCCESS : GNEISS_ERROR_INVALID_ARGUMENT;
+  return engine::core::log::valid_text(category, text) ? GNEISS_SUCCESS
+                                                       : GNEISS_ERROR_INVALID_ARGUMENT;
 }
-} // namespace gneiss::abi_internal
+} // namespace gneiss::engine::api
 
 #endif

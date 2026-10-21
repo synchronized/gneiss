@@ -10,7 +10,7 @@
 #include <functional>
 #include <memory>
 
-namespace gneiss::io_internal {
+namespace gneiss::engine::platform::io {
 
 class uv_loop_access;
 
@@ -42,6 +42,6 @@ private:
   std::unique_ptr<implementation> implementation_;
 };
 
-} // namespace gneiss::io_internal
+} // namespace gneiss::engine::platform::io
 
 #endif

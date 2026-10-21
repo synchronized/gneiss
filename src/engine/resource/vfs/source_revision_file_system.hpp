@@ -22,7 +22,7 @@ public:
                                               asset_identity& output) const noexcept override;
   struct source_revision {
     std::uint64_t bytes{};
-    core::sha256_digest digest{};
+    engine::core::sha256_digest digest{};
   };
   /** 读取已观察的摘要，不触发 I/O；未建账返回 NOT_READY。
    * 仅是内容版本输入，发布前仍须完成 verify；不包含依赖版本或设备配置。

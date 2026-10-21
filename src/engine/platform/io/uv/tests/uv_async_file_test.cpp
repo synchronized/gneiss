@@ -15,7 +15,7 @@
 
 namespace {
 using gneiss::result;
-using namespace gneiss::io_internal;
+using namespace gneiss::engine::platform::io;
 void check(bool condition, std::source_location location = std::source_location::current()) {
   if (!condition) {
     throw std::runtime_error("异步文件测试失败，行=" + std::to_string(location.line()));

@@ -116,7 +116,7 @@ int run_tests() {
   gneiss_scene_node_id parent{}, child{}, leaf{}, rejected{};
   const auto nested = first.begin_publication();
   auto& tree = first.scene();
-  const gneiss::engine::transform identity = gneiss::engine::transform{};
+  const gneiss::engine::core::math::transform identity = gneiss::engine::core::math::transform{};
   if (tree.create(0, replacement, &parent) != GNEISS_SUCCESS ||
       tree.create_staged(other, parent, hidden, &child) != GNEISS_SUCCESS ||
       tree.create_staged(other, child, 0, &leaf) != GNEISS_SUCCESS ||

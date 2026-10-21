@@ -84,14 +84,15 @@ int main() {
   abi_desc.vertex_count = 1;
   abi_desc.commands = &abi_command;
   abi_desc.command_count = 1;
-  gneiss::api::converted_ui_draw converted;
-  if (gneiss::api::read_ui_draw_description(abi_desc, converted) != GNEISS_SUCCESS ||
+  gneiss::engine::api::converted_ui_draw converted;
+  if (gneiss::engine::api::read_ui_draw_description(abi_desc, converted) != GNEISS_SUCCESS ||
       converted.view.vertices.data() != converted.vertices.data() ||
       converted.view.vertices[0].color_rgba8 != 42U)
     return 8;
   abi_vertex.color_rgba8 = 0;
   abi_command.reserved = 1;
-  if (gneiss::api::read_ui_draw_description(abi_desc, converted) != GNEISS_ERROR_INVALID_ARGUMENT ||
+  if (gneiss::engine::api::read_ui_draw_description(abi_desc, converted) !=
+          GNEISS_ERROR_INVALID_ARGUMENT ||
       converted.view.vertices[0].color_rgba8 != 42U)
     return 9;
   return 0;

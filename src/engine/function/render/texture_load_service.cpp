@@ -28,7 +28,7 @@ struct texture_load_service::pending {
   texture_upload_backend::data data;
   render_asset_loader::revision_stamp observed;
   texture_load_completion completion;
-  tasks::task_handle task;
+  engine::core::tasks::task_handle task;
   bool prepared{};
   bool uploading{};
   bool in_flight{};
@@ -42,9 +42,9 @@ struct texture_load_service::pending {
   std::chrono::steady_clock::time_point commit_started;
 };
 texture_load_service::texture_load_service(
-    tasks::task_executor& executor, engine::resource::virtual_file_system file_system,
+    engine::core::tasks::task_executor& executor, engine::resource::virtual_file_system file_system,
     render_asset_loader& loader, texture_upload_backend backend,
-    std::shared_ptr<core::progress_notification> notification,
+    std::shared_ptr<engine::core::progress_notification> notification,
     std::shared_ptr<engine::resource::cpu_document_cache> documents)
     : executor_(executor), scope_(executor.make_scope()), file_system_(std::move(file_system)),
       loader_(loader), backend_(std::move(backend)), notification_(std::move(notification)),
@@ -161,20 +161,21 @@ gneiss_result texture_load_service::submit_assets(std::span<const render_asset_r
           .maximum_bytes = prepare_limit,
       },
       backend_.profile, std::move(decode));
-  const auto accepted = diagnostics::measure(diagnostics::loop_stage::task_submit,
-                                             [&] { return submit_preparation(*value); });
-  if (accepted != tasks::submit_result::success) {
-    return accepted == tasks::submit_result::full ? GNEISS_ERROR_NOT_READY
-                                                  : GNEISS_ERROR_INVALID_STATE;
+  const auto accepted =
+      engine::core::diagnostics::measure(engine::core::diagnostics::loop_stage::task_submit,
+                                         [&] { return submit_preparation(*value); });
+  if (accepted != engine::core::tasks::submit_result::success) {
+    return accepted == engine::core::tasks::submit_result::full ? GNEISS_ERROR_NOT_READY
+                                                                : GNEISS_ERROR_INVALID_STATE;
   }
   request = value->completion.request;
   pending_ = std::move(value);
   return GNEISS_SUCCESS;
 }
-tasks::submit_result texture_load_service::submit_preparation(pending& value) {
-  return diagnostics::submit_observed(
+engine::core::tasks::submit_result texture_load_service::submit_preparation(pending& value) {
+  return engine::core::diagnostics::submit_observed(
       executor_, {.name = "render_assets.prepare", .scope = scope_, .notification = notification_},
-      [cpu = value.cpu](const tasks::task_context& context) {
+      [cpu = value.cpu](const engine::core::tasks::task_context& context) {
         GNEISS_PROFILE_SCOPE("asset.prepare.step");
         const auto start = std::chrono::steady_clock::now();
         asset_diagnostic diagnostic;
@@ -193,17 +194,19 @@ tasks::submit_result texture_load_service::submit_preparation(pending& value) {
             std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start)
                 .count();
         if (context.stop_requested()) {
-          return tasks::task_outcome{.state = tasks::task_state::cancelled};
+          return engine::core::tasks::task_outcome{.state =
+                                                       engine::core::tasks::task_state::cancelled};
         }
-        return tasks::task_outcome{
-            .state = cpu->result == GNEISS_SUCCESS ? tasks::task_state::succeeded
-                                                   : tasks::task_state::failed,
+        return engine::core::tasks::task_outcome{
+            .state = cpu->result == GNEISS_SUCCESS ? engine::core::tasks::task_state::succeeded
+                                                   : engine::core::tasks::task_state::failed,
         };
       },
       value.task);
 }
 void texture_load_service::finish(gneiss_result result, texture_load_state state) {
-  const diagnostics::loop_span span(diagnostics::loop_stage::candidate_cleanup);
+  const engine::core::diagnostics::loop_span span(
+      engine::core::diagnostics::loop_stage::candidate_cleanup);
   pending_->completion.result = result;
   pending_->completion.message = std::move(pending_->cpu->message);
   pending_->completion.state = state;
@@ -225,7 +228,8 @@ void texture_load_service::check_owner() const {
 }
 void texture_load_service::advance() {
   GNEISS_PROFILE_SCOPE("asset.advance");
-  const diagnostics::loop_span span(diagnostics::loop_stage::texture_advance);
+  const engine::core::diagnostics::loop_span span(
+      engine::core::diagnostics::loop_stage::texture_advance);
   check_owner();
   try {
     advance_impl();
@@ -249,17 +253,19 @@ void texture_load_service::advance() {
 }
 bool texture_load_service::advance_preparation(pending& value) {
   if (value.task.id != 0U) {
-    std::vector<tasks::task_completion> results;
-    if (diagnostics::measure(diagnostics::loop_stage::task_collect,
-                             [&] { return executor_.poll(scope_, results, 1U); }) == 0U) {
+    std::vector<engine::core::tasks::task_completion> results;
+    if (engine::core::diagnostics::measure(engine::core::diagnostics::loop_stage::task_collect,
+                                           [&] { return executor_.poll(scope_, results, 1U); }) ==
+        0U) {
       return false;
     }
     value.task = {};
-    if (value.cancelled || results.front().outcome.state == tasks::task_state::cancelled) {
+    if (value.cancelled ||
+        results.front().outcome.state == engine::core::tasks::task_state::cancelled) {
       finish(GNEISS_ERROR_INVALID_STATE, texture_load_state::cancelled);
       return false;
     }
-    if (results.front().outcome.state != tasks::task_state::succeeded ||
+    if (results.front().outcome.state != engine::core::tasks::task_state::succeeded ||
         value.cpu->result != GNEISS_SUCCESS) {
       finish(value.cpu->result == GNEISS_SUCCESS ? GNEISS_ERROR_INTERNAL : value.cpu->result,
              texture_load_state::failed);
@@ -272,9 +278,11 @@ bool texture_load_service::advance_preparation(pending& value) {
     return false;
   }
   if (!value.cpu->complete) {
-    const auto accepted = diagnostics::measure(diagnostics::loop_stage::task_submit,
-                                               [&] { return submit_preparation(value); });
-    if (accepted != tasks::submit_result::success && accepted != tasks::submit_result::full) {
+    const auto accepted =
+        engine::core::diagnostics::measure(engine::core::diagnostics::loop_stage::task_submit,
+                                           [&] { return submit_preparation(value); });
+    if (accepted != engine::core::tasks::submit_result::success &&
+        accepted != engine::core::tasks::submit_result::full) {
       finish(GNEISS_ERROR_INVALID_STATE, texture_load_state::failed);
     }
     return false;
@@ -316,10 +324,11 @@ void texture_load_service::advance_impl() {
     for (unsigned count = 0U;
          value.candidates.size() < value.cpu->batch.assets.size() && count < 4U; ++count) {
       render_asset_loader::asset_candidate candidate;
-      const auto result = diagnostics::measure(diagnostics::loop_stage::asset_stage, [&] {
-        return loader_.stage_asset(std::move(value.cpu->batch.assets[value.candidates.size()]),
-                                   value.candidates, candidate, value.mode);
-      });
+      const auto result = engine::core::diagnostics::measure(
+          engine::core::diagnostics::loop_stage::asset_stage, [&] {
+            return loader_.stage_asset(std::move(value.cpu->batch.assets[value.candidates.size()]),
+                                       value.candidates, candidate, value.mode);
+          });
       if (result != GNEISS_SUCCESS) {
         value.cpu->message = "资产候选暂存失败";
         finish(result, texture_load_state::failed);
@@ -360,8 +369,8 @@ void texture_load_service::advance_impl() {
   }
   if (value.in_flight) {
     gneiss_result result{};
-    if (!diagnostics::measure(diagnostics::loop_stage::upload_poll,
-                              [&] { return backend_.poll(value.upload, result); })) {
+    if (!engine::core::diagnostics::measure(engine::core::diagnostics::loop_stage::upload_poll,
+                                            [&] { return backend_.poll(value.upload, result); })) {
       return;
     }
     value.in_flight = false;
@@ -431,9 +440,9 @@ void texture_load_service::advance_impl() {
       batch.push_back(item);
       ++end;
     }
-    const auto result = diagnostics::measure(diagnostics::loop_stage::upload_submit, [&] {
-      return backend_.begin(std::move(batch), value.upload);
-    });
+    const auto result = engine::core::diagnostics::measure(
+        engine::core::diagnostics::loop_stage::upload_submit,
+        [&] { return backend_.begin(std::move(batch), value.upload); });
     if (result == GNEISS_ERROR_NOT_READY) {
       return;
     }
@@ -454,8 +463,9 @@ void texture_load_service::advance_impl() {
     return;
   }
   auto result = value.observed == loader_.revision()
-                    ? diagnostics::measure(diagnostics::loop_stage::asset_publish,
-                                           [&] { return loader_.publish_assets(value.candidates); })
+                    ? engine::core::diagnostics::measure(
+                          engine::core::diagnostics::loop_stage::asset_publish,
+                          [&] { return loader_.publish_assets(value.candidates); })
                     : GNEISS_ERROR_INVALID_STATE;
   if (result != GNEISS_SUCCESS) {
     value.cpu->message = "资产候选发布失败";

@@ -12,7 +12,7 @@
 #include <memory>
 #include <utility>
 
-namespace gneiss::tasks {
+namespace gneiss::engine::core::tasks {
 class task_executor;
 }
 
@@ -25,7 +25,7 @@ public:
   explicit asset_manager(engine::resource::virtual_file_system files);
   ~asset_manager();
   /** 借用 VFS 与宿主执行器；不创建独立线程池。 */
-  void attach_task_executor(tasks::task_executor& executor);
+  void attach_task_executor(engine::core::tasks::task_executor& executor);
   /** 同步准备失败不改输出，不驱动宿主任务队列；采用与取消由调用者负责。 */
   [[nodiscard]] result load_input(std::string_view uri,
                                   engine::resource::action_map& output) noexcept;

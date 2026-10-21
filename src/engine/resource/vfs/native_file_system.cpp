@@ -339,7 +339,7 @@ namespace gneiss::engine::resource {
 namespace {
 class uv_asset_read final : public read_operation {
 public:
-  std::unique_ptr<io_internal::uv_file_read_operation> operation;
+  std::unique_ptr<engine::platform::io::uv_file_read_operation> operation;
   gneiss_result poll(std::span<const std::byte>& output) noexcept override {
     return operation->poll(output).native();
   }
@@ -350,7 +350,7 @@ public:
 };
 class uv_asset_source final : public read_source {
 public:
-  std::shared_ptr<io_internal::uv_async_file> source;
+  std::shared_ptr<engine::platform::io::uv_async_file> source;
   gneiss_result begin_close() const noexcept override {
     source->begin_close();
     return GNEISS_SUCCESS;
@@ -378,11 +378,11 @@ public:
 };
 class uv_asset_open final : public open_read_operation {
 public:
-  std::unique_ptr<io_internal::uv_path_operation> resolving;
-  std::shared_ptr<io_internal::uv_file_io> files;
+  std::unique_ptr<engine::platform::io::uv_path_operation> resolving;
+  std::shared_ptr<engine::platform::io::uv_file_io> files;
   std::filesystem::path root;
   std::string candidate;
-  std::unique_ptr<io_internal::uv_file_open_operation> opening;
+  std::unique_ptr<engine::platform::io::uv_file_open_operation> opening;
   gneiss_result status = GNEISS_ERROR_NOT_READY;
   bool delivered{};
   gneiss_result poll(std::unique_ptr<read_source>& output) noexcept override {
@@ -433,8 +433,8 @@ public:
 };
 } // namespace
 void native_file_system::set_async_io(
-    std::shared_ptr<io_internal::uv_file_io> files,
-    std::shared_ptr<io_internal::uv_path_resolver> paths) noexcept {
+    std::shared_ptr<engine::platform::io::uv_file_io> files,
+    std::shared_ptr<engine::platform::io::uv_path_resolver> paths) noexcept {
   async_files_ = std::move(files);
   async_paths_ = std::move(paths);
 }
@@ -606,9 +606,9 @@ gneiss_result native_file_system::read_bounded(std::string_view path, std::size_
     }
 #ifdef GNEISS_ASSET_LIBUV
     const auto utf8_path = candidate.u8string();
-    std::unique_ptr<io_internal::uv_file_reader> reader;
-    const auto opened =
-        io_internal::uv_file_reader::open(std::string(utf8_path.begin(), utf8_path.end()), reader);
+    std::unique_ptr<engine::platform::io::uv_file_reader> reader;
+    const auto opened = engine::platform::io::uv_file_reader::open(
+        std::string(utf8_path.begin(), utf8_path.end()), reader);
     if (opened != result::success) {
       return opened.native();
     }

@@ -112,11 +112,11 @@ int main() try {
   for (const auto length : {0U, 1U, 55U, 56U, 63U, 64U, 65U, 119U, 120U, 128U, 257U}) {
     const std::string input(length, 'a');
     const auto data = std::as_bytes(std::span{input});
-    const auto expected = gneiss::core::sha256(data);
+    const auto expected = gneiss::engine::core::sha256(data);
     for (std::size_t split = 0U; split <= data.size(); ++split) {
-      gneiss::core::sha256_builder builder;
+      gneiss::engine::core::sha256_builder builder;
       builder.update(data.first(split));
-      if (builder.digest() != gneiss::core::sha256(data.first(split))) {
+      if (builder.digest() != gneiss::engine::core::sha256(data.first(split))) {
         return 13;
       }
       builder.update({});
@@ -126,7 +126,7 @@ int main() try {
       }
     }
   }
-  gneiss::core::sha256_builder million;
+  gneiss::engine::core::sha256_builder million;
   const std::string block(1000U, 'a');
   for (int index = 0; index < 1000; ++index) {
     million.update(std::as_bytes(std::span{block}));

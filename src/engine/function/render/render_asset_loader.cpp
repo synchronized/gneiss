@@ -32,7 +32,7 @@ material_for_publication(const gneiss::engine::resource::material_parameters& pa
       .green = parameters.color[1],
       .blue = parameters.color[2],
       .alpha = parameters.color[3],
-      .base_color_texture = gneiss::core::null_rid,
+      .base_color_texture = gneiss::engine::core::null_rid,
       .metallic = parameters.metallic,
       .roughness = parameters.roughness,
   };
@@ -69,14 +69,14 @@ constexpr std::uint32_t texture_type = 3;
 
 struct mesh_asset final {
   mesh_asset(gneiss::engine::render::render_resource_service& owner,
-             gneiss::core::rid value) noexcept
+             gneiss::engine::core::rid value) noexcept
       : resources(&owner), rid(value) {}
   mesh_asset(const mesh_asset&) = delete;
   mesh_asset& operator=(const mesh_asset&) = delete;
   gneiss::engine::render::render_resource_service* resources;
-  gneiss::core::rid rid;
+  gneiss::engine::core::rid rid;
   ~mesh_asset() {
-    if (resources != nullptr && rid != gneiss::core::null_rid) {
+    if (resources != nullptr && rid != gneiss::engine::core::null_rid) {
       (void)resources->destroy_mesh(rid);
     }
   }
@@ -84,18 +84,18 @@ struct mesh_asset final {
 
 struct material_asset final {
   material_asset(
-      gneiss::engine::render::render_resource_service& owner, gneiss::core::rid value,
+      gneiss::engine::render::render_resource_service& owner, gneiss::engine::core::rid value,
       std::array<std::shared_ptr<const gneiss::engine::resource::resource_cache::entry>, 5>
           texture_dependencies = {}) noexcept
       : resources(&owner), rid(value), textures(std::move(texture_dependencies)) {}
   material_asset(const material_asset&) = delete;
   material_asset& operator=(const material_asset&) = delete;
   gneiss::engine::render::render_resource_service* resources;
-  gneiss::core::rid rid;
+  gneiss::engine::core::rid rid;
   std::array<std::shared_ptr<const gneiss::engine::resource::resource_cache::entry>, 5> textures;
   std::shared_ptr<const gneiss::engine::resource::material_document_reference> document;
   ~material_asset() {
-    if (resources != nullptr && rid != gneiss::core::null_rid) {
+    if (resources != nullptr && rid != gneiss::engine::core::null_rid) {
       (void)resources->destroy_material(rid);
     }
   }
@@ -103,14 +103,14 @@ struct material_asset final {
 
 struct texture_asset final {
   texture_asset(gneiss::engine::render::render_resource_service& owner,
-                gneiss::core::rid value) noexcept
+                gneiss::engine::core::rid value) noexcept
       : resources(&owner), rid(value) {}
   texture_asset(const texture_asset&) = delete;
   texture_asset& operator=(const texture_asset&) = delete;
   gneiss::engine::render::render_resource_service* resources;
-  gneiss::core::rid rid;
+  gneiss::engine::core::rid rid;
   ~texture_asset() {
-    if (resources != nullptr && rid != gneiss::core::null_rid) {
+    if (resources != nullptr && rid != gneiss::engine::core::null_rid) {
       (void)resources->destroy_texture(rid);
     }
   }
@@ -120,23 +120,23 @@ struct texture_asset final {
 
 namespace gneiss::engine::render {
 
-gneiss::core::rid mesh_asset_lease::get() const noexcept {
+gneiss::engine::core::rid mesh_asset_lease::get() const noexcept {
   if (entry_ == nullptr || entry_->resource == nullptr) {
-    return gneiss::core::null_rid;
+    return gneiss::engine::core::null_rid;
   }
   return std::static_pointer_cast<mesh_asset>(entry_->resource)->rid;
 }
 
-gneiss::core::rid material_asset_lease::get() const noexcept {
+gneiss::engine::core::rid material_asset_lease::get() const noexcept {
   if (entry_ == nullptr || entry_->resource == nullptr) {
-    return gneiss::core::null_rid;
+    return gneiss::engine::core::null_rid;
   }
   return std::static_pointer_cast<material_asset>(entry_->resource)->rid;
 }
 
-gneiss::core::rid texture_asset_lease::get() const noexcept {
+gneiss::engine::core::rid texture_asset_lease::get() const noexcept {
   if (entry_ == nullptr || entry_->resource == nullptr) {
-    return gneiss::core::null_rid;
+    return gneiss::engine::core::null_rid;
   }
   return std::static_pointer_cast<texture_asset>(entry_->resource)->rid;
 }
@@ -629,7 +629,7 @@ gneiss_result render_asset_loader::acquire_mesh(std::string_view uri, mesh_asset
                                                .tangents = tangents,
                                                .uv1 = uv1,
                                                .colors = colors};
-        gneiss::core::rid rid = gneiss::core::null_rid;
+        gneiss::engine::core::rid rid = gneiss::engine::core::null_rid;
         result = resources_.create_mesh(desc, &rid);
         if (result != GNEISS_SUCCESS) {
           fail(out_diagnostic, result, "", "创建 Mesh RID 失败");
@@ -704,7 +704,7 @@ gneiss_result render_asset_loader::acquire_material(std::string_view uri,
           material.set_texture(slot, texture.get());
           dependencies[slot] = texture.entry_;
         }
-        gneiss::core::rid rid = gneiss::core::null_rid;
+        gneiss::engine::core::rid rid = gneiss::engine::core::null_rid;
         result = resources_.create_material(material, &rid);
         if (result != GNEISS_SUCCESS) {
           fail(out_diagnostic, result, "", "创建 Material RID 失败");
@@ -751,7 +751,7 @@ gneiss_result render_asset_loader::acquire_texture(std::string_view uri,
         if (result != GNEISS_SUCCESS) {
           return result;
         }
-        gneiss::core::rid rid = gneiss::core::null_rid;
+        gneiss::engine::core::rid rid = gneiss::engine::core::null_rid;
         auto texture = texture_for_publication(std::move(prepared));
         result = texture.manifest.empty()
                      ? resources_.create_texture(std::move(texture), &rid)
@@ -804,7 +804,7 @@ gneiss_result render_asset_loader::stage_texture(const texture_target& target,
     }
     texture_candidate candidate;
     candidate.target = target;
-    gneiss::core::rid staged = gneiss::core::null_rid;
+    gneiss::engine::core::rid staged = gneiss::engine::core::null_rid;
     auto texture = texture_for_publication(std::move(prepared));
     const auto created = texture.manifest.empty()
                              ? resources_.create_texture(std::move(texture), &staged)

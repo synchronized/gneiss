@@ -26,8 +26,8 @@ namespace gneiss::engine::world {
 
 class world_state final {
 public:
-  using publication_group = core::publication_group;
-  using publication = core::publication;
+  using publication_group = engine::core::publication_group;
+  using publication = engine::core::publication;
 
   /** 所属线程创建候选组；令牌只供内部构造使用，不得跨 World。 */
   [[nodiscard]] publication begin_publication() const {

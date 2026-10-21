@@ -6,9 +6,9 @@
 
 #include <string_view>
 
-namespace gneiss::log_internal {
+namespace gneiss::engine::core::log {
 /** 消息视图只在调用期间借用；类别非空，文本须为合法 UTF-8，无分配且线程安全。 */
 [[nodiscard]] bool valid_text(std::string_view category, std::string_view message) noexcept;
-} // namespace gneiss::log_internal
+} // namespace gneiss::engine::core::log
 
 #endif

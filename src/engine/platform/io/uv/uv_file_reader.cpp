@@ -18,7 +18,7 @@
 #include <sys/stat.h>
 #include <utility>
 
-namespace gneiss::io_internal {
+namespace gneiss::engine::platform::io {
 namespace {
 struct request final {
   uv_fs_t value{};
@@ -120,4 +120,4 @@ result uv_file_reader::read_at(std::uint64_t offset, std::span<std::byte> output
   }
 }
 
-} // namespace gneiss::io_internal
+} // namespace gneiss::engine::platform::io

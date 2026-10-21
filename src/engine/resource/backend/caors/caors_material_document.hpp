@@ -7,10 +7,10 @@
 
 namespace gneiss::engine::resource {
 /** CPU 文档，不持有纹理或 RID；发布后由宿主按不可变对象使用。 */
-struct material_document final : caors::resource {
-  using caors::resource::resource;
+struct material_document final : ::caors::resource {
+  using ::caors::resource::resource;
   asset_parsing::material_source source;
-  core::sha256_digest digest{};
+  engine::core::sha256_digest digest{};
   std::uint64_t source_bytes{};
 };
 /** 复用批次已经读取的字节；不进行 I/O、来源复验或共享版本登记。 */
@@ -19,18 +19,18 @@ inline gneiss_result decode_material_document(const std::vector<std::byte>& byte
                                               asset_diagnostic& diagnostic) {
   const auto parsed = asset_parsing::parse_material(bytes, value.source, diagnostic);
   if (parsed == GNEISS_SUCCESS) {
-    value.digest = core::sha256(bytes);
+    value.digest = engine::core::sha256(bytes);
     value.source_bytes = bytes.size();
   }
   return parsed;
 }
-using material_document_loader = caors_internal::document_loader<material_document>;
+using material_document_loader = engine::platform::caors::document_loader<material_document>;
 /** 独立接入验证入口；默认 1 MiB，宿主可传入单文档预算，须与 VFS 桥及复验一致。 */
 inline std::unique_ptr<material_document_loader> make_material_document_loader(
-    caors_internal::file_system_adapter& files,
+    engine::platform::caors::file_system_adapter& files,
     std::function<result(std::string_view, std::span<const std::byte>)> verify = {},
     std::size_t maximum_document_bytes = 1024U * 1024U) {
-  return std::make_unique<caors_internal::bounded_document_loader<material_document>>(
+  return std::make_unique<engine::platform::caors::bounded_document_loader<material_document>>(
       files,
       [](auto bytes, material_document& value) {
         // 复用现有解析器；复制和摘要都发生在 worker。

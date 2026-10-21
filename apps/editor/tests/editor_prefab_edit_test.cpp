@@ -58,9 +58,9 @@ struct fixture {
     std::filesystem::remove_all(root, ignored);
   }
 };
-void run_refresh(tasks::execution_mode mode) {
+void run_refresh(engine::core::tasks::execution_mode mode) {
   fixture files;
-  tasks::task_scheduler scheduler({.workers = 1U, .mode = mode});
+  engine::core::tasks::task_scheduler scheduler({.workers = 1U, .mode = mode});
   gneiss::test_support::application_owner app;
   auto desc = gneiss_application_desc GNEISS_APPLICATION_DESC_INIT;
   const auto path = files.root.string();
@@ -89,7 +89,7 @@ void run_refresh(tasks::execution_mode mode) {
   check(session.set_local_transform(old_selected, transform) == result::success);
   check(session.select(old_selected) == result::success);
   const auto step = [&] {
-    if (mode == tasks::execution_mode::cooperative) {
+    if (mode == engine::core::tasks::execution_mode::cooperative) {
       (void)scheduler.run_ready();
     }
     edit.advance();
@@ -222,12 +222,12 @@ void run_refresh(tasks::execution_mode mode) {
   drive();
   check(edit.operation() == result::invalid_state && history.size() == 0U);
 }
-void run(tasks::execution_mode mode) {
+void run(engine::core::tasks::execution_mode mode) {
   fixture files;
   std::ifstream input(files.root / "prefab.json");
   const std::string source{std::istreambuf_iterator<char>{input}, std::istreambuf_iterator<char>{}};
   input.close();
-  tasks::task_scheduler scheduler({.workers = 1U, .mode = mode});
+  engine::core::tasks::task_scheduler scheduler({.workers = 1U, .mode = mode});
   gneiss::test_support::application_owner app;
   auto desc = gneiss_application_desc GNEISS_APPLICATION_DESC_INIT;
   const auto root = files.root.string();
@@ -247,7 +247,7 @@ void run(tasks::execution_mode mode) {
                         "Placed", uri, {});
   };
   const auto step = [&] {
-    if (mode == tasks::execution_mode::cooperative) {
+    if (mode == engine::core::tasks::execution_mode::cooperative) {
       (void)scheduler.run_ready();
     }
     edit.advance();
@@ -416,10 +416,10 @@ void run(tasks::execution_mode mode) {
 }
 }
 int main() try {
-  run_refresh(gneiss::tasks::execution_mode::cooperative);
-  run_refresh(gneiss::tasks::execution_mode::thread_pool);
-  run(gneiss::tasks::execution_mode::cooperative);
-  run(gneiss::tasks::execution_mode::thread_pool);
+  run_refresh(gneiss::engine::core::tasks::execution_mode::cooperative);
+  run_refresh(gneiss::engine::core::tasks::execution_mode::thread_pool);
+  run(gneiss::engine::core::tasks::execution_mode::cooperative);
+  run(gneiss::engine::core::tasks::execution_mode::thread_pool);
   return 0;
 } catch (const std::exception& error) {
   std::fprintf(stderr, "%s\n", error.what());

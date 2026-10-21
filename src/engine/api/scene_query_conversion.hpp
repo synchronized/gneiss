@@ -5,13 +5,13 @@
 
 #include "engine/function/scene/scene_query.hpp"
 
-namespace gneiss::api {
-inline engine::transform read_transform(const gneiss_transform& value) noexcept {
+namespace gneiss::engine::api {
+inline engine::core::math::transform read_transform(const gneiss_transform& value) noexcept {
   return {{value.translation[0], value.translation[1], value.translation[2]},
           {value.rotation[0], value.rotation[1], value.rotation[2], value.rotation[3]},
           {value.scale[0], value.scale[1], value.scale[2]}};
 }
-inline gneiss_transform write_transform(const engine::transform& value) noexcept {
+inline gneiss_transform write_transform(const engine::core::math::transform& value) noexcept {
   return {{value.translation[0], value.translation[1], value.translation[2]},
           {value.rotation[0], value.rotation[1], value.rotation[2], value.rotation[3]},
           {value.scale[0], value.scale[1], value.scale[2]}};
@@ -71,4 +71,4 @@ inline void write_prefab_node(const engine::scene::prefab_node_view& value,
   output.source_local_transform = write_transform(value.source_local_transform);
 }
 
-} // namespace gneiss::api
+} // namespace gneiss::engine::api

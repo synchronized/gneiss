@@ -6,37 +6,37 @@
 #include <caors/io/native_file_system.h>
 #include <mutex>
 #include <vector>
-namespace gneiss::caors_internal {
+namespace gneiss::engine::platform::caors {
 namespace {
 // 验证用本地叶后端：空根路径，不另建挂载表。宿主借用的 io/loop 必须最后销毁。
 // start_open 可由 worker 调用；pump/abandon 由同一宿主线程串行、非重入调用。
 class file_system final : public file_system_adapter {
   struct opening {
-    std::unique_ptr<io_internal::uv_file_open_operation> operation;
-    caors::io::io_completion<std::shared_ptr<caors::io::async_file>> completion;
+    std::unique_ptr<engine::platform::io::uv_file_open_operation> operation;
+    ::caors::io::io_completion<std::shared_ptr<::caors::io::async_file>> completion;
   };
 
 public:
-  explicit file_system(io_internal::uv_file_io& io) : io_(io) {}
-  bool exists(caors::io::path_view path) const override { return native_.exists(path); }
-  caors::io::byte_buffer_result read_all(caors::io::path_view path,
-                                         caors::memory_resource* resource) override {
+  explicit file_system(engine::platform::io::uv_file_io& io) : io_(io) {}
+  bool exists(::caors::io::path_view path) const override { return native_.exists(path); }
+  ::caors::io::byte_buffer_result read_all(::caors::io::path_view path,
+                                           ::caors::memory_resource* resource) override {
     return native_.read_all(path, resource);
   }
-  caors::error write_all(caors::io::path_view, std::span<const std::byte>) override {
-    return {caors::error_domain::io, caors::errc::unsupported};
+  ::caors::error write_all(::caors::io::path_view, std::span<const std::byte>) override {
+    return {::caors::error_domain::io, ::caors::errc::unsupported};
   }
-  caors::io::file_system_capabilities capabilities() const noexcept override {
+  ::caors::io::file_system_capabilities capabilities() const noexcept override {
     return {.read = true, .seek = true};
   }
-  caors::io::io_error
-  start_open(caors::io::resolved_file location, caors::memory_resource*,
-             caors::io::io_completion<std::shared_ptr<caors::io::async_file>> completion) override {
+  ::caors::io::io_error start_open(
+      ::caors::io::resolved_file location, ::caors::memory_resource*,
+      ::caors::io::io_completion<std::shared_ptr<::caors::io::async_file>> completion) override {
     const std::scoped_lock lock(mutex_);
     if (stopped_)
-      return {caors::io::io_errc::closed};
+      return {::caors::io::io_errc::closed};
     if (location.backend.get() != this)
-      return {caors::io::io_errc::invalid_argument};
+      return {::caors::io::io_errc::invalid_argument};
     pending_.reserve(pending_.size() + 1);
     opening next;
     const auto status = io_.begin_open(location.path.string_view(), next.operation);
@@ -55,10 +55,10 @@ public:
     }
     for (auto& next : ready) {
       if (next.completion.stop_token().stop_requested()) {
-        (void)next.completion.complete({{caors::io::io_errc::cancelled}, {}});
+        (void)next.completion.complete({{::caors::io::io_errc::cancelled}, {}});
         continue;
       }
-      std::shared_ptr<io_internal::uv_async_file> source;
+      std::shared_ptr<engine::platform::io::uv_async_file> source;
       const auto status = next.operation->poll(source);
       if (status == result::not_ready) {
         const std::scoped_lock lock(mutex_);
@@ -74,7 +74,7 @@ public:
         files_.push_back(file);
         (void)next.completion.complete({{}, std::move(file)});
       } catch (const std::bad_alloc&) {
-        (void)next.completion.complete({{caors::io::io_errc::out_of_memory}, {}});
+        (void)next.completion.complete({{::caors::io::io_errc::out_of_memory}, {}});
       }
     }
     for (auto it = files_.begin(); it != files_.end();) {
@@ -100,15 +100,15 @@ public:
   }
 
 private:
-  io_internal::uv_file_io& io_;
-  caors::io::native_file_system native_;
+  engine::platform::io::uv_file_io& io_;
+  ::caors::io::native_file_system native_;
   std::mutex mutex_;
   bool stopped_{};
   std::vector<opening> pending_;
   std::vector<std::weak_ptr<file_adapter>> files_;
 };
 }
-std::shared_ptr<file_system_adapter> make_file_system(io_internal::uv_file_io& io) {
+std::shared_ptr<file_system_adapter> make_file_system(engine::platform::io::uv_file_io& io) {
   return std::make_shared<file_system>(io);
 }
 }

@@ -21,7 +21,7 @@
 #include <signal.h>
 #endif
 
-namespace gneiss::io_internal {
+namespace gneiss::engine::platform::io {
 
 struct uv_loop_executor::implementation final {
   explicit implementation(std::size_t capacity) : queue_capacity(capacity) {}
@@ -210,4 +210,4 @@ result uv_loop_access::post(uv_loop_executor& executor, task operation) noexcept
   }
 }
 
-} // namespace gneiss::io_internal
+} // namespace gneiss::engine::platform::io

@@ -14,7 +14,7 @@ namespace {
 gneiss_result create_material(gneiss::engine::render::render_resource_service& resources,
                               const gneiss_material_desc& desc, gneiss_material* output) {
   gneiss::engine::render::material_resource value;
-  const auto converted = gneiss::api::read_material_description(desc, value);
+  const auto converted = gneiss::engine::api::read_material_description(desc, value);
   return converted == GNEISS_SUCCESS ? resources.create_material(value, output) : converted;
 }
 } // namespace
@@ -129,7 +129,8 @@ int main() {
   desc = GNEISS_MATERIAL_DESC_INIT;
   desc.struct_size = GNEISS_MATERIAL_DESC_VERSION_1_SIZE + 1U;
   gneiss::engine::render::material_resource unchanged{.red = 0.125F};
-  if (gneiss::api::read_material_description(desc, unchanged) != GNEISS_ERROR_INVALID_ARGUMENT ||
+  if (gneiss::engine::api::read_material_description(desc, unchanged) !=
+          GNEISS_ERROR_INVALID_ARGUMENT ||
       unchanged.red != 0.125F || unchanged.normal_texture != GNEISS_NULL_TEXTURE) {
     return 22;
   }

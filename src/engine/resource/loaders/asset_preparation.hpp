@@ -52,7 +52,7 @@ struct asset_request final {
 struct prepared_source final {
   asset_identity identity;
   std::uint64_t bytes{};
-  core::sha256_digest digest{};
+  engine::core::sha256_digest digest{};
 };
 
 /** CPU 文档租约的类型擦除边界，仅保活不可变文档，不暴露第三方句柄。 */

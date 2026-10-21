@@ -14,7 +14,8 @@
 namespace {
 
 gneiss::result to_native_value(const gneiss::ipc_property_value& source,
-                               gneiss::reflection_internal::property_value& output) noexcept try {
+                               gneiss::engine::core::reflection::property_value& output) noexcept
+    try {
   return std::visit(
       [&](const auto& payload) -> gneiss::result {
         using T = std::decay_t<decltype(payload)>;
@@ -39,7 +40,7 @@ gneiss::result to_native_value(const gneiss::ipc_property_value& source,
   return gneiss::result::internal;
 }
 
-gneiss::result from_native_value(const gneiss::reflection_internal::property_value& source,
+gneiss::result from_native_value(const gneiss::engine::core::reflection::property_value& source,
                                  gneiss::ipc_property_value& output) noexcept try {
   return std::visit(
       [&](const auto& payload) -> gneiss::result {
@@ -75,7 +76,7 @@ result runtime_property_editor::initialize(gneiss_world world, runtime_scene_ins
   if (world == GNEISS_NULL_WORLD || session_id == 0U || registry_ != nullptr) {
     return result::invalid_argument;
   }
-  reflection_internal::registry_ref registry;
+  engine::core::reflection::registry_ref registry;
   const auto operation = engine::world::create_property_registry(registry);
   if (operation.failed()) {
     return operation;
@@ -137,7 +138,7 @@ result runtime_property_editor::execute(const ipc_property_write& command,
   std::ranges::copy(command.type_id.bytes, property_type.bytes.begin());
   const field_id property_field{command.field_id};
   type_info description;
-  operation = reflection_internal::describe_type(registry_, property_type, description);
+  operation = engine::core::reflection::describe_type(registry_, property_type, description);
   const auto field = std::ranges::find(description.fields, property_field, &field_info::id);
   if (operation.failed() || field == description.fields.end() ||
       !has_flags(field->capabilities, property_capabilities::writable)) {
@@ -156,16 +157,16 @@ result runtime_property_editor::execute(const ipc_property_write& command,
     output = std::move(response);
     return result::success;
   }
-  reflection_internal::property_value value;
+  engine::core::reflection::property_value value;
   operation = to_native_value(command.value, value);
   if (operation.ok()) {
     const property_target target{.context = world_, .object = entity};
-    operation = reflection_internal::write_property(registry_, property_type, property_field,
-                                                    target, value);
+    operation = engine::core::reflection::write_property(registry_, property_type, property_field,
+                                                         target, value);
     if (operation.ok()) {
-      reflection_internal::property_value canonical;
-      operation = reflection_internal::read_property(registry_, property_type, property_field,
-                                                     target, canonical);
+      engine::core::reflection::property_value canonical;
+      operation = engine::core::reflection::read_property(registry_, property_type, property_field,
+                                                          target, canonical);
       if (operation.ok()) {
         operation = from_native_value(canonical, response.canonical_value);
       }

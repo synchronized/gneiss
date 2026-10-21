@@ -90,7 +90,7 @@ gneiss_result scene_instance::capture_prefab_instance_header(
   }
   const auto index = static_cast<std::size_t>(found - description_.prefab_instances.begin());
   auto copy = *found;
-  gneiss::engine::transform transform{};
+  gneiss::engine::core::math::transform transform{};
   const auto queried = native_world_.node_get_local_transform(
       gneiss::scene_node_id{prefab_instances_[index]->root()}, transform);
   if (queried != GNEISS_SUCCESS) {
@@ -161,7 +161,7 @@ gneiss_result scene_instance::prepare_prefab_instance_candidate(
   prefab_instances_.reserve(prefab_instances_.size() + 1U);
   auto candidate = std::make_unique<prefab_runtime_instance>(
       native_world_, reflection_context_, loader_, std::move(prefab), author.instance_uuid);
-  gneiss::engine::transform transform = {};
+  gneiss::engine::core::math::transform transform = {};
   std::ranges::copy(author.translation, transform.translation.begin());
   std::ranges::copy(author.rotation, transform.rotation.begin());
   std::ranges::copy(author.scale, transform.scale.begin());
@@ -216,8 +216,8 @@ gneiss_result scene_instance::replace_prefab_instance_versions(
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
   std::vector<std::size_t> indices;
-  std::vector<core::publication> previous;
-  std::vector<core::publication> candidates;
+  std::vector<engine::core::publication> previous;
+  std::vector<engine::core::publication> candidates;
   indices.reserve(replacements.size());
   previous.reserve(replacements.size());
   candidates.reserve(replacements.size());

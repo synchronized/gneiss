@@ -37,7 +37,7 @@ class game_update_scheduler final {
 public:
   explicit game_update_scheduler(game_update_scheduler_config config = {}) noexcept;
 
-  [[nodiscard]] result advance(const gneiss::engine::frame_time& frame,
+  [[nodiscard]] result advance(const gneiss::engine::core::frame_time& frame,
                                const game_update_callbacks& callbacks,
                                game_update_report& out_report) noexcept;
   void reset() noexcept;

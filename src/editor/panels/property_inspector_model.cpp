@@ -34,7 +34,7 @@ result property_inspector_model::refresh(gneiss_world world_handle, entity_id en
     };
     for (const auto type_id : reflected_component_types) {
       type_info type{};
-      auto operation = reflection_internal::describe_type(registry_, type_id, type);
+      auto operation = engine::core::reflection::describe_type(registry_, type_id, type);
       if (operation != result::success) {
         clear();
         return operation;
@@ -48,8 +48,9 @@ result property_inspector_model::refresh(gneiss_world world_handle, entity_id en
       component.properties.reserve(type.fields.size());
       for (std::uint32_t index = 0; index < type.fields.size(); ++index) {
         const auto& field = type.fields[index];
-        reflection_internal::property_value value;
-        operation = reflection_internal::read_property(registry_, type.id, field.id, target, value);
+        engine::core::reflection::property_value value;
+        operation =
+            engine::core::reflection::read_property(registry_, type.id, field.id, target, value);
         if (operation == result::not_found) {
           component_missing = true;
           break;
@@ -80,9 +81,9 @@ result property_inspector_model::refresh(gneiss_world world_handle, entity_id en
   }
 }
 
-result
-property_inspector_model::set_value(type_id type_id, field_id field_id,
-                                    const reflection_internal::property_value& value) noexcept {
+result property_inspector_model::set_value(
+    type_id type_id, field_id field_id,
+    const engine::core::reflection::property_value& value) noexcept {
   if (!registry_ || target_.context == GNEISS_NULL_WORLD ||
       target_.object == GNEISS_NULL_ENTITY_ID) {
     return result::invalid_state;
@@ -100,11 +101,11 @@ property_inspector_model::set_value(type_id type_id, field_id field_id,
     return result::unsupported;
   }
   const auto operation =
-      reflection_internal::write_property(registry_, type_id, field_id, target_, value);
+      engine::core::reflection::write_property(registry_, type_id, field_id, target_, value);
   if (operation == result::success) {
-    reflection_internal::property_value refreshed;
+    engine::core::reflection::property_value refreshed;
     const auto read_operation =
-        reflection_internal::read_property(registry_, type_id, field_id, target_, refreshed);
+        engine::core::reflection::read_property(registry_, type_id, field_id, target_, refreshed);
     if (read_operation != result::success) {
       return read_operation;
     }
@@ -113,16 +114,15 @@ property_inspector_model::set_value(type_id type_id, field_id field_id,
   return operation;
 }
 
-result
-property_inspector_model::set_value(gneiss_world world_handle, entity_id entity, type_id type_id,
-                                    field_id field_id,
-                                    const reflection_internal::property_value& value) noexcept {
+result property_inspector_model::set_value(
+    gneiss_world world_handle, entity_id entity, type_id type_id, field_id field_id,
+    const engine::core::reflection::property_value& value) noexcept {
   if (!registry_ || world_handle == GNEISS_NULL_WORLD || !entity.is_valid()) {
     return result::invalid_argument;
   }
   const property_target target{.context = world_handle, .object = entity.get()};
   const auto operation =
-      reflection_internal::write_property(registry_, type_id, field_id, target, value);
+      engine::core::reflection::write_property(registry_, type_id, field_id, target, value);
   if (operation != result::success || target.context != target_.context ||
       target.object != target_.object) {
     return operation;

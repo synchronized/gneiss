@@ -57,8 +57,8 @@ GNEISS_API gneiss_result query_render_statistics(
     gneiss_application application, engine::render::render_queue_stats& output) noexcept;
 
 /** 借用宿主执行入口直到 Application 关闭；同一宿主不再创建第二个池。 */
-GNEISS_API gneiss_result attach_task_executor(gneiss_application application,
-                                              tasks::task_executor& executor) noexcept;
+GNEISS_API gneiss_result attach_task_executor(
+    gneiss_application application, engine::core::tasks::task_executor& executor) noexcept;
 /** 所属线程接受混合资产批次；CPU 解析交给宿主执行器。
  * reload=true 使用固定版本，自动扩展活动 World 中引用请求纹理的材质；上传确认后
  * poll_textures 在帧快照捕获前批量切换场景租约和 ECS。失败保留原引用。

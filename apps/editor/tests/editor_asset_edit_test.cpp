@@ -43,9 +43,9 @@ struct fixture {
     std::filesystem::remove_all(root, ignored);
   }
 };
-void run(tasks::execution_mode mode) {
+void run(engine::core::tasks::execution_mode mode) {
   fixture files;
-  tasks::task_scheduler scheduler({.workers = 1U, .mode = mode});
+  engine::core::tasks::task_scheduler scheduler({.workers = 1U, .mode = mode});
   gneiss::test_support::application_owner app;
   auto desc = gneiss_application_desc GNEISS_APPLICATION_DESC_INIT;
   const auto root = files.root.string();
@@ -64,7 +64,7 @@ void run(tasks::execution_mode mode) {
   const auto drive = [&] {
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
     while (edit.active()) {
-      if (mode == tasks::execution_mode::cooperative) {
+      if (mode == engine::core::tasks::execution_mode::cooperative) {
         (void)scheduler.run_ready();
       }
       edit.advance(*gneiss::runtime::find_application(app.get()), session, history);
@@ -186,8 +186,8 @@ void run(tasks::execution_mode mode) {
 }
 }
 int main() try {
-  run(gneiss::tasks::execution_mode::cooperative);
-  run(gneiss::tasks::execution_mode::thread_pool);
+  run(gneiss::engine::core::tasks::execution_mode::cooperative);
+  run(gneiss::engine::core::tasks::execution_mode::thread_pool);
   return 0;
 } catch (const std::exception& error) {
   std::fprintf(stderr, "%s\n", error.what());

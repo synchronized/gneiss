@@ -3,7 +3,7 @@
 
 #include "engine/core/result.hpp"
 
-const char* gneiss::core::result_message(gneiss_result result) noexcept {
+const char* gneiss::engine::core::result_message(gneiss_result result) noexcept {
   switch (result) {
   case GNEISS_SUCCESS:
     return "success";

@@ -5,7 +5,8 @@ namespace gneiss::engine::resource {
 namespace {
 class caors_request final : public action_map_request {
 public:
-  explicit caors_request(caors::resources::load_request<engine::resource::action_map_asset> request)
+  explicit caors_request(
+      ::caors::resources::load_request<engine::resource::action_map_asset> request)
       : request_(std::move(request)) {}
   ~caors_request() override { cancel(); }
   void cancel() noexcept override {
@@ -25,10 +26,10 @@ public:
     auto status = result::success;
     if (!request_.loaded()) {
       const auto error = request_.error().value();
-      status = error == caors::errc::not_found          ? result::not_found
-               : error == caors::errc::invalid_argument ? result::invalid_argument
-               : error == caors::errc::out_of_memory    ? result::out_of_memory
-                                                        : result::io;
+      status = error == ::caors::errc::not_found          ? result::not_found
+               : error == ::caors::errc::invalid_argument ? result::invalid_argument
+               : error == ::caors::errc::out_of_memory    ? result::out_of_memory
+                                                          : result::io;
     } else {
       try {
         const auto asset = request_.try_get();
@@ -50,12 +51,12 @@ public:
   }
 
 private:
-  caors::resources::load_request<engine::resource::action_map_asset> request_;
+  ::caors::resources::load_request<engine::resource::action_map_asset> request_;
   result terminal_ = result::not_ready;
 };
 }
 std::unique_ptr<action_map_request> make_action_map_request(
-    caors::resources::load_request<engine::resource::action_map_asset> request) {
+    ::caors::resources::load_request<engine::resource::action_map_asset> request) {
   return std::make_unique<caors_request>(std::move(request));
 }
 }

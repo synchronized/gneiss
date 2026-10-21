@@ -46,14 +46,14 @@ namespace gneiss::runtime {
 struct application::storage {
   explicit storage(const runtime::application_configuration& config)
       : config_(config), owner_thread_(std::this_thread::get_id()) {}
-  std::shared_ptr<core::progress_notification> loop_notification_;
+  std::shared_ptr<engine::core::progress_notification> loop_notification_;
   runtime::application_configuration config_;
   engine::render::render_resource_service resources_;
   engine::render::ui_draw_list ui_draw_list_;
   engine::render::debug_draw_list debug_draw_list_;
   std::optional<engine::render::view_camera> view_camera_;
 #ifdef GNEISS_ASSET_LIBUV
-  std::unique_ptr<io_internal::uv_loop_executor> asset_io_executor_;
+  std::unique_ptr<engine::platform::io::uv_loop_executor> asset_io_executor_;
   std::shared_ptr<engine::resource::native_file_system> native_assets_;
 #endif
   engine::resource::virtual_file_system asset_file_system_;
@@ -76,9 +76,9 @@ struct application::storage {
   bool should_exit_ = false;
   bool is_updating_ = false;
   engine::input::input_service input_;
-  std::unique_ptr<log_internal::log_dispatcher> log_dispatcher_;
+  std::unique_ptr<engine::core::log::log_dispatcher> log_dispatcher_;
 #ifdef GNEISS_HAS_GRANIT_PLATFORM
-  std::unique_ptr<platform::granit_platform> granit_platform_;
+  std::unique_ptr<engine::platform::granit_platform> granit_platform_;
   std::unique_ptr<engine::render::granit_render_service> granit_render_service_;
 #endif
 };
@@ -106,7 +106,7 @@ public:
         std::fputs("Gneiss 循环诊断：无法打开输出\n", stderr);
         return;
       }
-      timing_ = std::make_unique<diagnostics::loop_timing>();
+      timing_ = std::make_unique<engine::core::diagnostics::loop_timing>();
     } catch (...) {
       std::fputs("Gneiss 循环诊断：初始化失败\n", stderr);
     }
@@ -129,13 +129,17 @@ public:
       }
     }
   }
-  void set_origin(diagnostics::timing_clock::time_point origin) noexcept { origin_ = origin; }
-  [[nodiscard]] diagnostics::loop_timing* get() const noexcept { return timing_.get(); }
+  void set_origin(engine::core::diagnostics::timing_clock::time_point origin) noexcept {
+    origin_ = origin;
+  }
+  [[nodiscard]] engine::core::diagnostics::loop_timing* get() const noexcept {
+    return timing_.get();
+  }
 
 private:
-  diagnostics::timing_clock::time_point origin_;
+  engine::core::diagnostics::timing_clock::time_point origin_;
   std::unique_ptr<std::ofstream> output_;
-  std::unique_ptr<diagnostics::loop_timing> timing_;
+  std::unique_ptr<engine::core::diagnostics::loop_timing> timing_;
 };
 } // namespace
 
@@ -181,7 +185,8 @@ engine::render::render_queue_stats application::render_statistics() const noexce
   return {};
 }
 
-gneiss_result application::attach_task_executor(tasks::task_executor& executor) noexcept {
+gneiss_result
+application::attach_task_executor(engine::core::tasks::task_executor& executor) noexcept {
   if (!is_owner_thread() || !accepts_requests())
     return GNEISS_ERROR_INVALID_STATE;
   if (storage_->scene_session_.textures()) {
@@ -190,10 +195,10 @@ gneiss_result application::attach_task_executor(tasks::task_executor& executor) 
   try {
 #ifdef GNEISS_ASSET_LIBUV
     if (storage_->native_assets_ && !storage_->asset_io_executor_ &&
-        executor.mode() == tasks::execution_mode::thread_pool) {
-      auto loop = std::make_unique<io_internal::uv_loop_executor>();
-      auto files = std::make_shared<io_internal::uv_file_io>(*loop);
-      auto paths = std::make_shared<io_internal::uv_path_resolver>(*loop);
+        executor.mode() == engine::core::tasks::execution_mode::thread_pool) {
+      auto loop = std::make_unique<engine::platform::io::uv_loop_executor>();
+      auto files = std::make_shared<engine::platform::io::uv_file_io>(*loop);
+      auto paths = std::make_shared<engine::platform::io::uv_path_resolver>(*loop);
       const auto started = loop->start();
       if (started != result::success) {
         return started.native();
@@ -290,7 +295,7 @@ gneiss_result application::initialize() noexcept {
   if (storage_->config_.callbacks.log != nullptr) {
     try {
       storage_->log_dispatcher_ =
-          std::make_unique<log_internal::log_dispatcher>(storage_->config_.callbacks.log);
+          std::make_unique<engine::core::log::log_dispatcher>(storage_->config_.callbacks.log);
     } catch (const std::bad_alloc&) {
       return GNEISS_ERROR_OUT_OF_MEMORY;
     } catch (...) {
@@ -317,15 +322,16 @@ gneiss_result application::initialize() noexcept {
       mount_result = storage_->asset_file_system_.mount("asset://", std::move(native_file_system));
     }
     if (mount_result != GNEISS_SUCCESS) {
-      report(GNEISS_NULL_APPLICATION, diagnostics::severity::error, diagnostics::category::asset,
-             mount_result, "asset", "资产根目录挂载失败");
+      report(GNEISS_NULL_APPLICATION, engine::core::diagnostics::severity::error,
+             engine::core::diagnostics::category::asset, mount_result, "asset",
+             "资产根目录挂载失败");
       return mount_result;
     }
   }
   if (storage_->config_.use_granit_window) {
 #ifdef GNEISS_HAS_GRANIT_PLATFORM
     try {
-      storage_->granit_platform_ = std::make_unique<platform::granit_platform>();
+      storage_->granit_platform_ = std::make_unique<engine::platform::granit_platform>();
     } catch (const std::bad_alloc&) {
       return GNEISS_ERROR_OUT_OF_MEMORY;
     } catch (...) {
@@ -333,15 +339,16 @@ gneiss_result application::initialize() noexcept {
     }
     const auto platform_result = storage_->granit_platform_->initialize(storage_->config_.window);
     if (platform_result != GNEISS_SUCCESS) {
-      report(GNEISS_NULL_APPLICATION, diagnostics::severity::error, diagnostics::category::backend,
-             platform_result, "granit.platform", "Granit 平台初始化失败");
+      report(GNEISS_NULL_APPLICATION, engine::core::diagnostics::severity::error,
+             engine::core::diagnostics::category::backend, platform_result, "granit.platform",
+             "Granit 平台初始化失败");
       storage_->granit_platform_.reset();
       return platform_result;
     }
     try {
       storage_->granit_render_service_ = std::make_unique<engine::render::granit_render_service>();
 #ifdef GNEISS_NATIVE_LOOP_WAIT
-      storage_->loop_notification_ = std::make_shared<core::loop_progress>();
+      storage_->loop_notification_ = std::make_shared<engine::core::loop_progress>();
 #endif
     } catch (const std::bad_alloc&) {
       storage_->granit_platform_.reset();
@@ -355,8 +362,9 @@ gneiss_result application::initialize() noexcept {
       const auto environment_result =
           storage_->asset_file_system_.read(storage_->config_.environment_asset, environment_asset);
       if (environment_result != GNEISS_SUCCESS) {
-        report(GNEISS_NULL_APPLICATION, diagnostics::severity::error, diagnostics::category::asset,
-               environment_result, "environment", "环境资产读取失败");
+        report(GNEISS_NULL_APPLICATION, engine::core::diagnostics::severity::error,
+               engine::core::diagnostics::category::asset, environment_result, "environment",
+               "环境资产读取失败");
         storage_->granit_platform_.reset();
         return environment_result;
       }
@@ -366,16 +374,18 @@ gneiss_result application::initialize() noexcept {
         storage_->config_.environment_intensity, storage_->config_.environment_rotation_radians,
         storage_->log_dispatcher_.get());
     if (render_result != GNEISS_SUCCESS) {
-      report(GNEISS_NULL_APPLICATION, diagnostics::severity::error, diagnostics::category::backend,
-             render_result, "granit.render", "Granit 渲染服务初始化失败");
+      report(GNEISS_NULL_APPLICATION, engine::core::diagnostics::severity::error,
+             engine::core::diagnostics::category::backend, render_result, "granit.render",
+             "Granit 渲染服务初始化失败");
       storage_->granit_render_service_.reset();
       storage_->granit_platform_.reset();
       return render_result;
     }
     storage_->granit_render_service_->set_completion_notification(storage_->loop_notification_);
 #else
-    report(GNEISS_NULL_APPLICATION, diagnostics::severity::error, diagnostics::category::backend,
-           GNEISS_ERROR_UNSUPPORTED, "granit.platform", "当前构建未启用 Granit 平台适配");
+    report(GNEISS_NULL_APPLICATION, engine::core::diagnostics::severity::error,
+           engine::core::diagnostics::category::backend, GNEISS_ERROR_UNSUPPORTED,
+           "granit.platform", "当前构建未启用 Granit 平台适配");
     return GNEISS_ERROR_UNSUPPORTED;
 #endif
   }
@@ -389,8 +399,8 @@ gneiss_result application::initialize() noexcept {
       result = GNEISS_ERROR_INTERNAL;
     }
     if (result != GNEISS_SUCCESS) {
-      report(GNEISS_NULL_APPLICATION, diagnostics::severity::error,
-             diagnostics::category::application, result, "application.initialize",
+      report(GNEISS_NULL_APPLICATION, engine::core::diagnostics::severity::error,
+             engine::core::diagnostics::category::application, result, "application.initialize",
              "application 初始化回调失败");
       // 初始化回调可能已获得部分资源，因此失败时也执行配对清理。
       storage_->platform_initialized_ = true;
@@ -409,8 +419,8 @@ gneiss_result application::initialize() noexcept {
     const auto result =
         storage_->scene_session_.initialize(*storage_->asset_manager_, *storage_->render_assets_);
     if (result != GNEISS_SUCCESS) {
-      report(GNEISS_NULL_APPLICATION, diagnostics::severity::error,
-             diagnostics::category::application, result, "scene", "场景域创建失败");
+      report(GNEISS_NULL_APPLICATION, engine::core::diagnostics::severity::error,
+             engine::core::diagnostics::category::application, result, "scene", "场景域创建失败");
       static_cast<void>(shutdown(GNEISS_NULL_APPLICATION));
       return result;
     }
@@ -444,35 +454,35 @@ gneiss_result application::poll_events(bool& out_should_close) noexcept {
     if (platform_result != GNEISS_SUCCESS) {
       return platform_result;
     }
-    engine::input::keyboard_state keyboard = {};
-    auto input_result = diagnostics::measure(diagnostics::loop_stage::input_state, [&]() noexcept {
-      return storage_->granit_platform_->keyboard(keyboard);
-    });
+    engine::core::input::keyboard_state keyboard = {};
+    auto input_result = engine::core::diagnostics::measure(
+        engine::core::diagnostics::loop_stage::input_state,
+        [&]() noexcept { return storage_->granit_platform_->keyboard(keyboard); });
     if (input_result != GNEISS_SUCCESS) {
       return input_result;
     }
-    engine::input::pointer_state pointer = {};
-    input_result = diagnostics::measure(diagnostics::loop_stage::input_state, [&]() noexcept {
-      return storage_->granit_platform_->pointer(pointer);
-    });
+    engine::core::input::pointer_state pointer = {};
+    input_result = engine::core::diagnostics::measure(
+        engine::core::diagnostics::loop_stage::input_state,
+        [&]() noexcept { return storage_->granit_platform_->pointer(pointer); });
     if (input_result != GNEISS_SUCCESS) {
       return input_result;
     }
     storage_->input_.set_keyboard(keyboard);
     storage_->input_.set_pointer(pointer);
-    engine::input::input_event event = {};
-    input_result = diagnostics::measure(diagnostics::loop_stage::input_events, [&]() noexcept {
-      return storage_->granit_platform_->poll_input(event);
-    });
+    engine::core::input::input_event event = {};
+    input_result = engine::core::diagnostics::measure(
+        engine::core::diagnostics::loop_stage::input_events,
+        [&]() noexcept { return storage_->granit_platform_->poll_input(event); });
     while (input_result == GNEISS_SUCCESS) {
       if (!storage_->input_.push(event)) {
         storage_->input_.clear_focus();
         return GNEISS_ERROR_INVALID_STATE;
       }
       event = {};
-      input_result = diagnostics::measure(diagnostics::loop_stage::input_events, [&]() noexcept {
-        return storage_->granit_platform_->poll_input(event);
-      });
+      input_result = engine::core::diagnostics::measure(
+          engine::core::diagnostics::loop_stage::input_events,
+          [&]() noexcept { return storage_->granit_platform_->poll_input(event); });
     }
     if (focus_lost) {
       storage_->input_.clear_focus();
@@ -492,7 +502,7 @@ gneiss_result application::poll_events(bool& out_should_close) noexcept {
   }
 }
 
-gneiss_result application::poll_input(engine::input::input_event& out_event) noexcept {
+gneiss_result application::poll_input(engine::core::input::input_event& out_event) noexcept {
   return to_native(storage_->input_.poll(out_event));
 }
 
@@ -534,12 +544,13 @@ gneiss_result application::load_action_map(std::string_view uri) noexcept {
 }
 
 gneiss_result application::find_action(std::string_view name,
-                                       engine::input::action_id& out_action) const noexcept {
+                                       engine::core::input::action_id& out_action) const noexcept {
   return to_native(storage_->input_.find_action(name, out_action));
 }
 
-gneiss_result application::get_action_state(engine::input::action_id action,
-                                            engine::input::action_state& out_state) const noexcept {
+gneiss_result
+application::get_action_state(engine::core::input::action_id action,
+                              engine::core::input::action_state& out_state) const noexcept {
   return to_native(storage_->input_.get_action_state(action, out_state));
 }
 
@@ -554,30 +565,30 @@ application::submit_debug_draw_list(std::span<const engine::render::debug_line> 
                                 : GNEISS_ERROR_INVALID_STATE;
 }
 
-void application::report(gneiss_application handle, diagnostics::severity severity,
-                         diagnostics::category category, gneiss_result result,
+void application::report(gneiss_application handle, engine::core::diagnostics::severity severity,
+                         engine::core::diagnostics::category category, gneiss_result result,
                          std::string_view module, std::string_view message) noexcept {
   if (storage_->config_.callbacks.diagnostic != nullptr) {
-    const diagnostics::diagnostic_view diagnostic{.level = severity,
-                                                  .source = category,
-                                                  .result = from_native(result),
-                                                  .module = module,
-                                                  .message = message};
+    const engine::core::diagnostics::diagnostic_view diagnostic{.level = severity,
+                                                                .source = category,
+                                                                .result = from_native(result),
+                                                                .module = module,
+                                                                .message = message};
     try {
       storage_->config_.callbacks.diagnostic(handle, diagnostic);
     } catch (...) {
       // 诊断接收方不能中断初始化、关闭或错误日志投递。
     }
   }
-  const auto log_severity = severity == diagnostics::severity::info ? log_internal::level::info
-                            : severity == diagnostics::severity::warning
-                                ? log_internal::level::warning
-                                : log_internal::level::error;
-  const std::string_view log_category = category == diagnostics::category::asset   ? "asset"
-                                        : category == diagnostics::category::input ? "input"
-                                        : category == diagnostics::category::backend
-                                            ? "backend"
-                                            : "application";
+  const auto log_severity =
+      severity == engine::core::diagnostics::severity::info      ? engine::core::log::level::info
+      : severity == engine::core::diagnostics::severity::warning ? engine::core::log::level::warning
+                                                                 : engine::core::log::level::error;
+  const std::string_view log_category =
+      category == engine::core::diagnostics::category::asset     ? "asset"
+      : category == engine::core::diagnostics::category::input   ? "input"
+      : category == engine::core::diagnostics::category::backend ? "backend"
+                                                                 : "application";
   static_cast<void>(submit_log({
       .context = handle,
       .severity = log_severity,
@@ -588,7 +599,7 @@ void application::report(gneiss_application handle, diagnostics::severity severi
   }));
 }
 
-gneiss_result application::submit_log(const log_internal::message_view& message) noexcept {
+gneiss_result application::submit_log(const engine::core::log::message_view& message) noexcept {
   return storage_->log_dispatcher_ == nullptr
              ? GNEISS_SUCCESS
              : to_native(storage_->log_dispatcher_->submit(message));
@@ -683,8 +694,8 @@ gneiss_result application::render_frame() noexcept {
   }
   engine::render::render_frame_packet packet;
   bool should_prepare = false;
-  const auto storage_result =
-      diagnostics::measure(diagnostics::loop_stage::frame_storage, [&]() noexcept {
+  const auto storage_result = engine::core::diagnostics::measure(
+      engine::core::diagnostics::loop_stage::frame_storage, [&]() noexcept {
         return storage_->granit_render_service_->prepare_frame_packet_storage(packet,
                                                                               should_prepare);
       });
@@ -692,8 +703,8 @@ gneiss_result application::render_frame() noexcept {
     return storage_result;
   }
   engine::render::render_snapshot snapshot;
-  const auto snapshot_result =
-      diagnostics::measure(diagnostics::loop_stage::render_snapshot, [&]() noexcept {
+  const auto snapshot_result = engine::core::diagnostics::measure(
+      engine::core::diagnostics::loop_stage::render_snapshot, [&]() noexcept {
         return storage_->scene_session_.native_world()->get_render_snapshot(
             window.width, window.height, snapshot,
             storage_->view_camera_ ? &*storage_->view_camera_ : nullptr);
@@ -701,8 +712,8 @@ gneiss_result application::render_frame() noexcept {
   if (snapshot_result != GNEISS_SUCCESS) {
     return snapshot_result;
   }
-  const auto capture_result =
-      diagnostics::measure(diagnostics::loop_stage::frame_capture, [&]() noexcept {
+  const auto capture_result = engine::core::diagnostics::measure(
+      engine::core::diagnostics::loop_stage::frame_capture, [&]() noexcept {
         return engine::render::capture_render_frame_packet(
             window, std::move(snapshot), storage_->resources_, storage_->ui_draw_list_,
             storage_->debug_draw_list_, packet);
@@ -712,10 +723,9 @@ gneiss_result application::render_frame() noexcept {
   }
   const auto requested_recreate = window.needs_recreate;
   window.needs_recreate = false;
-  const auto submit_result =
-      diagnostics::measure(diagnostics::loop_stage::frame_submit, [&]() noexcept {
-        return storage_->granit_render_service_->submit(std::move(packet));
-      });
+  const auto submit_result = engine::core::diagnostics::measure(
+      engine::core::diagnostics::loop_stage::frame_submit,
+      [&]() noexcept { return storage_->granit_render_service_->submit(std::move(packet)); });
   if (submit_result != GNEISS_SUCCESS && requested_recreate) {
     window.needs_recreate = true;
   }
@@ -758,8 +768,9 @@ gneiss_result application::run(gneiss_application handle, std::uint64_t max_fram
 #endif
   storage_->should_exit_ = false;
   loop_trace_file trace;
-  const auto trace_origin = trace.get() != nullptr ? diagnostics::timing_clock::now()
-                                                   : diagnostics::timing_clock::time_point{};
+  const auto trace_origin = trace.get() != nullptr
+                                ? engine::core::diagnostics::timing_clock::now()
+                                : engine::core::diagnostics::timing_clock::time_point{};
   trace.set_origin(trace_origin);
   storage_->previous_time_ns_ = now_ns();
   std::uint64_t frames_run = 0;
@@ -768,14 +779,15 @@ gneiss_result application::run(gneiss_application handle, std::uint64_t max_fram
   while (!storage_->should_exit_ && (max_frame_count == 0U || frames_run < max_frame_count)) {
     GNEISS_PROFILE_FRAME();
     GNEISS_PROFILE_SCOPE("application.loop");
-    const diagnostics::loop_frame frame_trace(trace.get(), storage_->frame_index_, trace_origin);
+    const engine::core::diagnostics::loop_frame frame_trace(trace.get(), storage_->frame_index_,
+                                                            trace_origin);
 #ifdef GNEISS_NATIVE_LOOP_WAIT
-    auto* progress = static_cast<core::loop_progress*>(storage_->loop_notification_.get());
+    auto* progress = static_cast<engine::core::loop_progress*>(storage_->loop_notification_.get());
     const auto observed = progress != nullptr ? progress->snapshot() : 0U;
 #endif
     bool should_close = false;
-    const auto poll_result = diagnostics::measure(diagnostics::loop_stage::events,
-                                                  [&] { return poll_events(should_close); });
+    const auto poll_result = engine::core::diagnostics::measure(
+        engine::core::diagnostics::loop_stage::events, [&] { return poll_events(should_close); });
     if (poll_result != GNEISS_SUCCESS) {
       storage_->is_running_ = false;
       return poll_result;
@@ -796,22 +808,23 @@ gneiss_result application::run(gneiss_application handle, std::uint64_t max_fram
     storage_->previous_time_ns_ = current_time_ns;
     const auto delta_ns = storage_->is_paused_ ? 0U : raw_delta;
     storage_->elapsed_ns_ += delta_ns;
-    const engine::frame_time time = {
+    const engine::core::frame_time time = {
         .frame_index = storage_->frame_index_,
         .delta_ns = delta_ns,
         .elapsed_ns = storage_->elapsed_ns_,
         .is_paused = storage_->is_paused_,
     };
-    diagnostics::measure(diagnostics::loop_stage::draw_clear, [&] {
+    engine::core::diagnostics::measure(engine::core::diagnostics::loop_stage::draw_clear, [&] {
       storage_->ui_draw_list_.clear();
       storage_->debug_draw_list_.clear();
     });
     if (storage_->config_.callbacks.update != nullptr) {
       storage_->is_updating_ = true;
-      const auto update_result = diagnostics::measure(diagnostics::loop_stage::update, [&] {
-        GNEISS_PROFILE_SCOPE("application.update");
-        return to_native(storage_->config_.callbacks.update(handle, time));
-      });
+      const auto update_result =
+          engine::core::diagnostics::measure(engine::core::diagnostics::loop_stage::update, [&] {
+            GNEISS_PROFILE_SCOPE("application.update");
+            return to_native(storage_->config_.callbacks.update(handle, time));
+          });
       storage_->is_updating_ = false;
       if (update_result != GNEISS_SUCCESS) {
         storage_->ui_draw_list_.clear();
@@ -821,8 +834,8 @@ gneiss_result application::run(gneiss_application handle, std::uint64_t max_fram
       }
     }
 #ifdef GNEISS_HAS_GRANIT_PLATFORM
-    const auto render_result =
-        diagnostics::measure(diagnostics::loop_stage::render, [&] { return render_frame(); });
+    const auto render_result = engine::core::diagnostics::measure(
+        engine::core::diagnostics::loop_stage::render, [&] { return render_frame(); });
     // 渲染队列、交换链或后端资源可能暂时未就绪；跳过本帧并在下一帧重试。
     if (render_result != GNEISS_SUCCESS && render_result != GNEISS_ERROR_NOT_READY) {
       storage_->ui_draw_list_.clear();
@@ -831,7 +844,7 @@ gneiss_result application::run(gneiss_application handle, std::uint64_t max_fram
       return render_result;
     }
 #endif
-    diagnostics::measure(diagnostics::loop_stage::draw_clear, [&] {
+    engine::core::diagnostics::measure(engine::core::diagnostics::loop_stage::draw_clear, [&] {
       storage_->ui_draw_list_.clear();
       storage_->debug_draw_list_.clear();
     });
@@ -840,7 +853,7 @@ gneiss_result application::run(gneiss_application handle, std::uint64_t max_fram
 #ifdef GNEISS_NATIVE_LOOP_WAIT
     if (progress != nullptr && !storage_->should_exit_ &&
         (max_frame_count == 0U || frames_run < max_frame_count)) {
-      diagnostics::measure(diagnostics::loop_stage::idle_wait, [&] {
+      engine::core::diagnostics::measure(engine::core::diagnostics::loop_stage::idle_wait, [&] {
         GNEISS_PROFILE_SCOPE("application.idle_wait");
         (void)progress->wait(observed, std::chrono::milliseconds(4));
       });
@@ -951,7 +964,8 @@ gneiss_result application::shutdown(gneiss_application handle) noexcept {
             ? std::min<std::size_t>(static_cast<std::size_t>(performance_written),
                                     performance_message.size() - 1U)
             : 0U;
-    report(handle, diagnostics::severity::info, diagnostics::category::backend, GNEISS_SUCCESS,
+    report(handle, engine::core::diagnostics::severity::info,
+           engine::core::diagnostics::category::backend, GNEISS_SUCCESS,
            "granit.render.performance",
            std::string_view(performance_message.data(), performance_length));
     if (shutdown_result != GNEISS_SUCCESS) {
@@ -990,7 +1004,8 @@ gneiss_result application::shutdown(gneiss_application handle) noexcept {
       const auto length = written > 0 ? std::min<std::size_t>(static_cast<std::size_t>(written),
                                                               message.size() - 1U)
                                       : 0U;
-      report(handle, diagnostics::severity::error, diagnostics::category::backend, shutdown_result,
+      report(handle, engine::core::diagnostics::severity::error,
+             engine::core::diagnostics::category::backend, shutdown_result,
              "granit.render.resources", std::string_view(message.data(), length));
     }
   }
@@ -1234,11 +1249,11 @@ engine::scene::scene_instance_service* application::scenes() noexcept {
   return storage_->scene_session_.scenes();
 }
 
-const engine::input::keyboard_state& application::keyboard_state() const noexcept {
+const engine::core::input::keyboard_state& application::keyboard_state() const noexcept {
   return storage_->input_.keyboard();
 }
 
-const engine::input::pointer_state& application::pointer_state() const noexcept {
+const engine::core::input::pointer_state& application::pointer_state() const noexcept {
   return storage_->input_.pointer();
 }
 

@@ -11,7 +11,7 @@
 #include <span>
 #include <string_view>
 
-namespace gneiss::reflection_internal {
+namespace gneiss::engine::core::reflection {
 /** 借用候选数据，仅修改该数据并校验；禁止场景副作用和普通业务通知。 */
 using candidate_property_setter = gneiss_result (*)(void* user_data, void* candidate,
                                                     const gneiss_property_value& value);
@@ -77,5 +77,5 @@ struct property_binding {
 [[nodiscard]] GNEISS_API gneiss_result
 set_candidate_property(const registry_ref& state, gneiss_type_id type_id, gneiss_field_id field_id,
                        void* candidate, const gneiss_property_value& value) noexcept;
-} // namespace gneiss::reflection_internal
+} // namespace gneiss::engine::core::reflection
 #endif

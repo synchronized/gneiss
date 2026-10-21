@@ -6,7 +6,7 @@
 #include "engine/resource/types/mesh_data.hpp"
 #include <gneiss/engine/render.h>
 
-namespace gneiss::api {
+namespace gneiss::engine::api {
 
 /** 解析 ABI 布局并逐字段复制；拓扑和数值校验留在资源服务。失败保留输出。 */
 [[nodiscard]] inline gneiss_result read_mesh_description(const gneiss_mesh_desc& desc,
@@ -67,4 +67,4 @@ namespace gneiss::api {
   return GNEISS_SUCCESS;
 }
 
-} // namespace gneiss::api
+} // namespace gneiss::engine::api

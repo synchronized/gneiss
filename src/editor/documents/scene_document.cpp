@@ -322,7 +322,7 @@ result scene_document::refresh_nodes() noexcept {
 }
 
 result scene_document::get_world_transform(scene_node_id node, transform& output) const noexcept {
-  engine::transform value;
+  engine::core::math::transform value;
   const auto operation = with_scene(
       [&](auto&) { return application_->native_world()->node_get_world_transform(node, value); });
   if (operation.ok())

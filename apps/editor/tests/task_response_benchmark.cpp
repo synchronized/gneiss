@@ -67,7 +67,7 @@ void run(const std::filesystem::path& root, const std::filesystem::path& source)
   }
   scene << "]}";
   scene.close();
-  tasks::task_scheduler scheduler;
+  engine::core::tasks::task_scheduler scheduler;
   author_asset_service authors(scheduler);
   asset_background_worker worker({}, &scheduler);
   const auto assets = root / "assets";

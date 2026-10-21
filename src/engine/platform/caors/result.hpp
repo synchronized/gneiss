@@ -4,9 +4,9 @@
 #pragma once
 #include "uv_async_file.hpp"
 #include <caors/io/async_file.h>
-namespace gneiss::caors_internal {
-inline caors::io::io_error translate(result status) {
-  using caors::io::io_errc;
+namespace gneiss::engine::platform::caors {
+inline ::caors::io::io_error translate(result status) {
+  using ::caors::io::io_errc;
 
   if (status == result::success)
     return {};

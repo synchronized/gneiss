@@ -20,7 +20,7 @@
 #include <utility>
 #include <vector>
 
-namespace gneiss::io_internal {
+namespace gneiss::engine::platform::io {
 namespace file_detail {
 // 只有异步关闭提交本身失败时执行同步兜底，调用点始终在 I/O loop，避免泄漏描述符。
 void close_after_submission_failure(int descriptor) noexcept {
@@ -442,4 +442,4 @@ result uv_file_io::begin_open(std::string_view path,
     return result::internal;
   }
 }
-} // namespace gneiss::io_internal
+} // namespace gneiss::engine::platform::io

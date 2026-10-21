@@ -17,11 +17,11 @@ struct asset_background_worker::implementation {
     std::filesystem::path path;
   };
   static constexpr std::size_t capacity = 256U;
-  std::unique_ptr<tasks::task_scheduler> owned_scheduler;
-  tasks::task_scheduler* scheduler{};
-  tasks::task_scope scope;
-  tasks::serial_queue lane;
-  tasks::task_handle scheduled;
+  std::unique_ptr<engine::core::tasks::task_scheduler> owned_scheduler;
+  engine::core::tasks::task_scheduler* scheduler{};
+  engine::core::tasks::task_scope scope;
+  engine::core::tasks::serial_queue lane;
+  engine::core::tasks::task_handle scheduled;
   mutable std::mutex mutex;
   std::deque<command> commands;
   std::deque<command> manual;
@@ -109,12 +109,12 @@ struct asset_background_worker::implementation {
     if (!started) {
       return;
     }
-    std::vector<tasks::task_completion> completed;
+    std::vector<engine::core::tasks::task_completion> completed;
     (void)scheduler->poll(scope, completed);
     for (const auto& item : completed) {
       scheduled = {};
       state.active = false;
-      if (item.outcome.state == tasks::task_state::failed) {
+      if (item.outcome.state == engine::core::tasks::task_state::failed) {
         state.error = item.outcome.error;
         state.stopping = true;
       }
@@ -130,21 +130,22 @@ struct asset_background_worker::implementation {
         (commands.empty() && !rescan && !refresh && !pending_work)) {
       return;
     }
-    tasks::task_description description{.name = "asset import/check",
-                                        .scope = scope,
-                                        .serial = lane,
-                                        .not_before = std::chrono::steady_clock::now() +
-                                                      (commands.empty() && !rescan && !refresh
-                                                           ? std::chrono::milliseconds(20)
-                                                           : std::chrono::milliseconds(0))};
+    engine::core::tasks::task_description description{
+        .name = "asset import/check",
+        .scope = scope,
+        .serial = lane,
+        .not_before = std::chrono::steady_clock::now() + (commands.empty() && !rescan && !refresh
+                                                              ? std::chrono::milliseconds(20)
+                                                              : std::chrono::milliseconds(0))};
     const auto submitted = scheduler->submit(
         std::move(description),
         [this](const auto&) {
           step();
-          return tasks::task_outcome{};
+          return engine::core::tasks::task_outcome{};
         },
         scheduled);
-    if (submitted != tasks::submit_result::success && submitted != tasks::submit_result::full) {
+    if (submitted != engine::core::tasks::submit_result::success &&
+        submitted != engine::core::tasks::submit_result::full) {
       state.error = "资产任务调度不可用";
       state.stopping = true;
     }
@@ -256,10 +257,10 @@ struct asset_background_worker::implementation {
 };
 
 asset_background_worker::asset_background_worker(import_function importer,
-                                                 tasks::task_scheduler* scheduler)
+                                                 engine::core::tasks::task_scheduler* scheduler)
     : impl_(std::make_unique<implementation>()) {
   if (scheduler == nullptr) {
-    impl_->owned_scheduler = std::make_unique<tasks::task_scheduler>();
+    impl_->owned_scheduler = std::make_unique<engine::core::tasks::task_scheduler>();
     scheduler = impl_->owned_scheduler.get();
   }
   impl_->scheduler = scheduler;

@@ -36,14 +36,15 @@ gneiss_result ui_draw_list::replace(const ui_draw_view& desc,
     }
   }
   for (const auto& command : desc.commands) {
-    if (command.texture == core::null_rid || resources.get_texture(command.texture) == nullptr ||
-        !is_finite(command.clip_min[0]) || !is_finite(command.clip_min[1]) ||
-        !is_finite(command.clip_max[0]) || !is_finite(command.clip_max[1]) ||
-        command.clip_min[0] >= command.clip_max[0] || command.clip_min[1] >= command.clip_max[1] ||
-        command.first_index > desc.indices.size() ||
+    if (command.texture == engine::core::null_rid ||
+        resources.get_texture(command.texture) == nullptr || !is_finite(command.clip_min[0]) ||
+        !is_finite(command.clip_min[1]) || !is_finite(command.clip_max[0]) ||
+        !is_finite(command.clip_max[1]) || command.clip_min[0] >= command.clip_max[0] ||
+        command.clip_min[1] >= command.clip_max[1] || command.first_index > desc.indices.size() ||
         command.index_count > desc.indices.size() - command.first_index ||
         command.index_count % 3U != 0U) {
-      return command.texture != core::null_rid && resources.get_texture(command.texture) == nullptr
+      return command.texture != engine::core::null_rid &&
+                     resources.get_texture(command.texture) == nullptr
                  ? GNEISS_ERROR_INVALID_HANDLE
                  : GNEISS_ERROR_INVALID_ARGUMENT;
     }

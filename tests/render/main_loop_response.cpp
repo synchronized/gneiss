@@ -100,8 +100,8 @@ struct response_context {
   std::uint64_t scene_request{}, nodes{}, resources{};
   clock_type::time_point deadline = clock_type::now() + 10s;
   // 调度器先于被探针任务引用的状态销毁，异常退出也会先等待任务结束。
-  gneiss::tasks::task_scheduler scheduler{{.workers = 1U}};
-  gneiss::tasks::task_scope scope = scheduler.make_scope();
+  gneiss::engine::core::tasks::task_scheduler scheduler{{.workers = 1U}};
+  gneiss::engine::core::tasks::task_scope scope = scheduler.make_scope();
 };
 gneiss_result advance_scene(gneiss_application app, response_context& state) {
   using namespace gneiss::runtime;
@@ -179,10 +179,10 @@ gneiss_result update(gneiss_application app, const gneiss_frame_time* /*unused*/
       state.received.notify_all();
     }
   }
-  std::vector<gneiss::tasks::task_completion> results;
+  std::vector<gneiss::engine::core::tasks::task_completion> results;
   state.scheduler.poll(state.scope, results);
   for (const auto& result : results) {
-    if (result.outcome.state != gneiss::tasks::task_state::succeeded) {
+    if (result.outcome.state != gneiss::engine::core::tasks::task_state::succeeded) {
       state.failed = true;
     }
     const probe_sample sample{
@@ -228,15 +228,15 @@ void send_probes(response_context& state, HWND window) noexcept {
       std::this_thread::sleep_for(20ms);
       state.key_sent = now_ns();
       state.sent = index;
-      gneiss::tasks::task_handle task;
+      gneiss::engine::core::tasks::task_handle task;
       const auto submitted = state.scheduler.submit(
           {.name = "response", .scope = state.scope},
-          [&](const gneiss::tasks::task_context&) {
+          [&](const gneiss::engine::core::tasks::task_context&) {
             state.task_finished = now_ns();
-            return gneiss::tasks::task_outcome{};
+            return gneiss::engine::core::tasks::task_outcome{};
           },
           task);
-      if (submitted != gneiss::tasks::submit_result::success ||
+      if (submitted != gneiss::engine::core::tasks::submit_result::success ||
           PostMessageW(window, WM_KEYDOWN, 'A', 0x001e0001) == 0 ||
           PostMessageW(window, WM_KEYUP, 'A', static_cast<LPARAM>(0xc01e0001U)) == 0) {
         state.failed = true;

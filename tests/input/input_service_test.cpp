@@ -4,6 +4,7 @@
 #include "engine/function/input/input_service.hpp"
 
 using namespace gneiss::engine::input;
+using namespace gneiss::engine::core::input;
 #include <limits>
 
 int main() {
@@ -58,8 +59,8 @@ int main() {
   if (input.replace_action_map(std::move(map)) != gneiss::result::success) {
     return 7;
   }
-  gneiss::engine::input::action_id action;
-  gneiss::engine::input::action_state state;
+  gneiss::engine::core::input::action_id action;
+  gneiss::engine::core::input::action_state state;
   input.begin_frame();
   key.data.key.action = key_action::pressed;
   if (input.find_action("move", action) != gneiss::result::success || !input.push(key) ||
@@ -74,6 +75,7 @@ int main() {
   }
   using gneiss::result;
   using namespace gneiss::engine::input;
+  using namespace gneiss::engine::core::input;
   const auto original = action;
   gneiss::engine::resource::action_map candidate{{{"move", {{26U, 1.0F}}}}};
   auto invalid = candidate;

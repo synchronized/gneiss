@@ -68,7 +68,7 @@ struct runtime_context final {
   std::uint64_t fixed_update_count = 0U;
   bool force_full_inspection = false;
   gneiss::result ipc_failure = gneiss::result::success;
-  gneiss::tasks::task_scheduler* tasks{};
+  gneiss::engine::core::tasks::task_scheduler* tasks{};
   std::deque<gneiss::runtime_internal::runtime_ipc_actions::asset_reload_command> pending_assets{};
   gneiss::runtime_internal::runtime_scene_loader* scene_loader{};
   std::uint64_t next_scene_progress_ns{};
@@ -206,8 +206,8 @@ gneiss::result update_game(void* user_data, const gneiss_game_update_time& time)
   return true;
 }
 
-gneiss_result update_runtime(gneiss_application application, const gneiss::engine::frame_time* time,
-                             void* user_data) try {
+gneiss_result update_runtime(gneiss_application application,
+                             const gneiss::engine::core::frame_time* time, void* user_data) try {
   if (time == nullptr || user_data == nullptr) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
@@ -216,7 +216,8 @@ gneiss_result update_runtime(gneiss_application application, const gneiss::engin
     context.application->request_exit();
     return GNEISS_SUCCESS;
   };
-  if (context.tasks && context.tasks->mode() == gneiss::tasks::execution_mode::cooperative) {
+  if (context.tasks &&
+      context.tasks->mode() == gneiss::engine::core::tasks::execution_mode::cooperative) {
     (void)context.tasks->run_ready();
   }
   if (context.ipc_session != nullptr) {
@@ -422,7 +423,7 @@ gneiss_result update_runtime(gneiss_application application, const gneiss::engin
     constexpr std::string_view message = "Runtime 已进入首帧";
     const auto log_result =
         context.application->submit_log({.context = application,
-                                         .severity = gneiss::log_internal::level::info,
+                                         .severity = gneiss::engine::core::log::level::info,
                                          .source = "application",
                                          .category = category,
                                          .message = message});
@@ -517,7 +518,7 @@ gneiss_result update_runtime(gneiss_application application, const gneiss::engin
   return GNEISS_ERROR_INTERNAL;
 }
 
-void write_application_log(const gneiss::log_internal::event_view& source,
+void write_application_log(const gneiss::engine::core::log::event_view& source,
                            runtime_context& context) {
   // Runtime 日志协议尚使用 C 值结构；只在此消费边界转换，不回流到 Application。
   const auto& message = source.message;
@@ -571,8 +572,8 @@ void write_application_log(const gneiss::log_internal::event_view& source,
     std::filesystem::remove(context.stop_file, error);
   }
   gneiss::runtime::application_configuration desc;
-  desc.callbacks.update = [&context](gneiss::core::rid handle,
-                                     const gneiss::engine::frame_time& time) {
+  desc.callbacks.update = [&context](gneiss::engine::core::rid handle,
+                                     const gneiss::engine::core::frame_time& time) {
     return gneiss::from_native(update_runtime(handle, &time, &context));
   };
   desc.use_granit_window = true;
@@ -582,7 +583,7 @@ void write_application_log(const gneiss::log_internal::event_view& source,
 
   desc.asset_root = asset_root;
 
-  desc.callbacks.log = [&context](const gneiss::log_internal::event_view& event) {
+  desc.callbacks.log = [&context](const gneiss::engine::core::log::event_view& event) {
     write_application_log(event, context);
   };
   desc.environment_asset = project.environment.asset;
@@ -591,9 +592,10 @@ void write_application_log(const gneiss::log_internal::event_view& source,
   desc.environment_rotation_radians =
       project.environment.rotation_degrees * 0.01745329251994329577F;
 
-  gneiss::tasks::task_scheduler task_scheduler(
-      {.mode = options.cooperative_tasks ? gneiss::tasks::execution_mode::cooperative
-                                         : gneiss::tasks::execution_mode::thread_pool});
+  gneiss::engine::core::tasks::task_scheduler task_scheduler(
+      {.mode = options.cooperative_tasks
+                   ? gneiss::engine::core::tasks::execution_mode::cooperative
+                   : gneiss::engine::core::tasks::execution_mode::thread_pool});
   context.tasks = &task_scheduler;
   std::shared_ptr<gneiss::runtime::application> application;
   gneiss::runtime::application_bridge bridge;

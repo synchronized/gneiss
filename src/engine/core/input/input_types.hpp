@@ -6,7 +6,7 @@
 #include <array>
 #include <cstdint>
 
-namespace gneiss::engine::input {
+namespace gneiss::engine::core::input {
 
 /** 只在所属输入服务及映射代次内有效；零值无效。 */
 struct action_id final {
@@ -75,4 +75,4 @@ struct pointer_state {
   float x{}, y{};
   bool is_inside{};
 };
-} // namespace gneiss::engine::input
+} // namespace gneiss::engine::core::input

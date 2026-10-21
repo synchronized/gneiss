@@ -8,7 +8,7 @@
 #include <gneiss/engine/render.h>
 #include <limits>
 
-namespace gneiss::api {
+namespace gneiss::engine::api {
 
 /** 先验证字节数可表示为本机范围，再构造借用视图；失败保留输出。 */
 [[nodiscard]] inline gneiss_result
@@ -28,4 +28,4 @@ read_texture_description(const gneiss_texture_desc& desc,
   return GNEISS_SUCCESS;
 }
 
-} // namespace gneiss::api
+} // namespace gneiss::engine::api

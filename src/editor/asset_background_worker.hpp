@@ -9,7 +9,7 @@
 #include <memory>
 #include <string>
 
-namespace gneiss::tasks {
+namespace gneiss::engine::core::tasks {
 class task_scheduler;
 }
 
@@ -37,7 +37,7 @@ public:
       const std::filesystem::path&, const std::filesystem::path&, const std::filesystem::path&,
       bool, const tooling::asset_import::import_control&)>;
   explicit asset_background_worker(import_function importer = {},
-                                   tasks::task_scheduler* scheduler = nullptr);
+                                   engine::core::tasks::task_scheduler* scheduler = nullptr);
   ~asset_background_worker();
   asset_background_worker(const asset_background_worker&) = delete;
   asset_background_worker& operator=(const asset_background_worker&) = delete;

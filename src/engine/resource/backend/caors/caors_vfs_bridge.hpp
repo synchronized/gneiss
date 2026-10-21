@@ -11,7 +11,7 @@ namespace gneiss::engine::resource {
  * worker 处理摘要和结果复制；宿主保持 io/loop 存活，串行 pump。
  * 退出时先关闭并排空 worker scope，再 abandon，最后排空 I/O。
  */
-class caors_vfs_bridge : public caors_internal::file_system_adapter {
+class caors_vfs_bridge : public engine::platform::caors::file_system_adapter {
 public:
   /** 透传原始 Gneiss 来源身份；不得用 CAORS 叶后端 source_id 替代挂载身份。 */
   virtual gneiss_result identify(std::string_view uri, std::uint32_t type,
@@ -22,7 +22,7 @@ public:
  * 协作执行器将在推进队列的线程执行 I/O，不提供后台 I/O 或单步耗时保证。
  */
 std::shared_ptr<caors_vfs_bridge>
-make_caors_vfs_bridge(virtual_file_system snapshot, caors::tasks::executor worker,
+make_caors_vfs_bridge(virtual_file_system snapshot, ::caors::tasks::executor worker,
                       std::size_t maximum_document_bytes = 1024U * 1024U,
                       bool allow_scheduled_reads = false);
 } // namespace gneiss::engine::resource

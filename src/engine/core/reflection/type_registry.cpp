@@ -22,7 +22,7 @@
 #include <utility>
 #include <vector>
 
-namespace gneiss::reflection_internal {
+namespace gneiss::engine::core::reflection {
 namespace {
 
 using type_id_bytes = std::array<std::uint8_t, 16>;
@@ -529,11 +529,12 @@ namespace {
 using registry_pointer = std::shared_ptr<type_registry_state>;
 
 std::mutex registry_table_mutex;
-gneiss::core::rid_table<registry_pointer> registry_table(UINT16_C(0x5459));
+gneiss::engine::core::rid_table<registry_pointer> registry_table(UINT16_C(0x5459));
 
 [[nodiscard]] registry_pointer get_registry(gneiss_type_registry registry) {
   std::scoped_lock lock(registry_table_mutex);
-  const auto* stored = registry_table.get(registry, gneiss::core::resource_type::type_registry);
+  const auto* stored =
+      registry_table.get(registry, gneiss::engine::core::resource_type::type_registry);
   return stored == nullptr ? registry_pointer{} : *stored;
 }
 
@@ -559,8 +560,8 @@ gneiss_result create(gneiss_type_registry& output) noexcept {
       return status;
     }
     std::scoped_lock lock(registry_table_mutex);
-    return registry_table.create(gneiss::core::resource_type::type_registry, std::move(registry),
-                                 &output);
+    return registry_table.create(gneiss::engine::core::resource_type::type_registry,
+                                 std::move(registry), &output);
   } catch (const std::bad_alloc&) {
     return GNEISS_ERROR_OUT_OF_MEMORY;
   } catch (...) {
@@ -570,7 +571,7 @@ gneiss_result create(gneiss_type_registry& output) noexcept {
 gneiss_result destroy(gneiss_type_registry registry) noexcept {
   try {
     std::scoped_lock lock(registry_table_mutex);
-    return registry_table.destroy(registry, gneiss::core::resource_type::type_registry);
+    return registry_table.destroy(registry, gneiss::engine::core::resource_type::type_registry);
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;
   }
@@ -622,9 +623,9 @@ gneiss_result set_candidate_property(const registry_ref& state, gneiss_type_id t
   return state ? state->set_candidate_property(type_id, field_id, candidate, value)
                : GNEISS_ERROR_INVALID_HANDLE;
 }
-} // namespace gneiss::reflection_internal
+} // namespace gneiss::engine::core::reflection
 
-namespace gneiss::reflection_internal {
+namespace gneiss::engine::core::reflection {
 result describe_type(const registry_ref& registry, type_id id, type_info& output) noexcept try {
   gneiss_type_info source{};
   const auto operation = from_native(find_type(registry, to_native(id), source));
@@ -729,4 +730,4 @@ result write_property(const registry_ref& registry, type_id type, field_id field
 } catch (...) {
   return result::internal;
 }
-} // namespace gneiss::reflection_internal
+} // namespace gneiss::engine::core::reflection

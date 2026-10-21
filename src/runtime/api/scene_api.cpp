@@ -42,8 +42,9 @@ extern "C" gneiss_result gneiss_scene_instance_load(gneiss_application applicati
     if (result != GNEISS_SUCCESS) {
       auto message = std::string{"场景加载失败："};
       message.append(uri_view);
-      state->report(application, gneiss::diagnostics::severity::error,
-                    gneiss::diagnostics::category::asset, result, "scene.load", message);
+      state->report(application, gneiss::engine::core::diagnostics::severity::error,
+                    gneiss::engine::core::diagnostics::category::asset, result, "scene.load",
+                    message);
     }
     return result;
   } catch (...) {
@@ -102,7 +103,7 @@ extern "C" gneiss_result gneiss_scene_instance_find_node(gneiss_application appl
     if (validation_result != GNEISS_SUCCESS) {
       return validation_result;
     }
-    return gneiss::core::write_identifier<gneiss::scene_node_id>(
+    return gneiss::engine::core::write_identifier<gneiss::scene_node_id>(
         *out_node, [&](auto& native_output) {
           return state->scenes()->find_node(
               instance, std::string_view(uuid, static_cast<std::size_t>(uuid_length)),
@@ -153,7 +154,7 @@ gneiss_scene_instance_get_node_info(gneiss_application application, gneiss_scene
     }
     gneiss::engine::scene::scene_node_view value;
     const auto result = state->scenes()->get_node_info(instance, index, value, detail);
-    gneiss::api::write_scene_node(value, *out_info);
+    gneiss::engine::api::write_scene_node(value, *out_info);
     return result;
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;
@@ -193,7 +194,7 @@ gneiss_scene_instance_get_prefab_node_info(gneiss_application application,
     }
     gneiss::engine::scene::prefab_node_view value;
     const auto result = state->scenes()->get_prefab_node_info(instance, index, value);
-    gneiss::api::write_prefab_node(value, *out_info);
+    gneiss::engine::api::write_prefab_node(value, *out_info);
     return result;
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;
@@ -239,9 +240,9 @@ extern "C" gneiss_result gneiss_scene_instance_create_prefab_instance(
                 static_cast<std::size_t>(desc->prefab_uri_length),
             },
         .parent = gneiss::scene_node_id{desc->parent},
-        .local_transform = gneiss::api::read_transform(desc->local_transform),
+        .local_transform = gneiss::engine::api::read_transform(desc->local_transform),
     };
-    return gneiss::core::write_identifier<gneiss::scene_node_id>(
+    return gneiss::engine::core::write_identifier<gneiss::scene_node_id>(
         *out_root, [&](auto& native_output) {
           return state->scenes()->create_prefab_instance(instance, value, native_output);
         });
@@ -282,7 +283,8 @@ extern "C" gneiss_result gneiss_scene_instance_set_prefab_source_transform(
     const auto validation_result = validate_application(state);
     return validation_result == GNEISS_SUCCESS
                ? state->scenes()->set_prefab_source_transform(
-                     instance, gneiss::scene_node_id{node}, gneiss::api::read_transform(*transform))
+                     instance, gneiss::scene_node_id{node},
+                     gneiss::engine::api::read_transform(*transform))
                : validation_result;
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;
@@ -314,7 +316,7 @@ extern "C" gneiss_result gneiss_scene_instance_refresh_prefab_instance(
     auto state = find_application(application);
     const auto validation_result = validate_application(state);
     return validation_result == GNEISS_SUCCESS
-               ? gneiss::core::write_identifier<gneiss::scene_node_id>(
+               ? gneiss::engine::core::write_identifier<gneiss::scene_node_id>(
                      *out_new_root,
                      [&](auto& native_output) {
                        return state->scenes()->refresh_prefab_instance(
@@ -337,7 +339,7 @@ extern "C" gneiss_result gneiss_scene_instance_toggle_prefab_refresh(
     auto state = find_application(application);
     const auto validation_result = validate_application(state);
     return validation_result == GNEISS_SUCCESS
-               ? gneiss::core::write_identifier<gneiss::scene_node_id>(
+               ? gneiss::engine::core::write_identifier<gneiss::scene_node_id>(
                      *out_new_root,
                      [&](auto& native_output) {
                        return state->scenes()->toggle_prefab_refresh(instance, token,
@@ -394,9 +396,9 @@ extern "C" gneiss_result gneiss_scene_instance_create_node(gneiss_application ap
                 static_cast<std::size_t>(desc->name_length),
             },
         .parent = gneiss::scene_node_id{desc->parent},
-        .local_transform = gneiss::api::read_transform(desc->local_transform),
+        .local_transform = gneiss::engine::api::read_transform(desc->local_transform),
     };
-    return gneiss::core::write_identifier<gneiss::scene_node_id>(
+    return gneiss::engine::core::write_identifier<gneiss::scene_node_id>(
         *out_node, [&](auto& native_output) {
           return state->scenes()->create_node(instance, value, native_output);
         });
@@ -522,7 +524,7 @@ gneiss_scene_instance_restore_subtree(gneiss_application application,
                                           static_cast<std::size_t>(mapping.target_uuid_length)),
       });
     }
-    return gneiss::core::write_identifier<gneiss::scene_node_id>(
+    return gneiss::engine::core::write_identifier<gneiss::scene_node_id>(
         *out_root, [&](auto& native_output) {
           return state->scenes()->restore_subtree(
               instance, std::string_view(snapshot, static_cast<std::size_t>(snapshot_length)),
@@ -598,7 +600,7 @@ extern "C" gneiss_result gneiss_scene_instance_create_mesh_renderer_node(
                 static_cast<std::size_t>(desc->renderer.material_uri_length),
             },
     };
-    return gneiss::core::write_identifier<gneiss::scene_node_id>(
+    return gneiss::engine::core::write_identifier<gneiss::scene_node_id>(
         *out_node, [&](auto& native_output) {
           return state->scenes()->create_mesh_renderer_node(instance, value, native_output);
         });

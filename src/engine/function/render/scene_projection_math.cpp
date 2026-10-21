@@ -15,7 +15,8 @@ constexpr std::size_t matrix_index(std::size_t row, std::size_t column) noexcept
 
 } // namespace
 
-bool build_model_matrices(const engine::transform& transform, engine::render::matrix4& model,
+bool build_model_matrices(const engine::core::math::transform& transform,
+                          engine::render::matrix4& model,
                           engine::render::matrix4& normal) noexcept {
   const auto x = transform.rotation[0];
   const auto y = transform.rotation[1];

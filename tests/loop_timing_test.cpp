@@ -17,7 +17,7 @@ void check(bool condition) {
 }
 }
 int main() try {
-  using namespace gneiss::diagnostics;
+  using namespace gneiss::engine::core::diagnostics;
   loop_timing summary;
   for (unsigned index = 1U; index <= 200U; ++index) {
     summary.add({.frame = index, .total_ms = static_cast<double>(index)});

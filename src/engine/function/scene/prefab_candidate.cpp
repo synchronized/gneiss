@@ -6,7 +6,7 @@
 #include <algorithm>
 namespace gneiss::engine::scene {
 namespace {
-engine::transform
+engine::core::math::transform
 transform_of(const gneiss::engine::resource::object_description& source) noexcept {
   return {source.translation, source.rotation, source.scale};
 }

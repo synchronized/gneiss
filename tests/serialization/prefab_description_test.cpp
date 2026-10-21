@@ -213,10 +213,11 @@ int main() try {
   gneiss::engine::scene::scene_tree tree(1U);
   gneiss_scene_node_id instance_root = GNEISS_NULL_SCENE_NODE_ID;
   gneiss_scene_node_id source_root = GNEISS_NULL_SCENE_NODE_ID;
-  gneiss::engine::transform instance_transform = gneiss::engine::transform{};
+  gneiss::engine::core::math::transform instance_transform =
+      gneiss::engine::core::math::transform{};
   instance_transform.translation[0] = 10.0F;
   instance_transform.scale[0] = 2.0F;
-  gneiss::engine::transform source_transform = gneiss::engine::transform{};
+  gneiss::engine::core::math::transform source_transform = gneiss::engine::core::math::transform{};
   source_transform.translation[0] = 3.0F;
   if (tree.create(GNEISS_NULL_SCENE_NODE_ID, GNEISS_NULL_ENTITY_ID, &instance_root) !=
           GNEISS_SUCCESS ||
@@ -225,7 +226,7 @@ int main() try {
       tree.set_local(source_root, source_transform) != GNEISS_SUCCESS) {
     return 5;
   }
-  gneiss::engine::transform world = gneiss::engine::transform{};
+  gneiss::engine::core::math::transform world = gneiss::engine::core::math::transform{};
   if (tree.get_world(source_root, &world) != GNEISS_SUCCESS || world.translation[0] != 16.0F ||
       world.scale[0] != 2.0F) {
     return 6;

@@ -33,7 +33,7 @@ struct sample {
   double update_interval{};
 };
 struct context {
-  tasks::task_scheduler* scheduler{};
+  engine::core::tasks::task_scheduler* scheduler{};
   std::filesystem::path root;
   bool synchronous{};
   bool model{};
@@ -67,7 +67,7 @@ gneiss_result update(gneiss_application app, const gneiss_frame_time*, void* opa
   if (elapsed >= 1.0) {
     state.max_update_ms = std::max(state.max_update_ms, interval);
   }
-  if (state.scheduler->mode() == tasks::execution_mode::cooperative) {
+  if (state.scheduler->mode() == engine::core::tasks::execution_mode::cooperative) {
     (void)state.scheduler->run_ready();
   }
   engine::render::render_queue_stats stats;
@@ -179,9 +179,9 @@ int main(int argc, char** argv) try {
     return 64;
   }
   const std::string mode = argv[2];
-  tasks::task_scheduler scheduler({.mode = mode == "cooperative"
-                                               ? tasks::execution_mode::cooperative
-                                               : tasks::execution_mode::thread_pool});
+  engine::core::tasks::task_scheduler scheduler(
+      {.mode = mode == "cooperative" ? engine::core::tasks::execution_mode::cooperative
+                                     : engine::core::tasks::execution_mode::thread_pool});
   context state;
   state.scheduler = &scheduler;
   state.root = argv[1];

@@ -26,9 +26,9 @@ bool native_operations() {
       owner->entity_is_alive(gneiss::entity_id{entity}, alive) != GNEISS_SUCCESS || !alive ||
       gneiss_world_entity_count(borrowed, &count) != GNEISS_SUCCESS || count != 1)
     return false;
-  engine::transform local;
+  engine::core::math::transform local;
   local.translation = {2, 3, 4};
-  engine::transform actual;
+  engine::core::math::transform actual;
   if (owner->node_set_local_transform(gneiss::scene_node_id{node}, local) != GNEISS_SUCCESS ||
       owner->node_get_world_transform(gneiss::scene_node_id{node}, actual) != GNEISS_SUCCESS ||
       actual.translation != local.translation)
@@ -51,7 +51,7 @@ bool native_operations() {
   if (foreign != GNEISS_ERROR_INVALID_STATE ||
       owner->entity_is_alive(gneiss::entity_id{entity}, alive) != GNEISS_SUCCESS || !alive)
     return false;
-  core::publication group;
+  engine::core::publication group;
   engine::world::staged_object candidate;
   if (owner->begin_publication(group) != GNEISS_SUCCESS ||
       owner->create_staged_object(group, {}, candidate) != GNEISS_SUCCESS ||
@@ -93,8 +93,8 @@ bool batch_publication_test() {
   if (service::create(world) != GNEISS_SUCCESS || service::create(other) != GNEISS_SUCCESS) {
     return false;
   }
-  std::array<gneiss::core::publication, 2> previous;
-  std::array<gneiss::core::publication, 2> candidates;
+  std::array<gneiss::engine::core::publication, 2> previous;
+  std::array<gneiss::engine::core::publication, 2> candidates;
   std::array<service::staged_object, 2> old_objects;
   std::array<service::staged_object, 2> new_objects;
   const service::camera_settings camera{
@@ -120,10 +120,10 @@ bool batch_publication_test() {
   }
   const auto unchanged = [&] { return original_groups_visible(world, old_objects, new_objects); };
   // 后一个候选非法不得提前退休第一个旧组；同时验证空列表、重复和跨域。
-  const std::array<gneiss::core::publication, 2> invalid{candidates[0], {}};
+  const std::array<gneiss::engine::core::publication, 2> invalid{candidates[0], {}};
   const std::array duplicates{candidates[0], candidates[0]};
   const std::array duplicate_previous{previous[0], previous[0]};
-  gneiss::core::publication foreign;
+  gneiss::engine::core::publication foreign;
   if (service::begin_publication(other, foreign) != GNEISS_SUCCESS) {
     return false;
   }
@@ -145,7 +145,7 @@ bool batch_publication_test() {
     return false;
   }
   // 旧组下存在其他组的隐藏孩子时拒绝整批替换，避免留下悬空父关系。
-  gneiss::core::publication external;
+  gneiss::engine::core::publication external;
   service::staged_object child;
   description.parent = old_objects[1].node;
   if (service::begin_publication(world, external) != GNEISS_SUCCESS ||
@@ -222,19 +222,19 @@ int main() {
       gneiss_type_registry_freeze(registry) != GNEISS_SUCCESS) {
     return 14;
   }
-  auto reflection = gneiss::reflection_internal::resolve(registry);
-  gneiss::engine::transform candidate_transform;
+  auto reflection = gneiss::engine::core::reflection::resolve(registry);
+  gneiss::engine::core::math::transform candidate_transform;
   gneiss_property_value proposed = GNEISS_PROPERTY_VALUE_INIT;
   proposed.kind = GNEISS_PROPERTY_KIND_VEC3;
   proposed.payload.vec3_value = {2, 3, 4};
-  if (gneiss::reflection_internal::set_candidate_property(
+  if (gneiss::engine::core::reflection::set_candidate_property(
           reflection, service::transform_type_id(), GNEISS_TRANSFORM_FIELD_TRANSLATION,
           &candidate_transform, proposed) != GNEISS_SUCCESS ||
       candidate_transform.translation[0] != 2) {
     return 15;
   }
   proposed.payload.vec3_value = {0, 1, 1};
-  if (gneiss::reflection_internal::set_candidate_property(
+  if (gneiss::engine::core::reflection::set_candidate_property(
           reflection, service::transform_type_id(), GNEISS_TRANSFORM_FIELD_SCALE,
           &candidate_transform, proposed) != GNEISS_ERROR_INVALID_ARGUMENT ||
       candidate_transform.scale[0] != 1) {
@@ -243,20 +243,20 @@ int main() {
   service::camera_settings candidate_camera{1, 10, 20};
   proposed.kind = GNEISS_PROPERTY_KIND_FLOAT32;
   proposed.payload.float32_value = 30;
-  if (gneiss::reflection_internal::set_candidate_property(
+  if (gneiss::engine::core::reflection::set_candidate_property(
           reflection, service::camera_type_id(), GNEISS_CAMERA_FIELD_NEAR_PLANE, &candidate_camera,
           proposed) != GNEISS_SUCCESS) {
     return 17;
   }
   proposed.payload.float32_value = 40;
-  if (gneiss::reflection_internal::set_candidate_property(
+  if (gneiss::engine::core::reflection::set_candidate_property(
           reflection, service::camera_type_id(), GNEISS_CAMERA_FIELD_FAR_PLANE, &candidate_camera,
           proposed) != GNEISS_SUCCESS ||
       candidate_camera.near_plane != 30 || candidate_camera.far_plane != 40 ||
       gneiss_type_registry_destroy(registry) != GNEISS_SUCCESS) {
     return 18;
   }
-  gneiss::core::publication group;
+  gneiss::engine::core::publication group;
   service::staged_object root, child, failed;
   service::staged_object_description object;
   object.camera = &settings;

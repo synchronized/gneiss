@@ -41,17 +41,18 @@ struct fixture {
     std::filesystem::remove_all(root, error);
   }
 };
-void run(std::size_t workers, tasks::execution_mode mode = tasks::execution_mode::thread_pool) {
+void run(std::size_t workers, engine::core::tasks::execution_mode mode =
+                                  engine::core::tasks::execution_mode::thread_pool) {
   fixture files;
   const auto path = files.root / "main.scene.json";
   constexpr auto uri = "asset://main.scene.json";
   write(path, "initial");
-  tasks::task_scheduler scheduler({.workers = workers, .mode = mode});
+  engine::core::tasks::task_scheduler scheduler({.workers = workers, .mode = mode});
   author_asset_service service(scheduler);
   require(service.initialize(files.root) == result::success, "启动失败");
   auto drain = [&] {
     until([&] {
-      if (mode == tasks::execution_mode::cooperative) {
+      if (mode == engine::core::tasks::execution_mode::cooperative) {
         (void)scheduler.run_ready();
       }
       std::vector<std::filesystem::path> paths;
@@ -71,7 +72,7 @@ void run(std::size_t workers, tasks::execution_mode mode = tasks::execution_mode
   (void)service.observe("main.scene.json", false);
   author_asset_change found;
   until([&] {
-    if (mode == tasks::execution_mode::cooperative) {
+    if (mode == engine::core::tasks::execution_mode::cooperative) {
       (void)scheduler.run_ready();
     }
     std::vector<std::filesystem::path> paths;
@@ -86,7 +87,7 @@ void run(std::size_t workers, tasks::execution_mode mode = tasks::execution_mode
   service.request_rescan();
   std::vector<std::filesystem::path> old_paths;
   until([&] {
-    if (mode == tasks::execution_mode::cooperative) {
+    if (mode == engine::core::tasks::execution_mode::cooperative) {
       (void)scheduler.run_ready();
     }
     (void)service.poll_rescan(old_paths);
@@ -98,7 +99,7 @@ void run(std::size_t workers, tasks::execution_mode mode = tasks::execution_mode
   write(path, "external-after-save");
   found = {};
   until([&] {
-    if (mode == tasks::execution_mode::cooperative) {
+    if (mode == engine::core::tasks::execution_mode::cooperative) {
       (void)scheduler.run_ready();
     }
     std::vector<std::filesystem::path> paths;
@@ -115,7 +116,7 @@ void run(std::size_t workers, tasks::execution_mode mode = tasks::execution_mode
   service.request_rescan();
   found = {};
   until([&] {
-    if (mode == tasks::execution_mode::cooperative) {
+    if (mode == engine::core::tasks::execution_mode::cooperative) {
       (void)scheduler.run_ready();
     }
     std::vector<std::filesystem::path> paths;
@@ -134,16 +135,16 @@ void run(std::size_t workers, tasks::execution_mode mode = tasks::execution_mode
           "接受越界路径");
   service.request_stop();
   until([&] {
-    if (mode == tasks::execution_mode::cooperative) {
+    if (mode == engine::core::tasks::execution_mode::cooperative) {
       (void)scheduler.run_ready();
     }
     return service.stopped();
   });
   const auto other = scheduler.make_scope();
-  tasks::task_handle handle;
+  engine::core::tasks::task_handle handle;
   require(scheduler.submit(
-              {.scope = other}, [](const auto&) { return tasks::task_outcome{}; }, handle) ==
-              tasks::submit_result::success,
+              {.scope = other}, [](const auto&) { return engine::core::tasks::task_outcome{}; },
+              handle) == engine::core::tasks::submit_result::success,
           "停止作者服务关闭了共享调度器");
   require(scheduler.close_scope(other), "独立作用域无法关闭");
 }
@@ -151,7 +152,7 @@ void run(std::size_t workers, tasks::execution_mode mode = tasks::execution_mode
 int main() try {
   run(1U);
   run(3U);
-  run(0U, tasks::execution_mode::cooperative);
+  run(0U, engine::core::tasks::execution_mode::cooperative);
   return 0;
 } catch (const std::exception& error) {
   std::fprintf(stderr, "%s\n", error.what());

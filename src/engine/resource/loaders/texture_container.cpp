@@ -96,7 +96,7 @@ gneiss_result texture_payload_source::read(std::vector<std::byte>& output,
   try {
     std::vector<std::byte> bytes(static_cast<std::size_t>(size_));
     auto result = container_->read_payload(offset_, bytes);
-    if (result == GNEISS_SUCCESS && core::sha256(bytes) != digest_) {
+    if (result == GNEISS_SUCCESS && engine::core::sha256(bytes) != digest_) {
       result = GNEISS_ERROR_INVALID_STATE;
     }
     if (result == GNEISS_SUCCESS) {

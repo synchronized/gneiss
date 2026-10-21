@@ -6,6 +6,6 @@
 #include "engine/core/sha256.hpp"
 
 namespace gneiss::tooling::asset_build {
-using core::sha256;
-using core::sha256_digest;
+using engine::core::sha256;
+using engine::core::sha256_digest;
 } // namespace gneiss::tooling::asset_build

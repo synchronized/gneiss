@@ -12,7 +12,7 @@
 
 namespace {
 
-using gneiss::core::service_kind;
+using gneiss::engine::core::service_kind;
 
 class event_log final {
 public:
@@ -38,7 +38,7 @@ struct test_service_config {
   std::size_t live_resources = 0;
 };
 
-class test_service final : public gneiss::core::service {
+class test_service final : public gneiss::engine::core::service {
 public:
   test_service(test_service_config config, event_log& events) noexcept
       : config_(config), events_(events) {}
@@ -66,7 +66,7 @@ int run_tests() {
   const std::array render_dependencies{service_kind::platform, service_kind::resource};
   event_log events;
 
-  gneiss::core::service_registry registry;
+  gneiss::engine::core::service_registry registry;
   if (registry.add(
           std::make_unique<test_service>(test_service_config{.kind = service_kind::render,
                                                              .dependencies = render_dependencies,
@@ -99,7 +99,7 @@ int run_tests() {
   }
 
   event_log rollback_events;
-  gneiss::core::service_registry rollback_registry;
+  gneiss::engine::core::service_registry rollback_registry;
   if (rollback_registry.add(
           std::make_unique<test_service>(test_service_config{.kind = service_kind::platform,
                                                              .dependencies = {},
@@ -118,7 +118,7 @@ int run_tests() {
   }
 
   event_log missing_events;
-  gneiss::core::service_registry missing_registry;
+  gneiss::engine::core::service_registry missing_registry;
   if (missing_registry.add(
           std::make_unique<test_service>(test_service_config{.kind = service_kind::render,
                                                              .dependencies = render_dependencies,

@@ -9,7 +9,7 @@
 #include <new>
 #include <utility>
 
-namespace gneiss::io_internal {
+namespace gneiss::engine::platform::io {
 struct uv_path_operation::state {
   uv_fs_t request{};
   std::string path;
@@ -113,4 +113,4 @@ result uv_path_resolver::begin(std::string_view path,
     return result::internal;
   }
 }
-} // namespace gneiss::io_internal
+} // namespace gneiss::engine::platform::io

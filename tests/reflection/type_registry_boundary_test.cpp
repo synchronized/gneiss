@@ -32,7 +32,7 @@ gneiss_result throwing_getter(void* /*context*/, gneiss_property_target /*target
 
 namespace {
 bool native_values() {
-  namespace reflection = gneiss::reflection_internal;
+  namespace reflection = gneiss::engine::core::reflection;
   reflection::registry_ref registry;
   const gneiss_type_id id{{7}};
   const gneiss::type_id native_id{{7}};
@@ -129,7 +129,7 @@ int main() try {
   if (!native_values()) {
     return 30;
   }
-  namespace reflection = gneiss::reflection_internal;
+  namespace reflection = gneiss::engine::core::reflection;
   // 原生对象不依赖公共句柄表；最后一个内部所有者释放后必须销毁。
   reflection::registry_ref native;
   if (reflection::create_native(native) != GNEISS_SUCCESS || !native) {

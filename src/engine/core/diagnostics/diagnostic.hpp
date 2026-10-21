@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <gneiss/engine/core/result.hpp>
 #include <string_view>
-namespace gneiss::diagnostics {
+namespace gneiss::engine::core::diagnostics {
 enum class severity : std::uint32_t { info = 1, warning, error };
 enum class category : std::uint32_t { application = 1, asset, input, backend };
 /** 文本仅在接收回调期间有效；接收方不得保存借用视图。 */
@@ -16,4 +16,4 @@ struct diagnostic_view {
   std::string_view module;
   std::string_view message;
 };
-} // namespace gneiss::diagnostics
+} // namespace gneiss::engine::core::diagnostics

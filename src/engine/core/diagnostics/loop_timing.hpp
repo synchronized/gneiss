@@ -13,7 +13,7 @@
 #include <ostream>
 #include <utility>
 
-namespace gneiss::diagnostics {
+namespace gneiss::engine::core::diagnostics {
 
 // 仅用于所属线程的可选观测。嵌套阶段是包含关系，不能重复相加。
 enum class loop_stage : std::uint8_t {
@@ -278,6 +278,6 @@ private:
   timing_clock::time_point started_;
   std::optional<loop_record> record_;
 };
-} // namespace gneiss::diagnostics
+} // namespace gneiss::engine::core::diagnostics
 
 #endif

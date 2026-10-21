@@ -8,7 +8,7 @@
 #include <algorithm>
 #include <gneiss/engine/render.h>
 
-namespace gneiss::api {
+namespace gneiss::engine::api {
 /** ABI 转换期间拥有原生数组，view 仅在此对象存活时借用。 */
 struct converted_ui_draw {
   converted_ui_draw() = default;
@@ -89,4 +89,4 @@ read_debug_draw_description(const gneiss_debug_draw_list_desc& desc,
   return GNEISS_SUCCESS;
 }
 
-} // namespace gneiss::api
+} // namespace gneiss::engine::api

@@ -23,19 +23,19 @@ public:
   world(const world&) = delete;
   world& operator=(const world&) = delete;
   [[nodiscard]] bool is_owner_thread() const noexcept;
-  [[nodiscard]] gneiss_result begin_publication(core::publication& output) noexcept;
-  [[nodiscard]] gneiss_result publish(const core::publication& group) noexcept;
-  [[nodiscard]] gneiss_result retire_publication(const core::publication& group) noexcept;
+  [[nodiscard]] gneiss_result begin_publication(engine::core::publication& output) noexcept;
+  [[nodiscard]] gneiss_result publish(const engine::core::publication& group) noexcept;
+  [[nodiscard]] gneiss_result retire_publication(const engine::core::publication& group) noexcept;
   [[nodiscard]] gneiss_result
-  replace_publications(std::span<const core::publication> previous,
-                       std::span<const core::publication> candidates) noexcept;
-  [[nodiscard]] gneiss_result bind_publication(const core::publication& group,
+  replace_publications(std::span<const engine::core::publication> previous,
+                       std::span<const engine::core::publication> candidates) noexcept;
+  [[nodiscard]] gneiss_result bind_publication(const engine::core::publication& group,
                                                engine::world::staged_object object) noexcept;
   [[nodiscard]] gneiss_result
-  create_staged_object(const core::publication& group,
+  create_staged_object(const engine::core::publication& group,
                        const engine::world::staged_object_description& description,
                        engine::world::staged_object& output) noexcept;
-  [[nodiscard]] gneiss_result destroy_staged_object(const core::publication& group,
+  [[nodiscard]] gneiss_result destroy_staged_object(const engine::core::publication& group,
                                                     engine::world::staged_object object) noexcept;
   [[nodiscard]] gneiss_result entity_create(entity_id& out_entity) noexcept;
   [[nodiscard]] gneiss_result entity_destroy(entity_id entity) noexcept;
@@ -60,19 +60,24 @@ public:
                                           scene_node_id& out_node) noexcept;
   [[nodiscard]] gneiss_result node_destroy(scene_node_id node) noexcept;
   [[nodiscard]] gneiss_result node_reparent(scene_node_id node, scene_node_id parent) noexcept;
-  [[nodiscard]] gneiss_result node_set_local_transform(scene_node_id node,
-                                                       const engine::transform& transform) noexcept;
-  [[nodiscard]] gneiss_result node_get_local_transform(scene_node_id node,
-                                                       engine::transform& out_transform) noexcept;
-  [[nodiscard]] gneiss_result node_get_world_transform(scene_node_id node,
-                                                       engine::transform& out_transform) noexcept;
+  [[nodiscard]] gneiss_result
+  node_set_local_transform(scene_node_id node,
+                           const engine::core::math::transform& transform) noexcept;
+  [[nodiscard]] gneiss_result
+  node_get_local_transform(scene_node_id node,
+                           engine::core::math::transform& out_transform) noexcept;
+  [[nodiscard]] gneiss_result
+  node_get_world_transform(scene_node_id node,
+                           engine::core::math::transform& out_transform) noexcept;
   [[nodiscard]] gneiss_result node_get_entity(scene_node_id node, entity_id& out_entity) noexcept;
   [[nodiscard]] gneiss_result node_get_parent(scene_node_id node,
                                               scene_node_id& out_parent) noexcept;
-  [[nodiscard]] gneiss_result entity_get_local_transform(entity_id entity,
-                                                         engine::transform& out_transform) noexcept;
   [[nodiscard]] gneiss_result
-  entity_set_local_transform(entity_id entity, const engine::transform& transform) noexcept;
+  entity_get_local_transform(entity_id entity,
+                             engine::core::math::transform& out_transform) noexcept;
+  [[nodiscard]] gneiss_result
+  entity_set_local_transform(entity_id entity,
+                             const engine::core::math::transform& transform) noexcept;
   [[nodiscard]] gneiss_result
   get_render_snapshot(std::uint32_t viewport_width, std::uint32_t viewport_height,
                       engine::render::render_snapshot& out_snapshot,

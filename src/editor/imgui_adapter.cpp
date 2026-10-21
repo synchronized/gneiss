@@ -245,9 +245,9 @@ void imgui_adapter::shutdown(runtime::application& application) noexcept {
     return;
   }
   ImGui::SetCurrentContext(context_);
-  if (font_texture_ != core::null_rid) {
+  if (font_texture_ != engine::core::null_rid) {
     (void)application.resources().destroy_texture(font_texture_);
-    font_texture_ = core::null_rid;
+    font_texture_ = engine::core::null_rid;
   }
   if (context_ != nullptr) {
     ImGui::DestroyContext(context_);
@@ -256,7 +256,7 @@ void imgui_adapter::shutdown(runtime::application& application) noexcept {
 }
 
 gneiss_result imgui_adapter::begin_frame(runtime::application& application,
-                                         const gneiss::engine::frame_time& time) {
+                                         const gneiss::engine::core::frame_time& time) {
   if (!application.is_owner_thread() || !application.accepts_requests()) {
     return GNEISS_ERROR_INVALID_STATE;
   }
@@ -264,7 +264,7 @@ gneiss_result imgui_adapter::begin_frame(runtime::application& application,
     return GNEISS_ERROR_INVALID_STATE;
   }
   ImGui::SetCurrentContext(context_);
-  engine::input::input_event event;
+  engine::core::input::input_event event;
   auto poll_result = application.poll_input(event);
   while (poll_result == GNEISS_SUCCESS) {
     process_input(event);
@@ -299,27 +299,28 @@ gneiss_result imgui_adapter::begin_frame(runtime::application& application,
   return GNEISS_SUCCESS;
 }
 
-void imgui_adapter::process_input(const engine::input::input_event& event) {
+void imgui_adapter::process_input(const engine::core::input::input_event& event) {
   auto& io = ImGui::GetIO();
   switch (event.type) {
-  case engine::input::event_type::key: {
+  case engine::core::input::event_type::key: {
     update_modifiers(io, event.data.key.modifiers);
     const auto key = map_key(event.data.key.physical_key);
-    if (key != ImGuiKey_None && event.data.key.action != engine::input::key_action::repeated) {
-      io.AddKeyEvent(key, event.data.key.action == engine::input::key_action::pressed);
+    if (key != ImGuiKey_None &&
+        event.data.key.action != engine::core::input::key_action::repeated) {
+      io.AddKeyEvent(key, event.data.key.action == engine::core::input::key_action::pressed);
     }
     break;
   }
-  case engine::input::event_type::text: {
+  case engine::core::input::event_type::text: {
     const auto length = std::min<std::size_t>(event.data.text.length, sizeof(event.data.text.utf8));
     const std::string utf8{event.data.text.utf8, length};
     io.AddInputCharactersUTF8(utf8.c_str());
     break;
   }
-  case engine::input::event_type::pointer_moved:
+  case engine::core::input::event_type::pointer_moved:
     io.AddMousePosEvent(event.data.pointer_moved.x, event.data.pointer_moved.y);
     break;
-  case engine::input::event_type::pointer_button: {
+  case engine::core::input::event_type::pointer_button: {
     io.AddMousePosEvent(event.data.pointer_button.x, event.data.pointer_button.y);
     const auto button = map_mouse_button(event.data.pointer_button.button);
     if (button >= 0) {
@@ -327,11 +328,11 @@ void imgui_adapter::process_input(const engine::input::input_event& event) {
     }
     break;
   }
-  case engine::input::event_type::pointer_wheel:
+  case engine::core::input::event_type::pointer_wheel:
     io.AddMousePosEvent(event.data.pointer_wheel.x, event.data.pointer_wheel.y);
     io.AddMouseWheelEvent(event.data.pointer_wheel.delta_x, event.data.pointer_wheel.delta_y);
     break;
-  case engine::input::event_type::pointer_left:
+  case engine::core::input::event_type::pointer_left:
     io.AddMousePosEvent(-FLT_MAX, -FLT_MAX);
     break;
   default:
@@ -373,7 +374,7 @@ gneiss_result imgui_adapter::submit(runtime::application& application) {
           command.ClipRect.x >= command.ClipRect.z || command.ClipRect.y >= command.ClipRect.w) {
         continue;
       }
-      const auto texture = static_cast<core::rid>(command.GetTexID());
+      const auto texture = static_cast<engine::core::rid>(command.GetTexID());
       engine::render::ui_draw_command converted{};
       converted.texture = texture;
       converted.clip_min[0] = command.ClipRect.x - draw_data->DisplayPos.x;

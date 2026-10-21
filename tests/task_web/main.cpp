@@ -7,7 +7,7 @@
 #include <emscripten.h>
 
 namespace {
-using namespace gneiss::tasks;
+using namespace gneiss::engine::core::tasks;
 struct browser_host {
   task_scheduler scheduler{{.mode = execution_mode::cooperative}};
   task_scope scope{scheduler.make_scope()};

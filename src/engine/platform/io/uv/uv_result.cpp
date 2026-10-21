@@ -5,7 +5,7 @@
 
 #include <uv.h>
 
-namespace gneiss::io_internal {
+namespace gneiss::engine::platform::io {
 
 result from_uv_status(int value) noexcept {
   switch (value) {
@@ -30,4 +30,4 @@ result from_uv_status(int value) noexcept {
   }
 }
 
-} // namespace gneiss::io_internal
+} // namespace gneiss::engine::platform::io

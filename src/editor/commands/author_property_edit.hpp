@@ -18,7 +18,7 @@ namespace gneiss::editor {
                                           property_inspector_model& inspector, gneiss_world world,
                                           const inspector_component& component,
                                           const inspector_property& property,
-                                          const reflection_internal::property_value& value,
+                                          const engine::core::reflection::property_value& value,
                                           std::uint64_t edit_serial) noexcept;
 
 } // namespace gneiss::editor

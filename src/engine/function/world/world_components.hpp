@@ -13,8 +13,8 @@ struct camera_component {
 };
 /** 组件只借用服务资源 RID；资产租约由场景实例持有。 */
 struct mesh_renderer {
-  core::rid mesh{};
-  core::rid material{};
+  engine::core::rid mesh{};
+  engine::core::rid material{};
 };
 struct mesh_renderer_component {
   mesh_renderer value;

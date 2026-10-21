@@ -14,9 +14,9 @@
 
 namespace {
 using gneiss::result;
-using gneiss::io_internal::uv_loop_executor;
-using gneiss::io_internal::uv_path_operation;
-using gneiss::io_internal::uv_path_resolver;
+using gneiss::engine::platform::io::uv_loop_executor;
+using gneiss::engine::platform::io::uv_path_operation;
+using gneiss::engine::platform::io::uv_path_resolver;
 
 void check(bool value, std::source_location where = std::source_location::current()) {
   if (!value) {

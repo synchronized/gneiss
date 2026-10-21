@@ -6,7 +6,7 @@
 #include <memory>
 #include <string>
 
-namespace gneiss::reflection_internal {
+namespace gneiss::engine::core::reflection {
 class type_registry_state;
 /** 原生所有者或当前操作租约；销毁句柄后不得将租约用作新的公共句柄。 */
 using registry_ref = std::shared_ptr<type_registry_state>;
@@ -34,4 +34,4 @@ struct property_value {
 [[nodiscard]] GNEISS_API result write_property(const registry_ref& registry, type_id type,
                                                field_id field, property_target target,
                                                const property_value& value) noexcept;
-} // namespace gneiss::reflection_internal
+} // namespace gneiss::engine::core::reflection

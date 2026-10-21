@@ -9,7 +9,7 @@
 #include <cstring>
 #include <string_view>
 
-namespace gneiss::platform {
+namespace gneiss::engine::platform {
 namespace {
 
 gneiss_result map_result(granit::result result) noexcept {
@@ -84,14 +84,14 @@ gneiss_result granit_platform::initialize(const window_configuration& config) no
   return map_result(result);
 }
 
-gneiss_result granit_platform::poll_input(engine::input::input_event& out_event) noexcept {
+gneiss_result granit_platform::poll_input(engine::core::input::input_event& out_event) noexcept {
   granit::input_event source{};
   const auto result = window_system_.poll(source);
   if (result.failed()) {
     return map_result(result);
   }
   out_event = {};
-  out_event.type = static_cast<engine::input::event_type>(source.type);
+  out_event.type = static_cast<engine::core::input::event_type>(source.type);
   out_event.window_id = UINT64_C(1);
   out_event.timestamp_ns = source.timestamp_ns;
   switch (source.type) {
@@ -99,7 +99,8 @@ gneiss_result granit_platform::poll_input(engine::input::input_event& out_event)
     out_event.data.key.physical_key = static_cast<std::uint32_t>(source.data.key.physical);
     out_event.data.key.logical_key = static_cast<std::uint32_t>(source.data.key.logical);
     out_event.data.key.modifiers = source.data.key.modifiers;
-    out_event.data.key.action = static_cast<engine::input::key_action>(source.data.key.action);
+    out_event.data.key.action =
+        static_cast<engine::core::input::key_action>(source.data.key.action);
     break;
   case granit::input_event_type::text:
     static_assert(sizeof(out_event.data.text.utf8) == sizeof(source.data.text.utf8));
@@ -134,13 +135,14 @@ gneiss_result granit_platform::poll_input(engine::input::input_event& out_event)
   case granit::input_event_type::pointer_left:
     break;
   default:
-    out_event.type = engine::input::event_type::none;
+    out_event.type = engine::core::input::event_type::none;
     break;
   }
   return GNEISS_SUCCESS;
 }
 
-gneiss_result granit_platform::keyboard(engine::input::keyboard_state& out_state) const noexcept {
+gneiss_result
+granit_platform::keyboard(engine::core::input::keyboard_state& out_state) const noexcept {
   granit::keyboard_state source{};
   const auto result = window_system_.keyboard(window_.ref(), source);
   if (result == granit::result::invalid_handle) {
@@ -158,7 +160,8 @@ gneiss_result granit_platform::keyboard(engine::input::keyboard_state& out_state
   return GNEISS_SUCCESS;
 }
 
-gneiss_result granit_platform::pointer(engine::input::pointer_state& out_state) const noexcept {
+gneiss_result
+granit_platform::pointer(engine::core::input::pointer_state& out_state) const noexcept {
   granit::pointer_state source{};
   const auto result = window_system_.pointer(window_.ref(), source);
   if (result == granit::result::invalid_handle) {
@@ -180,13 +183,14 @@ gneiss_result granit_platform::poll(bool& out_should_close, bool& out_focus_lost
   out_should_close = false;
   out_focus_lost = false;
   // 每轮只泵送一次，再依次消费窗口和输入队列。
-  const auto pump_result =
-      diagnostics::measure(diagnostics::loop_stage::window_pump,
-                           [&]() noexcept { return window_system_.process_events(); });
+  const auto pump_result = engine::core::diagnostics::measure(
+      engine::core::diagnostics::loop_stage::window_pump,
+      [&]() noexcept { return window_system_.process_events(); });
   if (pump_result.failed()) {
     return map_result(pump_result);
   }
-  const diagnostics::loop_span events(diagnostics::loop_stage::window_events);
+  const engine::core::diagnostics::loop_span events(
+      engine::core::diagnostics::loop_stage::window_events);
   granit::window_event event{};
   auto result = window_system_.poll(event);
   while (result == granit::result::success) {
@@ -211,4 +215,4 @@ gneiss_result granit_platform::poll(bool& out_should_close, bool& out_focus_lost
   return result == granit::result::not_ready ? GNEISS_SUCCESS : map_result(result);
 }
 
-} // namespace gneiss::platform
+} // namespace gneiss::engine::platform

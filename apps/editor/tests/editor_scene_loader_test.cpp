@@ -28,8 +28,8 @@ void check(bool value, std::source_location where = std::source_location::curren
     throw std::runtime_error("编辑器异步加载验证失败：" + std::to_string(where.line()));
 }
 
-void run(tasks::execution_mode mode) {
-  tasks::task_scheduler scheduler({.workers = 1U, .mode = mode});
+void run(engine::core::tasks::execution_mode mode) {
+  engine::core::tasks::task_scheduler scheduler({.workers = 1U, .mode = mode});
   gneiss::test_support::application_owner app;
   auto desc = gneiss_application_desc GNEISS_APPLICATION_DESC_INIT;
   const std::string root = GNEISS_EDITOR_TEST_ASSET_ROOT;
@@ -49,7 +49,7 @@ void run(tasks::execution_mode mode) {
   const auto original = world;
   constexpr std::string_view uri = "asset://scenes/triangle.scene.json";
   auto tick = [&] {
-    if (mode == tasks::execution_mode::cooperative)
+    if (mode == engine::core::tasks::execution_mode::cooperative)
       (void)scheduler.run_ready();
     check(gneiss::result{gneiss_application_run(app.get(), 1U)} == result::success);
     bool changed{};
@@ -121,8 +121,8 @@ void run(tasks::execution_mode mode) {
 } // namespace
 
 int main() try {
-  run(gneiss::tasks::execution_mode::thread_pool);
-  run(gneiss::tasks::execution_mode::cooperative);
+  run(gneiss::engine::core::tasks::execution_mode::thread_pool);
+  run(gneiss::engine::core::tasks::execution_mode::cooperative);
   return 0;
 } catch (const std::exception& error) {
   std::fprintf(stderr, "%s\n", error.what());

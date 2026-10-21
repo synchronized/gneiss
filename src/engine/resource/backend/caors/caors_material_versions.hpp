@@ -18,11 +18,11 @@ public:
 private:
   friend class material_document_versions;
   material_document_lease(prepared_source source,
-                          caors::resources::handle<material_document> document)
+                          ::caors::resources::handle<material_document> document)
       : source_(std::move(source)), document_(std::move(document)) {}
   prepared_source source_;
   // CAORS 当前不支持 handle<const T>；只通过租约暴露 const 访问。
-  caors::resources::handle<material_document> document_;
+  ::caors::resources::handle<material_document> document_;
 };
 /** 所属线程串行使用的非拥有索引，不创建 manager、线程或第二份强引用缓存。
  * 调用方只可在来源复验成功后登记；登记校验回执与文档一致，不自行进行文件复读。
@@ -30,7 +30,7 @@ private:
 class material_document_versions final {
   struct key {
     asset_identity identity;
-    core::sha256_digest digest;
+    engine::core::sha256_digest digest;
     std::uint64_t bytes;
   };
   struct less {
@@ -51,7 +51,7 @@ class material_document_versions final {
 public:
   /** 同一来源和内容复用已有对象；来源不一致不得合并。失败清空输出，不改变索引。 */
   [[nodiscard]] result remember(const prepared_source& verified,
-                                caors::resources::handle<material_document> document,
+                                ::caors::resources::handle<material_document> document,
                                 material_document_lease& output) noexcept {
     output = {};
     if (!verified.identity.source ||
@@ -103,6 +103,6 @@ public:
   }
 
 private:
-  std::map<key, caors::resources::weak_handle<material_document>, less> versions_;
+  std::map<key, ::caors::resources::weak_handle<material_document>, less> versions_;
 };
 } // namespace gneiss::engine::resource

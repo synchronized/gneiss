@@ -26,9 +26,9 @@ extern "C" gneiss_result gneiss_application_poll_input(gneiss_application applic
     if (validation_result != GNEISS_SUCCESS) {
       return validation_result;
     }
-    gneiss::engine::input::input_event event;
+    gneiss::engine::core::input::input_event event;
     const auto operation = state->poll_input(event);
-    *out_event = gneiss::abi_internal::input_event_to_abi(event);
+    *out_event = gneiss::engine::api::input_event_to_abi(event);
     return operation;
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;
@@ -46,7 +46,7 @@ extern "C" gneiss_result gneiss_application_get_keyboard_state(gneiss_applicatio
     if (validation_result != GNEISS_SUCCESS) {
       return validation_result;
     }
-    *out_state = gneiss::abi_internal::input_state_to_abi(state->keyboard_state());
+    *out_state = gneiss::engine::api::input_state_to_abi(state->keyboard_state());
     return GNEISS_SUCCESS;
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;
@@ -64,7 +64,7 @@ extern "C" gneiss_result gneiss_application_get_pointer_state(gneiss_application
     if (validation_result != GNEISS_SUCCESS) {
       return validation_result;
     }
-    *out_state = gneiss::abi_internal::input_state_to_abi(state->pointer_state());
+    *out_state = gneiss::engine::api::input_state_to_abi(state->pointer_state());
     return GNEISS_SUCCESS;
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;
@@ -84,8 +84,9 @@ extern "C" gneiss_result gneiss_application_load_action_map(gneiss_application a
     }
     const auto result = state->load_action_map({uri, static_cast<std::size_t>(uri_length)});
     if (result != GNEISS_SUCCESS) {
-      state->report(application, gneiss::diagnostics::severity::error,
-                    gneiss::diagnostics::category::input, result, "input", "动作映射加载失败");
+      state->report(application, gneiss::engine::core::diagnostics::severity::error,
+                    gneiss::engine::core::diagnostics::category::input, result, "input",
+                    "动作映射加载失败");
     }
     return result;
   } catch (...) {
@@ -107,7 +108,7 @@ extern "C" gneiss_result gneiss_application_find_action(gneiss_application appli
     if (validation != GNEISS_SUCCESS) {
       return validation;
     }
-    gneiss::engine::input::action_id action;
+    gneiss::engine::core::input::action_id action;
     const auto operation =
         state->find_action({name, static_cast<std::size_t>(name_length)}, action);
     *out_action = action.value;
@@ -129,7 +130,7 @@ extern "C" gneiss_result gneiss_application_get_action_state(gneiss_application 
     if (validation != GNEISS_SUCCESS) {
       return validation;
     }
-    gneiss::engine::input::action_state native;
+    gneiss::engine::core::input::action_state native;
     const auto operation = state->get_action_state({action}, native);
     *out_state = GNEISS_ACTION_STATE_INIT;
     out_state->pressed = static_cast<std::uint8_t>(native.pressed);

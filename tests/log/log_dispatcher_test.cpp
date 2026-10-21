@@ -27,7 +27,7 @@ struct capture_state final {
   bool valid_message = true;
 };
 
-void capture(const gneiss::log_internal::event_view& event, void* user_data) {
+void capture(const gneiss::engine::core::log::event_view& event, void* user_data) {
   auto& state = *static_cast<capture_state*>(user_data);
   std::unique_lock lock(state.mutex);
   if (state.block_first) {
@@ -50,7 +50,7 @@ void capture(const gneiss::log_internal::event_view& event, void* user_data) {
 }
 
 bool verify_failure_and_shutdown() {
-  using namespace gneiss::log_internal;
+  using namespace gneiss::engine::core::log;
   unsigned rejected{};
   try {
     log_dispatcher invalid(event_sink{});
@@ -88,7 +88,7 @@ bool verify_failure_and_shutdown() {
 }
 
 bool verify_validation_and_concurrency() {
-  using namespace gneiss::log_internal;
+  using namespace gneiss::engine::core::log;
   std::uint64_t received{};
   bool valid = true;
   log_dispatcher dispatcher(
@@ -137,10 +137,10 @@ int main() try {
     return 5;
   }
   capture_state state;
-  gneiss::log_internal::log_dispatcher dispatcher(
+  gneiss::engine::core::log::log_dispatcher dispatcher(
       [&state](const auto& event) { capture(event, &state); }, 2U);
   std::string payload = "event";
-  const gneiss::log_internal::message_view message{
+  const gneiss::engine::core::log::message_view message{
       .context = 1U,
       .source = "test",
       .category = "test",

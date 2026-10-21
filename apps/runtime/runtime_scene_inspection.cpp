@@ -37,7 +37,7 @@ bool equal_node(const gneiss::runtime_internal::runtime_scene_snapshot_node& lef
 }
 
 // IPC 使用既有协议布局；转换只发生在快照输出边界。
-gneiss_transform wire_transform(const gneiss::engine::transform& value) noexcept {
+gneiss_transform wire_transform(const gneiss::engine::core::math::transform& value) noexcept {
   return {{value.translation[0], value.translation[1], value.translation[2]},
           {value.rotation[0], value.rotation[1], value.rotation[2], value.rotation[3]},
           {value.scale[0], value.scale[1], value.scale[2]}};

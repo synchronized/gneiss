@@ -27,7 +27,7 @@ gneiss_result build_render_snapshot(world_state& world, std::uint32_t viewport_w
           component != nullptr) {
         selected.camera = {component->value.vertical_field_of_view_radians,
                            component->value.near_plane, component->value.far_plane};
-        engine::transform transform;
+        engine::core::math::transform transform;
         has_camera =
             world.scene().get_world_for_entity(active_camera, &transform) == GNEISS_SUCCESS;
         selected.transform = transform;
@@ -57,7 +57,7 @@ gneiss_result build_render_snapshot(world_state& world, std::uint32_t viewport_w
     world.each<mesh_renderer_component>(
         [&](entt::entity native_entity, const mesh_renderer_component& component) {
           const auto entity = world.encode_entity(native_entity);
-          engine::transform transform;
+          engine::core::math::transform transform;
           if (world.scene().get_world_for_entity(entity, &transform) == GNEISS_SUCCESS) {
             snapshot.instances.push_back({.mesh = component.value.mesh,
                                           .material = component.value.material,

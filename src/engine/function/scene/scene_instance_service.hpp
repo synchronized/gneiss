@@ -134,7 +134,7 @@ public:
                                                        std::string_view name) noexcept;
   [[nodiscard]] gneiss_result
   set_prefab_source_transform(gneiss_scene_instance instance, scene_node_id node,
-                              const gneiss::engine::transform& transform) noexcept;
+                              const gneiss::engine::core::math::transform& transform) noexcept;
   [[nodiscard]] gneiss_result destroy_prefab_instance(gneiss_scene_instance instance,
                                                       scene_node_id root) noexcept;
   [[nodiscard]] gneiss_result
@@ -188,7 +188,7 @@ private:
   gneiss::engine::resource::prefab_asset_loader& prefab_loader_;
   gneiss_type_registry registry_ = GNEISS_NULL_TYPE_REGISTRY;
   std::uint16_t domain_;
-  core::rid_table<instance_ptr> instances_;
+  engine::core::rid_table<instance_ptr> instances_;
 };
 
 } // namespace gneiss::engine::scene

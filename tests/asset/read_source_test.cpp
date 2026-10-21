@@ -297,10 +297,10 @@ void libuv_native_reads() {
     std::ofstream stream(directory.path / "data");
     stream << "abcdefgh";
   }
-  gneiss::io_internal::uv_loop_executor executor;
+  gneiss::engine::platform::io::uv_loop_executor executor;
   check(executor.start() == gneiss::result::success);
-  auto io = std::make_shared<gneiss::io_internal::uv_file_io>(executor);
-  auto paths = std::make_shared<gneiss::io_internal::uv_path_resolver>(executor);
+  auto io = std::make_shared<gneiss::engine::platform::io::uv_file_io>(executor);
+  auto paths = std::make_shared<gneiss::engine::platform::io::uv_path_resolver>(executor);
   std::unique_ptr<open_read_operation> pending;
   {
     auto backend = std::make_shared<native_file_system>();

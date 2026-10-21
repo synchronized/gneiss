@@ -363,7 +363,7 @@ bool material_parameter_roundtrip(gneiss::engine::resource::virtual_file_system&
     const auto handles = value->texture_handles();
     for (std::size_t slot = 0; slot < handles.size(); ++slot) {
       const auto& sample = value->sampling[slot];
-      if (handles[slot] == gneiss::core::null_rid || sample.uv_set != slot % 2U ||
+      if (handles[slot] == gneiss::engine::core::null_rid || sample.uv_set != slot % 2U ||
           static_cast<std::uint32_t>(sample.mag_filter) != 0U ||
           static_cast<std::uint32_t>(sample.min_filter) != 1U ||
           static_cast<std::uint32_t>(sample.mip_filter) != 2U ||
@@ -560,11 +560,11 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
           GNEISS_SUCCESS ||
       loader.acquire_mesh("asset://models/triangle.mesh.json", second_mesh, diagnostic) !=
           GNEISS_SUCCESS ||
-      first_mesh.get() == gneiss::core::null_rid || first_mesh.get() != second_mesh.get() ||
+      first_mesh.get() == gneiss::engine::core::null_rid || first_mesh.get() != second_mesh.get() ||
       memory->read_count != 1U ||
       loader.acquire_material("asset://materials/default.material.json", material, diagnostic) !=
           GNEISS_SUCCESS ||
-      material.get() == gneiss::core::null_rid || resources.live_resource_count() != 2U) {
+      material.get() == gneiss::engine::core::null_rid || resources.live_resource_count() != 2U) {
     return 2;
   }
 
@@ -585,7 +585,7 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
       R"({"format":"gneiss.mesh","version":1,"topology":"triangle_list","vertices":[[0,0,0],[1,0,0],[0,1,0]]})";
   if (loader.acquire_mesh("asset://models/broken.mesh.json", broken, diagnostic) !=
           GNEISS_SUCCESS ||
-      broken.get() == gneiss::core::null_rid || resources.live_resource_count() != 3U) {
+      broken.get() == gneiss::engine::core::null_rid || resources.live_resource_count() != 3U) {
     return 5;
   }
 
@@ -638,7 +638,7 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
           GNEISS_SUCCESS ||
       loader.acquire_texture("asset://textures/white.texture.json", second_texture, diagnostic) !=
           GNEISS_SUCCESS ||
-      first_texture.get() == gneiss::core::null_rid ||
+      first_texture.get() == gneiss::engine::core::null_rid ||
       first_texture.get() != second_texture.get()) {
     return 6;
   }
@@ -659,7 +659,8 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
   memory->files.emplace("textures/missing.png", png_data);
   if (loader.acquire_texture("asset://textures/missing.texture.json", missing_texture,
                              diagnostic) != GNEISS_SUCCESS ||
-      missing_texture.get() == gneiss::core::null_rid || resources.live_resource_count() != 5U) {
+      missing_texture.get() == gneiss::engine::core::null_rid ||
+      resources.live_resource_count() != 5U) {
     return 9;
   }
 

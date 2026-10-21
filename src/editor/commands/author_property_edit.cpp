@@ -14,7 +14,7 @@ namespace {
 result write_author_property(scene_document& session, property_inspector_model& inspector,
                              gneiss_world world, std::string_view uuid, type_id type_id,
                              field_id field_id,
-                             const reflection_internal::property_value& value) noexcept {
+                             const engine::core::reflection::property_value& value) noexcept {
   const auto* current = session.find_node(uuid);
   if (current == nullptr) {
     return result::not_found;
@@ -31,7 +31,7 @@ result edit_author_property(scene_document& session, editor_command_history& his
                             property_inspector_model& inspector, gneiss_world world,
                             const inspector_component& component,
                             const inspector_property& property,
-                            const reflection_internal::property_value& value,
+                            const engine::core::reflection::property_value& value,
                             std::uint64_t edit_serial) noexcept try {
   const auto* selected = session.selected_node();
   if (selected == nullptr) {

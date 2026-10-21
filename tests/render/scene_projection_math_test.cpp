@@ -15,7 +15,7 @@ int main() {
   using gneiss::engine::render::build_model_matrices;
   using gneiss::engine::render::matrix4;
 
-  gneiss::engine::transform transform{};
+  gneiss::engine::core::math::transform transform{};
   transform.translation[0] = 1.0F;
   transform.translation[1] = 2.0F;
   transform.translation[2] = 3.0F;

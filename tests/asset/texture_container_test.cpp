@@ -150,7 +150,7 @@ void recovery() {
                         diagnostic) == GNEISS_SUCCESS);
   const auto selected = std::span{payload}.subspan(1U, 2U);
   auto source = std::make_unique<texture_payload_source>(container, 1U, selected.size(),
-                                                         gneiss::core::sha256(selected));
+                                                         gneiss::engine::core::sha256(selected));
   container.reset();
   check(!counts->destroyed);
   std::vector<std::byte> output{std::byte{99}};

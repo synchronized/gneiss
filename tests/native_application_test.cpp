@@ -35,7 +35,7 @@ void test_loop_callback_exceptions() {
       throw std::bad_alloc{};
     return 12U;
   };
-  config.callbacks.update = [&](core::rid, const engine::frame_time& time) {
+  config.callbacks.update = [&](engine::core::rid, const engine::core::frame_time& time) {
     check(time.delta_ns == 0U);
     ++updates;
     return result::success;
@@ -46,7 +46,7 @@ void test_loop_callback_exceptions() {
   check(app->run(0, 1) == GNEISS_SUCCESS && updates == 1U);
   app.reset();
   config.callbacks.now_ns = {};
-  config.callbacks.update = [](core::rid, const engine::frame_time&) -> result {
+  config.callbacks.update = [](engine::core::rid, const engine::core::frame_time&) -> result {
     throw std::runtime_error("更新失败");
   };
   check(runtime::application::create(config, app) == GNEISS_SUCCESS);
@@ -58,7 +58,7 @@ void test_loop_callback_exceptions() {
     close = true;
     return result::success;
   };
-  config.callbacks.close_requested = [](core::rid) -> bool { throw std::bad_alloc{}; };
+  config.callbacks.close_requested = [](engine::core::rid) -> bool { throw std::bad_alloc{}; };
   check(runtime::application::create(config, app) == GNEISS_SUCCESS);
   check(app->run(0, 1) == GNEISS_ERROR_OUT_OF_MEMORY);
   check(app->shutdown(0) == GNEISS_SUCCESS);
@@ -67,7 +67,8 @@ void test_loop_callback_exceptions() {
   bool valid_diagnostic{};
   config = {};
   config.callbacks.initialize = [] { return result::initialization_failed; };
-  config.callbacks.diagnostic = [&](core::rid, const diagnostics::diagnostic_view& event) {
+  config.callbacks.diagnostic = [&](engine::core::rid,
+                                    const engine::core::diagnostics::diagnostic_view& event) {
     ++delivered_diagnostics;
     valid_diagnostic = event.result == result::initialization_failed && !event.message.empty();
     throw std::runtime_error("诊断失败");
@@ -174,8 +175,8 @@ int main() try {
     return state.fail ? gneiss::result::initialization_failed : gneiss::result::success;
   };
   config.callbacks.shutdown = [&state] { ++state.shutdowns; };
-  config.callbacks.update = [&state](gneiss::core::rid handle,
-                                     const gneiss::engine::frame_time&) -> gneiss::result {
+  config.callbacks.update = [&state](gneiss::engine::core::rid handle,
+                                     const gneiss::engine::core::frame_time&) -> gneiss::result {
     if (handle != GNEISS_NULL_APPLICATION) {
       return gneiss::result::invalid_handle;
     }
@@ -184,7 +185,7 @@ int main() try {
   };
   std::atomic<unsigned> delivered{};
   std::atomic<bool> valid_log{true};
-  config.callbacks.log = [&](const gneiss::log_internal::event_view& event) {
+  config.callbacks.log = [&](const gneiss::engine::core::log::event_view& event) {
     if (event.message.category == "native-test") {
       if (event.message.message != "原生日志" || event.sequence == 0U) {
         valid_log.store(false);

@@ -8,7 +8,7 @@
 
 #include <filesystem>
 
-namespace gneiss::io_internal {
+namespace gneiss::engine::platform::io {
 class uv_file_io;
 class uv_path_resolver;
 }
@@ -18,8 +18,8 @@ class native_file_system final : public file_system {
 public:
 #ifdef GNEISS_ASSET_LIBUV
   /** 宿主在线程模式显式注入；挂载开始服务后不再改变。 */
-  void set_async_io(std::shared_ptr<io_internal::uv_file_io> files,
-                    std::shared_ptr<io_internal::uv_path_resolver> paths) noexcept;
+  void set_async_io(std::shared_ptr<engine::platform::io::uv_file_io> files,
+                    std::shared_ptr<engine::platform::io::uv_path_resolver> paths) noexcept;
   [[nodiscard]] gneiss_result begin_open_read_for_validation(
       std::string_view path, std::unique_ptr<open_read_operation>& output) const noexcept override;
 #endif
@@ -36,8 +36,8 @@ public:
 private:
   std::filesystem::path root_;
 #ifdef GNEISS_ASSET_LIBUV
-  std::shared_ptr<io_internal::uv_file_io> async_files_;
-  std::shared_ptr<io_internal::uv_path_resolver> async_paths_;
+  std::shared_ptr<engine::platform::io::uv_file_io> async_files_;
+  std::shared_ptr<engine::platform::io::uv_path_resolver> async_paths_;
 #endif
 };
 

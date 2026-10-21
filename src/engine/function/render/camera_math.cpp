@@ -15,7 +15,8 @@ constexpr std::size_t matrix_index(std::size_t row, std::size_t column) noexcept
 
 } // namespace
 
-gneiss_result build_view_matrix(const engine::transform& transform, matrix4& out_matrix) noexcept {
+gneiss_result build_view_matrix(const engine::core::math::transform& transform,
+                                matrix4& out_matrix) noexcept {
   const auto x = transform.rotation[0];
   const auto y = transform.rotation[1];
   const auto z = transform.rotation[2];

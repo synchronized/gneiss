@@ -35,7 +35,7 @@ struct fixture {
     std::filesystem::remove_all(root, ignored);
   }
 };
-void run(gneiss::tasks::execution_mode mode) {
+void run(gneiss::engine::core::tasks::execution_mode mode) {
   using namespace gneiss;
   fixture files;
   std::ofstream(files.root / "a.texture.json")
@@ -53,7 +53,7 @@ void run(gneiss::tasks::execution_mode mode) {
     stream.write(reinterpret_cast<const char*>(bytes.data()),
                  static_cast<std::streamsize>(bytes.size()));
   }
-  tasks::task_scheduler scheduler({.workers = 1U, .mode = mode});
+  engine::core::tasks::task_scheduler scheduler({.workers = 1U, .mode = mode});
   gneiss::test_support::application_owner app;
   const auto root = files.root.string();
   gneiss_application_desc desc = GNEISS_APPLICATION_DESC_INIT;
@@ -72,7 +72,7 @@ void run(gneiss::tasks::execution_mode mode) {
   bool ready{};
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
   while (!ready) {
-    if (mode == tasks::execution_mode::cooperative) {
+    if (mode == engine::core::tasks::execution_mode::cooperative) {
       (void)scheduler.run_ready();
     }
     check(runtime::poll_textures(app.get(), completion, ready) == GNEISS_SUCCESS);
@@ -85,7 +85,7 @@ void run(gneiss::tasks::execution_mode mode) {
     bool completed = false;
     const auto limit = std::chrono::steady_clock::now() + std::chrono::seconds(5);
     while (!completed) {
-      if (mode == tasks::execution_mode::cooperative) {
+      if (mode == engine::core::tasks::execution_mode::cooperative) {
         (void)scheduler.run_ready();
       }
       check(runtime::poll_textures(app.get(), completion, completed) == GNEISS_SUCCESS);
@@ -222,8 +222,8 @@ void run(gneiss::tasks::execution_mode mode) {
 }
 }
 int main() try {
-  run(gneiss::tasks::execution_mode::cooperative);
-  run(gneiss::tasks::execution_mode::thread_pool);
+  run(gneiss::engine::core::tasks::execution_mode::cooperative);
+  run(gneiss::engine::core::tasks::execution_mode::thread_pool);
   return 0;
 } catch (const std::exception& error) {
   std::fprintf(stderr, "%s\n", error.what());

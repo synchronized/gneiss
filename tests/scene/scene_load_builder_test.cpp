@@ -250,7 +250,7 @@ void run() {
     for (unsigned step = 0; step < 8 && assigned.is_valid(); ++step)
       (void)assigned.cleanup_step(1);
     check(!assigned.is_valid() && assigned.cleanup_step(1));
-    engine::transform hidden;
+    engine::core::math::transform hidden;
     check(candidate->native_world()->node_get_local_transform(scene_node_id{hidden_root}, hidden) ==
           GNEISS_ERROR_INVALID_HANDLE);
     std::uint64_t count{};

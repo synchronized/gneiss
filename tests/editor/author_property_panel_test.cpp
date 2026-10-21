@@ -26,7 +26,7 @@ int main() try {
       .context = &writes,
       .write =
           [](void* context, const inspector_component&, const inspector_property&,
-             const gneiss::reflection_internal::property_value&, std::uint64_t) {
+             const gneiss::engine::core::reflection::property_value&, std::uint64_t) {
             ++*static_cast<unsigned*>(context);
             return gneiss::result{gneiss::result::success};
           },

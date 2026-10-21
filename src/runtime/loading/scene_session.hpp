@@ -23,11 +23,11 @@ public:
   [[nodiscard]] gneiss_result initialize(engine::resource::asset_manager& assets,
                                          engine::render::render_asset_loader& render);
   [[nodiscard]] gneiss_result
-  attach_executor(tasks::task_executor& executor,
+  attach_executor(engine::core::tasks::task_executor& executor,
                   const engine::resource::virtual_file_system& files,
                   engine::render::render_resource_service& resources,
                   engine::render::texture_upload_backend backend,
-                  std::shared_ptr<core::progress_notification> notification);
+                  std::shared_ptr<engine::core::progress_notification> notification);
   void advance();
   [[nodiscard]] gneiss_result activate(std::uint64_t request, scene_load_completion& completion);
   void shutdown() noexcept;

@@ -4,5 +4,5 @@
 #include "engine/api/log_validation.hpp"
 
 extern "C" gneiss_result gneiss_log_message_validate(const gneiss_log_message* message) {
-  return gneiss::abi_internal::validate_log_message(message);
+  return gneiss::engine::api::validate_log_message(message);
 }

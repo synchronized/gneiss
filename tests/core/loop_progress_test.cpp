@@ -12,7 +12,7 @@
 
 using namespace std::chrono_literals;
 int main() try {
-  auto signal = std::make_shared<gneiss::core::loop_progress>();
+  auto signal = std::make_shared<gneiss::engine::core::loop_progress>();
   const auto initial = signal->snapshot();
   if (signal->wait(initial, 1ms)) {
     return 1;
@@ -42,7 +42,7 @@ int main() try {
   if (!all_woken) {
     return 3;
   }
-  using namespace gneiss::tasks;
+  using namespace gneiss::engine::core::tasks;
   task_scheduler scheduler({.mode = execution_mode::cooperative});
   const auto scope = scheduler.make_scope();
   task_handle success;
@@ -70,7 +70,7 @@ int main() try {
     return 5;
   }
   // 宿主引用释放后，未消费回执仍持有独立通知对象，不持有宿主本体。
-  std::weak_ptr<gneiss::core::progress_notification> weak = signal;
+  std::weak_ptr<gneiss::engine::core::progress_notification> weak = signal;
   signal.reset();
   if (weak.expired()) {
     return 6;
@@ -84,7 +84,7 @@ int main() try {
   }
   task_scheduler workers({.workers = 1U});
   const auto worker_scope = workers.make_scope();
-  auto worker_signal = std::make_shared<gneiss::core::loop_progress>();
+  auto worker_signal = std::make_shared<gneiss::engine::core::loop_progress>();
   task_handle worker_task;
   if (workers.submit(
           {.scope = worker_scope, .notification = worker_signal},

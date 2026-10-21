@@ -8,7 +8,7 @@
 #include <algorithm>
 #include <gneiss/engine/render.h>
 
-namespace gneiss::api {
+namespace gneiss::engine::api {
 
 /** 只读取调用方声明的版本字段；失败保留输出，数值与资源归属由 Render 校验。 */
 [[nodiscard]] inline gneiss_result
@@ -62,4 +62,4 @@ read_material_description(const gneiss_material_desc& desc,
   return GNEISS_SUCCESS;
 }
 
-} // namespace gneiss::api
+} // namespace gneiss::engine::api

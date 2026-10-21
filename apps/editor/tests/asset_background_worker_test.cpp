@@ -214,7 +214,8 @@ int verify(const std::filesystem::path& root) {
   }
 
   // 协作宿主显式驱动；服务持锁提交、轮询和取消均不得隐式运行任务。
-  gneiss::tasks::task_scheduler cooperative({.mode = gneiss::tasks::execution_mode::cooperative});
+  gneiss::engine::core::tasks::task_scheduler cooperative(
+      {.mode = gneiss::engine::core::tasks::execution_mode::cooperative});
   unsigned cooperative_calls{};
   asset_background_worker cooperative_worker(
       [&](const auto& p, const auto& a, const auto& s, bool, const ai::import_control& control) {

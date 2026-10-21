@@ -22,7 +22,7 @@ int main() {
   using gneiss::engine::render::transform_vector;
 
   matrix4 view;
-  gneiss::engine::transform transform = {};
+  gneiss::engine::core::math::transform transform = {};
   transform.translation[2] = 2.0F;
   if (build_view_matrix(transform, view) != GNEISS_SUCCESS) {
     return 1;

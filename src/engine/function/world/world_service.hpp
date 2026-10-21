@@ -31,26 +31,26 @@ using world_owner = std::unique_ptr<engine::world::world, world_deleter>;
 
 /** 私有同版本宿主接口，不安装；唯一注册表负责线程和 generation 校验。 */
 /** 私有所属线程事务入口；失败输出为空；World 必须存活至候选全部清理。 */
-[[nodiscard]] GNEISS_API gneiss_result begin_publication(gneiss_world world,
-                                                         core::publication& output) noexcept;
 [[nodiscard]] GNEISS_API gneiss_result
-create_staged_object(gneiss_world world, const core::publication& group,
+begin_publication(gneiss_world world, engine::core::publication& output) noexcept;
+[[nodiscard]] GNEISS_API gneiss_result
+create_staged_object(gneiss_world world, const engine::core::publication& group,
                      const staged_object_description& description, staged_object& output) noexcept;
 /** 只接受本组对象和叶节点，失败不先删除实体。 */
 [[nodiscard]] GNEISS_API gneiss_result destroy_staged_object(gneiss_world world,
-                                                             const core::publication& group,
+                                                             const engine::core::publication& group,
                                                              staged_object object) noexcept;
 [[nodiscard]] GNEISS_API gneiss_result publish(gneiss_world world,
-                                               const core::publication& group) noexcept;
-[[nodiscard]] GNEISS_API gneiss_result retire_publication(gneiss_world world,
-                                                          const core::publication& group) noexcept;
+                                               const engine::core::publication& group) noexcept;
+[[nodiscard]] GNEISS_API gneiss_result
+retire_publication(gneiss_world world, const engine::core::publication& group) noexcept;
 /** 原子替换等长非空发布组列表；拒绝重复、跨 World、非封闭旧组。
  * 失败保持所有组可见性和主相机；成功后旧组只能逐步销毁，新主相机由调用方选择。 */
 [[nodiscard]] GNEISS_API gneiss_result
-replace_publications(gneiss_world world, std::span<const core::publication> previous,
-                     std::span<const core::publication> candidates) noexcept;
+replace_publications(gneiss_world world, std::span<const engine::core::publication> previous,
+                     std::span<const engine::core::publication> candidates) noexcept;
 [[nodiscard]] GNEISS_API gneiss_result bind_publication(gneiss_world world,
-                                                        const core::publication& group,
+                                                        const engine::core::publication& group,
                                                         staged_object object) noexcept;
 /** 所属线程批量替换已有组件：先验证全部实体及旧 RID，再无分配提交。
  * 不验证渲染服务 RID，调用方必须持有有效资源租约；重复实体拒绝。 */
@@ -112,6 +112,6 @@ entity_remove_mesh_renderer(gneiss_world world, gneiss_entity_id entity) noexcep
 [[nodiscard]] GNEISS_API gneiss_type_id camera_type_id() noexcept;
 [[nodiscard]] GNEISS_API gneiss_result register_reflection(gneiss_type_registry registry);
 [[nodiscard]] GNEISS_API gneiss_result
-register_reflection(const reflection_internal::registry_ref& registry);
+register_reflection(const engine::core::reflection::registry_ref& registry);
 } // namespace gneiss::engine::world
 #endif

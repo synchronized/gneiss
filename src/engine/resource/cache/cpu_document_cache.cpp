@@ -9,13 +9,13 @@
 namespace gneiss::engine::resource {
 namespace {
 /** 数组只属于这个资源，别名 shared_ptr 通过 CAORS handle 保活。 */
-struct mesh_document final : caors::resource {
-  using caors::resource::resource;
+struct mesh_document final : ::caors::resource {
+  using ::caors::resource::resource;
   mesh_data data;
 };
 class mesh_documents final {
   using key = std::tuple<std::shared_ptr<const asset_source_domain>, std::string,
-                         core::sha256_digest, std::uint64_t>;
+                         engine::core::sha256_digest, std::uint64_t>;
   std::map<key, std::weak_ptr<const mesh_data>> versions_;
 
 public:
@@ -36,11 +36,12 @@ public:
         return GNEISS_SUCCESS;
       }
     }
-    auto document = caors::resources::make_handle<mesh_document>(nullptr, caors::resource_guid{});
+    auto document =
+        ::caors::resources::make_handle<mesh_document>(nullptr, ::caors::resource_guid{});
     if (!document)
       return GNEISS_ERROR_OUT_OF_MEMORY;
     document->data = std::move(asset.mesh);
-    auto owner = std::make_shared<caors::resources::handle<mesh_document>>(std::move(document));
+    auto owner = std::make_shared<::caors::resources::handle<mesh_document>>(std::move(document));
     std::shared_ptr<const mesh_data> data(owner, &(*owner)->data);
     versions_.insert_or_assign(std::move(identity), data);
     asset.shared_mesh = std::move(data);
@@ -62,7 +63,7 @@ public:
                        std::array<std::string, 5>& uris, asset_diagnostic& diagnostic) override {
     // GUID 不参与版本选择；候选不注册到按 URI reload 的可变槽位。
     auto document =
-        caors::resources::make_handle<material_document>(nullptr, caors::resource_guid{});
+        ::caors::resources::make_handle<material_document>(nullptr, ::caors::resource_guid{});
     if (!document) {
       return GNEISS_ERROR_OUT_OF_MEMORY;
     }
@@ -103,7 +104,7 @@ public:
 
 private:
   std::shared_ptr<document_versions> versions_;
-  std::vector<caors::resources::handle<material_document>> candidates_;
+  std::vector<::caors::resources::handle<material_document>> candidates_;
 };
 class document_cache final : public cpu_document_cache {
 public:

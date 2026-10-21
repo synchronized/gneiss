@@ -17,7 +17,7 @@ constexpr std::uint32_t prefab_resource_type = 4U;
 
 // 按字段编码，不摘要结构体填充或机器字节序；新增描述字段时须同时更新版本编码。
 std::string description_version(const gneiss::engine::resource::prefab_description& description) {
-  gneiss::core::sha256_builder hash;
+  gneiss::engine::core::sha256_builder hash;
   const auto number = [&](std::uint64_t value) {
     std::array<std::byte, 8> bytes{};
     for (auto& byte : bytes) {

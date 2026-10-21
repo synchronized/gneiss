@@ -12,7 +12,7 @@
 #include <thread>
 
 namespace {
-using namespace gneiss::tasks;
+using namespace gneiss::engine::core::tasks;
 using namespace std::chrono_literals;
 void require(bool value, const char* message) {
   if (!value) {

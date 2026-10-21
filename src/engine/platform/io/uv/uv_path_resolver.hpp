@@ -11,7 +11,7 @@
 #include <string>
 #include <string_view>
 
-namespace gneiss::io_internal {
+namespace gneiss::engine::platform::io {
 class uv_loop_executor;
 
 /** 异步解析结果；单消费者轮询。销毁仅放弃结果，不等待磁盘或执行器。
@@ -45,4 +45,4 @@ private:
   std::shared_ptr<std::atomic_size_t> active_;
   std::size_t capacity_;
 };
-} // namespace gneiss::io_internal
+} // namespace gneiss::engine::platform::io

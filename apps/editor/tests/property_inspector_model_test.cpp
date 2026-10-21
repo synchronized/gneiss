@@ -88,7 +88,7 @@ int main() {
     return 22;
   }
 
-  gneiss::reflection_internal::property_value value;
+  gneiss::engine::core::reflection::property_value value;
   value.payload = gneiss::property_vec3{.x = 2.0F, .y = 3.0F, .z = 4.0F};
   if (inspector.set_value(gneiss::from_native(gneiss_transform_type_id()),
                           gneiss::field_id{GNEISS_TRANSFORM_FIELD_TRANSLATION},

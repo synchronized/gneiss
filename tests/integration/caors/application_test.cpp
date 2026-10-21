@@ -23,7 +23,7 @@ void check(bool value, const char* message) {
 void close_pending_window(const char* assets) {
   using namespace gneiss;
   using namespace std::chrono_literals;
-  tasks::task_scheduler scheduler({.workers = 1});
+  engine::core::tasks::task_scheduler scheduler({.workers = 1});
   runtime::application_configuration config;
   config.asset_root = assets;
   config.use_granit_window = true;
@@ -48,15 +48,15 @@ void close_pending_window(const char* assets) {
   };
   {
     unblock guard{release};
-    tasks::task_handle handle;
+    engine::core::tasks::task_handle handle;
     check(scheduler.submit(
               {.name = "test-input-gate", .scope = scope},
               [future, &entered](const auto&) {
                 entered.set_value();
                 future.wait();
-                return tasks::task_outcome{};
+                return engine::core::tasks::task_outcome{};
               },
-              handle) == tasks::submit_result::success,
+              handle) == engine::core::tasks::submit_result::success,
           "gate submit");
     check(started.wait_for(5s) == std::future_status::ready, "gate started");
     check(app->begin_action_map("asset://input/default.input-map.json") == GNEISS_SUCCESS,
@@ -76,9 +76,10 @@ void close_pending_window(const char* assets) {
 void run(const char* assets, bool cooperative) {
   using namespace gneiss;
   using namespace std::chrono_literals;
-  tasks::task_scheduler scheduler({.workers = 1,
-                                   .mode = cooperative ? tasks::execution_mode::cooperative
-                                                       : tasks::execution_mode::thread_pool});
+  engine::core::tasks::task_scheduler scheduler(
+      {.workers = 1,
+       .mode = cooperative ? engine::core::tasks::execution_mode::cooperative
+                           : engine::core::tasks::execution_mode::thread_pool});
   const auto root = std::filesystem::temp_directory_path() /
                     ("gneiss-caors-application-" +
                      std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
@@ -101,7 +102,7 @@ void run(const char* assets, bool cooperative) {
   config.callbacks.update = [&](auto, const auto&) {
     ++frames;
     if (app->action_map_status() == GNEISS_SUCCESS) {
-      engine::input::action_id id;
+      engine::core::input::action_id id;
       check(app->find_action("move_horizontal", id) == GNEISS_SUCCESS, "ready before update");
       seen_ready = true;
     }
@@ -117,7 +118,7 @@ void run(const char* assets, bool cooperative) {
     const auto deadline = std::chrono::steady_clock::now() + 10s;
     do {
       if (cooperative)
-        check(scheduler.run_ready().status == tasks::drive_status::success, "drive");
+        check(scheduler.run_ready().status == engine::core::tasks::drive_status::success, "drive");
       check(app->run(0, 1) == GNEISS_SUCCESS, "run");
       check(std::chrono::steady_clock::now() < deadline, "timeout");
 #if GNEISS_TEST_TASK_THREADS
@@ -139,7 +140,7 @@ void run(const char* assets, bool cooperative) {
         "async oversized request admitted");
   wait();
   check(app->action_map_status() == GNEISS_ERROR_INVALID_ARGUMENT, "async document limit");
-  engine::input::action_id original;
+  engine::core::input::action_id original;
   check(app->find_action("move_horizontal", original) == GNEISS_SUCCESS, "original action");
   {
     std::ofstream invalid(file);
@@ -148,7 +149,7 @@ void run(const char* assets, bool cooperative) {
   check(app->begin_action_map("asset://input/default.input-map.json") == GNEISS_SUCCESS, "reload");
   wait();
   check(app->action_map_status() != GNEISS_SUCCESS, "invalid reload failed");
-  engine::input::action_id retained;
+  engine::core::input::action_id retained;
   check(app->find_action("move_horizontal", retained) == GNEISS_SUCCESS && retained == original,
         "failure preserves action identity");
   check(app->begin_action_map("asset://input/missing.json") == GNEISS_SUCCESS, "cancel begin");

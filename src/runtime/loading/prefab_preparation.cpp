@@ -9,14 +9,15 @@ struct prefab_preparation::state {
   engine::resource::scene_diagnostic diagnostic;
   gneiss_result result{GNEISS_ERROR_INVALID_STATE};
 };
-prefab_preparation::prefab_preparation(tasks::task_executor& executor)
+prefab_preparation::prefab_preparation(engine::core::tasks::task_executor& executor)
     : executor_(executor), scope_(executor.make_scope()), state_(std::make_shared<state>()) {}
 prefab_preparation::~prefab_preparation() {
   executor_.cancel_scope(scope_);
   (void)executor_.close_scope(scope_);
 }
 gneiss_result prefab_preparation::create(runtime::application& application,
-                                         tasks::task_executor& executor, std::string_view uri,
+                                         engine::core::tasks::task_executor& executor,
+                                         std::string_view uri,
                                          std::unique_ptr<prefab_preparation>& output) noexcept try {
   output.reset();
   auto* host = &application;
@@ -30,23 +31,23 @@ gneiss_result prefab_preparation::create(runtime::application& application,
   if (candidate->scope_.id == 0U) {
     return GNEISS_ERROR_NOT_READY;
   }
-  tasks::task_handle task;
+  engine::core::tasks::task_handle task;
   const auto submitted = executor.submit(
       {.name = "prefab.prepare", .scope = candidate->scope_},
       [result = candidate->state_, files = host->asset_files(),
-       uri = std::string(uri)](const tasks::task_context& context) {
+       uri = std::string(uri)](const engine::core::tasks::task_context& context) {
         result->result = engine::scene::prepare_prefab_description(
             files, uri, result->prepared, result->diagnostic,
             [&] { return context.stop_requested(); });
-        auto state = result->result == GNEISS_SUCCESS ? tasks::task_state::succeeded
-                                                      : tasks::task_state::failed;
+        auto state = result->result == GNEISS_SUCCESS ? engine::core::tasks::task_state::succeeded
+                                                      : engine::core::tasks::task_state::failed;
         if (context.stop_requested()) {
-          state = tasks::task_state::cancelled;
+          state = engine::core::tasks::task_state::cancelled;
         }
-        return tasks::task_outcome{.state = state};
+        return engine::core::tasks::task_outcome{.state = state};
       },
       task);
-  if (submitted != tasks::submit_result::success) {
+  if (submitted != engine::core::tasks::submit_result::success) {
     return GNEISS_ERROR_NOT_READY;
   }
   output = std::move(candidate);
@@ -63,12 +64,13 @@ void prefab_preparation::cancel() {
 gneiss_result prefab_preparation::poll(engine::scene::prepared_scene_description& output,
                                        bool& complete) {
   complete = false;
-  std::vector<tasks::task_completion> completions;
+  std::vector<engine::core::tasks::task_completion> completions;
   if (executor_.poll(scope_, completions, 1U) == 0U) {
     return GNEISS_SUCCESS;
   }
   complete = true;
-  if (cancelled_ || completions.front().outcome.state == tasks::task_state::cancelled) {
+  if (cancelled_ ||
+      completions.front().outcome.state == engine::core::tasks::task_state::cancelled) {
     return GNEISS_ERROR_INVALID_STATE;
   }
   if (state_->result == GNEISS_SUCCESS) {

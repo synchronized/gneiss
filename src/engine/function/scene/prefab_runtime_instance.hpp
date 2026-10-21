@@ -51,7 +51,7 @@ public:
          engine::render::render_asset_loader& loader,
          gneiss::engine::resource::prefab_asset_lease prefab, gneiss_type_registry registry,
          std::string_view instance_uuid, gneiss_scene_node_id parent,
-         const gneiss::engine::transform& root_transform,
+         const gneiss::engine::core::math::transform& root_transform,
          const std::vector<gneiss::engine::resource::prefab_property_override>& overrides,
          std::unique_ptr<prefab_runtime_instance>& out_instance) noexcept;
 
@@ -83,10 +83,10 @@ public:
 
   /** 候选 World 专用的分阶段构造；每次只创建一个节点，渲染资源由调用方传入租约。 */
   [[nodiscard]] gneiss_result begin_staged(gneiss_scene_node_id parent,
-                                           const gneiss::engine::transform& transform);
+                                           const gneiss::engine::core::math::transform& transform);
   /** 活动 World 内隐藏构造；描述已完成覆盖验证，发布前不激活相机。 */
   [[nodiscard]] gneiss_result begin_hidden(gneiss_scene_node_id parent,
-                                           const gneiss::engine::transform& transform,
+                                           const gneiss::engine::core::math::transform& transform,
                                            gneiss::engine::resource::prefab_description prepared);
   [[nodiscard]] gneiss_result publish_hidden() noexcept;
   [[nodiscard]] gneiss_result retire_hidden() noexcept;
@@ -123,7 +123,7 @@ private:
   stage_assets(const gneiss::engine::resource::prefab_description& description);
   [[nodiscard]] gneiss_result
   commit(const gneiss::engine::resource::prefab_description& description,
-         gneiss_scene_node_id parent, const gneiss::engine::transform& root_transform);
+         gneiss_scene_node_id parent, const gneiss::engine::core::math::transform& root_transform);
   [[nodiscard]] gneiss_result apply_overrides(
       gneiss_type_registry registry,
       std::span<const gneiss::engine::resource::prefab_property_override> overrides) noexcept;
@@ -140,7 +140,7 @@ private:
   std::vector<std::size_t> staged_order_;
   bool staged_{};
   bool cancelling_{};
-  core::publication publication_;
+  engine::core::publication publication_;
   std::optional<gneiss::engine::resource::prefab_description> prepared_;
   bool published_{};
   gneiss_scene_instance candidate_scene_{};

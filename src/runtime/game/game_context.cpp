@@ -26,10 +26,10 @@ struct context_state final {
 
 constexpr std::uint16_t context_domain = UINT16_C(0x4743);
 std::mutex context_mutex;
-gneiss::core::rid_table<context_state> contexts(context_domain);
+gneiss::engine::core::rid_table<context_state> contexts(context_domain);
 
 [[nodiscard]] context_state* get_context(gneiss_game_context context) noexcept {
-  auto* state = contexts.get(context, gneiss::core::resource_type::game_context);
+  auto* state = contexts.get(context, gneiss::engine::core::resource_type::game_context);
   if (state == nullptr || state->owner_thread != std::this_thread::get_id()) {
     return nullptr;
   }
@@ -55,7 +55,7 @@ gneiss_result create_game_context(gneiss_application application,
   }
   world = parent->world();
   std::scoped_lock lock(context_mutex);
-  return contexts.create(core::resource_type::game_context,
+  return contexts.create(engine::core::resource_type::game_context,
                          context_state{
                              .application = application,
                              .world = world,
@@ -76,7 +76,7 @@ gneiss_result destroy_game_context(gneiss_game_context context) noexcept try {
   if (state == nullptr) {
     return GNEISS_ERROR_INVALID_HANDLE;
   }
-  return contexts.destroy(context, core::resource_type::game_context);
+  return contexts.destroy(context, engine::core::resource_type::game_context);
 } catch (const std::bad_alloc&) {
   return GNEISS_ERROR_OUT_OF_MEMORY;
 } catch (...) {
@@ -123,10 +123,10 @@ gneiss_result query_context(gneiss_game_context context, context_view& output) n
   }
 }
 gneiss_result submit_context_log(gneiss_game_context context,
-                                 const log_internal::message_view& message) noexcept {
+                                 const engine::core::log::message_view& message) noexcept {
   try {
     const std::scoped_lock lock(context_mutex);
-    const auto* state = contexts.get(context, core::resource_type::game_context);
+    const auto* state = contexts.get(context, engine::core::resource_type::game_context);
     return state == nullptr
                ? GNEISS_ERROR_INVALID_HANDLE
                : runtime::submit_application_log(state->application, message, state->log_source);

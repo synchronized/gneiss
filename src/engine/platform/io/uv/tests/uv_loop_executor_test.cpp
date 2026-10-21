@@ -29,7 +29,7 @@ bool broken_pipe_on_worker() {
       pthread_sigmask(SIG_UNBLOCK, &signal, nullptr) != 0) {
     return false;
   }
-  gneiss::io_internal::uv_loop_executor executor;
+  gneiss::engine::platform::io::uv_loop_executor executor;
   for (int attempt = 0; attempt < 2; ++attempt) {
     std::array<int, 2> descriptors{};
     if (pipe(descriptors.data()) != 0) {
@@ -85,12 +85,12 @@ int main() {
     return 9;
   }
 #endif
-  gneiss::io_internal::uv_loop_executor invalid(0U);
+  gneiss::engine::platform::io::uv_loop_executor invalid(0U);
   if (invalid.start() != gneiss::result::invalid_argument) {
     return 1;
   }
 
-  gneiss::io_internal::uv_loop_executor runtime(2U);
+  gneiss::engine::platform::io::uv_loop_executor runtime(2U);
   if (runtime.post([] {}) != gneiss::result::not_ready ||
       runtime.start() != gneiss::result::success || !runtime.is_running() ||
       runtime.start() != gneiss::result::invalid_state) {

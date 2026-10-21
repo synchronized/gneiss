@@ -33,32 +33,33 @@ namespace gneiss::engine::world {
 world::world(std::uint32_t domain) : state_(std::make_unique<world_state>(domain)) {}
 world::~world() noexcept = default;
 bool world::is_owner_thread() const noexcept { return state_->is_owner_thread(); }
-gneiss_result world::begin_publication(core::publication& output) noexcept {
+gneiss_result world::begin_publication(engine::core::publication& output) noexcept {
   output.reset();
   return with_state(*state_, [&](world_state& state) {
     output = state.begin_publication();
     return GNEISS_SUCCESS;
   });
 }
-gneiss_result world::publish(const core::publication& group) noexcept {
+gneiss_result world::publish(const engine::core::publication& group) noexcept {
   return with_state(*state_, [&](world_state& state) { return state.publish(group); });
 }
-gneiss_result world::retire_publication(const core::publication& group) noexcept {
+gneiss_result world::retire_publication(const engine::core::publication& group) noexcept {
   return with_state(*state_, [&](world_state& state) { return state.retire(group); });
 }
-gneiss_result world::replace_publications(std::span<const core::publication> previous,
-                                          std::span<const core::publication> candidates) noexcept {
+gneiss_result
+world::replace_publications(std::span<const engine::core::publication> previous,
+                            std::span<const engine::core::publication> candidates) noexcept {
   return with_state(*state_, [&](world_state& state) {
     return state.replace_publications(previous, candidates);
   });
 }
-gneiss_result world::bind_publication(const core::publication& group,
+gneiss_result world::bind_publication(const engine::core::publication& group,
                                       staged_object object) noexcept {
   return with_state(*state_, [&](world_state& state) {
     return state.bind_publication(group, object.entity.get(), object.node.get());
   });
 }
-gneiss_result world::create_staged_object(const core::publication& group,
+gneiss_result world::create_staged_object(const engine::core::publication& group,
                                           const staged_object_description& description,
                                           staged_object& output) noexcept {
   output = {};
@@ -111,7 +112,7 @@ gneiss_result world::create_staged_object(const core::publication& group,
     return operation;
   });
 }
-gneiss_result world::destroy_staged_object(const core::publication& group,
+gneiss_result world::destroy_staged_object(const engine::core::publication& group,
                                            staged_object object) noexcept {
   return with_state(*state_, [&](world_state& state) {
     if (object.entity.get() == GNEISS_NULL_ENTITY_ID ||
@@ -422,8 +423,9 @@ gneiss_result world::node_reparent(scene_node_id node_value, scene_node_id paren
     return GNEISS_ERROR_INTERNAL;
   }
 }
-gneiss_result world::node_set_local_transform(scene_node_id node_value,
-                                              const engine::transform& transform) noexcept {
+gneiss_result
+world::node_set_local_transform(scene_node_id node_value,
+                                const engine::core::math::transform& transform) noexcept {
   gneiss_scene_node_id node = node_value.get();
   try {
     auto* state = state_.get();
@@ -434,8 +436,9 @@ gneiss_result world::node_set_local_transform(scene_node_id node_value,
     return GNEISS_ERROR_INTERNAL;
   }
 }
-gneiss_result world::node_get_local_transform(scene_node_id node_value,
-                                              engine::transform& out_transform) noexcept {
+gneiss_result
+world::node_get_local_transform(scene_node_id node_value,
+                                engine::core::math::transform& out_transform) noexcept {
   gneiss_scene_node_id node = node_value.get();
   try {
     auto* state = state_.get();
@@ -453,15 +456,16 @@ gneiss_result world::node_get_local_transform(scene_node_id node_value,
     return GNEISS_ERROR_INTERNAL;
   }
 }
-gneiss_result world::node_get_world_transform(scene_node_id node_value,
-                                              engine::transform& out_transform) noexcept {
+gneiss_result
+world::node_get_world_transform(scene_node_id node_value,
+                                engine::core::math::transform& out_transform) noexcept {
   gneiss_scene_node_id node = node_value.get();
   try {
     auto* state = state_.get();
     const auto thread_result = (is_owner_thread() ? GNEISS_SUCCESS : GNEISS_ERROR_INVALID_STATE);
     if (thread_result != GNEISS_SUCCESS)
       return thread_result;
-    engine::transform value;
+    engine::core::math::transform value;
     const auto result = state->scene().get_world(node, &value);
     if (result == GNEISS_SUCCESS)
       out_transform = value;
@@ -519,8 +523,9 @@ gneiss_result world::node_get_parent(scene_node_id node_value,
   out_parent_value = scene_node_id{out_parent};
   return operation_result;
 }
-gneiss_result world::entity_get_local_transform(entity_id entity_value,
-                                                engine::transform& out_transform) noexcept {
+gneiss_result
+world::entity_get_local_transform(entity_id entity_value,
+                                  engine::core::math::transform& out_transform) noexcept {
   gneiss_entity_id entity = entity_value.get();
   out_transform = {};
   try {
@@ -542,8 +547,9 @@ gneiss_result world::entity_get_local_transform(entity_id entity_value,
     return GNEISS_ERROR_INTERNAL;
   }
 }
-gneiss_result world::entity_set_local_transform(entity_id entity_value,
-                                                const engine::transform& transform) noexcept {
+gneiss_result
+world::entity_set_local_transform(entity_id entity_value,
+                                  const engine::core::math::transform& transform) noexcept {
   gneiss_entity_id entity = entity_value.get();
   try {
     auto* state = state_.get();

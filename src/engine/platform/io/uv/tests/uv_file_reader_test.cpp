@@ -16,7 +16,7 @@
 
 namespace {
 using gneiss::result;
-using gneiss::io_internal::uv_file_reader;
+using gneiss::engine::platform::io::uv_file_reader;
 void check(bool value, std::source_location where = std::source_location::current()) {
   if (!value) {
     throw std::runtime_error("libuv 文件来源测试失败，行=" + std::to_string(where.line()));

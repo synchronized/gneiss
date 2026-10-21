@@ -18,10 +18,10 @@ void record_duration(clock_type::time_point start, double& maximum) {
   maximum = std::max(maximum,
                      std::chrono::duration<double, std::milli>(clock_type::now() - start).count());
 }
-gneiss_result hash_source(const read_source& source, core::sha256_digest& digest,
+gneiss_result hash_source(const read_source& source, engine::core::sha256_digest& digest,
                           const std::function<bool()>& cancelled) {
   std::array<std::byte, std::size_t{64U} * 1024U> buffer{};
-  core::sha256_builder builder;
+  engine::core::sha256_builder builder;
   for (std::uint64_t offset = 0U; offset < source.size();) {
     if (cancelled && cancelled()) {
       return GNEISS_ERROR_INVALID_STATE;
@@ -128,7 +128,7 @@ source_revision_file_system::open_read(std::string_view path,
 namespace {
 class tracked_read_source final : public read_source {
 public:
-  using commit_function = std::function<gneiss_result(const core::sha256_digest&)>;
+  using commit_function = std::function<gneiss_result(const engine::core::sha256_digest&)>;
   tracked_read_source(std::unique_ptr<read_source> source, commit_function commit)
       : source_(std::move(source)), commit_(std::move(commit)) {}
   gneiss_result begin_close() const noexcept override { return source_->begin_close(); }
@@ -144,7 +144,7 @@ public:
     return source_->read_at(offset, output);
   }
   [[nodiscard]] gneiss_result
-  complete_validation(const core::sha256_digest& digest) const noexcept override {
+  complete_validation(const engine::core::sha256_digest& digest) const noexcept override {
     try {
       const auto result = source_->complete_validation(digest);
       return result == GNEISS_SUCCESS ? commit_(digest) : result;
@@ -190,7 +190,8 @@ gneiss_result source_revision_file_system::begin_open_read_for_validation(
   try {
     class tracked_open final : public open_read_operation {
     public:
-      using commit = std::function<gneiss_result(std::uint64_t, const core::sha256_digest&)>;
+      using commit =
+          std::function<gneiss_result(std::uint64_t, const engine::core::sha256_digest&)>;
       tracked_open(std::unique_ptr<open_read_operation> pending, commit record)
           : pending_(std::move(pending)), record_(std::move(record)) {}
       gneiss_result poll(std::unique_ptr<read_source>& destination) noexcept override {
@@ -264,7 +265,7 @@ source_revision_file_system::read_bounded(std::string_view path, std::size_t lim
     if (result != GNEISS_SUCCESS) {
       return result;
     }
-    const identity current{.bytes = bytes.size(), .digest = core::sha256(bytes)};
+    const identity current{.bytes = bytes.size(), .digest = engine::core::sha256(bytes)};
     const auto recorded = remember(versions_, path, current);
     if (recorded != GNEISS_SUCCESS) {
       bytes.clear();
@@ -282,7 +283,7 @@ struct source_revision_file_system::verification::state {
   std::size_t index{};
   std::unique_ptr<read_source> source;
   std::unique_ptr<open_read_operation> opening;
-  core::sha256_builder digest;
+  engine::core::sha256_builder digest;
   std::uint64_t offset{};
   gneiss_result result{GNEISS_SUCCESS};
   statistics timings;
@@ -352,7 +353,7 @@ struct source_revision_file_system::verification::state {
       if (expected.bytes > std::numeric_limits<std::size_t>::max() ||
           files.read_bounded("asset://" + path, static_cast<std::size_t>(expected.bytes), bytes) !=
               GNEISS_SUCCESS ||
-          bytes.size() != expected.bytes || core::sha256(bytes) != expected.digest ||
+          bytes.size() != expected.bytes || engine::core::sha256(bytes) != expected.digest ||
           (cancelled && cancelled())) {
         return GNEISS_ERROR_INVALID_STATE;
       }

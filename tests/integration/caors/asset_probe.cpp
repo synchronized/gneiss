@@ -25,9 +25,9 @@
 
 namespace {
 using namespace std::chrono_literals;
-using caors::errc;
-using caors::error;
-using caors::error_domain;
+using ::caors::errc;
+using ::caors::error;
+using ::caors::error_domain;
 using gneiss::result;
 using gneiss::engine::resource::action_map_asset;
 using gneiss::engine::resource::action_map_loader;
@@ -37,10 +37,10 @@ void require(bool condition, const char* message) {
     throw std::runtime_error(message);
 }
 
-void check_file_contract(gneiss::io_internal::uv_file_io& io, const char* path) {
-  std::unique_ptr<gneiss::io_internal::uv_file_open_operation> opening;
+void check_file_contract(gneiss::engine::platform::io::uv_file_io& io, const char* path) {
+  std::unique_ptr<gneiss::engine::platform::io::uv_file_open_operation> opening;
   require(io.begin_open(path, opening) == result::success, "contract open");
-  std::shared_ptr<gneiss::io_internal::uv_async_file> source;
+  std::shared_ptr<gneiss::engine::platform::io::uv_async_file> source;
   const auto deadline = std::chrono::steady_clock::now() + 10s;
   result status;
   while ((status = opening->poll(source)) == result::not_ready) {
@@ -48,22 +48,22 @@ void check_file_contract(gneiss::io_internal::uv_file_io& io, const char* path) 
     std::this_thread::sleep_for(1ms);
   }
   require(status == result::success && source->size() >= 8, "contract opened");
-  auto file = gneiss::caors_internal::make_file(std::move(source));
-  caors::tasks::execution_context queue;
-  auto first = caors::io::request_read(file, 0, 4, 4, queue.get_executor());
-  auto second = caors::io::request_read(file, 4, 4, 4, queue.get_executor());
-  auto cancelled = caors::io::request_read(file, 0, 4, 4, queue.get_executor());
+  auto file = gneiss::engine::platform::caors::make_file(std::move(source));
+  ::caors::tasks::execution_context queue;
+  auto first = ::caors::io::request_read(file, 0, 4, 4, queue.get_executor());
+  auto second = ::caors::io::request_read(file, 4, 4, 4, queue.get_executor());
+  auto cancelled = ::caors::io::request_read(file, 0, 4, 4, queue.get_executor());
   require(first && second && cancelled, "ranges accepted");
   cancelled.value.cancel();
-  auto invalid = caors::io::request_read(file, file->size(), 1, 4, queue.get_executor());
+  auto invalid = ::caors::io::request_read(file, file->size(), 1, 4, queue.get_executor());
   require(!invalid, "invalid range rejected");
-  auto over_budget = caors::io::request_read(file, 0, 4, 3, queue.get_executor());
+  auto over_budget = ::caors::io::request_read(file, 0, 4, 3, queue.get_executor());
   require(!over_budget, "budget enforced");
-  auto closing = caors::io::request_close(file, queue.get_executor());
-  auto closing_again = caors::io::request_close(file, queue.get_executor());
+  auto closing = ::caors::io::request_close(file, queue.get_executor());
+  auto closing_again = ::caors::io::request_close(file, queue.get_executor());
   require(closing && closing_again, "close subscriptions accepted");
-  auto rejected = caors::io::request_read(file, 0, 1, 1, queue.get_executor());
-  require(!rejected && rejected.error().value == caors::io::io_errc::closed,
+  auto rejected = ::caors::io::request_read(file, 0, 1, 1, queue.get_executor());
+  require(!rejected && rejected.error().value == ::caors::io::io_errc::closed,
           "read after close rejected");
   while (!closing.value.result() || !closing_again.value.result() || !first.value.result() ||
          !second.value.result() || !cancelled.value.result()) {
@@ -78,7 +78,7 @@ void check_file_contract(gneiss::io_internal::uv_file_io& io, const char* path) 
   require(static_cast<bool>(*first.value.result()) && first.value.result()->value.size() == 4 &&
               static_cast<bool>(*second.value.result()) && second.value.result()->value.size() == 4,
           "accepted ranges finish despite close");
-  require(cancelled.value.result()->error().value == caors::io::io_errc::cancelled,
+  require(cancelled.value.result()->error().value == ::caors::io::io_errc::cancelled,
           "cancelled range settles");
   require(io.begin_open(path, opening) == result::success, "abandon open");
   while ((status = opening->poll(source)) == result::not_ready) {
@@ -86,32 +86,32 @@ void check_file_contract(gneiss::io_internal::uv_file_io& io, const char* path) 
     std::this_thread::sleep_for(1ms);
   }
   require(status == result::success, "abandon opened");
-  auto abandoned_file = gneiss::caors_internal::make_file(std::move(source));
-  std::weak_ptr<gneiss::caors_internal::file_adapter> weak = abandoned_file;
+  auto abandoned_file = gneiss::engine::platform::caors::make_file(std::move(source));
+  std::weak_ptr<gneiss::engine::platform::caors::file_adapter> weak = abandoned_file;
   {
-    auto abandoned_read = caors::io::request_read(abandoned_file, 0, 4, 4, queue.get_executor());
+    auto abandoned_read = ::caors::io::request_read(abandoned_file, 0, 4, 4, queue.get_executor());
     require(static_cast<bool>(abandoned_read), "abandoned read accepted");
     abandoned_file->abandon();
     (void)queue.drain();
     require(abandoned_read.value.result() &&
-                abandoned_read.value.result()->error().value == caors::io::io_errc::cancelled,
+                abandoned_read.value.result()->error().value == ::caors::io::io_errc::cancelled,
             "abandon settles receipt");
   }
   abandoned_file.reset();
   require(weak.expired(), "abandon releases ownership cycle");
 }
 
-void check_vfs_contract(gneiss::io_internal::uv_file_io& io, const char* path) {
-  using namespace caors::io;
-  std::weak_ptr<gneiss::caors_internal::file_system_adapter> lifetime;
-  std::shared_ptr<caors::io::async_file> pinned;
+void check_vfs_contract(gneiss::engine::platform::io::uv_file_io& io, const char* path) {
+  using namespace ::caors::io;
+  std::weak_ptr<gneiss::engine::platform::caors::file_system_adapter> lifetime;
+  std::shared_ptr<::caors::io::async_file> pinned;
   {
-    auto files = gneiss::caors_internal::make_file_system(io);
+    auto files = gneiss::engine::platform::caors::make_file_system(io);
     lifetime = files;
-    caors::tasks::execution_context queue;
+    ::caors::tasks::execution_context queue;
     struct cleanup {
-      gneiss::caors_internal::file_system_adapter& files;
-      caors::tasks::execution_context& queue;
+      gneiss::engine::platform::caors::file_system_adapter& files;
+      ::caors::tasks::execution_context& queue;
       ~cleanup() {
         files.abandon();
         (void)queue.drain();
@@ -189,25 +189,25 @@ void check_vfs_contract(gneiss::io_internal::uv_file_io& io, const char* path) {
 }
 
 int run(const char* asset_path) {
-  gneiss::io_internal::uv_loop_executor loop;
+  gneiss::engine::platform::io::uv_loop_executor loop;
   require(loop.start() == result::success, "loop start");
-  gneiss::io_internal::uv_file_io io(loop);
+  gneiss::engine::platform::io::uv_file_io io(loop);
   check_file_contract(io, asset_path);
   check_vfs_contract(io, asset_path);
-  gneiss::tasks::task_scheduler scheduler({.workers = 1});
-  auto context = gneiss::caors_internal::make_worker(scheduler);
-  caors::tasks::external_executor worker(context);
-  caors::tasks::execution_context completions; // 主线程队列，无新线程。
-  caors::resources::cache<action_map_asset> cache;
-  auto files = gneiss::caors_internal::make_file_system(io);
+  gneiss::engine::core::tasks::task_scheduler scheduler({.workers = 1});
+  auto context = gneiss::engine::platform::caors::make_worker(scheduler);
+  ::caors::tasks::external_executor worker(context);
+  ::caors::tasks::execution_context completions; // 主线程队列，无新线程。
+  ::caors::resources::cache<action_map_asset> cache;
+  auto files = gneiss::engine::platform::caors::make_file_system(io);
   auto loader_owner = gneiss::engine::resource::make_action_map_loader(*files);
   auto& loader = *loader_owner;
-  caors::assets::asset_manager manager({worker.get_executor(), completions.get_executor()});
+  ::caors::assets::asset_manager manager({worker.get_executor(), completions.get_executor()});
   struct cleanup {
-    caors::tasks::external_executor& worker;
+    ::caors::tasks::external_executor& worker;
     action_map_loader& loader;
-    caors::tasks::execution_context& completions;
-    gneiss::io_internal::uv_loop_executor& loop;
+    ::caors::tasks::execution_context& completions;
+    gneiss::engine::platform::io::uv_loop_executor& loop;
     ~cleanup() {
       worker.close();
       loader.abandon();
@@ -216,16 +216,16 @@ int run(const char* asset_path) {
         (void)loop.stop();
     }
   } guard{worker, loader, completions, loop};
-  auto router = std::make_shared<caors::io::file_system_resolver>();
+  auto router = std::make_shared<::caors::io::file_system_resolver>();
   const auto path = std::filesystem::absolute(asset_path).generic_string();
-  caors::resources::file_source source(router);
+  ::caors::resources::file_source source(router);
   auto guid = [](unsigned char index) {
-    return caors::resource_guid{caors::guid::from_bytes(caors::guid::byte_array{index})};
+    return ::caors::resource_guid{::caors::guid::from_bytes(::caors::guid::byte_array{index})};
   };
   // 使用 resolver 的 URI 转发，绝对目标由 target_prefix 指定。
   require(!router->mount("asset://document", files, path), "document mount");
   require(!manager.provider().bind(guid(1), source, "asset://document"), "bind");
-  require(!manager.register_type(cache, loader, caors::string_name{"gneiss.input.action_map"}),
+  require(!manager.register_type(cache, loader, ::caors::string_name{"gneiss.input.action_map"}),
           "register");
   auto wait = [&](auto predicate) {
     const auto deadline = std::chrono::steady_clock::now() + 10s;
@@ -285,6 +285,7 @@ int run(const char* asset_path) {
   require(manager.find<action_map_asset>(guid(1)) == second.try_get().get(),
           "cancel keeps cached resource");
   using namespace gneiss::engine::input;
+  using namespace gneiss::engine::core::input;
   using namespace gneiss::engine::resource;
   using namespace gneiss::runtime;
   input_service input;
@@ -406,7 +407,7 @@ int run(const char* asset_path) {
   (void)completions.drain();
   require(closing.done() && !closing.loaded() && !manager.database().has_active_operations(),
           "shutdown settles active request");
-  require(static_cast<bool>(worker.get_executor().post(caors::tasks::task{[] {}})),
+  require(static_cast<bool>(worker.get_executor().post(::caors::tasks::task{[] {}})),
           "closed executor rejects work");
   require(loop.stop() == result::success && loop.failed_task_count() == 0, "drain real I/O");
   std::puts("CAORS + Gneiss scheduler + libuv: JSON load, sharing, cache, cancellation, failure, "

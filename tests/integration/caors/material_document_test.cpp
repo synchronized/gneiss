@@ -49,18 +49,18 @@ void run(std::size_t document_limit) {
   std::string initial = R"({"format":"gneiss.material","version":1,"color":[1,0,0,1]})";
   initial.resize(document_limit, ' ');
   write(initial);
-  gneiss::io_internal::uv_loop_executor loop;
+  gneiss::engine::platform::io::uv_loop_executor loop;
   check(loop.start() == result::success, "loop");
   auto native = std::make_shared<native_file_system>();
   check(native->initialize(root.generic_string()) == GNEISS_SUCCESS, "native root");
-  native->set_async_io(std::make_shared<gneiss::io_internal::uv_file_io>(loop),
-                       std::make_shared<gneiss::io_internal::uv_path_resolver>(loop));
+  native->set_async_io(std::make_shared<gneiss::engine::platform::io::uv_file_io>(loop),
+                       std::make_shared<gneiss::engine::platform::io::uv_path_resolver>(loop));
   virtual_file_system files;
   check(files.mount("asset://", native) == GNEISS_SUCCESS, "mount");
-  gneiss::tasks::task_scheduler scheduler({.workers = 1});
-  auto context = gneiss::caors_internal::make_worker(scheduler);
-  caors::tasks::external_executor worker(context);
-  caors::tasks::execution_context completions;
+  gneiss::engine::core::tasks::task_scheduler scheduler({.workers = 1});
+  auto context = gneiss::engine::platform::caors::make_worker(scheduler);
+  ::caors::tasks::external_executor worker(context);
+  ::caors::tasks::execution_context completions;
   auto bridge = make_caors_vfs_bridge(files, worker.get_executor(), document_limit);
   bool rejected_zero_bridge = false;
   try {
@@ -89,28 +89,29 @@ void run(std::size_t document_limit) {
         const result read{files.read_bounded(uri, document_limit, current)};
         if (read != result::success)
           return read;
-        return gneiss::core::sha256(current) == gneiss::core::sha256(bytes) ? result::success
-                                                                            : result::invalid_state;
+        return gneiss::engine::core::sha256(current) == gneiss::engine::core::sha256(bytes)
+                   ? result::success
+                   : result::invalid_state;
       },
       document_limit);
-  caors::resources::cache<material_document> cache;
-  caors::assets::asset_manager manager({worker.get_executor(), completions.get_executor()});
+  ::caors::resources::cache<material_document> cache;
+  ::caors::assets::asset_manager manager({worker.get_executor(), completions.get_executor()});
   struct cleanup {
-    caors::tasks::external_executor& worker;
+    ::caors::tasks::external_executor& worker;
     material_document_loader& loader;
-    caors::tasks::execution_context& queue;
+    ::caors::tasks::execution_context& queue;
     ~cleanup() {
       worker.close();
       loader.abandon();
       (void)queue.drain();
     }
   } guard{worker, *loader, completions};
-  check(!manager.register_type(cache, *loader, caors::string_name{"gneiss.material.document"}),
+  check(!manager.register_type(cache, *loader, ::caors::string_name{"gneiss.material.document"}),
         "register");
-  caors::guid::byte_array id_bytes{};
+  ::caors::guid::byte_array id_bytes{};
   id_bytes[0] = 1;
-  const caors::resource_guid id{caors::guid::from_bytes(id_bytes)};
-  caors::resources::file_source source(bridge);
+  const ::caors::resource_guid id{::caors::guid::from_bytes(id_bytes)};
+  ::caors::resources::file_source source(bridge);
   check(!manager.provider().bind(id, source, "asset://material.json"), "bind");
   auto wait = [&](auto predicate) {
     const auto deadline = std::chrono::steady_clock::now() + 10s;
@@ -154,7 +155,7 @@ void run(std::size_t document_limit) {
   check(versions.find(new_source, found) == result::success && found.get() == current.get(),
         "find new exact version");
   // 相同内容来自另一次加载，可复用已存活的解析结果。
-  auto duplicate = caors::resources::make_handle<material_document>(nullptr, id);
+  auto duplicate = ::caors::resources::make_handle<material_document>(nullptr, id);
   check(static_cast<bool>(duplicate), "duplicate allocation");
   duplicate->source = old->source;
   duplicate->digest = old->digest;
@@ -227,7 +228,7 @@ void run(std::size_t document_limit) {
         dependency_missing
             ? R"({"format":"gneiss.material","version":2,"color":[1,0,0,1],"base_color_texture":"asset://missing"})"
             : R"({"format":"gneiss.material","version":1,"color":[1,0,0,1]})");
-    caors::resources::handle<material_document> candidate;
+    ::caors::resources::handle<material_document> candidate;
     unsigned decodes = 0;
     const std::array requested{asset_request{"asset://material.json", asset_type::material}};
     asset_preparation preparation(
@@ -236,7 +237,7 @@ void run(std::size_t document_limit) {
         [&](const auto& bytes, auto& parameters, auto& uris, auto& diagnostic) {
           check(std::this_thread::get_id() != host_thread, "batch decode runs off host");
           ++decodes;
-          candidate = caors::resources::make_handle<material_document>(nullptr, id);
+          candidate = ::caors::resources::make_handle<material_document>(nullptr, id);
           if (!candidate)
             return GNEISS_ERROR_OUT_OF_MEMORY;
           const auto decoded = documents->decode(bytes, parameters, uris, diagnostic);

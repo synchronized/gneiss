@@ -45,7 +45,7 @@ struct asset_file_watcher::implementation final {
 
   explicit implementation(std::size_t capacity) : event_capacity(capacity) {}
 
-  io_internal::uv_loop_executor executor;
+  engine::platform::io::uv_loop_executor executor;
   std::filesystem::path source_root;
   std::vector<std::unique_ptr<directory_watch>> watches;
   std::unordered_set<std::string> watched_directories;
@@ -87,7 +87,7 @@ struct asset_file_watcher::implementation final {
         watches.reserve((std::max)(std::size_t{8U}, watches.size() * 2U));
       }
       watched_directories.insert(key);
-      auto operation = io_internal::from_uv_status(uv_fs_event_init(loop, &watch->handle));
+      auto operation = engine::platform::io::from_uv_status(uv_fs_event_init(loop, &watch->handle));
       if (operation != result::success) {
         watched_directories.erase(key);
         return operation;
@@ -101,7 +101,7 @@ struct asset_file_watcher::implementation final {
         flags = UV_FS_EVENT_RECURSIVE;
       }
 #endif
-      operation = io_internal::from_uv_status(
+      operation = engine::platform::io::from_uv_status(
           uv_fs_event_start(&active_watch->handle, on_file_event, key.c_str(), flags));
       if (operation != result::success) {
         watched_directories.erase(key);
@@ -142,7 +142,7 @@ struct asset_file_watcher::implementation final {
                             int status) noexcept {
     auto* watch = static_cast<directory_watch*>(handle->data);
     auto* self = watch->owner;
-    const auto operation = io_internal::from_uv_status(status);
+    const auto operation = engine::platform::io::from_uv_status(status);
     if (operation != result::success) {
       self->emit({.kind = asset_file_event_kind::error,
                   .relative_path = watch->directory.lexically_relative(self->source_root),
@@ -217,7 +217,7 @@ result asset_file_watcher::start(const std::filesystem::path& source_root,
     }
     auto completion = std::make_shared<std::promise<result>>();
     auto completed = completion->get_future();
-    operation = io_internal::uv_loop_access::post(
+    operation = engine::platform::io::uv_loop_access::post(
         implementation_->executor, [state = implementation_.get(), completion](uv_loop_t* loop) {
           completion->set_value(state->refresh_directories(loop));
         });
@@ -225,7 +225,7 @@ result asset_file_watcher::start(const std::filesystem::path& source_root,
       operation = completed.get();
     }
     if (operation != result::success) {
-      (void)io_internal::uv_loop_access::post(
+      (void)engine::platform::io::uv_loop_access::post(
           implementation_->executor,
           [state = implementation_.get()](uv_loop_t*) { state->close_watches(); });
       (void)implementation_->executor.stop();
@@ -246,7 +246,7 @@ result asset_file_watcher::stop() noexcept {
   if (!implementation_ || !implementation_->running.exchange(false, std::memory_order_acq_rel)) {
     return result::not_ready;
   }
-  const auto posted = io_internal::uv_loop_access::post(
+  const auto posted = engine::platform::io::uv_loop_access::post(
       implementation_->executor,
       [state = implementation_.get()](uv_loop_t*) { state->close_watches(); });
   const auto stopped = implementation_->executor.stop();

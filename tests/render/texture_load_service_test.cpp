@@ -137,7 +137,7 @@ void prepared_source_revisions() {
                            expected) == GNEISS_SUCCESS);
       check(payload.identity == expected && payload.identity == old_asset.sources.back().identity);
       check(payload.bytes == source->files.at("image.ktx2").size());
-      check(payload.digest == core::sha256(source->files.at("image.ktx2")));
+      check(payload.digest == engine::core::sha256(source->files.at("image.ktx2")));
       check(payload.digest != old_asset.sources.back().digest);
     } else {
       check(old_asset.sources.size() == 1U && new_asset.sources.size() == 1U);
@@ -226,7 +226,7 @@ void shared_mesh_documents() {
   invalid.assets.front().sources.front().identity.source.reset();
   check(documents->begin()->retain_verified(invalid) == GNEISS_ERROR_INVALID_STATE);
   render_resource_service resources;
-  core::rid rid{};
+  engine::core::rid rid{};
   check(resources.create_prepared_mesh(mesh, &rid) == GNEISS_SUCCESS);
   check(resources.share_mesh(rid) == mesh);
   auto frame = resources.share_mesh(rid);
@@ -241,7 +241,7 @@ void shared_mesh_documents() {
   frame.reset();
   check(lifetime.expired());
 }
-void fixed_version_publication(tasks::execution_mode mode) {
+void fixed_version_publication(engine::core::tasks::execution_mode mode) {
   auto source = std::make_shared<memory_files>();
   source->pixel(std::byte{10});
   source->text(
@@ -323,7 +323,7 @@ void fixed_version_publication(tasks::execution_mode mode) {
   material_lease = {};
   cache.release_unused();
   check(resources.live_resource_count() == 0U && cache.size() == 0U);
-  tasks::task_scheduler scheduler({.mode = mode});
+  engine::core::tasks::task_scheduler scheduler({.mode = mode});
   unsigned uploads{};
   unsigned discards{};
   bool acknowledge = true;
@@ -401,7 +401,8 @@ void fixed_version_publication(tasks::execution_mode mode) {
   check(first_load.assets.back().get() != second_load.assets.back().get());
 }
 void cooperative_read_slices() {
-  tasks::task_scheduler scheduler({.mode = tasks::execution_mode::cooperative});
+  engine::core::tasks::task_scheduler scheduler(
+      {.mode = engine::core::tasks::execution_mode::cooperative});
   auto files = std::make_shared<memory_files>();
   files->text(
       "large.texture.json",
@@ -471,8 +472,8 @@ void cooperative_read_slices() {
         texture->levels.front().pixels.back() == std::byte{127});
 }
 
-void run(tasks::execution_mode mode) {
-  tasks::task_scheduler scheduler({.workers = 2U, .mode = mode});
+void run(engine::core::tasks::execution_mode mode) {
+  engine::core::tasks::task_scheduler scheduler({.workers = 2U, .mode = mode});
   auto files = std::make_shared<memory_files>();
   files->text(
       "a.texture.json",
@@ -511,7 +512,7 @@ void run(tasks::execution_mode mode) {
   texture_load_service service(scheduler, vfs, loader, std::move(backend), {},
                                make_cpu_document_cache());
   const auto advance = [&] {
-    if (mode == tasks::execution_mode::cooperative) {
+    if (mode == engine::core::tasks::execution_mode::cooperative) {
       (void)scheduler.run_ready();
     }
     service.advance();
@@ -532,7 +533,7 @@ void run(tasks::execution_mode mode) {
   until([&] { return uploaded; });
   check(cache.size() == 0U);
   check((files->reader == std::this_thread::get_id()) ==
-        (mode == tasks::execution_mode::cooperative));
+        (mode == engine::core::tasks::execution_mode::cooperative));
   texture_load_completion completion;
   check(!service.take(completion));
   upload_result = GNEISS_ERROR_INITIALIZATION_FAILED;
@@ -601,8 +602,8 @@ void run(tasks::execution_mode mode) {
   service.request_stop();
   check(service.stopped() && discarded == 1U);
 }
-void mixed(tasks::execution_mode mode, bool pbr = false) {
-  tasks::task_scheduler scheduler({.workers = 1U, .mode = mode});
+void mixed(engine::core::tasks::execution_mode mode, bool pbr = false) {
+  engine::core::tasks::task_scheduler scheduler({.workers = 1U, .mode = mode});
   auto files = std::make_shared<memory_files>();
   files->pixel(std::byte{10});
   files->text(
@@ -674,7 +675,7 @@ void mixed(tasks::execution_mode mode, bool pbr = false) {
   texture_load_service service(scheduler, vfs, loader, std::move(backend), {},
                                make_cpu_document_cache());
   const auto advance = [&] {
-    if (mode == tasks::execution_mode::cooperative) {
+    if (mode == engine::core::tasks::execution_mode::cooperative) {
       (void)scheduler.run_ready();
     }
     service.advance();
@@ -747,7 +748,7 @@ void mixed(tasks::execution_mode mode, bool pbr = false) {
   if (pbr) {
     check(material->emissive[2] == 0.4F);
     for (const auto texture : material->texture_handles()) {
-      check(texture != gneiss::core::null_rid && resources.get_texture(texture) != nullptr);
+      check(texture != gneiss::engine::core::null_rid && resources.get_texture(texture) != nullptr);
     }
     // 丢失附加纹理时不得发布部分材质，也不能替换已有版本。
     const auto retained = resources.share_material(material_lease.get());
@@ -775,9 +776,9 @@ void mixed(tasks::execution_mode mode, bool pbr = false) {
   check(prepare_render_assets(vfs, requested, prepared, diagnostic, [] { return false; }) !=
         GNEISS_SUCCESS);
 }
-void packaged_lifetime(tasks::execution_mode mode) {
+void packaged_lifetime(engine::core::tasks::execution_mode mode) {
 #if defined(GNEISS_HAS_GRANIT_PLATFORM)
-  tasks::task_scheduler scheduler({.workers = 1U, .mode = mode});
+  engine::core::tasks::task_scheduler scheduler({.workers = 1U, .mode = mode});
   auto files = std::make_shared<memory_files>();
   const std::array payload{std::byte{7}, std::byte{8}, std::byte{9}, std::byte{255}};
   const std::array mips{granit::asset_tools::texture::subresource_info{
@@ -838,13 +839,13 @@ void packaged_lifetime(tasks::execution_mode mode) {
           },
       .profile = {.generation = 1U, .sampled_transfer_formats = {true, true, false, false}}};
   auto service = std::make_unique<texture_load_service>(
-      scheduler, vfs, loader, std::move(backend), std::shared_ptr<core::progress_notification>{},
-      make_cpu_document_cache());
+      scheduler, vfs, loader, std::move(backend),
+      std::shared_ptr<engine::core::progress_notification>{}, make_cpu_document_cache());
   const auto until = [&](auto predicate) {
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
     while (!predicate()) {
       check(std::chrono::steady_clock::now() < deadline);
-      if (mode == tasks::execution_mode::cooperative) {
+      if (mode == engine::core::tasks::execution_mode::cooperative) {
         (void)scheduler.run_ready();
       }
       service->advance();
@@ -895,8 +896,8 @@ void packaged_lifetime(tasks::execution_mode mode) {
 }
 }
 namespace {
-void cancel_unpublished_upload(tasks::execution_mode mode) {
-  tasks::task_scheduler scheduler({.workers = 1U, .mode = mode});
+void cancel_unpublished_upload(engine::core::tasks::execution_mode mode) {
+  engine::core::tasks::task_scheduler scheduler({.workers = 1U, .mode = mode});
   auto files = std::make_shared<memory_files>();
   files->pixel(std::byte{10});
   for (const auto* path : {"a.texture.json", "b.texture.json"}) {
@@ -946,7 +947,7 @@ void cancel_unpublished_upload(tasks::execution_mode mode) {
   texture_load_service service(scheduler, vfs, loader, std::move(backend), {},
                                make_cpu_document_cache());
   const auto advance = [&] {
-    if (mode == tasks::execution_mode::cooperative) {
+    if (mode == engine::core::tasks::execution_mode::cooperative) {
       (void)scheduler.run_ready();
     }
     service.advance();
@@ -984,20 +985,20 @@ void cancel_unpublished_upload(tasks::execution_mode mode) {
 
 int main() try {
   shared_mesh_documents();
-  fixed_version_publication(tasks::execution_mode::cooperative);
-  fixed_version_publication(tasks::execution_mode::thread_pool);
+  fixed_version_publication(engine::core::tasks::execution_mode::cooperative);
+  fixed_version_publication(engine::core::tasks::execution_mode::thread_pool);
   prepared_source_revisions();
   cooperative_read_slices();
-  cancel_unpublished_upload(tasks::execution_mode::cooperative);
-  cancel_unpublished_upload(tasks::execution_mode::thread_pool);
-  packaged_lifetime(tasks::execution_mode::cooperative);
-  packaged_lifetime(tasks::execution_mode::thread_pool);
-  mixed(tasks::execution_mode::cooperative, true);
-  mixed(tasks::execution_mode::thread_pool, true);
-  mixed(tasks::execution_mode::cooperative);
-  mixed(tasks::execution_mode::thread_pool);
-  run(tasks::execution_mode::cooperative);
-  run(tasks::execution_mode::thread_pool);
+  cancel_unpublished_upload(engine::core::tasks::execution_mode::cooperative);
+  cancel_unpublished_upload(engine::core::tasks::execution_mode::thread_pool);
+  packaged_lifetime(engine::core::tasks::execution_mode::cooperative);
+  packaged_lifetime(engine::core::tasks::execution_mode::thread_pool);
+  mixed(engine::core::tasks::execution_mode::cooperative, true);
+  mixed(engine::core::tasks::execution_mode::thread_pool, true);
+  mixed(engine::core::tasks::execution_mode::cooperative);
+  mixed(engine::core::tasks::execution_mode::thread_pool);
+  run(engine::core::tasks::execution_mode::cooperative);
+  run(engine::core::tasks::execution_mode::thread_pool);
   return 0;
 } catch (const std::exception& error) {
   std::fprintf(stderr, "%s\n", error.what());

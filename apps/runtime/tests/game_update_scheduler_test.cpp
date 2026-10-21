@@ -38,7 +38,7 @@ int main() {
   const game_update_callbacks callbacks{&calls, fixed_update, update};
   game_update_report report;
 
-  gneiss::engine::frame_time frame{0U, 5U, 5U, false};
+  gneiss::engine::core::frame_time frame{0U, 5U, 5U, false};
   if (scheduler.advance(frame, callbacks, report) != gneiss::result::success ||
       report.fixed_step_count != 0U || calls.variable_count != 1U ||
       calls.variable[0].delta_ns != 5U) {

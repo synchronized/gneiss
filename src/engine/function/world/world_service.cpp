@@ -29,12 +29,12 @@ struct world_factory {
 
 namespace {
 
-gneiss::engine::transform native_transform(const gneiss_transform& value) noexcept {
+gneiss::engine::core::math::transform native_transform(const gneiss_transform& value) noexcept {
   return {{value.translation[0], value.translation[1], value.translation[2]},
           {value.rotation[0], value.rotation[1], value.rotation[2], value.rotation[3]},
           {value.scale[0], value.scale[1], value.scale[2]}};
 }
-gneiss_transform boundary_transform(const gneiss::engine::transform& value) noexcept {
+gneiss_transform boundary_transform(const gneiss::engine::core::math::transform& value) noexcept {
   return {{value.translation[0], value.translation[1], value.translation[2]},
           {value.rotation[0], value.rotation[1], value.rotation[2], value.rotation[3]},
           {value.scale[0], value.scale[1], value.scale[2]}};
@@ -45,7 +45,7 @@ struct world_resource {
   gneiss::engine::world::world* borrowed{};
   [[nodiscard]] auto* get() const noexcept { return owned ? owned.get() : borrowed; }
 };
-using world_table = gneiss::core::rid_table<world_resource>;
+using world_table = gneiss::engine::core::rid_table<world_resource>;
 
 struct world_registry {
   std::mutex mutex;
@@ -59,7 +59,7 @@ world_registry& get_world_registry() {
 }
 
 gneiss::engine::world::world* find_world(world_registry& registry, gneiss_world world) noexcept {
-  auto* resource = registry.worlds.get(world, gneiss::core::resource_type::world);
+  auto* resource = registry.worlds.get(world, gneiss::engine::core::resource_type::world);
   return resource == nullptr ? nullptr : resource->get();
 }
 
@@ -97,39 +97,41 @@ bool is_valid_camera(float vertical_field_of_view_radians, float near_plane,
 
 namespace gneiss::engine::world {
 
-gneiss_result begin_publication(gneiss_world world, core::publication& output) noexcept {
+gneiss_result begin_publication(gneiss_world world, engine::core::publication& output) noexcept {
   output.reset();
   return with_world(world, [&](engine::world::world& native_world) {
     return native_world.begin_publication(output);
   });
 }
 
-gneiss_result publish(gneiss_world world, const core::publication& group) noexcept {
+gneiss_result publish(gneiss_world world, const engine::core::publication& group) noexcept {
   return with_world(
       world, [&](engine::world::world& native_world) { return native_world.publish(group); });
 }
 
-gneiss_result retire_publication(gneiss_world world, const core::publication& group) noexcept {
+gneiss_result retire_publication(gneiss_world world,
+                                 const engine::core::publication& group) noexcept {
   return with_world(world, [&](engine::world::world& native_world) {
     return native_world.retire_publication(group);
   });
 }
 
-gneiss_result replace_publications(gneiss_world world, std::span<const core::publication> previous,
-                                   std::span<const core::publication> candidates) noexcept {
+gneiss_result replace_publications(gneiss_world world,
+                                   std::span<const engine::core::publication> previous,
+                                   std::span<const engine::core::publication> candidates) noexcept {
   return with_world(world, [&](engine::world::world& native_world) {
     return native_world.replace_publications(previous, candidates);
   });
 }
 
-gneiss_result bind_publication(gneiss_world world, const core::publication& group,
+gneiss_result bind_publication(gneiss_world world, const engine::core::publication& group,
                                staged_object object) noexcept {
   return with_world(world, [&](engine::world::world& native_world) {
     return native_world.bind_publication(group, object);
   });
 }
 
-gneiss_result create_staged_object(gneiss_world world, const core::publication& group,
+gneiss_result create_staged_object(gneiss_world world, const engine::core::publication& group,
                                    const staged_object_description& description,
                                    staged_object& output) noexcept {
   output = {};
@@ -147,7 +149,7 @@ gneiss_result create_staged_object(gneiss_world world, const core::publication& 
   });
 }
 
-gneiss_result destroy_staged_object(gneiss_world world, const core::publication& group,
+gneiss_result destroy_staged_object(gneiss_world world, const engine::core::publication& group,
                                     staged_object object) noexcept {
   return with_world(world, [&](engine::world::world& native_world) {
     return native_world.destroy_staged_object(group, object);
@@ -164,7 +166,7 @@ gneiss_result create(gneiss_world& out_world) noexcept {
       return GNEISS_ERROR_OUT_OF_MEMORY;
     }
     auto state = gneiss::engine::world::world_factory::make(registry.next_domain++);
-    return registry.worlds.create(gneiss::core::resource_type::world,
+    return registry.worlds.create(gneiss::engine::core::resource_type::world,
                                   world_resource{std::move(state), nullptr}, &out_world);
   } catch (const std::bad_alloc&) {
     return GNEISS_ERROR_OUT_OF_MEMORY;
@@ -179,10 +181,10 @@ void world_deleter::operator()(engine::world::world* state) const noexcept {
   {
     auto& registry = get_world_registry();
     const std::scoped_lock lock{registry.mutex};
-    const auto* entry = registry.worlds.get(borrowed, core::resource_type::world);
+    const auto* entry = registry.worlds.get(borrowed, engine::core::resource_type::world);
     if (!entry || entry->owned || entry->borrowed != state)
       std::terminate();
-    (void)registry.worlds.destroy(borrowed, core::resource_type::world);
+    (void)registry.worlds.destroy(borrowed, engine::core::resource_type::world);
   }
   delete state;
 }
@@ -198,7 +200,7 @@ gneiss_result create_native(world_owner& owner, gneiss_world& borrowed) noexcept
         registry.next_domain == std::numeric_limits<std::uint32_t>::max())
       return GNEISS_ERROR_OUT_OF_MEMORY;
     auto candidate = world_factory::make(registry.next_domain++);
-    const auto result = registry.worlds.create(core::resource_type::world,
+    const auto result = registry.worlds.create(engine::core::resource_type::world,
                                                world_resource{nullptr, candidate.get()}, &borrowed);
     if (result == GNEISS_SUCCESS)
       owner = world_owner(candidate.release(), world_deleter{borrowed});
@@ -218,11 +220,11 @@ gneiss_result destroy(gneiss_world world) noexcept {
     if (thread_result != GNEISS_SUCCESS) {
       return thread_result;
     }
-    const auto* entry = registry.worlds.get(world, core::resource_type::world);
+    const auto* entry = registry.worlds.get(world, engine::core::resource_type::world);
     if (!entry->owned) {
       return GNEISS_ERROR_INVALID_STATE;
     }
-    return registry.worlds.destroy(world, gneiss::core::resource_type::world);
+    return registry.worlds.destroy(world, gneiss::engine::core::resource_type::world);
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;
   }
@@ -231,7 +233,7 @@ gneiss_result destroy(gneiss_world world) noexcept {
 gneiss_result entity_create(gneiss_world world, gneiss_entity_id& out_entity) noexcept {
   out_entity = GNEISS_NULL_ENTITY_ID;
   return with_world(world, [&](engine::world::world& native_world) {
-    return core::write_identifier<entity_id>(
+    return engine::core::write_identifier<entity_id>(
         out_entity, [&](auto& native_output) { return native_world.entity_create(native_output); });
   });
 }
@@ -304,7 +306,7 @@ gneiss_result set_active_camera(gneiss_world world, gneiss_entity_id entity) noe
 gneiss_result get_active_camera(gneiss_world world, gneiss_entity_id& out_entity) noexcept {
   out_entity = GNEISS_NULL_ENTITY_ID;
   return with_world(world, [&](engine::world::world& native_world) {
-    return core::write_identifier<entity_id>(out_entity, [&](auto& native_output) {
+    return engine::core::write_identifier<entity_id>(out_entity, [&](auto& native_output) {
       return native_world.get_active_camera(native_output);
     });
   });
@@ -339,7 +341,7 @@ gneiss_result node_create(gneiss_world world, gneiss_scene_node_id parent, gneis
                           gneiss_scene_node_id& out_node) noexcept {
   out_node = GNEISS_NULL_SCENE_NODE_ID;
   return with_world(world, [&](engine::world::world& native_world) {
-    return core::write_identifier<scene_node_id>(out_node, [&](auto& native_output) {
+    return engine::core::write_identifier<scene_node_id>(out_node, [&](auto& native_output) {
       return native_world.node_create(gneiss::scene_node_id{parent}, gneiss::entity_id{entity},
                                       native_output);
     });
@@ -370,7 +372,7 @@ gneiss_result node_set_local_transform(gneiss_world world, gneiss_scene_node_id 
 gneiss_result node_get_local_transform(gneiss_world world, gneiss_scene_node_id node,
                                        gneiss_transform& out_transform) noexcept {
   return with_world(world, [&](engine::world::world& native_world) {
-    engine::transform value;
+    engine::core::math::transform value;
     const auto result = native_world.node_get_local_transform(gneiss::scene_node_id{node}, value);
     if (result == GNEISS_SUCCESS)
       out_transform = boundary_transform(value);
@@ -381,7 +383,7 @@ gneiss_result node_get_local_transform(gneiss_world world, gneiss_scene_node_id 
 gneiss_result node_get_world_transform(gneiss_world world, gneiss_scene_node_id node,
                                        gneiss_transform& out_transform) noexcept {
   return with_world(world, [&](engine::world::world& native_world) {
-    engine::transform value;
+    engine::core::math::transform value;
     const auto result = native_world.node_get_world_transform(gneiss::scene_node_id{node}, value);
     if (result == GNEISS_SUCCESS)
       out_transform = boundary_transform(value);
@@ -393,7 +395,7 @@ gneiss_result node_get_entity(gneiss_world world, gneiss_scene_node_id node,
                               gneiss_entity_id& out_entity) noexcept {
   out_entity = GNEISS_NULL_ENTITY_ID;
   return with_world(world, [&](engine::world::world& native_world) {
-    return core::write_identifier<entity_id>(out_entity, [&](auto& native_output) {
+    return engine::core::write_identifier<entity_id>(out_entity, [&](auto& native_output) {
       return native_world.node_get_entity(gneiss::scene_node_id{node}, native_output);
     });
   });
@@ -403,7 +405,7 @@ gneiss_result node_get_parent(gneiss_world world, gneiss_scene_node_id node,
                               gneiss_scene_node_id& out_parent) noexcept {
   out_parent = GNEISS_NULL_SCENE_NODE_ID;
   return with_world(world, [&](engine::world::world& native_world) {
-    return core::write_identifier<scene_node_id>(out_parent, [&](auto& native_output) {
+    return engine::core::write_identifier<scene_node_id>(out_parent, [&](auto& native_output) {
       return native_world.node_get_parent(gneiss::scene_node_id{node}, native_output);
     });
   });
@@ -413,7 +415,7 @@ gneiss_result entity_get_local_transform(gneiss_world world, gneiss_entity_id en
                                          gneiss_transform& out_transform) noexcept {
   out_transform = GNEISS_TRANSFORM_IDENTITY;
   return with_world(world, [&](engine::world::world& native_world) {
-    engine::transform value;
+    engine::core::math::transform value;
     const auto result = native_world.entity_get_local_transform(gneiss::entity_id{entity}, value);
     if (result == GNEISS_SUCCESS)
       out_transform = boundary_transform(value);

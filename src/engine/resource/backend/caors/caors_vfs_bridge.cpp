@@ -10,9 +10,9 @@
 #include <vector>
 namespace gneiss::engine::resource {
 namespace {
-inline caors::io::io_error translate(gneiss_result code) {
+inline ::caors::io::io_error translate(gneiss_result code) {
   const result status{code};
-  using caors::io::io_errc;
+  using ::caors::io::io_errc;
 
   if (status == result::success)
     return {};
@@ -129,21 +129,21 @@ private:
   std::shared_ptr<state> state_;
 };
 
-class async_file final : public caors_internal::file_adapter {
+class async_file final : public engine::platform::caors::file_adapter {
   struct read {
     std::unique_ptr<read_operation> operation;
-    caors::memory_resource* resource{};
-    caors::io::io_completion<caors::io::byte_buffer> completion;
+    ::caors::memory_resource* resource{};
+    ::caors::io::io_completion<::caors::io::byte_buffer> completion;
   };
 
 public:
-  async_file(std::shared_ptr<read_source> file, caors::tasks::executor worker, std::size_t limit)
+  async_file(std::shared_ptr<read_source> file, ::caors::tasks::executor worker, std::size_t limit)
       : file_(std::move(file)), worker_(std::move(worker)), maximum_document_bytes_(limit) {}
   ~async_file() override { (void)file_->begin_close(); }
   // 宿主放弃 pump 前必须调用；解除凭证保活环，真实 I/O 仍由 libuv 排空。
   void abandon() override {
     std::vector<read> reads;
-    std::vector<caors::io::io_completion<caors::io::close_result>> closes;
+    std::vector<::caors::io::io_completion<::caors::io::close_result>> closes;
     {
       const std::scoped_lock lock(mutex_);
       closing_ = true;
@@ -154,10 +154,10 @@ public:
   }
   std::uint64_t size() const noexcept override { return file_->size(); }
   std::uint64_t max_read_size() const noexcept override { return maximum_document_bytes_; }
-  caors::io::io_error
-  start_read(std::uint64_t offset, std::uint64_t length, caors::memory_resource* resource,
-             caors::io::io_completion<caors::io::byte_buffer> completion) override {
-    using caors::io::io_errc;
+  ::caors::io::io_error
+  start_read(std::uint64_t offset, std::uint64_t length, ::caors::memory_resource* resource,
+             ::caors::io::io_completion<::caors::io::byte_buffer> completion) override {
+    using ::caors::io::io_errc;
     const std::scoped_lock lock(mutex_);
     if (closing_)
       return {io_errc::closed};
@@ -179,8 +179,8 @@ public:
     reads_.push_back(std::move(pending));
     return {};
   }
-  caors::io::io_error
-  start_close(caors::io::io_completion<caors::io::close_result> completion) override {
+  ::caors::io::io_error
+  start_close(::caors::io::io_completion<::caors::io::close_result> completion) override {
     const std::scoped_lock lock(mutex_);
     closes_.reserve(closes_.size() + 1);
     const auto started = file_->begin_close();
@@ -192,7 +192,7 @@ public:
   }
   void pump() override {
     std::vector<read> ready;
-    std::vector<caors::io::io_completion<caors::io::close_result>> closed;
+    std::vector<::caors::io::io_completion<::caors::io::close_result>> closed;
     gneiss_result close_status = GNEISS_ERROR_NOT_READY;
     {
       const std::scoped_lock lock(mutex_);
@@ -214,8 +214,8 @@ public:
     for (auto& pending : ready) {
       // 移交读取回执而非复制负载；任务保活来源和回执，字节一直有效。
       auto job = std::make_shared<processing_read>(std::move(pending), file_, processing_);
-      const auto posted = worker_.post(caors::tasks::task{[job] {
-        using namespace caors::io;
+      const auto posted = worker_.post(::caors::tasks::task{[job] {
+        using namespace ::caors::io;
         std::span<const std::byte> bytes;
         auto status = translate(job->pending.operation->poll(bytes));
         auto output = make_byte_buffer(job->pending.resource);
@@ -223,7 +223,7 @@ public:
           status = {io_errc::cancelled};
         if (!status) {
           try {
-            status = translate(job->source->complete_validation(core::sha256(bytes)));
+            status = translate(job->source->complete_validation(engine::core::sha256(bytes)));
             if (!status)
               output.assign(bytes.begin(), bytes.end());
           } catch (const std::bad_alloc&) {
@@ -237,7 +237,7 @@ public:
         (void)job->pending.completion.complete({status, std::move(output)});
       }});
       if (posted)
-        (void)job->pending.completion.complete({{caors::io::io_errc::backend_failure}, {}});
+        (void)job->pending.completion.complete({{::caors::io::io_errc::backend_failure}, {}});
     }
     for (auto& completion : closed)
       (void)completion.complete({translate(close_status), {}});
@@ -257,47 +257,48 @@ private:
     ~processing_read() { active->fetch_sub(1, std::memory_order_release); }
   };
   std::shared_ptr<read_source> file_;
-  caors::tasks::executor worker_;
+  ::caors::tasks::executor worker_;
   std::size_t maximum_document_bytes_;
   std::shared_ptr<std::atomic_size_t> processing_{std::make_shared<std::atomic_size_t>(0)};
   std::mutex mutex_;
   bool closing_{};
   std::vector<read> reads_;
-  std::vector<caors::io::io_completion<caors::io::close_result>> closes_;
+  std::vector<::caors::io::io_completion<::caors::io::close_result>> closes_;
 };
 class vfs_backend final : public caors_vfs_bridge {
   struct opening {
     std::unique_ptr<open_read_operation> operation;
-    caors::io::io_completion<std::shared_ptr<caors::io::async_file>> completion;
+    ::caors::io::io_completion<std::shared_ptr<::caors::io::async_file>> completion;
   };
 
 public:
-  vfs_backend(virtual_file_system files, caors::tasks::executor worker, std::size_t limit,
+  vfs_backend(virtual_file_system files, ::caors::tasks::executor worker, std::size_t limit,
               bool scheduled)
       : files_snapshot_(std::move(files)), worker_(std::move(worker)),
         maximum_document_bytes_(limit), allow_scheduled_reads_(scheduled) {}
-  bool exists(caors::io::path_view) const override { return false; } // 不提供同步状态查询。
+  bool exists(::caors::io::path_view) const override { return false; } // 不提供同步状态查询。
   gneiss_result identify(std::string_view uri, std::uint32_t type,
                          asset_identity& output) const noexcept override {
     return files_snapshot_.identify(uri, type, output);
   }
-  caors::io::byte_buffer_result read_all(caors::io::path_view, caors::memory_resource*) override {
-    return {{caors::error_domain::io, caors::errc::unsupported}, {}};
+  ::caors::io::byte_buffer_result read_all(::caors::io::path_view,
+                                           ::caors::memory_resource*) override {
+    return {{::caors::error_domain::io, ::caors::errc::unsupported}, {}};
   }
-  caors::error write_all(caors::io::path_view, std::span<const std::byte>) override {
-    return {caors::error_domain::io, caors::errc::unsupported};
+  ::caors::error write_all(::caors::io::path_view, std::span<const std::byte>) override {
+    return {::caors::error_domain::io, ::caors::errc::unsupported};
   }
-  caors::io::file_system_capabilities capabilities() const noexcept override {
+  ::caors::io::file_system_capabilities capabilities() const noexcept override {
     return {.read = true};
   }
-  caors::io::io_error
-  start_open(caors::io::resolved_file location, caors::memory_resource*,
-             caors::io::io_completion<std::shared_ptr<caors::io::async_file>> completion) override {
+  ::caors::io::io_error start_open(
+      ::caors::io::resolved_file location, ::caors::memory_resource*,
+      ::caors::io::io_completion<std::shared_ptr<::caors::io::async_file>> completion) override {
     const std::scoped_lock lock(mutex_);
     if (stopped_)
-      return {caors::io::io_errc::closed};
+      return {::caors::io::io_errc::closed};
     if (location.backend.get() != this)
-      return {caors::io::io_errc::invalid_argument};
+      return {::caors::io::io_errc::invalid_argument};
     pending_.reserve(pending_.size() + 1);
     opening next;
     auto status =
@@ -307,7 +308,7 @@ public:
       next.operation = std::make_unique<scheduled_open>(state);
       auto settlement = std::make_shared<scheduled_open::settlement>();
       settlement->value = state;
-      const auto posted = worker_.post(caors::tasks::task{
+      const auto posted = worker_.post(::caors::tasks::task{
           [state, settlement, files = files_snapshot_,
            path = std::string(location.path.string_view()), limit = maximum_document_bytes_] {
             {
@@ -332,7 +333,7 @@ public:
             }
           }});
       if (posted)
-        return {caors::io::io_errc::backend_failure};
+        return {::caors::io::io_errc::backend_failure};
       status = GNEISS_SUCCESS;
     }
     if (status != GNEISS_SUCCESS)
@@ -350,7 +351,7 @@ public:
     }
     for (auto& next : ready) {
       if (next.completion.stop_token().stop_requested()) {
-        (void)next.completion.complete({{caors::io::io_errc::cancelled}, {}});
+        (void)next.completion.complete({{::caors::io::io_errc::cancelled}, {}});
         continue;
       }
       std::unique_ptr<read_source> source;
@@ -370,7 +371,7 @@ public:
         files_.push_back(file);
         (void)next.completion.complete({{}, std::move(file)});
       } catch (const std::bad_alloc&) {
-        (void)next.completion.complete({{caors::io::io_errc::out_of_memory}, {}});
+        (void)next.completion.complete({{::caors::io::io_errc::out_of_memory}, {}});
       }
     }
     for (auto it = files_.begin(); it != files_.end();) {
@@ -397,17 +398,17 @@ public:
 
 private:
   virtual_file_system files_snapshot_;
-  caors::tasks::executor worker_;
+  ::caors::tasks::executor worker_;
   std::size_t maximum_document_bytes_;
   std::mutex mutex_;
   bool stopped_{};
   bool allow_scheduled_reads_{};
   std::vector<opening> pending_;
-  std::vector<std::weak_ptr<caors_internal::file_adapter>> files_;
+  std::vector<std::weak_ptr<engine::platform::caors::file_adapter>> files_;
 };
 }
 std::shared_ptr<caors_vfs_bridge> make_caors_vfs_bridge(virtual_file_system snapshot,
-                                                        caors::tasks::executor worker,
+                                                        ::caors::tasks::executor worker,
                                                         std::size_t maximum_document_bytes,
                                                         bool allow_scheduled_reads) {
   if (maximum_document_bytes == 0U)

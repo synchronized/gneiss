@@ -12,7 +12,7 @@
 #include <span>
 #include <string_view>
 
-namespace gneiss::io_internal {
+namespace gneiss::engine::platform::io {
 class uv_loop_executor;
 namespace file_detail {
 struct budget;
@@ -90,4 +90,4 @@ private:
   uv_loop_executor& executor_;
   std::shared_ptr<file_detail::budget> budget_;
 };
-} // namespace gneiss::io_internal
+} // namespace gneiss::engine::platform::io

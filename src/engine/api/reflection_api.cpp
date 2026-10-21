@@ -6,7 +6,7 @@
 #include <new>
 #include <vector>
 
-namespace reflection = gneiss::reflection_internal;
+namespace reflection = gneiss::engine::core::reflection;
 
 extern "C" gneiss_result gneiss_type_registry_create(gneiss_type_registry* out_registry) {
   try {

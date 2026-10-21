@@ -33,14 +33,14 @@ public:
   [[nodiscard]] gneiss_result initialize(runtime::application& application);
   void shutdown(runtime::application& application) noexcept;
   [[nodiscard]] gneiss_result begin_frame(runtime::application& application,
-                                          const gneiss::engine::frame_time& time);
+                                          const gneiss::engine::core::frame_time& time);
   [[nodiscard]] gneiss_result submit(runtime::application& application);
 
 private:
-  void process_input(const engine::input::input_event& event);
+  void process_input(const engine::core::input::input_event& event);
 
   ImGuiContext* context_ = nullptr;
-  core::rid font_texture_{};
+  engine::core::rid font_texture_{};
   std::vector<engine::render::ui_vertex> vertices_;
   std::vector<std::uint32_t> indices_;
   std::vector<engine::render::ui_draw_command> commands_;

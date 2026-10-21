@@ -8,7 +8,7 @@
 namespace gneiss::engine::render {
 
 std::array<float, 3> transform_normal(const std::array<float, 3>& normal,
-                                      const engine::transform& transform) noexcept {
+                                      const engine::core::math::transform& transform) noexcept {
   std::array value{normal[0] / transform.scale[0], normal[1] / transform.scale[1],
                    normal[2] / transform.scale[2]};
   const std::array vector{transform.rotation[0], transform.rotation[1], transform.rotation[2]};

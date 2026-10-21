@@ -14,7 +14,7 @@
 #include <string>
 #include <string_view>
 
-namespace gneiss::diagnostics {
+namespace gneiss::engine::core::diagnostics {
 inline auto profile_task_label(std::uint64_t owner, std::uint64_t task) {
   std::array<char, 96> text{};
   std::snprintf(text.data(), text.size(), "scheduler=%llu task=%llu",
@@ -38,7 +38,8 @@ inline auto profile_task_label(std::uint64_t owner, std::uint64_t task) {
 #define GNEISS_PROFILE_TASK(owner, id, name)                                                       \
   do {                                                                                             \
     if (ZoneIsActive) {                                                                            \
-      const auto gneiss_profile_label = ::gneiss::diagnostics::profile_task_label(owner, id);      \
+      const auto gneiss_profile_label =                                                            \
+          ::gneiss::engine::core::diagnostics::profile_task_label(owner, id);                      \
       ZoneText(gneiss_profile_label.data(),                                                        \
                std::char_traits<char>::length(gneiss_profile_label.data()));                       \
       if (!(name).empty()) {                                                                       \

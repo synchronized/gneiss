@@ -55,7 +55,7 @@ struct render_upload_item {
 
 class mesh_asset_lease final {
 public:
-  [[nodiscard]] core::rid get() const noexcept;
+  [[nodiscard]] engine::core::rid get() const noexcept;
   [[nodiscard]] explicit operator bool() const noexcept { return entry_ != nullptr; }
 
 private:
@@ -65,7 +65,7 @@ private:
 
 class material_asset_lease final {
 public:
-  [[nodiscard]] core::rid get() const noexcept;
+  [[nodiscard]] engine::core::rid get() const noexcept;
   [[nodiscard]] explicit operator bool() const noexcept { return entry_ != nullptr; }
 
 private:
@@ -75,7 +75,7 @@ private:
 
 class texture_asset_lease final {
 public:
-  [[nodiscard]] core::rid get() const noexcept;
+  [[nodiscard]] engine::core::rid get() const noexcept;
   [[nodiscard]] explicit operator bool() const noexcept { return entry_ != nullptr; }
 
 private:

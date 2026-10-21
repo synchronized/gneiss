@@ -71,7 +71,7 @@ public:
   /** 分步读取入口的验证回执；调用方须已完整扫描本来源并计算摘要。
    * 版本包装登记内容身份，普通文件默认无需登记；不提供外部文件不可变保证。 */
   [[nodiscard]] virtual gneiss_result
-  complete_validation(const core::sha256_digest& /*digest*/) const noexcept {
+  complete_validation(const engine::core::sha256_digest& /*digest*/) const noexcept {
     return GNEISS_SUCCESS;
   }
 

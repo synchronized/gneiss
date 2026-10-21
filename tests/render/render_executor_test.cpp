@@ -269,7 +269,7 @@ int main() {
       required_sequence == 0U) {
     return 21;
   }
-  auto signal = std::make_shared<gneiss::core::loop_progress>();
+  auto signal = std::make_shared<gneiss::engine::core::loop_progress>();
   required_executor.set_completion_notification(signal);
   const auto observed = signal->snapshot();
   std::uint64_t notified_sequence{};

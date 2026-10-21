@@ -647,3 +647,19 @@ execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
 if(NOT status EQUAL 0)
   message(FATAL_ERROR "功能层边界错误拒绝领域命名空间")
 endif()
+
+foreach(domain IN ITEMS core tasks diagnostics platform log_internal reflection_internal io_internal caors_internal abi_internal api_internal)
+  file(WRITE "${fixture}/src/runtime/base_namespace_probe.cpp" "namespace gneiss::${domain} {}\n")
+  execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
+    -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
+    RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
+  if(status EQUAL 0)
+    message(FATAL_ERROR "基础模块边界未拒绝旧命名空间：${domain}")
+  endif()
+endforeach()
+file(WRITE "${fixture}/src/runtime/base_namespace_probe.cpp" "namespace gneiss::engine::core {}\nnamespace gneiss::engine::platform::io {}\n")
+execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
+  -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake" RESULT_VARIABLE status)
+if(NOT status EQUAL 0)
+  message(FATAL_ERROR "基础模块边界错误拒绝新命名空间")
+endif()

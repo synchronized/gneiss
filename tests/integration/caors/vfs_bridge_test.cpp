@@ -27,9 +27,9 @@ void check(bool ok, const char* message) {
 }
 void run(const char* root, bool scheduled) {
   using namespace gneiss::engine::resource;
-  using namespace caors::io;
+  using namespace ::caors::io;
   using namespace std::chrono_literals;
-  gneiss::io_internal::uv_loop_executor loop;
+  gneiss::engine::platform::io::uv_loop_executor loop;
   check(loop.start() == gneiss::result::success, "loop");
   const auto fixture =
       std::filesystem::temp_directory_path() /
@@ -49,19 +49,19 @@ void run(const char* root, bool scheduled) {
   auto native = std::make_shared<gneiss::engine::resource::native_file_system>();
   check(native->initialize(fixture.generic_string()) == GNEISS_SUCCESS, "root");
   if (!scheduled)
-    native->set_async_io(std::make_shared<gneiss::io_internal::uv_file_io>(loop),
-                         std::make_shared<gneiss::io_internal::uv_path_resolver>(loop));
+    native->set_async_io(std::make_shared<gneiss::engine::platform::io::uv_file_io>(loop),
+                         std::make_shared<gneiss::engine::platform::io::uv_path_resolver>(loop));
   virtual_file_system source;
   check(source.mount("asset://", native) == GNEISS_SUCCESS, "mount");
   auto revisions = std::make_shared<source_revision_file_system>(source);
   virtual_file_system tracked;
   check(tracked.mount("asset://", revisions) == GNEISS_SUCCESS, "tracked mount");
-  caors::tasks::execution_context work;
+  ::caors::tasks::execution_context work;
   auto bridge = make_caors_vfs_bridge(tracked, work.get_executor(), 1024U * 1024U, scheduled);
-  caors::tasks::execution_context queue;
+  ::caors::tasks::execution_context queue;
   struct cleanup {
     caors_vfs_bridge& bridge;
-    caors::tasks::execution_context& queue;
+    ::caors::tasks::execution_context& queue;
     ~cleanup() {
       bridge.abandon();
       (void)queue.drain();
@@ -166,20 +166,21 @@ void run(const char* root, bool scheduled) {
   // 同一 VFS 桥交给真实输入 Loader，不另建 CAORS 路由表。
   {
     using namespace gneiss::engine::input;
+    using namespace gneiss::engine::core::input;
     using namespace gneiss::runtime;
-    caors::resources::cache<action_map_asset> cache;
+    ::caors::resources::cache<action_map_asset> cache;
     bool reject_revision = false;
     const auto host_thread = std::this_thread::get_id();
     auto loader = make_action_map_loader(*bridge, [&](auto, auto) {
       check(std::this_thread::get_id() != host_thread, "final verification runs on worker");
       return reject_revision ? gneiss::result::invalid_state : gneiss::result::success;
     });
-    caors::tasks::execution_context completed;
-    caors::assets::asset_manager manager({work.get_executor(), completed.get_executor()});
-    caors::resources::file_source provider(bridge);
-    const caors::resource_guid id{caors::guid::from_bytes(caors::guid::byte_array{1})};
+    ::caors::tasks::execution_context completed;
+    ::caors::assets::asset_manager manager({work.get_executor(), completed.get_executor()});
+    ::caors::resources::file_source provider(bridge);
+    const ::caors::resource_guid id{::caors::guid::from_bytes(::caors::guid::byte_array{1})};
     check(!manager.provider().bind(id, provider, uri), "input provider");
-    check(!manager.register_type(cache, *loader, caors::string_name{"gneiss.input.action_map"}),
+    check(!manager.register_type(cache, *loader, ::caors::string_name{"gneiss.input.action_map"}),
           "input loader");
     auto request = manager.request_load<action_map_asset>(id);
     const auto input_deadline = std::chrono::steady_clock::now() + 10s;

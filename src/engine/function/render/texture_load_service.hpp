@@ -73,10 +73,10 @@ public:
   static constexpr std::size_t upload_budget_bytes = 8U * 1024U * 1024U;
   static constexpr std::size_t maximum_upload_bytes = maximum_candidate_bytes;
   static constexpr std::size_t maximum_bytes = 64U * 1024U * 1024U;
-  texture_load_service(tasks::task_executor& executor,
+  texture_load_service(engine::core::tasks::task_executor& executor,
                        engine::resource::virtual_file_system file_system,
                        engine::render::render_asset_loader& loader, texture_upload_backend backend,
-                       std::shared_ptr<core::progress_notification> notification = {},
+                       std::shared_ptr<engine::core::progress_notification> notification = {},
                        std::shared_ptr<engine::resource::cpu_document_cache> documents = {});
   ~texture_load_service();
   [[nodiscard]] gneiss_result submit(std::span<const std::string> uris, std::uint64_t session,
@@ -103,17 +103,17 @@ public:
 
 private:
   struct pending;
-  tasks::submit_result submit_preparation(pending& value);
+  engine::core::tasks::submit_result submit_preparation(pending& value);
   bool advance_preparation(pending& value);
   void advance_impl();
   void check_owner() const;
   void finish(gneiss_result result, texture_load_state state);
-  tasks::task_executor& executor_;
-  tasks::task_scope scope_;
+  engine::core::tasks::task_executor& executor_;
+  engine::core::tasks::task_scope scope_;
   engine::resource::virtual_file_system file_system_;
   engine::render::render_asset_loader& loader_;
   texture_upload_backend backend_;
-  std::shared_ptr<core::progress_notification> notification_;
+  std::shared_ptr<engine::core::progress_notification> notification_;
   std::shared_ptr<engine::resource::cpu_document_cache> documents_;
   std::unique_ptr<pending> pending_;
   std::optional<texture_load_completion> completed_;

@@ -47,7 +47,7 @@ public:
                                                        std::string_view name);
   [[nodiscard]] gneiss_result
   set_prefab_source_transform(gneiss_scene_node_id node,
-                              const gneiss::engine::transform& transform);
+                              const gneiss::engine::core::math::transform& transform);
   [[nodiscard]] gneiss_result destroy_prefab_instance(gneiss_scene_node_id root) noexcept;
   [[nodiscard]] gneiss_result refresh_prefab_instance(gneiss_scene_node_id root,
                                                       gneiss_scene_node_id* out_new_root,

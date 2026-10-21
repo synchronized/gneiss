@@ -15,12 +15,13 @@ namespace gneiss::runtime {
 class scene_load_service final {
 public:
   static constexpr std::size_t maximum_resident_bytes = 2ULL * 1024U * 1024U * 1024U;
-  scene_load_service(tasks::task_executor& executor, engine::resource::virtual_file_system files,
+  scene_load_service(engine::core::tasks::task_executor& executor,
+                     engine::resource::virtual_file_system files,
                      engine::render::render_resource_service& resources,
                      engine::resource::asset_manager& asset_owner,
                      engine::render::render_asset_loader& render_assets,
                      engine::render::texture_upload_backend backend,
-                     std::shared_ptr<core::progress_notification> notification = {});
+                     std::shared_ptr<engine::core::progress_notification> notification = {});
   ~scene_load_service();
   [[nodiscard]] gneiss_result submit(std::string_view uri, std::uint64_t session,
                                      std::uint64_t revision, std::uint64_t& request);
@@ -37,19 +38,19 @@ public:
 private:
   struct pending;
   void advance_impl();
-  tasks::submit_result submit_verification();
+  engine::core::tasks::submit_result submit_verification();
   void advance_verification(pending& value);
   void finish(gneiss_result result, scene_load_phase phase, std::string message = {});
   void sample_budget(scene_load_progress& value) const;
   void check_owner() const;
-  tasks::task_executor& executor_;
-  tasks::task_scope scope_;
+  engine::core::tasks::task_executor& executor_;
+  engine::core::tasks::task_scope scope_;
   engine::resource::virtual_file_system files_;
   engine::render::render_resource_service& resources_;
   engine::resource::asset_manager& asset_owner_;
   engine::render::render_asset_loader& render_assets_;
   engine::render::texture_upload_backend backend_;
-  std::shared_ptr<core::progress_notification> notification_;
+  std::shared_ptr<engine::core::progress_notification> notification_;
   std::unique_ptr<pending> pending_;
   std::optional<scene_load_completion> completed_;
   std::optional<scene_load_progress> cleanup_snapshot_;

@@ -69,7 +69,7 @@ gneiss_result select_project(project_manager_state& state, editor_project projec
 }
 
 gneiss_result update_project_manager(project_manager_state& state,
-                                     const gneiss::engine::frame_time& time) {
+                                     const gneiss::engine::core::frame_time& time) {
   try {
     auto operation = state.ui.begin_frame(*state.application, time);
     if (operation != GNEISS_SUCCESS) {
@@ -198,7 +198,8 @@ result run_project_manager(bool smoke, editor_project& output) noexcept {
     std::shared_ptr<gneiss::runtime::application> application;
     constexpr std::string_view title = "Gneiss Project Manager";
     gneiss::runtime::application_configuration desc;
-    desc.callbacks.update = [&state](gneiss::core::rid, const gneiss::engine::frame_time& time) {
+    desc.callbacks.update = [&state](gneiss::engine::core::rid,
+                                     const gneiss::engine::core::frame_time& time) {
       return gneiss::from_native(update_project_manager(state, time));
     };
     desc.use_granit_window = true;
@@ -226,7 +227,8 @@ result run_project_manager(bool smoke, editor_project& output) noexcept {
                    to_native(operation), static_cast<int>(message.size()), message.data());
     }
     if (operation == result::success) {
-      operation = gneiss::from_native(application->run(gneiss::core::null_rid, smoke ? 3U : 0U));
+      operation =
+          gneiss::from_native(application->run(gneiss::engine::core::null_rid, smoke ? 3U : 0U));
       if (operation != result::success) {
         const auto message = operation.message();
         std::fprintf(stderr,

@@ -31,16 +31,18 @@ int main() {
   desc.lines = &abi_line;
   desc.line_count = 1;
   std::vector<gneiss::engine::render::debug_line> converted;
-  if (gneiss::api::read_debug_draw_description(desc, converted) != GNEISS_SUCCESS ||
+  if (gneiss::engine::api::read_debug_draw_description(desc, converted) != GNEISS_SUCCESS ||
       converted.size() != 1 || !converted[0].depth_test || converted[0].width != 2.0F)
     return 5;
   abi_line.reserved[0] = 1;
-  if (gneiss::api::read_debug_draw_description(desc, converted) != GNEISS_ERROR_INVALID_ARGUMENT ||
+  if (gneiss::engine::api::read_debug_draw_description(desc, converted) !=
+          GNEISS_ERROR_INVALID_ARGUMENT ||
       converted[0].width != 2.0F)
     return 6;
   abi_line.reserved[0] = 0;
   abi_line.depth_test = 2;
-  if (gneiss::api::read_debug_draw_description(desc, converted) != GNEISS_ERROR_INVALID_ARGUMENT)
+  if (gneiss::engine::api::read_debug_draw_description(desc, converted) !=
+      GNEISS_ERROR_INVALID_ARGUMENT)
     return 7;
   list.clear();
   return list.lines().empty() ? 0 : 3;

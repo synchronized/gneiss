@@ -32,11 +32,11 @@ gneiss_result scene_session::initialize(engine::resource::asset_manager& assets,
 }
 
 gneiss_result
-scene_session::attach_executor(tasks::task_executor& executor,
+scene_session::attach_executor(engine::core::tasks::task_executor& executor,
                                const engine::resource::virtual_file_system& files,
                                engine::render::render_resource_service& resources,
                                engine::render::texture_upload_backend backend,
-                               std::shared_ptr<core::progress_notification> notification) {
+                               std::shared_ptr<engine::core::progress_notification> notification) {
   if (textures_ || !active_) {
     return GNEISS_ERROR_INVALID_STATE;
   }
@@ -56,7 +56,8 @@ scene_session::attach_executor(tasks::task_executor& executor,
 void scene_session::advance() {
   if (retired_) {
     const auto start = std::chrono::steady_clock::now();
-    const diagnostics::loop_span span(diagnostics::loop_stage::retirement);
+    const engine::core::diagnostics::loop_span span(
+        engine::core::diagnostics::loop_stage::retirement);
     retired_.reset();
     render_assets_->release_unused();
     asset_owner_->collect_unused();

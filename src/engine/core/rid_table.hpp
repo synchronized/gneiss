@@ -15,7 +15,7 @@
 #include <utility>
 #include <vector>
 
-namespace gneiss::core {
+namespace gneiss::engine::core {
 
 enum class resource_type : std::uint8_t {
   invalid = 0,
@@ -181,6 +181,6 @@ private:
   std::vector<slot> slots_;
 };
 
-} // namespace gneiss::core
+} // namespace gneiss::engine::core
 
 #endif

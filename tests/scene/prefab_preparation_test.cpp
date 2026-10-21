@@ -5,8 +5,8 @@
 #include <chrono>
 #include <thread>
 
-bool run(gneiss::tasks::execution_mode mode) {
-  gneiss::tasks::task_scheduler executor({.mode = mode});
+bool run(gneiss::engine::core::tasks::execution_mode mode) {
+  gneiss::engine::core::tasks::task_scheduler executor({.mode = mode});
   const std::string root = GNEISS_TEST_ASSET_ROOT;
   auto description = gneiss_application_desc GNEISS_APPLICATION_DESC_INIT;
   description.asset_root = root.data();
@@ -31,7 +31,7 @@ bool run(gneiss::tasks::execution_mode mode) {
     gneiss::engine::scene::prepared_scene_description output;
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
     while (!complete && std::chrono::steady_clock::now() < deadline) {
-      if (mode == gneiss::tasks::execution_mode::cooperative) {
+      if (mode == gneiss::engine::core::tasks::execution_mode::cooperative) {
         (void)executor.run_ready();
       }
       result = request->poll(output, complete);
@@ -47,8 +47,8 @@ bool run(gneiss::tasks::execution_mode mode) {
   return gneiss_application_destroy(application) == GNEISS_SUCCESS;
 }
 int main() {
-  return run(gneiss::tasks::execution_mode::cooperative) &&
-                 run(gneiss::tasks::execution_mode::thread_pool)
+  return run(gneiss::engine::core::tasks::execution_mode::cooperative) &&
+                 run(gneiss::engine::core::tasks::execution_mode::thread_pool)
              ? 0
              : 1;
 }

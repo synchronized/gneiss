@@ -71,8 +71,8 @@ std::uint64_t peak_resident_bytes() {
 }
 // 场景切换的预载也走设备变体选择和有界上传，不能用同步预载阻断被测异步路径。
 gneiss_result preload_scene(gneiss::test_support::application_owner& app,
-                            gneiss::tasks::task_scheduler& scheduler, bool cooperative,
-                            std::string_view uri, gneiss_scene_instance& scene) {
+                            gneiss::engine::core::tasks::task_scheduler& scheduler,
+                            bool cooperative, std::string_view uri, gneiss_scene_instance& scene) {
   using namespace gneiss::runtime;
   std::uint64_t request{};
   auto result = request_scene_load(app.get(), uri, 1U, 1U, request);
@@ -140,10 +140,10 @@ int main(int argc, char** argv) try {
   if (mode == "sync" && scenario != "initial") {
     return 2;
   }
-  gneiss::tasks::task_scheduler scheduler(
+  gneiss::engine::core::tasks::task_scheduler scheduler(
       {.workers = 1U,
-       .mode = mode == "cooperative" ? gneiss::tasks::execution_mode::cooperative
-                                     : gneiss::tasks::execution_mode::thread_pool});
+       .mode = mode == "cooperative" ? gneiss::engine::core::tasks::execution_mode::cooperative
+                                     : gneiss::engine::core::tasks::execution_mode::thread_pool});
   std::function<gneiss_result(gneiss_application)> update;
   gneiss::test_support::application_owner app;
   auto desc = gneiss_application_desc GNEISS_APPLICATION_DESC_INIT;

@@ -174,7 +174,7 @@ void run_async_open() {
   state->ready = true;
   check(request->poll(source) == GNEISS_SUCCESS && source && state->live == 2U);
   check(state->contents->reads == 0U);
-  const auto digest = gneiss::core::sha256(state->contents->bytes);
+  const auto digest = gneiss::engine::core::sha256(state->contents->bytes);
   check(source->complete_validation(digest) == GNEISS_SUCCESS);
   std::unique_ptr<read_source> second;
   check(conflict->poll(second) == GNEISS_SUCCESS && second);
@@ -201,7 +201,7 @@ void run_async_verification() {
   check(tracked.begin_open_read_for_validation("item", opened) == GNEISS_SUCCESS);
   state->ready = true;
   check(opened->poll(source) == GNEISS_SUCCESS);
-  check(source->complete_validation(gneiss::core::sha256(state->contents->bytes)) ==
+  check(source->complete_validation(gneiss::engine::core::sha256(state->contents->bytes)) ==
         GNEISS_SUCCESS);
   source.reset();
   state->ready = false;
@@ -326,7 +326,7 @@ void run_deferred_validation() {
     check(backend->state->reads == 0U && outer->source_count() == 0U && inner.source_count() == 0U);
     std::vector<std::byte> bytes(static_cast<std::size_t>(source->size()));
     check(source->read_at(0U, bytes) == GNEISS_SUCCESS);
-    check(source->complete_validation(gneiss::core::sha256(bytes)) == GNEISS_SUCCESS);
+    check(source->complete_validation(gneiss::engine::core::sha256(bytes)) == GNEISS_SUCCESS);
     check(backend->state->reads == 1U && outer->source_count() == 1U && inner.source_count() == 1U);
     std::unique_ptr<source_revision_file_system::verification> cursor;
     check(inner.begin_verification(cursor) == GNEISS_SUCCESS);
@@ -336,9 +336,10 @@ void run_deferred_validation() {
     check(backend->state->reads == 2U);
   }
   // 版本账本销毁后读取对象仍独立拥有验证所需状态。
-  check(source->complete_validation(gneiss::core::sha256(backend->state->bytes)) == GNEISS_SUCCESS);
+  check(source->complete_validation(gneiss::engine::core::sha256(backend->state->bytes)) ==
+        GNEISS_SUCCESS);
   backend->state->bytes.back() = std::byte{9};
-  check(source->complete_validation(gneiss::core::sha256(backend->state->bytes)) ==
+  check(source->complete_validation(gneiss::engine::core::sha256(backend->state->bytes)) ==
         GNEISS_ERROR_INVALID_STATE);
 }
 void run() {
@@ -401,7 +402,7 @@ void run_identity_and_revision() {
   std::vector<std::byte> bytes;
   check(wrapped.read("asset://scene.json", bytes) == GNEISS_SUCCESS);
   check(tracked->observed_revision("scene.json", revision) == GNEISS_SUCCESS);
-  check(revision.bytes == 3U && revision.digest == gneiss::core::sha256(bytes));
+  check(revision.bytes == 3U && revision.digest == gneiss::engine::core::sha256(bytes));
   const auto old = revision;
   memory->text = "changed";
   // 查询只读账本，不能把旧摘要当作文件尚未改变的证明。
@@ -409,7 +410,7 @@ void run_identity_and_revision() {
         revision.digest == old.digest);
   check(tracked->verify({}) == GNEISS_ERROR_INVALID_STATE);
   check(tracked->observed_revision("../bad", revision) == GNEISS_ERROR_INVALID_ARGUMENT &&
-        revision.bytes == 0U && revision.digest == gneiss::core::sha256_digest{});
+        revision.bytes == 0U && revision.digest == gneiss::engine::core::sha256_digest{});
   auto missing = std::make_shared<source_revision_file_system>(virtual_file_system{});
   virtual_file_system missing_wrapper;
   check(missing_wrapper.mount("asset://", missing) == GNEISS_SUCCESS);

@@ -14,17 +14,17 @@ struct test_resource {
 } // namespace
 
 int main() {
-  using gneiss::core::resource_type;
-  using table = gneiss::core::rid_table<test_resource>;
+  using gneiss::engine::core::resource_type;
+  using table = gneiss::engine::core::rid_table<test_resource>;
 
   table first{1};
   table second{2};
-  gneiss::core::rid original = gneiss::core::null_rid;
+  gneiss::engine::core::rid original = gneiss::engine::core::null_rid;
   if (first.create(resource_type::test_resource, test_resource{42}, &original) != GNEISS_SUCCESS ||
-      original == gneiss::core::null_rid) {
+      original == gneiss::engine::core::null_rid) {
     return 1;
   }
-  if (first.get(gneiss::core::null_rid, resource_type::test_resource) != nullptr ||
+  if (first.get(gneiss::engine::core::null_rid, resource_type::test_resource) != nullptr ||
       first.get(original, resource_type::mesh) != nullptr ||
       second.get(original, resource_type::test_resource) != nullptr) {
     return 2;
@@ -39,7 +39,7 @@ int main() {
     return 4;
   }
 
-  gneiss::core::rid replacement = gneiss::core::null_rid;
+  gneiss::engine::core::rid replacement = gneiss::engine::core::null_rid;
   if (first.create(resource_type::test_resource, test_resource{7}, &replacement) !=
           GNEISS_SUCCESS ||
       replacement == original || first.get(original, resource_type::test_resource) != nullptr) {

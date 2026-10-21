@@ -43,8 +43,8 @@ struct author_asset_service::implementation {
     bool baseline{true};
   };
 
-  tasks::task_scheduler& scheduler;
-  tasks::task_scope scope;
+  engine::core::tasks::task_scheduler& scheduler;
+  engine::core::tasks::task_scope scope;
   std::shared_ptr<backend> worker{std::make_shared<backend>()};
   std::shared_ptr<batch> active;
   std::filesystem::path root;
@@ -58,7 +58,7 @@ struct author_asset_service::implementation {
   bool stopping{};
   result operation{result::success};
 
-  explicit implementation(tasks::task_scheduler& value)
+  explicit implementation(engine::core::tasks::task_scheduler& value)
       : scheduler(value), scope(value.make_scope()) {}
 
   bool enqueue(command value) {
@@ -80,10 +80,10 @@ struct author_asset_service::implementation {
   }
 
   void pump() {
-    std::vector<tasks::task_completion> completions;
+    std::vector<engine::core::tasks::task_completion> completions;
     scheduler.poll(scope, completions, 1U);
     if (!completions.empty() && active) {
-      operation = completions.front().outcome.state == tasks::task_state::succeeded
+      operation = completions.front().outcome.state == engine::core::tasks::task_state::succeeded
                       ? active->operation
                       : result::internal;
       scanning = active->scanning;
@@ -110,21 +110,21 @@ struct author_asset_service::implementation {
       work.push_back(commands[index]);
     }
     const auto scan = rescan;
-    tasks::task_handle handle;
+    engine::core::tasks::task_handle handle;
     const auto accepted = scheduler.submit(
         {.name = "author-assets.check", .scope = scope},
         [state = worker, output, work = std::move(work), scan,
-         asset_root = root](const tasks::task_context& context) {
+         asset_root = root](const engine::core::tasks::task_context& context) {
           if (!state->initialized) {
             output->operation = state->monitor.initialize(asset_root, false);
             if (output->operation != result::success) {
-              return tasks::task_outcome{};
+              return engine::core::tasks::task_outcome{};
             }
             state->initialized = true;
           }
           for (const auto& item : work) {
             if (context.stop_requested()) {
-              return tasks::task_outcome{tasks::task_state::cancelled};
+              return engine::core::tasks::task_outcome{engine::core::tasks::task_state::cancelled};
             }
             if (item.kind == command_kind::saved) {
               output->changes.clear();
@@ -145,7 +145,7 @@ struct author_asset_service::implementation {
           output->operation = state->monitor.poll_rescan(paths, 8U);
           for (const auto& path : paths) {
             if (context.stop_requested()) {
-              return tasks::task_outcome{tasks::task_state::cancelled};
+              return engine::core::tasks::task_outcome{engine::core::tasks::task_state::cancelled};
             }
             if (state->baseline) {
               state->monitor.establish_baseline(uri_for(path));
@@ -160,22 +160,22 @@ struct author_asset_service::implementation {
           if (!output->scanning) {
             state->baseline = false;
           }
-          return tasks::task_outcome{};
+          return engine::core::tasks::task_outcome{};
         },
         handle);
-    if (accepted == tasks::submit_result::success) {
+    if (accepted == engine::core::tasks::submit_result::success) {
       active = std::move(output);
       for (std::size_t index = 0U; index < count; ++index) {
         commands.pop_front();
       }
       rescan = false;
-    } else if (accepted != tasks::submit_result::full) {
+    } else if (accepted != engine::core::tasks::submit_result::full) {
       operation = result::invalid_state;
     }
   }
 };
 
-author_asset_service::author_asset_service(tasks::task_scheduler& scheduler)
+author_asset_service::author_asset_service(engine::core::tasks::task_scheduler& scheduler)
     : impl_(std::make_unique<implementation>(scheduler)) {}
 author_asset_service::~author_asset_service() {
   request_stop();

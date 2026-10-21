@@ -28,11 +28,11 @@ gneiss::runtime::create_mesh_node_ready(gneiss_application application, gneiss_s
   auto state = find_application(application);
   const auto valid = validate_application(state);
   return valid == GNEISS_SUCCESS
-             ? core::write_identifier<scene_node_id>(output,
-                                                     [&](auto& native_output) {
-                                                       return state->create_mesh_node_ready(
-                                                           scene, desc, prepared, native_output);
-                                                     })
+             ? engine::core::write_identifier<scene_node_id>(
+                   output,
+                   [&](auto& native_output) {
+                     return state->create_mesh_node_ready(scene, desc, prepared, native_output);
+                   })
              : valid;
 }
 
@@ -118,8 +118,9 @@ gneiss::runtime::query_render_statistics(gneiss_application application,
   return valid;
 }
 
-gneiss_result gneiss::runtime::attach_task_executor(gneiss_application application,
-                                                    tasks::task_executor& executor) noexcept {
+gneiss_result
+gneiss::runtime::attach_task_executor(gneiss_application application,
+                                      engine::core::tasks::task_executor& executor) noexcept {
   auto state = find_application(application);
   const auto valid = validate_application(state);
   return valid == GNEISS_SUCCESS ? state->attach_task_executor(executor) : valid;
@@ -349,9 +350,10 @@ gneiss_result gneiss::runtime::reload_prefab(gneiss_application application,
   return valid == GNEISS_SUCCESS ? state->reload_prefab(instance, uri) : valid;
 }
 
-gneiss_result gneiss::runtime::submit_application_log(gneiss_application application,
-                                                      const log_internal::message_view& message,
-                                                      std::string_view source) noexcept {
+gneiss_result
+gneiss::runtime::submit_application_log(gneiss_application application,
+                                        const engine::core::log::message_view& message,
+                                        std::string_view source) noexcept {
   try {
     auto state = find_application(application);
     if (state == nullptr) {

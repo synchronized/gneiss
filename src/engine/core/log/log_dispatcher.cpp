@@ -29,7 +29,7 @@ thread_local bool is_in_log_callback = false;
 
 } // namespace
 
-namespace gneiss::log_internal {
+namespace gneiss::engine::core::log {
 
 log_dispatcher::log_dispatcher(event_sink callback, std::size_t capacity)
     : callback_(std::move(callback)), capacity_(capacity) {
@@ -167,4 +167,4 @@ log_dispatcher::owned_event log_dispatcher::make_drop_event(std::uint64_t count)
   return event;
 }
 
-} // namespace gneiss::log_internal
+} // namespace gneiss::engine::core::log

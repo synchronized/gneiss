@@ -10,7 +10,7 @@
 
 #include <functional>
 
-namespace gneiss::io_internal {
+namespace gneiss::engine::platform::io {
 
 /** 仅供 I/O 后端 `.cpp` 使用；不得进入普通接口或业务头文件。 */
 class uv_loop_access final {
@@ -20,6 +20,6 @@ public:
   [[nodiscard]] static result post(uv_loop_executor& executor, task operation) noexcept;
 };
 
-} // namespace gneiss::io_internal
+} // namespace gneiss::engine::platform::io
 
 #endif

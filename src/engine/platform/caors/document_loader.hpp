@@ -11,32 +11,32 @@
 #include <mutex>
 #include <stdexcept>
 
-namespace gneiss::caors_internal {
+namespace gneiss::engine::platform::caors {
 /** 有界 CPU 文档加载协议；宿主串行 pump，销毁前停止 worker 再 abandon。
  * decode/verify 在 worker 执行；平台层不理解资源内容，不持有资源缓存。 */
-template <typename Asset> class document_loader : public caors::resources::async_loader<Asset> {
+template <typename Asset> class document_loader : public ::caors::resources::async_loader<Asset> {
 public:
   virtual void pump() = 0;
   virtual bool empty() = 0;
   virtual void abandon() = 0;
   virtual std::size_t started_count() const noexcept = 0;
 };
-using caors::errc;
-using caors::error;
-using caors::error_domain;
+using ::caors::errc;
+using ::caors::error;
+using ::caors::error_domain;
 template <typename Asset> class bounded_document_loader final : public document_loader<Asset> {
   struct operation {
     std::string uri;
-    caors::resources::async_load_context context;
-    caors::resources::load_completion<Asset> completion;
-    caors::io::io_request<std::shared_ptr<caors::io::async_file>> opening;
-    std::shared_ptr<caors::io::async_file> file;
-    caors::io::io_request<caors::io::byte_buffer> reading;
+    ::caors::resources::async_load_context context;
+    ::caors::resources::load_completion<Asset> completion;
+    ::caors::io::io_request<std::shared_ptr<::caors::io::async_file>> opening;
+    std::shared_ptr<::caors::io::async_file> file;
+    ::caors::io::io_request<::caors::io::byte_buffer> reading;
   };
 
 public:
   bounded_document_loader(
-      gneiss::caors_internal::file_system_adapter& files,
+      gneiss::engine::platform::caors::file_system_adapter& files,
       std::function<result(std::span<const std::byte>, Asset&)> decode,
       std::function<result(std::string_view, std::span<const std::byte>)> verify,
       std::size_t maximum_document_bytes = 1024U * 1024U)
@@ -45,8 +45,8 @@ public:
     if (max_bytes_ == 0U)
       throw std::invalid_argument("文档读取上限不得为零");
   }
-  error start(caors::resources::async_load_context context,
-              caors::resources::load_completion<Asset> completion) override {
+  error start(::caors::resources::async_load_context context,
+              ::caors::resources::load_completion<Asset> completion) override {
     if (!context.sources)
       return failure(errc::invalid_argument);
     auto resolved = context.sources->resolve(context.guid);
@@ -58,7 +58,7 @@ public:
     op->context = std::move(context);
     op->completion = std::move(completion);
     auto request =
-        caors::io::request_open(std::move(resolved.value), io_completions_.get_executor());
+        ::caors::io::request_open(std::move(resolved.value), io_completions_.get_executor());
     if (!request) {
       (void)op->completion.complete({translate(request.error()), {}});
       return {};
@@ -95,7 +95,7 @@ public:
         if (status == result::success) {
           op->file = opened->value;
           auto request =
-              caors::io::read_all_bounded(op->file, max_bytes_, io_completions_.get_executor());
+              ::caors::io::read_all_bounded(op->file, max_bytes_, io_completions_.get_executor());
           if (!request) {
             status = result::io;
             io_error = translate(request.error());
@@ -103,7 +103,7 @@ public:
             op->reading = std::move(request.value);
         }
       }
-      std::shared_ptr<const caors::io::io_result<caors::io::byte_buffer>> read_result;
+      std::shared_ptr<const ::caors::io::io_result<::caors::io::byte_buffer>> read_result;
       std::span<const std::byte> bytes;
       if (status == result::success) {
         (void)io_completions_.drain();
@@ -124,14 +124,14 @@ public:
         // 捕获回执保持借用字节有效；后台解析完成后才释放文件和缓冲。
         auto owned = op;
         const auto posted = op->context.worker.post(
-            caors::tasks::task{[owned, bytes, decode = decode_, verify = verify_] {
+            ::caors::tasks::task{[owned, bytes, decode = decode_, verify = verify_] {
               if (owned->context.stop.stop_requested()) {
                 (void)owned->completion.complete({failure(errc::cancelled), {}});
                 return;
               }
               try {
-                auto value =
-                    caors::memory::make_unique<Asset>(owned->context.resource, owned->context.guid);
+                auto value = ::caors::memory::make_unique<Asset>(owned->context.resource,
+                                                                 owned->context.guid);
                 const auto parsed = decode(bytes, *value);
                 if (parsed != result::success) {
                   (void)owned->completion.complete(
@@ -177,8 +177,8 @@ public:
   std::atomic_size_t starts_{};
 
 private:
-  static error translate(caors::io::io_error error) {
-    using caors::io::io_errc;
+  static error translate(::caors::io::io_error error) {
+    using ::caors::io::io_errc;
     if (error.value == io_errc::not_found)
       return failure(errc::not_found);
     if (error.value == io_errc::out_of_memory)
@@ -195,11 +195,11 @@ private:
   static error failure(errc value) { return {error_domain::resources, value}; }
   std::function<result(std::span<const std::byte>, Asset&)> decode_;
   std::function<result(std::string_view, std::span<const std::byte>)> verify_;
-  caors::tasks::execution_context io_completions_;
-  gneiss::caors_internal::file_system_adapter& files_;
+  ::caors::tasks::execution_context io_completions_;
+  gneiss::engine::platform::caors::file_system_adapter& files_;
   const std::size_t max_bytes_;
   std::mutex mutex_;
   std::vector<std::shared_ptr<operation>> pending_;
 };
 
-} // namespace gneiss::caors_internal
+} // namespace gneiss::engine::platform::caors

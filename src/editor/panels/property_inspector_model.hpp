@@ -19,7 +19,7 @@ struct inspector_property final {
   std::string name;
   property_kind kind = property_kind::invalid;
   property_capabilities capabilities = property_capabilities::none;
-  reflection_internal::property_value value{};
+  engine::core::reflection::property_value value{};
 };
 
 struct inspector_component final {
@@ -45,19 +45,19 @@ public:
 
   /** 通过 Registry 写入属性；失败时保留运行时值和当前快照。 */
   [[nodiscard]] result set_value(type_id type_id, field_id field_id,
-                                 const reflection_internal::property_value& value) noexcept;
+                                 const engine::core::reflection::property_value& value) noexcept;
 
   /** 按稳定实体 ID 写入属性，供撤销/重做在选择变化后复用。 */
   [[nodiscard]] result set_value(gneiss_world world, entity_id entity, type_id type_id,
                                  field_id field_id,
-                                 const reflection_internal::property_value& value) noexcept;
+                                 const engine::core::reflection::property_value& value) noexcept;
 
   [[nodiscard]] const std::vector<inspector_component>& components() const noexcept {
     return components_;
   }
 
 private:
-  reflection_internal::registry_ref registry_;
+  engine::core::reflection::registry_ref registry_;
   property_target target_{};
   std::vector<inspector_component> components_;
 };

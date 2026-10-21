@@ -12,7 +12,7 @@ class world_state;
 namespace gneiss::engine::scene {
 class scene_tree;
 }
-namespace gneiss::core {
+namespace gneiss::engine::core {
 /** 所属 World 的内部发布门；不持有服务、节点或资产。 */
 class publication_group final {
   friend class engine::world::world_state;

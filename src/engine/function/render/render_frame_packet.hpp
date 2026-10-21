@@ -19,20 +19,20 @@ namespace gneiss::engine::render {
 
 class render_resource_snapshot final {
 public:
-  [[nodiscard]] const mesh_resource* get_mesh(core::rid mesh) const noexcept;
-  [[nodiscard]] const material_resource* get_material(core::rid material) const noexcept;
-  [[nodiscard]] const texture_resource* get_texture(core::rid texture) const noexcept;
+  [[nodiscard]] const mesh_resource* get_mesh(engine::core::rid mesh) const noexcept;
+  [[nodiscard]] const material_resource* get_material(engine::core::rid material) const noexcept;
+  [[nodiscard]] const texture_resource* get_texture(engine::core::rid texture) const noexcept;
 
 private:
-  friend gneiss_result capture_render_frame_packet(const platform::native_window_info&,
+  friend gneiss_result capture_render_frame_packet(const engine::platform::native_window_info&,
                                                    engine::render::render_snapshot,
                                                    const render_resource_service&,
                                                    const ui_draw_list&, const debug_draw_list&,
                                                    struct render_frame_packet&) noexcept;
 
-  std::unordered_map<core::rid, std::shared_ptr<const mesh_resource>> meshes_;
-  std::unordered_map<core::rid, std::shared_ptr<const material_resource>> materials_;
-  std::unordered_map<core::rid, std::shared_ptr<const texture_resource>> textures_;
+  std::unordered_map<engine::core::rid, std::shared_ptr<const mesh_resource>> meshes_;
+  std::unordered_map<engine::core::rid, std::shared_ptr<const material_resource>> materials_;
+  std::unordered_map<engine::core::rid, std::shared_ptr<const texture_resource>> textures_;
 };
 
 struct render_frame_capture_metrics final {
@@ -51,7 +51,7 @@ struct frame_image final {
 struct render_frame_packet final {
   /** 由执行器在接受帧时写入，用于关联延迟返回的渲染结果。 */
   std::uint64_t sequence{};
-  platform::native_window_info window;
+  engine::platform::native_window_info window;
   engine::render::render_snapshot scene;
   render_resource_snapshot resources;
   ui_draw_list ui;
@@ -60,12 +60,11 @@ struct render_frame_packet final {
   std::shared_ptr<frame_image> readback;
 };
 
-[[nodiscard]] gneiss_result capture_render_frame_packet(const platform::native_window_info& window,
-                                                        engine::render::render_snapshot scene,
-                                                        const render_resource_service& resources,
-                                                        const ui_draw_list& ui,
-                                                        const debug_draw_list& debug,
-                                                        render_frame_packet& out_packet) noexcept;
+[[nodiscard]] gneiss_result
+capture_render_frame_packet(const engine::platform::native_window_info& window,
+                            engine::render::render_snapshot scene,
+                            const render_resource_service& resources, const ui_draw_list& ui,
+                            const debug_draw_list& debug, render_frame_packet& out_packet) noexcept;
 
 } // namespace gneiss::engine::render
 

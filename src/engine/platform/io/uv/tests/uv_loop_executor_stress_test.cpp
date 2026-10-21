@@ -15,7 +15,7 @@ constexpr std::size_t producer_count = 8U;
 constexpr std::size_t tasks_per_producer = 1000U;
 
 bool run_multi_producer_test() {
-  gneiss::io_internal::uv_loop_executor runtime(64U);
+  gneiss::engine::platform::io::uv_loop_executor runtime(64U);
   if (runtime.start() != gneiss::result::success) {
     return false;
   }
@@ -49,7 +49,7 @@ bool run_multi_producer_test() {
 }
 
 bool run_concurrent_stop_test() {
-  gneiss::io_internal::uv_loop_executor runtime(32U);
+  gneiss::engine::platform::io::uv_loop_executor runtime(32U);
   if (runtime.start() != gneiss::result::success) {
     return false;
   }
@@ -89,7 +89,7 @@ bool run_concurrent_stop_test() {
 bool run_destructor_drain_test() {
   std::atomic_size_t executed = 0U;
   {
-    gneiss::io_internal::uv_loop_executor runtime(32U);
+    gneiss::engine::platform::io::uv_loop_executor runtime(32U);
     if (runtime.start() != gneiss::result::success) {
       return false;
     }

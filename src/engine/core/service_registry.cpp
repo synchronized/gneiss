@@ -7,7 +7,7 @@
 #include <new>
 #include <utility>
 
-namespace gneiss::core {
+namespace gneiss::engine::core {
 
 service_registry::~service_registry() noexcept { (void)shutdown(); }
 
@@ -119,4 +119,4 @@ void service_registry::rollback() noexcept {
   is_initializing_or_initialized_ = false;
 }
 
-} // namespace gneiss::core
+} // namespace gneiss::engine::core

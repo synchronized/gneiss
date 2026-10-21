@@ -27,22 +27,24 @@ gneiss_result capture_resource(Handle handle,
 
 } // namespace
 
-const mesh_resource* render_resource_snapshot::get_mesh(core::rid mesh) const noexcept {
+const mesh_resource* render_resource_snapshot::get_mesh(engine::core::rid mesh) const noexcept {
   const auto found = meshes_.find(mesh);
   return found == meshes_.end() ? nullptr : found->second.get();
 }
 
-const material_resource* render_resource_snapshot::get_material(core::rid material) const noexcept {
+const material_resource*
+render_resource_snapshot::get_material(engine::core::rid material) const noexcept {
   const auto found = materials_.find(material);
   return found == materials_.end() ? nullptr : found->second.get();
 }
 
-const texture_resource* render_resource_snapshot::get_texture(core::rid texture) const noexcept {
+const texture_resource*
+render_resource_snapshot::get_texture(engine::core::rid texture) const noexcept {
   const auto found = textures_.find(texture);
   return found == textures_.end() ? nullptr : found->second.get();
 }
 
-gneiss_result capture_render_frame_packet(const platform::native_window_info& window,
+gneiss_result capture_render_frame_packet(const engine::platform::native_window_info& window,
                                           engine::render::render_snapshot scene,
                                           const render_resource_service& resources,
                                           const ui_draw_list& ui, const debug_draw_list& debug,
@@ -73,7 +75,7 @@ gneiss_result capture_render_frame_packet(const platform::native_window_info& wi
       }
       const auto& material = *candidate.resources.materials_.at(instance.material);
       for (const auto texture : material.texture_handles()) {
-        if (texture == core::null_rid)
+        if (texture == engine::core::null_rid)
           continue;
         result = capture_resource(texture, candidate.resources.textures_, [&](const auto handle) {
           return resources.share_texture(handle);

@@ -14,7 +14,7 @@ namespace gneiss::editor {
 /// 调度器必须活得更久；关闭仅取消自身作用域。
 class author_asset_service final {
 public:
-  explicit author_asset_service(tasks::task_scheduler& scheduler);
+  explicit author_asset_service(engine::core::tasks::task_scheduler& scheduler);
   ~author_asset_service();
   [[nodiscard]] result initialize(const std::filesystem::path& root);
   [[nodiscard]] author_asset_change observe(const std::filesystem::path& path, bool dirty);

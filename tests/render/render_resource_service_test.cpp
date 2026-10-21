@@ -16,13 +16,13 @@ namespace {
 gneiss_result create_mesh(gneiss::engine::render::render_resource_service& resources,
                           const gneiss_mesh_desc& desc, gneiss_mesh* output) {
   gneiss::engine::resource::mesh_data value;
-  const auto converted = gneiss::api::read_mesh_description(desc, value);
+  const auto converted = gneiss::engine::api::read_mesh_description(desc, value);
   return converted == GNEISS_SUCCESS ? resources.create_mesh(std::move(value), output) : converted;
 }
 gneiss_result create_texture(gneiss::engine::render::render_resource_service& resources,
                              const gneiss_texture_desc& desc, gneiss_texture* output) {
   gneiss::engine::render::texture_view value;
-  const auto converted = gneiss::api::read_texture_description(desc, value);
+  const auto converted = gneiss::engine::api::read_texture_description(desc, value);
   return converted == GNEISS_SUCCESS ? resources.create_texture(value, output) : converted;
 }
 bool verify_borrowed_inputs() {
@@ -80,10 +80,10 @@ bool verify_borrowed_inputs() {
   invalid_texture.reserved[0] = 1U;
   gneiss::engine::resource::mesh_data converted;
   converted.vertices.push_back({.x = 17.0F});
-  return gneiss::api::read_mesh_description(invalid_mesh, converted) ==
+  return gneiss::engine::api::read_mesh_description(invalid_mesh, converted) ==
              GNEISS_ERROR_INVALID_ARGUMENT &&
          converted.vertices.size() == 1U && converted.vertices.front().x == 17.0F &&
-         gneiss::api::read_texture_description(invalid_texture, texture_source) ==
+         gneiss::engine::api::read_texture_description(invalid_texture, texture_source) ==
              GNEISS_ERROR_INVALID_ARGUMENT &&
          texture_source.width == 1U && texture_source.pixels.data() == pixels.data();
 }

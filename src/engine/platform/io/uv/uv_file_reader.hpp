@@ -11,7 +11,7 @@
 #include <span>
 #include <string_view>
 
-namespace gneiss::io_internal {
+namespace gneiss::engine::platform::io {
 
 /** 同步文件来源，独立拥有打开对象；UTF-8 路径，允许并发区间读取。
  * 所有方法可能阻塞，只供明确允许阻塞的调用点使用；不创建 loop 或工作线程。
@@ -39,4 +39,4 @@ private:
   std::unique_ptr<implementation> implementation_;
 };
 
-} // namespace gneiss::io_internal
+} // namespace gneiss::engine::platform::io

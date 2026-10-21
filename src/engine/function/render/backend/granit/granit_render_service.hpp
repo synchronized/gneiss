@@ -34,7 +34,7 @@
 #include <unordered_map>
 #include <vector>
 
-namespace gneiss::log_internal {
+namespace gneiss::engine::core::log {
 class log_dispatcher;
 }
 
@@ -42,18 +42,18 @@ namespace gneiss::engine::render {
 
 class granit_render_service final {
 public:
-  [[nodiscard]] gneiss_result initialize(const platform::native_window_info& window,
+  [[nodiscard]] gneiss_result initialize(const engine::platform::native_window_info& window,
                                          std::span<const std::byte> environment_asset = {},
                                          float environment_intensity = 1.0F,
                                          float environment_rotation_radians = 0.0F,
-                                         log_internal::log_dispatcher* log = nullptr) noexcept;
+                                         engine::core::log::log_dispatcher* log = nullptr) noexcept;
   [[nodiscard]] gneiss_result shutdown(granit::renderer_resource_stats& stats) noexcept;
   [[nodiscard]] gneiss_result finish_frames() noexcept;
-  void
-  set_completion_notification(std::shared_ptr<core::progress_notification> notification) noexcept {
+  void set_completion_notification(
+      std::shared_ptr<engine::core::progress_notification> notification) noexcept {
     executor_.set_completion_notification(std::move(notification));
   }
-  void set_log_context(core::rid application) noexcept {
+  void set_log_context(engine::core::rid application) noexcept {
     log_context_.store(application, std::memory_order_relaxed);
   }
   [[nodiscard]] gneiss_result
@@ -86,7 +86,7 @@ public:
 
 private:
   double latest_texture_upload_ms_{};
-  [[nodiscard]] gneiss_result initialize_gpu(const platform::native_window_info& window,
+  [[nodiscard]] gneiss_result initialize_gpu(const engine::platform::native_window_info& window,
                                              std::span<const std::byte> environment_asset,
                                              float environment_intensity,
                                              float environment_rotation_radians) noexcept;
@@ -140,11 +140,12 @@ private:
                                                   mesh_mirror& output) noexcept;
 
   [[nodiscard]] granit::result initialize_pipeline() noexcept;
-  [[nodiscard]] granit::result create_texture_mirror(const engine::render::texture_resource& source,
-                                                     texture_mirror& output,
-                                                     core::rid rid = core::null_rid) noexcept;
-  void log_texture(core::rid rid, const char* stage, granit::result result, std::uint32_t variant,
-                   granit::texture_format format, std::uint32_t mips, std::uint64_t bytes) noexcept;
+  [[nodiscard]] granit::result
+  create_texture_mirror(const engine::render::texture_resource& source, texture_mirror& output,
+                        engine::core::rid rid = engine::core::null_rid) noexcept;
+  void log_texture(engine::core::rid rid, const char* stage, granit::result result,
+                   std::uint32_t variant, granit::texture_format format, std::uint32_t mips,
+                   std::uint64_t bytes) noexcept;
   [[nodiscard]] granit::result
   create_material_mirror(const engine::render::material_resource& source,
                          const std::array<granit_texture_view, 5>& textures,
@@ -174,9 +175,9 @@ private:
   texture_mirror default_white_srgb_;
   texture_mirror default_white_linear_;
   texture_mirror default_normal_linear_;
-  std::unordered_map<core::rid, texture_mirror> texture_mirrors_;
-  std::unordered_map<core::rid, mesh_mirror> mesh_mirrors_;
-  std::unordered_map<core::rid, material_mirror> material_mirrors_;
+  std::unordered_map<engine::core::rid, texture_mirror> texture_mirrors_;
+  std::unordered_map<engine::core::rid, mesh_mirror> mesh_mirrors_;
+  std::unordered_map<engine::core::rid, material_mirror> material_mirrors_;
   granit::texture_format swapchain_format_{granit::texture_format::undefined};
   std::uint64_t last_pipeline_metric_sequence_{};
   bool gpu_timing_supported_{};
@@ -185,8 +186,8 @@ private:
   float environment_intensity_{1.0F};
   float environment_rotation_radians_{};
   // 借用 Application 的线程安全日志队列；其生命周期覆盖执行器停机。
-  log_internal::log_dispatcher* log_{};
-  std::atomic<core::rid> log_context_{core::null_rid};
+  engine::core::log::log_dispatcher* log_{};
+  std::atomic<engine::core::rid> log_context_{engine::core::null_rid};
   engine::render::threaded_render_executor executor_;
   std::vector<engine::render::render_frame_packet> recycled_frame_packets_;
   std::deque<engine::render::render_frame_completion> required_frame_completions_;

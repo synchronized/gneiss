@@ -63,7 +63,7 @@ struct scene_load_service::pending {
     bool verification_complete{};
   };
   std::shared_ptr<cpu_result> cpu{std::make_shared<cpu_result>()};
-  tasks::task_handle task;
+  engine::core::tasks::task_handle task;
   std::stop_source source_stop;
   std::shared_ptr<engine::resource::source_revision_file_system> sources;
   engine::resource::virtual_file_system snapshot;
@@ -85,13 +85,13 @@ struct scene_load_service::pending {
   bool cancellation_reported{};
 };
 
-scene_load_service::scene_load_service(tasks::task_executor& executor,
-                                       engine::resource::virtual_file_system files,
-                                       engine::render::render_resource_service& resources,
-                                       engine::resource::asset_manager& asset_owner,
-                                       engine::render::render_asset_loader& render_assets,
-                                       engine::render::texture_upload_backend backend,
-                                       std::shared_ptr<core::progress_notification> notification)
+scene_load_service::scene_load_service(
+    engine::core::tasks::task_executor& executor, engine::resource::virtual_file_system files,
+    engine::render::render_resource_service& resources,
+    engine::resource::asset_manager& asset_owner,
+    engine::render::render_asset_loader& render_assets,
+    engine::render::texture_upload_backend backend,
+    std::shared_ptr<engine::core::progress_notification> notification)
     : executor_(executor), scope_(executor.make_scope()), files_(std::move(files)),
       resources_(resources), asset_owner_(asset_owner), render_assets_(render_assets),
       backend_(std::move(backend)), notification_(std::move(notification)) {
@@ -138,22 +138,23 @@ gneiss_result scene_load_service::submit(std::string_view uri, std::uint64_t ses
   const auto accepted = executor_.submit(
       {.name = "scene.prepare", .scope = scope_, .notification = notification_},
       [cpu = next->cpu, files = next->snapshot,
-       source = std::string(uri)](const tasks::task_context& context) {
+       source = std::string(uri)](const engine::core::tasks::task_context& context) {
         cpu->result = engine::scene::prepare_scene_description(
             files, source, cpu->description, cpu->diagnostic,
             [&] { return context.stop_requested(); });
         if (context.stop_requested()) {
-          return tasks::task_outcome{.state = tasks::task_state::cancelled};
+          return engine::core::tasks::task_outcome{.state =
+                                                       engine::core::tasks::task_state::cancelled};
         }
-        return tasks::task_outcome{
-            .state = cpu->result == GNEISS_SUCCESS ? tasks::task_state::succeeded
-                                                   : tasks::task_state::failed,
+        return engine::core::tasks::task_outcome{
+            .state = cpu->result == GNEISS_SUCCESS ? engine::core::tasks::task_state::succeeded
+                                                   : engine::core::tasks::task_state::failed,
         };
       },
       next->task);
-  if (accepted != tasks::submit_result::success) {
-    return accepted == tasks::submit_result::full ? GNEISS_ERROR_NOT_READY
-                                                  : GNEISS_ERROR_INVALID_STATE;
+  if (accepted != engine::core::tasks::submit_result::success) {
+    return accepted == engine::core::tasks::submit_result::full ? GNEISS_ERROR_NOT_READY
+                                                                : GNEISS_ERROR_INVALID_STATE;
   }
   request = next->result.progress.request;
   cleanup_snapshot_.reset();
@@ -280,7 +281,8 @@ scene_load_service::take_candidate(std::uint64_t request, scene_load_completion&
 }
 void scene_load_service::advance() {
   GNEISS_PROFILE_SCOPE("scene.advance");
-  const diagnostics::loop_span span(diagnostics::loop_stage::scene_advance);
+  const engine::core::diagnostics::loop_span span(
+      engine::core::diagnostics::loop_stage::scene_advance);
   check_owner();
   if (!pending_) {
     return;
@@ -304,45 +306,52 @@ void scene_load_service::advance() {
     result->maximum_advance_ms = std::max(result->maximum_advance_ms, elapsed(start));
   }
 }
-tasks::submit_result scene_load_service::submit_verification() {
+engine::core::tasks::submit_result scene_load_service::submit_verification() {
   GNEISS_PROFILE_SCOPE("scene.verify.submit");
-  const diagnostics::loop_span body(diagnostics::loop_stage::scene_verify_submit_body);
-  auto function = diagnostics::measure(diagnostics::loop_stage::task_callback_create, [&] {
-    return tasks::task_executor::task_function{
-        [cpu = pending_->cpu, sources = pending_->sources](const tasks::task_context& context) {
-          GNEISS_PROFILE_SCOPE("scene.verify.step");
-          if (!cpu->verification) {
-            cpu->result = sources->begin_verification(cpu->verification);
-          }
-          if (cpu->result == GNEISS_SUCCESS) {
-            // 每个任务只复验一段；由宿主消费回执后继续提交，不嵌套驱动或增加线程。
-            // 协作任务不可被驱动预算抢占，缩小单块校验；后台保留吞吐批次。
-            const auto byte_budget =
-                std::size_t{context.allows_blocking_wait() ? 16U : 4U} * 1024U * 1024U;
-            cpu->result = cpu->verification->advance(
-                byte_budget, [&] { return context.stop_requested(); }, cpu->verification_complete,
-                std::chrono::milliseconds(context.allows_blocking_wait() ? 4 : 0));
-          }
-          if (context.stop_requested()) {
-            return tasks::task_outcome{.state = tasks::task_state::cancelled};
-          }
-          return tasks::task_outcome{
-              .state = cpu->result == GNEISS_SUCCESS ? tasks::task_state::succeeded
-                                                     : tasks::task_state::failed,
-          };
-        }};
-  });
-  return diagnostics::submit_observed(
+  const engine::core::diagnostics::loop_span body(
+      engine::core::diagnostics::loop_stage::scene_verify_submit_body);
+  auto function = engine::core::diagnostics::measure(
+      engine::core::diagnostics::loop_stage::task_callback_create, [&] {
+        return engine::core::tasks::task_executor::task_function{
+            [cpu = pending_->cpu,
+             sources = pending_->sources](const engine::core::tasks::task_context& context) {
+              GNEISS_PROFILE_SCOPE("scene.verify.step");
+              if (!cpu->verification) {
+                cpu->result = sources->begin_verification(cpu->verification);
+              }
+              if (cpu->result == GNEISS_SUCCESS) {
+                // 每个任务只复验一段；由宿主消费回执后继续提交，不嵌套驱动或增加线程。
+                // 协作任务不可被驱动预算抢占，缩小单块校验；后台保留吞吐批次。
+                const auto byte_budget =
+                    std::size_t{context.allows_blocking_wait() ? 16U : 4U} * 1024U * 1024U;
+                cpu->result = cpu->verification->advance(
+                    byte_budget, [&] { return context.stop_requested(); },
+                    cpu->verification_complete,
+                    std::chrono::milliseconds(context.allows_blocking_wait() ? 4 : 0));
+              }
+              if (context.stop_requested()) {
+                return engine::core::tasks::task_outcome{
+                    .state = engine::core::tasks::task_state::cancelled};
+              }
+              return engine::core::tasks::task_outcome{
+                  .state = cpu->result == GNEISS_SUCCESS
+                               ? engine::core::tasks::task_state::succeeded
+                               : engine::core::tasks::task_state::failed,
+              };
+            }};
+      });
+  return engine::core::diagnostics::submit_observed(
       executor_, {.name = "scene.verify", .scope = scope_, .notification = notification_},
       std::move(function), pending_->task);
 }
 void scene_load_service::advance_verification(pending& value) {
-  const diagnostics::loop_span span(diagnostics::loop_stage::scene_verify);
+  const engine::core::diagnostics::loop_span span(
+      engine::core::diagnostics::loop_stage::scene_verify);
   auto& progress = value.result.progress;
   if (value.task.id != 0U) {
-    std::vector<tasks::task_completion> completions;
-    diagnostics::measure(diagnostics::loop_stage::task_collect,
-                         [&] { return executor_.poll(scope_, completions); });
+    std::vector<engine::core::tasks::task_completion> completions;
+    engine::core::diagnostics::measure(engine::core::diagnostics::loop_stage::task_collect,
+                                       [&] { return executor_.poll(scope_, completions); });
     if (completions.empty()) {
       return;
     }
@@ -367,9 +376,10 @@ void scene_load_service::advance_verification(pending& value) {
     value.result.verify_maximum_hash_ms = timings.maximum_hash_ms;
   }
   if (!value.cpu->verification_complete) {
-    const auto accepted = diagnostics::measure(diagnostics::loop_stage::task_submit,
-                                               [&] { return submit_verification(); });
-    if (accepted != tasks::submit_result::success && accepted != tasks::submit_result::full) {
+    const auto accepted = engine::core::diagnostics::measure(
+        engine::core::diagnostics::loop_stage::task_submit, [&] { return submit_verification(); });
+    if (accepted != engine::core::tasks::submit_result::success &&
+        accepted != engine::core::tasks::submit_result::full) {
       finish(GNEISS_ERROR_INVALID_STATE, scene_load_phase::failed);
     }
     return;
@@ -381,27 +391,30 @@ void scene_load_service::advance_verification(pending& value) {
   {
     // 调用方记录完整区间，包含辅助函数和构建器入口前的等待。
     GNEISS_PROFILE_SCOPE("scene.builder.create");
-    diagnostics::measure(diagnostics::loop_stage::scene_builder_create, [&] {
-      value.builder = std::make_unique<engine::scene::scene_load_builder>(
-          *value.candidate->scenes(), std::move(value.cpu->description), std::move(value.bindings));
-    });
+    engine::core::diagnostics::measure(
+        engine::core::diagnostics::loop_stage::scene_builder_create, [&] {
+          value.builder = std::make_unique<engine::scene::scene_load_builder>(
+              *value.candidate->scenes(), std::move(value.cpu->description),
+              std::move(value.bindings));
+        });
   }
   // 激活后的热重载必须回到宿主原始 VFS，不能继承一次性加载会话的内容固定规则。
   {
     GNEISS_PROFILE_SCOPE("scene.assets.reset");
-    diagnostics::measure(diagnostics::loop_stage::scene_asset_service_reset, [&] {
-      value.assets = std::make_unique<engine::render::texture_load_service>(
-          executor_, files_, render_assets_, backend_, notification_, asset_owner_.documents());
-    });
+    engine::core::diagnostics::measure(
+        engine::core::diagnostics::loop_stage::scene_asset_service_reset, [&] {
+          value.assets = std::make_unique<engine::render::texture_load_service>(
+              executor_, files_, render_assets_, backend_, notification_, asset_owner_.documents());
+        });
   }
 }
 void scene_load_service::advance_impl() {
   auto& value = *pending_;
   auto& progress = value.result.progress;
   if (value.preparing) {
-    std::vector<tasks::task_completion> completions;
-    diagnostics::measure(diagnostics::loop_stage::task_collect,
-                         [&] { return executor_.poll(scope_, completions); });
+    std::vector<engine::core::tasks::task_completion> completions;
+    engine::core::diagnostics::measure(engine::core::diagnostics::loop_stage::task_collect,
+                                       [&] { return executor_.poll(scope_, completions); });
     if (completions.empty()) {
       return;
     }
@@ -499,12 +512,13 @@ void scene_load_service::advance_impl() {
   }
   if (progress.phase == scene_load_phase::assets) {
     if (value.cursor == value.requested.size()) {
-      const auto accepted = diagnostics::measure(diagnostics::loop_stage::task_submit,
-                                                 [&] { return submit_verification(); });
-      if (accepted == tasks::submit_result::full) {
+      const auto accepted =
+          engine::core::diagnostics::measure(engine::core::diagnostics::loop_stage::task_submit,
+                                             [&] { return submit_verification(); });
+      if (accepted == engine::core::tasks::submit_result::full) {
         return;
       }
-      if (accepted != tasks::submit_result::success) {
+      if (accepted != engine::core::tasks::submit_result::success) {
         finish(GNEISS_ERROR_INVALID_STATE, scene_load_phase::failed);
         return;
       }
@@ -551,8 +565,9 @@ void scene_load_service::advance_impl() {
   }
   if (progress.phase == scene_load_phase::instantiating) {
     bool complete{};
-    const auto built = diagnostics::measure(diagnostics::loop_stage::scene_build,
-                                            [&] { return value.builder->advance(complete); });
+    const auto built =
+        engine::core::diagnostics::measure(engine::core::diagnostics::loop_stage::scene_build,
+                                           [&] { return value.builder->advance(complete); });
     progress.completed = value.builder->completed_nodes();
     if (built != GNEISS_SUCCESS) {
       finish(built, scene_load_phase::failed);

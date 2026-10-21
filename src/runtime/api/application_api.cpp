@@ -94,8 +94,8 @@ extern "C" gneiss_result gneiss_application_create(const gneiss_application_desc
                 .diagnostic = {},
                 .close_requested = {},
                 .log = normalized_desc.log == nullptr
-                           ? gneiss::log_internal::event_sink{}
-                           : gneiss::api_internal::make_application_log_sink(
+                           ? gneiss::engine::core::log::event_sink{}
+                           : gneiss::runtime::api::make_application_log_sink(
                                  normalized_desc.log, normalized_desc.user_data),
             },
         .use_granit_window = normalized_desc.platform == GNEISS_APPLICATION_PLATFORM_GRANIT,
@@ -131,8 +131,9 @@ extern "C" gneiss_result gneiss_application_create(const gneiss_application_desc
       config.callbacks.now_ns = [callback, user_data] { return callback(user_data); };
     }
     if (const auto callback = normalized_desc.update) {
-      config.callbacks.update = [callback, user_data](gneiss::core::rid context,
-                                                      const gneiss::engine::frame_time& time) {
+      config.callbacks.update = [callback,
+                                 user_data](gneiss::engine::core::rid context,
+                                            const gneiss::engine::core::frame_time& time) {
         const gneiss_frame_time abi_time{time.frame_index,
                                          time.delta_ns,
                                          time.elapsed_ns,
@@ -142,25 +143,25 @@ extern "C" gneiss_result gneiss_application_create(const gneiss_application_desc
       };
     }
     if (const auto callback = normalized_desc.close_requested) {
-      config.callbacks.close_requested = [callback, user_data](gneiss::core::rid context) {
+      config.callbacks.close_requested = [callback, user_data](gneiss::engine::core::rid context) {
         return callback(context, user_data) != 0U;
       };
     }
     if (const auto callback = normalized_desc.diagnostic) {
-      config.callbacks.diagnostic = [callback,
-                                     user_data](gneiss::core::rid context,
-                                                const gneiss::diagnostics::diagnostic_view& event) {
-        const gneiss_diagnostic abi_event{sizeof(gneiss_diagnostic),
-                                          static_cast<std::uint32_t>(event.level),
-                                          static_cast<std::uint32_t>(event.source),
-                                          gneiss::to_native(event.result),
-                                          event.module.data(),
-                                          event.module.size(),
-                                          event.message.data(),
-                                          event.message.size(),
-                                          {}};
-        callback(context, &abi_event, user_data);
-      };
+      config.callbacks.diagnostic =
+          [callback, user_data](gneiss::engine::core::rid context,
+                                const gneiss::engine::core::diagnostics::diagnostic_view& event) {
+            const gneiss_diagnostic abi_event{sizeof(gneiss_diagnostic),
+                                              static_cast<std::uint32_t>(event.level),
+                                              static_cast<std::uint32_t>(event.source),
+                                              gneiss::to_native(event.result),
+                                              event.module.data(),
+                                              event.module.size(),
+                                              event.message.data(),
+                                              event.message.size(),
+                                              {}};
+            callback(context, &abi_event, user_data);
+          };
     }
     if (const auto callback = normalized_desc.initialize) {
       config.callbacks.initialize = [callback, user_data] {
@@ -200,8 +201,8 @@ extern "C" gneiss_result gneiss_application_run(gneiss_application application,
     }
     const auto result = state->run(application, max_frame_count);
     if (result != GNEISS_SUCCESS) {
-      state->report(application, gneiss::diagnostics::severity::error,
-                    gneiss::diagnostics::category::backend, result, "application",
+      state->report(application, gneiss::engine::core::diagnostics::severity::error,
+                    gneiss::engine::core::diagnostics::category::backend, result, "application",
                     "主循环因运行时错误终止");
     }
     return result;
@@ -263,12 +264,12 @@ extern "C" gneiss_result gneiss_application_set_paused(gneiss_application applic
 
 extern "C" gneiss_result gneiss_application_log(gneiss_application application,
                                                 const gneiss_log_message* message) {
-  const auto message_result = gneiss::abi_internal::validate_log_message(message);
+  const auto message_result = gneiss::engine::api::validate_log_message(message);
   if (message_result != GNEISS_SUCCESS) {
     return message_result;
   }
   return gneiss::runtime::submit_application_log(
-      application, gneiss::abi_internal::log_message_view(*message), "application");
+      application, gneiss::engine::api::log_message_view(*message), "application");
 }
 
 extern "C" gneiss_result gneiss_application_get_world(gneiss_application application,

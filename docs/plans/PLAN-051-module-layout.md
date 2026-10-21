@@ -221,3 +221,10 @@ World 类使用 gneiss::engine::world::world；不保留旧名称，资源描述
 共享输入值当前仍位于 core/input 文件路径，随 Input 领域使用 engine::input；
 后续 core 统一时再审查共享值归属，不把此命名声明为目录已完全逐一对应。
 验收见[功能层命名迁移](../records/2026-10-21-function-namespace.md)。
+
+Core/Platform 命名首批：基础工具为 engine::core，任务/诊断/日志/反射/数学/输入值
+使用其领域子空间；窗口、I/O 和 CAORS 适配为 engine::platform 及其 io/caors 子空间。
+C 值转换集中在 engine::api，应用日志回调桥归 runtime::api；移除旧别名。
+第三方 CAORS 使用 ::caors，避免适配子空间遮蔽。进程、IPC、动态库顶层对象仍待迁移。
+
+Core/平台适配首批验收见[记录](../records/2026-10-21-core-platform-namespace.md)。

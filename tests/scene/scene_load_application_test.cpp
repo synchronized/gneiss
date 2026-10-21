@@ -60,9 +60,9 @@ struct fixture {
     std::filesystem::remove_all(root, ignored);
   }
 };
-void cancel_drain(tasks::execution_mode mode) {
+void cancel_drain(engine::core::tasks::execution_mode mode) {
   fixture files;
-  tasks::task_scheduler scheduler({.workers = 1U, .mode = mode});
+  engine::core::tasks::task_scheduler scheduler({.workers = 1U, .mode = mode});
   gneiss::test_support::application_owner app;
   auto desc = gneiss_application_desc GNEISS_APPLICATION_DESC_INIT;
   const auto root = files.root.string();
@@ -78,7 +78,7 @@ void cancel_drain(tasks::execution_mode mode) {
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
   do {
     check(std::chrono::steady_clock::now() < deadline);
-    if (mode == tasks::execution_mode::cooperative) {
+    if (mode == engine::core::tasks::execution_mode::cooperative) {
       (void)scheduler.run_ready();
     }
     check(gneiss::result{gneiss_application_run(app.get(), 1U)} == result::success);
@@ -109,9 +109,9 @@ void cancel_drain(tasks::execution_mode mode) {
         progress.phase == scene_load_phase::preparing && !progress.cleanup_complete);
 }
 
-void run(tasks::execution_mode mode) {
+void run(engine::core::tasks::execution_mode mode) {
   fixture files;
-  tasks::task_scheduler scheduler({.workers = 1U, .mode = mode});
+  engine::core::tasks::task_scheduler scheduler({.workers = 1U, .mode = mode});
   gneiss::test_support::application_owner app;
   auto desc = gneiss_application_desc GNEISS_APPLICATION_DESC_INIT;
   const auto root = files.root.string();
@@ -145,7 +145,7 @@ void run(tasks::execution_mode mode) {
   check(request_scene_load(app.get(), uri, 1U, 2U, rejected) == GNEISS_ERROR_NOT_READY &&
         rejected == 0U);
   auto drive = [&] {
-    if (mode == tasks::execution_mode::cooperative) {
+    if (mode == engine::core::tasks::execution_mode::cooperative) {
       (void)scheduler.run_ready();
     }
     scene_load_completion completion;
@@ -286,9 +286,9 @@ void run(tasks::execution_mode mode) {
   check(gneiss_world_entity_count(observed, &count) == GNEISS_ERROR_INVALID_HANDLE);
 }
 
-void shared_scene_assets(tasks::execution_mode mode) {
+void shared_scene_assets(engine::core::tasks::execution_mode mode) {
   fixture files;
-  tasks::task_scheduler scheduler({.workers = 1U, .mode = mode});
+  engine::core::tasks::task_scheduler scheduler({.workers = 1U, .mode = mode});
   gneiss::test_support::application_owner app;
   auto desc = gneiss_application_desc GNEISS_APPLICATION_DESC_INIT;
   const auto root = files.root.string();
@@ -299,7 +299,7 @@ void shared_scene_assets(tasks::execution_mode mode) {
   scene_load_completion completion;
   std::uint64_t request{};
   auto poll = [&] {
-    if (mode == tasks::execution_mode::cooperative) {
+    if (mode == engine::core::tasks::execution_mode::cooperative) {
       (void)scheduler.run_ready();
     }
     bool terminal{};
@@ -391,7 +391,7 @@ void shared_scene_assets(tasks::execution_mode mode) {
   check(gneiss_world_entity_count(new_world, &count) == GNEISS_SUCCESS && count == 1U);
 }
 
-void shared_texture_versions(tasks::execution_mode mode) {
+void shared_texture_versions(engine::core::tasks::execution_mode mode) {
   fixture files;
   std::vector<std::byte> bytes;
   std::string diagnostic;
@@ -423,7 +423,7 @@ void shared_texture_versions(tasks::execution_mode mode) {
       << R"({"format":"gneiss.scene","version":4,"scene_uuid":"00000000-0000-4000-8000-000000000001","objects":[)"
       << R"({"uuid":"00000000-0000-4000-8000-000000000002","parent":null,"transform":{"translation":[0,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":{"mesh_renderer":{"mesh":"asset://mesh.json","material":"asset://material.json"}}},)"
       << R"({"uuid":"00000000-0000-4000-8000-000000000003","parent":null,"transform":{"translation":[1,0,0],"rotation":[0,0,0,1],"scale":[1,1,1]},"components":{"mesh_renderer":{"mesh":"asset://mesh.json","material":"asset://other.json"}}}],"prefab_instances":[]})";
-  tasks::task_scheduler scheduler({.workers = 1U, .mode = mode});
+  engine::core::tasks::task_scheduler scheduler({.workers = 1U, .mode = mode});
   gneiss::test_support::application_owner app;
   auto desc = gneiss_application_desc GNEISS_APPLICATION_DESC_INIT;
   const auto root = files.root.string();
@@ -438,7 +438,7 @@ void shared_texture_versions(tasks::execution_mode mode) {
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
   do {
     check(std::chrono::steady_clock::now() < deadline);
-    if (mode == tasks::execution_mode::cooperative) {
+    if (mode == engine::core::tasks::execution_mode::cooperative) {
       (void)scheduler.run_ready();
     }
     bool terminal{};
@@ -460,7 +460,7 @@ void shared_texture_versions(tasks::execution_mode mode) {
   bool ready{};
   while (!ready) {
     check(std::chrono::steady_clock::now() < deadline);
-    if (mode == tasks::execution_mode::cooperative) {
+    if (mode == engine::core::tasks::execution_mode::cooperative) {
       (void)scheduler.run_ready();
     }
     check(poll_textures(app.get(), assets, ready) == GNEISS_SUCCESS);
@@ -479,7 +479,7 @@ void shared_texture_versions(tasks::execution_mode mode) {
   const auto failure_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
   while (true) {
     check(std::chrono::steady_clock::now() < failure_deadline);
-    if (mode == tasks::execution_mode::cooperative) {
+    if (mode == engine::core::tasks::execution_mode::cooperative) {
       (void)scheduler.run_ready();
     }
     bool terminal{};
@@ -506,14 +506,14 @@ void shared_texture_versions(tasks::execution_mode mode) {
 }
 } // namespace
 int main() try {
-  cancel_drain(tasks::execution_mode::thread_pool);
-  cancel_drain(tasks::execution_mode::cooperative);
-  run(tasks::execution_mode::thread_pool);
-  run(tasks::execution_mode::cooperative);
-  shared_scene_assets(tasks::execution_mode::thread_pool);
-  shared_scene_assets(tasks::execution_mode::cooperative);
-  shared_texture_versions(tasks::execution_mode::thread_pool);
-  shared_texture_versions(tasks::execution_mode::cooperative);
+  cancel_drain(engine::core::tasks::execution_mode::thread_pool);
+  cancel_drain(engine::core::tasks::execution_mode::cooperative);
+  run(engine::core::tasks::execution_mode::thread_pool);
+  run(engine::core::tasks::execution_mode::cooperative);
+  shared_scene_assets(engine::core::tasks::execution_mode::thread_pool);
+  shared_scene_assets(engine::core::tasks::execution_mode::cooperative);
+  shared_texture_versions(engine::core::tasks::execution_mode::thread_pool);
+  shared_texture_versions(engine::core::tasks::execution_mode::cooperative);
   return 0;
 } catch (const std::exception& error) {
   std::fprintf(stderr, "%s\n", error.what());

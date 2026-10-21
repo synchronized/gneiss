@@ -17,7 +17,7 @@ struct mesh_renderer_replacement {
 /** 不持有资源；调用方保留 renderer 对应租约，候选相机不自动成为活动相机。 */
 struct staged_object_description {
   scene_node_id parent{};
-  engine::transform transform;
+  engine::core::math::transform transform;
   const camera_settings* camera{};
   const mesh_renderer* renderer{};
 };

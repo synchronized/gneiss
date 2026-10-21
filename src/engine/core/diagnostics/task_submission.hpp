@@ -6,20 +6,21 @@
 #include "engine/core/diagnostics/loop_timing.hpp"
 #include "engine/core/tasks/task_scheduler.hpp"
 
-namespace gneiss::diagnostics {
+namespace gneiss::engine::core::diagnostics {
 
 // 宿主调度器可能位于另一动态库，不能依赖它与调用方共享 thread_local。
 // 仅同步借用栈上结果，返回后合并到调用方的循环记录，不保存第二套调度状态。
-inline tasks::submit_result submit_observed(tasks::task_executor& executor,
-                                            tasks::task_description description,
-                                            tasks::task_executor::task_function function,
-                                            tasks::task_handle& output) {
+inline engine::core::tasks::submit_result
+submit_observed(engine::core::tasks::task_executor& executor,
+                engine::core::tasks::task_description description,
+                engine::core::tasks::task_executor::task_function function,
+                engine::core::tasks::task_handle& output) {
   if (active_loop_times == nullptr) {
     return executor.submit(std::move(description), std::move(function), output);
   }
   struct observation {
     stage_times* destination;
-    tasks::task_submission_timings timings{};
+    engine::core::tasks::task_submission_timings timings{};
     ~observation() {
       if (!timings.measured) {
         return;
@@ -38,4 +39,4 @@ inline tasks::submit_result submit_observed(tasks::task_executor& executor,
   });
 }
 
-} // namespace gneiss::diagnostics
+} // namespace gneiss::engine::core::diagnostics

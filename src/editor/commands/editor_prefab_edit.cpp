@@ -544,9 +544,10 @@ void editor_prefab_edit::dismiss() noexcept {
   }
 }
 result editor_prefab_edit::request(runtime::application& application,
-                                   tasks::task_executor& executor, scene_document& session,
-                                   editor_command_history& history, std::string_view name,
-                                   std::string_view uri, scene_node_id parent) try {
+                                   engine::core::tasks::task_executor& executor,
+                                   scene_document& session, editor_command_history& history,
+                                   std::string_view name, std::string_view uri,
+                                   scene_node_id parent) try {
   if (active() || history.is_pending() || !session.is_open()) {
     return result::not_ready;
   }
@@ -607,8 +608,8 @@ result editor_prefab_edit::request_remove(runtime::application& application,
 }
 
 result editor_prefab_edit::request_refresh(runtime::application& application,
-                                           tasks::task_executor& executor, scene_document& session,
-                                           editor_command_history& history,
+                                           engine::core::tasks::task_executor& executor,
+                                           scene_document& session, editor_command_history& history,
                                            scene_node_id root) try {
   if (active() || history.is_pending() || !session.is_open()) {
     return result::not_ready;

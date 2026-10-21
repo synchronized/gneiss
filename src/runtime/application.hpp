@@ -52,7 +52,8 @@ public:
   [[nodiscard]] gneiss_result capture_frame(std::uint32_t width, std::uint32_t height,
                                             engine::render::frame_image& output) noexcept;
   [[nodiscard]] engine::render::render_queue_stats render_statistics() const noexcept;
-  [[nodiscard]] gneiss_result attach_task_executor(tasks::task_executor& executor) noexcept;
+  [[nodiscard]] gneiss_result
+  attach_task_executor(engine::core::tasks::task_executor& executor) noexcept;
   [[nodiscard]] bool has_asset_loading_service() const noexcept;
   [[nodiscard]] gneiss_result
   accept_edit_assets(const engine::render::texture_load_completion& completion,
@@ -121,9 +122,9 @@ public:
   [[nodiscard]] gneiss_result reload_prefab(gneiss_scene_instance instance,
                                             std::string_view uri) noexcept;
   [[nodiscard]] engine::scene::scene_instance_service* scenes() noexcept;
-  [[nodiscard]] const engine::input::keyboard_state& keyboard_state() const noexcept;
-  [[nodiscard]] const engine::input::pointer_state& pointer_state() const noexcept;
-  [[nodiscard]] gneiss_result poll_input(engine::input::input_event& out_event) noexcept;
+  [[nodiscard]] const engine::core::input::keyboard_state& keyboard_state() const noexcept;
+  [[nodiscard]] const engine::core::input::pointer_state& pointer_state() const noexcept;
+  [[nodiscard]] gneiss_result poll_input(engine::core::input::input_event& out_event) noexcept;
   [[nodiscard]] gneiss_result get_window_size(std::uint32_t& out_width,
                                               std::uint32_t& out_height) const noexcept;
   [[nodiscard]] gneiss_result load_action_map(std::string_view uri) noexcept;
@@ -132,20 +133,20 @@ public:
   /** NOT_READY 表示在途；成功表示已应用。失败保留原映射。 */
   [[nodiscard]] gneiss_result action_map_status() const noexcept;
   [[nodiscard]] gneiss_result cancel_action_map() noexcept;
-  [[nodiscard]] gneiss_result find_action(std::string_view name,
-                                          engine::input::action_id& out_action) const noexcept;
   [[nodiscard]] gneiss_result
-  get_action_state(engine::input::action_id action,
-                   engine::input::action_state& out_state) const noexcept;
+  find_action(std::string_view name, engine::core::input::action_id& out_action) const noexcept;
+  [[nodiscard]] gneiss_result
+  get_action_state(engine::core::input::action_id action,
+                   engine::core::input::action_state& out_state) const noexcept;
   [[nodiscard]] bool can_submit_draw_lists() const noexcept;
   [[nodiscard]] gneiss_result
   submit_ui_draw_list(const engine::render::ui_draw_view& desc) noexcept;
   [[nodiscard]] gneiss_result
   submit_debug_draw_list(std::span<const engine::render::debug_line> lines) noexcept;
-  void report(gneiss_application handle, diagnostics::severity severity,
-              diagnostics::category category, gneiss_result result, std::string_view module,
-              std::string_view message) noexcept;
-  [[nodiscard]] gneiss_result submit_log(const log_internal::message_view& message) noexcept;
+  void report(gneiss_application handle, engine::core::diagnostics::severity severity,
+              engine::core::diagnostics::category category, gneiss_result result,
+              std::string_view module, std::string_view message) noexcept;
+  [[nodiscard]] gneiss_result submit_log(const engine::core::log::message_view& message) noexcept;
   void request_exit() noexcept;
   void set_paused(bool value) noexcept;
 

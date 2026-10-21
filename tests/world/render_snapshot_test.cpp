@@ -42,7 +42,7 @@ int run_tests() {
   const gneiss::engine::render::camera_settings camera{1.04719755F, 0.1F, 1000.0F};
   const gneiss::engine::world::mesh_renderer renderer{.mesh = UINT64_C(0x1001),
                                                       .material = UINT64_C(0x2001)};
-  gneiss::engine::transform mesh_transform = gneiss::engine::transform{};
+  gneiss::engine::core::math::transform mesh_transform = gneiss::engine::core::math::transform{};
   mesh_transform.translation[0] = 2.0F;
 
   if (world.scene().create(GNEISS_NULL_SCENE_NODE_ID, camera_entity, &camera_node) !=

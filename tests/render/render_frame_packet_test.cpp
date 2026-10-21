@@ -18,7 +18,7 @@ int main() {
   texture_desc.height = 64U;
   texture_desc.row_stride_bytes = 64U * 4U;
   texture_desc.pixels = pixels;
-  gneiss::core::rid texture = gneiss::core::null_rid;
+  gneiss::engine::core::rid texture = gneiss::engine::core::null_rid;
   if (resources.create_texture(texture_desc, &texture) != GNEISS_SUCCESS) {
     return 1;
   }
@@ -29,14 +29,14 @@ int main() {
       gneiss::engine::resource::mesh_vertex{.x = 0.0F, .y = 1.0F, .z = 0.0F, .u = 0.0F, .v = 1.0F}};
   gneiss::engine::resource::mesh_view mesh_desc;
   mesh_desc.vertices = vertices;
-  gneiss::core::rid mesh = gneiss::core::null_rid;
+  gneiss::engine::core::rid mesh = gneiss::engine::core::null_rid;
   if (resources.create_mesh(mesh_desc, &mesh) != GNEISS_SUCCESS) {
     return 2;
   }
 
   material_resource material_desc;
   material_desc.base_color_texture = texture;
-  std::array<gneiss::core::rid, 4> pbr_textures{};
+  std::array<gneiss::engine::core::rid, 4> pbr_textures{};
   for (auto& handle : pbr_textures) {
     if (resources.create_texture(texture_desc, &handle) != GNEISS_SUCCESS)
       return 8;
@@ -45,7 +45,7 @@ int main() {
   material_desc.normal_texture = pbr_textures[1];
   material_desc.occlusion_texture = pbr_textures[2];
   material_desc.emissive_texture = pbr_textures[3];
-  gneiss::core::rid material = gneiss::core::null_rid;
+  gneiss::engine::core::rid material = gneiss::engine::core::null_rid;
   if (resources.create_material(material_desc, &material) != GNEISS_SUCCESS) {
     return 3;
   }
@@ -63,7 +63,7 @@ int main() {
     return 4;
   }
 
-  gneiss::platform::native_window_info window;
+  gneiss::engine::platform::native_window_info window;
   window.width = 640U;
   window.height = 480U;
   ui_draw_list ui;
