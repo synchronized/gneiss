@@ -8,7 +8,7 @@
 
 #include <string_view>
 
-namespace gneiss::scene_internal {
+namespace gneiss::engine::scene {
 
 /** 创建调用期间借用字符串；成功后场景独立拥有作者数据。 */
 struct node_creation {
@@ -40,4 +40,4 @@ struct uuid_mapping {
   std::string_view target_uuid;
 };
 
-} // namespace gneiss::scene_internal
+} // namespace gneiss::engine::scene

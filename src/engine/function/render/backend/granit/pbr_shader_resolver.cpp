@@ -9,7 +9,7 @@
 #include <fstream>
 #include <limits>
 
-namespace gneiss::render_internal {
+namespace gneiss::engine::render {
 namespace {
 
 constexpr std::uint8_t shader_library_bytes[] = {
@@ -78,4 +78,4 @@ std::span<const std::byte> pbr_shader_resolver::material_archive() noexcept {
   return std::as_bytes(std::span{material_archive_bytes});
 }
 
-} // namespace gneiss::render_internal
+} // namespace gneiss::engine::render

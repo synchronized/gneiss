@@ -10,6 +10,6 @@ namespace gneiss::runtime {
  * 不修改 World；设置保持至再次设置或 Application 销毁，截图使用同一选择。
  * 私有单视口接口，不安装为 SDK，不持有调用方指针。
  */
-[[nodiscard]] GNEISS_API gneiss_result set_view_camera(
-    gneiss_application application, const render_internal::view_camera* camera) noexcept;
+[[nodiscard]] GNEISS_API gneiss_result
+set_view_camera(gneiss_application application, const engine::render::view_camera* camera) noexcept;
 }

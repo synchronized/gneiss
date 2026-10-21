@@ -241,10 +241,17 @@ Scene 服务完成入口校验后转交实例，不直接修改这些事务的�
 
 Application、配置、加载和场景切换对象统一位于 `gneiss::runtime`，游戏上下文位于
 `gneiss::runtime::game`。内部应用对象为 `gneiss::runtime::application`，没有旧别名。
-Engine 的资源与功能模块仍有旧命名空间，按模块布局计划分批迁移；这不是已全面统一的声明。
+Engine 的 Core、Platform 与边界辅助仍有旧命名空间，按模块布局计划分批迁移。
 目录与头文件可见性仍决定依赖范围，命名变化不改变对象寿命或增加运行时状态。
 
 资源管理器为 `gneiss::engine::resource::asset_manager`，其输入请求、CPU 缓存、VFS、
 纹理/Mesh/材质描述与解码器使用 `gneiss::engine::resource`。原 asset_internal 已删除，
 不保留兼容别名。Scene/Prefab 作者描述、属性覆盖值、解析/序列化和 Prefab Loader 也归属资源命名空间。
 功能层 Scene 负责实例化及活动节点，不再提供这些资源类型的旧别名。CAORS 平台适配命名尚未统一。
+
+## 功能层命名空间
+
+World、Scene、Render、Input 统一使用 `gneiss::engine::world/scene/render/input`，
+World 对象为 `gneiss::engine::world::world`。旧 xxx_internal 领域名不保留别名。
+资源描述使用 `gneiss::engine::resource`，Runtime 组装仍归 `gneiss::runtime`；
+该命名调整不改变所有权。core/platform 的遗留命名和公共值类型另行处理。

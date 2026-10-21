@@ -7,17 +7,17 @@
 
 #include <new>
 
-namespace gneiss::world_internal {
+namespace gneiss::engine::world {
 gneiss_result build_render_snapshot(world_state& world, std::uint32_t viewport_width,
                                     std::uint32_t viewport_height,
-                                    render_internal::render_snapshot& out_snapshot,
-                                    const render_internal::view_camera* camera) noexcept {
+                                    engine::render::render_snapshot& out_snapshot,
+                                    const engine::render::view_camera* camera) noexcept {
   if (viewport_width == 0U || viewport_height == 0U) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
   try {
-    render_internal::render_snapshot snapshot;
-    render_internal::view_camera selected;
+    engine::render::render_snapshot snapshot;
+    engine::render::view_camera selected;
     bool has_camera = camera != nullptr;
     if (camera != nullptr) {
       selected = *camera;
@@ -34,12 +34,12 @@ gneiss_result build_render_snapshot(world_state& world, std::uint32_t viewport_w
       }
     }
     if (has_camera) {
-      render_internal::matrix4 view;
-      render_internal::matrix4 projection;
-      const auto view_result = render_internal::build_view_matrix(selected.transform, view);
+      engine::render::matrix4 view;
+      engine::render::matrix4 projection;
+      const auto view_result = engine::render::build_view_matrix(selected.transform, view);
       const auto aspect = static_cast<float>(viewport_width) / static_cast<float>(viewport_height);
       const auto projection_result =
-          render_internal::build_perspective_matrix(selected.camera, aspect, projection);
+          engine::render::build_perspective_matrix(selected.camera, aspect, projection);
       if (view_result != GNEISS_SUCCESS) {
         return view_result;
       }
@@ -73,4 +73,4 @@ gneiss_result build_render_snapshot(world_state& world, std::uint32_t viewport_w
   }
 }
 
-} // namespace gneiss::world_internal
+} // namespace gneiss::engine::world

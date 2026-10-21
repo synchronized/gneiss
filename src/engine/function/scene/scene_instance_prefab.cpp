@@ -7,10 +7,10 @@
 #include <type_traits>
 #include <utility>
 
-namespace gneiss::scene_internal {
+namespace gneiss::engine::scene {
 void scene_instance::asset_update::commit() noexcept {
-  static_assert(std::is_nothrow_move_assignable_v<render_internal::mesh_asset_lease>);
-  static_assert(std::is_nothrow_move_assignable_v<render_internal::material_asset_lease>);
+  static_assert(std::is_nothrow_move_assignable_v<engine::render::mesh_asset_lease>);
+  static_assert(std::is_nothrow_move_assignable_v<engine::render::material_asset_lease>);
   for (auto& entry : bindings_) {
     *entry.mesh = std::move(entry.next_mesh);
     *entry.material = std::move(entry.next_material);
@@ -20,7 +20,7 @@ void scene_instance::asset_update::commit() noexcept {
 
 scene_instance::asset_update scene_instance::prepare_asset_update(
     const std::map<std::uint64_t, const scene_instance_service::asset_replacement*>& changes,
-    std::vector<world_internal::mesh_renderer_replacement>& renderers) {
+    std::vector<engine::world::mesh_renderer_replacement>& renderers) {
   asset_update pending;
   const auto collect = [&](auto& node) {
     const auto mesh = changes.find(node.mesh.get());
@@ -31,11 +31,11 @@ scene_instance::asset_update scene_instance::prepare_asset_update(
     auto next_mesh =
         mesh == changes.end()
             ? node.mesh
-            : render_internal::render_asset_loader::mesh_lease(mesh->second->replacement);
+            : engine::render::render_asset_loader::mesh_lease(mesh->second->replacement);
     auto next_material =
         material == changes.end()
             ? node.material
-            : render_internal::render_asset_loader::material_lease(material->second->replacement);
+            : engine::render::render_asset_loader::material_lease(material->second->replacement);
     renderers.push_back({
         .entity = entity_id{node.entity},
         .expected = {.mesh = node.mesh.get(), .material = node.material.get()},
@@ -60,13 +60,13 @@ scene_instance::asset_update scene_instance::prepare_asset_update(
 }
 
 void scene_instance::append_render_assets(
-    std::vector<render_internal::render_asset_lease>& output) const {
+    std::vector<engine::render::render_asset_lease>& output) const {
   const auto append = [&](const auto& node) {
     if (node.mesh) {
-      output.push_back(render_internal::render_asset_loader::asset_lease(node.mesh));
+      output.push_back(engine::render::render_asset_loader::asset_lease(node.mesh));
     }
     if (node.material) {
-      output.push_back(render_internal::render_asset_loader::asset_lease(node.material));
+      output.push_back(engine::render::render_asset_loader::asset_lease(node.material));
     }
   };
   for (const auto& node : objects_) {
@@ -121,8 +121,8 @@ scene_instance::capture_prefab_instance_binding(std::string_view uuid, std::size
   }
   const auto& node = (*found)->nodes_[index];
   output = {
-      .mesh = render_internal::render_asset_loader::asset_lease(node.mesh),
-      .material = render_internal::render_asset_loader::asset_lease(node.material),
+      .mesh = engine::render::render_asset_loader::asset_lease(node.mesh),
+      .material = engine::render::render_asset_loader::asset_lease(node.material),
   };
   return GNEISS_SUCCESS;
 }
@@ -308,4 +308,4 @@ gneiss_result scene_instance::remove_prefab_instance(std::string_view uuid,
   return GNEISS_SUCCESS;
 }
 
-} // namespace gneiss::scene_internal
+} // namespace gneiss::engine::scene

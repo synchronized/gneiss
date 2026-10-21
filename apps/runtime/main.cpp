@@ -321,7 +321,7 @@ gneiss_result update_runtime(gneiss_application application, const gneiss::engin
       }
       if (!ready && asset_result == gneiss::result::success &&
           time->elapsed_ns >= context.next_asset_progress_ns) {
-        gneiss::render_internal::asset_load_progress progress;
+        gneiss::engine::render::asset_load_progress progress;
         if (context.application->asset_progress(progress)) {
           const gneiss::ipc_asset_reload_result event{
               .session_id = progress.session,
@@ -642,9 +642,9 @@ void write_application_log(const gneiss::log_internal::event_view& source,
         return apply_asset_revision(*native_application, scene, active_scene_uri, assets);
       },
       [native_application = application.get()](const gneiss::ipc_asset_reload_request& request) {
-        std::vector<gneiss::render_internal::render_asset_reload> assets;
+        std::vector<gneiss::engine::render::render_asset_reload> assets;
         for (const auto& asset : request.assets) {
-          using type = gneiss::render_internal::render_asset_type;
+          using type = gneiss::engine::render::render_asset_type;
           assets.push_back({asset.uri, asset.type == gneiss::ipc_asset_type::texture ? type::texture
                                        : asset.type == gneiss::ipc_asset_type::material
                                            ? type::material
@@ -655,7 +655,7 @@ void write_application_log(const gneiss::log_internal::event_view& source,
             assets, request.session_id, request.revision, accepted, true));
       },
       [native_application = application.get(), &log](gneiss::result& result, bool& ready) {
-        gneiss::render_internal::texture_load_completion completion;
+        gneiss::engine::render::texture_load_completion completion;
         const auto operation = native_application->poll_assets(completion, ready);
         if (ready) {
           result = gneiss::from_native(completion.result);
@@ -744,7 +744,7 @@ void write_application_log(const gneiss::log_internal::event_view& source,
     std::uint64_t count{};
     applied = application->scenes()->get_node_count(scene, &count);
     for (std::uint64_t index = 0U; applied == GNEISS_SUCCESS && index < count; ++index) {
-      gneiss::scene_internal::scene_node_view info;
+      gneiss::engine::scene::scene_node_view info;
       applied = application->scenes()->get_node_info(scene, index, info);
       if (applied == GNEISS_SUCCESS && !info.parent.is_valid()) {
         root_entity = info.entity.get();

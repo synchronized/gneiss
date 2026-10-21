@@ -10,10 +10,10 @@
 #include <vector>
 
 int main() {
-  using namespace gneiss::render_internal;
+  using namespace gneiss::engine::render;
   render_resource_service resources;
   std::vector<std::uint8_t> pixels(64U * 64U * 4U, 1U);
-  gneiss::render_internal::texture_view texture_desc;
+  gneiss::engine::render::texture_view texture_desc;
   texture_desc.width = 64U;
   texture_desc.height = 64U;
   texture_desc.row_stride_bytes = 64U * 4U;
@@ -50,15 +50,15 @@ int main() {
     return 3;
   }
 
-  gneiss::render_internal::render_snapshot scene;
+  gneiss::engine::render::render_snapshot scene;
   scene.has_camera = true;
   scene.instances.push_back({.mesh = mesh, .material = material, .transform = {}});
   debug_draw_list debug;
-  const std::array lines{gneiss::render_internal::debug_line{.start = {0.0F, 0.0F, 0.0F},
-                                                             .end = {1.0F, 0.0F, 0.0F},
-                                                             .color_rgba8 = UINT32_C(0xffffffff),
-                                                             .width = 1.0F,
-                                                             .depth_test = true}};
+  const std::array lines{gneiss::engine::render::debug_line{.start = {0.0F, 0.0F, 0.0F},
+                                                            .end = {1.0F, 0.0F, 0.0F},
+                                                            .color_rgba8 = UINT32_C(0xffffffff),
+                                                            .width = 1.0F,
+                                                            .depth_test = true}};
   if (debug.replace(lines) != GNEISS_SUCCESS) {
     return 4;
   }

@@ -38,7 +38,7 @@ namespace gneiss::log_internal {
 class log_dispatcher;
 }
 
-namespace gneiss::render_internal {
+namespace gneiss::engine::render {
 
 class granit_render_service final {
 public:
@@ -57,32 +57,31 @@ public:
     log_context_.store(application, std::memory_order_relaxed);
   }
   [[nodiscard]] gneiss_result
-  prepare_frame_packet_storage(render_internal::render_frame_packet& packet,
+  prepare_frame_packet_storage(engine::render::render_frame_packet& packet,
                                bool& out_should_prepare) noexcept;
-  [[nodiscard]] gneiss_result submit(render_internal::render_frame_packet packet,
-                                     render_internal::render_frame_policy policy =
-                                         render_internal::render_frame_policy::replaceable,
-                                     std::uint64_t* out_sequence = nullptr) noexcept;
+  [[nodiscard]] gneiss_result submit(
+      engine::render::render_frame_packet packet,
+      engine::render::render_frame_policy policy = engine::render::render_frame_policy::replaceable,
+      std::uint64_t* out_sequence = nullptr) noexcept;
   [[nodiscard]] bool
-  try_take_required_completion(render_internal::render_frame_completion& completion) noexcept;
-  [[nodiscard]] render_internal::render_queue_stats query_performance_stats() const noexcept;
+  try_take_required_completion(engine::render::render_frame_completion& completion) noexcept;
+  [[nodiscard]] engine::render::render_queue_stats query_performance_stats() const noexcept;
   [[nodiscard]] double latest_texture_upload_ms() const noexcept {
     return latest_texture_upload_ms_;
   }
   /** 仅在 initialize 完成后由宿主读取；设备重建必须重新发布。 */
-  [[nodiscard]] render_internal::texture_prepare_profile texture_profile() const noexcept {
+  [[nodiscard]] engine::render::texture_prepare_profile texture_profile() const noexcept {
     return texture_profile_;
   }
-  using texture_data = std::shared_ptr<const render_internal::texture_resource>;
+  using texture_data = std::shared_ptr<const engine::render::texture_resource>;
   [[nodiscard]] static std::size_t
-  estimate_upload_bytes(const render_internal::render_upload_item& item) noexcept;
-  [[nodiscard]] gneiss_result
-  prepare_textures(std::vector<render_internal::render_upload_item> data,
-                   std::uint64_t& sequence) noexcept;
+  estimate_upload_bytes(const engine::render::render_upload_item& item) noexcept;
+  [[nodiscard]] gneiss_result prepare_textures(std::vector<engine::render::render_upload_item> data,
+                                               std::uint64_t& sequence) noexcept;
   [[nodiscard]] bool poll_texture_preparation(std::uint64_t sequence,
                                               gneiss_result& result) noexcept;
   [[nodiscard]] gneiss_result
-  discard_prepared_textures(std::vector<render_internal::render_upload_item> data,
+  discard_prepared_textures(std::vector<engine::render::render_upload_item> data,
                             std::uint64_t& sequence) noexcept;
 
 private:
@@ -93,12 +92,12 @@ private:
                                              float environment_rotation_radians) noexcept;
   [[nodiscard]] gneiss_result shutdown_gpu(granit::renderer_resource_stats& stats) noexcept;
   [[nodiscard]] gneiss_result
-  execute_frame(render_internal::render_frame_packet& packet,
-                render_internal::render_execution_result& output) noexcept;
+  execute_frame(engine::render::render_frame_packet& packet,
+                engine::render::render_execution_result& output) noexcept;
   [[nodiscard]] gneiss_result collect_completions() noexcept;
 
   struct texture_mirror final {
-    const render_internal::texture_resource* source{};
+    const engine::render::texture_resource* source{};
     granit::texture texture;
     granit::texture_view view;
   };
@@ -106,10 +105,10 @@ private:
     texture_data data;
     texture_mirror mirror;
   };
-  std::unordered_map<const render_internal::texture_resource*, prepared_texture> prepared_textures_;
+  std::unordered_map<const engine::render::texture_resource*, prepared_texture> prepared_textures_;
 
   struct mesh_mirror final {
-    const render_internal::mesh_resource* source{};
+    const engine::render::mesh_resource* source{};
     granit::buffer vertices;
     granit::buffer indices;
     granit::mesh mesh;
@@ -119,50 +118,49 @@ private:
   };
 
   struct material_mirror final {
-    const render_internal::material_resource* source{};
+    const engine::render::material_resource* source{};
     std::array<granit::sampler, 5> samplers;
     granit::material_instance material;
   };
 
   struct prepared_mesh {
-    std::shared_ptr<const render_internal::mesh_resource> data;
+    std::shared_ptr<const engine::render::mesh_resource> data;
     mesh_mirror mirror;
   };
   struct prepared_material {
-    std::shared_ptr<const render_internal::material_resource> data;
+    std::shared_ptr<const engine::render::material_resource> data;
     material_mirror mirror;
     std::array<texture_data, 5> dependencies;
   };
-  std::unordered_map<const render_internal::mesh_resource*, prepared_mesh> prepared_meshes_;
-  std::unordered_map<const render_internal::material_resource*, prepared_material>
+  std::unordered_map<const engine::render::mesh_resource*, prepared_mesh> prepared_meshes_;
+  std::unordered_map<const engine::render::material_resource*, prepared_material>
       prepared_materials_;
-  void discard_candidates(std::span<const render_internal::render_upload_item> data) noexcept;
-  [[nodiscard]] granit::result create_mesh_mirror(const render_internal::mesh_resource& source,
+  void discard_candidates(std::span<const engine::render::render_upload_item> data) noexcept;
+  [[nodiscard]] granit::result create_mesh_mirror(const engine::render::mesh_resource& source,
                                                   mesh_mirror& output) noexcept;
 
   [[nodiscard]] granit::result initialize_pipeline() noexcept;
-  [[nodiscard]] granit::result
-  create_texture_mirror(const render_internal::texture_resource& source, texture_mirror& output,
-                        core::rid rid = core::null_rid) noexcept;
+  [[nodiscard]] granit::result create_texture_mirror(const engine::render::texture_resource& source,
+                                                     texture_mirror& output,
+                                                     core::rid rid = core::null_rid) noexcept;
   void log_texture(core::rid rid, const char* stage, granit::result result, std::uint32_t variant,
                    granit::texture_format format, std::uint32_t mips, std::uint64_t bytes) noexcept;
   [[nodiscard]] granit::result
-  create_material_mirror(const render_internal::material_resource& source,
+  create_material_mirror(const engine::render::material_resource& source,
                          const std::array<granit_texture_view, 5>& textures,
                          material_mirror& output) noexcept;
   [[nodiscard]] granit::result ensure_default_textures() noexcept;
   [[nodiscard]] granit::result
-  prepare_ui_draw_list(const render_internal::ui_draw_list& ui,
-                       const render_internal::render_resource_snapshot& resources,
+  prepare_ui_draw_list(const engine::render::ui_draw_list& ui,
+                       const engine::render::render_resource_snapshot& resources,
                        std::uint32_t width, std::uint32_t height) noexcept;
+  void release_invalid_textures(const engine::render::render_resource_snapshot& resources) noexcept;
+  void release_invalid_meshes(const engine::render::render_resource_snapshot& resources) noexcept;
   void
-  release_invalid_textures(const render_internal::render_resource_snapshot& resources) noexcept;
-  void release_invalid_meshes(const render_internal::render_resource_snapshot& resources) noexcept;
-  void
-  release_invalid_materials(const render_internal::render_resource_snapshot& resources) noexcept;
+  release_invalid_materials(const engine::render::render_resource_snapshot& resources) noexcept;
 
   granit::renderer renderer_;
-  render_internal::texture_prepare_profile texture_profile_{};
+  engine::render::texture_prepare_profile texture_profile_{};
   granit::surface surface_;
   granit::swapchain swapchain_;
   granit::render_pipeline pipeline_;
@@ -189,12 +187,12 @@ private:
   // 借用 Application 的线程安全日志队列；其生命周期覆盖执行器停机。
   log_internal::log_dispatcher* log_{};
   std::atomic<core::rid> log_context_{core::null_rid};
-  render_internal::threaded_render_executor executor_;
-  std::vector<render_internal::render_frame_packet> recycled_frame_packets_;
-  std::deque<render_internal::render_frame_completion> required_frame_completions_;
+  engine::render::threaded_render_executor executor_;
+  std::vector<engine::render::render_frame_packet> recycled_frame_packets_;
+  std::deque<engine::render::render_frame_completion> required_frame_completions_;
   bool pending_recreate_{};
 };
 
-} // namespace gneiss::render_internal
+} // namespace gneiss::engine::render
 
 #endif

@@ -27,7 +27,7 @@
 #include <span>
 #include <vector>
 
-namespace gneiss::render_internal {
+namespace gneiss::engine::render {
 namespace {
 
 static_assert(GRANIT_VERSION_MAJOR > 0 || GRANIT_VERSION_MINOR >= 44,
@@ -72,9 +72,9 @@ struct geometry_range final {
   std::uint32_t index_count{};
 };
 
-render_internal::matrix4 multiply(const render_internal::matrix4& left,
-                                  const render_internal::matrix4& right) noexcept {
-  render_internal::matrix4 result;
+engine::render::matrix4 multiply(const engine::render::matrix4& left,
+                                 const engine::render::matrix4& right) noexcept {
+  engine::render::matrix4 result;
   for (std::size_t row = 0; row < 4U; ++row) {
     for (std::size_t column = 0; column < 4U; ++column) {
       for (std::size_t inner = 0; inner < 4U; ++inner) {
@@ -86,13 +86,13 @@ render_internal::matrix4 multiply(const render_internal::matrix4& left,
   return result;
 }
 
-granit_matrix4 to_granit_matrix(const render_internal::matrix4& source) noexcept {
+granit_matrix4 to_granit_matrix(const engine::render::matrix4& source) noexcept {
   granit_matrix4 result{};
   std::ranges::copy(source.values, result.elements);
   return result;
 }
 
-float mesh_bounds_radius(const render_internal::mesh_resource& mesh,
+float mesh_bounds_radius(const engine::render::mesh_resource& mesh,
                          const engine::transform& transform) noexcept {
   float radius_squared = 0.0F;
   for (const auto& vertex : mesh.vertices) {
@@ -104,7 +104,7 @@ float mesh_bounds_radius(const render_internal::mesh_resource& mesh,
   return std::sqrt(radius_squared) * scale;
 }
 
-granit::result append_mesh_geometry(const render_internal::mesh_resource& source,
+granit::result append_mesh_geometry(const engine::render::mesh_resource& source,
                                     std::vector<gpu_vertex>& vertices,
                                     std::vector<std::uint32_t>& indices, geometry_range& range) {
   const auto source_index_count =
@@ -209,7 +209,7 @@ void granit_render_service::log_texture(core::rid rid, const char* stage, granit
 }
 
 granit::result
-granit_render_service::create_texture_mirror(const render_internal::texture_resource& source,
+granit_render_service::create_texture_mirror(const engine::render::texture_resource& source,
                                              texture_mirror& output, core::rid rid) noexcept {
   if (source.profile.generation != 0U && source.profile != texture_profile_) {
     return granit::result::invalid_argument;
@@ -369,7 +369,7 @@ granit_render_service::create_texture_mirror(const render_internal::texture_reso
 }
 
 granit::result
-granit_render_service::create_material_mirror(const render_internal::material_resource& source,
+granit_render_service::create_material_mirror(const engine::render::material_resource& source,
                                               const std::array<granit_texture_view, 5>& textures,
                                               material_mirror& output) noexcept {
   if (auto found = prepared_materials_.find(&source); found != prepared_materials_.end()) {
@@ -479,7 +479,7 @@ granit_render_service::create_material_mirror(const render_internal::material_re
 }
 
 granit::result
-granit_render_service::create_mesh_mirror(const render_internal::mesh_resource& source,
+granit_render_service::create_mesh_mirror(const engine::render::mesh_resource& source,
                                           mesh_mirror& output) noexcept {
   try {
     if (auto found = prepared_meshes_.find(&source); found != prepared_meshes_.end()) {
@@ -579,7 +579,7 @@ granit::result granit_render_service::ensure_default_textures() noexcept {
     return granit::result::success;
   }
   try {
-    render_internal::texture_resource white_srgb{
+    engine::render::texture_resource white_srgb{
         .width = 1,
         .height = 1,
         .format = gneiss::engine::resource::texture_format::rgba8_unorm,
@@ -590,9 +590,9 @@ granit::result granit_render_service::ensure_default_textures() noexcept {
                                std::byte{0xff}}}},
         .manifest = {},
         .payload = {}};
-    render_internal::texture_resource white_linear = white_srgb;
+    engine::render::texture_resource white_linear = white_srgb;
     white_linear.color_space = gneiss::engine::resource::texture_color_space::linear;
-    render_internal::texture_resource normal_linear = white_linear;
+    engine::render::texture_resource normal_linear = white_linear;
     normal_linear.levels.front().pixels = {std::byte{0x80}, std::byte{0x80}, std::byte{0xff},
                                            std::byte{0xff}};
     auto result = create_texture_mirror(white_srgb, default_white_srgb_);
@@ -609,8 +609,8 @@ granit::result granit_render_service::ensure_default_textures() noexcept {
 }
 
 granit::result granit_render_service::prepare_ui_draw_list(
-    const render_internal::ui_draw_list& ui,
-    const render_internal::render_resource_snapshot& resources, std::uint32_t width,
+    const engine::render::ui_draw_list& ui,
+    const engine::render::render_resource_snapshot& resources, std::uint32_t width,
     std::uint32_t height) noexcept {
   auto result = ui_canvas_.clear();
   if (result.failed() || ui.commands().empty()) {
@@ -677,7 +677,7 @@ granit::result granit_render_service::prepare_ui_draw_list(
 }
 
 void granit_render_service::release_invalid_textures(
-    const render_internal::render_resource_snapshot& resources) noexcept {
+    const engine::render::render_resource_snapshot& resources) noexcept {
   std::erase_if(prepared_materials_,
                 [](const auto& item) { return item.second.data.use_count() == 1; });
   std::erase_if(prepared_meshes_,
@@ -705,7 +705,7 @@ void granit_render_service::release_invalid_textures(
 }
 
 void granit_render_service::release_invalid_meshes(
-    const render_internal::render_resource_snapshot& resources) noexcept {
+    const engine::render::render_resource_snapshot& resources) noexcept {
   for (auto iterator = mesh_mirrors_.begin(); iterator != mesh_mirrors_.end();) {
     if (resources.get_mesh(iterator->first) != iterator->second.source) {
       iterator = mesh_mirrors_.erase(iterator);
@@ -716,7 +716,7 @@ void granit_render_service::release_invalid_meshes(
 }
 
 void granit_render_service::release_invalid_materials(
-    const render_internal::render_resource_snapshot& resources) noexcept {
+    const engine::render::render_resource_snapshot& resources) noexcept {
   for (auto iterator = material_mirrors_.begin(); iterator != material_mirrors_.end();) {
     if (resources.get_material(iterator->first) != iterator->second.source) {
       iterator = material_mirrors_.erase(iterator);
@@ -727,7 +727,7 @@ void granit_render_service::release_invalid_materials(
 }
 
 void granit_render_service::discard_candidates(
-    std::span<const render_internal::render_upload_item> data) noexcept {
+    std::span<const engine::render::render_upload_item> data) noexcept {
   for (const auto& item : data) {
     if (item.material) {
       prepared_materials_.erase(item.material.get());
@@ -741,7 +741,7 @@ void granit_render_service::discard_candidates(
   }
 }
 std::size_t granit_render_service::estimate_upload_bytes(
-    const render_internal::render_upload_item& item) noexcept {
+    const engine::render::render_upload_item& item) noexcept {
   if (item.mesh)
     return item.mesh->vertices.size() * sizeof(gpu_vertex) +
            (item.mesh->indices.empty() ? item.mesh->vertices.size() : item.mesh->indices.size()) *
@@ -757,18 +757,18 @@ std::size_t granit_render_service::estimate_upload_bytes(
       bytes += level.pixels.size();
     return bytes;
   }
-  return sizeof(render_internal::material_resource);
+  return sizeof(engine::render::material_resource);
 }
 
 gneiss_result
-granit_render_service::prepare_textures(std::vector<render_internal::render_upload_item> data,
+granit_render_service::prepare_textures(std::vector<engine::render::render_upload_item> data,
                                         std::uint64_t& sequence) noexcept {
   try {
     if (data.empty()) {
       return GNEISS_ERROR_INVALID_ARGUMENT;
     }
     return executor_.submit_command(
-        [this, data = std::move(data)](const render_internal::render_command_reporter& reporter) {
+        [this, data = std::move(data)](const engine::render::render_command_reporter& reporter) {
           try {
             std::size_t completed{};
             for (const auto& item : data) {
@@ -820,7 +820,7 @@ granit_render_service::prepare_textures(std::vector<render_internal::render_uplo
                 discard_candidates(data);
                 return map_result(result);
               }
-              reporter.report(render_internal::render_command_stage::uploading, ++completed,
+              reporter.report(engine::render::render_command_stage::uploading, ++completed,
                               data.size());
             }
             return GNEISS_SUCCESS;
@@ -842,7 +842,7 @@ granit_render_service::prepare_textures(std::vector<render_internal::render_uplo
 
 bool granit_render_service::poll_texture_preparation(std::uint64_t sequence,
                                                      gneiss_result& result) noexcept {
-  render_internal::render_command_completion completion;
+  engine::render::render_command_completion completion;
   if (!executor_.try_take_command_completion(completion)) {
     return false;
   }
@@ -852,10 +852,10 @@ bool granit_render_service::poll_texture_preparation(std::uint64_t sequence,
 }
 
 gneiss_result granit_render_service::discard_prepared_textures(
-    std::vector<render_internal::render_upload_item> data, std::uint64_t& sequence) noexcept {
+    std::vector<engine::render::render_upload_item> data, std::uint64_t& sequence) noexcept {
   try {
     return executor_.submit_command(
-        [this, data = std::move(data)](const render_internal::render_command_reporter&) {
+        [this, data = std::move(data)](const engine::render::render_command_reporter&) {
           discard_candidates(data);
           return GNEISS_SUCCESS;
         },
@@ -875,8 +875,8 @@ gneiss_result granit_render_service::initialize(const platform::native_window_in
                                                 log_internal::log_dispatcher* log) noexcept {
   log_ = log;
   const auto executor_result =
-      executor_.initialize([this](render_internal::render_frame_packet& packet,
-                                  render_internal::render_execution_result& output) noexcept {
+      executor_.initialize([this](engine::render::render_frame_packet& packet,
+                                  engine::render::render_execution_result& output) noexcept {
         const auto result = execute_frame(packet, output);
         output.needs_recreate = packet.window.needs_recreate;
         return result;
@@ -889,11 +889,11 @@ gneiss_result granit_render_service::initialize(const platform::native_window_in
   std::uint64_t sequence{};
   const auto submit_result = executor_.submit_command(
       [this, window, environment_asset, environment_intensity, environment_rotation_radians,
-       &initialize_result](const render_internal::render_command_reporter& reporter) {
-        reporter.report(render_internal::render_command_stage::uploading, 0U, 1U);
+       &initialize_result](const engine::render::render_command_reporter& reporter) {
+        reporter.report(engine::render::render_command_stage::uploading, 0U, 1U);
         initialize_result = initialize_gpu(window, environment_asset, environment_intensity,
                                            environment_rotation_radians);
-        reporter.report(render_internal::render_command_stage::uploading, 1U, 1U);
+        reporter.report(engine::render::render_command_stage::uploading, 1U, 1U);
         return initialize_result;
       },
       sequence);
@@ -901,14 +901,14 @@ gneiss_result granit_render_service::initialize(const platform::native_window_in
     static_cast<void>(executor_.flush());
   }
 
-  render_internal::render_command_completion completion;
+  engine::render::render_command_completion completion;
   const auto has_completion = executor_.try_take_command_completion(completion);
   if (submit_result != GNEISS_SUCCESS || !has_completion || completion.sequence != sequence ||
       completion.status != GNEISS_SUCCESS) {
     granit::renderer_resource_stats ignored{};
     std::uint64_t cleanup_sequence{};
     if (executor_.submit_command(
-            [this, &ignored](const render_internal::render_command_reporter&) {
+            [this, &ignored](const engine::render::render_command_reporter&) {
               return shutdown_gpu(ignored);
             },
             cleanup_sequence) == GNEISS_SUCCESS) {
@@ -923,12 +923,12 @@ gneiss_result granit_render_service::initialize(const platform::native_window_in
 }
 
 gneiss_result granit_render_service::collect_completions() noexcept {
-  render_internal::render_frame_completion completion;
+  engine::render::render_frame_completion completion;
   while (executor_.try_take_frame_completion(completion)) {
     if (recycled_frame_packets_.size() < 3U) {
       recycled_frame_packets_.push_back(std::move(completion.reusable_packet));
     }
-    if (completion.policy == render_internal::render_frame_policy::required) {
+    if (completion.policy == engine::render::render_frame_policy::required) {
       required_frame_completions_.push_back({.sequence = completion.sequence,
                                              .status = completion.status,
                                              .execution = completion.execution,
@@ -948,7 +948,7 @@ gneiss_result granit_render_service::collect_completions() noexcept {
 }
 
 gneiss_result
-granit_render_service::prepare_frame_packet_storage(render_internal::render_frame_packet& packet,
+granit_render_service::prepare_frame_packet_storage(engine::render::render_frame_packet& packet,
                                                     bool& out_should_prepare) noexcept {
   const auto completion_result = collect_completions();
   if (completion_result != GNEISS_SUCCESS) {
@@ -968,8 +968,8 @@ granit_render_service::prepare_frame_packet_storage(render_internal::render_fram
   return GNEISS_SUCCESS;
 }
 
-gneiss_result granit_render_service::submit(render_internal::render_frame_packet packet,
-                                            render_internal::render_frame_policy policy,
+gneiss_result granit_render_service::submit(engine::render::render_frame_packet packet,
+                                            engine::render::render_frame_policy policy,
                                             std::uint64_t* out_sequence) noexcept {
   const auto completion_result = collect_completions();
   if (completion_result != GNEISS_SUCCESS) {
@@ -986,7 +986,7 @@ gneiss_result granit_render_service::submit(render_internal::render_frame_packet
 }
 
 bool granit_render_service::try_take_required_completion(
-    render_internal::render_frame_completion& completion) noexcept {
+    engine::render::render_frame_completion& completion) noexcept {
   if (collect_completions() != GNEISS_SUCCESS || required_frame_completions_.empty()) {
     return false;
   }
@@ -995,8 +995,7 @@ bool granit_render_service::try_take_required_completion(
   return true;
 }
 
-render_internal::render_queue_stats
-granit_render_service::query_performance_stats() const noexcept {
+engine::render::render_queue_stats granit_render_service::query_performance_stats() const noexcept {
   return executor_.query_stats();
 }
 
@@ -1024,17 +1023,17 @@ gneiss_result granit_render_service::shutdown(granit::renderer_resource_stats& s
 
   std::uint64_t sequence{};
   const auto submit_result = executor_.submit_command(
-      [this, &stats](const render_internal::render_command_reporter& reporter) {
-        reporter.report(render_internal::render_command_stage::uploading, 0U, 1U);
+      [this, &stats](const engine::render::render_command_reporter& reporter) {
+        reporter.report(engine::render::render_command_stage::uploading, 0U, 1U);
         const auto result = shutdown_gpu(stats);
-        reporter.report(render_internal::render_command_stage::uploading, 1U, 1U);
+        reporter.report(engine::render::render_command_stage::uploading, 1U, 1U);
         return result;
       },
       sequence);
   if (submit_result == GNEISS_SUCCESS) {
     static_cast<void>(executor_.flush());
   }
-  render_internal::render_command_completion completion;
+  engine::render::render_command_completion completion;
   const auto has_completion = executor_.try_take_command_completion(completion);
   executor_.stop();
   recycled_frame_packets_.clear();
@@ -1194,8 +1193,8 @@ gneiss_result granit_render_service::shutdown_gpu(granit::renderer_resource_stat
 // 单帧资源准备与提交必须保持 Granit 调用和失败回滚的线性顺序。
 gneiss_result
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
-granit_render_service::execute_frame(render_internal::render_frame_packet& packet,
-                                     render_internal::render_execution_result& output) noexcept {
+granit_render_service::execute_frame(engine::render::render_frame_packet& packet,
+                                     engine::render::render_execution_result& output) noexcept {
   output.gpu_timing_supported = gpu_timing_supported_;
   output.environment_asset_requested = environment_asset_requested_;
   output.environment_fallback = environment_fallback_;
@@ -1341,8 +1340,8 @@ granit_render_service::execute_frame(render_internal::render_frame_packet& packe
       bindings.reserve(snapshot.instances.size());
       for (std::size_t index = 0; index < snapshot.instances.size(); ++index) {
         const auto& instance = snapshot.instances[index];
-        render_internal::matrix4 model;
-        render_internal::matrix4 normal;
+        engine::render::matrix4 model;
+        engine::render::matrix4 normal;
         if (!build_model_matrices(instance.transform, model, normal))
           return GNEISS_ERROR_INVALID_ARGUMENT;
         const auto payload = static_cast<std::uint64_t>(index) + 1U;
@@ -1554,4 +1553,4 @@ granit_render_service::execute_frame(render_internal::render_frame_packet& packe
   return map_result(result);
 }
 
-} // namespace gneiss::render_internal
+} // namespace gneiss::engine::render

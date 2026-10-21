@@ -8,7 +8,7 @@
 #include <cstdint>
 #include <new>
 
-namespace gneiss::render_internal {
+namespace gneiss::engine::render {
 
 gneiss_result debug_draw_list::replace(std::span<const debug_line> lines) noexcept {
   constexpr std::uint32_t maximum_lines = 1024U * 1024U;
@@ -36,4 +36,4 @@ gneiss_result debug_draw_list::replace(std::span<const debug_line> lines) noexce
   }
 }
 
-} // namespace gneiss::render_internal
+} // namespace gneiss::engine::render

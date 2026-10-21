@@ -156,10 +156,10 @@ void run(tasks::execution_mode mode) {
   session.close();
   drive();
   check(edit.operation() == result::invalid_state && history.size() == creation_count);
-  render_internal::render_asset_lease unused;
+  engine::render::render_asset_lease unused;
   check(runtime::query_ready_asset(
             app.get(),
-            {.uri = "asset://c.json", .type = render_internal::render_asset_type::material},
+            {.uri = "asset://c.json", .type = engine::render::render_asset_type::material},
             unused) == GNEISS_ERROR_NOT_READY &&
         !unused);
   history.clear();
@@ -180,7 +180,7 @@ void run(tasks::execution_mode mode) {
         session.nodes().empty() && history.size() == 0U);
   check(runtime::query_ready_asset(
             app.get(),
-            {.uri = "asset://d.json", .type = render_internal::render_asset_type::material},
+            {.uri = "asset://d.json", .type = engine::render::render_asset_type::material},
             unused) == GNEISS_ERROR_NOT_READY);
   session.close();
 }

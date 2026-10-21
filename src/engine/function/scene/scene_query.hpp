@@ -12,7 +12,7 @@
 #include <optional>
 #include <string_view>
 
-namespace gneiss::scene_internal {
+namespace gneiss::engine::scene {
 
 enum class node_query_detail { identity, assets, components };
 
@@ -43,4 +43,4 @@ struct prefab_node_view {
   gneiss::engine::transform source_local_transform = {};
 };
 
-} // namespace gneiss::scene_internal
+} // namespace gneiss::engine::scene

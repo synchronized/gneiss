@@ -13,7 +13,7 @@
 #include <limits>
 #include <span>
 
-namespace gneiss::render_internal {
+namespace gneiss::engine::render {
 namespace {
 
 constexpr std::uint32_t maximum_texture_dimension = 16384U;
@@ -462,4 +462,4 @@ std::size_t render_resource_service::live_resource_count() const noexcept {
   return meshes_.live_count() + materials_.live_count() + textures_.live_count();
 }
 
-} // namespace gneiss::render_internal
+} // namespace gneiss::engine::render

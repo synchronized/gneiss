@@ -16,7 +16,7 @@ namespace gneiss::runtime {
 scene_session::~scene_session() noexcept { shutdown(); }
 
 gneiss_result scene_session::initialize(engine::resource::asset_manager& assets,
-                                        render_internal::render_asset_loader& render) {
+                                        engine::render::render_asset_loader& render) {
   if (active_) {
     return GNEISS_ERROR_INVALID_STATE;
   }
@@ -34,8 +34,8 @@ gneiss_result scene_session::initialize(engine::resource::asset_manager& assets,
 gneiss_result
 scene_session::attach_executor(tasks::task_executor& executor,
                                const engine::resource::virtual_file_system& files,
-                               render_internal::render_resource_service& resources,
-                               render_internal::texture_upload_backend backend,
+                               engine::render::render_resource_service& resources,
+                               engine::render::texture_upload_backend backend,
                                std::shared_ptr<core::progress_notification> notification) {
   if (textures_ || !active_) {
     return GNEISS_ERROR_INVALID_STATE;
@@ -44,7 +44,7 @@ scene_session::attach_executor(tasks::task_executor& executor,
   auto loader = std::make_unique<scene_load_service>(executor, files, resources, *asset_owner_,
                                                      *render_assets_, backend, notification);
   const auto profile = backend.profile;
-  auto textures = std::make_unique<render_internal::texture_load_service>(
+  auto textures = std::make_unique<engine::render::texture_load_service>(
       executor, files, *render_assets_, std::move(backend), std::move(notification),
       asset_owner_->documents());
   render_assets_->set_default_profile(profile);
@@ -74,7 +74,7 @@ gneiss_result scene_session::activate(std::uint64_t request, scene_load_completi
     return GNEISS_ERROR_NOT_READY;
   }
   const auto start = std::chrono::steady_clock::now();
-  std::unique_ptr<render_internal::texture_load_service> next_assets;
+  std::unique_ptr<engine::render::texture_load_service> next_assets;
   auto next = loader_->take_candidate(request, completion, next_assets);
   if (!next) {
     return GNEISS_ERROR_NOT_READY;
@@ -111,19 +111,17 @@ scene_retirement_statistics scene_session::retirement() const noexcept {
   value.pending = retired_ != nullptr;
   return value;
 }
-engine::world* scene_session::native_world() const noexcept {
+engine::world::world* scene_session::native_world() const noexcept {
   return active_ ? active_->native_world() : nullptr;
 }
 
 gneiss_world scene_session::world() const noexcept {
   return active_ ? active_->world() : GNEISS_NULL_WORLD;
 }
-scene_internal::scene_instance_service* scene_session::scenes() noexcept {
+engine::scene::scene_instance_service* scene_session::scenes() noexcept {
   return active_ ? active_->scenes() : nullptr;
 }
-render_internal::texture_load_service* scene_session::textures() noexcept {
-  return textures_.get();
-}
+engine::render::texture_load_service* scene_session::textures() noexcept { return textures_.get(); }
 gneiss_result scene_session::request_scene(std::string_view uri, std::uint64_t session,
                                            std::uint64_t revision, std::uint64_t& request) {
   request = 0U;
@@ -145,7 +143,7 @@ gneiss_result scene_session::poll_scene(scene_load_completion& completion, bool&
   return GNEISS_SUCCESS;
 }
 gneiss_result
-scene_session::request_assets(std::span<const render_internal::render_asset_reload> sources,
+scene_session::request_assets(std::span<const engine::render::render_asset_reload> sources,
                               std::uint64_t session, std::uint64_t revision, std::uint64_t& request,
                               bool reload) {
   request = 0U;
@@ -155,10 +153,10 @@ scene_session::request_assets(std::span<const render_internal::render_asset_relo
   if (!reload) {
     return textures_->submit_assets(sources, session, revision, request, false);
   }
-  using type = render_internal::render_asset_type;
-  using loader = render_internal::render_asset_loader;
+  using type = engine::render::render_asset_type;
+  using loader = engine::render::render_asset_loader;
   std::map<std::string, type, std::less<>> requested;
-  if (sources.empty() || sources.size() > render_internal::texture_load_service::maximum_assets) {
+  if (sources.empty() || sources.size() > engine::render::texture_load_service::maximum_assets) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
   for (const auto& source : sources) {
@@ -166,7 +164,7 @@ scene_session::request_assets(std::span<const render_internal::render_asset_relo
       return GNEISS_ERROR_INVALID_ARGUMENT;
     }
   }
-  std::vector<render_internal::render_asset_lease> previous;
+  std::vector<engine::render::render_asset_lease> previous;
   const auto captured = active_->scenes()->capture_render_assets(previous);
   if (captured != GNEISS_SUCCESS) {
     return captured;
@@ -193,14 +191,14 @@ scene_session::request_assets(std::span<const render_internal::render_asset_relo
     const auto found = requested.find(lease.uri());
     return found == requested.end() || found->second != lease.type();
   });
-  std::vector<render_internal::render_asset_reload> expanded;
+  std::vector<engine::render::render_asset_reload> expanded;
   expanded.reserve(requested.size());
   for (const auto& [uri, asset_type] : requested) {
     expanded.push_back({.uri = uri, .type = asset_type});
   }
   const auto result =
       textures_->submit_assets(expanded, session, revision, request, true,
-                               render_internal::texture_load_service::maximum_candidate_bytes,
+                               engine::render::texture_load_service::maximum_candidate_bytes,
                                loader::publication_mode::fixed_version);
   if (result == GNEISS_SUCCESS) {
     previous_assets_ = std::move(previous);
@@ -209,7 +207,7 @@ scene_session::request_assets(std::span<const render_internal::render_asset_relo
   return result;
 }
 
-gneiss_result scene_session::poll_assets(render_internal::texture_load_completion& completion,
+gneiss_result scene_session::poll_assets(engine::render::texture_load_completion& completion,
                                          bool& ready) {
   ready = false;
   if (!textures_) {
@@ -223,7 +221,7 @@ gneiss_result scene_session::poll_assets(render_internal::texture_load_completio
   const auto commit_started = std::chrono::steady_clock::now();
   if (completion.result == GNEISS_SUCCESS) {
     try {
-      std::vector<scene_internal::scene_instance_service::asset_replacement> changes;
+      std::vector<engine::scene::scene_instance_service::asset_replacement> changes;
       if (completion.request != asset_request_) {
         completion.result = GNEISS_ERROR_INVALID_STATE;
       } else {
@@ -250,8 +248,8 @@ gneiss_result scene_session::poll_assets(render_internal::texture_load_completio
     }
   }
   if (completion.result != GNEISS_SUCCESS) {
-    if (completion.state != render_internal::texture_load_state::cancelled) {
-      completion.state = render_internal::texture_load_state::failed;
+    if (completion.state != engine::render::texture_load_state::cancelled) {
+      completion.state = engine::render::texture_load_state::failed;
     }
     completion.assets.clear();
     completion.textures.clear();
@@ -268,7 +266,7 @@ gneiss_result scene_session::poll_assets(render_internal::texture_load_completio
 }
 
 gneiss_result
-scene_session::accept_edit_assets(const render_internal::texture_load_completion& completion,
+scene_session::accept_edit_assets(const engine::render::texture_load_completion& completion,
                                   const std::function<gneiss_result()>& accept) {
   if (!active_) {
     return GNEISS_ERROR_INVALID_STATE;

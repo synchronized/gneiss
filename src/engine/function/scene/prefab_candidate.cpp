@@ -4,7 +4,7 @@
 #include "engine/function/scene/prefab_runtime_instance.hpp"
 #include "engine/function/world/world_service.hpp"
 #include <algorithm>
-namespace gneiss::scene_internal {
+namespace gneiss::engine::scene {
 namespace {
 engine::transform
 transform_of(const gneiss::engine::resource::object_description& source) noexcept {
@@ -20,8 +20,8 @@ scene_node_id prefab_candidate::root() const noexcept {
   return runtime_ ? scene_node_id{runtime_->root()} : scene_node_id{};
 }
 gneiss_result prefab_candidate::create_node(std::size_t index, scene_node_id parent,
-                                            render_internal::mesh_asset_lease mesh,
-                                            render_internal::material_asset_lease material,
+                                            engine::render::mesh_asset_lease mesh,
+                                            engine::render::material_asset_lease material,
                                             scene_node_id& output) {
   if (!runtime_ || !runtime_->native_world_.is_owner_thread() || runtime_->published_ ||
       runtime_->cancelling_)
@@ -64,7 +64,7 @@ gneiss_result prefab_candidate::preview(std::size_t index,
     std::ranges::copy(author_.scale, output.local_transform.scale.begin());
     return GNEISS_SUCCESS;
   }
-  scene_internal::prefab_runtime_instance::node_info info;
+  engine::scene::prefab_runtime_instance::node_info info;
   const auto result = runtime_->get_node_info(index - 1U, info);
   if (result != GNEISS_SUCCESS) {
     return result;
@@ -78,7 +78,7 @@ gneiss_result prefab_candidate::preview(std::size_t index,
   output.local_transform = transform_of(runtime_->prefab_lease().get()->objects[index - 1U]);
   output.source_local_transform = output.local_transform;
   output.local_transform = transform_of(runtime_->candidate_description().objects[index - 1U]);
-  const auto transform_type = world_internal::transform_type_id();
+  const auto transform_type = engine::world::transform_type_id();
   for (const auto& value : author_.overrides) {
     if (value.key.node.source_node_uuid != output.source_node_uuid ||
         !std::ranges::equal(value.key.type_id.bytes, transform_type.bytes)) {

@@ -46,7 +46,7 @@ enum class camera_field : std::uint8_t { field_of_view = 1, near_plane = 2, far_
 gneiss_result get_transform(void* user_data, gneiss_property_target target,
                             gneiss_property_value* output) {
   gneiss_transform transform = GNEISS_TRANSFORM_IDENTITY;
-  const auto result = gneiss::world_internal::entity_get_local_transform(
+  const auto result = gneiss::engine::world::entity_get_local_transform(
       target_world(target), target_entity(target), transform);
   if (result != GNEISS_SUCCESS) {
     return result;
@@ -114,8 +114,8 @@ gneiss_result set_candidate_transform(void* user_data, void* candidate,
 gneiss_result set_transform(void* user_data, gneiss_property_target target,
                             const gneiss_property_value* value) {
   gneiss_transform transform = GNEISS_TRANSFORM_IDENTITY;
-  auto result = gneiss::world_internal::entity_get_local_transform(
-      target_world(target), target_entity(target), transform);
+  auto result = gneiss::engine::world::entity_get_local_transform(target_world(target),
+                                                                  target_entity(target), transform);
   if (result == GNEISS_SUCCESS) {
     gneiss::engine::transform candidate;
     std::ranges::copy(transform.translation, candidate.translation.begin());
@@ -128,16 +128,16 @@ gneiss_result set_transform(void* user_data, gneiss_property_target target,
       std::ranges::copy(candidate.scale, transform.scale);
     }
   }
-  return result == GNEISS_SUCCESS ? gneiss::world_internal::entity_set_local_transform(
+  return result == GNEISS_SUCCESS ? gneiss::engine::world::entity_set_local_transform(
                                         target_world(target), target_entity(target), transform)
                                   : result;
 }
 
 gneiss_result get_camera(void* user_data, gneiss_property_target target,
                          gneiss_property_value* output) {
-  gneiss::world_internal::camera_settings camera;
-  const auto result = gneiss::world_internal::entity_get_camera(target_world(target),
-                                                                target_entity(target), camera);
+  gneiss::engine::world::camera_settings camera;
+  const auto result =
+      gneiss::engine::world::entity_get_camera(target_world(target), target_entity(target), camera);
   if (result != GNEISS_SUCCESS) {
     return result;
   }
@@ -158,7 +158,7 @@ gneiss_result get_camera(void* user_data, gneiss_property_target target,
 
 gneiss_result set_candidate_camera(void* user_data, void* candidate,
                                    const gneiss_property_value& input) {
-  auto camera = *static_cast<gneiss::world_internal::camera_settings*>(candidate);
+  auto camera = *static_cast<gneiss::engine::world::camera_settings*>(candidate);
   const auto* value = &input;
   const auto scalar = value->payload.float32_value;
   if (!std::isfinite(scalar) || scalar <= 0 ||
@@ -178,33 +178,33 @@ gneiss_result set_candidate_camera(void* user_data, void* candidate,
     break;
   }
   // near/far 的联合约束在全部覆盖应用后由候选对象构造校验，避免依赖字段写入顺序。
-  *static_cast<gneiss::world_internal::camera_settings*>(candidate) = camera;
+  *static_cast<gneiss::engine::world::camera_settings*>(candidate) = camera;
   return GNEISS_SUCCESS;
 }
 
 gneiss_result set_camera(void* user_data, gneiss_property_target target,
                          const gneiss_property_value* value) {
-  gneiss::world_internal::camera_settings camera;
-  auto result = gneiss::world_internal::entity_get_camera(target_world(target),
-                                                          target_entity(target), camera);
+  gneiss::engine::world::camera_settings camera;
+  auto result =
+      gneiss::engine::world::entity_get_camera(target_world(target), target_entity(target), camera);
   if (result == GNEISS_SUCCESS) {
     result = set_candidate_camera(user_data, &camera, *value);
   }
-  return result == GNEISS_SUCCESS ? gneiss::world_internal::entity_configure_camera(
+  return result == GNEISS_SUCCESS ? gneiss::engine::world::entity_configure_camera(
                                         target_world(target), target_entity(target), camera)
                                   : result;
 }
 
 gneiss_result get_is_primary(void* /*user_data*/, gneiss_property_target target,
                              gneiss_property_value* output) {
-  gneiss::world_internal::camera_settings camera;
-  auto result = gneiss::world_internal::entity_get_camera(target_world(target),
-                                                          target_entity(target), camera);
+  gneiss::engine::world::camera_settings camera;
+  auto result =
+      gneiss::engine::world::entity_get_camera(target_world(target), target_entity(target), camera);
   if (result != GNEISS_SUCCESS) {
     return result;
   }
   gneiss_entity_id active = GNEISS_NULL_ENTITY_ID;
-  result = gneiss::world_internal::get_active_camera(target_world(target), active);
+  result = gneiss::engine::world::get_active_camera(target_world(target), active);
   if (result != GNEISS_SUCCESS && result != GNEISS_ERROR_NOT_READY) {
     return result;
   }
@@ -248,15 +248,15 @@ bind_component_field(const gneiss::reflection_internal::registry_ref& registry,
 
 } // namespace
 
-gneiss_type_id gneiss::world_internal::transform_type_id() noexcept { return transform_id; }
+gneiss_type_id gneiss::engine::world::transform_type_id() noexcept { return transform_id; }
 
-gneiss_type_id gneiss::world_internal::camera_type_id() noexcept { return camera_id; }
+gneiss_type_id gneiss::engine::world::camera_type_id() noexcept { return camera_id; }
 
-gneiss_result gneiss::world_internal::register_reflection(gneiss_type_registry registry) {
+gneiss_result gneiss::engine::world::register_reflection(gneiss_type_registry registry) {
   return register_reflection(gneiss::reflection_internal::resolve(registry));
 }
 
-gneiss_result gneiss::world_internal::register_reflection(
+gneiss_result gneiss::engine::world::register_reflection(
     const gneiss::reflection_internal::registry_ref& registry) {
   constexpr std::array transform_fields{
       make_field(GNEISS_TRANSFORM_FIELD_TRANSLATION, vec3_id, 0U, "translation", 11U),
@@ -314,7 +314,7 @@ gneiss_result gneiss::world_internal::register_reflection(
   return result;
 }
 
-namespace gneiss::world_internal {
+namespace gneiss::engine::world {
 result create_property_registry(reflection_internal::registry_ref& output) noexcept {
   reflection_internal::registry_ref pending;
   auto operation = reflection_internal::create_native(pending);
@@ -331,4 +331,4 @@ result create_property_registry(reflection_internal::registry_ref& output) noexc
 }
 type_id transform_property_type() noexcept { return from_native(transform_type_id()); }
 type_id camera_property_type() noexcept { return from_native(camera_type_id()); }
-} // namespace gneiss::world_internal
+} // namespace gneiss::engine::world

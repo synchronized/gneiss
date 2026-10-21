@@ -81,7 +81,7 @@ void test_asset_request_boundaries() {
   runtime::application_configuration config;
   std::shared_ptr<runtime::application> app;
   check(runtime::application::create(config, app) == GNEISS_SUCCESS);
-  render_internal::asset_load_progress progress;
+  engine::render::asset_load_progress progress;
   check(!app->asset_progress(progress));
   check(app->cancel_assets() == GNEISS_ERROR_NOT_READY);
   const auto rejected = [&] {
@@ -97,10 +97,10 @@ void test_asset_request_boundaries() {
     check(app->cancel_scene(1) == GNEISS_ERROR_INVALID_STATE);
     check(app->activate_scene(1, scene_completion) == GNEISS_ERROR_INVALID_STATE);
     check(!app->scene_progress(scene_progress) && scene_completion.scene == 29);
-    render_internal::texture_load_completion completion;
+    engine::render::texture_load_completion completion;
     completion.request = 23;
-    render_internal::render_asset_lease lease;
-    scene_internal::scene_instance_service::mesh_binding binding;
+    engine::render::render_asset_lease lease;
+    engine::scene::scene_instance_service::mesh_binding binding;
     gneiss::scene_node_id created{19};
     check(app->create_mesh_node_ready(0, {}, {}, created) == GNEISS_ERROR_INVALID_STATE &&
           !created.is_valid());

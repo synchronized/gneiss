@@ -84,14 +84,14 @@ gneiss_result granit_platform::initialize(const window_configuration& config) no
   return map_result(result);
 }
 
-gneiss_result granit_platform::poll_input(input_internal::input_event& out_event) noexcept {
+gneiss_result granit_platform::poll_input(engine::input::input_event& out_event) noexcept {
   granit::input_event source{};
   const auto result = window_system_.poll(source);
   if (result.failed()) {
     return map_result(result);
   }
   out_event = {};
-  out_event.type = static_cast<input_internal::event_type>(source.type);
+  out_event.type = static_cast<engine::input::event_type>(source.type);
   out_event.window_id = UINT64_C(1);
   out_event.timestamp_ns = source.timestamp_ns;
   switch (source.type) {
@@ -99,7 +99,7 @@ gneiss_result granit_platform::poll_input(input_internal::input_event& out_event
     out_event.data.key.physical_key = static_cast<std::uint32_t>(source.data.key.physical);
     out_event.data.key.logical_key = static_cast<std::uint32_t>(source.data.key.logical);
     out_event.data.key.modifiers = source.data.key.modifiers;
-    out_event.data.key.action = static_cast<input_internal::key_action>(source.data.key.action);
+    out_event.data.key.action = static_cast<engine::input::key_action>(source.data.key.action);
     break;
   case granit::input_event_type::text:
     static_assert(sizeof(out_event.data.text.utf8) == sizeof(source.data.text.utf8));
@@ -134,13 +134,13 @@ gneiss_result granit_platform::poll_input(input_internal::input_event& out_event
   case granit::input_event_type::pointer_left:
     break;
   default:
-    out_event.type = input_internal::event_type::none;
+    out_event.type = engine::input::event_type::none;
     break;
   }
   return GNEISS_SUCCESS;
 }
 
-gneiss_result granit_platform::keyboard(input_internal::keyboard_state& out_state) const noexcept {
+gneiss_result granit_platform::keyboard(engine::input::keyboard_state& out_state) const noexcept {
   granit::keyboard_state source{};
   const auto result = window_system_.keyboard(window_.ref(), source);
   if (result == granit::result::invalid_handle) {
@@ -153,11 +153,12 @@ gneiss_result granit_platform::keyboard(input_internal::keyboard_state& out_stat
   static_assert(sizeof(out_state.pressed_keys) == sizeof(source.pressed_keys));
   out_state = {};
   out_state.modifiers = source.modifiers;
-  std::memcpy(out_state.pressed_keys.data(), source.pressed_keys.data(), sizeof(out_state.pressed_keys));
+  std::memcpy(out_state.pressed_keys.data(), source.pressed_keys.data(),
+              sizeof(out_state.pressed_keys));
   return GNEISS_SUCCESS;
 }
 
-gneiss_result granit_platform::pointer(input_internal::pointer_state& out_state) const noexcept {
+gneiss_result granit_platform::pointer(engine::input::pointer_state& out_state) const noexcept {
   granit::pointer_state source{};
   const auto result = window_system_.pointer(window_.ref(), source);
   if (result == granit::result::invalid_handle) {

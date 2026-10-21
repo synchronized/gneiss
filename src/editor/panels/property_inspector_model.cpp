@@ -12,7 +12,7 @@
 
 namespace gneiss::editor {
 result property_inspector_model::initialize() noexcept {
-  return world_internal::create_property_registry(registry_);
+  return engine::world::create_property_registry(registry_);
 }
 
 void property_inspector_model::clear() noexcept {
@@ -29,8 +29,8 @@ result property_inspector_model::refresh(gneiss_world world_handle, entity_id en
     const property_target target{.context = world_handle, .object = entity.get()};
     std::vector<inspector_component> pending;
     const std::array reflected_component_types{
-        world_internal::transform_property_type(),
-        world_internal::camera_property_type(),
+        engine::world::transform_property_type(),
+        engine::world::camera_property_type(),
     };
     for (const auto type_id : reflected_component_types) {
       type_info type{};

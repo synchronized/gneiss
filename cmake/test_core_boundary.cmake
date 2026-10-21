@@ -528,7 +528,7 @@ endif()
 
 file(MAKE_DIRECTORY "${fixture}/src/engine/resource")
 foreach(symbol IN ITEMS texture_load_service texture_upload_backend texture_load_completion
-    "render_internal::render_asset_loader" "render_internal::render_asset_lease")
+    "engine::render::render_asset_loader" "engine::render::render_asset_lease")
   file(WRITE "${fixture}/src/engine/resource/asset_manager.hpp" "struct ${symbol};\n")
   execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
     -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
@@ -616,7 +616,7 @@ if(NOT status EQUAL 0)
   message(FATAL_ERROR "资源边界错误拒绝新命名空间")
 endif()
 
-foreach(content IN ITEMS "namespace gneiss::scene_internal {}" "gneiss::scene_internal::prefab_description* prefab;")
+foreach(content IN ITEMS "namespace gneiss::engine::scene {}" "gneiss::engine::scene::prefab_description* prefab;")
   file(WRITE "${fixture}/src/engine/resource/scene_namespace_probe.cpp" "${content}\n")
   execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
     -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
@@ -630,4 +630,20 @@ execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
   -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake" RESULT_VARIABLE status)
 if(NOT status EQUAL 0)
   message(FATAL_ERROR "资源层错误拒绝资源描述命名空间")
+endif()
+
+foreach(domain IN ITEMS world scene render input)
+  file(WRITE "${fixture}/src/runtime/function_namespace_probe.cpp" "namespace gneiss::${domain}_internal {}\n")
+  execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
+    -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake"
+    RESULT_VARIABLE status OUTPUT_QUIET ERROR_QUIET)
+  if(status EQUAL 0)
+    message(FATAL_ERROR "功能层边界未拒绝旧命名空间：${domain}")
+  endif()
+endforeach()
+file(WRITE "${fixture}/src/runtime/function_namespace_probe.cpp" "namespace gneiss::engine::world { class world; }\n")
+execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
+  -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake" RESULT_VARIABLE status)
+if(NOT status EQUAL 0)
+  message(FATAL_ERROR "功能层边界错误拒绝领域命名空间")
 endif()

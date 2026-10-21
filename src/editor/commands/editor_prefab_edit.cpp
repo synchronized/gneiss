@@ -10,7 +10,7 @@ namespace gneiss::editor {
 namespace {
 using runtime::prefab_placement;
 using runtime::prefab_placement_snapshot;
-result make_prefab_record(const scene_internal::prefab_node_view& info,
+result make_prefab_record(const engine::scene::prefab_node_view& info,
                           const engine::resource::prefab_instance_description& author,
                           const scene_document& session, prefab_node_record& record) {
   record.node = scene_node_id{info.node};
@@ -101,7 +101,7 @@ private:
     return cancelled_ ? result::invalid_state : status_;
   }
   result append_record() {
-    scene_internal::prefab_node_view info;
+    engine::scene::prefab_node_view info;
     const auto previewed = from_native(transaction_->preview(new_cursor_++, info));
     if (previewed.failed()) {
       return previewed;
@@ -245,7 +245,7 @@ private:
     return cancelled_ ? result::invalid_state : status_;
   }
   result append_record() {
-    scene_internal::prefab_node_view info;
+    engine::scene::prefab_node_view info;
     const auto result = from_native(transactions_[mirror_cursor_]->preview(node_cursor_++, info));
     if (result.failed()) {
       return result;
@@ -385,9 +385,9 @@ struct editor_prefab_edit::state {
   editor_command_history* history{};
   std::unique_ptr<runtime::prefab_preparation> preparation;
   engine::resource::prefab_instance_description author;
-  scene_internal::prepared_scene_description prepared;
-  std::vector<render_internal::render_asset_lease> assets;
-  render_internal::texture_load_completion completion;
+  engine::scene::prepared_scene_description prepared;
+  std::vector<engine::render::render_asset_lease> assets;
+  engine::render::texture_load_completion completion;
   std::unique_ptr<editor_command> command;
   std::unique_ptr<editor_history_operation> operation;
   std::shared_ptr<prefab_placement_snapshot> captured;
@@ -467,9 +467,9 @@ struct editor_prefab_edit::state {
     }
     preparation.reset();
     if (status.ok() && !cancelled) {
-      std::vector<render_internal::render_asset_reload> missing;
+      std::vector<engine::render::render_asset_reload> missing;
       for (const auto& asset : prepared.assets) {
-        render_internal::render_asset_lease lease;
+        engine::render::render_asset_lease lease;
         const auto ready =
             refreshing ? GNEISS_ERROR_NOT_READY : application.query_ready_asset(asset, lease);
         if (ready == GNEISS_SUCCESS) {

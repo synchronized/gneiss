@@ -23,20 +23,20 @@ public:
   application_scene_state& operator=(const application_scene_state&) = delete;
   /** 全部初始化成功后发布；失败保持空域，可重试。重复初始化拒绝且保持原状态。 */
   [[nodiscard]] gneiss_result initialize(engine::resource::asset_manager& owner,
-                                         render_internal::render_asset_loader& render) noexcept;
-  [[nodiscard]] engine::world* native_world() const noexcept { return world_owner_.get(); }
+                                         engine::render::render_asset_loader& render) noexcept;
+  [[nodiscard]] engine::world::world* native_world() const noexcept { return world_owner_.get(); }
   [[nodiscard]] gneiss_world world() const noexcept {
     return world_owner_ ? world_owner_.get_deleter().borrowed : GNEISS_NULL_WORLD;
   }
   /** 借用实例服务；初始化前为空，有效期不超过本域。 */
-  [[nodiscard]] scene_internal::scene_instance_service* scenes() const noexcept {
+  [[nodiscard]] engine::scene::scene_instance_service* scenes() const noexcept {
     return scenes_.get();
   }
 
 private:
   // 按声明逆序析构：先释放场景及其资源引用，再撤销 World 的借用 RID。
-  world_internal::world_owner world_owner_;
-  std::unique_ptr<scene_internal::scene_instance_service> scenes_;
+  engine::world::world_owner world_owner_;
+  std::unique_ptr<engine::scene::scene_instance_service> scenes_;
 };
 
 } // namespace gneiss::runtime

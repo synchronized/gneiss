@@ -68,7 +68,7 @@ void run(gneiss::tasks::execution_mode mode) {
   const std::vector<std::string> uris{"asset://a.texture.json"};
   std::uint64_t request{};
   check(runtime::request_textures(app.get(), uris, 2U, 1U, request, false) == GNEISS_SUCCESS);
-  render_internal::texture_load_completion completion;
+  engine::render::texture_load_completion completion;
   bool ready{};
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
   while (!ready) {
@@ -124,9 +124,9 @@ void run(gneiss::tasks::execution_mode mode) {
   check(completion.result == GNEISS_SUCCESS && completion.assets.size() == 2U &&
         completion.versions.size() == 2U);
   const auto versions = completion.versions;
-  const render_internal::render_asset_reload material_source{
-      .uri = "asset://m.material", .type = render_internal::render_asset_type::material};
-  render_internal::render_asset_lease selected_before;
+  const engine::render::render_asset_reload material_source{
+      .uri = "asset://m.material", .type = engine::render::render_asset_type::material};
+  engine::render::render_asset_lease selected_before;
   check(runtime::query_ready_asset(app.get(), material_source, selected_before) == GNEISS_SUCCESS);
   write_material(false);
   check(runtime::prepare_edit_assets(app.get(), {&material_source, 1}, 31U, request) ==
@@ -145,7 +145,7 @@ void run(gneiss::tasks::execution_mode mode) {
   check(accept([]() -> gneiss_result { throw std::bad_alloc{}; }) == GNEISS_ERROR_OUT_OF_MEMORY);
   check(accept([]() -> gneiss_result { throw std::runtime_error("应用失败"); }) ==
         GNEISS_ERROR_INTERNAL);
-  render_internal::render_asset_lease selected_after;
+  engine::render::render_asset_lease selected_after;
   check(runtime::query_ready_asset(app.get(), material_source, selected_after) == GNEISS_SUCCESS &&
         selected_before == selected_after);
   check(accept([&] {
@@ -189,7 +189,7 @@ void run(gneiss::tasks::execution_mode mode) {
   check(runtime::request_textures(app.get(), uris, 2U, 6U, request) == GNEISS_SUCCESS);
   check(runtime::cancel_render_assets(app.get()) == GNEISS_SUCCESS);
   wait();
-  check(completion.state == render_internal::texture_load_state::cancelled &&
+  check(completion.state == engine::render::texture_load_state::cancelled &&
         completion.assets.empty());
   // 上传期间裸 ECS 使用者改变组件，整批场景切换须拒绝，不能覆盖该修改。
   gneiss_scene_instance_node_info node = GNEISS_SCENE_INSTANCE_NODE_INFO_INIT;
@@ -201,13 +201,13 @@ void run(gneiss::tasks::execution_mode mode) {
   check(gneiss_world_entity_set_mesh_renderer(world, node.entity, &external) == GNEISS_SUCCESS);
   wait();
   check(completion.result == GNEISS_ERROR_INVALID_STATE &&
-        completion.state == render_internal::texture_load_state::failed &&
+        completion.state == engine::render::texture_load_state::failed &&
         completion.assets.empty() && completion.textures.empty() && completion.versions.empty());
   const std::array unchanged{
-      world_internal::mesh_renderer_replacement{.entity = gneiss::entity_id{node.entity},
-                                                .expected = {external.mesh, external.material},
-                                                .replacement = {external.mesh, external.material}}};
-  check(world_internal::replace_mesh_renderers(world, unchanged) == GNEISS_SUCCESS);
+      engine::world::mesh_renderer_replacement{.entity = gneiss::entity_id{node.entity},
+                                               .expected = {external.mesh, external.material},
+                                               .replacement = {external.mesh, external.material}}};
+  check(engine::world::replace_mesh_renderers(world, unchanged) == GNEISS_SUCCESS);
   // 卸载冲突使用者后可重试；完成后释放租约，Application 仍可正常关闭。
   check(gneiss_scene_instance_unload(app.get(), scene) == GNEISS_SUCCESS);
   check(gneiss_scene_instance_load(app.get(), scene_uri.data(), scene_uri.size(), &scene) ==

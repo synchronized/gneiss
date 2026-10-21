@@ -13,14 +13,14 @@ namespace gneiss::api {
 /** 只读取调用方声明的版本字段；失败保留输出，数值与资源归属由 Render 校验。 */
 [[nodiscard]] inline gneiss_result
 read_material_description(const gneiss_material_desc& desc,
-                          render_internal::material_resource& output) noexcept {
+                          engine::render::material_resource& output) noexcept {
   if ((desc.struct_size != GNEISS_MATERIAL_DESC_VERSION_1_SIZE &&
        desc.struct_size != GNEISS_MATERIAL_DESC_VERSION_2_SIZE &&
        desc.struct_size < sizeof(gneiss_material_desc)) ||
       desc.reserved != 0U) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
-  render_internal::material_resource value{
+  engine::render::material_resource value{
       .red = desc.red,
       .green = desc.green,
       .blue = desc.blue,

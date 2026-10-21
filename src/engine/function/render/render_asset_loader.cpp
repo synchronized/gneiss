@@ -25,9 +25,9 @@ namespace {
 using namespace gneiss::engine::resource::asset_parsing;
 
 // 仅在所属线程的发布边界构造资源值，随后绑定经过验证的纹理租约。
-[[nodiscard]] gneiss::render_internal::material_resource
+[[nodiscard]] gneiss::engine::render::material_resource
 material_for_publication(const gneiss::engine::resource::material_parameters& parameters) noexcept {
-  gneiss::render_internal::material_resource material{
+  gneiss::engine::render::material_resource material{
       .red = parameters.color[0],
       .green = parameters.color[1],
       .blue = parameters.color[2],
@@ -48,7 +48,7 @@ material_for_publication(const gneiss::engine::resource::material_parameters& pa
 }
 
 // 数组所有权在发布边界移动，弱上传引用由 Render 随后建立。
-[[nodiscard]] gneiss::render_internal::texture_resource
+[[nodiscard]] gneiss::engine::render::texture_resource
 texture_for_publication(gneiss::engine::resource::prepared_texture_data prepared) noexcept {
   return {.width = prepared.width,
           .height = prepared.height,
@@ -68,12 +68,12 @@ constexpr std::uint32_t material_type = 2;
 constexpr std::uint32_t texture_type = 3;
 
 struct mesh_asset final {
-  mesh_asset(gneiss::render_internal::render_resource_service& owner,
+  mesh_asset(gneiss::engine::render::render_resource_service& owner,
              gneiss::core::rid value) noexcept
       : resources(&owner), rid(value) {}
   mesh_asset(const mesh_asset&) = delete;
   mesh_asset& operator=(const mesh_asset&) = delete;
-  gneiss::render_internal::render_resource_service* resources;
+  gneiss::engine::render::render_resource_service* resources;
   gneiss::core::rid rid;
   ~mesh_asset() {
     if (resources != nullptr && rid != gneiss::core::null_rid) {
@@ -84,13 +84,13 @@ struct mesh_asset final {
 
 struct material_asset final {
   material_asset(
-      gneiss::render_internal::render_resource_service& owner, gneiss::core::rid value,
+      gneiss::engine::render::render_resource_service& owner, gneiss::core::rid value,
       std::array<std::shared_ptr<const gneiss::engine::resource::resource_cache::entry>, 5>
           texture_dependencies = {}) noexcept
       : resources(&owner), rid(value), textures(std::move(texture_dependencies)) {}
   material_asset(const material_asset&) = delete;
   material_asset& operator=(const material_asset&) = delete;
-  gneiss::render_internal::render_resource_service* resources;
+  gneiss::engine::render::render_resource_service* resources;
   gneiss::core::rid rid;
   std::array<std::shared_ptr<const gneiss::engine::resource::resource_cache::entry>, 5> textures;
   std::shared_ptr<const gneiss::engine::resource::material_document_reference> document;
@@ -102,12 +102,12 @@ struct material_asset final {
 };
 
 struct texture_asset final {
-  texture_asset(gneiss::render_internal::render_resource_service& owner,
+  texture_asset(gneiss::engine::render::render_resource_service& owner,
                 gneiss::core::rid value) noexcept
       : resources(&owner), rid(value) {}
   texture_asset(const texture_asset&) = delete;
   texture_asset& operator=(const texture_asset&) = delete;
-  gneiss::render_internal::render_resource_service* resources;
+  gneiss::engine::render::render_resource_service* resources;
   gneiss::core::rid rid;
   ~texture_asset() {
     if (resources != nullptr && rid != gneiss::core::null_rid) {
@@ -118,7 +118,7 @@ struct texture_asset final {
 
 } // namespace
 
-namespace gneiss::render_internal {
+namespace gneiss::engine::render {
 
 gneiss::core::rid mesh_asset_lease::get() const noexcept {
   if (entry_ == nullptr || entry_->resource == nullptr) {
@@ -965,9 +965,9 @@ gneiss_result render_asset_loader::reload_assets(std::span<const render_asset_re
   }
 }
 
-} // namespace gneiss::render_internal
+} // namespace gneiss::engine::render
 
-namespace gneiss::render_internal {
+namespace gneiss::engine::render {
 gneiss_result render_asset_loader::prepare_adoption(
     std::span<const render_asset_lease> assets,
     std::span<const engine::resource::asset_version_key> versions, texture_prepare_profile profile,
@@ -990,4 +990,4 @@ gneiss_result render_asset_loader::prepare_adoption(
 } catch (...) {
   return GNEISS_ERROR_INTERNAL;
 }
-} // namespace gneiss::render_internal
+} // namespace gneiss::engine::render

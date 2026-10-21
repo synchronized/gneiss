@@ -37,13 +37,13 @@ public:
   [[nodiscard]] gneiss_result submit(runtime::application& application);
 
 private:
-  void process_input(const input_internal::input_event& event);
+  void process_input(const engine::input::input_event& event);
 
   ImGuiContext* context_ = nullptr;
   core::rid font_texture_{};
-  std::vector<render_internal::ui_vertex> vertices_;
+  std::vector<engine::render::ui_vertex> vertices_;
   std::vector<std::uint32_t> indices_;
-  std::vector<render_internal::ui_draw_command> commands_;
+  std::vector<engine::render::ui_draw_command> commands_;
 };
 
 } // namespace gneiss::editor

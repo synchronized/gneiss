@@ -20,8 +20,7 @@ struct system_context {
   int delta = 0;
 };
 
-gneiss_result update_position(gneiss::world_internal::world_state& world,
-                              void* user_data) noexcept {
+gneiss_result update_position(gneiss::engine::world::world_state& world, void* user_data) noexcept {
   auto& context = *static_cast<system_context*>(user_data);
   context.events[context.count++] = 1;
   try {
@@ -34,14 +33,13 @@ gneiss_result update_position(gneiss::world_internal::world_state& world,
   }
 }
 
-gneiss_result fail_system(gneiss::world_internal::world_state& /*world*/,
-                          void* user_data) noexcept {
+gneiss_result fail_system(gneiss::engine::world::world_state& /*world*/, void* user_data) noexcept {
   auto& context = *static_cast<system_context*>(user_data);
   context.events[context.count++] = 2;
   return GNEISS_ERROR_INVALID_STATE;
 }
 
-gneiss_result skipped_system(gneiss::world_internal::world_state& /*world*/,
+gneiss_result skipped_system(gneiss::engine::world::world_state& /*world*/,
                              void* user_data) noexcept {
   auto& context = *static_cast<system_context*>(user_data);
   context.events[context.count++] = 3;
@@ -51,8 +49,8 @@ gneiss_result skipped_system(gneiss::world_internal::world_state& /*world*/,
 } // namespace
 
 int run_tests() {
-  gneiss::world_internal::world_state first{1};
-  gneiss::world_internal::world_state second{2};
+  gneiss::engine::world::world_state first{1};
+  gneiss::engine::world::world_state second{2};
   const auto entity = first.create_entity();
   first.emplace<position>(entity, 10);
   if (!first.is_alive(entity) || second.is_alive(entity) || first.entity_count() != 1U) {
@@ -60,7 +58,7 @@ int run_tests() {
   }
 
   system_context context{.delta = 5};
-  gneiss::world_internal::system_scheduler scheduler;
+  gneiss::engine::world::system_scheduler scheduler;
   if (scheduler.add(1, update_position, &context) != GNEISS_SUCCESS ||
       scheduler.add(2, fail_system, &context) != GNEISS_SUCCESS ||
       scheduler.add(3, skipped_system, &context) != GNEISS_SUCCESS ||

@@ -13,7 +13,7 @@
 #include <thread>
 #include <utility>
 
-namespace gneiss::render_internal {
+namespace gneiss::engine::render {
 
 void render_command_reporter::report(render_command_stage stage, std::uint64_t completed_work,
                                      std::uint64_t total_work) const {
@@ -407,4 +407,4 @@ bool threaded_render_executor::is_running() const noexcept {
   return !state_->stopping;
 }
 
-} // namespace gneiss::render_internal
+} // namespace gneiss::engine::render

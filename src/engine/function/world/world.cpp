@@ -17,7 +17,7 @@ bool is_valid_camera(float vertical_field_of_view_radians, float near_plane,
 }
 
 template <typename Function>
-gneiss_result with_state(gneiss::world_internal::world_state& state, Function&& function) noexcept {
+gneiss_result with_state(gneiss::engine::world::world_state& state, Function&& function) noexcept {
   if (!state.is_owner_thread())
     return GNEISS_ERROR_INVALID_STATE;
   try {
@@ -29,8 +29,7 @@ gneiss_result with_state(gneiss::world_internal::world_state& state, Function&& 
   }
 }
 }
-namespace gneiss::engine {
-using namespace world_internal;
+namespace gneiss::engine::world {
 world::world(std::uint32_t domain) : state_(std::make_unique<world_state>(domain)) {}
 world::~world() noexcept = default;
 bool world::is_owner_thread() const noexcept { return state_->is_owner_thread(); }
@@ -255,7 +254,7 @@ gneiss_result world::entity_get_camera(entity_id entity_value,
     if (!state->is_alive(entity)) {
       return GNEISS_ERROR_INVALID_HANDLE;
     }
-    const auto* component = state->get<gneiss::world_internal::camera_component>(entity);
+    const auto* component = state->get<gneiss::engine::world::camera_component>(entity);
     if (component == nullptr) {
       return GNEISS_ERROR_NOT_FOUND;
     }
@@ -562,8 +561,8 @@ gneiss_result world::entity_set_local_transform(entity_id entity_value,
 }
 gneiss_result world::get_render_snapshot(std::uint32_t viewport_width,
                                          std::uint32_t viewport_height,
-                                         render_internal::render_snapshot& out_snapshot,
-                                         const render_internal::view_camera* camera) noexcept {
+                                         engine::render::render_snapshot& out_snapshot,
+                                         const engine::render::view_camera* camera) noexcept {
   try {
     auto* state = state_.get();
     const auto thread_result = (is_owner_thread() ? GNEISS_SUCCESS : GNEISS_ERROR_INVALID_STATE);

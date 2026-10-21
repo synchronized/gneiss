@@ -10,7 +10,7 @@
 #include <vector>
 
 int main() {
-  using namespace gneiss::render_internal;
+  using namespace gneiss::engine::render;
   render_frame_packet inline_packet;
   inline_packet.window.width = 7U;
   inline_render_executor inline_executor(

@@ -6,7 +6,7 @@
 #include "engine/function/render/render_resource_data.hpp"
 #include "engine/resource/loaders/asset_preparation.hpp"
 
-namespace gneiss::render_internal {
+namespace gneiss::engine::render {
 
 using asset_diagnostic = engine::resource::asset_diagnostic;
 using render_asset_type = engine::resource::asset_type;
@@ -28,4 +28,4 @@ prepare_render_assets(const engine::resource::virtual_file_system& file_system,
                                           profile);
 }
 
-} // namespace gneiss::render_internal
+} // namespace gneiss::engine::render

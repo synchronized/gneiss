@@ -12,9 +12,9 @@
 namespace {
 bool native_operations() {
   using namespace gneiss;
-  world_internal::world_owner owner;
+  engine::world::world_owner owner;
   gneiss_world borrowed{};
-  if (world_internal::create_native(owner, borrowed) != GNEISS_SUCCESS)
+  if (engine::world::create_native(owner, borrowed) != GNEISS_SUCCESS)
     return false;
   entity_id entity{};
   scene_node_id node{};
@@ -52,7 +52,7 @@ bool native_operations() {
       owner->entity_is_alive(gneiss::entity_id{entity}, alive) != GNEISS_SUCCESS || !alive)
     return false;
   core::publication group;
-  world_internal::staged_object candidate;
+  engine::world::staged_object candidate;
   if (owner->begin_publication(group) != GNEISS_SUCCESS ||
       owner->create_staged_object(group, {}, candidate) != GNEISS_SUCCESS ||
       owner->entity_count(count) != GNEISS_SUCCESS || count != 1 ||
@@ -64,9 +64,9 @@ bool native_operations() {
 }
 
 bool original_groups_visible(
-    gneiss_world world, const std::array<gneiss::world_internal::staged_object, 2>& old_objects,
-    const std::array<gneiss::world_internal::staged_object, 2>& new_objects) {
-  namespace service = gneiss::world_internal;
+    gneiss_world world, const std::array<gneiss::engine::world::staged_object, 2>& old_objects,
+    const std::array<gneiss::engine::world::staged_object, 2>& new_objects) {
+  namespace service = gneiss::engine::world;
 
   std::uint64_t count{};
   gneiss_entity_id active{};
@@ -87,7 +87,7 @@ bool original_groups_visible(
   return true;
 }
 bool batch_publication_test() {
-  namespace service = gneiss::world_internal;
+  namespace service = gneiss::engine::world;
   gneiss_world world{};
   gneiss_world other{};
   if (service::create(world) != GNEISS_SUCCESS || service::create(other) != GNEISS_SUCCESS) {
@@ -186,7 +186,7 @@ int main() {
   if (!batch_publication_test()) {
     return 19;
   }
-  namespace service = gneiss::world_internal;
+  namespace service = gneiss::engine::world;
   gneiss_world world{};
   const gneiss_world_desc desc = GNEISS_WORLD_DESC_INIT;
   if (gneiss_world_create(&desc, &world) != GNEISS_SUCCESS) {

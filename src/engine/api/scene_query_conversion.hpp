@@ -18,7 +18,7 @@ inline gneiss_transform write_transform(const engine::transform& value) noexcept
 }
 
 /** 调用方已验证最小尺寸；仅写入其声明版本内的字段。 */
-inline void write_scene_node(const scene_internal::scene_node_view& value,
+inline void write_scene_node(const engine::scene::scene_node_view& value,
                              gneiss_scene_instance_node_info& output) noexcept {
   output.reserved = 0U;
   output.node = value.node.get();
@@ -49,7 +49,7 @@ inline void write_scene_node(const scene_internal::scene_node_view& value,
   }
 }
 
-inline void write_prefab_node(const scene_internal::prefab_node_view& value,
+inline void write_prefab_node(const engine::scene::prefab_node_view& value,
                               gneiss_scene_prefab_node_info& output) noexcept {
   const auto size = output.struct_size;
   output = GNEISS_SCENE_PREFAB_NODE_INFO_INIT;

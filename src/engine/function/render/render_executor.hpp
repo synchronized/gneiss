@@ -14,7 +14,7 @@
 #include <memory>
 #include <utility>
 
-namespace gneiss::render_internal {
+namespace gneiss::engine::render {
 
 enum class render_frame_policy : std::uint8_t { replaceable, required };
 
@@ -84,7 +84,6 @@ private:
   std::function<void(render_command_stage, std::uint64_t, std::uint64_t)> publish_;
 };
 
-
 using render_frame_callback =
     std::function<gneiss_result(render_frame_packet&, render_execution_result&)>;
 using render_command_callback = std::function<gneiss_result(const render_command_reporter&)>;
@@ -130,6 +129,6 @@ private:
   std::unique_ptr<state> state_;
 };
 
-} // namespace gneiss::render_internal
+} // namespace gneiss::engine::render
 
 #endif

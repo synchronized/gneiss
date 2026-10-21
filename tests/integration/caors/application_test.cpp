@@ -101,7 +101,7 @@ void run(const char* assets, bool cooperative) {
   config.callbacks.update = [&](auto, const auto&) {
     ++frames;
     if (app->action_map_status() == GNEISS_SUCCESS) {
-      input_internal::action_id id;
+      engine::input::action_id id;
       check(app->find_action("move_horizontal", id) == GNEISS_SUCCESS, "ready before update");
       seen_ready = true;
     }
@@ -139,7 +139,7 @@ void run(const char* assets, bool cooperative) {
         "async oversized request admitted");
   wait();
   check(app->action_map_status() == GNEISS_ERROR_INVALID_ARGUMENT, "async document limit");
-  input_internal::action_id original;
+  engine::input::action_id original;
   check(app->find_action("move_horizontal", original) == GNEISS_SUCCESS, "original action");
   {
     std::ofstream invalid(file);
@@ -148,7 +148,7 @@ void run(const char* assets, bool cooperative) {
   check(app->begin_action_map("asset://input/default.input-map.json") == GNEISS_SUCCESS, "reload");
   wait();
   check(app->action_map_status() != GNEISS_SUCCESS, "invalid reload failed");
-  input_internal::action_id retained;
+  engine::input::action_id retained;
   check(app->find_action("move_horizontal", retained) == GNEISS_SUCCESS && retained == original,
         "failure preserves action identity");
   check(app->begin_action_map("asset://input/missing.json") == GNEISS_SUCCESS, "cancel begin");

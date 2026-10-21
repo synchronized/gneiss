@@ -7,8 +7,8 @@
 #include <gneiss/engine/core/entity.hpp>
 #include <gneiss/engine/core/scene_types.hpp>
 
-namespace gneiss::world_internal {
-using camera_settings = render_internal::camera_settings;
+namespace gneiss::engine::world {
+using camera_settings = engine::render::camera_settings;
 struct mesh_renderer_replacement {
   entity_id entity{};
   mesh_renderer expected{};

@@ -16,9 +16,9 @@ struct converted_ui_draw {
   converted_ui_draw& operator=(const converted_ui_draw&) = delete;
   converted_ui_draw(converted_ui_draw&&) = default;
   converted_ui_draw& operator=(converted_ui_draw&&) = default;
-  std::vector<render_internal::ui_vertex> vertices;
-  std::vector<render_internal::ui_draw_command> commands;
-  render_internal::ui_draw_view view;
+  std::vector<engine::render::ui_vertex> vertices;
+  std::vector<engine::render::ui_draw_command> commands;
+  engine::render::ui_draw_view view;
 };
 
 /** 解析 ABI 布局与同步借用范围，失败保留输出；绘制语义由 Render 校验。 */
@@ -66,13 +66,13 @@ struct converted_ui_draw {
 
 [[nodiscard]] inline gneiss_result
 read_debug_draw_description(const gneiss_debug_draw_list_desc& desc,
-                            std::vector<render_internal::debug_line>& output) {
+                            std::vector<engine::render::debug_line>& output) {
   if (desc.struct_size < GNEISS_DEBUG_DRAW_LIST_DESC_VERSION_1_SIZE || desc.reserved != 0U ||
       desc.reserved_2 != 0U || (desc.line_count != 0U && desc.lines == nullptr) ||
       desc.line_count > 1024U * 1024U) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
-  std::vector<render_internal::debug_line> candidate;
+  std::vector<engine::render::debug_line> candidate;
   candidate.reserve(desc.line_count);
   for (std::uint32_t index = 0; index < desc.line_count; ++index) {
     const auto& value = desc.lines[index];

@@ -6,7 +6,7 @@
 #include <algorithm>
 #include <new>
 
-namespace gneiss::world_internal {
+namespace gneiss::engine::world {
 
 gneiss_result system_scheduler::add(system_id id, system_callback callback,
                                     void* user_data) noexcept {
@@ -34,4 +34,4 @@ gneiss_result system_scheduler::run(world_state& world) noexcept {
   return GNEISS_SUCCESS;
 }
 
-} // namespace gneiss::world_internal
+} // namespace gneiss::engine::world

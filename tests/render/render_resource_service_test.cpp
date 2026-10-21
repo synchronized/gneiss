@@ -13,20 +13,20 @@
 
 namespace {
 // ABI 版本兼容和服务校验合并验证，内部调用本身只使用借用视图。
-gneiss_result create_mesh(gneiss::render_internal::render_resource_service& resources,
+gneiss_result create_mesh(gneiss::engine::render::render_resource_service& resources,
                           const gneiss_mesh_desc& desc, gneiss_mesh* output) {
   gneiss::engine::resource::mesh_data value;
   const auto converted = gneiss::api::read_mesh_description(desc, value);
   return converted == GNEISS_SUCCESS ? resources.create_mesh(std::move(value), output) : converted;
 }
-gneiss_result create_texture(gneiss::render_internal::render_resource_service& resources,
+gneiss_result create_texture(gneiss::engine::render::render_resource_service& resources,
                              const gneiss_texture_desc& desc, gneiss_texture* output) {
-  gneiss::render_internal::texture_view value;
+  gneiss::engine::render::texture_view value;
   const auto converted = gneiss::api::read_texture_description(desc, value);
   return converted == GNEISS_SUCCESS ? resources.create_texture(value, output) : converted;
 }
 bool verify_borrowed_inputs() {
-  using namespace gneiss::render_internal;
+  using namespace gneiss::engine::render;
   render_resource_service resources;
   std::array<gneiss::engine::resource::mesh_vertex, 3> vertices{};
   gneiss::engine::resource::mesh_view mesh_source;
@@ -89,7 +89,7 @@ bool verify_borrowed_inputs() {
 }
 
 bool verify_shared_budget() {
-  using namespace gneiss::render_internal;
+  using namespace gneiss::engine::render;
   render_resource_service resources{32U};
   const std::array<std::uint8_t, 16> pixels{};
   gneiss_texture_desc desc = GNEISS_TEXTURE_DESC_INIT;
@@ -144,7 +144,7 @@ int main() {
   if (!verify_shared_budget()) {
     return 30;
   }
-  gneiss::render_internal::render_resource_service resources;
+  gneiss::engine::render::render_resource_service resources;
   constexpr std::array vertices{
       gneiss_mesh_vertex{.x = 0.0F, .y = 0.0F, .z = 0.0F, .u = 0.0F, .v = 0.0F},
       gneiss_mesh_vertex{.x = 1.0F, .y = 0.0F, .z = 0.0F, .u = 1.0F, .v = 0.0F},

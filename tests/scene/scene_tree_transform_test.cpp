@@ -61,7 +61,7 @@ bool approximately_equal(const gneiss::engine::transform& left,
 }
 
 int run_tests() {
-  gneiss::scene_internal::scene_tree tree{17};
+  gneiss::engine::scene::scene_tree tree{17};
   gneiss_scene_node_id root{};
   gneiss_scene_node_id child{};
   gneiss_scene_node_id grandchild{};

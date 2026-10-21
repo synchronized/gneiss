@@ -81,10 +81,10 @@ build_index(const std::vector<gneiss::engine::resource::object_description>& obj
   return GNEISS_SUCCESS;
 }
 
-[[nodiscard]] gneiss::scene_internal::structural_change
+[[nodiscard]] gneiss::engine::scene::structural_change
 compare_objects(const gneiss::engine::resource::object_description& old_object,
                 const gneiss::engine::resource::object_description& new_object) {
-  using gneiss::scene_internal::structural_change;
+  using gneiss::engine::scene::structural_change;
   auto changes = structural_change::none;
   if (old_object.name != new_object.name) {
     changes = changes | structural_change::name;
@@ -107,7 +107,7 @@ compare_objects(const gneiss::engine::resource::object_description& old_object,
 
 } // namespace
 
-namespace gneiss::scene_internal {
+namespace gneiss::engine::scene {
 
 gneiss_result
 build_structural_diff(const std::vector<gneiss::engine::resource::object_description>& old_objects,
@@ -169,4 +169,4 @@ build_structural_diff(const std::vector<gneiss::engine::resource::object_descrip
   }
 }
 
-} // namespace gneiss::scene_internal
+} // namespace gneiss::engine::scene

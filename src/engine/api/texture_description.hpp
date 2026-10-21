@@ -13,7 +13,7 @@ namespace gneiss::api {
 /** 先验证字节数可表示为本机范围，再构造借用视图；失败保留输出。 */
 [[nodiscard]] inline gneiss_result
 read_texture_description(const gneiss_texture_desc& desc,
-                         render_internal::texture_view& output) noexcept {
+                         engine::render::texture_view& output) noexcept {
   if (desc.struct_size < sizeof(gneiss_texture_desc) || desc.reserved[0] != 0U ||
       desc.reserved[1] != 0U || desc.pixels == nullptr ||
       desc.pixel_data_size > std::numeric_limits<std::size_t>::max()) {

@@ -144,14 +144,14 @@ gneiss_scene_instance_get_node_info(gneiss_application application, gneiss_scene
     if (validation_result != GNEISS_SUCCESS) {
       return validation_result;
     }
-    using gneiss::scene_internal::node_query_detail;
+    using gneiss::engine::scene::node_query_detail;
     auto detail = node_query_detail::identity;
     if (out_info->struct_size >= GNEISS_SCENE_INSTANCE_NODE_INFO_VERSION_3_SIZE) {
       detail = node_query_detail::components;
     } else if (out_info->struct_size >= GNEISS_SCENE_INSTANCE_NODE_INFO_VERSION_2_SIZE) {
       detail = node_query_detail::assets;
     }
-    gneiss::scene_internal::scene_node_view value;
+    gneiss::engine::scene::scene_node_view value;
     const auto result = state->scenes()->get_node_info(instance, index, value, detail);
     gneiss::api::write_scene_node(value, *out_info);
     return result;
@@ -191,7 +191,7 @@ gneiss_scene_instance_get_prefab_node_info(gneiss_application application,
     if (validation_result != GNEISS_SUCCESS) {
       return validation_result;
     }
-    gneiss::scene_internal::prefab_node_view value;
+    gneiss::engine::scene::prefab_node_view value;
     const auto result = state->scenes()->get_prefab_node_info(instance, index, value);
     gneiss::api::write_prefab_node(value, *out_info);
     return result;
@@ -222,7 +222,7 @@ extern "C" gneiss_result gneiss_scene_instance_create_prefab_instance(
     if (validation_result != GNEISS_SUCCESS) {
       return validation_result;
     }
-    const gneiss::scene_internal::prefab_creation value{
+    const gneiss::engine::scene::prefab_creation value{
         .instance_uuid =
             {
                 desc->instance_uuid,
@@ -382,7 +382,7 @@ extern "C" gneiss_result gneiss_scene_instance_create_node(gneiss_application ap
     if (validation_result != GNEISS_SUCCESS) {
       return validation_result;
     }
-    const gneiss::scene_internal::node_creation value{
+    const gneiss::engine::scene::node_creation value{
         .uuid =
             {
                 desc->uuid,
@@ -511,7 +511,7 @@ gneiss_scene_instance_restore_subtree(gneiss_application application,
     if (validation_result != GNEISS_SUCCESS) {
       return validation_result;
     }
-    std::vector<gneiss::scene_internal::uuid_mapping> values;
+    std::vector<gneiss::engine::scene::uuid_mapping> values;
     values.reserve(static_cast<std::size_t>(mapping_count));
     for (std::uint64_t index = 0; index < mapping_count; ++index) {
       const auto& mapping = mappings[index];
@@ -575,7 +575,7 @@ extern "C" gneiss_result gneiss_scene_instance_create_mesh_renderer_node(
     if (validation_result != GNEISS_SUCCESS) {
       return validation_result;
     }
-    const gneiss::scene_internal::mesh_renderer_node_creation value{
+    const gneiss::engine::scene::mesh_renderer_node_creation value{
         .uuid =
             {
                 desc->uuid,

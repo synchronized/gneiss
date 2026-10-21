@@ -12,7 +12,7 @@
 #include <span>
 #include <vector>
 
-namespace gneiss::render_internal {
+namespace gneiss::engine::render {
 
 /** 同步提交借用；成功后绘制列表拥有数组副本，失败保留上一份列表。 */
 struct ui_draw_view {
@@ -49,6 +49,6 @@ private:
   std::vector<ui_draw_command> commands_;
 };
 
-} // namespace gneiss::render_internal
+} // namespace gneiss::engine::render
 
 #endif

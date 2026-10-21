@@ -76,7 +76,7 @@ result runtime_property_editor::initialize(gneiss_world world, runtime_scene_ins
     return result::invalid_argument;
   }
   reflection_internal::registry_ref registry;
-  const auto operation = world_internal::create_property_registry(registry);
+  const auto operation = engine::world::create_property_registry(registry);
   if (operation.failed()) {
     return operation;
   }

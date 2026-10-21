@@ -11,7 +11,7 @@ namespace {
 std::atomic_uint32_t next_action_generation{1};
 }
 
-namespace gneiss::input_internal {
+namespace gneiss::engine::input {
 
 void input_service::begin_frame() noexcept {
   read_index_ = 0;
@@ -143,4 +143,4 @@ void input_service::apply(const input_event& event) noexcept {
   }
 }
 
-} // namespace gneiss::input_internal
+} // namespace gneiss::engine::input

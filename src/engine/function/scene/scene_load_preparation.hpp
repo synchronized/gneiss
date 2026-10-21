@@ -9,7 +9,7 @@
 #include <functional>
 #include <map>
 
-namespace gneiss::scene_internal {
+namespace gneiss::engine::scene {
 
 struct scene_prepare_limits {
   std::size_t source_bytes{16U * 1024U * 1024U};
@@ -31,7 +31,7 @@ struct prepared_scene_description {
   gneiss::engine::resource::scene_description description;
   std::vector<std::size_t> parent_first;
   std::map<std::string, prepared_prefab_description> prefabs;
-  std::vector<render_internal::render_asset_reload> assets;
+  std::vector<engine::render::render_asset_reload> assets;
   std::size_t instance_nodes{};
   std::size_t source_bytes{};
 };
@@ -50,4 +50,4 @@ struct prepared_scene_description {
     prepared_scene_description& output, gneiss::engine::resource::scene_diagnostic& diagnostic,
     const std::function<bool()>& cancelled, scene_prepare_limits limits = {}) noexcept;
 
-} // namespace gneiss::scene_internal
+} // namespace gneiss::engine::scene

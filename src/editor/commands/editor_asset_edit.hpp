@@ -28,7 +28,7 @@ public:
   bool active() const noexcept { return active_; }
   bool visible() const noexcept { return visible_; }
   result operation() const noexcept { return operation_; }
-  const render_internal::asset_load_progress& progress() const noexcept { return progress_; }
+  const engine::render::asset_load_progress& progress() const noexcept { return progress_; }
 
 private:
   result request_impl(runtime::application& application, scene_document& session,
@@ -40,12 +40,12 @@ private:
   bool creating_{};
   result commit(runtime::application& application, scene_document& session,
                 editor_command_history& history);
-  scene_internal::scene_mesh_binding previous_, next_;
+  engine::scene::scene_mesh_binding previous_, next_;
   gneiss_scene_instance scene_{};
   scene_node_id node_;
   std::string mesh_, material_;
   std::uint64_t revision_{}, request_{};
-  render_internal::asset_load_progress progress_;
+  engine::render::asset_load_progress progress_;
   result operation_{result::success};
   bool active_{}, visible_{}, cancelled_{};
 };

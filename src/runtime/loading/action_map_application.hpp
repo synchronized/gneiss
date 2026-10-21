@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 #pragma once
 #include "engine/resource/action_map_request.hpp"
-namespace gneiss::input_internal {
+namespace gneiss::engine::input {
 class input_service;
 }
 namespace gneiss::runtime {
@@ -21,7 +21,7 @@ public:
   void cancel() noexcept;
   [[nodiscard]] result status() const noexcept { return result_; }
   /** 不推进调度器或等待 I/O；加载完成后最多替换一次。失败保留原映射与 action_id。 */
-  [[nodiscard]] result poll(input_internal::input_service& target) noexcept;
+  [[nodiscard]] result poll(engine::input::input_service& target) noexcept;
   [[nodiscard]] action_map_apply_state state() const noexcept { return state_; }
 
 private:

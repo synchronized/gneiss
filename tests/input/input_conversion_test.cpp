@@ -4,7 +4,7 @@
 #include "engine/api/input_conversion.hpp"
 #include <algorithm>
 
-using namespace gneiss::input_internal;
+using namespace gneiss::engine::input;
 using gneiss::abi_internal::input_event_to_abi;
 using gneiss::abi_internal::input_state_to_abi;
 

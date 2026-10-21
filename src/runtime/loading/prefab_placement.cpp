@@ -26,8 +26,8 @@ gneiss_result prefab_placement::capture_step(runtime::application& application,
     if (result != GNEISS_SUCCESS) {
       return result;
     }
-    scene_internal::structural_diff order;
-    result = scene_internal::build_structural_diff({}, candidate->prefab.get()->objects, order);
+    engine::scene::structural_diff order;
+    result = engine::scene::build_structural_diff({}, candidate->prefab.get()->objects, order);
     if (result != GNEISS_SUCCESS) {
       return result;
     }
@@ -40,7 +40,7 @@ gneiss_result prefab_placement::capture_step(runtime::application& application,
   }
   for (unsigned step = 0; step < 64U && snapshot->bindings.size() < snapshot->order.size();
        ++step) {
-    scene_internal::scene_mesh_binding binding;
+    engine::scene::scene_mesh_binding binding;
     const auto result =
         host->scenes()->capture_prefab_binding(scene, uuid, snapshot->bindings.size(), binding);
     if (result != GNEISS_SUCCESS) {
@@ -58,9 +58,9 @@ gneiss_result prefab_placement::capture_step(runtime::application& application,
 
 gneiss_result
 prefab_placement::freeze(runtime::application& application,
-                         scene_internal::prepared_prefab_description prepared,
+                         engine::scene::prepared_prefab_description prepared,
                          engine::resource::prefab_instance_description author,
-                         std::vector<render_internal::render_asset_lease> assets,
+                         std::vector<engine::render::render_asset_lease> assets,
                          std::shared_ptr<const prefab_placement_snapshot>& output) noexcept try {
   auto* host = &application;
   const auto validation = host->is_owner_thread() && host->accepts_requests()
@@ -134,9 +134,9 @@ gneiss_result prefab_placement::create_next_node() {
   const auto& source = snapshot_->prefab.get()->objects.at(index);
   const auto find = [&](const std::string& uri) {
     const auto found = snapshot_->assets.find(uri);
-    return found == snapshot_->assets.end() ? render_internal::render_asset_lease{} : found->second;
+    return found == snapshot_->assets.end() ? engine::render::render_asset_lease{} : found->second;
   };
-  scene_internal::scene_mesh_binding binding;
+  engine::scene::scene_mesh_binding binding;
   if (!snapshot_->bindings.empty()) {
     binding = snapshot_->bindings.at(index);
   } else if (source.mesh_renderer) {
@@ -148,8 +148,8 @@ gneiss_result prefab_placement::create_next_node() {
   scene_node_id node{};
   const auto result = candidate_.create_node(
       index, source.parent_uuid ? nodes_.at(*source.parent_uuid) : candidate_.root(),
-      render_internal::render_asset_loader::mesh_lease(binding.mesh),
-      render_internal::render_asset_loader::material_lease(binding.material), node);
+      engine::render::render_asset_loader::mesh_lease(binding.mesh),
+      engine::render::render_asset_loader::material_lease(binding.material), node);
   if (result != GNEISS_SUCCESS)
     return result;
   nodes_.emplace(source.uuid, node);
@@ -198,7 +198,7 @@ gneiss_result prefab_placement::advance(bool& ready) noexcept try {
 std::size_t prefab_placement::node_count() const noexcept { return snapshot_->order.size() + 1U; }
 scene_node_id prefab_placement::root() const noexcept { return root_; }
 gneiss_result prefab_placement::preview(std::size_t index,
-                                        scene_internal::prefab_node_view& output) const noexcept {
+                                        engine::scene::prefab_node_view& output) const noexcept {
   output = {};
   if (!ready_ || removing_ || !candidate_.is_valid() || index >= node_count()) {
     return GNEISS_ERROR_INVALID_STATE;
@@ -234,7 +234,7 @@ prefab_placement::commit_replacements(std::span<prefab_placement* const> entries
   if (validation != GNEISS_SUCCESS) {
     return validation;
   }
-  std::vector<scene_internal::prefab_candidate*> replacements;
+  std::vector<engine::scene::prefab_candidate*> replacements;
   replacements.reserve(entries.size());
   for (auto* entry : entries) {
     if (entry == nullptr || &entry->application_ != &application || entry->scene_ != scene ||

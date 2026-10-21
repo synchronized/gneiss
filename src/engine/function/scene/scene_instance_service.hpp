@@ -27,7 +27,7 @@ namespace gneiss::engine::resource {
 class virtual_file_system;
 }
 
-namespace gneiss::scene_internal {
+namespace gneiss::engine::scene {
 
 class scene_instance;
 
@@ -73,10 +73,10 @@ public:
    * 成功替换 output，失败保持 output；快照延长资源寿命，须早于渲染服务释放。
    * 不包含裸 ECS RID 使用者；后续切换仍需验证使用者当前状态。 */
   [[nodiscard]] gneiss_result
-  capture_render_assets(std::vector<render_internal::render_asset_lease>& output) noexcept;
+  capture_render_assets(std::vector<engine::render::render_asset_lease>& output) noexcept;
   struct asset_replacement {
-    render_internal::render_asset_lease previous;
-    render_internal::render_asset_lease replacement;
+    engine::render::render_asset_lease previous;
+    engine::render::render_asset_lease replacement;
   };
   /** 更新此 World 所有场景和 Prefab 中仍使用 previous RID 的节点。
    * 仅所属线程安全帧边界调用，调用前新资源须已上传；失败不切换租约或 ECS。
@@ -86,9 +86,9 @@ public:
   /** 验证普通作者节点归属，不接受 Prefab 的只读来源节点。 */
   [[nodiscard]] gneiss_result validate_editable_node(gneiss_scene_instance instance,
                                                      scene_node_id node) const noexcept;
-  scene_instance_service(engine::world& native_world, gneiss_world world,
+  scene_instance_service(engine::world::world& native_world, gneiss_world world,
                          const engine::resource::virtual_file_system& file_system,
-                         render_internal::render_asset_loader& loader,
+                         engine::render::render_asset_loader& loader,
                          gneiss::engine::resource::prefab_asset_loader& prefab_loader) noexcept;
   ~scene_instance_service() noexcept;
 
@@ -180,17 +180,17 @@ public:
 private:
   friend class scene_load_builder;
   using instance_ptr = std::unique_ptr<scene_instance>;
-  engine::world& native_world_;
+  engine::world::world& native_world_;
   // 仅供 ABI 反射回调定位；不拥有 World，不用于普通场景操作。
   gneiss_world reflection_context_;
   const engine::resource::virtual_file_system& file_system_;
-  render_internal::render_asset_loader& loader_;
+  engine::render::render_asset_loader& loader_;
   gneiss::engine::resource::prefab_asset_loader& prefab_loader_;
   gneiss_type_registry registry_ = GNEISS_NULL_TYPE_REGISTRY;
   std::uint16_t domain_;
   core::rid_table<instance_ptr> instances_;
 };
 
-} // namespace gneiss::scene_internal
+} // namespace gneiss::engine::scene
 
 #endif

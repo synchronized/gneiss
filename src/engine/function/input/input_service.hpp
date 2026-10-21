@@ -11,7 +11,7 @@
 #include <array>
 #include <cstddef>
 
-namespace gneiss::input_internal {
+namespace gneiss::engine::input {
 
 class input_service final {
 public:
@@ -43,6 +43,6 @@ private:
   std::uint32_t action_generation_{};
 };
 
-} // namespace gneiss::input_internal
+} // namespace gneiss::engine::input
 
 #endif

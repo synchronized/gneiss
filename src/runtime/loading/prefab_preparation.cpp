@@ -5,7 +5,7 @@
 
 namespace gneiss::runtime {
 struct prefab_preparation::state {
-  scene_internal::prepared_scene_description prepared;
+  engine::scene::prepared_scene_description prepared;
   engine::resource::scene_diagnostic diagnostic;
   gneiss_result result{GNEISS_ERROR_INVALID_STATE};
 };
@@ -35,7 +35,7 @@ gneiss_result prefab_preparation::create(runtime::application& application,
       {.name = "prefab.prepare", .scope = candidate->scope_},
       [result = candidate->state_, files = host->asset_files(),
        uri = std::string(uri)](const tasks::task_context& context) {
-        result->result = scene_internal::prepare_prefab_description(
+        result->result = engine::scene::prepare_prefab_description(
             files, uri, result->prepared, result->diagnostic,
             [&] { return context.stop_requested(); });
         auto state = result->result == GNEISS_SUCCESS ? tasks::task_state::succeeded
@@ -60,7 +60,7 @@ void prefab_preparation::cancel() {
   cancelled_ = true;
   executor_.cancel_scope(scope_);
 }
-gneiss_result prefab_preparation::poll(scene_internal::prepared_scene_description& output,
+gneiss_result prefab_preparation::poll(engine::scene::prepared_scene_description& output,
                                        bool& complete) {
   complete = false;
   std::vector<tasks::task_completion> completions;

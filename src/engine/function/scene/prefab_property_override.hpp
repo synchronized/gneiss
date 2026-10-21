@@ -13,7 +13,7 @@
 #include <variant>
 #include <vector>
 
-namespace gneiss::scene_internal {
+namespace gneiss::engine::scene {
 
 /** 验证作者键、值、字段存在性、类型和可写能力。Registry 必须已经冻结。 */
 [[nodiscard]] gneiss_result validate_prefab_property_override(
@@ -31,6 +31,6 @@ namespace gneiss::scene_internal {
     gneiss::engine::resource::prefab_property_override candidate,
     gneiss::engine::resource::prefab_property_value source_value) noexcept;
 
-} // namespace gneiss::scene_internal
+} // namespace gneiss::engine::scene
 
 #endif

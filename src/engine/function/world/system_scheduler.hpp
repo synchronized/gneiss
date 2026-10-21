@@ -11,7 +11,7 @@
 #include <cstdint>
 #include <vector>
 
-namespace gneiss::world_internal {
+namespace gneiss::engine::world {
 
 using system_id = std::uint32_t;
 using system_callback = gneiss_result (*)(world_state& world, void* user_data) noexcept;
@@ -33,6 +33,6 @@ private:
   std::vector<entry> systems_;
 };
 
-} // namespace gneiss::world_internal
+} // namespace gneiss::engine::world
 
 #endif

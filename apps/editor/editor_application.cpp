@@ -212,7 +212,7 @@ constexpr std::size_t matrix_index(std::size_t row, std::size_t column) noexcept
 gneiss_result submit_editor_ui(editor_state& state) {
   const auto& settings = state.camera.settings();
   const auto& transform = state.camera.current_transform();
-  const gneiss::render_internal::view_camera view{
+  const gneiss::engine::render::view_camera view{
       .camera = {settings.vertical_field_of_view_radians, settings.near_plane, settings.far_plane},
       .transform = {transform.translation, transform.rotation, transform.scale}};
   const auto operation = state.application->set_view_camera(&view);
@@ -1418,7 +1418,7 @@ gneiss_result update_editor(const gneiss::engine::frame_time* time, void* user_d
       const auto& progress = state.asset_edit.progress();
       if (state.asset_edit.active()) {
         ImGui::TextUnformatted(progress.state ==
-                                       gneiss::render_internal::texture_load_state::uploading
+                                       gneiss::engine::render::texture_load_state::uploading
                                    ? "Uploading assets"
                                    : "Preparing assets");
         if (progress.total_assets != 0U) {

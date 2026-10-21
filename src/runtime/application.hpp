@@ -26,15 +26,15 @@
 #include <memory>
 #include <span>
 
-namespace gneiss::render_internal {
+namespace gneiss::engine::render {
 class render_resource_service;
 struct frame_image;
 }
 
-namespace gneiss::scene_internal {
+namespace gneiss::engine::scene {
 class scene_instance_service;
 }
-namespace gneiss::engine {
+namespace gneiss::engine::world {
 class world;
 }
 
@@ -48,31 +48,31 @@ public:
   [[nodiscard]] static gneiss_result create(const runtime::application_configuration& config,
                                             std::shared_ptr<application>& output) noexcept;
   [[nodiscard]] const engine::resource::virtual_file_system& asset_files() const noexcept;
-  [[nodiscard]] gneiss_result set_view_camera(const render_internal::view_camera* camera) noexcept;
+  [[nodiscard]] gneiss_result set_view_camera(const engine::render::view_camera* camera) noexcept;
   [[nodiscard]] gneiss_result capture_frame(std::uint32_t width, std::uint32_t height,
-                                            render_internal::frame_image& output) noexcept;
-  [[nodiscard]] render_internal::render_queue_stats render_statistics() const noexcept;
+                                            engine::render::frame_image& output) noexcept;
+  [[nodiscard]] engine::render::render_queue_stats render_statistics() const noexcept;
   [[nodiscard]] gneiss_result attach_task_executor(tasks::task_executor& executor) noexcept;
   [[nodiscard]] bool has_asset_loading_service() const noexcept;
   [[nodiscard]] gneiss_result
-  accept_edit_assets(const render_internal::texture_load_completion& completion,
+  accept_edit_assets(const engine::render::texture_load_completion& completion,
                      const std::function<gneiss_result()>& accept);
   [[nodiscard]] gneiss_result create_mesh_node_ready(
-      gneiss_scene_instance scene, const scene_internal::mesh_renderer_node_creation& desc,
-      const scene_internal::scene_mesh_binding& prepared, scene_node_id& output) noexcept;
+      gneiss_scene_instance scene, const engine::scene::mesh_renderer_node_creation& desc,
+      const engine::scene::scene_mesh_binding& prepared, scene_node_id& output) noexcept;
   [[nodiscard]] gneiss_result collect_unused_edit_assets() noexcept;
   [[nodiscard]] gneiss_result
-  query_ready_asset(const render_internal::render_asset_reload& source,
-                    render_internal::render_asset_lease& output) noexcept;
+  query_ready_asset(const engine::render::render_asset_reload& source,
+                    engine::render::render_asset_lease& output) noexcept;
   [[nodiscard]] gneiss_result
   capture_mesh_binding(gneiss_scene_instance scene, scene_node_id node,
-                       scene_internal::scene_mesh_binding& output) noexcept;
+                       engine::scene::scene_mesh_binding& output) noexcept;
   [[nodiscard]] gneiss_result
   replace_mesh_binding(gneiss_scene_instance scene, scene_node_id node,
-                       const scene_internal::scene_mesh_binding& expected,
-                       const scene_internal::scene_mesh_binding& replacement) noexcept;
+                       const engine::scene::scene_mesh_binding& expected,
+                       const engine::scene::scene_mesh_binding& replacement) noexcept;
   [[nodiscard]] gneiss_result
-  prepare_edit_assets(std::span<const render_internal::render_asset_reload> sources,
+  prepare_edit_assets(std::span<const engine::render::render_asset_reload> sources,
                       std::uint64_t revision, std::uint64_t& request) noexcept;
   [[nodiscard]] gneiss_result request_scene(std::string_view uri, std::uint64_t session,
                                             std::uint64_t revision, std::uint64_t& request);
@@ -81,12 +81,12 @@ public:
   [[nodiscard]] gneiss_result cancel_scene(std::uint64_t request);
   [[nodiscard]] bool scene_loading() const noexcept;
   [[nodiscard]] gneiss_result
-  request_assets(std::span<const render_internal::render_asset_reload> sources,
+  request_assets(std::span<const engine::render::render_asset_reload> sources,
                  std::uint64_t session, std::uint64_t revision, std::uint64_t& request,
                  bool reload);
-  [[nodiscard]] gneiss_result poll_assets(render_internal::texture_load_completion& completion,
+  [[nodiscard]] gneiss_result poll_assets(engine::render::texture_load_completion& completion,
                                           bool& ready);
-  [[nodiscard]] bool asset_progress(render_internal::asset_load_progress& progress) const noexcept;
+  [[nodiscard]] bool asset_progress(engine::render::asset_load_progress& progress) const noexcept;
   [[nodiscard]] gneiss_result cancel_assets() noexcept;
   void advance_scene_load();
   [[nodiscard]] runtime::scene_retirement_statistics scene_retirement() const noexcept;
@@ -111,19 +111,19 @@ public:
   [[nodiscard]] bool is_owner_thread() const noexcept;
   [[nodiscard]] bool accepts_requests() const noexcept;
   [[nodiscard]] gneiss_world world() const noexcept;
-  [[nodiscard]] engine::world* native_world() const noexcept;
-  [[nodiscard]] render_internal::render_resource_service& resources() noexcept;
+  [[nodiscard]] engine::world::world* native_world() const noexcept;
+  [[nodiscard]] engine::render::render_resource_service& resources() noexcept;
   [[nodiscard]] engine::resource::prefab_asset_loader& prefab_loader() noexcept;
   [[nodiscard]] gneiss_result
-  reload_render_assets(std::span<const render_internal::render_asset_reload> assets) noexcept;
+  reload_render_assets(std::span<const engine::render::render_asset_reload> assets) noexcept;
   [[nodiscard]] gneiss_result reload_scene(gneiss_scene_instance instance,
                                            std::string_view uri) noexcept;
   [[nodiscard]] gneiss_result reload_prefab(gneiss_scene_instance instance,
                                             std::string_view uri) noexcept;
-  [[nodiscard]] scene_internal::scene_instance_service* scenes() noexcept;
-  [[nodiscard]] const input_internal::keyboard_state& keyboard_state() const noexcept;
-  [[nodiscard]] const input_internal::pointer_state& pointer_state() const noexcept;
-  [[nodiscard]] gneiss_result poll_input(input_internal::input_event& out_event) noexcept;
+  [[nodiscard]] engine::scene::scene_instance_service* scenes() noexcept;
+  [[nodiscard]] const engine::input::keyboard_state& keyboard_state() const noexcept;
+  [[nodiscard]] const engine::input::pointer_state& pointer_state() const noexcept;
+  [[nodiscard]] gneiss_result poll_input(engine::input::input_event& out_event) noexcept;
   [[nodiscard]] gneiss_result get_window_size(std::uint32_t& out_width,
                                               std::uint32_t& out_height) const noexcept;
   [[nodiscard]] gneiss_result load_action_map(std::string_view uri) noexcept;
@@ -133,15 +133,15 @@ public:
   [[nodiscard]] gneiss_result action_map_status() const noexcept;
   [[nodiscard]] gneiss_result cancel_action_map() noexcept;
   [[nodiscard]] gneiss_result find_action(std::string_view name,
-                                          input_internal::action_id& out_action) const noexcept;
+                                          engine::input::action_id& out_action) const noexcept;
   [[nodiscard]] gneiss_result
-  get_action_state(input_internal::action_id action,
-                   input_internal::action_state& out_state) const noexcept;
+  get_action_state(engine::input::action_id action,
+                   engine::input::action_state& out_state) const noexcept;
   [[nodiscard]] bool can_submit_draw_lists() const noexcept;
   [[nodiscard]] gneiss_result
-  submit_ui_draw_list(const render_internal::ui_draw_view& desc) noexcept;
+  submit_ui_draw_list(const engine::render::ui_draw_view& desc) noexcept;
   [[nodiscard]] gneiss_result
-  submit_debug_draw_list(std::span<const render_internal::debug_line> lines) noexcept;
+  submit_debug_draw_list(std::span<const engine::render::debug_line> lines) noexcept;
   void report(gneiss_application handle, diagnostics::severity severity,
               diagnostics::category category, gneiss_result result, std::string_view module,
               std::string_view message) noexcept;
@@ -153,7 +153,7 @@ private:
   [[nodiscard]] std::uint64_t now_ns() const;
   [[nodiscard]] gneiss_result poll_events(bool& out_should_close) noexcept;
   [[nodiscard]] gneiss_result render_frame() noexcept;
-  [[nodiscard]] render_internal::texture_load_service* texture_service() noexcept;
+  [[nodiscard]] engine::render::texture_load_service* texture_service() noexcept;
   struct storage;
   std::unique_ptr<storage> storage_;
 };

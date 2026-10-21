@@ -10,7 +10,7 @@
 #include <span>
 #include <vector>
 
-namespace gneiss::render_internal {
+namespace gneiss::engine::render {
 
 class debug_draw_list final {
 public:
@@ -23,6 +23,6 @@ private:
   std::vector<debug_line> lines_;
 };
 
-} // namespace gneiss::render_internal
+} // namespace gneiss::engine::render
 
 #endif

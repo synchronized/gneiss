@@ -12,8 +12,8 @@ bool near(float left, float right) { return std::abs(left - right) < 0.0001F; }
 } // namespace
 
 int main() {
-  using gneiss::render_internal::build_model_matrices;
-  using gneiss::render_internal::matrix4;
+  using gneiss::engine::render::build_model_matrices;
+  using gneiss::engine::render::matrix4;
 
   gneiss::engine::transform transform{};
   transform.translation[0] = 1.0F;

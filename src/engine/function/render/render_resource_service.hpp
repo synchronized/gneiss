@@ -20,7 +20,7 @@ namespace gneiss::engine::resource {
 class texture_payload_source;
 }
 
-namespace gneiss::render_internal {
+namespace gneiss::engine::render {
 
 struct render_memory_usage {
   std::uint64_t logical_bytes{};
@@ -90,6 +90,6 @@ private:
   core::rid_table<std::shared_ptr<const texture_resource>> textures_;
 };
 
-} // namespace gneiss::render_internal
+} // namespace gneiss::engine::render
 
 #endif

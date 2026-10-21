@@ -6,7 +6,7 @@
 #include <array>
 #include <new>
 
-namespace gneiss::scene_internal {
+namespace gneiss::engine::scene {
 gneiss_result scene_instance::capture_mesh_binding(scene_node_id node,
                                                    scene_mesh_binding& output) const noexcept {
   output = {};
@@ -15,8 +15,8 @@ gneiss_result scene_instance::capture_mesh_binding(scene_node_id node,
     return GNEISS_ERROR_INVALID_HANDLE;
   }
   output = {
-      .mesh = render_internal::render_asset_loader::asset_lease(found->mesh),
-      .material = render_internal::render_asset_loader::asset_lease(found->material),
+      .mesh = engine::render::render_asset_loader::asset_lease(found->mesh),
+      .material = engine::render::render_asset_loader::asset_lease(found->material),
   };
   return GNEISS_SUCCESS;
 }
@@ -26,7 +26,7 @@ gneiss_result scene_instance::replace_mesh_binding(scene_node_id node_value,
                                                    const scene_mesh_binding& replacement) noexcept
     try {
   const auto node = node_value.get();
-  using loader = render_internal::render_asset_loader;
+  using loader = engine::render::render_asset_loader;
   scene_mesh_binding current;
   const auto captured = capture_mesh_binding(node_value, current);
   if (captured != GNEISS_SUCCESS) {
@@ -42,7 +42,7 @@ gneiss_result scene_instance::replace_mesh_binding(scene_node_id node_value,
       .material_uri = std::string(replacement.material.uri()),
   };
   const std::array changes{
-      world_internal::mesh_renderer_replacement{
+      engine::world::mesh_renderer_replacement{
           .entity = entity_id{found->entity},
           .expected = {.mesh = expected.mesh.get(), .material = expected.material.get()},
           .replacement = {.mesh = replacement.mesh.get(), .material = replacement.material.get()},
@@ -66,4 +66,4 @@ gneiss_result scene_instance::replace_mesh_binding(scene_node_id node_value,
 bool scene_instance::contains_editable_node(scene_node_id node) const noexcept {
   return std::ranges::find(objects_, node.get(), &object::node) != objects_.end();
 }
-} // namespace gneiss::scene_internal
+} // namespace gneiss::engine::scene

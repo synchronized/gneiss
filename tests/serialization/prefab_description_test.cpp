@@ -80,7 +80,7 @@ private:
 
 bool prepared_versions_contract() {
   using namespace gneiss::engine::resource;
-  using namespace gneiss::scene_internal;
+  using namespace gneiss::engine::scene;
   resource_cache cache;
   virtual_file_system files;
   auto backend = std::make_shared<memory_file_system>(std::string(valid_prefab));
@@ -210,7 +210,7 @@ int main() try {
   }
 
   // 实例根作为源根的父节点，沿用 Scene Tree 的父子变换组合约定。
-  gneiss::scene_internal::scene_tree tree(1U);
+  gneiss::engine::scene::scene_tree tree(1U);
   gneiss_scene_node_id instance_root = GNEISS_NULL_SCENE_NODE_ID;
   gneiss_scene_node_id source_root = GNEISS_NULL_SCENE_NODE_ID;
   gneiss::engine::transform instance_transform = gneiss::engine::transform{};

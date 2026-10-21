@@ -11,7 +11,7 @@
 #include <numeric>
 #include <utility>
 
-namespace gneiss::scene_internal {
+namespace gneiss::engine::scene {
 namespace {
 
 engine::transform combine(const engine::transform& parent,
@@ -414,4 +414,4 @@ void scene_tree::detach_entity(gneiss_entity_id entity) noexcept {
   }
 }
 
-} // namespace gneiss::scene_internal
+} // namespace gneiss::engine::scene

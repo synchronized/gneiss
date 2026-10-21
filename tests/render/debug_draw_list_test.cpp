@@ -7,12 +7,12 @@
 #include <limits>
 
 int main() {
-  gneiss::render_internal::debug_draw_list list;
-  gneiss::render_internal::debug_line line{.start = {0.0F, 0.0F, 0.0F},
-                                           .end = {1.0F, 0.0F, 0.0F},
-                                           .color_rgba8 = UINT32_C(0xffffffff),
-                                           .width = 1.0F,
-                                           .depth_test = true};
+  gneiss::engine::render::debug_draw_list list;
+  gneiss::engine::render::debug_line line{.start = {0.0F, 0.0F, 0.0F},
+                                          .end = {1.0F, 0.0F, 0.0F},
+                                          .color_rgba8 = UINT32_C(0xffffffff),
+                                          .width = 1.0F,
+                                          .depth_test = true};
   if (list.replace({&line, 1U}) != GNEISS_SUCCESS || list.lines().size() != 1U) {
     return 1;
   }
@@ -30,7 +30,7 @@ int main() {
   gneiss_debug_draw_list_desc desc = GNEISS_DEBUG_DRAW_LIST_DESC_INIT;
   desc.lines = &abi_line;
   desc.line_count = 1;
-  std::vector<gneiss::render_internal::debug_line> converted;
+  std::vector<gneiss::engine::render::debug_line> converted;
   if (gneiss::api::read_debug_draw_description(desc, converted) != GNEISS_SUCCESS ||
       converted.size() != 1 || !converted[0].depth_test || converted[0].width != 2.0F)
     return 5;

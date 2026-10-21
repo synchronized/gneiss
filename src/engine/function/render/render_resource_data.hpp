@@ -19,7 +19,7 @@ namespace gneiss::engine::resource {
 class texture_payload_source;
 }
 
-namespace gneiss::render_internal {
+namespace gneiss::engine::render {
 
 using mesh_resource = engine::resource::mesh_data;
 
@@ -80,4 +80,4 @@ struct texture_resource {
   std::weak_ptr<const std::vector<std::byte>> upload_payload{};
 };
 
-} // namespace gneiss::render_internal
+} // namespace gneiss::engine::render

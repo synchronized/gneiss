@@ -48,10 +48,10 @@ struct application::storage {
       : config_(config), owner_thread_(std::this_thread::get_id()) {}
   std::shared_ptr<core::progress_notification> loop_notification_;
   runtime::application_configuration config_;
-  render_internal::render_resource_service resources_;
-  render_internal::ui_draw_list ui_draw_list_;
-  render_internal::debug_draw_list debug_draw_list_;
-  std::optional<render_internal::view_camera> view_camera_;
+  engine::render::render_resource_service resources_;
+  engine::render::ui_draw_list ui_draw_list_;
+  engine::render::debug_draw_list debug_draw_list_;
+  std::optional<engine::render::view_camera> view_camera_;
 #ifdef GNEISS_ASSET_LIBUV
   std::unique_ptr<io_internal::uv_loop_executor> asset_io_executor_;
   std::shared_ptr<engine::resource::native_file_system> native_assets_;
@@ -60,7 +60,7 @@ struct application::storage {
   std::unique_ptr<engine::resource::asset_manager> asset_manager_;
   // 渲染租约缓存独立于 CPU/Prefab 缓存，先释放场景和加载器再销毁缓存。
   std::unique_ptr<engine::resource::resource_cache> render_asset_cache_;
-  std::unique_ptr<render_internal::render_asset_loader> render_assets_;
+  std::unique_ptr<engine::render::render_asset_loader> render_assets_;
   runtime::action_map_application input_application_;
   bool asset_executor_attached_ = false;
   runtime::scene_session scene_session_;
@@ -75,11 +75,11 @@ struct application::storage {
   bool is_paused_ = false;
   bool should_exit_ = false;
   bool is_updating_ = false;
-  input_internal::input_service input_;
+  engine::input::input_service input_;
   std::unique_ptr<log_internal::log_dispatcher> log_dispatcher_;
 #ifdef GNEISS_HAS_GRANIT_PLATFORM
   std::unique_ptr<platform::granit_platform> granit_platform_;
-  std::unique_ptr<render_internal::granit_render_service> granit_render_service_;
+  std::unique_ptr<engine::render::granit_render_service> granit_render_service_;
 #endif
 };
 
@@ -172,7 +172,7 @@ application::application(const runtime::application_configuration& config)
 
 application::~application() noexcept { static_cast<void>(shutdown(GNEISS_NULL_APPLICATION)); }
 
-render_internal::render_queue_stats application::render_statistics() const noexcept {
+engine::render::render_queue_stats application::render_statistics() const noexcept {
 #ifdef GNEISS_HAS_GRANIT_PLATFORM
   if (storage_->granit_render_service_) {
     return storage_->granit_render_service_->query_performance_stats();
@@ -204,7 +204,7 @@ gneiss_result application::attach_task_executor(tasks::task_executor& executor) 
 #endif
     storage_->asset_manager_->attach_task_executor(executor);
     storage_->asset_executor_attached_ = true;
-    render_internal::texture_upload_backend backend;
+    engine::render::texture_upload_backend backend;
 #ifdef GNEISS_HAS_GRANIT_PLATFORM
     if (storage_->granit_render_service_) {
       backend.begin = [this](auto data, auto& sequence) {
@@ -218,7 +218,7 @@ gneiss_result application::attach_task_executor(tasks::task_executor& executor) 
                                                                            sequence);
       };
       backend.profile = storage_->granit_render_service_->texture_profile();
-      backend.estimate_bytes = render_internal::granit_render_service::estimate_upload_bytes;
+      backend.estimate_bytes = engine::render::granit_render_service::estimate_upload_bytes;
       backend.elapsed_ms = [this] {
         return storage_->granit_render_service_->latest_texture_upload_ms();
       };
@@ -262,11 +262,11 @@ gneiss_result application::activate_scene(std::uint64_t request,
 }
 
 gneiss_result application::reload_render_assets(
-    std::span<const render_internal::render_asset_reload> assets) noexcept {
+    std::span<const engine::render::render_asset_reload> assets) noexcept {
   if (scene_loading()) {
     return GNEISS_ERROR_NOT_READY;
   }
-  render_internal::asset_diagnostic diagnostic;
+  engine::render::asset_diagnostic diagnostic;
   return storage_->render_assets_->reload_assets(assets, diagnostic);
 }
 
@@ -339,7 +339,7 @@ gneiss_result application::initialize() noexcept {
       return platform_result;
     }
     try {
-      storage_->granit_render_service_ = std::make_unique<render_internal::granit_render_service>();
+      storage_->granit_render_service_ = std::make_unique<engine::render::granit_render_service>();
 #ifdef GNEISS_NATIVE_LOOP_WAIT
       storage_->loop_notification_ = std::make_shared<core::loop_progress>();
 #endif
@@ -404,7 +404,7 @@ gneiss_result application::initialize() noexcept {
     storage_->asset_manager_ =
         std::make_unique<engine::resource::asset_manager>(storage_->asset_file_system_);
     storage_->render_asset_cache_ = std::make_unique<engine::resource::resource_cache>();
-    storage_->render_assets_ = std::make_unique<render_internal::render_asset_loader>(
+    storage_->render_assets_ = std::make_unique<engine::render::render_asset_loader>(
         storage_->asset_file_system_, *storage_->render_asset_cache_, storage_->resources_);
     const auto result =
         storage_->scene_session_.initialize(*storage_->asset_manager_, *storage_->render_assets_);
@@ -444,14 +444,14 @@ gneiss_result application::poll_events(bool& out_should_close) noexcept {
     if (platform_result != GNEISS_SUCCESS) {
       return platform_result;
     }
-    input_internal::keyboard_state keyboard = {};
+    engine::input::keyboard_state keyboard = {};
     auto input_result = diagnostics::measure(diagnostics::loop_stage::input_state, [&]() noexcept {
       return storage_->granit_platform_->keyboard(keyboard);
     });
     if (input_result != GNEISS_SUCCESS) {
       return input_result;
     }
-    input_internal::pointer_state pointer = {};
+    engine::input::pointer_state pointer = {};
     input_result = diagnostics::measure(diagnostics::loop_stage::input_state, [&]() noexcept {
       return storage_->granit_platform_->pointer(pointer);
     });
@@ -460,7 +460,7 @@ gneiss_result application::poll_events(bool& out_should_close) noexcept {
     }
     storage_->input_.set_keyboard(keyboard);
     storage_->input_.set_pointer(pointer);
-    input_internal::input_event event = {};
+    engine::input::input_event event = {};
     input_result = diagnostics::measure(diagnostics::loop_stage::input_events, [&]() noexcept {
       return storage_->granit_platform_->poll_input(event);
     });
@@ -492,7 +492,7 @@ gneiss_result application::poll_events(bool& out_should_close) noexcept {
   }
 }
 
-gneiss_result application::poll_input(input_internal::input_event& out_event) noexcept {
+gneiss_result application::poll_input(engine::input::input_event& out_event) noexcept {
   return to_native(storage_->input_.poll(out_event));
 }
 
@@ -534,23 +534,22 @@ gneiss_result application::load_action_map(std::string_view uri) noexcept {
 }
 
 gneiss_result application::find_action(std::string_view name,
-                                       input_internal::action_id& out_action) const noexcept {
+                                       engine::input::action_id& out_action) const noexcept {
   return to_native(storage_->input_.find_action(name, out_action));
 }
 
-gneiss_result
-application::get_action_state(input_internal::action_id action,
-                              input_internal::action_state& out_state) const noexcept {
+gneiss_result application::get_action_state(engine::input::action_id action,
+                                            engine::input::action_state& out_state) const noexcept {
   return to_native(storage_->input_.get_action_state(action, out_state));
 }
 
-gneiss_result application::submit_ui_draw_list(const render_internal::ui_draw_view& desc) noexcept {
+gneiss_result application::submit_ui_draw_list(const engine::render::ui_draw_view& desc) noexcept {
   return storage_->is_updating_ ? storage_->ui_draw_list_.replace(desc, storage_->resources_)
                                 : GNEISS_ERROR_INVALID_STATE;
 }
 
 gneiss_result
-application::submit_debug_draw_list(std::span<const render_internal::debug_line> lines) noexcept {
+application::submit_debug_draw_list(std::span<const engine::render::debug_line> lines) noexcept {
   return storage_->is_updating_ ? storage_->debug_draw_list_.replace(lines)
                                 : GNEISS_ERROR_INVALID_STATE;
 }
@@ -595,17 +594,17 @@ gneiss_result application::submit_log(const log_internal::message_view& message)
              : to_native(storage_->log_dispatcher_->submit(message));
 }
 
-gneiss_result application::set_view_camera(const render_internal::view_camera* camera) noexcept {
+gneiss_result application::set_view_camera(const engine::render::view_camera* camera) noexcept {
   if (!is_owner_thread() || !accepts_requests())
     return GNEISS_ERROR_INVALID_STATE;
   if (camera == nullptr) {
     storage_->view_camera_.reset();
     return GNEISS_SUCCESS;
   }
-  render_internal::matrix4 matrix;
-  auto result = render_internal::build_view_matrix(camera->transform, matrix);
+  engine::render::matrix4 matrix;
+  auto result = engine::render::build_view_matrix(camera->transform, matrix);
   if (result == GNEISS_SUCCESS) {
-    result = render_internal::build_perspective_matrix(camera->camera, 1.0F, matrix);
+    result = engine::render::build_perspective_matrix(camera->camera, 1.0F, matrix);
   }
   if (result == GNEISS_SUCCESS) {
     storage_->view_camera_ = *camera;
@@ -614,7 +613,7 @@ gneiss_result application::set_view_camera(const render_internal::view_camera* c
 }
 
 gneiss_result application::capture_frame(std::uint32_t width, std::uint32_t height,
-                                         render_internal::frame_image& output) noexcept {
+                                         engine::render::frame_image& output) noexcept {
   output = {};
   if (!is_owner_thread() || !accepts_requests())
     return GNEISS_ERROR_INVALID_STATE;
@@ -630,24 +629,24 @@ gneiss_result application::capture_frame(std::uint32_t width, std::uint32_t heig
     window.width = width;
     window.height = height;
     window.needs_recreate = false;
-    render_internal::render_snapshot snapshot;
+    engine::render::render_snapshot snapshot;
     auto result = storage_->scene_session_.native_world()->get_render_snapshot(
         width, height, snapshot, storage_->view_camera_ ? &*storage_->view_camera_ : nullptr);
     if (result != GNEISS_SUCCESS) {
       return result;
     }
-    render_internal::render_frame_packet packet;
-    result = render_internal::capture_render_frame_packet(
+    engine::render::render_frame_packet packet;
+    result = engine::render::capture_render_frame_packet(
         window, std::move(snapshot), storage_->resources_, storage_->ui_draw_list_,
         storage_->debug_draw_list_, packet);
     if (result != GNEISS_SUCCESS) {
       return result;
     }
-    auto image = std::make_shared<render_internal::frame_image>();
+    auto image = std::make_shared<engine::render::frame_image>();
     packet.readback = image;
     std::uint64_t sequence{};
     result = storage_->granit_render_service_->submit(
-        std::move(packet), render_internal::render_frame_policy::required, &sequence);
+        std::move(packet), engine::render::render_frame_policy::required, &sequence);
     if (result != GNEISS_SUCCESS) {
       return result;
     }
@@ -655,7 +654,7 @@ gneiss_result application::capture_frame(std::uint32_t width, std::uint32_t heig
     if (result != GNEISS_SUCCESS) {
       return result;
     }
-    render_internal::render_frame_completion completed;
+    engine::render::render_frame_completion completed;
     if (!storage_->granit_render_service_->try_take_required_completion(completed) ||
         completed.sequence != sequence || completed.status != GNEISS_SUCCESS) {
       return GNEISS_ERROR_INTERNAL;
@@ -682,7 +681,7 @@ gneiss_result application::render_frame() noexcept {
   if (window.width == 0U || window.height == 0U) {
     return GNEISS_SUCCESS;
   }
-  render_internal::render_frame_packet packet;
+  engine::render::render_frame_packet packet;
   bool should_prepare = false;
   const auto storage_result =
       diagnostics::measure(diagnostics::loop_stage::frame_storage, [&]() noexcept {
@@ -692,7 +691,7 @@ gneiss_result application::render_frame() noexcept {
   if (storage_result != GNEISS_SUCCESS || !should_prepare) {
     return storage_result;
   }
-  render_internal::render_snapshot snapshot;
+  engine::render::render_snapshot snapshot;
   const auto snapshot_result =
       diagnostics::measure(diagnostics::loop_stage::render_snapshot, [&]() noexcept {
         return storage_->scene_session_.native_world()->get_render_snapshot(
@@ -704,7 +703,7 @@ gneiss_result application::render_frame() noexcept {
   }
   const auto capture_result =
       diagnostics::measure(diagnostics::loop_stage::frame_capture, [&]() noexcept {
-        return render_internal::capture_render_frame_packet(
+        return engine::render::capture_render_frame_packet(
             window, std::move(snapshot), storage_->resources_, storage_->ui_draw_list_,
             storage_->debug_draw_list_, packet);
       });
@@ -1017,12 +1016,12 @@ bool application::has_asset_loading_service() const noexcept {
   return storage_->scene_session_.textures() != nullptr;
 }
 
-render_internal::texture_load_service* application::texture_service() noexcept {
+engine::render::texture_load_service* application::texture_service() noexcept {
   return storage_->scene_session_.textures();
 }
 
 gneiss_result
-application::accept_edit_assets(const render_internal::texture_load_completion& completion,
+application::accept_edit_assets(const engine::render::texture_load_completion& completion,
                                 const std::function<gneiss_result()>& accept) try {
   if (!is_owner_thread() || !accepts_requests())
     return GNEISS_ERROR_INVALID_STATE;
@@ -1034,8 +1033,8 @@ application::accept_edit_assets(const render_internal::texture_load_completion& 
 }
 
 gneiss_result application::create_mesh_node_ready(
-    gneiss_scene_instance scene, const scene_internal::mesh_renderer_node_creation& desc,
-    const scene_internal::scene_instance_service::mesh_binding& prepared,
+    gneiss_scene_instance scene, const engine::scene::mesh_renderer_node_creation& desc,
+    const engine::scene::scene_instance_service::mesh_binding& prepared,
     scene_node_id& output) noexcept {
   output = {};
   const auto valid =
@@ -1055,8 +1054,8 @@ gneiss_result application::collect_unused_edit_assets() noexcept {
   return valid;
 }
 
-gneiss_result application::query_ready_asset(const render_internal::render_asset_reload& source,
-                                             render_internal::render_asset_lease& output) noexcept {
+gneiss_result application::query_ready_asset(const engine::render::render_asset_reload& source,
+                                             engine::render::render_asset_lease& output) noexcept {
   output = {};
   const auto valid =
       is_owner_thread() && accepts_requests() ? GNEISS_SUCCESS : GNEISS_ERROR_INVALID_STATE;
@@ -1070,7 +1069,7 @@ gneiss_result application::query_ready_asset(const render_internal::render_asset
 
 gneiss_result application::capture_mesh_binding(
     gneiss_scene_instance scene, scene_node_id node,
-    scene_internal::scene_instance_service::mesh_binding& output) noexcept {
+    engine::scene::scene_instance_service::mesh_binding& output) noexcept {
   output = {};
   const auto valid =
       is_owner_thread() && accepts_requests() ? GNEISS_SUCCESS : GNEISS_ERROR_INVALID_STATE;
@@ -1079,8 +1078,8 @@ gneiss_result application::capture_mesh_binding(
 
 gneiss_result application::replace_mesh_binding(
     gneiss_scene_instance scene, scene_node_id node,
-    const scene_internal::scene_instance_service::mesh_binding& expected,
-    const scene_internal::scene_instance_service::mesh_binding& replacement) noexcept {
+    const engine::scene::scene_instance_service::mesh_binding& expected,
+    const engine::scene::scene_instance_service::mesh_binding& replacement) noexcept {
   const auto valid =
       is_owner_thread() && accepts_requests() ? GNEISS_SUCCESS : GNEISS_ERROR_INVALID_STATE;
   return valid == GNEISS_SUCCESS
@@ -1089,7 +1088,7 @@ gneiss_result application::replace_mesh_binding(
 }
 
 gneiss_result
-application::prepare_edit_assets(std::span<const render_internal::render_asset_reload> sources,
+application::prepare_edit_assets(std::span<const engine::render::render_asset_reload> sources,
                                  std::uint64_t revision, std::uint64_t& request) noexcept try {
   request = 0U;
   const auto valid =
@@ -1103,8 +1102,8 @@ application::prepare_edit_assets(std::span<const render_internal::render_asset_r
   }
   return service->submit_assets(
       sources, 1U, revision, request, true,
-      render_internal::texture_load_service::maximum_candidate_bytes,
-      render_internal::render_asset_loader::publication_mode::fixed_version);
+      engine::render::texture_load_service::maximum_candidate_bytes,
+      engine::render::render_asset_loader::publication_mode::fixed_version);
 } catch (const std::bad_alloc&) {
   return GNEISS_ERROR_OUT_OF_MEMORY;
 } catch (...) {
@@ -1160,7 +1159,7 @@ gneiss_result application::cancel_scene(std::uint64_t request) {
 bool application::scene_loading() const noexcept { return storage_->scene_session_.loading(); }
 
 gneiss_result
-application::request_assets(std::span<const render_internal::render_asset_reload> sources,
+application::request_assets(std::span<const engine::render::render_asset_reload> sources,
                             std::uint64_t session, std::uint64_t revision, std::uint64_t& request,
                             bool reload) {
   request = 0;
@@ -1177,7 +1176,7 @@ application::request_assets(std::span<const render_internal::render_asset_reload
   }
 }
 
-gneiss_result application::poll_assets(render_internal::texture_load_completion& completion,
+gneiss_result application::poll_assets(engine::render::texture_load_completion& completion,
                                        bool& ready) {
   ready = false;
   if (!is_owner_thread() || !accepts_requests())
@@ -1191,7 +1190,7 @@ gneiss_result application::poll_assets(render_internal::texture_load_completion&
   }
 }
 
-bool application::asset_progress(render_internal::asset_load_progress& progress) const noexcept {
+bool application::asset_progress(engine::render::asset_load_progress& progress) const noexcept {
   progress = {};
   if (!is_owner_thread() || !accepts_requests())
     return false;
@@ -1219,11 +1218,11 @@ bool application::accepts_requests() const noexcept {
 }
 
 gneiss_world application::world() const noexcept { return storage_->scene_session_.world(); }
-engine::world* application::native_world() const noexcept {
+engine::world::world* application::native_world() const noexcept {
   return storage_->scene_session_.native_world();
 }
 
-render_internal::render_resource_service& application::resources() noexcept {
+engine::render::render_resource_service& application::resources() noexcept {
   return storage_->resources_;
 }
 
@@ -1231,15 +1230,15 @@ engine::resource::prefab_asset_loader& application::prefab_loader() noexcept {
   return storage_->asset_manager_->prefab_loader();
 }
 
-scene_internal::scene_instance_service* application::scenes() noexcept {
+engine::scene::scene_instance_service* application::scenes() noexcept {
   return storage_->scene_session_.scenes();
 }
 
-const input_internal::keyboard_state& application::keyboard_state() const noexcept {
+const engine::input::keyboard_state& application::keyboard_state() const noexcept {
   return storage_->input_.keyboard();
 }
 
-const input_internal::pointer_state& application::pointer_state() const noexcept {
+const engine::input::pointer_state& application::pointer_state() const noexcept {
   return storage_->input_.pointer();
 }
 

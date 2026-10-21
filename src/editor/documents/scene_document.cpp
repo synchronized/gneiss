@@ -248,7 +248,7 @@ result scene_document::refresh_nodes() noexcept {
     std::vector<scene_node_record> records;
     records.reserve(static_cast<std::size_t>(count));
     for (std::uint64_t index = 0; index < count; ++index) {
-      scene_internal::scene_node_view info{};
+      engine::scene::scene_node_view info{};
       operation =
           with_scene([&](auto& service) { return service.get_node_info(scene_, index, info); });
       if (operation != result::success) {
@@ -280,7 +280,7 @@ result scene_document::refresh_nodes() noexcept {
     std::vector<prefab_node_record> prefab_records;
     prefab_records.reserve(static_cast<std::size_t>(prefab_count));
     for (std::uint64_t index = 0; index < prefab_count; ++index) {
-      scene_internal::prefab_node_view info{};
+      engine::scene::prefab_node_view info{};
       operation = with_scene(
           [&](auto& service) { return service.get_prefab_node_info(scene_, index, info); });
       if (operation != result::success) {
@@ -423,7 +423,7 @@ result scene_document::create_node(std::string_view name, scene_node_id parent,
   }
   try {
     const auto uuid = make_uuid_value();
-    scene_internal::node_creation desc{};
+    engine::scene::node_creation desc{};
     desc.uuid = uuid;
     desc.name = name;
     desc.parent = parent;
@@ -453,7 +453,7 @@ result scene_document::create_prefab_instance(std::string_view name, std::string
   }
   try {
     const auto uuid = make_uuid_value();
-    scene_internal::prefab_creation desc{};
+    engine::scene::prefab_creation desc{};
     desc.parent = parent;
     desc.instance_uuid = uuid;
     desc.name = name;
@@ -535,7 +535,7 @@ result scene_document::restore_prefab_instance(const prefab_instance_snapshot& s
   if (!snapshot.parent_uuid.empty() && parent == nullptr) {
     return result::not_found;
   }
-  scene_internal::prefab_creation desc{};
+  engine::scene::prefab_creation desc{};
   desc.parent = parent == nullptr ? scene_node_id{} : parent->node;
   desc.instance_uuid = snapshot.instance_uuid;
   desc.name = snapshot.display_name;
@@ -724,7 +724,7 @@ result scene_document::duplicate_subtree(scene_node_id node, scene_node_id paren
         current = ancestor == nodes_.end() ? scene_node_id{} : ancestor->parent;
       }
     }
-    std::vector<scene_internal::uuid_mapping> mappings;
+    std::vector<engine::scene::uuid_mapping> mappings;
     mappings.reserve(sources.size());
     for (std::size_t index = 0; index < sources.size(); ++index) {
       mappings.push_back({.source_uuid = sources[index], .target_uuid = targets[index]});
@@ -901,7 +901,7 @@ result scene_document::create_mesh_renderer_node(const scene_node_snapshot& snap
       parent = parent_record->node;
     }
     nodes_.reserve(nodes_.size() + 1U);
-    scene_internal::mesh_renderer_node_creation desc{};
+    engine::scene::mesh_renderer_node_creation desc{};
     desc.uuid = snapshot.uuid;
     desc.name = snapshot.display_name.empty() ? std::string_view{}
                                               : std::string_view{snapshot.display_name};
@@ -915,7 +915,7 @@ result scene_document::create_mesh_renderer_node(const scene_node_snapshot& snap
       return operation;
     }
     std::uint64_t count = 0;
-    scene_internal::scene_node_view info{};
+    engine::scene::scene_node_view info{};
     operation = with_scene([&](auto& service) { return service.get_node_count(scene_, &count); });
     if (operation == result::success && count > 0U) {
       operation = with_scene(

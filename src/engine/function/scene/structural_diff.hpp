@@ -11,7 +11,7 @@
 #include <string>
 #include <vector>
 
-namespace gneiss::scene_internal {
+namespace gneiss::engine::scene {
 
 enum class structural_change : std::uint32_t {
   none = 0U,
@@ -71,6 +71,6 @@ build_structural_diff(const std::vector<gneiss::engine::resource::object_descrip
                       const std::vector<gneiss::engine::resource::object_description>& new_objects,
                       structural_diff& output) noexcept;
 
-} // namespace gneiss::scene_internal
+} // namespace gneiss::engine::scene
 
 #endif

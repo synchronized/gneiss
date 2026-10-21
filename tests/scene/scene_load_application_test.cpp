@@ -170,13 +170,13 @@ void run(tasks::execution_mode mode) {
   };
   const auto prepared = await_phase(scene_load_phase::ready);
   // v3 的三顶点共 216 B，索引 12 B；不得漏算切线、UV1、颜色的 120 B。
-  check(prepared.resident_bytes == 228U + sizeof(render_internal::material_resource));
+  check(prepared.resident_bytes == 228U + sizeof(engine::render::material_resource));
   check(prepared.cpu_data_bytes == prepared.resident_bytes);
   check(prepared.application_logical_bytes >= prepared.resident_bytes);
   check(prepared.application_cpu_data_bytes >= prepared.cpu_data_bytes);
   check(prepared.available_bytes +
             std::max(prepared.application_logical_bytes, prepared.application_cpu_data_bytes) ==
-        render_internal::render_resource_service::default_memory_limit);
+        engine::render::render_resource_service::default_memory_limit);
   check(prepared.upload_reserved_bytes == 0U);
   gneiss_world observed{};
   check(gneiss_application_get_world(app.get(), &observed) == GNEISS_SUCCESS &&
@@ -318,8 +318,8 @@ void shared_scene_assets(tasks::execution_mode mode) {
     } while (progress.phase != scene_load_phase::ready);
     return progress;
   };
-  auto selected = [&](render_internal::render_asset_type type, const char* uri) {
-    render_internal::render_asset_lease lease;
+  auto selected = [&](engine::render::render_asset_type type, const char* uri) {
+    engine::render::render_asset_lease lease;
     check(query_ready_asset(app.get(), {.uri = uri, .type = type}, lease) == GNEISS_SUCCESS);
     return lease;
   };
@@ -335,8 +335,8 @@ void shared_scene_assets(tasks::execution_mode mode) {
   const auto first = prepare();
   check(activate_scene_load(app.get(), request, completion) == GNEISS_SUCCESS);
   auto original = binding();
-  auto mesh = selected(render_internal::render_asset_type::mesh, "asset://mesh.json");
-  auto material = selected(render_internal::render_asset_type::material, "asset://material.json");
+  auto mesh = selected(engine::render::render_asset_type::mesh, "asset://mesh.json");
+  auto material = selected(engine::render::render_asset_type::material, "asset://material.json");
   gneiss_world old_world{};
   check(gneiss_application_get_world(app.get(), &old_world) == GNEISS_SUCCESS);
   check(!poll());
@@ -358,8 +358,7 @@ void shared_scene_assets(tasks::execution_mode mode) {
   std::ofstream(files.root / "material.json")
       << R"({"format":"gneiss.material","version":1,"color":[0,1,0,1]})";
   (void)prepare();
-  check(selected(render_internal::render_asset_type::material, "asset://material.json") ==
-        material);
+  check(selected(engine::render::render_asset_type::material, "asset://material.json") == material);
   check(cancel_scene_load(app.get(), request) == GNEISS_SUCCESS);
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
   while (!poll()) {
@@ -367,14 +366,13 @@ void shared_scene_assets(tasks::execution_mode mode) {
   }
   check(completion.progress.phase == scene_load_phase::cancelled &&
         completion.progress.cleanup_complete);
-  check(selected(render_internal::render_asset_type::material, "asset://material.json") ==
-        material);
+  check(selected(engine::render::render_asset_type::material, "asset://material.json") == material);
   // 重试成功后才采用 B；旧租约 A 与未变化的网格依旧有效。
   (void)prepare();
   check(activate_scene_load(app.get(), request, completion) == GNEISS_SUCCESS);
   auto changed = binding();
   check(changed.mesh == mesh && changed.material != material);
-  check(selected(render_internal::render_asset_type::material, "asset://material.json") ==
+  check(selected(engine::render::render_asset_type::material, "asset://material.json") ==
         changed.material);
   check(!poll());
   check(original.mesh == mesh && original.material == material);
@@ -388,7 +386,7 @@ void shared_scene_assets(tasks::execution_mode mode) {
   }
   check(completion.progress.phase == scene_load_phase::failed &&
         completion.progress.cleanup_complete);
-  check(selected(render_internal::render_asset_type::material, "asset://material.json") ==
+  check(selected(engine::render::render_asset_type::material, "asset://material.json") ==
         changed.material);
   check(gneiss_world_entity_count(new_world, &count) == GNEISS_SUCCESS && count == 1U);
 }
@@ -458,7 +456,7 @@ void shared_texture_versions(tasks::execution_mode mode) {
         count == 2U);
   const std::array<std::string, 1> textures{"asset://texture.json"};
   check(request_textures(app.get(), textures, 1U, 2U, request) == GNEISS_SUCCESS);
-  render_internal::texture_load_completion assets;
+  engine::render::texture_load_completion assets;
   bool ready{};
   while (!ready) {
     check(std::chrono::steady_clock::now() < deadline);

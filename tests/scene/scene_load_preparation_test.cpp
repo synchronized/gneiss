@@ -12,7 +12,7 @@
 
 namespace {
 using namespace gneiss;
-using namespace scene_internal;
+using namespace engine::scene;
 
 void check(bool value, std::source_location where = std::source_location::current()) {
   if (!value) {

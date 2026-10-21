@@ -37,7 +37,7 @@ struct context {
   std::filesystem::path root;
   bool synchronous{};
   bool model{};
-  std::vector<render_internal::render_asset_reload> assets;
+  std::vector<engine::render::render_asset_reload> assets;
   bool close_during_load{};
   gneiss_scene_instance scene{};
   gneiss_world world{};
@@ -55,7 +55,7 @@ struct context {
   double upload_ms{};
   double max_update_ms{};
   std::size_t candidate_bytes{};
-  render_internal::render_queue_stats stats;
+  engine::render::render_queue_stats stats;
   std::vector<sample> samples;
 };
 gneiss_result update(gneiss_application app, const gneiss_frame_time*, void* opaque) {
@@ -70,7 +70,7 @@ gneiss_result update(gneiss_application app, const gneiss_frame_time*, void* opa
   if (state.scheduler->mode() == tasks::execution_mode::cooperative) {
     (void)state.scheduler->run_ready();
   }
-  render_internal::render_queue_stats stats;
+  engine::render::render_queue_stats stats;
   if (runtime::query_render_statistics(app, stats) != GNEISS_SUCCESS) {
     return GNEISS_ERROR_INTERNAL;
   }
@@ -111,9 +111,9 @@ gneiss_result update(gneiss_application app, const gneiss_frame_time*, void* opa
     }
     state.requested = true;
     if (state.synchronous) {
-      const std::vector<render_internal::render_asset_reload> reloads{
-          {"asset://textures/test.texture.json", render_internal::render_asset_type::texture},
-          {"asset://materials/test.material.json", render_internal::render_asset_type::material}};
+      const std::vector<engine::render::render_asset_reload> reloads{
+          {"asset://textures/test.texture.json", engine::render::render_asset_type::texture},
+          {"asset://materials/test.material.json", engine::render::render_asset_type::material}};
       const auto start = std::chrono::steady_clock::now();
       auto result = runtime::reload_render_assets(app, reloads);
       if (result != GNEISS_SUCCESS) {
@@ -148,7 +148,7 @@ gneiss_result update(gneiss_application app, const gneiss_frame_time*, void* opa
     }
   }
   if (state.requested && !state.completed) {
-    render_internal::texture_load_completion completion;
+    engine::render::texture_load_completion completion;
     bool ready{};
     const auto result = runtime::poll_textures(app, completion, ready);
     if (result != GNEISS_SUCCESS) {
@@ -194,9 +194,9 @@ int main(int argc, char** argv) try {
       const auto uri =
           "asset://" + std::filesystem::relative(file.path(), state.root).generic_string();
       if (name.ends_with(".gneiss-mesh"))
-        state.assets.push_back({uri, render_internal::render_asset_type::mesh});
+        state.assets.push_back({uri, engine::render::render_asset_type::mesh});
       if (name.ends_with(".material.json"))
-        state.assets.push_back({uri, render_internal::render_asset_type::material});
+        state.assets.push_back({uri, engine::render::render_asset_type::material});
     }
   }
   state.synchronous = mode == "sync";

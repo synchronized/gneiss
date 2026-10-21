@@ -6,11 +6,11 @@
 #include "engine/function/scene/scene_instance_service.hpp"
 #include <map>
 
-namespace gneiss::scene_internal {
+namespace gneiss::engine::scene {
 class scene_instance final {
 public:
-  scene_instance(engine::world& native_world, gneiss_world world,
-                 render_internal::render_asset_loader& loader,
+  scene_instance(engine::world::world& native_world, gneiss_world world,
+                 engine::render::render_asset_loader& loader,
                  gneiss::engine::resource::prefab_asset_loader& prefab_loader,
                  gneiss_type_registry registry) noexcept;
   ~scene_instance() noexcept;
@@ -23,16 +23,16 @@ public:
     std::string name;
     gneiss_entity_id entity = GNEISS_NULL_ENTITY_ID;
     gneiss_scene_node_id node = GNEISS_NULL_SCENE_NODE_ID;
-    render_internal::mesh_asset_lease mesh;
-    render_internal::material_asset_lease material;
+    engine::render::mesh_asset_lease mesh;
+    engine::render::material_asset_lease material;
   };
 
   void rollback() noexcept;
   /** 仅用于不可见候选 World，分阶段入口不执行文件读取。 */
   void initialize_staged(gneiss::engine::resource::scene_description candidate);
   [[nodiscard]] gneiss_result create_staged_node(std::size_t index, gneiss_scene_node_id parent,
-                                                 render_internal::mesh_asset_lease mesh,
-                                                 render_internal::material_asset_lease material);
+                                                 engine::render::mesh_asset_lease mesh,
+                                                 engine::render::material_asset_lease material);
 
   [[nodiscard]] gneiss_scene_node_id find_node(std::string_view uuid) const noexcept;
   [[nodiscard]] gneiss_result serialize(std::string& out_json) const;
@@ -123,10 +123,10 @@ public:
   private:
     friend class scene_instance;
     struct binding {
-      render_internal::mesh_asset_lease* mesh;
-      render_internal::material_asset_lease* material;
-      render_internal::mesh_asset_lease next_mesh;
-      render_internal::material_asset_lease next_material;
+      engine::render::mesh_asset_lease* mesh;
+      engine::render::material_asset_lease* material;
+      engine::render::mesh_asset_lease next_mesh;
+      engine::render::material_asset_lease next_material;
     };
     std::vector<binding> bindings_;
   };
@@ -134,11 +134,11 @@ public:
    * 追加整批 ECS 描述，分配失败向协调者传播；协调者丢弃所有准备结果。 */
   [[nodiscard]] asset_update prepare_asset_update(
       const std::map<std::uint64_t, const scene_instance_service::asset_replacement*>& changes,
-      std::vector<world_internal::mesh_renderer_replacement>& renderers);
+      std::vector<engine::world::mesh_renderer_replacement>& renderers);
 
   /** 所属线程收集普通节点与 Prefab 的资源引用；追加至事务临时数组，分配失败向调用者传播。
    * 不去重、不发布资源，也不改变场景；服务负责跨实例去重和失败输出保留。 */
-  void append_render_assets(std::vector<render_internal::render_asset_lease>& output) const;
+  void append_render_assets(std::vector<engine::render::render_asset_lease>& output) const;
 
   /** 调用方服务已验证所属线程和租约归属；实例负责作者数据与 ECS 同步提交。 */
   [[nodiscard]] gneiss_result capture_mesh_binding(scene_node_id node,
@@ -176,10 +176,10 @@ private:
     gneiss::engine::resource::prefab_asset_lease alternate;
   };
 
-  engine::world& native_world_;
+  engine::world::world& native_world_;
   // 仅供 ABI 反射回调定位；不拥有 World，不用于普通场景操作。
   gneiss_world reflection_context_;
-  render_internal::render_asset_loader& loader_;
+  engine::render::render_asset_loader& loader_;
   gneiss::engine::resource::prefab_asset_loader& prefab_loader_;
   gneiss_type_registry registry_;
   std::vector<prefab_refresh_transaction> prefab_refresh_transactions_;

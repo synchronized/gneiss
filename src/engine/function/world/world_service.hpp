@@ -13,17 +13,17 @@
 #include <memory>
 #include <span>
 
-namespace gneiss::engine {
+namespace gneiss::engine::world {
 class world;
 }
 
-namespace gneiss::world_internal {
+namespace gneiss::engine::world {
 /** 将实现类型的析构留在 World 模块，不向场景域传播 ECS 后端头。 */
 struct GNEISS_API world_deleter {
   gneiss_world borrowed{};
-  void operator()(engine::world* state) const noexcept;
+  void operator()(engine::world::world* state) const noexcept;
 };
-using world_owner = std::unique_ptr<engine::world, world_deleter>;
+using world_owner = std::unique_ptr<engine::world::world, world_deleter>;
 /** 场景域拥有真实 World；返回的 RID 仅借用，owner 所属线程析构时自动撤销。失败不替换 owner，输出
  * RID 置零。 */
 [[nodiscard]] GNEISS_API gneiss_result create_native(world_owner& owner,
@@ -113,5 +113,5 @@ entity_remove_mesh_renderer(gneiss_world world, gneiss_entity_id entity) noexcep
 [[nodiscard]] GNEISS_API gneiss_result register_reflection(gneiss_type_registry registry);
 [[nodiscard]] GNEISS_API gneiss_result
 register_reflection(const reflection_internal::registry_ref& registry);
-} // namespace gneiss::world_internal
+} // namespace gneiss::engine::world
 #endif

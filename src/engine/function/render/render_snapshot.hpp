@@ -10,7 +10,7 @@
 
 #include <vector>
 
-namespace gneiss::render_internal {
+namespace gneiss::engine::render {
 
 /** 由视口持有的相机输入；不引用 World 或场景实体。 */
 struct view_camera {
@@ -22,8 +22,8 @@ struct view_camera {
 struct render_camera_snapshot {
   camera_settings camera;
   engine::transform transform;
-  render_internal::matrix4 view;
-  render_internal::matrix4 projection;
+  engine::render::matrix4 view;
+  engine::render::matrix4 projection;
   std::uint32_t viewport_width{};
   std::uint32_t viewport_height{};
 };
@@ -40,6 +40,6 @@ struct render_snapshot {
   std::vector<render_instance_snapshot> instances;
 };
 
-} // namespace gneiss::render_internal
+} // namespace gneiss::engine::render
 
 #endif

@@ -3,11 +3,11 @@
 
 #include "engine/function/input/input_service.hpp"
 
-using namespace gneiss::input_internal;
+using namespace gneiss::engine::input;
 #include <limits>
 
 int main() {
-  gneiss::input_internal::input_service input;
+  gneiss::engine::input::input_service input;
   input_event key = {};
   key.type = event_type::key;
   key.window_id = 1;
@@ -58,8 +58,8 @@ int main() {
   if (input.replace_action_map(std::move(map)) != gneiss::result::success) {
     return 7;
   }
-  gneiss::input_internal::action_id action;
-  gneiss::input_internal::action_state state;
+  gneiss::engine::input::action_id action;
+  gneiss::engine::input::action_state state;
   input.begin_frame();
   key.data.key.action = key_action::pressed;
   if (input.find_action("move", action) != gneiss::result::success || !input.push(key) ||
@@ -73,7 +73,7 @@ int main() {
     return 8;
   }
   using gneiss::result;
-  using namespace gneiss::input_internal;
+  using namespace gneiss::engine::input;
   const auto original = action;
   gneiss::engine::resource::action_map candidate{{{"move", {{26U, 1.0F}}}}};
   auto invalid = candidate;

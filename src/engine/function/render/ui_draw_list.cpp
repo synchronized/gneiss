@@ -8,7 +8,7 @@
 #include <limits>
 #include <new>
 
-namespace gneiss::render_internal {
+namespace gneiss::engine::render {
 namespace {
 
 constexpr std::uint32_t maximum_vertices = UINT32_C(16) * 1024U * 1024U;
@@ -93,4 +93,4 @@ void ui_draw_list::clear() noexcept {
   commands_.clear();
 }
 
-} // namespace gneiss::render_internal
+} // namespace gneiss::engine::render

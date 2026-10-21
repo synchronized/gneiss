@@ -71,7 +71,7 @@ extern "C" gneiss_result gneiss_material_create(gneiss_application application,
     if (validation_result != GNEISS_SUCCESS) {
       return validation_result;
     }
-    gneiss::render_internal::material_resource value;
+    gneiss::engine::render::material_resource value;
     const auto converted = gneiss::api::read_material_description(*desc, value);
     return converted == GNEISS_SUCCESS ? state->resources().create_material(value, out_material)
                                        : converted;
@@ -113,7 +113,7 @@ extern "C" gneiss_result gneiss_texture_create(gneiss_application application,
     if (validation_result != GNEISS_SUCCESS) {
       return validation_result;
     }
-    gneiss::render_internal::texture_view value;
+    gneiss::engine::render::texture_view value;
     const auto converted = gneiss::api::read_texture_description(*desc, value);
     return converted == GNEISS_SUCCESS ? state->resources().create_texture(value, out_texture)
                                        : converted;
@@ -179,7 +179,7 @@ gneiss_application_submit_debug_draw_list(gneiss_application application,
     if (!state->can_submit_draw_lists()) {
       return GNEISS_ERROR_INVALID_STATE;
     }
-    std::vector<gneiss::render_internal::debug_line> value;
+    std::vector<gneiss::engine::render::debug_line> value;
     const auto converted = gneiss::api::read_debug_draw_description(*desc, value);
     return converted == GNEISS_SUCCESS ? state->submit_debug_draw_list(value) : converted;
   } catch (const std::bad_alloc&) {

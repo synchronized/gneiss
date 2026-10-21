@@ -12,7 +12,7 @@
 #include <memory>
 #include <vector>
 
-namespace gneiss::scene_internal {
+namespace gneiss::engine::scene {
 
 class scene_tree final {
 public:
@@ -87,6 +87,6 @@ private:
   std::vector<slot> slots_;
 };
 
-} // namespace gneiss::scene_internal
+} // namespace gneiss::engine::scene
 
 #endif

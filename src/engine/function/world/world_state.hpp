@@ -22,7 +22,7 @@
 #include <type_traits>
 #include <utility>
 
-namespace gneiss::world_internal {
+namespace gneiss::engine::world {
 
 class world_state final {
 public:
@@ -263,8 +263,8 @@ public:
     });
   }
 
-  [[nodiscard]] scene_internal::scene_tree& scene() noexcept { return scene_; }
-  [[nodiscard]] const scene_internal::scene_tree& scene() const noexcept { return scene_; }
+  [[nodiscard]] engine::scene::scene_tree& scene() noexcept { return scene_; }
+  [[nodiscard]] const engine::scene::scene_tree& scene() const noexcept { return scene_; }
   [[nodiscard]] gneiss_entity_id encode_entity(entt::entity entity) const noexcept {
     return encode(entity);
   }
@@ -318,13 +318,13 @@ private:
   }
 
   entt::registry registry_;
-  scene_internal::scene_tree scene_;
+  engine::scene::scene_tree scene_;
   std::uint32_t domain_;
   std::thread::id owner_thread_;
   std::size_t entity_count_ = 0;
   gneiss_entity_id active_camera_ = GNEISS_NULL_ENTITY_ID;
 };
 
-} // namespace gneiss::world_internal
+} // namespace gneiss::engine::world
 
 #endif

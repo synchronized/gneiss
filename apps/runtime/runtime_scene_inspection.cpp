@@ -248,7 +248,7 @@ result runtime_scene_inspection::capture_scene(runtime::application& application
     std::vector<runtime_scene_source_node> nodes;
     nodes.reserve(static_cast<std::size_t>(count + prefab_count));
     for (std::uint64_t index = 0U; index < count; ++index) {
-      scene_internal::scene_node_view info;
+      engine::scene::scene_node_view info;
       operation = application.scenes()->get_node_info(scene, index, info);
       if (operation != GNEISS_SUCCESS) {
         return from_native(operation);
@@ -278,7 +278,7 @@ result runtime_scene_inspection::capture_scene(runtime::application& application
                        .material_uri = std::string{info.material_uri}});
     }
     for (std::uint64_t index = 0U; index < prefab_count; ++index) {
-      scene_internal::prefab_node_view info;
+      engine::scene::prefab_node_view info;
       operation = application.scenes()->get_prefab_node_info(scene, index, info);
       if (operation != GNEISS_SUCCESS) {
         return from_native(operation);

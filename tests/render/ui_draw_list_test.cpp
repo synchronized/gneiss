@@ -8,9 +8,9 @@
 #include <cstdint>
 
 int main() {
-  gneiss::render_internal::render_resource_service resources;
+  gneiss::engine::render::render_resource_service resources;
   constexpr std::array<std::uint8_t, 4> pixels{255U, 255U, 255U, 255U};
-  gneiss::render_internal::texture_view texture_desc;
+  gneiss::engine::render::texture_view texture_desc;
   texture_desc.width = 1U;
   texture_desc.height = 1U;
   texture_desc.row_stride_bytes = 4U;
@@ -21,24 +21,24 @@ int main() {
   }
 
   std::array vertices{
-      gneiss::render_internal::ui_vertex{{0.0F, 0.0F}, {0.0F, 0.0F}, UINT32_C(0xffffffff)},
-      gneiss::render_internal::ui_vertex{{1.0F, 0.0F}, {1.0F, 0.0F}, UINT32_C(0xffffffff)},
-      gneiss::render_internal::ui_vertex{{0.0F, 1.0F}, {0.0F, 1.0F}, UINT32_C(0xffffffff)}};
+      gneiss::engine::render::ui_vertex{{0.0F, 0.0F}, {0.0F, 0.0F}, UINT32_C(0xffffffff)},
+      gneiss::engine::render::ui_vertex{{1.0F, 0.0F}, {1.0F, 0.0F}, UINT32_C(0xffffffff)},
+      gneiss::engine::render::ui_vertex{{0.0F, 1.0F}, {0.0F, 1.0F}, UINT32_C(0xffffffff)}};
   std::array<std::uint32_t, 3> indices{0U, 1U, 2U};
-  std::array commands{gneiss::render_internal::ui_draw_command{.texture = texture,
-                                                               .clip_min = {0.0F, 0.0F},
-                                                               .clip_max = {640.0F, 480.0F},
-                                                               .first_index = 0U,
-                                                               .index_count = 3U,
-                                                               .vertex_offset = 0U}};
-  gneiss::render_internal::ui_draw_view desc;
+  std::array commands{gneiss::engine::render::ui_draw_command{.texture = texture,
+                                                              .clip_min = {0.0F, 0.0F},
+                                                              .clip_max = {640.0F, 480.0F},
+                                                              .first_index = 0U,
+                                                              .index_count = 3U,
+                                                              .vertex_offset = 0U}};
+  gneiss::engine::render::ui_draw_view desc;
   desc.display_width = 640.0F;
   desc.display_height = 480.0F;
   desc.vertices = vertices;
   desc.indices = indices;
   desc.commands = commands;
 
-  gneiss::render_internal::ui_draw_list draw_list;
+  gneiss::engine::render::ui_draw_list draw_list;
   if (draw_list.replace(desc, resources) != GNEISS_SUCCESS || draw_list.vertices().size() != 3U ||
       draw_list.indices().size() != 3U || draw_list.commands().size() != 1U) {
     return 2;
@@ -66,7 +66,7 @@ int main() {
   }
   commands[0].index_count = 3U;
 
-  gneiss::render_internal::render_resource_service other_resources;
+  gneiss::engine::render::render_resource_service other_resources;
   if (draw_list.replace(desc, other_resources) != GNEISS_ERROR_INVALID_HANDLE ||
       draw_list.commands().size() != 1U) {
     return 6;

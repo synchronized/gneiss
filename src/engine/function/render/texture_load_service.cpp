@@ -10,7 +10,7 @@
 #include <set>
 #include <stdexcept>
 
-namespace gneiss::render_internal {
+namespace gneiss::engine::render {
 struct texture_load_service::pending {
   render_asset_loader::publication_mode mode{render_asset_loader::publication_mode::reload};
   std::size_t reused_assets{};
@@ -523,4 +523,4 @@ bool texture_load_service::progress(asset_load_progress& output) const {
   };
   return true;
 }
-} // namespace gneiss::render_internal
+} // namespace gneiss::engine::render

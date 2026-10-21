@@ -165,7 +165,7 @@ void run(const char* root, bool scheduled) {
   }
   // 同一 VFS 桥交给真实输入 Loader，不另建 CAORS 路由表。
   {
-    using namespace gneiss::input_internal;
+    using namespace gneiss::engine::input;
     using namespace gneiss::runtime;
     caors::resources::cache<action_map_asset> cache;
     bool reject_revision = false;

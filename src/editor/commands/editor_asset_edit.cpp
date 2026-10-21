@@ -134,14 +134,14 @@ result editor_asset_edit::request_impl(runtime::application& application, scene_
     previous_ = {};
     return operation_ = result::invalid_state;
   }
-  std::vector<render_internal::render_asset_reload> missing;
-  const auto resolve = [&](std::string_view uri, render_internal::render_asset_type type,
+  std::vector<engine::render::render_asset_reload> missing;
+  const auto resolve = [&](std::string_view uri, engine::render::render_asset_type type,
                            const auto& previous, auto& next) {
     if (previous.uri() == uri) {
       next = previous;
       return;
     }
-    render_internal::render_asset_reload source{.uri = std::string(uri), .type = type};
+    engine::render::render_asset_reload source{.uri = std::string(uri), .type = type};
     const auto ready = application.query_ready_asset(source, next);
     if (ready == GNEISS_ERROR_NOT_READY) {
       missing.push_back(std::move(source));
@@ -149,8 +149,8 @@ result editor_asset_edit::request_impl(runtime::application& application, scene_
       operation_ = from_native(ready);
     }
   };
-  resolve(mesh_, render_internal::render_asset_type::mesh, previous_.mesh, next_.mesh);
-  resolve(material_, render_internal::render_asset_type::material, previous_.material,
+  resolve(mesh_, engine::render::render_asset_type::mesh, previous_.mesh, next_.mesh);
+  resolve(material_, engine::render::render_asset_type::material, previous_.material,
           next_.material);
   if (operation_.failed()) {
     previous_ = {};
@@ -187,7 +187,7 @@ void editor_asset_edit::advance(runtime::application& application, scene_documen
     return;
   }
   (void)application.asset_progress(progress_);
-  render_internal::texture_load_completion completion;
+  engine::render::texture_load_completion completion;
   bool ready{};
   const auto polled = application.poll_assets(completion, ready);
   if (polled == GNEISS_SUCCESS && !ready) {
@@ -203,11 +203,11 @@ void editor_asset_edit::advance(runtime::application& application, scene_documen
   if (operation_.ok()) {
     for (const auto& lease : completion.assets) {
       if (!next_.mesh && lease.uri() == mesh_ &&
-          lease.type() == render_internal::render_asset_type::mesh) {
+          lease.type() == engine::render::render_asset_type::mesh) {
         next_.mesh = lease;
       }
       if (!next_.material && lease.uri() == material_ &&
-          lease.type() == render_internal::render_asset_type::material) {
+          lease.type() == engine::render::render_asset_type::material) {
         next_.material = lease;
       }
     }

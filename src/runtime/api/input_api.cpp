@@ -26,7 +26,7 @@ extern "C" gneiss_result gneiss_application_poll_input(gneiss_application applic
     if (validation_result != GNEISS_SUCCESS) {
       return validation_result;
     }
-    gneiss::input_internal::input_event event;
+    gneiss::engine::input::input_event event;
     const auto operation = state->poll_input(event);
     *out_event = gneiss::abi_internal::input_event_to_abi(event);
     return operation;
@@ -107,7 +107,7 @@ extern "C" gneiss_result gneiss_application_find_action(gneiss_application appli
     if (validation != GNEISS_SUCCESS) {
       return validation;
     }
-    gneiss::input_internal::action_id action;
+    gneiss::engine::input::action_id action;
     const auto operation =
         state->find_action({name, static_cast<std::size_t>(name_length)}, action);
     *out_action = action.value;
@@ -129,7 +129,7 @@ extern "C" gneiss_result gneiss_application_get_action_state(gneiss_application 
     if (validation != GNEISS_SUCCESS) {
       return validation;
     }
-    gneiss::input_internal::action_state native;
+    gneiss::engine::input::action_state native;
     const auto operation = state->get_action_state({action}, native);
     *out_state = GNEISS_ACTION_STATE_INIT;
     out_state->pressed = static_cast<std::uint8_t>(native.pressed);

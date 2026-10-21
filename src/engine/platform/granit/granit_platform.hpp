@@ -18,9 +18,9 @@ class granit_platform final {
 public:
   [[nodiscard]] gneiss_result initialize(const window_configuration& config) noexcept;
   [[nodiscard]] gneiss_result poll(bool& out_should_close, bool& out_focus_lost) noexcept;
-  [[nodiscard]] gneiss_result poll_input(input_internal::input_event& out_event) noexcept;
-  [[nodiscard]] gneiss_result keyboard(input_internal::keyboard_state& out_state) const noexcept;
-  [[nodiscard]] gneiss_result pointer(input_internal::pointer_state& out_state) const noexcept;
+  [[nodiscard]] gneiss_result poll_input(engine::input::input_event& out_event) noexcept;
+  [[nodiscard]] gneiss_result keyboard(engine::input::keyboard_state& out_state) const noexcept;
+  [[nodiscard]] gneiss_result pointer(engine::input::pointer_state& out_state) const noexcept;
   [[nodiscard]] const native_window_info& native_window() const noexcept { return native_window_; }
   [[nodiscard]] native_window_info& native_window() noexcept { return native_window_; }
 

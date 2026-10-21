@@ -284,7 +284,7 @@ int run(const char* asset_path) {
   wait([&] { return !manager.database().has_active_operations() && loader.empty(); });
   require(manager.find<action_map_asset>(guid(1)) == second.try_get().get(),
           "cancel keeps cached resource");
-  using namespace gneiss::input_internal;
+  using namespace gneiss::engine::input;
   using namespace gneiss::engine::resource;
   using namespace gneiss::runtime;
   input_service input;

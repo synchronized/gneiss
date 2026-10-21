@@ -8,7 +8,7 @@
 #include <cstdint>
 #include <span>
 
-namespace gneiss::render_internal {
+namespace gneiss::engine::render {
 
 /** 单层原始纹理的同步借用视图；创建结束后不保留源像素。 */
 struct texture_view {
@@ -20,4 +20,4 @@ struct texture_view {
   std::span<const std::uint8_t> pixels;
 };
 
-} // namespace gneiss::render_internal
+} // namespace gneiss::engine::render

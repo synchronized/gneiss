@@ -11,20 +11,20 @@
 
 namespace {
 // 旧布局验证属于 ABI 适配器；资源数值、RID 与生命周期仍由服务验证。
-gneiss_result create_material(gneiss::render_internal::render_resource_service& resources,
+gneiss_result create_material(gneiss::engine::render::render_resource_service& resources,
                               const gneiss_material_desc& desc, gneiss_material* output) {
-  gneiss::render_internal::material_resource value;
+  gneiss::engine::render::material_resource value;
   const auto converted = gneiss::api::read_material_description(desc, value);
   return converted == GNEISS_SUCCESS ? resources.create_material(value, output) : converted;
 }
 } // namespace
 
 int main() {
-  using gneiss::render_internal::render_resource_service;
+  using gneiss::engine::render::render_resource_service;
   render_resource_service resources;
   render_resource_service other;
   // 原生路径同样拒绝非法枚举，不能依赖 C 入口代替服务校验。
-  gneiss::render_internal::material_resource native;
+  gneiss::engine::render::material_resource native;
   gneiss_material native_handle{};
   native.alpha_mode = static_cast<gneiss::engine::resource::material_alpha_mode>(UINT32_MAX);
   if (resources.create_material(native, &native_handle) != GNEISS_ERROR_INVALID_ARGUMENT)
@@ -38,7 +38,7 @@ int main() {
       resources.destroy_material(native_handle) != GNEISS_SUCCESS)
     return 32;
   constexpr std::array<std::uint8_t, 4> pixel{128U, 128U, 255U, 255U};
-  gneiss::render_internal::texture_view texture_desc;
+  gneiss::engine::render::texture_view texture_desc;
   texture_desc.width = 1U;
   texture_desc.height = 1U;
   texture_desc.row_stride_bytes = 4U;
@@ -128,7 +128,7 @@ int main() {
   }
   desc = GNEISS_MATERIAL_DESC_INIT;
   desc.struct_size = GNEISS_MATERIAL_DESC_VERSION_1_SIZE + 1U;
-  gneiss::render_internal::material_resource unchanged{.red = 0.125F};
+  gneiss::engine::render::material_resource unchanged{.red = 0.125F};
   if (gneiss::api::read_material_description(desc, unchanged) != GNEISS_ERROR_INVALID_ARGUMENT ||
       unchanged.red != 0.125F || unchanged.normal_texture != GNEISS_NULL_TEXTURE) {
     return 22;

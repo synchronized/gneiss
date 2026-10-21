@@ -177,7 +177,7 @@ int main(int argc, char** argv) try {
   gneiss_world previous_world{};
   gneiss_scene_instance_node_info camera = GNEISS_SCENE_INSTANCE_NODE_INFO_INIT;
   std::uint64_t previous_resources{};
-  gneiss::render_internal::frame_image previous_image;
+  gneiss::engine::render::frame_image previous_image;
   const bool preserve = scenario == "failure" || scenario.starts_with("cancel-");
   if (scenario != "initial") {
     const auto preload = preload_scene(app, scheduler, mode == "cooperative", uri, previous_scene);
@@ -322,7 +322,7 @@ int main(int argc, char** argv) try {
         }
       }
       previous = clock_type::now();
-      gneiss::render_internal::render_queue_stats render_stats;
+      gneiss::engine::render::render_queue_stats render_stats;
       if (query_render_statistics(handle, render_stats) != GNEISS_SUCCESS) {
         return GNEISS_ERROR_INTERNAL;
       }
@@ -548,12 +548,12 @@ int main(int argc, char** argv) try {
     return 6;
   }
   const auto render_ms = milliseconds(rendering_start);
-  gneiss::render_internal::render_queue_stats stats;
+  gneiss::engine::render::render_queue_stats stats;
   if (gneiss::runtime::query_render_statistics(app.get(), stats) != GNEISS_SUCCESS) {
     return 7;
   }
   const auto capture_start = clock_type::now();
-  gneiss::render_internal::frame_image image;
+  gneiss::engine::render::frame_image image;
   if (gneiss::runtime::capture_frame(app.get(), 1024U, 768U, image) != GNEISS_SUCCESS) {
     return 8;
   }
@@ -577,7 +577,7 @@ int main(int argc, char** argv) try {
       return 16;
     }
     retry_ms = milliseconds(retry_start);
-    gneiss::render_internal::frame_image retried_image;
+    gneiss::engine::render::frame_image retried_image;
     if (gneiss::runtime::capture_frame(app.get(), 1024U, 768U, retried_image) != GNEISS_SUCCESS ||
         retried_image.pixels != previous_image.pixels ||
         gneiss::runtime::query_scene_retirement(app.get(), retirement) != GNEISS_SUCCESS ||

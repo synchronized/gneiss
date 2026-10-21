@@ -25,8 +25,8 @@ object(std::string uuid, std::optional<std::string> parent = std::nullopt) {
 }
 
 bool test_ordering() {
-  using gneiss::scene_internal::build_structural_diff;
-  using gneiss::scene_internal::structural_diff;
+  using gneiss::engine::scene::build_structural_diff;
+  using gneiss::engine::scene::structural_diff;
   const std::vector old_objects{object("old-root"), object("old-child", "old-root")};
   const std::vector new_objects{object("new-child", "new-root"), object("new-root")};
   structural_diff difference;
@@ -37,7 +37,7 @@ bool test_ordering() {
 }
 
 bool test_updates() {
-  using namespace gneiss::scene_internal;
+  using namespace gneiss::engine::scene;
   auto previous = object("node", "old-parent");
   previous.name = "旧名称";
   previous.camera =
@@ -68,8 +68,8 @@ bool test_updates() {
 }
 
 bool test_invalid_inputs() {
-  using gneiss::scene_internal::build_structural_diff;
-  using gneiss::scene_internal::structural_diff;
+  using gneiss::engine::scene::build_structural_diff;
+  using gneiss::engine::scene::structural_diff;
   structural_diff difference;
   const std::vector duplicate{object("same"), object("same")};
   const std::vector missing_parent{object("node", "missing")};
@@ -85,8 +85,8 @@ bool test_invalid_inputs() {
 } // namespace
 
 int main() {
-  using gneiss::scene_internal::build_structural_diff;
-  using gneiss::scene_internal::structural_diff;
+  using gneiss::engine::scene::build_structural_diff;
+  using gneiss::engine::scene::structural_diff;
   const std::vector unchanged{object("root"), object("child", "root")};
   structural_diff difference;
   if (build_structural_diff(unchanged, unchanged, difference) != GNEISS_SUCCESS ||

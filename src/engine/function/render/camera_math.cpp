@@ -6,7 +6,7 @@
 #include <cmath>
 #include <numbers>
 
-namespace gneiss::render_internal {
+namespace gneiss::engine::render {
 namespace {
 
 constexpr std::size_t matrix_index(std::size_t row, std::size_t column) noexcept {
@@ -97,4 +97,4 @@ std::array<float, 4> transform_vector(const matrix4& matrix,
   return result;
 }
 
-} // namespace gneiss::render_internal
+} // namespace gneiss::engine::render

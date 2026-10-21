@@ -190,7 +190,7 @@ void run_mip_sampling(bool packaged = false, bool async = false) {
     check(gneiss_scene_instance_load(app.get(), uri.data(), uri.size(), &scene) == GNEISS_SUCCESS);
   }
   check(gneiss::result{gneiss_application_run(app.get(), 3U)} == result::success);
-  render_internal::frame_image image;
+  engine::render::frame_image image;
   check(runtime::capture_frame(app.get(), 128U, 128U, image) == GNEISS_SUCCESS);
   const auto offset = (64U * 128U + 64U) * 4U;
   // LOD0 全蓝，缩小时应采样全红的较低分辨率层；阈值不依赖具体色调映射曲线。
@@ -254,7 +254,7 @@ std::array<unsigned, 3> material_pixel(std::string_view slot, std::array<std::by
   gneiss_scene_instance scene{};
   check(gneiss_scene_instance_load(app.get(), uri.data(), uri.size(), &scene) == GNEISS_SUCCESS);
   check(gneiss::result{gneiss_application_run(app.get(), 3U)} == result::success);
-  render_internal::frame_image image;
+  engine::render::frame_image image;
   check(runtime::capture_frame(app.get(), 128U, 128U, image) == GNEISS_SUCCESS);
   const auto offset = (64U * 128U + 64U) * 4U;
   return {std::to_integer<unsigned>(image.pixels[offset]),
@@ -368,7 +368,7 @@ std::array<unsigned, 3> state_pixel(const state_case& test,
   gneiss_scene_instance scene{};
   check(gneiss_scene_instance_load(app.get(), uri.data(), uri.size(), &scene) == GNEISS_SUCCESS);
   check(gneiss::result{gneiss_application_run(app.get(), 3U)} == result::success);
-  render_internal::frame_image image;
+  engine::render::frame_image image;
   check(runtime::capture_frame(app.get(), 128U, 128U, image) == GNEISS_SUCCESS);
   if (frame != nullptr)
     *frame = image.pixels;
@@ -446,7 +446,7 @@ void run(tasks::execution_mode mode, bool pbr = false) {
   check(gneiss_scene_instance_load(app.get(), uri.data(), uri.size(), &scene) == GNEISS_SUCCESS);
   check(gneiss::result{gneiss_application_run(app.get(), 3U)} == result::success);
   const auto capture = [&](unsigned width = 128U) {
-    render_internal::frame_image image;
+    engine::render::frame_image image;
     const auto result = runtime::capture_frame(app.get(), width, 128U, image);
     if (result != GNEISS_SUCCESS) {
       std::fprintf(stderr, "capture=%d\n", result);
@@ -465,17 +465,17 @@ void run(tasks::execution_mode mode, bool pbr = false) {
   std::printf("before=%u,%u,%u\n", blue[0], blue[1], blue[2]);
   check(blue[2] > blue[0] + 30U);
   const auto reload = [&](bool mixed = false) {
-    using type = render_internal::render_asset_type;
-    const std::vector<render_internal::render_asset_reload> assets =
+    using type = engine::render::render_asset_type;
+    const std::vector<engine::render::render_asset_reload> assets =
         mixed
-            ? std::vector<render_internal::render_asset_reload>{{"asset://g.mesh.json", type::mesh},
-                                                                {"asset://m.material.json",
-                                                                 type::material}}
-            : std::vector<render_internal::render_asset_reload>{
+            ? std::vector<engine::render::render_asset_reload>{{"asset://g.mesh.json", type::mesh},
+                                                               {"asset://m.material.json",
+                                                                type::material}}
+            : std::vector<engine::render::render_asset_reload>{
                   {"asset://t.texture.json", type::texture}};
     std::uint64_t request{};
     check(runtime::request_render_assets(app.get(), assets, 1U, 1U, request) == GNEISS_SUCCESS);
-    render_internal::texture_load_completion completed;
+    engine::render::texture_load_completion completed;
     bool ready{};
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
     while (!ready) {
@@ -549,7 +549,7 @@ void run_scene(tasks::execution_mode mode, bool pbr = false) {
   check(gneiss_scene_instance_load(app.get(), uri.data(), uri.size(), &scene) == GNEISS_SUCCESS);
   check(gneiss::result{gneiss_application_run(app.get(), 3U)} == result::success);
   const auto capture = [&] {
-    render_internal::frame_image image;
+    engine::render::frame_image image;
     check(capture_frame(app.get(), 128U, 128U, image) == GNEISS_SUCCESS);
     return image.pixels;
   };

@@ -18,7 +18,7 @@
 #include <string_view>
 #include <vector>
 
-namespace gneiss::scene_internal {
+namespace gneiss::engine::scene {
 
 /** 一份已提交到 World 的 Prefab Runtime 投影；析构时释放全部节点、实体和资产租约。 */
 class prefab_runtime_instance final {
@@ -37,8 +37,8 @@ public:
     gneiss_scene_node_id parent = GNEISS_NULL_SCENE_NODE_ID;
   };
 
-  prefab_runtime_instance(engine::world& native_world, gneiss_world world,
-                          render_internal::render_asset_loader& loader,
+  prefab_runtime_instance(engine::world::world& native_world, gneiss_world world,
+                          engine::render::render_asset_loader& loader,
                           gneiss::engine::resource::prefab_asset_lease prefab,
                           std::string instance_uuid) noexcept;
   ~prefab_runtime_instance() noexcept;
@@ -47,8 +47,8 @@ public:
   prefab_runtime_instance& operator=(const prefab_runtime_instance&) = delete;
 
   [[nodiscard]] static gneiss_result
-  create(engine::world& native_world, gneiss_world world,
-         render_internal::render_asset_loader& loader,
+  create(engine::world::world& native_world, gneiss_world world,
+         engine::render::render_asset_loader& loader,
          gneiss::engine::resource::prefab_asset_lease prefab, gneiss_type_registry registry,
          std::string_view instance_uuid, gneiss_scene_node_id parent,
          const gneiss::engine::transform& root_transform,
@@ -93,8 +93,8 @@ public:
   /** 旧同步实例也可加入退休组；逐项准备不改变可见性，取消可保留这些内部关联。 */
   [[nodiscard]] gneiss_result prepare_retirement_step(bool& complete);
   [[nodiscard]] gneiss_result create_staged_node(std::size_t index, gneiss_scene_node_id parent,
-                                                 render_internal::mesh_asset_lease mesh,
-                                                 render_internal::material_asset_lease material);
+                                                 engine::render::mesh_asset_lease mesh,
+                                                 engine::render::material_asset_lease material);
   [[nodiscard]] gneiss_result
   apply_staged_override(gneiss_type_registry registry,
                         const gneiss::engine::resource::prefab_property_override& value) noexcept;
@@ -113,8 +113,8 @@ private:
     gneiss_entity_id entity = GNEISS_NULL_ENTITY_ID;
     gneiss_scene_node_id node = GNEISS_NULL_SCENE_NODE_ID;
     gneiss_scene_node_id parent = GNEISS_NULL_SCENE_NODE_ID;
-    render_internal::mesh_asset_lease mesh;
-    render_internal::material_asset_lease material;
+    engine::render::mesh_asset_lease mesh;
+    engine::render::material_asset_lease material;
     bool staged_attempted{};
   };
 
@@ -128,10 +128,10 @@ private:
       gneiss_type_registry registry,
       std::span<const gneiss::engine::resource::prefab_property_override> overrides) noexcept;
 
-  engine::world& native_world_;
+  engine::world::world& native_world_;
   // 仅供 ABI 反射回调定位；不拥有 World，不用于普通场景操作。
   gneiss_world reflection_context_;
-  render_internal::render_asset_loader& loader_;
+  engine::render::render_asset_loader& loader_;
   gneiss::engine::resource::prefab_asset_lease prefab_;
   std::string instance_uuid_;
   gneiss_entity_id root_entity_ = GNEISS_NULL_ENTITY_ID;
@@ -148,6 +148,6 @@ private:
   std::size_t retirement_cursor_{};
 };
 
-} // namespace gneiss::scene_internal
+} // namespace gneiss::engine::scene
 
 #endif

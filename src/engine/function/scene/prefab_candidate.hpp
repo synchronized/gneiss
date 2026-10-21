@@ -5,7 +5,7 @@
 #include "engine/function/scene/scene_query.hpp"
 #include "engine/resource/types/prefab_description.hpp"
 #include <memory>
-namespace gneiss::scene_internal {
+namespace gneiss::engine::scene {
 class prefab_runtime_instance;
 /** 未提交候选或已退休实例的独占事务；限 World 所属线程，须早于 World 释放。
  * 移动转移全部清理责任；析构兜底清理，交互路径应使用 cleanup_step 分步释放。 */
@@ -20,8 +20,8 @@ public:
   [[nodiscard]] bool is_valid() const noexcept;
   [[nodiscard]] scene_node_id root() const noexcept;
   [[nodiscard]] gneiss_result create_node(std::size_t index, scene_node_id parent,
-                                          render_internal::mesh_asset_lease mesh,
-                                          render_internal::material_asset_lease material,
+                                          engine::render::mesh_asset_lease mesh,
+                                          engine::render::material_asset_lease material,
                                           scene_node_id& output);
   /** 返回的文本借用到候选修改、移动、提交或清理；失败清空 output。 */
   [[nodiscard]] gneiss_result preview(std::size_t index, prefab_node_view& output) const noexcept;

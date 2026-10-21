@@ -11,7 +11,7 @@
 
 namespace {
 
-using namespace gneiss::scene_internal;
+using namespace gneiss::engine::scene;
 
 [[nodiscard]] bool valid_utf8(std::string_view text) noexcept {
   std::size_t index = 0U;
@@ -107,7 +107,7 @@ void normalize_zero(gneiss::engine::resource::prefab_property_value& value) noex
 
 } // namespace
 
-namespace gneiss::scene_internal {
+namespace gneiss::engine::scene {
 
 gneiss_result validate_prefab_property_override(
     const reflection_internal::registry_ref& registry,
@@ -173,4 +173,4 @@ gneiss_result set_prefab_property_override(
   }
 }
 
-} // namespace gneiss::scene_internal
+} // namespace gneiss::engine::scene

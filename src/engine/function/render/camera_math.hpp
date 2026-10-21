@@ -10,7 +10,7 @@
 
 #include <array>
 
-namespace gneiss::render_internal {
+namespace gneiss::engine::render {
 
 /** 列主序 4x4 矩阵，使用列向量和右乘组合。 */
 struct matrix4 {
@@ -29,6 +29,6 @@ struct matrix4 {
 [[nodiscard]] std::array<float, 4> transform_vector(const matrix4& matrix,
                                                     const std::array<float, 4>& vector) noexcept;
 
-} // namespace gneiss::render_internal
+} // namespace gneiss::engine::render
 
 #endif

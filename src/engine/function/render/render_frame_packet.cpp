@@ -7,7 +7,7 @@
 #include <new>
 #include <utility>
 
-namespace gneiss::render_internal {
+namespace gneiss::engine::render {
 namespace {
 
 template <typename Handle, typename Resource, typename Getter>
@@ -43,7 +43,7 @@ const texture_resource* render_resource_snapshot::get_texture(core::rid texture)
 }
 
 gneiss_result capture_render_frame_packet(const platform::native_window_info& window,
-                                          render_internal::render_snapshot scene,
+                                          engine::render::render_snapshot scene,
                                           const render_resource_service& resources,
                                           const ui_draw_list& ui, const debug_draw_list& debug,
                                           render_frame_packet& out_packet) noexcept {
@@ -92,7 +92,7 @@ gneiss_result capture_render_frame_packet(const platform::native_window_info& wi
       }
     }
     std::size_t copied_payload_bytes =
-        candidate.scene.instances.size() * sizeof(render_internal::render_instance_snapshot) +
+        candidate.scene.instances.size() * sizeof(engine::render::render_instance_snapshot) +
         candidate.ui.vertices().size() * sizeof(ui_vertex) +
         candidate.ui.indices().size() * sizeof(std::uint32_t) +
         candidate.ui.commands().size() * sizeof(ui_draw_command) +
@@ -114,4 +114,4 @@ gneiss_result capture_render_frame_packet(const platform::native_window_info& wi
   }
 }
 
-} // namespace gneiss::render_internal
+} // namespace gneiss::engine::render

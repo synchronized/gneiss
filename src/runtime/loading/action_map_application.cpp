@@ -23,7 +23,7 @@ result action_map_application::begin(
   result_ = result::not_ready;
   return result::success;
 }
-result action_map_application::poll(input_internal::input_service& target) noexcept {
+result action_map_application::poll(engine::input::input_service& target) noexcept {
   if (state_ != action_map_apply_state::loading)
     return result_;
   engine::resource::action_map map;

@@ -21,7 +21,7 @@ namespace gneiss::engine::resource {
 class virtual_file_system;
 }
 
-namespace gneiss::render_internal {
+namespace gneiss::engine::render {
 
 class render_resource_service;
 
@@ -194,6 +194,6 @@ private:
   render_resource_service& resources_;
 };
 
-} // namespace gneiss::render_internal
+} // namespace gneiss::engine::render
 
 #endif

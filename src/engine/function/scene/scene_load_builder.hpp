@@ -10,14 +10,14 @@
 #include <chrono>
 #include <unordered_map>
 
-namespace gneiss::scene_internal {
+namespace gneiss::engine::scene {
 
 /** 所属线程推进不可见候选域。调用方必须先准备全部渲染依赖，并保持服务与 World 存活。
  * 描述安装、节点和覆盖各是一个可暂停工作项；不执行文件 I/O，不自动激活 Application。 */
 class scene_load_builder final {
 public:
   /** 本次构建选定的租约集合，不是“最新版本”缓存；构建结束后节点继续持有使用租约。 */
-  using asset_bindings = std::map<std::string, render_internal::render_asset_lease, std::less<>>;
+  using asset_bindings = std::map<std::string, engine::render::render_asset_lease, std::less<>>;
   scene_load_builder(scene_instance_service& service, prepared_scene_description prepared,
                      asset_bindings assets = {});
   [[nodiscard]] gneiss_result
@@ -29,7 +29,7 @@ public:
 private:
   [[nodiscard]] gneiss_result step();
   [[nodiscard]] gneiss_result step_prefab();
-  [[nodiscard]] render_internal::render_asset_lease find_asset(std::string_view uri) const;
+  [[nodiscard]] engine::render::render_asset_lease find_asset(std::string_view uri) const;
   asset_bindings assets_;
   scene_instance_service& service_;
   prepared_scene_description prepared_;
@@ -47,4 +47,4 @@ private:
   gneiss_result failure_{GNEISS_SUCCESS};
 };
 
-} // namespace gneiss::scene_internal
+} // namespace gneiss::engine::scene

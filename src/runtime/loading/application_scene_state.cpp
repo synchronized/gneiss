@@ -10,18 +10,18 @@ application_scene_state::~application_scene_state() noexcept = default;
 
 gneiss_result
 application_scene_state::initialize(engine::resource::asset_manager& owner,
-                                    render_internal::render_asset_loader& render) noexcept {
+                                    engine::render::render_asset_loader& render) noexcept {
   if (world_owner_) {
     return GNEISS_ERROR_INVALID_STATE;
   }
-  world_internal::world_owner next_world;
+  engine::world::world_owner next_world;
   gneiss_world borrowed{};
-  const auto result = world_internal::create_native(next_world, borrowed);
+  const auto result = engine::world::create_native(next_world, borrowed);
   if (result != GNEISS_SUCCESS) {
     return result;
   }
   try {
-    auto next_scenes = std::make_unique<scene_internal::scene_instance_service>(
+    auto next_scenes = std::make_unique<engine::scene::scene_instance_service>(
         *next_world, borrowed, owner.files(), render, owner.prefab_loader());
     if (!next_scenes->is_valid()) {
       return GNEISS_ERROR_OUT_OF_MEMORY;

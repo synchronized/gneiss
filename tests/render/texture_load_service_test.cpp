@@ -17,7 +17,7 @@
 namespace {
 using namespace gneiss;
 using namespace engine::resource;
-using namespace render_internal;
+using namespace engine::render;
 void check(bool value, std::source_location at = std::source_location::current()) {
   if (!value) {
     throw std::runtime_error("异步资产契约失败，行=" + std::to_string(at.line()));

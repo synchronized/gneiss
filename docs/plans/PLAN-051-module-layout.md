@@ -215,3 +215,9 @@ Scene/Prefab 作者描述、属性覆盖值、解析/序列化与 Prefab Loader 
 功能层调用方显式引用资源类型。旧 scene_internal 仅保留功能层行为；没有兼容别名。
 资源目录不再出现 scene_internal，边界正反例检查防止回流。验收见
 [描述命名空间迁移](../records/2026-10-21-scene-resource-namespace.md)。
+
+World/Scene/Render/Input 领域与调用方已迁入 gneiss::engine 对应子空间，
+World 类使用 gneiss::engine::world::world；不保留旧名称，资源描述保持 resource 归属。
+共享输入值当前仍位于 core/input 文件路径，随 Input 领域使用 engine::input；
+后续 core 统一时再审查共享值归属，不把此命名声明为目录已完全逐一对应。
+验收见[功能层命名迁移](../records/2026-10-21-function-namespace.md)。

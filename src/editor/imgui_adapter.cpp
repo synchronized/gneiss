@@ -225,7 +225,7 @@ gneiss_result imgui_adapter::initialize(runtime::application& application) {
       value = static_cast<std::uint8_t>((static_cast<std::uint32_t>(value) * alpha + 127U) / 255U);
     }
   }
-  render_internal::texture_view texture_desc;
+  engine::render::texture_view texture_desc;
   texture_desc.color_space = engine::resource::texture_color_space::linear;
   texture_desc.width = static_cast<std::uint32_t>(atlas_width);
   texture_desc.height = static_cast<std::uint32_t>(atlas_height);
@@ -264,7 +264,7 @@ gneiss_result imgui_adapter::begin_frame(runtime::application& application,
     return GNEISS_ERROR_INVALID_STATE;
   }
   ImGui::SetCurrentContext(context_);
-  input_internal::input_event event;
+  engine::input::input_event event;
   auto poll_result = application.poll_input(event);
   while (poll_result == GNEISS_SUCCESS) {
     process_input(event);
@@ -299,27 +299,27 @@ gneiss_result imgui_adapter::begin_frame(runtime::application& application,
   return GNEISS_SUCCESS;
 }
 
-void imgui_adapter::process_input(const input_internal::input_event& event) {
+void imgui_adapter::process_input(const engine::input::input_event& event) {
   auto& io = ImGui::GetIO();
   switch (event.type) {
-  case input_internal::event_type::key: {
+  case engine::input::event_type::key: {
     update_modifiers(io, event.data.key.modifiers);
     const auto key = map_key(event.data.key.physical_key);
-    if (key != ImGuiKey_None && event.data.key.action != input_internal::key_action::repeated) {
-      io.AddKeyEvent(key, event.data.key.action == input_internal::key_action::pressed);
+    if (key != ImGuiKey_None && event.data.key.action != engine::input::key_action::repeated) {
+      io.AddKeyEvent(key, event.data.key.action == engine::input::key_action::pressed);
     }
     break;
   }
-  case input_internal::event_type::text: {
+  case engine::input::event_type::text: {
     const auto length = std::min<std::size_t>(event.data.text.length, sizeof(event.data.text.utf8));
     const std::string utf8{event.data.text.utf8, length};
     io.AddInputCharactersUTF8(utf8.c_str());
     break;
   }
-  case input_internal::event_type::pointer_moved:
+  case engine::input::event_type::pointer_moved:
     io.AddMousePosEvent(event.data.pointer_moved.x, event.data.pointer_moved.y);
     break;
-  case input_internal::event_type::pointer_button: {
+  case engine::input::event_type::pointer_button: {
     io.AddMousePosEvent(event.data.pointer_button.x, event.data.pointer_button.y);
     const auto button = map_mouse_button(event.data.pointer_button.button);
     if (button >= 0) {
@@ -327,11 +327,11 @@ void imgui_adapter::process_input(const input_internal::input_event& event) {
     }
     break;
   }
-  case input_internal::event_type::pointer_wheel:
+  case engine::input::event_type::pointer_wheel:
     io.AddMousePosEvent(event.data.pointer_wheel.x, event.data.pointer_wheel.y);
     io.AddMouseWheelEvent(event.data.pointer_wheel.delta_x, event.data.pointer_wheel.delta_y);
     break;
-  case input_internal::event_type::pointer_left:
+  case engine::input::event_type::pointer_left:
     io.AddMousePosEvent(-FLT_MAX, -FLT_MAX);
     break;
   default:
@@ -374,7 +374,7 @@ gneiss_result imgui_adapter::submit(runtime::application& application) {
         continue;
       }
       const auto texture = static_cast<core::rid>(command.GetTexID());
-      render_internal::ui_draw_command converted{};
+      engine::render::ui_draw_command converted{};
       converted.texture = texture;
       converted.clip_min[0] = command.ClipRect.x - draw_data->DisplayPos.x;
       converted.clip_min[1] = command.ClipRect.y - draw_data->DisplayPos.y;
@@ -389,7 +389,7 @@ gneiss_result imgui_adapter::submit(runtime::application& application) {
     index_base += static_cast<std::uint32_t>(source->IdxBuffer.Size);
   }
 
-  render_internal::ui_draw_view desc;
+  engine::render::ui_draw_view desc;
   desc.display_width = draw_data->DisplaySize.x;
   desc.display_height = draw_data->DisplaySize.y;
   desc.framebuffer_scale_x = draw_data->FramebufferScale.x;

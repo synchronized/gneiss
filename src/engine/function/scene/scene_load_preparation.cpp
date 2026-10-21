@@ -8,7 +8,7 @@
 #include <algorithm>
 #include <unordered_map>
 
-namespace gneiss::scene_internal {
+namespace gneiss::engine::scene {
 namespace {
 
 gneiss_result order_nodes(const std::vector<gneiss::engine::resource::object_description>& objects,
@@ -65,7 +65,7 @@ public:
   prepared_scene_description candidate;
   gneiss::engine::resource::scene_diagnostic& diagnostic;
   std::map<std::string, std::vector<std::byte>> sources;
-  std::map<std::string, render_internal::render_asset_type> dependencies;
+  std::map<std::string, engine::render::render_asset_type> dependencies;
   std::map<std::string, std::size_t> scene_depths;
 
   gneiss_result read(std::string_view uri, std::string_view& text) {
@@ -84,7 +84,7 @@ public:
   }
 
   gneiss_result collect(const std::vector<gneiss::engine::resource::object_description>& objects) {
-    using render_internal::render_asset_type;
+    using engine::render::render_asset_type;
     for (const auto& object : objects) {
       if (cancelled && cancelled()) {
         return GNEISS_ERROR_INVALID_STATE;
@@ -93,11 +93,11 @@ public:
         continue;
       }
       for (const auto& asset : {
-               render_internal::render_asset_reload{
+               engine::render::render_asset_reload{
                    .uri = object.mesh_renderer->mesh_uri,
                    .type = render_asset_type::mesh,
                },
-               render_internal::render_asset_reload{
+               engine::render::render_asset_reload{
                    .uri = object.mesh_renderer->material_uri,
                    .type = render_asset_type::material,
                },
@@ -276,4 +276,4 @@ gneiss_result prepare_scene_description(const engine::resource::virtual_file_sys
   return diagnostic.result;
 }
 
-} // namespace gneiss::scene_internal
+} // namespace gneiss::engine::scene

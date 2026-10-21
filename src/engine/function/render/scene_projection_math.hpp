@@ -6,13 +6,13 @@
 
 #include "engine/function/render/camera_math.hpp"
 
-namespace gneiss::render_internal {
+namespace gneiss::engine::render {
 
 /** 从 Gneiss Transform 构造列主序 Model 与逆转置 Normal Matrix。 */
 [[nodiscard]] bool build_model_matrices(const engine::transform& transform,
-                                        render_internal::matrix4& model,
-                                        render_internal::matrix4& normal) noexcept;
+                                        engine::render::matrix4& model,
+                                        engine::render::matrix4& normal) noexcept;
 
-} // namespace gneiss::render_internal
+} // namespace gneiss::engine::render
 
 #endif

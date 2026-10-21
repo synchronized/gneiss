@@ -11,7 +11,7 @@
 #include <span>
 #include <vector>
 
-namespace gneiss::render_internal {
+namespace gneiss::engine::render {
 
 /** 校验并持有标准 PBR Shader Library 字节；GPU 变体解析由 Granit 负责。 */
 class pbr_shader_resolver final {
@@ -29,6 +29,6 @@ private:
   std::vector<std::byte> archive_;
 };
 
-} // namespace gneiss::render_internal
+} // namespace gneiss::engine::render
 
 #endif

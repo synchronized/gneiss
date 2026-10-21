@@ -21,7 +21,7 @@ public:
                               std::unique_ptr<prefab_preparation>& output) noexcept;
   ~prefab_preparation();
   void cancel();
-  gneiss_result poll(scene_internal::prepared_scene_description& output, bool& complete);
+  gneiss_result poll(engine::scene::prepared_scene_description& output, bool& complete);
 
 private:
   struct state;

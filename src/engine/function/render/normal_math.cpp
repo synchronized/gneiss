@@ -5,7 +5,7 @@
 
 #include <cmath>
 
-namespace gneiss::render_internal {
+namespace gneiss::engine::render {
 
 std::array<float, 3> transform_normal(const std::array<float, 3>& normal,
                                       const engine::transform& transform) noexcept {
@@ -29,4 +29,4 @@ std::array<float, 3> transform_normal(const std::array<float, 3>& normal,
   return value;
 }
 
-} // namespace gneiss::render_internal
+} // namespace gneiss::engine::render

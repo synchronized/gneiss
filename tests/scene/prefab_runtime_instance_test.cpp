@@ -78,8 +78,8 @@ public:
 };
 
 bool check_failed_camera_prefab(
-    gneiss::engine::world& native_world, gneiss_world world, gneiss_type_registry registry,
-    gneiss::render_internal::render_asset_loader& render_loader,
+    gneiss::engine::world::world& native_world, gneiss_world world, gneiss_type_registry registry,
+    gneiss::engine::render::render_asset_loader& render_loader,
     gneiss::engine::resource::prefab_asset_loader& prefab_loader,
     const gneiss::engine::resource::prefab_description& source,
     const std::vector<gneiss::engine::resource::prefab_property_override>& invalid_overrides) {
@@ -101,8 +101,8 @@ bool check_failed_camera_prefab(
     return false;
   }
   const gneiss::engine::transform transform = {};
-  std::unique_ptr<gneiss::scene_internal::prefab_runtime_instance> candidate;
-  const auto operation = gneiss::scene_internal::prefab_runtime_instance::create(
+  std::unique_ptr<gneiss::engine::scene::prefab_runtime_instance> candidate;
+  const auto operation = gneiss::engine::scene::prefab_runtime_instance::create(
       native_world, world, render_loader, lease, registry, "20000000-0000-4000-8000-000000000005",
       GNEISS_NULL_SCENE_NODE_ID, transform, invalid_overrides, candidate);
   gneiss_entity_id active{};
@@ -115,7 +115,7 @@ bool check_failed_camera_prefab(
     return false;
   }
   // 原本没有相机时，失败候选也不能留下活动相机或实体。
-  return gneiss::scene_internal::prefab_runtime_instance::create(
+  return gneiss::engine::scene::prefab_runtime_instance::create(
              native_world, world, render_loader, lease, registry,
              "20000000-0000-4000-8000-000000000005", GNEISS_NULL_SCENE_NODE_ID, transform,
              invalid_overrides, candidate) == GNEISS_ERROR_NOT_FOUND &&
@@ -123,13 +123,13 @@ bool check_failed_camera_prefab(
          gneiss_world_entity_count(world, &count) == GNEISS_SUCCESS && count == 6U;
 }
 
-bool check_hidden_prefab(gneiss::engine::world& native_world, gneiss_world world,
+bool check_hidden_prefab(gneiss::engine::world::world& native_world, gneiss_world world,
                          gneiss_type_registry registry,
-                         gneiss::render_internal::render_asset_loader& loader,
+                         gneiss::engine::render::render_asset_loader& loader,
                          gneiss::engine::resource::prefab_asset_loader& prefabs,
                          gneiss::engine::resource::prefab_asset_lease lease,
                          gneiss_scene_node_id parent) {
-  using gneiss::scene_internal::prefab_runtime_instance;
+  using gneiss::engine::scene::prefab_runtime_instance;
   prefab_runtime_instance candidate(native_world, world, loader, lease,
                                     "20000000-0000-4000-8000-000000000006");
   auto prepared = *lease.get();
@@ -198,8 +198,8 @@ bool check_hidden_prefab(gneiss::engine::world& native_world, gneiss_world world
 
 int main() try {
   gneiss_world world = GNEISS_NULL_WORLD;
-  gneiss::world_internal::world_owner world_owner;
-  if (gneiss::world_internal::create_native(world_owner, world) != GNEISS_SUCCESS) {
+  gneiss::engine::world::world_owner world_owner;
+  if (gneiss::engine::world::create_native(world_owner, world) != GNEISS_SUCCESS) {
     return 1;
   }
   auto& native_world = *world_owner;
@@ -211,9 +211,9 @@ int main() try {
   }
 
   gneiss::engine::resource::virtual_file_system file_system;
-  gneiss::render_internal::render_resource_service resources;
+  gneiss::engine::render::render_resource_service resources;
   gneiss::engine::resource::resource_cache cache;
-  gneiss::render_internal::render_asset_loader render_loader(file_system, cache, resources);
+  gneiss::engine::render::render_asset_loader render_loader(file_system, cache, resources);
   gneiss::engine::resource::prefab_asset_loader prefab_loader(file_system, cache);
   if (file_system.mount("asset://prefabs/", std::make_shared<memory_file_system>()) !=
       GNEISS_SUCCESS) {
@@ -233,8 +233,8 @@ int main() try {
   first_transform.translation[0] = 10.0F;
   gneiss::engine::transform second_transform = {};
   second_transform.translation[0] = -5.0F;
-  std::unique_ptr<gneiss::scene_internal::prefab_runtime_instance> first;
-  std::unique_ptr<gneiss::scene_internal::prefab_runtime_instance> second;
+  std::unique_ptr<gneiss::engine::scene::prefab_runtime_instance> first;
+  std::unique_ptr<gneiss::engine::scene::prefab_runtime_instance> second;
   const std::vector<gneiss::engine::resource::prefab_property_override> no_overrides;
   const std::vector<gneiss::engine::resource::prefab_property_override> first_overrides{{
       .key = {.node = {.instance_uuid = "20000000-0000-4000-8000-000000000001",
@@ -243,11 +243,11 @@ int main() try {
               .field_id = gneiss::field_id{GNEISS_TRANSFORM_FIELD_TRANSLATION}},
       .value = {.payload = std::array{3.0F, 0.0F, 0.0F}},
   }};
-  if (gneiss::scene_internal::prefab_runtime_instance::create(
+  if (gneiss::engine::scene::prefab_runtime_instance::create(
           native_world, world, render_loader, std::move(first_lease), registry,
           "20000000-0000-4000-8000-000000000001", GNEISS_NULL_SCENE_NODE_ID, first_transform,
           first_overrides, first) != GNEISS_SUCCESS ||
-      gneiss::scene_internal::prefab_runtime_instance::create(
+      gneiss::engine::scene::prefab_runtime_instance::create(
           native_world, world, render_loader, std::move(second_lease), registry,
           "20000000-0000-4000-8000-000000000002", GNEISS_NULL_SCENE_NODE_ID, second_transform,
           no_overrides, second) != GNEISS_SUCCESS ||
@@ -255,14 +255,14 @@ int main() try {
     return 5;
   }
   gneiss::engine::resource::prefab_description projected;
-  if (gneiss::scene_internal::prefab_runtime_instance::prepare_candidate_description(
+  if (gneiss::engine::scene::prefab_runtime_instance::prepare_candidate_description(
           *first->prefab_lease().get(), registry, "20000000-0000-4000-8000-000000000001",
           first_overrides, projected) != GNEISS_SUCCESS ||
       projected.objects[0].translation[0] != 3 ||
       first->prefab_lease().get()->objects[0].translation[0] != 1) {
     return 14;
   }
-  if (gneiss::scene_internal::prefab_runtime_instance::prepare_candidate_description(
+  if (gneiss::engine::scene::prefab_runtime_instance::prepare_candidate_description(
           *first->prefab_lease().get(), registry, "20000000-0000-4000-8000-000000000002",
           first_overrides, projected) != GNEISS_ERROR_INVALID_ARGUMENT ||
       projected.objects[0].translation[0] != 3) {
@@ -297,7 +297,7 @@ int main() try {
               .field_id = gneiss::field_id{GNEISS_TRANSFORM_FIELD_TRANSLATION}},
       .value = {.payload = std::array{3.0F, 0.0F, 0.0F}},
   }};
-  std::unique_ptr<gneiss::scene_internal::prefab_runtime_instance> failed;
+  std::unique_ptr<gneiss::engine::scene::prefab_runtime_instance> failed;
   if (!check_hidden_prefab(native_world, world, registry, render_loader, prefab_loader,
                            first->prefab_lease(), first->root())) {
     return 17;
@@ -306,7 +306,7 @@ int main() try {
                                   *first->prefab_lease().get(), invalid_overrides)) {
     return 16;
   }
-  if (gneiss::scene_internal::prefab_runtime_instance::create(
+  if (gneiss::engine::scene::prefab_runtime_instance::create(
           native_world, world, render_loader, std::move(invalid_override_lease), registry,
           "20000000-0000-4000-8000-000000000005", GNEISS_NULL_SCENE_NODE_ID, first_transform,
           invalid_overrides, failed) != GNEISS_ERROR_NOT_FOUND ||
@@ -322,7 +322,7 @@ int main() try {
   }
   gneiss::engine::transform invalid_transform = {};
   invalid_transform.scale[1] = 0.0F;
-  if (gneiss::scene_internal::prefab_runtime_instance::create(
+  if (gneiss::engine::scene::prefab_runtime_instance::create(
           native_world, world, render_loader, std::move(failure_lease), registry,
           "20000000-0000-4000-8000-000000000003", GNEISS_NULL_SCENE_NODE_ID, invalid_transform,
           no_overrides, failed) != GNEISS_ERROR_INVALID_ARGUMENT ||
@@ -336,7 +336,7 @@ int main() try {
       GNEISS_SUCCESS) {
     return 9;
   }
-  if (gneiss::scene_internal::prefab_runtime_instance::create(
+  if (gneiss::engine::scene::prefab_runtime_instance::create(
           native_world, world, render_loader, std::move(broken_lease), registry,
           "20000000-0000-4000-8000-000000000004", GNEISS_NULL_SCENE_NODE_ID, first_transform,
           no_overrides, failed) != GNEISS_ERROR_NOT_FOUND ||
@@ -346,9 +346,9 @@ int main() try {
   }
 
   {
-    gneiss::scene_internal::prefab_runtime_instance staged(native_world, world, render_loader,
-                                                           second->prefab_lease(),
-                                                           "20000000-0000-4000-8000-000000000005");
+    gneiss::engine::scene::prefab_runtime_instance staged(native_world, world, render_loader,
+                                                          second->prefab_lease(),
+                                                          "20000000-0000-4000-8000-000000000005");
     if (staged.begin_staged(GNEISS_NULL_SCENE_NODE_ID, first_transform) != GNEISS_SUCCESS ||
         staged.create_staged_node(0U, staged.root(), {}, {}) != GNEISS_SUCCESS ||
         staged.create_staged_node(1U, staged.find_node("10000000-0000-4000-8000-000000000002"), {},

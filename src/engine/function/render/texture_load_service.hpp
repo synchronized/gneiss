@@ -15,7 +15,7 @@ namespace gneiss::engine::resource {
 class cpu_document_cache;
 }
 
-namespace gneiss::render_internal {
+namespace gneiss::engine::render {
 
 enum class texture_load_state : std::uint8_t { preparing, uploading, applied, failed, cancelled };
 struct texture_load_completion {
@@ -25,8 +25,8 @@ struct texture_load_completion {
   texture_load_state state{texture_load_state::failed};
   gneiss_result result{GNEISS_ERROR_INTERNAL};
   std::string message{};
-  std::vector<render_internal::texture_asset_lease> textures;
-  std::vector<render_internal::render_asset_lease> assets;
+  std::vector<engine::render::texture_asset_lease> textures;
+  std::vector<engine::render::render_asset_lease> assets;
   /** 固定版本模式下与 assets 一一对应；旧 URI 模式为空。失败不返回部分版本。 */
   std::vector<engine::resource::asset_version_key> versions;
   /** 本次准备实际使用的能力快照，用于已采用版本的兼容选择域。 */
@@ -40,14 +40,14 @@ struct texture_load_completion {
   std::size_t peak_upload_bytes{};
 };
 struct texture_upload_backend {
-  using data = std::vector<render_internal::render_upload_item>;
+  using data = std::vector<engine::render::render_upload_item>;
   std::function<gneiss_result(data, std::uint64_t&)> begin;
   std::function<bool(std::uint64_t, gneiss_result&)> poll;
   std::function<gneiss_result(data, std::uint64_t&)> discard;
   std::function<void()> flush;
   std::function<double()> elapsed_ms{};
-  std::function<std::size_t(const render_internal::render_upload_item&)> estimate_bytes{};
-  render_internal::texture_prepare_profile profile{};
+  std::function<std::size_t(const engine::render::render_upload_item&)> estimate_bytes{};
+  engine::render::texture_prepare_profile profile{};
 };
 
 struct asset_load_progress {
@@ -75,7 +75,7 @@ public:
   static constexpr std::size_t maximum_bytes = 64U * 1024U * 1024U;
   texture_load_service(tasks::task_executor& executor,
                        engine::resource::virtual_file_system file_system,
-                       render_internal::render_asset_loader& loader, texture_upload_backend backend,
+                       engine::render::render_asset_loader& loader, texture_upload_backend backend,
                        std::shared_ptr<core::progress_notification> notification = {},
                        std::shared_ptr<engine::resource::cpu_document_cache> documents = {});
   ~texture_load_service();
@@ -85,7 +85,7 @@ public:
   /** fixed_version 始终准备并复验来源，不使用 URI 快捷命中；仅上传未发布的版本。
    * reload 仅控制旧模式的 URI 缓存策略，固定版本完成结果携带对应 versions。 */
   [[nodiscard]] gneiss_result submit_assets(
-      std::span<const render_internal::render_asset_reload> sources, std::uint64_t session,
+      std::span<const engine::render::render_asset_reload> sources, std::uint64_t session,
       std::uint64_t revision, std::uint64_t& request, bool reload = true,
       std::size_t prepare_limit = maximum_candidate_bytes,
       render_asset_loader::publication_mode mode = render_asset_loader::publication_mode::reload);
@@ -111,7 +111,7 @@ private:
   tasks::task_executor& executor_;
   tasks::task_scope scope_;
   engine::resource::virtual_file_system file_system_;
-  render_internal::render_asset_loader& loader_;
+  engine::render::render_asset_loader& loader_;
   texture_upload_backend backend_;
   std::shared_ptr<core::progress_notification> notification_;
   std::shared_ptr<engine::resource::cpu_document_cache> documents_;
@@ -122,4 +122,4 @@ private:
   const std::thread::id owner_{std::this_thread::get_id()};
 };
 
-} // namespace gneiss::render_internal
+} // namespace gneiss::engine::render

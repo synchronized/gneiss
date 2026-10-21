@@ -6,7 +6,7 @@
 #include <array>
 #include <cmath>
 
-namespace gneiss::render_internal {
+namespace gneiss::engine::render {
 namespace {
 
 constexpr std::size_t matrix_index(std::size_t row, std::size_t column) noexcept {
@@ -15,8 +15,8 @@ constexpr std::size_t matrix_index(std::size_t row, std::size_t column) noexcept
 
 } // namespace
 
-bool build_model_matrices(const engine::transform& transform, render_internal::matrix4& model,
-                          render_internal::matrix4& normal) noexcept {
+bool build_model_matrices(const engine::transform& transform, engine::render::matrix4& model,
+                          engine::render::matrix4& normal) noexcept {
   const auto x = transform.rotation[0];
   const auto y = transform.rotation[1];
   const auto z = transform.rotation[2];
@@ -70,4 +70,4 @@ bool build_model_matrices(const engine::transform& transform, render_internal::m
   return true;
 }
 
-} // namespace gneiss::render_internal
+} // namespace gneiss::engine::render
