@@ -864,7 +864,6 @@ target_link_libraries(
 target_compile_features(gneiss_texture_load_service_test PRIVATE cxx_std_20)
 gneiss_target_compile_warnings(gneiss_texture_load_service_test)
 gneiss_target_output_directories(gneiss_texture_load_service_test)
-target_link_libraries(gneiss_texture_load_service_test PRIVATE caors::caors)
 add_test(NAME gneiss.texture-load-service COMMAND gneiss_texture_load_service_test)
 
 add_executable(gneiss_texture_load_application_test asset/texture_load_application_test.cpp
@@ -1002,13 +1001,10 @@ add_executable(gneiss_scene_load_builder_test scene/scene_load_builder_test.cpp
 target_sources(gneiss_scene_load_builder_test PRIVATE
   "${PROJECT_SOURCE_DIR}/src/engine/resource/asset_manager.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/types/action_map.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/backend/caors/caors_action_map_loader.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/action_map_parser.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/types/action_map_validation.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/cache/cpu_document_cache.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/resource/backend/caors/caors_vfs_bridge.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/platform/caors/worker.cpp")
-target_link_libraries(gneiss_scene_load_builder_test PRIVATE caors::caors)
+  "${PROJECT_SOURCE_DIR}/src/engine/resource/vfs/asset_source.cpp")
 target_include_directories(gneiss_scene_load_builder_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
 target_compile_definitions(gneiss_scene_load_builder_test PRIVATE GNEISS_BUILDING_LIBRARY)
 target_link_libraries(gneiss_scene_load_builder_test PRIVATE gneiss::engine gneiss_yyjson gneiss_png granit::granit)

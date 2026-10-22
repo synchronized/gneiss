@@ -10,7 +10,7 @@
 namespace gneiss::engine::resource {
 /** 所属线程串行使用的非拥有索引，不创建 manager、线程或第二份强引用缓存。
  * 调用方只可在来源复验成功后登记；登记校验回执与文档一致，不自行进行文件复读。
- * GUID 仅由 CAORS 管理，不能替代来源身份或内容摘要。 */
+ * 来源身份与内容摘要共同确定版本。 */
 class material_document_versions final {
   struct key {
     asset_identity identity;
@@ -35,7 +35,7 @@ class material_document_versions final {
 public:
   /** 同一来源和内容复用已有对象；来源不一致不得合并。失败清空输出，不改变索引。 */
   [[nodiscard]] result remember(const prepared_source& verified,
-                                ::caors::resources::handle<material_document> document,
+                                std::shared_ptr<const material_document> document,
                                 material_document_lease& output) noexcept {
     output = {};
     if (!verified.identity.source ||
@@ -87,6 +87,6 @@ public:
   }
 
 private:
-  std::map<key, ::caors::resources::weak_handle<material_document>, less> versions_;
+  std::map<key, std::weak_ptr<const material_document>, less> versions_;
 };
 } // namespace gneiss::engine::resource

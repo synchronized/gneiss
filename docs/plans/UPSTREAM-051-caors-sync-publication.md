@@ -3,7 +3,8 @@
 
 # CAORS 同步/异步重载发布顺序需求
 
-日期：2026-10-22。状态：已在 Gneiss 锁定依赖复现，方案待确认；未修改或向上游提交。
+日期：2026-10-22。状态：已被[资产管理替换计划](PLAN-051-asset-manager-replacement.md)取代。
+CAORS 已移除，未修改或向上游提交；以下保留迁移前复现证据和当时的操作步骤。
 
 ## 背景与范围
 
@@ -16,7 +17,9 @@ Gneiss 正准备将同步输入加载与异步加载收敛到同一个 CAORS cac
 
 ## 确定性复现
 
-源码：[sync_publication_probe.cpp](../../tests/integration/caors/sync_publication_probe.cpp)。
+历史源码：提交 `83dbd797` 的 `tests/integration/caors/sync_publication_probe.cpp`。
+该依赖专属探针已删除，新管理器发布顺序由
+[asset_manager_test.cpp](../../tests/integration/assets/asset_manager_test.cpp)覆盖。
 无文件、窗口、计时等待或后台线程；执行队列与完成凭证手动推进。
 
 ```powershell

@@ -9,6 +9,7 @@
 #include "engine/resource/loaders/prefab_asset_loader.hpp"
 #include "engine/resource/types/action_map.hpp"
 #include "engine/resource/vfs/virtual_file_system.hpp"
+#include "loaders/asset_loader.hpp"
 #include "types/action_map_asset.hpp"
 #include <memory>
 #include <utility>
@@ -21,7 +22,7 @@ namespace gneiss::engine::resource {
 /** 应用级资产管理器。拥有 CPU 文档缓存与 Prefab 加载器，不拥有 World 或编辑状态。
  * 所属线程使用；请求通道、场景及外部租约须按各自契约释放。
  * 功能层装配类型加载器；底层 asset 模块不依赖 Scene/Render。 */
-class asset_manager final {
+class GNEISS_API asset_manager final {
 public:
   explicit asset_manager(engine::resource::virtual_file_system files);
   ~asset_manager();
@@ -35,6 +36,28 @@ public:
   void advance_resources();
   /** 调用者先取消并释放请求，再停止资源工作。 */
   void stop_resources() noexcept;
+  /** 显式注册 CPU 类型；首次请求后冻结注册。VFS 来源由本管理器固定持有。 */
+  [[nodiscard]] result register_loader(const std::shared_ptr<const asset_loader>& loader) noexcept;
+  /** 默认复用已完成缓存；reload 重新读取并复验，在途同键请求合并。
+   * 所属线程调用；执行器须存活至 stop_resources 返回。 */
+  template <typename T>
+  [[nodiscard]] result load(std::string_view uri, asset_request<T>& output,
+                            bool reload = false) noexcept {
+    std::shared_ptr<detail::asset_state> state;
+    const auto status = request(typeid(T), uri, reload, state);
+    if (status == result::success)
+      output = asset_request<T>{std::move(state)};
+    return status;
+  }
+  /** 同步读取不驱动任务队列；成功发布使同键较早异步请求失去当前缓存写入权。 */
+  template <typename T>
+  [[nodiscard]] result load_sync(std::string_view uri, std::shared_ptr<const T>& output) noexcept {
+    std::shared_ptr<const void> value;
+    const auto status = load_sync_erased(typeid(T), uri, value);
+    if (status == result::success)
+      output = std::static_pointer_cast<const T>(value);
+    return status;
+  }
   asset_manager(const asset_manager&) = delete;
   asset_manager& operator=(const asset_manager&) = delete;
   [[nodiscard]] const engine::resource::virtual_file_system& files() const noexcept {
@@ -58,6 +81,10 @@ public:
   [[nodiscard]] engine::resource::prefab_asset_loader& prefab_loader() noexcept { return prefabs_; }
 
 private:
+  [[nodiscard]] result request(std::type_index type, std::string_view uri, bool reload,
+                               std::shared_ptr<detail::asset_state>& output) noexcept;
+  [[nodiscard]] result load_sync_erased(std::type_index type, std::string_view uri,
+                                        std::shared_ptr<const void>& output) noexcept;
   struct resource_state;
   std::unique_ptr<resource_state> resource_state_;
   engine::resource::virtual_file_system files_;

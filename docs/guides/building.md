@@ -558,22 +558,26 @@ main_thread_core_equivalent 为主线程 CPU 时间 / 进程墙钟时间，1 表
 或其测试后可选 `editor` 补验宿主矩阵；该范围不能代替首次完整验收，未执行的核心、Web 和安装
 任务仍须单独完成。纯记录更新不重跑矩阵。
 
-## CAORS 输入资源接入
+## 输入资源加载
 
-Engine 始终包含 CAORS 输入资源入口，不再提供按资源类型关闭的选项。
-线程池模式使用原生 libuv I/O；协作模式对缺少异步打开能力的后端显式调度有界文档快照读取。
-Runtime 两种模式均提交输入请求，映射应用成功后才初始化游戏模块；Editor 调用点尚未切换。
-协作模式须由宿主推进任务队列，读取会占用推进线程；这不是浏览器网络异步 I/O。
-原生无线程和 Emscripten MEMFS 输入测试已通过，尚未验证浏览器 fetch 或完整 Web Editor。
-启用 `-DGNEISS_BUILD_CAORS_PROBE=ON` 可运行 `gneiss.caors.application`；直接 libuv/Granit 探针
-只在原生线程平台构建。原生探针仍需对应 Granit 工具依赖。
-已接受请求通过主循环推进，须在 update 前观察 `action_map_status()`，不能把 begin 成功当加载完成。
-同步与异步输入文档均限制为 1 MiB，并在采用前复读校验；同步入口不要求执行器，
-但仍在调用线程执行 I/O。同步结果发布到 CAORS 缓存尚未统一。
-核心安装包含固定 CAORS 运行库与包；静态 Gneiss 包自动解析该链接依赖，公共头文件不包含 CAORS。
-Windows 构建将 caors.dll 与程序置于同一 bin 目录；分发时须保留该 DLL。
-原生平台即使 Engine 自身为静态库，仍需要 CAORS 动态运行时；Web 则采用静态库。
-方案与限制见[Application 接入计划](../plans/PLAN-051-caors-application-integration.md)。
+Engine 内部采用 Granit 示例模型的移植版资产管理器，复用 Gneiss VFS 和任务执行器。
+线程池模式可使用 libuv 异步读取；协作模式由宿主推进，无异步能力的后端在执行器内有界回退。
+两种模式均不在 begin 调用中执行文件读取；回退及单项解析不承诺硬耗时上限。
+同步入口在调用线程读取与复验，不要求执行器，不递归驱动宿主队列。
+同步与异步输入均限制为 1 MiB；同步成功发布后，较早异步完成不能覆盖当前缓存。
+请求成功只表示已接受；映射采用在主循环 update 前完成。
+
+启用常规测试后运行：
+
+```sh
+ctest --test-dir build/windows-clang-debug -R '^gneiss.assets.' --output-on-failure
+```
+
+`gneiss.assets.application` 覆盖输入应用；`gneiss.assets.manager` 覆盖请求、缓存和发布顺序；
+`gneiss.assets.material` 在原生线程配置验证来源复验与 CPU 版本租约。
+旧 `GNEISS_BUILD_CAORS_PROBE` 选项已删除；CAORS 不再是构建或安装依赖。
+核心及静态 consumer 不需要 caors.dll 或 CAORS package；旧构建目录可能残留历史文件，
+以干净安装前缀验证实际分发内容。Web 浏览器 fetch 与完整 Web Editor 不因换库而自动获得支持。
 
 Runtime 集成回归可运行 `gneiss.runtime.async-input-startup`（启用 Runtime）。
 `gneiss_runtime --smoke` 创建真实隐藏窗口，完成后退出；正常启动仍显示窗口。
@@ -583,7 +587,7 @@ Runtime 集成回归可运行 `gneiss.runtime.async-input-startup`（启用 Runt
 
 ## 第三方源码缓存
 
-libuv、ImGui、ImGuizmo、MikkTSpace、bc7enc_rdo、fastgltf、Granit（默认锁定版本）、CAORS、
+libuv、ImGui、ImGuizmo、MikkTSpace、bc7enc_rdo、fastgltf、Granit（默认锁定版本）、
 simdjson 和 Tracy 使用仓库级
 `vendor/cache` 保存已校验归档与源码，构建产物仍在当前 preset 的 `build/<preset>/_deps`。
 实施范围与验收见
@@ -594,8 +598,8 @@ simdjson 和 Tracy 使用仓库级
   此开关目前只约束接入缓存辅助函数的依赖，不保证整个工程离线。
 - `FETCHCONTENT_SOURCE_DIR_GNEISS_<NAME>_SOURCE`：显式本地源码覆盖，优先于缓存获取；
   `<NAME>` 可为 `LIBUV`、`IMGUI`、`IMGUIZMO`、`MIKKTSPACE`、`BC7ENC`、`TRACY`、`SIMDJSON`；
-  fastgltf 使用 `FETCHCONTENT_SOURCE_DIR_FASTGLTF`，Granit/CAORS 分别使用
-  `FETCHCONTENT_SOURCE_DIR_GNEISS_GRANIT`、`FETCHCONTENT_SOURCE_DIR_GNEISS_CAORS`。
+  fastgltf 使用 `FETCHCONTENT_SOURCE_DIR_FASTGLTF`，Granit 使用
+  `FETCHCONTENT_SOURCE_DIR_GNEISS_GRANIT`。
 - 自定义 bc7enc/fastgltf/Granit 仓库或提交仍走原 Git 获取路径，不冒用默认归档摘要；离线时必须提供上述
   本地源码覆盖。Tracy 仍按 `GNEISS_ENABLE_PROFILING` 启用，链接方式仍为共享库。
 
@@ -612,16 +616,12 @@ Granit 的 PACKAGE/AUTO 查找优先级保持不变，仅 FETCH 默认版本使�
 Granit 附属依赖缓存默认放在当前构建目录 `_deps/granit-cache`，显式设置的
 `GRANIT_DEPENDENCY_SOURCE_CACHE_DIR` 保持优先；当前关闭其 SDL3/ImGui 获取。
 Shader 工具链仍使用 Granit 自身机制，不受 Gneiss 源码离线开关控制。
-CAORS 在原生平台使用共享库、Web 使用静态库，源码缓存只共享源码、不共享构建产物；已有四项 Git submodule 保持不变。
+源码缓存只共享源码、不共享构建产物；已有四项 Git submodule 保持不变。
 
-## CAORS CPU 资源基础依赖
+## CPU 资源共享
 
-CAORS 0.7 是核心依赖；材质和 Mesh 已不再提供独立启用开关。
-asset_manager 创建的资产通道统一使用 CPU 资源缓存，不要求线程池或 libuv。
-Mesh 仍先读取、解析和整批复验，再移动数组到 CAORS 资源，渲染层共享只读数据。
-原生平台链接 CAORS 共享库，Emscripten 链接静态库；静态 Gneiss consumer 自动解析依赖。
-普通公共头文件不暴露 CAORS 类型。旧的材质/Mesh 缓存选项不再控制行为，应从用户配置中移除。
-
-输入选项及直接 I/O 探针暂仍要求原生线程/libuv。同步 acquire 和手工未注入缓存的通道
-尚待合并；本步不意味着所有加载路径或 Web 浏览器 I/O 已完成。
-进度与剩余边界见[资源路径收敛计划](../plans/PLAN-051-caors-convergence.md)。
+材质文档与 Mesh 使用标准库只读共享引用，不继承第三方资源基类。
+Mesh 仍先读取、解析和整批复验，再移动数组到共享对象；材质保留来源身份和内容摘要索引。
+这些固定版本租约用于现有场景/历史保活，不表示全部资源加载路径已统一成泛型请求。
+Asset Manager 不拥有 GPU、World 或编辑历史。剩余简化事项见
+[资产管理替换计划](../plans/PLAN-051-asset-manager-replacement.md)。

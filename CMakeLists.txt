@@ -18,7 +18,6 @@ option(GNEISS_BUILD_TOOLS "构建 Gneiss 离线工具" ${PROJECT_IS_TOP_LEVEL})
 option(GNEISS_BUILD_EDITOR "构建 Gneiss Editor" OFF)
 option(GNEISS_BUILD_RUNTIME "构建 Gneiss Runtime 宿主" OFF)
 option(GNEISS_ENABLE_GRANIT_PLATFORM "启用 Granit Window 平台适配" OFF)
-option(GNEISS_BUILD_CAORS_PROBE "构建 CAORS 输入测试；原生线程平台额外构建 I/O 探针" OFF)
 
 if(GNEISS_BUILD_EDITOR AND NOT GNEISS_ENABLE_GRANIT_PLATFORM)
   message(FATAL_ERROR "GNEISS_BUILD_EDITOR=ON 需要 GNEISS_ENABLE_GRANIT_PLATFORM=ON")
@@ -48,25 +47,14 @@ if(GNEISS_BUILD_EDITOR OR GNEISS_BUILD_RUNTIME OR (GNEISS_TASK_THREADS AND NOT E
 endif()
 include(internal_interfaces)
 add_subdirectory(src)
-# 只有直接 I/O 探针依赖原生线程和 libuv；输入宿主可使用协作执行器。
-if(GNEISS_BUILD_CAORS_PROBE AND GNEISS_TASK_THREADS AND NOT EMSCRIPTEN)
-  if(NOT TARGET gneiss_io_uv)
-    add_subdirectory(src/engine/platform/io)
-  endif()
-endif()
-add_subdirectory(src/engine/platform/caors)
-target_link_libraries(gneiss_engine PRIVATE caors::caors)
-if(GNEISS_BUILD_CAORS_PROBE)
-  if(GNEISS_TASK_THREADS AND NOT EMSCRIPTEN)
-    add_subdirectory(src/engine/function/input)
-  endif()
-  add_subdirectory(tests/integration/caors)
-endif()
 target_sources(gneiss_engine PRIVATE
-  src/engine/platform/caors/worker.cpp
-  src/engine/resource/backend/caors/caors_vfs_bridge.cpp
-  src/engine/resource/backend/caors/caors_action_map_loader.cpp
+  src/engine/resource/vfs/asset_source.cpp
   src/runtime/loading/action_map_application.cpp)
+if(GNEISS_BUILD_TESTING AND BUILD_TESTING)
+  add_subdirectory(tests/integration/assets)
+endif()
+install(FILES "${PROJECT_SOURCE_DIR}/3rd/granit-example-assets-LICENSE"
+  DESTINATION "${CMAKE_INSTALL_DATADIR}/doc/gneiss/licenses")
 if(GNEISS_BUILD_TOOLS)
   include(bc7enc)
   gneiss_resolve_bc7enc()

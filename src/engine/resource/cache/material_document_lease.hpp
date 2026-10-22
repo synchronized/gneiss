@@ -4,7 +4,7 @@
 #pragma once
 #include "engine/resource/loaders/asset_preparation.hpp"
 #include "engine/resource/types/material_document.hpp"
-#include <caors/resources/handle.h>
+#include <memory>
 
 namespace gneiss::engine::resource {
 /** 版本租约同时保活来源身份与只读 CPU 文档；不表示场景已采用该版本。 */
@@ -17,11 +17,9 @@ public:
 
 private:
   friend class material_document_versions;
-  material_document_lease(prepared_source source,
-                          ::caors::resources::handle<material_document> document)
+  material_document_lease(prepared_source source, std::shared_ptr<const material_document> document)
       : source_(std::move(source)), document_(std::move(document)) {}
   prepared_source source_;
-  // CAORS 当前不支持 handle<const T>；只通过租约暴露 const 访问。
-  ::caors::resources::handle<material_document> document_;
+  std::shared_ptr<const material_document> document_;
 };
 }

@@ -720,9 +720,9 @@ foreach(location IN ITEMS types/material_document.hpp cache/material_document_ve
     endif()
   endforeach()
 endforeach()
-file(WRITE "${fixture}/src/engine/resource/types/material_document.hpp" "#include <caors/resources/resource.h>\n")
+file(WRITE "${fixture}/src/engine/resource/types/material_document.hpp" "#include <memory>\n")
 execute_process(COMMAND "${CMAKE_COMMAND}" "-DGNEISS_SOURCE_DIR=${fixture}"
   -P "${GNEISS_SOURCE_DIR}/cmake/check_core_boundary.cmake" RESULT_VARIABLE status)
 if(NOT status EQUAL 0)
-  message(FATAL_ERROR "错误拒绝内部资源类型使用 CAORS 原生基类")
+  message(FATAL_ERROR "错误拒绝内部资源类型使用标准共享所有权")
 endif()

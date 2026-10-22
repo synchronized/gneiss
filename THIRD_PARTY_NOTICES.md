@@ -25,8 +25,9 @@ libuv 在核心原生线程构建中私有内嵌，不向普通公共头或安�
 无线程/Web 核心构建保留标准库文件回退；无需自行维护平台 I/O 是采用 libuv 的主要原因，
 原生 API 后端仅作为明确能力缺口的后续备选。本版逐步迁移，异步区间读取仍有既有平台实现。
 
-核心安装包含 CAORS 0.7.0（锁定提交
-`3b543eb1549156a21e432af91da3abd98727fff8`）运行库和开发包，按 MIT 许可证使用，
-许可证另存为 `share/doc/gneiss/licenses/caors-LICENSE`。CAORS 提供资源持有、缓存及异步请求
-协议；Gneiss 保留 libuv I/O、场景采用和渲染资源服务。普通公共接口不暴露 CAORS 类型。
-原生平台采用共享库，Emscripten 采用静态库；接入不改变公共 C ABI。
+资产管理器内部实现移植自 Granit `examples/common/assets` 的请求共享、类型 Loader 与只读结果模型，
+来源提交 `c9803195cc81d2d1cef55e47f5bcff1c42884ccd`，按 MIT 许可保留原版权。
+Gneiss 改用现有 VFS/任务执行器，增加有界分步读取、来源复验、同步发布顺序及关闭语义；
+这不是未修改的 Granit 示例 target，也不是 Granit 公共 SDK。原许可证安装为
+`share/doc/gneiss/licenses/granit-example-assets-LICENSE`。
+核心不再链接、获取或安装 CAORS；替换不改变公共 C ABI。

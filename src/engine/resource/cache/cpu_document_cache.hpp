@@ -3,7 +3,7 @@
 #pragma once
 #include "engine/resource/loaders/asset_preparation.hpp"
 #include "engine/resource/types/material_document.hpp"
-#include <caors/resources/handle.h>
+#include <memory>
 
 namespace gneiss::engine::resource {
 class cpu_document_batch;
@@ -39,6 +39,6 @@ private:
   friend class cpu_document_cache;
   explicit cpu_document_batch(std::shared_ptr<cpu_document_cache::state> versions);
   std::shared_ptr<cpu_document_cache::state> versions_;
-  std::vector<::caors::resources::handle<material_document>> candidates_;
+  std::vector<std::shared_ptr<const material_document>> candidates_;
 };
 }

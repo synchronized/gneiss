@@ -3,7 +3,7 @@
 #include "engine/resource/cache/cpu_document_cache.hpp"
 #include "engine/resource/cache/material_document_versions.hpp"
 #include "engine/resource/loaders/material_document_decoder.hpp"
-#include "engine/resource/types/mesh_document.hpp"
+#include "engine/resource/types/mesh_data.hpp"
 #include <algorithm>
 #include <map>
 #include <tuple>
@@ -33,13 +33,7 @@ public:
         return GNEISS_SUCCESS;
       }
     }
-    auto document =
-        ::caors::resources::make_handle<mesh_document>(nullptr, ::caors::resource_guid{});
-    if (!document)
-      return GNEISS_ERROR_OUT_OF_MEMORY;
-    document->data = std::move(asset.mesh);
-    auto owner = std::make_shared<::caors::resources::handle<mesh_document>>(std::move(document));
-    std::shared_ptr<const mesh_data> data(owner, &(*owner)->data);
+    auto data = std::make_shared<const mesh_data>(std::move(asset.mesh));
     versions_.insert_or_assign(std::move(identity), data);
     asset.shared_mesh = std::move(data);
     return GNEISS_SUCCESS;
@@ -69,9 +63,8 @@ gneiss_result cpu_document_batch::decode(const std::vector<std::byte>& bytes,
                                          material_parameters& parameters,
                                          std::array<std::string, 5>& uris,
                                          asset_diagnostic& diagnostic) {
-  // GUID 不参与版本选择；候选不注册到按 URI reload 的可变槽位。
-  auto document =
-      ::caors::resources::make_handle<material_document>(nullptr, ::caors::resource_guid{});
+  // 候选按已复验的来源版本登记，不修改当前资源选择。
+  auto document = std::make_shared<material_document>();
   if (!document) {
     return GNEISS_ERROR_OUT_OF_MEMORY;
   }
@@ -89,8 +82,9 @@ gneiss_result cpu_document_batch::retain_verified(prepared_batch& batch) {
   for (auto& asset : batch.assets) {
     if (asset.source.type == asset_type::mesh) {
       const auto result = versions_->meshes.retain(asset);
-      if (result != GNEISS_SUCCESS)
+      if (result != GNEISS_SUCCESS) {
         return result;
+      }
       continue;
     }
     if (asset.source.type != asset_type::material) {

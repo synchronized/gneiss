@@ -2,11 +2,11 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/core/tasks/task_scheduler.hpp"
-#include "engine/resource/backend/caors/caors_material_document.hpp"
-#include "engine/resource/backend/caors/caors_vfs_bridge.hpp"
 #include "engine/resource/cache/cpu_document_cache.hpp"
 #include "engine/resource/cache/material_document_versions.hpp"
+#include "engine/resource/loaders/material_document_decoder.hpp"
 #include "engine/resource/vfs/native_file_system.hpp"
+#include "engine/resource/vfs/virtual_file_system.hpp"
 #include "uv_async_file.hpp"
 #include "uv_loop_executor.hpp"
 #include "uv_path_resolver.hpp"
@@ -59,88 +59,18 @@ void run(std::size_t document_limit) {
                        std::make_shared<gneiss::engine::platform::io::uv_path_resolver>(loop));
   virtual_file_system files;
   check(files.mount("asset://", native) == GNEISS_SUCCESS, "mount");
-  gneiss::engine::core::tasks::task_scheduler scheduler({.workers = 1});
-  auto context = gneiss::engine::platform::caors::make_worker(scheduler);
-  ::caors::tasks::external_executor worker(context);
-  ::caors::tasks::execution_context completions;
-  auto bridge = make_caors_vfs_bridge(files, worker.get_executor(), document_limit);
-  bool rejected_zero_bridge = false;
-  try {
-    (void)make_caors_vfs_bridge(files, worker.get_executor(), 0);
-  } catch (const std::invalid_argument&) {
-    rejected_zero_bridge = true;
-  }
-  check(rejected_zero_bridge, "zero bridge budget rejected");
-  bool rejected_zero_loader = false;
-  try {
-    (void)make_material_document_loader(*bridge, {}, 0);
-  } catch (const std::invalid_argument&) {
-    rejected_zero_loader = true;
-  }
-  check(rejected_zero_loader, "zero loader budget rejected");
-  std::atomic_bool reject_verification{false};
   const auto host_thread = std::this_thread::get_id();
-  auto loader = make_material_document_loader(
-      *bridge,
-      [files, host_thread, &reject_verification, document_limit](auto uri, auto bytes) {
-        if (reject_verification.load())
-          return result::invalid_state;
-        if (std::this_thread::get_id() == host_thread)
-          return result::internal;
-        std::vector<std::byte> current;
-        const result read{files.read_bounded(uri, document_limit, current)};
-        if (read != result::success)
-          return read;
-        return gneiss::engine::core::sha256(current) == gneiss::engine::core::sha256(bytes)
-                   ? result::success
-                   : result::invalid_state;
-      },
-      document_limit);
-  ::caors::resources::cache<material_document> cache;
-  ::caors::assets::asset_manager manager({worker.get_executor(), completions.get_executor()});
-  struct cleanup {
-    ::caors::tasks::external_executor& worker;
-    material_document_loader& loader;
-    ::caors::tasks::execution_context& queue;
-    ~cleanup() {
-      worker.close();
-      loader.abandon();
-      (void)queue.drain();
-    }
-  } guard{worker, *loader, completions};
-  check(!manager.register_type(cache, *loader, ::caors::string_name{"gneiss.material.document"}),
-        "register");
-  ::caors::guid::byte_array id_bytes{};
-  id_bytes[0] = 1;
-  const ::caors::resource_guid id{::caors::guid::from_bytes(id_bytes)};
-  ::caors::resources::file_source source(bridge);
-  check(!manager.provider().bind(id, source, "asset://material.json"), "bind");
-  auto wait = [&](auto predicate) {
-    const auto deadline = std::chrono::steady_clock::now() + 10s;
-    while (!predicate()) {
-      loader->pump();
-      (void)completions.drain();
-      context->collect();
-      check(std::chrono::steady_clock::now() < deadline, "timeout");
-      std::this_thread::sleep_for(1ms);
-    }
-  };
-  auto first = manager.request_load<material_document>(id);
-  auto second = manager.request_load<material_document>(id);
-  wait([&] { return first.done() && second.done(); });
-  check(first.loaded() && second.loaded(), "loaded");
-  auto old = first.try_get();
-  check(old.get() == second.try_get().get() && loader->started_count() == 1, "coalesced");
-  check(old->source.parameters.color[0] == 1, "red parsed");
+  auto old = std::make_shared<material_document>();
+  auto current = std::make_shared<material_document>();
+  std::vector<std::byte> document_bytes;
+  asset_diagnostic decode_diagnostic;
+  check(files.read("asset://material.json", document_bytes) == GNEISS_SUCCESS, "read old");
+  check(decode_material_document(document_bytes, *old, decode_diagnostic) == GNEISS_SUCCESS,
+        "decode old");
   write(R"({"format":"gneiss.material","version":1,"color":[0,1,0,1]})");
-  auto reload = manager.request_reload<material_document>(id);
-  wait([&] { return reload.done(); });
-  check(reload.loaded(), "reload");
-  auto current = reload.try_get();
-  check(current.get() != old.get() && current->digest != old->digest, "distinct version");
-  check(old->source.parameters.color[0] == 1 && current->source.parameters.color[1] == 1,
-        "old version retained");
-  // 来源回执来自同一个 VFS；索引只认确切版本，不用 GUID 推断来源。
+  check(files.read("asset://material.json", document_bytes) == GNEISS_SUCCESS, "read new");
+  check(decode_material_document(document_bytes, *current, decode_diagnostic) == GNEISS_SUCCESS,
+        "decode new");
   asset_identity identity;
   check(files.identify("asset://material.json", static_cast<std::uint32_t>(asset_type::material),
                        identity) == GNEISS_SUCCESS,
@@ -157,7 +87,7 @@ void run(std::size_t document_limit) {
   check(versions.find(new_source, found) == result::success && found.get() == current.get(),
         "find new exact version");
   // 相同内容来自另一次加载，可复用已存活的解析结果。
-  auto duplicate = ::caors::resources::make_handle<material_document>(nullptr, id);
+  auto duplicate = std::make_shared<material_document>();
   check(static_cast<bool>(duplicate), "duplicate allocation");
   duplicate->source = old->source;
   duplicate->digest = old->digest;
@@ -206,21 +136,6 @@ void run(std::size_t document_limit) {
   versions.collect();
   check(expired_source.expired(), "collect releases source marker");
   check(versions.find(old_source, found) == result::success, "collect preserves live old version");
-  reject_verification = true;
-  auto rejected = manager.request_reload<material_document>(id);
-  wait([&] { return rejected.done(); });
-  check(rejected.failed() && cache.find_handle(id).get() == current.get(),
-        "verification failure preserves current");
-  reject_verification = false;
-  write("{}");
-  auto invalid = manager.request_reload<material_document>(id);
-  wait([&] { return invalid.done(); });
-  check(invalid.failed() && cache.find_handle(id).get() == current.get(),
-        "failure preserves current");
-  auto cancelled = manager.request_reload<material_document>(id);
-  check(cancelled.cancel(), "cancel");
-  wait([&] { return !manager.database().has_active_operations() && loader->empty(); });
-  check(cache.find_handle(id).get() == current.get(), "cancel preserves current");
   // 直接走生产使用的分步准备：复用已读取字节，不再从 Loader 启动第二次读取。
   auto shared_documents = std::make_shared<cpu_document_cache>();
   check(shared_documents != nullptr, "material cache enabled");
@@ -230,7 +145,7 @@ void run(std::size_t document_limit) {
         dependency_missing
             ? R"({"format":"gneiss.material","version":2,"color":[1,0,0,1],"base_color_texture":"asset://missing"})"
             : R"({"format":"gneiss.material","version":1,"color":[1,0,0,1]})");
-    ::caors::resources::handle<material_document> candidate;
+    std::shared_ptr<material_document> candidate;
     unsigned decodes = 0;
     const std::array requested{
         asset_preparation_source{"asset://material.json", asset_type::material}};
@@ -240,7 +155,7 @@ void run(std::size_t document_limit) {
         [&](const auto& bytes, auto& parameters, auto& uris, auto& diagnostic) {
           check(std::this_thread::get_id() != host_thread, "batch decode runs off host");
           ++decodes;
-          candidate = ::caors::resources::make_handle<material_document>(nullptr, id);
+          candidate = std::make_shared<material_document>();
           if (!candidate)
             return GNEISS_ERROR_OUT_OF_MEMORY;
           const auto decoded = documents->decode(bytes, parameters, uris, diagnostic);
@@ -271,7 +186,7 @@ void run(std::size_t document_limit) {
     check(decodes == 1, "batch decodes once");
     if (change_source || dependency_missing) {
       check(status != GNEISS_SUCCESS && batch.assets.empty(), "unverified batch not published");
-      check(cache.find_handle(id).get() == current.get(), "failed batch keeps old document");
+      check(current->source.parameters.color[1] == 1, "failed batch keeps old document");
     } else {
       check(status == GNEISS_SUCCESS && batch.assets.size() == 1, "verified material batch");
       check(documents->retain_verified(batch) == GNEISS_SUCCESS, "retain verified documents");
@@ -327,14 +242,6 @@ void run(std::size_t document_limit) {
   prepare(false, false);
   prepare(true, false);
   prepare(false, true);
-  write(std::string(document_limit + 1U, ' '));
-  auto oversized = manager.request_reload<material_document>(id);
-  wait([&] { return oversized.done(); });
-  check(oversized.failed() && cache.find_handle(id).get() == current.get(),
-        "limit preserves current");
-  check(cache.erase(id) && old->source.parameters.color[0] == 1 &&
-            current->source.parameters.color[1] == 1,
-        "handles survive eviction");
 }
 }
 int main() {

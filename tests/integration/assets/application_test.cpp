@@ -28,7 +28,7 @@ void close_pending_window(const char* assets) {
   config.asset_root = assets;
   config.use_granit_window = true;
   config.window.visible = false;
-  config.window.title = "Gneiss CAORS pending close test";
+  config.window.title = "Gneiss Asset pending close test";
   unsigned updates = 0;
   config.callbacks.update = [&](auto, const auto&) {
     ++updates;
@@ -62,7 +62,7 @@ void close_pending_window(const char* assets) {
     check(app->begin_action_map("asset://input/default.input-map.json") == GNEISS_SUCCESS,
           "pending window input");
     check(app->action_map_status() == GNEISS_ERROR_NOT_READY, "input remains pending");
-    const auto window = FindWindowW(nullptr, L"Gneiss CAORS pending close test");
+    const auto window = FindWindowW(nullptr, L"Gneiss Asset pending close test");
     check(window != nullptr && PostMessageW(window, WM_CLOSE, 0, 0), "post native close");
     check(app->run(0, 1) == GNEISS_SUCCESS && updates == 0, "close handled before game update");
     check(app->action_map_status() == GNEISS_ERROR_NOT_READY, "close did not wait for input");
@@ -81,7 +81,7 @@ void run(const char* assets, bool cooperative) {
        .mode = cooperative ? engine::core::tasks::execution_mode::cooperative
                            : engine::core::tasks::execution_mode::thread_pool});
   const auto root = std::filesystem::temp_directory_path() /
-                    ("gneiss-caors-application-" +
+                    ("gneiss-asset-application-" +
                      std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
   std::filesystem::create_directories(root / "input");
   const auto file = root / "input/default.input-map.json";

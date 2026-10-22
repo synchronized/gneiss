@@ -19,7 +19,7 @@
 资产管理器、资源描述、解析、VFS、CPU 文档缓存及 Prefab Loader 已统一位于
 `src/engine/resource/`；旧 `src/engine/asset/`、`src/engine/function/asset/` 已删除，
 没有兼容转发头。渲染 Loader 与上传保留在 `function/render`，Prefab 实例化和编辑保留在
-`function/scene`。资源代码已按 `types/`、`loaders/`、`vfs/`、`cache/` 和 `backend/caors/` 分类。
+`function/scene`。资源代码已按 `types/`、`loaders/`、`vfs/` 和 `cache/` 分类。
 Application 组装位于 `src/runtime/`，加载流程位于其 `loading/`，配置位于 `configuration/`。
 游戏上下文归 `runtime/game/`，依赖 Application 的 C 适配归 `runtime/api/`。
 Engine 源码不得反向包含 Runtime；当前仍一起编入 `gneiss_engine`，没有新增公共库目标。
@@ -220,7 +220,7 @@ Scene 服务完成入口校验后转交实例，不直接修改这些事务的�
 应用级资源管理器位于 `src/engine/resource/asset_manager.hpp`，由 Application 拥有，
 管理 CPU 文档、输入资源请求与 Prefab 描述缓存。渲染租约缓存与 Loader 由 Application
 独立拥有，上传通道由应用加载流程装配。资源描述解析同在 resource，不依赖运行时实例化。
-管理器不进入安装 SDK，也不拥有编辑状态；缓存实现尚未全部统一到 CAORS。
+管理器不进入安装 SDK，也不拥有编辑状态；缓存实现尚未全部统一到泛型请求。
 
 ## Editor 的文档、命令与视口
 
@@ -253,7 +253,7 @@ Application、配置、加载和场景切换对象统一位于 `gneiss::runtime`
 资源管理器为 `gneiss::engine::resource::asset_manager`，其输入请求、CPU 缓存、VFS、
 纹理/Mesh/材质描述与解码器使用 `gneiss::engine::resource`。原 asset_internal 已删除，
 不保留兼容别名。Scene/Prefab 作者描述、属性覆盖值、解析/序列化和 Prefab Loader 也归属资源命名空间。
-功能层 Scene 负责实例化及活动节点，不再提供这些资源类型的旧别名。CAORS 平台适配使用 engine::platform::caors。
+功能层 Scene 负责实例化及活动节点，不再提供这些资源类型的旧别名。
 
 ## 功能层命名空间
 
@@ -266,8 +266,7 @@ World 对象为 `gneiss::engine::world::world`。旧 xxx_internal 领域名不�
 
 基础工具使用 gneiss::engine::core；任务、日志、反射、诊断、数学、输入共享值分别位于
 core 的 tasks/log/reflection/diagnostics/math/input。输入服务仍属于 engine::input。
-窗口适配使用 engine::platform，libuv I/O 使用 engine::platform::io，CAORS 适配使用
-engine::platform::caors；第三方 CAORS 以 ::caors 明确引用。
+窗口适配使用 engine::platform，libuv I/O 使用 engine::platform::io。
 C 转换辅助属于 engine::api，应用日志回调桥属于 runtime::api。
 进程、IPC 传输/信封/分发与动态库对象使用 engine::platform；旧顶层名称已删除。
 Host 的域协议与负载仍属于宿主，未随平台类型迁入 Engine。
@@ -294,24 +293,25 @@ Host 可依赖 Engine、Runtime、Editor；后三者不得反向包含 Host。�
 
 ## 内部资源请求
 
-`engine/resource/asset_request.hpp` 提供移动所有的 `asset_request<T>`，直接复用 CAORS 请求，
-成功时取出资源强引用。`types/action_map_asset.hpp` 定义输入资源；
-`runtime/loading/action_map_application` 负责复制并应用输入映射，InputService 不负责加载。
-内部消费者可依赖 CAORS 类型，安装头文件与公共 C ABI 不暴露这些类型。
-边界决策见 [ADR-069](../decisions/ADR-069-resource-runtime-boundaries.md)。
+`engine/resource/asset_request.hpp` 提供移动所有的 `asset_request<T>`；结果为
+`shared_ptr<const T>`，取消只放弃当前观察者，不取消独立订阅。成功领取一次，失败不改变输出。
+`asset_manager` 移植 Granit 示例的共享请求与类型 Loader 模型，固定持有本实例的 VFS 来源；
+任务经宿主执行器运行，结果由 `advance_resources()` 发布，同步成功使较早异步失去缓存写入权。
+`runtime/loading/action_map_application` 领取结果、复制映射并应用 InputService。
+输入实时服务不访问文件或管理请求；公共 ABI 与安装头不暴露这些内部对象。
 
-## CPU 文档归属
+## CPU 类型与缓存
 
-- `resource/types/material_source.hpp`：材质参数与纹理 URI，独立于解析器。
-- `resource/types/material_document.hpp`、`mesh_document.hpp`：CAORS CPU 资源类型。
-- `resource/loaders/material_document_decoder.hpp`：从已有字节解码，不读文件、不发布版本。
-- `resource/cache/material_document_lease.hpp`、`material_document_versions.hpp`：只读租约与确切版本弱索引。
-- `resource/backend/caors/caors_material_document.hpp`：加载执行适配。
+- `resource/types/material_source.hpp`：纯材质来源描述。
+- `resource/types/material_document.hpp`：普通 CPU 材质数据及摘要；Mesh 直接共享 `mesh_data`。
+- `resource/loaders/material_document_decoder.hpp`：消费现有字节的解析函数。
+- `resource/loaders/asset_loader.hpp`：显式类型注册与纯 CPU 解码契约，不要求字段反射。
+- `resource/vfs/asset_source.*`：有界分步读取、异步打开/关闭与明确的同步回退。
+- `resource/cache/material_document_versions.hpp`：确切来源版本的非拥有索引。
 
-准备结果和渲染对象通过具体材质租约保持 CPU 文档存活；租约不拥有 GPU RID。
-CPU 缓存不再通过加载后端取得资源类型，边界检查拒绝这种依赖。
+CPU 版本租约、Prefab 缓存、渲染资源生命周期仍各有用途；替换依赖不等于已删除所有多阶段协议。
 
-CPU 文档缓存与批次是具体类 `cpu_document_cache`、`cpu_document_batch`，不经过单实现虚接口
-或工厂函数。asset_manager 直接创建缓存，批次通过 begin 创建并共享版本索引，独占解析候选。
-缓存外壳可以先释放；仍存活的批次保活索引，已发布租约保活 CPU 文档。
-decode 与 retain_verified 两阶段不可并发，索引登记/回收仍在所属线程串行执行。
+准备结果和渲染对象通过材质租约保持 CPU 文档存活，租约不拥有 GPU RID。
+`cpu_document_cache` 直接创建批次，共享版本索引，独占解析候选。缓存外壳可以先释放，
+仍存活的批次保活索引，已发布租约保活 CPU 文档；decode 与 retain_verified 不可并发，
+索引登记和回收在所属线程串行执行。

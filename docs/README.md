@@ -198,7 +198,7 @@
 - [ADR-069：资源模块与运行时组装边界](decisions/ADR-069-resource-runtime-boundaries.md)
 
 - [CAORS 单资源接入验证边界](decisions/ADR-068-caors-resource-probe.md)
-- [以 Granit 示例资产管理模型替换 CAORS（提议）](decisions/ADR-071-example-asset-manager.md)
+- [以 Granit 示例资产管理模型替换 CAORS](decisions/ADR-071-example-asset-manager.md)
 
 - [ADR-057：资产准备的显式分步执行](decisions/ADR-057-incremental-asset-preparation.md)
 - [ADR-058：场景取消终态与资源清理](decisions/ADR-058-scene-cancellation-cleanup.md)
@@ -538,6 +538,8 @@
 
 - [M-332：属性与头文件边界收尾](records/M-332-property-header-boundaries.md)
 - [M-332：Scene / World 契约收敛](records/M-332-scene-world-contracts.md)
+
+- [CAORS 替换与 Granit 示例资产管理器接入验收](records/2026-10-22-asset-manager-replacement.md)
 
 ## 文档维护
 

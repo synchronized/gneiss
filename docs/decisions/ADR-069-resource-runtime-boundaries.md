@@ -6,6 +6,9 @@
 - 状态：已接受，分批实施
 - 日期：2026-10-21
 
+2026-10-22：CAORS 原生请求和基类实现选择已由 [ADR-071](ADR-071-example-asset-manager.md)
+取代；本页模块所有权、CPU/GPU 和 Runtime/Editor 边界继续有效。
+
 ## 背景
 
 engine/asset 与 function/asset 分散资源能力，统一管理器仍混合缓存、渲染配置、
