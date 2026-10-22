@@ -5,6 +5,10 @@
 
 ## 状态与工作方式
 
+2026-10-22：资源依赖方向调整为移除 CAORS、采用 Granit 示例资产管理模型。
+当前处于接入设计审查，代码尚未替换；迁移批次及额外需求取舍见
+[资产管理替换计划](PLAN-051-asset-manager-replacement.md)。不扩大本轮为场景或历史系统重写。
+
 2026-10-21 补充决策：移除公共对象 SDK，内部继续使用原生 C++。范围与验收见
 [ADR-070](../decisions/ADR-070-remove-public-object-sdk.md) 和
 [删除验收记录](../records/M-332-public-object-sdk-removal.md)。此前 SDK 命名收敛的阶段方案不再适用。

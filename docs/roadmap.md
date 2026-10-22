@@ -828,6 +828,9 @@ M-312～M-317 已完成：分步准备与复验、取消/清理分离、IPC 回�
 
 ## 0.51.0：源码架构与模块边界收敛
 
+资源依赖调整处于设计中：拟移除 CAORS，采用 Granit 示例资产管理模型；
+详细批次、八项复杂度分析与验收见[替换计划](plans/PLAN-051-asset-manager-replacement.md)。
+
 最高优先级。先审计职责、依赖和所有权，再重构场景加载完整链路、Application 与宿主边界。
 保留外部 C ABI/RAII SDK，内部使用明确的 C++ 接口；不开发插件或 Editor 公共 API。
 范围见 [VER-051](plans/VER-051-0.51.0-architecture-boundaries.md)，

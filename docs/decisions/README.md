@@ -72,3 +72,4 @@ Reference 和实现为准。
 - [ADR-061：资产文件 I/O 优先复用 libuv](ADR-061-libuv-asset-io.md)
 
 - [ADR-070：删除公共 C++ 对象 SDK](ADR-070-remove-public-object-sdk.md)
+- [ADR-071：以 Granit 示例资产管理模型替换 CAORS（提议）](ADR-071-example-asset-manager.md)

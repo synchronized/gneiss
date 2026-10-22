@@ -80,6 +80,7 @@
 
 ## 路线图与开发计划
 
+- [移除 CAORS、采用 Granit 示例资产管理模型：迁移与八项问题分析](plans/PLAN-051-asset-manager-replacement.md)
 - [Application 接入 CAORS 输入资源：边界与实施方案](plans/PLAN-051-caors-application-integration.md)
 - [第三方源码获取与共享缓存实施计划](plans/PLAN-051-dependency-source-cache.md)
 - [CAORS 共享材质接入：边界与实施方案](plans/PLAN-051-caors-shared-material.md)
@@ -197,6 +198,7 @@
 - [ADR-069：资源模块与运行时组装边界](decisions/ADR-069-resource-runtime-boundaries.md)
 
 - [CAORS 单资源接入验证边界](decisions/ADR-068-caors-resource-probe.md)
+- [以 Granit 示例资产管理模型替换 CAORS（提议）](decisions/ADR-071-example-asset-manager.md)
 
 - [ADR-057：资产准备的显式分步执行](decisions/ADR-057-incremental-asset-preparation.md)
 - [ADR-058：场景取消终态与资源清理](decisions/ADR-058-scene-cancellation-cleanup.md)
