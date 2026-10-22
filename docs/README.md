@@ -542,6 +542,7 @@
 - [M-332：Scene / World 契约收敛](records/M-332-scene-world-contracts.md)
 
 - [CAORS 替换与 Granit 示例资产管理器接入验收](records/2026-10-22-asset-manager-replacement.md)
+- [渲染资产渐进加载首批审计与契约验证](records/2026-10-22-progressive-assets-audit.md)
 
 ## 文档维护
 

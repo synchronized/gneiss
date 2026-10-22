@@ -473,6 +473,125 @@ void cooperative_read_slices() {
         texture->levels.front().pixels.back() == std::byte{127});
 }
 
+// 用可控预算和回执固定渐进更新的基础契约，不依赖真实 GPU 或计时等待。
+void delayed_single_texture_update() {
+  engine::core::tasks::task_scheduler scheduler(
+      {.workers = 0U, .mode = engine::core::tasks::execution_mode::cooperative});
+  auto files = std::make_shared<memory_files>();
+  files->text(
+      "texture",
+      R"({"format":"gneiss.texture","version":1,"source":"asset://image.ktx2","color_space":"srgb"})");
+  files->pixel(std::byte{10});
+  virtual_file_system vfs;
+  check(vfs.mount("asset://", files) == GNEISS_SUCCESS);
+  render_resource_service resources;
+  resource_cache cache;
+  render_asset_loader loader(vfs, cache, resources);
+  bool budget_available{};
+  bool acknowledged{};
+  unsigned attempts{};
+  unsigned accepted{};
+  gneiss_result outcome = GNEISS_SUCCESS;
+  texture_upload_backend::data retained;
+  texture_upload_backend backend{
+      .begin =
+          [&](auto data, auto& sequence) {
+            ++attempts;
+            if (!budget_available) {
+              return GNEISS_ERROR_NOT_READY;
+            }
+            check(retained.empty() && data.size() == 1U);
+            retained = std::move(data);
+            sequence = ++accepted;
+            return GNEISS_SUCCESS;
+          },
+      .poll =
+          [&](auto, auto& result) {
+            if (!acknowledged) {
+              return false;
+            }
+            retained.clear();
+            result = outcome;
+            return true;
+          },
+      .discard = [](auto, auto&) { return GNEISS_ERROR_INTERNAL; },
+      .flush = [&] { acknowledged = true; },
+  };
+  texture_load_service service(scheduler, vfs, loader, std::move(backend), {},
+                               std::make_shared<cpu_document_cache>());
+  const auto advance = [&] {
+    (void)scheduler.run_ready();
+    service.advance();
+  };
+  const auto until = [&](auto predicate) {
+    for (unsigned step = 0U; step < 1024U && !predicate(); ++step) {
+      advance();
+    }
+    check(predicate());
+  };
+  const std::array<std::string, 1> uris{"asset://texture"};
+  std::uint64_t request{};
+  texture_load_completion completion;
+  check(service.submit(uris, 1U, 1U, request) == GNEISS_SUCCESS);
+  until([&] { return attempts != 0U; });
+  for (unsigned frame = 0U; frame < 8U; ++frame) {
+    advance();
+    check(accepted == 0U && cache.size() == 0U && !service.take(completion));
+  }
+  budget_available = true;
+  until([&] { return accepted == 1U; });
+  const auto submitted_attempts = attempts;
+  for (unsigned frame = 0U; frame < 8U; ++frame) {
+    advance();
+    check(attempts == submitted_attempts && cache.size() == 0U && !retained.empty());
+  }
+  acknowledged = true;
+  bool initial_complete{};
+  until([&] { return initial_complete || (initial_complete = service.take(completion)); });
+  check(completion.state == texture_load_state::applied && completion.textures.size() == 1U);
+  auto lease = completion.textures.front();
+  const auto rid = lease.get();
+  auto old_frame = resources.share_texture(rid);
+  check(old_frame && old_frame->levels.front().pixels.front() == std::byte{10});
+
+  // 相同 RID 的失败更新和成功更新，都不提前改变旧帧持有的数据。
+  for (const auto expected : {GNEISS_ERROR_INITIALIZATION_FAILED, GNEISS_SUCCESS}) {
+    files->pixel(std::byte{20});
+    acknowledged = false;
+    outcome = expected;
+    const auto before = accepted;
+    check(service.submit(uris, 1U, before + 1U, request) == GNEISS_SUCCESS);
+    until([&] { return accepted == before + 1U; });
+    const auto update_attempts = attempts;
+    for (unsigned frame = 0U; frame < 8U; ++frame) {
+      advance();
+      check(attempts == update_attempts && resources.share_texture(rid) == old_frame &&
+            !service.take(completion));
+    }
+    acknowledged = true;
+    bool complete{};
+    until([&] { return complete || (complete = service.take(completion)); });
+    check(completion.result == expected && retained.empty());
+    check(old_frame->levels.front().pixels.front() == std::byte{10});
+    if (expected == GNEISS_SUCCESS) {
+      check(completion.textures.front().get() == rid &&
+            resources.share_texture(rid)->levels.front().pixels.front() == std::byte{20});
+    } else {
+      check(resources.share_texture(rid) == old_frame);
+      for (unsigned frame = 0U; frame < 8U; ++frame) {
+        advance();
+      }
+      check(attempts == update_attempts);
+    }
+  }
+  completion = {};
+  lease = {};
+  cache.release_unused();
+  check(!resources.share_texture(rid) && resources.live_resource_count() == 0U);
+  check(old_frame->levels.front().pixels.front() == std::byte{10});
+  service.request_stop();
+  check(service.stopped());
+}
 void run(engine::core::tasks::execution_mode mode) {
   engine::core::tasks::task_scheduler scheduler({.workers = 2U, .mode = mode});
   auto files = std::make_shared<memory_files>();
@@ -986,6 +1105,7 @@ void cancel_unpublished_upload(engine::core::tasks::execution_mode mode) {
 } // namespace
 
 int main() try {
+  delayed_single_texture_update();
   shared_mesh_documents();
   fixed_version_publication(engine::core::tasks::execution_mode::cooperative);
   fixed_version_publication(engine::core::tasks::execution_mode::thread_pool);
