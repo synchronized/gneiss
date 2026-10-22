@@ -41,6 +41,8 @@ struct threaded_render_executor::state final {
     render_frame_policy frame_policy{render_frame_policy::replaceable};
     render_frame_packet packet;
     render_command_callback command;
+    render_command_policy command_policy{render_command_policy::once};
+    double execution_ms{};
     std::chrono::steady_clock::time_point enqueued_at;
   };
 
@@ -125,6 +127,21 @@ void threaded_render_executor::state::run() noexcept {
       command_completion.execution_ms = std::chrono::duration<double, std::milli>(
                                             std::chrono::steady_clock::now() - command_started)
                                             .count();
+      task.execution_ms += command_completion.execution_ms;
+      command_completion.execution_ms = task.execution_ms;
+      if (task.command_policy == render_command_policy::resumable &&
+          command_completion.status == GNEISS_ERROR_NOT_READY) {
+        // 只有显式可恢复命令才能让出执行权；不会产生中间完成回执。
+        std::unique_lock lock(mutex);
+        pending.push_back(std::move(task));
+        executing = false;
+        // 没有其他工作时限制轮询频率；新帧到达会唤醒，不占用渲染线程忙等。
+        if (pending.size() == 1U) {
+          work_ready.wait_for(lock, std::chrono::milliseconds(1),
+                              [&] { return pending.size() > 1U; });
+        }
+        continue;
+      }
       {
         std::lock_guard lock(mutex);
         command_completion.progress = command_status.progress;
@@ -281,7 +298,8 @@ gneiss_result threaded_render_executor::submit_frame(render_frame_packet packet,
 }
 
 gneiss_result threaded_render_executor::submit_command(render_command_callback command,
-                                                       std::uint64_t& out_sequence) noexcept {
+                                                       std::uint64_t& out_sequence,
+                                                       render_command_policy policy) noexcept {
   if (!state_) {
     return GNEISS_ERROR_NOT_READY;
   }
@@ -302,6 +320,7 @@ gneiss_result threaded_render_executor::submit_command(render_command_callback c
                                .frame_policy = render_frame_policy::replaceable,
                                .packet = {},
                                .command = std::move(command),
+                               .command_policy = policy,
                                .enqueued_at = std::chrono::steady_clock::now()});
     state_->stats.pending_high_watermark =
         std::max(state_->stats.pending_high_watermark, state_->pending.size());

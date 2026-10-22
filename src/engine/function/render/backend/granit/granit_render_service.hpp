@@ -100,6 +100,11 @@ private:
     const engine::render::texture_resource* source{};
     granit::texture texture;
     granit::texture_view view;
+    // 异步完成时输出实际选择的上传信息，不能在提交阶段报告 ready。
+    granit::texture_format format{};
+    std::uint32_t variant{};
+    std::uint32_t mips{};
+    std::uint64_t bytes{};
   };
   struct prepared_texture {
     texture_data data;
@@ -142,7 +147,8 @@ private:
   [[nodiscard]] granit::result initialize_pipeline() noexcept;
   [[nodiscard]] granit::result
   create_texture_mirror(const engine::render::texture_resource& source, texture_mirror& output,
-                        engine::core::rid rid = engine::core::null_rid) noexcept;
+                        engine::core::rid rid = engine::core::null_rid,
+                        granit::async_operation* operation = nullptr) noexcept;
   void log_texture(engine::core::rid rid, const char* stage, granit::result result,
                    std::uint32_t variant, granit::texture_format format, std::uint32_t mips,
                    std::uint64_t bytes) noexcept;

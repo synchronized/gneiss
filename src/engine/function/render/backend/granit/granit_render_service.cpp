@@ -211,8 +211,8 @@ void granit_render_service::log_texture(engine::core::rid rid, const char* stage
 
 granit::result
 granit_render_service::create_texture_mirror(const engine::render::texture_resource& source,
-                                             texture_mirror& output,
-                                             engine::core::rid rid) noexcept {
+                                             texture_mirror& output, engine::core::rid rid,
+                                             granit::async_operation* operation) noexcept {
   if (source.profile.generation != 0U && source.profile != texture_profile_) {
     return granit::result::invalid_argument;
   }
@@ -283,6 +283,10 @@ granit_render_service::create_texture_mirror(const engine::render::texture_resou
       return granit::result::invalid_argument;
     }
     const auto format = static_cast<granit::texture_format>(selection.format);
+    output.format = format;
+    output.variant = selection.variant_index;
+    output.mips = info.mip_levels;
+    output.bytes = variant.payload_size;
     stage = "create";
     result = output.texture.initialize(
         renderer_,
@@ -308,21 +312,21 @@ granit_render_service::create_texture_mirror(const engine::render::texture_resou
           info.mip_levels);
     }
     if (result.ok()) {
-      stage = "submit";
-      result = upload.submit();
-    }
-    if (result.ok()) {
       stage = "view";
       result = output.view.initialize(renderer_, output.texture,
                                       {.format = format, .mip_level_count = info.mip_levels});
+    }
+    if (result.ok()) {
+      stage = "submit";
+      result = operation ? upload.submit_async(*operation) : upload.submit();
     }
     if (result.failed()) {
       static_cast<void>(output.view.reset());
       static_cast<void>(output.texture.reset());
       output.source = nullptr;
     }
-    log_texture(rid, result.ok() ? "ready" : stage, result, selection.variant_index, format,
-                info.mip_levels, variant.payload_size);
+    log_texture(rid, result.ok() ? (operation ? "submitted" : "ready") : stage, result,
+                selection.variant_index, format, info.mip_levels, variant.payload_size);
     return result;
   }
   const auto format = source.color_space == gneiss::engine::resource::texture_color_space::srgb
@@ -342,6 +346,9 @@ granit_render_service::create_texture_mirror(const engine::render::texture_resou
   for (const auto& mip : source.levels) {
     upload_bytes += mip.pixels.size();
   }
+  output.format = format;
+  output.mips = static_cast<std::uint32_t>(source.levels.size());
+  output.bytes = upload_bytes;
   if (result.ok()) {
     result = upload.initialize(
         renderer_, {.max_staged_bytes = upload_bytes,
@@ -355,12 +362,12 @@ granit_render_service::create_texture_mirror(const engine::render::texture_resou
         {.mip_level = level, .width = mip.width, .height = mip.height});
   }
   if (result.ok()) {
-    result = upload.submit();
-  }
-  if (result.ok()) {
     result = output.view.initialize(
         renderer_, output.texture,
         {.format = format, .mip_level_count = static_cast<std::uint32_t>(source.levels.size())});
+  }
+  if (result.ok()) {
+    result = operation ? upload.submit_async(*operation) : upload.submit();
   }
   if (result.failed()) {
     static_cast<void>(output.view.reset());
@@ -769,17 +776,50 @@ granit_render_service::prepare_textures(std::vector<engine::render::render_uploa
     if (data.empty()) {
       return GNEISS_ERROR_INVALID_ARGUMENT;
     }
+    struct preparation {
+      std::size_t completed{};
+      prepared_texture texture;
+      granit::async_operation operation;
+    };
+    auto progress = std::make_shared<preparation>();
     return executor_.submit_command(
-        [this, data = std::move(data)](const engine::render::render_command_reporter& reporter) {
+        [this, data = std::move(data),
+         progress](const engine::render::render_command_reporter& reporter) {
           try {
-            std::size_t completed{};
-            for (const auto& item : data) {
+            while (progress->completed < data.size()) {
+              const auto& item = data[progress->completed];
               auto result = granit::result::invalid_argument;
               if (item.texture) {
-                prepared_texture value{.data = item.texture, .mirror = {}};
-                result = create_texture_mirror(*item.texture, value.mirror);
+                auto& value = progress->texture;
+                if (!value.data) {
+                  result = create_texture_mirror(*item.texture, value.mirror,
+                                                 engine::core::null_rid, &progress->operation);
+                  if (result == granit::result::not_ready) {
+                    return GNEISS_ERROR_NOT_READY;
+                  }
+                  if (result.ok()) {
+                    value.data = item.texture;
+                  }
+                } else {
+                  result = granit::result::success;
+                }
+                if (result.ok() && progress->operation.valid()) {
+                  granit::async_operation_status status;
+                  result = progress->operation.get_status(status);
+                  if (result.ok() && !status.complete()) {
+                    return GNEISS_ERROR_NOT_READY;
+                  }
+                  if (result.ok()) {
+                    result = status.operation_result;
+                  }
+                  log_texture(engine::core::null_rid, result.ok() ? "ready" : "upload", result,
+                              value.mirror.variant, value.mirror.format, value.mirror.mips,
+                              value.mirror.bytes);
+                  static_cast<void>(progress->operation.reset());
+                }
                 if (result.ok()) {
                   prepared_textures_.insert_or_assign(item.texture.get(), std::move(value));
+                  value = {};
                 }
               } else if (item.mesh) {
                 prepared_mesh value{.data = item.mesh, .mirror = {}};
@@ -822,8 +862,8 @@ granit_render_service::prepare_textures(std::vector<engine::render::render_uploa
                 discard_candidates(data);
                 return map_result(result);
               }
-              reporter.report(engine::render::render_command_stage::uploading, ++completed,
-                              data.size());
+              reporter.report(engine::render::render_command_stage::uploading,
+                              ++progress->completed, data.size());
             }
             return GNEISS_SUCCESS;
           } catch (const std::bad_alloc&) {
@@ -834,7 +874,7 @@ granit_render_service::prepare_textures(std::vector<engine::render::render_uploa
             return GNEISS_ERROR_INTERNAL;
           }
         },
-        sequence);
+        sequence, engine::render::render_command_policy::resumable);
   } catch (const std::bad_alloc&) {
     return GNEISS_ERROR_OUT_OF_MEMORY;
   } catch (...) {

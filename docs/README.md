@@ -543,6 +543,7 @@
 
 - [CAORS 替换与 Granit 示例资产管理器接入验收](records/2026-10-22-asset-manager-replacement.md)
 - [渲染资产渐进加载首批审计与契约验证](records/2026-10-22-progressive-assets-audit.md)
+- [候选纹理异步上传接入](records/2026-10-22-async-texture-upload.md)
 
 ## 文档维护
 

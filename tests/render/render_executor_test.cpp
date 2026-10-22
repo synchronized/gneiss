@@ -4,12 +4,68 @@
 #include "engine/core/loop_progress.hpp"
 #include "engine/function/render/render_executor.hpp"
 
+#include <atomic>
 #include <condition_variable>
 #include <cstdint>
 #include <mutex>
 #include <vector>
 
+namespace {
+bool resumable_command_allows_frames(gneiss_result terminal) {
+  using namespace gneiss::engine::render;
+  std::atomic_bool frame_executed{};
+  auto started = std::make_shared<gneiss::engine::core::loop_progress>();
+  auto lifetime = std::make_shared<int>(7);
+  std::weak_ptr<int> retained = lifetime;
+  threaded_render_executor executor;
+  if (executor.initialize([&](auto&, auto&) {
+        frame_executed.store(true);
+        return GNEISS_SUCCESS;
+      }) != GNEISS_SUCCESS) {
+    return false;
+  }
+  const auto observed = started->snapshot();
+  std::uint64_t command{};
+  if (executor.submit_command(
+          [&, lifetime](const auto& reporter) {
+            reporter.report(render_command_stage::uploading, 0U, 1U);
+            started->notify();
+            return frame_executed.load() ? terminal : GNEISS_ERROR_NOT_READY;
+          },
+          command, render_command_policy::resumable) != GNEISS_SUCCESS) {
+    return false;
+  }
+  lifetime.reset();
+  const bool began = started->wait(observed, std::chrono::seconds(2));
+  render_command_completion premature;
+  const bool no_completion = !executor.try_take_command_completion(premature);
+  const bool alive = !retained.expired();
+  std::uint64_t frame{};
+  const auto submitted = executor.submit_frame({}, frame, render_frame_policy::required);
+  if (submitted != GNEISS_SUCCESS) {
+    frame_executed.store(true);
+  }
+  const auto flushed = executor.flush();
+  render_command_completion completion;
+  const bool completed = executor.try_take_command_completion(completion);
+  render_frame_completion drawn;
+  const bool rendered = executor.try_take_frame_completion(drawn);
+  const auto stats = executor.query_stats();
+  executor.stop();
+  return began && no_completion && alive && submitted == GNEISS_SUCCESS &&
+         flushed == GNEISS_SUCCESS && completed && completion.sequence == command &&
+         completion.status == terminal && rendered && drawn.sequence == frame &&
+         drawn.status == GNEISS_SUCCESS && stats.submitted_commands == 1U &&
+         stats.executed_commands == 1U && retained.expired() &&
+         !executor.try_take_command_completion(completion);
+}
+} // namespace
+
 int main() {
+  if (!resumable_command_allows_frames(GNEISS_SUCCESS) ||
+      !resumable_command_allows_frames(GNEISS_ERROR_IO)) {
+    return 24;
+  }
   using namespace gneiss::engine::render;
   render_frame_packet inline_packet;
   inline_packet.window.width = 7U;
@@ -284,5 +340,23 @@ int main() {
     return 23;
   }
   required_executor.stop();
+  threaded_render_executor once_executor;
+  unsigned calls{};
+  std::uint64_t once_sequence{};
+  if (once_executor.initialize([](auto&, auto&) { return GNEISS_SUCCESS; }) != GNEISS_SUCCESS ||
+      once_executor.submit_command(
+          [&](const auto&) {
+            ++calls;
+            return GNEISS_ERROR_NOT_READY;
+          },
+          once_sequence) != GNEISS_SUCCESS ||
+      once_executor.flush() != GNEISS_SUCCESS) {
+    return 25;
+  }
+  render_command_completion once;
+  if (!once_executor.try_take_command_completion(once) || calls != 1U ||
+      once.status != GNEISS_ERROR_NOT_READY || once.sequence != once_sequence) {
+    return 26;
+  }
   return 0;
 }

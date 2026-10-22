@@ -88,6 +88,8 @@ using render_frame_callback =
     std::function<gneiss_result(render_frame_packet&, render_execution_result&)>;
 using render_command_callback = std::function<gneiss_result(const render_command_reporter&)>;
 
+enum class render_command_policy : std::uint8_t { once, resumable };
+
 class inline_render_executor final {
 public:
   explicit inline_render_executor(render_frame_callback callback);
@@ -111,8 +113,12 @@ public:
   [[nodiscard]] gneiss_result
   submit_frame(render_frame_packet packet, std::uint64_t& out_sequence,
                render_frame_policy policy = render_frame_policy::replaceable) noexcept;
-  [[nodiscard]] gneiss_result submit_command(render_command_callback command,
-                                             std::uint64_t& out_sequence) noexcept;
+  /** resumable 命令返回 NOT_READY 时保留同一序号排到队尾，后续帧和命令可先执行。
+   * 回调须自行保存进度并最终返回终态；flush/stop 会等它结束，不强制销毁在途资源。
+   * once 的 NOT_READY 仍是一次完成结果。 */
+  [[nodiscard]] gneiss_result
+  submit_command(render_command_callback command, std::uint64_t& out_sequence,
+                 render_command_policy policy = render_command_policy::once) noexcept;
   [[nodiscard]] bool try_take_frame_completion(render_frame_completion& output) noexcept;
   [[nodiscard]] bool try_take_command_completion(render_command_completion& output) noexcept;
   [[nodiscard]] bool query_command_status(render_command_status& output) const noexcept;
