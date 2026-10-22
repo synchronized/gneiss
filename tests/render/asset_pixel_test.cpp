@@ -5,7 +5,9 @@
 #include "engine/resource/loaders/mesh_binary.hpp"
 #include "engine/resource/loaders/texture_binary.hpp"
 #include "engine/resource/loaders/texture_ktx2.hpp"
+#include "runtime/application.hpp"
 #include "runtime/application_asset_reload_internal.hpp"
+#include "runtime/application_registry.hpp"
 #include "runtime/application_scene_load_internal.hpp"
 #include <array>
 #include <cstdio>
@@ -67,6 +69,94 @@ struct fixture {
                  static_cast<std::streamsize>(bytes.size()));
   }
 };
+void run_pending_resources() {
+  fixture files(true);
+  files.color(std::byte{255}, std::byte{0});
+  test_support::application_owner app;
+  const auto root = files.root.string();
+  auto desc = gneiss_application_desc GNEISS_APPLICATION_DESC_INIT;
+  desc.platform = GNEISS_APPLICATION_PLATFORM_GRANIT;
+  desc.window_flags &= ~GNEISS_APPLICATION_WINDOW_VISIBLE_BIT;
+  desc.asset_root = root.data();
+  desc.asset_root_length = static_cast<std::uint32_t>(root.size());
+  check(gneiss_application_create(&desc, app.put()) == GNEISS_SUCCESS);
+  constexpr std::string_view uri = "asset://s.scene.json";
+  gneiss_scene_instance scene{};
+  check(gneiss_scene_instance_load(app.get(), uri.data(), uri.size(), &scene) == GNEISS_SUCCESS);
+  auto native = runtime::find_application(app.get());
+  check(native != nullptr);
+  auto& resources = native->resources();
+  engine::core::rid mesh{};
+  engine::core::rid texture{};
+  check(resources.reserve_mesh(&mesh) == GNEISS_SUCCESS);
+  check(resources.reserve_texture(&texture) == GNEISS_SUCCESS);
+  auto material_desc = gneiss_material_desc GNEISS_MATERIAL_DESC_INIT;
+  material_desc.red = material_desc.green = material_desc.blue = 0.0F;
+  material_desc.emissive[0] = material_desc.emissive[1] = material_desc.emissive[2] = 1.0F;
+  material_desc.emissive_texture = texture;
+  gneiss_material material{};
+  check(gneiss_material_create(app.get(), &material_desc, &material) == GNEISS_SUCCESS);
+  auto info = gneiss_scene_instance_node_info GNEISS_SCENE_INSTANCE_NODE_INFO_INIT;
+  check(gneiss_scene_instance_get_node_info(app.get(), scene, 1U, &info) == GNEISS_SUCCESS);
+  check((info.component_flags & GNEISS_SCENE_NODE_COMPONENT_MESH_RENDERER) != 0U);
+  const gneiss_mesh_renderer binding{.mesh = mesh, .material = material};
+  check(gneiss_world_entity_set_mesh_renderer(native->world(), info.entity, &binding) ==
+        GNEISS_SUCCESS);
+  const auto pixel = [&] {
+    engine::render::frame_image image;
+    check(runtime::capture_frame(app.get(), 128U, 128U, image) == GNEISS_SUCCESS);
+    constexpr auto offset = ((64U * 128U) + 64U) * 4U;
+    return std::array{
+        std::to_integer<unsigned>(image.pixels[offset]),
+        std::to_integer<unsigned>(image.pixels[offset + 1U]),
+        std::to_integer<unsigned>(image.pixels[offset + 2U]),
+    };
+  };
+  const auto hidden = pixel();
+  auto geometry = std::make_shared<engine::render::mesh_resource>();
+  geometry->vertices = {
+      {.x = -0.8F, .y = -0.7F, .z = 0.0F, .u = 0.0F, .v = 0.0F},
+      {.x = 0.8F, .y = -0.7F, .z = 0.0F, .u = 1.0F, .v = 0.0F},
+      {.x = 0.0F, .y = 0.8F, .z = 0.0F, .u = 0.5F, .v = 1.0F},
+  };
+  geometry->normals.assign(3U, {.x = 0.0F, .y = 0.0F, .z = 1.0F});
+  check(resources.replace_mesh(mesh, geometry));
+  const auto placeholder = pixel();
+  check(placeholder[0] > hidden[0] + 30U && placeholder[1] > hidden[1] + 30U &&
+        placeholder[2] > hidden[2] + 30U);
+  auto red = std::make_shared<engine::render::texture_resource>();
+  red->width = red->height = 1U;
+  red->format = engine::resource::texture_format::rgba8_unorm;
+  red->color_space = engine::resource::texture_color_space::srgb;
+  red->levels = {
+      {
+          .width = 1U,
+          .height = 1U,
+          .pixels = {std::byte{255}, std::byte{0}, std::byte{0}, std::byte{255}},
+      },
+  };
+  check(resources.replace_texture(texture, red));
+  const auto ready = pixel();
+  check(ready[0] > ready[1] + 30U && ready[0] > ready[2] + 30U);
+  auto blue = std::make_shared<engine::render::texture_resource>(*red);
+  blue->levels.front().pixels = {std::byte{0}, std::byte{0}, std::byte{255}, std::byte{255}};
+  check(resources.replace_texture(texture, blue));
+  const auto updated = pixel();
+  check(updated[2] > updated[0] + 30U && updated[2] > updated[1] + 30U);
+  // 无效完成不能覆盖旧内容；已缓存 GPU 镜像也不能掩盖 RID 销毁。
+  check(!resources.replace_texture(texture, {}));
+  check(!resources.replace_mesh(mesh, {}));
+  check(pixel() == updated);
+  check(gneiss_texture_destroy(app.get(), texture) == GNEISS_SUCCESS);
+  engine::render::frame_image invalid;
+  check(runtime::capture_frame(app.get(), 128U, 128U, invalid) == GNEISS_ERROR_INVALID_HANDLE);
+  check(!resources.replace_texture(texture, red));
+  check(gneiss_world_entity_remove_mesh_renderer(native->world(), info.entity) == GNEISS_SUCCESS);
+  check(pixel() == hidden);
+  check(gneiss_material_destroy(app.get(), material) == GNEISS_SUCCESS);
+  check(gneiss_mesh_destroy(app.get(), mesh) == GNEISS_SUCCESS);
+}
+
 void run_mip_sampling(bool packaged = false, bool async = false) {
   fixture files(true);
   std::ofstream(files.root / "g.mesh.json")
@@ -645,6 +735,8 @@ int main(int argc, char* argv[]) try {
     }
     return 0;
   }
+  std::fprintf(stderr, "asset-pixel: pending resources\n");
+  run_pending_resources();
   std::fprintf(stderr, "asset-pixel: mip\n");
   run_mip_sampling();
   std::fprintf(stderr, "asset-pixel: nonzero variant payload\n");

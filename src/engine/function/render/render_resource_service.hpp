@@ -38,8 +38,8 @@ public:
   [[nodiscard]] bool is_valid() const noexcept { return domain_ != 0U; }
   /** 所属线程预留合法 RID；尚无 CPU 内容，不可直接绘制。由 replace_* 填充，destroy_* 取消。
    * 不创建后端对象；所有权属于调用方，销毁和跨服务校验与普通 RID 一致。 */
-  [[nodiscard]] gneiss_result reserve_mesh(engine::core::rid* output) noexcept;
-  [[nodiscard]] gneiss_result reserve_texture(engine::core::rid* output) noexcept;
+  [[nodiscard]] GNEISS_API gneiss_result reserve_mesh(engine::core::rid* output) noexcept;
+  [[nodiscard]] GNEISS_API gneiss_result reserve_texture(engine::core::rid* output) noexcept;
   /** 只查询 CPU 内容：SUCCESS 已填充，NOT_READY 仅预留，INVALID_HANDLE 已失效或不属于本服务。 */
   [[nodiscard]] gneiss_result mesh_status(engine::core::rid mesh) const noexcept;
   [[nodiscard]] gneiss_result texture_status(engine::core::rid texture) const noexcept;
@@ -54,8 +54,8 @@ public:
   /** 已校验不可变 CPU 网格；RID 与旧帧共享同一对象，销毁 RID 不使外部引用失效。 */
   [[nodiscard]] gneiss_result create_prepared_mesh(std::shared_ptr<const mesh_resource> resource,
                                                    engine::core::rid* output) noexcept;
-  [[nodiscard]] bool replace_mesh(engine::core::rid rid,
-                                  std::shared_ptr<const mesh_resource> data) noexcept;
+  [[nodiscard]] GNEISS_API bool replace_mesh(engine::core::rid rid,
+                                             std::shared_ptr<const mesh_resource> data) noexcept;
   [[nodiscard]] bool replace_material(engine::core::rid rid,
                                       std::shared_ptr<const material_resource> data) noexcept;
   [[nodiscard]] gneiss_result destroy_mesh(engine::core::rid mesh) noexcept;
@@ -72,8 +72,9 @@ public:
                                                       engine::core::rid* out_texture) noexcept;
   [[nodiscard]] GNEISS_API gneiss_result destroy_texture(engine::core::rid texture) noexcept;
   /** 主线程提交已验证候选；保持 RID generation，既有帧仍拥有旧数据快照。 */
-  [[nodiscard]] bool replace_texture(engine::core::rid texture,
-                                     std::shared_ptr<const texture_resource> prepared) noexcept;
+  [[nodiscard]] GNEISS_API bool
+  replace_texture(engine::core::rid texture,
+                  std::shared_ptr<const texture_resource> prepared) noexcept;
   [[nodiscard]] const mesh_resource* get_mesh(engine::core::rid mesh) const noexcept;
   [[nodiscard]] const material_resource* get_material(engine::core::rid material) const noexcept;
   [[nodiscard]] const texture_resource* get_texture(engine::core::rid texture) const noexcept;
