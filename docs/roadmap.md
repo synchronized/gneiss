@@ -830,6 +830,8 @@ M-312～M-317 已完成：分步准备与复验、取消/清理分离、IPC 回�
 
 资源依赖替换已完成：移除 CAORS，采用 Granit 示例资产管理模型；额外语义简化仍待逐项评估。
 详细批次、八项复杂度分析与验收见[替换计划](plans/PLAN-051-asset-manager-replacement.md)。
+后续默认方向已确认，尚未实施：视觉资源逐步就绪、更新期间保留旧资源，具体结构与阶段见
+[渐进加载简化计划](plans/PLAN-051-progressive-render-assets.md)。
 
 最高优先级。先审计职责、依赖和所有权，再重构场景加载完整链路、Application 与宿主边界。
 保留外部 C ABI/RAII SDK，内部使用明确的 C++ 接口；不开发插件或 Editor 公共 API。

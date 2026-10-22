@@ -73,3 +73,4 @@ Reference 和实现为准。
 
 - [ADR-070：删除公共 C++ 对象 SDK](ADR-070-remove-public-object-sdk.md)
 - [ADR-071：以 Granit 示例资产管理模型替换 CAORS](ADR-071-example-asset-manager.md)
+- [ADR-072：普通渲染资产默认逐步就绪（尚未实施）](ADR-072-progressive-render-assets.md)
