@@ -13,12 +13,12 @@ namespace {
 template <typename Handle, typename Resource, typename Getter>
 gneiss_result capture_resource(Handle handle,
                                std::unordered_map<Handle, std::shared_ptr<const Resource>>& output,
-                               Getter&& getter) {
+                               Getter&& getter, bool pending = false) {
   if (output.contains(handle)) {
     return GNEISS_SUCCESS;
   }
   auto source = getter(handle);
-  if (!source) {
+  if (!source && !pending) {
     return GNEISS_ERROR_INVALID_HANDLE;
   }
   output.emplace(handle, std::move(source));
@@ -26,6 +26,15 @@ gneiss_result capture_resource(Handle handle,
 }
 
 } // namespace
+
+bool render_resource_snapshot::mesh_pending(engine::core::rid mesh) const noexcept {
+  const auto found = meshes_.find(mesh);
+  return found != meshes_.end() && !found->second;
+}
+bool render_resource_snapshot::texture_pending(engine::core::rid texture) const noexcept {
+  const auto found = textures_.find(texture);
+  return found != textures_.end() && !found->second;
+}
 
 const mesh_resource* render_resource_snapshot::get_mesh(engine::core::rid mesh) const noexcept {
   const auto found = meshes_.find(mesh);
@@ -61,9 +70,10 @@ gneiss_result capture_render_frame_packet(const engine::platform::native_window_
     candidate.ui = ui;
     candidate.debug = debug;
     for (const auto& instance : candidate.scene.instances) {
-      auto result =
-          capture_resource(instance.mesh, candidate.resources.meshes_,
-                           [&](const auto handle) { return resources.share_mesh(handle); });
+      auto result = capture_resource(
+          instance.mesh, candidate.resources.meshes_,
+          [&](const auto handle) { return resources.share_mesh(handle); },
+          resources.mesh_status(instance.mesh) == GNEISS_ERROR_NOT_READY);
       if (result != GNEISS_SUCCESS) {
         return result;
       }
@@ -77,15 +87,20 @@ gneiss_result capture_render_frame_packet(const engine::platform::native_window_
       for (const auto texture : material.texture_handles()) {
         if (texture == engine::core::null_rid)
           continue;
-        result = capture_resource(texture, candidate.resources.textures_, [&](const auto handle) {
-          return resources.share_texture(handle);
-        });
+        result = capture_resource(
+            texture, candidate.resources.textures_,
+            [&](const auto handle) { return resources.share_texture(handle); },
+            resources.texture_status(texture) == GNEISS_ERROR_NOT_READY);
         if (result != GNEISS_SUCCESS) {
           return result;
         }
       }
     }
     for (const auto& command : candidate.ui.commands()) {
+      // UI 尚未接入占位策略，不能让场景中捕获的空纹理条目绕过 UI 就绪检查。
+      if (resources.texture_status(command.texture) == GNEISS_ERROR_NOT_READY) {
+        return GNEISS_ERROR_NOT_READY;
+      }
       const auto result =
           capture_resource(command.texture, candidate.resources.textures_,
                            [&](const auto handle) { return resources.share_texture(handle); });

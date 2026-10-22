@@ -382,11 +382,17 @@ granit_render_service::create_material_mirror(const engine::render::material_res
                                               const std::array<granit_texture_view, 5>& textures,
                                               material_mirror& output) noexcept {
   if (auto found = prepared_materials_.find(&source); found != prepared_materials_.end()) {
-    output = std::move(found->second.mirror);
+    const bool compatible = found->second.mirror.textures == textures;
+    if (compatible) {
+      output = std::move(found->second.mirror);
+    }
     prepared_materials_.erase(found);
-    return granit::result::success;
+    if (compatible) {
+      return granit::result::success;
+    }
   }
 
+  output.textures = textures;
   const std::array color{source.red, source.green, source.blue, source.alpha};
   constexpr std::array addresses{granit::address_mode::repeat, granit::address_mode::clamp_to_edge,
                                  granit::address_mode::mirrored_repeat};
@@ -1269,6 +1275,9 @@ granit_render_service::execute_frame(engine::render::render_frame_packet& packet
   release_invalid_meshes(resources);
   try {
     for (const auto& instance : snapshot.instances) {
+      if (resources.mesh_pending(instance.mesh)) {
+        continue;
+      }
       if (!mesh_mirrors_.contains(instance.mesh)) {
         const auto* source = resources.get_mesh(instance.mesh);
         if (source == nullptr)
@@ -1283,6 +1292,9 @@ granit_render_service::execute_frame(engine::render::render_frame_packet& packet
     }
 
     for (const auto& instance : snapshot.instances) {
+      if (resources.mesh_pending(instance.mesh)) {
+        continue;
+      }
       const auto* material = resources.get_material(instance.material);
       if (material == nullptr)
         return GNEISS_ERROR_INVALID_HANDLE;
@@ -1296,6 +1308,9 @@ granit_render_service::execute_frame(engine::render::render_frame_packet& packet
         if (handle == engine::core::null_rid)
           continue;
         const auto* texture = resources.get_texture(handle);
+        if (resources.texture_pending(handle)) {
+          continue;
+        }
         if (texture == nullptr)
           return GNEISS_ERROR_INVALID_HANDLE;
         auto found = texture_mirrors_.find(handle);
@@ -1309,6 +1324,11 @@ granit_render_service::execute_frame(engine::render::render_frame_packet& packet
         textures[slot] = found->second.view.native_handle();
       }
       auto found = material_mirrors_.find(instance.material);
+      // 同一材质 RID 的纹理由默认值变为就绪时，也必须更新实际绑定。
+      if (found != material_mirrors_.end() && found->second.textures != textures) {
+        material_mirrors_.erase(found);
+        found = material_mirrors_.end();
+      }
       if (found == material_mirrors_.end()) {
         material_mirror mirror;
         const auto created = create_material_mirror(*material, textures, mirror);
@@ -1383,6 +1403,9 @@ granit_render_service::execute_frame(engine::render::render_frame_packet& packet
       bindings.reserve(snapshot.instances.size());
       for (std::size_t index = 0; index < snapshot.instances.size(); ++index) {
         const auto& instance = snapshot.instances[index];
+        if (resources.mesh_pending(instance.mesh)) {
+          continue;
+        }
         engine::render::matrix4 model;
         engine::render::matrix4 normal;
         if (!build_model_matrices(instance.transform, model, normal))

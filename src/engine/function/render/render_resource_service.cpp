@@ -60,6 +60,23 @@ render_resource_service::render_resource_service(std::uint64_t memory_limit) noe
     : memory_limit_(memory_limit), domain_(allocate_domain()), meshes_(domain_),
       materials_(domain_), textures_(domain_) {}
 
+gneiss_result render_resource_service::reserve_mesh(engine::core::rid* output) noexcept {
+  return meshes_.create(engine::core::resource_type::mesh, std::shared_ptr<const mesh_resource>{},
+                        output);
+}
+gneiss_result render_resource_service::reserve_texture(engine::core::rid* output) noexcept {
+  return textures_.create(engine::core::resource_type::texture,
+                          std::shared_ptr<const texture_resource>{}, output);
+}
+gneiss_result render_resource_service::mesh_status(engine::core::rid mesh) const noexcept {
+  const auto* slot = meshes_.get(mesh, engine::core::resource_type::mesh);
+  return !slot ? GNEISS_ERROR_INVALID_HANDLE : (*slot ? GNEISS_SUCCESS : GNEISS_ERROR_NOT_READY);
+}
+gneiss_result render_resource_service::texture_status(engine::core::rid texture) const noexcept {
+  const auto* slot = textures_.get(texture, engine::core::resource_type::texture);
+  return !slot ? GNEISS_ERROR_INVALID_HANDLE : (*slot ? GNEISS_SUCCESS : GNEISS_ERROR_NOT_READY);
+}
+
 render_memory_usage render_resource_service::memory_usage() const noexcept {
   render_memory_usage total;
   const auto collect = [&](auto& history) {
@@ -282,7 +299,8 @@ gneiss_result render_resource_service::create_material(const material_resource& 
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
   for (const auto texture : value.texture_handles()) {
-    if (texture != engine::core::null_rid && get_texture(texture) == nullptr) {
+    if (texture != engine::core::null_rid &&
+        texture_status(texture) == GNEISS_ERROR_INVALID_HANDLE) {
       return GNEISS_ERROR_INVALID_ARGUMENT;
     }
   }

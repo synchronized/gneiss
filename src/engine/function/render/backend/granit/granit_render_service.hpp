@@ -124,6 +124,7 @@ private:
 
   struct material_mirror final {
     const engine::render::material_resource* source{};
+    std::array<granit_texture_view, 5> textures{};
     std::array<granit::sampler, 5> samplers;
     granit::material_instance material;
   };

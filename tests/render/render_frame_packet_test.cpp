@@ -9,7 +9,101 @@
 #include <utility>
 #include <vector>
 
+namespace {
+bool pending_resources() {
+  using namespace gneiss::engine::render;
+  using gneiss::engine::core::rid;
+  render_resource_service resources;
+  render_resource_service foreign;
+  rid mesh{}, texture{}, material{};
+  rid cancelled{};
+  if (resources.reserve_mesh(nullptr) != GNEISS_ERROR_INVALID_ARGUMENT ||
+      resources.reserve_texture(nullptr) != GNEISS_ERROR_INVALID_ARGUMENT ||
+      resources.reserve_mesh(&cancelled) != GNEISS_SUCCESS ||
+      resources.destroy_mesh(cancelled) != GNEISS_SUCCESS ||
+      resources.mesh_status(cancelled) != GNEISS_ERROR_INVALID_HANDLE ||
+      resources.destroy_mesh(cancelled) != GNEISS_ERROR_INVALID_HANDLE) {
+    return false;
+  }
+  if (resources.reserve_mesh(&mesh) != GNEISS_SUCCESS ||
+      resources.reserve_texture(&texture) != GNEISS_SUCCESS ||
+      resources.mesh_status(mesh) != GNEISS_ERROR_NOT_READY ||
+      resources.texture_status(texture) != GNEISS_ERROR_NOT_READY ||
+      resources.mesh_status(0U) != GNEISS_ERROR_INVALID_HANDLE ||
+      resources.mesh_status(texture) != GNEISS_ERROR_INVALID_HANDLE ||
+      resources.texture_status(mesh) != GNEISS_ERROR_INVALID_HANDLE ||
+      foreign.texture_status(texture) != GNEISS_ERROR_INVALID_HANDLE ||
+      foreign.mesh_status(mesh) != GNEISS_ERROR_INVALID_HANDLE) {
+    return false;
+  }
+  material_resource description;
+  description.base_color_texture = mesh;
+  if (resources.create_material(description, &material) != GNEISS_ERROR_INVALID_ARGUMENT) {
+    return false;
+  }
+  description.base_color_texture = texture;
+  if (resources.create_material(description, &material) != GNEISS_SUCCESS) {
+    return false;
+  }
+  render_snapshot scene;
+  scene.instances.push_back({.mesh = mesh, .material = material, .transform = {}});
+  render_frame_packet before;
+  if (capture_render_frame_packet({}, scene, resources, {}, {}, before) != GNEISS_SUCCESS ||
+      !before.resources.mesh_pending(mesh) || !before.resources.texture_pending(texture) ||
+      before.resources.mesh_pending(texture) || before.resources.texture_pending(0U)) {
+    return false;
+  }
+  auto mesh_data = std::make_shared<mesh_resource>();
+  mesh_data->vertices.resize(3U);
+  auto texture_data = std::make_shared<texture_resource>();
+  texture_data->width = texture_data->height = 1U;
+  texture_data->levels.push_back(
+      {.width = 1U,
+       .height = 1U,
+       .pixels = {std::byte{255}, std::byte{}, std::byte{}, std::byte{255}}});
+  if (!resources.replace_mesh(mesh, mesh_data) ||
+      !resources.replace_texture(texture, texture_data) ||
+      resources.mesh_status(mesh) != GNEISS_SUCCESS ||
+      resources.texture_status(texture) != GNEISS_SUCCESS) {
+    return false;
+  }
+  render_frame_packet after;
+  if (capture_render_frame_packet({}, scene, resources, {}, {}, after) != GNEISS_SUCCESS ||
+      after.resources.mesh_pending(mesh) || after.resources.texture_pending(texture) ||
+      after.resources.get_mesh(mesh) != mesh_data.get() ||
+      after.resources.get_texture(texture) != texture_data.get() ||
+      !before.resources.mesh_pending(mesh) || !before.resources.texture_pending(texture)) {
+    return false;
+  }
+  if (resources.destroy_texture(texture) != GNEISS_SUCCESS ||
+      resources.destroy_texture(texture) != GNEISS_ERROR_INVALID_HANDLE ||
+      resources.texture_status(texture) != GNEISS_ERROR_INVALID_HANDLE) {
+    return false;
+  }
+  render_frame_packet invalid;
+  if (capture_render_frame_packet({}, scene, resources, {}, {}, invalid) !=
+      GNEISS_ERROR_INVALID_HANDLE) {
+    return false;
+  }
+  rid replacement{};
+  if (resources.reserve_texture(&replacement) != GNEISS_SUCCESS || replacement == texture ||
+      resources.replace_texture(texture, texture_data) ||
+      resources.destroy_mesh(mesh) != GNEISS_SUCCESS ||
+      resources.destroy_mesh(mesh) != GNEISS_ERROR_INVALID_HANDLE ||
+      resources.replace_mesh(mesh, mesh_data) ||
+      resources.destroy_texture(replacement) != GNEISS_SUCCESS ||
+      resources.destroy_material(material) != GNEISS_SUCCESS) {
+    return false;
+  }
+  return resources.live_resource_count() == 0U &&
+         after.resources.get_texture(texture) == texture_data.get();
+}
+} // namespace
+
 int main() {
+  if (!pending_resources()) {
+    return 10;
+  }
   using namespace gneiss::engine::render;
   render_resource_service resources;
   std::vector<std::uint8_t> pixels(64U * 64U * 4U, 1U);

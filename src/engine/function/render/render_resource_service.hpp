@@ -36,6 +36,13 @@ public:
   [[nodiscard]] std::uint64_t available_memory_bytes() const noexcept;
 
   [[nodiscard]] bool is_valid() const noexcept { return domain_ != 0U; }
+  /** 所属线程预留合法 RID；尚无 CPU 内容，不可直接绘制。由 replace_* 填充，destroy_* 取消。
+   * 不创建后端对象；所有权属于调用方，销毁和跨服务校验与普通 RID 一致。 */
+  [[nodiscard]] gneiss_result reserve_mesh(engine::core::rid* output) noexcept;
+  [[nodiscard]] gneiss_result reserve_texture(engine::core::rid* output) noexcept;
+  /** 只查询 CPU 内容：SUCCESS 已填充，NOT_READY 仅预留，INVALID_HANDLE 已失效或不属于本服务。 */
+  [[nodiscard]] gneiss_result mesh_status(engine::core::rid mesh) const noexcept;
+  [[nodiscard]] gneiss_result texture_status(engine::core::rid texture) const noexcept;
   [[nodiscard]] gneiss_result create_mesh(const engine::resource::mesh_view& desc,
                                           engine::core::rid* out_mesh) noexcept;
   /** 校验并接收拥有型网格，成功路径不再复制数组。 */

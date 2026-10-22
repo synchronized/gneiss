@@ -22,6 +22,8 @@ public:
   [[nodiscard]] const mesh_resource* get_mesh(engine::core::rid mesh) const noexcept;
   [[nodiscard]] const material_resource* get_material(engine::core::rid material) const noexcept;
   [[nodiscard]] const texture_resource* get_texture(engine::core::rid texture) const noexcept;
+  [[nodiscard]] bool mesh_pending(engine::core::rid mesh) const noexcept;
+  [[nodiscard]] bool texture_pending(engine::core::rid texture) const noexcept;
 
 private:
   friend gneiss_result capture_render_frame_packet(const engine::platform::native_window_info&,
