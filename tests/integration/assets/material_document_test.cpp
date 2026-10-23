@@ -230,8 +230,7 @@ void run(std::size_t document_limit) {
       detached_batch = {};
       check(kept->get()->source.parameters.color[0] == 1, "lease survives cache and all batches");
       const auto& prepared = batch.assets.front();
-      check(!prepared.version.version.empty() && prepared.material.color[0] == 1,
-            "batch version and data");
+      check(!prepared.sources.empty() && prepared.material.color[0] == 1, "batch version and data");
       material_document_lease lease;
       check(versions.remember(prepared.sources.front(), candidate, lease) == result::success,
             "register only verified batch");

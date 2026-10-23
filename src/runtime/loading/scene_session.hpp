@@ -46,17 +46,14 @@ public:
   [[nodiscard]] bool scene_progress(scene_load_progress& progress) const;
   [[nodiscard]] gneiss_result poll_scene(scene_load_completion& completion, bool& ready);
   [[nodiscard]] gneiss_result cancel_scene(std::uint64_t request);
-  /** 重载固定版本并更新活动 World 的现有使用者；加载模式保留旧缓存行为。 */
+  /** 更新稳定资源的内容，活动 World 的引用不变；失败项保留旧内容。 */
   [[nodiscard]] gneiss_result
   request_assets(std::span<const engine::render::render_asset_reload> sources,
                  std::uint64_t session, std::uint64_t revision, std::uint64_t& request,
                  bool reload);
-  /** 所属线程、渲染快照捕获之前调用；返回成功回执前完成场景引用切换。 */
+  /** 所属线程、渲染快照捕获之前调用；回执报告内容更新结果，不改变场景引用。 */
   [[nodiscard]] gneiss_result poll_assets(engine::render::texture_load_completion& completion,
                                           bool& ready);
-  [[nodiscard]] gneiss_result
-  accept_edit_assets(const engine::render::texture_load_completion& completion,
-                     const std::function<gneiss_result()>& accept);
 
 private:
   engine::resource::asset_manager* asset_owner_{};
@@ -66,8 +63,6 @@ private:
   scene_retirement_statistics retirement_;
   std::unique_ptr<scene_load_service> loader_;
   std::unique_ptr<engine::render::texture_load_service> textures_;
-  std::uint64_t asset_request_{};
-  std::vector<engine::render::render_asset_lease> previous_assets_;
 };
 
 } // namespace gneiss::runtime

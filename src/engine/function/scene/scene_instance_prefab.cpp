@@ -8,57 +8,6 @@
 #include <utility>
 
 namespace gneiss::engine::scene {
-void scene_instance::asset_update::commit() noexcept {
-  static_assert(std::is_nothrow_move_assignable_v<engine::render::mesh_asset_lease>);
-  static_assert(std::is_nothrow_move_assignable_v<engine::render::material_asset_lease>);
-  for (auto& entry : bindings_) {
-    *entry.mesh = std::move(entry.next_mesh);
-    *entry.material = std::move(entry.next_material);
-  }
-  bindings_.clear();
-}
-
-scene_instance::asset_update scene_instance::prepare_asset_update(
-    const std::map<std::uint64_t, const scene_instance_service::asset_replacement*>& changes,
-    std::vector<engine::world::mesh_renderer_replacement>& renderers) {
-  asset_update pending;
-  const auto collect = [&](auto& node) {
-    const auto mesh = changes.find(node.mesh.get());
-    const auto material = changes.find(node.material.get());
-    if (mesh == changes.end() && material == changes.end()) {
-      return;
-    }
-    auto next_mesh =
-        mesh == changes.end()
-            ? node.mesh
-            : engine::render::render_asset_loader::mesh_lease(mesh->second->replacement);
-    auto next_material =
-        material == changes.end()
-            ? node.material
-            : engine::render::render_asset_loader::material_lease(material->second->replacement);
-    renderers.push_back({
-        .entity = entity_id{node.entity},
-        .expected = {.mesh = node.mesh.get(), .material = node.material.get()},
-        .replacement = {.mesh = next_mesh.get(), .material = next_material.get()},
-    });
-    pending.bindings_.push_back({
-        .mesh = &node.mesh,
-        .material = &node.material,
-        .next_mesh = std::move(next_mesh),
-        .next_material = std::move(next_material),
-    });
-  };
-  for (auto& node : objects_) {
-    collect(node);
-  }
-  for (auto& prefab : prefab_instances_) {
-    for (auto& node : prefab->nodes_) {
-      collect(node);
-    }
-  }
-  return pending;
-}
-
 void scene_instance::append_render_assets(
     std::vector<engine::render::render_asset_lease>& output) const {
   const auto append = [&](const auto& node) {

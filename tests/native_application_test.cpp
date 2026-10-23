@@ -110,14 +110,6 @@ void test_asset_request_boundaries() {
     check(app->capture_mesh_binding(0, {}, binding) == GNEISS_ERROR_INVALID_STATE);
     check(app->replace_mesh_binding(0, {}, binding, binding) == GNEISS_ERROR_INVALID_STATE);
     check(app->prepare_edit_assets({}, 1, request) == GNEISS_ERROR_INVALID_STATE && request == 0);
-    bool accepted = false;
-    check(app->accept_edit_assets(completion,
-                                  [&] {
-                                    accepted = true;
-                                    return GNEISS_SUCCESS;
-                                  }) == GNEISS_ERROR_INVALID_STATE &&
-          !accepted);
-
     return app->request_assets({}, 1, 1, request, true) == GNEISS_ERROR_INVALID_STATE &&
            request == 0 && app->poll_assets(completion, ready) == GNEISS_ERROR_INVALID_STATE &&
            !ready && completion.request == 23 && !app->asset_progress(progress) &&

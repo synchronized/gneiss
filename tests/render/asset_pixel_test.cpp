@@ -681,7 +681,7 @@ void run_scene(engine::core::tasks::execution_mode mode, bool pbr = false) {
     return image.pixels;
   };
   auto active_pixels = capture();
-  // 私有 GPU 候选 ready 后旧图像仍完全不变；只允许激活后发布新颜色。
+  // 共享资源更新可在场景激活前生效；取消场景切换不回滚已显示内容。
   const auto load = [&](std::uint64_t revision, bool cancel, bool fail) {
     const auto old_scene = scene;
     std::uint64_t request{};
@@ -706,7 +706,12 @@ void run_scene(engine::core::tasks::execution_mode mode, bool pbr = false) {
       check(query_scene_load_progress(app.get(), progress, available) == GNEISS_SUCCESS &&
             available);
       if (progress.phase == scene_load_phase::ready) {
-        check(!fail && capture() == active_pixels);
+        check(!fail);
+        const auto ready_pixels = capture();
+        if (revision <= 2U) {
+          check(ready_pixels != active_pixels);
+        }
+        active_pixels = ready_pixels;
         if (cancel) {
           check(cancel_scene_load(app.get(), request) == GNEISS_SUCCESS);
           requested_cancel = true;
@@ -716,7 +721,7 @@ void run_scene(engine::core::tasks::execution_mode mode, bool pbr = false) {
           check(poll_scene_load(app.get(), completion, terminal) == GNEISS_SUCCESS);
           check(gneiss::result{gneiss_application_run(app.get(), 3U)} == result::success);
           const auto changed = capture();
-          check(changed != active_pixels);
+          check(changed == active_pixels);
           active_pixels = changed;
           std::uint64_t count{};
           check(gneiss_scene_instance_get_node_count(app.get(), old_scene, &count) ==

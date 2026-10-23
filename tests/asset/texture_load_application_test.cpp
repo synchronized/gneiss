@@ -121,10 +121,8 @@ void run(gneiss::engine::core::tasks::execution_mode mode) {
   write_material(true);
   check(runtime::request_textures(app.get(), uris, 2U, 3U, request) == GNEISS_SUCCESS);
   wait();
-  // 仅请求纹理也必须重新准备引用它的材质，并返回固定版本回执。
-  check(completion.result == GNEISS_SUCCESS && completion.assets.size() == 2U &&
-        completion.versions.size() == 2U);
-  const auto versions = completion.versions;
+  // 只请求纹理不重读材质，场景使用者保持稳定资源引用。
+  check(completion.result == GNEISS_SUCCESS && completion.assets.size() == 1U);
   const engine::render::render_asset_reload material_source{
       .uri = "asset://m.material", .type = engine::render::render_asset_type::material};
   engine::render::render_asset_lease selected_before;
@@ -134,36 +132,17 @@ void run(gneiss::engine::core::tasks::execution_mode mode) {
         GNEISS_SUCCESS);
   wait();
   check(completion.result == GNEISS_SUCCESS);
-  unsigned applied{};
-  const auto accept = [&](const std::function<gneiss_result()>& apply) {
-    return runtime::accept_edit_assets(app.get(), completion, apply);
-  };
-  check(accept({}) == GNEISS_ERROR_INVALID_ARGUMENT);
-  check(accept([&] {
-          ++applied;
-          return GNEISS_ERROR_INVALID_STATE;
-        }) == GNEISS_ERROR_INVALID_STATE);
-  check(accept([]() -> gneiss_result { throw std::bad_alloc{}; }) == GNEISS_ERROR_OUT_OF_MEMORY);
-  check(accept([]() -> gneiss_result { throw std::runtime_error("应用失败"); }) ==
-        GNEISS_ERROR_INTERNAL);
   engine::render::render_asset_lease selected_after;
   check(runtime::query_ready_asset(app.get(), material_source, selected_after) == GNEISS_SUCCESS &&
         selected_before == selected_after);
-  check(accept([&] {
-          ++applied;
-          return GNEISS_SUCCESS;
-        }) == GNEISS_SUCCESS &&
-        applied == 2U);
-  check(runtime::query_ready_asset(app.get(), material_source, selected_after) == GNEISS_SUCCESS &&
-        selected_before != selected_after);
   // 恢复后续重载用例的输入；这里不修改场景使用者。
   write_material(true);
   const auto updated = capture(0);
-  check(updated.material == capture(1).material && updated.material != initial.material);
+  check(updated.material == capture(1).material && updated.material == initial.material);
   check(runtime::request_textures(app.get(), uris, 2U, 4U, request) == GNEISS_SUCCESS);
   wait();
-  check(completion.result == GNEISS_SUCCESS && completion.versions == versions);
-  // 只改变纹理负载，材质文档字节不变；两个使用者仍须切换到同一新材质产物。
+  check(completion.result == GNEISS_SUCCESS);
+  // 只改变纹理负载不替换材质身份；两个使用者继续持有同一资源。
   check(engine::resource::encode_texture_ktx2(
             {.transfer = engine::resource::texture_transfer::srgb,
              .levels = {{.width = 1U,
@@ -177,14 +156,13 @@ void run(gneiss::engine::core::tasks::execution_mode mode) {
   }
   check(runtime::request_textures(app.get(), uris, 2U, 40U, request) == GNEISS_SUCCESS);
   wait();
-  check(completion.result == GNEISS_SUCCESS && completion.versions != versions);
+  check(completion.result == GNEISS_SUCCESS);
   const auto textured = capture(0);
-  check(textured.material == capture(1).material && textured.material != updated.material);
+  check(textured.material == capture(1).material && textured.material == updated.material);
   std::ofstream(files.root / "m.material") << "broken";
   check(runtime::request_textures(app.get(), uris, 2U, 5U, request) == GNEISS_SUCCESS);
   wait();
-  check(completion.result != GNEISS_SUCCESS && completion.assets.empty() &&
-        completion.versions.empty());
+  check(completion.result == GNEISS_SUCCESS && completion.assets.size() == 1U);
   check(capture(0).material == textured.material && capture(1).material == textured.material);
   write_material(false);
   check(runtime::request_textures(app.get(), uris, 2U, 6U, request) == GNEISS_SUCCESS);
@@ -192,7 +170,7 @@ void run(gneiss::engine::core::tasks::execution_mode mode) {
   wait();
   check(completion.state == engine::render::texture_load_state::cancelled &&
         completion.assets.empty());
-  // 上传期间裸 ECS 使用者改变组件，整批场景切换须拒绝，不能覆盖该修改。
+  // 上传期间 ECS 改绑不妨碍资源更新，也不能被重载覆盖。
   gneiss_scene_instance_node_info node = GNEISS_SCENE_INSTANCE_NODE_INFO_INIT;
   check(gneiss_scene_instance_get_node_info(app.get(), scene, 0U, &node) == GNEISS_SUCCESS);
   gneiss_world world{};
@@ -201,9 +179,9 @@ void run(gneiss::engine::core::tasks::execution_mode mode) {
   const gneiss_mesh_renderer external{UINT64_MAX, UINT64_MAX};
   check(gneiss_world_entity_set_mesh_renderer(world, node.entity, &external) == GNEISS_SUCCESS);
   wait();
-  check(completion.result == GNEISS_ERROR_INVALID_STATE &&
-        completion.state == engine::render::texture_load_state::failed &&
-        completion.assets.empty() && completion.versions.empty());
+  check(completion.result == GNEISS_SUCCESS &&
+        completion.state == engine::render::texture_load_state::applied &&
+        completion.assets.size() == 1U);
   const std::array unchanged{
       engine::world::mesh_renderer_replacement{.entity = gneiss::entity_id{node.entity},
                                                .expected = {external.mesh, external.material},
@@ -215,7 +193,7 @@ void run(gneiss::engine::core::tasks::execution_mode mode) {
         GNEISS_SUCCESS);
   check(runtime::request_textures(app.get(), uris, 2U, 8U, request) == GNEISS_SUCCESS);
   wait();
-  check(completion.result == GNEISS_SUCCESS && completion.versions.size() == 2U);
+  check(completion.result == GNEISS_SUCCESS);
   completion = {}; // 所有租约必须先于 Application 销毁。
   check(runtime::request_textures(app.get(), uris, 2U, 2U, request) == GNEISS_SUCCESS);
   check(runtime::cancel_textures(app.get()) == GNEISS_SUCCESS);

@@ -125,8 +125,6 @@ void prepared_source_revisions() {
     const auto& old_asset = before.assets[index];
     const auto& new_asset = after.assets[index];
     check(old_asset.source.uri == new_asset.source.uri && !old_asset.sources.empty());
-    check(old_asset.version == repeated.assets[index].version);
-    check(old_asset.version != new_asset.version);
     check(old_asset.sources.front().identity == new_asset.sources.front().identity);
     check(old_asset.sources.front().digest == new_asset.sources.front().digest);
     if (old_asset.source.type == asset_type::texture) {
@@ -145,48 +143,6 @@ void prepared_source_revisions() {
       check(new_asset.texture_uris[0] == "asset://texture");
     }
   }
-  resource_cache cache;
-  unsigned loads{};
-  const auto load = [&](std::shared_ptr<void>& output) {
-    ++loads;
-    output = std::make_shared<int>(42);
-    return GNEISS_SUCCESS;
-  };
-  std::shared_ptr<const resource_cache::entry> first;
-  std::shared_ptr<const resource_cache::entry> same;
-  std::shared_ptr<const resource_cache::entry> changed;
-  check(cache.acquire(before.assets.back().version, load, first) == GNEISS_SUCCESS);
-  check(cache.acquire(repeated.assets.back().version, load, same) == GNEISS_SUCCESS);
-  check(cache.acquire(after.assets.back().version, load, changed) == GNEISS_SUCCESS);
-  check(first == same && first != changed && loads == 2U);
-
-  prepared_batch configured;
-  check(prepare_assets(files, requests, configured, diagnostic, {}, 128U, 256U,
-                       256U * 1024U * 1024U,
-                       {.generation = 7U, .sampled_transfer_formats = {true, true, true, true}}) ==
-        GNEISS_SUCCESS);
-  for (std::size_t index = 0; index < after.assets.size(); ++index) {
-    check(configured.assets[index].version != after.assets[index].version);
-  }
-  // 仅负载改用新挂载，内容和描述来源不变，材质的传递来源仍须隔离。
-  virtual_file_system overlay = files;
-  check(overlay.mount("asset://payload/", source) == GNEISS_SUCCESS);
-  prepared_batch overlaid;
-  check(prepare_assets(overlay, requests, overlaid, diagnostic, {}, 128U) == GNEISS_SUCCESS);
-  check(overlaid.assets.back().version.identity == after.assets.back().version.identity);
-  check(overlaid.assets.back().version.version == after.assets.back().version.version);
-  check(overlaid.assets.back().version != after.assets.back().version);
-  check(cache.acquire(overlaid.assets.back().version, load, same) == GNEISS_SUCCESS &&
-        same != changed && loads == 3U);
-  // 字节完全相同的独立来源不复用。
-  virtual_file_system independent;
-  check(independent.mount("asset://", source) == GNEISS_SUCCESS);
-  prepared_batch isolated;
-  check(prepare_assets(independent, requests, isolated, diagnostic, {}, 128U) == GNEISS_SUCCESS);
-  check(isolated.assets.back().version != after.assets.back().version);
-  auto other_input = after.assets.back().version;
-  other_input.inputs.back().source.reset();
-  check(cache.acquire(other_input, load, same) == GNEISS_ERROR_INVALID_ARGUMENT && !same);
 }
 void shared_mesh_documents() {
   auto source = std::make_shared<memory_files>();
@@ -255,8 +211,7 @@ void independent_update_sequences() {
   const auto stage = [&](const auto& source, const auto& target, auto sequence, auto& output) {
     prepared_render_asset prepared;
     prepared.source = source;
-    return loader.stage_asset(std::move(prepared), {}, output,
-                              render_asset_loader::publication_mode::reload, target, sequence);
+    return loader.stage_asset(std::move(prepared), {}, output, target, sequence);
   };
   std::array<render_asset_loader::asset_candidate, 1> first, unrelated, late, latest;
   const auto first_sequence = loader.next_update_sequence();
@@ -293,9 +248,7 @@ void reserved_material_lifetime() {
   prepared.source = request;
   prepared.material_document = document;
   std::array<render_asset_loader::asset_candidate, 1> candidates;
-  check(loader.stage_asset(std::move(prepared), {}, candidates.front(),
-                           render_asset_loader::publication_mode::reload,
-                           target) == GNEISS_SUCCESS);
+  check(loader.stage_asset(std::move(prepared), {}, candidates.front(), target) == GNEISS_SUCCESS);
   document.reset();
   check(!lifetime.expired() && resources.material_status(rid) == GNEISS_ERROR_NOT_READY);
   check(loader.publish_assets(candidates) == GNEISS_SUCCESS);
@@ -304,165 +257,6 @@ void reserved_material_lifetime() {
   target = {};
   cache.release_unused();
   check(lifetime.expired() && resources.material_status(rid) == GNEISS_ERROR_INVALID_HANDLE);
-}
-void fixed_version_publication(engine::core::tasks::execution_mode mode) {
-  auto source = std::make_shared<memory_files>();
-  source->pixel(std::byte{10});
-  source->text(
-      "texture",
-      R"({"format":"gneiss.texture","version":1,"source":"asset://image.ktx2","color_space":"srgb"})");
-  source->text(
-      "material",
-      R"({"format":"gneiss.material","version":2,"color":[1,1,1,1],"base_color_texture":"asset://texture"})");
-  virtual_file_system files;
-  check(files.mount("asset://", source) == GNEISS_SUCCESS);
-  render_resource_service resources;
-  resource_cache cache;
-  render_asset_loader loader(files, cache, resources);
-  using candidate = render_asset_loader::asset_candidate;
-  constexpr auto fixed = render_asset_loader::publication_mode::fixed_version;
-  const std::array requests{asset_preparation_source{"asset://material", asset_type::material}};
-  const auto prepare = [&] {
-    prepared_batch batch;
-    asset_diagnostic diagnostic;
-    check(prepare_assets(files, requests, batch, diagnostic, {}, 128U) == GNEISS_SUCCESS);
-    return batch;
-  };
-  const auto stage = [&](prepared_batch batch) {
-    std::vector<candidate> result;
-    for (auto& asset : batch.assets) {
-      candidate value;
-      check(loader.stage_asset(std::move(asset), result, value, fixed) == GNEISS_SUCCESS);
-      result.push_back(std::move(value));
-    }
-    return result;
-  };
-  auto first_batch = prepare();
-  auto document = std::make_shared<material_document_lease>();
-  std::weak_ptr<const material_document_lease> document_lifetime = document;
-  first_batch.assets.back().material_document = document;
-  auto original = stage(std::move(first_batch));
-  document.reset();
-  check(!document_lifetime.expired());
-  auto competing = stage(prepare());
-  check(original.front().lease.get() != competing.front().lease.get());
-  check(loader.publish_assets(original) == GNEISS_SUCCESS);
-  check(loader.publish_assets(competing) == GNEISS_ERROR_INVALID_STATE);
-  competing.clear();
-  auto reused = stage(prepare());
-  check(reused.front().lease.get() == original.front().lease.get() && reused.front().existed);
-  check(reused.back().lease.get() == original.back().lease.get());
-  check(loader.publish_assets(reused) == GNEISS_SUCCESS && resources.live_resource_count() == 2U);
-  reused.clear();
-  const auto old_texture = resources.share_texture(original.front().lease.get());
-  const auto old_material = resources.share_material(original.back().lease.get());
-  source->pixel(std::byte{20});
-  auto replacement = prepare();
-  candidate invalid;
-  check(loader.stage_asset(replacement.assets.back(), original, invalid, fixed) ==
-        GNEISS_ERROR_INVALID_STATE);
-  auto cancelled = stage(replacement);
-  const auto cancelled_rid = cancelled.front().lease.get();
-  cancelled.clear();
-  check(resources.get_texture(cancelled_rid) == nullptr && cache.size() == 2U);
-  auto next = stage(std::move(replacement));
-  check(next.front().lease.get() != original.front().lease.get());
-  check(next.back().lease.get() != original.back().lease.get());
-  const auto material_version = next.back().version.version;
-  next.back().version.version.clear();
-  check(loader.publish_assets(next) == GNEISS_ERROR_INVALID_ARGUMENT && cache.size() == 2U);
-  check(cache.observe(next.front().version).expired());
-  next.back().version.version = material_version;
-  check(loader.publish_assets(next) == GNEISS_SUCCESS && cache.size() == 4U);
-  check(resources.share_texture(original.front().lease.get()) == old_texture);
-  check(resources.share_material(original.back().lease.get()) == old_material);
-  check(next.back().material->base_color_texture == next.front().lease.get());
-  auto material_lease = next.back().lease;
-  const auto texture_rid = next.front().lease.get();
-  original.clear();
-  next.clear();
-  cache.release_unused();
-  check(resources.live_resource_count() == 2U && resources.get_texture(texture_rid) != nullptr);
-  check(document_lifetime.expired());
-  material_lease = {};
-  cache.release_unused();
-  check(resources.live_resource_count() == 0U && cache.size() == 0U);
-  engine::core::tasks::task_scheduler scheduler({.mode = mode});
-  unsigned uploads{};
-  unsigned discards{};
-  bool acknowledge = true;
-  gneiss_result upload_result = GNEISS_SUCCESS;
-  texture_upload_backend backend;
-  backend.begin = [&](auto data, std::uint64_t& id) {
-    uploads += static_cast<unsigned>(data.size());
-    id = 1U;
-    return GNEISS_SUCCESS;
-  };
-  backend.poll = [&](std::uint64_t, gneiss_result& result) {
-    result = upload_result;
-    return acknowledge;
-  };
-  backend.discard = [&](auto data, std::uint64_t& id) {
-    check(data.size() == 1U && data.front().material && !data.front().texture);
-    ++discards;
-    id = 2U;
-    return GNEISS_SUCCESS;
-  };
-  backend.flush = [] {};
-  texture_load_service service(scheduler, files, loader, std::move(backend), {},
-                               std::make_shared<cpu_document_cache>());
-  const auto until = [&](auto predicate) {
-    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
-    while (!predicate()) {
-      check(std::chrono::steady_clock::now() < deadline);
-      (void)scheduler.run_ready({.max_tasks = 8U});
-      service.advance();
-      std::this_thread::yield();
-    }
-  };
-  std::uint64_t request{};
-  texture_load_completion first_load;
-  check(service.submit_assets(requests, 1U, 1U, request, false,
-                              texture_load_service::maximum_candidate_bytes,
-                              fixed) == GNEISS_SUCCESS);
-  until([&] { return service.take(first_load); });
-  check(first_load.result == GNEISS_SUCCESS && first_load.versions.size() == 2U && uploads == 2U);
-  texture_load_completion second_load;
-  check(service.submit_assets(requests, 1U, 2U, request, false,
-                              texture_load_service::maximum_candidate_bytes,
-                              fixed) == GNEISS_SUCCESS);
-  until([&] { return service.take(second_load); });
-  check(second_load.result == GNEISS_SUCCESS && uploads == 2U);
-  check(first_load.versions == second_load.versions);
-  check(first_load.assets.back().get() == second_load.assets.back().get());
-  source->text(
-      "material",
-      R"({"format":"gneiss.material","version":2,"color":[0.5,1,1,1],"base_color_texture":"asset://texture"})");
-  acknowledge = false;
-  check(service.submit_assets(requests, 1U, 3U, request, false,
-                              texture_load_service::maximum_candidate_bytes,
-                              fixed) == GNEISS_SUCCESS);
-  until([&] { return uploads == 3U; });
-  check(service.cancel_unpublished());
-  acknowledge = true;
-  texture_load_completion cancelled_load;
-  until([&] { return service.take(cancelled_load); });
-  check(cancelled_load.state == texture_load_state::cancelled && cancelled_load.versions.empty());
-  check(discards == 1U && resources.get_texture(first_load.assets.front().get()) != nullptr);
-  upload_result = GNEISS_ERROR_IO;
-  check(service.submit_assets(requests, 1U, 4U, request, false,
-                              texture_load_service::maximum_candidate_bytes,
-                              fixed) == GNEISS_SUCCESS);
-  until([&] { return service.take(cancelled_load); });
-  check(cancelled_load.result == GNEISS_ERROR_IO && cancelled_load.versions.empty());
-  upload_result = GNEISS_SUCCESS;
-  check(service.submit_assets(requests, 1U, 5U, request, false,
-                              texture_load_service::maximum_candidate_bytes,
-                              fixed) == GNEISS_SUCCESS);
-  until([&] { return service.take(second_load); });
-  check(second_load.result == GNEISS_SUCCESS && second_load.assets.size() == 2U);
-  check(first_load.assets.front().get() == second_load.assets.front().get());
-  check(first_load.assets.back().get() != second_load.assets.back().get());
 }
 void cooperative_read_slices() {
   engine::core::tasks::task_scheduler scheduler(
@@ -1226,8 +1020,6 @@ int main() try {
   reserved_material_lifetime();
   delayed_single_texture_update();
   shared_mesh_documents();
-  fixed_version_publication(engine::core::tasks::execution_mode::cooperative);
-  fixed_version_publication(engine::core::tasks::execution_mode::thread_pool);
   prepared_source_revisions();
   cooperative_read_slices();
   cancel_unpublished_upload(engine::core::tasks::execution_mode::cooperative);

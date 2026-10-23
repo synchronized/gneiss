@@ -69,20 +69,11 @@ public:
                                                    scene_node_id node, const mesh_binding& expected,
                                                    const mesh_binding& replacement) noexcept;
   /** 所属线程采集此 World 普通节点和 Prefab 实际持有的网格、材质租约。
-   * 按 RID 去重，同 URI 的不同版本分别保留；不读文件、不查询最新缓存。
+   * 按 RID 去重，使用稳定资源引用；不读文件、不查询最新缓存。
    * 成功替换 output，失败保持 output；快照延长资源寿命，须早于渲染服务释放。
    * 不包含裸 ECS RID 使用者；后续切换仍需验证使用者当前状态。 */
   [[nodiscard]] gneiss_result
   capture_render_assets(std::vector<engine::render::render_asset_lease>& output) noexcept;
-  struct asset_replacement {
-    engine::render::render_asset_lease previous;
-    engine::render::render_asset_lease replacement;
-  };
-  /** 更新此 World 所有场景和 Prefab 中仍使用 previous RID 的节点。
-   * 仅所属线程安全帧边界调用，调用前新资源须已上传；失败不切换租约或 ECS。
-   * 原始 RID 使用者不隐式跟随，不改变源描述或实例局部资产选择。 */
-  [[nodiscard]] gneiss_result
-  replace_render_assets(std::span<const asset_replacement> changes) noexcept;
   /** 验证普通作者节点归属，不接受 Prefab 的只读来源节点。 */
   [[nodiscard]] gneiss_result validate_editable_node(gneiss_scene_instance instance,
                                                      scene_node_id node) const noexcept;

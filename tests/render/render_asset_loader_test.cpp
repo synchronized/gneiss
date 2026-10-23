@@ -419,56 +419,6 @@ bool material_parameter_roundtrip(gneiss::engine::resource::virtual_file_system&
       !matches(resources.get_material(synchronous.get()))) {
     return false;
   }
-  // 固定版本的发布、采用与就绪查询是三个不同动作。
-  if (prepare_render_assets(files, request, batch, diagnostic, {}) != GNEISS_SUCCESS) {
-    return false;
-  }
-  candidates.clear();
-  for (auto& prepared : batch.assets) {
-    render_asset_loader::asset_candidate candidate;
-    if (loader.stage_asset(std::move(prepared), candidates, candidate,
-                           render_asset_loader::publication_mode::fixed_version) !=
-        GNEISS_SUCCESS) {
-      return false;
-    }
-    candidates.push_back(std::move(candidate));
-  }
-  if (loader.publish_assets(candidates) != GNEISS_SUCCESS) {
-    return false;
-  }
-  const auto& version = candidates.back().version;
-  render_asset_lease selected;
-  const std::array selections{gneiss::engine::resource::resource_cache::version_selection{
-      .selection = render_asset_loader::selection_key(version.identity, {}),
-      .version = version,
-  }};
-  if (loader.acquire_selected(version.identity, {}, selected) != GNEISS_ERROR_NOT_READY ||
-      selected ||
-      cache.adopt_versions(selections, [] { return GNEISS_ERROR_IO; }) != GNEISS_ERROR_IO ||
-      loader.acquire_selected(version.identity, {}, selected) != GNEISS_ERROR_NOT_READY ||
-      cache.adopt_versions(selections) != GNEISS_SUCCESS) {
-    return false;
-  }
-  memory.files["parameters.material.json"] = "broken";
-  if (loader.acquire_selected(version.identity, {}, selected) != GNEISS_SUCCESS ||
-      selected.get() != candidates.back().lease.get()) {
-    return false;
-  }
-  auto profile = texture_prepare_profile{};
-  profile.generation = 1U;
-  if (loader.acquire_selected(version.identity, profile, selected) != GNEISS_ERROR_NOT_READY ||
-      selected) {
-    return false;
-  }
-  profile = {};
-  for (auto& supported : profile.sampled_transfer_formats) {
-    supported = true;
-    if (loader.acquire_selected(version.identity, profile, selected) != GNEISS_ERROR_NOT_READY ||
-        selected) {
-      return false;
-    }
-    supported = false;
-  }
   return true;
 }
 

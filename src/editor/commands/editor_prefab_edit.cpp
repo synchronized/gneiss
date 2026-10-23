@@ -42,12 +42,11 @@ result make_prefab_record(const engine::scene::prefab_node_view& info,
 }
 class prefab_history_operation final : public editor_history_operation {
 public:
-  prefab_history_operation(
-      runtime::application& application, scene_document& session, gneiss_scene_instance scene,
-      std::shared_ptr<const prefab_placement_snapshot> snapshot, bool removing,
-      std::function<gneiss_result(const std::function<gneiss_result()>&)> accept = {})
+  prefab_history_operation(runtime::application& application, scene_document& session,
+                           gneiss_scene_instance scene,
+                           std::shared_ptr<const prefab_placement_snapshot> snapshot, bool removing)
       : application_(application), scene_(scene), session_(session), snapshot_(std::move(snapshot)),
-        removing_(removing), accept_(std::move(accept)) {}
+        removing_(removing) {}
   result advance(bool& complete) noexcept override try {
     complete = false;
     if (committed_ || cancelled_ || status_.failed()) {
@@ -129,7 +128,7 @@ private:
         }
       } else {
         const auto commit = [&] { return transaction_->commit(); };
-        status_ = from_native(accept_ ? accept_(commit) : commit());
+        status_ = from_native(commit());
         if (status_.failed()) {
           return result::success;
         }
@@ -150,18 +149,14 @@ private:
   std::size_t old_cursor_{}, new_cursor_{};
   bool removing_{}, committed_{}, cancelled_{};
   result status_{result::success};
-  std::function<gneiss_result(const std::function<gneiss_result()>&)> accept_;
 };
 using prefab_snapshots = std::vector<std::shared_ptr<const prefab_placement_snapshot>>;
 class prefab_refresh_operation final : public editor_history_operation {
 public:
-  using acceptance = std::function<gneiss_result(const std::function<gneiss_result()>&)>;
   prefab_refresh_operation(runtime::application& application, scene_document& session,
-                           gneiss_scene_instance scene, prefab_snapshots snapshots,
-                           acceptance accept = {})
+                           gneiss_scene_instance scene, prefab_snapshots snapshots)
       : application_(application), scene_(scene), session_(session),
-        snapshots_(std::move(snapshots)), accept_(std::move(accept)),
-        selection_(session.selection()) {
+        snapshots_(std::move(snapshots)), selection_(session.selection()) {
     transactions_.resize(snapshots_.size());
     for (const auto& snapshot : snapshots_) {
       uuids_.push_back(snapshot->author.instance_uuid);
@@ -286,7 +281,7 @@ private:
         }
       } else {
         const auto commit = [&] { return prefab_placement::commit_replacements(entries_); };
-        status_ = from_native(accept_ ? accept_(commit) : commit());
+        status_ = from_native(commit());
         if (status_.ok()) {
           session_.publish_prefab_records(records_, selection_);
           committed_ = true;
@@ -299,7 +294,6 @@ private:
   gneiss_scene_instance scene_{};
   scene_document& session_;
   prefab_snapshots snapshots_;
-  acceptance accept_;
   scene_node_id selection_;
   std::string selected_instance_, selected_source_;
   std::vector<std::string> uuids_;
@@ -451,11 +445,7 @@ struct editor_prefab_edit::state {
       return;
     }
     command = std::make_unique<prefab_refresh_command>(application, *session, scene, before, after);
-    operation = std::make_unique<prefab_refresh_operation>(
-        application, *session, scene, after, [this](const std::function<gneiss_result()>& commit) {
-          return completion.versions.empty() ? commit()
-                                             : application.accept_edit_assets(completion, commit);
-        });
+    operation = std::make_unique<prefab_refresh_operation>(application, *session, scene, after);
   }
 
   bool poll_preparation() {
@@ -717,12 +707,7 @@ void editor_prefab_edit::advance() {
     value.command = std::make_unique<prefab_command>(value.application, *value.session, value.scene,
                                                      snapshot, value.removing);
     value.operation = std::make_unique<prefab_history_operation>(
-        value.application, *value.session, value.scene, std::move(snapshot), value.removing,
-        [&value](const std::function<gneiss_result()>& commit) {
-          return value.completion.versions.empty()
-                     ? commit()
-                     : value.application.accept_edit_assets(value.completion, commit);
-        });
+        value.application, *value.session, value.scene, std::move(snapshot), value.removing);
   } catch (const std::bad_alloc&) {
     value.failure = result::out_of_memory;
     value.status = value.failure;

@@ -1772,45 +1772,6 @@ gneiss_result scene_instance_service::capture_render_assets(
   }
 }
 
-gneiss_result
-scene_instance_service::replace_render_assets(std::span<const asset_replacement> changes) noexcept {
-  try {
-    const auto owner = native_world_.replace_mesh_renderers({});
-    if (owner != GNEISS_SUCCESS) {
-      return owner;
-    }
-    std::map<std::uint64_t, const asset_replacement*> replacements;
-    for (const auto& change : changes) {
-      const auto type = change.previous.type();
-      if ((type != engine::render::render_asset_type::mesh &&
-           type != engine::render::render_asset_type::material) ||
-          change.replacement.type() != type || change.previous.uri() != change.replacement.uri() ||
-          !loader_.owns(change.previous) || !loader_.owns(change.replacement) ||
-          !replacements.emplace(change.previous.get(), &change).second) {
-        return GNEISS_ERROR_INVALID_ARGUMENT;
-      }
-    }
-    std::vector<scene_instance::asset_update> updates;
-    std::vector<engine::world::mesh_renderer_replacement> renderers;
-    instances_.for_each(engine::core::resource_type::scene_instance, [&](auto& instance) {
-      updates.push_back(instance->prepare_asset_update(replacements, renderers));
-    });
-    const auto result = native_world_.replace_mesh_renderers(renderers);
-    if (result != GNEISS_SUCCESS) {
-      return result;
-    }
-    // ECS 已统一切换；租约移动不分配且不抛异常，旧帧的数据引用仍由渲染服务持有。
-    for (auto& update : updates) {
-      update.commit();
-    }
-    return GNEISS_SUCCESS;
-  } catch (const std::bad_alloc&) {
-    return GNEISS_ERROR_OUT_OF_MEMORY;
-  } catch (...) {
-    return GNEISS_ERROR_INTERNAL;
-  }
-}
-
 scene_instance_service::scene_instance_service(
     engine::world::world& native_world, gneiss_world world,
     const engine::resource::virtual_file_system& file_system,

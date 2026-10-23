@@ -73,8 +73,6 @@ struct scene_load_service::pending {
   std::unique_ptr<engine::render::texture_load_service> assets;
   std::unique_ptr<engine::scene::scene_load_builder> builder;
   engine::scene::scene_load_builder::asset_bindings bindings;
-  std::vector<engine::resource::resource_cache::version_selection> selections;
-  std::unique_ptr<engine::resource::resource_cache::prepared_adoption> adoption;
   std::map<std::uint64_t, resource_usage> resident;
   std::vector<engine::render::render_asset_reload> requested;
   std::size_t cursor{};
@@ -271,9 +269,6 @@ scene_load_service::take_candidate(std::uint64_t request, scene_load_completion&
   result.result = GNEISS_SUCCESS;
   result.progress.phase = scene_load_phase::applied;
   result.progress.can_cancel = false;
-  if (pending_->adoption) {
-    pending_->adoption->commit();
-  }
   auto candidate = std::move(pending_->candidate);
   assets = std::move(pending_->assets);
   pending_.reset();
@@ -464,10 +459,6 @@ void scene_load_service::advance_impl() {
       finish(completion.result, scene_load_phase::failed, completion.message);
       return;
     }
-    if (completion.versions.size() != completion.assets.size()) {
-      finish(GNEISS_ERROR_INVALID_STATE, scene_load_phase::failed, "场景资产版本回执不完整");
-      return;
-    }
     for (std::size_t index = 0U; index < completion.assets.size(); ++index) {
       const auto& lease = completion.assets[index];
       const auto [binding, inserted] = value.bindings.emplace(std::string(lease.uri()), lease);
@@ -476,14 +467,6 @@ void scene_load_service::advance_impl() {
         finish(GNEISS_ERROR_INVALID_STATE, scene_load_phase::failed,
                "同一场景请求的资产绑定不一致");
         return;
-      }
-      if (inserted) {
-        const auto& version = completion.versions[index];
-        value.selections.push_back({
-            .selection = engine::render::render_asset_loader::selection_key(version.identity,
-                                                                            completion.profile),
-            .version = version,
-        });
       }
       auto& previous = value.resident[lease.get()];
       progress.resident_bytes -= previous.logical;
@@ -550,9 +533,8 @@ void scene_load_service::advance_impl() {
     }
     const auto submitted = value.assets->submit_assets(
         std::span(value.requested).subspan(value.cursor, value.batch_count), progress.session,
-        progress.revision, child, false,
-        std::min(remaining, engine::render::texture_load_service::maximum_candidate_bytes),
-        engine::render::render_asset_loader::publication_mode::fixed_version);
+        progress.revision, child, true,
+        std::min(remaining, engine::render::texture_load_service::maximum_candidate_bytes));
     if (submitted == GNEISS_ERROR_NOT_READY) {
       return;
     }
@@ -574,15 +556,6 @@ void scene_load_service::advance_impl() {
       return;
     }
     if (complete) {
-      // ready 只准备选择映射；取消不会采用候选版本。
-      // 提前完成全部分配，take_candidate 才提交选择并交还域所有权。
-      const auto adopted = value.selections.empty()
-                               ? GNEISS_SUCCESS
-                               : render_assets_.prepare_adoption(value.selections, value.adoption);
-      if (adopted != GNEISS_SUCCESS) {
-        finish(adopted, scene_load_phase::failed);
-        return;
-      }
       progress.phase = scene_load_phase::ready;
     }
   }

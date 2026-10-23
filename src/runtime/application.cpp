@@ -1035,18 +1035,6 @@ engine::render::texture_load_service* application::texture_service() noexcept {
   return storage_->scene_session_.textures();
 }
 
-gneiss_result
-application::accept_edit_assets(const engine::render::texture_load_completion& completion,
-                                const std::function<gneiss_result()>& accept) try {
-  if (!is_owner_thread() || !accepts_requests())
-    return GNEISS_ERROR_INVALID_STATE;
-  return storage_->scene_session_.accept_edit_assets(completion, accept);
-} catch (const std::bad_alloc&) {
-  return GNEISS_ERROR_OUT_OF_MEMORY;
-} catch (...) {
-  return GNEISS_ERROR_INTERNAL;
-}
-
 gneiss_result application::create_mesh_node_ready(
     gneiss_scene_instance scene, const engine::scene::mesh_renderer_node_creation& desc,
     const engine::scene::scene_instance_service::mesh_binding& prepared,
@@ -1078,8 +1066,10 @@ gneiss_result application::query_ready_asset(const engine::render::render_asset_
     return valid;
   }
   auto* service = texture_service();
-  return service ? storage_->render_assets_->acquire_selected(source, service->profile(), output)
-                 : GNEISS_ERROR_NOT_READY;
+  const auto result =
+      service ? storage_->render_assets_->acquire_cached(source, output, service->profile())
+              : GNEISS_ERROR_NOT_READY;
+  return result == GNEISS_ERROR_NOT_FOUND ? GNEISS_ERROR_NOT_READY : result;
 }
 
 gneiss_result application::capture_mesh_binding(
@@ -1115,10 +1105,8 @@ application::prepare_edit_assets(std::span<const engine::render::render_asset_re
   if (!service || scene_loading() || service->busy()) {
     return GNEISS_ERROR_NOT_READY;
   }
-  return service->submit_assets(
-      sources, 1U, revision, request, true,
-      engine::render::texture_load_service::maximum_candidate_bytes,
-      engine::render::render_asset_loader::publication_mode::fixed_version);
+  return service->submit_assets(sources, 1U, revision, request, true,
+                                engine::render::texture_load_service::maximum_candidate_bytes);
 } catch (const std::bad_alloc&) {
   return GNEISS_ERROR_OUT_OF_MEMORY;
 } catch (...) {

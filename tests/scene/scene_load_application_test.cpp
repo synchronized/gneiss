@@ -354,7 +354,7 @@ void shared_scene_assets(engine::core::tasks::execution_mode mode) {
   check(!poll());
   check(gneiss_world_entity_count(old_world, &count) == GNEISS_ERROR_INVALID_HANDLE);
   check(gneiss_world_entity_count(new_world, &count) == GNEISS_SUCCESS && count == 1U);
-  // 新版本 ready 不改变默认选择；取消也不得改变活动实例的固定租约。
+  // 更新完成后保持稳定资源引用；取消场景切换不撤回已更新的共享资源。
   std::ofstream(files.root / "material.json")
       << R"({"format":"gneiss.material","version":1,"color":[0,1,0,1]})";
   (void)prepare();
@@ -367,11 +367,11 @@ void shared_scene_assets(engine::core::tasks::execution_mode mode) {
   check(completion.progress.phase == scene_load_phase::cancelled &&
         completion.progress.cleanup_complete);
   check(selected(engine::render::render_asset_type::material, "asset://material.json") == material);
-  // 重试成功后才采用 B；旧租约 A 与未变化的网格依旧有效。
+  // 重试和激活都继续复用同一资源身份。
   (void)prepare();
   check(activate_scene_load(app.get(), request, completion) == GNEISS_SUCCESS);
   auto changed = binding();
-  check(changed.mesh == mesh && changed.material != material);
+  check(changed.mesh == mesh && changed.material == material);
   check(selected(engine::render::render_asset_type::material, "asset://material.json") ==
         changed.material);
   check(!poll());
@@ -466,9 +466,9 @@ void shared_texture_versions(engine::core::tasks::execution_mode mode) {
     check(poll_textures(app.get(), assets, ready) == GNEISS_SUCCESS);
     std::this_thread::yield();
   }
-  // 激活后的原始 VFS 必须与候选包装转交同一来源身份，否则会重复创建并上传版本。
-  check(assets.result == GNEISS_SUCCESS && assets.assets.size() == 3U &&
-        assets.versions.size() == 3U && assets.peak_upload_bytes == 0U);
+  // 显式纹理重载仅返回该纹理，不重读材质或返回历史版本。
+  check(assets.result == GNEISS_SUCCESS && assets.assets.size() == 1U &&
+        assets.peak_upload_bytes > 0U);
   // 第一批材质准备后修改共享纹理；后续批次不能与旧批次混合激活。
   bool ignored{};
   check(poll_scene_load(app.get(), scene_completion, ignored) == GNEISS_SUCCESS && !ignored);

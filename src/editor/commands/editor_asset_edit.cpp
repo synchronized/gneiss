@@ -211,11 +211,8 @@ void editor_asset_edit::advance(runtime::application& application, scene_documen
         next_.material = lease;
       }
     }
-    operation_ =
-        next_.mesh && next_.material
-            ? from_native(application.accept_edit_assets(
-                  completion, [&] { return to_native(commit(application, session, history)); }))
-            : result::invalid_state;
+    operation_ = next_.mesh && next_.material ? commit(application, session, history)
+                                              : result::invalid_state;
   }
   active_ = false;
   visible_ = operation_.failed() && !cancelled_;

@@ -55,9 +55,6 @@ public:
   [[nodiscard]] gneiss_result
   attach_task_executor(engine::core::tasks::task_executor& executor) noexcept;
   [[nodiscard]] bool has_asset_loading_service() const noexcept;
-  [[nodiscard]] gneiss_result
-  accept_edit_assets(const engine::render::texture_load_completion& completion,
-                     const std::function<gneiss_result()>& accept);
   [[nodiscard]] gneiss_result create_mesh_node_ready(
       gneiss_scene_instance scene, const engine::scene::mesh_renderer_node_creation& desc,
       const engine::scene::scene_mesh_binding& prepared, scene_node_id& output) noexcept;

@@ -78,7 +78,7 @@ private:
 
 } // namespace
 
-bool prepared_versions_contract() {
+bool prepared_description_contract() {
   using namespace gneiss::engine::resource;
   using namespace gneiss::engine::scene;
   resource_cache cache;
@@ -94,7 +94,8 @@ bool prepared_versions_contract() {
   }
   gneiss::engine::resource::prefab_asset_loader loader(files, cache);
   gneiss::engine::resource::prefab_asset_loader copied(same_source, cache);
-  gneiss::engine::resource::prefab_asset_loader other(different_source, cache);
+  resource_cache other_cache;
+  gneiss::engine::resource::prefab_asset_loader other(different_source, other_cache);
   constexpr std::string_view uri = "asset://prefabs/lamp.prefab.json";
   gneiss::engine::resource::prefab_description description;
   gneiss::engine::resource::scene_diagnostic diagnostic;
@@ -109,10 +110,10 @@ bool prepared_versions_contract() {
   gneiss::engine::resource::prefab_asset_lease first, reused, changed, foreign;
   if (loader.install_prepared(uri, description, first) != GNEISS_SUCCESS ||
       copied.install_prepared(uri, description, reused) != GNEISS_SUCCESS ||
-      first.get() != reused.get() || first.get() == legacy.get() || backend->read_count != 1U) {
+      first.get() == reused.get() || first.get() == legacy.get() || backend->read_count != 1U) {
     return false;
   }
-  // author_json 未变但结构已变时必须产生新版本，不能只摘要原始 JSON。
+  // 替换当前描述，不改写已实例化场景持有的旧描述。
   description.objects[0].translation[0] = 37.0F;
   if (loader.install_prepared(uri, description, changed) != GNEISS_SUCCESS ||
       changed.get() == first.get() || changed.get()->objects[0].translation[0] != 37.0F ||
@@ -123,7 +124,7 @@ bool prepared_versions_contract() {
   }
   gneiss::engine::resource::prefab_asset_lease ordinary;
   if (loader.acquire(uri, ordinary, diagnostic) != GNEISS_SUCCESS ||
-      ordinary.get() != legacy.get()) {
+      ordinary.get() != changed.get()) {
     return false;
   }
   gneiss::engine::resource::prefab_asset_lease failed = first;
@@ -137,18 +138,18 @@ bool prepared_versions_contract() {
       failed) {
     return false;
   }
-  // 候选租约释放后可回收，不影响仍被场景/历史持有的旧版本。
+  // 当前缓存无人使用即可回收，旧实例仍持有自身的不可变结构描述。
   changed = {};
   foreign = {};
   reused = {};
   ordinary = {};
   legacy = {};
   cache.release_unused();
-  return cache.size() == 1U && first.get()->objects[0].translation[0] == 1.0F;
+  return cache.size() == 0U && first.get()->objects[0].translation[0] == 1.0F;
 }
 
 int main() try {
-  if (!prepared_versions_contract()) {
+  if (!prepared_description_contract()) {
     return 9;
   }
   gneiss::engine::resource::prefab_description prefab;

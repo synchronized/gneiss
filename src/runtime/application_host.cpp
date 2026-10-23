@@ -43,19 +43,6 @@ gneiss_result gneiss::runtime::collect_unused_edit_assets(gneiss_application app
 }
 
 gneiss_result
-gneiss::runtime::accept_edit_assets(gneiss_application application,
-                                    const engine::render::texture_load_completion& completion,
-                                    const std::function<gneiss_result()>& accept) noexcept try {
-  auto state = find_application(application);
-  const auto valid = validate_application(state);
-  return valid == GNEISS_SUCCESS ? state->accept_edit_assets(completion, accept) : valid;
-} catch (const std::bad_alloc&) {
-  return GNEISS_ERROR_OUT_OF_MEMORY;
-} catch (...) {
-  return GNEISS_ERROR_INTERNAL;
-}
-
-gneiss_result
 gneiss::runtime::query_ready_asset(gneiss_application application,
                                    const engine::render::render_asset_reload& source,
                                    engine::render::render_asset_lease& output) noexcept {

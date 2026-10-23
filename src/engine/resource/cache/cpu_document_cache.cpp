@@ -20,7 +20,7 @@ public:
     if (asset.sources.size() != 1U || !asset.sources.front().identity.source ||
         asset.sources.front().identity.type != static_cast<std::uint32_t>(asset_type::mesh) ||
         asset.sources.front().identity.uri != asset.source.uri ||
-        validate_uri(asset.source.uri) != GNEISS_SUCCESS || asset.version.version.empty()) {
+        validate_uri(asset.source.uri) != GNEISS_SUCCESS) {
       return GNEISS_ERROR_INVALID_STATE;
     }
     const auto& source = asset.sources.front();

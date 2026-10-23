@@ -122,12 +122,12 @@ void run(engine::core::tasks::execution_mode mode) {
   edit.cancel(*gneiss::runtime::find_application(app.get()));
   drive();
   check(!edit.visible() && history.size() == count);
-  // 创建同样先准备，成功才产生节点；命令持有版本，坏文件不影响重做。
+  // 创建同样先准备，成功才产生节点；命令持有资源引用，坏文件不影响当前成功内容的复用。
   const editor::mesh_asset_reference new_assets{.mesh_uri = "asset://mesh.json",
                                                 .material_uri = "asset://b.json"};
   check(edit.request_add(*gneiss::runtime::find_application(app.get()), session, history,
                          "new node", new_assets) == result::success);
-  check(edit.active() && session.nodes().size() == 1U && history.size() == count);
+  check(!edit.active() && session.nodes().size() == 2U && history.size() == count + 1U);
   drive();
   check(edit.operation() == result::success && session.nodes().size() == 2U);
   const auto created_uuid = session.nodes().back().uuid;

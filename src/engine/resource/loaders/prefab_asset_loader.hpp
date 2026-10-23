@@ -36,8 +36,8 @@ public:
                                       scene_diagnostic& out_diagnostic) noexcept;
   [[nodiscard]] gneiss_result reload(std::string_view uri, prefab_asset_lease& out_lease,
                                      scene_diagnostic& out_diagnostic) noexcept;
-  /** 所属线程按挂载身份、URI 与描述内容发布不可变版本，不读文件、不改变默认选择。
-   * 同版本复用，不同版本并存；租约可独立于加载器存活，调用方须提供已挂载的 URI。 */
+  /** 所属线程将已解析描述放入 URI 缓存，不读文件；旧实例引用仍保持有效。
+   * 租约可独立于加载器存活，失败不替换已有缓存。 */
   [[nodiscard]] gneiss_result install_prepared(std::string_view uri, prefab_description description,
                                                prefab_asset_lease& out_lease) noexcept;
 

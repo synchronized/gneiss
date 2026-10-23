@@ -79,33 +79,23 @@ void run() {
     active_assets.collect_unused();
     active_render.release_unused();
     check(resources.get_mesh(first.get()) != nullptr);
-    const auto render_revision = active_render.revision();
+    const auto render_count = resources.live_resource_count();
     engine::resource::prefab_asset_lease prefab;
     engine::resource::scene_diagnostic prefab_diagnostic;
     check(active_assets.acquire("asset://p.prefab", prefab, prefab_diagnostic) == GNEISS_SUCCESS);
     check(prefab.get() != nullptr);
-    check(active_render.revision() == render_revision);
+    check(resources.live_resource_count() == render_count);
     active_assets.collect_unused();
     check(resources.get_mesh(first.get()) != nullptr);
-    std::unique_ptr<engine::resource::resource_cache::prepared_adoption> prepared;
-    check(active_render.prepare_adoption({}, {}, {}, prepared) == GNEISS_ERROR_INVALID_ARGUMENT);
-    check(!prepared);
-    const std::array<engine::resource::asset_version_key, 1> versions{};
-    check(active_render.prepare_adoption({}, versions, {}, prepared) ==
-          GNEISS_ERROR_INVALID_ARGUMENT);
-    const std::array<engine::render::render_asset_lease, 1> invalid_leases{};
-    check(active_render.prepare_adoption(invalid_leases, versions, {}, prepared) ==
-          GNEISS_ERROR_INVALID_ARGUMENT);
+    engine::render::render_asset_lease invalid;
+    check(!active_render.owns(invalid));
     engine::render::render_resource_service foreign_resources;
     engine::resource::resource_cache foreign_cache;
     engine::render::render_asset_loader foreign_assets(vfs, foreign_cache, foreign_resources);
     engine::render::mesh_asset_lease foreign_mesh;
     check(foreign_assets.acquire_mesh("asset://m.mesh", foreign_mesh, diagnostic) ==
           GNEISS_SUCCESS);
-    const std::array foreign_leases{engine::render::render_asset_loader::asset_lease(foreign_mesh)};
-    check(active_render.prepare_adoption(foreign_leases, versions, {}, prepared) ==
-          GNEISS_ERROR_INVALID_ARGUMENT);
-    check(!prepared);
+    check(!active_render.owns(engine::render::render_asset_loader::asset_lease(foreign_mesh)));
   }
   auto active = std::make_unique<runtime::application_scene_state>();
   check(active->native_world() == nullptr && active->world() == GNEISS_NULL_WORLD &&
@@ -151,10 +141,7 @@ void run() {
   std::vector<engine::render::render_asset_loader::asset_candidate> staged;
   for (auto& asset : batch.assets) {
     engine::render::render_asset_loader::asset_candidate value;
-    check(candidate_render.stage_asset(
-              std::move(asset), staged, value,
-              engine::render::render_asset_loader::publication_mode::fixed_version) ==
-          GNEISS_SUCCESS);
+    check(candidate_render.stage_asset(std::move(asset), staged, value) == GNEISS_SUCCESS);
     staged.push_back(std::move(value));
   }
   check(candidate_render.publish_assets(staged) == GNEISS_SUCCESS);
@@ -164,18 +151,17 @@ void run() {
   }
   auto material =
       engine::render::render_asset_loader::material_lease(bindings.at("asset://m.material"));
-  auto previous_version = bindings.at("asset://m.material");
   const auto mesh_rid = bindings.at("asset://m.mesh").get();
   check(material && material.get() != old_material.get());
   check(resources.get_material(material.get())->green == 1.0F);
   check(!engine::render::render_asset_loader::mesh_lease(bindings.at("asset://m.material")));
   check(!engine::render::render_asset_loader::material_lease(bindings.at("asset://m.mesh")));
   engine::render::render_asset_lease uncached;
-  check(candidate_render.acquire_cached(requests.front(), uncached) == GNEISS_ERROR_NOT_FOUND);
-  // 在绑定选定后改变同 URI 的旧缓存；构建必须继续使用选定的绿色版本。
-  files->files["m.material"] = R"({"format":"gneiss.material","version":1,"color":[0,0,1,1]})";
+  check(candidate_render.acquire_cached(requests.front(), uncached) == GNEISS_SUCCESS);
+  // 绑定复用稳定资源；另一个 URI 的蓝色材质不影响它。
+  files->files["blue.material"] = R"({"format":"gneiss.material","version":1,"color":[0,0,1,1]})";
   engine::render::material_asset_lease unrelated;
-  check(candidate_render.acquire_material("asset://m.material", unrelated, diagnostic) ==
+  check(candidate_render.acquire_material("asset://blue.material", unrelated, diagnostic) ==
         GNEISS_SUCCESS);
   check(unrelated.get() != material.get());
   staged.clear();
@@ -264,15 +250,15 @@ void run() {
     return std::ranges::any_of(captured, [rid](const auto& lease) { return lease.get() == rid; });
   };
   check(has_rid(mesh_rid) && has_rid(selected_material) && !has_rid(unrelated.get()));
-  // 同 URI 的蓝色和绿色版本同时被场景使用时，不得按 URI 合并。
+  // 多个场景共享相同 URI 的资源，按 RID 去重。
   gneiss_scene_instance additional{};
   check(candidate->scenes()->load("asset://s.scene", &additional) == GNEISS_SUCCESS);
   check(candidate->scenes()->capture_render_assets(captured) == GNEISS_SUCCESS);
-  check(captured.size() == 4U && has_rid(selected_material) && has_rid(unrelated.get()));
+  check(captured.size() == 2U && has_rid(selected_material) && !has_rid(unrelated.get()));
   gneiss_scene_instance duplicate_scene{};
   check(candidate->scenes()->load("asset://s.scene", &duplicate_scene) == GNEISS_SUCCESS);
   check(candidate->scenes()->capture_render_assets(captured) == GNEISS_SUCCESS);
-  check(captured.size() == 4U && has_rid(selected_material) && has_rid(unrelated.get()));
+  check(captured.size() == 2U && has_rid(selected_material) && !has_rid(unrelated.get()));
   check(candidate->scenes()->unload(duplicate_scene) == GNEISS_SUCCESS);
   check(candidate->scenes()->unload(additional) == GNEISS_SUCCESS);
   check(candidate->scenes()->capture_render_assets(captured) == GNEISS_SUCCESS);
@@ -289,27 +275,6 @@ void run() {
         resources.get_material(selected_material)->green == 1.0F);
   engine::render::render_asset_lease next_version;
   check(candidate_render.acquire_cached(requests.back(), next_version) == GNEISS_SUCCESS);
-  std::array updates{engine::scene::scene_instance_service::asset_replacement{
-      .previous = previous_version, .replacement = next_version}};
-  gneiss_result other_thread = GNEISS_SUCCESS;
-  std::thread worker([&] { other_thread = candidate->scenes()->replace_render_assets(updates); });
-  worker.join();
-  check(other_thread == GNEISS_ERROR_INVALID_STATE);
-  auto duplicate = std::array{updates.front(), updates.front()};
-  check(candidate->scenes()->replace_render_assets(duplicate) == GNEISS_ERROR_INVALID_ARGUMENT);
-  {
-    engine::render::render_resource_service foreign_resources;
-    engine::resource::resource_cache foreign_cache;
-    engine::render::render_asset_loader foreign_loader(vfs, foreign_cache, foreign_resources);
-    engine::render::material_asset_lease foreign_material;
-    check(foreign_loader.acquire_material("asset://m.material", foreign_material, diagnostic) ==
-          GNEISS_SUCCESS);
-    engine::render::render_asset_lease foreign_lease;
-    check(foreign_loader.acquire_cached(requests.back(), foreign_lease) == GNEISS_SUCCESS);
-    const std::array invalid{engine::scene::scene_instance_service::asset_replacement{
-        .previous = previous_version, .replacement = foreign_lease}};
-    check(candidate->scenes()->replace_render_assets(invalid) == GNEISS_ERROR_INVALID_ARGUMENT);
-  }
   engine::scene::scene_node_view ordinary;
   engine::scene::prefab_node_view prefab_node;
   check(candidate->scenes()->get_node_info(new_scene, 0U, ordinary) == GNEISS_SUCCESS);
@@ -327,23 +292,6 @@ void run() {
                                                "asset://missing.material") ==
         GNEISS_ERROR_NOT_FOUND);
   check(engine::world::replace_mesh_renderers(candidate->world(), unchanged) == GNEISS_SUCCESS);
-  // 第二个使用者已被外部改动时，第一个也不能先切换。
-  check(engine::world::entity_set_mesh_renderer(candidate->world(), prefab_node.entity.get(),
-                                                {.mesh = mesh_rid, .material = unrelated.get()}) ==
-        GNEISS_SUCCESS);
-  check(candidate->scenes()->replace_render_assets(updates) == GNEISS_ERROR_INVALID_STATE);
-  check(engine::world::replace_mesh_renderers(candidate->world(), unchanged) == GNEISS_SUCCESS);
-  check(engine::world::entity_set_mesh_renderer(candidate->world(), prefab_node.entity.get(),
-                                                expected) == GNEISS_SUCCESS);
-  check(candidate->scenes()->replace_render_assets(updates) == GNEISS_SUCCESS);
-  const gneiss::engine::world::mesh_renderer updated{.mesh = mesh_rid,
-                                                     .material = next_version.get()};
-  const std::array committed{
-      engine::world::mesh_renderer_replacement{
-          .entity = ordinary.entity, .expected = updated, .replacement = updated},
-      engine::world::mesh_renderer_replacement{
-          .entity = prefab_node.entity, .expected = updated, .replacement = updated}};
-  check(engine::world::replace_mesh_renderers(candidate->world(), committed) == GNEISS_SUCCESS);
   files->files["other.material"] = files->files["m.material"];
   check(candidate->scenes()->set_mesh_renderer(new_scene, ordinary.node, "asset://m.mesh",
                                                "asset://other.material") == GNEISS_SUCCESS);
@@ -356,14 +304,11 @@ void run() {
       .entity = ordinary.entity, .expected = edited, .replacement = edited}};
   check(engine::world::replace_mesh_renderers(candidate->world(), material_only) == GNEISS_SUCCESS);
   check(resources.get_material(old_material.get())->red == 1.0F);
-  duplicate = {};
-  updates = {};
-  previous_version = {};
   candidate_render.release_unused();
   check(resources.get_material(selected_material) != nullptr);
   captured.clear();
   candidate_render.release_unused();
-  check(resources.get_material(selected_material) == nullptr);
+  check(resources.get_material(selected_material) != nullptr);
   {
     using binding = engine::scene::scene_instance_service::mesh_binding;
     binding before;

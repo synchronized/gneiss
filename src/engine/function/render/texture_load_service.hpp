@@ -34,9 +34,7 @@ struct texture_load_completion {
   std::vector<engine::render::render_asset_lease> assets;
   /** 包含显式请求及已发现依赖；取消/失败也保留已成功项，元数据不延长资源寿命。 */
   std::vector<asset_load_result> results;
-  /** 固定版本模式下与 assets 一一对应；旧 URI 模式为空。失败不返回部分版本。 */
-  std::vector<engine::resource::asset_version_key> versions;
-  /** 本次准备实际使用的能力快照，用于已采用版本的兼容选择域。 */
+  /** 本次准备使用的设备能力。 */
   texture_prepare_profile profile{};
   double prepare_ms{};
   double queue_ms{};
@@ -89,25 +87,22 @@ public:
   [[nodiscard]] gneiss_result submit(std::span<const std::string> uris, std::uint64_t session,
                                      std::uint64_t revision, std::uint64_t& request,
                                      bool reload = true);
-  /** fixed_version 始终准备并复验来源，不使用 URI 快捷命中；仅上传未发布的版本。
-   * reload 仅控制旧模式的 URI 缓存策略，固定版本完成结果携带对应 versions。 */
-  [[nodiscard]] gneiss_result submit_assets(
-      std::span<const engine::render::render_asset_reload> sources, std::uint64_t session,
-      std::uint64_t revision, std::uint64_t& request, bool reload = true,
-      std::size_t prepare_limit = maximum_candidate_bytes,
-      render_asset_loader::publication_mode mode = render_asset_loader::publication_mode::reload);
+  [[nodiscard]] gneiss_result
+  submit_assets(std::span<const engine::render::render_asset_reload> sources, std::uint64_t session,
+                std::uint64_t revision, std::uint64_t& request, bool reload = true,
+                std::size_t prepare_limit = maximum_candidate_bytes);
   [[nodiscard]] bool progress(asset_load_progress& output) const;
   /** 所属线程借用请求目标，普通模式提交成功即可取得；下一次推进/取回执后重新查询。
-   * 需要长期引用的使用者复制租约；固定版本模式在完成前不提供目标。
+   * 需要长期引用的使用者复制租约；引用有效不代表内容已就绪。
    * 目标有效不代表 CPU/GPU 已就绪；失败目标在使用者释放租约后由缓存清理回收。 */
   [[nodiscard]] std::span<const render_asset_lease> requested_assets() const;
   [[nodiscard]] bool busy() const noexcept { return pending_ != nullptr || completed_.has_value(); }
   [[nodiscard]] texture_prepare_profile profile() const noexcept { return backend_.profile; }
   void advance();
   [[nodiscard]] bool take(texture_load_completion& output);
-  /** 提交许可前取消；已进入 GPU 阶段的批次完成或回滚。 */
+  /** 提交许可前取消；已进入 GPU 阶段后须等待结果或使用 cancel_unpublished。 */
   bool cancel();
-  /** 停止后续上传并安全清理未生效内容；普通模式已生效内容保留，固定版本模式撤回候选。 */
+  /** 停止后续上传并安全清理未生效内容；已生效内容保留。 */
   bool cancel_unpublished();
   void request_stop();
   [[nodiscard]] bool stopped() const;

@@ -714,99 +714,6 @@ unsigned asset_order(asset_type type) {
   }
 }
 
-// 明确长度和整数编码，不哈希结构体填充、指针地址或宿主字节序。
-class version_digest final {
-public:
-  void number(std::uint64_t value) {
-    std::array<std::byte, 8> bytes{};
-    for (auto& byte : bytes) {
-      byte = static_cast<std::byte>(value & 255U);
-      value >>= 8U;
-    }
-    digest_.update(bytes);
-  }
-  void text(std::string_view value) {
-    number(value.size());
-    digest_.update(std::as_bytes(std::span(value.data(), value.size())));
-  }
-  void content(const engine::core::sha256_digest& value) { digest_.update(value); }
-  [[nodiscard]] std::string finish() const {
-    constexpr std::string_view digits = "0123456789abcdef";
-    std::string result;
-    result.reserve(64U);
-    for (const auto byte : digest_.digest()) {
-      const auto value = std::to_integer<unsigned>(byte);
-      result.push_back(digits[value >> 4U]);
-      result.push_back(digits[value & 15U]);
-    }
-    return result;
-  }
-
-private:
-  engine::core::sha256_builder digest_;
-};
-
-gneiss_result
-append_texture_versions(prepared_asset& asset, version_digest& digest,
-                        const std::map<std::string, const asset_version_key*>& textures) {
-  // 保留槽位顺序及空槽，重复引用也不能改变材质语义。
-  for (std::size_t slot = 0; slot < asset.texture_uris.size(); ++slot) {
-    const auto& uri = asset.texture_uris[slot];
-    digest.text(uri);
-    if (uri.empty()) {
-      continue;
-    }
-    const auto dependency = textures.find(uri);
-    if (dependency == textures.end()) {
-      return GNEISS_ERROR_INVALID_STATE;
-    }
-    digest.text(dependency->second->version);
-    asset.texture_versions[slot] = *dependency->second;
-    const auto& inputs = dependency->second->inputs;
-    asset.version.inputs.insert(asset.version.inputs.end(), inputs.begin(), inputs.end());
-  }
-  return GNEISS_SUCCESS;
-}
-
-gneiss_result build_versions(prepared_batch& batch, const texture_prepare_profile& profile) {
-  // 当前图仅包含材质到纹理的边；调用前按纹理、网格、材质排列。
-  std::map<std::string, const asset_version_key*> textures;
-  for (auto& asset : batch.assets) {
-    if (asset.sources.empty()) {
-      return GNEISS_ERROR_INTERNAL;
-    }
-    auto& key = asset.version;
-    key.identity = asset.sources.front().identity;
-    version_digest digest;
-    digest.text("gneiss.prepared-asset.v1");
-    digest.number(static_cast<std::uint32_t>(asset.source.type));
-    digest.number(asset.sources.size());
-    for (const auto& source : asset.sources) {
-      key.inputs.push_back(source.identity);
-      digest.text(source.identity.uri);
-      digest.number(source.identity.type);
-      digest.number(source.bytes);
-      digest.content(source.digest);
-    }
-    if (asset.source.type == asset_type::texture) {
-      digest.number(profile.generation);
-      for (const auto supported : profile.sampled_transfer_formats) {
-        digest.number(supported ? 1U : 0U);
-      }
-      digest.number(asset.texture.selected_variant);
-    } else if (asset.source.type == asset_type::material) {
-      const auto appended = append_texture_versions(asset, digest, textures);
-      if (appended != GNEISS_SUCCESS) {
-        return appended;
-      }
-    }
-    key.version = digest.finish();
-    if (asset.source.type == asset_type::texture) {
-      textures.emplace(asset.source.uri, &key);
-    }
-  }
-  return GNEISS_SUCCESS;
-}
 } // namespace
 
 struct asset_preparation::state {
@@ -1226,10 +1133,7 @@ gneiss_result asset_preparation::advance(std::size_t byte_budget,
       GNEISS_PROFILE_SCOPE("asset.prepare.publish");
       std::ranges::stable_sort(value.batch.assets, {},
                                [](const auto& asset) { return asset_order(asset.source.type); });
-      value.result = build_versions(value.batch, value.profile);
-      if (value.result == GNEISS_SUCCESS) {
-        output = std::move(value.batch);
-      }
+      output = std::move(value.batch);
     }
     if (value.result != GNEISS_SUCCESS && value.diagnostic.message.empty()) {
       fail(value.diagnostic, value.result, value.current.source.uri, "资产读取、校验或解析失败");
