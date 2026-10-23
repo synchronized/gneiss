@@ -33,9 +33,9 @@ const char* phase_message(ipc_scene_phase phase) {
   case ipc_scene_phase::preparing:
     return "正在准备场景描述";
   case ipc_scene_phase::assets:
-    return "正在准备场景资产";
+    return "正在建立场景资源引用";
   case ipc_scene_phase::verifying:
-    return "正在验证源文件版本";
+    return "正在校验场景结构来源";
   case ipc_scene_phase::instantiating:
     return "正在构造候选场景";
   case ipc_scene_phase::ready:
@@ -137,7 +137,7 @@ gneiss_result runtime_scene_loader::advance() {
     if (current.phase == scene_load_phase::cancelled && current.cleanup_complete) {
       active_ = false;
     }
-    if (current.phase != scene_load_phase::ready) {
+    if (current.phase != scene_load_phase::ready || !application_.can_activate_scene()) {
       return GNEISS_SUCCESS;
     }
     result = activate(completion);

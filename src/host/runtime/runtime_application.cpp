@@ -297,7 +297,7 @@ gneiss_result update_runtime(gneiss_application application,
         context.next_asset_progress_ns = 0U;
       }
     }
-    if (!context.pending_assets.empty() &&
+    if (!context.pending_assets.empty() && !context.application->visual_assets_loading() &&
         (!context.scene_loader || !context.scene_loader->busy())) {
       const auto& command = context.pending_assets.front();
       gneiss::ipc_asset_reload_result response;
@@ -416,7 +416,9 @@ gneiss_result update_runtime(gneiss_application application,
         return gneiss::to_native(sent);
     }
     context.scene_failed = progress.phase == gneiss::ipc_scene_phase::failed;
-    if (context.smoke && terminal && (++context.smoke_frames >= 3U || context.scene_failed))
+    if (context.smoke && terminal &&
+        (context.scene_failed ||
+         (!context.application->visual_assets_loading() && ++context.smoke_frames >= 3U)))
       return request_exit();
   }
   if (!context.has_logged_first_frame) {

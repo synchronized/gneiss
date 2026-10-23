@@ -1102,7 +1102,7 @@ application::prepare_edit_assets(std::span<const engine::render::render_asset_re
     return valid;
   }
   auto* service = texture_service();
-  if (!service || scene_loading() || service->busy()) {
+  if (!service || scene_loading() || visual_assets_loading() || service->busy()) {
     return GNEISS_ERROR_NOT_READY;
   }
   return service->submit_assets(sources, 1U, revision, request, true,
@@ -1139,7 +1139,9 @@ gneiss_result application::poll_scene(runtime::scene_load_completion& completion
   if (!is_owner_thread() || !accepts_requests())
     return GNEISS_ERROR_INVALID_STATE;
   try {
-    return storage_->scene_session_.poll_scene(completion, ready);
+    const auto result = storage_->scene_session_.poll_scene(completion, ready);
+    report_visual_completion();
+    return result;
   } catch (const std::bad_alloc&) {
     return GNEISS_ERROR_OUT_OF_MEMORY;
   } catch (...) {
@@ -1208,7 +1210,32 @@ gneiss_result application::cancel_assets() noexcept {
   return service && service->cancel() ? GNEISS_SUCCESS : GNEISS_ERROR_NOT_READY;
 }
 
-void application::advance_scene_load() { storage_->scene_session_.advance(); }
+void application::advance_scene_load() {
+  storage_->scene_session_.advance();
+  report_visual_completion();
+}
+
+void application::report_visual_completion() {
+  engine::render::texture_load_completion completion;
+  if (storage_->scene_session_.take_visual_completion(completion) &&
+      completion.state != engine::render::texture_load_state::cancelled) {
+    for (const auto& item : completion.results) {
+      if (!item.applied) {
+        report(GNEISS_NULL_APPLICATION, engine::core::diagnostics::severity::error,
+               engine::core::diagnostics::category::asset, item.result, "scene.assets",
+               item.source.uri);
+      }
+    }
+  }
+}
+
+bool application::can_activate_scene() const noexcept {
+  return storage_->scene_session_.can_activate();
+}
+
+bool application::visual_assets_loading() const noexcept {
+  return storage_->scene_session_.visual_loading();
+}
 
 runtime::scene_retirement_statistics application::scene_retirement() const noexcept {
   auto value = storage_->scene_session_.retirement();

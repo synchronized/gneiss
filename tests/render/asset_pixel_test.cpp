@@ -299,16 +299,20 @@ void run_mip_sampling(bool packaged = false, bool async = false) {
             available);
       if (progress.phase == scene_load_phase::ready) {
         check(activate_scene_load(app.get(), request, completion) == GNEISS_SUCCESS);
-        check(completion.progress.texture_payload_bytes > 0U);
-        check(completion.progress.peak_upload_bytes > 0U);
-        // 小纹理的 Manifest 可大于负载；分别核对逻辑负载与两个元数据副本。
-        engine::resource::texture_binary_view view;
-        std::string message;
-        check(engine::resource::decode_texture_binary(bytes, view, message) ==
-              engine::resource::texture_binary_result::success);
-        check(completion.progress.texture_payload_bytes == 340U);
-        check(completion.progress.resident_bytes + view.manifest.size() ==
-              completion.progress.cpu_data_bytes + completion.progress.texture_payload_bytes);
+        check(completion.progress.texture_payload_bytes == 0U &&
+              completion.progress.peak_upload_bytes == 0U);
+        auto native = find_application(app.get());
+        engine::render::frame_image initial;
+        check(capture_frame(app.get(), 128U, 128U, initial) == GNEISS_SUCCESS);
+        while (native->visual_assets_loading()) {
+          check(std::chrono::steady_clock::now() < deadline);
+          native->advance_scene_load();
+          check(gneiss_application_run(app.get(), 1U) == GNEISS_SUCCESS);
+          std::this_thread::yield();
+        }
+        engine::render::frame_image loaded;
+        check(capture_frame(app.get(), 128U, 128U, loaded) == GNEISS_SUCCESS);
+        check(initial.pixels != loaded.pixels);
         break;
       }
       std::this_thread::yield();
@@ -681,8 +685,8 @@ void run_scene(engine::core::tasks::execution_mode mode, bool pbr = false) {
     return image.pixels;
   };
   auto active_pixels = capture();
-  // 共享资源更新可在场景激活前生效；取消场景切换不回滚已显示内容。
-  const auto load = [&](std::uint64_t revision, bool cancel, bool fail) {
+  // 打开场景只复用已有成功内容；外部文件更新由显式重载处理。
+  const auto load = [&](std::uint64_t revision, bool cancel) {
     const auto old_scene = scene;
     std::uint64_t request{};
     check(request_scene_load(app.get(), uri, 1U, revision, request) == GNEISS_SUCCESS);
@@ -696,8 +700,7 @@ void run_scene(engine::core::tasks::execution_mode mode, bool pbr = false) {
       bool terminal{};
       check(poll_scene_load(app.get(), completion, terminal) == GNEISS_SUCCESS);
       if (terminal) {
-        check((fail && completion.progress.phase == scene_load_phase::failed) ||
-              (requested_cancel && completion.progress.phase == scene_load_phase::cancelled));
+        check(requested_cancel && completion.progress.phase == scene_load_phase::cancelled);
         check(capture() == active_pixels);
         break;
       }
@@ -706,11 +709,8 @@ void run_scene(engine::core::tasks::execution_mode mode, bool pbr = false) {
       check(query_scene_load_progress(app.get(), progress, available) == GNEISS_SUCCESS &&
             available);
       if (progress.phase == scene_load_phase::ready) {
-        check(!fail);
         const auto ready_pixels = capture();
-        if (revision <= 2U) {
-          check(ready_pixels != active_pixels);
-        }
+        check(ready_pixels == active_pixels);
         active_pixels = ready_pixels;
         if (cancel) {
           check(cancel_scene_load(app.get(), request) == GNEISS_SUCCESS);
@@ -718,6 +718,14 @@ void run_scene(engine::core::tasks::execution_mode mode, bool pbr = false) {
         } else {
           check(activate_scene_load(app.get(), request, completion) == GNEISS_SUCCESS);
           scene = completion.scene;
+          auto native = find_application(app.get());
+          while (native->visual_assets_loading()) {
+            check(std::chrono::steady_clock::now() < deadline);
+            if (mode == engine::core::tasks::execution_mode::cooperative) {
+              (void)scheduler.run_ready();
+            }
+            native->advance_scene_load();
+          }
           check(poll_scene_load(app.get(), completion, terminal) == GNEISS_SUCCESS);
           check(gneiss::result{gneiss_application_run(app.get(), 3U)} == result::success);
           const auto changed = capture();
@@ -736,13 +744,13 @@ void run_scene(engine::core::tasks::execution_mode mode, bool pbr = false) {
           statistics.live_resources == 3U && !statistics.pending);
   };
   files.color(std::byte{240}, std::byte{20});
-  load(1U, false, false);
+  load(1U, false);
   files.color(std::byte{20}, std::byte{240});
-  load(2U, true, false);
+  load(2U, true);
   std::ofstream(files.root / "image.ktx2") << "broken";
-  load(3U, false, true);
+  load(3U, false);
   files.color(std::byte{20}, std::byte{240});
-  load(4U, false, false);
+  load(4U, false);
 }
 }
 int main(int argc, char* argv[]) try {

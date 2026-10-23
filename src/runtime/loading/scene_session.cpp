@@ -65,9 +65,56 @@ void scene_session::advance() {
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
     ++retirement_.retired_domains;
   }
+  advance_visuals();
   if (loader_) {
     loader_->advance();
   }
+}
+
+void scene_session::advance_visuals() {
+  if (!textures_ || visual_completion_) {
+    return;
+  }
+  if (visual_pending_) {
+    textures_->advance();
+    engine::render::texture_load_completion completion;
+    if (!textures_->take(completion)) {
+      return;
+    }
+    visual_pending_ = false;
+    visual_completion_ = std::move(completion);
+    return;
+  }
+  if (visual_cursor_ == visual_queue_.size()) {
+    visual_queue_.clear();
+    visual_cursor_ = 0U;
+    return;
+  }
+  std::uint64_t request{};
+  const auto submitted =
+      textures_->submit_assets(std::span(visual_queue_).subspan(visual_cursor_, 1U),
+                               visual_session_, visual_revision_, request, false);
+  if (submitted == GNEISS_ERROR_NOT_READY) {
+    return;
+  }
+  if (submitted == GNEISS_SUCCESS) {
+    visual_pending_ = true;
+  } else {
+    engine::render::texture_load_completion completion;
+    completion.result = submitted;
+    completion.results.push_back({.source = visual_queue_[visual_cursor_], .result = submitted});
+    visual_completion_ = std::move(completion);
+  }
+  ++visual_cursor_;
+}
+
+bool scene_session::take_visual_completion(engine::render::texture_load_completion& output) {
+  if (!visual_completion_) {
+    return false;
+  }
+  output = std::move(*visual_completion_);
+  visual_completion_.reset();
+  return true;
 }
 
 gneiss_result scene_session::activate(std::uint64_t request, scene_load_completion& completion) {
@@ -76,19 +123,25 @@ gneiss_result scene_session::activate(std::uint64_t request, scene_load_completi
   }
   const auto start = std::chrono::steady_clock::now();
   std::unique_ptr<engine::render::texture_load_service> next_assets;
-  auto next = loader_->take_candidate(request, completion, next_assets);
+  auto next = loader_->take_candidate(request, completion, next_assets, visual_queue_);
   if (!next) {
     return GNEISS_ERROR_NOT_READY;
   }
   retired_ = std::move(active_);
   active_ = std::move(next);
   textures_ = std::move(next_assets);
+  visual_cursor_ = 0U;
+  visual_session_ = completion.progress.session;
+  visual_revision_ = completion.progress.revision;
   completion.activation_ms =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
   return GNEISS_SUCCESS;
 }
 
 void scene_session::shutdown() noexcept {
+  visual_queue_.clear();
+  visual_completion_.reset();
+  visual_pending_ = false;
   loader_.reset();
   textures_.reset();
   retired_.reset();
@@ -102,7 +155,7 @@ void scene_session::shutdown() noexcept {
 }
 
 bool scene_session::can_start_load() const noexcept {
-  return !retired_ && textures_ && !textures_->busy();
+  return !retired_ && textures_ && (!textures_->busy() || visual_pending_);
 }
 bool scene_session::loading() const noexcept { return loader_ && loader_->busy(); }
 scene_retirement_statistics scene_session::retirement() const noexcept {
@@ -127,7 +180,15 @@ gneiss_result scene_session::request_scene(std::string_view uri, std::uint64_t s
   if (!loader_ || !can_start_load()) {
     return GNEISS_ERROR_NOT_READY;
   }
-  return loader_->submit(uri, session, revision, request);
+  const auto submitted = loader_->submit(uri, session, revision, request);
+  if (submitted == GNEISS_SUCCESS) {
+    visual_queue_.clear();
+    visual_cursor_ = 0U;
+    if (visual_pending_) {
+      (void)textures_->cancel_unpublished();
+    }
+  }
+  return submitted;
 }
 bool scene_session::scene_progress(scene_load_progress& progress) const {
   return loader_ && loader_->progress(progress);
@@ -146,7 +207,7 @@ scene_session::request_assets(std::span<const engine::render::render_asset_reloa
                               std::uint64_t session, std::uint64_t revision, std::uint64_t& request,
                               bool reload) {
   request = 0U;
-  if (!textures_ || loading() || textures_->busy()) {
+  if (!textures_ || loading() || visual_loading() || textures_->busy()) {
     return GNEISS_ERROR_NOT_READY;
   }
   return textures_->submit_assets(sources, session, revision, request, reload);
@@ -155,7 +216,7 @@ scene_session::request_assets(std::span<const engine::render::render_asset_reloa
 gneiss_result scene_session::poll_assets(engine::render::texture_load_completion& completion,
                                          bool& ready) {
   ready = false;
-  if (!textures_) {
+  if (!textures_ || visual_loading()) {
     return GNEISS_ERROR_NOT_READY;
   }
   textures_->advance();

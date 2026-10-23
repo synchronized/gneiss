@@ -87,6 +87,8 @@ public:
   [[nodiscard]] bool asset_progress(engine::render::asset_load_progress& progress) const noexcept;
   [[nodiscard]] gneiss_result cancel_assets() noexcept;
   void advance_scene_load();
+  [[nodiscard]] bool visual_assets_loading() const noexcept;
+  [[nodiscard]] bool can_activate_scene() const noexcept;
   [[nodiscard]] runtime::scene_retirement_statistics scene_retirement() const noexcept;
   [[nodiscard]] gneiss_result activate_scene(std::uint64_t request,
                                              runtime::scene_load_completion& completion);
@@ -94,6 +96,7 @@ public:
 private:
   explicit application(const runtime::application_configuration& config);
   [[nodiscard]] gneiss_result initialize() noexcept;
+  void report_visual_completion();
 
 public:
   ~application() noexcept;

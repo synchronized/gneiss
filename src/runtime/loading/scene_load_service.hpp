@@ -14,7 +14,6 @@ namespace gneiss::runtime {
  * ready 仍是私有域，宿主显式取得候选后才可在模块生命周期安全点切换。 */
 class scene_load_service final {
 public:
-  static constexpr std::size_t maximum_resident_bytes = 2ULL * 1024U * 1024U * 1024U;
   scene_load_service(engine::core::tasks::task_executor& executor,
                      engine::resource::virtual_file_system files,
                      engine::render::render_resource_service& resources,
@@ -32,7 +31,8 @@ public:
   /** 仅 ready 可取，取出后取消过晚；调用方必须完成不可失败的指针交换再报告 applied。 */
   [[nodiscard]] std::unique_ptr<application_scene_state>
   take_candidate(std::uint64_t request, scene_load_completion& result,
-                 std::unique_ptr<engine::render::texture_load_service>& assets);
+                 std::unique_ptr<engine::render::texture_load_service>& assets,
+                 std::vector<engine::render::render_asset_reload>& requested);
   [[nodiscard]] bool take(scene_load_completion& result);
 
 private:
@@ -53,7 +53,6 @@ private:
   std::shared_ptr<engine::core::progress_notification> notification_;
   std::unique_ptr<pending> pending_;
   std::optional<scene_load_completion> completed_;
-  std::optional<scene_load_progress> cleanup_snapshot_;
   std::uint64_t sequence_{};
   const std::thread::id owner_{std::this_thread::get_id()};
 };

@@ -21,37 +21,6 @@ using clock_type = std::chrono::steady_clock;
 double elapsed(clock_type::time_point start) {
   return std::chrono::duration<double, std::milli>(clock_type::now() - start).count();
 }
-struct resource_usage {
-  std::size_t logical{};
-  std::size_t cpu{};
-  std::size_t texture{};
-};
-resource_usage resource_bytes(const engine::render::render_resource_service& resources,
-                              const engine::render::render_asset_lease& lease) {
-  using engine::render::render_asset_type;
-  if (lease.type() == render_asset_type::mesh) {
-    const auto* mesh = resources.get_mesh(lease.get());
-    return {.logical = mesh->data_bytes(), .cpu = mesh->data_bytes(), .texture = 0U};
-  }
-  if (lease.type() == render_asset_type::texture) {
-    const auto* texture = resources.get_texture(lease.get());
-    auto size = texture->manifest.size() + texture->payload.size();
-    for (const auto& level : texture->levels) {
-      size += level.pixels.size();
-    }
-    const auto payload = texture->payload_source
-                             ? static_cast<std::size_t>(texture->payload_source->size())
-                             : size - texture->manifest.size();
-    const auto cpu =
-        size + (texture->payload_source ? texture->payload_source->metadata_bytes() : 0U);
-    return {.logical = texture->manifest.size() + payload, .cpu = cpu, .texture = payload};
-  }
-  return {
-      .logical = sizeof(engine::render::material_resource),
-      .cpu = sizeof(engine::render::material_resource),
-      .texture = 0U,
-  };
-}
 } // namespace
 
 struct scene_load_service::pending {
@@ -73,14 +42,10 @@ struct scene_load_service::pending {
   std::unique_ptr<engine::render::texture_load_service> assets;
   std::unique_ptr<engine::scene::scene_load_builder> builder;
   engine::scene::scene_load_builder::asset_bindings bindings;
-  std::map<std::uint64_t, resource_usage> resident;
   std::vector<engine::render::render_asset_reload> requested;
   std::size_t cursor{};
-  std::size_t batch_count{};
   bool preparing{true};
-  bool batch_pending{};
   bool cancelled{};
-  bool cancellation_reported{};
 };
 
 scene_load_service::scene_load_service(
@@ -100,9 +65,6 @@ scene_load_service::scene_load_service(
 scene_load_service::~scene_load_service() {
   if (pending_) {
     pending_->source_stop.request_stop();
-    if (pending_->assets) {
-      (void)pending_->assets->cancel_unpublished();
-    }
   }
   executor_.cancel_scope(scope_);
   (void)executor_.close_scope(scope_);
@@ -155,7 +117,6 @@ gneiss_result scene_load_service::submit(std::string_view uri, std::uint64_t ses
                                                                 : GNEISS_ERROR_INVALID_STATE;
   }
   request = next->result.progress.request;
-  cleanup_snapshot_.reset();
   pending_ = std::move(next);
   return GNEISS_SUCCESS;
 }
@@ -165,31 +126,16 @@ void scene_load_service::sample_budget(scene_load_progress& value) const {
   value.application_cpu_data_bytes = usage.cpu_data_bytes;
   value.available_bytes = resources_.available_memory_bytes();
   value.upload_reserved_bytes = 0U;
-  engine::render::asset_load_progress child;
-  if (pending_ && pending_->assets && pending_->assets->progress(child)) {
-    value.upload_reserved_bytes = child.upload_reserved_bytes;
-    value.peak_upload_bytes = std::max(value.peak_upload_bytes, child.upload_reserved_bytes);
-  }
 }
 bool scene_load_service::progress(scene_load_progress& value) const {
   check_owner();
   if (pending_) {
     value = pending_->result.progress;
-    if (pending_->cancellation_reported) {
-      value.phase = scene_load_phase::cancelled;
-    }
     sample_budget(value);
-    engine::render::asset_load_progress child;
-    value.gpu_in_flight = pending_->assets && pending_->assets->progress(child) &&
-                          child.state == engine::render::texture_load_state::uploading;
     return true;
   }
   if (completed_) {
     value = completed_->progress;
-    return true;
-  }
-  if (cleanup_snapshot_) {
-    value = *cleanup_snapshot_;
     return true;
   }
   return false;
@@ -203,21 +149,6 @@ bool scene_load_service::cancel(std::uint64_t request) {
   pending_->source_stop.request_stop();
   pending_->result.progress.can_cancel = false;
   (void)executor_.cancel(pending_->task);
-  if (pending_->assets) {
-    (void)pending_->assets->cancel_unpublished();
-    engine::render::asset_load_progress child;
-    if (!pending_->cancellation_reported && pending_->assets->progress(child) &&
-        child.state == engine::render::texture_load_state::uploading) {
-      completed_.emplace(pending_->result);
-      pending_->cancellation_reported = true;
-      pending_->result.progress.cleanup_pending = true;
-      completed_->result = GNEISS_ERROR_INVALID_STATE;
-      completed_->progress.phase = scene_load_phase::cancelled;
-      completed_->progress.cleanup_pending = true;
-      completed_->progress.gpu_in_flight = true;
-      sample_budget(completed_->progress);
-    }
-  }
   return true;
 }
 void scene_load_service::finish(gneiss_result result, scene_load_phase phase, std::string message) {
@@ -226,7 +157,6 @@ void scene_load_service::finish(gneiss_result result, scene_load_phase phase, st
   pending_->result.progress.can_cancel = false;
   pending_->result.message = std::move(message);
   sample_budget(pending_->result.progress);
-  const bool reported = pending_->cancellation_reported;
   auto completion = std::move(pending_->result);
   const auto cleanup_started = clock_type::now();
   pending_.reset();
@@ -238,13 +168,7 @@ void scene_load_service::finish(gneiss_result result, scene_load_phase phase, st
   completion.progress.cleanup_complete = true;
   completion.progress.cleanup_pending = false;
   completion.cleanup_ms = elapsed(cleanup_started);
-  if (reported) {
-    cleanup_snapshot_ = completion.progress;
-  }
-  // 已消费取消终态的调用者通过进度取得清理快照，不再投递第二个终态。
-  if (!reported || completed_) {
-    completed_ = std::move(completion);
-  }
+  completed_ = std::move(completion);
 }
 bool scene_load_service::take(scene_load_completion& result) {
   check_owner();
@@ -257,7 +181,8 @@ bool scene_load_service::take(scene_load_completion& result) {
 }
 std::unique_ptr<application_scene_state>
 scene_load_service::take_candidate(std::uint64_t request, scene_load_completion& result,
-                                   std::unique_ptr<engine::render::texture_load_service>& assets) {
+                                   std::unique_ptr<engine::render::texture_load_service>& assets,
+                                   std::vector<engine::render::render_asset_reload>& requested) {
   check_owner();
   if (!pending_ || pending_->cancelled || pending_->result.progress.request != request ||
       pending_->result.progress.phase != scene_load_phase::ready) {
@@ -271,6 +196,7 @@ scene_load_service::take_candidate(std::uint64_t request, scene_load_completion&
   result.progress.can_cancel = false;
   auto candidate = std::move(pending_->candidate);
   assets = std::move(pending_->assets);
+  requested = std::move(pending_->requested);
   pending_.reset();
   return candidate;
 }
@@ -360,7 +286,7 @@ void scene_load_service::advance_verification(pending& value) {
     return;
   }
   if (value.cpu->result != GNEISS_SUCCESS) {
-    finish(value.cpu->result, scene_load_phase::failed, "场景依赖源在跨批次加载期间变化");
+    finish(value.cpu->result, scene_load_phase::failed, "Scene/Prefab 结构来源在准备期间变化");
     return;
   }
   if (value.cpu->verification) {
@@ -429,9 +355,6 @@ void scene_load_service::advance_impl() {
       finish(initialized, scene_load_phase::failed);
       return;
     }
-    value.assets = std::make_unique<engine::render::texture_load_service>(
-        executor_, value.snapshot, render_assets_, backend_, notification_,
-        asset_owner_.documents());
     value.requested = std::move(value.cpu->description.assets);
     progress.phase = scene_load_phase::assets;
     progress.total = value.requested.size();
@@ -439,54 +362,6 @@ void scene_load_service::advance_impl() {
   }
   if (value.verifying) {
     advance_verification(value);
-    return;
-  }
-  if (value.batch_pending) {
-    value.assets->advance();
-    engine::render::texture_load_completion completion;
-    if (!value.assets->take(completion)) {
-      return;
-    }
-    value.batch_pending = false;
-    value.result.asset_prepare_ms += completion.prepare_ms;
-    value.result.upload_ms += completion.upload_ms;
-    progress.peak_upload_bytes = std::max(progress.peak_upload_bytes, completion.peak_upload_bytes);
-    if (value.cancelled) {
-      finish(GNEISS_ERROR_INVALID_STATE, scene_load_phase::cancelled);
-      return;
-    }
-    if (completion.result != GNEISS_SUCCESS) {
-      finish(completion.result, scene_load_phase::failed, completion.message);
-      return;
-    }
-    for (std::size_t index = 0U; index < completion.assets.size(); ++index) {
-      const auto& lease = completion.assets[index];
-      const auto [binding, inserted] = value.bindings.emplace(std::string(lease.uri()), lease);
-      if (!inserted &&
-          (binding->second.type() != lease.type() || binding->second.get() != lease.get())) {
-        finish(GNEISS_ERROR_INVALID_STATE, scene_load_phase::failed,
-               "同一场景请求的资产绑定不一致");
-        return;
-      }
-      auto& previous = value.resident[lease.get()];
-      progress.resident_bytes -= previous.logical;
-      progress.cpu_data_bytes -= previous.cpu;
-      progress.texture_payload_bytes -= previous.texture;
-      previous = resource_bytes(resources_, lease);
-      progress.resident_bytes += previous.logical;
-      progress.cpu_data_bytes += previous.cpu;
-      progress.texture_payload_bytes += previous.texture;
-    }
-    if (progress.resident_bytes > maximum_resident_bytes ||
-        progress.cpu_data_bytes > maximum_resident_bytes) {
-      finish(GNEISS_ERROR_OUT_OF_MEMORY, scene_load_phase::failed,
-             "场景候选预算不足：逻辑容量 " + std::to_string(progress.resident_bytes) +
-                 " 字节，CPU 数据 " + std::to_string(progress.cpu_data_bytes) + " 字节，各项上限 " +
-                 std::to_string(maximum_resident_bytes) + " 字节");
-      return;
-    }
-    value.cursor += value.batch_count;
-    progress.completed = value.cursor;
     return;
   }
   if (value.cancelled) {
@@ -511,38 +386,19 @@ void scene_load_service::advance_impl() {
       progress.total = value.sources->source_count();
       return;
     }
-    // Material 会展开纹理闭包，单独准备；Mesh 每批最多 16 项，不提高既有字节上限。
-    value.batch_count = 1U;
-    while (value.batch_count < 16U && value.cursor + value.batch_count < value.requested.size() &&
-           value.requested[value.cursor].type == engine::render::render_asset_type::mesh &&
-           value.requested[value.cursor + value.batch_count].type ==
-               engine::render::render_asset_type::mesh) {
-      ++value.batch_count;
+    // 只预留稳定引用；视觉内容不参与结构激活条件。
+    const auto end = std::min(value.cursor + 64U, value.requested.size());
+    for (; value.cursor < end; ++value.cursor) {
+      const auto& source = value.requested[value.cursor];
+      engine::render::render_asset_lease lease;
+      const auto reserved = render_assets_.reserve_asset(source, lease);
+      if (reserved != GNEISS_SUCCESS) {
+        finish(reserved, scene_load_phase::failed, "场景资源引用无效");
+        return;
+      }
+      value.bindings.emplace(source.uri, std::move(lease));
     }
-    std::uint64_t child{};
-    const auto local_remaining =
-        maximum_resident_bytes - std::max(progress.resident_bytes, progress.cpu_data_bytes);
-    const auto remaining = static_cast<std::size_t>(
-        std::min<std::uint64_t>(local_remaining, resources_.available_memory_bytes()));
-    if (remaining == 0U) {
-      finish(GNEISS_ERROR_OUT_OF_MEMORY, scene_load_phase::failed,
-             "场景准备预算耗尽：候选可用 " + std::to_string(local_remaining) +
-                 " 字节，Application 可用 " + std::to_string(resources_.available_memory_bytes()) +
-                 " 字节（含活动场景、候选及旧帧）；未启动下一批");
-      return;
-    }
-    const auto submitted = value.assets->submit_assets(
-        std::span(value.requested).subspan(value.cursor, value.batch_count), progress.session,
-        progress.revision, child, true,
-        std::min(remaining, engine::render::texture_load_service::maximum_candidate_bytes));
-    if (submitted == GNEISS_ERROR_NOT_READY) {
-      return;
-    }
-    if (submitted != GNEISS_SUCCESS) {
-      finish(submitted, scene_load_phase::failed);
-      return;
-    }
-    value.batch_pending = true;
+    progress.completed = value.cursor;
     return;
   }
   if (progress.phase == scene_load_phase::instantiating) {

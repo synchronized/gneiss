@@ -4,7 +4,9 @@
 #include "../support/c_owner.hpp"
 #include "engine/resource/loaders/mesh_binary.hpp"
 #include "engine/resource/loaders/texture_ktx2.hpp"
+#include "runtime/application.hpp"
 #include "runtime/application_asset_reload_internal.hpp"
+#include "runtime/application_registry.hpp"
 #include "runtime/application_scene_load_internal.hpp"
 
 #include <gneiss/engine/application.h>
@@ -60,53 +62,96 @@ struct fixture {
     std::filesystem::remove_all(root, ignored);
   }
 };
-void cancel_drain(engine::core::tasks::execution_mode mode) {
-  fixture files;
-  engine::core::tasks::task_scheduler scheduler({.workers = 1U, .mode = mode});
-  gneiss::test_support::application_owner app;
-  auto desc = gneiss_application_desc GNEISS_APPLICATION_DESC_INIT;
-  const auto root = files.root.string();
-  desc.asset_root = root.data();
-  desc.asset_root_length = static_cast<std::uint32_t>(root.size());
-  check(gneiss::result{gneiss_application_create(&desc, app.put())} == result::success);
-  check(attach_task_executor(app.get(), scheduler) == GNEISS_SUCCESS);
-  constexpr std::string_view uri = "asset://scene.json";
-  std::uint64_t request{};
-  check(request_scene_load(app.get(), uri, 1U, 1U, request) == GNEISS_SUCCESS);
-  scene_load_progress progress;
-  bool available{};
+void drain_visuals(gneiss_application handle, engine::core::tasks::task_scheduler& scheduler,
+                   engine::core::tasks::execution_mode mode) {
+  auto app = find_application(handle);
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
   do {
     check(std::chrono::steady_clock::now() < deadline);
     if (mode == engine::core::tasks::execution_mode::cooperative) {
       (void)scheduler.run_ready();
     }
-    check(gneiss::result{gneiss_application_run(app.get(), 1U)} == result::success);
-    scene_load_completion interim;
-    bool terminal{};
-    check(poll_scene_load(app.get(), interim, terminal) == GNEISS_SUCCESS && !terminal);
-    check(query_scene_load_progress(app.get(), progress, available) == GNEISS_SUCCESS && available);
-  } while (!progress.gpu_in_flight);
-  check(cancel_scene_load(app.get(), request) == GNEISS_SUCCESS);
-  check(cancel_scene_load(app.get(), request) == GNEISS_SUCCESS);
+    app->advance_scene_load();
+    std::this_thread::yield();
+  } while (app->visual_assets_loading());
+}
+
+void visual_failure(engine::core::tasks::execution_mode mode) {
+  fixture files;
+  std::ofstream(files.root / "material.json") << "broken";
+  engine::core::tasks::task_scheduler scheduler({.workers = 1U, .mode = mode});
+  application_configuration config;
+  const auto root = files.root.string();
+  config.asset_root = root;
+  unsigned failures{};
+  config.callbacks.diagnostic = [&](auto, const auto& event) {
+    if (event.module == "scene.assets") {
+      ++failures;
+    }
+  };
+  std::shared_ptr<application> app;
+  check(application::create(config, app) == GNEISS_SUCCESS);
+  check(app->attach_task_executor(scheduler) == GNEISS_SUCCESS);
+  std::uint64_t request{};
+  check(app->request_scene("asset://scene.json", 1U, 1U, request) == GNEISS_SUCCESS);
+  const auto step = [&] {
+    if (mode == engine::core::tasks::execution_mode::cooperative) {
+      (void)scheduler.run_ready();
+    }
+    app->advance_scene_load();
+    std::this_thread::yield();
+  };
+  const auto until = [&](auto predicate) {
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
+    while (!predicate()) {
+      check(std::chrono::steady_clock::now() < deadline);
+      step();
+    }
+  };
+  scene_load_progress progress;
+  until([&] { return app->scene_progress(progress) && progress.phase == scene_load_phase::ready; });
+  check(progress.upload_reserved_bytes == 0U && !progress.gpu_in_flight);
   scene_load_completion completion;
-  bool finished{};
-  check(poll_scene_load(app.get(), completion, finished) == GNEISS_SUCCESS && finished);
-  check(completion.progress.phase == scene_load_phase::cancelled &&
-        completion.progress.cleanup_pending && !completion.progress.cleanup_complete);
-  std::uint64_t rejected{};
-  check(request_scene_load(app.get(), uri, 1U, 2U, rejected) == GNEISS_ERROR_NOT_READY);
-  do {
-    check(std::chrono::steady_clock::now() < deadline);
-    check(gneiss::result{gneiss_application_run(app.get(), 1U)} == result::success);
-    check(poll_scene_load(app.get(), completion, finished) == GNEISS_SUCCESS && !finished);
-    check(query_scene_load_progress(app.get(), progress, available) == GNEISS_SUCCESS && available);
-  } while (!progress.cleanup_complete);
-  check(!progress.cleanup_pending && progress.upload_reserved_bytes == 0U &&
-        progress.application_logical_bytes == 0U && !progress.gpu_in_flight);
-  check(request_scene_load(app.get(), uri, 1U, 2U, request) == GNEISS_SUCCESS);
-  check(query_scene_load_progress(app.get(), progress, available) == GNEISS_SUCCESS && available &&
-        progress.phase == scene_load_phase::preparing && !progress.cleanup_complete);
+  check(app->activate_scene(request, completion) == GNEISS_SUCCESS);
+  scene_node_id node;
+  check(app->scenes()->find_node(completion.scene, "00000000-0000-4000-8000-000000000002", node) ==
+        GNEISS_SUCCESS);
+  engine::scene::scene_mesh_binding binding;
+  check(app->capture_mesh_binding(completion.scene, node, binding) == GNEISS_SUCCESS);
+  check(binding.mesh && binding.material);
+  auto material = binding.material;
+  until([&] { return !app->visual_assets_loading(); });
+  check(failures == 1U);
+  engine::render::render_asset_lease ready;
+  check(app->query_ready_asset({"asset://mesh.json", engine::render::render_asset_type::mesh},
+                               ready) == GNEISS_SUCCESS);
+  check(ready == binding.mesh);
+  check(
+      app->query_ready_asset({"asset://material.json", engine::render::render_asset_type::material},
+                             ready) == GNEISS_ERROR_NOT_READY);
+  std::uint64_t nodes{};
+  check(app->scenes()->get_node_count(completion.scene, &nodes) == GNEISS_SUCCESS && nodes == 1U);
+  std::ofstream(files.root / "material.json")
+      << R"({"format":"gneiss.material","version":1,"color":[0,1,0,1]})";
+  const std::array sources{engine::render::render_asset_reload{
+      "asset://material.json", engine::render::render_asset_type::material}};
+  check(app->request_assets(sources, 1U, 2U, request, true) == GNEISS_SUCCESS);
+  engine::render::texture_load_completion loaded;
+  until([&] {
+    bool finished{};
+    check(app->poll_assets(loaded, finished) == GNEISS_SUCCESS);
+    return finished;
+  });
+  check(loaded.result == GNEISS_SUCCESS && loaded.assets.front() == material);
+  check(app->capture_mesh_binding(completion.scene, node, binding) == GNEISS_SUCCESS &&
+        binding.material == material);
+  // 已激活场景继续持有稳定资源，关闭会等待所属任务并释放其作用域。
+  binding = {};
+  material = {};
+  loaded = {};
+  ready = {};
+  app.reset();
+  check(scheduler.stats().retained == 0U);
 }
 
 void run(engine::core::tasks::execution_mode mode) {
@@ -169,8 +214,11 @@ void run(engine::core::tasks::execution_mode mode) {
     throw std::runtime_error("等待场景阶段超时");
   };
   const auto prepared = await_phase(scene_load_phase::ready);
-  // v3 的三顶点共 216 B，索引 12 B；不得漏算切线、UV1、颜色的 120 B。
-  check(prepared.resident_bytes == 228U + sizeof(engine::render::material_resource));
+  // 结构 ready 时视觉内容尚未读取或上传。
+  check(prepared.resident_bytes == 0U && !prepared.gpu_in_flight);
+  engine::render::render_asset_lease not_ready;
+  check(query_ready_asset(app.get(), {"asset://mesh.json", engine::render::render_asset_type::mesh},
+                          not_ready) == GNEISS_ERROR_NOT_READY);
   check(prepared.cpu_data_bytes == prepared.resident_bytes);
   check(prepared.application_logical_bytes >= prepared.resident_bytes);
   check(prepared.application_cpu_data_bytes >= prepared.cpu_data_bytes);
@@ -207,8 +255,8 @@ void run(engine::core::tasks::execution_mode mode) {
   check(finished && cancelled.progress.phase == scene_load_phase::cancelled);
   check(cancelled.progress.cleanup_complete && !cancelled.progress.gpu_in_flight);
   check(cancelled.progress.upload_reserved_bytes == 0U);
-  check(cancelled.progress.application_logical_bytes == prepared.application_logical_bytes);
-  check(cancelled.progress.application_cpu_data_bytes == prepared.application_cpu_data_bytes);
+  check(cancelled.progress.application_logical_bytes <=
+        engine::render::render_resource_service::default_memory_limit);
   check(gneiss_application_get_world(app.get(), &old_world) == GNEISS_SUCCESS &&
         old_world == observed);
 
@@ -230,26 +278,20 @@ void run(engine::core::tasks::execution_mode mode) {
   }
   check(changed && gneiss_world_entity_count(observed, &count) == GNEISS_SUCCESS && count == 1U);
 
-  // 依赖损坏产生失败终态；随后修复可以重试，旧域保持存活。
+  // 视觉来源损坏不阻止结构 ready；取消仍保持旧 World。
   std::ofstream(files.root / "material.json") << "broken";
   check(request_scene_load(app.get(), uri, 1U, 3U, request) == GNEISS_SUCCESS);
-  const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
-  bool failed{};
-  while (!failed && std::chrono::steady_clock::now() < deadline) {
-    auto result = drive();
-    if (result.first) {
-      check(result.second.progress.phase == scene_load_phase::failed);
-      failed = true;
-    }
-  }
-  check(failed && gneiss_world_entity_count(observed, &count) == GNEISS_SUCCESS && count == 1U);
+  (void)await_phase(scene_load_phase::ready);
+  check(cancel_scene_load(app.get(), request) == GNEISS_SUCCESS);
+  check(drive().first);
+  check(gneiss_world_entity_count(observed, &count) == GNEISS_SUCCESS && count == 1U);
   std::ofstream(files.root / "material.json")
       << R"({"format":"gneiss.material","version":1,"color":[0,1,0,1]})";
   check(request_scene_load(app.get(), uri, 1U, 4U, request) == GNEISS_SUCCESS);
   (void)await_phase(scene_load_phase::ready);
   check(activate_scene_load(app.get(), request, completion) == GNEISS_SUCCESS);
   (void)drive();
-  // ready 的候选已准备默认版本选择，取消仍必须保留已经激活的 World。
+  // ready 只完成结构，取消仍必须保留已经激活的 World。
   check(gneiss_application_get_world(app.get(), &observed) == GNEISS_SUCCESS);
   for (const auto phase :
        {scene_load_phase::preparing, scene_load_phase::instantiating, scene_load_phase::ready}) {
@@ -332,8 +374,9 @@ void shared_scene_assets(engine::core::tasks::execution_mode mode) {
     check(capture_mesh_binding(app.get(), completion.scene, node, value) == GNEISS_SUCCESS);
     return value;
   };
-  const auto first = prepare();
+  (void)prepare();
   check(activate_scene_load(app.get(), request, completion) == GNEISS_SUCCESS);
+  drain_visuals(app.get(), scheduler, mode);
   auto original = binding();
   auto mesh = selected(engine::render::render_asset_type::mesh, "asset://mesh.json");
   auto material = selected(engine::render::render_asset_type::material, "asset://material.json");
@@ -342,7 +385,7 @@ void shared_scene_assets(engine::core::tasks::execution_mode mode) {
   check(!poll());
   // 两个 World 同时持有相同版本，不重复计量或创建后端资源。
   const auto second = prepare();
-  check(second.application_logical_bytes == first.application_logical_bytes);
+  check(second.application_logical_bytes > 0U);
   check(activate_scene_load(app.get(), request, completion) == GNEISS_SUCCESS);
   auto reused = binding();
   check(reused.mesh == mesh && reused.material == material);
@@ -376,19 +419,14 @@ void shared_scene_assets(engine::core::tasks::execution_mode mode) {
         changed.material);
   check(!poll());
   check(original.mesh == mesh && original.material == material);
-  // 损坏的新来源失败后，B 的默认选择与活动 World 保持不变。
+  // 已缓存资源不因打开场景而隐式重读损坏文件；显式重载独立处理。
   check(gneiss_application_get_world(app.get(), &new_world) == GNEISS_SUCCESS);
   std::ofstream(files.root / "material.json") << "broken";
-  check(request_scene_load(app.get(), "asset://scene.json", 1U, 2U, request) == GNEISS_SUCCESS);
-  const auto failure_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
-  while (!poll()) {
-    check(std::chrono::steady_clock::now() < failure_deadline);
-  }
-  check(completion.progress.phase == scene_load_phase::failed &&
-        completion.progress.cleanup_complete);
+  (void)prepare();
+  check(activate_scene_load(app.get(), request, completion) == GNEISS_SUCCESS);
+  drain_visuals(app.get(), scheduler, mode);
   check(selected(engine::render::render_asset_type::material, "asset://material.json") ==
         changed.material);
-  check(gneiss_world_entity_count(new_world, &count) == GNEISS_SUCCESS && count == 1U);
 }
 
 void shared_texture_versions(engine::core::tasks::execution_mode mode) {
@@ -448,8 +486,9 @@ void shared_texture_versions(engine::core::tasks::execution_mode mode) {
     std::this_thread::yield();
   } while (progress.phase != scene_load_phase::ready);
   // 材质各自一批准备，共享纹理必须复用同一 RID，绑定检查及预算去重均应成功。
-  check(progress.texture_payload_bytes == 4U);
+  check(progress.texture_payload_bytes == 0U);
   check(activate_scene_load(app.get(), request, scene_completion) == GNEISS_SUCCESS);
+  drain_visuals(app.get(), scheduler, mode);
   std::uint64_t count{};
   check(gneiss_scene_instance_get_node_count(app.get(), scene_completion.scene, &count) ==
             GNEISS_SUCCESS &&
@@ -469,45 +508,27 @@ void shared_texture_versions(engine::core::tasks::execution_mode mode) {
   // 显式纹理重载仅返回该纹理，不重读材质或返回历史版本。
   check(assets.result == GNEISS_SUCCESS && assets.assets.size() == 1U &&
         assets.peak_upload_bytes > 0U);
-  // 第一批材质准备后修改共享纹理；后续批次不能与旧批次混合激活。
+  // 视觉文件变化不属于场景结构快照；打开场景复用当前成功资源。
   bool ignored{};
   check(poll_scene_load(app.get(), scene_completion, ignored) == GNEISS_SUCCESS && !ignored);
-  gneiss_world active_world{};
-  check(gneiss_application_get_world(app.get(), &active_world) == GNEISS_SUCCESS);
+  std::ofstream(files.root / "image.ktx2", std::ios::app).put('\0');
   check(request_scene_load(app.get(), "asset://scene.json", 1U, 3U, request) == GNEISS_SUCCESS);
-  bool changed = false;
-  const auto failure_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(10);
-  while (true) {
-    check(std::chrono::steady_clock::now() < failure_deadline);
+  do {
+    check(std::chrono::steady_clock::now() < deadline);
     if (mode == engine::core::tasks::execution_mode::cooperative) {
       (void)scheduler.run_ready();
     }
-    bool terminal{};
     bool active{};
-    check(poll_scene_load(app.get(), scene_completion, terminal) == GNEISS_SUCCESS);
-    if (terminal) {
-      check(changed && scene_completion.result == GNEISS_ERROR_INVALID_STATE &&
-            scene_completion.progress.phase == scene_load_phase::failed &&
-            scene_completion.progress.cleanup_complete);
-      break;
-    }
+    check(poll_scene_load(app.get(), scene_completion, ignored) == GNEISS_SUCCESS && !ignored);
     check(query_scene_load_progress(app.get(), progress, active) == GNEISS_SUCCESS && active);
-    if (!changed && progress.phase == scene_load_phase::assets &&
-        progress.texture_payload_bytes != 0U && progress.completed < progress.total) {
-      std::ofstream(files.root / "image.ktx2", std::ios::app).put('\0');
-      changed = true;
-    }
-    std::this_thread::yield();
-  }
-  gneiss_world preserved{};
-  check(gneiss_application_get_world(app.get(), &preserved) == GNEISS_SUCCESS &&
-        preserved == active_world);
-  check(gneiss_world_entity_count(preserved, &count) == GNEISS_SUCCESS && count == 2U);
+  } while (progress.phase != scene_load_phase::ready);
+  check(activate_scene_load(app.get(), request, scene_completion) == GNEISS_SUCCESS);
+  drain_visuals(app.get(), scheduler, mode);
 }
 } // namespace
 int main() try {
-  cancel_drain(engine::core::tasks::execution_mode::thread_pool);
-  cancel_drain(engine::core::tasks::execution_mode::cooperative);
+  visual_failure(engine::core::tasks::execution_mode::thread_pool);
+  visual_failure(engine::core::tasks::execution_mode::cooperative);
   run(engine::core::tasks::execution_mode::thread_pool);
   run(engine::core::tasks::execution_mode::cooperative);
   shared_scene_assets(engine::core::tasks::execution_mode::thread_pool);

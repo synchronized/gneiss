@@ -29,10 +29,18 @@ public:
                   engine::render::texture_upload_backend backend,
                   std::shared_ptr<engine::core::progress_notification> notification);
   void advance();
+  /** 激活后的视觉资源独立完成，不影响结构激活结果；所属线程消费诊断。 */
+  [[nodiscard]] bool take_visual_completion(engine::render::texture_load_completion& output);
+  [[nodiscard]] bool visual_loading() const noexcept {
+    return visual_pending_ || !visual_queue_.empty();
+  }
   [[nodiscard]] gneiss_result activate(std::uint64_t request, scene_load_completion& completion);
   void shutdown() noexcept;
 
   [[nodiscard]] bool can_start_load() const noexcept;
+  [[nodiscard]] bool can_activate() const noexcept {
+    return !retired_ && textures_ && !textures_->busy();
+  }
   [[nodiscard]] bool loading() const noexcept;
   [[nodiscard]] scene_retirement_statistics retirement() const noexcept;
   [[nodiscard]] gneiss_world world() const noexcept;
@@ -56,6 +64,13 @@ public:
                                           bool& ready);
 
 private:
+  void advance_visuals();
+  std::vector<engine::render::render_asset_reload> visual_queue_;
+  std::size_t visual_cursor_{};
+  std::uint64_t visual_session_{};
+  std::uint64_t visual_revision_{};
+  bool visual_pending_{};
+  std::optional<engine::render::texture_load_completion> visual_completion_;
   engine::resource::asset_manager* asset_owner_{};
   engine::render::render_asset_loader* render_assets_{};
   std::unique_ptr<application_scene_state> active_;
