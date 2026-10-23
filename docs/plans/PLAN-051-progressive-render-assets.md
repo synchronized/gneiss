@@ -6,7 +6,7 @@
 ## 状态、范围与权威来源
 
 2026-10-23：用户确认先降低普通资源加载承担的语义，再删除整套运行时资产版本与事务协议。
-本次更新是重建计划，不表示下述目标已经实现。架构决策见
+实现已完成，正在进行最终 Release 性能验收。架构决策见
 [ADR-072](../decisions/ADR-072-progressive-render-assets.md)。本页取代此前逐个兼容旧协议的
 实施顺序，承接[资产管理替换计划](PLAN-051-asset-manager-replacement.md) R4。
 
@@ -16,7 +16,11 @@
 场景与编辑器已切换稳定引用，固定版本索引、采用事务和依赖版本链已删除，见
 [协议删除记录](../records/2026-10-23-asset-version-protocol-removal.md)。
 普通请求已独立准备各请求项，上传失败后继续后续项，逐项结果已贯通 IPC 和编辑器。
-场景已在结构就绪后激活并接管视觉队列；依赖独立就绪及上传内部结构收缩尚未完成。
+场景在结构就绪后激活并接管视觉队列；依赖独立请求，上传改为单项任务数据。
+资产候选 RID、批量发布 API、CPU 材质版本索引与租约包装已删除；同步入口逐项更新。
+`material_document` 仅保留描述，摘要和字节数归加载证据；缓存拒绝跨挂载来源混用。
+最终功能回归 201/201 通过，收尾详情见
+[单项加载与内容缓存收尾](../records/2026-10-23-single-resource-loading.md)。
 
 范围：Mesh、Texture、Material 加载与重载，以及 Scene/Prefab 和编辑器的资源接入。
 不重写解码器、反射、ECS、RID 表或 Granit；不新增资源历史数据库、通用流送框架。
@@ -74,7 +78,7 @@ RID 被销毁或任务序号过期时，结果只清理，不恢复资源。无�
 | previous_assets 与重载引用替换事务 | scene_session::request_assets/poll_assets | 更新资源内容，已有使用者无须整体重绑；真正的作者引用编辑仍保留 |
 | prepare_edit_assets/accept_edit_assets 的固定版本职责 | application、内部宿主适配、editor_asset_edit、editor_prefab_edit | 请求资源与提交作者命令分开；命令成功不再提交缓存选择 |
 | 回执 versions、prepared_asset.version/texture_versions 与传递版本编码 | texture_load_completion、asset_preparation、asset_identity | 逐项结果、稳定身份和任务序号；删除运行期版本链 |
-| 批次全部复验后才保留的 CPU 文档候选流程 | cpu_document_batch/retain_verified、材质描述租约 | 评估保留按内容共享解析结果的最小缓存，移除整批采用前提；不新建第二份共享数据 |
+| 批次全部复验后才保留的 CPU 文档批次流程 | cpu_document_batch/retain_verified、材质描述租约 | 评估保留按内容共享解析结果的最小缓存，移除整批采用前提；不新建第二份共享数据 |
 | 全场景视觉来源快照与整批复验 | scene_load_service/source_revision_file_system 调用处 | 结构读取校验与各资源读取完整性分别处理；检查其他调用者后再删通用工具 |
 | 普通批次回滚、全局缓存 revision 冲突拒绝 | texture_load_service | 每资源最新请求胜出，未采用上传数据安全清理，已成功资源不撤回 |
 

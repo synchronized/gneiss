@@ -295,14 +295,30 @@ gneiss_result render_resource_service::destroy_mesh(engine::core::rid mesh) noex
   return meshes_.destroy(mesh, engine::core::resource_type::mesh);
 }
 
-gneiss_result render_resource_service::create_material(const material_resource& value,
-                                                       engine::core::rid* out_material) noexcept {
-  if (out_material == nullptr || !is_valid() || !valid_color(value.red) ||
-      !valid_color(value.green) || !valid_color(value.blue) || !valid_color(value.alpha) ||
-      !valid_color(value.metallic) || !valid_color(value.roughness)) {
+gneiss_result
+render_resource_service::prepare_mesh_data(std::shared_ptr<const mesh_resource> resource,
+                                           std::shared_ptr<const mesh_resource>& output) noexcept {
+  output.reset();
+  if (!is_valid() || !resource)
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  try {
+    output = track(std::move(resource), mesh_history_);
+    return GNEISS_SUCCESS;
+  } catch (const std::bad_alloc&) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
+  } catch (...) {
+    return GNEISS_ERROR_INTERNAL;
+  }
+}
+
+gneiss_result render_resource_service::prepare_material_data(
+    const material_resource& value, std::shared_ptr<const material_resource>& output) noexcept {
+  output.reset();
+  if (!is_valid() || !valid_color(value.red) || !valid_color(value.green) ||
+      !valid_color(value.blue) || !valid_color(value.alpha) || !valid_color(value.metallic) ||
+      !valid_color(value.roughness)) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
-  *out_material = 0U;
   if (!std::isfinite(value.normal_scale) || !valid_color(value.occlusion_strength) ||
       !std::ranges::all_of(value.emissive, valid_color) ||
       value.alpha_mode > engine::resource::material_alpha_mode::blend ||
@@ -321,14 +337,25 @@ gneiss_result render_resource_service::create_material(const material_resource& 
     }
   }
   try {
-    auto resource = track(std::make_shared<const material_resource>(value), material_history_);
-    return materials_.create(engine::core::resource_type::material, std::move(resource),
-                             out_material);
+    output = track(std::make_shared<const material_resource>(value), material_history_);
+    return GNEISS_SUCCESS;
   } catch (const std::bad_alloc&) {
     return GNEISS_ERROR_OUT_OF_MEMORY;
   } catch (...) {
     return GNEISS_ERROR_INTERNAL;
   }
+}
+
+gneiss_result render_resource_service::create_material(const material_resource& value,
+                                                       engine::core::rid* output) noexcept {
+  if (!output)
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  *output = 0U;
+  std::shared_ptr<const material_resource> data;
+  const auto result = prepare_material_data(value, data);
+  return result == GNEISS_SUCCESS
+             ? materials_.create(engine::core::resource_type::material, std::move(data), output)
+             : result;
 }
 
 gneiss_result render_resource_service::destroy_material(engine::core::rid material) noexcept {
@@ -378,34 +405,45 @@ gneiss_result render_resource_service::create_texture(const texture_view& desc,
   }
 }
 
-gneiss_result render_resource_service::create_texture(texture_resource resource,
-                                                      engine::core::rid* out_texture) noexcept {
-  if (out_texture == nullptr || !is_valid() || resource.width == 0U || resource.height == 0U ||
-      resource.format != gneiss::engine::resource::texture_format::rgba8_unorm ||
-      resource.levels.empty() || !resource.manifest.empty() || !resource.payload.empty() ||
-      resource.levels.front().width != resource.width ||
-      resource.levels.front().height != resource.height) {
-    return GNEISS_ERROR_INVALID_ARGUMENT;
-  }
-  auto width = resource.width;
-  auto height = resource.height;
-  std::uint64_t total_bytes{};
-  for (const auto& level : resource.levels) {
-    const auto level_bytes = static_cast<std::uint64_t>(width) * height * 4U;
-    if (level.width != width || level.height != height || level.pixels.size() != level_bytes ||
-        level_bytes > maximum_texture_bytes || total_bytes > maximum_texture_bytes - level_bytes) {
+gneiss_result render_resource_service::prepare_texture_data(
+    texture_resource resource, std::shared_ptr<const texture_resource>& output) noexcept {
+  output.reset();
+  if (resource.manifest.empty()) {
+    if (!is_valid() || resource.width == 0U || resource.height == 0U ||
+        resource.format != gneiss::engine::resource::texture_format::rgba8_unorm ||
+        resource.levels.empty() || !resource.manifest.empty() || !resource.payload.empty() ||
+        resource.levels.front().width != resource.width ||
+        resource.levels.front().height != resource.height) {
       return GNEISS_ERROR_INVALID_ARGUMENT;
     }
-    total_bytes += level_bytes;
-    width = std::max(1U, width / 2U);
-    height = std::max(1U, height / 2U);
+    auto width = resource.width;
+    auto height = resource.height;
+    std::uint64_t total_bytes{};
+    for (const auto& level : resource.levels) {
+      const auto level_bytes = static_cast<std::uint64_t>(width) * height * 4U;
+      if (level.width != width || level.height != height || level.pixels.size() != level_bytes ||
+          level_bytes > maximum_texture_bytes ||
+          total_bytes > maximum_texture_bytes - level_bytes) {
+        return GNEISS_ERROR_INVALID_ARGUMENT;
+      }
+      total_bytes += level_bytes;
+      width = std::max(1U, width / 2U);
+      height = std::max(1U, height / 2U);
+    }
+  } else {
+    if (!is_valid() || resource.width == 0U || resource.height == 0U ||
+        resource.format != gneiss::engine::resource::texture_format::rgba8_unorm ||
+        (resource.color_space != gneiss::engine::resource::texture_color_space::linear &&
+         resource.color_space != gneiss::engine::resource::texture_color_space::srgb) ||
+        !resource.levels.empty() || resource.manifest.empty() ||
+        (resource.payload.empty() &&
+         (!resource.payload_source || resource.upload_payload.expired()))) {
+      return GNEISS_ERROR_INVALID_ARGUMENT;
+    }
   }
-  *out_texture = 0U;
   try {
-    return textures_.create(
-        engine::core::resource_type::texture,
-        track(std::make_shared<const texture_resource>(std::move(resource)), texture_history_),
-        out_texture);
+    output = track(std::make_shared<const texture_resource>(std::move(resource)), texture_history_);
+    return GNEISS_SUCCESS;
   } catch (const std::bad_alloc&) {
     return GNEISS_ERROR_OUT_OF_MEMORY;
   } catch (...) {
@@ -413,29 +451,28 @@ gneiss_result render_resource_service::create_texture(texture_resource resource,
   }
 }
 
-gneiss_result
-render_resource_service::create_packaged_texture(texture_resource resource,
-                                                 engine::core::rid* out_texture) noexcept {
-  if (out_texture == nullptr || !is_valid() || resource.width == 0U || resource.height == 0U ||
-      resource.format != gneiss::engine::resource::texture_format::rgba8_unorm ||
-      (resource.color_space != gneiss::engine::resource::texture_color_space::linear &&
-       resource.color_space != gneiss::engine::resource::texture_color_space::srgb) ||
-      !resource.levels.empty() || resource.manifest.empty() ||
-      (resource.payload.empty() &&
-       (!resource.payload_source || resource.upload_payload.expired()))) {
+gneiss_result render_resource_service::create_texture(texture_resource resource,
+                                                      engine::core::rid* output) noexcept {
+  if (!output || !resource.manifest.empty())
     return GNEISS_ERROR_INVALID_ARGUMENT;
-  }
-  *out_texture = 0U;
-  try {
-    return textures_.create(
-        engine::core::resource_type::texture,
-        track(std::make_shared<const texture_resource>(std::move(resource)), texture_history_),
-        out_texture);
-  } catch (const std::bad_alloc&) {
-    return GNEISS_ERROR_OUT_OF_MEMORY;
-  } catch (...) {
-    return GNEISS_ERROR_INTERNAL;
-  }
+  *output = 0U;
+  std::shared_ptr<const texture_resource> data;
+  const auto result = prepare_texture_data(std::move(resource), data);
+  return result == GNEISS_SUCCESS
+             ? textures_.create(engine::core::resource_type::texture, std::move(data), output)
+             : result;
+}
+
+gneiss_result render_resource_service::create_packaged_texture(texture_resource resource,
+                                                               engine::core::rid* output) noexcept {
+  if (!output || resource.manifest.empty())
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  *output = 0U;
+  std::shared_ptr<const texture_resource> data;
+  const auto result = prepare_texture_data(std::move(resource), data);
+  return result == GNEISS_SUCCESS
+             ? textures_.create(engine::core::resource_type::texture, std::move(data), output)
+             : result;
 }
 
 gneiss_result render_resource_service::destroy_texture(engine::core::rid texture) noexcept {

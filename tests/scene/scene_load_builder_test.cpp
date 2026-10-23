@@ -138,16 +138,18 @@ void run() {
   engine::render::prepared_render_batch batch;
   check(engine::render::prepare_render_assets(vfs, requests, batch, diagnostic, {}) ==
         GNEISS_SUCCESS);
-  std::vector<engine::render::render_asset_loader::asset_candidate> staged;
+  std::vector<engine::render::render_asset_loader::asset_upload> staged;
   for (auto& asset : batch.assets) {
-    engine::render::render_asset_loader::asset_candidate value;
-    check(candidate_render.stage_asset(std::move(asset), staged, value) == GNEISS_SUCCESS);
+    engine::render::render_asset_loader::asset_upload value;
+    check(candidate_render.prepare_upload(std::move(asset), value) == GNEISS_SUCCESS);
     staged.push_back(std::move(value));
   }
-  check(candidate_render.publish_assets(staged) == GNEISS_SUCCESS);
+  for (auto& value : staged) {
+    check(candidate_render.complete_upload(value) == GNEISS_SUCCESS);
+  }
   engine::scene::scene_load_builder::asset_bindings bindings;
   for (const auto& value : staged) {
-    bindings.emplace(value.source.uri, value.lease);
+    bindings.emplace(std::string(value.target.uri()), value.target);
   }
   auto material =
       engine::render::render_asset_loader::material_lease(bindings.at("asset://m.material"));

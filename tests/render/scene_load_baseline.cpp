@@ -2,7 +2,9 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "../support/c_owner.hpp"
+#include "runtime/application.hpp"
 #include "runtime/application_asset_reload_internal.hpp"
+#include "runtime/application_registry.hpp"
 #include "runtime/application_scene_load_internal.hpp"
 
 #include <gneiss/engine/application.h>
@@ -88,9 +90,12 @@ gneiss_result preload_scene(gneiss::test_support::application_owner& app,
     scene_load_completion completion;
     bool finished{};
     result = poll_scene_load(app.get(), completion, finished);
-    if (finished) {
+    if (finished && completion.result != GNEISS_SUCCESS) {
       return completion.result;
     }
+    if (scene != GNEISS_NULL_SCENE_INSTANCE &&
+        !find_application(app.get())->visual_assets_loading())
+      return GNEISS_SUCCESS;
     scene_load_progress progress;
     bool active{};
     if (result == GNEISS_SUCCESS) {
@@ -103,7 +108,8 @@ gneiss_result preload_scene(gneiss::test_support::application_owner& app,
         // 消费预载终态并回收旧域，之后才能发起被测切换。
         result = poll_scene_load(app.get(), completion, finished);
       }
-      return result;
+      if (result != GNEISS_SUCCESS)
+        return result;
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
   }
@@ -135,6 +141,11 @@ int main(int argc, char** argv) try {
       scenario != "interact" && scenario != "cancel-prepare" && scenario != "cancel-verify" &&
       scenario != "cancel-assets" && scenario != "cancel-gpu" && scenario != "cancel-ready" &&
       scenario != "failure" && scenario != "close") {
+    return 2;
+  }
+  // 早激活后不存在场景提交前 GPU 上传阶段；该旧场景不能再作为有效测量。
+  if (scenario == "cancel-gpu") {
+    std::fprintf(stderr, "cancel-gpu 已移除：GPU 取消由活动资源加载契约测试覆盖。\n");
     return 2;
   }
   if (mode == "sync" && scenario != "initial") {
@@ -431,6 +442,8 @@ int main(int argc, char** argv) try {
         return gneiss_application_request_exit(handle);
       }
       if (scene != GNEISS_NULL_SCENE_INSTANCE) {
+        if (find_application(handle)->visual_assets_loading())
+          return GNEISS_SUCCESS;
         (void)query_scene_retirement(handle, retirement);
         maximum_retirement_ms = std::max(maximum_retirement_ms, retirement.last_ms);
         if (scenario == "repeat") {

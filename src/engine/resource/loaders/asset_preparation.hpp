@@ -55,7 +55,7 @@ struct prepared_source final {
   engine::core::sha256_digest digest{};
 };
 
-class material_document_lease;
+struct material_document;
 
 /** 后台解析后的自有 CPU 数据；不持有缓存或后端对象，材质依赖仅使用 URI。 */
 struct prepared_asset {
@@ -69,7 +69,7 @@ struct prepared_asset {
   engine::resource::material_parameters material{};
   std::array<std::string, 5> texture_uris;
   /** 仅保活已复验 CPU 文档，不参与渲染版本选择；内部类型不泄漏第三方句柄。 */
-  std::shared_ptr<const material_document_lease> material_document;
+  std::shared_ptr<const material_document> material_document;
   std::size_t bytes{};
 };
 struct prepared_batch {
@@ -93,6 +93,8 @@ public:
     std::size_t maximum_assets{};
     std::size_t maximum_bytes{};
     bool deferred_reads{true};
+    /** false 仅解析请求本身；依赖仍返回 URI，由调用方独立调度。 */
+    bool include_dependencies{true};
   };
   asset_preparation(const virtual_file_system& files,
                     std::span<const asset_preparation_source> requested, limits budget,

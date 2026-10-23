@@ -10,11 +10,6 @@ namespace gneiss::engine::resource {
 inline gneiss_result decode_material_document(const std::vector<std::byte>& bytes,
                                               material_document& value,
                                               asset_diagnostic& diagnostic) {
-  const auto parsed = asset_parsing::parse_material(bytes, value.source, diagnostic);
-  if (parsed == GNEISS_SUCCESS) {
-    value.digest = engine::core::sha256(bytes);
-    value.source_bytes = bytes.size();
-  }
-  return parsed;
+  return asset_parsing::parse_material(bytes, value.source, diagnostic);
 }
 }

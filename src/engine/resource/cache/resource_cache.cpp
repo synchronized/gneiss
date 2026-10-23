@@ -12,7 +12,8 @@
 namespace gneiss::engine::resource {
 
 gneiss_result resource_cache::acquire(std::string_view uri, std::uint32_t type, const loader& load,
-                                      std::shared_ptr<const entry>& out_entry) noexcept {
+                                      std::shared_ptr<const entry>& out_entry,
+                                      std::shared_ptr<const asset_source_domain> source) noexcept {
   out_entry.reset();
   if (type == 0U || !load || validate_uri(uri) != GNEISS_SUCCESS) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
@@ -20,7 +21,7 @@ gneiss_result resource_cache::acquire(std::string_view uri, std::uint32_t type, 
   try {
     const auto found = entries_.find(std::string(uri));
     if (found != entries_.end()) {
-      if (found->second->type != type) {
+      if ((found->second->type != type || found->second->source != source)) {
         return GNEISS_ERROR_INVALID_ARGUMENT;
       }
       if (found->second->state == resource_state::ready) {
@@ -35,6 +36,7 @@ gneiss_result resource_cache::acquire(std::string_view uri, std::uint32_t type, 
 
     auto value = std::make_shared<entry>();
     value->uri = uri;
+    value->source = std::move(source);
     value->type = type;
     value->state = resource_state::loading;
     entries_.emplace(value->uri, value);
@@ -59,18 +61,21 @@ gneiss_result resource_cache::acquire(std::string_view uri, std::uint32_t type, 
 }
 
 gneiss_result resource_cache::reload(std::string_view uri, std::uint32_t type, const loader& load,
-                                     std::shared_ptr<const entry>& out_entry) noexcept {
+                                     std::shared_ptr<const entry>& out_entry,
+                                     std::shared_ptr<const asset_source_domain> source) noexcept {
   out_entry.reset();
   if (type == 0U || !load || validate_uri(uri) != GNEISS_SUCCESS) {
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
   try {
     const auto found = entries_.find(std::string(uri));
-    if (found != entries_.end() && found->second->type != type) {
+    if (found != entries_.end() &&
+        (found->second->type != type || found->second->source != source)) {
       return GNEISS_ERROR_INVALID_ARGUMENT;
     }
     auto value = std::make_shared<entry>();
     value->uri = uri;
+    value->source = std::move(source);
     value->type = type;
     value->state = resource_state::loading;
     std::shared_ptr<void> resource;

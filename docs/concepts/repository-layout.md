@@ -303,15 +303,14 @@ Host 可依赖 Engine、Runtime、Editor；后三者不得反向包含 Host。�
 ## CPU 类型与缓存
 
 - `resource/types/material_source.hpp`：纯材质来源描述。
-- `resource/types/material_document.hpp`：普通 CPU 材质数据及摘要；Mesh 直接共享 `mesh_data`。
+- `resource/types/material_document.hpp`：纯 CPU 材质描述，加载摘要归准备任务；Mesh 直接共享 `mesh_data`。
 - `resource/loaders/material_document_decoder.hpp`：消费现有字节的解析函数。
 - `resource/loaders/asset_loader.hpp`：显式类型注册与纯 CPU 解码契约，不要求字段反射。
 - `resource/vfs/asset_source.*`：有界分步读取、异步打开/关闭与明确的同步回退。
-- `resource/cache/material_document_versions.hpp`：确切来源版本的非拥有索引。
+- `resource/cache/cpu_document_cache.*`：按来源与内容共享材质、网格解析数据的弱引用索引。
 
-CPU 版本租约、Prefab 缓存、渲染资源生命周期仍各有用途；替换依赖不等于已删除所有多阶段协议。
-
-准备结果和渲染对象通过材质租约保持 CPU 文档存活，租约不拥有 GPU RID。
-`cpu_document_cache` 直接创建批次，共享版本索引，独占解析候选。缓存外壳可以先释放，
-仍存活的批次保活索引，已发布租约保活 CPU 文档；decode 与 retain_verified 不可并发，
-索引登记和回收在所属线程串行执行。
+准备结果和渲染对象直接以只读共享引用保持 CPU 文档存活，不拥有 GPU RID。
+`cpu_document_cache` 的批次独占解码输出；摘要和字节数用于匹配已验证输入，不放入材质描述。
+缓存外壳可以先释放，仍存活的批次保活内容索引，资源引用保活文档。
+`decode` 与 `retain_verified` 不可并发，索引登记和回收在所属线程串行执行。
+该缓存不提供历史版本查询、默认版本选择或整批采用；每个资源独立保留成功内容。

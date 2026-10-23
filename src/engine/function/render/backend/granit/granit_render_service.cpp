@@ -741,7 +741,7 @@ void granit_render_service::release_invalid_materials(
   }
 }
 
-void granit_render_service::discard_candidates(
+void granit_render_service::discard_upload_data(
     std::span<const engine::render::render_upload_item> data) noexcept {
   for (const auto& item : data) {
     if (item.material) {
@@ -847,13 +847,13 @@ granit_render_service::prepare_textures(std::vector<engine::render::render_uploa
                     textures[slot] = found->second.mirror.view.native_handle();
                     continue;
                   }
-                  // 固定版本复用不重复上传；首帧后镜像已从准备表移入活动表。
+                  // 已有内容复用不重复上传；首帧后镜像已从准备表移入活动表。
                   // 同时核对 RID 和数据身份，不能把旧版本镜像绑定给新材质。
                   const auto active = texture_mirrors_.find(item.material->texture_handles()[slot]);
                   if (active == texture_mirrors_.end() ||
                       active->second.source != item.dependency_textures[slot].get()) {
-                    discard_candidates(data);
-                    return GNEISS_ERROR_INVALID_STATE;
+                    // CPU 内容可早于 GPU 镜像就绪；本次使用缺省绑定，绘制时重查。
+                    continue;
                   }
                   textures[slot] = active->second.view.native_handle();
                 }
@@ -865,7 +865,7 @@ granit_render_service::prepare_textures(std::vector<engine::render::render_uploa
                 }
               }
               if (result.failed()) {
-                discard_candidates(data);
+                discard_upload_data(data);
                 return map_result(result);
               }
               reporter.report(engine::render::render_command_stage::uploading,
@@ -873,10 +873,10 @@ granit_render_service::prepare_textures(std::vector<engine::render::render_uploa
             }
             return GNEISS_SUCCESS;
           } catch (const std::bad_alloc&) {
-            discard_candidates(data);
+            discard_upload_data(data);
             return GNEISS_ERROR_OUT_OF_MEMORY;
           } catch (...) {
-            discard_candidates(data);
+            discard_upload_data(data);
             return GNEISS_ERROR_INTERNAL;
           }
         },
@@ -904,7 +904,7 @@ gneiss_result granit_render_service::discard_prepared_textures(
   try {
     return executor_.submit_command(
         [this, data = std::move(data)](const engine::render::render_command_reporter&) {
-          discard_candidates(data);
+          discard_upload_data(data);
           return GNEISS_SUCCESS;
         },
         sequence);

@@ -141,7 +141,7 @@ private:
   std::unordered_map<const engine::render::mesh_resource*, prepared_mesh> prepared_meshes_;
   std::unordered_map<const engine::render::material_resource*, prepared_material>
       prepared_materials_;
-  void discard_candidates(std::span<const engine::render::render_upload_item> data) noexcept;
+  void discard_upload_data(std::span<const engine::render::render_upload_item> data) noexcept;
   [[nodiscard]] granit::result create_mesh_mirror(const engine::render::mesh_resource& source,
                                                   mesh_mirror& output) noexcept;
 

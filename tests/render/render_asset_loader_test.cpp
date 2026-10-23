@@ -267,21 +267,21 @@ void selected_variants() {
   render_resource_service resources;
   gneiss::engine::resource::resource_cache cache;
   render_asset_loader loader(files, cache, resources);
-  std::array<render_asset_loader::asset_candidate, 1> candidate;
-  require(loader.stage_asset(std::move(batch.assets.front()), {}, candidate.front()) ==
+  std::array<render_asset_loader::asset_upload, 1> candidate;
+  require(loader.prepare_upload(std::move(batch.assets.front()), candidate.front()) ==
           GNEISS_SUCCESS);
-  const auto old_frame = candidate.front().texture;
-  require(candidate.front().texture_payload->data() == prepared_payload &&
+  const auto old_frame = candidate.front().data.texture;
+  require(candidate.front().data.texture_payload->data() == prepared_payload &&
           old_frame->manifest.data() == prepared_manifest && old_frame->profile == compressed &&
           old_frame->selected_variant == 0U);
   require(old_frame->payload.empty() && old_frame->payload_source &&
           !old_frame->upload_payload.expired());
   render_upload_item command;
   command.texture = old_frame;
-  command.texture_payload = candidate.front().texture_payload;
-  candidate.front().texture_payload.reset();
+  command.texture_payload = candidate.front().data.texture_payload;
+  candidate.front().data.texture_payload.reset();
   require(!old_frame->upload_payload.expired());
-  require(loader.publish_assets(candidate) == GNEISS_SUCCESS);
+  require(loader.complete_upload(candidate.front()) == GNEISS_SUCCESS);
   command = {};
   require(old_frame->upload_payload.expired() && old_frame->payload.empty());
   std::vector<std::byte> restored;
@@ -320,20 +320,21 @@ void selected_variants() {
   prepared_render_asset single_prepared;
   single_prepared.source = {"asset://single.texture.json", render_asset_type::texture};
   single_prepared.texture = std::move(texture);
-  std::array<render_asset_loader::asset_candidate, 1> single;
-  require(loader.stage_asset(std::move(single_prepared), {}, single.front()) == GNEISS_SUCCESS);
-  require(single.front().texture_payload &&
-          single.front().texture_payload->data() == single_payload &&
-          single.front().texture->payload.empty() &&
-          single.front().texture->upload_payload.lock() == single.front().texture_payload &&
-          single.front().texture->profile == compressed &&
-          single.front().texture->selected_variant == 0U);
-  require(loader.publish_assets(single) == GNEISS_SUCCESS);
+  std::array<render_asset_loader::asset_upload, 1> single;
+  require(loader.prepare_upload(std::move(single_prepared), single.front()) == GNEISS_SUCCESS);
+  require(single.front().data.texture_payload &&
+          single.front().data.texture_payload->data() == single_payload &&
+          single.front().data.texture->payload.empty() &&
+          single.front().data.texture->upload_payload.lock() ==
+              single.front().data.texture_payload &&
+          single.front().data.texture->profile == compressed &&
+          single.front().data.texture->selected_variant == 0U);
+  require(loader.complete_upload(single.front()) == GNEISS_SUCCESS);
 
 #endif
 }
 
-// 同步与批次发布都必须保留纯参数，并且只有依赖就绪后才绑定 RID。
+// 同步与异步更新都保留纯参数；准备上传不另建资源 RID。
 bool material_parameter_roundtrip(gneiss::engine::resource::virtual_file_system& files,
                                   memory_file_system& memory) {
   using namespace gneiss::engine::render;
@@ -401,21 +402,22 @@ bool material_parameter_roundtrip(gneiss::engine::resource::virtual_file_system&
       batch.assets.back().material.color != std::array{0.25F, 0.5F, 0.75F, 0.5F}) {
     return false;
   }
-  render_asset_loader::asset_candidate missing;
-  if (loader.stage_asset(batch.assets.back(), {}, missing) != GNEISS_ERROR_INVALID_STATE ||
+  render_asset_loader::asset_upload missing;
+  if (loader.prepare_upload(batch.assets.back(), missing) != GNEISS_SUCCESS ||
       resources.live_resource_count() != before) {
     return false;
   }
-  std::vector<render_asset_loader::asset_candidate> candidates;
+  std::vector<render_asset_loader::asset_upload> candidates;
   for (auto& prepared : batch.assets) {
-    render_asset_loader::asset_candidate candidate;
-    if (loader.stage_asset(std::move(prepared), candidates, candidate) != GNEISS_SUCCESS) {
+    render_asset_loader::asset_upload candidate;
+    if (loader.prepare_upload(std::move(prepared), candidate) != GNEISS_SUCCESS) {
       return false;
     }
+    if (loader.complete_upload(candidate) != GNEISS_SUCCESS)
+      return false;
     candidates.push_back(std::move(candidate));
   }
-  if (!matches(candidates.back().material.get()) ||
-      loader.publish_assets(candidates) != GNEISS_SUCCESS ||
+  if (!matches(candidates.back().data.material.get()) ||
       !matches(resources.get_material(synchronous.get()))) {
     return false;
   }
@@ -742,15 +744,18 @@ int main() try { // NOLINT(readability-function-cognitive-complexity)：集成�
   const auto updated_material_data = resources.share_material(old_material);
   const auto updated_texture_data = resources.share_texture(old_texture);
   memory->files["materials/textured.material.json"] = "{";
+  auto& successful_mesh = memory->files["models/textured.mesh.json"];
+  successful_mesh.replace(successful_mesh.find("[-1,-1,0]"), 9U, "[-2,-1,0]");
   if (loader.reload_assets(reloads, diagnostic) != GNEISS_ERROR_INVALID_ARGUMENT) {
     return 19;
   }
   gneiss::engine::render::material_asset_lease after_failed_reload;
   if (loader.acquire_material(reloads[1].uri, after_failed_reload, diagnostic) != GNEISS_SUCCESS ||
       after_failed_reload.get() != reloaded_material.get() ||
-      resources.share_mesh(old_mesh) != updated_mesh_data ||
+      resources.share_mesh(old_mesh) == updated_mesh_data ||
+      resources.get_mesh(old_mesh)->vertices.front().x != -2.0F ||
       resources.share_material(old_material) != updated_material_data ||
-      resources.share_texture(old_texture) != updated_texture_data) {
+      resources.share_texture(old_texture) == updated_texture_data) {
     return 20;
   }
 

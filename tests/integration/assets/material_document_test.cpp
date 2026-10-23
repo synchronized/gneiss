@@ -3,7 +3,6 @@
 
 #include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/resource/cache/cpu_document_cache.hpp"
-#include "engine/resource/cache/material_document_versions.hpp"
 #include "engine/resource/loaders/material_document_decoder.hpp"
 #include "engine/resource/vfs/native_file_system.hpp"
 #include "engine/resource/vfs/virtual_file_system.hpp"
@@ -19,7 +18,7 @@
 #include <thread>
 #include <type_traits>
 
-static_assert(!std::is_polymorphic_v<gneiss::engine::resource::material_document_lease>);
+static_assert(!std::is_polymorphic_v<gneiss::engine::resource::material_document>);
 
 namespace {
 void check(bool ok, const char* message) {
@@ -71,71 +70,6 @@ void run(std::size_t document_limit) {
   check(files.read("asset://material.json", document_bytes) == GNEISS_SUCCESS, "read new");
   check(decode_material_document(document_bytes, *current, decode_diagnostic) == GNEISS_SUCCESS,
         "decode new");
-  asset_identity identity;
-  check(files.identify("asset://material.json", static_cast<std::uint32_t>(asset_type::material),
-                       identity) == GNEISS_SUCCESS,
-        "material identity");
-  const prepared_source old_source{identity, old->source_bytes, old->digest};
-  const prepared_source new_source{identity, current->source_bytes, current->digest};
-  material_document_lease old_lease, new_lease, found;
-  material_document_versions versions;
-  check(versions.remember(old_source, old, old_lease) == result::success &&
-            versions.remember(new_source, current, new_lease) == result::success,
-        "remember versions");
-  check(versions.find(old_source, found) == result::success && found.get() == old.get(),
-        "find old exact version");
-  check(versions.find(new_source, found) == result::success && found.get() == current.get(),
-        "find new exact version");
-  // 相同内容来自另一次加载，可复用已存活的解析结果。
-  auto duplicate = std::make_shared<material_document>();
-  check(static_cast<bool>(duplicate), "duplicate allocation");
-  duplicate->source = old->source;
-  duplicate->digest = old->digest;
-  duplicate->source_bytes = old->source_bytes;
-  check(versions.remember(old_source, duplicate, found) == result::success &&
-            found.get() == old.get(),
-        "same version canonical document");
-  auto other_source = old_source;
-  other_source.identity.source = std::make_shared<asset_source_domain>();
-  check(versions.find(other_source, found) == result::not_ready && !found,
-        "same uri and bytes in other source cannot hit");
-  check(versions.remember(other_source, duplicate, found) == result::success &&
-            found.get() == duplicate.get(),
-        "different source remains separate");
-  material_document_lease detached;
-  {
-    material_document_versions temporary;
-    check(temporary.remember(old_source, old, detached) == result::success, "temporary index");
-  }
-  check(detached.get() == old.get() && detached.source().identity == identity,
-        "lease survives index destruction");
-  static_assert(std::is_same_v<decltype(detached.get()), const material_document*>);
-  check(versions.remember(old_source, {}, found) == result::invalid_argument && !found,
-        "null document rejected");
-  auto invalid_receipt = old_source;
-  invalid_receipt.digest = current->digest;
-  check(versions.remember(invalid_receipt, old, found) == result::invalid_argument && !found,
-        "digest mismatch rejected");
-  invalid_receipt = old_source;
-  ++invalid_receipt.bytes;
-  check(versions.remember(invalid_receipt, old, found) == result::invalid_argument,
-        "size mismatch rejected");
-  invalid_receipt = old_source;
-  invalid_receipt.identity.type = static_cast<std::uint32_t>(asset_type::texture);
-  check(versions.remember(invalid_receipt, old, found) == result::invalid_argument,
-        "wrong type rejected");
-  invalid_receipt = old_source;
-  invalid_receipt.identity.source.reset();
-  check(versions.remember(invalid_receipt, old, found) == result::invalid_argument,
-        "missing source rejected");
-  duplicate = {};
-  check(versions.find(other_source, found) == result::not_ready,
-        "weak index does not keep document alive");
-  std::weak_ptr<const asset_source_domain> expired_source = other_source.identity.source;
-  other_source = {};
-  versions.collect();
-  check(expired_source.expired(), "collect releases source marker");
-  check(versions.find(old_source, found) == result::success, "collect preserves live old version");
   // 直接走生产使用的分步准备：复用已读取字节，不再从 Loader 启动第二次读取。
   auto shared_documents = std::make_shared<cpu_document_cache>();
   check(shared_documents != nullptr, "material cache enabled");
@@ -191,7 +125,7 @@ void run(std::size_t document_limit) {
       check(status == GNEISS_SUCCESS && batch.assets.size() == 1, "verified material batch");
       check(documents->retain_verified(batch) == GNEISS_SUCCESS, "retain verified documents");
       const auto* retained = batch.assets.front().material_document.get();
-      check(retained && *retained, "typed retained document");
+      check(retained != nullptr, "typed retained document");
       auto second = shared_documents->begin();
       std::vector<std::byte> bytes;
       check(files.read("asset://material.json", bytes) == GNEISS_SUCCESS, "read second document");
@@ -202,12 +136,11 @@ void run(std::size_t document_limit) {
       second_batch.assets.front().material_document.reset();
       check(second->retain_verified(second_batch) == GNEISS_SUCCESS, "retain second");
       const auto* reused = second_batch.assets.front().material_document.get();
-      check(reused && reused->get() == retained->get(), "cross batch document shared");
+      check(reused && reused == retained, "cross batch document shared");
       second_batch = {};
       shared_documents->collect();
-      check(retained->get()->source.parameters.color[0] == 1,
-            "first lease survives second release");
-      // 外壳先释放，两个在途批次仍共享版本索引；租约可再晚于批次释放。
+      check(retained->source.parameters.color[0] == 1, "first lease survives second release");
+      // 外壳先释放，两个在途批次仍共享内容索引；租约可再晚于批次释放。
       auto temporary_cache = std::make_shared<cpu_document_cache>();
       auto detached_first = temporary_cache->begin();
       auto detached_second = temporary_cache->begin();
@@ -224,18 +157,13 @@ void run(std::size_t document_limit) {
       check(detached_second->decode(bytes, parameters, uris, diagnostic) == GNEISS_SUCCESS,
             "second detached batch decode");
       check(detached_second->retain_verified(detached_batch) == GNEISS_SUCCESS &&
-                detached_batch.assets.front().material_document->get() == kept->get(),
-            "detached batches share version index");
+                detached_batch.assets.front().material_document.get() == kept.get(),
+            "detached batches share content index");
       detached_second.reset();
       detached_batch = {};
-      check(kept->get()->source.parameters.color[0] == 1, "lease survives cache and all batches");
+      check(kept->source.parameters.color[0] == 1, "lease survives cache and all batches");
       const auto& prepared = batch.assets.front();
       check(!prepared.sources.empty() && prepared.material.color[0] == 1, "batch version and data");
-      material_document_lease lease;
-      check(versions.remember(prepared.sources.front(), candidate, lease) == result::success,
-            "register only verified batch");
-      check(lease.get()->source.parameters.color[0] == prepared.material.color[0],
-            "lease matches batch");
     }
   };
   prepare(false, false);

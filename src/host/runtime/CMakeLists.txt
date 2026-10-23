@@ -73,7 +73,7 @@ gneiss_target_compile_warnings(gneiss_runtime)
 gneiss_target_output_directories(gneiss_runtime)
 
 if(BUILD_TESTING)
-  foreach(module_fixture IN ITEMS valid missing_symbol invalid_abi initialize_failure)
+  foreach(module_fixture IN ITEMS valid continuous missing_symbol invalid_abi initialize_failure)
     add_library(gneiss_game_module_${module_fixture}_fixture MODULE tests/game_module_fixture.cpp)
     target_link_libraries(gneiss_game_module_${module_fixture}_fixture PRIVATE gneiss::engine)
     target_compile_features(gneiss_game_module_${module_fixture}_fixture PRIVATE cxx_std_20)
@@ -83,6 +83,7 @@ if(BUILD_TESTING)
     gneiss_target_compile_warnings(gneiss_game_module_${module_fixture}_fixture)
     gneiss_target_output_directories(gneiss_game_module_${module_fixture}_fixture)
   endforeach()
+  target_compile_definitions(gneiss_game_module_continuous_fixture PRIVATE GNEISS_TEST_CONTINUOUS_UPDATE)
   target_compile_definitions(
     gneiss_game_module_missing_symbol_fixture PRIVATE GNEISS_TEST_MISSING_QUERY
   )
@@ -218,7 +219,7 @@ if(BUILD_TESTING)
   add_test(NAME gneiss.runtime.async-input-startup
     COMMAND "${CMAKE_COMMAND}"
       -DGNEISS_RUNTIME=$<TARGET_FILE:gneiss_runtime>
-      -DGAME_MODULE=$<TARGET_FILE:gneiss_game_module_valid_fixture>
+      -DGAME_MODULE=$<TARGET_FILE:gneiss_game_module_continuous_fixture>
       -DSOURCE_PROJECT=${PROJECT_SOURCE_DIR}/examples/editor_demo
       -DINPUT_MAP=${PROJECT_SOURCE_DIR}/examples/temple/assets/input/default.input-map.json
       -DTEST_PARENT=${PROJECT_BINARY_DIR}

@@ -679,7 +679,7 @@ void write_application_log(const gneiss::engine::core::log::event_view& source,
           result = gneiss::from_native(completion.result);
           const auto metrics = "prepare_ms=" + std::to_string(completion.prepare_ms) +
                                " commit_ms=" + std::to_string(completion.commit_ms) +
-                               " candidate_bytes=" + std::to_string(completion.candidate_bytes) +
+                               " prepared_bytes=" + std::to_string(completion.prepared_bytes) +
                                " upload_ms=" + std::to_string(completion.upload_ms) +
                                " queue_ms=" + std::to_string(completion.queue_ms) + " " +
                                completion.message;

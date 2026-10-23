@@ -582,12 +582,11 @@ bool invalid_prepared_mesh(const mesh_data& mesh) {
                                }) ||
           !std::ranges::all_of(mesh.indices, [&](auto i) { return i < mesh.vertices.size(); }));
 }
-gneiss_result decode_non_texture(const asset_preparation_source& source,
-                                 const std::vector<std::byte>& bytes, prepared_asset& asset,
-                                 asset_diagnostic& diagnostic, std::size_t material_bytes,
-                                 std::size_t maximum_bytes,
-                                 std::vector<asset_preparation_source>& pending,
-                                 const material_document_decoder& decode_material) {
+gneiss_result
+decode_non_texture(const asset_preparation_source& source, const std::vector<std::byte>& bytes,
+                   prepared_asset& asset, asset_diagnostic& diagnostic, std::size_t material_bytes,
+                   std::size_t maximum_bytes, std::vector<asset_preparation_source>& pending,
+                   const material_document_decoder& decode_material, bool include_dependencies) {
   auto result = GNEISS_SUCCESS;
   if (source.type == asset_type::mesh) {
     result =
@@ -623,7 +622,7 @@ gneiss_result decode_non_texture(const asset_preparation_source& source,
     }
     asset.bytes = material_bytes;
     for (const auto& uri : asset.texture_uris) {
-      if (result == GNEISS_SUCCESS && !uri.empty()) {
+      if (include_dependencies && result == GNEISS_SUCCESS && !uri.empty()) {
         pending.push_back({.uri = uri, .type = asset_type::texture});
       }
       if (uri.size() > maximum_bytes - asset.bytes) {
@@ -750,6 +749,7 @@ struct asset_preparation::state {
   bool read_complete{};
   bool selected{};
   bool deferred_reads{true};
+  bool include_dependencies{true};
   std::chrono::milliseconds io_wait{};
   phase step{phase::select};
   gneiss_result result{GNEISS_SUCCESS};
@@ -1017,7 +1017,8 @@ struct asset_preparation::state {
       }
     } else {
       decoded = decode_non_texture(current.source, input->description, current, diagnostic,
-                                   material_bytes, maximum_bytes, pending, decode_material);
+                                   material_bytes, maximum_bytes, pending, decode_material,
+                                   include_dependencies);
     }
     if (decoded != GNEISS_SUCCESS) {
       return decoded;
@@ -1103,6 +1104,7 @@ asset_preparation::asset_preparation(const virtual_file_system& files,
   value.maximum_assets = budget.maximum_assets;
   value.maximum_bytes = budget.maximum_bytes;
   value.deferred_reads = budget.deferred_reads;
+  value.include_dependencies = budget.include_dependencies;
   value.profile = profile;
   value.decode_material = std::move(decode_material);
   if (requested.empty() || requested.size() > budget.maximum_assets) {

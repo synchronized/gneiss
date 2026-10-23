@@ -1106,7 +1106,7 @@ application::prepare_edit_assets(std::span<const engine::render::render_asset_re
     return GNEISS_ERROR_NOT_READY;
   }
   return service->submit_assets(sources, 1U, revision, request, true,
-                                engine::render::texture_load_service::maximum_candidate_bytes);
+                                engine::render::texture_load_service::maximum_prepared_bytes);
 } catch (const std::bad_alloc&) {
   return GNEISS_ERROR_OUT_OF_MEMORY;
 } catch (...) {

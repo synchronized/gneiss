@@ -4,9 +4,9 @@
 #include "engine/function/render/render_resource_service.hpp"
 #include "engine/function/render/texture_load_service.hpp"
 #include "engine/resource/cache/cpu_document_cache.hpp"
-#include "engine/resource/cache/material_document_lease.hpp"
 #include "engine/resource/loaders/texture_container.hpp"
 #include "engine/resource/loaders/texture_ktx2.hpp"
+#include "engine/resource/types/material_document.hpp"
 #include <algorithm>
 #include <granit/asset_tools/texture_builder.hpp>
 
@@ -200,6 +200,7 @@ void shared_mesh_documents() {
 }
 void independent_update_sequences() {
   virtual_file_system files;
+  check(files.mount("asset://", std::make_shared<memory_files>()) == GNEISS_SUCCESS);
   render_resource_service resources;
   resource_cache cache;
   render_asset_loader loader(files, cache, resources);
@@ -208,28 +209,38 @@ void independent_update_sequences() {
   render_asset_lease a, b;
   check(loader.reserve_asset(source_a, a) == GNEISS_SUCCESS);
   check(loader.reserve_asset(source_b, b) == GNEISS_SUCCESS);
+  virtual_file_system different;
+  check(different.mount("asset://", std::make_shared<memory_files>()) == GNEISS_SUCCESS);
+  render_asset_loader isolated(different, cache, resources);
+  render_asset_lease conflict;
+  check(isolated.reserve_asset(source_a, conflict) == GNEISS_ERROR_INVALID_HANDLE && !conflict);
+  check(!isolated.owns(a));
+  const auto copied = files;
+  render_asset_loader shared(copied, cache, resources);
+  check(shared.reserve_asset(source_a, conflict) == GNEISS_SUCCESS && conflict.get() == a.get());
+
   const auto stage = [&](const auto& source, const auto& target, auto sequence, auto& output) {
     prepared_render_asset prepared;
     prepared.source = source;
-    return loader.stage_asset(std::move(prepared), {}, output, target, sequence);
+    return loader.prepare_upload(std::move(prepared), output, target, sequence);
   };
-  std::array<render_asset_loader::asset_candidate, 1> first, unrelated, late, latest;
+  std::array<render_asset_loader::asset_upload, 1> first, unrelated, late, latest;
   const auto first_sequence = loader.next_update_sequence();
   check(stage(source_a, a, first_sequence, first.front()) == GNEISS_SUCCESS);
   check(stage(source_b, b, loader.next_update_sequence(), unrelated.front()) == GNEISS_SUCCESS);
-  check(loader.publish_assets(unrelated) == GNEISS_SUCCESS);
-  check(loader.publish_assets(first) == GNEISS_SUCCESS);
+  check(loader.complete_upload(unrelated.front()) == GNEISS_SUCCESS);
+  check(loader.complete_upload(first.front()) == GNEISS_SUCCESS);
   const auto previous = resources.share_material(a.get());
   const auto old_sequence = loader.next_update_sequence();
   check(stage(source_a, a, old_sequence, late.front()) == GNEISS_SUCCESS);
   const auto new_sequence = loader.next_update_sequence();
   check(loader.claim_update(a, new_sequence));
   // 新请求尚未完成也阻止旧任务覆盖；最新请求失败时仍保留当前成功内容。
-  check(loader.publish_assets(late) == GNEISS_ERROR_INVALID_STATE);
+  check(loader.complete_upload(late.front()) == GNEISS_ERROR_INVALID_STATE);
   check(resources.share_material(a.get()) == previous);
   check(stage(source_a, a, old_sequence, late.front()) == GNEISS_ERROR_INVALID_STATE);
   check(stage(source_a, a, new_sequence, latest.front()) == GNEISS_SUCCESS);
-  check(loader.publish_assets(latest) == GNEISS_SUCCESS);
+  check(loader.complete_upload(latest.front()) == GNEISS_SUCCESS);
 }
 void reserved_material_lifetime() {
   auto source = std::make_shared<memory_files>();
@@ -242,16 +253,16 @@ void reserved_material_lifetime() {
   render_asset_lease target;
   check(loader.reserve_asset(request, target) == GNEISS_SUCCESS);
   const auto rid = target.get();
-  auto document = std::make_shared<material_document_lease>();
-  std::weak_ptr<const material_document_lease> lifetime = document;
+  auto document = std::make_shared<material_document>();
+  std::weak_ptr<const material_document> lifetime = document;
   prepared_render_asset prepared;
   prepared.source = request;
   prepared.material_document = document;
-  std::array<render_asset_loader::asset_candidate, 1> candidates;
-  check(loader.stage_asset(std::move(prepared), {}, candidates.front(), target) == GNEISS_SUCCESS);
+  std::array<render_asset_loader::asset_upload, 1> candidates;
+  check(loader.prepare_upload(std::move(prepared), candidates.front(), target) == GNEISS_SUCCESS);
   document.reset();
   check(!lifetime.expired() && resources.material_status(rid) == GNEISS_ERROR_NOT_READY);
-  check(loader.publish_assets(candidates) == GNEISS_SUCCESS);
+  check(loader.complete_upload(candidates.front()) == GNEISS_SUCCESS);
   candidates = {};
   check(!lifetime.expired() && resources.material_status(rid) == GNEISS_SUCCESS);
   target = {};
@@ -773,17 +784,32 @@ void mixed(engine::core::tasks::execution_mode mode, bool pbr = false) {
     for (const auto texture : material->texture_handles()) {
       check(texture != gneiss::engine::core::null_rid && resources.get_texture(texture) != nullptr);
     }
-    // 丢失附加纹理时不得发布部分材质，也不能替换已有版本。
+    // 材质重载复用已成功的纹理；文件丢失不会隐式触发纹理重载。
     const auto retained = resources.share_material(material_lease.get());
     files->files.erase("3.texture.json");
     check(service.submit_assets(requested, 1U, 4U, request) == GNEISS_SUCCESS);
     until([&] { return service.take(completion); });
-    check(completion.state == texture_load_state::failed &&
-          resources.share_material(material_lease.get()) == retained);
-    check(completion.assets.size() == 5U &&
+    check(completion.state == texture_load_state::applied &&
+          resources.share_material(material_lease.get()) != retained);
+    check(completion.assets.size() == expected_assets &&
           std::ranges::count_if(completion.results, [](const auto& item) {
             return item.applied && item.source.type == render_asset_type::mesh;
           }) == 5U);
+    // 显式重载丢失纹理只使该项失败；材质和网格成功更新，旧纹理仍可用。
+    auto explicit_texture = requested;
+    explicit_texture.push_back({"asset://3.texture.json", render_asset_type::texture});
+    const auto texture_rid = resources.get_material(material_lease.get())->occlusion_texture;
+    const auto old_texture = resources.share_texture(texture_rid);
+    check(service.submit_assets(explicit_texture, 1U, 5U, request) == GNEISS_SUCCESS);
+    until([&] { return service.take(completion); });
+    check(completion.state == texture_load_state::failed &&
+          completion.assets.size() == expected_assets - 1U &&
+          resources.share_texture(texture_rid) == old_texture);
+    const auto failure = std::ranges::find_if(completion.results, [](const auto& item) {
+      return item.source.uri == "asset://3.texture.json";
+    });
+    check(failure != completion.results.end() && !failure->applied &&
+          failure->result == GNEISS_ERROR_NOT_FOUND && completion.results.front().applied);
   }
   // 同 URI 类型冲突、依赖缺失、闭包容量限制都必须在发布前拒绝。
   prepared_render_batch prepared;
@@ -963,7 +989,7 @@ void cancel_unpublished_upload(engine::core::tasks::execution_mode mode, bool af
           },
       .discard =
           [&](auto data, auto& sequence) {
-            check(data.size() == (after_first ? 1U : 2U));
+            check(data.size() == 1U);
             retained = std::move(data);
             sequence = 2U;
             ++discards;
@@ -1024,8 +1050,8 @@ void cancel_unpublished_upload(engine::core::tasks::execution_mode mode, bool af
   }
   check(service.submit(uris, 1U, 2U, request, false) == GNEISS_SUCCESS);
   until([&] { return service.take(completion); });
-  check(completion.state == texture_load_state::applied && uploads == submitted + 2U &&
-        discards == 1U && cache.size() == 2U);
+  check(completion.state == texture_load_state::applied &&
+        uploads == submitted + (after_first ? 1U : 2U) && discards == 1U && cache.size() == 2U);
 }
 } // namespace
 

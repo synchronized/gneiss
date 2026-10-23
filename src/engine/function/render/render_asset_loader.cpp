@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/function/render/render_asset_loader.hpp"
+#include <atomic>
 
 #include "engine/function/render/render_resource_service.hpp"
 #include "engine/resource/loaders/asset_parsing.hpp"
@@ -27,7 +28,7 @@ using namespace gneiss::engine::resource::asset_parsing;
 
 // 仅在所属线程的发布边界构造资源值，随后绑定经过验证的纹理租约。
 [[nodiscard]] gneiss::engine::render::material_resource
-material_for_publication(const gneiss::engine::resource::material_parameters& parameters) noexcept {
+material_data(const gneiss::engine::resource::material_parameters& parameters) noexcept {
   gneiss::engine::render::material_resource material{
       .red = parameters.color[0],
       .green = parameters.color[1],
@@ -50,18 +51,20 @@ material_for_publication(const gneiss::engine::resource::material_parameters& pa
 
 // 数组所有权在发布边界移动，弱上传引用由 Render 随后建立。
 [[nodiscard]] gneiss::engine::render::texture_resource
-texture_for_publication(gneiss::engine::resource::prepared_texture_data prepared) noexcept {
-  return {.width = prepared.width,
-          .height = prepared.height,
-          .format = prepared.format,
-          .color_space = prepared.color_space,
-          .levels = std::move(prepared.levels),
-          .manifest = std::move(prepared.manifest),
-          .payload = std::move(prepared.payload),
-          .profile = prepared.profile,
-          .selected_variant = prepared.selected_variant,
-          .payload_source = std::move(prepared.payload_source),
-          .upload_payload = {}};
+texture_data(gneiss::engine::resource::prepared_texture_data prepared) noexcept {
+  return {
+      .width = prepared.width,
+      .height = prepared.height,
+      .format = prepared.format,
+      .color_space = prepared.color_space,
+      .levels = std::move(prepared.levels),
+      .manifest = std::move(prepared.manifest),
+      .payload = std::move(prepared.payload),
+      .profile = prepared.profile,
+      .selected_variant = prepared.selected_variant,
+      .payload_source = std::move(prepared.payload_source),
+      .upload_payload = {},
+  };
 }
 
 constexpr std::uint32_t mesh_type = 1;
@@ -96,7 +99,7 @@ struct material_asset final {
   gneiss::engine::core::rid rid;
   std::uint64_t update_sequence{};
   std::array<std::shared_ptr<const gneiss::engine::resource::resource_cache::entry>, 5> textures;
-  std::shared_ptr<const gneiss::engine::resource::material_document_lease> document;
+  std::shared_ptr<const gneiss::engine::resource::material_document> document;
   ~material_asset() {
     if (resources != nullptr && rid != gneiss::engine::core::null_rid) {
       (void)resources->destroy_material(rid);
@@ -119,6 +122,30 @@ struct texture_asset final {
     }
   }
 };
+
+gneiss_result
+append_texture_dependencies(std::vector<gneiss::engine::render::render_asset_reload>& queue,
+                            const std::array<std::string, 5>& uris) {
+  using gneiss::engine::render::render_asset_type;
+  for (const auto& uri : uris) {
+    if (uri.empty()) {
+      continue;
+    }
+    const auto found =
+        std::ranges::find_if(queue, [&](const auto& item) { return item.uri == uri; });
+    if (found != queue.end()) {
+      if (found->type != render_asset_type::texture) {
+        return GNEISS_ERROR_INVALID_ARGUMENT;
+      }
+      continue;
+    }
+    if (queue.size() == 256U) {
+      return GNEISS_ERROR_INVALID_ARGUMENT;
+    }
+    queue.push_back({.uri = uri, .type = render_asset_type::texture});
+  }
+  return GNEISS_SUCCESS;
+}
 
 } // namespace
 
@@ -167,7 +194,10 @@ std::uint64_t render_asset_lease::get() const noexcept {
   return 0U;
 }
 bool render_asset_loader::owns(const render_asset_lease& lease) const noexcept {
-  if (!lease.entry_ || !lease.entry_->resource) {
+  engine::resource::asset_identity identity;
+  if (!lease.entry_ || !lease.entry_->resource ||
+      file_system_.identify(lease.entry_->uri, lease.entry_->type, identity) != GNEISS_SUCCESS ||
+      identity.source != lease.entry_->source) {
     return false;
   }
   switch (lease.type()) {
@@ -241,6 +271,9 @@ gneiss_result render_asset_loader::acquire_cached(const render_asset_reload& sou
     }
     render_asset_lease target;
     target.entry_ = current;
+    if (!owns(target)) {
+      return GNEISS_ERROR_INVALID_HANDLE;
+    }
     auto status = GNEISS_ERROR_INVALID_ARGUMENT;
     switch (source.type) {
     case render_asset_type::texture:
@@ -282,6 +315,12 @@ gneiss_result render_asset_loader::acquire_cached(const render_asset_reload& sou
   }
 }
 
+std::uint64_t render_asset_loader::next_update_sequence() noexcept {
+  // 多个加载器可共享同一来源缓存；请求顺序不能在每个加载器中从头计数。
+  static std::atomic_uint64_t sequence{};
+  return sequence.fetch_add(1U, std::memory_order_relaxed) + 1U;
+}
+
 std::uint64_t*
 render_asset_loader::update_sequence(const render_asset_lease& lease) const noexcept {
   if (!owns(lease)) {
@@ -315,6 +354,12 @@ gneiss_result render_asset_loader::reserve_asset(const render_asset_reload& sour
   try {
     if (engine::resource::validate_uri(source.uri) != GNEISS_SUCCESS) {
       return GNEISS_ERROR_INVALID_ARGUMENT;
+    }
+    engine::resource::asset_identity identity;
+    const auto identified =
+        file_system_.identify(source.uri, static_cast<std::uint32_t>(source.type), identity);
+    if (identified != GNEISS_SUCCESS) {
+      return identified;
     }
     render_asset_lease lease;
     lease.entry_ = cache_.observe(source.uri).lock();
@@ -356,7 +401,7 @@ gneiss_result render_asset_loader::reserve_asset(const render_asset_reload& sour
             value = resource;
             return GNEISS_SUCCESS;
           },
-          output.entry_);
+          output.entry_, identity.source);
     }
     return result;
   } catch (const std::bad_alloc&) {
@@ -366,196 +411,130 @@ gneiss_result render_asset_loader::reserve_asset(const render_asset_reload& sour
   }
 }
 
-gneiss_result render_asset_loader::stage_asset(prepared_render_asset prepared,
-                                               std::span<const asset_candidate> staged,
-                                               asset_candidate& output,
-                                               const render_asset_lease& reserved,
-                                               std::uint64_t sequence) noexcept {
-  output = {};
-  try {
-    asset_candidate candidate;
-    candidate.source = prepared.source;
-    candidate.bytes = prepared.bytes;
-    render_asset_lease target = reserved;
-    if (!target) {
-      const auto result = reserve_asset(prepared.source, target);
-      if (result != GNEISS_SUCCESS) {
-        return result;
-      }
+gneiss_result render_asset_loader::prepare_material_upload(prepared_render_asset& prepared,
+                                                           asset_upload& upload) {
+  auto material = material_data(prepared.material);
+  for (std::size_t slot = 0; slot < prepared.texture_uris.size(); ++slot) {
+    const auto& uri = prepared.texture_uris[slot];
+    if (uri.empty()) {
+      continue;
     }
-    if (reserved && (reserved.type() != prepared.source.type ||
-                     reserved.uri() != prepared.source.uri || !owns(reserved))) {
-      return GNEISS_ERROR_INVALID_ARGUMENT;
+    render_asset_lease dependency;
+    const auto reserved =
+        reserve_asset({.uri = uri, .type = render_asset_type::texture}, dependency);
+    if (reserved != GNEISS_SUCCESS) {
+      return reserved;
     }
-    {
-      candidate.update_sequence = sequence == 0U ? next_update_sequence() : sequence;
-      if (!claim_update(target, candidate.update_sequence)) {
-        return GNEISS_ERROR_INVALID_STATE;
-      }
-    }
-
-    const auto current = cache_.observe(prepared.source.uri).lock();
-    if (target && current != target.entry_) {
-      return GNEISS_ERROR_INVALID_STATE;
-    }
-    if (current && (current->type != static_cast<std::uint32_t>(prepared.source.type) ||
-                    current->state != engine::resource::resource_state::ready)) {
-      return GNEISS_ERROR_INVALID_ARGUMENT;
-    }
-    candidate.expected = current;
-
-    std::shared_ptr<void> owned;
-    std::uint64_t rid{};
-    auto created = GNEISS_ERROR_INVALID_ARGUMENT;
-    if (prepared.source.type == render_asset_type::texture) {
-      auto texture = texture_for_publication(std::move(prepared.texture));
-      if (texture.payload_source) {
-        if (texture.profile.generation == 0U ||
-            texture.payload.size() != texture.payload_source->size()) {
-          return GNEISS_ERROR_INVALID_ARGUMENT;
-        }
-        candidate.texture_payload =
-            std::make_shared<const std::vector<std::byte>>(std::move(texture.payload));
-        texture.upload_payload = candidate.texture_payload;
-      }
-      created = texture.manifest.empty()
-                    ? resources_.create_texture(std::move(texture), &rid)
-                    : resources_.create_packaged_texture(std::move(texture), &rid);
-      if (created != GNEISS_SUCCESS) {
-        return created;
-      }
-      try {
-        owned = std::make_shared<texture_asset>(resources_, rid);
-      } catch (...) {
-        (void)resources_.destroy_texture(rid);
-        throw;
-      }
-      candidate.texture = resources_.share_texture(rid);
-    } else if (prepared.source.type == render_asset_type::mesh) {
-      created = prepared.shared_mesh
-                    ? resources_.create_prepared_mesh(std::move(prepared.shared_mesh), &rid)
-                    : resources_.create_prepared_mesh(std::move(prepared.mesh), &rid);
-      if (created != GNEISS_SUCCESS) {
-        return created;
-      }
-      try {
-        owned = std::make_shared<mesh_asset>(resources_, rid);
-      } catch (...) {
-        (void)resources_.destroy_mesh(rid);
-        throw;
-      }
-      candidate.mesh = resources_.share_mesh(rid);
-    } else if (prepared.source.type == render_asset_type::material) {
-      auto material = material_for_publication(prepared.material);
-      for (std::size_t slot = 0; slot < prepared.texture_uris.size(); ++slot) {
-        const auto& uri = prepared.texture_uris[slot];
-        if (uri.empty()) {
-          continue;
-        }
-        const auto found = std::ranges::find_if(staged, [&](const auto& other) {
-          return other.source.uri == uri && other.source.type == render_asset_type::texture;
-        });
-        if (found == staged.end()) {
-          return GNEISS_ERROR_INVALID_STATE;
-        }
-
-        material.set_texture(slot, found->lease.get());
-        candidate.dependencies[slot] = found->lease.entry_;
-        candidate.dependency_textures[slot] = found->texture;
-      }
-      created = resources_.create_material(material, &rid);
-      if (created != GNEISS_SUCCESS) {
-        return created;
-      }
-      try {
-        auto asset = std::make_shared<material_asset>(resources_, rid, candidate.dependencies);
-        candidate.document = std::move(prepared.material_document);
-        asset->document = candidate.document;
-        owned = std::move(asset);
-      } catch (...) {
-        (void)resources_.destroy_material(rid);
-        throw;
-      }
-      candidate.material = resources_.share_material(rid);
-    } else {
-      return GNEISS_ERROR_INVALID_ARGUMENT;
-    }
-    if (current) {
-      candidate.lease.entry_ = current;
-      const auto existing = candidate.lease.get();
-      switch (prepared.source.type) {
-      case render_asset_type::invalid:
-        return GNEISS_ERROR_INVALID_ARGUMENT;
-      case render_asset_type::texture:
-        candidate.previous = resources_.share_texture(existing);
-        break;
-      case render_asset_type::mesh:
-        candidate.previous = resources_.share_mesh(existing);
-        break;
-      case render_asset_type::material:
-        candidate.previous = resources_.share_material(existing);
-        break;
-      }
-      if (!owns(candidate.lease)) {
-        return GNEISS_ERROR_INVALID_HANDLE;
-      }
-    }
-    output = std::move(candidate);
-    return GNEISS_SUCCESS;
-  } catch (const std::bad_alloc&) {
-    return GNEISS_ERROR_OUT_OF_MEMORY;
-  } catch (...) {
-    return GNEISS_ERROR_INTERNAL;
+    material.set_texture(slot, dependency.get());
+    upload.dependencies[slot] = dependency.entry_;
+    upload.data.dependency_textures[slot] = resources_.share_texture(dependency.get());
   }
+  upload.document = std::move(prepared.material_document);
+  return resources_.prepare_material_data(material, upload.data.material);
 }
 
-gneiss_result render_asset_loader::publish_assets(std::span<asset_candidate> candidates) noexcept {
-  try {
-    for (const auto& candidate : candidates) {
-      const auto current = cache_.observe(candidate.source.uri).lock();
-      std::shared_ptr<const void> previous;
-      if (candidate.texture) {
-        previous = resources_.share_texture(candidate.lease.get());
-      } else if (candidate.mesh) {
-        previous = resources_.share_mesh(candidate.lease.get());
-      } else if (candidate.material) {
-        previous = resources_.share_material(candidate.lease.get());
-      }
-      if (!owns(candidate.lease) || !current || current != candidate.expected.lock() ||
-          previous != candidate.previous ||
-          *update_sequence(candidate.lease) != candidate.update_sequence) {
-        return GNEISS_ERROR_INVALID_STATE;
-      }
+gneiss_result render_asset_loader::prepare_upload(prepared_render_asset prepared,
+                                                  asset_upload& output,
+                                                  const render_asset_lease& target,
+                                                  std::uint64_t sequence) noexcept try {
+  output = {};
+  asset_upload upload;
+  upload.target = target;
+  if (!upload.target) {
+    const auto reserved = reserve_asset(prepared.source, upload.target);
+    if (reserved != GNEISS_SUCCESS) {
+      return reserved;
     }
-    // 所有分配和校验已经完成，以下共享指针交换不会失败。
-    for (auto& candidate : candidates) {
-      const auto rid = candidate.lease.get();
-      if (candidate.texture) {
-        (void)resources_.replace_texture(rid, candidate.texture);
-      }
-      if (candidate.mesh) {
-        (void)resources_.replace_mesh(rid, candidate.mesh);
-      }
-      if (candidate.material) {
-        std::static_pointer_cast<material_asset>(candidate.lease.entry_->resource)->textures =
-            candidate.dependencies;
-        std::static_pointer_cast<material_asset>(candidate.lease.entry_->resource)->document =
-            candidate.document;
-        (void)resources_.replace_material(rid, candidate.material);
-      }
-    }
-    return GNEISS_SUCCESS;
-  } catch (const std::bad_alloc&) {
-    return GNEISS_ERROR_OUT_OF_MEMORY;
-  } catch (...) {
-    return GNEISS_ERROR_INTERNAL;
   }
+  if (upload.target.type() != prepared.source.type || upload.target.uri() != prepared.source.uri ||
+      !owns(upload.target)) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  for (const auto& input : prepared.sources) {
+    engine::resource::asset_identity identity;
+    if (file_system_.identify(input.identity.uri, input.identity.type, identity) !=
+            GNEISS_SUCCESS ||
+        identity != input.identity) {
+      return GNEISS_ERROR_INVALID_ARGUMENT;
+    }
+  }
+  upload.sequence = sequence == 0U ? next_update_sequence() : sequence;
+  if (!claim_update(upload.target, upload.sequence)) {
+    return GNEISS_ERROR_INVALID_STATE;
+  }
+  upload.data.bytes = prepared.bytes;
+  gneiss_result result{GNEISS_ERROR_INVALID_ARGUMENT};
+  switch (prepared.source.type) {
+  case render_asset_type::mesh:
+    result = resources_.prepare_mesh_data(
+        prepared.shared_mesh ? std::move(prepared.shared_mesh)
+                             : std::make_shared<const mesh_resource>(std::move(prepared.mesh)),
+        upload.data.mesh);
+    break;
+  case render_asset_type::texture: {
+    auto texture = texture_data(std::move(prepared.texture));
+    if (texture.payload_source) {
+      if (texture.profile.generation == 0U ||
+          texture.payload.size() != texture.payload_source->size()) {
+        return GNEISS_ERROR_INVALID_ARGUMENT;
+      }
+      upload.data.texture_payload =
+          std::make_shared<const std::vector<std::byte>>(std::move(texture.payload));
+      texture.upload_payload = upload.data.texture_payload;
+    }
+    result = resources_.prepare_texture_data(std::move(texture), upload.data.texture);
+    break;
+  }
+  case render_asset_type::material:
+    result = prepare_material_upload(prepared, upload);
+    break;
+  case render_asset_type::invalid:
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  if (result == GNEISS_SUCCESS) {
+    output = std::move(upload);
+  }
+  return result;
+} catch (const std::bad_alloc&) {
+  return GNEISS_ERROR_OUT_OF_MEMORY;
+} catch (...) {
+  return GNEISS_ERROR_INTERNAL;
+}
+
+gneiss_result render_asset_loader::complete_upload(asset_upload& upload) noexcept {
+  if (!owns(upload.target) || *update_sequence(upload.target) != upload.sequence) {
+    return GNEISS_ERROR_INVALID_STATE;
+  }
+  const auto rid = upload.target.get();
+  if (upload.data.mesh) {
+    return resources_.replace_mesh(rid, upload.data.mesh) ? GNEISS_SUCCESS
+                                                          : GNEISS_ERROR_OUT_OF_MEMORY;
+  }
+  if (upload.data.texture) {
+    return resources_.replace_texture(rid, upload.data.texture) ? GNEISS_SUCCESS
+                                                                : GNEISS_ERROR_OUT_OF_MEMORY;
+  }
+  if (!upload.data.material) {
+    return GNEISS_ERROR_INVALID_ARGUMENT;
+  }
+  if (!resources_.replace_material(rid, upload.data.material)) {
+    return GNEISS_ERROR_OUT_OF_MEMORY;
+  }
+  auto material = std::static_pointer_cast<material_asset>(upload.target.entry_->resource);
+  material->textures = upload.dependencies;
+  material->document = upload.document;
+  return GNEISS_SUCCESS;
 }
 
 gneiss_result render_asset_loader::acquire_mesh(std::string_view uri, mesh_asset_lease& out_lease,
                                                 asset_diagnostic& out_diagnostic) noexcept {
   out_lease = {};
   out_diagnostic = {};
+  engine::resource::asset_identity identity;
+  const auto identified = file_system_.identify(uri, mesh_type, identity);
+  if (identified != GNEISS_SUCCESS) {
+    return identified;
+  }
   const auto result = cache_.acquire(
       uri, mesh_type,
       [this, uri, &out_diagnostic](std::shared_ptr<void>& output) -> gneiss_result {
@@ -578,12 +557,14 @@ gneiss_result render_asset_loader::acquire_mesh(std::string_view uri, mesh_asset
         if (result != GNEISS_SUCCESS) {
           return result;
         }
-        const engine::resource::mesh_view desc{.vertices = vertices,
-                                               .normals = normals,
-                                               .indices = indices,
-                                               .tangents = tangents,
-                                               .uv1 = uv1,
-                                               .colors = colors};
+        const engine::resource::mesh_view desc{
+            .vertices = vertices,
+            .normals = normals,
+            .indices = indices,
+            .tangents = tangents,
+            .uv1 = uv1,
+            .colors = colors,
+        };
         gneiss::engine::core::rid rid = gneiss::engine::core::null_rid;
         result = resources_.create_mesh(desc, &rid);
         if (result != GNEISS_SUCCESS) {
@@ -598,8 +579,14 @@ gneiss_result render_asset_loader::acquire_mesh(std::string_view uri, mesh_asset
         }
         return GNEISS_SUCCESS;
       },
-      out_lease.entry_);
+      out_lease.entry_, identity.source);
   if (result == GNEISS_SUCCESS) {
+    render_asset_lease target;
+    target.entry_ = out_lease.entry_;
+    if (!owns(target)) {
+      out_lease = {};
+      return GNEISS_ERROR_INVALID_HANDLE;
+    }
     const auto status = resources_.mesh_status(out_lease.get());
     if (status != GNEISS_SUCCESS) {
       out_lease = {};
@@ -618,6 +605,11 @@ gneiss_result render_asset_loader::acquire_material(std::string_view uri,
                                                     asset_diagnostic& out_diagnostic) noexcept {
   out_lease = {};
   out_diagnostic = {};
+  engine::resource::asset_identity identity;
+  const auto identified = file_system_.identify(uri, material_type, identity);
+  if (identified != GNEISS_SUCCESS) {
+    return identified;
+  }
   const auto result = cache_.acquire(
       uri, material_type,
       [this, uri, &out_diagnostic](std::shared_ptr<void>& output) -> gneiss_result {
@@ -632,7 +624,7 @@ gneiss_result render_asset_loader::acquire_material(std::string_view uri,
         if (result != GNEISS_SUCCESS) {
           return result;
         }
-        auto material = material_for_publication(source.parameters);
+        auto material = material_data(source.parameters);
 
         std::array<std::shared_ptr<const engine::resource::resource_cache::entry>, 5> dependencies;
         constexpr std::array names{
@@ -668,8 +660,14 @@ gneiss_result render_asset_loader::acquire_material(std::string_view uri,
         }
         return GNEISS_SUCCESS;
       },
-      out_lease.entry_);
+      out_lease.entry_, identity.source);
   if (result == GNEISS_SUCCESS) {
+    render_asset_lease target;
+    target.entry_ = out_lease.entry_;
+    if (!owns(target)) {
+      out_lease = {};
+      return GNEISS_ERROR_INVALID_HANDLE;
+    }
     const auto status = resources_.material_status(out_lease.get());
     if (status != GNEISS_SUCCESS) {
       out_lease = {};
@@ -688,6 +686,11 @@ gneiss_result render_asset_loader::acquire_texture(std::string_view uri,
                                                    asset_diagnostic& out_diagnostic) noexcept {
   out_lease = {};
   out_diagnostic = {};
+  engine::resource::asset_identity identity;
+  const auto identified = file_system_.identify(uri, texture_type, identity);
+  if (identified != GNEISS_SUCCESS) {
+    return identified;
+  }
   const auto result = cache_.acquire(
       uri, texture_type,
       [this, uri, &out_diagnostic](std::shared_ptr<void>& output) -> gneiss_result {
@@ -697,7 +700,7 @@ gneiss_result render_asset_loader::acquire_texture(std::string_view uri,
           return result;
         }
         gneiss::engine::core::rid rid = gneiss::engine::core::null_rid;
-        auto texture = texture_for_publication(std::move(prepared));
+        auto texture = texture_data(std::move(prepared));
         result = texture.manifest.empty()
                      ? resources_.create_texture(std::move(texture), &rid)
                      : resources_.create_packaged_texture(std::move(texture), &rid);
@@ -713,8 +716,14 @@ gneiss_result render_asset_loader::acquire_texture(std::string_view uri,
         }
         return GNEISS_SUCCESS;
       },
-      out_lease.entry_);
+      out_lease.entry_, identity.source);
   if (result == GNEISS_SUCCESS) {
+    render_asset_lease target;
+    target.entry_ = out_lease.entry_;
+    if (!owns(target)) {
+      out_lease = {};
+      return GNEISS_ERROR_INVALID_HANDLE;
+    }
     const auto status = resources_.texture_status(out_lease.get());
     if (status != GNEISS_SUCCESS) {
       out_lease = {};
@@ -735,30 +744,58 @@ gneiss_result render_asset_loader::reload_assets(std::span<const render_asset_re
     return GNEISS_ERROR_INVALID_ARGUMENT;
   }
   try {
-    prepared_render_batch batch;
-    auto result = prepare_render_assets(file_system_, assets, batch, out_diagnostic, {}, 256U,
-                                        std::size_t{256U} * 1024U * 1024U, default_profile_);
-    if (result != GNEISS_SUCCESS) {
-      return result;
+    if (assets.size() > 256U) {
+      return GNEISS_ERROR_INVALID_ARGUMENT;
     }
-    std::vector<asset_candidate> candidates;
-    candidates.reserve(batch.assets.size());
-    for (auto& prepared : batch.assets) {
-      asset_candidate candidate;
-      result = stage_asset(std::move(prepared), candidates, candidate);
-      if (result != GNEISS_SUCCESS) {
-        fail(out_diagnostic, result, "", "同步重载资产暂存失败");
-        candidates.clear();
-        release_unused();
-        return result;
+    std::vector<render_asset_reload> queue(assets.begin(), assets.end());
+    gneiss_result summary{GNEISS_SUCCESS};
+    for (std::size_t index = 0; index < queue.size(); ++index) {
+      const auto source = queue[index];
+      render_asset_lease target;
+      if (index >= assets.size() &&
+          acquire_cached(source, target, default_profile_) == GNEISS_SUCCESS) {
+        continue;
       }
-      candidates.push_back(std::move(candidate));
+      auto updated = reserve_asset(source, target);
+      if (updated != GNEISS_SUCCESS) {
+        summary = updated;
+        continue;
+      }
+      engine::resource::asset_preparation preparation(
+          file_system_, std::span(&source, 1U),
+          {
+              .material_bytes = sizeof(material_resource),
+              .maximum_assets = 1U,
+              .maximum_bytes = std::size_t{256U} * 1024U * 1024U,
+              .deferred_reads = false,
+              .include_dependencies = false,
+          },
+          default_profile_);
+      prepared_render_batch batch;
+      bool complete{};
+      do {
+        updated = preparation.advance(std::size_t{256U} * 1024U * 1024U, {}, batch, out_diagnostic,
+                                      complete);
+      } while (!complete && updated == GNEISS_SUCCESS);
+      if (updated == GNEISS_SUCCESS) {
+        auto& prepared = batch.assets.front();
+        updated = append_texture_dependencies(queue, prepared.texture_uris);
+        asset_upload upload;
+        if (updated == GNEISS_SUCCESS) {
+          updated = prepare_upload(std::move(prepared), upload, target);
+        }
+        if (updated == GNEISS_SUCCESS) {
+          updated = complete_upload(upload);
+        }
+      }
+      if (updated != GNEISS_SUCCESS) {
+        summary = updated;
+      }
     }
-    result = publish_assets(candidates);
-    if (result != GNEISS_SUCCESS) {
-      fail(out_diagnostic, result, "", "同步重载资产发布失败");
+    if (summary != GNEISS_SUCCESS) {
+      fail(out_diagnostic, summary, "", "部分资源同步更新失败");
     }
-    return result;
+    return summary;
   } catch (const std::bad_alloc&) {
     return GNEISS_ERROR_OUT_OF_MEMORY;
   } catch (...) {

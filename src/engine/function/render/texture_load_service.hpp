@@ -40,7 +40,8 @@ struct texture_load_completion {
   double queue_ms{};
   double upload_ms{};
   double commit_ms{};
-  std::size_t candidate_bytes{};
+  /** 本请求累计成功解码的字节估算，不是同时驻留内存。 */
+  std::size_t prepared_bytes{};
   /** 后端估算的最大单次在途上传字节，不是驱动显存统计。 */
   std::size_t peak_upload_bytes{};
 };
@@ -66,17 +67,17 @@ struct asset_load_progress {
   std::size_t upload_reserved_bytes{};
 };
 
-/** 主线程服务；只读 VFS 副本和候选由任务拥有，缓存及 GPU 操作仍留在所属线程。
+/** 主线程服务；只读 VFS 副本和单项临时数据由任务拥有，缓存及 GPU 操作仍留在所属线程。
  * 挂载后端在服务生存期内不得重配，read_bounded 须支持只读并发访问。
  * 只接受一个在途批次；宿主保序排队，容量满返回 NOT_READY，不自动创建池。 */
 class texture_load_service final {
 public:
   static constexpr std::size_t maximum_batch = 16U;
   static constexpr std::size_t maximum_assets = 256U;
-  static constexpr std::size_t maximum_candidate_bytes = 256U * 1024U * 1024U;
+  static constexpr std::size_t maximum_prepared_bytes = 256U * 1024U * 1024U;
   // 8 MiB 为分批目标；不可拆单资产允许超出，但不得超过上传硬上限。
   static constexpr std::size_t upload_budget_bytes = 8U * 1024U * 1024U;
-  static constexpr std::size_t maximum_upload_bytes = maximum_candidate_bytes;
+  static constexpr std::size_t maximum_upload_bytes = maximum_prepared_bytes;
   static constexpr std::size_t maximum_bytes = 64U * 1024U * 1024U;
   texture_load_service(engine::core::tasks::task_executor& executor,
                        engine::resource::virtual_file_system file_system,
@@ -90,7 +91,7 @@ public:
   [[nodiscard]] gneiss_result
   submit_assets(std::span<const engine::render::render_asset_reload> sources, std::uint64_t session,
                 std::uint64_t revision, std::uint64_t& request, bool reload = true,
-                std::size_t prepare_limit = maximum_candidate_bytes);
+                std::size_t prepare_limit = maximum_prepared_bytes);
   [[nodiscard]] bool progress(asset_load_progress& output) const;
   /** 所属线程借用请求目标，普通模式提交成功即可取得；下一次推进/取回执后重新查询。
    * 需要长期引用的使用者复制租约；引用有效不代表内容已就绪。
@@ -111,6 +112,11 @@ private:
   struct pending;
   engine::core::tasks::submit_result submit_preparation(pending& value);
   bool advance_preparation(pending& value);
+  gneiss_result enqueue_dependencies(pending& value, const prepared_render_asset& asset);
+  void finish_item(gneiss_result result, bool applied);
+  void poll_upload(pending& value);
+  bool start_item(pending& value);
+  bool prepare_item_upload(pending& value);
   void advance_impl();
   void check_owner() const;
   void finish(gneiss_result result, texture_load_state state);

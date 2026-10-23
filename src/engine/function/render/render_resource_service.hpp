@@ -60,6 +60,16 @@ public:
                                              std::shared_ptr<const mesh_resource> data) noexcept;
   [[nodiscard]] bool replace_material(engine::core::rid rid,
                                       std::shared_ptr<const material_resource> data) noexcept;
+  /** 校验并登记临时 CPU 数据，不分配 RID；任务和帧引用共同决定数据寿命。 */
+  [[nodiscard]] gneiss_result
+  prepare_mesh_data(std::shared_ptr<const mesh_resource> resource,
+                    std::shared_ptr<const mesh_resource>& output) noexcept;
+  [[nodiscard]] gneiss_result
+  prepare_material_data(const material_resource& resource,
+                        std::shared_ptr<const material_resource>& output) noexcept;
+  [[nodiscard]] gneiss_result
+  prepare_texture_data(texture_resource resource,
+                       std::shared_ptr<const texture_resource>& output) noexcept;
   [[nodiscard]] gneiss_result destroy_mesh(engine::core::rid mesh) noexcept;
   [[nodiscard]] gneiss_result create_material(const material_resource& value,
                                               engine::core::rid* out_material) noexcept;

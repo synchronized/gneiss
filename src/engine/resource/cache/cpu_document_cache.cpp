@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Gneiss contributors
 #include "engine/resource/cache/cpu_document_cache.hpp"
-#include "engine/resource/cache/material_document_versions.hpp"
 #include "engine/resource/loaders/material_document_decoder.hpp"
 #include "engine/resource/types/mesh_data.hpp"
+#include "engine/resource/vfs/asset_uri.hpp"
 #include <algorithm>
 #include <map>
 #include <tuple>
@@ -13,7 +13,7 @@ namespace {
 class mesh_documents final {
   using key = std::tuple<std::shared_ptr<const asset_source_domain>, std::string,
                          engine::core::sha256_digest, std::uint64_t>;
-  std::map<key, std::weak_ptr<const mesh_data>> versions_;
+  std::map<key, std::weak_ptr<const mesh_data>> contents_;
 
 public:
   gneiss_result retain(prepared_asset& asset) {
@@ -25,8 +25,8 @@ public:
     }
     const auto& source = asset.sources.front();
     key identity{source.identity.source, source.identity.uri, source.digest, source.bytes};
-    auto found = versions_.find(identity);
-    if (found != versions_.end()) {
+    auto found = contents_.find(identity);
+    if (found != contents_.end()) {
       if (auto existing = found->second.lock()) {
         asset.shared_mesh = std::move(existing);
         asset.mesh = {};
@@ -34,36 +34,38 @@ public:
       }
     }
     auto data = std::make_shared<const mesh_data>(std::move(asset.mesh));
-    versions_.insert_or_assign(std::move(identity), data);
+    contents_.insert_or_assign(std::move(identity), data);
     asset.shared_mesh = std::move(data);
     return GNEISS_SUCCESS;
   }
   void collect() {
-    std::erase_if(versions_, [](const auto& item) { return item.second.expired(); });
+    std::erase_if(contents_, [](const auto& item) { return item.second.expired(); });
   }
 };
 }
 struct cpu_document_cache::state {
-  material_document_versions materials;
+  using key = std::tuple<std::shared_ptr<const asset_source_domain>, std::string,
+                         engine::core::sha256_digest, std::uint64_t>;
+  std::map<key, std::weak_ptr<const material_document>> materials;
   mesh_documents meshes;
 };
-cpu_document_cache::cpu_document_cache() : versions_(std::make_shared<state>()) {}
+cpu_document_cache::cpu_document_cache() : contents_(std::make_shared<state>()) {}
 cpu_document_cache::~cpu_document_cache() = default;
 std::shared_ptr<cpu_document_batch> cpu_document_cache::begin() {
-  return std::shared_ptr<cpu_document_batch>(new cpu_document_batch(versions_));
+  return std::shared_ptr<cpu_document_batch>(new cpu_document_batch(contents_));
 }
 void cpu_document_cache::collect() {
-  versions_->materials.collect();
-  versions_->meshes.collect();
+  std::erase_if(contents_->materials, [](const auto& item) { return item.second.expired(); });
+  contents_->meshes.collect();
 }
-cpu_document_batch::cpu_document_batch(std::shared_ptr<cpu_document_cache::state> versions)
-    : versions_(std::move(versions)) {}
+cpu_document_batch::cpu_document_batch(std::shared_ptr<cpu_document_cache::state> contents)
+    : contents_(std::move(contents)) {}
 cpu_document_batch::~cpu_document_batch() = default;
 gneiss_result cpu_document_batch::decode(const std::vector<std::byte>& bytes,
                                          material_parameters& parameters,
                                          std::array<std::string, 5>& uris,
                                          asset_diagnostic& diagnostic) {
-  // 候选按已复验的来源版本登记，不修改当前资源选择。
+  // 解码证据随加载任务保存，文档本身只包含作者数据。
   auto document = std::make_shared<material_document>();
   if (!document) {
     return GNEISS_ERROR_OUT_OF_MEMORY;
@@ -74,13 +76,15 @@ gneiss_result cpu_document_batch::decode(const std::vector<std::byte>& bytes,
   }
   parameters = document->source.parameters;
   uris = document->source.texture_uris;
-  candidates_.push_back(std::move(document));
+  decoded_.push_back({.digest = engine::core::sha256(bytes),
+                      .bytes = bytes.size(),
+                      .document = std::move(document)});
   return GNEISS_SUCCESS;
 }
 gneiss_result cpu_document_batch::retain_verified(prepared_batch& batch) {
   for (auto& asset : batch.assets) {
     if (asset.source.type == asset_type::mesh) {
-      const auto result = versions_->meshes.retain(asset);
+      const auto result = contents_->meshes.retain(asset);
       if (result != GNEISS_SUCCESS) {
         return result;
       }
@@ -89,22 +93,26 @@ gneiss_result cpu_document_batch::retain_verified(prepared_batch& batch) {
     if (asset.source.type != asset_type::material) {
       continue;
     }
-    if (asset.sources.empty()) {
+    if (asset.sources.size() != 1U || !asset.sources.front().identity.source ||
+        asset.sources.front().identity.type != static_cast<std::uint32_t>(asset_type::material) ||
+        asset.sources.front().identity.uri != asset.source.uri) {
       return GNEISS_ERROR_INVALID_STATE;
     }
     const auto& source = asset.sources.front();
-    const auto document = std::ranges::find_if(candidates_, [&](const auto& candidate) {
-      return candidate->digest == source.digest && candidate->source_bytes == source.bytes;
+    const auto document = std::ranges::find_if(decoded_, [&](const auto& decoded) {
+      return decoded.digest == source.digest && decoded.bytes == source.bytes;
     });
-    if (document == candidates_.end()) {
+    if (document == decoded_.end()) {
       return GNEISS_ERROR_INVALID_STATE;
     }
-    auto lease = std::make_shared<material_document_lease>();
-    const auto result = versions_->materials.remember(source, *document, *lease);
-    if (result != result::success) {
-      return static_cast<gneiss_result>(result);
+    auto& weak =
+        contents_
+            ->materials[{source.identity.source, source.identity.uri, source.digest, source.bytes}];
+    asset.material_document = weak.lock();
+    if (!asset.material_document) {
+      asset.material_document = document->document;
+      weak = asset.material_document;
     }
-    asset.material_document = std::move(lease);
   }
   // 失败资源留下的解析结果随批次释放，不能阻止其他已校验资源共享。
   return GNEISS_SUCCESS;

@@ -27,6 +27,7 @@ public:
   resource_cache& operator=(const resource_cache&) = delete;
   struct entry final {
     std::string uri;
+    std::shared_ptr<const asset_source_domain> source;
     std::uint32_t type = 0;
     resource_state state = resource_state::unloaded;
     gneiss_result failure = GNEISS_SUCCESS;
@@ -35,11 +36,15 @@ public:
 
   using loader = std::function<gneiss_result(std::shared_ptr<void>&)>;
 
-  [[nodiscard]] gneiss_result acquire(std::string_view uri, std::uint32_t type, const loader& load,
-                                      std::shared_ptr<const entry>& out_entry) noexcept;
+  [[nodiscard]] gneiss_result
+  acquire(std::string_view uri, std::uint32_t type, const loader& load,
+          std::shared_ptr<const entry>& out_entry,
+          std::shared_ptr<const asset_source_domain> source = {}) noexcept;
   /** 强制重新加载并在成功后替换缓存项；失败时保留原缓存。 */
-  [[nodiscard]] gneiss_result reload(std::string_view uri, std::uint32_t type, const loader& load,
-                                     std::shared_ptr<const entry>& out_entry) noexcept;
+  [[nodiscard]] gneiss_result
+  reload(std::string_view uri, std::uint32_t type, const loader& load,
+         std::shared_ptr<const entry>& out_entry,
+         std::shared_ptr<const asset_source_domain> source = {}) noexcept;
   void release_unused() noexcept;
   /** 只观察当前身份，不触发加载；返回的弱引用不会阻止卸载。 */
   [[nodiscard]] std::weak_ptr<const entry> observe(std::string_view uri) const;

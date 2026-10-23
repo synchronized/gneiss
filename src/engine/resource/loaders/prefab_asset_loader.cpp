@@ -54,7 +54,7 @@ gneiss_result prefab_asset_loader::install_prepared(std::string_view uri,
           resource = std::make_shared<prefab_description>(std::move(description));
           return GNEISS_SUCCESS;
         },
-        entry);
+        entry, identity.source);
     if (result == GNEISS_SUCCESS) {
       out_lease.entry_ = std::move(entry);
     }
@@ -75,6 +75,10 @@ gneiss_result prefab_asset_loader::acquire(std::string_view uri, prefab_asset_le
     return out_diagnostic.result;
   }
 
+  asset_identity identity;
+  const auto identified = file_system_.identify(uri, prefab_resource_type, identity);
+  if (identified != GNEISS_SUCCESS)
+    return identified;
   std::shared_ptr<const engine::resource::resource_cache::entry> entry;
   auto result = cache_.acquire(
       uri, prefab_resource_type,
@@ -95,7 +99,7 @@ gneiss_result prefab_asset_loader::acquire(std::string_view uri, prefab_asset_le
           return GNEISS_ERROR_INTERNAL;
         }
       },
-      entry);
+      entry, identity.source);
   if (result != GNEISS_SUCCESS) {
     if (out_diagnostic.result == GNEISS_SUCCESS) {
       fail(out_diagnostic, result, "", "无法获取 Prefab 资产");
@@ -114,6 +118,10 @@ gneiss_result prefab_asset_loader::reload(std::string_view uri, prefab_asset_lea
     fail(out_diagnostic, GNEISS_ERROR_INVALID_ARGUMENT, "", "Prefab URI 无效");
     return out_diagnostic.result;
   }
+  asset_identity identity;
+  const auto identified = file_system_.identify(uri, prefab_resource_type, identity);
+  if (identified != GNEISS_SUCCESS)
+    return identified;
   std::shared_ptr<const engine::resource::resource_cache::entry> entry;
   const auto result = cache_.reload(
       uri, prefab_resource_type,
@@ -134,7 +142,7 @@ gneiss_result prefab_asset_loader::reload(std::string_view uri, prefab_asset_lea
           return GNEISS_ERROR_INTERNAL;
         }
       },
-      entry);
+      entry, identity.source);
   if (result != GNEISS_SUCCESS) {
     if (out_diagnostic.result == GNEISS_SUCCESS) {
       fail(out_diagnostic, result, "", "无法重新加载 Prefab 资产");
