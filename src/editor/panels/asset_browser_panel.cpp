@@ -207,7 +207,16 @@ void draw_runtime_asset_status(const asset_browser_view& view, const panel_butto
                        static_cast<unsigned long long>(reload.revision),
                        static_cast<int>(reload.message.size()), text_data(reload.message));
     if (reload.total > 0U) {
-      ImGui::Text("Uploaded: %u / %u", reload.completed, reload.total);
+      ImGui::Text("Applied: %u / %u", reload.completed, reload.total);
+    }
+    if (!reload.items.empty() && ImGui::TreeNode("Resource results")) {
+      for (const auto& item : reload.items) {
+        ImGui::TextWrapped("%.*s: %s (%.*s)", static_cast<int>(item.uri.size()),
+                           text_data(item.uri), item.applied ? "applied" : "unchanged",
+                           static_cast<int>(item.operation.message().size()),
+                           text_data(item.operation.message()));
+      }
+      ImGui::TreePop();
     }
     if (reload.can_cancel) {
       button("Cancel Runtime asset update", asset_browser_action::cancel_runtime_reload);

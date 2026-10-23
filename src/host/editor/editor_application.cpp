@@ -1104,6 +1104,9 @@ void draw_asset_browser(editor_state& state) {
   view.reload.message = reload.message;
   view.reload.completed = reload.completed_assets;
   view.reload.total = reload.total_assets;
+  for (const auto& item : reload.items) {
+    view.reload.items.push_back({item.asset.uri, item.operation, item.applied});
+  }
   view.reload.can_cancel = reload.can_cancel;
   view.reload.can_retry = reload.state == runtime_asset_reload_state::failed;
   view.reload.restart_required = reload.state == runtime_asset_reload_state::restart_required;

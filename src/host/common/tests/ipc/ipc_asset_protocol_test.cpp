@@ -4,7 +4,7 @@
 #include "ipc_asset_protocol.hpp"
 
 int main() {
-  static_assert(gneiss::ipc_asset_domain_version == 3U);
+  static_assert(gneiss::ipc_asset_domain_version == 4U);
   const gneiss::ipc_asset_reload_request request{
       .session_id = 7U,
       .revision = 11U,
@@ -62,6 +62,25 @@ int main() {
       gneiss::decode_ipc_asset_result_v2(envelope, decoded_response) != gneiss::result::success ||
       decoded_response.status != response.status || decoded_response.message != response.message) {
     return 4;
+  }
+  auto partial = response;
+  partial.status = gneiss::ipc_asset_apply_status::failed;
+  partial.completed_assets = 1U;
+  partial.total_assets = 2U;
+  partial.items = {{request.assets[0], gneiss::result::success, true},
+                   {request.assets[1], gneiss::result::io, false}};
+  if (gneiss::encode_ipc_asset_result(partial, envelope.payload) != gneiss::result::success ||
+      gneiss::decode_ipc_asset_result(envelope.payload, decoded_response) !=
+          gneiss::result::success ||
+      decoded_response.items.size() != 2U || !decoded_response.items[0].applied ||
+      decoded_response.items[1].applied ||
+      decoded_response.items[1].operation != gneiss::result::io) {
+    return 12;
+  }
+  partial.items[1].applied = true;
+  if (gneiss::encode_ipc_asset_result(partial, envelope.payload) !=
+      gneiss::result::invalid_argument) {
+    return 13;
   }
   auto progress = response;
   progress.status = gneiss::ipc_asset_apply_status::preparing;

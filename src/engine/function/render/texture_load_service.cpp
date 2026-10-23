@@ -15,6 +15,14 @@ struct texture_load_service::pending {
   std::uint64_t update_sequence{};
   struct cpu_result {
     prepared_render_batch batch;
+    prepared_render_batch current;
+    std::vector<render_asset_reload> sources;
+    std::vector<asset_load_result> failures;
+    std::size_t cursor{};
+    std::size_t limit{};
+    engine::resource::material_document_decoder decode;
+    engine::resource::virtual_file_system files;
+    texture_prepare_profile profile{};
     std::shared_ptr<engine::resource::cpu_document_batch> documents;
     std::unique_ptr<engine::resource::asset_preparation> preparation;
     bool complete{};
@@ -32,10 +40,13 @@ struct texture_load_service::pending {
   bool uploading{};
   bool in_flight{};
   bool discarding{};
+  bool discard_item{};
   bool cancelled{};
+  std::size_t staged_count{};
+  gneiss_result summary{GNEISS_SUCCESS};
   std::size_t next_upload{};
   std::size_t completed_uploads{};
-  std::size_t published_uploads{};
+  std::size_t processed_uploads{};
   std::uint64_t upload{};
   std::size_t upload_reserved_bytes{};
   gneiss_result failure{GNEISS_SUCCESS};
@@ -166,14 +177,11 @@ gneiss_result texture_load_service::submit_assets(std::span<const render_asset_r
       return documents->decode(bytes, parameters, uris, diagnostic);
     };
   }
-  value->cpu->preparation = std::make_unique<engine::resource::asset_preparation>(
-      file_system_, sources,
-      engine::resource::asset_preparation::limits{
-          .material_bytes = sizeof(material_resource),
-          .maximum_assets = maximum_assets,
-          .maximum_bytes = prepare_limit,
-      },
-      backend_.profile, std::move(decode));
+  value->cpu->sources.assign(sources.begin(), sources.end());
+  value->cpu->limit = prepare_limit;
+  value->cpu->files = file_system_;
+  value->cpu->profile = backend_.profile;
+  value->cpu->decode = std::move(decode);
   const auto accepted =
       engine::core::diagnostics::measure(engine::core::diagnostics::loop_stage::task_submit,
                                          [&] { return submit_preparation(*value); });
@@ -201,13 +209,61 @@ engine::core::tasks::submit_result texture_load_service::submit_preparation(pend
         // 协作任务与主线程共用执行时间，单块预算不能沿用后台吞吐批次。
         const auto byte_budget =
             std::size_t{context.allows_blocking_wait() ? 16U : 4U} * 1024U * 1024U;
-        cpu->result = cpu->preparation->advance(
-            byte_budget, [&] { return context.stop_requested(); }, cpu->batch, diagnostic,
-            cpu->complete, std::chrono::milliseconds(context.allows_blocking_wait() ? 4 : 0));
-        if (cpu->complete) {
-          GNEISS_PROFILE_SCOPE("asset.prepare.destroy");
-          cpu->message = std::move(diagnostic.message);
+        if (!cpu->preparation) {
+          cpu->preparation = std::make_unique<engine::resource::asset_preparation>(
+              cpu->files, std::span(cpu->sources).subspan(cpu->cursor, 1U),
+              engine::resource::asset_preparation::limits{
+                  .material_bytes = sizeof(material_resource),
+                  .maximum_assets = maximum_assets,
+                  .maximum_bytes = cpu->limit - std::min(cpu->batch.bytes, cpu->limit)},
+              cpu->profile, cpu->decode);
+        }
+        bool item_complete{};
+        const auto prepared = cpu->preparation->advance(
+            byte_budget, [&] { return context.stop_requested(); }, cpu->current, diagnostic,
+            item_complete, std::chrono::milliseconds(context.allows_blocking_wait() ? 4 : 0));
+        cpu->result = GNEISS_SUCCESS;
+        if (item_complete) {
+          if (prepared != GNEISS_SUCCESS) {
+            cpu->failures.push_back({cpu->sources[cpu->cursor], prepared, false});
+            cpu->message = std::move(diagnostic.message);
+          } else {
+            const auto additional =
+                std::ranges::count_if(cpu->current.assets, [&](const auto& asset) {
+                  return std::ranges::none_of(cpu->batch.assets, [&](const auto& previous) {
+                    return previous.source.uri == asset.source.uri;
+                  });
+                });
+            const bool conflicting =
+                std::ranges::any_of(cpu->current.assets, [&](const auto& asset) {
+                  return std::ranges::any_of(cpu->batch.assets, [&](const auto& previous) {
+                    return previous.source.uri == asset.source.uri &&
+                           previous.source.type != asset.source.type;
+                  });
+                });
+            if (conflicting ||
+                static_cast<std::size_t>(additional) > maximum_assets - cpu->batch.assets.size()) {
+              cpu->failures.push_back(
+                  {cpu->sources[cpu->cursor], GNEISS_ERROR_INVALID_ARGUMENT, false});
+              cpu->current = {};
+            }
+            for (auto& asset : cpu->current.assets) {
+              if (std::ranges::none_of(cpu->batch.assets, [&](const auto& previous) {
+                    return previous.source.uri == asset.source.uri;
+                  })) {
+                cpu->batch.bytes += asset.bytes;
+                cpu->batch.assets.push_back(std::move(asset));
+              }
+            }
+          }
+          cpu->current = {};
           cpu->preparation.reset();
+          cpu->complete = ++cpu->cursor == cpu->sources.size();
+          if (cpu->complete) {
+            std::ranges::stable_sort(cpu->batch.assets, {}, [](const auto& asset) {
+              return asset.source.type == render_asset_type::material ? 1U : 0U;
+            });
+          }
         }
         cpu->milliseconds +=
             std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start)
@@ -232,12 +288,20 @@ void texture_load_service::finish(gneiss_result result, texture_load_state state
   pending_->completion.prepare_ms = pending_->cpu->milliseconds;
   pending_->completion.candidate_bytes = pending_->cpu->batch.bytes;
   for (auto& item : pending_->completion.results) {
-    if (!item.applied) {
+    if (!item.applied && item.result == GNEISS_ERROR_NOT_READY) {
       item.result = result;
       item.applied = result == GNEISS_SUCCESS;
     }
   }
 
+  for (const auto& value : pending_->candidates) {
+    const auto item = std::ranges::find_if(pending_->completion.results, [&](const auto& entry) {
+      return entry.source.uri == value.source.uri;
+    });
+    if (item != pending_->completion.results.end() && item->applied) {
+      pending_->completion.assets.push_back(value.lease);
+    }
+  }
   completed_ = std::move(pending_->completion);
   if (notification_) {
     notification_->notify();
@@ -319,6 +383,15 @@ bool texture_load_service::advance_preparation(pending& value) {
     }
     return false;
   }
+  for (const auto& failure : value.cpu->failures) {
+    auto found = std::ranges::find_if(value.completion.results, [&](const auto& item) {
+      return item.source.uri == failure.source.uri;
+    });
+    if (found != value.completion.results.end()) {
+      *found = failure;
+    }
+    value.summary = failure.result;
+  }
   if (value.cpu->documents) {
     const auto retained = value.cpu->documents->retain_verified(value.cpu->batch);
     if (retained != GNEISS_SUCCESS) {
@@ -349,10 +422,10 @@ void texture_load_service::advance_impl() {
     }
 
     const auto start = std::chrono::steady_clock::now();
-    for (unsigned count = 0U;
-         value.candidates.size() < value.cpu->batch.assets.size() && count < 4U; ++count) {
+    for (unsigned count = 0U; value.staged_count < value.cpu->batch.assets.size() && count < 4U;
+         ++count) {
       render_asset_loader::asset_candidate candidate;
-      const auto& source = value.cpu->batch.assets[value.candidates.size()].source;
+      const auto source = value.cpu->batch.assets[value.staged_count].source;
       if (std::ranges::none_of(value.completion.results,
                                [&](const auto& item) { return item.source.uri == source.uri; })) {
         value.completion.results.push_back({.source = source});
@@ -363,14 +436,19 @@ void texture_load_service::advance_impl() {
       const auto result = engine::core::diagnostics::measure(
           engine::core::diagnostics::loop_stage::asset_stage, [&] {
             return loader_.stage_asset(
-                std::move(value.cpu->batch.assets[value.candidates.size()]), value.candidates,
-                candidate, target == value.targets.end() ? render_asset_lease{} : *target,
+                std::move(value.cpu->batch.assets[value.staged_count]), value.candidates, candidate,
+                target == value.targets.end() ? render_asset_lease{} : *target,
                 value.update_sequence);
           });
       if (result != GNEISS_SUCCESS) {
-        value.cpu->message = "资产候选暂存失败";
-        finish(result, texture_load_state::failed);
-        return;
+        value.cpu->message = "资源上传数据准备失败";
+        value.summary = result;
+        auto item = std::ranges::find_if(value.completion.results, [&](const auto& entry) {
+          return entry.source.uri == source.uri;
+        });
+        item->result = result;
+        ++value.staged_count;
+        continue;
       }
       {
         render_upload_item upload{
@@ -387,6 +465,7 @@ void texture_load_service::advance_impl() {
         value.data.push_back(std::move(upload));
       }
       value.candidates.push_back(std::move(candidate));
+      ++value.staged_count;
       if (notification_) {
         notification_->notify();
       }
@@ -394,7 +473,7 @@ void texture_load_service::advance_impl() {
         break;
       }
     }
-    if (value.candidates.size() != value.cpu->batch.assets.size()) {
+    if (value.staged_count != value.cpu->batch.assets.size()) {
       return;
     }
   }
@@ -407,37 +486,35 @@ void texture_load_service::advance_impl() {
     value.in_flight = false;
     value.upload_reserved_bytes = 0U;
     if (value.discarding) {
-      finish(value.failure,
-             value.cancelled ? texture_load_state::cancelled : texture_load_state::failed);
-      return;
-    }
-    if (result != GNEISS_SUCCESS) {
-      if (value.completed_uploads == 0U) {
-        value.cpu->message = "资产上传回执失败";
-        finish(result,
+      if (!value.discard_item) {
+        finish(value.failure,
                value.cancelled ? texture_load_state::cancelled : texture_load_state::failed);
         return;
       }
-      value.failure = result;
+      value.discard_item = false;
+      value.discarding = false;
+      value.processed_uploads = value.next_upload;
     } else {
-      value.completed_uploads = value.next_upload;
-      if (!value.cancelled) {
-        // 普通资源各自就绪即可使用；后续失败不撤回已经可见的内容。
-        while (value.published_uploads < value.completed_uploads) {
-          const auto published = loader_.publish_assets(
-              std::span(value.candidates).subspan(value.published_uploads, 1U));
-          if (published != GNEISS_SUCCESS) {
-            value.failure = published;
-            value.cpu->message = "资产内容更新失败";
-            break;
-          }
-          const auto& source = value.candidates[value.published_uploads].source;
-          auto item = std::ranges::find_if(value.completion.results, [&](const auto& entry) {
-            return entry.source.uri == source.uri;
-          });
-          item->result = GNEISS_SUCCESS;
-          item->applied = true;
-          ++value.published_uploads;
+      auto& candidate = value.candidates[value.processed_uploads];
+      auto item = std::ranges::find_if(value.completion.results, [&](const auto& entry) {
+        return entry.source.uri == candidate.source.uri;
+      });
+      const bool uploaded = result == GNEISS_SUCCESS;
+      if (uploaded && !value.cancelled) {
+        result = loader_.publish_assets(
+            std::span(value.candidates).subspan(value.processed_uploads, 1U));
+      }
+      if (!value.cancelled && result == GNEISS_SUCCESS) {
+        item->result = GNEISS_SUCCESS;
+        item->applied = true;
+        value.processed_uploads = value.next_upload;
+        ++value.completed_uploads;
+      } else if (!value.cancelled) {
+        item->result = result;
+        value.summary = result;
+        value.discard_item = uploaded;
+        if (!uploaded) {
+          value.processed_uploads = value.next_upload;
         }
       }
       if (backend_.elapsed_ms) {
@@ -445,16 +522,31 @@ void texture_load_service::advance_impl() {
       }
     }
   }
+  if (value.discard_item) {
+    texture_upload_backend::data failed{value.data[value.processed_uploads]};
+    const auto discarded = backend_.discard(std::move(failed), value.upload);
+    if (discarded == GNEISS_ERROR_NOT_READY) {
+      return;
+    }
+    if (discarded != GNEISS_SUCCESS) {
+      value.failure = discarded;
+      value.discard_item = false;
+    } else {
+      value.discarding = true;
+      value.in_flight = true;
+      return;
+    }
+  }
   if (value.cancelled) {
     value.failure = GNEISS_ERROR_INVALID_STATE;
   }
   if (value.failure != GNEISS_SUCCESS) {
-    if (value.published_uploads == value.data.size()) {
+    if (value.processed_uploads == value.data.size()) {
       finish(value.failure,
              value.cancelled ? texture_load_state::cancelled : texture_load_state::failed);
       return;
     }
-    const auto remaining = std::span(value.data).subspan(value.published_uploads);
+    const auto remaining = std::span(value.data).subspan(value.processed_uploads);
     texture_upload_backend::data unpublished(remaining.begin(), remaining.end());
     const auto result = backend_.discard(std::move(unpublished), value.upload);
     if (result == GNEISS_ERROR_NOT_READY) {
@@ -469,29 +561,20 @@ void texture_load_service::advance_impl() {
     return;
   }
   if (value.next_upload < value.data.size()) {
-    texture_upload_backend::data batch;
-    std::size_t bytes{};
-    auto end = value.next_upload;
-    while (end < value.data.size() && batch.size() < 4U) {
-      const auto& item = value.data[end];
-      if (item.bytes > maximum_upload_bytes) {
-        value.cpu->message = "GPU 上传预算不足：需要 " + std::to_string(item.bytes) +
-                             " 字节，上限 " + std::to_string(maximum_upload_bytes);
-        if (value.completed_uploads != 0U) {
-          value.failure = GNEISS_ERROR_OUT_OF_MEMORY;
-        } else {
-          finish(GNEISS_ERROR_OUT_OF_MEMORY, texture_load_state::failed);
-        }
-        return;
-      }
-      if (!batch.empty() &&
-          item.bytes > upload_budget_bytes - std::min(bytes, upload_budget_bytes)) {
-        break;
-      }
-      bytes += item.bytes;
-      batch.push_back(item);
-      ++end;
+    const auto index = value.next_upload;
+    const auto& upload = value.data[index];
+    if (upload.bytes > maximum_upload_bytes) {
+      value.cpu->message = "GPU 单资源上传预算不足";
+      auto item = std::ranges::find_if(value.completion.results, [&](const auto& entry) {
+        return entry.source.uri == value.candidates[index].source.uri;
+      });
+      item->result = GNEISS_ERROR_OUT_OF_MEMORY;
+      value.summary = item->result;
+      value.processed_uploads = ++value.next_upload;
+      return;
     }
+    texture_upload_backend::data batch{upload};
+    const auto bytes = upload.bytes;
     const auto result = engine::core::diagnostics::measure(
         engine::core::diagnostics::loop_stage::upload_submit,
         [&] { return backend_.begin(std::move(batch), value.upload); });
@@ -500,27 +583,26 @@ void texture_load_service::advance_impl() {
     }
     if (result != GNEISS_SUCCESS) {
       value.cpu->message = "资产上传提交失败";
-      if (value.uploading) {
-        value.failure = result;
-      } else {
-        finish(result, texture_load_state::failed);
-      }
+      auto item = std::ranges::find_if(value.completion.results, [&](const auto& entry) {
+        return entry.source.uri == value.candidates[value.next_upload].source.uri;
+      });
+      item->result = result;
+      value.summary = result;
+      value.processed_uploads = ++value.next_upload;
       return;
     }
     value.upload_reserved_bytes = bytes;
     value.completion.peak_upload_bytes = std::max(value.completion.peak_upload_bytes, bytes);
     value.uploading = true;
     value.in_flight = true;
-    value.next_upload = end;
+    ++value.next_upload;
     return;
-  }
-  for (const auto& candidate : value.candidates) {
-    value.completion.assets.push_back(candidate.lease);
   }
   value.completion.commit_ms = std::chrono::duration<double, std::milli>(
                                    std::chrono::steady_clock::now() - value.commit_started)
                                    .count();
-  finish(GNEISS_SUCCESS, texture_load_state::applied);
+  finish(value.summary, value.summary == GNEISS_SUCCESS ? texture_load_state::applied
+                                                        : texture_load_state::failed);
 }
 bool texture_load_service::take(texture_load_completion& output) {
   check_owner();

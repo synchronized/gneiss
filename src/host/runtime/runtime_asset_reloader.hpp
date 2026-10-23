@@ -13,12 +13,12 @@
 
 namespace gneiss::host::runtime {
 
-/** Runtime 主线程上的资产修订事务协调器。 */
+/** Runtime 主线程上的资产重载请求协调器。 */
 class runtime_asset_reloader final {
 public:
   using apply_function = std::function<result(std::span<const ipc_asset_revision>)>;
   using begin_function = std::function<result(const ipc_asset_reload_request&)>;
-  using poll_function = std::function<result(result&, bool&)>;
+  using poll_function = std::function<result(result&, std::vector<ipc_asset_item_result>&, bool&)>;
 
   explicit runtime_asset_reloader(apply_function apply, begin_function begin = {},
                                   poll_function poll = {});
@@ -27,7 +27,7 @@ public:
    * 接受异步请求后 execute 返回 not_ready；只有 advance 才生成终态。 */
   [[nodiscard]] result advance(ipc_asset_reload_result& response, bool& ready) noexcept;
 
-  /** 应用新修订并生成权威结果；旧修订不会再次调用底层资源事务。 */
+  /** 应用新修订并生成权威结果；旧修订不会再次调用底层资源请求。 */
   [[nodiscard]] result execute(const ipc_asset_reload_request& request,
                                ipc_asset_reload_result& response) noexcept;
 

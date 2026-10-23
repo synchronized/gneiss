@@ -101,7 +101,8 @@ result runtime_asset_reloader::advance(ipc_asset_reload_result& response, bool& 
   }
   result applied;
   bool completed{};
-  const auto operation = poll_(applied, completed);
+  std::vector<ipc_asset_item_result> items;
+  const auto operation = poll_(applied, items, completed);
   if (operation != result::success) {
     return operation;
   }
@@ -113,6 +114,13 @@ result runtime_asset_reloader::advance(ipc_asset_reload_result& response, bool& 
               .status = applied == result::success ? ipc_asset_apply_status::applied
                                                    : ipc_asset_apply_status::failed,
               .message = applied == result::success ? "资产修订已应用" : "异步资产应用失败"};
+  response.items = std::move(items);
+  response.total_assets = static_cast<std::uint32_t>(response.items.size());
+  response.completed_assets = static_cast<std::uint32_t>(
+      std::ranges::count_if(response.items, [](const auto& item) { return item.applied; }));
+  if (applied != result::success && response.completed_assets != 0U) {
+    response.message = "部分资源已更新，失败项保留原内容";
+  }
   if (applied == result::success) {
     applied_revision_ = pending_->revision;
   }

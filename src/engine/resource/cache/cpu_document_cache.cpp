@@ -78,7 +78,6 @@ gneiss_result cpu_document_batch::decode(const std::vector<std::byte>& bytes,
   return GNEISS_SUCCESS;
 }
 gneiss_result cpu_document_batch::retain_verified(prepared_batch& batch) {
-  std::size_t index = 0;
   for (auto& asset : batch.assets) {
     if (asset.source.type == asset_type::mesh) {
       const auto result = versions_->meshes.retain(asset);
@@ -90,18 +89,25 @@ gneiss_result cpu_document_batch::retain_verified(prepared_batch& batch) {
     if (asset.source.type != asset_type::material) {
       continue;
     }
-    if (index >= candidates_.size() || asset.sources.empty()) {
+    if (asset.sources.empty()) {
+      return GNEISS_ERROR_INVALID_STATE;
+    }
+    const auto& source = asset.sources.front();
+    const auto document = std::ranges::find_if(candidates_, [&](const auto& candidate) {
+      return candidate->digest == source.digest && candidate->source_bytes == source.bytes;
+    });
+    if (document == candidates_.end()) {
       return GNEISS_ERROR_INVALID_STATE;
     }
     auto lease = std::make_shared<material_document_lease>();
-    const auto result =
-        versions_->materials.remember(asset.sources.front(), candidates_[index++], *lease);
+    const auto result = versions_->materials.remember(source, *document, *lease);
     if (result != result::success) {
       return static_cast<gneiss_result>(result);
     }
     asset.material_document = std::move(lease);
   }
-  return index == candidates_.size() ? GNEISS_SUCCESS : GNEISS_ERROR_INVALID_STATE;
+  // 失败资源留下的解析结果随批次释放，不能阻止其他已校验资源共享。
+  return GNEISS_SUCCESS;
 }
 
 }

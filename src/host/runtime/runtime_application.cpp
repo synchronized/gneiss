@@ -313,7 +313,7 @@ gneiss_result update_runtime(gneiss_application application,
       if (asset_result == gneiss::result::success && ready) {
         if (context.asset_cancelled) {
           response.status = gneiss::ipc_asset_apply_status::cancelled;
-          response.message = "资产修订已取消，保留之前的画面";
+          response.message = "未完成的资产更新已取消，已生效内容保留";
         }
         context.asset_cancelled = false;
         context.next_asset_progress_ns = 0U;
@@ -331,7 +331,7 @@ gneiss_result update_runtime(gneiss_application application,
               .revision = progress.revision,
               .status = progress.can_cancel ? gneiss::ipc_asset_apply_status::preparing
                                             : gneiss::ipc_asset_apply_status::uploading,
-              .message = progress.can_cancel ? "正在准备资产" : "正在上传资产，完成后整批应用",
+              .message = progress.can_cancel ? "正在准备资产" : "正在上传资产，逐项生效",
               .can_cancel = progress.can_cancel && !context.asset_cancelled,
               .completed_assets = static_cast<std::uint32_t>(progress.completed_assets),
               .total_assets = static_cast<std::uint32_t>(progress.total_assets)};
@@ -658,10 +658,22 @@ void write_application_log(const gneiss::engine::core::log::event_view& source,
         return gneiss::from_native(native_application->request_assets(
             assets, request.session_id, request.revision, accepted, true));
       },
-      [native_application = application.get(), &log](gneiss::result& result, bool& ready) {
+      [native_application = application.get(), &log](
+          gneiss::result& result, std::vector<gneiss::ipc_asset_item_result>& items, bool& ready) {
         gneiss::engine::render::texture_load_completion completion;
         const auto operation = native_application->poll_assets(completion, ready);
         if (ready) {
+          for (const auto& item : completion.results) {
+            using type = gneiss::engine::render::render_asset_type;
+            items.push_back({.asset = {.uri = item.source.uri,
+                                       .type = item.source.type == type::texture
+                                                   ? gneiss::ipc_asset_type::texture
+                                               : item.source.type == type::material
+                                                   ? gneiss::ipc_asset_type::material
+                                                   : gneiss::ipc_asset_type::static_mesh},
+                             .operation = gneiss::from_native(item.result),
+                             .applied = item.applied});
+          }
           result = gneiss::from_native(completion.result);
           const auto metrics = "prepare_ms=" + std::to_string(completion.prepare_ms) +
                                " commit_ms=" + std::to_string(completion.commit_ms) +

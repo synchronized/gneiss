@@ -13,7 +13,7 @@
 
 namespace gneiss {
 
-inline constexpr std::uint16_t ipc_asset_domain_version = 3U;
+inline constexpr std::uint16_t ipc_asset_domain_version = 4U;
 inline constexpr std::size_t ipc_asset_max_payload_size = 256U * 1024U;
 
 enum class ipc_asset_operation : std::uint16_t {
@@ -45,7 +45,13 @@ struct ipc_asset_reload_request final {
   std::vector<ipc_asset_revision> assets;
 };
 
-/** Runtime 对整个修订事务的权威应用结果。 */
+/** 单个资源的结果；失败不表示它原有的内容失效。 */
+struct ipc_asset_item_result final {
+  ipc_asset_revision asset;
+  result operation{result::not_ready};
+  bool applied{};
+};
+/** Runtime 对请求的汇总及逐项结果；汇总失败不撤回成功项。 */
 struct ipc_asset_reload_result final {
   std::uint64_t session_id = 0U;
   std::uint64_t revision = 0U;
@@ -54,6 +60,7 @@ struct ipc_asset_reload_result final {
   bool can_cancel = false;
   std::uint32_t completed_assets = 0U;
   std::uint32_t total_assets = 0U;
+  std::vector<ipc_asset_item_result> items{};
 };
 
 /** 取消只携带批次身份；作为事件不占用重载响应，终态由原请求返回。 */

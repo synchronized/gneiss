@@ -67,9 +67,12 @@ int main() {
         ++accepted;
         return begin_result;
       },
-      [&](result& output, bool& ready) {
+      [&](result& output, std::vector<ipc_asset_item_result>& items, bool& ready) {
         ready = completed;
         output = async_result;
+        if (completed) {
+          items = {{{"asset://a.texture.json", ipc_asset_type::texture}, result::success, true}};
+        }
         return result::success;
       });
   request = {.session_id = 10U,
@@ -105,7 +108,9 @@ int main() {
   }
   async_result = result::io;
   if (asynchronous.advance(response, ready) != result::success || !ready ||
-      response.status != ipc_asset_apply_status::failed || asynchronous.applied_revision() != 1U) {
+      response.status != ipc_asset_apply_status::failed || response.completed_assets != 1U ||
+      response.items.size() != 1U || !response.items.front().applied ||
+      asynchronous.applied_revision() != 1U) {
     return 12;
   }
   const auto synchronous_calls = calls;
@@ -141,7 +146,7 @@ int main() {
       };
     }
     if (wiring == 2U) {
-      poll = [&](result&, bool&) {
+      poll = [&](result&, std::vector<ipc_asset_item_result>&, bool&) {
         ++accepted;
         return result::success;
       };

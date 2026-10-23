@@ -13,6 +13,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <vector>
 
 struct ImGuiTextFilter;
 
@@ -80,6 +81,11 @@ struct asset_scene_load_view final {
   std::optional<asset_budget_view> budget;
 };
 
+struct asset_reload_item_view final {
+  std::string_view uri;
+  result operation{result::not_ready};
+  bool applied{};
+};
 struct asset_reload_view final {
   result publish_result = result::success;
   bool visible = false;
@@ -91,6 +97,7 @@ struct asset_reload_view final {
   bool can_cancel = false;
   bool can_retry = false;
   bool restart_required = false;
+  std::vector<asset_reload_item_view> items{};
 };
 
 /** 主线程单次绘制借用；所有文本在返回前有效。只有显示值，不持有服务或进程状态。

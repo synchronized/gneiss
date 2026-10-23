@@ -304,6 +304,7 @@ struct runtime_process::implementation final {
           asset_reload.can_cancel = value->value.can_cancel;
           asset_reload.completed_assets = value->value.completed_assets;
           asset_reload.total_assets = value->value.total_assets;
+          asset_reload.items = value->value.items;
           if (value->value.status != ipc_asset_apply_status::preparing &&
               value->value.status != ipc_asset_apply_status::uploading)
             asset_revision_in_flight = 0U;

@@ -7,6 +7,7 @@
 #include "runtime_launch.hpp"
 
 #include "console_model.hpp"
+#include "ipc_asset_protocol.hpp"
 #include "ipc_property_protocol.hpp"
 #include "ipc_scene_protocol.hpp"
 #include "ipc_statistics_protocol.hpp"
@@ -49,6 +50,7 @@ struct runtime_asset_reload_status final {
   bool can_cancel = false;
   std::uint32_t completed_assets = 0U;
   std::uint32_t total_assets = 0U;
+  std::vector<ipc_asset_item_result> items{};
 };
 
 class runtime_process final {

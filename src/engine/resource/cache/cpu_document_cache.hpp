@@ -8,7 +8,7 @@
 namespace gneiss::engine::resource {
 class cpu_document_batch;
 /** 所属线程使用的 CPU 文档共享入口，不拥有执行器、VFS 或渲染资源。
- * 批次共享版本索引，可晚于缓存外壳释放；索引访问仍须串行。 */
+ * 批次共享内容索引，可晚于缓存外壳释放；索引访问仍须串行。 */
 class cpu_document_cache final {
 public:
   cpu_document_cache();
@@ -32,7 +32,7 @@ public:
   cpu_document_batch& operator=(const cpu_document_batch&) = delete;
   gneiss_result decode(const std::vector<std::byte>& bytes, material_parameters& parameters,
                        std::array<std::string, 5>& uris, asset_diagnostic& diagnostic);
-  /** 仅接收整批来源复验成功的输出；不改变渲染版本选择或场景。 */
+  /** 只接管各自来源校验成功的输出；失败项不妨碍其他项共享，不改变场景。 */
   gneiss_result retain_verified(prepared_batch& batch);
 
 private:

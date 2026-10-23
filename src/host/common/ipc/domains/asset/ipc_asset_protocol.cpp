@@ -265,6 +265,33 @@ result encode_ipc_asset_result(const ipc_asset_reload_result& response,
                                     response.message.size())) {
       return result::out_of_memory;
     }
+    if (response.items.size() > 256U) {
+      return result::invalid_argument;
+    }
+    auto* items = yyjson_mut_arr(document.get());
+    if (!items || !yyjson_mut_obj_add_val(document.get(), root, "items", items)) {
+      return result::out_of_memory;
+    }
+    std::set<std::string> uris;
+    for (const auto& value : response.items) {
+      const auto type = asset_type_name(value.asset.type);
+      if (!valid_uri(value.asset.uri) || type.empty() || !uris.insert(value.asset.uri).second ||
+          (value.applied && value.operation != result::success) ||
+          to_native(value.operation) > GNEISS_SUCCESS ||
+          to_native(value.operation) < GNEISS_ERROR_IO) {
+        return result::invalid_argument;
+      }
+      auto* item = yyjson_mut_obj(document.get());
+      if (!item ||
+          !yyjson_mut_obj_add_strncpy(document.get(), item, "uri", value.asset.uri.data(),
+                                      value.asset.uri.size()) ||
+          !yyjson_mut_obj_add_strncpy(document.get(), item, "type", type.data(), type.size()) ||
+          !yyjson_mut_obj_add_int(document.get(), item, "result", to_native(value.operation)) ||
+          !yyjson_mut_obj_add_bool(document.get(), item, "applied", value.applied) ||
+          !yyjson_mut_arr_add_val(items, item)) {
+        return result::out_of_memory;
+      }
+    }
     return write_document(document.get(), root, output);
   } catch (const std::bad_alloc&) {
     return result::out_of_memory;
@@ -303,6 +330,34 @@ result decode_ipc_asset_result(std::span<const std::uint8_t> payload,
     parsed.completed_assets = static_cast<std::uint32_t>(yyjson_get_uint(completed));
     parsed.total_assets = static_cast<std::uint32_t>(yyjson_get_uint(total));
     parsed.message.assign(yyjson_get_str(message), yyjson_get_len(message));
+    auto* items = yyjson_obj_get(root, "items");
+    if (!yyjson_is_arr(items) || yyjson_arr_size(items) > 256U) {
+      return result::invalid_argument;
+    }
+    std::set<std::string> uris;
+    std::size_t index{}, count{};
+    yyjson_val* item{};
+    yyjson_arr_foreach(items, index, count, item) {
+      auto* uri = yyjson_obj_get(item, "uri");
+      auto* type = yyjson_obj_get(item, "type");
+      auto* code = yyjson_obj_get(item, "result");
+      auto* applied = yyjson_obj_get(item, "applied");
+      if (!yyjson_is_str(uri) || !yyjson_is_str(type) || !yyjson_is_int(code) ||
+          !yyjson_is_bool(applied) || yyjson_get_sint(code) > GNEISS_SUCCESS ||
+          yyjson_get_sint(code) < GNEISS_ERROR_IO) {
+        return result::invalid_argument;
+      }
+      ipc_asset_item_result value;
+      value.asset.uri.assign(yyjson_get_str(uri), yyjson_get_len(uri));
+      value.operation = from_native(static_cast<gneiss_result>(yyjson_get_sint(code)));
+      value.applied = yyjson_get_bool(applied);
+      if (!valid_uri(value.asset.uri) || !uris.insert(value.asset.uri).second ||
+          !parse_asset_type({yyjson_get_str(type), yyjson_get_len(type)}, value.asset.type) ||
+          (value.applied && value.operation != result::success)) {
+        return result::invalid_argument;
+      }
+      parsed.items.push_back(std::move(value));
+    }
     output = std::move(parsed);
     return result::success;
   } catch (const std::bad_alloc&) {

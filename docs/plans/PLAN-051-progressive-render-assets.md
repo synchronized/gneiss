@@ -15,7 +15,8 @@
 [实施记录](../records/2026-10-23-progressive-asset-results.md)。CPU 准备仍有批次限制，
 场景与编辑器已切换稳定引用，固定版本索引、采用事务和依赖版本链已删除，见
 [协议删除记录](../records/2026-10-23-asset-version-protocol-removal.md)。
-R1 的独立失败调度与 IPC、R2 的提前激活，以及上传内部结构收缩尚未完成。
+普通请求已独立准备各请求项，上传失败后继续后续项，逐项结果已贯通 IPC 和编辑器。
+R2 的提前激活、依赖独立就绪及上传内部结构收缩尚未完成。
 
 范围：Mesh、Texture、Material 加载与重载，以及 Scene/Prefab 和编辑器的资源接入。
 不重写解码器、反射、ECS、RID 表或 Granit；不新增资源历史数据库、通用流送框架。

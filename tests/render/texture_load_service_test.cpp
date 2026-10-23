@@ -572,7 +572,10 @@ void run(engine::core::tasks::execution_mode mode) {
   check(service.submit(broken, 1U, 4U, request) == GNEISS_SUCCESS);
   until([&] { return service.take(completion); });
   check(completion.state == texture_load_state::failed &&
-        resources.share_texture(rid) == previous && cache.size() == 1U);
+        resources.share_texture(rid) != previous && cache.size() == 1U &&
+        completion.assets.size() == 1U && completion.assets.front().get() == rid &&
+        completion.results[0].applied && !completion.results[1].applied);
+  previous = resources.share_texture(rid);
   // 同步重载保持 RID，但更新内容与修订号；迟到的 GPU 候选不能覆盖它。
   uploaded = false;
   ready = false;
@@ -711,8 +714,15 @@ void mixed(engine::core::tasks::execution_mode mode, bool pbr = false) {
         resources.live_resource_count() == 0U);
   check(service.submit_assets(requested, 1U, 1U, request) == GNEISS_SUCCESS);
   until([&] { return service.take(completion); });
-  check(completion.state == texture_load_state::failed && discards == 1U && chunks == 2U &&
-        cache.size() == 0U && resources.live_resource_count() == 0U);
+  check(completion.state == texture_load_state::failed && discards == 0U &&
+        chunks == expected_assets && completion.assets.size() == expected_assets - 1U);
+  check(std::ranges::count_if(completion.results, [](const auto& item) { return item.applied; }) ==
+        expected_assets - 1U);
+  check(std::ranges::count_if(completion.results, [](const auto& item) {
+          return !item.applied && item.result == GNEISS_ERROR_IO;
+        }) == 1U);
+  completion = {};
+  cache.release_unused();
   fail = false;
   check(service.submit_assets(requested, 1U, 2U, request) == GNEISS_SUCCESS);
   check(service.cancel());
@@ -770,6 +780,10 @@ void mixed(engine::core::tasks::execution_mode mode, bool pbr = false) {
     until([&] { return service.take(completion); });
     check(completion.state == texture_load_state::failed &&
           resources.share_material(material_lease.get()) == retained);
+    check(completion.assets.size() == 5U &&
+          std::ranges::count_if(completion.results, [](const auto& item) {
+            return item.applied && item.source.type == render_asset_type::mesh;
+          }) == 5U);
   }
   // 同 URI 类型冲突、依赖缺失、闭包容量限制都必须在发布前拒绝。
   prepared_render_batch prepared;
