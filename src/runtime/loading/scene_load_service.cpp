@@ -39,8 +39,7 @@ struct scene_load_service::pending {
   bool verifying{};
   scene_load_completion result;
   std::unique_ptr<application_scene_state> candidate;
-  std::unique_ptr<engine::scene::scene_load_builder> builder;
-  engine::scene::scene_load_builder::asset_bindings bindings;
+  engine::scene::scene_instance_service::asset_bindings bindings;
   std::vector<engine::render::render_asset_reload> requested;
   std::size_t cursor{};
   bool preparing{true};
@@ -187,7 +186,6 @@ scene_load_service::take_candidate(std::uint64_t request, scene_load_completion&
   }
   sample_budget(pending_->result.progress);
   result = std::move(pending_->result);
-  result.scene = pending_->builder->instance();
   result.result = GNEISS_SUCCESS;
   result.progress.phase = scene_load_phase::applied;
   result.progress.can_cancel = false;
@@ -305,16 +303,19 @@ void scene_load_service::advance_verification(pending& value) {
   progress.phase = scene_load_phase::instantiating;
   progress.completed = 0U;
   progress.total = value.cpu->description.instance_nodes;
-  {
-    // 调用方记录完整区间，包含辅助函数和构建器入口前的等待。
-    GNEISS_PROFILE_SCOPE("scene.builder.create");
-    engine::core::diagnostics::measure(
-        engine::core::diagnostics::loop_stage::scene_builder_create, [&] {
-          value.builder = std::make_unique<engine::scene::scene_load_builder>(
-              *value.candidate->scenes(), std::move(value.cpu->description),
-              std::move(value.bindings));
-        });
+  gneiss_scene_instance instance{};
+  const auto built =
+      engine::core::diagnostics::measure(engine::core::diagnostics::loop_stage::scene_build, [&] {
+        return value.candidate->scenes()->instantiate_prepared(std::move(value.cpu->description),
+                                                               value.bindings, instance);
+      });
+  if (built != GNEISS_SUCCESS) {
+    finish(built, scene_load_phase::failed);
+    return;
   }
+  value.result.scene = instance;
+  progress.completed = progress.total;
+  progress.phase = scene_load_phase::ready;
 }
 void scene_load_service::advance_impl() {
   auto& value = *pending_;
@@ -387,20 +388,6 @@ void scene_load_service::advance_impl() {
     }
     progress.completed = value.cursor;
     return;
-  }
-  if (progress.phase == scene_load_phase::instantiating) {
-    bool complete{};
-    const auto built =
-        engine::core::diagnostics::measure(engine::core::diagnostics::loop_stage::scene_build,
-                                           [&] { return value.builder->advance(complete); });
-    progress.completed = value.builder->completed_nodes();
-    if (built != GNEISS_SUCCESS) {
-      finish(built, scene_load_phase::failed);
-      return;
-    }
-    if (complete) {
-      progress.phase = scene_load_phase::ready;
-    }
   }
 }
 

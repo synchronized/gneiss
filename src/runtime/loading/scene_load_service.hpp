@@ -5,7 +5,7 @@
 #include "runtime/loading/scene_load_types.hpp"
 
 #include "engine/core/tasks/task_scheduler.hpp"
-#include "engine/function/scene/scene_load_builder.hpp"
+#include "engine/function/scene/scene_load_preparation.hpp"
 #include "engine/resource/vfs/virtual_file_system.hpp"
 #include "runtime/loading/application_scene_state.hpp"
 #include <optional>

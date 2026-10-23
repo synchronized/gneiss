@@ -24,7 +24,7 @@
 
 ## 当前调用链与第一批删除清单
 
-宿主 → Application → scene_session → scene_load_service → scene_load_builder → scene_instance_service。
+宿主 → Application → scene_session → scene_load_service → scene_instance_service::instantiate_prepared。
 结构 ready 后 session 交换活动域；视觉队列经 session 持有的 texture_load_service 独立推进。
 Editor document 借用 Application 的实例服务查询和编辑节点，不拥有第二个 World。
 
@@ -48,3 +48,12 @@ Editor document 借用 Application 的实例服务查询和编辑节点，不拥
 
 当前状态：第一批已实现，`cmake --build --preset windows-clang-debug -j4` 编译通过。
 本批未运行测试、大场景或 CI；上述行为留待统一验证，后续职责审计尚未完成。
+
+## 第二批：删除跨帧场景实例化
+
+- 删除独立构建器及其跨调用状态，实例服务一次同步消费准备结果。
+- 保留后台读取、解析、来源校验和视觉资源逐项加载；结构实例化不等待 GPU 上传。
+- 现有构建测试改为同步创建、无额外文件读取、失败清理和旧场景不受影响的检查。
+- 实例化开始后不支持中途取消；大场景可能阻塞所属线程，此限制已由用户接受。
+- Windows Clang Debug 开发构建通过；现有测试已适配并编译，未执行测试、大场景或 CI。
+  同步创建、无额外 I/O、失败清理及切换行为留待架构统一验证。

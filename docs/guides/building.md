@@ -492,12 +492,9 @@ python -X utf8 -B scripts/performance/correlate_loop_response.py `
 输出区分循环前空档、循环内部重叠与未保留时间。`total_ms` 包含 `gap_ms`，
 循环内部的结束时刻为 `start_ms + total_ms - gap_ms`。阶段耗时是整轮累计且可能嵌套，
 不能直接相加或视作探针窗口内的耗时；关联报告不代替原始门槛验收。
-场景收尾额外记录 `scene_verify`、`scene_builder_create`、`scene_asset_service_reset`
-与 `scene_build`，分别覆盖复验推进、构建器创建、资产服务切换和节点分批构建。
-其中构建器创建与资产服务切换包含在复验推进内，不重复累加。
-构建器内部还记录 `scene_description_move`、`scene_instance_allocate`、
-`scene_instance_initialize` 和 `scene_node_index_reserve`；未覆盖的外层分配、形参构造及其他
-成员初始化仍包含在 `scene_builder_create` 内，不能把子项之和当作构建器总耗时。
+场景收尾记录 `scene_verify` 与 `scene_build`，分别覆盖复验推进与同步实例化。
+同步实例化包含在完成复验的推进调用内，阶段耗时不能重复累加。
+构建器创建、构建子阶段和资产服务重建计时项已删除；历史采样保留原字段。
 
 Windows 响应夹具的 `--trace` 还保留最慢 16 次 `scene` 推进回调及 `cpu_ns`。
 `scene` 序号是回调序号，与 `key`/`task` 探针对编号独立；按绝对时间窗关联。

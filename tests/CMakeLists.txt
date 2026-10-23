@@ -989,29 +989,29 @@ add_test(NAME gneiss.prefab_runtime_instance COMMAND gneiss_prefab_runtime_insta
 
 get_target_property(gneiss_scene_fixture_sources gneiss_prefab_runtime_instance_test SOURCES)
 list(REMOVE_ITEM gneiss_scene_fixture_sources scene/prefab_runtime_instance_test.cpp)
-add_executable(gneiss_scene_load_builder_test scene/scene_load_builder_test.cpp
+add_executable(gneiss_scene_instantiation_test scene/scene_instantiation_test.cpp
   ${gneiss_scene_fixture_sources}
   "${PROJECT_SOURCE_DIR}/src/runtime/loading/application_scene_state.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/scene/scene_instance_service.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/scene/scene_instance_edit.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/scene/scene_instance_prefab.cpp"
-  "${PROJECT_SOURCE_DIR}/src/engine/function/scene/scene_load_builder.cpp"
+  "${PROJECT_SOURCE_DIR}/src/engine/function/scene/scene_instantiation.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/function/scene/scene_load_preparation.cpp")
 # 测试直接构造私有 manager，编译其实现而不向 DLL 公共 ABI 导出内部类型。
-target_sources(gneiss_scene_load_builder_test PRIVATE
+target_sources(gneiss_scene_instantiation_test PRIVATE
   "${PROJECT_SOURCE_DIR}/src/engine/resource/asset_manager.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/types/action_map.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/loaders/action_map_parser.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/types/action_map_validation.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/cache/cpu_document_cache.cpp"
   "${PROJECT_SOURCE_DIR}/src/engine/resource/vfs/asset_source.cpp")
-target_include_directories(gneiss_scene_load_builder_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
-target_compile_definitions(gneiss_scene_load_builder_test PRIVATE GNEISS_BUILDING_LIBRARY)
-target_link_libraries(gneiss_scene_load_builder_test PRIVATE gneiss::engine gneiss_yyjson gneiss_png granit::granit)
-target_compile_features(gneiss_scene_load_builder_test PRIVATE cxx_std_20)
-gneiss_target_compile_warnings(gneiss_scene_load_builder_test)
-gneiss_target_output_directories(gneiss_scene_load_builder_test)
-add_test(NAME gneiss.scene-load-builder COMMAND gneiss_scene_load_builder_test)
+target_include_directories(gneiss_scene_instantiation_test PRIVATE "${PROJECT_SOURCE_DIR}/src")
+target_compile_definitions(gneiss_scene_instantiation_test PRIVATE GNEISS_BUILDING_LIBRARY)
+target_link_libraries(gneiss_scene_instantiation_test PRIVATE gneiss::engine gneiss_yyjson gneiss_png granit::granit)
+target_compile_features(gneiss_scene_instantiation_test PRIVATE cxx_std_20)
+gneiss_target_compile_warnings(gneiss_scene_instantiation_test)
+gneiss_target_output_directories(gneiss_scene_instantiation_test)
+add_test(NAME gneiss.scene-instantiation COMMAND gneiss_scene_instantiation_test)
 
 add_executable(gneiss_scene_prefab_instance_test scene/scene_prefab_instance_test.cpp)
 target_link_libraries(gneiss_scene_prefab_instance_test PRIVATE gneiss::engine)

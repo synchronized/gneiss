@@ -17,6 +17,7 @@
 
 #include <gneiss/engine/scene.h>
 
+#include <map>
 #include <memory>
 #include <span>
 #include <string>
@@ -30,10 +31,17 @@ class virtual_file_system;
 namespace gneiss::engine::scene {
 
 class scene_instance;
+struct prepared_scene_description;
 
 class GNEISS_API scene_instance_service final {
 public:
   using mesh_binding = scene_mesh_binding;
+  using asset_bindings = std::map<std::string, engine::render::render_asset_lease, std::less<>>;
+  /** 所属线程同步创建整个实例；只消费已准备描述和资源引用，不读取文件。
+   * 失败回收已创建节点并清空输出；调用期间不支持暂停或取消。 */
+  [[nodiscard]] gneiss_result instantiate_prepared(prepared_scene_description prepared,
+                                                   const asset_bindings& assets,
+                                                   gneiss_scene_instance& output) noexcept;
   /** 所属线程预留作者容器并验证身份；不读取资产，不发布候选。
    * output 非空时拒绝覆盖；构造失败仍可能交还待清理候选。 */
   [[nodiscard]] gneiss_result
@@ -169,7 +177,6 @@ public:
                                            scene_node_id node) noexcept;
 
 private:
-  friend class scene_load_builder;
   using instance_ptr = std::unique_ptr<scene_instance>;
   engine::world::world& native_world_;
   // 仅供 ABI 反射回调定位；不拥有 World，不用于普通场景操作。

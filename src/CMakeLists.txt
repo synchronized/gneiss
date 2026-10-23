@@ -137,8 +137,7 @@ target_sources(
     engine/function/scene/scene_tree.hpp
     engine/resource/loaders/prefab_asset_loader.cpp
     engine/resource/loaders/prefab_asset_loader.hpp
-    engine/function/scene/scene_load_builder.cpp
-    engine/function/scene/scene_load_builder.hpp
+    engine/function/scene/scene_instantiation.cpp
     engine/function/scene/scene_load_preparation.cpp
     engine/function/scene/scene_load_preparation.hpp
     engine/resource/types/scene_description.cpp

@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Gneiss contributors
 
 #include "engine/function/render/render_resource_service.hpp"
-#include "engine/function/scene/scene_load_builder.hpp"
+#include "engine/function/scene/scene_load_preparation.hpp"
 #include "engine/function/world/world_service.hpp"
 #include "engine/resource/asset_manager.hpp"
 #include "engine/resource/vfs/virtual_file_system.hpp"
@@ -147,7 +147,7 @@ void run() {
   for (auto& value : staged) {
     check(candidate_render.complete_upload(value) == GNEISS_SUCCESS);
   }
-  engine::scene::scene_load_builder::asset_bindings bindings;
+  engine::scene::scene_instance_service::asset_bindings bindings;
   for (const auto& value : staged) {
     bindings.emplace(std::string(value.target.uri()), value.target);
   }
@@ -169,21 +169,14 @@ void run() {
   staged.clear();
   const auto reads = files->reads;
   gneiss_scene_instance new_scene{};
-  {
-    engine::scene::scene_load_builder builder(*candidate->scenes(), std::move(prepared),
-                                              std::move(bindings));
-    bool complete = false;
-    unsigned steps = 0;
-    while (!complete && steps++ < 20U) {
-      check(builder.advance(complete, 1U) == GNEISS_SUCCESS);
-      std::uint64_t count{};
-      check(gneiss_world_entity_count(active->world(), &count) == GNEISS_SUCCESS && count == 1U);
-      check(resources.get_material(old_material.get())->red == 1.0F);
-      check(files->reads == reads);
-    }
-    check(complete && steps > 3U && builder.completed_nodes() == 3U);
-    new_scene = builder.instance();
-  }
+  check(candidate->scenes()->instantiate_prepared(std::move(prepared), bindings, new_scene) ==
+        GNEISS_SUCCESS);
+  check(new_scene != GNEISS_NULL_SCENE_INSTANCE);
+  std::uint64_t unchanged_count{};
+  check(gneiss_world_entity_count(active->world(), &unchanged_count) == GNEISS_SUCCESS &&
+        unchanged_count == 1U);
+  check(resources.get_material(old_material.get())->red == 1.0F);
+  check(files->reads == reads);
   // 候选仅持有一份运行时；移动、失败和取消不得泄漏或提前发布。
   {
     engine::resource::prefab_asset_lease source;
@@ -379,11 +372,10 @@ void run() {
   candidate = std::make_unique<runtime::application_scene_state>();
   check(candidate->initialize(candidate_assets, candidate_render) == GNEISS_SUCCESS);
   const auto failure_reads = files->reads;
-  {
-    engine::scene::scene_load_builder builder(*candidate->scenes(), std::move(prepared));
-    bool complete{};
-    check(builder.advance(complete) == GNEISS_ERROR_NOT_READY && !complete);
-  }
+  gneiss_scene_instance failed_instance{};
+  check(candidate->scenes()->instantiate_prepared(std::move(prepared), {}, failed_instance) ==
+        GNEISS_ERROR_NOT_READY);
+  check(failed_instance == GNEISS_NULL_SCENE_INSTANCE);
   check(files->reads == failure_reads);
   check(gneiss_world_entity_count(candidate->world(), &count) == GNEISS_SUCCESS && count == 0U);
   check(gneiss_world_entity_count(active->world(), &count) == GNEISS_SUCCESS && count == 3U);
