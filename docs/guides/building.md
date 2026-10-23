@@ -412,6 +412,9 @@ Release 路径、可选 Debug 功能矩阵与输出目录参数；工具顺序�
 性能门槛只检查 Release，两种执行模式均检查响应性。`--daily-assets`、`--full-assets`
 可指定现有 Cook 目录；默认资源数为 505，旧夹具需显式使用 `--expected-resources 458`。
 `--baseline docs/records/artifacts/0.49-baseline-release.json` 还会比较加载中位数、进程峰值与图像。
+结构早激活后，`load_ms` 仅记录激活时间；完整资源就绪使用 `load_and_drain_ms`，
+基线吞吐比较也使用后者。最终资源数量与回读图像在视觉队列排空后采样。
+`cancel-gpu` 不再是场景提交前的有效阶段；在途资源取消由资源服务测试覆盖。
 资产身份和门槛见 [0.49 基线记录](../records/M-312-loading-stability-baseline.md)。
 
 诊断后台加载的长间隔时，可单独运行测量程序并追加 `trace`：
