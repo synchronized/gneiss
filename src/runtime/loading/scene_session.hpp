@@ -4,6 +4,7 @@
 #ifndef GNEISS_APPLICATION_SCENE_SESSION_HPP_
 #define GNEISS_APPLICATION_SCENE_SESSION_HPP_
 
+#include "engine/function/render/texture_load_service.hpp"
 #include "runtime/loading/application_scene_state.hpp"
 #include "runtime/loading/scene_load_service.hpp"
 
@@ -46,7 +47,7 @@ public:
   [[nodiscard]] gneiss_world world() const noexcept;
   [[nodiscard]] engine::world::world* native_world() const noexcept;
   [[nodiscard]] engine::scene::scene_instance_service* scenes() noexcept;
-  /** 内部适配借用；纹理服务在场景激活时替换，不得跨激活缓存。 */
+  /** 内部适配借用；视觉服务在 attach_executor 后存活至 shutdown，不随场景切换重建。 */
   [[nodiscard]] engine::render::texture_load_service* textures() noexcept;
   /** 请求、进度和完成值不暴露候选域；激活仍由宿主在安全点显式调用。 */
   [[nodiscard]] gneiss_result request_scene(std::string_view uri, std::uint64_t session,

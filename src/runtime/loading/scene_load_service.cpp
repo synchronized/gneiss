@@ -39,7 +39,6 @@ struct scene_load_service::pending {
   bool verifying{};
   scene_load_completion result;
   std::unique_ptr<application_scene_state> candidate;
-  std::unique_ptr<engine::render::texture_load_service> assets;
   std::unique_ptr<engine::scene::scene_load_builder> builder;
   engine::scene::scene_load_builder::asset_bindings bindings;
   std::vector<engine::render::render_asset_reload> requested;
@@ -53,11 +52,10 @@ scene_load_service::scene_load_service(
     engine::render::render_resource_service& resources,
     engine::resource::asset_manager& asset_owner,
     engine::render::render_asset_loader& render_assets,
-    engine::render::texture_upload_backend backend,
     std::shared_ptr<engine::core::progress_notification> notification)
     : executor_(executor), scope_(executor.make_scope()), files_(std::move(files)),
       resources_(resources), asset_owner_(asset_owner), render_assets_(render_assets),
-      backend_(std::move(backend)), notification_(std::move(notification)) {
+      notification_(std::move(notification)) {
   if (scope_.id == 0U) {
     throw std::invalid_argument("无法创建场景任务作用域");
   }
@@ -68,7 +66,7 @@ scene_load_service::~scene_load_service() {
   }
   executor_.cancel_scope(scope_);
   (void)executor_.close_scope(scope_);
-  // 资产服务先等待/回收已接受的 GPU 命令，再销毁候选域。
+  // 执行器停止后释放私有场景域；视觉上传由 session 独立管理。
   pending_.reset();
 }
 void scene_load_service::check_owner() const {
@@ -181,7 +179,6 @@ bool scene_load_service::take(scene_load_completion& result) {
 }
 std::unique_ptr<application_scene_state>
 scene_load_service::take_candidate(std::uint64_t request, scene_load_completion& result,
-                                   std::unique_ptr<engine::render::texture_load_service>& assets,
                                    std::vector<engine::render::render_asset_reload>& requested) {
   check_owner();
   if (!pending_ || pending_->cancelled || pending_->result.progress.request != request ||
@@ -195,7 +192,6 @@ scene_load_service::take_candidate(std::uint64_t request, scene_load_completion&
   result.progress.phase = scene_load_phase::applied;
   result.progress.can_cancel = false;
   auto candidate = std::move(pending_->candidate);
-  assets = std::move(pending_->assets);
   requested = std::move(pending_->requested);
   pending_.reset();
   return candidate;
@@ -317,15 +313,6 @@ void scene_load_service::advance_verification(pending& value) {
           value.builder = std::make_unique<engine::scene::scene_load_builder>(
               *value.candidate->scenes(), std::move(value.cpu->description),
               std::move(value.bindings));
-        });
-  }
-  // 激活后的热重载必须回到宿主原始 VFS，不能继承一次性加载会话的内容固定规则。
-  {
-    GNEISS_PROFILE_SCOPE("scene.assets.reset");
-    engine::core::diagnostics::measure(
-        engine::core::diagnostics::loop_stage::scene_asset_service_reset, [&] {
-          value.assets = std::make_unique<engine::render::texture_load_service>(
-              executor_, files_, render_assets_, backend_, notification_, asset_owner_.documents());
         });
   }
 }

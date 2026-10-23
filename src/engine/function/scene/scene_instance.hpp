@@ -20,7 +20,6 @@ public:
 
   struct object final {
     std::string uuid;
-    std::string name;
     gneiss_entity_id entity = GNEISS_NULL_ENTITY_ID;
     gneiss_scene_node_id node = GNEISS_NULL_SCENE_NODE_ID;
     engine::render::mesh_asset_lease mesh;

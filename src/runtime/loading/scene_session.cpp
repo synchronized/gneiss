@@ -42,7 +42,7 @@ scene_session::attach_executor(engine::core::tasks::task_executor& executor,
   }
   // 两个服务都成功构造后才发布，异常不留下半装配状态。
   auto loader = std::make_unique<scene_load_service>(executor, files, resources, *asset_owner_,
-                                                     *render_assets_, backend, notification);
+                                                     *render_assets_, notification);
   const auto profile = backend.profile;
   auto textures = std::make_unique<engine::render::texture_load_service>(
       executor, files, *render_assets_, std::move(backend), std::move(notification),
@@ -122,14 +122,12 @@ gneiss_result scene_session::activate(std::uint64_t request, scene_load_completi
     return GNEISS_ERROR_NOT_READY;
   }
   const auto start = std::chrono::steady_clock::now();
-  std::unique_ptr<engine::render::texture_load_service> next_assets;
-  auto next = loader_->take_candidate(request, completion, next_assets, visual_queue_);
+  auto next = loader_->take_candidate(request, completion, visual_queue_);
   if (!next) {
     return GNEISS_ERROR_NOT_READY;
   }
   retired_ = std::move(active_);
   active_ = std::move(next);
-  textures_ = std::move(next_assets);
   visual_cursor_ = 0U;
   visual_session_ = completion.progress.session;
   visual_revision_ = completion.progress.revision;

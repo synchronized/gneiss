@@ -160,7 +160,6 @@ scene_instance::stage_assets(const gneiss::engine::resource::scene_description& 
   for (const auto& source : description.objects) {
     scene_instance::object target{};
     target.uuid = source.uuid;
-    target.name = source.name;
     if (source.mesh_renderer) {
       engine::render::asset_diagnostic diagnostic;
       auto result = loader_.acquire_mesh(source.mesh_renderer->mesh_uri, target.mesh, diagnostic);
@@ -282,7 +281,6 @@ gneiss_result scene_instance::create_staged_node(std::size_t index, gneiss_scene
   const auto& source = description_.objects[index];
   auto& target = objects_[index];
   target.uuid = source.uuid;
-  target.name = source.name;
   if (source.mesh_renderer) {
     if (!mesh || !material) {
       return GNEISS_ERROR_NOT_READY;
@@ -337,7 +335,6 @@ gneiss_result scene_instance::reload(gneiss::engine::resource::scene_description
   for (const auto& source : candidate.objects) {
     object target;
     target.uuid = source.uuid;
-    target.name = source.name;
     if (const auto previous = old_indices.find(source.uuid); previous != old_indices.end()) {
       target.entity = objects_[previous->second].entity;
       target.node = objects_[previous->second].node;
@@ -591,7 +588,7 @@ gneiss_result scene_instance::get_node_info(std::uint64_t index, scene_node_view
   out_info.parent = scene_node_id{parent};
   out_info.entity = entity_id{entity};
   out_info.uuid = object.uuid;
-  out_info.name = object.name;
+  out_info.name = description_.objects[static_cast<std::size_t>(index)].name;
   if (detail != node_query_detail::identity) {
     const auto& author = description_.objects[static_cast<std::size_t>(index)];
     if (author.mesh_renderer) {
@@ -1103,7 +1100,6 @@ gneiss_result scene_instance::create_node(const node_creation& desc,
     objects_.reserve(objects_.size() + 1U);
     description_.objects.reserve(description_.objects.size() + 1U);
     object target{.uuid = author.uuid,
-                  .name = author.name,
                   .entity = GNEISS_NULL_ENTITY_ID,
                   .node = GNEISS_NULL_SCENE_NODE_ID,
                   .mesh = {},
@@ -1135,10 +1131,8 @@ gneiss_result scene_instance::set_node_name(gneiss_scene_node_id node, std::stri
     return GNEISS_ERROR_INVALID_HANDLE;
   }
   try {
-    std::string runtime_name(name);
     std::string author_name(name);
     const auto index = static_cast<std::size_t>(std::distance(objects_.begin(), found));
-    found->name.swap(runtime_name);
     description_.objects[index].name.swap(author_name);
     return GNEISS_SUCCESS;
   } catch (const std::bad_alloc&) {
@@ -1322,7 +1316,6 @@ gneiss_result scene_instance::restore_subtree(std::string_view snapshot,
     staged.reserve(subtree.objects.size());
     for (const auto& author : subtree.objects) {
       object target{.uuid = author.uuid,
-                    .name = author.name,
                     .entity = GNEISS_NULL_ENTITY_ID,
                     .node = GNEISS_NULL_SCENE_NODE_ID,
                     .mesh = {},
@@ -1517,7 +1510,6 @@ gneiss_result scene_instance::create_mesh_renderer_node(const mesh_renderer_node
     description_.objects.reserve(description_.objects.size() + 1U);
     object target{};
     target.uuid = author.uuid;
-    target.name = author.name;
     engine::render::asset_diagnostic diagnostic;
     auto result = GNEISS_SUCCESS;
     if (prepared) {

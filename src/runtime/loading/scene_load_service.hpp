@@ -4,9 +4,12 @@
 #pragma once
 #include "runtime/loading/scene_load_types.hpp"
 
-#include "engine/function/render/texture_load_service.hpp"
+#include "engine/core/tasks/task_scheduler.hpp"
 #include "engine/function/scene/scene_load_builder.hpp"
+#include "engine/resource/vfs/virtual_file_system.hpp"
 #include "runtime/loading/application_scene_state.hpp"
+#include <optional>
+#include <thread>
 
 namespace gneiss::runtime {
 
@@ -19,7 +22,6 @@ public:
                      engine::render::render_resource_service& resources,
                      engine::resource::asset_manager& asset_owner,
                      engine::render::render_asset_loader& render_assets,
-                     engine::render::texture_upload_backend backend,
                      std::shared_ptr<engine::core::progress_notification> notification = {});
   ~scene_load_service();
   [[nodiscard]] gneiss_result submit(std::string_view uri, std::uint64_t session,
@@ -31,7 +33,6 @@ public:
   /** 仅 ready 可取，取出后取消过晚；调用方必须完成不可失败的指针交换再报告 applied。 */
   [[nodiscard]] std::unique_ptr<application_scene_state>
   take_candidate(std::uint64_t request, scene_load_completion& result,
-                 std::unique_ptr<engine::render::texture_load_service>& assets,
                  std::vector<engine::render::render_asset_reload>& requested);
   [[nodiscard]] bool take(scene_load_completion& result);
 
@@ -49,7 +50,6 @@ private:
   engine::render::render_resource_service& resources_;
   engine::resource::asset_manager& asset_owner_;
   engine::render::render_asset_loader& render_assets_;
-  engine::render::texture_upload_backend backend_;
   std::shared_ptr<engine::core::progress_notification> notification_;
   std::unique_ptr<pending> pending_;
   std::optional<scene_load_completion> completed_;

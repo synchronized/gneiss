@@ -1,0 +1,26 @@
+<!-- SPDX-License-Identifier: MIT -->
+<!-- Copyright (c) 2026 Gneiss contributors -->
+
+# ADR-073：场景结构、视觉加载与作者数据的所有权
+
+- 状态：已接受，第一批已实现，行为验证待统一执行。
+- 日期：2026-10-23
+
+## 决策
+
+scene_session 负责场景域切换，application_scene_state 持有 World 和实例服务，scene_instance
+负责单个实例的节点、实体和资源引用。Editor document 负责编辑会话和查询镜像，不替代运行实例。
+
+视觉加载服务在 session 内装配一次，始终使用宿主 VFS；场景结构请求不再复制上传后端或创建
+视觉服务。切换继续要求旧请求排空，再由同一服务处理新视觉队列。服务请求号跨切换保持单调。
+
+普通场景节点名称只在 scene_description 中持有；运行记录不再复制名称。查询按既有描述/运行
+数组的对应索引读取作者名称，重命名只修改一处。UUID 的构建期索引用途本轮保持。
+
+## 取舍
+
+减少服务生命周期转换和名称双写，保持公共 ABI、一个 World 多个 Scene 与结构失败保护。
+不合并 session 和 instance；直接合并会把场景切换与节点管理重新混在一起。
+不删除文档 World 身份检查或被 UI 消费的镜像；需要进一步核对消费者才能减少这些状态。
+
+编译验收与延后行为验证按[实施计划](../plans/PLAN-051-scene-responsibilities.md)执行。
